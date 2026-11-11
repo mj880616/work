@@ -334,7 +334,10 @@
 #meetingList .rv-title{display:flex;align-items:center;gap:4px;min-width:0;padding:1px 2px;border-radius:var(--kptu-radius-sm);font-size:11px;line-height:1.3;cursor:pointer}
 #meetingList .rv-title>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #meetingList .rv-title:hover{background:var(--kptu-surface-subtle)}
-#meetingList .rv-more{padding:0 2px;font-size:11px;color:var(--kptu-muted)}
+/* '+n'은 공용 글자 버튼(row-act, ui-standard.css UI-버튼6가지 ③)이고 여기서는 자리만 정한다: 이름 줄과 같은 줄 높이로 칸 폭을 채운다.
+   칸 줄이 16px로 촘촘해 글자 버튼의 넓힌 누름 범위(::after 44px)는 끈다 — 켜 두면 위 이름 줄을 덮어 이름을 눌러도 '+n'이 눌린다. */
+#meetingList .rv-more{display:block;width:100%;margin:0;padding:1px 2px;line-height:1.3;text-align:left}
+#meetingList .rv-more::after{content:none}
 #meetingList .rv-day-list{margin-top:var(--kptu-space-2)}
 #meetingList .rv-row{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 8px;border-bottom:1px solid var(--kptu-border);cursor:pointer}
 #meetingList .rv-row:hover,#meetingList .rv-set-head:hover{background:var(--kptu-surface-subtle)}
@@ -347,10 +350,38 @@
 #meetingList .rv-set-meta{flex:none;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 #meetingList .rv-grid{gap:4px;margin:2px 0 0}
 #meetingList .rv-grid .act-photo-thumb{width:72px;height:72px}
+/* BIZ-달력그날창: PC 칸은 이름 4줄(report-views-model.mjs CELL_LINES)이 꼭 들어가는 높이로 고정한다 — 숫자 22 + 줄 16.3×4 + 안쪽 여백 6 + 선.
+   높이는 여기 한 곳에서만 정하고 그린 뒤에 재서 줄 수를 바꾸지 않는다(4줄을 넘는 날은 마지막 줄 자리가 '+n'). */
 @media(min-width:761px){
-  #meetingList .rv-cell{height:92px;padding:3px}
+  #meetingList .rv-cell{height:96px;padding:3px}
   #meetingList .rv-dots{display:none}
   #meetingList .rv-titles{display:block}
+}
+
+/* BIZ-달력그날창: '+n' 그날 창. 창은 일정 달력의 그날 창과 같은 부품(#calendarDayModal, calendar-day-overflow.js show)이고, 여기는 사업 보고 달력에서 쓸 때의 모양이다
+   (일정 달력의 calendar-ui.css는 이 화면에 실리지 않을 수 있어 필요한 것을 여기 둔다). 칸 자리에 작게 뜨고(.kptu-day-at) 어두운 바탕 없이 달력이 그대로 보인다.
+   바탕(.modal)은 투명한 채 화면을 덮어 바깥 누르기 = 닫기가 일정 달력과 같은 길로 돈다. 줄(.rv-pop-row)은 끄는 동안 창 밖(body)에 복제 조각으로도 그려져 창 이름을 앞에 붙이지 않는다. */
+#calendarDayModal.kptu-day-at{display:block;padding:0;background:transparent}
+/* 폭은 max-width로 줄인다: 일정 달력 CSS(calendar-ui.css)가 실려 있으면 이 창의 width가 우선순위 표시와 함께 정해져 있어, 여기서 우선순위를 더하지 않고도 두 경우 모두 같은 폭이 되게 한다. */
+#calendarDayModal.kptu-day-at .kptu-day-card{position:absolute;box-sizing:border-box;max-width:min(264px,calc(100vw - 16px));max-height:calc(100vh - 16px);margin:0;padding:8px 10px 6px;border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-float)}
+#calendarDayModal[data-day-kind="report"] .modal-head{align-items:center;margin-bottom:2px}
+#calendarDayModal[data-day-kind="report"] .modal-head h2{font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-medium,500);line-height:1.4}
+#calendarDayModal[data-day-kind="report"] .kptu-day-note{margin-left:6px;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted)}
+#calendarDayModal[data-day-kind="report"] .kptu-day-list{display:block}
+.rv-pop-list{margin:0;padding:0;list-style:none}
+.rv-pop-row{display:flex;align-items:center;gap:6px;min-width:0;padding:4px;border-radius:var(--kptu-radius-sm);font-size:var(--ds-text-row,13px);line-height:1.4;color:var(--kptu-ink);cursor:pointer}
+.rv-pop-row .rv-dot{flex:none;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
+.rv-pop-row:hover{background:var(--kptu-surface-subtle)}
+.rv-pop-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-pop-time{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+/* 맨 아래 [+ 이날 사업 보고 추가]는 공용 글자 버튼(row-act), ✕는 공용 아이콘 버튼(icon-btn) 그대로다. 여기서는 자리(구분 선·여백·왼쪽 맞춤)와 시안의 글자 색만 정한다.
+   글자 버튼의 넓힌 누름 범위는 바로 위 줄을 덮지 않게 끄고, 손가락으로 누르는 화면(폴드)은 줄·단추 여백을 넓힌다. */
+.rv-pop-foot{margin-top:4px;padding-top:4px;border-top:var(--ds-line-width,.5px) solid var(--kptu-border)}
+#calendarDayList .rv-pop-add{display:block;width:100%;padding:2px 4px;font-size:var(--ds-text-meta,12px);color:var(--kptu-primary-ink);text-align:left}
+#calendarDayList .rv-pop-add::after{content:none}
+@media(pointer:coarse){
+  .rv-pop-row{padding-top:9px;padding-bottom:9px}
+  #calendarDayList .rv-pop-add{padding-top:9px;padding-bottom:9px}
 }
 
 /* MTG-고치기바로: 고친 내용이 있는데 다른 곳을 눌렀을 때 그 자리에 뜨는 한 줄 - '고친 내용을 저장할까요? [저장] [버리기]'. 팝업(폰)과 세 번째 칸이 같이 쓴다. */

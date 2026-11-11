@@ -106,9 +106,9 @@ for (const width of [390, 1440]) {
     await expect(row1.locator('.report-photo-thumb[data-state="shown"] img')).toHaveCount(3);
     expect(state.photoCalls.every(c => c.size === 'small')).toBe(true);
     if (width >= 761) {
-      // 넓은 화면은 날짜 칸에 제목 둘 + '+1'.
-      await expect(cal.locator('.rv-sel .rv-title')).toHaveCount(2);
-      await expect(cal.locator('.rv-sel .rv-more')).toHaveText('+1');
+      // 넓은 화면은 날짜 칸에 제목 4줄까지(BIZ-달력그날창): 3건인 날은 '+n' 없이 셋 다 보인다. 넘는 날의 '+n'은 report-calendar-day-window.spec.mjs.
+      await expect(cal.locator('.rv-sel .rv-title')).toHaveCount(3);
+      await expect(cal.locator('.rv-sel .rv-more')).toHaveCount(0);
     }
     expect(await noOverflow(page)).toBe(true);
     // 보기는 서버에 기억한다.
@@ -147,8 +147,8 @@ for (const width of [390, 1440]) {
     await other.click({position: {x: box.width - 5, y: box.height - 5}});
     await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', otherKey);
     if (width >= 761) {
-      // 넓은 화면: '+1'을 눌러도 그 날이 골라지고 그날 목록이 열린다.
-      await today.locator('.rv-more').click();
+      // 넓은 화면: 제목이 있는 칸도 제목 아래 빈 곳을 누르면 그 날이 골라지고 그날 목록이 바뀐다('+n'은 그날 창을 연다 — report-calendar-day-window.spec.mjs).
+      await today.click({position: {x: box.width - 5, y: box.height - 4}});
       await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', todayKey);
       await expect(cal.locator('.rv-day-list .rv-row')).toHaveCount(3);
       // 칸 안 제목을 누르면 보고가 열릴 뿐 고른 날은 바뀌지 않는다.

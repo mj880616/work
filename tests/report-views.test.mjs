@@ -3,8 +3,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {REPORT_VIEWS, validValue, parsePrefs, KEYS} from '../app/view-prefs.js';
-import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf, moveReportAt, REPORT_DAY_MENU_ITEMS} from '../app/report-views-model.mjs';
-import {calendarHtml, photoViewHtml} from '../app/report-views.js';
+import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, CELL_LINES, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf, moveReportAt, REPORT_DAY_MENU_ITEMS, dayWindowTitle} from '../app/report-views-model.mjs';
+import {calendarHtml, photoViewHtml, dayWindowHtml} from '../app/report-views.js';
 
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const M1 = id(101), M2 = id(102), M3 = id(103), M4 = id(104);
@@ -33,7 +33,23 @@ test('달력 계산: 일요일 시작, 달 넘기기, 날짜는 서울 기준', 
   const by = reportsByDay(rows);
   assert.deepEqual(by.get('2026-10-24').map(m => m.id), [M2, M1]);
   assert.equal(by.size, 2);
-  assert.deepEqual(cellPlan([1, 2, 3, 4]), {shown: [1, 2], more: 2, total: 4});
+  // BIZ-달력그날창: 칸에 4줄까지. 4건까지는 '+n' 없이 전부, 넘는 날만 마지막 줄 자리에 '+n'(앞 3건 + 나머지 수).
+  assert.equal(CELL_LINES, 4);
+  assert.deepEqual(cellPlan([]), {shown: [], more: 0, total: 0});
+  assert.deepEqual(cellPlan([1, 2]), {shown: [1, 2], more: 0, total: 2});
+  assert.deepEqual(cellPlan([1, 2, 3, 4]), {shown: [1, 2, 3, 4], more: 0, total: 4});
+  assert.deepEqual(cellPlan([1, 2, 3, 4, 5]), {shown: [1, 2, 3], more: 2, total: 5});
+  assert.deepEqual(cellPlan([1, 2, 3, 4, 5, 6]), {shown: [1, 2, 3], more: 3, total: 6});
+  // 보이는 줄 수(이름 + '+n')는 어느 날도 줄 수를 넘지 않고, 보이는 것 + 나머지 = 전체.
+  for (let n = 0; n <= 12; n++) for (const lines of [1, 2, 3, 4]) {
+    const plan = cellPlan(Array.from({length: n}, (_, i) => i), lines);
+    assert.ok(plan.shown.length + (plan.more ? 1 : 0) <= lines, `${n}건 ${lines}줄`);
+    assert.equal(plan.shown.length + plan.more, n);
+    assert.equal(plan.more === 0, n <= lines);
+  }
+  assert.deepEqual(cellPlan([1, 2, 3], 2), {shown: [1], more: 2, total: 3});
+  assert.deepEqual(cellPlan([1, 2, 3], 0), {shown: [], more: 3, total: 3});
+  assert.deepEqual(cellPlan(null), {shown: [], more: 0, total: 0});
   assert.equal(pickDay(by, {year: 2026, month: 9}, '', '2026-10-27'), '2026-10-27');
   assert.equal(pickDay(by, {year: 2026, month: 9}, '2026-10-10', '2026-10-27'), '2026-10-10');
   assert.equal(pickDay(by, {year: 2026, month: 9}, '', '2026-11-02'), '2026-10-24');
@@ -76,16 +92,28 @@ test('달력 글: 이번 달 칸마다 칸 전체 누르기 표시(data-rv-cell)
   // 칸 속 제목(사업 보고 열기)·'+n'은 칸 안에 있어 칸 누름이 받는다(제목은 열기가 먼저 받음: team.js 시험 아래).
   const cell = html.match(/<td class="rv-cell[^"]*" data-rv-cell="2026-10-24">.*?<\/td>/)[0];
   assert.match(cell, /class="rv-dots"/); assert.match(cell, new RegExp(`data-mrd-meeting="${M1}"`));
-  const many = calendarHtml(ctx({rows: [1, 2, 3, 4].map(n => meeting(id(200 + n), `보고${n}`, '2026-10-12T01:00:00Z'))}));
-  assert.match(many.match(/<td class="rv-cell[^"]*" data-rv-cell="2026-10-12">.*?<\/td>/)[0], /<li class="rv-more">\+2<\/li>/);
+  // BIZ-달력그날창: 4건인 날은 '+n' 없이 넷 다, 6건인 날은 앞 셋 + '+3' 단추(그날 창을 여는 단추, 날짜·전체 건수를 읽어 준다).
+  const cellOf = (n, day = '2026-10-12') => calendarHtml(ctx({rows: Array.from({length: n}, (_, i) => meeting(id(201 + i), `보고${i + 1}`, `${day}T0${i}:00:00Z`))})).match(new RegExp(`<td class="rv-cell[^"]*" data-rv-cell="${day}">.*?</td>`))[0];
+  const four = cellOf(4);
+  assert.equal((four.match(/class="rv-title"/g) || []).length, 4); assert.doesNotMatch(four, /rv-more/);
+  const six = cellOf(6);
+  assert.equal((six.match(/class="rv-title"/g) || []).length, 3);
+  assert.deepEqual([...six.matchAll(/<span>(보고\d)<\/span>/g)].map(x => x[1]), ['보고1', '보고2', '보고3']);
+  assert.match(six, /<li><button type="button" class="row-act rv-more" data-rv-more="2026-10-12" aria-haspopup="dialog" aria-label="10월 12일 \(월\) 사업 보고 6건 모두 보기">\+3<\/button><\/li><\/ul><\/td>$/);
+  assert.match(cellOf(5), /class="row-act rv-more"[^>]*>\+2<\/button>/);
+  // 점(폰 폭)은 그대로 3개까지.
+  assert.equal((six.match(/<span class="rv-dots" aria-hidden="true">(.*?)<\/span><ul/)[1].match(/class="rv-dot"/g) || []).length, 3);
 });
-test('화면 연결: 칸 누름은 칸 전체(+n 포함)가 그날 고르기, 제목·목록 줄은 보고 열기가 먼저 받음', () => {
+test('화면 연결: 칸 누름은 칸 전체가 그날 고르기, 제목·목록 줄은 보고 열기가 먼저 받음, +n은 그날 고르기 + 그날 창', () => {
   const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
   const fn = team.match(/function reportViewClick\(e\)\{[^\n]*\}\n/)[0];
   assert.match(fn, /closest\('\[data-rv-cell\]'\)/);
-  assert.match(fn, /pickReportDay\(cell\.dataset\.rvCell,!!e\.target\.closest\('\.rv-more'\)\)/);
+  assert.match(fn, /pickReportDay\(cell\.dataset\.rvCell,false\)/);
   assert.match(team, /function pickReportDay\(day,scroll\)\{reportDay=day;renderMeetings\(\);if\(scroll\)[^\n]*rv-day-list[^\n]*scrollIntoView/);
   assert.ok(fn.indexOf("closest('[data-mrd-meeting]')") > -1 && fn.indexOf("closest('[data-mrd-meeting]')") < fn.indexOf("closest('[data-rv-cell]')"));
+  // BIZ-달력그날창: '+n'은 칸 누름보다 먼저 받아 그날을 고르고(달력 아래로 내리지 않음) 그 칸 자리에 그날 창을 연다.
+  assert.match(fn, /const more=e\.target\.closest\('\[data-rv-more\]'\);if\(more\)\{const day=more\.dataset\.rvMore;pickReportDay\(day,false\);showReportDay\(day\);return true\}/);
+  assert.ok(fn.indexOf("closest('[data-rv-more]')") < fn.indexOf("closest('[data-rv-cell]')"));
   const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
   assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]\{cursor:pointer\}/);
   assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]:not\(\.ds-day-sel\):hover/);
@@ -156,6 +184,57 @@ test('끌어 옮기기 연결: 달력 그릴 때 한 번 설치, 우클릭은 �
   assert.match(act, /if \(!g && swallowUp\) \{ swallowUp = false; swallowNext\(\); return; \}/);
   assert.match(act, /e\.key === 'Escape' && g\?\.started\) \{[^}]*swallowUp = true/);
   assert.match(act, /addEventListener\('mouseleave'/);
+});
+// BIZ-달력그날창: '+n' 그날 창의 글과 연결.
+test('그날 창 글: 머리 날짜, 줄마다 색 점·이름·시각(이른 순), 맨 아래 추가 단추, 줄은 칸 안 제목과 같은 열기 표시', () => {
+  assert.equal(dayWindowTitle('2026-11-13'), '11.13.(금)'); assert.equal(dayWindowTitle('2026-10-04'), '10.4.(일)'); assert.equal(dayWindowTitle(''), ''); assert.equal(dayWindowTitle('11/13'), '');
+  const list = reportsByDay([meeting(id(302), '늦은 <보고>', '2026-11-13T10:00:00Z'), meeting(id(301), '이른 보고', '2026-11-13T01:00:00Z'), meeting(id(303), '다른 날', '2026-11-14T01:00:00Z')]).get('2026-11-13');
+  const html = dayWindowHtml({day: '2026-11-13', list, colorOf: () => '#808080', nameOf: m => m.title});
+  assert.match(html, /^<div class="rv-pop" data-rv-pop="2026-11-13"><ul class="rv-pop-list">/);
+  assert.deepEqual([...html.matchAll(/data-mrd-meeting="([^"]+)"/g)].map(x => x[1]), [id(301), id(302)]);
+  assert.deepEqual([...html.matchAll(/<time class="rv-pop-time">([^<]+)<\/time>/g)].map(x => x[1]), ['10:00', '19:00']);
+  assert.equal((html.match(/<div class="rv-pop-row" role="button" tabindex="0" data-mrd-meeting="[^"]+" data-rv-from="2026-11-13"/g) || []).length, 2);
+  assert.equal((html.match(/class="rv-dot" aria-hidden="true" style="--meeting-color:#808080"/g) || []).length, 2);
+  assert.match(html, /<span class="rv-pop-name">늦은 &lt;보고&gt;<\/span>/); assert.match(html, /aria-label="19:00 늦은 &lt;보고&gt;"/);
+  // '+n'과 추가 단추는 공용 글자 버튼(row-act) — 화면에서 새 버튼 모양을 만들지 않는다(UI-버튼6가지).
+  assert.match(html, /<div class="rv-pop-foot"><button type="button" class="row-act rv-pop-add" data-rv-pop-add="2026-11-13">\+ 이날 사업 보고 추가<\/button><\/div><\/div>$/);
+  assert.doesNotMatch(dayWindowHtml({day: '2026-11-13', list: [{id: 'x', meeting_at: null}], colorOf: () => '', nameOf: () => '이름'}), /<time/);
+});
+test('그날 창 연결: 일정 달력과 같은 창 부품, 줄 누름·우클릭·끌기는 칸 안 제목과 같은 길, 다시 그릴 때도 한 길로 채움', () => {
+  const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
+  const act = readFileSync(new URL('../app/report-calendar-actions.js', import.meta.url), 'utf8');
+  const shell = readFileSync(new URL('../app/calendar-day-overflow.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
+  // 같은 창 부품: 일정 달력 그날 창(#calendarDayModal)의 show. 새 창을 만들지 않는다.
+  assert.match(act, /await import\('\.\/calendar-day-overflow\.js'\)/); assert.match(act, /window\.KPTUCalendarDayOverflow/); assert.match(act, /win\.show\(\{title: dayWindowTitle\(day\), note: `사업 보고 \$\{list\.length\}`, kind: 'report', anchor, trigger: from,/);
+  assert.doesNotMatch(act, /insertAdjacentHTML|class="modal/);
+  assert.match(shell, /window\.KPTUCalendarDayOverflow=\{apply,open\};\n  window\.KPTUCalendarDayOverflow\.show=show;/);
+  // 일정 달력 쪽은 같은 여닫기(reveal)를 기본값으로 탄다: 가운데 창, 연 곳으로 초점, 첫 일정에 초점, Esc = ✕.
+  assert.match(shell, /function reveal\(\{anchor=null,trigger=document\.activeElement,initialFocus='#calendarDayList \.cal-event',kind=''\}=\{\}\)/);
+  assert.match(shell, /\n    reveal\(\);\n  \}\n  function apply/);
+  assert.match(shell, /onRequestClose:\(\)=>modal\.querySelector\('\[data-close="calendarDayModal"\]'\)\?\.click\(\)/);
+  assert.match(shell, /if\(kind\)modal\.dataset\.dayKind=kind;else delete modal\.dataset\.dayKind/);
+  assert.match(shell, /modal\.classList\.toggle\('kptu-day-at',at\)/); assert.match(shell, /const el=wide\.matches\?/);
+  // 닫기는 ✕와 같은 길 하나, 열려 있는지는 창 자신이 안다(따로 상태 없음).
+  assert.match(act, /export function closeReportDayWindow\(\) \{\n  const button = document\.querySelector\(`\$\{DAY_MODAL\} \[data-close="calendarDayModal"\]`\);\n  if \(!button\) return false;\n  button\.click\(\);/);
+  assert.match(act, /const DAY_MODAL = '#calendarDayModal\[data-day-kind="report"\]:not\(\.hidden\)'/);
+  // 줄 누름: 창을 닫고 보고 열기. 추가 단추: 창을 닫고 그 날짜로 새 보고. 우클릭: 부르는 쪽 보고 메뉴가 열렸으면 창 닫기.
+  assert.match(act, /if \(row\) \{ const id = String\(row\.dataset\.mrdMeeting\); closeReportDayWindow\(\); dayDeps\?\.open\(id\); \}/);
+  assert.match(act, /if \(add\) \{ const day = add\.dataset\.rvPopAdd; closeReportDayWindow\(\); dayDeps\?\.add\(day\); return; \}/);
+  assert.match(act, /addEventListener\('contextmenu', e => \{ if \(mine\(e\) && e\.target\.closest\('\[data-mrd-meeting\]'\) && dayDeps\?\.menu\(e\)\) closeReportDayWindow\(\); \}\)/);
+  // 끌기: 창 안 줄도 같은 끌기 입력이 받고, 끌기가 시작되면 창을 닫아 놓을 칸이 보이게 한다. 원래 날은 줄의 data-rv-from.
+  assert.match(act, /const ROWS = '#meetingList \.rv-cal \[data-mrd-meeting\], #calendarDayList \[data-rv-from\]\[data-mrd-meeting\]'/);
+  assert.match(act, /const el = e\.target\.closest\?\.\(ROWS\)/); assert.match(act, /\|\| el\.dataset\.rvFrom \|\|/);
+  assert.match(act, /ghostStart\(e\);\n      if \(g\.el\.closest\('#calendarDayList'\)\) closeReportDayWindow\(\);/);
+  // team.js: 창을 채우는 길은 showReportDay 하나. 달력을 다시 그린 뒤에도 같은 길(again)로 다시 채우고, 우클릭은 칸 안 제목과 같은 reportViewMenu.
+  assert.match(team, /function showReportDay\(day,again=false\)\{void reportActions\(\)\.then\(a=>\{if\(again&&!\(day=a\.reportDayWindowDay\(\)\)\)return;/);
+  assert.match(team, /a\.showReportDayWindow\(\{day,again,rows:on\?viewRows\(\):\[\],colorOf:viewColor,nameOf:viewName,/);
+  assert.match(team, /open:id=>void window\.KPTUMeetingRoundDetail\?\.open\?\.\(id\),add:d=>newReport\([^\n]*,d\),menu:reportViewMenu\}\)/);
+  assert.match(team, /function renderReportCalendar\(box\)\{[^\n]*active\.dataset\.rvMore\?\['data-rv-more',active\.dataset\.rvMore\][^\n]*;showReportDay\('',true\)\}\n/);
+  // 모양: 칸 자리에 작게, 어두운 바탕 없이. PC 칸 높이는 4줄이 들어가는 96px 한 곳.
+  assert.match(css, /#calendarDayModal\.kptu-day-at\{display:block;padding:0;background:transparent\}/);
+  assert.match(css, /#calendarDayModal\.kptu-day-at \.kptu-day-card\{position:absolute;/);
+  assert.match(css, /@media\(min-width:761px\)\{\n  #meetingList \.rv-cell\{height:96px;padding:3px\}/);
 });
 test('사진 글: 날짜 묶음 아래 사업 보고별 격자 자리, 사진 없으면 안내', () => {
   const photos = photosByMeeting([photo(1, M1), photo(2, M1), photo(3, M3)]);
