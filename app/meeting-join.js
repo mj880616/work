@@ -457,6 +457,10 @@ window.addEventListener('kptu:session-changed',e=>{
   epoch++;watching.clear();for(const id of [...lines.keys()])dropLine(id);rows.clear();asked.clear();decided.clear();joinedNow.clear();lastRows.clear();kinds.clear();known=null;loadedFor='';
 });
 
+// REC-정리상태확인못함(S60-3): 잠깐 끊김이 길어 지켜보기를 놓친 '잇는 중' 줄은 화면이 다시 보이거나 연결이 돌아오면 다시 본다(읽기만).
+function rewatch(){if(document.visibilityState==='hidden')return;for(const l of [...lines.values()])if(l?.job?.id&&lineState(l.job)==='running'&&!watching.has(l.job.id))watch(l.job)}
+document.addEventListener('visibilitychange',rewatch);
+window.addEventListener('online',rewatch);
 window.KPTUMeetingJoin={ask,paintDetail,follow,joinedRecently:id=>joinedNow.has(String(id||'')),canMerge,merge,unmergeRow,unmerge,prepareMenu,askTranscript};
 // 녹음 정리 확인(meeting-recorder.js job_list, 2.5초 뒤)과 같은 때 한 번 묻는다.
 setTimeout(()=>void loadJoins(),2500);
