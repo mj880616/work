@@ -125,8 +125,9 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
       ⤢는 입력칸 높이 조절 손잡이(오른쪽 아래 끝)를 가리지 않게 그 왼쪽에 둔다.
    ③ 할 일 줄 [연결 해제]는 ⋯ 안으로(google-tasks.js opts.more). 상세 창에서는 지금처럼 줄의 [연결 해제].
    ④ 할 일 제목은 할 일 화면 목록과 같은 13px·보통 굵기.
-   ⑤ 자료 0개는 한 줄(workplace-detail.js wdRenderDocs). */
-@media(min-width:761px){
+   ⑤ 자료 0개는 한 줄(workplace-detail.js wdRenderDocs).
+   FOLD-넓은화면 2차: 상세 칸은 폴드 펼침(600px~)부터 붙는다(suborganizations.css). */
+@media(min-width:600px){
   #appView #teamView #wdModal.wd-docked .gt-linked .gt-row .gt-main b{font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4}
 }
 #wdDocs .wd-head{align-items:center}#wdDocs .wd-head>div:first-child{flex:0 0 auto}#wdDocs.drop-active,#wdLog.drop-active{outline:2px dashed var(--kptu-info);outline-offset:-4px;border-radius:var(--kptu-radius-md)}

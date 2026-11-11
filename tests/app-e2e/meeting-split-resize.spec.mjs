@@ -145,13 +145,17 @@ test('서버 값을 읽거나 저장하지 못해도 기본으로 그리고 끌�
  expect(errors).toEqual([]);
 });
 
-test('폰에는 3단 경계선이 없고, PC 틀(761px~)로 넓히면 나타난다',async({page})=>{
- await page.setViewportSize({width:760,height:800});
+// FOLD-넓은화면 2차(S59-19): 3단(종류 | 차수 | 결과)은 PC 1200px~, 펼친 폴드(600~1199px)는 '날짜·이름 목록 | 결과' 2단이라 경계선 하나.
+test('폰에는 3단 경계선이 없고, 폴드 펼침은 2단 경계선 하나, PC(1200px~)로 넓히면 3단 경계선 둘',async({page})=>{
+ await page.setViewportSize({width:599,height:800});
  await mockApp(page,columnState());await signIn(page,testOrigin+'/app/?view=meetings');
  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
  await showReportsOf(page);
  await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
  await expect(page.locator('.split-resize-handle:visible')).toHaveCount(0);
+ await page.setViewportSize({width:884,height:900});
+ await expect(page.locator('#meetingList .mcol-layout.mcol-two>.split-resize-handle')).toHaveCount(1);
+ await expect(page.locator('#meetingList .mcol-layout.mcol-two>.split-resize-handle')).toBeVisible();
  await page.setViewportSize({width:1280,height:900});
  await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);
  await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle').first()).toBeVisible();

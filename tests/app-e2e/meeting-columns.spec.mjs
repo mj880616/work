@@ -151,7 +151,8 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
   await showAllReportWeeks(page);await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
-  await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks [data-wait-empty]')).toHaveText('없음');
+  // S59-20: 후속 할 일이 없으면 칸 제목만 두고 '없음' 글을 따로 붙이지 않는다(사진 칸과 같은 규칙).
+  await round(page,'labor-1').click();await expect(result(page)).toHaveAttribute('data-meeting-result','labor-1');await expect(result(page).locator('#mrdTasks [data-wait-empty], #mrdTasks [data-mrd-task]')).toHaveCount(0);await expect(result(page).locator('#mrdTasks')).toHaveText('');
   await round(page,'labor-2').click();await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
   // 오른쪽 칸에서 ⋯ → 수정으로 원문을 고쳐 [저장]하면 같은 칸이 보는 화면으로 돌아가 새 원문을 보인다(창 없음).
   await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('수정한 가상 원문');await page.locator('#mrdSaveEdit').click();
@@ -318,8 +319,9 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 });
 
-// UI-화면점검 ①: 1024~1279px에서는 회의 종류·차수 칸이 각각 120px 안팎이다. 글자는 줄임표(+title)로 줄이고, 고른 줄의 배경은 칸 안에 머문다(칸 밖으로 잘리지 않음).
-for(const width of [1024,1100,1279])test(`PC ${width}: 회의 종류·차수 칸 글자는 줄임표, 선택 배경이 칸 안에 머문다`,async({page})=>{
+// UI-화면점검 ①: 좁은 PC(1200~1279px)에서는 회의 종류·차수 칸이 각각 120px 안팎이다. 글자는 줄임표(+title)로 줄이고, 고른 줄의 배경은 칸 안에 머문다(칸 밖으로 잘리지 않음).
+// FOLD-넓은화면 2차(S59-19): 3단은 PC 1200px~에서만 그린다(1024·1100은 '날짜·이름 목록 | 결과' 2단 — fold-org-biz-list-detail.spec.mjs). 가장 좁은 3단 폭 1200부터 본다.
+for(const width of [1200,1240,1279])test(`PC ${width}: 회의 종류·차수 칸 글자는 줄임표, 선택 배경이 칸 안에 머문다`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=columnState();
   s.meetings.find(m=>m.id==='rail-6').series_name='아주 긴 이름의 가상 협의회 정기 회의';s.meetings.find(m=>m.id==='rail-6').title='아주 긴 이름의 가상 협의회 정기 회의';

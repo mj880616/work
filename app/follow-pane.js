@@ -14,6 +14,14 @@
 const GAP = 12;
 // S51-13 TODO-폴드목록상세: 폴드 펼침(600~760px, 폰 틀)에서도 붙일 칸은 narrow로 부른다. 그 폭은 아래에 입력칸·전환 줄·하단바가
 // 떠 있으므로 그 높이(bottom, px를 돌려주는 함수)만큼 칸 최대 높이를 줄인다. 모양은 desktop-ui.css .kptu-follow-narrow 한 곳.
+// FOLD-넓은화면 2차(S59-19): bottom을 주지 않으면 아래에 떠 있는 줄(하단바·전환 줄·빠른 입력칸)의 높이 합(dockBottom)을 쓴다.
+/** 폰 틀에서 화면 아래에 떠 있는 줄(하단바 + 전환 줄 + 빠른 입력칸)의 높이 합(px). 공용 CSS 변수를 읽는다.
+ *  빠른 입력칸 높이(--kptu-quick-dock)는 입력칸이 지금 화면에 그려져 있을 때만 더한다(변수는 다른 화면으로 가도 남아 있다). */
+export function dockBottom() {
+  const cs = getComputedStyle(document.documentElement), v = n => parseFloat(cs.getPropertyValue(n)) || 0;
+  const quick = [...document.querySelectorAll('#appView .home-quick[data-home-quick]')].some(el => el.getClientRects().length > 0);
+  return v('--kptu-mobile-tab-height') + v('--kptu-switch-dock') + (quick ? v('--kptu-quick-dock') : 0);
+}
 const panes = new Map(); // el -> {top(부른 쪽이 준 위 자리), bottom, node(보는 틀), lastTop(지난번 잰 위쪽 위치)}
 // UI-PC스크롤묶음 ①(2026-11-10): PC 맨 위 줄(.app-topline)은 화면 맨 위에 붙어 있다. 부른 쪽이 주는 top은 '그 줄 아래에서' 몇 px인지이고,
 // 칸이 실제로 붙는 자리는 그 줄이 차지하는 높이(맨 위 띠 + 줄 + 아래 간격)를 더한 값이다. 폰·폴드 접힘(~760px)은 줄이 없어 0.
@@ -99,7 +107,7 @@ export function followPane(el, { top = GAP, reset = true, narrow = false, bottom
   el.classList.add('kptu-follow-pane');
   el.classList.toggle('kptu-follow-narrow', !!narrow);
   const at = panes.get(el) || { node: null, lastTop: null };
-  at.top = top; at.bottom = narrow ? bottom : null;
+  at.top = top; at.bottom = narrow ? (bottom || dockBottom) : null;
   panes.set(el, at); listen(); watch(el, at); paint(el, at);
   const stuck = Math.round(top + stickTop());
   if (reset) {

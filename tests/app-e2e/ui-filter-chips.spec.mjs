@@ -10,17 +10,18 @@ import {expandLibraryTree,focusLibraryProject,libraryNodeHead} from './helpers/l
 import {reportFilterSelect,reportFilterPicked,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 // UI-PC회의: PC(≥1024) 회의는 유형별 열이고 위쪽 칩은 "보일 열 고르기"(meeting-columns.spec.mjs). 회의명 필터는 폰(≤760, UI-폴드PC틀)에서 본다.
+// FOLD-넓은화면 2차(S59-19): 760(펼친 폴드, 폰 틀)은 '날짜·이름 목록 | 결과' 두 칸이라 목록 줄은 [data-meeting-round], 접은 폰(390)은 한 줄 목록(.meeting-list-row). 회의명 거르기는 둘 다 같다.
 for(const width of [390,760])test(`공용 알약 필터·2단 프로젝트·키보드·터치 ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
   const s=chipState();await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=meetings`);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));await showReportsOf(page);
   // S52-22 TEAM-맨위한줄: 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음. 종류 칩 줄(키보드)은 PC(1200px~) 시험이 본다.
-  const rows=page.locator('.meeting-list-row');
+  const rows=page.locator(width<600?'.meeting-list-row':'#meetingList [data-meeting-round]');
   expect(await reportFilterLabels(page,'name')).toEqual(['전체','궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의','회의명 미지정']);
   await pickReportFilter(page,'name',{label:'회의명 미지정'});await expect(rows).toHaveCount(1);
   await pickReportFilter(page,'name',{label:'궤도협의회'});await expect(rows).toHaveCount(1);
   expect(await reportFilterPicked(page,'name')).toBe('궤도협의회');await expect(reportFilterSelect(page,'name')).toHaveClass(/is-on/);
   // UI-화면폭넘침: 줄 앞 색 점은 없다(색은 거르기 창 줄의 점만).
-  expect(await rows.evaluate(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').content)).toBe('none');
+  if(width<600)expect(await rows.evaluate(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').content)).toBe('none');
   await pickReportFilter(page,'name','all');await expect(rows).toHaveCount(s.meetings.length);
   expect(await reportFilterPicked(page,'name')).toBe('회의');
   // S52-22 TEAM-맨위한줄: 폰·폴드는 종류도 공용 고르기 상자(칩 줄 없음). 고르면 그 칸만, [회의]로 돌아오면 모두.

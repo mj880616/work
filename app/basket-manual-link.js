@@ -1,5 +1,6 @@
 import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {waitInlineHtml} from './wait-state.js';
+import {plainText} from './notice-box.mjs'; // S59-20: 업데이트 첫 줄을 할 일 제목으로 미리 채울 때 ** 표시는 걷는다
 // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 const WAITING='\u0000wait';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -361,7 +362,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
     }
     if(mode!==next||noteId!==n.id){reset();noteId=n.id;mode=next;}
     if(next==='link'&&(n.archived_at||n.ai_export_allowed!==true)){mode=null;onModeChange?.();return manualErrorText(n.archived_at?'NOTE_ARCHIVED':'AI_EXCLUDED');}
-    if(next==='task'&&!task){const title=firstLine(n.raw_text);// S50-36: 새 할 일은 기한 [오늘]이 눌린 채 시작한다(task-due.mjs newTaskDue). [오늘]을 한 번 더 누르면 기한 없음.
+    if(next==='task'&&!task){const title=firstLine(plainText(n.raw_text));// S50-36: 새 할 일은 기한 [오늘]이 눌린 채 시작한다(task-due.mjs newTaskDue). [오늘]을 한 번 더 누르면 기한 없음.
     const due=newTaskDue('',dayKey(Date.now()));task={title,notes:n.raw_text||'',initial:{title,notes:n.raw_text||'',due},due,dateKind:'today',project:'',status:'',unknown:null,recover:null};}
     paint();
     host?.querySelector(next==='link'?'[data-manual-pick="organization"]':'[data-manual-task-title]')?.focus();

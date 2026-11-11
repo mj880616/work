@@ -22,6 +22,7 @@ export const ROW_MENU_ICON = Object.freeze({
   orgs: 'M7 9l2-2M5.5 7.5l-1.3 1.3a2 2 0 0 0 2.9 2.9l1.3-1.3M10.5 8.5l1.3-1.3a2 2 0 0 0-2.9-2.9L7.6 5.6', report: 'M4 2.5h8v11H4zM6 6h4M6 8.5h4M6 11h2',
   tolib: SHELF, libview: SHELF, event: CAL, day: CAL, task: 'M3 3h10v10H3zM5.5 8l2 2 3-4',
   zip: 'M8 2.5v7M5 6.5l3 3 3-3M3 11.5v2h10v-2', // 여러 개 받기(S52-44 ⑤, 받기 화살표)
+  hide: 'M2 8s2.3-4 6-4 6 4 6 4-2.3 4-6 4-6-4-6-4zM8 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM3 13l10-10', // 숨기기(S59-20: 왼쪽 메뉴 우클릭 [숨기기]가 그림 없는 빈 자리였다 — 눈 + 사선)
   path: 'M7 9l2-2M5.5 7.5l-1.3 1.3a2 2 0 0 0 2.9 2.9l1.3-1.3M10.5 8.5l1.3-1.3a2 2 0 0 0-2.9-2.9L7.6 5.6' // 경로 복사(S52-43 ③, 사슬)
 });
 const icoHtml = d => `<svg class="row-menu-ico" viewBox="0 0 16 16" aria-hidden="true" focusable="false">${d ? `<path d="${esc(d)}"/>` : ''}</svg>`;
