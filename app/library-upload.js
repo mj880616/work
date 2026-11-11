@@ -61,7 +61,7 @@ import {mountCategoryEditor} from './document-category-editor.js';
 import {startAutoTextRead} from './document-text-read.js';
 import {fillLibraryDocument,keptFields,originAfterEdit,autoTidyLibrary,reclassifyLibraryDocument} from './library-ai-fill.js';
 import {openLibraryHtmlView} from './library-html-view.js';
-import {bindLibraryDrop,groupDropTarget,placeDropTarget,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
+import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
@@ -414,8 +414,9 @@ function luDropTarget(e){
   if(luTwoActive()){
     const at=e?.target,nav=at?.closest?.('#documentList [data-lu-pane-i] [data-lu-nav]');
     if(nav){const f=luDropFolderOf(nav.dataset.luNav);return f?{ok:true,kind:'into',target:f.id,name:f.name,place:nav.closest('.ft-row')||nav}:{ok:false,place:nav}}
-    const pane=at?.closest?.('#documentList [data-lu-pane-i]');
-    if(pane){const f=luDropFolderOf(pane.dataset.luPaneFolder||'');return f?{ok:true,kind:'into',target:f.id,name:f.name,place:pane}:{out:true,place:pane}}
+    // LIB-펼친폴더안놓기(S59-9): 펼친 폴더 안 자료 줄·그 묶음 안 빈 틈이면 그 폴더(표시는 그 폴더 줄) — 자료 옮기기와 같은 판정(paneDropAt).
+    const spot=paneDropAt(at);
+    if(spot){const f=luDropFolderOf(spot.id);return f?{ok:true,kind:'into',target:f.id,name:f.name,place:spot.place}:spot.sub?{ok:false,place:spot.place}:{out:true,place:spot.place}}
   }
   const el=e?.target,opt={inFolder:luInFolder,folderOf:luDropFolderOf};
   const step=placeDropTarget(el,{...opt,step:true});if(step)return step;

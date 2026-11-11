@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
-import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
+import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
+import {libraryTopMenu} from './helpers/library-tree.mjs';
 import {pinch} from './helpers/pinch.mjs';
 // S55-11 LIB-두칸보기(시안 docs/design/mockups/library-two-pane.html, 명진 11/09 18:16 'ㅇ'): PC·펼친 폴드 폴더 묶기 = 양쪽 다 폴더 + 자료 두 칸.
 // 칸마다 위치·폴더 들어가기, 칸 사이·같은 칸 폴더 줄 끌어 옮기기(실제 브라우저 끌기), 자기 안 막음, Tab·F6, [▥ 두 칸] 켬/끔(서버 기억),
@@ -81,6 +82,130 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
     await page.locator(folderIn(0,'fa')).dragTo(page.locator(`${pane(1)} .lu-pane-head`));
     await page.waitForLoadState('networkidle');expect(s.writes.length).toBe(n);
     expect(parentOf(s,'fa')).toBeNull();
+    expect(errors).toEqual([]);
+  });
+});
+
+// S59-9 LIB-펼친폴더안놓기(명진 11/11 14:16): 칸 안에서 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈) 위에 놓아도 그 폴더(가장 가까운 펼친 폴더)로.
+// 표시는 그 폴더 줄(칸 상자 아님), 이미 그 폴더에 든 자료만 끌면 놓을 수 없음, 펼친 폴더 밖 빈 자리·맨 위 자료 줄은 지금처럼 그 칸의 지금 폴더(맨 위 = 폴더 밖).
+// 자료 옮기기·여러 개·폴더·손가락 길게 눌러 끌기가 같은 판정(PC 파일 올리기는 library-folder-upload-drop.spec.mjs). 이름은 지어낸 것.
+const sub=(i,id)=>`${pane(i)} [data-lu-pane-sub="${id}"]`;
+const subDoc=(i,id,doc)=>`${sub(i,id)} [data-lu-document="${doc}"]`;
+const MORE_DOCS=[libDoc('a-1','top-a'),libDoc('a-2','top-a'),libDoc('a1-1','child-a1'),libDoc('n-1',null),libDoc('n-2',null),libDoc('z-1',null)];
+const MORE_ITEMS=[...ITEMS,{document_id:'n-2',folder_id:'fa'}];
+const bootMore=(page,width)=>bootLibrary(page,width,{folders:FOLDERS,items:MORE_ITEMS,docs:MORE_DOCS,group:'폴더',init:{viewPrefs:null}});
+// 안에서 시작한 끌기를 DragEvent로: dragstart → (놓을 곳 안 점 at, 기본 가운데의 실제 맨 위 요소에) dragover → 표시 읽기 → drop → dragend.
+// rows: 표시를 읽을 폴더 줄(data-lu-nav 단추 선택자 → 그 .ft-row class). paneCls: 놓은 칸 상자 class.
+async function dropInside(page,from,to,{at=null,rows={}}={}){
+  return page.evaluate(({from,to,at,rows})=>{
+    const src=document.querySelector(from),dst=document.querySelector(to),dt=new DataTransfer(),r=dst.getBoundingClientRect();
+    const x=at?r.left+at.x:r.left+r.width/2,y=at?r.top+at.y:r.top+r.height/2,el=document.elementFromPoint(x,y);
+    src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+    const over=new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y});el.dispatchEvent(over);
+    const marks=Object.fromEntries(Object.entries(rows).map(([k,sel])=>[k,document.querySelector(sel)?.closest('.ft-row')?.className||'']));
+    const out={allowed:over.defaultPrevented,hit:el.closest('[data-lu-pane-sub]')?.dataset.luPaneSub??null,marks,paneCls:dst.closest('[data-lu-pane-i]')?.className||''};
+    el.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y}));
+    src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));
+    return out;
+  },{from,to,at,rows});
+}
+
+for(const width of [1440,884])test(`자료실 ${width} 두 칸: 왼쪽 자료를 오른쪽 칸 펼친 폴더 안 자료 줄에 놓으면 그 폴더 · 표시는 그 폴더 줄 · 되돌리기`,async({page})=>{
+  test.setTimeout(90000);
+  const {s,errors}=await boot(page,width);
+  // 오른쪽 칸(맨 위)에서 가상 A를 펼친다 — 위치는 그대로 '자료실'.
+  await page.locator(folderIn(1,'fa')).click();
+  await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
+  await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('자료실');
+  // 원인 확인(전): 이 자리는 칸 상자(맨 위 = 폴더 밖)로 잡혀 폴더 밖 자료는 놓을 수 없었다. 이제 가상 A 줄에 표시하고 가상 A로 넣는다.
+  const r=await dropInside(page,docIn(0,'a-2'),subDoc(1,'fa','n-1'),{rows:{fa:folderIn(1,'fa')}});
+  expect(r.hit).toBe('fa');expect(r.allowed).toBe(true);
+  expect(r.marks.fa).toContain('lu-drop-into');expect(r.paneCls).not.toMatch(/lu-drop-/);
+  await expect.poll(()=>folderOf(s,'a-2')).toBe('fa');
+  await expect(line(page)).toContainText('옮겼어요 1개 → 가상 A 폴더');await expect(line(page).locator('.lu-undo')).toHaveText('되돌리기');
+  await expect(page.locator(subDoc(1,'fa','a-2'))).toBeVisible();
+  await expect(page.locator('#documentList .lu-drop-into,#documentList .lu-drop-no')).toHaveCount(0);
+  await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');
+  await expect.poll(()=>folderOf(s,'a-2')).toBeNull();
+  // 실제 마우스 끌기(명진이 하는 그대로)로 한 번 더: 같은 자리 → 가상 A.
+  await page.locator(docIn(0,'a1-1')).dragTo(page.locator(subDoc(1,'fa','n-1')));
+  await expect.poll(()=>folderOf(s,'a1-1')).toBe('fa');
+  await expect(line(page)).toContainText('가상 A 폴더');
+  expect(errors).toEqual([]);
+});
+
+test('PC 1440 두 칸: 여러 겹(안쪽 폴더 자료 줄 = 안쪽 폴더) · 묶음 안 빈 틈 · 이미 든 폴더는 놓을 수 없음 · 칸 바로 아래 자료 줄은 그 칸의 지금 폴더',async({page})=>{
+  test.setTimeout(90000);
+  const {s,errors}=await bootMore(page,1440);
+  await page.locator(folderIn(1,'fa')).click();await page.locator(folderIn(1,'fc')).click();
+  await expect(page.locator(subDoc(1,'fc','a-1'))).toBeVisible();await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
+  // 안쪽 가상 C 안 자료 줄 → 가상 C(바깥 가상 A가 아님). 표시는 가상 C 줄에만.
+  let r=await dropInside(page,docIn(0,'a1-1'),subDoc(1,'fc','a-1'),{rows:{fa:folderIn(1,'fa'),fc:folderIn(1,'fc')}});
+  expect(r.hit).toBe('fc');expect(r.allowed).toBe(true);expect(r.marks.fc).toContain('lu-drop-into');expect(r.marks.fa).not.toMatch(/lu-drop-/);
+  await expect.poll(()=>folderOf(s,'a1-1')).toBe('fc');
+  await expect(line(page)).toContainText('옮겼어요 1개 → 가상 C 폴더');
+  // 가상 A 묶음 안 빈 틈(줄 왼쪽 들여쓰기 칸) → 가상 A.
+  await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
+  r=await dropInside(page,docIn(0,'z-1'),sub(1,'fa'),{at:{x:4,y:10},rows:{fa:folderIn(1,'fa')}});
+  expect(r.hit).toBe('fa');expect(r.allowed).toBe(true);expect(r.marks.fa).toContain('lu-drop-into');
+  await expect.poll(()=>folderOf(s,'z-1')).toBe('fa');
+  await expect(line(page)).toContainText('옮겼어요 1개 → 가상 A 폴더');
+  // 이미 가상 A에 든 자료를 가상 A 묶음 안 다른 줄에 → 놓을 수 없음(가상 A 줄에 표시), 쓰기 없음.
+  await page.waitForLoadState('networkidle');const n=s.writes.length;
+  r=await dropInside(page,subDoc(1,'fa','n-2'),subDoc(1,'fa','n-1'),{rows:{fa:folderIn(1,'fa')}});
+  expect(r.allowed).toBe(false);expect(r.marks.fa).toContain('lu-drop-no');
+  await page.waitForLoadState('networkidle');expect(s.writes.length).toBe(n);
+  // 칸 바로 아래(펼친 폴더 밖) 자료 줄은 지금처럼 그 칸의 지금 폴더 — 맨 위면 폴더 밖. 표시는 칸 상자.
+  r=await dropInside(page,subDoc(1,'fa','n-1'),docIn(0,'a-2'));
+  expect(r.hit).toBeNull();expect(r.allowed).toBe(true);expect(r.paneCls).toContain('lu-drop-into');
+  await expect.poll(()=>folderOf(s,'n-1')).toBeNull();
+  await expect(line(page)).toContainText('→ 폴더 밖');
+  expect(errors).toEqual([]);
+});
+
+test('PC 1440 두 칸: 여러 개 골라 끌기·폴더 끌기도 펼친 폴더 안 자료 줄 = 그 폴더',async({page})=>{
+  test.setTimeout(90000);
+  const {s,errors}=await bootMore(page,1440);
+  await page.locator(folderIn(1,'fa')).click();
+  await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
+  // 고른 두 자료를 한꺼번에 → 가상 A.
+  await libraryTopMenu(page,'select');
+  await page.locator(`${pane(0)} [data-lu-pick="a-2"]`).check();await page.locator(`${pane(0)} [data-lu-pick="z-1"]`).check();
+  const r=await dropInside(page,docIn(0,'a-2'),subDoc(1,'fa','n-1'),{rows:{fa:folderIn(1,'fa')}});
+  expect(r.allowed).toBe(true);expect(r.marks.fa).toContain('lu-drop-into');
+  await expect.poll(()=>['a-2','z-1'].map(id=>folderOf(s,id))).toEqual(['fa','fa']);
+  await expect(line(page)).toContainText('옮겼어요 2개 → 가상 A 폴더');
+  await page.keyboard.press('Escape');
+  // 폴더 끌기: 왼쪽 가상 N(실제 마우스 끌기) → 오른쪽 가상 A 안 자료 줄 = 가상 A 안으로.
+  await page.locator(folderIn(0,'fn')).dragTo(page.locator(subDoc(1,'fa','n-1')));
+  await expect.poll(()=>parentOf(s,'fn')).toBe('fa');
+  await expect(line(page)).toContainText('폴더를 옮겼어요 → 가상 A 폴더');
+  // 자기 안 막음: 가상 A를 자기 묶음 안 자료 줄에 — 쓰기 없음.
+  await page.waitForLoadState('networkidle');const n=s.writes.length;
+  const self=await dropInside(page,folderIn(0,'fa'),subDoc(1,'fa','n-1'),{rows:{fa:folderIn(1,'fa')}});
+  expect(self.allowed).toBe(false);
+  await page.waitForLoadState('networkidle');expect(s.writes.length).toBe(n);expect(parentOf(s,'fa')).toBeNull();
+  expect(errors).toEqual([]);
+});
+
+test.describe('펼친 폴드 884 손가락 두 칸 길게 눌러 끌기',()=>{
+  test.use({hasTouch:true});
+  const center=(page,sel)=>page.locator(sel).evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}});
+  const touch=(cdp,type,pts)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:pts.map((p,i)=>({x:p.x,y:p.y,id:i}))});
+  test('왼쪽 자료를 길게 눌러 오른쪽 칸 펼친 폴더 안 자료 줄에 놓으면 그 폴더',async({page})=>{
+    const {s,errors}=await boot(page,884);
+    await page.locator(folderIn(1,'fa')).click();
+    await expect(page.locator(subDoc(1,'fa','n-1'))).toBeVisible();
+    const cdp=await page.context().newCDPSession(page);
+    const from=await center(page,docIn(0,'a-2')+' .lu-row-title');
+    await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);
+    await expect(page.locator(docIn(0,'a-2'))).toHaveClass(/lu-grabbed/);
+    const to=await center(page,subDoc(1,'fa','n-1'));
+    for(const f of [0.25,0.5,0.75,1])await touch(cdp,'touchMove',[{x:from.x+(to.x-from.x)*f,y:from.y+(to.y-from.y)*f}]);
+    await expect(page.locator(folderIn(1,'fa')).locator('xpath=ancestor::div[contains(@class,"ft-row")][1]')).toHaveClass(/lu-drop-into/);
+    await touch(cdp,'touchEnd',[]);
+    await expect.poll(()=>folderOf(s,'a-2')).toBe('fa');
+    await expect(line(page)).toContainText('가상 A 폴더');
     expect(errors).toEqual([]);
   });
 });

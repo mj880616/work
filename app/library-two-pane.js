@@ -9,6 +9,8 @@
 // - 칸 위치: 오른쪽 칸 = 지금 자료실 위치(luInFolder — 주소·뒤로가기 그대로), 왼쪽 칸 = 이 부품의 화면 메모리. 정렬도 화면 메모리(기기 저장 없음).
 // - 옮기기: 자료·폴더를 반대 칸(그 칸 빈 자리 = 그 칸의 지금 폴더, 폴더 줄 = 그 폴더)·같은 칸 폴더 줄에 끌어 놓기는 폴더 부품(library-folders.js)
 //   끌기·놓기 그대로('옮겼어요 · 되돌리기'). 선택한 뒤 [→ 오른쪽 폴더로 옮기기]·F6도 같은 옮기기(moveDocsTo·moveFolderTo). 복사는 없다(자료는 폴더 하나에만).
+//   LIB-펼친폴더안놓기(S59-9): 칸 안에서 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈)에 놓으면 그 폴더(가장 가까운 펼친 폴더) — 자료 옮기기·PC 파일 올리기 모두
+//   library-drop.js paneDropAt 하나가 아래 묶음 표시(data-lu-pane-sub = 그 묶음의 폴더 id)로 판정한다. 표시는 그 폴더 줄.
 // - 그리기 주인은 library-upload.js luRenderLibrary 하나 — 이 부품은 #documentList 안에 넣을 HTML을 만들고, 그린 뒤 틀·폭을 붙인다.
 import {twoPaneFrame} from './two-pane.js';
 import {mountSplitResize} from './split-resize.js';
@@ -93,7 +95,7 @@ export function createLibraryTwo(h) {
   }
   function filesHtml({node, depth, files}) {
     const rows = files.map(d => { const r = h.rowHtml(d, node); return r ? rowAttr(r, 'd:' + d.id) : ''; }).join('');
-    // 펼친 폴더 안 자료는 그 폴더 줄 아래로 들여 보인다(공용 나무 들여쓰기 --ft-depth).
+    // 펼친 폴더 안 자료는 그 폴더 줄 아래로 들여 보인다(공용 나무 들여쓰기 --ft-depth). data-lu-pane-sub(그 폴더 id)는 놓을 곳 판정(paneDropAt)도 읽는다.
     return !rows ? '' : depth ? `<div class="lu-pane-sub" data-lu-pane-sub="${h.esc(node?.id || '')}" style="--ft-depth:${depth}">${rows}</div>` : rows;
   }
   function paneHtml(i, tree) {

@@ -12,6 +12,7 @@ import {createMovePicker} from './library-move-picker.js';
 import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf} from './folder-look-model.mjs';
 import {setLibraryFolderColor} from './library-folder-data.js';
+import {paneDropAt} from './library-drop.js';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
@@ -243,7 +244,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // S55-08 LIB-나무로끌기안됨: 두 칸 폴더 보기의 왼쪽 나무 폴더 줄(#libraryFolderNav)도 같은 끌기·놓기 부품을 쓴다(ⓑ 나무 → 목록, ⓓ 나무 → 나무).
   const navAt=el=>el?.closest?.('#libraryListCard [data-lu-nav]')||null;
   // LIB-두칸보기(S55-11): 두 칸의 칸 상자(폴더 줄이 아닌 빈 자리·자료 줄 위)에 놓으면 그 칸의 지금 폴더(맨 위면 폴더 밖)로.
-  const paneAt=el=>el?.closest?.('#libraryListCard [data-lu-pane-i]')||null;
+  // LIB-펼친폴더안놓기(S59-9): 칸 안에서 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈)이면 그 폴더(가장 가까운 펼친 폴더)로, 표시는 그 폴더 줄.
+  // 판정은 PC 파일 올리기와 같은 하나(library-drop.js paneDropAt) — {id, place(표시할 곳)}.
+  const paneAt=el=>paneDropAt(el);
   function dragFrom(el,touch=false){
     const nav=!touch&&el?.closest?.('#libraryListCard [data-lu-nav][draggable="true"]');
     if(nav){const f=folder(nav.dataset.luNav);return f?{kind:'folder',id:f.id,frame:f.project_id||null,els:[nav.closest('.ft-row')||nav]}:null}
@@ -262,9 +265,9 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(!drag)return null;
     // S55-08 ⓐ·ⓓ: 왼쪽 나무 줄에 놓기. '자료실 전체'는 오른쪽 '폴더 밖' 머리와 같은 맨 위(폴더 밖으로), 폴더 줄은 그 안으로.
     // 원인(사실): 끌기·놓기 이벤트를 오른쪽 목록(#documentList)에만 걸어 두어 나무 줄 위에서는 놓기를 받는 곳이 없었다(브라우저가 놓기를 거절).
-    const nav=navAt(e.target),pane=!nav&&paneAt(e.target);
-    if(nav||pane){
-      const head=nav?nav.closest('.ft-row')||nav:pane,id=nav?nav.dataset.luNav||'':pane.dataset.luPaneFolder||'';
+    const nav=navAt(e.target),spot=!nav&&paneAt(e.target);
+    if(nav||spot){
+      const head=nav?nav.closest('.ft-row')||nav:spot.place,id=nav?nav.dataset.luNav||'':spot.id;
       if(!s().free)return null;
       if(!id||id===OUTSIDE_KEY){
         if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};

@@ -55,6 +55,19 @@ export function placeDropTarget(el,{step=true,inFolder=null,folderOf=()=>null}={
   return f?{ok:true,kind:'into',target:f.id,name:f.name,here:true}:null;
 }
 
+// LIB-펼친폴더안놓기(S59-9, 명진 11/11 14:16): 두 칸 보기 칸 안에서 폴더 줄이 아닌 자리의 놓을 폴더. 자료 옮기기(library-folders.js dropFor —
+// 마우스·손가락 길게 눌러 끌기)와 PC 파일 올리기(library-upload.js luDropTarget)가 같이 쓰는 판정 하나다.
+// 펼친 폴더 안 자료 묶음(div.lu-pane-sub = 줄과 그 사이 빈 틈, library-two-pane.js)이면 그 묶음의 폴더 — 묶음마다 가장 가까운 펼친 폴더 id가
+// 붙어 있어 여러 겹이면 안쪽 폴더 — 이고 표시는 그 칸의 그 폴더 줄(없으면 묶음). 그 밖의 칸 빈 자리·칸 바로 아래 자료 줄은 그 칸의 지금 폴더
+// (''= 맨 위 = 폴더 밖)이고 표시는 칸 상자. 칸 밖이면 null. 한 칸 목록의 같은 규칙은 자료 줄이 든 details.lu-node(library-folders.js).
+export function paneDropAt(el){
+  const pane=el?.closest?.('#documentList [data-lu-pane-i]');if(!pane)return null;
+  const sub=el.closest('[data-lu-pane-sub]'),id=sub&&pane.contains(sub)?sub.dataset.luPaneSub||'':'';
+  if(!id)return {id:pane.dataset.luPaneFolder||'',place:pane,sub:false};
+  const row=[...pane.querySelectorAll('[data-lu-nav]')].find(b=>b.dataset.luNav===id);
+  return {id,place:row?row.closest('.ft-row')||row:sub,sub:true};
+}
+
 export const hasFiles=event=>[...(event?.dataTransfer?.types||[])].includes('Files');
 
 export const progressText=({index,total,name})=>total>1?`올리는 중 ${index}/${total} · ${name}`:`올리는 중 · ${name}`;
