@@ -31,7 +31,10 @@ export const confirmDeleteText = name => `'${String(name || '파일')}' 파일�
 
 const call = (rt, action, spec) => rt.api('/functions/v1/document-actions', {method:'POST', body:{action, target:spec.target, id:spec.id, drive_file_id:spec.driveId}, refreshSession:false, singleFlight:false});
 const tasksCall = (rt, action, spec) => rt.api(`/functions/v1/google-tasks?action=${action}`, {method:'POST', body:{action, task_id:spec.id, drive_file_id:spec.driveId}, singleFlight:false});
-const TARGETS = new Set(['note', 'task']);
+// CAL-일정첨부: 일정 첨부(target:'event', id = '캘린더 id 일정 id'). 떼기·Drive 휴지통·되돌리기를 google-calendar가 한 번에 한다
+//   (어느 일정에 붙었는지는 Google 일정 첨부가 원본이라 서버가 그 일정을 다시 읽어 확인). 휴지통은 '일정 첨부' 폴더의 이 앱 파일만.
+const calendarCall = (rt, action, spec) => { const [calendar_id, event_id] = String(spec.id || '').split(' '); return rt.api('/functions/v1/google-calendar', {method:'POST', body:{action, calendar_id, event_id, drive_file_id:spec.driveId}, refreshSession:false, singleFlight:false}); };
+const TARGETS = new Set(['note', 'task', 'event']);
 const bad = () => Object.assign(new Error(''), {status:0});
 
 // 대상마다 [삭제]·[되돌리기]의 서버 걸음. 돌려줌: 삭제 = {drive, changed}, 되돌리기 = {changed}. changed는 onChanged에 그대로 간다.
@@ -73,6 +76,18 @@ const steps = {
         if (!back || back.ok !== true) throw bad();
       } catch (e) { throw Object.assign(e instanceof Error ? e : bad(), {changed:{task:on}}); }
       return {changed:{task:on}};
+    },
+  },
+  event: {
+    async trash(rt, spec) {
+      const data = await calendarCall(rt, 'trash-file', spec);
+      if (!data || data.ok !== true || data.detached !== true || data.drive_file_id !== spec.driveId) throw bad();
+      return {drive:data.drive, changed:{event:data.files || null}};
+    },
+    async restore(rt, spec) {
+      const back = await calendarCall(rt, 'restore-file', spec);
+      if (!back || back.ok !== true) throw bad();
+      return {changed:{event:back.files || null}};
     },
   },
 };

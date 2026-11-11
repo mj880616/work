@@ -98,6 +98,24 @@
 #ciGoogleModal .ci-actions .ci-report:hover{color:var(--kptu-ink)}
 .ci-date-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--kptu-space-2)}
 .ci-all{display:flex;flex-direction:row;gap:var(--kptu-space-2);align-items:center}
+/* CAL-일정첨부: 일정 창 [메모] 아래 [사진·파일] 칸(시안 event-attach.html ①②). 사진은 작은 그림 칸, 다른 파일은 이름 한 줄, 줄 끝 ⋯(공용 row-more). */
+#ciGoogleModal .ci-files[hidden],#ciGoogleModal .ci-files [hidden]{display:none}
+#ciGoogleModal .ci-files{display:flex;flex-direction:column;gap:4px;min-width:0}
+#ciGoogleModal .ci-files-label{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#ciGoogleModal .ci-files-photos{display:flex;flex-wrap:wrap;gap:6px}
+#ciGoogleModal .ci-photo{position:relative;width:72px;height:72px;flex:none}
+#ciGoogleModal .ci-photo-open{display:block;width:100%;height:100%;min-height:0;margin:0;padding:0;border:var(--ds-line-width) solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface-subtle);overflow:hidden;cursor:zoom-in}
+#ciGoogleModal .ci-photo-img{display:block;width:100%;height:100%}
+#ciGoogleModal .ci-photo-img img{display:block;width:100%;height:100%;object-fit:cover}
+#ciGoogleModal .ci-photo-name{display:none}
+#ciGoogleModal .ci-photo>.row-more{position:absolute;top:0;right:0}
+#ciGoogleModal .ci-photo>.row-more>summary{min-width:28px;min-height:24px;padding:0 4px;border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);opacity:.92}
+#ciGoogleModal .ci-photo .fr-box{position:absolute;left:0;top:calc(100% + 2px);z-index:41;min-width:min(78vw,340px);padding:4px;border:var(--ds-line-width) solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface)}
+#ciGoogleModal .ci-file-row{position:relative;display:flex;align-items:center;gap:6px;min-height:32px;min-width:0}
+#ciGoogleModal .ci-file-icon{flex:none;color:var(--kptu-muted)}
+#ciGoogleModal .ci-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--kptu-ink)}
+#ciGoogleModal .ci-file-name:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+#ciGoogleModal .ci-files-pick.gt-pick{margin:0}
 
 
 @media(min-width:761px){
