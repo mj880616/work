@@ -58,6 +58,8 @@ function fakeRt({confirm=()=>({ok:true,created:1,existing:0})}={}){
   const rt={config:{url:'https://example.invalid',key:'anon'},session:{ensure:async()=>true,read:()=>({access_token:'t',user:{id:'u'}}),epoch:()=>1},context:{read:()=>({user:{id:'u'},workspace:{id:'w'}})},
     copyUploadFile:async f=>f,
     api:async(path,options={})=>{calls.push({path,...options});
+      // BIZ-저장먼저닫기 2차(S59-10): 글이 있으면 글이 먼저 업데이트로 저장된다(createNote) — 파일은 그 업데이트로(note_id) 올라간다.
+      if(path==='/rest/v1/app_notes'&&options.method==='POST')return [{...note,raw_text:options.body.raw_text}];
       if(path.startsWith('/rest/v1/app_notes?'))return [note];
       if(path==='/rest/v1/rpc/app_basket_confirm_links')return confirm(options.body);
       if(path==='/functions/v1/document-actions')return {ok:true,result:'created',document:{id:'doc1',title:'붙여넣은 그림'}};
@@ -98,6 +100,54 @@ test('letters written: the letters are the record (no summary, no AI); without f
     assert.ok(!calls.some(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links'),'unchanged shared rule');}
 });
 
+// BIZ-저장먼저닫기 2차(S59-10): 저장 단추가 기다리는 것은 앞(글 저장·연결)뿐이고, 파일은 그 업데이트의 뒤 줄(updateFileLine)에서 올라가 자료로 들어간다.
+const {updateFileLine}=await import('../app/basket-upload.js');
+function gatedUpload(){
+  const sent=[];let open;const gate=new Promise(r=>open=r);
+  const fetcher=async(url,init)=>{
+    if(!(init?.body instanceof FormData))return {ok:false,status:404,text:async()=>'{}',json:async()=>({})};
+    sent.push({note_id:init.body.get('note_id'),raw_text:init.body.get('raw_text'),name:init.body.get('file')?.name});await gate;
+    return {ok:true,text:async()=>JSON.stringify({ok:true,note_id:'n1',attachments:[{drive_file_id:'d1',file_name:'합성 안내문.pdf',mime_type:'application/pdf'}]})};
+  };
+  return {sent,open,fetcher};
+}
+const withFetch=async(fetcher,run)=>{const old=globalThis.fetch;globalThis.fetch=fetcher;try{return await run()}finally{globalThis.fetch=old}};
+test('save first: with letters, the letters are saved and linked before it returns; the files go up behind to that update and then into 자료',async()=>{
+  const {rt,calls}=fakeRt(),up=gatedUpload(),batch=batchOf([doc()]);
+  await withFetch(up.fetcher,async()=>{
+    const result=await places.saveUpdateFilesBehind({places:[{kind:'organization',id:'o1'}],text:'교섭 메모',batch},rt);
+    assert.equal(result.note.id,'n1');assert.equal(result.linkError,'');
+    assert.equal(calls[0].path,'/rest/v1/app_notes');assert.equal(calls[0].method,'POST');assert.equal(calls[0].body.raw_text,'교섭 메모');
+    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결'}]);
+    assert.ok(!calls.some(c=>c.method==='PATCH'&&c.path.startsWith('/rest/v1/app_documents?')),'자료로 넣기는 올린 뒤');
+    assert.equal(updateFileLine.going('n1'),true);
+    up.open();await updateFileLine.settled('n1');
+    assert.deepEqual(up.sent,[{note_id:'n1',raw_text:null,name:'합성 안내문.pdf'}]);
+    assert.ok(calls.some(c=>c.method==='PATCH'&&c.path.startsWith('/rest/v1/app_documents?')&&c.body.organization_id==='o1'));
+    assert.equal(updateFileLine.going('n1'),false);
+  });
+});
+test('save first: a failed letters save throws and sends no file (the window and the input keep both)',async()=>{
+  const {rt}=fakeRt(),up=gatedUpload(),batch=batchOf([doc()]);rt.api=async()=>{throw new Error('down')};up.open();
+  await withFetch(up.fetcher,async()=>{
+    await assert.rejects(places.saveUpdateFilesBehind({places:[],text:'메모',batch},rt),/down/);
+    await new Promise(r=>setTimeout(r,20));
+    assert.deepEqual(up.sent,[]);assert.equal(batch.note_id,null);assert.equal(batch.entries[0].kind,'pending');
+  });
+});
+test('save first: files without letters wait for nothing; the first file makes the update behind, then the AI line links the record',async()=>{
+  const {rt,calls}=fakeRt(),up=gatedUpload(),batch=batchOf([doc()]);
+  await withFetch(up.fetcher,async()=>{
+    const result=await places.saveUpdateFilesBehind({places:[{kind:'organization',id:'o1'}],text:'',batch,fileLine:async()=>'합성 공문 한 줄임.'},rt);
+    assert.equal(result.note,null);assert.ok(!calls.some(c=>c.path==='/rest/v1/app_notes'));
+    up.open();
+    for(let i=0;i<50&&!calls.some(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links');i++)await new Promise(r=>setTimeout(r,10));
+    await updateFileLine.settled('n1');
+    assert.deepEqual(up.sent,[{note_id:null,raw_text:null,name:'합성 안내문.pdf'}]);
+    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결',summary:'합성 공문 한 줄임.'}]);
+  });
+});
+
 test('askFileLine sends one multipart request in record_line mode and gives "" on any failure',async()=>{
   const rt={config:{url:'https://example.invalid',key:'anon'},session:{ensure:async()=>true,read:()=>({access_token:'t'})}};
   const sent=[];
@@ -113,7 +163,7 @@ test('askFileLine sends one multipart request in record_line mode and gives "" o
 test('wiring: the organization record input uses the shared picker and the update-with-files save; the list shows the strip',()=>{
   const wd=read('app/workplace-detail.js');
   assert.match(wd,/id="wdInboxClip"/);assert.match(wd,/id="wdInboxFiles"/);
-  assert.match(wd,/saveUpdateWithFiles\(\{places:\[\{kind:'organization',id:orgId\}\],text,batch/);
+  assert.match(wd,/saveUpdateFilesBehind\(\{places:\[\{kind:'organization',id:orgId\}\],text,batch/);
   assert.match(wd,/fileLine:list=>recordLineFor\(list,wdRt\)/);
   assert.match(wd,/withFiles:true/);assert.match(wd,/linkRecordHtml\(x,\{extra:recordFilesHtml\(x\)\}\)/);
   const ra=read('app/record-attach.js');assert.match(ra,/mountBasketPicker\(pickerHost, \{id, filesHost, dropTarget:box, pasteTarget:box/);

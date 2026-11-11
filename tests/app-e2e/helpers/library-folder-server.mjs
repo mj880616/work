@@ -74,7 +74,16 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     if(m!=='GET')s.writes.push({table:'items',method:m,id:eq(url,'document_id')||null,body});
     if(m==='GET')return route.fulfill({json:s.items});
     const frameOk=(docId,folderId)=>s.dbFree||(docOf(docId)?.project_id||null)===(byId(folderId)?.project_id||null);
-    if(m==='POST'){if(!byId(body.folder_id)||!frameOk(body.document_id,body.folder_id))return route.fulfill(rls);s.items.push(body);return route.fulfill({status:201,body:''})}
+    // LIB-받는폴더: 여러 줄을 한 요청으로 넣기(배열)도 받는다. DB처럼 한 문장 = 전부 또는 전무, 이미 연결이 있는 자료는 겹침 거절(409·23505).
+    const dup={status:409,contentType:'application/json',body:JSON.stringify({code:'23505',message:'duplicate key value violates unique constraint "app_library_folder_items_pkey"'})};
+    if(m==='POST'){const rows=Array.isArray(body)?body:[body];if(s.itemsPostFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
+      for(const r of rows){if(!byId(r.folder_id)||!frameOk(r.document_id,r.folder_id))return route.fulfill(rls);if(s.items.some(x=>x.document_id===r.document_id))return route.fulfill(dup)}
+      if(new Set(rows.map(r=>r.document_id)).size!==rows.length)return route.fulfill(dup);
+      s.items.push(...rows.map(r=>({workspace_id:'workspace-1',...r})));return route.fulfill({status:201,body:''})}
+    if(m==='DELETE'&&/^in\./.test(url.searchParams.get('document_id')||'')){
+      const ids=String(url.searchParams.get('document_id')).replace(/^in\.\(|\)$/g,'').split(','),fid=eq(url,'folder_id');
+      s.items=s.items.filter(x=>!(ids.includes(x.document_id)&&(!fid||x.folder_id===fid)));return route.fulfill({status:204,body:''});
+    }
     const it=s.items.find(x=>x.document_id===eq(url,'document_id'));
     if(m==='PATCH'){if(!it||!byId(body.folder_id)||!frameOk(it.document_id,body.folder_id))return route.fulfill(rls);Object.assign(it,body);return route.fulfill({status:204,body:''})}
     if(m==='DELETE'){s.items=s.items.filter(x=>x!==it);return route.fulfill({status:204,body:''})}

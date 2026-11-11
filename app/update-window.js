@@ -2,7 +2,7 @@
 // (PC top line [+ 추가] → [업데이트], the home and basket update input's [크게]) and for the basket update's [큰 창에서 수정]. An organization's
 // or a project's own record input ([크게] there) opens it too (ED③ 기록, 순서 5); the old window is gone (순서 6).
 // The window saves nothing by itself: openUpdateWindow hands the save to the opener's own (updateVia, the home input's) or to the same
-// existing owner-RLS paths the old window used (update-places.js saveUpdate / saveUpdateWithFiles, the basket upload).
+// existing owner-RLS paths the old window used (update-places.js saveUpdate / saveUpdateFilesBehind, the basket upload).
 //   - [기록할 곳 ▾] above the text: nothing chosen is the basket (미분류); one or more places as before (update-places.js).
 //   - [📎 첨부] under the text: the opener's own file batch (the home input) or this window's.
 //   - The saved form (doc) goes with the letters: onto the basket update, or (ED③ 기록, 순서 5) onto one organization's or project's own
@@ -11,10 +11,10 @@
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {openEdWindow} from './ed-window.js';
 import {createChoiceSheet} from './choice-sheet.js';
-import {validateNoteText, attachNoteDoc} from './basket-data.js';
-import {createUploadBatch, uploadBatch} from './basket-upload.js';
+import {validateNoteText} from './basket-data.js';
+import {createUploadBatch} from './basket-upload.js';
 import {attachRow} from './note-window.js';
-import {readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText, textLimitFor} from './update-places.js';
+import {readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateFilesBehind, rememberPlace, linkFailText, textLimitFor} from './update-places.js';
 
 export const UPDATE_TEXT_MAX = 20000;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -23,6 +23,8 @@ function toast(message) {
   box.textContent = message; kptuHoldToast(box);
 }
 export const savedMessage = saved => saved.places?.length || saved.place ? `${saved.name || '선택한 곳'} 기록에 저장했어요.` : '잊지 말기에 저장했어요.';
+// BIZ-저장먼저닫기 2차: the files are still going up when the window closes (the line above the bottom bar shows them to the end).
+export const sendingMessage = (saved, letters) => letters.trim() ? `${savedMessage(saved)} 사진·파일은 올리는 중이에요.` : '사진·파일을 올리는 중이에요.';
 let sheet = null, active = null;
 function placeSheet() {
   sheet ||= createChoiceSheet({id:'edwPlaceSheet', titleId:'edwPlaceSheetTitle', historyKey:'kptuEdwPlace',
@@ -90,38 +92,36 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
   paint();
 
   // The window's own save (no updateVia): the basket update with the text, its files and the saved form.
-  async function saveOwn(letters, target, doc1) {
-    const list = batch(), isCurrent = () => rt.session.read()?.user?.id === owner, onChange = () => files.picker.render();
+  // BIZ-저장먼저닫기 2차(S59-10): with files, only the letters (and the form) are saved and linked here — the window closes on that — and
+  // the files go up behind on the update's line (update-places.js saveUpdateFilesBehind); the batch is handed over and this one emptied.
+  async function saveOwn(letters, target, doc1, label) {
+    const list = batch();
     if (!list.entries.length) return saveUpdate({places:target, text:letters, owner, doc:doc1}, rt);
-    let result;
-    if (target.length) result = await saveUpdateWithFiles({places:target, text:letters, batch:list, doc:doc1, isCurrent, sameOwner:isCurrent, onChange, ...(fileLine ? {fileLine} : {})}, rt);
-    else {
-      result = await uploadBatch(list, {raw_text:letters, rt, isCurrent, onChange});
-      if (doc1 && letters.trim()) { try { await attachNoteDoc(result.note_id, doc1, rt); } catch { result = {...result, docError:true}; } }
-    }
-    if (!list.blocked && list.entries.every(entry => entry.kind === 'success')) { if (upload) upload.reset?.(); else ownBatch = createUploadBatch(); }
-    return result;
+    const result = await saveUpdateFilesBehind({places:target, text:letters, batch:list, doc:doc1, where:target.length ? `${label || '선택한 곳'} 기록` : '업데이트', ...(fileLine ? {fileLine} : {})}, rt);
+    if (upload) upload.reset?.(); else ownBatch = createUploadBatch();
+    return {...result, sending:true};
   }
   async function run({value, text: letters}) {
     if (rt.session.read()?.user?.id !== owner) return {ok:false, message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
     const count = files.pending(), target = [...state.chosen], label = name();
     busy = true; files.picker.render();
-    let warning = '';
+    let warning = '', sending = false;
     try {
       if (!count) { if (!letters.trim()) return {ok:false, message:'글을 입력해 주세요.'}; if (!target.length || target.length > 1) validateNoteText(letters); }
       const doc1 = letters.trim() ? value : null;
       let result = updateVia ? await updateVia(letters, target, doc1) : undefined;
-      if (result === undefined) result = await saveOwn(letters, target, doc1);
+      if (result === undefined) result = await saveOwn(letters, target, doc1, label);
       if (result?.ok === false) return result;
-      const fileError = result?.fileError || (result?.filed?.ok === false ? result.filed.message || 'FILES' : '');
-      if (result?.linkError || fileError || result?.docError) warning = [result?.linkError ? linkFailText : '', fileError ? fileFailText : '', result?.docError ? docFailText : ''].filter(Boolean).join(' ');
+      if (result?.stale) return {ok:false, message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
+      if (result?.linkError) warning = linkFailText;
+      sending = !!result?.sending;
       saved = {kind:'update', place:target.length === 1 ? target[0] : null, places:target, name:label};
       // UI-기록할곳되돌리기: places picked here (not the opener's own record alone) come first on the 최근 line next time.
       if (!(target.length === 1 && ownPlace && samePlace(target[0], ownPlace))) rememberPlace(target);
       if (!target.length) window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
     } catch (error) { return {ok:false, message:error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }
     finally { busy = false; if (!closed) files.picker.render(); }
-    toast(warning || savedMessage(saved)); onSaved(saved);
+    toast(warning || (sending ? sendingMessage(saved, letters) : savedMessage(saved))); onSaved(saved);
     return {ok:true};
   }
   handle = openEdWindow({title, doc, text, draft, saveUnchanged:true, limit:() => files.pending() ? UPDATE_TEXT_MAX : textLimitFor(state.chosen), head:head.row, foot:files.node, onFiles:list => files.picker.add(list),

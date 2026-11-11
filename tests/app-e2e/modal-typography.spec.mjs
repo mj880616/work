@@ -439,7 +439,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.locator('#libraryManageList').evaluate(el=>el.remove());
   // TASK-추가창파일: 할 일 등록 창·Google 할 일 추가 창의 메모 아래에 [파일 붙이기] 줄(숨은 파일 칸·안내 글자)이 생겼다.
   // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
-  for(const [id,memo] of [['eventTaskFiles','#eventDescription'],['gtNewFiles','#gtEditNotes']]){if(!await page.locator('#'+id).count())continue;const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);if(await original.locator(memo).count())await original.locator(memo).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
+  // CAL-일정첨부(S59-15): 일정 수정 창 메모 아래 [사진·파일] 칸(고르기 칸·숨은 파일 칸·안내 글자)도 같은 방식으로 main 쪽에 넣어 비교한다.
+  for(const [id,memo] of [['eventTaskFiles','#eventDescription'],['gtNewFiles','#gtEditNotes'],['ciGoogleFiles','#ciGoogleMemo']]){if(!await page.locator('#'+id).count())continue;const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);if(await original.locator(memo).count())await original.locator(memo).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
   // TASK-첨부교체: the edit window's 첨부 box now mounts its own part (rows + two hidden file inputs); the original side gets the same part.
   // The baseline commit (d6bMain) may predate #gtEditAttach; then the current box is inserted after the title field instead.
   if(await page.locator('#gtEditAttach').count()){const html=await page.locator('#gtEditAttach').evaluate(el=>el.outerHTML);

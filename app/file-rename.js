@@ -14,9 +14,14 @@ import { holdToast } from './small-notice.js';
 
 const HOLD_MS = 500, MOVE_PX = 10, DOUBLE_MS = 280;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
-const TARGETS = new Set(['note', 'task', 'document']);
+const TARGETS = new Set(['note', 'task', 'document', 'event']);
+// CAL-일정첨부: target 'event' = 일정 첨부(id = '캘린더 id 일정 id', 공백 하나로 이음 — 두 id에는 공백이 없다). 저장은 google-calendar
+// rename-file(서버가 그 일정에 붙어 있는지·'일정 첨부' 폴더의 내 파일인지 다시 확인하고 Drive 이름과 일정 첨부 이름을 함께 바꿈). [AI 이름]은 없음.
+export const eventSpecId = (calendarId, eventId) => `${calendarId || 'primary'} ${eventId || ''}`;
+const eventRef = id => { const [calendar_id, event_id] = String(id || '').split(' '); return {calendar_id, event_id}; };
+const eventRename = (rt, spec, base) => rt.api('/functions/v1/google-calendar', {method: 'POST', body: {action: 'rename-file', ...eventRef(spec.id), drive_file_id: spec.driveId, base}, refreshSession: false, singleFlight: false});
 
-// spec = {target:'note'|'task'|'document', id, driveId, name}
+// spec = {target:'note'|'task'|'document'|'event', id, driveId, name}
 const specOk = s => !!s && TARGETS.has(s.target) && !!s.id && !!s.driveId && !!s.name;
 const specAttrs = s => ` data-fr-target="${esc(s.target)}" data-fr-id="${esc(s.id)}" data-fr-drive="${esc(s.driveId)}" data-fr-name="${esc(s.name)}"`;
 export function renameHostAttrs(spec) { return specOk(spec) ? ' data-fr-host' + specAttrs(spec) : ''; }
@@ -88,6 +93,7 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
     + `<span class="fr-acts"><button type="button" class="fr-ai" data-fr-ai>AI 이름</button><button type="button" class="fr-save" data-fr-save>저장</button><button type="button" class="fr-cancel" data-fr-cancel>취소</button></span>`
     + '<small class="fr-err" role="alert" hidden></small>';
   const input = box.querySelector('.fr-input'), err = box.querySelector('.fr-err'), saveBtn = box.querySelector('[data-fr-save]'), aiBtn = box.querySelector('[data-fr-ai]');
+  if (spec.target === 'event') aiBtn.hidden = true; // CAL-일정첨부: 일정 첨부에는 AI 이름 추천 길이 없다(서버 ai-assist는 그대로)
   input.value = base;
   const say = (text, error = true) => { err.textContent = text || ''; err.hidden = !text; err.classList.toggle('fr-note', !error); };
   // 이름 칸이 링크(<a>) 안에 있으면 링크째 잠시 바꾼다(칸 안을 누를 때 링크가 열리지 않게).
@@ -102,7 +108,7 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
     if (r.base === base) { closeEditor({focus: true}); return; }
     setBusy(true); say('저장하는 중…', false);
     try {
-      const data = await rt.api('/functions/v1/document-actions', {method: 'POST', body: {action: 'rename-file', target: spec.target, id: spec.id, drive_file_id: spec.driveId, base: r.base}, refreshSession: false, singleFlight: false});
+      const data = spec.target === 'event' ? await eventRename(rt, spec, r.base) : await rt.api('/functions/v1/document-actions', {method: 'POST', body: {action: 'rename-file', target: spec.target, id: spec.id, drive_file_id: spec.driveId, base: r.base}, refreshSession: false, singleFlight: false});
       if (!data || data.ok !== true || typeof data.name !== 'string' || data.drive_file_id !== spec.driveId) throw Object.assign(new Error(''), {status: 0});
       if (open === state) closeEditor({focus: true});
       const detail = {drive_file_id: data.drive_file_id, name: data.name, notes: Array.isArray(data.notes) ? data.notes : [], updated: data.updated || {}};

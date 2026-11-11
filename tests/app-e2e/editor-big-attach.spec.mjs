@@ -22,7 +22,7 @@ async function fixture(page,width){
  });
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>r.request().method()==='POST'?(orgs.push(r.request().postDataJSON()),r.fulfill({status:201,json:[]})):r.fallback());
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_project_progress_updates',r=>r.request().method()==='POST'?(projects.push(r.request().postDataJSON()),r.fulfill({status:201,json:[]})):r.fallback());
- await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const body=r.request().postDataBuffer()?.toString('latin1')||'';uploads.push(body);return r.fulfill({json:{ok:true,note_id:'up-1',attachments:[{file_name:'a.txt',size_bytes:1,drive_file_id:'file_1',mime_type:'text/plain'}]}});});
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const body=r.request().postDataBuffer()?.toString('latin1')||'';uploads.push(body);return r.fulfill({json:{ok:true,note_id:body.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1]||'up-1',attachments:[{file_name:'a.txt',size_bytes:1,drive_file_id:'file_1',mime_type:'text/plain'}]}});});
  return {...home,errors,notes,orgs,projects,uploads};
 }
 const fits=page=>page.evaluate(()=>{const h=document.querySelector('#edWindow .ed-window-head');return !!h&&h.scrollWidth<=h.clientWidth&&document.documentElement.scrollWidth<=innerWidth;});
@@ -96,7 +96,10 @@ for(const width of [390,1280]){
   await expect(e.locator('[data-basket-file]')).toHaveCount(1);
   await e.locator('[data-edw-save]').click();
   await expect(page.locator('#edWindow')).toHaveCount(0);
-  expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('filename="b.txt"');
+  // BIZ-저장먼저닫기 2차(S59-10): the letters are saved first and the window closes; the file goes up behind to that update.
+  expect(f.notes).toHaveLength(1);expect(f.notes[0].raw_text).toBe('홈 업데이트');
+  await expect.poll(()=>f.uploads.length).toBe(1);expect(f.uploads[0]).toContain('filename="b.txt"');expect(f.uploads[0]).toContain('name="note_id"\r\n\r\nnew-1');
+  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
   expect(f.errors).toEqual([]);
  });
 }
