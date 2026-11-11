@@ -57,6 +57,79 @@ test('구간 → 전사할 조각, 글 합치기는 화면 joinSegmentTexts와 �
   assert.equal(sj.cleanText('a  \r\n\n\n\nb\u0000'),'a\n\nb');
 });
 
+// REC-발언자구분(S58-6): 구간이 29분이 되면 구간마다 '화자n:' 줄이 온다. 구간이 바뀌는 자리(번호가 새로 매겨지는 자리)의 머리 줄은 그대로. 글은 모두 지어낸 것.
+test('REC-발언자구분: 29분 구간 글 합치기 — 화자 줄은 그대로, 구간이 바뀌는 자리에 머리 줄(화면과 같음)',()=>{
+  const SEG=29*60;
+  const parts=sj.recordingParts([1,2,3,4].map(no=>({segment_no:no,status:'combined',job_id:no%2?ID:WS,duration_sec:no===4?600:SEG})));
+  assert.deepEqual(parts.map(p=>p.seconds),[SEG,SEG,SEG,600]);
+  parts[0].text='화자1: 첫 구간 첫 사람\n화자2: 첫 구간 둘째 사람';
+  parts[1].text='화자1: 둘째 구간 첫 사람\n화자2: 둘째 구간 둘째 사람\n화자3: 둘째 구간 셋째 사람';
+  parts[2].text='구분이 거절돼 통글로 온 구간';          // 400 → 구분 없이 다시 받은 글: 실패가 아니라 통글
+  parts[3].text='화자1: 끝 구간';
+  const text=sj.joinParts(parts);
+  assert.equal(text,[
+    '화자1: 첫 구간 첫 사람\n화자2: 첫 구간 둘째 사람',
+    '― 29분부터 ―\n화자1: 둘째 구간 첫 사람\n화자2: 둘째 구간 둘째 사람\n화자3: 둘째 구간 셋째 사람',
+    '― 58분부터 ―\n구분이 거절돼 통글로 온 구간',
+    '― 1시간 27분부터 ―\n화자1: 끝 구간',
+  ].join('\n\n'));
+  assert.equal(text,joinSegmentTexts(parts),'서버 정리 = 화면 정리');
+  assert.equal(sj.cleanText(text),text,'글 정리가 화자 줄·머리 줄을 바꾸지 않는다');
+  // 머리 줄은 구간 사이에만(첫 구간 앞·화자 줄 사이에는 없음), 화자 줄은 줄 머리에서 시작.
+  const lines=text.split('\n').filter(Boolean);
+  assert.deepEqual(lines.filter(l=>/^―/.test(l)),['― 29분부터 ―','― 58분부터 ―','― 1시간 27분부터 ―']);
+  assert.equal(lines.filter(l=>/^화자\d+: /.test(l)).length,6);
+  assert.equal(sj.hasWords(text),true);
+});
+
+test('REC-발언자구분: 이어서 정리 — 옛 59분 구간(통글)과 새 29분 구간(화자 줄)이 섞여도 끝까지 잇고 머리 줄은 실제 길이로',()=>{
+  // 옛 화면이 녹음한 59분 구간 2개 + 새 화면이 이어 녹음한 29분 구간 2개 + 합치기 실패 구간 1개.
+  const parts=sj.recordingParts([
+    {segment_no:1,status:'combined',job_id:ID,duration_sec:3540},{segment_no:2,status:'combined',job_id:WS,duration_sec:3540},
+    {segment_no:3,status:'combined',job_id:ID,duration_sec:1740},{segment_no:4,status:'failed',job_id:null,duration_sec:1740},
+    {segment_no:5,status:'combined',job_id:WS,duration_sec:300},
+  ]);
+  assert.equal(sj.partTotal(parts),4);
+  const texts=['옛 구간 통글 하나','옛 구간 통글 둘','화자1: 새 구간\n화자2: 답',null,'화자1: 끝'];
+  let steps=0;
+  for(let i=sj.nextPart(parts);i>=0;i=sj.nextPart(parts)){parts[i]={...parts[i],text:texts[i]};steps++}
+  assert.equal(steps,4);assert.equal(sj.doneParts(parts),4);
+  const text=sj.joinParts(parts);
+  assert.equal(text,'옛 구간 통글 하나\n\n― 59분부터 ―\n옛 구간 통글 둘\n\n― 1시간 58분부터 ―\n화자1: 새 구간\n화자2: 답\n\n― 2시간 56분부터 ―\n화자1: 끝');
+  assert.equal(text,joinSegmentTexts(parts));
+});
+
+test('REC-발언자구분: 요약 지시문은 화자 번호를 쓰라고 하지 않고, 참석자에서는 번호를 빼라고 한다(지금 규칙 그대로)',()=>{
+  const transcript='화자1: 일정을 정합시다.\n화자2: 금요일로 하죠.\n\n― 29분부터 ―\n화자1: 자료는 제가 돌리겠습니다.';
+  const meeting={title:'가상 회의',meeting_at:'2026-11-11T14:00',location:'',attendee_count:null};
+  for(const stage of [{kind:'',no:0,count:0},{kind:'part',no:1,count:2},{kind:'merge',no:0,count:2}]){
+    const text=prompt.meetingDraftPrompt({meeting,names:'',projectContext:'',materialText:'',transcript,stage});
+    assert.ok(text.includes(transcript),'전문은 그대로 넘긴다(머리 줄·화자 줄 포함)');
+    // 참석자: 이름으로 확인되는 사람만, 번호는 뺀다.
+    assert.match(text,/원문에서 이름으로 확인되는 참석자만 attendees에 이름으로 적고\(화자1·참석자 1 같은 번호는 빼고\)/);
+    // 전문과 그 한 줄을 뺀 나머지 지시문에는 '화자'가 없다: 요약·할 일에 화자 번호를 쓰라는 말이 없다.
+    const rule=text.replace(transcript,'').replace('(화자1·참석자 1 같은 번호는 빼고)','');
+    assert.doesNotMatch(rule,/화자|speaker/i);
+    // 담당자가 이름으로 분명하지 않으면 [확인 필요](화자 번호를 담당자로 쓰지 않게 하는 지금 규칙).
+    assert.match(text,/실행과제별 담당자와 YYYY-MM-DD 기한, 불명확하면 \[확인 필요\]/);
+  }
+  for(const tone of ['','개조식으로 쓴다.']){
+    const dev=prompt.meetingDraftDeveloper(tone);
+    assert.doesNotMatch(dev,/화자|speaker/i);
+    assert.match(dev,/담당자·기한이 명확하지 않으면 반드시 \[확인 필요\]로 표시한다/);
+  }
+  // 조각 요약을 합칠 때 쓰는 글도 화자 번호를 만들어 넣지 않는다(요약에 없으면 없다).
+  const draft=prompt.normalizeDraft({decisions:'일정 확정',information:'자료 공유',actions:[{task:'자료 돌리기',assignee:'[확인 필요]',due:''}],meeting_date:'',attendees:['김가상']});
+  assert.doesNotMatch(prompt.partsText([draft,draft]),/화자/);
+  assert.equal(draft.actions[0].assignee,'');
+  // 긴 전문을 나눌 때 화자 줄·머리 줄은 줄 단위로 그대로 남는다(줄 가운데에서 자르지 않음).
+  const long=Array.from({length:60},(_,k)=>(k?`― ${k*29}분부터 ―\n`:'')+Array.from({length:40},(_,i)=>`화자${i%3+1}: ${'가'.repeat(14)} ${k}-${i}`).join('\n')).join('\n\n');
+  const pieces=prompt.splitTranscript(long);
+  assert.ok(pieces.length>1);
+  for(const piece of pieces)for(const line of piece.split('\n').filter(Boolean))assert.match(line,/^(화자[123]: 가{14} \d+-\d+|― \d+분부터 ―)$/);
+  assert.deepEqual(pieces,appModel.splitTranscript(long),'Edge 사본 = 화면 나누기');
+});
+
 test('요약 계획: 3만 자까지 한 번, 넘으면 조각마다 + 합치기(화면과 같은 나누기)',()=>{
   assert.deepEqual(sj.summaryPlan('짧은 회의',[]).kind,'one');
   const long=Array.from({length:4000},(_,i)=>`화자${i%3+1}: ${'가'.repeat(15)} ${i}`).join('\n');

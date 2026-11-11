@@ -4,6 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as r from '../supabase/functions/meeting-transcribe/recording.mjs';
+import {DIARIZE_MAX_SECONDS,MAX_SECONDS,wantsDiarize} from '../supabase/functions/meeting-transcribe/model.mjs';
 import {PIECE_SECONDS,ROLL_PIECES,SEGMENT_SECONDS,pieceSecondsOf,rollPiecesOf,shouldRoll} from '../app/meeting-recorder-model.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -22,13 +23,25 @@ async function readAll(stream){
 }
 const ids=(n,prefix='p')=>Array.from({length:n},(_,i)=>`${prefix}${String(i+1).padStart(2,'0')}aaaaaaaaaa`);
 
-test('간격: 화면·서버 모두 1분, 구간 59분, 조각 한도 60(상한 64 안)',()=>{
+test('간격: 화면·서버 모두 1분, 구간 29분, 조각 한도 60(상한 64 안)',()=>{
   assert.equal(PIECE_SECONDS,r.REC_PIECE_SECONDS);assert.equal(PIECE_SECONDS,60);
   assert.equal(ROLL_PIECES,r.REC_ROLL_PIECES);
-  assert.equal(SEGMENT_SECONDS,r.REC_SEGMENT_SECONDS);
+  assert.equal(SEGMENT_SECONDS,r.REC_SEGMENT_SECONDS);assert.equal(SEGMENT_SECONDS,29*60);
   assert.ok(r.REC_ROLL_PIECES+1<=r.REC_MAX_PIECES);
-  // 59분 = 1분 조각 59개 + 넘길 때 1개 = 60: 시간이 먼저 넘긴다(조각 수 한도는 일시정지 중 조각이 나오는 브라우저용).
+  // 29분 = 1분 조각 29개 + 넘길 때 1개 = 30: 시간이 먼저 넘긴다(조각 수 한도는 일시정지 중 조각이 나오는 브라우저용).
   assert.ok(Math.ceil(SEGMENT_SECONDS/PIECE_SECONDS)+1<=ROLL_PIECES);
+});
+
+// REC-발언자구분: 발언자 구분은 30분 이하 녹음에만 켜진다. 구간이 그 안이어야 긴 회의도 구간마다 '화자n:' 줄로 나뉜다.
+test('구간 길이는 발언자 구분 상한 안: 29분 구간(넘김이 조각 하나만큼 늦어도)은 구분을 켜고, 옛 59분 구간은 통글',()=>{
+  assert.ok(SEGMENT_SECONDS+PIECE_SECONDS<=DIARIZE_MAX_SECONDS);
+  assert.equal(wantsDiarize(SEGMENT_SECONDS),true);
+  assert.equal(wantsDiarize(SEGMENT_SECONDS+PIECE_SECONDS),true); // 넘김이 1분 늦은 구간
+  assert.equal(wantsDiarize(59*60),false);                        // 옛 구간·이어서 정리: 실패가 아니라 통글
+  assert.ok(59*60<MAX_SECONDS);                                   // 옛 구간도 전사 한 번 요청 상한 안
+  // 구간 수 상한(DB 제약) × 29분 = 11시간 36분: 하루 회의에 충분하다.
+  assert.equal(r.REC_MAX_SEGMENTS,24);
+  assert.ok(r.REC_MAX_SEGMENTS*SEGMENT_SECONDS>=11*3600);
 });
 
 test('화면은 서버가 알려 준 간격을 따른다: 새 서버 60초, 옛 서버 300초, 이상한 값은 1분',()=>{
@@ -36,16 +49,16 @@ test('화면은 서버가 알려 준 간격을 따른다: 새 서버 60초, 옛 
   assert.equal(pieceSecondsOf({piece_seconds:300}),300); // 옛 서버(5분·16조각): 화면이 먼저 배포돼도 5분으로
   for(const bad of [null,{},{piece_seconds:0},{piece_seconds:5},{piece_seconds:3600},{piece_seconds:'60x'},{piece_seconds:60.5}])assert.equal(pieceSecondsOf(bad),60);
   assert.equal(rollPiecesOf({max_pieces:60}),60);
-  assert.equal(rollPiecesOf({}),12); // 옛 서버: 16조각 상한 안(5분 × 12 = 60분이라 59분이 먼저)
+  assert.equal(rollPiecesOf({}),12); // 옛 서버: 16조각 상한 안(5분 × 12 = 60분이라 29분이 먼저)
   assert.equal(rollPiecesOf({max_pieces:2}),12);
 });
 
-test('구간 넘김: 59분이 되거나 조각이 한도에 닿으면(일시정지가 길어도 상한을 넘지 않음)',()=>{
-  assert.equal(shouldRoll(3539,SEGMENT_SECONDS,59,60),false);
-  assert.equal(shouldRoll(3540,SEGMENT_SECONDS,59,60),true);
+test('구간 넘김: 29분이 되거나 조각이 한도에 닿으면(일시정지가 길어도 상한을 넘지 않음)',()=>{
+  assert.equal(shouldRoll(1739,SEGMENT_SECONDS,29,60),false);
+  assert.equal(shouldRoll(1740,SEGMENT_SECONDS,29,60),true);
   assert.equal(shouldRoll(1200,SEGMENT_SECONDS,60,60),true);
   assert.equal(shouldRoll(1200,SEGMENT_SECONDS,59,60),false);
-  assert.equal(shouldRoll(3539),false);assert.equal(shouldRoll(3540),true); // 조각 수를 안 주면 시간만
+  assert.equal(shouldRoll(1739),false);assert.equal(shouldRoll(1740),true); // 조각 수를 안 주면 시간만
 });
 
 test('60조각 구간을 서버가 모두 받는다(61번째부터 rec_full·64까지 순서 강제)',()=>{
