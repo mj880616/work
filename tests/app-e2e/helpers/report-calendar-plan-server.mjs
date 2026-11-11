@@ -130,11 +130,13 @@ export async function install(page, state) {
 }
 
 // 사업 보고 [달력]을 연다(고른 보기는 서버 기억 view_prefs.report_view). 달력이 그려질 때까지 기다린다.
-export async function openReportCalendar(page, state, {width = 1280, height = 900} = {}) {
+// routes(page): 위 흉내 서버 뒤에 더 거는 가로채기(나중에 건 것이 먼저 받는다 — 사진 출처·올리기 흉내 등).
+export async function openReportCalendar(page, state, {width = 1280, height = 900, routes = null} = {}) {
   await page.setViewportSize({width, height});
   await page.clock.setFixedTime(new Date(NOW));
   await installViewPrefsServer(page, {report_view: 'calendar'});
   await install(page, state);
+  if (routes) await routes(page);
   await page.goto(loginEntry(BASE + '/app/?view=meetings'));
   await signInWithSession(page, 'qa@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));

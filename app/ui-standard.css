@@ -1317,7 +1317,7 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
 .act-photo-badge{position:absolute;right:2px;bottom:2px;z-index:2;min-width:16px;padding:0 3px;border-radius:8px;background:var(--kptu-surface);font-size:11px;line-height:16px;text-align:center}
 .act-photo-badge.err{color:var(--kptu-danger)}
 /* S46-20 사진 정리 ⑥: 사진 줄 안 한 줄 '그 시각 사진 [골라 붙이기]'(time-photos.js). 펼치면 작은 칸 한 줄(가로로 넘김), 고른 칸은 선택 테두리. */
-.tp[hidden],.tp-pick[hidden]{display:none}
+.tp[hidden],.tp-pick[hidden],.tp [hidden]{display:none}
 .tp-line{display:flex;align-items:center;gap:6px;min-height:28px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .tp-pick{margin:2px 0 4px}
 .tp-strip{display:flex;gap:4px;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0;scrollbar-width:thin}
@@ -1329,6 +1329,8 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
 .tp-time{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:0 2px;background:color-mix(in srgb,var(--kptu-surface) 80%,transparent);color:var(--kptu-muted);font-size:10px;line-height:14px;text-align:center}
 .tp-here{position:absolute;top:2px;left:2px;z-index:1;padding:0 2px;border-radius:7px;background:color-mix(in srgb,var(--kptu-surface) 80%,transparent);font-size:10px;line-height:14px}
 .tp-item:focus-visible{outline:2px solid var(--kptu-focus,currentColor);outline-offset:1px}
+/* BIZ-보고할일정 PR D: 미리 골라 둔 줄(일정에서 연 쓰기 창) — 뺀 칸은 흐리게(시안 ④) */
+.tp-preset .tp-item[aria-pressed="false"]{opacity:.45}
 .tp-foot{display:flex;align-items:center;gap:6px;min-height:28px}
 .tp-note{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .mrd-photo-section .status:empty{display:none}
