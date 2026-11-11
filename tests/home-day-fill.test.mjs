@@ -165,3 +165,55 @@ test('화면 연결 PR-C: 오늘만 서버에 부탁, [일기 쓰기]는 첫 줄
   assert.match(fill, /openSuggests\(suggests\?\.items, suggests\?\.done\)/);
   assert.match(fill, /data-journal-fill-limit/);
 });
+
+// ---- HOME-읽을글밀기(2026-11-11): 숨기거나 보관한 글은 홈 '읽을 만한 글'에서 뺀다 ----
+const UUID_A = '11111111-1111-4111-8111-111111111111', UUID_B = '22222222-2222-4222-8222-222222222222', UUID_C = '33333333-3333-4333-8333-333333333333';
+
+test('처리한 글 거르기: 숨김(hidden_at)·보관(starred_at)만 뺀다, 표에 줄이 없는 글·UUID 아닌 id는 그대로', async () => {
+  const {newsIdOf, handledNewsIds, visibleReads, READS_DONE_NOTE} = await import('../app/home-day-picks-model.mjs');
+  assert.equal(newsIdOf(UUID_A.toUpperCase()), UUID_A);
+  assert.equal(newsIdOf('n1'), '');
+  assert.equal(newsIdOf("x') or true"), '');
+  const handled = handledNewsIds([{id:UUID_A, hidden_at:'2026-11-11T00:00:00Z', starred_at:null}, {id:UUID_B, hidden_at:null, starred_at:'2026-11-11T00:00:00Z'}, {id:UUID_C, hidden_at:null, starred_at:null}, {id:'n9', hidden_at:'x'}, null]);
+  assert.deepEqual([...handled].sort(), [UUID_A, UUID_B]);
+  const list = [{id:UUID_A}, {id:UUID_B}, {id:UUID_C}, {id:'n1'}];
+  assert.deepEqual(visibleReads(list, handled).map(x => x.id), [UUID_C, 'n1']);
+  assert.deepEqual(visibleReads(list, new Set()).length, 4);
+  assert.deepEqual(visibleReads(list, null).length, 4);
+  assert.equal(handledNewsIds(null).size, 0);
+  assert.equal(READS_DONE_NOTE, '다 읽었어요');
+});
+
+test('처리 표시 읽기: 내 작업공간 뉴스 줄의 id·숨김·별표만 한 번에 읽고, 못 읽으면 ok:false(거르지 않음)', async () => {
+  const {readReadMarks} = await import('../app/home-day-picks-data.js');
+  const calls = [];
+  const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, api:async path => { calls.push(path); return [{id:UUID_A, hidden_at:'2026-11-11T00:00:00Z', starred_at:null}, {id:UUID_B, hidden_at:null, starred_at:null}]; }};
+  const out = await readReadMarks([UUID_A, UUID_B, UUID_A, 'n1', "x,y"], rt);
+  assert.equal(out.ok, true);
+  assert.deepEqual([...out.handled], [UUID_A]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0], `/rest/v1/app_news_items?workspace_id=eq.w&id=in.(${UUID_A},${UUID_B})&select=id,hidden_at,starred_at&limit=2`);
+  assert.deepEqual(await readReadMarks(['n1'], rt), {ok:true, handled:new Set()});
+  assert.equal(calls.length, 1, 'UUID가 없으면 서버에 묻지 않는다');
+  assert.deepEqual(await readReadMarks([UUID_A], {context:{read:() => ({})}, api:async () => []}), {ok:false});
+  assert.deepEqual(await readReadMarks([UUID_A], {context:{read:() => ({workspace:{id:'w'}})}, api:async () => { throw new Error('net'); }}), {ok:false});
+});
+
+test('화면 연결 HOME-읽을글밀기: 공용 줄 밀기(bindNowRows) 그대로, 뉴스 글 표시로 거름, 홈에 따로 저장하지 않음', () => {
+  const fill = readFileSync(new URL('../app/home-day-fill.js', import.meta.url), 'utf8');
+  const acts = readFileSync(new URL('../app/now-row-acts.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../app/journal.css', import.meta.url), 'utf8');
+  assert.match(fill, /import \{bindNowRows, hoverActsHtml\} from '\.\/now-row-acts\.js'/);
+  assert.match(fill, /bindNowRows\(readsHost, \{row:'\[data-journal-read\]'/);
+  assert.match(fill, /itemOf: el => \{ const id = newsIdOf\(el\.dataset\.journalRead\); return id \? \{type:'news', id\} : null; \}/);
+  assert.match(fill, /visibleReads\(all, m\.handled\)/);
+  assert.match(fill, /READS_DONE_NOTE/);
+  assert.doesNotMatch(fill, /isSaved/, '홈에서는 보관한 글이 빠지므로 오른쪽 밀기는 늘 보관');
+  assert.match(acts, /titleOf = nwTitle/);
+  assert.match(css, /journal-read:hover > \.now-hov/);
+  assert.match(css, /touch-action:pan-y/);
+  const loader = readFileSync(new URL('../app/view-loader.js', import.meta.url), 'utf8');
+  assert.match(loader, /home:\[[^\]]*'\.\/row-swipe\.css'[^\]]*'\.\/od-link\.css'/, '홈에도 줄 밀기·공용 줄 메뉴(우클릭) 모양');
+  // 뉴스 쪽 줄 밀기 사용은 그대로(titleOf 기본값이 .nw-title).
+  assert.match(acts, /el\.querySelector\('\.nw-title'\)/);
+});

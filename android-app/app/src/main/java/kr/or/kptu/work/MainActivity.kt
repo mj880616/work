@@ -226,6 +226,15 @@ class MainActivity : ComponentActivity() {
     private var outReply: JavaScriptReplyProxy? = null
     private var outBatch: ShareOut.Batch? = null
 
+    /** APP-뒤에서올리기(설계 16절): 웹 화면이 사진·파일을 넘기는 다리(up:*). 받는 중인 묶음은 saveWorker에서만 만진다. */
+    private var upReply: JavaScriptReplyProxy? = null
+    private var upIntake: BackUploadRules.Intake? = null
+    /** 뒤에서 올리던 묶음이 바뀌면(Worker 스레드) 화면에 그 묶음 상태를 알린다. 묶음 이름·자료 id·까닭 코드만 싣는다. */
+    private val upListener: (String) -> Unit = { batch ->
+        val message = WidgetGuard.get { BackUploadRules.jobMessage(BackUpload.store(applicationContext), batch) }
+        if (message != null) ui.post { if (alive) postUp(message) }
+    }
+
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
         fileCallback = null
@@ -254,6 +263,7 @@ class MainActivity : ComponentActivity() {
         RecordHub.listener = recListener
         RecordHub.changed = { AppUpdater.poke(applicationContext) }
         AppUpdater.listener = updateListener
+        BackUpload.listener = upListener
 
         // targetSdk 35부터 화면 끝까지 그린다. 바 자리는 앱이 비우고 웹 바탕색으로 칠한다.
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -329,6 +339,7 @@ class MainActivity : ComponentActivity() {
                 else if (data.startsWith("photos:")) onPhotoMessage(data, reply)
                 else if (data.startsWith("pfiles:")) onPhoneFilesMessage(data, reply)
                 else if (data.startsWith("out:")) onShareOutMessage(data, reply)
+                else if (data.startsWith("up:")) onUploadMessage(data, reply)
                 else if (data.startsWith("push:")) onPushMessage(data, reply)
                 else if (data == "write:hello") writeReply = reply
                 else if (data == "pull:on" || data == "pull:off") pullOn = data == "pull:on"
@@ -377,6 +388,7 @@ class MainActivity : ComponentActivity() {
                 filesReply = null
                 pushReply = null
                 outReply = null
+                upReply = null
                 // 당겨서 새로고침으로 다시 여는 중이면 동그란 표시를 거둔다. 새 화면의 손가락 판정은 처음부터.
                 if (::refresher.isInitialized) refresher.isRefreshing = false
                 pullOn = false
@@ -1248,6 +1260,100 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * APP-뒤에서올리기 1단계(설계 docs/design/phone-widget-auth.md 16절): 웹 화면이 고른 사진·파일을 앱에 넘기는 다리(up:*).
+     * 조각은 앱 전용·백업 제외 폴더(back-upload/<묶음>)에만 쓰고, up:go에서 묶음을 닫아 BackUploadWorker(WorkManager)에 맡긴다.
+     * 넘겨받는 것은 파일 바이트·대상 id·사진 칸뿐이다(토큰·로그인 정보는 받지도 주지도 않는다). 규칙은 BackUploadRules(JVM 시험).
+     * 위젯 로그인이 없으면 up:state on:false · up:start 거절(off) → 웹이 지금 길(화면 안 올리기)로 올린다. 이름·내용은 로그에 쓰지 않는다.
+     */
+    private fun onUploadMessage(data: String, reply: JavaScriptReplyProxy) {
+        upReply = reply
+        val m = BackUploadRules.message(data)
+        if (m == null) {
+            postUp(BackUploadRules.ackMessage(false, "bad", "bad"))
+            return
+        }
+        val app = applicationContext
+        fun answer(text: String) = ui.post { if (alive) postUp(text) }
+        fun dropIntake() {
+            upIntake?.let { b -> WidgetGuard.run { BackUpload.store(app).drop(b.batch) } }
+            upIntake = null
+        }
+        when (m) {
+            BackUploadRules.Message.Hello -> saveWorker.execute {
+                val on = BackUpload.signedIn(app)
+                val store = WidgetGuard.get { BackUpload.store(app) }
+                // 3일 지난 묶음·받다 만 묶음을 치우고, 멈춰 있던 묶음은 다시 건다(위젯 로그인이 있을 때만).
+                WidgetGuard.run { store?.sweep(upIntake?.batch) }
+                if (on) WidgetGuard.run { BackUpload.resume(app) }
+                answer(BackUploadRules.stateMessage(on, store))
+            }
+            is BackUploadRules.Message.Start -> saveWorker.execute {
+                dropIntake()
+                val on = BackUpload.signedIn(app)
+                val id = if (!on) null else WidgetGuard.get {
+                    val store = BackUpload.store(app)
+                    store.sweep(null)
+                    store.create()
+                }
+                if (id != null) upIntake = BackUploadRules.Intake(id, m.target, m.count)
+                answer(BackUploadRules.ackMessage(id != null, "start", if (id != null) "" else if (on) "failed" else "off", id))
+            }
+            is BackUploadRules.Message.Begin -> saveWorker.execute {
+                val b = upIntake
+                val room = BackUpload.roomFor(app, m.size)
+                val ok = b != null && room && WidgetGuard.get {
+                    val e = b.begin(m) ?: return@get false
+                    BackUpload.store(app).begin(b.batch, e.index)
+                    true
+                } == true
+                if (!ok) dropIntake()
+                answer(BackUploadRules.ackMessage(ok, "begin", if (ok) "" else if (b != null && !room) "space" else "failed"))
+            }
+            is BackUploadRules.Message.Part -> saveWorker.execute {
+                val b = upIntake
+                val e = b?.current
+                val ok = b != null && e != null && WidgetGuard.get {
+                    val bytes = java.util.Base64.getDecoder().decode(m.base64)
+                    if (!b.part(bytes.size)) return@get false
+                    BackUpload.store(app).part(b.batch, e.index, bytes)
+                    true
+                } == true
+                if (!ok) dropIntake()
+                answer(BackUploadRules.ackMessage(ok, "part", if (ok) "" else "failed"))
+            }
+            BackUploadRules.Message.End -> saveWorker.execute {
+                val b = upIntake
+                val size = b?.currentSize ?: 0L
+                val e = b?.end()
+                val ok = b != null && e != null && WidgetGuard.get { BackUpload.store(app).end(b.batch, e.index, size) } == true
+                if (!ok) dropIntake()
+                answer(BackUploadRules.ackMessage(ok, "end", if (ok) "" else "failed"))
+            }
+            BackUploadRules.Message.Go -> saveWorker.execute {
+                val b = upIntake
+                val ok = b != null && b.ready && WidgetGuard.run {
+                    BackUpload.store(app).seal(b.batch, b.target, b.entries)
+                    BackUpload.start(app, b.batch)
+                }
+                if (ok) upIntake = null else dropIntake()
+                answer(BackUploadRules.ackMessage(ok, "go", if (ok) "" else "failed", if (ok) b?.batch else null))
+                if (ok && b != null) WidgetGuard.get { BackUploadRules.jobMessage(BackUpload.store(app), b.batch) }?.let(::answer)
+            }
+            BackUploadRules.Message.Cancel -> saveWorker.execute { dropIntake() }
+            is BackUploadRules.Message.Seen -> saveWorker.execute { WidgetGuard.run { BackUpload.store(app).seen(m.batch) } }
+        }
+    }
+
+    private fun postUp(message: String) {
+        val reply = upReply ?: return
+        try {
+            reply.postMessage(message)
+        } catch (_: Exception) {
+            upReply = null
+        }
+    }
+
+    /**
      * FILES-통합 3단계(S49-51, 명진 결정 H-1): [파일] '이 폰' 다리. hello = 지금 상태(켜져 있으면 열쇠), ask = 설정 '모든 파일 접근 허용' 화면.
      * 목록·원본·작은 그림은 __phone/<열쇠>/files/ 가로채기(PhoneFiles.serve)로만 준다. 이 판은 읽기만.
      */
@@ -1632,12 +1738,14 @@ class MainActivity : ComponentActivity() {
         filesReply = null
         pushReply = null
         outReply = null
+        upReply = null
         // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다. '이 폰'으로 받다 만 임시 파일도.
         saveCancel()
         PhoneFilesWrite.worker.execute { PhoneFilesWrite.drop() }
         saveWorker.shutdown()
         if (RecordHub.listener === recListener) RecordHub.listener = null
         if (AppUpdater.listener === updateListener) AppUpdater.listener = null
+        if (BackUpload.listener === upListener) BackUpload.listener = null
         webView.stopLoading()
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()

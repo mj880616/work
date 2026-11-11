@@ -52,12 +52,23 @@ object WidgetRules {
     const val BASKET_FILES = "$SUPABASE/functions/v1/basket-files"
 
     /**
-     * multipart 모양 검사: basket-files POST에만, 본문 글 없이, 'file' 파일 칸 정확히 하나 + 선택 'note_id'(uuid) 하나.
-     * 그 밖의 칸·다른 주소의 multipart·basket-files의 JSON 본문은 모두 거절한다.
+     * APP-뒤에서올리기(설계 16절): 사업 보고 사진·회의자료 올리기(웹 library-upload.js luUploadFileForMeeting과 같은 길). 물음표 없는 정확한 주소에
+     * multipart(파일 하나 + meeting_id + 선택 project_id·title·category·document_date)만 보낸다(BackUploadRules.allowedParts).
+     * 같은 주소의 JSON(action)·다른 칸(mode·replace_document_id 등)은 보내지 않는다.
+     */
+    const val LIBRARY_FILES = "$SUPABASE/functions/v1/library-files"
+
+    /**
+     * multipart 모양 검사: 본문 글 없이 POST로, 주소마다 정해진 칸만.
+     * - basket-files: 'file' 파일 칸 정확히 하나 + 선택 'note_id'(uuid) 하나.
+     * - library-files: BackUploadRules.allowedParts(파일 하나 + meeting_id + 정해진 선택 칸).
+     * 그 밖의 칸·다른 주소의 multipart·두 주소의 JSON 본문은 모두 거절한다.
      */
     fun allowedParts(method: String, url: String, body: String?, parts: List<WidgetPart>?): Boolean {
-        if (parts == null) return url != BASKET_FILES
-        if (method != "POST" || url != BASKET_FILES || body != null) return false
+        if (parts == null) return url != BASKET_FILES && url != LIBRARY_FILES
+        if (method != "POST" || body != null) return false
+        if (url == LIBRARY_FILES) return BackUploadRules.allowedParts(parts)
+        if (url != BASKET_FILES) return false
         val files = parts.filter { it.name == "file" }
         val notes = parts.filter { it.name == "note_id" }
         if (files.size != 1 || notes.size > 1 || files.size + notes.size != parts.size) return false
@@ -98,7 +109,7 @@ object WidgetRules {
 
     /** 위젯이 보내도 되는 요청인지. 이 밖의 주소·방식은 보내지 않는다. */
     fun allowed(method: String, url: String): Boolean = when (method) {
-        "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT || url == NOTES || url == TASK_CREATE || url == BASKET_FILES
+        "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT || url == NOTES || url == TASK_CREATE || url == BASKET_FILES || url == LIBRARY_FILES
         "GET" -> url == TASKS || url == CANDIDATES || url == ARSENAL || isCalendarUrl(url) || isWorkspaceUrl(url)
         else -> false
     }
@@ -466,6 +477,45 @@ class WidgetSession(
             return QuickPhotoRules.result(res.status, MiniJson.parse(res.body), noteId)
         }
         return Photo.Failed(QuickPhotoRules.SIGNED_OUT, true)
+    }
+
+    // ── 뒤에서 올리기(APP-뒤에서올리기, 설계 16절) ──
+
+    /**
+     * 파일 하나를 사업 보고에 올린다(library-files multipart, 웹 luUploadFileForMeeting과 같은 칸).
+     * 접근 토큰은 잠금 안에서 받고, 올리기는 잠금 밖에서 해 위젯 갱신을 막지 않는다. 401이면 토큰을 버리고 한 번만 다시.
+     * 작업공간·권한은 서버가 로그인 사용자로 확인한다(요청에 작업공간 id 없음).
+     * 다 보낸 뒤 답을 못 받으면(WidgetSentException) 자료가 생겼을 수 있어 다시 보내지 않는다(결과 모름).
+     */
+    fun uploadLibrary(file: File, name: String, type: String, target: BackUploadRules.Target, fields: BackUploadRules.Fields): BackUploadRules.One {
+        val parts = BackUploadRules.parts(file, name, type, target, fields)
+        for (attempt in 0..1) {
+            val token = when (val t = accessToken()) {
+                is Outcome.Ok -> t.value
+                is Outcome.SignedOut -> return BackUploadRules.One.SignedOut
+                is Outcome.Failed -> return BackUploadRules.One.Failed(if (t.reason == "network") BackUploadRules.NETWORK else BackUploadRules.SERVER, true)
+            }
+            val headers = mapOf("Authorization" to "Bearer $token", "apikey" to WidgetRules.PUBLIC_KEY)
+            val res = try {
+                send(WidgetRequest("POST", WidgetRules.LIBRARY_FILES, headers, null, parts, once = true))
+            } catch (_: WidgetSentException) {
+                return BackUploadRules.One.Failed(BackUploadRules.UNKNOWN, false)
+            } catch (_: IOException) {
+                return BackUploadRules.One.Failed(BackUploadRules.NETWORK, true)
+            }
+            if (res.status == 401) {
+                synchronized(lock) {
+                    if (access == token) {
+                        access = null
+                        accessUntil = 0L
+                    }
+                }
+                if (attempt == 0) continue
+                return BackUploadRules.One.SignedOut
+            }
+            return BackUploadRules.result(res.status, MiniJson.parse(res.body))
+        }
+        return BackUploadRules.One.SignedOut
     }
 
     // ── 위젯 로그아웃(설계 5절 폐기 1) ──

@@ -114,6 +114,24 @@ export function sendDone(tasks, day) {
 // AI 한도에 닿았을 때 칸 위 한 줄(기존 한도 알림 문구와 같음). 그 밖의 실패는 조용히(고른 것이 있으면 그대로 보임).
 export const LIMIT_NOTE = Object.freeze({monthly_limit:'이번 달 AI 한도에 닿았어요.', daily_limit:'오늘 AI 횟수를 다 썼어요.'});
 export const limitNote = code => LIMIT_NOTE[code] || '';
+// ---- HOME-읽을글밀기(2026-11-11 명진 요청): 숨기거나 보관한 글은 홈 '읽을 만한 글'에서 뺀다 ----
+// 읽을 글의 id는 뉴스 기사(app_news_items) id다. 처리 표시는 홈에 따로 두지 않고 News와 같은 뉴스 줄의 표시를 그대로 본다:
+// 숨김 = hidden_at, 보관 = starred_at(뉴스에서 보관은 별표). 그래서 News에서 숨기거나 보관해도 홈에서 빠지고, 다른 기기에서도 같다.
+export const READS_DONE_NOTE = '다 읽었어요';
+const NEWS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// 뉴스 기사 id 모양(UUID)이면 소문자로, 아니면 ''. 이 값만 서버에 묻고·누르면 처리한다.
+export const newsIdOf = v => { const id = String(v ?? '').trim().toLowerCase(); return NEWS_ID.test(id) ? id : ''; };
+// 뉴스 표 줄들 → 처리한(숨김 또는 보관) 글 id 모음. 표에 줄이 없는 글은 처리한 글이 아니다(그대로 보인다).
+export function handledNewsIds(rows) {
+  const out = new Set();
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const id = newsIdOf(r?.id);
+    if (id && (r?.hidden_at || r?.starred_at)) out.add(id);
+  }
+  return out;
+}
+export const visibleReads = (list, handled) => (Array.isArray(list) ? list : []).filter(item => !handled?.has?.(newsIdOf(item?.id)));
+
 // 서버 표 한 줄 → 칸 상태({reads:{items, picked_at}, suggests:{items, done}}). 모양이 틀린 칸은 빈 값.
 export function picksState(row) {
   const r = row && typeof row === 'object' ? row : {};

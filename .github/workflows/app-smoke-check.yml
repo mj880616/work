@@ -756,6 +756,9 @@ jobs:
       - name: Check phone app share bridge (PHOTO-폰앱공유, Android share sheet, quiet notice row, synthetic)
         run: node --test tests/app-share.test.mjs
 
+      - name: Check phone app background upload bridge (APP-뒤에서올리기, hand files to the app, synthetic)
+        run: node --test tests/app-upload.test.mjs
+
       - name: Check photo long-press menu, copy bridge and share gesture (S49-18 PHOTO-꾹누르기메뉴·삼성공유·정보수정버튼, synthetic)
         run: node --test tests/photo-press-menu.test.mjs
 

@@ -649,6 +649,16 @@
 #appView #homeView .journal-read-title{ font-weight:var(--ds-weight-medium); }
 #appView #homeView .journal-read-line{ color:var(--kptu-ink); }
 #appView #homeView :is(.journal-read-meta,.journal-suggest-basis){ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+/* HOME-읽을글밀기: 글 줄 밀기(폰)·마우스 단추(PC) — News 글 줄과 같은 모양(now.css .now-hov, row-swipe.css). now.css는 News를 열 때만 불러와 홈 쪽 규칙을 여기 둔다. */
+#appView #homeView .journal-read{ position:relative; }
+#appView #homeView .journal-read .now-hov{ position:absolute; z-index:2; right:0; bottom:4px; display:none; gap:2px; }
+#appView #homeView .journal-read:hover > .now-hov,#appView #homeView .journal-read:focus-within > .now-hov{ display:inline-flex; }
+#appView #homeView .journal-read .now-hov-btn{ min-height:0; height:20px; padding:0 6px; font-size:11px; line-height:1; color:var(--kptu-muted); background:var(--kptu-surface); border:1px solid var(--kptu-line,currentColor); border-radius:var(--ds-radius-control,6px); cursor:pointer; }
+#appView #homeView .journal-read .now-hov-btn:hover{ color:var(--kptu-ink); }
+@media(max-width:760px){
+  #appView #homeView .journal-read{ touch-action:pan-y; }
+  #appView #homeView .journal-read .now-hov{ display:none !important; }
+}
 #appView #homeView .journal-fill-more > summary{ display:flex; align-items:center; min-height:32px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-fill-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #homeView .journal-suggest{ display:flex; align-items:center; gap:6px; }
