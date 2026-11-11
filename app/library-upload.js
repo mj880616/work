@@ -309,8 +309,8 @@ function luStartUploadForOrganization(org,files=[]){if(!normalizeUploadOrganizat
 // 프로젝트 상세의 자료 [+]: 같은 올리기 창을 열고 그 사업영역을 미리 고른다.
 function luStartUploadForProject(project){const id=project?.id;if(!id||!luOpenUploadWindow())return false;const s=document.querySelector('#docProject');if(!s)return true;if(![...s.options].some(o=>o.value===id))s.add(new Option(project.name||'',id));s.value=id;s.dispatchEvent(new Event('change',{bubbles:true}));return true}
 // ---- FILES-자료실로보내기(S52-26, 시안 docs/design/mockups/files-to-library.html, 명진 11/07 11:41 '(가) 연결만') ----
-// [파일]의 파일을 이 자료 등록 창(같은 칸·같은 [등록])으로 받는다. 원드라이브·이 폰 파일은 [파일]이 바이트를 받아 File로 넘기고(자료실 Drive
-// 폴더에 사본 — 보통 올리기와 같은 길·같은 막대·%), 구글 드라이브 파일은 {link:{source:'gd',id}}로 넘겨 사본 없이 연결만 한다
+// [파일]의 파일을 이 자료 등록 창(같은 칸·같은 [등록])으로 받는다. 원드라이브·이 폰·내 PC 파일은 자료실 Drive 폴더에 사본으로 올리고
+// (보통 올리기와 같은 길·같은 막대·%), 구글 드라이브 파일은 {link:{source:'gd',id}}로 넘겨 사본 없이 연결만 한다
 // (document-actions register-drive-file: 서버가 그 사람 작업공간 [파일] 색인·Drive 원본을 확인하고 같은 원본을 가리키는 자료 행 하나).
 // 연결한 뒤 창에 쓴 칸(제목·분류·사업영역·출처·날짜·태그·설명)은 자기 로그인(owner RLS)으로 그 자료에 적고, 빈 칸은 AI가 채운다(luAiFill).
 // 같은 파일 두 번: 구글은 같은 원본 자료(서버도 exists), 사본은 이름·크기가 같은 자료가 있으면 넣지 않고 '이미 자료실에 있어요'.
@@ -344,7 +344,28 @@ async function luLinkDriveEntry(entry,{many=false,fields=null,meeting=luUploadMe
   return {ok:true,created:true,id,projectId};
 }
 // 다른 화면([파일])이 고른 파일들로 자료 등록 창을 연다. 이미 자료실에 있는 것은 넣지 않고 돌려준다(부른 곳이 '이미 자료실에 있어요 · 보기').
-// 돌려줌 {opened, already:[{name,id}]}. 창이 이미 올리는 중이면 열지 않는다.
+// 돌려줌 {opened, already:[{name,id}]}. 앞 올리기가 뒤에서 도는 중이어도 연다(저장하면 그 뒤에 줄 선다).
+// 등록 창 먼저(S57-1, 2026-11-11 결정 — UX-먼저묻고뒤에처리): [파일]은 바이트 대신 '나중에 받는 파일'({name,size,type,load()})을 넘긴다. 고른 파일 줄에는
+// 이름·크기만 보이고, 바이트는 [저장] 뒤 올릴 차례에 받는다(luLoadLazy). ×로 닫으면 load()를 부르지 않으므로 아무것도 받지 않는다.
+const luIsLazy=file=>!!file&&typeof file.load==='function'&&!(typeof Blob==='function'&&file instanceof Blob);
+// 받는 동안에도 공용 올리는 줄에 그 파일이 보인다(0%에서 시작, ✕ = 그만 — 받던 것은 버린다). 받은 뒤 같은 줄(shown)로 이어서 올린다.
+// 돌려줌 {file,shown} | {cancelled:true} | {failure}. 받기 실패는 그 파일의 실패(알림 + [다시] — 다시는 받기부터). 부른 쪽이 멈춘 까닭(retry:false)을 주면 다시 하지 않는다.
+async function luLoadLazy(entry){
+  const stub=entry.file,shown=trackUpload({file:stub,name:stub.name,size:stub.size});
+  try{
+    const file=await stub.load();
+    if(shown.cancelled())return {cancelled:true};
+    if(!(typeof Blob==='function'&&file instanceof Blob))throw new Error('file_fetch_failed');
+    return {file,shown};
+  }catch(e){
+    if(shown.cancelled())return {cancelled:true};
+    const text=typeof e?.text==='string'&&/[가-힣]/.test(e.text)?e.text:`${stub.name||'파일'}: 가져오지 못했어요`;
+    const failure={type:'fetch',kind:'error',label:'실패 · 다시 시도',retry:e?.retry!==false,message:text};
+    console.warn('library lazy file fetch failed',{code:e?.code||'',message:e?.message||String(e)});
+    shown.fail(failure.message);
+    return {failure};
+  }
+}
 function luStartUploadFromFiles(items=[]){
   const list=Array.from(items||[]).filter(Boolean),already=[],take=[];
   for(const item of list){
@@ -554,11 +575,13 @@ function luCloseUploadWindow(){const close=window.KPTUDocumentModal?.close;if(ty
 let luBackTail=Promise.resolve();
 function luBackUpload(job){const run=luBackTail.then(()=>luRunBackUpload(job)).catch(e=>{console.error('library background upload failed',e);notify('자료를 올리지 못했어요. 잠시 후 다시 올려 주세요.',{error:true})});luBackTail=run;return run}
 async function luRunBackUpload(job){const {entries,many,fields,projectId,org,meeting,folder}=job;let succeeded=0,linkFailed=0,lastProjectId=null,unfiled=0,filedId='',stopped=null;const failures=[],okDocIds=[],okNames=[],retryEntries=[];const putFolder=async id=>{if(!folder)return;if(await luFolders().putUploaded(id,folder.id))filedId=folder.id;else unfiled++};const linkOrg=async id=>{if(org&&!(await linkUploadedDocument(window.KPTURuntime,{documentId:id,workspaceId:luWorkspace,organizationId:org.id})))linkFailed++};const fail=(entry,failure)=>{failures.push({...failure,name:entry.file?.name||''});entry.retry=failure.retry;entry.failure=failure;entry.kind=failure.kind||'error';if(failure.retry!==false&&failure.kind!=='unknown')retryEntries.push(entry)};
-for(let index=0;index<entries.length;index++){const entry=entries[index],file=entry.file;if(stopped){entry.kind='waiting';retryEntries.push(entry);continue}
+for(let index=0;index<entries.length;index++){const entry=entries[index];let file=entry.file,shown=null;if(stopped){entry.kind='waiting';retryEntries.push(entry);continue}
 if(entry.link){const linked=await luLinkDriveEntry(entry,{many,fields,meeting});if(linked.ok){if(linked.created){succeeded++;okDocIds.push(linked.id);okNames.push(file.name);await putFolder(linked.id);await linkOrg(linked.id);lastProjectId=linked.projectId||lastProjectId}}else{fail(entry,linked.failure);if(linked.failure.stop)stopped=linked.failure}continue}
-const preflight=luPreflightFailure(file);if(preflight){fail(entry,{...preflight,retry:false});continue}
-let fd=null;try{fd=new FormData();fd.append('file',await window.KPTURuntime.copyUploadFile(file));for(const[k,v]of Object.entries(fields)){if(k==='title'&&many)continue;fd.append(k,v)}if(meeting){fd.append('meeting_id',meeting.id);if(!fd.get('project_id')&&meeting.projectId)fd.append('project_id',meeting.projectId)}const d=await luUploadRequest(fd,file);if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');succeeded++;okDocIds.push(d.document.id);okNames.push(file.name);await putFolder(d.document.id);await linkOrg(d.document.id);luAiFill(d.document.id,fd,file.name);lastProjectId=d.document.project_id||lastProjectId;entry.failure=null;entry.kind='success'}
-catch(e){if(e?.code==='upload_cancelled'){entry.failure=null;entry.kind='pending';continue}const failure=luUploadFailure(e,{project:!!projectId});console.warn('library upload failed',{type:failure.type,status:e?.status||0,code:e?.code||'',serverCode:e?.serverCode||'',stage:e?.stage||'',message:e?.message||String(e)});fail(entry,failure);if(failure.stop)stopped={...failure,error:e}}
+// S57-1: [파일]에서 온 '나중에 받는 파일'은 여기(올릴 차례)에서 받는다. 받은 뒤는 보통 파일과 같은 길(크기 확인 → 올리기).
+if(luIsLazy(file)){const got=await luLoadLazy(entry);if(got.cancelled){entry.failure=null;entry.kind='pending';continue}if(got.failure){fail(entry,got.failure);continue}file=got.file;shown=got.shown}
+const preflight=luPreflightFailure(file);if(preflight){shown?.fail(preflight.message);fail(entry,{...preflight,retry:false});continue}
+let fd=null;try{fd=new FormData();fd.append('file',await window.KPTURuntime.copyUploadFile(file));for(const[k,v]of Object.entries(fields)){if(k==='title'&&many)continue;fd.append(k,v)}if(meeting){fd.append('meeting_id',meeting.id);if(!fd.get('project_id')&&meeting.projectId)fd.append('project_id',meeting.projectId)}const d=await luUploadRequest(fd,file,shown?{job:shown}:{});if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');succeeded++;okDocIds.push(d.document.id);okNames.push(file.name);await putFolder(d.document.id);await linkOrg(d.document.id);luAiFill(d.document.id,fd,file.name);lastProjectId=d.document.project_id||lastProjectId;entry.failure=null;entry.kind='success'}
+catch(e){if(e?.code==='upload_cancelled'){entry.failure=null;entry.kind='pending';continue}const failure=luUploadFailure(e,{project:!!projectId});if(shown&&shown.phase!=='failed'&&shown.phase!=='done')shown.fail(failure.message);console.warn('library upload failed',{type:failure.type,status:e?.status||0,code:e?.code||'',serverCode:e?.serverCode||'',stage:e?.stage||'',message:e?.message||String(e)});fail(entry,failure);if(failure.stop)stopped={...failure,error:e}}
 finally{fd?.delete('file');fd=null}}
 if(stopped?.type==='project'){try{await luLoadProjects(true);luRenderUploadProject()}catch{}}
 if(filedId){try{await luLoadFolders()}catch(e){console.error('library folders refresh after upload failed',e)}}
