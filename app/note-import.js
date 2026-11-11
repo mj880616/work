@@ -26,12 +26,18 @@ const sameUser = job => job.rt.session.read()?.user?.id === job.owner;
 // 실패: 노트는 그대로('주소만') 두고 원문 정보에 이유만 적는다. 적지 못해도(연결 끊김·로그인 만료) 노트는 남고, 다음에 열면 [다시 시도]가 보인다.
 async function markFailed(job, reason, result = null) {
   lastFail.set(job.id, reason);
-  const change = old => makeSource({...(old || {}), url: old?.url || job.url, site: old?.site || result?.site, state: 'failed', reason, fetched_at: new Date().toISOString(), kept: false});
+  // 다른 기기·탭이 그사이 글을 넣었으면(이미 ok) 실패로 되돌리지 않는다.
+  let already = false;
+  const change = old => {
+    if (old?.state === 'ok') { already = true; return null; }
+    return makeSource({...(old || {}), url: old?.url || job.url, site: old?.site || result?.site, state: 'failed', reason, fetched_at: new Date().toISOString(), kept: false});
+  };
   for (let i = 0; i < 2; i++) {
     if (!sameUser(job)) break;
     try { await setNoteSource({id: job.id}, change, job.rt); break; }
     catch (error) { if (error?.code !== 'note_changed') break; } // 그사이 다른 metadata 쓰기(고정·폴더)와 겹쳤으면 한 번 더
   }
+  if (already) { lastFail.delete(job.id); return {state: 'ok', reason: null, quiet: true}; }
   return {state: 'failed', reason};
 }
 
@@ -39,7 +45,12 @@ async function runJob(job) {
   if (!sameUser(job)) return {state: 'skipped'};
   let result;
   try { result = await job.rt.api(FN, {method: 'POST', body: {url: job.url}, singleFlight: false, timeoutMs: REQUEST_TIMEOUT_MS}); }
-  catch (error) { return sameUser(job) ? markFailed(job, requestFailReason(error)) : {state: 'skipped'}; }
+  catch (error) {
+    const reason = requestFailReason(error);
+    // 로그인이 풀렸으면 서버에 실패 표시를 남길 수 없다: 알리기만 한다(노트는 '주소만' 남아 있고, 다시 로그인해 열면 [다시 시도]가 보인다).
+    if (reason === 'login' && !job.rt.session.read()?.user?.id) { lastFail.set(job.id, 'login'); return {state: 'failed', reason: 'login'}; }
+    return sameUser(job) ? markFailed(job, reason) : {state: 'skipped'};
+  }
   if (!sameUser(job)) return {state: 'skipped'};
   const outcome = resultOutcome(result);
   if (outcome.state !== 'ok') return markFailed(job, outcome.reason, result);
@@ -70,7 +81,8 @@ function report(event) {
   const outcome = event.outcome || {state: 'failed', reason: 'busy'};
   if (outcome.state === 'skipped' || outcome.state === 'gone') { emit(job.id, 'gone'); return; }
   emit(job.id, outcome.state === 'ok' ? 'done' : 'failed', {reason: outcome.reason || null});
-  if (outcome.quiet || !sameUser(job)) return;
+  // 다른 사람으로 바뀐 화면에는 알리지 않는다(로그인이 풀린 경우의 안내만 예외).
+  if (outcome.quiet || (!sameUser(job) && !(outcome.reason === 'login' && !job.rt.session.read()?.user?.id))) return;
   // 노트 화면이 아니면 알림에 [보기]를 붙인다(노트 화면이면 그 줄이 이미 바뀌어 있다).
   const router = globalThis.window?.KPTURouter;
   const actions = router?.current && router.current !== 'basket' ? [{label: '보기', run: ({close}) => { close(); requestNoteDocOpen(job.id, job.rt); router.go('basket', {source: 'delegated'}); }}] : [];
