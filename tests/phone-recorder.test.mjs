@@ -11,7 +11,7 @@ const tick = ms => new Promise(r => setTimeout(r, Math.min(ms, 5)));
 const until = async (fn, n = 400) => { for (let i = 0; i < n; i++) { if (fn()) return; await tick(1); } throw new Error('기다림 초과'); };
 
 // 앱 흉내: 다리 글을 받아 RecordHub·MainActivity와 같은 답을 준다.
-function setup({failPieceOnce = false, discardStatus = 0} = {}) {
+function setup({failPieceOnce = false, discardStatus = 0, openDraft = null} = {}) {
   const st = {state:'idle', session_id:'', started_at:'', elapsed_ms:0, queued:0, auto_finish:false, discard:false, want_start:false};
   let pieces = [], seq = 0, core = null;
   const sent = [], calls = [], notes = [], drafts = [];
@@ -44,7 +44,7 @@ function setup({failPieceOnce = false, discardStatus = 0} = {}) {
   core = createPhoneRecorder({
     send, call, sleep:tick, workspace:() => WS,
     fetchPiece:async token => ({size:100, token}),
-    openDraft:async d => { drafts.push(d); },
+    openDraft:async d => { if (openDraft) await openDraft(d); drafts.push(d); },
     notify:(text, opts) => notes.push({text, opts}),
   });
   return {core, st, sent, calls, notes, drafts, pieces:() => pieces, state};
@@ -110,6 +110,24 @@ test('녹음 → 조각 올리기(재시도 포함) → 멈추고 정리 → 회
   assert.match(t.drafts[0].text, /회의를 시작합니다/);
   assert.deepEqual(t.drafts[0].jobs, ['job-1']);
   assert.equal(t.core.view.state, 'done');
+});
+
+// REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있어 사람이 [쓰던 창 두기]를 고르면 phone-recorder.js의 openDraft가 그 까닭으로 멈춘다.
+// 멈춤 줄에 그 글 + [다시], [다시]는 이미 전사한 구간을 다시 전사하지 않고 초안만 다시 연다(쓰던 창은 그대로 — 두 번째에야 열림).
+test('쓰던 사업 보고 창을 두면 멈춤 줄에 까닭 + [다시], 다시 누르면 전사는 그대로 두고 초안만 다시 연다', async () => {
+  const KEPT = '쓰던 사업 보고 창을 그대로 뒀어요. 저장하거나 닫은 뒤 [다시]를 누르세요.';
+  let tries = 0;
+  const t = setup({openDraft:async () => { if (++tries === 1) { const e = new Error(''); e.recText = KEPT; e.recRetry = true; throw e; } }});
+  Object.assign(t.st, {state:'stopped', session_id:SID, started_at:'2026-10-30T05:00:00.000Z', auto_finish:true, elapsed_ms:120000});
+  await t.core.hello();
+  await until(() => t.core.view.state === 'error');
+  assert.equal(t.core.view.error, KEPT);
+  assert.equal(t.core.view.canRetry, true);
+  assert.equal(t.drafts.length, 0);
+  t.core.retry();
+  await until(() => t.core.view.state === 'done');
+  assert.equal(t.drafts.length, 1);
+  assert.equal(t.calls.filter(c => c.action === 'transcribe').length, 1, '이미 전사한 구간은 다시 전사하지 않는다');
 });
 
 test('알림줄 [멈추고 정리]: 앱이 멈춘 상태(auto_finish)를 알리면 화면이 바로 정리한다', async () => {
@@ -184,4 +202,7 @@ test('화면 연결: 폰 앱에서만 불러오고, 노트북 녹음과 따로 �
   assert.match(ui, /__rec\//);
   assert.match(ui, /b\.id='phoneRecordBtn'[^\n]*add\.before\(b\)/);
   assert.match(ui, /d\.id='phoneRecPendingLine'[^\n]*list\.before\(d\)/);
+  // REC-한회의로잇기 PR-0: 입력 창은 team.js가 쓰던 글을 먼저 묻는다. 두기로 하면(open이 false, 창은 열린 채) 그 까닭으로 멈추고, 창을 다시 비우지 않는다.
+  assert.match(ui, /entry\.open\(\{kind:'meeting',[^\n]*keepNote:/);
+  assert.match(ui, /if\(opened===false\)throw stop\(entryKept\(\)\?'쓰던 사업 보고 창을 그대로 뒀어요\. 저장하거나 닫은 뒤 \[다시\]를 누르세요\.'/);
 });

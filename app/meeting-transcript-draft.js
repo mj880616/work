@@ -291,7 +291,10 @@ function fillResult({text='',draft=null,jobs=[],name=''}={}){
   try{applyDraft({draft},full,$('#meetingAt')?.value||'');return true}
   catch{toggle(true);status("전사 전문은 '회의록 전문' 칸에 넣었어요. 요약은 [녹음 요약하기]를 누르세요.",'error');return false}
 }
-window.KPTUMeetingTranscriptDraft={fill,fillResult};
+// REC-한회의로잇기 PR-0: 입력 창의 쓰던 글 확인(team.js가 닫기·새로 열기 전에 본다). 고른 녹음 파일, 요약·전사 중, 전사 글 칸에 남은 글.
+// 전사 글 칸은 요약이 끝나면 접히지만 글은 그대로 남으므로, 요약을 채운 뒤에도 '쓰던 글'로 센다(채운 결과는 저장 전까지 쓰던 글).
+function hasDraft(){return !!audio||busy||!!$('#mtdText')?.value.trim()}
+window.KPTUMeetingTranscriptDraft={fill,fillResult,hasDraft};
 
 // 창이 열릴 때(team.js openMeetingModal이 칸 글자를 칠하며 알림)와 칸을 바꿀 때. [회의] 칸에서만 보인다.
 window.addEventListener('kptu:report-entry-kind',e=>{
