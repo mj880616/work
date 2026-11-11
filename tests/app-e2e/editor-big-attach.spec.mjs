@@ -141,7 +141,10 @@ for(const width of [390,1280])test(`노트 입력칸의 파일: [크게] 새 노
  const text=e.locator('.ed-window-body .ProseMirror');await text.click();await page.keyboard.insertText('파일 붙은 노트');
  await e.locator('[data-edw-save]').click();
  await expect(page.locator('#edWindow')).toHaveCount(0);
- expect(f.notes).toHaveLength(1);expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('filename="m.txt"');expect(f.uploads[0]).toContain('name="note_id"');
+ // BIZ-저장먼저닫기 2차(S59-8): 노트 글은 창이 닫히기 전에 저장되고(그래서 바로 1건), 파일은 창이 닫힌 뒤 뒤 줄에서 올라간다 —
+ // 창 닫힘은 올리기 끝이 아니므로 올리기 요청이 서버에 닿기를 기다린다(STAB-저장먼저닫기흔들림).
+ expect(f.notes).toHaveLength(1);
+ await expect.poll(()=>f.uploads.length).toBe(1);expect(f.uploads[0]).toContain('filename="m.txt"');expect(f.uploads[0]).toContain('name="note_id"');
  await expect(qclip.locator('[data-basket-count]')).toBeHidden();
  expect(f.errors).toEqual([]);
 });

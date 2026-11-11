@@ -132,6 +132,9 @@ for(const width of [390,1280]){
     await page.locator('#libraryEditSave').click();
     await expect(page.locator('#libraryEditModal')).toBeHidden();
     // One replace request carrying only the file and the id; no info save (no field changed); then text read and one re-judgement.
+    // BIZ-저장먼저닫기 3차(S59-18): 고친 칸이 없으면 창이 바로 닫히고 파일 교체는 뒤 줄에서 간다 — 창 닫힘은 교체 끝이 아니므로
+    // 교체 요청이 서버에 닿기를 기다린다(STAB-저장먼저닫기흔들림).
+    await expect.poll(()=>state.replaces.length).toBe(1);
     expect(state.replaces).toEqual([{names:['file','replace_document_id'],id:DOC(1),fileName:'새 파일.pdf'}]);
     expect(state.patches).toEqual([]);
     await expect.poll(()=>state.tidies.length).toBe(1);

@@ -344,6 +344,8 @@ test('the library forms choose one of the 7 categories; an old value is shown as
  await page.locator('#libraryEditTitle').fill('국토부 지침(정리)');await page.locator('#libraryEditSave').click();
  await expect.poll(()=>f.calls('app_documents','PATCH').length).toBe(1);
  expect(f.calls('app_documents','PATCH')[0].body.category).toBe('정부자료');
+ // 요청 도착은 저장 끝이 아니다: 서버 답을 받아 목록을 그리고 창이 닫힌 뒤 다음 ⋯를 연다(STAB-저장먼저닫기흔들림).
+ await expect(page.locator('#libraryEditModal')).toBeHidden();
  await page.locator('[data-lu-document="d1"] .lu-more-trigger').click();await page.locator('#luMorePanel [data-lu-edit]').click();
  await page.locator('#libraryEditCategory').selectOption('교섭');await page.locator('#libraryEditSave').click();
  await expect.poll(()=>f.calls('app_documents','PATCH').length).toBe(2);

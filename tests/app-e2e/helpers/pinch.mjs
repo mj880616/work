@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test';
 // FOLDER-나무새기준(S51-12): 두 손가락 벌리기('out')·오므리기('in')를 Chromium 터치 입력으로 흉내 낸다(folder-pinch.js 시험용).
 // 두 손가락은 locator 가운데를 중심으로 좌우에 놓인다. 화면 확대는 나무 칸의 touch-action이 막는다.
 export async function pinch(page, locator, dir) {
@@ -5,8 +6,15 @@ export async function pinch(page, locator, dir) {
   // 화면이 바뀐 다음 장면에서 움직임이 시작되므로 두 장면을 기다린 뒤 잰다.
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.waitForFunction(() => !document.getAnimations().some(a => a.playState === 'running' && !(a instanceof CSSAnimation) && !(a instanceof CSSTransition)));
-  await locator.evaluate(e => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
-  const box = await locator.boundingBox();
+  // STAB-저장먼저닫기흔들림: 나무 칸은 자료가 올 때마다 다시 그려진다(innerHTML). 줄을 찾은 뒤 따로 재면 그 사이 새로 그려져
+  // 문서에서 떨어진 옛 줄을 재(boundingBox null) 깨졌다 — 지금 화면에 붙어 있는 줄을 한 번에 굴려 보이고 잰다(떨어진 줄이면 다시 찾는다).
+  let box = null;
+  await expect.poll(async () => (box = await locator.evaluate(e => {
+    if (!e.isConnected) return null;
+    e.scrollIntoView({ block: 'center', behavior: 'instant' });
+    const r = e.getBoundingClientRect();
+    return r.width && r.height ? { x: r.x, y: r.y, width: r.width, height: r.height } : null;
+  })), { message: '손짓할 줄이 화면에 붙어 있어야 함' }).not.toBeNull();
   await pinchAt(page, box.x + box.width / 2, box.y + box.height / 2, dir);
 }
 // S51-24: 화면 좌표(cx, cy) 가운데로 두 손가락 벌리기·오므리기(빈 곳 손짓 시험용).
