@@ -193,6 +193,9 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   같은 글이 키워드 찾기로 먼저 들어와 있으면 주소·제목 겹침 거르기(insertNew)로 한 줄만 남는다.
   //   자리: 카탈로그 맨 끝에 더한다 — 앞선 매체의 순서를 바꾸지 않는다(고정 색이 없는 매체는 카탈로그 순서로 색 칸이 정해진다, app/news-colors.mjs). 매체 고르기 화면은 region으로 묶는다.
   //   까닭(설계 3.1f): 미디어오늘 = robots.txt가 막음, 노동과세계 = https가 아님(http로 넘김), 뉴스민 = 봇 확인, 철도경제신문·부산일보 = 공식 RSS 없음.
+  //   ※ 11/11 운영 결과(S58-9, docs/design/news-google-site-robots.md): 구글 뉴스 robots.txt가 검색 RSS(/rss/search)를 금지해 이 길의 14곳(미디어오늘 포함)은
+  //   모두 'robots'·0건이다. 해석 오류가 아니라 실제 금지이고 같은 경로를 쓰는 키워드 찾기도 같다. robots는 무시하지 않는다 — 이 길로 새 매체를 더 넣지 않는다.
+  //   줄을 빼거나 자기 RSS 줄로 바꾸는 것은 그 문서 6절의 결정·확인 뒤에 한다(이 주석만 더했고 동작은 그대로다).
   { key: "news-worknworld", ...googleSite("노동과세계", "worknworld.kctu.org") },
   { key: "news-newsmin", ...googleSite("뉴스민", "newsmin.co.kr") },
   { key: "news-redaily", ...googleSite("철도경제신문", "redaily.co.kr") },
