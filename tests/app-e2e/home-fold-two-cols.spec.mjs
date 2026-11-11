@@ -104,31 +104,30 @@ for (const [width, height] of [...SINGLE, ...PC]) {
 }
 
 for (const [width, height] of [[390, 844], [412, 915], [690, 1000], [884, 1104], [1280, 900]]) {
-  test(`날짜 줄 ${width}: 날짜 칸이 낮다(‹ › [이번 주]와 같은 32px) · 요일·날짜 한 줄 · 오늘·고른 날 표시 그대로`, async ({ page }) => {
+  test(`날짜 줄 ${width}: 날짜 칸은 32px(‹ › [이번 주]와 같은 높이) · 요일 위·날짜 아래 두 줄(HOME-날짜줄고른날) · 읽기 이름 그대로`, async ({ page }) => {
     const errors = await ready(page, width, height);
     const m = await page.evaluate(() => {
       const h = sel => document.querySelector('#journalRoot ' + sel).getBoundingClientRect().height;
       const cells = [...document.querySelectorAll('#journalRoot [data-journal-date]')].map(c => {
         const b = c.getBoundingClientRect(), wd = c.querySelector('.journal-weekday'), nm = c.querySelector('.journal-num');
         const wb = wd.getBoundingClientRect(), nb = nm.getBoundingClientRect(), shown = getComputedStyle(wd).display !== 'none';
-        return { h: b.height, w: b.width, shown, dy: Math.abs((wb.y + wb.height / 2) - (nb.y + nb.height / 2)), wdLeft: shown ? wb.right <= nb.left + 1 : null, inside: shown ? wb.left >= b.left - 0.5 && nb.right <= b.right + 0.5 : nb.left >= b.left - 0.5 && nb.right <= b.right + 0.5 };
+        return { h: b.height, w: b.width, shown, stacked: wb.bottom <= nb.top + 1, inside: shown ? wb.left >= b.left - 0.5 && nb.right <= b.right + 0.5 : nb.left >= b.left - 0.5 && nb.right <= b.right + 0.5 };
       });
       return { cells, prev: h('[data-journal-prev]'), next: h('[data-journal-next]'), today: h('[data-journal-today]'), docW: document.documentElement.scrollWidth, vw: innerWidth };
     });
     expect(m.docW).toBeLessThanOrEqual(m.vw);
     for (const c of m.cells) {
-      expect(c.h).toBeLessThanOrEqual(m.today + 0.5);            // 옆 단추와 같은 높이(세로로 긴 알약 아님)
-      expect(c.h).toBeGreaterThanOrEqual(m.prev - 0.5);
+      expect(c.h).toBeLessThanOrEqual(m.today + 0.5);        // 두 줄이어도 옆 단추와 같은 32px
       expect(c.inside).toBe(true);                               // 글자가 칸 밖으로 나가지 않음
-      expect(c.shown).toBe(width >= 400);                        // 400px 미만 접은 폰만 요일 글자 숨김
-      if (c.shown) { expect(c.dy).toBeLessThanOrEqual(3); expect(c.wdLeft).toBe(true); }
+      expect(c.shown).toBe(true);                                // 폭과 상관없이 요일 글자가 날짜 위에 보임
+      expect(c.stacked).toBe(true);
     }
     expect(m.prev).toBeCloseTo(32, 0); expect(m.next).toBeCloseTo(32, 0); expect(m.today).toBeCloseTo(32, 0);
     // 오늘 칸 = 공용 오늘 표시 + 고른 날, 읽기 이름은 그대로.
     const today = page.locator('#journalRoot [data-journal-date="2026-10-06"]');
     await expect(today).toHaveClass(/ds-today/); await expect(today).toHaveAttribute('aria-current', 'date'); await expect(today).toHaveAttribute('aria-pressed', 'true');
     await expect(today).toHaveAttribute('aria-label', /10월 6일 화요일/);
-    if (width >= 400) await expect(today).toContainText('화');
+    await expect(today).toContainText('화');
     expect(errors).toEqual([]);
   });
 }
