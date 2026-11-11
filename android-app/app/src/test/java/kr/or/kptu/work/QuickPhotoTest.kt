@@ -247,7 +247,7 @@ class QuickPhotoTest {
         assertEquals(1, store.items(b).size)
         // 로그인 풀림은 저절로 다시 하지 않고(로그인 뒤 [사진]으로 이어 올림), 같은 안내를 두 번 붙이지 않는다.
         assertFalse(QuickPhotoRules.autoRetry(run as QuickPhotoRules.Run.Stopped, 0))
-        assertEquals("사진을 정리함에 올리지 못했어요 · " + QuickPhotoRules.SIGNED_OUT, QuickPhotoRules.failed(run))
+        assertEquals("사진을 잊지 말기에 올리지 못했어요 · " + QuickPhotoRules.SIGNED_OUT, QuickPhotoRules.failed(run))
     }
 
     @Test
@@ -327,7 +327,7 @@ class QuickPhotoTest {
         assertTrue(QuickPhotoRules.autoRetry(net, 1))
         assertFalse(QuickPhotoRules.autoRetry(net, 2))
         assertFalse(QuickPhotoRules.autoRetry(QuickPhotoRules.Run.Stopped(QuickPhotoRules.UNKNOWN, false, 0, 1), 0))
-        assertEquals("사진을 정리함에 올리지 못했어요 · " + QuickPhotoRules.UNKNOWN, QuickPhotoRules.failed(QuickPhotoRules.Run.Stopped(QuickPhotoRules.UNKNOWN, false, 0, 1)))
+        assertEquals("사진을 잊지 말기에 올리지 못했어요 · " + QuickPhotoRules.UNKNOWN, QuickPhotoRules.failed(QuickPhotoRules.Run.Stopped(QuickPhotoRules.UNKNOWN, false, 0, 1)))
     }
 
     @Test
@@ -372,5 +372,16 @@ class QuickPhotoTest {
         assertFalse(manifest.contains("FOREGROUND_SERVICE_DATA_SYNC"))
         // S48-60(0.4.15): 사진 위치 정보(ACCESS_MEDIA_LOCATION) 하나가 더해져 13. S49-51(0.5.0): [파일] '이 폰' 모든 파일 접근 하나가 더해져 14.
         assertEquals(14, Regex("<uses-permission ").findAll(manifest).count())
+    }
+
+    @Test
+    fun photoTextsUseTheForgetListName() {
+        // 웹 메뉴 이름이 '잊지 말기'로 바뀐 뒤(HOME-잊지말기한목록) 위젯 [사진] 알림 글자도 같은 이름이다.
+        assertEquals("잊지 말기에 사진 3장을 올리는 중이에요", QuickPhotoRules.staged(3, 0))
+        assertEquals("잊지 말기에 사진 3장을 올리는 중이에요 · 2장은 뺐어요(20장·100MB까지)", QuickPhotoRules.staged(3, 2))
+        assertEquals("잊지 말기에 사진을 넣었어요", QuickPhotoRules.saved(1))
+        assertEquals("잊지 말기에 사진 3장을 넣었어요", QuickPhotoRules.saved(3))
+        assertEquals("올렸는지 확인하지 못했어요 · 잊지 말기를 확인해 주세요", QuickPhotoRules.UNKNOWN)
+        assertEquals("이어 붙일 잊지 말기 글이 삭제됐어요 · 남은 사진은 새 글로 넣어요", QuickPhotoRules.NOTE_GONE)
     }
 }

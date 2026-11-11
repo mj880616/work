@@ -181,7 +181,7 @@ class OneWidgetConfigActivity : Activity() {
 
     private fun choiceLabel(action: WidgetAction): String = when (action) {
         WidgetAction.NOTE -> "노트 추가"
-        WidgetAction.UPDATE -> "업데이트(정리함)"
+        WidgetAction.UPDATE -> "업데이트(잊지 말기)"
         WidgetAction.TASK -> "할 일 추가"
         WidgetAction.PHOTO -> "사진 올리기"
         WidgetAction.RECORD -> "녹음 시작"

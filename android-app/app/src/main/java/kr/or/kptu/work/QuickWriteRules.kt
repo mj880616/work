@@ -79,7 +79,7 @@ object QuickWriteRules {
 
     /** 저장 뒤 짧은 알림. */
     fun saved(kind: WidgetAction): String = when (kind) {
-        WidgetAction.UPDATE -> "정리함에 넣었어요"
+        WidgetAction.UPDATE -> "잊지 말기에 넣었어요"
         WidgetAction.TASK -> "할 일에 넣었어요"
         WidgetAction.NOTE -> "노트에 넣었어요"
         else -> "저장했어요"
@@ -87,7 +87,7 @@ object QuickWriteRules {
 
     /** 창 입력칸 안내. */
     fun hint(kind: WidgetAction): String = when (kind) {
-        WidgetAction.UPDATE -> "업데이트 입력(정리함에 저장)"
+        WidgetAction.UPDATE -> "업데이트 입력(잊지 말기에 저장)"
         WidgetAction.TASK -> "할 일 제목(둘째 줄부터 메모)"
         WidgetAction.NOTE -> "노트(첫 줄이 제목)"
         else -> ""
