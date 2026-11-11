@@ -586,6 +586,7 @@ for(const width of [412,1280])test(`[전체 표] 뺀 줄·지난 기록 줄 ⋯ 
  expect(base).toContain('보고용으로 수정');expect(base.at(-1)).toBe('기록 삭제');
  const fold1=oa(page).locator('[data-rw-fold-box="folded"] .rw-line').first(),out1=oa(page).locator('[data-rw-fold-box="out"] .rw-line').first();
  await expect(fold1.locator('.row-more')).toHaveCount(1);
+ if(SHOTS)await page.screenshot({path:`${SHOTS}/org-row-more-${width}.png`});
  await fold1.locator('summary').click();
  expect(await menuTexts(fold1)).toEqual(['넣기',...base]);
  await page.keyboard.press('Escape');
@@ -632,6 +633,8 @@ for(const width of [412,1280])test(`[전체 표] 줄 ⋯ [기록 삭제] ${width
  const first=oa(page).locator('.wl-cell > .rw-line[data-rw-kind="org_update"]',{hasText:'합성 이번 주 줄'});
  await first.locator('summary').click();
  await first.locator('.row-more').getByText('기록 삭제',{exact:true}).click();
+ await page.locator('.kptu-ask').waitFor({state:'visible'});
+ if(SHOTS)await page.screenshot({path:`${SHOTS}/org-row-delete-ask-${width}.png`});
  expect(await answerAsk(page,false)).toBe('이 기록을 삭제할까요?');
  expect(db.deletes).toEqual([]);
  await expect(first).toHaveCount(1);
