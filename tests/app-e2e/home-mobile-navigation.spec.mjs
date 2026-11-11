@@ -60,7 +60,14 @@ test('drawer consumes history before navigation, theme and logout',async({page})
   const drawer=page.locator('#mobileMenu'),trigger=page.locator('#mobileMenuTab');
   for(const close of ['outside','escape','back']){
     await trigger.click();await expect(drawer).toBeVisible();
-    if(close==='outside')await drawer.click({position:{x:10,y:400}});
+    // STAB-저장먼저닫기흔들림: '바깥'은 판(.mobile-menu-panel) 위쪽 빈 곳이다. 판은 내용 높이만큼이라(약 435px, 위 끝 y≈361) 예전 자리
+    // (10,400)는 올라오는 움직임이 끝나면 판 안이었다 — 움직임이 끝난 뒤 판 위 끝을 재고 그 위 가운데를 누른다.
+    if(close==='outside'){
+      const panel=drawer.locator('.mobile-menu-panel');
+      await expect.poll(()=>panel.evaluate(p=>p.getAnimations().length)).toBe(0);
+      const top=(await panel.boundingBox()).y,sheet=await drawer.boundingBox();expect(top-sheet.y).toBeGreaterThan(40);
+      await drawer.click({position:{x:10,y:Math.round((top-sheet.y)/2)}});
+    }
     if(close==='escape')await page.keyboard.press('Escape');
     if(close==='back')await page.goBack();
     await expect(drawer).toBeHidden();await expect(page.locator('#homeView')).toBeVisible();

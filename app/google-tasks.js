@@ -351,6 +351,9 @@ async function saveEditor(opt){
       if(!confirmedTask(d,r.task?.id))throw new Error('저장 결과를 확인하지 못했어요.') ;
       if(!r.task){r.task=editing={...d.task};r.fresh=true;editorLinks=confirmedKeys(d);document.querySelector('#gtTaskHeading').textContent='Google 할 일 수정';const created=editorCreated;editorCreated=null;if(created)try{created(d.task.id)}catch{}}
       editing=r.task={...r.task,...d.task};paintAttach(editing);
+      // STAB-저장먼저닫기흔들림: 서버가 확인한 할 일을 목록에도 바로 넣는다(다시 읽기를 기다리지 않음). 빠른 기한으로 칸이 닫힌 뒤 곧바로
+      // 같은 할 일을 다시 열어도 옛 기한이 아니라 저장한 기한으로 열린다.
+      if(owner===currentOwner()&&lastTasks.some(t=>t.id===r.task.id)){const shown=lastTasks.find(t=>t.id===r.task.id),want=pendingToggles.get(r.task.id);putTask(want?withStatus({...shown,...d.task},want.want):{...shown,...d.task},owner)}
       editorDraft=r.text;r.savedText=r.text;pendingEditors.set(taskUncertaintyKey(r.task.id),r);
       sendChosenFiles(r); // 새 할 일의 고른 파일은 할 일이 생긴 바로 뒤 줄로(연결 저장을 기다리지 않음). 수정 창의 첨부 계획은 아래 빼기 뒤에.
 
@@ -402,7 +405,7 @@ async function saveEditor(opt){
 }
 async function deleteEditor(){if(editorSaving||!editing)return;{const was=editing,askSeq=editorSeq;if(!(await askConfirm(document.querySelector('#gtDeleteBtn'),{text:'이 Google 할 일을 삭제할까요?',ok:'삭제',danger:true}))||editorSaving||editing!==was||editorSeq!==askSeq||document.querySelector('#gtTaskModal').classList.contains('hidden'))return}const task=editing,seq=editorSeq,epoch=editorSession(),owner=currentOwner(),toggle=document.querySelector('#gtToggleBtn');const active=()=>seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()&&editing?.id===task.id&&!document.querySelector('#gtTaskModal').classList.contains('hidden');editorSaving=true;toggle.disabled=true;try{await rt.api(endpoint('delete'),{method:'POST',expectedSessionEpoch:epoch,body:{action:'delete',task_list_id:task.taskListId,task_id:task.id}});if(!active())return;closeEditor();tasksChanged()}catch(e){if(active())document.querySelector('#gtEditStatus').textContent=String(e?.message||e)}finally{if(seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()){editorSaving=false;toggle.disabled=!editorReady}}}
 // After a change from the editor: the task view reloads only while it is shown (it reloads on every visit anyway), and open link views refetch.
-function tasksChanged(){linkedCache.clear();refreshLinked();if(tasksViewShown())load(true);else fetchedOwner='';window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'))}
+function tasksChanged(){changeSeq++;linkedCache.clear();refreshLinked();if(tasksViewShown())load(true);else fetchedOwner='';window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'))}
 // Completing or reopening shows at once and saves to Google in the background, without reloading the whole list.
 // Per task: base is the state Google last confirmed, want is the state last tapped. One save at a time per task; repeated taps
 // save only the last wish. A failed save goes back to base. A list load that started before a save finished keeps the saved state.
@@ -595,6 +598,10 @@ async function describeTasks(tasks){
 }
 
 // Reserve this session's load before awaiting readiness so rapid route changes share one fetch.
+// STAB-저장먼저닫기흔들림: 읽는 동안 수정 창 등에서 바꾼 것이 저장되면(tasksChanged — 그때 부른 다시 읽기는 이 읽기에 합쳐져 버려진다)
+// 이 읽기의 답은 그 저장보다 옛것일 수 있다. 이미 목록이 보이면 그 답으로 다시 그리지 않고, 이 읽기가 끝나면 한 번 더 읽는다(changeSeq).
+let changeSeq=0,loadAgain=-1;
+function loadDone(seq){if(seq!==loadSeq)return;loadingEpoch=-1;const again=loadAgain===sessionEpoch;loadAgain=-1;if(again)void load(true)}
 async function load(force=false){
   const epoch=sessionEpoch;
   if(loadingEpoch===epoch)return;
@@ -612,8 +619,9 @@ async function load(force=false){
     const body=sec.querySelector('#gtTaskBody');
     if(prev){renderTasks(lastTasks);setSync('');setFresh('refresh')}
     else if(body){setSync('');setFresh('');body.className='gt-status';body.innerHTML=waitHtml({rows:5})}
-    const since=toggleSeq,d=await fetchOverview();
+    const since=toggleSeq,changes=changeSeq,d=await fetchOverview();
     if(!stillCurrent(epoch,owner))return;
+    if(changes!==changeSeq&&prev){loadAgain=epoch;return} // 읽는 사이 저장이 있었다: 이 답은 그리지 않고 끝(finally)에서 다시 읽는다
     if(d?.connected===false||d?.needs_reconnect||d?.authorized===false){
       lastTasks=[];cacheOwnerId=owner;shownOwner='';fetchedOwner='';cacheDrop(owner);setSync('');setFresh('');
       renderConnect(d?.connected===false?'Google 계정을 연결하면 Google 할 일을 함께 관리할 수 있습니다.':(d?.warning||'기존 Google 연결에 Google Tasks 수정 권한이 없어요. 한 번 다시 연결해 주세요.'));return
@@ -623,7 +631,7 @@ async function load(force=false){
     allPendingConfirmed=d?.pending_scope==='all';
     lastTasks=keepDeletingTasks(mergeToggles(withShownLinks(fresh.filter(t=>!deletedTombstones.has(t.id)),owner),since));cacheOwnerId=owner;shownOwner=owner;fetchedOwner=owner;
     checkedAt=Date.now();verifiedOwner=owner;cacheWrite(owner,lastTasks);setSync('');setFresh('');renderTasks(lastTasks);
-    if(loadSeq===seq)loadingEpoch=-1;
+    loadDone(seq);
     // Source notes: one owner-scoped query per load. A failure only hides the links.
     void loadSourceNotes(owner,epoch).then(changed=>{if(changed&&seq===loadSeq)renderTasks(lastTasks)},()=>{}).finally(()=>{if(seq===loadSeq&&stillCurrent(epoch,owner))openRequestedTask()});
     void loadTaskFiles(owner,epoch,lastTasks).then(changed=>{if(changed&&seq===loadSeq){renderTasks(lastTasks);if(editing?.id&&!editorSaving&&!attach?.dirty())paintAttach(editing)}},()=>{});
@@ -634,7 +642,7 @@ async function load(force=false){
     if(/연결되지|재인증|TASKS_SCOPE_REQUIRED|권한/i.test(msg)){shownOwner='';fetchedOwner='';cacheDrop(owner);setSync('');setFresh('');renderConnect(msg)}
     else if(prev){setSync('');setFresh('stale')}
     else renderError('Google 할 일을 불러오지 못했어요.',true)
-  }finally{if(seq===loadSeq)loadingEpoch=-1}
+  }finally{loadDone(seq)}
 }
 // Tasks linked to one project (plan 4.1-5, decision 3): every pending one and those completed in the last 3 days, which the Edge reads
 // from Google by id. A result is reused for a minute, so re-rendering the project detail does not ask Google again.

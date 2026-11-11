@@ -197,6 +197,9 @@ for (const viewport of [{ width: 412, height: 915 }, { width: 1280, height: 900 
   test(`[할 일] 빠른 입력칸: [추가] 바로 입력칸이 풀리고 파일은 뒤에서 ${w}`, async ({ browser }) => {
     const { context, page, state, errors, gate } = await openTasks(browser, { viewport });
     const q = page.locator('#tasksView .home-quick[data-home-quick]');
+    // [할 일] 입력칸의 클립(📎)은 아래 목록이 할 일 첨부 표를 읽고 답한 뒤에야 켜진다(home-quick.js taskFilesOn). 켜지기 전에 고른 파일은
+    // 입력칸이 받지 않으므로, 사람처럼 클립이 보인 뒤 고른다(STAB-저장먼저닫기흔들림 — 이 시험만 기다리지 않아 가끔 파일 없이 저장됐다).
+    await expect(q.locator('[data-quick-file-picker] .basket-clip')).toBeVisible();
     await q.locator('input[type="file"]').setInputFiles([txt('안건.txt'), png('칠판.png')]);
     await q.locator('[data-quick-input]').fill('안건 보내기');
     const release = gate();

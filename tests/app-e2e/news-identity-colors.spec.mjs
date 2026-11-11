@@ -38,10 +38,13 @@ async function openAll(page, width, scheme) {
   await expect(page.locator('#outsideRoot [data-nw-all] [data-nw-key="outside:p7"]')).toBeVisible();
   return errors;
 }
-const paint = (page, id) => page.locator(`#outsideRoot [data-nw-all] [data-nw-key="outside:${id}"]`).evaluate(row => {
+// STAB-저장먼저닫기흔들림: 목록 칸은 자료(글·언론·읽음 표시)가 올 때마다 줄을 통째로 새로 그린다(innerHTML). 줄을 먼저 찾고 따로 재면
+// 그 사이 새로 그려져 문서에서 떨어진 옛 줄(계산된 색 '')을 잴 수 있었다. 늘 있는 목록 칸에서 한 번에 지금 줄을 찾아 잰다.
+const paint = (page, id) => page.locator('#outsideRoot [data-nw-all]').evaluate((list, key) => {
+  const row = list.querySelector(`[data-nw-key="outside:${key}"]`);
   const bar = getComputedStyle(row.querySelector('.nw-bar')), src = getComputedStyle(row.querySelector('.nw-src'));
   return { bg: bar.backgroundColor, img: bar.backgroundImage, ink: src.color };
-});
+}, id);
 
 for (const [width, scheme] of [[1280, 'light'], [412, 'light'], [412, 'dark'], [1280, 'dark']]) {
   test(`News 고유색 ${width} ${scheme}: 정당 4곳·금속노조·공공운수노조 3색 막대·민주노총`, async ({ page }) => {
