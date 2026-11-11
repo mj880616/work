@@ -16,7 +16,7 @@
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
 import {notify} from './small-notice.js';
-import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry} from './meeting-server-job.mjs';
+import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry,requestFail,OFFLINE_START_TEXT,OPEN_FAIL_TEXT} from './meeting-server-job.mjs';
 
 (()=>{
 'use strict';
@@ -38,6 +38,11 @@ let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer
 let takeover=null,pending=[],live=[],pendingFor='',pendingFlight=null,discarding=false,livePolls=0,livePollTimer=0;
 // REC-서버정리(S49-2): 지켜보는 서버 정리 작업 id·끝난 결과(띠 [초안 열기]), 지켜보기 세대(다른 정리를 시작하면 앞 것은 그만 봄).
 let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='';
+// REC-정리상태확인못함(S60-3): 잠깐 끊겨 멈춘 띠(recheck)는 화면이 다시 보이거나 연결이 돌아오면 저절로 다시 본다. 지켜보는 중의 기다림도 그때 깨운다.
+let recheck=false;
+const wakers=new Set();
+const sleepWake=ms=>new Promise(r=>{const done=()=>{clearTimeout(t);wakers.delete(done);r()};const t=setTimeout(done,ms);wakers.add(done)});
+const wakeWatch=()=>{for(const w of [...wakers])w()};
 let pieceMs=PIECE_SECONDS*1000,rollPieces=rollPiecesOf(null); // 이 녹음의 조각 간격·구간 조각 한도(rec_start 답, 녹음 내내 같음)
 const DISCARD_DRAIN_MS=20000,DISCARD_NOTICE_MS=10000;
 const SUSPEND_NOTE='마이크는 브라우저 규칙상 직접 눌러야 다시 켜져요. 지금까지 녹음은 서버에 있어요.';
@@ -71,6 +76,7 @@ function paint(){
   el.hidden=!on;
   document.body.classList.toggle('rec-on',on);
   el.dataset.state=showPending?'pending':state;
+  el.classList.toggle('rec-why',!showPending&&state==='ready'&&!!errorText); // 정리 끝인데 초안을 열지 못한 이유(멈춤 띠처럼 두 줄)
   const label=el.querySelector('.rec-label'),time=el.querySelector('.rec-time'),msg=el.querySelector('.rec-note'),act=el.querySelector('.rec-actions');
   const sec=elapsed()/1000;
   let l='',t='',m='',a='';
@@ -105,7 +111,7 @@ function paint(){
     a=state==='done'?'<button type="button" class="rec-btn" data-rec="close">닫기</button>':'';
   }else if(state==='ready'){
     l='정리 끝';
-    m=escapeText('회의 요약이 준비됐어요.');
+    m=escapeText(errorText||'회의 요약이 준비됐어요.'); // errorText = 결과를 열지 못한 이유(상태 확인 실패와 나눔)
     a='<button type="button" class="rec-btn" data-rec="open">초안 열기</button><button type="button" class="rec-btn" data-rec="close">닫기</button>';
   }else if(state==='error'){
     l='녹음 정리 멈춤';
@@ -144,7 +150,7 @@ function onBandClick(e){
   else if(what==='open')void openReady();
   else if(what==='close')closeBand();
 }
-function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';accum=0;runSince=0;readyJob=null;paint()}
+function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';recheck=false;accum=0;runSince=0;readyJob=null;paint()}
 function startTicker(){clearInterval(ticker);ticker=setInterval(tick,1000)}
 function tick(){
   if(state==='recording'&&current&&!current.rolling){
@@ -384,25 +390,39 @@ function retryFinish(){
   void finishSession();
 }
 async function serverFinish(opts,known=null){
-  const mine=++watchEpoch;
+  const mine=++watchEpoch;recheck=false;
+  let r;
   try{
-    const r=await watchServerJob({
-      call,alive:()=>mine===watchEpoch,hidden:()=>document.visibilityState==='hidden',
+    r=await watchServerJob({
+      call,sleep:sleepWake,alive:()=>mine===watchEpoch,hidden:()=>document.visibilityState==='hidden',
       onProgress:job=>{jobId=job.id;step=STAGE_STEP[job.stage]||step;note=progressNote(job)||'화면을 닫아도 서버에서 계속 정리해요';paint()},
     },opts);
-    if(r.kind==='gone')return;
-    if(r.kind==='unavailable'){
-      if(opts?.start?.kind==='attached'){fail('붙은 녹음 전사는 서버 준비가 끝나면 쓸 수 있어요.',false);return}
-      await finishOnScreen(known);return;
-    }
-    if(r.kind==='failed'){fail(serverFailText(r.job?.error_code),serverCanRetry(r.job?.error_code));return}
-    await openServerResult(r.job);
   }catch(e){
     if(mine!==watchEpoch)return;
-    console.warn('recording server finish failed',e?.status||'',e?.code||'');
-    if(!jobId&&opts?.start?.kind==='attached'){fail(e?.code&&e.code!=='failed'?serverFailText(e.code):'전사를 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.',false);return}
-    fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [다시]를 눌러 주세요.':'정리 상태를 확인하지 못했어요. 서버는 계속 정리 중일 수 있어요. [다시]를 누르세요.',true);
+    // REC-정리상태확인못함(S60-3): 서버가 거절한 이유(한도·준비 중·작업 없음 등)는 그 이유 글로, 잠깐 끊김만 '확인하지 못했어요'.
+    const f=requestFail(e);
+    console.warn('recording server finish failed',e?.status||'',f.code);
+    if(!jobId&&opts?.start?.kind==='attached'){fail(f.auto?'전사를 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.':f.text,false);return}
+    // 지켜볼 작업이 있으면 다시 보일 때·연결이 돌아올 때 저절로 다시 본다. 시작 답을 못 받았으면(작업 모름) 사람이 [다시].
+    fail(f.auto&&!jobId?OFFLINE_START_TEXT:f.text,f.retry);
+    recheck=f.auto&&!!jobId;
+    return;
   }
+  if(r.kind==='gone')return;
+  if(r.kind==='unavailable'){
+    if(opts?.start?.kind==='attached'){fail('붙은 녹음 전사는 서버 준비가 끝나면 쓸 수 있어요.',false);return}
+    await finishOnScreen(known);return;
+  }
+  if(r.kind==='failed'){fail(serverFailText(r.job?.error_code),serverCanRetry(r.job?.error_code));return}
+  // 결과 열기의 실패는 openServerResult가 띠 '정리 끝 [초안 열기]'에 이유와 함께 남긴다(상태 확인 실패로 뭉개지 않게 위 catch 밖에서 연다).
+  await openServerResult(r.job);
+}
+// 잠깐 끊겨 멈춘 띠: 화면이 다시 보이거나 연결이 돌아오면 그 작업을 다시 본다(다시 하기 job_retry가 아니라 읽기만).
+function recheckNow(){
+  wakeWatch();
+  if(state!=='error'||!recheck||!jobId||document.visibilityState==='hidden')return;
+  recheck=false;state='finishing';step='';errorText='';canRetry=false;note='화면을 닫아도 서버에서 계속 정리해요';paint();
+  void serverFinish({jobId});
 }
 // 서버가 끝낸 결과 → 사업 보고 › 회의 입력 창(전문·요약을 채운 채). 저장은 명진이 [사업 보고 저장](예외: 물음에서 [그 보고에 잇기] — 서버가 그 보고에 저장).
 // 회의자료 그 자리 전사(kind attached)는 그 회의 [수정] 창에 넣는다(meeting-round-detail.js fillTranscript).
@@ -412,7 +432,7 @@ async function openServerResult(job){
       // REC-한회의로잇기 PR-5(설계 3-3절 (다)): 그 회의에 회의록 전문이 이미 있으면 [수정] 창에 넣기 전에 한 번 묻는다(물음·잇기의 주인은 meeting-join.js).
       // [그 보고에 잇기]면 창 없이 서버가 그 회의에 이어 붙이고 띠는 바로 닫는다. 물음을 닫으면 결과는 띠 [초안 열기]에 남는다. 서버가 모르면 묻지 않음.
       if(window.KPTUMeetingJoin?.ask){
-        readyJob=job;jobId='';state='ready';paint();
+        readyJob=job;jobId='';state='ready';errorText='';paint();
         const how=await window.KPTUMeetingJoin.ask(job);
         if(how==='joined'){if(readyJob?.id===job.id){readyJob=null;state='idle';step='';note='';paint()}return}
         if(how==='later')return;
@@ -427,7 +447,7 @@ async function openServerResult(job){
       void call('job_opened',{job_id:job.id}).catch(()=>{});
       readyJob=null;jobId='';state='done';paint();
       setTimeout(()=>{if(state==='done')closeBand()},8000);
-    }catch(e){console.warn('attached result open failed',e?.status||'',e?.code||'');readyJob=job;state='ready';paint()}
+    }catch(e){console.warn('attached result open failed',e?.status||'',e?.code||'');readyJob=job;state='ready';errorText=e?.recText||OPEN_FAIL_TEXT;paint()}
     return;
   }
   try{
@@ -438,7 +458,7 @@ async function openServerResult(job){
     // [그 보고에 잇기]면 창 없이 서버가 뒤에서 그 보고에 저장하고 띠는 바로 닫는다(다음 녹음을 막지 않게). 물음을 닫으면 결과는 띠 [초안 열기]에 남는다.
     // 서버가 잇기를 모르면(적용 전·옛 Edge) 묻지 않고 아래 지금 길.
     if(window.KPTUMeetingJoin?.ask){
-      readyJob=job;jobId='';state='ready';paint();
+      readyJob=job;jobId='';state='ready';errorText='';paint();
       const how=await window.KPTUMeetingJoin.ask(job,{began});
       if(how==='joined'){if(readyJob?.id===job.id){readyJob=null;state='idle';step='';note='';accum=0;runSince=0;paint()}pending=pending.filter(s=>s.session_id!==job.session_id);void loadPending(true);return}
       if(how==='later')return;
@@ -446,9 +466,9 @@ async function openServerResult(job){
       step='초안 열림';note='';state='finishing';paint();
     }
     // REC-한회의로잇기 PR-0: 쓰던 사업 보고 창을 두기로 하면 결과는 띠 [초안 열기]에 남는다(창은 그대로).
-    if(!await openEntry(began,entryHooks(job))){readyJob=job;jobId='';state='ready';paint();return}
+    if(!await openEntry(began,entryHooks(job))){readyJob=job;jobId='';state='ready';errorText='';paint();return}
     const draft=window.KPTUMeetingTranscriptDraft;
-    if(!draft?.fillResult)throw stopError('초안 칸을 찾지 못했어요. [다시]를 누르세요.',true);
+    if(!draft?.fillResult)throw stopError('초안 칸을 찾지 못했어요. [초안 열기]를 다시 누르세요.',true);
     const minutes=Math.round((Number(job.seconds)||elapsed()/1000)/60);
     draft.fillResult({text:job.transcript_text,draft:job.draft,jobs:job.jobs,name:`녹음${minutes?` · ${minutes}분`:''}`});
     readyJob=null;jobId='';state='done';paint();
@@ -457,7 +477,7 @@ async function openServerResult(job){
     void loadPending(true);
   }catch(e){
     console.warn('recording open result failed',e?.status||'',e?.code||'');
-    readyJob=job;state='ready';paint();
+    readyJob=job;state='ready';errorText=e?.recText||OPEN_FAIL_TEXT;paint();
   }
 }
 // 입력 창을 연다. 쓰던 사업 보고 창을 두기로 했으면 false(그 창은 그대로, team.js settleOpenEntry).
@@ -465,9 +485,9 @@ async function openEntry(at,hooks={}){
   const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
   if(loader)await loader('meetings');
   const entry=window.KPTUReportEntry;
-  if(!entry?.open)throw stopError('사업 보고 화면을 열지 못했어요. [다시]를 누르세요.',true);
+  if(!entry?.open)throw stopError('사업 보고 화면을 열지 못했어요. [초안 열기]를 다시 누르세요.',true);
   const opened=await entry.open({kind:'meeting',at:seoulLocal(at||startedAt||new Date().toISOString()),trigger:$('#reportRecordBtn')||document.activeElement,...hooks});
-  if(opened===false){if(entryKept())return false;throw stopError('사업 보고 창을 열지 못했어요. [다시]를 누르세요.',true)}
+  if(opened===false){if(entryKept())return false;throw stopError('사업 보고 창을 열지 못했어요. [초안 열기]를 다시 누르세요.',true)}
   return true;
 }
 const entryKept=()=>{const m=$('#meetingModal');return !!m&&!m.classList.contains('hidden')};
@@ -512,9 +532,9 @@ async function loadServerJobs(tries=0){
   if(state!=='idle')return;
   const live=jobs.find(j=>j.status==='queued'||j.status==='running');
   const done=jobs.find(j=>j.status==='done'&&(!wanted||j.id===wanted))||jobs.find(j=>j.status==='done');
-  if(wanted&&done?.id===wanted){readyJob=done;state='ready';paint();await openReady();return}
+  if(wanted&&done?.id===wanted){readyJob=done;state='ready';errorText='';paint();await openReady();return}
   if(live){jobId=live.id;sessionId=live.session_id||'';state='finishing';step=STAGE_STEP[live.stage]||'올림';note='화면을 닫아도 서버에서 계속 정리해요';paint();void serverFinish({jobId:live.id});return}
-  if(done){readyJob=done;state='ready';paint();return}
+  if(done){readyJob=done;state='ready';errorText='';paint();return}
   const failed=jobs.find(j=>j.status==='failed');
   if(failed){jobId=failed.id;sessionId=failed.session_id||'';fail(serverFailText(failed.error_code),serverCanRetry(failed.error_code))}
 }
@@ -564,7 +584,7 @@ async function finishOnScreen(known=null){
   }
 }
 function stopError(text,retry){const e=new Error('');e.recText=text;e.recRetry=retry;return e}
-function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&(!!sessionId||!!jobId);step='';note='';clearInterval(ticker);paint()}
+function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&(!!sessionId||!!jobId);recheck=false;step='';note='';clearInterval(ticker);paint()}
 
 // 사업 보고 › 회의 입력 창을 열고 기존 [녹음 요약하기] 흐름에 글을 넣는다(meeting-transcript-draft.js).
 // 쓰던 사업 보고 창을 두기로 하면 멈춤 띠 + [다시](이미 전사한 구간 글은 이 창 메모리에 있어 다시 전사하지 않음).
@@ -647,7 +667,8 @@ document.addEventListener('click',e=>{
   if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard)}
 });
 // 녹음 중(아직 올리지 못한 조각이 있을 때 포함)에만 창 닫기 경고.
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')onHiddenFlush();else onVisibleCheck()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')onHiddenFlush();else{onVisibleCheck();recheckNow()}});
+window.addEventListener('online',recheckNow);
 window.addEventListener('pagehide',onHiddenFlush);
 window.addEventListener('beforeunload',e=>{
   if(state==='suspended'&&!queuedPieces(segments))return;

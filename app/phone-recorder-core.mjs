@@ -6,7 +6,7 @@
 //   규칙(meeting-recorder-model.mjs)을 쓴다. 노트북 모듈은 고치지 않는다(같은 시간 다른 작업과 겹치지 않게, PR 본문 참고).
 import {retryDelay,pieceOutcome,transcribePlan,joinSegmentTexts,seoulLocal,pendingOthers} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
-import {unavailable as serverUnavailable} from './meeting-server-job.mjs';
+import {unavailable as serverUnavailable,requestFail,OFFLINE_START_TEXT} from './meeting-server-job.mjs';
 
 export const MIME='audio/ogg';
 export const DISCARD_DRAIN_MS=20000;
@@ -212,7 +212,9 @@ export function createPhoneRecorder(deps){
       if(deps.watchServer)job=(await deps.call('job_start',{workspace_id:deps.workspace(),kind:'recording',session_id:sessionId},{timeoutMs:60000}))?.job||null;
     }catch(e){
       if(!serverUnavailable(e)){
-        fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':'서버에 정리를 맡기지 못했어요. 올린 소리는 Drive에 남아 있어요. [다시]를 누르세요.',true);
+        // REC-정리상태확인못함(S60-3): 서버가 거절한 이유(한도·준비 중·다른 정리 중 등)는 그 이유 글로(노트북 띠와 같은 표).
+        const f=requestFail(e);
+        fail(f.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':f.auto?OFFLINE_START_TEXT:f.text,f.retry);
         return;
       }
     }
