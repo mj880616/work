@@ -62,6 +62,12 @@ html .modal.ed-window .edw-place-row button[data-edw-place]::after { content:"";
    단추 아래 작은 노트 고르기 창(줄 모양은 노트 보드 노트 고르기 .nbb-pick 줄과 같음, basket.css). 크기는 [폴더 ▾]와 같은 작은 단추. */
 .ed-window-foot[hidden] { display:none; }
 .edw-head-wrap { display:flex; flex-direction:column; min-width:0; }
+/* NOTE-주소로 가져오기 2단계(안 A): 새 노트 창 제목 줄 아래 주소 칸 [주소 | 가져오기]. 줄 높이·선은 제목 줄과 같고, 버튼 모양은 공용 작은 버튼 그대로(자리만 정한다). */
+.edw-import-row { display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target, 44px); padding:0 8px; border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface); box-sizing:border-box; }
+.edw-import-row[hidden] { display:none; }
+.edw-import-row .ui-ico { flex:none; display:inline-flex; color:var(--kptu-muted); }
+html .modal.ed-window .edw-import-row input[data-edw-url] { flex:1 1 auto; min-width:0; box-sizing:border-box; height:var(--ds-compact-height, 32px); margin:0; padding:0 4px; font:inherit; font-size:var(--ds-text-row, 14px); color:var(--kptu-ink); background:transparent; border:0; outline:none; }
+.edw-import-row [data-edw-import-run] { flex:none; }
 html .modal.ed-window .edw-title-row [hidden] { display:none; }
 html .modal.ed-window .edw-title-row [data-edw-target].is-on { border-color:var(--kptu-primary); background:var(--kptu-primary-soft); }
 html .modal.ed-window .edw-title-row button[data-edw-target] { max-width:min(14em, 45vw); }
