@@ -93,6 +93,8 @@ for (const [label, size] of SIZES) {
     await panel(page).locator('.mnp-pick', {hasText: '예시 회의 9'}).click();
     await expect(panel(page)).toBeHidden();
     await expect(page.locator('#meetingNameSelect')).toHaveValue('예시 회의 9');
+    // 저장에 쓰이는 회의명 칸에도 그 이름이 들어간다(보고를 저장하면 이 이름의 보고가 된다).
+    await expect(page.locator('#meetingTitle')).toHaveValue('예시 회의 9');
     expect(state.writes).toEqual([]);
     // 다시 열면 고른 줄이 표시된다.
     await openPanel(page);
