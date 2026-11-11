@@ -37,8 +37,10 @@ export function dropIndexGrid(rects, x, y) {
 // MENU-왼쪽메뉴바로끌기 확장 — 칸 상자가 따로 없이 한 줄로 이어진 목록(PC 왼쪽 메뉴·폰 [메뉴] 창, 칸 사이에 빈 공간·선만 있음). 다른 사용처는 기본값 그대로:
 //  resolve(x, y, dragEl) -> {listId, index, before?, after?} | null : 놓을 자리를 부르는 쪽이 정한다(칸 상자·가운데 위치 계산 대신).
 //         before = 놓을 자리 바로 뒤 요소(.re-drop-before), after = 바로 앞 요소(.re-drop-end, before가 없을 때). onDrop({id, list: listId, index})는 그대로.
-//  links: true  → whole 모드에서 <a href> 줄도 잡힌다(PC 왼쪽 메뉴 줄은 링크). 링크의 기본 끌기(주소 끌어가기)는 막고, 끌기 뒤 따라오는 클릭 한 번은 늘 삼킨다.
-export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false} = {}) {
+//  links: true  → whole 모드에서 <a href> 줄도 잡힌다(PC 왼쪽 메뉴 줄은 링크). 링크의 기본 끌기(주소 끌어가기)는 막는다.
+//  early: true  → 끌기 뒤 따라오는 클릭 한 번을 창(window) 단계에서 먼저 삼킨다. 마우스로 끌면 포인터를 잡아 둔 줄이 그 클릭을 받는데(자리가 안 바뀌어 줄이 그대로면 클릭이 생긴다),
+//         문서 단계 위임 클릭(loader-v2의 [data-view] 화면 열기)이 root보다 먼저 받으면 끌었다 놓은 줄의 화면이 열려 버리기 때문이다. 부품이 다시 붙는 곳은 destroy로 그 창 쪽 귀를 뗀다.
+export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
   let drag = null, touch = null, marker = null, scrollDir = 0, scrollTimer = 0;
   const idOf = el => el?.dataset?.reorderId || '';
   const lists = () => [...root.querySelectorAll(listSelector)];
@@ -132,7 +134,9 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onEnd); window.addEventListener('pointercancel', onEnd);
   });
   let swallow = false;
-  root.addEventListener('click', event => { if (swallow && (!whole || event.target.closest?.(itemSelector))) { event.preventDefault(); event.stopPropagation(); } }, true); // whole 모드: 줄이 아닌 곳(메뉴·창)의 누르기는 막지 않는다
+  // whole 모드: 줄이 아닌 곳(메뉴·창)의 누르기는 막지 않는다. early면 창 단계에서 받아 문서 단계 위임 클릭보다 먼저 막는다.
+  const clickGuard = event => { if (swallow && (!early || root.contains(event.target)) && (!whole || event.target.closest?.(itemSelector))) { event.preventDefault(); event.stopPropagation(); } };
+  (early ? window : root).addEventListener('click', clickGuard, true);
 
   // 폰: 줄을 LONG_MS 눌러 두면 잡힌다.
   const cancelTouch = () => { if (touch?.timer) clearTimeout(touch.timer); touch = null; };
@@ -180,5 +184,5 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     if (!id || !canDrag(id)) return;
     event.preventDefault(); onStep(id, event.key === 'ArrowUp' ? -1 : 1);
   });
-  return {destroy() { cancelTouch(); finish(false); }};
+  return {destroy() { cancelTouch(); finish(false); if (early) window.removeEventListener('click', clickGuard, true); }};
 }

@@ -113,6 +113,17 @@ test('PC 왼쪽 메뉴 끌기: 맨 아래 묶음으로 옮기고 다시 위 줄�
   await drag(page,head(page,'library'),calendar.x+calendar.width/2,calendar.y+2);
   await expect(page.locator('#toast')).toContainText('하단바');
   expect((await pcOrder(page)).main).toEqual(['basket','calendar','meetings','team','note','calls','library','files','hwp','pages','ledger','outside']);
+  // 옮기기가 거절돼 줄이 그대로여도, 끌었다 놓은 줄의 화면은 열리지 않는다(끌기 뒤 따라오는 클릭은 문서 위임 클릭보다 먼저 삼킨다).
+  await page.waitForTimeout(250);
+  expect(await route(page)).toBe('home');
+  // 끌었다가 같은 자리에 놓아도(자리가 안 바뀜) 마찬가지.
+  const note=await head(page,'note').boundingBox();
+  await page.mouse.move(note.x+60,note.y+14);await page.mouse.down();
+  await page.mouse.move(note.x+60,note.y+24,{steps:3});await page.mouse.move(note.x+60,note.y+15,{steps:3});
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  expect(await route(page)).toBe('home');
+  expect((await pcOrder(page)).main).toEqual(['basket','calendar','meetings','team','note','calls','library','files','hwp','pages','ledger','outside']);
   // [일정]을 끌면 아래 달력·할 일·일기가 붙은 채 같이 움직인다(그 셋끼리 순서 바꾸기는 없다).
   const files=await head(page,'files').boundingBox();
   await drag(page,head(page,'calendar'),files.x+files.width/2,files.y+files.height-2);

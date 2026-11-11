@@ -302,7 +302,7 @@ function openNavMenu(from,at){
   return true;
 }
 if(appNav){
-  mountReorder(appNav,{whole:true,links:true,itemSelector:NAV_HEAD,canDrag:id=>id!=='home',resolve:navDropAt,onDrop:navDrop,
+  mountReorder(appNav,{whole:true,links:true,early:true,itemSelector:NAV_HEAD,canDrag:id=>id!=='home',resolve:navDropAt,onDrop:navDrop,
     // 터치 화면(펼친 폴드)에서 줄을 꾹 눌렀다 움직이지 않고 떼면 우클릭과 같은 메뉴.
     onHold:head=>{const r=head.getBoundingClientRect();openNavMenu(head,{x:Math.round(r.left+Math.min(r.width/2,48)),y:Math.round(r.bottom)})}});
   appNav.addEventListener('keydown',event=>{
@@ -338,7 +338,7 @@ function sheetDropAt(x,y,dragEl){
 }
 if(sheetNav){
   tagSheet();window.addEventListener('kptu:menu-layout-applied',tagSheet);
-  mountReorder(sheetNav,{whole:true,itemSelector:'button[data-reorder-id]',scroller:()=>mobilePanel,resolve:sheetDropAt,
+  mountReorder(sheetNav,{whole:true,early:true,itemSelector:'button[data-reorder-id]',scroller:()=>mobilePanel,resolve:sheetDropAt,
     onDrop:({id,list,index})=>{dragEndedAt=performance.now();window.KPTUMenuLayout?.move(id,list,index)}}); // 끌기를 마친 뒤 따라오는 클릭은 위 닫기 처리가 삼킨다(dragEndedAt)
 }
 syncMobile();
