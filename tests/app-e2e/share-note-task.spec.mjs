@@ -144,3 +144,32 @@ test('창을 닫으면 저장하지 않고 앱에 끝났다고만 알린다 412'
   expect(await page.evaluate(() => window.__shareSent)).toContain(`share:done:${ID}`);
   expect(errors).toEqual([]);
 });
+
+// BIZ-저장먼저닫기 2차(S59-8): 노트(글)가 저장되면 공유 창은 올리기를 기다리지 않고 닫힌다. 받은 사진은 그 노트의 뒤 줄에서 올라가고,
+// 못 올린 것은 하단바 위 한 줄에 남아 [다시 올리기](못 올린 것만, 같은 노트로)로 다시 보낸다. 글 저장이 실패하면 창은 그대로·아무것도 보내지 않는다.
+test('웹2 노트: [저장]하면 창이 바로 닫히고 사진은 뒤에서, 못 올리면 [다시 올리기] 412', async ({page}) => {
+  const {state, errors} = await fixture(page, {id:ID, subject:'사진 공유', text:'', target:'note', items:[{i:0, name:'사진1.gif', type:'image/gif', size:6}, {i:1, name:'사진2.gif', type:'image/gif', size:6}]});
+  let open, tries = 0; const gate = new Promise(resolve => { open = resolve; });
+  await page.route(SB + '/functions/v1/basket-files**', async route => {
+    tries++; await gate;
+    // 둘째 사진의 첫 시도만 거절(다시 보내도 되는 거절).
+    if (tries === 2) return route.fulfill({status:400, json:{error:'첨부를 저장하지 못했어요.', code:'bad_file'}});
+    return route.fallback();
+  });
+  await expect(dialog(page)).toBeVisible();
+  await dialog(page).getByRole('button', {name:'저장'}).tap();
+  await expect(dialog(page)).toBeHidden();
+  await expect(notice(page)).toContainText('사진·파일은 올리는 중이에요.');
+  expect(state.posts).toHaveLength(1);
+  await expect.poll(() => tries).toBe(1);
+  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('2개 올리는 중');
+  if (process.env.CAPTURE_DIR) await page.screenshot({path:`${process.env.CAPTURE_DIR}/share-note-saving-412.png`});
+  open();
+  const line = page.locator('#uploadDock:not([hidden])');
+  await expect(line).toContainText('노트에 사진 1장 못 올렸어요');
+  await line.getByRole('button', {name:'못 올린 파일 다시 올리기'}).tap();
+  await expect(line).toContainText('노트에 사진 1장 올렸어요');
+  expect(state.uploads).toEqual([{note_id:NOTE, file:'사진1.gif'}, {note_id:NOTE, file:'사진2.gif'}]);
+  expect(tries).toBe(3);
+  expect(errors).toEqual([]);
+});

@@ -88,9 +88,11 @@ for (const width of [390, 1280]) {
     await bar.locator('[data-quick-input]').fill('교섭 준비');
     if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-input-clip-${width}.png`});
     await press(page, bar.locator('[data-quick-save]'), width);
-    await expect(page.locator('#toast')).toHaveText('노트를 추가했습니다.');
+    // BIZ-저장먼저닫기 2차: 글(노트)이 저장되면 입력칸은 바로 풀리고, 파일은 그 노트 id로 뒤에서 올라간다(끝은 하단바 위 한 줄).
+    await expect(page.locator('#toast')).toHaveText('노트를 추가했어요. 사진·파일은 올리는 중이에요.');
     expect(f.writes[0]).toEqual({method: 'POST', body: {workspace_id: 'w', kind: 'note', title: '교섭 준비', raw_text: '교섭 준비', metadata: {markdown: false}}});
-    expect(f.uploads).toEqual([{noteId: 'new-1', name: '교섭 일정.pdf', rawText: false}]);
+    await expect.poll(() => f.uploads).toEqual([{noteId: 'new-1', name: '교섭 일정.pdf', rawText: false}]);
+    await expect(page.locator('#uploadDock')).toContainText('노트에 파일 1개 올렸어요');
     await expect(bar.locator('[data-quick-input]')).toHaveValue(''); await expect(bar.locator('[data-basket-file]')).toHaveCount(0);
     await expect(bar.locator('[data-quick-lock]')).toBeHidden();
     // NOTE-탐색기 ②: the one-line row marks files with 📎 (its name says how many).

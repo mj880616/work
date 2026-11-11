@@ -49,7 +49,10 @@ test('노트 폴더 고르기 줄: 나무 순서·깊이, 고리·주인 없는 
 test('창은 받은 글을 HTML로 넣지 않고, 노트·할 일 화면과 같은 서버 길만 쓴다', () => {
   const src = readFileSync(new URL('../app/share-target.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src.replace(/dialog\.innerHTML = `[\s\S]*?`;/, ''), /innerHTML|insertAdjacentHTML/);
-  for (const use of ['createNoteDoc', 'setNoteFolderRef', 'uploadNoteFiles', 'createGoogleTask', 'attachNewTaskFiles']) assert.match(src, new RegExp(use));
+  for (const use of ['createNoteDoc', 'setNoteFolderRef', 'sendNoteBehind', 'createGoogleTask', 'attachNewTaskFiles']) assert.match(src, new RegExp(use));
+  // BIZ-저장먼저닫기 2차: 노트 첨부는 창을 닫은 뒤 노트 줄(sendNoteBehind)에서 올라가지만 서버 길은 노트 화면과 같은 uploadNoteFiles(basket-files) 하나다.
+  const upload = readFileSync(new URL('../app/basket-upload.js', import.meta.url), 'utf8');
+  assert.match(upload, /export function sendNoteBehind[\s\S]*?uploadNoteFiles\(noteId, batch/);
   const basket = readFileSync(new URL('../app/basket-share.js', import.meta.url), 'utf8');
   assert.match(basket, /list\.target === 'note' \|\| list\.target === 'task'/);
 });
