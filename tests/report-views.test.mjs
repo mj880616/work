@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {REPORT_VIEWS, validValue, parsePrefs, KEYS} from '../app/view-prefs.js';
 import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, CELL_LINES, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf, moveReportAt, REPORT_DAY_MENU_ITEMS, dayWindowTitle} from '../app/report-views-model.mjs';
 import {calendarHtml, photoViewHtml, dayWindowHtml} from '../app/report-views.js';
+import {planItems, itemsByDay, dayEntries, entryMark, cellDots, CELL_DOTS, itemTime, itemMeta, itemEvent, itemWhen, matchesName, overdueItems, overdueSummary, shortDay, monthRange, planRowMenuItems} from '../app/report-calendar-plan.mjs';
 
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const M1 = id(101), M2 = id(102), M3 = id(103), M4 = id(104);
@@ -249,4 +250,136 @@ test('화면 연결: 보기 선택은 서버 칸에만, 자료실 묶음 줄은 
   assert.match(team, /viewPrefs\.set\('report_view'/);
   const lib = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
   assert.match(lib, /async function luOpenPhotoSet[^\n]*showPhotos/);
+});
+
+// ── S58-10 BIZ-보고할일정 PR C: 사업 보고 달력의 '보고할 일정' 규칙(app/report-calendar-plan.mjs). 이름·id는 모두 합성 값. ──
+const PLAN_NOW = '2026-11-11';
+const planRow = (eid, title, state, extra = {}) => ({id: 'row-' + eid, google_event_id: eid, google_calendar_id: 'cal-a', state, decided_by: 'user', decided_at: '2026-11-01T00:00:00.000Z', title, event_day: '2026-11-11', starts_at: '2026-11-11T01:00:00.000Z', ...extra});
+const gEvent = (eid, title, extra = {}) => ({id: eid, calendarId: 'cal-a', title, start: '2026-11-11T01:00:00.000Z', end: '2026-11-11T02:00:00.000Z', allDay: false, organizationIds: [], ...extra});
+const linked = (rid, eid, name, extra = {}) => ({id: rid, google_event_id: eid, google_calendar_id: 'cal-a', series_name: name, title: name, meeting_at: '2026-11-04T01:00:00.000Z', created_at: '2026-11-04T03:00:00.000Z', ...extra});
+
+test('보고할 일정 항목: 켠 줄은 □, 보고를 쓴 일정·끈 줄·뺀 줄은 나오지 않는다(Google 없이 줄 사본만으로)', () => {
+  const data = {plans: [planRow('e1', '시험 회의 가', 'on'), planRow('e2', '시험 회의 나', 'off'), planRow('e3', '시험 회의 다', 'skip'), planRow('e4', '시험 회의 라', 'on')], reports: [linked('r4', 'e4', '시험 회의 라')]};
+  const items = planItems(data);
+  assert.deepEqual(items.map(i => [i.eventId, i.status, i.day, i.title, i.rowId, i.auto]), [['e1', 'todo', '2026-11-11', '시험 회의 가', 'row-e1', false]]);
+  assert.equal(items[0].startsAt, '2026-11-11T01:00:00.000Z');
+  assert.equal(items[0].calendarId, 'cal-a');
+  // 줄이 없거나 날짜를 읽을 수 없는 줄은 놓지 않는다. 표가 없는 서버(data=null)면 빈 목록.
+  assert.deepEqual(planItems({plans: [planRow('e9', '시험', 'on', {event_day: ''})], reports: []}), []);
+  assert.deepEqual(planItems(null), []);
+  assert.deepEqual(planItems({plans: null, reports: null}, null), []);
+});
+
+test('보고할 일정 항목: 읽어 둔 일정이 있으면 같은 이름 기억은 □(auto), 담당조직 연결 일정은 점선 □, 그냥 일정은 없음', () => {
+  const data = {plans: [planRow('old', '시험 정례 회의', 'on', {event_day: '2026-11-04', starts_at: '2026-11-04T01:00:00.000Z'})], reports: []};
+  const events = [
+    gEvent('new', '시험 정례회의', {start: '2026-11-12T01:00:00.000Z'}),                  // 같은 이름(띄어쓰기만 다름) → 저절로 □
+    gEvent('org', '시험 기자회견', {organizationIds: ['o1'], start: '2026-11-12T05:00:00.000Z'}), // 담당조직 연결 → 보고할까요?
+    gEvent('plain', '시험 점심', {start: '2026-11-12T03:00:00.000Z'}),                       // 그냥 일정
+    gEvent('한글id', '시험 정례 회의')                                                       // 표에 넣을 수 없는 id → 표시 없음
+  ];
+  const items = planItems(data, events);
+  assert.deepEqual(items.map(i => [i.eventId, i.status, i.day, i.auto]), [['old', 'todo', '2026-11-04', false], ['new', 'todo', '2026-11-12', true], ['org', 'ask', '2026-11-12', false]]);
+  // [빼기](skip)를 더 나중에 정하면 같은 이름 일정은 □도 점선 □도 아니다(다시 묻지 않음).
+  const skipped = {plans: [planRow('s', '시험 기자회견', 'skip', {decided_at: '2026-11-05T00:00:00.000Z'})], reports: []};
+  assert.deepEqual(planItems(skipped, [gEvent('org', '시험 기자회견', {organizationIds: ['o1']})]), []);
+  // 그 이름으로 일정에 이어 쓴 보고가 있으면 기억이 없어도 □(전에 보고를 쓴 일정과 같은 이름).
+  const wrote = {plans: [], reports: [linked('r1', 'past', '시험 운영위')]};
+  assert.deepEqual(planItems(wrote, [gEvent('next', '시험 운영위')]).map(i => [i.eventId, i.status, i.auto]), [['next', 'todo', true]]);
+  // 그 일정에 이어진 보고가 있으면(보고 씀) 항목이 아니다 — 보고 줄이 ●로 이미 있다.
+  assert.deepEqual(planItems(wrote, [gEvent('past', '시험 운영위')]), []);
+});
+
+test('보고할 일정 항목: 읽어 둔 일정의 제목·날짜가 줄 사본보다 먼저다(종일 일정은 시각 없음)', () => {
+  const data = {plans: [planRow('e1', '옛 제목', 'on')], reports: []};
+  const items = planItems(data, [gEvent('e1', '새 제목', {start: '2026-11-13', end: '2026-11-14', allDay: true})]);
+  assert.deepEqual(items.map(i => [i.eventId, i.title, i.day, i.startsAt, i.rowId, i.auto]), [['e1', '새 제목', '2026-11-13', null, 'row-e1', false]]);
+  assert.equal(itemTime(items[0]), '종일');
+  assert.deepEqual(itemWhen(items[0]), {date: '2026-11-13'});
+  assert.deepEqual(itemEvent(items[0]), {id: 'e1', calendarId: 'cal-a', title: '새 제목', start: '2026-11-13', allDay: true});
+});
+
+test('보고할 일정 항목: 하루 안에서는 종일 → 이른 시각 순, 시각·글자는 서울 기준', () => {
+  const data = {plans: [
+    planRow('late', '시험 다', 'on', {starts_at: '2026-11-11T08:00:00.000Z'}),
+    planRow('all', '시험 나', 'on', {starts_at: null}),
+    planRow('early', '시험 가', 'on', {starts_at: '2026-11-10T23:30:00.000Z'}) // 서울 11일 08:30
+  ], reports: []};
+  const items = planItems(data);
+  assert.deepEqual(items.map(i => i.eventId), ['all', 'early', 'late']);
+  assert.equal(itemTime(items[1]), '08:30');
+  assert.deepEqual(itemWhen(items[1]), {at: '2026-11-11T08:30'});
+  assert.equal(itemMeta(items[1]), '일정 · 08:30');
+  assert.equal(itemMeta({...items[1], status: 'ask'}), '일정 · 08:30 · 담당조직 연결됨');
+  assert.deepEqual([...itemsByDay(items).keys()], ['2026-11-11']);
+});
+
+test('회의명 거르기: 같은 이름 열쇠만, 이름 없음 거르기면 일정은 나오지 않는다', () => {
+  const item = {title: '시험 정례 회의'};
+  assert.equal(matchesName(item, 'all'), true);
+  assert.equal(matchesName(item, ''), true);
+  assert.equal(matchesName(item, '시험정례회의'), true);
+  assert.equal(matchesName(item, '다른 회의'), false);
+  assert.equal(matchesName(item, '__none__'), false);
+});
+
+test('그날 목록: 보고와 보고할 일정을 시각 순으로 섞는다(같은 시각이면 보고 먼저, 종일 일정은 맨 위)', () => {
+  const reports = [meeting(M1, '시험 보고 가', '2026-11-11T00:00:00Z'), meeting(M2, '시험 보고 나', '2026-11-11T01:00:00Z')];
+  const items = planItems({plans: [
+    planRow('p1', '시험 일정 종일', 'on', {starts_at: null}),
+    planRow('p2', '시험 일정 열시', 'on', {starts_at: '2026-11-11T01:00:00.000Z'}),
+    planRow('p3', '시험 일정 아홉시반', 'on', {starts_at: '2026-11-11T00:30:00.000Z'})
+  ], reports: []});
+  const entries = dayEntries(reports, items);
+  assert.deepEqual(entries.map(e => (e.type === 'report' ? e.report.id : e.item.eventId)), ['p1', M1, 'p3', M2, 'p2']);
+  assert.deepEqual(entries.map(entryMark), ['todo', 'done', 'todo', 'done', 'todo']);
+  assert.deepEqual(dayEntries(null, null), []);
+});
+
+test('칸의 점: 3개까지, 넘치면 종류마다 하나씩은 꼭 보이고 순서는 그날 목록 그대로', () => {
+  const r = n => ({type: 'report', report: {id: 'r' + n}}), p = (n, status) => ({type: 'plan', item: {eventId: 'p' + n, status}});
+  assert.equal(CELL_DOTS, 3);
+  assert.deepEqual(cellDots([r(1), p(1, 'todo')]).map(entryMark), ['done', 'todo']);
+  // 보고 4건 뒤에 □ 하나: 앞 3개만 찍으면 □가 사라지므로 □를 꼭 넣는다.
+  assert.deepEqual(cellDots([r(1), r(2), r(3), r(4), p(1, 'todo')]).map(entryMark), ['done', 'done', 'todo']);
+  // 세 종류가 다 있으면 하나씩.
+  assert.deepEqual(cellDots([r(1), r(2), r(3), p(1, 'todo'), p(2, 'todo'), p(3, 'ask')]).map(entryMark), ['done', 'todo', 'ask']);
+  assert.deepEqual(cellDots([p(1, 'ask'), p(2, 'ask'), p(3, 'ask'), p(4, 'ask')]).map(e => e.item.eventId), ['p1', 'p2', 'p3']);
+  assert.deepEqual(cellDots(null), []);
+});
+
+test('안 쓴 보고: 켠 줄 가운데 날짜가 어제보다 앞이고 이어진 보고가 없는 것(최근 것이 위), Google 없이 계산', () => {
+  const data = {plans: [
+    planRow('today', '시험 오늘', 'on', {event_day: '2026-11-11'}),
+    planRow('yesterday', '시험 어제', 'on', {event_day: '2026-11-10'}),          // 지나고 하루가 안 지남
+    planRow('d9', '시험 구일', 'on', {event_day: '2026-11-09', starts_at: null}),
+    planRow('d2', '시험 이일', 'on', {event_day: '2026-11-02'}),
+    planRow('wrote', '시험 쓴 것', 'on', {event_day: '2026-11-03'}),
+    planRow('off', '시험 끈 것', 'off', {event_day: '2026-11-03'}),
+    planRow('skip', '시험 뺀 것', 'skip', {event_day: '2026-11-03'}),
+    planRow('rule', '시험 저절로', 'on', {event_day: '2026-10-28', decided_by: 'rule'})
+  ], reports: [linked('r1', 'wrote', '시험 쓴 것')]};
+  const due = overdueItems(data, PLAN_NOW);
+  assert.deepEqual(due.map(i => i.eventId), ['d9', 'd2', 'rule']);
+  assert.deepEqual(overdueSummary(due), {count: 3, lead: '안 쓴 보고 3', detail: '11. 9. 시험 구일 외 2'});
+  assert.deepEqual(overdueSummary(due.slice(0, 1)), {count: 1, lead: '안 쓴 보고 1', detail: '11. 9. 시험 구일'});
+  assert.equal(overdueSummary([]), null);
+  assert.deepEqual(overdueItems(data, ''), []);
+  assert.deepEqual(overdueItems(null, PLAN_NOW), []);
+  // 달이 바뀌는 날의 '어제'도 맞게 센다(11월 1일의 어제 = 10월 31일).
+  assert.deepEqual(overdueItems({plans: [planRow('a', '시험', 'on', {event_day: '2026-10-31'}), planRow('b', '시험 둘', 'on', {event_day: '2026-10-30'})], reports: []}, '2026-11-01').map(i => i.eventId), ['b']);
+  assert.equal(shortDay('2026-11-09'), '11. 9.');
+  assert.equal(shortDay('x'), '');
+});
+
+test('이 달 일정 읽을 범위는 서울 달 첫날 0시부터 다음 달 첫날 0시까지', () => {
+  assert.deepEqual(monthRange({year: 2026, month: 10}), {timeMin: '2026-10-31T15:00:00.000Z', timeMax: '2026-11-30T15:00:00.000Z'});
+  assert.deepEqual(monthRange({year: 2026, month: 11}), {timeMin: '2026-11-30T15:00:00.000Z', timeMax: '2026-12-31T15:00:00.000Z'});
+});
+
+test('그날 목록 줄 ⋯ 메뉴: 보고할 일정은 [보고할 일정 ✓]·[빼기], 보고할까요?는 [빼기]', () => {
+  assert.deepEqual(planRowMenuItems({status: 'todo'}).map(i => [i.id, i.label]), [['off', '보고할 일정 ✓'], ['skip', '빼기']]);
+  assert.deepEqual(planRowMenuItems({status: 'ask'}).map(i => [i.id, i.label]), [['skip', '빼기']]);
+  // 일정 메뉴(calendar-row-menu.mjs)의 켜진 글자와 같아야 한다.
+  assert.match(readFileSync(new URL('../app/calendar-row-menu.mjs', import.meta.url), 'utf8'), /'보고할 일정 ✓'/);
 });
