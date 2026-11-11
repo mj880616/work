@@ -36,6 +36,6 @@ test('상세 창: 정리함에 담기·안내문 삭제, 큰 버튼 줄 대신 �
   assert.doesNotMatch(mrd,/id="mrdEdit" class="mini"|id="mrdKind"|id="mrdDelete"|mrdHeadActions/);
   assert.match(mrd,/id="mrdMore" class="icon-btn" type="button" data-ctx="area"/);
   assert.match(mrd,/createAnchoredMenu\(\{id:'mrdMoreMenu'/);
-  assert.match(mrd,/data-mrd-more="edit"[^]*data-mrd-more="kind"[^]*data-mrd-more="delete"/);
+  assert.match(mrd,/item\('edit','수정'\)[^]*item\('kind','종류 바꾸기'\)[^]*item\('delete','삭제','gt-menu-danger'\)/); // 항목은 한 함수(item)가 data-mrd-more 줄로 그림
   assert.match(mrd,/classList\.toggle\('hidden',!text\)/);
 });

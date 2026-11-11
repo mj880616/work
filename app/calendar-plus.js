@@ -7,6 +7,7 @@ import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,log
 import { createGoogleTask, syncEventAreas } from './quick-save.js';
 import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText } from './area-org-picker.js';
 import { taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, sendTaskFilesBehind } from './task-files.js';
+import { eventFilesReady, sendEventFilesBehind } from './event-files.js'; // CAL-일정첨부: 새 일정도 같은 고르기 칸, 저장 뒤 뒤에서 올리기
 const CM_GOOGLE_DEFAULT='#4285f4';
 const CM_FALLBACK_EVENT_COLORS=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
 let cmEndLink=null,cmGoogle=null,cmSavePending=false,cmMode='event',cmProject='',cmProjectRows=[],cmFormEpoch=0,cmRequest=null,cmSaved=null;const cmAttempts=new Map();
@@ -57,7 +58,7 @@ function cmEnsureFiles(){if(cmFiles)return cmFiles;const memo=document.querySele
 // The answer is asked for when the calendar loads and when the window opens, so the row is laid out before [할 일] is pressed:
 // on a phone this window sits on the bottom edge and a row that came in late would push the fields above it upward.
 function cmAskFiles(){const owner=cmOwner();if(owner)void taskFilesAvailable().then(yes=>{if(yes&&owner===cmOwner()&&!cmFilesOn)cmPaintFiles()})}
-function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner();if(cmFilesOwner!==owner){cmFilesOwner=owner;cmFilesOn=false}if(!cmFilesOn&&owner&&taskFilesKnown())cmFilesOn=true;const on=cmMode==='task'&&cmFilesOn&&!cmSaved;
+function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner();if(cmFilesOwner!==owner){cmFilesOwner=owner;cmFilesOn=false}if(!cmFilesOn&&owner&&taskFilesKnown())cmFilesOn=true;const on=(cmMode==='task'?cmFilesOn:eventFilesReady())&&!cmSaved;
   // TEST-홈빠른입력안정화: until this load's answer, [할 일] keeps the row's place (unseen); a no frees it.
   const host=document.querySelector('#eventTaskFiles'),place=(show,wait)=>{host.hidden=!show&&!wait;host.toggleAttribute('data-gt-pick-wait',!show&&wait);f.render()};
   place(on,!on&&cmMode==='task'&&!cmSaved&&!!owner);
@@ -189,7 +190,7 @@ async function cmSaveGoogle(){
   if(cmMode==='task')return cmSaveTask();if(cmSavePending)return false;
   let body;
   try{const f=cmForm(),calendar=document.querySelector('#eventGoogleCalendar').value;if(!calendar)throw new Error('Google 세부 캘린더를 선택해 주세요.');body={action:cmSaved?.kind==='event'?'update-event':'create-event',calendar_id:cmSaved?.kind==='event'?cmSaved.record.calendarId:calendar,...(cmSaved?.kind==='event'?{event_id:cmSaved.record.id}:{}),title:f.title,memo:f.memo,location:f.location,color_hex:f.color_hex,all_day:f.allDay,organization_ids:[...(window.__KPTU_SELECTED_EVENT_ORGS__?.()||[])]};if(cmSaved?.kind==='event'&&calendar!==cmSaved.record.calendarId)body.target_calendar_id=calendar;if(f.allDay){body.start_date=f.startDate;body.end_date=f.endDate}else{body.start_iso=f.start_iso;body.end_iso=f.end_iso}}catch(e){cmStatus(e.message||String(e),true);return false}
-  const r={owner:cmOwner(),epoch:cmSession(),seq:cmFormEpoch,snapshot:cmSnapshot(),selected:document.querySelector('#eventGoogleCalendar').value};if(!r.owner){cmStatus('로그인이 필요합니다.',true);return false}
+  const r={owner:cmOwner(),epoch:cmSession(),seq:cmFormEpoch,snapshot:cmSnapshot(),selected:document.querySelector('#eventGoogleCalendar').value,files:!cmSaved&&eventFilesReady()?cmFiles?.files()||[]:[]};if(!r.owner){cmStatus('로그인이 필요합니다.',true);return false}
   const prior=cmAttempts.get('event');if(!cmSaved&&prior?.owner===r.owner&&prior.epoch===r.epoch){if(prior.pending)cmStatus('앞선 일정을 저장 중입니다. 결과를 기다려 주세요.');else cmUnknownNotice('event','앞선 일정의 저장 결과를 확인해 주세요. 새로 만들지 않았어요.');return false}
   const button=document.querySelector('#saveEventBtn'),label=button.textContent;cmRequest=r;cmSavePending=true;cmSetBusy(true);button.textContent='저장 중…';cmStatus('Google Calendar에 저장 중…');let attempt=null;
   try{
@@ -217,6 +218,8 @@ async function cmSaveGoogle(){
     }
     if(d.ok!==true)throw new Error(d.message||'일정 저장 결과를 확인하지 못했어요.');
     cmSaved={kind:'event',record:d.event,body,unknown:false};cmAttempts.delete('event');
+    // CAL-일정첨부: 새 일정이 만들어졌으니 고른 파일은 창을 닫은 뒤 뒤에서 그 일정에 올린다(일정 창과 같은 줄). 파일은 탭 메모리만.
+    if(r.files.length&&body.action==='create-event'){const files=r.files;r.files=[];cmFiles?.clear();void sendEventFilesBehind({calendarId:d.event.calendarId,eventId:d.event.id,files})}
     if(body.action==='create-event'&&cmOnCreated){const f=cmOnCreated;cmOnCreated=null;try{f(d.event.id)}catch{}}
     if(!await cmLinkProject(r)){try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}
     if(d.event.location!==body.location){cmStatus('일정은 저장했어요. 장소 저장은 확인하지 못했어요. 장소와 수정 입력은 유지했어요. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}

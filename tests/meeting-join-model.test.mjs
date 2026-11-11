@@ -1,5 +1,6 @@
 // REC-한회의로잇기 PR-3(설계 docs/design/rec-join.md 3-3·3-4·3-5절): 화면의 순수 규칙(app/meeting-join-model.mjs)·잇기 문구 표(app/meeting-server-job.mjs)와
 // 화면 연결(물음 자리·띠·보고 상세·두 글 칸 저장 조건)을 글자로 고정한다. 화면 동작은 tests/app-e2e/rec-join-ask.spec.mjs.
+// PR-4(보고 ⋯ [다른 보고에 합치기]·[두 보고로 되돌리기]): 합치기 글·메뉴 한 곳·고른 뒤에만 시작. 화면 동작은 tests/app-e2e/rec-join-merge.spec.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -152,9 +153,11 @@ test('화면 연결: 물음은 정리 결과를 열기 직전 한 곳, 잇기는
   assert.match(join,/addMeetingCandidates\(target,items/);
   assert.doesNotMatch(join,/google-tasks\?action=create|createGoogleTask|candidateToTask/);
   assert.doesNotMatch(join,/\?v=/);
-  // 어느 보고에 이을지는 사람이 고른다: join_start는 물음의 [그 보고에 잇기]·[다른 보고 선택] 뒤에서만
-  assert.equal((join.match(/call\('join_start'/g)||[]).length,1);
+  // 어느 보고에 이을지는 사람이 고른다: join_start는 물음의 [그 보고에 잇기]·[다른 보고 선택] 뒤(start)와 ⋯ [다른 보고에 합치기]의 고르기 뒤(merge, PR-4)에서만
+  assert.equal((join.match(/call\('join_start'/g)||[]).length,2);
   assert.ok(join.indexOf("call('join_start'")>join.indexOf('async function start('));
+  const merge=join.slice(join.indexOf('async function merge('),join.indexOf('// 그 보고에 마지막으로 적용된 잇기 작업 행'));
+  assert.ok(merge.indexOf('await askChoice(')>0&&merge.indexOf('await askChoice(')<merge.indexOf("call('join_start'"),'합칠 보고를 사람이 고른 뒤에만');
 });
 
 test('두 글 칸을 쓰는 저장 길 전수에 "읽었을 때 그대로일 때만" 조건(설계 3-5절)', ()=>{
@@ -180,4 +183,39 @@ test('두 글 칸을 쓰는 저장 길 전수에 "읽었을 때 그대로일 때
   // 보고 상세: 잇기가 끝나면 다시 읽거나(보는 중) 바로 알린다(수정 중)
   assert.match(d,/addEventListener\('kptu:meeting-join-changed'/);
   assert.match(d,/<span id="mrdJoinTools" class="mrd-join-tools" hidden><\/span>/);
+});
+
+test('PR-4 합치기 글: 시각을 붙인 이름, 끝 줄에 휴지통으로 옮긴 보고, 멈춘 줄은 "합치지 못했어요"', ()=>{
+  const now=Date.parse('2026-11-11T02:30:00Z');
+  assert.equal(jm.labelWhen({series_name:'예시 집행위',meeting_at:'2026-11-11T01:02:00Z'},now),'10:02 예시 집행위','같은 날이면 시:분');
+  assert.equal(jm.labelWhen({series_name:'예시 집행위',round_no:3,meeting_at:'2026-11-04T01:00:00Z'},now),'11.4. 10:00 예시 집행위 3차');
+  assert.equal(jm.labelWhen({series_name:'예시'},now),'예시','시각을 모르면 이름만');
+  assert.equal(jm.progressText('10:02 예시 집행위',{mode:'report',stage:'summary'}),'10:02 예시 집행위에 합치는 중 · 전체 다시 요약 · 화면을 옮겨도 계속돼요');
+  assert.equal(jm.doneText('10:02 예시 집행위',{mode:'report'},'11:05'),'10:02 예시 집행위 보고에 합쳤어요. 11:05 보고는 휴지통으로 옮겼어요','시안 ④');
+  assert.equal(jm.doneText('가',{mode:'job'},'11:05'),'가 보고에 이어 붙였어요','녹음 잇기에는 휴지통 줄이 없음');
+  assert.equal(jm.stopText('가',{mode:'report'},'이유.'),'가에 합치지 못했어요. 이유.');
+  assert.equal(jm.stopText('가',{mode:'job'},'이유.'),'가에 잇지 못했어요. 이유.');
+});
+
+test('PR-4 화면 연결: 메뉴 항목은 보고 ⋯ 한 곳, 서버가 모르면 그리지 않고, 합치기는 이 보고 id + 고른 보고 id만', ()=>{
+  const d=read('app/meeting-round-detail.js'),join=read('app/meeting-join.js');
+  const menu=d.slice(d.indexOf('function mrdEnsureMoreMenu('),d.indexOf('function mrdSetEdit('));
+  assert.match(menu,/edit&&join\?\.canMerge\?\.\(m\)\?item\('merge','다른 보고에 합치기'\)/,'[수정]할 수 있는 [회의] 보고, 서버가 알 때만');
+  assert.match(menu,/edit&&join\?\.unmergeRow\?\.\(m\)\?item\('unmerge','두 보고로 되돌리기'\)/);
+  assert.match(menu,/item=\(act,label,cls=''\)=>`<button type="button"\$\{cls\?` class="\$\{cls\}"`:''\} data-mrd-more="\$\{act\}">\$\{label\}<\/button>`/,'항목은 공용 작은 메뉴의 같은 줄');
+  assert.ok(menu.indexOf("item('kind'")<menu.indexOf("item('merge'")&&menu.indexOf("item('merge'")<menu.indexOf("item('delete'"),'시안 ④ 순서: 수정·종류 바꾸기·다른 보고에 합치기·삭제');
+  assert.equal((d.match(/item\('merge'/g)||[]).length,1,'항목은 한 곳(목록·달력·상세가 같은 메뉴)');
+  // 창 밖 메뉴(달력·사진)도 합친 보고면 [두 보고로 되돌리기]를 그릴 수 있게 열기 전에 마지막 잇기 행을 읽는다
+  assert.match(d,/await window\.KPTUMeetingJoin\?\.prepareMenu\?\.\(m\);/);
+  // 합친 뒤 휴지통으로 간 보고를 보던 창은 닫는다(수정 중이면 입력을 남기고 알림)
+  assert.match(d,/if\(reason==='merged'\)\{if\(mrdEditor&&mrdEditing\(\)\)mrdEditGone\(mrdEditor\);else mrdClose\(\);return\}/);
+  // 서버가 잇기를 아는지: join_list 답이 {ok, jobs}일 때만(모름이면 그리지 않음)
+  assert.match(join,/known=r\?\.ok===true&&Array\.isArray\(r\.jobs\)/);
+  assert.match(join,/function canMerge\(m\)\{[\s\S]*?return known===true;\n\}/);
+  assert.match(join,/call\('join_candidates',\{meeting_id:sid\}/);
+  assert.match(join,/call\('join_start',\{target_meeting_id:String\(target\),source:\{meeting_id:sid\}\}/);
+  assert.doesNotMatch(join,/workspace_id:/);
+  // 끝 줄·⋯ [두 보고로 되돌리기]는 통째로(all) 하나의 길
+  assert.match(join,/async function unmerge\(m,trigger=null\)\{const row=unmergeRow\(m\);if\(row\)await undoAll\(row,null\)\}/);
+  assert.match(join,/row\.mode==='report'&&row\.status==='done'&&row\.applied_at&&!row\.undone_at/);
 });

@@ -75,10 +75,12 @@ test('events: mine은 creator.self가 true일 때만 true, 나머지는 모두 f
   assert.deepEqual(mine, { a: true, b: false, c: false, d: false, e: false });
 });
 
-test('events: 기존 응답 모양은 그대로이고 mine 한 칸만 늘었다(달력 화면이 쓰는 칸)', async () => {
+// CAL-일정첨부: 일정 첨부(files) 한 칸이 더 늘었다 — 첨부가 없으면 빈 목록.
+test('events: 기존 응답 모양은 그대로이고 mine·files 칸만 늘었다(달력 화면이 쓰는 칸)', async () => {
   const h = harness({ perCalendar: () => [googleEvent('x', { location: 'room', description: 'memo', htmlLink: 'https://calendar.example/e', recurringEventId: 'r' })] });
   const body = JSON.parse((await h.get()).raw);
-  assert.deepEqual(Object.keys(body.events[0]).sort(), ['allDay', 'calendarId', 'color', 'colorId', 'description', 'end', 'htmlLink', 'id', 'location', 'mine', 'organizationIds', 'recurring', 'source', 'start', 'title'].sort());
+  assert.deepEqual(Object.keys(body.events[0]).sort(), ['allDay', 'calendarId', 'color', 'colorId', 'description', 'end', 'htmlLink', 'id', 'files', 'location', 'mine', 'organizationIds', 'recurring', 'source', 'start', 'title'].sort());
+  assert.deepEqual(body.events[0].files, []);
   assert.equal(body.events[0].color, '#8e24aa');
   assert.equal(body.events[0].recurring, true);
   assert.deepEqual(body.events.map(e => e.calendarId), ['primary', 'work']);

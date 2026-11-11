@@ -81,9 +81,13 @@ function mrdEnsureMoreMenu(){
   const can=m=>!!m&&(mrdCanEdit(m)||mrdCanDelete(m));
   mrdMoreMenu=createAnchoredMenu({id:'mrdMoreMenu',className:'gt-task-menu mrd-more-menu',label:'사업 보고 관리',historyKey:'kptuMeetingDetailMenu',parent:trigger=>trigger.closest('#meetingRoundDetailModal,[role="dialog"]')||document.body,key:trigger=>mrdMenuMeeting(trigger)?.id||'',
     canOpen:trigger=>can(mrdMenuMeeting(trigger)),
-    render:()=>{const m=mrdMenuMeeting(mrdMoreMenu.active?.trigger);return [mrdCanEdit(m)?'<button type="button" data-mrd-more="edit">수정</button><button type="button" data-mrd-more="kind">종류 바꾸기</button>':'',mrdCanDelete(m)?'<button type="button" class="gt-menu-danger" data-mrd-more="delete">삭제</button>':''].join('')},
+    // REC-한회의로잇기 PR-4(시안 ④): [회의] 보고면 [다른 보고에 합치기], 마지막 적용이 합치기인 보고면 [두 보고로 되돌리기](설계 3-5 '합친 보고 ⋯').
+    // 그릴지·고르기·시작·되돌리기는 meeting-join.js 하나(서버가 잇기를 모르면 그리지 않음). 여기 한 곳에 더하면 목록·달력·상세 세 곳에 뜬다.
+    // 항목은 공용 작은 메뉴(gt-task-menu)의 줄 하나씩 — 같은 모양을 한 함수로 그린다.
+    render:()=>{const m=mrdMenuMeeting(mrdMoreMenu.active?.trigger),join=window.KPTUMeetingJoin,edit=mrdCanEdit(m),item=(act,label,cls='')=>`<button type="button"${cls?` class="${cls}"`:''} data-mrd-more="${act}">${label}</button>`;
+      return [edit?item('edit','수정')+item('kind','종류 바꾸기'):'',edit&&join?.canMerge?.(m)?item('merge','다른 보고에 합치기'):'',edit&&join?.unmergeRow?.(m)?item('unmerge','두 보고로 되돌리기'):'',mrdCanDelete(m)?item('delete','삭제','gt-menu-danger'):''].join('')},
     // PRESS-성명초안삭제(11/09 명진 결정): [성명 초안 만들기]는 기능째 삭제했다. MTG-종류바꾸기이름(11/09): [칸 바꾸기] → [종류 바꾸기].
-    onAction:(button,active)=>{const act=button.dataset.mrdMore,out=mrdMenuOut(active.trigger);if(act==='edit'){if(out)void mrdOutsideEdit(out);else mrdStartEdit()}else if(act==='kind')mrdChangeKind(active.trigger,out);else if(act==='delete')void mrdDeleteMeeting(out)}});
+    onAction:(button,active)=>{const act=button.dataset.mrdMore,out=mrdMenuOut(active.trigger);if(act==='edit'){if(out)void mrdOutsideEdit(out);else mrdStartEdit()}else if(act==='kind')mrdChangeKind(active.trigger,out);else if(act==='delete')void mrdDeleteMeeting(out);else if(act==='merge'||act==='unmerge'){const m=out?out.meeting:mrdCurrent,join=window.KPTUMeetingJoin;if(m)void (act==='merge'?join?.merge?.(m,active.trigger):join?.unmerge?.(m,active.trigger))}}});
   return mrdMoreMenu;
 }
 function mrdSetEdit(on){if(!on){mrdEditSequence++;mrdEditor=null;mrdSummaries?.clear();mrdLeaveClear();mrdEditHistoryEnd()}document.querySelector('#mrdView')?.classList.toggle('hidden',on);document.querySelector('#mrdEditor')?.classList.toggle('hidden',!on);mrdPaintMore(on);mrdPlaceActions(on)}
@@ -351,6 +355,8 @@ async function mrdMenuAt(id,trigger,at,{before=null}={}){
     const m=(await mrdApi('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(id)+'&select=*&limit=1'))?.[0];
     if(seq!==mrdOutsideSeq||!trigger.isConnected)return false;
     if(!m)throw new Error('사업 보고를 찾을 수 없어요.');
+    await window.KPTUMeetingJoin?.prepareMenu?.(m); // REC-한회의로잇기 PR-4: 합친 보고면 [두 보고로 되돌리기]를 그릴 수 있게 마지막 잇기 행을 읽어 둔다
+    if(seq!==mrdOutsideSeq||!trigger.isConnected)return false;
     mrdOutside={meeting:m,trigger,before:typeof before==='function'?before:null};
     mrdEnsureMoreMenu().open(trigger,{at});return true;
   }catch(e){if(seq===mrdOutsideSeq)notify(e.message||String(e),{error:true});return false}
@@ -439,11 +445,14 @@ function mrdEditConflict(e){
   st.append(document.createTextNode(' '),make(joined?'이은 글 보기':'바뀐 글 보기',()=>{const id=e.id;mrdSetEdit(false);void mrdReload(id)}),document.createTextNode(' '),make('내 글로 저장',()=>void mrdSaveEdit({overwrite:true})));
 }
 // REC-한회의로잇기 PR-3: 이 보고에 잇기가 끝나거나 되돌렸으면(meeting-join.js) 보고 있는 창은 다시 읽고, 수정 중이면 덮기 전에 바로 알린다(3-5절 ②).
+// PR-4: 보고 있던 보고를 다른 보고에 합쳤으면(reason merged — 그 보고는 휴지통) 창을 닫는다. 수정 중이면 입력을 지우지 않고 한 줄로 알린다.
 window.addEventListener('kptu:meeting-join-changed',event=>{
-  const id=String(event.detail?.meeting_id||'');if(!id||String(mrdCurrent?.id||'')!==id)return;
-  if(mrdEditor&&mrdEditing()){if(event.detail?.reason==='joined')mrdEditConflict(mrdEditor);return}
+  const id=String(event.detail?.meeting_id||''),reason=event.detail?.reason;if(!id||String(mrdCurrent?.id||'')!==id)return;
+  if(reason==='merged'){if(mrdEditor&&mrdEditing())mrdEditGone(mrdEditor);else mrdClose();return}
+  if(mrdEditor&&mrdEditing()){if(reason==='joined')mrdEditConflict(mrdEditor);return}
   void mrdReload(id);
 });
+function mrdEditGone(e){if(!mrdEditCurrent(e))return;const st=document.querySelector('#mrdEditStatus');st.className='status error';st.textContent='이 보고는 다른 보고에 합쳐 휴지통으로 옮겼어요. 입력은 남겨 뒀어요.'}
 window.addEventListener('kptu:view-changed',()=>{if(mrdEditor)mrdSetEdit(false)});
 window.addEventListener('kptu:session-changed',()=>{if(mrdEditSameScope(mrdEditObservedScope))return;mrdEditObservedScope=null;mrdEditAttempts.clear();mrdEditSequence++;mrdEditor=null;mrdEditInputs.forEach(k=>{const input=document.querySelector('#mrdEdit'+k);if(input)input.value=''})});
 window.addEventListener('kptu:dialog-closed',event=>{if(event.detail?.modal?.id==='meetingRoundDetailModal')mrdSetEdit(false)});

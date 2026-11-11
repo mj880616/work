@@ -3,6 +3,7 @@
 // - 어느 보고에 이을지는 늘 사람이 고른다. 이 파일의 '가장 가까운 보고'는 물음에 먼저 보일 한 건일 뿐, 저절로 잇지 않는다.
 // - AI 요약의 할 일은 후보로만(MTG-할일자동생성금지와 같은 규칙): 그 보고에 이미 붙은 할 일과 제목이 같은 것은 뺀다.
 // - 이름·시각은 화면이 자기 보고 목록(로그인으로 읽은 행)에서 붙인다. 서버는 보고 id와 녹음 길이만 준다.
+// - PR-4(보고 ⋯ [다른 보고에 합치기]): 합치기 줄은 시각을 붙인 이름(labelWhen)과 휴지통으로 옮긴 보고(doneText from)를 쓴다.
 import {normalizeDraft,actionRows} from './meeting-transcript-model.mjs';
 
 const KST=9*3600000;
@@ -107,7 +108,12 @@ export function progressText(name,job){
   const what=job?.mode==='report'?'합치는 중':'잇는 중';
   return `${name}에 ${what} · 전체 다시 요약${step} · 화면을 옮겨도 계속돼요`;
 }
-export const doneText=(name,job)=>job?.mode==='report'?`${name} 보고에 합쳤어요`:`${name} 보고에 이어 붙였어요`;
+// from = 합치기(mode report)에서 휴지통으로 옮긴 보고(시안 ④ '10:02 보고에 합쳤어요. 이 보고는 휴지통으로 옮겼어요'). 모르면 뺀다.
+export const doneText=(name,job,from='')=>job?.mode==='report'?`${name} 보고에 합쳤어요${from?`. ${from} 보고는 휴지통으로 옮겼어요`:''}`:`${name} 보고에 이어 붙였어요`;
+// 멈춘 줄: '○○에 잇지 못했어요. 이유' / 합치기면 '○○에 합치지 못했어요. 이유'.
+export const stopText=(name,job,reason)=>`${name}에 ${job?.mode==='report'?'합치지':'잇지'} 못했어요. ${reason}`;
+// 합치기 줄·고르기의 보고 이름: 시각 + 이름(같은 이름 보고가 하루에 둘일 때 가르려고, 시안 ④ '10:02 보고에 합쳤어요'). 같은 날이면 시:분만.
+export function labelWhen(m,dayMs=NaN){return [whenText(atMs(m?.meeting_at),dayMs),reportName(m)].filter(Boolean).join(' ')}
 
 // ---- 보고 상세: [합치기 전 글로 되돌리기] / [이은 글로 다시] ----
 // job = 그 보고에 마지막으로 적용된 잇기 작업 행(주인 읽기). 지금 '회의 결과' 글이 이은 글이면 before, 합치기 전 글이면 joined.
