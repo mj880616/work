@@ -17,7 +17,7 @@ const REVIEW=process.env.UI_REVIEW_DIR||'';
 const hwpSample=readFileSync(new URL('../fixtures/hwp-lab/sample.hwp',import.meta.url));
 const pdf=(name,lines=['material'])=>({name,mimeType:'application/pdf',buffer:tinyPdf(lines)});
 
-async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,extraKinds=[]}={}){
+async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,failPost=false,extraKinds=[]}={}){
   await page.setViewportSize({width,height:width<761?844:900});
   await page.emulateMedia({colorScheme:scheme});
   await servePagesCors(page);
@@ -37,6 +37,7 @@ async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,extr
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'u1',display_name:'QA'}]);
     if(path==='/rest/v1/app_spaces')return ok([]);
     if(path==='/rest/v1/app_meetings'){
+      if(method==='POST'&&failPost){f.posts.push({failed:true});return ok({message:'서버 오류'},500)}
       if(method==='POST'){const body=req.postDataJSON();const row={...body,id:'new-'+(++n)};f.posts.push(body);f.meetings.unshift(row);return ok([row])}
       const id=url.searchParams.get('id')?.replace(/^eq\./,'');
       if(method==='PATCH'){const body=req.postDataJSON();f.patches.push({id,body});const row=f.meetings.find(m=>m.id===id);Object.assign(row,body);return ok([{id}])}
@@ -48,6 +49,7 @@ async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,extr
       const meeting=body.match(/name="meeting_id"\r\n\r\n([^\r]+)/)?.[1];
       const file=Buffer.from(body.match(/filename="([^"]+)"/)?.[1]||'','latin1').toString('utf8');
       f.uploadAttempts.push({meeting,file});
+      if(f.hold)await f.hold;
       if(failUpload(file,f.uploadAttempts.filter(a=>a.file===file).length))return ok({error:'Drive 업로드 실패'},400);
       f.uploads.push({meeting,file});
       return ok({ok:true,document:{id:'d'+f.uploads.length,meeting_id:meeting,file_name:file}});
@@ -150,6 +152,8 @@ test('four cases, a result-less bundle, an existing meeting and a new kind are g
   expect(f.posts.some(p=>p.round_no===7)).toBe(false);
   // 기존 3차 회의: 새로 만들지 않고 결과를 뒤에 더한다.
   expect(f.patches).toEqual([{id:'m-op3',body:{transcript_text:'기존 결과\n\nThird result',updated_at:expect.any(String)}}]);
+  // BIZ-저장먼저닫기 3차: 파일은 회의 글이 저장된 뒤 공용 뒤 줄에서 하나씩 올라간다(같은 meeting-files 입구, 놓은 그 회의 id로).
+  await expect.poll(()=>f.uploads.length,{timeout:30000}).toBe(5);
   const id=p=>f.meetings.find(m=>m.series_name===p.series_name&&m.round_no===p.round_no).id;
   expect(f.uploads).toEqual(expect.arrayContaining([
     {meeting:id(p5),file:'251015 제5차 중앙집행위원회 회의자료.pdf'},
@@ -202,7 +206,9 @@ test('a file the name cannot place is orange until its role is chosen; a result-
   await expect(create(page)).toHaveText('회의 2건 만들기');
   await create(page).click();
   await expect(page.locator('#meetingModal')).toBeHidden({timeout:30000});
-  await expect(page.locator('#toast')).toHaveText('회의 2건을 만들었어요.');
+  // 파일이 뒤로 넘어가면 끝은 아래 한 줄 하나로 알린다(위쪽 작은 알림을 겹쳐 띄우지 않는다).
+  await expect(page.locator('#uploadDock')).toContainText('자료 1개 올렸어요',{timeout:30000});
+  await expect(page.locator('#toast')).not.toContainText('만들었어요');
   expect(f.posts.map(p=>[p.series_name,p.round_no,p.meeting_at,p.transcript_text]).sort()).toEqual([
     ['본부 운영위원회',null,'2025-09-30T15:00:00.000Z','결정 사항\n- 승인'],
     ['중앙집행위원회',8,'2025-12-19T15:00:00.000Z','Eighth result'],
@@ -210,7 +216,9 @@ test('a file the name cannot place is orange until its role is chosen; a result-
   expect(f.errors).toEqual([]);
 });
 
-test('a failed upload keeps the meetings already made and retries only the failed bundle',async({page})=>{
+// BIZ-저장먼저닫기 3차(S59-18): 회의 글이 저장되면 창은 닫히고 파일은 뒤에서 올라간다. 못 올린 파일은 아래 한 줄의 [다시 올리기]로
+// 그 파일만 같은 회의로 다시 보낸다(회의를 다시 만들거나 결과 글을 다시 더하지 않는다). 예전에는 창에 남아 [다시 만들기]로 했다.
+test('a failed upload: the meetings are made and the window closes; [다시 올리기] in the bottom line sends only the failed file to its meeting',async({page})=>{
   const f=await fixture(page,{failUpload:(file,attempt)=>file.includes('2차')&&attempt===1});
   await page.locator('#mffFiles').setInputFiles([
     pdf('250910 제2차 본부 운영위원회 안건.pdf'),
@@ -219,20 +227,53 @@ test('a failed upload keeps the meetings already made and retries only the faile
   await page.locator('#mffText').fill('제2차 본부 운영위원회 결과 2025.09.10\n- 예산\n\n제5차 중앙집행위원회 결과 2025.10.15\n- 승인');
   await expect(create(page)).toHaveText('회의 2건 만들기');
   await create(page).click();
-  await expect(page.locator('#mffStatus')).toHaveText('회의 1건 완료 · 1건 실패. 실패한 묶음만 다시 만들 수 있어요.',{timeout:30000});
-  await expect(page.locator('#meetingModal')).toBeVisible();
-  await expect(row(page,'5차')).toHaveAttribute('data-state','done');
-  await expect(row(page,'2차')).toHaveAttribute('data-state','ready');
-  await expect(row(page,'2차').locator('.mff-note')).toContainText('실패');
-  await expect(create(page)).toHaveText('회의 1건 다시 만들기');
-  expect(f.posts).toHaveLength(2);
-  await create(page).click();
   await expect(page.locator('#meetingModal')).toBeHidden({timeout:30000});
-  // 다시 만들기는 이미 만든 회의를 다시 만들지 않고, 결과 글도 다시 더하지 않으며, 실패한 파일만 다시 올린다.
+  const dock=page.locator('#uploadDock');
+  await expect(dock).toContainText('자료 1개 못 올렸어요',{timeout:30000});
+  expect(f.posts).toHaveLength(2);
+  await dock.getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+  await expect(dock).toContainText('자료 1개 올렸어요',{timeout:30000});
   expect(f.posts).toHaveLength(2);
   expect(f.patches).toEqual([]);
   expect(f.uploadAttempts.map(a=>a.file).sort()).toEqual(['250910 제2차 본부 운영위원회 안건.pdf','250910 제2차 본부 운영위원회 안건.pdf','251015 제5차 중앙집행위원회 회의자료.pdf']);
+  const op2=f.meetings.find(m=>m.series_name==='본부 운영위원회'&&m.round_no===2).id;
+  expect(f.uploads.filter(u=>u.file.includes('2차')).map(u=>u.meeting)).toEqual([op2]);
   expect(f.errors).toEqual([]);
+});
+
+for(const width of [412,1280]){
+  test(`[만들기] closes the window as soon as the meeting is saved; the files go on behind while another screen is open (${width})`,async({page})=>{
+    const f=await fixture(page,{width});
+    let release;f.hold=new Promise(r=>{release=r});
+    await page.locator('#mffFiles').setInputFiles([pdf('251015 제5차 중앙집행위원회 회의자료.pdf'),pdf('251015 제5차 중앙집행위원회 안건.pdf')]);
+    await page.locator('#mffText').fill('제5차 중앙집행위원회 결과 2025.10.15\n- 승인');
+    await expect(create(page)).toHaveText('회의 1건 만들기',{timeout:30000});
+    await create(page).click();
+    await expect(page.locator('#meetingModal')).toBeHidden({timeout:30000});
+    expect(f.posts).toHaveLength(1);
+    await expect.poll(()=>f.uploadAttempts.length,{timeout:30000}).toBe(1);
+    // 다른 화면으로 옮겨도 멈추지 않는다: 아래 한 줄이 묶음 전체를 알린다.
+    await page.evaluate(()=>window.KPTURouter.go('home',{source:'test'}));
+    const dock=page.locator('#uploadDock');
+    await expect(dock).toContainText('2개 올리는 중');
+    release();
+    await expect(dock).toContainText('자료 2개 올렸어요',{timeout:30000});
+    expect(f.uploads.map(u=>u.meeting)).toEqual(['new-1','new-1']);
+    expect(f.errors).toEqual([]);
+  });
+}
+
+test('a meeting save that fails keeps the window and the chosen files; no file is sent',async({page})=>{
+  const f=await fixture(page,{width:412,failPost:true});
+  await page.locator('#mffFiles').setInputFiles([pdf('251015 제5차 중앙집행위원회 회의자료.pdf')]);
+  await page.locator('#mffText').fill('제5차 중앙집행위원회 결과 2025.10.15\n- 승인');
+  await expect(create(page)).toHaveText('회의 1건 만들기',{timeout:30000});
+  await create(page).click();
+  await expect(page.locator('#mffStatus')).toContainText('1건 실패',{timeout:30000});
+  await expect(page.locator('#meetingModal')).toBeVisible();
+  await expect(row(page,'5차').locator('[data-mff-item]')).toHaveCount(1);
+  await page.waitForTimeout(400);
+  expect(f.uploadAttempts).toEqual([]);
 });
 
 if(REVIEW){
@@ -266,7 +307,7 @@ test('a file name with different spacing and tail words is matched to the regist
   await expect(r.locator('summary')).toHaveAttribute('aria-label','2026-10-20, 중앙집행위원회, 38차, 자료 0개, 결과 있음, 새로 만들기');
   await expect(r.locator('[data-mff-confirm]')).toHaveCount(0);
   await create(page).click();
-  await expect(page.locator('#toast')).toHaveText('회의 1건을 만들었어요.',{timeout:30000});
+  await expect(page.locator('#uploadDock')).toContainText('자료 1개 올렸어요',{timeout:30000});
   expect(f.posts.map(p=>[p.series_name,p.round_no,p.meeting_at])).toEqual([['중앙집행위원회',38,'2026-10-19T15:00:00.000Z']]);
   expect(f.errors).toEqual([]);
 });
@@ -289,7 +330,7 @@ test('two registered kinds that both fit a file name are never auto-picked; the 
   await expect(r.locator('[data-mff-field="date"]')).toHaveValue('2026-10-20');
   await expect(r.locator('[data-mff-candidate]')).toHaveCount(0);
   await create(page).click();
-  await expect(page.locator('#toast')).toHaveText('회의 1건을 만들었어요.',{timeout:30000});
+  await expect(page.locator('#uploadDock')).toContainText('자료 1개 올렸어요',{timeout:30000});
   expect(f.posts.map(p=>[p.series_name,p.round_no])).toEqual([['본부 운영위원회',38]]);
   expect(f.errors).toEqual([]);
 });

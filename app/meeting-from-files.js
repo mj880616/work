@@ -17,7 +17,8 @@ import {uploadTimeoutMs} from './upload-budget.mjs'; // UPLOAD-올리기안됨: 
 import {sendUploadApi} from './upload-send.mjs';
 import {regularNames} from './meeting-name-sorts.mjs';
 import {peekSorts} from './meeting-name-sorts.js';
-import {trackUpload,paintUploadLine,watchUploads} from './upload-progress.js';
+import {paintUploadLine,watchUploads,announceDock} from './upload-progress.js';
+import {sendFailLine} from './meeting-send.mjs'; // BIZ-저장먼저닫기 3차: 못 넘긴 묶음의 한 줄 글('자료 n개 못 올렸어요')
 import {sameVersionFilter} from './meeting-join-model.mjs'; // REC-한회의로잇기 PR-3: 회의 결과 칸은 읽은 판 그대로일 때만 쓴다
 
 (()=>{
@@ -37,7 +38,8 @@ const modal=()=>$('#meetingModal');
 const rt=()=>window.KPTURuntime;
 const meetings=()=>window.KPTUTeamData?.meetings?.()||[];
 const kinds=()=>[...new Set(meetings().map(m=>String(m.series_name||m.title||'').trim()).filter(Boolean))];
-const isSaved=item=>item.kind==='file'?item.uploaded:textSaved.has(item.text);
+// handed: 회의 글이 저장된 뒤 공용 뒤 줄로 넘긴 파일(BIZ-저장먼저닫기 3차) — 이 창에서는 끝난 것으로 보고 다시 보내지 않는다(못 올리면 아래 한 줄의 [다시 올리기]).
+const isSaved=item=>item.kind==='file'?item.handed:textSaved.has(item.text);
 const shortDate=v=>v?v.slice(2).replace(/-/g,'.'):'';
 function toast(message){const t=$('#toast');if(!t)return;t.textContent=message;kptuHoldToast(t)}
 
@@ -86,7 +88,7 @@ function addFiles(picked){
   const rejected=[];
   for(const file of picked||[]){
     if(file.size>MAX_FILE){rejected.push(file.name);continue}
-    const item={id:'f'+(++seq),kind:'file',file,role:roleOf(file.name),fileKey:parseKey(file.name),bodyKey:null,text:'',read:'none',readNote:'',override:{},meetingId:null,uploaded:false,textSaved:false,error:''};
+    const item={id:'f'+(++seq),kind:'file',file,role:roleOf(file.name),fileKey:parseKey(file.name),bodyKey:null,text:'',read:'none',readNote:'',override:{},meetingId:null,handed:false,textSaved:false,error:''};
     files.push(item);
     if(item.role==='result')queueRead(item);
   }
@@ -155,9 +157,9 @@ function rowHtml(g){
   const fileRows=g.items.map(item=>{
     if(item.kind==='text'){const first=item.text.split('\n').find(Boolean)||'';return `<div class="file-line mff-text-line"><span class="file-kind" data-kind="other" aria-hidden="true">글</span><span class="file-line-main"><b>${esc(first.slice(0,60))}</b><small>붙여 넣은 결과 글 · ${item.text.length}자</small></span><span class="file-line-state">결과</span></div>`}
     const meta=item.role==='result'?({done:'본문을 결과 칸에 넣어요',failed:(item.readNote||'본문 못 읽음')+' · 파일만 첨부'}[item.read]||''):'';
-    const state=item.uploaded?'완료':item.error?'실패':'';
-    const end=locked||item.uploaded?'':`<select class="mff-role" data-mff-role="${esc(item.id)}" aria-label="${esc(item.file.name)} 결과·자료 선택">${item.role?'':'<option value="" selected>선택</option>'}<option value="result"${item.role==='result'?' selected':''}>결과</option><option value="material"${item.role==='material'?' selected':''}>자료</option></select><button class="icon-btn file-line-x" type="button" data-mff-remove="${esc(item.id)}" aria-label="${esc(item.file.name)} 빼기">×</button>`;
-    return fileLine({name:item.file.name,meta,state:item.uploaded?'success':item.error?'error':item.read==='reading'?'uploading':'',label:state||(locked?ROLE_LABEL[item.role]||'':''),end,attrs:` data-mff-item="${esc(item.id)}"`});
+    const state=item.handed?'올리는 중':item.error?'실패':'';
+    const end=locked||item.handed?'':`<select class="mff-role" data-mff-role="${esc(item.id)}" aria-label="${esc(item.file.name)} 결과·자료 선택">${item.role?'':'<option value="" selected>선택</option>'}<option value="result"${item.role==='result'?' selected':''}>결과</option><option value="material"${item.role==='material'?' selected':''}>자료</option></select><button class="icon-btn file-line-x" type="button" data-mff-remove="${esc(item.id)}" aria-label="${esc(item.file.name)} 빼기">×</button>`;
+    return fileLine({name:item.file.name,meta,state:item.error?'error':item.handed||item.read==='reading'?'uploading':'',label:state||(locked?ROLE_LABEL[item.role]||'':''),end,attrs:` data-mff-item="${esc(item.id)}"`});
   }).join('');
   const fields=`<div class="mff-fields"><label>종류<input type="text" data-mff-field="name" list="mffKinds" value="${esc(g.kind)}" autocomplete="off"${locked?' disabled':''}></label><label>차수<input type="number" min="1" inputmode="numeric" data-mff-field="round" value="${esc(g.round||'')}"${locked?' disabled':''}></label><label>날짜<input type="date" data-mff-field="date" value="${esc(g.date)}"${locked?' disabled':''}></label></div>`;
   const confirm=g.state==='new-kind'&&!saving?`<p class="mff-confirm">"${esc(g.kind)}"은 처음 보는 회의명이에요. <button type="button" class="secondary" data-mff-confirm="${esc(g.kind)}">새 종류로 만들기</button></p>`:'';
@@ -165,11 +167,12 @@ function rowHtml(g){
   return `<details class="mff-row" data-mff-anchor="${esc(g.anchor)}" data-state="${g.state}"${open?' open':''}><summary aria-label="${esc(label)}"><span class="mff-cell mff-date">${esc(shortDate(g.date)||'—')}</span><span class="mff-cell mff-kind">${esc(g.kind||'—')}</span><span class="mff-cell mff-round">${esc(g.round?g.round+'차':'—')}</span><span class="mff-cell mff-count">${g.materials.length}</span><span class="mff-cell mff-result" data-has="${g.results.length?1:0}">${result}</span><span class="mff-note">${esc(g.note)}</span></summary><div class="mff-body">${choose}${confirm}${fields}<div class="mtg-file-list">${fileRows}</div></div></details>`;
 }
 
-// UI-올리기진행표시 ②: 올리는 파일 줄 안에 공용 막대 + % + ✕(paintUploadLine). 다른 화면으로 가면 하단바 위 한 줄.
+// UI-올리기진행표시 ②: 올리는 파일 줄 안에 공용 막대 + % + ✕(paintUploadLine). 창을 닫았거나 다른 화면이면 하단바 위 한 줄.
+// BIZ-저장먼저닫기 3차: 뒤 줄로 넘긴 파일(handed)도 창이 열려 있는 동안은 그 줄 안에 그린다(올리는 표시가 열쇠 — 끝나면 지워진다).
 function paintMffUploads(){
-  $('#mffList')?.querySelectorAll('[data-mff-item]').forEach(row=>{const item=files.find(i=>i.id===row.dataset.mffItem);paintUploadLine(row,item?.sending?item.file:null)});
+  $('#mffList')?.querySelectorAll('[data-mff-item]').forEach(row=>{const item=files.find(i=>i.id===row.dataset.mffItem);paintUploadLine(row,item?.handed?item.file:null)});
 }
-watchUploads(()=>{if(saving)paintMffUploads()});
+watchUploads(()=>{if(files.some(i=>i.handed)&&!modal()?.classList.contains('hidden'))paintMffUploads()});
 function paint(){
   const list=$('#mffList');if(!list)return;
   const focus=document.activeElement&&list.contains(document.activeElement)?focusKey(document.activeElement):null;
@@ -273,27 +276,43 @@ async function saveGroup(g,scope){
     }
     markText(meetingId);
   }
-  let failed=0,message='';
-  for(const item of g.items){
-    if(item.kind!=='file'||item.uploaded)continue;
-    let form=null,job=null;
-    try{
-      // UI-올리기진행표시 ②: 보내기는 공용 길(sendUploadApi = 실제 보낸 양), 표시는 공용 부품(파일 줄 안 막대 + % + ✕).
-      // 한 회의의 Drive 폴더를 처음 만드는 일이 겹치지 않게 한 번에 한 파일씩.
-      job=trackUpload({file:item.file,name:item.file.name,size:item.file.size});item.sending=true;paint();
-      form=new FormData();form.append('meeting_id',meetingId);form.append('file',await rt().copyUploadFile(item.file));
-      // UPLOAD-올리기안됨: 올리기는 불러오기 기본 15초 한도가 아니라 파일 크기에 맞춘 공용 올리기 한도로.
-      readTextLater((await sendUploadApi(rt(),'/functions/v1/meeting-files',{body:form,size:item.file.size,job,timeoutMs:uploadTimeoutMs(item.file.size)}))?.document);
-      job.done();
-      item.uploaded=true;item.error='';
-    }catch(err){
-      if(err?.code==='upload_cancelled'){item.error='취소함';failed++;message='올리기를 취소했어요.';}
-      else{failed++;message=err?.message||'파일 올리기 실패';item.error=message;job?.fail(message);console.warn('meeting file upload failed',item.file.name,err)}
-    }
-    finally{form?.delete('file');form=null;job=null;item.sending=false}
-    paint();
-  }
-  if(failed)throw new Error(`파일 ${failed}개 실패${message?' · '+message:''}`);
+  return meetingId;
+}
+// BIZ-저장먼저닫기 3차(S59-18, 요청함 'BIZ-저장먼저닫기' 할 일 4): [만들기]는 회의 글(행·결과 글)만 먼저 저장하고 창을 닫는다. 회의자료·결과 파일은
+// 새 사업 보고 [저장](1차)과 같은 들머리(library-upload.js KPTULibrary.sendForMeeting — 공용 뒤 줄 luBackTail, meeting-send.mjs)로 넘겨
+// 뒤에서 하나씩 끝까지 올린다(화면을 옮겨도). 서버 입구는 예전 그대로 meeting-files(sendTo — 묶음 대상이 들고 가는 보내기). 진행·끝 글·[다시 올리기](못 올린 것만)는 하단바 위 한 줄.
+// 자료실 올리기를 불러오지 못하면 그 한 줄에 까닭 + [다시 올리기]. 파일은 그 탭 메모리에만 둔다.
+// 파일 하나를 그 회의로 올린다(공용 뒤 줄이 차례가 오면 부른다). 서버 입구·요청 모양은 예전 그대로: meeting-files에 meeting_id + 파일
+// (그 회의의 Drive 폴더에 두고 자료실 '회의자료'로 등록). 한 회의의 Drive 폴더를 처음 만드는 일이 겹치지 않게 한 번에 한 파일씩(뒤 줄이 지킴).
+// 다 보낸 뒤 답이 없으면 결과 불명(timeout·network_error)으로 던진다 — 저절로 다시 보내지 않고 [다시 올리기] 때 확인을 받는다.
+const sendTo=meetingId=>async(file,{job=null,gone=()=>false}={})=>{
+  const changed=()=>Object.assign(new Error('로그인 계정이 바뀌어 올리지 않았어요.'),{status:401,code:'session_changed'});
+  if(gone())throw changed();
+  let form=new FormData();
+  try{
+    form.append('meeting_id',meetingId);form.append('file',await rt().copyUploadFile(file));
+    if(gone())throw changed();
+    // UPLOAD-올리기안됨: 올리기는 불러오기 기본 15초 한도가 아니라 파일 크기에 맞춘 공용 올리기 한도로.
+    const d=await sendUploadApi(rt(),'/functions/v1/meeting-files',{body:form,size:file.size,job,timeoutMs:uploadTimeoutMs(file.size)});
+    if(d?.error)throw new Error(d.error);
+    readTextLater(d?.document);job?.done?.();
+    return d?.document||null;
+  }catch(err){
+    if(err?.code==='note_save_result_unknown')throw Object.assign(err,{code:err.via==='timeout'?'timeout':'network_error'});
+    throw err;
+  }finally{form.delete('file');form=null}
+};
+async function libraryReady(){
+  const loader=window.KPTUViewLoader;
+  if(loader?.load&&!loader.isLoaded?.('library'))await loader.load('library');
+  if(!(await window.__KPTU_LIBRARY_UPLOAD_READY__)||typeof window.KPTULibrary?.sendForMeeting!=='function')throw new Error('자료실 올리기를 불러오지 못했어요.');
+}
+function sendBehind(send,ready=null){
+  void Promise.resolve(ready||libraryReady()).then(()=>window.KPTULibrary.sendForMeeting(send.meeting,send.files)).catch(err=>{
+    console.warn('meeting files hand-off failed',err?.message||err);
+    announceDock({text:sendFailLine({badFiles:send.files.length}),note:'자료실 올리기를 불러오지 못했어요. 잠시 후 다시 올려 주세요.',error:true,ms:0,
+      actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:()=>sendBehind(send)}]});
+  });
 }
 async function run(){
   if(saving)return;
@@ -303,20 +322,30 @@ async function run(){
   const scope={workspace:context?.workspace?.id,user:context?.user?.id};
   if(!scope.workspace||!scope.user){runMessage='로그인 상태를 확인하지 못했어요.';paint();return}
   saving=true;runMessage='';paint();
-  let ok=0,fail=0;
+  // 파일이 있으면 자료실 올리기를 미리 불러 둔다(글을 저장하는 동안).
+  const library=ready.some(g=>g.items.some(i=>i.kind==='file'&&!isSaved(i)))?libraryReady():null;library?.catch(()=>{});
+  let ok=0,fail=0;const sends=[];
   try{
     for(const g of ready){
-      try{await saveGroup(g,scope);ok++}
+      try{
+        const id=await saveGroup(g,scope);ok++;
+        // 글이 저장된 묶음의 파일만 넘긴다(글 저장이 실패한 묶음의 파일은 보내지 않고 창에 남긴다).
+        const list=g.items.filter(i=>i.kind==='file'&&!isSaved(i));
+        for(const i of list){i.handed=true;i.error=''}
+        if(list.length)sends.push({meeting:{id,project_id:null,kind:'meeting',day:g.date||'',send:sendTo(id)},files:list.map(i=>i.file)});
+      }
       catch(err){fail++;const msg=err?.message||'실패';for(const i of g.items)if(!isSaved(i)&&!i.error)i.error=msg}
       paint();
     }
   }finally{saving=false}
+  for(const send of sends)sendBehind(send,library);
   try{await window.__KPTU_RELOAD_MEETINGS__?.()}catch(err){console.warn('meeting list refresh failed',err)}
   window.dispatchEvent(new CustomEvent('kptu:meetings-changed'));
   window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
   const left=plan().filter(g=>g.state!=='done').length;
   if(!fail&&!left){
-    toast(`회의 ${ok}건을 만들었어요.`);
+    // 파일을 뒤로 넘겼으면 진행·끝은 하단바 위 한 줄이 알린다(위쪽 작은 알림을 겹쳐 띄우지 않는다).
+    if(!sends.length)toast(`회의 ${ok}건을 만들었어요.`);
     reset();
     modal()?.querySelector('[data-close="meetingModal"]')?.click();
     return;
