@@ -1,7 +1,7 @@
 // S57-14 MTG-회의명처음배치(시안 docs/design/mockups/meeting-name-groups-phone.html): 사업 보고 입력 창 회의명 상자가
 // 처음부터 조직 머리글 아래 정한 순서로 뜨고, 아직 보고가 없는 '미리 넣은 회의'가 보이며 고를 수 있다.
 // '회의 미리 넣기'로 넣으면 그 조직 맨 아래에 붙고, 줄 ⋯ [위로]·[아래로]로 순서를 고치고, ⋯ [목록에서 빼기]로 뺀다.
-// 값은 서버(내 프로필 meeting_name_sorts)에만 있다 — 새로 고침·다른 화면(다른 기기와 같은 조건)에서도 같은 목록.
+// 값은 서버(내 프로필 meeting_name_sorts)에만 있다 — 새로 고침·다른 기기(새 브라우저)에서도 같은 목록.
 // 서버는 가짜, 이름은 모두 지어낸 값(실제 회의·단체 이름 없음).
 import {test, expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
@@ -160,12 +160,19 @@ for (const [label, size] of [SIZES[0], SIZES[2]]) {
     await panel(page).locator('[data-mnp-act="org"]').click();
     await panel(page).locator(`[data-mnp-org-pick="${A}"]`).click();
     await expect(picks(page)).toHaveText(['예시 회의 3', '예시 회의 9', '예시 회의 1', '예시 회의 10', '예시 회의 4', '예시 회의 2']);
-    // 기기에는 아무것도 저장하지 않는다(서버 값만): 새로 고침해도 같은 목록.
-    expect(await page.evaluate(() => [localStorage, sessionStorage].flatMap(s => Object.keys(s).map(k => s.getItem(k))).some(v => /예시 회의 9|예시회의9/.test(String(v))))).toBe(false);
+    // 값은 서버에만 있다: 새로 고침해도, 다른 기기(저장된 것이 하나도 없는 새 브라우저)에서 열어도 같은 목록.
     await page.reload();
     await openModal(page);
     await openPanel(page);
     await expect(picks(page)).toHaveText(['예시 회의 3', '예시 회의 9', '예시 회의 1', '예시 회의 10', '예시 회의 4', '예시 회의 2']);
+    const other = await page.context().browser().newContext({viewport: size, timezoneId: 'Asia/Seoul'});
+    try {
+      const page2 = await other.newPage();
+      await openEntry(page2, state);
+      await openPanel(page2);
+      await expect(picks(page2)).toHaveText(['예시 회의 3', '예시 회의 9', '예시 회의 1', '예시 회의 10', '예시 회의 4', '예시 회의 2']);
+      await expect(panel(page2).locator('[data-mnp-preset-row] .mnp-name')).toHaveText(['예시 회의 9', '예시 회의 10']);
+    } finally { await other.close(); }
     // 미리 넣은 회의 이름 바꾸기: 보고가 없으므로 묻지 않고 정리 값의 이름만 바뀐다(자리·조직 그대로).
     await menuOf(page, '예시 회의 10');
     await panel(page).locator('[data-mnp-act="rename"]').click();
