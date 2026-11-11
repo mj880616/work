@@ -57,7 +57,8 @@ export function allState(names,off){const on=names.filter(n=>!off.has(n)).length
 // [전체]를 누른 뒤의 꺼진 종류: 모두 켜졌으면 모두 끄고, 아니면(일부·없음) 모두 켠다.
 export function afterAllTap(names,off){return allState(names,off)==='all'?new Set(names):new Set()}
 
-const profileUrl=rt=>{const user=rt?.context?.read?.()?.user?.id;return user?`/rest/v1/app_profiles?user_id=eq.${encodeURIComponent(user)}`:''};
+// 내 프로필 행 주소(LIB-받는폴더 library-receive.js도 같은 행의 다른 칸을 쓴다).
+export const profileUrl=rt=>{const user=rt?.context?.read?.()?.user?.id;return user?`/rest/v1/app_profiles?user_id=eq.${encodeURIComponent(user)}`:''};
 // {status:'ok', view} | {status:'pending'} (칸이 아직 없음) | {status:'error'}. 어느 쪽이든 화면은 기본값으로 동작한다.
 export async function readView(rt=globalThis.window?.KPTURuntime){
   const url=profileUrl(rt);if(!url)return {status:'error'};

@@ -48,7 +48,9 @@ async function boot(page,group){
 test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리기',()=>{
   test('담당조직: 닫힌 공공기관사업본부 머리에 2개 → 표시·머물면 열림 뒤 그 조직으로, 조직 없음에 놓으면 지금처럼',async({page})=>{
     const {s,errors}=await boot(page,'담당조직');
-    await expect(page.locator(head('o:org-1'))).toBeVisible();
+    // 조직 목록을 다 읽어 그 이름으로 다시 그린 뒤에 놓는다(읽기 전에는 같은 머리가 '[확인할 수 없는 조직]'으로 먼저 그려지고,
+    // 다 읽으면 목록을 새로 그려 끄는 중인 머리가 바뀐다 — 그 사이에 놓으면 표시가 사라짐).
+    await expect(page.locator(head('o:org-1'))).toContainText('공공기관사업본부');
     await expect(page.locator('#documentList details[data-lu-node="o:org-1"]')).not.toHaveAttribute('open','');
     const r=await dropFiles(page,head('o:org-1'),['a.hwpx','b.pdf'],{wait:1300});
     expect(r).toEqual({allowed:true,into:true,group:true,open:true,hint:'놓으면 ‘공공기관사업본부’로 올려요'});
