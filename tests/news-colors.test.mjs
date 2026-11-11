@@ -91,9 +91,59 @@ test('고정 색 표: 키마다 이름 글자·막대 토큰, 표에 없는 매�
 
 test('고정 색 표의 키는 모두 지금 카탈로그에 있다(이름이 바뀌거나 빠진 키가 표에 남지 않음)', () => {
   const outside = catalogKeys('outside-catalog.ts'), news = catalogKeys('news-catalog.ts');
-  assert.ok(outside.length >= 19 && news.length >= 23, `카탈로그 키를 못 읽음 ${outside.length}·${news.length}`);
+  assert.ok(outside.length >= 19 && news.length >= 37, `카탈로그 키를 못 읽음 ${outside.length}·${news.length}`);
   for (const k of FIXED_OUTSIDE) assert.ok(outside.includes(k), `단체 카탈로그에 없음: ${k}`);
   for (const k of FIXED_NEWS) assert.ok(news.includes(k), `언론 카탈로그에 없음: ${k}`);
+});
+
+// S58-5 반대 방향 전수: 카탈로그에 매체를 더했는데 고유색(FIXED_* 키 + 토큰 두 개)을 빼먹으면 이 시험이 매체 키를 알려 준다. 빠진 키는 묶음 돌려쓰기 칸으로 그려져 다른 매체와 색이 겹쳐 보인다.
+// 일부러 표에 없는 키만 아래에 까닭과 함께 적는다. 까닭 없이 키를 여기에 더해 시험을 넘기지 않는다(새 매체는 표·토큰을 더하는 것이 기본).
+const NO_FIXED_COLOR_NEWS = {
+  'news-google': '매체가 아니라 키워드 찾기 길(구글 뉴스 검색 RSS)이다. 기사마다 실제 매체 이름이 달라 한 색을 주면 구분이 사라지므로 기사마다 매체 이름으로 칸을 고르는 지금 규칙 그대로(docs/design/news-identity-colors.md 2절).',
+};
+const NO_FIXED_COLOR_OUTSIDE = {};
+const missingFixed = (catalog, fixed, skip) => catalog.filter(k => !fixed.includes(k) && !(k in skip));
+
+test('카탈로그의 모든 키는 고정 색 표에 있다 — 고유색을 빼먹은 새 매체를 시험이 알려 준다(일부러 뺀 키는 까닭과 함께)', () => {
+  const outside = catalogKeys('outside-catalog.ts'), news = catalogKeys('news-catalog.ts');
+  assert.deepEqual(missingFixed(news, FIXED_NEWS, NO_FIXED_COLOR_NEWS), [], '언론 카탈로그에 새로 들어온 키에 고유색이 없음 — app/news-colors.mjs FIXED_NEWS와 app/theme-tokens.css 토큰 두 개(밝은·어두운 화면)와 docs/design/news-identity-colors.md 표 한 줄을 더하세요');
+  assert.deepEqual(missingFixed(outside, FIXED_OUTSIDE, NO_FIXED_COLOR_OUTSIDE), [], '단체 카탈로그에 새로 들어온 키에 고유색이 없음 — app/news-colors.mjs FIXED_OUTSIDE와 토큰 두 개와 표 한 줄을 더하세요');
+  // 일부러 뺀 키는 까닭이 있고, 카탈로그에 실제로 있으며, 고정 표에는 없다(이름이 바뀌거나 나중에 표에 들어간 키가 면제 목록에 남지 않게).
+  for (const [k, why] of Object.entries(NO_FIXED_COLOR_NEWS)) {
+    assert.ok(why.length >= 20, `${k} 까닭이 없음`);
+    assert.ok(news.includes(k), `${k}는 언론 카탈로그에 없음 — 면제 목록에서 지우세요`);
+    assert.ok(!FIXED_NEWS.includes(k), `${k}는 이미 고정 표에 있음 — 면제 목록에서 지우세요`);
+  }
+  assert.deepEqual(Object.keys(NO_FIXED_COLOR_OUTSIDE).filter(k => !outside.includes(k) || FIXED_OUTSIDE.includes(k)), []);
+});
+
+test('빠진 키를 알려 주는 검사 자체가 동작한다: 가짜 카탈로그에 고유색 없는 새 키를 넣으면 그 키가 나온다', () => {
+  assert.deepEqual(missingFixed(['news-a', 'news-b', 'news-google'], ['news-a'], NO_FIXED_COLOR_NEWS), ['news-b']);
+  assert.deepEqual(missingFixed(['news-a', 'news-google'], ['news-a'], NO_FIXED_COLOR_NEWS), []);
+  assert.deepEqual(missingFixed(['x'], [], {}), ['x']);
+});
+
+// S58-5 새 매체 13곳(구글 뉴스 매체 단위, NEWS-못넣은곳대안 ②): 각자 고유색. 앞의 23곳 차례와 다른 매체 색은 그대로.
+const NEW_NEWS_13 = ['news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan', 'news-laborplus', 'news-redian', 'news-newsone', 'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
+test('새 언론 13곳: 고정 표 뒤쪽에 더해졌고(앞 23곳 차례 그대로), 막대는 한 색, 글자·막대 토큰이 밝은·어두운 화면에 있다', () => {
+  assert.deepEqual([...FIXED_NEWS].slice(0, 3), ['news-labortoday', 'news-beminor', 'news-pressian']);
+  assert.deepEqual([...FIXED_NEWS].slice(20, 23), ['news-psi', 'news-itf', 'news-labourstart']);
+  assert.deepEqual([...FIXED_NEWS].slice(23), NEW_NEWS_13);
+  for (const k of NEW_NEWS_13) {
+    assert.equal(newsColor({source_key: k}, []), `var(--ds-news-id-${k})`);
+    assert.equal(newsBar({source_key: k}, []), `var(--ds-news-id-${k}-bar)`);
+    for (const part of [lightPart, darkPart]) assert.match(tok(part, `ds-news-id-${k}-bar`) || '', /^#[0-9a-f]{6}$/, `${k} 막대는 한 색`);
+  }
+  // 구글 뉴스 키워드 길은 그대로 매체 이름으로 칸 고르기.
+  assert.match(newsColor({source_key: 'news-google', publisher: '가상일보'}, []), /^var\(--ds-news-press-[1-4]\)$/);
+});
+
+// 새 13곳 이름 글자는 분류 꼬리표(노동·정치·국제·성명) 글자색과도 거리 14 이상(#2357 문서 6절 기준, 밝은·어두운 화면 따로).
+test('새 언론 13곳의 이름 글자는 분류 꼬리표 글자색과 헷갈리지 않는다(거리 14 이상)', () => {
+  for (const [part, label] of [[lightPart, '밝은'], [darkPart, '어두운']]) {
+    const tagInks = ['labor', 'politics', 'intl', 'statement'].map(t => tok(part, `ds-news-tag-${t}-ink`));
+    for (const k of NEW_NEWS_13) for (const [i, tagInk] of tagInks.entries()) assert.ok(dist(tok(part, `ds-news-id-${k}`), tagInk) >= 14, `${label} 화면 ${k} ↔ 꼬리표 ${i} 너무 비슷함`);
+  }
 });
 
 test('고정 색 토큰: 밝은·어두운 화면 모두 있고, 이름 글자는 바탕 대비 4.5:1 이상, 막대는 한 색 또는 여러 색 띠', () => {
