@@ -2,6 +2,7 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
 import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
 import {eventColor} from './home-read-model.js';
 import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-model.mjs';
+import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 일정 막대 앞 ✓(보고 씀)·□(보고할 일정)
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
@@ -258,13 +259,16 @@ import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-m
     b.style.gridRow=String(seg.lane+1);
     b.style.background=ev.color;b.style.color=ev.text;
     if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
-    const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title;
+    // BIZ-보고할일정 PR B: 보고할 일정이면 막대 맨 앞에 ✓·□(report-plan-mark.js). 읽어 둔 값이 없으면 표시 없이 지금 그대로.
+    const plan=ev.source==='google'?planMarkOf(ev.raw):null;
+    const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title+planMarkSuffix(plan);
     // S52-11 CAL-제목먼저(명진 11/07): 폰 월 보기 칸 안 줄은 제목만 — 시각은 읽기 이름(aria-label·title)과 그날 목록·일정 창에 남는다.
     // PC·펼친 폴드(761px 이상)는 칸이 넓어 시각 + 제목 그대로.
     // S52-40 CAL-확대시각(명진 11/07·11/08): 폰에서 두 손가락으로 키운 동안 날마다 쌓는 하루짜리 일정(appendZoomStacks → zoomed)은
     // 제목 앞에 작은 시각. 띠·종일·할 일은 시각 없음. 오므리면 render가 다시 그려 제목만.
     const showTime=tm&&(!mq760.matches||(zoomed&&zoomMode&&seg.span<=1));
     b.innerHTML=(showTime?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
+    if(plan)b.prepend(planMarkEl(plan));
     b.title=label;
     b.setAttribute('aria-label',label);
     return b;

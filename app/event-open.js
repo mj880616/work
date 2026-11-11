@@ -19,6 +19,15 @@ export async function openGoogleEvent(id, calendarId) {
   window.KPTUCalendarEvents.open(String(id), calendarId || 'primary');
   return true;
 }
+// BIZ-보고할일정 PR B: 일정 줄의 □(보고할 일정)를 눌렀을 때 — 달력 일정 메뉴 [결과 남기기]와 같은 길(KPTUCalendarEvents.act 'report':
+// 그 일정을 읽어 제목·시작·장소가 채워진 사업 보고 쓰기 창을 연다. 저장할 때 보고 줄에 일정 id가 이어진다).
+export async function leaveEventReport(id, calendarId) {
+  if (!id) return false;
+  await calendarReady();
+  if (!window.KPTUCalendarEvents?.act) throw new Error('calendar');
+  await window.KPTUCalendarEvents.act(String(id), calendarId || 'primary', 'report');
+  return true;
+}
 // The calendar's event menu at a pressed spot (x, y): a long press on a phone, a right-click on a PC. trigger carries
 // data-google-event / data-google-calendar (the menu reads them).
 export async function openGoogleEventMenu(trigger, x = null, y = null) {
