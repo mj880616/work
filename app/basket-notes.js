@@ -47,7 +47,7 @@ import { bigWindowOpen } from './big-window-open.js';
 import { paintDoc, docCopy, mountEditField, notePhotos, noteFiles } from './note-body.js';
 import { prepareSave } from './ed-window-model.mjs';
 import { mountQuick } from './home-quick.js';
-import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles, createAttachQueue } from './basket-upload.js';
+import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles, noteFileLine } from './basket-upload.js';
 import { setUploadRetry } from './upload-progress.js';
 import { announceUploaded } from './upload-done.js';
 import { fileLine } from './meeting-compact.js';
@@ -371,6 +371,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return `<div class="nx-row nt-cm-row" data-nt-cm="${esc(c.id)}"><button type="button" class="nt-cm-open" data-nt-cm-open="${esc(c.note_id)}"><span class="note-cm-kind" data-kind="${esc(c.kind)}">${esc(kindName(c.kind))}</span><span class="nt-cm-text">${c.quote ? `<q>${esc([...c.quote].slice(0, 80).join(''))}</q> ` : ''}${esc([...c.body].slice(0, 200).join(''))}</span><span class="row-tail nx-path"><span class="a11y-only">노트: </span>${esc(title)}</span><time class="row-tail" datetime="${esc(c.created_at || '')}">${esc(noteLineDate(c.created_at))}</time></button></div>`; }).join('') : emptyHtml(query ? '맞는 댓글 없음' : '댓글 없음');
   }
   wideList.addEventListener?.('change', () => { if (loaded && !selected) renderList(); });
+  const lateSent = new Map(); // BIZ-저장먼저닫기 2차: 목록에 아직 없던 새 노트의 뒤 올리기가 끝남(id → 글을 고쳤는지)
   async function refresh() {
     if (busy) return;
     const run = ++epoch, owner = scope();
@@ -379,6 +380,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const [result, fold, cm] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt), readNoteComments(rt)]);
       if (run !== epoch || owner !== scope()) return;
       notes = result.notes; links = result.links; loaded = true;
+      for (const [id, text] of [...lateSent]) if (notes.some(n => n.id === id)) { lateSent.delete(id); void rereadSent(id, text); }
       comments = cm.comments; commentsReady = cm.ready; commentsMissing = !!cm.missing;
       foldersReady = fold.ready; foldersMissing = !!fold.missing; folders = fold.ready ? fold.folders : foldersFromNames(notes);
       // NAV-새로고침제자리: the folder entered before a reload (?folder=) is entered again once the folders are read.
@@ -779,7 +781,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // at once: nothing is locked, the window and the note can be closed, another note or screen opened, and files saved meanwhile wait in
   // the same line. Progress is the shared upload line (this window's row while it shows that note, else the line above the bottom bar);
   // the end and a failure are the shared small notice ([다시] sends only what did not go up). Only another account or workspace stops it.
-  const fileQueue = createAttachQueue();
+  // BIZ-저장먼저닫기 2차(S59-8): 줄은 basket-upload.js의 노트 줄 하나(새 노트 [저장]도 같은 줄에 선다 — 그 노트를 열면 같은 잠금이 걸린다).
+  const fileQueue = noteFileLine;
   function saveFiles({textSaved = false} = {}) {
     if (!selected || busy || !bigFiles) return {ok:false, message:'지금은 저장할 수 없어요.'};
     const id = selected.id, batch = bigFiles;
@@ -832,6 +835,27 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // 올리는 동안에도 잠그는 것: 같은 노트의 빼기·삭제·고정·옮기기. 서버는 올리는 사이 노트가 바뀌면 그 올리기를 거절하므로(updated_at·attachments
   // 맞춤) 다 올라간 뒤에 한다. 닫기·다른 노트·다른 화면·더 붙이기는 잠그지 않는다.
+  // BIZ-저장먼저닫기 2차(S59-8): 새 노트의 사진·파일이 뒤에서 다 올라가면(새 노트 큰 창·빠른 입력칸·폰 공유) 그 노트를 다시 읽어 목록 줄과 열린 노트를 맞춘다.
+  // 글 속 자리를 맞추느라 글이 바뀌었으면(text) 열린 고치기의 기준 판은 그대로 둔다(그 고치기는 저장할 때 '그사이 바뀌었어요'로 멈춘다 — 덮어쓰지 않는다).
+  // 목록을 아직 읽는 중이라(새 노트를 막 더함) 그 노트가 목록에 없으면, 목록 읽기가 끝난 뒤 한 번 더 읽는다(lateSent — 먼저 읽은 목록이 올리기 전 모습일 수 있다).
+  async function rereadSent(id, text) {
+    const owner = scope();
+    let row = null;
+    try { row = await readNoteDoc(id, rt); } catch {}
+    if (!row || owner !== scope()) return;
+    notes = notes.map(n => n.id === id ? row : n); renderList();
+    if (selected?.id === id) {
+      selected = row;
+      if (!text && fieldBase && Date.parse(row.updated_at) > Date.parse(fieldBase)) fieldBase = row.updated_at;
+      if (!editing) paintRead(); paintMeta();
+      if (bigFiles?.note_id === id) bigFiles.attachments = row.attachments || [];
+    }
+  }
+  window.addEventListener('kptu:note-files-sent', e => {
+    const id = e.detail?.id; if (!id) return;
+    if (!notes.some(n => n.id === id) && selected?.id !== id) { lateSent.set(id, !!e.detail.text); return; }
+    void rereadSent(id, !!e.detail.text);
+  });
   const filesGoing = id => { if (!fileQueue.going(id)) return false; report('첨부를 올리는 중이에요. 다 올라간 뒤에 할 수 있어요.'); return true; };
   // NOTE-파일붙이기 [빼기]: the file leaves this note only (detachNoteFile); the Drive file stays where it is.
   async function detachFile(note, fileId) {

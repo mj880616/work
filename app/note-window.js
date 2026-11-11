@@ -10,7 +10,7 @@
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {openEdWindow} from './ed-window.js';
 import {createNoteDoc, noteTitleFromText, readNoteDoc, saveNoteDoc} from './basket-data.js';
-import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
+import {createUploadBatch, mountBasketPicker, fileTitle, sendNoteBehind} from './basket-upload.js';
 import {NOTE_TEXT_MAX} from './note-doc.mjs';
 import {requestNoteAiTitle} from './note-ai-title.js';
 import {WAIT_PREFIX, waitingSrcs, swapWaiting} from './note-pending-media.mjs';
@@ -114,40 +114,58 @@ export function waitingMedia() {
     clear() { for (const entry of kept.values()) if (entry.url) URL.revokeObjectURL(entry.url); kept.clear(); },
   };
 }
-// After the new note is made: each waiting file goes up as one of its attachments (one at a time, in the text's order) and its id is
-// swapped in the text; the note's text is then written once more (guarded by the version after the uploads). Returns '' or a warning.
-async function sendWaiting(note, value, media, {rt, isCurrent}) {
-  const swap = {};
-  let attachments = note.attachments || [], failed = 0, error = null;
-  for (const src of waitingSrcs(value)) {
+// BIZ-저장먼저닫기 2차(S59-8): after the new note is made, its waiting pictures·files (in the text's order) and the [📎 첨부] files go up behind
+// the screen as one batch on the note's line (basket-upload.js sendNoteBehind) — the window is already closed. Each waiting file that went up has
+// its id swapped into the text, and the text is written once more after the uploads — only while the note's letters are still the ones this save
+// wrote (an edit made meanwhile is never overwritten; the files then stay under the note). A file that did not go up leaves the text without it
+// and the bottom line offers [다시 올리기]; a later success puts it back in its place the same way. Returns true when something was sent.
+export function sendNewNoteFiles(note, {value, letters, media, waits, files = [], rt = window.KPTURuntime, aiTitle = false}) {
+  const batch = createUploadBatch(note.id, note.attachments || []), placed = new Map(), swap = {};
+  let lost = 0;
+  for (const src of waits) {
     const file = media.file(src);
-    if (!file || error) { failed++; continue; }
-    const batch = createUploadBatch(note.id, attachments);
-    batch.entries = [{file, kind: 'pending', label: '대기'}];
-    const before = new Set(attachments.map(f => f?.drive_file_id));
+    if (!file) { lost++; continue; }
+    const entry = {file, kind: 'pending', label: '대기'};
+    placed.set(entry, src); batch.entries.push(entry);
+  }
+  batch.entries.push(...files);
+  if (!batch.entries.length) { if (aiTitle) void requestNoteAiTitle(note.id, {rt}); return false; }
+  // Which attachment each waiting file became: the upload adds one attachment per file, in order.
+  const known = new Set(batch.attachments.map(f => f?.drive_file_id)), seen = new Set();
+  const onChange = () => {
+    const fresh = (batch.attachments || []).filter(f => f?.drive_file_id && !known.has(f.drive_file_id));
+    for (const entry of batch.entries) {
+      if (entry.kind !== 'success' || seen.has(entry)) continue;
+      seen.add(entry);
+      const made = fresh.shift(); if (!made) continue;
+      known.add(made.drive_file_id);
+      if (placed.has(entry)) swap[placed.get(entry)] = 'drive:' + made.drive_file_id;
+    }
+  };
+  let written = letters, titled = !aiTitle;
+  const finish = placed.size ? async () => {
+    if (!Object.keys(swap).length) return '';
+    const doc = swapWaiting(value, swap);
     try {
-      await uploadNoteFiles(note.id, batch, {rt, isCurrent});
-      attachments = batch.attachments;
-      const made = attachments.find(f => f?.drive_file_id && !before.has(f.drive_file_id));
-      if (made) swap[src] = 'drive:' + made.drive_file_id; else failed++;
-    } catch (e) { error = e; failed++; }
-  }
-  if (!Object.keys(swap).length) return failed ? `노트는 저장했지만 사진·파일을 올리지 못했어요. ${error?.message || ''} 노트를 열어 다시 넣어 주세요.` : '';
-  const doc = swapWaiting(value, swap);
-  try {
-    const row = await readNoteDoc(note.id, rt);
-    if (!row || !isCurrent()) throw new Error('note_missing');
-    await saveNoteDoc(note.id, {title: row.title, raw_text: toPlain(doc), doc, version: row.updated_at}, rt);
-  } catch {
-    return '노트와 사진·파일은 저장했지만 글 안 자리를 맞추지 못했어요. 파일은 노트 아래에 있어요.';
-  }
-  return failed ? `노트는 저장했지만 사진·파일 ${failed}개를 올리지 못했어요. ${error?.message || ''}`.trim() : '';
+      const row = await readNoteDoc(note.id, rt);
+      if (!row || row.raw_text !== written) throw new Error('note_changed');
+      await saveNoteDoc(note.id, {title: row.title, raw_text: toPlain(doc), doc, version: row.updated_at}, rt);
+      written = toPlain(doc);
+      return lost ? `글 안 사진·파일 ${lost}개는 넣지 못했어요.` : '';
+    } catch {
+      return '글 안 자리를 맞추지 못했어요. 사진·파일은 노트 아래에 있어요.';
+    }
+  } : null;
+  void sendNoteBehind(note.id, batch, {rt, onChange, finish, textChanged: () => written !== letters,
+    done: () => { if (!titled) { titled = true; void requestNoteAiTitle(note.id, {rt}); } }});
+  return true;
 }
 
 // 새 노트를 만든 뒤 할 일 하나(큰 창 run과 FORGET-노트작은창 작은 창이 같은 길): AI 요약 제목(서버가 정함, 기다리지 않음) + 고른 폴더에 넣기.
 // NOTE-탐색기 후속 ⑤: 폴더에 넣는 일은 noteFolder.put(note-folder-pick.js, setNoteFolderRef 한 길)이 한다. 반환: '' 또는 알림 글.
-export async function finishNewNote(note, {rt = window.KPTURuntime, noteFolder = null} = {}) {
-  void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: 사진·파일 글 쓰기 뒤에 불러(같은 노트를 두 번 고치지 않게).
+// aiTitle: false면 AI 요약 제목은 부른 곳이 나중에 부른다(BIZ-저장먼저닫기 2차 — 글 속 사진·파일이 뒤에서 올라가 자리를 맞춘 뒤).
+export async function finishNewNote(note, {rt = window.KPTURuntime, noteFolder = null, aiTitle = true} = {}) {
+  if (aiTitle) void requestNoteAiTitle(note.id, {rt}); // NOTE-탐색기 ③: 사진·파일 글 쓰기 뒤에 불러(같은 노트를 두 번 고치지 않게).
   if (noteFolder?.write && noteFolder.get?.() && noteFolder.put) {
     try { await noteFolder.put({id: note.id}); }
     catch { return `노트는 저장했지만 '${noteFolder.label()}' 폴더에 넣지 못했어요. 노트 ⋯의 [폴더로 옮기기]로 옮겨 주세요.`; }
@@ -224,25 +242,23 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
     if (custom()) return addTo({value, typed, heading: head.input.value});
     const list = batch(), count = files.pending(), heading = head.input.value;
     if (count && (list.blocked || list.note_id)) return {ok: false, message: '앞선 업데이트의 첨부 저장 결과를 먼저 확인해 주세요.'};
-    // NOTE-파일그림넣기: waiting pictures·files are made first without their cards (they go in after the upload, sendWaiting).
+    // NOTE-파일그림넣기: waiting pictures·files are made first without their cards (they go in after the upload, sendNewNoteFiles).
     const waits = waitingSrcs(value), bare = waits.length ? swapWaiting(value, {}) : value, letters = waits.length ? toPlain(bare) : typed;
     if (!letters.trim() && !heading.trim() && !count && !waits.length) return {ok: false, message: '제목이나 본문을 써 주세요.'};
     busy = true; files.picker.render();
-    let warning = '';
+    let warning = '', sending = false;
     try {
       const first = media.file(waits[0])?.name || list.entries.find(entry => entry.kind !== 'success')?.file?.name;
       const note = await createNoteDoc({title: heading.trim() ? heading : noteTitleFromText(letters) || fileTitle(first), raw_text: letters, markdown: false, doc: letters.trim() || waits.length ? bare : null}, rt);
       saved = {kind: 'note', id: note.id};
-      if (waits.length) warning = await sendWaiting(note, value, media, {rt, isCurrent: () => rt.session.read()?.user?.id === owner});
-      warning ||= await finishNewNote(note, {rt, noteFolder});
-      if (count) {
-        try { await uploadNoteFiles(note.id, list, {rt, isCurrent: () => rt.session.read()?.user?.id === owner, onChange: () => files.picker.render()}); }
-        catch (error) { warning ||= `노트는 저장했지만 첨부를 올리지 못했어요. ${error?.message || ''} 노트를 열어 다시 붙여 주세요.`.replace(/\s+/g, ' '); }
-        if (upload) upload.reset?.(); else own = createUploadBatch();
-      }
+      // BIZ-저장먼저닫기 2차(S59-8): 글이 저장되면 폴더에 넣고 창을 닫는다. 글 속 사진·파일과 [📎 첨부]는 그 노트의 뒤 줄에서 끝까지 올라간다(화면을 옮겨도).
+      // 글 저장이 실패하면(위 createNoteDoc) 창은 닫히지 않고 아무것도 보내지 않는다.
+      warning = await finishNewNote(note, {rt, noteFolder, aiTitle: !waits.length});
+      sending = sendNewNoteFiles(note, {value, letters, media, waits, files: list.entries.filter(entry => entry.kind !== 'success'), rt, aiTitle: !!waits.length});
+      if (count) { if (upload) upload.reset?.(); else own = createUploadBatch(); }
     } catch (error) { return {ok: false, message: error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }
     finally { busy = false; files.picker.render(); }
-    toast(warning || '노트로 저장했어요.');
+    toast(warning || (sending ? '노트로 저장했어요. 사진·파일은 올리는 중이에요.' : '노트로 저장했어요.'));
     return {ok: true};
   }
   handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: headNode, foot: family ? null : files.node, shortcuts: true,

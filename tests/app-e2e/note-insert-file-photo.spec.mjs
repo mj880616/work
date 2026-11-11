@@ -78,9 +78,10 @@ for(const width of [412,1280]){
   expect(f.writes[0].method).toBe('POST');
   expect(JSON.stringify(f.writes[0].body.doc)).not.toMatch(/wait_|blob:|"image"|"file"/);
   expect(f.writes[0].body.raw_text).toBe('현장 점검');
-  // 2) 그 노트 id로 하나씩 올림(글 순서).
-  expect(f.uploads).toEqual([{noteId:'new-1',name:'현장.png'},{noteId:'new-1',name:'점검표.pdf'}]);
+  // 2) 그 노트 id로 하나씩 올림(글 순서). BIZ-저장먼저닫기 2차: 창은 글 저장 뒤 바로 닫히고 사진·파일은 뒤에서 올라간다.
+  await expect.poll(()=>f.uploads).toEqual([{noteId:'new-1',name:'현장.png'},{noteId:'new-1',name:'점검표.pdf'}]);
   // 3) 글 안 자리를 진짜 id로 바꿔 올린 뒤 버전으로 한 번 더 씀.
+  await expect.poll(()=>f.writes.some(w=>w.method==='PATCH')).toBe(true);
   const patch=f.writes.find(w=>w.method==='PATCH');
   expect(patch.query).toMatchObject({id:'eq.new-1',updated_at:'eq.2026-11-05T05:00:12Z'});
   const saved=JSON.stringify(patch.body.doc);

@@ -9,7 +9,7 @@ import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, are
 import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText } from './update-places.js';
 import { createGoogleTask } from './quick-save.js';
 import { createNote, validateNoteText, createNoteDoc, noteTitleFromText, attachNoteDoc } from './basket-data.js';
-import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
+import { createUploadBatch, uploadBatch, sendNoteBehind, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
 import { quickDueDay, weekdayLabel, newTaskDue } from './task-due.mjs';
@@ -329,17 +329,15 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     try{
       const note=await createNoteDoc({title,raw_text:text,markdown:false});
       void requestNoteAiTitle(note.id);// NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음)
-      let warning='';
-      if(files.length){
-        try{await uploadNoteFiles(note.id,batch,{isCurrent:()=>owner===quickScope(),onChange:()=>{if(isCurrent())pickerFiles.render();}});}
-        catch(e){warning=`노트는 저장했지만 첨부를 올리지 못했어요. ${e?.message||''}`.trim();}
-      }
-      if(owner!==quickScope())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
+      // BIZ-저장먼저닫기 2차(S59-8): 글이 저장되면 입력칸을 바로 풀고 비운다. 고른 파일은 그 노트의 뒤 줄에서 끝까지 올라간다(화면을 옮겨도 —
+      // 끝·못 올림은 하단바 위 한 줄, 못 올린 것은 [다시 올리기]). 글 저장이 실패하면(위) 입력칸·파일은 그대로 두고 아무것도 보내지 않는다.
+      const sending=files.length>0;
+      if(sending)void sendNoteBehind(note.id,batch);
       if(upload===batch)upload=createUploadBatch();
+      if(owner!==quickScope())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       input.value='';expanded=false;paint();onSaved(note);
-      if(warning)status.textContent=warning;
-      const toast=document.querySelector('#toast');if(toast){toast.textContent=warning?'노트는 저장했어요. 첨부를 확인해 주세요.':'노트를 추가했습니다.';kptuHoldToast(toast);}
+      const toast=document.querySelector('#toast');if(toast){toast.textContent=sending?'노트를 추가했어요. 사진·파일은 올리는 중이에요.':'노트를 추가했습니다.';kptuHoldToast(toast);}
       return {ok:true};
     }catch(e){const message=e.message||'저장하지 못했어요.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}

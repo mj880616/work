@@ -1,7 +1,7 @@
 // APP-공유노트할일(요청함 11/02 00:22): 폰 공유 창 '웹2 노트'·'웹2 할 일'로 받은 것을 넣는 작은 창 하나(basket-share.js가 연다).
 // 받기 길은 정리함과 같다(앱이 메모리에만 든 항목을 ./__share/<번호>/<순번>으로 흘려줌, basket-share.js receive). 들어갈 곳만 다르다.
 // - 노트: 제목(첫 줄·링크 제목) · 폴더 고르기 · 한 줄 더하기 → [저장] = createNoteDoc(app_notes, 소유자 RLS) → 폴더 setNoteFolderRef →
-//   사진·파일은 uploadNoteFiles(basket-files, 노트 첨부). 노트 화면과 같은 서버 길만 쓴다.
+//   창을 닫고 사진·파일은 그 노트의 뒤 줄(basket-upload.js sendNoteBehind → basket-files, 노트 첨부). 노트 화면과 같은 서버 길만 쓴다.
 // - 할 일: 제목 · 기한 [오늘][내일][모레][다음주][기한 없음] · 한 줄 더하기 → [저장] = google-tasks action=create(quick-save.js) →
 //   파일은 attachNewTaskFiles(google-tasks action=attach). 할 일 화면과 같은 서버 길만 쓴다.
 // 받은 글·파일 이름은 외부 입력이라 textContent·value로만 넣는다(HTML로 넣지 않음). 기기에는 아무것도 저장하지 않는다.
@@ -157,7 +157,7 @@ function lostText(s) {
 }
 
 async function saveNote(s, title, extra) {
-  const [{createNoteDoc, setNoteFolderRef}, {createUploadBatch, uploadNoteFiles}] = await Promise.all([import('./basket-data.js'), import('./basket-upload.js')]);
+  const [{createNoteDoc, setNoteFolderRef}, {createUploadBatch, sendNoteBehind}] = await Promise.all([import('./basket-data.js'), import('./basket-upload.js')]);
   const files = await filesOf(s);
   if (!s.isCurrent()) throw new Error('로그인 계정이 바뀌어 넣지 않았어요. 다시 공유해 주세요.');
   const notes = [];
@@ -167,11 +167,13 @@ async function saveNote(s, title, extra) {
   const folderId = $('[data-st-folder]').hidden ? '' : $('[data-st-folder]').value;
   const folder = folderId ? s.folders.find(f => f.id === folderId) : null;
   if (folder) { try { await setNoteFolderRef(row, folder); } catch { notes.push('폴더에는 넣지 못했어요(폴더 밖에 있어요).'); } }
+  // BIZ-저장먼저닫기 2차(S59-8): 노트(글)가 저장되면 창을 닫는다. 받은 사진·파일은 그 노트의 뒤 줄에서 끝까지 올라간다(화면을 옮겨도 —
+  // 끝·못 올림은 하단바 위 한 줄, 못 올린 것은 [다시 올리기]). 받은 파일은 이 탭 메모리에만 있다.
   if (files.length) {
     const batch = createUploadBatch();
     batch.entries = files.map(file => ({file, kind:'pending', label:'대기'}));
-    try { await uploadNoteFiles(row.id, batch, {isCurrent:s.isCurrent}); }
-    catch (e) { notes.push(`첨부를 다 붙이지 못했어요: ${e?.message || ''}`.trim()); }
+    void sendNoteBehind(row.id, batch);
+    s.sending = true;
   }
   window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
   return notes;
@@ -215,5 +217,5 @@ async function save() {
   }
   const lost = lostText(s);
   if (state === s) { s.saving = false; close(); }
-  notify(WORDS[s.kind].saved, {note:[...notes, lost].filter(Boolean).join(' '), ms:notes.length || lost ? 12000 : 5000});
+  notify(WORDS[s.kind].saved, {note:[...notes, lost, s.sending ? '사진·파일은 올리는 중이에요.' : ''].filter(Boolean).join(' '), ms:notes.length || lost ? 12000 : 5000});
 }

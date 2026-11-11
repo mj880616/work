@@ -3,7 +3,7 @@ import {bindPaste} from './paste-files.mjs';
 import {uploadTimeoutMs} from './upload-budget.mjs';
 // UI-올리기진행표시: 보낸 양을 아는 공용 보내기(upload-send.mjs)와 올리는 중 표시 공용 부품(upload-progress.js).
 import {sendUpload} from './upload-send.mjs';
-import {trackUpload, setUploadRetry, mountUploadRows, paintUploadLine, watchUploads} from './upload-progress.js';
+import {trackUpload, setUploadRetry, mountUploadRows, paintUploadLine, watchUploads, announceDock} from './upload-progress.js';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했어요. 잊지 말기에서 확인 후 다시 시도하세요';
@@ -42,6 +42,76 @@ export function createAttachQueue() {
     },
   };
 }
+// BIZ-저장먼저닫기 2차(S59-8): 노트·업데이트 첨부의 뒤 줄은 한 곳에 하나씩만 둔다(한 글에 줄 하나 — 상태 주인 하나).
+// 노트 큰 창 [📎 첨부](basket-notes.js)와 새 노트 [저장](큰 창·빠른 입력칸·폰 공유)이 noteFileLine을, 업데이트 [첨부 저장](basket.js)이 updateFileLine을 같이 쓴다.
+// 그래서 새 노트를 저장한 뒤 그 노트를 열면 올리는 줄이 보이고, 그 노트를 바꾸는 일은 올라간 뒤에 한다(basket-notes.js filesGoing).
+export const noteFileLine = createAttachQueue();
+export const updateFileLine = createAttachQueue();
+const isPhotoFile = file => /^image\//.test(file?.type || '');
+// '사진 2장·파일 1개'(1차 사업 보고의 '사진 n장·자료 n개'와 같은 꼴 — 노트·업데이트에 붙는 것은 '첨부 파일'이라 '파일').
+export function fileWords(list) {
+  const photos = list.filter(isPhotoFile).length, files = list.length - photos;
+  return [photos ? `사진 ${photos}장` : '', files ? `파일 ${files}개` : ''].filter(Boolean).join('·');
+}
+const lineScope = rt => { const c = rt?.context?.read?.(); return c?.user?.id && c?.workspace?.id ? `${c.user.id}:${c.workspace.id}` : ''; };
+const behindNotes = new WeakMap(), behindJobs = new WeakMap();
+// 묶음의 끝 알림은 하나만: 다시 줄 서면 떠 있던 알림을 닫는다(1차 사업 보고와 같은 규칙).
+const behindNote = (batch, options) => { behindNotes.get(batch)?.close(); if (options) behindNotes.set(batch, announceDock(options)); else behindNotes.delete(batch); };
+/**
+ * 글은 이미 저장됐다. 고른 파일(batch의 아직 안 올린 것)을 그 글의 줄(line, key)에 세워 뒤에서 하나씩 올린다 — 창은 부른 곳이 바로 닫는다.
+ * 화면(메뉴)을 옮겨도 멈추지 않는다. 멈추는 것은 계정·작업공간이 바뀔 때뿐(그때는 알리지도 않는다). 파일은 탭 메모리에만 있다.
+ * send({request, isCurrent}): 그 글로 올리기(uploadNoteFiles·uploadBatch). request는 미리 만든 '대기' 표시를 쓴다(묶음 전체의 %가 한 줄로 끝까지).
+ * finish(): 다 올린 뒤 할 일(글 속 사진 자리 맞추기 등) → 알림에 덧붙일 까닭('' = 없음). 실패해도 올린 파일은 그대로다.
+ * done(): 끝난 뒤 화면 쪽 일(목록 다시 읽기). where: '노트'·'업데이트'(끝 알림 첫머리).
+ * 끝 알림은 하단바 위 한 줄(upload-progress.js announceDock): '노트에 사진 2장·파일 1개 올렸어요'. 못 올렸으면 '사진 1장 못 올렸어요' + 까닭 + [다시 올리기]
+ * (못 올린 것만, 누를 때까지 남음). 결과를 알 수 없는 실패(이미 붙었을 수 있음)에는 [다시 올리기]를 두지 않는다.
+ */
+export function sendFilesBehind({line, key, batch, rt = window.KPTURuntime, send, finish = null, done = () => {}, where = ''}) {
+  const owner = lineScope(rt), here = () => !!owner && lineScope(rt) === owner;
+  const again = () => sendFilesBehind({line, key, batch, rt, send, finish, done, where});
+  behindNote(batch, null);
+  return line.add(key, batch, async () => {
+    if (!here()) return;
+    const mine = batch.entries.filter(entry => entry.kind !== 'success');
+    if (!mine.length) return;
+    // 앞 차례에서 남은 실패 표시는 지운다(같은 파일이 두 줄로 겹치지 않게).
+    for (const job of behindJobs.get(batch)?.values() || []) if (job.phase === 'failed') job.cancel();
+    const picked = new Map(mine.map(entry => [entry, entry.file]));
+    const group = {sent:0}, jobs = new Map(mine.map(entry => [entry.file, trackUpload({file:entry.file, waiting:true, group})]));
+    behindJobs.set(batch, jobs);
+    const request = (fd, file, runtime, fetcher, isCurrent) => uploadBasketFile(fd, file, runtime, fetcher, isCurrent, {job:jobs.get(file) || null});
+    let error = null, extra = '';
+    try { await send({request, isCurrent:here}); } catch (e) { if (e?.code !== 'upload_cancelled') error = e; }
+    const sent = mine.filter(entry => entry.kind === 'success').map(entry => picked.get(entry));
+    const left = mine.filter(entry => batch.entries.includes(entry) && entry.kind !== 'success');
+    const cancelled = mine.length - sent.length - left.length;
+    // 앞 파일이 실패해 보내지 않은 것: '대기'로 남기지 않고 못 올림으로(하단 한 줄이 '올리는 중'에 머물지 않게).
+    for (const entry of left) { const job = jobs.get(entry.file); if (job?.phase === 'waiting') job.fail(error?.message || ''); }
+    if (!here()) return;
+    if (finish && sent.length) { try { extra = String(await finish() || ''); } catch { extra = ''; } }
+    if (!here()) return;
+    try { done(); } catch { /* 화면 쪽 일이 끝 알림을 막지 않는다 */ }
+    const head = where ? `${where}에 ` : '', okText = sent.length ? `${head}${fileWords(sent)} 올렸어요` : '';
+    const retry = left.length && !batch.blocked ? again : null;
+    if (retry) for (const entry of left) setUploadRetry(entry.file, retry);
+    if (left.length) {
+      const reason = error?.message || '';
+      behindNote(batch, {text:`${head}${fileWords(left.map(entry => entry.file))} 못 올렸어요`, note:[sent.length ? `${fileWords(sent)} 올렸어요` : '', reason, extra].filter(Boolean).join(' · '),
+        error:true, ms:0, actions:retry ? [{label:'다시 올리기', aria:'못 올린 파일 다시 올리기', run:retry}] : []});
+    } else if (extra) behindNote(batch, {text:okText || `${head}올리기를 마쳤어요`, note:extra, error:true, ms:0});
+    else if (sent.length) behindNote(batch, {text:okText + (cancelled ? ` · ${cancelled}개 취소` : '')});
+    else if (cancelled) behindNote(batch, {text:'올리기를 취소했어요'});
+  });
+}
+// 새 노트의 첨부(새 노트 큰 창·빠른 입력칸·폰 공유): 노트 줄에 서서 그 노트로 올린다. 끝나면 노트 화면이 그 노트를 다시 읽는다(kptu:note-files-sent).
+// onChange: 파일 하나가 끝날 때마다(글 속 사진 자리 맞추기용) · finish: 다 올린 뒤 할 일 · textChanged(): finish가 글을 고쳤는지 · done(): 끝난 뒤 화면 쪽 일.
+export function sendNoteBehind(noteId, batch, {rt = window.KPTURuntime, onChange = () => {}, finish = null, textChanged = () => false, done = () => {}} = {}) {
+  return sendFilesBehind({line:noteFileLine, key:noteId, batch, rt, where:'노트', finish,
+    send:({request, isCurrent}) => uploadNoteFiles(noteId, batch, {rt, isCurrent, onChange, request}),
+    done:() => { try { done(); } finally { globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:note-files-sent', {detail:{id:noteId, text:!!textChanged()}})); } }});
+}
+// 줄은 메모리뿐이라 새로 고치면 남은 파일이 사라진다: 올리는 동안 [최신화]·당겨서 새로고침은 먼저 묻는다(1차 사업 보고 줄과 같음).
+globalThis.window?.addEventListener?.('kptu:before-reload', event => { if (event?.detail && (noteFileLine.any() || updateFileLine.any())) event.detail.otherDraft = true; });
 function uploadError(message, code, status = 0) { return Object.assign(new Error(message), {code, status}); }
 function failure(e) {
   // 다 보내기 전에 끊김·한도: 서버는 파일을 받지 못했으므로 다시 보내도 겹치지 않는다(결과 불명이 아님).
