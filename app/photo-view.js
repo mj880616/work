@@ -1,5 +1,7 @@
 // FILE-누르면동작: 사진 크게 보기의 유일한 구현(바구니 업데이트에서 옮겨 옴). 바구니·노트가 함께 쓴다.
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
+// PHOTO-크게보기밀기(S57-2): 손가락 하나로 좌우로 밀면 앞뒤 사진(넘길 사진이 있을 때), 아래로 밀면 닫기 — [사진] 메뉴(photo-strip.js)와 같은 판정(photo-viewer-model.mjs).
+// 위로 밀기(별표)는 별표가 없는 화면이라 없다. 두 손가락·확대 중에는 넘기지 않는다. ‹ ›·←→ 키·폰 뒤로 가기는 그대로.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
 import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
@@ -7,6 +9,7 @@ import {shareFrom} from './share-menu.js';
 import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
 import {notify} from './small-notice.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview} from './img-slot.js';
+import {attachStageSwipe} from './photo-view-swipe.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
@@ -40,7 +43,10 @@ function showPhotoBox(shown, content, trigger) {
       const note = (text, ms = 0) => { if (text && text !== PHOTO_WAIT_MARK) notify(text, {ms}); };
       shareFrom(pointAnchor(box, x, y), {count:1, note, getFiles:() => photoFilesFor(el, nameOf, {alive, note}), native:() => sharePhotoElement(el, nameOf, {alive, note})}, {wide:true});
     }});
-  current = {box, trigger, layer: window.KPTURouter?.layer?.open('basket-photo', {close: () => { closePhotoView({fromBack: true}); return true; }}) || null};
+  // PHOTO-크게보기밀기(S57-2): 앞뒤 사진이 없으면(노트 사진 한 장) 가로로 밀어도 제자리, 아래로 밀면 닫기. 앞뒤 사진은 openDocumentPhotoView가 hooks를 채운다.
+  const hooks = {at: () => 0, count: () => 1, goTo: () => false};
+  const offSwipe = attachStageSwipe(stage, hooks, {closeNow: () => { if (current?.box === box) closePhotoView(); }});
+  current = {box, trigger, hooks, offSwipe, layer: window.KPTURouter?.layer?.open('basket-photo', {close: () => { closePhotoView({fromBack: true}); return true; }}) || null};
   box.querySelector('[data-basket-photo-close]').focus();
   return true;
 }
@@ -143,6 +149,8 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
   if (nav) { bar.insertBefore(countEl, close); stage.append(prev, next); }
   if (actions) { bar.insertBefore(more, close); stage.append(noteEl); }
   const step = dir => { if (!nav) return; const to = index + dir; if (to < 0 || to >= nav.count) return; index = to; note(''); paint(); };
+  // PHOTO-크게보기밀기(S57-2): 손가락 밀기가 ‹ ›와 같은 step으로 넘긴다(앞뒤 사진 목록이 있을 때만).
+  if (nav) Object.assign(current.hooks, {at: () => index, count: () => nav.count, goTo: to => { if (to < 0 || to >= nav.count || to === index) return false; step(to - index); return true; }});
   prev.addEventListener('click', () => step(-1)); next.addEventListener('click', () => step(1));
   box.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); } });
   paint(first);
@@ -150,8 +158,8 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
 }
 export function closePhotoView({fromBack = false, restore = true} = {}) {
   if (!current) return;
-  const {box, trigger, layer} = current;
-  current = null; box.remove();
+  const {box, trigger, layer, offSwipe} = current;
+  current = null; offSwipe?.(); box.remove();
   if (!fromBack) layer?.close();
   if (restore && trigger?.isConnected) trigger.focus();
 }

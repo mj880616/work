@@ -146,7 +146,8 @@ test('노트 폴더(PC): 들어간 폴더가 새로고침 뒤 그대로', async 
   const errors = await boot(page, 1280);
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page, 'note');
-  await page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`).click();
+  await page.locator(`[data-nx-tree] [data-nx-folder-more="${U(1)}"]`).click(); // UI-폴더누르기한규칙: 나무 누르기 = 펼침만, 들어가기 = ⋯ [이 폴더로 들어가기]
+  await page.locator('#noteDocMenu [data-nx-enter]').click();
   await expect(page).toHaveURL(new RegExp(`[?&]folder=${U(1)}(?:&|$)`));
   // 맨 위 폴더는 위치 줄 없이 위에 '회의 · 1'(NOTE-화면정리 #1399).
   await expect(page.locator('[data-nx-here]')).toContainText('회의');

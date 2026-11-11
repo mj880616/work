@@ -62,9 +62,9 @@ async function fixture(page, width, {table = true, more = [], longRow = false} =
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
 const picker = page => page.locator('#luMovePicker');
 const noteRow = (page, id) => page.locator(`#noteRows [data-note-row="${id}"]`);
-// Shows the notes of folder id: phone spreads two fingers on that folder in the tree (그 폴더만), PC picks it in the left tree.
+// Shows the notes of folder id: phone spreads two fingers on that folder in the tree (그 폴더만), PC enters it from the left tree row's ⋯ menu.
 async function showFolder(page, width, id) {
-  if (width>=761) await press(page, page.locator(`[data-nx-tree] [data-nx-open="${id}"]`), width);
+  if (width>=761) { await press(page, page.locator(`[data-nx-tree] [data-nx-folder-more="${id}"]`), width); await page.locator('#noteDocMenu [data-nx-enter]').click(); } // UI-폴더누르기한규칙: 나무 누르기 = 펼침만, 들어가기 = ⋯ 메뉴
   else { await pinch(page, page.locator(`#noteRows [data-nx-folder="${id}"]`), 'out'); await expect(page.locator('#noteRows [data-nx-focus]')).toBeVisible(); }
 }
 // '폴더 없음' 노트: PC는 처음부터 오른쪽에 보인다(나무의 '폴더 없음'이 고른 곳), 폰은 첫 화면 맨 아래 '폴더 없음'을 눌러 들어간다.

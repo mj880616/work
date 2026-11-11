@@ -125,7 +125,8 @@ for (const [width, height, name] of [[884, 1000, '폴드 펼침'], [1280, 900, '
   await expect(work).toHaveClass(/ft-top/);
   expect(await work.locator('.ft-name').evaluate(e => getComputedStyle(e).fontWeight)).toBe('700');
   await expect(work.locator('.ft-num')).toHaveText('8');
-  await work.locator('.ft-main').click();
+  await work.locator('[data-nx-folder-more]').click(); // UI-폴더누르기한규칙(S57-5): 나무 누르기 = 펼침만, 들어가기 = ⋯ [이 폴더로 들어가기]
+  await page.locator('#noteDocMenu [data-nx-enter]').click();
   await expect(page.locator('[data-nx-here]')).toHaveText('업무 메모 · 8');
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(8);
   await noDots(page, '[data-note-list]');

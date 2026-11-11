@@ -303,5 +303,13 @@ export async function treeGo(page, source, id = '') {
   // 상자만 보고 고르면 줄이 그려지기 전에 넓은 화면에서 벌리기를 해 나무가 그대로 남는다(STAB-폰파일판).
   const phoneTree = () => page.locator('#filesRoot[data-fx-pane="tree"]').count().then(n => n > 0);
   await expect.poll(async () => (await go.isVisible()) || ((await box.isVisible()) && (await phoneTree()))).toBe(true);
-  if (await go.isVisible()) await go.click(); else await phoneFolder(page, source, id);
+  if (await go.isVisible()) {
+    // UI-폴더누르기한규칙: 나무의 폴더 줄 누르기 = 그 자리 펼침·접힘(들어가지 않음). 들어가기는 줄 우클릭(PC) 또는 ⋯의 [이 폴더로 들어가기].
+    const foldRow = await go.evaluate(el => el.classList.contains('ft-main') && !!el.closest('.ft-row.ft-has-tog') && !el.closest('[data-fx-ptree]'));
+    if (!foldRow) { await go.click(); return; }
+    const wide = (page.viewportSize()?.width || 0) >= 761;
+    if (wide) await go.click({ button: 'right' });
+    else await go.locator('xpath=ancestor::*[contains(@class,"ft-row")][1]').locator('[data-fx-tmenu]').click();
+    await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
+  } else await phoneFolder(page, source, id);
 }

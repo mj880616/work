@@ -53,7 +53,7 @@ test.describe('PC 1440 한 칸',()=>{
   test('[▥ 두 칸] 끈 한 칸: 들어간 폴더에서 맨 위 [＋]로 열면 그 폴더로',async({page})=>{
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:ITEMS,group:'폴더',init:{viewPrefs:{library_two:false}}});
     await expect(page.locator('#documentList [data-lu-two]')).toHaveCount(0);
-    await page.locator('#libraryFolderNav [data-lu-nav="fn"]').click();
+    await page.locator('#libraryFolderNav [data-lu-nav="fn"]').click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click(); // UI-폴더누르기한규칙: 나무 줄 누르기 = 펼침만
     await page.locator('#newDocumentBtn').click();
     await expect(page.locator('#documentModal')).toBeVisible();
     await expect(folderLabel(page)).toHaveText('‘가상 N’ 폴더에 넣어요');

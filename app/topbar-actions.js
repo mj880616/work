@@ -1,7 +1,9 @@
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
-import {pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
+import {pcSplit,itemOf,isDefaultLayout,pcMoveFor,hideItem,BAR_MAX} from './menu-model.mjs';
+import {mountReorder,dropIndex,dropIndexGrid} from './reorder-drag.js'; // MENU-왼쪽메뉴바로끌기: 메뉴 편집 창과 같은 끌기 부품
+import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클릭: 공용 줄 메뉴(UI-PC우클릭과 같은 모양)
 import './menu-layout.js';
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
 import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
@@ -249,6 +251,96 @@ document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener
   try{const quickLinks=await import('./quick-links.js');quickLinks.open(trigger);}catch(error){console.error('quick links',error);writeToast('자주 가는 링크를 열지 못했어요. 다시 시도해 주세요.')}
 });
 window.addEventListener('kptu:session-changed',()=>{writeDraft='';writeDraftDoc=null});
+// MENU-왼쪽메뉴바로끌기(요청함 11/10): PC 왼쪽 메뉴 줄을 바로 끌어 순서를 바꾼다. 저장은 메뉴 편집 창과 같은 menu_layout(menu-layout.js)이고 끌기 부품도 같다(reorder-drag.js).
+// 짧게 누르기 = 화면 열기 그대로, 4px 넘게 움직일 때만 끌기(끌기 뒤 따라오는 클릭 한 번은 삼킴). 일정 줄은 아래 달력·할 일·일기(.nav-sub)와 한 덩어리로 움직이고, 홈(맨 위)은 고정이다.
+// 빈 공간 위쪽 절반에 놓으면 위 줄, 아래쪽 절반에 놓으면 맨 아래 묶음(통화·텔레그램 소식 쪽)이다. 놓은 자리가 어느 칸인지는 menu-model.mjs pcMoveFor가 정한다(하단바 칸 수 제한 BAR_MAX 그대로).
+// 키보드: 줄에 포커스를 두고 Alt+↑·Alt+↓ = 메뉴 편집 창의 위·아래 화살표와 같은 규칙(stepItem). 우클릭 = [숨기기]·[메뉴 수정], 빈 곳 우클릭 = [메뉴 수정](공용 줄 메뉴).
+const NAV_HEAD='.nav-btn[data-reorder-id]';
+const navText={full:`폰 하단바(홈 포함 ${BAR_MAX}칸)가 가득 차서 이 자리로는 옮길 수 없어요. 메뉴 수정에서 한 칸을 먼저 빼 주세요.`,fixed:'홈은 맨 위에 고정이에요.'};
+buttonByKey.forEach((button,key)=>{if(key==='home')return;button.dataset.reorderId=key;button.setAttribute('aria-keyshortcuts','Alt+ArrowUp Alt+ArrowDown')});
+const navBrand=()=>appNav?.querySelector('.sidebar-brand');
+const navSubEnd=head=>{const sub=head.nextElementSibling;return (sub?.classList.contains('nav-sub')?sub:head).getBoundingClientRect().bottom};
+// 놓을 자리: y가 빈 공간(.sidebar-spacer) 가운데보다 위면 위 줄, 아래면 맨 아래 묶음. 그 묶음의 보이는 줄(끌던 줄 빼고) 가운데 위치와 견줘 몇 번째인지 정한다.
+function navDropAt(x,y,dragEl){
+  const spacer=appNav?.querySelector('.sidebar-spacer'),links=appNav?.querySelector('.nav-quick-links');
+  if(!spacer)return null;
+  const sr=spacer.getBoundingClientRect(),part=y<sr.top+sr.height/2?'main':'tail';
+  const list=[...appNav.querySelectorAll(NAV_HEAD)].filter(btn=>btn!==dragEl&&btn.getClientRects().length&&(!!(spacer.compareDocumentPosition(btn)&Node.DOCUMENT_POSITION_FOLLOWING))===(part==='tail'));
+  const index=dropIndex(list.map(btn=>(btn.getBoundingClientRect().top+navSubEnd(btn))/2),y);
+  return {listId:part,index,before:list[index]||(part==='main'?spacer:links)};
+}
+function navDrop({id,list,index}){
+  const menu=window.KPTUMenuLayout;if(!menu)return;
+  const to=pcMoveFor(menu.current(),id,{part:list,index}),result=menu.move(id,to.to,to.index);
+  if(!result.ok&&navText[result.reason])writeToast(navText[result.reason]);
+}
+function runNavMenu(act,head){
+  const menu=window.KPTUMenuLayout;if(!menu)return;
+  if(act==='hide'&&head){
+    const id=head.dataset.reorderId,result=hideItem(menu.current(),id);
+    if(result.ok&&result.changed!==false){menu.setLayout(result.layout);writeToast(`${itemOf(id)?.label}을(를) 숨겼어요. 메뉴 수정에서 다시 꺼낼 수 있어요.`);navBrand()?.focus({preventScroll:true})}
+    return;
+  }
+  if(act==='edit')import('./menu-edit.js').then(({openMenuEdit})=>openMenuEdit({trigger:head?.isConnected?head:navBrand()})).catch(error=>{console.error('menu edit',error);writeToast('메뉴 수정을 열지 못했어요. 다시 시도해 주세요.')});
+}
+// 공용 줄 메뉴(row-menu.js)의 모양 파일(od-link.css)은 그 메뉴를 쓰는 화면(달력·사진·파일 등)이 부를 때 같이 받는데, 홈 같은 화면에는 없어서 처음 열 때 한 번 받는다.
+const ROW_MENU_CSS='./od-link.css';
+let rowMenuStyle=null;
+const ensureRowMenuStyle=()=>rowMenuStyle||=new Promise(resolve=>{
+  const href=new URL(ROW_MENU_CSS,location.href).href;
+  if([...document.querySelectorAll('link[rel="stylesheet"]')].some(link=>link.href===href)){resolve();return}
+  const link=document.createElement('link');link.rel='stylesheet';link.href=ROW_MENU_CSS;link.dataset.kptuViewStyle='1';
+  link.onload=link.onerror=()=>resolve();document.head.append(link);
+});
+// 메뉴를 연 줄만 연보라로 표시하는 공용 줄 메뉴: 빈 곳 메뉴는 표시할 줄이 없으니 화면 밖 빈 요소를 준다.
+const navNoRow=document.createElement('span');
+function openNavMenu(from,at){
+  const head=from?.closest?.(NAV_HEAD),trigger=head||navBrand();
+  if(!trigger)return false;
+  const id=head?.dataset.reorderId;
+  void ensureRowMenuStyle().then(()=>openRowMenu(trigger,{key:id||'nav',label:id?itemOf(id)?.label:'왼쪽 메뉴',at,row:head||navNoRow,items:[...(id?[{id:'hide',label:'숨기기'}]:[]),{id:'edit',label:'메뉴 수정'}],run:act=>runNavMenu(act,head)}));
+  return true;
+}
+if(appNav){
+  mountReorder(appNav,{whole:true,links:true,early:true,itemSelector:NAV_HEAD,canDrag:id=>id!=='home',resolve:navDropAt,onDrop:navDrop,
+    // 터치 화면(펼친 폴드)에서 줄을 꾹 눌렀다 움직이지 않고 떼면 우클릭과 같은 메뉴.
+    onHold:head=>{const r=head.getBoundingClientRect();openNavMenu(head,{x:Math.round(r.left+Math.min(r.width/2,48)),y:Math.round(r.bottom)})}});
+  appNav.addEventListener('keydown',event=>{
+    if(!event.altKey||event.ctrlKey||event.metaKey||event.shiftKey||(event.key!=='ArrowUp'&&event.key!=='ArrowDown'))return;
+    const id=event.target.closest?.(NAV_HEAD)?.dataset.reorderId;if(!id||!window.KPTUMenuLayout)return;
+    event.preventDefault();
+    const result=window.KPTUMenuLayout.step(id,event.key==='ArrowUp'?-1:1);
+    if(!result.ok&&navText[result.reason])writeToast(navText[result.reason]);
+    buttonByKey.get(id)?.focus({preventScroll:true}); // 줄을 다시 끼우면 포커스가 풀리므로 같은 줄로 돌려놓는다
+  });
+  appNav.addEventListener('contextmenu',event=>{
+    const target=event.target instanceof Element?event.target:null;
+    if(!target||target.closest('.account-menu,[data-quick-links],[data-kptu-logout],input,textarea,select'))return;
+    const at=appMenuPoint(event);if(!at)return;
+    event.preventDefault();openNavMenu(target,at);
+  });
+}
+// 폰 [메뉴] 창: 줄을 길게 눌러 끌면 바로 위 메뉴 ↔ 아래 붙는 메뉴 순서가 바뀐다(메뉴 편집 창 끌기와 같은 부품·같은 저장). 하단바 칸은 이 창에 없다(칸 수 제한·숨김 규칙 그대로).
+// 처음 모양(index.html)의 줄에는 id 표시가 없어 여기서 달고, 순서를 바꾼 뒤에는 menu-layout.js가 줄을 만들 때 단다.
+const sheetNav=mobilePanel?.querySelector('nav[aria-label="더 보기"]');
+const tagSheet=()=>sheetNav?.querySelectorAll('button[data-view],button[data-basket-kind-nav]').forEach(button=>{if(!button.dataset.reorderId)button.dataset.reorderId=button.dataset.basketKindNav==='note'?'note':button.dataset.view});
+function sheetDropAt(x,y,dragEl){
+  const line=sheetNav.querySelector('[data-menu-tail-line]');
+  const items=[...sheetNav.querySelectorAll('[data-reorder-id]')].filter(btn=>btn!==dragEl);
+  const upper=line?items.filter(btn=>!!(btn.compareDocumentPosition(line)&Node.DOCUMENT_POSITION_FOLLOWING)):items;
+  // [메뉴] 창은 두 칸 격자일 수 있어(폰 폭) 가로·세로를 함께 본다(dropIndexGrid).
+  const at=dropIndexGrid(items.map(btn=>btn.getBoundingClientRect()),x,y);
+  // 위 메뉴 끝 ↔ 아래 붙는 메뉴 첫 줄 사이(선 위·아래 어디서나 같은 자리 번호)에서는 선보다 아래쪽에서 놓았을 때만 아래 칸.
+  const part=line&&(at>upper.length||(at===upper.length&&y>=line.getBoundingClientRect().top))?'tail':'rest';
+  const list=part==='tail'?items.slice(upper.length):upper,index=part==='tail'?at-upper.length:at;
+  const before=list[index]||null;
+  return {listId:part,index,before,after:before?null:list.at(-1)||null};
+}
+if(sheetNav){
+  tagSheet();window.addEventListener('kptu:menu-layout-applied',tagSheet);
+  mountReorder(sheetNav,{whole:true,early:true,itemSelector:'button[data-reorder-id]',scroller:()=>mobilePanel,resolve:sheetDropAt,
+    onDrop:({id,list,index})=>{dragEndedAt=performance.now();window.KPTUMenuLayout?.move(id,list,index)}}); // 끌기를 마친 뒤 따라오는 클릭은 위 닫기 처리가 삼킨다(dragEndedAt)
+}
 syncMobile();
 placeSidebar();
 function closeAccount(then,fromBack=false){
