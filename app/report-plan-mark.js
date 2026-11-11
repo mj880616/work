@@ -1,8 +1,9 @@
 // S58-4 BIZ-보고할일정 PR B(설계 docs/design/biz-report-plan-link.md 4-1 · 6절 B): 일정 줄 앞 ✓(보고 씀)·□(보고할 일정) 표시 한 개.
 // 일정 달력(월·주·목록·그날 창)과 홈 그날 일정 줄이 그 줄을 그리는 자리에서 planMarkOf·planMarkEl 을 불러 함께 그린다(뒤에서 덧그리지 않는다).
 // 규칙은 report-plan-model.mjs, 읽는 길은 report-plan-data.js 그대로다. 여기는 표시 마디와 누름만 맡고, 아무것도 저장하지 않는다.
-// - 읽어 둔 값이 없으면(아직 안 읽음·새 표가 없는 서버) 표시 없이 지금 그대로. 처음 그릴 때 한 번 읽기를 부탁하고, 다 읽으면
-//   report-plan-data.js 가 알리는 kptu:report-plans-changed 로 각 화면의 주인이 자기 줄을 다시 그린다(달력 = __KPTU_RENDER_CALENDAR__).
+// - 읽어 둔 값이 없으면(아직 안 읽음·새 표가 없는 서버) 표시 없이 지금 그대로. 처음 그릴 때 한 번 읽기를 부탁하고, 읽은 값이 표시를
+//   바꿀 때만(kptu:report-marks-changed) 각 화면의 주인이 자기 줄을 다시 그린다(달력 = __KPTU_RENDER_CALENDAR__, 홈 = 그날 일정 칸).
+//   표가 비어 있으면(그릴 표시가 없으면) 아무도 다시 그리지 않는다 — 이 기능을 쓰지 않는 화면의 그리는 순서는 예전 그대로다.
 // - '보고할까요?'(점선 □)는 사업 보고 달력에서만 쓴다(설계 4-1의 4번). 일정 달력·홈에서는 그리지 않는다.
 // - 누르면: ✓ = 그 보고 열기(가장 나중에 쓴 것 — report-open.js), □ = 그 일정으로 사업 보고 쓰기 창(일정 메뉴 [결과 남기기]와 같은 길 — event-open.js).
 // - 할 일의 □(굵은 글자·배경 없음)와 헷갈리지 않게 일정의 □는 일정 색 막대(줄) 안에서 그 글자색으로만 그린다(ui-standard.css .rp-mark).
@@ -14,11 +15,16 @@ import {notify} from './small-notice.js';
 
 export const MARK_LABEL = {[STATUS_DONE]: '보고 씀', [STATUS_TODO]: '보고할 일정'};
 
+export const REPORT_MARKS_CHANGED = 'kptu:report-marks-changed';
+
 // 아직 읽어 둔 값이 없으면 한 번 읽기를 부탁한다(표가 없는 서버면 '없음'으로 끝나 다시 묻지 않는다 — report-plan-data.js 가 기억).
-let asking = null;
+// 읽기가 실패하면(서버 오류·끊김) 그릴 때마다 다시 부르지 않고 잠시 뒤 다음 그리기 때 한 번 더 부탁한다.
+const RETRY_MS = 30000;
+let asking = null, retryAt = 0;
 function ask() {
-  if (asking) return;
-  asking = loadReportPlans().catch(() => null).finally(() => { asking = null; });
+  if (asking || Date.now() < retryAt) return;
+  const failed = () => { retryAt = Date.now() + RETRY_MS; };
+  asking = loadReportPlans().then(loaded => { if (!loaded) failed(); }, failed).finally(() => { asking = null; });
 }
 
 // 일정 하나(Google 일정 모양: id·calendarId·title·start·allDay)의 표시. 없으면 null.
@@ -85,6 +91,19 @@ if (!window.__KPTU_REPORT_PLAN_MARK__) {
     event.preventDefault(); event.stopImmediatePropagation();
     void act(el);
   }, true);
-  // 달력은 그리는 함수가 하나다(team.js renderCalendar). 표시가 바뀌면 그 주인에게 다시 그려 달라고만 한다.
-  window.addEventListener(REPORT_PLANS_CHANGED, () => window.__KPTU_RENDER_CALENDAR__?.());
+  // 표시에 쓰이는 값(결정 줄·일정에 이어진 보고)이 달라졌을 때만 화면의 주인에게 다시 그려 달라고 한다.
+  // 달력은 그리는 함수가 하나다(team.js renderCalendar → __KPTU_RENDER_CALENDAR__). 홈은 kptu:report-marks-changed 를 듣고 그날 일정 칸을 다시 그린다.
+  const signature = () => {
+    const data = reportPlanData();
+    return JSON.stringify(data ? [data.plans.map(p => [p.google_event_id, p.state, p.decided_by, p.decided_at, p.title]), data.reports.map(r => [r.id, r.google_event_id, r.series_name, r.title, r.created_at])] : [[], []]);
+  };
+  let shown = signature();
+  window.addEventListener(REPORT_PLANS_CHANGED, () => {
+    const now = signature();
+    if (now === shown) return;
+    shown = now;
+    window.__KPTU_RENDER_CALENDAR__?.();
+    try { window.dispatchEvent(new CustomEvent(REPORT_MARKS_CHANGED)); } catch {}
+  });
+  window.addEventListener('kptu:session-changed', () => { retryAt = 0; });
 }

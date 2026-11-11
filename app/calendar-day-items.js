@@ -1,7 +1,8 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {seoulDateKey,seoulClock} from './meeting-time.js';
 import {todayEvents} from './home-read-model.js';
-import {planMarkOf,planMarkEl} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 일정 줄 제목 앞 ✓(보고 씀)·□(보고할 일정)
+// BIZ-보고할일정 PR B: 일정 줄 제목 앞 ✓(보고 씀)·□(보고할 일정) 표시 부품.
+import {planMarkOf,planMarkEl} from './report-plan-mark.js';
 // List and week share KST day calculation and event/task rows. Month owns normalized bar geometry.
 export const calendarDateKey=seoulDateKey;
 export function dayItems(options,date,tasks){

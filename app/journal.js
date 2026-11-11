@@ -38,8 +38,7 @@ import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, chan
   dayCard, DAY_SOURCES, dueDay, dayRangeNote, readWeekDrafts, requestDayDraft, readWeekCalls, readTaskMeetingNames, readUpcomingMilestones} from './journal-data.js';
 import {dueLabel} from './task-due.mjs';
 import {openGoogleEvent, eventAttrs} from './event-open.js';
-import {planMarkOf, planMarkEl, planMarkSuffix} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 그날 일정 줄 제목 앞 ✓(보고 씀)·□(보고할 일정)
-import {REPORT_PLANS_CHANGED} from './report-plan-data.js';
+import {planMarkOf, planMarkEl, planMarkSuffix, REPORT_MARKS_CHANGED} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 그날 일정 줄 제목 앞 ✓(보고 씀)·□(보고할 일정)
 import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs';
 import {createTaskInline, objectParticle} from './task-inline.js';
 import {applyCheckPop} from './check-motion.js';
@@ -449,8 +448,8 @@ function ddayLine() {
 }
 // FORGET-소식합치기(11/08): 옛 '기억할 통화·텔레그램' 묶음은 잊지 말기 '소식' 줄로 옮겼다(forget-list.js·forget-news-data.js). 서버 표는 그대로.
 const currentCard = () => dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
-// BIZ-보고할일정 PR B: 표시(✓·□)가 읽히거나 바뀌면 그날 일정 칸만 그 칸의 주인(renderSchedule)이 다시 그린다.
-window.addEventListener(REPORT_PLANS_CHANGED, () => { if (materials.events?.status === 'ok' && $('[data-journal-schedule]')) renderSchedule(currentCard()); });
+// BIZ-보고할일정 PR B: 표시(✓·□)가 바뀌면 그날 일정 칸만 그 칸의 주인(renderSchedule)이 다시 그린다(그릴 표시가 없으면 알림이 오지 않는다).
+window.addEventListener(REPORT_MARKS_CHANGED, () => { if (materials.events?.status === 'ok' && $('[data-journal-schedule]')) renderSchedule(currentCard()); });
 function renderDay() {
   opens = new Map(); openSeq = 0;
   const card = currentCard();

@@ -2,7 +2,8 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
 import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
 import {eventColor} from './home-read-model.js';
 import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-model.mjs';
-import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 일정 막대 앞 ✓(보고 씀)·□(보고할 일정)
+// BIZ-보고할일정 PR B: 일정 막대 앞 ✓(보고 씀)·□(보고할 일정) 표시 부품.
+import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;

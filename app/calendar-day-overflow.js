@@ -1,6 +1,6 @@
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
-import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 그날 창 일정 줄 제목 앞 ✓·□
+import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
 (()=>{
   if(window.__KPTU_CALENDAR_DAY_OVERFLOW__)return;
   window.__KPTU_CALENDAR_DAY_OVERFLOW__=true;
