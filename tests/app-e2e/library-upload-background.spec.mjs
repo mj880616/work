@@ -115,6 +115,9 @@ test('프로젝트 상세에서 저장한 뒤 다른 화면으로 옮겨도 끝�
   const state=await fixture(page,412,n=>n===1?{hold:true,status:503}:null);
   await openProject(page);
   await addDoc(page).click();
+  // 창이 다 열린 뒤(사업영역이 채워진 뒤)에 파일을 고른다 — 창은 열릴 때 고른 파일을 비운다.
+  await expect(page.locator('#documentModal')).toBeVisible();
+  await expect(page.locator('#docProject')).toHaveValue(P);
   await page.locator('#libraryFileInput').setInputFiles(pdf('옮김.pdf'));
   await page.locator('#saveDocumentBtn').click();
   await expect(page.locator('#documentModal')).toBeHidden();

@@ -86,7 +86,11 @@ test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 
  await openOrg(page);
  const add=page.locator('#wdDocAdd');
  await add.tap();
+ // 창이 다 열린 뒤(조직이 채워진 뒤)에 파일을 고른다 — 창은 열릴 때 고른 파일을 비우므로, 열리기 전에 넣은 파일은 사라진다(사람은 창이 뜬 뒤에만 고를 수 있다).
+ await expect(page.locator('#documentModal')).toBeVisible();
+ await expect(page.locator('#libraryUploadOrg')).toContainText('합성 한빛지부');
  await page.locator('#libraryFileInput').setInputFiles({name:'첫째.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 a')});
+ await expect(page.locator('#librarySelectedFiles')).toContainText('첫째.pdf');
  await page.locator('#saveDocumentBtn').click();
  await expect(page.locator('#documentModal')).toBeHidden();
  await expect.poll(()=>state.uploads).toBe(1);
@@ -94,6 +98,7 @@ test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 
  await expect(page.locator('#documentModal')).toBeVisible();
  await expect(page.locator('#libraryUploadOrg')).toContainText('합성 한빛지부');
  await page.locator('#libraryFileInput').setInputFiles({name:'둘째.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 b')});
+ await expect(page.locator('#librarySelectedFiles')).toContainText('둘째.pdf');
  await page.locator('#saveDocumentBtn').click();
  await expect(page.locator('#documentModal')).toBeHidden();
  await page.waitForTimeout(300);
