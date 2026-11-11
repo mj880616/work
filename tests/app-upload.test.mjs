@@ -190,12 +190,11 @@ test('실패 까닭 문구: 인터넷 탓일 때만 인터넷이라고 쓴다', 
   }
 });
 
-test('모듈은 로그인 정보·기기 저장소를 만지지 않고, 앱 규칙과 같은 한도·글을 쓴다', () => {
+test('모듈은 로그인 정보를 만지지 않고 서버를 직접 부르지 않으며, 앱 규칙과 같은 한도·글을 쓴다', () => {
   const src = read('app/app-upload.js');
   const code = src.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
-  // 기기 저장소 이름은 이어 붙여 적는다(저장소 사용 검사가 이 시험 파일을 '사용'으로 세지 않게).
-  const stores = ['local', 'session'].map(k => k + 'Storage').concat('indexed' + 'DB');
-  for (const bad of ['access_token', 'refresh_token', 'KPTURuntime', ...stores, 'fetch(', 'XMLHttpRequest', 'console.']) assert.equal(code.includes(bad), false, bad);
+  // 기기 저장소를 쓰지 않는 것은 CI의 저장소 사용 검사(audit)가 app/ 전체에서 본다. 여기서는 로그인 정보·서버 호출·로그만 본다.
+  for (const bad of ['access_token', 'refresh_token', 'KPTURuntime', 'fetch(', 'XMLHttpRequest', 'console.']) assert.equal(code.includes(bad), false, bad);
   assert.doesNotMatch(src, /\?v=/);
   const rules = read('android-app/app/src/main/java/kr/or/kptu/work/BackUploadRules.kt');
   // 웹이 보내는 글머리는 모두 앱 규칙이 읽는 것이다.
