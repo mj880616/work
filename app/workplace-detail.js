@@ -29,6 +29,7 @@ import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,resto
 import {readReportPhotos,reportPhotosHtml,mountReportPhotos} from './report-photos.js';
 import {reportTitle,reportKindTag,sameTarget} from './report-links-model.mjs';
 import {offerUndoNotice} from './basket-record-delete.js';
+import {deleteOrgRow} from './org-row-delete.js'; // ORG-뺀줄지난줄메뉴: 조직 한 줄 삭제 서버 길 하나(조직보고 창 줄 ⋯ [기록 삭제]와 같이 씀)
 import {paintStageLine} from './org-dispute-stage-ui.js';
 import {pickFoldHtml,readPickState,bindPickFold} from './pick-fold.mjs'; // UI-고른것접기: 소속 고르기 = 고른 것 + 접힌 '그 외'(맨 위 찾기)
 import {paintKeyPeople} from './org-key-people.js'; // ORG-주요인물: 맨 아래 작은 탭의 [주요 인물] 칸 renderer
@@ -243,7 +244,7 @@ async function wdOpenLibrary(){
   window.KPTULibrary?.showOrganization?.(org.id,org.name);window.KPTURouter?.go?.('library');
 }
 function wdRenderItems(){const box=document.querySelector('#wdItems');if(!box)return;const can=!!wdOrg?.canEdit;box.innerHTML=wdItems.length?wdItems.map(x=>`<div class="wd-row"><div class="wd-rowtop"><div><b>${wdE(x.title)}</b>${x.body?`<p>${wdE(x.body)}</p>`:''}<small>${x.updated_at?formatSeoulTime(x.updated_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'}):''}</small></div>${can?`<div class="wd-actions"><button class="wd-danger" type="button" data-wd-memo-del="${wdE(x.id)}" aria-label="메모 삭제">삭제</button></div>`:''}</div></div>`).join(''):emptyHtml()}
-async function wdDelRow(table,id,btn,label){const obj=label+(label==='메모'?'를':'을');if(!wdOrg?.canEdit||!id)return false;const askedOrg=wdOrg.id;if(!(await askConfirm(btn||document.activeElement,{text:`이 ${obj} 삭제할까요?`,ok:'삭제',danger:true}))||wdOrg?.id!==askedOrg||btn?.disabled)return false;const orgId=wdOrg.id;if(btn)btn.disabled=true;try{const rows=await wdApi(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}&select=id`,{method:'DELETE',prefer:'return=representation'});if(!Array.isArray(rows)||!rows.length)throw new Error('권한이 없거나 이미 없는 항목입니다.');if(wdOrg?.id!==orgId)return false;wdToast(`${obj} 삭제했습니다.`);return true}catch(e){if(btn)btn.disabled=false;wdToast(`${obj} 삭제하지 못했어요. ${e.message||e}`);return false}}
+async function wdDelRow(table,id,btn,label){const obj=label+(label==='메모'?'를':'을');if(!wdOrg?.canEdit||!id)return false;const askedOrg=wdOrg.id;if(!(await askConfirm(btn||document.activeElement,{text:`이 ${obj} 삭제할까요?`,ok:'삭제',danger:true}))||wdOrg?.id!==askedOrg||btn?.disabled)return false;const orgId=wdOrg.id;if(btn)btn.disabled=true;try{await deleteOrgRow(wdApi,table,id,orgId);if(wdOrg?.id!==orgId)return false;wdToast(`${obj} 삭제했습니다.`);return true}catch(e){if(btn)btn.disabled=false;wdToast(`${obj} 삭제하지 못했어요. ${e.message||e}`);return false}}
 async function wdDelUpdate(id,btn){if(await wdDelRow('app_suborganization_updates',id,btn,'기록')){wdUpdates=wdUpdates.filter(x=>x.id!==id);btn?.closest('.wd-log-row')?.remove();wdRenderUpdates()}else if(btn?.isConnected&&btn.dataset.wdUpMenu)btn.focus({preventScroll:true})}
 async function wdDelMemo(id,btn){if(await wdDelRow('app_suborganization_status_items',id,btn,'메모')){wdItems=wdItems.filter(x=>x.id!==id);wdRenderItems()}}
 // ORG-기록수정삭제: a record written here (app_suborganization_updates) has one ⋯ at its top right, like a basket-linked record
