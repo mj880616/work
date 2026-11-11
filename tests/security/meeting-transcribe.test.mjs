@@ -91,9 +91,9 @@ test('REC-글못찾음: answer shape log line has names and counts only — neve
  assert.equal(m.answerShape({status:'completed',output_text:' 가나 '}).includes('output_text=2'),true);
  assert.equal(m.answerShape({status:'설마'}).startsWith('status=? '),true);
  assert.equal(m.answerShape(null),'type=null');assert.equal(m.answerShape([]),'type=array');assert.equal(m.answerShape('x'),'type=string');
- // 서버는 답을 못 읽으면(완료 아님·글 없음) 이 모양을 한 줄 남긴다. 사용량은 그 전에 기록(답이 왔으면 쓴 만큼).
+ // 서버는 답을 못 읽으면(완료 아님·글 없음) 이 모양을 한 줄 남긴다. 사용량은 답이 왔으면 쓴 만큼 기록(못 읽은 시도는 실패 머리로, 월 상한 밖).
  assert.match(index,/function readAnswer\(d: unknown\) \{\n\s*try \{ return readTranscript\(d\); \} catch \(e\) \{\n\s*if \(e instanceof Fail\) console\.warn\('meeting-transcribe: gemini answer', e\.code, answerShape\(d\)\);\n\s*throw e;/);
- assert.match(index,/const result = readAnswer\(response\);/);
+ assert.match(index,/try \{ result = readAnswer\(response\); \} catch \(e\) \{ answerError = e; \}/);
  assert.equal((index.match(/readTranscript\(/g)||[]).length,1,'답 읽기는 readAnswer 한 곳');
  assert.ok(index.indexOf('readUsage(response, job.duration_sec)')<index.indexOf('readAnswer(response)'));
  // 답 몸통을 받다가 기다림 상한이 지나면 늦음, 끊김·JSON 아님은 실패 — 둘 다 상태·길이만 로그(내용 없음).
@@ -151,7 +151,7 @@ test('usage: reported tokens, audio modality, fallback estimate from duration; m
  assert.match(ref,/^mtg-11111111-2222-4333-8444-555555555555-[0-9a-z]+$/);assert.match(ref,/^[A-Za-z0-9_.:-]{8,80}$/);
  const krw=m.monthKrw([{ref:'mtg-a',model:'gemini-2.5-flash',input_tokens:1_000_000,audio_tokens:1_000_000,output_tokens:0},{ref:'call-1',model:'gemini-2.5-flash',input_tokens:9_000_000,audio_tokens:0,output_tokens:0}]);
  assert.equal(krw,1400);
- assert.equal(m.overLimit(4999),false);assert.equal(m.overLimit(5000),true);assert.equal(m.overLimit(NaN),true);
+ assert.equal(m.overLimit(14999),false);assert.equal(m.overLimit(15000),true);assert.equal(m.MONTHLY_LIMIT_KRW,15000);assert.equal(m.overLimit(NaN),true);
  assert.equal(m.seoulDay(new Date('2026-10-28T15:30:00Z')),'2026-10-29');assert.equal(m.monthStart(new Date('2026-10-31T15:30:00Z')),'2026-11-01');
 });
 
@@ -264,4 +264,30 @@ test('REC-한회의로잇기: 글 내용은 로그·오류·응답에 싣지 않
  assert.doesNotMatch(view,/transcript_text|result_text|before_|draft|source_text|notes|workspace_id|created_by/);
  // 폰 알림에는 종류·짧은 고정 제목·여는 주소만(지금 notifyDone과 같음).
  assert.match(index,/sender\.send\(d\.fcm_token, \{ kind: 'meeting_done', title: kind === 'join' \? '보고에 이어 붙였어요' : '회의 요약이 준비됐어요', open, urgent: true \}\)/);
+});
+
+test('회의 전사 모델 가격은 가격표에 있다(단가 미확인으로 세지 않음)', async () => {
+ const p = await import('../../supabase/functions/_shared/ai-prices.mjs');
+ const base = p.geminiPrice(m.TRANSCRIBE_MODEL);
+ assert.ok(base, '전사 모델이 가격표에 있어야 함');
+ assert.equal(base.prefix, 'gemini-3.5-transcribe');
+ assert.equal(p.geminiPrice('gemini-3.5-transcribe-live').prefix, 'gemini-3.5-transcribe-live');
+ // 100만 음성 토큰 + 100만 출력 토큰 = 2달러 + 12달러(1달러 1,400원)
+ assert.equal(p.geminiKrw(m.TRANSCRIBE_MODEL, 1_000_000, 1_000_000, 1_000_000), 19600);
+});
+
+test('글을 못 받은 시도는 월 상한에 넣지 않는다(실패 머리 mtgfail-)', () => {
+ const id='11111111-2222-4333-8444-555555555555', at=new Date(Date.UTC(2026,10,12));
+ const ok=m.usageRef(id,at), bad=m.usageRef(id,at,true);
+ assert.ok(ok.startsWith('mtg-'));
+ assert.ok(bad.startsWith('mtgfail-'));
+ assert.ok(!bad.startsWith(m.USAGE_REF_PREFIX), '실패 머리는 월 상한 셈(mtg-)과 겹치면 안 됨');
+ assert.match(bad,/^[A-Za-z0-9_.:-]{8,80}$/, 'DB ref 규칙 안');
+ const row=ref=>({ref,model:m.TRANSCRIBE_MODEL,input_tokens:1_000_000,audio_tokens:1_000_000,output_tokens:0});
+ assert.equal(m.monthKrw([row(ok),row(bad)]),2800);
+ // 서버는 답을 읽은 뒤 성공 여부로 머리를 정하고, 실패면 기록한 다음 원래 오류를 다시 던진다.
+ const index=readFileSync(new URL('../../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
+ assert.match(index,/ref: usageRef\(job\.id, at, !result\)/);
+ assert.match(index,/if \(!result\) throw answerError;/);
+ assert.match(index,/\.like\('ref', `\$\{USAGE_REF_PREFIX\}%`\)/);
 });

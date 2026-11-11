@@ -16,6 +16,9 @@ export const GEMINI_PRICES = Object.freeze([
   { prefix: 'gemini-2.5-pro', input: usd(1.25), audio: usd(1.25), output: usd(10.00) },
   { prefix: 'gemini-2.0-flash-lite', input: usd(0.075), audio: usd(0.075), output: usd(0.30) },
   { prefix: 'gemini-2.0-flash', input: usd(0.10), audio: usd(0.70), output: usd(0.40) },
+  // 회의 녹음 전사 모델(Google Gemini API 가격표, 2026-11 확인): 녹음 파일용·실시간용
+  { prefix: 'gemini-3.5-transcribe-live', input: usd(3.50), audio: usd(3.50), output: usd(21.00) },
+  { prefix: 'gemini-3.5-transcribe', input: usd(2.00), audio: usd(2.00), output: usd(12.00) },
 ].sort((a, b) => b.prefix.length - a.prefix.length));
 export const GEMINI_UNKNOWN_PRICE = Object.freeze({ prefix: '', input: usd(2.00), audio: usd(2.00), output: usd(12.00) });
 export function geminiPrice(model) {

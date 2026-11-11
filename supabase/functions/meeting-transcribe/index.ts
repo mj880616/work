@@ -8,7 +8,7 @@
 //   transcribe {job_id}                  → Drive에서 읽어 Gemini Files에 올리고 전사(통화 전사와 같은 설정) → 글을 이 응답으로만 돌려준다.
 //              작업 행은 진행 중 → 끝/실패. 이 함수는 전사 글을 저장하지 않는다. 화면이 그 글을 회의 입력 창의 '회의록 전문' 칸
 //              (app_meetings.notes)에 넣어 [사업 보고 저장] 때 회의와 함께 남긴다(S48-64, 명진 11/03 지시 '전사 전문 저장 허용').
-//              사용량은 기존 app_ai_external_usage에 ref 'mtg-…'로 넣는다(홈 AI 사용량 줄·월 상한이 같은 기록을 셈).
+//              사용량은 기존 app_ai_external_usage에 ref 'mtg-…'로 넣는다(홈 AI 사용량 줄·월 상한이 같은 기록을 셈). 글을 못 받은 시도는 'mtgfail-…'(홈 사용량에만, 월 상한 밖).
 //   attach     {job_id, meeting_id}      → 끝난 녹음을 그 회의 자료로 링크(app_documents 한 행, 원본은 Drive 그대로).
 // MTG-노트북녹음 1단계(노트북 Web2 [녹음], 설계 docs/design/laptop-recording.md, 표 app_meeting_recordings):
 //   rec_start   {workspace_id, mime, session_id?} → 녹음 구간 한 행(열린 구간이 있으면 먼저 닫음). 같은 session_id = 한 회의의 다음 구간.
@@ -368,14 +368,17 @@ async function runTranscription(key: string, job: Job) {
     geminiFile = file.name;
     await geminiActive(key, file.name, file.state);
     const response = await geminiTranscribe(key, file.uri, file.mimeType || job.mime_type, wantsDiarize(job.duration_sec ?? audio.seconds));
-    // Gemini가 답했으면(글이 비었어도) 쓴 만큼 기록한다.
+    // Gemini가 답했으면(글이 비었어도) 쓴 만큼 기록한다. 글을 못 받은 시도는 실패 머리로 적어 월 상한에서 뺀다(홈 AI 사용량에는 보임).
     const usage = readUsage(response, job.duration_sec);
+    let result: ReturnType<typeof readAnswer> | null = null;
+    let answerError: unknown = null;
+    try { result = readAnswer(response); } catch (e) { answerError = e; }
     const at = new Date();
     const { error: usageError } = await admin.from('app_ai_external_usage').insert({
-      workspace_id: job.workspace_id, ref: usageRef(job.id, at), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
+      workspace_id: job.workspace_id, ref: usageRef(job.id, at, !result), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
     });
     if (usageError) console.warn('meeting-transcribe: usage not recorded', usageError.code);
-    const result = readAnswer(response);
+    if (!result) throw answerError;
     return { text: result.text as string, speakerSplit: result.speakerSplit, model: usage.model as string };
   } finally {
     if (geminiFile) await geminiDelete(key, geminiFile);
