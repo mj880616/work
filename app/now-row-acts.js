@@ -17,7 +17,9 @@ export function hoverActsHtml({saved = false, isSaved = false} = {}) {
   return `<span class="now-hov" role="group" aria-label="이 글 처리">${save}</span>`;
 }
 
-export function bindNowRows(host, {row, itemOf, isSaved = () => false, saved = false, changed = () => {}, enabled = () => true} = {}) {
+// titleOf: 우클릭 메뉴 머리에 보일 줄 제목(기본은 News 줄의 .nw-title — 다른 화면이 같은 줄 밀기를 쓸 때 줄 제목 위치를 알려 준다: 홈 읽을 만한 글).
+const nwTitle = el => el.querySelector('.nw-title')?.textContent || '';
+export function bindNowRows(host, {row, itemOf, isSaved = () => false, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle} = {}) {
   if (!host) return {close() {}};
   const fail = () => notify('저장하지 못했어요 · 잠시 뒤 다시', {error: true});
   // 하나를 하고 되돌리기 길을 알림에 건다.
@@ -55,7 +57,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, saved = f
     const item = itemOf(el); if (!item) return;
     const at = appMenuPoint(event, el); if (!at) return;
     const items = saved ? [{id: 'release', label: RELEASE_LABEL}] : [{id: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL}, {id: 'hide', label: HIDE_LABEL}];
-    const title = (el.querySelector('.nw-title')?.textContent || '').replace(/\s+/g, ' ').trim();
+    const title = (titleOf(el) || '').replace(/\s+/g, ' ').trim();
     if (openRowMenu(el, {key: 'now:' + item.type + ':' + item.id, title, items, at, run: key => run(key, item)})) event.preventDefault();
   });
   return swipe;
