@@ -109,14 +109,9 @@ export function readArticlePage(html: string, nowMs: number, rule?: PageRule): P
   return { state: "ok", title, publisher, published_at, lang, body: lead, body_kind: lead ? "lead" : null, blocks: ex.state === "image_only" ? ex : { ...leadBlocks("no_body"), scope: ex.scope ?? null, cut: ex.cut ?? null }, paywall: null };
 }
 
-// 겹침 판정용 제목: 구글 뉴스 꼬리 ' - 매체', 머리말([단독] 등), 공백·문장부호 떼기.
+// 겹침 판정용 제목: 끝 꼬리 ' - 매체'(옛 키워드 기사·채널 기사 제목), 머리말([단독] 등), 공백·문장부호 떼기.
 export function titleKey(title: string): string | null {
   const t = title.replace(/\s+[-–—|]\s+[^-–—|]{1,40}$/, "").replace(/^\s*[\[(【<〈][^\])】>〉]{1,12}[\])】>〉]\s*/, "")
     .toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
   return t ? t.slice(0, 500) : null;
-}
-// 구글 뉴스 제목 끝 ' - 매체'를 매체 이름으로 떼어 낸다.
-export function splitGoogleTitle(title: string): { title: string; publisher: string | null } {
-  const m = /^(.*\S)\s+-\s+([^-]{1,60})$/.exec(title);
-  return m ? { title: m[1], publisher: m[2].trim() } : { title, publisher: null };
 }

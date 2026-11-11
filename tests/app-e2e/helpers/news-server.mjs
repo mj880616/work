@@ -7,7 +7,7 @@ const CATALOG = [
   { key: 'news-fake-b', name: '가짜일보', region: 'domestic', lang: 'ko' },
   { key: 'news-fake-en', name: 'Fake Wire', region: 'foreign', lang: 'en' },
 ];
-const LIMITS = { fill: 10, translate: 20, open: 60, keyword_items: 30, keywords: 30 };
+const LIMITS = { fill: 10, translate: 20, open: 60, keywords: 30 };
 export const ITEMS = () => [
   { id: 'c1', lane: 'channel', url: 'https://example.org/c1', title: '가짜 채널 기사', lang: 'ko', publisher: '가짜노동신문', source_key: null, keywords: [], published_at: '2026-10-06T00:00:00Z', scrapped_at: '2026-10-06T00:20:00Z', created_at: '2026-10-06T00:21:00Z', state: 'ok', summary: '가짜 채널 기사 한 문장 요약.', body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
   { id: 'k1', lane: 'keyword', url: 'https://news.google.com/rss/articles/fake-1', title: '가짜 키워드 기사', lang: 'ko', publisher: '가짜일보', source_key: null, keywords: ['가짜어'], published_at: '2026-10-05T22:00:00Z', scrapped_at: null, created_at: '2026-10-06T00:10:00Z', state: 'ok', summary: '가짜 키워드 요약.', body_kind: null, title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: null },
@@ -88,7 +88,9 @@ export async function newsServer(page) {
       if (id) return ok(server.items.filter(i => i.id === id).map(view));
       const lane = u.searchParams.get('lane'), star = u.searchParams.get('starred_at');
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      const rows = server.items.filter(i => (!lane || (lane === 'eq.channel' ? i.lane === 'channel' : i.lane !== 'channel')) && (!star || !!i.starred_at) && (!inKeys || inKeys.includes(i.source_key)));
+      // S59-1 키워드 칸: keywords=cs.{"낱말"} → keywords 칸에 그 낱말이 있는 글(새 것부터).
+      const cs = /^cs\.\{"((?:[^"\\]|\\.)*)"\}$/.exec(u.searchParams.get('keywords') || '')?.[1]?.replace(/\\(.)/g, '$1');
+      const rows = server.items.filter(i => (!lane || (lane === 'eq.channel' ? i.lane === 'channel' : i.lane !== 'channel')) && (!star || !!i.starred_at) && (!inKeys || inKeys.includes(i.source_key)) && (cs === undefined || (i.keywords || []).includes(cs)));
       return ok(rows.map(({ _body, _body_ko, ...row }) => row));
     }
     if (p === '/rest/v1/app_news_keywords') {

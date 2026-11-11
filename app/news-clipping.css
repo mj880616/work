@@ -35,6 +35,9 @@
 #appView #nowPanelNews .nc-kw-add{ display:flex; align-items:center; gap:6px; margin:4px 0; }
 #appView #nowPanelNews .nc-kw-add input{ flex:1 1 auto; min-width:0; max-width:20em; height:var(--ds-compact-height,32px); box-sizing:border-box; font-size:var(--ds-text-row,14px); }
 #appView #nowPanelNews .nc-kw-add-btn{ flex:none; }
+/* 키워드에 걸린 글(S59-1): 키워드 줄 아래, 키워드마다 묶음 머리 '철도 · 12건' + 목록과 같은 줄(now.css nw-day·nw-card). */
+#appView #nowPanelNews .nc-kw-hits{ margin-top:6px; }
+#appView #nowPanelNews .nc-kw-hits:empty{ display:none; }
 @media (prefers-reduced-motion:reduce){ #appView #nowPanelNews :is(.nc-switch-dot,.nc-switch-dot::after){ transition:none; } }
 
 /* C2: 별표(☆/★ 작은 글자 단추, 꼬리 줄 오른쪽) · 폴더 트리(노트 폴더 트리와 같은 들여쓰기 칸) · 내 메모(= 노트). */

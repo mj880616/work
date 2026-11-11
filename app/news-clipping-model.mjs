@@ -9,7 +9,7 @@ export const STAR = 'star';
 export const PAGE_SIZE = 40;
 export const KEYWORD_MAX_CHARS = 30;
 // 서버가 limits를 주기 전(또는 실패)의 보임용 값. 실제 한도는 서버가 센다.
-export const DEFAULT_LIMITS = Object.freeze({fill: 10, translate: 20, keyword_items: 30, keywords: 30});
+export const DEFAULT_LIMITS = Object.freeze({fill: 10, translate: 20, keywords: 30});
 
 // 목록 읽기 걸러내기(PostgREST 조건 조각). 지운 줄(hidden_at)은 늘 뺀다.
 export function laneFilter(tab) {
@@ -146,6 +146,20 @@ export function cleanWord(raw, have = []) {
   return {ok: true, word: w};
 }
 
+// 키워드 칸(S59-1 NEWS-키워드살리기, 11/11 명진 결정): 밖에서 새로 찾지 않고, 받은 매체 글 가운데 서버(news-feed 키워드 단계)가
+// keywords 칸에 키워드를 적어 둔 글을 키워드마다 모아 보인다. 켠 키워드만, 키워드 목록 순서, 키워드마다 새 글부터 KW_GROUP_SIZE건.
+export const KW_GROUP_SIZE = 20;
+// PostgREST 배열 값(cs.{…})의 글자: 낱말마다 큰따옴표로 감싸고, 안의 \ 와 " 는 앞에 \ 를 붙인다(PostgreSQL 배열 글자 규칙). 주소에 넣을 때는 따로 encodeURIComponent.
+export const pgTextArray = words => `{${(words || []).map(w => `"${String(w).replace(/[\\"]/g, c => `\\${c}`)}"`).join(',')}}`;
+// 켠 키워드 → 모아 볼 묶음. hits: Map(낱말 → {items, more}). 걸린 글이 없는 키워드는 묶음을 만들지 않는다.
+export function keywordGroups(keywords, hits) {
+  return (keywords || []).filter(k => k?.enabled === true && typeof k.word === 'string')
+    .map(k => ({word: k.word, items: hits?.get?.(k.word)?.items || [], more: !!hits?.get?.(k.word)?.more}))
+    .filter(g => g.items.length);
+}
+// 묶음 머리 글자: '철도 · 12건', 더 있으면 '철도 · 최근 20건'.
+export const keywordGroupLabel = g => `${g.word} · ${g.more ? `최근 ${g.items.length}건` : `${g.items.length}건`}`;
+
 // 매체 카탈로그(서버 news-feed ?action=catalog): key·name·region·lang만 받는다.
 export function normalizeCatalog(data) {
   const list = Array.isArray(data?.sources) ? data.sources : [];
@@ -162,7 +176,7 @@ export function enabledSourceKeys(catalog, rows) {
 export function normalizeLimits(data) {
   const l = data?.limits || {};
   const pick = (k) => (Number.isInteger(l[k]) && l[k] >= 0 ? l[k] : DEFAULT_LIMITS[k]);
-  return {fill: pick('fill'), translate: pick('translate'), keyword_items: pick('keyword_items'), keywords: pick('keywords')};
+  return {fill: pick('fill'), translate: pick('translate'), keywords: pick('keywords')};
 }
 // 이번 달 AI 한도(서버 catalog 응답 ai.month_capped, NEWS-다받기 ④): 닿으면 수집 때 요약·외국어 제목 번역이 멈춘다. 예/아니오만 받는다.
 export const AI_CAP_NOTE = '이번 달 AI 한도에 닿아 요약·제목 번역이 멈춤 · 다음 달 1일 다시';

@@ -10,7 +10,7 @@ import {readFileSync} from 'node:fs';
 const E=await import('../../supabase/functions/_shared/html-entities.ts');
 const P=await import('../../supabase/functions/outside-feed/parse.ts');
 const T=await import('../../supabase/functions/_shared/outside-tidy.ts');
-const {NEWS_CATALOG,GOOGLE_NEWS}=await import('../../supabase/functions/_shared/news-catalog.ts');
+const {NEWS_CATALOG}=await import('../../supabase/functions/_shared/news-catalog.ts');
 const {OUTSIDE_CATALOG}=await import('../../supabase/functions/_shared/outside-catalog.ts');
 const {readArticlePage}=await import('../../supabase/functions/news-feed/page.ts');
 const {extractBlocks}=await import('../../supabase/functions/_shared/feed-extract.ts');
@@ -60,8 +60,8 @@ const rss=(host,title=RAW_TITLE)=>`<rss><channel><item><title>${title}</title><l
 
 test('News 매체 RSS 전부: 제목·요약·본문에 표기 글자가 남지 않는다', ()=>{
  const rows=[];
- for(const s of [...NEWS_CATALOG.filter(x=>x.mode==='rss'),GOOGLE_NEWS]){
-  const host=s.hosts?.[0]??'news.google.com';
+ for(const s of NEWS_CATALOG.filter(x=>x.mode==='rss')){
+  const host=s.hosts[0];
   const [it]=P.parseFeed(s,rss(host),NOW);
   assert.ok(it,`${s.key}: 글 한 건`);
   const title=T.tidyTitle(it.title,s.name??'',{split:false}).title;

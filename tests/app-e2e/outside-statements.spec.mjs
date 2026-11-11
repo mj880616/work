@@ -62,7 +62,7 @@ async function outsideServer(page) {
     // S51-8 News: 언론 카탈로그·기사(가짜 둘), 읽음 표(p2만 읽음 → 넣으면 기억).
     if (p === '/functions/v1/news-feed') {
       const action = u.searchParams.get('action');
-      if (action === 'catalog') return ok({ ok: true, sources: NEWS_CATALOG, limits: { fill: 10, translate: 20, keyword_items: 30, keywords: 30 } });
+      if (action === 'catalog') return ok({ ok: true, sources: NEWS_CATALOG, limits: { fill: 10, translate: 20, keywords: 30 } });
       if (action === 'fill_now') return ok({ ok: true, done: 0, status: 'nothing' });
       return ok({ ok: false }, 400);
     }
