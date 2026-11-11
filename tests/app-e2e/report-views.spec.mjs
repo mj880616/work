@@ -267,6 +267,7 @@ test('report calendar (PC): right click on an empty day gives [add report here]/
   // 키보드: 날짜 숫자 단추에서 Shift+F10도 같은 메뉴.
   await cell.locator('[data-rv-day]').focus();
   await page.keyboard.press('Shift+F10');
+  await expect(menu).toBeVisible(); // 닫힌 메뉴 상자에 남은 글자가 아니라 지금 뜬 메뉴를 본다(STAB S58-3)
   await expect(menu.locator('button')).toHaveText(['이날 사업 보고 추가', '이날 보기']);
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
@@ -277,23 +278,73 @@ test('report calendar (PC): right click or menu key on a report opens the same r
   const state = makeState();
   await open(page, state, 1440);
   await view(page, '달력');
-  const cal = page.locator('#meetingList .rv-cal'), more = page.locator('#mrdMoreMenu');
+  const cal = page.locator('#meetingList .rv-cal'), more = page.locator('#mrdMoreMenu'), detail = page.locator('#meetingRoundDetailModal');
+  // STAB(S58-3): 메뉴 글자는 닫힌 뒤에도 숨은 상자(#mrdMoreMenu)에 그대로 남는다(다음에 열 때 다시 그림). 글자만 보면 앞에서 연 메뉴가 남긴 것으로
+  // 바로 통과해, 보고 창·메뉴가 뜨기 전에 Esc를 눌렀다 — 창만 뜨고 메뉴는 아직인 순간이면 Esc가 창을 닫았고(그때 맨 위는 창), 창도 뜨기 전이면 Esc가 헛돌고 뒤늦게 뜬 메뉴가 남았다.
+  // 그래서 '그 보고의 창이 떴고 그 메뉴가 보인다'를 먼저 기다린 뒤 누른다.
+  const menuOpenFor = async id => {
+    await expect(detail).toBeVisible();
+    await expect(detail).toHaveAttribute('data-meeting-id', id);
+    await expect(more).toBeVisible();
+    await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  };
+  // Esc는 맨 위(메뉴)만 닫는다: 뒤의 보고 창은 그대로 떠 있고, 창은 [×]로 닫는다.
+  const escClosesMenuOnly = async id => {
+    await page.keyboard.press('Escape');
+    await expect(more).toBeHidden();
+    await expect(detail).toBeVisible();
+    await expect(detail).toHaveAttribute('data-meeting-id', id);
+    await page.locator('#mrdClose').click();
+    await expect(detail).toBeHidden();
+  };
   // 칸 안 제목.
   await cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`).click({button: 'right'});
-  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
-  await expect(more).toBeVisible();
-  await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
-  await page.keyboard.press('Escape'); await expect(more).toBeHidden();
-  await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  await menuOpenFor(M1);
+  await escClosesMenuOnly(M1);
   // 그날 목록 줄.
   await cal.locator(`.rv-day-list .rv-row[data-mrd-meeting="${M2}"]`).click({button: 'right', position: {x: 6, y: 6}});
-  await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
-  await page.keyboard.press('Escape'); await expect(more).toBeHidden();
-  await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  await menuOpenFor(M2);
+  await escClosesMenuOnly(M2);
   // 키보드 메뉴 키: 포커스 받은 칸 안 제목.
   await cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`).focus();
   await page.keyboard.press('Shift+F10');
+  await menuOpenFor(M1);
+  await escClosesMenuOnly(M1);
+  expect(state.patches).toEqual([]);
+});
+
+// STAB(S58-3) 같은 종류 전수: 달력 밖에서 같은 보고 메뉴를 여는 두 자리 — 목록 보기 줄(PC, 보고가 오른쪽 칸에 앉은 상태)과 사진 보기 머리 줄(보고 창).
+// 어디서 열든 Esc는 맨 위(메뉴)만 닫고, 뒤의 보고(칸·창)는 그대로다.
+test('report list and photos (PC): Esc after a right click on a report closes only the report menu, the report stays', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 1440);
+  const more = page.locator('#mrdMoreMenu'), detail = page.locator('#meetingRoundDetailModal'), pane = page.locator('#meetingList #mcolResult');
+  // 목록 줄: 그 보고가 오른쪽 칸에 뜬 뒤 우클릭한다.
+  const row = page.locator('#meetingList [data-meeting-round]').first(), id = await row.getAttribute('data-meeting-round');
+  await row.click();
+  await expect(pane).toHaveAttribute('data-meeting-result', id);
+  await expect(detail).toHaveAttribute('data-meeting-id', id);
+  await row.click({button: 'right', position: {x: 8, y: 8}});
+  await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  await page.keyboard.press('Escape');
+  await expect(more).toBeHidden();
+  await expect(pane).toHaveAttribute('data-meeting-result', id);
+  await expect(detail).toBeVisible();
+  await expect(detail).toHaveAttribute('data-meeting-id', id);
+  // 사진 보기 머리 줄.
+  await view(page, '사진');
+  await page.locator(`#meetingList .rv-set-head[data-mrd-meeting="${M1}"]`).click({button: 'right', position: {x: 8, y: 8}});
+  await expect(detail).toBeVisible();
+  await expect(detail).toHaveAttribute('data-meeting-id', M1);
+  await expect(more).toBeVisible();
+  await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  await page.keyboard.press('Escape');
+  await expect(more).toBeHidden();
+  await expect(detail).toBeVisible();
+  await expect(detail).toHaveAttribute('data-meeting-id', M1);
+  await page.locator('#mrdClose').click();
+  await expect(detail).toBeHidden();
   expect(state.patches).toEqual([]);
 });
 

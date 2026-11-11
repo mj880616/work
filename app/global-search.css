@@ -69,9 +69,11 @@
 /* 폰 메뉴 창 맨 위 검색칸(입구): 누르면 화면 전체 검색. 메뉴 판의 공용 버튼 규칙보다 앞서도록 .mobile-menu-panel로 한정. */
 .mobile-menu-search{padding:0 0 8px}
 .mobile-menu-search:empty{display:none}
-.mobile-menu-panel .gs-menu-entry{position:relative;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:40px;padding:0 12px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left}
-.mobile-menu-panel .gs-menu-entry .gs-field-icon{left:10px}
-.mobile-menu-panel .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+:is(.mobile-menu-panel,.mobile-shell-search) .gs-menu-entry{position:relative;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:40px;padding:0 12px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left}
+:is(.mobile-menu-panel,.mobile-shell-search) .gs-menu-entry .gs-field-icon{left:10px}
+:is(.mobile-menu-panel,.mobile-shell-search) .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* FOLD-넓은화면 A(S57-21): 폴드 펼침(600~760px) 앱 머리 한 줄 안의 같은 입구는 그 줄 높이(36px)에 맞춘다. 자리는 topbar-actions.css. */
+.mobile-shell-search .gs-menu-entry{height:36px;min-height:36px;cursor:pointer}
 /* 폰 메뉴 창 맨 위 입구. PC(761px~)는 상단 줄 검색칸. */
 @media (min-width:761px){.mobile-menu-search{display:none}}
 

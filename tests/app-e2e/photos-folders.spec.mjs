@@ -7,6 +7,7 @@ import { pinch } from './helpers/pinch.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
 // 폭: 폰 412(한 화면씩)·폴드 펼침 884(한 화면씩)·PC 1440(왼쪽 나무 + 오른쪽 격자).
+// FOLD-넓은화면 C(S57-21): 왼쪽 나무 | 오른쪽 사진은 PC(1200px~)만. 폴드 펼침 884는 폰과 같은 첫 화면(표지 그림 카드, 같은 이름표·같은 길)이라 폰 쪽 확인을 그대로 탄다.
 const barPick = async (page, trigger, name) => { await trigger.click(); await page.locator('#photoBarMenu').getByRole('button', { name, exact: true }).click(); }; // S49-34 PHOTO-아래줄정돈: 더보기·편집 ▾ 안 글자 항목
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
@@ -86,7 +87,7 @@ const path = page => root(page).locator('.photos-fx-path');
 
 for (const width of [412, 884, 1440]) {
   test(`사진 메뉴 ② 폴더: 폴더 나무·폴더 안 사진·여러 장 옮기기·되돌리기·메뉴·새 폴더 ${width}`, async ({ page }) => {
-    const f = await fixture(page, width), wide = width>=761;
+    const f = await fixture(page, width), wide = width>=1200;
     await openPhotos(page);
     await root(page).locator('[data-photos-view]').selectOption('folders');
     await expect(root(page).locator('[data-photos-view]')).toHaveValue('folders');
@@ -272,7 +273,7 @@ test('사진 메뉴 ② 폴더 PC 1440: 나무 | 사진 경계 끌기·키보드
 });
 
 // S52-14 FILES-상자접힘기억: 폰(760 이하) [폴더] 첫 화면의 저장소 상자(원드라이브·폰·구글 드라이브)도 [파일]과 같은 기억 — 서버 view_prefs.box_shut.<기기>.photos(od·ph·gd).
-// 상자만 기억(안쪽 폴더 펼침은 기억하지 않음). 폴드 펼침·PC(761~)는 왼쪽 폴더 나무라 저장소 상자가 없다.
+// 상자만 기억(안쪽 폴더 펼침은 기억하지 않음). PC(1200~)는 왼쪽 폴더 나무라 저장소 상자가 없다.
 for (const [width, device] of [[412, 'phone']]) {
   test(`사진 [폴더] ${width}: 원드라이브 상자 접기 → 다른 화면 갔다 와도·새로고침해도 접힘, 펼치면 펼친 채(box_shut.${device}.photos)`, async ({ page }) => {
     const f = await fixture(page, width);
