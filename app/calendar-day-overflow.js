@@ -90,7 +90,8 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
   function apply(){return true}
 
   ensureModal();
-  window.KPTUCalendarDayOverflow={apply,open,show};
+  window.KPTUCalendarDayOverflow={apply,open};
+  window.KPTUCalendarDayOverflow.show=show; // BIZ-달력그날창: 다른 화면(사업 보고 달력 '+n')이 같은 창을 여는 길. 일정 달력이 쓰는 {apply,open}은 그대로다.
   document.addEventListener('click',event=>{
     const preview=event.target.closest?.('#calendarDayList [data-diary-preview]');
     if(preview){

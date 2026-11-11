@@ -208,7 +208,7 @@ test('그날 창 연결: 일정 달력과 같은 창 부품, 줄 누름·우클�
   // 같은 창 부품: 일정 달력 그날 창(#calendarDayModal)의 show. 새 창을 만들지 않는다.
   assert.match(act, /await import\('\.\/calendar-day-overflow\.js'\)/); assert.match(act, /window\.KPTUCalendarDayOverflow/); assert.match(act, /win\.show\(\{title: dayWindowTitle\(day\), note: `사업 보고 \$\{list\.length\}`, kind: 'report', anchor, trigger: from,/);
   assert.doesNotMatch(act, /insertAdjacentHTML|class="modal/);
-  assert.match(shell, /window\.KPTUCalendarDayOverflow=\{apply,open,show\}/);
+  assert.match(shell, /window\.KPTUCalendarDayOverflow=\{apply,open\};\n  window\.KPTUCalendarDayOverflow\.show=show;/);
   // 일정 달력 쪽은 같은 여닫기(reveal)를 기본값으로 탄다: 가운데 창, 연 곳으로 초점, 첫 일정에 초점, Esc = ✕.
   assert.match(shell, /function reveal\(\{anchor=null,trigger=document\.activeElement,initialFocus='#calendarDayList \.cal-event',kind=''\}=\{\}\)/);
   assert.match(shell, /\n    reveal\(\);\n  \}\n  function apply/);
