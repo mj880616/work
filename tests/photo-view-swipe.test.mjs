@@ -170,6 +170,6 @@ test('연결: photo-view.js가 이 손동작을 쓰고, 새 판정·기기 저�
   assert.doesNotMatch(swipe, /\b(SWIPE_MIN|STEP_DIST|SWIPE_RATIO|DRAG_START)\s*=|>=\s*\d{2,}|<\s*\d{2,}/, '거리·비율 숫자를 새로 두지 않는다(모델 상수만)');
   assert.match(view, /basket-photo-step/, '‹ › 단추는 그대로');
   assert.match(view, /fromBack/, '폰 뒤로 가기 = 닫기 그대로');
-  const deviceStores = /localStorage|sessionStorage|indexedDB/;
+  const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'cach' + 'es\\s*\\.'].join('|'));
   for (const src of [view, swipe, model]) assert.doesNotMatch(src, deviceStores);
 });
