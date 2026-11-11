@@ -291,6 +291,8 @@
   if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-reopen.js').catch(err=>console.warn('phone reopen load failed',err?.name||'Error'));
   // APP-폰알림 N4: 폰 앱이면 이 폰이 알림을 '받는 중'일 때 다시 등록해 바뀐 폰 주소·마지막 시각을 맞춘다(phone-push-settings.js). 앱이 아니면 아무것도 하지 않는다. 기다리지 않는다.
   if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./phone-push-settings.js').then(m=>m.startDeviceSync(window)).catch(err=>console.warn('phone push sync load failed',err?.name||'Error'));
+  // APP-뒤에서올리기 PR-2(S58-12): 폰 앱이면 앱에 한 번 묻는다(up:hello, app-upload.js) — 앱이 뒤에서 올리다 멈춘 묶음은 이 물음에 다시 걸린다(화면을 닫았다 열어도 이어 올림). 화면이 닫힌 사이 끝났거나 멈춘 묶음이 있으면 자료실 올리기 부품을 불러 그 끝을 알린다. 옛 앱은 답하지 않는다(아무 일 없음). 기다리지 않는다.
+  if(/KPTUAndroid/i.test(navigator.userAgent||''))import('./app-upload.js').then(async m=>{const up=m.appUpload(window);await up.ready();if(up.known()&&up.jobs().length)await viewLoader.load('library')}).catch(err=>console.warn('app upload hello failed',err?.name||'Error'));
   const defer=window.requestIdleCallback?((fn,opts)=>window.requestIdleCallback(fn,opts)):((fn)=>setTimeout(fn,200));
   // OD-미리받기: 첫 화면이 다 뜬 뒤 한가할 때 원드라이브 연결 확인·이번 달 목록·작은 그림 몇 장을 뒤에서 받아 둔다(기다리지 않음, 화면 없음).
   // UI-기다림표시통일 ⑤: 첫 화면이 다 뜬 뒤 쉬는 틈에 메뉴 화면 프로그램을 미리 받아 둔다(받기만, 실행 안 함 — 처음 눌러도 '불러오는 중'이 거의 안 보이게).
