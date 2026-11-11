@@ -43,7 +43,7 @@ async function fixture(page, width, height = 1000) {
     if (body.action === 'sync') return r.fulfill({ json: { more: false, indexing: false } });
     if (body.action === 'months') return r.fulfill({ json: { months: { '2026-10': state.all.length }, total: state.all.length } });
     if (body.action === 'photo-urls') return r.fulfill({ json: { urls: Object.fromEntries(body.ids.map(id => [id, `${CDN}/${body.size}/${id}.png`])), failed: {} } });
-    if (body.action === 'library') { state.library.push(body.folder_id || null); const list = body.folder_id ? state.all.filter(m => m.parent === body.folder_id) : state.all; return r.fulfill({ json: { items: list.slice(0, body.limit).map(out), next_cursor: null, indexing: false } }); }
+    if (body.action === 'library') { state.library.push(body.folder_id || null); if (body.folder_id && body.folder_id === state.holdFolder) await state.hold; const list = body.folder_id ? state.all.filter(m => m.parent === body.folder_id) : state.all; return r.fulfill({ json: { items: list.slice(0, body.limit).map(out), next_cursor: null, indexing: false } }); }
     if (body.action === 'folders-tree') return r.fulfill({ json: { whole: true, top: { id: 'T', name: '사진 보관', count: 2, total: total('T'), enabled: true }, folders: state.folders.map(f => ({ ...f, count: state.all.filter(m => m.parent === f.id).length, total: total(f.id) })), indexing: false } });
     if (body.action === 'folder-toggle') { state.toggles.push({ id: body.folder_id, enabled: body.enabled }); const f = state.folders.find(x => x.id === body.folder_id); if (f) f.enabled = body.enabled; return r.fulfill({ json: { ok: true } }); }
     if (body.action === 'trash-list') return r.fulfill({ json: { items: [], purged: 0, truncated: false } });
@@ -140,10 +140,16 @@ for (const [width, height] of [[690, 1000], [750, 1000], [884, 1104], [1199, 900
     expect((await shape(page)).cards.map(x => [x.id, x.x, x.y])).toEqual(m.cards.map(x => [x.id, x.x, x.y]));
 
     // 카드 안 스위치: 꺼 둔 폴더를 켜면 서버에 저장되고 카드가 또렷해지며 표지를 읽는다.
+    // 표지 읽기가 스위치 저장보다 늦게 끝나도(저장이 끝나면 목록을 다시 읽어 화면을 새로 그린다) 표지는 채워진다 — 읽기를 붙잡아 그 순서를 만든다.
+    let release; s.hold = new Promise(done => { release = done; }); s.holdFolder = 'S5';
     await card(page, 'S5').getByRole('switch').click();
     await expect.poll(() => s.toggles).toEqual([{ id: 'S5', enabled: true }]);
     await expect(card(page, 'S5')).not.toHaveClass(/ft-off/);
     await expect(card(page, 'S5').getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    await expect(card(page, 'S5').getByRole('switch')).toBeEnabled();
+    await expect.poll(() => s.library.includes('S5')).toBe(true);
+    await expect(card(page, 'S5').locator('.photos-fx-cover > *')).toHaveCount(0);
+    release();
     await expect(card(page, 'S5').locator('.photos-fx-cover > *')).toHaveCount(1);
     expect(s.errors).toEqual([]);
   });

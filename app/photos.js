@@ -2200,7 +2200,7 @@ const fxCount = n => (Number.isInteger(n) ? String(n) : null);
 function fxInlineLoad(key, {quiet = false} = {}) {
   const have = fxInline.get(key);
   if (have && have.state !== 'fail') return have.done || Promise.resolve();
-  const [kind, ...rest] = key.split(':'), id = rest.join(':'), r = run, entry = {items: [], state: 'wait'};
+  const [kind, ...rest] = key.split(':'), id = rest.join(':'), who = owner, entry = {items: [], state: 'wait'};
   fxInline.set(key, entry);
   entry.done = (async () => {
     try {
@@ -2208,7 +2208,9 @@ function fxInlineLoad(key, {quiet = false} = {}) {
       else { const page = await odLibrary(rt, {folderId:id, cursor:null, limit:FT_PREVIEW, sort}); entry.items = page.items.map(toItem); }
       entry.state = 'done';
     } catch (error) { entry.state = 'fail'; entry.why = kind === 'p' ? phoneErrorText(error) : odErrorText(error); }
-    if (!current(r) || tab !== 'folders' || !fxTreeShown()) return;
+    // 사람이 바뀌었거나 이 읽기가 버려졌으면(기억에서 지워짐) 그리지 않는다. 같은 사람의 같은 화면이면, 읽는 사이 목록을 다시 읽었어도(스위치 켜기처럼 run이 바뀜) 그린다.
+    // 원인(S57-21): 앞 판은 run이 바뀌면 건너뛰어서, 표지 읽기가 스위치 저장보다 늦게 끝나면 읽은 것이 기억(fxInline)에는 있는데 표지·처음 몇 장 칸이 다음에 그릴 때까지 빈 채로 남았다.
+    if (who !== owner || owner !== ownerScope(rt) || fxInline.get(key) !== entry || tab !== 'folders' || !fxTreeShown()) return;
     if (quiet && !fxOpen.has(key)) fxCoverPaint(key); else renderFolders();
   })();
   return entry.done;
@@ -3695,6 +3697,7 @@ window.addEventListener('kptu:session-changed', () => {
   tidy.reset(); tidyOpen = false; tidyShown.clear(); tidyGone.clear();
   gd = {allowed:false, problem:'', foldersOn:0, checked:false}; gdItems = []; gdEnded = false; gdCursor = null; gdSyncAt = 0; gdLevels.clear(); gdLevelFailed.clear(); gdAt = null; gdFFor = null; gdFItems = []; gdClear();
   if (gdPlayUrl) { URL.revokeObjectURL(gdPlayUrl); gdPlayUrl = ''; }
+  fxInline.clear(); fxOpen.clear(); coverWait.length = 0; // 폴더 안 처음 몇 장·표지 기억은 그 사람 것이라 사람이 바뀌면 비운다
   tree = null; treeFailed = ''; at = null; fFor = null; fItems = []; openSet.clear(); tags = null; links = []; tagsFailed = ''; album = null; aFor = null; aItems = []; albumViewChosen = null; folderLayer = null; albumLayer = null; tabLayer = null; dayLayer = null; nameDone(null);
   $('[data-photos-filter]').value = 'all'; body.replaceChildren(); odHost.replaceChildren();
 });
