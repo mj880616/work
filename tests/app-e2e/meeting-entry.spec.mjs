@@ -328,7 +328,7 @@ test('meeting material upload attempts every selected file and reports partial f
 
 // UI-PC회의: 아래 줄 목록 시험은 폰·중간 폭(1024 미만)의 그리는 방식이다. PC(≥1024)의 열 배치는 meeting-columns.spec.mjs.
 test.describe('meeting list rows below PC width',()=>{
-test.use({viewport:{width:760,height:900}});
+test.use({viewport:{width:599,height:900}}); // FOLD-넓은화면 2차(S59-19): 한 줄 목록 + 보고 창은 칸 나누기(600px~, 펼친 폴드는 '목록 | 결과' 두 칸) 아래 폭 — 그 가장 넓은 폭(전에는 760)
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
   // S52-22 TEAM-맨위한줄: 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음.
@@ -369,7 +369,7 @@ async function showMeetings(page,rows,docs=[]){
 }
 
 test.describe('meeting list rows below PC width (colors and names)',()=>{
-test.use({viewport:{width:760,height:900}});
+test.use({viewport:{width:599,height:900}}); // FOLD-넓은화면 2차(S59-19): 한 줄 목록 + 보고 창은 칸 나누기(600px~, 펼친 폴드는 '목록 | 결과' 두 칸) 아래 폭 — 그 가장 넓은 폭(전에는 760)
 test('meeting names keep colors after reload and after older meetings are added',async({page})=>{
   await signIn(page);
   const P=palette();
@@ -586,6 +586,8 @@ for(const width of [320,360,390,760]){
       expect(btn.x+btn.width).toBeLessThanOrEqual(m.x);
       expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
     }
+    // FOLD-넓은화면 2차(S59-19): 760(펼친 폴드, 폰 틀)은 '날짜·이름 목록 | 결과' 두 칸 — 위 두 줄은 폰과 같고, 줄 모양은 두 칸 목록(fold-org-biz-list-detail.spec.mjs)이 본다.
+    if(width>=600){await expect(page.locator('#meetingList .mcol-layout.mcol-two')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);return}
     const row=page.locator('#meetingList .meeting-list-row').first();
     const fit=await row.evaluate(el=>{const main=el.querySelector('.meeting-list-main').getBoundingClientRect(),box=el.getBoundingClientRect(),cs=getComputedStyle(el);return {row:box.height,content:main.height+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderTopWidth)}});
     expect(Math.abs(fit.row-fit.content)).toBeLessThanOrEqual(1);
@@ -596,7 +598,7 @@ for(const width of [320,360,390,760]){
 }
 
 test.describe('meeting list legacy rows below PC width',()=>{
-test.use({viewport:{width:760,height:900}});
+test.use({viewport:{width:599,height:900}}); // FOLD-넓은화면 2차(S59-19): 한 줄 목록 + 보고 창은 칸 나누기(600px~, 펼친 폴드는 '목록 | 결과' 두 칸) 아래 폭 — 그 가장 넓은 폭(전에는 760)
 test('meeting list filters title-only and series-only legacy rows by the displayed meeting name',async({page})=>{
   await signIn(page);
   const rows=[
@@ -616,7 +618,7 @@ test('meeting list filters title-only and series-only legacy rows by the display
 
 // MTG-고치기바로: 아래는 사업 보고 상세 창(폰·중간 폭)의 시험이다. PC(≥1024)는 상세가 세 번째 칸에 붙어 창이 없다(meeting-columns·meeting-inline-edit).
 test.describe('meeting detail window below PC width',()=>{
-test.use({viewport:{width:760,height:900}});
+test.use({viewport:{width:599,height:900}}); // FOLD-넓은화면 2차(S59-19): 한 줄 목록 + 보고 창은 칸 나누기(600px~, 펼친 폴드는 '목록 | 결과' 두 칸) 아래 폭 — 그 가장 넓은 폭(전에는 760)
 test('meeting detail shows one canonical heading while retaining a distinct legacy title in metadata',async({page})=>{
   await signIn(page);
   await openMeetingResult(page,'meeting-1');

@@ -172,8 +172,9 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect(errors).toEqual([]);
 });
 
-// UI-PC회의: 줄 단위 목록은 폰(≤760, UI-폴드PC틀). PC 열 배치는 meeting-columns.spec.mjs.
-for(const width of [390,760])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
+// UI-PC회의: 줄 단위 목록은 폰. PC 열 배치는 meeting-columns.spec.mjs.
+// FOLD-넓은화면 2차(S59-19): 펼친 폴드(600px~)는 '날짜·이름 목록 | 결과' 두 칸(fold-org-biz-list-detail.spec.mjs)이라 줄 단위 목록의 가장 넓은 폭은 599.
+for(const width of [390,599])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'meetings');
  // MTG-프로젝트합치기 3단계: 두 보고가 다른 주(10.14·10.10, 시계 10.16)라 [전체]로 모든 주를 본다. 주 줄의 작은 버튼도 아래 버튼 기준 검사에 든다.

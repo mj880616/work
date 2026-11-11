@@ -3,7 +3,7 @@ import {showAllReportWeeks} from './report-week.mjs';
 // BIZ-주간표이번주(2026-11-09): 사업 보고 목록은 늘 이번 주(오늘이 든 월~일)로 연다. 가짜 보고가 모두 지난 주에 있으면 이번 주 목록은 비므로,
 // 사람이 하듯 [전체 기간]으로 바꿔 보고를 찾는다(이번 주에 보고가 보이면 그대로 둔다).
 export async function showReportsOf(page){
-  const list=page.locator('#meetingList'),any=list.locator('[data-mrd-meeting],[data-meeting-kind]').first(),empty=list.locator('[data-wait-empty]').first();
+  const list=page.locator('#meetingList'),any=list.locator('[data-mrd-meeting],[data-meeting-kind],[data-meeting-round]').first(),empty=list.locator('[data-wait-empty]').first();
   await expect(any.or(empty).first()).toBeVisible();
   if(await any.isVisible())return;
   await showAllReportWeeks(page);
@@ -11,10 +11,11 @@ export async function showReportsOf(page){
 // MEET-결과3단(2026-10-21): PC(≥761) 회의 결과는 3단(왼쪽 회의 종류 / 가운데 차수 / 오른쪽 읽기용 결과)이고, 회의 결과 창(#meetingRoundDetailModal)은
 // 오른쪽 머리 ⋯ → [수정]으로 연다. 폰·중간 폭은 지금처럼 목록 줄([data-mrd-meeting])을 누르면 창이 열린다.
 // 사람이 하듯 연다: 폰 줄이 있으면 그 줄을 누르고, PC면 그 회의가 든 종류를 고른 뒤 가운데 차수 줄을 누르고 ⋯ → [수정].
+// FOLD-넓은화면 2차(S59-19): 세 칸(종류 | 차수 | 결과)은 PC 1200px~이고, 폴드 펼침(600~1199px)은 '날짜·이름 목록 | 결과' 두 칸이라 목록 줄을 바로 누른다.
 export async function selectMeetingRound(page,id){
   const round=page.locator(`#meetingList [data-meeting-round="${id}"]`);
   await showReportsOf(page);
-  await expect(page.locator('#meetingList [data-meeting-kind]').first()).toBeVisible();
+  await expect(page.locator('#meetingList :is([data-meeting-kind],[data-meeting-round])').first()).toBeVisible();
   if(!(await round.count())){
     for(const kind of await page.locator('#meetingList [data-meeting-kind]').all()){
       await kind.click();
@@ -27,7 +28,7 @@ export async function selectMeetingRound(page,id){
 export async function openMeetingResult(page,id){
   const row=page.locator(`#meetingList [data-mrd-meeting="${id}"]`);
   await showReportsOf(page);
-  await expect(row.or(page.locator('#meetingList [data-meeting-kind]')).first()).toBeVisible();
+  await expect(row.or(page.locator('#meetingList :is([data-meeting-kind],[data-meeting-round])')).first()).toBeVisible();
   if(await row.count()){await row.click();return}
   // MTG-3단고치기: PC는 고른 차수의 결과가 오른쪽 칸 자리에 바로 붙는다(창 없음). 머리가 보일 때까지 기다린다.
   await selectMeetingRound(page,id);

@@ -13,6 +13,7 @@ import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor} f
 import {recordFilesHtml,paintRecordFiles,bindRecordFiles} from './record-files.js'; // ORG-기록첨부: 기록 줄 아래 그림·파일
 import {createAnchoredMenu} from './anchored-menu.js';
 import {followPane} from './follow-pane.js';
+import {SPLIT_QUERY} from './screen-width.mjs'; // FOLD-넓은화면 2차: '목록 | 상세' 칸 나누기 폭은 공용 판정 한 곳(600px~)
 let wdFollowed=null; // UI-칸안스크롤하나로: 상세 칸이 마지막으로 머리부터 보여 준 조직
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn} from './basket-note-tasks.js';
@@ -483,19 +484,23 @@ wdInstall();wdMountAttach();document.addEventListener('click',wdReportClick);wdB
 // organization's detail on the right, the way the projects screen does it (UI-PC프로젝트좌우, project-system-v3.js placeDetail):
 // the same detail element (#wdModal, drawn only by wdRender) moves into #wdDetailPane as a region instead of a dialog.
 // Phones and a detail opened over another screen (basket, profile) keep the dialog.
-// wdPlace() is the only place that moves it. The pane is laid out only by the PC rule of suborganizations.css.
-const WD_PC=window.matchMedia?.('(min-width:761px)');
+// wdPlace() is the only place that moves it. The pane is laid out only by the split rule of suborganizations.css.
+// FOLD-넓은화면 2차(S59-19, 요청함 11/06 01:18 ④): 칸 나누기는 PC 틀(761px~)만이 아니라 공용 판정(screen-width.mjs SPLIT_QUERY, 600px~)부터다.
+// 펼친 폴드 기본 화면(약 690px, 폰 틀: 아래 탭·전환 줄)도 884·PC와 같은 '왼쪽 목록 | 오른쪽 상세' — 처음 열면 마지막으로 본 조직(없으면 첫 조직),
+// 다른 줄을 누르면 같은 칸에서 바뀐다. 칸(role=region)은 창이 아니므로 뒤로가기 기록을 쌓지 않는다(mobile-modal-history.js): 뒤로가기 = 앞 화면.
+// 폰 틀(600~760px)에서 화면에 붙어 따라오는 칸은 아래에 떠 있는 줄만큼 짧게(follow-pane.js narrow). 접은 폰(600px 미만)은 지금처럼 창.
+const WD_PC=window.matchMedia?.(SPLIT_QUERY),WD_FRAME_PC=window.matchMedia?.('(min-width:761px)');
 const wdLastOrg=lastSeen('organization');
 let wdResuming=false;
 const wdListIds=()=>[...document.querySelectorAll('#soOrganizationList [data-so-org]')].map(row=>row.dataset.soOrg);
 const wdSplitWanted=()=>{const pane=document.querySelector('#wdDetailPane');return !!WD_PC?.matches&&window.KPTURouter?.current==='team'&&!!pane&&getComputedStyle(pane).display!=='none'};
 const wdDocked=()=>document.querySelector('#wdModal')?.dataset.wdDocked==='1';
 // UI-칸폭조절: the list | detail boundary can be dragged (split-resize.js, remembered per screen).
-function wdSplit(){const sec=document.querySelector('#soTeamSection');if(sec)mountSplitResize({container:sec,name:'team',label:'담당조직 목록과 상세 칸 폭 조절',list:()=>document.querySelector('#soOrganizationList'),pane:()=>document.querySelector('#wdDetailPane'),active:wdSplitWanted})}
+function wdSplit(){const sec=document.querySelector('#soTeamSection');if(sec)mountSplitResize({container:sec,name:'team',query:SPLIT_QUERY,label:'담당조직 목록과 상세 칸 폭 조절',list:()=>document.querySelector('#soOrganizationList'),pane:()=>document.querySelector('#wdDetailPane'),active:wdSplitWanted})}
 function wdPlace(){
   const m=document.querySelector('#wdModal'),pane=document.querySelector('#wdDetailPane');if(!m)return false;wdSplit();
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 상세 칸은 화면에 붙어 따라오고, 다른 조직을 열면 머리부터 보인다.
-  if(pane&&wdSplitWanted()){followPane(pane,{reset:wdFollowed!==wdTargetId});wdFollowed=wdTargetId}
+  if(pane&&wdSplitWanted()){followPane(pane,{reset:wdFollowed!==wdTargetId,narrow:!WD_FRAME_PC?.matches});wdFollowed=wdTargetId}
   const dock=wdSplitWanted(),open=!m.classList.contains('hidden');
   if(dock&&wdDocked()&&m.parentElement===pane){pane.classList.toggle('has-org',open);return true}
   if(!dock&&!wdDocked())return false;
@@ -514,6 +519,8 @@ function wdPaintWhere(){const m=document.querySelector('#wdModal'),shown=wdDocke
 function wdOpenFirst(){if(wdPlaced){const id=wdPlaced,ids=wdListIds();if(!ids.length||window.KPTURouter?.current!=='team')return;wdPlaced=null;if(ids.includes(id)&&!wdTargetId){void wdOpen(id);return}}if(wdResuming||!wdSplitWanted()||wdTargetId)return;const ids=wdListIds(),last=wdLastOrg.read(wdUser?.id||wdRt.session?.read?.()?.user?.id),id=ids.includes(last)?last:ids[0];if(id)void wdOpen(id)}
 window.addEventListener('kptu:suborganizations-rendered',()=>{wdPlace();wdPaintSelection();wdOpenFirst()});
 WD_PC?.addEventListener?.('change',()=>{wdPlace();wdOpenFirst()});
+// 폰 틀 ↔ PC 틀(760/761px)을 넘으면 칸이 붙는 모양(아래 떠 있는 줄만큼 짧게)만 다시 맞춘다.
+WD_FRAME_PC?.addEventListener?.('change',()=>{wdPlace()});
 
 // UI-PC프로젝트좌우: a 🧺 record opened from the 담당조직 screen comes back to this organization at the same scroll
 // (the note's "← (조직)으로 돌아가기", browser or phone back, or the 담당조직 tab).

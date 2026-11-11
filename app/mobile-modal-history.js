@@ -6,7 +6,9 @@
   const touched=new WeakSet();
   // S51-13 TODO-폴드목록상세: a .modal element placed in a page pane instead of shown as a window (the task editor docked in the
   // 할 일 '목록 | 상세' pane, data-kptu-history-off) is not a window here; its owner keeps its own Back step.
-  const tracks=modal=>modal?.dataset.kptuHistoryOff!=='1'&&(mq.matches||modal?.dataset.kptuHistoryAll==='1');
+  // FOLD-넓은화면 2차(S59-19): 화면 칸에 붙은 창(role="region" — 조직 보고 상세·사업 보고 결과 칸, accessibility-dialog.js와 같은 기준)도 창이 아니다.
+  // 펼친 폴드 폰 틀(600~760px)에서 칸에 붙은 상세가 뒤로가기 한 칸을 쌓으면 뒤로가기가 앞 화면이 아니라 칸을 닫으려 했다.
+  const tracks=modal=>modal?.dataset.kptuHistoryOff!=='1'&&modal?.getAttribute('role')!=='region'&&(mq.matches||modal?.dataset.kptuHistoryAll==='1');
   const isVisible=el=>!!el&&!el.classList.contains('hidden')&&getComputedStyle(el).display!=='none';
 
   function sync(modal){

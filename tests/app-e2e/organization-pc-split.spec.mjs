@@ -143,7 +143,8 @@ test('PC 1024: the list keeps its minimum width, the pane takes the rest, nothin
 });
 
 // UI-폴드PC틀: 761px~는 PC 틀(왼쪽 목록 + 오른쪽 상세 칸). 목록 + 상세 창은 폰뿐.
-for(const width of [390,760])test(`${width}: list with the detail dialog as before (no pane, no auto-open)`,async({page})=>{
+// FOLD-넓은화면 2차(S59-19): 칸 나누기는 공용 판정 600px~(펼친 폴드 폰 틀 포함, fold-org-biz-list-detail.spec.mjs)라 목록 + 상세 창의 가장 넓은 폭은 599.
+for(const width of [390,599])test(`${width}: list with the detail dialog as before (no pane, no auto-open)`,async({page})=>{
  const {errors}=await fixture(page,{width});
  await clickView(page,'team');await expect(row(page,'oa')).toBeVisible();
  await expect(pane(page)).toBeHidden();await expect(page.locator('#wdModal')).toBeHidden();

@@ -318,8 +318,9 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 });
 
-// UI-화면점검 ①: 1024~1279px에서는 회의 종류·차수 칸이 각각 120px 안팎이다. 글자는 줄임표(+title)로 줄이고, 고른 줄의 배경은 칸 안에 머문다(칸 밖으로 잘리지 않음).
-for(const width of [1024,1100,1279])test(`PC ${width}: 회의 종류·차수 칸 글자는 줄임표, 선택 배경이 칸 안에 머문다`,async({page})=>{
+// UI-화면점검 ①: 좁은 PC(1200~1279px)에서는 회의 종류·차수 칸이 각각 120px 안팎이다. 글자는 줄임표(+title)로 줄이고, 고른 줄의 배경은 칸 안에 머문다(칸 밖으로 잘리지 않음).
+// FOLD-넓은화면 2차(S59-19): 3단은 PC 1200px~에서만 그린다(1024·1100은 '날짜·이름 목록 | 결과' 2단 — fold-org-biz-list-detail.spec.mjs). 가장 좁은 3단 폭 1200부터 본다.
+for(const width of [1200,1240,1279])test(`PC ${width}: 회의 종류·차수 칸 글자는 줄임표, 선택 배경이 칸 안에 머문다`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=columnState();
   s.meetings.find(m=>m.id==='rail-6').series_name='아주 긴 이름의 가상 협의회 정기 회의';s.meetings.find(m=>m.id==='rail-6').title='아주 긴 이름의 가상 협의회 정기 회의';
