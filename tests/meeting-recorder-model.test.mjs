@@ -99,6 +99,27 @@ test('구간 글 합치기: 둘째부터 머리 줄, 빈 구간은 건너뛰고,
   assert.equal(joinSegmentTexts([]),'');
 });
 
+// REC-발언자구분(S58-6): 29분 구간마다 '화자n:' 줄. 머리 줄은 구간 사이에 그대로(번호가 새로 매겨지는 자리). 글은 지어낸 것.
+test('구간 글 합치기(29분 구간): 화자 줄은 그대로 두고 구간이 바뀌는 자리에 머리 줄',()=>{
+  const SEG=SEGMENT_SECONDS;
+  assert.equal(joinSegmentTexts([{no:1,seconds:SEG,text:'화자1: 가\n화자2: 나'}]),'화자1: 가\n화자2: 나');
+  assert.equal(joinSegmentTexts([{no:2,seconds:SEG,text:'화자1: 다'},{no:1,seconds:SEG,text:'화자1: 가\n화자2: 나'},{no:3,seconds:120,text:'통글 구간'}]),
+    '화자1: 가\n화자2: 나\n\n― 29분부터 ―\n화자1: 다\n\n― 58분부터 ―\n통글 구간');
+  // 옛 59분 구간과 섞인 녹음(이어서 정리): 머리 줄은 실제 구간 길이를 따른다.
+  assert.equal(joinSegmentTexts([{no:1,seconds:3540,text:'옛 통글'},{no:2,seconds:SEG,text:'화자1: 새'},{no:3,seconds:60,text:'화자1: 끝'}]),
+    '옛 통글\n\n― 59분부터 ―\n화자1: 새\n\n― 1시간 28분부터 ―\n화자1: 끝');
+});
+
+test('전사 계획(이어서 정리): 옛 59분 구간과 새 29분 구간이 섞여도 번호 순으로 모두 전사',()=>{
+  const plan=transcribePlan([
+    {segment_no:4,status:'combined',job_id:'j4',duration_sec:300},
+    {segment_no:2,status:'combined',job_id:'j2',duration_sec:3540},
+    {segment_no:1,status:'combined',job_id:'j1',duration_sec:3540},
+    {segment_no:3,status:'combined',job_id:'j3',duration_sec:SEGMENT_SECONDS},
+  ]);
+  assert.deepEqual(plan.map(p=>[p.no,p.action,p.seconds]),[[1,'transcribe',3540],[2,'transcribe',3540],[3,'transcribe',1740],[4,'transcribe',300]]);
+});
+
 test('띠 진행 한 줄: 올림 › 전사 › 요약 › 초안 열림',()=>{
   assert.deepEqual(stepParts('전사').map(p=>p.state),['done','now','todo','todo']);
   assert.deepEqual(stepParts('초안 열림').map(p=>p.state),['done','done','done','now']);

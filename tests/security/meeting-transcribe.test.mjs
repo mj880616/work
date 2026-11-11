@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as m from '../../supabase/functions/meeting-transcribe/model.mjs';
+import * as rec from '../../supabase/functions/meeting-transcribe/recording.mjs';
 
 // MTG-녹음초안 2단계 Edge meeting-transcribe: 순수 규칙 + 코드 모양(소유자·저장 안 함·verify_jwt 표).
 const index=readFileSync('supabase/functions/meeting-transcribe/index.ts','utf8');
@@ -41,6 +42,45 @@ test('transcript reading: speaker lines like the call script, plain text fallbac
  assert.equal(code({status:'in_progress',output_text:'x'}),'gemini_failed');
  assert.equal(code({status:'completed',output_text:'  '}),'empty_transcript');
  assert.equal(code(null),'gemini_failed');
+});
+
+// REC-발언자구분(S58-6): 녹음 구간을 29분으로 줄여 긴 회의도 구간마다 발언자 구분이 켜진다. 글은 모두 지어낸 것.
+test('REC-발언자구분: 29-minute recording segments turn diarization on; old 59-minute segments stay plain text',()=>{
+ // 구간 길이는 서버가 rec_start 답으로 알려 준다(폰 앱은 이 값을 따른다).
+ assert.equal(rec.REC_SEGMENT_SECONDS,29*60);
+ assert.match(index,/segment_seconds: REC_SEGMENT_SECONDS/);
+ // 구간(넘김이 조각 하나만큼 늦어도)은 발언자 구분 상한 안, 옛 59분 구간·길이 모름은 구분 없이 보낸다(전사는 그대로 됨).
+ assert.equal(m.DIARIZE_MAX_SECONDS,30*60);
+ for(const s of [1,60,29*60,29*60+rec.REC_PIECE_SECONDS,30*60])assert.equal(m.wantsDiarize(s),true,`${s}초`);
+ for(const s of [30*60+1,59*60,3600,0,-1,NaN,Infinity,null,undefined,'1740'])assert.equal(m.wantsDiarize(s),false,`${s}`);
+ assert.ok(59*60<=m.MAX_SECONDS);
+ // 구분을 켜는 조건은 한 곳뿐이다: 화면 정리(transcribe)·서버 정리(구간·회의자료 파일) 모두 runTranscription 한 길.
+ assert.equal((index.match(/wantsDiarize\(/g)||[]).length,1);
+ assert.match(index,/geminiTranscribe\(key, file\.uri, file\.mimeType \|\| job\.mime_type, wantsDiarize\(job\.duration_sec \?\? audio\.seconds\)\)/);
+ assert.equal((index.match(/await runTranscription\(/g)||[]).length,3);
+ // 합친 구간의 길이는 녹음 구간 행의 길이 그대로(조각 머리글 x-duration-sec) — 화면이 보낸 작업공간·소유 값은 쓰지 않는다.
+ assert.match(index,/duration_sec: seg\.duration_sec \?\? null/);
+});
+
+test('REC-발언자구분: speaker lines are numbered by first appearance; rejected (400) or one-speaker answers are plain text, not a failure',()=>{
+ const answer=(text,...w)=>({status:'completed',output_text:text,steps:[{type:'model_output',content:[{type:'text',text,annotations:w.map(([speaker,word])=>({type:'word_info',speaker,text:word}))}]}]});
+ // 세 사람: 처음 말한 순서대로 화자1·2·3(서버 표시 이름 spk_7 같은 값은 글에 남지 않는다), 같은 사람이 이어 말하면 한 줄.
+ const three=answer('가 나 다 라 마',['spk_7','가'],['spk_7','나'],['spk_2','다'],['spk_9','라'],['spk_7','마'],['spk_7','.']);
+ assert.equal(m.speakerLines(three),'화자1: 가 나\n화자2: 다\n화자3: 라\n화자1: 마.');
+ assert.deepEqual(m.readTranscript(three),{text:'화자1: 가 나\n화자2: 다\n화자3: 라\n화자1: 마.',speakerSplit:true});
+ for(const line of m.readTranscript(three).text.split('\n'))assert.match(line,/^화자[1-9]\d*: \S/);
+ assert.doesNotMatch(m.readTranscript(three).text,/spk_/);
+ // 한 명뿐·표시 없음(구분을 거절해 구분 없이 다시 받은 답)·빈 낱말: 통글 그대로, 실패 아님.
+ assert.equal(m.speakerLines(answer('혼자 말함',['spk_1','혼자'],['spk_1','말함'])),'');
+ assert.deepEqual(m.readTranscript(answer('혼자 말함',['spk_1','혼자'],['spk_1','말함'])),{text:'혼자 말함',speakerSplit:false});
+ assert.deepEqual(m.readTranscript(answer('구분 없이 받은 글')),{text:'구분 없이 받은 글',speakerSplit:false});
+ assert.equal(m.speakerLines({status:'completed',output_text:'x',steps:[{content:[{type:'text',text:'x',annotations:[{type:'word_info',text:'x'},{type:'word_info',speaker:'',text:'y'},{type:'word_info',speaker:'spk_1',text:'  '}]}]}]}),'');
+ assert.equal(m.speakerLines(null),'');assert.equal(m.speakerLines({}),'');
+ // 거절(400)은 구분 없이 한 번 더 보낸다 — 두 번째 답이 실패일 때만 실패다.
+ assert.match(index,/let r = await send\(diarize\);\s*\n[^\n]*\n\s*if \(diarize && r\.status === 400\) \{ await geminiWarn\('transcribe_diarize', r\); r = await send\(false\); \}\s*\n\s*if \(!r\.ok\)/);
+ assert.deepEqual(m.transcriptionRequest('u','audio/mp4',false).generation_config.transcription_config.mode,{type:'verbatim'});
+ // 인증 경계는 그대로: verify_jwt 표 값·소유자 확인(아래 code shape 시험)에 더해, 구간 길이를 화면 값으로 정하지 않는다.
+ assert.doesNotMatch(index,/body\.segment_seconds|body\.diariz/);
 });
 
 test('usage: reported tokens, audio modality, fallback estimate from duration; month sum only mtg- rows; limit',()=>{
