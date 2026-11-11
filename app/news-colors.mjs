@@ -17,7 +17,7 @@ export function shadeOf(text) {
   return h % SHADES;
 }
 
-// 키별 고정 색(NEWS-정당색 → NEWS-고유색 ①②, 명진 2026-11-10·11-11, 시안 docs/design/mockups/news-identity-colors.html): 매체 키 → 그 단체·언론의 고유색.
+// 키별 고정 색(NEWS-정당색 → NEWS-고유색 ①②·새 매체 13곳 S58-5, 명진 2026-11-10·11-11, 시안 docs/design/mockups/news-identity-colors.html): 매체 키 → 그 단체·언론의 고유색.
 // 값은 theme-tokens.css 토큰 두 개뿐: --ds-news-id-<키>(이름 글자) · --ds-news-id-<키>-bar(막대 — 한 색, 또는 공공운수노조·Red Pepper처럼 여러 색 띠 그라데이션).
 // 막대는 고유색 그대로, 흰 바탕에서 안 읽히는 밝은 색(샛노랑 등)만 이름 글자를 같은 계열 진한 색으로(토큰 값에서 정함). 조사 표·근거·확인 정도는 docs/design/news-identity-colors.md.
 // 새 매체 색은 이 표에 키를 더하고 토큰 두 개를 밝은·어두운 화면에 넣으면 된다. 표에 없는 매체는 묶음 돌려쓰기 그대로.
@@ -31,6 +31,9 @@ export const FIXED_NEWS = Object.freeze([
   'news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa', 'news-hani',
   'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-mediatoday', 'news-newsis', 'news-sedaily', 'news-imaeil',
   'news-psi', 'news-itf', 'news-labourstart',
+  // S58-5: NEWS-못넣은곳대안 ②로 카탈로그에 더해진 구글 뉴스 매체 단위 13곳(카탈로그 순서).
+  'news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan', 'news-laborplus', 'news-redian', 'news-newsone',
+  'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam',
 ]);
 const fixedInk = key => `var(--ds-news-id-${key})`;
 const fixedBar = key => `var(--ds-news-id-${key}-bar)`;
