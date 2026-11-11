@@ -37,12 +37,12 @@ test('library upload timeout is an unknown outcome, never locks the window and n
   await page.locator('#libraryFileInput').setInputFiles({name:'test.txt',mimeType:'text/plain',buffer:Buffer.from('test')});
   const save=page.locator('#saveDocumentBtn');
   await save.click();
-  // 창은 바로 닫히고 잠기지 않는다. 올리는 중은 공용 올리기 줄(하단바 위 한 줄)이 보인다.
+  // 창은 바로 닫히고 잠기지 않는다. 올리는 중은 자료실 화면 목록 위 공용 올리는 줄에 그 파일이 보인다.
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
   await expect(save).toBeEnabled();
   await expect(save).not.toHaveAttribute('aria-busy','true');
   await expect(page.locator('#newDocumentBtn')).toBeEnabled();
-  await expect(page.locator('#uploadDock')).toContainText('올리는 중');
+  await expect(page.locator('#libraryView .up-rows .up-row')).toContainText('test.txt');
   await save.evaluate(button=>button.onclick()); // 닫힌 창의 [저장]을 또 눌러도 같은 파일을 두 번 보내지 않는다
   // The upload request is sent after the session check and file copy, so release the held request only once it has
   // actually arrived; releasing earlier is a no-op and the request hangs.

@@ -72,42 +72,52 @@ const big=(name,mb)=>({name,mimeType:'application/pdf',buffer:Buffer.concat([Buf
 
 for(const width of [390,1280])test.describe(`자료실 올리기 ${width}px`,()=>{
  test.use(width===390?{...phone,viewport:{width,height:900}}:{viewport:{width,height:900}});
- test(`[저장] 뒤 고른 파일 줄 안 막대·%가 실제 보낸 양으로 오르고, 다 보내면 마무리 중…, 끝나면 창이 닫힌다 ${width}px`,async({page})=>{
+ // UX-먼저묻고뒤에처리 3차(S57-1): [저장]하면 등록 창은 바로 닫히고(잠기지 않음) 올리기는 뒤 줄에서 한다. 올리는 줄은 창 안 파일 줄 대신
+ // 자료실 화면 목록 위 올리는 줄(끌어 놓기와 같은 자리, 공용 부품)에 그 파일의 막대·%·✕로 보인다.
+ const rows=page=>page.locator('#libraryView .up-rows .up-row'),noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
+ test(`[저장] 뒤 창은 바로 닫히고, 자료실 올리는 줄의 막대·%가 실제 보낸 양으로 오르고, 다 보내면 마무리 중…, 끝나면 알린다 ${width}px`,async({page})=>{
   test.setTimeout(90000);
   const errors=await open(page);
   await page.locator('#libraryFileInput').setInputFiles(big('모의 자료.pdf',16));
   state.holdMs=1500;state.pauseMs=60;
   await page.locator('#saveDocumentBtn').click();
-  const row=page.locator('[data-lu-upload-file]').first(),pc=row.locator('.up-inline .up-pc');
-  await expect(row.locator('.up-inline [role="progressbar"]')).toBeVisible();
-  // 위 합계 줄: '올리는 중 1개 · 보낸 양/전체 · %'(공용 부품 그대로).
-  await expect(page.locator('[data-lu-upload-progress] .up-sum')).toContainText(/올리는 중 1개 · .+ \/ 16\.0MB/);
+  await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
+  await expect(page.locator('[data-lu-upload-file]')).toHaveCount(0);
+  const row=rows(page).first(),pc=row.locator('.up-pc');
+  await expect(row).toContainText('모의 자료.pdf');
+  await expect(row.locator('[role="progressbar"]')).toBeVisible();
+  await expect(row.getByRole('button',{name:'모의 자료.pdf 올리기 취소'})).toBeVisible();
+  // 이 화면이 올리는 줄을 보이는 동안 하단바 위 한 줄은 겹쳐 뜨지 않는다(공용 부품 규칙).
+  await expect(page.locator('#uploadDock:not([hidden])')).toHaveCount(0);
   const seen=await percents(pc,4000);
   expect(seen.length,`본 %: ${seen}`).toBeGreaterThan(2);
   expect(seen.every((v,i)=>!i||v>=seen[i-1])).toBe(true);
   expect(seen.at(-1)).toBeLessThan(100);
   await expect(pc).toHaveText('마무리 중…',{timeout:30000});
-  await expect(page.locator('#documentModal')).toHaveClass(/hidden/,{timeout:15000});
+  await expect(noticeLine(page)).toHaveText('모의 자료.pdf 올렸어요',{timeout:15000});
+  await expect(rows(page)).toHaveCount(0);
   expect(state.received.map(r=>r.name)).toEqual(['모의 자료.pdf']);
   expect(errors).toEqual([]);
  });
- test(`보내는 중 ✕(올리기 취소)는 그 파일만 멈추고 서버에 자료가 생기지 않으며 줄은 '취소함', 다음 파일은 이어 올린다 ${width}px`,async({page})=>{
+ test(`보내는 중 ✕(올리기 취소)는 그 파일만 멈추고 서버에 자료가 생기지 않으며 다음 파일은 이어 올리고, [다시]는 취소한 파일만 올린다 ${width}px`,async({page})=>{
   test.setTimeout(90000);
   const errors=await open(page);
   state.pauseMs=80;
   await page.locator('#libraryFileInput').setInputFiles([big('멈출 자료.pdf',8),big('다음 자료.pdf',1)]);
   await page.locator('#saveDocumentBtn').click();
-  const first=page.locator('[data-lu-upload-file="0"]');
-  await expect(first.locator('.up-inline .up-pc')).toHaveText(/\d+%/);
+  await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
+  const first=rows(page).filter({hasText:'멈출 자료.pdf'});
+  await expect(first.locator('.up-pc')).toHaveText(/\d+%/);
   await first.getByRole('button',{name:'멈출 자료.pdf 올리기 취소'}).click();
-  await expect(first.locator('[data-lu-upload-state]')).toContainText('취소함');
   await expect.poll(()=>state.received.map(r=>r.name),{timeout:30000}).toEqual(['다음 자료.pdf']);
-  await expect(page.locator('[data-lu-upload-file="1"] [data-lu-upload-state]')).toHaveText('완료');
-  // 다시 [저장]하면 취소한 파일만 올린다.
+  // 끝 알림: 올린 것·취소한 것을 예전 창 상태 줄과 같은 글로 알리고(취소는 오류가 아니다), [다시]가 취소한 파일만 다시 올린다.
+  await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. 올리기를 취소했어요.',{timeout:15000});
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','status');
   state.pauseMs=5;
-  await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentModal')).toHaveClass(/hidden/,{timeout:30000});
-  expect(state.received.map(r=>r.name)).toEqual(['다음 자료.pdf','멈출 자료.pdf']);
+  await page.locator('#kptuNotice:not([hidden]) .kptu-notice-action',{hasText:'다시'}).click();
+  await expect.poll(()=>state.received.map(r=>r.name),{timeout:30000}).toEqual(['다음 자료.pdf','멈출 자료.pdf']);
+  await expect(noticeLine(page)).toHaveText('멈출 자료.pdf 올렸어요',{timeout:15000});
+  await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
   expect(errors).toEqual([]);
  });
 });

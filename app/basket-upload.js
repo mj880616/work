@@ -17,6 +17,30 @@ const EAGER_BYTES = 120 * 1048576;
 export function createUploadBatch(note_id = null, attachments = []) {
   return {note_id, attachments, entries:[], blocked:null};
 }
+// UX-먼저묻고뒤에처리 3차 (2): 노트·업데이트 첨부의 뒤 줄(메모리뿐, 새 저장소 없음). 같은 글(id)에 붙일 묶음은 줄 서서 하나씩 올라가고,
+// 다른 글의 줄과는 따로 돈다. files: 그 글로 올라가는 중이거나 못 올린 파일(그 글의 창이 공용 올리는 줄에서 자기 것을 찾는 열쇠).
+// add(id, batch, work) — work()가 끝나면 올라간·취소한 파일은 열쇠에서 빠지고, 못 올린 파일은 [다시]를 위해 남는다.
+export function createAttachQueue() {
+  const lines = new Map();
+  const left = batch => batch.entries.filter(entry => entry.kind !== 'success').map(entry => entry.upFile || entry.file);
+  return {
+    going: id => (lines.get(id)?.live || 0) > 0,
+    has: (id, file) => !!lines.get(id)?.files.has(file),
+    settled: id => lines.get(id)?.tail || Promise.resolve(),
+    add(id, batch, work) {
+      const line = lines.get(id) || {tail:Promise.resolve(), files:new Set(), live:0};
+      lines.set(id, line); line.live++;
+      const mine = left(batch); for (const file of mine) line.files.add(file);
+      line.tail = line.tail.then(work).catch(() => {}).then(() => {
+        const still = new Set(left(batch));
+        for (const file of mine) if (!still.has(file)) line.files.delete(file);
+        line.live--;
+        if (!line.live && !line.files.size && lines.get(id) === line) lines.delete(id);
+      });
+      return line.tail;
+    },
+  };
+}
 function uploadError(message, code, status = 0) { return Object.assign(new Error(message), {code, status}); }
 function failure(e) {
   // 다 보내기 전에 끊김·한도: 서버는 파일을 받지 못했으므로 다시 보내도 겹치지 않는다(결과 불명이 아님).
@@ -68,6 +92,7 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
   let cancelled=0, tried=0;
   for (const entry of batch.entries.filter(e => e.kind !== 'success')) {
     if (!isCurrent()) throw Error('입력 세션이 변경되었습니다.');
+    if (!batch.entries.includes(entry)) continue; // 앞 파일을 올리는 동안 ×로 뺀 파일은 보내지 않는다
     // upFile: 올리는 중 표시가 이 줄을 찾는 열쇠(성공 뒤 entry.file은 이름·크기만 남으므로). 표시가 끝나면 고른 줄 그리기가 지운다.
     entry.kind = 'uploading'; entry.label = '업로드 중'; entry.upFile = entry.file; tried++; onChange();
     let fd;
@@ -99,25 +124,29 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
   if (tried && cancelled === tried) throw uploadError('올리기를 취소했어요.', 'upload_cancelled');
   // Multipart success is final before this separate phase. An OCR failure never
   // changes upload entries, blocks the batch, or sends the source file again.
-  if(hadPending && isCurrent()) {
-    const controller=ocr||basketOcrFor({rt,isCurrent});
-    const photos=batch.attachments.filter(file=>!originalIds.has(file.drive_file_id)&&['image/jpeg','image/png'].includes(file.mime_type));
-    const notice=value=>{if(isCurrent()){try{onOcrChange(value);}catch{/* A notice cannot undo a confirmed upload. */}}};
-    if((controller.enabled??controller.state.enabled) && photos.length) {
-      let supported=false;
-      try{supported=(await controller.capabilities()).ok===true;}catch{/* Saved sources remain saved. */}
-      for(const file of photos) {
-        if(!isCurrent())break;
-        let result;
-        try{result=supported?await controller.read(batch.note_id,file.drive_file_id):{ok:false,code:'OCR_UNSUPPORTED',result_unknown:false};}
-        catch{result={ok:false,code:'OCR_RESULT_UNKNOWN',result_unknown:true};}
-        if(!isCurrent())break;
-        if(result.ok && result.attachment)batch.attachments=batch.attachments.map(source=>source.drive_file_id===file.drive_file_id?result.attachment:source);
-        notice({...result,note_id:batch.note_id,drive_file_id:file.drive_file_id});
-      }
+  if(hadPending && isCurrent()) await readNewPhotos(batch,originalIds,{rt,isCurrent,ocr,onOcrChange});
+  return {ok:true,note_id:batch.note_id,attachments:batch.attachments};
+}
+// The photo text reading (OCR) of files this batch just added: originalIds = the attachments' ids before the upload.
+// uploadBatch runs it right after its uploads; a caller that uploads behind the screen (ocr:{enabled:false}) may run it afterwards,
+// only while the same update is still shown.
+export async function readNewPhotos(batch, originalIds, {rt = window.KPTURuntime, isCurrent = () => true, ocr, onOcrChange = () => {}} = {}) {
+  const controller=ocr||basketOcrFor({rt,isCurrent});
+  const photos=batch.attachments.filter(file=>!originalIds.has(file.drive_file_id)&&['image/jpeg','image/png'].includes(file.mime_type));
+  const notice=value=>{if(isCurrent()){try{onOcrChange(value);}catch{/* A notice cannot undo a confirmed upload. */}}};
+  if((controller.enabled??controller.state.enabled) && photos.length) {
+    let supported=false;
+    try{supported=(await controller.capabilities()).ok===true;}catch{/* Saved sources remain saved. */}
+    for(const file of photos) {
+      if(!isCurrent())break;
+      let result;
+      try{result=supported?await controller.read(batch.note_id,file.drive_file_id):{ok:false,code:'OCR_UNSUPPORTED',result_unknown:false};}
+      catch{result={ok:false,code:'OCR_RESULT_UNKNOWN',result_unknown:true};}
+      if(!isCurrent())break;
+      if(result.ok && result.attachment)batch.attachments=batch.attachments.map(source=>source.drive_file_id===file.drive_file_id?result.attachment:source);
+      notice({...result,note_id:batch.note_id,drive_file_id:file.drive_file_id});
     }
   }
-  return {ok:true,note_id:batch.note_id,attachments:batch.attachments};
 }
 // NOTE-파일붙이기: files for a note go through the same basket-files upload with the note's id; the server puts them in
 // Drive "노트 첨부" (it reads the row's kind itself). Photo text reading (OCR) is a basket-update feature and does not run here.
