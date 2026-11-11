@@ -22,7 +22,8 @@
 #meetingRoundDetailModal .mrd-editor-actions button{width:auto;min-width:0;white-space:nowrap;flex:none}
 #meetingList article.item-card[data-mrd-meeting]{cursor:pointer}
 @media(max-width:760px){
-  .meeting-round-detail-card{padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(92px + env(safe-area-inset-bottom))!important}
+  /* FOLD-넓은화면 2차: 폰 창일 때만(결과 칸에 붙은 보고 — 폰 틀 폴드 600~760px — 에는 아래 92px 여백을 두지 않는다). */
+  #meetingRoundDetailModal:not(.mrd-docked)>.meeting-round-detail-card{padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(92px + env(safe-area-inset-bottom))!important}
   .mrd-editor-actions>*{flex:1}
 }
 
@@ -244,11 +245,10 @@
   #meetingList .mcol-two .mcol-sep{flex:none;white-space:pre}
   #meetingList .mcol-two .mcol-kind-tag{flex:none;color:var(--kptu-ink)}
 }
-/* FOLD-넓은화면 2차 — 폰 틀 두 칸(600~760px): 결과 칸에 붙은 보고 창에는 폰 창용 규칙(위 @media(max-width:760px) — 아래 92px 여백, [취소][저장] 늘이기)을 쓰지 않는다.
-   칸 안 모양은 PC 칸과 같다(머리 줄 오른쪽 작은 [취소][저장]). 칸 최소 폭은 이 폭에 맞춘다(비율 저장·끌기는 split-resize.js 그대로). */
+/* FOLD-넓은화면 2차 — 폰 틀 두 칸(600~760px): 결과 칸에 붙은 보고 창에는 폰 창용 규칙(위 @media(max-width:760px) — [취소][저장] 늘이기)을 쓰지 않는다
+   (아래 92px 여백은 위 규칙이 폰 창에만 건다). 칸 안 모양은 PC 칸과 같다(머리 줄 오른쪽 작은 [취소][저장]). 칸 최소 폭은 이 폭에 맞춘다(비율 저장·끌기는 split-resize.js 그대로). */
 @media(min-width:600px) and (max-width:760px){
   #meetingList .mcol-two{--ds-split-list-min:220px;--ds-split-detail-min:320px}
-  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked>.meeting-round-detail-card{padding-bottom:var(--kptu-space-4)!important;scroll-padding-bottom:0!important}
   #meetingList .mrd-docked .mrd-editor-actions>*{flex:none}
 }
 
