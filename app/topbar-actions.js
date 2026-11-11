@@ -2,7 +2,7 @@ import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림
 import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 import {pcSplit,itemOf,isDefaultLayout,pcMoveFor,hideItem,BAR_MAX} from './menu-model.mjs';
-import {mountReorder,dropIndex} from './reorder-drag.js'; // MENU-왼쪽메뉴바로끌기: 메뉴 편집 창과 같은 끌기 부품
+import {mountReorder,dropIndex,dropIndexGrid} from './reorder-drag.js'; // MENU-왼쪽메뉴바로끌기: 메뉴 편집 창과 같은 끌기 부품
 import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클릭: 공용 줄 메뉴(UI-PC우클릭과 같은 모양)
 import './menu-layout.js';
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
@@ -283,13 +283,23 @@ function runNavMenu(act,head){
   }
   if(act==='edit')import('./menu-edit.js').then(({openMenuEdit})=>openMenuEdit({trigger:head?.isConnected?head:navBrand()})).catch(error=>{console.error('menu edit',error);writeToast('메뉴 수정을 열지 못했어요. 다시 시도해 주세요.')});
 }
+// 공용 줄 메뉴(row-menu.js)의 모양 파일(od-link.css)은 그 메뉴를 쓰는 화면(달력·사진·파일 등)이 부를 때 같이 받는데, 홈 같은 화면에는 없어서 처음 열 때 한 번 받는다.
+const ROW_MENU_CSS='./od-link.css';
+let rowMenuStyle=null;
+const ensureRowMenuStyle=()=>rowMenuStyle||=new Promise(resolve=>{
+  const href=new URL(ROW_MENU_CSS,location.href).href;
+  if([...document.querySelectorAll('link[rel="stylesheet"]')].some(link=>link.href===href)){resolve();return}
+  const link=document.createElement('link');link.rel='stylesheet';link.href=ROW_MENU_CSS;link.dataset.kptuViewStyle='1';
+  link.onload=link.onerror=()=>resolve();document.head.append(link);
+});
 // 메뉴를 연 줄만 연보라로 표시하는 공용 줄 메뉴: 빈 곳 메뉴는 표시할 줄이 없으니 화면 밖 빈 요소를 준다.
 const navNoRow=document.createElement('span');
 function openNavMenu(from,at){
   const head=from?.closest?.(NAV_HEAD),trigger=head||navBrand();
   if(!trigger)return false;
   const id=head?.dataset.reorderId;
-  return openRowMenu(trigger,{key:id||'nav',label:id?itemOf(id)?.label:'왼쪽 메뉴',at,row:head||navNoRow,items:[...(id?[{id:'hide',label:'숨기기'}]:[]),{id:'edit',label:'메뉴 수정'}],run:act=>runNavMenu(act,head)});
+  void ensureRowMenuStyle().then(()=>openRowMenu(trigger,{key:id||'nav',label:id?itemOf(id)?.label:'왼쪽 메뉴',at,row:head||navNoRow,items:[...(id?[{id:'hide',label:'숨기기'}]:[]),{id:'edit',label:'메뉴 수정'}],run:act=>runNavMenu(act,head)}));
+  return true;
 }
 if(appNav){
   mountReorder(appNav,{whole:true,links:true,itemSelector:NAV_HEAD,canDrag:id=>id!=='home',resolve:navDropAt,onDrop:navDrop,
@@ -318,11 +328,12 @@ function sheetDropAt(x,y,dragEl){
   const line=sheetNav.querySelector('[data-menu-tail-line]');
   const items=[...sheetNav.querySelectorAll('[data-reorder-id]')].filter(btn=>btn!==dragEl);
   const upper=line?items.filter(btn=>!!(btn.compareDocumentPosition(line)&Node.DOCUMENT_POSITION_FOLLOWING)):items;
-  const at=dropIndex(items.map(btn=>{const r=btn.getBoundingClientRect();return r.top+r.height/2}),y);
-  // 선 바로 위·아래 사이(맨 위 메뉴 끝 ↔ 아래 붙는 메뉴 첫 줄)에서는 선보다 아래쪽에서 놓았을 때만 아래 칸.
+  // [메뉴] 창은 두 칸 격자일 수 있어(폰 폭) 가로·세로를 함께 본다(dropIndexGrid).
+  const at=dropIndexGrid(items.map(btn=>btn.getBoundingClientRect()),x,y);
+  // 위 메뉴 끝 ↔ 아래 붙는 메뉴 첫 줄 사이(선 위·아래 어디서나 같은 자리 번호)에서는 선보다 아래쪽에서 놓았을 때만 아래 칸.
   const part=line&&(at>upper.length||(at===upper.length&&y>=line.getBoundingClientRect().top))?'tail':'rest';
   const list=part==='tail'?items.slice(upper.length):upper,index=part==='tail'?at-upper.length:at;
-  const before=list[index]||(part==='rest'?line:null);
+  const before=list[index]||null;
   return {listId:part,index,before,after:before?null:list.at(-1)||null};
 }
 if(sheetNav){

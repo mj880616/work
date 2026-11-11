@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ITEMS, BAR_MAX, DEFAULT_BAR, DEFAULT_REST, DEFAULT_TAIL, TAIL_MARK, defaultLayout, normalizeLayout, isDefaultLayout, layoutToPrefs, moveItem, stepItem, pcOrder, pcSplit, pcMoveFor, barItemForView, menuSheetViews} from '../app/menu-model.mjs';
-import {dropIndex} from '../app/reorder-drag.js';
+import {dropIndex, dropIndexGrid} from '../app/reorder-drag.js';
 import {validValue} from '../app/view-prefs.js';
 
 // MENU-HOME-편집 · MENU-세칸: 메뉴 순서의 결정 규칙을 한 곳에서 시험한다(PC 왼쪽 메뉴·폰 하단바·폰 [메뉴] 창이 모두 이 규칙을 읽는다).
@@ -299,4 +299,22 @@ test('MENU-왼쪽메뉴바로끌기: 끌어 옮긴 결과는 항상 올바른 �
       }
     }
   }
+});
+
+test('MENU-왼쪽메뉴바로끌기: 두 칸 격자(폰 [메뉴] 창)의 놓을 자리는 가까운 칸의 앞·뒤로 정한다', () => {
+  // 한 줄 150 높이 40, 두 칸(왼쪽 0~100, 오른쪽 110~210), 줄 사이 8: 노트|자료실 / 파일|HWP / 공유 하나.
+  const cell = (col, row) => ({left: col * 110, right: col * 110 + 100, top: row * 48, bottom: row * 48 + 40});
+  const rects = [cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1), cell(0, 2)];
+  assert.equal(dropIndexGrid([], 5, 5), 0);
+  assert.equal(dropIndexGrid(rects, 10, 20), 0, '첫 칸 왼쪽 반 = 그 칸 앞');
+  assert.equal(dropIndexGrid(rects, 90, 20), 1, '첫 칸 오른쪽 반 = 그 칸 다음(둘째 칸 앞)');
+  assert.equal(dropIndexGrid(rects, 120, 20), 1, '둘째 칸 왼쪽 반 = 둘째 칸 앞');
+  assert.equal(dropIndexGrid(rects, 200, 20), 2, '둘째 칸 오른쪽 반 = 다음 줄 첫 칸 앞');
+  assert.equal(dropIndexGrid(rects, 120, 70), 3, '둘째 줄 오른쪽 칸 왼쪽 반');
+  assert.equal(dropIndexGrid(rects, 190, 120), 5, '마지막 줄 빈 오른쪽 자리 = 맨 끝');
+  assert.equal(dropIndexGrid(rects, 40, 500), 5, '모든 칸 아래 = 맨 끝');
+  assert.equal(dropIndexGrid(rects, 40, -30), 0, '모든 칸 위 = 맨 앞');
+  // 한 칸짜리 세로 목록이면 세로 가운데 기준(dropIndex와 같은 결과).
+  const col = [0, 1, 2, 3].map(r => ({left: 0, right: 300, top: r * 44, bottom: r * 44 + 40}));
+  for (const y of [-5, 10, 30, 50, 70, 100, 140, 200]) assert.equal(dropIndexGrid(col, 150, y), dropIndex(col.map(r => (r.top + r.bottom) / 2), y), `y=${y}`);
 });

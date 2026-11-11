@@ -9,6 +9,21 @@ export function dropIndex(centers, y) {
   for (const center of centers) { if (y > center) at++; else break; }
   return at;
 }
+// MENU-왼쪽메뉴바로끌기: 한 줄에 여러 칸이 앉는 격자(폰 [메뉴] 창)에서 놓을 자리. 먼저 포인터에 가장 가까운 줄(세로 거리), 그 줄에서 가장 가까운 칸(가로 거리)을 찾고,
+// 격자이고 포인터가 그 줄 높이 안이면 그 칸의 가로 가운데로, 아니면 세로 가운데로 앞(그 칸 자리)·뒤(그 칸 다음)를 정한다(한 칸짜리 세로 목록은 dropIndex와 같은 결과).
+// rects = 칸 상자 [{left, top, right, bottom}]를 읽는 순서대로. 0~칸 수를 돌려준다.
+export function dropIndexGrid(rects, x, y) {
+  if (!rects.length) return 0;
+  const rows = [];
+  rects.forEach((r, i) => { const row = rows.find(w => Math.abs(w.top - r.top) < 4); if (row) { row.cells.push(i); row.bottom = Math.max(row.bottom, r.bottom); } else rows.push({top: r.top, bottom: r.bottom, cells: [i]}); });
+  const vgap = w => y < w.top ? w.top - y : y > w.bottom ? y - w.bottom : 0;
+  const hgap = i => x < rects[i].left ? rects[i].left - x : x > rects[i].right ? x - rects[i].right : 0;
+  const row = rows.reduce((a, b) => vgap(b) < vgap(a) ? b : a);
+  const best = row.cells.reduce((a, b) => hgap(b) < hgap(a) ? b : a);
+  const r = rects[best], grid = rows.some(w => w.cells.length > 1);
+  const before = grid && vgap(row) === 0 ? x < (r.left + r.right) / 2 : y < (r.top + r.bottom) / 2;
+  return best + (before ? 0 : 1);
+}
 
 // root 안의 listSelector 칸들, 칸 안의 itemSelector 줄들. handleSelector는 줄 안 손잡이.
 // onDrop({id, list, index}) : list = 칸의 data-reorder-list 값, index = 끌고 있는 줄을 뺀 그 칸 안 자리.
