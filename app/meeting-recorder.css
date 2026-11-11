@@ -43,3 +43,6 @@ body.rec-on{padding-top:var(--rec-band-height,32px)}
 /* REC-서버정리 ⑤(S49-2): 멈춘 이유가 '올린 소리는 Driv…'로 잘리지 않게, 멈춤 띠만 두 줄까지 보이고 띠 높이도 그만큼(노트북·폰 띠 같은 변수). */
 body:has(.rec-band[data-state="error"]:not([hidden])){--rec-band-height:44px}
 .rec-band[data-state="error"] .rec-note{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
+/* REC-정리상태확인못함(S60-3): 정리는 끝났는데 초안을 열지 못한 이유도 '정리 끝' 띠에 두 줄까지(상태 확인 실패와 나눠 보인다). */
+body:has(.rec-band.rec-why:not([hidden])){--rec-band-height:44px}
+.rec-band.rec-why .rec-note{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25;color:var(--kptu-danger)}
