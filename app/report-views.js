@@ -5,6 +5,7 @@ import {emptyHtml} from './wait-state.js';
 import {mountPhotoGrid} from './report-photo-row.js';
 import {reportPhotosHtml, mountReportPhotos} from './report-photos.js';
 import {WEEKDAYS, monthWeeks, monthTitle, monthKeyOf, reportsByDay, cellPlan, pickDay, photoGroups, dayHeading} from './report-views-model.mjs';
+import {seoulClock} from './meeting-time.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const dot = color => `<span class="rv-dot" aria-hidden="true"${color ? ` style="--meeting-color:${esc(color)}"` : ''}></span>`;
@@ -34,6 +35,17 @@ export function calendarHtml(ctx) {
   const list = selected ? `<section class="rv-day-list" aria-label="${esc(dayHeading(selected))}"><h3 class="rv-day-title">${esc(dayHeading(selected))}</h3>${dayRows || emptyHtml()}</section>` : '';
   const none = !rows.length ? emptyHtml('맞는 사업 보고 없음') : '';
   return `<div class="rv-cal" data-rv-month="${monthKeyOf(month)}">${head}<table class="rv-table">${weekdays}<tbody>${body}</tbody></table>${list}${none}</div>`;
+}
+
+// BIZ-달력그날창: '+n' 그날 창에 넣을 줄(창 자체는 일정 달력과 같은 calendar-day-overflow.js, 여닫기는 report-calendar-actions.js showReportDayWindow).
+// 줄마다 색 점·이름·시각, 맨 아래 [+ 이날 사업 보고 추가]. 줄은 칸 안 제목과 같은 data-mrd-meeting이라 우클릭 메뉴·끌어 옮기기가 같은 길이고,
+// data-rv-from은 끌어 옮길 때의 '원래 날'이다. ctx = {day, list(그날 보고, 이른 순), colorOf(m), nameOf(m)}
+export function dayWindowHtml({day, list, colorOf, nameOf}) {
+  const rows = (Array.isArray(list) ? list : []).map(m => {
+    const name = nameOf(m), time = m?.meeting_at ? seoulClock(m.meeting_at) : '';
+    return `<li><div class="rv-pop-row" ${openAttrs(m.id)} data-rv-from="${esc(day)}" title="${esc(name)}" aria-label="${esc([time, name].filter(Boolean).join(' '))}">${dot(colorOf(m))}<span class="rv-pop-name">${esc(name)}</span>${time ? `<time class="rv-pop-time">${esc(time)}</time>` : ''}</div></li>`;
+  }).join('');
+  return `<div class="rv-pop" data-rv-pop="${esc(day)}"><ul class="rv-pop-list">${rows}</ul><button type="button" class="rv-pop-add" data-rv-pop-add="${esc(day)}">+ 이날 사업 보고 추가</button></div>`;
 }
 
 // 사진. ctx = {rows, photos(Map), colorOf, nameOf, kindOf(m)}

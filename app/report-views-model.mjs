@@ -113,6 +113,13 @@ export function dayHeading(key) {
   return `${+key.slice(5, 7)}월 ${+key.slice(8, 10)}일 (${WEEKDAYS[weekday]})`;
 }
 
+// BIZ-달력그날창: '+n' 그날 창 머리의 날짜 '11.13.(금)'(시안 그대로). 읽을 수 없으면 빈 글.
+export function dayWindowTitle(key) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(key || ''))) return '';
+  const weekday = new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10))).getUTCDay();
+  return `${+key.slice(5, 7)}.${+key.slice(8, 10)}.(${WEEKDAYS[weekday]})`;
+}
+
 // S57-8 BIZ-달력우클릭끌기 PR-2: 빈 칸 우클릭 메뉴 항목과 끌어 옮길 때의 새 일시(순수 규칙).
 // 빈 칸 우클릭: [이날 사업 보고 추가](새 보고 창에 그 날짜, 시각은 report-default-at.mjs 기본값) · [이날 보기](칸을 눌러 그날 고르기와 같음).
 // 아이콘: [추가]는 더하기(공용 줄 메뉴 mkdir 아이콘과 같은 선), [이날 보기]는 줄 메뉴의 day(달력) 아이콘. 항목 하나라도 아이콘이 있으면 글자가 같이 밀리므로 둘 다 둔다.
