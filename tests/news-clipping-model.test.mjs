@@ -73,7 +73,10 @@ test('키워드·매체·한도', () => {
   assert.equal(M.cleanWord('가짜', ['가짜']).reason, '이미 있음');
   const cat = M.normalizeCatalog({sources: [{key: 'news-a', name: '가짜일보', region: 'domestic', lang: 'ko'}, {key: 'kctu', name: '아님'}, {key: 'news-b', name: 'Fake', region: 'foreign', lang: 'en'}]});
   assert.deepEqual(cat.map(s => s.key), ['news-a', 'news-b']);
-  assert.deepEqual(M.normalizeLimits({limits: {fill: 10, translate: 20, keyword_items: 30, keywords: 30}}), {fill: 10, translate: 20, keyword_items: 30, keywords: 30});
+  assert.deepEqual(M.normalizeLimits({limits: {fill: 10, translate: 20, keywords: 30}}), {fill: 10, translate: 20, keywords: 30});
+  // S59-1: 키워드 기사 하루 상한(keyword_items)은 없어졌다 — 옛 서버가 보내도 받지 않는다.
+  assert.equal(M.normalizeLimits({limits: {keyword_items: 30}}).keyword_items, undefined);
+  assert.equal(M.DEFAULT_LIMITS.keyword_items, undefined);
   assert.deepEqual(M.normalizeLimits(null), M.DEFAULT_LIMITS);
   assert.equal(M.sourceNote({enabled: true, last_error: 'robots'}), '읽지 못함');
   assert.equal(M.sourceNote({enabled: false}), '');
@@ -109,4 +112,23 @@ test('기본 켬(S53-6): 줄이 없으면 카탈로그 on, 줄이 있으면 줄 
   assert.equal(M.sourceOn(cat[0], undefined), true);
   assert.equal(M.sourceOn(cat[1], undefined), false);
   assert.deepEqual(M.enabledSourceKeys(null, rows), []);
+});
+
+// S59-1 NEWS-키워드살리기: 키워드 칸은 서버가 keywords 칸에 적어 둔 받은 글을 켠 키워드마다 모아 보인다.
+test('키워드 칸 묶음: 켠 키워드만·키워드 목록 순서·걸린 글이 있는 것만, 머리 글자는 건수(더 있으면 최근 N건)', () => {
+  const a = {id: 'a'}, b = {id: 'b'}, c = {id: 'c'};
+  const hits = new Map([['철도', {items: [a, b], more: false}], ['파업', {items: [c], more: true}], ['버스', {items: [a]}], ['꺼짐', {items: [b]}]]);
+  const kw = [{word: '파업', enabled: true}, {word: '없음', enabled: true}, {word: '꺼짐', enabled: false}, {word: '철도', enabled: true}, {word: 7, enabled: true}];
+  const groups = M.keywordGroups(kw, hits);
+  assert.deepEqual(groups.map(g => [g.word, g.items.map(i => i.id), g.more]), [['파업', ['c'], true], ['철도', ['a', 'b'], false]]);
+  assert.deepEqual(groups.map(M.keywordGroupLabel), ['파업 · 최근 1건', '철도 · 2건']);
+  assert.deepEqual(M.keywordGroups([], hits), []);
+  assert.deepEqual(M.keywordGroups(kw, new Map()), []);
+  assert.equal(M.KW_GROUP_SIZE, 20);
+});
+
+test('키워드 칸 읽기 값: PostgreSQL 배열 글자(따옴표·역빗금은 앞에 역빗금, 쉼표·괄호는 따옴표 안에서 그대로)', () => {
+  assert.equal(M.pgTextArray(['철도']), '{"철도"}');
+  assert.equal(M.pgTextArray(['a"b', 'c\\d', 'x,y', '(z)', '{w}']), '{"a\\"b","c\\\\d","x,y","(z)","{w}"}');
+  assert.equal(M.pgTextArray([]), '{}');
 });

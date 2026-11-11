@@ -4,6 +4,8 @@
 
 표기: [사실] = 이 세션이 직접 읽은 것(코드·시험·연 쪽), [제3자] = 남이 적어 둔 것을 읽은 것, [운영] = CC가 운영에서 읽어 지시서에 적어 준 것, [기록] = 앞 세션이 `news-clipping.md` 3.1f에 [사실]로 적어 둔 것, [추정] = 근거는 있으나 직접 못 본 것.
 
+> **11/11 뒤처리(S59-1)**: 명진 결정과 CC 크롬 확인으로 구글 뉴스 길을 버리고 6곳은 자기 RSS 줄, 8곳은 매체 목록에서 뺐다. 키워드는 받은 글에서 찾는다. 결과는 **10절**.
+
 ## 1. 한 줄 결론
 
 **구글 뉴스 사이트(`news.google.com`)의 robots.txt가 검색 RSS 경로(`/rss/search`)를 모든 자동 읽기에 금지하고 있다 [제3자 2건 + 운영 기록과 일치].** 우리 수집기의 robots 해석(`robotsAllows`)이 틀린 것이 아니라 **실제 금지**다. 그래서 14곳은 구글 뉴스 길로는 한 건도 들어올 수 없고, 같은 주소를 쓰는 **키워드 찾기도 같은 까닭으로 막혀 있을 것이다 [추정 — 3절, 운영 조회 한 번이면 닫힘]**.
@@ -151,3 +153,55 @@ robots.txt를 볼 때의 기준: 우리 수집기 이름은 `Web2NewsFeed`다. �
 ## 9. 확인에 쓴 주소
 
 `github.com/agile-explorations/democracy-monitor/issues/860` · `github.com/GHAZMOTIEBIPRO/GHAZIBOT/pull/338` · `www.google.com/robots.txt`(다른 호스트 — 참고만) · `www.laborplus.co.kr`(홈) · `ccnnews.co.kr/rssIndex.html`(엔디소프트 안내 쪽 모양) · `www.nocutnews.co.kr/rss/` · `feeder.co/discover/…/mt-co-kr` · `feeder.co/discover/…/edaily-co-kr`(전체·경제). 열지 못한 주소: `news.google.com/robots.txt`, `www.laborplus.co.kr/rssIndex.html`, 각 매체 `/robots.txt`·피드 주소 전부.
+
+## 10. 뒤처리 결과 (11/11, S59-1 — NEWS-못넣은곳대안 · NEWS-키워드살리기)
+
+### 10.1 명진 결정 (11/11 15:16, CC V59 — 6.1에 대한 답)
+
+| 6.1 번호 | 고른 것 |
+| --- | --- |
+| 1. 길 없는 매체 | **(가) 매체 선택 창에서 뺀다**. '읽지 못함'을 목록에 두지 않는다("읽지 못하면 고쳐 쓰거나 빼야지, 못 읽는 걸 목록에 두면 지저분함") |
+| 2. 안내 없는 피드 주소 | **써도 된다**("ㅇㅇ") — 확인 뒤 넣음 |
+| 3. 키워드 찾기 | **(나) 받아 온 매체 글 가운데 키워드가 든 글 모아 보기**("작동하게 방법을 찾아라") |
+| 4. 사이트맵 | **하지 않는다** |
+| 5. '읽지 못함' 까닭 | **붙이지 않는다**(1번 (가)로 목록에서 뺌) |
+
+### 10.2 CC 크롬 확인 (11/11 15:25~15:40, `User-agent: *` 묶음 기준) → 이 PR이 한 것
+
+7절 확인 목록 ③~⑧에 대한 답이다 [사실: CC가 크롬으로 연 결과 — 이 세션은 다시 열지 않음].
+
+| 매체(key) | robots.txt | 피드 | 이 PR |
+| --- | --- | --- | --- |
+| 참여와혁신(`news-laborplus`) | `/admin/`만 금지 | `https://www.laborplus.co.kr/rss/allArticle.xml` 50건, 글 링크 https | 자기 RSS 줄(6.2 모양) |
+| 레디앙(`news-redian`) | `/admin/`만 | `https://www.redian.org/rss/allArticle.xml` 50건, https | 자기 RSS 줄 |
+| 철도경제신문(`news-redaily`) | `/admin/`만(GPTBot만 전체 금지) | `https://www.redaily.co.kr/rss/allArticle.xml` 50건, https | 자기 RSS 줄 |
+| 머니투데이(`news-mt`) | `https://rss.mt.co.kr/robots.txt`가 `www.mt.co.kr`의 404로 넘김 | `https://rss.mt.co.kr/mt_news.xml` 살아 있음, 글 링크 https `www.mt.co.kr` | 자기 RSS 줄(hosts `rss.mt.co.kr`·`www.mt.co.kr`·`mt.co.kr`). 수집기 판정: 허용 호스트(https) 안 넘김을 따라가 끝이 404면 robots.txt 없음 = 전부 허용(RFC 9309 '없으면 허용') — 시험으로 고정. http나 다른 호스트로 넘기면 `robots_unreachable`(피드 안 읽음) |
+| 뉴스민(`news-newsmin`) | `Allow: /` | 워드프레스 `https://www.newsmin.co.kr/news/feed/` 쿠키 없이 12건, https | 자기 RSS 줄. 서버에서 봇 확인에 걸리면 probe `raw` 0 → 그때 판단(봇 확인은 풀지 않음) |
+| 노동과세계(`news-worknworld`) | `/admin/`만 | `https://worknworld.kctu.org/rss/allArticle.xml` https로 50건, **글 링크 `http://…`** | 자기 RSS 줄 + 카탈로그 `httpsLinks`(아래 10.3) |
+| 이데일리(`news-edaily`) | — | `https://rss.edaily.co.kr/…` 연결 안 됨(http만) | 뺌 |
+| 미디어오늘(`news-mediatoday`) | `*`에 `Disallow:/rss/` | (막힘) | 뺌 |
+| 경기일보(`news-kyeonggi`) | — | `/rss/allArticle.xml` 등이 열려도 글 0건 | 뺌 |
+| 경인일보·뉴스1·부산일보·국제신문·영남일보 | — | RSS 없음(사이트맵만) | 뺌(사이트맵은 받지 않음) |
+
+- 7절 ① 구글 뉴스 robots.txt 원문과 ② 키워드 기사 건수는 이 PR의 판단에 필요 없어졌다(길 자체를 버림). 판정 함수(`robotsAllows`)와 수집기의 robots 처리는 **바꾸지 않았다** — 2.3 모양의 고정 시험은 남겼다(`tests/news-feed-default-on.test.mjs` 'robots 판정 그대로').
+- 7절 ⑨ 노컷뉴스 `robots_unreachable`은 이 PR 범위 밖이다(구글 뉴스와 다른 일 — 그대로 남음).
+
+### 10.3 노동과세계 http 글 링크 — `httpsLinks` (보안 판단)
+
+- 이미 있는 방법: `httpHosts`(사회운동 Now의 socialist.kr 하나 — Q4 결정)는 **http 주소를 요청까지 허용**하는 것이라 수집기의 https 원칙을 낮춘다 → 쓰지 않았다. 같은 호스트 링크만 https로 바꿔 저장하는 방법은 없었다.
+- 새로 만든 것(그 매체 줄 한정): 카탈로그 `httpsLinks: true`. 수집기가 피드 글을 해석하기 전에 **그 매체 `hosts`와 정확히 같은 호스트의 글 링크(`<link>`·`<guid>`·Atom `href`)만** `http://` → `https://`로 바꾼다(`news-feed/handler.ts` `httpsLinkXml`). 포트가 붙거나 다른 호스트면 그대로 두어 http면 주소 검사에서 빠진다.
+- 보안이 낮아지지 않는 까닭: 수집기가 요청하는 주소는 그대로 https·허용 호스트뿐이다(http 요청 없음 — 시험). 바꾼 주소도 `allowedUrl`을 그대로 받는다. 누를 때 열기(`open`)에서 사이트가 http로 넘기면 따라가지 않는다(`redirect_outside` → `blocked` — 시험). 화면 [원문]은 https 주소라 브라우저가 열고, 사이트가 http로 넘기는 것은 그쪽 일이다(수집 때 글 쪽은 읽지 않음 — `extract: false`).
+
+### 10.4 키워드 — 받은 글에서 찾기
+
+- 구글 뉴스 검색 읽기(`runKeywords`의 `googleNewsUrl`)와 그 부품(`GOOGLE_NEWS`·`GOOGLE_NEWS_HOST`·`googleSiteUrl`·`isGoogleSite`·`splitGoogleTitle`·`markRelayBodies`)을 모두 없앴다. 수집기 코드에 `news.google.com`이 없다(보안 시험).
+- 매체 단계: 글을 넣을 때 그 작업공간 켠 키워드 가운데 제목·소개에 글자 그대로 든 것을 `keywords` 칸에 적는다(`matchedKeywords` 다시 씀, 한 글에 10개까지).
+- 키워드 단계(예약 순서·이름 그대로): 밖으로 요청하지 않는다. 뉴스를 쓰는 작업공간마다 최근 7일 매체 글(`lane=media`)의 `keywords` 칸을 지금 켠 키워드로 맞춘다(새 키워드 더함·끈/지운 키워드 뺌, 한 번에 500줄씩 2만 줄까지, 시간 예산 안). 새 표·새 저장소·DB 변경 없음(있는 칸·있는 서비스 역할 권한).
+- 화면: ⋯ [키워드 수정] 칸 아래에 켠 키워드마다 '철도 · 12건' 묶음(새 것부터 20건). 사진 `docs/design/screens/s59-1/`.
+- 하루 상한(`KEYWORD_ITEMS_DAILY`)·화면 '하루 30개까지'는 없앴다(새 기사 줄을 넣지 않음).
+
+### 10.5 배포 뒤 볼 것 (CC — Edge `news-feed` 배포 뒤 probe)
+
+- 매체 6곳 `probe {source}`: `list='ok'`, `raw>0`, `listed>0`이면 됨. `raw>0, listed=0`이면 글 링크 호스트·https 문제(노동과세계는 `httpsLinks`가 바꾼 뒤라 `listed`가 `raw`와 같아야 함). 머니투데이가 `robots_unreachable`이면 robots 넘김이 http·다른 호스트로 가는 것 — 그 값을 보고 판단. 뉴스민 `raw=0`이면 서버에서 봇 확인에 걸린 것.
+- 뺀 8곳 `probe {source}`: 400 `UNKNOWN_SOURCE`.
+- 다음 전체 수집 뒤 `run {step:'keywords'}` 응답의 `workspaces`·`scanned`·`done`(건수만), `app_news_items`에서 `lane='media' and keywords <> '{}'` 건수(읽기 조회).

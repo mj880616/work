@@ -60,7 +60,11 @@ for (const width of [412, 884, 1440]) {
     await expect(root(page).locator('[data-nc-kw]')).toHaveCount(1);
     await expect(items(page)).toHaveCount(0);
     await expect(page.locator('#outsideRoot [data-nw-top]')).toBeHidden();
-    await expect(root(page).locator('.nc-panel-head')).toContainText('1/30 · 하루 30개까지');
+    await expect(root(page).locator('.nc-panel-head')).toContainText('1/30');
+    await expect(root(page).locator('.nc-panel-head')).not.toContainText('하루'); // S59-1: 키워드 기사 하루 상한은 없다(밖에서 새로 찾지 않음)
+    // S59-1: 키워드 줄 아래에 받은 글 가운데 그 키워드가 든 글(서버가 keywords 칸에 적어 둔 글)이 모인다.
+    await expect(root(page).locator('[data-nc-kw-hits] .nw-day-head')).toHaveText(['가짜어 · 1건 · 새 글 1']);
+    await expect(root(page).locator('[data-nc-kw-hits] [data-nc-kw-item="k1"] .nw-title')).toHaveText('가짜 키워드 기사');
     await root(page).locator('[data-nc-kw-input]').fill('  새 가짜어 ');
     await root(page).locator('[data-nc-kw-form] button[type="submit"]').click();
     await expect(root(page).locator('[data-nc-kw]')).toHaveCount(2);

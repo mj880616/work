@@ -13,10 +13,10 @@ import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
-import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId} from './news-clipping-model.mjs';
+import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, pgTextArray, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
-// - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
+// - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords + 키워드에 걸린 글 모아 보기, S59-1) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
 //   · [별표 폴더](별표 기사 + 폴더 트리 note-tree.mjs treeRows, 폴더 고르기 창 library-move-picker.js, 폴더 ⋯: 안에 폴더·이름 바꾸기·지우기).
 // - [지금 채우기]는 news-feed fill_now. 목록을 열 때 읽기 전 채널 기사가 있으면 10분에 한 번 저절로.
 // - 메모(= 노트, metadata.news_item_id)는 공용 상세(now-detail.js). 노트 [기사로 가기]는 news-request.mjs로 이 칸에서 그 기사 상세를 연다.
@@ -57,7 +57,7 @@ const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id
 const fresh = () => ({scope: '', tab: ALL, items: [], loaded: false, failed: false, end: true, more: false,
   busy: new Set(), notes: new Map(),
   limits: {...DEFAULT_LIMITS}, catalog: null, catalogFailed: false, aiCapped: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
-  keywords: [], keywordsLoaded: false, keywordsFailed: false, saving: new Set(), panelNote: '', draft: '',
+  keywords: [], keywordsLoaded: false, keywordsFailed: false, kwHits: new Map(), kwHitsFailed: false, saving: new Set(), panelNote: '', draft: '',
   mode: 'list', filling: false, fillNote: '',
   folders: [], foldersLoaded: false, foldersFailed: false, openFolders: new Set(), treeNote: '', focus: ''});
 let state = fresh(), loadSeq = 0, layer = null;
@@ -75,6 +75,8 @@ function readItems(w, tab, offset) {
 const readOne = (w, id, cols) => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${cols}&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
 const readSources = w => rt().api(`/rest/v1/app_outside_sources?workspace_id=eq.${q(w)}&source_key=like.news-*&select=${SOURCE_COLS}`, {singleFlight: false});
 const readKeywords = w => rt().api(`/rest/v1/app_news_keywords?workspace_id=eq.${q(w)}&select=${KEYWORD_COLS}&order=created_at.asc&limit=100`, {singleFlight: false});
+// 키워드 하나에 걸린 글(S59-1): 서버 키워드 단계가 keywords 칸에 그 낱말을 적어 둔 글, 새 것부터 KW_GROUP_SIZE건(하나 더 읽어 '더 있음'을 안다). 지운 줄은 뺀다.
+const readKeywordHits = (w, word) => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=${ITEM_COLS}&order=created_at.desc,id.desc&limit=${KW_GROUP_SIZE + 1}`, {singleFlight: false});
 const readFolders = w => rt().api(`/rest/v1/app_news_folders?workspace_id=eq.${q(w)}&select=${FOLDER_COLS}&order=sort_order.asc&limit=1000`, {singleFlight: false});
 async function patchItem(w, id, body) {
   const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=id,starred_at,folder_id`, {method: 'PATCH', body: {...body, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
@@ -153,12 +155,28 @@ const panelFail = () => (state.panelNote ? `<p class="nc-panel-note" role="statu
 
 function keywordsHtml() {
   const max = state.limits.keywords;
-  const head = panelHead('키워드 수정', state.keywordsLoaded ? `${state.keywords.length}/${max} · 하루 ${state.limits.keyword_items}개까지` : '');
+  const head = panelHead('키워드 수정', state.keywordsLoaded ? `${state.keywords.length}/${max}` : '');
   if (!state.keywordsLoaded) return head + (state.keywordsFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4}));
   const full = state.keywords.length >= max;
   const add = `<form class="nc-kw-add" data-nc-kw-form><input type="text" data-nc-kw-input maxlength="${KEYWORD_MAX_CHARS}" placeholder="키워드" aria-label="새 키워드" value="${esc(state.draft)}"${full ? ' disabled' : ''}><button type="submit" class="secondary nc-kw-add-btn"${full ? ' disabled' : ''}>더하기</button></form>`;
   const rows = state.keywords.map(k => `<div class="nc-row">${switchHtml('data-nc-kw', k.word, k.enabled === true, k.word, state.saving.has('kw:' + k.word))}<button type="button" class="nc-del" data-nc-kw-del="${esc(k.word)}" aria-label="${esc(k.word)} 삭제"${state.saving.has('kw:' + k.word) ? ' disabled' : ''}><span aria-hidden="true">×</span></button></div>`).join('');
-  return head + add + panelFail() + (rows || emptyHtml('키워드 없음'));
+  return head + add + panelFail() + (rows || emptyHtml('키워드 없음')) + keywordHitsHtml();
+}
+// 키워드에 걸린 글(S59-1 NEWS-키워드살리기): 켠 키워드마다 묶음 머리 '철도 · 12건' + 목록과 같은 줄(같은 매체 연달아는 접기). 누르면 공용 상세.
+const kwItemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-kw-item'}) || '';
+// 묶음 칸 안쪽만 따로 그릴 수 있게(읽음 표시·늦게 온 읽기) 칸은 늘 둔다 — 키워드 입력 칸을 다시 그려 글 쓰던 자리를 잃지 않게.
+const keywordHitsHtml = () => `<div class="nc-kw-hits" data-nc-kw-hits>${keywordHitsInner()}</div>`;
+function keywordHitsInner() {
+  if (!state.keywords.some(k => k.enabled === true)) return '';
+  const groups = keywordGroups(state.keywords, state.kwHits);
+  if (!groups.length) return state.kwHitsFailed ? failHtml({retry: 'data-nc-retry'}) : emptyHtml('키워드에 걸린 글 없음', {attrs: 'data-nc-kw-empty'});
+  const unread = items => items.filter(it => readState({type: 'news', id: it.id}) === false).length;
+  const rows = items => (now()?.foldedHtml ? now().foldedHtml(items.map(row => ({type: 'news', row})), e => kwItemHtml(e.row)) : items.map(kwItemHtml).join(''));
+  return groups.map(g => dayHtml(keywordGroupLabel(g), rows(g.items), unread(g.items), esc)).join('');
+}
+function paintKeywordHits() {
+  const box = state.mode === 'keywords' ? $('[data-nc-kw-hits]') : null;
+  if (box) box.innerHTML = keywordHitsInner(); else if (state.mode === 'keywords') paint();
 }
 
 function sourcesHtml() {
@@ -192,7 +210,7 @@ function paint() {
   else { list.innerHTML = listHtml(); panel.replaceChildren(); now()?.listed?.(); }
 }
 // 읽음 표시가 오거나 바뀌면 이 칸을 다시 그린다(목록·별표 폴더 칸만).
-onReads(() => { if (state.mode === 'list' || state.mode === 'folders') paint(); });
+onReads(() => { if (state.mode === 'list' || state.mode === 'folders') paint(); else if (state.mode === 'keywords') paintKeywordHits(); });
 
 // ---------- 불러오기 ----------
 function resetIfOwnerChanged() {
@@ -326,7 +344,7 @@ async function openPanel(mode) {
   } else if (mode === 'keywords') {
     try { const rows = await readKeywords(w); if (scope !== state.scope) return; state.keywords = Array.isArray(rows) ? rows.filter(r => r && typeof r.word === 'string') : []; state.keywordsLoaded = true; state.keywordsFailed = false; }
     catch { if (scope === state.scope && !state.keywordsLoaded) state.keywordsFailed = true; }
-    if (!state.catalog) await loadCatalog();
+    await Promise.allSettled([state.catalog ? null : loadCatalog(), loadKeywordHits(state.keywords.filter(k => k.enabled === true).map(k => k.word), {all: true})]);
   } else {
     const rev = sourcesRev;
     const [, rows] = await Promise.allSettled([loadCatalog(), readSources(w)]);
@@ -336,6 +354,23 @@ async function openPanel(mode) {
     else if (!state.sourcesLoaded) state.sourcesFailed = true;
   }
   if (state.mode === mode) paint();
+}
+// 키워드에 걸린 글 읽기(켠 키워드마다 한 번). all: 칸을 열 때 — 그 사이 지운 키워드의 묶음도 비운다.
+async function loadKeywordHits(words, {all = false} = {}) {
+  const w = workspaceOf(), scope = state.scope;
+  if (!w) return;
+  if (all) state.kwHits = new Map([...state.kwHits].filter(([word]) => words.includes(word)));
+  const got = await Promise.allSettled(words.map(word => readKeywordHits(w, word)));
+  if (scope !== state.scope) return;
+  let failed = false;
+  got.forEach((r, i) => {
+    if (r.status !== 'fulfilled' || !Array.isArray(r.value)) { failed = true; return; }
+    const rows = r.value.filter(it => it && typeof it.id === 'string');
+    state.kwHits.set(words[i], {items: rows.slice(0, KW_GROUP_SIZE), more: rows.length > KW_GROUP_SIZE});
+  });
+  state.kwHitsFailed = failed;
+  void ensureReads([...state.kwHits.values()].flatMap(h => h.items).map(it => ({type: 'news', id: it.id})));
+  paintKeywordHits();
 }
 function backToList() {
   if (state.mode === 'list') return;
@@ -371,6 +406,7 @@ async function addKeyword(raw) {
     const row = Array.isArray(rows) ? rows[0] : null;
     if (!row || row.word !== c.word) throw new Error('save');
     state.keywords = [...state.keywords, row];
+    void loadKeywordHits([row.word]);
   } catch (e) { state.draft = c.word; state.panelNote = e?.status === 409 ? '이미 있음' : saveFailNote(e); }
   finally { state.saving.delete(tag); paint(); focusAfter('[data-nc-kw-input]'); }
 }
@@ -383,6 +419,7 @@ async function toggleKeyword(word) {
     const row = Array.isArray(rows) ? rows[0] : null;
     if (!row) throw new Error('save');
     Object.assign(k, row);
+    if (k.enabled === true && !state.kwHits.has(word)) void loadKeywordHits([word]);
   } catch (e) { state.panelNote = saveFailNote(e); }
   finally { state.saving.delete(tag); paint(); focusAfter(`[data-nc-kw="${CSS.escape(word)}"]`); }
 }
@@ -393,6 +430,7 @@ async function deleteKeyword(word) {
   try {
     await rt().api(`/rest/v1/app_news_keywords?workspace_id=eq.${q(w)}&word=eq.${q(word)}`, {method: 'DELETE', prefer: 'return=minimal', singleFlight: false});
     state.keywords = state.keywords.filter(k => k.word !== word);
+    state.kwHits.delete(word);
   } catch (e) { state.panelNote = saveFailNote(e); }
   finally { state.saving.delete(tag); paint(); focusAfter('[data-nc-kw-input]'); }
 }
@@ -487,11 +525,14 @@ const folderMenu = createAnchoredMenu({id: 'ncFolderMenu', className: 'topline-a
   render: () => '<button type="button" data-nc-fact="child">안에 폴더 만들기</button><button type="button" data-nc-fact="rename">이름 바꾸기</button><button type="button" data-nc-fact="delete">삭제</button>',
   onAction: (button, active) => { const trigger = active?.trigger, id = trigger?.dataset?.ncFolderMore; if (!id) return; const a = button.dataset.ncFact; if (a === 'child') newFolder(id); else if (a === 'rename') renameFolder(id); else if (a === 'delete') deleteFolder(id, trigger); }});
 
+// 목록 줄 또는 키워드 칸 줄(같은 기사가 두 곳에 있을 수 있다 — 목록 것을 먼저).
+const itemById = id => state.items.find(x => x.id === id) || [...state.kwHits.values()].flatMap(h => h.items).find(x => x.id === id) || null;
+
 // ---------- 누르기·밀기 ----------
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (!b || !root.contains(b)) return;
-  if (b.matches('[data-nc-open]')) { const it = state.items.find(x => x.id === b.dataset.ncOpen); if (it && now()) now().open({type: 'news', id: it.id}, now().describe('news', it)); return; }
+  if (b.matches('[data-nc-open]')) { const it = itemById(b.dataset.ncOpen); if (it && now()) now().open({type: 'news', id: it.id}, now().describe('news', it)); return; }
   if (b.matches('[data-nc-back]')) { closeLayer(); backToList(); return; }
   if (b.matches('[data-nc-star]')) { toggleStar(b.dataset.ncStar, b); return; }
   if (b.matches('[data-nc-folder]')) { const id = b.dataset.ncFolder; ensureFolders().then(ok => { if (ok) pickFolder(id, b); }); return; }

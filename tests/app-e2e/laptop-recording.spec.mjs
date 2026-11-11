@@ -337,7 +337,14 @@ test('PC: 서버 정리(S49-2) — [멈추고 정리] 뒤 서버가 합치기·�
   expect(recCalls(calls,'rec_finish').length).toBe(0);
   expect(recCalls(calls,'transcribe').length).toBe(0);
   expect(calls.some(c=>c.action==='draft')).toBe(false);
-  await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000b1'}]);
+  // REC-한회의로잇기 PR-0: 창을 열기만 해서는 '열었음'을 보내지 않고, [사업 보고 저장] 때 저장한 보고 id와 함께 보낸다(설계 docs/design/rec-join.md 2-3절).
+  expect(recCalls(calls,'job_opened')).toEqual([]);
+  const select=page.locator('#meetingNameSelect');
+  if(await select.isVisible())await select.selectOption('__other__');
+  await page.locator('#meetingTitle').fill('운영위');
+  await page.locator('#saveMeetingBtn').click();
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000b1',meeting_id:'meeting-new'}]);
 });
 
 // REC-새로고침(S49-7): 새로고침·창 닫기로 끊긴 녹음은 서버에 조각이 남아 있고(rec_pending의 live), 어느 화면에서든 맨 위 띠에서 이어 녹음·이어서 정리할 수 있다.

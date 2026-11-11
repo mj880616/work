@@ -22,18 +22,18 @@ export function shadeOf(text) {
 // 막대는 고유색 그대로, 흰 바탕에서 안 읽히는 밝은 색(샛노랑 등)만 이름 글자를 같은 계열 진한 색으로(토큰 값에서 정함). 조사 표·근거·확인 정도는 docs/design/news-identity-colors.md.
 // 새 매체 색은 이 표에 키를 더하고 토큰 두 개를 밝은·어두운 화면에 넣으면 된다. 표에 없는 매체는 묶음 돌려쓰기 그대로.
 // 고정 키도 같은 묶음 순서 셈에는 남아 있어서, 표에 키를 더해도 다른 매체의 돌려쓰기 칸은 바뀌지 않는다.
-// 언론 키는 카탈로그 키(news- 앞머리) 그대로라 토큰 이름도 --ds-news-id-news-<이름>이다. 구글 뉴스(news-google)는 매체가 아니라 키워드 찾기 길이라 표에 없다(기사마다 실제 매체 이름으로 칸 고르기 그대로).
+// 언론 키는 카탈로그 키(news- 앞머리) 그대로라 토큰 이름도 --ds-news-id-news-<이름>이다. 카탈로그에 없는 기사(옛 키워드 기사·카탈로그에서 뺀 매체의 글)는 매체 이름으로 칸을 고른다.
 export const FIXED_OUTSIDE = Object.freeze([
   'justice', 'kgreens', 'laborparty', 'jinboparty', 'kmwu', 'kptu',
   'kctu', 'kfsu', 'hakbi', 'pssp', 'ws', 'platformc', 'leftall', 'socialism', 'socialist', 'jacobin', 'labornotes', 'redpepper', 'socialistworker',
 ]);
 export const FIXED_NEWS = Object.freeze([
   'news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa', 'news-hani',
-  'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-mediatoday', 'news-newsis', 'news-sedaily', 'news-imaeil',
+  'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-newsis', 'news-sedaily', 'news-imaeil',
   'news-psi', 'news-itf', 'news-labourstart',
-  // S58-5: NEWS-못넣은곳대안 ②로 카탈로그에 더해진 구글 뉴스 매체 단위 13곳(카탈로그 순서).
-  'news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan', 'news-laborplus', 'news-redian', 'news-newsone',
-  'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam',
+  // S58-5: NEWS-못넣은곳대안으로 카탈로그에 더해진 매체(카탈로그 순서). S59-1: 길이 있는 6곳만 남고(자기 RSS), 길이 없어 카탈로그에서 뺀 8곳
+  //   (미디어오늘·부산일보·뉴스1·이데일리·국제신문·경기일보·경인일보·영남일보)은 이 표와 토큰에서도 뺐다 — 값은 docs/design/news-identity-colors.md 표에 남긴다.
+  'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt',
 ]);
 const fixedInk = key => `var(--ds-news-id-${key})`;
 const fixedBar = key => `var(--ds-news-id-${key}-bar)`;

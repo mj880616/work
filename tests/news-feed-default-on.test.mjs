@@ -12,7 +12,7 @@ const WS1 = 'a0000000-0000-4000-8000-000000000001', WS2 = 'a0000000-0000-4000-80
 const FN = `${SB}/functions/v1/news-feed`;
 
 // have: 이미 들어와 있는 기사 줄(겹침 거르기용 — {workspace_id, url_key?, title_key?}), unread: 블록 줄이 아직 없는 기사 줄(본문 표시용).
-function world({sources, keywords, sites, have = [], unread = []}) {
+function world({sources, keywords, sites, have = [], unread = [], media = []}) {
   const calls = [];
   const res = (v, s = 200) => new Response(v === null ? null : JSON.stringify(v), {status: s, headers: {'content-type': 'application/json'}});
   const doFetch = async (url, init = {}) => {
@@ -36,25 +36,33 @@ function world({sources, keywords, sites, have = [], unread = []}) {
         if (sel === 'url_key') return res(have.filter(r => mine(r) && r.url_key && inList('url_key').includes(r.url_key)).map(r => ({url_key: r.url_key})));
         if (sel === 'title_key') return res(have.filter(r => mine(r) && r.title_key && inList('title_key').includes(r.title_key)).map(r => ({title_key: r.title_key})));
         if (sel.includes('app_feed_bodies')) return res(unread.filter(r => q.get('lane') === `eq.${r.lane}` && q.get('source_key') === `eq.${r.source_key}`));
+        // 키워드 단계(S59-1): 그 작업공간 매체 글, created_at 이후, 새 것부터, 쪽(limit·offset). keywords=neq.{}면 표시가 있는 줄만(id).
+        if (q.get('lane') === 'eq.media' && q.get('created_at')?.startsWith('gte.')) {
+          const since = q.get('created_at').slice(4);
+          let rows = media.filter(r => mine(r) && r.lane === 'media' && r.created_at >= since).sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
+          if (q.get('keywords') === 'neq.{}') rows = rows.filter(r => r.keywords.length);
+          const off = Number(q.get('offset') || 0), lim = Number(q.get('limit') || 1000);
+          const cols = sel.split(',');
+          return res(rows.slice(off, off + lim).map(r => Object.fromEntries(cols.map(k => [k, r[k]]))));
+        }
         return res([]);
       }
       return res(null, method === 'POST' ? 201 : 204);
     }
     const site = sites[u.href];
     if (site === undefined) return new Response('', {status: 404});
-    return new Response(site.body, {status: 200, headers: {'content-type': site.type ?? 'text/plain'}});
+    return new Response(site.body, {status: site.status ?? 200, headers: {'content-type': site.type ?? 'text/plain', ...(site.headers ?? {})}});
   };
   const h = H.createNewsFeedHandler({env: n => ({SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: SERVICE, NEWS_FEED_CRON_SECRET: SECRET})[n], fetch: doFetch, now: () => NOW, sleep: async () => {}, log: () => {}});
   const cron = async (body) => (await h(new Request(`${FN}?action=run`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: JSON.stringify(body)}))).json();
   return {calls, cron, fetch: doFetch};
 }
 
-// 기본 켬 매체 전부(자기 RSS 17곳 → 미디어오늘이 구글 뉴스 매체 단위로 옮겨 16곳 + 구글 뉴스 매체 단위 줄, S57-13).
+// 기본 켬 매체 전부(자기 RSS 16곳 + S59-1에 자기 RSS로 옮긴 6곳 — 구글 뉴스 매체 단위 줄은 없다).
 const DEFAULT_ON = ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa',
   'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun',
   'news-newsis', 'news-sedaily', 'news-imaeil',
-  'news-mediatoday', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan',
-  'news-laborplus', 'news-redian', 'news-newsone', 'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
+  'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
 
 test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
   // 기본 켬 매체는 이 목록과 정확히 같아야 한다(카탈로그에 줄을 더하면 여기도 고친다).
@@ -162,158 +170,218 @@ test('화면 catalog: 이번 달 AI 한도 닿음은 예/아니오만(ai.month_c
   assert.match(M.AI_CAP_NOTE, /AI 한도/);
 });
 
-// ---- S57-13 NEWS-못넣은곳대안: 구글 뉴스 매체 단위(site:도메인) 줄 --------------------------------------------------
-// 자기 RSS로 못 넣는 매체를 구글 뉴스 검색 RSS로 매체 단위로 받는다. 네트워크 없음 — 글·주소는 모두 지어낸 것.
-const U = await import('../supabase/functions/_shared/news-url.ts');
-const PG = await import('../supabase/functions/news-feed/page.ts');
-const GOOGLE_SITES = {
-  'news-mediatoday': 'mediatoday.co.kr', 'news-worknworld': 'worknworld.kctu.org', 'news-newsmin': 'newsmin.co.kr', 'news-redaily': 'redaily.co.kr',
-  'news-busan': 'busan.com', 'news-laborplus': 'laborplus.co.kr', 'news-redian': 'redian.org', 'news-newsone': 'news1.kr', 'news-edaily': 'edaily.co.kr',
-  'news-mt': 'mt.co.kr', 'news-kookje': 'kookje.co.kr', 'news-kyeonggi': 'kyeonggi.com', 'news-kyeongin': 'kyeongin.com', 'news-yeongnam': 'yeongnam.com',
+// ---- S59-1 NEWS-못넣은곳대안 뒤처리: 구글 뉴스 길을 버리고, 길이 있는 6곳은 자기 RSS 줄, 길이 없는 8곳은 매체 목록에서 뺀다 ----------
+// 11/11 CC 크롬 확인(robots.txt `User-agent: *` 묶음 + 피드) 결과대로. 네트워크 없음 — 글·주소는 모두 지어낸 것.
+const NEW_RSS = {
+  'news-worknworld': ['https://worknworld.kctu.org/rss/allArticle.xml', ['worknworld.kctu.org']],
+  'news-newsmin': ['https://www.newsmin.co.kr/news/feed/', ['www.newsmin.co.kr', 'newsmin.co.kr']],
+  'news-redaily': ['https://www.redaily.co.kr/rss/allArticle.xml', ['www.redaily.co.kr', 'redaily.co.kr']],
+  'news-laborplus': ['https://www.laborplus.co.kr/rss/allArticle.xml', ['www.laborplus.co.kr', 'laborplus.co.kr']],
+  'news-redian': ['https://www.redian.org/rss/allArticle.xml', ['www.redian.org', 'redian.org']],
+  'news-mt': ['https://rss.mt.co.kr/mt_news.xml', ['rss.mt.co.kr', 'www.mt.co.kr', 'mt.co.kr']],
 };
-const gItem = (n, title, tail = ' - 미디어오늘') => `<item><title>${title}${tail}</title><link>https://news.google.com/rss/articles/SYN${n}?oc=5</link>` +
-  `<pubDate>Sun, 08 Nov 2026 01:0${n}:00 GMT</pubDate><description>&lt;a href="https://news.google.com/rss/articles/SYN${n}?oc=5"&gt;${title}&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;미디어오늘&lt;/font&gt;</description>` +
-  `<source url="https://www.mediatoday.co.kr">미디어오늘</source></item>`;
-const gSites = (s, items) => ({'https://news.google.com/robots.txt': {body: 'User-agent: *\nAllow: /rss/\n'}, [s.lists[0]]: {body: `<rss><channel>${items.join('')}</channel></rss>`, type: 'application/xml'}});
+const REMOVED = ['news-edaily', 'news-mediatoday', 'news-kyeonggi', 'news-kyeongin', 'news-newsone', 'news-busan', 'news-kookje', 'news-yeongnam'];
 const outside = w => w.calls.filter(c => !c.url.startsWith(SB));
+const posted = w => w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).flatMap(c => c.body);
+const rssOf = items => `<rss><channel>${items.join('')}</channel></rss>`;
+const rItem = (title, link, desc = '') => `<item><title>${title}</title><link>${link}</link>${desc ? `<description>${desc}</description>` : ''}<pubDate>Sun, 08 Nov 2026 01:00:00 GMT</pubDate></item>`;
 
-test('카탈로그: 구글 뉴스 매체 단위 줄은 검색 RSS 한 경로에 site:도메인만, 기본 켬·다 받기·본문 안 읽음, 자기 사이트 주소는 없음', async () => {
-  assert.deepEqual(C.NEWS_CATALOG.filter(s => C.isGoogleSite(s)).map(s => s.key).sort(), Object.keys(GOOGLE_SITES).sort(), '매체 단위 줄은 이 목록과 정확히 같다');
-  for (const [key, domain] of Object.entries(GOOGLE_SITES)) {
+test('카탈로그(S59-1): 길이 있는 6곳은 자기 RSS 줄(기본 켬·다 받기·본문 안 읽음), 길이 없는 8곳은 매체 목록에 없다, 구글 뉴스를 읽는 줄·부품이 없다', async () => {
+  for (const [key, [list, hosts]] of Object.entries(NEW_RSS)) {
     const s = C.newsSourceByKey(key);
-    assert.equal(s.google, domain, key);
-    assert.deepEqual(s.hosts, ['news.google.com'], `${key}: 읽는 호스트는 구글 뉴스뿐(매체 사이트는 읽지 않음)`);
-    assert.equal(s.lists.length, 1, key);
-    const u = new URL(s.lists[0]);
-    assert.deepEqual([u.protocol, u.hostname, u.pathname], ['https:', 'news.google.com', '/rss/search'], key);
-    assert.equal(u.searchParams.get('q'), `site:${domain} when:1d`, `${key}: 키워드 없이 매체 단위`);
-    assert.deepEqual([u.searchParams.get('hl'), u.searchParams.get('gl'), u.searchParams.get('ceid')], ['ko', 'KR', 'KR:ko']);
-    assert.deepEqual([s.on, s.take, s.extract, s.region, s.lang], [true, 'all', false, 'domestic', 'ko'], `${key}: 다른 국내 매체와 같은 규칙`);
+    assert.ok(s, key);
+    assert.deepEqual([s.mode, s.lists, s.hosts], ['rss', [list], hosts], key);
+    assert.deepEqual([s.on, s.take, s.extract, s.region, s.lang, s.group], [true, 'all', false, 'domestic', 'ko', 'movement'], `${key}: 다른 국내 매체와 같은 규칙`);
+    assert.equal(s.google, undefined, key);
+    assert.ok(O.allowedUrl(s, list), `${key}: 피드 주소가 주소 검사를 통과(https·허용 호스트)`);
   }
-  // 구글 뉴스 호스트를 읽는 카탈로그 줄은 모두 매체 단위 줄이다(다른 길로 구글 주소를 읽는 줄이 없다).
-  for (const s of C.NEWS_CATALOG) assert.equal(s.hosts.includes('news.google.com'), C.isGoogleSite(s), s.key);
-  // 미디어오늘: robots.txt가 막아 자기 RSS 줄을 뺐다 — 카탈로그 어디에도 그 사이트 주소가 없다.
-  assert.ok(!JSON.stringify(C.NEWS_CATALOG.map(s => [s.lists, s.hosts])).includes('mediatoday.co.kr/'));
-  assert.ok(!C.newsSourceByKey('news-mediatoday').hosts.some(h => h.includes('mediatoday')));
-  // 새 줄은 카탈로그 맨 끝에 더했다: 앞선 매체의 순서가 그대로다(목록 색 칸이 카탈로그 순서로 정해지므로 앞선 매체의 색이 바뀌지 않는다). 미디어오늘은 제자리.
-  assert.deepEqual(C.NEWS_SOURCE_KEYS.slice(0, 23), ['news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain',
-    'news-newstapa', 'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-mediatoday', 'news-newsis', 'news-sedaily', 'news-imaeil',
-    'news-psi', 'news-itf', 'news-labourstart']);
-  assert.deepEqual(C.NEWS_SOURCE_KEYS.slice(23).sort(), Object.keys(GOOGLE_SITES).filter(k => k !== 'news-mediatoday').sort());
-  // 키는 카탈로그 파일에 줄마다 글자 그대로(`{ key: "news-…"`, 영문 소문자·줄표만) 적혀 있다 — 색 표 시험(tests/news-colors.test.mjs)이 파일을 글자로 읽어 키를 찾는다.
-  // (#2365에서 키를 함수 인자로 넘겼더니 그 시험이 미디어오늘 키를 못 찾아 main이 깨졌다 → 같은 정규식으로 전부 찾히는지 여기서 고정.)
+  // http 글 링크를 https로 받는 설정은 노동과세계 한 곳뿐(다른 매체는 https 글 링크만).
+  assert.deepEqual(C.NEWS_CATALOG.filter(s => s.httpsLinks === true).map(s => s.key), ['news-worknworld']);
+  // 뺀 8곳: 카탈로그·화면 목록·키 목록 어디에도 없다(수집기·매체 선택 창이 카탈로그만 본다). 이미 받은 글·켬 줄은 DB에 그대로 둔다(이 PR은 DB를 건드리지 않음).
+  for (const key of REMOVED) {
+    assert.equal(C.newsSourceByKey(key), null, key);
+    assert.ok(!C.NEWS_SOURCE_KEYS.includes(key), key);
+    assert.ok(!C.publicNewsCatalog().some(s => s.key === key), key);
+  }
+  // 구글 뉴스 검색 RSS는 robots 금지(S58-9) — 그 호스트를 읽는 카탈로그 줄도, 주소를 만드는 부품도 없다.
+  for (const s of C.NEWS_CATALOG) {
+    assert.ok(!s.hosts.includes('news.google.com'), s.key);
+    for (const l of s.lists) assert.notEqual(new URL(l).hostname, 'news.google.com', s.key);
+  }
+  for (const name of ['GOOGLE_NEWS', 'GOOGLE_NEWS_HOST', 'googleNewsUrl', 'googleSiteUrl', 'isGoogleSite']) assert.equal(C[name], undefined, name);
+  // 남은 6곳은 예전 자리 그대로(키 순서): 앞선 매체의 순서가 그대로다.
+  assert.deepEqual([...C.NEWS_SOURCE_KEYS], ['news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain',
+    'news-newstapa', 'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-newsis', 'news-sedaily', 'news-imaeil',
+    'news-psi', 'news-itf', 'news-labourstart', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt']);
+  // 키는 카탈로그 파일에 줄마다 글자 그대로(`{ key: "news-…"`) 적혀 있다 — 색 표 시험(tests/news-colors.test.mjs)이 파일을 글자로 읽어 키를 찾는다.
   const {readFileSync} = await import('node:fs');
   const written = [...readFileSync(new URL('../supabase/functions/_shared/news-catalog.ts', import.meta.url), 'utf8').matchAll(/^\s*\{?\s*key: "([a-z-]+)"/gm)].map(m => m[1]);
-  assert.deepEqual(written.filter(k => k !== 'news-google'), [...C.NEWS_SOURCE_KEYS], '카탈로그 키 전부가 파일에서 글자로 읽힌다(같은 순서)');
-  // 키·이름은 겹치지 않는다(목록의 매체 이름·도배막기 묶음·색이 키와 이름으로 정해진다).
+  assert.deepEqual(written, [...C.NEWS_SOURCE_KEYS], '카탈로그 키 전부가 파일에서 글자로 읽힌다(같은 순서)');
   assert.equal(new Set(C.NEWS_SOURCE_KEYS).size, C.NEWS_SOURCE_KEYS.length);
   assert.equal(new Set(C.NEWS_CATALOG.map(s => s.name)).size, C.NEWS_CATALOG.length);
-  // 도메인 글자만 받는다(검색어에 다른 연산자·주소를 끼워 넣을 수 없음).
-  for (const bad of ['', 'localhost', 'evil.example/path', 'a b.example', 'https://x.example', 'x.example OR y', 'X.Example', 'x.example"']) assert.throws(() => C.googleSiteUrl(bad), bad);
-  assert.equal(C.isGoogleSite(C.newsSourceByKey('news-khan')), false);
-  assert.equal(C.isGoogleSite(C.GOOGLE_NEWS), false, '키워드 찾기는 매체 줄이 아니다');
 });
 
-test('구글 뉴스 매체 단위: 키워드가 없어도 그 매체 글 전부 — 제목 끝 매체 꼬리 떼고 매체 이름은 카탈로그, 본문은 안 읽고 relay 줄만', async () => {
-  const s = C.newsSourceByKey('news-mediatoday');
-  const BODYLESS = 'b0000000-0000-4000-8000-000000000001';
+test('새 RSS 줄(참여와혁신): 키워드 상관없이 전부 받고, 켠 키워드가 든 글은 넣을 때 그 작업공간 키워드를 keywords 칸에 적는다', async () => {
+  const s = C.newsSourceByKey('news-laborplus');
+  const feed = rssOf([rItem('합성 철도 파업 기사', 'https://www.laborplus.co.kr/news/articleView.html?idxno=1', '합성 소개'),
+    rItem('합성 날씨 기사', 'https://www.laborplus.co.kr/news/articleView.html?idxno=2', '합성 버스 소개')]);
   const w = world({
-    sources: [{workspace_id: WS1, source_key: 'news-beminor', enabled: true}], // 뉴스 씀 → 기본 켬. 키워드는 하나도 없다.
-    keywords: [], sites: gSites(s, [gItem(1, '합성 방송 기사'), gItem(2, '합성 신문 - 부제 기사')]),
-    unread: [{id: BODYLESS, workspace_id: WS1, lane: 'media', source_key: 'news-mediatoday', app_feed_bodies: null}],
+    sources: [{workspace_id: WS1, source_key: 'news-laborplus', enabled: true}, {workspace_id: WS2, source_key: 'news-laborplus', enabled: true}],
+    keywords: [{workspace_id: WS1, word: '철도'}, {workspace_id: WS1, word: '파업'}, {workspace_id: WS2, word: '버스'}],
+    sites: {'https://www.laborplus.co.kr/robots.txt': {body: 'User-agent: *\nDisallow: /admin/\n'}, [s.lists[0]]: {body: feed, type: 'application/xml'}},
   });
-  const out = await w.cron({step: 'media', source: 'news-mediatoday'});
-  assert.deepEqual([out.ok, out.status, out.raw, out.listed, out.inserted, out.bodies, out.relay], [true, 'ok', 2, 2, 2, 0, 1]);
-  const rows = w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).flatMap(c => c.body);
-  assert.deepEqual(rows.map(r => [r.workspace_id, r.lane, r.source_key, r.publisher, r.title, r.url]), [
-    [WS1, 'media', 'news-mediatoday', '미디어오늘', '합성 방송 기사', 'https://news.google.com/rss/articles/SYN1?oc=5'],
-    [WS1, 'media', 'news-mediatoday', '미디어오늘', '합성 신문 - 부제 기사', 'https://news.google.com/rss/articles/SYN2?oc=5'],
-  ], '매체 이름은 카탈로그 이름(RSS 매체와 같은 길), 링크는 구글 중계 주소 그대로');
-  for (const r of rows) {
-    assert.deepEqual([r.summary, r.body, r.body_kind, r.keywords, r.state, r.lang], [null, null, null, [], 'ok', 'ko'], '제목·매체·날짜·링크만(구글 소개 칸은 싣지 않음)');
-    assert.ok(r.published_at, '날짜는 남는다');
+  const out = await w.cron({step: 'media', source: 'news-laborplus'});
+  assert.deepEqual([out.status, out.raw, out.listed, out.inserted], ['ok', 2, 2, 4]);
+  assert.deepEqual(posted(w).map(r => [r.workspace_id, r.title, r.keywords, r.lane, r.source_key, r.publisher]).sort(), [
+    [WS1, '합성 철도 파업 기사', ['철도', '파업'], 'media', 'news-laborplus', '참여와혁신'],
+    [WS1, '합성 날씨 기사', [], 'media', 'news-laborplus', '참여와혁신'],
+    [WS2, '합성 철도 파업 기사', [], 'media', 'news-laborplus', '참여와혁신'],
+    [WS2, '합성 날씨 기사', ['버스'], 'media', 'news-laborplus', '참여와혁신'],
+  ].sort(), '키워드 칸은 그 작업공간 키워드만(다른 작업공간 키워드가 섞이지 않음), 소개 글자도 본다');
+  assert.deepEqual([...new Set(outside(w).map(c => c.url))].sort(), ['https://www.laborplus.co.kr/robots.txt', s.lists[0]].sort(), '읽은 주소는 그 매체 robots.txt와 피드뿐(글 쪽은 수집 때 안 읽음)');
+});
+
+test('노동과세계(httpsLinks): 피드는 https, 글 링크 http는 같은 호스트만 https로 받는다 — http 주소는 요청하지 않고, 다른 호스트·포트 붙은 http 링크는 빠진다', async () => {
+  const s = C.newsSourceByKey('news-worknworld');
+  const feed = rssOf([
+    rItem('합성 노동 기사 하나', 'http://worknworld.kctu.org/news/articleView.html?idxno=1'),
+    rItem('합성 노동 기사 둘', '<![CDATA[http://worknworld.kctu.org/news/articleView.html?idxno=2]]>'),
+    rItem('합성 노동 기사 셋', 'https://worknworld.kctu.org/news/articleView.html?idxno=3'),
+    rItem('합성 남의 기사', 'http://other.example.org/news/4'),
+    rItem('합성 포트 기사', 'http://worknworld.kctu.org:8080/news/5'),
+    `<item><title>합성 guid 기사</title><guid>http://WORKNWORLD.kctu.org/news/articleView.html?idxno=6</guid></item>`,
+  ]);
+  const w = world({
+    sources: [{workspace_id: WS1, source_key: 'news-worknworld', enabled: true}], keywords: [],
+    sites: {'https://worknworld.kctu.org/robots.txt': {body: 'User-agent: *\nDisallow: /admin/\n'}, [s.lists[0]]: {body: feed, type: 'application/xml'}},
+  });
+  const out = await w.cron({step: 'media', source: 'news-worknworld'});
+  assert.deepEqual([out.status, out.raw, out.listed, out.inserted], ['ok', 6, 4, 4]);
+  assert.deepEqual(posted(w).map(r => r.url), [1, 2, 3, 6].map(n => `https://worknworld.kctu.org/news/articleView.html?idxno=${n}`));
+  assert.ok(outside(w).every(c => c.url.startsWith('https://worknworld.kctu.org/')), 'http 주소·남의 호스트는 요청하지 않음');
+  // 바꾸기는 그 매체 hosts의 글 링크만: 설정이 없는 매체 글은 그대로, 다른 호스트는 그대로(그래서 http면 주소 검사에서 빠진다).
+  const khan = C.newsSourceByKey('news-khan');
+  const x = rssOf([rItem('a', 'http://www.khan.co.kr/a/1')]);
+  assert.equal(H.httpsLinkXml(khan, x), x);
+  assert.equal(H.httpsLinkXml(s, rssOf([rItem('a', 'http://evil.example/worknworld.kctu.org/1')])), rssOf([rItem('a', 'http://evil.example/worknworld.kctu.org/1')]));
+  assert.equal(H.httpsLinkXml(s, rssOf([rItem('a', 'http://worknworld.kctu.org.evil.example/1')])), rssOf([rItem('a', 'http://worknworld.kctu.org.evil.example/1')]));
+  assert.equal(H.httpsLinkXml(s, '<feed><link href="http://worknworld.kctu.org/a/1"/></feed>'), '<feed><link href="https://worknworld.kctu.org/a/1"/></feed>');
+  // 카탈로그 줄의 http 허용(httpHosts)은 없다 — 수집기는 https만 읽는다.
+  assert.equal(s.httpHosts, undefined);
+  assert.equal(O.allowedUrl(s, 'http://worknworld.kctu.org/news/articleView.html?idxno=1'), null);
+});
+
+test('머니투데이: 피드 호스트 robots.txt가 허용 호스트(https)의 없는 쪽(404)으로 넘기면 robots.txt 없음(전부 허용)으로 보고 읽는다, http로 넘기면 따라가지 않는다', async () => {
+  const s = C.newsSourceByKey('news-mt');
+  const feed = rssOf([rItem('합성 경제 기사', 'https://www.mt.co.kr/economy/2026/11/08/2026110800001', '합성 소개')]);
+  const run = async robots => {
+    const w = world({sources: [{workspace_id: WS1, source_key: 'news-mt', enabled: true}], keywords: [],
+      sites: {'https://rss.mt.co.kr/robots.txt': {status: 301, headers: {location: robots}, body: ''}, 'https://www.mt.co.kr/robots.txt': {status: 404, body: ''},
+        [s.lists[0]]: {body: feed, type: 'application/xml'}}});
+    return [await w.cron({step: 'media', source: 'news-mt'}), w];
+  };
+  const [ok, w1] = await run('https://www.mt.co.kr/robots.txt');
+  assert.deepEqual([ok.status, ok.raw, ok.listed, ok.inserted], ['ok', 1, 1, 1]);
+  assert.deepEqual(outside(w1).map(c => c.url), ['https://rss.mt.co.kr/robots.txt', 'https://www.mt.co.kr/robots.txt', s.lists[0]]);
+  assert.equal(posted(w1)[0].url, 'https://www.mt.co.kr/economy/2026/11/08/2026110800001');
+  // http로 넘기거나 허용 밖 호스트로 넘기면 robots.txt를 못 읽은 것 — 피드를 읽지 않는다(우회 없음).
+  for (const bad of ['http://www.mt.co.kr/robots.txt', 'https://elsewhere.example.org/robots.txt']) {
+    const [no, w2] = await run(bad);
+    assert.deepEqual([no.status, no.inserted], ['robots_unreachable', 0], bad);
+    assert.deepEqual(outside(w2).map(c => c.url), ['https://rss.mt.co.kr/robots.txt'], bad);
   }
-  // 읽은 주소: 구글 뉴스 robots.txt와 검색 RSS뿐. 중계 주소(글 쪽)·매체 사이트는 요청하지 않는다.
-  assert.deepEqual([...new Set(outside(w).map(c => new URL(c.url).origin + new URL(c.url).pathname))].sort(), ['https://news.google.com/robots.txt', 'https://news.google.com/rss/search']);
-  // 본문 줄: '못 읽음(relay)' 한 줄(요청 없음) — 화면은 제목·매체·날짜와 [원문]만 보인다.
-  const bodies = w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_feed_bodies')).flatMap(c => c.body);
-  assert.deepEqual(bodies.map(b => [b.news_item_id, b.workspace_id, b.state, b.reason]), [[BODYLESS, WS1, 'failed', 'relay']]);
-  assert.equal(w.calls.filter(c => c.method === 'PATCH' && c.url.includes('/rest/v1/app_news_items')).length, 0, '기사 줄 상태는 건드리지 않음');
 });
 
-test('구글 뉴스 매체 단위: robots.txt가 막으면 읽지 않는다(우회 없음)', async () => {
-  const s = C.newsSourceByKey('news-newsmin');
-  const sites = gSites(s, [gItem(1, '합성 기사', ' - 뉴스민')]);
-  sites['https://news.google.com/robots.txt'] = {body: 'User-agent: *\nDisallow: /\n'};
-  const w = world({sources: [{workspace_id: WS1, source_key: 'news-newsmin', enabled: true}], keywords: [], sites});
-  const out = await w.cron({step: 'media', source: 'news-newsmin'});
-  assert.deepEqual([out.status, out.raw, out.inserted], ['robots', 0, 0]);
-  assert.deepEqual(outside(w).map(c => new URL(c.url).pathname), ['/robots.txt']);
-});
-
-test('겹침: 같은 글이 키워드 찾기(같은 중계 주소)나 RSS(같은 제목)로 이미 들어와 있으면 다시 넣지 않는다', async () => {
-  const s = C.newsSourceByKey('news-mediatoday');
-  const link1 = 'https://news.google.com/rss/articles/SYN1?oc=5';
-  // 주소 열쇠는 키워드 찾기와 같은 계산(urlKey) — 같은 중계 주소면 같은 열쇠. 제목 열쇠는 끝 ' - 매체'를 떼므로 RSS 제목과 구글 제목이 같은 열쇠가 된다.
-  assert.equal(PG.titleKey('합성 둘째 기사 - 미디어오늘'), PG.titleKey('합성 둘째 기사'));
-  const w = world({
-    sources: [{workspace_id: WS1, source_key: 'news-mediatoday', enabled: true}, {workspace_id: WS2, source_key: 'news-mediatoday', enabled: true}], keywords: [],
-    sites: gSites(s, [gItem(1, '합성 첫째 기사'), gItem(2, '합성 둘째 기사'), gItem(3, '합성 셋째 기사'), gItem(3, '합성 셋째 기사')]),
-    have: [{workspace_id: WS1, url_key: U.urlKey(link1)}, {workspace_id: WS1, title_key: PG.titleKey('합성 둘째 기사')}], // WS1에는 첫째(키워드로)·둘째(RSS로)가 이미 있다
-  });
-  const out = await w.cron({step: 'media', source: 'news-mediatoday'});
-  const rows = w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).flatMap(c => c.body);
-  assert.deepEqual(rows.map(r => [r.workspace_id, r.title]).sort(), [[WS1, '합성 셋째 기사'], [WS2, '합성 둘째 기사'], [WS2, '합성 셋째 기사'], [WS2, '합성 첫째 기사']].sort(),
-    'WS1은 새 글 하나만, 겹침이 없는 WS2는 셋 모두(피드 안 같은 글 두 번은 한 번)');
-  assert.equal(out.inserted, 4);
-  assert.equal(rows.find(r => r.workspace_id === WS2 && r.title === '합성 첫째 기사').url_key, U.urlKey(link1));
-});
-
-// ---- S58-9 NEWS-못넣은곳대안 뒤처리: 구글 뉴스 robots.txt의 실제 모양 -------------------------------------------------
-// 11/11 운영에서 매체 단위 14곳이 모두 'robots'·0건이었다. 구글 뉴스 robots.txt는 '전부 금지 + 짧은 허용 목록' 모양이고 /rss/ 허용 줄이 없다
-// (제3자 기록에 적힌 모양 — 원문 그대로는 아님, docs/design/news-google-site-robots.md 2.3). 위 시험들의 `Allow: /rss/`는 지어낸 글이다.
-// 이 모양에서 판정(robotsAllows)은 표준대로 '금지'다 — 해석 오류가 아니다. 매체 단위 줄도, 같은 경로를 쓰는 키워드 찾기도 검색 RSS를 요청하지 않는다(우회 없음).
+// ---- robots 판정은 그대로(S58-9에서 고정한 모양) ------------------------------------------------------------------------
+// 구글 뉴스 robots.txt 모양('전부 금지 + 짧은 허용 목록', /rss/ 허용 줄 없음 — 제3자 기록의 모양, docs/design/news-google-site-robots.md 2.3)에서
+// 검색 RSS는 표준대로 '금지'다. 이 길을 버린 까닭이 해석 오류가 아니라 실제 금지임을 판정 함수로 남겨 둔다.
 const GOOGLE_ROBOTS_SHAPE = 'User-agent: *\nDisallow: /\nAllow: /$\nAllow: /home\nAllow: /topics/\nAllow: /publications/\nAllow: /stories/\nAllow: /swg/\n';
-const pathOf = url => { const u = new URL(url); return u.pathname + u.search; };
-
-test('구글 뉴스 robots 모양(전부 금지 + 짧은 허용 목록): 검색 RSS는 금지 — 매체 단위 줄과 키워드 찾기가 같은 판정', async () => {
+test('robots 판정 그대로: 구글 뉴스 모양에서 검색 RSS는 금지, 허용 목록 경로만 열린다(가장 긴 규칙·$ 끝 표시)', async () => {
   const P = await import('../supabase/functions/outside-feed/parse.ts');
   const allows = path => P.robotsAllows(GOOGLE_ROBOTS_SHAPE, H.ROBOTS_AGENT, path);
-  // 허용 목록에 든 경로는 열린다: 가장 긴 규칙이 이기고(`Allow: /$`가 `Disallow: /`보다 길다) `$`는 끝 표시다.
   assert.deepEqual(['/', '/home', '/topics/x', '/stories/x?hl=ko'].map(allows), [true, true, true, true]);
-  // 검색 RSS는 허용 목록에 없다 → `Disallow: /` 하나만 맞는다. 검색어(물음표 뒤)가 무엇이든 같다.
-  assert.deepEqual(['/rss/search', '/rss/search?q=x', '/rss/articles/SYN1?oc=5', '/rss'].map(allows), [false, false, false, false]);
-  const sites = C.NEWS_CATALOG.filter(s => C.isGoogleSite(s));
-  assert.equal(sites.length, Object.keys(GOOGLE_SITES).length);
-  for (const s of sites) assert.equal(allows(pathOf(s.lists[0])), false, `${s.key}: 매체 단위 줄`);
-  for (const word of ['합성어', 'synthetic word', '합성 "따옴표"']) assert.equal(allows(pathOf(C.googleNewsUrl(word))), false, `키워드 찾기: ${word}`);
-  // 막는 까닭은 해석이 아니라 /rss/ 허용 줄이 없어서다: 그 줄이 있는 글이면(`*` 묶음이든 우리 이름 묶음이든) 같은 판정 함수가 연다.
-  assert.equal(P.robotsAllows(GOOGLE_ROBOTS_SHAPE + 'Allow: /rss/\n', H.ROBOTS_AGENT, pathOf(sites[0].lists[0])), true);
-  assert.equal(P.robotsAllows(GOOGLE_ROBOTS_SHAPE + '\nUser-agent: Web2NewsFeed\nAllow: /rss/search\nDisallow: /\n', H.ROBOTS_AGENT, pathOf(C.googleNewsUrl('합성어'))), true);
-  // 수집기 이름을 바꿔 다른 묶음을 타는 길은 없다: 판정에 쓰는 이름은 한 값이다.
+  assert.deepEqual(['/rss/search', '/rss/search?q=site:example.org%20when:1d', '/rss/articles/SYN1?oc=5', '/rss'].map(allows), [false, false, false, false]);
+  assert.equal(P.robotsAllows(GOOGLE_ROBOTS_SHAPE + 'Allow: /rss/\n', H.ROBOTS_AGENT, '/rss/search?q=x'), true, '막는 까닭은 /rss/ 허용 줄이 없어서다');
   assert.equal(H.ROBOTS_AGENT, 'Web2NewsFeed');
 });
 
-test('구글 뉴스 robots 모양: 매체 단계는 robots로 적고 검색 RSS를 요청하지 않는다, 키워드 단계도 요청하지 않고 그 실행의 키워드 읽기를 그만둔다', async () => {
-  const s = C.newsSourceByKey('news-busan');
-  const feed = `<rss><channel>${gItem(1, '합성 기사', ' - 부산일보')}</channel></rss>`;
-  const sites = {'https://news.google.com/robots.txt': {body: GOOGLE_ROBOTS_SHAPE}, [s.lists[0]]: {body: feed, type: 'application/xml'},
-    [C.googleNewsUrl('합성어')]: {body: feed, type: 'application/xml'}, [C.googleNewsUrl('둘째말')]: {body: feed, type: 'application/xml'}};
-  // 매체 단계: 실패 까닭이 그 매체 줄(last_error)에 남는다 — 화면 매체 선택 칸의 '읽지 못함'.
-  const m = world({sources: [{workspace_id: WS1, source_key: 'news-busan', enabled: true}], keywords: [], sites});
-  const out = await m.cron({step: 'media', source: 'news-busan'});
-  assert.deepEqual([out.status, out.raw, out.listed, out.inserted], ['robots', 0, 0, 0]);
-  assert.deepEqual(outside(m).map(c => pathOf(c.url)), ['/robots.txt'], 'robots.txt만 읽고 검색 RSS는 요청하지 않는다');
-  const patch = m.calls.filter(c => c.method === 'PATCH' && c.url.includes('/rest/v1/app_outside_sources'));
-  assert.deepEqual(patch.map(c => c.body), [{last_error: 'robots'}]);
-  assert.equal(m.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).length, 0);
-  // 키워드 단계: 같은 호스트·같은 경로라 같은 판정. 첫 키워드에서 막히면 나머지 키워드도 읽지 않는다(키워드 2개여도 robots.txt 한 번뿐).
-  const k = world({sources: [], keywords: [{workspace_id: WS1, word: '합성어'}, {workspace_id: WS1, word: '둘째말'}], sites});
-  const kout = await k.cron({step: 'keywords'});
-  assert.deepEqual([kout.ok, kout.step, kout.words, kout.inserted], [true, 'keywords', 1, 0]);
-  assert.deepEqual(outside(k).map(c => pathOf(c.url)), ['/robots.txt']);
-  assert.equal(k.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).length, 0);
+test('robots 판정 그대로: 매체 robots.txt가 피드 경로를 막으면(미디어오늘 모양 Disallow:/rss/) robots로 적고 피드를 요청하지 않는다', async () => {
+  const s = C.newsSourceByKey('news-redian');
+  const w = world({sources: [{workspace_id: WS1, source_key: 'news-redian', enabled: true}], keywords: [],
+    sites: {'https://www.redian.org/robots.txt': {body: 'User-agent: *\nDisallow:/rss/\n'}, [s.lists[0]]: {body: rssOf([rItem('합성', 'https://www.redian.org/a/1')]), type: 'application/xml'}}});
+  const out = await w.cron({step: 'media', source: 'news-redian'});
+  assert.deepEqual([out.status, out.raw, out.inserted], ['robots', 0, 0]);
+  assert.deepEqual(outside(w).map(c => new URL(c.url).pathname), ['/robots.txt']);
+  assert.deepEqual(w.calls.filter(c => c.method === 'PATCH' && c.url.includes('/rest/v1/app_outside_sources')).map(c => c.body), [{last_error: 'robots'}]);
 });
+
+// ---- S59-1 NEWS-키워드살리기: 키워드 단계는 받은 매체 글에 키워드를 적는다(밖으로 요청 없음) ------------------------------
+const M = (id, ws, title, keywords = [], more = {}) => ({id: `d0000000-0000-4000-8000-${String(id).padStart(12, '0')}`, workspace_id: ws, lane: 'media', title, title_ko: null, summary: null, keywords, created_at: '2026-11-07T00:00:00Z', ...more});
+const kwPatches = w => w.calls.filter(c => c.method === 'PATCH' && c.url.includes('/rest/v1/app_news_items'));
+const finalKeywords = w => {
+  const out = {};
+  for (const c of kwPatches(w)) {
+    const u = new URL(c.url);
+    for (const id of u.searchParams.get('id').replace(/^in\.\(|\)$/g, '').split(',')) out[id] = [u.searchParams.get('workspace_id'), u.searchParams.get('lane'), c.body.keywords];
+  }
+  return out;
+};
+
+test('키워드 단계: 밖으로 요청하지 않고, 최근 받은 매체 글에 켠 키워드를 적는다 — 새 키워드는 더하고 끈·지운 키워드는 빼며, 작업공간마다 자기 키워드만', async () => {
+  const media = [
+    M(1, WS1, '합성 철도 기사'), M(2, WS1, '합성 철도 파업 소식', ['철도']), M(3, WS1, '합성 날씨', ['옛말']), M(4, WS1, '합성 철도', ['철도']),
+    M(5, WS1, 'Synthetic strike', [], {title_ko: '합성 파업 번역 제목'}), M(6, WS1, '합성 제목', [], {summary: '요약에 철도'}),
+    M(7, WS2, '합성 버스 파업'), M(8, WS1, '합성 철도 옛 글', [], {created_at: '2026-10-20T00:00:00Z'}),
+  ];
+  const w = world({sources: [], keywords: [{workspace_id: WS1, word: '철도'}, {workspace_id: WS1, word: '파업'}, {workspace_id: WS2, word: '버스'}], sites: {}, media});
+  const out = await w.cron({step: 'keywords'});
+  assert.deepEqual(out, {ok: true, step: 'keywords', workspaces: 2, scanned: 7, done: 6, deferred: 0});
+  assert.equal(outside(w).length, 0, '구글 뉴스든 어디든 밖으로 요청하지 않는다');
+  const id = n => M(n).id;
+  assert.deepEqual(finalKeywords(w), {
+    [id(1)]: [`eq.${WS1}`, 'eq.media', ['철도']], [id(2)]: [`eq.${WS1}`, 'eq.media', ['철도', '파업']], [id(3)]: [`eq.${WS1}`, 'eq.media', []],
+    [id(5)]: [`eq.${WS1}`, 'eq.media', ['파업']], [id(6)]: [`eq.${WS1}`, 'eq.media', ['철도']], [id(7)]: [`eq.${WS2}`, 'eq.media', ['버스']],
+  }, '바뀌는 줄만(4는 그대로), 7일 넘은 글(8)은 보지 않음, 다른 작업공간 키워드(파업)는 WS2 글에 붙지 않음');
+  // 같은 결과끼리 한 번에(철도: 1·6 한 요청), 고치는 칸은 keywords·updated_at뿐, 매체 글(lane=media)·그 작업공간만.
+  assert.equal(kwPatches(w).length, 5);
+  for (const c of kwPatches(w)) assert.deepEqual(Object.keys(c.body).sort(), ['keywords', 'updated_at']);
+  const scans = w.calls.filter(c => c.method === 'GET' && c.url.includes('/rest/v1/app_news_items')).map(c => new URL(c.url).searchParams);
+  for (const q of scans) {
+    assert.equal(q.get('lane'), 'eq.media');
+    assert.equal(q.get('created_at'), `gte.${new Date(NOW - H.KEYWORD_SCAN_DAYS * 86400000).toISOString()}`);
+    assert.match(q.get('workspace_id'), /^eq\./);
+  }
+  assert.equal(H.KEYWORD_SCAN_DAYS, 7);
+});
+
+test('키워드 단계: 켠 키워드가 없는 작업공간(매체만 켬)은 표시가 남은 줄만 비운다(제목은 읽지 않음), 한 쪽이 꽉 차면 다음 쪽을 읽는다', async () => {
+  const w = world({sources: [{workspace_id: WS3, source_key: 'news-khan', enabled: true}], keywords: [], sites: {}, media: [M(9, WS3, '합성 철도', ['옛말']), M(10, WS3, '합성 날씨')]});
+  const out = await w.cron({step: 'keywords'});
+  assert.deepEqual([out.workspaces, out.done], [1, 1]);
+  const gets = w.calls.filter(c => c.method === 'GET' && c.url.includes('/rest/v1/app_news_items')).map(c => new URL(c.url).searchParams);
+  assert.deepEqual(gets.map(q => [q.get('keywords'), q.get('select')]), [['neq.{}', 'id']]);
+  assert.deepEqual(Object.values(finalKeywords(w)), [[`eq.${WS3}`, 'eq.media', []]]);
+  // 쪽 나누기: KEYWORD_SCAN_PAGE줄이 꽉 차면 다음 쪽(offset)을 읽는다.
+  const many = Array.from({length: H.KEYWORD_SCAN_PAGE + 3}, (_, i) => M(100 + i, WS1, `합성 ${i}`));
+  const p = world({sources: [], keywords: [{workspace_id: WS1, word: '철도'}], sites: {}, media: many});
+  const pout = await p.cron({step: 'keywords'});
+  assert.equal(pout.scanned, H.KEYWORD_SCAN_PAGE + 3);
+  assert.deepEqual(p.calls.filter(c => c.method === 'GET' && c.url.includes('/rest/v1/app_news_items')).map(c => new URL(c.url).searchParams.get('offset')), ['0', String(H.KEYWORD_SCAN_PAGE)]);
+  assert.equal(pout.done, 0);
+});
+
+test('키워드 낱말 고르기: 작업공간마다 먼저 넣은 30개까지·같은 낱말 한 번, 글 한 건에는 10개까지(DB 검사)', () => {
+  const rows = [...Array.from({length: 35}, (_, i) => ({workspace_id: WS1, word: `낱말${i}`})), {workspace_id: WS1, word: '낱말0'}, {workspace_id: 'bad', word: 'x'}, {workspace_id: WS2, word: 7}];
+  const m = H.keywordsByWorkspace(rows);
+  assert.equal(m.get(WS1).length, H.KEYWORDS_PER_WORKSPACE);
+  assert.deepEqual(m.get(WS1).slice(0, 2), ['낱말0', '낱말1']);
+  assert.deepEqual([...m.keys()], [WS1]);
+  const words = Array.from({length: 12}, (_, i) => `w${i}`);
+  assert.equal(H.keywordHits(words.join(' '), words).length, H.KEYWORDS_PER_ITEM);
+  assert.equal(H.KEYWORDS_PER_ITEM, 10);
+  assert.deepEqual(H.keywordHits('아무 글', []), []);
+});
+
 
 // ---- S57-13 덧붙임(11/11 '제목만이라도') 전수: 글 링크가 남의 매체로 가는 피드도 기사 줄은 남긴다 ---------------------
 test('남의 매체 링크 피드(LabourStart): 기사 줄(제목·날짜·링크)은 남기고 글 쪽은 읽지 않는다 — https 공개 호스트 링크만', async () => {

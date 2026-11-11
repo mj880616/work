@@ -2,11 +2,13 @@
 // 서버(news-feed)가 '자동'으로 읽는 주소는 이 목록뿐이다. 화면·요청 몸통은 주소를 보낼 수 없고 매체 키만 고른다(SSRF 차단).
 // 모양은 바깥 성명 카탈로그(OutsideSource)와 같아서 RSS 해석·주소 검사(parseFeed·allowedUrl)를 그대로 함께 쓴다.
 // 키는 app_outside_sources에 'news-' 앞머리로 들어간다(사회운동 Now 단체 키와 섞이지 않음).
-// 넣은 것: 설계 3절에서 RSS 주소가 [사실]로 확인된 곳은 자기 RSS로. 나머지([추정]·RSS 없음·robots 막힘·https 아님·봇 확인)는
-//   구글 뉴스 매체 단위 줄(google: 도메인, S57-13 — 설계 3.1g)로 받는다. 그 전에는 키워드(구글 뉴스 RSS)에 걸린 글만 들어왔다(N8).
-//   robots.txt는 수집기가 실행 때마다 직접 읽고 막혀 있으면 건너뛴다(우회 없음).
-// 뺀 것(결정): 네이버 검색 API(약관상 AI 요약·자동 수집 금지 — 쓰지 않음), Equal Times(발행 중단), AP·Reuters·NHK·共同通信(노동 분야 공개 피드 확인 못 함 → 키워드로만, N10),
+// 넣은 것: 설계 3절에서 RSS 주소가 [사실]로 확인된 곳만 자기 RSS로 받는다. robots.txt는 수집기가 실행 때마다 직접 읽고 막혀 있으면 건너뛴다(우회 없음).
+// 뺀 것(결정): 네이버 검색 API(약관상 AI 요약·자동 수집 금지 — 쓰지 않음), Equal Times(발행 중단), AP·Reuters·NHK·共同通信(노동 분야 공개 피드 확인 못 함, N10),
 //   정책브리핑(RSS 중단 — 공식 API 서비스 키가 생기면 별도 PR, N9).
+//   구글 뉴스 검색 RSS(키워드 찾기·매체 단위 site: 줄, S57-13): 구글 뉴스 robots.txt가 검색 RSS(/rss/search)를 금지한다(S58-9 #2393, docs/design/news-google-site-robots.md).
+//   11/11 명진 결정(S59-1): 그 길은 버린다 — 길이 있는 매체는 자기 RSS로 옮기고(5차), 길이 없는 8곳은 카탈로그에서 뺐다(이데일리·미디어오늘·경기일보·경인일보·뉴스1·
+//   부산일보·국제신문·영남일보). 그 매체의 이미 받은 글·켬 설정 줄(app_outside_sources)은 지우지 않는다 — 카탈로그 밖 키는 수집기·화면이 건너뛴다.
+//   키워드는 밖에서 새로 찾지 않고 이미 받은 글에서 글자를 맞춘다(news-feed runKeywords, matchedKeywords).
 // 새 매체는 여기 한 줄 더하는 작은 PR로만 넣는다(Edge 재배포 정지 지점).
 import type { OutsideSource } from "./outside-catalog.ts";
 
@@ -19,31 +21,13 @@ import type { OutsideSource } from "./outside-catalog.ts";
 // @2(S51-9): 흔한 유료벽 검사를 좁힘(문구는 본문 칸 안만, class는 정확히 `paywall`) + 본문 칸 고르기(빈 <article> 건너뛰기·폼 안 본문).
 export const OPEN_ARTICLE_RULE = Object.freeze({ version: 2 });
 export const OPEN_ARTICLE_KEY = "open";
-// google: 구글 뉴스 매체 단위 줄(S57-13, NEWS-못넣은곳대안 ②)의 매체 도메인. 이 값이 있으면 그 매체는 자기 RSS 대신
-//   구글 뉴스 검색 RSS를 `site:도메인`으로 읽는다(키워드와 상관없이 그 매체 글 전부). 읽는 주소는 news.google.com 검색 RSS 한 경로뿐이고,
-//   글 링크는 구글 중계 주소 그대로다(풀지 않음, N3) — 본문은 읽지 않고 제목·매체·날짜·링크만 남긴다(11/11 명진: 제목만이라도).
 // linkOut: 피드 글 링크가 남의 매체로 가는 피드(LabourStart). 글 줄은 남기되(제목·날짜·링크) 그 링크는 저장만 하고 읽지 않는다
 //   — 링크는 열린 주소 규칙(https 공개 호스트, openArticleUrl)을 통과한 것만, 수집기가 읽는 주소는 여전히 hosts뿐이다(S57-13 전수).
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; google?: string; linkOut?: true };
+// httpsLinks: 피드는 https로 열리는데 글 링크만 http로 적는 매체(노동과세계, S59-1). 그 매체 hosts의 글 링크만 https로 바꿔 받는다.
+//   수집기는 http 주소를 요청하지 않는다(https 원칙 그대로) — 바꾼 주소도 주소 검사(allowedUrl)를 그대로 받고, 사이트가 http로 넘기면 따라가지 않는다.
+export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true };
 
 const article = () => "article" as const;
-
-// 구글 뉴스 검색 RSS(키워드 찾기·매체 단위 줄이 함께 쓰는 한 호스트·한 경로). 검색어는 서버가 만든다(화면은 주소를 보내지 않음).
-export const GOOGLE_NEWS_HOST = "news.google.com";
-const googleSearchUrl = (q: string) => `https://${GOOGLE_NEWS_HOST}/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
-// 매체 단위: `site:도메인 when:1d`(하루치 — 수집은 하루 3번이라 겹쳐 읽고, 겹친 글은 주소·제목으로 거른다). 도메인은 카탈로그 글자만(영문 소문자·숫자·점·줄표).
-export function googleSiteUrl(domain: string): string {
-  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) throw new Error("news-catalog: bad google site domain");
-  return googleSearchUrl(`site:${domain} when:1d`);
-}
-// 매체 단위 구글 뉴스 줄 한 개(키만 뺀 나머지). 규칙은 다른 국내 매체와 같다: take 'all'·기본 켬·extract:false. 매체 이름은 카탈로그 name으로 통일한다
-//   (구글 제목 끝 ' - 매체'는 떼어 낸다 — 목록의 매체 이름·도배막기 묶음·색이 RSS 매체와 같은 길로 간다).
-//   키는 줄마다 `{ key: "news-…", ...googleSite(…) }`로 글자 그대로 적는다(영문 소문자·줄표만): 색 표 시험(tests/news-colors.test.mjs)처럼
-//   이 파일을 글자로 읽어 키를 찾는 검사가 있다 — 함수 인자로 키를 넘기면 그 검사가 키를 못 찾는다(#2365 뒤 main 시험이 그래서 깨졌다).
-const googleSite = (name: string, domain: string): Omit<NewsSource, "key"> => ({
-  name, group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
-  extract: false, google: domain, lists: [googleSiteUrl(domain)], hosts: [GOOGLE_NEWS_HOST], kindOf: article });
-export const isGoogleSite = (s: { google?: string } | null | undefined): boolean => typeof s?.google === "string" && s.google.length > 0;
 
 export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
@@ -152,10 +136,8 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   // ---- 4차(S56-54, 11/10 NEWS-다받기-새언론사). 같은 규칙: 매체 공식 'RSS 안내' 쪽에 [사실]로 나온 피드 주소만, take 'all'·기본 켬·extract:false.
   //   이 웹 세션은 WebSearch 결과로 나온 안내 쪽을 WebFetch로 열어 확인했다(설계 3.1f 표). 피드 실물은 뉴시스·서울경제 사회 피드만 열림 [사실],
   //   매일신문은 안내 쪽만 [사실]이고 피드·기사 호스트는 배포 뒤 probe(raw·listed)로 CC가 확인했다(11/11 운영: 뉴시스 271·서울경제 146·매일신문 254건 [사실]).
-  //   미디어오늘은 같이 넣었으나 그쪽 robots.txt가 수집기를 막아(수집 결과 'robots', 0건 [사실: 11/11 CC 운영 확인]) RSS 줄을 빼고 아래 5차 구글 뉴스 매체 단위 줄로 옮겼다.
+  //   미디어오늘은 같이 넣었으나 그쪽 robots.txt가 `*` 묶음에 `Disallow:/rss/`를 두어(수집 결과 'robots', 0건 [사실: 11/11 CC 운영·크롬 확인]) 카탈로그에서 뺐다(S59-1).
   //   'AI 학습 금지' 문구가 있는 서울경제도 넣는다 — 11/08 명진 결정(개인 용도)과 같은 기준.
-  // 미디어오늘(S57-13): 자기 RSS는 그쪽 robots.txt가 막아 구글 뉴스 매체 단위 줄로 옮김(아래 5차). 키와 자리(순서)는 그대로 둔다 — 켬·끔 설정과 다른 매체의 색 칸이 바뀌지 않게.
-  { key: "news-mediatoday", ...googleSite("미디어오늘", "mediatoday.co.kr") },
   { key: "news-newsis", name: "뉴시스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
     // 안내 쪽 www.newsis.com/RSS/ [사실, 11/10]. 사회 피드 열림(RSS 2.0·description 있음·기사 링크 https://www.newsis.com/view/…) [사실].
     // 조건: 하단 '무단 전재·복사·배포 금지', 피드 안 저작권 고지 줄 [사실]. 전체 피드는 없고 속보(sokbo)는 양이 많아 사회·경제·정치만.
@@ -187,31 +169,36 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     linkOut: true,
     extract: { version: 1 },
     lists: ["https://www.labourstart.org/rdf/labourstart.asia.rss"], hosts: ["www.labourstart.org", "labourstart.org"], kindOf: article },
-  // ---- 5차(S57-13, 11/11 NEWS-못넣은곳대안 ②): 자기 RSS로 못 넣는 곳은 구글 뉴스 매체 단위(site:도메인)로 받는다.
-  //   지금 키워드 찾기(news-google)와 같은 길(검색 RSS 한 경로, robots.txt 먼저) — 새 서버 부품 없음. 키워드와 상관없이 그 매체 글 전부.
-  //   한계: 구글 뉴스가 색인한 글만, 늦을 수 있음, 한 번에 많아야 100건, 링크가 구글 경유(본문은 읽지 않음 — 제목·매체·날짜·[원문]만).
-  //   같은 글이 키워드 찾기로 먼저 들어와 있으면 주소·제목 겹침 거르기(insertNew)로 한 줄만 남는다.
-  //   자리: 카탈로그 맨 끝에 더한다 — 앞선 매체의 순서를 바꾸지 않는다(고정 색이 없는 매체는 카탈로그 순서로 색 칸이 정해진다, app/news-colors.mjs). 매체 고르기 화면은 region으로 묶는다.
-  //   까닭(설계 3.1f): 미디어오늘 = robots.txt가 막음, 노동과세계 = https가 아님(http로 넘김), 뉴스민 = 봇 확인, 철도경제신문·부산일보 = 공식 RSS 없음.
-  //   ※ 11/11 운영 결과(S58-9, docs/design/news-google-site-robots.md): 구글 뉴스 robots.txt가 검색 RSS(/rss/search)를 금지해 이 길의 14곳(미디어오늘 포함)은
-  //   모두 'robots'·0건이다. 해석 오류가 아니라 실제 금지이고 같은 경로를 쓰는 키워드 찾기도 같다. robots는 무시하지 않는다 — 이 길로 새 매체를 더 넣지 않는다.
-  //   줄을 빼거나 자기 RSS 줄로 바꾸는 것은 그 문서 6절의 결정·확인 뒤에 한다(이 주석만 더했고 동작은 그대로다).
-  { key: "news-worknworld", ...googleSite("노동과세계", "worknworld.kctu.org") },
-  { key: "news-newsmin", ...googleSite("뉴스민", "newsmin.co.kr") },
-  { key: "news-redaily", ...googleSite("철도경제신문", "redaily.co.kr") },
-  { key: "news-busan", ...googleSite("부산일보", "busan.com") },
-  //   ① 다시 확인(11/11, 이 세션 WebFetch)에서도 RSS로 못 넣은 9곳 — 공식 RSS 링크가 없거나(뉴스1·머니투데이·국제신문·경기일보·경인일보·영남일보·레디앙 [사실]),
-  //   있어도 이 세션에서 안내 쪽·피드·robots.txt를 열지 못함(참여와혁신 rssIndex.html, 이데일리 하단 RSS 링크는 http 주소 [사실]).
-  //   CC가 크롬으로 피드·robots를 확인하면 그 매체만 자기 RSS 줄로 바꾸는 작은 PR(키는 그대로 두면 켬·끔 설정이 유지된다).
-  { key: "news-laborplus", ...googleSite("참여와혁신", "laborplus.co.kr") },
-  { key: "news-redian", ...googleSite("레디앙", "redian.org") },
-  { key: "news-newsone", ...googleSite("뉴스1", "news1.kr") },
-  { key: "news-edaily", ...googleSite("이데일리", "edaily.co.kr") },
-  { key: "news-mt", ...googleSite("머니투데이", "mt.co.kr") },
-  { key: "news-kookje", ...googleSite("국제신문", "kookje.co.kr") },
-  { key: "news-kyeonggi", ...googleSite("경기일보", "kyeonggi.com") },
-  { key: "news-kyeongin", ...googleSite("경인일보", "kyeongin.com") },
-  { key: "news-yeongnam", ...googleSite("영남일보", "yeongnam.com") },
+  // ---- 5차(S59-1, 11/11 NEWS-못넣은곳대안 뒤처리). 11/11 15:25~15:40 CC가 크롬으로 robots.txt(`User-agent: *` 묶음)와 피드를 직접 열어 확인한 6곳 [사실].
+  //   S57-13에서 구글 뉴스 매체 단위 줄로 넣었던 매체를 자기 RSS 줄로 바꿨다(구글 뉴스 길은 robots 금지 — 위 머리 주석). 키와 자리(순서)는 그대로 — 켬·끔 설정과 색이 그대로다.
+  //   규칙은 4차와 같다: take 'all'·기본 켬·extract:false(수집 때 글 쪽은 읽지 않음 — 제목·소개·날짜·링크만, 11/11 '제목만이라도').
+  //   매체가 'RSS 안내' 쪽을 두지 않은 피드(레디앙·철도경제신문·머니투데이)도 확인 뒤 넣는다 — 11/11 명진 결정("ㅇㅇ").
+  { key: "news-worknworld", name: "노동과세계", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // robots `/admin/`만 금지 [사실]. 피드는 https로 열림(50건) [사실], 글 링크는 http://worknworld.kctu.org/… [사실] → httpsLinks로 같은 호스트 링크만 https로 받는다.
+    extract: false, httpsLinks: true,
+    lists: ["https://worknworld.kctu.org/rss/allArticle.xml"], hosts: ["worknworld.kctu.org"], kindOf: article },
+  { key: "news-newsmin", name: "뉴스민", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // robots `*` Allow: / [사실]. 워드프레스 피드가 쿠키 없이 열림(12건, 글 링크 https://www.newsmin.co.kr/news/숫자/) [사실: 크롬].
+    // 기사 쪽은 봇 확인(쿠키 확인 뒤 넘기는 빈 쪽)이 있었다 [기록] — 서버에서 피드도 그 확인에 걸리는지는 배포 뒤 probe(raw)로 본다. 봇 확인은 풀지 않는다.
+    extract: false,
+    lists: ["https://www.newsmin.co.kr/news/feed/"], hosts: ["www.newsmin.co.kr", "newsmin.co.kr"], kindOf: article },
+  { key: "news-redaily", name: "철도경제신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // robots `/admin/`만(GPTBot만 전체 금지 — 우리 이름은 `*` 묶음) [사실]. 피드 50건·글 링크 https [사실]. 유료 기사도 제목·링크는 받는다.
+    extract: false,
+    lists: ["https://www.redaily.co.kr/rss/allArticle.xml"], hosts: ["www.redaily.co.kr", "redaily.co.kr"], kindOf: article },
+  { key: "news-laborplus", name: "참여와혁신", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // 홈 하단 공식 RSS 링크(rssIndex.html) [사실]. robots `/admin/`만 [사실]. 전체 피드 50건·글 링크 https://www.laborplus.co.kr/… [사실].
+    extract: false,
+    lists: ["https://www.laborplus.co.kr/rss/allArticle.xml"], hosts: ["www.laborplus.co.kr", "laborplus.co.kr"], kindOf: article },
+  { key: "news-redian", name: "레디앙", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // robots `/admin/`만 [사실]. 전체 피드 50건·글 링크 https [사실].
+    extract: false,
+    lists: ["https://www.redian.org/rss/allArticle.xml"], hosts: ["www.redian.org", "redian.org"], kindOf: article },
+  { key: "news-mt", name: "머니투데이", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+    // 피드 https://rss.mt.co.kr/mt_news.xml 살아 있음, 글 링크 https://www.mt.co.kr/… [사실]. rss.mt.co.kr/robots.txt는 www.mt.co.kr의 없는 쪽(404)으로 넘긴다 [사실]:
+    // 수집기는 허용 호스트(https) 안의 넘김만 따라가고, 따라간 끝이 404면 robots.txt가 없는 것(전부 허용)으로 본다(feed-fetch readRobots, 표준 RFC 9309). 하루 글이 많다(약 560건).
+    extract: false,
+    lists: ["https://rss.mt.co.kr/mt_news.xml"], hosts: ["rss.mt.co.kr", "www.mt.co.kr", "mt.co.kr"], kindOf: article },
 ] as NewsSource[]);
 
 export const NEWS_SOURCE_KEYS: readonly string[] = Object.freeze(NEWS_CATALOG.map((s) => s.key));
@@ -222,19 +209,8 @@ export function publicNewsCatalog() {
   return NEWS_CATALOG.map((s) => ({ key: s.key, name: s.name, region: s.region, lang: s.lang, on: s.on === true }));
 }
 
-// 키워드 찾기: 구글 뉴스 검색 RSS 한 호스트·한 경로만. 검색어는 서버가 키워드로 만든다(화면은 주소를 보내지 않음).
-// 링크는 구글 중계 주소 그대로 둔다(풀지 않음, N3). 누르면 브라우저가 원문으로 넘어간다.
-export const GOOGLE_NEWS: OutsideSource = Object.freeze({
-  key: "news-google", name: "구글 뉴스", group: "foreign", lang: "ko", mode: "rss",
-  // 중계 주소는 읽지 않는다(N3) — 본문은 failed/relay.
-  extract: false,
-  lists: [], hosts: [GOOGLE_NEWS_HOST], kindOf: article,
-}) as OutsideSource;
-export function googleNewsUrl(word: string): string {
-  return googleSearchUrl(`"${word.replace(/"/g, " ").trim()}" when:1d`);
-}
-
-// take=keywords 매체(종합지·방송사)의 글 거르기: 제목+소개에 키워드 낱말이 글자 그대로 들어 있으면 통과(AI 없이 글자 일치, 대소문자·앞뒤 공백 무시).
+// 키워드 글자 맞추기(AI 없이 글자 일치, 대소문자·앞뒤 공백 무시): 제목+소개에 키워드 낱말이 글자 그대로 들어 있으면 그 낱말.
+// 쓰는 곳: take=keywords 매체의 글 거르기, 받은 글의 키워드 표시(news-feed runMedia·runKeywords, S59-1 — 키워드 찾기는 이것뿐이다).
 export function matchedKeywords(text: string, words: readonly string[]): string[] {
   const hay = text.toLowerCase();
   const out: string[] = [];

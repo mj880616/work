@@ -162,23 +162,15 @@ const SAMPLES={
  'news-sbs':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-nocut':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-chosun':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-mediatoday':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-newsis':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-sedaily':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-imaeil':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-worknworld':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-newsmin':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-redaily':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-busan':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-laborplus':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-redian':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-newsone':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-edaily':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-mt':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-kookje':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-kyeonggi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-kyeongin':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
- 'news-yeongnam':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-psi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-itf':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-labourstart':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
@@ -191,7 +183,7 @@ test('every catalog source has an extract rule and a sample (전수)',()=>{
   assert.ok(s.extract===false||(s.extract&&Number.isInteger(s.extract.version)&&s.extract.version>=1),`${s.key} extract`);
   assert.ok(E.ruleId(s.key,s.extract||{version:1}),`${s.key} rule id`);
  }
- assert.equal(NC.GOOGLE_NEWS.extract,false,'구글 중계 주소는 읽지 않음(relay)');
+ assert.equal(NC.GOOGLE_NEWS,undefined,'구글 뉴스 검색 길은 없다(robots 금지, S59-1)');
  for(const k of keys)assert.ok(SAMPLES[k]||TELEGRAM[k],`견본 없음: ${k}`);
  assert.deepEqual(Object.keys(SAMPLES).filter(k=>!keys.includes(k)),[]);
 });
