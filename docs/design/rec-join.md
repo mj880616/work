@@ -96,8 +96,8 @@ S57-22 설계(문서 전용, 코드는 고치지 않음). 요청함 11/11 11:27 
 
 ### 1-5. 보고 ⋯ 메뉴가 뜨는 곳
 
-- 메뉴 정의는 한 곳: `mrdEnsureMoreMenu()`(`app/meeting-round-detail.js` 73~81줄). 항목은 [수정]·[종류 바꾸기]·[삭제].
-- 목록 우클릭(`meetingListMenu`, `app/team.js` 394~396줄)·달력과 사진 보기 우클릭(`reportViewMenu`, 383~389줄)은 모두 `openReportMenuAt`(377줄~)으로 모여 상세 창의 그 ⋯ 메뉴를 누른 자리에 띄운다. 그래서 **한 곳에 항목을 더하면 세 곳에 다 뜬다.**
+- 메뉴 정의는 한 곳: `mrdEnsureMoreMenu()`(`app/meeting-round-detail.js` 79~88줄). 항목은 [수정]·[종류 바꾸기]·[삭제].
+- 목록 우클릭(`meetingListMenu` → `openReportMenuAt`, `app/team.js`)은 오른쪽 칸에 앉은 상세 창의 그 ⋯ 메뉴를, 달력과 사진 보기 우클릭(`reportViewMenu` → `KPTUMeetingRoundDetail.menuAt`, S58-16)은 창을 열지 않고 같은 메뉴(`mrdEnsureMoreMenu`)를 누른 자리에 띄운다. 그래서 **한 곳에 항목을 더하면 세 곳에 다 뜬다**(창 밖 메뉴의 주인 보고는 `mrdMenuMeeting(trigger)`로 고른다).
 - 요청함이 '진행 중'이라고 적은 #2370(달력 우클릭)은 이 기준선에 이미 들어와 있다(`f5d826f`). 줄 세울 필요가 없다.
 - 시안 ④의 메뉴 그림은 [고치기]로 그렸지만 실제 항목 이름은 [수정]이다. 이름은 바꾸지 않고 [다른 보고에 합치기]만 더한다.
 
