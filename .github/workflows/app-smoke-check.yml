@@ -643,6 +643,8 @@ jobs:
         run: node --test tests/files-tree-menu.test.mjs
       - name: S51-27 PC 우클릭 달력 메뉴 항목·공용 줄 메뉴 시험
         run: node --test tests/calendar-row-menu.test.mjs
+      - name: S57-20 BIZ-보고할일정 규칙 모듈·읽고 쓰는 길(서버 저장만) 시험
+        run: node --test tests/report-plan-model.test.mjs tests/report-plan-data.test.mjs
       - name: NOTE-탐색기 후속 선택 상태·위치 줄 공용 부품 시험
         run: node --test tests/select-mode-folder-path.test.mjs
       - name: S51-22 '최근' 상자 접기(서버 기억·머리 줄 ▴▾) 시험

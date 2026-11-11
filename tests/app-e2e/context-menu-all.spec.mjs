@@ -152,6 +152,10 @@ async function openCalendar(page, { calendarId = 'source', view = 'week' } = {})
   const chip = page.locator('#calendarWeek [data-google-event="ctx-event"]').first();
   await expect(chip).toBeVisible();
   await expect.poll(() => page.evaluate(() => !!window.__KPTU_CALENDAR_CONTEXT_MENU__ && !!window.KPTUCalendarEvents?.act)).toBe(true);
+  // S57-20 BIZ-보고할일정: this fake server answers the report-plan table read with an empty list (a server that has the table),
+  // so once that read is done the event menu carries [보고할 일정]. Wait for it so the menu is the same on every run.
+  // (A server without the table keeps the old menu: report-plan-toggle.spec.mjs.)
+  await expect.poll(() => page.evaluate(id => window.KPTUCalendarEvents.planOf('ctx-event', id) !== null, calendarId)).toBe(true);
   return { state, chip };
 }
 const eventMenu = page => page.locator('#rowMenu');
@@ -163,7 +167,7 @@ test('1280 calendar: right-click on an event opens the small menu at the pointer
   await page.mouse.move(x, y); await page.mouse.click(x, y, { button: 'right' });
   const menu = eventMenu(page);
   await expect(menu).toBeVisible();
-  expect(await labels(menu)).toEqual(['수정', '담당조직 연결', '결과 남기기', '삭제']);
+  expect(await labels(menu)).toEqual(['수정', '보고할 일정', '담당조직 연결', '결과 남기기', '삭제']);
   const m = await menu.boundingBox();
   expect(Math.abs(m.x - x)).toBeLessThanOrEqual(12);
   await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
@@ -188,10 +192,13 @@ test('1280 calendar: [삭제] (맨 아래) asks first; cancel keeps the event, O
   expect(state.writes[0]).toMatchObject({ action: 'delete-event', calendar_id: 'source', event_id: 'ctx-event' });
 });
 
-test('1280 calendar: a read-only calendar offers [열기] only', async ({ page }) => {
-  const { chip } = await openCalendar(page, { calendarId: 'read-only' });
+// S57-20: the Google event itself still cannot be changed from here ([수정]·[담당조직 연결]·[결과 남기기]·[삭제] stay away);
+// [보고할 일정] is a Web2-only mark kept on the Web2 server, so it is offered on a read-only calendar too.
+test('1280 calendar: a read-only calendar offers [열기] and the Web2-only [보고할 일정], nothing that changes the Google event', async ({ page }) => {
+  const { state, chip } = await openCalendar(page, { calendarId: 'read-only' });
   await chip.click({ button: 'right' });
-  expect(await labels(eventMenu(page))).toEqual(['열기']);
+  expect(await labels(eventMenu(page))).toEqual(['열기', '보고할 일정']);
+  expect(state.writes).toEqual([]);
 });
 
 test('390 calendar: right-click changes nothing (no event menu)', async ({ page }) => {
