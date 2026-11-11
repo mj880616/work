@@ -157,11 +157,14 @@ export const odDelete = (rt, id, {keepalive = false} = {}) => rt.api(OD_FN, {met
 
 // ---- PHOTO-사진메뉴 2차: 사진 메뉴 전용 서버 동작(Edge onedrive-photos, PR 1410). 모두 서버 색인을 읽고, 화면은 메모리에만 둔다. ----
 export const OD_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
+const OD_ID_RE = /^[A-Za-z0-9!_.-]{1,200}$/;
 const mediaOf = p => ({id: p.id, name: String(p.name || ''), taken_at: String(p.taken_at || ''), approx: p.approx === true,
   day: dayRe.test(p.day || '') ? p.day : '', kind: p.kind === 'video' ? 'video' : 'photo',
   width: Number.isFinite(p.width) ? p.width : null, height: Number.isFinite(p.height) ? p.height : null,
   duration_ms: Number.isFinite(p.duration_ms) ? p.duration_ms : null, screenshot: p.screenshot === true,
-  size_bytes: Number.isFinite(p.size_bytes) ? p.size_bytes : null, uploaded_at: typeof p.uploaded_at === 'string' ? p.uploaded_at : ''});
+  size_bytes: Number.isFinite(p.size_bytes) ? p.size_bytes : null, uploaded_at: typeof p.uploaded_at === 'string' ? p.uploaded_at : '',
+  // S59-12: 든 폴더 id(서버 folder, 원드라이브 항목 id 모양만). 옛 서버는 없음 → null('있는 곳' 폴더 모름).
+  folder: typeof p.folder === 'string' && OD_ID_RE.test(p.folder) ? p.folder : null});
 const filterBody = (filter, starIds) => ({filter: OD_FILTERS.includes(filter) ? filter : 'all', ...(starIds ? {star_ids: starIds} : {})});
 // 최신순 한 쪽: {items, next(다음 쪽 cursor 또는 null), indexing}.
 // folderId(사진 메뉴 ② 폴더 보기): 그 폴더 바로 안 사진만(꺼진 폴더도).
