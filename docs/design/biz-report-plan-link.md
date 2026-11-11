@@ -27,7 +27,7 @@
 
 | 무엇 | 지금 어디에 있나 | 근거 |
 | --- | --- | --- |
-| 일정 원본 | Google Calendar. Web2 DB에 일정 표는 없다. 화면은 `(calendarId, eventId)`로 일정을 가리킨다 | `app/calendar-context-menu.js` `addressOf`, Edge `google-calendar` |
+| 일정 원본 | Google Calendar. 옛 Web2 자체 일정 표(`app_events`)는 화면에서 걷어 내 쓰지 않는다(CAL-웹2일정삭제). 화면은 `(calendarId, eventId)`로 일정을 가리킨다 | `app/calendar-context-menu.js` `addressOf`, Edge `google-calendar` |
 | 일정 ↔ 담당조직 | Google 일정의 비공개 확장 속성(`kptu_suborg_ids`)에 조직 id 목록 | `supabase/functions/google-calendar/index.ts` `normEvent` |
 | 일정 ↔ 사업영역 | `app_project_milestones`의 `google_calendar_id`·`google_event_id` 짝(사업영역마다 한 행, 제목·시작 시각 사본 포함). 찾을 때는 `google_event_id`만으로 찾는다 | `20260925032810_add_project_milestone_google_linkage.sql`, `app/quick-save.js` `eventAreaRows` |
 | 사업 보고 | `app_meetings`(작업공간, 회의명 `series_name`·`title`, 일시 `meeting_at`, 칸 `activity_kind`, 장소, 참석인원, 사업영역, 휴지통 `deleted_at`) | `20261022182319`·`20261023023500`·`20261025100000`·`20261110231000` |
@@ -122,7 +122,9 @@
 | 이름 기억으로 저절로 □가 된 일정을 화면이 처음 봄 | 줄 `state=on, decided_by=rule`(이미 줄이 있으면 넣지 않음) |
 | 보고 저장([결과 남기기]·[보고 쓰기]) | 보고 줄에 `google_calendar_id`·`google_event_id` |
 
-- 줄이 있으면 고치고(PATCH), 없으면 넣는다(POST). 두 기기가 동시에 넣어 하나뿐 검사에 걸리면 다시 읽고 고친다.
+- 줄이 있으면 고치고(PATCH), 없으면 넣는다(POST). 두 기기가 동시에 넣어 하나뿐 검사에 걸리면 다시 읽고 고친다. '있으면 고치기'를 한 번에 하는 넣기(merge-duplicates)는 쓰지 못한다 — `workspace_id`·`google_event_id`를 고칠 권한이 없기 때문이다.
+- 저절로 켜진 줄(`rule`)을 끄거나 뺄 때는 `state`와 `decided_by=user`를 같이 보낸다(`rule`은 `on`만 되는 검사).
+- 제목 사본은 제어 글자(줄바꿈·탭)를 빈칸으로 바꾸고 300자에서 잘라 넣는다. 빈 제목은 화면이 이미 쓰는 '(제목 없음)'을 넣는다.
 - 저장은 모두 서버. 기기 한 곳 저장은 쓰지 않는다.
 
 ### 4-4. 안 쓴 보고(③)
