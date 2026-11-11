@@ -58,6 +58,8 @@ const addDoc=page=>page.locator('#ps3-documents .ps3-section-head').getByRole('b
 const noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
 const retryButton=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-action',{hasText:'다시'});
 const dock=page=>page.locator('#uploadDock:not([hidden])');
+// 최신화 길(version-notice.js)이 먼저 묻는 것: otherDraft가 켜지면 '저장하지 않은 내용이 있습니다…'를 묻는다.
+const reloadAsks=page=>page.evaluate(()=>{const detail={projectDraft:false,otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft});
 
 for(const width of [412,1280]){
   test(`프로젝트 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 중에 또 눌러도 열려 줄 서서 이어 올린다 ${width}`,async({page})=>{
@@ -72,6 +74,8 @@ for(const width of [412,1280]){
     await expect(page.locator('#documentModal')).toBeHidden();
     await expect.poll(()=>state.uploads.length).toBe(1);
     await expect(dock(page)).toContainText('파일 1개 올리는 중');
+    // 올리는 동안 최신화(새로고침)는 먼저 묻는다: 예전에는 창이 열려 있어 같은 물음이 떴다. 새로 고치면 줄에 선 파일이 알림 없이 사라진다.
+    expect(await reloadAsks(page)).toBe(true);
     // 올리는 중에 또 [+]: 거절 없이 같은 창이 이 사업영역으로 열린다.
     await addDoc(page).click();
     await expect(page.locator('#documentModal')).toBeVisible();
@@ -89,6 +93,7 @@ for(const width of [412,1280]){
     await expect(noticeLine(page)).toHaveText('둘째.pdf 올렸어요');
     expect(state.tables.app_documents.map(d=>d.project_id)).toEqual([P,P]);
     await expect(dock(page).locator('.up-dock-text')).not.toContainText('올리는 중');
+    await expect.poll(()=>reloadAsks(page)).toBe(false); // 줄이 끝났으면 묻지 않는다
   });
 }
 

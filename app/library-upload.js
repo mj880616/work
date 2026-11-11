@@ -64,7 +64,8 @@ const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
 let luEditSequence=0,luEditView=0,luEditor=null,luEditObservedScope=null;const luEditAttempts=new Map();
 // These tokens own only the lifetime of in-flight UI work, not deletion authority.
-window.addEventListener('kptu:before-reload',event=>{if(luUploadEntries.length&&!document.querySelector('#documentModal')?.classList.contains('hidden'))event.detail.otherDraft=true});
+// 뒤에서 올리는 중(luBackSending)에도 묻는다: 예전에는 올리는 동안 등록 창이 열려 있어 같은 물음이 떴다. 새로 고치면 줄에 선 파일은 알림 없이 사라진다(줄은 메모리뿐).
+window.addEventListener('kptu:before-reload',event=>{if((luUploadEntries.length&&!document.querySelector('#documentModal')?.classList.contains('hidden'))||luBackSending.size)event.detail.otherDraft=true});
 // 로그인 세션은 runtime-client.js(KPTURuntime.session) 한 곳에서 읽고 갱신한다.
 function luRead(){return window.KPTURuntime?.session?.read?.()||null}
 async function luEnsure(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();luSession=window.KPTURuntime.session.read();return ok}luSession=luRead();return !!luSession}
@@ -461,13 +462,15 @@ function luUploadTimeoutMs(file){return uploadTimeoutMs(file?.size)}
 // UI-올리기진행표시 ②: 보내기는 공용 길(upload-send.mjs, XMLHttpRequest가 실제로 보낸 양)이고 올리는 중 표시는 공용 부품(upload-progress.js)이다.
 // job: 부른 곳이 미리 만든 표시(없으면 여기서 만든다). ✕(취소)는 다 보내기 전만 — 서버는 다 받지 못한 요청을 저장하지 않는다(code upload_cancelled).
 // 다 보낸 뒤 끊김·시간 초과는 지금처럼 결과 불명(timeout·network_error): 자료가 이미 생겼을 수 있어 같은 파일을 저절로 다시 보내지 않는다.
-async function luUploadRequest(fd,file,{job=null}={}){
+async function luUploadRequest(fd,file,{job=null,gone=null}={}){
   const runtime=window.KPTURuntime,path='/functions/v1/library-files';
   const error=(message,options)=>runtime?.RuntimeError?new runtime.RuntimeError(message,options):Object.assign(new Error(message),{status:0,retryable:false,...options});
   const sessionRequired=()=>error('로그인이 필요합니다.',{status:401,code:'session_required'});
   if(!(await luEnsure()))throw sessionRequired();
   const requestEpoch=runtime?.session?.epoch?.()??0,url=(runtime?.config?.url||LU_SB)+path;
   async function request(){
+    // 뒤 줄 올리기(gone): 파일을 읽거나 로그인을 확인하는 사이 계정·작업공간이 바뀌었으면 보내지 않는다(바뀐 계정의 로그인으로 올라가지 않게).
+    if(gone?.())throw error('로그인 계정이 바뀌어 올리지 않았어요.',{status:401,code:'session_changed'});
     const session=luRead();
     if(!session?.access_token)throw sessionRequired();
     const headers={apikey:runtime?.config?.key||LU_KEY,Authorization:'Bearer '+session.access_token};
@@ -569,7 +572,7 @@ for(let index=0;index<entries.length;index++){const entry=entries[index],file=en
 if(luBackGone(scope))return; // 계정·작업공간이 바뀌면 남은 파일을 보내지 않는다
 if(entry.link){const linked=await luLinkDriveEntry(entry,{many,fields,meeting});if(linked.ok){if(linked.created){succeeded++;okDocIds.push(linked.id);okNames.push(file.name);await putFolder(linked.id);await linkOrg(linked.id);lastProjectId=linked.projectId||lastProjectId}}else{fail(entry,linked.failure);if(linked.failure.stop)stopped=linked.failure}continue}
 const preflight=luPreflightFailure(file);if(preflight){fail(entry,{...preflight,retry:false});continue}
-let fd=null;try{fd=new FormData();fd.append('file',await window.KPTURuntime.copyUploadFile(file));for(const[k,v]of Object.entries(fields)){if(k==='title'&&many)continue;fd.append(k,v)}if(meeting){fd.append('meeting_id',meeting.id);if(!fd.get('project_id')&&meeting.projectId)fd.append('project_id',meeting.projectId)}const d=await luUploadRequest(fd,file);if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');succeeded++;okDocIds.push(d.document.id);okNames.push(file.name);await putFolder(d.document.id);await linkOrg(d.document.id);if(!luBackGone(scope))luAiFill(d.document.id,fd,file.name);lastProjectId=d.document.project_id||lastProjectId;entry.failure=null;entry.kind='success'}
+let fd=null;try{fd=new FormData();fd.append('file',await window.KPTURuntime.copyUploadFile(file));for(const[k,v]of Object.entries(fields)){if(k==='title'&&many)continue;fd.append(k,v)}if(meeting){fd.append('meeting_id',meeting.id);if(!fd.get('project_id')&&meeting.projectId)fd.append('project_id',meeting.projectId)}const d=await luUploadRequest(fd,file,{gone:()=>luBackGone(scope)});if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');succeeded++;okDocIds.push(d.document.id);okNames.push(file.name);await putFolder(d.document.id);await linkOrg(d.document.id);if(!luBackGone(scope))luAiFill(d.document.id,fd,file.name);lastProjectId=d.document.project_id||lastProjectId;entry.failure=null;entry.kind='success'}
 catch(e){if(e?.code==='upload_cancelled'){entry.failure=null;entry.kind='cancelled';retryEntries.push(entry);continue}const failure=luUploadFailure(e,{project:!!projectId});console.warn('library upload failed',{type:failure.type,status:e?.status||0,code:e?.code||'',serverCode:e?.serverCode||'',stage:e?.stage||'',message:e?.message||String(e)});fail(entry,failure);if(failure.stop)stopped={...failure,error:e}}
 finally{fd?.delete('file');fd=null}}
 if(luBackGone(scope))return;

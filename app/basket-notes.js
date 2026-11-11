@@ -780,10 +780,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const count = () => batch.entries.filter(entry => entry.kind === 'success').length;
     void fileQueue.add(id, batch, async () => {
       if (!here() || !batch.entries.some(entry => entry.kind !== 'success')) return;
-      const before = count(), names = batch.entries.filter(entry => entry.kind !== 'success').map(entry => entry.file?.name || '');
+      const before = count(), mine = batch.entries.filter(entry => entry.kind !== 'success'), sent = () => mine.filter(entry => entry.kind === 'success').map(entry => entry.file?.name || '');
       let error = null;
       try { await uploadNoteFiles(id, batch, {rt, isCurrent:here}); } catch (e) { error = e; }
       if (!here()) return; // 다른 계정·작업공간 화면에는 아무것도 그리지도 알리지도 않는다
+      // [다시]: 못 올린 파일만 같은 노트로 다시 줄 세운다. 결과를 알 수 없거나 노트가 바뀐 실패(batch.blocked)는 [다시]를 두지 않는다.
+      // 올리는 도우미가 붙여 둔 '줄 밖 [다시]'를 노트를 다시 읽기 전에 바로 바꿔 둔다(읽는 사이에 눌러도 같은 파일을 줄 밖으로 한 번 더 보내지 않게).
+      const retry = error && !batch.blocked && batch.entries.some(entry => entry.kind !== 'success') ? () => sendNoteFiles(id, batch) : null;
+      if (retry) for (const entry of batch.entries.filter(e => e.kind === 'error')) setUploadRetry(entry.file, retry);
       // The note is read again so the cards and the list show what the server stored, whatever happened to each file.
       let row = null;
       try { row = await readNoteDoc(id, rt); } catch {}
@@ -803,16 +807,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const inWindow = !!bigWriter && !!bigFiles && selected?.id === id;
       if (!error) {
         if (inWindow) bigWriter.say?.(textSaved ? '글과 첨부를 저장했어요' : '첨부를 저장했어요');
-        else announceUploaded({done, names:names.slice(0, done), where:'노트'});
+        else announceUploaded({done, names:sent(), where:'노트'});
         return;
       }
       if (error.code === 'upload_cancelled') { if (inWindow) bigWriter.say?.(error.message); return; }
-      // [다시]: 못 올린 파일만 같은 노트로 다시 줄 세운다. 결과를 알 수 없거나 노트가 바뀐 실패(batch.blocked)는 [다시]를 두지 않는다.
-      const retry = batch.blocked || !left ? null : () => sendNoteFiles(id, batch);
-      if (retry) for (const entry of batch.entries.filter(e => e.kind === 'error')) setUploadRetry(entry.file, retry);
       const message = `첨부를 올리지 못했어요. ${error.message || ''}`.trim();
       if (inWindow) bigWriter.say?.(message);
-      if (done) announceUploaded({done, names:names.slice(0, done), failed:left, where:'노트', retry});
+      if (done) announceUploaded({done, names:sent(), failed:left, where:'노트', retry});
       else notify(`노트 ${message}`, {error:true, record:false, actions:retry ? [{label:'다시', run:({close}) => { close(); retry(); }}] : []});
     });
   }
@@ -1502,6 +1503,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     close,
     reset() { closeMenu(); boards.reset(); void picker.close(); addPick = null; endSelect(); at = null; openSet = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); comments = []; commentsReady = false; commentsMissing = false; tagAt = null; cmKind = null; notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
+    isUploading: () => fileQueue.any(), // 뒤에서 노트 첨부를 올리는 중(최신화 전에 막는 데 쓴다)
     hasDraft: () => textDirty() || (!!selected && (manual.hasDraft() || noteComments.hasDraft())),
     isOpen: () => !!selected,
   };
