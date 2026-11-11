@@ -5,6 +5,8 @@
 //   window's), [넣기] → [사진]·[파일] (NOTE-파일그림넣기: they wait in this window until the save, then go up as the new note's own
 //   attachments and stay in the text: note-pending-media.mjs), and the markdown line shortcuts.
 //   There is no [업데이트 | 노트] switch here: an update is written from the update input (차이 — PR 본문).
+//   NOTE-주소로 가져오기: under the title row, an address row [주소 | 가져오기] (importRow). It makes an address-only note at once and reads the
+//   page in the background (note-import.js); it is not this window's save.
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {openEdWindow} from './ed-window.js';
 import {createNoteDoc, noteTitleFromText, readNoteDoc, saveNoteDoc} from './basket-data.js';
@@ -14,18 +16,24 @@ import {requestNoteAiTitle} from './note-ai-title.js';
 import {WAIT_PREFIX, waitingSrcs, swapWaiting} from './note-pending-media.mjs';
 import {toPlain} from './ed-text.mjs';
 import {mountUploadRows} from './upload-progress.js'; // UI-올리기진행표시: 저장 뒤 올라가는 글 안 사진·파일의 막대 + %
+import {iconNode} from './tree-icons.js';
+import {readImportUrl} from './note-import-model.mjs'; // NOTE-주소로 가져오기: 주소 칸 앞 확인(읽기·저장은 note-import.js가 뒤에서)
 
 export function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
   box.textContent = message; kptuHoldToast(box);
 }
-// [📎 첨부] row under the text: the basket picker part on a file batch. Returns {node, picker, pending()}.
-export function attachRow({id, getBatch, isBusy, say}) {
+// [📎 첨부] row under the text: the basket picker part on a file batch. Returns {node, picker, pending(), sent}.
+// going(job): UX-먼저묻고뒤에처리 — files already saved and now going up behind the screen for this row's note or update
+// (the shared upload rows: bar · % · ✕, a failure with [다시]); the chosen-file list above shows only what is not saved yet.
+export function attachRow({id, getBatch, isBusy, say, going = null}) {
   const node = document.createElement('div'), pickerHost = document.createElement('div'), files = document.createElement('div');
   node.dataset.edwAttach = ''; files.dataset.edwAttachFiles = '';
   node.append(pickerHost, files);
+  let sent = null;
+  if (going) { const host = document.createElement('div'); host.dataset.edwAttachSent = ''; node.append(host); sent = mountUploadRows(host, {has: going}); }
   const picker = mountBasketPicker(pickerHost, {id, filesHost: files, dropTarget: node, getBatch, isBusy, onChange: () => say(''), onError: say});
-  return {node, picker, pending: () => getBatch().entries.filter(entry => entry.kind !== 'success').length};
+  return {node, picker, sent, pending: () => getBatch().entries.filter(entry => entry.kind !== 'success').length};
 }
 // S48-30 잘림: 폴더 이름은 8글자까지 다 보이고 그보다 길면 뒤를 '…'로 줄인다(▾는 늘 보임). 버튼은 줄어들지 않고 제목 칸이 양보한다(ed-window.css).
 export const shortFolder = name => { const chars = [...String(name || '')]; return chars.length > 8 ? chars.slice(0, 8).join('') + '…' : chars.join(''); };
@@ -59,6 +67,21 @@ function titleRow({value = '', folder = null, target = null, placeholder = '제�
     target.watch(sync); sync();
   }
   return {row: node, input, paint};
+}
+
+// NOTE-주소로 가져오기 2단계(안 A, 시안 docs/design/mockups/note-import-by-url.html): 새 노트 창 제목 줄 아래 주소 칸 [주소 | 가져오기].
+// 이 줄은 모양만 만든다: 누르면 run(주소 글자)를 부른다. 주소 칸의 Enter도 [가져오기]다(저장이 아님).
+function importRow({run}) {
+  const node = document.createElement('div'); node.className = 'edw-import-row'; node.dataset.edwImport = '';
+  const label = document.createElement('label'); label.className = 'a11y-only'; label.htmlFor = 'edwNoteUrl'; label.textContent = '가져올 글의 주소';
+  const input = document.createElement('input');
+  input.id = 'edwNoteUrl'; input.type = 'url'; input.inputMode = 'url'; input.autocomplete = 'off'; input.autocapitalize = 'off'; input.spellcheck = false;
+  input.dataset.edwUrl = ''; input.dataset.enterField = 'off'; input.placeholder = '주소를 넣으면 글을 가져와요 (https://…)'; input.setAttribute('enterkeyhint', 'go');
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.dataset.edwImportRun = ''; button.textContent = '가져오기';
+  node.append(iconNode('link', {size: 16}), label, input, button);
+  button.addEventListener('click', () => run());
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); run(); } });
+  return {node, input, button};
 }
 
 // NOTE-파일그림넣기: [사진]·[파일] in a new note (no id yet). A chosen file waits in this window's memory under a waiting id; a picture
@@ -135,6 +158,7 @@ export async function finishNewNote(note, {rt = window.KPTURuntime, noteFolder =
 // (optional). noteFolder: {label(), open(trigger)} (optional; note-folder-pick.js, or the note screen's own). With write:true and get() the window
 // puts the new note into the chosen folder itself after the save (noteFolder.put: the same setNoteFolderRef write as the note screen); without it the opener does.
 // onClose({saved, text}) — saved = {kind:'note', id} after a save (FORGET-노트고르기: + folderName, added = 기존 노트 끝에 더함).
+// NOTE-주소로 가져오기: saved.imported = true — [가져오기]로 만든 노트(폴더는 만들 때 이미 넣었다. 글은 뒤에서 채워진다).
 // FORGET-노트고르기 target (note-pick.js createNoteTarget, optional): [새 노트 ▾] in front of the title row. When an existing note (or the family
 // '잊지 말기' note) is chosen, [저장] does not make a new note: it hands the written text to target.save({value, text, heading}) → {noteId, folderName,
 // message?} (the existing append path that adds it as paragraphs at the end of that note, guarded by the version it read). A family target
@@ -157,6 +181,31 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   // 기존 노트 끝에 더할 때는 [📎 첨부] 줄을 숨긴다(첨부는 새 노트일 때만).
   const syncFoot = () => { files.node.hidden = custom(); };
   target?.watch(syncFoot); syncFoot();
+  // NOTE-주소로 가져오기: 주소 칸은 '새 노트만 쓰는 창'에만 둔다([새 노트 ▾]로 기존 노트·가족 노트를 고르는 창에는 없다).
+  // [가져오기] = '주소만' 든 노트를 바로 만들고 글은 뒤에서 읽는다(note-import.js). 이 창에 쓰던 글이 없으면 창을 닫아 목록의 새 줄을 보이고,
+  // 쓰던 글·제목·첨부가 있으면 창은 그대로 둔다(가져온 글은 따로 노트 하나 — 쓰던 글은 건드리지 않는다). 처리 중에 또 눌러도 줄 세운다.
+  async function runImport() {
+    if (rt.session.read()?.user?.id !== owner) { say('로그인 정보가 바뀌었어요. 다시 열어 주세요.'); return; }
+    const typed = urlRow.input.value, checked = readImportUrl(typed);
+    if (!checked.ok) { say(checked.message); urlRow.input.focus(); return; }
+    urlRow.input.value = ''; say('');
+    try {
+      const {startNoteImport} = await import('./note-import.js');
+      const folderId = noteFolder?.get?.() || null;
+      const note = await startNoteImport({url: checked.url, folder: folderId ? {id: folderId, name: noteFolder.label()} : null, rt});
+      if (!handle || handle.closed) return;
+      if (handle.changed) { say('가져오는 중이에요. 끝나면 알려 드릴게요. 쓰던 글은 그대로예요.'); return; }
+      saved = {kind: 'note', id: note.id, imported: true};
+      handle.close();
+    } catch (error) {
+      if (handle?.closed) return;
+      if (!urlRow.input.value) urlRow.input.value = typed;
+      say(error?.message && /[가-힣]/.test(error.message) ? error.message : '가져오기를 시작하지 못했어요. 다시 눌러 주세요.');
+    }
+  }
+  const urlRow = target ? null : importRow({run: () => void runImport()});
+  const headNode = urlRow ? document.createElement('div') : head.row;
+  if (urlRow) { headNode.className = 'edw-head-wrap'; headNode.append(head.row, urlRow.node); }
   async function addTo({value, typed, heading}) {
     if (waitingSrcs(value).length) return {ok: false, message: '기존 노트에 더할 때는 사진·파일을 넣을 수 없어요. 새 노트로 저장해 주세요.'};
     if (!String(typed || '').trim() && !(family && target.isNew() && heading.trim())) return {ok: false, message: '더할 내용을 써 주세요.'};
@@ -196,7 +245,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
     toast(warning || '노트로 저장했어요.');
     return {ok: true};
   }
-  handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: head.row, foot: family ? null : files.node, shortcuts: true,
+  handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: headNode, foot: family ? null : files.node, shortcuts: true,
     dirty: () => (!head.input.hidden && !!head.input.value.trim()) || (!custom() && files.pending() > 0),
     photos: family ? null : media.photos, files: family ? null : media.files,
     placeholder: '노트 본문을 쓰세요', save: {aria: target ? '노트에 저장' : '새 노트로 저장', run},
@@ -214,7 +263,7 @@ export function openNoteEditWindow({value, photos, files: edFiles = null, save, 
   let handle = null, savedTitle = title, savedFolder = folder?.get?.() || null;
   const head = titleRow({value: title, folder, placeholder: '제목'});
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
-  const files = attach ? attachRow({id: 'edwNoteEditAttach', getBatch: attach.getBatch, isBusy: attach.isBusy, say: message => handle?.say(message)}) : null;
+  const files = attach ? attachRow({id: 'edwNoteEditAttach', getBatch: attach.getBatch, isBusy: attach.isBusy, going: attach.going || null, say: message => handle?.say(message)}) : null;
   const extra = () => ({title: head.input.value, folder: folder ? (folder.get() || null) : undefined});
   handle = openEdWindow({title: '큰 창에서 수정', doc: value, keepOpen: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files?.node || null, shortcuts: true, photos, files: edFiles,
     dirty: () => (files?.pending() || 0) > 0 || head.input.value !== savedTitle || (!!folder && (folder.get() || null) !== savedFolder), placeholder: '노트 본문을 쓰세요',
@@ -223,7 +272,7 @@ export function openNoteEditWindow({value, photos, files: edFiles = null, save, 
       if (result?.ok) { savedTitle = sent.title; if (folder) savedFolder = sent.folder || null; }
       return result;
     }},
-    onClose: result => { folder?.close?.(); onClose(result); }});
+    onClose: result => { folder?.close?.(); files?.sent?.destroy(); onClose(result); }});
   if (handle && files) handle.renderFiles = () => files.picker.render();
   if (handle) { handle.paintFolder = head.paint; handle.title = () => head.input.value; }
   return handle;

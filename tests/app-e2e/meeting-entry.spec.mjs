@@ -954,6 +954,41 @@ test('meeting detail keeps completed Google follow-ups and supports create, edit
   expect(legacyRequests).toBe(0);
 });
 
+// STAB(S57-19): 완료를 누른 뒤 저장 응답이 늦게 와도, 그 사이 연 ⋯ 메뉴는 열린 채이고 그 안 [삭제]가 그대로 눌린다(같은 목록은 다시 그리지 않는다).
+// 예전에는 방금 끝낸 줄의 체크 움직임 속성 때문에 저장 뒤 다시 읽은 목록이 늘 '다름'이 되어, 줄을 통째로 다시 그리며 메뉴를 닫았다(CI에서 위 시험의 메뉴 [삭제] 누르기 간헐 실패).
+// 이 파일의 화면 시계는 멈춰 있어(signIn) 방금 끝낸 줄은 늘 '끝낸 지 0초'다. 가짜 내용만.
+test('meeting detail keeps a follow-up ⋯ menu that was opened while a completion is still saving',async({page})=>{
+  await signIn(page);
+  const tasks=[{id:'first',taskListId:'@default',title:'가짜 후속 하나',status:'needsAction'},{id:'second',taskListId:'@default',title:'가짜 후속 둘',status:'needsAction'}];
+  let deleted=null,release;const gate=new Promise(r=>{release=r;});
+  await page.route(`${SB}/rest/v1/app_tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:'[]'}));
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action'),body=route.request().method()==='POST'?route.request().postDataJSON():{};
+    if(action==='linked')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks})});
+    // 완료 저장 응답을 붙잡아 둔다: ⋯ 메뉴를 연 뒤에 놓아 주면 그때 저장이 끝나고 목록을 다시 읽어 그린다.
+    if(action==='toggle'){await gate;Object.assign(tasks.find(t=>t.id===body.task_id),{status:body.completed?'completed':'needsAction',completed:body.completed?new Date(PAGE_NOW).toISOString():null})}
+    if(action==='delete'){deleted=body;tasks.splice(tasks.findIndex(t=>t.id===body.task_id),1)}
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
+  });
+  await openMeetingResult(page,'meeting-1');
+  const first=page.locator('#mrdTasks [data-mrd-task="first"]'),second=page.locator('#mrdTasks [data-mrd-task="second"]'),del=page.locator('#mrdTaskMenu [data-mrd-menu-action="delete"]');
+  await expect(page.locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
+  await page.locator('#mrdTasks [data-mrd-task-toggle="first"]').click();
+  await expect(first).toHaveClass(/completed/);
+  await page.locator('#mrdTasks [data-mrd-task-menu="second"]').click();
+  await expect(del).toBeVisible();
+  await second.evaluate(e=>{e.__beforeReload=true;});
+  release();
+  // 저장이 끝나 목록을 다시 읽어 그렸다(방금 끝낸 줄에 체크 움직임이 걸림). 그래도 줄은 새로 만들지 않았고 메뉴는 열린 채다.
+  await expect(first).toHaveAttribute('data-check-pop','');
+  expect(await second.evaluate(e=>e.__beforeReload===true)).toBe(true);
+  await expect(del).toBeVisible();
+  await del.click();
+  await answerAsk(page,true);
+  await expect(page.locator('#mrdTasks [data-mrd-task]')).toHaveCount(1);
+  expect(deleted).toMatchObject({action:'delete',task_id:'second'});
+});
+
 for(const width of [390])test(`meeting Google follow-up row stays usable at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:844});
   await signIn(page);

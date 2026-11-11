@@ -364,3 +364,23 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 @media (max-width:380px) { #basketView .note-list-head { flex-wrap:wrap; } #basketView .note-list-head > .nv-switch { order:3; } }
 #appView #basketView .note-cm button.note-cm-del { width:auto; min-width:0; height:auto; min-height:0; padding:0 2px; border:0; background:transparent; box-shadow:none; }
 #appView #basketView [data-note-list] button.nt-cm-open { justify-content:flex-start; width:100%; height:auto; min-height:0; padding:6px 4px; border:0; border-bottom:var(--ds-line-width,1px) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; font-weight:400; }
+/* NOTE-주소로 가져오기 2단계(시안 docs/design/mockups/note-import-by-url.html): 열린 노트 맨 위 원문 칸(그리는 곳 note-import-view.js 한 곳).
+   원문 링크는 작은 한 줄, 가져오는 중·실패 안내도 색 상자 없이 작은 글 한 줄(UI-기다림표시통일). 버튼 모양은 공용 6가지 그대로(자리만 정한다). */
+#basketView .ni { display:grid; gap:4px; margin:8px 0 0; min-width:0; }
+#basketView .ni[hidden] { display:none; }
+#basketView .ni-src { display:flex; align-items:center; gap:6px; min-width:0; min-height:24px; font-size:var(--ds-text-meta, 12px); color:var(--kptu-muted); }
+#basketView .ni-src .ui-ico { flex:none; display:inline-flex; color:var(--kptu-faint, var(--kptu-muted)); }
+#basketView .ni-src-link { display:inline-flex; align-items:center; gap:4px; min-width:0; color:var(--kptu-link, var(--kptu-primary-ink)); text-decoration:none; }
+#basketView .ni-src-link:hover .ni-src-name { text-decoration:underline; }
+#basketView .ni-src-link:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:2px; border-radius:4px; }
+#basketView .ni-src-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#basketView .ni-src-out { flex:none; color:var(--kptu-faint, var(--kptu-muted)); }
+#basketView .ni-src-day { flex:none; margin-left:auto; white-space:nowrap; color:var(--kptu-faint, var(--kptu-muted)); }
+#basketView .ni-by { font-size:var(--ds-text-meta, 12px); color:var(--kptu-muted); }
+#basketView .ni-prog { margin:0; font-size:var(--ds-text-meta, 12px); color:var(--kptu-muted); }
+#basketView .ni-warn { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-height:var(--ds-compact-height, 32px); font-size:var(--ds-text-meta, 12px); line-height:1.45; color:var(--kptu-warning); }
+#basketView .ni-warn-text { flex:1 1 180px; min-width:0; }
+#basketView .ni-warn-acts { display:inline-flex; align-items:center; gap:8px; flex:none; }
+#basketView .ni .wait { margin-top:8px; }
+/* 가져오는 중인 노트 줄: 제목 자리 글('○○에서 가져오는 중…')은 흐리게. */
+#basketView [data-ni-busy] .basket-title-text { color:var(--kptu-muted); font-weight:var(--ds-weight-regular, 400); }

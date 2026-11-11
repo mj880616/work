@@ -4,6 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {SPLIT_MIN_WIDTH, SPLIT_QUERY, NARROW_QUERY, splitsAt} from '../app/screen-width.mjs';
+import {COL_PC_MIN_WIDTH} from '../app/col-widths-model.mjs';
 
 const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -34,4 +35,17 @@ test('[파일] 칸 모양 CSS는 같은 600px 경계(창 자리 규칙만 앱 �
   const wideRules = [...css.matchAll(/@media \(min-width:761px\) \{ \.fx-(\w+)/g)].map(m => m[1]).sort();
   assert.deepEqual(wideRules, ['askbox', 'dest', 'jobs'], '761px은 하단바 위 창 자리(앱 틀)만');
   assert.match(css, /@media \(min-width:600px\) \{\n  \.fx-cols/);
+});
+
+// FOLD-넓은화면 ④(S57-16): 홈 [하루] 카드 두 단은 공용 600px 경계(폴드 펼침)에서 시작해 PC(1200px) 바로 앞에서 끝난다. 폰·PC에서는 새 묶음 두 개가 없는 것과 같다.
+test('홈 하루 카드 두 단: 공용 600px~PC 1200px 앞, 묶음 두 개는 그 밖에서 display:contents', () => {
+  const css = read('app/journal.css'), js = read('app/journal.js');
+  const range = `@media \\(min-width:${SPLIT_MIN_WIDTH}px\\) and \\(max-width:${COL_PC_MIN_WIDTH - 1}px\\)`;
+  assert.match(css, new RegExp(`${range}\\{\\n  #appView #homeView \\.journal-day\\{ display:grid; grid-template-columns:repeat\\(2,minmax\\(0,1fr\\)\\);`));
+  assert.match(css, /\.journal-schedule-body,\n#appView #homeView \.journal-day-right\{ display:contents; \}/);
+  assert.match(js, /<div class="journal-day-right" data-journal-day-right>/);
+  assert.match(js, /body\.className = 'journal-schedule-body'/);
+  // 날짜 칸: 요일 글자는 400px 미만 접은 폰에서만 숨긴다(옛 전체 숨김 규칙 없음).
+  assert.doesNotMatch(css, /\.journal-head \.journal-weekday\{ display:none; \}\n/);
+  assert.match(css, /@media\(max-width:399px\)\{ #appView #homeView \.journal-head \.journal-weekday\{ display:none; \} \}/);
 });

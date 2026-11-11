@@ -221,3 +221,110 @@ for(const width of [390,1280])test(`basket original link opens the exact suggest
  await page.goto(testOrigin+'/app/?view=basket&note=a');await expect(page.locator('[data-basket-text]')).toHaveValue(' 보관 원문\n ');
  await page.goto(testOrigin+'/app/?view=basket&note=foreign');await expect(page.locator('[data-basket-list-status]')).toContainText('업데이트를 찾을 수 없어요');expect(f.writes).toHaveLength(0);
 });
+// UX-먼저묻고뒤에처리 3차 (2): [첨부 저장]한 파일은 그 업데이트 id로 뒤에서 올라간다. 예전에는 다 올라갈 때까지 상세의 모든 단추·입력과 뒤로가기를 잠갔다.
+const toBasket=page=>page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();
+const fileOf=raw=>raw.match(/filename="([^"]+)"/)?.[1],noteOf=raw=>raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1];
+for(const width of [412,1280]){
+ test(`basket attachment goes up behind the screen: nothing is locked, the update closes, another opens, the file goes to its own update ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:1000});
+  const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));
+  await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
+  await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['behind.txt']));await page.locator('[data-basket-upload]').click();
+  await expect.poll(()=>u.calls.length).toBe(1);
+  // 올리는 동안 잠기지 않는다: 고른 파일 줄은 비고, 클립·글 칸·[첨부 저장]을 쓸 수 있고, 올라가는 파일은 이 업데이트의 올리는 줄에 보인다.
+  await expect(page.locator('[data-basket-file]')).toHaveCount(0);
+  await expect(page.locator('#detailBasketFiles')).toBeEnabled();await expect(page.locator('[data-basket-text]')).toBeEnabled();await expect(page.locator('[data-basket-upload]')).toBeEnabled();
+  await expect(page.locator('[data-basket-sent] .up-row')).toContainText('behind.txt');
+  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/basket-attach-${width}.png`});
+  // 같은 업데이트를 바꾸는 일만 다 올라갈 때까지 기다리게 한다(서버가 올리는 사이 바뀐 글의 올리기를 거절하므로).
+  await page.locator('[data-basket-text]').fill('올리는 중 수정');await page.locator('[data-basket-save]').click();
+  await expect(page.locator('[data-basket-status]')).toContainText('첨부를 올리는 중이에요');expect(f.writes).toHaveLength(0);
+  await page.locator('[data-basket-text]').fill(' 첫 줄\n\n둘째 줄  ');
+  // 읽기 화면 → 목록 → 다른 업데이트. 예전에는 올리는 동안 닫기·뒤로가기를 받지 않았다.
+  await page.locator('[data-basket-cancel]').click();await page.locator('[data-basket-close]').click();
+  await page.locator('[data-basket-row="s"]').click();await expect(page.locator('[data-basket-read-text]')).toContainText('제안 원문');
+  await expect(page.locator('#uploadDock')).toContainText('올리는 중');
+  open();
+  await expect(page.locator('#kptuNotice')).toContainText('업데이트에 behind.txt 올렸어요');
+  expect(u.calls).toHaveLength(1);expect(noteOf(u.calls[0])).toBe('n');
+  // 보고 있는 다른 업데이트는 그대로이고, 목록의 그 업데이트 줄에 첨부가 붙는다.
+  await expect(page.locator('[data-basket-read-text]')).toContainText('제안 원문');await expect(page.locator('[data-basket-attachments] a')).toHaveCount(0);
+  await expect(page.locator('[data-basket-row-item="n"]')).toContainText('첨부 1개');
+  await page.locator('[data-basket-close]').click();await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1);
+  expect(f.errors).toEqual([]);
+ });
+}
+test('basket attachment that did not go up is told by the small notice, and [다시] sends only that file to the same update (412)',async({page})=>{
+ await page.setViewportSize({width:412,height:1000});
+ const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));u.setError({status:400,code:'bad_file',after:1});
+ await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['one.txt','two.txt']));await page.locator('[data-basket-upload]').click();
+ await expect.poll(()=>u.calls.length).toBe(1);
+ await page.locator('[data-basket-cancel]').click();await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-row="s"]')).toBeVisible();
+ open();
+ const notice=page.locator('#kptuNotice');
+ await expect(notice).toContainText('업데이트에 one.txt 올렸어요 · 1개 못 올렸어요');
+ u.setError(null);await notice.getByRole('button',{name:'다시',exact:true}).click();
+ await expect(notice).toContainText('업데이트에 two.txt 올렸어요');
+ expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n','n']); // 올라간 파일은 다시 보내지 않는다
+ await expect(page.locator('[data-basket-row-item="n"]')).toContainText('첨부 2개');
+});
+// 줄 선 묶음은 차례가 왔을 때의 첨부 목록에서 시작한다: 예전 코드는 고를 때의 목록으로 화면을 그려, 둘째가 올라가는 동안(실패하면 다시 읽을 때까지)
+// 앞서 올라간 첨부가 사라졌다. 올리는 동안 큰 창 수정은 열지 않고(연 때의 판으로만 저장하므로 올리기가 끝나면 거절된다), 최신화는 예전 잠금 때처럼 막는다.
+test('basket attachments in line keep what already went up on screen; the big editor and a refresh wait for the line (412)',async({page})=>{
+ await page.setViewportSize({width:412,height:1000});
+ const f=await fixture(page),u=await basketUploadFixture(page,f);let openFirst,openSecond;u.setPending(new Promise(r=>openFirst=r));
+ const reloadAllowed=()=>page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail:{projectDraft:false,otherDraft:false}})));
+ await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
+ expect(await reloadAllowed()).toBe(true);
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['one.txt']));await page.locator('[data-basket-upload]').click();
+ await expect.poll(()=>u.calls.length).toBe(1);
+ expect(await reloadAllowed()).toBe(false); // 새로 고치면 줄에 선 파일이 알림 없이 사라진다
+ await page.locator('[data-basket-big-write]').click();
+ await expect(page.locator('[data-basket-status]')).toContainText('첨부를 올리는 중이에요');await expect(page.locator('#edWindow:not(.hidden)')).toHaveCount(0);
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['two.txt']));await expect(page.locator('[data-basket-file]')).toContainText('two.txt');
+ await page.locator('[data-basket-upload]').click();await expect(page.locator('[data-basket-file]')).toHaveCount(0);
+ // 첫 파일만 끝내고, 둘째는 붙잡아 둔 뒤 실패시킨다.
+ u.setPending(new Promise(r=>openSecond=r));u.setError({status:400,code:'bad_file',after:1});openFirst();
+ await expect.poll(()=>u.calls.length).toBe(2);
+ await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1);
+ await page.waitForTimeout(200);await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1); // 둘째가 올라가는 동안에도 첫 첨부는 그대로
+ expect(await reloadAllowed()).toBe(false);
+ openSecond();
+ await expect(page.locator('#kptuNotice')).toContainText('첨부를 올리지 못했어요');
+ await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1); // 둘째가 실패해도 첫 첨부는 남는다
+ expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n']);
+ expect(await reloadAllowed()).toBe(true); // 줄이 끝났으면 막지 않는다(못 올린 파일은 알림 [다시])
+});
+// 올리는 중인 업데이트의 [노트로]는 줄 ⋯ 메뉴뿐 아니라 줄 단추(PC는 줄에 보임)로 눌러도 같은 잠금이다: 묻는 창을 띄우지 않고 까닭을 말한다.
+test('basket row button [노트로] also waits while that update\'s attachment goes up (1280)',async({page})=>{
+ await page.setViewportSize({width:1280,height:1000});
+ const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));
+ await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['one.txt']));await page.locator('[data-basket-upload]').click();
+ await expect.poll(()=>u.calls.length).toBe(1);
+ await page.locator('[data-basket-cancel]').click();await page.locator('[data-basket-close]').click();
+ // 줄 단추 [노트로]는 마우스가 있는 PC에서만 줄에 보인다(ui-standard.css: 좁은 창·마우스 없음이면 ⋯ 안). 이 시험 브라우저는 마우스 없음으로 잡히므로 그 단추의 누름을 직접 보낸다.
+ await page.locator('[data-nbx-row="u:n"] [data-nbx-act="note"]').dispatchEvent('click');
+ await expect(page.locator('[data-basket-list-status]')).toContainText('첨부를 올리는 중이에요');
+ await expect(page.locator('.kptu-ask')).toHaveCount(0);await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
+ open();
+ await expect(page.locator('[data-basket-row-item="n"]')).toContainText('첨부 1개');
+ expect(f.writes).toHaveLength(0);expect(f.errors).toEqual([]);
+});
+test('basket attachments saved while the first goes up wait in the same line and reach the same update (412)',async({page})=>{
+ await page.setViewportSize({width:412,height:1000});
+ const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));
+ await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['one.txt']));await page.locator('[data-basket-upload]').click();
+ await expect.poll(()=>u.calls.length).toBe(1);
+ // 올리는 중에 더 고르고 [첨부 저장]: 거절하지 않고 받아 두고, 앞 파일이 끝난 뒤에 보낸다.
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['two.txt']));await expect(page.locator('[data-basket-file]')).toContainText('two.txt');
+ await page.locator('[data-basket-upload]').click();await expect(page.locator('[data-basket-file]')).toHaveCount(0);
+ await page.waitForTimeout(300);expect(u.calls).toHaveLength(1);
+ open();
+ await expect(page.locator('[data-basket-attachments] a')).toHaveCount(2);
+ expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n']);
+ await expect(page.locator('#toast')).toContainText('첨부를 저장했습니다');
+ expect(f.errors).toEqual([]);
+});
