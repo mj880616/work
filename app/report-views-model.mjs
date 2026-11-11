@@ -109,3 +109,16 @@ export function dayHeading(key) {
   const weekday = new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10))).getUTCDay();
   return `${+key.slice(5, 7)}월 ${+key.slice(8, 10)}일 (${WEEKDAYS[weekday]})`;
 }
+
+// S57-8 BIZ-달력우클릭끌기 PR-2: 빈 칸 우클릭 메뉴 항목과 끌어 옮길 때의 새 일시(순수 규칙).
+// 빈 칸 우클릭: [이날 사업 보고 추가](새 보고 창에 그 날짜, 시각은 report-default-at.mjs 기본값) · [이날 보기](칸을 눌러 그날 고르기와 같음).
+export const REPORT_DAY_MENU_ITEMS = Object.freeze([{id: 'add', label: '이날 사업 보고 추가'}, {id: 'day', label: '이날 보기'}].map(Object.freeze));
+// 사업 보고를 다른 날 칸에 놓았을 때의 새 일시: 날짜만 바뀌고 시각(시·분·초)은 그대로. 한국 시각은 서머타임이 없어 하루 = 86400000ms 그대로 더한다.
+// 같은 날이거나 읽을 수 없으면 ''(옮길 것 없음). 회차 번호(n차)는 이 규칙이 다루지 않는다 — 날짜를 옮겨도 바꾸지 않는다.
+export function moveReportAt(at, toDay) {
+  const time = new Date(at || '').getTime();
+  if (Number.isNaN(time) || !/^\d{4}-\d{2}-\d{2}$/.test(String(toDay || ''))) return '';
+  const target = Date.parse(`${toDay}T00:00:00+09:00`), from = Date.parse(`${seoulDateKey(new Date(time))}T00:00:00+09:00`);
+  const days = Math.round((target - from) / 86400000);
+  return Number.isNaN(days) || !days ? '' : new Date(time + days * 86400000).toISOString();
+}

@@ -80,7 +80,7 @@ test('화면 연결(정적 확인): [+] 메뉴 맨 위 줄, [한 줄] 칩의 [+]
   assert.match(sheet, /html:\(active\?\.onOneline\?ONELINE_ROW:''\)\+REPORT_KINDS\.map/);
   assert.match(sheet, /data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎<\/span><span class="home-choice-name">한 줄 업데이트<\/span>/);
   assert.doesNotMatch(sheet.match(/const ONELINE_ROW=`[^`]*`/)[0], /data-sheet-value/);
-  assert.match(team, /function newReport\(trigger\)\{if\(reportChip===ONELINE_KIND\)\{openOnelineEntry\(trigger\);return\}/);
+  assert.match(team, /function newReport\(trigger,date=''\)\{if\(reportChip===ONELINE_KIND\)\{openOnelineEntry\(trigger\);return\}/);
   assert.match(team, /onOneline:\(\)=>openOnelineEntry\(trigger\)/);
   assert.match(ui, /type="date" class="oneline-day" data-ol-day/);
   assert.match(ui, /<details class="biz-next-plan" data-ol-plan-box><summary>\+ 다음 할 일/);
