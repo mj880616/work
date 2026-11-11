@@ -245,8 +245,6 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   }
   const readIds = () => (last && last.day === last.today ? cleanReads(last.reads?.items) : []).map(item => newsIdOf(item.id)).filter(Boolean);
   const refreshMarks = force => { const ids = readIds(); if (ids.length) syncMarks(ids, {force}); };
-  let moreOpen = false; // 펼쳐 둔 '○개 더'는 글을 하나 처리해 다시 그려도 그대로 둔다
-  readsHost.addEventListener('toggle', event => { if (event.target.matches?.('[data-journal-reads-more]')) moreOpen = event.target.open; }, true);
   function drawReads() {
     const {day, today, reads} = last, all = day === today ? cleanReads(reads?.items) : [];
     const limit = day === today ? limitNote(last.limit) : '';
@@ -261,10 +259,9 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
       + `<span class="journal-read-line">무슨 일: ${esc(item.what)}</span><span class="journal-read-line">왜: ${esc(item.why)}</span>`
       + `<small class="journal-read-meta">${esc([item.source, readAtLabel(item.at, today)].filter(Boolean).join(' · '))}${item.url ? ` <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" data-journal-read-link>원문 ›</a>` : ''}</small>${newsIdOf(item.id) ? hoverActsHtml() : ''}</li>`;
     const open = list.slice(0, READS_OPEN), rest = list.slice(READS_OPEN);
-    if (!rest.length) moreOpen = false;
     paint(readsHost, `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">읽을 만한 글</h4>${list.length ? `<small class="journal-head-count">${list.length}</small>` : ''}</span>${note ? `<small class="journal-fill-note"${limit ? ' data-journal-fill-limit' : done ? ' data-journal-reads-done' : ''}>${esc(note)}</small>` : ''}</div>`
       + (open.length ? `<ul class="journal-reads-list">${open.map(row).join('')}</ul>` : '')
-      + (rest.length ? `<details class="journal-fill-more" data-journal-reads-more${moreOpen ? ' open' : ''}><summary>${rest.length}개 더</summary><ul class="journal-reads-list">${rest.map(row).join('')}</ul></details>` : ''));
+      + (rest.length ? `<details class="journal-fill-more" data-journal-reads-more><summary>${rest.length}개 더</summary><ul class="journal-reads-list">${rest.map(row).join('')}</ul></details>` : ''));
   }
   // 줄 밀기·마우스 단추·우클릭(News 글 줄과 같은 부품). 처리하면 그 글을 처리한 글로 두고 다시 그린다(되돌리면 다시 보임).
   bindNowRows(readsHost, {row:'[data-journal-read]',
