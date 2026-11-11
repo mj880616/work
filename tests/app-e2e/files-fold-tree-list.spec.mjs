@@ -114,11 +114,16 @@ for (const width of [700, 884]) test(`노트 폴드 ${width}: 왼쪽 폴더 나�
   const { errors } = await notes(page, width);
   const tree = page.locator('[data-nx-tree]');
   await expect(tree).toBeVisible();
+  // UI-폴더누르기한규칙(S57-5): 나무 폴더 누르기 = 펼침만(오른쪽 노트 그대로), 들어가기 = ⋯ [이 폴더로 들어가기].
+  const enterNote = async id => { await tree.locator(`[data-nx-folder-more="${id}"]`).click(); await page.locator('#noteDocMenu [data-nx-enter]').click(); };
+  const noteCount0 = await page.locator('#noteRows [data-note-row]').count();
   await tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`).click();
+  await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(noteCount0);
+  await enterNote(U(1));
   await expect(page.locator('[data-nx-here]')).toHaveText('가상 메모 · 2');
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(2);
   await expect(tree).toBeVisible();
-  await tree.locator(`[data-nx-folder="${U(2)}"] .ft-main`).click();
+  await enterNote(U(2));
   await expect(page.locator('[data-nx-here]')).toHaveText('가상 개발 · 1');
   await expect(tree).toBeVisible();
   const t = await box(tree), l = await box(page.locator('[data-nx-body]>.nx-pane'));

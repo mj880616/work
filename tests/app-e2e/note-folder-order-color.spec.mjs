@@ -63,6 +63,8 @@ const treeOrder = page => page.locator('[data-nx-tree] [data-nx-folder]').evalua
 const noteOrder = page => page.locator('#noteRows [data-nx-note]').evaluateAll(els => els.map(el => el.dataset.nxNote));
 const more = (page, id) => page.locator(`[data-nx-tree] [data-nx-folder-more="${id}"], #noteRows [data-nx-folder-more="${id}"]`).first();
 const rootMenu = page => page.locator('#noteDocMenu');
+// UI-폴더누르기한규칙(S57-5): 왼쪽 나무 폴더 누르기 = 펼침만, 폴더만 보기(들어가기)는 ⋯ [이 폴더로 들어가기]
+const enterNxFolder = async (page, id) => { await page.locator(`[data-nx-tree] [data-nx-folder-more="${id}"]`).click(); await page.locator('#noteDocMenu [data-nx-enter]').click(); };
 async function pickColor(page, id, name) {
   await more(page, id).click();
   await rootMenu(page).locator('[data-nx-color]').click();
@@ -180,7 +182,7 @@ test.describe('PC 1440', () => {
 
   test('노트 순서: 정렬이 [수정한 날]이면 끌어도 안내만, [내가 정한 순서]면 끌어서 저장, 새로고침해도 같은 순서', async ({ page }) => {
     const f = await fixture(page, 1440);
-    await page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`).click();
+    await enterNxFolder(page, U(1));
     expect(await noteOrder(page)).toEqual(['n1', 'n2', 'n3']);
     // 고친 날 정렬: 같은 폴더 안 노트 위에 놓으면 아무것도 저장하지 않고 안내.
     await mouseDrag(page, '#noteRows [data-nx-note="n3"]', '#noteRows [data-nx-note="n1"]', 'before');
@@ -207,7 +209,7 @@ test.describe('PC 1440', () => {
     await expect.poll(() => noteOrder(page)).toEqual(['n1', 'n3', 'n2']);
     // 새로고침해도 같은 정렬·같은 순서.
     await page.reload(); await f.show();
-    await page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`).click();
+    await enterNxFolder(page, U(1));
     await expect.poll(() => noteOrder(page)).toEqual(['n1', 'n3', 'n2']);
     // 다시 고친 날로.
     await page.locator('[data-note-folder-more]').click();
