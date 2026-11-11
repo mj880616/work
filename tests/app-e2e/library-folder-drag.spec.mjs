@@ -178,6 +178,18 @@ test.describe('PC 1280 자료 줄 위에 놓기·머물면 열림',()=>{
     const same=await dragTo(page,row('n-1'),row('a-2'));expect(same.allowed).toBe(false);
     expect(errors).toEqual([]);
   });
+  // S59-9 LIB-펼친폴더안놓기: 두 칸 보기에 같은 규칙을 넓히면서 한 칸 목록은 그대로인지 — 여러 겹 열린 폴더면 가장 가까운(안쪽) 폴더, 표시는 그 폴더 머리.
+  test('한 칸 목록 그대로: 여러 겹 열린 폴더 안 자료 줄 위에 놓으면 안쪽 폴더로, 이미 든 폴더는 놓을 수 없음',async({page})=>{
+    const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
+    await expandLibraryTree(page);
+    await expect(page.locator('#documentList [data-lu-two]')).toHaveCount(0);
+    const r=await dragTo(page,row('a1-1'),row('a-1'));expect(r.allowed).toBe(true);
+    await expect.poll(()=>s.items.find(x=>x.document_id==='a1-1')?.folder_id).toBe('fc');
+    await expect(line(page)).toContainText('옮겼어요 1개 → 가상 C 폴더');
+    await expandLibraryTree(page);
+    const same=await dragTo(page,row('a1-1'),row('a-1'));expect(same.allowed).toBe(false);
+    expect(errors).toEqual([]);
+  });
   test('끄는 채 닫힌 폴더 위에 1초 머물면 열리고, 바로 지나가면 열리지 않는다',async({page})=>{
     const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await libraryNodeHead(page,'x:out').click();await expect(page.locator(row('a-2'))).toBeVisible();
