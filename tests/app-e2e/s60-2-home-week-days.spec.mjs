@@ -29,9 +29,9 @@ for (const [width, height] of WIDTHS) {
     expect(await css(num(page, other), 'color')).toBe('rgb(255, 255, 255)');
     expect(await css(num(page, today), 'backgroundColor')).toBe('rgba(0, 0, 0, 0)');
     expect(await css(num(page, today), 'borderTopColor')).not.toBe('rgba(0, 0, 0, 0)');
-    // 칸 높이: 한 줄 때 32px에서 두 줄 38px 이하로만.
+    // 칸 높이: 두 줄이어도 한 줄 때 32px 그대로.
     const h = (await date(page, other).boundingBox()).height;
-    expect(h).toBeLessThanOrEqual(38);
+    expect(h).toBeLessThanOrEqual(32.5);
     // 일요일 빨강 유지.
     expect(await css(date(page, '2026-10-11').locator('.journal-weekday'), 'color')).toBe(await page.evaluate(() => { const e = document.createElement('i'); e.style.color = 'var(--kptu-danger)'; document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; }));
     await page.screenshot({ path: test.info().outputPath(`other-selected-${width}.png`), clip: { x: 0, y: 0, width, height: 260 } });

@@ -104,7 +104,7 @@ for (const [width, height] of [...SINGLE, ...PC]) {
 }
 
 for (const [width, height] of [[390, 844], [412, 915], [690, 1000], [884, 1104], [1280, 900]]) {
-  test(`날짜 줄 ${width}: 날짜 칸은 38px 이하 · 요일 위·날짜 아래 두 줄(HOME-날짜줄고른날) · 읽기 이름 그대로`, async ({ page }) => {
+  test(`날짜 줄 ${width}: 날짜 칸은 32px(‹ › [이번 주]와 같은 높이) · 요일 위·날짜 아래 두 줄(HOME-날짜줄고른날) · 읽기 이름 그대로`, async ({ page }) => {
     const errors = await ready(page, width, height);
     const m = await page.evaluate(() => {
       const h = sel => document.querySelector('#journalRoot ' + sel).getBoundingClientRect().height;
@@ -117,7 +117,7 @@ for (const [width, height] of [[390, 844], [412, 915], [690, 1000], [884, 1104],
     });
     expect(m.docW).toBeLessThanOrEqual(m.vw);
     for (const c of m.cells) {
-      expect(c.h).toBeLessThanOrEqual(38.5);                     // 두 줄이어도 한 줄 32px보다 6px만 큼
+      expect(c.h).toBeLessThanOrEqual(m.today + 0.5);        // 두 줄이어도 옆 단추와 같은 32px
       expect(c.inside).toBe(true);                               // 글자가 칸 밖으로 나가지 않음
       expect(c.shown).toBe(true);                                // 폭과 상관없이 요일 글자가 날짜 위에 보임
       expect(c.stacked).toBe(true);
