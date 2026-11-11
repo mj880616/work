@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome,defaultStageRows} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
@@ -14,7 +14,7 @@ const orgs=[{id:OA,workspace_id:'w',name:'합성 가 지부',aliases:[],active:t
 let n=0;const uid=()=>`00000000-0000-4000-8000-${String(++n).padStart(12,'0')}`;
 const U=(org,day,text,x={})=>({id:uid(),organization_id:org,raw_text:text,occurred_at:`${day}T12:00:00+09:00`,end_day:null,source_kind:null,created_at:'2026-11-01T00:00:00Z',updated_at:'2026-11-01T00:00:00Z',workspace_id:'w',created_by:owner,detail_text:null,doc:null,...x});
 const EV=(id,start,title,x={})=>({id,title,start,end:null,allDay:true,calendarId:'primary',organizationIds:[],htmlLink:'',...x});
-async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFail=false,old=null,order=null,prefsOpts={},dayNoneOff=false}={}){
+async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFail=false,old=null,order=null,prefsOpts={},dayNoneOff=false,orgList=orgs}={}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await installViewPrefsServer(page,null,prefsOpts);
@@ -25,8 +25,8 @@ async function fixture(page,{width,records=[],marks=[],snaps=[],events=[],calFai
  const f=await openHome(page,{beforeLoad:old?null:()=>page.route(u=>u.origin===SB&&u.pathname==='/auth/v1/token',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'home-access',refresh_token:'home-refresh',expires_at:4102444800,user:{id:owner,email:'home@example.org'}})}))});
  const db={records:records.map(r=>({...r})),marks:marks.map(m=>({...m})),posts:[],markWrites:[],cal:[],deletes:[]};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
- await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
- await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
+ await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgList.filter(o=>'eq.'+o.id===id):orgList)});
+ await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgList.map(o=>({organization_id:o.id,user_id:owner})))});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',async route=>{
   const req=route.request(),q=new URL(req.url()).searchParams;
   if(req.method()==='POST'){const b=req.postDataJSON();db.posts.push(b);const row={id:uid(),created_at:'2026-11-17T01:00:05Z',detail_text:null,doc:null,end_day:null,source_kind:null,...b};db.records.push(row);return json(route,[row],201)}
@@ -215,20 +215,85 @@ test('[전체 표] 전환 주 앞(옛 주)은 옛 주별 조직보고 표 읽기
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`[전체 표] 주간보고 조직보고 표와 같은 모양(조직 | 조직현황 칸 선) ${width}px`,async({page})=>{
+// ORG-폴드두열표(요청함 11/11, 시안 docs/design/mockups/org-table-fold-two-cols.html): 접은 폰(390)·폴드 펼침(690)·PC(1280) 모두 [조직 | 조직현황] 두 열 표.
+// 예전에는 화면 760 이하(펼친 폴드 약 673~707px 포함)에서 한 조직을 두 줄로 쌓았다. 왼쪽 열: 600 이상은 가장 긴 이름 한 줄 폭, 600 미만은 좁게(7em) 고정.
+for(const width of [390,690,1280])test(`[전체 표] 조직 | 조직현황 두 열 표(쌓지 않음, 머리줄·칸 선) ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width,records:[U(OA,'2026-11-17','합성 교섭 상견례')]});
  await openTable(page);
  await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0); // 일정 읽기가 끝나 다시 그린 뒤 잰다
  const table=page.locator('#soOverview table.wl-table');
  await expect(table).toHaveCount(1);
+ await expect(table.locator('thead')).toBeVisible();
  await expect(table.locator('thead th')).toHaveText(['조직','이번 주 조직보고']);
  const cell=oa(page).locator('td.wl-c-rows'),head=oa(page).locator('th.wl-c-org');
  await expect(cell).toHaveCSS('border-top-width','1px');await expect(head).toHaveCSS('border-top-width','1px');
  await expect(oa(page).locator('.wl-day').first()).toHaveText('- 11.17.');
  const [h,c]=await Promise.all([head.boundingBox(),cell.boundingBox()]);
- if(width>760){expect(c.x).toBeGreaterThanOrEqual(h.x+h.width-1);expect(Math.abs(c.y-h.y)).toBeLessThan(2);}
- else{expect(c.y).toBeGreaterThanOrEqual(h.y+h.height-2);expect(Math.abs(c.x-h.x)).toBeLessThan(2);expect(c.width).toBeGreaterThan(300);}
+ expect(c.x).toBeGreaterThanOrEqual(h.x+h.width-1); // 조직 칸 오른쪽에 조직현황 칸
+ expect(Math.abs(c.y-h.y)).toBeLessThan(2); // 같은 줄(쌓지 않음)
+ if(width<600){expect(h.width).toBeLessThan(130);expect(c.width).toBeGreaterThan(200);} // 접은 폰: 좁은 왼쪽 열, 글 칸은 넓게
+ await expect(table.locator('thead .col-grip')).toBeVisible({visible:width>=600}); // 칸 끌기 손잡이는 폴드 펼침·PC만
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+// 긴 조직 이름: 폴드 펼침·PC는 한 줄(왼쪽 열을 이름에 맞춤, 표 폭 45% 안), 접은 폰은 좁은 왼쪽 열에서 두 줄 이상으로 꺾임.
+// 표 폭 45%보다 긴 이름은 칸 안에서 꺾이고 옆으로 넘치지 않는다.
+const OC='0c0c0c0c-0000-4000-8000-00000000000c',OD='0d0d0d0d-0000-4000-8000-00000000000d';
+const LONG_NAME='합성 도시철도 노동조합 연합 지부',OVER_NAME='합성 '+'아주긴이름'.repeat(9);
+const longOrgs=()=>[...orgs,{id:OC,workspace_id:'w',name:LONG_NAME,aliases:[],active:true,created_by:owner,updated_at:stamp},{id:OD,workspace_id:'w',name:OVER_NAME,aliases:[],active:true,created_by:owner,updated_at:stamp}];
+const textLines=loc=>loc.evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);const ys=[];for(const b of r.getClientRects()){if(b.width<1)continue;if(!ys.some(y=>Math.abs(y-b.y)<3))ys.push(b.y)}return ys.length});
+for(const width of [390,690,1280])test(`[전체 표] 긴 조직 이름: 폴드·PC 한 줄(열이 이름에 맞음), 접은 폰은 두 줄 꺾임, 너무 긴 이름은 칸 안에서 꺾임 ${width}px`,async({page})=>{
+ const {errors}=await fixture(page,{width,orgList:longOrgs(),records:[U(OC,'2026-11-17','합성 교섭 상견례')]});
+ await openTable(page);
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0);
+ const name=page.locator(`#soOverview [data-oa-open="${OC}"]`),over=page.locator(`#soOverview [data-oa-open="${OD}"]`),head=page.locator('#soOverview thead th.wl-c-org'),table=page.locator('#soOverview table.wl-table');
+ const [n,hb,tb]=await Promise.all([name.boundingBox(),head.boundingBox(),table.boundingBox()]);
+ if(width>=600){
+  expect(await textLines(name)).toBe(1);
+  expect(n.x+n.width).toBeLessThanOrEqual(hb.x+hb.width-1); // 이름이 왼쪽 열 안에 다 들어감
+  expect(hb.width).toBeLessThanOrEqual(tb.width*0.45+2); // 열 폭은 표 폭의 45%까지
+  expect(await textLines(over)).toBeGreaterThan(1); // 45%보다 긴 이름은 칸 안에서 꺾임(잘리지 않음)
+  expect(hb.width).toBeGreaterThan(tb.width*0.45-6); // 그 이름 때문에 열이 45%까지 넓어짐
+ }else{
+  expect(hb.width).toBeLessThan(130);
+  expect(await textLines(name)).toBeGreaterThan(1);
+ }
+ const ob=await over.boundingBox();expect(ob.x+ob.width).toBeLessThanOrEqual(hb.x+hb.width+1); // 옆 칸으로 넘치지 않음
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+// 끌어 정한 폭(서버 col_widths.orgall.org, 화면 종류별 꼬리: PC 없음 · 폴드 펼침 _f · 폰 _p)은 폴드·PC에서 그 폭을 쓰고, 폰에서는 어떤 값이 있어도 글 칸을 누르지 않는다(7em 고정).
+for(const [width,key,px] of [[690,'org_f',300],[1280,'org',260],[390,'org_p',420]])test(`[전체 표] 끌어 정한 [조직] 열 폭 col_widths.orgall.${key}=${px} → ${width}px 화면`,async({page})=>{
+ await installViewPrefsServer(page,{col_widths:{orgall:{org_f:300,org:260,org_p:420}}});
+ const {errors}=await fixture(page,{width,records:[U(OA,'2026-11-17','합성 교섭 상견례')]});
+ await openTable(page);
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0);
+ const h=await page.locator('#soOverview thead th.wl-c-org').boundingBox(),c=await oa(page).locator('td.wl-c-rows').boundingBox();
+ if(width>=600)expect(Math.abs(h.width-px)).toBeLessThan(14);
+ else{expect(h.width).toBeLessThan(130);expect(c.width).toBeGreaterThan(200);} // 폰: 저장 값이 있어도 좁은 왼쪽 열
+ expect(errors).toEqual([]);
+});
+
+// 사진: ORG_TABLE_SHOTS 폴더가 있으면 docs/design/screens/s57-15/ 용 사진을 남긴다(가짜 데이터). ORG_TABLE_SHOTS_PREFIX='before-'로 고치기 전 사진.
+const TSHOTS=process.env.ORG_TABLE_SHOTS||'',TPREFIX=process.env.ORG_TABLE_SHOTS_PREFIX||'';
+for(const width of [412,690,1280])test(`[전체 표] 화면 사진 ${width}px`,async({page})=>{
+ test.skip(!TSHOTS,'사진을 남길 때만(ORG_TABLE_SHOTS)');
+ const orgsX=[{id:OA,workspace_id:'w',name:'합성 가 지부',aliases:[],active:true,created_by:owner,updated_at:stamp},{id:OC,workspace_id:'w',name:LONG_NAME,aliases:[],active:true,created_by:owner,updated_at:stamp},{id:OB,workspace_id:'w',name:'합성 나 지회',aliases:[],active:true,created_by:owner,updated_at:stamp}];
+ const records=[U(OA,'2026-11-17','합성 10시 점검 회의'),U(OA,'2026-11-18','합성 오후 관계 기관·사측·지부 3차 간담회 진행'),
+  U(OC,'2026-11-16','합성 긴 줄 — 연구용역 추진 약속을 받아 농성을 마무리하고 다음 주 후속 협의 일정을 잡기로 함. 넘친 글은 날짜 오른쪽 자리에 맞춰 이어짐.'),U(OC,'2026-11-17','합성 찬반투표 결과 정리'),
+  U(OB,'2026-11-17','합성 1차 본교섭 진행'),U(OB,'2026-11-18','합성 쟁의 없이 합의할 가능성 높음')];
+ const {errors}=await fixture(page,{width,orgList:orgsX,records});
+ const stages=defaultStageRows();
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_dispute_stages',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
+  {id:'h1',organization_id:OA,stage_id:stages[2].id,stage_name:stages[2].name,stage_date:'2026-10-06',created_at:'2026-10-06T00:00:00Z',end_date:null},
+  {id:'h2',organization_id:OC,stage_id:stages[3].id,stage_name:stages[3].name,stage_date:'2026-11-05',created_at:'2026-11-05T00:00:00Z',end_date:null},
+  {id:'h3',organization_id:OB,stage_id:stages[1].id,stage_name:stages[1].name,stage_date:'2026-10-22',created_at:'2026-10-22T00:00:00Z',end_date:null}])}));
+ await openTable(page);
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0);
+ await expect(page.locator('#soOverview .wl-stage').first()).toBeVisible();
+ await page.screenshot({path:`${TSHOTS}/${TPREFIX}org-table-${width}.png`});
  expect(errors).toEqual([]);
 });
 
