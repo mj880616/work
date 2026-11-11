@@ -179,6 +179,7 @@ test('PC 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러서 보�
   await third.locator('.journal-read-title').click({ button: 'right' });
   const menu = page.locator('#rowMenu');
   await expect(menu).toBeVisible();
+  await expect(menu).toHaveCSS('border-top-left-radius', /[1-9]/); // 공용 줄 메뉴 모양(od-link.css)이 홈에도 불려 있다
   await expect(menu.locator('[data-row-item]')).toHaveText(['보관', '숨기기']);
   await expect(menu.locator('.row-menu-title')).toHaveText('가상 소식 3');
   await menu.locator('[data-row-item="hide"]').click();

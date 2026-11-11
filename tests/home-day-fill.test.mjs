@@ -212,6 +212,8 @@ test('화면 연결 HOME-읽을글밀기: 공용 줄 밀기(bindNowRows) 그대�
   assert.match(acts, /titleOf = nwTitle/);
   assert.match(css, /journal-read:hover > \.now-hov/);
   assert.match(css, /touch-action:pan-y/);
+  const loader = readFileSync(new URL('../app/view-loader.js', import.meta.url), 'utf8');
+  assert.match(loader, /home:\[[^\]]*'\.\/row-swipe\.css'[^\]]*'\.\/od-link\.css'/, '홈에도 줄 밀기·공용 줄 메뉴(우클릭) 모양');
   // 뉴스 쪽 줄 밀기 사용은 그대로(titleOf 기본값이 .nw-title).
   assert.match(acts, /el\.querySelector\('\.nw-title'\)/);
 });
