@@ -218,6 +218,7 @@ async function save() {
   }
   const lost = lostText(s);
   if (state === s) { s.saving = false; close(); }
-  if (s.kind === 'task' && s.sending && !notes.length && !lost) return; // 할 일 + 파일: 알림은 하단바 위 한 줄 하나
-  notify(WORDS[s.kind].saved, {note:[...notes, lost, s.sending && s.kind === 'note' ? '사진·파일은 올리는 중이에요.' : ''].filter(Boolean).join(' '), ms:notes.length || lost ? 12000 : 5000});
+  // UX-알림하나로(S59-21): 사진·파일을 올리는 진행·끝은 하단바 위 한 줄 하나가 말한다(여기서 '올리는 중이에요'를 또 쓰지 않는다).
+  if (s.sending && !notes.length && !lost) return;
+  notify(WORDS[s.kind].saved, {note:[...notes, lost].filter(Boolean).join(' '), ms:notes.length || lost ? 12000 : 5000});
 }

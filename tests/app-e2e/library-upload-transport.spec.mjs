@@ -92,7 +92,7 @@ async function open(page,{width,baseline=false,shortTimeout=false}={}){
  await page.evaluate(()=>{const original=window.luUploadRequest;window.luUploadRequest=async(...args)=>{try{return await original(...args)}catch(e){window.__errors.push({code:e.code,status:e.status,retryable:e.retryable,cause:e.cause?.name});throw e}}});
 }
 const posts=()=>requests.filter(r=>r.path==='/functions/v1/library-files'&&r.method==='POST');
-const notice=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
+const notice=page=>page.locator('#uploadDock:not([hidden]) .up-dock-text');
 const select=page=>page.locator('#libraryFileInput').setInputFiles({name:'한쪽 자료.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nmock upload body')});
 
 for(const width of [390,1280])test.describe(`native library transport ${width}px`,()=>{
@@ -127,11 +127,11 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
     if(failure==='424'&&!baseline)await page.locator('.kptu-ask').waitFor({state:'visible',timeout:5000}).then(()=>answerAsk(page,false),()=>{});
     // 옛 화면: 실패하면 창이 열린 채 상태 줄(role=alert). 지금 화면(UX-먼저묻고뒤에처리 3차): 창은 바로 닫히고 같은 글이 공용 작은 알림(role=alert)에 뜬다.
     if(baseline)await expect(page.locator('#documentStatus')).toHaveAttribute('role','alert');
-    else{await expect(page.locator('#documentModal')).toHaveClass(/hidden/);await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','alert')}
+    else{await expect(page.locator('#documentModal')).toHaveClass(/hidden/);await expect(page.locator('#uploadDock:not([hidden])')).toHaveAttribute('role','alert')}
     await expect(page.locator('#saveDocumentBtn')).toBeEnabled();
     await expect(page.locator('#saveDocumentBtn')).not.toHaveAttribute('aria-busy','true');
     expect(posts()).toHaveLength(1);
-    const result=await page.evaluate(baseline=>({message:baseline?document.querySelector('#documentStatus').textContent:document.querySelector('#kptuNotice .kptu-notice-text').textContent,state:baseline?document.querySelector('[data-lu-upload-state]').textContent:'',errors:window.__errors.map(({code,status,retryable})=>({code,status,retryable})),saved:window.__saved.length,changed:window.__changed}),baseline);
+    const result=await page.evaluate(baseline=>({message:baseline?document.querySelector('#documentStatus').textContent:document.querySelector('#uploadDock .up-dock-text').textContent,state:baseline?document.querySelector('[data-lu-upload-state]').textContent:'',errors:window.__errors.map(({code,status,retryable})=>({code,status,retryable})),saved:window.__saved.length,changed:window.__changed}),baseline);
     // UI-PC손맛묶음 ⑩(S56-52): 실패·없음 글귀만 해요체로 바꿨다 — 옛 화면 글자도 같은 말투로 맞춰 나머지(분류·상태·전송)를 비교한다.
     if(baseline)result.message=String(result.message).replace(/못했습니다/g,'못했어요').replace(/없습니다/g,'없어요');
     expect(result.saved).toBe(0);expect(result.changed).toBe(0);
@@ -148,7 +148,7 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
      // 지금 화면에는 파일 줄 상태 글자가 없다. 옛 글자가 가르던 것을 알림의 [다시] 동작으로 읽어 같은 이름으로 비교한다:
      // [다시] 없음 = '100MB 초과'(다시 보낼 수 없음) / [다시]가 먼저 중복 확인을 물음 = '결과 확인 필요' / [다시]가 바로 다시 보냄 = '실패 · 다시 시도'.
      if(failure!=='401')mode='success';
-     const retry=notice(page).locator('xpath=..').locator('.kptu-notice-action',{hasText:'다시'});
+     const retry=page.locator('#uploadDock:not([hidden]) [data-up-act="note-act"]',{hasText:'다시'});
      if(!(await retry.count()))result.state='100MB 초과';
      else{
       await retry.click();
@@ -192,7 +192,7 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
   // 늦게 온 답이 '결과 확인 필요'를 성공으로 바꾸지 않는다: 알림은 그대로이고 [다시]는 여전히 중복 확인부터 묻는다.
   await expect(notice(page)).toContainText('업로드 시간이 오래 걸려');
   await page.evaluate(()=>{window.__shortTimeout=false});
-  await notice(page).locator('xpath=..').locator('.kptu-notice-action',{hasText:'다시'}).click();
+  await page.locator('#uploadDock:not([hidden]) [data-up-act="note-act"]',{hasText:'다시'}).click();
   expect(await answerAsk(page,false)).toContain('업로드 결과를 확인하지 못한 파일 1개');
   expect(posts()).toHaveLength(1);
   expect(await page.evaluate(()=>({saved:window.__saved.length,changed:window.__changed}))).toEqual({saved:0,changed:0});
@@ -209,5 +209,6 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
   // 뒤에서 올리던 일은 [저장]한 사람의 것이다: 계정이 바뀌면 끝 알림(파일 이름)·자료 목록 알림을 바뀐 사람 화면에 내지 않는다.
   expect(await page.evaluate(()=>window.__changed)).toBe(0);
   await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
+  await expect(page.locator('#uploadDock:not([hidden])',{hasText:'올렸어요'})).toHaveCount(0);
  });
 });

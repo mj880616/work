@@ -111,7 +111,9 @@ test('phone: saved file names sit under the task and open Drive; ⋯ → 파일 
   await expect(dialog.locator('[data-gt-files-task]')).toHaveText('회의 자료 준비');
   await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['기존 자료.pdf']);
   await dialog.locator('[data-gt-files-input]').setInputFiles([{name:'회의록.txt',mimeType:'text/plain',buffer:Buffer.from('abc')},{name:'사진.png',mimeType:'image/png',buffer:Buffer.from('png')}]);
-  await expect(dialog.locator('[data-gt-files-status]')).toHaveText('2개 붙였습니다.');
+  // UX-알림하나로(S59-21): 끝은 창 상태 줄이 아니라 하단바 위 한 줄 하나.
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('회의 자료 준비: 2개 붙였습니다.');
+  await expect(dialog.locator('[data-gt-files-status]')).toHaveText('');
   expect(state.calls.attach).toEqual([{taskId:'a',name:'회의록.txt'},{taskId:'a',name:'사진.png'}]);
   await expect(dialog.locator('.gt-files-list .gt-file')).toHaveText(['기존 자료.pdf','회의록.txt','사진.png']);
   expect(await noSideScroll(page)).toBe(true);
@@ -140,7 +142,8 @@ test('파일 붙이기: 올리는 중에 창을 닫고 다른 화면으로 옮�
   await page.evaluate(()=>window.KPTURouter.go('library',{source:'qa'}));
   state.hold=null;release();
   await expect.poll(()=>state.calls.attach.map(c=>c.name)).toEqual(['가.txt','나.txt']);
-  await expect(page.locator('#kptuNotice')).toContainText('2개 붙였습니다');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('2개 붙였습니다');
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(row(page,'a').locator('.gt-files a.gt-file')).toHaveText(['가.txt','나.txt']);
   await context.close();
@@ -161,7 +164,7 @@ test('파일 붙이기: 올리는 중에 더 고르면 거절하지 않고 줄 �
   await expect(dialog.locator('[data-gt-files-status]')).toContainText('1개 대기 중');
   state.hold=null;release();
   await expect.poll(()=>state.calls.attach.map(c=>c.name)).toEqual(['가.txt','나.txt']);
-  await expect(dialog.locator('[data-gt-files-status]')).toContainText('2개 붙였습니다');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('2개 붙였습니다');
   await expect(dialog.locator('.gt-file')).toHaveText(['가.txt','나.txt']);
   await expect(dialog.locator('[data-gt-file-detach]').first()).toBeEnabled();
   await context.close();
@@ -435,7 +438,7 @@ test('412px: 파일 붙이기 창 ⋯ [이름 수정]는 이름 칸을 그 자�
   for(const label of ['이름 수정','빼기','삭제'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeDisabled();
   for(const label of ['Drive에서 열기','내려받기'])await expect(menu.getByRole('button',{name:label,exact:true})).toBeEnabled();
   state.hold=null;release();
-  await expect(dialog.locator('[data-gt-files-status]')).toContainText('1개 붙였습니다');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('1개 붙였습니다');
   expect(await noSideScroll(page)).toBe(true);
   await context.close();
 });

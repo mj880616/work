@@ -56,7 +56,7 @@ test('a file dropped on the basket input on a PC keeps its whole name, as the [�
  await expect(box.locator('[data-basket-file]')).toContainText(name);
  await box.locator('[data-quick-save]').click();
  // BIZ-저장먼저닫기 2차(S59-10): 파일만이면 입력칸이 바로 풀리고, 첫 파일이 뒤에서 업데이트를 만든다(끝나면 목록을 다시 읽음).
- await expect(page.locator('#toast')).toContainText('사진·파일을 올리는 중이에요.');
+ await expect(page.locator('#toast')).not.toContainText('올리는 중'); // UX-알림하나로: 진행은 하단바 위 한 줄 하나
  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
  expect(f.uploads).toHaveLength(1);
  expect(f.uploads[0]).toContain(`filename="${name}"`);expect(f.uploads[0]).not.toContain('name="raw_text"');

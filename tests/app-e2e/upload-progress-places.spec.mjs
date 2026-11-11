@@ -74,7 +74,7 @@ for(const width of [390,1280])test.describe(`자료실 올리기 ${width}px`,()=
  test.use(width===390?{...phone,viewport:{width,height:900}}:{viewport:{width,height:900}});
  // UX-먼저묻고뒤에처리 3차(S57-1): [저장]하면 등록 창은 바로 닫히고(잠기지 않음) 올리기는 뒤 줄에서 한다. 올리는 줄은 창 안 파일 줄 대신
  // 자료실 화면 목록 위 올리는 줄(끌어 놓기와 같은 자리, 공용 부품)에 그 파일의 막대·%·✕로 보인다.
- const rows=page=>page.locator('#libraryView .up-rows .up-row'),noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
+ const rows=page=>page.locator('#libraryView .up-rows .up-row'),noticeLine=page=>page.locator('#uploadDock:not([hidden]) .up-dock-text');
  test(`[저장] 뒤 창은 바로 닫히고, 자료실 올리는 줄의 막대·%가 실제 보낸 양으로 오르고, 다 보내면 마무리 중…, 끝나면 알린다 ${width}px`,async({page})=>{
   test.setTimeout(90000);
   const errors=await open(page);
@@ -110,11 +110,12 @@ for(const width of [390,1280])test.describe(`자료실 올리기 ${width}px`,()=
   await expect(first.locator('.up-pc')).toHaveText(/\d+%/);
   await first.getByRole('button',{name:'멈출 자료.pdf 올리기 취소'}).click();
   await expect.poll(()=>state.received.map(r=>r.name),{timeout:30000}).toEqual(['다음 자료.pdf']);
-  // 끝 알림: 올린 것·취소한 것을 예전 창 상태 줄과 같은 글로 알리고(취소는 오류가 아니다), [다시]가 취소한 파일만 다시 올린다.
+  // 끝 알림(UX-알림하나로): 하단바 위 한 줄 하나에 예전 창 상태 줄과 같은 글(취소는 오류가 아니다), [다시 올리기]가 취소한 파일만 다시 올린다.
   await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. 올리기를 취소했어요.',{timeout:15000});
-  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','status');
+  await expect(page.locator('#uploadDock')).toHaveAttribute('role','status');
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
   state.pauseMs=5;
-  await page.locator('#kptuNotice:not([hidden]) .kptu-notice-action',{hasText:'다시'}).click();
+  await page.locator('#uploadDock').getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
   await expect.poll(()=>state.received.map(r=>r.name),{timeout:30000}).toEqual(['다음 자료.pdf','멈출 자료.pdf']);
   await expect(noticeLine(page)).toHaveText('멈출 자료.pdf 올렸어요',{timeout:15000});
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);

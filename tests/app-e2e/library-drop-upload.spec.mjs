@@ -106,9 +106,11 @@ test('PC: files dropped on the library screen upload at once with nothing set, a
   await expect(overlay).toHaveText('놓으면 바로 올려요');
   await dragFiles(page,'drop',['a-요구안.hwpx','b-보도자료.pdf'],'#documentList');
   await expect(overlay).toBeHidden();
-  await expect(page.locator('#libraryDropStatus')).toHaveText('2개 올렸어요');
-  // LIB-업로드완료알림: 같은 끝에 공용 작은 알림 한 줄도 뜬다.
-  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('2개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('2개 올렸어요');
+  // UX-알림하나로(S59-21): 끝 알림은 하단바 위 한 줄 하나 — 위쪽 작은 알림으로 같은 말을 또 띄우지 않는다.
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
+  await expect(page.locator('#libraryDropStatus')).toHaveCount(0); // 목록 위 상태 글줄도 없다(진행은 올리는 줄, 끝은 아래 한 줄)
+  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/library-drop-done-1440.png`});
   expect(state.uploads.map(u=>u.file_name)).toEqual(['a-요구안.hwpx','b-보도자료.pdf']);
   // Same request as an empty [+ 자료 등록]: only the file, no title / category / project fields.
   for(const names of state.forms)expect(names).toEqual(['file']);

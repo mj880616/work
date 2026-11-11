@@ -75,7 +75,9 @@ test('웹2 노트: 링크 제목이 제목, 폴더 고르고 한 줄 더해 저�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('share-note-412.png')});
   await dialog(page).getByRole('button', {name:'저장'}).tap();
-  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('노트에 넣었어요');
+  // UX-알림하나로(S59-21): 사진이 함께면 끝 알림은 하단바 위 한 줄 하나('노트에 사진 1장 올렸어요') — 위쪽 '넣었어요'를 또 띄우지 않는다.
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('노트에 사진 1장 올렸어요');
+  await expect(notice(page)).toHaveCount(0);
   await expect(dialog(page)).toBeHidden();
   expect(state.posts).toHaveLength(1);
   expect(state.posts[0]).toMatchObject({kind:'note', title:'기사 제목', raw_text:'다음 주에 읽기\n\nhttps://example.org/a'});
@@ -159,7 +161,8 @@ test('웹2 노트: [저장]하면 창이 바로 닫히고 사진은 뒤에서, �
   await expect(dialog(page)).toBeVisible();
   await dialog(page).getByRole('button', {name:'저장'}).tap();
   await expect(dialog(page)).toBeHidden();
-  await expect(notice(page)).toContainText('사진·파일은 올리는 중이에요.');
+  // UX-알림하나로(S59-21): 사진을 올리는 진행·끝은 하단바 위 한 줄 하나 — 위쪽 작은 알림이 '올리는 중'을 또 말하지 않는다.
+  await expect(notice(page)).toHaveCount(0);
   expect(state.posts).toHaveLength(1);
   await expect.poll(() => tries).toBe(1);
   await expect(page.locator('#uploadDock:not([hidden])')).toContainText('2개 올리는 중');

@@ -177,8 +177,8 @@ test('AI failure leaves the upload as it was: success message, row present, no e
   await expect.poll(()=>state.fills.length).toBe(1);
   await expect(page.locator('.lu-row-title',{hasText:'회의 사진'})).toHaveCount(1);
   // UX-먼저묻고뒤에처리 3차(S57-1): 창은 [저장] 뒤 바로 닫히고, 끝은 공용 작은 알림(role=status)으로 알린다.
-  await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('회의 사진.jpg 올렸어요');
-  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','status');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('회의 사진.jpg 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden])')).toHaveAttribute('role','status');
   expect(await page.locator('[role="alert"]:visible').count()).toBe(0);
   await expectNoAiMarker(page);
 });
