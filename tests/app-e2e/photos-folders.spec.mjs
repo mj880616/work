@@ -106,8 +106,14 @@ for (const width of [412, 884, 1440]) {
       await expect(tree.locator('[data-photos-fx-new]')).toHaveText('+ 새 폴더');
       await tree.locator('[data-photos-fx-tog="S2"]').click();
       await expect(tree.locator('.nx-name')).toHaveText(['카메라', '2026', '여행', '제주']);
+      // UI-폴더누르기한규칙: 이름 누르기 = 펼침만(들어가지 않음), 들어가기 = 우클릭 [이 폴더로 들어가기]
       await tree.locator('[data-photos-fx-open="S1"]').click();
+      await expect(tree.locator('[data-photos-folder="S1"]')).not.toHaveClass(/nx-current/);
+      if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/photos-pc-${width}-1-press.png` });
+      await tree.locator('[data-photos-folder="S1"] .nx-name').click({ button: 'right' });
+      await page.locator('#photosFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
       await expect(tree.locator('[data-photos-folder="S1"]')).toHaveClass(/nx-current/);
+      if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/photos-pc-${width}-2-entered.png` });
     } else {
       // 폰·폴드(FOLDER-나무새기준 ③): 첫 화면은 상자 나무 — 폴더를 누르면 그 자리에서 하위 폴더 + 처음 몇 장, 두 손가락 벌리기 = 그 폴더만(위치 줄 ‹), 뒤로가기 = 나무.
       const box = root(page).locator('[data-photos-box="onedrive"]');
@@ -161,7 +167,7 @@ for (const width of [412, 884, 1440]) {
       await root(page).locator('[data-photos-fx-more="S2"]').click();
     }
     await expect(fm).toBeVisible();
-    await expect(fm.locator('button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '삭제']);
+    await expect(fm.locator('button')).toHaveText([...(wide ? ['이 폴더로 들어가기'] : []), '새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '삭제']); // UI-폴더누르기한규칙: PC 나무 ⋯ 메뉴 맨 위 [이 폴더로 들어가기]
     await page.keyboard.press('Escape');
     await expect(fm).toBeHidden();
     // + 새 폴더: 지금 폴더(PC 2026, 폰 맨 위 카메라) 안에. 이름 줄에 쓰고 Enter.
@@ -180,7 +186,8 @@ test('사진 메뉴 ② 폴더 PC 1440: 선택한 사진을 왼쪽 폴더로 끌
   await openPhotos(page);
   await root(page).locator('[data-photos-view]').selectOption('folders');
   const tree = root(page).locator('[data-photos-fx-tree]');
-  await tree.locator('[data-photos-fx-open="S1"]').click();
+  await tree.locator('[data-photos-folder="S1"] .nx-name').click({ button: 'right' }); // UI-폴더누르기한규칙: 들어가기 = 우클릭 [이 폴더로 들어가기]
+  await page.locator('#photosFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
   // 사진 우클릭 = [선택] [별표] [공유] [일기에 넣기] [업데이트로 보내기](S48-56·S49-9) [폴더로 옮기기…] [앨범에 넣기…] [정보수정](S50-31) [지우기].
   await items(page).nth(2).click({ button: 'right' });

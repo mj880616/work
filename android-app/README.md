@@ -103,6 +103,14 @@
 - 녹음 시작 인텐트: `kr.or.kptu.work.action.REC_START`를 `RecordActionActivity`(내보내지 않음)로 보내면 웹2를 열고 녹음을 시작한다. 홈 위젯 [녹음] 칸이 쓸 자리(위젯 여러 개 작업과 줄 세우기).
 - 권한: 마이크는 처음 녹음할 때 묻고(거절하면 녹음 안 함), 알림(안드로이드 13+)은 한 번만 묻는다(거절해도 녹음은 됨). 소리·토큰은 로그에 쓰지 않는다.
 
+## 뒤에서 올리기 (APP-뒤에서올리기 1단계, 다음 판)
+
+- 웹 화면이 고른 사진·파일을 앱에 넘기면 앱이 뒤에서 끝까지 올린다(다른 앱으로 가도·앱을 닫아도·인터넷이 잠깐 끊겨도). 1단계 대상은 사업 보고 사진·회의자료(`kinds`의 `meeting`). 설계·보안 근거는 `docs/design/phone-widget-auth.md` 16절.
+- 다리(`up:*`, 웹 `app/app-upload.js`): `up:hello` → `up:state:{"v":1,"on","kinds","jobs"}`(답이 없으면 옛 앱, `on:false`면 위젯 로그인 없음 → 웹이 지금 길로 올림). `up:start:{"kind","meeting","project","count"}` → 파일마다 `up:begin:{"name","mime","size","title","category","date"}`·`up:part:<base64>`·`up:end` → `up:go`. 걸음마다 `up:ack:{"ok","step","error","id"}`. 그 밖에 `up:cancel`·`up:seen:<묶음>`, 앱 → 웹 `up:job:{…}`(묶음 진행·끝). 규칙은 `BackUploadRules`(JVM 시험 `BackUploadTest`).
+- 임시 파일: 앱 전용·백업 제외 폴더 `noBackupFilesDir/back-upload/<묶음>/`에만 둔다. 끝낸 파일은 바로 지우고, 끝난 묶음 기록(자료 id·까닭 코드)은 `up:seen` 또는 3일 뒤 지운다. 받다 만 묶음은 다음 `up:hello`·`up:start` 때 지운다. 20개·한 개 100MiB.
+- 올리기: `BackUploadWorker`(WorkManager, 인터넷 연결 조건, 안드로이드 12+는 급한 작업, 묶음마다 이름 하나)가 위젯 세션으로 `POST /functions/v1/library-files`(파일 하나 + `meeting_id` + 선택 `project_id`·`title`·`category`·`document_date`)만 부른다(`WidgetRules.allowedParts`). 웹↔앱 사이에 토큰·로그인 정보를 넘기지 않는다. 새 권한·내보내는 부품 없음.
+- 실패: 보내기 전·보내는 중 끊김과 서버가 다시 해도 된다고 답한 실패는 저절로 다시(최대 3번), 그래도 안 되면 토스트 한 줄 + 남은 파일은 앱 화면이 열릴 때 다시 건다. 다 보낸 뒤 답을 못 받은 파일은 겹쳐 올라가지 않게 다시 보내지 않는다(`WidgetSentException`). 권한 없음·사업 보고가 지워짐은 남은 파일도 보내지 않는다. 결과는 토스트 한 줄(폰 알림줄 알림 없음).
+
 ## 파일
 
 | 파일 | 하는 일 |

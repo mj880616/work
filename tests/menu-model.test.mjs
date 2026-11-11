@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {ITEMS, BAR_MAX, DEFAULT_BAR, DEFAULT_REST, DEFAULT_TAIL, TAIL_MARK, defaultLayout, normalizeLayout, isDefaultLayout, layoutToPrefs, moveItem, stepItem, pcOrder, pcSplit, barItemForView, menuSheetViews} from '../app/menu-model.mjs';
-import {dropIndex} from '../app/reorder-drag.js';
+import {ITEMS, BAR_MAX, DEFAULT_BAR, DEFAULT_REST, DEFAULT_TAIL, TAIL_MARK, defaultLayout, normalizeLayout, isDefaultLayout, layoutToPrefs, moveItem, stepItem, pcOrder, pcSplit, pcMoveFor, barItemForView, menuSheetViews} from '../app/menu-model.mjs';
+import {dropIndex, dropIndexGrid} from '../app/reorder-drag.js';
 import {validValue} from '../app/view-prefs.js';
 
 // MENU-HOME-편집 · MENU-세칸: 메뉴 순서의 결정 규칙을 한 곳에서 시험한다(PC 왼쪽 메뉴·폰 하단바·폰 [메뉴] 창이 모두 이 규칙을 읽는다).
@@ -223,4 +223,98 @@ test('MENU-숨김: PC 왼쪽 메뉴는 위 줄·맨 아래 묶음에서 숨긴 �
   assert.ok(!s.main.includes('ledger') && !s.main.includes('pages') && !s.tail.includes('ledger'));
   assert.deepEqual([...s.main, ...s.tail, ...l.hidden].sort(), ALL());
   assert.ok(menuSheetViews(l).includes('ledger'), '숨긴 메뉴 화면도 [메뉴] 칸이 지금 화면(하단바 칸 아님)');
+});
+
+// MENU-왼쪽메뉴바로끌기: PC 왼쪽 메뉴에서 끌어 놓은 자리(앞·뒤 이웃) → 어느 칸 몇 번째인지. 저장은 메뉴 편집 창과 같은 moveItem 한 길이다.
+const applyPc = (layout, id, slot) => { const to = pcMoveFor(layout, id, slot); return moveItem(layout, id, to.to, to.index); };
+const pcMain = l => pcSplit(l).main.filter(x => x !== 'home');
+// 처음 모양이 아닌 구성(PC 위 줄이 '하단바 칸 메뉴가 위, 위 메뉴가 그 아래'로 보이는 상태): [사진]을 위 메뉴 맨 앞으로 옮겨 둔 것.
+const changed = () => moveItem(defaultLayout(), 'photos', 'rest', 0).layout;
+test('MENU-왼쪽메뉴바로끌기: 위 메뉴 줄을 같은 칸 안에서 끌면 그 칸 순서만 바뀐다', () => {
+  const l = changed(), base = pcMain(l);
+  assert.deepEqual(base, ['basket', 'calendar', 'meetings', 'team', 'photos', 'note', 'library', 'files', 'hwp', 'pages', 'ledger', 'outside']);
+  // [바깥 성명(News)]을 [자료실] 앞으로: 위 메뉴 안에서만 움직인다(하단바 그대로).
+  const r = applyPc(l, 'outside', {part: 'main', index: base.filter(x => x !== 'outside').indexOf('library')});
+  assert.ok(r.ok && r.changed);
+  assert.deepEqual(r.layout.bar, l.bar);
+  assert.deepEqual(r.layout.rest, ['photos', 'note', 'outside', 'library', 'files', 'hwp', 'pages', 'ledger']);
+  // 하단바 칸 안에서도(홈 아래 첫 줄 앞 = 하단바 칸 맨 앞 자리, 홈은 그대로 맨 앞).
+  const b = applyPc(l, 'team', {part: 'main', index: 0});
+  assert.deepEqual(b.layout.bar, ['home', 'team', 'basket', 'calendar', 'meetings']);
+});
+test('MENU-왼쪽메뉴바로끌기: 하단바 칸 끝과 위 메뉴 첫 줄 사이는 끌던 줄이 있던 칸에 남고, 칸 사이 깊이 들어갈 때만 칸이 바뀐다', () => {
+  const l = changed(), main = pcMain(l); // 앞 4개 하단바(홈 뺀 것), 뒤는 위 메뉴
+  // 위 메뉴 첫 줄이던 [사진]을 하단바 끝(팀) 바로 아래로 끌면 그대로 위 메뉴 맨 앞.
+  const seq = main.filter(x => x !== 'photos');
+  const toBoundary = applyPc(l, 'photos', {part: 'main', index: seq.indexOf('team') + 1});
+  assert.ok(toBoundary.ok); assert.deepEqual(toBoundary.layout.bar, l.bar); assert.equal(toBoundary.changed, false);
+  // 하단바 칸이던 [팀]을 같은 경계로 끌면 하단바 칸에 남는다(맨 뒤).
+  const stay = applyPc(l, 'team', {part: 'main', index: main.filter(x => x !== 'team').indexOf('photos')});
+  assert.deepEqual(stay.layout.bar, l.bar); assert.equal(stay.changed, false);
+  // 하단바 칸 메뉴들 사이로 [사진]을 끌면 하단바 칸이 되는데, 하단바가 가득 차 있으면 'full'로 거절한다(칸 수 제한 그대로).
+  const full = applyPc(l, 'photos', {part: 'main', index: seq.indexOf('calendar')});
+  assert.equal(full.ok, false); assert.equal(full.reason, 'full');
+  // 하단바에 자리가 있으면 들어간다.
+  const room = moveItem(l, 'team', 'rest', 0).layout;
+  const seqRoom = pcMain(room).filter(x => x !== 'outside');
+  const into = applyPc(room, 'outside', {part: 'main', index: seqRoom.indexOf('meetings')});
+  assert.ok(into.ok); assert.deepEqual(into.layout.bar, ['home', 'basket', 'calendar', 'outside', 'meetings']);
+});
+test('MENU-왼쪽메뉴바로끌기: 위 줄 맨 끝은 위 메뉴 끝이고, 맨 아래 묶음으로·묶음에서 끌어 옮긴다', () => {
+  const l = defaultLayout();
+  const seq = pcMain(l).filter(x => x !== 'files');
+  const end = applyPc(l, 'files', {part: 'main', index: seq.length});
+  assert.deepEqual(end.layout.rest.at(-1), 'files'); assert.deepEqual(end.layout.bar, l.bar);
+  const toTail = applyPc(l, 'photos', {part: 'tail', index: 1});
+  assert.deepEqual(toTail.layout.tail, ['calls', 'photos', 'telegram', 'arsenal']);
+  assert.ok(!toTail.layout.rest.includes('photos'));
+  // 맨 아래 묶음에서 위 줄로: 끌어 놓은 자리 앞·뒤 이웃이 위 메뉴면 위 메뉴로 들어간다(하단바로 새지 않는다).
+  const up = applyPc(l, 'calls', {part: 'main', index: pcMain(l).indexOf('library')});
+  assert.ok(up.ok && up.layout.bar.length === BAR_MAX && !up.layout.bar.includes('calls'));
+  assert.ok(up.layout.rest.includes('calls') && !up.layout.tail.includes('calls'));
+  // 맨 아래 묶음이 비었어도 그 묶음 맨 앞 자리로 들어간다.
+  const empty = {...l, tail: [], rest: [...l.rest, 'calls', 'telegram', 'arsenal']};
+  const first = applyPc(empty, 'library', {part: 'tail', index: 0});
+  assert.deepEqual(first.layout.tail, ['library']);
+});
+test('MENU-왼쪽메뉴바로끌기: 홈은 위 줄에 없고 옮길 수 없다. 이상한 자리 값도 칸 안으로 맞춘다', () => {
+  const l = defaultLayout();
+  assert.equal(applyPc(l, 'home', {part: 'main', index: 3}).reason, 'fixed');
+  const wild = pcMoveFor(l, 'files', {part: 'main', index: 999});
+  assert.ok(moveItem(l, 'files', wild.to, wild.index).ok);
+  assert.deepEqual(pcMoveFor(l, 'files', {part: 'tail', index: -5}), {to: 'tail', index: 0});
+  assert.deepEqual(pcMoveFor(l, 'files', {part: 'main', index: NaN}).to, 'rest');
+});
+test('MENU-왼쪽메뉴바로끌기: 끌어 옮긴 결과는 항상 올바른 구성(모든 항목이 정확히 한 번)이다', () => {
+  for (const base of [defaultLayout(), changed()]) {
+    for (const id of ITEMS.map(i => i.id).filter(x => x !== 'home')) {
+      for (const part of ['main', 'tail']) {
+        for (let index = 0; index <= 14; index += 2) {
+          const r = applyPc(base, id, {part, index});
+          const next = r.ok ? r.layout : base;
+          assert.deepEqual(flat(next), ALL(), `${id} ${part} ${index}`);
+          assert.deepEqual(normalizeLayout(next), next);
+          if (r.ok && part === 'tail') assert.equal(pcSplit(next).tail.indexOf(id), Math.min(index, pcSplit(base).tail.filter(x => x !== id).length));
+        }
+      }
+    }
+  }
+});
+
+test('MENU-왼쪽메뉴바로끌기: 두 칸 격자(폰 [메뉴] 창)의 놓을 자리는 가까운 칸의 앞·뒤로 정한다', () => {
+  // 한 줄 150 높이 40, 두 칸(왼쪽 0~100, 오른쪽 110~210), 줄 사이 8: 노트|자료실 / 파일|HWP / 공유 하나.
+  const cell = (col, row) => ({left: col * 110, right: col * 110 + 100, top: row * 48, bottom: row * 48 + 40});
+  const rects = [cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1), cell(0, 2)];
+  assert.equal(dropIndexGrid([], 5, 5), 0);
+  assert.equal(dropIndexGrid(rects, 10, 20), 0, '첫 칸 왼쪽 반 = 그 칸 앞');
+  assert.equal(dropIndexGrid(rects, 90, 20), 1, '첫 칸 오른쪽 반 = 그 칸 다음(둘째 칸 앞)');
+  assert.equal(dropIndexGrid(rects, 120, 20), 1, '둘째 칸 왼쪽 반 = 둘째 칸 앞');
+  assert.equal(dropIndexGrid(rects, 200, 20), 2, '둘째 칸 오른쪽 반 = 다음 줄 첫 칸 앞');
+  assert.equal(dropIndexGrid(rects, 120, 70), 3, '둘째 줄 오른쪽 칸 왼쪽 반');
+  assert.equal(dropIndexGrid(rects, 190, 120), 5, '마지막 줄 빈 오른쪽 자리 = 맨 끝');
+  assert.equal(dropIndexGrid(rects, 40, 500), 5, '모든 칸 아래 = 맨 끝');
+  assert.equal(dropIndexGrid(rects, 40, -30), 0, '모든 칸 위 = 맨 앞');
+  // 한 칸짜리 세로 목록이면 세로 가운데 기준(dropIndex와 같은 결과).
+  const col = [0, 1, 2, 3].map(r => ({left: 0, right: 300, top: r * 44, bottom: r * 44 + 40}));
+  for (const y of [-5, 10, 30, 50, 70, 100, 140, 200]) assert.equal(dropIndexGrid(col, 150, y), dropIndex(col.map(r => (r.top + r.bottom) / 2), y), `y=${y}`);
 });

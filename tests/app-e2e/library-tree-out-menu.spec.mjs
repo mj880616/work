@@ -9,6 +9,7 @@ const FOLDERS=[
 const ITEMS=[{document_id:'a-1',folder_id:'fc'},{document_id:'n-1',folder_id:'fa'}];
 const navRoot=page=>page.locator('#libraryFolderNav');
 const nav=id=>`#libraryFolderNav [data-lu-nav="${id}"]`;
+const enterNav=async(page,id)=>{await page.locator(nav(id)).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}; // UI-폴더누르기한규칙: 나무 줄 누르기 = 펼침만, 들어가기 = 우클릭 [이 폴더로 들어가기]
 const row=id=>`#documentList [data-lu-document="${id}"]`;
 const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 const navNames=page=>page.locator('#libraryFolderNav .ft-main').evaluateAll(xs=>xs.map(x=>x.querySelector('.ft-name')?.textContent.trim()));
@@ -37,7 +38,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
     await expect(page.locator(nav(''))).toHaveAttribute('aria-current','true');
     // 폴더로 들어갔다가 '폴더 밖' 줄을 누르면 폴더에서 나와 폴더 밖만.
-    await page.locator(nav('fa')).click();await expect.poll(()=>tops(page)).toEqual(['f:fa']);
+    await enterNav(page,'fa');await expect.poll(()=>tops(page)).toEqual(['f:fa']);
     await page.locator(nav('x:out')).click();await expect.poll(()=>tops(page)).toEqual(['x:out']);
     await page.locator(nav('')).click();await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
     // 폴더 안 자료를 끌어 '폴더 밖' 줄에 놓으면 폴더 밖으로.
@@ -66,7 +67,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     await page.locator('#libraryFolderName').fill('가상 새');await page.locator('#libraryFolderSave').click();
     await expect.poll(()=>{const f=s.folders.find(x=>x.name==='가상 새');return f?f.parent_id||null:'none'}).toBeNull();
     // 폴더에 들어가 있으면 그 안에.
-    await page.locator(nav('fa')).click();await expect.poll(()=>tops(page)).toEqual(['f:fa']);
+    await enterNav(page,'fa');await expect.poll(()=>tops(page)).toEqual(['f:fa']);
     await page.mouse.click(blank.x,blank.y,{button:'right'});
     await areaMenu(page).getByRole('button',{name:'새 폴더'}).click();
     await expect(page.locator('#libraryFolderTitle')).toHaveText('안에 폴더 만들기');
