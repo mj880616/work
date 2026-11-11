@@ -56,7 +56,8 @@ async function openFolders(page) {
   await clickView(page, 'photos');
   await expect(page.locator('#photosView')).toBeVisible();
   await root(page).locator('[data-photos-view]').selectOption('folders');
-  await expect(root(page).locator('[data-photos-folder="S1"]').first()).toBeVisible();
+  // 화면 모듈과 폴더 나무를 처음 읽는 시간까지 넉넉히 기다린다(바쁜 러너).
+  await expect(root(page).locator('[data-photos-folder="S1"]').first()).toBeVisible({ timeout: 20000 });
 }
 const card = (page, id) => root(page).locator(`.photos-fx-card[data-photos-folder="${id}"]`);
 const shape = page => root(page).locator('[data-photos-box="onedrive"] .ft-box-body').evaluate(body => {
@@ -108,6 +109,9 @@ for (const [width, height] of [[690, 1000], [750, 1000], [884, 1104], [1199, 900
     expect(m.add.x).toBeGreaterThan(g.right);
     expect(Math.abs(m.add.w - a.w)).toBeLessThanOrEqual(1);
     await expect(root(page).locator('.photos-fx-newcard')).toHaveText('+ 새 폴더');
+    // 점선 칸 안은 줄 목록과 같은 [+ 새 폴더] 단추 그대로이고, 칸 전체가 눌린다.
+    const btn = await root(page).locator('.photos-fx-newcard > [data-photos-fx-new]').evaluate(el => { const r = el.getBoundingClientRect(), c = el.parentElement.getBoundingClientRect(); return { w: r.width / c.width, h: r.height / c.height, border: getComputedStyle(el.parentElement).borderTopStyle }; });
+    expect(btn.w).toBeGreaterThan(0.95); expect(btn.h).toBeGreaterThan(0.95); expect(btn.border).toBe('dashed');
 
     // 폴더 누르기 한 규칙: 카드를 누르면 그 자리에서 펼침(들어가지 않음) — 하위 폴더 줄·처음 몇 장이 카드 줄 아래 폭 전체로, 카드 4칸은 그대로.
     const main = card(page, 'S1').locator('.ft-main');

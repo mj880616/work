@@ -165,7 +165,7 @@ let pFolders = null, pFoldersFailed = '', pFoldersLoading = null, pAt = null, pF
 // [앨범]: tags·links(서버), album(들어간 앨범 id 또는 null = 카드 목록), aItems(그 앨범 사진).
 let tags = null, links = [], tagsFailed = '', tagsLoading = null, album = null, aFor = null, aItems = [], aLoading = null, aFailed = '', albumLayer = null;
 // FOLD-넓은화면 C(S57-21, 요청함 11/06 01:18 ③ · 시안 docs/design/mockups/fold-wide-screens.html C): [폴더]의 '왼쪽 나무 | 오른쪽 사진'은 PC(1200px~)만.
-// 폴드 펼침(600~1199px, 홈 두 단 #2369와 같은 폭)은 폰과 같은 첫 화면(저장소 상자 나무)을 표지 그림 카드 4칸으로 그린다(cardWide, 아래 fxOdRowsHtml).
+// 폴드 펼침(600~1199px, 홈 두 단과 같은 폭)은 폰과 같은 첫 화면(저장소 상자 나무)을 표지 그림 카드 4칸으로 그린다(cardWide, 아래 fxOdRowsHtml).
 // 앞 판은 761px부터 나무 | 사진이라 펼친 폴드(884px)에서 나무 칸이 좁아 폴더 이름이 잘렸다.
 const TREE_WIDE = globalThis.matchMedia?.('(min-width:1200px)');
 const treeWide = () => !!TREE_WIDE?.matches;
@@ -2220,7 +2220,8 @@ function fxInlineLoad(key, {quiet = false} = {}) {
 // 꺼 둔 폴더(흐리게)·빈 폴더는 읽지 않는다(회색 칸). 기기 저장 없음.
 const coverHtml = (key, load) => `<span class="photos-fx-cover" data-photos-cover="${esc(key)}"${load ? ' data-photos-cover-load="1"' : ''} aria-hidden="true"></span>`;
 const cardWithSwitch = (row, sw) => (sw ? row.replace(/<\/div>$/, `${sw}</div>`) : row);
-const newCardHtml = html => (cardWide() ? html.replace('class="nx-new-folder photos-fx-new"', 'class="nx-new-folder photos-fx-new photos-fx-newcard"') : html);
+// 마지막 칸 [+ 새 폴더]: 점선 칸(.photos-fx-newcard)은 틀이고, 그 안 단추는 줄 목록과 같은 단추 그대로다(단추 모양을 화면마다 따로 정하지 않음, UI-버튼6가지).
+const newCardHtml = html => (cardWide() && html ? `<div class="photos-fx-newcard">${html}</div>` : html);
 const coverWait = [];
 let coverBusy = 0;
 function fxCoverPaint(key) {
