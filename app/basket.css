@@ -396,7 +396,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* 닫기 ✕: 머리 줄 오른쪽 끝(⋯ 다음). 모양은 이 상세의 다른 아이콘([원문]·[복사])과 같은 .basket-icon-button(ui-standard.css) 그대로, 여기는 자리만. */
 #appView #basketView .basket-close-x{ order:3; flex:none; margin:0; font-size:16px; }
 /* 오른쪽 칸에 연 줄: 할 일의 고른 줄과 같은 표시. */
-#appView #basketView .nbx-item[data-basket-selected]{ background:var(--ds-select-bg); box-shadow:var(--kptu-shadow-select); }
+#appView #basketView [data-basket-selected]{ background:var(--ds-select-bg); box-shadow:var(--kptu-shadow-select); }
 /* 폰 틀(600~760px): 상세가 열려도 목록이 보이므로 앱 머리(화면 이름)를 그대로 둔다(접은 폰은 ui-standard.css 규칙대로 숨김). */
 @media(min-width:600px) and (max-width:760px){
   html:has(#basketView.basket-split:not(.hidden)) body #appView > .mobile-shell-header:not([hidden]){ display:flex; }
