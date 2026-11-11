@@ -269,3 +269,19 @@ test('basket attachment that did not go up is told by the small notice, and [다
  expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n','n']); // 올라간 파일은 다시 보내지 않는다
  await expect(page.locator('[data-basket-row-item="n"]')).toContainText('첨부 2개');
 });
+test('basket attachments saved while the first goes up wait in the same line and reach the same update (412)',async({page})=>{
+ await page.setViewportSize({width:412,height:1000});
+ const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));
+ await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['one.txt']));await page.locator('[data-basket-upload]').click();
+ await expect.poll(()=>u.calls.length).toBe(1);
+ // 올리는 중에 더 고르고 [첨부 저장]: 거절하지 않고 받아 두고, 앞 파일이 끝난 뒤에 보낸다.
+ await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['two.txt']));await expect(page.locator('[data-basket-file]')).toContainText('two.txt');
+ await page.locator('[data-basket-upload]').click();await expect(page.locator('[data-basket-file]')).toHaveCount(0);
+ await page.waitForTimeout(300);expect(u.calls).toHaveLength(1);
+ open();
+ await expect(page.locator('[data-basket-attachments] a')).toHaveCount(2);
+ expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n']);
+ await expect(page.locator('#toast')).toContainText('첨부를 저장했습니다');
+ expect(f.errors).toEqual([]);
+});
