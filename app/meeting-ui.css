@@ -324,6 +324,9 @@
 /* S57-8 BIZ-달력우클릭끌기 ④: 칸 전체가 눌린다(숫자·점·빈 곳·+n). 올려 보는 바탕은 고른 날(.ds-day-sel)이 아닐 때만. */
 #meetingList .rv-cell[data-rv-cell]{cursor:pointer}
 @media(hover:hover){#meetingList .rv-cell[data-rv-cell]:not(.ds-day-sel):hover{background:var(--kptu-surface-subtle)}}
+/* S57-8 PR-2: 끌어 옮기기(PC) — 놓을 칸은 일정 달력 끌기(.cmv-drop)와 같은 선+옅은 바탕, 끄는 줄 복제 조각은 위로 뜬 그림자(.cal-drag-ghost). */
+#meetingList .rv-cell.rv-drop{outline:2px solid var(--kptu-primary);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#meetingList .rv-ghost{box-sizing:border-box}
 #meetingList .rv-num{display:block;min-width:22px;height:22px;margin:0;padding:0 4px;border:0;border-radius:var(--kptu-radius-pill);background:none;color:var(--kptu-ink);font-size:var(--kptu-text-meta);line-height:22px;text-align:left}
 #meetingList .rv-num-out{color:var(--kptu-faint)}
 #meetingList .rv-dots{display:flex;gap:2px;padding:0 4px}

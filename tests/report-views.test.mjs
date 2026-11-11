@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {REPORT_VIEWS, validValue, parsePrefs, KEYS} from '../app/view-prefs.js';
-import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf} from '../app/report-views-model.mjs';
+import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf, moveReportAt, REPORT_DAY_MENU_ITEMS} from '../app/report-views-model.mjs';
 import {calendarHtml, photoViewHtml} from '../app/report-views.js';
 
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -83,12 +83,79 @@ test('화면 연결: 칸 누름은 칸 전체(+n 포함)가 그날 고르기, �
   const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
   const fn = team.match(/function reportViewClick\(e\)\{[^\n]*\}\n/)[0];
   assert.match(fn, /closest\('\[data-rv-cell\]'\)/);
-  assert.match(fn, /reportDay=cell\.dataset\.rvCell/);
-  assert.match(fn, /closest\('\.rv-more'\)[\s\S]*rv-day-list[\s\S]*scrollIntoView/);
+  assert.match(fn, /pickReportDay\(cell\.dataset\.rvCell,!!e\.target\.closest\('\.rv-more'\)\)/);
+  assert.match(team, /function pickReportDay\(day,scroll\)\{reportDay=day;renderMeetings\(\);if\(scroll\)[^\n]*rv-day-list[^\n]*scrollIntoView/);
   assert.ok(fn.indexOf("closest('[data-mrd-meeting]')") > -1 && fn.indexOf("closest('[data-mrd-meeting]')") < fn.indexOf("closest('[data-rv-cell]')"));
   const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
   assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]\{cursor:pointer\}/);
   assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]:not\(\.ds-day-sel\):hover/);
+});
+// S57-8 BIZ-달력우클릭끌기 PR-2: 우클릭 메뉴·끌어 옮기기의 규칙과 연결.
+test('끌어 옮기기 규칙: 날짜만 바뀌고 시각은 그대로, 같은 날·읽을 수 없는 값은 옮기지 않음', () => {
+  assert.equal(moveReportAt('2026-10-24T05:00:00.000Z', '2026-10-27'), '2026-10-27T05:00:00.000Z');
+  assert.equal(moveReportAt('2026-10-24T05:00:00+00:00', '2026-10-20'), '2026-10-20T05:00:00.000Z');
+  // 서울 자정 넘어가는 시각(UTC로는 전날)도 서울 날짜 기준으로 하루씩 센다.
+  assert.equal(dayKeyOf({meeting_at: moveReportAt('2026-10-31T16:30:00Z', '2026-11-03')}), '2026-11-03');
+  assert.equal(moveReportAt('2026-10-31T16:30:00Z', '2026-11-03'), '2026-11-02T16:30:00.000Z');
+  assert.equal(moveReportAt('2026-10-24T05:00:00Z', '2026-10-24'), '');
+  assert.equal(moveReportAt('2026-10-24T01:00:00Z', '2026-10-24'), '');
+  assert.equal(moveReportAt('x', '2026-10-24'), ''); assert.equal(moveReportAt('2026-10-24T05:00:00Z', '10/27'), ''); assert.equal(moveReportAt(null, ''), '');
+  assert.deepEqual(REPORT_DAY_MENU_ITEMS.map(i => i.label), ['이날 사업 보고 추가', '이날 보기']);
+});
+test('끌어 옮기기 저장: 보고 수정과 같은 meeting_at PATCH 한 길, 지금 일시 그대로인 내 보고 한 줄만, 회차 번호는 보내지 않음', async () => {
+  const {createReportDayMover} = await import('../app/report-calendar-actions.js');
+  const base = {id: M1, workspace_id: 'ws-1', meeting_at: '2026-10-24T05:00:00+00:00', round_no: 3};
+  const make = ({rows, fail = false} = {}) => {
+    const log = {calls: [], toasts: [], days: [], reloads: 0};
+    const move = createReportDayMover({
+      api: async (path, opts) => { log.calls.push({path, opts}); if (fail) throw new Error('boom'); return rows === undefined ? [{id: M1, meeting_at: JSON.parse(JSON.stringify(opts.body)).meeting_at}] : rows; },
+      workspaceId: () => 'ws-1', meetingOf: x => (x === M1 ? base : null),
+      reload: async () => { log.reloads++; }, setDay: d => log.days.push(d), toast: x => log.toasts.push(x)});
+    return {move, log};
+  };
+  // 놓은 날로 저장: 시각 그대로, 내 작업공간·지금 일시 그대로인 한 줄만, 날짜 칸(meeting_at)·updated_at 말고는 보내지 않는다(회차·Google 일정·사진 칸 없음).
+  let {move, log} = make();
+  assert.deepEqual(await move(M1, '2026-10-27'), {status: 'saved'});
+  assert.equal(log.calls.length, 1);
+  const call = log.calls[0];
+  assert.equal(call.opts.method, 'PATCH'); assert.equal(call.opts.prefer, 'return=representation');
+  assert.match(call.path, new RegExp(`^/rest/v1/app_meetings\\?id=eq\\.${M1}&workspace_id=eq\\.ws-1&meeting_at=eq\\.2026-10-24T05%3A00%3A00\\.000Z&select=id,meeting_at$`));
+  assert.deepEqual(Object.keys(call.opts.body).sort(), ['meeting_at', 'updated_at']);
+  assert.equal(call.opts.body.meeting_at, '2026-10-27T05:00:00.000Z');
+  assert.deepEqual(log.days, ['2026-10-27']); assert.equal(log.reloads, 1); assert.deepEqual(log.toasts, []);
+  // 같은 날·없는 보고는 요청 없음.
+  ({move, log} = make()); assert.deepEqual(await move(M1, '2026-10-24'), {status: 'same'}); assert.deepEqual(await move(M2, '2026-10-27'), {status: 'skip'}); assert.equal(log.calls.length, 0);
+  // 그 사이 다른 곳에서 바뀐 보고(0줄): 고른 날을 바꾸지 않고 새로 불러온다.
+  ({move, log} = make({rows: []})); assert.deepEqual(await move(M1, '2026-10-27'), {status: 'changed'});
+  assert.deepEqual(log.days, []); assert.equal(log.reloads, 1); assert.equal(log.toasts.length, 1);
+  // 서버 실패: 알림만, 화면 상태는 그대로.
+  ({move, log} = make({fail: true})); assert.deepEqual(await move(M1, '2026-10-27'), {status: 'failed'});
+  assert.deepEqual(log.days, []); assert.equal(log.reloads, 0); assert.match(log.toasts[0], /옮기지 못했어요/);
+});
+test('끌어 옮기기 연결: 달력 그릴 때 한 번 설치, 우클릭은 보고 메뉴·빈 칸 메뉴, 새 보고 창에 날짜 미리 채움', () => {
+  const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
+  const act = readFileSync(new URL('../app/report-calendar-actions.js', import.meta.url), 'utf8');
+  assert.match(team, /mountStrips\(box,\(\)=>box\.isConnected\);mountReportDrag\(\)/);
+  assert.match(team, /import\('\.\/report-calendar-actions\.js'\)/);
+  assert.match(team, /async function meetingListMenu\(e\)\{if\(reportView!=='list'&&reportViewMenu\(e\)\)return;/);
+  const menu = team.match(/function reportViewMenu\(e\)\{[\s\S]*?\n\/\/ 끌어 옮기기/)[0];
+  assert.match(menu, /\[data-mrd-meeting\]/); assert.match(menu, /KPTUMeetingRoundDetail\?\.open\?\.\(id\)/); assert.match(menu, /openReportMenuAt\(id,at\)/);
+  assert.match(menu, /reportView==='calendar'\?t\.closest\('\[data-rv-cell\]'\)/); assert.match(menu, /appMenuPoint\(e,cell\)/);
+  assert.match(menu, /newReport\(from\.querySelector\('\.rv-num'\)\|\|from,day\)/);
+  assert.match(team, /function newReport\(trigger,date=''\)/); assert.match(team, /openMeetingModal\(\{name:newMeetingName\(\),kind:reportChip,date\}\)/); assert.match(team, /openMeetingModal\(\{kind,trigger,date\}\)/);
+  // 저장: 보고 수정 창과 같은 app_meetings PATCH(내 작업공간·지금 일시 그대로인 줄만), 회차 번호·Google 일정·사진 칸은 보내지 않는다.
+  assert.match(act, /app_meetings\?id=eq\.[^`]*workspace_id=eq\.[^`]*meeting_at=eq\./);
+  assert.match(act, /body: \{meeting_at: iso\(toAt\), updated_at: new Date\(\)\.toISOString\(\)\}/);
+  assert.doesNotMatch(act, /round_no|app_documents|google_event/);
+  // 빈 칸 우클릭 메뉴(공용 줄 메뉴 row-menu.js)의 모양은 od-link.css에 있어 사업 보고 화면도 그 스타일을 불러와야 모양이 선다.
+  const loader = readFileSync(new URL('../app/view-loader.js', import.meta.url), 'utf8');
+  assert.match(loader.match(/\n  meetings:\[[^\n]*\]/)[0], /'\.\/od-link\.css'/);
+  assert.match(act, /offerUndoNotice\(\{text: `옮겼어요 · /); assert.match(act, /!pc\.matches/); assert.match(act, /e\.pointerType !== 'mouse'/);
+  // 끌기 뒤·취소 뒤 클릭 막기(일정 달력 끌기와 같음): 보고 열기(#meetingList 줄 누름)보다 먼저 window capture로, Esc·창 밖 취소는 다음 손 뗌의 클릭까지.
+  assert.match(act, /window\.addEventListener\('click', e => \{ if \(swallow\)/);
+  assert.match(act, /if \(!g && swallowUp\) \{ swallowUp = false; swallowNext\(\); return; \}/);
+  assert.match(act, /e\.key === 'Escape' && g\?\.started\) \{[^}]*swallowUp = true/);
+  assert.match(act, /addEventListener\('mouseleave'/);
 });
 test('사진 글: 날짜 묶음 아래 사업 보고별 격자 자리, 사진 없으면 안내', () => {
   const photos = photosByMeeting([photo(1, M1), photo(2, M1), photo(3, M3)]);

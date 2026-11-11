@@ -23,7 +23,7 @@ function makeState() {
   for (let k = 1; k <= 5; k++) docs.push(doc(10 + k, M1));
   docs.push(doc(21, M2), doc(31, M5));
   return {
-    year: y, month: mo - 1, photoCalls: [], meetingOpens: [], docs,
+    year: y, month: mo - 1, photoCalls: [], meetingOpens: [], patches: [], docs,
     user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
     workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
     meetings: [meeting(M1, '○○ 대표자 회의', 'meeting', today), meeting(M2, '□□ 실무 회의', 'meeting', today), meeting(M3, '△△ 점검 회의', 'meeting', today),
@@ -48,6 +48,15 @@ async function mock(page, state) {
     if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'workspace-1', user_id: state.user.id, role: 'owner', workspace: state.workspace, created_at: now()}]);
     if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
     if (path === '/rest/v1/app_documents' && req.method() === 'GET') return ok(state.docs);
+    if (path === '/rest/v1/app_meetings' && req.method() === 'PATCH') {
+      // S57-8: 보고 수정과 같은 meeting_at PATCH. 지금 일시가 그대로인 내 보고 한 줄만 바꾼다(아니면 0줄).
+      const id = (url.searchParams.get('id') || '').replace(/^eq\./, ''), filterAt = (url.searchParams.get('meeting_at') || '').replace(/^eq\./, '');
+      const body = req.postDataJSON(), row = state.meetings.find(m => m.id === id);
+      state.patches.push({id, filterAt, workspace: url.searchParams.get('workspace_id'), body});
+      if (!row || (filterAt && new Date(row.meeting_at).getTime() !== new Date(filterAt).getTime())) return ok([]);
+      Object.assign(row, body);
+      return ok([row]);
+    }
     if (path === '/rest/v1/app_meetings' && req.method() === 'GET') {
       const id = url.searchParams.get('id') || '';
       if (!id || id.startsWith('in.(')) return ok(state.meetings);
@@ -222,4 +231,143 @@ test('report views still switch when the server cannot remember the choice yet',
   await expect(page.locator('#meetingList .rv-photos')).toBeVisible();
   expect(prefs.patches.length).toBe(0);
   expect(errors).toEqual([]);
+});
+
+// S57-8 BIZ-달력우클릭끌기 PR-2(요청함 할 일 1·2·3·6·7): PC 사업 보고 [달력]의 우클릭 메뉴와 끌어 옮기기. 모든 이름·번호는 합성 값.
+const cellOf = (cal, n) => cal.locator('.rv-cell[data-rv-cell]:not(.rv-now)').nth(n);
+const emptySpot = async cell => { const b = await cell.boundingBox(); return {x: b.width - 5, y: b.height - 5}; };
+// 1440(PC) 목록 보기는 첫 칸의 첫 보고를 오른쪽 칸에 먼저 붙여 읽는다(달력·끌기와 무관한 읽기, 이 시험에서는 □□ 보고 하나). 끌기 시험은 그 읽기가 끝나 멈춘 뒤의 목록을
+// 기준으로 삼고, 끌기·취소 뒤에 새로 읽은(= 보고가 열린) 것이 없는지 본다.
+async function settledOpens(state) {
+  let last = -1;
+  await expect.poll(async () => { const n = state.meetingOpens.length, same = n > 0 && n === last; last = n; return same; }).toBe(true);
+  return [...state.meetingOpens];
+}
+
+test('report calendar (PC): right click on an empty day gives [add report here]/[show day], add fills the day', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 1440);
+  await view(page, '달력');
+  const cal = page.locator('#meetingList .rv-cal'), menu = page.locator('#rowMenu');
+  const cell = cellOf(cal, 5), key = await cell.getAttribute('data-rv-cell');
+  await cell.click({button: 'right', position: await emptySpot(cell)});
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('.row-menu-title')).toHaveText(/^\d+월 \d+일 \([일월화수목금토]\)$/);
+  await expect(menu.locator('button')).toHaveText(['이날 사업 보고 추가', '이날 보기']);
+  // [이날 보기]: 칸을 누른 것과 같다.
+  await menu.getByRole('button', {name: '이날 보기'}).click();
+  await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', key);
+  // [이날 사업 보고 추가]: 새 보고 창에 그 날짜(시각은 기본값 10:00).
+  await cell.click({button: 'right', position: await emptySpot(cell)});
+  await menu.getByRole('button', {name: '이날 사업 보고 추가'}).click();
+  await expect(page.locator('#meetingModal')).toBeVisible();
+  await expect(page.locator('#meetingAt')).toHaveValue(`${key}T10:00`);
+  await page.locator('#meetingModal [data-close="meetingModal"]').first().click();
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  // 키보드: 날짜 숫자 단추에서 Shift+F10도 같은 메뉴.
+  await cell.locator('[data-rv-day]').focus();
+  await page.keyboard.press('Shift+F10');
+  await expect(menu.locator('button')).toHaveText(['이날 사업 보고 추가', '이날 보기']);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  expect(state.patches).toEqual([]);
+});
+
+test('report calendar (PC): right click or menu key on a report opens the same report menu as the list', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 1440);
+  await view(page, '달력');
+  const cal = page.locator('#meetingList .rv-cal'), more = page.locator('#mrdMoreMenu');
+  // 칸 안 제목.
+  await cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`).click({button: 'right'});
+  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
+  await expect(more).toBeVisible();
+  await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  await page.keyboard.press('Escape'); await expect(more).toBeHidden();
+  await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  // 그날 목록 줄.
+  await cal.locator(`.rv-day-list .rv-row[data-mrd-meeting="${M2}"]`).click({button: 'right', position: {x: 6, y: 6}});
+  await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  await page.keyboard.press('Escape'); await expect(more).toBeHidden();
+  await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  // 키보드 메뉴 키: 포커스 받은 칸 안 제목.
+  await cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`).focus();
+  await page.keyboard.press('Shift+F10');
+  await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  expect(state.patches).toEqual([]);
+});
+
+test('report calendar (PC): drag a report to another day keeps its time, saves one meeting_at change, undo restores it', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 1440);
+  const opensBefore = await settledOpens(state);
+  await view(page, '달력');
+  const cal = page.locator('#meetingList .rv-cal'), today = cal.locator('.rv-cell.rv-now');
+  const todayKey = await today.getAttribute('data-rv-cell'), target = cellOf(cal, 5), key = await target.getAttribute('data-rv-cell');
+  const original = state.meetings.find(m => m.id === M1).meeting_at, title = today.locator(`[data-mrd-meeting="${M1}"]`);
+  const from = await title.boundingBox(), to = await target.boundingBox();
+  const x0 = from.x + from.width / 2, y0 = from.y + from.height / 2, x1 = to.x + to.width / 2, y1 = to.y + to.height / 2;
+  await page.mouse.move(x0, y0); await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(x0 + (x1 - x0) * i / 6, y0 + (y1 - y0) * i / 6);
+  await expect(target).toHaveClass(/rv-drop/);
+  await expect(page.locator('.rv-ghost')).toHaveCount(1);
+  await page.mouse.up();
+  await expect.poll(() => state.patches.length).toBe(1);
+  const days = (Date.parse(`${key}T00:00:00+09:00`) - Date.parse(`${todayKey}T00:00:00+09:00`)) / 86400000;
+  const patch = state.patches[0];
+  expect(patch.id).toBe(M1); expect(patch.workspace).toBe('eq.workspace-1');
+  expect(new Date(patch.filterAt).getTime()).toBe(new Date(original).getTime());
+  expect(Object.keys(patch.body).sort()).toEqual(['meeting_at', 'updated_at']);
+  expect(new Date(patch.body.meeting_at).getTime()).toBe(new Date(original).getTime() + days * 86400000);
+  // 화면: 놓은 칸에 보고가 있고 그 날이 골라지며, 끌기 뒤 클릭으로 보고가 열리지 않는다. 고침은 서버에서 다시 읽은 것(새로 고침과 같음).
+  await expect(target.locator(`[data-mrd-meeting="${M1}"]`)).toHaveCount(1);
+  await expect(today.locator(`[data-mrd-meeting="${M1}"]`)).toHaveCount(0);
+  await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', key);
+  await expect(page.locator('.rv-ghost')).toHaveCount(0);
+  expect(state.meetingOpens).toEqual(opensBefore);
+  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  // 옮겼어요 · 되돌리기 → 원래 일시로 같은 길 저장.
+  const notice = page.locator('[data-undo-notice]');
+  await expect(notice).toContainText('옮겼어요');
+  await notice.getByRole('button', {name: '되돌리기'}).click();
+  await expect.poll(() => state.patches.length).toBe(2);
+  expect(new Date(state.patches[1].filterAt).getTime()).toBe(new Date(patch.body.meeting_at).getTime());
+  expect(new Date(state.patches[1].body.meeting_at).getTime()).toBe(new Date(original).getTime());
+  await expect(today.locator(`[data-mrd-meeting="${M1}"]`)).toHaveCount(1);
+  await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', todayKey);
+  expect(state.meetings.find(m => m.id === M1).meeting_at).toBe(original);
+});
+
+test('report calendar (PC): Esc cancels a drag and a same-day drop saves nothing', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 1440);
+  const opensBefore = await settledOpens(state);
+  await view(page, '달력');
+  const cal = page.locator('#meetingList .rv-cal'), today = cal.locator('.rv-cell.rv-now'), target = cellOf(cal, 5);
+  const title = today.locator(`[data-mrd-meeting="${M1}"]`), from = await title.boundingBox(), to = await target.boundingBox();
+  const x0 = from.x + from.width / 2, y0 = from.y + from.height / 2;
+  await page.mouse.move(x0, y0); await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {steps: 5});
+  await expect(target).toHaveClass(/rv-drop/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.rv-ghost')).toHaveCount(0);
+  await page.mouse.up();
+  // 같은 칸 안에서 끌었다 놓기.
+  await page.mouse.move(x0, y0); await page.mouse.down(); await page.mouse.move(x0 + 8, y0 + 12, {steps: 4}); await page.mouse.up();
+  expect(state.patches).toEqual([]);
+  // 취소·같은 칸 놓기 뒤 손을 뗄 때 따라오는 클릭으로 보고가 열리지 않는다(새로 읽은 보고 없음, 보고 창도 닫힌 채).
+  expect(state.meetingOpens).toEqual(opensBefore);
+  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+});
+
+test('report calendar (phone): no app right-click menu and no drag, opening the report to edit is the way', async ({page}) => {
+  const state = makeState();
+  await open(page, state, 390);
+  await view(page, '달력');
+  const cal = page.locator('#meetingList .rv-cal'), cell = cellOf(cal, 5);
+  await page.evaluate(() => { window.__prevented = []; document.addEventListener('contextmenu', e => window.__prevented.push(e.defaultPrevented), false); });
+  await cell.click({button: 'right', position: await emptySpot(cell)});
+  await expect(page.locator('#rowMenu')).toBeHidden();
+  expect(await page.evaluate(() => window.__prevented)).toEqual([false]);
+  expect(state.patches).toEqual([]);
 });
