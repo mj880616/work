@@ -1,0 +1,114 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 조직 보고 [전체 표] 접은 폰·폴드 펼침도 두 열 (ORG-폴드두열표)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#ece9e1;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2b2b28}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#555;line-height:1.55;margin:0 0 12px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#666}
+/* 화면 그림: 안쪽 크기는 모두 em(13px = 1em). 보는 화면이 좁으면 글자 크기를 줄여 통째로 작아진다. */
+.fold{font-size:min(13px,calc((100vw - 24px) / 53))}
+.pc{font-size:min(13px,calc((100vw - 24px) / 98))}
+.phone{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;background:#f3f1ea;color:#2a2a23;border:1px solid #cfc8b6;border-radius:1em;overflow:hidden;line-height:1.45}
+.fold .scr{width:53em}.pc .scr{width:98em;display:flex}.phone .scr{width:31.7em}
+.main{flex:1 1 auto;min-width:0;padding:1em 1em .6em}
+.side{flex:none;width:11em;padding:1em .8em;border-right:1px solid #e2ddd0;background:#f7f5ee;color:#6e6c60}
+.side i{display:block;font-style:normal;padding:.35em .5em;border-radius:.5em}
+.side i.on{background:#e7ead8;color:#47532a;font-weight:500}
+.ttl{display:flex;justify-content:space-between;align-items:center;font-size:1.38em;font-weight:500;margin:0 0 .7em}
+.m{color:#8f8c7f;letter-spacing:-.08em;font-weight:400}
+.bar{display:flex;align-items:center;gap:.6em;margin:0 0 .6em}
+.bar .m{margin-left:auto}
+.pill{border:1px solid #cfc8b6;border-radius:.6em;padding:.25em .7em;background:#fffefa;white-space:nowrap}
+.seg{display:inline-flex;background:#e9e6dc;border-radius:1em;padding:.15em;gap:.15em}
+.seg span{padding:.25em .9em;border-radius:.9em;color:#6e6c60}
+.seg span.on{background:#fffefa;color:#2a2a23;font-weight:500}
+table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid #e2ddd0;background:#f3f1ea}
+th,td{padding:.3em .46em;border:1px solid #e2ddd0;text-align:left;vertical-align:top;font-weight:400}
+thead th{background:#f7f5ee;color:#6e6c60;font-size:.92em;text-align:center}
+.o{width:11.5em}
+.phone .o{width:7em}
+tbody th.o{background:#f7f5ee}
+.o b{display:block;font-weight:500;overflow-wrap:anywhere}
+.o span{display:block;color:#6e6c60;font-size:.92em}
+.l{display:grid;grid-template-columns:auto 1fr auto;column-gap:.4em;padding:.12em 0;align-items:baseline}
+.d{color:#6e6c60;font-size:.92em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ft{display:flex;gap:1.6em;color:#6e6c60;font-size:.92em;padding:.25em 0 .1em .4em}
+.new{outline:.16em solid #b8663a;outline-offset:-.08em}
+.foot{display:flex;justify-content:center;padding:.5em 0;background:#fffefa;border-top:1px solid #e2ddd0}
+.nav{display:flex;justify-content:space-around;padding:.5em 0 .6em;background:#fffefa;border-top:1px solid #e2ddd0;color:#6e6c60;font-size:.85em}
+.nav i{font-style:normal;padding:.2em .7em;border-radius:.8em}
+.nav i.on{background:#e7ead8;color:#47532a;font-weight:500}
+.legend{background:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;margin-top:14px}
+.legend b{color:#55632f}
+</style></head><body>
+<h1>시안: 조직 보고 [전체 표] — 접은 폰·폴드 펼침도 두 열</h1>
+<p class="note">조직 이름·글은 모두 예시예요. 화면 그림은 보는 기기 폭에 맞춰 통째로 줄여 그렸어요(펼친 폴드에서 보면 ①이 거의 실제 크기).</p>
+
+<div class="cap">① 폴드 펼침 — 바꾼 뒤 <small>왼쪽 [조직] 열 | 오른쪽 [조직현황] 열(주간보고 표와 같은 모양)</small></div>
+<div class="fold"><div class="scr"><div class="main">
+<div class="ttl">조직 보고<span class="m">⋯</span></div>
+<div class="bar"><span class="pill">‹&nbsp; 11.9~11.15 &nbsp;›</span><span class="pill">복사</span><span class="m">⋯</span></div>
+<table class="new"><thead><tr><th class="o">조직</th><th>조직현황</th></tr></thead><tbody>
+<tr><th class="o"><b>예시철도지부</b><span>쟁의권 확보(10.6)</span></th><td>
+<div class="l"><span class="d">- 11.11.</span><span>10시 노조-지부 점검 회의</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.11.</span><span>오후 관계 기관-사측-지부 3차 간담회 진행</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 10 ⌄</span><span>+ 쓰기</span></div></td></tr>
+<tr><th class="o"><b>예시도시철도지부</b><span>파업 찬반투표(11.5)</span></th><td>
+<div class="l"><span class="d">- 11.5.</span><span>예시 긴 줄 — 관계 기관과의 연구용역 추진 약속을 받아 농성을 마무리하고, 다음 주 후속 협의 일정을 잡기로 함. 넘친 글은 날짜 오른쪽 자리에 맞춰 이어짐.</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.5.</span><span>쟁의행위 찬반투표 가결</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 1 ⌄</span><span>+ 쓰기</span></div></td></tr>
+<tr><th class="o"><b>예시교통공사노동조합</b><span>교섭 중(10.22)</span></th><td>
+<div class="l"><span class="d">- 10.22.</span><span>1차 본교섭 진행</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.9.</span><span>쟁의 없이 합의할 가능성 높음</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 3 ⌄</span><span>+ 쓰기</span></div></td></tr>
+<tr><th class="o"><b>예시9호선노동조합</b><span>쟁의권 확보(11.5)</span></th><td>
+<div class="l"><span class="d">- 10.28.</span><span>임금협약 잠정합의</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.9.</span><span>11/9~11/10 찬반투표</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 4 ⌄</span><span>+ 쓰기</span></div></td></tr>
+</tbody></table></div>
+<div class="foot"><span class="seg"><span>목록</span><span class="on">전체 표</span></span></div>
+<div class="nav"><i>홈</i><i>노트</i><i>일정</i><i class="on">조직 보고</i><i>사업 보고</i><i>메뉴</i></div></div></div>
+
+<div class="cap">② PC <small>지금도 이 두 열 모양 — 그대로</small></div>
+<div class="pc"><div class="scr"><div class="side"><i>홈</i><i>노트</i><i>일정</i><i class="on">조직 보고</i><i>사업 보고</i><i>자료실</i></div><div class="main">
+<div class="bar"><span class="seg"><span>목록</span><span class="on">전체 표</span></span><span class="pill">‹&nbsp; 11.9~11.15 &nbsp;›</span><span class="pill">복사</span><span class="m">⋯</span></div>
+<table><thead><tr><th class="o">조직</th><th>조직현황</th></tr></thead><tbody>
+<tr><th class="o"><b>예시철도지부</b><span>쟁의권 확보(10.6)</span></th><td>
+<div class="l"><span class="d">- 11.11.</span><span>10시 노조-지부 점검 회의</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.11.</span><span>오후 관계 기관-사측-지부 3차 간담회 진행</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 10 ⌄</span><span>+ 쓰기</span></div></td></tr>
+<tr><th class="o"><b>예시도시철도지부</b><span>파업 찬반투표(11.5)</span></th><td>
+<div class="l"><span class="d">- 11.5.</span><span>쟁의행위 찬반투표 가결</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 1 ⌄</span><span>+ 쓰기</span></div></td></tr>
+</tbody></table></div></div></div>
+
+<div class="cap">③ 접은 폰 — 바꾼 뒤 <small>폰도 두 열. 왼쪽 열은 좁게 — 조직 이름은 두 줄로 꺾여요</small></div>
+<div class="phone"><div class="scr"><div class="main">
+<div class="bar"><span class="pill">‹&nbsp; 11.9~11.15 &nbsp;›</span><span class="pill">복사</span><span class="m">⋯</span></div>
+<table class="new"><thead><tr><th class="o">조직</th><th>조직현황</th></tr></thead><tbody>
+<tr><th class="o"><b>예시철도지부</b><span>쟁의권 확보(10.6)</span></th><td>
+<div class="l"><span class="d">- 11.11.</span><span>10시 노조-지부 점검 회의</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.11.</span><span>오후 관계 기관-사측-지부 3차 간담회 예시역에서 진행</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 10 ⌄</span><span>+ 쓰기</span></div></td></tr>
+<tr><th class="o"><b>예시도시철도지부</b><span>파업 찬반투표(11.5)</span></th><td>
+<div class="l"><span class="d">- 11.5.</span><span>예시 긴 줄 — 관계 기관과의 연구용역 추진과 내년도 적극 추진 약속을 받아 농성을 마무리하고 후속 협의 일정을 잡기로 함.</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.5.</span><span>쟁의행위 찬반투표 결과 정리 — 참여와 찬성 모두 높게 나와 가결, 이후 일정은 대책회의에서 정하기로 함.</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 1 ⌄</span><span>+ 쓰기</span></div></td></tr>
+<tr><th class="o"><b>예시교통공사노동조합</b><span>교섭 중(10.22)</span></th><td>
+<div class="l"><span class="d">- 10.22.</span><span>올해 1차 본교섭 진행</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 10.22.</span><span>예시 합의 이행 관련 본사 로비 농성 잠정 유보</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.9.</span><span>쟁의 없이 합의할 가능성 높음</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 3 ⌄</span><span>+ 쓰기</span></div></td></tr>
+<tr><th class="o"><b>예시9호선노동조합</b><span>쟁의권 확보(11.5)</span></th><td>
+<div class="l"><span class="d">- 10.28.</span><span>올해 임금협약 잠정합의</span><span class="m">⋯</span></div>
+<div class="l"><span class="d">- 11.9.</span><span>11/9~11/10 찬반투표</span><span class="m">⋯</span></div>
+<div class="ft"><span>뺀 줄 4 ⌄</span><span>+ 쓰기</span></div></td></tr>
+</tbody></table></div></div></div>
+
+<div class="legend"><b>바뀌는 것</b>: [전체 표]가 접은 폰·펼친 폴드에서도 PC와 같은 표가 돼요 — 맨 위 머리줄 [조직 | 조직현황], 왼쪽 열에 조직 이름과 쟁의 단계, 오른쪽 열에 그 조직 줄들.<br>
+<b>왼쪽 열 폭</b>: 펼친 폴드·PC는 가장 긴 조직 이름이 한 줄에 들어가게 맞춰요(경계를 끌어 바꾼 폭이 있으면 그 폭). 접은 폰은 좁게 두고 이름을 두 줄로 꺾어요.<br>
+<b>그대로인 것</b>: 줄 글, 날짜, 줄 끝 ⋯ 메뉴, [뺀 줄], [+ 쓰기], [복사], 주 고르기, 조직 순서.</div>
+</body></html>

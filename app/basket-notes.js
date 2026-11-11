@@ -55,7 +55,7 @@ import { deleteAttachment } from './file-trash.js';
 import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
 import { openPhotoView } from './photo-view.js';
 import { attachmentName } from './attachment-name.mjs';
-import { markRenameHost, renameButtonHtml, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기
+import { markRenameHost, openRenameEditor, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ✎ 대신 ⋯ 안 [이름 수정]
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 import { bindRowSwipe, claimedSince } from './row-swipe.js';
@@ -410,9 +410,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // UI-모바일노트복사메뉴: on a phone a list row has no [복사] button; [복사] is in its ⋯ menu (PC keeps the button).
   // NOTE-파일붙이기: a file card's ⋯ has [빼기] (the link only; the Drive file stays).
   // FILE-첨부삭제: and [삭제] (off this note and the Drive original to the Drive trash, file-trash.js; [되돌리기] brings both back).
+  // FILE-이름고치기연필먹통: and [이름 수정] (the line has no ✎; it opens the same in-place name field as pressing the name twice, file-rename.js).
   const canEditFolders = () => foldersReady;
   const menuItems = (note, from, folderId = null) => {
-    if (from === 'file') return [['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
+    if (from === 'file') return [['data-note-file-rename', '이름 수정'], ['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
     // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
     if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '삭제', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
@@ -510,11 +511,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const url = driveFileUrl(file.drive_file_id), name = attachmentName(file);
       const link = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없어요.</span>';
       const more = `<button type="button" class="basket-icon-button note-file-more" data-note-file-more="${esc(file.drive_file_id)}" aria-label="${esc(name)} 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
-      const edit = renameButtonHtml({target:'note', id:selected.id, driveId:file.drive_file_id, name:String(file.file_name || '')});
-      return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:edit + link + more, attrs:` data-note-file="${esc(file.drive_file_id)}" data-fr-row`});
+      return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:link + more, attrs:` data-note-file="${esc(file.drive_file_id)}" data-fr-row`});
     }).join('');
     attBox.querySelectorAll('.file-line-main').forEach(el => { el.setAttribute('role', 'button'); el.tabIndex = 0; });
-    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 그 자리에서 고친다(file-rename.js).
+    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ⋯ [이름 수정]으로 그 자리에서 고친다(file-rename.js, ✎는 따로 두지 않는다).
     attBox.querySelectorAll('[data-note-file]').forEach(line => {
       const file = (selected.attachments || []).find(f => f.drive_file_id === line.dataset.noteFile);
       if (file) markRenameHost(line.querySelector('.file-line-main b'), {target:'note', id:selected.id, driveId:file.drive_file_id, name:String(file.file_name || '')});
@@ -1328,7 +1328,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
-    if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
+    if (b.hasAttribute('data-note-file-rename')) { const host = detail.querySelector(`[data-note-file="${CSS.escape(from.fileId)}"] [data-fr-host]`); if (host) openRenameEditor(host); }
+    else if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-note-file-delete')) void deleteFile(note, from.fileId);
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);

@@ -1,6 +1,7 @@
 // ATT-이름고치기(2026-10-31 사용자 결정 "추천안대로, [AI 이름] 포함"): 첨부 파일 줄 공용 — 파일 이름을 그 자리에서 고치기.
-// 여는 법: 이름 끝 작은 ✎(renameButtonHtml), PC는 이름 두 번 누르기, 폰은 이름 꾹 누르기(0.5초, 움직이지 않고 손 뗄 때 열림).
-//   이름 칸에는 renameHostAttrs(spec)를, 줄(이름과 ✎을 함께 담는 상자)에는 data-fr-row를 붙인다.
+// 여는 법: ⋯가 있는 줄은 ⋯ 메뉴 안 [이름 수정](renameMenuAttrs, FILE-이름고치기연필먹통 — ✎를 따로 두지 않는다), ⋯가 없는 줄은 이름 끝 작은 ✎(renameButtonHtml),
+//   PC는 이름 두 번 누르기, 폰은 이름 꾹 누르기(0.5초, 움직이지 않고 손 뗄 때 열림). 줄 전체를 덮는 '열기' 덮개(.file-line-open) 위에서도 이름 글자 자리는 같은 손짓이 닿는다(hostAt).
+//   이름 칸에는 renameHostAttrs(spec)를, 줄(이름과 ✎·⋯을 함께 담는 상자)에는 data-fr-row를 붙인다.
 // 고치는 칸: [이름 부분 입력].확장자 [AI 이름] [저장] [취소] + 작은 빨간 안내. 확장자는 따로 두고 저장 때 서버가 붙인다.
 //   Enter 저장·Esc 취소. 빈 이름·못 쓰는 글자는 저장 전에 막는다(규칙은 file-rename-name.mjs 한 곳, 서버도 같은 규칙으로 다시 검사).
 // 저장: document-actions action=rename-file — 서버가 Drive 원본 이름과 그 파일을 가리키는 Web2 줄(노트 첨부·할 일 첨부·자료)을 함께 바꾼다.
@@ -28,6 +29,9 @@ export function renameButtonHtml(spec, {cls = ''} = {}) {
   if (!specOk(spec)) return '';
   return `<button type="button" class="fr-edit${cls ? ' ' + esc(cls) : ''}" data-fr-edit${specAttrs(spec)} aria-label="${esc(spec.name)} 이름 수정" title="이름 수정">✎</button>`;
 }
+// ⋯ 메뉴 안 [이름 수정] 단추의 속성 문자열(줄에 ⋯가 있을 때). 단추는 ⋯ 칸의 공용 항목 만들기(file-actions.js menuItemsHtml {rename})가 그리고,
+// 누르면 같은 줄(data-fr-row)의 이름 칸에 고치는 칸이 열린다(전역 click 처리, 아래). 정보가 모자라면 빈 글자(단추 없음).
+export function renameMenuAttrs(spec) { return specOk(spec) ? ' data-fr-menu-edit' + specAttrs(spec) : ''; }
 const specOf = el => ({target: el.dataset.frTarget || '', id: el.dataset.frId || '', driveId: el.dataset.frDrive || '', name: el.dataset.frName || ''});
 
 // 화면이 들고 있는 첨부 목록(파일 칸 배열)을 새 이름으로 고친다. 바뀐 것이 있으면 true.
@@ -144,7 +148,21 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
   input.focus({preventScroll: true}); input.select();
 }
 
-// 전역 한 번: ✎ 누르기, PC 두 번 누르기, 폰 꾹 누르기.
+// 줄 전체를 덮는 투명 '열기' 단추(.file-line-open, ui-standard.css)는 이름 글자 위에 얹혀 눌림을 먼저 받는다.
+// 덮개가 받은 누르기라도 그 줄 이름 글자 자리 안이면 이름 칸(host)이 받은 것으로 본다 — 두 번 누르기·꾹 누르기가 닿는다. 한 번 누르기는 덮개 본래 동작(열기) 그대로.
+const OPEN_COVER = '.file-line-open';
+function hostAt(e) {
+  const t = e.target instanceof Element ? e.target : null;
+  if (!t) return null;
+  const own = t.closest('[data-fr-host]');
+  if (own) return own;
+  const host = t.closest(OPEN_COVER)?.closest('[data-fr-row]')?.querySelector('[data-fr-host]');
+  if (!host) return null;
+  const r = host.getBoundingClientRect();
+  return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom ? host : null;
+}
+
+// 전역 한 번: ⋯ [이름 수정]·✎ 누르기, PC 두 번 누르기, 폰 꾹 누르기.
 if (typeof document !== 'undefined' && !globalThis.__kptuFileRenameBound) {
   globalThis.__kptuFileRenameBound = true;
   // 모양은 file-rename.css 한 곳(이 부품을 쓰는 모든 화면 공용, 배포 빌드가 번호를 붙임).
@@ -153,7 +171,17 @@ if (typeof document !== 'undefined' && !globalThis.__kptuFileRenameBound) {
     const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = css; document.head.appendChild(link);
   }
   document.addEventListener('click', e => {
-    const b = e.target instanceof Element ? e.target.closest('[data-fr-edit]') : null;
+    const t = e.target instanceof Element ? e.target : null;
+    const item = t?.closest('[data-fr-menu-edit]');
+    if (item) {
+      // ⋯ 메뉴 항목: 메뉴를 닫고, 같은 줄의 이름 칸에서 고치는 칸을 연다.
+      e.preventDefault(); e.stopPropagation();
+      item.closest('details[open]')?.removeAttribute('open');
+      const host = item.closest('[data-fr-row]')?.querySelector('[data-fr-host]');
+      if (host) openRenameEditor(host);
+      return;
+    }
+    const b = t?.closest('[data-fr-edit]');
     if (!b) return;
     e.preventDefault(); e.stopPropagation();
     openRenameEditor(b);
@@ -164,21 +192,22 @@ if (typeof document !== 'undefined' && !globalThis.__kptuFileRenameBound) {
   document.addEventListener('pointerdown', e => { lastPointer = e.pointerType || ''; }, true);
   document.addEventListener('click', e => {
     if (passing || e.detail < 1 || lastPointer !== 'mouse' || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-    const h = e.target instanceof Element ? e.target.closest('[data-fr-host]') : null;
+    const h = hostAt(e);
     if (!h) return;
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.detail > 1) { clearTimeout(pending?.timer); pending = null; return; } // 두 번째 누르기는 dblclick(고치기)이 받는다.
     clearTimeout(pending?.timer);
-    pending = {host: h, timer: setTimeout(() => {
-      const {host} = pending || {}; pending = null;
+    const via = e.target.closest(OPEN_COVER) || h; // 덮개가 받은 누르기는 덮개를, 이름 칸이 받은 누르기는 이름 칸을 다시 누른다.
+    pending = {host: h, via, timer: setTimeout(() => {
+      const {host, via} = pending || {}; pending = null;
       if (!host?.isConnected) return;
       passing = true;
-      try { host.click(); } finally { passing = false; }
+      try { (via?.isConnected ? via : host).click(); } finally { passing = false; }
     }, DOUBLE_MS)};
   }, true);
   document.addEventListener('dblclick', e => {
     if (pending) { clearTimeout(pending.timer); pending = null; }
-    const h = e.target instanceof Element ? e.target.closest('[data-fr-host]') : null;
+    const h = hostAt(e);
     if (!h) return;
     e.preventDefault(); e.stopPropagation();
     getSelection?.()?.removeAllRanges?.();
@@ -189,7 +218,7 @@ if (typeof document !== 'undefined' && !globalThis.__kptuFileRenameBound) {
   document.addEventListener('pointerdown', e => {
     swallow = false;
     if (e.pointerType !== 'touch' || !e.isPrimary) { cancelHold(); return; }
-    const h = e.target instanceof Element ? e.target.closest('[data-fr-host]') : null;
+    const h = hostAt(e);
     if (!h) return;
     cancelHold();
     hold = {x: e.clientX, y: e.clientY, host: h, held: false, timer: setTimeout(() => { if (hold) { hold.held = true; try { navigator.vibrate?.(10); } catch { /* 진동 없음 */ } } }, HOLD_MS)};
@@ -206,5 +235,5 @@ if (typeof document !== 'undefined' && !globalThis.__kptuFileRenameBound) {
   }, true);
   // 꾹 누른 뒤 따라오는 click(파일 열기)과 길게 누르기 메뉴는 삼킨다.
   document.addEventListener('click', e => { if (swallow) { swallow = false; e.preventDefault(); e.stopPropagation(); } }, true);
-  document.addEventListener('contextmenu', e => { if (e.target instanceof Element && e.target.closest('[data-fr-host]') && (hold || swallow)) e.preventDefault(); }, true);
+  document.addEventListener('contextmenu', e => { if ((hold || swallow) && hostAt(e)) e.preventDefault(); }, true);
 }

@@ -761,7 +761,10 @@
 .file-line-main{flex:1 1 auto;display:flex;align-items:baseline;gap:6px;min-width:0}
 .file-line-main b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.4;color:var(--kptu-ink)}
 .file-line-main small{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}
-.file-line-state{flex:0 1 auto;max-width:45%;font-size:var(--ds-text-meta,12px);line-height:1.35;text-align:right;color:var(--kptu-muted);overflow-wrap:anywhere}
+/* FILE-이름고치기연필먹통 ④: 상태 글자('업로드 중'·'실패 · 다시 시도' 등)는 좁은 칸에서도 한 글자씩 세로로 꺾이지 않는다.
+   예전 flex:0 1 + overflow-wrap:anywhere는 줄어들 때 최소 폭이 글자 한 자라 칸이 좁으면 한 글자씩 꺾였다. 이제 줄어들지 않고(내용 폭까지, 최대 45%),
+   긴 글은 띄어쓰기에서만 줄을 바꾼다(word-break:keep-all, 한 낱말이 칸보다 길 때만 overflow-wrap:break-word). */
+.file-line-state{flex:0 0 auto;max-width:45%;font-size:var(--ds-text-meta,12px);line-height:1.35;text-align:right;color:var(--kptu-muted);word-break:keep-all;overflow-wrap:break-word}
 .file-line.uploading .file-line-state{color:var(--kptu-link)}
 .file-line.success .file-line-state{color:var(--kptu-success)}
 .file-line.error .file-line-state{color:var(--kptu-danger)}
@@ -774,7 +777,13 @@
 .modal .file-line .file-line-open{position:absolute;top:0;bottom:0;left:0;right:var(--kptu-touch-target,44px);width:auto;height:auto;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;cursor:pointer}
 .modal .file-line .file-line-open:hover{background:color-mix(in srgb,var(--kptu-surface-subtle) 60%,transparent)}
 .modal .file-line .file-line-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+/* 덮개가 줄 전체를 덮으므로 종류 표시·이름 글자는 눌림을 받지 않는다(눌림은 덮개가 받아 열기). 이름 두 번 누르기·꾹 누르기(이름 고치기)는 덮개가 받은 누르기가
+   이름 글자 자리 안이면 file-rename.js(hostAt)가 이름 칸의 것으로 본다 — 덮개·이름 글자 CSS를 겹쳐 덮지 않고 한 곳에서 푼다. */
 .modal .file-line:has(.file-line-open) :is(.file-kind,.file-line-main){pointer-events:none}
+/* 이름 고치는 칸(.fr-box)이 열린 줄: 칸은 이름 글자(.file-line-main)의 자식이라 위 규칙을 물려받아 누르기가 덮개로 새어 파일이 열렸다.
+   칸 안(입력·[저장]·[취소]·[AI 이름])은 눌림을 받고, 고치는 동안 줄의 나머지 자리를 잘못 눌러도 파일이 열리지 않는다. */
+.modal .file-line:has(.file-line-open) .fr-box{pointer-events:auto}
+.modal .file-line:has(.fr-box) .file-line-open{pointer-events:none}
 .modal .modal-card.drop-active{outline:2px dashed var(--kptu-info);outline-offset:-6px}
 /* FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄 끝 ⋯(meeting-columns.js fileMoreHtml). 담당조직·프로젝트 자료 줄의 ⋯
    (workplace-detail.css .wd-doc-more)와 같은 <details> 모양·값. 누르기 자리(.file-line-open)보다 위에 놓고, 결과 창에서는 × 앞에 선다. */
