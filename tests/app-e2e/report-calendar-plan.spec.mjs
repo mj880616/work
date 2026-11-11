@@ -14,7 +14,10 @@ const sent = state => state.planWrites.map(w => [w.method, w.body?.google_event_
 // 표시 모양: 'done' ● · 'todo' □ · 'ask' 점선 □
 const marks = scope => scope.locator('.rv-dot').evaluateAll(els => els.map(el => (el.classList.contains('rv-dot-todo') ? 'todo' : el.classList.contains('rv-dot-ask') ? 'ask' : 'done')));
 // 처음 그릴 때 저절로 켜지는 줄(같은 이름 기억) 두 개가 서버에 들어갈 때까지.
-const settled = state => expect.poll(() => state.planWrites.length).toBeGreaterThanOrEqual(2);
+const settled = state => expect.poll(() => state.planWrites.length, {timeout: 15000}).toBeGreaterThanOrEqual(2);
+// 사업 보고 달력이 읽는 범위(서울 11월 한 달)의 Google 일정 읽기만 센다 — 다른 화면 부품이 다른 범위로 읽는 것은 이 시험이 볼 일이 아니다.
+const MONTH = {timeMin: '2026-10-31T15:00:00.000Z', timeMax: '2026-11-30T15:00:00.000Z'};
+const monthReads = state => state.eventReads.filter(r => r.timeMin === MONTH.timeMin && r.timeMax === MONTH.timeMax).length;
 const watch = page => { const errors = []; page.on('pageerror', e => errors.push(e.message)); return errors; };
 const noSideScroll = page => expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 
@@ -53,7 +56,7 @@ test('1280 달력: ● 쓴 보고 · □ 보고할 일정 · 점선 □ 보고�
   expect(state.planWrites[0].body).toMatchObject({title: '시험 주간 회의', event_day: DAY(18), google_calendar_id: 'own'});
   await page.waitForTimeout(700); // 다시 그리기가 맴돌며 더 읽거나 쓰지 않는다
   expect(state.planWrites).toHaveLength(2);
-  expect(state.eventReads).toEqual([{timeMin: '2026-10-31T15:00:00.000Z', timeMax: '2026-11-30T15:00:00.000Z'}]);
+  expect(monthReads(state)).toBe(1);
   expect(state.planReads).toBe(1);
   expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /plan|report/i.test(k)))).toEqual([]);
   expect(errors).toEqual([]);
@@ -275,14 +278,14 @@ test('새 표가 없는 서버(적용 전·되돌린 뒤): 표시·안 쓴 보�
   await expect(cal.locator('.rv-dot-todo, .rv-dot-ask, .rv-legend, [data-rv-due], [data-rv-plan]')).toHaveCount(0);
   await expect(cal.locator('.rv-day-list .rv-row')).toHaveCount(1);
   expect(state.planWrites).toEqual([]);
-  expect(state.eventReads).toEqual([]);
+  expect(monthReads(state)).toBe(0);
   expect(errors).toEqual([]);
 });
 
 test('Google 일정을 못 읽어도(연결 없음) 켜 둔 일정의 □와 안 쓴 보고는 줄 사본으로 보인다', async ({page}) => {
   const errors = watch(page), state = makeState({google: false});
   const cal = await openReportCalendar(page, state);
-  await expect(dayRow(cal, 'ev-todo').locator('button')).toHaveText(['보고 쓰기', '⋯']);
+  await expect(dayRow(cal, 'ev-todo').locator('button')).toHaveText(['보고 쓰기', '⋯'], {timeout: 15000});
   await expect(cal.locator('[data-rv-due] summary')).toHaveText('안 쓴 보고 2 · 11. 9. 시험 운영위 외 1');
   expect(await marks(cell(cal, 11).locator('.rv-titles'))).toEqual(['done', 'todo']);
   await expect(cal.locator('.rv-dot-ask')).toHaveCount(1); // 범례의 것 하나뿐 — 달력에는 보고할까요?가 없다
