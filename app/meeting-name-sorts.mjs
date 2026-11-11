@@ -309,6 +309,12 @@ export function addPreset(sorts, name, org = ETC, known = []) {
   dropOrder(next, [k]);
   return fits(next) ? next : null;
 }
+// 보고가 생긴 회의명의 '미리 넣은' 표시는 더 필요 없다(그 이름은 보고로 목록에 나온다). 조직·순서 표시는 그대로 둔다. 미리 넣을 때 함께 정리한다(50개 자리를 차지하지 않게).
+export function dropKnownPresets(sorts, known = []) {
+  const have = new Set(known.map(nameKey));
+  if (!(sorts.presets || []).some(n => have.has(nameKey(n)))) return sorts;
+  const next = clone(sorts); next.presets = next.presets.filter(n => !have.has(nameKey(n))); return next;
+}
 // 목록에서 빼기: 미리 넣은 표시와 그 회의명의 조직·순서 표시를 지운다(보고가 없는 이름이라 남길 것이 없다).
 export function removePreset(sorts, name) {
   const k = nameKey(name);

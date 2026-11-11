@@ -18,7 +18,7 @@ import {askConfirm} from './small-notice.js';
 import {emptyHtml} from './wait-state.js';
 import {seoulDateKey} from './meeting-time.js';
 import {listRows, findRows, shownNames, placeOf, orgOf, setPlace, setIrregular, setOrg, moveName, nameKey, parentLabel, ETC, DEL, REGULAR,
-  hasMark, addPreset, removePreset, presetNameProblem, orderSpot, stepOrder, toOrgEnd} from './meeting-name-sorts.mjs';
+  hasMark, addPreset, removePreset, dropKnownPresets, presetNameProblem, orderSpot, stepOrder, toOrgEnd} from './meeting-name-sorts.mjs';
 import {readSorts, peekSorts, changeSorts, failText} from './meeting-name-sorts.js';
 
 const OTHER = '__other__', KEY = 'kptuNamePanel';
@@ -285,7 +285,7 @@ panel.addEventListener('submit', async e => {
   const org = presetOrg(s);
   cur.busy = true; cur.msg = '저장하는 중…'; paint({focus: '[data-mnp-preset-name]'});
   const ents = entriesOf(select);
-  const r = await changeSorts(x => { const next = addPreset(x, name, org, known); return !next || org === ETC ? next : toOrgEnd(ents, next, name); });
+  const r = await changeSorts(x => { const next = addPreset(dropKnownPresets(x, known), name, org, known); return !next || org === ETC ? next : toOrgEnd(ents, next, name); });
   cur.busy = false;
   if (ui !== cur) return;
   if (r.ok) { cur.draft = ''; cur.msg = `‘${name}’을 ‘${parentLabel(sorts(), org)}’에 추가했어요.`; paintOptions(select); }

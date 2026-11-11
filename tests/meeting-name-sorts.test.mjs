@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseSorts, toStored, placeOf, orgOf, grouped, setIrregular, setOrg, orgCount, roundBase, bundle, listRows, findRows, shownNames, setPlace, moveName, addParent, renameParent, orderParents, removeParent, parentNameProblem, parentCount, newParentId, nameKey, ETC, DEL, REGULAR,
-  orgSections, addPreset, removePreset, presetNameProblem, isPreset, hasMark, orderSpot, stepOrder, toOrgEnd, regularNames, PRESET_MAX, ORDER_MAX} from '../app/meeting-name-sorts.mjs';
+  orgSections, addPreset, removePreset, presetNameProblem, isPreset, hasMark, orderSpot, stepOrder, toOrgEnd, regularNames, dropKnownPresets, PRESET_MAX, ORDER_MAX} from '../app/meeting-name-sorts.mjs';
 
 const P1 = 'gaaaaaa1', P2 = 'gbbbbbb2';
 const base = {parents: [{id: P1, name: '가상협의회'}, {id: P2, name: '샘플 모임'}], names: {}};
@@ -255,6 +255,10 @@ test('S57-14 미리 넣은 회의: 조직 없이도 보이고, 보고가 생기�
   // 같은 이름의 보고가 생기면 한 줄(보고 있는 줄)만
   const withReport = [...E, {name: '예시 회의 9', at: '2026-11-08T10:00:00Z'}];
   assert.deepEqual(shape(listRows(withReport, s))[0], '예시 회의 9');
+  // 보고가 생긴 이름의 '미리 넣은' 표시는 다음에 미리 넣을 때 정리된다(조직·순서 표시는 그대로)
+  const kept = pre(S0(), '예시 회의 9', P1);
+  assert.deepEqual([dropKnownPresets(kept, ['예시회의 9']).presets, dropKnownPresets(kept, ['예시회의 9']).orgs, dropKnownPresets(kept, ['예시회의 9']).order], [[], kept.orgs, kept.order]);
+  assert.equal(dropKnownPresets(kept, known), kept, '정리할 것이 없으면 그대로');
   // 이름 문제
   assert.equal(presetNameProblem('', s, known), '회의명을 써 주세요.');
   assert.equal(presetNameProblem('가,나', s, known), '쉼표(,)는 쓸 수 없어요.');

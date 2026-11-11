@@ -55,6 +55,21 @@ test('PC 1280: 회의 [목록] 왼쪽 회의명이 조직 머리글 아래로 �
   expect(errors).toEqual([]);
 });
 
+// S57-14 MTG-회의명처음배치: 정한 순서(order)가 있으면 조직 안 회의명도 고르기 창과 같은 순서(순서 표시가 없는 회의는 그 뒤, 지금 순서 그대로).
+test('PC 1280·폰 412: 정한 회의 순서가 있으면 왼쪽 회의명 칸과 [회의 ▾] 상자도 그 순서, 미리 넣은 회의(보고 없음)는 이 목록에 없다',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const sorts={...SORTS,orgs:{...SORTS.orgs,[key('가상 미리 회의')]:G3},presets:['가상 미리 회의'],order:[key('가상 집행국 회의'),key('가상 미리 회의'),key('가상협의회 대표자 회의')]};
+  await open(page,state(sorts));
+  await expect.poll(()=>kindsOrder(page)).toEqual(['# 가상본부','가상본부 집행위 1','# 가상노조','가상노조 상집 2','# 가상협의회','가상 집행국 회의 1','가상협의회 대표자 회의 1','# 기타','따로 모임 1']);
+  await page.setViewportSize({width:412,height:915});
+  const groups=()=>page.locator('#reportKindSelect optgroup').evaluateAll(list=>list.map(g=>[g.label,...[...g.querySelectorAll('option')].map(o=>o.textContent)]));
+  await expect.poll(groups).toEqual([['가상본부','가상본부 집행위'],['가상노조','가상노조 상집'],['가상협의회','가상 집행국 회의','가상협의회 대표자 회의'],['기타','따로 모임','회의명 미지정']]);
+  // 순서를 바꾸면(고르기 창 ⋯ 위로·아래로와 같은 저장) 바로 따라간다.
+  await page.evaluate(async key=>{const m=await import('/app/meeting-name-sorts.js');const r=await m.changeSorts(s=>({...s,order:[...s.order].reverse()}));if(!r.ok)throw new Error(r.reason)});
+  await expect.poll(groups).toEqual([['가상본부','가상본부 집행위'],['가상노조','가상노조 상집'],['가상협의회','가상협의회 대표자 회의','가상 집행국 회의'],['기타','따로 모임','회의명 미지정']]);
+  expect(errors).toEqual([]);
+});
+
 test('PC 1280: 가운데 차수 칸은 "46차 11.10."이 한 줄로 다 보이고, 오른쪽 결과는 남은 폭을 다 쓴다',async({page})=>{
   await open(page,state(SORTS));
   await page.locator('#meetingList [data-meeting-round="m1"]').click();
