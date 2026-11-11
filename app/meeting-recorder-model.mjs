@@ -76,8 +76,9 @@ export function minuteText(minutes){
   return h?(r?`${h}시간 ${r}분`:`${h}시간`):`${r}분`;
 }
 
-// 구간 글을 순서대로 합친다. 둘째 구간부터 머리 '― 59분부터 ―' 한 줄. parts: [{no, seconds, text}] (seconds = 그 구간 길이)
-// 이미 전사가 끝나 글이 서버에 없는 구간은 text가 null → '― 59분부터: 이 구간 글은 이미 정리됐어요 ―'.
+// 구간 글을 순서대로 합친다. 둘째 구간부터 머리 '― 29분부터 ―' 한 줄(실제 구간 길이로 센다 — 옛 59분 구간이 섞이면 '― 59분부터 ―'). parts: [{no, seconds, text}] (seconds = 그 구간 길이)
+// 구간 글의 '화자n:' 줄은 그대로 둔다. 화자 번호는 구간마다 새로 매겨지므로 머리 줄이 그 자리를 알려 준다(REC-발언자구분).
+// 이미 전사가 끝나 글이 서버에 없는 구간은 text가 null → 머리 줄 아래 '(이 구간 글은 이미 전사가 끝나 다시 받을 수 없어요.)'.
 export function joinSegmentTexts(parts){
   const list=(Array.isArray(parts)?parts:[]).slice().sort((a,b)=>a.no-b.no);
   let offset=0;const out=[];

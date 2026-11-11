@@ -7,7 +7,7 @@
 // - [버리기](요청함 10/30 10:01): 녹음을 바로 멈추고 마이크를 끈 뒤, 이미 녹음된 것만 마저 올리고(최대 DISCARD_DRAIN_MS) rec_discard로
 //   올린 조각을 모두 Drive 휴지통으로 옮긴다(전사·요약·초안 없음). 올리지 못한 조각은 메모리에서 버린다. 위쪽 작은 알림 [되돌리기](10초)는
 //   rec_restore로 휴지통에서 꺼내 '이어서 정리' 줄로 돌린다(마이크는 꺼졌으므로 녹음을 이어 하지는 않음). '이어서 정리' 줄에도 같은 [버리기].
-// - 59분마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
+// - 29분(SEGMENT_SECONDS)마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
 // - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [녹음 요약하기]
 //   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
@@ -171,7 +171,7 @@ function makeRecorder(seg){
   for(const tr of stream?.getTracks?.()||[])tr.addEventListener?.('ended',()=>{if(holder.wanted||rec.state==='inactive')return;try{rec.stop()}catch{lost()}});
   return holder;
 }
-// 59분: 새 녹음기를 먼저 켜고(조각은 메모리 대기열에) 앞 녹음기를 멈춘다. 대기열이 앞 구간 마지막 조각 → rec_start → 새 구간 순서를 지킨다.
+// 구간 넘김(29분): 새 녹음기를 먼저 켜고(조각은 메모리 대기열에) 앞 녹음기를 멈춘다. 대기열이 앞 구간 마지막 조각 → rec_start → 새 구간 순서를 지킨다.
 function roll(){
   const old=current;if(!old||old.rolling)return;
   old.rolling=true;
@@ -229,7 +229,7 @@ function suspend(){
   accum=elapsed();runSince=0;
   state='suspended';current=null;releaseStream();paint();
 }
-// 새 구간을 같은 session_id로 연다(59분 넘김과 같은 방식). 앞 조각은 이미 대기열/서버에 있다.
+// 새 구간을 같은 session_id로 연다(구간 넘김과 같은 방식). 앞 조각은 이미 대기열/서버에 있다.
 async function resumeSuspended(){
   if(state!=='suspended')return;
   state='starting';errorText='';paint();
@@ -314,7 +314,7 @@ async function stopAndFinish(){
   state='finishing';step='올림';note=stopReason;clearInterval(ticker);paint();
   const holder=current;
   if(holder){holder.wanted=true;try{if(holder.rec.state!=='inactive')holder.rec.stop();else holder.end()}catch{holder.end()}}
-  // 59분 넘김 중이던 앞 녹음기도 끝난 뒤(마지막 조각이 대기열에 들어간 뒤) 마이크를 놓는다.
+  // 구간 넘김 중이던 앞 녹음기도 끝난 뒤(마지막 조각이 대기열에 들어간 뒤) 마이크를 놓는다.
   await Promise.all([holder?.stopped,...rollingStops]);
   rollingStops=[];current=null;releaseStream();
   await drained();
