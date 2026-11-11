@@ -285,14 +285,19 @@ test('report calendar (PC): right click or menu key on a report opens the same r
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
   await page.keyboard.press('Escape'); await expect(more).toBeHidden();
   await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
-  // 그날 목록 줄.
+  // 그날 목록 줄. 메뉴가 실제로 뜬 것을 본 뒤에 Esc를 누른다: 닫힌 메뉴에 앞 단계의 단추가 남아 있어 글자 검사만으로는 바로 통과하고,
+  // 그때 누른 Esc는 메뉴가 뜨기 전의 보고 창을 닫아 버린다(그 뒤 #mrdClose가 보이지 않아 시간 초과 — S58-2에서 원인 확인).
   await cal.locator(`.rv-day-list .rv-row[data-mrd-meeting="${M2}"]`).click({button: 'right', position: {x: 6, y: 6}});
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', M2);
+  await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
   await page.keyboard.press('Escape'); await expect(more).toBeHidden();
   await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
   // 키보드 메뉴 키: 포커스 받은 칸 안 제목.
   await cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`).focus();
   await page.keyboard.press('Shift+F10');
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', M1);
+  await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
   expect(state.patches).toEqual([]);
 });

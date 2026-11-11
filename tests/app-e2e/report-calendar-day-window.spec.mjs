@@ -243,19 +243,20 @@ test('day window row: right click or menu key opens the same report menu as a ce
   const state = makeState(), cal = await open(page, state, 1440), more = page.locator('#mrdMoreMenu');
   await openWindow(page, cal, state);
   await rows(page).nth(3).click({button: 'right'});
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', sixId(4));
   await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
   await expect(win(page)).toBeHidden();
-  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', sixId(4));
   await page.keyboard.press('Escape'); await expect(more).toBeHidden();
   await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
   // 키보드 메뉴 키: 초점 받은 줄에서 같은 메뉴.
   await openWindow(page, cal, state);
   await rows(page).nth(1).focus();
   await page.keyboard.press('Shift+F10');
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', sixId(2));
+  await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
   await expect(win(page)).toBeHidden();
-  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', sixId(2));
   expect(state.patches).toEqual([]);
 });
 
@@ -340,7 +341,15 @@ test('day window is refilled by the one calendar renderer when reports change, a
 
 test('schedule calendar day window keeps its own look after the report day window was used (same part, centered, dimmed)', async ({page}) => {
   const state = makeState(), cal = await open(page, state, 1440);
+  const cardWidth = () => page.evaluate(() => document.querySelector('#calendarDayModal .kptu-day-card').getBoundingClientRect().width);
   await openWindow(page, cal, state);
+  expect(await cardWidth()).toBe(264);
+  await page.keyboard.press('Escape');
+  await expect(win(page)).toBeHidden();
+  // 일정 달력을 먼저 다녀와 그 화면의 CSS(calendar-ui.css — 이 창의 폭을 우선순위 표시와 함께 정함)가 실려 있어도 사업 보고 그날 창은 같은 작은 폭이다.
+  await page.addStyleTag({url: `${appOrigin}/app/calendar-ui.css`});
+  await openWindow(page, cal, state);
+  expect(await cardWidth()).toBe(264);
   await page.keyboard.press('Escape');
   await expect(win(page)).toBeHidden();
   // 같은 창 부품을 일정 달력 방식(날짜·일정 목록)으로 연다: 가운데, 어두운 바탕, 긴 날짜 제목, 사업 보고 줄 없음.
@@ -356,6 +365,7 @@ test('schedule calendar day window keeps its own look after the report day windo
   expect(geo.left).toBe(''); expect(geo.top).toBe('');
   expect(geo.position).not.toBe('absolute');
   expect(geo.mid).toBeLessThanOrEqual(1);
+  expect(await cardWidth()).toBe(520);
   await page.keyboard.press('Escape');
   await expect(win(page)).toBeHidden();
 });
