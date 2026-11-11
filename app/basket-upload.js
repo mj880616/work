@@ -23,14 +23,17 @@ export function createUploadBatch(note_id = null, attachments = []) {
 export function createAttachQueue() {
   const lines = new Map();
   const left = batch => batch.entries.filter(entry => entry.kind !== 'success').map(entry => entry.upFile || entry.file);
+  // BIZ-저장먼저닫기 2차(S59-10): 글 없이 파일만 저장한 새 업데이트는 첫 파일이 글을 만든다 — 그때까지는 임시 열쇠로 줄을 서고,
+  // 글 id가 생기면(batch.note_id) 그 id로도 같은 줄을 찾는다(그 업데이트를 열면 같은 잠금·올리는 줄).
+  const lineOf = id => lines.get(id) || (id ? [...lines.values()].find(line => [...line.batches].some(batch => batch.note_id === id)) : null) || null;
   return {
-    going: id => (lines.get(id)?.live || 0) > 0,
+    going: id => (lineOf(id)?.live || 0) > 0,
     any: () => [...lines.values()].some(line => line.live > 0), // 어느 글이든 올리는 중(최신화 전에 막는 데 쓴다)
-    has: (id, file) => !!lines.get(id)?.files.has(file),
-    settled: id => lines.get(id)?.tail || Promise.resolve(),
+    has: (id, file) => !!lineOf(id)?.files.has(file),
+    settled: id => lineOf(id)?.tail || Promise.resolve(),
     add(id, batch, work) {
-      const line = lines.get(id) || {tail:Promise.resolve(), files:new Set(), live:0};
-      lines.set(id, line); line.live++;
+      const line = lines.get(id) || {tail:Promise.resolve(), files:new Set(), batches:new Set(), live:0};
+      lines.set(id, line); line.live++; line.batches.add(batch);
       const mine = left(batch); for (const file of mine) line.files.add(file);
       line.tail = line.tail.then(work).catch(() => {}).then(() => {
         const still = new Set(left(batch));
@@ -43,7 +46,8 @@ export function createAttachQueue() {
   };
 }
 // BIZ-저장먼저닫기 2차(S59-8): 노트·업데이트 첨부의 뒤 줄은 한 곳에 하나씩만 둔다(한 글에 줄 하나 — 상태 주인 하나).
-// 노트 큰 창 [📎 첨부](basket-notes.js)와 새 노트 [저장](큰 창·빠른 입력칸·폰 공유)이 noteFileLine을, 업데이트 [첨부 저장](basket.js)이 updateFileLine을 같이 쓴다.
+// 노트 큰 창 [📎 첨부](basket-notes.js)와 새 노트 [저장](큰 창·빠른 입력칸·폰 공유)이 noteFileLine을, 업데이트 [첨부 저장](basket.js)과
+// 파일이 있는 새 업데이트 저장(업데이트 큰 창·빠른 입력칸 업데이트·조직 기록 입력칸 — update-places.js saveUpdateFilesBehind, S59-10)이 updateFileLine을 같이 쓴다.
 // 그래서 새 노트를 저장한 뒤 그 노트를 열면 올리는 줄이 보이고, 그 노트를 바꾸는 일은 올라간 뒤에 한다(basket-notes.js filesGoing).
 export const noteFileLine = createAttachQueue();
 export const updateFileLine = createAttachQueue();

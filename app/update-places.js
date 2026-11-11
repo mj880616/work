@@ -6,8 +6,9 @@
 // UPD-여러곳고르기: several places can be chosen at once (an array; empty is the basket). Two or more → one basket update linked
 // to every chosen place through the basket's own [연결하기] path (app_basket_confirm_links: owner RLS, INVOKER, 1~20 places, all
 // or none), so the update is one original shown in each place's records, as a linked basket update already is.
-import { createNote, readBasketNote, attachNoteDoc } from './basket-data.js';
-import { uploadBatch } from './basket-upload.js';
+import { createNote, readBasketNote } from './basket-data.js';
+import { uploadBatch, validateBatch, sendFilesBehind, updateFileLine, readNewPhotos } from './basket-upload.js';
+import { basketOcrFor } from './basket-ocr-runtime.js';
 import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate } from './quick-save.js';
 import { projectRows } from './choice-sheet.js';
@@ -159,13 +160,22 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
     return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner, doc}, rt);
   }
   if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`);
+  return saveLetters({list, text, doc}, rt);
+}
+// The letters (and the saved form) as one basket update, linked to every place in list (none: it stays in the basket, 미분류).
+// A refused link leaves the update in the basket ({note, linkError}); a failed letters save throws.
+// BIZ-저장먼저닫기 2차(S59-10): an update with files saves this first too (saveUpdateFilesBehind) — the files follow behind.
+async function saveLetters({list, text, doc}, rt) {
   const note = await createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
   let linkError = '';
-  try {
-    const result = await confirmLinks(note.id, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
-    if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
-  } catch (error) { linkError = error?.message || 'UNKNOWN'; }
+  if (list.length) {
+    try {
+      const result = await confirmLinks(note.id, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
+      if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
+    } catch (error) { linkError = error?.message || 'UNKNOWN'; }
+  }
   window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+  if (!list.length) return {note, linkError};
   if (!linkError) window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
   if (!linkError) announceRecordSaved(basketDetail(note, list)); // MTG-기록겹침거르기: 연결이 모두 끝난 뒤에만 비슷한 사업 보고를 확인한다
   if (!linkError) await addBusinessRecord(note, list, text, rt);
@@ -185,14 +195,13 @@ export const MULTI_REASON = '직접 연결'; // the same reason as the basket [�
 export const linkFailText = '업데이트는 잊지 말기에 저장했지만 선택한 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.';
 // ED③ 기록: the most letters a record may hold at these places. MTG-프로젝트합치기 3단계: no place takes a one-line progress record any more.
 export const textLimitFor = () => 20000;
-export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 잊지 말기에서 그 업데이트를 열어 다시 수정해 저장해 주세요.';
 export const fileFailText = '파일은 잊지 말기에 저장했지만 선택한 곳 자료로 넣지 못했어요. 잊지 말기에서 [연결하기]로 다시 넣어 주세요.';
 // BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and
 // then using the basket's [연결하기] / [자료로 넣기] on it — through those same paths, nothing new on the server:
-// ① the text and files go up as one basket update (uploadBatch → basket-files, photo text reading included); a failed file
-//    throws and leaves the batch tied to that update, so [추가] again sends only what is left (the basket's own rule);
-// ② with text, the update is linked to every chosen place (app_basket_confirm_links: owner RLS, all or none), so it is one
-//    original shown in each place's records with its files; files only (no text) make no record, as [자료로 넣기];
+// ① with text, the letters (and the saved form) are saved as one basket update and linked to every chosen place first (saveLetters:
+//    app_basket_confirm_links, owner RLS, all or none), so it is one original shown in each place's records with its files;
+// ② the files go up to that update (uploadBatch → basket-files with note_id, photo text reading included); files only (no text): the
+//    first file makes the update, as before, and makes no organization or project record, as [자료로 넣기];
 // ③ the files become the first chosen project's and the first chosen organization's documents (putFilesIntoTargets:
 //    document-actions register-basket-attachment + the owner-RLS app_documents update). A document belongs to one project and
 //    one organization, so further places of the same kind show the files through the linked update only.
@@ -201,26 +210,25 @@ export const fileFailText = '파일은 잊지 말기에 저장했지만 선택�
 // With it, files without letters still make the record: one line (the server AI's reading of the file, or the file's name) goes in
 // as that link's summary, which [요약 수정] changes later. Without it (home, basket, update window opened elsewhere) nothing changes.
 // It starts before the upload (the picked File objects are dropped once they are sent) and never stops the save.
-export async function saveUpdateWithFiles({places, text, batch, doc = null, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange, fileLine = null}, rt = window.KPTURuntime) {
+// saveUpdateWithFiles waits for all of it (the 기록 표 drop queue, which is itself behind the screen); the save buttons use
+// saveUpdateFilesBehind below (BIZ-저장먼저닫기 2차): ① waited, ②③ behind.
+function filesPlan({places, text, batch, fileLine, basket = false}) {
   const list = placeList(places);
-  if (!list.length) throw new Error('기록할 곳을 선택해 주세요.');
+  if (!basket && !list.length) throw new Error('기록할 곳을 선택해 주세요.');
   if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`);
   const lettered = !!String(text || '').trim();
   const picked = !lettered && typeof fileLine === 'function' && list.some(p => p.kind === 'project' || p.kind === 'organization') ? batch.entries.filter(e => e.kind !== 'success' && e.file).map(e => e.file) : [];
   const linePromise = picked.length ? Promise.resolve().then(() => fileLine(picked)).catch(() => '') : null;
-  await uploadBatch(batch, {raw_text:text, rt, isCurrent, ...(ocr ? {ocr} : {}), ...(onChange ? {onChange} : {}), ...(onOcrChange ? {onOcrChange} : {})});
-  const noteId = batch.note_id;
-  window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
-  // ED③ 업데이트: the letters are saved by now; the saved form is put on after (a refusal leaves the letters, and says so: docError).
-  let docError = false;
-  if (doc && String(text || '').trim()) { try { await attachNoteDoc(noteId, doc, rt); } catch { docError = true; } }
+  return {list, lettered, picked, linePromise};
+}
+const filesLine = async ({picked, linePromise}) => linePromise ? String(await linePromise || '').trim() || fallbackFileLine(picked) : '';
+// ②③ after the upload. link: files only, not linked yet — linked with that line (fileLine), else to reference bundles only (REF-참고묶음).
+// files: the update's files to put into documents (a retry passes only the ones not put in yet). Another account by now: nothing (stale).
+async function placeFiles({noteId, list, link, line, files, sameOwner}, rt) {
+  const linkTo = !link ? [] : line ? list : list.filter(p => p.kind === 'reference');
   let note = null, linkError = '', filed = null;
-  try { note = await readBasketNote(noteId, rt); } catch { note = null; }
+  if (linkTo.length) { try { note = await readBasketNote(noteId, rt); } catch { note = null; } }
   if (!sameOwner()) return {note:{id:noteId}, linkError:'STALE', filed:null, stale:true};
-  // Files only (no text) make no organization or project record, as [자료로 넣기]; a reference bundle is linked either way (REF-참고묶음).
-  // ORG-기록첨부: …unless the record input gave fileLine — then the organization/project record is made with that line as its summary.
-  const line = linePromise ? String(await linePromise || '').trim() || fallbackFileLine(picked) : '';
-  const linkTo = lettered ? list : line ? list : list.filter(p => p.kind === 'reference');
   if (linkTo.length) {
     if (!note) linkError = 'NOTE_MISSING';
     else {
@@ -228,17 +236,116 @@ export async function saveUpdateWithFiles({places, text, batch, doc = null, isCu
         const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, ...(line && p.kind !== 'reference' ? {summary:line} : {})})), rt);
         if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
       } catch (error) { linkError = error?.message || 'UNKNOWN'; }
-      if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); if (sameOwner()) await addBusinessRecord(note, linkTo, lettered ? text : line, rt); }
+      if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); if (sameOwner() && line) await addBusinessRecord(note, linkTo, line, rt); }
     }
   }
   const project = list.find(p => p.kind === 'project') || null, organization = list.find(p => p.kind === 'organization') || null;
-  const files = note?.attachments || batch.attachments || [];
   // A reference bundle takes no documents: files go into a project's or an organization's documents only.
   if (sameOwner() && files.length && (project || organization)) {
     try { filed = await putFilesIntoTargets({noteId, files, projectId:project?.id || null, organizationId:organization?.id || null, rt, expectedSessionEpoch:rt.session.epoch(), isCurrent:sameOwner}); }
     catch { filed = {ok:false, kind:'unknown', message:''}; }
   }
-  return {note:note || {id:noteId}, linkError, filed, docError};
+  return {note:note || {id:noteId}, linkError, filed};
+}
+export async function saveUpdateWithFiles({places, text, batch, doc = null, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange, fileLine = null}, rt = window.KPTURuntime) {
+  const plan = filesPlan({places, text, batch, fileLine});
+  validateBatch(batch);
+  let note = null, linkError = '';
+  if (plan.lettered) { ({note, linkError} = await saveLetters({list:plan.list, text, doc}, rt)); batch.note_id = note.id; }
+  await uploadBatch(batch, {rt, isCurrent, ...(ocr ? {ocr} : {}), ...(onChange ? {onChange} : {}), ...(onOcrChange ? {onOcrChange} : {})});
+  window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+  const line = await filesLine(plan);
+  const placed = await placeFiles({noteId:batch.note_id, list:plan.list, link:!plan.lettered, line, files:batch.attachments || [], sameOwner}, rt);
+  return {...placed, note:note || placed.note, linkError:placed.linkError || linkError};
+}
+// BIZ-저장먼저닫기 2차(S59-10, 요청함 11/11 07:01 '같은 종류 전수'): 파일이 있는 업데이트 [저장]·[추가](업데이트 큰 창 · 빠른 입력칸 업데이트 ·
+// 조직 기록 입력칸). 서버 길은 그대로(위 ①②③)이고, 부른 곳이 기다리는 것은 앞(①)뿐이다.
+// - 앞(기다림): 파일 검사, 글이 있으면 그 글(과 서식)만 업데이트로 저장하고 고른 곳에 잇는다. 글 저장이 실패하면 던진다 — 부른 곳은 창·입력칸을
+//   그대로 두고 파일은 보내지 않는다. 연결이 거절되면 업데이트는 잊지 말기에 남는다(linkError). 글이 없으면 앞에서 저장할 것이 없다.
+//   places가 비면 잊지 말기(미분류) 업데이트다.
+// - 뒤(기다리지 않음): 고른 파일을 그 업데이트의 줄(updateFileLine — basket.js [첨부 저장]과 같은 줄)에 세워 화면을 옮겨도 끝까지 올린다
+//   (sendFilesBehind: 하단바 위 한 줄, 끝 '<where>에 사진 n장 올렸어요', 못 올린 것만 [다시 올리기]). 글이 없으면 첫 파일이 업데이트를 만든다.
+//   올린 뒤 ②③(파일만 + fileLine이면 그 한 줄로 기록 연결, 자료로 넣기)을 하고, 못 한 것은 끝 알림 둘째 줄에 붙인다.
+//   사진 글자 읽기는 지금처럼 올린 뒤 저절로 한다(PR 2407의 결정 거리 — 바꾸지 않음). 지킴도 예전 그대로 저장한 그 화면·그 로그인인 동안만이고
+//   (photoGuard), 확인이 필요한 결과만 끝 알림 둘째 줄에 붙인다(그냥 못 읽은 사진은 사진의 [글자 읽기]로).
+// - done(id): 뒤가 끝난 뒤 부른 곳의 화면 일(목록 다시 읽기). 계정·작업공간이 바뀌면 남은 파일을 보내지 않고 알리지도 않는다.
+// 돌려줌: {note(글이 있을 때 앞에서 만든 업데이트 | null), linkError, stale?}.
+let newUpdateKeys = 0;
+const contextScope = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
+// 사진 글자 읽기는 한 번에 하나만 돈다(basket-ocr-runtime.js — 도는 중이면 다른 읽기를 거절한다). 예전에는 입력칸·창이 읽기가 끝날 때까지 잠겨
+// 저장이 하나씩이었으므로, 뒤 줄 여럿이 겹쳐도 읽기는 차례로 서게 한다(이 탭 메모리의 차례 하나).
+let photoTurn = Promise.resolve();
+function readPhotosInTurn(batch, originalIds, options) {
+  const run = photoTurn.then(() => readNewPhotos(batch, originalIds, options));
+  photoTurn = run.catch(() => {});
+  return run;
+}
+const NO_OCR = Object.freeze({enabled:false});
+// 사진 글자 읽기 지킴(예전 빠른 입력칸의 지킴 그대로 — PR 2407의 결정 거리, 바꾸지 않음): 저장한 그 화면·그 로그인(사람·작업공간·세션 판·토큰)인
+// 동안만 저절로 읽는다. 한 번이라도 어긋난 것을 보면 다시 돌아와도 읽지 않는다(그 사진은 [글자 읽기]로). 누름·입력·다른 탭 저장소·세션 바뀜·
+// 화면 옮김 때마다 확인한다. 올리기 자체는 화면을 옮겨도 이어진다.
+const photoGuards = new Set();
+let guardsWatched = false;
+function photoGuard(rt) {
+  const ctx = rt.context.read(), user = ctx?.user?.id, workspace = ctx?.workspace?.id, epoch = rt.session.epoch?.(), view = globalThis.window?.KPTURouter?.current;
+  let ok = !!user && !!workspace;
+  const guard = () => {
+    if (!ok) return false;
+    const c = rt.context.read(), session = rt.session.read?.();
+    if (c?.user?.id !== user || c?.workspace?.id !== workspace || rt.session.epoch?.() !== epoch || session?.user?.id !== user || !session?.access_token || globalThis.window?.KPTURouter?.current !== view) { ok = false; photoGuards.delete(guard); }
+    return ok;
+  };
+  guard.watch = () => { if (!ok) return; photoGuards.add(guard); if (guardsWatched || !globalThis.window?.addEventListener) return; guardsWatched = true;
+    const check = () => { for (const one of [...photoGuards]) one(); };
+    for (const type of ['click', 'keydown', 'input']) window.addEventListener(type, check, true);
+    for (const type of ['storage', 'kptu:session-changed', 'kptu:view-changed']) window.addEventListener(type, check); };
+  guard.done = () => photoGuards.delete(guard);
+  return guard;
+}
+export async function saveUpdateFilesBehind({places, text, batch, doc = null, fileLine = null, where = '업데이트', done = () => {}}, rt = window.KPTURuntime) {
+  const plan = filesPlan({places, text, batch, fileLine, basket:true});
+  validateBatch(batch);
+  const owner = contextScope(rt), sameOwner = () => contextScope(rt) === owner, photos = photoGuard(rt);
+  photos.watch();
+  let note = null, linkError = '';
+  try { if (plan.lettered) ({note, linkError} = await saveLetters({list:plan.list, text, doc}, rt)); }
+  catch (error) { photos.done(); throw error; }
+  if (!sameOwner()) { photos.done(); return {note, linkError, stale:true}; } // 글을 저장하는 사이 다른 계정이 됨: 파일은 보내지 않는다
+  if (note) batch.note_id = note.id;
+  const filed = new Set();
+  let linkTried = plan.lettered, ocrNote = '';
+  void sendFilesBehind({line:updateFileLine, key:note?.id || `new-update:${++newUpdateKeys}`, batch, rt, where,
+    send:async ({request, isCurrent}) => {
+      ocrNote = ''; photos.watch();
+      const originalIds = new Set((batch.attachments || []).map(file => file.drive_file_id)), reading = () => isCurrent() && photos();
+      try {
+        await uploadBatch(batch, {rt, isCurrent, request, ocr:NO_OCR});
+        if (reading()) await readPhotosInTurn(batch, originalIds, {rt, isCurrent:reading, ocr:basketOcrFor({rt, isCurrent:reading}), onOcrChange:value => { ocrNote = ocrCheckText(value) || ocrNote; }});
+      } finally { photos.done(); }
+    },
+    finish:async () => {
+      const noteId = batch.note_id; if (!noteId) return '';
+      const link = !linkTried; linkTried = true;
+      const line = link ? await filesLine(plan) : '';
+      const fresh = (batch.attachments || []).filter(file => !filed.has(file.drive_file_id));
+      const placed = await placeFiles({noteId, list:plan.list, link, line, files:fresh, sameOwner}, rt);
+      if (placed.filed?.ok !== false) for (const file of fresh) filed.add(file.drive_file_id);
+      return [placed.linkError && !placed.stale ? linkFailText : '', placed.filed?.ok === false ? [fileFailText, placed.filed.message].filter(Boolean).join(' ') : '', ocrNote].filter(Boolean).join(' ');
+    },
+    done:() => {
+      window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+      if (batch.note_id) window.dispatchEvent(new CustomEvent('kptu:update-files-sent', {detail:{id:batch.note_id, attachments:batch.attachments || []}}));
+      done(batch.note_id || null);
+    }});
+  return {note, linkError};
+}
+// 사진 글자 읽기 결과 가운데 사람이 확인해야 하는 것만 말로(그냥 못 읽은 사진·읽은 사진은 '').
+export function ocrCheckText(value) {
+  if (!value || value.ok) return '';
+  if (value.result_unknown) return '사진 글자 읽기 결과를 확인하지 못했어요. 잊지 말기에서 확인해 주세요.';
+  if (value.ocr_saved) return '사진 글자는 저장했어요. 임시 문서 정리는 잊지 말기에서 확인해 주세요.';
+  if (value.text) return '이전 사진 글자는 그대로 두었어요. 읽기 결과와 임시 문서 정리는 잊지 말기에서 확인해 주세요.';
+  return '';
 }
 // Reads for a screen without the home's shared flights (the write window).
 export function placeSources(rt = window.KPTURuntime) {
