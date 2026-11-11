@@ -39,7 +39,7 @@ export function paintNoteSource(host, note, {rt = window.KPTURuntime, onChange =
       retry.addEventListener('click', async () => { retry.disabled = true; if (await retryNoteImport(note, {rt})) onChange(); else { retry.disabled = false; say('다시 시도하지 못했어요. 다시 눌러 주세요.'); } });
       acts.append(retry);
     }
-    const keep = el('button', 'row-act', '주소만 두기'); keep.type = 'button'; keep.dataset.niKeep = '';
+    const keep = el('button', 'secondary', '주소만 두기'); keep.type = 'button'; keep.dataset.niKeep = '';
     keep.addEventListener('click', async () => {
       keep.disabled = true;
       try { onChange(await keepUrlOnly(note, {rt})); } catch { keep.disabled = false; say('안내를 거두지 못했어요. 다시 눌러 주세요.'); }
