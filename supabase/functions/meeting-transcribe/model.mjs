@@ -137,6 +137,7 @@ export function transcriptionRequest(fileUri, mimeType, diarize, model = TRANSCR
   };
 }
 // 30분 넘는(또는 길이를 모르는) 녹음은 처음부터 화자 구분 없이 보낸다.
+// REC-발언자구분: [녹음] 구간은 29분(recording.mjs REC_SEGMENT_SECONDS)이라 긴 회의도 구간마다 켜진다. 옛 59분 구간·30분 넘는 한 파일은 통글(실패 아님).
 export const wantsDiarize = duration => Number.isFinite(duration) && duration > 0 && duration <= DIARIZE_MAX_SECONDS;
 
 function stepsOf(json) {

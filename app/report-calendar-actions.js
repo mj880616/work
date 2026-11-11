@@ -4,9 +4,12 @@
 // 저장은 보고 수정 창(meeting-round-detail.js mrdSaveEdit)과 같은 길(app_meetings meeting_at PATCH, 내 작업공간·지금 일시 그대로인 한 줄만)이고
 // 놓은 뒤 "옮겼어요 · 되돌리기"(offerUndoNotice)가 뜬다. 회차 번호·Google 일정·사진·자료는 건드리지 않는다(사진·자료는 meeting_id로 따라간다).
 // 이 모듈은 끌기 입력과 저장 호출만 갖고, 그리기는 team.js renderMeetings 하나다(상태 없음 — 부르는 쪽이 reportDay를 맞춘다).
+// BIZ-달력그날창: '+n' 그날 창에 줄을 넣는 showReportDayWindow도 여기 있다. 부르는 길은 team.js showReportDay 하나이고(달력을 다시 그릴 때도 그 길),
+// 여기에 화면 상태는 두지 않는다(열려 있는 날은 창에서 읽고, dayDeps는 부르는 쪽 길을 잇는 연결일 뿐).
 import {offerUndoNotice} from './basket-record-delete.js';
 import {openRowMenu} from './row-menu.js';
-import {moveReportAt, dayKeyOf, dayHeading, REPORT_DAY_MENU_ITEMS} from './report-views-model.mjs';
+import {moveReportAt, dayKeyOf, dayHeading, REPORT_DAY_MENU_ITEMS, reportsByDay, dayWindowTitle} from './report-views-model.mjs';
+import {dayWindowHtml} from './report-views.js';
 
 const SLOP = 4;
 // 빈 칸 우클릭 메뉴(일정 달력 날짜 칸 메뉴와 같은 공용 줄 메뉴 부품 row-menu.js). add(day, cell) = 새 보고 창에 그 날짜, show(day) = 그날 고르기.
@@ -17,6 +20,48 @@ export function openReportDayMenu(cell, at, {add, show}) {
     run: id => { if (id === 'add') add(day, cell); else if (id === 'day') show(day); }});
 }
 const iso = at => new Date(at).toISOString();
+
+// BIZ-달력그날창: '+n' → 그 칸 자리에 그날 보고 전부. 창은 일정 달력의 그날 창과 같은 부품(calendar-day-overflow.js KPTUCalendarDayOverflow.show —
+// 머리 날짜·✕, 바깥 누르기·✕·Esc로 닫고 닫으면 '+n'으로 초점)이고, 여기서는 사업 보고 줄을 넣고 줄 누름·우클릭·[+ 이날 사업 보고 추가]를 잇는다.
+// 줄을 누르면 일정 달력 그날 창처럼 창이 먼저 닫히고(초점은 '+n') 그 보고가 열린다. 우클릭은 칸 안 제목과 같은 보고 메뉴, 끌기는 아래 installReportDrag가 같이 받는다.
+// 창이 열려 있는지·어느 날인지는 창 자신이 안다(따로 상태를 두지 않는다). 닫기는 ✕와 같은 길 하나.
+const DAY_MODAL = '#calendarDayModal[data-day-kind="report"]:not(.hidden)';
+export const reportDayWindowDay = () => document.querySelector(`${DAY_MODAL} [data-rv-pop]`)?.dataset.rvPop || '';
+export function closeReportDayWindow() {
+  const button = document.querySelector(`${DAY_MODAL} [data-close="calendarDayModal"]`);
+  if (!button) return false;
+  button.click();
+  return true;
+}
+let dayDeps = null, dayBound = false;
+function bindDayWindow(list) {
+  if (dayBound) return;
+  dayBound = true;
+  const mine = e => !!list.closest('[data-day-kind="report"]') && e.target instanceof Element;
+  list.addEventListener('click', e => {
+    if (!mine(e)) return;
+    const add = e.target.closest('[data-rv-pop-add]');
+    if (add) { const day = add.dataset.rvPopAdd; closeReportDayWindow(); dayDeps?.add(day); return; }
+    const row = e.target.closest('[data-mrd-meeting]');
+    if (row) { const id = String(row.dataset.mrdMeeting); closeReportDayWindow(); dayDeps?.open(id); }
+  });
+  list.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && mine(e) && e.target.matches('[data-mrd-meeting]')) { e.preventDefault(); e.target.click(); } });
+  // 우클릭·메뉴 키: 부르는 쪽(team.js reportViewMenu)이 칸 안 제목과 같은 보고 메뉴를 연다. 열었으면 창은 닫는다(보고 창이 그 위에 뜬다).
+  list.addEventListener('contextmenu', e => { if (mine(e) && e.target.closest('[data-mrd-meeting]') && dayDeps?.menu(e)) closeReportDayWindow(); });
+}
+// rows = 지금 달력에 보이는 사업 보고(칸 칩이 걸린 것), anchor() = 그날 칸, trigger() = 그 칸의 '+n'. again = 달력을 다시 그린 뒤 열려 있는 창을 다시 채우기(초점 줄 유지).
+// 그날 '+n'이 없어졌으면(보고가 줄었거나 다른 달·다른 보기) 창을 닫는다. open(id)·add(day)·menu(event)는 부르는 쪽 길.
+export async function showReportDayWindow({day, rows, colorOf, nameOf, anchor, trigger, again = false, open, add, menu}) {
+  await import('./calendar-day-overflow.js');
+  const win = window.KPTUCalendarDayOverflow, list = reportsByDay(rows).get(day) || [], from = trigger();
+  if (!win?.show || !from || !list.length) { closeReportDayWindow(); return false; }
+  const kept = again ? document.activeElement?.closest?.('#calendarDayList [data-mrd-meeting]')?.dataset.mrdMeeting : '';
+  dayDeps = {open, add, menu};
+  win.show({title: dayWindowTitle(day), note: `사업 보고 ${list.length}`, kind: 'report', anchor, trigger: from,
+    initialFocus: kept && list.some(m => String(m.id) === kept) ? `#calendarDayList [data-mrd-meeting="${CSS.escape(kept)}"]` : '#calendarDayList [data-mrd-meeting]',
+    fill: el => { el.innerHTML = dayWindowHtml({day, list, colorOf, nameOf}); bindDayWindow(el); }});
+  return true;
+}
 
 // 저장 한 길. deps = {api(path, {method, body, prefer}), workspaceId(), meetingOf(id), reload(), setDay(day), toast(text)}.
 export function createReportDayMover(deps) {
@@ -58,6 +103,8 @@ export function installReportDrag({move, pc = window.matchMedia('(min-width:761p
   let g = null, swallow = false, swallowUp = false;
   // 끌기를 마치거나 취소한 뒤 손을 뗄 때 따라오는 클릭(보고 열기)을 막는다. 취소(Esc·창 밖)는 손을 떼기 전이라 swallowUp으로 다음 손 뗌에 이어 막는다(일정 달력 끌기와 같음).
   const swallowNext = () => { swallow = true; setTimeout(() => { swallow = false; }, 0); };
+  // BIZ-달력그날창: '+n' 그날 창 안의 줄도 같은 끌기. 끌기가 시작되면 창을 닫아(✕와 같은 길) 놓을 달력 칸이 보이게 한다. 원래 날은 줄의 data-rv-from.
+  const ROWS = '#meetingList .rv-cal [data-mrd-meeting], #calendarDayList [data-rv-from][data-mrd-meeting]';
   const cells = () => document.querySelectorAll('#meetingList .rv-cell[data-rv-cell]');
   const cellAt = (x, y) => { for (const c of cells()) { const r = c.getBoundingClientRect(); if (x >= r.left && x < r.right && y >= r.top && y < r.bottom) return c; } return null; };
   const mark = cell => { cells().forEach(c => c.classList.toggle('rv-drop', c === cell)); };
@@ -74,9 +121,9 @@ export function installReportDrag({move, pc = window.matchMedia('(min-width:761p
   document.addEventListener('pointerdown', e => {
     swallowUp = false;
     if (g || e.button !== 0 || e.pointerType !== 'mouse' || !pc.matches || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    const el = e.target.closest?.('#meetingList .rv-cal [data-mrd-meeting]');
+    const el = e.target.closest?.(ROWS);
     if (!el || e.target.closest('button,a,input,select,textarea')) return;
-    const from = el.closest('.rv-cell[data-rv-cell]')?.dataset.rvCell || document.querySelector('#meetingList .rv-cal .rv-sel[data-rv-cell]')?.dataset.rvCell || '';
+    const from = el.closest('.rv-cell[data-rv-cell]')?.dataset.rvCell || el.dataset.rvFrom || document.querySelector('#meetingList .rv-cal .rv-sel[data-rv-cell]')?.dataset.rvCell || '';
     if (!from) return;
     g = {el, id: String(el.dataset.mrdMeeting), from, pointer: e.pointerId, x0: e.clientX, y0: e.clientY, started: false, ghost: null};
   }, true);
@@ -86,6 +133,7 @@ export function installReportDrag({move, pc = window.matchMedia('(min-width:761p
       if (Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < SLOP) return;
       g.started = true; try { g.el.setPointerCapture(e.pointerId); } catch { /* 잡지 못해도 끌기는 된다 */ }
       window.getSelection?.()?.removeAllRanges?.(); ghostStart(e);
+      if (g.el.closest('#calendarDayList')) closeReportDayWindow();
     }
     e.preventDefault();
     g.ghost.style.transform = `translate3d(${e.clientX - g.x0}px,${e.clientY - g.y0}px,0)`;
@@ -106,7 +154,7 @@ export function installReportDrag({move, pc = window.matchMedia('(min-width:761p
   window.addEventListener('click', e => { if (swallow) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   // 끄는 동안 글자 선택을 막고, 창 밖으로 나가거나 창이 포커스를 잃으면 끌기를 취소한다(조각도 지움).
   document.addEventListener('selectstart', e => { if (g?.started) e.preventDefault(); }, true);
-  document.addEventListener('dragstart', e => { if (g && e.target?.closest?.('#meetingList .rv-cal [data-mrd-meeting]')) e.preventDefault(); }, true);
+  document.addEventListener('dragstart', e => { if (g && e.target?.closest?.(ROWS)) e.preventDefault(); }, true);
   document.documentElement.addEventListener('mouseleave', e => { if (g?.started && !e.relatedTarget) { swallowUp = true; swallowNext(); end(); } });
   window.addEventListener('blur', () => { if (g?.started) { swallowUp = true; end(); } });
 }

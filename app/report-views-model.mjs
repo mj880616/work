@@ -17,8 +17,10 @@ export const reportViewOf = value => (isReportView(value) ? value : DEFAULT_REPO
 const pad = n => String(n).padStart(2, '0');
 export const WEEKDAYS = Object.freeze(['일', '월', '화', '수', '목', '금', '토']);
 
-// 달력 칸 하나에 보일 제목 수. 나머지는 '+n'. (폰은 제목 대신 점으로 보이고 고른 날의 목록이 아래에 나온다.)
-export const CELL_TITLES = 2;
+// 달력 칸 하나에 들어가는 줄 수(BIZ-달력그날창: 2줄 고정 → 4줄까지). 그날 건수가 이 수 이하면 전부 보이고, 넘는 날만 마지막 줄 자리에 '+n'.
+// 칸 높이는 CSS 한 곳(meeting-ui.css 달력 칸 규칙, PC 폭)이 이 줄 수에 맞춰 고정한다 — 그린 뒤에 재서 다시 그리지 않는다(깜박임·덮어쓰기 없음).
+// (폰은 제목 대신 점으로 보이고 고른 날의 목록이 아래에 나온다.)
+export const CELL_LINES = 4;
 // 사진 줄 하나에 보일 작은 그림 수(명진 결정: 3장 + '외 n장').
 export const PHOTO_STRIP = 3;
 
@@ -67,10 +69,11 @@ export function reportsByDay(rows) {
   for (const list of map.values()) list.sort((a, b) => timeOf(a) - timeOf(b));
   return map;
 }
-// 달력 칸에 보일 것: 앞 CELL_TITLES개 + 나머지 수.
-export function cellPlan(list, limit = CELL_TITLES) {
-  const all = Array.isArray(list) ? list : [];
-  return {shown: all.slice(0, limit), more: Math.max(0, all.length - limit), total: all.length};
+// 달력 칸에 보일 것: 줄 수(lines) 안에 다 들어가면 전부(more 0), 넘치면 앞 lines-1건 + 마지막 줄 자리의 '+n'(more = 나머지 수).
+export function cellPlan(list, lines = CELL_LINES) {
+  const all = Array.isArray(list) ? list : [], fit = Math.max(1, Math.floor(Number(lines)) || 1);
+  if (all.length <= fit) return {shown: all.slice(), more: 0, total: all.length};
+  return {shown: all.slice(0, fit - 1), more: all.length - (fit - 1), total: all.length};
 }
 // 달력 아래에 목록으로 보일 날: 고른 날이 이 달이면 그날, 아니면 오늘(이 달이면), 아니면 이 달에서 사업 보고가 있는 가장 늦은 날. 없으면 ''.
 export function pickDay(byDay, month, selected, todayKey) {
@@ -108,6 +111,13 @@ export function dayHeading(key) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(key || ''))) return '날짜 없음';
   const weekday = new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10))).getUTCDay();
   return `${+key.slice(5, 7)}월 ${+key.slice(8, 10)}일 (${WEEKDAYS[weekday]})`;
+}
+
+// BIZ-달력그날창: '+n' 그날 창 머리의 날짜 '11.13.(금)'(시안 그대로). 읽을 수 없으면 빈 글.
+export function dayWindowTitle(key) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(key || ''))) return '';
+  const weekday = new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10))).getUTCDay();
+  return `${+key.slice(5, 7)}.${+key.slice(8, 10)}.(${WEEKDAYS[weekday]})`;
 }
 
 // S57-8 BIZ-달력우클릭끌기 PR-2: 빈 칸 우클릭 메뉴 항목과 끌어 옮길 때의 새 일시(순수 규칙).

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as r from '../../supabase/functions/meeting-transcribe/recording.mjs';
-import {MAX_BYTES,MAX_SECONDS,parseUpload} from '../../supabase/functions/meeting-transcribe/model.mjs';
+import {DIARIZE_MAX_SECONDS,MAX_BYTES,MAX_SECONDS,parseUpload} from '../../supabase/functions/meeting-transcribe/model.mjs';
 
 // MTG-노트북녹음 1단계 Edge meeting-transcribe rec_*: 구간·조각 규칙 + 코드 모양(소유자·순서·Drive 폴더·저장 안 함).
 const index=readFileSync('supabase/functions/meeting-transcribe/index.ts','utf8');
@@ -11,7 +11,9 @@ const ID='11111111-2222-4333-8444-555555555555';
 
 test('segment fits one transcription request; DB limits match',()=>{
  assert.ok(r.REC_SEGMENT_SECONDS<MAX_SECONDS);assert.equal(r.REC_PIECE_SECONDS,60);
- // 59분 구간 = 1분 조각 59개 + 멈출 때 1개. 화면은 REC_ROLL_PIECES에서 넘어가고, 넘길 때 마지막 조각 1개가 더 붙어도 상한 안.
+ // REC-발언자구분: 구간은 발언자 구분 상한(30분) 안(넘김이 조각 하나만큼 늦어도). 옛 59분 구간도 전사 한 번 상한 안이라 그대로 받는다.
+ assert.ok(r.REC_SEGMENT_SECONDS+r.REC_PIECE_SECONDS<=DIARIZE_MAX_SECONDS);assert.ok(59*60<MAX_SECONDS);
+ // 29분 구간 = 1분 조각 29개 + 멈출 때 1개(옛 59분 구간은 60개). 화면은 REC_ROLL_PIECES에서 넘어가고, 넘길 때 마지막 조각 1개가 더 붙어도 상한 안.
  assert.ok(Math.ceil(r.REC_SEGMENT_SECONDS/r.REC_PIECE_SECONDS)+1<=r.REC_ROLL_PIECES);
  assert.ok(r.REC_ROLL_PIECES+1<r.REC_MAX_PIECES);
  // 끊김 판정은 조각 간격의 여러 배(재시도 기다림 60초를 넘겨도 녹음 중을 끊긴 것으로 보지 않음), 옛 5분 화면도 넘김.

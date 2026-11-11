@@ -16,6 +16,15 @@
   #appView #photosView .photos-head{ flex:none; order:1; min-height:0; }
   #appView #photosView .photos-title{ position:absolute; width:1px; height:1px; margin:0; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 }
+/* FOLD-넓은화면 A(S57-21, 시안 fold-wide-screens.html C): 폴드 펼침(600~760px, 폰 틀)은 제목 줄을 따로 두지 않고 한 줄 = 제목 '사진' · 도구 줄 · 출처 아이콘(오른쪽 끝).
+   제목 줄 묶음(.photos-head)은 상자를 풀어(display:contents) 제목과 출처가 위쪽 묶음의 칸이 된다. 접은 폰(600px 미만)은 두 줄 그대로, PC 틀(761px~)은 위 규칙 그대로. */
+@media(min-width:600px) and (max-width:760px){
+  #appView #photosView .photos-bar{ flex-direction:row; align-items:center; gap:6px; min-height:var(--ds-control-height,36px); }
+  #appView #photosView .photos-head{ display:contents; }
+  #appView #photosView .photos-title{ flex:none; order:0; margin-right:6px; white-space:nowrap; }
+  #appView #photosView .photos-tools{ flex:1 1 auto; order:1; }
+  #appView #photosView .photos-head > .photos-srcs{ order:2; }
+}
 #appView #photosView .photos-tools{ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; height:var(--ds-compact-height,32px); min-width:0; }
 #appView #photosView .photos-tools > *{ flex:none; }
 #appView #photosView .photos-tools > .photos-sp{ flex:1 1 0; min-width:0; }
@@ -288,6 +297,27 @@
 #appView #photosView button.photos-fx-thumb > *{ display:block; width:100%; height:100%; object-fit:cover; }
 #appView #photosView .photos-fx-boxes .photos-fx-group{ display:none; }
 #appView #photosView .photos-fx-boxes .ft-box .photos-fx-row{ padding-left:4px; }
+/* FOLD-넓은화면 C(S57-21, 요청함 11/06 01:18 ③ · 시안 docs/design/mockups/fold-wide-screens.html C): 폴드 펼침(600~1199px, photos.js cardWide가 .is-cards를 붙임)의
+   [폴더] 첫 화면은 표지 그림 카드 4칸. 카드 = 공용 폴더 줄(.ft-row.ft-folder) 그대로에 표지 칸(.photos-fx-cover)과 카드 안 스위치를 더한 것이라 누르기·⋯·두 손가락이 같은 길.
+   카드가 아닌 것(펼친 폴더의 하위 폴더 줄·처음 몇 장 줄·'n장 더 보기'·맨 위 폴더 사진 줄·휴지통·구글 드라이브 줄)은 화면 폭 전체 한 줄. 펼친 카드 아래 줄이 끼어도
+   뒤 카드가 빈 칸을 채워 4칸이 유지된다(dense). 꺼 둔 폴더는 공용 .ft-off(흐리게). 마지막 칸 [+ 새 폴더]는 점선 카드. */
+#appView #photosView .photos-fx-boxes.is-cards .ft-box-body{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); grid-auto-flow:row dense; gap:8px; padding:8px; }
+#appView #photosView .photos-fx-boxes.is-cards .ft-box-body > :not(.photos-fx-card):not(.photos-fx-newcard){ grid-column:1 / -1; }
+#appView #photosView .photos-fx-boxes.is-cards .ft-box-body > .photos-fx-card{ display:block; min-width:0; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); overflow:hidden; }
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-card.ft-open{ border-color:var(--kptu-primary); box-shadow:var(--kptu-shadow-select,0 0 0 1px var(--kptu-primary)); }
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-card > .ft-main{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; column-gap:6px; row-gap:0; width:100%; min-height:0; padding:0 8px 0 8px; }
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-card.has-sw > .ft-main{ padding-right:46px; }
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-card > .ft-main > .ft-name{ min-height:36px; line-height:36px; font-size:var(--ds-compact-text,13px); }
+#appView #photosView .photos-fx-cover{ grid-column:1 / -1; display:block; aspect-ratio:4 / 3; margin:0 -8px; overflow:hidden; background:color-mix(in srgb,var(--kptu-ink) 9%,var(--kptu-surface)); }
+#appView #photosView .photos-fx-card.has-sw .photos-fx-cover{ margin-right:-46px; }
+#appView #photosView .photos-fx-cover > *{ display:block; width:100%; height:100%; object-fit:cover; }
+#appView #photosView .photos-fx-cover img{ width:100%; height:100%; object-fit:cover; display:block; }
+/* 카드 안 ⋯: 표지 오른쪽 위(누르는 범위 32px, 그림 위에서도 보이게 옅은 바탕). 스위치: 이름 줄 오른쪽 끝. */
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-card > .nx-more{ position:absolute; top:4px; right:4px; z-index:1; width:32px; height:32px; min-width:0; min-height:0; margin:0; padding:0; border:0; border-radius:50%; background:color-mix(in srgb,var(--kptu-surface) 82%,transparent); color:var(--kptu-ink); opacity:1; }
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-card > .photos-fx-sw{ position:absolute; right:3px; bottom:0; height:36px; }
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-newcard{ display:grid; box-sizing:border-box; min-width:0; min-height:72px; border:1px dashed var(--ds-line); border-radius:var(--kptu-radius-md,10px); overflow:hidden; }
+#appView #photosView .photos-fx-boxes.is-cards .photos-fx-newcard > .photos-fx-new{ align-items:center; justify-content:center; width:100%; margin:0; }
+#appView #photosView .photos-fx-boxes.is-cards .ft-box-body > .ft-trash{ margin:0 -8px -8px; }
 /* S51-24 '그 폴더만'(폰·폴드) = 나무와 같은 상자(folder-tree.css ft-focus): 그 폴더 줄이 상자 머리(열린 폴더 그림 + 굵은 이름 · 장수 · 스위치), 안은 하위 폴더·격자. */
 #appView #photosView .photos-fx-focus .photos-fx-here{ min-height:40px; margin:0; padding:0 12px 2px; font-size:var(--ds-compact-text,13px); }
 #appView #photosView .photos-fx-focus .photos-fx-here b{ font-size:15px; font-weight:700; }

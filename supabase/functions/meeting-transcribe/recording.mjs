@@ -2,13 +2,14 @@
 // 설계: docs/design/laptop-recording.md. 표: app_meeting_recordings(migration 20261029200000).
 // - 브라우저 MediaRecorder가 timeslice(1분, rec_start의 piece_seconds)로 내주는 조각은 순서대로 이으면 한 파일이다. 서버는 순서만 강제하고 소리는 풀지 않는다.
 //   조각 길이는 고정으로 가정하지 않는다(옛 5분 조각·1분 조각이 섞여도 같은 길로 잇는다: 크기는 Drive 실제 크기 합, 길이는 x-duration-sec).
-// - 한 구간은 기존 전사 한 번 요청 상한(MAX_SECONDS, 1시간) 안이어야 하므로 화면은 59분마다 새 구간으로 넘어간다.
+// - 한 구간은 발언자 구분 상한(DIARIZE_MAX_SECONDS, 30분) 안이어야 구간마다 '화자n:' 줄로 나뉘므로 화면은 29분마다 새 구간으로 넘어간다(REC-발언자구분).
+//   옛 59분 구간(전사 한 번 요청 상한 1시간 안)도 그대로 받는다: 그 구간은 발언자 구분 없이 통글로 나온다.
 // - 소리·전사 글은 여기서 다루지 않는다(소리는 Drive, 글은 회의 기록에만).
 import { Fail, MAX_BYTES, MAX_SECONDS, isDriveId, isUuid } from './model.mjs';
 
 export const REC_PIECE_SECONDS = 60;              // 화면이 조각을 보내는 간격(창이 닫혀도 잃는 것은 최대 1분). rec_start가 화면에 알려 준다.
-export const REC_SEGMENT_SECONDS = 59 * 60;       // 화면이 새 구간으로 넘어가는 길이(전사 1시간 상한 안)
-export const REC_MAX_PIECES = 64;                 // DB 제약과 같음(migration 20261030120000: 59분 = 59조각 + 멈출 때 1 + 여유)
+export const REC_SEGMENT_SECONDS = 29 * 60;       // 화면이 새 구간으로 넘어가는 길이(발언자 구분 30분 상한 안 — 넘김이 조각 하나만큼 늦어도 안쪽)
+export const REC_MAX_PIECES = 64;                 // DB 제약과 같음(migration 20261030120000: 옛 59분 구간 = 59조각 + 멈출 때 1 + 여유. 29분 구간은 30조각)
 export const REC_ROLL_PIECES = REC_MAX_PIECES - 4; // 화면은 조각이 이만큼 쌓이면(일시정지가 길어도) 새 구간으로 넘어간다. rec_start가 max_pieces로 알려 준다.
 export const REC_MAX_SEGMENTS = 24;               // DB 제약과 같음
 export const REC_QUIET_MS = 7 * 60 * 1000;        // 열린 구간이 이만큼 조용하면 끊긴 것으로 본다(1분 조각의 일곱 배, 아직 열려 있는 옛 5분 화면도 넘김)

@@ -34,6 +34,38 @@ import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
     wrap.append(row,menu);return wrap;
   }
   let openSeq=0;
+  // BIZ-달력그날창: 이 그날 창(머리 제목·✕·줄 자리, 바깥 누르기·✕·Esc로 닫고 닫으면 연 곳으로 초점)을 사업 보고 달력의 '+n'도 쓴다.
+  // 여닫기(reveal)만 공용으로 빼고, open()은 지금처럼 일정 달력의 내용(일정·할 일·일기·오늘 한 일)을 채운다 — 일정 달력 쪽 동작은 그대로다.
+  // show({title,note,fill(list),anchor,trigger,initialFocus,kind}) = 다른 화면이 같은 창에 자기 줄을 넣어 여는 길.
+  // anchor(요소 또는 요소를 돌려주는 함수)를 주면 PC 폭에서 창을 그 요소 자리에 작게 띄우고 뒤 화면을 어둡게 가리지 않는다(.kptu-day-at, 모양은
+  // 부르는 화면의 CSS). 화면 밖으로 나가지 않게 자리를 당기고, 창 크기가 바뀌면 다시 맞춘다. anchor가 없으면 가운데 창(일정 달력은 늘 이쪽).
+  const wide=window.matchMedia('(min-width:761px)');
+  let anchorOf=null;
+  function place(){
+    const modal=document.querySelector('#calendarDayModal'),card=modal?.querySelector('.kptu-day-card');if(!card)return;
+    const el=wide.matches?(typeof anchorOf==='function'?anchorOf():anchorOf):null,at=!!el?.isConnected;
+    modal.classList.toggle('kptu-day-at',at);
+    if(!at){card.style.removeProperty('left');card.style.removeProperty('top');return}
+    const r=el.getBoundingClientRect(),gap=8;
+    card.style.left=Math.round(Math.max(gap,Math.min(r.left,window.innerWidth-card.offsetWidth-gap)))+'px';
+    card.style.top=Math.round(Math.max(gap,Math.min(r.top,window.innerHeight-card.offsetHeight-gap)))+'px';
+  }
+  window.addEventListener('resize',()=>{if(anchorOf&&!document.querySelector('#calendarDayModal')?.classList.contains('hidden'))place()});
+  function reveal({anchor=null,trigger=document.activeElement,initialFocus='#calendarDayList .cal-event',kind=''}={}){
+    const modal=document.querySelector('#calendarDayModal');
+    anchorOf=anchor;if(kind)modal.dataset.dayKind=kind;else delete modal.dataset.dayKind;
+    modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');place();
+    window.KPTUA11y?.dialog.activate?.(modal,{trigger,initialFocus,onRequestClose:()=>modal.querySelector('[data-close="calendarDayModal"]')?.click()}); // UI-Esc로창닫기: Esc = ✕ (닫기·포커스 되돌리기 같은 길)
+  }
+  function show({title='',note='',fill,...where}={}){
+    ++openSeq; // 앞서 연 일정 달력 그날 창의 늦은 채우기(일기·오늘 한 일)가 이 줄들에 끼어들지 않게 한다.
+    ensureModal();
+    const list=document.querySelector('#calendarDayList'),head=document.querySelector('#calendarDayTitle');
+    head.textContent=title;
+    if(note){const small=document.createElement('small');small.className='kptu-day-note';small.textContent=note;head.append(' ',small)}
+    list.replaceChildren();fill?.(list);
+    reveal(where);
+  }
   function open(date,events=[]){
     const seq=++openSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id;
     ensureModal();
@@ -55,13 +87,13 @@ import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
       if(seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
       const section=done.dayDoneSection(day,lines,{heading:'h3',id:'calendarDayDone'});if(section)list.append(section);
     }).catch(()=>{});
-    const modal=document.querySelector('#calendarDayModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
-    window.KPTUA11y?.dialog.activate?.(modal,{trigger:document.activeElement,initialFocus:'#calendarDayList .cal-event',onRequestClose:()=>modal.querySelector('[data-close="calendarDayModal"]')?.click()}); // UI-Esc로창닫기: Esc = ✕ (닫기·포커스 되돌리기 같은 길)
+    reveal();
   }
   function apply(){return true}
 
   ensureModal();
   window.KPTUCalendarDayOverflow={apply,open};
+  window.KPTUCalendarDayOverflow.show=show; // BIZ-달력그날창: 다른 화면(사업 보고 달력 '+n')이 같은 창을 여는 길. 일정 달력이 쓰는 {apply,open}은 그대로다.
   document.addEventListener('click',event=>{
     const preview=event.target.closest?.('#calendarDayList [data-diary-preview]');
     if(preview){

@@ -7,7 +7,7 @@ import {REC_PIECE_SECONDS,REC_SEGMENT_SECONDS,REC_MESSAGES} from '../supabase/fu
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('간격은 서버 규칙과 같다(조각 1분·구간 59분), 32kbps',()=>{
+test('간격은 서버 규칙과 같다(조각 1분·구간 29분), 32kbps',()=>{
   assert.equal(PIECE_SECONDS,REC_PIECE_SECONDS);
   assert.equal(SEGMENT_SECONDS,REC_SEGMENT_SECONDS);
   assert.equal(AUDIO_BITS,32000);
@@ -25,9 +25,10 @@ test('형식: mp4 → ogg → webm 순으로 되는 첫 것, 없으면 빈 글�
   assert.equal(baseMime('video/mp4'),'');
 });
 
-test('구간 넘김: 녹음한 초가 59분이 되면',()=>{
-  assert.equal(shouldRoll(3539),false);
-  assert.equal(shouldRoll(3540),true);
+test('구간 넘김: 녹음한 초가 29분이 되면',()=>{
+  assert.equal(SEGMENT_SECONDS,29*60);
+  assert.equal(shouldRoll(1739),false);
+  assert.equal(shouldRoll(1740),true);
   assert.equal(shouldRoll(10,10),true);
 });
 
@@ -96,6 +97,27 @@ test('구간 글 합치기: 둘째부터 머리 줄, 빈 구간은 건너뛰고,
   assert.equal(joinSegmentTexts([{no:1,seconds:3540,text:''},{no:2,seconds:3540,text:'둘'},{no:3,seconds:10,text:'셋'}]),'― 59분부터 ―\n둘\n\n― 1시간 58분부터 ―\n셋');
   assert.match(joinSegmentTexts([{no:1,seconds:3540,text:null},{no:2,seconds:1,text:'둘'}]),/^― 처음부터 ―\n\(이 구간 글은 이미 전사가 끝나/);
   assert.equal(joinSegmentTexts([]),'');
+});
+
+// REC-발언자구분(S58-6): 29분 구간마다 '화자n:' 줄. 머리 줄은 구간 사이에 그대로(번호가 새로 매겨지는 자리). 글은 지어낸 것.
+test('구간 글 합치기(29분 구간): 화자 줄은 그대로 두고 구간이 바뀌는 자리에 머리 줄',()=>{
+  const SEG=SEGMENT_SECONDS;
+  assert.equal(joinSegmentTexts([{no:1,seconds:SEG,text:'화자1: 가\n화자2: 나'}]),'화자1: 가\n화자2: 나');
+  assert.equal(joinSegmentTexts([{no:2,seconds:SEG,text:'화자1: 다'},{no:1,seconds:SEG,text:'화자1: 가\n화자2: 나'},{no:3,seconds:120,text:'통글 구간'}]),
+    '화자1: 가\n화자2: 나\n\n― 29분부터 ―\n화자1: 다\n\n― 58분부터 ―\n통글 구간');
+  // 옛 59분 구간과 섞인 녹음(이어서 정리): 머리 줄은 실제 구간 길이를 따른다.
+  assert.equal(joinSegmentTexts([{no:1,seconds:3540,text:'옛 통글'},{no:2,seconds:SEG,text:'화자1: 새'},{no:3,seconds:60,text:'화자1: 끝'}]),
+    '옛 통글\n\n― 59분부터 ―\n화자1: 새\n\n― 1시간 28분부터 ―\n화자1: 끝');
+});
+
+test('전사 계획(이어서 정리): 옛 59분 구간과 새 29분 구간이 섞여도 번호 순으로 모두 전사',()=>{
+  const plan=transcribePlan([
+    {segment_no:4,status:'combined',job_id:'j4',duration_sec:300},
+    {segment_no:2,status:'combined',job_id:'j2',duration_sec:3540},
+    {segment_no:1,status:'combined',job_id:'j1',duration_sec:3540},
+    {segment_no:3,status:'combined',job_id:'j3',duration_sec:SEGMENT_SECONDS},
+  ]);
+  assert.deepEqual(plan.map(p=>[p.no,p.action,p.seconds]),[[1,'transcribe',3540],[2,'transcribe',3540],[3,'transcribe',1740],[4,'transcribe',300]]);
 });
 
 test('띠 진행 한 줄: 올림 › 전사 › 요약 › 초안 열림',()=>{
