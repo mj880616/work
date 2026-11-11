@@ -172,7 +172,8 @@ for (const width of [412, 1280]) {
     await expect(modal).toBeHidden({ timeout: 15000 });
     await expect.poll(() => lib.uploads, { timeout: 15000 }).toEqual(['가짜 안내문.pdf']);
     const notice = page.locator('#kptuNotice');
-    await expect(notice).toContainText('1개 못 올렸어요');
+    await expect(notice).toContainText('1개 완료 · 1개 미완료');
+    await expect(notice).toContainText('가짜 예산표.xlsx: 클라우드가 잠시 바쁩니다'); // 받지 못한 까닭(파일 이름과 함께)
     expect(mediaCalls(server, 'OD!12')).toHaveLength(0); // 실패한 받기는 문에서 돌려보냈다(서버 기록 없음)
     expect(gate.seen.filter(id => id === 'OD!12')).toHaveLength(1);
     await notice.getByRole('button', { name: '다시', exact: true }).click();
