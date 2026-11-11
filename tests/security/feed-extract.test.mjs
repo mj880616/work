@@ -170,6 +170,15 @@ const SAMPLES={
  'news-newsmin':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-redaily':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-busan':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-laborplus':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-redian':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-news1':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-edaily':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-mt':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-kookje':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-kyeonggi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-kyeongin':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-yeongnam':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-psi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-itf':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-labourstart':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
@@ -384,13 +393,14 @@ test('본문 칸 고르기: 빈 <article>은 건너뜀, 그림뿐인 <article>�
  assert.ok(P.extractBody(h,'합성 견본 제목').includes(PARA.slice(0,10)));
 });
 
-test('news-feed probe: 글 링크가 모두 허용 호스트 밖인 피드(LabourStart)는 off_host, 글 없는 피드는 no_body · paywall·scope 코드',async()=>{
+test('news-feed probe: 글 링크가 모두 허용 호스트 밖인 피드(LabourStart)는 기사 줄은 세되(listed) 읽지 않고 off_host, 글 없는 피드는 no_body · paywall·scope 코드',async()=>{
  const s=NC.newsSourceByKey('news-labourstart');
  const off=`<rss><channel><item><title>Synthetic item</title><link>https://other.example.com/news/1</link></item><item><title>Synthetic item 2</title><link>https://other.example.com/news/2</link></item></channel></rss>`;
  const mk=(xml)=>{const w=world({[s.lists[0]]:{body:xml,type:'application/rss+xml'}});return {w,h:NH.createNewsFeedHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:NSECRET})[n],fetch:w.doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}})};};
  const a=mk(off);
  const o=await(await a.h(req('news-feed',NH.CRON_HEADER,NSECRET,{source:'news-labourstart'}))).json();
- assert.deepEqual([o.list,o.listed,o.raw,o.state,o.reason,o.rule],['ok',0,2,'failed','off_host',null]);
+ // S57-13(제목만이라도): 남의 매체로 가는 링크도 기사 줄(제목·날짜·링크)은 남긴다 → listed 2. 글 쪽은 읽지 않는다(page url_outside · off_host).
+ assert.deepEqual([o.list,o.listed,o.raw,o.page,o.state,o.reason,o.rule],['ok',2,2,'url_outside','failed','off_host',null]);
  assert.equal(a.w.calls.filter(c=>c.url.includes('other.example.com')).length,0,'허용 호스트 밖 주소는 요청하지 않음');
  const b=mk('<rss><channel></channel></rss>');
  const o2=await(await b.h(req('news-feed',NH.CRON_HEADER,NSECRET,{source:'news-labourstart'}))).json();

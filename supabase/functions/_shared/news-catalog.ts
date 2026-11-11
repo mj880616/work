@@ -21,7 +21,9 @@ export const OPEN_ARTICLE_KEY = "open";
 // google: 구글 뉴스 매체 단위 줄(S57-13, NEWS-못넣은곳대안 ②)의 매체 도메인. 이 값이 있으면 그 매체는 자기 RSS 대신
 //   구글 뉴스 검색 RSS를 `site:도메인`으로 읽는다(키워드와 상관없이 그 매체 글 전부). 읽는 주소는 news.google.com 검색 RSS 한 경로뿐이고,
 //   글 링크는 구글 중계 주소 그대로다(풀지 않음, N3) — 본문은 읽지 않고 제목·매체·날짜·링크만 남긴다(11/11 명진: 제목만이라도).
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; google?: string };
+// linkOut: 피드 글 링크가 남의 매체로 가는 피드(LabourStart). 글 줄은 남기되(제목·날짜·링크) 그 링크는 저장만 하고 읽지 않는다
+//   — 링크는 열린 주소 규칙(https 공개 호스트, openArticleUrl)을 통과한 것만, 수집기가 읽는 주소는 여전히 hosts뿐이다(S57-13 전수).
+export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; google?: string; linkOut?: true };
 
 const article = () => "article" as const;
 
@@ -177,6 +179,18 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   viaGoogle("news-newsmin", "뉴스민", "newsmin.co.kr"),
   viaGoogle("news-redaily", "철도경제신문", "redaily.co.kr"),
   viaGoogle("news-busan", "부산일보", "busan.com"),
+  //   ① 다시 확인(11/11, 이 세션 WebFetch)에서도 RSS로 못 넣은 9곳 — 공식 RSS 링크가 없거나(뉴스1·머니투데이·국제신문·경기일보·경인일보·영남일보·레디앙 [사실]),
+  //   있어도 이 세션에서 안내 쪽·피드·robots.txt를 열지 못함(참여와혁신 rssIndex.html, 이데일리 하단 RSS 링크는 http 주소 [사실]).
+  //   CC가 크롬으로 피드·robots를 확인하면 그 매체만 자기 RSS 줄로 바꾸는 작은 PR(키는 그대로 두면 켬·끔 설정이 유지된다).
+  viaGoogle("news-laborplus", "참여와혁신", "laborplus.co.kr"),
+  viaGoogle("news-redian", "레디앙", "redian.org"),
+  viaGoogle("news-news1", "뉴스1", "news1.kr"),
+  viaGoogle("news-edaily", "이데일리", "edaily.co.kr"),
+  viaGoogle("news-mt", "머니투데이", "mt.co.kr"),
+  viaGoogle("news-kookje", "국제신문", "kookje.co.kr"),
+  viaGoogle("news-kyeonggi", "경기일보", "kyeonggi.com"),
+  viaGoogle("news-kyeongin", "경인일보", "kyeongin.com"),
+  viaGoogle("news-yeongnam", "영남일보", "yeongnam.com"),
   { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
@@ -185,7 +199,9 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     lists: ["https://www.itfglobal.org/en/rss/feed"], hosts: ["www.itfglobal.org", "itfglobal.org"], kindOf: article },
   { key: "news-labourstart", name: "LabourStart(아시아)", group: "foreign", region: "foreign", lang: "en", mode: "rss",
     // 링크가 남의 매체라 허용 호스트 밖 — 본문은 읽지 않고 failed/off_host(4.3절). 규칙은 판 번호만.
-    // S51-9: 피드 글 링크가 모두 허용 호스트 밖이면 parseFeed가 다 빼서 기사 줄 자체가 0건이다(probe는 off_host로 보고). 기사 줄을 남기는 길은 범위 밖(보고만).
+    // S51-9: 피드 글 링크가 모두 허용 호스트 밖이면 parseFeed가 다 빼서 기사 줄 자체가 0건이었다(probe는 off_host로 보고).
+    // S57-13(11/11 명진 '제목만이라도'): linkOut — 기사 줄은 남긴다(제목·날짜·링크). 남의 매체 글 쪽은 지금처럼 읽지 않는다.
+    linkOut: true,
     extract: { version: 1 },
     lists: ["https://www.labourstart.org/rdf/labourstart.asia.rss"], hosts: ["www.labourstart.org", "labourstart.org"], kindOf: article },
 ] as NewsSource[]);

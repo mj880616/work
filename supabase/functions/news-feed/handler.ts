@@ -379,12 +379,20 @@ async function runMediaBodies(db: Db, reader: FeedReader, ai: AiDeps, source: Ne
     byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), r]);
   }
   let done = 0, deferred = 0;
-  for (const [, list] of byUrl) {
+  for (const [url, list] of byUrl) {
     if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
+    if (!allowedUrl(source, url)) { await markOffHost(db, ai.log, source, list, nowMs); continue; }
     await fillItems(db, reader, ai, list, nowMs, { rule: (base) => mediaRule(source, base), summarize: false, countFetch: false });
     done++;
   }
   return { done, deferred };
+}
+// 남의 매체로 가는 링크(linkOut 피드의 기사): 읽지 않는다(요청 없음) — 기사 줄(제목·날짜·링크)은 그대로 두고 '못 읽음(off_host)' 블록 줄만 남긴다.
+// 규칙 이름을 적어 다시 뽑기(P2c)가 같은 판에서 매번 다시 고르지 않게 한다.
+async function markOffHost(db: Db, log: FeedLog, source: NewsSource, items: Row[], nowMs: number) {
+  const r = mediaRule(source, String(items[0]?.url ?? ""));
+  const nowIso = new Date(nowMs).toISOString();
+  for (const item of items) await saveNewsBody(db, log, item, failedBody("off_host", ruleId(r.key, r.rule)), nowIso);
 }
 
 // 다시 뽑을 줄인가(P2c). body: 그 기사의 블록 줄(state·reason·rule) 또는 없음. current: 지금 카탈로그 규칙 이름(키@판).
@@ -410,8 +418,9 @@ async function runRefill(db: Db, readers: Readers, ai: AiDeps, source: NewsSourc
     byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), r]);
   }
   const reader = readers.catalog(source);
-  for (const [, list] of byUrl) {
+  for (const [url, list] of byUrl) {
     if (clock() - startMs > RUN_BUDGET_MS) { out.deferred++; continue; }
+    if (!allowedUrl(source, url)) { await markOffHost(db, ai.log, source, list, nowMs); continue; }
     await fillItems(db, reader, ai, list, nowMs, { rule: (base) => mediaRule(source, base), summarize: false, countFetch: false });
     out.done++;
   }
@@ -466,6 +475,20 @@ async function mediaPlan(db: Db): Promise<{ on: Map<string, string[]>; missing: 
     for (const s of defaults) for (const w of users) if (!has.has(`${w}|${s.key}`)) { add(on, s.key, w); add(missing, s.key, w); }
   }
   return { on, missing };
+}
+// 링크가 남의 매체로 가는 피드(카탈로그 linkOut — LabourStart, S57-13 전수 '제목만이라도'): 피드를 '해석할 때만' 글 링크의 호스트를 받아 준다.
+// 받아 주는 링크는 열린 주소 규칙(https 공개 호스트, openArticleUrl)을 통과한 것뿐이고 LINK_OUT_HOSTS개까지다. 읽는 주소(reader)는 카탈로그 hosts 그대로라
+// 남의 매체 글 쪽은 요청하지 않는다 — 기사 줄에는 제목·날짜·링크만 남는다.
+export const LINK_OUT_HOSTS = 200;
+export function parseSource(source: NewsSource, xml: string): NewsSource {
+  if (source.linkOut !== true) return source;
+  const hosts = new Set(source.hosts);
+  for (const m of xml.matchAll(/<link\b[^>]*?(?:\bhref\s*=\s*["']\s*(https:\/\/[^"'\s<>]+)|>\s*(?:<!\[CDATA\[)?\s*(https:\/\/[^\s<>\]]+))/gi)) {
+    if (hosts.size >= source.hosts.length + LINK_OUT_HOSTS) break;
+    const u = openArticleUrl(m[1] ?? m[2] ?? "");
+    if (u) hosts.add(u.hostname.toLowerCase());
+  }
+  return { ...source, hosts: [...hosts] };
 }
 type NewRow = { workspace_id: string; lane: "keyword" | "media"; url: string; url_key: string; title: string; title_key: string | null;
   lang: string; publisher: string | null; source_key: string | null; keywords: string[]; published_at: string | null; fetched_at: string;
@@ -532,7 +555,7 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   for (const list of source.lists) {
     const got = await reader.get(list, ACCEPT_FEED);
     if (!got.ok) { status = got.code; continue; }
-    const items = parseFeed(source, got.text, nowMs, MEDIA_LIST_LIMIT);
+    const items = parseFeed(parseSource(source, got.text), got.text, nowMs, MEDIA_LIST_LIMIT);
     raw += Math.min((got.text.match(/<(item|entry)\b/gi) ?? []).length, 1000);
     listed += items.length;
     const rows: NewRow[] = [];
@@ -730,7 +753,7 @@ async function probeMedia(readers: Readers, source: NewsSource, nowMs: number) {
   const reader = readers.catalog(source);
   const got = await reader.get(source.lists[0], ACCEPT_FEED);
   if (!got.ok) return { ...base, list: got.code, listed: 0, page: null, ...bodyNumbers(failedBody(readFailReason(got.code))) };
-  const items = parseFeed(source, got.text, nowMs, 5);
+  const items = parseFeed(parseSource(source, got.text), got.text, nowMs, 5);
   const it = items[0];
   // 피드에 글은 있는데 모두 허용 호스트 밖 링크라 빠졌으면 off_host(LabourStart처럼 남의 매체로 가는 피드, 설계 4.3), 글이 없으면 no_body.
   if (!it) {
@@ -743,6 +766,11 @@ async function probeMedia(readers: Readers, source: NewsSource, nowMs: number) {
     return { ...base, list: "ok", listed: parseFeed(source, got.text, nowMs, MEDIA_LIST_LIMIT).length, raw: Math.min(raw, 1000), page: null, ...bodyNumbers(failedBody("relay")) };
   }
   const clean = cleanArticleUrl(it.url);
+  // 남의 매체로 가는 링크(linkOut 피드): 기사 줄은 남지만 글 쪽은 읽지 않는다 — 요청 없이 off_host.
+  if (clean && !allowedUrl(source, clean)) {
+    const raw = (got.text.match(/<(item|entry)\b/gi) ?? []).length;
+    return { ...base, list: "ok", listed: items.length, raw: Math.min(raw, 1000), page: "url_outside", ...bodyNumbers(failedBody("off_host")) };
+  }
   const page = clean ? await reader.get(clean, ACCEPT_HTML) : { ok: false as const, code: "url_outside" };
   if (!page.ok) return { ...base, list: "ok", listed: items.length, page: page.code, ...bodyNumbers(failedBody(readFailReason(page.code))) };
   const info = readArticlePage(page.text, nowMs, mediaRule(source, page.url));
@@ -875,7 +903,8 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         else {
           const source = newsSourceByKey(item.source_key);
           // 구글 중계 주소 등: 읽지 않고 원문 링크로. 구글 뉴스 매체 단위 줄(S57-13)의 기사도 링크가 중계 주소라 같다.
-          if (!source || isGoogleSite(source)) return json({ ok: true, status: "original_only" });
+          // 남의 매체로 가는 링크(linkOut 피드의 기사)도 카탈로그 호스트 밖이라 읽지 않는다.
+          if (!source || isGoogleSite(source) || !allowedUrl(source, String(item.url))) return json({ ok: true, status: "original_only" });
           reader = readers.catalog(source);
         }
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);

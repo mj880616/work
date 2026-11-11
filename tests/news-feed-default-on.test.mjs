@@ -44,7 +44,8 @@ function world({sources, keywords, sites}) {
 const DEFAULT_ON = ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa',
   'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun',
   'news-newsis', 'news-sedaily', 'news-imaeil',
-  'news-mediatoday', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan'];
+  'news-mediatoday', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan',
+  'news-laborplus', 'news-redian', 'news-news1', 'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
 
 test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
   // 기본 켬 매체는 이 목록과 정확히 같아야 한다(카탈로그에 줄을 더하면 여기도 고친다).
