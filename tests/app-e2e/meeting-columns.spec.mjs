@@ -380,7 +380,7 @@ async function checkFileMenu(page,s,rows,width){
   await view.waitForURL('https://drive.google.com/file/d/drive-labor-pdf/view');await view.close();expect(s.downloads).toEqual([]);
   // ⋯를 누르면 메뉴만 열리고 내려받기는 시작하지 않는다.
   await summary.click();await expect(more).toHaveAttribute('open','');
-  const items=more.locator('.file-line-more-panel button');await expect(items).toHaveText(['Drive에서 열기','내려받기','빼기','삭제']);
+  const items=more.locator('.file-line-more-panel button');await expect(items).toHaveText(['Drive에서 열기','내려받기','이름 수정','빼기','삭제']); // FILE-이름고치기연필먹통: 줄에 ✎ 없이 ⋯ 안 [이름 수정](파일 번호가 있는 자료)
   for(const b of await items.all()){const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);expect(r.x+r.width).toBeLessThanOrEqual(width+1)}
   expect(s.downloads).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

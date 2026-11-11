@@ -134,7 +134,7 @@ for (const width of [390, 1280]) {
     await expect(cards).toHaveCount(2); expect(f.writes).toEqual([]);
     await expect(more).toBeFocused();
     await press(page, more, width);
-    await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기', '삭제']);
+    await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '이름 수정', '빼기', '삭제']);
     await expect(page.locator('#noteDocMenu [data-note-file-detach]')).toHaveText('빼기');
     await press(page, page.locator('#noteDocMenu [data-note-file-detach]'), width);
     const asked = await answerAsk(page, true);
@@ -280,8 +280,34 @@ test('note file line: PDF opens the Drive view in a new tab, HWP starts the Driv
   await tab.waitForURL('https://drive.google.com/uc?export=download&id=drive_b'); await tab.close();
   // ⋯: Drive에서 열기 and 내려받기 for a PDF too.
   await press(page, cards.nth(0).getByRole('button', {name: '교섭 요구안.pdf 메뉴'}), 1280);
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기', '삭제']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '이름 수정', '빼기', '삭제']);
   [tab] = await Promise.all([context.waitForEvent('page'), page.locator('#noteDocMenu [data-file-menu="download"]').click()]);
   await tab.waitForURL('https://drive.google.com/uc?export=download&id=drive_a'); await tab.close();
   expect(f.writes).toEqual([]); expect(f.errors).toEqual([]);
 });
+
+// FILE-이름고치기연필먹통(S57-4): 노트 첨부 줄에는 ✎를 따로 두지 않고 ⋯ 안 [이름 수정]으로 그 자리 이름 칸을 연다(이름 두 번 누르기·꾹 누르기와 같은 칸, 저장은 같은 서버 길).
+for (const width of [390, 1280]) {
+  test(`note file line: no ✎, ⋯ → [이름 수정] opens the in-line name field and saves the new Drive name ${width}px`, async ({page}) => {
+    const f = await fixture(page, width), calls = [];
+    await page.route(SB + '/functions/v1/document-actions', r => {
+      const b = r.request().postDataJSON(); calls.push(b);
+      return r.fulfill({json: {ok: true, name: b.base + '.pdf', drive_file_id: b.drive_file_id, notes: [{id: 'n-files', updated_at: '2026-10-22T06:00:00Z'}], updated: {notes: 1}}});
+    });
+    await press(page, page.locator('[data-note-row="n-files"]'), width);
+    const cards = page.locator('[data-note-attachments] .file-line');
+    await expect(cards).toHaveCount(2);
+    await expect(page.locator('[data-note-attachments] .fr-edit')).toHaveCount(0);
+    await press(page, cards.nth(0).getByRole('button', {name: '교섭 요구안.pdf 메뉴'}), width);
+    await press(page, page.locator('#noteDocMenu [data-note-file-rename]'), width);
+    await expect(page.locator('#noteDocMenu')).toBeHidden();
+    const input = cards.nth(0).locator('.fr-input');
+    await expect(input).toBeVisible(); await expect(input).toBeFocused(); await expect(input).toHaveValue('교섭 요구안');
+    await input.fill('가상 최종본');
+    await press(page, cards.nth(0).locator('[data-fr-save]'), width);
+    await expect(cards.nth(0).locator('.file-line-main b')).toHaveText('가상 최종본.pdf');
+    await expect(input).toHaveCount(0);
+    expect(calls).toEqual([{action: 'rename-file', target: 'note', id: 'n-files', drive_file_id: 'drive_a', base: '가상 최종본'}]);
+    expect(f.errors).toEqual([]);
+  });
+}
