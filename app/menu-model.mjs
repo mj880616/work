@@ -164,6 +164,32 @@ export function pcSplit(layout) {
   const main = sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id).filter(id => !tail.includes(id)) : [...next.bar, ...next.rest];
   return {main, tail};
 }
+// MENU-왼쪽메뉴바로끌기: PC 왼쪽 메뉴에서 id를 끌어 놓은 자리 → moveItem이 받는 {to, index}.
+// slot = {part: 'main'(빈 공간 위 줄) | 'tail'(맨 아래 묶음), index}: 그 묶음에서 끌고 있는 줄을 뺀 보이는 목록 안 자리(0~길이).
+// PC 위 줄은 하단바 칸 메뉴 뒤에 위 메뉴가 이어진 한 줄이라(pcSplit), 놓은 자리의 앞·뒤 이웃이 어느 칸인지로 칸을 정한다(홈은 위 줄에 없고 맨 위 고정).
+// - 앞·뒤 이웃이 같은 칸이면 그 칸 안 그 자리. 맨 위면 뒤 이웃의 칸, 맨 끝이면 위 메뉴 맨 끝(위 메뉴가 비면 끌던 줄의 칸).
+// - 이웃의 칸이 다르면(하단바 칸 끝 ↔ 위 메뉴 첫 줄): 끌던 줄이 있던 칸에 그대로 남는다. 아래 칸·숨긴 메뉴에서 온 줄은 위 메뉴 쪽 이웃 옆에 선다.
+// 그래서 하단바 칸은 그 칸 메뉴들 사이에 놓을 때만 바뀌고, 하단바가 가득 차 있으면 moveItem이 'full'로 거절한다(BAR_MAX 그대로).
+export function pcMoveFor(layout, id, slot) {
+  const base = normalizeLayout(layout), {main, tail} = pcSplit(base);
+  const clamp = (n, hi) => Math.max(0, Math.min(Number.isFinite(n) ? Math.trunc(n) : hi, hi));
+  if (slot?.part === 'tail') return {to: 'tail', index: clamp(slot.index, tail.filter(x => x !== id).length)};
+  const seq = main.filter(x => x !== id && x !== FIXED_ID), k = clamp(slot?.index, seq.length);
+  const prev = k > 0 ? seq[k - 1] : null, next = k < seq.length ? seq[k] : null;
+  const origin = base.bar.includes(id) ? 'bar' : base.rest.includes(id) ? 'rest' : 'other';
+  const listOf = x => base.bar.includes(x) ? 'bar' : 'rest';
+  const without = name => base[name].filter(x => x !== id);
+  const before = (name, anchor) => ({to: name, index: without(name).indexOf(anchor)});
+  const after = (name, anchor) => ({to: name, index: without(name).indexOf(anchor) + 1});
+  if (!prev && !next) return {to: origin === 'bar' ? 'bar' : 'rest', index: origin === 'bar' ? without('bar').length : 0};
+  if (!next) return without('rest').length || origin !== 'bar' ? {to: 'rest', index: without('rest').length} : {to: 'bar', index: without('bar').length};
+  if (!prev) return before(listOf(next), next);
+  const a = listOf(prev), b = listOf(next);
+  if (a === b) return before(b, next);
+  if (origin === a) return after(a, prev);
+  if (origin === b) return before(b, next);
+  return a === 'rest' ? after('rest', prev) : before('rest', next);
+}
 // 폰 하단바에서 이 화면이 어느 칸의 것인가. 칸 이름은 항목 id. 하단바에 없는 화면은 null([메뉴] 칸이 지금 화면).
 export function barItemForView(layout, view, noteMode = false) {
   const bar = normalizeLayout(layout).bar;

@@ -1,4 +1,4 @@
-import { markRenameHost, renameButtonHtml } from './file-rename.js'; // ATT-이름고치기
+import { markRenameHost, renameMenuAttrs } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ⋯가 있는 줄은 ✎ 대신 ⋯ 안 [이름 수정]
 import {announceUploaded} from './upload-done.js';
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
@@ -122,13 +122,13 @@ async function mrdTaskClick(e){
 async function mrdDeleteTask(t,trigger){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting)return;if(!(await askConfirm(trigger||document.activeElement,{text:`“${t.title}” Google 할 일을 삭제할까요?`,ok:'삭제',danger:true}))||epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id||trigger?.disabled)return;if(trigger)trigger.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdReload(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){notify(err.message||String(err),{error:true});if(trigger)trigger.disabled=false}}}
 // FILE-누르면동작: 자료 줄을 누르면 종류별 동작(file-actions.js). docs는 이 창이 그린 자료 목록.
 async function mrdDownload(id,docs=[]){const d=docs.find(x=>x.id===id);if(!d)return;await pressFile(meetingFileFile(d),{api:mrdApi,onError:m=>notify(m,{error:true})})}
-const mrdRename=d=>d?.file_id&&d.file_name?renameButtonHtml({target:'document',id:d.id,driveId:d.file_id,name:d.file_name}):'';
+const mrdRename=d=>d?.file_id&&d.file_name?renameMenuAttrs({target:'document',id:d.id,driveId:d.file_id,name:d.file_name}):'';
 function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
-    // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯)·[빼기]·[삭제](FILE-첨부삭제 결정 3).
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`${mrdRename(d)}<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d))}`})}).join(''):emptyHtml();
-    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 파일 이름을 그 자리에서 고친다(file-rename.js). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
+    // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯)·[이름 수정](FILE-이름고치기연필먹통)·[빼기]·[삭제](FILE-첨부삭제 결정 3).
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d),mrdRename(d))}`})}).join(''):emptyHtml();
+    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ⋯ [이름 수정]으로 파일 이름을 그 자리에서 고친다(file-rename.js, ✎는 따로 두지 않는다). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
     document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);mrdAppendOwnItems(row,d,d?.file_name||d?.title||'자료');if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
     document.querySelectorAll('#mrdMaterials [data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDeleteMaterial(b,allDocs,box?.querySelector('summary'))});
     document.querySelectorAll('#mrdMaterials [data-mrd-detach-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDetachMaterial(b,allDocs,box?.querySelector('summary'))});

@@ -103,6 +103,20 @@
 .re-grabbed{background:var(--kptu-primary-soft)}
 .re-drop-before{border-top:2px solid var(--kptu-primary-ink)}
 .re-drop-end{border-bottom:2px solid var(--kptu-primary-ink)}
+/* MENU-왼쪽메뉴바로끌기: PC 왼쪽 메뉴·폰 [메뉴] 창에서 끄는 동안 놓을 자리 줄은 줄 안쪽에 겹쳐 그려 줄 높이가 흔들리지 않게 한다(줄 배경·공용 그림자 규칙과 겹치지 않게 ::before). 끄는 줄에 붙은 일정 아래 메뉴(달력·할 일·일기)도 같이 흐려진다. */
+#appView>.app-nav .re-drop-before,#appView>.app-nav .re-drop-end{position:relative}
+#appView>.app-nav .sidebar-spacer.re-drop-before{border-top:0}
+#appView>.app-nav .sidebar-spacer.re-drop-end{border-bottom:0}
+#appView>.app-nav .re-drop-before::before,#appView>.app-nav .re-drop-end::before{content:"";position:absolute;left:0;right:0;height:2px;background:var(--kptu-primary-ink);pointer-events:none}
+#appView>.app-nav .re-drop-before::before{top:0}
+#appView>.app-nav .re-drop-end::before{bottom:0}
+/* 폰 [메뉴] 창은 두 칸 격자일 수 있어 놓을 자리는 칸 왼쪽(앞)·오른쪽(맨 끝) 세로 줄로 보인다. */
+#mobileMenu nav .re-drop-before,#mobileMenu nav .re-drop-end{border-top:0;border-bottom:0;position:relative}
+#mobileMenu nav .re-drop-before::before,#mobileMenu nav .re-drop-end::before{content:"";position:absolute;top:0;bottom:0;width:3px;background:var(--kptu-primary-ink);pointer-events:none}
+#mobileMenu nav .re-drop-before::before{left:0}
+#mobileMenu nav .re-drop-end::before{right:0}
+#appView>.app-nav .nav-btn.re-dragging+.nav-sub{opacity:.45}
+#appView>.app-nav .nav-btn[data-reorder-id]{-webkit-user-select:none;user-select:none}
 /* UI-업데이트기록입구: 계정 메뉴 [업데이트 기록] 줄 오른쪽 지금 판 이름(작고 흐린 글자). 못 읽으면 비운 채 자리를 차지하지 않는다. */
 .account-action .account-action-name{flex:1;min-width:0}
 .account-action .account-ver{flex:none;margin-left:8px;color:var(--kptu-muted);font-size:var(--ds-text-meta,11px);font-variant-numeric:tabular-nums}

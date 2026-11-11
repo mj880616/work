@@ -92,7 +92,7 @@ test('파일 폰 412: 폴더 줄 ⋯ = 새 폴더·올리기·복사·옮기기�
   await openFiles(page, 412);
   const od = tree(page).locator('[data-fx-box="od"]');
   await od.locator('[data-fx-fold="od:OD!1"] [data-fx-tmenu]').click();
-  await expect(menu(page).locator('button')).toHaveText(['이 폴더만 보기', '새 폴더', '올리기', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '별표', '색', '아래로', '휴지통']); // S52-41 ④: 폴더는 [위에 고정] · S53-8 ②: 폴더째 [자료실로 보내기]
+  await expect(menu(page).locator('button')).toHaveText(['이 폴더로 들어가기', '새 폴더', '올리기', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '경로 복사', '위에 고정', '별표', '색', '아래로', '휴지통']); // S52-41 ④: 폴더는 [위에 고정] · S53-8 ②: 폴더째 [자료실로 보내기]
   await expect(menu(page).locator('.row-menu-sep')).toHaveText(['위에 고정']);
   await smallBoxBy(page, od.locator('[data-fx-fold="od:OD!1"]'));
   await page.screenshot({ path: 'test-results/files-tree-row-menu-folder-phone.png' });
@@ -116,10 +116,10 @@ test('파일 폰 412: 폴더 줄 ⋯ = 새 폴더·올리기·복사·옮기기�
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).locator('button').first()).toHaveText('열기');
   await stillTree(page);
-  // '이 폴더만 보기'는 고른 때만 그 폴더 목록으로(⋯ 자체는 화면을 바꾸지 않음).
+  // '이 폴더로 들어가기'는 고른 때만 그 폴더 목록으로(⋯ 자체는 화면을 바꾸지 않음).
   await page.keyboard.press('Escape');
   await od.locator('[data-fx-fold="od:OD!1"] [data-fx-tmenu]').click();
-  await menu(page).getByRole('button', { name: '이 폴더만 보기' }).click();
+  await menu(page).getByRole('button', { name: '이 폴더로 들어가기' }).click();
   await expect(root(page).locator('[data-fx-list] [data-fx-row]').first()).toBeVisible();
   await expect(root(page).locator('[data-fx-bar]')).toBeHidden();
   expect(errors).toEqual([]);

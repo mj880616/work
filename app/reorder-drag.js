@@ -9,6 +9,21 @@ export function dropIndex(centers, y) {
   for (const center of centers) { if (y > center) at++; else break; }
   return at;
 }
+// MENU-왼쪽메뉴바로끌기: 한 줄에 여러 칸이 앉는 격자(폰 [메뉴] 창)에서 놓을 자리. 먼저 포인터에 가장 가까운 줄(세로 거리), 그 줄에서 가장 가까운 칸(가로 거리)을 찾고,
+// 격자이고 포인터가 그 줄 높이 안이면 그 칸의 가로 가운데로, 아니면 세로 가운데로 앞(그 칸 자리)·뒤(그 칸 다음)를 정한다(한 칸짜리 세로 목록은 dropIndex와 같은 결과).
+// rects = 칸 상자 [{left, top, right, bottom}]를 읽는 순서대로. 0~칸 수를 돌려준다.
+export function dropIndexGrid(rects, x, y) {
+  if (!rects.length) return 0;
+  const rows = [];
+  rects.forEach((r, i) => { const row = rows.find(w => Math.abs(w.top - r.top) < 4); if (row) { row.cells.push(i); row.bottom = Math.max(row.bottom, r.bottom); } else rows.push({top: r.top, bottom: r.bottom, cells: [i]}); });
+  const vgap = w => y < w.top ? w.top - y : y > w.bottom ? y - w.bottom : 0;
+  const hgap = i => x < rects[i].left ? rects[i].left - x : x > rects[i].right ? x - rects[i].right : 0;
+  const row = rows.reduce((a, b) => vgap(b) < vgap(a) ? b : a);
+  const best = row.cells.reduce((a, b) => hgap(b) < hgap(a) ? b : a);
+  const r = rects[best], grid = rows.some(w => w.cells.length > 1);
+  const before = grid && vgap(row) === 0 ? x < (r.left + r.right) / 2 : y < (r.top + r.bottom) / 2;
+  return best + (before ? 0 : 1);
+}
 
 // root 안의 listSelector 칸들, 칸 안의 itemSelector 줄들. handleSelector는 줄 안 손잡이.
 // onDrop({id, list, index}) : list = 칸의 data-reorder-list 값, index = 끌고 있는 줄을 뺀 그 칸 안 자리.
@@ -19,7 +34,13 @@ export function dropIndex(centers, y) {
 //  zones: {resolve(dragId, overId, zone) -> {ok, canInside}} → 줄 위에서 위 25%·가운데 50%·아래 25%(dropZone)를 재서 onHover({id, over, zone})로 알리고,
 //         onDrop({id, list, index, over, zone})에 넘긴다. 자리 표시는 화면(onHover)이 그린다. 줄 사이 = 순서, 가운데 = 넣기.
 //  onHold(item): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗐을 때(끌기 아님) 알린다(우클릭과 같은 메뉴를 열 때).
-export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more'} = {}) {
+// MENU-왼쪽메뉴바로끌기 확장 — 칸 상자가 따로 없이 한 줄로 이어진 목록(PC 왼쪽 메뉴·폰 [메뉴] 창, 칸 사이에 빈 공간·선만 있음). 다른 사용처는 기본값 그대로:
+//  resolve(x, y, dragEl) -> {listId, index, before?, after?} | null : 놓을 자리를 부르는 쪽이 정한다(칸 상자·가운데 위치 계산 대신).
+//         before = 놓을 자리 바로 뒤 요소(.re-drop-before), after = 바로 앞 요소(.re-drop-end, before가 없을 때). onDrop({id, list: listId, index})는 그대로.
+//  links: true  → whole 모드에서 <a href> 줄도 잡힌다(PC 왼쪽 메뉴 줄은 링크). 링크의 기본 끌기(주소 끌어가기)는 막는다.
+//  early: true  → 끌기 뒤 따라오는 클릭 한 번을 창(window) 단계에서 먼저 삼킨다. 마우스로 끌면 포인터를 잡아 둔 줄이 그 클릭을 받는데(자리가 안 바뀌어 줄이 그대로면 클릭이 생긴다),
+//         문서 단계 위임 클릭(loader-v2의 [data-view] 화면 열기)이 root보다 먼저 받으면 끌었다 놓은 줄의 화면이 열려 버리기 때문이다. 부품이 다시 붙는 곳은 destroy로 그 창 쪽 귀를 뗀다.
+export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
   let drag = null, touch = null, marker = null, scrollDir = 0, scrollTimer = 0;
   const idOf = el => el?.dataset?.reorderId || '';
   const lists = () => [...root.querySelectorAll(listSelector)];
@@ -37,6 +58,10 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     return {list: over.closest(listSelector), listId: over.closest(listSelector)?.dataset?.reorderList || '', items: [], index: 0, over: overId, zone: dropZone({top: r.top, height: r.height}, y, {canInside: rule.canInside !== false})};
   }
   function target(x, y) {
+    if (resolve) {
+      const t = resolve(x, y, drag.el);
+      return t ? {list: null, listId: t.listId || '', items: [], index: t.index, before: t.before || null, after: t.after || null} : null;
+    }
     if (zones) return zoneTarget(x, y);
     const hit = document.elementFromPoint(x, y);
     let list = hit?.closest?.(listSelector);
@@ -61,6 +86,7 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     if (zones) return; // 자리 표시는 화면이 onHover로 그린다
     root.querySelectorAll('.re-drop-before,.re-drop-end').forEach(el => el.classList.remove('re-drop-before', 're-drop-end'));
     if (!t) return;
+    if (resolve) { if (t.before) t.before.classList.add('re-drop-before'); else t.after?.classList.add('re-drop-end'); return; }
     const before = t.items[t.index];
     (before || t.list).classList.add(before ? 're-drop-before' : 're-drop-end');
   }
@@ -92,7 +118,7 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
   root.addEventListener('pointerdown', event => {
     if (event.pointerType === 'touch' || !event.isPrimary || event.button > 0) return;
     let handle = event.target.closest?.(handleSelector), item = handle?.closest(itemSelector);
-    if (!item && whole) { item = event.target.closest?.(itemSelector); handle = item && !event.target.closest('input,textarea,select,a[href],' + wholeExcept) ? item : null; }
+    if (!item && whole) { item = event.target.closest?.(itemSelector); handle = item && !event.target.closest('input,textarea,select,' + (links ? '' : 'a[href],') + wholeExcept) ? item : null; }
     if (!handle || !item || !canDrag(idOf(item))) return;
     const start = {x: event.clientX, y: event.clientY, pointer: event.pointerId};
     const onMove = e => {
@@ -108,14 +134,16 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onEnd); window.addEventListener('pointercancel', onEnd);
   });
   let swallow = false;
-  root.addEventListener('click', event => { if (swallow && (!whole || event.target.closest?.(itemSelector))) { event.preventDefault(); event.stopPropagation(); } }, true); // whole 모드: 줄이 아닌 곳(메뉴·창)의 누르기는 막지 않는다
+  // whole 모드: 줄이 아닌 곳(메뉴·창)의 누르기는 막지 않는다. early면 창 단계에서 받아 문서 단계 위임 클릭보다 먼저 막는다.
+  const clickGuard = event => { if (swallow && (!early || root.contains(event.target)) && (!whole || event.target.closest?.(itemSelector))) { event.preventDefault(); event.stopPropagation(); } };
+  (early ? window : root).addEventListener('click', clickGuard, true);
 
   // 폰: 줄을 LONG_MS 눌러 두면 잡힌다.
   const cancelTouch = () => { if (touch?.timer) clearTimeout(touch.timer); touch = null; };
   root.addEventListener('pointerdown', event => {
     if (event.pointerType !== 'touch' || !event.isPrimary) return;
     const item = event.target.closest?.(itemSelector);
-    if (!item || !canDrag(idOf(item)) || event.target.closest(whole ? 'input,textarea,select,a[href],' + wholeExcept : 'input,textarea,select,a[href],button:not([data-reorder-handle])')) return;
+    if (!item || !canDrag(idOf(item)) || event.target.closest(whole ? 'input,textarea,select,' + (links ? '' : 'a[href],') + wholeExcept : 'input,textarea,select,a[href],button:not([data-reorder-handle])')) return;
     cancelTouch();
     touch = {el: item, x: event.clientX, y: event.clientY, grabbed: false, moved: false, timer: setTimeout(() => {
       if (!touch || touch.el !== item) return;
@@ -146,6 +174,8 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
   root.addEventListener('touchcancel', () => { if (touch?.grabbed) { cancelTouch(); finish(false); } else cancelTouch(); });
   // 잡은 직후 따라오는 기본 길게누르기 메뉴는 막는다.
   root.addEventListener('contextmenu', event => { if (touch || drag || (!whole && event.target.closest?.(itemSelector))) event.preventDefault(); });
+  // links 모드: 줄이 링크라서 브라우저가 주소 끌어가기(HTML5 끌기)를 시작하면 포인터 이벤트가 끊긴다. 줄 위에서는 그 기본 끌기를 막는다.
+  if (links) root.addEventListener('dragstart', event => { if (event.target.closest?.(itemSelector)) event.preventDefault(); });
 
   root.addEventListener('keydown', event => {
     const handle = event.target.closest?.(handleSelector);
@@ -154,5 +184,5 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     if (!id || !canDrag(id)) return;
     event.preventDefault(); onStep(id, event.key === 'ArrowUp' ? -1 : 1);
   });
-  return {destroy() { cancelTouch(); finish(false); }};
+  return {destroy() { cancelTouch(); finish(false); if (early) window.removeEventListener('click', clickGuard, true); }};
 }

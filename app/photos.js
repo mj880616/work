@@ -87,6 +87,7 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
+import {FOLDER_ENTER_LABEL} from './folder-tree-press.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -1169,9 +1170,18 @@ attachPinch(body, () => {
 // FOLDER-나무새기준 ④: 폰 [폴더] 나무에서 펼친 폴더(또는 그 작은 그림 줄) 위 두 손가락 벌리기 = 그 폴더만. (그 폴더만 화면의 오므리기는 위 changeStage가 나무로.)
 // S51-24 UI-빈칸손짓: 본문 칸은 늘 아래 빈 곳까지(예전 100svh - 240px 어림 대신 공용 gesture-fill.js가 잰 높이).
 fillGestureArea(body);
-bindFolderPinch(body, {enabled:() => tab === 'folders' && fxTreeShown() && !select.active,
-  folderAt:el => el.closest('[data-ft-key]')?.dataset.ftKey || el.closest('[data-ft-parent]')?.dataset.ftParent || null,
-  onOut:key => fxFocus(key)});
+// UI-폴더누르기한규칙: PC(761px~) 나무 줄 위 벌리기 = 그 폴더로 들어가기(우클릭·⋯ [이 폴더로 들어가기]와 같은 곳). 줄에 'w:o|g|p:<id>' 열쇠를 돌려 폰 나무 열쇠와 가른다.
+const wideRowKey = el => {
+  const r = el.closest('[data-photos-folder],[data-photos-gf],[data-photos-pf]');
+  return !r ? null : r.dataset.photosFolder !== undefined ? 'w:o:' + r.dataset.photosFolder : r.dataset.photosGf !== undefined ? 'w:g:' + r.dataset.photosGf : 'w:p:' + r.dataset.photosPf;
+};
+bindFolderPinch(body, {enabled:() => tab === 'folders' && (fxTreeShown() || treeWide()) && !select.active,
+  folderAt:el => (treeWide() ? wideRowKey(el) : el.closest('[data-ft-key]')?.dataset.ftKey || el.closest('[data-ft-parent]')?.dataset.ftParent || null),
+  onOut:key => {
+    if (!key.startsWith('w:')) { fxFocus(key); return; }
+    const kind = key[2], id = key.slice(4);
+    if (kind === 'g') goGdFolder(id); else if (kind === 'p') goPhoneFolder(id); else if (!tree || photoFolderById(tree, id)) goFolder(id);
+  }});
 // FILES-폰폴더위로 ④⑤: 폰 '그 폴더만'에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(fxUp). 손짓 칸은 사진 화면 칸 전체(왼쪽 여백까지).
 bindEdgeBack(body.closest('.view-panel') || body, {enabled:() => tab === 'folders' && !treeWide() && !fxTreeShown() && !select.active, onBack:() => fxUp()});
 const paintBodyPinch = () => { if (bodyPinch()) body.dataset.photosPinch = ''; else delete body.dataset.photosPinch; };
@@ -2148,7 +2158,7 @@ function phoneFolderRowHtml(f, {wide}) {
     + (wide ? `<span class="ft-tog ft-tog-none photos-fx-tog">${treeIconHtml('folder')}</span>` : '')
     + `<button type="button" class="nx-main" data-photos-pf-open="${esc(f.id)}"${cur ? ' aria-current="true"' : ''}>${wide ? '' : treeIconHtml('folder', {open: cur})}<span class="nx-name">${esc(f.name)}${placeHtml('ph:' + f.id)}${tidy.unbackedIds().has(f.id) ? '<span class="photos-fx-place photos-unbacked"> · 백업 안 됨</span>' : ''}${f.pending ? '<span class="photos-fx-place"> · 사진을 옮기면 생겨요</span>' : ''}</span>${countHtml(f.count)}</button>`
     + (sw ? phoneSwHtml(f) : '')
-    + (phoneOps() ? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more="${esc(f.id)}" aria-label="${esc(f.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
+    + (phoneOps() || wide ? `<button type="button" class="nx-more photos-fx-more" data-photos-pf-more="${esc(f.id)}" aria-label="${esc(f.name)} 폴더 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '')
     + '</div>';
 }
 const phoneNewHtml = () => (phoneOps() ? '<button type="button" class="nx-new-folder photos-fx-new" data-photos-pf-new>+ 새 폴더</button>' : '');
@@ -2651,7 +2661,12 @@ function folderClick(b) {
   if (b.matches('[data-photos-fx-back]')) { fxToTree(); return true; }
   if (b.matches('[data-photos-inline]')) { const list = fxInline.get(b.dataset.photosInlineOf)?.items || []; if (list.length) openViewer(Number(b.dataset.photosInline), {list:() => list}); return true; }
   if (gdFolderClick(b)) return true;
-  if (b.matches('[data-photos-fx-open]')) { const id = b.dataset.photosFxOpen; if (treeWide() && pAt === null && id === at && id !== tree?.top?.id && photoSubfolders(tree, id).length) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderFolders(); return true; } goFolder(id); return true; }
+  // UI-폴더누르기한규칙(S57-5): PC(761px~) 나무 폴더 이름 누르기 = 그 자리 펼치기·접기(들어가지 않음, 펼칠 하위 폴더가 없으면 아무 일 없음). 들어가기 = ⋯·우클릭 [이 폴더로 들어가기]·두 손가락. 맨 위 줄은 폴더가 아니라 지금처럼 그 칸으로.
+  if (b.matches('[data-photos-fx-open]')) {
+    const id = b.dataset.photosFxOpen;
+    if (treeWide() && id !== tree?.top?.id) { if (photoSubfolders(tree, id).length) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderFolders(); body.querySelector(`[data-photos-fx-open="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); } return true; }
+    goFolder(id); return true;
+  }
   if (b.matches('[data-photos-fx-sw]')) { toggleFolder(b.dataset.photosFxSw); return true; }
   if (b.matches('[data-photos-fx-tog]')) { const id = b.dataset.photosFxTog; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderFolders(); return true; }
   if (b.matches('[data-photos-fx-at]')) { const id = b.dataset.photosFxAt || tree?.top?.id; if (id) goFolder(id); return true; }
@@ -2659,7 +2674,7 @@ function folderClick(b) {
   if (b.matches('[data-photos-fx-new]')) { newFolder(treeWide() ? at || tree?.top?.id : at || tree?.top?.id); return true; }
   if (b.matches('[data-photos-fx-retry]')) { treeFailed = ''; renderFolders(); return true; }
   if (b.matches('[data-photos-fx-again]')) { fFailed = ''; paintFolderGrid(); loadFolder(at); return true; }
-  if (b.matches('[data-photos-pf-open]')) { goPhoneFolder(b.dataset.photosPfOpen); return true; }
+  if (b.matches('[data-photos-pf-open]')) { if (!treeWide()) goPhoneFolder(b.dataset.photosPfOpen); return true; } // UI-폴더누르기한규칙: PC 나무의 폰 폴더는 하위 폴더가 없어 누르기만으로는 아무 일 없음(들어가기 = ⋯ [이 폴더로 들어가기]·두 손가락)
   if (b.matches('[data-photos-pf-sw]')) { togglePhoneFolder(b.dataset.photosPfSw.slice(3)); return true; }
   if (b.matches('[data-photos-pf-more]')) { phoneFolderMenu.open(b); return true; }
   if (b.matches('[data-photos-pf-new]')) { newPhoneFolder(); return true; }
@@ -2926,8 +2941,8 @@ async function gdTrashFolder(anchor, id) {
 function gdFolderClick(b) {
   if (b.matches('[data-photos-gf-open]')) {
     const id = b.dataset.photosGfOpen;
-    // PC: 이미 고른 폴더를 다시 누르면 펼치기·접기(원드라이브와 같음). 맨 위 줄은 늘 펼침.
-    if (treeWide() && id === gdAt && id !== GDRIVE_TOP && (photoSubfolders(gdTree(), id).length || !gdLevels.has(id))) { gdToggleOpen(id); return true; }
+    // UI-폴더누르기한규칙: PC 나무 폴더 누르기 = 펼치기·접기만(원드라이브와 같음, 들어가지 않음). 맨 위 줄은 늘 펼침이라 지금처럼 그 칸으로.
+    if (treeWide() && id !== GDRIVE_TOP) { if (photoSubfolders(gdTree(), id).length || !gdLevels.has(id)) { gdToggleOpen(id); body.querySelector(`[data-photos-gf-open="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); } return true; }
     goGdFolder(id); return true;
   }
   if (b.matches('[data-photos-gf-tog]')) { gdToggleOpen(b.dataset.photosGfTog); return true; }
@@ -3156,13 +3171,15 @@ const folderMenu = createAnchoredMenu({id:'photosFolderMenu', className:'od-link
     const top = id === tree?.top?.id, can = od.canDelete;
     // FOLDER-나무새기준 ⑦: 폰 나무에는 스위치 줄이 없고 켜기·끄기는 이 메뉴 맨 위(원드라이브 전체 보기일 때만, 지금처럼 서버 folder-toggle).
     const sw = tree?.whole && !top && !treeWide() ? menuBtn('data-fm-sw', photoFolderById(tree, id)?.enabled === false ? '켜기(사진에 보이기)' : '끄기(사진에 안 보이기)') : '';
-    return [sw, can ? menuBtn('data-fm-new', '새 하위 폴더') : '', !top && can ? menuBtn('data-fm-rename', '이름 바꾸기') : '', !top && can ? menuBtn('data-fm-move', '옮기기…') : '',
+    const enter = treeWide() && !top ? menuBtn('data-fm-enter', FOLDER_ENTER_LABEL) : ''; // UI-폴더누르기한규칙: PC 나무 누르기는 펼침만이라 들어가기는 이 메뉴
+    return [enter, sw, can ? menuBtn('data-fm-new', '새 하위 폴더') : '', !top && can ? menuBtn('data-fm-rename', '이름 바꾸기') : '', !top && can ? menuBtn('data-fm-move', '옮기기…') : '',
       !top ? lookItems('od', id) : '',
       delBtn('data-fm-delete', folderDeleteOff('od', {top, can})), can ? '' : '<p class="od-link-status">바꾸려면 원드라이브를 다시 연결해 주세요</p>'].join('');
   },
   onAction:(b, {id, trigger}) => {
     if (offPressed(b)) return;
     if (lookAction('od', b, id, trigger, folderMenu)) return;
+    if (b.matches('[data-fm-enter]')) return goFolder(id);
     if (b.matches('[data-fm-sw]')) return toggleFolder(id);
     if (b.matches('[data-fm-new]')) return newFolder(id);
     if (b.matches('[data-fm-rename]')) return renameFolder(id);
@@ -3175,11 +3192,14 @@ const phoneFolderMenu = createAnchoredMenu({id:'photosPhoneFolderMenu', classNam
   render:id => {
     const f = phoneFolderOf(id), can = phoneOps() && !!f, mov = can && isPhoneMovable(id);
     const sw = phoneSw() && f && !f.pending && !treeWide() ? menuBtn('data-pfm-sw', phoneOff.has(id) ? '켜기(사진에 보이기)' : '끄기(사진에 안 보이기)') : '';
-    return [sw, can ? menuBtn('data-pfm-new', '새 하위 폴더') : '', mov ? menuBtn('data-pfm-rename', '이름 바꾸기') : '', mov && !f.pending ? menuBtn('data-pfm-move', '옮기기…') : '',
+    const enter = treeWide() && f ? menuBtn('data-pfm-enter', FOLDER_ENTER_LABEL) : ''; // UI-폴더누르기한규칙: PC 나무는 ⋯가 늘 있고(앱이 옛 판이면 이 항목 하나뿐)
+    if (!phoneOps()) return enter;
+    return [enter, sw, can ? menuBtn('data-pfm-new', '새 하위 폴더') : '', mov ? menuBtn('data-pfm-rename', '이름 바꾸기') : '', mov && !f.pending ? menuBtn('data-pfm-move', '옮기기…') : '',
       f ? delBtn('data-pfm-delete', folderDeleteOff('phone', {ops: phoneOps(), trashable: !!f.pending || isPhoneTrashable(id)})) : '', mov || !can ? '' : '<p class="od-link-status">DCIM·Pictures 아래 폴더만 이름·위치를 바꿀 수 있어요</p>'].join('');
   },
   onAction:(b, {id, trigger}) => {
     if (offPressed(b)) return;
+    if (b.matches('[data-pfm-enter]')) return goPhoneFolder(id);
     if (b.matches('[data-pfm-sw]')) return togglePhoneFolder(id);
     if (b.matches('[data-pfm-new]')) return newPhoneFolder(id);
     if (b.matches('[data-pfm-rename]')) return renamePhoneFolder(trigger, id);
@@ -3187,12 +3207,14 @@ const phoneFolderMenu = createAnchoredMenu({id:'photosPhoneFolderMenu', classNam
     if (b.matches('[data-pfm-delete]')) return trashPhoneFolder(trigger, id);
   }});
 // S46-24 ④: 구글 드라이브 폴더 ⋯ = 새 하위 폴더·이름 바꾸기·지우기(드라이브 휴지통, 확인 한 번).
+const gdEnterBtn = id => (treeWide() && id !== GDRIVE_TOP ? menuBtn('data-gfm-enter', FOLDER_ENTER_LABEL) : ''); // UI-폴더누르기한규칙: PC 나무 누르기는 펼침만이라 들어가기는 이 메뉴
 const gdFolderMenu = createAnchoredMenu({id:'photosGdFolderMenu', className:'od-link-menu', label:'구글 드라이브 폴더 메뉴', historyKey:'kptuPhotosGdFolderMenu',
   key:t => t.dataset.photosGfMore || '', onClose:() => lookMode.gd.onClose(),
-  render:id => (lookMode.gd.active(id) ? colorChoiceHtml(folderLook.color('gd', id)) : gdUsable() ? [menuBtn('data-gfm-new', '새 하위 폴더'), menuBtn('data-gfm-rename', '이름 바꾸기'), lookItems('gd', id), delBtn('data-gfm-delete', '')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>' + lookItems('gd', id) + delBtn('data-gfm-delete', folderDeleteOff('gd', {can: false}))),
+  render:id => (lookMode.gd.active(id) ? colorChoiceHtml(folderLook.color('gd', id)) : gdUsable() ? [gdEnterBtn(id), menuBtn('data-gfm-new', '새 하위 폴더'), menuBtn('data-gfm-rename', '이름 바꾸기'), lookItems('gd', id), delBtn('data-gfm-delete', '')].join('') : '<p class="od-link-status">구글 드라이브 · <span class="photos-gd-state">권한 없음</span></p>' + gdEnterBtn(id) + lookItems('gd', id) + delBtn('data-gfm-delete', folderDeleteOff('gd', {can: false}))),
   onAction:(b, {id, trigger}) => {
     if (offPressed(b)) return;
     if (lookAction('gd', b, id, trigger, gdFolderMenu)) return;
+    if (b.matches('[data-gfm-enter]')) return goGdFolder(id);
     if (b.matches('[data-gfm-new]')) return gdNewFolder(id);
     if (b.matches('[data-gfm-rename]')) return gdRenameFolder(id);
     if (b.matches('[data-gfm-delete]')) return gdTrashFolder(trigger, id);
