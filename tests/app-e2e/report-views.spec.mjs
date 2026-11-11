@@ -115,6 +115,47 @@ for (const width of [390, 1440]) {
     await expect.poll(() => state.meetingOpens.some(x => x === 'eq.' + M2)).toBe(true);
   });
 
+  // S57-8 BIZ-달력우클릭끌기 ④(명진 폰 제보 "숫자를 눌러야 클릭이 됨, 터치 범위 넓혀요"): 숫자·점·제목 옆 빈 곳·'+n' 어디를 눌러도 그 칸 전체가 그날 고르기.
+  test(`report calendar day cell is pressable all over, not only the number ${width}`, async ({page}) => {
+    const state = makeState();
+    await open(page, state, width);
+    await view(page, '달력');
+    const cal = page.locator('#meetingList .rv-cal');
+    const today = cal.locator('.rv-cell.rv-now[data-rv-cell]');
+    const todayKey = await today.getAttribute('data-rv-cell');
+    await expect(today).toHaveClass(/rv-sel/);
+    // 오늘이 아닌 이번 달 칸의 맨 아래 오른쪽 빈 곳(숫자·점이 없는 자리)을 누르면 그 날이 골라진다.
+    const other = cal.locator('.rv-cell[data-rv-cell]:not(.rv-now)').first();
+    const otherKey = await other.getAttribute('data-rv-cell');
+    const box = await other.boundingBox();
+    await other.click({position: {x: box.width - 5, y: box.height - 5}});
+    await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', otherKey);
+    await expect(cal.locator('.rv-cell.rv-sel [data-rv-day]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(cal.locator('.rv-day-list .rv-day-title')).toContainText(`${Number(otherKey.slice(8))}일`);
+    // 숫자 단추는 그대로 눌린다(키보드·화면 읽기 길).
+    await today.locator('[data-rv-day]').click();
+    await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', todayKey);
+    await other.click({position: {x: box.width - 5, y: box.height - 5}});
+    await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', otherKey);
+    if (width >= 761) {
+      // 넓은 화면: '+1'을 눌러도 그 날이 골라지고 그날 목록이 열린다.
+      await today.locator('.rv-more').click();
+      await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', todayKey);
+      await expect(cal.locator('.rv-day-list .rv-row')).toHaveCount(3);
+      // 칸 안 제목을 누르면 보고가 열릴 뿐 고른 날은 바뀌지 않는다.
+      await other.click({position: {x: box.width - 5, y: box.height - 5}});
+      await today.locator(`[data-mrd-meeting="${M1}"]`).click();
+      await expect.poll(() => state.meetingOpens.some(x => x === 'eq.' + M1)).toBe(true);
+      await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', otherKey);
+    } else {
+      // 폰: 점 줄(제목 대신 점만 보이는 자리)을 눌러도 그 날이 골라진다.
+      await today.locator('.rv-dots').click();
+      await expect(cal.locator('.rv-cell.rv-sel')).toHaveAttribute('data-rv-cell', todayKey);
+      await expect(cal.locator('.rv-day-list .rv-row')).toHaveCount(3);
+    }
+    expect(await noOverflow(page)).toBe(true);
+  });
+
   test(`report photo view groups photos by day and reuses the big viewer ${width}`, async ({page}) => {
     const state = makeState();
     await open(page, state, width);

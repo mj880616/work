@@ -208,6 +208,27 @@ test('open: Google relay links are not read; media items only on catalog hosts',
  assert.equal(r.body.status,'original_only');assert.equal(w.outbound().length,0);
 });
 
+// S57-13: 구글 뉴스 매체 단위 줄의 기사(링크가 중계 주소)·남의 매체 링크 피드의 기사는 서버가 읽지 않는다 — 누를 때 열기도 원문 링크로만.
+test('open·probe: 구글 뉴스 매체 단위 기사와 남의 매체 링크 기사는 읽지 않는다(요청 없음, 하루 열기 횟수도 안 씀)',async()=>{
+ const G2='c0000000-0000-4000-8000-000000000013',L1='c0000000-0000-4000-8000-000000000014';
+ const g={id:G2,workspace_id:WS,lane:'media',source_key:'news-mediatoday',url:'https://news.google.com/rss/articles/synthetic2?oc=5',title:'t',lang:'ko',body:null,body_kind:null};
+ const l={id:L1,workspace_id:WS,lane:'media',source_key:'news-labourstart',url:'https://other.example.org/news/1',title:'t',lang:'en',body:null,body_kind:null};
+ const w=fakeWorld({items:[g,l],sites:{'https://news.google.com/robots.txt':{body:''},'https://news.google.com/rss/articles/synthetic2':{body:'<html><body><article><p>'+LONG+'</p></article></body></html>'}}});
+ for(const id of [G2,L1]){const r=await call(w,userReq('open',{id}));assert.equal(r.status,200);assert.equal(r.body.status,'original_only');}
+ assert.equal(w.outbound().length,0,'중계 주소·남의 매체 주소로 요청하지 않음');
+ assert.equal(w.writes().length,0,'기사 줄·하루 횟수를 고치지 않음');
+ // 읽는 주소 규칙: 매체 단위 줄도 구글 뉴스에서는 검색 RSS 경로와 robots.txt만(중계 주소·다른 경로·다른 호스트는 규칙 밖).
+ const s=C.newsSourceByKey('news-mediatoday');
+ const rss=`<rss><channel><item><title>합성 기사 - 미디어오늘</title><link>https://news.google.com/rss/articles/synthetic2?oc=5</link></item></channel></rss>`;
+ const w2=fakeWorld({sites:{'https://news.google.com/robots.txt':{body:''},[s.lists[0]]:{body:rss,headers:{'content-type':'application/xml'}},'https://news.google.com/rss/articles/synthetic2':{body:'<html></html>'}}});
+ const pr=await call(w2,cronReq('probe',{source:'news-mediatoday'}));
+ assert.deepEqual([pr.body.list,pr.body.listed,pr.body.raw,pr.body.page,pr.body.state,pr.body.reason,pr.body.extract],['ok',1,1,null,'failed','relay',false]);
+ assert.deepEqual(w2.outbound().map(c=>new URL(c.url).pathname),['/robots.txt','/rss/search'],'probe도 글 쪽(중계 주소)은 읽지 않음');
+ for(const v of Object.values(pr.body))assert.ok(v===null||typeof v==='number'||typeof v==='boolean'||/^[a-z0-9_@-]{1,40}$/.test(v),`숫자·코드만: ${v}`);
+ // 화면 목록에는 주소·도메인이 실리지 않는다(키·이름·지역·말·기본 켬뿐).
+ assert.ok(!JSON.stringify(C.publicNewsCatalog()).includes('google'));
+});
+
 test('fill now and prune: daily limit counted on the server; prune via rpc',async()=>{
  const items=[{id:ITEM,workspace_id:WS,lane:'channel',state:'pending',url:'https://news.example.org/a/1'}];
  const w=fakeWorld({items,days:[{workspace_id:WS,day:'2026-11-01',fill_n:H.FILL_DAILY}]});
