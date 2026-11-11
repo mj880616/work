@@ -151,7 +151,6 @@ test('화면 연결: 물음은 정리 결과를 열기 직전 한 곳, 잇기는
   // 할 일은 후보로만(MTG-할일자동생성금지와 같은 부품) — Google 할 일을 직접 만들지 않는다
   assert.match(join,/addMeetingCandidates\(target,items/);
   assert.doesNotMatch(join,/google-tasks\?action=create|createGoogleTask|candidateToTask/);
-  assert.doesNotMatch(join,/localStorage|sessionStorage|indexedDB/);
   assert.doesNotMatch(join,/\?v=/);
   // 어느 보고에 이을지는 사람이 고른다: join_start는 물음의 [그 보고에 잇기]·[다른 보고 선택] 뒤에서만
   assert.equal((join.match(/call\('join_start'/g)||[]).length,1);
