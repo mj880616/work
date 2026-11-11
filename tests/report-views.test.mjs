@@ -65,6 +65,31 @@ test('달력 글: 날짜 칸에 제목, 누르면 사업 보고, 고른 날 목�
   assert.match(calendarHtml(ctx({rows: []})), /data-wait-empty>맞는 사업 보고 없음</);
   assert.match(calendarHtml(ctx({rows: [meeting('a', '<b>x</b>', '2026-10-24T01:00:00Z')]})), /&lt;b&gt;x&lt;\/b&gt;/);
 });
+// S57-8 BIZ-달력우클릭끌기 ④(명진 폰 제보 "숫자를 눌러야 클릭이 됨, 터치 범위 넓혀요"): 칸 전체가 '그날 고르기'.
+test('달력 글: 이번 달 칸마다 칸 전체 누르기 표시(data-rv-cell), 이번 달 밖 칸은 없음, 숫자 단추는 그대로', () => {
+  const html = calendarHtml(ctx());
+  assert.equal((html.match(/<td [^>]*data-rv-cell="/g) || []).length, 31);
+  assert.match(html, /<td class="rv-cell[^"]*" data-rv-cell="2026-10-01">/);
+  assert.equal((html.match(/<td class="rv-cell rv-out"[^>]*>/g) || []).length, 4);
+  assert.doesNotMatch(html, /<td class="rv-cell rv-out"[^>]*data-rv-cell/);
+  assert.equal((html.match(/<button type="button" class="rv-num[^"]*" data-rv-day="/g) || []).length, 31);
+  // 칸 속 제목(사업 보고 열기)·'+n'은 칸 안에 있어 칸 누름이 받는다(제목은 열기가 먼저 받음: team.js 시험 아래).
+  const cell = html.match(/<td class="rv-cell[^"]*" data-rv-cell="2026-10-24">.*?<\/td>/)[0];
+  assert.match(cell, /class="rv-dots"/); assert.match(cell, new RegExp(`data-mrd-meeting="${M1}"`));
+  const many = calendarHtml(ctx({rows: [1, 2, 3, 4].map(n => meeting(id(200 + n), `보고${n}`, '2026-10-12T01:00:00Z'))}));
+  assert.match(many.match(/<td class="rv-cell[^"]*" data-rv-cell="2026-10-12">.*?<\/td>/)[0], /<li class="rv-more">\+2<\/li>/);
+});
+test('화면 연결: 칸 누름은 칸 전체(+n 포함)가 그날 고르기, 제목·목록 줄은 보고 열기가 먼저 받음', () => {
+  const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
+  const fn = team.match(/function reportViewClick\(e\)\{[^\n]*\}\n/)[0];
+  assert.match(fn, /closest\('\[data-rv-cell\]'\)/);
+  assert.match(fn, /reportDay=cell\.dataset\.rvCell/);
+  assert.match(fn, /closest\('\.rv-more'\)[\s\S]*rv-day-list[\s\S]*scrollIntoView/);
+  assert.ok(fn.indexOf("closest('[data-mrd-meeting]')") > -1 && fn.indexOf("closest('[data-mrd-meeting]')") < fn.indexOf("closest('[data-rv-cell]')"));
+  const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
+  assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]\{cursor:pointer\}/);
+  assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]:not\(\.ds-day-sel\):hover/);
+});
 test('사진 글: 날짜 묶음 아래 사업 보고별 격자 자리, 사진 없으면 안내', () => {
   const photos = photosByMeeting([photo(1, M1), photo(2, M1), photo(3, M3)]);
   const html = photoViewHtml(ctx({photos}));
