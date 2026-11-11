@@ -174,3 +174,35 @@ test('그 장소: 지도 서비스·새 외부 주소 없음', () => {
   assert.match(ui,/suggestPhotos\(\{phone:ph, od, atMs\}\)/);
   assert.match(ui,/tp-here/);
 });
+
+// S59-13 BIZ-보고할일정 PR D(요청 ⑤): 일정에서 연 [보고 쓰기] 창은 그 시각 사진을 미리 골라 둔다(고르기만 — 붙이기는 [저장]).
+import {presetPicks,presetHead,PRESET_NOTE,PRESET_BEFORE_MS,PRESET_AFTER_MS,PICK_MAX} from '../app/time-photos-model.mjs';
+test('미리 골라 두기: 시작 30분 전~3시간 뒤만, 많으면 시작에 가까운 것부터 PICK_MAX장, 머리 글', () => {
+  const at=Date.parse('2026-11-11T01:00:00Z'),it=(id,min)=>({id,taken_at:new Date(at+min*60000).toISOString()});
+  const items=[it('early',-120),it('edge-before',-30),it('a',-10),it('b',40),it('c',150),it('edge-after',180),it('late',181)];
+  assert.deepEqual(presetPicks(items,at).sort(),['a','b','c','edge-after','edge-before']);
+  assert.equal(PRESET_BEFORE_MS,30*60000);assert.equal(PRESET_AFTER_MS,3*3600000);
+  assert.deepEqual(presetPicks(items,NaN),[]);assert.deepEqual(presetPicks(null,at),[]);
+  assert.deepEqual(presetPicks([{id:'x',taken_at:''},{taken_at:new Date(at).toISOString()}],at),[]); // 시각·id 없는 칸은 고르지 않는다
+  const many=Array.from({length:PICK_MAX+5},(_,i)=>it('m'+i,i));
+  const picked=presetPicks(many,at);
+  assert.equal(picked.length,PICK_MAX);assert.ok(picked.includes('m0')&&!picked.includes('m'+(PICK_MAX+4)));
+  assert.equal(presetHead(5,5),'그 시각 사진 5장 선택됨');
+  assert.equal(presetHead(6,4),'그 시각 사진 6장 중 4장 선택됨');
+  assert.equal(presetHead(6,0),'그 시각 사진 6장');
+  assert.equal(presetHead(0,0),'그 시각 앞뒤 3시간에 찍은 사진이 없어요');
+  assert.equal(PRESET_NOTE,'누르면 빼기·더하기 · 저장하면 붙어요');
+});
+
+test('미리 골라 두기: 일정에서 연 쓰기 창만, [저장] 뒤 같은 한 묶음 길로(새 올리기 줄·서버 직접 쓰기 없음)', () => {
+  const team=readFileSync(new URL('../app/team.js',import.meta.url),'utf8'),ui=readFileSync(new URL('../app/time-photos.js',import.meta.url),'utf8');
+  assert.match(team,/meetingEntryPreset=!!meetingEntryEvent&&!!String\(at\|\|''\)\.trim\(\)/); // 일정 id와 시각이 있을 때만(종일 일정·[+] 새 보고는 지금처럼)
+  assert.match(team,/preset:\(\)=>meetingEntryPreset/);
+  assert.match(team,/timePicks=meetingTimePhotos\?\.chosen\?\.\(\)\|\|\[\]/); // [저장]을 누른 때 골라 둔 칸만
+  assert.match(team,/closeModal\('meetingModal'\);showSaved\(meeting,meetingAt\);if\(files\.length\|\|timePicks\.length\)void sendReportFiles\(/); // 창 먼저 닫고
+  assert.match(team,/window\.KPTULibrary\.sendForMeeting\(target,files\)/); // 공용 한 묶음 길 하나
+  assert.doesNotMatch(team,/uploadFileForMeeting\(.*timePick/);
+  assert.match(ui,/export async function timePhotoFiles\(/);
+  assert.match(ui,/reset\.chosen = \(\) => \(pre && open \?/); // 펼쳐 보인 줄에서 고른 것만
+  assert.doesNotMatch(ui,/rest\/v1|functions\/v1/); // 기기 저장 금지는 CI 저장 감사(audit)가 본다
+});
