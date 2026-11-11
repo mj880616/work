@@ -11,6 +11,7 @@
 // - https만. 숫자 IP·localhost·내부 이름·Supabase 호스트·포트·아이디/비밀번호가 든 주소는 읽지 않는다(_shared/news-url.ts 열린 주소 규칙 그대로).
 // - 요청을 보내기 직전마다 이름을 풀어, 풀린 주소가 하나라도 사설·루프백·링크로컬·메타데이터·예약 대역이면 보내지 않는다.
 //   robots.txt·리다이렉트 단계도 같은 확인을 지난다(공용 읽기 _shared/feed-fetch.ts의 doFetch를 감쌈).
+//   이름 풀이 기능이 없는 런타임이면 읽지 않고 503 LOOKUP_UNAVAILABLE(닫힌 쪽으로 실패).
 // - 리다이렉트 3번·응답 2MB·요청 10초(공용 읽기 상한) + 가져오기 전체 TOTAL_TIMEOUT_MS. 쿠키·인증 헤더 없음, 정직한 User-Agent.
 // - robots.txt가 막으면 읽지 않는다. 봇 확인 쪽·유료벽은 넘지 않는다(유료 기사는 공개 리드만).
 // - 글자 판(html·xhtml·text)만 받는다. HTML은 돌려주지 않고 글자 블록만 돌려준다. 본문은 노트 글자 상한 안으로 자른다.
@@ -124,9 +125,12 @@ const NO_META: Meta = { url: null, title: null, site: null, author: null, publis
 const failed = (reason: FailReason, meta: Meta = NO_META): ImportResult =>
   ({ ok: true, state: "failed", reason, ...meta, blocks: [], chars: 0, truncated: false });
 
-// 읽기 실패 코드(공용 읽기) → 화면에 줄 까닭. 막은 것(주소 모양·풀린 주소)이 하나라도 있으면 늘 blocked.
+// 읽기 실패 코드(공용 읽기) → 화면에 줄 까닭.
+// - 주소 모양 때문에 막은 것이 하나라도 있으면(리다이렉트가 가리킨 곳 포함) 늘 blocked.
+// - 이름 풀이에서 멈춘 것(안쪽 주소로 풀림·못 풂)은 둘 다 unreachable로만 알린다(서버에서 본 풀이 결과를 가르지 않음).
 export function failReason(code: string, guard: GuardState, expired: boolean): FailReason {
-  if (guard.blocked) return "blocked";
+  if (guard.shape) return "blocked";
+  if (guard.private || guard.unresolved || guard.unavailable) return "unreachable";
   if (expired) return "timeout";
   if (code === "url_outside" || code === "redirect_outside") return "blocked";
   if (code === "robots" || code === "robots_denied") return "robots";
@@ -135,8 +139,9 @@ export function failReason(code: string, guard: GuardState, expired: boolean): F
   if (code === "redirect_loop") return "redirect";
   const http = /^http_(\d{3})$/.exec(code)?.[1];
   if (http) return http === "404" || http === "410" ? "not_found" : "http_error";
-  return "unreachable"; // 연결 실패 · robots.txt를 못 읽음 · 이름을 못 풂
+  return "unreachable"; // 연결 실패 · robots.txt를 못 읽음
 }
+const lookupCode = (g: GuardState) => g.unavailable ? "unavailable" : g.private ? "private" : g.unresolved ? "unresolved" : "ok";
 
 // 읽어 온 글 → 결과. 순수 함수(시험용으로 내보냄).
 export function buildResult(got: { text: string; url: string; contentType: string | null }, nowMs: number): ImportResult {
@@ -202,19 +207,22 @@ export function createNoteImportHandler(deps: NoteImportDeps) {
       let out: ImportResult;
       try {
         // 리다이렉트가 규칙 밖 주소를 가리키면(공용 읽기가 allow로 거름) 그것도 '막음'으로 남긴다 — robots.txt 단계 포함.
-        const allow = (next: string) => { const u = noteImportUrl(next); if (!u) guard.blocked = true; return u; };
+        const allow = (next: string) => { const u = noteImportUrl(next); if (!u) guard.shape = true; return u; };
         const reader = makeFeedReader({
           doFetch: makeGuardedFetch(doFetch, deps.resolve, guard, { stop: stop.signal }),
           sleep, log, now, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS, allow,
         });
         const got = await reader.get(start.href, ACCEPT_HTML);
-        if (!got.ok) out = failed(failReason(got.code, guard, stop.signal.aborted));
-        else if (guard.blocked) out = failed("blocked");
+        const stopped = guard.shape || guard.private || guard.unresolved || guard.unavailable;
+        // 가는 길에 하나라도 막았으면 읽은 글이 있어도 돌려주지 않는다.
+        if (!got.ok || stopped) out = failed(failReason(got.ok ? "" : got.code, guard, stop.signal.aborted));
         else out = buildResult(got, nowMs);
       } finally {
         clearTimeout(timer);
       }
-      log("import", { state: out.state, reason: out.reason, blocks: out.blocks.length, chars: out.chars, truncated: out.truncated });
+      log("import", { state: out.state, reason: out.reason, lookup: lookupCode(guard), blocks: out.blocks.length, chars: out.chars, truncated: out.truncated });
+      // 이름 풀이 기능이 없으면 주소 탓이 아니라 서버 탓이다 — 코드로 알린다(확인 없이 읽지는 않았다).
+      if (guard.unavailable) throw new Fail(503, "LOOKUP_UNAVAILABLE");
       return json(out);
     } catch (e) {
       if (e instanceof Fail) {

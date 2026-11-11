@@ -5,7 +5,7 @@ import { cut, oneLine } from "../outside-feed/parse.ts";
 import { decodeText } from "../_shared/html-entities.ts";
 import type { Block } from "../_shared/feed-extract.ts";
 
-// 노트 본문 상한(app_notes.raw_text 20000자, app/basket-data.js와 같음). 화면이 블록을 노트 글로 바꿀 때 붙는
+// 노트 본문 상한(노트 표의 본문 칸 20000자, app/basket-data.js와 같음 — 이 함수는 노트 표를 읽거나 쓰지 않는다). 화면이 블록을 노트 글로 바꿀 때 붙는
 // 줄바꿈·소제목·인용 표시 몫으로 블록마다 NOTE_BLOCK_OVERHEAD자를 미리 셈한다(바꾼 글이 상한을 넘지 않게).
 export const NOTE_BODY_MAX_CHARS = 20000;
 export const NOTE_BLOCK_OVERHEAD = 6;

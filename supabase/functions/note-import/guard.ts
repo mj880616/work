@@ -4,6 +4,7 @@
 //    https만, 기본 포트만, 아이디·비밀번호 없음, 숫자 IP·IPv6·localhost·점 없는 이름·내부 이름·Supabase 호스트 거절, 2000자 안쪽.
 // 2) 이름 풀이 뒤 주소: 이름을 풀어 나온 주소가 하나라도 공개 주소가 아니면 요청을 보내지 않는다(사설·루프백·링크로컬·메타데이터·예약 대역).
 //    이 확인은 공용 읽기(_shared/feed-fetch.ts)의 doFetch를 감싸서 한다. 그래서 첫 주소·robots.txt·리다이렉트 단계마다 똑같이 걸린다.
+//    응답에서는 '안쪽 주소로 풀림'과 '이름을 못 풂'을 가르지 않는다(둘 다 unreachable) — 서버에서 본 이름 풀이 결과를 밖에 알리지 않는다.
 // 남는 위험(PR 본문 9항): 확인한 뒤 실제 연결 사이에 이름이 다른 주소로 바뀌는 경우(DNS 재바인딩)는 이 확인으로 못 막는다.
 //    Edge 런타임의 fetch는 연결할 주소를 고정하는 방법이 없다. 사설망 차단은 런타임에도 기댄다(news-url.ts 머리 주석과 같음).
 import { openArticleUrl } from "../_shared/news-url.ts";
@@ -82,16 +83,27 @@ export function isPublicIp(ip: unknown): boolean {
 }
 
 // ---- 읽기 전 확인(이름 풀이) -----------------------------------------------------------------------------------------
-// resolve: 호스트 이름 → 그 이름의 주소 목록(A·AAAA). 못 풀면 던지거나 빈 목록. 운영에서는 index.ts가 Deno.resolveDns로 만든다.
+// resolve: 호스트 이름 → 그 이름의 주소 목록(A·AAAA). 못 풀면 던지거나 빈 목록. 운영에서는 index.ts가 런타임 DNS 조회로 만든다.
 export type Resolve = (host: string) => Promise<string[]>;
-// 한 요청 동안의 확인 결과. blocked: 주소 모양 또는 풀린 주소 때문에 요청을 보내지 않았다. unresolved: 이름을 풀지 못했다(역시 보내지 않음).
-export type GuardState = { blocked: boolean; unresolved: boolean };
-export const newGuardState = (): GuardState => ({ blocked: false, unresolved: false });
+// 한 요청 동안 '보내지 않은 까닭'. 하나라도 서면 그 가져오기는 글을 돌려주지 않는다.
+export type GuardState = {
+  shape: boolean;       // 주소 모양이 규칙 밖이다(리다이렉트가 가리킨 주소 포함)
+  private: boolean;     // 이름이 공개 주소가 아닌 곳으로 풀렸다
+  unresolved: boolean;  // 이름을 풀지 못했다
+  unavailable: boolean; // 이름 풀이 기능이 없다(서버 쪽 문제 — 확인 없이 읽지 않는다)
+};
+export const newGuardState = (): GuardState => ({ shape: false, private: false, unresolved: false, unavailable: false });
 
 class GuardStop extends Error {
   constructor() {
     super("note_import_guard");
     this.name = "NoteImportGuard";
+  }
+}
+class ResolveUnavailable extends Error {
+  constructor() {
+    super("resolve_unavailable");
+    this.name = "ResolveUnavailable";
   }
 }
 
@@ -108,27 +120,28 @@ async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 // 같은 이름은 한 요청 안에서 한 번만 푼다. 막으면 던진다(공용 읽기는 'network'로 받지만, 까닭은 state에 남는다).
 // stop: 가져오기 전체 시간 상한. 지나면 새 요청을 보내지 않고, 보내 둔 요청도 끊는다.
 export type GuardOptions = { timeoutMs?: number; stop?: AbortSignal };
+type Verdict = "public" | "private" | "unresolved" | "unavailable";
 export function makeGuardedFetch(doFetch: typeof fetch, resolve: Resolve, state: GuardState, opts: GuardOptions = {}): typeof fetch {
   const timeoutMs = opts.timeoutMs ?? RESOLVE_TIMEOUT_MS, stop = opts.stop;
-  const known = new Map<string, Promise<"public" | "blocked" | "unresolved">>();
-  async function look(host: string): Promise<"public" | "blocked" | "unresolved"> {
+  const known = new Map<string, Promise<Verdict>>();
+  async function look(host: string): Promise<Verdict> {
     let list: unknown;
-    try { list = await withTimeout(resolve(host), timeoutMs); } catch { return "unresolved"; }
+    try { list = await withTimeout(resolve(host), timeoutMs); }
+    catch (e) { return (e as { name?: unknown } | null)?.name === "ResolveUnavailable" ? "unavailable" : "unresolved"; }
     if (!Array.isArray(list) || list.length === 0) return "unresolved";
-    if (list.length > RESOLVE_MAX_ADDRESSES) return "blocked";
-    return list.every(isPublicIp) ? "public" : "blocked";
+    if (list.length > RESOLVE_MAX_ADDRESSES) return "private";
+    return list.every(isPublicIp) ? "public" : "private";
   }
   const guarded = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const u = noteImportUrl(raw);
-    if (!u) { state.blocked = true; throw new GuardStop(); }
+    if (!u) { state.shape = true; throw new GuardStop(); }
     if (stop?.aborted) throw new GuardStop();
     const host = u.hostname.toLowerCase().replace(/\.$/, "");
     let verdict = known.get(host);
     if (!verdict) { verdict = look(host); known.set(host, verdict); }
     const v = await verdict;
-    if (v === "blocked") { state.blocked = true; throw new GuardStop(); }
-    if (v === "unresolved") { state.unresolved = true; throw new GuardStop(); }
+    if (v !== "public") { state[v] = true; throw new GuardStop(); }
     if (stop?.aborted) throw new GuardStop();
     const signal = stop ? (init?.signal ? AbortSignal.any([init.signal, stop]) : stop) : init?.signal;
     return await doFetch(input, signal ? { ...init, signal } : init);
@@ -137,11 +150,11 @@ export function makeGuardedFetch(doFetch: typeof fetch, resolve: Resolve, state:
 }
 
 // 운영용 이름 풀이: A·AAAA를 함께 묻고 나온 주소를 모두 돌려준다(하나라도 공개 주소가 아니면 위에서 막는다).
-// 둘 다 못 풀면 던진다. 풀이 기능이 없는 런타임이면 던진다 — 확인 없이 읽지 않는다(닫힌 쪽으로 실패).
+// 둘 다 못 풀면 던진다. 풀이 기능이 없는 런타임이면 ResolveUnavailable을 던진다 — 확인 없이 읽지 않는다(닫힌 쪽으로 실패).
 export type DnsLookup = (host: string, type: "A" | "AAAA") => Promise<unknown>;
 export function makeResolve(dns: DnsLookup | null | undefined): Resolve {
   return async (host: string): Promise<string[]> => {
-    if (typeof dns !== "function") throw new Error("resolve_unavailable");
+    if (typeof dns !== "function") throw new ResolveUnavailable();
     const settled = await Promise.allSettled([dns(host, "A"), dns(host, "AAAA")]);
     const out: string[] = [];
     for (const r of settled) if (r.status === "fulfilled" && Array.isArray(r.value)) out.push(...(r.value as string[]));

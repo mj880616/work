@@ -202,17 +202,23 @@ test('a public-looking name that resolves to a non-public address is never reque
   for(const list of [[ip],[PUBLIC_IP,ip],[ip,PUBLIC_IP6]]){
    const w=world({dns:{'rebind.example.net':list},sites:{'https://rebind.example.net/a':html(ARTICLE)}});
    const out=await imp(w,'https://rebind.example.net/a');
-   assert.equal(out.status,200);assert.equal(out.body.state,'failed',ip);assert.equal(out.body.reason,'blocked',ip);
+   assert.equal(out.status,200);assert.equal(out.body.state,'failed',ip);assert.deepEqual(out.body.blocks,[]);
    assert.equal(w.outbound().length,0,`no request for ${list.join(',')}`);
    assert.deepEqual(w.resolved,['rebind.example.net'],'looked up once, before any request');
+   // 밖에는 '닿지 못함'으로만 알린다(안쪽 주소로 풀렸는지·못 풀었는지 가르지 않음). 로그에는 코드만.
+   assert.equal(out.body.reason,'unreachable',ip);
+   assert.match(w.logs.join('\n'),/"lookup":"private"/);
   }
  }
- // 못 푸는 이름·빈 답·모양이 다른 답·너무 많은 답: 요청을 보내지 않는다.
- for(const [answer,reason] of [[undefined,'unreachable'],[[],'unreachable'],['93.184.216.34','unreachable'],[[5],'blocked'],[[null],'blocked'],[Array(G.RESOLVE_MAX_ADDRESSES+1).fill(PUBLIC_IP),'blocked']]){
+ // 못 푸는 이름·빈 답·모양이 다른 답·너무 많은 답: 요청을 보내지 않는다. 응답은 위와 똑같다.
+ const privateAnswer=await imp(world({dns:{'odd.example.net':['10.0.0.1']}}),'https://odd.example.net/a');
+ for(const [answer,lookup] of [[undefined,'unresolved'],[[],'unresolved'],['93.184.216.34','unresolved'],[[5],'private'],[[null],'private'],[Array(G.RESOLVE_MAX_ADDRESSES+1).fill(PUBLIC_IP),'private']]){
   const w=world({dns:answer===undefined?{}:{'odd.example.net':answer},sites:{'https://odd.example.net/a':html(ARTICLE)}});
   const out=await imp(w,'https://odd.example.net/a');
-  assert.equal(out.body.state,'failed');assert.equal(out.body.reason,reason,JSON.stringify(answer));
+  assert.equal(out.status,200);assert.deepEqual(out.body,privateAnswer.body,JSON.stringify(answer));
+  assert.equal(out.body.reason,'unreachable');
   assert.equal(w.outbound().length,0);
+  assert.match(w.logs.join('\n'),new RegExp(`"lookup":"${lookup}"`));
  }
  // 공개 주소만 나오면 읽는다. robots.txt와 글 모두 이름 풀이 뒤에 나간다.
  const ok=world({sites:{'https://news.example.net/a':html(ARTICLE)}});
@@ -225,17 +231,25 @@ test('a public-looking name that resolves to a non-public address is never reque
 test('name lookup that hangs or is unavailable fails closed; the runtime resolver joins A and AAAA answers',async()=>{
  const sent=[];
  const doFetch=async url=>{sent.push(url);return new Response('ok');};
+ const clear={shape:false,private:false,unresolved:false,unavailable:false};
+ assert.deepEqual(G.newGuardState(),clear);
  const s1=G.newGuardState();
  await assert.rejects(G.makeGuardedFetch(doFetch,()=>new Promise(()=>{}),s1,{timeoutMs:5})('https://example.org/a'));
- assert.deepEqual(s1,{blocked:false,unresolved:true});
+ assert.deepEqual(s1,{...clear,unresolved:true});
  const s2=G.newGuardState();
  await assert.rejects(G.makeGuardedFetch(doFetch,G.makeResolve(undefined),s2)('https://example.org/a'));
- assert.deepEqual(s2,{blocked:false,unresolved:true});
+ assert.deepEqual(s2,{...clear,unavailable:true});
  // 감싼 읽기는 주소 모양도 스스로 다시 본다(공용 읽기의 allow와 별개).
  const s3=G.newGuardState();
  await assert.rejects(G.makeGuardedFetch(doFetch,async()=>[PUBLIC_IP],s3)('http://example.org/a'));
  await assert.rejects(G.makeGuardedFetch(doFetch,async()=>[PUBLIC_IP],s3)('https://169.254.169.254/latest/meta-data/'));
- assert.deepEqual(s3,{blocked:true,unresolved:false});
+ assert.deepEqual(s3,{...clear,shape:true});
+ // 공개 주소로 풀리면 그대로 보낸다(같은 이름은 한 번만 푼다).
+ let lookups=0;
+ const open=G.makeGuardedFetch(doFetch,async()=>{lookups++;return [PUBLIC_IP,PUBLIC_IP6];},G.newGuardState());
+ assert.equal(await (await open('https://example.org/a')).text(),'ok');
+ assert.equal(await (await open('https://example.org/b')).text(),'ok');
+ assert.equal(lookups,1);assert.deepEqual(sent.splice(0),['https://example.org/a','https://example.org/b']);
  // 전체 시간 상한이 지난 뒤에는 새 요청을 보내지 않는다.
  const stop=new AbortController();stop.abort();
  await assert.rejects(G.makeGuardedFetch(doFetch,async()=>[PUBLIC_IP],G.newGuardState(),{stop:stop.signal})('https://example.org/a'));
@@ -252,7 +266,20 @@ test('name lookup that hangs or is unavailable fails closed; the runtime resolve
  // 한쪽 답에 사설 주소가 섞이면 막힌다(둘을 모두 본다).
  const s4=G.newGuardState();
  await assert.rejects(G.makeGuardedFetch(doFetch,G.makeResolve(dns({A:[PUBLIC_IP],AAAA:['fd00:ec2::254']})),s4)('https://example.org/a'));
- assert.deepEqual(s4,{blocked:true,unresolved:false});assert.deepEqual(sent,[]);
+ assert.deepEqual(s4,{...clear,private:true});assert.deepEqual(sent,[]);
+});
+
+test('when the runtime has no name lookup the function refuses to read anything: 503 code only, no outside request',async()=>{
+ const sent=[];
+ const handler=H.createNoteImportHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE})[n],resolve:G.makeResolve(null),sleep:async()=>{},now:()=>NOW,log:()=>{},
+  fetch:async(url,init={})=>{const u=new URL(url);
+   if(u.pathname==='/auth/v1/user')return new Response(JSON.stringify({id:USER}),{status:200});
+   if(u.pathname.endsWith('/app_workspace_members'))return new Response(JSON.stringify([{workspace_id:WS}]),{status:200});
+   if(u.origin===SB)return (init.method??'GET')==='GET'?new Response('[]',{status:200}):new Response(null,{status:204});
+   sent.push(u.href);return new Response(ARTICLE,{status:200,headers:{'content-type':'text/html'}});}});
+ const out=await handler(req({url:PAGE}));
+ assert.equal(out.status,503);assert.deepEqual(await out.json(),{ok:false,error:'LOOKUP_UNAVAILABLE'});
+ assert.deepEqual(sent,[]);
 });
 
 // ---- 리다이렉트 ------------------------------------------------------------------------------------------------------
@@ -260,16 +287,20 @@ const hop=to=>({status:302,headers:{location:to}});
 test('redirects are re-checked at every step: to http, IP literals, internal names or names resolving to private addresses → blocked, never requested',async()=>{
  const targets=['http://example.org/plain','https://169.254.169.254/latest/meta-data/','https://127.0.0.1/admin','https://[::1]/','https://localhost/x',
   'https://metadata.google.internal/computeMetadata/v1/','https://synthetic.supabase.co/rest/v1/','https://example.org:8443/x','https://user:pw@example.org/x',
-  'https://inside.example.net/secret','ftp://example.org/x','//10.0.0.1/x'];
+  'ftp://example.org/x','//10.0.0.1/x','https://inside.example.net/secret','https://nowhere.example.net/x'];
  for(const to of targets){
   const w=world({dns:{'inside.example.net':['10.0.0.7']},sites:{[PAGE]:hop(to),'https://inside.example.net/secret':html(ARTICLE)}});
   const out=await imp(w,PAGE);
-  assert.equal(out.body.state,'failed',to);assert.equal(out.body.reason,'blocked',to);assert.equal(out.body.url,null);
+  // 주소 모양으로 막힌 곳은 blocked, 이름 풀이에서 멈춘 곳(안쪽 주소로 풀림·못 풂)은 unreachable — 어느 쪽이든 그 주소로는 요청이 나가지 않는다.
+  const reason=/(inside|nowhere)\.example\.net/.test(to)?'unreachable':'blocked';
+  assert.equal(out.body.state,'failed',to);assert.equal(out.body.reason,reason,to);assert.equal(out.body.url,null);assert.deepEqual(out.body.blocks,[]);
   assert.deepEqual(w.outbound().map(c=>c.url),['https://example.org/robots.txt',PAGE],`only the first site was contacted for ${to}`);
  }
  // 두 번째 단계에서 넘겨도 같다.
- const w2=world({dns:{'inside.example.net':['192.168.0.9']},sites:{[PAGE]:hop('https://www.example.org/2'),'https://www.example.org/2':hop('https://inside.example.net/secret')}});
- assert.equal((await imp(w2,PAGE)).body.reason,'blocked');
+ const w2=world({dns:{'inside.example.net':['192.168.0.9']},sites:{[PAGE]:hop('https://www.example.org/2'),'https://www.example.org/2':hop('https://inside.example.net/secret'),
+  'https://inside.example.net/secret':html(ARTICLE)}});
+ const r2=await imp(w2,PAGE);
+ assert.equal(r2.body.state,'failed');assert.equal(r2.body.reason,'unreachable');
  assert.ok(!w2.outbound().some(c=>c.url.includes('inside.example.net')));
  // robots.txt가 안쪽으로 넘겨도 막힌다(글은 읽지 않음).
  const w3=world({sites:{'https://example.org/robots.txt':hop('https://169.254.169.254/robots.txt'),[PAGE]:html(ARTICLE)}});
@@ -454,16 +485,19 @@ test('robots.txt, bot-check pages and paywalls are not bypassed; http errors and
  assert.equal(d.body.reason,'unreachable');assert.doesNotMatch(d.text,/ECONNREFUSED|10\.9\.8\.7/);
 });
 
-test('failure reason mapping: anything blocked on the way wins; then the total time limit; unknown codes are unreachable',()=>{
+test('failure reason mapping: a blocked address shape wins; a stopped name lookup is only "unreachable"; then the total time limit',()=>{
  const clear=G.newGuardState();
- assert.equal(H.failReason('http_404',{blocked:true,unresolved:false},false),'blocked');
- assert.equal(H.failReason('network',{blocked:true,unresolved:true},true),'blocked');
+ assert.equal(H.failReason('http_404',{...clear,shape:true},false),'blocked');
+ assert.equal(H.failReason('network',{...clear,shape:true,private:true,unresolved:true},true),'blocked');
+ for(const k of ['private','unresolved','unavailable']){
+  assert.equal(H.failReason('network',{...clear,[k]:true},false),'unreachable',k);
+  assert.equal(H.failReason('',{...clear,[k]:true},true),'unreachable',k);
+ }
  assert.equal(H.failReason('too_large',clear,true),'timeout');
  for(const [code,reason] of [['url_outside','blocked'],['redirect_outside','blocked'],['robots','robots'],['robots_denied','robots'],['too_large','too_big'],['timeout','timeout'],
   ['redirect_loop','redirect'],['http_404','not_found'],['http_410','not_found'],['http_500','http_error'],['network','unreachable'],['robots_unreachable','unreachable'],['something_new','unreachable']]){
   assert.equal(H.failReason(code,clear,false),reason,code);
  }
- assert.equal(H.failReason('network',{blocked:false,unresolved:true},false),'unreachable');
 });
 
 // ---- 서버 내부 정보 ---------------------------------------------------------------------------------------------------
@@ -510,7 +544,7 @@ test('registration: verify_jwt true in the deploy table, CORS wrapper, shared re
  const handler=read('supabase/functions/note-import/handler.ts'),guard=read('supabase/functions/note-import/guard.ts'),article=read('supabase/functions/note-import/article.ts');
  assert.match(handler,/import \{ ACCEPT_HTML, makeFeedReader, type FeedLog \} from "\.\.\/_shared\/feed-fetch\.ts";/);
  assert.match(handler,/import \{ guessLang, readArticlePage \} from "\.\.\/news-feed\/page\.ts";/);
- assert.match(handler,/const allow = \(next: string\) => \{ const u = noteImportUrl\(next\); if \(!u\) guard\.blocked = true; return u; \};/);assert.match(handler,/doFetch: makeGuardedFetch\(doFetch, deps\.resolve, guard, \{ stop: stop\.signal \}\)/);
+ assert.match(handler,/const allow = \(next: string\) => \{ const u = noteImportUrl\(next\); if \(!u\) guard\.shape = true; return u; \};/);assert.match(handler,/doFetch: makeGuardedFetch\(doFetch, deps\.resolve, guard, \{ stop: stop\.signal \}\)/);
  for(const [name,src] of [['handler',handler],['guard',guard],['article',article],['index',index]]){
   assert.doesNotMatch(src,/openai|ai-model|gemini|translate/i,`${name}: no AI or translation`);
   assert.doesNotMatch(src,/Access-Control-Allow-Origin/,`${name}: origin only through the shared wrapper`);
