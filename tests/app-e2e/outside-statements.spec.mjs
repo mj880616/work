@@ -163,7 +163,7 @@ for (const width of [412, 884, 1280]) {
     await expect(p1.locator('.nw-src')).toHaveText('민주노총');
     await expect(p1.locator('.nw-tag')).toHaveText('성명');
     await expect(p1.locator('.nw-time')).toHaveText('09:30');
-    await expect(p1).toHaveAttribute('style', '--nw-c:var(--ds-news-labor-1)');
+    await expect(p1).toHaveAttribute('style', '--nw-c:var(--ds-news-id-kctu);--nw-bar:var(--ds-news-id-kctu-bar)');
     const [bar, src] = await Promise.all([p1.locator('.nw-bar').evaluate(el => getComputedStyle(el).backgroundColor), p1.locator('.nw-src').evaluate(el => getComputedStyle(el).color)]);
     expect(bar).toBe(src);
     await expect(row(page, 'outside:p3').locator('.nw-tag')).toHaveText('국제');
