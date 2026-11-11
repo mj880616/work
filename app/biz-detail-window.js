@@ -1,8 +1,10 @@
 // BIZ-기록하나로 B-4 ②(설계 docs/design/record-one.md 2-7 '2. 2) 주요 사업·회의결과'·4절 표 '홈 [주간 정리] 2. 2)'·'사업 보고'): 2. 2) 주요 사업 창 부품 하나.
 // 홈 [주간 정리] 2. 2)와 사업 보고 '이번 주 주간보고' 2)가 같은 부품을 쓴다(상자마다 이 부품 하나가 상태 주인이고 그리는 곳 — AGENTS.md 5절).
 // - 줄 = 그 주 사업 기록 + 그 주 사업 보고를 사업별로 묶음(규칙은 biz-detail-model.mjs). 사업 보고 결과 본문이 있으면 기본 '상세 포함'(줄 아래 본문).
-// - 줄 ⋯ = [보고용으로 수정](작은 ✓)·[원래 글로]·[이번 보고에서 빼기]·[한 줄만 ↔ 상세 포함](본문 있는 사업 보고만)·[기록 열기](+ 홈에서는 [이 종류 늘 빼기]).
+// - 줄 ⋯ = [보고용으로 수정](작은 ✓)·[원래 글로]·[이번 보고에서 빼기]·[한 줄만 ↔ 상세 포함](본문 있는 사업 보고만)·[기록 열기](사업 보고 줄은 [보고 열기])(+ 홈에서는 [이 종류 늘 빼기]).
 //   보고에만 다른 것은 app_report_line_marks(section 'biz_detail', '그 주부터' 이어짐)에 한 행. 원래 사업 기록·사업 보고는 바꾸지 않는다.
+// - ORG-빠진일2차 3번(S59-3, 명진 결정 11/11 '가'): 사업 기록(한 줄 글) 줄 ⋯ 맨 아래에만 빨간 [삭제](한 번 묻고, 기존 owner RLS DELETE — business-now-data.js deleteBusinessRecord).
+//   사업 보고 줄에는 [삭제]가 없고 [보고 열기]로 보고 창을 연다(보고 삭제는 보고 창에서 — 자료·Drive까지 가는 길이라 이 ⋯에 두지 않는다).
 // - ORG-뺀줄지난줄메뉴: 뺀 줄도 보이는 줄과 같은 작은 ⋯ 하나(메뉴 맨 위 [되돌리기], 그 아래 [보고용으로 수정]·[원래 글로]·[기록 열기]). 큰 [되돌리기] 단추는 없다. PC 우클릭은 공용 context-menu.js가 그 줄 ⋯를 연다.
 // - 묶음 아래 [뺀 줄 n](펼쳐 ⋯ [되돌리기])·[+ 쓰기](그 사업 사업 기록 한 줄, business-now-data.js saveBusinessRecord), 맨 아래 [+ 쓰기](사업 고르기).
 // - 사업 기록·지금 상황이 다른 화면에서 바뀌면(kptu:business-now-changed) 다시 읽고, 다른 상자가 표시를 바꾸면(kptu:biz-detail-changed) 다시 읽는다.
@@ -18,6 +20,7 @@ import * as D from './biz-detail-model.mjs';
 import * as NM from './business-now-model.mjs';
 import * as ND from './business-now-data.js';
 import {meetingLine} from './journal-data.js';
+import {askConfirm} from './small-notice.js';
 
 const MARKS = '/rest/v1/app_report_line_marks';
 const MARK_COLS = 'id,week_start,section,ref_kind,ref_key,report_body,choice,detail,updated_at';
@@ -28,6 +31,7 @@ export const TEXT = {
   failed: '주요 사업을 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.', noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 선택해 주세요.',
   noSpace: '사업을 선택해 주세요.', saved: '저장했어요.', added: '기록을 남겼어요.', out: '이번 보고에서 뺐어요.', back: '보고에 다시 넣었어요.',
   orig: '원래 글로 되돌렸어요.', full: '상세 포함으로 바꿨어요.', one: '한 줄만 보이게 바꿨어요.', marksOff: '보고용 표시 칸이 아직 준비되지 않았어요.',
+  deleted: '사업 기록을 삭제했어요.', delFailed: '사업 기록을 삭제하지 못했어요. 다시 눌러 주세요.', delAsk: '이 사업 기록을 삭제할까요?',
 };
 let seq = 0;
 
@@ -79,7 +83,10 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
       if (where === 'shown' && l.canFull) items.push({text: l.detail === 'full' ? '한 줄만' : '상세 포함', data: {bdDetail: l.id}, aria: `${l.detail === 'full' ? '한 줄만' : '상세 포함'}: ${l.text}`});
       if (where === 'shown') items.push({text: '이번 보고에서 빼기', data: {bdOut: l.id}, danger: true, aria: `이번 보고에서 빼기: ${l.text}`});
     }
-    items.push({text: '기록 열기', data: {bdOpen: l.id}, aria: `기록 열기: ${l.text}`});
+    // 열기: 사업 보고 줄은 [보고 열기](보고 창 — 보고 삭제는 거기서), 사업 기록 줄은 [기록 열기] + 맨 아래 [삭제](S59-3, 명진 결정 11/11 '가').
+    const openText = l.kind === 'meeting' ? '보고 열기' : '기록 열기';
+    items.push({text: openText, data: {bdOpen: l.id}, aria: `${openText}: ${l.text}`});
+    if (l.kind === 'biz_record') items.push({text: '삭제', data: {bdDel: l.id}, danger: true, aria: `삭제: ${l.text}`});
     if (kinds && where === 'shown' && l.kind === 'meeting') {
       const m = meetingOf(l.key), name = meetingKindName(m), key = meetingKindKey(name);
       if (validKindKey(key)) items.push({text: '이 종류 늘 빼기', data: {journalKindToggle: key, journalKindHide: '1', journalKindName: name}, aria: `${name} 종류를 주간보고에서 늘 빼기`});
@@ -149,14 +156,14 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
   const say = (text, error = false) => { ctl.msg = text || ''; ctl.error = !!error; const s = el.querySelector('[data-bd-status]'); if (s) { s.textContent = ctl.msg; s.classList.toggle('is-error', ctl.error); } };
 
   // ---- 쓰기 ----
-  const work = async (fn, done) => {
+  const work = async (fn, done, failed = TEXT.saveFailed) => {
     if (ctl.busy) return false;
     ctl.busy = true; say('저장하는 중…'); render();
     let ok = true;
     try { await fn(); } catch (e) { ok = false; console.warn('biz detail write failed', e?.message || e); }
     ctl.busy = false;
     if (ok) { ctl.editing = null; ctl.draft = null; ctl.invalid = ''; }
-    render(); say(ok ? done : TEXT.saveFailed, !ok);
+    render(); say(ok ? done : failed, !ok);
     if (ok) announce();
     return ok;
   };
@@ -196,6 +203,22 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
     if (!v.ok) { ctl.invalid = 'body'; render(); say(TEXT.noBody, true); ctl.focus = '[data-bd-field="body"]'; render(); return; }
     await mark(hit.line, {report_body: v.value}, TEXT.saved);
   }
+  // 사업 기록 줄 삭제(사업 기록 한 줄만 — 사업 보고 줄에는 이 길이 없다): 한 번 묻고 → 그 작업공간의 그 기록 한 행 DELETE(owner RLS, business-now-data.js) → 줄이 빠지고
+  // 다른 상자·표는 같은 탭 알림으로 다시 읽는다. 사업 보고는 지우지 않는다(보고 삭제는 보고 창 ⋯).
+  async function deleteRecord(hit, anchor) {
+    const l = hit.line, week = ctl.week;
+    if (l.kind !== 'biz_record') return;
+    const yes = await askConfirm(anchor, {text: TEXT.delAsk, ok: '삭제', danger: true});
+    if (!yes || week !== ctl.week || ctl.busy || ctl.editing || !findLine(l.id)) return;
+    writing = true;
+    try {
+      await work(async () => {
+        await ND.deleteBusinessRecord(l.key, rt, wsOf());
+        ctl.records = ctl.records.filter(r => !(r.kind === 'biz_record' && r.key === l.key));
+        ctl.focus = `[data-bd-add="${CSS.escape(hit.group.space || '')}"], [data-bd-add=""]`; // 줄이 없어졌으니 초점은 그 사업의 [+ 쓰기]로
+      }, TEXT.deleted, TEXT.delFailed);
+    } finally { writing = false; }
+  }
   function cancel() { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e?.id === 'new' ? `[data-bd-add="${CSS.escape(e.space || '')}"]` : e ? `[data-bd-more="${CSS.escape(e.id)}"] > summary` : ''; render(); say(''); }
   function openAdd(space) {
     const today = seoulDateKey(Date.now()), day = today >= ctl.week && today <= NM.sundayOf(ctl.week) ? today : ctl.week;
@@ -217,11 +240,12 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
     if ('bdCancel' in d) { cancel(); return; }
     if ('bdSave' in d) { void save(); return; }
     if ('bdFold' in d) { const s = d.bdFold; if (ctl.outOpen.has(s)) ctl.outOpen.delete(s); else ctl.outOpen.add(s); ctl.focus = `[data-bd-fold="${CSS.escape(s)}"]`; render(); return; }
-    const id = d.bdEdit || d.bdOrig || d.bdOut || d.bdBack || d.bdOpen || d.bdDetail;
+    const id = d.bdEdit || d.bdOrig || d.bdOut || d.bdBack || d.bdOpen || d.bdDetail || d.bdDel;
     if (!id || ctl.busy || ctl.editing) return;
     const hit = findLine(id); if (!hit) return;
     const l = hit.line, menu = b.closest('details'); if (menu) menu.open = false;
-    // [기록 열기]: 메뉴 누름 뒷정리가 끝난 다음 차례에 연다(조직보고 창과 같은 까닭 — 폰에서 막 연 창이 그 누름과 겹치지 않게).
+    if (d.bdDel) { void deleteRecord(hit, menu?.querySelector('summary') || b); return; }
+    // [기록 열기]·[보고 열기]: 메뉴 누름 뒷정리가 끝난 다음 차례에 연다(조직보고 창과 같은 까닭 — 폰에서 막 연 창이 그 누름과 겹치지 않게).
     if (d.bdOpen) {
       const back = menu?.querySelector('summary') || b;
       setTimeout(() => {

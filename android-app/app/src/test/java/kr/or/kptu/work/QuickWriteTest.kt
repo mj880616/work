@@ -149,4 +149,13 @@ class QuickWriteTest {
         }
         assertFalse(text.contains("getSharedPreferences") || text.contains("openFileOutput") || text.contains("localStorage"))
     }
+
+    @Test
+    fun updateTextsUseTheForgetListName() {
+        // 웹 메뉴 이름이 '잊지 말기'로 바뀐 뒤(HOME-잊지말기한목록) 위젯 알림·입력칸 글자도 같은 이름이다.
+        assertEquals("잊지 말기에 넣었어요", QuickWriteRules.saved(WidgetAction.UPDATE))
+        assertEquals("업데이트 입력(잊지 말기에 저장)", QuickWriteRules.hint(WidgetAction.UPDATE))
+        assertEquals("할 일에 넣었어요", QuickWriteRules.saved(WidgetAction.TASK))
+        assertEquals("노트에 넣었어요", QuickWriteRules.saved(WidgetAction.NOTE))
+    }
 }

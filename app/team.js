@@ -408,17 +408,19 @@ function meetingListClick(e){if(reportView!=='list'&&reportViewClick(e))return;c
 // 왼쪽 종류 목록·가운데 차수 목록: 위·아래 화살표로 같은 목록 안에서 옮겨 다니고(Home·End 처음·끝), Enter·Space로 고른다(버튼 기본 동작).
 // S51-27 UI-PC우클릭: PC에서 보고 줄을 우클릭하면 그 줄을 고른 것(왼쪽 누름과 같음)으로 하고, 그 보고가 오른쪽 칸에 뜨면 그 보고의 ⋯ 메뉴
 // ([수정][종류 바꾸기][삭제], meeting-round-detail.js)를 누른 자리에 연다. 예전에는 공용 우클릭이 지금 떠 있는 다른 보고의 ⋯를 눌렀다.
-// S57-8 BIZ-달력우클릭끌기: 보고 ⋯ 메뉴([수정][종류 바꾸기][삭제], meeting-round-detail.js)를 누른 자리에 여는 한 길. 목록·달력·사진 보기가 같이 쓴다.
+// 목록 보기는 그 보고가 오른쪽 칸에 앉은 뒤 그 ⋯를 누른 자리에 연다. 달력·사진 보기는 창을 열지 않고 같은 메뉴를 그 줄 자리에 연다(reportViewMenu → menuAt, S58-16).
 async function openReportMenuAt(id,at){
   for(let i=0;i<180;i++){const modal=document.querySelector('#meetingRoundDetailModal'),more=document.querySelector('#mrdMore');
     if(modal?.dataset.meetingId===id&&more&&!more.classList.contains('hidden')&&more.getClientRects().length){window.KPTUContextMenu?.pinAt?.(more,at.x,at.y);more.click();return}
     await new Promise(r=>requestAnimationFrame(r))}}
-// 달력·사진 보기: 보고(칸 안 제목·그날 목록 줄·사진 보기 머리) 우클릭 = 목록 보기와 같은 보고 메뉴, 달력 빈 칸 우클릭 = [이날 사업 보고 추가][이날 보기].
+// 달력·사진 보기: 보고(칸 안 제목·그날 목록 줄·'+n' 그날 창 줄·사진 보기 머리) 우클릭 = 목록 보기와 같은 보고 메뉴, 달력 빈 칸 우클릭 = [이날 사업 보고 추가][이날 보기].
 // 키보드 메뉴 키·Shift+F10도 같은 contextmenu라 포커스 받은 제목·숫자 단추에서 같은 메뉴가 열린다. 폰 폭·꾹 누르기·글자 칸은 appMenuPoint가 기본 메뉴로 남긴다.
-function reportViewMenu(e){
+// S58-16 BIZ-달력우클릭창뜸: 보고 우클릭은 메뉴만 — 보고 창은 왼쪽 누를 때만 연다. 메뉴는 보고 창 ⋯와 같은 부품을 창 밖에서 여는 한 길(meeting-round-detail.js menuAt)이고,
+// [수정]을 고르면 그때 수정 창, [종류 바꾸기]·[삭제]는 창 없이 그 자리에서. before = [수정]으로 창을 열기 전에 할 일(그날 창이 부를 때 그 창 닫기).
+function reportViewMenu(e,{before=null}={}){
   const t=e.target instanceof Element?e.target:null;if(!t)return false;
   const rep=t.closest('[data-mrd-meeting]');
-  if(rep&&!t.closest('button,a,input,select,textarea')){const at=appMenuPoint(e,rep);if(!at)return false;e.preventDefault();const id=String(rep.dataset.mrdMeeting);void window.KPTUMeetingRoundDetail?.open?.(id);void openReportMenuAt(id,at);return true}
+  if(rep&&!t.closest('button,a,input,select,textarea')){const at=appMenuPoint(e,rep);if(!at)return false;e.preventDefault();void window.KPTUMeetingRoundDetail?.menuAt?.(String(rep.dataset.mrdMeeting),rep,at,{before});return true}
   // S58-10: 칸 안 보고할 일정 줄(⋯ 단추가 없는 자리) 우클릭 = 그날 목록 그 줄의 ⋯와 같은 메뉴. ⋯가 있는 줄(그날 목록·'안 쓴 보고' 목록)의 우클릭은
   // 사이트 공통 우클릭(context-menu.js)이 그 줄의 ⋯를 눌러 준다 — 여기서 받지 않고 넘긴다(칸 메뉴로도 가지 않게).
   const plan=reportView==='calendar'?t.closest('#meetingList .rv-table [data-rv-plan]'):null;

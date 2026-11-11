@@ -52,6 +52,15 @@ export async function fillNow(rt, list, workspaceId = wsOf(rt)) {
   await rt.api(`${NOW}?on_conflict=workspace_id,space_id,week_start`, {method: 'POST', prefer: 'return=minimal,resolution=ignore-duplicates', singleFlight: false, body});
   return list.length;
 }
+// 사업 기록 한 줄 삭제(S59-3 ORG-빠진일2차 3번): 기존 owner RLS DELETE(business_records_owner_all) 그대로 — 새 권한·DB 변경 없음.
+// 그 작업공간 id를 함께 걸고, 돌려받은 줄이 있어야 성공(권한 없음·이미 없음은 던진다). 묻기·알림 글·다시 그리기는 부르는 화면이 한다.
+// 이 기록을 가리키던 보고용 표시(app_report_line_marks)는 줄 열쇠만 붙어 있어 기록이 없어지면 저절로 쓰이지 않는다(새로 지우는 길을 만들지 않는다).
+export async function deleteBusinessRecord(id, rt = window.KPTURuntime, workspaceId = wsOf(rt)) {
+  if (!id || !workspaceId) throw Object.assign(new Error('삭제할 사업 기록을 찾지 못했어요.'), {code: 'empty'});
+  const rows = await rt.api(`${RECS}?id=eq.${enc(id)}&workspace_id=eq.${enc(workspaceId)}&select=id`, {method: 'DELETE', prefer: 'return=representation', singleFlight: false});
+  if (!Array.isArray(rows) || !rows.length) throw new Error('권한이 없거나 이미 없는 항목입니다.');
+  window.dispatchEvent(new CustomEvent(BIZ_NOW_EVENT, {detail: {records: true}}));
+}
 // 사업 기록 한 줄 넣기(업데이트·소식 [사업]). source_kind user는 원래 줄이 없고, 그 밖은 원래 줄 번호가 있어야 한다(DB 검사와 같음).
 // 같은 원래 줄을 두 번 넣으면 DB 고유 색인이 거절한다(409) — 이미 들어간 것이므로 저장된 것으로 본다.
 export async function saveBusinessRecord({space_id, day, end_day = null, body, source_kind = 'user', source_id = null}, rt = window.KPTURuntime, workspaceId = wsOf(rt)) {

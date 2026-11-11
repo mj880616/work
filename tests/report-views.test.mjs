@@ -167,8 +167,10 @@ test('끌어 옮기기 연결: 달력 그릴 때 한 번 설치, 우클릭은 �
   assert.match(team, /mountStrips\(box,\(\)=>box\.isConnected\);mountReportDrag\(\)/);
   assert.match(team, /import\('\.\/report-calendar-actions\.js'\)/);
   assert.match(team, /async function meetingListMenu\(e\)\{if\(reportView!=='list'&&reportViewMenu\(e\)\)return;/);
-  const menu = team.match(/function reportViewMenu\(e\)\{[\s\S]*?\n\/\/ 끌어 옮기기/)[0];
-  assert.match(menu, /\[data-mrd-meeting\]/); assert.match(menu, /KPTUMeetingRoundDetail\?\.open\?\.\(id\)/); assert.match(menu, /openReportMenuAt\(id,at\)/);
+  const menu = team.match(/function reportViewMenu\(e,\{before=null\}=\{\}\)\{[\s\S]*?\n\/\/ 끌어 옮기기/)[0];
+  // S58-16 BIZ-달력우클릭창뜸: 보고 우클릭은 메뉴만 — 보고 창을 열지 않고(open 없음) 같은 메뉴를 창 밖에서 여는 한 길(menuAt).
+  assert.match(menu, /\[data-mrd-meeting\]/); assert.match(menu, /KPTUMeetingRoundDetail\?\.menuAt\?\.\(String\(rep\.dataset\.mrdMeeting\),rep,at,\{before\}\)/);
+  assert.doesNotMatch(menu, /KPTUMeetingRoundDetail\?\.open/); assert.doesNotMatch(menu, /openReportMenuAt/);
   assert.match(menu, /reportView==='calendar'\?t\.closest\('\[data-rv-cell\]'\)/); assert.match(menu, /appMenuPoint\(e,cell\)/);
   assert.match(menu, /newReport\(from\.querySelector\('\.rv-num'\)\|\|from,day\)/);
   assert.match(team, /function newReport\(trigger,date=''\)/); assert.match(team, /openMeetingModal\(\{name:newMeetingName\(\),kind:reportChip,date\}\)/); assert.match(team, /openMeetingModal\(\{kind,trigger,date\}\)/);
@@ -224,7 +226,8 @@ test('그날 창 연결: 일정 달력과 같은 창 부품, 줄 누름·우클�
   // 줄 누름: 창을 닫고 보고 열기. 추가 단추: 창을 닫고 그 날짜로 새 보고. 우클릭: 부르는 쪽 보고 메뉴가 열렸으면 창 닫기.
   assert.match(act, /if \(row\) \{ const id = String\(row\.dataset\.mrdMeeting\); closeReportDayWindow\(\); dayDeps\?\.open\(id\); \}/);
   assert.match(act, /if \(add\) \{ const day = add\.dataset\.rvPopAdd; closeReportDayWindow\(\); dayDeps\?\.add\(day\); return; \}/);
-  assert.match(act, /addEventListener\('contextmenu', e => \{ if \(mine\(e\) && e\.target\.closest\('\[data-mrd-meeting\]'\) && dayDeps\?\.menu\(e\)\) closeReportDayWindow\(\); \}\)/);
+  // S58-16: 그날 창 줄 우클릭은 메뉴만 — 그날 창은 닫지 않고, [수정]으로 창을 열 때만 먼저 닫는다(before).
+  assert.match(act, /addEventListener\('contextmenu', e => \{ if \(mine\(e\) && e\.target\.closest\('\[data-mrd-meeting\]'\)\) dayDeps\?\.menu\(e, \{before: closeReportDayWindow\}\); \}\)/);
   // 끌기: 창 안 줄도 같은 끌기 입력이 받고, 끌기가 시작되면 창을 닫아 놓을 칸이 보이게 한다. 원래 날은 줄의 data-rv-from.
   assert.match(act, /const ROWS = '#meetingList \.rv-cal \[data-mrd-meeting\], #calendarDayList \[data-rv-from\]\[data-mrd-meeting\]'/);
   assert.match(act, /const el = e\.target\.closest\?\.\(ROWS\)/); assert.match(act, /\|\| el\.dataset\.rvFrom \|\|/);
@@ -491,4 +494,21 @@ test('화면 연결(S58-10): 그리는 곳은 renderReportCalendar 하나, 저�
   assert.match(css, /#meetingList \.rv-dot-ask\{border:1\.5px dashed var\(--kptu-faint\)\}/);
   assert.match(css, /\.rv-pop-row \.rv-dot-todo\{border:1\.5px solid var\(--meeting-color,var\(--kptu-muted\)\)\}/);
   assert.match(css, /\.rv-pop-row \.rv-dot-ask\{border:1\.5px dashed var\(--kptu-faint\)\}/);
+});
+// S58-16 BIZ-달력우클릭창뜸: 보고 메뉴는 한 벌 — 창 밖(달력·사진 보기 우클릭)에서 여는 길(menuAt)도 창 ⋯와 같은 부품·항목·동작이고 창을 열지 않는다.
+// [수정]만 그때 창을 열고, [종류 바꾸기]는 보던 화면에 그대로 둔다(목록 보기로 옮겨 고르지 않음 — reveal:false).
+test('보고 메뉴 한 벌: 창 밖 메뉴(menuAt)는 창 ⋯와 같은 부품, 창을 열지 않고 [수정]만 그때 창', () => {
+  const mrd = readFileSync(new URL('../app/meeting-round-detail.js', import.meta.url), 'utf8');
+  const kindSheet = readFileSync(new URL('../app/report-kind-sheet.js', import.meta.url), 'utf8');
+  assert.equal((mrd.match(/createAnchoredMenu\(\{id:'mrdMoreMenu'/g) || []).length, 1);
+  assert.match(mrd, /window\.KPTUMeetingRoundDetail=\{open:mrdOpenMeeting,menuAt:mrdMenuAt,/);
+  const at = mrd.match(/async function mrdMenuAt\([\s\S]*?\n\}/)[0];
+  assert.match(at, /mrdEnsureMoreMenu\(\)\.open\(trigger,\{at\}\)/);
+  assert.doesNotMatch(at, /mrdOpenMeeting|mrdOpen\(|mrdLoadMeeting/);
+  assert.match(mrd, /onAction:\(button,active\)=>\{const act=button\.dataset\.mrdMore,out=mrdMenuOut\(active\.trigger\);if\(act==='edit'\)\{if\(out\)void mrdOutsideEdit\(out\);else mrdStartEdit\(\)\}else if\(act==='kind'\)mrdChangeKind\(active\.trigger,out\);else if\(act==='delete'\)void mrdDeleteMeeting\(out\)\}/);
+  assert.match(mrd, /parent:trigger=>trigger\.closest\('#meetingRoundDetailModal,\[role="dialog"\]'\)\|\|document\.body/);
+  assert.match(mrd, /async function mrdOutsideEdit\(\{meeting,trigger,before\}\)\{\n  before\?\.\(\);[^\n]*\n  const id=String\(meeting\.id\);await mrdOpenMeeting\(id\);/);
+  assert.match(mrd, /saveReportKind\(m\.id,kind,\{reveal:!out\}\)/);
+  assert.match(kindSheet, /export async function saveReportKind\(id,kind,\{reveal=true\}=\{\}\)/);
+  assert.match(kindSheet, /if\(reveal\)window\.KPTUMeetingColumns\?\.select\?\.\(\{id:String\(id\)\}\)/);
 });

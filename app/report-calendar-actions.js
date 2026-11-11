@@ -23,7 +23,7 @@ const iso = at => new Date(at).toISOString();
 
 // BIZ-달력그날창: '+n' → 그 칸 자리에 그날 보고 전부. 창은 일정 달력의 그날 창과 같은 부품(calendar-day-overflow.js KPTUCalendarDayOverflow.show —
 // 머리 날짜·✕, 바깥 누르기·✕·Esc로 닫고 닫으면 '+n'으로 초점)이고, 여기서는 사업 보고 줄을 넣고 줄 누름·우클릭·[+ 이날 사업 보고 추가]를 잇는다.
-// 줄을 누르면 일정 달력 그날 창처럼 창이 먼저 닫히고(초점은 '+n') 그 보고가 열린다. 우클릭은 칸 안 제목과 같은 보고 메뉴, 끌기는 아래 installReportDrag가 같이 받는다.
+// 줄을 누르면 일정 달력 그날 창처럼 창이 먼저 닫히고(초점은 '+n') 그 보고가 열린다. 우클릭은 칸 안 제목과 같은 보고 메뉴(창은 그대로, 보고 창은 안 엶), 끌기는 아래 installReportDrag가 같이 받는다.
 // 창이 열려 있는지·어느 날인지는 창 자신이 안다(따로 상태를 두지 않는다). 닫기는 ✕와 같은 길 하나.
 const DAY_MODAL = '#calendarDayModal[data-day-kind="report"]:not(.hidden)';
 export const reportDayWindowDay = () => document.querySelector(`${DAY_MODAL} [data-rv-pop]`)?.dataset.rvPop || '';
@@ -51,11 +51,13 @@ function bindDayWindow(list) {
     if (row) { const id = String(row.dataset.mrdMeeting); closeReportDayWindow(); dayDeps?.open(id); }
   });
   list.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && mine(e) && e.target.matches('[data-mrd-meeting]')) { e.preventDefault(); e.target.click(); } });
-  // 우클릭·메뉴 키: 부르는 쪽(team.js reportViewMenu)이 칸 안 제목과 같은 보고 메뉴를 연다. 열었으면 창은 닫는다(보고 창이 그 위에 뜬다).
-  list.addEventListener('contextmenu', e => { if (mine(e) && e.target.closest('[data-mrd-meeting]') && dayDeps?.menu(e)) closeReportDayWindow(); });
+  // 우클릭·메뉴 키: 부르는 쪽(team.js reportViewMenu)이 칸 안 제목과 같은 보고 메뉴를 연다 — 메뉴만, 보고 창은 열지 않는다(S58-16 BIZ-달력우클릭창뜸).
+  // 그날 창은 메뉴 뒤에 그대로 두고(메뉴는 이 창 안에 뜸), [수정]을 고르면 줄을 왼쪽으로 누를 때처럼 이 창을 먼저 닫고 수정 창을 연다(before).
+  // [종류 바꾸기]·[삭제] 뒤에는 달력을 다시 그릴 때 이 창도 again 길로 다시 채워진다.
+  list.addEventListener('contextmenu', e => { if (mine(e) && e.target.closest('[data-mrd-meeting]')) dayDeps?.menu(e, {before: closeReportDayWindow}); });
 }
 // rows = 지금 달력에 보이는 사업 보고(칸 칩이 걸린 것), anchor() = 그날 칸, trigger() = 그 칸의 '+n'. again = 달력을 다시 그린 뒤 열려 있는 창을 다시 채우기(초점 줄 유지).
-// 그날 '+n'이 없어졌으면(보고가 줄었거나 다른 달·다른 보기) 창을 닫는다. open(id)·add(day)·menu(event)는 부르는 쪽 길.
+// 그날 '+n'이 없어졌으면(보고가 줄었거나 다른 달·다른 보기) 창을 닫는다. open(id)·add(day)·menu(event, {before})는 부르는 쪽 길.
 // S58-10: plans = 그날의 보고할 일정 항목(report-calendar-plan.mjs), planColorOf(item), plan(kind, eventId) = [보고 쓰기]('write')·[보고할까요?]('ask')를 받는 부르는 쪽 길.
 export async function showReportDayWindow({day, rows, colorOf, nameOf, anchor, trigger, again = false, open, add, menu, plans = [], planColorOf, plan}) {
   await import('./calendar-day-overflow.js');

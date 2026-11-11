@@ -5,7 +5,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // BIZ-달력그날창(S58-2): PC 사업 보고 [달력] 칸에 이름 4줄까지, 넘는 날의 '+n'을 누르면 그 칸 자리에 그날 창(일정 달력 그날 창과 같은 부품).
-// 그날 창 줄은 누르면 보고 열기, 우클릭 = 보고 메뉴, 끌어 옮기기, 맨 아래 [+ 이날 사업 보고 추가]. 폰 폭(점 + 아래 목록)은 그대로. 모든 이름·번호는 합성 값.
+// 그날 창 줄은 누르면 보고 열기, 우클릭 = 보고 메뉴(메뉴만, S58-16), 끌어 옮기기, 맨 아래 [+ 이날 사업 보고 추가]. 폰 폭(점 + 아래 목록)은 그대로. 모든 이름·번호는 합성 값.
 test.use({timezoneId: 'Asia/Seoul'});
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ID = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -239,25 +239,48 @@ test('day window [add report on this day] opens the new report window with that 
   expect(state.patches).toEqual([]);
 });
 
-test('day window row: right click or menu key opens the same report menu as a cell title', async ({page}) => {
-  const state = makeState(), cal = await open(page, state, 1440), more = page.locator('#mrdMoreMenu');
+// S58-16 BIZ-달력우클릭창뜸: 그날 창 줄 우클릭·메뉴 키도 메뉴만 — 그날 창은 메뉴 뒤에 그대로, 보고 창은 뜨지 않는다.
+// [종류 바꾸기]는 그 자리에서(그날 창이 다시 채워짐), [수정]은 줄을 왼쪽으로 누를 때처럼 그날 창을 닫고 그때 수정 창.
+test('day window row: right click or menu key opens only the report menu over the window; [종류 바꾸기] in place, [수정] closes the window and opens the edit window', async ({page}) => {
+  const state = makeState(), cal = await open(page, state, 1440), more = page.locator('#mrdMoreMenu'), detail = page.locator('#meetingRoundDetailModal');
+  await page.evaluate(() => { window.__rvOpened = []; window.addEventListener('kptu:dialog-opened', e => { if (e.detail?.modal?.id === 'meetingRoundDetailModal') window.__rvOpened.push(e.detail.modal.dataset.meetingId || ''); }); });
   await openWindow(page, cal, state);
   await rows(page).nth(3).click({button: 'right'});
-  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', sixId(4));
   await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
-  await expect(win(page)).toBeHidden();
+  await expect(win(page)).toBeVisible();
+  await expect(detail).toBeHidden();
+  // Esc는 메뉴만 닫고 초점은 누른 줄로. 그날 창은 그대로.
   await page.keyboard.press('Escape'); await expect(more).toBeHidden();
-  await page.locator('#mrdClose').click(); await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
-  // 키보드 메뉴 키: 초점 받은 줄에서 같은 메뉴.
-  await openWindow(page, cal, state);
+  await expect(win(page)).toBeVisible();
+  await expect(rows(page).nth(3)).toBeFocused();
+  // [종류 바꾸기]: 고르기 창에서 다른 종류 → 저장. 그날 창은 열린 채 다시 채워진다([회의] 칩이라 그 보고가 빠져 5줄).
+  await rows(page).nth(3).click({button: 'right'});
+  await expect(more).toBeVisible();
+  await more.locator('[data-mrd-more="kind"]').click();
+  const sheet = page.locator('#reportKindSheet');
+  await expect(sheet).toBeVisible();
+  await sheet.locator('[data-sheet-value="education"]').click();
+  await expect.poll(() => state.patches.length).toBe(1);
+  expect(state.patches[0]).toMatchObject({id: sixId(4), workspace: 'eq.workspace-1', body: {activity_kind: 'education'}});
+  await expect(win(page)).toBeVisible();
+  await expect(rows(page)).toHaveCount(5);
+  await expect(page.locator(`#calendarDayList [data-mrd-meeting="${sixId(4)}"]`)).toHaveCount(0);
+  await expect(detail).toBeHidden();
+  // 키보드 메뉴 키 → [수정](Enter): 그날 창을 닫고 수정 창.
   await rows(page).nth(1).focus();
   await page.keyboard.press('Shift+F10');
-  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id', sixId(2));
   await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  await expect(detail).toBeHidden();
+  await expect(more.locator('[data-mrd-more="edit"]')).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(win(page)).toBeHidden();
-  expect(state.patches).toEqual([]);
+  await expect(detail).toBeVisible();
+  await expect(detail).toHaveAttribute('data-meeting-id', sixId(2));
+  await expect(detail.locator('#mrdEditor')).toBeVisible();
+  expect(await page.evaluate(() => window.__rvOpened)).toEqual([sixId(2)]);
+  expect(state.patches).toHaveLength(1);
 });
 
 test('day window row: drag to another day closes the window, keeps the time, saves one change, undo restores', async ({page}) => {
