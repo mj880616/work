@@ -10,6 +10,7 @@
 // - 29분(SEGMENT_SECONDS)마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
 // - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [녹음 요약하기]
 //   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
+// - REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있으면 비우기 전에 묻고(team.js), 서버 정리 결과의 '열었음'은 저장·버림 때만 보낸다(entryHooks).
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
 import {notify} from './small-notice.js';
@@ -421,12 +422,12 @@ async function openServerResult(job){
     step='초안 열림';note='';paint();
     // 회의 시각 = 녹음을 시작한 때(이 창에서 녹음했으면 그 시각, 아니면 정리를 맡긴 때에서 녹음 길이만큼 앞).
     const began=startedAt&&job.session_id===sessionId?startedAt:new Date((Date.parse(job.created_at)||Date.now())-(Number(job.seconds)||0)*1000).toISOString();
-    await openEntry(began);
+    // REC-한회의로잇기 PR-0: 쓰던 사업 보고 창을 두기로 하면 결과는 띠 [초안 열기]에 남는다(창은 그대로).
+    if(!await openEntry(began,entryHooks(job))){readyJob=job;jobId='';state='ready';paint();return}
     const draft=window.KPTUMeetingTranscriptDraft;
     if(!draft?.fillResult)throw stopError('초안 칸을 찾지 못했어요. [다시]를 누르세요.',true);
     const minutes=Math.round((Number(job.seconds)||elapsed()/1000)/60);
     draft.fillResult({text:job.transcript_text,draft:job.draft,jobs:job.jobs,name:`녹음${minutes?` · ${minutes}분`:''}`});
-    void call('job_opened',{job_id:job.id}).catch(()=>{});
     readyJob=null;jobId='';state='done';paint();
     setTimeout(()=>{if(state==='done')closeBand()},8000);
     pending=pending.filter(s=>s.session_id!==job.session_id);
@@ -436,13 +437,37 @@ async function openServerResult(job){
     readyJob=job;state='ready';paint();
   }
 }
-async function openEntry(at){
+// 입력 창을 연다. 쓰던 사업 보고 창을 두기로 했으면 false(그 창은 그대로, team.js settleOpenEntry).
+async function openEntry(at,hooks={}){
   const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
   if(loader)await loader('meetings');
   const entry=window.KPTUReportEntry;
   if(!entry?.open)throw stopError('사업 보고 화면을 열지 못했어요. [다시]를 누르세요.',true);
-  const opened=await entry.open({kind:'meeting',at:seoulLocal(at||startedAt||new Date().toISOString()),trigger:$('#reportRecordBtn')||document.activeElement});
-  if(opened===false)throw stopError('사업 보고 창을 열지 못했어요. [다시]를 누르세요.',true);
+  const opened=await entry.open({kind:'meeting',at:seoulLocal(at||startedAt||new Date().toISOString()),trigger:$('#reportRecordBtn')||document.activeElement,...hooks});
+  if(opened===false){if(entryKept())return false;throw stopError('사업 보고 창을 열지 못했어요. [다시]를 누르세요.',true)}
+  return true;
+}
+const entryKept=()=>{const m=$('#meetingModal');return !!m&&!m.classList.contains('hidden')};
+const KEEP_NOTE='두면 새 녹음 정리 결과는 맨 위 [초안 열기]에 남아요.';
+// REC-한회의로잇기 PR-0(설계 docs/design/rec-join.md 2-3절): 녹음 정리 결과의 '열었음'(job_opened)은 창을 열 때가 아니라
+// 사업 보고를 저장했을 때(그 보고 id와 함께 — 서버가 '이 녹음으로 쓴 보고'를 안다) 또는 사람이 쓰던 글을 버리고 새로 열기를 골랐을 때만 보낸다.
+// 저장하지 않고 닫은 초안은 '열었음'이 아니므로 띠 [초안 열기]로 다시 연다(띠가 다른 녹음을 하고 있으면 다음에 앱을 열 때 띠에 뜬다).
+function entryHooks(job){
+  return {
+    keepNote:KEEP_NOTE,
+    closeNote:'녹음 정리 결과는 맨 위 [초안 열기]로 다시 열 수 있어요.',
+    onSaved:meeting=>{markOpened(job,meeting?.id)},
+    onClosed:({reason}={})=>{if(reason==='replaced')markOpened(job);else backToBand(job)},
+  };
+}
+function markOpened(job,meetingId=''){
+  if(!job?.id)return;
+  void call('job_opened',{job_id:job.id,...(meetingId?{meeting_id:String(meetingId)}:{})}).catch(()=>{});
+  if(state==='ready'&&readyJob?.id===job.id)closeBand();
+}
+function backToBand(job){
+  if(!job?.id)return;
+  if(state==='idle'||state==='done'||(state==='ready'&&(!readyJob||readyJob.id===job.id))){readyJob=job;jobId='';step='';note='';errorText='';state='ready';paint()}
 }
 // 띠 [초안 열기]: 끝난 작업의 결과(전문·요약)를 읽어 입력 창을 연다.
 async function openReady(){
@@ -519,13 +544,15 @@ function stopError(text,retry){const e=new Error('');e.recText=text;e.recRetry=r
 function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&(!!sessionId||!!jobId);step='';note='';clearInterval(ticker);paint()}
 
 // 사업 보고 › 회의 입력 창을 열고 기존 [녹음 요약하기] 흐름에 글을 넣는다(meeting-transcript-draft.js).
+// 쓰던 사업 보고 창을 두기로 하면 멈춤 띠 + [다시](이미 전사한 구간 글은 이 창 메모리에 있어 다시 전사하지 않음).
+const KEPT_TEXT='쓰던 사업 보고 창을 그대로 뒀어요. 저장하거나 닫은 뒤 [다시]를 누르세요.';
 async function openDraft(text,jobs){
   const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
   if(loader)await loader('meetings');
   const entry=window.KPTUReportEntry;
   if(!entry?.open)throw stopError('사업 보고 화면을 열지 못했어요. [다시]를 누르세요.',true);
-  const opened=await entry.open({kind:'meeting',at:seoulLocal(startedAt),trigger:$('#reportRecordBtn')||document.activeElement});
-  if(opened===false)throw stopError('사업 보고 창을 열지 못했어요. [다시]를 누르세요.',true);
+  const opened=await entry.open({kind:'meeting',at:seoulLocal(startedAt),trigger:$('#reportRecordBtn')||document.activeElement,keepNote:'두면 이 녹음은 [다시]로 정리 결과를 열 수 있어요.'});
+  if(opened===false)throw stopError(entryKept()?KEPT_TEXT:'사업 보고 창을 열지 못했어요. [다시]를 누르세요.',true);
   const draft=window.KPTUMeetingTranscriptDraft;
   if(!draft?.fill)throw stopError('초안 칸을 찾지 못했어요. [다시]를 누르세요.',true);
   const minutes=Math.round(elapsed()/60000);

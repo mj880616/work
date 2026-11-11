@@ -1,10 +1,14 @@
-// REC-한회의로잇기 6번 확인(S57-22, 설계 docs/design/rec-join.md 2절): 저장하지 않은 회의 초안이 다음 녹음 정리로 사라지는지.
-// 이 파일은 고치기 전의 '지금 동작'을 사실로 적어 둔 시험이다. 막는 물음(열려 있는 초안이 있으면 먼저 묻기)을 넣는 PR에서
-// 아래 기대를 새 동작으로 바꾼다(지우거나 건너뛰지 않는다).
+// REC-한회의로잇기 6번 확인(S57-22, 설계 docs/design/rec-join.md 2절)과 PR-0 '초안 지키기'(S59-6, 2-3절).
+// S57-22가 적어 둔 '고치기 전 동작'(저장 안 한 초안이 묻지 않고 사라짐)을 PR-0의 새 동작으로 바꾼 시험이다(지우거나 건너뛰지 않음):
+// ① 저장 안 한 초안 창을 닫을 때 묻고, 닫은 초안은 띠 [초안 열기]로 다시 연다. '열었음'(job_opened)은 저장할 때 그 보고 id와 함께만.
+// ② 녹음 중 입력 창에 직접 쓰던 글이 있으면 정리 결과가 창을 비우기 전에 묻는다(두면 쓰던 글 그대로 · 결과는 띠에).
+// ③ 녹음 결과 창에 다른 녹음 결과가 오면 묻고, 새로 열기를 고르면 앞 결과는 '버림'으로 '열었음'(보고 id 없이).
+// ④ 폰: 뒤로가기로 닫을 때도 묻고, 두기로 하면 창과 뒤로가기 칸이 그대로다.
 // 실제 마이크·운영 서버는 쓰지 않는다: 가짜 MediaRecorder·getUserMedia(addInitScript)와 가짜 Supabase(page.route). 글은 모두 가짜다.
 import {test,expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {appOrigin} from './helpers/test-origin.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -13,6 +17,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const SESSION=n=>`00000000-0000-4000-8000-0000000000a${n}`;
 const JOB=n=>`00000000-0000-4000-8000-0000000000b${n}`;
 const WORD=['','첫','둘째'];
+const MEETING='00000000-0000-4000-8000-0000000000c1';
 
 // 가짜 녹음기(laptop-recording.spec.mjs와 같은 방식): 시험이 __fakeRec.emit()으로 조각을 내고, stop()은 마지막 조각 → stop.
 async function fakeRecorder(page){
@@ -35,7 +40,8 @@ async function fakeRecorder(page){
   });
 }
 
-// 가짜 서버: 녹음마다 다른 session → 다른 서버 정리 작업 → 다른 결과 글(첫·둘째). 보고를 쓰는 요청(app_meetings POST·PATCH·DELETE)은 세기만 한다.
+// 가짜 서버: 녹음마다 다른 session → 다른 서버 정리 작업 → 다른 결과 글(첫·둘째). 보고를 쓰는 요청(app_meetings POST·PATCH·DELETE)은 세고,
+// POST(저장)는 만든 보고 한 줄(가짜 id)을 돌려준다.
 async function mock(page){
   const calls=[],meetingPosts=calls.meetingPosts=[];
   let recordings=0;
@@ -48,7 +54,7 @@ async function mock(page){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'rec-ws',user_id:'rec-user',role:'owner',email:'rec@example.org',workspace:{id:'rec-ws',name:'QA Workspace'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'rec-ws',name:'QA Workspace'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'rec-user',display_name:'녹음 QA'}]);
-    if(path==='/rest/v1/app_meetings'){if(method==='POST'||method==='PATCH'||method==='DELETE')meetingPosts.push(method);return ok([])}
+    if(path==='/rest/v1/app_meetings'){if(method==='POST'||method==='PATCH'||method==='DELETE')meetingPosts.push(method);return ok(method==='POST'?[{id:MEETING,workspace_id:'rec-ws',title:'가짜 회의',series_name:'가짜 회의',meeting_at:'2026-10-29T06:00:00Z',activity_kind:'meeting'}]:[])}
     if(path==='/functions/v1/meeting-transcribe'){
       const action=url.searchParams.get('action');
       const body=action==='rec_piece'?null:(()=>{try{return JSON.parse(req.postData()||'{}')}catch{return {}}})();
@@ -97,41 +103,74 @@ async function startRecording(page,calls){
   return band;
 }
 
-test('지금 동작(고치기 전) ① 저장 안 한 첫 초안 창은 묻지 않고 닫히고, 둘째 녹음 정리가 연 창에는 첫 초안 글이 없다',async({page})=>{
+const askBox=page=>page.locator('.kptu-ask');
+const opened=calls=>recCalls(calls,'job_opened').map(c=>c.body);
+
+test('초안 지키기 ① 저장 안 한 초안 창은 닫기 전에 묻고, 닫은 초안은 띠 [초안 열기]로 다시 열며, \'열었음\'은 저장할 때 그 보고 id와 함께만 보낸다',async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page);
   const modal=page.locator('#meetingModal'),notes=page.locator('#meetingNotes'),result=page.locator('#meetingTranscript');
 
-  // 첫 녹음 → [멈추고 정리] → 첫 초안이 채워진 입력 창.
+  // 첫 녹음 → [멈추고 정리] → 첫 초안이 채워진 입력 창. 창을 열기만 했을 때는 '열었음'을 보내지 않는다.
   let band=await startRecording(page,calls);
   await band.getByRole('button',{name:'멈추고 정리'}).click();
   await expect(modal).toBeVisible({timeout:20000});
   await expect(notes).toHaveValue(/가짜 첫 녹음 전문/);
   await expect(result).toHaveValue(/가짜 첫 결정/);
+  await expect(page.locator('#mtdStatus')).toContainText('초안을 채웠어요');
+  expect(opened(calls)).toEqual([]);
 
-  // 저장하지 않고 [닫기]: 묻는 창 없이 바로 닫힌다. 화면은 창을 열 때 이미 첫 결과를 서버에 '열었음'으로 알렸다
-  // (서버는 '열었음'인 결과를 다시 주지 않는다 — 그 거르기는 서버 쪽이라 이 가짜 서버로는 보지 않는다). 띠가 닫힐 때까지 기다린다.
+  // [×] → 묻는다 → [계속 쓰기]: 창·글 그대로.
   await page.locator('#meetingModal [data-close="meetingModal"]').click();
+  await expect(askBox(page).locator('.kptu-ask-text')).toHaveText('쓰던 사업 보고를 저장하지 않고 닫을까요?');
+  await expect(askBox(page).locator('.kptu-ask-note')).toHaveText('녹음 정리 결과는 맨 위 [초안 열기]로 다시 열 수 있어요.');
+  await askBox(page).getByRole('button',{name:'계속 쓰기'}).click();
+  await expect(askBox(page)).toHaveCount(0);
+  await expect(modal).toBeVisible();
+  await expect(notes).toHaveValue(/가짜 첫 녹음 전문/);
+
+  // Esc도 같은 물음 → [닫기]: 창이 닫히고, 첫 결과는 띠 '정리 끝 · [초안 열기]'로 돌아온다. 여전히 '열었음' 없음.
+  await result.focus();
+  await page.keyboard.press('Escape');
+  await expect(askBox(page).locator('.kptu-ask-text')).toHaveText('쓰던 사업 보고를 저장하지 않고 닫을까요?');
+  await askBox(page).getByRole('button',{name:'닫기'}).click();
   await expect(modal).toBeHidden();
-  await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body.job_id)).toEqual([JOB(1)]);
+  await expect(band.locator('.rec-label')).toHaveText('정리 끝');
+  await expect(band.getByRole('button',{name:'초안 열기'})).toBeVisible();
+  expect(opened(calls)).toEqual([]);
+
+  // [초안 열기] → 닫았던 첫 초안이 다시 열린다(서버 결과를 다시 읽음).
+  await band.getByRole('button',{name:'초안 열기'}).click();
+  await expect(modal).toBeVisible({timeout:20000});
+  await expect(notes).toHaveValue(/가짜 첫 녹음 전문/);
+  await expect(result).toHaveValue(/가짜 첫 결정/);
+  expect(opened(calls)).toEqual([]);
+
+  // 저장하면 그때 '열었음' + 저장한 보고 id. 저장 뒤 닫힌 창은 묻지 않는다.
+  const select=page.locator('#meetingNameSelect');
+  if(await select.isVisible())await select.selectOption('__other__');
+  await page.locator('#meetingTitle').fill('가짜 회의');
+  await page.locator('#saveMeetingBtn').click();
+  await expect(modal).toBeHidden();
+  await expect.poll(()=>opened(calls)).toEqual([{job_id:JOB(1),meeting_id:MEETING}]);
+  expect(calls.meetingPosts).toEqual(['POST']);
+  await expect(askBox(page)).toHaveCount(0);
+
+  // 둘째 녹음 → 새 창에는 둘째 결과만(앞 초안은 저장된 보고에 있다).
   await expect(band).toBeHidden({timeout:15000});
   await expect(page.locator('#reportRecordBtn')).toBeEnabled();
-
-  // 둘째 녹음 → [멈추고 정리] → 다시 열린 입력 창에는 둘째 결과만 있다.
   band=await startRecording(page,calls);
   await band.getByRole('button',{name:'멈추고 정리'}).click();
   await expect(modal).toBeVisible({timeout:20000});
   await expect(notes).toHaveValue(/가짜 둘째 녹음 전문/);
   await expect(result).toHaveValue(/가짜 둘째 결정/);
   expect(await notes.inputValue()).not.toContain('가짜 첫');
-  expect(await result.inputValue()).not.toContain('가짜 첫');
   expect(recCalls(calls,'job_start').map(c=>c.body.session_id)).toEqual([SESSION(1),SESSION(2)]);
-  // 그 사이 어떤 보고도 저장되지 않았다(첫 초안은 화면 어디에도 남지 않음).
-  expect(calls.meetingPosts).toEqual([]);
+  expect(opened(calls)).toEqual([{job_id:JOB(1),meeting_id:MEETING}]);
 });
 
-test('지금 동작(고치기 전) ② 입력 창을 열어 쓰던 글이 있어도 녹음 정리 결과가 묻지 않고 그 창을 비우고 채운다',async({page})=>{
+test('초안 지키기 ② 녹음 중 입력 창에 직접 쓰던 글이 있으면 정리 결과가 비우기 전에 묻고, 두면 쓰던 글 그대로·결과는 띠 [초안 열기]에 남는다',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page);
@@ -142,10 +181,77 @@ test('지금 동작(고치기 전) ② 입력 창을 열어 쓰던 글이 있어
   await page.evaluate(()=>window.KPTUReportEntry.open({kind:'meeting'}));
   await expect(modal).toBeVisible();
   await result.fill('가짜 직접 쓴 메모');
-  // 녹음 띠는 입력 창 위에 떠 있어 창을 연 채 누를 수 있다.
+  // 녹음 띠는 입력 창 위에 떠 있어 창을 연 채 누를 수 있다. 결과가 오면 비우기 전에 묻는다.
   await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await expect(askBox(page).locator('.kptu-ask-text')).toHaveText('쓰던 사업 보고가 있어요. 저장하지 않고 새로 열까요?',{timeout:20000});
+  await expect(askBox(page).locator('.kptu-ask-note')).toHaveText('두면 새 녹음 정리 결과는 맨 위 [초안 열기]에 남아요.');
+  await askBox(page).getByRole('button',{name:'쓰던 창 두기'}).click();
+  // 쓰던 창·글 그대로, 정리 결과는 띠 [초안 열기].
+  await expect(band.getByRole('button',{name:'초안 열기'})).toBeVisible();
+  await expect(modal).toBeVisible();
+  await expect(result).toHaveValue('가짜 직접 쓴 메모');
+  expect(await page.locator('#meetingNotes').inputValue()).not.toContain('가짜 첫');
+
+  // 띠 [초안 열기] → 다시 묻는다 → [새로 열기]를 고르면 그때 쓰던 글 대신 정리 결과가 열린다.
+  await band.getByRole('button',{name:'초안 열기'}).click();
+  await expect(askBox(page).locator('.kptu-ask-text')).toHaveText('쓰던 사업 보고가 있어요. 저장하지 않고 새로 열까요?',{timeout:20000});
+  await askBox(page).getByRole('button',{name:'새로 열기'}).click();
   await expect(result).toHaveValue(/가짜 첫 결정/,{timeout:20000});
   expect(await result.inputValue()).not.toContain('가짜 직접 쓴 메모');
   await expect(modal).toBeVisible();
+  // 버린 것은 직접 쓴 글(녹음 결과 아님)이라 '열었음'은 없다. 저장 요청도 없다.
+  expect(opened(calls)).toEqual([]);
   expect(calls.meetingPosts).toEqual([]);
+});
+
+test('초안 지키기 ③ 녹음 결과 창에 다른 녹음 결과가 오면 묻고, [새로 열기]를 고르면 앞 결과만 \'열었음\'(보고 id 없음)으로 보낸다',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1440,height:900});
+  const calls=await signIn(page);
+  const modal=page.locator('#meetingModal'),notes=page.locator('#meetingNotes');
+
+  const band=await startRecording(page,calls);
+  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await expect(notes).toHaveValue(/가짜 첫 녹음 전문/,{timeout:20000});
+  // 다른 기기(폰 앱)에서 맡긴 둘째 정리를 같은 띠가 넘겨받는 길(phone-recorder.js → KPTUMeetingRecorder.watch).
+  await page.evaluate(id=>window.KPTUMeetingRecorder.watch({id,kind:'recording',status:'queued',stage:'combine'}),JOB(2));
+  await answerAsk(page,true);
+  await expect(notes).toHaveValue(/가짜 둘째 녹음 전문/,{timeout:20000});
+  expect(await notes.inputValue()).not.toContain('가짜 첫');
+  await expect(modal).toBeVisible();
+  await expect.poll(()=>opened(calls)).toEqual([{job_id:JOB(1)}]);
+  expect(calls.meetingPosts).toEqual([]);
+});
+
+test('초안 지키기 ④ 폰: 뒤로가기로 닫을 때도 묻고, [계속 쓰기]면 창과 뒤로가기 칸이 그대로, [닫기]면 닫힌다',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:412,height:915});
+  await signIn(page);
+  const modal=page.locator('#meetingModal'),result=page.locator('#meetingTranscript');
+  await page.evaluate(()=>window.KPTUReportEntry.open({kind:'meeting'}));
+  await expect(modal).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||'')).toBe('meetingModal');
+  await result.fill('가짜 폰에서 쓴 메모');
+
+  await page.goBack();
+  await expect(askBox(page).locator('.kptu-ask-text')).toHaveText('쓰던 사업 보고를 저장하지 않고 닫을까요?');
+  await askBox(page).getByRole('button',{name:'계속 쓰기'}).click();
+  await expect(askBox(page)).toHaveCount(0);
+  await expect(modal).toBeVisible();
+  await expect(result).toHaveValue('가짜 폰에서 쓴 메모');
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||'')).toBe('meetingModal');
+
+  // 다시 뒤로가기 → [닫기]: 창이 닫히고 창의 뒤로가기 칸도 빠진다.
+  await page.goBack();
+  await answerAsk(page,true);
+  await expect(modal).toBeHidden();
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||'')).toBe('');
+  await expect(page.locator('#meetingsView')).toBeVisible();
+
+  // 쓴 글이 없으면 지금처럼 묻지 않고 닫는다.
+  await page.evaluate(()=>window.KPTUReportEntry.open({kind:'meeting'}));
+  await expect(modal).toBeVisible();
+  await page.goBack();
+  await expect(modal).toBeHidden();
+  await expect(askBox(page)).toHaveCount(0);
 });

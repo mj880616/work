@@ -46,8 +46,9 @@ export function mountPhoneRecorder(win=window){
       if(loader)await loader('meetings');
       const entry=win.KPTUReportEntry;
       if(!entry?.open)throw stop('사업 보고 화면을 열지 못했어요. [다시]를 누르세요.');
-      const opened=await entry.open({kind:'meeting',at:startedAt,trigger:$('#phoneRecordBtn')||doc.activeElement});
-      if(opened===false)throw stop('사업 보고 창을 열지 못했어요. [다시]를 누르세요.');
+      // REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있으면 team.js가 먼저 묻는다. 두기로 하면 그 창은 그대로 두고 멈춤 줄 + [다시].
+      const opened=await entry.open({kind:'meeting',at:startedAt,trigger:$('#phoneRecordBtn')||doc.activeElement,keepNote:'두면 이 녹음은 [다시]로 정리 결과를 열 수 있어요.'});
+      if(opened===false)throw stop(entryKept()?'쓰던 사업 보고 창을 그대로 뒀어요. 저장하거나 닫은 뒤 [다시]를 누르세요.':'사업 보고 창을 열지 못했어요. [다시]를 누르세요.');
       const draft=win.KPTUMeetingTranscriptDraft;
       if(!draft?.fill)throw stop('초안 칸을 찾지 못했어요. [다시]를 누르세요.');
       await draft.fill({text,jobs,name:`폰 녹음${minutes?` · ${minutes}분`:''}`});
@@ -56,6 +57,7 @@ export function mountPhoneRecorder(win=window){
     paint,
   });
   function stop(text){const e=new Error('');e.recText=text;e.recRetry=true;return e}
+  const entryKept=()=>{const m=$('#meetingModal');return !!m&&!m.classList.contains('hidden')};
 
   // ---- 그리기(이 모듈만) ----
   const drawn=new WeakMap();
