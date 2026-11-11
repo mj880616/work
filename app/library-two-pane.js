@@ -175,7 +175,7 @@ export function createLibraryTwo(h) {
       if (e.target.closest('[data-lu-pane-up]')) { e.preventDefault(); const f = h.folders().find(x => x.id === where(i)); go(i, f?.parent_id || null); focusHead(i); return; }
       // 폴더 줄 누르기 = 그 칸 안에서 펼치기·접기(들어가지 않음). 들어가기는 우클릭 메뉴·두 손가락.
       // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 펼쳐 보일 것(하위 폴더·자료)이 없는 폴더는 한 번 누르면 그 칸에서 그 폴더를 연다(공용 판정 folderPressAction).
-      //  자료만 든 폴더는 지금처럼 그 칸 안에 펼친다(펼친 폴더 안 놓기 #2408 그대로).
+      //  자료만 든 폴더는 지금처럼 그 칸 안에 펼친다(LIB-펼친폴더안놓기 그대로).
       const nav = e.target.closest('[data-lu-nav]');
       if (nav && !e.target.closest('input')) {
         e.preventDefault(); e.stopPropagation();
