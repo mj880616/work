@@ -745,7 +745,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     try {
       // 이 노트의 첨부가 뒤에서 올라가는 중이면 글 저장은 그 뒤에 선다: 첨부가 노트의 판(updated_at)을 옮기므로, 먼저 보내면 글 저장도
       // 올리기도 '다른 곳에서 바뀜'으로 잘못 걸린다. 다 올라간 뒤의 판(fieldBase)으로 저장한다.
-      if (fileQueue.going(id)) { await fileQueue.settled(id); if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'}; changes.version = fieldBase; }
+      if (fileQueue.going(id)) { say('첨부가 다 올라가면 이어서 저장해요…'); await fileQueue.settled(id); if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'}; changes.version = fieldBase; }
       const note = await saveNoteDoc(id, changes, rt);
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       notes = notes.map(n => n.id === id ? note : n); selected = note; fieldBase = note.updated_at; field.markSaved(); renderList(); paintMeta();

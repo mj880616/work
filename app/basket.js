@@ -442,7 +442,8 @@ function showKind(next,{openId=null,folder=null,address='replace'}={}){
 // detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
 function rowMenuAction(act,noteId){
   const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
-  if(act!=='copy'&&attachGoing(noteId))return; // 올리는 중인 업데이트는 복사만(위 attachGoing)
+  // 첨부를 올리는 중인 업데이트: 그 글을 바꾸는 줄 메뉴만 잠근다(열기·수정·복사·연결은 그대로, 아래 attachGoing).
+  if(['delete','journal','unjournal','hold','unhold','to-report','to-note','to-diary'].includes(act)&&attachGoing(noteId))return;
   if(act==='copy'){void copyNote(note);return;} // 메뉴 안 [복사]: 알림('복사했습니다')만 — ⋯ 글자를 '✓'로 바꾸지 않는다(⋯ 모양 그대로).
   
   if(act==='delete'){void deleteFromList(noteId);return;}
@@ -1058,6 +1059,7 @@ function sendAttachments(id,batch){
     paint();
     const done=count()-before,left=batch.entries.filter(e=>e.kind!=='success').length;
     if(!error){
+      if(upload===batch){upload=createUploadBatch(id,batch.attachments);if(shown())pickerFiles?.render();} // 되돌려 둔 묶음이 다 올라갔으면 새 묶음으로
       if(shown()){detail.querySelector('[data-basket-status]').textContent='';showToast('첨부를 저장했습니다.');await readSentPhotos(id,batch,originalIds,owner);}
       else announceUploaded({done,names:names.slice(0,done),where:'업데이트'});
       return;

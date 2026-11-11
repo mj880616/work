@@ -385,3 +385,25 @@ test('big editor files: files saved while the first goes up wait in the same lin
   await expect(page.locator('#kptuNotice')).toContainText('노트에 둘째.pdf 올렸어요');
   expect(f.errors).toEqual([]);
 });
+test('big editor files: text saved while a file goes up waits behind it and is saved on the version the upload left (412)', async ({page}) => {
+  const width = 412, f = await fixture(page, width), held = await holdUploads(page);
+  const e = await openBig(page, 'n-text', width);
+  await e.locator('#edwNoteEditAttach').setInputFiles([fileBuffer('먼저 올림.pdf')]);
+  await e.locator('[data-edw-save]').click();
+  await expect.poll(() => held.seen.length).toBe(1);
+  // The upload moves the note's version on the server, and the server refuses an upload whose note changed meanwhile: the text save
+  // is not sent past it (and is not refused either) — it goes after the file, on the new version.
+  await e.locator('.ProseMirror').click(); await page.keyboard.press('Control+End'); await page.keyboard.type(' 덧붙인 글');
+  await e.locator('[data-edw-save]').click();
+  await page.waitForTimeout(300);
+  expect(f.writes.filter(w => w.method === 'PATCH')).toHaveLength(0);
+  held.open();
+  await expect(e.locator('.ed-window-status')).toHaveText('저장했어요');
+  expect(f.uploads).toEqual([sent('n-text', '먼저 올림.pdf')]);
+  const patches = f.writes.filter(w => w.method === 'PATCH');
+  expect(patches).toHaveLength(1);
+  expect(patches[0].query.updated_at).toMatch(/^eq\.2026-10-22T05:00:/); // the version the upload left (the fixture stamps uploads 05:00:…)
+  expect(patches[0].body.raw_text).toContain('덧붙인 글');
+  expect(f.notes.find(n => n.id === 'n-text').attachments).toHaveLength(1);
+  expect(f.errors).toEqual([]);
+});
