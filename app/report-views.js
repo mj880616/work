@@ -25,7 +25,8 @@ export function calendarHtml(ctx) {
     const label = `${dayHeading(c.key)}${list.length ? ` 사업 보고 ${list.length}건` : ''}`;
     const num = c.inMonth ? `<button type="button" class="rv-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
     const dots = plan.total ? `<span class="rv-dots" aria-hidden="true">${list.slice(0, 3).map(m => dot(colorOf(m))).join('')}</span>` : '';
-    const titles = plan.shown.length ? `<ul class="rv-titles">${plan.shown.map(m => `<li><span class="rv-title" ${openAttrs(m.id)} title="${esc(nameOf(m))}">${dot(colorOf(m))}<span>${esc(nameOf(m))}</span></span></li>`).join('')}${plan.more ? `<li class="rv-more">+${plan.more}</li>` : ''}</ul>` : '';
+    // BIZ-달력그날창: 칸에 4줄까지(cellPlan). 넘는 날만 마지막 줄 자리에 '+n' 단추 — 누르면 그날 창(team.js reportViewClick → calendar-day-overflow.js).
+    const titles = plan.shown.length ? `<ul class="rv-titles">${plan.shown.map(m => `<li><span class="rv-title" ${openAttrs(m.id)} title="${esc(nameOf(m))}">${dot(colorOf(m))}<span>${esc(nameOf(m))}</span></span></li>`).join('')}${plan.more ? `<li><button type="button" class="rv-more" data-rv-more="${c.key}" aria-haspopup="dialog" aria-label="${esc(`${dayHeading(c.key)} 사업 보고 ${plan.total}건 모두 보기`)}">+${plan.more}</button></li>` : ''}</ul>` : '';
     // S57-8 BIZ-달력우클릭끌기 ④: 이번 달 칸은 칸 전체가 '그날 고르기'(숫자·점·빈 곳·+n 어디든). 숫자 단추는 키보드·화면 읽기용으로 그대로 둔다.
     return `<td class="${cls}"${c.inMonth ? ` data-rv-cell="${c.key}"` : ''}>${num}${dots}${titles}</td>`;
   }).join('')}</tr>`).join('');

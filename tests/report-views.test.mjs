@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {REPORT_VIEWS, validValue, parsePrefs, KEYS} from '../app/view-prefs.js';
-import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf, moveReportAt, REPORT_DAY_MENU_ITEMS} from '../app/report-views-model.mjs';
+import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, CELL_LINES, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf, moveReportAt, REPORT_DAY_MENU_ITEMS} from '../app/report-views-model.mjs';
 import {calendarHtml, photoViewHtml} from '../app/report-views.js';
 
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -33,7 +33,23 @@ test('달력 계산: 일요일 시작, 달 넘기기, 날짜는 서울 기준', 
   const by = reportsByDay(rows);
   assert.deepEqual(by.get('2026-10-24').map(m => m.id), [M2, M1]);
   assert.equal(by.size, 2);
-  assert.deepEqual(cellPlan([1, 2, 3, 4]), {shown: [1, 2], more: 2, total: 4});
+  // BIZ-달력그날창: 칸에 4줄까지. 4건까지는 '+n' 없이 전부, 넘는 날만 마지막 줄 자리에 '+n'(앞 3건 + 나머지 수).
+  assert.equal(CELL_LINES, 4);
+  assert.deepEqual(cellPlan([]), {shown: [], more: 0, total: 0});
+  assert.deepEqual(cellPlan([1, 2]), {shown: [1, 2], more: 0, total: 2});
+  assert.deepEqual(cellPlan([1, 2, 3, 4]), {shown: [1, 2, 3, 4], more: 0, total: 4});
+  assert.deepEqual(cellPlan([1, 2, 3, 4, 5]), {shown: [1, 2, 3], more: 2, total: 5});
+  assert.deepEqual(cellPlan([1, 2, 3, 4, 5, 6]), {shown: [1, 2, 3], more: 3, total: 6});
+  // 보이는 줄 수(이름 + '+n')는 어느 날도 줄 수를 넘지 않고, 보이는 것 + 나머지 = 전체.
+  for (let n = 0; n <= 12; n++) for (const lines of [1, 2, 3, 4]) {
+    const plan = cellPlan(Array.from({length: n}, (_, i) => i), lines);
+    assert.ok(plan.shown.length + (plan.more ? 1 : 0) <= lines, `${n}건 ${lines}줄`);
+    assert.equal(plan.shown.length + plan.more, n);
+    assert.equal(plan.more === 0, n <= lines);
+  }
+  assert.deepEqual(cellPlan([1, 2, 3], 2), {shown: [1], more: 2, total: 3});
+  assert.deepEqual(cellPlan([1, 2, 3], 0), {shown: [], more: 3, total: 3});
+  assert.deepEqual(cellPlan(null), {shown: [], more: 0, total: 0});
   assert.equal(pickDay(by, {year: 2026, month: 9}, '', '2026-10-27'), '2026-10-27');
   assert.equal(pickDay(by, {year: 2026, month: 9}, '2026-10-10', '2026-10-27'), '2026-10-10');
   assert.equal(pickDay(by, {year: 2026, month: 9}, '', '2026-11-02'), '2026-10-24');
@@ -76,8 +92,17 @@ test('달력 글: 이번 달 칸마다 칸 전체 누르기 표시(data-rv-cell)
   // 칸 속 제목(사업 보고 열기)·'+n'은 칸 안에 있어 칸 누름이 받는다(제목은 열기가 먼저 받음: team.js 시험 아래).
   const cell = html.match(/<td class="rv-cell[^"]*" data-rv-cell="2026-10-24">.*?<\/td>/)[0];
   assert.match(cell, /class="rv-dots"/); assert.match(cell, new RegExp(`data-mrd-meeting="${M1}"`));
-  const many = calendarHtml(ctx({rows: [1, 2, 3, 4].map(n => meeting(id(200 + n), `보고${n}`, '2026-10-12T01:00:00Z'))}));
-  assert.match(many.match(/<td class="rv-cell[^"]*" data-rv-cell="2026-10-12">.*?<\/td>/)[0], /<li class="rv-more">\+2<\/li>/);
+  // BIZ-달력그날창: 4건인 날은 '+n' 없이 넷 다, 6건인 날은 앞 셋 + '+3' 단추(그날 창을 여는 단추, 날짜·전체 건수를 읽어 준다).
+  const cellOf = (n, day = '2026-10-12') => calendarHtml(ctx({rows: Array.from({length: n}, (_, i) => meeting(id(201 + i), `보고${i + 1}`, `${day}T0${i}:00:00Z`))})).match(new RegExp(`<td class="rv-cell[^"]*" data-rv-cell="${day}">.*?</td>`))[0];
+  const four = cellOf(4);
+  assert.equal((four.match(/class="rv-title"/g) || []).length, 4); assert.doesNotMatch(four, /rv-more/);
+  const six = cellOf(6);
+  assert.equal((six.match(/class="rv-title"/g) || []).length, 3);
+  assert.deepEqual([...six.matchAll(/<span>(보고\d)<\/span>/g)].map(x => x[1]), ['보고1', '보고2', '보고3']);
+  assert.match(six, /<li><button type="button" class="rv-more" data-rv-more="2026-10-12" aria-haspopup="dialog" aria-label="10월 12일 \(월\) 사업 보고 6건 모두 보기">\+3<\/button><\/li><\/ul><\/td>$/);
+  assert.match(cellOf(5), /class="rv-more"[^>]*>\+2<\/button>/);
+  // 점(폰 폭)은 그대로 3개까지.
+  assert.equal((six.match(/<span class="rv-dots" aria-hidden="true">(.*?)<\/span><ul/)[1].match(/class="rv-dot"/g) || []).length, 3);
 });
 test('화면 연결: 칸 누름은 칸 전체(+n 포함)가 그날 고르기, 제목·목록 줄은 보고 열기가 먼저 받음', () => {
   const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');

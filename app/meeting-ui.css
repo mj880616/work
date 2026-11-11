@@ -334,7 +334,8 @@
 #meetingList .rv-title{display:flex;align-items:center;gap:4px;min-width:0;padding:1px 2px;border-radius:var(--kptu-radius-sm);font-size:11px;line-height:1.3;cursor:pointer}
 #meetingList .rv-title>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #meetingList .rv-title:hover{background:var(--kptu-surface-subtle)}
-#meetingList .rv-more{padding:0 2px;font-size:11px;color:var(--kptu-muted)}
+#meetingList .rv-more{display:block;width:100%;min-height:0;margin:0;padding:1px 2px;border:0;border-radius:var(--kptu-radius-sm);background:none;font:inherit;font-size:11px;line-height:1.3;color:var(--kptu-muted);text-align:left;cursor:pointer}
+#meetingList .rv-more:hover{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
 #meetingList .rv-day-list{margin-top:var(--kptu-space-2)}
 #meetingList .rv-row{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 8px;border-bottom:1px solid var(--kptu-border);cursor:pointer}
 #meetingList .rv-row:hover,#meetingList .rv-set-head:hover{background:var(--kptu-surface-subtle)}
@@ -347,8 +348,10 @@
 #meetingList .rv-set-meta{flex:none;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 #meetingList .rv-grid{gap:4px;margin:2px 0 0}
 #meetingList .rv-grid .act-photo-thumb{width:72px;height:72px}
+/* BIZ-달력그날창: PC 칸은 이름 4줄(report-views-model.mjs CELL_LINES)이 꼭 들어가는 높이로 고정한다 — 숫자 22 + 줄 16.3×4 + 안쪽 여백 6 + 선.
+   높이는 여기 한 곳에서만 정하고 그린 뒤에 재서 줄 수를 바꾸지 않는다(4줄을 넘는 날은 마지막 줄 자리가 '+n'). */
 @media(min-width:761px){
-  #meetingList .rv-cell{height:92px;padding:3px}
+  #meetingList .rv-cell{height:96px;padding:3px}
   #meetingList .rv-dots{display:none}
   #meetingList .rv-titles{display:block}
 }
