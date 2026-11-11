@@ -4,8 +4,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -20,6 +22,11 @@ data class WidgetRequest(
     val headers: Map<String, String>,
     val body: String? = null,
     val parts: List<WidgetPart>? = null,
+    /**
+     * APP-뒤에서올리기: true면 본문을 보내기 시작한 뒤에는 HTTP 도구가 저절로 다시 보내지 않는다(같은 파일이 두 번 올라가지 않게).
+     * 다시 보낼지는 부른 곳이 정한다(BackUploadRules). 위젯 [사진] 등 기존 요청은 지금처럼 false.
+     */
+    val once: Boolean = false,
 )
 
 /** multipart 칸 하나: 글 칸(value) 또는 파일 칸(file·fileName·type). */
@@ -33,7 +40,13 @@ data class WidgetPart(
 
 data class WidgetResponse(val status: Int, val body: String)
 
-/** 위젯이 쓰는 HTTP 도구. 시험에서는 가짜로 바꾼다. 네트워크 오류는 IOException. */
+/**
+ * APP-뒤에서올리기: 올리기(multipart) 본문을 다 보낸 뒤에 난 네트워크 오류. 서버가 이미 저장했을 수 있다(결과 모름).
+ * IOException의 한 갈래라, 따로 잡지 않는 곳(위젯 [사진] 등)에서는 지금처럼 보통 네트워크 오류로 다룬다.
+ */
+class WidgetSentException : IOException("sent")
+
+/** 위젯이 쓰는 HTTP 도구. 시험에서는 가짜로 바꾼다. 네트워크 오류는 IOException(다 보낸 뒤면 WidgetSentException). */
 fun interface WidgetHttp {
     @Throws(IOException::class)
     fun send(request: WidgetRequest): WidgetResponse
@@ -59,16 +72,43 @@ class OkHttpWidgetHttp(
         val builder = Request.Builder().url(request.url)
         request.headers.forEach { (k, v) -> builder.header(k, v) }
         val parts = request.parts
+        val tracked = if (parts != null) Tracked(multipart(parts), request.once) else null
         when (request.method) {
             "GET" -> builder.get()
-            "POST" -> builder.post(if (parts != null) multipart(parts) else (request.body ?: "").toRequestBody(JSON))
+            "POST" -> builder.post(tracked ?: (request.body ?: "").toRequestBody(JSON))
             else -> throw IOException("method")
         }
         // 사진 올리기는 몇 MB라 시간 한도를 넉넉히(읽기·로그인 요청은 그대로 짧게).
         val c = if (parts != null) upload else client
-        c.newCall(builder.build()).execute().use { res ->
-            val text = res.body?.string() ?: ""
-            return WidgetResponse(res.code, if (text.length > MAX_BODY) text.substring(0, MAX_BODY) else text)
+        try {
+            c.newCall(builder.build()).execute().use { res ->
+                val text = res.body?.string() ?: ""
+                return WidgetResponse(res.code, if (text.length > MAX_BODY) text.substring(0, MAX_BODY) else text)
+            }
+        } catch (e: IOException) {
+            // 본문을 다 보낸 뒤의 끊김·시간 초과는 서버가 이미 받았을 수 있다. 부른 곳이 '결과 모름'으로 다룰 수 있게 갈래를 나눈다.
+            if (tracked?.sent == true) throw WidgetSentException()
+            throw e
+        }
+    }
+
+    /** 올리기 본문을 감싸 '다 보냈는지'만 적는다(내용은 건드리지 않음). */
+    private class Tracked(private val inner: RequestBody, private val once: Boolean) : RequestBody() {
+        @Volatile
+        var sent = false
+            private set
+
+        override fun contentType() = inner.contentType()
+
+        override fun contentLength() = inner.contentLength()
+
+        /** once면 보내기 시작한 뒤의 연결 오류에서 OkHttp가 같은 본문을 저절로 다시 보내지 않는다. */
+        override fun isOneShot() = once
+
+        override fun writeTo(sink: BufferedSink) {
+            sent = false
+            inner.writeTo(sink)
+            sent = true
         }
     }
 

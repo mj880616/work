@@ -91,8 +91,15 @@ for (const width of [412, 884, 1440]) {
       expect((await twist(page, 'od:OD!1').boundingBox()).width).toBeGreaterThanOrEqual(24);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/files-tree-${width}.png` }); }
-      // 폴더 이름을 누르면 그 폴더 안 파일 목록으로 들어간다.
-      await tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]').click();
+      // UI-폴더누르기한규칙: 폴더 이름을 누르면 들어가지 않고 그 자리에서 접힘·펼침(오른쪽 그대로), 들어가기는 우클릭 [이 폴더로 들어가기].
+      const nameBtn = tree(page).locator('[data-fx-go="od"][data-fx-id="OD!1"]');
+      await nameBtn.click();
+      await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'false');
+      await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!1"]')).toBeVisible();
+      await nameBtn.click();
+      await expect(twist(page, 'od:OD!1')).toHaveAttribute('aria-expanded', 'true');
+      await tree(page).locator('[data-fx-fold="od:OD!1"] [data-fx-tmenu]').click();
+      await page.locator('#rowMenu').getByRole('button', {name: '이 폴더로 들어가기'}).click();
       await expect(root(page).locator('[data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
     }
 

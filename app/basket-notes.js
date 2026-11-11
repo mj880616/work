@@ -5,7 +5,7 @@ import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
 // FOLDER-나무새기준(S51-12): 폴더 나무 줄·상자는 파일·사진·자료실과 같은 공용 부품, 두 손가락으로 그 폴더만 보기는 folder-pinch.js.
-import { ftFoldIfRepeat, ftBindTreeArrows } from './folder-tree-press.mjs';
+import { ftPressToggle, ftBindTreeArrows } from './folder-tree-press.mjs';
 import { ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW } from './folder-tree-ui.mjs';
 import { riseFromRow, sinkToRow, topOf } from './folder-focus-motion.js';
 import { recentFolded, toggleRecentFolded } from './recent-fold.js';
@@ -53,7 +53,7 @@ import { deleteAttachment } from './file-trash.js';
 import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
 import { openPhotoView } from './photo-view.js';
 import { attachmentName } from './attachment-name.mjs';
-import { markRenameHost, renameButtonHtml, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기
+import { markRenameHost, openRenameEditor, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ✎ 대신 ⋯ 안 [이름 수정]
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 import { bindRowSwipe, claimedSince } from './row-swipe.js';
@@ -408,9 +408,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // UI-모바일노트복사메뉴: on a phone a list row has no [복사] button; [복사] is in its ⋯ menu (PC keeps the button).
   // NOTE-파일붙이기: a file card's ⋯ has [빼기] (the link only; the Drive file stays).
   // FILE-첨부삭제: and [삭제] (off this note and the Drive original to the Drive trash, file-trash.js; [되돌리기] brings both back).
+  // FILE-이름고치기연필먹통: and [이름 수정] (the line has no ✎; it opens the same in-place name field as pressing the name twice, file-rename.js).
   const canEditFolders = () => foldersReady;
   const menuItems = (note, from, folderId = null) => {
-    if (from === 'file') return [['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
+    if (from === 'file') return [['data-note-file-rename', '이름 수정'], ['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
     // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
     if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '삭제', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
@@ -508,11 +509,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const url = driveFileUrl(file.drive_file_id), name = attachmentName(file);
       const link = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없어요.</span>';
       const more = `<button type="button" class="basket-icon-button note-file-more" data-note-file-more="${esc(file.drive_file_id)}" aria-label="${esc(name)} 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
-      const edit = renameButtonHtml({target:'note', id:selected.id, driveId:file.drive_file_id, name:String(file.file_name || '')});
-      return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:edit + link + more, attrs:` data-note-file="${esc(file.drive_file_id)}" data-fr-row`});
+      return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:link + more, attrs:` data-note-file="${esc(file.drive_file_id)}" data-fr-row`});
     }).join('');
     attBox.querySelectorAll('.file-line-main').forEach(el => { el.setAttribute('role', 'button'); el.tabIndex = 0; });
-    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ✎로 그 자리에서 고친다(file-rename.js).
+    // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ⋯ [이름 수정]으로 그 자리에서 고친다(file-rename.js, ✎는 따로 두지 않는다).
     attBox.querySelectorAll('[data-note-file]').forEach(line => {
       const file = (selected.attachments || []).find(f => f.drive_file_id === line.dataset.noteFile);
       if (file) markRenameHost(line.querySelector('.file-line-main b'), {target:'note', id:selected.id, driveId:file.drive_file_id, name:String(file.file_name || '')});
@@ -1282,7 +1282,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
-    if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
+    if (b.hasAttribute('data-note-file-rename')) { const host = detail.querySelector(`[data-note-file="${CSS.escape(from.fileId)}"] [data-fr-host]`); if (host) openRenameEditor(host); }
+    else if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-note-file-delete')) void deleteFile(note, from.fileId);
     else if (b.hasAttribute('data-nbb-detach')) boards.detach(note.id);
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
@@ -1319,7 +1320,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-nb-remove')) { if (!pick.active) boards.detach(b.dataset.nbRemove); return; }
     if (b.hasAttribute('data-note-row')) { if (pick.active) togglePick('n:' + b.dataset.noteRow); else open(b.dataset.noteRow); }
     else if (b.hasAttribute('data-nx-tog')) { const id = b.dataset.nxTog; if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); host.querySelector(`[data-nx-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); }
-    else if (b.hasAttribute('data-nx-open')) { if (!ftFoldIfRepeat(b)) pressFolder(b.dataset.nxOpen, e); } // LIB-나무접기: 들어가 펼친 폴더 이름 다시 = 접기
+    // UI-폴더누르기한규칙(S57-5): PC·폴드 왼쪽 나무 폴더 이름 누르기 = 아이콘 누르기와 같은 펼치기·접기(오른쪽 노트·위치 줄 그대로, 들어가지 않음). 들어가기 = 우클릭 [이 폴더로 들어가기]·두 손가락.
+    else if (b.hasAttribute('data-nx-open')) { if (!ftPressToggle(b)) pressFolder(b.dataset.nxOpen, e); } // '최근'·'폴더 없음'·선택 모드 줄은 나무 줄이 아니라 지금처럼
     // 위치 줄 맨 앞 '노트'(폰 '그 폴더만' 상자 안)는 [‹]와 같이 펼친 자리 그대로 나무로(S51-24).
     else if (b.hasAttribute('data-nx-at')) { const id = b.dataset.nxAt || null; if (id === null && !wideList.matches && at !== null) up(); else enter(id); }
     else if (b.hasAttribute('data-nx-back')) up();
@@ -1343,16 +1345,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nt-cm-open')) open(b.dataset.ntCmOpen);
     else if (b.hasAttribute('data-note-tag')) { const key = b.dataset.noteTag; void askClose(b).then(ok => { if (!ok) return; tagAt = key; if (view === 'tag') renderList(); else setView('tag'); }); }
   });
-  // 폴더 줄: 선택 모드면 고르기. PC는 오른쪽에 그 폴더 노트(왼쪽 나무에서 열림, 고른 폴더를 다시 누르면 접기·펴기),
-  // 폰(17:55 한 화면씩)은 그 폴더 화면으로 들어간다('폴더 없음'도 한 화면).
+  // 폴더 줄: 선택 모드면 고르기. 폰은 그 자리 펼치기·접기. PC·폴드 왼쪽 나무의 폴더 줄은 ftPressToggle이 먼저 맡아 펼침·접힘만 한다(UI-폴더누르기한규칙).
+  // 여기 오는 PC·폴드 줄은 '최근'(오른쪽에 최근 노트)·'폴더 없음'('폴더 없음'도 한 화면)·선택 모드 줄뿐이다. 폴더만 보기는 우클릭·⋯ [이 폴더로 들어가기]·두 손가락.
   function pressFolder(id, e) {
     // FOLDER-나무새기준 ③: 폰 나무(첫 화면·그 폴더만 보기 모두)는 화면을 바꾸지 않고 그 자리에서 펼치기·접기(줄 어디를 눌러도). 그 폴더만 보기는 두 손가락 벌리기.
     if (!wideList.matches && id !== RECENT && !(pick.active && id !== OUTSIDE)) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderList(); return; }
     if (id === OUTSIDE) { enter(OUTSIDE); return; }
     if (id === RECENT) { enter(null); return; }
-    if (pick.active) { togglePick('f:' + id); return; }
-    if (wideList.matches) openSet.add(id); // S51-25: 줄 누르기 = 그 폴더 열기 + 펼침(접기는 아이콘만)
-    enter(id);
+    if (pick.active) { togglePick('f:' + id); }
   }
   // 들어가기(10:34 ②): 그 폴더만 보이고 위에 '이름 · 장수'(2단 이상이면 위치 줄도). 폴더 위쪽은 왼쪽 나무에서 열어 둔다.
   function enter(id, {focus = true} = {}) {
@@ -1437,10 +1437,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // S51-24 UI-빈칸손짓: 노트가 짧아도 아래 빈 곳까지 손짓 칸(두 손가락·좌우 밀기 보기 전환, gesture-fill.js).
   fillGestureArea(host.querySelector('[data-nx-body]'));
   bindFolderPinch(host.querySelector('[data-nx-body]'), {
-    enabled:() => !wideList.matches && view === 'folder' && !selected && !pick.active && !busy && !query && folders.length > 0,
+    enabled:() => view === 'folder' && !selected && !pick.active && !busy && !query && folders.length > 0, // UI-폴더누르기한규칙: 폴드·PC 왼쪽 나무 줄 위 벌리기도 그 폴더로 들어가기
     folderAt:el => { const row = el.closest('[data-nx-folder],[data-nx-outside],[data-ft-parent]'); if (!row) return null; if (row.dataset.nxFolder) return row.dataset.nxFolder; if (row.hasAttribute('data-nx-outside')) return OUTSIDE; return row.dataset.ftParent || null; },
-    onOut:id => { if (at === null) focusFolder(id); },
-    onIn:() => { if (at !== null) up(); }});
+    onOut:id => { if (wideList.matches) enter(id); else if (at === null) focusFolder(id); },
+    onIn:() => { if (!wideList.matches && at !== null) up(); }});
   // FILES-폰폴더위로 ④⑤: 폰 '그 폴더만'에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(노트 '그 폴더만'은 한 단계라 늘 펼친 자리 그대로 나무).
   bindEdgeBack(host.closest('.view-panel') || host, {enabled:() => !wideList.matches && at !== null && !selected && !pick.active && !busy, onBack:() => up()});
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.

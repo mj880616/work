@@ -15,7 +15,7 @@ const labels=loc=>loc.locator('button').allTextContents().then(a=>a.map(s=>s.tri
 async function rightAt(page,loc){await expect(loc).toBeVisible();let b=null;await expect.poll(async()=>(b=await loc.boundingBox())!==null).toBe(true);const dx=Math.round(Math.min(b.width/2,60)),dy=Math.round(b.height/2);await loc.click({button:'right',position:{x:dx,y:dy}});return {x:Math.round(b.x)+dx,y:Math.round(b.y)+dy}}
 const keepLog=page=>page.evaluate(()=>{window.__kept=[];window.addEventListener('contextmenu',e=>window.__kept.push(!e.defaultPrevented))});
 
-test('파일 1280: 목록 줄 우클릭 → 그 줄 메뉴(고르기 아님), 폴더는 [열기]로 들어가기',async({page})=>{
+test('파일 1280: 목록 줄 우클릭 → 그 줄 메뉴(고르기 아님), 폴더는 [이 폴더로 들어가기]로 들어가기',async({page})=>{
   test.setTimeout(90000);
   const {errors}=await startFiles(page,1280);
   await openFiles(page,1280);
@@ -25,12 +25,12 @@ test('파일 1280: 목록 줄 우클릭 → 그 줄 메뉴(고르기 아님), �
   const {x}=await rightAt(page,row);
   await expect(menu(page)).toBeVisible();
   const items=await labels(menu(page));
-  expect(items[0]).toBe('열기');expect(items).toContain('이름 바꾸기');expect(items.at(-1)).toBe('휴지통');
+  expect(items[0]).toBe('이 폴더로 들어가기');expect(items).toContain('이름 바꾸기');expect(items.at(-1)).toBe('휴지통');
   await expect(menu(page).locator('.row-menu-title')).toHaveText('가짜 문서함');
   expect(Math.abs((await menu(page).boundingBox()).x-x)).toBeLessThanOrEqual(14);
   expect(await page.evaluate(()=>window.__kept)).toEqual([false]);
   await expect(page.locator('#filesRoot [data-fx-row="od:OD!1"][aria-pressed="true"], #filesRoot .fx-picked')).toHaveCount(0);
-  await menu(page).getByRole('button',{name:'열기',exact:true}).click();
+  await menu(page).getByRole('button',{name:'이 폴더로 들어가기',exact:true}).click();
   await expect(page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]')).toBeVisible();
   // 파일 줄: [열기][자료실로 보내기][복사][옮기기][이름 바꾸기][경로 복사][별표] … [휴지통] (FILES-자료실로보내기 S52-26, S52-43 ③ 경로 복사)
   await rightAt(page,page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!11"]'));
