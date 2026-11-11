@@ -8,25 +8,25 @@
 //   `probe`(NEWS-전면개편 P2b, 설계 news-overhaul 4.4절): 매체 키 하나 → 피드 1번 + 최신 기사 1개를 읽어 본문 추출 결과를 숫자·코드로만
 //   돌려준다(제목·주소·본문 없음, 저장 없음). 몸통 {}이면 카탈로그 키 목록만.
 //   `refill`(NEWS-전면개편 P2c, S51-15): 매체 키 하나 → 최근 30일 기사 중 본문을 다시 뽑을 줄(블록 없음·timeout·옛 판 실패)을 한 번에 20개까지 다시 읽는다(건수만 응답).
-//   run 단계: media(켠 매체 RSS 한 곳) · keywords(구글 뉴스 검색 RSS) · pending(채널 기사 원문 읽기·요약) · titles(외국어 기사 제목만 한국어로) · prune(오래된 자동 기사 정리).
+//   run 단계: media(켠 매체 RSS 한 곳) · keywords(받은 매체 글에 켠 키워드 표시 — 밖에서 새로 찾지 않음, S59-1) · pending(채널 기사 원문 읽기·요약) · titles(외국어 기사 제목만 한국어로) · prune(오래된 자동 기사 정리).
 // - 화면 입구(`catalog`·`fill_now`·`open`·`translate`): 사용자 로그인을 Auth 서버로 확인 + 그 사람이 owner인 작업공간 하나를 서버가 정함.
 //   몸통은 기사 id(uuid)뿐이고 주소는 받지 않는다. 하루 한도는 app_news_days에 센다(재시작에도 유지).
 //   · fill_now: 채널 기사 대기 줄 바로 채우기(하루 FILL_DAILY번, 한 번에 FILL_MAX건). 채운 뒤 그 작업공간 외국어 제목도 번역(titles와 같은 규칙).
-//   · open: 기사 하나의 본문을 지금 읽기(매체 기사는 카탈로그 호스트만, 채널 기사는 열린 주소 규칙, 구글 중계 주소는 읽지 않음). 하루 OPEN_DAILY번.
+//   · open: 기사 하나의 본문을 지금 읽기(매체 기사는 카탈로그 호스트만, 채널 기사는 열린 주소 규칙, 카탈로그 밖 매체·옛 구글 중계 주소는 읽지 않음). 하루 OPEN_DAILY번.
 //   · translate: 외국어 기사 본문을 한국어로 번역해 그 줄에 저장(본문 번역이 이미 있으면 저장본, 재번역 없음). 하루 TRANSLATE_DAILY번.
 //     엔진(S52-12 NEWS-원문먼저번역 ②): 비밀값 GOOGLE_TRANSLATE_API_KEY가 있으면 Google Cloud Translation(_shared/google-translate.ts, 줄 수를 맞춰 저장),
 //     없거나 Google이 실패하면 기존 AI 번역(news_translate). 흐름은 outside-feed translate와 공용(_shared/feed-translate.ts, S52-36).
 //     입구·로그인·owner·하루 한도·저장 칸은 그대로. 하루·월 한도(app_news_days, _shared/news-days.ts)는 사회운동 [번역]과 함께 센다.
 //     본문 번역은 누를 때만 한다. 백그라운드(titles 단계·fill_now)는 제목만 번역한다(S47-57 명진 결정: 제목만 미리, 본문은 그때).
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401.
-// 읽는 주소: 매체·구글 뉴스는 _shared/news-catalog.ts 허용 호스트만, 채널 기사 원문은 _shared/feed-fetch.ts openArticleUrl 규칙.
+// 읽는 주소: 매체는 _shared/news-catalog.ts 허용 호스트만, 채널 기사 원문은 _shared/feed-fetch.ts openArticleUrl 규칙.
 //   robots.txt 먼저(막히면 state='robots'), 유료벽 표시면 본문을 읽지 않고 공개 리드만(state='paywall'), 봇 확인 쪽은 저장 안 함.
 // 저장: 서비스 역할로 app_news_items(넣기·고치기)·app_news_days(넣기·고치기)·app_news_keywords(읽기)·app_outside_sources(news- 키 읽기·상태)·
 //   app_workspace_members(owner 확인 읽기)·rpc app_news_prune·app_feed_bodies(본문 블록 넣기·고치기, P2b)만.
 //   본문 블록(NEWS-전면개편 P2b, 4.7절): media 단계가 피드를 읽은 뒤 새 기사마다 글 쪽 1번(같은 reader라 요청 사이 GAP_MS, 예산 RUN_BUDGET_MS,
-//   매체마다 한 번 MEDIA_BODY_PER_RUN건), 남은 것은 pending 단계가 읽는다. 키워드 기사는 읽지 않고 relay 줄만. 누를 때 열기(open)도 같은 줄을 고친다. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
+//   매체마다 한 번 MEDIA_BODY_PER_RUN건), 남은 것은 pending 단계가 읽는다. 누를 때 열기(open)도 같은 줄을 고친다. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
 import { allowedUrl } from "../_shared/outside-catalog.ts";
-import { GOOGLE_NEWS, GOOGLE_NEWS_HOST, googleNewsUrl, isGoogleSite, matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
+import { matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
 import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
@@ -37,7 +37,7 @@ import { tidyTitle } from "../_shared/outside-tidy.ts";
 const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: false }).title || raw;
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
-import { readArticlePage, splitGoogleTitle, titleKey, type PageRule } from "./page.ts";
+import { readArticlePage, titleKey, type PageRule } from "./page.ts";
 import { bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
 import { addDay, dayRow, type DayField, kstDay, monthKrw, MONTHLY_LIMIT_KRW } from "../_shared/news-days.ts";
@@ -50,16 +50,21 @@ const FOREIGN_SECRET_HEADERS = ["x-drive-summary-cron-secret", "x-collector-feed
 export const USER_AGENT = "Web2NewsFeed/1.0 (+https://github.com/mj880616/work/blob/main/docs/design/news-clipping.md)";
 export const ROBOTS_AGENT = "Web2NewsFeed";
 export const GAP_MS = 2000;
-export const LIST_LIMIT = 30;
 // 켠 매체 피드 하나에서 한 번에 받는 글 수(NEWS-다받기, 11/09). 매체 피드는 그 피드가 싣는 최근 글 수(연합 섹션 120·조선 100·매경·동아·노컷 50 등,
 // 설계 3.1b [사실: 11/08 CC 확인])까지만 주므로, 30에서 끊으면 밤사이(18:22→08:22, 14시간) 30건 넘게 나온 섹션은 아침 실행에서 뒤쪽을 놓친다.
 // 피드 하나를 통째로 받도록 가장 큰 피드(120)보다 넉넉히 둔다. 수집 때 AI·글 쪽 읽기는 늘지 않는다(국내 종합지는 extract:false, 본문 읽기는 MEDIA_BODY_PER_RUN 그대로).
 export const MEDIA_LIST_LIMIT = 150;
-export const KEYWORDS_PER_WORKSPACE = 30;
-export const KEYWORD_WORDS_PER_RUN = 60;
 // 기본값(명진이 바꿀 때 이 줄들만 고친다 — 화면은 catalog 응답의 limits로 같은 값을 보인다):
-// 자동 키워드 기사는 작업공간마다 하루 KEYWORD_ITEMS_DAILY개까지(넘는 기사는 넣지 않음). 매체 새 글은 제목만(AI 없음).
-export const KEYWORD_ITEMS_DAILY = 30;
+// 키워드는 작업공간마다 KEYWORDS_PER_WORKSPACE개까지(먼저 넣은 것부터) 글자 맞추기에 쓴다.
+export const KEYWORDS_PER_WORKSPACE = 30;
+// 키워드 표시(S59-1 NEWS-키워드살리기, 11/11 명진 결정): 밖에서 새로 찾지 않는다(구글 뉴스 검색은 robots 금지, S58-9).
+// 켠 매체로 이미 들어온 글(lane=media) 가운데 최근 KEYWORD_SCAN_DAYS일 것의 제목·한국어 제목·요약에 켠 키워드가 글자 그대로 들어 있으면 그 줄의 keywords 칸에 적는다.
+// 한 작업공간에서 한 번에 KEYWORD_SCAN_PAGE줄씩, KEYWORD_SCAN_ROWS줄까지 본다. 새로 들어오는 글은 매체 단계가 넣을 때 바로 적는다.
+// 한 줄에 적는 키워드는 KEYWORDS_PER_ITEM개까지(DB 검사 cardinality(keywords) <= 10).
+export const KEYWORD_SCAN_DAYS = 7;
+export const KEYWORD_SCAN_PAGE = 500;
+export const KEYWORD_SCAN_ROWS = 20000;
+export const KEYWORDS_PER_ITEM = 10;
 // 채널 기사 채우기(NEWS-채널밀림 ①, 11/02): 새 것부터, 한 번에 PENDING_PER_RUN건까지 — 실제로는 시간 예산(RUN_BUDGET_MS) 안에서 멈춘다.
 // 남은 대기 건수는 PENDING_COUNT_CAP까지 세어 실행 기록에 적는다(그 이상은 'cap+1'로).
 export const PENDING_PER_RUN = 60;
@@ -68,9 +73,8 @@ export const PENDING_PER_RUN = 60;
 export const PENDING_PARALLEL = 3;
 export const PENDING_COUNT_CAP = 1000;
 export const PENDING_STALE_DAYS = 3;
-// 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로), 키워드 기사 relay 표시는 RELAY_PER_RUN건.
+// 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로).
 export const MEDIA_BODY_PER_RUN = 30;
-export const RELAY_PER_RUN = 200;
 // 다시 뽑기(NEWS-전면개편 P2c, 설계 news-overhaul 4.8 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 매체 기사 가운데
 // 블록 줄이 없거나, 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을
 // 새 것부터 주소 REFILL_PER_SOURCE개까지 다시 읽는다(같은 reader라 요청 사이 GAP_MS, 시간 예산 RUN_BUDGET_MS). 찾는 범위는 REFILL_SCAN줄.
@@ -253,16 +257,11 @@ async function summarize(db: Db, ai: AiDeps, ws: string, title: string, body: st
 }
 
 // ---- 읽기 ----------------------------------------------------------------------------------------------------------
-type Readers = { catalog: (s: NewsSource | typeof GOOGLE_NEWS) => FeedReader; open: () => FeedReader };
+type Readers = { catalog: (s: NewsSource) => FeedReader; open: () => FeedReader };
 function makeReaders(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: FeedLog, now: () => number): Readers {
   const base = { doFetch, sleep, log, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS, now };
   return {
-    catalog: (s) => makeFeedReader({ ...base, allow: (raw) => {
-      const u = allowedUrl(s, raw);
-      // 구글 뉴스는 검색 RSS 경로와 robots.txt만 읽는다(기사 중계 주소는 읽지 않음). 키워드 찾기와 매체 단위 줄(S57-13) 모두 — 호스트로 본다.
-      if (u && u.hostname.toLowerCase() === GOOGLE_NEWS_HOST && u.pathname !== "/rss/search" && u.pathname !== "/robots.txt") return null;
-      return u;
-    } }),
+    catalog: (s) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw) }),
     open: () => makeFeedReader({ ...base, allow: openArticleUrl }),
   };
 }
@@ -303,7 +302,7 @@ async function fillVideo(db: Db, reader: FeedReader, item: Row, vid: string, now
   return "ok";
 }
 
-// 본문 규칙 고르기: 매체 기사는 카탈로그(extract·bodyClass), 채널 기사는 열린 주소 규칙(open@판). 구글 중계·카탈로그 밖 매체는 null(읽지 않음).
+// 본문 규칙 고르기: 매체 기사는 카탈로그(extract·bodyClass), 채널 기사는 열린 주소 규칙(open@판). 카탈로그 밖 매체(옛 키워드 기사 포함)는 null(읽지 않음).
 type RuleFor = (base: string) => PageRule;
 const openRule: RuleFor = (base) => ({ key: OPEN_ARTICLE_KEY, rule: OPEN_ARTICLE_RULE, base });
 function ruleForItem(item: Row): RuleFor | null {
@@ -429,20 +428,6 @@ async function runRefill(db: Db, readers: Readers, ai: AiDeps, source: NewsSourc
   return out;
 }
 
-// 키워드 기사(구글 중계 주소)는 원문을 읽지 않는다(N3): 블록 줄을 '못 읽음(relay)'으로만 넣는다(요청 없음). 한 번에 RELAY_PER_RUN건.
-// which: 어느 줄을 볼지 — 키워드 기사(기본) 또는 구글 뉴스 매체 단위 줄의 매체 기사(S57-13, 매체 키는 카탈로그 값만).
-async function markRelayBodies(db: Db, log: FeedLog, nowMs: number, which = "lane=eq.keyword") {
-  const since = new Date(nowMs - PENDING_STALE_DAYS * 86400000).toISOString();
-  const rows = await db.get(`app_news_items?${which}&created_at=gte.${encodeURIComponent(since)}&select=id,workspace_id,app_feed_bodies(id)&app_feed_bodies=is.null&limit=${RELAY_PER_RUN}`);
-  const nowIso = new Date(nowMs).toISOString();
-  const list = rows.filter((r) => typeof r.id === "string" && UUID.test(r.id) && typeof r.workspace_id === "string" && UUID.test(r.workspace_id))
-    .map((r) => bodyRow(failedBody("relay"), { workspace_id: String(r.workspace_id), news_item_id: String(r.id) }, nowIso));
-  if (!list.length) return 0;
-  try { await db.send("POST", "app_feed_bodies?on_conflict=news_item_id", list, "return=minimal,resolution=ignore-duplicates"); }
-  catch { log("body_failed", { lane: which === "lane=eq.keyword" ? "keyword" : "media" }); return 0; }
-  return list.length;
-}
-
 // ---- 예약 단계 -----------------------------------------------------------------------------------------------------
 // 켠 매체 → 작업공간 목록. 줄이 enabled=true면 켬, false면 끔.
 // 기본 켬 매체(on: true, S53-6)는 그 매체 줄이 아직 없는 '뉴스를 쓰는 작업공간'(키워드가 있거나 news- 줄이 하나라도 있는 곳)도 켬으로 본다.
@@ -490,12 +475,21 @@ export function parseSource(source: NewsSource, xml: string): NewsSource {
   }
   return { ...source, hosts: [...hosts] };
 }
+// 글 링크만 http로 적는 피드(카탈로그 httpsLinks — 노동과세계, S59-1): 그 매체 hosts의 글 링크(<link>·<guid>·Atom href)만 https로 바꾼 글을 해석한다.
+// 다른 호스트·포트가 붙은 주소는 그대로(그래서 http면 주소 검사에서 빠진다). 수집기가 읽는 주소는 그대로 https뿐이고, 바꾼 주소도 allowedUrl을 그대로 받는다.
+const reHost = (h: string) => h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export function httpsLinkXml(source: NewsSource, xml: string): string {
+  if (source.httpsLinks !== true || !source.hosts.length) return xml;
+  const hosts = source.hosts.map(reHost).join("|");
+  const inTag = new RegExp(`(<(link|guid)\\b[^>]*>\\s*(?:<!\\[CDATA\\[)?\\s*)http://(${hosts})(?=[/?#\\]<\\s]|$)`, "gi");
+  const inHref = new RegExp(`(<link\\b[^>]*?\\bhref\\s*=\\s*["']\\s*)http://(${hosts})(?=[/?#"'\\s])`, "gi");
+  return xml.replace(inTag, (_m, head, _t, host) => `${head}https://${host}`).replace(inHref, (_m, head, host) => `${head}https://${host}`);
+}
 type NewRow = { workspace_id: string; lane: "keyword" | "media"; url: string; url_key: string; title: string; title_key: string | null;
   lang: string; publisher: string | null; source_key: string | null; keywords: string[]; published_at: string | null; fetched_at: string;
   state: "ok"; summary: string | null; body: string | null; body_kind: "full" | "lead" | null };
 // 같은 작업공간에 같은 주소(url_key) 또는 같은 제목(title_key)이 이미 있으면 넣지 않는다(채널 기사와 겹침 포함).
-// left(키워드 단계만): 작업공간마다 오늘 더 넣을 수 있는 수. 넣은 만큼 줄인다.
-async function insertNew(db: Db, rows: NewRow[], left?: Map<string, number>): Promise<number> {
+async function insertNew(db: Db, rows: NewRow[]): Promise<number> {
   let n = 0;
   const byWs = new Map<string, NewRow[]>();
   for (const r of rows) byWs.set(r.workspace_id, [...(byWs.get(r.workspace_id) ?? []), r]);
@@ -506,14 +500,13 @@ async function insertNew(db: Db, rows: NewRow[], left?: Map<string, number>): Pr
     // 저장소 앞단이 요청을 거절했다(503 STORE_UNAVAILABLE — 비마이너, 11/03~11/06 매번).
     for (const part of inChunks(keys)) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=in.${part}&select=url_key`)) have.add(`u:${r.url_key}`);
     for (const part of inChunks(tks)) for (const r of await db.get(`app_news_items?workspace_id=eq.${ws}&title_key=in.${part}&select=title_key`)) have.add(`t:${r.title_key}`);
-    let fresh: NewRow[] = [];
+    const fresh: NewRow[] = [];
     const seen = new Set<string>();
     for (const r of list) {
       if (have.has(`u:${r.url_key}`) || (r.title_key && have.has(`t:${r.title_key}`)) || seen.has(r.url_key)) continue;
       seen.add(r.url_key); if (r.title_key) have.add(`t:${r.title_key}`);
       fresh.push(r);
     }
-    if (left) { const room = Math.max(0, left.get(ws) ?? 0); fresh = fresh.slice(0, room); left.set(ws, room - fresh.length); }
     if (fresh.length) {
       await db.send("POST", "app_news_items?on_conflict=workspace_id,url_key", fresh, "resolution=ignore-duplicates,return=minimal");
       n += fresh.length;
@@ -542,34 +535,32 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   const reader = readers.catalog(source);
   const nowIso = new Date(nowMs).toISOString();
   let inserted = 0, status = "ok";
-  const wordsByWs = new Map<string, string[]>();
-  if (source.take === "keywords") {
-    const kw = await db.get(`app_news_keywords?enabled=is.true&workspace_id=in.(${ws.join(",")})&select=workspace_id,word&limit=5000`);
-    for (const r of kw) if (typeof r.word === "string") wordsByWs.set(String(r.workspace_id), [...(wordsByWs.get(String(r.workspace_id)) ?? []), r.word]);
-  }
+  // 켠 키워드(작업공간마다): take=keywords 매체의 거르기와, 넣는 글의 키워드 표시(S59-1 — 키워드 칸은 이 표시로 모아 본다)에 함께 쓴다.
+  const wordsByWs = keywordsByWorkspace(await db.get(`app_news_keywords?enabled=is.true&workspace_id=in.(${ws.join(",")})&select=workspace_id,word&order=created_at.asc&limit=5000`));
   // raw: 피드에 든 글 칸(item·entry) 수, listed: 그 가운데 주소·제목 검사를 통과한 글 수(건수만). 둘이 크게 다르면 링크 호스트·https 문제다(NEWS-새매체글없음).
   let raw = 0, listed = 0;
-  // 구글 뉴스 매체 단위 줄(S57-13): 링크는 구글 중계 주소 그대로(키워드 기사와 같은 값 — 같은 글이 키워드로 먼저 왔으면 주소·제목 겹침으로 걸러진다),
-  // 제목 끝 ' - 매체'는 떼고 매체 이름은 카탈로그 이름, 소개·본문은 없음(구글 소개 칸은 제목을 되풀이한 링크 묶음이라 싣지 않는다).
-  const viaGoogle = isGoogleSite(source);
   for (const list of source.lists) {
     const got = await reader.get(list, ACCEPT_FEED);
     if (!got.ok) { status = got.code; continue; }
-    const items = parseFeed(parseSource(source, got.text), got.text, nowMs, MEDIA_LIST_LIMIT);
+    const xml = httpsLinkXml(source, got.text);
+    const items = parseFeed(parseSource(source, xml), xml, nowMs, MEDIA_LIST_LIMIT);
     raw += Math.min((got.text.match(/<(item|entry)\b/gi) ?? []).length, 1000);
     listed += items.length;
     const rows: NewRow[] = [];
     for (const it of items) {
-      // take=keywords(종합지·방송사)는 작업공간마다 자기 키워드에 글자가 맞는 글만(AI 없이). take=all은 전부.
-      const hit = (w: string) => source.take !== "keywords" || (wordsByWs.get(w) ?? []).length > 0 && matchedKeywords(`${it.title}\n${it.summary ?? ""}`, wordsByWs.get(w) ?? []).length > 0;
-      const clean = viaGoogle ? it.url : cleanArticleUrl(it.url);
+      const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
-      const full = !viaGoogle && it.content && chars(it.content) >= 200 ? it.content : null;
-      const lead = viaGoogle ? null : it.summary;
-      const title = newsTitle(viaGoogle ? splitGoogleTitle(it.title).title : it.title, source.name);
-      for (const w of ws) if (hit(w)) rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
-        lang: source.lang, publisher: source.name, source_key: source.key, keywords: [], published_at: it.published_at, fetched_at: nowIso, state: "ok",
-        summary: oneLineLead(lead), body: full ?? (lead ? cut(lead, 1200) : null), body_kind: full ? "full" : lead ? "lead" : null });
+      const full = it.content && chars(it.content) >= 200 ? it.content : null;
+      const lead = it.summary;
+      const title = newsTitle(it.title, source.name);
+      for (const w of ws) {
+        const kws = keywordHits(`${it.title}\n${it.summary ?? ""}`, wordsByWs.get(w) ?? []);
+        // take=keywords(종합지·방송사)는 작업공간마다 자기 키워드에 글자가 맞는 글만(AI 없이). take=all은 전부.
+        if (source.take === "keywords" && !kws.length) continue;
+        rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
+          lang: source.lang, publisher: source.name, source_key: source.key, keywords: kws, published_at: it.published_at, fetched_at: nowIso, state: "ok",
+          summary: oneLineLead(lead), body: full ?? (lead ? cut(lead, 1200) : null), body_kind: full ? "full" : lead ? "lead" : null });
+      }
     }
     inserted += await insertNew(db, rows);
   }
@@ -578,56 +569,77 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   // 새 기사 본문(P2b): 피드를 읽은 같은 실행에서 글 쪽 1번씩(예산 안). 실패해도 수집 결과는 그대로.
   let bodies = { done: 0, deferred: 0 };
   try { bodies = await runMediaBodies(db, reader, ai, source, nowMs, startMs, clock); } catch { log("bodies_failed", { source: source.key }); }
-  // 구글 뉴스 매체 단위 줄: 원문을 읽지 않으므로 키워드 기사처럼 '못 읽음(relay)' 블록 줄만 남긴다(요청 없음) — 화면은 제목·매체·날짜와 [원문]만 보인다.
-  let relay = 0;
-  if (viaGoogle) { try { relay = await markRelayBodies(db, log, nowMs, `lane=eq.media&source_key=eq.${source.key}`); } catch { log("bodies_failed", { source: source.key }); } }
-  log("media_done", { source: source.key, inserted, status, raw, listed, bodies: bodies.done, bodies_deferred: bodies.deferred, ...(viaGoogle ? { relay } : {}) });
-  return { ok: true, step: "media", source: source.key, status, raw, listed, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred, ...(viaGoogle ? { relay } : {}) };
+  log("media_done", { source: source.key, inserted, status, raw, listed, bodies: bodies.done, bodies_deferred: bodies.deferred });
+  return { ok: true, step: "media", source: source.key, status, raw, listed, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
 }
 
-async function runKeywords(db: Db, readers: Readers, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
-  const rows = await db.get(`app_news_keywords?enabled=is.true&select=workspace_id,word&order=created_at.asc&limit=5000`);
-  const byWord = new Map<string, string[]>(), perWs = new Map<string, number>();
+// 켠 키워드 줄 → 작업공간마다 낱말 목록(먼저 넣은 것부터 KEYWORDS_PER_WORKSPACE개, 같은 낱말 한 번). 줄은 created_at 순으로 받는다.
+export function keywordsByWorkspace(rows: Row[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
   for (const r of rows) {
-    const w = String(r.word), ws = String(r.workspace_id);
-    if ((perWs.get(ws) ?? 0) >= KEYWORDS_PER_WORKSPACE) continue;
-    perWs.set(ws, (perWs.get(ws) ?? 0) + 1);
-    byWord.set(w, [...(byWord.get(w) ?? []), ws]);
+    const ws = String(r.workspace_id), w = r.word;
+    if (!UUID.test(ws) || typeof w !== "string" || !w.trim()) continue;
+    const list = out.get(ws) ?? [];
+    if (list.length >= KEYWORDS_PER_WORKSPACE || list.includes(w)) continue;
+    out.set(ws, [...list, w]);
   }
-  // 하루 상한: 오늘(서울 날짜) 이미 넣은 자동 키워드 기사 수를 작업공간마다 센다.
-  const left = new Map<string, number>();
-  const allWs = [...perWs.keys()];
-  if (allWs.length) {
-    const dayStart = new Date(`${kstDay(nowMs)}T00:00:00+09:00`).toISOString();
-    for (const ws of allWs) left.set(ws, KEYWORD_ITEMS_DAILY);
-    for (let i = 0; i < allWs.length; i += 40) {
-      const got = await db.get(`app_news_items?lane=eq.keyword&created_at=gte.${encodeURIComponent(dayStart)}&workspace_id=in.(${allWs.slice(i, i + 40).join(",")})&select=workspace_id&limit=${40 * KEYWORD_ITEMS_DAILY + 40}`);
-      for (const r of got) { const ws = String(r.workspace_id); if (left.has(ws)) left.set(ws, (left.get(ws) ?? 0) - 1); }
-    }
+  return out;
+}
+// 글 한 건에 적을 키워드: 글자 맞추기(matchedKeywords) 결과를 KEYWORDS_PER_ITEM개까지(키워드 목록 순서).
+export const keywordHits = (text: string, words: readonly string[]): string[] => (words.length ? matchedKeywords(text, words).slice(0, KEYWORDS_PER_ITEM) : []);
+const sameWords = (a: unknown, b: string[]) => Array.isArray(a) && a.length === b.length && a.every((w, i) => w === b[i]);
+
+// 키워드 단계(S59-1 NEWS-키워드살리기): 밖에서 새로 찾지 않는다 — 구글 뉴스 검색 RSS는 robots 금지(S58-9)라 읽는 주소가 없다.
+// 뉴스를 쓰는 작업공간(키워드가 있거나 news- 매체 줄이 있는 곳)마다, 최근 KEYWORD_SCAN_DAYS일에 켠 매체로 들어온 글(lane=media)의 keywords 칸을
+// 지금 켠 키워드의 글자 맞추기 결과로 맞춘다: 새 키워드는 더해지고, 끄거나 지운 키워드는 빠진다. 다른 줄(채널 기사·옛 키워드 기사)은 건드리지 않는다.
+// 같은 결과끼리 묶어 한 번에 고친다(id 40개씩). 시간 예산을 넘으면 남은 작업공간은 다음 실행에.
+async function runKeywords(db: Db, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
+  const words = keywordsByWorkspace(await db.get(`app_news_keywords?enabled=is.true&select=workspace_id,word&order=created_at.asc&limit=5000`));
+  const all = new Set<string>(words.keys());
+  for (const r of await db.get(`app_outside_sources?source_key=like.news-*&select=workspace_id&limit=5000`)) {
+    const w = String(r.workspace_id);
+    if (UUID.test(w)) all.add(w);
   }
-  const reader = readers.catalog(GOOGLE_NEWS);
+  const since = encodeURIComponent(new Date(nowMs - KEYWORD_SCAN_DAYS * 86400000).toISOString());
   const nowIso = new Date(nowMs).toISOString();
-  let inserted = 0, words = 0, deferred = 0;
-  for (const [word, all] of byWord) {
-    const wss = all.filter((ws) => (left.get(ws) ?? 0) > 0);
-    if (!wss.length) continue;
-    if (words >= KEYWORD_WORDS_PER_RUN || clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
-    words++;
-    const got = await reader.get(googleNewsUrl(word), ACCEPT_FEED);
-    if (!got.ok) { log("keyword_read_failed", { code: got.code }); if (got.code === "robots" || got.code === "robots_denied") break; continue; }
-    const out: NewRow[] = [];
-    for (const it of parseFeed(GOOGLE_NEWS, got.text, nowMs, LIST_LIMIT)) {
-      const split = splitGoogleTitle(it.title), publisher = split.publisher, title = newsTitle(split.title);
-      for (const ws of wss) out.push({ workspace_id: ws, lane: "keyword", url: it.url, url_key: urlKey(it.url), title, title_key: titleKey(title),
-        lang: "ko", publisher, source_key: null, keywords: [word], published_at: it.published_at, fetched_at: nowIso, state: "ok",
-        summary: null, body: null, body_kind: null });
+  let workspaces = 0, scanned = 0, done = 0, deferred = 0;
+  for (const ws of all) {
+    if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
+    workspaces++;
+    const list = words.get(ws) ?? [];
+    const change = new Map<string, { kws: string[]; ids: string[] }>();
+    const want = (id: unknown, kws: string[]) => {
+      if (typeof id !== "string" || !UUID.test(id)) return;
+      const k = JSON.stringify(kws), g = change.get(k) ?? { kws, ids: [] };
+      g.ids.push(id); change.set(k, g);
+    };
+    const base = `app_news_items?workspace_id=eq.${ws}&lane=eq.media&created_at=gte.${since}`;
+    if (!list.length) {
+      // 켠 키워드가 없으면 맞출 것이 없다: 표시가 남은 줄만 비운다(글자는 읽지 않음).
+      for (const r of await db.get(`${base}&keywords=neq.{}&select=id&limit=${KEYWORD_SCAN_PAGE}`)) want(r.id, []);
+      scanned += change.get("[]")?.ids.length ?? 0;
+    } else {
+      for (let offset = 0; offset < KEYWORD_SCAN_ROWS; offset += KEYWORD_SCAN_PAGE) {
+        if (clock() - startMs > RUN_BUDGET_MS) { deferred++; break; }
+        const page = await db.get(`${base}&select=id,title,title_ko,summary,keywords&order=created_at.desc,id.desc&limit=${KEYWORD_SCAN_PAGE}&offset=${offset}`);
+        scanned += page.length;
+        for (const r of page) {
+          const text = [r.title, r.title_ko, r.summary].filter((v) => typeof v === "string").join("\n");
+          const kws = keywordHits(text, list);
+          if (!sameWords(r.keywords, kws)) want(r.id, kws);
+        }
+        if (page.length < KEYWORD_SCAN_PAGE) break;
+      }
     }
-    inserted += await insertNew(db, out, left);
+    for (const { kws, ids } of change.values()) {
+      for (let i = 0; i < ids.length; i += 40) {
+        await db.send("PATCH", `app_news_items?workspace_id=eq.${ws}&lane=eq.media&id=in.(${ids.slice(i, i + 40).join(",")})`, { keywords: kws, updated_at: nowIso }, "return=minimal");
+      }
+      done += ids.length;
+    }
   }
-  let relay = 0;
-  try { relay = await markRelayBodies(db, log, nowMs); } catch { log("bodies_failed"); }
-  log("keywords_done", { words, inserted, deferred, relay });
-  return { ok: true, step: "keywords", words, inserted, deferred, relay };
+  log("keywords_done", { workspaces, scanned, done, deferred });
+  return { ok: true, step: "keywords", workspaces, scanned, done, deferred };
 }
 
 async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, log: FeedLog, onlyWs?: string, max = PENDING_PER_RUN) {
@@ -753,17 +765,13 @@ async function probeMedia(readers: Readers, source: NewsSource, nowMs: number) {
   const reader = readers.catalog(source);
   const got = await reader.get(source.lists[0], ACCEPT_FEED);
   if (!got.ok) return { ...base, list: got.code, listed: 0, page: null, ...bodyNumbers(failedBody(readFailReason(got.code))) };
-  const items = parseFeed(parseSource(source, got.text), got.text, nowMs, 5);
+  const xml = httpsLinkXml(source, got.text);
+  const items = parseFeed(parseSource(source, xml), xml, nowMs, 5);
   const it = items[0];
   // 피드에 글은 있는데 모두 허용 호스트 밖 링크라 빠졌으면 off_host(LabourStart처럼 남의 매체로 가는 피드, 설계 4.3), 글이 없으면 no_body.
   if (!it) {
     const raw = (got.text.match(/<(item|entry)\b/gi) ?? []).length;
     return { ...base, list: "ok", listed: 0, raw: Math.min(raw, 1000), page: null, ...bodyNumbers(failedBody(raw > 0 ? "off_host" : "no_body")) };
-  }
-  // 구글 뉴스 매체 단위 줄(S57-13): 글 링크가 구글 중계 주소라 읽지 않는다 — 피드 건수(raw·listed)와 relay만 돌려준다.
-  if (isGoogleSite(source)) {
-    const raw = (got.text.match(/<(item|entry)\b/gi) ?? []).length;
-    return { ...base, list: "ok", listed: parseFeed(source, got.text, nowMs, MEDIA_LIST_LIMIT).length, raw: Math.min(raw, 1000), page: null, ...bodyNumbers(failedBody("relay")) };
   }
   const clean = cleanArticleUrl(it.url);
   // 남의 매체로 가는 링크(linkOut 피드): 기사 줄은 남지만 글 쪽은 읽지 않는다 — 요청 없이 off_host.
@@ -866,7 +874,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           return json(await runMedia(db, readers, ai, source, nowMs, startMs, now, log));
         }
         if (!exactKeys(b, ["step"])) throw new Fail(400, "INVALID_BODY");
-        if (step === "keywords") return json(await runKeywords(db, readers, nowMs, startMs, now, log));
+        if (step === "keywords") return json(await runKeywords(db, nowMs, startMs, now, log));
         if (step === "pending") return json(await runPending(db, readers, ai, nowMs, startMs, now, log));
         if (step === "titles") return json(await runTitles(db, ai, nowMs, startMs, now, log));
         if (step === "prune") {
@@ -881,7 +889,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
         // ai.month_capped: 이번 달 AI 한도(MONTHLY_LIMIT_KRW)에 닿았는지(예/아니오만 — 금액은 싣지 않음). 닿으면 수집 때 요약·외국어 제목 번역이 조용히 멈추므로 화면이 알린다(NEWS-다받기 ④).
         const capped = await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW;
-        return json({ ok: true, sources: publicNewsCatalog(), limits: { fill: FILL_DAILY, translate: TRANSLATE_DAILY, open: OPEN_DAILY, keyword_items: KEYWORD_ITEMS_DAILY, keywords: KEYWORDS_PER_WORKSPACE }, ai: { month_capped: capped } });
+        return json({ ok: true, sources: publicNewsCatalog(), limits: { fill: FILL_DAILY, translate: TRANSLATE_DAILY, open: OPEN_DAILY, keywords: KEYWORDS_PER_WORKSPACE }, ai: { month_capped: capped } });
       }
       if (action === "fill_now") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
@@ -902,9 +910,9 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         if (item.lane === "channel") reader = readers.open();
         else {
           const source = newsSourceByKey(item.source_key);
-          // 구글 중계 주소 등: 읽지 않고 원문 링크로. 구글 뉴스 매체 단위 줄(S57-13)의 기사도 링크가 중계 주소라 같다.
+          // 카탈로그 밖 매체(옛 키워드 기사의 구글 중계 주소, 카탈로그에서 뺀 매체의 글): 읽지 않고 원문 링크로.
           // 남의 매체로 가는 링크(linkOut 피드의 기사)도 카탈로그 호스트 밖이라 읽지 않는다.
-          if (!source || isGoogleSite(source) || !allowedUrl(source, String(item.url))) return json({ ok: true, status: "original_only" });
+          if (!source || !allowedUrl(source, String(item.url))) return json({ ok: true, status: "original_only" });
           reader = readers.catalog(source);
         }
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);

@@ -84,9 +84,10 @@ test('읽기 실패·허용 밖 주소·키워드(구글 중계)는 블록 없�
  await w.cron({step:'media',source:'news-beminor'});
  assert.deepEqual(w.bodies.map(b=>[b.news_item_id,b.state,b.reason,b.blocks.length]).sort(),[[off.id,'failed','off_host',0],[down.id,'failed','http_5xx',0]].sort());
  assert.ok(!w.calls.some(c=>c.url.startsWith('https://other.example.com')),'허용 밖 주소는 요청하지 않음');
+ // 키워드 단계(S59-1)는 밖에서 새로 찾지 않고 본문 줄도 만들지 않는다 — 옛 키워드 기사(구글 중계 주소)도 읽지 않는다.
  const kw={id:'c0000000-0000-4000-8000-000000000201',workspace_id:WS,lane:'keyword',url:'https://news.google.com/rss/articles/x'};
  const w2=world({items:[kw]});
  const k=await w2.cron({step:'keywords'});
- assert.equal(k.relay,1);assert.deepEqual(w2.bodies.map(b=>[b.state,b.reason,b.rule]),[['failed','relay',null]]);
- assert.ok(!w2.calls.some(c=>c.url.startsWith('https://news.google.com/rss/articles')),'중계 주소는 읽지 않음');
+ assert.equal(k.ok,true);assert.equal(k.relay,undefined);assert.deepEqual(w2.bodies,[]);
+ assert.ok(!w2.calls.some(c=>!c.url.startsWith(SB)),'바깥 주소(중계 주소 포함)는 읽지 않음');
 });

@@ -84,23 +84,24 @@ test('고정 색 표: 키마다 이름 글자·막대 토큰, 표에 없는 매�
   assert.equal(outsideBar('x-union2', cat), outsideColor('x-union2', cat));
   assert.equal(outsideColor('x-party', cat), 'var(--ds-news-party-1)');
   assert.equal(newsBar({source_key: 'news-b'}, [{key: 'news-a'}, {key: 'news-b'}]), 'var(--ds-news-press-2)');
-  // 카탈로그에 없는 매체(키워드로 찾은 기사의 매체 이름, 구글 뉴스 길)는 지금 규칙 그대로: 매체 이름으로 칸 고르기.
-  assert.equal(newsColor({source_key: 'news-google', publisher: '가상일보'}, []), newsColor({publisher: '가상일보'}));
-  assert.match(newsColor({source_key: 'news-google', publisher: '가상일보'}, []), /^var\(--ds-news-press-[1-4]\)$/);
+  // 카탈로그에 없는 매체(옛 키워드 기사의 매체 이름, S59-1에 카탈로그에서 뺀 매체의 글)는 지금 규칙 그대로: 매체 이름으로 칸 고르기.
+  for (const key of ['news-google', 'news-busan', null]) {
+    assert.equal(newsColor({source_key: key, publisher: '가상일보'}, []), newsColor({publisher: '가상일보'}));
+    assert.match(newsColor({source_key: key, publisher: '가상일보'}, []), /^var\(--ds-news-press-[1-4]\)$/);
+  }
 });
 
 test('고정 색 표의 키는 모두 지금 카탈로그에 있다(이름이 바뀌거나 빠진 키가 표에 남지 않음)', () => {
   const outside = catalogKeys('outside-catalog.ts'), news = catalogKeys('news-catalog.ts');
-  assert.ok(outside.length >= 19 && news.length >= 37, `카탈로그 키를 못 읽음 ${outside.length}·${news.length}`);
+  assert.ok(outside.length >= 19 && news.length >= 28, `카탈로그 키를 못 읽음 ${outside.length}·${news.length}`);
   for (const k of FIXED_OUTSIDE) assert.ok(outside.includes(k), `단체 카탈로그에 없음: ${k}`);
   for (const k of FIXED_NEWS) assert.ok(news.includes(k), `언론 카탈로그에 없음: ${k}`);
 });
 
 // S58-5 반대 방향 전수: 카탈로그에 매체를 더했는데 고유색(FIXED_* 키 + 토큰 두 개)을 빼먹으면 이 시험이 매체 키를 알려 준다. 빠진 키는 묶음 돌려쓰기 칸으로 그려져 다른 매체와 색이 겹쳐 보인다.
 // 일부러 표에 없는 키만 아래에 까닭과 함께 적는다. 까닭 없이 키를 여기에 더해 시험을 넘기지 않는다(새 매체는 표·토큰을 더하는 것이 기본).
-const NO_FIXED_COLOR_NEWS = {
-  'news-google': '매체가 아니라 키워드 찾기 길(구글 뉴스 검색 RSS)이다. 기사마다 실제 매체 이름이 달라 한 색을 주면 구분이 사라지므로 기사마다 매체 이름으로 칸을 고르는 지금 규칙 그대로(docs/design/news-identity-colors.md 2절).',
-};
+// S59-1: 구글 뉴스 키워드 찾기 길(news-google)은 카탈로그에서 없앴다(robots 금지) — 지금은 일부러 뺀 언론 키가 없다.
+const NO_FIXED_COLOR_NEWS = {};
 const NO_FIXED_COLOR_OUTSIDE = {};
 const missingFixed = (catalog, fixed, skip) => catalog.filter(k => !fixed.includes(k) && !(k in skip));
 
@@ -118,31 +119,36 @@ test('카탈로그의 모든 키는 고정 색 표에 있다 — 고유색을 �
 });
 
 test('빠진 키를 알려 주는 검사 자체가 동작한다: 가짜 카탈로그에 고유색 없는 새 키를 넣으면 그 키가 나온다', () => {
-  assert.deepEqual(missingFixed(['news-a', 'news-b', 'news-google'], ['news-a'], NO_FIXED_COLOR_NEWS), ['news-b']);
-  assert.deepEqual(missingFixed(['news-a', 'news-google'], ['news-a'], NO_FIXED_COLOR_NEWS), []);
+  const skip = {'news-skip': '시험용 면제 키 — 까닭을 적은 키는 빠진 키로 세지 않는다(면제 목록 동작 확인).'};
+  assert.deepEqual(missingFixed(['news-a', 'news-b', 'news-skip'], ['news-a'], skip), ['news-b']);
+  assert.deepEqual(missingFixed(['news-a', 'news-skip'], ['news-a'], skip), []);
+  assert.deepEqual(missingFixed(['news-a', 'news-skip'], ['news-a'], NO_FIXED_COLOR_NEWS), ['news-skip']);
   assert.deepEqual(missingFixed(['x'], [], {}), ['x']);
 });
 
-// S58-5 새 매체 13곳(구글 뉴스 매체 단위, NEWS-못넣은곳대안 ②): 각자 고유색. 앞의 23곳 차례와 다른 매체 색은 그대로.
-const NEW_NEWS_13 = ['news-worknworld', 'news-newsmin', 'news-redaily', 'news-busan', 'news-laborplus', 'news-redian', 'news-newsone', 'news-edaily', 'news-mt', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
-test('새 언론 13곳: 고정 표 뒤쪽에 더해졌고(앞 23곳 차례 그대로), 막대는 한 색, 글자·막대 토큰이 밝은·어두운 화면에 있다', () => {
+// S58-5 새 매체(NEWS-못넣은곳대안): 각자 고유색. S59-1: 길이 있는 6곳만 남고(자기 RSS), 길이 없어 카탈로그에서 뺀 8곳은 표·토큰에서도 뺐다.
+const NEW_NEWS_6 = ['news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
+const REMOVED_NEWS_8 = ['news-mediatoday', 'news-busan', 'news-newsone', 'news-edaily', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
+test('새 언론 6곳: 고정 표 뒤쪽(앞 매체 차례 그대로), 막대는 한 색, 글자·막대 토큰이 밝은·어두운 화면에 있다 — 뺀 8곳은 표·토큰에 없다', () => {
   assert.deepEqual([...FIXED_NEWS].slice(0, 3), ['news-labortoday', 'news-beminor', 'news-pressian']);
-  assert.deepEqual([...FIXED_NEWS].slice(20, 23), ['news-psi', 'news-itf', 'news-labourstart']);
-  assert.deepEqual([...FIXED_NEWS].slice(23), NEW_NEWS_13);
-  for (const k of NEW_NEWS_13) {
+  assert.deepEqual([...FIXED_NEWS].slice(19, 22), ['news-psi', 'news-itf', 'news-labourstart']);
+  assert.deepEqual([...FIXED_NEWS].slice(22), NEW_NEWS_6);
+  for (const k of REMOVED_NEWS_8) {
+    assert.ok(!FIXED_NEWS.includes(k), k);
+    assert.doesNotMatch(css, new RegExp(`--ds-news-id-${k}[:-]`), `${k} 토큰이 남음`);
+  }
+  for (const k of NEW_NEWS_6) {
     assert.equal(newsColor({source_key: k}, []), `var(--ds-news-id-${k})`);
     assert.equal(newsBar({source_key: k}, []), `var(--ds-news-id-${k}-bar)`);
     for (const part of [lightPart, darkPart]) assert.match(tok(part, `ds-news-id-${k}-bar`) || '', /^#[0-9a-f]{6}$/, `${k} 막대는 한 색`);
   }
-  // 구글 뉴스 키워드 길은 그대로 매체 이름으로 칸 고르기.
-  assert.match(newsColor({source_key: 'news-google', publisher: '가상일보'}, []), /^var\(--ds-news-press-[1-4]\)$/);
 });
 
-// 새 13곳 이름 글자는 분류 꼬리표(노동·정치·국제·성명) 글자색과도 거리 14 이상(#2357 문서 6절 기준, 밝은·어두운 화면 따로).
-test('새 언론 13곳의 이름 글자는 분류 꼬리표 글자색과 헷갈리지 않는다(거리 14 이상)', () => {
+// 새 매체 이름 글자는 분류 꼬리표(노동·정치·국제·성명) 글자색과도 거리 14 이상(#2357 문서 6절 기준, 밝은·어두운 화면 따로).
+test('새 언론 6곳의 이름 글자는 분류 꼬리표 글자색과 헷갈리지 않는다(거리 14 이상)', () => {
   for (const [part, label] of [[lightPart, '밝은'], [darkPart, '어두운']]) {
     const tagInks = ['labor', 'politics', 'intl', 'statement'].map(t => tok(part, `ds-news-tag-${t}-ink`));
-    for (const k of NEW_NEWS_13) for (const [i, tagInk] of tagInks.entries()) assert.ok(dist(tok(part, `ds-news-id-${k}`), tagInk) >= 14, `${label} 화면 ${k} ↔ 꼬리표 ${i} 너무 비슷함`);
+    for (const k of NEW_NEWS_6) for (const [i, tagInk] of tagInks.entries()) assert.ok(dist(tok(part, `ds-news-id-${k}`), tagInk) >= 14, `${label} 화면 ${k} ↔ 꼬리표 ${i} 너무 비슷함`);
   }
 });
 

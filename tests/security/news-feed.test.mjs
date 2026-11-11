@@ -95,11 +95,13 @@ test('open article url rule: https public hosts only',()=>{
  assert.equal(F.urlKey('https://www.example.org/a/1/?id=7'),'example.org/a/1?id=7');
 });
 
-test('catalog: fixed hosts, news- keys, no Naver search API, Google News search path only',()=>{
- for(const s of C.NEWS_CATALOG){assert.match(s.key,/^news-[a-z0-9-]{1,34}$/);for(const l of s.lists)assert.ok(new URL(l).protocol==='https:');}
+test('catalog: fixed hosts, news- keys, no Naver search API, no Google News search (robots 금지, S59-1)',()=>{
+ for(const s of C.NEWS_CATALOG){assert.match(s.key,/^news-[a-z0-9-]{1,34}$/);for(const l of s.lists)assert.ok(new URL(l).protocol==='https:');assert.equal(s.httpHosts,undefined,`${s.key}: http 허용 없음`);}
  const src=readFileSync(new URL('../../supabase/functions/_shared/news-catalog.ts',import.meta.url),'utf8')+readFileSync(new URL('../../supabase/functions/news-feed/handler.ts',import.meta.url),'utf8');
  assert.doesNotMatch(src,/openapi\.naver\.com|X-Naver-Client/i);
- assert.match(C.googleNewsUrl('철도'),/^https:\/\/news\.google\.com\/rss\/search\?q=/);
+ // 구글 뉴스 검색 RSS는 그쪽 robots.txt가 금지 — 그 주소를 만드는 부품·호스트가 수집기 코드에 없다(되살리지 않음).
+ assert.doesNotMatch(src,/news\.google\.com|googleNewsUrl|googleSite/);
+ for(const s of C.NEWS_CATALOG)assert.ok(!s.hosts.some(h=>/google/i.test(h)),s.key);
  assert.equal(C.newsSourceByKey('https://evil.example'),null);
 });
 
@@ -112,7 +114,6 @@ test('article page: full body, paywall lead only, bot check stores nothing, lang
  assert.equal(P.readArticlePage('<html><body>Checking your browser before accessing. Just a moment...</body></html>',NOW).state,'bot_check');
  assert.equal(P.guessLang('Workers strike for safe staffing in public services.'),'en');
  assert.equal(P.titleKey('[단독] 합성 기사, 제목! - 합성일보'),P.titleKey('합성 기사 제목'.replace(' 제목',', 제목')));
- assert.deepEqual(P.splitGoogleTitle('Synthetic headline - Example Times'),{title:'Synthetic headline',publisher:'Example Times'});
 });
 
 test('pending: robots allowed → body, meta and summary stored; robots blocked → state robots and page not read',async()=>{
@@ -208,8 +209,8 @@ test('open: Google relay links are not read; media items only on catalog hosts',
  assert.equal(r.body.status,'original_only');assert.equal(w.outbound().length,0);
 });
 
-// S57-13: 구글 뉴스 매체 단위 줄의 기사(링크가 중계 주소)·남의 매체 링크 피드의 기사는 서버가 읽지 않는다 — 누를 때 열기도 원문 링크로만.
-test('open·probe: 구글 뉴스 매체 단위 기사와 남의 매체 링크 기사는 읽지 않는다(요청 없음, 하루 열기 횟수도 안 씀)',async()=>{
+// S59-1: 카탈로그에서 뺀 매체(옛 구글 뉴스 매체 단위 줄)의 기사·남의 매체 링크 피드의 기사는 서버가 읽지 않는다 — 누를 때 열기도 원문 링크로만.
+test('open·probe: 카탈로그에서 뺀 매체의 기사와 남의 매체 링크 기사는 읽지 않는다(요청 없음, 하루 열기 횟수도 안 씀), 뺀 매체 probe는 400',async()=>{
  const G2='c0000000-0000-4000-8000-000000000013',L1='c0000000-0000-4000-8000-000000000014';
  const g={id:G2,workspace_id:WS,lane:'media',source_key:'news-mediatoday',url:'https://news.google.com/rss/articles/synthetic2?oc=5',title:'t',lang:'ko',body:null,body_kind:null};
  const l={id:L1,workspace_id:WS,lane:'media',source_key:'news-labourstart',url:'https://other.example.org/news/1',title:'t',lang:'en',body:null,body_kind:null};
@@ -217,16 +218,21 @@ test('open·probe: 구글 뉴스 매체 단위 기사와 남의 매체 링크 �
  for(const id of [G2,L1]){const r=await call(w,userReq('open',{id}));assert.equal(r.status,200);assert.equal(r.body.status,'original_only');}
  assert.equal(w.outbound().length,0,'중계 주소·남의 매체 주소로 요청하지 않음');
  assert.equal(w.writes().length,0,'기사 줄·하루 횟수를 고치지 않음');
- // 읽는 주소 규칙: 매체 단위 줄도 구글 뉴스에서는 검색 RSS 경로와 robots.txt만(중계 주소·다른 경로·다른 호스트는 규칙 밖).
- const s=C.newsSourceByKey('news-mediatoday');
- const rss=`<rss><channel><item><title>합성 기사 - 미디어오늘</title><link>https://news.google.com/rss/articles/synthetic2?oc=5</link></item></channel></rss>`;
- const w2=fakeWorld({sites:{'https://news.google.com/robots.txt':{body:''},[s.lists[0]]:{body:rss,headers:{'content-type':'application/xml'}},'https://news.google.com/rss/articles/synthetic2':{body:'<html></html>'}}});
- const pr=await call(w2,cronReq('probe',{source:'news-mediatoday'}));
- assert.deepEqual([pr.body.list,pr.body.listed,pr.body.raw,pr.body.page,pr.body.state,pr.body.reason,pr.body.extract],['ok',1,1,null,'failed','relay',false]);
- assert.deepEqual(w2.outbound().map(c=>new URL(c.url).pathname),['/robots.txt','/rss/search'],'probe도 글 쪽(중계 주소)은 읽지 않음');
- for(const v of Object.values(pr.body))assert.ok(v===null||typeof v==='number'||typeof v==='boolean'||/^[a-z0-9_@-]{1,40}$/.test(v),`숫자·코드만: ${v}`);
+ for(const key of ['news-mediatoday','news-edaily','news-busan','news-google']){const pr=await call(w,cronReq('probe',{source:key}));assert.equal(pr.status,400,key);}
+ assert.equal(w.outbound().length,0);
  // 화면 목록에는 주소·도메인이 실리지 않는다(키·이름·지역·말·기본 켬뿐).
  assert.ok(!JSON.stringify(C.publicNewsCatalog()).includes('google'));
+});
+
+// S59-1 노동과세계(httpsLinks): 글 링크를 https로 바꿔 받아도 서버가 http를 읽는 길은 없다 — 누를 때 열기에서 사이트가 http로 넘기면 따라가지 않는다.
+test('open: https로 바꿔 받은 노동과세계 글이 http로 넘겨도 따라가지 않는다(blocked, http 요청 없음)',async()=>{
+ const N1='c0000000-0000-4000-8000-000000000015';
+ const n={id:N1,workspace_id:WS,lane:'media',source_key:'news-worknworld',url:'https://worknworld.kctu.org/news/articleView.html?idxno=1',title:'t',lang:'ko',body:null,body_kind:null,state:'ok'};
+ const w=fakeWorld({items:[n],sites:{'https://worknworld.kctu.org/robots.txt':{body:'User-agent: *\nDisallow: /admin/\n',headers:{'content-type':'text/plain'}},
+  'https://worknworld.kctu.org/news/articleView.html':()=>new Response('',{status:302,headers:{location:'http://worknworld.kctu.org/news/articleView.html?idxno=1'}})}});
+ const r=await call(w,userReq('open',{id:N1}));
+ assert.equal(r.status,200);assert.equal(r.body.status,'blocked');
+ assert.ok(w.outbound().every(c=>c.url.startsWith('https://')),'http 주소는 요청하지 않음');
 });
 
 test('fill now and prune: daily limit counted on the server; prune via rpc',async()=>{
@@ -239,20 +245,19 @@ test('fill now and prune: daily limit counted on the server; prune via rpc',asyn
  assert.ok(p.calls.some(c=>c.url.endsWith('/rest/v1/rpc/app_news_prune')&&c.body.p_limit===H.PRUNE_LIMIT));
 });
 
-test('keywords: daily cap per workspace (KEYWORD_ITEMS_DAILY) counted from today items; catalog shows the limits',async()=>{
- assert.equal(H.KEYWORD_ITEMS_DAILY,30);
- const rss=`<?xml version="1.0"?><rss><channel>${[1,2,3,4,5].map(i=>`<item><title>합성 키워드 기사 ${i} - 합성일보</title><link>https://news.google.com/rss/articles/synthetic-${i}</link><pubDate>Sun, 01 Nov 2026 02:00:00 GMT</pubDate><source url="https://example.org">합성일보</source></item>`).join('')}</channel></rss>`;
- const sites={[C.googleNewsUrl('합성어')]:{body:rss,headers:{'content-type':'application/rss+xml'}},'https://news.google.com/robots.txt':{body:'User-agent: *\nAllow: /\n',headers:{'content-type':'text/plain'}}};
- const near=fakeWorld({sites,keywords:[{workspace_id:WS,word:'합성어'}],todayKeyword:Array.from({length:28},()=>({workspace_id:WS}))});
- const r=await call(near,cronReq('run',{step:'keywords'}));
- assert.equal(r.status,200);assert.equal(r.body.inserted,2,'only the room left today');
- const posted=near.writes().filter(c=>c.url.includes('/app_news_items')&&c.method==='POST');
- assert.equal(posted.reduce((n,c)=>n+c.body.length,0),2);
- const full=fakeWorld({sites,keywords:[{workspace_id:WS,word:'합성어'}],todayKeyword:Array.from({length:30},()=>({workspace_id:WS}))});
- const r2=await call(full,cronReq('run',{step:'keywords'}));
- assert.equal(r2.body.inserted,0);assert.equal(full.outbound().length,0,'full today → Google News not read');
+// S59-1 NEWS-키워드살리기: 키워드 단계는 밖에서 새로 찾지 않는다 — 받은 매체 글(lane=media)의 keywords 칸만 고친다. 새 기사 줄을 넣지 않는다.
+test('keywords: no outbound read, no new rows; only media rows of each workspace get keywords; catalog shows the limits',async()=>{
+ const SITES={'https://news.google.com/robots.txt':{body:'User-agent: *\nAllow: /\n',headers:{'content-type':'text/plain'}}};
+ const w=fakeWorld({sites:SITES,keywords:[{workspace_id:WS,word:'합성어'}],sources:[{workspace_id:WS,source_key:'news-khan'}]});
+ const r=await call(w,cronReq('run',{step:'keywords'}));
+ assert.equal(r.status,200);assert.equal(r.body.step,'keywords');
+ assert.equal(w.outbound().length,0,'구글 뉴스 등 바깥 주소를 읽지 않음');
+ assert.equal(w.writes().filter(c=>c.method==='POST').length,0,'새 기사 줄·본문 줄을 넣지 않음');
+ for(const c of w.calls.filter(c=>c.url.includes('/rest/v1/app_news_items')))assert.match(c.url,/lane=eq\.media/,'매체 글만 본다(채널 기사·옛 키워드 기사 아님)');
+ for(const c of w.writes())assert.match(c.url,new RegExp(`workspace_id=eq\\.${WS}&lane=eq\\.media&id=in\\.`));
+ assert.equal(H.KEYWORD_ITEMS_DAILY,undefined,'키워드 기사 하루 상한은 없다(새 줄을 넣지 않음)');
  const cat=await call(fakeWorld(),userReq('catalog'));
- assert.equal(cat.body.limits.keyword_items,30);assert.equal(cat.body.limits.translate,20);
+ assert.equal(cat.body.limits.keyword_items,undefined);assert.equal(cat.body.limits.keywords,H.KEYWORDS_PER_WORKSPACE);assert.equal(cat.body.limits.translate,20);
  assert.deepEqual(cat.body.ai,{month_capped:false},'AI 한도: 예/아니오만(금액 없음)');
  const capped=await call(fakeWorld({days:[{workspace_id:WS,day:'2026-11-01',ai_input_tokens:1e9,ai_output_tokens:1e9}]}),userReq('catalog'));
  assert.deepEqual(capped.body.ai,{month_capped:true});
