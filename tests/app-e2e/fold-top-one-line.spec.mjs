@@ -28,6 +28,8 @@ for (const [width, height] of FOLD) {
     expect((await head(page)).shown).toBe(false);
     for (const [view, title] of VIEWS) {
       await go(page, view);
+      // 찾기 입구는 전체 검색 모듈이 뜬 뒤에 붙는다(메뉴 창 입구와 같은 때). 붙은 뒤에 잰다 — 바쁜 러너에서 그 전에 재면 입구가 아직 없다.
+      await expect(page.locator('#appView > .mobile-shell-header .gs-menu-entry'), view).toBeVisible({ timeout: 15000 });
       const m = await head(page);
       expect(m.shown, view).toBe(true);
       expect(m.name.text, view).toBe(title);
