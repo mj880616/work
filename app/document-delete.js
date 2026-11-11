@@ -28,6 +28,8 @@ export function luDeleteSuccessMessage(data){
   if(modernFields.every(key=>!hasField(data,key)))return '자료 등록을 삭제했어요. Drive 파일 처리 결과는 확인하지 못했어요. 원본 상태를 직접 확인해 주세요.';
   if(!modernFields.every(key=>hasField(data,key)))return null;
   if(data.drive_result==='preserved'&&data.drive_preserved===true&&['note_reference','private_basket_original'].includes(data.reason))return '자료 등록을 삭제했습니다. 잊지 말기 원본 파일은 Drive에 보존했습니다.';
+  // CAL-일정첨부 6번(S59-23): '자료실 › 일정 첨부' 폴더 원본은 자료 행만 지우고 Drive 원본은 둔다(일정 첨부가 계속 열림 — 서버 document-actions delete).
+  if(data.drive_result==='preserved'&&data.drive_preserved===true&&data.reason==='event_attachment')return '자료 등록을 삭제했습니다. 일정에 붙인 원본 파일은 Drive에 그대로 두었습니다.';
   if(data.drive_preserved!==false||data.reason!=='ordinary_library')return null;
   switch(data.drive_result){
     case 'trashed':return '자료 등록을 삭제하고 파일을 Drive 휴지통으로 이동했습니다. 파일은 Drive 휴지통에서 확인해 주세요.';

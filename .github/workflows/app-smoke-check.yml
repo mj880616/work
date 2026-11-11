@@ -462,6 +462,9 @@ jobs:
       - name: Check schedule window photos and files (CAL-일정첨부)
         run: node --test tests/event-files.test.mjs
 
+      - name: Check schedule photos into a business report (CAL-일정첨부 6번)
+        run: node --test tests/report-event-photos.test.mjs
+
       - name: Check folder look and order model (FOLDER-순서·색 ②)
         run: node --test tests/folder-look-model.test.mjs
 

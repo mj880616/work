@@ -1322,6 +1322,8 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
 .tp-strip{display:flex;gap:4px;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0;scrollbar-width:thin}
 .tp-item{position:relative;display:block;flex:none;width:56px;height:56px;margin:0;padding:0;overflow:hidden;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);cursor:pointer}
 .tp-item .diary-photo{position:absolute;inset:0;display:block}
+/* CAL-일정첨부 6번(S59-23): 사업 보고 쓰기 창 '일정에 붙인 사진' 줄도 같은 칸(.tp-item) — 그림 칸(img-slot)이 칸을 채운다 */
+.tp-item .ev-pick-img{position:absolute;inset:0;display:block}
 .tp-item img{display:block;width:100%;height:100%;object-fit:cover}
 .tp-item[aria-pressed="true"]{outline:2px solid var(--ds-select-line);outline-offset:-2px}
 .tp-item[aria-pressed="true"]::after{content:"✓";position:absolute;top:2px;right:2px;z-index:2;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--ds-select-bg);border:1px solid var(--ds-select-line);color:var(--ds-select-ink);font-size:11px;line-height:1}
