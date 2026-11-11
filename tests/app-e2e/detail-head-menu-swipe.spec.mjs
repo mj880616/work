@@ -92,7 +92,9 @@ for (const width of [412, 884]) {
     await putAbove(page);
     await press(page, page.locator(`[data-basket-row="${A}"]`), width);
     const head = '[data-basket-detail] > .basket-detail-head';
-    await expect(page.locator(head).locator('.basket-back')).toHaveText('‹ 잊지 말기');
+    // FOLD-넓은화면 ④(S57-21): 폴드 펼침(600~1199px)은 목록 옆 오른쪽 칸에 열려 머리 줄의 닫기가 ✕(이름 '닫기')다. 그 밖의 폭은 '‹ 잊지 말기' 그대로.
+    if (width >= 600 && width < 1200) await expect(page.locator(head).getByRole('button', { name: '닫기', exact: true })).toHaveText('✕');
+    else await expect(page.locator(head).locator('.basket-back')).toHaveText('‹ 잊지 말기');
     await noOverlap(page, head);
     // 위 칸이 없을 때도 첫 줄은 화면 위쪽 그대로(빈 띠 없음): 폰은 비어 버린 위 머리줄을 접는다.
     if (width < 761) await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();

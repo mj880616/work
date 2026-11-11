@@ -91,7 +91,14 @@ const plansRead=page=>expect.poll(()=>page.evaluate(()=>window.KPTUCalendarEvent
 const bar=(page,id)=>page.locator(`#calendarGrid [data-google-event="${id}"]`).first();
 const menu=page=>page.locator('#rowMenu');
 const labels=page=>menu(page).locator('button').allTextContents().then(a=>a.map(s=>s.trim()));
-async function rightClick(page,id){const b=await bar(page,id).boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);await page.mouse.move(x,y);await page.mouse.click(x,y,{button:'right'});await expect(menu(page)).toBeVisible()}
+// PR B(#2385): '보고할 일정' 값이 읽히거나 바뀌면 달력이 다음 그리기 때 한 번 다시 그려 막대 앞 ✓·□를 맞춘다. 그 그리기가 끝난 막대의 자리를 잰다
+// (다시 그리는 사이에 잡은 옛 막대는 자리가 없다 — boundingBox null).
+const drawn=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+async function rightClick(page,id){
+  await drawn(page);
+  let b=null;await expect.poll(async()=>(b=await bar(page,id).boundingBox())!==null).toBe(true);
+  const x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);await page.mouse.move(x,y);await page.mouse.click(x,y,{button:'right'});await expect(menu(page)).toBeVisible();
+}
 const closeMenu=async page=>{await page.keyboard.press('Escape');await expect(menu(page)).toBeHidden()};
 const planRow=page=>page.locator('#ciGooglePlanRow');
 const planBox=page=>page.locator('#ciGooglePlan');
@@ -213,11 +220,21 @@ for(const width of [412,1280])test(`${width} 일정 창: '보고할 일정' 칸�
 
 test('1280 저장 실패: 칸이 누르기 전으로 돌아가고 한 줄로 알린다, 다시 누르면 저장',async({page})=>{
   const state=await open(page,server());await plansRead(page);
-  let fail=true;
-  await page.route(`${SB}/rest/v1/app_calendar_report_plans**`,route=>route.request().method()==='POST'&&fail?route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'server error'})}):route.fallback());
+  let fail=true;const failedPosts=[];
+  await page.route(`${SB}/rest/v1/app_calendar_report_plans**`,route=>{
+    if(route.request().method()!=='POST'||!fail)return route.fallback();
+    failedPosts.push(route.request().postDataJSON());
+    return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'server error'})});
+  });
   await openWindow(page,'etc1');
-  await planBox(page).check();
+  await expect(planBox(page)).toBeEnabled();await expect(planBox(page)).not.toBeChecked();
+  // 여기는 check()가 아니라 click()으로 누른다. check()는 누른 뒤 칸이 켜져 있는지 한 번 더 읽는데, 저장 실패 답이 그보다 먼저 오면
+  // 화면이 칸을 이미 누르기 전으로 돌려놓아(이 시험이 바라는 동작) 'Clicking the checkbox did not change its state'로 끝난다.
+  // 누름이 먹었는지는 '켬' 저장 요청이 한 번 나갔는지로 본다.
+  await planBox(page).click();
   await expect(page.locator('#ciGoogleStatus')).toHaveText('보고할 일정 표시를 저장하지 못했어요. 다시 눌러 주세요.');
+  expect(failedPosts).toHaveLength(1);
+  expect(failedPosts[0]).toMatchObject({google_event_id:'etc1',state:'on',decided_by:'user'});
   await expect(planBox(page)).toBeEnabled();await expect(planBox(page)).not.toBeChecked();
   expect(state.plans).toHaveLength(0);
   fail=false;

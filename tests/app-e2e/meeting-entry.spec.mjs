@@ -312,8 +312,18 @@ test('meeting material upload attempts every selected file and reports partial f
   await page.locator('#saveMeetingBtn').click();
 
   await expect.poll(()=>meetingSaved).toBe(true);
+  // BIZ-저장먼저닫기(S58-1): 글 저장이 끝나면 창이 먼저 닫히고('사업 보고를 저장했습니다.'), 자료는 뒤에서 올라간다. 못 올린 것은 하단바 위 한 줄 + [다시 올리기].
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  await expect(page.locator('#toast')).toContainText('사업 보고를 저장했습니다.');
   await expect.poll(()=>uploadCount).toBe(2);
-  await expect(page.locator('#toast')).toContainText('사업 보고는 저장했습니다. 회의자료 1개 저장 · 1개 실패');
+  const line=page.locator('#uploadDock:not([hidden])');
+  await expect(line.locator('.up-dock-text')).toHaveText('자료 1개 못 올렸어요');
+  await expect(line.locator('.up-dock-note')).toHaveText(/^자료 1개 올렸어요 · 파일을 업로드하지 못했어요/);
+  await expect(line.getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveText('다시 올리기');
+  // [다시 올리기] = 못 올린 그 파일만 같은 사업 보고로 다시.
+  await line.getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
+  await expect.poll(()=>uploadCount).toBe(3);
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('자료 2개 올렸어요');
 });
 
 // UI-PC회의: 아래 줄 목록 시험은 폰·중간 폭(1024 미만)의 그리는 방식이다. PC(≥1024)의 열 배치는 meeting-columns.spec.mjs.

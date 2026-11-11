@@ -543,6 +543,13 @@
 #calendarDayModal #calendarDayTasks .cmv-event-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4; color:var(--kptu-ink); }
 #calendarDayModal #calendarDayTasks :is(.gt-meta,.gt-meta .gt-due){ font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); color:var(--kptu-muted); }
 #calendarDayModal #calendarDayTasks .kptu-day-overdue{ flex:0 0 34px; box-sizing:border-box; margin-left:auto; padding:1px 0; text-align:center; border-radius:var(--ds-radius-control); font-size:11px; font-weight:var(--ds-weight-medium); line-height:1.5; color:var(--kptu-danger); background:var(--kptu-danger-soft); }
+/* BIZ-보고할일정 PR B: 일정 줄 앞 ✓(보고 씀)·□(보고할 일정) — 일정 달력(월·주·목록·그날 창)·홈 그날 일정 줄 공용 표시(report-plan-mark.js).
+   일정 색 막대(줄) 안에서 그 줄의 글자색으로만 그린다(글자 없는 마디 — 모양은 ::before, 테마·어두운 화면에서도 줄 글자와 같은 색).
+   할 일의 □(배경 없는 굵은 글자 줄 앞 각진 네모, .cmv-cell-task-box)와 자리·모양이 다르다: 일정 □는 색 막대 안의 둥근 네모. */
+.rp-mark{ flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:.95em; height:1em; margin-right:.25em; vertical-align:-.12em; line-height:1; color:inherit; cursor:pointer; }
+.rp-mark::before{ content:""; box-sizing:border-box; }
+.rp-mark-done::before{ width:.4em; height:.72em; margin-top:-.16em; border:solid currentColor; border-width:0 max(1.5px,.15em) max(1.5px,.15em) 0; transform:rotate(45deg); }
+.rp-mark-todo::before{ width:.8em; height:.8em; border:max(1.2px,.11em) solid currentColor; border-radius:2px; }
 /* 지남 칸: 목록에 지남 줄이 하나라도 있으면 다른 줄도 같은 폭을 비워, 날짜가 모든 줄에서 같은 세로줄에 선다. */
 #calendarDayModal #calendarDayTasks:has(.kptu-day-overdue) .cal-event.cmv-task:not(:has(.kptu-day-overdue))::after{ content:""; flex:0 0 34px; }
 
@@ -1739,6 +1746,11 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 #uploadDock .up-bar{ margin-top:2px; background:color-mix(in srgb, var(--kptu-surface) 25%, transparent); }
 #uploadDock .up-bar > i{ background:var(--kptu-surface); }
 #uploadDock :is(button.row-act,button.icon-btn){ color:var(--kptu-surface); }
+/* 묶음 끝 알림(BIZ-저장먼저닫기): '사진 n장·자료 n개 올렸어요', 못 올렸으면 [다시 올리기] + 작은 둘째 줄(까닭). 글이 잘리지 않게 줄을 바꾼다. */
+#uploadDock[data-state="note"] .up-dock-text{ white-space:normal; overflow:visible; word-break:keep-all; }
+#uploadDock[data-state="note"] .up-dock-acts{ flex:none; }
+#uploadDock[data-state="note"] .up-dock-acts button.row-act{ white-space:nowrap; }
+#uploadDock .up-dock-note{ padding:0 0 4px; opacity:.8; white-space:normal; word-break:keep-all; overflow-wrap:anywhere; }
 
 /* UI-줄⋯공용맞추기(요청함 11/09 07:36): 줄 끝 ⋯ (row-more.js)의 모양·작은 메뉴는 모든 화면 공용 — 예전에는 #homeView 안에서만 정해져 담당조직 등에서 ▶·▼와 큰 버튼 메뉴가 보였다. 홈 모양은 그대로, 규칙만 화면 밖으로 옮김.
    ▶·▼ 펼침 표시는 없고 ⋯ 만 보인다. 줄(.wl-line)에서는 ⋯ 를 글 오른쪽 위(첫 줄 높이)에 고정해 긴 글에서도 아래로 내려가지 않고 줄 높이를 늘리지 않는다. */

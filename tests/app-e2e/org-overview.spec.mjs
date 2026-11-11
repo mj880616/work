@@ -69,6 +69,16 @@ async function openTable(page){
  await page.locator('#soTeamTabs').getByRole('tab',{name:'전체 표'}).click();
  await expect(page.locator('#soOverview')).toBeVisible();
 }
+// 표가 다 그려짐(STAB S58-7). [전체 표]는 읽기가 하나 끝날 때마다 표를 통째로 다시 그린다(app/org-overview.js paint → put):
+//  ① 기록 읽기 → 표가 보임(그 순간 일정 읽기가 시작돼 표 위에 작은 '일정 …' 줄이 함께 뜬다) ② 일정 읽기 → 그 줄이 없어짐
+//  ③ 쟁의 단계 읽기 → 조직 이름 밑에 단계 글자가 붙음(①보다 먼저 올 수도, ②보다 늦을 수도 있다).
+// 다시 그리면 그 전에 잡은 요소는 화면에서 빠져 boundingBox()가 null이다. 크기·자리를 재는 시험은 셋이 다 끝난 화면을 기다린 뒤 잰다.
+// 전에는 '일정 줄이 없다'만 봤는데, 표가 그려지기 전(자리표시)에도 그 줄은 없어서 그냥 통과했다 — 반드시 표가 보인 뒤에 본다.
+async function tableDrawn(page){
+ await expect(page.locator('#soOverview table.wl-table')).toBeVisible();
+ await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0);
+ await expect(page.locator('#soOverview tbody .wl-stage').first()).toBeVisible();
+}
 const oa=page=>page.locator(`#soOverview [data-wl-org-row="${OA}"]`);
 const ob=page=>page.locator(`#soOverview [data-wl-org-row="${OB}"]`);
 const status=page=>page.locator('#soOverview [data-wl-status]');
@@ -220,7 +230,7 @@ test('[전체 표] 전환 주 앞(옛 주)은 옛 주별 조직보고 표 읽기
 for(const width of [390,690,1280])test(`[전체 표] 조직 | 조직현황 두 열 표(쌓지 않음, 머리줄·칸 선) ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width,records:[U(OA,'2026-11-17','합성 교섭 상견례')]});
  await openTable(page);
- await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0); // 일정 읽기가 끝나 다시 그린 뒤 잰다
+ await tableDrawn(page); // 기록·일정·쟁의 단계 읽기가 다 끝나 다시 그린 뒤 잰다
  const table=page.locator('#soOverview table.wl-table');
  await expect(table).toHaveCount(1);
  await expect(table.locator('thead')).toBeVisible();
@@ -246,7 +256,7 @@ const textLines=loc=>loc.evaluate(el=>{const r=document.createRange();r.selectNo
 for(const width of [390,690,1280])test(`[전체 표] 긴 조직 이름: 폴드·PC 한 줄(열이 이름에 맞음), 접은 폰은 두 줄 꺾임, 너무 긴 이름은 칸 안에서 꺾임 ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width,orgList:longOrgs(),records:[U(OC,'2026-11-17','합성 교섭 상견례')]});
  await openTable(page);
- await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0);
+ await tableDrawn(page);
  const name=page.locator(`#soOverview [data-oa-open="${OC}"]`),over=page.locator(`#soOverview [data-oa-open="${OD}"]`),head=page.locator('#soOverview thead th.wl-c-org'),table=page.locator('#soOverview table.wl-table');
  const [n,hb,tb]=await Promise.all([name.boundingBox(),head.boundingBox(),table.boundingBox()]);
  if(width>=600){
@@ -269,7 +279,7 @@ for(const [width,key,px] of [[690,'org_f',300],[1280,'org',260],[390,'org_p',420
  await installViewPrefsServer(page,{col_widths:{orgall:{org_f:300,org:260,org_p:420}}});
  const {errors}=await fixture(page,{width,records:[U(OA,'2026-11-17','합성 교섭 상견례')]});
  await openTable(page);
- await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0);
+ await tableDrawn(page);
  const h=await page.locator('#soOverview thead th.wl-c-org').boundingBox(),c=await oa(page).locator('td.wl-c-rows').boundingBox();
  if(width>=600)expect(Math.abs(h.width-px)).toBeLessThan(14);
  else{expect(h.width).toBeLessThan(130);expect(c.width).toBeGreaterThan(200);} // 폰: 저장 값이 있어도 좁은 왼쪽 열
@@ -291,7 +301,7 @@ for(const width of [412,690,1280])test(`[전체 표] 화면 사진 ${width}px`,a
   {id:'h2',organization_id:OC,stage_id:stages[3].id,stage_name:stages[3].name,stage_date:'2026-11-05',created_at:'2026-11-05T00:00:00Z',end_date:null},
   {id:'h3',organization_id:OB,stage_id:stages[1].id,stage_name:stages[1].name,stage_date:'2026-10-22',created_at:'2026-10-22T00:00:00Z',end_date:null}])}));
  await openTable(page);
- await expect(page.locator('#soOverview [data-rw-note]')).toHaveCount(0);
+ await tableDrawn(page);
  await expect(page.locator('#soOverview .wl-stage').first()).toBeVisible();
  await page.screenshot({path:`${TSHOTS}/${TPREFIX}org-table-${width}.png`});
  expect(errors).toEqual([]);
@@ -454,6 +464,7 @@ for(const width of [390,1280])test(`[전체 표] 줄 ⋯ 는 긴 글에서도 �
  // RECORD-한줄: 표 줄은 한 줄(60자 안팎)이라 PC 넓은 칸에서는 꺾이지 않는다. 좁은 칸(폴드·창 나눔)처럼 글 폭을 좁혀 여러 줄일 때 ⋯ 자리를 본다.
  await page.addStyleTag({content:'#soOverview .rw-line .wl-body{max-width:10em}'}); // ORG-줄바꿈날짜옆: 글·꼬리표는 내용 칸(.wl-body) 안에서 흐른다
  await openTable(page);
+ await tableDrawn(page); // 메뉴를 연 뒤 표가 다시 그려지면 메뉴가 닫히고 잡아 둔 줄이 빠진다
  const line=oa(page).locator('.wl-cell > .rw-line').first();
  const text=line.locator('.wl-text'),sum=line.locator('summary');
  await expect(sum).toBeVisible();
@@ -639,6 +650,7 @@ for(const width of [412,1280])test(`[전체 표] 뺀 줄·지난 기록 줄 ⋯ 
  const {records,marks}=rowsFixture();
  const {errors}=await fixture(page,{width,records,marks});
  await openTable(page);
+ await tableDrawn(page); // 아래에서 메뉴를 열고 줄 자리를 잰다 — 표가 다 그려진 뒤에
  await expect(shown(oa(page))).toHaveCount(7);
  await oa(page).locator('[data-rw-fold="folded"]').click();
  await oa(page).locator('[data-rw-fold="out"]').click();

@@ -646,7 +646,7 @@ jobs:
       - name: S51-27 PC 우클릭 달력 메뉴 항목·공용 줄 메뉴 시험
         run: node --test tests/calendar-row-menu.test.mjs
       - name: S57-20 BIZ-보고할일정 규칙 모듈·읽고 쓰는 길(서버 저장만) 시험
-        run: node --test tests/report-plan-model.test.mjs tests/report-plan-data.test.mjs
+        run: node --test tests/report-plan-model.test.mjs tests/report-plan-data.test.mjs tests/report-plan-mark.test.mjs
       - name: NOTE-탐색기 후속 선택 상태·위치 줄 공용 부품 시험
         run: node --test tests/select-mode-folder-path.test.mjs
       - name: S51-22 '최근' 상자 접기(서버 기억·머리 줄 ▴▾) 시험
@@ -764,6 +764,9 @@ jobs:
 
       - name: Check phone app background upload bridge (APP-뒤에서올리기, hand files to the app, synthetic)
         run: node --test tests/app-upload.test.mjs
+
+      - name: Check report save-then-close background send (BIZ-저장먼저닫기, one batch behind the screen, synthetic)
+        run: node --test tests/meeting-send.test.mjs
 
       - name: Check photo long-press menu, copy bridge and share gesture (S49-18 PHOTO-꾹누르기메뉴·삼성공유·정보수정버튼, synthetic)
         run: node --test tests/photo-press-menu.test.mjs

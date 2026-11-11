@@ -41,6 +41,8 @@ import { notify } from './small-notice.js';
 import { announceUploaded } from './upload-done.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 import { bindRowSwipe } from './row-swipe.js';
+import { SPLIT_QUERY } from './screen-width.mjs';
+import { followPane } from './follow-pane.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 // STAB-간헐3: the refresh run whose list read is still pending (0 = none). Until it answers, an empty list is "loading",
@@ -56,7 +58,7 @@ let sentRows = null, staleRead = false;
 let quick=null, bigWriter=null, bigPicker=null, bigOpening=false;
 let currentScope = scope(), retainedForTraversal = false;
 // BUG-뒤로가기: an opened memo is one router layer, so Back returns to the list at the same scroll.
-let noteLayer = null, listScroll = 0;
+let noteLayer = null, listScroll = 0, layerNoteId = ''; // layerNoteId: 그 겹이 지금 보이는 업데이트(폴드 펼침에서 줄을 바꾸면 따라 바뀐다)
 const initialUrl = new URL(location.href);
 // A source-note link from the task view hands its note over in-app; a full load reads ?note=.
 let requestedNote = (initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null) || takeBasketNoteRequest(rt);
@@ -135,7 +137,7 @@ function closeRowMenu({focus=false,keepLayer=false}={}){
 function openRowMenu(trigger){
   const note=notes.find(n=>n.id===trigger.dataset.basketRowMore);
   if(rowMenu?.trigger===trigger){closeRowMenu({focus:true});return;}
-  closeRowMenu();if(!note||busy||selected)return;
+  closeRowMenu();if(!note||busy||(selected&&!isSplit()))return;
   attachRowMenu(note,trigger);
   rowLayer||=window.KPTURouter?.layer?.open('basket-row-menu',{close:()=>{rowLayer=null;closeRowMenu();return true}})||null;
   rowMenuEl.querySelector('button')?.focus({preventScroll:true});
@@ -159,7 +161,7 @@ function attachRowMenu(note,trigger){
 // now keeps the menu open on the same update's new ⋯ (same items unless they changed, focus kept on the same item); it closes
 // only when that update is no longer in the list, or the list is not shown (a detail opened, work in progress).
 function keepRowMenu(kept){
-  if(!kept||busy||selected||list.hidden)return;
+  if(!kept||busy||(selected&&!isSplit())||list.hidden)return;
   const note=notes.find(n=>n.id===kept.noteId),trigger=root.querySelector(`[data-basket-row-more="${CSS.escape(kept.noteId)}"]`);
   if(!note||!trigger)return;
   attachRowMenu(note,trigger);
@@ -167,13 +169,25 @@ function keepRowMenu(kept){
 }
 // UI-목록밀기: 폰 업데이트 줄 — 왼쪽으로 밀기 [삭제](휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음: 되돌릴 수 있으므로), 오른쪽으로 밀기 [보류로]/[보류 해제].
 // 분류 완료는 갈 곳을 골라야 해서 한 번에 끝나는 처리가 아니므로, 목록에서 한 번에 끝나는 대표 처리인 보류를 둔다. 기존 목록 ⋯의 길 그대로.
-bindRowSwipe(root.querySelector('[data-basket-rows]'),{row:'[data-basket-row-item]',enabled:()=>!busy&&!selected&&!rowMenu,
+bindRowSwipe(root.querySelector('[data-basket-rows]'),{row:'[data-basket-row-item]',enabled:()=>!busy&&(!selected||isSplit())&&!rowMenu,
   actions:el=>{const note=notes.find(n=>n.id===el.dataset.basketRowItem);if(!note)return null;return {start:note.archived_at?{key:'unhold',label:'보류 해제',tone:'warning'}:{key:'hold',label:'보류로',tone:'warning'},end:{key:'delete',label:'삭제',tone:'danger'}};},
-  run:(key,el)=>{const id=el.dataset.basketRowItem;if(busy||selected||!notes.some(n=>n.id===id))return;if(key==='delete')void deleteFromList(id,{confirmed:true});else void holdFromList(id,key==='hold');}});
+  run:async(key,el)=>{const id=el.dataset.basketRowItem;if(busy||!notes.some(n=>n.id===id))return;if(selected&&!(await releaseDetail(el)))return;if(busy||selected||!notes.some(n=>n.id===id))return;if(key==='delete')void deleteFromList(id,{confirmed:true});else void holdFromList(id,key==='hold');}});
 root.addEventListener('keydown',e=>{if(e.key==='Escape'&&rowMenu){e.preventDefault();e.stopPropagation();closeRowMenu({focus:true});}});
 root.addEventListener('focusout',e=>{if(rowMenu&&e.relatedTarget&&!rowMenuEl.contains(e.relatedTarget)&&e.relatedTarget!==rowMenu.trigger)closeRowMenu();});
 document.addEventListener('click',e=>{if(rowMenu&&!rowMenuEl.contains(e.target)&&!rowMenu.trigger.contains(e.target))closeRowMenu();});
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
+// FOLD-넓은화면 ④(S57-21, 요청함 11/06 01:18 ④ · 11/11 결정 '시안 없이 바로 개발'): 폴드 펼침(600~1199px, 홈 두 단과 같은 폭)의 잊지 말기는 '왼쪽 목록 | 오른쪽 상세'.
+// 업데이트 줄을 누르면 목록은 그대로 두고 오른쪽 칸에 바로 열리고(고른 줄 표시), 다른 줄을 누르면 같은 칸에서 바뀐다(뒤로가기 한 걸음 그대로). ✕·Esc·뒤로 = 상세 닫기.
+// 아무것도 고르지 않았으면 오른쪽 칸이 없다(목록이 화면 폭 전체 — 할 일 TASK-넓게쓰기와 같은 규칙). 접은 폰(600px 미만)·PC(1200px~)는 지금처럼 상세가 목록 자리를 대신한다.
+// 상태 주인은 여기 하나다: #basketView.basket-split(상세가 열린 동안만)과 목록 hidden. 모양은 basket.css, 화면에 붙어 따라오는 칸은 공용 follow-pane.js(할 일 상세 칸과 같은 부품).
+const SPLIT = window.matchMedia?.(`${SPLIT_QUERY} and (max-width:1199px)`), SPLIT_FRAME_PC = window.matchMedia?.('(min-width:761px)');
+const splitWide = () => !!SPLIT?.matches;
+const isSplit = () => root.classList.contains('basket-split');
+const BASKET_CLOSE_X = '<button type="button" class="icon-btn basket-icon-button basket-close-x" data-basket-close aria-label="닫기">✕</button>';
+// 폴드 펼침 폰 틀(600~760px): 아래에 입력칸·하단바가 떠 있으므로 그 높이만큼 칸 최대 높이를 줄인다(할 일과 같은 값).
+function splitBottomDock(){const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')+v('--kptu-quick-dock')}
+function followDetail(reset){followPane(detail,SPLIT_FRAME_PC?.matches?{reset}:{reset,narrow:true,bottom:splitBottomDock})}
+function unfollowDetail(){detail.classList.remove('kptu-follow-pane','kptu-follow-narrow')}
 const ocrViews=new Map();
 // Per scope, note and file: the last send result shown on the read view. A send
 // in flight keeps that attachment's button off; a sent or unknown result is a
@@ -375,7 +389,7 @@ function memoTitle(note){
 // UI-상단줄제목: the open update's title goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it. Notes send their own (basket-notes.js).
 // The place is keyed by screen, so the update's and the note's titles are told apart by the side that is open (only one detail is open at a time).
 const sendMemoWhere=name=>window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'basket',name,kind:'memo'}}));
-function paintListChrome(){const open=!!selected||noteDocs.isOpen(),notes=kind==='note';switchRow.hidden=open||notes;listHead.hidden=open;}
+function paintListChrome(){const open=(!!selected&&!isSplit())||noteDocs.isOpen(),notes=kind==='note';switchRow.hidden=open||notes;listHead.hidden=open;}
 const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),onMovedToBasket:()=>void refresh()});
 // The menu marks ([정리함] / [노트] in the sidebar, tabs and menu sheet) follow the side shown: the router reads #basketView[data-kind].
 function paintNavKind(){
@@ -431,7 +445,8 @@ function showKind(next,{openId=null,folder=null,address='replace'}={}){
   basketTitle.textContent=kind==='note'?'노트':'잊지 말기';
   const memo=kind==='memo';
   paintListChrome();
-  list.hidden=!memo||!!selected;noteHost.hidden=memo;
+  if(!memo&&isSplit()){root.classList.remove('basket-split');unfollowDetail();}
+  list.hidden=!memo||(!!selected&&!isSplit());noteHost.hidden=memo;
   if(memo)renderList();
   paintNavKind();
   if(address&&window.KPTURouter?.current==='basket')window.KPTURouter.setSub?.('basket',paneSub(),{replace:address==='replace'});
@@ -441,10 +456,12 @@ function showKind(next,{openId=null,folder=null,address='replace'}={}){
 // panel already open (the detail's own button path); 노트로 옮기기 asks once (the row's text is not on screen), then runs the
 // detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
 function rowMenuAction(act,noteId){
-  const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
+  const note=notes.find(n=>n.id===noteId);if(!note||busy)return;
+  // FOLD-넓은화면 ④: 폴드 펼침에서 상세가 열린 채 줄 메뉴의 [복사]는 그대로 된다. 나머지는 부른 쪽이 열린 상세를 먼저 닫는다(releaseDetail).
+  if(act==='copy'){void copyNote(note);return;} // 메뉴 안 [복사]: 알림('복사했습니다')만 — ⋯ 글자를 '✓'로 바꾸지 않는다(⋯ 모양 그대로).
+  if(selected)return;
   // 첨부를 올리는 중인 업데이트: 그 글을 바꾸는 줄 메뉴만 잠근다(열기·수정·복사·연결은 그대로, 아래 attachGoing).
   if(['delete','journal','unjournal','hold','unhold','to-report','to-note','to-diary'].includes(act)&&attachGoing(noteId))return;
-  if(act==='copy'){void copyNote(note);return;} // 메뉴 안 [복사]: 알림('복사했습니다')만 — ⋯ 글자를 '✓'로 바꾸지 않는다(⋯ 모양 그대로).
   
   if(act==='delete'){void deleteFromList(noteId);return;}
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}
@@ -613,10 +630,10 @@ function updateItems() {
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note) + requestTagsHtml(noteRequests(note), esc);
     const label = rowState(note, state);
     return {id: note.id, at: note.occurred_at || note.created_at || '', body: title, busy,
-      open: {attrs: `data-basket-row="${esc(note.id)}"`, label: title},
+      open: {attrs: `data-basket-row="${esc(note.id)}"${isSplit() && selected?.id === note.id ? ' aria-current="true"' : ''}`, label: title},
       meta: [time(note), note.attachments?.length ? '첨부 ' + note.attachments.length + '개' : '', filter === 'unclassified' && label !== '미분류' ? label : ''].filter(Boolean).join(' · '),
       done: note.archived_at ? '보류' : label,
-      attrs: `data-basket-row-item="${esc(note.id)}"`,
+      attrs: `data-basket-row-item="${esc(note.id)}"${isSplit() && selected?.id === note.id ? ' data-basket-selected' : ''}`, // FOLD-넓은화면 ④: 오른쪽 칸에 연 줄
       tail: `<button type="button" class="icon-btn nbx-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`,
       below: chips ? `<div class="nbx-below" role="group" aria-label="연결된 곳">${chips}</div>` : ''};
   });
@@ -635,7 +652,10 @@ function renderList() {
 // the update leaves 처리 전), [할 일로] the detail's 할 일 만들기, [노트로] 노트로 옮기기, [일정으로] the event window with the text,
 // [이미 함]·[×] 보류(archived_at, the same field as 보류로) with '되돌리기'.
 async function updateAct(id, act, button) {
-  const note = notes.find(n => n.id === id); if (!note || busy || selected) return;
+  const note = notes.find(n => n.id === id); if (!note || busy) return;
+  // FOLD-넓은화면 ④: 폴드 펼침에서 상세가 열린 채 줄 버튼을 누르면 열린 상세를 먼저 닫고(쓰던 글이 있으면 묻는다) 목록만 있을 때와 같은 길로 간다.
+  if (selected && !(await releaseDetail(button))) return;
+  if (busy || selected || !notes.some(n => n.id === id)) return;
   if (act === 'org' || act === 'area') {
     openDetail(id); if (selected?.id !== id) return;
     const message = await manual.open('link', button);
@@ -670,22 +690,67 @@ async function askCloseDetail(anchor) {
   if (!(await askConfirm(anchor, {text, ok:dirty() ? '저장 안 함' : '삭제', danger:true})) || busy || !selected || selected.id !== id) return false;
   return closeDetail({force:true});
 }
+// FOLD-넓은화면 ④: 목록 줄 누르기. 상세가 없으면 연다. 폴드 펼침에서 상세가 열려 있으면 같은 칸에서 그 줄로 바꾼다(쓰던 글이 있으면 지금처럼 묻고, 뒤로가기 한 걸음은 그대로).
+async function openRow(id, anchor) {
+  if (!selected) { openDetail(id); return; }
+  if (!isSplit() || selected.id === id || !notes.some(n => n.id === id)) return;
+  const text = closeDetailText(), from = selected.id;
+  if (text && !(await askConfirm(anchor, {text, ok:dirty() ? '저장 안 함' : '삭제', danger:true}))) return;
+  if (busy || selected?.id !== from || !isSplit() || !notes.some(n => n.id === id)) return;
+  closeDetail({force:true, focus:false, cleanAddress:false, keepLayer:true});
+  openDetail(id);
+}
+// FOLD-넓은화면 ④: 폴드 펼침에서 상세가 열린 채 목록의 줄 버튼·줄 메뉴·밀기를 쓰면, 열린 상세를 먼저 닫고(쓰던 글이 있으면 묻는다) 그 겹의 뒤로가기가 도착한 뒤에 이어 간다.
+// 돌려주는 값: 목록만 남았으면 true. 폴드 펼침이 아니면(목록이 안 보이는 폭) 지금처럼 아무 일도 하지 않는다(false).
+async function releaseDetail(anchor) {
+  if (!selected) return true;
+  if (!isSplit()) return false;
+  const text = closeDetailText(), from = selected.id;
+  if (text && !(await askConfirm(anchor, {text, ok:dirty() ? '저장 안 함' : '삭제', danger:true}))) return false;
+  if (busy || selected?.id !== from) return !selected;
+  const layer = noteLayer;
+  closeDetail({force:true, focus:false, keepLayer:true});
+  noteLayer = null; renderList();
+  await Promise.resolve(layer?.close());
+  return !selected;
+}
+// 상세 머리의 닫기 단추 하나: 오른쪽 칸이면 ✕(목록이 옆에 보이므로), 목록 자리를 대신하면 지금처럼 '‹ 잊지 말기'. 담당조직·사업에서 열어 돌아갈 곳이 있는 줄(‹ 이름)은 그대로 둔다.
+function paintCloseButton() {
+  const close = detail.querySelector(':scope > .basket-detail-head > [data-basket-close]');
+  if (close && close.classList.contains('basket-close-x') !== isSplit()) close.outerHTML = isSplit() ? BASKET_CLOSE_X : BASKET_BACK;
+}
+// 폴드를 접고 펴거나 창 폭이 바뀌면: 열린 상세의 자리(오른쪽 칸 ↔ 목록 자리)와 닫기 단추(✕ ↔ ‹ 잊지 말기)를 그 폭에 맞춘다.
+function paintSplit() {
+  if (!selected || kind !== 'memo') return;
+  const on = splitWide();
+  if (on === isSplit()) return;
+  root.classList.toggle('basket-split', on); list.hidden = !on;
+  paintCloseButton();
+  paintListChrome(); renderList();
+  if (on) followDetail(false); else unfollowDetail();
+}
+SPLIT?.addEventListener?.('change', paintSplit);
 // 뒤로가기(겹 닫기)·화면 들어오기는 라우터가 그 자리에서 답을 받아야 해서 브라우저 기본 확인창을 그대로 쓴다(S48-28 예외).
-function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false} = {}) {
+// keepLayer(FOLD-넓은화면 ④): 폴드 펼침에서 다른 줄로 바꿀 때 — 뒤로가기 한 걸음(겹)은 그대로 두고 칸 안만 비운다(바로 다음 openDetail이 같은 겹을 쓴다).
+function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false, keepLayer = false} = {}) {
   if (!force) { const text = closeDetailText(); if (text && !window.confirm(text)) return false; }
   
   bigWriter?.close({silent:true}); closePhoto({restore:false});
-  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;sendMemoWhere(null);editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null;sentRows?.destroy();sentRows=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; paintListChrome();
-  const layer = noteLayer; noteLayer = null; if (!fromBack) layer?.close();
-  if (id && window.KPTURouter.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
+  const wasSplit = isSplit();
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;sendMemoWhere(null);editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null;sentRows?.destroy();sentRows=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;
+  root.classList.remove('basket-split'); unfollowDetail(); paintListChrome();
+  if (wasSplit && !keepLayer) renderList(); // 고른 줄 표시를 지운다(목록이 다시 화면 폭 전체)
+  if (!keepLayer) { const layer = noteLayer; noteLayer = null; if (!fromBack) layer?.close(); }
+  // 폴드 펼침은 목록이 내내 보였으므로 스크롤 자리를 되돌릴 일이 없다.
+  if (id && !wasSplit && window.KPTURouter.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector('[data-forget-view-open]'))?.focus({preventScroll:true});
   return true;
 }
 function openNoteLayer({adoptOnly = false} = {}) {
   if (noteLayer || !selected) return;
   // NAV-PC앞뒤통일: › (or the browser's forward) over this update's entry opens the same update again (reopen).
-  const reopenId = selected.id;
-  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true}), reopen: () => openDetail(reopenId)}) || null;
+  layerNoteId = selected.id;
+  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true}), reopen: () => openDetail(layerNoteId)}) || null;
 }
 function paintStateLine() {
   const state = noteState(selected, links, docs), box = detail.querySelector('[data-basket-state]');
@@ -854,7 +919,9 @@ function openDetail(id, {edit = false} = {}) {
   // Keep the opened note attached to this list snapshot until an explicit reload.
   ++epoch;ocrViewScope=captureOcrScope();editing=edit;rawView=false;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
-  upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
+  upload=createUploadBatch(selected.id,selected.attachments||[]);
+  // FOLD-넓은화면 ④: 폴드 펼침이면 목록을 그대로 두고 오른쪽 칸에 연다(그 밖의 폭은 지금처럼 목록 자리를 대신).
+  root.classList.toggle('basket-split', splitWide() && kind === 'memo'); list.hidden = !isSplit(); detail.hidden = false;
   paintListChrome();
   // UI-업데이트편집한줄: the edit screen's buttons are one row like the note's — [📎 첨부] [큰 창에서 수정] [수정 저장] [취소].
   // [첨부 저장] (the existing separate attachment save) sits by the chosen files and shows only while files are chosen.
@@ -873,7 +940,9 @@ function openDetail(id, {edit = false} = {}) {
   // Opened from a project's or organization's record, the note has no entry of its own: one back returns to that project.
   if (!noteLayer) { clearNoteAddress(); if (!basketNoteOrigin(selected.id, rt)) openNoteLayer(); }
   // NAV-새로고침제자리: the open update is written on its own entry (?note=), so a reload reopens it; closing drops it (clearNoteAddress).
-  if (noteLayer) window.KPTURouter.setPlace?.('basket', {note:selected.id});
+  if (noteLayer) { layerNoteId = selected.id; window.KPTURouter.setPlace?.('basket', {note:selected.id}); }
+  paintCloseButton();
+  if (isSplit()) { renderList(); followDetail(true); } else unfollowDetail();
   // Reading never opens the on-screen keyboard; only an explicit edit focuses the text.
   (editing ? detail.querySelector('[data-basket-text]') : readFocus()).focus();
   openDocEdit();
@@ -1136,7 +1205,8 @@ root.addEventListener('click', e => {
   if (rowMenuEl.contains(b)) {
     const from = closeRowMenu({focus:true}), act = b.dataset.basketRowAct;
     // 복사는 누른 그 순간에(클립보드 권한), 나머지는 메뉴 겹의 뒤로가기가 도착한 뒤에 한다(그다음 여는 창·화면 기록을 지우지 않게).
-    if (from) { if (act === 'copy') rowMenuAction(act, from.noteId); else if (act === 'event' || act === 'org' || act === 'area') from.released.then(() => updateAct(from.noteId, act, from.trigger)); else from.released.then(() => rowMenuAction(act, from.noteId)); }
+    // FOLD-넓은화면 ④: 폴드 펼침에서 상세가 열려 있으면 그 상세를 먼저 닫은 뒤(releaseDetail) 목록만 있을 때와 같은 길로 간다.
+    if (from) { if (act === 'copy') rowMenuAction(act, from.noteId); else if (act === 'event' || act === 'org' || act === 'area') from.released.then(() => updateAct(from.noteId, act, from.trigger)); else from.released.then(async () => { if (selected && !(await releaseDetail(from.trigger))) return; rowMenuAction(act, from.noteId); }); }
     return;
   }
   const fromNoteMenu = !!noteMenu()?.contains(b); if (fromNoteMenu) setNoteMenu(false, {focus:true});
@@ -1153,7 +1223,7 @@ root.addEventListener('click', e => {
   else if(b.hasAttribute('data-basket-ocr-status'))void runOcr('status',b.dataset.basketOcrStatus);
   else if(b.hasAttribute('data-basket-ocr-reconcile'))void runOcr('reconcile',b.dataset.basketOcrReconcile,b);
   else if(b.hasAttribute('data-basket-ocr-cleanup'))void runOcr('cleanup',b.dataset.basketOcrCleanup);
-  else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
+  else if (b.hasAttribute('data-basket-row')) void openRow(b.dataset.basketRow, b);
   else if (b.hasAttribute('data-basket-close')) void askCloseDetail(b);
   else if (b.hasAttribute('data-basket-edit')) startEdit();
   else if (b.hasAttribute('data-basket-to-note')) void saveToNote();

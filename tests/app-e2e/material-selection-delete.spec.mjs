@@ -180,7 +180,8 @@ for(const width of [390,1280]){
     expect(state.errors).toEqual([]);
   });
 
-  test(`new meeting cancellation sends only retained files and locks on save ${width}px`,async({page})=>{
+  // BIZ-저장먼저닫기(S58-1): [저장]은 글 저장이 끝나면 창을 먼저 닫고 고른 파일은 뒤에서 올린다 — 올리는 동안 창·[+ 사업 보고]를 잠그지 않는다.
+  test(`new meeting cancellation sends only retained files and closes on save, uploading behind ${width}px`,async({page})=>{
     const state=await boot(page,width);
     await page.locator('#newMeetingBtn').click();
     await page.locator('#meetingNameSelect').selectOption('__other__');
@@ -195,13 +196,17 @@ for(const width of [390,1280]){
     state.hold=true;
     await page.locator('#saveMeetingBtn').click();
     await expect.poll(()=>state.uploads.length).toBe(1);
-    // UI-올리기진행표시 ②: 올리는 줄은 [선택 취소] 대신 공용 막대 줄(보내는 동안 ✕ 올리기 취소)이 맡는다 — 고른 목록에서 뺄 수 없다.
-    await expect(page.getByRole('button',{name:'keep.pdf 선택 취소',exact:true})).toBeHidden();
-    await expect(page.locator('#meetingSelectedFiles [data-meeting-file] .up-inline [role="progressbar"]')).toBeVisible();
-    await expect(page.locator('#meetingFiles')).toBeDisabled();
-    await expect(page.locator('#newMeetingBtn')).toBeDisabled();
-    state.hold=false;state.release();
+    // 첫 파일이 아직 서버에 붙잡혀 있는데 창은 이미 닫혔다. 고른 목록에서 뺄 수 없고(창이 없음), 올리는 줄은 공용 막대 줄(보내는 동안 ✕ 올리기 취소)이 맡는다:
+    // 폰은 하단바 위 한 줄, PC는 저장한 보고가 붙은 오른쪽 칸의 회의자료 올리는 줄.
     await expect(page.locator('#meetingModal')).toBeHidden();
+    await expect(page.getByRole('button',{name:'keep.pdf 선택 취소',exact:true})).toBeHidden();
+    // (PC는 그 칸이 화면 안에 보이면 칸의 줄이, 화면 아래에 있으면 하단바 위 한 줄이 맡는다 — 어느 쪽이든 공용 막대가 보인다.)
+    const bar=page.locator('#uploadDock:not([hidden]) .up-bar');
+    await expect(width<761?bar:bar.or(page.locator('#mcolResult #mrdDropRows .up-row [role="progressbar"]')).first()).toBeVisible();
+    await expect(page.locator('#newMeetingBtn')).toBeEnabled();
+    expect(await selectionDraft(page)).toBe(true); // 올리는 중 새로 고치면 줄에 선 파일이 사라지므로 먼저 묻는다
+    state.hold=false;state.release();
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('자료 1개 올렸어요');
     expect(state.uploads).toHaveLength(1);
     // MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기와 같은 요청(meeting_id로 연결)이다.
     expect(state.uploads[0].path).toBe('/functions/v1/library-files');
@@ -321,7 +326,9 @@ async function openUploadScreen(page,screen){
 }
 const READ_ERROR='파일을 읽지 못했어요. 파일을 다시 선택해 주세요.';
 // 자료실·사업 보고 상세는 같은 자료 등록 창(#documentModal)으로 올린다 — [저장] 뒤 바로 닫히고 끝·실패는 공용 작은 알림.
+// BIZ-저장먼저닫기(S58-1): 새 사업 보고 창도 [저장] 뒤 바로 닫힌다 — 끝·실패는 하단바 위 한 줄(#uploadDock: 글 + 작은 둘째 줄 까닭, 못 올린 것만 [다시 올리기]).
 const viaWindow=screen=>screen!=='new meeting',noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
+const dockLine=page=>page.locator('#uploadDock:not([hidden])'),dockRetry=page=>dockLine(page).getByRole('button',{name:'못 올린 파일 다시 올리기'});
 for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){
   test(`memory copy: ${screen} sends metadata-preserving copies sequentially ${width}px`,async({page})=>{
     await observeSelectedFiles(page);
@@ -360,8 +367,12 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
       await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','alert');
       await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-action')).toHaveCount(0);
     }else{
-      await expect(page.locator(ui.status)).toContainText(READ_ERROR);
-      await expect(page.locator(ui.rows)).toContainText(READ_ERROR);
+      // 새 사업 보고: 창은 바로 닫히고, 읽지 못한 까닭은 하단바 위 한 줄에 남는다. 다시 보낼 수 없는 파일이라 [다시 올리기]는 없다.
+      await expect(page.locator('#meetingModal')).toBeHidden();
+      await expect(dockLine(page).locator('.up-dock-text')).toHaveText('자료 1개 못 올렸어요');
+      await expect(dockLine(page).locator('.up-dock-note')).toHaveText(READ_ERROR);
+      await expect(dockLine(page)).toHaveAttribute('role','alert');
+      await expect(dockRetry(page)).toHaveCount(0);
     }
     if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();
     expect(state.uploads).toEqual([]);
@@ -392,7 +403,13 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
       await expect(page.locator('#documentModal')).toBeHidden();
       await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. '+READ_ERROR);
       await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-action')).toHaveCount(0);
-    }else await expect(page.locator(ui.status)).toContainText(READ_ERROR);
+    }else{
+      // 새 사업 보고: 읽은 파일은 올라가고 읽지 못한 파일만 하단바 위 한 줄에 남는다([다시 올리기] 없음).
+      await expect(page.locator('#meetingModal')).toBeHidden();
+      await expect(dockLine(page).locator('.up-dock-text')).toHaveText('자료 1개 못 올렸어요');
+      await expect(dockLine(page).locator('.up-dock-note')).toHaveText('자료 1개 올렸어요 · '+READ_ERROR);
+      await expect(dockRetry(page)).toHaveCount(0);
+    }
     if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();
     expect(state.uploads).toHaveLength(1);
     expect(state.uploads[0].raw).toContain('good.pdf');
