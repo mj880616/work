@@ -110,7 +110,8 @@ test('지금 동작(고치기 전) ① 저장 안 한 첫 초안 창은 묻지 �
   await expect(notes).toHaveValue(/가짜 첫 녹음 전문/);
   await expect(result).toHaveValue(/가짜 첫 결정/);
 
-  // 저장하지 않고 [닫기]: 묻는 창 없이 바로 닫힌다. 첫 결과는 '열었음'으로 서버에 알렸으므로 띠에 [초안 열기]가 다시 뜨지 않는다.
+  // 저장하지 않고 [닫기]: 묻는 창 없이 바로 닫힌다. 화면은 창을 열 때 이미 첫 결과를 서버에 '열었음'으로 알렸다
+  // (서버는 '열었음'인 결과를 다시 주지 않는다 — 그 거르기는 서버 쪽이라 이 가짜 서버로는 보지 않는다). 띠가 닫힐 때까지 기다린다.
   await page.locator('#meetingModal [data-close="meetingModal"]').click();
   await expect(modal).toBeHidden();
   await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body.job_id)).toEqual([JOB(1)]);
