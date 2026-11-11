@@ -3,7 +3,8 @@
 // - 줄 = 그 주 사업 기록 + 그 주 사업 보고를 사업별로 묶음(규칙은 biz-detail-model.mjs). 사업 보고 결과 본문이 있으면 기본 '상세 포함'(줄 아래 본문).
 // - 줄 ⋯ = [보고용으로 수정](작은 ✓)·[원래 글로]·[이번 보고에서 빼기]·[한 줄만 ↔ 상세 포함](본문 있는 사업 보고만)·[기록 열기](+ 홈에서는 [이 종류 늘 빼기]).
 //   보고에만 다른 것은 app_report_line_marks(section 'biz_detail', '그 주부터' 이어짐)에 한 행. 원래 사업 기록·사업 보고는 바꾸지 않는다.
-// - 묶음 아래 [뺀 줄 n](펼쳐 [되돌리기])·[+ 쓰기](그 사업 사업 기록 한 줄, business-now-data.js saveBusinessRecord), 맨 아래 [+ 쓰기](사업 고르기).
+// - ORG-뺀줄지난줄메뉴: 뺀 줄도 보이는 줄과 같은 작은 ⋯ 하나(메뉴 맨 위 [되돌리기], 그 아래 [보고용으로 수정]·[원래 글로]·[기록 열기]). 큰 [되돌리기] 단추는 없다. PC 우클릭은 공용 context-menu.js가 그 줄 ⋯를 연다.
+// - 묶음 아래 [뺀 줄 n](펼쳐 ⋯ [되돌리기])·[+ 쓰기](그 사업 사업 기록 한 줄, business-now-data.js saveBusinessRecord), 맨 아래 [+ 쓰기](사업 고르기).
 // - 사업 기록·지금 상황이 다른 화면에서 바뀌면(kptu:business-now-changed) 다시 읽고, 다른 상자가 표시를 바꾸면(kptu:biz-detail-changed) 다시 읽는다.
 // 기기에 아무것도 저장하지 않는다. 글은 로그에 쓰지 않는다.
 import {missingTable} from './feed-model.mjs';
@@ -68,16 +69,18 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
 
   // ---- 그리기 ----
   const moreSlot = spec => `<span class="wl-more-slot" data-wl-more="${esc(JSON.stringify(spec))}"></span>`;
-  const lineMore = l => {
+  // where: 'shown'(보이는 줄) | 'out'(뺀 줄 — 맨 위 [되돌리기], 이미 보고에 없는 줄이라 [한 줄만 ↔ 상세 포함]·[이번 보고에서 빼기]·[이 종류 늘 빼기]는 없다).
+  const lineMore = (l, where = 'shown') => {
     const items = [];
+    if (where === 'out') items.push({text: '되돌리기', data: {bdBack: l.id}, aria: `보고에 되돌리기: ${l.text}`});
     if (ctl.marksOn) {
       items.push({text: '보고용으로 수정', data: {bdEdit: l.id}, aria: `보고용으로 수정: ${l.text}`});
       if (l.edited) items.push({text: '원래 글로', data: {bdOrig: l.id}});
-      if (l.canFull) items.push({text: l.detail === 'full' ? '한 줄만' : '상세 포함', data: {bdDetail: l.id}, aria: `${l.detail === 'full' ? '한 줄만' : '상세 포함'}: ${l.text}`});
-      items.push({text: '이번 보고에서 빼기', data: {bdOut: l.id}, danger: true, aria: `이번 보고에서 빼기: ${l.text}`});
+      if (where === 'shown' && l.canFull) items.push({text: l.detail === 'full' ? '한 줄만' : '상세 포함', data: {bdDetail: l.id}, aria: `${l.detail === 'full' ? '한 줄만' : '상세 포함'}: ${l.text}`});
+      if (where === 'shown') items.push({text: '이번 보고에서 빼기', data: {bdOut: l.id}, danger: true, aria: `이번 보고에서 빼기: ${l.text}`});
     }
     items.push({text: '기록 열기', data: {bdOpen: l.id}, aria: `기록 열기: ${l.text}`});
-    if (kinds && l.kind === 'meeting') {
+    if (kinds && where === 'shown' && l.kind === 'meeting') {
       const m = meetingOf(l.key), name = meetingKindName(m), key = meetingKindKey(name);
       if (validKindKey(key)) items.push({text: '이 종류 늘 빼기', data: {journalKindToggle: key, journalKindHide: '1', journalKindName: name}, aria: `${name} 종류를 주간보고에서 늘 빼기`});
     }
@@ -90,8 +93,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
   };
   const lineHtml = (l, where = 'shown') => {
     if (ctl.editing?.id === l.id) return reportForm(l);
-    const ro = ctl.busy || !!ctl.editing;
-    const act = where === 'shown' ? lineMore(l) : `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-bd-back="${esc(l.id)}"${ro ? ' disabled' : ''}>되돌리기</button></span>`;
+    const act = lineMore(l, where);
     const tags = `${l.kind === 'meeting' && l.canFull && l.detail !== 'full' && where === 'shown' ? '<span class="rw-tag">한 줄만</span>' : ''}`;
     return `<div class="wl-line rw-line bd-line${where === 'out' ? ' is-last' : ''}" data-bd-line="${esc(l.id)}" data-bd-kind="${esc(l.kind)}"><span class="wl-day">- ${esc(D.dayText(l.day, l.end_day))}</span><span class="wl-body"><span class="wl-text">${esc(l.text)}</span>${tags}</span>${act}</div>${where === 'shown' ? bodyHtml(l) : ''}`;
   };
