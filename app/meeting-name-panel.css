@@ -28,7 +28,8 @@
 .mnp-head{display:flex;align-items:center;gap:4px;margin-bottom:2px}
 .mnp-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .mnp-note,.mnp-none,.mnp-msg{margin:4px 8px;color:var(--kptu-muted);font-size:12px}
-.mnp-foot{margin-top:2px;padding-top:2px;border-top:1px solid var(--kptu-border)}
+/* S57-14: 바닥 줄에 '조직 목록 수정'·'회의 미리 넣기' 둘을 한 줄로(좁으면 줄바꿈). */
+.mnp-foot{display:flex;flex-wrap:wrap;gap:0 4px;margin-top:2px;padding-top:2px;border-top:1px solid var(--kptu-border)}
 .mnp-link{border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;padding:4px 8px;cursor:pointer}
 .mnp-link:hover,.mnp-link:focus-visible{color:var(--kptu-ink);text-decoration:underline}
 .mnp-rename{display:flex;gap:4px;align-items:center}
