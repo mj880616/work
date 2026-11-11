@@ -26,7 +26,8 @@ export function calendarHtml(ctx) {
     const num = c.inMonth ? `<button type="button" class="rv-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
     const dots = plan.total ? `<span class="rv-dots" aria-hidden="true">${list.slice(0, 3).map(m => dot(colorOf(m))).join('')}</span>` : '';
     const titles = plan.shown.length ? `<ul class="rv-titles">${plan.shown.map(m => `<li><span class="rv-title" ${openAttrs(m.id)} title="${esc(nameOf(m))}">${dot(colorOf(m))}<span>${esc(nameOf(m))}</span></span></li>`).join('')}${plan.more ? `<li class="rv-more">+${plan.more}</li>` : ''}</ul>` : '';
-    return `<td class="${cls}">${num}${dots}${titles}</td>`;
+    // S57-8 BIZ-달력우클릭끌기 ④: 이번 달 칸은 칸 전체가 '그날 고르기'(숫자·점·빈 곳·+n 어디든). 숫자 단추는 키보드·화면 읽기용으로 그대로 둔다.
+    return `<td class="${cls}"${c.inMonth ? ` data-rv-cell="${c.key}"` : ''}>${num}${dots}${titles}</td>`;
   }).join('')}</tr>`).join('');
   const dayRows = (byDay.get(selected) || []).map(m => `<article class="rv-row" ${openAttrs(m.id)}>${dot(colorOf(m))}<div class="rv-row-main"><h3>${esc(nameOf(m))}</h3><p>${esc(metaOf(m))}</p></div>${stripHtml(m, photos)}</article>`).join('');
   const list = selected ? `<section class="rv-day-list" aria-label="${esc(dayHeading(selected))}"><h3 class="rv-day-title">${esc(dayHeading(selected))}</h3>${dayRows || emptyHtml()}</section>` : '';
