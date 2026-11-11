@@ -313,3 +313,17 @@ export async function treeGo(page, source, id = '') {
     await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
   } else await phoneFolder(page, source, id);
 }
+
+// OPS-빠진일2차 1(S59-17): 목록 칸 폴더 누르기 = 그 자리 펼치기·접기(하위 폴더가 없으면 한 번에 열기). 그 폴더로 '들어가기'를 시험할 때는 이 도우미:
+// 761px~ = 우클릭 [이 폴더로 들어가기], 그 아래(폴드 좁은 폭·폰) = 눌러 펼친 뒤 그 폴더 위 두 손가락 벌리기(하위 폴더가 없으면 누르기만으로 열린다).
+export async function enterRow(page, row) {
+  if (await page.evaluate(() => matchMedia('(min-width:761px)').matches)) {
+    await row.click({ button: 'right' });
+    await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
+    return;
+  }
+  const { pinch } = await import('./pinch.mjs');
+  await row.click();
+  await expect.poll(async () => (await row.count()) === 0 || (await row.getAttribute('aria-expanded')) === 'true').toBe(true);
+  if (await row.count()) await pinch(page, row, 'out');
+}

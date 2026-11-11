@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles, treeGo } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 명진 11:41 '(가) 연결만').
 // [파일]의 파일 ⋯(PC 우클릭) → [자료실로 보내기] → 자료실 등록 창(같은 칸·같은 [등록])에 그 파일이 들어가고,
@@ -77,7 +77,7 @@ test('PC 1440: 원드라이브 파일 우클릭 → [자료실로 보내기] →
   test.setTimeout(90000);
   const { errors, server, lib } = await begin(page);
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!1').first().click();
+  await enterRow(page, row(page, 'od:OD!1').first());
   const send = await menuOn(page, 'od:OD!11', 'tolib');
   await expect(send).toHaveText(/자료실로 보내기/);
   await send.click();

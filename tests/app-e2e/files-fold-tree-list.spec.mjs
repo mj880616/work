@@ -40,7 +40,11 @@ for (const width of [700, 768, 884, 1280]) test(`파일 ${width}: 왼쪽 나무 
   await expect(tree).toBeVisible();
   await expect(crumb).toHaveText(name0);
   const name1 = await go.nth(1).locator('.ft-name').textContent();
+  // OPS-빠진일2차 1(S59-17): 하위 폴더가 없는 폴더는 이름을 한 번 누르면 그 폴더가 열린다(펼칠 것이 없으므로). 나무는 그대로.
   await go.nth(1).click();
+  await expect(crumb).toHaveText(name1);
+  await expect(tree).toBeVisible();
+  await enterVia(go.first());
   await expect(crumb).toHaveText(name0);
   await enterVia(go.nth(1));
   await expect(tree).toBeVisible();
@@ -115,12 +119,9 @@ for (const width of [700, 884]) test(`노트 폴드 ${width}: 왼쪽 폴더 나�
   const tree = page.locator('[data-nx-tree]');
   await expect(tree).toBeVisible();
   // UI-폴더누르기한규칙(S57-5): 나무 폴더 누르기 = 펼침만(오른쪽 노트 그대로), 들어가기 = ⋯ [이 폴더로 들어가기].
+  // OPS-빠진일2차 1(S59-17): 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다(펼칠 것이 없으므로).
   const enterNote = async id => { await tree.locator(`[data-nx-folder-more="${id}"]`).click(); await page.locator('#noteDocMenu [data-nx-enter]').click(); };
-  const noteCount0 = await page.locator('#noteRows [data-note-row]').count();
   await tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`).click();
-  await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(noteCount0);
-  if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/notes-${width}-1-press.png` });
-  await enterNote(U(1));
   await expect(page.locator('[data-nx-here]')).toHaveText('가상 메모 · 2');
   if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/notes-${width}-2-entered.png` });
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(2);

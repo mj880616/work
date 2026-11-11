@@ -189,7 +189,7 @@ test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개
   await expect(box).toHaveClass(/ft-top/);
   expect(await box.locator('.ft-ico').getAttribute('data-ft-shape')).toBe('closed');
   await box.locator('.ft-main').tap();
-  expect(await box.locator('.ft-ico').getAttribute('data-ft-shape')).toBe('open');
+  await expect(box.locator('.ft-ico')).toHaveAttribute('data-ft-shape', 'open'); // 하위 폴더를 먼저 읽고 정한다(OPS-빠진일2차 1)
   await expect(od.locator('[data-ft-parent="od:OD!2"] [data-fx-tfile]')).toHaveCount(5);
   await expect(od.locator('[data-fx-tmore="od:OD!2"]')).toContainText('3개 더 보기');
   await od.locator('[data-fx-tmore="od:OD!2"]').tap();

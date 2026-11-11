@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles, treeGo } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S52-43 ③ FILES-관리자마무리(설계 docs/design/files-manager-audit.md C-2·G·I): 미리보기 ←→ 다음 파일, 동영상·소리 재생(200MB까지),
 // 파일 ⋯ [경로 복사], 클립보드 그림 붙여넣기 = 지금 폴더에 올리기. 서버·클라우드는 흉내(파일 이름은 모두 가짜).
@@ -18,7 +18,7 @@ async function begin(page) {
   await page.reload();
   await openFiles(page, 1440);
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!1').click();
+  await enterRow(page, row(page, 'od:OD!1'));
   await expect(row(page, 'od:OD!11')).toBeVisible();
   return { errors, server };
 }

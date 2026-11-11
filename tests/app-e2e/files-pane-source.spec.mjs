@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S52-07 FILES-칸출처고르기(명진 결정 11/07 "모두 추천대로": 칸 머리 '원드라이브 ▾' 이름 → 목록, 고른 출처는 서버에 기억;
 // 시안 docs/design/mockups/morning-1107/4-files-pane-source.html 1-A, 설계 docs/design/files-pane-source.md).
@@ -58,7 +58,7 @@ test('폴드 884: 칸 머리 이름 ▾ → 네 줄 목록(못 쓰는 출처는 
   await expect(pane(page, 0).locator('[data-fx-row="gd:gdFolder1"]')).toBeVisible();
   await expect.poll(() => prefs.value?.files_panes).toEqual({ pc: ['gd', 'od'] });
   // 폴더 안으로 들어가면 위치 줄은 출처 다음 단계부터(‹ 위 폴더 + 폴더 이름).
-  await pane(page, 0).locator('[data-fx-row="gd:gdFolder1"]').click();
+  await enterRow(page, pane(page, 0).locator('[data-fx-row="gd:gdFolder1"]'));
   await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 업무 공간');
   await expect(pane(page, 0).locator('.fx-ptop .fx-crumb-step')).toHaveCount(0);
   // 다시 열면 기억한 출처에서 시작.
