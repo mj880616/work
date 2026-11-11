@@ -385,6 +385,9 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
       expect(state.uploads).toEqual([]);
       expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf']);
       await page.locator(ui.input).setInputFiles(file('reselected.pdf'));
+      // UX-알림하나로(S59-21): 못 올린 알림(아래 한 줄)은 누를 때까지 남지만, 창이 열려 있으면 위쪽으로 올라가 창의 [등록]을 가리지 않는다.
+      const note=await page.locator('#uploadDock:not([hidden])').boundingBox(),save=await page.locator(ui.save).boundingBox();
+      if(note&&save)expect(note.y+note.height<=save.y||note.y>=save.y+save.height,'아래 한 줄이 창 단추를 가리지 않는다').toBe(true);
       await page.locator(ui.save).click();
       await expect(page.locator('#documentModal')).toBeHidden();
       await expect.poll(()=>state.uploads.length).toBe(1);

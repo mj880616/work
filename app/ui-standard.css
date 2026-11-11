@@ -1740,6 +1740,10 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 /* ③ 하단바 위 한 줄: 올리는 줄이 보이는 화면이 없을 때만(다른 화면·창 닫음). 폰은 하단 탭 위, PC는 화면 아래 가운데. */
 #uploadDock{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--up-dock-lift,0px) + env(safe-area-inset-bottom,0px) + 8px); z-index:95; box-sizing:border-box; width:min(92vw,360px); padding:6px 12px; border-radius:var(--ds-radius-box,10px); background:var(--kptu-ink); color:var(--kptu-surface); font-size:var(--ds-text-meta,12px); box-shadow:var(--kptu-shadow-float); }
 #uploadDock[hidden]{ display:none; }
+/* UX-알림하나로(S59-21): 위에 뜬 창(.modal — 칸에 붙인 role=region은 빼고)이 열려 있으면 이 한 줄은 위쪽 작은 알림 자리로 올라간다.
+   못 올린 알림은 누를 때까지 남으므로, 아래에 두면 창의 [저장]·[등록] 같은 아래 단추를 가린다(폰 아래 시트). 작은 알림이 함께 떠 있으면 그 아래. */
+body:has(.modal:not(.hidden):not([role="region"])) #uploadDock{ top:var(--kptu-notice-top); bottom:auto; }
+body:has(.modal:not(.hidden):not([role="region"])):has(#kptuNotice:not([hidden]), #toast:not(.hidden)) #uploadDock{ top:calc(var(--kptu-notice-top) + 44px); }
 #uploadDock .up-dock-head{ display:flex; align-items:center; gap:8px; min-height:var(--ds-compact-height-sm,28px); }
 #uploadDock .up-dock-text{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* UX-알림하나로(S59-21): 못 올린 알림은 까닭까지 읽히게 줄을 넘긴다(자료실 등록·끌어 놓기의 '1개 완료 · 1개 미완료. 까닭' 같은 긴 글). */
