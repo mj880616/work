@@ -1,0 +1,62 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 홈 [하루] 주 날짜 줄 — 고른 날 표시·요일 놓는 법</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#ece9e1;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2b2b28}
+h1{font-size:15px;margin:0 0 4px}.note{font-size:12px;color:#555;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:16px 0 6px}.cap small{font-weight:400;color:#666}
+.phone{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#f3f1ea;border:1px solid #cfc8b6;border-radius:1.2em;padding:1em 1em 1.1em;color:#2a2a23}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8em}
+.top b{font-size:1.45em;font-weight:500}
+.seg{display:flex;background:#e9e5da;border-radius:1em;padding:.2em;font-size:.95em}.seg span{padding:.25em .8em;border-radius:.8em;color:#6e6c60}.seg .on{background:#fffefa;color:#2a2a23;font-weight:600}
+.nav{display:flex;align-items:center;gap:.3em}
+.ar{color:#6e6c60;width:1.1em;text-align:center;flex:none}
+.wk{border:1px solid #cfc8b6;border-radius:.6em;padding:.25em .6em;background:#fffefa;font-size:.95em;flex:none;margin-left:.3em}
+/* 지금 */
+.now{display:grid;grid-template-columns:repeat(7,1fr);flex:1;gap:.15em}
+.now div{display:flex;align-items:baseline;justify-content:center;gap:.3em;padding:.35em 0 .5em;border-radius:.5em;position:relative;font-size:1.02em}
+.now i{font-style:normal;color:#6e6c60;font-size:.9em}.now .sun i,.now .sun{color:#c03030}
+.now .sel{background:#e8ecdc}.now .today{outline:.15em solid #3d4a1f;outline-offset:-.15em}
+.now .dot::after,.new .dot::after{content:"";position:absolute;left:50%;bottom:.15em;width:.4em;height:.4em;margin-left:-.2em;border-radius:50%;background:#3d6b2a}
+/* 안 */
+.new{display:grid;grid-template-columns:repeat(7,1fr);flex:1;gap:.15em}
+.new div{display:flex;flex-direction:column;align-items:center;gap:.15em;padding:.25em 0 .6em;position:relative}
+.new i{font-style:normal;color:#8f8c7f;font-size:.8em;line-height:1.2}
+.new b{display:grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%;font-weight:400;font-size:1.05em;box-sizing:border-box}
+.new .sun i,.new .sun b{color:#c03030}
+.new .today b{border:.13em solid #3d4a1f;color:#3d4a1f;font-weight:600}
+.new .sel b{background:#5c6a35;color:#fffefa;font-weight:600;outline:.15em solid #b8663a;outline-offset:.1em}
+.new .sel.today b{border-color:#5c6a35}
+.legend{background:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;margin-top:14px}.legend b{color:#55632f}
+</style></head><body>
+<h1>시안: 홈 [하루] 주 날짜 줄</h1>
+<p class="note">명진 캡처처럼 오늘은 목 12, 수 11을 누른 상태예요. 주황 테두리는 새로 바뀌는 곳이에요.</p>
+
+<div class="cap">지금 <small>고른 날(수 11)이 옅은 바탕이라 거의 안 보임 · 요일과 날짜가 한 줄</small></div>
+<div class="phone"><div class="scr">
+<div class="top"><b>11월 11일 수요일</b><div class="seg"><span class="on">하루</span><span>주간 정리</span></div></div>
+<div class="nav"><span class="ar">‹</span><div class="now">
+<div class="dot"><i>월</i>9</div><div class="dot"><i>화</i>10</div><div class="sel"><i>수</i>11</div><div class="today"><i>목</i>12</div><div><i>금</i>13</div><div><i>토</i>14</div><div class="sun"><i>일</i>15</div>
+</div><span class="ar">›</span><span class="wk">이번 주</span></div>
+</div></div>
+
+<div class="cap">안 <small>요일은 위에 작게, 날짜는 아래 · 고른 날 = 채운 동그라미 · 오늘 = 동그라미 선</small></div>
+<div class="phone"><div class="scr">
+<div class="top"><b>11월 11일 수요일</b><div class="seg"><span class="on">하루</span><span>주간 정리</span></div></div>
+<div class="nav"><span class="ar">‹</span><div class="new">
+<div class="dot"><i>월</i><b>9</b></div><div class="dot"><i>화</i><b>10</b></div><div class="sel"><i>수</i><b>11</b></div><div class="today"><i>목</i><b>12</b></div><div><i>금</i><b>13</b></div><div><i>토</i><b>14</b></div><div class="sun"><i>일</i><b>15</b></div>
+</div><span class="ar">›</span><span class="wk">이번 주</span></div>
+</div></div>
+
+<div class="cap">안 — 오늘을 고른 때 <small>채운 동그라미 하나(오늘 표시와 겹침)</small></div>
+<div class="phone"><div class="scr">
+<div class="top"><b>11월 12일 목요일</b><div class="seg"><span class="on">하루</span><span>주간 정리</span></div></div>
+<div class="nav"><span class="ar">‹</span><div class="new">
+<div class="dot"><i>월</i><b>9</b></div><div class="dot"><i>화</i><b>10</b></div><div><i>수</i><b>11</b></div><div class="sel today"><i>목</i><b>12</b></div><div><i>금</i><b>13</b></div><div><i>토</i><b>14</b></div><div class="sun"><i>일</i><b>15</b></div>
+</div><span class="ar">›</span><span class="wk">이번 주</span></div>
+</div></div>
+
+<div class="legend"><b>바뀌는 것</b>: 누른 날은 진한 초록 동그라미에 흰 숫자라 한눈에 보여요. 오늘은 동그라미 선. 요일은 날짜 위에 작게(달력 앱처럼), 일요일은 빨강 그대로. 한 줄 쓴 날 초록 점은 그대로.<br>
+<b>같이 맞출 곳(추천)</b>: 같은 '고른 날 옅은 바탕'을 쓰는 일기 달력·사업 보고 달력·일정 달력·사진 날짜도 고른 날을 더 진하게 할지는 따로 물어볼게요(이번엔 홈 날짜 줄만).</div>
+</body></html>
