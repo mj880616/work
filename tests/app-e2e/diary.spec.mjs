@@ -333,6 +333,8 @@ test('21장째는 넣지 않고 안내, 고르자마자 올리다 실패하면 �
  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/diary-photo-fail-390.png`});
  await expect(ed).toBeVisible();await expect(ed.locator('.diary-thumb.pending')).toHaveCount(1);
  expect(f.rows[1].attachments).toHaveLength(19);
+ // 일기 쓰기 칸이 열려 있으면 그 한 줄은 위쪽으로 올라가 [저장]을 가리지 않는다.
+ {const note=await dock.boundingBox(),save=await ed.locator('[data-diary-save]').boundingBox();if(note&&save)expect(note.y+note.height<=save.y||note.y>=save.y+save.height,'아래 한 줄이 [저장]을 가리지 않는다').toBe(true);}
  await ed.locator('[data-diary-save]').click();
  // BIZ-저장먼저닫기 3차(S59-18): [저장]하면 창은 먼저 닫히고 남은 사진은 뒤에서 그 일기로 이어 올라간다.
  await expect(ed).toBeHidden();await expect.poll(()=>f.rows[1].attachments.length).toBe(20);

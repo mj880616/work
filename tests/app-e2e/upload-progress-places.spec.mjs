@@ -110,9 +110,8 @@ for(const width of [390,1280])test.describe(`자료실 올리기 ${width}px`,()=
   await expect(first.locator('.up-pc')).toHaveText(/\d+%/);
   await first.getByRole('button',{name:'멈출 자료.pdf 올리기 취소'}).click();
   await expect.poll(()=>state.received.map(r=>r.name),{timeout:30000}).toEqual(['다음 자료.pdf']);
-  // 끝 알림(UX-알림하나로): 하단바 위 한 줄 하나에 올린 것·취소한 것(둘째 줄에 까닭 — 취소는 오류가 아니다), [다시 올리기]가 취소한 파일만 다시 올린다.
-  await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료',{timeout:15000});
-  await expect(page.locator('#uploadDock .up-dock-note')).toHaveText('올리기를 취소했어요.');
+  // 끝 알림(UX-알림하나로): 하단바 위 한 줄 하나에 예전 창 상태 줄과 같은 글(취소는 오류가 아니다), [다시 올리기]가 취소한 파일만 다시 올린다.
+  await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. 올리기를 취소했어요.',{timeout:15000});
   await expect(page.locator('#uploadDock')).toHaveAttribute('role','status');
   await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
   state.pauseMs=5;
