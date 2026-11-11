@@ -2913,8 +2913,11 @@ function paintJobs() {
 }
 // ---------- FILES-자료실로보내기(S52-26, 요청함 11/07 11:37, 시안 docs/design/mockups/files-to-library.html, 명진 11:41 '(가) 연결만') ----------
 // 파일 ⋯ · 미리보기 · 여러 개 고른 줄의 [자료실로] → 자료실 등록 창(library-upload.js, 같은 칸·같은 [등록]·같은 막대·%)에 그 파일들을 넣어 연다.
-// 원본은 그대로. 원드라이브·이 폰 파일은 이 화면이 바이트를 받아(원드라이브는 Edge media, 폰은 앱 다리) 자료실 Drive 폴더에 사본으로 올리고,
+// 원본은 그대로. 원드라이브·이 폰·내 PC 파일은 바이트를 받아(원드라이브는 Edge media, 폰은 앱 다리, 내 PC는 바구니 문) 자료실 Drive 폴더에 사본으로 올리고,
 // 구글 드라이브 파일은 사본 없이 연결만(서버 document-actions register-drive-file이 이 작업공간 [파일] 색인·Drive 원본을 확인).
+// 등록 창 먼저(S57-1, 2026-11-11 결정 — UX-먼저묻고뒤에처리): 누르자마자 등록 창을 열고(이름·크기만 넘김, libStub), 바이트 받기·올리기는 등록 창 [저장] 뒤
+//   자료실 올리기 줄이 뒤에서 한다(창을 닫아도·다른 화면으로 옮겨도 끝까지, 실패는 공용 작은 알림 + [다시]). ×로 닫으면 아무것도 받지 않는다.
+//   예전에는 바이트를 다 받은 뒤에야 창을 열었고('가져오는 중'), 받는 동안 이 화면을 떠나면 그만뒀다.
 // 이미 자료실에 있는 파일은 넣지 않고 '이미 자료실에 있어요 · [보기]'.
 // S53-8 ②: 폴더째 — 안의 파일(하위 폴더까지)을 모아 같은 길로(이미 있는 것은 건너뜀). 폴더 하나에 50개·합쳐 1GB까지, 넘으면 자르지 않고 한 줄.
 //   내 PC 파일·폴더도(바구니 문 0.4.0+ — 문에서 읽어 사본으로).
@@ -2927,8 +2930,23 @@ async function libraryReady() {
   if (loader?.load && !loader.isLoaded?.('library')) await loader.load('library');
   return !!(await window.__KPTU_LIBRARY_UPLOAD_READY__) && typeof window.KPTULibrary?.startUploadFromFiles === 'function';
 }
+// 등록 창에 넘기는 '나중에 받는 파일': 이름·크기·종류만 먼저, 바이트는 올릴 차례에 load()로. load는 이 화면 상태(지금 폴더·고른 줄)에 기대지 않아
+// 다른 화면으로 옮겨도 끝까지 돈다. 멈추는 것은 누를 때의 계정·작업공간(owner)이 바뀌었을 때뿐이다(다른 작업공간에 올리지 않게, 다시 하지도 않음).
+// 실패는 사람이 읽는 한 줄(text)을 실어 던진다 — 자료실 올리기 줄이 알림 + [다시]로 보인다.
+const libStub = (r, owner) => {
+  const lastModified = Date.parse(r.modified_at || '') || Date.now();
+  const gone = () => Object.assign(new Error('owner_changed'), {code: 'owner_changed', retry: false, text: `${r.name}: 로그인이 바뀌어 자료실로 보내지 않았어요`});
+  return {name: r.name, size: Number(r.size_bytes) || 0, type: r.mime || '', lastModified, load: async () => {
+    if (scopeOf() !== owner) throw gone();
+    let blob;
+    try { blob = await rowBlob(r, 'media'); } // 이 폰 = 앱 다리, 내 PC = 바구니 문, 원드라이브 = Edge media
+    catch (e) { throw Object.assign(new Error('file_fetch_failed'), {code: 'file_fetch_failed', text: `${r.name}: ${errorText(codeOf(e))}`, cause: e}); }
+    if (scopeOf() !== owner) throw gone();
+    return new File([blob], r.name, {type: r.mime || blob.type || '', lastModified});
+  }};
+};
 async function sendToLibrary(rows) {
-  const list = (rows || []).filter(Boolean), scope = state.scope;
+  const list = (rows || []).filter(Boolean), scope = state.scope, owner = scopeOf();
   const pcOk = r => r.source !== PC || pc.canXfer;
   if (!list.every(pcOk)) notify('바구니 PC 앱을 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요', {record: false});
   const files = list.filter(r => !r.is_folder && pcOk(r));
@@ -2945,19 +2963,8 @@ async function sendToLibrary(rows) {
   const big = files.filter(r => r.source !== 'gd' && Number(r.size_bytes) > LIBRARY_MAX_BYTES);
   if (big.length) notify(`자료실은 파일당 100MB까지예요: ${big.map(r => r.name).join(', ')}`, {error: true, record: false});
   const had = files.filter(r => r.library_doc_id), rest = files.filter(r => !r.library_doc_id && !big.includes(r));
-  const items = [];
-  const copies = rest.filter(r => r.source !== 'gd');
-  if (copies.length) { state.busy = '자료실로 보낼 파일 가져오는 중'; paintBar(); }
-  try {
-    for (const r of rest) {
-      if (r.source === 'gd') { items.push({link: {source: 'gd', id: r.item_id}, name: r.name, size: Number(r.size_bytes) || 0, type: r.mime || ''}); continue; }
-      try {
-        const blob = await rowBlob(r, 'media'); // 이 폰 = 앱 다리, 내 PC = 바구니 문, 원드라이브 = Edge media
-        items.push(new File([blob], r.name, {type: r.mime || blob.type || '', lastModified: Date.parse(r.modified_at || '') || Date.now()}));
-      } catch (e) { notify(`${r.name}: ${errorText(codeOf(e))}`, {error: true, record: false}); }
-      if (state.scope !== scope) return;
-    }
-  } finally { if (state.scope === scope && copies.length) { state.busy = ''; paintBar(); } }
+  // 바이트는 여기서 받지 않는다(등록 창 먼저). 구글 드라이브는 연결만이라 받을 것이 없다.
+  const items = rest.map(r => (r.source === 'gd' ? {link: {source: 'gd', id: r.item_id}, name: r.name, size: Number(r.size_bytes) || 0, type: r.mime || ''} : libStub(r, owner)));
   let out = {opened: false, already: []};
   if (items.length) {
     let ready = false;
