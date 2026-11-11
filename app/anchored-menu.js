@@ -50,5 +50,18 @@ function open(trigger,{at=null}={}){
   document.addEventListener('keydown',e=>{if(!active)return;if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close()}else if(e.key==='Tab'){const buttons=[...panel.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);e.preventDefault();e.stopImmediatePropagation();buttons[(index+(e.shiftKey?-1:1)+buttons.length)%buttons.length].focus()}},true);
   window.addEventListener('popstate',e=>{if(active&&e.state?.[historyKey]!==active.id)close(null,true)},true);
   window.addEventListener('resize',position);window.addEventListener('scroll',position,true);new ResizeObserver(position).observe(panel);
-  return {open,close,get active(){return active}};
+  // LIB-다시그리기메뉴닫힘: 메뉴 주인(그 목록을 그리는 쪽)이 목록을 다시 그린 직후 부른다. 누른 칸이 떨어졌으면 find(id,옛 칸)가
+  // 돌려준 새 칸으로 메뉴를 그대로 옮겨 붙이고(자리·항목 실행이 새 칸을 따름), 새 칸이 없거나 화면에 안 보이면 닫는다.
+  function follow(find){
+    if(!active||active.trigger.isConnected)return;
+    const next=find(active.id,active.trigger);
+    if(!next||!next.isConnected||!next.getClientRects().length){close();return}
+    moveMenuTrigger(active.trigger,next);active.trigger=next;if(!active.at)active.row=row(next)||null;position();
+  }
+  return {open,close,follow,get active(){return active}};
+}
+// 열린 메뉴의 주인을 다시 그려진 새 칸으로 옮긴다: 펼침 표시를 옮기고, PC 우클릭으로 연 메뉴(context-menu.js가 누른 자리에 고정)면 새 칸도 같은 자리에 고정한다.
+export function moveMenuTrigger(old,next){
+  if(Object.prototype.hasOwnProperty.call(old,'getBoundingClientRect')){const r=old.getBoundingClientRect();window.KPTUContextMenu?.pinAt?.(next,r.left,r.top)}
+  next.setAttribute('aria-expanded','true');
 }

@@ -41,7 +41,7 @@ import {iconHtml,treeIconHtml} from './tree-icons.js';
 import {ftPressToggle,ftBindTreeArrows,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu,moveMenuTrigger} from './anchored-menu.js';
 import {notify,NOTICE_UNDO_MS,askConfirm} from './small-notice.js';
 // UI-알림창정리(자료실): 파일 열기·내려받기·Drive 열기 실패는 브라우저 기본 알림창 대신 위쪽 작은 알림(오류 5초).
 const luErrorNotice=message=>notify(message,{error:true});
@@ -1038,7 +1038,7 @@ document.addEventListener('dblclick',e=>{
   const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:')||key==='f:'+luInFolder)return;
   e.preventDefault();window.getSelection?.()?.removeAllRanges?.();luEnterFolder(key.slice(2));
 });
-function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';luApplyPlaceFolder();luCloseMenu();luRenderGroupBy();luSyncFind();luRenderProjectFilter();luRenderOrganizationFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luSyncFind();luRenderProjectFilter();luRenderOrganizationFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
 luSyncSearchPickAll(q,matches);
 const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luCategoryOff].sort(),luCategorySub,luOrganization?.id||'',pid,luGroupBy]):'-';if(signature!==luFilterSignature){luFilterOpen.clear();luFilterSignature=signature}
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();
@@ -1049,7 +1049,7 @@ luLastTree=shown;const matched=filtering?matchedKeys(luTwoActive()?tree:shown):n
 luSuggest=luGroupBy==='folder'&&!luPick.items?folderSuggestions(tree.find(n=>n.key==='x:out')?.files||[],{docs:luDocuments,items:luFolderItems,folders:luFolders_,categoryOf}):new Map();
 const html=luTwoActive()?luTwo.html(tree):((inKey?shown.length>0:(matches.length||tree.some(n=>n.children.length)||(luGroupBy==='folder'&&!filtering)))?treeHtml(shown,{isOpen:k=>k===inKey||luIsOpen(k,filtering,matched),showAll:k=>luShowAll.has(k),fileHtml:luDragRowHtml,esc:luEsc,menu:luNodeMenuLabel,canDrag:n=>luCanDrag()&&n.kind==='folder',pick:luNodePick,emoji:luGroupBy==='folder'}):'');
 luRenderPath(box);luRenderFolderNav(tree);box.innerHTML=(html||(globalThis.KPTUWait?.emptyHtml?.(!inKey&&topDocumentCategories().every(n=>luCategoryOff.has(n))?'선택한 분류 없음':'없음')||''))+(q?luOffHint(found.filter(d=>!luCategoryShown(categoryOf(d.category),hiddenNow))):'');// 다시 그려도 초점이 있던 자료 줄에 초점을 돌려준다(다른 화면이 짚어 연 줄이 늦게 끝난 읽기의 다시 그리기로 초점을 잃지 않게).
-if(focusId)box.querySelector(`[data-lu-document="${CSS.escape(focusId)}"]`)?.focus({preventScroll:true});luRenderExpandAll(filtering,matched);luMarkLongNames(box);if(luTwoActive())luTwo.after(SPLIT_QUERY);hydrateLibraryThumbs(box);mountReportPhotos(box,{isCurrent:()=>box.isConnected});luRenderRecent(matches);luAfterRender()}
+if(focusId)box.querySelector(`[data-lu-document="${CSS.escape(focusId)}"]`)?.focus({preventScroll:true});luRenderExpandAll(filtering,matched);luMarkLongNames(box);if(luTwoActive())luTwo.after(SPLIT_QUERY);hydrateLibraryThumbs(box);mountReportPhotos(box,{isCurrent:()=>box.isConnected});luRenderRecent(matches);luFollowMenus(...menuSpots);luAfterRender()}
 // LIB-최근올린파일 (2026-10-27 17:01 요청): 묶기 칩 바로 아래 작은 칸. 서버에 있는 올린 시각(created_at) 기준 최근 5개(더보기 15개)를 줄마다
 // 종류·제목·들어간 묶음·올린 시각으로 보이고, 줄을 누르면 아래 목록에서 그 파일이 든 묶음을 펴고 그 줄로 가서 잠깐 강조한다.
 // 지금 목록에 보이는 자료(검색·종류 칩·담당조직·프로젝트 거르기 적용)만 대상이라 눌렀을 때 줄이 반드시 있다. 펼침 상태는 화면 메모리만(저장 안 함).
@@ -1239,6 +1239,29 @@ function luCloseMenu(then,fromBack=false){
   let release;const pending=new Promise(resolve=>{release=resolve});luMenuClosing=pending;
   const finish=()=>queueMicrotask(()=>{if(luMenuClosing===pending)luMenuClosing=null;release();if(then)then();else if(active.trigger.isConnected)active.trigger.focus({preventScroll:true})});
   if(!fromBack&&history.state?.kptuLibraryMenu===active.id){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();
+}
+// LIB-다시그리기메뉴닫힘: 목록을 다시 그려도(저장 뒤 다시 읽기·AI 빈 칸 채우기 끝·폴더 바뀜 등) 사용자가 연 ⋯ 메뉴는 그대로 둔다.
+// 그리기 주인(luRenderLibrary)이 그리기 전에 메뉴를 연 칸의 자리를 적고, 그린 뒤 같은 자리의 새 칸에 메뉴를 옮겨 붙인다.
+// 그 줄이 사라졌거나(지워짐·걸러짐) 접힌 토글 안이라 안 보이면 그때만 닫는다. 자료 줄 메뉴(luActiveMenu)와 폴더 메뉴(library-folders.js) 둘 다.
+const LU_MENU_ROOTS='#documentList,#libraryFolderNav,#libraryRecent',LU_MENU_KEYS=[['luRecent','data-lu-recent'],['luNodeMenu','data-lu-node-menu'],['luNav','data-lu-nav'],['luMenu','data-lu-menu']];
+function luMenuSpot(trigger){
+  if(!trigger?.isConnected)return null;const root=trigger.closest(LU_MENU_ROOTS),hit=LU_MENU_KEYS.find(([k])=>trigger.dataset[k]!==undefined);if(!root||!hit)return null;
+  return {trigger,root:root.id,key:hit[0],attr:hit[1],value:trigger.dataset[hit[0]],pane:trigger.closest('[data-lu-pane-i]')?.dataset.luPaneI??'',node:trigger.parentElement?.closest('[data-lu-node]')?.dataset.luNode??''};
+}
+function luMenuFind(spot){
+  const root=document.getElementById(spot.root);if(!root)return null;
+  const all=[...root.querySelectorAll(`[${spot.attr}]`)].filter(x=>x.dataset[spot.key]===spot.value),pane=x=>(x.closest('[data-lu-pane-i]')?.dataset.luPaneI??'')===spot.pane;
+  const next=all.find(x=>pane(x)&&(x.parentElement?.closest('[data-lu-node]')?.dataset.luNode??'')===spot.node)||all.find(pane)||all[0]||null;
+  // 최근 올린 파일 줄은 우클릭으로 연 동안만 메뉴 표시를 단다(luBindRecent) — 새 줄에도 같은 표시를 단다.
+  if(next&&spot.key==='luRecent'){next.dataset.luMenu=spot.value;next.setAttribute('aria-controls','luMorePanel')}
+  return next;
+}
+function luFollowMenus(doc,folder){
+  if(folder&&luFolderUi?.menuTrigger===folder.trigger)luFolderUi.follow(()=>luMenuFind(folder));
+  const active=luActiveMenu;if(!doc||!active||active.trigger!==doc.trigger||active.trigger.isConnected)return;
+  const next=luMenuFind(doc);
+  if(!next||!next.getClientRects().length){luCloseMenu();return}
+  moveMenuTrigger(active.trigger,next);active.trigger=next;luPositionMenu();
 }
 function luPositionMenu(){
   if(!luActiveMenu)return;
