@@ -505,7 +505,7 @@ test('보고 메뉴 한 벌: 창 밖 메뉴(menuAt)는 창 ⋯와 같은 부품,
   const at = mrd.match(/async function mrdMenuAt\([\s\S]*?\n\}/)[0];
   assert.match(at, /mrdEnsureMoreMenu\(\)\.open\(trigger,\{at\}\)/);
   assert.doesNotMatch(at, /mrdOpenMeeting|mrdOpen\(|mrdLoadMeeting/);
-  assert.match(mrd, /onAction:\(button,active\)=>\{const act=button\.dataset\.mrdMore,out=mrdMenuOut\(active\.trigger\);if\(act==='edit'\)\{if\(out\)void mrdOutsideEdit\(out\);else mrdStartEdit\(\)\}else if\(act==='kind'\)mrdChangeKind\(active\.trigger,out\);else if\(act==='delete'\)void mrdDeleteMeeting\(out\)\}/);
+  assert.match(mrd, /onAction:\(button,active\)=>\{const act=button\.dataset\.mrdMore,out=mrdMenuOut\(active\.trigger\);if\(act==='edit'\)\{if\(out\)void mrdOutsideEdit\(out\);else mrdStartEdit\(\)\}else if\(act==='kind'\)mrdChangeKind\(active\.trigger,out\);else if\(act==='delete'\)void mrdDeleteMeeting\(out\);else if\(act==='merge'\|\|act==='unmerge'\)\{const m=out\?out\.meeting:mrdCurrent,/); // REC-한회의로잇기 PR-4: [다른 보고에 합치기]·[두 보고로 되돌리기]도 같은 메뉴의 보고(창 안이면 mrdCurrent, 창 밖이면 그 줄의 보고)
   assert.match(mrd, /parent:trigger=>trigger\.closest\('#meetingRoundDetailModal,\[role="dialog"\]'\)\|\|document\.body/);
   assert.match(mrd, /async function mrdOutsideEdit\(\{meeting,trigger,before\}\)\{\n  before\?\.\(\);[^\n]*\n  const id=String\(meeting\.id\);await mrdOpenMeeting\(id\);/);
   assert.match(mrd, /saveReportKind\(m\.id,kind,\{reveal:!out\}\)/);

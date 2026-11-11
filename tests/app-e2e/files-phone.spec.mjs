@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
+import { start, openFiles, phoneFolder, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S49-51 FILES-통합 3단계 '이 폰'(명진 결정 H-1 모든 파일 접근). S50-33: [최근](H-7 섞기)은 화면에서 뺐다.
 // 폰 앱(412, 앱 다리 흉내 + __phone/…/files/ 가로채기 흉내): [이 폰] 아이콘 → 허락 전이면 설정 안내·pfiles:ask → 앱이 '켜짐'을 알리면
@@ -218,7 +218,7 @@ test.describe('폰 앱 412', () => {
       for (let i = 0; i < 4 && !(await tree(page).isVisible()); i++) await root(page).locator('[data-fx-up]').click();
       await expect(tree(page)).toBeVisible();
       await phoneFolder(page, 'od');
-      await list(page).locator('[data-fx-row="od:OD!1"]').click();
+      await enterRow(page, list(page).locator('[data-fx-row="od:OD!1"]'));
       await list(page).locator('[data-fx-row="od:OD!13"]').click();
       await prev.locator('[data-fx-copy-one]').click();
       const sheet = root(page).locator('[data-fx-dest]');
@@ -272,7 +272,7 @@ test.describe('폰 앱 412', () => {
     // 원드라이브 → 이 폰 옮기기: 폰에 다 쓴 것만 원드라이브 휴지통으로.
     for (let i = 0; i < 4 && !(await tree(page).isVisible()); i++) await root(page).locator('[data-fx-up]').click();
     await phoneFolder(page, 'od');
-    await list(page).locator('[data-fx-row="od:OD!1"]').click();
+    await enterRow(page, list(page).locator('[data-fx-row="od:OD!1"]'));
     await list(page).locator('[data-fx-row="od:OD!13"]').click();
     await prev.locator('[data-fx-cut-one]').click();
     await sheet.locator('[data-fx-dest-twist="ph:"]').click();

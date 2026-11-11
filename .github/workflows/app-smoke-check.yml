@@ -459,6 +459,9 @@ jobs:
       - name: Check attachment delete and undo (FILE-첨부삭제)
         run: node --test tests/file-trash.test.mjs
 
+      - name: Check schedule window photos and files (CAL-일정첨부)
+        run: node --test tests/event-files.test.mjs
+
       - name: Check folder look and order model (FOLDER-순서·색 ②)
         run: node --test tests/folder-look-model.test.mjs
 

@@ -34,9 +34,11 @@ for(const width of [700,884,1280])test.describe(`자료실 ${width} 나무`,()=>
   await expect(nav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
   await expect.poll(()=>tops(page)).toEqual(['f:fa']);
   await expect(page.locator('#libraryPath')).toBeVisible();
-  await nav(page).locator('[data-lu-nav="fc"]').click(); // 하위 폴더 누르기도 들어가지 않는다(펼칠 것이 없어 그대로)
-  await expect.poll(()=>tops(page)).toEqual(['f:fa']);
-  await enter(page,'fc',width);
+  await nav(page).locator('[data-lu-nav="fc"]').click(); // OPS-빠진일2차 1: 하위 폴더가 없는 폴더는 한 번 누르면 그 폴더를 연다
+  await expect.poll(()=>tops(page)).toEqual(['f:fc']);
+  await nav(page).locator('[data-lu-nav=""]').click();
+  await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
+  await enter(page,'fc',width); // 우클릭·두 손가락으로 들어가기도 그대로
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);
   await expect(nav(page)).toBeVisible();
   await expect.poll(()=>new URL(page.url()).searchParams.get('folder')).toBe('fc');
@@ -96,8 +98,10 @@ for(const width of [1280])test(`자료실 ${width}: 폴더 이름 누르기 = �
   await tog.click();await expect(child).toHaveCount(0);
   await tog.click();await expect(child).toBeVisible();
   await rightSame();
-  // 펼칠 것이 없는 폴더 누르기 = 아무 일 없음(들어가지 않는다). 들어가기는 우클릭 메뉴
+  // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 하위 폴더가 없는 폴더 누르기 = 한 번에 그 폴더를 연다(전에는 아무 일 없음). 우클릭 메뉴로 들어가기도 그대로.
   await child.click();
+  await expect.poll(()=>tops(page)).toEqual(['f:fc']);
+  await nav(page).locator('[data-lu-nav=""]').click();
   await rightSame();
   await enter(page,'fc');
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);

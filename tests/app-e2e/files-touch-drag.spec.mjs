@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
+import { start, openFiles, phoneFolder, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 // S51-20 FILES-폰보기끌기 ③(요청함 11/06 01:12, 시안 docs/design/mockups/files-phone-grid-two-drag.html ③): 꾹 눌러 끌기.
@@ -60,7 +60,7 @@ test('폰 412 두 칸: 위 칸 파일을 꾹 눌러 아래 칸으로 끌어 놓�
   // 아래 칸: 원드라이브 › 가짜 문서함, 위 칸: 구글 드라이브 › 가짜 업무 공간.
   await pane(page, 1).locator('[data-fx-pdrop]').click();
   await pane(page, 1).locator('[data-fx-ptree] [data-fx-go="od"][data-fx-id=""]').click();
-  await prow(page, 1, 'od:OD!1').click();
+  await enterRow(page, prow(page, 1, 'od:OD!1'));
   await expect(pane(page, 1).locator('.fx-ptop .fx-crumb-now')).toHaveText('가짜 문서함');
   await pane(page, 0).locator('[data-fx-pdrop]').click();
   const ptree = pane(page, 0).locator('[data-fx-ptree]');

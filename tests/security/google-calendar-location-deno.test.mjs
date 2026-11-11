@@ -18,7 +18,9 @@ for(const mode of ['set','clear','absent','move-set','move-absent','anonymous'])
   try{
     // 배포와 같은 폴더 모양: 함수 폴더 옆 _shared(실제 web-cors·safe-error 원본을 복사).
     await Promise.all([mkdir(join(root,'google-calendar')),mkdir(join(root,'_shared'))]);
-    await Promise.all(['web-cors.ts','safe-error.ts'].map(n=>copyFile(new URL('../../supabase/functions/_shared/'+n,import.meta.url),join(root,'_shared',n))));
+    // CAL-일정첨부: index.ts가 부르는 첨부 모듈(event-files.ts)과 그 공용 원본도 배포와 같은 자리에 그대로 둔다.
+    await Promise.all(['web-cors.ts','safe-error.ts','drive-upload.ts','workspace-drive-token.ts','drive-trash.ts','drive-photo.ts','file-rename-name.mjs'].map(n=>copyFile(new URL('../../supabase/functions/_shared/'+n,import.meta.url),join(root,'_shared',n))));
+    await copyFile(new URL('../../supabase/functions/google-calendar/event-files.ts',import.meta.url),join(root,'google-calendar','event-files.ts'));
     await Promise.all([writeFile(join(root,'google-calendar','index.ts'),source),writeFile(join(root,'sdk.ts'),sdk),writeFile(join(root,'runner.mjs'),runner),writeFile(join(root,'imports.json'),JSON.stringify({imports:{'npm:@supabase/supabase-js@2':'./sdk.ts'}}))]);
     const run=spawnSync('deno',['run','--no-remote','--allow-read','--allow-env=SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY','--import-map='+join(root,'imports.json'),join(root,'runner.mjs'),mode],{encoding:'utf8',env:{...process.env,SUPABASE_URL:'https://fixture.invalid',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service',SUPABASE_ANON_KEY:'synthetic-public'}});
     assert.equal(run.status,0,run.stderr||String(run.error));const out=JSON.parse(run.stdout.trim());

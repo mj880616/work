@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { start, openFiles, treeGo } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { readZip } from '../../app/weekly-hwpx/zip.mjs';
 // S52-44 FILES-관리자마무리 2/2 ②(설계 docs/design/files-manager-audit.md G·H·I): 찾기 거르기(이 폴더/전체 · 종류 · 날짜 · 크기),
@@ -28,7 +28,7 @@ test('PC 1440 찾기 거르기: [이 폴더|전체] · 종류 · 날짜 · 크�
   test.setTimeout(90000);
   const { errors } = await begin(page, { items: [fake({ source: 'od', item_id: 'OD!50', parent_id: 'OD!10', name: '가짜 큰 사진.jpg', mime: 'image/jpeg', size_bytes: 20 * 1024 * 1024, modified_at: '2026-10-05T01:00:00Z' })] });
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!1').click();
+  await enterRow(page, row(page, 'od:OD!1'));
   await expect(row(page, 'od:OD!11')).toBeVisible();
   await search(page, '가짜');
   const all = await listRows(page).count();
@@ -74,7 +74,7 @@ test('PC 1440: 한글 파일 미리보기 = 쪽 그림(blob: SVG <img>), 화면 
   const { errors, server } = await begin(page, { items: [fake({ source: 'od', item_id: 'OD!60', parent_id: 'OD!1', name: '가짜 공문.hwp', size_bytes: 20000 }),
     fake({ source: 'od', item_id: 'OD!61', parent_id: 'OD!1', name: '가짜 큰 공문.hwpx', size_bytes: 40 * 1024 * 1024 })] });
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!1').click();
+  await enterRow(page, row(page, 'od:OD!1'));
   await row(page, 'od:OD!60').click();
   const pageImg = prev(page).locator('img.fx-hwp-page').first();
   await expect(pageImg).toBeVisible({ timeout: 60000 });
@@ -94,7 +94,7 @@ test('PC 1440: 여러 개 선택한 뒤 ⋯(우클릭) [여러 개 받기] = 파
   test.setTimeout(90000);
   const { errors, server } = await begin(page, { items: [fake({ source: 'od', item_id: 'OD!70', parent_id: 'OD!1', name: '가짜 메모.txt', mime: 'text/plain', size_bytes: 30 })] });
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!1').click();
+  await enterRow(page, row(page, 'od:OD!1'));
   await expect(row(page, 'od:OD!11')).toBeVisible();
   await row(page, 'od:OD!11').click({ modifiers: ['Control'] });
   await row(page, 'od:OD!13').click({ modifiers: ['Control'] });
@@ -118,7 +118,7 @@ test('PC 1440: 3000개 폴더 — 화면 밖 줄은 그리지 않고(content-vis
   const many = Array.from({ length: 3000 }, (_, i) => fake({ source: 'od', item_id: `OD!B${i}`, parent_id: 'OD!2', name: `가짜 사진 ${String(i).padStart(4, '0')}.txt`, mime: 'text/plain', size_bytes: 10 }));
   const { errors } = await begin(page, { items: many });
   await treeGo(page, 'od', '');
-  await row(page, 'od:OD!2').click();
+  await enterRow(page, row(page, 'od:OD!2'));
   await expect(row(page, 'od:OD!B0')).toBeVisible({ timeout: 30000 }); // 흉내 서버가 3000줄 개수를 세느라 느림(화면 시간 아님)
   await expect(root(page).locator('[data-fx-list]')).toHaveAttribute('data-fx-many', '');
   // 폴더를 열면 색인 목록을 먼저 그리고, 클라우드에서 그 폴더를 바로 읽은 뒤(directRead) 목록을 한 번 더 통째로 그린다.

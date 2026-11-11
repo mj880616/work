@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles, treeGo } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 // S49-17 FILES-폰화면깨짐: 폰에서 정렬 칸이 폭 가득 빈 칸으로 보이던 것, 안 읽은 폴더가 '0개'로 보이던 것, 개인 중요 보관소가 0B 파일로 보이던 것.
 // 폭 세 가지: 폰 390 · 펼친 폴드 900 · PC 1440. 이름·id는 모두 가짜.
 const root = page => page.locator('#filesRoot');
@@ -29,7 +29,7 @@ for (const width of [390, 900, 1440]) {
     const row = name => list.locator('[data-fx-row]', { hasText: name });
     const text = async name => (await row(name).innerText()).replace(/\s+/g, ' ');
     expect(await text('가짜 문서함')).not.toMatch(/\d+개|폴더 \d|파일 \d/);
-    await row('가짜 문서함').click();
+    await enterRow(page, row('가짜 문서함')); // OPS-빠진일2차 1: 목록 폴더 누르기는 그 자리 펼침 — 들어가기는 우클릭·두 손가락
     await expect(list.getByText('가짜 안내문.pdf')).toBeVisible();
     // 열린 폴더 안: 하위 폴더 줄(가짜 2026)은 아직 안 읽음 → 비어 있다.
     expect(await text('가짜 2026')).not.toMatch(/\d+개/);

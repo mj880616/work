@@ -3,6 +3,8 @@
 // - 어느 보고에 이을지는 늘 사람이 고른다. 이 파일의 '가장 가까운 보고'는 물음에 먼저 보일 한 건일 뿐, 저절로 잇지 않는다.
 // - AI 요약의 할 일은 후보로만(MTG-할일자동생성금지와 같은 규칙): 그 보고에 이미 붙은 할 일과 제목이 같은 것은 뺀다.
 // - 이름·시각은 화면이 자기 보고 목록(로그인으로 읽은 행)에서 붙인다. 서버는 보고 id와 녹음 길이만 준다.
+// - PR-4(보고 ⋯ [다른 보고에 합치기]): 합치기 줄은 시각을 붙인 이름(labelWhen)과 휴지통으로 옮긴 보고(doneText from)를 쓴다.
+// - PR-5(나머지 두 길): (라) 입력 창의 전사 글은 같은 날(seoulDayRange) '회의록 전문이 있는 보고'를 묻는다(askText what).
 import {normalizeDraft,actionRows} from './meeting-transcript-model.mjs';
 
 const KST=9*3600000;
@@ -20,6 +22,8 @@ export function atMs(v){
 function seoul(ms){const d=new Date(ms+KST);return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),h:d.getUTCHours(),min:d.getUTCMinutes()}}
 export const seoulDayKey=ms=>{if(!Number.isFinite(ms))return '';const s=seoul(ms);return `${s.y}-${two(s.m)}-${two(s.d)}`};
 export const seoulHm=ms=>{if(!Number.isFinite(ms))return '';const s=seoul(ms);return `${two(s.h)}:${two(s.min)}`};
+// 그 시각이 든 서울 하루의 [시작, 끝) ISO(Edge join-job.mjs seoulDayRange와 같은 계산 — 같은 날 보고를 읽는 범위).
+export function seoulDayRange(ms){const start=Math.floor((ms+KST)/86400000)*86400000-KST;return [new Date(start).toISOString(),new Date(start+86400000).toISOString()]}
 // 다른 날이면 '11.4. 10:00', 같은 날이면 '10:02'.
 export function whenText(ms,dayMs=NaN){
   if(!Number.isFinite(ms))return '';
@@ -42,10 +46,11 @@ export function reportName(m){
 export function minutesText(seconds){const s=Number(seconds)||0;return s>0?`녹음 ${Math.max(1,Math.round(s/60))}분`:''}
 
 // 물음 한 줄: '오늘 녹음으로 쓴 보고가 있어요. 같은 회의인가요?'(녹음한 날이 오늘이 아니면 그날 날짜).
-export function askText(dayMs,nowMs=Date.now()){
+// what = 무엇으로 쓴 보고인가(PR-5 (라) 입력 창의 전사 글은 '회의록 전문이 있는 보고').
+export function askText(dayMs,nowMs=Date.now(),what='녹음으로 쓴 보고'){
   const day=Number.isFinite(dayMs)?dayMs:nowMs;
-  if(seoulDayKey(day)===seoulDayKey(nowMs))return '오늘 녹음으로 쓴 보고가 있어요. 같은 회의인가요?';
-  const s=seoul(day);return `${s.m}월 ${s.d}일 녹음으로 쓴 보고가 있어요. 같은 회의인가요?`;
+  if(seoulDayKey(day)===seoulDayKey(nowMs))return `오늘 ${what}가 있어요. 같은 회의인가요?`;
+  const s=seoul(day);return `${s.m}월 ${s.d}일 ${what}가 있어요. 같은 회의인가요?`;
 }
 // 물음 아래 작은 줄: '10:02 예시 집행위 · 녹음 38분'(시안 ①).
 export function whoText(c,dayMs=NaN){
@@ -107,7 +112,12 @@ export function progressText(name,job){
   const what=job?.mode==='report'?'합치는 중':'잇는 중';
   return `${name}에 ${what} · 전체 다시 요약${step} · 화면을 옮겨도 계속돼요`;
 }
-export const doneText=(name,job)=>job?.mode==='report'?`${name} 보고에 합쳤어요`:`${name} 보고에 이어 붙였어요`;
+// from = 합치기(mode report)에서 휴지통으로 옮긴 보고(시안 ④ '10:02 보고에 합쳤어요. 이 보고는 휴지통으로 옮겼어요'). 모르면 뺀다.
+export const doneText=(name,job,from='')=>job?.mode==='report'?`${name} 보고에 합쳤어요${from?`. ${from} 보고는 휴지통으로 옮겼어요`:''}`:`${name} 보고에 이어 붙였어요`;
+// 멈춘 줄: '○○에 잇지 못했어요. 이유' / 합치기면 '○○에 합치지 못했어요. 이유'.
+export const stopText=(name,job,reason)=>`${name}에 ${job?.mode==='report'?'합치지':'잇지'} 못했어요. ${reason}`;
+// 합치기 줄·고르기의 보고 이름: 시각 + 이름(같은 이름 보고가 하루에 둘일 때 가르려고, 시안 ④ '10:02 보고에 합쳤어요'). 같은 날이면 시:분만.
+export function labelWhen(m,dayMs=NaN){return [whenText(atMs(m?.meeting_at),dayMs),reportName(m)].filter(Boolean).join(' ')}
 
 // ---- 보고 상세: [합치기 전 글로 되돌리기] / [이은 글로 다시] ----
 // job = 그 보고에 마지막으로 적용된 잇기 작업 행(주인 읽기). 지금 '회의 결과' 글이 이은 글이면 before, 합치기 전 글이면 joined.
