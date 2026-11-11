@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseSorts, toStored, placeOf, orgOf, grouped, setIrregular, setOrg, orgCount, roundBase, bundle, listRows, findRows, shownNames, setPlace, moveName, addParent, renameParent, orderParents, removeParent, parentNameProblem, parentCount, newParentId, nameKey, ETC, DEL, REGULAR,
-  orgSections, addPreset, removePreset, presetNameProblem, isPreset, hasMark, orderSpot, stepOrder, PRESET_MAX, ORDER_MAX} from '../app/meeting-name-sorts.mjs';
+  orgSections, addPreset, removePreset, presetNameProblem, isPreset, hasMark, orderSpot, stepOrder, toOrgEnd, regularNames, PRESET_MAX, ORDER_MAX} from '../app/meeting-name-sorts.mjs';
 
 const P1 = 'gaaaaaa1', P2 = 'gbbbbbb2';
 const base = {parents: [{id: P1, name: '가상협의회'}, {id: P2, name: '샘플 모임'}], names: {}};
@@ -187,6 +187,10 @@ const E = [
   {name: '예시 회의 4', at: '2026-10-01T10:00:00Z'},
 ];
 const shape = rows => rows.map(r => r.type === 'org' ? `[${r.label}]` : r.type === 'group' ? `└${r.items.length}` : r.name + (r.preset ? '*' : ''));
+const KNOWN = E.map(e => e.name);
+// 고르기 창이 하는 대로: 조직 바꾸기 → 그 조직 맨 아래 / 미리 넣기 → 그 조직 맨 아래
+const put = (s, name, org) => toOrgEnd(E, setOrg(s, name, org), name);
+const pre = (s, name, org) => toOrgEnd(E, addPreset(s, name, org, KNOWN), name);
 
 test('S57-14 parseSorts·toStored: presets·order 칸(DB 검사와 같은 모양), 같은 열쇠는 한 번만', () => {
   const v = {presets: ['예시 회의 9', '예시 회의 10'], order: ['예시회의9', '예시회의1']};
@@ -203,25 +207,36 @@ test('S57-14 parseSorts·toStored: presets·order 칸(DB 검사와 같은 모양
 test('S57-14 조직에 넣은 순서가 곧 보이는 순서: 조직 바꾸기·미리 넣기는 그 조직 맨 아래에 붙는다', () => {
   let s = S0();
   // 처음 배치: 회의 3 → A, 미리 넣기 9 → A, 회의 1 → A, 회의 2 → B, 미리 넣기 10 → B (최근 순서와 다르게)
-  s = setOrg(s, '예시 회의 3', P1);
-  s = addPreset(s, '예시 회의 9', P1, E.map(e => e.name));
-  s = setOrg(s, '예시 회의 1', P1);
-  s = setOrg(s, '예시 회의 2', P2);
-  s = addPreset(s, ' 예시 회의 10 ', P2, E.map(e => e.name));
+  s = put(s, '예시 회의 3', P1);
+  s = pre(s, '예시 회의 9', P1);
+  s = put(s, '예시 회의 1', P1);
+  s = put(s, '예시 회의 2', P2);
+  s = pre(s, ' 예시 회의 10 ', P2);
   assert.deepEqual(s.presets, ['예시 회의 9', '예시 회의 10'], '앞뒤 공백은 뗀다');
   assert.deepEqual(s.order, ['예시회의3', '예시회의9', '예시회의1', '예시회의2', '예시회의10']);
   assert.ok(grouped(s));
-  assert.deepEqual(shape(listRows(E, s)), ['[예시 조직 A]', '예시 회의 3', '예시 회의 9*', '예시 회의 1', '[예시 조직 B]', '예시 회의 2', '예시 회의 10*', '[기타]', '예시 회의 4']);
+  const want = ['[예시 조직 A]', '예시 회의 3', '예시 회의 9*', '예시 회의 1', '[예시 조직 B]', '예시 회의 2', '예시 회의 10*', '[기타]', '예시 회의 4'];
+  assert.deepEqual(shape(listRows(E, s)), want);
   // 저장했다 다시 읽어도(새로 고침·다른 기기) 같은 목록
-  assert.deepEqual(shape(listRows(E, parseSorts(JSON.parse(JSON.stringify(toStored(s)))))), shape(listRows(E, s)));
+  assert.deepEqual(shape(listRows(E, parseSorts(JSON.parse(JSON.stringify(toStored(s)))))), want);
+  // 머리글 없는 추천 목록(파일로 만들기 '종류' 칸)도 같은 이름·같은 순서
+  assert.deepEqual(regularNames(E, s), ['예시 회의 3', '예시 회의 9', '예시 회의 1', '예시 회의 2', '예시 회의 10', '예시 회의 4']);
   // 순서 표시가 없는 회의는 순서 있는 회의 뒤에 최근 먼저(옛 값은 지금 모양 그대로)
-  const old = {...s, order: ['예시회의1']};
-  assert.deepEqual(shape(listRows(E, old)).slice(0, 4), ['[예시 조직 A]', '예시 회의 1', '예시 회의 3', '예시 회의 9*']);
+  assert.deepEqual(shape(listRows(E, {...s, order: ['예시회의1']})).slice(0, 4), ['[예시 조직 A]', '예시 회의 1', '예시 회의 3', '예시 회의 9*']);
   assert.deepEqual(shape(listRows(E, {...s, order: []})).slice(0, 4), ['[예시 조직 A]', '예시 회의 3', '예시 회의 1', '예시 회의 9*'], '순서 없음: 최근 먼저, 보고 없는 회의는 맨 뒤');
-  // 같은 조직을 다시 고르면 자리 그대로, 다른 조직으로 옮기면 그 조직 맨 아래, 기타로 빼면 순서 표시도 지움
-  assert.deepEqual(setOrg(s, '예시 회의 3', P1).order, s.order);
-  assert.deepEqual(setOrg(s, '예시 회의 3', P2).order, ['예시회의9', '예시회의1', '예시회의2', '예시회의10', '예시회의3']);
+  // 순서 표시가 없던 조직에 하나를 넣어도 맨 아래: 그 조직의 지금 순서(최근 먼저)가 굳고 새로 넣은 회의가 그 뒤
+  const old = {...S0(), orgs: {'예시회의1': P1, '예시회의2': P1}};
+  const added = put(old, '예시 회의 4', P1);
+  assert.deepEqual(shape(listRows(E, added)).slice(0, 4), ['[예시 조직 A]', '예시 회의 2', '예시 회의 1', '예시 회의 4']);
+  assert.deepEqual(added.order, ['예시회의2', '예시회의1', '예시회의4']);
+  // 같은 조직을 다시 고르면 맨 아래로, 다른 조직으로 옮기면 그 조직 맨 아래, 기타로 빼면 순서 표시를 지움
+  assert.deepEqual(put(s, '예시 회의 3', P1).order, ['예시회의2', '예시회의10', '예시회의9', '예시회의1', '예시회의3']);
+  assert.deepEqual(shape(listRows(E, put(s, '예시 회의 3', P2))).slice(0, 7), ['[예시 조직 A]', '예시 회의 9*', '예시 회의 1', '[예시 조직 B]', '예시 회의 2', '예시 회의 10*', '예시 회의 3']);
   assert.deepEqual(setOrg(s, '예시 회의 3', ETC).order, ['예시회의9', '예시회의1', '예시회의2', '예시회의10']);
+  assert.deepEqual(setOrg(s, '예시 회의 3', P1).order, s.order, '조직이 그대로면 순서 표시도 그대로');
+  // 비정기로 접힌 회의는 순서 대상이 아니다(조직만 바뀜)
+  const irr = setPlace(s, '예시 회의 4', ETC);
+  assert.deepEqual(toOrgEnd(E, setOrg(irr, '예시 회의 4', P1), '예시 회의 4').order, s.order);
   // 조직을 지우면 그 조직 회의는 기타로, 순서 표시도 지움(미리 넣은 회의는 남는다)
   const gone = removeParent(s, P1);
   assert.deepEqual(gone.order, ['예시회의2', '예시회의10']);
@@ -253,10 +268,11 @@ test('S57-14 미리 넣은 회의: 조직 없이도 보이고, 보고가 생기�
   // 삭제(목록에서 지움)했던 회의명은 다시 넣으면 돌아온다(보고가 있는 이름이면 미리 넣은 표시는 더하지 않음)
   const del = setPlace(S0(), '예시 회의 4', DEL);
   const back = addPreset(del, '예시 회의 4', P1, known);
-  assert.deepEqual([back.names, back.presets, back.orgs, back.order], [{}, [], {'예시회의4': P1}, ['예시회의4']]);
+  assert.deepEqual([back.names, back.presets, back.orgs, back.order], [{}, [], {'예시회의4': P1}, []]);
   // 빼기: 미리 넣은 표시·조직·순서 표시를 지운다
-  const two = addPreset(addPreset(S0(), '예시 회의 9', P1, known), '예시 회의 10', P1, known);
+  const two = pre(pre(S0(), '예시 회의 9', P1), '예시 회의 10', P1);
   const out = removePreset(two, '예시 회의 9');
+  assert.deepEqual(two.order, ['예시회의9', '예시회의10']);
   assert.deepEqual([out.presets, out.orgs, out.order], [['예시 회의 10'], {'예시회의10': P1}, ['예시회의10']]);
   assert.equal(removePreset(two, '예시 회의 1'), null, '미리 넣은 회의가 아니면 못 뺀다');
   assert.deepEqual(toStored(removePreset(out, '예시 회의 10')), {parents: S0().parents});
@@ -264,9 +280,10 @@ test('S57-14 미리 넣은 회의: 조직 없이도 보이고, 보고가 생기�
 
 test('S57-14 ⋯ [위로]·[아래로]: 같은 조직 정기 줄 안에서만 한 칸씩, 끝에서는 못 움직인다', () => {
   const known = E.map(e => e.name);
-  let s = setOrg(setOrg(S0(), '예시 회의 3', P1), '예시 회의 1', P1);
-  s = addPreset(s, '예시 회의 9', P1, known);
-  assert.deepEqual(orderSpot(E, s, '예시 회의 1'), {index: 1, count: 3, keys: ['예시회의3', '예시회의1', '예시회의9']});
+  let s = put(put(S0(), '예시 회의 3', P1), '예시 회의 1', P1);
+  s = pre(s, '예시 회의 9', P1);
+  const spot = orderSpot(E, s, '예시 회의 1');
+  assert.deepEqual([spot.index, spot.count, spot.keys], [1, 3, ['예시회의3', '예시회의1', '예시회의9']]);
   const up = stepOrder(E, s, '예시 회의 9', -1);
   assert.deepEqual(shape(listRows(E, up)).slice(0, 4), ['[예시 조직 A]', '예시 회의 3', '예시 회의 9*', '예시 회의 1']);
   assert.equal(stepOrder(E, s, '예시 회의 3', -1), null); assert.equal(stepOrder(E, s, '예시 회의 9', 1), null);
@@ -284,7 +301,7 @@ test('S57-14 ⋯ [위로]·[아래로]: 같은 조직 정기 줄 안에서만 �
 });
 
 test('S57-14 이름 바꾸기: 순서·미리 넣은 표시도 새 이름으로', () => {
-  let s = addPreset(setOrg(S0(), '예시 회의 3', P1), '예시 회의 9', P1, []);
+  let s = pre(put(S0(), '예시 회의 3', P1), '예시 회의 9', P1);
   const a = moveName(s, '예시 회의 9', '예시 회의 구');
   assert.deepEqual([a.presets, a.orgs['예시회의구'], a.order], [['예시 회의 구'], P1, ['예시회의3', '예시회의구']]);
   const b = moveName(s, '예시 회의 3', '예시 회의 삼');
@@ -293,21 +310,23 @@ test('S57-14 이름 바꾸기: 순서·미리 넣은 표시도 새 이름으로'
   const c = moveName(s, '예시 회의 9', '예시 회의 3');
   assert.deepEqual([c.presets, c.order], [['예시 회의 3'], ['예시회의3']]);
   assert.deepEqual(shape(listRows(E, c)).slice(0, 2), ['[예시 조직 A]', '예시 회의 3']);
-  const d = moveName(addPreset(s, '예시 회의 10', P1, []), '예시 회의 9', '예시 회의 10');
+  const d = moveName(pre(s, '예시 회의 10', P1), '예시 회의 9', '예시 회의 10');
   assert.deepEqual([d.presets, d.order], [['예시 회의 10'], ['예시회의3', '예시회의10']]);
+  // 띄어쓰기만 바꿔도(열쇠는 같음) 미리 넣은 회의의 보이는 이름은 바뀐다
+  assert.deepEqual(moveName(s, '예시 회의 9', '예시회의 9').presets, ['예시회의 9']);
 });
 
-test('S57-14 orgSections: 회의 [목록]·[회의 ▾] 상자도 고르기 창과 같은 묶음·같은 순서, 미리 넣은 회의는 달라고 할 때만', () => {
+test('S57-14 orgSections: 회의 [목록]·[회의 ▾] 상자도 고르기 창과 같은 묶음·같은 순서(보고가 있는 회의만)', () => {
   const known = E.map(e => e.name);
-  let s = setOrg(S0(), '예시 회의 3', P1); s = addPreset(s, '예시 회의 9', P1, known); s = setOrg(s, '예시 회의 1', P1); s = setOrg(s, '예시 회의 2', P2);
+  let s = put(S0(), '예시 회의 3', P1); s = pre(s, '예시 회의 9', P1); s = put(s, '예시 회의 1', P1); s = put(s, '예시 회의 2', P2);
   const items = ['예시 회의 1', '예시 회의 2', '예시 회의 3', '예시 회의 4'].map(name => ({name}));
   const names = sec => sec.map(g => [g.label, ...g.items.map(x => x.name + (x.preset ? '*' : ''))]);
   assert.deepEqual(names(orgSections(items, s)), [['예시 조직 A', '예시 회의 3', '예시 회의 1'], ['예시 조직 B', '예시 회의 2'], ['기타', '예시 회의 4']]);
-  assert.deepEqual(names(orgSections(items, s, x => x.name, {presetItem: name => ({name, preset: true})})),
-    [['예시 조직 A', '예시 회의 3', '예시 회의 9*', '예시 회의 1'], ['예시 조직 B', '예시 회의 2'], ['기타', '예시 회의 4']]);
   // 고르기 창 목록과 같은 순서
   assert.deepEqual(shape(listRows(E, s)), ['[예시 조직 A]', '예시 회의 3', '예시 회의 9*', '예시 회의 1', '[예시 조직 B]', '예시 회의 2', '[기타]', '예시 회의 4']);
   // 미리 넣은 회의만 조직에 있어도 묶는다. 조직으로 묶지 않으면 지금처럼 null
   assert.ok(grouped(addPreset(S0(), '예시 회의 9', P1, known)));
-  assert.equal(orgSections(items, addPreset(S0(), '예시 회의 9', ETC, known), x => x.name, {presetItem: name => ({name})}), null);
+  assert.equal(orgSections(items, addPreset(S0(), '예시 회의 9', ETC, known)), null);
+  // 순서 표시가 없는 회의는 받은 순서 그대로(옛 값은 지금 모양 그대로)
+  assert.deepEqual(names(orgSections(items, {...s, order: []})), [['예시 조직 A', '예시 회의 1', '예시 회의 3'], ['예시 조직 B', '예시 회의 2'], ['기타', '예시 회의 4']]);
 });

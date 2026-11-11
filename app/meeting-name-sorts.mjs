@@ -8,7 +8,7 @@
 // S57-14 MTG-회의명처음배치(시안 docs/design/mockups/meeting-name-groups-phone.html, migration 20261111030000): 값에 두 칸을 더한다.
 //   presets = [회의명] — '미리 넣은 회의'(아직 보고가 없는 회의명, 50개까지). 목록에 정기 줄처럼 보이고 ⋯ [목록에서 빼기]로 뺀다. 조직은 orgs 값.
 //   order = [회의명 열쇠] — 정기 회의 줄의 순서(300개까지). 조직 안에서 이 순서대로, 여기 없는 회의는 그 뒤에 최근 먼저(옛 값은 지금 모양 그대로).
-//   조직에 넣거나(조직 바꾸기) 미리 넣으면 그 조직 맨 아래에 붙는다 — 넣은 순서가 곧 보이는 순서. 고치기는 줄 ⋯ [위로]·[아래로].
+//   고르기 창에서 조직에 넣거나(조직 바꾸기) 미리 넣으면 그 조직 맨 아래에 붙고 그 조직의 지금 순서가 굳는다(toOrgEnd) — 넣은 순서가 곧 보이는 순서. 고치기는 줄 ⋯ [위로]·[아래로].
 // 비정기·지움은 목록에서만 접히거나 빠진다. 지난 보고·검색·환류·연결은 그대로(회의 기록은 건드리지 않음).
 // 읽기·쓰기는 meeting-name-sorts.js, 고르는 창은 meeting-name-panel.js.
 
@@ -183,13 +183,11 @@ export const orgOrder = sorts => [...(sorts?.parents || []).map(p => p.id), ETC]
 // 같은 조직 목록·같은 orgOf로 묶이게. 조직으로 묶지 않는 값(grouped가 아님: 옛 값·정리 없음·읽기 전)이면 null(부른 곳은 지금처럼 묶음 없이 그린다).
 // 돌려줌: [{id, label, items}] — orgOrder 순서, 줄이 없는 조직은 빠짐. 이름 없는 줄은 '기타'.
 // S57-14: 조직 안 줄은 고르기 창과 같은 순서(order에 있는 회의 먼저 그 순서대로, 나머지는 받은 순서 그대로).
-//   presetItem(회의명)을 주면 받은 줄에 없는 '미리 넣은 회의'도 그 조직 줄로 더한다(부른 곳의 줄 모양으로 만들어 돌려줌 — 고르기 창과 같은 이름이 보이게).
-export function orgSections(items, sorts, nameOf = x => x?.name, {presetItem = null} = {}) {
+//   미리 넣은 회의는 여기서 더하지 않는다 — 부른 곳(회의 [목록]·[회의 ▾] 상자)은 보고가 있는 회의만 보이는 화면이다.
+export function orgSections(items, sorts, nameOf = x => x?.name) {
   if (!grouped(sorts)) return null;
-  const byOrg = new Map(), have = new Set(), nameIn = item => String(nameOf(item) ?? '').trim();
-  const put = item => { const name = nameIn(item), id = name ? orgOf(sorts, name) : ETC; have.add(nameKey(name)); (byOrg.get(id) || byOrg.set(id, []).get(id)).push(item); };
-  for (const item of items || []) put(item);
-  if (presetItem) for (const name of sorts.presets || []) if (!have.has(nameKey(name)) && placeOf(sorts, name).kind === REGULAR) { const item = presetItem(name); if (item) put(item); }
+  const byOrg = new Map(), nameIn = item => String(nameOf(item) ?? '').trim();
+  for (const item of items || []) { const name = nameIn(item), id = name ? orgOf(sorts, name) : ETC; (byOrg.get(id) || byOrg.set(id, []).get(id)).push(item); }
   return orgOrder(sorts).filter(id => byOrg.has(id)).map(id => ({id, label: parentLabel(sorts, id), items: byOrder(byOrg.get(id), sorts, item => [nameIn(item)])}));
 }
 
@@ -207,6 +205,9 @@ export function findRows(entries, sorts, query) {
   }
   return out;
 }
+// S57-14: 고르기 창의 정기 줄 이름을 보이는 순서대로(조직 순서 → 조직 안 순서, 미리 넣은 회의 포함, 차수만 다른 이름도 모두).
+// 머리글로 묶을 수 없는 곳(파일로 만들기 '종류' 칸의 추천 목록)이 같은 이름·같은 순서를 쓴다.
+export const regularNames = (entries, sorts) => listRows(entries, sorts).filter(r => r.type === 'name').flatMap(r => r.names);
 // 고르기 상자(<select>)에 보일 이름인가(정기 줄에 있는 이름). 숨은 이름도 option으로는 남겨 값으로 고를 수 있다.
 export function shownNames(entries, sorts, opts) {
   const shown = new Set();
@@ -254,17 +255,17 @@ export function setOrg(sorts, names, org) {
   for (const k of list) {
     const v = next.names[k];
     if (v && v !== DEL) { next.names[k] = org; delete next.orgs[k]; }
-    else if (org === ETC) { delete next.orgs[k]; moved.push(k); }
+    else if (org === ETC) { if (k in next.orgs) moved.push(k); delete next.orgs[k]; }
     else { if (next.orgs[k] !== org) moved.push(k); next.orgs[k] = org; }
   }
-  // S57-14: 다른 조직으로 옮긴 정기 회의는 그 조직 맨 아래에 붙는다(넣은 순서 = 보이는 순서). '기타'로 빼면 순서 표시를 지운다(최근 먼저로 돌아감).
-  if (org === ETC) dropOrder(next, moved); else if (moved.length) appendOrder(next, moved);
+  // S57-14: 조직이 바뀐 정기 회의는 옛 조직에서의 순서 표시를 지운다(새 조직 맨 아래에 두는 일은 목록을 아는 쪽이 toOrgEnd로 한다).
+  dropOrder(next, moved);
   return fits(next) ? next : null;
 }
 // 회의명 이름 바꾸기 뒤: 옛 열쇠의 표시를 새 열쇠로 옮김(새 이름에 이미 표시가 있으면 그대로 둠).
 export function moveName(sorts, from, to) {
   const a = nameKey(from), b = nameKey(to), next = clone(sorts);
-  if (a === b) return next;
+  if (a === b) { const i = next.presets.findIndex(n => nameKey(n) === a); if (i >= 0 && presetNameOk(String(to).trim())) next.presets[i] = String(to).trim(); return next; }
   for (const map of [next.names, next.orgs]) {
     if (!(a in map)) continue;
     if (!(b in map) && validNameKey(b)) map[b] = map[a];
@@ -296,7 +297,7 @@ export function presetNameProblem(name, sorts, known = []) {
   if (!has && (sorts.presets || []).length >= PRESET_MAX) return `미리 넣는 회의는 ${PRESET_MAX}개까지예요.`;
   return '';
 }
-// 미리 넣기: 정기 줄로, org(조직 id 또는 'etc') 맨 아래에. 지웠던 이름이면 지움 표시를 푼다(보고가 있는 이름이면 미리 넣은 표시는 더하지 않는다).
+// 미리 넣기: 정기 줄로, org(조직 id 또는 'etc')에. 지웠던 이름이면 지움 표시를 푼다(보고가 있는 이름이면 미리 넣은 표시는 더하지 않는다). 조직 맨 아래에 두기는 toOrgEnd.
 export function addPreset(sorts, name, org = ETC, known = []) {
   const v = String(name ?? '').trim(), k = nameKey(v);
   if (presetNameProblem(v, sorts, known)) return null;
@@ -304,7 +305,8 @@ export function addPreset(sorts, name, org = ETC, known = []) {
   const next = clone(sorts);
   if (!isPreset(next, v) && !known.some(n => nameKey(n) === k)) next.presets.push(v);
   delete next.names[k];
-  if (org === ETC) { delete next.orgs[k]; dropOrder(next, [k]); } else { next.orgs[k] = org; appendOrder(next, [k]); }
+  if (org === ETC) delete next.orgs[k]; else next.orgs[k] = org;
+  dropOrder(next, [k]);
   return fits(next) ? next : null;
 }
 // 목록에서 빼기: 미리 넣은 표시와 그 회의명의 조직·순서 표시를 지운다(보고가 없는 이름이라 남길 것이 없다).
@@ -315,25 +317,38 @@ export function removePreset(sorts, name) {
   next.presets = next.presets.filter(n => nameKey(n) !== k); delete next.orgs[k]; delete next.names[k]; dropOrder(next, [k]);
   return next;
 }
-// ---- S57-14 줄 순서(⋯ [위로]·[아래로]) ----
+// ---- S57-14 줄 순서(⋯ [위로]·[아래로], 조직 맨 아래에 두기) ----
 // 지금 보이는 목록에서 그 회의가 든 정기 줄 묶음(같은 조직 머리글 아래, 조직으로 묶지 않으면 정기 줄 전부)과 그 안 자리. 없으면 null.
 export function orderSpot(entries, sorts, name, opts = {}) {
   const k = nameKey(name), runs = [[]];
   for (const r of listRows(entries, sorts, opts)) { if (r.type === 'org') runs.push([]); else if (r.type === 'name') runs.at(-1).push(r); }
-  for (const run of runs) { const index = run.findIndex(r => r.names.some(n => nameKey(n) === k)); if (index >= 0) return {index, count: run.length, keys: run.map(r => r.key)}; }
+  for (const rows of runs) { const index = rows.findIndex(r => r.names.some(n => nameKey(n) === k)); if (index >= 0) return {index, count: rows.length, keys: rows.map(r => r.key), rows}; }
   return null;
 }
-// dir -1 = 위로, +1 = 아래로. 그 묶음의 지금 보이는 순서를 통째로 순서 목록에 적는다(순서 표시가 없던 회의도 지금 자리 그대로 굳는다).
+// 그 묶음의 순서를 통째로 순서 목록에 적는다(순서 표시가 없던 회의도 지금 자리 그대로 굳는다).
+// 묶음(차수만 다른 이름들)은 가장 앞 순서를 쓰므로, 묶음 안 다른 이름의 옛 순서 표시는 지운다.
+function writeRun(sorts, rows, keys) {
+  if (!keys.every(validNameKey)) return null;
+  const next = clone(sorts);
+  dropOrder(next, rows.flatMap(r => r.names.map(nameKey)));
+  appendOrder(next, keys);
+  return fits(next) ? next : null;
+}
+// dir -1 = 위로, +1 = 아래로. 끝에서는 null.
 export function stepOrder(entries, sorts, name, dir, opts = {}) {
   const spot = orderSpot(entries, sorts, name, opts), to = spot ? spot.index + dir : -1;
   if (!spot || to < 0 || to >= spot.count) return null;
   const keys = [...spot.keys]; [keys[spot.index], keys[to]] = [keys[to], keys[spot.index]];
-  if (!keys.every(validNameKey)) return null;
-  // 묶음(차수만 다른 이름들)은 가장 앞 순서를 쓰므로, 묶음 안 다른 이름의 옛 순서 표시는 지운다.
-  const next = clone(sorts), run = listRows(entries, sorts, opts).filter(r => r.type === 'name' && spot.keys.includes(r.key));
-  dropOrder(next, run.flatMap(r => r.names.map(nameKey)));
-  appendOrder(next, keys);
-  return fits(next) ? next : null;
+  return writeRun(sorts, spot.rows, keys);
+}
+// 조직 바꾸기·미리 넣기 뒤(sorts = 바꾼 값): 그 회의를 지금 조직 정기 줄 맨 아래에 두고 그 조직의 지금 보이는 순서를 굳힌다.
+// 정기 줄이 아니면(비정기·지움) 그대로 돌려준다.
+export function toOrgEnd(entries, sorts, names, opts = {}) {
+  const list = Array.isArray(names) ? names : [names], mine = new Set(list.map(nameKey));
+  const spot = orderSpot(entries, sorts, list[0], opts);
+  if (!spot) return sorts;
+  const moved = spot.rows.filter(r => r.names.some(n => mine.has(nameKey(n)))), rest = spot.rows.filter(r => !moved.includes(r));
+  return writeRun(sorts, spot.rows, [...rest, ...moved].map(r => r.key));
 }
 export function parentNameProblem(name, sorts, exceptId = '') {
   const v = String(name ?? '').trim();

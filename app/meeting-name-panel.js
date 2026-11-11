@@ -6,6 +6,9 @@
 // S56-1 MTG-회의명조직묶기(시안 docs/design/mockups/meeting-name-groups.html): 정기 회의에 조직이 붙어 있으면 조직 머리글(고를 수 없는 작은 회색 글자)
 //   아래에 그 조직 회의 · 맨 아래 '└ 비정기 회의 n ›'. 어느 조직에도 안 넣은 회의는 맨 아래 '기타'. 찾기 줄에는 '· 조직' 꼬리표.
 //   '상위 목록 수정' → '조직 목록 수정'(비정기 상위 목록과 같은 목록 하나).
+// S57-14 MTG-회의명처음배치(시안 docs/design/mockups/meeting-name-groups-phone.html): 맨 아래 '회의 미리 넣기'(아직 보고가 없는 회의명 + 조직) —
+//   미리 넣은 회의는 정기 줄처럼 보이고 고를 수 있다. 줄 ⋯에 [위로]·[아래로](같은 조직 안 순서)와, 미리 넣은 줄은 [목록에서 빼기].
+//   조직에 넣거나 미리 넣으면 그 조직 맨 아래에 붙는다(넣은 순서 = 보이는 순서).
 // - 새 회의명('기타(직접 입력)')을 쓸 때는 입력 칸 옆 [정기 회의 ▾] 상자로 처음부터 정기/비정기·상위를 고른다(저장할 때 같이 기억).
 // 값은 그대로 <select> 한 곳에 있다(이 창은 값만 고르고 input·change를 보냄 — select-menu.js와 같은 약속). 누름·키 가로채기는 select-menu.js addOpener.
 // 목록 나누기·묶기 규칙은 meeting-name-sorts.mjs, 서버 읽기·쓰기는 meeting-name-sorts.js. 이 창은 기기에 아무것도 저장하지 않는다.
@@ -14,7 +17,8 @@ import {placeMenu, naturalWidth, scrollbarWidth} from './select-menu.js';
 import {askConfirm} from './small-notice.js';
 import {emptyHtml} from './wait-state.js';
 import {seoulDateKey} from './meeting-time.js';
-import {listRows, findRows, shownNames, placeOf, orgOf, setPlace, setIrregular, setOrg, moveName, nameKey, parentLabel, ETC, DEL, REGULAR} from './meeting-name-sorts.mjs';
+import {listRows, findRows, shownNames, placeOf, orgOf, setPlace, setIrregular, setOrg, moveName, nameKey, parentLabel, ETC, DEL, REGULAR,
+  hasMark, addPreset, removePreset, presetNameProblem, orderSpot, stepOrder, toOrgEnd} from './meeting-name-sorts.mjs';
 import {readSorts, peekSorts, changeSorts, failText} from './meeting-name-sorts.js';
 
 const OTHER = '__other__', KEY = 'kptuNamePanel';
@@ -73,7 +77,7 @@ const rowsNow = () => ui.query ? findRows(entriesOf(ui.select), sorts(), ui.quer
 
 function nameRow(b, i, sub = false) {
   const on = nameKey(b.name) === nameKey(currentName(ui.select)), more = b.names.length - 1;
-  return `<div class="mnp-row${sub ? ' mnp-sub' : ''}${on ? ' is-on' : ''}"><div class="mnp-pick" role="option" tabindex="0" aria-selected="${on}" data-mnp-pick="${esc(b.name)}">`
+  return `<div class="mnp-row${sub ? ' mnp-sub' : ''}${on ? ' is-on' : ''}"${b.preset ? ' data-mnp-preset-row' : ''}><div class="mnp-pick" role="option" tabindex="0" aria-selected="${on}" data-mnp-pick="${esc(b.name)}">`
     + `<span class="mnp-name">${esc(b.name)}</span>${sub && day(b.at) ? `<span class="mnp-day">· ${esc(day(b.at))}</span>` : ''}${more > 0 ? `<span class="mnp-n">외 ${more}</span>` : ''}${b.tag ? `<span class="mnp-tag">· ${esc(b.tag)}</span>` : ''}</div>`
     + `<button type="button" class="icon-btn mnp-more" data-ctx="off" data-mnp-menu="${i}" aria-label="${esc(b.name)} 메뉴" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`;
 }
@@ -95,7 +99,17 @@ function listHtml() {
 }
 const findHtml = () => `<input type="search" class="mnp-find" data-mnp-find placeholder="회의 찾기 (비정기 포함)" aria-label="회의 찾기 (비정기 포함)" value="${esc(ui.query)}" autocomplete="off" enterkeyhint="search">`;
 const msgHtml = () => ui.msg ? `<p class="mnp-msg" role="status">${esc(ui.msg)}</p>` : '';
+const knownNames = select => entriesOf(select).map(x => x.name);
+const presetOrg = s => ui.presetOrg && (ui.presetOrg === ETC || s?.parents.some(p => p.id === ui.presetOrg)) ? ui.presetOrg : ETC;
+// S57-14 '회의 미리 넣기': 회의명 한 칸 + [추가] · 어느 조직에 둘지(고른 조직은 창이 열려 있는 동안 그대로 — 여러 개를 이어서 넣기 쉽게).
+function presetHtml() {
+  const s = sorts(), org = presetOrg(s), opts = [...(s?.parents || []).map(x => [x.id, x.name]), [ETC, '기타']];
+  return `<div class="mnp-head"><button type="button" class="icon-btn mnp-back" data-mnp-back aria-label="목록으로">‹</button><span class="mnp-title">회의 미리 넣기</span></div>`
+    + `<form class="mnp-rename" data-mnp-preset-form><input type="text" class="mnp-find" data-mnp-preset-name value="${esc(ui.draft ?? '')}" maxlength="100" placeholder="아직 보고가 없는 회의명" aria-label="미리 넣을 회의명" autocomplete="off"><button type="submit" class="mini primary">추가</button></form>`
+    + `<p class="mnp-note">어느 조직에 둘까요?</p><div class="mnp-rows" role="radiogroup" aria-label="조직">${opts.map(([id, label]) => `<div class="mnp-act${org === id ? ' is-on' : ''}" role="radio" tabindex="0" aria-checked="${org === id}" data-mnp-preset-org="${esc(id)}">${esc(label)}</div>`).join('')}</div>`;
+}
 function menuHtml() {
+  if (ui.mode === 'preset') return presetHtml();
   const b = ui.target, s = sorts(), p = s ? placeOf(s, b.name) : {kind: REGULAR}, org = s ? orgOf(s, b.name) : ETC;
   const head = `<div class="mnp-head"><button type="button" class="icon-btn mnp-back" data-mnp-back aria-label="목록으로">‹</button><span class="mnp-title">${esc(b.name)}</span></div>`;
   if (ui.mode === 'org') {
@@ -104,7 +118,12 @@ function menuHtml() {
       + `<div class="mnp-foot"><div class="mnp-link" role="button" tabindex="0" data-mnp-parents>조직 목록 수정</div></div>`;
   }
   if (ui.mode === 'rename') return head + `<form class="mnp-rename" data-mnp-rename-form><input type="text" class="mnp-find" data-mnp-rename value="${esc(ui.draft ?? b.name)}" maxlength="100" aria-label="새 회의명" autocomplete="off"><button type="submit" class="mini primary">바꾸기</button></form>`;
-  const acts = [p.kind === REGULAR ? ['irregular', '비정기로 두기'] : ['regular', '정기 목록에 두기'], ['org', `조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ['del', '삭제']];
+  // S57-14: 정기 줄은 같은 조직 안에서 [위로]·[아래로](끝에서는 그 항목이 없다). 미리 넣은 줄(보고 없음)은 [삭제] 대신 [목록에서 빼기], 비정기로 두기는 없다.
+  const spot = s && p.kind === REGULAR ? orderSpot(entriesOf(ui.select), s, b.name, {keep: currentName(ui.select)}) : null;
+  const moves = spot ? [...(spot.index > 0 ? [['up', '위로']] : []), ...(spot.index < spot.count - 1 ? [['down', '아래로']] : [])] : [];
+  const acts = b.preset
+    ? [['org', `조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['unpreset', '목록에서 빼기']]
+    : [p.kind === REGULAR ? ['irregular', '비정기로 두기'] : ['regular', '정기 목록에 두기'], ['org', `조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['del', '삭제']];
   return head + `<div class="mnp-rows" role="menu" aria-label="${esc(b.name)}">${acts.map(([k, l]) => `<div class="mnp-act" role="menuitem" tabindex="0" data-mnp-act="${k}">${esc(l)}</div>`).join('')}</div>`;
 }
 function paint({focus = ''} = {}) {
@@ -115,7 +134,7 @@ function paint({focus = ''} = {}) {
     panel.querySelector('.mnp-msg-box').innerHTML = msgHtml();
   } else {
     panel.innerHTML = ui.mode === 'list'
-      ? `${findHtml()}<div class="mnp-rows" role="listbox" aria-label="회의명">${listHtml()}</div><div class="mnp-msg-box">${msgHtml()}</div><div class="mnp-foot"><div class="mnp-link" role="button" tabindex="0" data-mnp-parents>조직 목록 수정</div></div>`
+      ? `${findHtml()}<div class="mnp-rows" role="listbox" aria-label="회의명">${listHtml()}</div><div class="mnp-msg-box">${msgHtml()}</div><div class="mnp-foot"><div class="mnp-link" role="button" tabindex="0" data-mnp-parents>조직 목록 수정</div><div class="mnp-link" role="button" tabindex="0" data-mnp-preset>회의 미리 넣기</div></div>`
       : `${menuHtml()}<div class="mnp-msg-box">${msgHtml()}</div>`;
     panel.dataset.mode = ui.mode;
   }
@@ -165,14 +184,27 @@ function choose(value) {
     select.dispatchEvent(new Event('change', {bubbles: true}));
   }
 }
-async function save(change, done) {
-  const select = ui?.select; if (!ui) return;
-  ui.msg = '저장하는 중…'; paint();
+// stay: 저장 뒤에도 그 줄 메뉴에 머문다([위로]·[아래로]를 이어서 누르게). 저장 중에는 다시 누른 것을 받지 않는다(순서가 엇갈리지 않게).
+async function save(change, done, {stay = ''} = {}) {
+  const cur = ui, select = ui?.select; if (!cur || cur.busy) return;
+  cur.busy = true; cur.msg = '저장하는 중…'; paint();
   const r = await changeSorts(change);
-  if (!ui || ui.select !== select) return;
+  cur.busy = false;
+  if (ui !== cur) return;
   ui.msg = r.ok ? done : failText(r.reason);
-  if (r.ok) { ui.mode = 'list'; ui.target = null; paintOptions(select); }
+  if (r.ok && !stay) { ui.mode = 'list'; ui.target = null; }
+  if (r.ok) paintOptions(select);
   paint();
+  if (stay) (panel.querySelector(`[data-mnp-act="${stay}"]`) || panel.querySelector('[data-mnp-act="up"],[data-mnp-act="down"],[data-mnp-act]'))?.focus({preventScroll: true});
+}
+// 열린 고르기 상자를 새 이름으로(옛 이름 option·날짜 목록을 바꿈). 고른 이름이었으면 새 이름을 고른 채로 둔다.
+function renameInSelect(select, from, next) {
+  const oldKey = nameKey(from), wasChosen = nameKey(currentName(select)) === oldKey;
+  for (const o of [...select.options]) if (o.value !== OTHER && nameKey(o.value) === oldKey) { if ([...select.options].some(x => x !== o && x.value === next)) o.remove(); else { o.value = next; o.text = next; } }
+  select._nameEntries = entriesOf(select).map(x => nameKey(x.name) === oldKey ? {...x, name: next} : x);
+  close();
+  if (wasChosen) { select.value = next; select.dispatchEvent(new Event('change', {bubbles: true})); }
+  paintOptions(select);
 }
 
 panel.addEventListener('click', async e => {
@@ -183,8 +215,15 @@ panel.addEventListener('click', async e => {
   if ((b = t('[data-mnp-group]'))) { const id = b.dataset.mnpGroup; ui.open.has(id) ? ui.open.delete(id) : ui.open.add(id); paint({focus: `[data-mnp-group="${CSS.escape(id)}"]`}); return; }
   if ((b = t('[data-mnp-menu]'))) { ui.target = ui.flat[Number(b.dataset.mnpMenu)]; ui.mode = 'menu'; ui.msg = ''; paint({focus: '[data-mnp-act]'}); return; }
   if (t('[data-mnp-back]')) { ui.mode = ui.mode === 'org' || ui.mode === 'rename' ? 'menu' : 'list'; if (ui.mode === 'list') ui.target = null; ui.msg = ''; paint({focus: ui.mode === 'menu' ? '[data-mnp-act]' : '[data-mnp-find]'}); return; }
+  if (t('[data-mnp-preset]')) { if (sorts() == null) { ui.msg = failText('unknown'); paint(); return; } ui.mode = 'preset'; ui.target = null; ui.draft = ''; ui.msg = ''; paint({focus: '[data-mnp-preset-name]'}); return; }
+  if ((b = t('[data-mnp-preset-org]'))) { const id = b.dataset.mnpPresetOrg; ui.presetOrg = id; paint({focus: `[data-mnp-preset-org="${CSS.escape(id)}"]`}); return; }
   if (t('[data-mnp-parents]')) { const select = ui.select; const [m] = await Promise.all([import('./meeting-name-parents.js'), close({focus: false})]); m.openParents({trigger: select, onClose: () => paintOptions(select)}); return; }
-  if ((b = t('[data-mnp-org-pick]'))) { const id = b.dataset.mnpOrgPick, list = ui.target.names; void save(s => setOrg(s, list, id), `‘${parentLabel(sorts(), id)}’에 두었어요.`); return; }
+  if ((b = t('[data-mnp-org-pick]'))) {
+    // S57-14: 다른 조직으로 옮기면 그 조직 정기 줄 맨 아래에 붙는다(넣은 순서 = 보이는 순서). 같은 조직을 다시 고르면 자리 그대로, '기타'는 최근 먼저 그대로.
+    const id = b.dataset.mnpOrgPick, list = ui.target.names, name = ui.target.name, ents = entriesOf(ui.select), opts = {keep: currentName(ui.select)};
+    void save(s => { const same = orgOf(s, name) === id, next = setOrg(s, list, id); return !next || same || id === ETC ? next : toOrgEnd(ents, next, list, opts); }, `‘${parentLabel(sorts(), id)}’에 두었어요.`);
+    return;
+  }
   if ((b = t('[data-mnp-act]'))) {
     const act = b.dataset.mnpAct, target = ui.target;
     if (sorts() == null && act !== 'rename') { ui.msg = failText('unknown'); paint(); return; }
@@ -192,6 +231,13 @@ panel.addEventListener('click', async e => {
     if (act === 'org') { ui.mode = 'org'; ui.msg = ''; paint({focus: '[data-mnp-org-pick]'}); return; }
     if (act === 'regular') { void save(s => setPlace(s, target.names, REGULAR), '정기 목록에 두었어요.'); return; }
     if (act === 'rename') { ui.mode = 'rename'; ui.draft = target.name; ui.msg = ''; paint({focus: '[data-mnp-rename]'}); return; }
+    if (act === 'up' || act === 'down') { const ents = entriesOf(ui.select), opts = {keep: currentName(ui.select)}; void save(s => stepOrder(ents, s, target.name, act === 'up' ? -1 : 1, opts), '', {stay: act}); return; }
+    if (act === 'unpreset') {
+      const select = ui.select, yes = await askConfirm(b, {text: `‘${target.name}’을 회의명 목록에서 뺄까요?`, note: '아직 보고가 없는 회의예요. 필요하면 다시 넣을 수 있어요.', ok: '빼기'});
+      if (!yes || ui?.select !== select) return;
+      void save(s => removePreset(s, target.name), '목록에서 뺐어요.');
+      return;
+    }
     if (act === 'del') {
       const select = ui.select, yes = await askConfirm(b, {text: `‘${target.name}’을 회의명 목록에서 삭제할까요?`, note: '지난 보고·검색·연결은 그대로 남아요. 같은 이름을 다시 쓰면 목록에 돌아와요.', ok: '삭제'});
       if (!yes || ui?.select !== select) return;
@@ -207,26 +253,50 @@ panel.addEventListener('submit', async e => {
   if (!next) { ui.msg = '새 이름을 써 주세요.'; paint({focus: '[data-mnp-rename]'}); return; }
   if (next === target.name) { ui.mode = 'menu'; paint({focus: '[data-mnp-act]'}); return; }
   const n = names()?.count?.(target.name) ?? 0;
+  if (target.preset && n === 0) {
+    // S57-14 미리 넣은 회의(보고 없음): 바꿀 보고가 없으므로 정리 값의 이름만 바꾼다.
+    const s = sorts(), problem = !s ? failText('unknown') : nameKey(next) === nameKey(target.name) ? '' : presetNameProblem(next, s, knownNames(select));
+    if (problem) { ui.msg = problem; paint({focus: '[data-mnp-rename]'}); return; }
+    ui.msg = '바꾸는 중…'; paint();
+    const r = await changeSorts(x => moveName(x, target.name, next));
+    if (!ui || ui.select !== select) return;
+    if (!r.ok) { ui.msg = failText(r.reason); paint(); return; }
+    renameInSelect(select, target.name, next);
+    return;
+  }
   const yes = await askConfirm(e.target.querySelector('button'), {text: `‘${target.name}’ 보고 ${n}건의 회의명을 ‘${next}’로 바꿀까요?`, note: '보고 글과 연결은 그대로예요.', ok: '바꾸기'});
   if (!yes || ui?.select !== select) return;
   ui.msg = '바꾸는 중…'; paint();
   const r = await names()?.rename?.(target.name, next).catch(() => ({ok: false}));
   if (!ui || ui.select !== select) return;
   if (!r?.ok) { ui.msg = r?.message || '이름을 바꾸지 못했어요. 다시 해 주세요.'; paint(); return; }
-  if (sorts() && (placeOf(sorts(), target.name).kind !== REGULAR || nameKey(target.name) in (sorts().orgs || {}))) await changeSorts(s => moveName(s, target.name, next));
-  // 열린 고르기 상자도 새 이름으로(옛 이름 option·날짜 목록을 바꿈). 고른 이름이었으면 새 이름을 고른 채로 둔다.
-  const oldKey = nameKey(target.name), wasChosen = nameKey(currentName(select)) === oldKey;
-  for (const o of [...select.options]) if (o.value !== OTHER && nameKey(o.value) === oldKey) { if ([...select.options].some(x => x !== o && x.value === next)) o.remove(); else { o.value = next; o.text = next; } }
-  select._nameEntries = entriesOf(select).map(x => nameKey(x.name) === oldKey ? {...x, name: next} : x);
-  close();
-  if (wasChosen) { select.value = next; select.dispatchEvent(new Event('change', {bubbles: true})); }
-  paintOptions(select);
+  if (hasMark(sorts(), target.name)) await changeSorts(s => moveName(s, target.name, next));
+  renameInSelect(select, target.name, next);
 });
-panel.addEventListener('input', e => { if (ui && e.target.matches('[data-mnp-find]')) { ui.query = e.target.value; paint(); } else if (ui && e.target.matches('[data-mnp-rename]')) ui.draft = e.target.value; });
+// S57-14 '회의 미리 넣기' [추가]: 넣은 뒤에도 이 칸에 머문다(이어서 넣기). 조직은 고른 그대로.
+panel.addEventListener('submit', async e => {
+  if (!ui || !e.target.matches('[data-mnp-preset-form]')) return;
+  e.preventDefault();
+  const cur = ui, select = ui.select, s = sorts(), name = e.target.querySelector('[data-mnp-preset-name]').value.trim(), known = knownNames(select);
+  if (cur.busy) return;
+  cur.draft = name;
+  const problem = !s ? failText('unknown') : presetNameProblem(name, s, known);
+  if (problem) { cur.msg = problem; paint({focus: '[data-mnp-preset-name]'}); return; }
+  const org = presetOrg(s);
+  cur.busy = true; cur.msg = '저장하는 중…'; paint({focus: '[data-mnp-preset-name]'});
+  const ents = entriesOf(select);
+  const r = await changeSorts(x => { const next = addPreset(x, name, org, known); return !next || org === ETC ? next : toOrgEnd(ents, next, name); });
+  cur.busy = false;
+  if (ui !== cur) return;
+  if (r.ok) { cur.draft = ''; cur.msg = `‘${name}’을 ‘${parentLabel(sorts(), org)}’에 추가했어요.`; paintOptions(select); }
+  else cur.msg = failText(r.reason);
+  paint({focus: '[data-mnp-preset-name]'});
+});
+panel.addEventListener('input', e => { if (ui && e.target.matches('[data-mnp-find]')) { ui.query = e.target.value; paint(); } else if (ui && e.target.matches('[data-mnp-rename],[data-mnp-preset-name]')) ui.draft = e.target.value; });
 // 창 안 키는 문서 앞단(capture)에서 먼저 받는다: Esc가 뒤의 사업 보고 창까지 닫지 않게(select-menu.js와 같은 방식).
 document.addEventListener('keydown', e => {
   if (!ui || e.isComposing || !(e.target instanceof Node) || !panel.contains(e.target)) return;
-  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (ui.mode !== 'list') { ui.mode = ui.mode === 'menu' ? 'list' : 'menu'; paint({focus: '[data-mnp-find]'}); } else close(); return; }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (ui.mode !== 'list') { ui.mode = ui.mode === 'menu' || ui.mode === 'preset' ? 'list' : 'menu'; paint({focus: '[data-mnp-find]'}); } else close(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.mnp-pick,.mnp-grp,.mnp-act,.mnp-link')) { e.preventDefault(); e.target.click(); return; }
   if (e.key === 'Enter' && e.target.matches('[data-mnp-find]')) { e.preventDefault(); const first = panel.querySelector('[data-mnp-pick]'); if (first && ui.query) choose(first.dataset.mnpPick); return; }
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
