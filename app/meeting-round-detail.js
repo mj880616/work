@@ -70,13 +70,20 @@ let mrdDocked=false,mrdActionsTop=false,mrdEditBase='',mrdLeaveNext=null,mrdEdit
 const mrdModalEl=()=>document.querySelector('#meetingRoundDetailModal');
 const mrdSaveLabel=()=>mrdDocked?'저장':'수정 저장';
 function mrdPaintMore(editing=false){const b=document.querySelector('#mrdMore');if(b)b.classList.toggle('hidden',editing||!mrdCurrent||!(mrdCanEdit(mrdCurrent)||mrdCanDelete(mrdCurrent)))}
+// BIZ-달력우클릭창뜸(S58-16): 같은 메뉴를 창 밖 줄(달력 칸 안 제목·그날 목록 줄·'+n' 그날 창 줄·[사진] 보기 머리)에서도 연다(mrdMenuAt).
+// 메뉴의 주인 보고: 창 안 ⋯(#mrdMore)면 창에 뜬 보고(mrdCurrent), 창 밖 줄이면 그 줄을 누를 때 한 줄 읽은 보고(mrdOutside — 창·mrdCurrent는 건드리지 않음).
+// 항목·순서·동작은 하나다. 상자는 누른 것이 든 창 안(보고 창·그날 창), 창 밖이면 body에 둔다(row-menu.js와 같은 규칙).
+let mrdOutside=null,mrdOutsideSeq=0;
+const mrdMenuOut=trigger=>trigger&&mrdOutside?.trigger===trigger?mrdOutside:null;
+const mrdMenuMeeting=trigger=>mrdMenuOut(trigger)?.meeting||mrdCurrent;
 function mrdEnsureMoreMenu(){
   if(mrdMoreMenu)return mrdMoreMenu;
-  mrdMoreMenu=createAnchoredMenu({id:'mrdMoreMenu',className:'gt-task-menu mrd-more-menu',label:'사업 보고 관리',historyKey:'kptuMeetingDetailMenu',parent:document.querySelector('#meetingRoundDetailModal'),key:()=>mrdCurrent?.id||'',
-    canOpen:()=>!!mrdCurrent&&(mrdCanEdit(mrdCurrent)||mrdCanDelete(mrdCurrent)),
-    render:()=>[mrdCanEdit(mrdCurrent)?'<button type="button" data-mrd-more="edit">수정</button><button type="button" data-mrd-more="kind">종류 바꾸기</button>':'',mrdCanDelete(mrdCurrent)?'<button type="button" class="gt-menu-danger" data-mrd-more="delete">삭제</button>':''].join(''),
+  const can=m=>!!m&&(mrdCanEdit(m)||mrdCanDelete(m));
+  mrdMoreMenu=createAnchoredMenu({id:'mrdMoreMenu',className:'gt-task-menu mrd-more-menu',label:'사업 보고 관리',historyKey:'kptuMeetingDetailMenu',parent:trigger=>trigger.closest('#meetingRoundDetailModal,[role="dialog"]')||document.body,key:trigger=>mrdMenuMeeting(trigger)?.id||'',
+    canOpen:trigger=>can(mrdMenuMeeting(trigger)),
+    render:()=>{const m=mrdMenuMeeting(mrdMoreMenu.active?.trigger);return [mrdCanEdit(m)?'<button type="button" data-mrd-more="edit">수정</button><button type="button" data-mrd-more="kind">종류 바꾸기</button>':'',mrdCanDelete(m)?'<button type="button" class="gt-menu-danger" data-mrd-more="delete">삭제</button>':''].join('')},
     // PRESS-성명초안삭제(11/09 명진 결정): [성명 초안 만들기]는 기능째 삭제했다. MTG-종류바꾸기이름(11/09): [칸 바꾸기] → [종류 바꾸기].
-    onAction:(button,active)=>{const act=button.dataset.mrdMore;if(act==='edit')mrdStartEdit();else if(act==='kind')mrdChangeKind(active.trigger);else if(act==='delete')mrdDeleteMeeting()}});
+    onAction:(button,active)=>{const act=button.dataset.mrdMore,out=mrdMenuOut(active.trigger);if(act==='edit'){if(out)void mrdOutsideEdit(out);else mrdStartEdit()}else if(act==='kind')mrdChangeKind(active.trigger,out);else if(act==='delete')void mrdDeleteMeeting(out)}});
   return mrdMoreMenu;
 }
 function mrdSetEdit(on){if(!on){mrdEditSequence++;mrdEditor=null;mrdSummaries?.clear();mrdLeaveClear();mrdEditHistoryEnd()}document.querySelector('#mrdView')?.classList.toggle('hidden',on);document.querySelector('#mrdEditor')?.classList.toggle('hidden',!on);mrdPaintMore(on);mrdPlaceActions(on)}
@@ -333,6 +340,27 @@ async function mrdReload(id){
   const epoch=++mrdRequestEpoch;
   try{await mrdLoadMeeting(id,epoch)}catch(e){if(epoch===mrdRequestEpoch)notify(e.message||String(e),{error:true})}
 }
+// S58-16 BIZ-달력우클릭창뜸: 창 밖 줄(달력 칸 안 제목·그날 목록 줄·'+n' 그날 창 줄·[사진] 보기 머리)을 우클릭·메뉴 키·Shift+F10 하면 창은 열지 않고
+// 이 창 ⋯와 같은 메뉴(mrdEnsureMoreMenu — 부품·항목·동작 하나)를 누른 자리(at)에 연다. 그 보고 한 줄만 읽어 메뉴 주인으로 두고(mrdOutside), 창·mrdCurrent는 그대로다.
+// before = [수정]으로 창을 열기 전에 부르는 쪽이 할 일(그날 창 닫기 — 그날 창 줄을 왼쪽으로 누를 때와 같은 순서). 메뉴를 열었으면 true.
+async function mrdMenuAt(id,trigger,at,{before=null}={}){
+  const seq=++mrdOutsideSeq;id=String(id||'');if(!id||!trigger?.isConnected)return false;
+  try{
+    await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
+    const m=(await mrdApi('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(id)+'&select=*&limit=1'))?.[0];
+    if(seq!==mrdOutsideSeq||!trigger.isConnected)return false;
+    if(!m)throw new Error('사업 보고를 찾을 수 없어요.');
+    mrdOutside={meeting:m,trigger,before:typeof before==='function'?before:null};
+    mrdEnsureMoreMenu().open(trigger,{at});return true;
+  }catch(e){if(seq===mrdOutsideSeq)notify(e.message||String(e),{error:true});return false}
+}
+// 창 밖 메뉴 [수정]: 그때 창을 열고(왼쪽 누름과 같은 열기 길 mrdOpenMeeting) 바로 수정 면. 창을 닫으면 초점은 누른 줄로 돌아간다(그날 창 줄이면 그 창이 돌려주는 '+n').
+async function mrdOutsideEdit({meeting,trigger,before}){
+  before?.();if(trigger?.isConnected)trigger.focus({preventScroll:true});
+  const id=String(meeting.id);await mrdOpenMeeting(id);
+  for(let i=0;i<40&&String(mrdCurrent?.id)!==id;i++)await new Promise(r=>setTimeout(r,50));
+  if(String(mrdCurrent?.id)===id&&!mrdEditing())mrdStartEdit();
+}
 const mrdEditInputs=['Title','Round','ShortName','At','Project','Transcript','Notes'];
 function mrdEditDraft(){return JSON.stringify([...mrdEditInputs.map(key=>document.querySelector('#mrdEdit'+key)?.value??''),mrdSummaries?.draft()||'',mrdAreaFields?.draft()||''])}
 function mrdEditScope(){const rt=window.KPTURuntime,epoch=rt?.session?.epoch?.(),ctx=rt?.context?.read?.(),owner=rt?.session?.read?.()?.user?.id;return Number.isInteger(epoch)&&epoch>=0&&owner===mrdUser?.id&&ctx?.user?.id===owner&&ctx?.workspace?.id===mrdWorkspace?{owner,workspace:mrdWorkspace,epoch}:null}
@@ -349,7 +377,9 @@ function mrdEditNotice(e,text,check=false){if(!mrdEditCurrent(e))return;const st
 async function mrdCheckEdit(e){const a=mrdEditAttempts.get(mrdEditKey(e));if(!a||a.pending||a.reading||!mrdEditCurrent(e))return;a.reading=true;const current=()=>mrdEditCurrent(e)&&mrdEditAttempts.get(mrdEditKey(e))===a;try{const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(e.id)}&workspace_id=eq.${encodeURIComponent(e.scope.workspace)}&select=*`,{expectedSessionEpoch:e.scope.epoch,singleFlight:false});if(!current())return;const row=mrdEditRow(e,rows,a.body);Object.assign(mrdCurrent,row);mrdEditAttempts.delete(mrdEditKey(e));mrdEditNotice(e,'제출한 내용은 확인했습니다. 현재 입력은 남겨두었습니다.')}catch{if(current())mrdEditNotice(e,'저장 결과를 아직 확인하지 못했어요. 입력을 유지했으며 다시 저장하지 않았어요.',true)}finally{a.reading=false}}
 function mrdStartEdit(){if(!mrdCurrent||!mrdCanEdit(mrdCurrent))return;const editor={id:mrdCurrent.id,scope:mrdEditScope(),view:mrdRequestEpoch,sequence:++mrdEditSequence};mrdEditor=editor;if(editor.scope)mrdEditObservedScope={...editor.scope};const button=document.querySelector('#mrdSaveEdit');button.disabled=false;button.textContent=mrdSaveLabel();const input=document.querySelector('#mrdEditTitle');window.KPTUMeetingNames.installPicker(input,'mrdEdit');window.KPTUMeetingNames.setupPicker(document.querySelector('#mrdEditNameSelect'),input,document.querySelector('#mrdEditNameMatch'),document.querySelector('#mrdEditNameUseMatch'),{current:mrdMeetingName(mrdCurrent),names:isMeetingKind(reportKindOf(mrdCurrent))?window.KPTUMeetingNames.choices('meeting'):[]});{const start=mrdShortNameStart(mrdCurrent);mrdRoundRows?.paint(showRoundRows(reportKindOf(mrdCurrent),{round:mrdCurrent.round_no,shortName:start}));const round=document.querySelector('#mrdEditRound'),short=document.querySelector('#mrdEditShortName');if(round)round.value=mrdCurrent.round_no??'';if(short)short.value=start}document.querySelector('#mrdEditAt').value=mrdDateValue(mrdCurrent.meeting_at);document.querySelector('#mrdEditProject').innerHTML=mrdProjectOptions(mrdCurrent.project_id||'');{const start=targetList(window.KPTUTeamData?.reportTargetsOf?.(mrdCurrent)||(mrdCurrent.project_id?[{kind:'project',id:mrdCurrent.project_id}]:[]));mrdEditTargets=start;mrdEditTargetsStart=start;mrdEditTargetsTouched=false;mrdPaintPlaces();mrdSummaryBox()?.start(start);mrdArea()?.start({meeting:mrdCurrent});const startId=mrdCurrent.id;readReportTargets(mrdCurrent).then(list=>{if(mrdCurrent?.id!==startId||!mrdEditor)return;if(!mrdEditTargetsTouched){mrdEditTargets=targetList(list);mrdEditTargetsStart=mrdEditTargets;mrdPaintPlaces();mrdSummaryBox()?.start(list)}else mrdSummaryBox()?.loadSaved(list)},()=>{});document.querySelector('#mrdEditLocation').value=mrdCurrent.location||'';locationAvailable().then(ok=>{const row=document.querySelector('#mrdEditLocationRow');if(row)row.hidden=!ok},()=>{})}{const row=document.querySelector('#mrdEditAttendeesRow');document.querySelector('#mrdEditAttendees').value=mrdCurrent.attendees||'';if(row)row.hidden=!mrdAttendeesOn(mrdCurrent)}document.querySelector('#mrdEditTranscript').value=mrdCurrent.transcript_text??'';document.querySelector('#mrdEditNotes').value=mrdCurrent.notes||'';document.querySelector('#mrdEditStatus').textContent='';mrdEditBase=mrdEditFields();mrdSetEdit(true);mrdEditHistoryStart(editor);mrdFocusEdit();const attempt=editor.scope&&mrdEditAttempts.get(mrdEditKey(editor));if(attempt?.pending){button.disabled=true;button.textContent='앞선 저장 확인 중…';mrdEditCurrent(editor)&&(document.querySelector('#mrdEditStatus').innerHTML=waitInlineHtml());attempt.done.then(()=>{if(mrdEditCurrent(editor)){button.disabled=false;button.textContent=mrdSaveLabel();mrdEditNotice(editor,'앞선 요청이 끝났습니다. 현재 입력은 유지했습니다.',attempt.state==='unknown')}})}else if(attempt)mrdEditNotice(editor,'앞선 저장 결과를 먼저 확인해 주세요.',true)}
 // MTG-사업보고 4단계: [종류 바꾸기](MTG-종류바꾸기이름, 옛 [칸 바꾸기]) → 종류 선택 창 → activity_kind PATCH(report-kind-sheet.js). 고친 행으로 머리 줄을 다시 그린다.
-function mrdChangeKind(trigger){const m=mrdCurrent,epoch=mrdRequestEpoch;if(!m||!mrdCanEdit(m))return;pickReportKind(trigger,{title:'종류 바꾸기',current:reportKindOf(m),onPick:async kind=>{if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==m.id||(kind===reportKindOf(m)&&m.activity_kind===kind))return;const st=document.querySelector('#mrdStatus');try{const row=await saveReportKind(m.id,kind);if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==m.id)return;Object.assign(mrdCurrent,row);mrdRenderMeetingInfo(mrdCurrent);st.textContent=`종류를 '${reportKindLabel(kind)}'(으)로 바꿨습니다.`;st.className='status ok'}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===m.id){st.textContent=err.message||'종류를 바꾸지 못했어요.';st.className='status error'}}}})}
+// S58-16 BIZ-달력우클릭창뜸: out = 창 밖 줄에서 연 메뉴(mrdMenuAt)의 보고. 창 없이 그 자리에서 바꾸고 결과는 알림 한 줄이며, 보던 화면(달력·사진)에 그대로 둔다
+// (목록 보기로 옮겨 그 보고를 고르지 않음 — saveReportKind reveal:false). 창 안 ⋯에서 바꿀 때는 지금처럼 창 머리 줄을 다시 그리고 창 안 상태 줄에 적는다.
+function mrdChangeKind(trigger,out=null){const m=out?out.meeting:mrdCurrent,epoch=mrdRequestEpoch,live=()=>!!out||(epoch===mrdRequestEpoch&&mrdCurrent?.id===m.id);if(!m||!mrdCanEdit(m))return;pickReportKind(trigger,{title:'종류 바꾸기',current:reportKindOf(m),onPick:async kind=>{if(!live()||(kind===reportKindOf(m)&&m.activity_kind===kind))return;const st=document.querySelector('#mrdStatus'),say=(text,error=false)=>{if(out){notify(text,{error});return}st.textContent=text;st.className=error?'status error':'status ok'};try{const row=await saveReportKind(m.id,kind,{reveal:!out});if(!live())return;Object.assign(out?m:mrdCurrent,row);if(!out)mrdRenderMeetingInfo(mrdCurrent);say(`종류를 '${reportKindLabel(kind)}'(으)로 바꿨습니다.`)}catch(err){if(live())say(err.message||'종류를 바꾸지 못했어요.',true)}}})}
 async function mrdRefreshMeetingList(){await window.__KPTU_RELOAD_MEETINGS__?.();window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))}
 async function mrdSaveEdit(){
   const e=mrdEditor,st=document.querySelector('#mrdEditStatus');if(!e)return;
@@ -394,7 +424,8 @@ async function mrdSaveEdit(){
 window.addEventListener('kptu:view-changed',()=>{if(mrdEditor)mrdSetEdit(false)});
 window.addEventListener('kptu:session-changed',()=>{if(mrdEditSameScope(mrdEditObservedScope))return;mrdEditObservedScope=null;mrdEditAttempts.clear();mrdEditSequence++;mrdEditor=null;mrdEditInputs.forEach(k=>{const input=document.querySelector('#mrdEdit'+k);if(input)input.value=''})});
 window.addEventListener('kptu:dialog-closed',event=>{if(event.detail?.modal?.id==='meetingRoundDetailModal')mrdSetEdit(false)});
-async function mrdDeleteMeeting(){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!meeting||!mrdCanDelete(meeting))return;const {deleteToTrash}=await import('./trash-actions.js');const r=await deleteToTrash({kind:'report',id:meeting.id,name:mrdMeetingName(meeting)||meeting.title||'회의',remove:()=>mrdApi('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(meeting.id),{method:'DELETE'}),closeBefore:()=>{if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)mrdClose()},afterChange:mrdRefreshMeetingList,notify:msg=>notify(msg)});if(r.status==='failed'&&epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)notify(r.error?.message||String(r.error),{error:true})}
+// S58-16: out = 창 밖 줄에서 연 메뉴의 보고 — 창 없이 같은 휴지통 흐름(한 번 묻기 → 지우기 → 목록 다시 읽기 → 되돌리기 알림). 묻는 상자는 누른 줄 옆에 둔다.
+async function mrdDeleteMeeting(out=null){const meeting=out?out.meeting:mrdCurrent,epoch=mrdRequestEpoch;if(!meeting||!mrdCanDelete(meeting))return;const {deleteToTrash}=await import('./trash-actions.js');const r=await deleteToTrash({kind:'report',id:meeting.id,name:mrdMeetingName(meeting)||meeting.title||'회의',remove:()=>mrdApi('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(meeting.id),{method:'DELETE'}),closeBefore:()=>{if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)mrdClose()},afterChange:mrdRefreshMeetingList,notify:msg=>notify(msg),...(out?.trigger?.isConnected?{anchor:out.trigger}:{})});if(r.status==='failed'&&(out||(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)))notify(r.error?.message||String(r.error),{error:true})}
 // UI-회의결과창정리: 파일을 고르면 바로 올라간다([업로드] 버튼 없음). 아직 차례가 오지 않은 파일은 ×로 뺄 수 있다.
 // MEET-파일AI분류: 파일 올리기는 담당조직·프로젝트 상세와 같은 자료실 올리기 창(library-upload.js)을 연다.
 // 파일 올리기·AI 자동 분류는 그 창이 하고, 올라온 자료는 library-files의 meeting_id로 이 사업 보고에 붙는다. 올리기가 끝나면 kptu:documents-changed로 아래 자료 목록이 다시 읽힌다.
@@ -629,5 +660,5 @@ async function mrdFillTranscript(meetingId,{text='',draft=null}={}){
   if(st){st.textContent=d?'전사 전문은 회의록 전문 칸에, 요약은 결과 원문 끝에 넣었어요. 확인한 뒤 [저장]을 누르세요.':'전사 전문을 회의록 전문 칸에 넣었어요(요약은 만들지 못했어요). 확인한 뒤 [저장]을 누르세요.';st.className='status ok'}
   return true;
 }
-window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave,fillTranscript:mrdFillTranscript};
+window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,menuAt:mrdMenuAt,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave,fillTranscript:mrdFillTranscript};
 window.__KPTU_MEETING_ROUND_DETAIL_READY__=mrdInit().then(ok=>{if(ok)window.dispatchEvent(new CustomEvent('kptu:report-detail-ready'));return ok}).catch(err=>{console.error('meeting detail init',err);return false});

@@ -29,7 +29,8 @@ export function pickReportKind(trigger,{title='칸 선택',current='',onPick,onO
 }
 
 // 칸 바꾸기 저장. 돌아온 행이 같은 id·같은 업무공간·고른 칸인지 확인한다(회의 결과 창 수정 저장과 같은 확인).
-export async function saveReportKind(id,kind){
+// reveal:false(S58-16 BIZ-달력우클릭창뜸) = 창 밖 메뉴(달력·사진 보기 우클릭)에서 바꿀 때 — 보던 화면에 그대로 두고 목록 보기로 옮겨 그 건을 고르지 않는다.
+export async function saveReportKind(id,kind,{reveal=true}={}){
   if(!isReportKind(kind))throw new Error('선택할 수 없는 종류입니다.');
   const rt=window.KPTURuntime,workspace=rt?.context?.read?.()?.workspace?.id;
   if(!rt?.api||!workspace||!id)throw new Error('로그인 상태를 확인하지 못했어요.');
@@ -42,7 +43,7 @@ export async function saveReportKind(id,kind){
   await window.__KPTU_RELOAD_MEETINGS__?.();
   window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));
   // 바꾼 칸이 지금 칩에 안 보이면 그 칸 칩으로 옮겨 방금 고친 건이 목록에 남게 한다(PC는 그 건을 오른쪽에 보인다).
-  window.KPTUMeetingColumns?.select?.({id:String(id)});
+  if(reveal)window.KPTUMeetingColumns?.select?.({id:String(id)});
   return row;
 }
 

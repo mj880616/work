@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { answerAsk, noticeText } from './helpers/small-notice.mjs';
 
 // ACT-사진 6단계: 사업 보고 화면의 [목록|달력|사진] 보기. 달력은 사업 보고 화면 안에서만, 사진은 날짜 묶음 격자(크게 보기 재사용),
 // 고른 보기는 서버(프로필 view_prefs.report_view)에 기억하고 칸이 아직 없는 서버(적용 전)면 기억만 건너뛴다. 모든 이름·번호는 합성 값.
@@ -44,6 +45,14 @@ async function mock(page, state) {
     }
     if (path === '/functions/v1/google-calendar') return ok({connected: false, enabled: false, selected: [], calendars: [], events: [], eventColors: {}});
     if (path.startsWith('/functions/v1/')) return ok({});
+    // S58-16: [삭제]의 휴지통 흐름(휴지통 목록 → DELETE → 휴지통 목록에 그 보고). state.trash가 있을 때만 — 없으면 아래 null(휴지통 함수 없음).
+    if (state.trash && path === '/rest/v1/rpc/app_trash_list') return ok(state.trash.map(x => ({kind: 'report', ...x})));
+    if (state.trash && path === '/rest/v1/app_meetings' && req.method() === 'DELETE') {
+      const id = (url.searchParams.get('id') || '').replace(/^eq\./, ''), row = state.meetings.find(m => m.id === id);
+      state.deletes.push(id);
+      if (row) { state.meetings = state.meetings.filter(m => m !== row); state.trash.push({id: row.id, title: row.title, series_name: row.series_name, deleted_at: now()}); }
+      return ok([]);
+    }
     if (path.startsWith('/rest/v1/rpc/')) return ok(null);
     if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'workspace-1', user_id: state.user.id, role: 'owner', workspace: state.workspace, created_at: now()}]);
     if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
@@ -274,52 +283,114 @@ test('report calendar (PC): right click on an empty day gives [add report here]/
   expect(state.patches).toEqual([]);
 });
 
-test('report calendar (PC): right click or menu key on a report opens the same report menu as the list', async ({page}) => {
+// S58-16 BIZ-달력우클릭창뜸: 보고 우클릭은 메뉴만 — 보고 창은 왼쪽 누를 때만 열린다. 보고 창이 한 번이라도 떴는지는 창이 열릴 때 나는 알림
+// (kptu:dialog-opened, 사업 보고 창)으로 센다(창이 떴다 바로 닫혀도 남는다).
+const watchReportWindow = page => page.evaluate(() => { window.__rvOpened = []; window.addEventListener('kptu:dialog-opened', e => { if (e.detail?.modal?.id === 'meetingRoundDetailModal') window.__rvOpened.push(e.detail.modal.dataset.meetingId || ''); }); });
+const reportWindowOpens = page => page.evaluate(() => window.__rvOpened);
+// 우클릭한 자리 바로 옆에 메뉴(누른 자리 아래, 모자라면 위).
+async function nearPoint(menu, x, y) { const b = await menu.boundingBox(); expect(b).not.toBeNull(); expect(Math.abs(b.x - x)).toBeLessThanOrEqual(4); expect(b.y).toBeGreaterThanOrEqual(y - b.height - 8); expect(b.y).toBeLessThanOrEqual(y + 8); }
+
+test('report calendar (PC): right click or menu key on a report opens only the report menu — the report window stays closed', async ({page}) => {
   const state = makeState();
   await open(page, state, 1440);
   await view(page, '달력');
+  await watchReportWindow(page);
   const cal = page.locator('#meetingList .rv-cal'), more = page.locator('#mrdMoreMenu'), detail = page.locator('#meetingRoundDetailModal');
-  // STAB(S58-3): 메뉴 글자는 닫힌 뒤에도 숨은 상자(#mrdMoreMenu)에 그대로 남는다(다음에 열 때 다시 그림). 글자만 보면 앞에서 연 메뉴가 남긴 것으로
-  // 바로 통과해, 보고 창·메뉴가 뜨기 전에 Esc를 눌렀다 — 창만 뜨고 메뉴는 아직인 순간이면 Esc가 창을 닫았고(그때 맨 위는 창), 창도 뜨기 전이면 Esc가 헛돌고 뒤늦게 뜬 메뉴가 남았다.
-  // 그래서 '그 보고의 창이 떴고 그 메뉴가 보인다'를 먼저 기다린 뒤 누른다.
-  const menuOpenFor = async id => {
-    await expect(detail).toBeVisible();
-    await expect(detail).toHaveAttribute('data-meeting-id', id);
+  // STAB(S58-3): 메뉴 글자는 닫힌 뒤에도 숨은 상자(#mrdMoreMenu)에 남는다 — '지금 뜬 메뉴'(보임)를 먼저 기다린 뒤 글자를 본다.
+  // Esc는 메뉴만 닫고 초점은 누른 줄로 돌아간다. 보고 창은 그 사이 한 번도 뜨지 않는다.
+  const menuOnly = async (trigger, point = null) => {
     await expect(more).toBeVisible();
     await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
-  };
-  // Esc는 맨 위(메뉴)만 닫는다: 뒤의 보고 창은 그대로 떠 있고, 창은 [×]로 닫는다.
-  const escClosesMenuOnly = async id => {
+    if (point) await nearPoint(more, point.x, point.y);
+    await expect(detail).toBeHidden();
     await page.keyboard.press('Escape');
     await expect(more).toBeHidden();
-    await expect(detail).toBeVisible();
-    await expect(detail).toHaveAttribute('data-meeting-id', id);
-    await page.locator('#mrdClose').click();
+    await expect(trigger).toBeFocused();
     await expect(detail).toBeHidden();
   };
+  const rightAt = async target => { const b = await target.boundingBox(), x = Math.round(b.x + 6), y = Math.round(b.y + 6); await page.mouse.click(x, y, {button: 'right'}); return {x, y}; };
   // 칸 안 제목.
-  await cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`).click({button: 'right'});
-  await menuOpenFor(M1);
-  await escClosesMenuOnly(M1);
+  const title = cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`);
+  await menuOnly(title, await rightAt(title));
   // 그날 목록 줄.
-  await cal.locator(`.rv-day-list .rv-row[data-mrd-meeting="${M2}"]`).click({button: 'right', position: {x: 6, y: 6}});
-  await menuOpenFor(M2);
-  await escClosesMenuOnly(M2);
+  const row = cal.locator(`.rv-day-list .rv-row[data-mrd-meeting="${M2}"]`);
+  await menuOnly(row, await rightAt(row));
   // 키보드 메뉴 키: 포커스 받은 칸 안 제목.
-  await cal.locator('.rv-cell.rv-now').locator(`[data-mrd-meeting="${M1}"]`).focus();
+  await title.focus();
   await page.keyboard.press('Shift+F10');
-  await menuOpenFor(M1);
-  await escClosesMenuOnly(M1);
+  await menuOnly(title);
+  expect(await reportWindowOpens(page)).toEqual([]);
   expect(state.patches).toEqual([]);
 });
 
-// STAB(S58-3) 같은 종류 전수: 달력 밖에서 같은 보고 메뉴를 여는 두 자리 — 목록 보기 줄(PC, 보고가 오른쪽 칸에 앉은 상태)과 사진 보기 머리 줄(보고 창).
-// 어디서 열든 Esc는 맨 위(메뉴)만 닫고, 뒤의 보고(칸·창)는 그대로다.
-test('report list and photos (PC): Esc after a right click on a report closes only the report menu, the report stays', async ({page}) => {
+test('report calendar (PC): menu from a right click — [수정] opens the edit window then, [종류 바꾸기]·[삭제] work in place, left click still opens the report', async ({page}) => {
+  const state = makeState();
+  state.trash = []; state.deletes = [];
+  await open(page, state, 1440);
+  await view(page, '달력');
+  await watchReportWindow(page);
+  const cal = page.locator('#meetingList .rv-cal'), today = cal.locator('.rv-cell.rv-now'), more = page.locator('#mrdMoreMenu'), detail = page.locator('#meetingRoundDetailModal');
+  const menu = async (id, action) => {
+    await today.locator(`[data-mrd-meeting="${id}"]`).click({button: 'right'});
+    await expect(more).toBeVisible();
+    await expect(detail).toBeHidden();
+    await more.locator(`[data-mrd-more="${action}"]`).click();
+  };
+  // [종류 바꾸기]: 고르기 창 → 다른 종류. 보고 창 없이 저장하고 달력에 그대로 있는다(목록 보기로 옮겨 그 보고를 고르지 않음).
+  // 칸 칩 [회의]가 걸린 달력이라 종류가 바뀐 보고는 달력에서 빠진다.
+  await menu(M2, 'kind');
+  const sheet = page.locator('#reportKindSheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('h2')).toHaveText('종류 바꾸기');
+  await sheet.locator('[data-sheet-value="education"]').click();
+  await expect.poll(() => state.patches.filter(p => p.body.activity_kind).length).toBe(1);
+  expect(state.patches.find(p => p.body.activity_kind)).toMatchObject({id: M2, workspace: 'eq.workspace-1', body: {activity_kind: 'education'}});
+  expect(await noticeText(page)).toContain("'교육'(으)로 바꿨습니다");
+  await expect(cal.locator(`[data-mrd-meeting="${M2}"]`)).toHaveCount(0);
+  await expect(viewSelect(page)).toHaveValue('calendar');
+  await expect(page.locator('#meetingList .rv-cal')).toBeVisible();
+  await expect(detail).toBeHidden();
+  // [삭제]: 지금처럼 한 번 묻는다 — [취소]면 그대로, 확인하면 휴지통으로(보고 창 없이).
+  await menu(M3, 'delete');
+  expect(await answerAsk(page, false)).toContain('휴지통으로 옮길까요');
+  expect(state.deletes).toEqual([]);
+  await expect(today.locator(`[data-mrd-meeting="${M3}"]`)).toHaveCount(1);
+  await menu(M3, 'delete');
+  await answerAsk(page, true);
+  await expect.poll(() => state.deletes).toEqual([M3]);
+  await expect(cal.locator(`[data-mrd-meeting="${M3}"]`)).toHaveCount(0);
+  await expect(viewSelect(page)).toHaveValue('calendar');
+  await expect(detail).toBeHidden();
+  expect(await reportWindowOpens(page)).toEqual([]);
+  // [수정]: 그때 보고 창이 수정 면으로 열린다.
+  await menu(M1, 'edit');
+  await expect(detail).toBeVisible();
+  await expect(detail).toHaveAttribute('data-meeting-id', M1);
+  await expect(detail.locator('#mrdEditor')).toBeVisible();
+  await expect(detail.locator('#mrdEditTitle')).toHaveValue('○○ 대표자 회의');
+  await detail.locator('#mrdCancelEdit').click();
+  await page.locator('#mrdClose').click();
+  await expect(detail).toBeHidden();
+  expect(await reportWindowOpens(page)).toEqual([M1]);
+  // 왼쪽 누름 = 보고 창(보기 면), 메뉴 없음.
+  await today.locator(`[data-mrd-meeting="${M1}"]`).click();
+  await expect(detail).toBeVisible();
+  await expect(detail).toHaveAttribute('data-meeting-id', M1);
+  await expect(detail.locator('#mrdView')).toBeVisible();
+  await expect(detail.locator('#mrdEditor')).toBeHidden();
+  await expect(more).toBeHidden();
+  await page.locator('#mrdClose').click();
+  await expect(detail).toBeHidden();
+  expect(state.patches.filter(p => !p.body.activity_kind)).toEqual([]);
+});
+
+// STAB(S58-3) 같은 종류 전수: 달력 밖에서 같은 보고 메뉴를 여는 두 자리 — 목록 보기 줄(PC, 보고가 오른쪽 칸에 앉은 상태, S51-27 그대로)과
+// 사진 보기 머리 줄(S58-16: 메뉴만, 보고 창 없음). 어디서 열든 Esc는 메뉴만 닫는다.
+test('report list and photos (PC): Esc after a right click on a report closes only the report menu; the photo head opens no report window', async ({page}) => {
   const state = makeState();
   await open(page, state, 1440);
   const more = page.locator('#mrdMoreMenu'), detail = page.locator('#meetingRoundDetailModal'), pane = page.locator('#meetingList #mcolResult');
-  // 목록 줄: 그 보고가 오른쪽 칸에 뜬 뒤 우클릭한다.
+  // 목록 줄: 그 보고가 오른쪽 칸에 뜬 뒤 우클릭한다(줄을 고르고 그 보고의 ⋯ 메뉴 — 팝업 창은 뜨지 않음).
   const row = page.locator('#meetingList [data-meeting-round]').first(), id = await row.getAttribute('data-meeting-round');
   await row.click();
   await expect(pane).toHaveAttribute('data-meeting-result', id);
@@ -332,15 +403,21 @@ test('report list and photos (PC): Esc after a right click on a report closes on
   await expect(pane).toHaveAttribute('data-meeting-result', id);
   await expect(detail).toBeVisible();
   await expect(detail).toHaveAttribute('data-meeting-id', id);
-  // 사진 보기 머리 줄.
+  // 사진 보기 머리 줄: 메뉴만.
   await view(page, '사진');
-  await page.locator(`#meetingList .rv-set-head[data-mrd-meeting="${M1}"]`).click({button: 'right', position: {x: 8, y: 8}});
-  await expect(detail).toBeVisible();
-  await expect(detail).toHaveAttribute('data-meeting-id', M1);
+  await watchReportWindow(page);
+  const head = page.locator(`#meetingList .rv-set-head[data-mrd-meeting="${M1}"]`);
+  await head.click({button: 'right', position: {x: 8, y: 8}});
   await expect(more).toBeVisible();
   await expect(more.locator('button')).toHaveText(['수정', '종류 바꾸기', '삭제']);
+  await expect(detail).toBeHidden();
   await page.keyboard.press('Escape');
   await expect(more).toBeHidden();
+  await expect(head).toBeFocused();
+  await expect(detail).toBeHidden();
+  expect(await reportWindowOpens(page)).toEqual([]);
+  // 왼쪽 누름은 지금처럼 보고 창.
+  await head.click({position: {x: 8, y: 8}});
   await expect(detail).toBeVisible();
   await expect(detail).toHaveAttribute('data-meeting-id', M1);
   await page.locator('#mrdClose').click();
