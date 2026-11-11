@@ -2,12 +2,14 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 = 업무일지. PC 1440·폴드 884(PC 틀)·폰 412에서
 // 앱을 열면 오늘 업무일지, 위에서부터 날짜 줄 → 요약 한 줄 → 업데이트 입력줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료(JOURNAL-그밖의기록삭제).
-// PC 틀(≥761)은 그날 일정·할 일이 좌우, 폰은 위아래이고 입력줄은 하단 탭 위 고정. 시계 2026-10-06(화) 10:00 KST(openHome).
+// PC(≥1200)는 그날 일정·할 일이 좌우, 폰은 위아래이고 입력줄은 하단 탭 위 고정. 시계 2026-10-06(화) 10:00 KST(openHome).
+// FOLD-넓은화면 ④(S57-16): 폴드 펼침(600~1199, 884)은 5:5 두 단 — 왼쪽 [그날 일정 → 할 일], 오른쪽 [오늘 한 일 → 재료], 다가오는 일은 두 단 폭 전체 한 줄(home-fold-two-cols.spec.mjs가 폭별로 자세히 본다).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const noOverflow = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 const box = (page, sel) => page.locator(sel).first().evaluate(el => { const r = el.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height, bottom: r.bottom, right: r.right}; });
 
-for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
+for (const [width, mode] of [[1440, 'pc'], [884, 'fold'], [412, 'phone']]) {
+  const phone = mode === 'phone';
   test(`home is today's work journal in the confirmed order (${width})`, async ({page}, info) => {
     await page.setViewportSize({width, height: 1000});
     await openHome(page);
@@ -27,7 +29,9 @@ for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
     const head = await box(page, '#homeView .journal-head');
     const summary = await box(page, '#homeView [data-home-summary]');
     const quick = await box(page, '#homeView .home-quick[data-home-quick]');
-    const sched = await box(page, '#homeView [data-journal-schedule]');
+    // 폴드 두 단에서는 일정 칸(section)이 display:contents라 상자가 없어, 그 안 머리·목록 묶음을 잰다.
+    const sched = await box(page, mode === 'fold' ? '#homeView .journal-schedule-body' : '#homeView [data-journal-schedule]');
+    const day = await box(page, '#homeView [data-journal-day]');
     const tasks = await box(page, '#homeView [data-journal-tasks]');
     const done = await box(page, '#homeView [data-journal-done-day]');
     const mats = await box(page, '#homeView [data-journal-materials]');
@@ -41,16 +45,30 @@ for (const [width, phone] of [[1440, false], [884, false], [412, true]]) {
       expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
       expect(tasks.y).toBeGreaterThanOrEqual(sched.bottom - 1);
       expect(Math.abs(tasks.x - sched.x)).toBeLessThanOrEqual(1);
+    } else if (mode === 'fold') {
+      // S53-13: '잊지 말기'는 입력줄 머리 줄 칩(입력줄 안), 그 아래 바로 [하루] 카드(입력줄은 카드 밖 전체 폭 그대로).
+      expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
+      expect(day.y).toBeGreaterThanOrEqual(quick.bottom - 1);
+      // 폴드 펼침: 두 단(5:5). 왼쪽은 일정 위·할 일 아래(같은 x), 오른쪽 오늘 한 일은 일정과 같은 줄에서 시작, 재료는 오늘 한 일 아래. 다가오는 일은 두 단 폭 전체.
+      const dday = await box(page, '#homeView [data-journal-dday]');
+      expect(dday.y).toBeGreaterThanOrEqual(day.y - 1); expect(dday.bottom).toBeLessThanOrEqual(sched.y + 1);
+      expect(dday.w).toBeGreaterThan(done.right - sched.x - 2);
+      expect(Math.abs(tasks.x - sched.x)).toBeLessThanOrEqual(1); expect(tasks.y).toBeGreaterThanOrEqual(sched.bottom - 1);
+      expect(done.x).toBeGreaterThanOrEqual(sched.right - 1); expect(Math.abs(done.y - sched.y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(sched.w - done.w)).toBeLessThanOrEqual(40);
+      expect(mats.y).toBeGreaterThanOrEqual(done.bottom - 1); expect(Math.abs(mats.x - done.x)).toBeLessThanOrEqual(1);
     } else {
       // S53-13: '잊지 말기'는 입력줄 머리 줄 칩(입력줄 안), 그 아래 바로 [하루] 카드.
       expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
       expect(sched.y).toBeGreaterThanOrEqual(quick.bottom - 1);
-      // PC 틀: 좌우 두 칸, 같은 줄에서 시작.
+      // PC: 좌우 두 칸, 같은 줄에서 시작.
       expect(Math.abs(tasks.y - sched.y)).toBeLessThanOrEqual(2);
       expect(tasks.x).toBeGreaterThanOrEqual(sched.right - 1);
     }
-    expect(done.y).toBeGreaterThanOrEqual(Math.max(sched.bottom, tasks.bottom) - 1);
-    expect(mats.y).toBeGreaterThanOrEqual(done.bottom - 1);
+    if (mode !== 'fold') {
+      expect(done.y).toBeGreaterThanOrEqual(Math.max(sched.bottom, tasks.bottom) - 1);
+      expect(mats.y).toBeGreaterThanOrEqual(done.bottom - 1);
+    }
     await expect(page.locator('#journalDoneTitle')).toHaveText('오늘 한 일');
     // 그날 일정 칸: 개수·달력 › · D-day 칩(오늘만). 할 일 칸: 개수·할 일 ›.
     await expect(page.locator('#homeView [data-journal-schedule] [data-journal-calendar]')).toHaveText('달력 ›');

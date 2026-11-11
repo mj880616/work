@@ -442,9 +442,11 @@
 #appView #homeView .journal-head .journal-days{ display:flex; gap:2px; }
 #appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:32px; height:32px; padding:0 4px; flex-direction:row; justify-content:center; gap:0; border-color:transparent; background:transparent; }
 /* FOLD-넓은화면 ④(S57-16, 명진 11/11 "날짜랑 요일이 세로로 긴 게 이상해"): 날짜 칸은 요일·날짜 한 줄('수 11'), 높이는 옆 단추(‹ › [이번 주])와 같은 32px(위 .journal-head .journal-date).
-   오늘·고른 날 표시와 한 줄 쓴 날 점은 그대로. 380px 미만 접은 폰은 7칸에 자리가 모자라 요일 글자를 숨긴다(읽기 이름에는 있음). */
+   오늘·고른 날 표시와 한 줄 쓴 날 점은 그대로. 400px 미만 접은 폰은 7칸에 자리가 모자라 요일 글자를 숨긴다(읽기 이름에는 있음). */
 #appView #homeView .journal-head .journal-weekday{ margin-right:3px; line-height:1; }
-@media(max-width:379px){ #appView #homeView .journal-head .journal-weekday{ display:none; } }
+@media(min-width:400px){ #appView #homeView .journal-head .journal-weekday + .journal-num{ min-width:0; padding:0; } }
+@media(min-width:761px){ #appView #homeView .journal-head .journal-date{ min-width:44px; } }
+@media(max-width:399px){ #appView #homeView .journal-head .journal-weekday{ display:none; } }
 #appView #homeView .journal-head .journal-dot{ bottom:1px; width:4px; height:4px; margin-left:-2px; }
 /* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
