@@ -107,3 +107,28 @@ for (const [label, size] of SIZES) {
     await context.close();
   });
 }
+
+// ───────── ③ 담당조직·프로젝트 상세 자료 줄 ⋯ (<details class="wd-doc-more"> · <details class="ps3-more">) ─────────
+// 이 두 줄 ⋯는 줄마다 쌓임 칸을 만들지 않아(z-index 없음) 메뉴(z-index:8)가 같은 칸에서 아래 줄 ⋯ 단추(z-index 자동)보다 위다. 지금 상태를 지키는 시험이다 —
+// 누가 이 ⋯ 칸에 z-index를 주면(① 같은 갇힘) 여기서 먼저 걸린다. 줄 모양은 fixture 안 설명대로 두 그리기 함수와 같다.
+for (const [label, size] of SIZES) {
+  for (const [name, host, summary, panel] of [['담당조직 자료', '#wdDocBody', '.wd-doc-more > summary', '.wd-doc-panel'], ['프로젝트 자료', '#ps3DocBody', '.ps3-more > summary', '.ps3-more-panel']]) {
+    test(`${label}: ${name} 줄 ⋯ 메뉴도 아래 줄 ⋯ 단추보다 위에 그려진다`, async ({page}) => {
+      await page.setViewportSize(size);
+      await page.goto(`${BASE}/tests/app-e2e/file-row-menu-stacking-fixture.html`);
+      const sums = page.locator(`${host} ${summary}`);
+      await expect(sums).toHaveCount(4);
+      for (const i of [0, 1, 2]) {
+        await sums.nth(i).click();
+        const open = `${host} details[open] ${panel}`;
+        await expect(page.locator(open)).toBeVisible();
+        if (i === 0) await shot(page, `${name === '담당조직 자료' ? 'org' : 'project'}-docs-${size.width}`);
+        const r = await coveredPoints(page, open, `${host} ${summary}`);
+        expect(r.sampled).toBeGreaterThan(3);
+        expect(r.bad, `${name} ${i + 1}번째 줄 메뉴가 가려진 자리`).toEqual([]);
+        await sums.nth(i).click();
+        await expect(page.locator(`${host} details[open]`)).toHaveCount(0);
+      }
+    });
+  }
+}

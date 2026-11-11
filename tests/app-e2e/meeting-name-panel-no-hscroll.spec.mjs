@@ -60,7 +60,7 @@ for (const [label, size] of [['폰 412', {width: 412, height: 915}], ['폴드 �
     await expect(panel.locator('.mnp-more').first()).toBeVisible();
     if (reviewDir) { mkdirSync(reviewDir, {recursive: true}); await page.screenshot({path: `${reviewDir}/${phase}-name-panel-${size.width}.png`}); }
     // 가로로 넘치지 않는다(막대 없음). 세로 목록이 길면 세로로만 내린다.
-    const fit = await panel.evaluate(el => ({scroll: el.scrollWidth, client: el.clientWidth, barBelow: el.offsetHeight - el.clientHeight - 2 * (parseFloat(getComputedStyle(el).borderTopWidth) || 0)}));
+    const fit = await panel.evaluate(el => ({scroll: el.scrollWidth, client: el.clientWidth}));
     expect(fit.scroll, `가로 넘침 ${fit.scroll - fit.client}px`).toBeLessThanOrEqual(fit.client);
     // 넘침을 숨겨 덮지 않았다: 창은 지금도 세로 스크롤(overflow-y:auto) 규칙 그대로고, 가로만 보이지 않게 잘라 두지 않는다.
     expect(await panel.evaluate(el => getComputedStyle(el).overflowX)).not.toBe('hidden');
