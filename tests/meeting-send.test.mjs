@@ -1,7 +1,7 @@
 // BIZ-저장먼저닫기: 사업 보고 사진·자료 한 묶음 올리기(app/meeting-send.mjs) — 화면·서버 없이 본다(가짜 파일·가짜 이름).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createMeetingSend, sendDoneLine, sendFailLine, sendLiveLine} from '../app/meeting-send.mjs';
+import {createMeetingSend, sendDoneLine, sendFailLine, sendHandedLine, sendLiveLine} from '../app/meeting-send.mjs';
 
 const file = (name, type = 'application/octet-stream') => ({name, type, size: 10});
 const photo = n => file(`p${n}.jpg`, 'image/jpeg');
@@ -255,4 +255,140 @@ test('화면 알림: 올리는 동안 새로 고침은 먼저 묻고, 계정이 
   assert.equal(s.send.has('m1', bad), true);
   who = 'u2'; listeners.get('kptu:session-changed')();
   assert.equal(s.send.has('m1', bad), false, '다른 계정이 되면 못 올린 파일을 놓는다');
+});
+
+// ── APP-뒤에서올리기 PR-2(S58-12): 폰 앱에 넘긴 파일의 끝 · 화면으로 돌아오면 다시 ──
+const handJob = (over = {}) => { const j = makeJob(over.file); j.hands = []; j.hand = state => { j.phase = 'handed'; j.hands.push(state || {}); }; j.done = () => { j.phase = 'done'; }; return j; };
+
+test('앱에 넘김: 넘긴 파일은 앱의 끝 알림(handedJob)으로 올림·못 올림이 되고, 다 끝나야 묶음의 끝을 알린다', async () => {
+  const s = setup({track: f => handJob({file: f}), handedText: code => `까닭:${code}`,
+    handoff: async (t, items, opts) => { assert.equal(opts.alive(), true); return {ok: true, jobs: [{id: 'jobA', count: items.length}]}; }});
+  const files = [photo(1), photo(2), file('a.pdf')];
+  const batch = s.send.send(target, files);
+  await batch.settled;
+  assert.deepEqual(s.sent, [], '화면 안에서는 보내지 않는다');
+  assert.deepEqual(batch.entries.map(e => e.state), ['handed', 'handed', 'handed']);
+  assert.deepEqual(batch.entries.map(e => e.job.phase), ['handed', 'handed', 'handed']);
+  const handed = s.events.at(-1);
+  assert.equal(handed.type, 'handed'); assert.equal(handed.count, 3); assert.equal(handed.handedPhotos, 2); assert.equal(handed.handedFiles, 1);
+  assert.equal(s.send.has('m1', files[0]), true, '상세의 올리는 줄이 넘긴 파일도 찾는다');
+  assert.equal(s.send.any(), false, '앱이 맡은 파일은 새로 고침 물음에 세지 않는다');
+  assert.equal(s.send.handedJob({id: 'other', state: 'done', docs: ['x'], errors: ['']}), false, '이 화면이 넘기지 않은 묶음');
+  // 올리는 중: 끝난 파일부터 올림으로(그때그때)
+  assert.equal(s.send.handedJob({id: 'jobA', state: 'run', docs: ['d1', '', ''], errors: ['', '', '']}), true);
+  assert.deepEqual(batch.entries.map(e => e.state), ['done', 'handed', 'handed']);
+  assert.equal(s.events.at(-1).type, 'file'); assert.equal(s.events.at(-1).entry.byApp, true);
+  assert.equal(s.events.some(e => e.type === 'done'), false, '넘긴 파일이 남아 있으면 끝을 알리지 않는다');
+  // 끝: 둘째는 실패(다시 보낼 수 있음), 셋째는 올림
+  s.send.handedJob({id: 'jobA', state: 'done', docs: ['d1', '', 'd3'], errors: ['', 'server', '']});
+  assert.deepEqual(batch.entries.map(e => e.state), ['done', 'failed', 'done']);
+  assert.equal(batch.entries[1].message, '까닭:server');
+  const done = s.events.at(-1);
+  assert.equal(done.type, 'done'); assert.equal(done.sent, 2); assert.equal(done.okPhotos, 1); assert.equal(done.okFiles, 1); assert.equal(done.badPhotos, 1); assert.equal(done.retry, true);
+  // 같은 끝 알림이 또 와도(앱에 다시 물을 때마다 온다) 두 번 세지 않는다
+  assert.equal(s.send.handedJob({id: 'jobA', state: 'done', docs: ['d1', '', 'd3'], errors: ['', 'server', '']}), false);
+  assert.equal(s.events.filter(e => e.type === 'done').length, 1);
+});
+
+test('앱에 넘김: 결과를 적지 못한 파일·unknown은 결과 불명, 너무 큼·권한 없음은 다시 올리기 대상이 아니다', async () => {
+  const s = setup({track: f => handJob({file: f}), handoff: async (t, items) => ({ok: true, jobs: [{id: 'jobB', count: items.length}]})});
+  const batch = s.send.send(target, [photo(1), photo(2), photo(3), photo(4)]);
+  await batch.settled;
+  s.send.handedJob({id: 'jobB', state: 'done', docs: ['', '', '', ''], errors: ['unknown', 'too_big', 'forbidden', '']});
+  assert.deepEqual(batch.entries.map(e => e.state), ['unknown', 'failed', 'failed', 'unknown']);
+  assert.deepEqual(batch.entries.map(e => !!e.fixed), [false, true, true, false]);
+  const done = s.events.at(-1);
+  assert.equal(done.type, 'done'); assert.equal(done.unknown, 2); assert.equal(done.sent, 0);
+});
+
+test('앱에 넘김: 20개씩 나눠 넘기다 뒤 묶음을 못 넘기면 앞은 앱이, 뒤는 지금 길로 올린다', async () => {
+  const s = setup({track: f => handJob({file: f}), handoff: async () => ({ok: true, jobs: [{id: 'jobC', count: 2}]})});
+  const files = [photo(1), photo(2), photo(3)];
+  const batch = s.send.send(target, files);
+  await batch.settled;
+  assert.deepEqual(s.sent, ['p3.jpg']);
+  assert.deepEqual(batch.entries.map(e => e.state), ['handed', 'handed', 'done']);
+  assert.deepEqual(batch.entries.map(e => e.hand?.index), [0, 1, undefined]);
+  assert.equal(s.events.some(e => e.type === 'done'), false);
+  s.send.handedJob({id: 'jobC', state: 'done', docs: ['d1', 'd2'], errors: ['', '']});
+  const done = s.events.at(-1);
+  assert.equal(done.type, 'done'); assert.equal(done.sent, 3); assert.equal(done.okPhotos, 3);
+});
+
+test('앱에 넘김: 앱이 멈췄으면(stopped) 넘긴 채로 두고 까닭을 알린다 — 다시 이으면 끝까지', async () => {
+  const s = setup({track: f => handJob({file: f}), handoff: async (t, items) => ({ok: true, jobs: [{id: 'jobD', count: items.length}]})});
+  const batch = s.send.send(target, [photo(1), photo(2)]);
+  await batch.settled;
+  s.send.handedJob({id: 'jobD', state: 'stopped', reason: 'signed_out', docs: ['d1', ''], errors: ['', '']});
+  assert.deepEqual(batch.entries.map(e => e.state), ['done', 'handed']);
+  assert.deepEqual(batch.entries[1].job.hands.at(-1), {stopped: true, reason: 'signed_out'});
+  const stopped = s.events.at(-1);
+  assert.equal(stopped.type, 'handed-stopped'); assert.equal(stopped.job.reason, 'signed_out'); assert.equal(stopped.handedPhotos, 1);
+  assert.equal(await s.send.retry(batch), false, '앱이 맡은 파일은 화면이 다시 보내지 않는다');
+  s.send.handedJob({id: 'jobD', state: 'run', docs: ['d1', ''], errors: ['', '']});
+  assert.deepEqual(batch.entries[1].job.hands.at(-1), {});
+  s.send.handedJob({id: 'jobD', state: 'done', docs: ['d1', 'd2'], errors: ['', '']});
+  assert.equal(s.events.at(-1).type, 'done'); assert.equal(s.events.at(-1).sent, 2);
+});
+
+test('앱에 넘김: 넘기는 사이 계정이 바뀌면 알리지 않고 놓는다', async () => {
+  let who = 'u1';
+  const s = setup({scope: () => who, gone: scope => scope !== who, track: f => handJob({file: f}),
+    handoff: async (t, items, opts) => { who = 'u2'; assert.equal(opts.alive(), false); return {ok: true, jobs: [{id: 'jobE', count: items.length}]}; }});
+  const f = photo(1), batch = s.send.send(target, [f]);
+  await batch.settled;
+  assert.deepEqual(s.sent, []);
+  assert.equal(s.events.some(e => e.type === 'handed' || e.type === 'done'), false);
+  assert.equal(s.send.has('m1', f), false);
+});
+
+test('화면을 벗어나 다 보내기 전에 끊긴 파일: 돌아오면 그 자리에서 한 번 저절로 다시 보낸다(뒤 파일이 앞지르지 않음)', async () => {
+  let tries = 0, comeBack = null;
+  const s = setup({back: () => new Promise(r => { comeBack = r; }),
+    upload: async (t, f) => { if (f.name === 'p1.jpg' && ++tries === 1) throw Object.assign(new Error('끊김'), {away: true}); return {id: 'd-' + f.name}; },
+    classify: e => (e.away ? {kind: 'error', away: true, stop: true, message: '화면을 벗어나 멈췄어요'} : {kind: 'error', message: '실패'})});
+  const batch = s.send.send(target, [photo(1), photo(2)]);
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(s.events.at(-1).type, 'paused');
+  assert.deepEqual(batch.entries.map(e => e.state), ['sending', 'waiting'], '돌아올 때까지 줄은 서 있다');
+  assert.equal(s.jobs[0].failed, '화면을 벗어나 멈췄어요');
+  assert.equal(s.send.any(), true);
+  comeBack();
+  await batch.settled;
+  assert.equal(tries, 2);
+  assert.deepEqual(batch.entries.map(e => e.state), ['done', 'done']);
+  assert.equal(s.events.some(e => e.type === 'resumed'), true);
+  assert.equal(s.jobs.filter(j => j.file.name === 'p1.jpg').length, 2, '옛 실패 표시는 지우고 새 표시로 다시');
+  const done = s.events.at(-1);
+  assert.equal(done.type, 'done'); assert.equal(done.sent, 2); assert.equal(done.badPhotos, 0);
+  assert.equal(s.most(), 1);
+});
+
+test('돌아와 다시 보내도 안 되면 보통 실패([다시 올리기]) · 결과 불명·돌아옴을 모르는 곳은 저절로 다시 보내지 않는다', async () => {
+  let tries = 0;
+  const away = {kind: 'error', away: true, stop: true, message: '화면을 벗어나 멈췄어요'};
+  const s = setup({back: async () => {}, upload: async () => { tries++; throw Object.assign(new Error('끊김'), {away: true}); }, classify: () => away});
+  const batch = s.send.send(target, [photo(1), photo(2)]);
+  await batch.settled;
+  assert.equal(tries, 2, '한 번만 저절로 다시');
+  assert.deepEqual(batch.entries.map(e => e.state), ['failed', 'held']);
+  const done = s.events.at(-1);
+  assert.equal(done.type, 'done'); assert.equal(done.badPhotos, 2); assert.equal(done.retry, true); assert.equal(done.message, '화면을 벗어나 멈췄어요');
+  // 결과 불명(다 보낸 뒤 끊김)은 away가 아니다 → 다시 보내지 않는다
+  let n = 0;
+  const u = setup({back: async () => {}, upload: async () => { n++; throw new Error('모름'); }, classify: () => ({kind: 'unknown', stop: true, message: '확인하지 못했어요'})});
+  const b2 = u.send.send(target, [photo(1)]);
+  await b2.settled;
+  assert.equal(n, 1); assert.equal(b2.entries[0].state, 'unknown');
+  // back이 없으면(돌아옴을 알 수 없음) 지금처럼 바로 실패
+  let m = 0;
+  const w = setup({upload: async () => { m++; throw new Error('끊김'); }, classify: () => away});
+  const b3 = w.send.send(target, [photo(1)]);
+  await b3.settled;
+  assert.equal(m, 1); assert.equal(b3.entries[0].state, 'failed');
+});
+
+test('글: 앱이 뒤에서 올리는 중', () => {
+  assert.equal(sendHandedLine({photos: 7, files: 1}), '사진 7장·자료 1개 앱이 뒤에서 올리는 중');
+  assert.equal(sendHandedLine({}), '');
 });
