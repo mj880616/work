@@ -10,6 +10,8 @@
 // - 29분(SEGMENT_SECONDS)마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
 // - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [녹음 요약하기]
 //   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
+// - REC-한회의로잇기 PR-3(예외 하나): 정리 결과를 열기 전 [그 보고에 잇기]를 고르면 사람이 고른 그 보고에 서버가 뒤에서 저장한다(meeting-join.js).
+//   새 보고 만들기는 지금처럼 명진이 [사업 보고 저장].
 // - REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있으면 비우기 전에 묻고(team.js), 서버 정리 결과의 '열었음'은 저장·버림 때만 보낸다(entryHooks).
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
@@ -402,7 +404,7 @@ async function serverFinish(opts,known=null){
     fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [다시]를 눌러 주세요.':'정리 상태를 확인하지 못했어요. 서버는 계속 정리 중일 수 있어요. [다시]를 누르세요.',true);
   }
 }
-// 서버가 끝낸 결과 → 사업 보고 › 회의 입력 창(전문·요약을 채운 채). 저장은 명진이 [사업 보고 저장].
+// 서버가 끝낸 결과 → 사업 보고 › 회의 입력 창(전문·요약을 채운 채). 저장은 명진이 [사업 보고 저장](예외: 물음에서 [그 보고에 잇기] — 서버가 그 보고에 저장).
 // 회의자료 그 자리 전사(kind attached)는 그 회의 [수정] 창에 넣는다(meeting-round-detail.js fillTranscript).
 async function openServerResult(job){
   if(job?.kind==='attached'){
@@ -422,6 +424,17 @@ async function openServerResult(job){
     step='초안 열림';note='';paint();
     // 회의 시각 = 녹음을 시작한 때(이 창에서 녹음했으면 그 시각, 아니면 정리를 맡긴 때에서 녹음 길이만큼 앞).
     const began=startedAt&&job.session_id===sessionId?startedAt:new Date((Date.parse(job.created_at)||Date.now())-(Number(job.seconds)||0)*1000).toISOString();
+    // REC-한회의로잇기 PR-3(설계 3-3절): 같은 날 녹음으로 쓴 보고가 있으면 열기 전에 한 번 묻는다(물음·잇기의 주인은 meeting-join.js, 묻는 동안 띠는 '정리 끝').
+    // [그 보고에 잇기]면 창 없이 서버가 뒤에서 그 보고에 저장하고 띠는 바로 닫는다(다음 녹음을 막지 않게). 물음을 닫으면 결과는 띠 [초안 열기]에 남는다.
+    // 서버가 잇기를 모르면(적용 전·옛 Edge) 묻지 않고 아래 지금 길.
+    if(window.KPTUMeetingJoin?.ask){
+      readyJob=job;jobId='';state='ready';paint();
+      const how=await window.KPTUMeetingJoin.ask(job,{began});
+      if(how==='joined'){if(readyJob?.id===job.id){readyJob=null;state='idle';step='';note='';accum=0;runSince=0;paint()}pending=pending.filter(s=>s.session_id!==job.session_id);void loadPending(true);return}
+      if(how==='later')return;
+      if(state!=='ready'||readyJob?.id!==job.id)return; // 묻는 사이 띠를 닫았거나 다른 녹음을 시작함 — 결과는 서버에 '안 열림'으로 남는다
+      step='초안 열림';note='';state='finishing';paint();
+    }
     // REC-한회의로잇기 PR-0: 쓰던 사업 보고 창을 두기로 하면 결과는 띠 [초안 열기]에 남는다(창은 그대로).
     if(!await openEntry(began,entryHooks(job))){readyJob=job;jobId='';state='ready';paint();return}
     const draft=window.KPTUMeetingTranscriptDraft;
@@ -660,7 +673,16 @@ function watch(job){
   void serverFinish({jobId:job.id});
   return true;
 }
-window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch,transcribeAttached};
+// REC-한회의로잇기 PR-3: 잇지 못했거나 통째로 되돌린 녹음 결과를 띠 '정리 끝 · [초안 열기]'로 돌린다(open이면 바로 연다 — meeting-join.js [새 보고로 열기]).
+// 띠가 녹음·정리 중이거나 다른 결과를 들고 있으면 건드리지 않고 false(그 결과는 서버에 '안 열림'으로 남아 다음에 앱을 열 때 띠에 뜬다).
+function ready(job,{open=false}={}){
+  if(!job?.id||active()||state==='finishing'||discarding)return false;
+  backToBand(job);
+  if(state!=='ready'||readyJob?.id!==job.id)return false;
+  if(open)void openReady();
+  return true;
+}
+window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch,transcribeAttached,ready};
 paint();
 // 첫 화면 요청과 겹치지 않게 조금 뒤에 한 번 묻는다(서버 정리 중·끝난 녹음이 있을 때만 띠가 뜬다).
 setTimeout(()=>void loadServerJobs(),2500);

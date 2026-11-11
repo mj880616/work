@@ -357,7 +357,7 @@ const tokenPalette=dark=>{const css=read('app/theme-tokens.css'),at=css.indexOf(
 const palette=()=>tokenPalette(false);
 // STAB-E2E간헐1104: 앱을 막 연 뒤 한동안 도는 시작 작업(원드라이브 사진 미리 데우기, 녹음 서버 작업 목록 읽기 — 작업공간이 준비될 때까지 1초 간격으로 다시 시도)의 요청은
 // 회의 입력과 무관하다. 느린 실행에서는 이것이 '요청 0건' 세는 구간에 늦게 걸렸다. 세기에서 이 두 가지만 뺀다(회의 자료·회의 기록 요청은 그대로 센다).
-const startupRequest=url=>/\/functions\/v1\/(onedrive-photos|meeting-transcribe\?action=job_list)/.test(url);
+const startupRequest=url=>/\/functions\/v1\/(onedrive-photos|meeting-transcribe\?action=(job_list|join_list))/.test(url); // REC-한회의로잇기 PR-3: 시작 뒤 잇기 줄 확인(join_list)도 녹음 정리 확인과 같은 때
 async function showMeetings(page,rows,docs=[]){
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
   await page.route(`${SB}/rest/v1/app_documents**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(docs)}));

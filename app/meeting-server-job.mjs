@@ -3,6 +3,8 @@
 // - 서버(Edge meeting-transcribe job_start)가 합치기 → 구간 전사 → 요약을 화면과 상관없이 이어 한다. 화면은 job_read로 진행만 본다.
 // - 화면을 닫거나 다른 앱으로 가도 서버는 계속하고, 끝나면 폰 알림 '회의 요약이 준비됐어요'. 다시 열면 job_list로 띠를 이어 그린다.
 // - 서버가 아직 이 길을 모르면(옛 Edge·표 적용 전) 'unavailable'을 돌려주고, 부른 쪽은 지금까지의 화면 정리 길로 간다.
+// - REC-한회의로잇기 PR-3(예외 하나): 정리 결과를 사람이 고른 보고에 [그 보고에 잇기]하면 서버가 뒤에서 그 보고에 저장한다(join_*, meeting-join.js).
+//   그 밖의 정리 결과는 지금처럼 입력 창에 채우기만 하고 저장은 사람이 누른다.
 
 export const POLL_MS=5000;
 export const POLL_HIDDEN_MS=30000;
@@ -56,7 +58,7 @@ const FAIL_TEXT={
   drive_failed:`Drive에서 소리를 읽지 못했어요. ${KEEP} ${AGAIN}`,
   drive_not_connected:'Google Drive 연결이 끊겼어요. 자료실에서 Drive를 연결한 뒤 [다시]를 누르세요.',
   usage_unavailable:`이번 달 사용량을 확인하지 못했어요. ${AGAIN}`,
-  // REC-한회의로잇기(PR-2): 잇기·합치기 작업이 멈춘 이유(Edge meeting-transcribe join_*). 어느 경우에도 보고는 그대로다. 글자만 — 쓰는 화면은 뒤 PR.
+  // REC-한회의로잇기(PR-2): 잇기·합치기 작업이 멈춘 이유(Edge meeting-transcribe join_*). 어느 경우에도 보고는 그대로다. 쓰는 화면은 meeting-join.js(joinFailText).
   report_changed:'그 사이 보고를 수정해서 잇지 않았어요. [다시]를 누르면 수정한 글로 처음부터 이어요.',
   report_gone:'그 보고를 찾지 못했어요. 바뀐 것은 없어요.',
   source_changed:'그 사이 합칠 보고를 수정해서 합치지 않았어요. [다시]를 누르세요.',
@@ -71,6 +73,59 @@ const FAIL_TEXT={
 export function failText(code){
   return FAIL_TEXT[code]||`서버에서 정리하다 멈췄어요. ${KEEP} [다시]를 누르세요.`;
 }
+// REC-한회의로잇기 PR-3: 잇기·합치기(join_*)가 멈추거나 시작하지 못한 이유 → 알림 줄·작은 알림 글. 녹음 정리와 뜻이 다른 코드만 따로 두고
+// (같은 코드라도 잇기에서는 '소리는 Drive에…'·'정리가…'가 맞지 않음), 나머지(요약 실패·한도 등)는 위 표 그대로. 어느 경우에도 보고는 그대로다.
+const JOIN_FAIL_TEXT={
+  busy:'그 보고는 지금 잇는 중이에요. 끝난 뒤 다시 해 주세요.',
+  not_found:'그 보고나 녹음을 찾지 못했어요. 바뀐 것은 없어요.',
+  not_done:'녹음 정리가 아직 끝나지 않았어요.',
+  empty_transcript:'녹음에서 글을 찾지 못해 잇지 않았어요.',
+  interrupted:'잇다가 중간에 끊겼어요. 보고는 그대로예요. [다시]를 누르세요.',
+  too_many_steps:'잇기가 너무 오래 걸려 멈췄어요. 보고는 그대로예요. [다시]를 누르세요.',
+  draft_failed:'전체 글로 요약을 다시 만들지 못했어요. 보고는 그대로예요. [다시]를 누르세요.',
+};
+export function joinFailText(code){
+  return JOIN_FAIL_TEXT[code]||FAIL_TEXT[code]||'잇다가 멈췄어요. 보고는 그대로예요. [다시]를 누르세요.';
+}
+// 공용 요청(runtime api)은 실패 답의 code를 넘기지 않고 status('http_409')와 서버 글(error)만 남긴다. 잇기 입구의 서버 글은 code마다 정해진 글
+// (Edge meeting-transcribe model.mjs MESSAGES)이라 그 글로 code를 되찾는다. 시험(tests/meeting-join-model.test.mjs)이 서버 표와 글자 그대로 맞춰 본다.
+export const JOIN_SERVER_TEXT=Object.freeze({
+  bad_request:'요청을 확인하지 못했어요.',
+  busy:'다른 녹음을 전사하는 중이에요. 끝난 뒤 다시 눌러 주세요.',
+  not_found:'전사 작업을 찾지 못했어요.',
+  not_done:'전사가 끝난 녹음만 붙일 수 있어요.',
+  empty_transcript:'녹음에서 글을 찾지 못했어요.',
+  jobs_unavailable:'서버 정리를 아직 쓸 수 없어요.',
+  report_changed:'그 사이 보고를 수정해서 잇지 않았어요. [다시]를 누르면 수정한 글로 처음부터 이어요.',
+  report_gone:'그 보고를 찾지 못했어요. 바뀐 것은 없어요.',
+  source_changed:'그 사이 합칠 보고를 수정해서 합치지 않았어요. [다시]를 누르세요.',
+  source_gone:'합칠 보고나 녹음을 찾지 못했어요. 바뀐 것은 없어요.',
+  already_joined:'이미 다른 보고에 들어간 녹음이에요.',
+  no_first_transcript:'회의록 전문이 없는 보고에는 이어 붙일 수 없어요.',
+  bad_target:'[회의] 보고에만 이어 붙일 수 있어요.',
+  not_applied:'되돌릴 내용을 찾지 못했어요.',
+  text_too_long:'글이 너무 길어 이어 붙일 수 없어요.',
+});
+export function joinErrorCode(e){
+  const c=String(e?.code||'');
+  if(c&&!/^http_\d+$/.test(c)&&c!=='request_failed')return c; // session_required·timeout·network_error 등 화면 쪽 이유
+  const msg=String(e?.message||'').trim();
+  for(const [code,text] of Object.entries(JOIN_SERVER_TEXT))if(text===msg)return code;
+  const s=Number(e?.status)||0;
+  return s===503?'jobs_unavailable':s===400?'bad_request':'failed';
+}
+// 이 서버가 잇기를 모름: 표·함수 적용 전(503 jobs_unavailable) 또는 옛 Edge(모르는 action = 400 bad_request). 화면은 묻지 않고 지금 길로 간다.
+export const joinUnknown=e=>['jobs_unavailable','bad_request'].includes(joinErrorCode(e));
+// 되돌리기(join_undo)가 거절된 이유 → 작은 알림 글(3-5절).
+const UNDO_FAIL_TEXT={
+  report_changed:'이은 뒤 보고를 수정했거나 그 뒤에 또 이어서, 통째로는 되돌릴 수 없어요. 회의 결과 글은 보고에서 [합치기 전 글로 되돌리기]로 되돌릴 수 있어요.',
+  source_gone:'뒤에 한 잇기·합치기부터 되돌려 주세요.',
+  report_gone:'그 보고를 찾지 못했어요. 바뀐 것은 없어요.',
+  not_applied:'되돌릴 내용을 찾지 못했어요.',
+};
+export const undoFailText=code=>UNDO_FAIL_TEXT[code]||'되돌리지 못했어요. 바뀐 것은 없어요. 잠시 뒤 다시 해 주세요.';
+// 잇기 [다시]가 뜻이 있는 실패인가. 찾지 못함·이미 다른 보고에 들어감·전문 없음·칸 다름·글 너무 김은 다시 해도 같다.
+export const joinCanRetry=code=>!['report_gone','source_gone','already_joined','no_first_transcript','bad_target','not_found','text_too_long','not_applied'].includes(code);
 // 다시 눌러서 될 수 있는 실패인가. REC-글못찾음: empty_transcript도 [다시]를 둔다 — 11/11 전엔 전사 서비스의 빈 답도 이 코드였고
 // (같은 41분 구간이 한 번은 실패, 한 번은 빈 답), 구간 없음·말 없음이면 [다시]가 전사를 다시 부르지 않고 바로 같은 이유로 멈춘다.
 export const canRetry=code=>!['not_found','bad_type','too_large','too_long'].includes(code);

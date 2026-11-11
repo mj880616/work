@@ -18,6 +18,7 @@ import {sendUploadApi} from './upload-send.mjs';
 import {regularNames} from './meeting-name-sorts.mjs';
 import {peekSorts} from './meeting-name-sorts.js';
 import {trackUpload,paintUploadLine,watchUploads} from './upload-progress.js';
+import {sameVersionFilter} from './meeting-join-model.mjs'; // REC-한회의로잇기 PR-3: 회의 결과 칸은 읽은 판 그대로일 때만 쓴다
 
 (()=>{
 'use strict';
@@ -254,14 +255,21 @@ async function saveGroup(g,scope){
     announceRecordSaved({kind:'meeting',id:meetingId,project_id:null,day:seoulDateKey(row.meeting_at||g.date),title:g.kind,text:combined}); // MTG-기록겹침거르기: 새로 만든 사업 보고만
   }else{
     for(const i of g.items)i.meetingId=meetingId;
+    // REC-한회의로잇기 PR-3(설계 docs/design/rec-join.md 3-5절): 회의 결과 칸은 읽은 판 그대로일 때만 쓴다. 그 사이 녹음 잇기 등으로 바뀌었으면
+    // 새 글을 다시 읽어 그 뒤에 더한다(세 번까지) — 옛 글로 덮어 이은 글을 잃지 않게.
     if(combined){
-      const current=(await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id,transcript_text`))?.[0];
-      if(!current)throw new Error('기존 회의를 찾지 못했어요.');
-      const next=appendResult(current.transcript_text,combined);
-      if(next!==String(current.transcript_text||'')){
-        const rows=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id`,{method:'PATCH',prefer:'return=representation',body:{transcript_text:next,updated_at:new Date().toISOString()}});
+      let saved=false;
+      for(let i=0;i<3&&!saved;i++){
+        const current=(await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id,transcript_text,updated_at`))?.[0];
+        if(!current)throw new Error('기존 회의를 찾지 못했어요.');
+        const next=appendResult(current.transcript_text,combined);
+        if(next===String(current.transcript_text||'')){saved=true;break}
+        const rows=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id${sameVersionFilter(current.updated_at)}`,{method:'PATCH',prefer:'return=representation',body:{transcript_text:next,updated_at:new Date().toISOString()}});
+        if(Array.isArray(rows)&&!rows.length&&current.updated_at!==undefined)continue;
         if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했어요.');
+        saved=true;
       }
+      if(!saved)throw new Error('그 사이 회의가 계속 바뀌었어요. 잠시 뒤 다시 저장해 주세요.');
     }
     markText(meetingId);
   }
