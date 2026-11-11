@@ -483,3 +483,21 @@ for(const width of [412,1440])test(`subcategories: pick in the [분류 ▾] wind
 // 분류 고치기 창의 소분류 만들기 칸 열기·지우기 누르기(창 모양이 바뀌어도 시험 본문은 그대로 두려고 한 곳에 둔다).
 async function openSubForm(page,editor,parent,width){await rowAct(page,editor,parent,'+ 소분류',width);await expect(editor.locator('[data-dce-sub-input]')).toBeVisible();}
 async function deleteCategory(page,editor,name,label,width){await rowAct(page,editor,name,'삭제',width);}
+
+// FILE-이름고치기연필먹통(S57-4): 담당조직 자료 줄도 ✎ 없이 ⋯ 안 [이름 수정] — 누르면 메뉴가 닫히고 링크 자리에 그 자리 이름 칸이 열린다(Esc로 닫으면 링크 그대로).
+for(const width of [390,1280])test(`organization document row: no ✎, ⋯ → [이름 수정] opens the in-line name field ${width}`,async({page})=>{
+ const f=await fixture(page,{width});
+ await openOrg(page);
+ const section=page.locator('#wdDocs'),row=section.locator('.wd-doc-row').first(),title=(await row.locator('.wd-doc-main b').textContent()).trim();
+ await expect(section.locator('.fr-edit')).toHaveCount(0);
+ await row.locator('summary').click();
+ await expect(row.locator('.wd-doc-panel button').filter({hasText:'이름 수정'})).toHaveCount(1);
+ await row.locator('.wd-doc-panel button').filter({hasText:'이름 수정'}).click();
+ const input=row.locator('.fr-input');
+ await expect(input).toBeVisible();await expect(input).toBeFocused();await expect(input).toHaveValue(title);
+ await expect(row.locator('details.wd-doc-more')).not.toHaveAttribute('open','');
+ await page.keyboard.press('Escape');
+ await expect(input).toHaveCount(0);await expect(row.locator('.wd-doc-main b')).toHaveText(title);
+ expect(await noWideScroll(page)).toBe(true);
+ expect(f.errors).toEqual([]);
+});

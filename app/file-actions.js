@@ -129,9 +129,11 @@ export async function pressFile(file, {viewPhoto = null, viewHtml = null, api, o
 }
 
 // ⋯ 메뉴 두 항목. attr는 호출한 메뉴가 줄을 찾는 데 쓰는 속성 문자열(예: ' data-x="id"'), 각 항목은 attr(기본 data-file-menu)="open|download".
-export function menuItemsHtml(file, {attrs = '', cls = '', attr = 'data-file-menu'} = {}) {
-  const item = (act, label, ok) => ok ? `<button type="button"${cls ? ` class="${esc(cls)}"` : ''} ${attr}="${act}"${attrs}>${label}</button>` : '';
-  return item('open', 'Drive에서 열기', canOpenInDrive(file)) + item('download', '내려받기', canDownload(file));
+// FILE-이름고치기연필먹통: rename = file-rename.js renameMenuAttrs(spec)의 속성 문자열이면 [내려받기] 뒤에 [이름 수정]을 더한다(✎를 따로 두지 않는 ⋯ 줄).
+// 누르기 처리는 file-rename.js 전역 click이 한다(같은 줄 data-fr-row의 이름 칸에서 고치는 칸을 연다) — 단추는 이 한 곳에서 그린다.
+export function menuItemsHtml(file, {attrs = '', cls = '', attr = 'data-file-menu', rename = ''} = {}) {
+  const item = (act, label, ok, own = '') => ok ? `<button type="button"${cls ? ` class="${esc(cls)}"` : ''} ${own || `${attr}="${act}"${attrs}`}>${label}</button>` : '';
+  return item('open', 'Drive에서 열기', canOpenInDrive(file)) + item('download', '내려받기', canDownload(file)) + item('rename', '이름 수정', !!rename, String(rename).trim());
 }
 
 // 링크로 그려지는 파일 줄(할 일 첨부·담당조직 자료·프로젝트 자료)용. 줄 요소에 fileAttrs를 붙이면 아래 전역 클릭 처리가 같은 규칙을 적용한다.
