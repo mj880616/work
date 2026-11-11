@@ -54,7 +54,7 @@ test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리
     await expect(page.locator('#documentList details[data-lu-node="o:org-1"]')).not.toHaveAttribute('open','');
     const r=await dropFiles(page,head('o:org-1'),['a.hwpx','b.pdf'],{wait:1300});
     expect(r).toEqual({allowed:true,into:true,group:true,open:true,hint:'놓으면 ‘공공기관사업본부’로 올려요'});
-    await expect(page.locator('#libraryDropStatus')).toHaveText('공공기관사업본부로 2개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('공공기관사업본부로 2개 올렸어요');
     expect(s.uploads.map(u=>u.id)).toEqual([uid(1),uid(2)]);
     // 조직은 올리기 요청 칸이 아니라 올린 뒤 자료 연결(담당조직 상세 [+]와 같은 길).
     expect(s.fields.every(f=>f.organization_id===null)).toBe(true);
@@ -63,7 +63,7 @@ test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리
     await expect(page.locator('#documentList .lu-drop-into,#documentList .lu-drop-group')).toHaveCount(0);
     const out=await dropFiles(page,head('o:none'),['c.pdf']);
     expect(out.hint).toBe('놓으면 바로 올려요');expect(out.group).toBe(false);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.uploads.length).toBe(3);expect(s.patches.filter(p=>p.body?.organization_id).length).toBe(2);
     expect(errors).toEqual([]);
   });
@@ -72,11 +72,11 @@ test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리
     const {s,errors}=await boot(page,'사업영역');
     const r=await dropFiles(page,head('p:top-a'),['a.pdf','b.pdf']);
     expect(r.hint).toBe('놓으면 ‘공공기관 기능개혁 대응’으로 올려요');expect(r.into).toBe(true);expect(r.group).toBe(true);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('공공기관 기능개혁 대응으로 2개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('공공기관 기능개혁 대응으로 2개 올렸어요');
     expect(s.fields.map(f=>f.project_id)).toEqual(['top-a','top-a']);
     const out=await dropFiles(page,head('p:none'),['c.pdf']);
     expect(out.hint).toBe('놓으면 바로 올려요');
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.fields.at(-1).project_id).toBe(null);
     expect(errors).toEqual([]);
   });
@@ -86,7 +86,7 @@ test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리
     const ai=[];await page.route(`${SB}/functions/v1/ai-assist`,route=>{ai.push(route.request().postDataJSON());return route.fulfill({json:{ok:true,updated:0}})});
     const r=await dropFiles(page,head('c:교섭'),['a.pdf']);
     expect(r.hint).toBe('놓으면 ‘교섭’으로 올려요');expect(r.group).toBe(true);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('교섭으로 1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('교섭으로 1개 올렸어요');
     expect(s.fields.map(f=>f.category)).toEqual(['교섭']);
     await expect.poll(()=>ai.length).toBeGreaterThan(0);
     expect(ai[0].keep).toContain('category');
@@ -94,7 +94,7 @@ test.describe('PC 1440 PC 파일을 묶음 머리에 놓아 그 값으로 올리
     const month=await page.locator('#documentList details[data-lu-node^="m:"]').first().getAttribute('data-lu-node');
     const out=await dropFiles(page,head(month),['b.pdf']);
     expect(out.hint).toBe('놓으면 바로 올려요');expect(out.group).toBe(false);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.fields.at(-1)).toEqual({project_id:null,category:null,organization_id:null});
     expect(errors).toEqual([]);
   });

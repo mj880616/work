@@ -30,13 +30,13 @@ for(const width of [1440,884])test(`자료실 ${width}: 사업 보고 결과 칸
   await expect(page.locator('#meetingRoundDetailModal.mrd-docked:not(.hidden)')).toHaveCount(1);
   let r=await dropAt(page,'#documentList',['a.pdf']);
   expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 바로 올려요'});
-  await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
   expect(s.uploads.length).toBe(1);
   // 폴더 줄 위에 놓으면 그 폴더로.
   const row=await page.locator('#libraryFolderNav [data-lu-nav="fa"]').count()?'#libraryFolderNav [data-lu-nav="fa"]':'#documentList details[data-lu-node="f:fa"] > summary';
   r=await dropAt(page,row,['b.pdf']);
   expect(r).toMatchObject({allowed:true,hint:'놓으면 ‘가상 A’ 폴더로 올려요'});
-  await expect(page.locator('#libraryDropStatus')).toHaveText('가상 A에 1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');
   expect(s.uploads.length).toBe(2);
   expect(errors).toEqual([]);
 });
@@ -53,6 +53,6 @@ test('자료실 1440: 진짜 떠 있는 창이 있으면 화면 놓기는 쉬고
   await page.evaluate(()=>document.querySelector('#qaFloatModal').classList.add('hidden'));
   const again=await dropAt(page,'#documentList',['d.pdf']);
   expect(again).toMatchObject({allowed:true,shown:true});
-  await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
   expect(errors).toEqual([]);
 });

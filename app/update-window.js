@@ -24,7 +24,8 @@ function toast(message) {
 }
 export const savedMessage = saved => saved.places?.length || saved.place ? `${saved.name || '선택한 곳'} 기록에 저장했어요.` : '잊지 말기에 저장했어요.';
 // BIZ-저장먼저닫기 2차: the files are still going up when the window closes (the line above the bottom bar shows them to the end).
-export const sendingMessage = (saved, letters) => letters.trim() ? `${savedMessage(saved)} 사진·파일은 올리는 중이에요.` : '사진·파일을 올리는 중이에요.';
+// UX-알림하나로(S59-21): 그 진행·끝은 하단바 위 한 줄 하나가 말한다 — 저장 알림은 글을 저장한 것만(글 없이 파일만이면 '' = 띄우지 않음).
+export const sendingMessage = (saved, letters) => letters.trim() ? savedMessage(saved) : '';
 let sheet = null, active = null;
 function placeSheet() {
   sheet ||= createChoiceSheet({id:'edwPlaceSheet', titleId:'edwPlaceSheetTitle', historyKey:'kptuEdwPlace',
@@ -121,7 +122,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
       if (!target.length) window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
     } catch (error) { return {ok:false, message:error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }
     finally { busy = false; if (!closed) files.picker.render(); }
-    toast(warning || (sending ? sendingMessage(saved, letters) : savedMessage(saved))); onSaved(saved);
+    { const said = warning || (sending ? sendingMessage(saved, letters) : savedMessage(saved)); if (said) toast(said); } onSaved(saved);
     return {ok:true};
   }
   handle = openEdWindow({title, doc, text, draft, saveUnchanged:true, limit:() => files.pending() ? UPDATE_TEXT_MAX : textLimitFor(state.chosen), head:head.row, foot:files.node, onFiles:list => files.picker.add(list),

@@ -138,9 +138,12 @@ test.describe('폰 412',()=>{
  test('노트 [넣기] → [사진]: 보내다 연결이 끊기면 실패 + [다시], [다시]를 누르면 다시 올라가 들어간다',async({page})=>{
   const f=await noteFixture(page);f.srv.state.cutOnce=6*MB;f.srv.state.pauseMs=20;
   await insertVia(page,f.box,'photo',[{name:'끊김.jpg',mimeType:'image/jpeg',buffer:bigJpeg()}]);
-  const tile=f.box.locator('.ed-uploads .up-row');
-  await expect(tile.locator('.up-pc')).toHaveText('실패',{timeout:30000});
-  const again=tile.getByRole('button',{name:'끊김.jpg 다시 올리기'});
+  // UX-알림하나로(S59-21): 실패·[다시 올리기]는 하단바 위 한 줄 하나 — 글 위 올리는 줄은 '실패 [다시]'를 따로 그리지 않는다.
+  const dock=page.locator('#uploadDock:not([hidden])');
+  await expect(dock.locator('.up-dock-text')).toHaveText('사진을 올리지 못했어요',{timeout:30000});
+  await expect(f.box.locator('.ed-uploads .up-row')).toHaveCount(0);
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
+  const again=dock.getByRole('button',{name:'못 올린 사진 다시 올리기'});
   await expect(again).toBeVisible();
   expect(f.uploads).toEqual([]);
   await again.click();

@@ -48,7 +48,7 @@ import { paintDoc, docCopy, mountEditField, notePhotos, noteFiles } from './note
 import { prepareSave } from './ed-window-model.mjs';
 import { mountQuick } from './home-quick.js';
 import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles, noteFileLine } from './basket-upload.js';
-import { setUploadRetry } from './upload-progress.js';
+import { setUploadRetry, announceDock } from './upload-progress.js';
 import { announceUploaded } from './upload-done.js';
 import { fileLine } from './meeting-compact.js';
 import { deleteAttachment } from './file-trash.js';
@@ -788,15 +788,17 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const id = selected.id, batch = bigFiles;
     if (batch.blocked) return {ok:false, message:batch.blocked.message};
     bigFiles = createUploadBatch(id, batch.attachments); bigWriter?.renderFiles?.();
-    sendNoteFiles(id, batch, {textSaved});
-    return {ok:true, message:textSaved ? '글을 저장했어요. 첨부는 올리는 중이에요' : '첨부를 올리는 중이에요'};
+    sendNoteFiles(id, batch);
+    // UX-알림하나로(S59-21): 첨부를 올리는 진행·끝은 창의 올리는 줄·하단바 위 한 줄이 말한다(창 상태 줄에 '올리는 중'을 또 쓰지 않는다).
+    return {ok:true, message:textSaved ? '글을 저장했어요' : ''};
   }
-  function sendNoteFiles(id, batch, {textSaved = false} = {}) {
+  function sendNoteFiles(id, batch) {
     const owner = scope(), here = () => owner === scope();
     const count = () => batch.entries.filter(entry => entry.kind === 'success').length;
     void fileQueue.add(id, batch, async () => {
       if (!here() || !batch.entries.some(entry => entry.kind !== 'success')) return;
       const before = count(), mine = batch.entries.filter(entry => entry.kind !== 'success'), sent = () => mine.filter(entry => entry.kind === 'success').map(entry => entry.file?.name || '');
+      const files = mine.map(entry => entry.file); // 끝 알림이 맡는 파일(올라가면 entry.file은 이름·크기만 남는다)
       let error = null;
       try { await uploadNoteFiles(id, batch, {rt, isCurrent:here}); } catch (e) { error = e; }
       if (!here()) return; // 다른 계정·작업공간 화면에는 아무것도 그리지도 알리지도 않는다
@@ -820,17 +822,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         }
       }
       const done = count() - before, left = batch.entries.filter(entry => entry.kind !== 'success').length;
-      const inWindow = !!bigWriter && !!bigFiles && selected?.id === id;
-      if (!error) {
-        if (inWindow) bigWriter.say?.(textSaved ? '글과 첨부를 저장했어요' : '첨부를 저장했어요');
-        else announceUploaded({done, names:sent(), where:'노트'});
-        return;
-      }
-      if (error.code === 'upload_cancelled') { if (inWindow) bigWriter.say?.(error.message); return; }
-      const message = `첨부를 올리지 못했어요. ${error.message || ''}`.trim();
-      if (inWindow) bigWriter.say?.(message);
-      if (done) announceUploaded({done, names:sent(), failed:left, where:'노트', retry});
-      else notify(`노트 ${message}`, {error:true, record:false, actions:retry ? [{label:'다시', run:({close}) => { close(); retry(); }}] : []});
+      // UX-알림하나로(S59-21): 끝·실패·[다시 올리기]는 하단바 위 한 줄 하나 — 큰 창이 열려 있어도 창 상태 줄·위쪽 작은 알림으로 또 알리지 않는다
+      // (files: 창의 올리는 줄이 이 파일들의 '실패 [다시]'·'✓ 완료'를 따로 그리지 않게).
+      if (!error) { announceUploaded({done, names:sent(), where:'노트', files}); return; }
+      if (error.code === 'upload_cancelled') { announceDock({text:'올리기를 취소했어요', files}); return; }
+      if (done) announceUploaded({done, names:sent(), failed:left, where:'노트', retry, note:error.message || '', files});
+      else announceDock({text:`노트 첨부 ${left}개 못 올렸어요`, note:error.message || '', error:true, ms:0, files, actions:retry ? [{label:'다시 올리기', aria:'못 올린 파일 다시 올리기', run:retry}] : []});
     });
   }
   // 올리는 동안에도 잠그는 것: 같은 노트의 빼기·삭제·고정·옮기기. 서버는 올리는 사이 노트가 바뀌면 그 올리기를 거절하므로(updated_at·attachments

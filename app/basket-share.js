@@ -101,10 +101,10 @@ function start() {
     if (scope() !== owner) { failed('로그인 계정이 바뀌어 넣지 않았어요. 다시 공유해 주세요.', false); return; }
     const raw = shareRawText({subject:share.subject, text:share.text});
     busy = true;
-    notify(`${SEND_NOTE.basketBusy} · ${shareSummary({items:share.keep, text:share.text, subject:share.subject})}`, {ms:WORKING_MS});
+    const working = notify(`${SEND_NOTE.basketBusy} · ${shareSummary({items:share.keep, text:share.text, subject:share.subject})}`, {ms:WORKING_MS});
     let status = skippedText(share.skipped), noteId = '', error = null;
     try {
-      const [{createUploadBatch, uploadBatch}, {createNote, validateNoteText}] = await Promise.all([import('./basket-upload.js'), import('./basket-data.js')]);
+      const [{createUploadBatch, uploadBatch, uploadBasketFile}, {createNote, validateNoteText}, {trackUpload}] = await Promise.all([import('./basket-upload.js'), import('./basket-data.js'), import('./upload-progress.js')]);
       if (!files) {
         const got = share.keep.length ? await receive() : {out:[], failed:0, large:0, empty:0};
         files = got.out;
@@ -117,8 +117,12 @@ function start() {
       const isCurrent = () => scope() === owner;
       if (batch) {
         let ocrNote = '';
+        // UX-알림하나로(S59-21): 파일을 올리는 동안의 진행은 하단바 위 한 줄 하나(위쪽 '넣는 중' 알림은 여기서 닫는다). 끝·실패는 아래 '넣었어요'·'넣지 못했어요'
+        // 알림 하나가 말하므로(되돌리기·메모 달기·[다시]) 하단 한 줄의 'n개 올림'은 또 띄우지 않는다(ownEnd).
+        working.close();
+        const request = (fd, file, rt, fetcher, current) => uploadBasketFile(fd, file, rt, fetcher, current, {job:trackUpload({file, ownEnd:true})});
         // 바구니와 같은 길: 첫 파일과 글로 업데이트를 만들고 나머지 파일을 붙인 뒤, 사진이면 글자 읽기를 한다(D5).
-        await uploadBatch(batch, {raw_text:batch.note_id ? '' : raw.text, isCurrent, onOcrChange:value => { if (!value.ok) ocrNote = value.result_unknown ? '글자 읽기 결과는 잊지 말기에서 확인해 주세요.' : '사진 글자는 읽지 못했어요.'; }});
+        await uploadBatch(batch, {raw_text:batch.note_id ? '' : raw.text, isCurrent, request, onOcrChange:value => { if (!value.ok) ocrNote = value.result_unknown ? '글자 읽기 결과는 잊지 말기에서 확인해 주세요.' : '사진 글자는 읽지 못했어요.'; }});
         noteId = batch.note_id || '';
         if (ocrNote) status = [status, ocrNote].filter(Boolean).join(' ');
       } else {

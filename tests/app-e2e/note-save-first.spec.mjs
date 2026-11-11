@@ -68,7 +68,7 @@ for (const width of [412, 1280]) {
     await bar(page).locator('[data-quick-input]').fill('현장 점검 메모');
     await bar(page).locator('[data-quick-save]').click();
     // 글(노트)이 먼저 저장되고 입력칸은 바로 풀린다(올리는 동안 잠그지 않음).
-    await expect(page.locator('#toast')).toHaveText('노트를 추가했어요. 사진·파일은 올리는 중이에요.');
+    await expect(page.locator('#toast')).toHaveText('노트를 추가했어요.');
     await expect(bar(page).locator('[data-quick-input]')).toHaveValue('');
     await expect(bar(page).locator('[data-quick-input]')).toBeEnabled();
     await expect(bar(page).locator('[data-quick-save]')).toBeEnabled();
@@ -129,7 +129,7 @@ for (const width of [412, 1280]) {
     await win.locator('[data-edw-save]').click();
     // 글이 저장되면 창은 올리기를 기다리지 않고 닫힌다.
     await expect(edWin(page)).toHaveCount(0);
-    await expect(page.locator('#toast')).toContainText('노트로 저장했어요. 사진·파일은 올리는 중이에요.');
+    await expect(page.locator('#toast')).toContainText('노트로 저장했어요.');
     await expect.poll(() => f.uploads.length).toBe(1);
     expect(f.writes[0].body).toMatchObject({kind: 'note', title: '큰 창 노트'});
     // 그 노트가 열려도 올리는 중에는 그 노트를 바꾸는 일(고정 등)은 올라간 뒤에 한다(같은 줄 — 노트 화면의 잠금 그대로).

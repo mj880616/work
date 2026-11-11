@@ -79,7 +79,7 @@ for (const width of [412, 1280]) {
     await q.locator('input[type=file]').setInputFiles([png('현장 사진.png'), pdf('점검표.pdf')]);
     await q.locator('[data-quick-save]').click();
     // 글이 먼저 업데이트로 저장되고 입력칸은 바로 풀린다(올리는 동안 잠그지 않음).
-    await expect(page.locator('#toast')).toHaveText('잊지 말기에 저장했어요. 사진·파일은 올리는 중이에요.');
+    await expect(page.locator('#toast')).toHaveText('잊지 말기에 저장했어요.');
     await expect(q.locator('[data-quick-input]')).toHaveValue('');
     await expect(q.locator('[data-quick-input]')).toBeEditable();
     await expect(q.locator('[data-quick-save]')).toBeEnabled();
@@ -140,7 +140,7 @@ for (const width of [412, 1280]) {
     await win.locator('[data-edw-save]').click();
     // 글이 저장·연결되면 창은 올리기를 기다리지 않고 닫힌다.
     await expect(win).toHaveCount(0);
-    await expect(page.locator('#toast')).toContainText('테스트 조직 기록에 저장했어요. 사진·파일은 올리는 중이에요.');
+    await expect(page.locator('#toast')).toContainText('테스트 조직 기록에 저장했어요.');
     expect(f.writes).toHaveLength(1); expect(f.writes[0].body.raw_text).toBe('교섭 경과 기록');
     expect(f.links.map(l => [l.p_note_id, l.p_targets.map(t => t.target_id)])).toEqual([['up-1', ['o']]]);
     await expect(dock(page)).toContainText('올리는 중');
@@ -165,7 +165,7 @@ for (const width of [412, 1280]) {
     await page.locator('#wdInboxAttach').setInputFiles([png('간담회 사진.png'), pdf('간담회 자료.pdf')]);
     await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(2);
     await page.locator('#wdInboxSave').click();
-    await expect(page.locator('#wdInboxState')).toHaveText('저장했어요. 사진·파일은 올리는 중이에요.');
+    await expect(page.locator('#wdInboxState')).toHaveText('저장했어요.');
     await expect(page.locator('#wdInboxText')).toHaveValue('');
     await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(0);
     await expect(page.locator('#wdInboxSave')).toBeEnabled();
@@ -211,7 +211,7 @@ test('파일만(글 없음) 큰 창 [저장]: 기다릴 글이 없어 창이 바
   await page.locator('#edwUpdateAttach').setInputFiles([pdf('받은 공문.pdf')]);
   await win.locator('[data-edw-save]').click();
   await expect(win).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('사진·파일을 올리는 중이에요.');
+  await expect(page.locator('#toast')).not.toContainText('올리는 중'); // UX-알림하나로: 진행은 하단바 위 한 줄 하나
   await expect(dock(page)).toContainText('업데이트에 파일 1개 올렸어요');
   expect(f.writes).toEqual([]);
   expect(f.uploads).toEqual([{noteId: null, name: '받은 공문.pdf'}]);

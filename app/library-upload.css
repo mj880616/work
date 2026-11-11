@@ -277,9 +277,6 @@
 .lu-drop-overlay{position:fixed;top:0;bottom:0;z-index:40;box-sizing:border-box;margin:6px;border:2px dashed var(--kptu-info);border-radius:var(--kptu-radius-md);pointer-events:none;display:flex;align-items:center;justify-content:center}
 .lu-drop-overlay[hidden]{display:none}
 .lu-drop-hint{padding:4px 10px;border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-info);font-size:var(--ds-text-meta,12px);font-weight:700;border:1px solid var(--kptu-border)}
-.lu-drop-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow-wrap:anywhere}
-.lu-drop-status.error{color:var(--kptu-danger)}
-.lu-drop-status[hidden]{display:none}
 
 /* ACT-사진 2단계: 그림 자료 줄의 작은 그림(서버가 줄여 준 480px를 28px 칸에 맞춰 보임). 못 받으면 칸이 없어지고 종류 표시만 남는다. */
 .lu-thumb{flex:none;box-sizing:border-box;width:28px;height:28px;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft);overflow:hidden}

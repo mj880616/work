@@ -15,6 +15,9 @@
 //   ('사진 n장·자료 n개 올렸어요', 못 올렸으면 [다시 올리기])을 띄운다.
 // APP-뒤에서올리기 PR-2(S58-12): 폰 앱에 넘기는 파일은 phase 'handed'('넘기는 중' → '앱이 올리는 중' — 화면은 보내지 않으므로 %·막대·✕가 없다). 앱이 끝을 알려 오면
 //   부른 곳이 done()·fail()로 옮긴다. 앱이 멈췄으면 '멈춤'(까닭은 부른 곳이 한 줄로 알린다). 올리는 중 합계·하단 한 줄의 %에는 세지 않는다(보낸 양을 모른다).
+// UX-알림하나로(S59-21): 한 올리기의 알림은 한 곳만. 진행은 그 화면 안 올리는 줄(보일 때) 또는 ③ 한 줄(안 보일 때) — 이미 하나다(covered).
+//   끝·실패·[다시 올리기]는 ③ 한 줄의 끝 알림(announceDock) 하나: 알림이 맡은 파일(files)은 ①·② 칸이 '✓ 완료'·'실패 [다시]'를 그리지 않고,
+//   알림이 닫히면(✕·[다시 올리기]·시간) 그 파일의 실패 표시도 함께 지운다(같은 실패가 화면 안에 다시 나타나지 않게). 부른 곳은 작은 알림·상태 줄로 같은 말을 하지 않는다.
 import {amount, percent} from './upload-send.mjs';
 
 export const SLOW_SENDING_MS = 20000;
@@ -63,13 +66,14 @@ function tick() {
 
 // 올리기 하나를 목록에 올린다. file: 화면이 들고 있는 원래 파일(같은 파일을 찾는 열쇠). back(): [보기]가 돌아갈 곳(없으면 시작한 화면).
 // waiting: 뒤 줄에서 차례를 기다리는 파일('대기' — start()나 첫 progress()에서 보내는 중이 된다). group: 한 묶음이 함께 쓰는 물건({sent} — 다 올린 양).
-export function trackUpload({file = null, name = '', size = 0, back = null, waiting = false, group = null} = {}) {
+// ownEnd: 끝·실패를 부른 곳이 스스로 알린다(UX-알림하나로 — ③ 한 줄의 'n개 올림'을 그 위에 또 띄우지 않는다. 진행은 그대로 ③ 한 줄).
+export function trackUpload({file = null, name = '', size = 0, back = null, waiting = false, group = null, ownEnd = false} = {}) {
   const router = globalThis.window?.KPTURouter;
   const from = router?.current ? {view: router.current, sub: router.sub || null} : null;
   const controller = new AbortController();
   const job = {
     id: 'up' + (++seq), file, name: String(name || file?.name || '파일'), size: Number(size || file?.size) || 0,
-    loaded: 0, total: Number(size || file?.size) || 0, phase: waiting ? 'waiting' : 'sending', group, message: '', retry: null, slow: false,
+    loaded: 0, total: Number(size || file?.size) || 0, phase: waiting ? 'waiting' : 'sending', group, ownEnd: !!ownEnd, message: '', retry: null, slow: false,
     startAt: now(), lastMove: now(), finishAt: 0, waitSending: SLOW_SENDING_MS, waitFinish: SLOW_FINISH_MS,
     signal: controller.signal,
     back: back || (from ? () => router.go(from.view, {sub: from.sub, source: 'upload'}) : null),
@@ -87,12 +91,12 @@ export function trackUpload({file = null, name = '', size = 0, back = null, wait
     },
     done() {
       if (!jobs.has(job.id)) return;
-      job.phase = 'done'; job.loaded = job.total; job.slow = false; dock.done++; if (job.group) job.group.sent = (job.group.sent || 0) + (job.total || 0); changed();
+      job.phase = 'done'; job.loaded = job.total; job.slow = false; if (!job.ownEnd) dock.done++; if (job.group) job.group.sent = (job.group.sent || 0) + (job.total || 0); changed();
       setTimeout(() => { if (jobs.get(job.id) === job && job.phase === 'done') { jobs.delete(job.id); changed(); } }, DONE_SHOW_MS)?.unref?.();
     },
     fail(message = '') {
       if (!jobs.has(job.id) || job.phase === 'done') return;
-      job.phase = 'failed'; job.slow = false; job.message = String(message || ''); dock.failed++; changed();
+      job.phase = 'failed'; job.slow = false; job.message = String(message || ''); if (!job.ownEnd) dock.failed++; changed();
     },
     // ✕: 다 보내기 전만(upload-send.mjs가 끊음). 목록에서는 바로 빠진다. 차례를 기다리던 파일은 보내지 않는다.
     cancel() {
@@ -217,7 +221,8 @@ export function mountUploadRows(host, {has = () => true, preview = null, summary
   const entry = {host, has};
   hosts.add(entry);
   function paint() {
-    const all = uploadJobs().filter(job => { try { return has(job); } catch { return false; } });
+    // 아래 한 줄의 끝 알림이 맡은 끝·실패는 그리지 않는다(told — 알림 하나).
+    const all = uploadJobs().filter(job => { try { return has(job) && !told(job); } catch { return false; } });
     const mine = compact ? all.filter(job => (failed && job.phase === 'failed') || job.slow) : all;
     const text = summary && (compact ? all.length : all.length > 1) ? summaryText(all) : '';
     sum.textContent = text; sum.hidden = !text;
@@ -248,7 +253,7 @@ function act(job, what) {
 
 // ② 이미 있는 미리보기 칸 위 막대 + %(일기 고른 사진). 그 파일의 올리기가 없으면 겹친 것을 지운다.
 export function paintUploadOverlay(tile, file) {
-  const job = uploadJobs().find(item => item.file === file);
+  const job = uploadJobs().find(item => item.file === file && !told(item));
   let over = tile.querySelector(':scope > .up-tile-over');
   tile.classList.toggle('up-uploading', !!job && job.phase !== 'done');
   if (!job) { over?.remove(); return; }
@@ -325,17 +330,30 @@ function lift(node) {
 // 묶음 끝 알림(BIZ-저장먼저닫기): 뒤 줄의 한 묶음이 끝났을 때 이 한 줄에 그 묶음의 말로 알린다 — '사진 7장·자료 1개 올렸어요', 못 올렸으면 [다시 올리기].
 // 올리는 화면을 보고 있어도 뜬다(창은 이미 닫혔으므로 끝을 알 곳이 여기뿐). 다른 올리기가 아직 가는 중이면 그 진행 뒤에 보인다.
 // text: 한 줄 · note: 작은 둘째 줄(까닭) · error · actions: [{label, aria, run}] · back(): [보기] · ms: 보이는 시간(0 = ✕나 단추를 누를 때까지) · onClose(why)
-export function announceDock({text = '', note = '', error = false, actions = [], back = null, ms = DOCK_DONE_MS, onClose = null} = {}) {
+// files: 이 알림이 끝·실패를 알리는 파일(올리기 표시의 file과 같은 것) — 알림이 떠 있는 동안 화면 안 올리는 줄은 그 파일의 끝·실패를 그리지 않는다(UX-알림하나로).
+export function announceDock({text = '', note = '', error = false, actions = [], back = null, ms = DOCK_DONE_MS, onClose = null, files = []} = {}) {
   if (!text) return {close() {}};
   const mine = {text: String(text), note: String(note || ''), error: !!error, actions: (Array.isArray(actions) ? actions : []).filter(a => a?.label && typeof a.run === 'function'),
-    back: typeof back === 'function' ? back : null, ms: Math.max(0, Number(ms) || 0), onClose, timer: null};
+    back: typeof back === 'function' ? back : null, ms: Math.max(0, Number(ms) || 0), onClose, timer: null, files: new Set([...(files || [])].filter(Boolean))};
+  // 저절로 사라지는 끝 알림('…올렸어요')은 새 알림이 오면 갈아 끼운다(지난 끝이 줄 서서 새 끝을 늦게 보이게 하지 않는다). 못 올린 알림은 누를 때까지 남는다.
+  for (const old of [...dock.notes]) if (!old.error && old.ms) endNote(old, 'replaced');
   dock.notes.push(mine);
-  try { paintDock(); } catch { /* 한 줄이 올리기를 막지 않는다 */ }
+  // 화면 안 줄도 다시 그린다(이 알림이 맡은 파일의 '실패 [다시]'·'✓ 완료'를 지운다).
+  try { if (mine.files.size) changed(); else paintDock(); } catch { /* 한 줄이 올리기를 막지 않는다 */ }
   return {close() { endNote(mine, 'closed'); }};
+}
+// 아래 한 줄의 끝 알림이 맡은 파일의 끝·실패(그 알림이 떠 있는 동안). 보내는 중·대기는 맡지 않는다(다시 올리면 그 줄이 진행을 그린다).
+function told(job) {
+  if (job.phase !== 'failed' && job.phase !== 'done') return false;
+  return dock.notes.some(note => note.files.has(job.file));
 }
 function endNote(note, why) {
   const at = dock.notes.indexOf(note); if (at < 0) return;
   dock.notes.splice(at, 1); clearTimeout(note.timer); note.timer = null;
+  // 알림을 닫으면 그 알림이 맡은 실패 표시도 끝난다(화면 안 줄에 옛 '실패 [다시]'가 다시 나타나지 않게). 다른 알림이 아직 맡은 파일은 그대로.
+  let dropped = false;
+  for (const job of [...jobs.values()]) if (job.phase === 'failed' && note.files.has(job.file) && !dock.notes.some(other => other.files.has(job.file))) { jobs.delete(job.id); dropped = true; }
+  if (dropped) for (const fn of [...subs]) { try { fn(); } catch { /* 그리기 하나가 다른 것을 막지 않는다 */ } }
   if (dock.painted === note) resetDock();
   try { note.onClose?.(why); } catch { /* 알림 닫기가 다른 일을 막지 않는다 */ }
   try { paintDock(); } catch { /* 위와 같음 */ }
@@ -384,8 +402,9 @@ function paintDock() {
   if (!dock.shown) return;
   if (open.length) { dock.node.hidden = true; dock.shown = false; dock.done = 0; dock.failed = 0; return; } // 올리는 화면으로 돌아옴: 그 화면이 보인다.
   if (dock.node.dataset.state === 'end') return;
-  // 차례를 기다리던 파일을 모두 앱에 넘겼다(화면이 올린 것·못 올린 것이 없다): 끝 글 대신 접는다 — 부른 곳이 '앱이 뒤에서 올리는 중' 한 줄을 띄운다.
-  if (!dock.done && !dock.failed && uploadJobs().some(job => job.phase === 'handed')) { resetDock(); return; }
+  // 셀 끝이 없다 — 차례를 기다리던 파일을 모두 앱에 넘겼거나(부른 곳이 '앱이 뒤에서 올리는 중' 한 줄을 띄운다), 끝을 부른 곳이 스스로 알리거나(ownEnd),
+  // 모두 ✕로 그만뒀다: '0개 올림' 끝 글 대신 접는다(알림 하나).
+  if (!dock.done && !dock.failed) { resetDock(); return; }
   // 다른 화면에 있는 동안 끝남: 'n개 올림 · 보기'(실패가 있으면 'n개 못 올림').
   const node = dock.node; node.dataset.state = 'end'; node.classList.remove('is-error'); node.setAttribute('role', 'status');
   node.querySelector('.up-dock-text').textContent = dock.failed ? `${dock.failed}개 못 올림${dock.done ? ` · ${dock.done}개 올림` : ''}` : `${dock.done}개 올림`;

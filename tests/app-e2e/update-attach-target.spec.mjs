@@ -81,7 +81,7 @@ for(const width of [390,1280])test(`첨부 → 조직 고르기: 파일이 남�
  if(width<761){const [c,i]=await Promise.all([clip.boundingBox(),q.locator('[data-quick-input]').evaluate(el=>parseFloat(getComputedStyle(el).paddingLeft))]);expect(i).toBeGreaterThanOrEqual(c.width-2);}
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await q.locator('[data-quick-save]').click();
- await expect(page.locator('#toast')).toContainText('기록을 저장했어요. 사진·파일은 올리는 중이에요.');
+ await expect(page.locator('#toast')).toContainText('기록을 저장했어요.');
  // The letters first (one basket update, linked to the organization), then the file up to that update and into its documents.
  expect(f.notes).toHaveLength(1);expect(f.notes[0].raw_text).toBe('합성 조직 소식');
  expect(f.links).toEqual([{p_note_id:'note-1',p_note_updated_at:'2026-10-23T01:00:00Z',p_targets:[{kind:'organization',target_id:ID(1),reason:'직접 연결'}]}]);
@@ -132,7 +132,7 @@ test('글 없이 파일만 + 조직: 기록(연결) 없이 자료로만 넣는�
  const {q,f}=await setup(page,1280);
  await choose(q,'자료만.txt');
  await q.locator('[data-quick-org]').click();await org(page,'합성노동조합').click();await save(page).click();
- await q.locator('[data-quick-save]').click();await expect(page.locator('#toast')).toContainText('사진·파일을 올리는 중이에요.');
+ await q.locator('[data-quick-save]').click();await expect(page.locator('#toast')).not.toContainText('올리는 중'); // UX-알림하나로: 진행은 하단바 위 한 줄 하나
  await expect.poll(()=>f.patches).toEqual([{id:'doc-drive-1',project_id:undefined,organization_id:ID(0)}]);
  expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).not.toContain('name="raw_text"');expect(f.uploads[0]).not.toContain('name="note_id"');
  expect(f.links).toEqual([]);expect(f.notes).toEqual([]);
@@ -146,7 +146,7 @@ test('연결이 거절되면 업데이트·파일은 정리함에 남고 안내,
  await q.locator('[data-quick-org]').click();await org(page,'시험지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  await expect(q.locator('[data-quick-status]')).toContainText('선택한 곳에 연결하지 못했어요');
- await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요. 사진·파일은 올리는 중이에요.');
+ await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요.');
  await expect.poll(()=>f.uploads.length).toBe(1);expect(f.links).toHaveLength(1);
  await expect(q).toHaveAttribute('data-mode','basket');await expect(fileRows(q)).toHaveCount(0);
 });
@@ -182,7 +182,7 @@ test('메뉴 [쓰기] 창의 자체 첨부 + 프로젝트: 같은 길로 연결 
  await e.locator('[data-edw-place]').click();const sheet=page.locator('#edwPlaceSheet');
  await sheet.locator('[data-sheet-projects]').getByRole('button',{name:'합성 프로젝트',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();
  await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
- await expect(page.locator('#toast')).toContainText('합성 프로젝트 기록에 저장했어요. 사진·파일은 올리는 중이에요.');
+ await expect(page.locator('#toast')).toContainText('합성 프로젝트 기록에 저장했어요.');
  expect(f.links[0].p_targets).toEqual([{kind:'project',target_id:PID,reason:'직접 연결'}]);
  await expect.poll(()=>f.patches).toEqual([{id:'doc-drive-1',project_id:PID,organization_id:undefined}]);expect(f.uploads).toHaveLength(1);expect(f.projects).toEqual([]);
  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('합성 프로젝트 기록에 파일 1개 올렸어요');

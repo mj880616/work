@@ -147,7 +147,7 @@ for(const width of [390,1280]){
   // 하나씩(note_id) 올라가고, 하단바 위 한 줄이 묶음 전체 → '업데이트에 파일 3개 올렸어요'.
   let finish;u.setPending(new Promise(r=>finish=r));await q.locator('[data-quick-save]').click();
   await expect(q.locator('[data-basket-file]')).toHaveCount(0);await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(q.locator('[data-quick-input]')).toBeEditable();
-  await expect(page.locator('#toast')).toHaveText('잊지 말기에 저장했어요. 사진·파일은 올리는 중이에요.');
+  await expect(page.locator('#toast')).toHaveText('잊지 말기에 저장했어요.');
   expect(f.writes).toHaveLength(1);expect(f.writes[0]).toMatchObject({method:'POST',body:{raw_text:' 글과 첨부\n '}});
   const dock=page.locator('#uploadDock:not([hidden])');await expect(dock).toContainText('파일 3개 올리는 중');await expect.poll(()=>u.calls.length).toBe(1);
   await q.locator('[data-quick-save]').dispatchEvent('click');await expect(q.locator('[data-quick-hint]')).toContainText('글을 입력해 주세요');
@@ -196,8 +196,8 @@ test('basket text+one file preserves raw text and a 503 behind is never sent aga
  u.setError(null);await q.locator('input[type=file]').setInputFiles(uploadFiles(['next.txt']));await q.locator('[data-quick-save]').click();await expect.poll(()=>u.calls.length).toBe(3);expect(u.calls[2]).toContain('filename="next.txt"');expect(u.calls[2]).not.toContain('name="note_id"');expect(u.calls.filter(c=>c.includes('unknown.txt')||c.includes('later.txt'))).toHaveLength(1);
 });
 test('basket detail 409 reload preserves existing AI setting and unsaved text until explicit confirmation',async({page})=>{
- const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page);await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('미저장 수정');await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['one.txt']));await page.locator('[data-basket-upload]').click();await expect(page.locator('#toast')).toContainText('첨부를 저장했습니다');await expect(page.locator('[data-basket-text]')).toHaveValue('미저장 수정');expect(f.notes.find(n=>n.id==='n').ai_export_allowed).toBe(false);
- u.setError({status:409,code:'note_changed'});await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['conflict.txt']));await page.locator('[data-basket-upload]').click();await expect(page.locator('[data-basket-status]')).toContainText('업데이트를 다시 불러');await page.locator('[data-basket-upload]').click();expect(u.calls).toHaveLength(2);
+ const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page);await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('미저장 수정');await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['one.txt']));await page.locator('[data-basket-upload]').click();await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('업데이트에');await expect(page.locator('[data-basket-text]')).toHaveValue('미저장 수정');expect(f.notes.find(n=>n.id==='n').ai_export_allowed).toBe(false);
+ u.setError({status:409,code:'note_changed'});await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['conflict.txt']));await page.locator('[data-basket-upload]').click();await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트를 다시 불러');await expect(page.locator('[data-basket-reload]')).toBeVisible();await page.locator('[data-basket-upload]').click();expect(u.calls).toHaveLength(2);
  f.notes.find(n=>n.id==='n').raw_text='외부에서 바뀐 원문';await page.locator('[data-basket-reload]').click();await answerAsk(page,false);await expect(page.locator('[data-basket-text]')).toHaveValue('미저장 수정');await page.locator('[data-basket-reload]').click();await answerAsk(page,true);await expect(page.locator('[data-basket-text]')).toHaveValue('외부에서 바뀐 원문');await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1);await expect(page.locator('[data-basket-file]')).toHaveCount(0);expect(u.calls).toHaveLength(2);expect(f.writes).toHaveLength(0);
 });
 test('basket scope change while reading a file drops draft and sends no stale upload',async({page})=>{
@@ -267,7 +267,8 @@ for(const width of [412,1280]){
   await page.locator('[data-basket-row="s"]').click();await expect(page.locator('[data-basket-read-text]')).toContainText('제안 원문');
   await expect(page.locator('#uploadDock')).toContainText('올리는 중');
   open();
-  await expect(page.locator('#kptuNotice')).toContainText('업데이트에 behind.txt 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('업데이트에 behind.txt 올렸어요'); // UX-알림하나로: 끝은 하단바 위 한 줄 하나
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
   expect(u.calls).toHaveLength(1);expect(noteOf(u.calls[0])).toBe('n');
   // 보고 있는 다른 업데이트는 그대로이고, 목록의 그 업데이트 줄에 첨부가 붙는다.
   await expect(page.locator('[data-basket-read-text]')).toContainText('제안 원문');await expect(page.locator('[data-basket-attachments] a')).toHaveCount(0);
@@ -276,7 +277,7 @@ for(const width of [412,1280]){
   expect(f.errors).toEqual([]);
  });
 }
-test('basket attachment that did not go up is told by the small notice, and [다시] sends only that file to the same update (412)',async({page})=>{
+test('basket attachment that did not go up is told by the bottom line, and [다시 올리기] sends only that file to the same update (412)',async({page})=>{
  await page.setViewportSize({width:412,height:1000});
  const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));u.setError({status:400,code:'bad_file',after:1});
  await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
@@ -284,9 +285,11 @@ test('basket attachment that did not go up is told by the small notice, and [다
  await expect.poll(()=>u.calls.length).toBe(1);
  await page.locator('[data-basket-cancel]').click();await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-row="s"]')).toBeVisible();
  open();
- const notice=page.locator('#kptuNotice');
+ const notice=page.locator('#uploadDock:not([hidden])'); // UX-알림하나로(S59-21): 끝·실패는 하단바 위 한 줄 하나
  await expect(notice).toContainText('업데이트에 one.txt 올렸어요 · 1개 못 올렸어요');
- u.setError(null);await notice.getByRole('button',{name:'다시',exact:true}).click();
+ await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
+ if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/update-attach-fail-412.png`});
+ u.setError(null);await notice.getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
  await expect(notice).toContainText('업데이트에 two.txt 올렸어요');
  expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n','n']); // 올라간 파일은 다시 보내지 않는다
  await expect(page.locator('[data-basket-row-item="n"]')).toContainText('첨부 2개');
@@ -313,7 +316,7 @@ test('basket attachments in line keep what already went up on screen; the big ed
  await page.waitForTimeout(200);await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1); // 둘째가 올라가는 동안에도 첫 첨부는 그대로
  expect(await reloadAllowed()).toBe(false);
  openSecond();
- await expect(page.locator('#kptuNotice')).toContainText('첨부를 올리지 못했어요');
+ await expect(page.locator('#uploadDock:not([hidden])')).toContainText('못 올렸어요'); // UX-알림하나로: 하단바 위 한 줄 하나
  await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1); // 둘째가 실패해도 첫 첨부는 남는다
  expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n']);
  expect(await reloadAllowed()).toBe(true); // 줄이 끝났으면 막지 않는다(못 올린 파일은 알림 [다시])
@@ -347,6 +350,6 @@ test('basket attachments saved while the first goes up wait in the same line and
  open();
  await expect(page.locator('[data-basket-attachments] a')).toHaveCount(2);
  expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n']);
- await expect(page.locator('#toast')).toContainText('첨부를 저장했습니다');
+ await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('업데이트에');
  expect(f.errors).toEqual([]);
 });

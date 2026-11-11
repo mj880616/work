@@ -36,7 +36,7 @@ for(const width of [412,1440]){
   await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(1);
   await expect(page.locator('#wdInboxFiles')).toBeVisible();
   await page.locator('#wdInboxSave').click();
-  await expect(page.locator('#wdInboxState')).toHaveText('사진·파일을 올리는 중이에요.');
+  await expect(page.locator('#wdInboxState')).toHaveText(''); // UX-알림하나로: 진행은 하단바 위 한 줄 하나
   await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(0);
   await expect.poll(()=>f.s.docPatches.map(p=>p.organization_id)).toEqual(['o']);
   expect(f.s.uploads).toBe(1);expect(f.s.lines).toEqual([true]);expect(f.s.notePosts||0).toBe(0);
@@ -55,7 +55,7 @@ test('AI가 안 되면 파일 이름 줄로 저장(저장은 막지 않음)',asy
  const f=await fixture(page,412,{aiFail:true});
  await pasteInto(page.locator('#wdInboxText'),[{name:'image.png',type:'image/png'}]);
  await page.locator('#wdInboxSave').click();
- await expect(page.locator('#wdInboxState')).toHaveText('사진·파일을 올리는 중이에요.');
+ await expect(page.locator('#wdInboxState')).toHaveText(''); // UX-알림하나로: 진행은 하단바 위 한 줄 하나
  await expect.poll(()=>f.s.confirms.length).toBe(1);
  expect(f.s.confirms[0].p_targets[0].summary).toMatch(/^그림 1장 · 붙여넣은 그림 \d\d-\d\d \d\d:\d\d\.png$/);
 });
@@ -65,7 +65,7 @@ test('글을 쓰고 파일을 붙이면 글이 기록(AI 부르지 않음), 글�
  await page.locator('#wdInboxText').fill('교섭 통화 메모');
  await pasteInto(page.locator('#wdInboxText'),[{name:'image.png',type:'image/png'}]);
  await page.locator('#wdInboxSave').click();
- await expect(page.locator('#wdInboxState')).toHaveText('저장했어요. 사진·파일은 올리는 중이에요.');
+ await expect(page.locator('#wdInboxState')).toHaveText('저장했어요.');
  expect(f.s.notePosts).toBe(1);expect(f.s.lines).toEqual([]);expect(f.s.confirms[0].p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결'}]);
  await expect.poll(()=>f.s.docPatches.map(p=>p.organization_id)).toEqual(['o']);expect(f.s.uploads).toBe(1);
  await page.locator('#wdInboxText').fill('글만 쓴 기록');await page.locator('#wdInboxSave').click();

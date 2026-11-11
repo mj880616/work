@@ -37,8 +37,7 @@ import { attachmentName } from './attachment-name.mjs';
 import { renameHostAttrs, renameButtonHtml, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(공용 부품)
 
 import { createUploadBatch, uploadBatch, readNewPhotos, updateFileLine, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
-import { mountUploadRows, setUploadRetry } from './upload-progress.js';
-import { notify } from './small-notice.js';
+import { mountUploadRows, setUploadRetry, announceDock } from './upload-progress.js';
 import { announceUploaded } from './upload-done.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 import { bindRowSwipe } from './row-swipe.js';
@@ -1122,6 +1121,7 @@ function sendAttachments(id,batch){
     // 고를 때의 목록으로 그리면 앞서 올라간 파일이 화면에서 사라지고, 그 사진의 글자 읽기도 한 번 더 돈다.
     {const now=selected?.id===id?selected:notes.find(n=>n.id===id);if(Array.isArray(now?.attachments))batch.attachments=now.attachments;}
     const before=count(),mine=batch.entries.filter(e=>e.kind!=='success'),sent=()=>mine.filter(e=>e.kind==='success').map(e=>e.file?.name||''),originalIds=new Set(batch.attachments.map(file=>file.drive_file_id));
+    const files=mine.map(e=>e.file); // 끝 알림이 맡는 파일(올라가면 entry.file은 이름·크기만 남으므로 지금 잡아 둔다)
     // 올라간 만큼 그 업데이트의 줄(목록)과, 보고 있으면 상세를 그린다. 다른 업데이트를 보고 있으면 그 화면은 건드리지 않는다.
     const paint=()=>{
       if(!here())return;
@@ -1137,8 +1137,9 @@ function sendAttachments(id,batch){
     const done=count()-before,left=batch.entries.filter(e=>e.kind!=='success').length;
     if(!error){
       if(upload===batch){upload=createUploadBatch(id,batch.attachments);if(shown())pickerFiles?.render();} // 되돌려 둔 묶음이 다 올라갔으면 새 묶음으로
-      if(shown()){detail.querySelector('[data-basket-status]').textContent='';showToast('첨부를 저장했습니다.');await readSentPhotos(id,batch,originalIds,owner);}
-      else announceUploaded({done,names:sent(),where:'업데이트'});
+      // UX-알림하나로(S59-21): 끝은 하단바 위 한 줄 하나(보고 있든 아니든 같은 자리 — 위쪽 작은 알림·상태 줄로 또 알리지 않는다).
+      announceUploaded({done,names:sent(),where:'업데이트',files});
+      if(shown()){detail.querySelector('[data-basket-status]').textContent='';await readSentPhotos(id,batch,originalIds,owner);}
       return;
     }
     if(error.code==='upload_cancelled')return;
@@ -1148,12 +1149,12 @@ function sendAttachments(id,batch){
     if(shown()){
       // 그 업데이트를 고치는 중이고 새로 고른 파일이 없으면 못 올린 묶음을 고른 파일 줄에 되돌려 둔다([첨부 저장]으로도 다시 보낼 수 있게, 예전과 같음).
       if(editing&&upload.note_id===id&&!upload.entries.length){upload=batch;pickerFiles?.render();}
-      detail.querySelector('[data-basket-status]').textContent='업데이트를 다시 불러오지 못했어요. 다시 시도해 주세요.';
+      // 못 올린 까닭·[다시 올리기]는 아래 한 줄이 말한다. 상세에는 결과를 알 수 없을 때의 [업데이트 최신화] 단추만 둔다.
+      detail.querySelector('[data-basket-status]').textContent='';
       detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;
     }
-    const message=`첨부를 올리지 못했어요. ${error.message||''}`.trim();
-    if(done)announceUploaded({done,names:sent(),failed:left,where:'업데이트',retry});
-    else if(!shown()||retry)notify(`업데이트 ${message}`,{error:true,record:false,actions:retry?[{label:'다시',run:({close})=>{close();retry();}}]:[]});
+    if(done)announceUploaded({done,names:sent(),failed:left,where:'업데이트',retry,note:error.message||'',files});
+    else announceDock({text:`업데이트 첨부 ${left}개 못 올렸어요`,note:error.message||'',error:true,ms:0,files,actions:retry?[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]:[]});
   });
 }
 // 방금 올린 사진의 글자 읽기: 그 업데이트를 보고 있을 때만, 읽는 동안은 예전처럼 상세를 잠근다([글자 읽기]와 같은 잠금).

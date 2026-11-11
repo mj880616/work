@@ -167,7 +167,7 @@ for(const width of [390,1280]){
     await expect.poll(()=>state.uploads.length).toBe(2);
     state.hold=false;state.release();
     await expect.poll(()=>state.uploads.length).toBe(3);
-    await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('queued.pdf 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('queued.pdf 올렸어요');
     await expect(sending).toHaveCount(0);
     expect(state.uploads.every(u=>u.path.endsWith('library-files')&&!u.raw.includes('remove.pdf'))).toBe(true);
     expect(state.uploads.map(u=>u.raw.match(/filename="([^"]+)"/)?.[1])).toEqual(['keep-a.pdf','keep-b.pdf','queued.pdf']);
@@ -327,7 +327,7 @@ async function openUploadScreen(page,screen){
 const READ_ERROR='파일을 읽지 못했어요. 파일을 다시 선택해 주세요.';
 // 자료실·사업 보고 상세는 같은 자료 등록 창(#documentModal)으로 올린다 — [저장] 뒤 바로 닫히고 끝·실패는 공용 작은 알림.
 // BIZ-저장먼저닫기(S58-1): 새 사업 보고 창도 [저장] 뒤 바로 닫힌다 — 끝·실패는 하단바 위 한 줄(#uploadDock: 글 + 작은 둘째 줄 까닭, 못 올린 것만 [다시 올리기]).
-const viaWindow=screen=>screen!=='new meeting',noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
+const viaWindow=screen=>screen!=='new meeting',noticeLine=page=>page.locator('#uploadDock:not([hidden]) .up-dock-text');
 const dockLine=page=>page.locator('#uploadDock:not([hidden])'),dockRetry=page=>dockLine(page).getByRole('button',{name:'못 올린 파일 다시 올리기'});
 for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){
   test(`memory copy: ${screen} sends metadata-preserving copies sequentially ${width}px`,async({page})=>{
@@ -364,8 +364,8 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
       // UX-먼저묻고뒤에처리 3차(S57-1): 자료 등록 창은 [저장] 뒤 바로 닫히고, 읽지 못한 까닭은 공용 작은 알림으로 뜬다. 다시 보낼 수 없는 파일이라 [다시]는 없다.
       await expect(page.locator('#documentModal')).toBeHidden();
       await expect(noticeLine(page)).toHaveText(READ_ERROR);
-      await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','alert');
-      await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-action')).toHaveCount(0);
+      await expect(page.locator('#uploadDock:not([hidden])')).toHaveAttribute('role','alert');
+      await expect(page.locator('#uploadDock:not([hidden]) [data-up-act="note-act"]')).toHaveCount(0);
     }else{
       // 새 사업 보고: 창은 바로 닫히고, 읽지 못한 까닭은 하단바 위 한 줄에 남는다. 다시 보낼 수 없는 파일이라 [다시 올리기]는 없다.
       await expect(page.locator('#meetingModal')).toBeHidden();
@@ -385,6 +385,9 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
       expect(state.uploads).toEqual([]);
       expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf']);
       await page.locator(ui.input).setInputFiles(file('reselected.pdf'));
+      // UX-알림하나로(S59-21): 못 올린 알림(아래 한 줄)은 누를 때까지 남지만, 창이 열려 있으면 위쪽으로 올라가 창의 [등록]을 가리지 않는다.
+      const note=await page.locator('#uploadDock:not([hidden])').boundingBox(),save=await page.locator(ui.save).boundingBox();
+      if(note&&save)expect(note.y+note.height<=save.y||note.y>=save.y+save.height,'아래 한 줄이 창 단추를 가리지 않는다').toBe(true);
       await page.locator(ui.save).click();
       await expect(page.locator('#documentModal')).toBeHidden();
       await expect.poll(()=>state.uploads.length).toBe(1);
@@ -402,7 +405,7 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
       // 창은 바로 닫히고, 읽은 파일은 올라가고 읽지 못한 파일만 알림에 남는다([다시] 없음).
       await expect(page.locator('#documentModal')).toBeHidden();
       await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. '+READ_ERROR);
-      await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-action')).toHaveCount(0);
+      await expect(page.locator('#uploadDock:not([hidden]) [data-up-act="note-act"]')).toHaveCount(0);
     }else{
       // 새 사업 보고: 읽은 파일은 올라가고 읽지 못한 파일만 하단바 위 한 줄에 남는다([다시 올리기] 없음).
       await expect(page.locator('#meetingModal')).toBeHidden();
