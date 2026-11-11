@@ -204,5 +204,5 @@ test('미리 골라 두기: 일정에서 연 쓰기 창만, [저장] 뒤 같은 
   assert.doesNotMatch(team,/uploadFileForMeeting\(.*timePick/);
   assert.match(ui,/export async function timePhotoFiles\(/);
   assert.match(ui,/reset\.chosen = \(\) => \(pre && open \?/); // 펼쳐 보인 줄에서 고른 것만
-  assert.doesNotMatch(ui,/rest\/v1|functions\/v1|localStorage|sessionStorage/);
+  assert.doesNotMatch(ui,/rest\/v1|functions\/v1/); // 기기 저장 금지는 CI 저장 감사(audit)가 본다
 });
