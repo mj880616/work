@@ -91,7 +91,8 @@ export function createLibraryTwo(h) {
   function folderRow({node: n, depth, open, hasContent}) {
     const attrs = {'data-lu-nav': n.id, 'data-lu-prow': 'f:' + n.id};
     if (h.canDrag()) attrs.draggable = 'true';
-    return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth, open, hasContent, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder'});
+    // LIB-받는폴더(S59-11): 받는 폴더 줄은 개수 뒤 작은 '받는 폴더'(나무 모델의 rc 표시 — library-tree.js buildTree).
+    return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth, open, hasContent, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : ''});
   }
   function filesHtml({node, depth, files}) {
     const rows = files.map(d => { const r = h.rowHtml(d, node); return r ? rowAttr(r, 'd:' + d.id) : ''; }).join('');

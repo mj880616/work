@@ -121,6 +121,7 @@
 :is(.lu-more-panel,.lu-folder-menu) button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* LIB-줄안이름바꾸기: 메뉴 줄 높이는 다른 ⋯ 메뉴(프로젝트 상세 등)와 같은 36px. F2 안내는 PC에서만 오른쪽에 작게, 삭제 앞에는 구분선. */
 :is(.lu-more-panel,.lu-folder-menu) .lu-menu-key{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-check{color:var(--kptu-primary-ink);font-weight:700}
 :is(.lu-more-panel,.lu-folder-menu) .lu-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 @media(max-width:760px){:is(.lu-more-panel,.lu-folder-menu) .lu-menu-key{display:none}}
 /* 줄 안 이름 입력칸: 제목 자리에 그대로(같은 글자 크기), 한 줄. 폰은 제목이 있던 윗줄 전체. */
@@ -187,6 +188,8 @@
 #appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{font-weight:700}
 #appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+/* LIB-받는폴더(S59-11): 받는 폴더 줄의 작은 표시(시안 ①③ — 개수 뒤, 연한 테두리, 굵지 않게). [파일]·나무 줄의 .ft-tag와 같은 모양. */
+#appView #libraryView .lu-receive-mark{flex:none;font-size:11px;line-height:1.5;padding:0 6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);color:var(--kptu-primary-ink,var(--kptu-muted));font-weight:var(--ds-weight-regular,400);white-space:nowrap}
 /* FOLDER-나무새기준 ⑨(S51-12): 종류 점·사업영역 색 점은 그리지 않는다(점 없음). 폴더 그림은 공용 folder-tree.css .ft-ico. */
 #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
 #appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}

@@ -60,6 +60,8 @@ async function mockApp(page,state){
       if(failure)return route.fulfill({status:failure.status,contentType:'application/json',body:JSON.stringify(failure.body)});
       const row={id:`upload-${state.uploads.length+1}`,workspace_id:'workspace-1',project_id:field('project_id'),title:field('title')||'업로드',category:'기타',tags:[],created_at:now()};
       state.uploads.push(row);state.docs.push(row);
+      // LIB-받는폴더: DB 넣기 뒤 트리거처럼, 받는 폴더가 켜져 있고 그 폴더가 있으면(휴지통 아님) 새 자료를 그 폴더에 넣는다(state.items = 폴더 연결 표).
+      if(state.receiveFolder&&Array.isArray(state.items)&&(state.folders||[]).some(f=>f.id===state.receiveFolder))state.items.push({workspace_id:'workspace-1',document_id:row.id,folder_id:state.receiveFolder});
       return ok({ok:true,document:row});
     }
     if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`})}
@@ -79,6 +81,19 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
     if(path==='/rest/v1/app_profiles'){
       // 자료실 보기 기억(LIB-보기기억): 내 프로필 행의 library_view 칸. state.libraryViewMissing이면 칸이 아직 없는 서버(적용 전)처럼 400.
+      // LIB-받는폴더(S59-11): 내 프로필 행의 library_receive_folder 칸. state에 receiveFolder 키가 있을 때만 그 칸이 있는 서버(적용 뒤),
+      // 없으면 칸이 아직 없는 서버처럼 그 칸을 고르거나 쓰면 400(42703). receiveFolderFail이면 쓰기 500. 없는 폴더 id면 외래 키 거절(409·23503).
+      const receiveCol=method==='PATCH'?!!body&&'library_receive_folder' in body:(url.searchParams.get('select')||'').includes('library_receive_folder');
+      if(receiveCol){
+        if(!('receiveFolder' in state))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_receive_folder does not exist'})});
+        if(method==='PATCH'){
+          (state.receivePatches||(state.receivePatches=[])).push(body.library_receive_folder);
+          if(state.receiveFolderFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
+          if(body.library_receive_folder!==null&&!(state.folders||[]).some(f=>f.id===body.library_receive_folder))return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({code:'23503',message:'insert or update on table "app_profiles" violates foreign key constraint "app_profiles_library_receive_folder_fkey"'})});
+          state.receiveFolder=body.library_receive_folder;
+        }
+        return ok([{user_id:state.user.id,library_receive_folder:state.receiveFolder}]);
+      }
       if(method==='PATCH'){
         if(state.libraryViewMissing)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
         (state.profilePatches||(state.profilePatches=[])).push(body);
