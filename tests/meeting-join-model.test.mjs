@@ -164,6 +164,10 @@ test('두 글 칸을 쓰는 저장 길 전수에 "읽었을 때 그대로일 때
   assert.match(save,/&select=\*\$\{sameVersionFilter\(e\.base\)\}`,\{method:'PATCH'/,'수정 저장');
   assert.match(save,/!rows\.length&&e\.base!==undefined\)\{a\.state='conflict'/,'0행이면 덮지 않고 묻는다');
   assert.match(d,/base:mrdCurrent\.updated_at\}/,'수정을 시작할 때 읽은 판');
+  // 내 저장(답을 받았거나 다시 읽어 확인함)은 '그 사이 바뀜'이 아니다: 저장 중에 닫고 다시 연 같은 보고의 수정 창도 그 판으로(save-other-active 시험).
+  assert.match(d,/function mrdOwnVersion\(e,row\)\{[^\n]*e\.base=row\.updated_at;if\(mrdEditor&&mrdEditor!==e&&mrdEditor\.id===e\.id\)mrdEditor\.base=row\.updated_at\}/);
+  assert.match(d,/const row=mrdEditRow\(e,rows,a\.body\);mrdOwnVersion\(e,row\);/,'답을 놓쳤다가 다시 읽어 확인한 저장');
+  assert.match(save,/const row=mrdEditRow\(e,rows,body\);mrdOwnVersion\(e,row\);/);
   const append=d.slice(d.indexOf('async function mrdAppendResult('),d.indexOf('// ---- MTG-고치기바로'));
   assert.match(append,/sameVersionFilter\(cur\.updated_at\)/,'보는 중 결과 본문 더하기');
   assert.match(f,/sameVersionFilter\(current\.updated_at\)/,'파일·글로 만들기의 기존 회의 더하기');
