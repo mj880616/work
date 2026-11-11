@@ -130,7 +130,7 @@ for (const width of [412, 884, 1440]) test(`노트 첫 화면 ${width}: 맨 위 
   }
   // 다른 폴더의 오래된 노트(n1, 회의)를 고치면 바로 '최근' 맨 위로 온다(저장한 서버 값으로 다시 그림).
   if (!wide) { await page.locator(`#noteRows [data-nx-open="${U(1)}"]`).click(); }
-  else await page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`).click();
+  else { await page.locator(`[data-nx-tree] [data-nx-folder-more="${U(1)}"]`).click(); await page.locator('#noteDocMenu [data-nx-enter]').click(); } // UI-폴더누르기한규칙: 나무 누르기 = 펼침만, 들어가기 = ⋯ 메뉴
   await page.locator('#noteRows [data-note-row="n1"]').click();
   await expect(page.locator('[data-note-detail]')).toBeVisible();
   await noteMenuAction(page, 'data-note-edit');
