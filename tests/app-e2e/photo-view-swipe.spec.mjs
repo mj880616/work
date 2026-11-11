@@ -116,10 +116,15 @@ for (const width of [412, 1280]) {
     // 오른쪽으로 밀면 이전 사진.
     await swipe(page, 150, -8);
     await expect(countText(page)).toHaveText('4/5');
-    // 단추·키는 그대로 동작한다.
-    await view(page).locator('.basket-photo-step[data-dir="1"]').click();
-    await expect(countText(page)).toHaveText('5/5');
+    // ‹ › 단추와 ←/→ 키는 그대로 동작한다(4/5에서 ‹ → 3/5, → 키 → 4/5, ← 키 → 3/5, › → 4/5).
+    // 끝 사진(5/5)에서 › 가 잠기면 브라우저가 그 단추의 포커스를 거두어 키가 크게 보기 밖(body)으로 가는 것은 이 PR 이전부터 있던 동작이라(범위 밖, PR 본문에 보고) 가운데 사진에서 확인한다.
+    await view(page).locator('.basket-photo-step[data-dir="-1"]').click();
+    await expect(countText(page)).toHaveText('3/5');
+    await page.keyboard.press('ArrowRight');
+    await expect(countText(page)).toHaveText('4/5');
     await page.keyboard.press('ArrowLeft');
+    await expect(countText(page)).toHaveText('3/5');
+    await view(page).locator('.basket-photo-step[data-dir="1"]').click();
     await expect(countText(page)).toHaveText('4/5');
     // 위로 밀면 아무 일도 없다(별표 없음, 사진도 안 따라감).
     await swipe(page, 4, -200, { release: false, during: async () => { expect(await transformOf(photoOf(page))).toBe(''); } });
