@@ -374,3 +374,57 @@ test('REC-한회의로잇기: 단계 돌리기를 두 표가 함께 쓴다 — �
   }
   assert.match(failText('report_changed'),/\[다시\]/);
 });
+
+// REC-정리상태확인못함(S60-3): 정리 입구(job_start·job_retry·job_read)의 거절 이유가 띠 글까지 온다(전에는 '정리 상태를 확인하지 못했어요'로 뭉개짐).
+test('REC-정리상태확인못함: 서버 글 표는 Edge MESSAGES와 글자 그대로 같고, 거절 답(status·서버 글)에서 code를 되찾아 그 이유 글로',async()=>{
+  const {MESSAGES,STATUS}=await import('../supabase/functions/meeting-transcribe/model.mjs');
+  const {SERVER_TEXT,serverErrorCode,requestFail,OFFLINE_TEXT}=await import('../app/meeting-server-job.mjs');
+  assert.deepEqual({...SERVER_TEXT},{...MESSAGES},'서버 MESSAGES에 코드를 더하면 화면 표에도 더한다');
+  const err=code=>({status:STATUS[code],code:`http_${STATUS[code]}`,message:MESSAGES[code]});
+  for(const code of Object.keys(MESSAGES))assert.equal(serverErrorCode(err(code)),code,code);
+  // 운영 11/12: job_retry → 429 monthly_limit.
+  const limit=requestFail(err('monthly_limit'));
+  assert.equal(limit.code,'monthly_limit');assert.equal(limit.auto,false);
+  assert.match(limit.text,/이번 달 녹음 전사 한도에 닿았어요/);assert.match(limit.text,/\[다시\]도 같아요/);
+  assert.doesNotMatch(limit.text,/확인하지 못했어요/);
+  assert.equal(failText('monthly_limit'),limit.text,'작업 행 실패와 요청 거절이 같은 글(문구표 한 곳)');
+  assert.match(requestFail(err('not_ready')).text,/준비가 끝나기 전엔 \[다시\]도 같아요/);
+  assert.match(requestFail(err('busy')).text,/다른 녹음을 정리하는 중이에요/,'요청의 busy는 작업 행 busy(끊김)와 뜻이 다르다');
+  const gone=requestFail(err('not_found'));assert.equal(gone.retry,false);assert.match(gone.text,/정리 작업을 찾지 못했어요/);
+  assert.match(requestFail(err('usage_unavailable')).text,/사용량을 확인하지 못했어요/);
+  // 모르는 거절은 HTTP 상태를 사실대로.
+  assert.match(requestFail({status:418,code:'http_418',message:'?'}).text,/HTTP 418/);
+  // 진짜 잠깐 끊김만 '확인하지 못했어요' + 저절로 다시 확인.
+  for(const e of [{code:'network_error',status:0},{code:'timeout',status:0},{status:504,code:'http_504',message:'Gateway Timeout'},{status:546,code:'http_546',message:''},{status:502,code:'http_502',message:'Bad Gateway'}]){
+    const f=requestFail(e);assert.equal(f.auto,true,JSON.stringify(e));assert.equal(f.text,OFFLINE_TEXT);assert.equal(f.retry,true);
+  }
+  // 서버 글이 있는 503(준비 중·표 없음)은 끊김이 아니다.
+  assert.equal(requestFail(err('not_ready')).auto,false);assert.equal(requestFail(err('jobs_unavailable')).auto,false);
+  assert.equal(requestFail({status:401,code:'session_required',message:''}).code,'session_required');
+  for(const code of Object.keys(MESSAGES))assert.ok(requestFail(err(code)).text.length<=70,`${code} ${requestFail(err(code)).text.length}자`);
+});
+
+test('REC-정리상태확인못함: [다시](job_retry)가 끝난 작업을 돌려주면 결과(done)로, 거절은 code를 단 채 던진다',async()=>{
+  const done={id:ID,status:'done',stage:'done',transcript_text:'글',draft:null};
+  const r=await watchServerJob({call:async a=>{assert.equal(a,'job_retry');return {ok:true,job:done}},sleep:async()=>{}},{jobId:ID,retry:true});
+  assert.equal(r.kind,'done');
+  const refused=Object.assign(new Error('이번 달 녹음 전사 한도에 닿았어요.'),{status:429,code:'http_429'});
+  await assert.rejects(watchServerJob({call:async()=>{throw refused},sleep:async()=>{}},{jobId:ID,retry:true}),e=>e===refused);
+});
+
+test('REC-정리상태확인못함: 띠는 거절 이유·잠깐 끊김·결과 열기 실패를 나누고, 다시 보일 때·연결이 돌아올 때 저절로 다시 본다(읽기만)',()=>{
+  const rec=read('app/meeting-recorder.js');
+  assert.doesNotMatch(rec,/정리 상태를 확인하지 못했어요\. 서버는 계속 정리 중일 수 있어요/,'옛 뭉갠 글 없음');
+  assert.match(rec,/const f=requestFail\(e\);/);
+  assert.match(rec,/recheck=f\.auto&&!!jobId;/);
+  assert.match(rec,/function recheckNow\(\)\{[^]*?void serverFinish\(\{jobId\}\);/,'저절로 다시 볼 때는 job_retry가 아니라 읽기');
+  assert.match(rec,/window\.addEventListener\('online',recheckNow\)/);
+  assert.match(rec,/else\{onVisibleCheck\(\);recheckNow\(\)\}/);
+  assert.match(rec,/errorText=e\?\.recText\|\|OPEN_FAIL_TEXT/,'결과 열기 실패는 정리 끝 띠에 이유와 함께');
+  const finish=rec.slice(rec.indexOf('async function serverFinish('),rec.indexOf('function recheckNow('));
+  assert.ok(finish.indexOf('await openServerResult(r.job)')>finish.indexOf('}catch(e){'),'결과 열기는 상태 확인 catch 밖');
+  const phone=read('app/phone-recorder-core.mjs');
+  assert.match(phone,/const f=requestFail\(e\);/,'폰 녹음 정리 시작도 같은 표');
+  const join=read('app/meeting-join.js');
+  assert.match(join,/window\.addEventListener\('online',rewatch\)/,'잇는 중 줄도 연결이 돌아오면 다시 본다');
+});
