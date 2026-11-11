@@ -84,11 +84,14 @@ test('1280 월간: 일정으로 꽉 찬 날도 칸 어디든 우클릭 → 날�
   await expect(page.locator('#calendarDayModal [data-google-event="e6"]')).toBeVisible();
 });
 
-test('1280 월간: 일정 우클릭 → [수정][담당조직 연결][결과 남기기][삭제](맨 아래·빨강, S51-31), 할 일 막대 → 그 할 일 메뉴',async({page})=>{
+test('1280 월간: 일정 우클릭 → [수정][보고할 일정][담당조직 연결][결과 남기기][삭제](맨 아래·빨강, S51-31), 할 일 막대 → 그 할 일 메뉴',async({page})=>{
   await open(page);
+  // S57-20 BIZ-보고할일정: 이 서버 흉내는 '보고할 일정' 표 읽기에 빈 목록으로 답한다(표가 있는 서버) → 읽은 뒤에는 [수정] 아래 [보고할 일정] 한 줄이 있다.
+  // (표가 없는 서버에서 예전 네 줄 그대로인 것은 report-plan-toggle.spec.mjs가 본다.)
+  await expect.poll(()=>page.evaluate(()=>window.KPTUCalendarEvents.planOf('e0','own')!==null)).toBe(true);
   await rightAt(page,page.locator('#calendarGrid [data-google-event="e0"]').first());
   await expect(menu(page)).toBeVisible();
-  expect(await labels(page)).toEqual(['수정','담당조직 연결','결과 남기기','삭제']);
+  expect(await labels(page)).toEqual(['수정','보고할 일정','담당조직 연결','결과 남기기','삭제']);
   const last=menu(page).locator('button').last();
   await expect(last).toHaveClass(/row-menu-last/);
   const [red,ink,danger]=await last.evaluate(b=>{const d=document.createElement('i');d.style.color='var(--kptu-danger)';document.body.append(d);const c=getComputedStyle(d).color;d.remove();return [getComputedStyle(b).color,getComputedStyle(b.previousElementSibling).color,c]});expect(red).toBe(danger);expect(red).not.toBe(ink);

@@ -788,6 +788,9 @@
 /* FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄 끝 ⋯(meeting-columns.js fileMoreHtml). 담당조직·프로젝트 자료 줄의 ⋯
    (workplace-detail.css .wd-doc-more)와 같은 <details> 모양·값. 누르기 자리(.file-line-open)보다 위에 놓고, 결과 창에서는 × 앞에 선다. */
 .file-line .file-line-more{position:relative;z-index:2;flex:none}
+/* S57-23 UI-파일줄메뉴비침: 줄마다 ⋯ 칸(z-index:2)이 제 쌓임 칸이라 안의 메뉴(z-index:8)는 그 칸에 갇힌다. 아래 줄의 같은 칸(z-index:2, 문서에서 더 뒤)이 같은 높이에서
+   뒤쪽 순서로 더 위에 그려져 아래 줄 ⋯ 단추가 열린 메뉴 위로 비쳤다. 열린 칸만 한 단 높여 메뉴가 늘 아래 줄들 위에 그려지게 한다(닫힌 칸 값은 그대로 — × 덮개·열기 덮개와의 순서 불변). */
+.file-line .file-line-more[open]{z-index:3}
 .file-line .file-line-more>summary{list-style:none;cursor:pointer;display:grid;place-items:center;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:-4px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:18px;line-height:1}
 .file-line .file-line-more>summary::-webkit-details-marker{display:none}
 .file-line .file-line-more>summary:hover{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
