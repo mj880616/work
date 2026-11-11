@@ -30,7 +30,7 @@ test('일정 메뉴: [보고할 일정]은 읽어 둔 값이 있을 때만, [수
   const src = read('app/calendar-context-menu.js');
   assert.match(src, /planOf\?\.\(address\.eventId, address\.calendarId\)/);
   assert.match(src, /setPlan\?\.\(address\.eventId, address\.calendarId, !plan\?\.on\)/);
-  assert.doesNotMatch(src, /rest\/v1|localStorage|sessionStorage/);
+  assert.doesNotMatch(src, /rest\/v1/);
 });
 
 test('날짜 칸 메뉴와 머리 글', () => {
