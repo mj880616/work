@@ -38,7 +38,7 @@ import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {createLibraryTwo} from './library-two-pane.js';
 import {iconHtml,treeIconHtml} from './tree-icons.js';
-import {ftPressToggle,ftBindTreeArrows} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
+import {ftPressToggle,ftBindTreeArrows,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -918,6 +918,10 @@ function luSyncFolderLayer(){
 // FOLDER-나무새기준 ④(S51-12): 폴더 묶기에서 펼친 폴더 위 두 손가락 벌리기 = 그 폴더만(들어가기와 같은 화면, [‹] 위치 줄),
 // 오므리기·[‹]·뒤로 키 = 펼친 자리·화면 위치 그대로 나무로. 돌아올 자리는 화면 메모리만(luTreeBack).
 let luTreeBack=null,luPinchNav=false; // luPinchNav: 이번 두 손가락이 왼쪽 나무 줄 위에서 시작했나(UI-폴더누르기한규칙)
+// 보이는 나무(luLastTree)에서 열쇠로 묶음 하나 찾기.
+function luNodeOf(key){let hit=null;const walk=ns=>{for(const n of ns||[]){if(hit)return;if(n.key===key){hit=n;return}walk(n.children)}};walk(luLastTree);return hit}
+// 하위 폴더 없는 폴더 누르기 = 그 폴더 열기: 맨 위 목록에서는 두 손가락 벌리기와 같은 길(돌아올 자리 기억), 이미 폴더 안이면 그 안으로.
+function luPressEnter(id){if(!id)return;if(!luInFolder&&!luOutOnly)luFocusFolder(id);else{luEnterFolder(id)}}
 function luFocusFolder(id){if(luGroupBy!=='folder'||luInFolder||!id||!luFolders_.some(f=>f.id===id))return;luTreeBack={y:window.scrollY,id};luOpened.add('f:'+id);luEnterFolder(id)}
 function luRestoreTree(back){if(!back)return;settleGestureAreas();window.scrollTo({top:back.y,behavior:'instant'});const head=[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode==='f:'+back.id);head?.focus?.({preventScroll:true})}
 // FILES-폰폴더위로 ①④⑤: [‹]·화면 왼쪽 끝 밀기(뒤로 키도 같은 규칙) = 내려온 길이면 한 단계 위, 들어온 폴더면 나무로. 오므리기·'자료실'은 늘 나무(luLeaveFocus).
@@ -989,7 +993,10 @@ document.addEventListener('click',e=>{
   const t=e.target.closest?.('#libraryFolderNav [data-lu-nav-tog]');
   if(t){e.preventDefault();const id=t.dataset.luNavTog;if(t.getAttribute('aria-expanded')==='true'){luNavShut.add(id);luNavOpen.delete(id)}else{luNavShut.delete(id);luNavOpen.add(id)}luRenderLibrary();document.querySelector(`#libraryFolderNav [data-lu-nav-tog="${CSS.escape(id)}"]`)?.focus({preventScroll:true});return}
   const b=e.target.closest?.('#libraryFolderNav [data-lu-nav]');if(!b)return;
-  e.preventDefault();if(ftPressToggle(b))return; // UI-폴더누르기한규칙: 폴더 줄 이름 누르기 = 아이콘 누르기와 같은 펼치기·접기(오른쪽·위치 줄 그대로). 들어가기는 우클릭 [이 폴더로 들어가기]·두 손가락
+  e.preventDefault();
+  // UI-폴더누르기한규칙: 폴더 줄 이름 누르기 = 아이콘 누르기와 같은 펼치기·접기(오른쪽·위치 줄 그대로). 들어가기는 우클릭 [이 폴더로 들어가기]·두 손가락.
+  // OPS-빠진일2차 1: 하위 폴더가 없는 폴더(아이콘 단추 없음)는 한 번 누르면 그 폴더를 연다(공용 판정 folderPressAction).
+  if(ftPressToggle(b,()=>{luTreeBack=null;luEnterFolder(b.dataset.luNav);document.querySelector(`#libraryFolderNav [data-lu-nav="${CSS.escape(b.dataset.luNav||'')}"]`)?.focus({preventScroll:true})}))return;
 const id=b.dataset.luNav||null; // 폴더가 아닌 줄('자료실 전체'·'폴더 밖')만 여기까지 온다
   if(id===OUT_KEY){luTreeBack=null;luShowOut();document.querySelector(`#libraryFolderNav [data-lu-nav="${OUT_KEY}"]`)?.focus({preventScroll:true});return}
   luTreeBack=null;luEnterFolder(id);
@@ -1202,7 +1209,10 @@ function luToggleNode(key){if(luTwoActive()){luTwoToggle(key,!luTwoOpen(key));re
 function luRevealKeys(keys){const all=new Set(luTreeKeys(luLastTree)),out=[];for(const k of keys){const path=k.startsWith('p:')&&k!=='p:none'?luProjectPath(k.slice(2)):[k];for(const x of path)if(all.has(x))out.push(x)}for(const k of out){if(luFilterSignature!=='-')luFilterOpen.set(k,true);else luOpened.add(k)}luRenderLibrary()}
 function luProjectPath(id){const rows=luCatalog()?.projects||[],out=[];let p=rows.find(x=>x.id===id),guard=0;while(p&&guard++<5){out.unshift('p:'+p.id);p=p.parent_id?rows.find(x=>x.id===p.parent_id):null}return out.length?out:['p:'+id]}
 // 토글 머리를 누르면(마우스·터치·키보드 Enter/Space 모두 click) 바뀔 상태를 바로 적는다. toggle 이벤트는 늦게 와서, 그 사이 다시 그리면 잃을 수 있다.
-function luOnHeadClick(e){const head=e.target.closest('summary.lu-node-head');if(!head||e.defaultPrevented||e.target.closest('button,input'))return;const d=head.parentElement;if(!(d instanceof HTMLDetailsElement)||!d.dataset.luNode)return;const key=d.dataset.luNode,next=!d.open;if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);
+function luOnHeadClick(e){const head=e.target.closest('summary.lu-node-head');if(!head||e.defaultPrevented||e.target.closest('button,input'))return;const d=head.parentElement;if(!(d instanceof HTMLDetailsElement)||!d.dataset.luNode)return;const key=d.dataset.luNode,next=!d.open;
+  // OPS-빠진일2차 1(명진 11/11 14:55 '가'): 폴더 묶기의 폴더 줄 — 하위 폴더가 없으면 펼치지 않고 한 번에 그 폴더를 연다(공용 판정 folderPressAction, 두 손가락 벌리기와 같은 곳).
+  // 지금 들어가 있는 폴더 자신·고르는 중은 지금처럼 펼치기·접기만.
+  if(luGroupBy==='folder'&&!luPick.items&&key.startsWith('f:')&&key!=='f:'+luInFolder){const n=luNodeOf(key);if(n&&folderPressAction((n.children||[]).filter(c=>c.kind==='folder').length)===FOLDER_PRESS_ENTER){e.preventDefault();luPressEnter(key.slice(2));return}}if(luFilterSignature!=='-')luFilterOpen.set(key,next);else if(next)luOpened.add(key);else luOpened.delete(key);
   // SEARCH-선택옮기기 ⑦: '공공팀 › 회의 › 집행위'로 줄여 보이던 외줄 폴더를 펼치면 이어진 폴더도 함께 펼친다(각 폴더의 toggle을 luOnToggle이 그대로 기록).
   if(next)for(const k of String(d.dataset.luChain||'').split(' ').filter(Boolean)){const x=luNodeEl(k);if(x&&!x.open)x.open=true}}
 // 한 자료가 든 토글을 위 단까지 펼치고 그 토글의 자료를 모두 보인다(다른 화면에서 그 자료로 올 때).

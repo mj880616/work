@@ -1,7 +1,7 @@
 // UI-폴더누르기한규칙(S57-5): ftPressToggle — 폴더 이름 누르기 = 아이콘 단추 누르기(펼치기·접기), 들어가지 않음. 화면 없이 가짜 요소로 시험.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ftPressToggle, FOLDER_ENTER_LABEL} from '../app/folder-tree-press.mjs';
+import {ftPressToggle, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, FOLDER_PRESS_TOGGLE, createLeafWait} from '../app/folder-tree-press.mjs';
 
 const fakeRow = ({hasTog = true, tog = true, expanded = 'false'} = {}) => {
   const log = [];
@@ -17,10 +17,45 @@ test('ftPressToggle: 아이콘 단추가 있는 폴더 줄 이름 누르기 = �
   assert.deepEqual(log, ['tog']);
 });
 
-test('ftPressToggle: 펼칠 것이 없는 폴더(아이콘 단추 없음)는 처리했지만 아무 일도 하지 않는다(들어가지 않음)', () => {
+test('ftPressToggle: 하위 폴더가 없는 폴더(아이콘 단추 없음)는 한 번 누르면 그 폴더를 연다(OPS-빠진일2차 1, 명진 11/11 14:55 가)', () => {
   const {main, log} = fakeRow({tog: false});
-  assert.equal(ftPressToggle(main), true);
-  assert.deepEqual(log, []);
+  assert.equal(ftPressToggle(main, () => log.push('enter')), true);
+  assert.deepEqual(log, ['enter']);
+  // 여는 길을 넘기지 않은 곳은 처리만 하고 아무 일도 하지 않는다(펼치지 않음).
+  const other = fakeRow({tog: false});
+  assert.equal(ftPressToggle(other.main), true);
+  assert.deepEqual(other.log, []);
+});
+
+test('ftPressToggle: 아이콘 단추가 있는(하위 폴더가 있거나 아직 모르는) 폴더는 열지 않고 펼치기·접기만', () => {
+  const {main, log} = fakeRow();
+  assert.equal(ftPressToggle(main, () => log.push('enter')), true);
+  assert.deepEqual(log, ['tog']);
+});
+
+test('folderPressAction: 하위 폴더가 있으면 펼치기, 없으면 열기, 모르면 펼치며 읽기 — 모든 나무·목록이 같은 판정', () => {
+  assert.equal(folderPressAction(3), FOLDER_PRESS_TOGGLE);
+  assert.equal(folderPressAction(1), FOLDER_PRESS_TOGGLE);
+  assert.equal(folderPressAction(true), FOLDER_PRESS_TOGGLE);
+  assert.equal(folderPressAction(0), FOLDER_PRESS_ENTER);
+  assert.equal(folderPressAction(false), FOLDER_PRESS_ENTER);
+  assert.equal(folderPressAction(null), FOLDER_PRESS_TOGGLE);
+  assert.equal(folderPressAction(undefined), FOLDER_PRESS_TOGGLE);
+});
+
+test('createLeafWait: 읽기 전 폴더를 눌렀다가, 읽어 보니 하위 폴더가 없으면 그때 연다 — 다른 것을 누르면 잊는다', () => {
+  const w = createLeafWait(), log = [];
+  w.arm('a');
+  assert.equal(w.key, 'a');
+  assert.equal(w.done('b', 0, () => log.push('b')), false); // 다른 폴더의 읽기는 상관없음
+  assert.equal(w.done('a', 0, () => log.push('a')), true);
+  assert.deepEqual(log, ['a']);
+  assert.equal(w.key, null);
+  w.arm('c');
+  assert.equal(w.done('c', 2, () => log.push('c')), false); // 하위 폴더가 있으면 열지 않음(펼친 채)
+  w.arm('d'); w.clear();
+  assert.equal(w.done('d', 0, () => log.push('d')), false); // 그 사이 다른 것을 누름
+  assert.deepEqual(log, ['a']);
 });
 
 test('ftPressToggle: toggle 줄이 아니면(자료실 전체·폴더 밖 등) 처리하지 않는다', () => {

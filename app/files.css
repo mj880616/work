@@ -363,3 +363,10 @@
 .fx[data-fx-two="wide"] .fx-kind, .fx[data-fx-two="wide"] .fx-head span:last-child { display:block; }
 .fx[data-fx-two="wide"] .fx-head span:nth-last-child(2) { text-align:right; }
 .fx-find-bar .ds-chip .fx-psrc-caret { margin-left:3px; }
+/* OPS-빠진일2차 1: 목록 칸에서 그 자리에 펼친 폴더 안 줄 — 이름 칸만 단계마다 들여(바뀐 날·크기 열은 머리줄과 같은 자리), 격자는 그 폴더 칸 다음 줄 전체에 안 격자 한 묶음. */
+.fx .fx-rows .fx-row.fx-xin { padding-left:calc(8px + var(--fx-xdepth,1) * 16px); }
+.fx-xnote { padding:4px 8px 4px calc(8px + var(--fx-xdepth,1) * 16px); color:var(--kptu-faint); font-size:12px; }
+.fx-xnote .wait-empty { margin:0; padding:2px 0; }
+.fx .fx-rows.fx-grid > .fx-xsub { grid-column:1 / -1; margin:-2px 0 2px; padding-left:10px; border-left:2px solid var(--kptu-border); border-radius:0; }
+.fx .fx-rows.fx-grid > .fx-xsub > .fx-rows.fx-grid { padding:2px 0 4px; }
+.fx-row[aria-busy="true"], .ft-main[aria-busy="true"] { cursor:progress; opacity:.7; }
