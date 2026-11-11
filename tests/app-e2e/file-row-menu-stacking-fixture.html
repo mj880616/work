@@ -1,0 +1,15 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>file row menu stacking fixture</title>
+<link rel="stylesheet" href="../../app/theme-tokens.css"><link rel="stylesheet" href="../../app/base-ui.css"><link rel="stylesheet" href="../../app/ui-standard.css"><link rel="stylesheet" href="../../app/workplace-detail.css"><link rel="stylesheet" href="../../app/project-system-v3.css">
+<style>body{margin:0;padding:12px}.box{max-width:420px;margin:0 auto}</style></head><body id="appViewHost">
+<!-- S57-23 UI-파일줄메뉴비침: 담당조직 자료 줄(workplace-detail.js wdDocRow)과 프로젝트 자료 줄(project-system-v3.js docRow)의 ⋯ 메뉴가 아래 줄 ⋯ 단추보다 위에 그려지는지 본다.
+     줄 모양(클래스·구조)은 두 함수가 그리는 것과 같고, 가짜 이름만 쓴다. 진짜 앱 창(#wdModal·#ps3DetailModal)을 통째로 띄우는 대신 같은 CSS 파일만 불러 줄 규칙의 쌓임을 잰다. -->
+<div id="appView" class="kptu-ui-ready"><div class="box">
+<section id="wdDocs" class="wd-docs"><div id="wdDocBody"></div></section>
+<section id="ps3Docs" style="margin-top:160px"><div id="ps3DocBody"></div></section>
+</div></div>
+<script type="module">
+const mk=(prefix,n)=>[...Array(n)].map((_,i)=>`가짜 자료 ${i+1}.pdf`);
+const items=`<button type="button">Drive에서 열기</button><button type="button">내려받기</button><button type="button">이름 수정</button><button type="button">수정</button>`;
+document.querySelector('#wdDocBody').innerHTML=mk('wd',4).map((t,i)=>`<div class="wd-doc-row" data-wd-doc="d${i}" data-fr-row><a class="wd-doc-main" href="#" onclick="return false"><b>${t}</b><small>교섭자료 2026-10-0${i+1}</small></a><details class="wd-doc-more"><summary class="icon-btn" aria-label="자료 관리: ${t}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="wd-doc-panel" role="group" aria-label="자료 관리">${items}</div></details></div>`).join('');
+document.querySelector('#ps3DocBody').innerHTML=mk('ps3',4).map((t,i)=>`<div class="ps3-line ps3-doc-row" data-fr-row><a class="ps3-line-main" href="#" onclick="return false"><b>${t}</b><small>교섭자료 2026-10-0${i+1}</small></a><details class="ps3-more ps3-line-more"><summary class="icon-btn" aria-label="자료 관리: ${t}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="ps3-more-panel" role="group" aria-label="자료 관리">${items}</div></details></div>`).join('');
+</script></body></html>
