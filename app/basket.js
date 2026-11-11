@@ -35,7 +35,7 @@ import { fileKind } from './meeting-compact.js';
 import { attachmentName } from './attachment-name.mjs';
 import { renameHostAttrs, renameButtonHtml, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(공용 부품)
 
-import { createUploadBatch, uploadBatch, readNewPhotos, createAttachQueue, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
+import { createUploadBatch, uploadBatch, readNewPhotos, updateFileLine, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
 import { mountUploadRows, setUploadRetry } from './upload-progress.js';
 import { notify } from './small-notice.js';
 import { announceUploaded } from './upload-done.js';
@@ -53,7 +53,9 @@ let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', s
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null;
 // UX-먼저묻고뒤에처리 3차 (2): 업데이트 첨부의 뒤 줄(아래 saveAttachments), 그 업데이트를 볼 때의 올리는 줄, 읽는 사이 첨부가 저장된 목록 읽기 표시.
-const attachQueue = createAttachQueue();
+// BIZ-저장먼저닫기 2차(S59-10): 줄은 basket-upload.js의 업데이트 줄 하나 — 새 업데이트 [저장]·[추가]의 사진·파일도 같은 줄에 선다
+// (그 업데이트를 열면 올리는 줄이 보이고, 같은 잠금 attachGoing이 걸린다).
+const attachQueue = updateFileLine;
 let sentRows = null, staleRead = false;
 let quick=null, bigWriter=null, bigPicker=null, bigOpening=false;
 let currentScope = scope(), retainedForTraversal = false;
@@ -1396,4 +1398,13 @@ window.KPTURouter.on('basket', detail => {
 // TRASH-다른삭제 5단계: 휴지통에서 되돌린 업데이트·노트가 이 화면 목록에 다시 나타나게 한다(지금 보고 있는 화면이고 작업 중이 아닐 때만. 아니면 다음에 열 때 다시 읽는다).
 window.addEventListener('kptu:basket-notes-restored',()=>{if(window.KPTURouter.current==='basket'&&!selected&&!busy)void refresh();noteDocs.reload();});
 window.addEventListener('kptu:basket-note-created',()=>{if(window.KPTURouter.current==='basket'&&!selected&&!busy)void refresh();});
+// BIZ-저장먼저닫기 2차(S59-10): 새 업데이트의 사진·파일이 뒤에서 다 올라가면(업데이트 큰 창·빠른 입력칸·조직 기록 입력칸) 그 업데이트의
+// 목록 줄과 열린 상세의 첨부를 맞춘다([첨부 저장]이 올라간 만큼 그리는 것과 같다). 목록이 아직 도는 중이면 한 번 더 읽는다(staleRead).
+window.addEventListener('kptu:update-files-sent',e=>{
+  const id=e.detail?.id,list=e.detail?.attachments;if(!id||!Array.isArray(list))return;
+  if(loadingRun&&loadingRun===epoch)staleRead=true;
+  const row=notes.find(n=>n.id===id);if(row)row.attachments=list;
+  if(selected?.id===id){selected.attachments=list;if(upload.note_id===id)upload.attachments=list;}
+  if(row||selected?.id===id){renderList();if(selected?.id===id){paintAttachments();pickerFiles?.render();}}
+});
 renderList(); void refresh();

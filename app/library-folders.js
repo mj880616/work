@@ -13,15 +13,18 @@ import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf} from './folder-look-model.mjs';
 import {setLibraryFolderColor} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
+import {askConfirm} from './small-notice.js';
+import {RECEIVE_MENU} from './library-receive.js';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
   // recent: 최근 넣은 폴더 기억(get()=id 목록, push(id)=맨 앞에 두고 서버에 기억). state().treeView: 지금 묶기가 폴더 토글이 보이는 화면(프로젝트·폴더)인지.
+  // receive(LIB-받는폴더 S59-11): {ready()=서버 칸이 있어 켜고 끌 수 있나, get()=지금 받는 폴더 id|null, set(id|null)=서버에 저장(성공 true), outside()='폴더 밖' 자료}.
   let busy=false,dialog=null;
   const s=()=>state();
   const folder=id=>s().folders.find(f=>f.id===id);
@@ -139,6 +142,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         +(i>0?'<button type="button" data-lu-folder-action="up">위로</button>':'')+(i>=0&&i<sib.length-1?'<button type="button" data-lu-folder-action="down">아래로</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
         +'<button type="button" data-lu-folder-action="paint">색 선택…</button>'
+        +receiveLine(f)
         +sep+'<button type="button" class="lu-menu-danger" data-lu-folder-action="delete">폴더 삭제</button>';
     },
     onClose:()=>{if(!colorReopen)colorFor=null},
@@ -153,7 +157,53 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
     else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 선택하세요.`:`${f.name}을(를) 옮길 곳을 선택하세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
     else if(action==='paint'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
+    else if(action==='receive')void toggleReceive(f,trigger);
     else if(action==='delete')void trashFolder(f);
+  }
+  // ---- LIB-받는폴더(S59-11, 시안 ①③): 폴더 우클릭(폰 ⋯) 메뉴 한 줄 [폴더 안 정한 자료 받기] — 켜면 ✓, 다시 누르면 끔. 받는 폴더는 하나뿐(다른 폴더에서 켜면 그쪽으로).
+  // 저장은 내 프로필 칸 하나(서버, library-receive.js), 자료를 그 폴더에 넣는 일은 서버 트리거가 한다. 서버 칸이 아직 없으면(DB 적용 전) 줄을 보이지 않는다.
+  function receiveLine(f){
+    if(!receive?.ready?.())return '';
+    const on=receive.get()===f.id;
+    return `<button type="button" class="lu-menu-receive" data-lu-folder-action="receive" aria-pressed="${on}"><span>${on?'<span class="lu-menu-check" aria-hidden="true">✓ </span>':''}${RECEIVE_MENU}</span></button>`;
+  }
+  async function toggleReceive(f,trigger){
+    if(!receive||busy)return;
+    const was=receive.get();
+    if(was===f.id){
+      if(!(await receive.set(null))){status('받는 폴더를 끄지 못했어요. 잠시 뒤 다시 해 주세요.',true);return}
+      say(`‘${f.name}’ 폴더가 더 이상 받지 않아요. 폴더를 정하지 않은 자료는 폴더 밖에 있어요 ·`,{undo:()=>receive.set(f.id)});
+      return;
+    }
+    if(!(await receive.set(f.id))){status('받는 폴더를 켜지 못했어요. 잠시 뒤 다시 해 주세요.',true);return}
+    // 명진 결정(11/11 '지금 폴더 밖 자료도 한 번에 옮김'): 켤 때 지금 '폴더 밖' 자료 개수를 보여 주고 물은 뒤 옮긴다. 되돌리기 한 줄로 다시 폴더 밖으로.
+    const outside=receive.outside?.()||[];
+    if(outside.length&&await askConfirm(trigger,{text:`폴더 밖 자료 ${outside.length}개도 ‘${f.name}’ 폴더로 옮길까요?`,note:'앞으로 폴더를 정하지 않고 들어오는 자료는 이 폴더로 들어가요.',ok:'옮기기',cancel:'그대로 두기'})){
+      await fileOutside(outside,f);
+      return;
+    }
+    say(`이제 폴더를 정하지 않은 자료는 ‘${f.name}’ 폴더로 들어가요 ·`,{undo:()=>receive.set(was||null)});
+  }
+  // '폴더 밖' 자료(폴더 연결 줄이 없는 자료)를 한 폴더에 한 번에 넣는다. 옮기기와 같은 자료 연결 표 쓰기(소유자 RLS)이고 100개씩 한 요청으로 넣는다.
+  // 한 덩어리가 거절되면(그 사이 다른 기기에서 폴더에 넣은 자료 등) 그 덩어리만 하나씩 넣는다. 되돌리기 = 이번에 넣은 연결 중 아직 그 폴더에 있는 것만 지움(폴더 밖으로).
+  const CHUNK=100;
+  async function fileOutside(docs,f){
+    const ids=[...new Set(docs.map(d=>d.id).filter(Boolean))],done=[];let failed=0;
+    const row=id=>({document_id:id,folder_id:f.id,workspace_id:s().workspace});
+    const ok=await run(async()=>{
+      for(let i=0;i<ids.length;i+=CHUNK){
+        const part=ids.slice(i,i+CHUNK);
+        try{await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:part.map(row),singleFlight:false});done.push(...part)}
+        catch{for(const id of part){try{await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:row(id),singleFlight:false});done.push(id)}catch{failed++}}}
+        if(ids.length>CHUNK)status(`옮기는 중 ${Math.min(i+CHUNK,ids.length)}/${ids.length}`);
+      }
+      if(!done.length)throw new Error('move failed');
+    });
+    if(!ok)return false;
+    say(`옮겼어요 ${done.length}개 → ${f.name} 폴더${failed?` · ${failed}개는 옮기지 못했어요`:''} ·`,{error:failed>0,undo:()=>run(async()=>{
+      for(let i=0;i<done.length;i+=CHUNK)await api(T_ITEMS+`?workspace_id=eq.${enc(s().workspace)}&folder_id=eq.${enc(f.id)}&document_id=in.(${done.slice(i,i+CHUNK).map(enc).join(',')})`,{method:'DELETE',prefer:'return=minimal',singleFlight:false});
+    },'되돌렸어요.')});
+    return true;
   }
   const headOf=key=>[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode===key);
   // 줄 안 이름 바꾸기(폴더): 창 없이 그 줄 이름이 입력칸이 된다. Enter·바깥 누르기=저장, Esc=취소. 저장은 폴더 이름뿐(자료·Drive는 그대로).
@@ -337,9 +387,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     fileDrag=true;showMarks(t);hoverOpen(t);
   }
   // 막 올린 자료를 그 폴더에 넣는다(옮기기와 같은 자료 연결 표 한 줄 쓰기, 소유자 RLS). 안내·다시 읽기는 부른 쪽이 한 번에 한다.
+  // LIB-받는폴더: 받는 폴더가 켜져 있으면 서버가 막 만든 자료를 이미 받는 폴더에 넣어 두었다(연결 줄이 있어 넣기가 겹침 거절 409) → 연 폴더로 고친다.
   async function putUploaded(docId,folderId){
     if(!docId||!folder(folderId))return false;
     try{await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:{document_id:docId,folder_id:folderId,workspace_id:s().workspace}});return true}
+    catch(e){if(!(Number(e?.status)===409||/23505|duplicate/i.test(`${e?.code||''} ${e?.message||''}`)))return false}
+    try{await api(T_ITEMS+`?document_id=eq.${enc(docId)}&workspace_id=eq.${enc(s().workspace)}`,{method:'PATCH',prefer:'return=minimal',body:{folder_id:folderId}});return true}
     catch{return false}
   }
   // 표시는 오른쪽 목록과 왼쪽 나무 두 곳에 붙는다(S55-08).

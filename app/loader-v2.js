@@ -259,6 +259,8 @@
   viewLoader.load('search').catch(err=>console.warn('search load failed',err?.name||'Error'));
   // MTG-노트북녹음: 노트북 [녹음]·녹음 띠의 주인(앱 껍데기 한 곳). 첫 화면 뒤 한 번 붙여 메뉴를 옮겨도 녹음이 이어진다. 기다리지 않는다.
   import('./meeting-recorder.js').catch(err=>console.warn('meeting recorder load failed',err?.name||'Error'));
+  // REC-한회의로잇기 PR-3: 두 번 녹음한 회의를 한 보고로 — 정리 결과 앞 물음·[그 보고에 잇기]·맨 위 잇는 중/이어 붙였어요 줄의 주인(meeting-join.js). 기다리지 않는다.
+  import('./meeting-join.js').catch(err=>console.warn('meeting join load failed',err?.name||'Error'));
   const {startVersionNotice}=await import('./version-notice.js');
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   // UI-앱안알림 2단계: 맨 위 알림 줄의 연결 끊김·수집 멈춤(notice-lines.js). 기다리지 않는다.

@@ -1,6 +1,7 @@
 // ORG-기록첨부(S50-22): pictures and files put into an organization's record input (담당조직 상세 [기록] 칸).
 // - Putting them in: the update input's own file part (basket-upload.js mountBasketPicker — clip, drop, Ctrl+V paste of PR 1860).
-//   No new store and no new upload path: saving goes through the update-with-files path (update-places.js saveUpdateWithFiles):
+//   No new store and no new upload path: saving goes through the update-with-files path (update-places.js saveUpdateFilesBehind —
+//   BIZ-저장먼저닫기 2차: the letters first, the files behind on the update's line):
 //   the basket update with its files in Drive, linked to this organization as a record, and its files put into this
 //   organization's 자료 (basket-file-docs.js putFilesIntoTargets — the same 자료 link as 정리함 [자료로 넣기]).
 // - Letters written → the letters are the record and the files hang on it.

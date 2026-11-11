@@ -93,6 +93,8 @@ on:
       - 'tests/meeting-transcript-long.test.mjs'
       - 'tests/meeting-server-job.test.mjs'
       - 'tests/meeting-join-job.test.mjs'
+      - 'tests/meeting-join-model.test.mjs'
+      - 'app/meeting-join-model.mjs'
       - 'tests/meeting-summary-split.test.mjs'
       - 'supabase/migrations/20261111010000_meeting_server_job_fail_log.sql'
       - 'docs/20261111010000_meeting_server_job_fail_log.*'
@@ -302,6 +304,8 @@ on:
       - 'tests/meeting-transcript-long.test.mjs'
       - 'tests/meeting-server-job.test.mjs'
       - 'tests/meeting-join-job.test.mjs'
+      - 'tests/meeting-join-model.test.mjs'
+      - 'app/meeting-join-model.mjs'
       - 'tests/meeting-summary-split.test.mjs'
       - 'supabase/migrations/20261111010000_meeting_server_job_fail_log.sql'
       - 'docs/20261111010000_meeting_server_job_fail_log.*'
@@ -665,7 +669,7 @@ jobs:
         run: node --test tests/origin-redirect.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-receive.test.mjs tests/library-category-pick.test.mjs tests/list-edit.test.mjs tests/library-twins.test.mjs tests/library-folder-pick.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
 
       - name: Check split-resize column math
         run: node --test tests/split-resize-math.test.mjs
@@ -695,7 +699,7 @@ jobs:
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
       - name: Meeting transcript → meeting record draft (MTG-녹음초안)
-        run: node --test tests/meeting-transcript-model.test.mjs tests/meeting-transcript-long.test.mjs tests/meeting-server-job.test.mjs tests/meeting-join-job.test.mjs tests/meeting-summary-split.test.mjs
+        run: node --test tests/meeting-transcript-model.test.mjs tests/meeting-transcript-long.test.mjs tests/meeting-server-job.test.mjs tests/meeting-join-job.test.mjs tests/meeting-join-model.test.mjs tests/meeting-summary-split.test.mjs
 
       - name: Meeting attendees line (MTG-참석인원칸)
         run: node --test tests/meeting-attendees.test.mjs
