@@ -15,7 +15,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, HWP_PREVIEW_MAX, HWP_PREVIEW_PAGES, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE,
   TREE_DEV_MOVE_NOTE, treeDevKeptText, treeDevDoneText, LIB_TREE_MAX, LIB_TREE_BYTES, libTreeTooBigText, UPLOAD_MAX_BYTES} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
-import {ftPressToggle, ftBindTreeArrows, FOLDER_ENTER_LABEL} from './folder-tree-press.mjs';
+import {ftPressToggle, ftKeepFocus, ftBindTreeArrows, FOLDER_ENTER_LABEL} from './folder-tree-press.mjs';
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
@@ -1034,6 +1034,9 @@ function paintTree() {
 function paintMainTree() {
   const tree = $('[data-fx-tree]');
   if (!tree) return;
+  ftKeepFocus(tree, () => paintMainTreeBody(tree));
+}
+function paintMainTreeBody(tree) {
   // 폰 첫 화면 나무: 상태를 읽는 동안 회색 빈 줄, 못 읽으면 까닭 + [다시], 켜진 출처가 없으면 안내 한 줄(연결된 클라우드가 없음은 위 알림 줄)
   // (PC·폴드는 목록 칸이 같은 것을 보인다 — 폰 나무 화면에서는 목록 칸이 없으므로 나무 칸이 대신 보인다).
   if (treePane() && !state.status) { tree.innerHTML = state.statusFailed ? failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}) : waitHtml({rows: 4}); return; }

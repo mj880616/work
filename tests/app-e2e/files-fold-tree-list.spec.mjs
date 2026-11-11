@@ -119,8 +119,10 @@ for (const width of [700, 884]) test(`노트 폴드 ${width}: 왼쪽 폴더 나�
   const noteCount0 = await page.locator('#noteRows [data-note-row]').count();
   await tree.locator(`[data-nx-folder="${U(1)}"] .ft-main`).click();
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(noteCount0);
+  if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/notes-${width}-1-press.png` });
   await enterNote(U(1));
   await expect(page.locator('[data-nx-here]')).toHaveText('가상 메모 · 2');
+  if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/notes-${width}-2-entered.png` });
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(2);
   await expect(tree).toBeVisible();
   await enterNote(U(2));
@@ -147,8 +149,8 @@ test('노트 보기 전환 줄 자리: 폴드(폰 틀) 오른쪽 아래 · 폰 �
   expect((await box(sw())).y).toBeLessThan(400);
 });
 
-// LIB-나무접기(요청함 11/09 18:10): 자료실과 같은 규칙 — 들어간 폴더 이름을 다시 누르면 접힘(위치는 그대로), 또 누르면 펼침, ←/→ 같은 규칙.
-test('파일 1280: 들어간 폴더 이름을 다시 누르면 접히고, ←/→도 같은 규칙', async ({ page }) => {
+// UI-폴더누르기한규칙(S57-5, LIB-나무접기 후속): 폴더 이름 누르기 = 펼침, 다시 누르기 = 접힘(들어가지 않음 — 위치 줄·목록 그대로), ←/→ 같은 규칙. 들어가기 = ⋯ [이 폴더로 들어가기].
+test('파일 1280: 폴더 이름 누르기 = 펼침·접힘(들어가지 않음), ←/→도 같은 규칙, 들어가기는 ⋯ 메뉴', async ({ page }) => {
   test.setTimeout(90000);
   const { errors } = await start(page, 1280);
   await openFiles(page, 1280);
@@ -159,19 +161,20 @@ test('파일 1280: 들어간 폴더 이름을 다시 누르면 접히고, ←/�
   const id = await row.locator('[data-fx-go]').getAttribute('data-fx-id');
   const main = tree.locator(`[data-fx-go][data-fx-id="${id}"]`), tog = tree.locator(`.ft-row:has([data-fx-id="${id}"]) > button.ft-tog`);
   const name = await main.locator('.ft-name').textContent();
-  await main.click();
-  await expect(tog).toHaveAttribute('aria-expanded', 'true');
-  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(name);
-  await main.click();
-  await expect(tog).toHaveAttribute('aria-expanded', 'false');
-  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(name);
-  await expect(main).toBeFocused();
-  await main.click();
-  await expect(tog).toHaveAttribute('aria-expanded', 'true');
-  await main.focus(); await page.keyboard.press('ArrowLeft');
-  await expect(tog).toHaveAttribute('aria-expanded', 'false'); await expect(main).toBeFocused();
-  await page.keyboard.press('ArrowRight');
-  await expect(tog).toHaveAttribute('aria-expanded', 'true'); await expect(main).toBeFocused();
-  await expect(root(page).locator('[data-fx-crumb] .fx-crumb-now')).toHaveText(name);
+  const crumb = root(page).locator('[data-fx-crumb] .fx-crumb-now');
+  const crumb0 = await crumb.textContent();
+  let open = await tog.getAttribute('aria-expanded') === 'true';
+  const flip = async () => { open = !open; await expect(tog).toHaveAttribute('aria-expanded', String(open)); await expect(crumb).toHaveText(crumb0); await expect(main).toBeFocused(); };
+  await main.click(); await flip();
+  await main.click(); await flip();
+  await main.click(); await flip();
+  await main.focus(); await page.keyboard.press(open ? 'ArrowLeft' : 'ArrowRight'); await flip();
+  await page.keyboard.press(open ? 'ArrowLeft' : 'ArrowRight'); await flip();
+  if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/files-pc-1280-1-press.png` });
+  // 들어가기 = 그 줄 ⋯ 메뉴
+  await row.locator('[data-fx-tmenu]').click();
+  await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
+  await expect(crumb).toHaveText(name);
+  if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/files-pc-1280-2-entered.png` });
   expect(errors).toEqual([]);
 });

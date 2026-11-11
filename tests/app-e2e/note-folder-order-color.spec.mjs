@@ -95,17 +95,18 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  // LIB-나무접기(요청함 11/09 18:10): 자료실과 같은 규칙 — 들어간 폴더 이름을 다시 누르면 접힘(오른쪽 그대로), 또 누르면 펼침, ←/→ 같은 규칙.
-  test('들어간 폴더 이름을 다시 누르면 접히고, ←/→도 같은 규칙', async ({ page }) => {
+  // UI-폴더누르기한규칙(요청함 11/11 06:23): 나무 폴더 이름 누르기 = 그 자리 펼침·접힘(들어가지 않음, 오른쪽 목록 그대로). 들어가기는 ⋯ [이 폴더로 들어가기]. ←/→ 같은 규칙.
+  test('폴더 이름을 누르면 그 자리에서 펼치고 다시 누르면 접힘(오른쪽 목록 그대로), ←/→도 같은 규칙, 들어가기는 ⋯ 메뉴', async ({ page }) => {
     const f = await fixture(page, 1440, { child: true });
     const main = page.locator(`[data-nx-tree] [data-nx-open="${U(1)}"]`), tog = page.locator(`[data-nx-tree] [data-nx-tog="${U(1)}"]`);
     const child = page.locator(`[data-nx-tree] [data-nx-folder="${U(3)}"]`), noteRows = () => noteOrder(page);
+    const before = await noteRows();
     await main.click();
     await expect(child).toBeVisible(); await expect(tog).toHaveAttribute('aria-expanded', 'true');
-    await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
+    expect(await noteRows()).toEqual(before);
     await main.click();
     await expect(child).toHaveCount(0); await expect(tog).toHaveAttribute('aria-expanded', 'false');
-    await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
+    expect(await noteRows()).toEqual(before);
     await expect(main).toBeFocused();
     await main.click();
     await expect(child).toBeVisible();
@@ -113,6 +114,11 @@ test.describe('PC 1440', () => {
     await expect(child).toHaveCount(0); await expect(main).toBeFocused();
     await page.keyboard.press('ArrowRight');
     await expect(child).toBeVisible(); await expect(main).toBeFocused();
+    expect(await noteRows()).toEqual(before);
+    // 들어가기: ⋯ 메뉴 [이 폴더로 들어가기] — 그때만 그 폴더 노트로 바뀐다.
+    await page.locator(`[data-nx-tree] [data-nx-folder-more="${U(1)}"]`).click();
+    await page.locator('#noteDocMenu [data-nx-enter]').click();
+    await expect.poll(noteRows).toEqual(['n1', 'n2', 'n3']);
     expect(f.writes).toEqual([]);
     expect(f.errors).toEqual([]);
   });

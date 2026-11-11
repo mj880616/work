@@ -109,9 +109,11 @@ for (const width of [412, 884, 1440]) {
       // UI-폴더누르기한규칙: 이름 누르기 = 펼침만(들어가지 않음), 들어가기 = 우클릭 [이 폴더로 들어가기]
       await tree.locator('[data-photos-fx-open="S1"]').click();
       await expect(tree.locator('[data-photos-folder="S1"]')).not.toHaveClass(/nx-current/);
+      if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/photos-pc-${width}-1-press.png` });
       await tree.locator('[data-photos-folder="S1"] .nx-name').click({ button: 'right' });
       await page.locator('#photosFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
       await expect(tree.locator('[data-photos-folder="S1"]')).toHaveClass(/nx-current/);
+      if (process.env.S57_5_SHOTS) await page.screenshot({ path: `${process.env.S57_5_SHOTS}/photos-pc-${width}-2-entered.png` });
     } else {
       // 폰·폴드(FOLDER-나무새기준 ③): 첫 화면은 상자 나무 — 폴더를 누르면 그 자리에서 하위 폴더 + 처음 몇 장, 두 손가락 벌리기 = 그 폴더만(위치 줄 ‹), 뒤로가기 = 나무.
       const box = root(page).locator('[data-photos-box="onedrive"]');

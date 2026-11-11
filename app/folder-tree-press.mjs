@@ -43,6 +43,13 @@ export function ftPressToggle(main) {
   return true;
 }
 
+// 나무를 다시 그리는 앞뒤로 나무 안 초점을 같은 단추로 되돌린다. 펼침으로 읽어 온 하위 폴더가 늦게 그려져 줄이 통째로 바뀌어도 키보드 초점(Enter·←/→ 뒤)이 이어진다.
+export function ftKeepFocus(box, paint) {
+  const at = box?.contains?.(document.activeElement) ? document.activeElement : null, sel = at ? sameSelector(at) : '';
+  paint();
+  if (sel && !at.isConnected) box.querySelector(sel)?.focus?.({preventScroll: true});
+}
+
 // ③ ←/→. 처리했으면 true.
 export function ftTreeArrow(event) {
   if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;

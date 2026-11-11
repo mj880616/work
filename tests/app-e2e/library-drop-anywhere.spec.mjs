@@ -1,12 +1,13 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,SB} from './helpers/library-folder-server.mjs';
+import {pinch} from './helpers/pinch.mjs';
 // S53-19 LIB-화면끌어놓기 이어서: PC·펼친 폴드 자료실은 어느 보기·어느 자리에 PC 파일을 놓아도 올라간다.
 // 두 칸 폴더 보기(왼쪽 나무 | 오른쪽 목록): 나무 줄·위치 줄·목록 폴더 줄 위면 그 폴더, 들어간 폴더 안 빈 곳이면 그 폴더, '자료실 전체'·최근 올린 파일 칸 등 그 밖은 폴더 밖.
 // 끄는 동안 화면 전체 점선 + 한 줄 안내(놓일 폴더 이름) + 놓일 줄 표시, 올리는 동안 공용 '올리는 중' 줄(막대·%). 가짜 서버만(실제 Supabase·Drive·AI 없음), 이름은 지어낸 것.
 const FOLDERS=[libFolder('fa',null,{name:'가상 A',sort_order:1024}),libFolder('fc',null,{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
 const ITEMS=[{document_id:'n-1',folder_id:'fa'}];
 const nav=page=>page.locator('#libraryFolderNav');
-const enterNav=async(page,id)=>{await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}; // UI-폴더누르기한규칙: 나무 줄 누르기 = 펼침만, 들어가기 = 우클릭 [이 폴더로 들어가기]
+const enterNav=async(page,id,width=1440)=>{if(width>=761){await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}else await pinch(page,page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`),'out')}; // UI-폴더누르기한규칙: 나무 줄 누르기 = 펼침만, 들어가기는 PC 우클릭·폰·폴드 두 손가락 벌리기
 const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 // 파일을 실은 DataTransfer로 dragenter → dragover → drop을 그 자리(점 x,y가 있으면 그 점의 맨 위 요소)에 보낸다. 놓기 직전의 안내·표시를 돌려준다.
 const dropAt=(page,sel,names,{point=null}={})=>page.evaluate(({sel,names,point})=>{
@@ -26,7 +27,7 @@ const dropAt=(page,sel,names,{point=null}={})=>page.evaluate(({sel,names,point})
 },{sel,names,point});
 const inFolder=(s,id)=>s.items.filter(x=>x.folder_id===id).map(x=>x.document_id);
 
-for(const width of [1440,700])test(`자료실 ${width}: 두 칸 폴더 보기 — 나무 줄·들어간 폴더 빈 곳·자료실 전체에 놓기`,async({page})=>{
+for(const width of [1440,700])test.describe(`자료실 ${width} 끌어놓기`,()=>{test.use({hasTouch:width<761});test(`자료실 ${width}: 두 칸 폴더 보기 — 나무 줄·들어간 폴더 빈 곳·자료실 전체에 놓기`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
   await expect(nav(page)).toBeVisible();
@@ -41,7 +42,7 @@ for(const width of [1440,700])test(`자료실 ${width}: 두 칸 폴더 보기 �
   await expect(page.locator('#libraryDropStatus')).toHaveText('가상 N에 2개 올렸어요');
   expect(inFolder(s,'fn')).toEqual(['upload-2','upload-3']);
   // 나무에서 폴더로 들어간 뒤: 오른쪽 목록 빈 곳(목록 상자 아래쪽·자료실 화면 아래 빈 곳) = 그 폴더(들어간 폴더 머리 줄 표시).
-  await enterNav(page,'fa');
+  await enterNav(page,'fa',width);
   await expect.poll(()=>tops(page)).toEqual(['f:fa']);
   r=await dropAt(page,'#documentList',['d.pdf']);
   expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 ‘가상 A’ 폴더로 올려요',into:['f:fa'],after:false});
@@ -79,7 +80,7 @@ for(const width of [1440,700])test(`자료실 ${width}: 두 칸 폴더 보기 �
   const moved=await page.evaluate(()=>{const dt=new DataTransfer();dt.setData('text/plain','x');const el=document.querySelector('#documentList');el.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt}));return !document.querySelector('#libraryDropOverlay').hidden});
   expect(moved).toBe(false);
   expect(errors).toEqual([]);
-});
+});});
 
 test('자료실 1440: 올리는 동안 공용 올리는 중 줄(막대·%)이 보이고 끝나면 사라진다',async({page})=>{
   test.setTimeout(60000);
