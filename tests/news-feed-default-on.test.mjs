@@ -195,6 +195,11 @@ test('카탈로그: 구글 뉴스 매체 단위 줄은 검색 RSS 한 경로에 
   // 미디어오늘: robots.txt가 막아 자기 RSS 줄을 뺐다 — 카탈로그 어디에도 그 사이트 주소가 없다.
   assert.ok(!JSON.stringify(C.NEWS_CATALOG.map(s => [s.lists, s.hosts])).includes('mediatoday.co.kr/'));
   assert.ok(!C.newsSourceByKey('news-mediatoday').hosts.some(h => h.includes('mediatoday')));
+  // 새 줄은 카탈로그 맨 끝에 더했다: 앞선 매체의 순서가 그대로다(목록 색 칸이 카탈로그 순서로 정해지므로 앞선 매체의 색이 바뀌지 않는다). 미디어오늘은 제자리.
+  assert.deepEqual(C.NEWS_SOURCE_KEYS.slice(0, 23), ['news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain',
+    'news-newstapa', 'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-mediatoday', 'news-newsis', 'news-sedaily', 'news-imaeil',
+    'news-psi', 'news-itf', 'news-labourstart']);
+  assert.deepEqual(C.NEWS_SOURCE_KEYS.slice(23).sort(), Object.keys(GOOGLE_SITES).filter(k => k !== 'news-mediatoday').sort());
   // 키·이름은 겹치지 않는다(목록의 매체 이름·도배막기 묶음·색이 키와 이름으로 정해진다).
   assert.equal(new Set(C.NEWS_SOURCE_KEYS).size, C.NEWS_SOURCE_KEYS.length);
   assert.equal(new Set(C.NEWS_CATALOG.map(s => s.name)).size, C.NEWS_CATALOG.length);

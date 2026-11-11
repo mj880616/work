@@ -152,6 +152,8 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   매일신문은 안내 쪽만 [사실]이고 피드·기사 호스트는 배포 뒤 probe(raw·listed)로 CC가 확인했다(11/11 운영: 뉴시스 271·서울경제 146·매일신문 254건 [사실]).
   //   미디어오늘은 같이 넣었으나 그쪽 robots.txt가 수집기를 막아(수집 결과 'robots', 0건 [사실: 11/11 CC 운영 확인]) RSS 줄을 빼고 아래 5차 구글 뉴스 매체 단위 줄로 옮겼다.
   //   'AI 학습 금지' 문구가 있는 서울경제도 넣는다 — 11/08 명진 결정(개인 용도)과 같은 기준.
+  // 미디어오늘(S57-13): 자기 RSS는 그쪽 robots.txt가 막아 구글 뉴스 매체 단위 줄로 옮김(아래 5차). 키와 자리(순서)는 그대로 둔다 — 켬·끔 설정과 다른 매체의 색 칸이 바뀌지 않게.
+  viaGoogle("news-mediatoday", "미디어오늘", "mediatoday.co.kr"),
   { key: "news-newsis", name: "뉴시스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
     // 안내 쪽 www.newsis.com/RSS/ [사실, 11/10]. 사회 피드 열림(RSS 2.0·description 있음·기사 링크 https://www.newsis.com/view/…) [사실].
     // 조건: 하단 '무단 전재·복사·배포 금지', 피드 안 저작권 고지 줄 [사실]. 전체 피드는 없고 속보(sokbo)는 양이 많아 사회·경제·정치만.
@@ -170,12 +172,25 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     extract: false,
     lists: ["https://www.imaeil.com/rss?cate=society", "https://www.imaeil.com/rss?cate=economy", "https://www.imaeil.com/rss?cate=politics"],
     hosts: ["www.imaeil.com", "imaeil.com"], kindOf: article },
+  { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1 },
+    lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
+  { key: "news-itf", name: "ITF", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+    extract: { version: 1 },
+    lists: ["https://www.itfglobal.org/en/rss/feed"], hosts: ["www.itfglobal.org", "itfglobal.org"], kindOf: article },
+  { key: "news-labourstart", name: "LabourStart(아시아)", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+    // 링크가 남의 매체라 허용 호스트 밖 — 본문은 읽지 않고 failed/off_host(4.3절). 규칙은 판 번호만.
+    // S51-9: 피드 글 링크가 모두 허용 호스트 밖이면 parseFeed가 다 빼서 기사 줄 자체가 0건이었다(probe는 off_host로 보고).
+    // S57-13(11/11 명진 '제목만이라도'): linkOut — 기사 줄은 남긴다(제목·날짜·링크). 남의 매체 글 쪽은 지금처럼 읽지 않는다.
+    linkOut: true,
+    extract: { version: 1 },
+    lists: ["https://www.labourstart.org/rdf/labourstart.asia.rss"], hosts: ["www.labourstart.org", "labourstart.org"], kindOf: article },
   // ---- 5차(S57-13, 11/11 NEWS-못넣은곳대안 ②): 자기 RSS로 못 넣는 곳은 구글 뉴스 매체 단위(site:도메인)로 받는다.
   //   지금 키워드 찾기(news-google)와 같은 길(검색 RSS 한 경로, robots.txt 먼저) — 새 서버 부품 없음. 키워드와 상관없이 그 매체 글 전부.
   //   한계: 구글 뉴스가 색인한 글만, 늦을 수 있음, 한 번에 많아야 100건, 링크가 구글 경유(본문은 읽지 않음 — 제목·매체·날짜·[원문]만).
   //   같은 글이 키워드 찾기로 먼저 들어와 있으면 주소·제목 겹침 거르기(insertNew)로 한 줄만 남는다.
+  //   자리: 카탈로그 맨 끝에 더한다 — 앞선 매체의 순서(목록 색 칸이 카탈로그 순서로 정해짐, app/news-colors.mjs)가 바뀌지 않게. 매체 고르기 화면은 region으로 묶는다.
   //   까닭(설계 3.1f): 미디어오늘 = robots.txt가 막음, 노동과세계 = https가 아님(http로 넘김), 뉴스민 = 봇 확인, 철도경제신문·부산일보 = 공식 RSS 없음.
-  viaGoogle("news-mediatoday", "미디어오늘", "mediatoday.co.kr"),
   viaGoogle("news-worknworld", "노동과세계", "worknworld.kctu.org"),
   viaGoogle("news-newsmin", "뉴스민", "newsmin.co.kr"),
   viaGoogle("news-redaily", "철도경제신문", "redaily.co.kr"),
@@ -192,19 +207,6 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   viaGoogle("news-kyeonggi", "경기일보", "kyeonggi.com"),
   viaGoogle("news-kyeongin", "경인일보", "kyeongin.com"),
   viaGoogle("news-yeongnam", "영남일보", "yeongnam.com"),
-  { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
-    extract: { version: 1 },
-    lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
-  { key: "news-itf", name: "ITF", group: "foreign", region: "foreign", lang: "en", mode: "rss",
-    extract: { version: 1 },
-    lists: ["https://www.itfglobal.org/en/rss/feed"], hosts: ["www.itfglobal.org", "itfglobal.org"], kindOf: article },
-  { key: "news-labourstart", name: "LabourStart(아시아)", group: "foreign", region: "foreign", lang: "en", mode: "rss",
-    // 링크가 남의 매체라 허용 호스트 밖 — 본문은 읽지 않고 failed/off_host(4.3절). 규칙은 판 번호만.
-    // S51-9: 피드 글 링크가 모두 허용 호스트 밖이면 parseFeed가 다 빼서 기사 줄 자체가 0건이었다(probe는 off_host로 보고).
-    // S57-13(11/11 명진 '제목만이라도'): linkOut — 기사 줄은 남긴다(제목·날짜·링크). 남의 매체 글 쪽은 지금처럼 읽지 않는다.
-    linkOut: true,
-    extract: { version: 1 },
-    lists: ["https://www.labourstart.org/rdf/labourstart.asia.rss"], hosts: ["www.labourstart.org", "labourstart.org"], kindOf: article },
 ] as NewsSource[]);
 
 export const NEWS_SOURCE_KEYS: readonly string[] = Object.freeze(NEWS_CATALOG.map((s) => s.key));
