@@ -182,7 +182,7 @@ test.describe('윈도우 PC 1440', () => {
     await expect(prev.locator('[data-fx-trash-one]')).toHaveAttribute('data-fx-off', 'pc');
     // 흐린 단추(aria-disabled)는 Playwright가 '못 누름'으로 보고 기다리므로 force로 누른다(실제 화면에서는 눌리고 이유 한 줄).
     await prev.locator('[data-fx-trash-one]').click({ force: true });
-    await expect(page.getByText(/새 판\(0\.4\.0\)으로 올리면/).first()).toBeVisible();
+    await expect(page.getByText(/새 판\(0\.4\.0\)으로 올리면/).filter({ visible: true }).first()).toBeVisible(); // 우클릭 메뉴(들어가기)의 숨은 안내 글은 빼고 본다
     await shot(page, 'files-pc-1440');
     await prev.locator('[data-fx-open]').click();
     await expect.poll(() => st.calls.filter(c => c.path === '/v1/open').map(c => JSON.parse(c.body).path)).toEqual(['C:\\문서\\가짜 회의자료_연습.hwpx']);
@@ -192,7 +192,7 @@ test.describe('윈도우 PC 1440', () => {
     await file.click({ modifiers: ['Control'] });
     await expect(root(page).locator('[data-fx-bar]')).toContainText('내 PC · 보기·열기만');
     await page.keyboard.press('Delete');
-    await expect(page.getByText('새 판(0.4.0)으로 올리면').first()).toBeVisible();
+    await expect(page.getByText('새 판(0.4.0)으로 올리면').filter({ visible: true }).first()).toBeVisible(); // 우클릭 메뉴(들어가기)의 숨은 안내 글은 빼고 본다
     // PC 이름·경로는 서버·주소창 어디에도 없다(브라우저 저장소를 쓰지 않는 것은 tests/pc-files-model.test.mjs가 코드로 본다).
     expect(JSON.stringify(server.calls)).not.toContain('가짜 회의자료');
     expect(JSON.stringify(server.calls)).not.toContain('C:\\\\');
@@ -226,7 +226,7 @@ test.describe('윈도우 PC 1440', () => {
     await expect(send).toHaveAttribute('title', /새 판\(0\.4\.0\)으로 올리면/);
     // F5(반대 칸에 복사)도 안내만.
     await page.keyboard.press('F5');
-    await expect(page.getByText('새 판(0.4.0)으로 올리면').first()).toBeVisible();
+    await expect(page.getByText('새 판(0.4.0)으로 올리면').filter({ visible: true }).first()).toBeVisible(); // 우클릭 메뉴(들어가기)의 숨은 안내 글은 빼고 본다
     await shot(page, 'files-pc-two-1440');
     expect(errors).toEqual([]);
   });
@@ -358,9 +358,9 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     // S53-12: [휴지통]은 숨기지 않고 흐리게 — 누르면 Delete 키와 같은 '다음 판' 안내 한 줄.
     await expect(bar.locator('[data-fx-trash]')).toHaveAttribute('data-fx-off', 'pc');
     await bar.locator('[data-fx-trash]').click({ force: true });
-    await expect(page.getByText(/새 판\(0\.5\.0\)으로 올리면 내 PC 안 이름 바꾸기/).first()).toBeVisible();
+    await expect(page.getByText(/새 판\(0\.5\.0\)으로 올리면 내 PC 안 이름 바꾸기/).filter({ visible: true }).first()).toBeVisible(); // 우클릭 메뉴(들어가기)의 숨은 안내 글은 빼고 본다
     await page.keyboard.press('Delete');
-    await expect(page.getByText(/새 판\(0\.5\.0\)으로 올리면 내 PC 안 이름 바꾸기/).first()).toBeVisible();
+    await expect(page.getByText(/새 판\(0\.5\.0\)으로 올리면 내 PC 안 이름 바꾸기/).filter({ visible: true }).first()).toBeVisible(); // 우클릭 메뉴(들어가기)의 숨은 안내 글은 빼고 본다
     await bar.locator('[data-fx-copy]').click();
     const dest = root(page).locator('[data-fx-dest]');
     await expect(dest).toBeVisible();
