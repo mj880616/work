@@ -20,6 +20,13 @@
 //   rec_discard {session_id}              → 녹음 버리기: 열린 구간 닫기 → 조각(합쳤으면 합친 파일)을 Drive 휴지통으로, 구간은 '버림' 표시.
 //               전사·요약·회의 초안은 하지 않는다. 끝난 전사·회의에 붙인 녹음은 건드리지 않는다.
 //   rec_restore {session_id}              → 버린 녹음 되돌리기: 휴지통에서 다시 꺼내 '이어서 정리' 상태로(닫힘·합침). 녹음을 이어 하지는 않는다.
+// REC-한회의로잇기 PR-2(설계 docs/design/rec-join.md 3-1절, 표 app_meeting_join_jobs · 규칙 join-job.mjs): 두 번 녹음한 회의를 한 보고로.
+//   join_start      {target_meeting_id, source:{job_id}|{meeting_id}} → 녹음 결과를 그 보고에 잇기 / 저장한 다른 보고를 그 보고에 합치기.
+//   join_text       몸통 = 전사 글 그대로. 머리글 x-target-meeting-id, x-record-jobs(붙일 녹음 작업 id, 쉼표), Content-Length 필수.
+//   join_candidates {job_id}|{meeting_id} → 같은 날 녹음으로 쓴 보고의 id·녹음 길이.
+//   join_read {job_id} · join_list {} · join_retry {job_id} · join_seen {job_id, candidates?} · join_undo {job_id, scope:'before'|'joined'|'all'}
+//   몸통에 작업공간 값을 받지 않는다: 고른 보고를 부른 사람 로그인으로 읽고, 그 행의 작업공간으로 owner를 확인한 뒤에만 서비스 권한을 쓴다.
+//   뒤에서 summary(합친 전문으로 다시 요약) → apply(DB 함수 한 번, 보고 글은 여기서만 바뀜) → done. 다음 단계는 join_tick(서버 키 HMAC, job_tick과 다른 서명).
 // 열쇠(비밀값 GEMINI_API_KEY)가 없으면 config는 ready=false, 나머지는 503 not_ready('준비 중').
 // 실패하면 작업만 failed로 두고, Gemini에 올린 임시 파일은 지운다. 녹음 원본·회의 기록은 그대로다.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -47,6 +54,11 @@ import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
   SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasWords, jobView, joinParts, leaseTake, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
+import {
+  JOIN_DAY_COLUMNS, JOIN_JOB_TABLE, JOIN_MEETING_COLUMNS, JOIN_STEP_COLUMNS, JOIN_TICK_ACTION, JOIN_VIEW_COLUMNS,
+  applyOutcome, boundedText, joinAfterSummary, joinCandidates, joinPatch, joinRpcCode, joinView, joiningSources, listJoins, parseJoinStart, parseJoinText,
+  readJoin, retryJoin, seenJoin, startJoin, undoJoin,
+} from './join-job.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -63,7 +75,7 @@ const REC_COLUMNS = 'id,workspace_id,created_by,session_id,segment_no,status,err
 const JOB_COLUMNS = 'id,workspace_id,created_by,status,error_code,drive_file_id,file_name,mime_type,size_bytes,duration_sec,model,meeting_id,started_at,finished_at,trashed_at,created_at,updated_at';
 
 const cors = {
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-workspace-id, x-file-name, x-duration-sec, x-recording-id, x-piece-seq',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-workspace-id, x-file-name, x-duration-sec, x-target-meeting-id, x-record-jobs, x-recording-id, x-piece-seq',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const json = (d: unknown, s = 200) =>
@@ -709,6 +721,8 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
 // 작업 행은 owner만 읽고(RLS), 쓰기는 이 함수(service_role)만 한다. 전사·요약은 명진이 누른 job_start로만 시작한다.
 // REC-정리멈춤반복(11/09): 서버 요약도 Web2 전용 열쇠만 읽는다(결정 D2, docs/design/ai-server.md). 옛 이름 OPENAI_API_KEY는 Web2 열쇠가 아니라 OpenAI가 401로 거절해 요약이 늘 draft_failed였다.
 const OPENAI = () => (Deno.env.get('WEB2_OPENAI_API_KEY') || '').trim();
+// 사람이 봐야 하는 요약 초안(답 원문 보존·칸 어긋남). 같은 실행 안에서 serverDraft → runStep으로만 넘긴다(저장하지 않음).
+const draftNeedsReview = new WeakSet<object>();
 // deno-lint-ignore no-explicit-any
 const edgeRuntime = () => (globalThis as any).EdgeRuntime as { waitUntil?: (p: Promise<unknown>) => void } | undefined;
 // 응답을 돌려준 뒤에도 이어서 돌린다(EdgeRuntime.waitUntil). 없으면(시험) 그냥 돌린다.
@@ -736,13 +750,34 @@ async function patchServerJob(id: string, patch: Record<string, unknown>) {
   const { error } = await admin.from(SERVER_JOB_TABLE).update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
   if (error) throw jobsFail(error);
 }
+// 단계를 돌리는 표는 둘이다(REC-한회의로잇기 PR-2): 서버 정리 작업('job')과 잇기 작업('join'). 잡기·실패 처리·요약 단계 코드는 한 벌을 같이 쓰고,
+// 표·읽는 칸·다음 단계 입구(tick)와 그 서명만 다르다. 잇기 작업 표는 고치기 권한이 있는 칸만 쓴다(joinPatch).
+type StepKind = 'job' | 'join';
+const STEP: Record<StepKind, { table: string; columns: string; action: string }> = {
+  job: { table: SERVER_JOB_TABLE, columns: SERVER_JOB_COLUMNS, action: 'job_tick' },
+  join: { table: JOIN_JOB_TABLE, columns: JOIN_STEP_COLUMNS, action: JOIN_TICK_ACTION },
+};
+async function readStepJob(id: string, kind: StepKind): Promise<Job | null> {
+  if (kind === 'job') return await readServerJob(id);
+  const { data, error } = await admin.from(JOIN_JOB_TABLE).select(JOIN_STEP_COLUMNS).eq('id', id).maybeSingle();
+  if (error) throw jobsFail(error);
+  return (data as Job) ?? null;
+}
+async function patchStepJob(id: string, patch: Record<string, unknown>, kind: StepKind) {
+  if (kind === 'job') return await patchServerJob(id, patch);
+  let q = admin.from(JOIN_JOB_TABLE).update(joinPatch(patch, new Date().toISOString())).eq('id', id);
+  // 이미 적용된 작업(DB 함수가 적용 기록과 함께 done으로 바꿈)은 실패로 덮지 않는다 — apply 답이 끊겨 실패로 보인 경우에도 보고와 작업 행이 어긋나지 않게.
+  if (patch.status === 'failed') q = q.is('applied_at', null);
+  const { error } = await q;
+  if (error) throw jobsFail(error);
+}
 
-// 같은 함수의 job_tick을 부른다(다음 단계). 받는 쪽은 바로 202를 주고 뒤에서 단계를 돌린다.
-async function kickTick(id: string) {
+// 같은 함수의 job_tick(잇기 작업은 join_tick)을 부른다(다음 단계). 받는 쪽은 바로 202를 주고 뒤에서 단계를 돌린다.
+async function kickTick(id: string, kind: StepKind = 'job') {
   const exp = Date.now() + TICK_TTL_MS;
   try {
-    const sig = await tickSign(SERVICE, id, exp);
-    const r = await fetch(`${SB}/functions/v1/meeting-transcribe?action=job_tick`, {
+    const sig = await tickSign(SERVICE, id, exp, kind);
+    const r = await fetch(`${SB}/functions/v1/meeting-transcribe?action=${STEP[kind].action}`, {
       method: 'POST', headers: { Authorization: `Bearer ${ANON}`, apikey: ANON, 'Content-Type': 'application/json', [TICK_HEADER]: sig },
       body: JSON.stringify({ job_id: id, exp }), signal: AbortSignal.timeout(20000),
     });
@@ -756,17 +791,18 @@ async function kickTick(id: string) {
 // 단계 하나. 잡기(lease) → 한 단계 → 결과 저장 → 다음 부르기. 다른 호출이 잡고 있으면 아무것도 안 한다.
 // 잡기는 읽은 행의 lease_until 그대로일 때만 바꾼다(동시에 두 번 와도 한 번만). 기한 지난 lease_until이 남아 있으면 앞 실행이
 // 단계 중간에 끊긴 것(REC-정리멈춤반복, server-job.mjs leaseTake): 처음은 표시만 하고 한 번 더, 같은 단계에서 또 끊기면 step_cut 실패.
-async function runStep(id: string) {
+async function runStep(id: string, kind: StepKind = 'job') {
   const now = new Date();
+  const step = STEP[kind];
   let before: Job | null;
-  try { before = await readServerJob(id); } catch (e) { console.warn('meeting-transcribe: job read failed', safeErrorLog(e)); return; }
+  try { before = await readStepJob(id, kind); } catch (e) { console.warn('meeting-transcribe: job read failed', safeErrorLog(e)); return; }
   const take = leaseTake(before, now.getTime());
   if (!before || !take.ok) return;
   const lease: Record<string, unknown> = { status: 'running', lease_until: new Date(now.getTime() + LEASE_MS).toISOString(), updated_at: now.toISOString() };
   if (take.cut === 1) lease.error_code = 'step_cut';
-  let q = admin.from(SERVER_JOB_TABLE).update(lease).eq('id', id).in('status', [...ACTIVE]);
+  let q = admin.from(step.table).update(lease).eq('id', id).in('status', [...ACTIVE]);
   q = before.lease_until ? q.eq('lease_until', before.lease_until) : q.is('lease_until', null);
-  const { data, error } = await q.select(SERVER_JOB_COLUMNS);
+  const { data, error } = await q.select(step.columns);
   if (error) { console.warn('meeting-transcribe: job lease failed', error.code); return; }
   const job = (data?.[0] as Job) ?? null;
   if (!job) return;
@@ -777,16 +813,34 @@ async function runStep(id: string) {
     // 같은 단계에서 두 번 끊김: 요약 단계면 요약 쪽 이유(전사한 글은 남음), 그 밖은 구간 쪽 이유.
     if (take.cut >= 2) throw new Fail(job.stage === 'summary' ? 'draft_step_cut' : 'step_cut');
     if (job.attempts >= MAX_ATTEMPTS) throw new Fail('too_many_steps');
-    next = await stepOnce(job, take.cut === 1);
+    // 잇기 작업: apply 단계는 DB 함수 한 번, 요약 단계는 서버 정리 작업과 같은 stepOnce를 쓰고 끝나면 done 대신 apply로 간다.
+    if (kind === 'join' && job.stage === 'apply') next = await applyJoin(job);
+    else {
+      next = await stepOnce(job, take.cut === 1);
+      if (kind === 'join') next = joinAfterSummary(next, !!next.draft && typeof next.draft === 'object' && draftNeedsReview.has(next.draft as object));
+    }
   } catch (e) {
     const code = failCode(e);
-    console.warn('meeting-transcribe: job step failed', job.stage, code);
-    await patchServerJob(id, { status: 'failed', error_code: code, lease_until: null, attempts: job.attempts + 1, finished_at: new Date().toISOString() }).catch(() => undefined);
+    console.warn('meeting-transcribe: job step failed', kind, job.stage, code);
+    await patchStepJob(id, { status: 'failed', error_code: code, lease_until: null, attempts: job.attempts + 1, finished_at: new Date().toISOString() }, kind).catch(() => undefined);
     return;
   }
-  await patchServerJob(id, { ...next, error_code: null, lease_until: null, attempts: job.attempts + 1 });
-  if (next.status === 'done') { await notifyDone(job).catch(() => console.warn('meeting-transcribe: job push skipped')); return; }
-  await kickTick(id);
+  // 잇기 작업의 apply는 DB 함수가 작업 행(done·적용 기록·잡기 비움)까지 한 트랜잭션으로 쓴다. 여기서 다시 쓰지 않는다
+  // (바로 뒤에 온 되돌리기가 바꾼 상태를 done으로 덮지 않게).
+  if (!(kind === 'join' && job.stage === 'apply')) await patchStepJob(id, { ...next, error_code: null, lease_until: null, attempts: job.attempts + 1 }, kind);
+  if (next.status === 'done') { await notifyDone(job, kind).catch(() => console.warn('meeting-transcribe: job push skipped')); return; }
+  await kickTick(id, kind);
+}
+
+// 잇기 작업의 apply 단계: 서버 전용 DB 함수 한 번. 보고 글 바꾸기 + 녹음 연결(합치기면 자료·할 일 연결 옮기기 + 없어지는 보고 휴지통)이
+// 한 트랜잭션이고, 어긋나면(그 사이 보고를 고침·휴지통 등) 고정 글자 예외로 전체가 취소된다 → 실패 코드로 바꾼다(보고는 그대로).
+// 함수는 id만 받고, 만든 사람이 지금도 owner인지·같은 작업공간·[회의] 칸·글이 시작 때 그대로인지를 SQL로 다시 확인한다. 두 번 불러도 한 번만.
+async function applyJoin(job: Job): Promise<Record<string, unknown>> {
+  const { data, error } = await admin.rpc('app_meeting_join_apply', { p_job: job.id });
+  if (error) { console.warn('meeting-transcribe: join apply', error.code || '-'); throw new Fail(joinRpcCode(error)); }
+  const outcome = applyOutcome(data);
+  if (outcome !== 'done') throw new Fail(outcome === 'not_found' ? 'not_found' : 'failed');
+  return { status: 'done', stage: 'done' };
 }
 
 async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unknown>> {
@@ -944,12 +998,19 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
   if (result.code) { console.warn('meeting-transcribe: draft answer', stage.kind || 'one', result.why, transcript.length); throw new Fail(result.code); }
   const text = outputText(d, 256 * 1024);
   if (!text) { console.warn('meeting-transcribe: draft answer', stage.kind || 'one', 'empty', transcript.length); throw new Fail('draft_failed'); }
-  try { return parseMeetingDraft(text).draft; } catch { throw new Fail('draft_failed'); }
+  // 답을 그대로 읽지 못해 원문을 보존했거나 일부 칸이 어긋난 초안(parse.mjs warnings)은 표시해 둔다. 서버 정리 작업은 사람이 초안 창에서 보고 저장하지만,
+  // 잇기 작업은 검수 없이 보고에 저장하므로 이런 초안은 저장하지 않는다(runStep → joinAfterSummary가 draft_failed로 멈춘다).
+  try {
+    const parsed = parseMeetingDraft(text);
+    if (parsed.warnings.length) draftNeedsReview.add(parsed.draft);
+    return parsed.draft;
+  } catch { throw new Fail('draft_failed'); }
 }
 
 // 끝 알림: 폰 앱(살아 있는 기기, FCM 비밀값이 있을 때) '회의 요약이 준비됐어요'. 알림 줄과 같은 기록(app_push_log) 한 줄.
 // 싣는 것은 종류·짧은 제목·누르면 열 앱 안 경로뿐(전사 글·제목 없음).
-async function notifyDone(job: Job) {
+// 잇기 작업(kind 'join')도 같은 길·같은 알림 종류(meeting_done)로 '보고에 이어 붙였어요'(설계 rec-join.md 3-1절: 종류를 새로 만들지 않는다).
+async function notifyDone(job: Job, kind: StepKind = 'job') {
   const cfg = readFcmConfig(Deno.env.get(FCM_SECRET_NAME));
   if (!cfg) return;
   const { data: devices } = await admin.from('app_push_devices').select('id,fcm_token').eq('workspace_id', job.workspace_id).is('revoked_at', null).limit(10);
@@ -964,12 +1025,12 @@ async function notifyDone(job: Job) {
       { onConflict: 'workspace_id,kind,ref_key,day', ignoreDuplicates: true });
     return;
   }
-  const open = `/work/app/?view=reports&rec_job=${job.id}&notice=meeting_done.${ref}`;
+  const open = `/work/app/?view=reports&${kind === 'join' ? 'join_job' : 'rec_job'}=${job.id}&notice=meeting_done.${ref}`;
   const sender = makeFcmSender(cfg, fetch, Date.now);
   let sent = 0;
   for (const d of devices) {
     if (typeof d.fcm_token !== 'string') continue;
-    const r = await sender.send(d.fcm_token, { kind: 'meeting_done', title: '회의 요약이 준비됐어요', open, urgent: true });
+    const r = await sender.send(d.fcm_token, { kind: 'meeting_done', title: kind === 'join' ? '보고에 이어 붙였어요' : '회의 요약이 준비됐어요', open, urgent: true });
     if (r === 'sent') sent++;
     else if (r === 'unregistered') await admin.from('app_push_devices').update({ revoked_at: at.toISOString() }).eq('id', d.id);
   }
@@ -1057,7 +1118,16 @@ async function jobList(user: { id: string }, body: Record<string, unknown>) {
   if (error) throw jobsFail(error);
   const nowMs = Date.now();
   for (const j of data || []) if (needsKick(j, nowMs)) inBackground(runStep(j.id));
-  return json({ ok: true, jobs: (data || []).map((j) => jobView(j)) });
+  // 지금 보고에 잇는 중인 녹음 결과는 뺀다(다른 기기에서 [초안 열기] → 새 보고 저장으로 같은 녹음이 두 보고에 들어가지 않게). 잇기가 실패하면 다시 보인다.
+  const joining = await joiningJobs(workspaceId, (data || []).filter((j) => j.status === 'done').map((j) => j.id as string));
+  return json({ ok: true, jobs: (data || []).filter((j) => !joining.has(j.id)).map((j) => jobView(j)) });
+}
+// 잇는 중인 녹음 결과 id. 잇기 작업 표가 아직 없거나 읽지 못하면 빈 목록(지금 동작 그대로).
+async function joiningJobs(workspaceId: string, ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const { data, error } = await admin.from(JOIN_JOB_TABLE).select('source_job_id,status').eq('workspace_id', workspaceId).in('status', [...ACTIVE]).in('source_job_id', ids);
+  if (error) return new Set();
+  return joiningSources(data);
 }
 // 초안을 열었음(다시 띠에 뜨지 않게). 회의에 저장했으면 그 회의 id도.
 async function jobOpened(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
@@ -1104,6 +1174,174 @@ async function jobTick(req: Request) {
   return json({ ok: true }, 202);
 }
 
+// ---- REC-한회의로잇기 PR-2: 잇기 작업 입구(규칙·순서는 join-job.mjs, 여기는 DB 읽기·쓰기만) ----
+type UserDb = ReturnType<typeof userClient>;
+// requireOwner와 같은 기준. owner가 아니면 false(잇기 입구는 없는 것·남의 것을 구분하지 않고 not_found로 답한다).
+async function isOwner(userId: string, workspaceId: string) {
+  try { await requireOwner(userId, workspaceId); return true; } catch (e) { if (e instanceof AuthError) return false; throw e; }
+}
+function joinIo(userDb: UserDb) {
+  const kick = (id: string) => inBackground(runStep(id, 'join'));
+  return {
+    now: () => Date.now(),
+    kick,
+    isOwner,
+    // 로그인한 사람이 owner인 작업공간(join_list는 작업공간을 몸통으로 받지 않는다). 하나도 없으면 다른 action처럼 403.
+    ownerWorkspaces: async (userId: string): Promise<string[]> => {
+      const { data, error } = await admin.from('app_workspace_members').select('workspace_id').eq('user_id', userId).eq('role', 'owner').limit(20);
+      if (error) throw new Fail('failed');
+      const ids = (data || []).map((r) => r.workspace_id as string).filter(isUuid);
+      if (!ids.length) throw new AuthError(403);
+      return ids;
+    },
+    // ---- 부른 사람 로그인(owner RLS · 휴지통 숨김)으로 읽는 것: 보고, 녹음 자료 행, 잇기 작업 행 ----
+    userMeeting: async (id: string): Promise<Job | null> => {
+      const { data, error } = await userDb.from('app_meetings').select(JOIN_MEETING_COLUMNS).eq('id', id).maybeSingle();
+      if (error) throw new Fail('failed');
+      return (data as Job | null) ?? null;
+    },
+    userMeetingsOfDay: async (workspaceId: string, from: string, to: string): Promise<Job[]> => {
+      const { data, error } = await userDb.from('app_meetings').select(JOIN_DAY_COLUMNS).eq('workspace_id', workspaceId)
+        .gte('meeting_at', from).lt('meeting_at', to).order('meeting_at', { ascending: true }).limit(100);
+      if (error) throw new Fail('failed');
+      return (data || []) as Job[];
+    },
+    userRecordingDocs: async (workspaceId: string, meetingIds: string[]): Promise<Job[]> => {
+      const { data, error } = await userDb.from('app_documents').select('meeting_id').eq('workspace_id', workspaceId)
+        .in('meeting_id', meetingIds).contains('tags', ['회의녹음']).limit(500);
+      if (error) throw new Fail('failed');
+      return (data || []) as Job[];
+    },
+    userJoinJob: async (id: string, columns: string): Promise<Job | null> => {
+      const { data, error } = await userDb.from(JOIN_JOB_TABLE).select(columns).eq('id', id).maybeSingle();
+      if (error) throw jobsFail(error);
+      return (data as Job | null) ?? null;
+    },
+    userJoinList: async (workspaces: string[], userId: string, since: string): Promise<Job[]> => {
+      const { data, error } = await userDb.from(JOIN_JOB_TABLE).select(JOIN_VIEW_COLUMNS).in('workspace_id', workspaces).eq('created_by', userId)
+        .gte('created_at', since).is('seen_at', null).order('created_at', { ascending: false }).limit(20);
+      if (error) throw jobsFail(error);
+      return (data || []) as Job[];
+    },
+    // ---- 서비스 권한(owner 확인 뒤에만 부른다 — join-job.mjs의 순서). 작업공간·id로 거른다. ----
+    // 서버 정리 작업: 지금 있는 ownServerJob(작업공간 owner + 만든 사람) 그대로. 없는 것·남의 것은 null.
+    ownServerJob: async (userId: string, id: string): Promise<Job | null> => {
+      try { return await ownServerJob(userId, id); } catch (e) {
+        if (e instanceof AuthError || (e instanceof Fail && e.code === 'not_found')) return null;
+        throw e;
+      }
+    },
+    recordJobs: async (workspaceId: string, ids: string[]): Promise<Job[]> => {
+      const { data, error } = await admin.from(TABLE).select(JOB_COLUMNS).eq('workspace_id', workspaceId).in('id', ids);
+      if (error) throw new Fail('failed');
+      return (data || []) as Job[];
+    },
+    linkedRecordJobs: async (workspaceId: string, meetingIds: string[]): Promise<Job[]> => {
+      const { data, error } = await admin.from(TABLE).select('meeting_id,duration_sec,trashed_at').eq('workspace_id', workspaceId).in('meeting_id', meetingIds).limit(500);
+      if (error) throw new Fail('failed');
+      return (data || []) as Job[];
+    },
+    linkedServerJobs: async (workspaceId: string, meetingIds: string[]): Promise<Job[]> => {
+      const { data, error } = await admin.from(SERVER_JOB_TABLE).select('id,meeting_id,status,parts').eq('workspace_id', workspaceId).in('meeting_id', meetingIds).limit(200);
+      if (error) throw jobsFail(error);
+      return (data || []) as Job[];
+    },
+    // 그 보고에 연결된 서버 정리 작업의 전문(회의록 전문 칸이 빈 보고의 앞 글), 시간순.
+    linkedTranscripts: async (workspaceId: string, meetingId: string): Promise<Job[]> => {
+      const { data, error } = await admin.from(SERVER_JOB_TABLE).select('id,transcript_text,created_at').eq('workspace_id', workspaceId).eq('meeting_id', meetingId)
+        .eq('status', 'done').order('created_at', { ascending: true }).limit(10);
+      if (error) throw jobsFail(error);
+      return (data || []) as Job[];
+    },
+    joinReady: async () => {
+      const { error } = await admin.from(JOIN_JOB_TABLE).select('id').limit(1);
+      if (error) throw jobsFail(error);
+    },
+    activeJoins: async (workspaceId: string): Promise<Job[]> => {
+      const { data, error } = await admin.from(JOIN_JOB_TABLE).select(JOIN_VIEW_COLUMNS).eq('workspace_id', workspaceId).in('status', [...ACTIVE]).limit(50);
+      if (error) throw jobsFail(error);
+      return (data || []) as Job[];
+    },
+    joinSourceText: async (workspaceId: string, id: string): Promise<string | null> => {
+      const { data, error } = await admin.from(JOIN_JOB_TABLE).select('source_text').eq('workspace_id', workspaceId).eq('id', id).maybeSingle();
+      if (error) throw jobsFail(error);
+      return typeof data?.source_text === 'string' ? data.source_text : null;
+    },
+    sourceJoined: async (workspaceId: string, sourceJobId: string): Promise<boolean> => {
+      const { data, error } = await admin.from(JOIN_JOB_TABLE).select('id').eq('workspace_id', workspaceId).eq('source_job_id', sourceJobId).eq('status', 'done').limit(1);
+      if (error) throw jobsFail(error);
+      return !!data?.length;
+    },
+    // 넣는 행은 join-job.mjs joinRow가 만든다(넣기 권한이 있는 칸만, 작업공간 = 부른 사람 로그인으로 읽은 보고 행의 값).
+    insertJoin: async (row: Record<string, unknown>): Promise<{ job?: Job; conflict?: boolean }> => {
+      const { data, error } = await admin.from(JOIN_JOB_TABLE).insert(row).select(JOIN_VIEW_COLUMNS).single();
+      if (error?.code === '23505') return { conflict: true };
+      if (error || !data) throw jobsFail(error);
+      return { job: data as Job };
+    },
+    patchJoin: async (id: string, patch: Record<string, unknown>, guard: Record<string, string> = {}): Promise<Job[]> => {
+      let q = admin.from(JOIN_JOB_TABLE).update(joinPatch(patch, new Date().toISOString())).eq('id', id);
+      for (const [k, v] of Object.entries(guard)) q = q.eq(k, v);
+      const { data, error } = await q.select(JOIN_VIEW_COLUMNS);
+      if (error?.code === '23505') throw new Fail('busy');
+      if (error) throw jobsFail(error);
+      return (data || []) as Job[];
+    },
+    // 되돌리기: 서버 전용 DB 함수(id·scope만 넘긴다). 함수가 owner·보고·조건을 SQL로 다시 확인하고, 어긋나면 고정 글자 예외 → 실패 코드.
+    undo: async (id: string, scope: string): Promise<Record<string, unknown> | null> => {
+      const { data, error } = await admin.rpc('app_meeting_join_undo', { p_job: id, p_scope: scope });
+      if (error) { console.warn('meeting-transcribe: join undo', error.code || '-'); throw new Fail(joinRpcCode(error)); }
+      return data && typeof data === 'object' ? data as Record<string, unknown> : null;
+    },
+  };
+}
+// 잇기·합치기 시작. 몸통의 작업공간 값은 읽지 않는다(parseJoinStart가 고른 보고·재료 id만 꺼낸다).
+async function joinStart(user: { id: string }, userDb: UserDb, body: Record<string, unknown>) {
+  const want = parseJoinStart(body);
+  if (!want) throw new Fail('bad_request');
+  const out = await startJoin(joinIo(userDb), user.id, want);
+  return json({ ok: true, job: joinView(out.job), ...(out.existing ? { existing: true } : {}) });
+}
+// 입력 창이 가진 전사 글을 그 보고에 잇기. 몸통 = 글 그대로(JSON 몸통 한도 앞에서 따로 가른다).
+async function joinText(req: Request, user: { id: string }, userDb: UserDb) {
+  // 머리글 모양이 틀리면 bad_request, 글이 한도를 넘으면 text_too_long(parseJoinText·boundedText가 던진다).
+  const head = parseJoinText({ target: req.headers.get('x-target-meeting-id'), records: req.headers.get('x-record-jobs'), length: req.headers.get('content-length') });
+  if (!head) throw new Fail('bad_request');
+  const text = await boundedText(req.body);
+  const out = await startJoin(joinIo(userDb), user.id, { ...head, text });
+  return json({ ok: true, job: joinView(out.job), ...(out.existing ? { existing: true } : {}) });
+}
+async function joinRead(user: { id: string }, userDb: UserDb, body: Record<string, unknown>) {
+  return json({ ok: true, job: joinView((await readJoin(joinIo(userDb), user.id, body)).job) });
+}
+async function joinList(user: { id: string }, userDb: UserDb) {
+  return json({ ok: true, jobs: (await listJoins(joinIo(userDb), user.id)).jobs.map((j: Job) => joinView(j)) });
+}
+async function joinRetry(user: { id: string }, userDb: UserDb, body: Record<string, unknown>) {
+  const out = await retryJoin(joinIo(userDb), user.id, body);
+  return json({ ok: true, job: joinView(out.job), ...(out.restarted ? { restarted: true } : {}) });
+}
+async function joinSeen(user: { id: string }, userDb: UserDb, body: Record<string, unknown>) {
+  await seenJoin(joinIo(userDb), user.id, body);
+  return json({ ok: true });
+}
+async function joinUndo(user: { id: string }, userDb: UserDb, body: Record<string, unknown>) {
+  return json({ ok: true, ...(await undoJoin(joinIo(userDb), user.id, body)) });
+}
+async function joinCandidateList(user: { id: string }, userDb: UserDb, body: Record<string, unknown>) {
+  return json({ ok: true, ...(await joinCandidates(joinIo(userDb), user.id, body)) });
+}
+// 서버 안 입구: 잇기 작업의 다음 단계. job_tick과 같은 모양이지만 서명 머리글자가 달라 서로 통하지 않는다.
+async function joinTick(req: Request) {
+  const raw = await req.text();
+  if (raw.length > 512) return json({ ok: false }, 401);
+  let body: Record<string, unknown> | null = null;
+  try { body = JSON.parse(raw); } catch { body = null; }
+  if (!body || !(await tickCheck(SERVICE, body, req.headers.get(TICK_HEADER), Date.now(), 'join'))) return json({ ok: false }, 401);
+  inBackground(runStep(body.job_id as string, 'join'));
+  return json({ ok: true }, 202);
+}
+
 Deno.serve(withWebCors(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
@@ -1111,10 +1349,12 @@ Deno.serve(withWebCors(async (req: Request) => {
     const action = new URL(req.url).searchParams.get('action') || '';
     // 서버 안 입구(다음 단계)는 사용자 로그인이 아니라 서버 키 HMAC으로만 받는다(맨 앞에서 가름).
     if (action === 'job_tick') return await jobTick(req);
+    if (action === JOIN_TICK_ACTION) return await joinTick(req);
     const user = await userOf(req);
     const userDb = userClient(req);
     if (action === 'upload') return await upload(req, user, userDb);
     if (action === 'rec_piece') return await recPiece(req, user);
+    if (action === 'join_text') return await joinText(req, user, userDb);
     const raw = await req.text();
     if (raw.length > 4096) throw new Fail('bad_request');
     let body: Record<string, unknown> = {};
@@ -1133,6 +1373,13 @@ Deno.serve(withWebCors(async (req: Request) => {
     if (action === 'job_list') return await jobList(user, body);
     if (action === 'job_opened') return await jobOpened(user, userDb, body);
     if (action === 'job_retry') return await jobRetry(user, userDb, body);
+    if (action === 'join_start') return await joinStart(user, userDb, body);
+    if (action === 'join_candidates') return await joinCandidateList(user, userDb, body);
+    if (action === 'join_read') return await joinRead(user, userDb, body);
+    if (action === 'join_list') return await joinList(user, userDb);
+    if (action === 'join_retry') return await joinRetry(user, userDb, body);
+    if (action === 'join_seen') return await joinSeen(user, userDb, body);
+    if (action === 'join_undo') return await joinUndo(user, userDb, body);
     throw new Fail('bad_request');
   } catch (e) {
     if (e instanceof AuthError) return json({ ok: false, code: e.message, error: e.status === 401 ? '로그인이 필요합니다.' : '접근 권한이 없습니다.' }, e.status);

@@ -24,23 +24,28 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export const isUuid = (v) => typeof v === 'string' && UUID.test(v);
 
 // ---- job_tick 열쇠: 서버 키로 만든 HMAC(작업 id·기한에 묶임). 새 비밀값을 두지 않는다. 화면은 받지 않는다. ----
+// REC-한회의로잇기(PR-2): 잇기 작업의 join_tick은 같은 모양이지만 서명 머리글자가 달라(scope 'join'), 한쪽 서명이 다른 쪽에서 통하지 않는다.
+const TICK_SCOPES = Object.freeze({ job: 'meeting-job-tick', join: 'meeting-join-tick' });
+const tickScope = (scope) => (Object.hasOwn(TICK_SCOPES, scope) ? TICK_SCOPES[scope] : '');
 const enc = new TextEncoder();
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
-async function hmac(key, text) {
-  const k = await crypto.subtle.importKey('raw', enc.encode(`meeting-job-tick:${key}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+async function hmac(key, text, head) {
+  const k = await crypto.subtle.importKey('raw', enc.encode(`${head}:${key}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return hex(await crypto.subtle.sign('HMAC', k, enc.encode(text)));
 }
-export function tickSign(key, jobId, exp) {
-  if (!key || !isUuid(jobId) || !Number.isSafeInteger(exp)) throw new Error('tick_sign');
-  return hmac(key, `${jobId}.${exp}`);
+export function tickSign(key, jobId, exp, scope = 'job') {
+  const head = tickScope(scope);
+  if (!key || !head || !isUuid(jobId) || !Number.isSafeInteger(exp)) throw new Error('tick_sign');
+  return hmac(key, `${jobId}.${exp}`, head);
 }
-// 맞으면 true. 열쇠 없음·모양 틀림·기한 지남·너무 먼 기한·서명 다름 = false. 비교는 고정 길이.
-export async function tickCheck(key, body, sig, nowMs) {
-  if (!key || typeof sig !== 'string' || !/^[0-9a-f]{64}$/.test(sig)) return false;
+// 맞으면 true. 열쇠 없음·모양 틀림·기한 지남·너무 먼 기한·서명 다름·모르는 scope = false. 비교는 고정 길이.
+export async function tickCheck(key, body, sig, nowMs, scope = 'job') {
+  const head = tickScope(scope);
+  if (!key || !head || typeof sig !== 'string' || !/^[0-9a-f]{64}$/.test(sig)) return false;
   if (!body || typeof body !== 'object' || Object.keys(body).sort().join(',') !== 'exp,job_id') return false;
   const { job_id: jobId, exp } = body;
   if (!isUuid(jobId) || !Number.isSafeInteger(exp) || exp < nowMs || exp > nowMs + TICK_TTL_MS + 60000) return false;
-  const want = await hmac(key, `${jobId}.${exp}`);
+  const want = await hmac(key, `${jobId}.${exp}`, head);
   let diff = 0;
   for (let i = 0; i < 64; i++) diff |= want.charCodeAt(i) ^ sig.charCodeAt(i);
   return diff === 0;

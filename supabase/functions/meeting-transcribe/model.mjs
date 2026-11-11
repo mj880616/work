@@ -63,6 +63,17 @@ export const MESSAGES = Object.freeze({
   // REC-정리멈춤반복-긴구간: 요약 요청 시간 초과 · 요약 단계가 서버 실행 시간 안에 끝나지 못해 두 번 끊김(전사 단계 step_cut과 구분).
   draft_timeout: '요약이 오래 걸려 멈췄어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
   draft_step_cut: '요약이 서버 시간 안에 끝나지 않아 끊겼어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
+  // REC-한회의로잇기(PR-2, 설계 docs/design/rec-join.md 3-5절): 잇기·합치기가 멈춘 이유. 어느 경우에도 보고는 그대로다
+  // (보고 글을 바꾸는 곳은 DB 함수 app_meeting_join_apply 한 번뿐이고, 어긋나면 전체가 취소된다).
+  report_changed: '그 사이 보고를 수정해서 잇지 않았어요. [다시]를 누르면 수정한 글로 처음부터 이어요.',
+  report_gone: '그 보고를 찾지 못했어요. 바뀐 것은 없어요.',
+  source_changed: '그 사이 합칠 보고를 수정해서 합치지 않았어요. [다시]를 누르세요.',
+  source_gone: '합칠 보고나 녹음을 찾지 못했어요. 바뀐 것은 없어요.',
+  already_joined: '이미 다른 보고에 들어간 녹음이에요.',
+  no_first_transcript: '회의록 전문이 없는 보고에는 이어 붙일 수 없어요.',
+  bad_target: '[회의] 보고에만 이어 붙일 수 있어요.',
+  not_applied: '되돌릴 내용을 찾지 못했어요.',
+  text_too_long: '글이 너무 길어 이어 붙일 수 없어요.',
 });
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
@@ -70,6 +81,8 @@ export const STATUS = Object.freeze({
   gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,
   draft_failed: 502, daily_limit: 429, jobs_unavailable: 503, too_many_steps: 409, step_cut: 504, draft_cut: 502,
   draft_timeout: 504, draft_step_cut: 504,
+  report_changed: 409, report_gone: 404, source_changed: 409, source_gone: 404, already_joined: 409, no_first_transcript: 422, bad_target: 422,
+  not_applied: 409, text_too_long: 413,
 });
 // 실패 코드 → 화면 갈래. 'gemini'(전사 서비스) · 'format'(파일 형식). 연결 끊김은 화면이 받은 오류(시간 초과·네트워크)로 가른다.
 export const FAIL_KIND = Object.freeze({
