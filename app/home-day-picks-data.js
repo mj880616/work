@@ -4,7 +4,7 @@
 // - 결과는 서버 표 app_home_day_picks(owner RLS, 작업공간·날짜 한 줄). 이 기기에 저장하지 않는다(탭 메모리만).
 // - 일기를 쓴 제안은 표의 suggests_done에 id를 더한다(다른 기기에서도 사라짐).
 import {callAiAssist} from './basket-ai-summary.js';
-import {picksState} from './home-day-picks-model.mjs';
+import {picksState, newsIdOf, handledNewsIds} from './home-day-picks-model.mjs';
 
 const enc = encodeURIComponent;
 const ctx = rt => rt?.context?.read?.();
@@ -24,6 +24,19 @@ export async function readDayPicks(day, rt = window.KPTURuntime) {
     if (error?.status === 404) return {ok:true, missing:true, state:picksState(null)};
     return {ok:false};
   }
+}
+
+// HOME-읽을글밀기: 고른 글(뉴스 기사) 가운데 이미 숨기거나 보관(별표)한 글의 id 모음. 뉴스 표(owner RLS)의 표시를 읽기만 한다 — 홈이 따로 저장하는 것은 없다.
+// → {ok:true, handled:Set<id>} | {ok:false}(읽지 못함 — 화면은 거르지 않고 그대로 보인다).
+export async function readReadMarks(ids, rt = window.KPTURuntime) {
+  const ws = ctx(rt)?.workspace?.id;
+  const list = [...new Set((Array.isArray(ids) ? ids : []).map(newsIdOf).filter(Boolean))];
+  if (!ws) return {ok:false};
+  if (!list.length) return {ok:true, handled:new Set()};
+  try {
+    const rows = await rt.api(`/rest/v1/app_news_items?workspace_id=eq.${enc(ws)}&id=in.(${list.map(enc).join(',')})&select=id,hidden_at,starred_at&limit=${list.length}`);
+    return {ok:true, handled:handledNewsIds(rows)};
+  } catch { return {ok:false}; }
 }
 
 // 서버에 고르기를 부탁한다. 돌려줌: {state}(새로 받은 줄) | {limit:'monthly_limit'|'daily_limit'} | {skipped:true} | null(실패·건너뜀).
