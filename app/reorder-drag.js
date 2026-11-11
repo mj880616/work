@@ -19,7 +19,11 @@ export function dropIndex(centers, y) {
 //  zones: {resolve(dragId, overId, zone) -> {ok, canInside}} → 줄 위에서 위 25%·가운데 50%·아래 25%(dropZone)를 재서 onHover({id, over, zone})로 알리고,
 //         onDrop({id, list, index, over, zone})에 넘긴다. 자리 표시는 화면(onHover)이 그린다. 줄 사이 = 순서, 가운데 = 넣기.
 //  onHold(item): 폰에서 줄을 꾹 눌렀다 움직이지 않고 뗐을 때(끌기 아님) 알린다(우클릭과 같은 메뉴를 열 때).
-export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more'} = {}) {
+// MENU-왼쪽메뉴바로끌기 확장 — 칸 상자가 따로 없이 한 줄로 이어진 목록(PC 왼쪽 메뉴·폰 [메뉴] 창, 칸 사이에 빈 공간·선만 있음). 다른 사용처는 기본값 그대로:
+//  resolve(x, y, dragEl) -> {listId, index, before?, after?} | null : 놓을 자리를 부르는 쪽이 정한다(칸 상자·가운데 위치 계산 대신).
+//         before = 놓을 자리 바로 뒤 요소(.re-drop-before), after = 바로 앞 요소(.re-drop-end, before가 없을 때). onDrop({id, list: listId, index})는 그대로.
+//  links: true  → whole 모드에서 <a href> 줄도 잡힌다(PC 왼쪽 메뉴 줄은 링크). 링크의 기본 끌기(주소 끌어가기)는 막고, 끌기 뒤 따라오는 클릭 한 번은 늘 삼킨다.
+export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false} = {}) {
   let drag = null, touch = null, marker = null, scrollDir = 0, scrollTimer = 0;
   const idOf = el => el?.dataset?.reorderId || '';
   const lists = () => [...root.querySelectorAll(listSelector)];
@@ -37,6 +41,10 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     return {list: over.closest(listSelector), listId: over.closest(listSelector)?.dataset?.reorderList || '', items: [], index: 0, over: overId, zone: dropZone({top: r.top, height: r.height}, y, {canInside: rule.canInside !== false})};
   }
   function target(x, y) {
+    if (resolve) {
+      const t = resolve(x, y, drag.el);
+      return t ? {list: null, listId: t.listId || '', items: [], index: t.index, before: t.before || null, after: t.after || null} : null;
+    }
     if (zones) return zoneTarget(x, y);
     const hit = document.elementFromPoint(x, y);
     let list = hit?.closest?.(listSelector);
@@ -61,6 +69,7 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     if (zones) return; // 자리 표시는 화면이 onHover로 그린다
     root.querySelectorAll('.re-drop-before,.re-drop-end').forEach(el => el.classList.remove('re-drop-before', 're-drop-end'));
     if (!t) return;
+    if (resolve) { if (t.before) t.before.classList.add('re-drop-before'); else t.after?.classList.add('re-drop-end'); return; }
     const before = t.items[t.index];
     (before || t.list).classList.add(before ? 're-drop-before' : 're-drop-end');
   }
@@ -92,7 +101,7 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
   root.addEventListener('pointerdown', event => {
     if (event.pointerType === 'touch' || !event.isPrimary || event.button > 0) return;
     let handle = event.target.closest?.(handleSelector), item = handle?.closest(itemSelector);
-    if (!item && whole) { item = event.target.closest?.(itemSelector); handle = item && !event.target.closest('input,textarea,select,a[href],' + wholeExcept) ? item : null; }
+    if (!item && whole) { item = event.target.closest?.(itemSelector); handle = item && !event.target.closest('input,textarea,select,' + (links ? '' : 'a[href],') + wholeExcept) ? item : null; }
     if (!handle || !item || !canDrag(idOf(item))) return;
     const start = {x: event.clientX, y: event.clientY, pointer: event.pointerId};
     const onMove = e => {
@@ -115,7 +124,7 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
   root.addEventListener('pointerdown', event => {
     if (event.pointerType !== 'touch' || !event.isPrimary) return;
     const item = event.target.closest?.(itemSelector);
-    if (!item || !canDrag(idOf(item)) || event.target.closest(whole ? 'input,textarea,select,a[href],' + wholeExcept : 'input,textarea,select,a[href],button:not([data-reorder-handle])')) return;
+    if (!item || !canDrag(idOf(item)) || event.target.closest(whole ? 'input,textarea,select,' + (links ? '' : 'a[href],') + wholeExcept : 'input,textarea,select,a[href],button:not([data-reorder-handle])')) return;
     cancelTouch();
     touch = {el: item, x: event.clientX, y: event.clientY, grabbed: false, moved: false, timer: setTimeout(() => {
       if (!touch || touch.el !== item) return;
@@ -146,6 +155,8 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
   root.addEventListener('touchcancel', () => { if (touch?.grabbed) { cancelTouch(); finish(false); } else cancelTouch(); });
   // 잡은 직후 따라오는 기본 길게누르기 메뉴는 막는다.
   root.addEventListener('contextmenu', event => { if (touch || drag || (!whole && event.target.closest?.(itemSelector))) event.preventDefault(); });
+  // links 모드: 줄이 링크라서 브라우저가 주소 끌어가기(HTML5 끌기)를 시작하면 포인터 이벤트가 끊긴다. 줄 위에서는 그 기본 끌기를 막는다.
+  if (links) root.addEventListener('dragstart', event => { if (event.target.closest?.(itemSelector)) event.preventDefault(); });
 
   root.addEventListener('keydown', event => {
     const handle = event.target.closest?.(handleSelector);
