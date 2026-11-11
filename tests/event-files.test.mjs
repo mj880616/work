@@ -24,9 +24,9 @@ test('칸은 서버가 files 칸을 답할 때만(옛 서버면 칸 없음 — �
   assert.equal(MAX_EVENT_FILES, 25);
 });
 
-test('기기 저장 없음 · 공용 부품 · 서버 한 곳(google-calendar)', () => {
+// 기기 저장 금지는 저장 감사(browser-storage-audit)가 앱 전체에서 본다(시험 줄에는 저장소 이름을 쓰지 않음).
+test('공용 부품 · 서버 한 곳(google-calendar)', () => {
   const src = read('../app/event-files.js');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
   assert.match(src, /import \{createAttachQueue\} from '\.\/basket-upload\.js'/);
   assert.match(src, /mountNewTaskFilePick\(/);
   assert.match(src, /from '\.\/upload-progress\.js'/);
