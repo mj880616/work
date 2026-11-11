@@ -112,7 +112,8 @@ export function dayHeading(key) {
 
 // S57-8 BIZ-달력우클릭끌기 PR-2: 빈 칸 우클릭 메뉴 항목과 끌어 옮길 때의 새 일시(순수 규칙).
 // 빈 칸 우클릭: [이날 사업 보고 추가](새 보고 창에 그 날짜, 시각은 report-default-at.mjs 기본값) · [이날 보기](칸을 눌러 그날 고르기와 같음).
-export const REPORT_DAY_MENU_ITEMS = Object.freeze([{id: 'add', label: '이날 사업 보고 추가'}, {id: 'day', label: '이날 보기'}].map(Object.freeze));
+// 아이콘: [추가]는 더하기(공용 줄 메뉴 mkdir 아이콘과 같은 선), [이날 보기]는 줄 메뉴의 day(달력) 아이콘. 항목 하나라도 아이콘이 있으면 글자가 같이 밀리므로 둘 다 둔다.
+export const REPORT_DAY_MENU_ITEMS = Object.freeze([{id: 'add', label: '이날 사업 보고 추가', icon: 'M8 3.5v9M3.5 8h9'}, {id: 'day', label: '이날 보기'}].map(Object.freeze));
 // 사업 보고를 다른 날 칸에 놓았을 때의 새 일시: 날짜만 바뀌고 시각(시·분·초)은 그대로. 한국 시각은 서머타임이 없어 하루 = 86400000ms 그대로 더한다.
 // 같은 날이거나 읽을 수 없으면 ''(옮길 것 없음). 회차 번호(n차)는 이 규칙이 다루지 않는다 — 날짜를 옮겨도 바꾸지 않는다.
 export function moveReportAt(at, toDay) {

@@ -147,6 +147,9 @@ test('끌어 옮기기 연결: 달력 그릴 때 한 번 설치, 우클릭은 �
   assert.match(act, /app_meetings\?id=eq\.[^`]*workspace_id=eq\.[^`]*meeting_at=eq\./);
   assert.match(act, /body: \{meeting_at: iso\(toAt\), updated_at: new Date\(\)\.toISOString\(\)\}/);
   assert.doesNotMatch(act, /round_no|app_documents|google_event/);
+  // 빈 칸 우클릭 메뉴(공용 줄 메뉴 row-menu.js)의 모양은 od-link.css에 있어 사업 보고 화면도 그 스타일을 불러와야 모양이 선다.
+  const loader = readFileSync(new URL('../app/view-loader.js', import.meta.url), 'utf8');
+  assert.match(loader.match(/\n  meetings:\[[^\n]*\]/)[0], /'\.\/od-link\.css'/);
   assert.match(act, /offerUndoNotice\(\{text: `옮겼어요 · /); assert.match(act, /!pc\.matches/); assert.match(act, /e\.pointerType !== 'mouse'/);
 });
 test('사진 글: 날짜 묶음 아래 사업 보고별 격자 자리, 사진 없으면 안내', () => {
