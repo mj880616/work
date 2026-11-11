@@ -11,6 +11,7 @@ import { noteRequests, requestTagsHtml } from './update-requests.js';
 import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
 import { mountForgetList } from './forget-list.js';
+import { plainText } from './notice-box.mjs';
 import { radarFindState, radarFindAgain, radarClock, radarPromises, openSource as openTodoSource } from './todo-radar.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, takeBasketKindRequest, basketNoteOrigin, basketBackHtml } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel, offerUndoNotice } from './basket-record-delete.js';
@@ -386,7 +387,7 @@ const memoLines=note=>String(note.raw_text||'').split(/\r?\n/).map(line=>line.tr
 function memoTitle(note){
   const lines=memoLines(note),file=note.attachments?.[0];
   const fileTitle=file?[String(file.mime_type||'').startsWith('image/')?'사진':'파일',attachmentName(file,'')].filter(Boolean).join(' · '):'';
-  return lines[0]||fileTitle||'업데이트';
+  return plainText(lines[0]||'')||fileTitle||'업데이트'; // S59-20: 첫 줄의 ** 같은 표시는 걷고 제목으로 쓴다(줄·위 줄·일정 창 제목 모두 이 함수 하나)
 }
 // UI-상단줄제목: the open update's title goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it. Notes send their own (basket-notes.js).
 // The place is keyed by screen, so the update's and the note's titles are told apart by the side that is open (only one detail is open at a time).

@@ -208,12 +208,13 @@ test('따로 쓴 빈 화면 문구가 새로 생기지 않는다(기준표보다
   for (const [rel, n] of Object.entries(EMPTY_BASELINE)) assert.equal(counts[rel] || 0, n, `${rel}: 기준표를 낮추세요`);
 });
 
+// S59-20: 사업 보고 상세(meeting-round-detail.js)는 후속 할 일·회의자료가 비면 칸 제목만 두고 '없음'을 붙이지 않는다(사진 칸과 같은 규칙) — 이 목록에서 뺐다.
 test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
   for (const rel of ['journal.js', 'journal-weekly.js', 'prep-sheet-view.js', 'project-system-v3.js',
     'telegram-feed.js', 'call-feed.js', 'ledger-browse.js', 'org-key-people.js', 'report-views.js', 'diary.js', 'diary-list.js', 'photos.js',
     'workplace-detail.js', 'google-tasks.js', 'team.js', 'meeting-columns.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js',
     'library-folders.js', 'library-move-picker.js', 'calendar-day-overflow.js', 'calendar-tasks.js', 'calendar-day-items.js', 'choice-sheet.js',
-    'pick-fold.mjs', 'journal-hwpx.js', 'meeting-round-detail.js', 'od-settings.js', 'record-sheet.js',
+    'pick-fold.mjs', 'journal-hwpx.js', 'od-settings.js', 'record-sheet.js',
     'weekly-summary-table.js', 'task-files.js', 'task-workflow.js', 'basket-notes.js', 'global-search.js', 'inbox-todos.js', 'share-pages.js']) {
     assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
   }

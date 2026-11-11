@@ -4,7 +4,12 @@
 // - 줄: 내용 한 줄 + 아래 작은 줄(왼쪽 누가·출처·날짜, 오른쪽 줄 버튼(③ 글자 버튼 — UI-줄버튼 '줄 안 동작 버튼') ×·⋯(⑥ 아이콘)). 폰·PC 보이는 법은 아래 rowHtml 'UI-잊지말기줄단추'.
 // - 줄 아래 흐린 한 줄(foot, 상자마다 있을 때만), 맨 아래 상태 줄(5초 되돌리기 포함).
 // 순수 HTML 조각만 만든다(DOM·네트워크 없음). 글은 모두 esc()로 글자로만. 상자를 그리는 쪽(잊지 말기 상자·asks-box.js)이 이 조각만 쓴다.
+import {telegramInline} from './md-telegram.mjs';
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+// S59-20 잊지 말기 `**` 표시: 줄에 보이는 글(내용·이유)에서 굵게(`**글**`)·기울임·코드 같은 마크다운 기호를 뺀 글자만 보인다.
+// 새 파서 없이 기존 공용 함수(md-telegram.mjs telegramInline = 앱의 [텔레그램용 복사]가 쓰는 같은 규칙)를 그대로 쓴다. 글자 굵기는 목록 줄 규칙(400·500)이 정하므로
+// 줄 안에서 굵게를 따로 그리지 않는다. 읽을 글·할 일 제목·읽기 프로그램 이름은 모두 이 함수 하나를 거친다.
+export const plainText = v => telegramInline(String(v ?? ''));
 // 줄 버튼 4개 + ×. 순서·이름은 모든 줄이 같다(명진 10:52 '노트로 버튼도 넣어', S52-20 시안 forget-one-list.html: [할 일로][일정으로][노트로][이미 함] ×).
 export const NB_ACTS = Object.freeze([['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['done', '이미 함']]);
 // FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html, 명진 'ㅇ'): 잊지 말기 줄은 원래 다섯(위 넷 + ×) 그대로에
@@ -50,8 +55,8 @@ const NB_LABEL = Object.fromEntries(NB_REPORT_ACTS);
 export function foldActs({report = false} = {}) {
   return [...NB_FOLD.filter(a => report || (a !== 'org' && a !== 'area')).map(a => [a, NB_LABEL[a]]), ['dismissed', '무시']];
 }
-export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '', report = false, hint = '', why = '', done = '', open = null, attrs = '', tail = '', more = '', below = '', acts = null}) {
-  const dis = busy ? ' disabled' : '';
+export function rowHtml({id, body: rawBody, meta = '', prefix = '', busy = false, src = '', report = false, hint = '', why: rawWhy = '', done = '', open = null, attrs = '', tail = '', more = '', below = '', acts = null}) {
+  const body = plainText(rawBody), why = plainText(rawWhy), dis = busy ? ' disabled' : '';
   const fold = act => !acts && NB_FOLD.includes(act) ? ' nbx-fold' : '';
   const btn = ([act, label]) => act === hint
     ? `<button type="button" class="row-act nbx-act nbx-hint${fold(act)}" data-nbx-act="${act}" data-nbx-hint${dis}>${esc(label)}</button>`
@@ -62,7 +67,7 @@ export function rowHtml({id, body, meta = '', prefix = '', busy = false, src = '
     ? `<span class="nbx-done">${esc(done)}</span>${tail}`
     : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${(acts || (report ? NB_REPORT_ACTS : NB_ACTS)).map(btn).join('')}`
       + `${acts ? '' : `<button type="button" class="icon-btn nbx-x nbx-fold" data-nbx-act="dismissed" aria-label="삭제: ${esc(body)}"${dis}>×</button>`}${tail}${dots}</span>`;
-  const text = open ? `<button type="button" class="row-act nbx-body-btn" ${open.attrs}>${esc(open.label ?? body)}</button>` : esc(body);
+  const text = open ? `<button type="button" class="row-act nbx-body-btn" ${open.attrs}>${open.label == null ? esc(body) : esc(plainText(open.label))}</button>` : esc(body);
   const metaIn = `${src ? `<span class="nbx-src">${esc(src)}</span>` : ''}${esc(meta)}`;
   // FORGET-원문열기·뒤로가기: 원문이 있는 줄(open)은 출처 꼬리표 줄 끝에 작은 ›를 달고, 그 줄을 누르면 위 내용 버튼을 누른 것과 같다
   // (data-nbx-open → openFromMeta: 내용 버튼의 click 하나로, 여는 길은 줄마다 하나). 키보드·화면 읽기는 내용 버튼 하나로 충분하므로

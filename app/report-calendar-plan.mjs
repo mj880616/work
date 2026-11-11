@@ -7,6 +7,7 @@
 //   점선 □ 보고할까요? = 줄도 기억도 없고 담당조직이 연결된 일정. 이 달의 Google 일정을 읽었을 때만 나온다.
 // 칸 칩·사업영역 칩은 보고에만 걸린다(일정은 아직 칸·사업영역이 없다). 회의명 거르기만 같은 이름 열쇠로 건다(matchesName).
 import {seoulClock} from './meeting-time.js';
+import {PLAN_ICON} from './calendar-row-menu.mjs'; // S59-20: 일정 메뉴와 같은 깃발 아이콘 하나(예전에는 네모 선이 두 곳에 따로 있었다)
 import {eventStatus, planDecision, reportsOfEvent, eventCopy, nameKey, PLAN_ON, STATUS_TODO, STATUS_ASK} from './report-plan-model.mjs';
 
 export const ENTRY_REPORT = 'report', ENTRY_PLAN = 'plan';
@@ -138,8 +139,8 @@ export function monthRange({year, month}) {
 }
 
 // 그날 목록 줄 ⋯ 메뉴. 보고할 일정(□): [보고할 일정 ✓](누르면 이 일정만 끔 — 일정 메뉴와 같은 글자) · [빼기](같은 이름은 다시 묻지 않음).
-// 보고할까요?(점선 □): [빼기]. 아이콘은 일정 메뉴의 □와 같은 선.
-const BOX_ICON = 'M3.5 3.5h9v9h-9z', SKIP_ICON = 'M4 8h8';
+// 보고할까요?(점선 □): [빼기]. 아이콘은 일정 메뉴와 같은 깃발(PLAN_ICON, S59-20 — 네모 선만 있어 빈 자리처럼 보이던 것을 그림으로).
+const SKIP_ICON = 'M4 8h8';
 export const planRowMenuItems = item => (item?.status === STATUS_TODO
-  ? [{id: 'off', label: '보고할 일정 ✓', icon: BOX_ICON}, {id: 'skip', label: '빼기', icon: SKIP_ICON}]
+  ? [{id: 'off', label: '보고할 일정 ✓', icon: PLAN_ICON}, {id: 'skip', label: '빼기', icon: SKIP_ICON}]
   : [{id: 'skip', label: '빼기', icon: SKIP_ICON}]);
