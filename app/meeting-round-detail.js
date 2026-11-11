@@ -1,5 +1,4 @@
 import { markRenameHost, renameMenuAttrs } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ⋯가 있는 줄은 ✎ 대신 ⋯ 안 [이름 수정]
-import {announceUploaded} from './upload-done.js';
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
@@ -225,6 +224,9 @@ function mrdTimePhotosFor(m){
   import('./time-photos.js').then(mod=>{if(!mrdTimePhotosFor_){host.hidden=true;return}mrdTimePhotos=mod.mountTimePhotos(host,{at:()=>mrdCurrent?.meeting_at||'',onPick:files=>mrdAddPhotos(files),busy:()=>mrdPhotoBusy,allowed:()=>!!mrdTimePhotosFor_})},e=>console.warn('time photos load failed',e)).finally(()=>{mrdTimePhotosLoading=false});
 }
 // 사진은 자료실 올리기 창을 거치지 않고 바로 올린다(같은 library-files 요청, AI 분류 없음). 종류는 이 사업 보고의 칸을 따라가고 날짜는 사업 보고 날짜다.
+// APP-뒤에서올리기 PR-2(S58-12): 올리기는 새 보고 저장과 같은 들머리(library-upload.js sendForMeeting — 공용 뒤 줄 한 묶음, meeting-send.mjs)로 한다.
+// 폰 앱이면 그 들머리가 묶음을 앱에 넘겨 다른 앱으로 가도 끝까지 올리고, 브라우저면 화면을 벗어나 끊긴 사진을 돌아와 다시 보낸다. 진행은 사진 칸의 올리는 줄(#mrdPhotoRows),
+// 못 올린 것은 그 줄의 [다시]와 하단 한 줄의 [다시 올리기]가 맡는다(여기 상태 줄은 다 올렸을 때만 쓴다 — 다시 올린 뒤에도 옛 실패 글이 남지 않게).
 async function mrdAddPhotos(files){
   const m=mrdCurrent;if(!m||!mrdCanEdit(m))return;
   const st=document.querySelector('#mrdPhotoStatus'),say=(text,cls='status')=>{if(mrdCurrent?.id===m.id){st.textContent=text;st.className=cls}};
@@ -236,15 +238,11 @@ async function mrdAddPhotos(files){
   await turn;mrdPhotoBusy=true;
   try{
     if(!(await mrdEnsureLibrary(t=>say(t,'status error'))))return;
-    let done=0,failed=0,why='';
-    for(const [i,file] of photos.entries()){
-      say(`사진 올리는 중 ${i+1}/${photos.length}`);
-      try{await window.KPTULibrary.uploadFileForMeeting({id:m.id,project_id:m.project_id||'',kind:reportKindOf(m),day:seoulDateKey(m.meeting_at)},file);done++}
-      catch(err){failed++;why=err?.message||why;console.warn('report photo upload failed',file.name,err)}
-    }
-    if(done){if(m.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:m.project_id||null,meeting_id:m.id}}))}
-    announceUploaded({done,failed,names:done===1?['사진 1장']:[]});
-    say(failed?`사진 ${done}장 올림 · ${failed}장 실패${why?' · '+why:''}`:`사진 ${done}장을 올렸어요.`,failed?'status error':'status ok');
+    say('');
+    const batch=window.KPTULibrary.sendForMeeting({id:m.id,project_id:m.project_id||'',kind:reportKindOf(m),day:seoulDateKey(m.meeting_at)},photos);
+    await batch.settled;
+    const done=batch.entries.filter(e=>e.state==='done').length;
+    if(done===photos.length)say(`사진 ${done}장을 올렸어요.`,'status ok');
   }finally{mrdPhotoBusy=false;release()}
 }
 let mrdMaterialsRefreshing=false,mrdMaterialsDirty=false;
@@ -482,7 +480,7 @@ function mrdDropReport(ev){
 function mrdDropQueue(){
   return mrdDropQ||=createDropQueue({
     ready:()=>mrdEnsureLibrary(()=>{}),
-    upload:(t,file)=>window.KPTULibrary.uploadFileForMeeting({id:t.id,project_id:t.project_id,kind:t.kind,day:t.day},file),
+    upload:(t,file)=>window.KPTULibrary.sendFileForMeeting({id:t.id,project_id:t.project_id,kind:t.kind,day:t.day},file), // 같은 들머리(공용 뒤 줄에서 하나씩 · 화면을 벗어나 끊기면 돌아와 다시 — 끌어 놓기는 PC 길이라 앱에는 넘기지 않는다)
     read:files=>readResultText(files),
     append:mrdDropAddText,
     report:mrdDropReport});
