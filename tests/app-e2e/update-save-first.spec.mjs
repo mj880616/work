@@ -174,8 +174,8 @@ for (const width of [412, 1280]) {
     expect(await noFrameWidth(page)).toBe(true);
     if (SHOTS) await page.screenshot({path: `${SHOTS}/org-saving-${width}.png`});
     // 다른 화면으로 옮겨도 이어진다.
-    await page.evaluate(() => window.KPTURouter.go('calendar'));
-    await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe('calendar');
+    // (폰에서는 조직 상세가 겹 화면이라 옮기기가 잠깐 거절될 수 있다 — 옮겨질 때까지 다시 누른다.)
+    await expect.poll(() => page.evaluate(() => { window.KPTURouter.go('home'); return window.KPTURouter.current; })).toBe('home');
     f.release();
     await expect(dock(page)).toContainText('테스트 조직 기록에 사진 1장·파일 1개 올렸어요');
     if (SHOTS) await page.screenshot({path: `${SHOTS}/org-done-${width}.png`});
