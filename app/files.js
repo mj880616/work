@@ -3829,7 +3829,7 @@ root?.addEventListener('keydown', event => {
 });
 // 폰: 꾹 누르면 고르기(길게 누르면 브라우저가 contextmenu를 보낸다).
 // S51-27 UI-PC우클릭: PC 마우스 우클릭(Shift+F10·메뉴 키)은 그 줄 하나의 메뉴를 누른 자리에 연다 — 나무 줄 ⋯와 같은 항목(files-tree-menu.mjs)·
-// 같은 실행(treeAct). 폴더의 '이 폴더만 보기'는 목록에서는 [열기](줄을 누른 것과 같은 폴더 들어가기). 고르기는 Ctrl·Shift 누름·폰 꾹 누르기 그대로.
+// 같은 실행(treeAct). 폴더의 '이 폴더로 들어가기'는 목록에서는 [열기](줄을 누른 것과 같은 폴더 들어가기). 고르기는 Ctrl·Shift 누름·폰 꾹 누르기 그대로.
 root?.addEventListener('contextmenu', event => {
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
