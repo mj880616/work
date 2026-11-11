@@ -5,7 +5,7 @@ import {expectProjectTitle} from './helpers/screen-title.mjs';
 
 // UX-먼저묻고뒤에처리 3차 (2)(S57-1): 자료 등록 창은 [저장]하면 바로 닫히고 올리기는 뒤 줄에서 한다.
 // - 프로젝트 상세 자료 [+]: 올리는 중에 또 눌러도 거절('잠시 후 다시 눌러 주세요') 없이 창이 열리고, 두 번째 저장은 앞 올리기 뒤에 줄 선다.
-// - 다른 화면에 있으면 진행은 하단바 위 한 줄(#uploadDock), 끝·실패는 공용 작은 알림(#kptuNotice). 실패는 [다시] = 못 올린 파일만 다시.
+// - 다른 화면에 있으면 진행은 하단바 위 한 줄(#uploadDock), 끝·실패도 그 한 줄 하나(UX-알림하나로 S59-21). 실패는 [다시 올리기] = 못 올린 파일만 다시.
 // - 화면을 옮겨도 끝까지 간다(처리를 시작한 사업영역 id로).
 // 실제 앱을 띄우고 Supabase REST·Edge 경계만 합성이다. 합성 자료만 쓴다.
 test.use({hasTouch:true});
@@ -55,8 +55,8 @@ async function openProject(page){
   await expectProjectTitle(page,'합성 사업영역');
 }
 const addDoc=page=>page.locator('#ps3-documents .ps3-section-head').getByRole('button',{name:'자료 올리기'});
-const noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
-const retryButton=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-action',{hasText:'다시'});
+const noticeLine=page=>page.locator('#uploadDock:not([hidden]) .up-dock-text');
+const retryButton=page=>page.locator('#uploadDock:not([hidden]) [data-up-act="note-act"]',{hasText:'다시'});
 const dock=page=>page.locator('#uploadDock:not([hidden])');
 // 최신화 길(version-notice.js)이 먼저 묻는 것: otherDraft가 켜지면 '저장하지 않은 내용이 있습니다…'를 묻는다.
 const reloadAsks=page=>page.evaluate(()=>{const detail={projectDraft:false,otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft});
@@ -106,7 +106,7 @@ test('자료실: 못 올린 파일은 알림 + [다시]로 그 파일만 다시 
   await page.locator('#saveDocumentBtn').click();
   await expect(page.locator('#documentModal')).toBeHidden();
   await expect(noticeLine(page)).toHaveText('2개 완료 · 1개 미완료. 파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.');
-  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','alert');
+  await expect(page.locator('#uploadDock:not([hidden])')).toHaveAttribute('role','alert');
   expect(state.uploads.map(u=>u.name)).toEqual(['가.pdf','나.pdf','다.pdf']);
   // 올리는 동안 잠기지 않았고, 실패 뒤에도 [+ 자료 등록]은 바로 쓸 수 있다.
   await expect(page.locator('#newDocumentBtn')).toBeEnabled();

@@ -258,7 +258,8 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
       if (count) { if (upload) upload.reset?.(); else own = createUploadBatch(); }
     } catch (error) { return {ok: false, message: error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }
     finally { busy = false; files.picker.render(); }
-    toast(warning || (sending ? '노트로 저장했어요. 사진·파일은 올리는 중이에요.' : '노트로 저장했어요.'));
+    // UX-알림하나로(S59-21): 사진·파일을 올리는 진행·끝은 하단바 위 한 줄 하나가 말한다(저장 알림에 '올리는 중'을 또 쓰지 않는다).
+    toast(warning || '노트로 저장했어요.');
     return {ok: true};
   }
   handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: headNode, foot: family ? null : files.node, shortcuts: true,

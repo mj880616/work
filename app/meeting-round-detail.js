@@ -1,5 +1,5 @@
 import { markRenameHost, renameMenuAttrs } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ⋯가 있는 줄은 ✎ 대신 ⋯ 안 [이름 수정]
-import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js';
@@ -25,7 +25,7 @@ import {paintRecordText,rawToggleHtml} from './record-text-view.js'; // MTG-결�
 import {mountBigWrite} from './record-text-write.js'; // MTG-결과마크다운: 고치기 칸 [⤢] = 노트와 같은 쓰기 창
 import {dropZoneOf,askDropped,readResultText,appendResult,bindDropZones} from './meeting-drop-attach.js';
 import {createDropQueue} from './meeting-drop-queue.mjs'; // UX-먼저묻고뒤에처리: 놓은 파일의 뒤처리 줄(올리기 → 본문 읽기 → 결과 칸 더하기)
-import {mountUploadRows,watchUploads,setUploadRetry} from './upload-progress.js';
+import {mountUploadRows,watchUploads,setUploadRetry,announceDock} from './upload-progress.js';
 import {isAudioFile,keepTranscript,normalizeDraft,draftText,actionRows,mergeText} from './meeting-transcript-model.mjs'; // MTG-첨부녹음전사(S49-2) // HOTFIX-회의첨부칸 ②: 끌어 놓기(놓은 자리·결과 본문 묻기)
 import {sameVersionFilter} from './meeting-join-model.mjs'; // REC-한회의로잇기 PR-3: 두 글 칸을 쓰는 저장은 '읽었을 때 그대로일 때만'(설계 3-5절)
 let mrdTodos=null,mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;const mrdTaskToggleSeq=new Map();
@@ -101,7 +101,8 @@ function mrdToggleTaskForm(){const open=!document.querySelector('#mrdTaskForm')?
 // STAB(S57-19): '같음'은 방금 끝낸 줄의 체크 움직임 속성(data-check-pop — 지난 시간이 값에 들어가 그릴 때마다 다르다)을 뺀 내용으로 본다.
 // 그 속성 때문에 저장 뒤 다시 읽은 목록이 늘 '다름'이 되어 줄을 통째로 다시 그리며 그 사이 연 ⋯ 메뉴를 닫았다. 같은 내용이면 줄은 그대로 두고 움직임만 그 자리에 건다.
 let mrdTasksDrawn=null;
-function mrdRenderTasks(){const box=document.querySelector('#mrdTasks');if(!box)return;const editable=mrdCanEdit(mrdCurrent);const draw=pop=>mrdTasks.length?mrdTasks.map(t=>`<div class="gt-row gt-side-row ${t.status==='completed'?'completed':'pending'}" data-mrd-task="${mrdEsc(t.id)}"${pop&&t.status==='completed'?checkPopAttr(t.id):''}><button class="gt-check" type="button" data-mrd-task-toggle="${mrdEsc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button>${editable?`<button class="gt-main mrd-task-main" type="button" data-mrd-task-edit="${mrdEsc(t.id)}">`:'<div class="gt-main mrd-task-main">'}<b>${mrdEsc(t.title||'제목 없음')}</b>${t.due?`<div class="gt-meta"><span class="gt-due">${mrdEsc(dueText(mrdDueDateValue(t.due)))}</span></div>`:''}${editable?'</button>':'</div>'}${editable?`<button class="icon-btn gt-menu-trigger" type="button" data-mrd-task-menu="${mrdEsc(t.id)}" aria-label="할 일 관리: ${mrdEsc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="mrdTaskMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</div>`).join(''):emptyHtml(),html=draw(false);document.querySelector('#mrdAddTask')?.classList.toggle('hidden',!editable);document.querySelector('#mrdMakeTodos')?.classList.toggle('hidden',!editable);if(mrdTasksDrawn?.box===box&&mrdTasksDrawn.html===html&&!box.querySelector('[disabled]')){for(const t of mrdTasks)if(t.status==='completed')applyCheckPop(box.querySelector(`[data-mrd-task="${CSS.escape(t.id)}"]`),t.id);return}mrdTaskMenu?.close();box.innerHTML=draw(true);mrdTasksDrawn={box,html}}
+function mrdRenderTasks(){const box=document.querySelector('#mrdTasks');if(!box)return;const editable=mrdCanEdit(mrdCurrent);const draw=pop=>mrdTasks.length?mrdTasks.map(t=>`<div class="gt-row gt-side-row ${t.status==='completed'?'completed':'pending'}" data-mrd-task="${mrdEsc(t.id)}"${pop&&t.status==='completed'?checkPopAttr(t.id):''}><button class="gt-check" type="button" data-mrd-task-toggle="${mrdEsc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button>${editable?`<button class="gt-main mrd-task-main" type="button" data-mrd-task-edit="${mrdEsc(t.id)}">`:'<div class="gt-main mrd-task-main">'}<b>${mrdEsc(t.title||'제목 없음')}</b>${t.due?`<div class="gt-meta"><span class="gt-due">${mrdEsc(dueText(mrdDueDateValue(t.due)))}</span></div>`:''}${editable?'</button>':'</div>'}${editable?`<button class="icon-btn gt-menu-trigger" type="button" data-mrd-task-menu="${mrdEsc(t.id)}" aria-label="할 일 관리: ${mrdEsc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="mrdTaskMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</div>`).join(''):'',html=draw(false); // S59-20: 후속 할 일이 하나도 없으면 칸 제목 [+]만 둔다('없음' 글자를 따로 붙이지 않음 — 사진 칸과 같은 빈 칸 규칙)
+  document.querySelector('#mrdAddTask')?.classList.toggle('hidden',!editable);document.querySelector('#mrdMakeTodos')?.classList.toggle('hidden',!editable);if(mrdTasksDrawn?.box===box&&mrdTasksDrawn.html===html&&!box.querySelector('[disabled]')){for(const t of mrdTasks)if(t.status==='completed')applyCheckPop(box.querySelector(`[data-mrd-task="${CSS.escape(t.id)}"]`),t.id);return}mrdTaskMenu?.close();box.innerHTML=draw(true);mrdTasksDrawn={box,html}}
 // [할 일로]로 Google 할 일이 생기면 이 창의 후속 할 일 목록만 다시 읽는다(창을 다시 열지 않음).
 async function mrdRefreshTasks(){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!meeting)return;try{const r=await mrdReadTasks(meeting.id);if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id)return;mrdTasks=r?.tasks||[];mrdRenderTasks()}catch(e){console.warn('meeting task refresh failed',e)}}
 // 할 일 화면과 같은 ⋯ 메뉴(수정·삭제). 창 안에 붙여 포커스가 창을 벗어나지 않게 한다.
@@ -140,7 +141,7 @@ function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
     // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯)·[이름 수정](FILE-이름고치기연필먹통)·[빼기]·[삭제](FILE-첨부삭제 결정 3).
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d),mrdRename(d))}`})}).join(''):emptyHtml();
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d),mrdRename(d))}`})}).join(''):''; // S59-20: 회의자료가 하나도 없으면 칸 제목 [+]만 둔다(후속 할 일·사진 칸과 같은 빈 칸 규칙)
     // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ⋯ [이름 수정]으로 파일 이름을 그 자리에서 고친다(file-rename.js, ✎는 따로 두지 않는다). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
     document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);mrdAppendOwnItems(row,d,d?.file_name||d?.title||'자료');if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
     document.querySelectorAll('#mrdMaterials [data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDeleteMaterial(b,allDocs,box?.querySelector('summary'))});
@@ -482,7 +483,8 @@ function mrdDropFace(){return document.querySelector(mrdEditing()?'#mrdEditor':'
 // 놓자마자 묻고(결과/회의자료를 이름으로 못 정하면 그때, 결과 파일이면 '본문도 결과 칸에 넣을까요? [파일만][넣기]' — 읽기 전에), 고른 뒤에는 뒤처리 줄
 // (meeting-drop-queue.mjs)이 파일 올리기 → 본문 읽기 → 결과 칸 더하기를 순서대로 한다. 놓은 그 사업 보고 id로 하므로 다른 보고·다른 화면으로 옮겨도 끝까지 하고,
 // 처리 중에 또 놓으면 줄 끝에 선다. 올리기는 창 없이 같은 자료실 올리기 길(library-files, meeting_id, AI 채우기 — 사진 줄과 같은 uploadFileForMeeting).
-// 진행: 이 창의 회의자료 칸 아래 올리기 줄(파일마다 막대·%, 실패 [다시]) · 다른 화면이면 하단바 위 한 줄(upload-progress.js) · 끝·실패는 공용 작은 알림(+[다시]).
+// 진행: 이 창의 회의자료 칸 아래 올리기 줄(파일마다 막대·%) · 다른 화면이면 하단바 위 한 줄(upload-progress.js).
+// 끝·실패·[다시 올리기]는 하단바 위 한 줄 하나(UX-알림하나로 S59-21 — 창 상태 줄·작은 알림·올리기 줄의 '실패 [다시]'로 같은 말을 또 하지 않는다).
 let mrdDropQ=null,mrdAskChain=Promise.resolve(),mrdDropRowsView=null;
 const mrdDropOwner=new Map(); // 올리는 파일 → 놓은 사업 보고 id(올리기 줄은 지금 보이는 보고 것만 그린다)
 const mrdDropTarget=m=>({id:m.id,workspace_id:m.workspace_id,project_id:m.project_id||'',kind:reportKindOf(m),day:seoulDateKey(m.meeting_at),name:`${mrdMeetingName(m)||m.title||'사업 보고'}${m.round_no?` ${m.round_no}차`:''}`});
@@ -494,20 +496,23 @@ let mrdPhotoRowsView=null;
 function mrdPaintDropRows(){const host=document.querySelector('#mrdDropRows');if(!host)return;if(!mrdDropRowsView){mrdDropRowsView=mountUploadRows(host,{compact:false,has:job=>!!mrdCurrent&&(mrdDropOwner.get(job.file)===mrdCurrent.id||(mrdSending(job)&&!isPhotoFile(job.file)))});const photoHost=document.querySelector('#mrdPhotoRows');if(photoHost)mrdPhotoRowsView=mountUploadRows(photoHost,{compact:false,has:job=>mrdSending(job)&&isPhotoFile(job.file)});watchUploads(()=>mrdDropRowsView?.paint())}mrdDropRowsView.paint();mrdPhotoRowsView?.paint()}
 // 결과 칸 더하기: 놓은 보고를 지금 고치는 중이면 고치기 칸 글에 더하고(저장은 [수정 저장]), 아니면 서버의 지금 글 뒤에 더해 저장한다.
 async function mrdDropAddText(t,text){if(mrdCurrent?.id===t.id&&mrdEditing()){const ta=document.querySelector('#mrdEditTranscript');if(ta){ta.value=appendResult(ta.value,text);ta.dispatchEvent(new Event('input',{bubbles:true}));return true}}return mrdAppendResult(t,text)}
+// 놓기 한 번(job)의 끝 알림은 하나: 다시 줄 서면 떠 있던 알림을 닫는다. 놓은 파일을 맡아(files) 회의자료 칸 올리기 줄이 '실패 [다시]'를 따로 그리지 않는다.
+const mrdDropNotes=new WeakMap();
+function mrdDropNote(job,options){mrdDropNotes.get(job)?.close();if(options)mrdDropNotes.set(job,announceDock({files:job.files,...options}));else mrdDropNotes.delete(job)}
 function mrdDropReport(ev){
   const {job}=ev,t=job.meeting;
-  if(ev.type==='queued'){for(const f of job.files)mrdDropOwner.set(f,t.id);mrdPaintDropRows();mrdDropStatus(t,ev.ahead?`앞서 놓은 파일 다음에 올려요(${job.files.length}개).`:'');return}
-  if(ev.type==='uploading'){mrdDropStatus(t,`올리는 중 ${ev.index}/${ev.total}`);return}
+  if(ev.type==='queued'){mrdDropNote(job,null);for(const f of job.files)mrdDropOwner.set(f,t.id);mrdPaintDropRows();mrdDropStatus(t,ev.ahead?`앞서 놓은 파일 다음에 올려요(${job.files.length}개).`:'');return}
+  if(ev.type==='uploading'){mrdDropStatus(t,'');return} // 진행은 회의자료 칸 올리기 줄(막대·%) 하나
   if(ev.type==='reading'){mrdDropStatus(t,'','status',`결과 파일 본문 ${waitInlineHtml()}`);return}
-  if(ev.type==='blocked'){notify('자료실을 불러오지 못해 파일을 올리지 못했어요.',{error:true,actions:[{label:'다시',run:({close})=>{close();mrdDropQueue().retry(job)}}]});mrdDropStatus(t,'');return}
+  if(ev.type==='blocked'){mrdDropNote(job,{text:`파일 ${job.files.length}개 못 올렸어요`,note:'자료실을 불러오지 못했어요. 잠시 후 다시 올려 주세요.',error:true,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:()=>mrdDropQueue().retry(job)}]});mrdDropStatus(t,'');return}
   if(ev.type!=='done')return;
   if(ev.sent){if(t.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:t.project_id||null,meeting_id:t.id}}))}
   for(const f of job.failed.keys())setUploadRetry(f,()=>mrdDropQueue().retry(job));
   const textLine=ev.text==='added'?' · 결과 칸에 본문을 더했어요':ev.text==='unread'?' · 본문은 읽지 못해 파일만 붙였어요':ev.text==='failed'?' · 결과 칸에 본문을 넣지 못했어요':'';
   const bad=ev.failed>0||ev.text==='failed',retry=bad?()=>mrdDropQueue().retry(job):null;
   const line=ev.failed?`${t.name}: 파일 ${ev.sent}개 올림 · ${ev.failed}개 못 올림${textLine}`:`${t.name}: 파일 ${ev.sent}개를 올렸어요${textLine}`;
-  notify(line,{error:bad&&!ev.sent,actions:retry?[{label:'다시',run:({close})=>{close();retry()}}]:[],record:false});
-  mrdDropStatus(t,bad?line:'',bad?'status error':'status');
+  mrdDropNote(job,{text:line,error:bad,ms:bad?0:undefined,actions:retry?[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]:[]});
+  mrdDropStatus(t,'');
   if(!job.failed.size)for(const f of job.files)mrdDropOwner.delete(f);
   mrdPaintDropRows();
 }

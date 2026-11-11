@@ -9,6 +9,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // The home card and the work journal box (todo-radar.js) stay as they are; both sides tell each other through the same change
 // event ('kptu:todo-radar-changed'). Nothing is kept in browser storage.
 import {createAnchoredMenu} from './anchored-menu.js';
+import {plainText} from './notice-box.mjs'; // S59-20: 줄 글·할 일 제목에서 마크다운 기호(`**`)를 뺀 글자(잊지 말기 줄과 같은 함수 하나)
 import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markNotMine, undoNotMine, markTasked, candidateToTask, validateTaskDraft, notPlanned,
   quickDue, dotDay, radarScope, ledgerRequestText, sourceText, RADAR_SOURCE_LABEL, markDone, logFeedback, dropFeedback, readFeedbackSince, TASK_TITLE_MAX,
   linkCandidateToTask, unlinkCandidate, dropCandidateOnly} from './todo-radar-data.js';
@@ -101,13 +102,13 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
       right = `<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-task="${id}"${dis}>할 일로</button><button type="button" class="inbox-todo-btn" data-inbox-todo-done="${id}"${dis}>이미 함</button><button type="button" class="inbox-todo-btn" data-inbox-todo-dismiss="${id}"${dis}>무시</button><button type="button" class="inbox-todo-btn inbox-todo-more" data-inbox-todo-more="${id}" aria-label="더 보기" title="더 보기" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button></span>`;
     }
     const note = rowStatus.get(c.id) ? `<p class="inbox-todo-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
-    return `<li class="inbox-todo-row" data-inbox-todo-row="${id}" data-inbox-todo-status="${esc(c.status)}"><div class="inbox-todo-line">${hideSource ? '' : `<button type="button" class="inbox-todo-source" data-inbox-todo-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(source)}</button>`}<div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(c.summary)}</span><span class="inbox-todo-meta">${meta}</span></div>${right}</div>${note}${below ? `<div class="inbox-todo-below">${below}</div>` : ''}</li>`;
+    return `<li class="inbox-todo-row" data-inbox-todo-row="${id}" data-inbox-todo-status="${esc(c.status)}"><div class="inbox-todo-line">${hideSource ? '' : `<button type="button" class="inbox-todo-source" data-inbox-todo-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(source)}</button>`}<div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(plainText(c.summary))}</span><span class="inbox-todo-meta">${meta}</span></div>${right}</div>${note}${below ? `<div class="inbox-todo-below">${below}</div>` : ''}</li>`;
   }
   const promises = () => withPromises && state === 'ok' && chip === 'open' ? radarPromises() : [];
   function promiseHtml(p, i) {
     const meta = esc(RADAR_SOURCE_LABEL[p.source_kind] || '') + (dueLabel(p.due) ? `${RADAR_SOURCE_LABEL[p.source_kind] ? ' · ' : ''}<span class="task-due-text">${esc(dueLabel(p.due))}</span>` : '');
     const label = copied.has(ledgerRequestText(p)) ? '복사함' : '원장으로';
-    return `<li class="inbox-todo-row inbox-todo-promise" data-inbox-promise="${i}"><div class="inbox-todo-line"><span class="inbox-todo-source inbox-todo-tag">상대 약속</span><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(p.summary)}</span><span class="inbox-todo-meta">${meta}</span></div><span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-promise-ledger="${i}">${label}</button></span></div></li>`;
+    return `<li class="inbox-todo-row inbox-todo-promise" data-inbox-promise="${i}"><div class="inbox-todo-line"><span class="inbox-todo-source inbox-todo-tag">상대 약속</span><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(plainText(p.summary))}</span><span class="inbox-todo-meta">${meta}</span></div><span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-promise-ledger="${i}">${label}</button></span></div></li>`;
   }
   function paint() {
     tell(); paintChips();
@@ -129,7 +130,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   function weekHtml() {
     if (read || chip !== 'open' || state !== 'ok' || !week) return '';
     const groups = recentByOutcome(week.rows);
-    const inner = groups.map(g => `<p class="inbox-todo-week-head">${esc(g.label)}</p><ul class="inbox-todo-week-list">${g.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`).join('');
+    const inner = groups.map(g => `<p class="inbox-todo-week-head">${esc(g.label)}</p><ul class="inbox-todo-week-list">${g.lines.map(l => `<li>${esc(plainText(l))}</li>`).join('')}</ul>`).join('');
     return `<details class="inbox-todo-week" data-inbox-todo-week><summary>${esc(week.summary.text)}</summary>${inner}</details>`;
   }
   async function loadWeek() {
@@ -254,13 +255,13 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (action === 'not-mine') void notMine(c);
     else if (action === 'already') void startLinking(c);
     else if (action === 'edit') {
-      editing.set(c.id, {title: c.summary, due: quickDue(c, seoulDateKey())}); rowStatus.delete(c.id); paint();
+      editing.set(c.id, {title: plainText(c.summary), due: quickDue(c, seoulDateKey())}); rowStatus.delete(c.id); paint();
       host.querySelector(`[data-inbox-todo-edit="${CSS.escape(c.id)}"] [data-inbox-todo-edit-title]`)?.focus();
     }
   });
   // [할 일로]: the suggested due when there is one, else today (the same as the home card's ✓). ⋯ [고쳐서 할 일로]는 draft를 넘긴다.
   async function toTask(c, edited = null) {
-    const draft = edited || {title: c.summary, due: quickDue(c, seoulDateKey())};
+    const draft = edited || {title: plainText(c.summary), due: quickDue(c, seoulDateKey())};
     const problem = validateTaskDraft(draft);
     if (problem) { rowStatus.set(c.id, problem); paint(); return; }
     const mine = radarScope(rt);

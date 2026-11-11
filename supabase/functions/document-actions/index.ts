@@ -8,6 +8,8 @@ import { sendDevInbox, readDevMade } from './dev-inbox.ts';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { callerOwnerWorkspace, WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
+import { calendarAccessToken, CalendarTokenError } from '../_shared/google-calendar-token.ts';
+import { EventAttachError, eventFolderOrigin, findEventAttachment, isEventRef } from '../_shared/event-attach-file.ts';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -138,9 +140,20 @@ async function deleteDocument(userId: string, documentId: string) {
     readPage: (path, start, end) => db(path, { prefer: 'count=exact', range: [start, end] }),
     driveToken: getToken, fetch,
   }) : { preserveDrive: false, reason: 'ordinary_library', missing: false, trashed: false };
-  driveResult = origin.preserveDrive ? 'preserved' : origin.missing ? 'missing' : origin.trashed ? 'already_trashed' : driveResult;
-  await recheckSource();
+  // CAL-일정첨부 요청 6번(S59-23): '자료실 › 일정 첨부' 폴더의 원본(일정에 붙인 사진을 사업 보고로 넘긴 자료 등)은 자료 행만 지우고
+  // Drive 원본은 둔다. 그 파일을 쓰는 Google 일정이 있는지는 서버가 다 알 수 없으므로 되돌릴 수 없는 쪽(휴지통)을 피한다.
+  // 확인하지 못하면 아무것도 바꾸지 않고 멈춘다(EVENT_ORIGIN_UNKNOWN — 바구니 원본 확인과 같은 쪽).
+  let eventOriginal = false;
   if (sourceFile && !origin.preserveDrive && !origin.missing && !origin.trashed) {
+    try {
+      eventOriginal = await eventFolderOrigin({ rest: (path: string) => db(path) }, sourceWorkspace, sourceFile, getToken, { fetch }) === 'event';
+    } catch {
+      throw Object.assign(new Error('일정 첨부 원본인지 확인하지 못했습니다. 삭제하지 않고 다시 확인해 주세요.'), { code: 'EVENT_ORIGIN_UNKNOWN' });
+    }
+  }
+  driveResult = origin.preserveDrive || eventOriginal ? 'preserved' : origin.missing ? 'missing' : origin.trashed ? 'already_trashed' : driveResult;
+  await recheckSource();
+  if (sourceFile && !origin.preserveDrive && !eventOriginal && !origin.missing && !origin.trashed) {
     let dr: Response;
     try {
       dr = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(sourceFile)}`, {
@@ -170,7 +183,7 @@ async function deleteDocument(userId: string, documentId: string) {
   } catch {
     throw Object.assign(new Error('자료 등록 삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 목록을 새로 확인해 주세요.'), { code: 'RESULT_UNKNOWN', drive_result: driveResult, token_delete_result: tokenDeleteResult, document_delete_result: documentDeleteResult });
   }
-  return { ok: true, drive_result: driveResult, drive_preserved: origin.preserveDrive, reason: origin.reason };
+  return { ok: true, drive_result: driveResult, drive_preserved: origin.preserveDrive || eventOriginal, reason: eventOriginal ? 'event_attachment' : origin.reason };
 }
 
 // BASKET-4b-1 B: register a basket note attachment in the library as a second
@@ -178,8 +191,10 @@ async function deleteDocument(userId: string, documentId: string) {
 // later keeps the original (inspectBasketOriginal above, basket note-delete).
 // No unique index on app_documents.file_id exists, so the duplicate check is a
 // read before the write; the caller holds one request per attachment.
-async function registeredDocument(workspaceId: string, fileId: string) {
-  const rows = await db(`app_documents?workspace_id=eq.${encodeURIComponent(workspaceId)}&file_id=eq.${encodeURIComponent(fileId)}&select=id,title&order=created_at.asc&limit=1`);
+// meetingId를 주면 그 사업 보고에 이은 자료만 본다(CAL-일정첨부 6번: 같은 원본도 보고마다 자료 행 하나).
+async function registeredDocument(workspaceId: string, fileId: string, meetingId?: string) {
+  const inMeeting = meetingId ? `&meeting_id=eq.${encodeURIComponent(meetingId)}` : '';
+  const rows = await db(`app_documents?workspace_id=eq.${encodeURIComponent(workspaceId)}&file_id=eq.${encodeURIComponent(fileId)}${inMeeting}&select=id,title&order=created_at.asc&limit=1`);
   if (!Array.isArray(rows)) throw fail('자료실 등록 여부를 확인하지 못했습니다.', 'LOOKUP_FAILED');
   return rows[0] ? { id: String(rows[0].id), title: String(rows[0].title ?? '') } : null;
 }
@@ -221,8 +236,10 @@ async function registerBasketAttachment(userId: string, body: { note_id?: unknow
 // BASKET-4b-1 B 등록의 뒷부분(FILES-자료실로보내기도 같이 씀): 그 작업공간 Drive 연결로 원본을 다시 읽어(내 소유·휴지통 아님) 같은 Drive 원본을
 // 가리키는 자료 행 하나를 만든다. 복사·이동·올리기 없음. 이름·종류·크기는 known(서버가 읽은 값)이 먼저, 없으면 Drive 값.
 type KnownFile = { file_name?: unknown; mime_type?: unknown; size_bytes?: unknown };
-async function registerDriveDocument(userId: string, workspaceId: string, fileId: string, known: KnownFile, note: string) {
-  const token = await driveTokenFor(userId, workspaceId)();
+// place(CAL-일정첨부 6번): 서버가 읽은 사업 보고에 바로 잇는 자료(meeting_id·사업영역·종류·날짜). 없으면 지금처럼 자료실 자료 하나(이어진 곳 없음).
+type DocLink = { meeting_id: string; project_id: string | null; category: string; document_date: string | null };
+async function registerDriveDocument(userId: string, workspaceId: string, fileId: string, known: KnownFile, note: string, place?: DocLink, getToken?: () => Promise<string>) {
+  const token = await (getToken ?? driveTokenFor(userId, workspaceId))();
   let r: Response;
   try {
     r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,webViewLink,trashed,ownedByMe`, {
@@ -242,14 +259,14 @@ async function registerDriveDocument(userId: string, workspaceId: string, fileId
   const size = typeof known.size_bytes === 'number' && Number.isSafeInteger(known.size_bytes) && known.size_bytes >= 0 ? known.size_bytes : (Number.isSafeInteger(Number(file.size)) ? Number(file.size) : null);
   const link = typeof file.webViewLink === 'string' && file.webViewLink.startsWith('https://') ? file.webViewLink : `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
   const row = {
-    workspace_id: workspaceId, project_id: null, meeting_id: null, title, category: '기타', source: null, document_date: null, description: null, tags: [],
+    workspace_id: workspaceId, project_id: place?.project_id ?? null, meeting_id: place?.meeting_id ?? null, title, category: place?.category || '기타', source: null, document_date: place?.document_date ?? null, description: null, tags: [],
     drive_url: link, file_id: fileId, file_name: fileName,
     mime_type: typeof known.mime_type === 'string' && known.mime_type ? known.mime_type : String(file.mimeType || 'application/octet-stream'),
     file_size: size, visibility: 'private', uploaded_by: userId, auto_classified: false,
     classification_note: note,
   };
   // Re-check right before the write to narrow the window of a parallel send.
-  const again = await registeredDocument(workspaceId, fileId);
+  const again = await registeredDocument(workspaceId, fileId, place?.meeting_id);
   if (again) return { ok: true, result: 'exists', document: again };
   const unknown = () => fail('자료실 등록 결과를 확인하지 못했습니다. 다시 보내지 말고 자료실 목록을 먼저 확인해 주세요.', 'RESULT_UNKNOWN');
   let w: Response;
@@ -286,6 +303,68 @@ async function registerDriveFile(userId: string, body: { drive_file_id?: unknown
   const existing = await registeredDocument(own, fileId);
   if (existing) return { ok: true, result: 'exists', document: existing };
   return await registerDriveDocument(userId, own, fileId, { file_name: item.name, mime_type: item.mime, size_bytes: Number.isSafeInteger(Number(item.size_bytes)) && item.size_bytes != null ? Number(item.size_bytes) : undefined }, '[파일]의 구글 드라이브에서 연결(같은 Drive 원본)');
+}
+
+// CAL-일정첨부 요청 6번 '사업 보고로 넘기기'(S59-23, 설계 docs/design/event-attach.md 5절, 시안 ③): 사업 보고 쓰기 창에서 고른
+// '일정에 붙인 사진'을 같은 Drive 원본을 가리키는 자료 행으로 그 사업 보고에 잇는다. 올리기·복사·옮기기 없음(registerDriveDocument).
+// - 사업 보고·작업공간은 서버가 읽은 값(휴지통 아님 + 부른 사람의 owner 작업공간과 같음). 화면이 보낸 작업공간·이름·형식은 쓰지 않는다.
+// - 그 파일이 지금 그 일정의 사진 첨부인지는 부른 사람 자기 캘린더 토큰으로 일정을 다시 읽어 확인한다(_shared/event-attach-file.ts).
+// - 이 작업공간 '자료실 › 일정 첨부' 폴더의 원본만 넘긴다. 그래야 사업 보고에서 그 자료를 지울 때 'Drive 원본은 둔다'(deleteDocument)가 늘 맞는다.
+// - 같은 보고에 같은 원본 자료가 이미 있으면 새로 만들지 않는다(exists). 종류·날짜는 화면이 고른 값(모양만 확인, 없으면 '기타'·빈 값).
+const EVENT_PHOTO_NOTE = '일정에 붙인 사진에서 사업 보고로(같은 Drive 원본)';
+const CATEGORY_TEXT = /^[^\u0000-\u001f\u007f]{1,60}$/;
+const DAY_TEXT = /^\d{4}-\d{2}-\d{2}$/;
+const CALENDAR_TEXT: Record<string, [string, string]> = {
+  calendar_not_connected: ['CALENDAR_NOT_CONNECTED', 'Google 캘린더가 연결되지 않았습니다.'],
+  calendar_auth: ['CALENDAR_AUTH', 'Google 캘린더 연결을 다시 해 주세요.'],
+  calendar_unavailable: ['CALENDAR_UNAVAILABLE', 'Google 캘린더를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'],
+  calendar_token_failed: ['CALENDAR_UNAVAILABLE', 'Google 캘린더를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'],
+  event_not_found: ['EVENT_NOT_FOUND', 'Google 일정을 찾을 수 없습니다.'],
+  attachment_not_found: ['ATTACHMENT_NOT_FOUND', '이 일정에 붙어 있지 않은 사진입니다.'],
+  not_photo: ['NOT_PHOTO', '사진만 사업 보고로 넣을 수 있습니다.'],
+  invalid_request: ['INVALID_REQUEST', '넣을 사진을 확인할 수 없습니다.'],
+};
+const calendarFail = (e: unknown) => {
+  const known = (e instanceof CalendarTokenError || e instanceof EventAttachError) ? CALENDAR_TEXT[e.code] : undefined;
+  const [code, message] = known ?? CALENDAR_TEXT.calendar_unavailable;
+  return fail(message, code);
+};
+async function linkEventPhoto(userId: string, body: Record<string, unknown>) {
+  const meetingId = String(body?.meeting_id || '').toLowerCase(), fileId = String(body?.drive_file_id || '');
+  const calendarId = String(body?.calendar_id ?? 'primary'), eventId = String(body?.event_id || '');
+  if (!UUID.test(meetingId) || !DRIVE_ID.test(fileId) || !isEventRef(calendarId, eventId)) throw fail('넣을 사진을 확인할 수 없습니다.', 'INVALID_REQUEST');
+  const category = body?.category == null || body.category === '' ? '기타' : String(body.category).trim();
+  const day = body?.document_date == null || body.document_date === '' ? null : String(body.document_date);
+  const dayOk = (d: string) => { const t = Date.parse(d + 'T00:00:00Z'); return DAY_TEXT.test(d) && Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === d; };
+  if (!CATEGORY_TEXT.test(category) || (day !== null && !dayOk(day))) {
+    throw fail('넣을 사진을 확인할 수 없습니다.', 'INVALID_REQUEST');
+  }
+  // TRASH-Edge거르기2와 같게 휴지통 사업 보고에는 잇지 않는다.
+  const rows = await db(`app_meetings?id=eq.${encodeURIComponent(meetingId)}&deleted_at=is.null&select=id,workspace_id,project_id,business_area_id&limit=1`);
+  const meeting = Array.isArray(rows) ? rows[0] : null;
+  if (!meeting || meeting.id !== meetingId || typeof meeting.workspace_id !== 'string') throw fail('사업 보고를 찾을 수 없습니다.', 'MEETING_NOT_FOUND');
+  const own = await callerOwnerWorkspace({ rest: (path: string) => db(path) }, userId);
+  if (!own || own !== meeting.workspace_id) throw fail('워크스페이스 소유자 권한이 필요합니다.', 'FORBIDDEN');
+  try {
+    const calendar = await calendarAccessToken({ rest: (path: string) => db(path) }, userId, { fetch, log: code => console.error('document-actions calendar_token failed', { code }) });
+    await findEventAttachment({ calendarId, eventId, fileId }, calendar, { fetch });
+  } catch (e) {
+    throw calendarFail(e);
+  }
+  const getToken = driveTokenFor(userId, own);
+  let where: 'event' | 'other' | 'missing';
+  try {
+    where = await eventFolderOrigin({ rest: (path: string) => db(path) }, own, fileId, getToken, { fetch });
+  } catch (e) {
+    if (e instanceof EventAttachError) throw fail('일정 첨부 원본인지 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.', 'EVENT_ORIGIN_UNKNOWN');
+    throw e;
+  }
+  if (where === 'missing') throw fail('Drive 원본을 찾을 수 없습니다.', 'DRIVE_FILE_MISSING');
+  if (where !== 'event') throw fail('Web2 일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.', 'NOT_EVENT_FILE');
+  const existing = await registeredDocument(own, fileId, meetingId);
+  if (existing) return { ok: true, result: 'exists', document: existing };
+  const projectId = typeof meeting.business_area_id === 'string' && meeting.business_area_id ? meeting.business_area_id : typeof meeting.project_id === 'string' && meeting.project_id ? meeting.project_id : null;
+  return await registerDriveDocument(userId, own, fileId, {}, EVENT_PHOTO_NOTE, { meeting_id: meetingId, project_id: projectId, category, document_date: day }, getToken);
 }
 
 // HWP-편집기 2단계: open an HWP/HWPX library document or basket attachment in the
@@ -423,6 +502,17 @@ Deno.serve(withWebCors(async (req: Request) => {
         // 400: refused before any write. 503: the write may have happened (check the library first).
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : undefined;
         console.error('document-actions register-drive failed', safeErrorLog(e));
+        return json({ error: safeErrorMessage(e), ...(code ? { code } : {}) }, code === 'RESULT_UNKNOWN' ? 503 : 400);
+      }
+    }
+    if (action === 'link-event-photo') {
+      // CAL-일정첨부 6번: 일정에 붙인 사진을 사업 보고 자료로 잇기(linkEventPhoto). register-drive-file과 같은 응답 규칙.
+      try {
+        return json(await linkEventPhoto(user.id, body));
+      } catch (e) {
+        // 400: refused before any write. 503: the write may have happened (open the report before sending again).
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : undefined;
+        console.error('document-actions link-event-photo failed', safeErrorLog(e));
         return json({ error: safeErrorMessage(e), ...(code ? { code } : {}) }, code === 'RESULT_UNKNOWN' ? 503 : 400);
       }
     }

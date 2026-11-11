@@ -18,7 +18,7 @@
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
-import {esc, rowHtml, foldActs, openFromMeta} from './notice-box.mjs';
+import {esc, rowHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
@@ -55,7 +55,7 @@ export function candidateMeta(c) {
   return [from, shortDay(c?.source_day), c?.status === 'open' && dueLabel(c?.due) ? `기한 ${dueLabel(c.due)}` : ''].filter(Boolean).join(' · ');
 }
 // 할 일·일정·노트 창에 미리 채울 글. 날짜는 바꾸지 않는다(명진이 창에서 고름).
-export const candidateDraft = c => ({title: cut(c?.summary, 100),
+export const candidateDraft = c => ({title: cut(plainText(c?.summary), 100), // S59-20: 제목에는 마크다운 기호(`**`)를 넣지 않는다
   memo: [c?.source_kind === 'telegram' ? '텔레그램' : RADAR_SOURCE_LABEL[c?.source_kind] || '', c?.tg?.room_label || '', shortDay(c?.source_day)].filter(Boolean).join(' · ')});
 const decidedDay = c => c?.decided_at && Number.isFinite(Date.parse(c.decided_at)) ? dotDay(seoulDateKey(new Date(c.decided_at))) : '';
 const alreadyDropped = c => c.status === 'dismissed' && c.outcome === 'already_tasked';
@@ -139,7 +139,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         const open = c.status === 'open', isBusy = busy.has(c.id);
         out.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
           // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
-          open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${c.summary} — 출처 열기: ${sourceText(c)}`)}"`},
+          open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
           done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"`, below: open ? linkingHtml(c) : ''})});
       }
     }
@@ -399,7 +399,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       } catch { say('할 일 창을 열지 못했어요'); }
       return;
     }
-    const quick = {title: c.summary, due: quickDue(c, seoulDateKey())}, problem = validateTaskDraft(quick);
+    const quick = {title: plainText(c.summary), due: quickDue(c, seoulDateKey())}, problem = validateTaskDraft(quick);
     if (problem) { say(problem); return; }
     busy.add(c.id); status = '넣는 중…'; paint();
     const result = await candidateToTask(c, quick);
@@ -485,7 +485,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const draft = candidateDraft(c), mine = radarScope(rt);
     try {
       await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]);
-      win.KPTUGoogleTasks.openEditor(null, {title: c.summary, memo: draft.memo, links: taskLinks(c),
+      win.KPTUGoogleTasks.openEditor(null, {title: plainText(c.summary), memo: draft.memo, links: taskLinks(c),
         onCreated: taskId => { if (mine === radarScope(rt)) void decideCandidate(c, () => markTasked(c.id, taskId, rt, new Date(), null), 'tasked', '할 일로 만들었어요'); }});
     } catch { say('할 일 창을 열지 못했어요'); }
   }

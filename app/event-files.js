@@ -130,11 +130,12 @@ export function sendEventFilesBehind({calendarId, eventId, files, rt = window.KP
     const again = () => sendEventFilesBehind({calendarId, eventId, files: left, rt});
     if (left.length) for (const file of left) setUploadRetry(file, again);
     const okText = sent.length ? `${words(sent)} 올렸어요` : '';
+    // UX-알림하나로(S59-21): 끝·실패는 이 한 줄 하나 — 일정 창의 올리는 줄은 이 파일들의 '실패'·'✓ 완료'를 따로 그리지 않는다(files).
     let note;
     if (left.length || unknown.length) {
-      note = announceDock({text: `일정에 ${words([...left, ...unknown])} 못 올렸어요`, note: [okText, reason].filter(Boolean).join(' · '), error: true, ms: 0,
+      note = announceDock({text: `일정에 ${words([...left, ...unknown])} 못 올렸어요`, note: [okText, reason].filter(Boolean).join(' · '), error: true, ms: 0, files: list,
         actions: left.length ? [{label: '다시 올리기', aria: '못 올린 파일 다시 올리기', run: again}] : []});
-    } else if (sent.length) note = announceDock({text: `일정에 ${okText}`});
+    } else if (sent.length) note = announceDock({text: `일정에 ${okText}`, files: list});
     if (note) lineNotes.set(key, note);
   });
 }

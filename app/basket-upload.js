@@ -100,13 +100,15 @@ export function sendFilesBehind({line, key, batch, rt = window.KPTURuntime, send
     const head = where ? `${where}에 ` : '', okText = sent.length ? `${head}${fileWords(sent)} 올렸어요` : '';
     const retry = left.length && !batch.blocked ? again : null;
     if (retry) for (const entry of left) setUploadRetry(entry.file, retry);
+    // UX-알림하나로(S59-21): 끝·실패는 이 한 줄 하나 — files로 맡겨 그 글의 창·상세에 열린 올리는 줄이 '실패 [다시]'·'✓ 완료'를 따로 그리지 않게.
+    const files = [...picked.values()];
     if (left.length) {
       const reason = error?.message || '';
       behindNote(batch, {text:`${head}${fileWords(left.map(entry => entry.file))} 못 올렸어요`, note:[sent.length ? `${fileWords(sent)} 올렸어요` : '', reason, extra].filter(Boolean).join(' · '),
-        error:true, ms:0, actions:retry ? [{label:'다시 올리기', aria:'못 올린 파일 다시 올리기', run:retry}] : []});
-    } else if (extra) behindNote(batch, {text:okText || `${head}올리기를 마쳤어요`, note:extra, error:true, ms:0});
-    else if (sent.length) behindNote(batch, {text:okText + (cancelled ? ` · ${cancelled}개 취소` : '')});
-    else if (cancelled) behindNote(batch, {text:'올리기를 취소했어요'});
+        error:true, ms:0, files, actions:retry ? [{label:'다시 올리기', aria:'못 올린 파일 다시 올리기', run:retry}] : []});
+    } else if (extra) behindNote(batch, {text:okText || `${head}올리기를 마쳤어요`, note:extra, error:true, ms:0, files});
+    else if (sent.length) behindNote(batch, {text:okText + (cancelled ? ` · ${cancelled}개 취소` : ''), files});
+    else if (cancelled) behindNote(batch, {text:'올리기를 취소했어요', files});
   });
 }
 // 새 노트의 첨부(새 노트 큰 창·빠른 입력칸·폰 공유): 노트 줄에 서서 그 노트로 올린다. 끝나면 노트 화면이 그 노트를 다시 읽는다(kptu:note-files-sent).

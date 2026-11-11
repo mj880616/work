@@ -89,7 +89,7 @@ for (const width of [390, 1280]) {
     if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-input-clip-${width}.png`});
     await press(page, bar.locator('[data-quick-save]'), width);
     // BIZ-저장먼저닫기 2차: 글(노트)이 저장되면 입력칸은 바로 풀리고, 파일은 그 노트 id로 뒤에서 올라간다(끝은 하단바 위 한 줄).
-    await expect(page.locator('#toast')).toHaveText('노트를 추가했어요. 사진·파일은 올리는 중이에요.');
+    await expect(page.locator('#toast')).toHaveText('노트를 추가했어요.');
     expect(f.writes[0]).toEqual({method: 'POST', body: {workspace_id: 'w', kind: 'note', title: '교섭 준비', raw_text: '교섭 준비', metadata: {markdown: false}}});
     await expect.poll(() => f.uploads).toEqual([{noteId: 'new-1', name: '교섭 일정.pdf', rawText: false}]);
     await expect(page.locator('#uploadDock')).toContainText('노트에 파일 1개 올렸어요');
@@ -240,7 +240,8 @@ for (const width of [390, 1280]) {
     expect(await noFrameWidth(page)).toBe(true);
     if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-big-editor-clip-${width}.png`});
     await e.locator('[data-edw-save]').click();
-    await expect(e.locator('.ed-window-status')).toHaveText('첨부를 저장했어요');
+    // UX-알림하나로(S59-21): 끝은 창 상태 줄이 아니라 하단바 위 한 줄 하나.
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('노트에 참고 자료.pdf 올렸어요');
     expect(f.uploads).toEqual([{noteId: 'n-text', name: '참고 자료.pdf', rawText: false}]);
     // Text was not changed: no text write; the window stays and its chosen-file list empties.
     expect(f.writes.filter(w => w.method !== 'GET')).toEqual([]);
@@ -322,7 +323,7 @@ for (const width of [412, 1280]) {
     await expect.poll(() => held.seen.length).toBe(1);
     // Not locked while it goes up: the window says so, its chosen list is empty again, the clip and the save can be used,
     // and the file is on the window's own upload row.
-    await expect(e.locator('.ed-window-status')).toHaveText('첨부를 올리는 중이에요');
+    await expect(e.locator('.ed-window-status')).not.toContainText('올리는 중'); // UX-알림하나로: 진행은 창의 올리는 줄 하나
     const clip = e.locator('[data-edw-attach]').getByRole('button', {name: '파일 첨부', exact: true});
     await expect(clip).toBeEnabled(); await expect(clip.locator('[data-basket-count]')).toBeHidden();
     await expect(e.locator('[data-edw-save]')).toBeEnabled();
@@ -341,7 +342,7 @@ for (const width of [412, 1280]) {
     await expectNoteTitle(page, '빈 노트');
     held.open();
     await expect.poll(() => f.uploads).toEqual([sent('n-text', '뒤에서 올림.pdf')]);
-    await expect(page.locator('#kptuNotice')).toContainText('노트에 뒤에서 올림.pdf 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('노트에 뒤에서 올림.pdf 올렸어요');
     expect(await reloadAllowed(page)).toBe(true);
     // The note on the screen is not drawn over; the first note's row has the file.
     await expectNoteTitle(page, '빈 노트');
@@ -362,9 +363,11 @@ for (const width of [412, 1280]) {
     await e.locator('[data-close="edWindow"]').click(); await expect(page.locator('#edWindow')).toHaveCount(0);
     await page.goBack(); await expect(page.locator('[data-note-row="n-text"]')).toBeVisible();
     held.open();
-    const notice = page.locator('#kptuNotice');
+    const notice = page.locator('#uploadDock:not([hidden])');
     await expect(notice).toContainText('노트에 첫째.pdf 올렸어요 · 1개 못 올렸어요');
-    await notice.getByRole('button', {name: '다시', exact: true}).click();
+    await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
+    if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-attach-fail-${width}.png`});
+    await notice.getByRole('button', {name: '못 올린 파일 다시 올리기'}).click();
     await expect.poll(() => f.uploads).toEqual([sent('n-text', '첫째.pdf'), sent('n-text', '둘째.pdf')]);
     expect(held.seen).toEqual(['첫째.pdf', '둘째.pdf', '둘째.pdf']); // the stored file is not sent again
     await expect(notice).toContainText('노트에 둘째.pdf 올렸어요');
@@ -389,7 +392,7 @@ test('big editor files: files saved while the first goes up wait in the same lin
   await expect(page.locator('#homeView')).toBeVisible();
   held.open();
   await expect.poll(() => f.uploads).toEqual([sent('n-text', '첫째.pdf'), sent('n-text', '둘째.pdf')]);
-  await expect(page.locator('#kptuNotice')).toContainText('노트에 둘째.pdf 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toContainText('노트에 둘째.pdf 올렸어요');
   expect(f.errors).toEqual([]);
 });
 test('big editor files: text saved while a file goes up waits behind it and is saved on the version the upload left (412)', async ({page}) => {

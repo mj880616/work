@@ -22,7 +22,9 @@ test('시간: 기본 알림(2초)보다 길게, 실패는 더 길게',()=>{
 test('자료실 올리기 길(끌어 놓기·등록 창)은 끝 알림 부품을, 사업 보고 사진은 새 보고 저장과 같은 올리기 들머리를 부른다',()=>{
   const read=f=>readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
   assert.match(read('library-upload.js'),/announceUploaded\(/);
-  assert.match(read('upload-done.js'),/notify\(/);
+  // UX-알림하나로(S59-21): 끝 알림은 하단바 위 한 줄(announceDock) 하나 — 화면 위 작은 알림(notify)으로 따로 띄우지 않는다.
+  assert.match(read('upload-done.js'),/announceDock\(/);
+  assert.doesNotMatch(read('upload-done.js'),/notify\(/);
   // APP-뒤에서올리기 PR-2(S58-12): 사업 보고 상세의 사진 줄은 스스로 올리지 않고 공용 한 묶음 들머리(sendForMeeting)에 선다 —
   // 끝 알림('사진 n장 올렸어요', 못 올렸으면 [다시 올리기])은 그 들머리가 아래 한 줄로 한다(따로 또 알리면 두 번 뜬다).
   const detail=read('meeting-round-detail.js');

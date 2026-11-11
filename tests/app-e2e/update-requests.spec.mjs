@@ -141,7 +141,7 @@ test('an update saved with a file gets no follow-up request write', async ({ pag
   await q.locator('input[type=file]').setInputFiles([{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('fake file') }]);
   await noToggles(q);
   await q.locator('[data-quick-save]').click();
-  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요. 사진·파일은 올리는 중이에요.');
+  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요.');
   await expect.poll(() => uploads.length).toBe(1);expect(uploads[0]).toContain('name="note_id"\r\n\r\nnew-1');
   await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
   expect(f.writes).toHaveLength(1);expect(f.writes[0].method).toBe('POST');expect(f.writes[0].body.metadata).toBeUndefined();

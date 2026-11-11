@@ -21,7 +21,7 @@ async function upload(page,name){
   await page.locator('#libraryFileInput').setInputFiles({name,mimeType:'application/pdf',buffer:Buffer.from('%PDF synthetic')});
   await page.locator('#saveDocumentBtn').click();
   await expect(page.locator('#documentModal')).toBeHidden();
-  await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText(name+' 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText(name+' 올렸어요');
 }
 async function openFolderMenu(page,id,width){await press(page,menuButton(page,'f:'+id),width);await expect(page.locator('#luFolderMenu')).toBeVisible()}
 
@@ -132,7 +132,7 @@ test.describe('PC 1280 한 칸(왼쪽 나무 | 목록)',()=>{
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:RECV}});
     await page.evaluate(names=>{const dt=new DataTransfer();for(const n of names)dt.items.add(new File(['%PDF synthetic'],n,{type:'application/pdf'}));
       for(const type of ['dragenter','dragover','drop'])document.querySelector('#documentSearch').dispatchEvent(new DragEvent(type,{bubbles:true,cancelable:true,dataTransfer:dt}))},['가-자료.pdf','나-자료.pdf']);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('잡동사니에 2개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('잡동사니에 2개 올렸어요');
     await expect.poll(()=>s.items.filter(x=>x.folder_id===RECV).map(x=>x.document_id).sort()).toEqual(['upload-1','upload-2']);
     expect(itemWrites(s)).toEqual([]);
     await expect(head(page,RECV).locator('.lu-node-count')).toHaveText('2');

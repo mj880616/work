@@ -4,7 +4,10 @@
 // 날짜 칸: [이날 일정 등록] = 빈 칸 누름과 같은 일정 등록 창, [이날 할 일] = 같은 창의 할 일 쪽, [이날 하루 보기] = 날짜 숫자 누름과 같은 그날 창.
 // S57-20 BIZ-보고할일정(시안 docs/design/mockups/biz-report-plan-link.html ②): plan = {on}이면 [수정] 바로 아래 [보고할 일정] 한 줄 — 켜져 있으면 끝에 ✓.
 // 누르면 그 자리에서 켜고 끈다(Google 일정은 그대로라 쓰기 권한이 없는 캘린더의 일정에도 둔다). plan이 없으면(서버 준비 전·아직 못 읽음) 항목 없이 지금 그대로.
-const PLAN_ICON = 'M3.5 3.5h9v9h-9z'; // 표시 기호 □
+// S59-20 일정 메뉴 빈 네모: 예전 아이콘은 네모 선 하나(달력 표시 기호 □ 그대로)라 그림 없이 빈 자리만 있는 것처럼 보였다.
+// 메뉴 아이콘은 그림이어야 하므로 '표시해 둠'을 뜻하는 깃발(막대 + 깃발)로 그린다. 켜짐·꺼짐은 글자 끝 ✓가 맡고, 달력 막대 앞 □·✓ 표시는 그대로다.
+// 사업 보고 달력 줄 ⋯의 [보고할 일정 ✓]도 이 아이콘 하나를 가져다 쓴다(report-calendar-plan.mjs).
+export const PLAN_ICON = 'M4.5 14V2.5M4.5 3.5h8l-2 2.75 2 2.75h-8'; // 깃발
 export const planMenuItem = plan => (plan ? {id: 'plan', label: plan.on ? '보고할 일정 ✓' : '보고할 일정', icon: PLAN_ICON} : null);
 export function eventMenuItems(writable, plan = null) {
   const item = planMenuItem(plan), mark = item ? [item] : [];

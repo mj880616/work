@@ -4,7 +4,7 @@ import {renderFilterChips} from './filter-chips.js';
 import {uploadTimeoutMs} from './upload-budget.mjs';
 import {floatingWindowOpen} from './open-window.mjs'; // ★LIB-바깥파일놓기안됨: 칸에 붙인 창(사업 보고 결과 등)은 열린 창으로 치지 않는다
 import {sendUpload} from './upload-send.mjs';
-import {trackUpload,setUploadRetry,mountUploadRows,paintUploadLine,watchUploads,announceDock} from './upload-progress.js';
+import {trackUpload,setUploadRetry,mountUploadRows,paintUploadLine,watchUploads,announceDock,DOCK_DONE_MS} from './upload-progress.js';
 import {createMeetingSend,createAppHandoff,bindAppJobs,sendDoneLine,sendFailLine,sendHandedLine,sendHandingLine} from './meeting-send.mjs'; // BIZ-저장먼저닫기: 사업 보고 사진·자료 한 묶음 올리기(뒤 줄)
 import {appUpload,uploadReasonText} from './app-upload.js'; // APP-뒤에서올리기 PR-2: 폰 앱 다리(있으면 넘긴다)
 import {openReport} from './report-open.js';
@@ -62,7 +62,7 @@ import {mountCategoryEditor} from './document-category-editor.js';
 import {startAutoTextRead} from './document-text-read.js';
 import {fillLibraryDocument,keptFields,originAfterEdit,autoTidyLibrary,reclassifyLibraryDocument} from './library-ai-fill.js';
 import {openLibraryHtmlView} from './library-html-view.js';
-import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,progressText as luDropProgressText,resultText as luDropResultText,DROP_HINT,DROP_RESULT_CLEAR_MS} from './library-drop.js';
+import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
@@ -411,10 +411,10 @@ function luSetSelectedFiles(files){luUploadEntries=Array.from(files||[]).map(fil
 // LIB-화면끌어놓기 (2026-10-26): 자료실을 연 PC 화면 어디에 놓아도 [+ 자료 등록]을 아무것도 지정하지 않고 누른 것과 같게 바로 올린다
 // (library-files 같은 요청, 제목은 파일 이름, 분류는 AI 자동 정리 luAiFill). 등록 창·수정 창이 열려 있으면 그 창의 놓기 칸이 먼저라서 여기서는 받지 않는다. 모바일은 그대로.
 // S53-19: 받는 폭은 칸 나누기 공용 판정(600px~, screen-width.mjs)과 같게. 옛 '760px 이하 = 폰'은 펼친 폴드(약 673~707px)의 두 칸 보기에서 놓기를 꺼 두었다.
-let luDropRun=null,luDropClearTimer=0;
+let luDropRun=null,luDropNote=null;
 const LU_NARROW=typeof matchMedia==='function'?matchMedia(NARROW_QUERY):null;
 const luDropActive=()=>window.KPTURouter?.current==='library'&&!LU_NARROW?.matches&&!floatingWindowOpen(document);
-function luDropStatus(text,{error=false,busy=false}={}){const st=document.querySelector('#libraryDropStatus');if(!st)return;clearTimeout(luDropClearTimer);st.textContent=text||'';st.hidden=!text;st.classList.toggle('error',!!error);st.setAttribute('aria-busy',busy?'true':'false');st.setAttribute('role',error?'alert':'status');if(text&&!error&&!busy)luDropClearTimer=setTimeout(()=>luDropStatus(''),DROP_RESULT_CLEAR_MS)}
+// UX-알림하나로(S59-21): 끌어 놓기의 진행은 목록 위 올리는 줄(파일마다 막대·%), 끝·실패는 하단바 위 한 줄 하나 — 목록 위 상태 글줄(옛 #libraryDropStatus)은 없앴다.
 // S46-25: value({field,value})가 있으면 그 값을 달아 올린다. 사업영역·분류는 [+ 자료 등록]과 같은 요청 칸(project_id·category, 서버가 사업영역 권한을 다시 봄),
 // 담당조직은 담당조직 상세 [+]와 같은 연결(linkUploadedDocument, DB가 같은 작업공간 조직만 받음). AI 채우기는 그 뒤에 시작해 사람이 놓은 값을 덮지 않는다
 // (분류는 keep, 사업영역·담당조직은 이미 차 있어 AI가 비어 있는 연결만 채우는 규칙에 걸리지 않음). 결과 {doc,linked}.
@@ -461,6 +461,7 @@ async function luDropFiles(files,target=null){
   const folder=target?.target?{id:target.target,name:target.name||'폴더'}:null;
   const value=!folder&&target?.field?{field:target.field,value:target.value,name:target.name||'',key:target.key}:null;
   const entries=Array.from(files||[]).map(file=>({file,folder,value}));for(const x of entries)luDropSending.add(x.file);
+  luDropNote?.close();luDropNote=null; // 새로 놓으면 앞 끝 알림은 닫는다(진행은 목록 위 올리는 줄 — 옛 끝 글이 새 진행과 같이 보이지 않게)
   // 이미 올리는 중이면 새로 놓은 파일은 그 줄 뒤에 이어 올린다(순서대로, 동시에 보내지 않음).
   if(luDropRun){luDropRun.queue.push(...entries);return}
   const run=luDropRun={queue:[...entries]};// 줄은 복사본(올리며 비우므로, 결과 문구는 처음 놓은 entries로 본다)
@@ -473,7 +474,7 @@ async function luDropFiles(files,target=null){
       const batch=run.queue.splice(0,run.queue.length),where=new Map(batch.map(x=>[x.file,x]));
       for(const x of batch)places.add(x.folder?'f:'+x.folder.id:x.value?'v:'+x.value.key:'');
       const upload=async file=>{const x=where.get(file),f=x?.folder,v=x?.value;const {doc,linked}=await luUploadDropped(file,v);if(v){if(linked)valued.add(v.key);else total.unlinked++}if(f){if(await luFolders().putUploaded(doc?.id,f.id))filed.add(f.id);else total.unfiled++}if(doc)okDocs.push({id:doc.id,name:file.name});return doc};
-      const r=await runDropUpload(batch.map(x=>x.file),{upload,preflight:luPreflightFailure,classify:e=>{const f=luUploadFailure(e);return {message:f.message,kind:f.kind,stop:!!f.stop}},onProgress:p=>luDropStatus(luDropProgressText(p),{busy:true})});
+      const r=await runDropUpload(batch.map(x=>x.file),{upload,preflight:luPreflightFailure,classify:e=>{const f=luUploadFailure(e);return {message:f.message,kind:f.kind,stop:!!f.stop}}});
       total.done+=r.done;total.failed.push(...r.failed);total.rest+=r.rest;
       if(r.stopped){stopped=r.stopped;break}
     }
@@ -483,17 +484,21 @@ async function luDropFiles(files,target=null){
     if(total.done)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null}}));
     // 한 폴더에만 놓았으면 결과 문구에 그 폴더 이름('주간보고에 2개 올렸어요').
     const one=places.size===1&&(!places.has('')||!!recv),only=one&&folder?folder.name:one&&places.has('')?recv.name:'',onlyValue=one&&value?value.name:'';
-    luDropStatus(luDropResultText({...total,folder:only,value:onlyValue}),{error:!!(total.failed.length||total.rest||total.unfiled||total.unlinked)});
-    // LIB-업로드완료알림: 다른 화면에 가 있어도 끝나면 공용 작은 알림 한 줄. 실패한 파일은 [다시]로 같은 곳에 다시 올린다.
+    // 끝 알림은 하단바 위 한 줄 하나: 끌어 놓기 결과 글('주간보고에 2개 올렸어요', 못 올렸으면 '… · 1개 못 올렸어요' + 둘째 줄 까닭 + [다시 올리기]).
+    // 놓은 파일을 맡아(files) 목록 위 올리는 줄은 그 파일의 '실패 [다시]'·'✓ 완료'를 따로 그리지 않는다. 한 개만 올렸으면 [열기].
     const badNames=new Set(total.failed.map(f=>f.name)),badFiles=entries.filter(x=>badNames.has(x.file?.name)).map(x=>x.file);
-    announceUploaded({done:total.done,names:okDocs.map(d=>d.name),failed:total.failed.length+total.rest,where:only||onlyValue,openId:okDocs.length===1?okDocs[0].id:'',retry:badFiles.length?()=>luDropFiles(badFiles,target):null});
+    const why=total.failed[0]?.message||'',full=luDropResultText({...total,folder:only,value:onlyValue}),head=why&&full.endsWith('. '+why)?full.slice(0,-(why.length+2)):full;
+    const bad=!!(total.failed.length||total.rest||total.unfiled||total.unlinked),actions=[];
+    if(total.done&&okDocs.length===1){const id=okDocs[0].id;actions.push({label:'열기',aria:'올린 자료 열기',run:async()=>{if(window.KPTURouter?.current!=='library')await window.KPTURouter?.go?.('library');window.KPTULibrary?.reveal?.(id)}})}
+    if(badFiles.length)actions.push({label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:()=>{void luDropFiles(badFiles,target)}});
+    luDropNote?.close();luDropNote=head?announceDock({text:head,note:why,error:bad,ms:bad?0:DOCK_DONE_MS,actions,files:entries.map(x=>x.file)}):null; // 새로 놓은 것의 끝이 앞 끝 알림을 갈아 끼운다
     if(stopped&&luIsDriveAuthError(stopped.error))await luMaybeReconnectDrive(stopped.error);
-  }catch(e){console.error('library drop upload failed',e);luDropStatus('올리지 못했어요. 잠시 후 다시 놓아 주세요.',{error:true})}
+  }catch(e){console.error('library drop upload failed',e);luDropNote?.close();luDropNote=announceDock({text:'올리지 못했어요',note:'잠시 후 다시 놓아 주세요.',error:true,ms:0,files:entries.map(x=>x.file)})}
   finally{luDropRun=null;luDropSending.clear()}
 }
 function luEnhanceDrop(){
   const list=document.querySelector('#documentList'),view=document.querySelector('#libraryView');if(!list||!view||document.querySelector('#libraryDropOverlay'))return;
-  const st=document.createElement('p');st.id='libraryDropStatus';st.className='lu-drop-status';st.hidden=true;st.setAttribute('role','status');st.setAttribute('aria-live','polite');list.before(st);const up=document.createElement('div');up.hidden=true;st.after(up);mountUploadRows(up,{has:job=>luDropSending.has(job.file)||luBackSending.has(job.file)});
+  const up=document.createElement('div');up.id='libraryUploadRows';up.hidden=true;list.before(up);mountUploadRows(up,{has:job=>luDropSending.has(job.file)||luBackSending.has(job.file)});
   const overlay=document.createElement('div');overlay.id='libraryDropOverlay';overlay.className='lu-drop-overlay';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');overlay.innerHTML='<span class="lu-drop-hint"></span>';overlay.firstChild.textContent=DROP_HINT;document.body.append(overlay);
   // 왼쪽 메뉴를 뺀 화면 전체(자료실 칸의 가로 범위, 세로는 창 전체).
   const place=()=>{const r=view.getBoundingClientRect();overlay.style.left=Math.max(0,Math.round(r.left))+'px';overlay.style.right=Math.max(0,Math.round(window.innerWidth-r.right))+'px'};
@@ -613,7 +618,7 @@ luResetUploadSelection();luSetUploadOrg(null);luSetUploadMeeting(null);luSetUplo
 void luBackUpload(job)}
 function luCloseUploadWindow(){const close=window.KPTUDocumentModal?.close;if(typeof close==='function')close();else document.querySelector('#documentModal')?.classList.add('hidden')}
 // 자료 등록 창 [저장] 뒤 올리기 줄(메모리뿐, 새 저장소 없음). 창이 올리는 중에 또 [저장]하거나 조직·프로젝트 상세 [자료 +]로 연 창에서 저장해도 거절하지 않고 이 줄 뒤에 선다.
-// 진행은 공용 올리기 줄(upload-progress.js — 창이 닫혔으니 하단바 위 한 줄), 끝·실패는 공용 작은 알림(upload-done.js, 실패는 [다시]).
+// 진행은 공용 올리기 줄(upload-progress.js — 창이 닫혔으니 하단바 위 한 줄), 끝·실패도 그 한 줄 하나(UX-알림하나로, upload-done.js, 실패는 [다시 올리기]).
 // 줄에 선 일은 [저장]한 사람·작업공간의 것이다(scope). 다른 계정으로 바뀌었거나 작업공간이 달라지면 남은 파일을 보내지 않고 알림도 띄우지 않는다
 // (로그아웃만 된 때는 올리기가 '로그인 세션 만료'로 멈추고 알림 + [다시]).
 const LU_BACK_FAIL_MS=18000;
@@ -622,7 +627,7 @@ const luBackGone=scope=>{const now=window.KPTURuntime?.session?.read?.()?.user?.
 // 뒤 줄에 선 파일(luBackSending): 자료실 화면에 있으면 목록 위 올리는 줄(끌어 놓기와 같은 자리)에 그 파일의 막대·%·✕(취소)가 보이고, 다른 화면이면 하단바 위 한 줄.
 const luBackSending=new Set();
 let luBackTail=Promise.resolve();
-function luBackUpload(job){for(const entry of job.entries)luBackSending.add(entry.file);const run=luBackTail.then(()=>luRunBackUpload(job)).catch(e=>{console.error('library background upload failed',e);notify('자료를 올리지 못했어요. 잠시 후 다시 올려 주세요.',{error:true})}).finally(()=>{for(const entry of job.entries)luBackSending.delete(entry.file)});luBackTail=run;return run}
+function luBackUpload(job){for(const entry of job.entries)luBackSending.add(entry.file);const run=luBackTail.then(()=>luRunBackUpload(job)).catch(e=>{console.error('library background upload failed',e);announceDock({text:'자료를 올리지 못했어요',note:'잠시 후 다시 올려 주세요.',error:true,ms:0,files:job.entries.map(entry=>entry.file)})}).finally(()=>{for(const entry of job.entries)luBackSending.delete(entry.file)});luBackTail=run;return run}
 async function luRunBackUpload(job){const {entries,many,fields,projectId,org,meeting,folder,scope}=job;if(luBackGone(scope))return;let succeeded=0,linkFailed=0,lastProjectId=null,unfiled=0,filedId='',stopped=null;const failures=[],okDocIds=[],okNames=[],retryEntries=[];const putFolder=async id=>{if(!folder||folder.receive||luBackGone(scope))return;if(await luFolders().putUploaded(id,folder.id))filedId=folder.id;else unfiled++};const linkOrg=async id=>{if(org&&!luBackGone(scope)&&!(await linkUploadedDocument(window.KPTURuntime,{documentId:id,workspaceId:scope.workspace,organizationId:org.id})))linkFailed++};const fail=(entry,failure)=>{failures.push({...failure,name:entry.file?.name||''});entry.retry=failure.retry;entry.failure=failure;entry.kind=failure.kind||'error';if(failure.retry!==false&&failure.kind!=='unknown')retryEntries.push(entry)};
 for(let index=0;index<entries.length;index++){const entry=entries[index];let file=entry.file,shown=null;if(stopped){entry.kind='waiting';retryEntries.push(entry);continue}
 if(luBackGone(scope))return; // 계정·작업공간이 바뀌면 남은 파일을 보내지 않는다
@@ -641,13 +646,15 @@ if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments())
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
 // 올라갔지만 폴더·담당조직에 못 넣은 것: 끝 알림이 이 한 줄을 덮지 않게 끝 알림 자리에 같이 싣는다(성공뿐이면 이 글이 끝 알림).
 const warn=[unfiled?`자료 ${unfiled}개는 올라갔지만 ‘${folder.name}’ 폴더에 넣지 못해 폴더 밖에 있어요. 그 자료를 폴더로 옮겨 주세요.`:'',linkFailed?`자료 ${linkFailed}개는 올라갔지만 담당조직에 붙이지 못했어요. 그 자료의 [정보 수정]에서 담당조직을 선택해 주세요.`:''].filter(Boolean).join(' ');
-// 끝 알림(공용 작은 알림). 다 올렸으면 '○○ 올렸어요 · [열기]'. 못 올린 것이 있으면 예전 창 상태 줄과 같은 글('n개 완료 · m개 미완료. 까닭') + [다시].
+// 끝 알림(UX-알림하나로 S59-21: 하단바 위 한 줄 하나, upload-done.js). 다 올렸으면 '○○ 올렸어요 · [열기]'. 못 올린 것이 있으면
+// 'n개 완료 · m개 미완료' + 작은 둘째 줄에 까닭 + [다시 올리기](누를 때까지 남음). 자료실 목록 위 올리는 줄은 이 파일들의 실패를 따로 그리지 않는다(files).
 // [다시]는 그 단계부터: 못 올린 파일만(올라간 것은 다시 보내지 않는다) 같은 칸 값으로 뒤 줄에 다시 세운다. 결과를 확인하지 못한 파일(저장됐을 수 있음)은
 // 저절로 다시 보내지 않고, [다시] 때 '중복 등록' 확인을 받은 것만 보낸다. 서버가 사업영역을 거절했으면 같은 값으로는 또 거절되므로 등록 창을 다시 열어 사업영역 고르기부터.
 const unknownEntries=entries.filter(e=>e.kind==='unknown'),missed=entries.filter(e=>e.kind!=='success').length;
 const fresh=list=>entries.filter(e=>list.includes(e)).map(e=>({...e,kind:'pending',label:e.link?LU_LINK_LABEL:'선택됨',failure:null,retry:undefined}));
 const canRetry=retryEntries.length>0||unknownEntries.length>0;
-const offer=(text,{error=true,note=''}={})=>notify(text,{error,note,record:false,ms:LU_BACK_FAIL_MS,actions:canRetry?[{label:'다시',run:({close})=>{close();void again()}}]:[]});
+const files=entries.map(e=>e.file);
+const offer=(text,{error=true,note=''}={})=>announceDock({text,note,error,ms:0,files,actions:canRetry?[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:()=>{void again()}}]:[]});
 const again=async()=>{if(luBackGone(scope))return;let include=false;
 if(unknownEntries.length)include=await askConfirm(null,{text:`업로드 결과를 확인하지 못한 파일 ${unknownEntries.length}개가 있습니다.`,note:'이미 자료실에 등록됐다면 다시 업로드할 때 같은 자료가 중복 등록됩니다. 자료실 목록에 없는 것을 확인했다면 [다시 올리기]를 눌러 다시 업로드하세요.',ok:'다시 올리기'});
 if(luBackGone(scope))return;const list=fresh([...retryEntries,...(include?unknownEntries:[])]);
@@ -656,8 +663,8 @@ if(stopped?.type==='project'&&luReopenUpload(job,list))return;
 void luBackUpload({...job,entries:list})};
 const main=failures.slice().sort((a,b)=>{const pa=LU_FAILURE_PRIORITY.indexOf(a.type),pb=LU_FAILURE_PRIORITY.indexOf(b.type);return (pa<0?99:pa)-(pb<0?99:pb)})[0];
 if(missed)offer((entries.length>1?`${succeeded}개 완료 · ${missed}개 미완료. `:'')+(main?.message||LU_UPLOAD_FAILURES.cancelled.message),{error:failures.length>0,note:warn});
-else if(warn)notify(warn,{error:true,record:false,ms:LU_BACK_FAIL_MS});
-else announceUploaded({done:succeeded,names:okNames,openId:okDocIds.length===1?okDocIds[0]:''});
+else if(warn)announceDock({text:`${succeeded}개 올렸어요`,note:warn,error:true,ms:0,files});
+else announceUploaded({done:succeeded,names:okNames,openId:okDocIds.length===1?okDocIds[0]:'',files});
 if(stopped?.type==='drive_auth')await luMaybeReconnectDrive(stopped.error)}
 // 서버가 사업영역을 거절한 뒤 [다시]: 못 올린 파일과 쓴 칸을 넣은 등록 창을 다시 연다(사업영역만 비움 — 고르는 단계부터).
 function luReopenUpload(job,list){if(!luOpenUploadWindow())return false;luUploadEntries=list;luRenderSelectedFiles();
@@ -698,7 +705,8 @@ const luScreenBack=()=>new Promise(done=>{const go=()=>setTimeout(done,LU_BACK_S
 const luStoppedLine=reason=>`멈춤 · ${uploadReasonText(reason)} · 앱을 열면 이어 올려요`;
 const luMeetingGroups=new WeakMap(),luMeetingNotes=new WeakMap();
 // 묶음의 끝 알림은 하나만: 다시 줄 서면(하단 [다시 올리기]든 상세 줄의 [다시]든) 떠 있던 알림을 닫는다(다 올라간 뒤에도 '못 올렸어요'가 남지 않게).
-const luMeetingNote=(batch,options)=>{luMeetingNotes.get(batch)?.close();if(options)luMeetingNotes.set(batch,announceDock(options));else luMeetingNotes.delete(batch)};
+// UX-알림하나로(S59-21): 묶음의 알림은 그 묶음의 파일을 맡는다(files) — 보고 상세의 사진·회의자료 올리는 줄이 '실패 [다시]'·'✓ 완료'를 따로 그리지 않게.
+const luMeetingNote=(batch,options)=>{luMeetingNotes.get(batch)?.close();if(options)luMeetingNotes.set(batch,announceDock({files:batch.entries.map(e=>e.file),...options}));else luMeetingNotes.delete(batch)};
 const luShowReport=id=>{void openReport(id).catch(e=>console.warn('report open failed',e))};
 const luAppHandoff=createAppHandoff(luAppUp,{ids:target=>{const m=normalizeUploadMeeting(target);return {meeting:m?.id||'',project:m?.projectId||''}}});
 const luMeetingHandoff=(target,items,opts)=>typeof target?.send==='function'?Promise.resolve({ok:false,error:'off'}):luAppHandoff(target,items,opts);
@@ -1355,7 +1363,7 @@ function luBindReplaceFile(){
 // 서버가 거절한 것(그사이 파일이 바뀜·자료 없음)은 저절로도, 단추로도 다시 보내지 않는다. 바뀐 뒤 AI가 빈 칸만 다시 채우는 일(luReclassify)은 예전 그대로.
 function luReplaceBehind(editor,file){
   const id=editor.id,scope=luBackScope(),label=String(editor.original?.title||editor.original?.file_name||'자료');
-  let note=null;const say=options=>{note?.close();note=options?announceDock(options):null};
+  let note=null;const say=options=>{note?.close();note=options?announceDock({files:[file],...options}):null};
   const why=e=>{const f=luUploadFailure(e),server=/[가-힣]/.test(e?.message||'')&&[404,409,503].includes(e?.status);
     return {message:server?e.message:f.kind==='unknown'?f.message.replace('업로드','파일 교체'):f.message,retry:!server&&f.kind!=='unknown'&&f.retry!==false,type:f.type}};
   const run=()=>{
