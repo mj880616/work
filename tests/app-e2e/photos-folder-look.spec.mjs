@@ -71,6 +71,8 @@ const folderIds = page => root(page).locator('[data-photos-folder]').evaluateAll
 // FOLDER-나무새기준 ③: 폰은 공용 줄(.ft-ico, 안 고른 폴더는 기본 노랑 그림), PC 나무는 지금 줄(.nx-ico).
 const folderIcon = (page, id) => root(page).locator(`[data-photos-folder="${id}"] :is(.nx-ico, .ft-ico)`).first();
 const plainIcon = async (page, id) => { const el = folderIcon(page, id); if (await el.evaluate(e => e.classList.contains('ft-ico'))) await expect(el).not.toHaveAttribute('data-fc', /./); else { await expect(el.locator('svg')).toHaveCount(1); await expect(el).not.toHaveAttribute('data-fc', /./); } };
+// UI-폴더누르기한규칙(S57-5): PC(761px~) 나무 폴더 ⋯ 메뉴는 맨 위에 [이 폴더로 들어가기]
+const enterItem = width => (width >= 761 ? ['이 폴더로 들어가기'] : []);
 async function openFolderMenu(page, id) {
   await root(page).locator(`[data-photos-fx-more="${id}"]`).first().click();
   await expect(page.locator('#photosFolderMenu')).toBeVisible();
@@ -95,10 +97,10 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
     await plainIcon(page, 'S2');
     // 메뉴: 가운데 줄은 [색 고르기…][위로][아래로](끝 줄은 한쪽만).
     await openFolderMenu(page, 'S2');
-    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '아래로', '삭제']);
+    await expect(page.locator('#photosFolderMenu button')).toHaveText([...enterItem(width), '새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '위로', '아래로', '삭제']);
     await page.keyboard.press('Escape');
     await openFolderMenu(page, 'S1');
-    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '아래로', '삭제']);
+    await expect(page.locator('#photosFolderMenu button')).toHaveText([...enterItem(width), '새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '아래로', '삭제']);
     await page.keyboard.press('Escape');
     expect(s.prefCalls).toEqual([]);
 
@@ -127,7 +129,7 @@ for (const width of [1440, 412]) test.describe(`사진 폴더·앨범 색·순�
 
     // 맨 위 폴더는 [위로]가 없고 [아래로]만. [기본]으로 돌리면 지금 모양(📁), 서버에는 null.
     await openFolderMenu(page, 'S2');
-    await expect(page.locator('#photosFolderMenu button')).toHaveText(['새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '아래로', '삭제']);
+    await expect(page.locator('#photosFolderMenu button')).toHaveText([...enterItem(width), '새 하위 폴더', '이름 바꾸기', '옮기기…', '색 선택…', '아래로', '삭제']);
     await page.keyboard.press('Escape');
     await pickFolderColor(page, 'S2', '기본');
     await expect.poll(() => s.prefCalls.length).toBe(3);
