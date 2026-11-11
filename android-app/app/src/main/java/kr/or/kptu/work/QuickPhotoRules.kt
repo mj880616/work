@@ -109,13 +109,13 @@ object QuickPhotoRules {
     }
 
     fun staged(count: Int, skipped: Int): String =
-        "정리함에 사진 ${count}장을 올리는 중이에요" + (if (skipped > 0) " · ${skipped}장은 뺐어요(20장·100MB까지)" else "")
+        "잊지 말기에 사진 ${count}장을 올리는 중이에요" + (if (skipped > 0) " · ${skipped}장은 뺐어요(20장·100MB까지)" else "")
 
-    fun saved(count: Int): String = if (count <= 1) "정리함에 사진을 넣었어요" else "정리함에 사진 ${count}장을 넣었어요"
+    fun saved(count: Int): String = if (count <= 1) "잊지 말기에 사진을 넣었어요" else "잊지 말기에 사진 ${count}장을 넣었어요"
 
     /** 실패 한 줄(토스트). 다시 될 실패면 다음 [사진]에서 이어 올린다고 알린다. */
     fun failed(run: Run.Stopped): String {
-        val head = if (run.saved > 0) "사진 ${run.total}장 중 ${run.total - run.saved}장을 못 올렸어요" else "사진을 정리함에 올리지 못했어요"
+        val head = if (run.saved > 0) "사진 ${run.total}장 중 ${run.total - run.saved}장을 못 올렸어요" else "사진을 잊지 말기에 올리지 못했어요"
         val tail = if (run.retry && run.reason != SIGNED_OUT) " · " + RESUME else ""
         return head + " · " + run.reason + tail
     }
@@ -129,8 +129,8 @@ object QuickPhotoRules {
     const val SIGNED_OUT = "위젯 로그인이 풀렸어요 · 위젯에서 로그인 뒤 [사진]을 누르면 이어 올려요"
     const val RESUME = "위젯 [사진]을 누르면 남은 사진부터 다시 올려요"
     const val SERVER = "서버가 잠시 답하지 않아요"
-    const val UNKNOWN = "올렸는지 확인하지 못했어요 · 정리함을 확인해 주세요"
-    const val NOTE_GONE = "이어 붙일 정리함 글이 삭제됐어요 · 남은 사진은 새 글로 넣어요"
+    const val UNKNOWN = "올렸는지 확인하지 못했어요 · 잊지 말기를 확인해 주세요"
+    const val NOTE_GONE = "이어 붙일 잊지 말기 글이 삭제됐어요 · 남은 사진은 새 글로 넣어요"
     const val TOO_BIG = "사진이 너무 커요(100MB까지)"
     const val TOO_MANY = "한 번에 20장까지 넣을 수 있어요"
     const val FORBIDDEN = "저장 권한을 확인하지 못했어요"
