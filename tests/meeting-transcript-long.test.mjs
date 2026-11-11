@@ -63,7 +63,7 @@ test('원인 고침: 요약 호출은 화면 기본 15초가 아니라 긴 기�
   assert.match(src,/rt\.api\('\/functions\/v1\/meeting-ai-draft',\{method:'POST',singleFlight:false,timeoutMs:DRAFT_TIMEOUT_MS,/);
   assert.match(src,/stage:'part'/);assert.match(src,/stage:'merge'/);
   // 요약 호출보다 먼저 전문을 칸에 넣는다(실패해도 저장 때 남게).
-  const run=src.slice(src.indexOf('async function run(){'));
+  const run=src.slice(src.indexOf('async function run('));
   assert.ok(run.indexOf('keepFull(text)')>0&&run.indexOf('keepFull(text)')<run.indexOf('askDraft('));
   assert.match(src,/\$\('#meetingNotes'\)/);
   // 로그에는 글을 남기지 않는다(오류 코드만).

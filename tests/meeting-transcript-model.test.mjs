@@ -136,7 +136,7 @@ test('2단계 화면 연결: [전사] → config·upload·transcribe → 전사 
   assert.match(s,/const FN='\/functions\/v1\/meeting-transcribe'/);
   for(const a of ['config','upload','transcribe','attach'])assert.match(s,new RegExp("FN\\+'\\?action="+a+"'"));
   assert.match(s,/import \{waitInlineHtml\} from '\.\/wait-state\.js'/);
-  assert.match(s,/\$\('#mtdText'\)\.value=text;[\s\S]{0,200}await run\(\);/);
+  assert.match(s,/\$\('#mtdText'\)\.value=text;[\s\S]{0,300}await run\(\{ask:true\}\);/); // REC-한회의로잇기 PR-5: 요약 전에 같은 날 보고 물음을 거친다
   assert.match(s,/window\.addEventListener\('kptu:record-saved'/);
   assert.match(s,/body:file,singleFlight:false/);
   assert.doesNotMatch(s,/다음 단계에서 열려요/);

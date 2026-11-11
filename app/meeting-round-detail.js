@@ -663,6 +663,8 @@ async function mrdInit(){const shared=window.KPTURuntime?.context?.read?.()||win
 // MTG-첨부녹음전사(S49-2, 요청함 11/03 11:31): 회의자료에 붙은 소리 파일 ⋯ [전사해서 결과에 넣기].
 // 서버 정리(meeting-recorder.js transcribeAttached → Edge meeting-transcribe job_start kind 'attached')가 Drive의 그 파일을 바로 전사·요약한다.
 // 화면을 닫아도 서버가 끝까지 하고, 끝나면 이 회의 [수정] 창에 회의록 전문·요약을 채운다(mrdFillTranscript). 저장은 명진이 [저장].
+// 예외(REC-한회의로잇기 PR-5, 설계 3-3절 (다)): 이 회의에 회의록 전문이 이미 있으면 채우기 전에 한 번 묻고(meeting-recorder.js openServerResult →
+// meeting-join.js), 명진이 [그 보고에 잇기]를 고르면 서버가 두 전사 전체로 다시 요약해 이 회의에 저장한다(수정 창은 열지 않음). [수정 창에 넣기]는 지금 그대로.
 function mrdTranscribeItem(d){
   if(!d?.id||!d.file_id||!mrdCurrent||!mrdCanEdit(mrdCurrent)||!isAudioFile(d.file_name||d.title||'',d.mime_type||''))return '';
   return `<button type="button" data-mrd-transcribe="${mrdEsc(d.id)}">전사해서 결과에 넣기</button>`;

@@ -409,6 +409,16 @@ async function serverFinish(opts,known=null){
 async function openServerResult(job){
   if(job?.kind==='attached'){
     try{
+      // REC-한회의로잇기 PR-5(설계 3-3절 (다)): 그 회의에 회의록 전문이 이미 있으면 [수정] 창에 넣기 전에 한 번 묻는다(물음·잇기의 주인은 meeting-join.js).
+      // [그 보고에 잇기]면 창 없이 서버가 그 회의에 이어 붙이고 띠는 바로 닫는다. 물음을 닫으면 결과는 띠 [초안 열기]에 남는다. 서버가 모르면 묻지 않음.
+      if(window.KPTUMeetingJoin?.ask){
+        readyJob=job;jobId='';state='ready';paint();
+        const how=await window.KPTUMeetingJoin.ask(job);
+        if(how==='joined'){if(readyJob?.id===job.id){readyJob=null;state='idle';step='';note='';paint()}return}
+        if(how==='later')return;
+        if(state!=='ready'||readyJob?.id!==job.id)return;
+        state='finishing';
+      }
       step='초안 열림';note='';paint();
       const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
       if(loader)await loader('meetings');

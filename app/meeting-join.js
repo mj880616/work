@@ -16,11 +16,18 @@
 //   (join_start {target_meeting_id, source:{meeting_id}}), 끝나면 이 보고는 휴지통으로 간다(서버 DB 함수가 한 트랜잭션으로). 어느 보고에 합칠지는 사람이 고른다.
 //   끝 줄 [되돌리기]와 합친 보고 ⋯ [두 보고로 되돌리기] = 통째로 되돌리기(all: 두 글·옮긴 자료·할 일 연결을 제자리로, 휴지통의 보고를 꺼냄).
 //   서버가 잇기를 모르면(join_list 답이 없음·옛 Edge) 메뉴 항목을 그리지 않는다.
+// - PR-5(설계 3-3절 (다)(라)): 나머지 두 길에도 같은 물음. 어느 길이든 고르는 것은 사람이고, 서버가 잇기를 모르면 묻지 않고 지금 길.
+//   (다) 회의자료 그 자리 전사(녹음 띠 kind attached): 어느 보고인지 이미 정해진 길 — 그 회의에 회의록 전문이 이미 있을 때만 [수정 창에 넣기] /
+//        [그 보고에 잇기](join_start + 그 전사 작업 id). 안 고르면 지금처럼 그 회의 [수정] 창에 넣고 저장은 사람이.
+//   (라) [회의] 입력 창의 [녹음·전사 넣기]: [녹음 요약하기] 전에, 같은 날 회의록 전문이 있는 [회의] 보고가 있으면 PR-3과 같은 세 버튼 물음.
+//        [그 보고에 잇기] = join_text(화면이 가진 전사 글 + 붙이기로 한 녹음 작업 id) — 입력 창은 부른 쪽이 닫는다. [새로 만들기]는 지금처럼 화면 요약.
+//        이 길에는 녹음 결과 id도 보고 id도 없어 서버 join_candidates를 부를 수 없다(Edge는 {job_id}|{meeting_id}만 받음). 그래서 같은 날
+//        '회의록 전문이 있는' [회의] 보고를 내 로그인으로 읽어 묻는다 — 잇기 서버가 앞 글로 쓰는 칸이고, 받을지는 서버가 다시 확인한다.
 // 글 내용은 서버로 다시 보내지 않고(잇기는 id만), 기기에 저장하지 않는다. 바깥 행동(할 일·일정·공유·삭제)을 저절로 하지 않는다(3-6절).
 import {askActions,askChoice,askConfirm,notify} from './small-notice.js';
 import {putNotice,removeNotice} from './notice-bar.js';
 import {joinFailText,joinCanRetry,joinErrorCode,joinUnknown,undoFailText} from './meeting-server-job.mjs';
-import {atMs,seoulDayKey,whenText,askText,whoText,mergeCandidates,nearest,pickRows,lineState,progressText,doneText,stopText,labelWhen,reportName,undoChoice,UNDO_LABEL,candidateItems,hasJoinMark,isMeetingReport,watchJoin} from './meeting-join-model.mjs';
+import {atMs,seoulDayKey,seoulDayRange,whenText,askText,whoText,mergeCandidates,nearest,pickRows,lineState,progressText,doneText,stopText,labelWhen,reportName,undoChoice,UNDO_LABEL,candidateItems,hasJoinMark,isMeetingReport,watchJoin} from './meeting-join-model.mjs';
 
 (()=>{
 'use strict';
@@ -43,6 +50,7 @@ const lines=new Map();       // 잇기 작업 id → {job, el, sig}
 const watching=new Map();    // 잇기 작업 id → 세대
 const settling=new Set();    // 후보를 올리는 중인 잇기 작업 id
 const joinedNow=new Set();   // 이 창에서 이어 붙인 보고 id(수정 저장이 막혔을 때 '녹음을 이어 붙였어요'로 알림)
+const kinds=new Map();       // 녹음 결과 id → 'attached'(회의자료 그 자리 전사) | 'recording' | ''(아직 모름) — 멈춘 줄의 [새 보고로 열기]·[수정 창에 넣기] 글자
 const lastRows=new Map();    // 보고 id → 그 보고에 마지막으로 적용된 잇기 작업 행(보고 상세 되돌리기·⋯ [두 보고로 되돌리기])
 // 서버가 잇기를 아는가(join_list 답): true · false(모름 — 옛 Edge·표 적용 전, 메뉴 항목을 그리지 않음) · null(아직 모름·잠깐 끊김)
 let known=null,probing=false;
@@ -69,6 +77,7 @@ function fromName(sourceId,targetId){const s=rowOf(sourceId);if(!s)return '';ret
 const anchor=()=>{const b=document.querySelector('#recBand');return b&&!b.hidden?b:null};
 // 돌려줌: 'new'(지금처럼 초안 창) · 'joined'(잇기 시작 — 띠를 닫음) · 'later'(물음을 닫음 — 결과는 띠 [초안 열기]에).
 async function ask(job,{began=''}={}){
+  if(job?.id&&job.kind==='attached')return askAttached(job);
   if(!job?.id||(job.kind&&job.kind!=='recording'))return 'new';
   if(decided.get(job.id)==='new')return 'new';
   if(!rt()?.api)return 'new';
@@ -98,6 +107,31 @@ async function ask(job,{began=''}={}){
     return 'later';
   }
 }
+// 서버가 잇기를 아는가. 앱을 연 뒤 join_list 답을 아직 못 받았으면(잠깐 끊김 포함) 지금 한 번 묻는다. 모르면 false(지금 길).
+async function joinReady(){
+  if(known===null&&rt()?.api){try{const r=await call('join_list',{});known=r?.ok===true&&Array.isArray(r.jobs)}catch(e){if(joinUnknown(e))known=false}}
+  return known===true;
+}
+// PR-5 (다) 회의자료 그 자리 전사: 그 회의(job.meeting_id)에 회의록 전문이 이미 있을 때만 묻는다. 없으면 지금처럼 그 회의 [수정] 창에 넣는다.
+// 전문 있는지는 글을 받지 않고 '빈 글이 아닌 행만'(notes 거르기)으로 본다(긴 전문을 한 번 더 받지 않게).
+async function askAttached(job){
+  const target=String(job.meeting_id||'');
+  if(!UUID.test(target)||decided.get(job.id)==='new'||!rt()?.api)return 'new';
+  let m=null;
+  try{m=(await rt().api(`/rest/v1/app_meetings?id=eq.${enc(target)}&notes=not.is.null&notes=neq.&select=${MEETING_FIELDS}&limit=1`,{singleFlight:false}))?.[0]||null}
+  catch{return 'new'}
+  if(!m||!isMeetingReport(m))return 'new';
+  rows.set(target,m);
+  if(!(await joinReady()))return 'new';
+  const pick=await askActions(anchor(),{text:'이 보고에 회의록 전문이 이미 있어요. 같은 회의를 이어서 녹음했나요?',
+    note:`${labelWhen(m,Date.now())} · [그 보고에 잇기]는 두 전사 전체로 다시 요약해 저장해요`,className:'rec-join-ask',actions:[
+    {value:'new',label:'수정 창에 넣기',kind:'secondary'},{value:'join',label:'그 보고에 잇기',kind:'primary'}]});
+  if(pick==null)return 'later';
+  if(pick==='new'){decided.set(job.id,'new');return 'new'}
+  kinds.set(job.id,'attached');
+  const out=await start(job,target);
+  return out==='joined'?'joined':out==='unknown'?'new':'later';
+}
 async function start(job,targetId){
   let r;
   try{r=await call('join_start',{target_meeting_id:String(targetId),source:{job_id:job.id}},{timeoutMs:60000})}
@@ -108,6 +142,58 @@ async function start(job,targetId){
     return 'failed';
   }
   if(!r?.job?.id)return 'unknown';
+  follow(r.job);
+  return 'joined';
+}
+
+// ---- PR-5 (라) [회의] 입력 창의 [녹음·전사 넣기] ----
+// 돌려줌: 'new'(지금처럼 화면 요약 — 같은 날 보고가 없거나 서버가 모르거나 [새로 만들기]) · 'joined'(join_text 시작, 부른 쪽이 입력 창을 닫음) ·
+// 'later'(물음을 닫았거나 시작하지 못함 — 글은 입력 창에 그대로).
+async function askTranscript({text='',at='',records=[],anchor:near=null}={}){
+  const body=String(text||'');
+  if(!body.trim()||!rt()?.api)return 'new';
+  const startMs=atMs(at),dayMs=Number.isFinite(startMs)?startMs:Date.now();
+  let cands=[];
+  try{cands=await transcriptReports(dayMs)}catch{return 'new'}
+  if(!cands.length)return 'new';
+  if(!(await joinReady()))return 'new';
+  const box=()=>near?.isConnected?near:null;
+  for(;;){
+    const first=nearest(cands,startMs);
+    const pick=await askActions(box(),{text:askText(dayMs,Date.now(),'회의록 전문이 있는 보고'),note:whoText(first,dayMs),className:'rec-join-ask',actions:[
+      {value:'pick',label:'다른 보고 선택',kind:'row-act'},{value:'new',label:'새로 만들기',kind:'secondary'},{value:'join',label:'그 보고에 잇기',kind:'primary'}]});
+    if(pick==null)return 'later';
+    if(pick==='new')return 'new';
+    let target=first.id;
+    if(pick==='pick'){
+      const others=listed();for(const m of others)if(m?.id&&!rows.has(String(m.id)))rows.set(String(m.id),m);
+      target=await askChoice(box(),{text:'어느 보고에 이을까요? · 같은 날 보고부터',choices:pickRows(cands,others,{startMs,dayMs})});
+      if(!target)continue;
+    }
+    return await startText(target,body,(Array.isArray(records)?records:[]).filter(id=>UUID.test(String(id||''))));
+  }
+}
+// 같은 날(서울) 회의록 전문이 있는 [회의] 보고(내 로그인 — owner RLS·휴지통 숨김). 글은 받지 않는다.
+async function transcriptReports(dayMs){
+  const [from,to]=seoulDayRange(dayMs),w=ws();
+  const got=await rt().api(`/rest/v1/app_meetings?${w?`workspace_id=eq.${enc(w)}&`:''}meeting_at=gte.${enc(from)}&meeting_at=lt.${enc(to)}&notes=not.is.null&notes=neq.&select=${MEETING_FIELDS}&order=meeting_at.asc&limit=50`,{singleFlight:false});
+  const list=(Array.isArray(got)?got:[]).filter(m=>m?.id&&UUID.test(String(m.id))&&!m.deleted_at&&isMeetingReport(m));
+  for(const m of list)rows.set(String(m.id),m);
+  return list.map(m=>({id:String(m.id),seconds:0,meeting:m}));
+}
+// join_text: 몸통 = 전사 글 그대로(JSON 아님), 머리글 = 고른 보고 id + 붙일 녹음 작업 id. 작업공간·소유 값은 싣지 않는다(서버가 로그인으로).
+async function startText(targetId,text,records){
+  let r;
+  try{
+    r=await rt().api(`${FN}?action=join_text`,{method:'POST',body:new Blob([text],{type:'text/plain;charset=utf-8'}),singleFlight:false,timeoutMs:120000,
+      headers:{'x-target-meeting-id':String(targetId),...(records.length?{'x-record-jobs':records.join(',')}:{})}});
+  }catch(e){
+    if(joinUnknown(e)){known=false;return 'new'}
+    console.warn('meeting join text failed',e?.status||'');
+    notify(joinFailText(joinErrorCode(e)),{error:true,note:'전사 글은 입력 창에 그대로 있어요.'});
+    return 'later';
+  }
+  if(!r?.job?.id)return 'new';
   follow(r.job);
   return 'joined';
 }
@@ -126,7 +212,8 @@ function paintLine(job){
   const name=job.mode==='report'?whenName(target):nameOf(target),from=job.mode==='report'?fromName(job.source_meeting_id,target):'';
   const text=st==='running'?progressText(name,job):st==='done'?doneText(name,job,from):stopText(name,job,joinFailText(job.error_code));
   const retry=st==='failed'&&joinCanRetry(job.error_code),fresh=st==='failed'&&job.mode==='job'&&UUID.test(String(job.source_job_id||''));
-  const sig=[st,text,retry,fresh].join('|');
+  if(fresh)kindOf(job);
+  const sig=[st,text,retry,fresh,kinds.get(String(job.source_job_id))||''].join('|');
   const el=cur?.el||Object.assign(document.createElement('aside'),{className:'kptu-notice-line'});
   lines.set(job.id,{job,el,sig});
   if(cur?.sig===sig)return;
@@ -141,7 +228,8 @@ function paintLine(job){
     parts.push(close());
   }else if(st==='failed'){
     if(retry)parts.push(button('다시','kptu-notice-line-action',b=>void retryJoin(lines.get(job.id)?.job||job,b)));
-    if(fresh)parts.push(button('새 보고로 열기','kptu-notice-line-action',()=>{const j=lines.get(job.id)?.job||job;void seen(j);dropLine(job.id);toBand(j.source_job_id,{open:true})}));
+    // 회의자료 그 자리 전사(attached)였으면 그 회의 [수정] 창에 넣는 길이라 글자가 다르다(종류는 녹음 결과 행에서 한 번 읽음).
+    if(fresh)parts.push(button(kinds.get(String(job.source_job_id))==='attached'?'수정 창에 넣기':'새 보고로 열기','kptu-notice-line-action',()=>{const j=lines.get(job.id)?.job||job;void seen(j);dropLine(job.id);toBand(j.source_job_id,{open:true})}));
     parts.push(close());
   }
   el.replaceChildren(...parts);
@@ -149,6 +237,14 @@ function paintLine(job){
   putNotice(lineKey(job.id),{priority:PRIORITY,element:el});
 }
 const seen=job=>job?.id?call('join_seen',{job_id:job.id}).catch(()=>{}):Promise.resolve();
+// 멈춘 녹음 잇기 줄: 그 녹음 결과가 회의자료 그 자리 전사였는지 내 로그인으로 한 번 읽는다(앱을 다시 열어 그린 줄).
+function kindOf(job){
+  const src=String(job?.source_job_id||'');
+  if(!UUID.test(src)||kinds.has(src)||!rt()?.api)return;
+  kinds.set(src,'');
+  void rt().api(`/rest/v1/app_meeting_server_jobs?id=eq.${enc(src)}&select=id,kind&limit=1`,{singleFlight:false})
+    .then(r=>{kinds.set(src,String(r?.[0]?.kind||''));const l=lines.get(job.id);if(l)paintLine(l.job)},()=>{});
+}
 
 // 지켜보기: 진행 중이면 join_read로 끝까지(녹음 정리와 같은 간격), 끝났으면 후보를 올린다.
 function follow(job){
@@ -215,7 +311,7 @@ async function undoAll(job,b){
     await call('join_undo',{job_id:job.id,scope:'all'},{timeoutMs:30000});
     dropLine(job.id);joinedNow.delete(String(job.target_meeting_id));lastRows.delete(String(job.target_meeting_id));
     const back=job.mode==='job'&&toBand(job.source_job_id);
-    notify(job.mode==='report'?'두 보고로 되돌렸어요':'잇기 전으로 되돌렸어요',{note:back?'녹음 정리 결과는 맨 위 [초안 열기]에 있어요.':job.mode==='report'?'휴지통에 있던 보고를 꺼냈어요.':''});
+    notify(job.mode==='report'?'두 보고로 되돌렸어요':'잇기 전으로 되돌렸어요',{note:back?'녹음 정리 결과는 맨 위 [초안 열기]에 있어요.':job.mode==='report'?'휴지통에 있던 보고를 꺼냈어요.':job.mode==='text'?'이어 붙였던 전사 글은 새 보고에 다시 넣어 주세요.':''});
     changed(job.target_meeting_id,'undone',job.id);
     if(job.mode==='report'&&UUID.test(String(job.source_meeting_id||'')))window.dispatchEvent(new CustomEvent('kptu:meeting-join-changed',{detail:{meeting_id:String(job.source_meeting_id),job_id:job.id,reason:'restored'}}));
   }catch(e){if(b)b.disabled=false;notify(undoFailText(joinErrorCode(e)),{error:true})}
@@ -358,10 +454,10 @@ async function loadJoins(tries=0){
 window.addEventListener('kptu:session-changed',e=>{
   if(e.detail?.session){void loadJoins();return}
   // 로그아웃: 지켜보기를 멈추고 줄·기억한 이름을 비운다(서버 작업은 계속, 다음 로그인 때 이어 그림).
-  epoch++;watching.clear();for(const id of [...lines.keys()])dropLine(id);rows.clear();asked.clear();decided.clear();joinedNow.clear();lastRows.clear();known=null;loadedFor='';
+  epoch++;watching.clear();for(const id of [...lines.keys()])dropLine(id);rows.clear();asked.clear();decided.clear();joinedNow.clear();lastRows.clear();kinds.clear();known=null;loadedFor='';
 });
 
-window.KPTUMeetingJoin={ask,paintDetail,follow,joinedRecently:id=>joinedNow.has(String(id||'')),canMerge,merge,unmergeRow,unmerge,prepareMenu};
+window.KPTUMeetingJoin={ask,paintDetail,follow,joinedRecently:id=>joinedNow.has(String(id||'')),canMerge,merge,unmergeRow,unmerge,prepareMenu,askTranscript};
 // 녹음 정리 확인(meeting-recorder.js job_list, 2.5초 뒤)과 같은 때 한 번 묻는다.
 setTimeout(()=>void loadJoins(),2500);
 })();
