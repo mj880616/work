@@ -29,7 +29,9 @@ test('normalizeUploadMeeting: id가 있어야 대상이 된다, 프로젝트는 
 test('library-upload.js: 사업 보고 올리기는 library-files + meeting_id + AI 채우기, 새 창이 열릴 때마다 지운다, 서버 변경 없음',()=>{
   const s=read('app/library-upload.js');
   assert.match(s,/startUploadForMeeting:luStartUploadForMeeting/);
-  assert.match(s,/fd\.append\('meeting_id',luUploadMeeting\.id\)/);
+  // UX-먼저묻고뒤에처리 3차(S57-1): [저장] 때 고른 사업 보고를 뒤 올리기 일(job)에 떼어 두고 그 id로 올린다(창을 닫거나 다른 보고로 옮겨도 그 보고에 붙음).
+  assert.match(s,/const job=\{[^}]*meeting:luUploadMeeting,/);
+  assert.match(s,/fd\.append\('meeting_id',meeting\.id\)/);
   assert.match(s,/luAiFill\(d\.document\.id,fd,file\.name\)/);
   assert.match(s,/luSetUploadOrg\(null\);luSetUploadMeeting\(null\);luSetUploadFolder\([^)]*\(\):null\)\},true\)/);
   assert.doesNotMatch(s,/meeting-files/);

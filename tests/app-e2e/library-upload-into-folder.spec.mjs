@@ -15,6 +15,8 @@ async function upload(page,name){
   await page.locator('#libraryFileInput').setInputFiles({name,mimeType:'application/pdf',buffer:Buffer.from('%PDF synthetic')});
   await page.locator('#saveDocumentBtn').click();
   await expect(page.locator('#documentModal')).toBeHidden();
+  // UX-먼저묻고뒤에처리 3차(S57-1): 창은 [저장] 뒤 바로 닫히고 올리기는 뒤에서 — 끝 알림까지 기다린 뒤 결과를 본다.
+  await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText(name+' 올렸어요');
 }
 
 test.describe('PC 1440 두 칸',()=>{

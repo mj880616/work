@@ -36,7 +36,9 @@ test('linkUploadedDocument: unverified or failed results are false, never throw;
 
 test('library-upload.js: project upload path unchanged (link only when an organization target is set; each open clears it; server fields unchanged)',()=>{
   const s=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
-  assert.match(s,/if\(luUploadOrg&&!\(await linkUploadedDocument\(/);
+  // UX-먼저묻고뒤에처리 3차(S57-1): [저장] 때 고른 조직을 뒤 올리기 일(job)에 떼어 두고, 그 조직이 있을 때만 붙인다(계정·작업공간이 바뀌면 붙이지 않음).
+  assert.match(s,/const job=\{[^}]*org:luUploadOrg,/);
+  assert.match(s,/if\(org&&!luBackGone\(scope\)&&!\(await linkUploadedDocument\(window\.KPTURuntime,\{documentId:id,workspaceId:scope\.workspace,organizationId:org\.id\}\)\)\)linkFailed\+\+/);
   assert.match(s,/newDocument\.addEventListener\('click',\(\)=>\{luResetUploadSelection\(\);luRenderUploadProject\(''\);luSetUploadOrg\(null\);luSetUploadMeeting\(null\);luSetUploadFolder\(window\.KPTURouter\?\.current==='library'\?luOpenedFolder\(\):null\)\},true\)/);
   assert.match(s,/startUploadForOrganization:luStartUploadForOrganization/);
   // The same upload request and AI fill as the project path.

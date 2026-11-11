@@ -72,3 +72,41 @@ test('조직 상세 끌어 놓기: 같은 창이 상세 위에 뜨고 파일이 
  await expect.poll(()=>state.uploads).toBe(1);
  await expect.poll(()=>state.patches.some(p=>p.body.organization_id===O)).toBe(true);
 });
+// UX-먼저묻고뒤에처리 3차(S56-56): [저장]하면 창이 바로 닫히고 올리기는 뒤에서. 올리는 중에 [+]를 또 눌러도 거절('잠시 후 다시 눌러 주세요') 없이 창이 열리고,
+// 두 번째 저장은 앞 올리기 뒤에 줄 서서 이어 올린다. 다른 화면으로 옮겨도 끝까지 가고 끝을 작은 알림으로 알린다.
+test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 중에 또 눌러도 열려 줄 서서 이어 올린다 (412)',async({page})=>{
+ const state=await fixture(page,412);
+ let release;const hold=new Promise(r=>{release=r});const names=[];
+ await page.unroute(SB+'/functions/v1/library-files');
+ await page.route(SB+'/functions/v1/library-files',async route=>{
+  const n=++state.uploads;names.push(n);if(n===1)await hold;
+  const id='new-doc-'+n;state.tables.app_documents.push({id,workspace_id:'w',title:'합성'+n,file_name:'a'+n+'.pdf',mime_type:'application/pdf',category:'기타',organization_id:null,created_at:stamp});
+  return route.fulfill({json:{document:{id,title:'합성'+n,project_id:null}}});
+ });
+ await openOrg(page);
+ const add=page.locator('#wdDocAdd');
+ await add.tap();
+ // 창이 다 열린 뒤(조직이 채워진 뒤)에 파일을 고른다 — 창은 열릴 때 고른 파일을 비우므로, 열리기 전에 넣은 파일은 사라진다(사람은 창이 뜬 뒤에만 고를 수 있다).
+ await expect(page.locator('#documentModal')).toBeVisible();
+ await expect(page.locator('#libraryUploadOrg')).toContainText('합성 한빛지부');
+ await page.locator('#libraryFileInput').setInputFiles({name:'첫째.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 a')});
+ await expect(page.locator('#librarySelectedFiles')).toContainText('첫째.pdf');
+ await page.locator('#saveDocumentBtn').click();
+ await expect(page.locator('#documentModal')).toBeHidden();
+ await expect.poll(()=>state.uploads).toBe(1);
+ await add.tap();
+ await expect(page.locator('#documentModal')).toBeVisible();
+ await expect(page.locator('#libraryUploadOrg')).toContainText('합성 한빛지부');
+ await page.locator('#libraryFileInput').setInputFiles({name:'둘째.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 b')});
+ await expect(page.locator('#librarySelectedFiles')).toContainText('둘째.pdf');
+ await page.locator('#saveDocumentBtn').click();
+ await expect(page.locator('#documentModal')).toBeHidden();
+ await page.waitForTimeout(300);
+ expect(state.uploads).toBe(1); // 둘째는 앞 올리기 뒤에 줄 서 있다(동시에 보내지 않음)
+ await page.locator('#wdModal [data-wd-close], #wdModal .icon-btn').first().click().catch(()=>{});
+ await page.evaluate(()=>window.KPTURouter.go('library',{source:'qa'}));
+ release();
+ await expect.poll(()=>state.uploads).toBe(2);
+ await expect.poll(()=>state.patches.filter(p=>p.table==='app_documents'&&p.body.organization_id===O).length).toBe(2);
+ await expect(page.locator('#kptuNotice')).toContainText('올렸');
+});

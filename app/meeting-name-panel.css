@@ -24,6 +24,10 @@
 .mnp-org ~ .mnp-other-row{margin-top:4px;border-top:1px solid var(--kptu-border);border-radius:0}
 .mnp-more{flex:none;width:30px;min-height:32px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--kptu-muted);cursor:pointer}
 .mnp-more:hover,.mnp-more:focus-visible{background:var(--kptu-primary-soft);color:var(--kptu-ink)}
+/* S57-23: 줄 끝 ⋯(.icon-btn)의 44px 누르는 자리(base-ui.css 공용 ::after)는 단추(30px) 양옆으로 7px씩 나온다. 맨 오른쪽 7px이 이 창
+   (overflow-y:auto라 가로도 auto)의 가로 넘침이 되어 PC에 가로 막대가 생겼다(폰에서는 막대 없이 3px 옆으로 밀렸다). 누르는 크기 44px는 그대로 두고
+   오른쪽 끝은 단추 끝에 맞춘 채 모자란 폭만 왼쪽(이름 줄 쪽)으로 넓힌다. 창에 overflow를 숨겨 덮지 않는다. */
+.mnp-more::after{inset:auto;top:calc(50% - var(--kptu-touch-target,44px) / 2);right:0;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px)}
 .mnp-act.is-on{font-weight:700}
 .mnp-head{display:flex;align-items:center;gap:4px;margin-bottom:2px}
 .mnp-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}

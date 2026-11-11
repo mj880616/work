@@ -129,7 +129,7 @@ for(const width of [390,1280]){
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
   });
 
-  test(`library cancellation controls request files, empty reselection and upload locks ${width}px`,async({page})=>{
+  test(`library cancellation controls request files, empty reselection, and saving queues without locking ${width}px`,async({page})=>{
     const state=await boot(page,width);
     await clickView(page,'library');
     await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
@@ -143,21 +143,34 @@ for(const width of [390,1280]){
     await expect(page.locator('#librarySelectedFiles')).not.toContainText('remove.pdf');
     state.hold=true;
     await page.locator('#saveDocumentBtn').click();
+    // UX-먼저묻고뒤에처리 3차(S57-1): [저장]하면 창은 바로 닫히고 올리기는 뒤 줄에서 한다 — 올리는 동안 창·[+ 자료 등록]·파일 고르기가 잠기지 않는다.
+    await expect(page.locator('#documentModal')).toBeHidden();
     await expect.poll(()=>state.uploads.length).toBe(1);
-    // UI-올리기진행표시 ②: 올리는 줄은 [선택 취소] 대신 공용 막대 줄(보내는 동안 ✕ 올리기 취소)이 맡는다 — 고른 목록에서 뺄 수 없다.
-    await expect(page.getByRole('button',{name:'keep-a.pdf 선택 취소',exact:true})).toBeHidden();
-    await expect(page.locator('[data-lu-upload-file]').first().locator('.up-inline [role="progressbar"]')).toBeVisible();
-    await expect(page.getByRole('button',{name:'keep-b.pdf 선택 취소',exact:true})).toBeDisabled();
-    await expect(input).toBeDisabled();
-    await expect(page.locator('#newDocumentBtn')).toBeDisabled();
+    // 보내는 파일은 고른 목록이 아니라 자료실 목록 위 공용 올리는 줄(막대 + ✕ 올리기 취소)에 보인다.
+    const sending=page.locator('#libraryView .up-rows .up-row');
+    await expect(sending.first()).toContainText('keep-a.pdf');
+    await expect(sending.first().locator('[role="progressbar"]')).toBeVisible();
+    await expect(sending.first().getByRole('button',{name:'keep-a.pdf 올리기 취소'})).toBeVisible();
+    await expect(page.locator('#newDocumentBtn')).toBeEnabled();
+    // 올리는 중에 창을 다시 열어 다른 파일을 골라 저장해도 거절하지 않는다. 뒤 줄에 선 파일은 새 창의 고른 목록에 섞이지 않는다.
+    await page.locator('#newDocumentBtn').click();
+    await expect(input).toBeEnabled();
+    await expect(rows).toHaveCount(0);
+    await input.setInputFiles([file('queued.pdf')]);
+    await expect(rows).toHaveCount(1);
+    await expect(page.getByRole('button',{name:'queued.pdf 선택 취소',exact:true})).toBeEnabled();
+    await page.locator('#saveDocumentBtn').click();
+    await expect(page.locator('#documentModal')).toBeHidden();
+    await page.waitForTimeout(300);
+    expect(state.uploads.length).toBe(1); // 줄 서기: 앞 올리기가 끝나기 전에는 다음 파일을 보내지 않는다
     state.release();
     await expect.poll(()=>state.uploads.length).toBe(2);
-    await expect(page.locator('[data-lu-upload-file].success')).toHaveCount(1);
-    await expect(page.locator('[data-lu-upload-file].success button')).toHaveCount(0);
     state.hold=false;state.release();
-    await expect(page.locator('#documentModal')).toBeHidden();
+    await expect.poll(()=>state.uploads.length).toBe(3);
+    await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('queued.pdf 올렸어요');
+    await expect(sending).toHaveCount(0);
     expect(state.uploads.every(u=>u.path.endsWith('library-files')&&!u.raw.includes('remove.pdf'))).toBe(true);
-    expect(state.uploads.map(u=>u.raw.match(/filename="([^"]+)"/)?.[1])).toEqual(['keep-a.pdf','keep-b.pdf']);
+    expect(state.uploads.map(u=>u.raw.match(/filename="([^"]+)"/)?.[1])).toEqual(['keep-a.pdf','keep-b.pdf','queued.pdf']);
     await page.locator('#newDocumentBtn').click();
     await input.setInputFiles([file('same.pdf')]);
     await page.getByRole('button',{name:'same.pdf 선택 취소',exact:true}).click();
@@ -307,6 +320,8 @@ async function openUploadScreen(page,screen){
   return {input:'#libraryFileInput',save:'#saveDocumentBtn',rows:'[data-lu-upload-file]',status:'#documentStatus'};
 }
 const READ_ERROR='파일을 읽지 못했어요. 파일을 다시 선택해 주세요.';
+// 자료실·사업 보고 상세는 같은 자료 등록 창(#documentModal)으로 올린다 — [저장] 뒤 바로 닫히고 끝·실패는 공용 작은 알림.
+const viaWindow=screen=>screen!=='new meeting',noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
 for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){
   test(`memory copy: ${screen} sends metadata-preserving copies sequentially ${width}px`,async({page})=>{
     await observeSelectedFiles(page);
@@ -338,20 +353,31 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
     await page.evaluate(()=>window.__copyFailName='unreadable.pdf');
     await page.locator(ui.input).setInputFiles(file('unreadable.pdf'));
     if(ui.save)await page.locator(ui.save).click();
-    await expect(page.locator(ui.status)).toContainText(READ_ERROR);
-    await expect(page.locator(ui.rows)).toContainText(READ_ERROR);
+    if(viaWindow(screen)){
+      // UX-먼저묻고뒤에처리 3차(S57-1): 자료 등록 창은 [저장] 뒤 바로 닫히고, 읽지 못한 까닭은 공용 작은 알림으로 뜬다. 다시 보낼 수 없는 파일이라 [다시]는 없다.
+      await expect(page.locator('#documentModal')).toBeHidden();
+      await expect(noticeLine(page)).toHaveText(READ_ERROR);
+      await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','alert');
+      await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-action')).toHaveCount(0);
+    }else{
+      await expect(page.locator(ui.status)).toContainText(READ_ERROR);
+      await expect(page.locator(ui.rows)).toContainText(READ_ERROR);
+    }
     if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();
     expect(state.uploads).toEqual([]);
     expect(await page.evaluate(()=>window.__copyUploads)).toEqual([]);
     expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf']);
     if(screen==='library'){
-      await page.locator(ui.save).click();
+      // 창을 다시 열면 읽지 못한 파일은 남아 있지 않다(다시 읽지도, 보내지도 않는다). 파일을 다시 고르면 올라간다.
+      await page.locator('#newDocumentBtn').click();
+      await expect(page.locator(ui.rows)).toHaveCount(0);
       expect(state.uploads).toEqual([]);
       expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf']);
       await page.locator(ui.input).setInputFiles(file('reselected.pdf'));
       await page.locator(ui.save).click();
       await expect(page.locator('#documentModal')).toBeHidden();
-      expect(state.uploads).toHaveLength(1);
+      await expect.poll(()=>state.uploads.length).toBe(1);
+      expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf','reselected.pdf']);
     }
     expect(state.errors).toEqual([]);
   });
@@ -361,7 +387,12 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
     await page.evaluate(()=>window.__copyFailName='unreadable.pdf');
     await page.locator(ui.input).setInputFiles([file('unreadable.pdf'),file('good.pdf')]);
     if(ui.save)await page.locator(ui.save).click();
-    await expect(page.locator(ui.status)).toContainText(READ_ERROR);
+    if(viaWindow(screen)){
+      // 창은 바로 닫히고, 읽은 파일은 올라가고 읽지 못한 파일만 알림에 남는다([다시] 없음).
+      await expect(page.locator('#documentModal')).toBeHidden();
+      await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. '+READ_ERROR);
+      await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-action')).toHaveCount(0);
+    }else await expect(page.locator(ui.status)).toContainText(READ_ERROR);
     if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();
     expect(state.uploads).toHaveLength(1);
     expect(state.uploads[0].raw).toContain('good.pdf');

@@ -47,7 +47,9 @@ import { bigWindowOpen } from './big-window-open.js';
 import { paintDoc, docCopy, mountEditField, notePhotos, noteFiles } from './note-body.js';
 import { prepareSave } from './ed-window-model.mjs';
 import { mountQuick } from './home-quick.js';
-import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles } from './basket-upload.js';
+import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles, createAttachQueue } from './basket-upload.js';
+import { setUploadRetry } from './upload-progress.js';
+import { announceUploaded } from './upload-done.js';
 import { fileLine } from './meeting-compact.js';
 import { deleteAttachment } from './file-trash.js';
 import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
@@ -680,6 +682,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const filesFor = id => noteFiles({getNote:() => selected?.id === id ? selected : null, upload:noteUpload(id)});
   function noteUpload(id) {
     return async files => {
+      // 이 노트의 첨부가 뒤에서 올라가는 중이면 그 뒤에 선다(서버는 노트가 그사이 바뀌면 올리기를 거절한다 — note_changed).
+      await fileQueue.settled(id);
       const note = selected?.id === id ? selected : null; if (!note) throw new Error('노트가 바뀌어 넣지 못했어요.');
       const batch = createUploadBatch(id, note.attachments || []);
       batch.entries = [...files].map(file => ({file, kind:'pending', label:'대기'}));
@@ -710,7 +714,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // is written after it (setNoteFolder, as [폴더로 옮기기]).
     const folder = windowFolderPick(folderOf(selected));
     bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), files:filesFor(id), title:fields().title.value, folder,
-      attach:{getBatch:() => bigFiles, isBusy:() => busy},
+      attach:{getBatch:() => bigFiles, isBusy:() => busy, going:job => fileQueue.has(id, job.file)},
       save: async (value, text, extra) => {
         if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'};
         field.setValue(value); fields().title.value = extra.title;
@@ -752,6 +756,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     try { validateNoteTitle(changes.title); validateNoteBody(changes.raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
     const id = selected.id, run = ++epoch, owner = scope(); lock(true); say('저장 중…');
     try {
+      // 이 노트의 첨부가 뒤에서 올라가는 중이면 글 저장은 그 뒤에 선다: 첨부가 노트의 판(updated_at)을 옮기므로, 먼저 보내면 글 저장도
+      // 올리기도 '다른 곳에서 바뀜'으로 잘못 걸린다. 다 올라간 뒤의 판(fieldBase)으로 저장한다.
+      if (fileQueue.going(id)) { say('첨부가 다 올라가면 이어서 저장해요…'); await fileQueue.settled(id); if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'}; changes.version = fieldBase; }
       const note = await saveNoteDoc(id, changes, rt);
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       notes = notes.map(n => n.id === id ? note : n); selected = note; fieldBase = note.updated_at; field.markSaved(); renderList(); paintMeta();
@@ -767,28 +774,68 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return {ok:false, message};
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
-  // The big window's files, after its text (if any) was saved. The note is read again afterwards so the cards and the list show
-  // what the server stored, whatever happened to each file; the window then starts a fresh file batch.
-  async function saveFiles({textSaved = false} = {}) {
+  // UX-먼저묻고뒤에처리 3차 (2): the big window's files, after its text (if any) was saved, go up behind the screen by the id of the note
+  // they were chosen for. [저장] hands the chosen batch to that note's line (fileQueue, memory only) and the window starts a fresh batch
+  // at once: nothing is locked, the window and the note can be closed, another note or screen opened, and files saved meanwhile wait in
+  // the same line. Progress is the shared upload line (this window's row while it shows that note, else the line above the bottom bar);
+  // the end and a failure are the shared small notice ([다시] sends only what did not go up). Only another account or workspace stops it.
+  const fileQueue = createAttachQueue();
+  function saveFiles({textSaved = false} = {}) {
     if (!selected || busy || !bigFiles) return {ok:false, message:'지금은 저장할 수 없어요.'};
-    const id = selected.id, batch = bigFiles, run = ++epoch, owner = scope(), current = () => run === epoch && owner === scope() && selected?.id === id;
-    lock(true); say('');
-    let error = null;
-    try { await uploadNoteFiles(id, batch, {rt, isCurrent:current, onChange:() => bigWriter?.renderFiles?.()}); }
-    catch (e) { error = e; }
-    let row = null;
-    try { row = current() ? await readNoteDoc(id, rt) : null; } catch {}
-    if (run === epoch) lock(false); else busy = false;
-    if (!current()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-    if (row) { notes = notes.map(n => n.id === id ? row : n); selected = row; renderList(); paintMeta(); }
-    if (bigFiles === batch) { bigFiles = createUploadBatch(id, (row || selected).attachments || []); bigWriter?.renderFiles?.(); }
-    if (row && fieldBase && Date.parse(row.updated_at) > Date.parse(fieldBase)) fieldBase = row.updated_at;
-    if (error) return {ok:false, message:`${textSaved ? '글은 저장했지만 ' : ''}첨부를 올리지 못했어요. ${error.message || ''}`.trim()};
-    return {ok:true, message:textSaved ? '글과 첨부를 저장했어요' : '첨부를 저장했어요'};
+    const id = selected.id, batch = bigFiles;
+    if (batch.blocked) return {ok:false, message:batch.blocked.message};
+    bigFiles = createUploadBatch(id, batch.attachments); bigWriter?.renderFiles?.();
+    sendNoteFiles(id, batch, {textSaved});
+    return {ok:true, message:textSaved ? '글을 저장했어요. 첨부는 올리는 중이에요' : '첨부를 올리는 중이에요'};
   }
+  function sendNoteFiles(id, batch, {textSaved = false} = {}) {
+    const owner = scope(), here = () => owner === scope();
+    const count = () => batch.entries.filter(entry => entry.kind === 'success').length;
+    void fileQueue.add(id, batch, async () => {
+      if (!here() || !batch.entries.some(entry => entry.kind !== 'success')) return;
+      const before = count(), mine = batch.entries.filter(entry => entry.kind !== 'success'), sent = () => mine.filter(entry => entry.kind === 'success').map(entry => entry.file?.name || '');
+      let error = null;
+      try { await uploadNoteFiles(id, batch, {rt, isCurrent:here}); } catch (e) { error = e; }
+      if (!here()) return; // 다른 계정·작업공간 화면에는 아무것도 그리지도 알리지도 않는다
+      // [다시]: 못 올린 파일만 같은 노트로 다시 줄 세운다. 결과를 알 수 없거나 노트가 바뀐 실패(batch.blocked)는 [다시]를 두지 않는다.
+      // 올리는 도우미가 붙여 둔 '줄 밖 [다시]'를 노트를 다시 읽기 전에 바로 바꿔 둔다(읽는 사이에 눌러도 같은 파일을 줄 밖으로 한 번 더 보내지 않게).
+      const retry = error && !batch.blocked && batch.entries.some(entry => entry.kind !== 'success') ? () => sendNoteFiles(id, batch) : null;
+      if (retry) for (const entry of batch.entries.filter(e => e.kind === 'error')) setUploadRetry(entry.file, retry);
+      // The note is read again so the cards and the list show what the server stored, whatever happened to each file.
+      let row = null;
+      try { row = await readNoteDoc(id, rt); } catch {}
+      if (!here()) return;
+      if (row) {
+        notes = notes.map(n => n.id === id ? row : n); renderList();
+        // Another note on the screen is left as it is; only the list row above changes.
+        if (selected?.id === id) {
+          selected = row;
+          // These files moved the note's version: an edit open on it keeps its guard on that new version (the upload is its own change).
+          if (fieldBase && Date.parse(row.updated_at) > Date.parse(fieldBase)) fieldBase = row.updated_at;
+          if (!editing) paintRead(); paintMeta();
+          if (bigFiles?.note_id === id) bigFiles.attachments = row.attachments || [];
+        }
+      }
+      const done = count() - before, left = batch.entries.filter(entry => entry.kind !== 'success').length;
+      const inWindow = !!bigWriter && !!bigFiles && selected?.id === id;
+      if (!error) {
+        if (inWindow) bigWriter.say?.(textSaved ? '글과 첨부를 저장했어요' : '첨부를 저장했어요');
+        else announceUploaded({done, names:sent(), where:'노트'});
+        return;
+      }
+      if (error.code === 'upload_cancelled') { if (inWindow) bigWriter.say?.(error.message); return; }
+      const message = `첨부를 올리지 못했어요. ${error.message || ''}`.trim();
+      if (inWindow) bigWriter.say?.(message);
+      if (done) announceUploaded({done, names:sent(), failed:left, where:'노트', retry});
+      else notify(`노트 ${message}`, {error:true, record:false, actions:retry ? [{label:'다시', run:({close}) => { close(); retry(); }}] : []});
+    });
+  }
+  // 올리는 동안에도 잠그는 것: 같은 노트의 빼기·삭제·고정·옮기기. 서버는 올리는 사이 노트가 바뀌면 그 올리기를 거절하므로(updated_at·attachments
+  // 맞춤) 다 올라간 뒤에 한다. 닫기·다른 노트·다른 화면·더 붙이기는 잠그지 않는다.
+  const filesGoing = id => { if (!fileQueue.going(id)) return false; report('첨부를 올리는 중이에요. 다 올라간 뒤에 할 수 있어요.'); return true; };
   // NOTE-파일붙이기 [빼기]: the file leaves this note only (detachNoteFile); the Drive file stays where it is.
   async function detachFile(note, fileId) {
-    if (!note || busy) return;
+    if (!note || busy || filesGoing(note.id)) return;
     const file = (note.attachments || []).find(f => f?.drive_file_id === fileId); if (!file) return;
     const trigger = () => detail.querySelector(`[data-note-file-more="${CSS.escape(fileId)}"]`);
     const yes = await askConfirm(trigger(), {text:`'${attachmentName(file)}' 파일을 이 노트에서 뺄까요?`, note:'Drive의 파일은 그대로 남아요.', ok:'빼기'});
@@ -812,7 +859,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // FILE-첨부삭제 [삭제]: one question, then the server takes the file off this note and sends the Drive original to the trash
   // (file-trash.js → document-actions trash-file). The note is read again after it (and after [되돌리기]) and drawn by this screen.
   async function deleteFile(note, fileId) {
-    if (!note || busy) return;
+    if (!note || busy || filesGoing(note.id)) return;
     const file = (note.attachments || []).find(f => f?.drive_file_id === fileId); if (!file) return;
     const trigger = () => detail.querySelector(`[data-note-file-more="${CSS.escape(fileId)}"]`);
     const id = note.id, owner = scope();
@@ -839,7 +886,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // UI-노트고정: [고정]/[고정 풀기] in the note's ⋯. The list puts pinned notes on top.
   async function pin(target = selected) {
-    if (!target || editing || busy) return;
+    if (!target || editing || busy || filesGoing(target.id)) return;
     const note = target, pinned = !notePinnedAt(note), run = ++epoch, owner = scope(); lock(true); report('');
     try {
       const saved = await setNotePinned(note, pinned, rt);
@@ -1220,7 +1267,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else openMenu(b, null, 'folder', null, folderId);
   }
   async function toBasket() {
-    if (!selected || editing || busy) return;
+    if (!selected || editing || busy || filesGoing(selected.id)) return;
     if (!await askConfirm(host.querySelector('[data-note-to-basket]') || document.activeElement, {text:'이 노트를 잊지 말기 업데이트로 돌릴까요?', note:'제목은 삭제되고 본문·첨부·연결은 그대로 남아요.', ok:'돌리기'})) return;
     if (!selected || editing || busy) return;
     const note = selected, run = ++epoch, owner = scope(); lock(true); say('');
@@ -1236,7 +1283,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // S48-56 [일기로 보내기]: 날짜를 묻고(기본 = 노트를 만든 날) 그날 일기에 글·사진을 더한 뒤 노트는 휴지통(알림의 [되돌리기]). diary-send.js 한 곳.
   async function toDiary(id, anchor) {
-    if (!id || editing || busy) return;
+    if (!id || editing || busy || filesGoing(id)) return;
     const fromList = !selected, run = ++epoch, owner = scope(); lock(true); report('');
     const current = () => run === epoch && owner === scope() && (fromList ? !selected : selected?.id === id);
     let result;
@@ -1253,7 +1300,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // [삭제] from the open note or from a list row: the same confirmation (what goes with it) and the same delete path.
   async function remove(id = selected?.id, {confirmed = false} = {}) {
-    if (!id || editing || busy) return;
+    if (!id || editing || busy || filesGoing(id)) return;
     const fromList = !selected, run = ++epoch, owner = scope(); lock(true); report('');
     const current = () => run === epoch && owner === scope() && window.KPTURouter.current === 'basket' && (fromList ? !selected : selected?.id === id);
     let result;
@@ -1483,6 +1530,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     close,
     reset() { closeMenu(); boards.reset(); void picker.close(); addPick = null; endSelect(); at = null; openSet = new Set(); moreSet = new Set(); recentAll = false; treeScroll = null; { const l = folderLayer; folderLayer = null; l?.close(); } folders = []; foldersReady = false; folderSay(''); const openedLayer = layer; layer = null; openedLayer?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); noteComments.reset(); comments = []; commentsReady = false; commentsMissing = false; tagAt = null; cmKind = null; notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
+    isUploading: () => fileQueue.any(), // 뒤에서 노트 첨부를 올리는 중(최신화 전에 막는 데 쓴다)
     hasDraft: () => textDirty() || (!!selected && (manual.hasDraft() || noteComments.hasDraft())),
     isOpen: () => !!selected,
   };
