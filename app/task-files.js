@@ -10,6 +10,7 @@ import { fileAttrs, driveFileUrl } from './file-actions.js';
 import { uploadTimeoutMs } from './upload-budget.mjs';
 import { sendUploadApi } from './upload-send.mjs';
 import { trackUpload, mountUploadRows } from './upload-progress.js';
+import { createAttachQueue, sendFilesBehind } from './basket-upload.js'; // BIZ-저장먼저닫기 3차: 할 일 첨부도 노트·업데이트와 같은 뒤 줄·끝 알림
 import { renameHostAttrs, renameButtonHtml, applyRenamed, openRenameEditor } from './file-rename.js';
 import { rowMore } from './row-more.js';
 import { deleteAttachment } from './file-trash.js'; // FILE-첨부삭제 ②: [삭제] = 할 일에서 떼고 Drive 원본 휴지통(30일 안 되살림) + [되돌리기] // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
@@ -120,6 +121,14 @@ export function closeTaskFilesDialog() {
   m.setAttribute('aria-hidden', 'true');
   window.KPTUA11y?.dialog.deactivate(m, {restoreFocus: true});
 }
+// 뒤 줄이 그 할 일에 파일을 붙였다: 열린 [파일 붙이기] 창이 그 할 일이면 줄을 맞추고, 줄이 다 끝나면 잠금을 푼다.
+function filesArrived(taskId, latest) {
+  const s = dialog?.state;
+  if (!s || s.task.id !== taskId) return;
+  if (Array.isArray(latest?.files)) s.files = latest.files;
+  paint();
+  void taskFileLine.settled(taskId).then(() => { if (dialog?.state === s) paint(); });
+}
 function status(text, failed = false) {
   const el = dialog?.m.querySelector('[data-gt-files-status]');
   if (!el) return;
@@ -134,7 +143,7 @@ function paint() {
   const {m} = dialog;
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
-  const lock = s.busy || s.uploading; // 빼기·삭제·이름 고치기는 올리는 동안 잠근다(서버 목록이 엇갈리지 않게). 고르기만 줄 세움.
+  const lock = s.busy || s.uploading || taskFileLine.going(s.task.id); // 빼기·삭제·이름 고치기는 올리는 동안 잠근다(서버 목록이 엇갈리지 않게). 고르기만 줄 세움.
   // FILE-첨부삭제 ② 뒤 결정 2(2026-11-11 명진 '추천대로'): 줄 단추 5개(이름 수정·Drive에서 열기·내려받기·빼기·삭제) 때문에 폰 412에서
   // 파일 이름이 잘렸다 → 노트 첨부 줄처럼 줄마다 ⋯ 하나(공용 row-more.js)에 모으고 이름이 줄 너비를 다 쓴다. 이름 누르기(종류별 열기)·
   // 두 번 누르기/꾹 누르기(이름 고치기)는 그대로. 메뉴 항목의 누르기는 원래 처리(file-actions.js data-fa-menu, 아래 빼기·삭제·이름 수정) 그대로.
@@ -177,6 +186,12 @@ async function upload(picked) {
   s.queue.push(...picked);
   if (s.uploading) { if (shown(s)) { status(`${s.queue.length}개 대기 중 · 앞 파일을 올린 뒤 이어서 올립니다.`); paint(); } return; }
   s.uploading = true; runningUploads.set(s.task.id, s); paint();
+  // BIZ-저장먼저닫기 3차: 같은 할 일의 뒤 줄(저장 창에서 넘긴 파일)과 한 줄로 선다 — 앞 것이 끝난 뒤 이어서 올린다(한 할 일에 한 번에 한 파일).
+  if (taskFileLine.going(s.task.id) && shown(s)) status('앞 파일을 올린 뒤 이어서 올립니다.');
+  await taskFileLine.add(s.task.id, {note_id: s.task.id, entries: []}, () => uploadQueue(s));
+  if (shown(s)) paint(); // 줄이 다 끝난 뒤(빼기·삭제 잠금이 풀린 뒤) 한 번 더 그린다
+}
+async function uploadQueue(s) {
   let done = 0, unsynced = false, stopped = false;
   try {
     while (s.queue.length && !stopped) {
@@ -208,7 +223,7 @@ async function upload(picked) {
 async function detach(id) {
   const s = dialog?.state;
   const f = s?.files.find(x => x.drive_file_id === id);
-  if (!s || s.busy || s.uploading || !f) return;
+  if (!s || s.busy || s.uploading || !f || taskFileLine.going(s.task.id)) return;
   s.busy = true; paint(); status(`${f.file_name} 빼는 중…`);
   try {
     const d = await detachTaskFile(s.task.id, id, {rt: s.rt});
@@ -231,7 +246,7 @@ async function detach(id) {
 async function remove(id, button) {
   const s = dialog?.state;
   const f = s?.files.find(x => x.drive_file_id === id);
-  if (!s || s.busy || s.uploading || !f) return;
+  if (!s || s.busy || s.uploading || !f || taskFileLine.going(s.task.id)) return;
   s.busy = true; status('');
   const changed = c => {
     if (!c || !s.isCurrent()) return;
@@ -297,29 +312,76 @@ export function pickProblem(chosen, added) {
   for (const file of added) { const problem = fileProblem(file, count++); if (problem) return `${file.name}: ${problem}`; }
   return '';
 }
-export async function attachNewTaskFiles(taskId, files, {rt = window.KPTURuntime, onProgress = () => {}} = {}) {
-  const failed = [];
-  let done = 0, saved = null, unsynced = false;
-  for (const [index, file] of files.entries()) {
-    const problem = fileProblem(file, done);
-    if (problem) { failed.push({name: file.name, message: problem}); continue; }
-    onProgress(index, files.length, file);
-    try {
-      const d = await attachTaskFile(taskId, file, {rt});
-      if (!d?.ok) throw Error('저장 결과를 확인하지 못했어요.');
-      done++;
-      if (Array.isArray(d.files)) saved = d.files.map(f => ({drive_file_id: f.drive_file_id, file_name: String(f.file_name || '파일'), size_bytes: Number(f.size_bytes) || 0}));
-      if (d.notes_synced === false) unsynced = true;
-    } catch (e) { failed.push({name: file.name, message: message(e)}); }
-  }
-  return {done, failed, files: saved, unsynced};
+// BIZ-저장먼저닫기 3차(S59-18): 할 일(글)이 저장되면 창은 바로 닫히고/입력칸은 바로 풀리고, 고른 파일은 이 할 일의 뒤 줄에서 하나씩 끝까지
+// 올라간다(화면을 옮겨도 — 멈추는 것은 계정·작업공간이 바뀔 때뿐). 줄·대기 표시·끝 알림(하단바 위 한 줄)·[다시 올리기]는 노트·업데이트와 같은
+// 공용 부품(basket-upload.js createAttachQueue·sendFilesBehind) 그대로이고 서버 길만 google-tasks attach다. 할 일 하나에 줄 하나: ⋯ [파일 붙이기]
+// 창의 올리기도 같은 줄에 서서, 서버가 한 할 일의 메모 줄을 한 번에 한 파일씩 고친다. 파일은 그 탭 메모리에만 있다.
+export const taskFileLine = createAttachQueue();
+// 붙지 않은 것이 확실한 실패만 [다시 올리기]: 다 보내기 전에 멈춤·서버가 받고 거절함(4xx)·서버가 까닭을 말한 5xx(attach_result_unknown 말고 —
+// 서버는 첨부 표에 넣은 뒤로는 그 코드만 쓴다, supabase/functions/google-tasks/task-files.ts attach). 나머지(답 없음·까닭 없는 5xx)는 붙었을 수 있어 다시 보내지 않는다.
+const notSent = e => ['upload_not_sent', 'upload_timeout_sending', 'file_read_failed', 'session_required', 'task_file_problem'].includes(e?.code) || (e?.status >= 400 && e?.status < 500)
+  || (e?.status >= 500 && typeof e?.serverCode === 'string' && e.serverCode !== 'attach_result_unknown');
+const fileRows = list => list.map(f => ({drive_file_id: f.drive_file_id, file_name: String(f.file_name || '파일'), size_bytes: Number(f.size_bytes) || 0}));
+/**
+ * 할 일 하나에 붙일 파일을 그 할 일의 뒤 줄에 세운다(부른 곳은 기다리지 않고 창을 닫는다).
+ * files: 새로 붙일 파일 · swaps: 수정 창 [교체]({from: 원래 파일(첨부 표에 있는 것) | null, file}) — 새 파일을 올린 뒤 원래 것을 빼고,
+ * 10개가 차 있으면 원래 것을 먼저 뺀다(applyTaskAttachPlan과 같은 차례) · count: 지금 첨부 표의 파일 수(모르면 null — 서버가 한도를 본다).
+ * 끝나면 kptu:task-files-sent {id, files, task, owner}(목록 주인이 파일 이름·메모를 맞춤)와 kptu:google-tasks-changed를 알린다.
+ */
+export function sendTaskFilesBehind({task, files = [], swaps = [], count = null, rt = window.KPTURuntime} = {}) {
+  if (!task?.id || (!files.length && !swaps.length)) return Promise.resolve();
+  const taskId = task.id, owner = ownerOf(rt);
+  const batch = {note_id: taskId, attachments: [], blocked: null, count: Number.isFinite(count) ? count : null,
+    entries: [...swaps.map(s => ({file: s.file, kind: 'pending', label: '대기', from: s.from?.drive_file_id ? s.from : null})), ...files.map(file => ({file, kind: 'pending', label: '대기'}))]};
+  let latest = null;
+  const kept = []; // 새 파일은 붙였지만 원래 파일을 빼지 못한 교체
+  const take = d => { if (Array.isArray(d?.files)) { latest = {...latest, files: fileRows(d.files)}; batch.count = d.files.length; } if (d?.task) latest = {...latest, task: d.task}; };
+  const off = async from => {
+    try { take(await detachTaskFile(taskId, from.drive_file_id, {rt})); }
+    catch (e) { if (e?.status !== 404) throw e; }
+    if (batch.count != null) batch.count = Math.max(0, batch.count - 1);
+  };
+  return sendFilesBehind({line: taskFileLine, key: taskId, batch, rt, where: '할 일',
+    send: async ({isCurrent, job}) => {
+      let first = null;
+      const mine = batch.entries.filter(entry => entry.kind !== 'success');
+      for (const entry of mine) { const shown = job(entry.file); if (shown) shown.scope = 'task:' + taskId; } // 열린 [파일 붙이기] 창이 기다리는 줄도 그린다
+      for (const entry of mine) {
+        if (!isCurrent()) throw Object.assign(Error('로그인 계정이 바뀌었어요.'), {code: 'session_changed'});
+        if (!batch.entries.includes(entry)) continue; // 앞 파일을 올리는 동안 ✕로 뺀 파일
+        const file = entry.file, shown = job(file);
+        entry.kind = 'uploading'; entry.label = '업로드 중'; entry.upFile = file;
+        try {
+          const problem = fileProblem(file, entry.from ? 0 : batch.count ?? 0); // 교체는 차 있으면 원래 것을 먼저 빼므로 개수 한도를 보지 않는다
+          if (problem) throw Object.assign(Error(problem), {code: 'task_file_problem'});
+          if (entry.from && batch.count != null && batch.count >= MAX_TASK_FILES) { await off(entry.from); entry.from = null; }
+          const d = await attachTaskFile(taskId, file, {rt, job: shown});
+          if (!d?.ok) throw Error('저장 결과를 확인하지 못했어요. 할 일을 다시 열어 확인해 주세요.');
+          take(d); if (!Array.isArray(d.files) && batch.count != null) batch.count++;
+          entry.kind = 'success'; entry.label = '완료'; entry.file = {name: file.name, size: file.size};
+          if (entry.from) { const from = entry.from; entry.from = null; try { await off(from); } catch { kept.push(from); } }
+        } catch (e) {
+          if (e?.code === 'upload_cancelled') { const at = batch.entries.indexOf(entry); if (at >= 0) batch.entries.splice(at, 1); continue; }
+          entry.kind = 'error'; entry.label = '실패';
+          if (shown && shown.phase !== 'failed') shown.fail(message(e));
+          first ||= e;
+          // 결과를 알 수 없으면(붙었을 수 있음) 남은 파일도 보내지 않고 [다시 올리기]를 두지 않는다. 확실한 실패는 다음 파일로 이어 간다.
+          if (!notSent(e)) { batch.blocked = e; break; }
+        }
+      }
+      if (first) throw Object.assign(Error(message(first)), {code: first.code || 'task_attach_failed'});
+    },
+    finish: () => kept.length ? `원래 파일 ${kept.map(f => f.file_name).join(', ')}은(는) 빼지 못했어요. 할 일 ⋯ → 파일 붙이기에서 빼 주세요.` : '',
+    done: () => {
+      if (latest) filesArrived(taskId, latest);
+      try {
+        window.dispatchEvent(new CustomEvent('kptu:task-files-sent', {detail: {id: taskId, owner, files: latest?.files || null, task: latest?.task || null}}));
+        window.KPTUGoogleTasks?.invalidateAfterCreate?.(); window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
+      } catch { /* 화면 쪽 일이 끝 알림을 막지 않는다 */ }
+    }});
 }
-// One line for the add window (and the toast) when some files did not go up. Never silent.
-export function newTaskFilesNotice(result) {
-  if (!result?.failed?.length) return '';
-  const names = result.failed.map(f => f.name).join(', '), first = result.failed[0].message;
-  return `할 일은 저장했어요. 파일 ${result.failed.length}개(${names})를 붙이지 못했어요: ${first} 할 일 ⋯ → 파일 붙이기에서 확인하고 다시 붙일 수 있어요.`;
-}
+// 줄은 메모리뿐이라 새로 고치면 남은 파일이 사라진다: 올리는 동안 [최신화]·당겨서 새로고침은 먼저 묻는다(노트·업데이트 줄과 같음).
+if (typeof window !== 'undefined') window.addEventListener('kptu:before-reload', event => { if (event?.detail && taskFileLine.any()) event.detail.otherDraft = true; });
 
 // The [📎 파일 붙이기] button and the chosen-file list inside an add window. Nothing is uploaded here; the window reads files()
 // after its own save. hidden until show(true) (the table answered).

@@ -3,7 +3,7 @@
 // - 노트: 제목(첫 줄·링크 제목) · 폴더 고르기 · 한 줄 더하기 → [저장] = createNoteDoc(app_notes, 소유자 RLS) → 폴더 setNoteFolderRef →
 //   창을 닫고 사진·파일은 그 노트의 뒤 줄(basket-upload.js sendNoteBehind → basket-files, 노트 첨부). 노트 화면과 같은 서버 길만 쓴다.
 // - 할 일: 제목 · 기한 [오늘][내일][모레][다음주][기한 없음] · 한 줄 더하기 → [저장] = google-tasks action=create(quick-save.js) →
-//   파일은 attachNewTaskFiles(google-tasks action=attach). 할 일 화면과 같은 서버 길만 쓴다.
+//   창을 닫고 파일은 그 할 일의 뒤 줄(task-files.js sendTaskFilesBehind → google-tasks action=attach). 할 일 화면과 같은 서버 길만 쓴다.
 // 받은 글·파일 이름은 외부 입력이라 textContent·value로만 넣는다(HTML로 넣지 않음). 기기에는 아무것도 저장하지 않는다.
 // 창은 <dialog>(뒤로가기·Esc·× = 닫기, 저장 중에는 닫지 않음). 닫으면 앱에 끝났다고 알려 앱이 든 항목을 버린다.
 import {noteDraft, noteBodyWithExtra, taskDraft, taskNotesWithExtra, folderOptions, NOTE_TITLE_MAX, TASK_TITLE_MAX, EXTRA_MAX} from './share-target-model.mjs';
@@ -189,11 +189,12 @@ async function saveTask(s, title, extra) {
     if (data?.ok === false || typeof data?.task?.id !== 'string' || !data.task.id) throw new Error('할 일 저장 결과를 확인하지 못했어요. 할 일 화면에서 확인해 주세요.');
     s.made = data.task;
   }
+  // BIZ-저장먼저닫기 3차(S59-18): 할 일(글)이 저장되면 창을 닫는다. 받은 사진·파일은 그 할 일의 뒤 줄에서 끝까지 올라간다(화면을 옮겨도 —
+  // 진행·끝·못 올림·[다시 올리기]는 하단바 위 한 줄 하나라, 그때는 위쪽 '할 일에 넣었어요' 알림을 띄우지 않는다).
   if (files.length) {
     if (await taskFiles.taskFilesAvailable()) {
-      const result = await taskFiles.attachNewTaskFiles(s.made.id, files);
-      const line = taskFiles.newTaskFilesNotice(result);
-      if (line) notes.push(line);
+      void taskFiles.sendTaskFilesBehind({task:s.made, files, count:0});
+      s.sending = true;
     } else notes.push('파일은 붙이지 못했어요. 할 일 ⋯ → 파일 붙이기에서 다시 붙여 주세요.');
   }
   window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));
@@ -217,5 +218,6 @@ async function save() {
   }
   const lost = lostText(s);
   if (state === s) { s.saving = false; close(); }
-  notify(WORDS[s.kind].saved, {note:[...notes, lost, s.sending ? '사진·파일은 올리는 중이에요.' : ''].filter(Boolean).join(' '), ms:notes.length || lost ? 12000 : 5000});
+  if (s.kind === 'task' && s.sending && !notes.length && !lost) return; // 할 일 + 파일: 알림은 하단바 위 한 줄 하나
+  notify(WORDS[s.kind].saved, {note:[...notes, lost, s.sending && s.kind === 'note' ? '사진·파일은 올리는 중이에요.' : ''].filter(Boolean).join(' '), ms:notes.length || lost ? 12000 : 5000});
 }
