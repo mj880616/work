@@ -141,7 +141,8 @@ test('✕로 취소한 파일(대기·보내는 중)은 건너뛰고 다음 파�
   await batch.settled;
   assert.deepEqual(s.sent, ['p3.jpg']);
   const done = s.events.at(-1);
-  assert.deepEqual([done.okPhotos, done.badPhotos, done.retry], [1, 2, true]);
+  assert.deepEqual([done.okPhotos, done.badPhotos, done.cancelled, done.retry], [1, 0, 2, true], '취소한 것은 못 올린 것과 따로 센다');
+  assert.equal(await s.send.retry(batch), true, '취소한 파일도 [다시 올리기]로 다시 보낼 수 있다');
 });
 
 test('계정·작업공간이 바뀌면 남은 파일을 보내지 않고 알리지도 않는다', async () => {

@@ -10,6 +10,9 @@
 // 끝없이 도는 표시는 없다: 보낸 양이 20초 동안 그대로이거나 마무리가 45초를 넘으면 '느려요 · [계속 기다리기] [취소]'(마무리 중에는
 // 서버가 이미 받았을 수 있어 [취소] 없이 [계속 기다리기]만). 끝은 언제나 upload-budget.mjs의 시간 한도가 정한다.
 // 기기에 아무것도 저장하지 않는다(메모리뿐, 로그인이 바뀌면 비움).
+// BIZ-저장먼저닫기(S58-1): 뒤 줄에 선 한 묶음(사업 보고 저장 뒤 사진·자료)은 차례를 기다리는 파일도 처음부터 목록에 있다(phase 'waiting', '대기').
+//   묶음(group)의 %는 이미 올린 양을 더해 끝까지 한 방향으로 오르고, 묶음이 끝나면 announceDock으로 ③ 한 줄에 그 묶음의 말
+//   ('사진 n장·자료 n개 올렸어요', 못 올렸으면 [다시 올리기])을 띄운다.
 import {amount, percent} from './upload-send.mjs';
 
 export const SLOW_SENDING_MS = 20000;
@@ -24,9 +27,19 @@ let seq = 0, ticker = null;
 function changed() {
   for (const fn of [...subs]) { try { fn(); } catch { /* 그리기 하나가 다른 것을 막지 않는다 */ } }
   try { paintDock(); } catch { /* 한 줄이 올리기를 막지 않는다 */ }
-  const busy = [...jobs.values()].some(job => job.phase === 'sending' || job.phase === 'finishing');
+  const busy = [...jobs.values()].some(going);
   if (busy && !ticker) { ticker = setInterval(tick, 1000); ticker.unref?.(); }
   else if (!busy && ticker) { clearInterval(ticker); ticker = null; }
+}
+// going: 지금 보내는 중·마무리 중. live: 차례를 기다리는 것(waiting)까지 — 합계 줄·하단 한 줄이 세는 것.
+const going = job => job.phase === 'sending' || job.phase === 'finishing';
+const live = job => going(job) || job.phase === 'waiting';
+// 보낸 양·전체: 살아 있는 것 + 그 묶음이 이미 다 올린 양(묶음의 %가 파일이 끝날 때마다 0으로 돌아가지 않게).
+function sums(list) {
+  let total = 0, loaded = 0; const groups = new Set();
+  for (const job of list) { total += job.total || 0; loaded += job.phase === 'finishing' ? job.total : job.loaded; if (job.group) groups.add(job.group); }
+  for (const group of groups) { total += group.sent || 0; loaded += group.sent || 0; }
+  return {total, loaded};
 }
 export function watchUploads(fn) { subs.add(fn); return () => subs.delete(fn); }
 export const uploadJobs = () => [...jobs.values()];
@@ -46,17 +59,23 @@ function tick() {
 }
 
 // 올리기 하나를 목록에 올린다. file: 화면이 들고 있는 원래 파일(같은 파일을 찾는 열쇠). back(): [보기]가 돌아갈 곳(없으면 시작한 화면).
-export function trackUpload({file = null, name = '', size = 0, back = null} = {}) {
+// waiting: 뒤 줄에서 차례를 기다리는 파일('대기' — start()나 첫 progress()에서 보내는 중이 된다). group: 한 묶음이 함께 쓰는 물건({sent} — 다 올린 양).
+export function trackUpload({file = null, name = '', size = 0, back = null, waiting = false, group = null} = {}) {
   const router = globalThis.window?.KPTURouter;
   const from = router?.current ? {view: router.current, sub: router.sub || null} : null;
   const controller = new AbortController();
   const job = {
     id: 'up' + (++seq), file, name: String(name || file?.name || '파일'), size: Number(size || file?.size) || 0,
-    loaded: 0, total: Number(size || file?.size) || 0, phase: 'sending', message: '', retry: null, slow: false,
+    loaded: 0, total: Number(size || file?.size) || 0, phase: waiting ? 'waiting' : 'sending', group, message: '', retry: null, slow: false,
     startAt: now(), lastMove: now(), finishAt: 0, waitSending: SLOW_SENDING_MS, waitFinish: SLOW_FINISH_MS,
     signal: controller.signal,
     back: back || (from ? () => router.go(from.view, {sub: from.sub, source: 'upload'}) : null),
+    start() {
+      if (!jobs.has(job.id) || job.phase !== 'waiting') return;
+      job.phase = 'sending'; job.startAt = job.lastMove = now(); changed();
+    },
     progress({loaded = 0, total = 0, phase = 'sending'} = {}) {
+      if (jobs.has(job.id) && job.phase === 'waiting') { job.phase = 'sending'; job.startAt = job.lastMove = now(); }
       if (!jobs.has(job.id) || (job.phase !== 'sending' && job.phase !== 'finishing')) return;
       if (total > 0) job.total = total;
       if (loaded > job.loaded) { job.loaded = loaded; job.lastMove = now(); }
@@ -65,16 +84,16 @@ export function trackUpload({file = null, name = '', size = 0, back = null} = {}
     },
     done() {
       if (!jobs.has(job.id)) return;
-      job.phase = 'done'; job.loaded = job.total; job.slow = false; dock.done++; changed();
+      job.phase = 'done'; job.loaded = job.total; job.slow = false; dock.done++; if (job.group) job.group.sent = (job.group.sent || 0) + (job.total || 0); changed();
       setTimeout(() => { if (jobs.get(job.id) === job && job.phase === 'done') { jobs.delete(job.id); changed(); } }, DONE_SHOW_MS)?.unref?.();
     },
     fail(message = '') {
       if (!jobs.has(job.id) || job.phase === 'done') return;
       job.phase = 'failed'; job.slow = false; job.message = String(message || ''); dock.failed++; changed();
     },
-    // ✕: 다 보내기 전만(upload-send.mjs가 끊음). 목록에서는 바로 빠진다.
+    // ✕: 다 보내기 전만(upload-send.mjs가 끊음). 목록에서는 바로 빠진다. 차례를 기다리던 파일은 보내지 않는다.
     cancel() {
-      if (job.phase === 'sending') { controller.abort(); jobs.delete(job.id); changed(); }
+      if (job.phase === 'sending' || job.phase === 'waiting') { controller.abort(); jobs.delete(job.id); changed(); }
       else if (job.phase === 'failed') { jobs.delete(job.id); changed(); }
     },
     keepWaiting() {
@@ -85,7 +104,7 @@ export function trackUpload({file = null, name = '', size = 0, back = null} = {}
     cancelled: () => controller.signal.aborted,
   };
   // 새 묶음(올리는 것이 하나도 없을 때 시작)은 끝난 수를 새로 센다.
-  if (!dock.shown && ![...jobs.values()].some(item => item.phase === 'sending' || item.phase === 'finishing')) { dock.done = 0; dock.failed = 0; }
+  if (!dock.shown && ![...jobs.values()].some(live)) { dock.done = 0; dock.failed = 0; }
   jobs.set(job.id, job);
   changed();
   return job;
@@ -101,7 +120,7 @@ export function setUploadRetry(file, run) {
 globalThis.window?.addEventListener?.('kptu:session-changed', event => {
   const next = event?.detail?.session?.user?.id || '';
   if (next && next === sessionOwner) return;
-  sessionOwner = next; jobs.clear(); resetDock(); changed();
+  sessionOwner = next; jobs.clear(); for (const note of [...dock.notes]) endNote(note, 'session'); resetDock(); changed();
 });
 let sessionOwner = globalThis.window?.KPTURuntime?.session?.read?.()?.user?.id || '';
 
@@ -121,7 +140,7 @@ function paintBar(line, job) {
   line.firstChild.style.width = p + '%';
   line.classList.toggle('is-finishing', job.phase === 'finishing');
 }
-const stateText = job => job.phase === 'done' ? '✓ 완료' : job.phase === 'failed' ? '실패' : job.phase === 'finishing' ? '마무리 중…' : percent(job.loaded, job.total) + '%';
+const stateText = job => job.phase === 'done' ? '✓ 완료' : job.phase === 'failed' ? '실패' : job.phase === 'finishing' ? '마무리 중…' : job.phase === 'waiting' ? '대기' : percent(job.loaded, job.total) + '%';
 
 function rowNode(job, preview) {
   const row = el('div', 'up-row' + (preview ? ' up-tile' : ''));
@@ -143,14 +162,14 @@ function paintRow(row, job) {
   paintBar(row.querySelector('.up-bar'), job);
   const pc = row.querySelector('.up-pc');
   pc.textContent = row.classList.contains('up-tile') ? (job.phase === 'sending' ? `사진 올리는 중 ${stateText(job)}` : stateText(job)) : stateText(job);
-  const acts = row.querySelector('.up-acts'), want = job.phase === 'sending' ? 'x' : job.phase === 'failed' ? 'f' + (job.retry ? 'r' : '') : '';
+  const acts = row.querySelector('.up-acts'), want = job.phase === 'sending' || job.phase === 'waiting' ? 'x' : job.phase === 'failed' ? 'f' + (job.retry ? 'r' : '') : '';
   if (acts.dataset.kind !== want + (job.slow ? 's' : '')) {
     acts.dataset.kind = want + (job.slow ? 's' : '');
     acts.replaceChildren();
     if (job.slow) {
       acts.append(el('span', 'up-slow', '느려요'), textButton('계속 기다리기', 'wait'));
       if (job.phase === 'sending') acts.append(textButton('취소', 'cancel', `${job.name} 올리기 취소`));
-    } else if (job.phase === 'sending') {
+    } else if (job.phase === 'sending' || job.phase === 'waiting') {
       const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'cancel'; x.setAttribute('aria-label', `${job.name} 올리기 취소`); acts.append(x);
     } else if (job.phase === 'failed') {
       if (job.retry) acts.append(textButton('다시', 'retry', `${job.name} 다시 올리기`));
@@ -159,13 +178,13 @@ function paintRow(row, job) {
   }
   row.title = job.phase === 'failed' && job.message ? job.message : '';
 }
-// 합계 줄: 보내는 중·마무리 중인 것만 센다.
+// 합계 줄: 보내는 중·마무리 중·차례를 기다리는 것만 센다.
 export function summaryText(list) {
-  const live = list.filter(job => job.phase === 'sending' || job.phase === 'finishing');
-  if (!live.length) return '';
-  const total = live.reduce((sum, job) => sum + (job.total || 0), 0), loaded = live.reduce((sum, job) => sum + (job.phase === 'finishing' ? job.total : job.loaded), 0);
-  const all = live.every(job => job.phase === 'finishing');
-  return `올리는 중 ${live.length}개 · ${amount(loaded)} / ${amount(total)} · ${all ? '마무리 중…' : percent(loaded, total) + '%'}`;
+  const open = list.filter(live);
+  if (!open.length) return '';
+  const {total, loaded} = sums(open);
+  const all = open.every(job => job.phase === 'finishing');
+  return `올리는 중 ${open.length}개 · ${amount(loaded)} / ${amount(total)} · ${all ? '마무리 중…' : percent(loaded, total) + '%'}`;
 }
 
 const hosts = new Set();
@@ -245,8 +264,11 @@ export function paintUploadLine(row, file) {
 }
 
 // ③ 하단바 위 한 줄.
-const dock = {node: null, shown: false, done: 0, failed: 0, back: null, endTimer: null};
-function resetDock() { dock.shown = false; dock.done = 0; dock.failed = 0; dock.back = null; clearTimeout(dock.endTimer); dock.endTimer = null; if (dock.node) dock.node.hidden = true; }
+const dock = {node: null, shown: false, done: 0, failed: 0, back: null, endTimer: null, notes: [], painted: null};
+function resetDock() {
+  dock.shown = false; dock.done = 0; dock.failed = 0; dock.back = null; clearTimeout(dock.endTimer); dock.endTimer = null; dock.painted = null;
+  if (dock.node) { dock.node.hidden = true; dock.node.dataset.state = ''; }
+}
 const visible = node => !!node?.isConnected && node.getClientRects().length > 0 && !node.closest('[hidden],[inert]');
 // 칸 자신은 올리기가 생긴 뒤에야 보이므로(위 paint) 칸이 든 자리(부모)가 보이는지로 판단한다.
 const covered = job => [...hosts].some(({host, has}) => { try { return has(job) && host.isConnected && visible(host.parentElement); } catch { return false; } });
@@ -259,8 +281,11 @@ function dockNode() {
   node.append(head, line);
   node.addEventListener('click', e => {
     const button = e.target.closest('[data-up-act]'); if (!button) return;
-    if (button.dataset.upAct === 'open') { const back = dock.back; resetDock(); try { back?.(); } catch { /* 돌아갈 화면이 없으면 그대로 */ } }
-    else if (button.dataset.upAct === 'close') resetDock();
+    const what = button.dataset.upAct, note = node.dataset.state === 'note' ? dock.painted : null;
+    if (what === 'open') { const back = dock.back; resetDock(); try { back?.(); } catch { /* 돌아갈 화면이 없으면 그대로 */ } }
+    else if (what === 'close') { if (note) endNote(note, 'closed'); else resetDock(); }
+    else if (what === 'note-open' && note) { const back = note.back; endNote(note, 'open'); try { back?.(); } catch { /* 돌아갈 화면이 없으면 그대로 */ } }
+    else if (what === 'note-act' && note) { const action = note.actions[Number(button.dataset.upNote)]; endNote(note, 'action'); void Promise.resolve().then(() => action?.run?.()).catch(() => {}); }
   });
   document.body.append(node);
   return (dock.node = node);
@@ -270,31 +295,72 @@ function lift(node) {
   const quick = [...document.querySelectorAll('#appView .view-panel:not(.hidden) .home-quick[data-home-quick]')].find(box => getComputedStyle(box).position === 'fixed' && box.getClientRects().length);
   node.style.setProperty('--up-dock-lift', quick ? Math.ceil(quick.getBoundingClientRect().height) + 'px' : '0px');
 }
+// 묶음 끝 알림(BIZ-저장먼저닫기): 뒤 줄의 한 묶음이 끝났을 때 이 한 줄에 그 묶음의 말로 알린다 — '사진 7장·자료 1개 올렸어요', 못 올렸으면 [다시 올리기].
+// 올리는 화면을 보고 있어도 뜬다(창은 이미 닫혔으므로 끝을 알 곳이 여기뿐). 다른 올리기가 아직 가는 중이면 그 진행 뒤에 보인다.
+// text: 한 줄 · note: 작은 둘째 줄(까닭) · error · actions: [{label, aria, run}] · back(): [보기] · ms: 보이는 시간(0 = ✕나 단추를 누를 때까지) · onClose(why)
+export function announceDock({text = '', note = '', error = false, actions = [], back = null, ms = DOCK_DONE_MS, onClose = null} = {}) {
+  if (!text) return {close() {}};
+  const mine = {text: String(text), note: String(note || ''), error: !!error, actions: (Array.isArray(actions) ? actions : []).filter(a => a?.label && typeof a.run === 'function'),
+    back: typeof back === 'function' ? back : null, ms: Math.max(0, Number(ms) || 0), onClose, timer: null};
+  dock.notes.push(mine);
+  try { paintDock(); } catch { /* 한 줄이 올리기를 막지 않는다 */ }
+  return {close() { endNote(mine, 'closed'); }};
+}
+function endNote(note, why) {
+  const at = dock.notes.indexOf(note); if (at < 0) return;
+  dock.notes.splice(at, 1); clearTimeout(note.timer); note.timer = null;
+  if (dock.painted === note) resetDock();
+  try { note.onClose?.(why); } catch { /* 알림 닫기가 다른 일을 막지 않는다 */ }
+  try { paintDock(); } catch { /* 위와 같음 */ }
+}
+function paintNote(note) {
+  const node = dockNode();
+  clearTimeout(dock.endTimer); dock.endTimer = null; dock.done = 0; dock.failed = 0; dock.shown = true;
+  if (dock.painted !== note || node.dataset.state !== 'note') {
+    dock.painted = note; node.dataset.state = 'note';
+    node.classList.toggle('is-error', note.error); node.setAttribute('role', note.error ? 'alert' : 'status');
+    node.querySelector('.up-dock-text').textContent = note.text;
+    node.querySelector('.up-dock-pc').textContent = '';
+    node.querySelector('.up-bar').hidden = true;
+    node.querySelector('.up-dock-acts')?.remove(); node.querySelector('.up-dock-note')?.remove();
+    const acts = el('span', 'up-dock-acts');
+    note.actions.forEach((action, index) => { const b = textButton(action.label, 'note-act', action.aria || ''); b.dataset.upNote = String(index); acts.append(b); });
+    if (note.back) acts.append(textButton('보기', 'note-open', '올린 곳 보기'));
+    const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'close'; x.setAttribute('aria-label', '올리기 알림 닫기'); acts.append(x);
+    node.querySelector('.up-dock-head').append(acts);
+    if (note.note) node.append(el('div', 'up-dock-note', note.note));
+  }
+  lift(node); node.hidden = false;
+  if (note.ms && !note.timer) { note.timer = setTimeout(() => endNote(note, 'timeout'), note.ms); note.timer?.unref?.(); }
+}
 function paintDock() {
   if (typeof document === 'undefined' || !document.body) return;
-  const all = uploadJobs(), live = all.filter(job => job.phase === 'sending' || job.phase === 'finishing');
-  const away = live.filter(job => !covered(job));
+  const open = uploadJobs().filter(live);
+  const away = open.filter(job => !covered(job));
   if (away.length) {
     clearTimeout(dock.endTimer); dock.endTimer = null;
-    const node = dockNode(); dock.shown = true; dock.back = away[0].back || dock.back;
-    const total = live.reduce((s, j) => s + (j.total || 0), 0), loaded = live.reduce((s, j) => s + (j.phase === 'finishing' ? j.total : j.loaded), 0);
-    const finishing = live.every(job => job.phase === 'finishing'), slow = live.some(job => job.slow);
-    node.dataset.state = 'live';
-    node.querySelector('.up-dock-text').textContent = `${live.some(job => !/^image\//.test(job.file?.type || '')) ? '파일' : '사진'} ${live.length}개 올리는 중${slow ? ' · 느려요' : ''}`;
+    const node = dockNode(); dock.shown = true; dock.painted = null; dock.back = away[0].back || dock.back;
+    const {total, loaded} = sums(open);
+    const finishing = open.every(job => job.phase === 'finishing'), slow = open.some(job => job.slow);
+    node.dataset.state = 'live'; node.classList.remove('is-error'); node.setAttribute('role', 'status');
+    node.querySelector('.up-dock-text').textContent = `${open.some(job => !/^image\//.test(job.file?.type || '')) ? '파일' : '사진'} ${open.length}개 올리는 중${slow ? ' · 느려요' : ''}`;
     node.querySelector('.up-dock-pc').textContent = finishing ? '마무리 중…' : percent(loaded, total) + '%';
     const line = node.querySelector('.up-bar'); line.hidden = false; line.firstChild.style.width = (finishing ? 100 : percent(loaded, total)) + '%';
-    node.querySelector('.up-dock-acts')?.remove();
+    node.querySelector('.up-dock-acts')?.remove(); node.querySelector('.up-dock-note')?.remove();
     lift(node); node.hidden = false;
     return;
   }
+  // 묶음 끝 알림이 기다리고 있으면 그것이 이 한 줄의 끝 글이다(아래 'n개 올림'을 대신한다).
+  if (dock.notes.length) { paintNote(dock.notes[0]); return; }
   if (!dock.shown) return;
-  if (live.length) { dock.node.hidden = true; dock.shown = false; dock.done = 0; dock.failed = 0; return; } // 올리는 화면으로 돌아옴: 그 화면이 보인다.
+  if (open.length) { dock.node.hidden = true; dock.shown = false; dock.done = 0; dock.failed = 0; return; } // 올리는 화면으로 돌아옴: 그 화면이 보인다.
   if (dock.node.dataset.state === 'end') return;
   // 다른 화면에 있는 동안 끝남: 'n개 올림 · 보기'(실패가 있으면 'n개 못 올림').
-  const node = dock.node; node.dataset.state = 'end';
+  const node = dock.node; node.dataset.state = 'end'; node.classList.remove('is-error'); node.setAttribute('role', 'status');
   node.querySelector('.up-dock-text').textContent = dock.failed ? `${dock.failed}개 못 올림${dock.done ? ` · ${dock.done}개 올림` : ''}` : `${dock.done}개 올림`;
   node.querySelector('.up-dock-pc').textContent = '';
   node.querySelector('.up-bar').hidden = true;
+  node.querySelector('.up-dock-acts')?.remove(); node.querySelector('.up-dock-note')?.remove();
   const acts = el('span', 'up-dock-acts');
   if (dock.back) acts.append(textButton('보기', 'open', '올린 화면 보기'));
   const x = el('button', 'icon-btn up-x', '✕'); x.type = 'button'; x.dataset.upAct = 'close'; x.setAttribute('aria-label', '올리기 알림 닫기'); acts.append(x);

@@ -20,7 +20,9 @@ export function sendFailLine({okPhotos = 0, okFiles = 0, badPhotos = 0, badFiles
   return `${bad} 못 올렸어요${ok ? ` · ${ok} 올렸어요` : ''}`;
 }
 
-const LEFT = new Set(['failed', 'unknown', 'cancelled', 'held']);
+// 못 올린 것(failed) · 결과 불명(unknown) · 앞 실패로 서 있던 것(held) = '못 올렸어요'로 센다. 취소한 것(cancelled)은 따로 센다 — 둘 다 [다시 올리기] 대상.
+const BAD = new Set(['failed', 'unknown', 'held']);
+const LEFT = new Set([...BAD, 'cancelled']);
 const OPEN = new Set(['waiting', 'sending']);
 
 /**
@@ -49,8 +51,8 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
     return {photos, files};
   };
   const tally = batch => {
-    const ok = count(batch, new Set(['done'])), bad = count(batch, LEFT), open = count(batch, OPEN);
-    return {okPhotos: ok.photos, okFiles: ok.files, badPhotos: bad.photos, badFiles: bad.files, openPhotos: open.photos, openFiles: open.files,
+    const ok = count(batch, new Set(['done'])), bad = count(batch, BAD), open = count(batch, OPEN), off = count(batch, new Set(['cancelled']));
+    return {okPhotos: ok.photos, okFiles: ok.files, badPhotos: bad.photos, badFiles: bad.files, openPhotos: open.photos, openFiles: open.files, cancelled: off.photos + off.files,
       unknown: batch.entries.filter(e => e.state === 'unknown').length, retry: batch.entries.some(again)};
   };
   // 다시 보낼 수 있는 것: 못 올린 것·취소한 것·앞 실패로 서 있던 것·결과 불명(확인 뒤). 다시 골라야 하는 파일(fixed: 빈 파일·읽지 못함)은 아니다.
@@ -71,11 +73,13 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
     let stopped = null;
     for (const entry of mine) {
       if (gone(batch.scope)) { quiet(); return; }
+      if (entry.state !== 'waiting') continue;
       if (entry.job?.cancelled?.()) { entry.state = 'cancelled'; continue; }
       if (stopped) { fail(entry, 'held', stopped.message); continue; }
       const early = preflight(entry.file);
       if (early) { fail(entry, 'failed', early.message); entry.fixed = true; continue; }
       entry.state = 'sending';
+      try { entry.job?.start?.(); } catch { /* 표시뿐 */ }
       tell({type: 'file', batch, entry});
       try {
         entry.doc = await upload(batch.target, entry.file, {job: entry.job, gone: () => gone(batch.scope)});
@@ -126,7 +130,8 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
     any: () => [...batches].some(live),
     /** 알림을 닫았거나 계정이 바뀜: 못 올린 파일을 메모리에서 놓는다(올리는 중인 묶음은 그대로 끝까지). */
     forget(batch) { if (batch && !live(batch)) batches.delete(batch); },
-    clear() { for (const b of [...batches]) if (!live(b)) batches.delete(b); },
+    /** 계정·작업공간이 바뀜: 그 사람의 묶음이 아니게 된 것(when)을 놓는다. 올리는 중이던 것은 run()이 gone으로 멈춘다. */
+    clear(when = () => true) { for (const b of [...batches]) if (when(b)) { for (const e of b.entries) if (OPEN.has(e.state) && e.state !== 'sending') e.state = 'gone'; if (!live(b)) batches.delete(b); } },
     tally,
   };
 }
