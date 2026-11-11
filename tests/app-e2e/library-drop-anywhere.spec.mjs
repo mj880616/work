@@ -6,6 +6,7 @@ import {bootLibrary,libFolder,SB} from './helpers/library-folder-server.mjs';
 const FOLDERS=[libFolder('fa',null,{name:'가상 A',sort_order:1024}),libFolder('fc',null,{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
 const ITEMS=[{document_id:'n-1',folder_id:'fa'}];
 const nav=page=>page.locator('#libraryFolderNav');
+const enterNav=async(page,id)=>{await page.locator(`#libraryFolderNav [data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()}; // UI-폴더누르기한규칙: 나무 줄 누르기 = 펼침만, 들어가기 = 우클릭 [이 폴더로 들어가기]
 const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 // 파일을 실은 DataTransfer로 dragenter → dragover → drop을 그 자리(점 x,y가 있으면 그 점의 맨 위 요소)에 보낸다. 놓기 직전의 안내·표시를 돌려준다.
 const dropAt=(page,sel,names,{point=null}={})=>page.evaluate(({sel,names,point})=>{
@@ -40,7 +41,7 @@ for(const width of [1440,700])test(`자료실 ${width}: 두 칸 폴더 보기 �
   await expect(page.locator('#libraryDropStatus')).toHaveText('가상 N에 2개 올렸어요');
   expect(inFolder(s,'fn')).toEqual(['upload-2','upload-3']);
   // 나무에서 폴더로 들어간 뒤: 오른쪽 목록 빈 곳(목록 상자 아래쪽·자료실 화면 아래 빈 곳) = 그 폴더(들어간 폴더 머리 줄 표시).
-  await nav(page).locator('[data-lu-nav="fa"]').click();
+  await enterNav(page,'fa');
   await expect.poll(()=>tops(page)).toEqual(['f:fa']);
   r=await dropAt(page,'#documentList',['d.pdf']);
   expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 ‘가상 A’ 폴더로 올려요',into:['f:fa'],after:false});

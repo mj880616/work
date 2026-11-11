@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 // S51-20 FILES-폴드나무목록 ⑦(시안 docs/design/mockups/files-fold-tree-list.html '같은 종류'): 자료실 폴더 묶기도 펼친 폴드·PC(600px~)에서
-// 왼쪽 폴더 나무 | 오른쪽 목록. 나무 줄을 누르면 그 폴더로 들어가고(위치 줄·주소 같은 길), 나무는 그대로 남는다. 폰(412)은 지금처럼 나무 칸 없음. 이름은 지어낸 것.
+// 왼쪽 폴더 나무 | 오른쪽 목록. UI-폴더누르기한규칙(S57-5): 나무 줄을 누르면 들어가지 않고 그 자리에서 펼침·접힘, 그 폴더로 들어가기(위치 줄·주소)는 우클릭 [이 폴더로 들어가기]. 나무는 그대로 남는다. 폰(412)은 지금처럼 나무 칸 없음. 이름은 지어낸 것.
+const enter=async(page,id)=>{await nav(page).locator(`[data-lu-nav="${id}"]`).click({button:'right'});await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click()};
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
 const ITEMS=[{document_id:'a-1',folder_id:'fc'},{document_id:'n-1',folder_id:'fa'}];
 // LIB-위쪽한줄: 묶기는 고르기 상자 [폴더 ▾](#libraryGroupBy, select) 하나.
@@ -10,7 +11,7 @@ const groupNow=page=>page.locator('#libraryGroupBy option:checked');
 const nav=page=>page.locator('#libraryFolderNav');
 const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 
-for(const width of [700,884,1280])test(`자료실 ${width}: 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록, 나무에서 폴더로 들어가도 나무가 남는다`,async({page})=>{
+for(const width of [700,884,1280])test(`자료실 ${width}: 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 목록, 나무 누르기는 펼침만 · 우클릭으로 들어가도 나무가 남는다`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
   await pickGroup(page,'폴더');
@@ -21,12 +22,19 @@ for(const width of [700,884,1280])test(`자료실 ${width}: 폴더 묶기 = 왼�
   await expect(nav(page).locator('[data-lu-nav=""]')).toHaveAttribute('aria-current','true');
   await expect(nav(page).locator('[data-lu-nav="fa"] .ft-name')).toHaveText('가상 A');
   await expect(nav(page).locator('[data-lu-nav="fc"]')).toHaveCount(0); // 접힘(들어간 길만 펼침)
-  await nav(page).locator('[data-lu-nav="fa"]').click();
+  await nav(page).locator('[data-lu-nav="fa"]').click(); // 누르기 = 그 자리 펼침(들어가지 않음)
+  await expect(nav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
+  await expect(nav(page).locator('[data-lu-nav=""]')).toHaveAttribute('aria-current','true');
+  await expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']); // 오른쪽 목록·주소 그대로
+  expect(new URL(page.url()).searchParams.get('folder')).toBeNull();
+  await enter(page,'fa'); // 우클릭 [이 폴더로 들어가기]
   await expect(nav(page).locator('[data-lu-nav="fa"]')).toHaveAttribute('aria-current','true');
   await expect(nav(page).locator('[data-lu-nav="fc"]')).toBeVisible();
   await expect.poll(()=>tops(page)).toEqual(['f:fa']);
   await expect(page.locator('#libraryPath')).toBeVisible();
-  await nav(page).locator('[data-lu-nav="fc"]').click();
+  await nav(page).locator('[data-lu-nav="fc"]').click(); // 하위 폴더 누르기도 들어가지 않는다(펼칠 것이 없어 그대로)
+  await expect.poll(()=>tops(page)).toEqual(['f:fa']);
+  await enter(page,'fc');
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);
   await expect(nav(page)).toBeVisible();
   await expect.poll(()=>new URL(page.url()).searchParams.get('folder')).toBe('fc');
@@ -52,37 +60,44 @@ test('자료실 폰 412: 폴더 묶기도 지금처럼 목록 안 나무 하나(
   expect(errors).toEqual([]);
 });
 
-// LIB-나무접기(요청함 11/09 18:10): 이름 한 번 = 들어가며 펼침, 들어간 폴더 이름 다시 = 접기(오른쪽은 그 폴더 그대로), 또 누르면 다시 펼침.
-// 아이콘은 지금처럼 접기·펼치기만, 키보드 ←/→도 같은 규칙.
-for(const width of [1280])test(`자료실 ${width}: 들어간 폴더 이름을 다시 누르면 접히고, ←/→도 같은 규칙`,async({page})=>{
+// UI-폴더누르기한규칙(S57-5): 이름 한 번 = 펼침, 다시 = 접기(오른쪽·위치 줄 그대로), 아이콘·키보드(←/→·Enter)도 같은 규칙. 들어가기는 우클릭·두 손가락.
+for(const width of [1280])test(`자료실 ${width}: 폴더 이름 누르기 = 펼침·접기(들어가지 않음), ←/→·Enter·아이콘도 같은 규칙`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
   await pickGroup(page,'폴더');
   const a=nav(page).locator('[data-lu-nav="fa"]'),child=nav(page).locator('[data-lu-nav="fc"]'),tog=nav(page).locator('[data-lu-nav-tog="fa"]');
+  const rightSame=()=>expect.poll(()=>tops(page)).toEqual(['x:out','f:fa','f:fn']);
   await a.click();
   await expect(child).toBeVisible();
-  await expect.poll(()=>tops(page)).toEqual(['f:fa']);
+  await expect(tog).toHaveAttribute('aria-expanded','true');
+  await expect(a).not.toHaveAttribute('aria-current','true'); // 들어가지 않았다
+  await rightSame();
   if(process.env.LIB_TREE_FOLD_SHOTS)await page.screenshot({path:`${process.env.LIB_TREE_FOLD_SHOTS}/pc-${width}-1-open.png`});
   await a.click(); // 다시 = 접기
   await expect(child).toHaveCount(0);
   await expect(tog).toHaveAttribute('aria-expanded','false');
-  await expect(a).toHaveAttribute('aria-current','true');
-  await expect.poll(()=>tops(page)).toEqual(['f:fa']); // 오른쪽은 그 폴더 그대로
+  await rightSame();
   await expect(a).toBeFocused();
   if(process.env.LIB_TREE_FOLD_SHOTS)await page.screenshot({path:`${process.env.LIB_TREE_FOLD_SHOTS}/pc-${width}-2-folded.png`});
   await a.click(); // 또 = 펼침
   await expect(child).toBeVisible();
-  // 키보드: ← 접기, → 펼치기(초점은 이름에 남는다)
+  // 키보드: ← 접기, → 펼치기, Enter = 누르기와 같음(초점은 이름에 남는다)
   await a.focus();await page.keyboard.press('ArrowLeft');
   await expect(child).toHaveCount(0);await expect(a).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(child).toBeVisible();await expect(a).toBeFocused();
-  // 아이콘은 지금처럼: 접기·펼치기만, 오른쪽 그대로
+  await page.keyboard.press('Enter');
+  await expect(child).toHaveCount(0);await expect(a).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(child).toBeVisible();
+  // 아이콘도 같은 접기·펼치기
   await tog.click();await expect(child).toHaveCount(0);
   await tog.click();await expect(child).toBeVisible();
-  await expect.poll(()=>tops(page)).toEqual(['f:fa']);
-  // 들어가지 않은 폴더 이름 = 지금처럼 들어가기(접지 않음)
+  await rightSame();
+  // 펼칠 것이 없는 폴더 누르기 = 아무 일 없음(들어가지 않는다). 들어가기는 우클릭 메뉴
   await child.click();
+  await rightSame();
+  await enter(page,'fc');
   await expect.poll(()=>tops(page)).toEqual(['f:fc']);
   await expect(child).toBeVisible();
   expect(s.writes).toEqual([]);
