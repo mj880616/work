@@ -4,7 +4,7 @@
 // - 새 표·새 칸이 없는 서버(적용 전·되돌린 뒤): 읽기가 '없음'으로 끝나고(plans=null), 화면은 표시 없이 지금 그대로 동작한다.
 // - 읽은 값은 이 창이 떠 있는 동안만 메모리에 둔다(메뉴가 누른 자리에서 바로 열려야 해서). 로그인·계정이 바뀌면 비운다.
 // - 일정 원본은 Google Calendar 그대로다. 여기서는 Google을 부르지 않는다.
-import {planDecision, eventStatus, decisionWrite, copyPatch, reportLink, planRowOf, eventCopy, isMissingStore, PLAN_ON, PLAN_OFF} from './report-plan-model.mjs';
+import {planDecision, eventStatus, decisionWrite, ruleWrite, copyPatch, reportLink, planRowOf, eventCopy, isMissingStore, reportsOfEvent, nameKey, eventNameKey, PLAN_ON, PLAN_OFF, PLAN_SKIP, BY_RULE} from './report-plan-model.mjs';
 
 const enc = encodeURIComponent;
 const PLAN_PATH = '/rest/v1/app_calendar_report_plans';
@@ -81,11 +81,13 @@ const patchRow = async (rt, ws, id, body, epoch) => first(await rt.api(`${PLAN_P
 const readRow = async (rt, ws, eventId, epoch) => first(await rt.api(`${PLAN_PATH}?workspace_id=eq.${enc(ws)}&google_event_id=eq.${enc(eventId)}&select=${PLAN_FIELDS}&limit=1`, {singleFlight: false, expectedSessionEpoch: epoch}));
 
 // [보고할 일정] 켬(on=true) / 끔(false). 끔은 그 일정 하나만 끈다(설계 4-2). 저장된 줄을 돌려준다.
+export const setEventPlan = (event, on, rt = rtOf()) => setEventPlanState(event, on ? PLAN_ON : PLAN_OFF, rt);
+// 결정 저장 한 길(설계 4-3): state = on(켬·[보고할까요?]) | off(끔 — 이 일정만) | skip(⋯ [빼기] — 같은 이름은 다시 묻지 않음).
 // 줄이 있으면 고치고 없으면 넣는다. 다른 기기가 먼저 넣었으면(하나뿐 검사) 다시 읽고 고친다. 줄이 사라졌으면 넣는다.
-export async function setEventPlan(event, on, rt = rtOf()) {
+export async function setEventPlanState(event, state, rt = rtOf()) {
   const loaded = await loadReportPlans({}, rt);
   if (!loaded?.plans) throw new Error('보고할 일정 표시를 아직 쓸 수 없어요.');
-  const key = loaded.key, ws = workspaceOf(rt), epoch = rt.session?.epoch?.(), state = on ? PLAN_ON : PLAN_OFF;
+  const key = loaded.key, ws = workspaceOf(rt), epoch = rt.session?.epoch?.();
   let write = decisionWrite(planRowOf(event?.id, loaded.plans), state, event);
   if (!write) throw new Error('이 일정은 보고할 일정으로 표시할 수 없어요.');
   let saved = null;
@@ -105,8 +107,75 @@ export async function setEventPlan(event, on, rt = rtOf()) {
   }
   if (!saved) throw new Error('보고할 일정 표시를 저장하지 못했어요.');
   keep(saved, key);
+  // [빼기]는 그 이름 전체다(설계 4-2). 같은 이름 기억으로 저절로 켜 둔 줄(rule, 아직 보고 없음)은 기억을 옮겨 적은 것뿐이라 같이 지운다 — 남겨 두면 뺀 뒤에도 □가 남는다.
+  // 사람이 켠 줄(user)과 보고를 쓴 일정의 줄은 그대로 둔다. 지우다 실패해도 [빼기] 저장은 된 것이다(다음에 그 이름을 다시 빼면 지워진다).
+  if (state === PLAN_SKIP) await dropRuleRowsOfName(saved, key, rt).catch(() => {});
   announce();
-  return {on: saved.state === PLAN_ON, row: saved};
+  return {on: saved.state === PLAN_ON, state: saved.state, row: saved};
+}
+async function dropRuleRowsOfName(saved, key, rt) {
+  const name = nameKey(saved.title), s = store?.key === key ? store : null;
+  if (!name || !s?.plans) return 0;
+  const ids = s.plans.filter(p => p.id !== saved.id && p.decided_by === BY_RULE && p.state === PLAN_ON && nameKey(p.title) === name && !reportsOfEvent(p.google_event_id, s.reports).length).map(p => String(p.id));
+  // 지우는 조건을 서버에서도 다시 건다(저절로 켜진 줄·켜짐 그대로일 때만) — 그 사이 다른 기기에서 사람이 정한 줄은 지우지 않는다.
+  for (let i = 0; i < ids.length; i += DROP_CHUNK) {
+    const part = ids.slice(i, i + DROP_CHUNK);
+    await rt.api(`${PLAN_PATH}?workspace_id=eq.${enc(workspaceOf(rt))}&decided_by=eq.${BY_RULE}&state=eq.${PLAN_ON}&id=in.(${part.map(enc).join(',')})`, {method: 'DELETE', singleFlight: false, expectedSessionEpoch: rt.session?.epoch?.()});
+    if (store === s) s.plans = s.plans.filter(p => !part.includes(String(p.id)));
+  }
+  return ids.length;
+}
+const DROP_CHUNK = 40;
+
+// 저절로 골라 주기(설계 4-3): 같은 이름 기억으로 □가 된 일정을 화면이 처음 볼 때 줄을 넣는다(state=on, decided_by=rule). 이미 줄이 있으면 넣지 않는다.
+// events = 화면이 읽은 Google 일정. 넣은 줄 수를 돌려준다. 다른 기기가 먼저 넣었으면(하나뿐 검사) 그 줄을 읽어 둔다. 한 번에 RULE_BATCH건까지(나머지는 다음에 볼 때).
+const RULE_BATCH = 40;
+let ruleBusy = false;
+export async function addRulePlans(events, rt = rtOf()) {
+  const s = current(rt);
+  if (!s?.plans || ruleBusy) return 0;
+  ruleBusy = true;
+  const key = s.key, ws = workspaceOf(rt), epoch = rt.session?.epoch?.(), seen = new Set();
+  let added = 0;
+  try {
+    for (const event of Array.isArray(events) ? events : []) {
+      if (added >= RULE_BATCH || store?.key !== key) break;
+      const id = String(event?.id ?? '');
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      // 이 일정에 이어진 보고가 있으면(보고 씀) 줄이 필요 없다.
+      if (!eventNameKey(event) || reportsOfEvent(id, store.reports).length) continue;
+      const write = ruleWrite(event, {plans: store.plans, reports: store.reports || []});
+      if (!write) continue;
+      let saved = null;
+      try { saved = await postRow(rt, ws, write.body, epoch); }
+      catch (error) {
+        if (!isConflict(error)) throw error;
+        saved = await readRow(rt, ws, id, epoch);
+      }
+      if (saved) { keep(saved, key); added++; }
+    }
+  } finally { ruleBusy = false; }
+  if (added) announce();
+  return added;
+}
+
+// 사본 맞추기(4-5)를 읽은 일정 여럿에 한 번에: 줄이 있는 일정만 보고, 다른 칸이 있는 줄만 고친다. 고친 줄 수.
+export async function syncEventCopies(events, rt = rtOf()) {
+  const s = current(rt);
+  if (!s?.plans) return 0;
+  const key = s.key, ws = workspaceOf(rt), epoch = rt.session?.epoch?.();
+  let fixed = 0;
+  for (const event of Array.isArray(events) ? events : []) {
+    if (store?.key !== key) break;
+    const row = planRowOf(event?.id, store.plans);
+    const patch = row ? copyPatch(row, event) : {};
+    if (!Object.keys(patch).length) continue;
+    const saved = await patchRow(rt, ws, row.id, patch, epoch);
+    if (saved) { keep(saved, key); fixed++; }
+  }
+  if (fixed) announce();
+  return fixed;
 }
 
 // 사본 맞추기(4-5): 이 일정의 줄이 있고 제목·날짜·시각·캘린더 id가 다르면 그 칸만 고친다. 고쳤으면 true.

@@ -13,7 +13,7 @@ globalThis.window = win;
 globalThis.CustomEvent = globalThis.CustomEvent || class { constructor(type) { this.type = type; } };
 
 const mod = await import('../app/report-plan-data.js');
-const {loadReportPlans, reportPlanData, eventPlan, eventPlanById, setEventPlan, syncEventCopy, dropEventPlan, reportLinkBody, REPORT_PLANS_CHANGED} = mod;
+const {loadReportPlans, reportPlanData, eventPlan, eventPlanById, setEventPlan, setEventPlanState, addRulePlans, syncEventCopies, syncEventCopy, dropEventPlan, reportLinkBody, REPORT_PLANS_CHANGED} = mod;
 
 const httpError = (status, message) => Object.assign(new Error(message), {status, code: 'http_' + status});
 // 가짜 서버: 줄 목록(plans)·일정에 이어진 보고(reports). plansMissing·linkMissing = 적용 전 서버.
@@ -50,7 +50,14 @@ function fakeServer({plans = [], reports = [], plansMissing = false, linkMissing
       Object.assign(row, opts.body);
       return [{...row}];
     }
-    if (method === 'DELETE') { state.plans = state.plans.filter(p => p.google_event_id !== eq('google_event_id')); return []; }
+    if (method === 'DELETE') {
+      // 일정 하나의 줄 삭제(google_event_id) 또는 줄 여럿 삭제(id=in.(…), S58-10 [빼기]) — 같이 온 조건(decided_by·state)이 맞는 줄만 삭제한다.
+      const one = eq('google_event_id'), many = (url.searchParams.get('id') || '').match(/^in\.\((.*)\)$/)?.[1]?.split(',').map(decodeURIComponent) || null;
+      if (!one && !many) throw httpError(400, 'delete without a row filter');
+      const by = eq('decided_by'), st = eq('state');
+      state.plans = state.plans.filter(p => !((one ? p.google_event_id === one : many.includes(p.id)) && (!by || p.decided_by === by) && (!st || p.state === st)));
+      return [];
+    }
     throw httpError(405, 'method');
   };
   const rt = {api, session: {epoch: () => state.epoch}, context: {read: () => ({user: {id: user}, workspace: {id: workspace}})}};
@@ -164,4 +171,89 @@ test('읽고 쓰는 길은 서버 저장만 쓴다(기기 저장·Google 호출 
   assert.doesNotMatch(src, new RegExp(['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB', 'document\\.cookie').join('|')));
   assert.doesNotMatch(src, /functions\/v1|google-calendar/);
   assert.doesNotMatch(src, /merge-duplicates|on_conflict/);
+});
+
+// ── S58-10 BIZ-보고할일정 PR C: [빼기](skip)·저절로 골라 주기(rule 줄 넣기)·읽은 일정 여럿의 사본 맞추기 ──
+const pRow = (id, eventId, title, state, extra = {}) => ({id, google_event_id: eventId, google_calendar_id: 'cal-a', state, decided_by: 'user', decided_at: '2026-11-01T00:00:00.000Z', title, event_day: '2026-11-11', starts_at: '2026-11-11T01:00:00.000Z', ...extra});
+
+test('[빼기]는 skip을 저장하고, 같은 이름의 저절로 켜진 줄(rule·보고 없음)만 같이 삭제한다', async () => {
+  const plans = [
+    pRow('r1', 'e1', '시험 정례 회의', 'on', {decided_by: 'rule'}),
+    pRow('r2', 'e2', '시험 정례회의', 'on', {decided_by: 'rule'}),            // 같은 이름(띄어쓰기만 다름), 저절로 켜짐 → 삭제
+    pRow('r3', 'e3', '시험 정례 회의', 'on', {decided_by: 'rule'}),            // 이 일정에는 보고를 이미 썼다 → 그대로
+    pRow('u4', 'e4', '시험 정례 회의', 'on'),                                  // 사람이 켠 줄 → 그대로
+    pRow('r5', 'e5', '다른 회의', 'on', {decided_by: 'rule'})                  // 다른 이름 → 그대로
+  ];
+  const reports = [{id: 'm3', google_event_id: 'e3', google_calendar_id: 'cal-a', series_name: '시험 정례 회의', title: '시험 정례 회의', meeting_at: '2026-11-04T01:00:00.000Z', created_at: '2026-11-04T02:00:00.000Z'}];
+  const {state, rt} = fakeServer({plans, reports, user: 'user-skip'});
+  await loadReportPlans({}, rt);
+  let announced = 0; win.addEventListener(REPORT_PLANS_CHANGED, () => { announced++; });
+  const saved = await setEventPlanState(ev('e1', '시험 정례 회의'), 'skip', rt);
+  assert.deepEqual([saved.on, saved.state, saved.row.decided_by], [false, 'skip', 'user']);
+  const done = writes(state);
+  assert.deepEqual(done.map(c => c.method), ['PATCH', 'DELETE']);
+  // 저절로 켜진 줄을 뺄 때도 decided_by=user를 같이 보낸다(rule 줄은 on만 되는 검사).
+  assert.deepEqual([done[0].body.state, done[0].body.decided_by], ['skip', 'user']);
+  // 삭제는 내 작업공간·저절로 켜진 줄·켜짐 그대로인 줄만(서버에서 다시 건다), 줄 id로 가리킨다.
+  assert.match(done[1].path, /workspace_id=eq\.ws-1&decided_by=eq\.rule&state=eq\.on&id=in\.\(r2\)$/);
+  assert.deepEqual(state.plans.map(p => [p.id, p.state]), [['r1', 'skip'], ['r3', 'on'], ['u4', 'on'], ['r5', 'on']]);
+  assert.deepEqual(reportPlanData(rt).plans.map(p => p.id).sort(), ['r1', 'r3', 'r5', 'u4']);
+  assert.equal(announced, 1, '저장과 정리를 마친 뒤 한 번만 알린다');
+  // 같은 이름의 새 일정은 이제 표시도 물음도 없다(다시 묻지 않음).
+  assert.deepEqual([eventPlan(ev('e9', '시험 정례 회의', {organizationIds: ['o1']}), rt).on, eventPlan(ev('e9', '시험 정례 회의', {organizationIds: ['o1']}), rt).status], [false, '']);
+});
+
+test('[빼기]: 줄이 없던 일정(보고할까요?)은 skip 줄을 넣고, 모르는 값은 거절한다', async () => {
+  const {state, rt} = fakeServer({user: 'user-skip-new'});
+  await loadReportPlans({}, rt);
+  const saved = await setEventPlanState(ev('a1', '시험 기자회견', {organizationIds: ['o1']}), 'skip', rt);
+  assert.equal(saved.state, 'skip');
+  assert.deepEqual(writes(state).map(c => c.method), ['POST']);
+  assert.deepEqual([writes(state)[0].body.state, writes(state)[0].body.decided_by, writes(state)[0].body.workspace_id], ['skip', 'user', 'ws-1']);
+  await assert.rejects(setEventPlanState(ev('a2', '시험'), 'maybe', rt), /표시할 수 없어요/);
+  assert.equal(writes(state).length, 1);
+});
+
+test('저절로 골라 주기: 같은 이름 기억이 켜진 일정만 rule 줄을 넣고, 이미 줄이 있거나 보고를 쓴 일정은 넣지 않는다', async () => {
+  const plans = [pRow('u1', 'old', '시험 주간 회의', 'on', {event_day: '2026-11-04'}), pRow('x1', 'has-row', '시험 주간 회의', 'off')];
+  const reports = [{id: 'm1', google_event_id: 'wrote', google_calendar_id: 'cal-a', series_name: '시험 주간 회의', title: '시험 주간 회의', meeting_at: '2026-11-05T01:00:00.000Z', created_at: '2026-11-05T02:00:00.000Z'}];
+  const {state, rt} = fakeServer({plans, reports, user: 'user-rule-add'});
+  await loadReportPlans({}, rt);
+  const events = [
+    ev('new1', '시험 주간 회의', {start: '2026-11-18T01:00:00.000Z'}),   // 기억 on → 넣는다
+    ev('new1', '시험 주간 회의'),                                         // 같은 일정이 두 번 와도 한 번
+    ev('has-row', '시험 주간 회의'),                                      // 줄이 있다(off) → 넣지 않는다
+    ev('wrote', '시험 주간 회의'),                                        // 보고를 썼다 → 넣지 않는다
+    ev('org', '다른 일정', {organizationIds: ['o1']}),                    // 기억 없음(보고할까요?) → 넣지 않는다
+    ev('한글', '시험 주간 회의')                                          // 넣을 수 없는 id
+  ];
+  assert.equal(await addRulePlans(events, rt), 1);
+  const posts = writes(state);
+  assert.deepEqual(posts.map(c => [c.method, c.body.google_event_id, c.body.state, c.body.decided_by, c.body.event_day]), [['POST', 'new1', 'on', 'rule', '2026-11-18']]);
+  assert.equal(eventPlan(ev('new1', '시험 주간 회의'), rt).row.decided_by, 'rule');
+  // 다시 봐도 더 넣지 않는다.
+  assert.equal(await addRulePlans(events, rt), 0);
+  assert.equal(writes(state).length, 1);
+  // 다른 기기가 먼저 넣었으면(하나뿐 검사) 그 줄을 읽어 두고 고치지 않는다.
+  state.conflictOnce = true;
+  assert.equal(await addRulePlans([ev('new2', '시험 주간 회의')], rt), 1);
+  assert.deepEqual(writes(state).map(c => c.method), ['POST', 'POST']);
+  assert.equal(reportPlanData(rt).plans.find(p => p.google_event_id === 'new2').id, 'other-device');
+  // 표가 없는 서버·아직 안 읽은 계정이면 아무것도 하지 않는다.
+  const none = fakeServer({plansMissing: true, user: 'user-rule-none'});
+  await loadReportPlans({}, none.rt);
+  assert.equal(await addRulePlans(events, none.rt), 0);
+  assert.equal(writes(none.state).length, 0);
+});
+
+test('읽은 일정 여럿의 사본 맞추기: 줄이 있고 다른 칸이 있는 일정만 그 칸만 고친다', async () => {
+  const plans = [pRow('s1', 'e1', '옛 제목', 'on'), pRow('s2', 'e2', '그대로', 'on')];
+  const {state, rt} = fakeServer({plans, user: 'user-sync-many'});
+  await loadReportPlans({}, rt);
+  const fixed = await syncEventCopies([ev('e1', '새 제목', {start: '2026-11-12T01:00:00.000Z'}), ev('e2', '그대로'), ev('none', '줄 없는 일정')], rt);
+  assert.equal(fixed, 1);
+  const done = writes(state);
+  assert.deepEqual(done.map(c => c.method), ['PATCH']);
+  assert.deepEqual(done[0].body, {title: '새 제목', event_day: '2026-11-12', starts_at: '2026-11-12T01:00:00.000Z'});
+  assert.equal(state.plans.find(p => p.id === 's1').decided_at, '2026-11-01T00:00:00.000Z', '결정한 때는 그대로');
 });

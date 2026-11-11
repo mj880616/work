@@ -350,6 +350,28 @@
 #meetingList .rv-set-meta{flex:none;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 #meetingList .rv-grid{gap:4px;margin:2px 0 0}
 #meetingList .rv-grid .act-photo-thumb{width:72px;height:72px}
+/* S58-10 BIZ-보고할일정 PR C(시안 docs/design/mockups/biz-report-plan-link.html ③): 달력의 표시 세 가지 — ● 쓴 보고(위 .rv-dot 그대로) · □ 보고할 일정(이름 색 빈 네모) ·
+   점선 □ 보고할까요?(회색 점선 네모). 같은 표시가 칸의 점(폰)·칸 안 줄(PC)·그날 목록·'+n' 그날 창·'안 쓴 보고' 목록에 똑같이 나온다. 단추는 공용 글자 버튼(row-act)·아이콘 버튼(icon-btn)만 쓴다. */
+#meetingList .rv-dot-todo,#meetingList .rv-dot-ask{box-sizing:border-box;width:9px;height:9px;border-radius:2px;background:none}
+#meetingList .rv-dot-todo{border:1.5px solid var(--meeting-color,var(--kptu-muted))}
+#meetingList .rv-dot-ask{border:1.5px dashed var(--kptu-faint)}
+#meetingList .rv-legend{display:flex;flex-wrap:wrap;gap:2px 12px;margin:0 0 4px;padding:0 2px;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+#meetingList .rv-legend>span{display:inline-flex;align-items:center;gap:4px}
+#meetingList .rv-plan-wait{color:var(--kptu-muted)}
+#meetingList .rv-plan-row,#meetingList .rv-plan-row:hover{cursor:default;background:transparent}
+#meetingList .rv-plan-row[data-rv-plan-status="ask"] h3{color:var(--kptu-muted)}
+#meetingList .rv-plan-acts{flex:none;display:flex;align-items:center;gap:2px}
+#meetingList .rv-plan-write{color:var(--kptu-primary-ink)}
+/* '안 쓴 보고 n' 한 줄: 늘 한 줄 요약, 누르면 그 자리에서 목록이 펼쳐진다(공용 접기 꺾쇠). 눈에 띄되 눈부시지 않게 옅은 바탕. */
+#meetingList .rv-due{margin:0 0 var(--kptu-space-2);border-radius:var(--kptu-radius-md);background:var(--kptu-warning-soft)}
+#meetingList .rv-due>summary{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height,32px);padding:0 10px;font-size:var(--ds-text-meta,12px);cursor:pointer;list-style:none}
+#meetingList .rv-due>summary::-webkit-details-marker{display:none}
+#meetingList .rv-due-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted)}
+#meetingList .rv-due-text b{font-weight:var(--ds-weight-medium,500);color:var(--kptu-warning)}
+#meetingList .rv-due-list{margin:0;padding:0 4px 4px 10px;list-style:none}
+#meetingList .rv-due-row{display:flex;align-items:center;gap:8px;min-width:0;min-height:var(--ds-compact-height,32px);font-size:var(--ds-text-row,13px)}
+#meetingList .rv-due-day{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+#meetingList .rv-due-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* BIZ-달력그날창: PC 칸은 이름 4줄(report-views-model.mjs CELL_LINES)이 꼭 들어가는 높이로 고정한다 — 숫자 22 + 줄 16.3×4 + 안쪽 여백 6 + 선.
    높이는 여기 한 곳에서만 정하고 그린 뒤에 재서 줄 수를 바꾸지 않는다(4줄을 넘는 날은 마지막 줄 자리가 '+n'). */
 @media(min-width:761px){
@@ -371,6 +393,12 @@
 .rv-pop-list{margin:0;padding:0;list-style:none}
 .rv-pop-row{display:flex;align-items:center;gap:6px;min-width:0;padding:4px;border-radius:var(--kptu-radius-sm);font-size:var(--ds-text-row,13px);line-height:1.4;color:var(--kptu-ink);cursor:pointer}
 .rv-pop-row .rv-dot{flex:none;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
+/* S58-10: 그날 창 안 보고할 일정 줄도 달력과 같은 표시(□·점선 □). 그 줄은 눌러 여는 보고가 아니라 오른쪽 글자 단추가 동작한다. */
+.rv-pop-row .rv-dot-todo,.rv-pop-row .rv-dot-ask{box-sizing:border-box;width:9px;height:9px;border-radius:2px;background:none}
+.rv-pop-row .rv-dot-todo{border:1.5px solid var(--meeting-color,var(--kptu-muted))}
+.rv-pop-row .rv-dot-ask{border:1.5px dashed var(--kptu-faint)}
+.rv-pop-plan{cursor:default}
+.rv-pop-plan .rv-plan-write{color:var(--kptu-primary-ink)}
 .rv-pop-row:hover{background:var(--kptu-surface-subtle)}
 .rv-pop-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rv-pop-time{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
