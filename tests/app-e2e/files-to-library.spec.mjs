@@ -64,7 +64,7 @@ test('PC 1440: 원드라이브 파일 우클릭 → [자료실로 보내기] →
   expect(server.calls.filter(c => c.what === 'edge' && c.action === 'media' && c.body.id === 'OD!11')).toHaveLength(1);
   await page.locator('#saveDocumentBtn').click();
   await expect(modal).toBeHidden({ timeout: 15000 });
-  expect(lib.uploads).toEqual(['가짜 안내문.pdf']);
+  await expect.poll(() => lib.uploads, { timeout: 15000 }).toEqual(['가짜 안내문.pdf']);
   expect(lib.registers).toEqual([]);
   expect(server.calls.filter(c => c.what === 'edge' && ['move', 'trash', 'rename', 'job_add'].includes(c.action))).toEqual([]);
   expect(errors).toEqual([]);
@@ -88,7 +88,7 @@ test('PC 1440: 구글 드라이브 파일은 사본 없이 연결만, 이미 자
   await expect(line.locator('[data-lu-upload-state]')).toHaveText('연결만(사본 없음)');
   await page.locator('#saveDocumentBtn').click();
   await expect(modal).toBeHidden({ timeout: 15000 });
-  expect(lib.registers).toEqual([{ action: 'register-drive-file', drive_file_id: 'gdNew1' }]);
+  await expect.poll(() => lib.registers, { timeout: 15000 }).toEqual([{ action: 'register-drive-file', drive_file_id: 'gdNew1' }]);
   expect(lib.uploads).toEqual([]); // 사본 없음
   // 여러 개 고르기 → [자료실로]: 이미 있는 것만이면 창을 열지 않고 '이미 자료실에 있어요 · 보기'.
   await row(page, 'gd:gdDoc1').first().click({ modifiers: ['Control'] });

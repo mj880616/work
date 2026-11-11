@@ -473,7 +473,7 @@ async function prepareEventModal(onCreated){
 }
 window.KPTUEventCreate={open:preset=>openEventModal(preset||{})};
 // ORG-자료더하기먹통: 자료 등록 창을 여는 공용 길(자료실 [+]가 쓰는 같은 함수). 다른 화면은 버튼을 .click()하지 않고 이것을 부른다(library-upload.js luOpenUploadWindow).
-window.KPTUDocumentModal={open:()=>openDocumentModal()};
+window.KPTUDocumentModal={open:()=>openDocumentModal(),close:()=>closeModal('documentModal')};
 // UI-플러스키보드(요청함 11/03 15:09): 자료 [+]·[+ 자료 등록]은 파일을 고르는 일이 먼저라, 손가락으로 쓰는 폰·태블릿(pointer:coarse)에서는 자료명 칸에 초점을 주지 않는다(키보드가 올라와 창 아래를 가리던 원인). 첫 조작 가능한 버튼(닫기)이 초점을 받고, 자료명은 눌러서 쓴다. 마우스·키보드 화면은 그대로 자료명 칸.
 const docInitialFocus=()=>window.matchMedia?.('(pointer: coarse)').matches?null:'#docTitle';
 function openDocumentModal(){['docTitle','docCategory','docSource','docDate','docTags','docUrl','docDescription'].forEach(id=>{if($('#'+id))$('#'+id).value=''});openModal('documentModal',{initialFocus:docInitialFocus()})}

@@ -23,13 +23,17 @@ export function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
   box.textContent = message; kptuHoldToast(box);
 }
-// [📎 첨부] row under the text: the basket picker part on a file batch. Returns {node, picker, pending()}.
-export function attachRow({id, getBatch, isBusy, say}) {
+// [📎 첨부] row under the text: the basket picker part on a file batch. Returns {node, picker, pending(), sent}.
+// going(job): UX-먼저묻고뒤에처리 — files already saved and now going up behind the screen for this row's note or update
+// (the shared upload rows: bar · % · ✕, a failure with [다시]); the chosen-file list above shows only what is not saved yet.
+export function attachRow({id, getBatch, isBusy, say, going = null}) {
   const node = document.createElement('div'), pickerHost = document.createElement('div'), files = document.createElement('div');
   node.dataset.edwAttach = ''; files.dataset.edwAttachFiles = '';
   node.append(pickerHost, files);
+  let sent = null;
+  if (going) { const host = document.createElement('div'); host.dataset.edwAttachSent = ''; node.append(host); sent = mountUploadRows(host, {has: going}); }
   const picker = mountBasketPicker(pickerHost, {id, filesHost: files, dropTarget: node, getBatch, isBusy, onChange: () => say(''), onError: say});
-  return {node, picker, pending: () => getBatch().entries.filter(entry => entry.kind !== 'success').length};
+  return {node, picker, sent, pending: () => getBatch().entries.filter(entry => entry.kind !== 'success').length};
 }
 // S48-30 잘림: 폴더 이름은 8글자까지 다 보이고 그보다 길면 뒤를 '…'로 줄인다(▾는 늘 보임). 버튼은 줄어들지 않고 제목 칸이 양보한다(ed-window.css).
 export const shortFolder = name => { const chars = [...String(name || '')]; return chars.length > 8 ? chars.slice(0, 8).join('') + '…' : chars.join(''); };
@@ -259,7 +263,7 @@ export function openNoteEditWindow({value, photos, files: edFiles = null, save, 
   let handle = null, savedTitle = title, savedFolder = folder?.get?.() || null;
   const head = titleRow({value: title, folder, placeholder: '제목'});
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
-  const files = attach ? attachRow({id: 'edwNoteEditAttach', getBatch: attach.getBatch, isBusy: attach.isBusy, say: message => handle?.say(message)}) : null;
+  const files = attach ? attachRow({id: 'edwNoteEditAttach', getBatch: attach.getBatch, isBusy: attach.isBusy, going: attach.going || null, say: message => handle?.say(message)}) : null;
   const extra = () => ({title: head.input.value, folder: folder ? (folder.get() || null) : undefined});
   handle = openEdWindow({title: '큰 창에서 수정', doc: value, keepOpen: true, limit: NOTE_TEXT_MAX, head: head.row, foot: files?.node || null, shortcuts: true, photos, files: edFiles,
     dirty: () => (files?.pending() || 0) > 0 || head.input.value !== savedTitle || (!!folder && (folder.get() || null) !== savedFolder), placeholder: '노트 본문을 쓰세요',
@@ -268,7 +272,7 @@ export function openNoteEditWindow({value, photos, files: edFiles = null, save, 
       if (result?.ok) { savedTitle = sent.title; if (folder) savedFolder = sent.folder || null; }
       return result;
     }},
-    onClose: result => { folder?.close?.(); onClose(result); }});
+    onClose: result => { folder?.close?.(); files?.sent?.destroy(); onClose(result); }});
   if (handle && files) handle.renderFiles = () => files.picker.render();
   if (handle) { handle.paintFolder = head.paint; handle.title = () => head.input.value; }
   return handle;

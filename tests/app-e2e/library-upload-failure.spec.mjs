@@ -12,54 +12,63 @@ async function openFixture(page,plan={}){
   await page.evaluate(plan=>{window.__libraryUploadPlan=plan},plan);
 }
 
-async function expectFailureSettled(page,{selected=1}={}){
+// UX-먼저묻고뒤에처리 3차(S57-1): [저장]하면 등록 창은 바로 닫히고 비워진다(올리는 동안 잠기지 않는다). 올리기는 뒤 줄에서,
+// 못 올린 것은 공용 작은 알림(#kptuNotice, role=alert)에 예전 창 상태 줄과 같은 글로 알리고 다시 올릴 수 있으면 [다시]가 붙는다.
+const noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
+const retryButton=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-action',{hasText:'다시'});
+async function expectFailureSettled(page,{retry=true}={}){
   const save=page.locator('#saveDocumentBtn');
+  await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
+  await expect(page.locator('[data-lu-upload-file]')).toHaveCount(0);
   await expect(save).toBeEnabled();
   await expect(save).not.toHaveAttribute('aria-busy','true');
-  await expect(page.locator('#documentStatus')).toHaveAttribute('role','alert');
-  await expect(page.locator('#documentModal')).toBeVisible();
-  await expect(page.locator('#documentModal')).not.toHaveClass(/hidden/);
-  await expect(page.locator('[data-lu-upload-file]')).toHaveCount(selected);
+  await expect(page.locator('#newDocumentBtn')).toBeEnabled();
+  await expect(page.locator('#libraryFileInput')).toBeEnabled();
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','alert');
+  await expect(retryButton(page)).toHaveCount(retry?1:0);
 }
 
 const states=page=>page.locator('[data-lu-upload-state]').allTextContents();
 const calls=page=>page.evaluate(()=>window.__libraryUploadCalls);
 
-test('library upload timeout is an unknown outcome, releases busy state and never retries blindly',async({page})=>{
+test('library upload timeout is an unknown outcome, never locks the window and never retries blindly',async({page})=>{
   await page.goto(FIXTURE);
   await expect(page.locator('#libraryFileInput')).toBeAttached({timeout:3000});
   await page.locator('#libraryFileInput').setInputFiles({name:'test.txt',mimeType:'text/plain',buffer:Buffer.from('test')});
   const save=page.locator('#saveDocumentBtn');
   await save.click();
-  await expect(save).toBeDisabled();
-  await expect(save).toHaveAttribute('aria-busy','true');
-  await expect(page.locator('#documentStatus')).toHaveAttribute('role','status');
-  await expect(page.locator('#documentStatus')).toHaveAttribute('aria-live','polite');
-  await save.evaluate(button=>button.onclick());
-  // The status line says "업로드 중" before the upload request is sent (session check and file copy come first), so
-  // release the held request only once it has actually arrived; releasing earlier is a no-op and the request hangs.
+  // 창은 바로 닫히고 잠기지 않는다. 올리는 중은 자료실 화면 목록 위 공용 올리는 줄에 그 파일이 보인다.
+  await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
+  await expect(save).toBeEnabled();
+  await expect(save).not.toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#newDocumentBtn')).toBeEnabled();
+  await expect(page.locator('#libraryView .up-rows .up-row')).toContainText('test.txt');
+  await save.evaluate(button=>button.onclick()); // 닫힌 창의 [저장]을 또 눌러도 같은 파일을 두 번 보내지 않는다
+  // The upload request is sent after the session check and file copy, so release the held request only once it has
+  // actually arrived; releasing earlier is a no-op and the request hangs.
   await expect.poll(()=>page.evaluate(()=>typeof window.__releaseLibraryUpload)).toBe('function');
   await page.evaluate(()=>window.__releaseLibraryUpload());
-  await expect(page.locator('#documentStatus')).toContainText('업로드 시간이 오래 걸려 결과를 확인하지 못했어요',{timeout:3000});
-  await expect(page.locator('#documentStatus')).not.toContainText('요청 시간이 초과되었습니다');
+  await expect(noticeLine(page)).toContainText('업로드 시간이 오래 걸려 결과를 확인하지 못했어요',{timeout:3000});
+  await expect(noticeLine(page)).not.toContainText('요청 시간이 초과되었습니다');
   await expectFailureSettled(page);
-  expect(await states(page)).toEqual(['결과 확인 필요']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(0);
   await page.waitForTimeout(300);
   expect(await calls(page)).toEqual(['test.txt']);
 
-  await save.click();
+  // [다시]는 결과를 확인하지 못한 파일을 저절로 보내지 않는다: 먼저 '중복 등록' 확인을 받는다.
+  await retryButton(page).click();
   await expect(page.locator('.kptu-ask .kptu-ask-note')).toContainText('중복 등록');
   expect(await answerAsk(page,false)).toContain('업로드 결과를 확인하지 못한 파일 1개');
-  await expect(page.locator('#documentStatus')).toContainText('결과를 확인하지 못한 파일은 다시 업로드하지 않았어요');
+  await expect(noticeLine(page)).toContainText('결과를 확인하지 못한 파일은 다시 업로드하지 않았어요');
   expect(await calls(page)).toEqual(['test.txt']);
   await expectFailureSettled(page);
 
   await page.evaluate(()=>{window.__libraryUploadMode='success'});
-  await save.click();
+  await retryButton(page).click();
   await answerAsk(page,true);
+  await expect.poll(()=>calls(page)).toEqual(['test.txt','test.txt']);
+  await expect(noticeLine(page)).toHaveText('test.txt 올렸어요');
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
-  expect(await calls(page)).toEqual(['test.txt','test.txt']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(1);
 });
 
@@ -68,6 +77,7 @@ test('library upload uses its own size-scaled timeout instead of the 15 second r
   await page.locator('#libraryFileInput').setInputFiles([file('small.pdf','x'),file('large.pdf','x'.repeat(3*1024*1024))]);
   await page.locator('#saveDocumentBtn').click();
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
+  await expect(noticeLine(page)).toHaveText('2개 올렸어요');
   const opts=await page.evaluate(()=>window.__libraryUploadOpts.map(o=>o.timeoutMs));
   expect(opts).toEqual([94000,102000]);
   expect(opts.every(ms=>ms>15000&&ms<=600000)).toBe(true);
@@ -81,6 +91,11 @@ test('single file success closes the modal, clears selection and announces the c
   await expect(page.locator('#documentStatus')).toHaveAttribute('role','status');
   await expect(page.locator('[data-lu-upload-file]')).toHaveCount(0);
   await expect(page.locator('#saveDocumentBtn')).toBeEnabled();
+  await expect(noticeLine(page)).toHaveText('ok.pdf 올렸어요');
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','status');
+  await expect(retryButton(page)).toHaveCount(0);
+  await page.waitForTimeout(200);
+  expect(await calls(page)).toEqual(['ok.pdf']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(1);
 });
 
@@ -98,34 +113,56 @@ const SINGLE_FAILURES=[
   ['5xx with unknown stage',{status:500,retryable:true,stage:'<b>x</b>',message:'raw server detail'},'파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.','실패 · 다시 시도']
 ];
 for(const [name,error,message,label] of SINGLE_FAILURES){
-  test(`single file ${name} shows a normalized message and keeps the form recoverable`,async({page})=>{
+  test(`single file ${name} shows a normalized message and keeps the upload recoverable`,async({page})=>{
     await openFixture(page,{'one.pdf':[error]});
     await page.locator('#libraryFileInput').setInputFiles(file('one.pdf'));
     await page.locator('#saveDocumentBtn').click();
-    await expect(page.locator('#documentStatus')).toHaveText(message);
-    await expect(page.locator('#documentStatus')).not.toContainText(/raw server detail|duplicate key|upstream request/);
-    await expectFailureSettled(page);
-    expect(await states(page)).toEqual([label]);
+    await expect(noticeLine(page)).toHaveText(message);
+    await expect(noticeLine(page)).not.toContainText(/raw server detail|duplicate key|upstream request/);
+    // 예전 창의 파일 줄 상태 글자(label)가 가르던 것을 [다시]의 동작으로 본다:
+    // '100MB 초과' = 다시 보낼 수 없음([다시] 없음) / '결과 확인 필요' = [다시]가 먼저 중복 확인을 물음 / '실패 · 다시 시도' = [다시]가 그 파일을 바로 다시 보냄.
+    await expectFailureSettled(page,{retry:label!=='100MB 초과'});
     expect(await page.evaluate(()=>window.__documentsChanged)).toBe(0);
     await page.waitForTimeout(200);
     expect(await calls(page)).toEqual(['one.pdf']);
+    if(label==='결과 확인 필요'){
+      await retryButton(page).click();
+      expect(await answerAsk(page,false)).toContain('업로드 결과를 확인하지 못한 파일 1개');
+      await page.waitForTimeout(200);
+      expect(await calls(page)).toEqual(['one.pdf']);
+    }else if(label==='실패 · 다시 시도'){
+      await retryButton(page).click();
+      await expect.poll(()=>calls(page)).toEqual(['one.pdf','one.pdf']);
+      await expect(page.locator('.kptu-ask')).toHaveCount(0);
+    }else expect(label).toBe('100MB 초과');
   });
 }
 
-test('non-retryable size failures and empty files are not sent again',async({page})=>{
+test('empty files are flagged before the window closes; non-retryable size failures are not sent again',async({page})=>{
   await openFixture(page,{'big.pdf':[{status:413}]});
   await page.locator('#libraryFileInput').setInputFiles([file('big.pdf'),{name:'empty.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(0)}]);
-  await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toContainText('0개 완료 · 2개 미완료');
-  await expectFailureSettled(page,{selected:2});
-  expect(await states(page)).toEqual(['100MB 초과','빈 파일']);
-  expect(await calls(page)).toEqual(['big.pdf']);
-  await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toHaveText('다시 업로드할 수 있는 파일이 없어요. 파일을 다시 선택해 주세요.');
+  const save=page.locator('#saveDocumentBtn');
+  // 빈 파일은 창에서 바로 알 수 있다 → 닫지 않고 그 줄에 표시, 아무것도 보내지 않는다.
+  await save.click();
+  await expect(page.locator('#documentStatus')).toContainText('빈 파일은 업로드할 수 없어요.');
+  await expect(page.locator('#documentStatus')).toHaveAttribute('role','alert');
+  await expect(page.locator('#documentModal')).not.toHaveClass(/hidden/);
+  await expect(page.locator('[data-lu-upload-file]')).toHaveCount(2);
+  expect(await states(page)).toEqual(['선택됨','빈 파일']);
+  await save.click();
+  await page.waitForTimeout(200);
+  expect(await calls(page)).toEqual([]);
+  // 빈 파일을 빼고 저장 → 창이 닫히고 올린다. 서버가 413(100MB 초과)으로 거절한 파일은 [다시]가 없다(다시 보내지 않음).
+  await page.locator('[data-lu-remove-file]').nth(1).click();
+  await expect(page.locator('[data-lu-upload-file]')).toHaveCount(1);
+  await save.click();
+  await expect(noticeLine(page)).toHaveText('현재 자료실은 파일당 100MB까지 지원합니다.');
+  await expectFailureSettled(page,{retry:false});
+  await page.waitForTimeout(300);
   expect(await calls(page)).toEqual(['big.pdf']);
 });
 
-test('expired Drive connection keeps completed files, marks untried files as waiting and resumes only unfinished ones',async({page})=>{
+test('expired Drive connection keeps completed files, stops before untried files and resumes only unfinished ones',async({page})=>{
   await openFixture(page,{
     'a.pdf':[{ok:true}],
     'b.pdf':[{status:424,message:'Google Drive 토큰 갱신에 실패했습니다.'},{ok:true}],
@@ -134,14 +171,15 @@ test('expired Drive connection keeps completed files, marks untried files as wai
   await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file('b.pdf'),file('c.pdf')]);
   await page.locator('#saveDocumentBtn').click();
   expect(await answerAsk(page,false)).toContain('Google Drive 연결이 만료됐습니다');
-  await expect(page.locator('#documentStatus')).toContainText('1개 완료 · 2개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
-  await expectFailureSettled(page,{selected:3});
+  await expect(noticeLine(page)).toHaveText('1개 완료 · 2개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
+  await expectFailureSettled(page);
   expect(await page.evaluate(()=>window.__driveReconnectCalls.length)).toBe(0);
-  expect(await states(page)).toEqual(['완료','실패 · 다시 시도','대기 · 업로드 전']);
   expect(await calls(page)).toEqual(['a.pdf','b.pdf']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(1);
 
-  await page.locator('#saveDocumentBtn').click();
+  await retryButton(page).click();
+  await expect.poll(()=>calls(page)).toEqual(['a.pdf','b.pdf','b.pdf','c.pdf']);
+  await expect(noticeLine(page)).toHaveText('2개 올렸어요');
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
   expect(await calls(page)).toEqual(['a.pdf','b.pdf','b.pdf','c.pdf']);
 });
@@ -155,18 +193,19 @@ test('drive auth failure starts the existing reconnect flow when the owner accep
   await expect(page).toHaveURL(/#drive-auth$/);
 });
 
+
 test('partial success retries only the failed file and never re-uploads completed files',async({page})=>{
   await openFixture(page,{'a.pdf':[{ok:true}],'b.pdf':[{status:503,retryable:true},{ok:true}],'c.pdf':[{ok:true}]});
   await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file('b.pdf'),file('c.pdf')]);
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toContainText('2개 완료 · 1개 미완료. 파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요. 다시 저장하면 완료되지 않은 파일만 업로드합니다.');
-  await expectFailureSettled(page,{selected:3});
-  expect(await states(page)).toEqual(['완료','실패 · 다시 시도','완료']);
+  await expect(noticeLine(page)).toHaveText('2개 완료 · 1개 미완료. 파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  await expectFailureSettled(page);
+  expect(await calls(page)).toEqual(['a.pdf','b.pdf','c.pdf']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(1);
 
-  await page.locator('#saveDocumentBtn').click();
+  await retryButton(page).click();
+  await expect(noticeLine(page)).toHaveText('b.pdf 올렸어요');
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
-  await expect(page.locator('#documentStatus')).toContainText('3개 파일 등록 완료');
   expect(await calls(page)).toEqual(['a.pdf','b.pdf','c.pdf','b.pdf']);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(2);
 });
@@ -175,30 +214,31 @@ test('timeout in a multi-file batch stops before untried files and keeps the unk
   await openFixture(page,{'a.pdf':[{ok:true}],'b.pdf':[{code:'timeout'}],'c.pdf':[{ok:true}]});
   await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file('b.pdf'),file('c.pdf')]);
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toContainText('1개 완료 · 2개 미완료. 업로드 시간이 오래 걸려 결과를 확인하지 못했어요');
-  await expect(page.locator('#documentStatus')).not.toContainText('다시 저장하면');
-  await expectFailureSettled(page,{selected:3});
-  expect(await states(page)).toEqual(['완료','결과 확인 필요','대기 · 업로드 전']);
+  await expect(noticeLine(page)).toContainText('1개 완료 · 2개 미완료. 업로드 시간이 오래 걸려 결과를 확인하지 못했어요');
+  await expectFailureSettled(page);
   expect(await calls(page)).toEqual(['a.pdf','b.pdf']);
 
-  await page.locator('#saveDocumentBtn').click();
+  // [다시] → 중복 확인에 [취소]: 결과를 모르는 b는 보내지 않고, 아직 보내지 않은 c만 올린다.
+  await retryButton(page).click();
   await answerAsk(page,false);
-  await expect(page.locator('#documentStatus')).toContainText('2개 완료 · 1개 미완료. 업로드 시간이 오래 걸려');
+  await expect(noticeLine(page)).toHaveText('c.pdf 올렸어요');
   expect(await calls(page)).toEqual(['a.pdf','b.pdf','c.pdf']);
-  expect(await states(page)).toEqual(['완료','결과 확인 필요','완료']);
-  await expect(page.locator('#documentModal')).toBeVisible();
+  await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
 });
 
-test('long failure text wraps inside the upload modal on narrow phones',async({page})=>{
+test('long failure text wraps inside the small notice on narrow phones',async({page})=>{
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:800});
     const longName='b-'+'매우긴파일명'.repeat(12)+'.pdf';
     await openFixture(page,{'a.pdf':[{ok:true}],[longName]:[{code:'network_error'}]});
     await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file(longName)]);
     await page.locator('#saveDocumentBtn').click();
-    await expect(page.locator('#documentStatus')).toContainText('네트워크 연결이 끊겨');
+    await expect(noticeLine(page)).toContainText('네트워크 연결이 끊겨');
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
     expect(overflow,`horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
+    const box=await page.locator('#kptuNotice:not([hidden])').boundingBox();
+    expect(box.x,`notice left edge at ${width}px`).toBeGreaterThanOrEqual(0);
+    expect(box.x+box.width,`notice right edge at ${width}px`).toBeLessThanOrEqual(width);
     await expect(page.locator('#saveDocumentBtn')).toBeEnabled();
   }
 });
@@ -321,7 +361,7 @@ test('desktop library window accepts files dropped anywhere and outlines only wh
   await expect(selected.first().locator('[data-lu-remove-file]')).toBeVisible();
 });
 
-test('multi-file upload reuses library-files sequentially and preserves per-file failure state',async({page})=>{
+test('multi-file upload reuses library-files sequentially and keeps per-file failure state for the retry',async({page})=>{
   await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
   await page.evaluate(()=>{window.__libraryUploadMode='partial'});
   await page.locator('#libraryFileInput').setInputFiles([
@@ -330,12 +370,10 @@ test('multi-file upload reuses library-files sequentially and preserves per-file
   ]);
   await page.locator('#saveDocumentBtn').click();
   await expect.poll(()=>page.evaluate(()=>window.__libraryUploadCalls)).toEqual(['ok.pdf','fail.pdf']);
-  const selected=page.locator('[data-lu-upload-file]');
-  await expect(selected).toHaveCount(2);
-  await expect(selected.nth(0).locator('[data-lu-upload-state]')).toHaveText('완료');
-  await expect(selected.nth(1).locator('[data-lu-upload-state]')).toHaveText('실패 · 다시 시도');
-  await expect(page.locator('#documentStatus')).toContainText('1개 완료 · 1개 미완료');
-  await expect(page.locator('#documentStatus')).toHaveAttribute('role','alert');
-  await expect(page.locator('#documentModal')).toBeVisible();
+  await expect(noticeLine(page)).toHaveText('1개 완료 · 1개 미완료. 파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  await expectFailureSettled(page);
   expect(await page.evaluate(()=>window.__documentsChanged)).toBeGreaterThan(0);
+  // [다시]는 못 올린 그 파일만 다시 보낸다(올라간 ok.pdf는 다시 보내지 않음).
+  await retryButton(page).click();
+  await expect.poll(()=>page.evaluate(()=>window.__libraryUploadCalls)).toEqual(['ok.pdf','fail.pdf','fail.pdf']);
 });

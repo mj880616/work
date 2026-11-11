@@ -198,7 +198,8 @@ test('upload sends the exact selected parent or child project id and rejects sta
     await page.locator('#saveDocumentBtn').click();
     await expect(page.locator('#documentModal')).toBeHidden();
   }
-  expect(state.uploads.map(x=>x.project_id)).toEqual(['top-a','child-a2']);
+  // UX-먼저묻고뒤에처리 3차(S57-1): 창은 바로 닫히고 올리기는 뒤 줄에서 차례로 — 두 번째 저장은 첫 올리기 뒤에 선다(순서 그대로).
+  await expect.poll(()=>state.uploads.map(x=>x.project_id)).toEqual(['top-a','child-a2']);
 
   await page.locator('#newDocumentBtn').click();
   await page.locator('#libraryFileInput').setInputFiles({name:'stale.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
@@ -226,26 +227,29 @@ test('real runtime maps structured upload failures, keeps completed child upload
   await page.locator('#saveDocumentBtn').click();
   // 관리자라 Drive 다시 연결을 공용 작은 확인창으로 한 번 묻는다 → 지금은 하지 않음.
   expect(await answerAsk(page,false)).toContain('Google Drive 연결이 만료됐습니다');
-  const status=page.locator('#documentStatus');
-  await expect(status).toContainText('1개 완료 · 1개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
-  await expect(status).toHaveAttribute('role','alert');
-  await expect(page.locator('#saveDocumentBtn')).toBeEnabled();
-  await expect(page.locator('#documentModal')).toBeVisible();
-  expect(await page.locator('[data-lu-upload-state]').allTextContents()).toEqual(['완료','실패 · 다시 시도']);
+  // UX-먼저묻고뒤에처리 3차(S57-1): 창은 [저장] 뒤 바로 닫혔고(잠기지 않음), 예전 창 상태 줄과 같은 글이 공용 작은 알림(role=alert) + [다시]로 뜬다.
+  const notice=page.locator('#kptuNotice:not([hidden])'),status=notice.locator('.kptu-notice-text'),retry=notice.locator('.kptu-notice-action',{hasText:'다시'});
+  await expect(status).toHaveText('1개 완료 · 1개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
+  await expect(notice).toHaveAttribute('role','alert');
+  await expect(page.locator('#documentModal')).toBeHidden();
+  await expect(page.locator('#newDocumentBtn')).toBeEnabled();
+  await expect(retry).toHaveCount(1);
   expect(state.uploads.map(x=>x.project_id)).toEqual(['child-a1']);
   await expect(page.locator('[data-lu-document="upload-1"]')).toHaveCount(1);
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:800});
     await expect(status).toBeInViewport({ratio:0.5});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),`overflow at ${width}px`).toBeLessThanOrEqual(0);
-    const clipped=await page.evaluate(()=>{const list=document.querySelector('#librarySelectedFiles').getBoundingClientRect();return [...document.querySelectorAll('[data-lu-upload-state]')].filter(el=>el.getBoundingClientRect().right>list.right+0.5).length});
-    expect(clipped,`file states clipped at ${width}px`).toBe(0);
+    // 알림 글과 [다시]가 화면 밖으로 잘리지 않는다(예전: 창 안 파일 줄 상태 글자가 잘리지 않음).
+    const clipped=await page.evaluate(()=>[...document.querySelectorAll('#kptuNotice .kptu-notice-text,#kptuNotice button')].filter(el=>{const r=el.getBoundingClientRect();return r.left<-0.5||r.right>innerWidth+0.5}).length);
+    expect(clipped,`notice clipped at ${width}px`).toBe(0);
   }
 
-  await page.locator('#saveDocumentBtn').click();
+  // [다시] = 못 올린 그 파일만 같은 사업영역으로 다시(올라간 첫 파일은 다시 보내지 않는다).
+  await retry.click();
+  await expect.poll(()=>state.uploadAttempts).toEqual(['child-a1','child-a1','child-a1']);
+  await expect.poll(()=>state.uploads.map(x=>x.project_id)).toEqual(['child-a1','child-a1']);
   await expect(page.locator('#documentModal')).toBeHidden();
-  expect(state.uploadAttempts).toEqual(['child-a1','child-a1','child-a1']);
-  expect(state.uploads.map(x=>x.project_id)).toEqual(['child-a1','child-a1']);
 });
 
 test('server-side missing project maps to the stale project message and refreshes the selector',async({page})=>{
@@ -259,11 +263,25 @@ test('server-side missing project maps to the stale project message and refreshe
   await pickSelectArea(page,'#docProject','top-b');
   state.spaces=state.spaces.map(x=>x.id==='top-b'?{...x,status:'archived'}:x);
   await page.locator('#saveDocumentBtn').click();
+  // UX-먼저묻고뒤에처리 3차(S57-1): 창은 바로 닫히고, 서버가 사업영역을 거절하면 같은 글이 알림 + [다시]로 뜬다.
+  const notice=page.locator('#kptuNotice:not([hidden])');
+  await expect(notice.locator('.kptu-notice-text')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.');
+  await expect(page.locator('#documentModal')).toBeHidden();
+  expect(state.uploads).toHaveLength(0);
+  // [다시] = 같은 값으로 다시 보내지 않고(또 거절됨) 그 파일을 넣은 등록 창을 다시 열어 사업영역 고르기부터. 고르기 목록은 새로 읽은 것이다.
+  await notice.locator('.kptu-notice-action',{hasText:'다시'}).click();
+  await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('#documentStatus')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.');
+  await expect(page.locator('[data-lu-upload-file]')).toHaveCount(1);
+  await expect(page.locator('[data-lu-upload-file]')).toContainText('parent.pdf');
   await expect(page.locator('#docProject')).toHaveValue('');
   await expect(page.locator('#docProject option[value="top-b"]')).toHaveCount(0);
-  await expect(page.locator('#documentModal')).toBeVisible();
   expect(state.uploads).toHaveLength(0);
+  // 다른 사업영역을 골라 저장하면 그 파일이 올라간다.
+  await pickSelectArea(page,'#docProject','top-a');
+  await page.locator('#saveDocumentBtn').click();
+  await expect(page.locator('#documentModal')).toBeHidden();
+  await expect.poll(()=>state.uploads.map(x=>x.project_id)).toEqual(['top-a']);
 });
 
 test('metadata edit keeps archived links and moves documents between parent, child and none',async({page})=>{
