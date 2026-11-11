@@ -64,6 +64,18 @@
   html.ed-window-open .mobile-tabs{display:none}
 }
 
+/* FOLD-넓은화면 A(S57-21, 요청함 11/06 01:18 ① · 시안 docs/design/mockups/fold-wide-screens.html A): 폴드 펼침(600~760px, 폰 틀 — 칸 나누는 폭은
+   screen-width.mjs 600px)은 제목만 있던 큰 줄(44px + 아래 12px) 대신 '제목 · 찾기' 낮은 한 줄(36px + 아래 8px)이다. PC 틀(761px~) 위 한 줄과 같은 구성이고,
+   찾기는 폰 메뉴 창 맨 위와 같은 입구(global-search.js mountMenuEntry — 누르면 화면 전체 검색)다. 접은 폰(600px 미만)은 그대로(입구는 메뉴 창).
+   화면 첫 줄이 제목을 보이는 화면(사업 보고·자료실·사진·공유 페이지, ui-standard.css)은 지금처럼 이 줄이 없다. 검색 화면 자신은 검색칸이 있어 입구를 두지 않는다. */
+.mobile-shell-search{display:none}
+@media(min-width:600px) and (max-width:760px){
+  .mobile-shell-header{min-height:36px;margin-bottom:8px}
+  .mobile-shell-header>[data-mobile-view-name]{flex:none;white-space:nowrap}
+  .mobile-shell-search{display:block;flex:1 1 auto;min-width:0}
+  html:has(#searchView:not(.hidden)) .mobile-shell-search{display:none}
+}
+
 /* MENU-HOME-편집: [메뉴 편집] 창(menu-edit.js)과 끌어 옮기기 부품(reorder-drag.js) 표시. 작고 낮게. */
 .menu-edit-card{padding:var(--kptu-space-3,10px) var(--kptu-space-4,14px);width:min(380px,calc(100vw - 24px));max-width:100%;box-sizing:border-box;max-height:calc(100dvh - 24px);overflow:auto}
 .menu-edit-card .modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}

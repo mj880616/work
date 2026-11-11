@@ -691,18 +691,21 @@ document.addEventListener('click', e => {
 });
 
 // ---------- 폰 메뉴 창 맨 위 검색칸(입구) ----------
+// FOLD-넓은화면 A(S57-21): 입구 자리는 둘이다 — 폰 메뉴 창 맨 위, 그리고 폴드 펼침(600~760px, 폰 틀)의 앱 머리 한 줄(제목 오른쪽, topbar-actions.css).
+// 둘 다 같은 버튼·같은 길(화면 전체 검색)이다. 머리 한 줄의 입구는 그 폭에서만 보인다(접은 폰은 메뉴 창, PC 틀은 상단 줄 검색칸).
 function mountMenuEntry() {
-  const host = document.querySelector('[data-search-entry]');
-  if (!host || host.childElementCount) return;
-  const button = el('button', 'gs-menu-entry'); button.type = 'button'; button.setAttribute('aria-label', '전체 검색 열기');
-  button.append(icon('search', 'gs-field-icon'), el('span', null, '전체 검색'));
-  // topbar-actions.js가 메뉴 판을 먼저 닫고 이 버튼을 다시 누른다(메뉴 판 규칙).
-  button.addEventListener('click', async () => {
-    if (window.KPTUMobileMenu?.isOpen?.()) return;
-    await window.KPTUViewLoader?.load?.('search');
-    router()?.go?.('search', {source: 'delegated'});
-  });
-  host.append(button);
+  for (const host of document.querySelectorAll('[data-search-entry]')) {
+    if (host.childElementCount) continue;
+    const button = el('button', 'gs-menu-entry'); button.type = 'button'; button.setAttribute('aria-label', '전체 검색 열기');
+    button.append(icon('search', 'gs-field-icon'), el('span', null, '전체 검색'));
+    // topbar-actions.js가 메뉴 판을 먼저 닫고 이 버튼을 다시 누른다(메뉴 판 규칙).
+    button.addEventListener('click', async () => {
+      if (window.KPTUMobileMenu?.isOpen?.()) return;
+      await window.KPTUViewLoader?.load?.('search');
+      router()?.go?.('search', {source: 'delegated'});
+    });
+    host.append(button);
+  }
 }
 
 window.addEventListener('kptu:session-changed', () => { seq++; askSeq++; recentSeq++; askSources.clear(); clearTimeout(timer); state = fresh(); kindServer = []; rowsByKey.clear(); for (const {input} of inputs) input.value = ''; void closePanel(); paintAll(); });

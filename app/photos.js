@@ -21,7 +21,7 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 //   출처 끄기는 보기에서만 빠진다(원드라이브 연결은 그대로).
 // 별표는 app_diary_stars(일기 ★와 같은 것). 저장은 모두 서버(기기 저장 없음, 썸네일 사본은 기존 od-thumb-cache.js만).
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더]·[앨범] 칩.
-// - [폴더]: 원드라이브 폴더 그대로(서버 folders-tree·library folder_id). PC(761px~)는 왼쪽 폴더 나무(노트·자료실과 같은 모양: 노란 폴더·들여쓰기·▸/▾·
+// - [폴더]: 원드라이브 폴더 그대로(서버 folders-tree·library folder_id). PC(1200px~, FOLD-넓은화면 C — 폴드 펼침 600~1199px은 표지 그림 카드 4칸)는 왼쪽 폴더 나무(노트·자료실과 같은 모양: 노란 폴더·들여쓰기·▸/▾·
 //   폴더마다 장수·맨 아래 + 새 폴더) + 오른쪽 위치 줄(folder-path.mjs 공용 부품)·고른 폴더 사진 격자. 폰은 노트처럼 한 화면씩 들어가고(위 하위 폴더 줄,
 //   아래 그 폴더 사진) 위치 줄·뒤로가기로 올라간다. 폴더 ⋯(PC 우클릭 = 폰 꾹 누르기, context-menu.js 공용 부품) = 새 하위 폴더·이름 바꾸기·옮기기·지우기(빈 폴더만).
 // - 여러 장 고른 뒤 [📁 옮기기] → 폴더 나무에서 고름(PC는 고른 사진을 왼쪽 폴더로 끌어 놓기도). 원드라이브에서도 실제 이동, 위쪽 '옮겼어요 · 되돌리기'.
@@ -83,6 +83,7 @@ import {followPane} from './follow-pane.js';
 import {mountSplitResize} from './split-resize.js';
 // FOLDER-나무새기준 ③(S51-12): 폰 [폴더]는 노트·파일·자료실과 같은 공용 상자·줄, 두 손가락 그 폴더만.
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftTrashRowHtml, ftIconHtml, ftFocusBackHtml, FT_PREVIEW} from './folder-tree-ui.mjs';
+import {SPLIT_QUERY} from './screen-width.mjs';
 import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
@@ -163,8 +164,13 @@ let fxTopFocus = false, fxBack = null;
 let pFolders = null, pFoldersFailed = '', pFoldersLoading = null, pAt = null, pFor = null, pItems = [], pNext = 0, pEnded = false, pLoading = null, pFailed = '';
 // [앨범]: tags·links(서버), album(들어간 앨범 id 또는 null = 카드 목록), aItems(그 앨범 사진).
 let tags = null, links = [], tagsFailed = '', tagsLoading = null, album = null, aFor = null, aItems = [], aLoading = null, aFailed = '', albumLayer = null;
-const TREE_WIDE = globalThis.matchMedia?.('(min-width:761px)');
+// FOLD-넓은화면 C(S57-21, 요청함 11/06 01:18 ③ · 시안 docs/design/mockups/fold-wide-screens.html C): [폴더]의 '왼쪽 나무 | 오른쪽 사진'은 PC(1200px~)만.
+// 폴드 펼침(600~1199px, 홈 두 단과 같은 폭)은 폰과 같은 첫 화면(저장소 상자 나무)을 표지 그림 카드 4칸으로 그린다(cardWide, 아래 fxOdRowsHtml).
+// 앞 판은 761px부터 나무 | 사진이라 펼친 폴드(884px)에서 나무 칸이 좁아 폴더 이름이 잘렸다.
+const TREE_WIDE = globalThis.matchMedia?.('(min-width:1200px)');
 const treeWide = () => !!TREE_WIDE?.matches;
+const CARD_WIDE = globalThis.matchMedia?.(SPLIT_QUERY);
+const cardWide = () => !treeWide() && !!CARD_WIDE?.matches;
 const starSet = new Set(), starDay = new Map(), starBusy = new Set();
 let starsReady = null;
 const isStarred = item => starSet.has(starKey(item.source, item.key));
@@ -1170,7 +1176,7 @@ attachPinch(body, () => {
 // FOLDER-나무새기준 ④: 폰 [폴더] 나무에서 펼친 폴더(또는 그 작은 그림 줄) 위 두 손가락 벌리기 = 그 폴더만. (그 폴더만 화면의 오므리기는 위 changeStage가 나무로.)
 // S51-24 UI-빈칸손짓: 본문 칸은 늘 아래 빈 곳까지(예전 100svh - 240px 어림 대신 공용 gesture-fill.js가 잰 높이).
 fillGestureArea(body);
-// UI-폴더누르기한규칙: PC(761px~) 나무 줄 위 벌리기 = 그 폴더로 들어가기(우클릭·⋯ [이 폴더로 들어가기]와 같은 곳). 줄에 'w:o|g|p:<id>' 열쇠를 돌려 폰 나무 열쇠와 가른다.
+// UI-폴더누르기한규칙: PC(1200px~) 나무 줄 위 벌리기 = 그 폴더로 들어가기(우클릭·⋯ [이 폴더로 들어가기]와 같은 곳). 줄에 'w:o|g|p:<id>' 열쇠를 돌려 폰 나무 열쇠와 가른다.
 const wideRowKey = el => {
   const r = el.closest('[data-photos-folder],[data-photos-gf],[data-photos-pf]');
   return !r ? null : r.dataset.photosFolder !== undefined ? 'w:o:' + r.dataset.photosFolder : r.dataset.photosGf !== undefined ? 'w:g:' + r.dataset.photosGf : 'w:p:' + r.dataset.photosPf;
@@ -2190,19 +2196,55 @@ folderLook.onChange(() => { if (tab === 'folders') renderFolders(); });
 // [‹]·뒤로 키·오므리기 = 펼친 자리 그대로 나무. 꺼 둔 폴더는 흐리게 + '끔'(켜기·끄기는 ⋯ 안). 색을 정한 폴더는 그림 색.
 const fxKey = (kind, id) => `${kind}:${id}`;
 const fxCount = n => (Number.isInteger(n) ? String(n) : null);
-function fxInlineLoad(key) {
+// quiet(FOLD-넓은화면 C): 카드 표지만 채우려고 읽은 것 — 그 폴더를 펼치지 않았으면 다시 그리지 않고 표지 칸만 채운다(fxCoverPaint).
+function fxInlineLoad(key, {quiet = false} = {}) {
   const have = fxInline.get(key);
-  if (have && have.state !== 'fail') return;
+  if (have && have.state !== 'fail') return have.done || Promise.resolve();
   const [kind, ...rest] = key.split(':'), id = rest.join(':'), r = run, entry = {items: [], state: 'wait'};
   fxInline.set(key, entry);
-  (async () => {
+  entry.done = (async () => {
     try {
       if (kind === 'p') { const page = await phone.page({sort, filter:'all', offset:0, limit:FT_PREVIEW, folder:id}); entry.items = page.items || []; }
       else { const page = await odLibrary(rt, {folderId:id, cursor:null, limit:FT_PREVIEW, sort}); entry.items = page.items.map(toItem); }
       entry.state = 'done';
     } catch (error) { entry.state = 'fail'; entry.why = kind === 'p' ? phoneErrorText(error) : odErrorText(error); }
-    if (current(r) && tab === 'folders' && fxTreeShown()) renderFolders();
+    if (!current(r) || tab !== 'folders' || !fxTreeShown()) return;
+    if (quiet && !fxOpen.has(key)) fxCoverPaint(key); else renderFolders();
   })();
+  return entry.done;
+}
+// ---- FOLD-넓은화면 C(S57-21): 폴드 펼침 [폴더] 첫 화면 = 표지 그림 카드 4칸 ----
+// 카드 한 장 = 공용 폴더 줄(ftFolderRowHtml) 그대로 + 표지 칸(lead) + 카드 안 스위치. 줄과 같은 이름표(data-…)라 누르기(그 자리 펼치기·접기)·⋯·두 손가락
+// (그 폴더만)·키보드가 폰 나무와 같은 길이다(UI-폴더누르기한규칙 그대로). 펼친 폴더의 하위 폴더·처음 몇 장·'n장 더 보기'는 카드 줄 아래 화면 폭 전체 줄.
+// 표지 = 그 폴더 처음 사진(펼쳤을 때 쓰는 '처음 몇 장'과 같은 읽기·같은 기억 fxInline). 한 번에 3개씩만 읽고, 읽은 뒤에는 그 카드의 표지 칸만 채운다.
+// 꺼 둔 폴더(흐리게)·빈 폴더는 읽지 않는다(회색 칸). 기기 저장 없음.
+const coverHtml = (key, load) => `<span class="photos-fx-cover" data-photos-cover="${esc(key)}"${load ? ' data-photos-cover-load="1"' : ''} aria-hidden="true"></span>`;
+const cardWithSwitch = (row, sw) => (sw ? row.replace(/<\/div>$/, `${sw}</div>`) : row);
+// 마지막 칸 [+ 새 폴더]: 점선 칸(.photos-fx-newcard)은 틀이고, 그 안 단추는 줄 목록과 같은 단추 그대로다(단추 모양을 화면마다 따로 정하지 않음, UI-버튼6가지).
+const newCardHtml = html => (cardWide() && html ? `<div class="photos-fx-newcard">${html}</div>` : html);
+const coverWait = [];
+let coverBusy = 0;
+function fxCoverPaint(key) {
+  const slot = body.querySelector(`[data-photos-cover="${CSS.escape(key)}"]`), item = fxInline.get(key)?.items?.[0];
+  if (!slot || slot.firstChild || !item) return;
+  slot.append(photoEl(item, 'small', {label:''}));
+}
+function fxCoverPump() {
+  while (coverBusy < 3 && coverWait.length) {
+    const key = coverWait.shift();
+    if (fxInline.has(key)) { fxCoverPaint(key); continue; }
+    coverBusy++;
+    fxInlineLoad(key, {quiet:true}).finally(() => { coverBusy--; fxCoverPump(); });
+  }
+}
+function fxFillCovers() {
+  coverWait.length = 0;
+  for (const slot of body.querySelectorAll('[data-photos-cover]')) {
+    const key = slot.dataset.photosCover, e = fxInline.get(key);
+    if (e?.state === 'done') fxCoverPaint(key);
+    else if (!e && slot.dataset.photosCoverLoad === '1') coverWait.push(key);
+  }
+  fxCoverPump();
 }
 // 그 폴더 사진 줄(작은 그림 FT_PREVIEW장) + 넘치면 'n장 더 보기'(그 폴더만으로).
 function fxStripHtml(key, depth, total) {
@@ -2230,15 +2272,19 @@ function fxFillStrips() {
   }
 }
 function fxOdRowsHtml() {
-  const out = [], seen = new Set(), whole = !!tree?.whole;
+  const out = [], seen = new Set(), whole = !!tree?.whole, cards = cardWide();
   const walk = (parent, depth) => {
     for (const f of photoSubfolders(tree, parent)) {
       if (seen.has(f.id) || depth > 200) continue;
       seen.add(f.id);
       const key = fxKey('o', f.id), kids = photoSubfolders(tree, f.id).length > 0, open = fxOpen.has(key);
-      out.push(ftFolderRowHtml({name:f.name, count:fxCount(f.count), countLabel:Number.isInteger(f.count) ? `사진 ${f.count}장` : '', depth, open, hasContent:kids || f.count !== 0,
-        color:folderLook.color('od', f.id), off:whole && f.enabled === false, rowAttrs:{'data-photos-folder':f.id, 'data-ft-key':key}, mainAttrs:{'data-photos-ftog':key},
-        more:{attrs:{'data-photos-fx-more':f.id}, label:`${f.name} 폴더 메뉴`, className:'nx-more'}}));
+      // FOLD-넓은화면 C: 맨 위 단계 폴더는 카드(표지 칸 + 카드 안 스위치). 꺼 둔 폴더는 흐리게(스위치가 상태를 보여 '끔' 글자는 두지 않음).
+      const card = cards && depth === 0, isOff = whole && f.enabled === false;
+      const row = ftFolderRowHtml({name:f.name, count:fxCount(f.count), countLabel:Number.isInteger(f.count) ? `사진 ${f.count}장` : '', depth, open, hasContent:kids || f.count !== 0,
+        color:folderLook.color('od', f.id), off:card ? false : isOff, rowAttrs:{'data-photos-folder':f.id, 'data-ft-key':key}, mainAttrs:{'data-photos-ftog':key},
+        className:card ? `photos-fx-card${isOff ? ' ft-off' : ''}${whole ? ' has-sw' : ''}` : '', lead:card ? coverHtml(key, !isOff && f.count !== 0) : '',
+        more:{attrs:{'data-photos-fx-more':f.id}, label:`${f.name} 폴더 메뉴`, className:'nx-more'}});
+      out.push(card && whole ? cardWithSwitch(row, switchHtml(f.id, f.name, !isOff)) : row);
       if (open) { walk(f.id, depth + 1); out.push(fxStripHtml(key, depth + 1, f.count)); }
     }
   };
@@ -2252,22 +2298,25 @@ function fxPhoneRowsHtml() {
     const r = run; loadPhoneFolders().then(() => { if (current(r) && tab === 'folders') renderFolders(); });
     return waitHtml({rows:2, h:36});
   }
-  const list = phoneFolderList(), sw = phoneSw();
+  const list = phoneFolderList(), sw = phoneSw(), cards = cardWide();
   if (!list.length) return emptyHtml('폰 폴더 없음');
   return list.map(f => {
     const key = fxKey('p', f.id), open = fxOpen.has(key), more = phoneOps() || (sw && !f.pending);
-    return ftFolderRowHtml({name:f.name, count:fxCount(f.count), countLabel:Number.isInteger(f.count) ? `사진 ${f.count}장` : '', depth:0, open, hasContent:f.count !== 0,
-      off:sw && !f.pending && phoneOff.has(f.id), rowAttrs:{'data-photos-pf':f.id, 'data-ft-key':key}, mainAttrs:{'data-photos-ftog':key},
-      more:more ? {attrs:{'data-photos-pf-more':f.id}, label:`${f.name} 폴더 메뉴`, className:'nx-more'} : null})
-      + (open ? fxStripHtml(key, 1, f.count) : '');
-  }).join('') + phoneNewHtml();
+    const canSw = sw && !f.pending, isOff = canSw && phoneOff.has(f.id);
+    const row = ftFolderRowHtml({name:f.name, count:fxCount(f.count), countLabel:Number.isInteger(f.count) ? `사진 ${f.count}장` : '', depth:0, open, hasContent:f.count !== 0,
+      off:cards ? false : isOff, rowAttrs:{'data-photos-pf':f.id, 'data-ft-key':key}, mainAttrs:{'data-photos-ftog':key},
+      className:cards ? `photos-fx-card${isOff ? ' ft-off' : ''}${canSw ? ' has-sw' : ''}` : '', lead:cards ? coverHtml(key, !isOff && f.count !== 0 && !f.pending) : '',
+      more:more ? {attrs:{'data-photos-pf-more':f.id}, label:`${f.name} 폴더 메뉴`, className:'nx-more'} : null});
+    return (cards && canSw ? cardWithSwitch(row, phoneSwHtml(f)) : row) + (open ? fxStripHtml(key, 1, f.count) : '');
+  }).join('') + newCardHtml(phoneNewHtml());
 }
 const fxBox = (src, head, body, tail = '') => ftBoxHtml({head, body, tail, collapsible:true, open:!boxShut('photos', src), toggleAttrs:{'data-photos-fxbox':src}, attrs:{'data-photos-box':src}, label:head.replace(/<[^>]+>/g, '')});
 function fxBoxesHtml(u) {
   let html = '';
   if (u.onedrive && tree) {
     const topKey = fxKey('o', tree.top.id);
-    const body = fxOdRowsHtml() + fxStripHtml(topKey, 0, tree.top.count) + newFolderHtml() + ftTrashRowHtml({attrs:{'data-photos-tab':'trash'}});
+    // 카드 4칸(폴드 펼침)은 [+ 새 폴더]가 카드 줄 마지막 칸이라 맨 위 폴더 사진 줄보다 앞에 둔다(읽는 순서 = 보이는 순서).
+    const body = (cardWide() ? fxOdRowsHtml() + newCardHtml(newFolderHtml()) + fxStripHtml(topKey, 0, tree.top.count) : fxOdRowsHtml() + fxStripHtml(topKey, 0, tree.top.count) + newFolderHtml()) + ftTrashRowHtml({attrs:{'data-photos-tab':'trash'}});
     html += fxBox('onedrive', `${MARK_SVG.onedrive}<span>원드라이브</span>`, body);
   }
   if (u.phone) html += fxBox('phone', `${MARK_SVG.phone}<span>폰</span>`, fxPhoneRowsHtml());
@@ -2340,8 +2389,8 @@ function renderFolders() {
     const groups = (u.phone ? phoneGroupHtml({wide, head:u.gdrive}) : '') + gdGroupHtml({wide, head:u.phone});
     if (wide) body.innerHTML = `${top}<div class="photos-fx is-wide"><div class="nx-tree photos-fx-tree" data-photos-fx-tree role="tree" aria-label="${u.phone && !u.gdrive ? '폰 폴더' : '사진 폴더'}">${groups}</div><div class="photos-fx-pane"${gdPane ? ' data-photos-gd-folder' : ''}>${gdPane ? gdPaneHtml({wide}) : f ? `${phonePathHtml(f)}${phoneHeadHtml(f)}<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>` : ''}</div></div>`;
     else body.innerHTML = f ? `<div class="photos-fx">${phoneFocusHtml(f, '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>')}</div>`
-      : `${top}<div class="photos-fx photos-fx-boxes">${fxBoxesHtml(u)}</div>`;
-    if (!wide && !f) fxFillStrips();
+      : `${top}<div class="photos-fx photos-fx-boxes${cardWide() ? ' is-cards' : ''}">${fxBoxesHtml(u)}</div>`;
+    if (!wide && !f) { fxFillStrips(); fxFillCovers(); }
     if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); fxSplit(); }
     syncFolderLayer();
     if (gdPane) paintGdFolderGrid(); else if (f) paintPhoneFolderGrid();
@@ -2367,8 +2416,8 @@ function renderFolders() {
     body.innerHTML = `<div class="photos-fx">${phoneFocusHtml(pf, grid)}</div>`;
   } else if (at === tree.top.id && !fxTopFocus) {
     // FOLDER-나무새기준 ③: 폰 첫 화면 = 원드라이브·폰·구글 드라이브 상자 나무(그 자리 펼치기, 폴더 안 처음 몇 장).
-    body.innerHTML = `${top}<div class="photos-fx photos-fx-boxes">${fxBoxesHtml(u)}</div>`;
-    fxFillStrips();
+    body.innerHTML = `${top}<div class="photos-fx photos-fx-boxes${cardWide() ? ' is-cards' : ''}">${fxBoxesHtml(u)}</div>`;
+    fxFillStrips(); fxFillCovers();
     syncFolderLayer();
     return;
   } else {
@@ -2661,7 +2710,7 @@ function folderClick(b) {
   if (b.matches('[data-photos-fx-back]')) { fxToTree(); return true; }
   if (b.matches('[data-photos-inline]')) { const list = fxInline.get(b.dataset.photosInlineOf)?.items || []; if (list.length) openViewer(Number(b.dataset.photosInline), {list:() => list}); return true; }
   if (gdFolderClick(b)) return true;
-  // UI-폴더누르기한규칙(S57-5): PC(761px~) 나무 폴더 이름 누르기 = 그 자리 펼치기·접기(들어가지 않음, 펼칠 하위 폴더가 없으면 아무 일 없음). 들어가기 = ⋯·우클릭 [이 폴더로 들어가기]·두 손가락. 맨 위 줄은 폴더가 아니라 지금처럼 그 칸으로.
+  // UI-폴더누르기한규칙(S57-5): PC(1200px~) 나무 폴더 이름 누르기 = 그 자리 펼치기·접기(들어가지 않음, 펼칠 하위 폴더가 없으면 아무 일 없음). 들어가기 = ⋯·우클릭 [이 폴더로 들어가기]·두 손가락. 맨 위 줄은 폴더가 아니라 지금처럼 그 칸으로.
   if (b.matches('[data-photos-fx-open]')) {
     const id = b.dataset.photosFxOpen;
     if (treeWide() && id !== tree?.top?.id) { if (photoSubfolders(tree, id).length) { if (openSet.has(id)) openSet.delete(id); else openSet.add(id); renderFolders(); body.querySelector(`[data-photos-fx-open="${CSS.escape(id)}"]`)?.focus({preventScroll:true}); } return true; }
@@ -3429,6 +3478,7 @@ body.addEventListener('pointermove', e => { if (rowHold && Math.hypot(e.clientX 
 for (const t of ['pointerup', 'pointercancel']) body.addEventListener(t, () => { if (rowHold) { clearTimeout(rowHold.timer); rowHold = null; } });
 body.addEventListener('click', e => { if (ateClick && e.target.closest?.('[data-photos-folder],[data-photos-pf],[data-photos-gf],[data-photos-album]')) { ateClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
 TREE_WIDE?.addEventListener?.('change', () => { if (tab === 'folders') renderFolders(); });
+CARD_WIDE?.addEventListener?.('change', () => { if (tab === 'folders') renderFolders(); }); // FOLD-넓은화면 C: 폴드를 접고 펼 때 줄 ↔ 카드
 
 // [폴더]·[앨범] 안의 겹(폰 뒤로가기 = 한 단계 위)을 닫는다(다른 칩으로 갈 때).
 function closeSubLayers() {
