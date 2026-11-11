@@ -345,3 +345,27 @@ test('REC-정리멈춤반복: 서버가 남길 수 있는 실패 코드는 모�
   // 띠는 두 줄까지: 글이 너무 길지 않게.
   for(const code of [...Object.keys(MESSAGES),'interrupted','step_cut','draft_cut'])assert.ok(failText(code).length<=70,`${code} ${failText(code).length}자`);
 });
+
+// REC-한회의로잇기 PR-2(설계 docs/design/rec-join.md 3-1절): 잇기 작업도 서버 정리 작업과 같은 단계 돌리기(runStep)를 쓴다. 흐름 시험은 tests/meeting-join-job.test.mjs.
+test('REC-한회의로잇기: 단계 돌리기를 두 표가 함께 쓴다 — 서버 정리 작업 길은 그대로, 새 실패 코드는 화면 문구가 있다',async()=>{
+  const src=read('supabase/functions/meeting-transcribe/index.ts');
+  // 서버 정리 작업을 부르는 곳은 표·tick을 넘기지 않는다(기본값 = 지금 그대로).
+  for(const call of ['inBackground(runStep(data.id));','inBackground(runStep(job.id));','inBackground(runStep(j.id));','inBackground(runStep(row.id));','inBackground(runStep(body.job_id as string));'])assert.ok(src.includes(call),call);
+  assert.match(src,/async function runStep\(id: string, kind: StepKind = 'job'\)/);
+  assert.match(src,/async function kickTick\(id: string, kind: StepKind = 'job'\)/);
+  assert.match(src,/job: \{ table: SERVER_JOB_TABLE, columns: SERVER_JOB_COLUMNS, action: 'job_tick' \}/);
+  assert.match(src,/join: \{ table: JOIN_JOB_TABLE, columns: JOIN_STEP_COLUMNS, action: JOIN_TICK_ACTION \}/);
+  // job_tick 서명은 예전과 같은 값(머리글자 meeting-job-tick) — 배포 사이에 걸친 tick이 끊기지 않는다. join_tick은 다른 머리글자.
+  const {createHmac}=await import('node:crypto');
+  const exp=1_800_000_060_000,sign=head=>createHmac('sha256',`${head}:server-key`).update(`${ID}.${exp}`).digest('hex');
+  assert.equal(await sj.tickSign('server-key',ID,exp),sign('meeting-job-tick'));
+  assert.equal(await sj.tickSign('server-key',ID,exp,'join'),sign('meeting-join-tick'));
+  // 잇기 작업이 남기는 새 실패 코드도 서버 코드 목록·화면 문구 표에 같이 있다(녹음 정리 문구와 섞이지 않는다).
+  const {MESSAGES}=await import('../supabase/functions/meeting-transcribe/model.mjs');
+  const generic=failText('__unknown__');
+  for(const code of ['report_changed','report_gone','source_changed','source_gone','already_joined','no_first_transcript','bad_target','not_applied','text_too_long']){
+    assert.ok(MESSAGES[code],code);assert.notEqual(failText(code),generic,code);
+    assert.doesNotMatch(failText(code),/소리는 Drive에 남아 있어요/,code);
+  }
+  assert.match(failText('report_changed'),/\[다시\]/);
+});

@@ -129,3 +129,79 @@ test('code shape: owner only, key name only, no transcript stored, no prune/dele
  assert.equal(rows.length,1);assert.equal(rows[0].split('|')[6].replace(/[*\s]/g,''),'true');
  assert.match(index,/verify_jwt=true/);
 });
+
+// REC-한회의로잇기 PR-2(설계 docs/design/rec-join.md 3-7절 보안 확인표): 잇기 입구의 인증 경계. 흐름 시험은 tests/meeting-join-job.test.mjs.
+const joinSrc=readFileSync('supabase/functions/meeting-transcribe/join-job.mjs','utf8');
+test('REC-한회의로잇기: join_* 는 로그인 뒤에만, join_tick만 서버 키 HMAC — verify_jwt·CORS·비로그인 401은 그대로',()=>{
+ const serve=index.indexOf('Deno.serve('),user=index.indexOf('const user = await userOf(req);',serve);
+ const jobTick=index.indexOf("if (action === 'job_tick') return await jobTick(req);",serve),joinTick=index.indexOf('if (action === JOIN_TICK_ACTION) return await joinTick(req);',serve);
+ assert.ok(serve>0&&jobTick>serve&&joinTick>jobTick&&user>joinTick,'로그인 없이 받는 입구는 job_tick·join_tick 둘뿐이고 userOf보다 앞');
+ // 사용자 입구 8개는 모두 userOf(비로그인 401) 뒤에 있다.
+ for(const a of ['join_text','join_start','join_candidates','join_read','join_list','join_retry','join_seen','join_undo']){
+  const at=index.indexOf(`if (action === '${a}')`,serve);assert.ok(at>user,`${a}는 로그인 확인 뒤`);
+  assert.equal(index.split(`action === '${a}'`).length,2,`${a} 입구는 한 곳`);
+ }
+ // userOf는 지금 그대로: 토큰 없음·확인 실패 = 401.
+ assert.match(index,/if \(!token\) throw new AuthError\(401\);\n\s*const \{ data, error \} = await admin\.auth\.getUser\(token\);\n\s*if \(error \|\| !data\?\.user\) throw new AuthError\(401\);/);
+ assert.match(index,/if \(e instanceof AuthError\) return json\(\{ ok: false, code: e\.message, error: e\.status === 401 \? '로그인이 필요합니다\.' : '접근 권한이 없습니다\.' \}, e\.status\);/);
+ // join_tick: 몸통 512자·서명 확인 실패는 401, 열쇠 머리는 CORS 허용 목록에 없다(브라우저는 보낼 수 없음).
+ const tick=index.slice(index.indexOf('async function joinTick('),serve);
+ assert.match(tick,/if \(raw\.length > 512\) return json\(\{ ok: false \}, 401\);/);
+ assert.match(tick,/tickCheck\(SERVICE, body, req\.headers\.get\(TICK_HEADER\), Date\.now\(\), 'join'\)\)\) return json\(\{ ok: false \}, 401\);\n\s*inBackground\(runStep\(body\.job_id as string, 'join'\)\);/);
+ const allow=index.match(/'Access-Control-Allow-Headers': '([^']*)'/)[1].split(', ');
+ assert.deepEqual(allow,['authorization','x-client-info','apikey','content-type','x-workspace-id','x-file-name','x-duration-sec','x-target-meeting-id','x-record-jobs','x-recording-id','x-piece-seq']);
+ assert.match(index,/'Access-Control-Allow-Methods': 'POST, OPTIONS'/);
+ assert.match(index,/if \(req\.method === 'OPTIONS'\) return new Response\('ok', \{ headers: cors \}\);/);
+ // verify_jwt 표 값은 true 그대로(위 code shape 시험과 같은 표 줄).
+ const row=readFileSync('docs/web2-env6b-edge-source.md','utf8').split('\n').filter(l=>/^\|\s*\d+\s*\|\s*`meeting-transcribe`/.test(l));
+ assert.equal(row.length,1);assert.equal(row[0].split('|')[6].replace(/[*\s]/g,''),'true');
+});
+
+test('REC-한회의로잇기: 작업공간은 서버가 정한다 — 보고는 부른 사람 로그인으로만 읽고, 보고를 쓰는 곳은 DB 함수 두 개뿐(id만 넘김)',()=>{
+ const join=index.slice(index.indexOf('// ---- REC-한회의로잇기 PR-2: 잇기 작업 입구'),index.indexOf('Deno.serve('));
+ // 화면이 보낸 작업공간·소유 값에 기대지 않는다: 잇기 입구는 몸통·머리글에서 그 값을 읽지 않는다.
+ assert.doesNotMatch(join,/body\.workspace_id|x-workspace-id|body\.created_by|body\.owner|body\.user_id/);
+ assert.doesNotMatch(joinSrc,/\bb\.workspace_id|\bbody\??\.workspace_id|want\.workspace|\.created_by\s*=[^=]/);
+ // 고른 보고·합칠 보고·보고 목록·녹음 자료 행·잇기 작업 행은 userDb(owner RLS·휴지통 숨김)로 읽는다. 서비스 권한으로 보고·자료를 읽거나 쓰지 않는다.
+ assert.match(join,/userDb\.from\('app_meetings'\)\.select\(JOIN_MEETING_COLUMNS\)\.eq\('id', id\)\.maybeSingle\(\)/);
+ assert.match(join,/userDb\.from\('app_meetings'\)\.select\(JOIN_DAY_COLUMNS\)\.eq\('workspace_id', workspaceId\)/);
+ assert.match(join,/userDb\.from\('app_documents'\)\.select\('meeting_id'\)\.eq\('workspace_id', workspaceId\)/);
+ assert.match(join,/userDb\.from\(JOIN_JOB_TABLE\)\.select\(columns\)\.eq\('id', id\)\.maybeSingle\(\)/);
+ assert.doesNotMatch(index,/admin\.from\('app_meetings'\)|admin\.from\('app_documents'\)/);
+ assert.doesNotMatch(index,/from\('app_meetings'\)\s*\.(insert|update|upsert|delete)\(/,'Edge는 보고 행을 직접 쓰지 않는다');
+ assert.doesNotMatch(index,/from\('app_record_links'\)|google-tasks/,'할 일·연결은 Edge가 만들지 않는다(후보만)');
+ // 서비스 권한 읽기는 작업공간으로 거른다(녹음 길이·연결된 작업·진행 중 잇기).
+ for(const name of ['recordJobs','linkedRecordJobs','linkedServerJobs','linkedTranscripts','activeJoins','joinSourceText','sourceJoined']){
+  const body=join.slice(join.indexOf(`    ${name}: async (`));
+  assert.match(body.slice(0,body.indexOf('\n    },')),/\.eq\('workspace_id', workspaceId\)/,name);
+ }
+ // DB 함수는 둘, id(와 범위)만 넘긴다. 행 모양·글·작업공간·사용자 값을 넘기지 않는다.
+ assert.deepEqual([...index.matchAll(/admin\.rpc\(([^)]*)\)/g)].map(m=>m[1]),["'app_meeting_join_apply', { p_job: job.id }","'app_meeting_join_undo', { p_job: id, p_scope: scope }"]);
+ // owner 기준은 한 곳(requireOwner). 잇기 입구는 그것을 그대로 쓴다.
+ assert.match(join,/async function isOwner\(userId: string, workspaceId: string\) \{\n\s*try \{ await requireOwner\(userId, workspaceId\); return true; \} catch \(e\) \{ if \(e instanceof AuthError\) return false; throw e; \}/);
+ assert.match(join,/\.eq\('user_id', userId\)\.eq\('role', 'owner'\)/);
+ // 순서는 join-job.mjs: 고른 보고를 로그인으로 읽기 → owner 확인 → 그 뒤 재료·작업 표.
+ const start=joinSrc.slice(joinSrc.indexOf('export async function startJoin('),joinSrc.indexOf('// join_read:'));
+ const order=['await io.userMeeting(want.targetId)','await io.isOwner(userId, workspaceId)','isMeetingReport(target)','await readMaterial(io, userId, want, target)','await io.activeJoins(workspaceId)','await io.insertJoin('].map(x=>start.indexOf(x));
+ assert.ok(order.every((v,i)=>v>0&&(i===0||v>order[i-1])),'시작 순서');
+ assert.match(start,/const workspaceId = target\.workspace_id;/);
+});
+
+test('REC-한회의로잇기: 글 내용은 로그·오류·응답에 싣지 않는다 — 오류는 고정 코드만',()=>{
+ // 규칙 파일은 로그를 쓰지 않고, 던지는 오류는 고정 코드뿐이다.
+ assert.doesNotMatch(joinSrc,/console\./);
+ for(const m of joinSrc.matchAll(/new Fail\(([^)]*)\)/g))assert.match(m[1],/^('[a-z_]+'|joined \? 'already_joined' : 'busy')$/,m[1]);
+ assert.deepEqual([...joinSrc.matchAll(/new Error\(([^)]*)\)/g)].map(m=>m[1]),["'join_patch_column'"]);
+ assert.doesNotMatch(joinSrc,/new (Fail|Error)\(`/);
+ // Edge 쪽 잇기 로그는 오류 코드뿐(오류 글·details·hint·글 칸 없음).
+ const join=index.slice(index.indexOf('// ---- REC-한회의로잇기 PR-2: 잇기 작업 입구'),index.indexOf('Deno.serve('))+index.slice(index.indexOf('async function applyJoin('),index.indexOf('async function stepOnce('));
+ const logs=[...join.matchAll(/console\.(?:warn|error|log)\(([^;]*)\);/g)].map(m=>m[1]);
+ assert.deepEqual(logs,["'meeting-transcribe: join undo', error.code || '-'","'meeting-transcribe: join apply', error.code || '-'"]);
+ assert.doesNotMatch(join,/error\.message|error\.details|error\.hint|JSON\.stringify\(/);
+ // 응답: 화면에 줄 모양(joinView)과 후보(id·초)뿐. 전문·회의 결과·합치기 전 글은 싣지 않는다.
+ for(const m of join.matchAll(/return json\((\{[^;]*)\);/g))assert.doesNotMatch(m[1],/transcript|notes|result_text|before_|draft|source_text/,m[1]);
+ const view=joinSrc.slice(joinSrc.indexOf('export function joinView('),joinSrc.indexOf('// DB 함수(apply·undo)의 오류'));
+ assert.doesNotMatch(view,/transcript_text|result_text|before_|draft|source_text|notes|workspace_id|created_by/);
+ // 폰 알림에는 종류·짧은 고정 제목·여는 주소만(지금 notifyDone과 같음).
+ assert.match(index,/sender\.send\(d\.fcm_token, \{ kind: 'meeting_done', title: kind === 'join' \? '보고에 이어 붙였어요' : '회의 요약이 준비됐어요', open, urgent: true \}\)/);
+});

@@ -53,6 +53,16 @@ const FAIL_TEXT={
   drive_failed:`Drive에서 소리를 읽지 못했어요. ${KEEP} ${AGAIN}`,
   drive_not_connected:'Google Drive 연결이 끊겼어요. 자료실에서 Drive를 연결한 뒤 [다시]를 누르세요.',
   usage_unavailable:`이번 달 사용량을 확인하지 못했어요. ${AGAIN}`,
+  // REC-한회의로잇기(PR-2): 잇기·합치기 작업이 멈춘 이유(Edge meeting-transcribe join_*). 어느 경우에도 보고는 그대로다. 글자만 — 쓰는 화면은 뒤 PR.
+  report_changed:'그 사이 보고를 수정해서 잇지 않았어요. [다시]를 누르면 수정한 글로 처음부터 이어요.',
+  report_gone:'그 보고를 찾지 못했어요. 바뀐 것은 없어요.',
+  source_changed:'그 사이 합칠 보고를 수정해서 합치지 않았어요. [다시]를 누르세요.',
+  source_gone:'합칠 보고나 녹음을 찾지 못했어요. 바뀐 것은 없어요.',
+  already_joined:'이미 다른 보고에 들어간 녹음이에요.',
+  no_first_transcript:'회의록 전문이 없는 보고에는 이어 붙일 수 없어요.',
+  bad_target:'[회의] 보고에만 이어 붙일 수 있어요.',
+  not_applied:'되돌릴 내용을 찾지 못했어요.',
+  text_too_long:'글이 너무 길어 이어 붙일 수 없어요.',
 };
 // 실패 코드 → 띠 글(두 줄까지). 위 표에 없는 이유(서버 안 오류 등)만 일반 문구 + 소리는 남아 있음.
 export function failText(code){
