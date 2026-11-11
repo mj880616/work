@@ -11,6 +11,8 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z'
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001';
 const RAW='10/20 합성 기자회견 준비 회의\n장소: 합성 본사 앞\n참석 30명';
 const AI_TEXT='합성 한빛지부는 10/20 합성 본사 앞 기자회견에 30명이 참석하기로 했다. 준비 회의에서 장소를 정했다.';
+// 홈 화면이 스스로 보내는 AI 부탁 종류(읽을 만한 글·챙길 것·업무 가르기). 이 파일의 시험 대상이 아니다.
+const HOME_BACKGROUND_ASKS=['home_day_picks','todo_radar','work_scope'];
 // Errors the browser itself logs for a mocked 4xx/5xx or an aborted request are not page errors.
 const resourceNoise=text=>/Failed to load resource|net::ERR_FAILED/.test(text);
 
@@ -34,19 +36,26 @@ async function fixture(page,{note:over={}}={}){
   for(const target of body.p_targets)links.push({id:'40000000-0000-4000-8000-'+String(links.length+1).padStart(12,'0'),workspace_id:'w',note_id:n,status:'confirmed',summary:target.summary??null,[target.kind==='project'?'project_id':'organization_id']:target.target_id});
   return route.fulfill({json:{ok:true,created:body.p_targets.length,existing:0}});
  });
- // Each queued reply answers one ai-assist call: {status,json} | 'abort' | {hold:true}.
- const queue=[];let release=null;
+ // Each queued reply answers one [AI 요약] call: {status,json} | 'abort' | {hold:true}.
+ // STAB(S57-19): 붙잡은 답을 놓는 문(gate)은 처음부터 만들어 둔다. 화면은 '요약 만드는 중…'을 먼저 보이고 요청은 로그인 확인 뒤에 보내므로,
+ // 시험의 release()가 요청이 여기 닿기 전에 불릴 수 있다 — 그때도 놓은 것이 사라지지 않게(예전에는 닿은 뒤에야 문이 생겨, 먼저 놓으면 답이 영영 붙잡혔다).
+ // 붙잡기는 시험 하나에 한 번만 쓴다.
+ const queue=[];let release;const gate=new Promise(r=>{release=r;});
  await page.route(SB+'/functions/v1/ai-assist',async route=>{
   if(route.request().method()!=='POST')return route.fulfill({status:204});
+  const kind=route.request().postDataJSON()?.kind;
   // WEEKLY-메뉴짝짓기 P4: 조직에 확정 연결하면 그 업데이트를 주별 조직보고 제안 줄로 보낸다(이 시험의 [AI 요약]과 별개라 세지 않음).
-  if(route.request().postDataJSON()?.kind==='org_week_lines')return route.fulfill({status:200,json:{ok:true,kind:'org_week_lines',results:[]}});
+  if(kind==='org_week_lines')return route.fulfill({status:200,json:{ok:true,kind:'org_week_lines',results:[]}});
+  // STAB(S57-19): 홈이 배경으로 보내는 AI 부탁(읽을 만한 글은 홈을 연 2초 뒤)이 이 가로채기를 깐 뒤에 늦게 올 수 있다.
+  // 이 시험의 [AI 요약]이 아니므로 세지도 답하지도 않고 openHome이 깐 기본 가짜 서버로 넘긴다. 그 밖의 종류는 전처럼 센다(뜻밖의 부탁은 시험이 잡는다).
+  if(HOME_BACKGROUND_ASKS.includes(kind))return route.fallback();
   ai.push({body:route.request().postDataJSON(),auth:route.request().headers().authorization});
   const next=queue.shift()||{status:200,json:{ok:true,kind:'link_summary',summary:AI_TEXT}};
-  if(next.hold){await new Promise(r=>{release=r;});return route.fulfill({status:200,json:{ok:true,kind:'link_summary',summary:AI_TEXT}});}
+  if(next.hold){await gate;return route.fulfill({status:200,json:{ok:true,kind:'link_summary',summary:AI_TEXT}});}
   if(next==='abort')return route.abort('failed');
   return route.fulfill({status:next.status,json:next.json});
  });
- return {note,links,calls,ai,errors,queue,release:()=>release?.()};
+ return {note,links,calls,ai,errors,queue,release:()=>release()};
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 async function openLink(page,width){
