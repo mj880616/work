@@ -46,6 +46,9 @@ body.kptu-mobile-keyboard .modal.ed-window .ed-window-actions { display:none; }
 /* ED③ 노트: 창 아래 [📎 첨부] 줄(노트 첨부, 고른 파일 목록)과 글 위 제목 줄. 크기·색은 옛 큰 창의 것을 옮긴 것이다. */
 .ed-window-foot { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:var(--kptu-touch-target, 44px); padding:0 8px; border-top:1px solid var(--kptu-border); box-sizing:border-box; }
 .ed-window-foot [data-edw-attach-files] { flex:1 1 220px; min-width:0; max-height:30vh; overflow:auto; }
+/* UX-먼저묻고뒤에처리: [저장] 뒤 뒤에서 올라가는 파일 줄(공용 올리는 줄). 고른 파일 목록과 같은 폭 규칙, 없으면 자리를 차지하지 않는다. */
+.ed-window-foot [data-edw-attach-sent] { flex:1 1 220px; min-width:0; max-height:30vh; overflow:auto; }
+.ed-window-foot [data-edw-attach-sent][hidden] { display:none; }
 html .modal.ed-window .ed-window-foot .basket-clip-picker { width:auto; height:auto; flex:0 0 auto; }
 html .modal.ed-window .ed-window-foot .basket-clip { position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:var(--ds-compact-height, 32px); min-width:0; min-height:0; padding:0 var(--ds-compact-pad-x, 12px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border-strong)); border-radius:var(--ds-radius-control, 8px); font-size:var(--ds-compact-text, 13px); font-weight:var(--ds-weight-medium, 500); line-height:1; }
 html .modal.ed-window .ed-window-foot .basket-clip::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
