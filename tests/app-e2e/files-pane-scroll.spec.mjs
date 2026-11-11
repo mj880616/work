@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { laidOutRect } from './helpers/laid-out.mjs';
 // S52-41 ② FILES-칸따로스크롤(요청함 11/08): 폴드 펼침·PC에서 왼쪽 나무와 오른쪽 목록이 각자 따로 스크롤한다.
 // 맨 위 줄(위치 길·찾기·정렬·출처·두 칸 보기)은 화면 위에 고정. 두 칸이면 칸마다 따로. 폰(한 칸)은 지금대로(화면 스크롤 하나).
 // 서버는 흉내(파일·폴더 이름은 모두 가짜). 나무가 화면보다 길도록 원드라이브 맨 위에 가짜 폴더 80개를 더한다.
@@ -12,7 +13,10 @@ const SHOTS = process.env.FILES_SCROLL_SHOTS || '';
 const shot = async (page, name) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/${name}.png` }); } };
 const fakeFolders = n => Array.from({ length: n }, (_, i) => ({ source: 'od', item_id: `OD!F${i}`, parent_id: null, name: `가짜 폴더 ${String(i).padStart(2, '0')}`, is_folder: true,
   mime: null, size_bytes: null, modified_at: '2026-10-01T01:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null }));
-const topOf = loc => loc.evaluate(el => Math.round(el.getBoundingClientRect().top));
+// 자리는 화면에 붙어 있는 요소에서만 잰다. 목록은 줄을 처음 그린 뒤 '폴더 바로 읽기' 응답이 오면 같은 줄을 한 번 더 그리는데(자리는 그대로, 줄 요소만 새것),
+// 그 순간에 걸리면 화면에서 빠진 옛 줄을 재서 위 자리가 0으로 읽혔다(STAB S57-19: 처음 잰 값 0 → 나중 값 136).
+const rectOf = loc => laidOutRect(loc);
+const topOf = async loc => (await rectOf(loc)).top;
 
 async function begin(page, width, prefs = null) {
   const { errors, server } = await start(page, width);
@@ -30,6 +34,8 @@ for (const width of [1440, 884]) {
     const { errors } = await begin(page, width);
     await expect(root(page)).toHaveClass(/fx-split-scroll/);
     const first = pane(page, 0).locator('[data-fx-list] [data-fx-row]').first(), crumb = root(page).locator('.fx-top [data-fx-crumb]');
+    await expect(first).toBeVisible();
+    await expect(crumb).toBeVisible();
     const firstTop = await topOf(first), crumbTop = await topOf(crumb);
     // 나무는 따로 스크롤하는 칸(화면보다 길다).
     expect(await tree(page).evaluate(el => el.scrollHeight > el.clientHeight + 50)).toBe(true);
@@ -44,10 +50,10 @@ for (const width of [1440, 884]) {
     await page.mouse.move(width - 200, 600);
     await page.mouse.wheel(0, 900);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
-    const head = await root(page).locator('.fx-top').evaluate(el => Math.round(el.getBoundingClientRect().top));
+    const headRect = await rectOf(root(page).locator('.fx-top')), head = headRect.top;
     expect(head).toBeGreaterThanOrEqual(-1);
     expect(head).toBeLessThan(80);
-    const treeTop = await topOf(tree(page)), headBottom = await root(page).locator('.fx-top').evaluate(el => Math.round(el.getBoundingClientRect().bottom));
+    const treeTop = await topOf(tree(page)), headBottom = headRect.bottom;
     expect(treeTop).toBeGreaterThanOrEqual(headBottom);
     expect(treeTop).toBeLessThan(headBottom + 60);
     expect(await tree(page).evaluate(el => el.scrollTop)).toBe(0);
@@ -69,8 +75,10 @@ test('PC 1440 두 칸: 칸마다 따로 스크롤(오른쪽 칸을 끝까지 내
   // 칸은 제자리에서 시작한다(나무와 같은 높이 — 붙는 자리만큼 밀려 내려가지 않음).
   expect(Math.abs((await topOf(pane(page, 0))) - (await topOf(tree(page))))).toBeLessThan(4);
   expect(await right.evaluate(el => el.scrollHeight > el.clientHeight + 50)).toBe(true);
-  const leftFirst = pane(page, 0).locator('[data-fx-row]').first(), leftTop = await topOf(leftFirst);
-  const rightHead = right.locator('.fx-ptop'), rightHeadTop = await topOf(rightHead);
+  const leftFirst = pane(page, 0).locator('[data-fx-row]').first(), rightHead = right.locator('.fx-ptop');
+  await expect(leftFirst).toBeVisible();
+  await expect(rightHead).toBeVisible();
+  const leftTop = await topOf(leftFirst), rightHeadTop = await topOf(rightHead);
   await right.evaluate(el => { el.scrollTop = el.scrollHeight; });
   await expect.poll(() => right.evaluate(el => el.scrollTop)).toBeGreaterThan(100);
   expect(await topOf(leftFirst)).toBe(leftTop);

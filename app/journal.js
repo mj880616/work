@@ -93,6 +93,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
+<div class="journal-day-right" data-journal-day-right>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>
 <form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 수정해서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
@@ -100,6 +101,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 </section>
 <div class="journal-fill" data-journal-fill hidden></div>
 <div class="journal-materials" data-journal-materials></div>
+</div>
 </section>
 <section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><div class="journal-weekly-body" data-journal-weekly></div></section>
 <section class="home-quiet" data-home-quiet aria-labelledby="home-quiet-title" hidden></section>`;
@@ -416,13 +418,17 @@ function eventRow(item) {
 }
 function renderSchedule(card) {
   const host = $('[data-journal-schedule]'), part = card.events;
+  // FOLD-넓은화면 ④(S57-16): 폴드 두 단에서 [머리·목록·알림]만 왼쪽 칸에 두고 '다가오는 일' 줄은 두 칸 폭 전체로 올리려고 묶음(.journal-schedule-body)을 둔다.
+  // 폰·PC에서는 display:contents라 묶음이 없는 것과 같은 모양(journal.css).
+  const body = document.createElement('div'); body.className = 'journal-schedule-body';
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
   head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">그날 일정</h4><small class="journal-head-count" data-journal-events-count>${part.loading ? '' : part.items.length}</small></span><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>`;
-  host.replaceChildren(head);
-  if (part.loading) { host.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
-  if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
-  else if (!part.failed) host.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-events-empty'}));
-  partNotes(host, part);
+  body.append(head);
+  host.replaceChildren(body);
+  if (part.loading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
+  if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); body.append(ul); }
+  else if (!part.failed) body.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-events-empty'}));
+  partNotes(body, part);
   // S49-12: 앞으로 다가오는 큰 일(D-n)은 그날 일정이 아니므로 일정 목록·'없음' 아래에 '다가오는 일' 작은 이름표와 따로 둔다.
   const dday = ddayLine();
   if (dday) host.append(dday);

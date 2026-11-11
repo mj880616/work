@@ -49,7 +49,7 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .wl-tools{display:flex;justify-content:flex-end;margin:0 0 2px}
 .oa-bar .wl-tools{margin:0 0 0 auto}
 /* 주간보고 4. 조직보고 표(weekTableHtml) — 담당조직 [전체 표]·홈 [주간 정리] 공용. 칸 선(안팎 모두)·13px 글은 주간보고 표 그대로.
-   폰은 표 모양을 지키되 한 조직을 두 줄로 쌓는다(윗줄 조직, 아랫줄 현황). */
+   폰(화면 760 이하)은 표 모양을 지키되 한 조직을 두 줄로 쌓는다(윗줄 조직, 아랫줄 현황) — 담당조직 [전체 표](.oa-table)만 예외로 어느 폭에서나 두 열(ORG-폴드두열표, 아래 블록). */
 .wl-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:2px 0 4px;border:1px solid var(--kptu-border)}
 .wl-table th,.wl-table td{padding:4px 6px;border:1px solid var(--kptu-border);text-align:left;vertical-align:top;font-weight:400;line-height:1.45}
 .wl-table thead th{position:relative;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:var(--ds-text-meta);text-align:center}
@@ -61,11 +61,20 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .wl-status.is-error{color:var(--kptu-danger)}
 .wl-status:empty{display:none}
 @media (max-width:760px){
-  .wl-table thead{display:none}
-  .wl-table,.wl-table tbody,.wl-table tr,.wl-table th,.wl-table td{display:block;width:auto}
-  .wl-table tbody tr{margin:0 0 -1px}
-  .wl-table tbody th.wl-c-org{width:auto;border-bottom:0}
-  .wl-table td{border-top:1px solid var(--kptu-border)}
+  .wl-table:where(:not(.oa-table)) thead{display:none}
+  .wl-table:where(:not(.oa-table)),.wl-table:where(:not(.oa-table)) tbody,.wl-table:where(:not(.oa-table)) tr,.wl-table:where(:not(.oa-table)) th,.wl-table:where(:not(.oa-table)) td{display:block;width:auto}
+  .wl-table:where(:not(.oa-table)) tbody tr{margin:0 0 -1px}
+  .wl-table:where(:not(.oa-table)) tbody th.wl-c-org{width:auto;border-bottom:0}
+  .wl-table:where(:not(.oa-table)) td{border-top:1px solid var(--kptu-border)}
+}
+/* ORG-폴드두열표(요청함 11/11, 시안 docs/design/mockups/org-table-fold-two-cols.html): 담당조직 [전체 표](.oa-table)는 접은 폰·폴드 펼침·PC 모두 [조직 | 조직현황] 두 열 표.
+   위 760 이하 쌓기는 이 표에 걸지 않는다(:where(:not(.oa-table)) — 우선순위는 그대로). 펼친 폴드는 가로 약 673~707px이라 760 아래 = 폰으로 잡혀 한 조직이 두 줄로 쌓였다.
+   [조직] 열 폭 — 600 이상(폴드 펼침·PC): 끌어 정한 폭(--oa-w-org, 서버 col_widths.orgall) → 없으면 가장 긴 조직 이름이 한 줄에 들어가는 폭(--oa-w-org-fit, org-overview.js, 표 폭 45%까지) → 없으면 9.5em.
+   600 미만(접은 폰): 좁게 7em 고정, 이름은 두 줄로 꺾임. 폰은 끌기 손잡이를 감춘다 — 끌어 넓힌 폭이 폰의 글 칸을 누르지 않게. 홈 [주간 정리] 표(.wl-weekly)는 바꾸지 않는다. */
+.wl-table.oa-table .wl-c-org{width:var(--oa-w-org,var(--oa-w-org-fit,9.5em))}
+@media (max-width:599px){
+  .wl-table.oa-table .wl-c-org{width:7em}
+  .wl-table.oa-table .col-grip{display:none}
 }
 /* S50-25 ⑨: 기록·업데이트에서 온 줄 끝 작은 [↗] 원래 기록 열기 — 테두리 없는 흐린 글자, 누르는 자리는 넓게. */
 #appView button.wl-src,.wl-src{position:relative;flex:0 0 auto;box-sizing:border-box;min-height:0;height:auto;padding:0 2px;border:0;background:none;color:var(--kptu-muted);font-size:var(--ds-text-meta);line-height:1;cursor:pointer}

@@ -1,0 +1,95 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 일정에 사진·파일 붙이기 (CAL-일정첨부)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#ece9e1;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2b2b28}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#555;line-height:1.55;margin:0 0 12px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#666}
+/* 폰 화면 그림: 안쪽 크기는 모두 em(13px = 1em). 보는 화면이 좁으면 통째로 작아진다. */
+.phone{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;color:#2a2a23;border:1px solid #cfc8b6;border-radius:1.2em;overflow:hidden;line-height:1.45;padding:1.1em 1.2em 1em}
+.ttl{display:flex;align-items:center;gap:.8em;font-size:1.4em;font-weight:500;margin:0 0 .7em}
+.ttl span{color:#6e6c60;font-weight:400}
+.ttl .sp{margin-left:auto}
+.lab{color:#6e6c60;font-size:.95em;margin:.7em 0 .25em}
+.in{border:1px solid #cfc8b6;border-radius:.6em;padding:.45em .7em;font-size:1.08em;background:#fffefa}
+.two{display:flex;gap:.6em}.two>div{flex:1}
+.memo{min-height:3.2em;color:#2a2a23}
+.att{border:.16em solid #b8663a;border-radius:.7em;padding:.5em .6em .55em;margin:.2em -.3em 0}
+.att .lab{margin-top:0}
+.thumbs{display:flex;gap:.45em;flex-wrap:wrap;align-items:flex-end}
+.th{width:5.6em;height:5.6em;border-radius:.5em;background:linear-gradient(160deg,#cfd6bd 0 55%,#a9b48e 55% 100%);position:relative;overflow:hidden}
+.th.b{background:linear-gradient(200deg,#d9cdb9 0 48%,#b9a98c 48% 100%)}
+.th i{position:absolute;right:.25em;top:.1em;font-style:normal;color:#fffefa;letter-spacing:-.08em;text-shadow:0 0 .2em rgba(0,0,0,.45)}
+.row{display:flex;align-items:center;gap:.5em;padding:.45em .1em .1em;font-size:1.02em}
+.row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .m{color:#8f8c7f;letter-spacing:-.08em}
+.add{display:inline-block;margin-top:.5em;color:#47532a;font-size:.98em}
+.hint{color:#8f8c7f;font-size:.88em;margin-left:.6em}
+.save{display:flex;justify-content:space-between;align-items:center;margin-top:1.1em}
+.ghost{border:1px solid #cfc8b6;border-radius:.6em;padding:.35em .8em;color:#2a2a23}
+.pri{border-radius:.6em;padding:.4em .9em;background:#5c6a35;color:#fffefa}
+.up{display:flex;align-items:center;gap:.5em;color:#6e6c60;font-size:.95em;padding:.35em .1em 0}
+.bar{flex:1;height:.3em;border-radius:.3em;background:#e9e6dc;overflow:hidden}.bar b{display:block;width:62%;height:100%;background:#8a9a5b}
+.menu{display:inline-block;border:1px solid #cfc8b6;border-radius:.6em;background:#fffefa;box-shadow:0 .3em 1em rgba(0,0,0,.1);padding:.25em 0;font-size:1.02em;margin:.3em 0 0 9em}
+.menu div{padding:.4em 1.1em}
+.pick{border:.16em solid #b8663a;border-radius:.7em;padding:.5em .6em .6em;margin:.5em -.3em 0}
+.sec{font-weight:700;margin:.2em 0 .35em}.sec small{font-weight:400;color:#6e6c60;font-size:.9em}
+.th.on::after{content:"✓";position:absolute;left:.3em;top:.2em;width:1.3em;height:1.3em;border-radius:1em;background:#5c6a35;color:#fffefa;font-size:.85em;line-height:1.3em;text-align:center}
+.th.off{opacity:.5}
+.legend{background:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;margin-top:14px}
+.legend b{color:#55632f}
+</style></head><body>
+<h1>시안: 일정에 사진·파일 붙이기</h1>
+<p class="note">일정 이름·장소는 모두 예시예요. 주황 테두리가 새로 생기는 칸이에요(실제 화면에는 테두리 없음).</p>
+
+<div class="cap">① 일정 창 <small>[메모] 아래에 [사진·파일] 칸이 생김</small></div>
+<div class="phone"><div class="scr">
+<div class="ttl">일정 수정<span class="sp">⋯</span><span>✕</span></div>
+<div class="lab">캘린더</div><div class="in">예시 캘린더</div>
+<div class="lab">제목</div><div class="in">예시 간담회</div>
+<div class="two"><div><div class="lab">시작</div><div class="in">11.12. 14:00</div></div><div><div class="lab">종료</div><div class="in">11.12. 16:00</div></div></div>
+<div class="lab">장소</div><div class="in">예시 회의실</div>
+<div class="lab">메모</div><div class="in memo">준비물 확인</div>
+<div class="att">
+<div class="lab">사진·파일</div>
+<div class="thumbs"><div class="th"><i>⋯</i></div><div class="th b"><i>⋯</i></div></div>
+<div class="row"><span class="nm">예시 안내문.pdf</span><span class="m">⋯</span></div>
+<span class="add">+ 붙이기</span><span class="hint">사진 고르기 · 찍기 · 파일</span>
+</div>
+<div class="save"><span class="ghost">결과 남기기</span><span class="pri">변경사항 저장</span></div>
+</div></div>
+
+<div class="cap">② 붙이는 중 · 줄 끝 ⋯ <small>저장을 누르면 창은 바로 닫히고 올리기는 뒤에서 이어짐</small></div>
+<div class="phone"><div class="scr">
+<div class="att" style="margin-top:0">
+<div class="lab">사진·파일</div>
+<div class="thumbs"><div class="th"><i>⋯</i></div><div class="th b"><i>⋯</i></div></div>
+<div class="up"><span>사진 1장 올리는 중</span><span class="bar"><b></b></span></div>
+<div class="row"><span class="nm">예시 안내문.pdf</span><span class="m">⋯</span></div>
+<div class="menu"><div>크게 보기 · 열기</div><div>내려받기</div><div>이름 수정</div><div>빼기</div><div>삭제</div></div>
+</div>
+</div></div>
+
+<div class="cap">③ [결과 남기기]로 사업 보고를 쓸 때 <small>일정에 붙인 사진도 골라 넣을 수 있음</small></div>
+<div class="phone"><div class="scr">
+<div class="ttl">사업 보고<span class="sp">✕</span></div>
+<div class="lab">제목</div><div class="in">예시 간담회</div>
+<div class="sec" style="margin-top:.9em">사진 <small>· 그 시각 사진 3장 골라 둠(빼려면 누르기)</small></div>
+<div class="thumbs"><div class="th on"></div><div class="th b on"></div><div class="th on"></div></div>
+<div class="pick">
+<div class="sec">일정에 붙인 사진 2 <small>· 넣으려면 누르기</small></div>
+<div class="thumbs"><div class="th b off"></div><div class="th off"></div></div>
+</div>
+<div class="save"><span></span><span class="pri">사업 보고 저장</span></div>
+</div></div>
+
+<div class="legend"><b>바뀌는 것</b>: 일정 창에서 사진·파일을 붙이고 볼 수 있어요. 사진은 작은 그림으로, 다른 파일은 이름 한 줄로 보여요. 사진을 누르면 크게 보기예요.<br>
+<b>어디에 저장되나</b>: 원본은 내 Drive '자료실 › 일정 첨부'에 한 번만 저장하고, 일정에는 Google 캘린더의 '첨부'로 붙여요. 그래서 Google 캘린더 앱에서도 같은 첨부가 보여요.<br>
+<b>줄 끝 ⋯</b>: [빼기]는 일정에서만 떼고 파일은 Drive에 남아요. [삭제]는 떼고 Drive 휴지통으로 보내요(30일 안 되살림). 일정을 지워도 Drive 파일은 남아요.<br>
+<b>알아 둘 것</b>: 같이 쓰는 캘린더의 일정에 붙이면 상대에게는 첨부 이름만 보이고 열리지는 않아요(파일은 내 Drive에만 있음). 자동으로 공유하지는 않아요.<br>
+<b>사업 보고로 넘기기</b>: 일정에 붙인 것은 참고 그림이 대부분이라 처음에는 안 고른 상태예요. 누른 사진만 보고에 들어가고, 파일은 다시 올리지 않아요(Drive 원본 하나를 같이 씀).<br>
+<b>그대로인 것</b>: 일정 창의 다른 칸, [결과 남기기], [변경사항 저장], 달력 칸 모양, 그 시각 사진 미리 고르기.</div>
+</body></html>
