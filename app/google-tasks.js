@@ -13,7 +13,7 @@ import { dayKey } from './home-read-model.js';
 import { pickMyOrganizations } from './my-organizations.js';
 import { createGoogleTask } from './quick-save.js';
 import { readTaskSourceNotes, requestBasketNote, takeTaskOpenRequest, basketNoteHref } from './basket-note-tasks.js';
-import { readTaskFiles, fileLinksHtml, mountTaskAttach, applyTaskAttachPlan, taskAttachNotice, splitTaskNotes, joinTaskNotes, taskAttachments, openTaskFilesDialog, taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
+import { readTaskFiles, fileLinksHtml, mountTaskAttach, applyTaskAttachPlan, taskAttachNotice, splitTaskNotes, joinTaskNotes, taskAttachments, openTaskFilesDialog, taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, sendTaskFilesBehind, taskFileLine } from './task-files.js';
 import { paintFreshness } from './data-freshness.js';
 import { mountSplitResize } from './split-resize.js';
 import { followPane } from './follow-pane.js';
@@ -266,24 +266,35 @@ async function recoverCreatedTask(){
     }
   }catch(e){if(active())editorNotice(errorText(e),{recover:true})}
 }
-async function attachChosenFiles(r){
-  const files=r.files;r.files=[];if(editorActive(r))newFiles?.show(false);
-  const result=await attachNewTaskFiles(r.task.id,files,{rt,onProgress:(i,n,f)=>{if(editorActive(r))editorNotice(`${f.name} 올리는 중… (${i+1}/${n})`)}});
-  if(result.files&&r.owner===currentOwner()&&taskFiles.owner===r.owner){const map=new Map(taskFiles.map);map.set(r.task.id,result.files);taskFiles={...taskFiles,map}}
-  const notice=newTaskFilesNotice(result);if(notice)toast(editorActive(r)?'할 일은 저장했습니다. 파일을 확인해 주세요.':notice);
-  return notice;
+// BIZ-저장먼저닫기 3차(S59-18): 할 일(글)이 저장된 뒤 고른 파일은 이 할 일의 뒤 줄로 넘기고 창은 기다리지 않는다(task-files.js sendTaskFilesBehind —
+// 진행·끝·못 올림·[다시 올리기]는 하단바 위 한 줄). 같은 계정·세션일 때만 넘긴다(그사이 창을 닫았어도 — 할 일은 이미 저장됐다).
+function sendChosenFiles(r){
+  if(r.owner!==currentOwner()||r.epoch!==editorSession()||!r.task?.id)return;
+  const files=r.files;r.files=[];
+  if(files.length){if(editorActive(r))newFiles?.show(false);sendTaskFilesBehind({task:r.task,files,count:r.fresh?0:null,rt})}
+  const behind=r.behind;r.behind=null;
+  if(behind&&(behind.swaps.length||behind.add.length))sendTaskFilesBehind({task:r.task,files:behind.add,swaps:behind.swaps,count:behind.count,rt});
 }
+// TASK-첨부교체 + BIZ-저장먼저닫기 3차: 수정 창 [저장]의 첨부 계획. 메모 줄에만 있는 파일(첨부 표에 없음)의 빼기·교체 원래 줄은 앞의 글 저장에서 같이 정리한다(서버 일 없음).
+function planNotes(r){
+  const plan=r.att,drop=new Set([...plan.remove,...plan.swap.map(s=>s.from)].filter(f=>!f.inTable).map(f=>f.drive_file_id));
+  const keep=splitTaskNotes(r.task.notes).attachments.filter(f=>!drop.has(f.drive_file_id));
+  return {noteOnly:drop.size>0,notes:joinTaskNotes(JSON.parse(r.text)[2],keep)};
+}
+// 글 저장 뒤: 빼기(파일을 올리지 않는 짧은 요청)는 여기서 — 같은 할 일의 뒤 줄이 돌고 있으면 그 뒤에 서서(서버가 메모 줄을 한 번에 하나씩 고치게).
+// 교체·붙이기의 새 파일은 r.behind로 남겨 sendChosenFiles가 뒤 줄에 넘긴다(새 파일을 올린 뒤 원래 것을 뺌, 차 있으면 먼저 뺌).
 async function applyAttachEdits(r){
   const plan=r.att;r.att=null;
-  const result=await applyTaskAttachPlan(r.task.id,plan,{rt,onProgress:(i,n,name,doing)=>{if(editorActive(r))editorNotice(`${name} ${doing}… (${i+1}/${n})`)}});
+  const remove=plan.remove.filter(f=>f.inTable);
+  let result={failed:[],gone:new Set(),files:null,task:null};
+  if(remove.length)await taskFileLine.add(r.task.id,{note_id:r.task.id,entries:[]},async()=>{result=await applyTaskAttachPlan(r.task.id,{remove,swap:[],add:[],tableCount:plan.tableCount},{rt,onProgress:(i,n,name,doing)=>{if(editorActive(r))editorNotice(`${name} ${doing}… (${i+1}/${n})`)}})});
   if(r.owner===currentOwner()&&taskFiles.owner===r.owner&&result.files){const map=new Map(taskFiles.map);if(result.files.length)map.set(r.task.id,result.files);else map.delete(r.task.id);taskFiles={...taskFiles,map}}
-  const fresh=result.task?.id===r.task.id&&typeof result.task.notes==='string'?result.task.notes:r.task.notes;
-  // Lines of files taken off never come back from this save; lines only the notes hold are dropped here (no table row to detach).
-  const keep=splitTaskNotes(fresh).attachments.filter(f=>!result.gone.has(f.drive_file_id));
-  const noteOnly=[...plan.remove,...plan.swap.map(s=>s.from)].some(f=>!f.inTable&&result.gone.has(f.drive_file_id));
-  r.task={...r.task,notes:fresh};if(editorActive(r)){editing=r.task;paintAttach(editing)}
-  const notice=taskAttachNotice(result);if(notice&&!editorActive(r))toast(notice);
-  return {notice,noteOnly,notes:joinTaskNotes(JSON.parse(r.text)[2],keep)};
+  const gone=remove.filter(f=>result.gone.has(f.drive_file_id)).length;
+  r.behind={swaps:plan.swap.map(s=>({from:s.from.inTable?s.from:null,file:s.file})),add:plan.add,count:result.files?result.files.length:Math.max(0,(Number(plan.tableCount)||0)-gone)};
+  if(result.task?.id===r.task.id&&typeof result.task.notes==='string')r.task={...r.task,notes:result.task.notes};
+  // 잡아 둔 변경은 넘겼으니 칸은 저장된 파일로 다시 그린다(교체·붙이기의 새 파일은 뒤 줄이 붙인 뒤 kptu:task-files-sent로 채워진다).
+  if(editorActive(r)){editing=r.task;paintAttach(editing)}
+  return taskAttachNotice(result);
 }
 // S49-6 TODO-기한버튼닫기: [오늘][내일][모레][다음주 ▾][기한 없음]으로 저장되면(수정 중이던 제목·메모·연결도 같은 저장에 함께 실림) PC에 붙인 칸이든 폰 창이든
 // 상세를 닫고 고른 줄 표시를 푼다(closeEditor). 결과는 위쪽 작은 알림 '○○ 기한을 11월 5일(목)로 바꿨어요 [되돌리기]'. 다시 눌러 같은 날이면 닫기만 한다.
@@ -323,8 +334,9 @@ async function saveEditor(opt){
       const d=await editorCall(r,endpoint('links')+'&task_id='+encodeURIComponent(r.task.id),{singleFlight:false});if(!editorActive(r))return;
       editorLinks=confirmedKeys(d);uncertainTasks.delete(taskUncertaintyKey(r.task.id));
     }
-    // TASK-첨부교체: the held 교체·빼기·붙이기 go first (each through attach / detach); a line known only from the notes goes with the notes below.
-    if(r.task&&r.att){stage='files';const res=await applyAttachEdits(r);filesNotice=res.notice;body.notes=res.notes;if(!editorActive(r)){tasksChanged();return}stage='body';if(res.noteOnly)r.notesChanged=true}
+    // BIZ-저장먼저닫기 3차(S59-18): 글(제목·메모) 먼저 저장한다. 첨부 계획 가운데 메모 줄에만 있는 파일의 줄 정리는 이 저장에 같이 싣고,
+    // 첨부 표의 빼기는 글 저장 뒤(applyAttachEdits), 교체·붙이기의 새 파일은 창을 닫은 뒤 뒤 줄에서(서버 update는 표에서 첨부 줄을 다시 만든다).
+    if(r.task&&r.att){const pre=planNotes(r);body.notes=pre.notes;if(pre.noteOnly)r.notesChanged=true}
     if(!r.task||r.text!==editorDraft||r.notesChanged){
       if(!editorActive(r))return;
       if(!r.task){attempt={owner,epoch,pending:true,task:null};createAttempt=attempt}
@@ -332,25 +344,27 @@ async function saveEditor(opt){
       if(attempt){attempt.pending=false;if(confirmedTask(d))attempt.task=d.task}
       if(!editorActive(r)){
         if(attempt&&owner===currentOwner()&&epoch===editorSession()&&confirmedTask(d)&&!d.link_error)createAttempt=null;
-        // The window was closed while Google made the task: its chosen files still go up, and the toast says how it went.
-        if(!r.task&&r.files.length&&confirmedTask(d)&&owner===currentOwner()&&epoch===editorSession()){r.task={...d.task};await attachChosenFiles(r);if(owner===currentOwner()&&epoch===editorSession())tasksChanged()}
+        // The window was closed while Google made the task: its chosen files still go up behind (the bottom line says how it went).
+        if(!r.task&&r.files.length&&confirmedTask(d)&&owner===currentOwner()&&epoch===editorSession()){r.task={...d.task};r.fresh=true;sendChosenFiles(r);tasksChanged()}
         return;
       }
       if(!confirmedTask(d,r.task?.id))throw new Error('저장 결과를 확인하지 못했어요.') ;
-      if(!r.task){r.task=editing={...d.task};editorLinks=confirmedKeys(d);document.querySelector('#gtTaskHeading').textContent='Google 할 일 수정';const created=editorCreated;editorCreated=null;if(created)try{created(d.task.id)}catch{}}
-      // TASK-추가창파일: the task exists now; its chosen files go up one by one (a failure keeps the task and is said below).
-      if(r.files.length){filesNotice=await attachChosenFiles(r);if(!editorActive(r)){tasksChanged();return}}
-      else{editing=r.task={...r.task,...d.task};paintAttach(editing)}
+      if(!r.task){r.task=editing={...d.task};r.fresh=true;editorLinks=confirmedKeys(d);document.querySelector('#gtTaskHeading').textContent='Google 할 일 수정';const created=editorCreated;editorCreated=null;if(created)try{created(d.task.id)}catch{}}
+      editing=r.task={...r.task,...d.task};paintAttach(editing);
       editorDraft=r.text;r.savedText=r.text;pendingEditors.set(taskUncertaintyKey(r.task.id),r);
+      sendChosenFiles(r); // 새 할 일의 고른 파일은 할 일이 생긴 바로 뒤 줄로(연결 저장을 기다리지 않음). 수정 창의 첨부 계획은 아래 빼기 뒤에.
+
       if(d.link_error){
         stage='links';
         const actual=await editorCall(r,endpoint('links')+'&task_id='+encodeURIComponent(r.task.id),{singleFlight:false});if(!editorActive(r))return;
         editorLinks=confirmedKeys(actual);editorNotice('할 일은 저장했습니다. 연결은 일부만 저장됐을 수 있습니다. 확인한 뒤 저장해 주세요.'+(filesNotice?' '+filesNotice:''));r.failed=true;if(docked)field='links';tasksChanged();return;
       }
     }
-    if(!editorActive(r))return;
-    // A new task picked from the list after an unconfirmed create (recoverCreatedTask) still takes the files chosen for it.
-    if(r.files.length){filesNotice=await attachChosenFiles(r);if(!editorActive(r)){tasksChanged();return}}
+    // 글이 저장된 뒤 창을 닫았어도(같은 계정·세션) 잡아 둔 첨부 변경과 고른 파일은 끝까지 보낸다 — 할 일은 이미 저장됐다.
+    if(!editorActive(r)){if(r.task&&r.att&&r.owner===currentOwner()&&r.epoch===editorSession())await applyAttachEdits(r);sendChosenFiles(r);return}
+    // 첨부 표의 빼기(글 저장 뒤). 교체·붙이기의 새 파일과 새 할 일의 고른 파일(목록에서 고른 할 일 포함)은 뒤 줄로 — 창은 기다리지 않는다.
+    if(r.task&&r.att){stage='files';filesNotice=await applyAttachEdits(r);stage='body';if(!editorActive(r)){sendChosenFiles(r);tasksChanged();return}}
+    sendChosenFiles(r);
     if(r.chosen&&editorLinks){
       stage='links';
       const add=[...r.chosen].filter(k=>!editorLinks.has(k));
@@ -456,12 +470,24 @@ const filesOf=id=>taskFiles.owner&&taskFiles.owner===currentOwner()?taskFiles.ma
 const fileLinks=t=>{const table=filesOf(t.id);return fileLinksHtml(taskAttachments(t.notes,table),{taskId:t.id,tableIds:filesSupported()?new Set(table.map(f=>f.drive_file_id)):null})};
 // ATT-이름고치기: 첨부 이름을 고치면(서버가 Drive 원본·할 일 첨부 표를 함께 바꿈) 들고 있는 파일 목록을 고쳐 다시 그린다. 잡아 둔 수정 창 변경은 그대로.
 window.addEventListener('kptu:file-renamed',e=>{const d=e.detail;if(!d?.drive_file_id||!taskFiles.owner)return;let hit=false;const map=new Map();for(const [id,files] of taskFiles.map)map.set(id,files.map(f=>f.drive_file_id===d.drive_file_id&&f.file_name!==d.name?(hit=true,{...f,file_name:d.name}):f));if(!hit)return;taskFiles={...taskFiles,map};if(tasksViewShown())renderTasks(lastTasks);attach?.renamed?.(d)});
+// BIZ-저장먼저닫기 3차(S59-18): 뒤 줄이 할 일에 파일을 붙였다(task-files.js sendTaskFilesBehind) — ⋯ [파일 붙이기] 창의 onChange처럼 파일 이름·메모 줄을 맞춘다.
+// 열린 수정 창에 잡아 둔 첨부 변경이 있으면 그 칸은 다시 그리지 않는다(변경을 잃지 않게).
+window.addEventListener('kptu:task-files-sent',e=>{const d=e.detail;if(!d?.id||!d.owner||d.owner!==currentOwner()||taskFiles.owner!==d.owner)return;
+  if(Array.isArray(d.files)){const map=new Map(taskFiles.map);if(d.files.length)map.set(d.id,d.files);else map.delete(d.id);taskFiles={...taskFiles,map}}
+  const shown=lastTasks.find(t=>t.id===d.id);
+  if(shown&&d.task?.id===d.id)putTask({...shown,notes:d.task.notes??shown.notes,updated:d.task.updated??shown.updated},d.owner);else if(tasksViewShown())renderTasks(lastTasks);
+  if(editing?.id===d.id&&!editorSaving&&!attach?.dirty()){editing={...editing,notes:d.task?.id===d.id?d.task.notes??editing.notes:editing.notes};paintAttach(editing)}
+  // 목록을 읽는 중이었다면 그 읽기는 붙이기 전 것일 수 있다 — 붙인 뒤 한 번 더 읽는다(늦게 온 옛 읽기는 버린다).
+  if(tasksViewShown()&&lastTasks.length){const epoch=sessionEpoch;void loadTaskFiles(d.owner,epoch,lastTasks).then(changed=>{if(changed){renderTasks(lastTasks);if(editing?.id&&!editorSaving&&!attach?.dirty())paintAttach(editing)}},()=>{})}});
 // TASK-첨부열기: the edit window's 첨부 row (same merged list as the card). Hidden when the task has none.
 // TASK-첨부교체: every paint starts from the saved files, so closing the window or opening another task forgets held changes.
 function paintAttach(task){if(!attach)return;const table=task?filesOf(task.id):[],ids=new Set(table.map(f=>f.drive_file_id));attach.set(task?taskAttachments(task.notes,table).map(f=>({...f,inTable:ids.has(f.drive_file_id)})):[],{editable:!!task?.id&&filesSupported(),shown:!!task,taskId:task?.id||''})}
+// 마지막에 보낸 읽기만 쓴다(뒤 줄이 파일을 붙인 뒤 다시 읽으면, 그 전에 나간 읽기가 늦게 와도 새 파일을 지우지 않게 — S59-18).
+let filesSeq=0;
 async function loadTaskFiles(owner,epoch,tasks){
+  const mine=++filesSeq;
   let map=null;try{map=await readTaskFiles(tasks.map(t=>t.id),{rt})}catch{map=null}
-  if(!stillCurrent(epoch,owner))return false;
+  if(!stillCurrent(epoch,owner)||mine!==filesSeq)return false;
   const before=taskFiles.supported+':'+JSON.stringify([...taskFiles.map]);
   taskFiles=map?{owner,supported:true,map}:{owner,supported:false,map:new Map()};
   return before!==taskFiles.supported+':'+JSON.stringify([...taskFiles.map]);

@@ -48,6 +48,7 @@ export function createAttachQueue() {
 // BIZ-저장먼저닫기 2차(S59-8): 노트·업데이트 첨부의 뒤 줄은 한 곳에 하나씩만 둔다(한 글에 줄 하나 — 상태 주인 하나).
 // 노트 큰 창 [📎 첨부](basket-notes.js)와 새 노트 [저장](큰 창·빠른 입력칸·폰 공유)이 noteFileLine을, 업데이트 [첨부 저장](basket.js)과
 // 파일이 있는 새 업데이트 저장(업데이트 큰 창·빠른 입력칸 업데이트·조직 기록 입력칸 — update-places.js saveUpdateFilesBehind, S59-10)이 updateFileLine을 같이 쓴다.
+// 할 일 첨부의 뒤 줄(taskFileLine)도 같은 createAttachQueue 하나로 task-files.js에 있다(S59-18 — 서버 길만 google-tasks attach).
 // 그래서 새 노트를 저장한 뒤 그 노트를 열면 올리는 줄이 보이고, 그 노트를 바꾸는 일은 올라간 뒤에 한다(basket-notes.js filesGoing).
 export const noteFileLine = createAttachQueue();
 export const updateFileLine = createAttachQueue();
@@ -85,7 +86,8 @@ export function sendFilesBehind({line, key, batch, rt = window.KPTURuntime, send
     behindJobs.set(batch, jobs);
     const request = (fd, file, runtime, fetcher, isCurrent) => uploadBasketFile(fd, file, runtime, fetcher, isCurrent, {job:jobs.get(file) || null});
     let error = null, extra = '';
-    try { await send({request, isCurrent:here}); } catch (e) { if (e?.code !== 'upload_cancelled') error = e; }
+    // job: 그 파일의 미리 만든 '대기' 표시 — basket-files가 아닌 서버 길(할 일 첨부, S59-18)이 같은 표시를 쓰게 넘긴다.
+    try { await send({request, isCurrent:here, job:file => jobs.get(file) || null}); } catch (e) { if (e?.code !== 'upload_cancelled') error = e; }
     const sent = mine.filter(entry => entry.kind === 'success').map(entry => picked.get(entry));
     const left = mine.filter(entry => batch.entries.includes(entry) && entry.kind !== 'success');
     const cancelled = mine.length - sent.length - left.length;

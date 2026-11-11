@@ -86,7 +86,12 @@ export async function sendUploadApi(rt, path, {body, size = 0, job = null, timeo
     if (response.status === 401) { rt.session.write?.(null); throw sessionRequired(); }
   }
   let data; try { data = response.text ? JSON.parse(response.text) : null; } catch { data = response.text; }
-  if (!response.ok) throw fail(data?.message || data?.error_description || data?.hint || data?.error || ('요청 실패 ' + response.status), {status: response.status, code: 'http_' + response.status, retryable: response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500});
+  if (!response.ok) {
+    const error = fail(data?.message || data?.error_description || data?.hint || data?.error || ('요청 실패 ' + response.status), {status: response.status, code: 'http_' + response.status, retryable: response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500});
+    // 서버가 답한 까닭 코드(예: attach_result_unknown)는 따로 둔다 — 결과를 알 수 없는 실패만 골라 다시 보내지 않게(할 일 첨부 뒤 줄, S59-18).
+    if (typeof data?.code === 'string' && data.code) try { error.serverCode = data.code; } catch { /* 읽기 전용 오류 객체면 그대로 */ }
+    throw error;
+  }
   if (epoch === (rt.session.epoch?.() ?? 0) && data?.ok !== false && !data?.error) {
     try { globalThis.window?.dispatchEvent(new CustomEvent('kptu:api-saved', {detail: {path, method: 'POST', fields: [], action: '', projectLinked: !!(body?.get?.('project_id') || data?.document?.project_id), epoch}})); } catch { /* 알림을 듣는 곳이 저장 결과를 바꾸지 않는다 */ }
   }
