@@ -73,6 +73,10 @@ import { readNoteComments } from './note-comments-data.js';
 import { createNoteComments } from './note-comments-ui.js';
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
 import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑦: 노트 폴더 나무 | 목록은 펼친 폴드(600px~)부터 — 공용 판정 한 곳
+// NOTE-주소로 가져오기 2단계: 가져오는 중인 노트 줄('○○에서 가져오는 중…')과 열린 노트 맨 위 원문 칸(그리는 곳은 note-import-view.js 한 곳).
+import { NOTE_IMPORT_EVENT, isImporting } from './note-import.js';
+import { paintNoteSource } from './note-import-view.js';
+import { busyTitle, noteSource } from './note-import-model.mjs';
 // NEWS-클리핑 C2: 기사 메모 노트(metadata.news_item_id) → 기사 id.
 const newsItemOf = note => { const m = note?.metadata; const id = m && typeof m === 'object' && !Array.isArray(m) ? m.news_item_id : null; return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null; };
 
@@ -188,8 +192,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const canReorder = () => view === 'folder' && foldersReady && !query && !selected;
   // ② one line: title (own → AI title → first line) + 📎 when files + date. No preview, no link chips.
   function noteRowHtml(r) {
-    const note = r.note, title = noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
-    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${isPicked(key) ? ' nx-picked' : ''}" data-nx-note="${esc(note.id)}" data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
+    // NOTE-주소로 가져오기: 가져오는 중인 노트 줄은 제목 자리에 '○○에서 가져오는 중…'(이번 접속에서 읽는 동안만. 저장된 제목은 그대로다).
+    const note = r.note, importing = isImporting(note.id), title = importing ? busyTitle(noteSource(note)) : noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
+    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${isPicked(key) ? ' nx-picked' : ''}"${importing ? ' data-ni-busy' : ''} data-nx-note="${esc(note.id)}" data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
   }
   const rowHtml = (r, opts) => r.type === 'folder' ? folderRowHtml(r, opts) : r.type === 'outside' ? outsideRowHtml(r, opts) : r.type === 'more' ? moreRowHtml(r) : noteRowHtml(r);
   function paintWhere() {
@@ -541,7 +546,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const htmlCount = id ? paintHtmlAttachments(detail.querySelector('[data-basket-html-views]'), {noteId:id, attachments:selected.attachments, rt, isCurrent:() => owner === scope() && selected?.id === id}) : 0;
     // NOTE-파일붙이기: a note made of files only (any kind) shows just its file cards, without the "no body" box.
     const files = (selected.attachments || []).length;
-    text.hidden = !raw && (htmlCount > 0 || files > 0);
+    // NOTE-주소로 가져오기: 맨 위 원문 칸(원문 링크·가져오는 중·실패 안내). 가져오는 동안에는 본문 자리('주소만')를 잠시 감춘다(회색 막대가 그 자리).
+    const importing = paintNoteSource(detail.querySelector('[data-note-source]'), selected, {rt, say, onChange:saved => {
+      if (owner !== scope() || selected?.id !== id) return;
+      if (saved?.metadata) applySaved(id, saved);
+      if (!editing) paintRead();
+    }}).busy;
+    text.hidden = importing || (!raw && (htmlCount > 0 || files > 0));
     text.classList.toggle('basket-read-empty', !raw);
     if (!raw) return showPlainText(text, htmlCount || files ? '' : '본문이 없는 노트입니다.');
     // ED③ 노트: a note saved in the new editor reads its saved form (ed-render: headings, tables, colours, photos of this note).
@@ -574,7 +585,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     ++epoch; dropField(); editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
     // UI-엔터저장: title Enter / body Ctrl+Enter (PC) save through the shared rule (enter-save.js).
     detail.dataset.enterSave = '[data-note-save]';
-    detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected?.id, NOTE_BACK, rt)}<div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more data-ctx="area" aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p><section class="note-cm" data-note-comments aria-label="댓글"></section></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<textarea rows="1" data-note-title-input data-autogrow data-enter-field="single" autocomplete="off" enterkeyhint="done"></textarea></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 최신화</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions save-row save-row-sticky" data-note-edit-actions hidden><button type="button" class="secondary save-row-start" data-note-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-note-cancel>취소</button><button type="button" class="primary" data-note-save>저장</button></div><p data-basket-status role="status"></p>`;
+    detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected?.id, NOTE_BACK, rt)}<div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more data-ctx="area" aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="ni" data-note-source hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p><section class="note-cm" data-note-comments aria-label="댓글"></section></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<textarea rows="1" data-note-title-input data-autogrow data-enter-field="single" autocomplete="off" enterkeyhint="done"></textarea></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 최신화</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions save-row save-row-sticky" data-note-edit-actions hidden><button type="button" class="secondary save-row-start" data-note-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-note-cancel>취소</button><button type="button" class="primary" data-note-save>저장</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
   function open(id, {focus = true} = {}) {
@@ -594,10 +605,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const {openNoteWindow} = await import('./note-window.js');
     if (owner !== scope() || selected || bigWriter) return;
     // NOTE-파일붙이기: the window's [📎 첨부] works on the note input's own files (a saved note empties them).
-    bigWriter = openNoteWindow({text, title:'새 노트', rt, upload, noteFolder:{label:() => folderName(addTarget()) || OUTSIDE_NAME, open:trigger => openAddPicker(trigger)}, onClose:({saved, text:value}) => {
+    bigWriter = openNoteWindow({text, title:'새 노트', rt, upload, noteFolder:{label:() => folderName(addTarget()) || OUTSIDE_NAME, get:() => addTarget(), open:trigger => openAddPicker(trigger)}, onClose:({saved, text:value}) => {
       bigWriter = null;
       if (owner !== scope()) return;
       quick.setText(saved ? '' : value);
+      // NOTE-주소로 가져오기: [가져오기]로 만든 노트는 폴더까지 넣은 채 만들어졌고 목록 줄은 아래 syncImported가 올린다(열지 않고 목록에 둔다).
+      if (saved?.imported) { quick.focus(); return; }
       if (saved?.kind === 'note') { noteAdded(saved, {open:true}); return; }
       quick.focus();
     }});
@@ -845,6 +858,20 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     notes = notes.map(n => n.id === id ? {...n, metadata:saved.metadata, updated_at:saved.updated_at} : n);
     if (selected?.id === id) selected = notes.find(n => n.id === id) || selected;
   };
+  // NOTE-주소로 가져오기: 뒤에서 도는 가져오기(note-import.js)가 알리면 그 노트 한 줄만 서버에서 다시 읽어 맞춘다(목록 전체를 다시 읽지 않는다).
+  // 새로 만든 노트는 목록에 올리고, 열려 있는 노트면 읽기 화면을 다시 그린다(수정 중이면 건드리지 않는다). 아직 목록을 읽지 않은 화면은 열 때 읽는다.
+  async function syncImported(id, phase) {
+    if (!loaded || !id) return;
+    const owner = scope(), repaint = () => { if (selected?.id === id) { if (!editing) { paintRead(); paintMeta(); } } else if (!selected) renderList(); };
+    if (phase === 'start' || phase === 'queued') { repaint(); return; }
+    let row = null;
+    try { row = await readNoteDoc(id, rt); } catch { repaint(); return; }
+    if (owner !== scope() || !loaded) return;
+    if (row) notes = notes.some(n => n.id === id) ? notes.map(n => n.id === id ? {...n, ...row} : n) : [row, ...notes];
+    if (selected?.id === id) selected = notes.find(n => n.id === id) || selected;
+    repaint();
+  }
+  window.addEventListener(NOTE_IMPORT_EVENT, e => { void syncImported(e.detail?.id, e.detail?.phase); });
   function folderSay(text) { const p = host.querySelector('[data-note-folder-status]'); p.textContent = text; p.hidden = !text; }
   const notReady = () => { folderSay(foldersMissing ? '폴더 정리는 준비 중이에요. 지금은 폴더를 볼 수만 있어요.' : '폴더 목록을 읽지 못했어요. 다시 불러온 뒤 해 주세요.'); };
   // NOTE-추가폴더표시: the folder a NEW note goes into — the entered folder (at), unless another was picked on the input's [폴더 ▾]
