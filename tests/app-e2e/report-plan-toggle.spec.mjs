@@ -91,7 +91,14 @@ const plansRead=page=>expect.poll(()=>page.evaluate(()=>window.KPTUCalendarEvent
 const bar=(page,id)=>page.locator(`#calendarGrid [data-google-event="${id}"]`).first();
 const menu=page=>page.locator('#rowMenu');
 const labels=page=>menu(page).locator('button').allTextContents().then(a=>a.map(s=>s.trim()));
-async function rightClick(page,id){const b=await bar(page,id).boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);await page.mouse.move(x,y);await page.mouse.click(x,y,{button:'right'});await expect(menu(page)).toBeVisible()}
+// PR B(#2385): '보고할 일정' 값이 읽히거나 바뀌면 달력이 다음 그리기 때 한 번 다시 그려 막대 앞 ✓·□를 맞춘다. 그 그리기가 끝난 막대의 자리를 잰다
+// (다시 그리는 사이에 잡은 옛 막대는 자리가 없다 — boundingBox null).
+const drawn=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+async function rightClick(page,id){
+  await drawn(page);
+  let b=null;await expect.poll(async()=>(b=await bar(page,id).boundingBox())!==null).toBe(true);
+  const x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);await page.mouse.move(x,y);await page.mouse.click(x,y,{button:'right'});await expect(menu(page)).toBeVisible();
+}
 const closeMenu=async page=>{await page.keyboard.press('Escape');await expect(menu(page)).toBeHidden()};
 const planRow=page=>page.locator('#ciGooglePlanRow');
 const planBox=page=>page.locator('#ciGooglePlan');
