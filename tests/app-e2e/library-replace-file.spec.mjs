@@ -132,6 +132,8 @@ for(const width of [390,1280]){
     await page.locator('#libraryEditSave').click();
     await expect(page.locator('#libraryEditModal')).toBeHidden();
     // One replace request carrying only the file and the id; no info save (no field changed); then text read and one re-judgement.
+    // 창이 먼저 닫히고 파일은 뒤 줄에서 간다(S59-18b) — 닫힌 직후 바로 세면 아직 보내기 전일 수 있어 보낼 때까지 기다린다(STAB: CI shard 22).
+    await expect.poll(()=>state.replaces.length).toBe(1);
     expect(state.replaces).toEqual([{names:['file','replace_document_id'],id:DOC(1),fileName:'새 파일.pdf'}]);
     expect(state.patches).toEqual([]);
     await expect.poll(()=>state.tidies.length).toBe(1);
