@@ -34,46 +34,46 @@ for(const width of [1440,700])test.describe(`자료실 ${width} 끌어놓기`,()
   // 맨 위(들어간 폴더 없음)에서 빈 곳 = 폴더 밖.
   let r=await dropAt(page,'#documentList',['a.pdf']);
   expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 바로 올려요',place:[],into:[],after:false});
-  await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
   expect(s.uploads.length).toBe(1);expect(s.items.length).toBe(ITEMS.length);
   // 왼쪽 나무 줄 위 = 그 폴더(나무 줄에 놓을 곳 표시).
   r=await dropAt(page,'#libraryFolderNav [data-lu-nav="fn"]',['b.pdf','c.pdf']);
   expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 ‘가상 N’ 폴더로 올려요',place:['fn'],after:false});
-  await expect(page.locator('#libraryDropStatus')).toHaveText('가상 N에 2개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 N에 2개 올렸어요');
   expect(inFolder(s,'fn')).toEqual(['upload-2','upload-3']);
   // 나무에서 폴더로 들어간 뒤: 오른쪽 목록 빈 곳(목록 상자 아래쪽·자료실 화면 아래 빈 곳) = 그 폴더(들어간 폴더 머리 줄 표시).
   await enterNav(page,'fa',width);
   await expect.poll(()=>tops(page)).toEqual(['f:fa']);
   r=await dropAt(page,'#documentList',['d.pdf']);
   expect(r).toMatchObject({allowed:true,shown:true,hint:'놓으면 ‘가상 A’ 폴더로 올려요',into:['f:fa'],after:false});
-  await expect(page.locator('#libraryDropStatus')).toHaveText('가상 A에 1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');
   expect(inFolder(s,'fa')).toEqual(['n-1','upload-4']);
   await expect(page.locator('#documentList details[data-lu-node="f:fa"] [data-lu-document="upload-4"]')).toHaveCount(1);
   r=await dropAt(page,'#libraryListCard',['e.pdf'],{point:[width>=1000?600:400,(await page.locator('#libraryListCard').boundingBox()).height-6]});
   expect(r.hint).toBe('놓으면 ‘가상 A’ 폴더로 올려요');
-  await expect(page.locator('#libraryDropStatus')).toHaveText('가상 A에 1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');
   expect(inFolder(s,'fa')).toEqual(['n-1','upload-4','upload-5']);
   // 들어간 폴더 안의 아래 폴더 줄 = 그 아래 폴더.
   r=await dropAt(page,'#documentList details[data-lu-node="f:fc"] > summary',['f.pdf']);
   expect(r.hint).toBe('놓으면 ‘가상 C’ 폴더로 올려요');expect(r.into).toEqual(['f:fc']);
-  await expect(page.locator('#libraryDropStatus')).toHaveText('가상 C에 1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 C에 1개 올렸어요');
   expect(inFolder(s,'fc')).toEqual(['upload-6']);
   // 위치 줄 맨 앞 '자료실'과 나무 '자료실 전체' = 폴더 밖(들어가 있어도).
   if(await page.locator('#libraryPath [data-lu-path=""]').count()){
     r=await dropAt(page,'#libraryPath [data-lu-path=""]',['g.pdf']);
     expect(r).toMatchObject({hint:'놓으면 바로 올려요',place:[''],into:[]});
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
   }
   const before=s.items.length,ups=s.uploads.length;
   r=await dropAt(page,'#libraryFolderNav [data-lu-nav=""]',['h.pdf']);
   expect(r).toMatchObject({allowed:true,hint:'놓으면 바로 올려요',place:[''],into:[]});
-  await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
   expect(s.uploads.length).toBe(ups+1);expect(s.items.length).toBe(before);
   // 최근 올린 파일 칸 위 = 폴더 밖.
   if(await page.locator('#libraryRecent [data-lu-recent]').count()){
     r=await dropAt(page,'#libraryRecent [data-lu-recent]',['i.pdf']);
     expect(r.hint).toBe('놓으면 바로 올려요');
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.items.length).toBe(before);
   }
   // 자료를 폴더로 옮기는 끌기(파일 아님)는 화면 놓기 안내를 띄우지 않는다.
@@ -88,13 +88,14 @@ test('자료실 1440: 올리는 동안 공용 올리는 중 줄(막대·%)이 �
   let release;const gate=new Promise(res=>{release=res});
   await page.route(`${SB}/functions/v1/library-files`,async route=>{await gate;await route.fallback()});
   await dropAt(page,'#libraryFolderNav [data-lu-nav="fn"]',['big.pdf']);
-  const row=page.locator('#libraryDropStatus + .up-rows .up-row');
+  const row=page.locator('#libraryUploadRows .up-row');
   await expect(row).toHaveCount(1);
   await expect(row.locator('.up-name')).toHaveText('big.pdf');
   await expect(row.locator('.up-pc')).toHaveText(/\d+%|마무리 중/);
-  await expect(page.locator('#libraryDropStatus')).toHaveText('올리는 중 · big.pdf');
+  // UX-알림하나로(S59-21): 진행은 목록 위 올리는 줄 하나(옛 상태 글줄 없음), 끝은 하단바 위 한 줄 하나.
+  await expect(page.locator('#libraryDropStatus')).toHaveCount(0);
   release();
-  await expect(page.locator('#libraryDropStatus')).toHaveText('가상 N에 1개 올렸어요');
+  await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 N에 1개 올렸어요');
   await expect(row).toHaveCount(0,{timeout:10000});
   expect(inFolder(s,'fn')).toEqual(['upload-1']);
   expect(errors).toEqual([]);
@@ -111,7 +112,7 @@ test('자료실 1440: 사업영역·담당조직·분류·월별 보기도 빈 �
     for(const sel of ['#documentList','#libraryGroupBy','#libraryView']){
       const r=await dropAt(page,sel,[`${group}-${++n}.pdf`]);
       expect(r,`${group} ${sel}`).toMatchObject({allowed:true,shown:true,hint:'놓으면 바로 올려요'});
-      await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+      await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
       expect(s.uploads.length).toBe(n);
     }
   }

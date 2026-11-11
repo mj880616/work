@@ -229,21 +229,22 @@ test('차례를 기다리는 파일의 ✕: 그 파일만 보내지 않고 나�
   expect(state.errors).toEqual([]);
 });
 
-test('상세 줄의 [다시]로 다시 올려도 하단 못 올림 알림이 남지 않고, 같은 파일 줄이 겹치지 않는다 412px',async({page})=>{
-  const state=await boot(page,412);
+for(const width of [412,1280])test(`못 올린 사진은 아래 한 줄 하나로만 알리고(상세 줄에 실패 줄 없음), [다시 올리기]로 다시 올려도 알림·파일 줄이 겹치지 않는다 ${width}px`,async({page})=>{
+  const state=await boot(page,width,width<761?900:640);
   state.failNames.add('사진2.jpg');
   await fillReport(page,{photos:2});
   await page.locator('#saveMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeHidden();
   await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장 못 올렸어요');
-  // 그 보고를 열면 못 올린 사진이 사진 칸에 '실패' 줄로 남아 있다.
+  // UX-알림하나로(S59-21): 그 보고를 열어도 사진 칸에 '실패 [다시]' 줄을 또 그리지 않는다 — 실패·[다시 올리기]는 아래 한 줄 하나.
   await openMeetingResult(page,NEW_ID);
   const rows=page.locator('#mrdPhotoRows .up-row');
-  await expect(rows).toHaveCount(1);
-  await expect(rows).toContainText('사진2.jpg');
-  await expect(rows).toContainText('실패');
+  await expect(rows).toHaveCount(0);
+  await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장 못 올렸어요');
+  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
+  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/report-photo-fail-${width}.png`});
   state.failNames.clear();state.hold=true;
-  await page.getByRole('button',{name:'사진2.jpg 다시 올리기'}).click();
+  await dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'}).click();
   await expect.poll(()=>state.uploads.length).toBe(4);
   // 다시 줄 서면 하단의 '못 올렸어요' 알림은 닫히고, 그 파일 줄은 하나뿐이다(실패 줄 + 올리는 줄로 겹치지 않음).
   await expect(dock(page).getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveCount(0);

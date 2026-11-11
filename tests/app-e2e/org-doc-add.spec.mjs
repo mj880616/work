@@ -108,5 +108,5 @@ test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 
  release();
  await expect.poll(()=>state.uploads).toBe(2);
  await expect.poll(()=>state.patches.filter(p=>p.table==='app_documents'&&p.body.organization_id===O).length).toBe(2);
- await expect(page.locator('#kptuNotice')).toContainText('올렸');
+ await expect(page.locator('#uploadDock:not([hidden])')).toContainText('올렸');
 });

@@ -228,7 +228,7 @@ test('real runtime maps structured upload failures, keeps completed child upload
   // 관리자라 Drive 다시 연결을 공용 작은 확인창으로 한 번 묻는다 → 지금은 하지 않음.
   expect(await answerAsk(page,false)).toContain('Google Drive 연결이 만료됐습니다');
   // UX-먼저묻고뒤에처리 3차(S57-1): 창은 [저장] 뒤 바로 닫혔고(잠기지 않음), 예전 창 상태 줄과 같은 글이 공용 작은 알림(role=alert) + [다시]로 뜬다.
-  const notice=page.locator('#kptuNotice:not([hidden])'),status=notice.locator('.kptu-notice-text'),retry=notice.locator('.kptu-notice-action',{hasText:'다시'});
+  const notice=page.locator('#uploadDock:not([hidden])'),status=notice.locator('.up-dock-text'),retry=notice.locator('[data-up-act="note-act"]',{hasText:'다시'}); // UX-알림하나로: 하단바 위 한 줄
   await expect(status).toHaveText('1개 완료 · 1개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
   await expect(notice).toHaveAttribute('role','alert');
   await expect(page.locator('#documentModal')).toBeHidden();
@@ -241,7 +241,7 @@ test('real runtime maps structured upload failures, keeps completed child upload
     await expect(status).toBeInViewport({ratio:0.5});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),`overflow at ${width}px`).toBeLessThanOrEqual(0);
     // 알림 글과 [다시]가 화면 밖으로 잘리지 않는다(예전: 창 안 파일 줄 상태 글자가 잘리지 않음).
-    const clipped=await page.evaluate(()=>[...document.querySelectorAll('#kptuNotice .kptu-notice-text,#kptuNotice button')].filter(el=>{const r=el.getBoundingClientRect();return r.left<-0.5||r.right>innerWidth+0.5}).length);
+    const clipped=await page.evaluate(()=>[...document.querySelectorAll('#uploadDock .up-dock-text,#uploadDock button')].filter(el=>{const r=el.getBoundingClientRect();return r.left<-0.5||r.right>innerWidth+0.5}).length);
     expect(clipped,`notice clipped at ${width}px`).toBe(0);
   }
 
@@ -264,12 +264,12 @@ test('server-side missing project maps to the stale project message and refreshe
   state.spaces=state.spaces.map(x=>x.id==='top-b'?{...x,status:'archived'}:x);
   await page.locator('#saveDocumentBtn').click();
   // UX-먼저묻고뒤에처리 3차(S57-1): 창은 바로 닫히고, 서버가 사업영역을 거절하면 같은 글이 알림 + [다시]로 뜬다.
-  const notice=page.locator('#kptuNotice:not([hidden])');
-  await expect(notice.locator('.kptu-notice-text')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.');
+  const notice=page.locator('#uploadDock:not([hidden])');
+  await expect(notice.locator('.up-dock-text')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.');
   await expect(page.locator('#documentModal')).toBeHidden();
   expect(state.uploads).toHaveLength(0);
   // [다시] = 같은 값으로 다시 보내지 않고(또 거절됨) 그 파일을 넣은 등록 창을 다시 열어 사업영역 고르기부터. 고르기 목록은 새로 읽은 것이다.
-  await notice.locator('.kptu-notice-action',{hasText:'다시'}).click();
+  await notice.locator('[data-up-act="note-act"]',{hasText:'다시'}).click();
   await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('#documentStatus')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.');
   await expect(page.locator('[data-lu-upload-file]')).toHaveCount(1);

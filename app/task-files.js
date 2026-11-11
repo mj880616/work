@@ -1,6 +1,5 @@
 import {emptyHtml} from './wait-state.js';
 import {bindPaste} from './paste-files.mjs';
-import {notify} from './small-notice.js'; // UX-먼저묻고뒤에처리: 창을 닫은 뒤 끝난 올리기의 끝·실패 알림
 // TASK-파일붙이기: files attached to a Google task (read: app_task_attachments; change: google-tasks Edge action=attach / detach).
 // The file lives in Google Drive ("자료실/할 일 첨부"); the Edge keeps the task-file link (owner RLS) and one link line per
 // file in the task's notes, so the Google Tasks app shows a link. Detaching or deleting the task never deletes the Drive file.
@@ -9,7 +8,7 @@ import {notify} from './small-notice.js'; // UX-먼저묻고뒤에처리: 창을
 import { fileAttrs, driveFileUrl } from './file-actions.js';
 import { uploadTimeoutMs } from './upload-budget.mjs';
 import { sendUploadApi } from './upload-send.mjs';
-import { trackUpload, mountUploadRows } from './upload-progress.js';
+import { trackUpload, mountUploadRows, announceDock } from './upload-progress.js';
 import { createAttachQueue, sendFilesBehind } from './basket-upload.js'; // BIZ-저장먼저닫기 3차: 할 일 첨부도 노트·업데이트와 같은 뒤 줄·끝 알림
 import { renameHostAttrs, renameButtonHtml, applyRenamed, openRenameEditor } from './file-rename.js';
 import { rowMore } from './row-more.js';
@@ -175,9 +174,13 @@ function accept(s, d) {
 }
 const message = e => String(e?.message || e || '').trim() || '잠시 후 다시 시도해 주세요.';
 // UX-먼저묻고뒤에처리(요청함 11/09 18:04): 고른 파일은 창을 닫거나 다른 화면으로 옮겨도 끝까지 올린다(멈추는 것은 계정·로그인이 바뀔 때뿐).
-// 창이 열려 있으면 창 줄로, 닫혔으면 공용 작은 알림으로 끝·실패를 알린다. 진행은 공용 올리기 줄(upload-progress.js)이 그린다.
+// 진행은 공용 올리기 줄(창의 올리는 줄, 창을 닫았으면 하단바 위 한 줄). UX-알림하나로(S59-21): 끝·실패는 창이 열려 있든 닫혔든 하단바 위 한 줄
+// 하나(announceDock, files — 창의 올리는 줄은 그 파일의 '실패'·'✓ 완료'를 따로 그리지 않는다). 창 상태 줄에 같은 말을 또 쓰지 않는다.
 const shown = s => dialog?.state === s;
-function tellClosed(s, text, failed = false) { if (!shown(s)) notify(`${s.task.title || '할 일'}: ${text}`, {error: failed, record: false}); }
+function tellEnd(s, text, {failed = false, note = '', files = []} = {}) {
+  if (shown(s)) status('');
+  announceDock({text: `${s.task.title || '할 일'}: ${text}`, note, error: failed, ms: failed ? 0 : undefined, files});
+}
 const runningUploads = new Map(); // 할 일 id → 올리는 중인 창 상태(메모리만, 새 저장소 아님)
 async function upload(picked) {
   const s = dialog?.state;
@@ -193,25 +196,25 @@ async function upload(picked) {
 }
 async function uploadQueue(s) {
   let done = 0, unsynced = false, stopped = false;
+  const sentFiles = [];
   try {
     while (s.queue.length && !stopped) {
       const file = s.queue.shift();
       const problem = fileProblem(file, s.files.length);
-      if (problem) { if (shown(s)) status(`${file.name}: ${problem}`, true); else tellClosed(s, `${file.name}: ${problem}`, true); stopped = true; break; }
-      if (shown(s)) { status(`${file.name} 올리는 중… (${done + 1}/${done + 1 + s.queue.length})`); paint(); }
+      if (problem) { tellEnd(s, `${file.name} 못 올렸어요`, {failed: true, note: problem}); stopped = true; break; }
+      if (shown(s)) { status(s.queue.length ? `${s.queue.length}개 대기 중` : ''); paint(); } // 올리는 파일의 진행은 올리는 줄(막대·%)이 그린다
       let d;
       try { d = await attachTaskFile(s.task.id, file, {rt: s.rt}); }
-      catch (e) { if (e?.code === 'upload_cancelled') continue; if (!s.isCurrent()) { stopped = true; break; } if (shown(s)) status(`${file.name}: ${message(e)}`, true); else tellClosed(s, `${file.name}: ${message(e)}`, true); stopped = true; break; }
+      catch (e) { if (e?.code === 'upload_cancelled') continue; if (!s.isCurrent()) { stopped = true; break; } tellEnd(s, `${file.name} 못 올렸어요`, {failed: true, note: message(e), files: [file]}); stopped = true; break; }
       if (!s.isCurrent()) { stopped = true; break; }
-      if (!d?.ok) { const t = `${file.name}: 저장 결과를 확인하지 못했어요. 할 일을 다시 열어 확인해 주세요.`; if (shown(s)) status(t, true); else tellClosed(s, t, true); stopped = true; break; }
+      if (!d?.ok) { tellEnd(s, `${file.name} 못 올렸어요`, {failed: true, note: '저장 결과를 확인하지 못했어요. 할 일을 다시 열어 확인해 주세요.', files: [file]}); stopped = true; break; }
       // Saved on the server: the list owner hears it even if this dialog was closed meanwhile.
-      accept(s, d); done++;
+      accept(s, d); done++; sentFiles.push(file);
       if (d.notes_synced === false) unsynced = true;
       if (shown(s)) paint();
     }
     if (!stopped) {
-      const end = unsynced ? `${done}개 붙였습니다. Google 할 일 메모의 링크 줄은 다음 저장 때 붙습니다.` : `${done}개 붙였습니다.`;
-      if (shown(s)) status(end); else if (done) tellClosed(s, end);
+      if (done) tellEnd(s, `${done}개 붙였습니다.`, {note: unsynced ? 'Google 할 일 메모의 링크 줄은 다음 저장 때 붙습니다.' : '', files: sentFiles});
     }
   } finally {
     s.queue.length = 0; // 실패·계정 바뀜으로 멈추면 남은 대기는 버린다(메시지로 알렸다). 다시 고르면 된다.

@@ -25,7 +25,7 @@ test.describe('PC 1440 PC 파일을 폴더에 놓아 올리기',()=>{
     await expect(page.locator('#documentList details[data-lu-node="f:fw"]')).not.toHaveAttribute('open','');
     const r=await dropFiles(page,head('f:fw'),['a-주간보고.hwpx','b-주간보고.pdf'],{wait:1300});
     expect(r).toEqual({allowed:true,into:true,group:true,open:true,hint:'놓으면 ‘주간보고’ 폴더로 올려요'});
-    await expect(page.locator('#libraryDropStatus')).toHaveText('주간보고에 2개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('주간보고에 2개 올렸어요');
     expect(s.uploads.map(u=>u.id)).toEqual(['upload-1','upload-2']);
     expect(s.items.filter(x=>x.folder_id==='fw')).toEqual([{document_id:'upload-1',folder_id:'fw',workspace_id:'workspace-1'},{document_id:'upload-2',folder_id:'fw',workspace_id:'workspace-1'}]);
     await expect(page.locator('#documentList details[data-lu-node="f:fw"] [data-lu-document]')).toHaveCount(2);
@@ -35,7 +35,7 @@ test.describe('PC 1440 PC 파일을 폴더에 놓아 올리기',()=>{
     const before=s.items.length;
     const out=await dropFiles(page,head('x:out'),['c-보도자료.pdf']);
     expect(out.hint).toBe('놓으면 바로 올려요');expect(out.group).toBe(false);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.uploads.length).toBe(3);expect(s.items.length).toBe(before);
     expect(errors).toEqual([]);
   });
@@ -45,7 +45,7 @@ test.describe('PC 1440 PC 파일을 폴더에 놓아 올리기',()=>{
     await expandLibraryTree(page);
     const r=await dropFiles(page,head('f:fa'),['d.pdf']);
     expect(r.hint).toBe('놓으면 바로 올려요');expect(r.group).toBe(false);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.uploads.length).toBe(1);expect(s.items.length).toBe(ITEMS.length);
     expect(errors).toEqual([]);
   });
@@ -79,7 +79,7 @@ for(const width of [1440,884])test.describe(`${width} 두 칸 PC 파일을 펼�
     let r=await dropFilesAt(page,subDoc(1,'fa','n-1'),['a-회의자료.pdf'],{rows:{fa:navIn(1,'fa')}});
     expect(r).toMatchObject({allowed:true,hint:'놓으면 ‘가상 A’ 폴더로 올려요'});
     expect(r.marks.fa).toContain('lu-drop-place');expect(r.paneCls).not.toMatch(/lu-drop-/);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('가상 A에 1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');
     expect(s.items.filter(x=>x.folder_id==='fa').map(x=>x.document_id)).toEqual(['n-1','upload-1']);
     await expect(page.locator('#documentList .lu-drop-place,#documentList .lu-drop-into')).toHaveCount(0);
     // 여러 겹: 안쪽 가상 C도 펼치면 그 안 자료 줄 = 가상 C(바깥 가상 A 아님).
@@ -87,18 +87,18 @@ for(const width of [1440,884])test.describe(`${width} 두 칸 PC 파일을 펼�
     await expect(page.locator(subDoc(1,'fc','a-1'))).toBeVisible();
     r=await dropFilesAt(page,subDoc(1,'fc','a-1'),['b-사진.jpg','c-표.xlsx'],{rows:{fa:navIn(1,'fa'),fc:navIn(1,'fc')}});
     expect(r.hint).toBe('놓으면 ‘가상 C’ 폴더로 올려요');expect(r.marks.fc).toContain('lu-drop-place');expect(r.marks.fa).not.toMatch(/lu-drop-/);
-    await expect(page.locator('#libraryDropStatus')).toHaveText('가상 C에 2개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 C에 2개 올렸어요');
     expect(s.items.filter(x=>x.folder_id==='fc').map(x=>x.document_id)).toEqual(['a-1','upload-2','upload-3']);
     // 가상 A 묶음 안 빈 틈(줄 왼쪽 들여쓰기 칸) → 가상 A.
     r=await dropFilesAt(page,`${pane(1)} [data-lu-pane-sub="fa"]`,['d-메모.txt'],{at:{x:4,y:10}});
     expect(r.hint).toBe('놓으면 ‘가상 A’ 폴더로 올려요');
-    await expect(page.locator('#libraryDropStatus')).toHaveText('가상 A에 1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('가상 A에 1개 올렸어요');
     expect(s.items.find(x=>x.document_id==='upload-4')?.folder_id).toBe('fa');
     // 칸 바로 아래(펼친 폴더 밖) 자료 줄은 지금처럼 그 칸의 지금 폴더 — 맨 위라 폴더 밖, 표시는 칸 상자.
     const before=s.items.length;
     r=await dropFilesAt(page,`${pane(1)} [data-lu-document="a-2"]`,['e-보도자료.pdf']);
     expect(r.hint).toBe('놓으면 바로 올려요');expect(r.paneCls).toContain('lu-drop-place');
-    await expect(page.locator('#libraryDropStatus')).toHaveText('1개 올렸어요');
+    await expect(page.locator('#uploadDock:not([hidden]) .up-dock-text')).toHaveText('1개 올렸어요');
     expect(s.uploads.length).toBe(5);expect(s.items.length).toBe(before);
     expect(errors).toEqual([]);
   });

@@ -259,6 +259,10 @@ for(const width of [412,1280]){
     await expect(page.locator('#libraryEditModal')).toBeHidden();
     const dock=page.locator('#uploadDock');
     await expect(dock).toContainText('파일을 바꾸지 못했어요');
+    // UX-알림하나로(S59-21): 실패·[다시 올리기]는 아래 한 줄 하나 — 자료실 목록 위 올리는 줄에 '실패 [다시]' 카드를 또 그리지 않고, 위쪽 작은 알림도 없다.
+    await expect(page.locator('#libraryUploadRows .up-row')).toHaveCount(0);
+    await expect(page.locator('#kptuNotice:not([hidden])')).toHaveCount(0);
+    if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/library-replace-fail-${width}.png`});
     // 누를 때까지 남는다.
     await page.waitForTimeout(6500);
     await expect(dock).toContainText('파일을 바꾸지 못했어요');

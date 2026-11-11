@@ -1,6 +1,6 @@
 import {waitHtml, barHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendUpload} from './upload-send.mjs';
-import {trackUpload, mountUploadRows} from './upload-progress.js'; // UI-올리기진행표시 ②: 기기 → 클라우드 올리기의 막대·%
+import {trackUpload, mountUploadRows, announceDock} from './upload-progress.js'; // UI-올리기진행표시 ②: 기기 → 클라우드 올리기의 막대·%
 import {requestLibraryDocument} from './basket-library-send.js';
 import {slotBox, slotImg, slotFailed} from './img-slot.js';
 import {lookLayout, lookOf, lookValue, stepLook, lookCols, thumbWanted, FILES_LOOK_KEY} from './files-look-model.mjs';
@@ -2943,7 +2943,10 @@ function setJobs(list) {
     const s = list.filter(j => jobsSeen.has(j.id));
     jobsSeen.clear();
     const done = s.filter(j => j.status === 'done').length, failed = s.filter(j => j.status === 'failed').length;
-    if (done || failed) notify(failed ? `${done ? done + '개 보냄 · ' : ''}${failed}개 못 보냄 · 전송 목록에서 까닭과 [다시]` : `${done}개 보냄`, {error: !!failed, record: false});
+    // UX-알림하나로(S59-21): 묶음의 끝은 하단바 위 한 줄 하나(올리는 중 진행과 같은 자리). 기기에서 올린 파일을 맡아(files) 위쪽 올리는 줄은
+    // 그 파일의 '실패'를 따로 그리지 않는다. 까닭과 [다시]는 전송 목록에 있다([전송 목록]으로 연다).
+    if (done || failed) announceDock({text: failed ? `${done ? done + '개 보냄 · ' : ''}${failed}개 못 보냄` : `${done}개 보냄`, note: failed ? '전송 목록에서 까닭을 보고 [다시]를 누를 수 있어요' : '',
+      error: !!failed, ms: failed ? 0 : undefined, files: s.map(j => upFiles.get(j.id)).filter(Boolean), actions: failed ? [{label: '전송 목록', aria: '전송 목록 열기', run: openJobs}] : []});
   }
 }
 // 끝난 줄: 받은 곳(·옮기기면 원래 곳) 폴더를 색인에서 다시 읽는다(서버가 끝낼 때 색인에 넣었다).
@@ -3026,7 +3029,7 @@ function paintJobs() {
 // 원본은 그대로. 원드라이브·이 폰·내 PC 파일은 바이트를 받아(원드라이브는 Edge media, 폰은 앱 다리, 내 PC는 바구니 문) 자료실 Drive 폴더에 사본으로 올리고,
 // 구글 드라이브 파일은 사본 없이 연결만(서버 document-actions register-drive-file이 이 작업공간 [파일] 색인·Drive 원본을 확인).
 // 등록 창 먼저(S57-1, 2026-11-11 결정 — UX-먼저묻고뒤에처리): 누르자마자 등록 창을 열고(이름·크기만 넘김, libStub), 바이트 받기·올리기는 등록 창 [저장] 뒤
-//   자료실 올리기 줄이 뒤에서 한다(창을 닫아도·다른 화면으로 옮겨도 끝까지, 실패는 공용 작은 알림 + [다시]). ×로 닫으면 아무것도 받지 않는다.
+//   자료실 올리기 줄이 뒤에서 한다(창을 닫아도·다른 화면으로 옮겨도 끝까지, 실패는 하단바 위 한 줄 + [다시 올리기] — UX-알림하나로). ×로 닫으면 아무것도 받지 않는다.
 //   예전에는 바이트를 다 받은 뒤에야 창을 열었고('가져오는 중'), 받는 동안 이 화면을 떠나면 그만뒀다.
 // 이미 자료실에 있는 파일은 넣지 않고 '이미 자료실에 있어요 · [보기]'.
 // S53-8 ②: 폴더째 — 안의 파일(하위 폴더까지)을 모아 같은 길로(이미 있는 것은 건너뜀). 폴더 하나에 50개·합쳐 1GB까지, 넘으면 자르지 않고 한 줄.

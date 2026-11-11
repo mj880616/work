@@ -1742,6 +1742,8 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 #uploadDock[hidden]{ display:none; }
 #uploadDock .up-dock-head{ display:flex; align-items:center; gap:8px; min-height:var(--ds-compact-height-sm,28px); }
 #uploadDock .up-dock-text{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* UX-알림하나로(S59-21): 못 올린 알림은 까닭까지 읽히게 줄을 넘긴다(자료실 등록·끌어 놓기의 '1개 완료 · 1개 미완료. 까닭' 같은 긴 글). */
+#uploadDock.is-error .up-dock-text{ white-space:normal; word-break:keep-all; overflow-wrap:anywhere; }
 #uploadDock .up-dock-pc{ font-variant-numeric:tabular-nums; }
 #uploadDock .up-dock-acts{ display:inline-flex; align-items:center; gap:4px; }
 #uploadDock .up-bar[hidden]{ display:none; }

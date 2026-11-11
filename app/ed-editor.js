@@ -53,7 +53,7 @@ import {viewPrefs} from './view-prefs.js';
 import {clipboardFiles, namePasted} from './paste-files.mjs';
 import {splitPictures} from './picture-file.mjs';
 // UI-올리기진행표시: [넣기] 사진·파일이 올라가는 동안 도구줄 아래 공용 올리는 줄(사진은 흐린 미리보기 위 막대 + %).
-import {mountUploadRows, watchUploads, isUploading, setUploadRetry} from './upload-progress.js';
+import {mountUploadRows, watchUploads, isUploading, announceDock, uploadJobs} from './upload-progress.js';
 
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
@@ -1251,12 +1251,26 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (pictures.length) await photosIn(pictures);
     if (others.length && !view.isDestroyed) await filesIn(others);
   }
+  // UX-알림하나로(S59-21): 못 올린 사진·파일은 하단바 위 한 줄 하나에 까닭과 [다시 올리기](files — 글 위 올리는 줄은 그 파일의 '실패 [다시]'를
+  // 따로 그리지 않고, 편집기 안내 줄에도 같은 말을 쓰지 않는다). 결과를 알 수 없는 실패(이미 붙었을 수 있음)에는 [다시 올리기]가 없다.
+  let upNote = null;
+  function tellUpFailed(file, e, what, again) {
+    upNote?.close(); upNote = null;
+    // 편집기를 떠나 입력 세션이 바뀐 것(올리기는 끝났을 수 있다)은 실패로 알리지 않는다(예전에도 사라진 편집기 안에만 썼다).
+    if (view.isDestroyed || e?.code === 'session_changed') return;
+    // 올리기 전에 막힌 것(페이지를 아직 저장하지 않음 등 — 올리는 줄에 실패가 없다)은 예전처럼 편집기 안내 줄 하나에 쓴다.
+    if (!file || !uploadJobs().some(job => job.file === file && job.phase === 'failed')) { showNote((e && e.message) || `${what}을 올리지 못했어요.`); return; }
+    const canRetry = file && (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code));
+    upNote = announceDock({text: `${what}을 올리지 못했어요`, note: (e && e.message) || '', error: true, ms: 0, files: file ? [file] : [],
+      actions: canRetry ? [{label: '다시 올리기', aria: `못 올린 ${what} 다시 올리기`, run: () => { if (!view.isDestroyed) void again([file]); }}] : []});
+  }
   async function photosIn(pictures) {
     const room = (photos.max || 40) - photoCount();
     if (pictures.length > room) { showNote(`사진은 한 페이지에 ${photos.max || 40}장까지 넣을 수 있어요.`); if (room <= 0) return; pictures.length = room; }
     // S52-05 A: several photos go in side by side without asking (no [나란히]/[한 장씩] question); one photo goes in on its own.
     const layout = pictures.length > 1 ? 'row' : 'single';
     const made = [];
+    let failed = null;
     try {
       for (const file of pictures) {
         say(`사진 올리는 중… (${made.length + 1}/${pictures.length})`);
@@ -1265,7 +1279,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
         try { ({src} = await photos.add(file)); }
         catch (e) {
           if (e?.code === 'upload_cancelled') continue; // ✕: 이 사진만 넣지 않고 다음 사진으로
-          if (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code)) setUploadRetry(file, () => filesFrom([file]));
+          failed = file;
           throw e;
         } finally { uploadEnds(file); }
         if (view.isDestroyed) return;
@@ -1274,7 +1288,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       }
       say(`사진 ${made.length}장을 넣었어요.${photos.url && !files ? ' 저장해야 받는 사람에게 보여요.' : ''}`);
     } catch (e) {
-      say(''); showNote((e && e.message) || '사진을 올리지 못했어요.');
+      say(''); tellUpFailed(failed, e, '사진', filesFrom);
     }
     // 나란히: the photos that went up, in rows of PHOTO_ROW_MAX (one left over is a photo of its own).
     if (layout === 'row' && made.length && !view.isDestroyed) {
@@ -1285,7 +1299,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     }
   }
   async function filesIn(list) {
-    let done = 0;
+    let done = 0, failed = null;
     try {
       for (const file of list) {
         say(`파일 올리는 중… (${done + 1}/${list.length})`);
@@ -1294,7 +1308,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
         try { made = await files.add(file); }
         catch (e) {
           if (e?.code === 'upload_cancelled') continue;
-          if (!e?.code || !['note_save_result_unknown', 'note_changed'].includes(e.code)) setUploadRetry(file, () => filesIn([file]));
+          failed = file;
           throw e;
         } finally { uploadEnds(file); }
         if (view.isDestroyed) return;
@@ -1303,7 +1317,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       }
       say(`파일 ${done}개를 넣었어요.`);
     } catch (e) {
-      say(''); showNote((e && e.message) || '파일을 올리지 못했어요.');
+      say(''); tellUpFailed(failed, e, '파일', filesIn);
     }
   }
   const pickFrom = (accept, take) => {

@@ -760,7 +760,7 @@ const behindSessions = new Set();
 window.addEventListener('kptu:before-reload', event => { if (event?.detail && [...behindSessions].some(session => session.pump)) event.detail.otherDraft = true; });
 function sendBehind(session, list) {
   session.behind = true; behindSessions.add(session);
-  session.note?.close(); session.note = null;
+  session.note?.close(); session.note = null; session.failNote?.close(); session.failNote = null;
   const group = {sent:0};
   for (const entry of list) {
     entry.failed = ''; entry.behind = true;
@@ -789,12 +789,13 @@ async function finishBehind(session) {
   if (left.length) {
     const retry = () => { if (session.owner !== ownerScope(rt) || session.pump) return; session.note?.close(); session.note = null; sendBehind(session, session.pending.filter(entry => entry.behind && !entry.up)); };
     for (const entry of left) setUploadRetry(entry.file, retry);
-    session.note = announceDock({text:`${head}사진 ${left.length}장 못 올렸어요`, note:[done.length ? `사진 ${done.length}장 올렸어요` : '', left[0].failed, extra].filter(Boolean).join(' · '), error:true, ms:0,
+    session.note = announceDock({text:`${head}사진 ${left.length}장 못 올렸어요`, note:[done.length ? `사진 ${done.length}장 올렸어요` : '', left[0].failed, extra].filter(Boolean).join(' · '), error:true, ms:0, files:[...left, ...done].map(entry => entry.file),
       actions:[{label:'다시 올리기', aria:'못 올린 사진 다시 올리기', run:retry}], onClose:why => { if (why === 'closed' && !session.pump) behindSessions.delete(session); }});
     return;
   }
   behindSessions.delete(session);
-  if (done.length) session.note = announceDock(extra ? {text:`${head}사진 ${done.length}장 올렸어요`, note:extra, error:true, ms:0} : {text:`${head}사진 ${done.length}장 올렸어요`});
+  const files = done.map(entry => entry.file);
+  if (done.length) session.note = announceDock(extra ? {text:`${head}사진 ${done.length}장 올렸어요`, note:extra, error:true, ms:0, files} : {text:`${head}사진 ${done.length}장 올렸어요`, files});
 }
 function pumpUploads(session = edit) {
   if (!session || session.discarded || session.pump) return session?.pump || null;
@@ -836,13 +837,23 @@ async function runUploads(session) {
       if (error?.code === 'note_save_result_unknown' && alive() && await recoverUpload(session, entry)) { job.cancel(); continue; }
       entry.failed = diaryUploadText(error);
       setUploadRetry(entry.file, () => { if (edit !== session || !session.pending.includes(entry)) return; entry.failed = ''; pumpUploads(session); });
-      if (edit === session && !session.busy && !session.behind) setEditorStatus(`'${entry.file.name}' 사진을 올리지 못했어요. ${entry.failed} [다시]를 눌러 주세요.`);
+      if (edit === session && !session.busy && !session.behind) tellFailed(session);
     } finally {
       entry.photo = null;
       if (session.current === entry) session.current = null;
       if (edit === session) paintPendingUploads();
     }
   }
+}
+// UX-알림하나로(S59-21): 창이 열린 채 못 올린 사진도 실패·[다시 올리기]는 아래 한 줄 하나(창 상태 줄에 같은 말을 쓰지 않고, files로 맡겨
+// 사진 칸 위 '실패'·올리는 줄의 '실패 [다시]'도 그리지 않는다). 못 올린 사진이 바뀌면(더 못 올림·뺌·다시 올림) 한 줄을 새로 쓴다.
+function tellFailed(session) {
+  session.failNote?.close(); session.failNote = null;
+  const bad = session.pending.filter(entry => entry.failed && !entry.up);
+  if (!bad.length || edit !== session || session.behind) return;
+  const retry = () => { if (edit !== session || session.behind) return; for (const entry of bad) entry.failed = ''; pumpUploads(session); };
+  session.failNote = announceDock({text:`사진 ${bad.length}장 못 올렸어요`, note:bad[0].failed, error:true, ms:0, files:bad.map(entry => entry.file),
+    actions:[{label:'다시 올리기', aria:'못 올린 사진 다시 올리기', run:retry}]});
 }
 async function recoverUpload(session, entry) {
   try {
@@ -880,11 +891,12 @@ function dropEntry(session, entry) {
   session.pending.splice(at, 1); URL.revokeObjectURL(entry.url);
   if (entry.up) session.dropped.push(entry.up.drive_file_id);
   for (const job of uploadJobs()) if (job.file === entry.file && (job.phase === 'sending' || job.phase === 'failed')) job.cancel();
+  if (entry.failed && session.failNote) tellFailed(session); // 못 올린 사진을 뺐으면 아래 한 줄도 남은 것만
   if (edit === session && !editor.hidden) renderEditor(session.busy ? '저장하는 중…' : '');
 }
 // 저장하지 않고 닫은 창: 보내는 중인 사진은 멈추고(다 보낸 뒤 마무리 중인 것은 끝까지 기다림), 끝나면 올린 사진을 일기에서 뺀다.
 function discardSession(session) {
-  session.discarded = true;
+  session.discarded = true; session.failNote?.close(); session.failNote = null;
   for (const job of uploadJobs()) if (session.pending.some(entry => entry.file === job.file) && (job.phase === 'sending' || job.phase === 'failed')) job.cancel();
   if (!session.pump) void discardUploads(session);
 }

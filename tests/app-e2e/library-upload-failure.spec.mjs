@@ -13,9 +13,9 @@ async function openFixture(page,plan={}){
 }
 
 // UX-먼저묻고뒤에처리 3차(S57-1): [저장]하면 등록 창은 바로 닫히고 비워진다(올리는 동안 잠기지 않는다). 올리기는 뒤 줄에서,
-// 못 올린 것은 공용 작은 알림(#kptuNotice, role=alert)에 예전 창 상태 줄과 같은 글로 알리고 다시 올릴 수 있으면 [다시]가 붙는다.
-const noticeLine=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-text');
-const retryButton=page=>page.locator('#kptuNotice:not([hidden]) .kptu-notice-action',{hasText:'다시'});
+// 못 올린 것은 하단바 위 한 줄(#uploadDock, role=alert — UX-알림하나로 S59-21)에 예전 창 상태 줄과 같은 글로 알리고 다시 올릴 수 있으면 [다시]가 붙는다.
+const noticeLine=page=>page.locator('#uploadDock:not([hidden]) .up-dock-text');
+const retryButton=page=>page.locator('#uploadDock:not([hidden]) [data-up-act="note-act"]',{hasText:'다시'});
 async function expectFailureSettled(page,{retry=true}={}){
   const save=page.locator('#saveDocumentBtn');
   await expect(page.locator('#documentModal')).toHaveClass(/hidden/);
@@ -24,7 +24,7 @@ async function expectFailureSettled(page,{retry=true}={}){
   await expect(save).not.toHaveAttribute('aria-busy','true');
   await expect(page.locator('#newDocumentBtn')).toBeEnabled();
   await expect(page.locator('#libraryFileInput')).toBeEnabled();
-  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','alert');
+  await expect(page.locator('#uploadDock:not([hidden])')).toHaveAttribute('role','alert');
   await expect(retryButton(page)).toHaveCount(retry?1:0);
 }
 
@@ -92,7 +92,7 @@ test('single file success closes the modal, clears selection and announces the c
   await expect(page.locator('[data-lu-upload-file]')).toHaveCount(0);
   await expect(page.locator('#saveDocumentBtn')).toBeEnabled();
   await expect(noticeLine(page)).toHaveText('ok.pdf 올렸어요');
-  await expect(page.locator('#kptuNotice:not([hidden])')).toHaveAttribute('role','status');
+  await expect(page.locator('#uploadDock:not([hidden])')).toHaveAttribute('role','status');
   await expect(retryButton(page)).toHaveCount(0);
   await page.waitForTimeout(200);
   expect(await calls(page)).toEqual(['ok.pdf']);
@@ -236,7 +236,7 @@ test('long failure text wraps inside the small notice on narrow phones',async({p
     await expect(noticeLine(page)).toContainText('네트워크 연결이 끊겨');
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
     expect(overflow,`horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
-    const box=await page.locator('#kptuNotice:not([hidden])').boundingBox();
+    const box=await page.locator('#uploadDock:not([hidden])').boundingBox();
     expect(box.x,`notice left edge at ${width}px`).toBeGreaterThanOrEqual(0);
     expect(box.x+box.width,`notice right edge at ${width}px`).toBeLessThanOrEqual(width);
     await expect(page.locator('#saveDocumentBtn')).toBeEnabled();

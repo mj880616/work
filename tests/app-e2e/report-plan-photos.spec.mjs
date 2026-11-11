@@ -171,7 +171,8 @@ test('1280 못 올린 사진(올리기 실패·사진 읽기 실패)은 아래 �
   await expect(dock(page).locator('.up-dock-note')).toContainText('사진 1장 올렸어요');
   state.photo.failNames.clear();
   await dock(page).locator('button', {hasText: '다시 올리기'}).click();
-  await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 1장 올렸어요');
+  // 그 묶음(a·c)이 끝까지 올라감 — 새 끝 알림이 앞의 '올렸어요'(b)를 갈아 끼운다(UX-알림하나로: 지난 끝이 줄 서 있지 않다).
+  await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장 올렸어요');
   expect(state.photo.uploads.map(u => u.name).filter(n => n === 'od_c.jpg')).toHaveLength(2);
   expect(state.photo.uploads.map(u => u.name).filter(n => n !== 'od_c.jpg').sort()).toEqual(['od_a.jpg', 'od_b.jpg']); // 올라간 것은 다시 보내지 않는다
   expect(errors).toEqual([]);

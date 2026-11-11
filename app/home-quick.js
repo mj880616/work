@@ -313,7 +313,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(!basketSave){rememberPlace(chosen);setPlaces([]);}
       input.value='';expanded=false;paint();if(result.note)onSaved(result.note);
       const linkFailed=!!result.linkError;if(linkFailed)status.textContent=linkFailText;
-      const toast=document.querySelector('#toast');toast.textContent=linkFailed?'잊지 말기에 저장했어요. 사진·파일은 올리는 중이에요.':!text.trim()?'사진·파일을 올리는 중이에요.':basketSave?'잊지 말기에 저장했어요. 사진·파일은 올리는 중이에요.':'기록을 저장했어요. 사진·파일은 올리는 중이에요.';kptuHoldToast(toast);
+      const toast=document.querySelector('#toast');/* UX-알림하나로(S59-21): 올리는 진행·끝은 하단바 위 한 줄 하나 — 저장 알림에 '올리는 중'을 또 쓰지 않고, 글 없이 파일만이면 저장 알림도 띄우지 않는다. */if(linkFailed||text.trim()){toast.textContent=linkFailed||basketSave?'잊지 말기에 저장했어요.':'기록을 저장했어요.';kptuHoldToast(toast);}
       choicesFlight=null;
       return linkFailed?{ok:true,linkError:result.linkError,sending:true}:{ok:true,sending:true};
     }catch(e){const message=e.message||'저장하지 못했어요.';if(quickOwner===quickScope())status.textContent=message;return {ok:false,message};}
@@ -340,7 +340,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(owner!==quickScope())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       input.value='';expanded=false;paint();onSaved(note);
-      const toast=document.querySelector('#toast');if(toast){toast.textContent=sending?'노트를 추가했어요. 사진·파일은 올리는 중이에요.':'노트를 추가했습니다.';kptuHoldToast(toast);}
+      const toast=document.querySelector('#toast');if(toast){toast.textContent=sending?'노트를 추가했어요.':'노트를 추가했습니다.';kptuHoldToast(toast);}
       return {ok:true};
     }catch(e){const message=e.message||'저장하지 못했어요.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}

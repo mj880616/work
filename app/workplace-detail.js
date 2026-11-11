@@ -371,7 +371,7 @@ async function wdSaveInbox(){if(!wdOrg?.canEdit)return;const box=document.queryS
  if(count){const [{saveUpdateFilesBehind,linkFailText},{recordLineFor}]=await Promise.all([import('./update-places.js'),import('./record-attach.js')]);const owner=wdUser?.id,batch=wdAttach.getBatch(),name=wdOrg.name||'담당조직';
   const result=await saveUpdateFilesBehind({places:[{kind:'organization',id:orgId}],text,batch,fileLine:list=>recordLineFor(list,wdRt),where:`${name} 기록`},wdRt);
   if(wdAttach.getBatch()===batch)wdAttach.reset();if(result.stale||wdRt.session.read()?.user?.id!==owner||wdOrg?.id!==orgId)return;box.value='';if(text)await wdRefreshLinks();
-  st.textContent=result.linkError?linkFailText:text?'저장했어요. 사진·파일은 올리는 중이에요.':'사진·파일을 올리는 중이에요.';st.className=result.linkError?'status error':'status ok';return}
+  st.textContent=result.linkError?linkFailText:text?'저장했어요.':''; /* UX-알림하나로: 올리는 진행·끝은 하단바 위 한 줄 하나 */st.className=result.linkError?'status error':'status ok';return}
  const {saveOrganizationUpdate}=await import('./quick-save.js');await saveOrganizationUpdate({organization_id:orgId,raw_text:text,created_by:wdUser.id});if(wdOrg?.id!==orgId)return;box.value='';await wdReloadUpdates(orgId);st.textContent='저장했습니다.';st.className='status ok'}catch(e){st.textContent=e.message||String(e);st.className='status error'}finally{btn.disabled=false;wdAttach?.render()}}
 // TASK-조직상세: Google tasks linked to this organization, drawn by google-tasks.js like the project detail (all pending and
 // those completed in the last 3 days). A fresh box per opening, and an emptied one on close, so a closed detail is not refreshed.
