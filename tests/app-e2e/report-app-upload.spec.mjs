@@ -1,7 +1,8 @@
 // APP-뒤에서올리기 웹 연결(PR-2, S58-12, 요청함 11/11 06:56): 사업 보고 사진·회의자료 올리기.
 // ① 폰 앱(가짜 KPTUAppShell): 묶음을 앱 다리에 넘기고 화면은 보내지 않는다 → 줄은 '앱이 올리는 중', 앱의 끝 알림으로 채워진다. 멈춤·실패 줄·[다시 올리기].
 //    옛 앱·위젯 로그인 없음이면 지금 길 그대로(화면 안에서 올림).
-// ② 브라우저(다리 없음): 화면을 벗어난 사이 끊긴 사진은 돌아오면 저절로 다시, 그래도 안 되면 그 줄에 [다시]. 까닭을 인터넷 탓으로 알리지 않는다.
+// ② 브라우저(다리 없음): 화면을 벗어난 사이 끊긴 사진은 돌아오면 저절로 다시(먼저 서버에 이미 붙었는지 확인), 그래도 안 되면 그 줄에 [다시].
+//    까닭을 인터넷 탓으로 알리지 않는다. 올렸는지 모르는 사진은 저절로 다시 보내지 않는다.
 // 서버·앱은 흉내(page.route · 가짜 다리), 파일·이름은 모두 가짜다. 화면 사진은 SHOTS_DIR을 줄 때만 찍는다(docs/design/screens/s58-12/).
 import {test,expect} from '@playwright/test';
 import {fillDateTime} from './helpers/date-time.mjs';
@@ -16,6 +17,7 @@ const SHOTS=process.env.SHOTS_DIR||'';
 const PIXEL=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
 const photo=n=>({name:`사진${n}.jpg`,mimeType:'image/jpeg',buffer:Buffer.from('jpeg-'+n)});
 const paper=(name='자료.hwp')=>({name,mimeType:'application/x-hwp',buffer:Buffer.from('hwp-'+name)});
+const sizeOf=name=>/\.jpg$/.test(name)?photo(name.match(/\d+/)?.[0]||'').buffer.length:paper(name).buffer.length;
 const dock=page=>page.locator('#uploadDock:not([hidden])');
 const batchId=n=>`batch_${String(n).padStart(4,'0')}_abcdefghij`;
 const docId=n=>`cccccccc-0000-4ccc-8ddd-${String(n).padStart(12,'0')}`;
@@ -28,11 +30,11 @@ const shot=async(page,name)=>{if(SHOTS)await page.screenshot({path:`${SHOTS}/${n
 async function boot(page,width,{app=null,height=900}={}){
   await page.setViewportSize({width,height});
   const state={meetings:[{id:OLD_ID,workspace_id:'ws',created_by:'owner',title:'가짜 회의',round_no:1,meeting_at:'2026-11-10T01:00:00Z',report_kind:'meeting',transcript:'가짜 결과',project_id:null}],
-    docs:[],uploads:[],hold:false,waiting:[],cut:new Set(),cutAlways:false,errors:[]};
+    docs:[],uploads:[],checks:[],hold:false,waiting:[],cut:new Set(),cutAlways:false,cutAfterSave:false,errors:[]};
   state.release=()=>{const next=state.waiting.shift();if(next)next()};
   state.releaseAll=()=>{state.hold=false;while(state.waiting.length)state.release()};
   // 앱이 올린 것처럼 서버에 자료를 붙인다(가짜).
-  state.attach=(n,name,meeting=OLD_ID)=>{const isPhoto=/\.jpg$/.test(name);state.docs.push({id:docId(n),workspace_id:'ws',file_id:'drive-'+n,file_name:name,title:name,mime_type:isPhoto?'image/jpeg':'application/x-hwp',category:isPhoto?'사진':'회의자료',tags:[],meeting_id:meeting,created_at:new Date().toISOString()});return docId(n)};
+  state.attach=(n,name,meeting=OLD_ID)=>{const isPhoto=/\.jpg$/.test(name);state.docs.push({id:docId(n),workspace_id:'ws',file_id:'drive-'+n,file_name:name,file_size:sizeOf(name),title:name,mime_type:isPhoto?'image/jpeg':'application/x-hwp',category:isPhoto?'사진':'회의자료',tags:[],meeting_id:meeting,created_at:new Date().toISOString()});return docId(n)};
   page.on('pageerror',e=>state.errors.push(e.message));
   if(app)await page.addInitScript(({know,on})=>{
     const listeners=[],shell=window.__app={sent:[],starts:[],begins:[],seq:0,know,on};
@@ -67,8 +69,9 @@ async function boot(page,width,{app=null,height=900}={}){
       return ok(state.meetings.filter(m=>!id||m.id===id));
     }
     if(path==='/rest/v1/app_documents'){
-      const mid=url.searchParams.get('meeting_id')?.replace(/^eq\./,'');
-      return ok(state.docs.filter(d=>!mid||d.meeting_id===mid));
+      const eq=key=>url.searchParams.get(key)?.replace(/^eq\./,''),mid=eq('meeting_id'),name=eq('file_name'),size=eq('file_size');
+      if(name)state.checks.push(name); // 다시 보내기 전에 '이미 붙었는지' 묻는 읽기
+      return ok(state.docs.filter(d=>(!mid||d.meeting_id===mid)&&(!name||d.file_name===name)&&(!size||String(d.file_size)===size)));
     }
     if(path==='/functions/v1/library-files'){
       // 사진 칸이 작은 그림을 읽는 요청(GET): 가짜 그림 한 점.
@@ -78,6 +81,8 @@ async function boot(page,width,{app=null,height=900}={}){
       state.uploads.push(upload);
       if(state.hold)await new Promise(resolve=>state.waiting.push(resolve));
       // 끊김 흉내: 그 이름의 첫 요청(cutAlways면 늘)을 서버에 닿기 전에 끊는다.
+      // cutAfterSave: 서버는 받아 저장했는데 답이 닿기 전에 끊김(화면은 다 보낸 줄 모른다).
+      if(state.cutAfterSave){state.cutAfterSave=false;state.attach(state.uploads.length,name,upload.meeting);return route.abort('connectionreset')}
       if(state.cutAlways||state.cut.has(name)){state.cut.delete(name);return route.abort('connectionreset')}
       state.attach(state.uploads.length,name,upload.meeting);
       return ok({ok:true,document:state.docs.at(-1)});
@@ -220,6 +225,7 @@ for(const width of [412,1280]){
     await setVisible('visible');
     await expect.poll(()=>state.uploads.length).toBe(2);
     expect(state.uploads[1].name).toBe('사진1.jpg');
+    expect(state.checks).toEqual(['사진1.jpg']); // 다시 보내기 전에 이미 붙었는지 먼저 물었다(붙어 있지 않아 다시 보냄)
     await expect(dock(page).locator('.up-dock-text')).toHaveText('화면을 벗어나 멈췄어요 · 다시 올리는 중');
     await expect(page.locator('#mrdPhotoRows .up-row[data-phase="failed"]')).toHaveCount(0); // 옛 실패 줄은 지우고 새 줄로
     await shot(page,`back-again-${width}`);
@@ -264,6 +270,29 @@ for(const width of [412,1280]){
     expect(state.errors).toEqual([]);
   });
 }
+
+test('브라우저: 화면이 멈춘 사이 서버가 이미 받은 사진은 돌아와도 다시 보내지 않는다(같은 사진이 두 번 붙지 않게) 412px',async({page})=>{
+  const state=await boot(page,412);
+  await openMeetingResult(page,OLD_ID);
+  const setVisible=await fakeVisibility(page);
+  state.hold=true;state.cutAfterSave=true;
+  await pickPhotos(page,2);
+  await expect.poll(()=>state.uploads.length,{timeout:FIRST}).toBe(1);
+  await setVisible('hidden');
+  state.release(); // 서버는 첫 사진을 저장했지만 답이 끊겼다
+  await expect(page.locator('#mrdPhotoRows .up-row[data-phase="failed"]')).toHaveCount(1);
+  state.hold=false;
+  await setVisible('visible');
+  // 이미 붙어 있는 것을 확인하고 다시 보내지 않는다 → 둘째만 올린다.
+  await expect(page.locator('#mrdPhotoStatus')).toContainText('2장을 올렸어요',{timeout:10000});
+  await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
+  expect(state.checks).toEqual(['사진1.jpg']);
+  expect(state.uploads.map(u=>u.name)).toEqual(['사진1.jpg','사진2.jpg']);
+  expect(state.docs.map(d=>d.file_name)).toEqual(['사진1.jpg','사진2.jpg']);
+  await expect(page.locator('#mrdPhotoRows .up-row')).toHaveCount(0);
+  await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장 올렸어요');
+  expect(state.errors).toEqual([]);
+});
 
 test('브라우저: 다 보낸 뒤 끊긴 사진(올렸는지 모름)은 돌아와도 저절로 다시 보내지 않는다 412px',async({page})=>{
   const state=await boot(page,412);

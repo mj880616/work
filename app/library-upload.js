@@ -654,8 +654,18 @@ const luAwayWord=()=>/KPTUAndroid/i.test(navigator.userAgent||'')?'앱을':'화�
 function luMeetingFailure(e){
   const f=luUploadFailure(e);
   if(!e?.away||(f.type!=='unknown_network'&&f.type!=='unknown_timeout'))return f;
-  if(e.unsent)return {...f,type:'away',kind:'error',label:'멈춤',away:true,stop:true,message:`${luAwayWord()} 벗어나 올리기가 멈췄어요.`};
-  return {...f,type:'unknown_away',message:`${luAwayWord()} 벗어난 사이 올리기가 끊겨 올렸는지 확인하지 못했어요. 사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.`};
+  const unsure=`${luAwayWord()} 벗어난 사이 올리기가 끊겨 올렸는지 확인하지 못했어요. 사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.`;
+  if(e.unsent)return {...f,type:'away',kind:'error',label:'멈춤',away:true,stop:true,message:`${luAwayWord()} 벗어나 올리기가 멈췄어요.`,unsure};
+  return {...f,type:'unknown_away',message:unsure};
+}
+// 돌아와 다시 보내기 전에: 그 사업 보고에 같은 이름·같은 크기의 자료가 이미 붙어 있는지 본다(서버는 올린 파일의 이름·크기를 그대로 적는다).
+// 화면이 멈춘 사이 마지막 조각까지 나가 서버가 이미 저장했을 수 있다 — 그때 다시 보내면 같은 자료가 두 번 붙는다. 자기 로그인(owner RLS)으로 읽기만 한다.
+// skip: 같은 묶음에서 방금 올린 자료(같은 파일을 두 번 고른 때 앞의 것을 이것으로 보지 않게). 못 읽으면 던진다(부른 곳이 결과 불명으로 둔다).
+async function luMeetingHas(target,file,skip=[]){
+  const m=normalizeUploadMeeting(target);if(!m||!file?.name)return null;
+  const rows=await luApi(`/rest/v1/app_documents?meeting_id=eq.${encodeURIComponent(m.id)}&workspace_id=eq.${encodeURIComponent(luWorkspace)}&file_name=eq.${encodeURIComponent(file.name)}&file_size=eq.${Number(file.size)||0}&select=id,project_id&order=created_at.desc&limit=20`,{singleFlight:false});
+  if(!Array.isArray(rows))throw new Error('자료 목록을 확인하지 못했어요.');
+  return rows.find(row=>row?.id&&!skip.includes(row.id))||null;
 }
 // 화면이 다시 보이면 풀린다(이미 보이면 곧). 돌아온 직후 연결이 다시 붙을 틈을 조금 둔다.
 const LU_BACK_SETTLE_MS=600;
@@ -673,7 +683,7 @@ const luMeetingSend=createMeetingSend({
   classify:luMeetingFailure,
   scope:luBackScope,gone:luBackGone,
   handoff:createAppHandoff(luAppUp,{ids:target=>{const m=normalizeUploadMeeting(target);return {meeting:m?.id||'',project:m?.projectId||''}}}),
-  handedText:uploadReasonText,back:luScreenBack,
+  handedText:uploadReasonText,back:luScreenBack,verify:luMeetingHas,
   fields:(file,target)=>photoUploadFields(file,normalizeUploadMeeting(target)||{},documentCategories()),
   confirmUnknown:count=>askConfirm(null,{text:`올렸는지 확인하지 못한 파일이 ${count}개 있어요.`,note:'이미 사업 보고에 붙었다면 다시 올릴 때 같은 자료가 두 번 붙어요. 사업 보고를 열어 없는 것을 확인했다면 [다시 올리기]를 눌러 주세요.',ok:'다시 올리기'}),
   report:luMeetingSendReport});
@@ -681,7 +691,10 @@ function luMeetingSendReport(ev){
   const {batch}=ev,t=batch.target,back=()=>luShowReport(t.id),retry=()=>{void luMeetingSend.retry(batch)};
   // 올라간 파일 하나: 그 보고를 보고 있으면 사진·회의자료 칸이 바로 채워지게 가볍게 알린다(목록 전체를 다시 읽는 kptu:documents-changed는 묶음이 끝날 때 한 번).
   // 앱이 올린 자료(사진 아님)는 화면이 그 파일을 아직 들고 있을 때 여기서 저절로 채운다(화면 안 올리기는 올린 자리에서 이미 한다).
-  if(ev.type==='file'){if(ev.entry?.state==='done'){const file=ev.entry.file;if(ev.entry.byApp&&!ev.entry.photo&&ev.entry.doc?.id&&file){const id=ev.entry.doc.id,fd=new FormData();luAiFill(id,fd,file.name)}window.dispatchEvent(new CustomEvent('kptu:meeting-file-sent',{detail:{meeting_id:t.id}}))}return}
+  // 돌아와 보니 서버에 이미 붙어 있던 자료(found)도 같다(올린 자리에서 채우지 못했다).
+  if(ev.type==='file'){if(ev.entry?.state==='done'){const file=ev.entry.file;if((ev.entry.byApp||ev.entry.found)&&!ev.entry.photo&&ev.entry.doc?.id&&file){const id=ev.entry.doc.id,fd=new FormData();luAiFill(id,fd,file.name)}window.dispatchEvent(new CustomEvent('kptu:meeting-file-sent',{detail:{meeting_id:t.id}}))}return}
+  // 회의자료 놓기 줄이 부른 한 개짜리 묶음(quiet): 진행·끝 알림·[다시]는 놓기 줄이 맡는다(앱에도 넘기지 않는다 — meeting-send.mjs).
+  if(batch.quiet)return;
   if(ev.type==='queued'){luMeetingNote(batch,null);return}
   // 앱에 넘기는 동안(몇 초)은 이 화면이 살아 있어야 한다: 넘기는 중임을 알린다. 못 넘기면 지금 길로 올리므로 그 알림을 닫는다.
   if(ev.type==='handing'){luMeetingNote(batch,{text:sendHandingLine({photos:ev.openPhotos,files:ev.openFiles}),note:'다 넘기면 다른 앱으로 가도 끝까지 올려요',back,ms:0});return}
@@ -691,8 +704,6 @@ function luMeetingSendReport(ev){
   if(ev.type==='handed-stopped'){luMeetingNote(batch,{text:luStoppedLine(ev.job?.reason),error:true,back,ms:LU_BACK_FAIL_MS});return}
   // 화면을 벗어나 끊긴 파일을 돌아와 다시 보내는 중(까닭대로 — 인터넷 탓이 아니다).
   if(ev.type==='resumed'){luMeetingNote(batch,{text:`${luAwayWord()} 벗어나 멈췄어요 · 다시 올리는 중`,back});return}
-  // 회의자료 놓기 줄이 부른 한 개짜리 묶음(quiet): 진행·끝 알림·[다시]는 놓기 줄이 맡는다. 앱이 맡았던 파일의 끝만 여기서 알린다(놓기 줄은 이미 끝났다).
-  if(batch.quiet&&!batch.entries.some(e=>e.byApp))return;
   if(ev.type==='kept'){luMeetingNote(batch,{text:'확인하지 못한 파일은 다시 올리지 않았어요',note:'사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.',error:true,back,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]});return}
   if(ev.type!=='done')return;
   if(ev.sent){if(t.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:t.project_id||null,meeting_id:t.id}}))}
@@ -701,6 +712,8 @@ function luMeetingSendReport(ev){
   const bad=ev.badPhotos+ev.badFiles,ok=ev.okPhotos+ev.okFiles,again=ev.retry?[{label:'다시 올리기',aria:bad?'못 올린 파일 다시 올리기':'취소한 파일 다시 올리기',run:retry}]:[];
   // 못 올린 것이 있으면 한 줄은 짧게('사진 2장 못 올렸어요'), 작은 둘째 줄에 올라간 것과 까닭. 누를 때까지 남는다(저절로 사라지면 못 올린 줄 모르고 지나간다).
   if(bad)luMeetingNote(batch,{text:sendFailLine({badPhotos:ev.badPhotos,badFiles:ev.badFiles}),note:[sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),ev.message].filter(Boolean).join(' · '),error:true,back,ms:0,actions:again});
+  // 화면 쪽은 끝났지만(올림·✕ 취소) 앱이 맡은 파일이 남아 있으면 그 줄을 다시 보인다(다 올렸거나 취소한 것처럼 알리지 않는다). 끝은 앱이 알려 올 때 한 번 더 온다.
+  else if(ev.handedPhotos+ev.handedFiles)luMeetingNote(batch,{text:sendHandedLine({photos:ev.handedPhotos,files:ev.handedFiles})+(ev.cancelled?` · ${ev.cancelled}개 취소`:''),back});
   else if(ev.cancelled)luMeetingNote(batch,{text:ok?`${sendDoneLine({photos:ev.okPhotos,files:ev.okFiles})} · ${ev.cancelled}개 취소`:'올리기를 취소했어요',back,ms:LU_BACK_FAIL_MS,actions:again});
   else if(ok)luMeetingNote(batch,{text:sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),back});
   if(ev.stopped?.type==='drive_auth')void luMaybeReconnectDrive(ev.stopped.error);
@@ -715,14 +728,14 @@ function luAppOrphan(job){
   if(bad.length)announceDock({text:`앱이 올리던 파일 ${bad.length}개를 못 올렸어요`,note:[ok?`${ok}개는 올렸어요`:'',uploadReasonText(bad[0]),'그 파일을 다시 선택해 올려 주세요.'].filter(Boolean).join(' · '),error:true,back,ms:0});
 }
 bindAppJobs(luAppUp,luMeetingSend,{orphan:luAppOrphan});
-// 회의자료 놓기 줄(meeting-drop-queue.mjs)이 파일 하나를 같은 들머리로 올린다: 같은 뒤 줄에 서고, 폰 앱이면 넘기고, 화면을 벗어나 끊기면 돌아와 다시 보낸다.
-// 돌려줌: 자료(앱에 넘겼으면 {handed:true}) · 못 올렸으면 던진다(놓기 줄이 [다시]를 맡으므로 이 묶음은 놓는다).
+// 회의자료 놓기 줄(meeting-drop-queue.mjs)이 파일 하나를 같은 들머리로 올린다: 같은 뒤 줄에 서고(한 번에 하나), 화면을 벗어나 끊기면 돌아와 다시 보낸다.
+// 앱에는 넘기지 않는다(끌어 놓기는 PC 길 — 다리가 없다. 놓기 줄이 '올렸어요'를 스스로 알리므로 넘기기만 한 것을 올렸다고 하지 않게).
+// 돌려줌: 올린 자료 · 못 올렸으면 던진다(놓기 줄이 [다시]를 맡으므로 이 묶음은 놓는다).
 async function luSendOneForMeeting(meeting,file){
   const batch=luMeetingSend.send(meeting,[file],{quiet:true});
   await batch.settled;
   const entry=batch.entries[0];
   if(entry?.state==='done')return entry.doc;
-  if(entry?.state==='handed')return {handed:true};
   luMeetingSend.forget(batch);
   throw Object.assign(new Error(entry?.state==='cancelled'?'올리기를 취소했어요.':entry?.state==='gone'?'로그인 계정이 바뀌어 올리지 않았어요.':entry?.message||'파일을 올리지 못했어요.'),{code:entry?.state==='cancelled'?'upload_cancelled':'upload_failed'});
 }

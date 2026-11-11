@@ -449,7 +449,7 @@ function mrdDropReport(ev){
 function mrdDropQueue(){
   return mrdDropQ||=createDropQueue({
     ready:()=>mrdEnsureLibrary(()=>{}),
-    upload:(t,file)=>window.KPTULibrary.sendFileForMeeting({id:t.id,project_id:t.project_id,kind:t.kind,day:t.day},file), // 같은 들머리(공용 뒤 줄 · 폰 앱이면 넘김 · 화면을 벗어나 끊기면 돌아와 다시)
+    upload:(t,file)=>window.KPTULibrary.sendFileForMeeting({id:t.id,project_id:t.project_id,kind:t.kind,day:t.day},file), // 같은 들머리(공용 뒤 줄에서 하나씩 · 화면을 벗어나 끊기면 돌아와 다시 — 끌어 놓기는 PC 길이라 앱에는 넘기지 않는다)
     read:files=>readResultText(files),
     append:mrdDropAddText,
     report:mrdDropReport});

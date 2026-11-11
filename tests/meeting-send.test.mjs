@@ -309,11 +309,146 @@ test('앱에 넘김: 20개씩 나눠 넘기다 뒤 묶음을 못 넘기면 앞�
   assert.deepEqual(s.sent, ['p3.jpg']);
   assert.deepEqual(batch.entries.map(e => e.state), ['handed', 'handed', 'done']);
   assert.deepEqual(batch.entries.map(e => e.hand?.index), [0, 1, undefined]);
-  assert.equal(s.events.some(e => e.type === 'done'), false);
+  // 화면이 올린 쪽의 결과는 앱을 기다리지 않고 먼저 알린다(앱이 맡은 것은 아직 남아 있다).
+  const first = s.events.at(-1);
+  assert.equal(first.type, 'done'); assert.equal(first.sent, 1); assert.equal(first.handedPhotos, 2);
   s.send.handedJob({id: 'jobC', state: 'done', docs: ['d1', 'd2'], errors: ['', '']});
   const done = s.events.at(-1);
-  assert.equal(done.type, 'done'); assert.equal(done.sent, 3); assert.equal(done.okPhotos, 3);
+  assert.equal(done.type, 'done'); assert.equal(done.sent, 2, '앞에서 센 파일을 또 세지 않는다'); assert.equal(done.okPhotos, 3); assert.equal(done.handedPhotos, 0);
 });
+
+test('앱에 넘김: 일부만 넘긴 묶음에서 화면이 못 올린 파일은 앱을 기다리지 않고 바로 알리고 [다시 올리기]를 준다', async () => {
+  const s = setup({track: f => handJob({file: f}), handoff: async () => ({ok: true, jobs: [{id: 'jobP', count: 1}]}),
+    upload: async () => { throw new Error('x'); }, classify: () => ({kind: 'error', message: '실패'})});
+  const batch = s.send.send(target, [photo(1), photo(2)]);
+  await batch.settled;
+  const first = s.events.at(-1);
+  assert.equal(first.type, 'done'); assert.equal(first.badPhotos, 1); assert.equal(first.handedPhotos, 1); assert.equal(first.retry, true);
+  assert.equal(s.send.has('m1', batch.entries[1].file), true);
+});
+
+test('앱에 넘김: 차례를 기다리는 사이·앱에 묻는 사이 ✕로 뺀 파일은 앱에도 넘기지 않고, 넘기는 동안에는 줄이 넘기는 중으로 바뀐다', async () => {
+  const got = [];
+  let jobs = [];
+  const s = setup({track: f => { const j = handJob({file: f}); j.unhand = () => { j.phase = 'waiting'; }; jobs.push(j); return j; },
+    handoff: async (t, items, opts) => {
+      jobs[2].cancel();                      // 앱에 묻는 사이(답을 기다리는 동안) 셋째를 뺌
+      opts.started();
+      got.push(...items.map(i => i.file.name));
+      assert.deepEqual(jobs.map(j => j.hands.at(-1)), [undefined, {handing: true}, undefined, {handing: true}], '넘기는 줄만 넘기는 중(✕ 없음)');
+      opts.took({id: 'jobX', count: items.length});
+      return {ok: true, jobs: [{id: 'jobX', count: items.length}]};
+    }});
+  const files = [photo(1), photo(2), photo(3), photo(4)];
+  const batch = s.send.send(target, files);
+  jobs[0].cancel();                          // 차례를 기다리는 사이 첫째를 뺌
+  await batch.settled;
+  assert.deepEqual(got, ['p2.jpg', 'p4.jpg']);
+  assert.deepEqual(batch.entries.map(e => e.state), ['cancelled', 'handed', 'cancelled', 'handed']);
+  assert.deepEqual(batch.entries.map(e => e.hand?.index), [undefined, 0, undefined, 1], '앱이 알려 주는 순서는 넘긴 목록 기준');
+  assert.deepEqual(s.sent, []);
+  s.send.handedJob({id: 'jobX', state: 'done', docs: ['d2', 'd4'], errors: ['', '']});
+  assert.deepEqual(batch.entries.map(e => e.doc?.id), [undefined, 'd2', undefined, 'd4']);
+  // 못 넘기면 줄이 대기로 돌아와 지금 길로 올라간다(✕가 다시 보인다)
+  jobs = [];
+  const f = setup({track: file => { const j = handJob({file}); j.unhand = () => { j.phase = 'waiting'; j.unhanded = true; }; jobs.push(j); return j; },
+    handoff: async (t, items, opts) => { opts.started(); return {ok: false, error: 'space'}; }});
+  await f.send.send(target, [photo(1)]).settled;
+  assert.equal(jobs[0].unhanded, true);
+  assert.deepEqual(f.sent, ['p1.jpg']);
+  assert.deepEqual(f.events.map(e => e.type).slice(0, 3), ['queued', 'handing', 'handing-failed']);
+});
+
+test('앱에 넘김: 답을 못 받아 앱이 맡았는지 알 수 없는 파일(unsure)은 결과 불명 — 화면이 저절로 또 올리지 않는다', async () => {
+  const s = setup({track: f => handJob({file: f}), handedText: code => `까닭:${code}`,
+    handoff: async (t, items, opts) => { opts.started(); opts.took({id: 'jobU', count: 1}); return {ok: true, jobs: [{id: 'jobU', count: 1}], error: 'timeout', unsure: 1}; }});
+  const batch = s.send.send(target, [photo(1), photo(2), photo(3)]);
+  await batch.settled;
+  assert.deepEqual(batch.entries.map(e => e.state), ['handed', 'unknown', 'done']);
+  assert.equal(batch.entries[1].message, '까닭:unknown');
+  assert.deepEqual(s.sent, ['p3.jpg'], '알 수 없는 파일은 보내지 않고, 넘기지 않은 뒤 파일만 지금 길로');
+  const first = s.events.at(-1);
+  assert.equal(first.type, 'done'); assert.equal(first.unknown, 1); assert.equal(first.handedPhotos, 1);
+  // 하나도 못 넘기고 알 수 없을 때도 같다
+  const none = setup({handoff: async (t, items, opts) => { opts.started(); return {ok: false, error: 'timeout', unsure: items.length}; }});
+  const b2 = none.send.send(target, [photo(1), photo(2)]);
+  await b2.settled;
+  assert.deepEqual(none.sent, []);
+  assert.deepEqual(b2.entries.map(e => e.state), ['unknown', 'unknown']);
+  assert.equal(none.events.at(-1).type, 'done'); assert.equal(none.events.at(-1).unknown, 2);
+});
+
+test('회의자료 놓기 줄의 한 개짜리 묶음(quiet)은 앱에 넘기지 않는다(지금 길 — 같은 뒤 줄에서 하나씩)', async () => {
+  let asked = 0;
+  const s = setup({handoff: async () => { asked++; return {ok: true, jobs: [{id: 'jobQ', count: 1}]}; }});
+  const batch = s.send.send(target, [file('a.pdf')], {quiet: true});
+  await batch.settled;
+  assert.equal(asked, 0);
+  assert.deepEqual(s.sent, ['a.pdf']);
+  assert.equal(batch.quiet, true);
+  assert.equal(batch.entries[0].state, 'done');
+});
+
+test('돌아와 다시 보내기 전에 서버에 이미 붙었는지 본다: 붙어 있으면 다시 보내지 않고, 확인하지 못하면 결과 불명으로 둔다', async () => {
+  const away = {kind: 'error', away: true, stop: true, message: '멈췄어요', unsure: '확인하지 못했어요'};
+  // ① 이미 붙어 있음(마지막 조각까지 나갔던 것): 다시 보내지 않고 올린 것으로
+  let tries = 0, asked = null;
+  const there = setup({back: async () => {}, classify: () => away,
+    verify: async (t, f, skip) => { asked = {t, name: f.name, skip}; return {id: 'found-1'}; },
+    upload: async (t, f) => { if (f.name === 'p2.jpg') { tries++; throw new Error('끊김'); } return {id: 'd-' + f.name}; }});
+  const b1 = there.send.send(target, [photo(1), photo(2), photo(3)]);
+  await b1.settled;
+  assert.equal(tries, 1, '다시 보내지 않는다');
+  assert.deepEqual(b1.entries.map(e => [e.state, e.doc?.id]), [['done', 'd-p1.jpg'], ['done', 'found-1'], ['done', 'd-p3.jpg']]);
+  assert.equal(b1.entries[1].found, true);
+  assert.deepEqual(asked, {t: target, name: 'p2.jpg', skip: ['d-p1.jpg']}, '같은 묶음에서 방금 올린 자료는 빼고 찾는다');
+  assert.equal(there.events.some(e => e.type === 'resumed'), false);
+  assert.equal(there.events.at(-1).sent, 3);
+  // ② 붙어 있지 않음: 한 번 다시 보낸다
+  let n = 0;
+  const absent = setup({back: async () => {}, classify: () => away, verify: async () => null,
+    upload: async (t, f) => { if (++n === 1) throw new Error('끊김'); return {id: 'd-' + f.name}; }});
+  const b2 = absent.send.send(target, [photo(1)]);
+  await b2.settled;
+  assert.equal(n, 2); assert.equal(b2.entries[0].state, 'done');
+  assert.equal(absent.events.some(e => e.type === 'resumed'), true);
+  // ③ 확인하지 못함: 결과 불명으로 두고(다시 보내지 않음) 뒤 파일도 세운다
+  let m = 0;
+  const blind = setup({back: async () => {}, classify: () => away, verify: async () => { throw new Error('확인 실패'); },
+    upload: async () => { m++; throw new Error('끊김'); }});
+  const b3 = blind.send.send(target, [photo(1), photo(2)]);
+  await b3.settled;
+  assert.equal(m, 1);
+  assert.deepEqual(b3.entries.map(e => [e.state, e.message]), [['unknown', '확인하지 못했어요'], ['held', '확인하지 못했어요']]);
+  assert.equal(blind.events.at(-1).unknown, 1);
+});
+
+test('폰 앱: 답을 기다리는 사이 앱이 먼저 끝을 알려 와도 남의 묶음으로 지우지 않고, 그 파일을 화면이 또 올리지 않는다', async () => {
+  // 맡고도 답을 못 보낸 묶음(muteGo)이 답을 기다리는 사이 다 올라가 끝 알림이 먼저 온다
+  const a = await withApp({muteGo: 1});
+  const files = [blob('p1.jpg'), blob('p2.jpg')];
+  const batch = a.send.send(appTarget, files);
+  await wait(60); // up:go 답을 기다리는 중(시간 제한 200ms 안)
+  assert.equal(a.send.handing(), true);
+  a.shell.finish(1, [docId(1), docId(2)]);
+  a.shell.job(appJob(1, {docs: [docId(1), docId(2)], errors: ['', '']}));
+  await batch.settled;
+  await wait();
+  assert.deepEqual(a.orphans, [], '넘기는 중에 온 묶음을 남의 것으로 알리지 않는다');
+  assert.deepEqual(a.screen, [], '앱이 올린 파일을 화면이 또 올리지 않는다');
+  assert.deepEqual(batch.entries.map(e => e.state), ['done', 'done']);
+  assert.equal(a.shell.sent.filter(m => m.startsWith('up:seen:')).length, 1, '줄에 옮긴 뒤에야 앱 기록을 지운다');
+  assert.equal(a.events.filter(e => e.type === 'done').length, 1);
+  a.stop();
+  // 다시 물어도 답이 없으면(앱이 맡았는지 모름) 결과 불명으로 둔다 — 화면이 저절로 올리지 않는다
+  const {createAppUpload} = await import('../app/app-upload.js');
+  const shell = fakeShell(), bridge = shell.win.KPTUAppShell, post = bridge.postMessage;
+  let mute = false;
+  bridge.postMessage = m => { if (String(m) === 'up:go') mute = true; if (mute) { shell.sent.push(String(m)); return; } post(m); };
+  const up = createAppUpload(shell.win, {helloMs: 40, stepMs: 60});
+  assert.deepEqual(await createAppHandoff(up, {ids: t => ({meeting: t.id, project: ''})})(appTarget, [{file: blob('p.jpg')}, {file: blob('q.jpg')}]), {ok: false, error: 'timeout', unsure: 2});
+});
+
 
 test('앱에 넘김: 앱이 멈췄으면(stopped) 넘긴 채로 두고 까닭을 알린다 — 다시 이으면 끝까지', async () => {
   const s = setup({track: f => handJob({file: f}), handoff: async (t, items) => ({ok: true, jobs: [{id: 'jobD', count: items.length}]})});
@@ -422,7 +557,8 @@ function fakeShell({know = true, on = true, failAt = 0, jobs = [], quickDone = f
     addEventListener(type, fn) { if (type === 'message') listeners.push(fn); },
   };
   const doc = {visibilityState: 'visible', addEventListener() {}};
-  return {sent, started, say, job: v => say(`up:job:${JSON.stringify(v)}`), win: {navigator: {userAgent: ANDROID}, KPTUAppShell: bridge, document: doc}};
+  const finish = (n, docs) => { const job = jobs.find(j => j.id === batchId(n)); if (job) Object.assign(job, {state: 'done', left: 0, docs, errors: docs.map(() => '')}); };
+  return {sent, started, say, finish, job: v => say(`up:job:${JSON.stringify(v)}`), win: {navigator: {userAgent: ANDROID}, KPTUAppShell: bridge, document: doc}};
 }
 const appJob = (n, over = {}) => ({id: batchId(n), kind: 'meeting', target: MEETING, total: 2, left: 0, state: 'done', reason: '', docs: [], errors: [], ...over});
 const wait = (ms = 10) => new Promise(r => setTimeout(r, ms));
@@ -623,5 +759,5 @@ test('폰 앱: 넘긴 직후 답을 못 받았어도 앱이 그 묶음을 맡았
   const shell = fakeShell(), bridge = shell.win.KPTUAppShell, post = bridge.postMessage;
   bridge.postMessage = m => { if (String(m) === 'up:go') { shell.sent.push('up:go'); return; } post(m); };
   const up = createAppUpload(shell.win, {helloMs: 40, stepMs: 60});
-  assert.deepEqual(await createAppHandoff(up, {ids: t => ({meeting: t.id, project: ''})})(appTarget, [{file: blob('p.jpg')}]), {ok: false, error: 'timeout'});
+  assert.deepEqual(await createAppHandoff(up, {ids: t => ({meeting: t.id, project: ''})})(appTarget, [{file: blob('p.jpg')}]), {ok: false, error: 'timeout'}, '앱이 답했고 새 묶음이 없다 = 받지 못함');
 });

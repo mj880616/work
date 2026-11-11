@@ -47,16 +47,18 @@ export function createAppHandoff(up, {max = 20, kind = 'meeting', ids = target =
     if (!on || !up.can(kind)) return {ok: false, error: 'off'};
     try { started(); } catch { /* 알림뿐 */ }
     const to = {kind, ...ids(target)}, before = new Set(up.jobs().map(job => job.id)), jobs = [];
-    let error = '';
+    let error = '', unsure = 0;
     for (let at = 0; at < items.length; at += max) {
       const part = items.slice(at, at + max);
       let r = await up.send(to, part, {alive});
       // 답을 못 받았을 뿐 앱은 이미 맡았을 수 있다(넘긴 직후 앱을 벗어난 때): 앱에 다시 물어 이 대상의 새 묶음이 걸려 있으면 넘긴 것으로 본다
       // (같은 파일을 화면에서 또 올려 두 번 붙지 않게). 새 묶음이 없으면 앱이 받지 못한 것 → 지금 길.
+      // 다시 물어도 답이 없으면 앱이 맡았는지 알 수 없다 → 그 파일들은 결과 불명(unsure)으로 돌려준다(화면이 저절로 또 올리지 않는다).
       if (!r?.ok && r?.error === 'timeout' && alive()) {
-        await up.ready();
+        const answered = await up.ready();
         const kept = up.jobs(to.meeting).find(job => !before.has(job.id) && job.total === part.length);
         if (kept) r = {ok: true, id: kept.id};
+        else if (!answered) unsure = part.length;
       }
       if (!r?.ok) { error = r?.error || 'failed'; break; }
       before.add(r.id);
@@ -64,7 +66,7 @@ export function createAppHandoff(up, {max = 20, kind = 'meeting', ids = target =
       jobs.push(job);
       try { took(job); } catch { /* 알림뿐 */ }
     }
-    return jobs.length ? {ok: true, jobs, error} : {ok: false, error};
+    return jobs.length ? {ok: true, jobs, error, ...(unsure ? {unsure} : {})} : {ok: false, error, ...(unsure ? {unsure} : {})};
   };
 }
 
@@ -75,18 +77,26 @@ export function createAppHandoff(up, {max = 20, kind = 'meeting', ids = target =
  */
 export function bindAppJobs(up, send, {orphan = () => {}} = {}) {
   if (!up?.usable) return () => {};
-  const own = new Set(), told = new Set();
+  const own = new Set(), told = new Set(), late = new Map();
   const take = job => {
     if (!job?.id) return;
     let mine = false;
     try { mine = !!send.handedJob(job); } catch { mine = false; }
-    if (mine) own.add(job.id);
-    else if (!own.has(job.id) && job.state !== 'run' && !told.has(`${job.id}:${job.state}`)) { told.add(`${job.id}:${job.state}`); try { orphan(job); } catch { /* 알림뿐 */ } }
+    if (mine) { own.add(job.id); late.delete(job.id); }
+    else if (!own.has(job.id)) {
+      // 넘기는 중에 온 모르는 묶음은 이 화면이 방금 넘긴 것일 수 있다(답을 받기 전에 앱이 먼저 알려 옴): 넘기기가 끝날 때까지 미룬다 —
+      // 남의 묶음으로 알리거나 앱 기록을 지우면(up.seen) 그 파일을 화면이 또 올리게 된다.
+      if (send.handing?.()) { late.set(job.id, job); return; }
+      if (job.state !== 'run' && !told.has(`${job.id}:${job.state}`)) { told.add(`${job.id}:${job.state}`); try { orphan(job); } catch { /* 알림뿐 */ } }
+    }
     if (job.state === 'done') up.seen(job.id);
   };
+  // 넘기기가 끝나면 미뤄 둔 묶음을 앱이 알려 준 지금 모습으로 다시 본다.
+  const flush = () => { if (!late.size) return; const now = new Map(up.jobs().map(job => [job.id, job])), list = [...late.values()]; late.clear(); for (const job of list) take(now.get(job.id) || job); };
+  const stopEnd = send.onHandoffEnd?.(flush) || (() => {});
   const stop = up.onJob(take);
   for (const job of up.jobs()) take(job);
-  return stop;
+  return () => { stop(); stopEnd(); };
 }
 
 // 못 올린 것(failed) · 결과 불명(unknown) · 앞 실패로 서 있던 것(held) = '못 올렸어요'로 센다. 취소한 것(cancelled)은 따로 센다 — 둘 다 [다시 올리기] 대상.
@@ -112,14 +122,16 @@ const HANDED_FIXED = new Set(['too_big', 'forbidden', 'gone']);
  * @param {(target, items, opts: {alive, started}) => Promise<{ok: boolean, jobs?: {id: string, count: number}[]}>} [deps.handoff] 폰 앱 다리(없으면 화면 안에서 올림)
  * @param {(file, target) => object|undefined} [deps.fields]         handoff에 넘길 사진 칸
  * @param {() => Promise<void>} [deps.back]    화면이 다시 보이면 풀리는 약속(없으면 돌아와도 저절로 다시 보내지 않음)
+ * @param {(target, file, skipIds: string[]) => Promise<{id: string}|null>} [deps.verify] 돌아와 다시 보내기 전에 서버에 이미 붙었는지 본다
+ *        (붙어 있으면 그 자료, 없으면 null, 확인하지 못하면 던짐 → 결과 불명으로 두고 다시 보내지 않는다)
  * @param {(code: string) => string} [deps.handedText]               앱이 알려 준 까닭 코드 → 화면 글
  * @param {(event) => void} [deps.report]      queued · file · done · handing · handing-failed · handed · handed-stopped · paused · resumed (화면이 그림)
  */
 export function createMeetingSend({line, upload, isPhoto, track = () => null, classify = () => ({}), preflight = () => null,
   scope = () => null, gone = () => false, confirmUnknown = async () => false, handoff = null, fields = () => undefined, report = () => {},
-  back = null, handedText = code => String(code || '')}) {
-  const batches = new Set();
-  let seq = 0;
+  back = null, verify = null, handedText = code => String(code || '')}) {
+  const batches = new Set(), handEnds = new Set();
+  let seq = 0, handingNow = 0;
   const tell = event => { try { report(event); } catch { /* 그리기 실패가 올리기를 막지 않는다 */ } };
   const count = (batch, states) => {
     let photos = 0, files = 0;
@@ -152,19 +164,40 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
     const mine = batch.entries.filter(e => e.state === 'waiting');
     const quiet = () => { for (const e of mine) if (OPEN.has(e.state)) { e.state = 'gone'; try { e.job?.cancel?.(); } catch { /* 표시뿐 */ } } batches.delete(batch); };
     if (gone(batch.scope)) { quiet(); return; }
-    if (handoff) {
+    // 차례를 기다리는 사이 ✕로 뺀 파일은 앱에도 넘기지 않는다.
+    for (const e of mine) if (e.job?.cancelled?.()) e.state = 'cancelled';
+    // 회의자료 놓기 줄의 한 개짜리 묶음(quiet)은 넘기지 않는다: 끌어 놓기는 PC 길이고(다리 없음), 놓기 줄이 '올렸어요'를 스스로 알린다.
+    if (handoff && !batch.quiet) {
+      const list = mine.filter(e => e.state === 'waiting'), items = list.map(e => ({file: e.file, fields: e.photo ? fields(e.file, batch.target) : undefined}));
       let handed = null, handing = false, at = 0;
-      // started: 다리가 받겠다고 해 넘기기 시작한 때(화면이 살아 있어야 하는 동안) — 화면이 '앱에 넘기는 중'을 알린다.
-      const started = () => { handing = true; tell({type: 'handing', batch, ...tally(batch)}); };
+      // started: 다리가 받겠다고 해 넘기기 시작한 때(화면이 살아 있어야 하는 동안). 앱에 묻는 사이 ✕로 뺀 파일은 여기서 뺀다.
+      // 넘기는 동안 그 줄에는 ✕가 없다('넘기는 중' — 넘긴 파일은 앱에서 되돌릴 수 없다). 화면이 '앱에 넘기는 중'을 알린다.
+      const started = () => {
+        for (let i = list.length - 1; i >= 0; i--) if (list[i].job?.cancelled?.()) { list[i].state = 'cancelled'; list.splice(i, 1); items.splice(i, 1); }
+        handing = true;
+        for (const e of list) { try { e.job?.hand?.({handing: true}); } catch { /* 표시뿐 */ } }
+        tell({type: 'handing', batch, ...tally(batch)});
+      };
       // took: 앱이 묶음 하나를 맡은 그 자리에서 앞에서부터 그 개수만큼 넘긴 것으로 둔다(20개씩 나눠 넘기는 사이 앞 묶음의 끝이 와도 줄을 찾게).
-      const took = job => { for (let i = 0; i < job.count && at < mine.length; i++, at++) { const e = mine[at]; e.state = HANDED; e.hand = {id: String(job.id || ''), index: i}; showHanded(e); } };
-      try { handed = await handoff(batch.target, mine.map(e => ({file: e.file, fields: e.photo ? fields(e.file, batch.target) : undefined})), {alive: () => !gone(batch.scope), started, took}); } catch { handed = null; }
-      const left = gone(batch.scope);
-      if (handing && (left || !at)) tell({type: 'handing-failed', batch});
-      if (left) { quiet(); return; }
-      // took을 부르지 않는 다리(묶음 이름만 돌려줌)는 여기서 넘긴 것으로 둔다. 못 넘긴 뒤쪽 파일은 아래에서 지금 길로 올린다.
-      if (handed?.ok && !at) for (const job of (Array.isArray(handed.jobs) && handed.jobs.length ? handed.jobs : [{id: handed.id, count: mine.length}])) took(job);
-      if (at) tell({type: 'handed', batch, handed, count: at, ...tally(batch)});
+      const took = job => { for (let i = 0; i < job.count && at < list.length; i++, at++) { const e = list[at]; e.state = HANDED; e.hand = {id: String(job.id || ''), index: i}; showHanded(e); } };
+      handingNow++;
+      try {
+        if (items.length) { try { handed = await handoff(batch.target, items, {alive: () => !gone(batch.scope), started, took}); } catch { handed = null; } }
+        const left = gone(batch.scope);
+        if (handing && (left || !at)) tell({type: 'handing-failed', batch});
+        if (left) { for (const e of list.slice(at)) { try { e.job?.unhand?.(); } catch { /* 표시뿐 */ } } quiet(); return; }
+        // took을 부르지 않는 다리(묶음 이름만 돌려줌)는 여기서 넘긴 것으로 둔다.
+        if (handed?.ok && !at) for (const job of (Array.isArray(handed.jobs) && handed.jobs.length ? handed.jobs : [{id: handed.id, count: list.length}])) took(job);
+        // 답을 못 받아 앱이 맡았는지 알 수 없는 파일(unsure): 결과 불명으로 둔다 — 화면이 저절로 또 올리지 않는다(두 번 붙지 않게). 확인을 받은 뒤에만 다시.
+        const unsure = Math.min(Number(handed?.unsure) || 0, list.length - at);
+        for (const e of list.slice(at, at + unsure)) fail(e, 'unknown', handedText('unknown'));
+        // 못 넘긴 뒤쪽 파일은 아래에서 지금 길로 올린다(줄의 ✕가 돌아온다).
+        for (const e of list.slice(at + unsure)) { try { e.job?.unhand?.(); } catch { /* 표시뿐 */ } }
+        if (at) tell({type: 'handed', batch, handed, count: at, ...tally(batch)});
+      } finally {
+        handingNow--;
+        for (const fn of [...handEnds]) { try { fn(); } catch { /* 듣는 쪽 실패가 올리기를 막지 않는다 */ } }
+      }
     }
     let stopped = null;
     for (const entry of mine) {
@@ -192,6 +225,15 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
             tell({type: 'paused', batch, entry});
             try { await back(); } catch { /* 돌아옴을 알 수 없으면 바로 다시 */ }
             if (gone(batch.scope)) { quiet(); return; }
+            // 다시 보내기 전에 서버에 이미 붙었는지 본다: 화면이 멈춘 사이 마지막 조각까지 나갔을 수 있다(보낸 양 알림이 화면에 닿지 못함).
+            // 붙어 있으면 다시 보내지 않고 올린 것으로, 확인하지 못하면 결과 불명으로 둔다(저절로 다시 보내지 않음).
+            if (verify) {
+              let there = null, checked = true;
+              try { there = await verify(batch.target, entry.file, batch.entries.map(e => e.doc?.id).filter(Boolean)); } catch { checked = false; }
+              if (gone(batch.scope)) { quiet(); return; }
+              if (there?.id) { try { entry.job?.cancel?.(); } catch { /* 표시뿐 */ } entry.doc = there; entry.found = true; entry.state = 'done'; entry.message = ''; break; }
+              if (!checked) { entry.state = 'unknown'; entry.message = String(why.unsure || why.message || ''); stopped = {message: entry.message, error, type: why.type || ''}; break; }
+            }
             try { entry.job?.cancel?.(); } catch { /* 표시뿐 */ }
             entry.job = track(entry.file, batch); entry.message = '';
             try { entry.job?.start?.(); } catch { /* 표시뿐 */ }
@@ -211,8 +253,9 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
     }
     if (gone(batch.scope)) { quiet(); return; }
     if (stopped) batch.stopped = stopped;
-    // 앱이 맡은 파일이 남아 있으면 묶음의 끝은 앱이 알려 올 때(handedJob) 알린다.
-    if (waitsApp(batch)) return;
+    // 화면이 한 일이 없으면(모두 앱이 맡음) 끝은 앱이 알려 올 때(handedJob) 알린다. 화면이 올린 쪽이 있으면 그 결과(못 올린 것·[다시 올리기])는
+    // 앱을 기다리지 않고 지금 알린다 — 앱이 맡은 파일이 남아 있으면 그 끝은 나중에 한 번 더 알린다(같은 파일을 두 번 세지 않는다).
+    if (!mine.some(e => e.state !== HANDED && !e.byApp)) return;
     finish(batch);
   }
   const stand = batch => { const p = Promise.resolve(line(() => run(batch))).catch(() => {}); batch.settled = p; return p; };
@@ -277,6 +320,9 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
       }
       return found;
     },
+    /** 지금 앱에 넘기는 중인가(답을 기다리는 사이 온 묶음 알림을 미루는 데 쓴다) · 넘기기가 끝날 때마다 부를 것(돌려줌: 그만 듣기). */
+    handing: () => handingNow > 0,
+    onHandoffEnd(fn) { if (typeof fn !== 'function') return () => {}; handEnds.add(fn); return () => handEnds.delete(fn); },
     /** 그 사업 보고로 올라가는 중이거나(앱이 맡은 것 포함) 못 올린 파일인가(상세의 올리는 줄이 자기 것을 찾는 열쇠). */
     has: (targetId, file) => [...batches].some(b => b.target?.id === targetId && b.entries.some(e => e.file === file && (OPEN.has(e.state) || LEFT.has(e.state) || e.state === HANDED))),
     going: targetId => [...batches].some(b => b.target?.id === targetId && live(b)),

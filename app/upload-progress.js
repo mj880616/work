@@ -13,7 +13,7 @@
 // BIZ-저장먼저닫기(S58-1): 뒤 줄에 선 한 묶음(사업 보고 저장 뒤 사진·자료)은 차례를 기다리는 파일도 처음부터 목록에 있다(phase 'waiting', '대기').
 //   묶음(group)의 %는 이미 올린 양을 더해 끝까지 한 방향으로 오르고, 묶음이 끝나면 announceDock으로 ③ 한 줄에 그 묶음의 말
 //   ('사진 n장·자료 n개 올렸어요', 못 올렸으면 [다시 올리기])을 띄운다.
-// APP-뒤에서올리기 PR-2(S58-12): 폰 앱에 넘긴 파일은 phase 'handed'('앱이 올리는 중' — 화면은 보내지 않으므로 %·막대·✕가 없다). 앱이 끝을 알려 오면
+// APP-뒤에서올리기 PR-2(S58-12): 폰 앱에 넘기는 파일은 phase 'handed'('넘기는 중' → '앱이 올리는 중' — 화면은 보내지 않으므로 %·막대·✕가 없다). 앱이 끝을 알려 오면
 //   부른 곳이 done()·fail()로 옮긴다. 앱이 멈췄으면 '멈춤'(까닭은 부른 곳이 한 줄로 알린다). 올리는 중 합계·하단 한 줄의 %에는 세지 않는다(보낸 양을 모른다).
 import {amount, percent} from './upload-send.mjs';
 
@@ -99,10 +99,15 @@ export function trackUpload({file = null, name = '', size = 0, back = null, wait
       if (job.phase === 'sending' || job.phase === 'waiting') { controller.abort(); jobs.delete(job.id); changed(); }
       else if (job.phase === 'failed' || job.phase === 'handed') { jobs.delete(job.id); changed(); }
     },
-    // 폰 앱에 넘김: 이 화면은 보내지 않는다(앱이 뒤에서 올림). stopped = 앱이 멈춰 있음(앱을 열면 잇는다). 끝은 done()·fail()로 온다.
-    hand({stopped = false} = {}) {
+    // 폰 앱에 넘김: 이 화면은 보내지 않는다(앱이 뒤에서 올림). handing = 아직 넘기는 중(넘긴 파일은 앱에서 되돌릴 수 없어 ✕가 없다),
+    // stopped = 앱이 멈춰 있음(앱을 열면 잇는다). 끝은 done()·fail()로 온다. 못 넘겼으면 unhand()로 대기로 돌아간다(화면이 올린다).
+    hand({stopped = false, handing = false} = {}) {
       if (!jobs.has(job.id) || job.phase === 'done' || job.phase === 'failed') return;
-      job.phase = 'handed'; job.stopped = !!stopped; job.slow = false; job.loaded = 0; changed();
+      job.phase = 'handed'; job.stopped = !!stopped; job.handing = !!handing; job.slow = false; job.loaded = 0; changed();
+    },
+    unhand() {
+      if (!jobs.has(job.id) || job.phase !== 'handed') return;
+      job.phase = 'waiting'; job.stopped = false; job.handing = false; changed();
     },
     keepWaiting() {
       if (job.phase === 'sending') job.waitSending = now() - job.lastMove + SLOW_SENDING_MS * 2;
@@ -149,7 +154,7 @@ function paintBar(line, job) {
   line.classList.toggle('is-finishing', job.phase === 'finishing');
 }
 const stateText = job => job.phase === 'done' ? '✓ 완료' : job.phase === 'failed' ? '실패' : job.phase === 'finishing' ? '마무리 중…' : job.phase === 'waiting' ? '대기'
-  : job.phase === 'handed' ? (job.stopped ? '멈춤' : '앱이 올리는 중') : percent(job.loaded, job.total) + '%';
+  : job.phase === 'handed' ? (job.handing ? '넘기는 중' : job.stopped ? '멈춤' : '앱이 올리는 중') : percent(job.loaded, job.total) + '%';
 
 function rowNode(job, preview) {
   const row = el('div', 'up-row' + (preview ? ' up-tile' : ''));
@@ -193,7 +198,7 @@ function paintRow(row, job) {
 export function summaryText(list) {
   const open = list.filter(live);
   // 화면이 보내는 것이 없고 앱이 맡은 것만 남았으면 그 수를 알린다(멈춘 것이 있으면 멈춤).
-  if (!open.length) { const app = list.filter(job => job.phase === 'handed'); return app.length ? `${app.some(job => job.stopped) ? '앱이 멈춤' : '앱이 뒤에서 올리는 중'} ${app.length}개` : ''; }
+  if (!open.length) { const app = list.filter(job => job.phase === 'handed'); return app.length ? `${app.every(job => job.handing) ? '앱에 넘기는 중' : app.some(job => job.stopped) ? '앱이 멈춤' : '앱이 뒤에서 올리는 중'} ${app.length}개` : ''; }
   const total = open.reduce((sum, job) => sum + (job.total || 0), 0), loaded = open.reduce((sum, job) => sum + (job.phase === 'finishing' ? job.total : job.loaded), 0);
   const all = open.every(job => job.phase === 'finishing');
   return `올리는 중 ${open.length}개 · ${amount(loaded)} / ${amount(total)} · ${all ? '마무리 중…' : percent(loaded, total) + '%'}`;
