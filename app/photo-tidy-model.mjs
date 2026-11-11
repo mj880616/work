@@ -232,7 +232,8 @@ export function dupStats(groups) {
   return {groups:list.length, extra:list.reduce((n, g) => n + g.items.length - 1, 0), bytes:list.reduce((n, g) => n + g.bytes, 0)};
 }
 export const dupStatText = ({groups, extra, bytes}) => `묶음 ${groups}개 · 삭제할 수 있는 사진 ${extra}장${bytes ? ` · 아낄 용량 ${sizeText(bytes)}` : ''}`;
-// 사진이 있는 곳 한 줄씩: "폰 · DCIM/Camera", "원드라이브 · 사진/2024"(경로 모르면 '폴더 모름'). odCopies = 같은 사진인 원드라이브 칸들, odPath = 원드라이브 칸 → 폴더 경로(모르면 '').
+// 사진이 있는 곳 한 줄씩: "폰 · DCIM/Camera", "원드라이브 · 사진/2024"(경로 모르면 '폴더 모름'). odCopies = 같은 사진인 원드라이브 칸들,
+// odPath = 원드라이브 칸 → 폴더 경로(모르면 ''). 화면은 odPathFinder(폴더 나무)를 넘긴다.
 export const phonePath = f => String(f || '').replace(/\/+$/, '') || '폴더 모름';
 export function whereLines(item, odCopies = [], odPath = () => '') {
   const out = [];
@@ -240,6 +241,33 @@ export function whereLines(item, odCopies = [], odPath = () => '') {
   else if (item) out.push(`원드라이브 · ${odPath(item) || '폴더 모름'}`);
   for (const o of odCopies || []) if (o && o.id !== item?.id) out.push(`원드라이브 · ${odPath(o) || '폴더 모름'}`);
   return out;
+}
+// S59-12 OPS-빠진일2차 6: 원드라이브 칸 → 폴더 경로(whereLines의 odPath). 칸의 folder(서버 library가 주는 든 폴더 id)를
+// 폴더 나무(서버 folders-tree: {top:{id,name}, folders:[{id,name,parent_id}], whole})에서 맨 위까지 이름으로 잇는다(사진 메뉴 [폴더] 위치 줄과 같은 나무).
+// 전체 보기(whole)면 원드라이브 루트 이름은 빼고(루트 바로 안 사진은 '맨 위'), 고른 폴더 하나면 그 폴더 이름부터. 폴더 id가 없거나 나무에서 맨 위까지
+// 이어지지 않으면(옛 서버·지워진 폴더·나무를 못 읽음) ''(= 폴더 모름). 폴더마다 한 번만 잇는다(6만 장도 폴더 수만큼).
+export function odPathFinder(tree) {
+  const top = tree?.top;
+  if (!top || typeof top.id !== 'string' || !top.id) return () => '';
+  const byId = new Map((Array.isArray(tree.folders) ? tree.folders : []).filter(f => f && typeof f.id === 'string').map(f => [f.id, f]));
+  const memo = new Map();
+  const pathOf = id => {
+    if (memo.has(id)) return memo.get(id);
+    const names = [], seen = new Set();
+    let cur = id, ok = false;
+    while (cur && !seen.has(cur) && seen.size <= 200) {
+      seen.add(cur);
+      if (cur === top.id) { ok = true; if (!tree.whole) names.unshift(String(top.name || '') || '폴더'); break; }
+      const f = byId.get(cur);
+      if (!f) break;
+      names.unshift(String(f.name || '') || '폴더');
+      cur = f.parent_id;
+    }
+    const out = ok ? names.join('/') || '맨 위' : '';
+    memo.set(id, out);
+    return out;
+  };
+  return item => (item && typeof item.folder === 'string' && item.folder ? pathOf(item.folder) : '');
 }
 // 같은 사진인 원드라이브 칸 모두(섞어 보기 같은 사진 규칙 sameMedia, 크기를 알 때만).
 export function copiesFinder(odItems) {
