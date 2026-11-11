@@ -777,6 +777,9 @@ jobs:
       - name: Check photo viewer swipe motion, quick large view and app-start prefetch (PHOTO-스와이프안내·크게보기빨리·미리받기앱시작, synthetic)
         run: node --test tests/photo-swipe-fast.test.mjs
 
+      - name: Check large photo view swipe left/right/down shares the photo-strip rules (PHOTO-크게보기밀기, fake stage, synthetic)
+        run: node --test tests/photo-view-swipe.test.mjs
+
       - name: Check large view plays GIF from the original (PHOTO-GIF움직임, synthetic)
         run: node --test tests/photo-gif-motion.test.mjs
 
