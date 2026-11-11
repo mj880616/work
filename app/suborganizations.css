@@ -104,3 +104,5 @@
   #appView #teamView #soTeamSection.so-has-tabs.so-view-table>.so-team-head{grid-column:1 / -1;grid-row:1;justify-self:end;margin:0 0 8px;height:var(--ds-compact-height)}
   #appView #teamView #soTeamSection.so-has-tabs.so-view-table>#soOverview{grid-column:1 / -1;grid-row:2}
 }
+/* UI-PC손맛묶음 ⑦: 조직 줄 우클릭 메뉴 [열기] ─ [쟁의 단계 관리] 사이 줄(자료실·원장 메뉴 구분선과 같은 모양) */
+.so-team-menu .so-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}

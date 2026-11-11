@@ -362,11 +362,20 @@ async function phoneGate(anchor, list, {what = '사진'} = {}) {
   if (!await askConfirm(anchor, {text:t.text, note:t.note, ok:'폰 휴지통으로', danger:true, check, needCheck:!split.ok.length})) return null;
   return {list:check?.checked ? [...split.ok, ...split.bare] : split.ok, copyOf};
 }
+const tidyWaiting = new Set(); // 다시 확인이 끝나기를 기다리는 정리 칸(메모리만)
 async function tidyTrash(b, kind) {
-  const g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
+  let g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) return;
   const needCopy = kind === 'space' || kind.startsWith('dup');
   // 원드라이브에 정말 있는지 — 읽은 지 오래됐으면 다시 확인부터.
-  if (needCopy && !tidy.fresh()) { notify('원드라이브에 있는지 다시 확인할게요. 확인이 끝나면 다시 눌러 주세요.'); tidy.rescan(); return; }
+  // UX-먼저묻고뒤에처리 3차(S56-56): '확인이 끝나면 다시 눌러 주세요'로 돌려보내지 않고, 확인이 끝나면 이어서 바로 묻는다.
+  if (needCopy && !tidy.fresh()) {
+    if (tidyWaiting.has(kind)) return;
+    tidyWaiting.add(kind);
+    notify('원드라이브에 있는지 다시 확인할게요. 끝나면 바로 이어서 물을게요.');
+    try { await tidy.rescan(); } finally { tidyWaiting.delete(kind); }
+    if (!tidy.fresh()) { notify('원드라이브를 확인하지 못했어요. 정리 칸 맨 위 줄을 확인해 주세요.', {error:true}); return; }
+    g = tidy.group(kind); if (!g || !g.items.length || !phone.state().trash) { notify('다시 확인해 보니 정리할 사진이 없어요.'); return; }
+  }
   let list = g.items, copyOf = null, keptMsg = '';
   if (!needCopy) {
     // 잡동사니도 백업 없음은 기본으로 빼고, 체크해야만 함께(S52-06).

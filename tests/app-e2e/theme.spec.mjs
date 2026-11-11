@@ -393,7 +393,16 @@ for(const width of [390,1440])for(const nativePopover of [true,false]){
   };
   for(const close of ['outside','Escape','back']){
    await open();
-   if(close==='outside')await page.mouse.click(width<=760?10:width-12,500);
+   // 폰 메뉴는 아래에서 올라오는 판(높이는 메뉴 줄 수만큼)이라 '바깥'은 판 위쪽 어두운 자리다. 올라오는 움직임이 끝난 판 위 끝 위를 누른다
+   // (고정 y=500은 다 올라온 판 안이라, 움직이는 도중에 눌렀을 때만 닫혔다 — STAB-main화면시험흔들림).
+   if(close==='outside'){
+    if(width<=760){
+     const sheet=panel.locator('.mobile-menu-panel');
+     await expect.poll(()=>sheet.evaluate(el=>el.getAnimations().every(a=>a.playState!=='running')&&getComputedStyle(el).transform==='none')).toBe(true);
+     const top=(await sheet.boundingBox()).y;expect(top).toBeGreaterThan(40);
+     await page.mouse.click(10,Math.round(top/2));
+    }else await page.mouse.click(width-12,500);
+   }
    else if(close==='Escape')await page.keyboard.press('Escape');
    else await page.goBack();
    await expect(panel).toBeHidden();await expect(account).toHaveAttribute('aria-expanded','false');

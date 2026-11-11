@@ -75,12 +75,13 @@ test('누르면 정리함 한 목록이 열리고, 같은 숫자의 줄이 있�
 
 test('처리할 것이 없으면 숫자 없이 흐린 칩 "잊지 말기"만, 눌러도 정리함',async({page})=>{
   await fixture(page,{features:[],cands:[]});
+  // 처음 칩(모름)과 다 센 칩(0)은 겉이 같다. 다 센 상태(data-home-forget-count="0")를 기다린 뒤 본다(STAB-main화면시험흔들림).
+  await expect(line(page)).toHaveAttribute('data-home-forget-count','0');
   const chip=line(page).locator('[data-home-forget-open]');
   await expect(chip).toHaveText('잊지 말기');
   await expect(chip).toHaveAttribute('data-chip-empty','');
   await expect(line(page).locator('[data-nbx-badge]')).toHaveCount(0);
-  const faint=await chip.evaluate(el=>{const p=document.createElement('i');p.style.color='var(--kptu-faint)';document.body.append(p);const f=getComputedStyle(p).color;p.remove();return getComputedStyle(el).color===f;});
-  expect(faint).toBe(true);
+  await expect.poll(()=>chip.evaluate(el=>{const p=document.createElement('i');p.style.color='var(--kptu-faint)';document.body.append(p);const f=getComputedStyle(p).color;p.remove();return el.isConnected&&getComputedStyle(el).color===f;})).toBe(true);
   await chip.click();
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
 });

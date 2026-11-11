@@ -380,7 +380,7 @@ async function checkFileMenu(page,s,rows,width){
   await view.waitForURL('https://drive.google.com/file/d/drive-labor-pdf/view');await view.close();expect(s.downloads).toEqual([]);
   // ⋯를 누르면 메뉴만 열리고 내려받기는 시작하지 않는다.
   await summary.click();await expect(more).toHaveAttribute('open','');
-  const items=more.locator('.file-line-more-panel button');await expect(items).toHaveText(['Drive에서 열기','내려받기']);
+  const items=more.locator('.file-line-more-panel button');await expect(items).toHaveText(['Drive에서 열기','내려받기','빼기','삭제']);
   for(const b of await items.all()){const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);expect(r.x+r.width).toBeLessThanOrEqual(width+1)}
   expect(s.downloads).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -395,8 +395,10 @@ async function checkFileMenu(page,s,rows,width){
 
 test('PC 1280 오른쪽 결과 칸: 사업 보고 자료 줄 ⋯ [Drive에서 열기]·[내려받기], 줄 누르기는 그대로',async({page})=>{
   const s=fileState();await open(page,s,1280);
-  // ⋯가 없는 옛 자료(파일 번호·주소 없음)는 메뉴 없이 줄만.
-  await selectMeetingRound(page,'rail-6');await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);await expect(result(page).locator('.file-line-more')).toHaveCount(0);
+  // 옛 자료(파일 번호·주소 없음)는 열기·내려받기 없이 ⋯ 안에 [빼기]·[삭제]만(FILE-첨부삭제 결정 3: 예전 줄 끝 × 자리).
+  await selectMeetingRound(page,'rail-6');await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);await expect(result(page).locator('.file-line-x')).toHaveCount(0);
+  await result(page).locator('.file-line-more summary').first().click();await expect(result(page).locator('.file-line-more[open] .file-line-more-panel button')).toHaveText(['빼기','삭제']);
+  await expect(result(page).locator('.file-line-more[open] .file-line-more-sep')).toBeHidden();await result(page).locator('.file-line-more summary').first().click();
   await selectMeetingRound(page,'labor-2');await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
   await checkFileMenu(page,s,result(page).locator('#mrdMaterials .mrd-file-row'),1280);
 });
@@ -406,9 +408,9 @@ for(const width of [390,1280])test(`사업 보고 결과 창 ${width}: 자료 �
   await openMeetingResult(page,'labor-2');
   const rows=page.locator('#mrdMaterials .mrd-file-row'),row=rows.filter({hasText:'가상 안건지.hwp'});
   await expect(row).toBeVisible();
-  // 한 줄 순서: 종류 · 이름 · ⋯ · ×. ⋯와 ×가 겹치지 않는다.
-  const x=row.locator('[data-mrd-delete-document]'),summary=row.locator('.file-line-more summary');
-  await expect(x).toBeVisible();const a=await summary.boundingBox(),b=await x.boundingBox();expect(a.x+a.width).toBeLessThanOrEqual(b.x+1);
+  // FILE-첨부삭제 결정 3(S56-57): 한 줄 = 종류 · 이름 · ⋯ (줄 끝 × 없음). [빼기]·[삭제]는 ⋯ 안.
+  await expect(row.locator('.file-line-x')).toHaveCount(0);
+  await expect(row.locator('.file-line-more summary')).toBeVisible();
   await checkFileMenu(page,s,rows,width);
 });
 

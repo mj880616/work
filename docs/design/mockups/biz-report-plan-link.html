@@ -1,0 +1,138 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 보고할 일정 표시 · 달력 ↔ 사업 보고 잇기 (BIZ-보고할일정)</title>
+<style>
+body{margin:0;padding:12px;background:#ece9e1;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2b2b28;max-width:420px}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#555;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#666}
+.card{background:#fffdf8;border:1px solid #e1ddd2;border-radius:10px;padding:8px;font-size:12px;position:relative}
+.lg{display:flex;gap:12px;font-size:11.5px;color:#555;margin:0 0 4px;flex-wrap:wrap}
+.lg b{font-weight:400;display:inline-flex;align-items:center;gap:4px}
+/* 점 3가지 */
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none}
+.dot.done{background:var(--c)}
+.dot.todo{border:1.6px solid var(--c);box-sizing:border-box;border-radius:2px}
+.dot.ask{border:1.6px dashed #b9b4a7;box-sizing:border-box;border-radius:2px}
+/* 달력 */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid #e6e2d8;border-left:1px solid #e6e2d8}
+.cal>div{border-right:1px solid #e6e2d8;border-bottom:1px solid #e6e2d8;min-height:44px;padding:2px 3px;font-size:11px}
+.cal>.h{min-height:auto;text-align:center;color:#777;padding:3px 0;font-size:10.5px}
+.cal .h.sun{color:#b33}
+.cal .n{color:#444}
+.cal .sel{outline:2px solid #4a5a32;outline-offset:-2px}
+.cal .dots{border:0;min-height:0;padding:0;display:flex;gap:2px;margin-top:3px;flex-wrap:wrap}
+.ev{min-width:0;display:flex;align-items:center;gap:2px;font-size:10px;line-height:1.35;border-radius:3px;padding:0 2px;margin-top:2px;white-space:nowrap;overflow:hidden;background:var(--b)}
+.ev i{font-style:normal;font-size:9px;flex:none;width:9px;text-align:center}
+.ev i.ok{color:#4a5a32;font-weight:700}
+.ev i.o{color:#8a6a1a}
+.ev span{overflow:hidden;text-overflow:ellipsis}
+/* 안 쓴 보고 줄 */
+.due{display:flex;align-items:center;justify-content:space-between;background:#f6f1e3;border:1px solid #e8dfc4;border-radius:8px;padding:6px 9px;font-size:12px;margin-bottom:6px}
+.due b{font-weight:700;color:#7a5a12}
+.due span{color:#7a5a12}
+/* 그날 목록 */
+.day{margin-top:8px;font-size:12px}
+.day .dh{color:#4a5a32;font-weight:700;margin-bottom:2px}
+.row{display:grid;grid-template-columns:12px 1fr auto;gap:7px;align-items:center;padding:6px 0;border-top:1px solid #eeeae0}
+.row .t{font-weight:700;font-size:12.5px}
+.row .s{color:#777;font-size:11px}
+.row .act{font-size:11.5px;border:1px solid #d9d5ca;border-radius:6px;padding:2px 8px;background:#fff;color:#2b2b28;white-space:nowrap}
+.row .act.q{border-style:dashed;color:#666}
+.ph{display:flex;gap:3px;margin-top:3px}
+.ph i{width:22px;height:16px;border-radius:3px;background:linear-gradient(135deg,#b9c2c8,#8d98a0)}
+.ph small{font-size:10.5px;color:#777;align-self:center;margin-left:2px}
+/* 메뉴 */
+.menu{position:absolute;right:10px;top:44px;background:#fff;border:1px solid #d9d5ca;border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.09);font-size:12px;min-width:150px;padding:3px 0}
+.menu div{padding:6px 11px}
+.menu .on{display:flex;justify-content:space-between;color:#4a5a32;font-weight:700;background:#f1f3ea}
+.menu .sep{border-top:1px solid #eeeae0;padding:0;margin:2px 0}
+.menu .dz{color:#a33}
+/* 일정 만들기 창 */
+.form .f{display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid #eeeae0;font-size:12px}
+.form .f span{color:#777}
+.chk{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:#4a5a32}
+.chk i{width:13px;height:13px;border-radius:3px;background:#4a5a32;color:#fff;font-size:10px;font-style:normal;display:inline-flex;align-items:center;justify-content:center}
+/* 쓰기 창 */
+.pick{display:flex;gap:4px;margin-top:4px}
+.pick i{position:relative;width:46px;height:34px;border-radius:5px;background:linear-gradient(135deg,#b9c2c8,#8d98a0)}
+.pick i::after{content:"✓";position:absolute;right:2px;bottom:1px;width:13px;height:13px;border-radius:50%;background:#fff;color:#4a5a32;font-size:9px;font-style:normal;display:flex;align-items:center;justify-content:center}
+.pick i.off{opacity:.45}.pick i.off::after{content:"";background:rgba(255,255,255,.7)}
+.sub{font-size:11px;color:#777;margin-top:3px}
+.bar{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;margin-bottom:6px}
+</style></head><body>
+<h1>보고할 일정 · 달력 ↔ 사업 보고 잇기</h1>
+<p class="note">일정에 '보고할 일정'을 표시하면 사업 보고 달력에 빈 네모 □로 미리 보이고, 보고를 쓰면 꽉 찬 점 ●으로 바뀐다. 일정 달력에서도 보고를 쓴 일정에는 ✓, 쓸 일정에는 □. 모양은 지금 화면 그대로, 표시만 더한다.</p>
+
+<div class="cap">① 일정 달력 <small>— 일정 막대 앞 작은 표시</small></div>
+<div class="card">
+  <div class="lg"><b><i style="font-style:normal;color:#4a5a32;font-weight:700">✓</i>보고 씀</b><b><i style="font-style:normal;color:#8a6a1a">□</i>보고할 일정(아직)</b><b>표시 없음 = 그냥 일정</b></div>
+  <div class="cal">
+    <div class="h sun">일</div><div class="h">월</div><div class="h">화</div><div class="h">수</div><div class="h">목</div><div class="h">금</div><div class="h">토</div>
+    <div><span class="n">8</span><div class="ev" style="--b:#fbf3dc"><i></i><span>울산 16…</span></div></div>
+    <div><span class="n">9</span><div class="ev" style="--b:#fbe3e3"><i class="ok">✓</i><span>집행국…</span></div></div>
+    <div><span class="n">10</span><div class="ev" style="--b:#fbe3e3"><i class="ok">✓</i><span>서교노…</span></div><div class="ev" style="--b:#fbe3e3"><i class="ok">✓</i><span>국회…</span></div></div>
+    <div class="sel"><span class="n">11</span><div class="ev" style="--b:#fbe3e3"><i class="o">□</i><span>공항철…</span></div><div class="ev" style="--b:#fbe3e3"><i class="o">□</i><span>철도노…</span></div><div class="ev" style="--b:#f4efe6"><i></i><span>공공기…</span></div></div>
+    <div><span class="n">12</span><div class="ev" style="--b:#fbe3e3"><i class="o">□</i><span>공철,G…</span></div><div class="ev" style="--b:#f4efe6"><i></i><span>본부…</span></div></div>
+    <div><span class="n">13</span><div class="ev" style="--b:#fbe3e3"><i class="o">□</i><span>공철 경…</span></div><div class="ev" style="--b:#dfe6f3"><i></i><span>멍석…</span></div></div>
+    <div><span class="n">14</span><div class="ev" style="--b:#e4f3ee"><i></i><span>철도 집…</span></div></div>
+  </div>
+  <div class="sub">✓를 누르면 그 사업 보고가 열리고, □를 누르면 그 일정이 채워진 보고 쓰기 창이 열린다.</div>
+</div>
+
+<div class="cap">② 일정 우클릭·⋯ 메뉴 / 일정 만들기 창 <small>— 켜고 끄기</small></div>
+<div class="card" style="min-height:205px">
+  <div style="font-weight:700;font-size:12.5px">공항철도 집행위</div>
+  <div class="s" style="color:#777;font-size:11px">11. 11. 10:00 · 담당조직 공항철도</div>
+  <div class="menu">
+    <div>수정</div>
+    <div class="on"><span>보고할 일정</span><span>✓</span></div>
+    <div>담당조직 연결</div>
+    <div>결과 남기기</div>
+    <div class="sep"></div>
+    <div class="dz">일정 삭제</div>
+  </div>
+</div>
+<div class="card form" style="margin-top:6px">
+  <div class="f"><span>제목</span><b>궤도 집행국 회의</b></div>
+  <div class="f"><span>시간</span><b>11. 16. 10:00</b></div>
+  <div class="f" style="border:0"><span>담당조직 · 사업영역</span><span class="chk"><i>✓</i>보고할 일정</span></div>
+</div>
+<p class="note" style="margin-top:4px">같은 이름 일정을 전에 보고했으면 처음부터 ✓로 켜져 나온다(②의 '저절로 골라 주기').</p>
+
+<div class="cap">③ 사업 보고 달력 <small>— ● 쓴 보고 · □ 쓸 보고 · 점선 □ 보고할까요?</small></div>
+<div class="card">
+  <div class="due"><span><b>안 쓴 보고 2</b> · 11. 9. 궤도 집행국 회의 외 1</span><span>›</span></div>
+  <div class="lg"><b><span class="dot done" style="--c:#7a8a2a"></span>쓴 보고</b><b><span class="dot todo" style="--c:#b07a10"></span>보고할 일정(아직)</b><b><span class="dot ask"></span>보고할까요?(담당조직 연결 일정)</b></div>
+  <div class="cal">
+    <div class="h sun">일</div><div class="h">월</div><div class="h">화</div><div class="h">수</div><div class="h">목</div><div class="h">금</div><div class="h">토</div>
+    <div><span class="n">8</span></div>
+    <div><span class="n">9</span><div class="dots"><span class="dot done" style="--c:#2a9a3a"></span><span class="dot todo" style="--c:#b07a10"></span></div></div>
+    <div><span class="n">10</span><div class="dots"><span class="dot done" style="--c:#3a4a1a"></span><span class="dot done" style="--c:#2a7ac8"></span></div></div>
+    <div class="sel"><span class="n">11</span><div class="dots"><span class="dot todo" style="--c:#b07a10"></span><span class="dot todo" style="--c:#c03a3a"></span><span class="dot ask"></span></div></div>
+    <div><span class="n">12</span><div class="dots"><span class="dot todo" style="--c:#c03a3a"></span></div></div>
+    <div><span class="n">13</span><div class="dots"><span class="dot ask"></span></div></div>
+    <div><span class="n">14</span></div>
+  </div>
+  <div class="day">
+    <div class="dh">11월 11일 (수)</div>
+    <div class="row"><span class="dot done" style="--c:#b07a10"></span><div><div class="t">○○노조 본부 집행위</div><div class="s">회의 · 철도지하철 · 44차 · 09:00</div></div><div class="ph"><i></i><i></i><small>외 3장</small></div></div>
+    <div class="row"><span class="dot todo" style="--c:#c03a3a"></span><div><div class="t">공항철도 집행위</div><div class="s">일정 · 10:00 · 그 시각 사진 5장 묶어 둠</div></div><span class="act">보고 쓰기</span></div>
+    <div class="row"><span class="dot ask"></span><div><div class="t" style="color:#666">철도노조 기자회견</div><div class="s">일정 · 담당조직 연결됨</div></div><span class="act q">보고할까요?</span></div>
+  </div>
+  <div class="sub">[보고할까요?]를 누르면 □로 바뀌고(같은 이름은 다음부터 저절로), 길게 누르거나 ⋯ [빼기]면 다시 묻지 않는다.</div>
+</div>
+
+<div class="cap">④ [보고 쓰기] 누르면 <small>— 일정 내용과 그 시각 사진을 미리 채움</small></div>
+<div class="card">
+  <div class="bar"><span>사업 보고</span><span style="color:#999;font-weight:400">×</span></div>
+  <div class="form">
+    <div class="f"><span>제목</span><b>공항철도 집행위</b></div>
+    <div class="f"><span>시각 · 장소</span><b>11. 11. 10:00 · 공항철도 본사</b></div>
+    <div class="f" style="border:0"><span>연결 일정</span><b style="color:#4a5a32">✓ 이 일정과 이어짐</b></div>
+  </div>
+  <div style="margin-top:6px;font-weight:700;font-size:12px">사진 <span style="font-weight:400;color:#777;font-size:11px">· 그 시각 사진 5장 골라 둠(빼려면 누르기)</span></div>
+  <div class="pick"><i></i><i></i><i></i><i></i><i class="off"></i></div>
+  <div class="sub">저장하면 창은 바로 닫히고 사진은 뒤에서 올라간다(BIZ-저장먼저닫기). 달력의 □가 ●으로, 일정 달력의 □가 ✓로 바뀐다.</div>
+</div>
+</body></html>

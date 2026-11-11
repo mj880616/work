@@ -50,14 +50,16 @@ async function readTomorrowPromises(rt) {
 
 export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged = () => {}}) {
   if (!root) return null;
-  let run = 0, line = null;
+  let run = 0, line = null, drawn = '';
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
   let pushShown = false;
   // 칩 그리기: 모르는 동안(null — 처음·세션 바뀜·못 읽음)도 칩은 늘 있다(정리함 가는 길, 옛 '전체 보기' 링크 자리). 숫자 없이 흐리게.
   function draw(count, promises = 0) {
     if (!line) return false;
     if (count === null) delete line.dataset.homeForgetCount; else line.dataset.homeForgetCount = String(count);
-    line.innerHTML = forgetChipHtml(count === null ? 0 : count, count === null ? 0 : promises);
+    // 같은 모양이면 칩을 갈아 끼우지 않는다(모름 → 0처럼 겉이 같은 다시 그리기에서 포커스·누르던 칩이 사라지지 않게).
+    const html = forgetChipHtml(count === null ? 0 : count, count === null ? 0 : promises);
+    if (drawn !== html || !line.firstChild) { line.innerHTML = html; drawn = html; }
     return true;
   }
   // count: 처리 안 한 수(null = 모름 → 숫자 없는 흐린 칩). promises: 내일 약속 수(UI-앱안알림 A5).

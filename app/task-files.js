@@ -10,7 +10,8 @@ import { fileAttrs, driveFileUrl } from './file-actions.js';
 import { uploadTimeoutMs } from './upload-budget.mjs';
 import { sendUploadApi } from './upload-send.mjs';
 import { trackUpload, mountUploadRows } from './upload-progress.js';
-import { renameHostAttrs, renameButtonHtml, applyRenamed } from './file-rename.js';
+import { renameHostAttrs, renameButtonHtml, applyRenamed, openRenameEditor } from './file-rename.js';
+import { rowMore } from './row-more.js';
 import { deleteAttachment } from './file-trash.js'; // FILE-첨부삭제 ②: [삭제] = 할 일에서 떼고 Drive 원본 휴지통(30일 안 되살림) + [되돌리기] // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
@@ -97,10 +98,13 @@ export function openTaskFilesDialog({task, files = [], rt = window.KPTURuntime, 
     mountUploadRows(m.querySelector('[data-gt-files-progress]'), {has: job => !!dialog?.state && job.scope === 'task:' + dialog.state.task.id});
     dialog = {m, state: null};
     m.querySelector('[data-gt-files-close]').onclick = closeTaskFilesDialog;
-    m.querySelector('[data-gt-files-pick]').onclick = () => { if (!dialog.state?.busy) m.querySelector('[data-gt-files-input]').click(); };
+    m.querySelector('[data-gt-files-pick]').onclick = () => { if (canPick(dialog.state)) m.querySelector('[data-gt-files-input]').click(); };
     m.querySelector('[data-gt-files-input]').onchange = e => { const picked = [...(e.target.files || [])]; e.target.value = ''; void upload(picked); };
   }
-  dialog.state = {task, files: [...files], rt, onChange, isCurrent, busy: false};
+  // UX-먼저묻고뒤에처리 3차: 같은 할 일의 올리기가 아직 돌고 있으면 그 줄을 이어서 보여 준다(다시 열어도 줄이 둘로 갈리지 않게).
+  const running = runningUploads.get(task.id);
+  if (running && running.rt === rt) { running.onChange = onChange; running.isCurrent = isCurrent; dialog.state = running; }
+  else dialog.state = {task, files: [...files], rt, onChange, isCurrent, busy: false, uploading: false, queue: []};
   paint();
   status('');
   const m = dialog.m;
@@ -130,14 +134,32 @@ function paint() {
   const {m} = dialog;
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
+  const lock = s.busy || s.uploading; // 빼기·삭제·이름 고치기는 올리는 동안 잠근다(서버 목록이 엇갈리지 않게). 고르기만 줄 세움.
+  // FILE-첨부삭제 ② 뒤 결정 2(2026-11-11 명진 '추천대로'): 줄 단추 5개(이름 수정·Drive에서 열기·내려받기·빼기·삭제) 때문에 폰 412에서
+  // 파일 이름이 잘렸다 → 노트 첨부 줄처럼 줄마다 ⋯ 하나(공용 row-more.js)에 모으고 이름이 줄 너비를 다 쓴다. 이름 누르기(종류별 열기)·
+  // 두 번 누르기/꾹 누르기(이름 고치기)는 그대로. 메뉴 항목의 누르기는 원래 처리(file-actions.js data-fa-menu, 아래 빼기·삭제·이름 수정) 그대로.
   list.innerHTML = s.files.length
-    ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a>${s.busy ? '' : renameButtonHtml(rn)}<button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button><button type="button" class="mini danger" data-gt-file-delete="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 삭제"${s.busy ? ' disabled' : ''}>삭제</button></li>`; }).join('')
+    ? s.files.map(f => { const rn = {target: 'task', id: s.task.id, driveId: f.drive_file_id, name: f.file_name}; return `<li data-fr-row data-gt-file-row="${esc(f.drive_file_id)}"><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer"${renameHostAttrs(rn)} ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a></li>`; }).join('')
     : `<li class="gt-files-empty">${emptyHtml()}</li>`;
+  list.querySelectorAll('[data-gt-file-row]').forEach(li => {
+    const f = s.files.find(x => x.drive_file_id === li.dataset.gtFileRow); if (!f) return;
+    const fa = {faName: f.file_name, faId: f.drive_file_id};
+    li.append(rowMore(document, {label: `${f.file_name} 메뉴`, data: {gtFileMore: f.drive_file_id}, items: [
+      {text: '이름 수정', data: {gtFileRename: f.drive_file_id}, disabled: lock},
+      {text: 'Drive에서 열기', data: {faMenu: 'open', ...fa}},
+      {text: '내려받기', data: {faMenu: 'download', ...fa}},
+      {text: '빼기', data: {gtFileDetach: f.drive_file_id}, disabled: lock},
+      {text: '삭제', data: {gtFileDelete: f.drive_file_id}, danger: true, disabled: lock},
+    ]}));
+  });
+  list.querySelectorAll('[data-gt-file-rename]').forEach(b => { b.onclick = () => { const li = b.closest('li'); li?.querySelector('details.row-more')?.removeAttribute('open'); const host = li?.querySelector('[data-fr-host]'); if (host && !(dialog?.state?.busy || dialog?.state?.uploading)) openRenameEditor(host); }; });
   list.querySelectorAll('[data-gt-file-detach]').forEach(b => { b.onclick = () => void detach(b.dataset.gtFileDetach); });
-  list.querySelectorAll('[data-gt-file-delete]').forEach(b => { b.onclick = () => void remove(b.dataset.gtFileDelete, b); });
+  list.querySelectorAll('[data-gt-file-delete]').forEach(b => { b.onclick = () => void remove(b.dataset.gtFileDelete, b.closest('li')?.querySelector('details.row-more > summary') || b); });
   const pick = m.querySelector('[data-gt-files-pick]');
-  pick.disabled = s.busy || s.files.length >= MAX_TASK_FILES;
+  pick.disabled = !canPick(s);
 }
+// 올리는 중에도 [파일 선택]은 열려 있다: 더 고른 파일은 올리는 줄 뒤에 선다. 빼기·삭제(busy) 중과 개수 한도에서만 잠근다.
+function canPick(s) { return !!s && !s.busy && s.files.length + s.queue.length < MAX_TASK_FILES; }
 function accept(s, d) {
   if (Array.isArray(d?.files)) s.files = d.files.map(f => ({drive_file_id: f.drive_file_id, file_name: String(f.file_name || '파일'), size_bytes: Number(f.size_bytes) || 0}));
   s.onChange(s.files, d?.task || null);
@@ -147,37 +169,46 @@ const message = e => String(e?.message || e || '').trim() || '잠시 후 다시 
 // 창이 열려 있으면 창 줄로, 닫혔으면 공용 작은 알림으로 끝·실패를 알린다. 진행은 공용 올리기 줄(upload-progress.js)이 그린다.
 const shown = s => dialog?.state === s;
 function tellClosed(s, text, failed = false) { if (!shown(s)) notify(`${s.task.title || '할 일'}: ${text}`, {error: failed, record: false}); }
+const runningUploads = new Map(); // 할 일 id → 올리는 중인 창 상태(메모리만, 새 저장소 아님)
 async function upload(picked) {
   const s = dialog?.state;
   if (!s || s.busy || !picked.length) return;
-  s.busy = true; paint();
-  let done = 0, unsynced = false;
+  // UX-먼저묻고뒤에처리 3차: 올리는 중에 더 고르면 거절하지 않고 줄 뒤에 세운다.
+  s.queue.push(...picked);
+  if (s.uploading) { if (shown(s)) { status(`${s.queue.length}개 대기 중 · 앞 파일을 올린 뒤 이어서 올립니다.`); paint(); } return; }
+  s.uploading = true; runningUploads.set(s.task.id, s); paint();
+  let done = 0, unsynced = false, stopped = false;
   try {
-    for (const file of picked) {
+    while (s.queue.length && !stopped) {
+      const file = s.queue.shift();
       const problem = fileProblem(file, s.files.length);
-      if (problem) { if (shown(s)) status(`${file.name}: ${problem}`, true); else tellClosed(s, `${file.name}: ${problem}`, true); return; }
-      if (shown(s)) status(`${file.name} 올리는 중… (${done + 1}/${picked.length})`);
+      if (problem) { if (shown(s)) status(`${file.name}: ${problem}`, true); else tellClosed(s, `${file.name}: ${problem}`, true); stopped = true; break; }
+      if (shown(s)) { status(`${file.name} 올리는 중… (${done + 1}/${done + 1 + s.queue.length})`); paint(); }
       let d;
       try { d = await attachTaskFile(s.task.id, file, {rt: s.rt}); }
-      catch (e) { if (e?.code === 'upload_cancelled') continue; if (!s.isCurrent()) return; if (shown(s)) status(`${file.name}: ${message(e)}`, true); else tellClosed(s, `${file.name}: ${message(e)}`, true); return; }
-      if (!s.isCurrent()) return;
-      if (!d?.ok) { const t = `${file.name}: 저장 결과를 확인하지 못했어요. 할 일을 다시 열어 확인해 주세요.`; if (shown(s)) status(t, true); else tellClosed(s, t, true); return; }
+      catch (e) { if (e?.code === 'upload_cancelled') continue; if (!s.isCurrent()) { stopped = true; break; } if (shown(s)) status(`${file.name}: ${message(e)}`, true); else tellClosed(s, `${file.name}: ${message(e)}`, true); stopped = true; break; }
+      if (!s.isCurrent()) { stopped = true; break; }
+      if (!d?.ok) { const t = `${file.name}: 저장 결과를 확인하지 못했어요. 할 일을 다시 열어 확인해 주세요.`; if (shown(s)) status(t, true); else tellClosed(s, t, true); stopped = true; break; }
       // Saved on the server: the list owner hears it even if this dialog was closed meanwhile.
       accept(s, d); done++;
       if (d.notes_synced === false) unsynced = true;
       if (shown(s)) paint();
     }
-    const end = unsynced ? `${done}개 붙였습니다. Google 할 일 메모의 링크 줄은 다음 저장 때 붙습니다.` : `${done}개 붙였습니다.`;
-    if (shown(s)) status(end); else if (done) tellClosed(s, end);
+    if (!stopped) {
+      const end = unsynced ? `${done}개 붙였습니다. Google 할 일 메모의 링크 줄은 다음 저장 때 붙습니다.` : `${done}개 붙였습니다.`;
+      if (shown(s)) status(end); else if (done) tellClosed(s, end);
+    }
   } finally {
-    s.busy = false;
+    s.queue.length = 0; // 실패·계정 바뀜으로 멈추면 남은 대기는 버린다(메시지로 알렸다). 다시 고르면 된다.
+    s.uploading = false;
+    if (runningUploads.get(s.task.id) === s) runningUploads.delete(s.task.id);
     if (shown(s)) paint();
   }
 }
 async function detach(id) {
   const s = dialog?.state;
   const f = s?.files.find(x => x.drive_file_id === id);
-  if (!s || s.busy || !f) return;
+  if (!s || s.busy || s.uploading || !f) return;
   s.busy = true; paint(); status(`${f.file_name} 빼는 중…`);
   try {
     const d = await detachTaskFile(s.task.id, id, {rt: s.rt});
@@ -200,7 +231,7 @@ async function detach(id) {
 async function remove(id, button) {
   const s = dialog?.state;
   const f = s?.files.find(x => x.drive_file_id === id);
-  if (!s || s.busy || !f) return;
+  if (!s || s.busy || s.uploading || !f) return;
   s.busy = true; status('');
   const changed = c => {
     if (!c || !s.isCurrent()) return;
@@ -216,7 +247,7 @@ async function remove(id, button) {
   }
   if (dialog?.state !== s || !s.isCurrent()) return;
   if (result.status === 'failed') status(`${f.file_name}: ${result.message}`, true);
-  if (result.status === 'cancel') dialog.m.querySelector(`[data-gt-file-delete="${CSS.escape(id)}"]`)?.focus();
+  if (result.status === 'cancel') dialog.m.querySelector(`[data-gt-file-more="${CSS.escape(id)}"] > summary`)?.focus();
   else dialog.m.querySelector('[data-gt-files-pick]')?.focus();
 }
 
