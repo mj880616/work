@@ -173,3 +173,19 @@ test('연결: photo-view.js가 이 손동작을 쓰고, 새 판정·기기 저�
   const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'cach' + 'es\\s*\\.'].join('|'));
   for (const src of [view, swipe, model]) assert.doesNotMatch(src, deviceStores);
 });
+
+// ORG-빠진일2차 5번(S59-3): 맨 끝·맨 처음 사진에서 ›·‹가 잠겨도 ←→·Esc가 먹는다 — 사진·잊지 말기·사업 보고 사진 줄이 모두 쓰는 껍데기(photo-view.js) 하나에서 고친다.
+test('연결: 보기 창이 초점을 받을 수 있고(tabindex -1), 그림을 다시 그릴 때 잠긴 단추·사라진 메뉴에 있던 초점을 보기 창으로 옮긴다', () => {
+  const view = read('app/photo-view.js'), css = read('app/ui-standard.css');
+  assert.match(view, /box\.tabIndex = -1;/, '창 자신이 초점을 받는다(사진을 눌러도 키가 이 창에 닿음)');
+  assert.match(view, /paintMenu\(\);\n    keepFocus\(\);/, '그림을 다시 그린 뒤 초점을 지킨다');
+  assert.match(view, /function keepFocus\(\) \{[^}]*a\.disabled \|\| a\.closest\('\[hidden\]'\)\)\s*box\.focus\(\{preventScroll: true\}\)/, '잠기거나 숨은 단추·창 밖·body에 있으면 보기 창으로');
+  assert.match(view, /box\.addEventListener\('keydown', e => \{ if \(e\.key === 'ArrowLeft'\)/, '←→ 는 그대로 보기 창이 받는다');
+  assert.match(view, /box\.addEventListener\('keydown', e => \{ if \(e\.key === 'Escape'\)/, 'Esc 도 보기 창이 받는다');
+  assert.match(css, /\.basket-photo-view:focus\{ outline:none; \}/, '창 자신이 초점을 받아도 전체 화면 테두리 없음');
+  // 사진 크게 보기를 여는 모든 곳은 이 껍데기 하나로 들어온다(따로 만든 보기 창 없음).
+  for (const [file, name] of [['app/basket.js', 'openPhotoView'], ['app/basket-notes.js', 'openPhotoView'], ['app/record-files.js', 'openPhotoView'], ['app/file-actions.js', 'openDocumentPhotoView']]) {
+    assert.match(read(file), new RegExp(`${name}[^\\n]*photo-view\\.js|photo-view\\.js[^\\n]*${name}`), file);
+  }
+  assert.match(read('app/report-photo-row.js'), /viewDocumentPhotos[^\n]*file-actions\.js/, '사업 보고 사진 줄 → file-actions → photo-view.js');
+});
