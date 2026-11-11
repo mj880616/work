@@ -8,6 +8,9 @@
 // - 표를 먼저 그리고 일정은 뒤에 같은 주인이 한 번 다시 그린다. 일정 읽기는 이 화면 세션 메모리에 5분(브라우저 저장소 없음).
 // - ORG-줄순서: 표 [⋯] 맨 위 '줄 순서'(오래된 것 위로 ✓ / 최신 위로) = 서버 화면 설정 org_row_order(view-prefs.js). 칸 안 줄·펼친 '지난 기록'·'뺀 줄'이 모두 같은 순서를 따르고,
 //   복사·한글 파일 글(lineTexts)은 주간보고 원칙대로 늘 날짜 오름차순이다.
+// - ORG-뺀줄지난줄메뉴: 보이는 줄·'지난 기록'·'뺀 줄' 모두 줄 끝 작은 ⋯ 하나. 지난 기록·뺀 줄은 메뉴 맨 위가 [넣기]·[되돌리기], 그 아래는 보이는 줄 메뉴와 같다.
+//   조직 기록 줄 ⋯ 맨 아래 [기록 삭제](빨강) = 조직 창과 같은 서버 길(org-row-delete.js) + 한 번 묻기, 지우면 표·조직 창 둘 다에서 사라진다. 일정 줄은 삭제 없이 [일정 열기].
+//   PC 우클릭은 공용 context-menu.js가 그 줄의 ⋯를 연다(줄마다 ⋯가 하나라 따로 붙일 것 없음).
 // - 다른 화면과는 같은 탭 이벤트 kptu:record-window-changed, 다른 기기와는 화면이 다시 보일 때 다시 읽는다.
 import {missingTable} from './feed-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
@@ -16,6 +19,8 @@ import {rowMore} from './row-more.js';
 import {fitAll} from './auto-grow.js';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {readChoice} from './calendar-ref-data.js';
+import {askConfirm} from './small-notice.js';
+import {deleteOrgUpdate} from './org-row-delete.js';
 import {viewPrefs} from './view-prefs.js';
 import * as M from './record-window-model.mjs';
 import * as DE from './record-day-edit.js';
@@ -35,7 +40,7 @@ const dayIso = day => new Date(`${day}T00:00:00+09:00`).toISOString();
 export const TEXT = {
   failed: '조직보고를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.', noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 선택해 주세요.',
   badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', saved: '저장했어요.', daySaved: '날짜를 바꿨어요.', added: '기록을 남겼어요.', out: '이번 주부터 보고에서 뺐어요.', back: '보고에 다시 넣었어요.',
-  placed: '보고에 넣었어요.', orig: '원래 글로 되돌렸어요.', evFailed: '일정을 못 읽었어요', evPartial: '일정 일부만',
+  placed: '보고에 넣었어요.', orig: '원래 글로 되돌렸어요.', deleted: '기록을 삭제했어요.', delFailed: '기록을 삭제하지 못했어요. 다시 눌러 주세요.', delAsk: '이 기록을 삭제할까요?', evFailed: '일정을 못 읽었어요', evPartial: '일정 일부만',
 };
 export const thisWeek = () => M.mondayOf(seoulDateKey(Date.now()));
 export {lineText} from './record-window-model.mjs';
@@ -187,18 +192,22 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       {text: `${cur === 'asc' ? '✓ ' : ''}오래된 것 위로`, data: {rwOrder: 'asc'}, aria: `줄 순서 오래된 것 위로${cur === 'asc' ? ', 선택됨' : ''}`},
       {text: `${cur === 'desc' ? '✓ ' : ''}최신 위로`, data: {rwOrder: 'desc'}, aria: `줄 순서 최신 위로${cur === 'desc' ? ', 선택됨' : ''}`}]});
   };
-  const lineMore = l => {
+  // where: 'shown'(보이는 줄) | 'folded'(지난 기록, 맨 위 [넣기]) | 'out'(뺀 줄, 맨 위 [되돌리기]). 그 아래 항목은 셋 다 같다(이미 보고에 없는 줄에는 [보고에서 빼기]만 없다).
+  const lineMore = (l, where = 'shown') => {
     const items = [];
+    if (where === 'folded') items.push({text: '넣기', data: {rwIn: l.id}, aria: `보고에 넣기: ${l.text}`});
+    if (where === 'out') items.push({text: '되돌리기', data: {rwBack: l.id}, aria: `보고에 되돌리기: ${l.text}`});
     if (ctl.marksOn) {
       items.push({text: '보고용으로 수정', data: {rwEdit: l.id}, aria: `보고용으로 수정: ${l.text}`});
       if (l.edited) items.push({text: '원래 글로', data: {rwOrig: l.id}});
-      items.push({text: '보고에서 빼기', data: {rwOut: l.id}, danger: true, aria: `보고에서 빼기: ${l.text}`});
+      if (where === 'shown') items.push({text: '보고에서 빼기', data: {rwOut: l.id}, danger: true, aria: `보고에서 빼기: ${l.text}`});
     }
-    if (l.kind === 'event') { items.push({text: '기록으로 남기기', data: {rwKeep: l.id}}); items.push({text: '일정 열기', data: {rwEvent: l.id}}); }
+    if (l.kind === 'event') { items.push({text: '기록으로 남기기', data: {rwKeep: l.id}}); items.push({text: '일정 열기', data: {rwEvent: l.id}}); } // 일정 줄 = 삭제 없음(원래 주인은 달력)
     else {
       if (l.kind === 'org_update') items.push({text: '날짜 수정', data: {rwDay: l.id}, aria: `날짜 수정: ${l.text}`}); // ORG-기록날짜고치기: 날짜 누름과 같은 칸
       if (l.full) items.push({text: '원문 보기', data: {rwRaw: l.id}}); // RECORD-한줄: 표는 한 줄, 원문은 작은 창에 그대로
       if (typeof ctl.openSource === 'function') items.push({text: '기록 열기', data: {rwOpen: l.id}});
+      if (l.kind === 'org_update') items.push({text: '기록 삭제', data: {rwDel: l.id}, danger: true, aria: `기록 삭제: ${l.text}`}); // 조직 창 [삭제]와 같은 서버 길 + 한 번 묻기
     }
     return items.length ? moreSlot({label: `줄 메뉴: ${l.text}`, data: {rwMore: l.id}, items}) : '';
   };
@@ -212,10 +221,8 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const dayHtml = l.kind === 'org_update' && where !== 'after' && (dayOpen || !ro)
       ? `<button type="button" class="row-act wl-day rw-day-btn${dayOpen ? ' is-on' : ''}" data-rw-day="${esc(l.id)}" aria-label="날짜 수정: ${esc(M.lineDay(l) || '날짜 없음')}" aria-expanded="${dayOpen ? 'true' : 'false'}"${dayOpen ? ' disabled' : ''}>${esc(dayLabel)}</button>`
       : `<span class="wl-day">${esc(dayLabel)}</span>`;
-    const act = where === 'shown' ? (ro ? '' : lineMore(l))
-      : where === 'folded' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-in="${esc(l.id)}"${ro ? ' disabled' : ''}>넣기</button></span>`
-        : where === 'out' ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-back="${esc(l.id)}"${ro ? ' disabled' : ''}>되돌리기</button></span>`
-          : where === 'after' ? '<span class="rw-after-tag">확정 뒤 추가</span>' : '';
+    const act = where === 'shown' || where === 'folded' || where === 'out' ? (ro ? '' : lineMore(l, where))
+      : where === 'after' ? '<span class="rw-after-tag">확정 뒤 추가</span>' : '';
     return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}">${dayHtml}<span class="wl-body"><span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}</span>${dayOpen ? '' : act}</div>${dayOpen ? dayForm(l) : ''}`;
   };
   // 날짜 수정 칸(시안 ②~④): 줄 바로 아래 [하루|기간|없음] + 달력 + [취소][저장] — 모양은 record-day-edit.js 하나. 없음은 서버에 칸이 있을 때만.
@@ -296,14 +303,14 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   window.addEventListener('kptu:view-prefs-rejected', e => { if ((e.detail?.paths || []).includes('org_row_order')) orderRedraw(); });
 
   // ---- 쓰기 ----
-  const work = async (fn, done) => {
+  const work = async (fn, done, failed = TEXT.saveFailed) => {
     if (ctl.busy) return false;
     ctl.busy = true; say('저장하는 중…'); repaint();
     let ok = true;
     try { await fn(); } catch (e) { ok = false; console.warn('record window write failed', e?.message || e); }
     ctl.busy = false;
     if (ok) { ctl.editing = null; ctl.draft = null; ctl.invalid = ''; }
-    say(ok ? done : TEXT.saveFailed, !ok);
+    say(ok ? done : failed, !ok);
     redraw();
     if (ok) announce();
     return ok;
@@ -356,6 +363,18 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       ctl.records = ctl.records.filter(r => !(r.kind === 'org_update' && r.key === l.key)).concat(item ? [item] : []);
     }, TEXT.daySaved);
   }
+  // 조직 기록 줄 삭제(조직 창 wdDelRow와 같은 서버 길, org-row-delete.js): 한 번 묻고 → 그 조직의 그 기록 한 행 DELETE(owner RLS) → 표에서 빼고 다른 화면(조직 창 등)은 같은 탭 알림으로 다시 읽는다.
+  // 보고용 표시(app_report_line_marks)는 줄 열쇠만 붙어 있어 기록이 없어지면 저절로 쓰이지 않는다(조직 창 삭제도 마찬가지, 새로 지우는 길을 만들지 않는다).
+  async function deleteLine({org, line: l}, anchor) {
+    const week = ctl.week;
+    const yes = await askConfirm(anchor, {text: TEXT.delAsk, ok: '삭제', danger: true});
+    if (!yes || week !== ctl.week || ctl.busy || ctl.editing || !findLine(l.id)) return;
+    await work(async () => {
+      await deleteOrgUpdate((path, opts) => ctl.rt.api(path, opts), l.key, org);
+      ctl.records = ctl.records.filter(r => !(r.kind === 'org_update' && r.key === l.key));
+      ctl.focus = `[data-rw-add="${CSS.escape(org)}"]`; // 줄이 없어졌으니 초점은 그 칸의 [+ 쓰기]로
+    }, TEXT.deleted, TEXT.delFailed);
+  }
   const openDay = (orgId, l) => { ctl.editing = {orgId, id: l.id, day: true}; ctl.draft = M.dayDraft(l); ctl.invalid = ''; ctl.focus = `[data-rw-form="${CSS.escape(l.id)}"] [aria-pressed="true"]`; say(''); redraw(); };
   ctl.cancel = () => { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e ? (e.id === 'new' ? `[data-rw-add="${e.orgId}"]` : e.day ? `[data-rw-day="${CSS.escape(e.id)}"]` : '') : ''; say(''); redraw(); };
   const openAdd = (orgId, d = null) => {
@@ -383,7 +402,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       if ('rwSave' in d) { void ctl.save(); return; }
       if (d.rwMode && ctl.editing?.day) { const hit = findLine(ctl.editing.id); ctl.draft = DE.withMode(ctl.draft || (hit ? M.dayDraft(hit.line) : {}), d.rwMode); ctl.invalid = ''; ctl.focus = `[data-rw-mode="${d.rwMode}"]`; redraw(); return; }
       if (d.rwFold) { const set = d.rwFold === 'out' ? ctl.outOpen : ctl.foldOpen, org = d.rwOrg; if (set.has(org)) set.delete(org); else set.add(org); ctl.focus = `[data-rw-fold="${d.rwFold}"][data-rw-org="${CSS.escape(org)}"]`; redraw(); return; }
-      const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent || d.rwRaw || d.rwDay;
+      const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent || d.rwRaw || d.rwDay || d.rwDel;
       if (!id || ctl.disabled()) return;
       const hit = findLine(id); if (!hit) return;
       const l = hit.line;
@@ -399,6 +418,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       }
       if (d.rwEvent) { void import('./event-open.js').then(m => m.openGoogleEvent(l.key, l.cal)).catch(() => say('일정을 열지 못했어요.', true)); return; }
       if (ctl.readOnly()) return;
+      if (d.rwDel) { if (l.kind === 'org_update') void deleteLine(hit, box?.querySelector('summary') || b); return; }
       if (d.rwKeep) { openAdd(hit.org, {day: l.day, end_day: l.end_day || '', body: l.full || l.orig || l.text}); return; }
       if (d.rwDay) { if (l.kind === 'org_update') openDay(hit.org, l); return; }
       if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: M.editBase(l)}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
