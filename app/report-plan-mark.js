@@ -46,11 +46,18 @@ export function planMarkEl(mark, doc = document) {
   el.setAttribute('role', 'img');
   el.setAttribute('aria-label', mark.label);
   el.title = mark.label;
-  if (mark.status === STATUS_DONE) el.textContent = '✓';
-  return el;
+  return el; // 글자는 넣지 않는다(모양은 CSS) — 줄의 제목 글자(말풍선·읽기 이름·시험)가 그대로 남는다.
 }
 // 읽기 이름(aria-label)에 붙일 말: ', 보고 씀' | ', 보고할 일정' | ''.
 export const planMarkSuffix = mark => (mark ? `, ${mark.label}` : '');
+
+// 그날 창 안의 ✓: 그 창의 다른 줄과 같이 그날 창을 먼저 닫고 연다(calendar-interactions-v2.js ciCloseDay 와 같은 순서 — □ 쪽은 그 길이 닫는다).
+const closeDay = () => new Promise(resolve => {
+  const modal = document.querySelector('#calendarDayModal');
+  if (!modal || modal.classList.contains('hidden')) return resolve();
+  if (window.KPTUMobileModalHistory) return window.KPTUMobileModalHistory.closeThen(modal, resolve);
+  modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); window.KPTUA11y?.dialog.deactivate?.(modal, {restoreFocus: false}); resolve();
+});
 
 let busy = false;
 async function act(el) {
@@ -58,7 +65,7 @@ async function act(el) {
   busy = true;
   const done = el.dataset.reportMark === STATUS_DONE;
   try {
-    if (done) await openReport(el.dataset.reportId);
+    if (done) { await closeDay(); await openReport(el.dataset.reportId); }
     else await leaveEventReport(el.dataset.reportEvent, el.dataset.reportCalendar);
   } catch (error) {
     console.warn('report plan mark', error?.message || error);

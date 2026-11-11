@@ -1,5 +1,6 @@
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
+import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 그날 창 일정 줄 제목 앞 ✓·□
 (()=>{
   if(window.__KPTU_CALENDAR_DAY_OVERFLOW__)return;
   window.__KPTU_CALENDAR_DAY_OVERFLOW__=true;
@@ -21,7 +22,8 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
     const time=ev.allDay?'종일':seoulClock(ev.start);
     b.innerHTML=`<span class="cmv-day-time">${esc(time)}</span><span class="cmv-day-title">${esc(ev.title)}</span>`;
-    b.setAttribute('aria-label',time+' '+ev.title);return b;
+    const plan=ev.source==='google'?planMarkOf(ev.raw||ev):null;if(plan)b.querySelector('.cmv-day-title').prepend(planMarkEl(plan));
+    b.setAttribute('aria-label',time+' '+ev.title+planMarkSuffix(plan));return b;
   }
   // UI-할일조작통일 → TASK-바로처리통일: each task row sits beside a ⋯ button, the shared task line's menu (task-inline.js, opened by
   // calendar-tasks.js). On a PC it shows on the hovered / focused row only (ui-standard.css [data-task-inline-row]).

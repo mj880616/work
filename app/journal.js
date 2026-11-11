@@ -38,6 +38,8 @@ import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, chan
   dayCard, DAY_SOURCES, dueDay, dayRangeNote, readWeekDrafts, requestDayDraft, readWeekCalls, readTaskMeetingNames, readUpcomingMilestones} from './journal-data.js';
 import {dueLabel} from './task-due.mjs';
 import {openGoogleEvent, eventAttrs} from './event-open.js';
+import {planMarkOf, planMarkEl, planMarkSuffix} from './report-plan-mark.js'; // BIZ-보고할일정 PR B: 그날 일정 줄 제목 앞 ✓(보고 씀)·□(보고할 일정)
+import {REPORT_PLANS_CHANGED} from './report-plan-data.js';
 import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs';
 import {createTaskInline, objectParticle} from './task-inline.js';
 import {applyCheckPop} from './check-motion.js';
@@ -407,11 +409,14 @@ function eventRow(item) {
   li.className = 'journal-event';
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'journal-item-open journal-event-open'; button.dataset.journalOpen = keyFor(item.open);
-  button.setAttribute('aria-label', `${item.text} (일정 열기)`);
+  // BIZ-보고할일정 PR B: 규칙(report-plan-model.mjs)이 일정 원본의 제목·시작을 보므로 그 주에 읽어 둔 Google 일정에서 찾는다. 없으면 표시 없음.
+  const plan = planMarkOf((materials.events?.status === 'ok' ? materials.events.items : []).find(e => e.id === item.id && (e.calendarId || 'primary') === item.open?.calendarId));
+  button.setAttribute('aria-label', `${item.text}${planMarkSuffix(plan)} (일정 열기)`);
   const time = document.createElement('span'); time.className = 'journal-event-time'; time.textContent = item.time;
   const bar = document.createElement('span'); bar.className = 'journal-event-bar'; bar.setAttribute('aria-hidden', 'true');
   if (item.color) bar.style.setProperty('--journal-event-color', item.color);
   const title = document.createElement('span'); title.className = 'journal-event-title'; title.textContent = item.title;
+  if (plan) title.prepend(planMarkEl(plan));
   button.append(time, ' ', bar, ' ', title);
   li.append(button);
   return li;
@@ -443,9 +448,12 @@ function ddayLine() {
   return line;
 }
 // FORGET-소식합치기(11/08): 옛 '기억할 통화·텔레그램' 묶음은 잊지 말기 '소식' 줄로 옮겼다(forget-list.js·forget-news-data.js). 서버 표는 그대로.
+const currentCard = () => dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
+// BIZ-보고할일정 PR B: 표시(✓·□)가 읽히거나 바뀌면 그날 일정 칸만 그 칸의 주인(renderSchedule)이 다시 그린다.
+window.addEventListener(REPORT_PLANS_CHANGED, () => { if (materials.events?.status === 'ok' && $('[data-journal-schedule]')) renderSchedule(currentCard()); });
 function renderDay() {
   opens = new Map(); openSeq = 0;
-  const card = dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
+  const card = currentCard();
   renderSchedule(card);
   renderTasks(card);
   const host = $('[data-journal-materials]');
