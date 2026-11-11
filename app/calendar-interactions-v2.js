@@ -8,6 +8,7 @@ import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,log
 import {updateBody,same as ciSameTimes} from './calendar-drag-model.js';
 import {clickSlot,allDaySlot,dateSlot,minuteAtY} from './calendar-create-slot.js';
 import {eventAreaRows,syncEventAreas} from './quick-save.js'; // CAL-일정사업영역: 일정의 사업영역 = 사업영역 주요 일정 행
+import {loadReportPlans,eventPlan,eventPlanById,setEventPlan,syncEventCopy,dropEventPlan} from './report-plan-data.js'; // BIZ-보고할일정: '보고할 일정' 표시(서버 저장)
 let ciGoogleAreaRows=null,ciEndLink=null,ciGoogleCurrent=null,ciGoogleSavePending=false,ciGoogleOpenSeq=0,ciGoogleReadySeq=0,ciGoogleOwner=null,ciSaveRequest=null;const ciUncertain=new Map(),ciPendingWrites=new Map();
 function ciRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했어요.');return rt}
 async function ciGoogleCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body,expectedSessionEpoch});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
@@ -28,7 +29,7 @@ function ciCloseDay(openNext){
   if(window.KPTUMobileModalHistory)return window.KPTUMobileModalHistory.closeThen(m,openNext);
   m.classList.add('hidden');m.setAttribute('aria-hidden','true');window.KPTUA11y?.dialog.deactivate?.(m,{restoreFocus:false});openNext();
 }
-function ciInject(){if(document.querySelector('#ciGoogleModal'))return;document.body.insertAdjacentHTML('beforeend',`<div id="ciGoogleModal" class="modal hidden" data-enter-save aria-hidden="true"><div class="modal-card small-card ci-card"><div class="modal-head"><div><h2 id="ciGoogleHero">일정 수정</h2></div><span class="ci-head-ends"><span class="ci-head-menu-wrap"><button id="ciGoogleMore" class="icon-btn ci-head-more" type="button" data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-controls="ciGoogleMenu" aria-label="일정 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="ciGoogleMenu" class="ci-head-menu" role="group" aria-label="일정 관리" hidden><button id="ciGoogleDelete" class="ci-menu-danger" type="button">일정 삭제</button></span></span><button id="ciGoogleClose" class="icon-btn" type="button" aria-label="닫기">×</button></span></div><div id="ciPreMeeting" class="pms-line-host" hidden></div><label>캘린더<select id="ciGoogleCalendar" aria-label="캘린더"></select></label><div id="ciGoogleCalendarHint" class="muted"></div><label>제목<input id="ciGoogleTitle" type="text"></label><label class="ci-all"><input id="ciGoogleAllDay" type="checkbox"> 종일</label><div class="ci-date-grid"><label>시작 날짜<input id="ciGoogleStartDate" type="date"></label><label class="ci-gtime">시작 시간<input id="ciGoogleStartTime" type="text" inputmode="numeric" autocomplete="off" placeholder="시간" maxlength="5" data-time-input aria-label="시작 시간"></label><label>종료 날짜<input id="ciGoogleEndDate" type="date"></label><label class="ci-gtime">종료 시간<input id="ciGoogleEndTime" type="text" inputmode="numeric" autocomplete="off" placeholder="시간" maxlength="5" data-time-input aria-label="종료 시간"></label></div><label>장소<input id="ciGoogleLocation" type="text"></label><div class="calendar-color-field"><span class="calendar-color-label">색상</span><div id="ciGoogleColor" class="calendar-color-presets" aria-label="Google 일정 색상"></div></div><label>메모<textarea id="ciGoogleMemo" rows="5"></textarea></label><div class="modal-action-footer"><div id="ciGoogleStatus" class="status"></div><div class="ci-actions save-row"><button id="ciGoogleReport" class="ghost ci-report save-row-start" type="button">결과 남기기</button><button id="ciGoogleSave" data-enter-save-submit class="primary" type="button">변경사항 저장</button></div></div></div></div>`);document.querySelector('#ciGoogleClose').onclick=()=>{ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal')};document.querySelector('#ciGoogleSave').onclick=ciSaveGoogle;document.querySelector('#ciGoogleMore').onclick=e=>ciToggleMenu(e.currentTarget);document.querySelector('#ciGoogleDelete').onclick=()=>{ciToggleMenu(document.querySelector('#ciGoogleMore'),false,true);return ciDeleteGoogle()};ciMenuDismiss();document.querySelector('#ciGoogleReport').onclick=ciLeaveReport;document.querySelector('#ciGoogleAllDay').onchange=ciToggleGoogleTime;document.querySelector('#ciGoogleTitle').addEventListener('input',()=>document.querySelector('#ciGoogleHero').textContent=document.querySelector('#ciGoogleTitle').value.trim()||'일정 수정');const q=id=>document.querySelector('#ciGoogle'+id);ciEndLink=linkEventEnd({startDate:q('StartDate'),startTime:q('StartTime'),endDate:q('EndDate'),endTime:q('EndTime'),allDay:q('AllDay')})}
+function ciInject(){if(document.querySelector('#ciGoogleModal'))return;document.body.insertAdjacentHTML('beforeend',`<div id="ciGoogleModal" class="modal hidden" data-enter-save aria-hidden="true"><div class="modal-card small-card ci-card"><div class="modal-head"><div><h2 id="ciGoogleHero">일정 수정</h2></div><span class="ci-head-ends"><span class="ci-head-menu-wrap"><button id="ciGoogleMore" class="icon-btn ci-head-more" type="button" data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-controls="ciGoogleMenu" aria-label="일정 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="ciGoogleMenu" class="ci-head-menu" role="group" aria-label="일정 관리" hidden><button id="ciGoogleDelete" class="ci-menu-danger" type="button">일정 삭제</button></span></span><button id="ciGoogleClose" class="icon-btn" type="button" aria-label="닫기">×</button></span></div><div id="ciPreMeeting" class="pms-line-host" hidden></div><label>캘린더<select id="ciGoogleCalendar" aria-label="캘린더"></select></label><div id="ciGoogleCalendarHint" class="muted"></div><label>제목<input id="ciGoogleTitle" type="text"></label><label class="ci-all"><input id="ciGoogleAllDay" type="checkbox"> 종일</label><div class="ci-date-grid"><label>시작 날짜<input id="ciGoogleStartDate" type="date"></label><label class="ci-gtime">시작 시간<input id="ciGoogleStartTime" type="text" inputmode="numeric" autocomplete="off" placeholder="시간" maxlength="5" data-time-input aria-label="시작 시간"></label><label>종료 날짜<input id="ciGoogleEndDate" type="date"></label><label class="ci-gtime">종료 시간<input id="ciGoogleEndTime" type="text" inputmode="numeric" autocomplete="off" placeholder="시간" maxlength="5" data-time-input aria-label="종료 시간"></label></div><label>장소<input id="ciGoogleLocation" type="text"></label><div class="calendar-color-field"><span class="calendar-color-label">색상</span><div id="ciGoogleColor" class="calendar-color-presets" aria-label="Google 일정 색상"></div></div><label>메모<textarea id="ciGoogleMemo" rows="5"></textarea></label><label id="ciGooglePlanRow" class="ci-all ci-plan" hidden><input id="ciGooglePlan" type="checkbox" disabled> 보고할 일정</label><div class="modal-action-footer"><div id="ciGoogleStatus" class="status"></div><div class="ci-actions save-row"><button id="ciGoogleReport" class="ghost ci-report save-row-start" type="button">결과 남기기</button><button id="ciGoogleSave" data-enter-save-submit class="primary" type="button">변경사항 저장</button></div></div></div></div>`);document.querySelector('#ciGoogleClose').onclick=()=>{ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal')};document.querySelector('#ciGoogleSave').onclick=ciSaveGoogle;document.querySelector('#ciGoogleMore').onclick=e=>ciToggleMenu(e.currentTarget);document.querySelector('#ciGoogleDelete').onclick=()=>{ciToggleMenu(document.querySelector('#ciGoogleMore'),false,true);return ciDeleteGoogle()};ciMenuDismiss();document.querySelector('#ciGoogleReport').onclick=ciLeaveReport;document.querySelector('#ciGooglePlan').onchange=ciTogglePlan;document.querySelector('#ciGoogleAllDay').onchange=ciToggleGoogleTime;document.querySelector('#ciGoogleTitle').addEventListener('input',()=>document.querySelector('#ciGoogleHero').textContent=document.querySelector('#ciGoogleTitle').value.trim()||'일정 수정');const q=id=>document.querySelector('#ciGoogle'+id);ciEndLink=linkEventEnd({startDate:q('StartDate'),startTime:q('StartTime'),endDate:q('EndDate'),endTime:q('EndTime'),allDay:q('AllDay')})}
 function ciToggleGoogleTime(){const on=document.querySelector('#ciGoogleAllDay').checked;document.querySelectorAll('.ci-gtime').forEach(x=>x.classList.toggle('hidden',on))}
 function ciGoogleDisplayColor(e){const state=window.__KPTU_GOOGLE_STATE__||{},cal=state.calendars?.find(x=>x.id===e?.calendarId);return e?.color||state.colors?.[e?.calendarId]||cal?.backgroundColor||'#4285f4'}
 // UI-전수디자인점검 F18: [일정 삭제]는 머리줄 ⋯ 안 작은 목록(일기 쓰기 창과 같은 모양). 바깥을 누르거나 Esc면 닫힌다.
@@ -58,7 +59,7 @@ async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
   const seq=++ciGoogleOpenSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id,epoch=ciRuntime().session.epoch();ciSaveRequest=null;ciGoogleSavePending=false;const pending=ciPendingWrites.get(ciUncertainKey(eventId,calendarId));
   ciGoogleOwner=owner;
   const active=()=>seq===ciGoogleOpenSeq&&epoch===ciRuntime().session.epoch()&&owner===window.KPTURuntime?.session?.read?.()?.user?.id&&!document.querySelector('#ciGoogleModal').classList.contains('hidden');
-  ciInject();ciGoogleCurrent=null;ciOpen('#ciGoogleModal');ciWait('#ciGoogleStatus');
+  ciInject();ciGoogleCurrent=null;ciPaintPlan(null);ciOpen('#ciGoogleModal');ciWait('#ciGoogleStatus');
   const save=document.querySelector('#ciGoogleSave');save.disabled=true;save.textContent='변경사항 저장';save.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=true;document.querySelector('#ciGoogleCalendar').disabled=true;
   try{
     ciRuntime();if(!owner)throw new Error('로그인이 필요합니다.');
@@ -74,6 +75,8 @@ async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
     if(d.eventColors)window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),eventColors:d.eventColors};
     ciGoogleCurrent=d.event;const e=ciGoogleCurrent;
     if(!e?.id)throw new Error('Google 일정을 확인하지 못했어요.');
+    // BIZ-보고할일정: 이 일정의 '보고할 일정' 칸. 읽어 둔 값이 있으면 바로, 없으면 읽은 뒤에 보인다(서버에 표가 없으면 숨긴 채). Google에서 읽은 일정이면 줄의 제목·날짜 사본도 맞춘다.
+    ciPaintPlan(e);void loadReportPlans().then(()=>{if(!active()||ciGoogleCurrent!==e)return;ciPaintPlan(e);if(!readFailed)void syncEventCopy(e).catch(()=>{})}).catch(()=>{});
     ciPopulateGoogleCalendars(e);
     document.querySelector('#ciGoogleTitle').value=e.title||'';document.querySelector('#ciGoogleHero').textContent=e.title||'일정 수정';document.querySelector('#ciGoogleMemo').value=e.description||'';document.querySelector('#ciGoogleLocation').value=e.location||'';document.querySelector('#ciGoogleAllDay').checked=!!e.allDay;
     if(e.allDay){document.querySelector('#ciGoogleStartDate').value=e.start;document.querySelector('#ciGoogleEndDate').value=ciMinusDay(e.end)}
@@ -149,7 +152,7 @@ async function ciSaveGoogle(){
       try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return;
     }
     if(result.ok!==true)throw new Error(result.message||'일정 저장 결과를 확인하지 못했어요.');
-    verified=true;ciUncertain.delete(key);const unchanged=r.draft===ciDraft();ciAcceptAddress(r,result.event);window.KPTUCalendarPersistence?.put?.(result.event,current.calendarId);
+    verified=true;ciUncertain.delete(key);const unchanged=r.draft===ciDraft();ciAcceptAddress(r,result.event);window.KPTUCalendarPersistence?.put?.(result.event,current.calendarId);void syncEventCopy(result.event).catch(()=>{});
     // normEvent always returns location; a different value means the server did not store the new place.
     if(typeof result.event.location==='string'&&result.event.location!==body.location){ciStatus('#ciGoogleStatus','일정은 저장했어요. 장소 저장은 확인하지 못했어요. 장소와 수정 입력은 유지했어요. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}
     // CAL-일정사업영역: 고른 사업영역과 주요 일정 행을 맞춘다(새로 고른 곳은 행 추가, 뺀 곳은 그 행만 삭제). 실패하면 창을 열어 둔 채 다시 저장하게 한다.
@@ -167,6 +170,7 @@ async function ciSaveGoogle(){
   finally{if(ciPendingWrites.get(key)===r)ciPendingWrites.delete(key);r.finish();if(ciSaveRequest===r){ciSaveRequest=null;ciGoogleSavePending=false;if(ciSameSession(r)&&r.seq===ciGoogleOpenSeq){const ready=!!ciGoogleCurrent&&ciGoogleReadySeq===ciGoogleOpenSeq;b.disabled=!ready;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=!ready}}}
 }
 // MTG-사업보고 7단계: 일정 창 [결과 남기기] → 칸 고르기 → 일정 제목·시작·장소가 채워진 사업 보고 입력 창. 같은 날·같은 이름이 이미 있으면 먼저 묻는다(team.js KPTUReportEntry).
+// BIZ-보고할일정: 어느 일정에서 왔는지(event)를 같이 넘겨, 저장할 때 보고 줄에 일정 id가 이어져 남는다(team.js saveMeeting).
 async function ciLeaveReport(){
   const e=ciGoogleCurrent;if(!e?.id||ciGoogleSavePending||document.querySelector('#ciGoogleSave')?.disabled)return;
   const when=e.allDay?{date:String(e.start).slice(0,10)}:(()=>{const p=ciParts(e.start);return {at:`${p.date}T${p.time}`}})();
@@ -175,10 +179,37 @@ async function ciLeaveReport(){
     await window.KPTUViewLoader?.prepare?.('meetings');
     if(!window.KPTUReportEntry)throw new Error('missing');
     ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal');
-    await window.KPTUReportEntry.open({name:e.title||'',...when,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true});
+    await window.KPTUReportEntry.open({name:e.title||'',...when,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true,event:{id:e.id,calendarId:e.calendarId||'primary'}});
   }catch(err){console.error('calendar report',err);ciStatus('#ciGoogleStatus','사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.',true)}
 }
-async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!(await askConfirm(document.activeElement,{text:'이 Google 일정을 삭제할까요?',ok:"삭제",danger:true})))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
+// BIZ-보고할일정 PR A(설계 docs/design/biz-report-plan-link.md 4-2·4-3): 일정 창 '보고할 일정' 칸과 달력 메뉴 [보고할 일정]이 쓰는 길.
+// 누르면 바로 서버에 저장한다([변경사항 저장]과 따로 — Google 일정은 건드리지 않는다). 끔은 그 일정 하나만 끄고, 같은 이름의 다른 일정은 기억을 따른다.
+// 서버에 표가 없거나 아직 못 읽었으면 칸·메뉴 항목을 두지 않는다(지금 그대로).
+const CI_PLAN_FAIL='보고할 일정 표시를 저장하지 못했어요. 다시 눌러 주세요.';
+function ciPaintPlan(e){const row=document.querySelector('#ciGooglePlanRow'),box=document.querySelector('#ciGooglePlan');if(!row||!box)return;const plan=e?eventPlan(e):null;row.hidden=!plan;box.disabled=!plan;box.checked=!!plan?.on}
+async function ciTogglePlan(){
+  const box=document.querySelector('#ciGooglePlan'),status=document.querySelector('#ciGoogleStatus'),e=ciGoogleCurrent,seq=ciGoogleOpenSeq;if(!box||!e?.id)return;
+  const on=box.checked;box.disabled=true;
+  try{await setEventPlan(e,on);if(seq===ciGoogleOpenSeq&&status?.textContent===CI_PLAN_FAIL)ciStatus('#ciGoogleStatus','')}
+  catch(err){console.warn('report plan save failed',err?.message||err);if(seq===ciGoogleOpenSeq)ciStatus('#ciGoogleStatus',CI_PLAN_FAIL,true)}
+  finally{if(seq===ciGoogleOpenSeq&&ciGoogleCurrent===e)ciPaintPlan(e)}
+}
+// 달력이 읽어 둔 일정에서 찾는다(캘린더를 'primary'와 실제 주소 두 이름으로 부를 수 있어, 못 찾으면 일정 id만으로 한 번 더).
+function ciFindEvent(eventId,calendarId){const list=window.__KPTU_GOOGLE_EVENTS__||[];return list.find(e=>e.id===eventId&&(!calendarId||(e.calendarId||'primary')===calendarId))||list.find(e=>e.id===eventId)||null}
+// 메뉴가 열릴 때: {on} | null(항목 없음). 아직 못 읽었으면 다음에 열 때를 위해 읽어 둔다.
+function ciPlanOf(eventId,calendarId){const id=String(eventId||''),e=ciFindEvent(id,calendarId),plan=e?eventPlan(e):eventPlanById(id);if(!plan)void loadReportPlans().catch(()=>{});return plan}
+async function ciSetPlan(eventId,calendarId,on){
+  const id=String(eventId||'');if(!id)return false;
+  try{
+    let e=ciFindEvent(id,calendarId);
+    if(!e)e=(await ciGoogleCall('event',{params:{eventId:id,calendarId:calendarId||'primary'}}))?.event;
+    if(e?.id!==id)throw new Error('Google 일정을 확인하지 못했어요.');
+    const saved=await setEventPlan(e,!!on);ciToast(saved.on?'보고할 일정으로 표시했어요.':'보고할 일정 표시를 껐어요.');
+    if(ciGoogleCurrent?.id===id)ciPaintPlan(ciGoogleCurrent);
+    return true;
+  }catch(err){console.warn('report plan save failed',err?.message||err);ciToast('보고할 일정 표시를 저장하지 못했어요.');return false}
+}
+async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!(await askConfirm(document.activeElement,{text:'이 Google 일정을 삭제할까요?',ok:"삭제",danger:true})))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');void dropEventPlan(ciGoogleCurrent.id).catch(()=>{});ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
 // CAL-빈칸시간채우기: 일정 만들기 창을 열고 누른 자리의 날짜·시간만 채운다(창 모양은 그대로). slot = calendar-create-slot.js 값.
 function ciCreateSlot(slot){const btn=document.querySelector('#newEventBtn');if(!btn||!slot)return;btn.click();const q=id=>document.querySelector('#event'+id),allDay=q('AllDay');if(allDay){allDay.checked=slot.kind==='allday';allDay.dispatchEvent(new Event('change',{bubbles:true}))}
   if(q('StartDate'))q('StartDate').value=slot.startDate;
@@ -223,7 +254,7 @@ async function ciSaveMoved(eventId,calendarId,expected,next){
     const result=await ciGoogleCall('',{method:'POST',body,expectedSessionEpoch:epoch});
     if(!alive())return {status:'stale'};
     if(result?.ok!==true||result.event?.id!==eventId||result.event.calendarId!==calendarId)throw new Error('일정 저장 결과를 확인하지 못했어요.');
-    ciUncertain.delete(key);window.KPTUCalendarPersistence?.put?.(result.event,calendarId);
+    ciUncertain.delete(key);window.KPTUCalendarPersistence?.put?.(result.event,calendarId);void syncEventCopy(result.event).catch(()=>{});
     window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()?.catch?.(()=>{});
     return {status:'saved',event:result.event,recurring:!!fresh.recurring};
   }catch(e){
@@ -246,5 +277,7 @@ async function ciActOn(eventId,calendarId,what){
   else if(what==='report')await ciLeaveReport();
   else if(what==='delete'&&(await ciDeleteGoogle())===false&&ciGoogleOpenSeq===ready.seq){ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal')}
 }
-window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))},act:ciActOn,saveMove:ciSaveMoved,toast:ciToast,createSlot:ciCreateSlot,slotFor:ciSlotFor};
+window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))},act:ciActOn,saveMove:ciSaveMoved,toast:ciToast,createSlot:ciCreateSlot,slotFor:ciSlotFor,planOf:ciPlanOf,setPlan:ciSetPlan};
+// BIZ-보고할일정: 메뉴가 누른 자리에서 바로 열리도록 '보고할 일정' 줄을 미리 읽어 둔다(표가 없는 서버면 없음으로 끝난다).
+void loadReportPlans().catch(()=>{});
 window.__KPTU_CALENDAR_INTERACTIONS_READY__=Promise.resolve(true);
