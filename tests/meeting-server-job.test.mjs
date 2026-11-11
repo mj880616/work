@@ -309,12 +309,12 @@ test('끝 알림은 내 폰 알림 설정을 따른다(회의 요약 끔·조용
   assert.equal(sj.pushDecision({quiet:{from:'12:00',to:'13:00'}},at(23)),'send');
 });
 
-test('회의자료 소리 파일 ⋯ [전사해서 결과에 넣기](B): 고칠 수 있는 회의의 소리 파일에만, 서버 정리로 맡기고 결과는 그 회의 [수정] 창에',()=>{
+test('회의자료 소리 파일 ⋯ [녹음 글로 옮기고 요약하기](B): 고칠 수 있는 회의의 소리 파일에만, 서버 정리로 맡기고 결과는 그 회의 [수정] 창에',()=>{
   const detail=read('app/meeting-round-detail.js'),rec=read('app/meeting-recorder.js'),cols=read('app/meeting-columns.js');
   assert.match(cols,/export function fileMoreHtml\(d,name=d\?\.file_name\|\|d\?\.title\|\|'파일',extra='',rename=''\)/); // FILE-이름고치기연필먹통: [이름 수정] 속성
   assert.match(detail,/\$\{fileMoreHtml\(d,name,mrdTranscribeItem\(d\)\+mrdFileOwnItems\(d\),mrdRename\(d\)\)\}/); // FILE-첨부삭제 결정 3: 같은 ⋯ 안 [빼기]·[삭제]
   assert.match(detail,/!mrdCanEdit\(mrdCurrent\)\|\|!isAudioFile\(/,'고칠 수 있는 회의·소리 파일만');
-  assert.match(detail,/data-mrd-transcribe="\$\{mrdEsc\(d\.id\)\}">전사해서 결과에 넣기<\/button>/);
+  assert.match(detail,/data-mrd-transcribe="\$\{mrdEsc\(d\.id\)\}">녹음 글로 옮기고 요약하기<\/button>/);
   assert.match(detail,/fillTranscript:mrdFillTranscript/);
   assert.match(detail,/keepTranscript\(notes\.value,full\)/,'이미 쓴 회의록 전문은 지우지 않고 아래에');
   assert.doesNotMatch(detail.slice(detail.indexOf('async function mrdFillTranscript'),detail.indexOf('window.KPTUMeetingRoundDetail=')),/mrdSaveEdit\(/,'자동 저장 없음');

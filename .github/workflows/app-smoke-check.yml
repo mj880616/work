@@ -46,6 +46,7 @@ on:
       - 'tests/button-unify.test.mjs'
       - 'tests/ui-check-unify.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/ai-button-names.test.mjs'
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/chip-rows.test.mjs'
       - 'tests/wait-state.test.mjs'
@@ -257,6 +258,7 @@ on:
       - 'tests/button-unify.test.mjs'
       - 'tests/ui-check-unify.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/ai-button-names.test.mjs'
       - 'tests/ui-audit-1030.test.mjs'
       - 'tests/chip-rows.test.mjs'
       - 'tests/wait-state.test.mjs'
@@ -494,6 +496,8 @@ jobs:
 
       - name: Check editor toolbar, add buttons and top bands stay unified (UI-화면정리 C)
         run: node --test tests/ui-cleanup-c.test.mjs
+      - name: Check AI button names follow the UI words table (OPS-빠진일2차 4)
+        run: node --test tests/ai-button-names.test.mjs
       - name: Check site audit fixes stay in the shared parts (UI-점검1030손질)
         run: node --test tests/ui-audit-1030.test.mjs
       - name: Check S48-30 screen polish 2 (▾ after label, refresh same place, folder button not cut, 업무일지 names, top line steps)

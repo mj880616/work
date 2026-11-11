@@ -4100,3 +4100,26 @@ for(const width of [390,884,1280])test(`WEEKLY-주요일정제자리고치기: �
  expect(f.profile.patches).toEqual([]);
  expect(f.errors.filter(e=>!/400|429|500|503/.test(e))).toEqual([]);
 });
+
+// OPS-빠진일2차 4(S59-22, 명진 11/11 14:55 "제안대로 전부"): [주간 정리] AI 초안 안내 줄의 [AI 초안 다시 쓰기]는 [초안 다시 쓰기].
+// 안내 글자 'AI 초안: …'(AI가 쓴 글임을 알림)은 그대로. KPTU_SHOTS=1이면 docs/design/screens/s59-22/에 PC 1280·폰 412 사진을 남긴다(가짜 자료만).
+for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`[주간 정리] AI 초안 안내 줄 단추 이름: [초안 다시 쓰기] ${label}`,async({page})=>{
+ const weekReport={summary:[
+  {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 지난주 가-1 진행'],owner:['가상 담당']}]},
+ ],orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']}]};
+ await hwpxFixture(page,{width,files:{'doc-week':weekReport},personal:[{id:'doc-week',title:'가상 이번 주 개인 확정본',file_name:'doc-week.hwpx',document_date:'2026-10-12',created_at:'2026-10-09T08:00:00Z'}]});
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();if(body.kind==='work_scope')return r.fallback();
+  if(body.kind==='weekly_draft')return r.fulfill({json:{ok:true,kind:'weekly_draft',week_start:body.week_start,mode:body.mode,learned:{weeks:1,rules:2},
+   cells:body.cells.map(c=>({ref:c.ref,lines:c.where.includes('가-1')?['- 지난주 가-1 진행','- 가-1 목요일 기록']:c.lines}))}});
+  return r.fulfill({status:500,json:{}});
+ });
+ await openJournal(page,width);await openWeekly(page);
+ const note=hwpx(page).locator('[data-hwpx-ai-draft]');
+ await expect(note).toContainText('AI 초안: 지난 1주 수정 기록·규칙 2줄을 보고');
+ const again=note.getByRole('button',{name:'초안 다시 쓰기(손대지 않은 칸만)'});
+ await expect(again).toHaveText('초안 다시 쓰기');
+ await expect(note.getByRole('button',{name:/AI 초안 다시 쓰기/})).toHaveCount(0);
+ await note.scrollIntoViewIfNeeded();
+ if(process.env.KPTU_SHOTS==='1'){await page.waitForTimeout(250);await page.screenshot({path:`docs/design/screens/s59-22/${label}-weekly-draft-again-button.png`})}
+});

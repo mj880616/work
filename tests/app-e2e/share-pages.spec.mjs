@@ -117,12 +117,12 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await expect(editor.getByRole('textbox', {name:'본문', exact:true})).toBeFocused();
   await page.keyboard.type('3차 교섭 결렬, 조정 신청 예정');
   // Project: on the top line on PC, under ⋯ on a phone.
-  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·AI 초안', exact:true}).click();
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·글 초안 만들기', exact:true}).click();
   // S52-01 ③c: 연결 사업영역은 칸 단추 + 공용 고르기 창(하나만).
   await editor.locator('[data-sp-project]:visible').click();await pressRow(page,'p:proj-1');await expect(page.locator(SHEET)).toBeHidden();
   await editor.locator('[data-sp-set-status="published"]').click();
   await expect(editor.locator('[data-sp-set-status="published"]')).toHaveAttribute('aria-pressed', 'true');
-  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·AI 초안', exact:true}).click();
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·글 초안 만들기', exact:true}).click();
   await editor.getByRole('button', {name:'링크', exact:true}).click();
   const linksPanel = editor.getByRole('dialog', {name:'링크'});
   await expect(linksPanel.locator('[data-sp-links]')).toContainText('한 번 저장한 뒤');
@@ -139,7 +139,7 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   ]);
   const post = state.requests.find(r => r.method === 'POST' && !r.link);
   expect(post.body.workspace_id).toBe(WS);
-  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·AI 초안', exact:true}).click();
+  if (width < 761) await editor.getByRole('button', {name:'사업영역·링크·글 초안 만들기', exact:true}).click();
   await editor.getByRole('button', {name:'링크', exact:true}).click();
   await expect(linksPanel).toBeVisible();
 

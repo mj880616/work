@@ -90,7 +90,7 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
   const box = document.createElement('span');
   box.className = 'fr-box'; box.dataset.enterField = 'off';
   box.innerHTML = `<span class="fr-field"><input type="text" class="fr-input" aria-label="파일 이름" autocomplete="off" spellcheck="false" maxlength="200">${ext ? `<span class="fr-ext">${esc(ext)}</span>` : ''}</span>`
-    + `<span class="fr-acts"><button type="button" class="fr-ai" data-fr-ai>AI 이름</button><button type="button" class="fr-save" data-fr-save>저장</button><button type="button" class="fr-cancel" data-fr-cancel>취소</button></span>`
+    + `<span class="fr-acts"><button type="button" class="fr-ai" data-fr-ai>이름 추천 받기</button><button type="button" class="fr-save" data-fr-save>저장</button><button type="button" class="fr-cancel" data-fr-cancel>취소</button></span>`
     + '<small class="fr-err" role="alert" hidden></small>';
   const input = box.querySelector('.fr-input'), err = box.querySelector('.fr-err'), saveBtn = box.querySelector('[data-fr-save]'), aiBtn = box.querySelector('[data-fr-ai]');
   if (spec.target === 'event') aiBtn.hidden = true; // CAL-일정첨부: 일정 첨부에는 AI 이름 추천 길이 없다(서버 ai-assist는 그대로)
@@ -131,7 +131,7 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
     } catch (e) {
       setBusy(false);
       const status = Number(e?.status) || 0;
-      say(status === 429 ? '오늘 AI 추천 횟수를 다 썼어요.' : [400, 404, 405].includes(status) ? 'AI 이름이 아직 준비되지 않았어요.' : 'AI 추천을 받지 못했어요. 잠시 뒤 다시 해 주세요.');
+      say(status === 429 ? '오늘 이름 추천 횟수를 다 썼어요.' : [400, 404, 405].includes(status) ? '이름 추천이 아직 준비되지 않았어요.' : '이름 추천을 받지 못했어요. 잠시 뒤 다시 해 주세요.');
     }
     input.focus();
   };
