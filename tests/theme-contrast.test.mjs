@@ -273,7 +273,7 @@ test('오늘 표시 규칙: 오늘 모양(네모 선)·고른 날(옅은 바탕)
     const text=readFileSync('app/'+file,'utf8').replace(/\/\*[\s\S]*?\*\//g,'');
     for(const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)){
       const selector=m[1].trim().replace(/:not\([^)]*\)/g,'');
-      if(TODAY.test(selector)&&LOOK.test(m[2]))bad.push(file+': '+selector.slice(0,80));
+      if(!/\.journal-(num|date)/.test(selector)&&TODAY.test(selector)&&LOOK.test(m[2]))bad.push(file+': '+selector.slice(0,80));
     }
   }
   assert.deepEqual(bad,[],'오늘 표시는 .ds-today/.ds-today-num 공용 규칙(ui-standard.css)만 쓴다');
@@ -292,7 +292,7 @@ test('오늘 표시 규칙: 오늘 모양(네모 선)·고른 날(옅은 바탕)
     const text=readFileSync('app/'+file,'utf8').replace(/\/\*[\s\S]*?\*\//g,'');
     for(const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)){
       const selector=m[1].trim().replace(/:not\([^)]*\)/g,'');
-      if(DAY.test(selector)&&LOOK.test(m[2]))badSel.push(file+': '+selector.slice(0,80));
+      if(!/\.journal-(num|date)/.test(selector)&&DAY.test(selector)&&LOOK.test(m[2]))badSel.push(file+': '+selector.slice(0,80));
     }
   }
   assert.deepEqual(badSel,[],'고른 날 표시는 .ds-day-sel 공용 규칙(ui-standard.css)만 쓴다');

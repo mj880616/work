@@ -260,7 +260,8 @@ for(const width of [390,1280]){
   await expect(row).toHaveCount(7);
   // HOME-업무일지홈 → FOLD-넓은화면 ④(S57-16): 머리줄 ‹ › 사이 날짜 칸은 요일·날짜 한 줄('수 11'). 400px 미만 접은 폰만 자리가 모자라 요일 글자를 숨긴다(읽기 이름에는 있음).
   await expect(row.locator('.journal-weekday')).toHaveText(['월','화','수','목','금','토','일']);
-  for(const w of await row.locator('.journal-weekday').all())await (width<400?expect(w).toBeHidden():expect(w).toBeVisible());
+  // HOME-날짜줄고른날(S60-2): 요일은 날짜 위 두 줄이라 접은 폰(<400)에서도 숨기지 않는다.
+  for(const w of await row.locator('.journal-weekday').all())await expect(w).toBeVisible();
   expect(await page.evaluate(()=>{const d=document.querySelector('#journalRoot [data-journal-days]');return d.previousElementSibling?.matches('[data-journal-prev]')&&d.nextElementSibling?.matches('[data-journal-next]');})).toBe(true);
   await expect(row.locator('.journal-num')).toHaveText(['5','6','7','8','9','10','11']);
   // 7칸이 한 줄(폰에서도).

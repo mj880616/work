@@ -27,12 +27,15 @@
 #appView #homeView .journal-dot{ position:absolute; left:50%; bottom:6px; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-journal-ink); }
 #appView #homeView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView .journal-date:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
-/* UI-전수디자인점검 F09(PC): 요일 칸은 테두리 상자 대신 높이 40px 한 줄(요일·날짜), 고른 날만 옅은 바탕(공용 .ds-day-sel). 폰은 위 두 줄 칸 그대로. */
-@media(min-width:761px){
-  #appView #homeView .journal-days{ gap:2px; }
-  #appView #homeView .journal-date{ flex-direction:row; justify-content:center; align-items:center; gap:6px; min-height:40px; padding:0 0 4px; border-color:transparent; }
-  #appView #homeView .journal-dot{ bottom:3px; width:5px; height:5px; margin-left:-2.5px; }
-}
+/* HOME-날짜줄고른날(명진 2026-11-12, 시안 #2431): 요일은 위에 작게, 날짜는 아래(폰·폴드·PC 모두 두 줄). 고른 날 = 진한 초록 채운 동그라미·흰 숫자, 오늘 = 동그라미 선,
+   오늘을 고르면 채운 동그라미 하나. 앱 공용 '오늘 = 네모 선'·'고른 날 = 옅은 바탕'(ui-standard.css)에서 홈 날짜 줄만 빠지는 예외이며, 다른 달력은 그대로다.
+   공용 규칙(id 3개)을 이기려고 :not(#ds-none)을 붙인다. 한 줄 쓴 날 초록 점은 그대로. */
+#appView #homeView .journal-date.journal-date:not(#ds-none){ background:transparent; border-color:transparent; }
+#appView #homeView .journal-date.ds-today::before{ display:none; }
+#appView #homeView .journal-num{ padding:0; border:var(--ds-today-line-width-sm) solid transparent; }
+#appView #homeView .journal-date.ds-today .journal-num{ border-color:var(--ds-today-line); }
+#appView #homeView .journal-date.ds-day-sel .journal-num{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); font-weight:var(--ds-weight-medium); }
+@media(hover:hover){ #appView #homeView .journal-date:not([aria-pressed="true"]):hover .journal-num{ background:var(--kptu-surface-subtle); } }
 
 /* 고른 날: 맨 위 "오늘 한 줄", 아래 재료. */
 #appView #homeView .journal-day{ display:flex; flex-direction:column; gap:12px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
@@ -440,13 +443,12 @@
 #appView #homeView .journal-head .journal-week-nav{ gap:2px; min-width:0; }
 #appView #homeView .journal-head .journal-mode-switch{ margin-left:auto; }
 #appView #homeView .journal-head .journal-days{ display:flex; gap:2px; }
-#appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:32px; height:32px; padding:0 4px; flex-direction:row; justify-content:center; gap:0; border-color:transparent; background:transparent; }
-/* FOLD-넓은화면 ④(S57-16, 명진 11/11 "날짜랑 요일이 세로로 긴 게 이상해"): 날짜 칸은 요일·날짜 한 줄('수 11'), 높이는 옆 단추(‹ › [이번 주])와 같은 32px(위 .journal-head .journal-date).
-   오늘·고른 날 표시와 한 줄 쓴 날 점은 그대로. 400px 미만 접은 폰은 7칸에 자리가 모자라 요일 글자를 숨긴다(읽기 이름에는 있음). */
-#appView #homeView .journal-head .journal-weekday{ margin-right:3px; line-height:1; }
-@media(min-width:400px){ #appView #homeView .journal-head .journal-weekday + .journal-num{ min-width:0; padding:0; } }
+#appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:38px; height:38px; padding:2px 4px 5px; flex-direction:column; justify-content:flex-start; align-items:center; gap:1px; border-color:transparent; background:transparent; }
+/* HOME-날짜줄고른날(S60-2, 명진 11/12 "그리고 일 요일 지금 방식 어색", 시안 #2431이 S57-16 한 줄 '수 11'을 대체): 요일은 위에 작게, 날짜는 아래 두 줄(폰·폴드·PC 모두). 높이 38px(한 줄 32px보다 6px).
+   오늘·고른 날 표시는 위 HOME-날짜줄고른날 묶음(동그라미)이다. 한 줄 쓴 날 점은 그대로. */
+#appView #homeView .journal-head .journal-weekday{ margin:0; line-height:1; }
+#appView #homeView .journal-head .journal-num{ min-width:20px; width:20px; height:20px; padding:0; }
 @media(min-width:761px){ #appView #homeView .journal-head .journal-date{ min-width:44px; } }
-@media(max-width:399px){ #appView #homeView .journal-head .journal-weekday{ display:none; } }
 #appView #homeView .journal-head .journal-dot{ bottom:1px; width:4px; height:4px; margin-left:-2px; }
 /* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
@@ -455,7 +457,6 @@
   #appView #homeView .journal-head .journal-week-nav{ flex:1 1 100%; }
   #appView #homeView .journal-head .journal-days{ flex:1 1 auto; min-width:0; justify-content:space-between; }
   #appView #homeView .journal-head .journal-date{ min-width:0; flex:1 1 0; padding:0; }
-  #appView #homeView .journal-head .journal-num{ min-width:22px; padding:0 2px; }
 }
 /* [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료·그 밖의 기록. */
 #appView #homeView .journal-top-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:12px 16px; }

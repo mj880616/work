@@ -47,7 +47,8 @@ test('홈 하루 카드 두 단: 공용 600px~PC 1200px 앞, 묶음 두 개는 �
   assert.match(js, /body\.className = 'journal-schedule-body'/);
   // 날짜 칸: 요일 글자는 400px 미만 접은 폰에서만 숨긴다(옛 전체 숨김 규칙 없음).
   assert.doesNotMatch(css, /\.journal-head \.journal-weekday\{ display:none; \}\n/);
-  assert.match(css, /@media\(max-width:399px\)\{ #appView #homeView \.journal-head \.journal-weekday\{ display:none; \} \}/);
+  // HOME-날짜줄고른날(S60-2): 요일은 위·날짜는 아래 두 줄이라 좁은 폰에서도 요일을 숨기지 않는다(옛 399px 숨김 규칙 폐지).
+  assert.doesNotMatch(css, /max-width:399px\)\{ #appView #homeView \.journal-head \.journal-weekday\{ display:none/);
 });
 
 // FOLD-넓은화면 2차(S59-19): 조직 보고 '목록 | 상세'·사업 보고 '목록 | 결과' 칸 나누기도 공용 판정(600px~)을 불러 쓴다. 앱 틀 경계(761px)는 칸이 붙는 모양(폰 틀이면 아래 줄만큼 짧게)에만,
