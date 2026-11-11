@@ -2,6 +2,8 @@
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
 // PHOTO-크게보기밀기(S57-2): 손가락 하나로 좌우로 밀면 앞뒤 사진(넘길 사진이 있을 때), 아래로 밀면 닫기 — [사진] 메뉴(photo-strip.js)와 같은 판정(photo-viewer-model.mjs).
 // 위로 밀기(별표)는 별표가 없는 화면이라 없다. 두 손가락·확대 중에는 넘기지 않는다. ‹ ›·←→ 키·폰 뒤로 가기는 그대로.
+// ORG-빠진일2차 5번(S59-3): 맨 끝·맨 처음 사진에서 방금 누른 ›·‹가 잠기면 그 단추가 쥔 키보드 초점이 사라져(Chromium은 잠긴 단추의 초점을 body로 옮긴다) ←→·Esc가 보기 창에 닿지 않았다.
+// 보기 창 자신이 초점을 받을 수 있게(tabindex -1) 하고, 그림을 다시 그릴 때 초점이 창 밖·잠긴 단추·사라진 ⋯ 메뉴에 가 있으면 보기 창으로 옮긴다. 사진·잊지 말기·사업 보고 사진 줄이 모두 이 껍데기 하나를 쓴다.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
 import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
@@ -22,6 +24,7 @@ function showPhotoBox(shown, content, trigger) {
   box.className = 'basket-photo-view'; box.dataset.basketPhotoView = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
   box.setAttribute('aria-label', shown);
+  box.tabIndex = -1; // 창 자신이 초점을 받을 곳(Tab 순서에는 없음): 단추가 잠기거나 사진을 눌러도 ←→·Esc가 이 창에 닿는다
   box.innerHTML = `<div class="basket-photo-bar"><span class="basket-photo-name">${esc(shown)}</span><button type="button" class="basket-photo-close" data-basket-photo-close aria-label="크게 보기 닫기">×</button></div><div class="basket-photo-stage"></div>`;
   box.querySelector('.basket-photo-stage').append(content);
   box.addEventListener('click', e => { if (e.target.closest('[data-basket-photo-close]') || e.target === box.querySelector('.basket-photo-stage')) closePhotoView(); });
@@ -145,7 +148,13 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
     stage.prepend(made.box); nameEl.textContent = made.shown; box.setAttribute('aria-label', made.shown);
     if (nav) { countEl.textContent = `${index + 1}/${nav.count}`; prev.disabled = index <= 0; next.disabled = index >= nav.count - 1; prev.hidden = next.hidden = nav.count <= 1; }
     paintMenu();
+    keepFocus();
   };
+  // 초점 지키기: 잠긴(또는 숨은) ›·‹나 다시 그려 사라진 ⋯ 메뉴가 초점을 쥐고 있으면 → 보기 창으로. 창 안의 쓸 수 있는 단추에 있으면 그대로 둔다.
+  function keepFocus() {
+    const a = document.activeElement;
+    if (!a || a === document.body || !box.contains(a) || a.disabled || a.closest('[hidden]')) box.focus({preventScroll: true});
+  }
   if (nav) { bar.insertBefore(countEl, close); stage.append(prev, next); }
   if (actions) { bar.insertBefore(more, close); stage.append(noteEl); }
   const step = dir => { if (!nav) return; const to = index + dir; if (to < 0 || to >= nav.count) return; index = to; note(''); paint(); };
