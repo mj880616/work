@@ -115,3 +115,25 @@ test('뺀 줄·지난 기록 줄 = 줄 ⋯ 맨 위 [되돌리기]/[넣기](큰 �
   assert.match(view, /const yes = await askConfirm\(anchor, \{text: TEXT\.delAsk, ok: '삭제', danger: true\}\);/);
   assert.match(view, /if \(!yes \|\| week !== ctl\.week/);
 });
+
+// ORG-빠진일2차 3번(S59-3, 명진 결정 11/11 '가'): 사업 보고 상세 창 줄 ⋯ — 사업 기록 줄만 [삭제], 사업 보고 줄은 [보고 열기]만.
+test('사업 보고 상세 창: 사업 기록 줄 ⋯ 맨 아래에만 [삭제](한 번 묻기), 사업 보고 줄은 [보고 열기]·삭제 없음, 서버 길은 기존 owner RLS DELETE 한 곳', () => {
+  const biz = read('app/biz-detail-window.js'), data = read('app/business-now-data.js');
+  // 메뉴: 사업 보고 줄은 [보고 열기], 사업 기록 줄은 [기록 열기] + [삭제]. [삭제]는 사업 기록 가지에만 있다.
+  assert.match(biz, /const openText = l\.kind === 'meeting' \? '보고 열기' : '기록 열기';/);
+  assert.match(biz, /if \(l\.kind === 'biz_record'\) items\.push\(\{text: '삭제', data: \{bdDel: l\.id\}, danger: true/);
+  assert.equal((biz.match(/text: '삭제'/g) || []).length, 1, '[삭제] 항목은 한 군데');
+  // 삭제 길: 한 번 묻고(askConfirm) 나서만, 사업 기록 줄만, business-now-data.js 한 곳(화면이 따로 DELETE 주소를 만들지 않음).
+  assert.match(biz, /import \{askConfirm\} from '\.\/small-notice\.js'/);
+  assert.match(biz, /const yes = await askConfirm\(anchor, \{text: TEXT\.delAsk, ok: '삭제', danger: true\}\);/);
+  assert.match(biz, /if \(l\.kind !== 'biz_record'\) return;/);
+  assert.match(biz, /await ND\.deleteBusinessRecord\(l\.key, rt, wsOf\(\)\);/);
+  assert.doesNotMatch(biz, /method: 'DELETE'[^\n]*app_business_records|app_business_records[^\n]*method: 'DELETE'/, '화면이 사업 기록 DELETE 주소를 따로 만들지 않음');
+  assert.match(data, /export async function deleteBusinessRecord\(id, rt = window\.KPTURuntime, workspaceId = wsOf\(rt\)\)/);
+  assert.match(data, /\$\{RECS\}\?id=eq\.\$\{enc\(id\)\}&workspace_id=eq\.\$\{enc\(workspaceId\)\}&select=id`, \{method: 'DELETE', prefer: 'return=representation'/);
+  assert.match(data, /if \(!Array\.isArray\(rows\) \|\| !rows\.length\) throw new Error\(/, '돌려받은 줄이 있어야 성공');
+  // DB는 그대로: 소유자 DELETE 권한·정책이 이미 있다(새 migration 없음).
+  const sql = read('supabase/migrations/20261109110000_record_one_biz.sql');
+  assert.match(sql, /grant select, delete on table public\.app_business_records to authenticated;/);
+  assert.match(sql, /create policy business_records_owner_all on public\.app_business_records for all to authenticated\s+using \(private\.app_is_workspace_owner\(workspace_id\)\)/);
+});
