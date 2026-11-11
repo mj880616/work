@@ -44,8 +44,9 @@ export function ftMoreButtonHtml({attrs = {}, label = '메뉴', className = ''} 
 //  toggle(S51-25 FOLDER-PC나무): PC 나무처럼 '줄 누르기 = 그 폴더 열기 + 펼침, 아이콘만 누르기 = 접기·펼치기만'인 화면.
 //    {attrs: 아이콘 단추 data 이름과 값, label: 읽기 프로그램 이름}. 주면 폴더 아이콘이 줄 앞 따로인 단추가 되고(세모 없음),
 //    펼칠 것이 없는 폴더(hasContent false)는 단추 없이 닫힌 아이콘만 같은 자리에 둔다.
+//  tag(LIB-받는폴더 S59-11): 개수 뒤 작은 표시 글자(예: '받는 폴더'). 없으면 아무것도 붙지 않는다.
 export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0, open = false, hasContent = true, color = null, off = false,
-  current = false, picked = false, lead = '', rowAttrs = {}, mainAttrs = {}, more = null, tree = false, className = '', mainClass = '', icon = null, toggle = null}) {
+  current = false, picked = false, lead = '', rowAttrs = {}, mainAttrs = {}, more = null, tree = false, className = '', mainClass = '', icon = null, toggle = null, tag = ''}) {
   const top = depth === 0, shown = !!open && !!hasContent;
   const cls = ['ft-row', 'ft-folder', top ? 'ft-top' : 'ft-sub', shown ? 'ft-open' : '', off ? 'ft-off' : '', current ? 'ft-current' : '', picked ? 'ft-picked' : '', toggle ? 'ft-has-tog' : '', className].filter(Boolean).join(' ');
   const num = count === null || count === undefined || count === '' ? '' : `<span class="ft-num"${countLabel ? ` aria-label="${esc(countLabel)}"` : ''}>${esc(count)}</span>`;
@@ -55,7 +56,7 @@ export function ftFolderRowHtml({name, count = null, countLabel = '', depth = 0,
     ? `<button type="button" class="ft-btn ft-tog"${attrsHtml(toggle.attrs)} aria-expanded="${shown}" aria-label="${esc(toggle.label || `${name} ${shown ? '접기' : '펼치기'}`)}">${ico}</button>`
     : `<span class="ft-tog ft-tog-none">${ico}</span>`;
   return `<div class="${cls}"${attrsHtml(rowAttrs)} style="--ft-depth:${ftDepth(depth)}"${tree ? ' role="treeitem"' : ''}>${tog}`
-    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name">${esc(name)}</span>${num}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
+    + `<button type="button" class="ft-btn ft-main${mainClass ? ' ' + esc(mainClass) : ''}"${attrsHtml(mainAttrs)}${toggle ? '' : expand}${current ? ' aria-current="true"' : ''}>${lead}${toggle ? '' : ico}<span class="ft-name">${esc(name)}</span>${num}${tag ? `<span class="ft-tag">${esc(tag)}</span>` : ''}${off ? '<span class="ft-offtag">끔</span>' : ''}</button>`
     + `${more ? ftMoreButtonHtml(more) : ''}</div>`;
 }
 

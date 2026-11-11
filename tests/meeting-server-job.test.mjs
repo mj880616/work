@@ -320,7 +320,7 @@ test('회의자료 소리 파일 ⋯ [전사해서 결과에 넣기](B): 고칠 
   assert.doesNotMatch(detail.slice(detail.indexOf('async function mrdFillTranscript'),detail.indexOf('window.KPTUMeetingRoundDetail=')),/mrdSaveEdit\(/,'자동 저장 없음');
   assert.match(rec,/kind:'attached',document_id:documentId/);
   assert.match(rec,/window\.KPTUMeetingRoundDetail\?\.fillTranscript\?\.\(job\.meeting_id/);
-  assert.match(rec,/window\.KPTUMeetingRecorder=\{state:\(\)=>state,mime:MIME,watch,transcribeAttached\}/);
+  assert.match(rec,/window\.KPTUMeetingRecorder=\{state:\(\)=>state,mime:MIME,watch,transcribeAttached,ready\}/); // REC-한회의로잇기 PR-3: 잇지 못했거나 되돌린 결과를 띠로(ready)
 });
 
 test('REC-정리멈춤반복: 서버가 남길 수 있는 실패 코드는 모두 이유별 띠 글이 있고, 그 밖 문구는 표에 없는 이유에만',async()=>{

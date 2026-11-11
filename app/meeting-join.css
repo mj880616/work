@@ -1,0 +1,9 @@
+/* REC-한회의로잇기 PR-3: 두 번 녹음한 회의를 한 보고로. 그리는 곳은 meeting-join.js 하나.
+   모양은 모두 공용 부품(작은 물음창 .kptu-ask·버튼 6가지·맨 위 알림 줄 .kptu-notice-line)이고, 여기서는 자리(순서·줄바꿈)만 정한다. */
+/* 물음 아래 버튼 줄: [다른 보고 선택](글자 버튼)은 왼쪽 끝, [새로 만들기][그 보고에 잇기]는 오른쪽(시안 ①). */
+.kptu-ask.rec-join-ask .kptu-ask-actions>.row-act{margin-right:auto}
+/* 잇지 못한 줄: 이유가 잘리지 않게 두 줄까지(녹음 띠 멈춤 줄과 같은 방식). */
+.kptu-notice-line[data-notice="join"][data-tone="warn"]>span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
+/* 보고 상세 '회의 결과' 머리 옆 [합치기 전 글로 되돌리기]·[이은 글로 다시]: 제목 다음, [원문] 앞(시안 ③). */
+.mrd-join-tools{display:inline-flex;align-items:center;margin-left:auto}
+.mrd-join-tools[hidden]{display:none}

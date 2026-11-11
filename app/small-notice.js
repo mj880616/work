@@ -236,6 +236,24 @@ export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false
     return danger||yes.disabled?no:yes;
   }});
 }
+// REC-한회의로잇기 PR-3: 버튼이 셋인 작은 물음창(askConfirm과 같은 자리·같은 닫기·같은 모양). actions = [{value, label, kind}], kind는 공용 버튼
+// 'primary'(주 동작 하나)·'secondary'·'row-act'(글자 버튼, 줄 왼쪽 끝). 반환: 고른 value 또는 null(Esc·바깥·뒤로가기로 닫음). 초점은 주 동작에.
+export function askActions(anchor,{text,note='',actions=[],className='',doc=globalThis.document}={}){
+  return askPanel(anchor,{doc,none:null,build:(panel,finish)=>{
+    if(className)panel.classList.add(...String(className).split(/\s+/).filter(Boolean));
+    const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg);
+    if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
+    const row=doc.createElement('div');row.className='kptu-ask-actions';
+    let first=null,main=null;
+    for(const a of actions){
+      const b=doc.createElement('button');b.type='button';b.className=['primary','secondary','row-act'].includes(a?.kind)?a.kind:'secondary';b.textContent=String(a?.label??'');b.dataset.askAction=String(a?.value??'');
+      b.addEventListener('click',()=>finish(a.value));row.append(b);
+      first||=b;if(b.className==='primary')main=b;
+    }
+    panel.append(row);
+    return main||first;
+  }});
+}
 // S48-28 작은 글 입력창: 브라우저 기본 prompt 대신. 누른 자리 근처, 하단바 위. 엔터 = [확인](한글 조합 중 엔터는 제외), Esc·바깥·뒤로가기 = 취소.
 // 반환: 쓴 글(앞뒤 빈칸 그대로) 또는 null(취소). max가 있으면 그 글자 수까지만 받는다.
 export function askText(anchor,{text='',value='',ok='확인',cancel='취소',placeholder='',max=0,doc=globalThis.document}={}){

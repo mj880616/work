@@ -9,6 +9,7 @@ import {createMeetingSend,createAppHandoff,bindAppJobs,sendDoneLine,sendFailLine
 import {appUpload,uploadReasonText} from './app-upload.js'; // APP-뒤에서올리기 PR-2: 폰 앱 다리(있으면 넘긴다)
 import {openReport} from './report-open.js';
 import {readView,saveView,orderedGroups} from './library-view-pref.js';
+import {readReceiveFolder,saveReceiveFolder,liveReceiveFolder,outsideDocuments,RECEIVE_MARK} from './library-receive.js'; // LIB-받는폴더(S59-11)
 import {recentFolded,toggleRecentFolded} from './recent-fold.js';
 import {ftCaretHtml} from './folder-tree-ui.mjs';
 import {walkTo,walkUp,walkUpLabel} from './folder-walk.mjs';
@@ -208,6 +209,25 @@ async function luRefreshView(){
   if(!luOrganization){const next=luDefaultOff(),same=next.size===luCategoryOff.size&&[...next].every(n=>luCategoryOff.has(n));if(!same){luCategoryOff=next;changed=true}}
   if(changed)luRenderLibrary();
 }
+// LIB-받는폴더(S59-11, 시안 docs/design/mockups/lib-receive-folder.html): 폴더를 정하지 않고 들어오는 자료가 들어갈 폴더(하나뿐).
+// 서버 프로필 칸(library-receive.js) 값을 자료실에 들어올 때마다 다시 읽는다(다른 기기에서 바꾼 것 맞춤). 기기 저장 없음.
+// luReceive.status: 'idle'(아직 안 읽음) | 'ok' | 'pending'(서버 칸이 아직 없음 → 메뉴 줄 숨김). 자료를 그 폴더에 넣는 일은 서버 트리거가 한다.
+let luReceive={status:'idle',id:null,owner:''};
+// 지금 보이는 받는 폴더 {id,name}(휴지통에 넣었거나 지워진 폴더면 null — 서버도 그 폴더는 무시한다).
+const luReceiveFolder=()=>luReceive.status==='ok'&&luReceive.owner===(luUser?.id||'')?liveReceiveFolder(luReceive.id,luFolders_):null;
+async function luRefreshReceive(){
+  const owner=luUser?.id;if(!owner)return;
+  const r=await readReceiveFolder();
+  if(luUser?.id!==owner)return;
+  if(r.status==='ok'){const changed=luReceive.status!=='ok'||luReceive.id!==r.id||luReceive.owner!==owner;luReceive={status:'ok',id:r.id,owner};if(changed)luRenderLibrary()}
+  else if(r.status==='pending')luReceive={status:'pending',id:null,owner};
+}
+async function luSetReceive(id){
+  const owner=luUser?.id||'';const r=await saveReceiveFolder(id);
+  if(r.status==='ok'){luReceive={status:'ok',id,owner};luRenderLibrary();return true}
+  if(r.status==='pending'){luReceive={status:'pending',id:null,owner};luRenderLibrary()}
+  return false;
+}
 // LIB-위쪽한줄(11/09 명진 B·가안): 자료실 분류는 폰·폴드·PC 모두 위 줄 [분류: … ▾] 하나다(칩 줄·줄 끝 '✎ 분류 수정'은 없앴다).
 // 단추 글자는 지금 상태(luCategoryOff·luCategorySub)에서 만들고, 분류마다 자료 수(LIB-맨위다듬기 S53-18: 찾기·사업영역·담당조직으로 거른 자료 중
 // 그 큰 분류(소분류 포함)의 수, 분류로 거르기 전 숫자라 꺼 둔 분류도 켜면 몇 개가 보일지 안다. 0도 보인다)는 [분류 ▾] 창 줄 끝에 작게 보인다.
@@ -301,7 +321,9 @@ function luSetUploadMeeting(meeting){luUploadMeeting=normalizeUploadMeeting(meet
 // 끌어다 놓아 올리기와 같은 소유자 쓰기). 새 상태 저장소 없음: 담당조직·사업 보고처럼 이 창이 열려 있는 동안만 값이 있고, 창을 새로 열면 지워진다.
 let luUploadFolder=null;
 function luRenderUploadFolder(){const picker=document.querySelector('#documentModal .library-file-block');if(!picker)return;let p=picker.querySelector('#libraryUploadFolder');if(!luUploadFolder){p?.remove();return}if(!p){p=document.createElement('p');p.id='libraryUploadFolder';p.className='status ok';picker.querySelector('#librarySelectedFiles')?.insertAdjacentElement('beforebegin',p)}p.textContent=`‘${luUploadFolder.name}’ 폴더에 넣어요`}
-function luSetUploadFolder(id){const f=id?luFolders_.find(x=>x.id===id):null;luUploadFolder=f?{id:f.id,name:String(f.name||'폴더')}:null;luRenderUploadFolder()}
+// LIB-받는폴더: 연 폴더가 없으면 받는 폴더(켜져 있을 때)를 같은 한 줄로 보인다('‘잡동사니’ 폴더에 넣어요', 시안 ②). receive=true면 서버 트리거가 넣으므로
+// 올린 뒤 화면이 따로 넣지 않는다(연 폴더가 받는 폴더와 같을 때도 같다).
+function luSetUploadFolder(id){const f=id?luFolders_.find(x=>x.id===id):null,r=luReceiveFolder(),pick=f?{id:f.id,name:String(f.name||'폴더')}:r;luUploadFolder=pick?{...pick,receive:!!r&&pick.id===r.id}:null;luRenderUploadFolder()}
 // 지금 연 자리의 폴더(폴더 보기가 아니거나 폴더 밖·자료실 전체면 null). el이 두 칸 중 한 칸 안이면 그 칸, 아니면 지금 칸.
 function luOpenedFolder(el=null){if(luGroupBy!=='folder'||!luFoldersReady)return null;return (luTwoActive()?luTwo.folderAt(el):luInFolder)||null}
 function luStartUploadForMeeting(meeting,files=[]){if(!normalizeUploadMeeting(meeting)||!luOpenUploadWindow())return false;luSetUploadMeeting(meeting);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
@@ -444,6 +466,8 @@ async function luDropFiles(files,target=null){
   const run=luDropRun={queue:[...entries]};// 줄은 복사본(올리며 비우므로, 결과 문구는 처음 놓은 entries로 본다)
   
   const total={done:0,failed:[],rest:0,unfiled:0,unlinked:0},okDocs=[];let stopped=null;const places=new Set(),filed=new Set(),valued=new Set();
+  // LIB-받는폴더: 폴더가 아닌 곳에 놓은 파일은 서버가 받는 폴더에 넣는다(켜져 있을 때). 결과 문구에 그 이름('잡동사니에 2개 올렸어요').
+  const recv=luReceiveFolder();
   try{
     while(run.queue.length){
       const batch=run.queue.splice(0,run.queue.length),where=new Map(batch.map(x=>[x.file,x]));
@@ -454,11 +478,11 @@ async function luDropFiles(files,target=null){
       if(r.stopped){stopped=r.stopped;break}
     }
     if(filed.size){try{await luLoadFolders()}catch(e){console.error('library folders refresh after drop upload failed',e)}if(filed.size===1)luFolders().revealFolder([...filed][0])}
-    if(total.done||total.failed.some(f=>f.kind==='unknown')){try{await luLoadDocuments();luRenderLibrary()}catch(e){console.error('library list refresh after drop upload failed',e)}}
+    if(total.done||total.failed.some(f=>f.kind==='unknown')){try{await (recv&&places.has('')?luLoadAll():luLoadDocuments());luRenderLibrary()}catch(e){console.error('library list refresh after drop upload failed',e)}}
     if(valued.size===1)luRevealKeys([...valued]);
     if(total.done)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null}}));
     // 한 폴더에만 놓았으면 결과 문구에 그 폴더 이름('주간보고에 2개 올렸어요').
-    const one=places.size===1&&!places.has(''),only=one&&folder?folder.name:'',onlyValue=one&&value?value.name:'';
+    const one=places.size===1&&(!places.has('')||!!recv),only=one&&folder?folder.name:one&&places.has('')?recv.name:'',onlyValue=one&&value?value.name:'';
     luDropStatus(luDropResultText({...total,folder:only,value:onlyValue}),{error:!!(total.failed.length||total.rest||total.unfiled||total.unlinked)});
     // LIB-업로드완료알림: 다른 화면에 가 있어도 끝나면 공용 작은 알림 한 줄. 실패한 파일은 [다시]로 같은 곳에 다시 올린다.
     const badNames=new Set(total.failed.map(f=>f.name)),badFiles=entries.filter(x=>badNames.has(x.file?.name)).map(x=>x.file);
@@ -599,7 +623,7 @@ const luBackGone=scope=>{const now=window.KPTURuntime?.session?.read?.()?.user?.
 const luBackSending=new Set();
 let luBackTail=Promise.resolve();
 function luBackUpload(job){for(const entry of job.entries)luBackSending.add(entry.file);const run=luBackTail.then(()=>luRunBackUpload(job)).catch(e=>{console.error('library background upload failed',e);notify('자료를 올리지 못했어요. 잠시 후 다시 올려 주세요.',{error:true})}).finally(()=>{for(const entry of job.entries)luBackSending.delete(entry.file)});luBackTail=run;return run}
-async function luRunBackUpload(job){const {entries,many,fields,projectId,org,meeting,folder,scope}=job;if(luBackGone(scope))return;let succeeded=0,linkFailed=0,lastProjectId=null,unfiled=0,filedId='',stopped=null;const failures=[],okDocIds=[],okNames=[],retryEntries=[];const putFolder=async id=>{if(!folder||luBackGone(scope))return;if(await luFolders().putUploaded(id,folder.id))filedId=folder.id;else unfiled++};const linkOrg=async id=>{if(org&&!luBackGone(scope)&&!(await linkUploadedDocument(window.KPTURuntime,{documentId:id,workspaceId:scope.workspace,organizationId:org.id})))linkFailed++};const fail=(entry,failure)=>{failures.push({...failure,name:entry.file?.name||''});entry.retry=failure.retry;entry.failure=failure;entry.kind=failure.kind||'error';if(failure.retry!==false&&failure.kind!=='unknown')retryEntries.push(entry)};
+async function luRunBackUpload(job){const {entries,many,fields,projectId,org,meeting,folder,scope}=job;if(luBackGone(scope))return;let succeeded=0,linkFailed=0,lastProjectId=null,unfiled=0,filedId='',stopped=null;const failures=[],okDocIds=[],okNames=[],retryEntries=[];const putFolder=async id=>{if(!folder||folder.receive||luBackGone(scope))return;if(await luFolders().putUploaded(id,folder.id))filedId=folder.id;else unfiled++};const linkOrg=async id=>{if(org&&!luBackGone(scope)&&!(await linkUploadedDocument(window.KPTURuntime,{documentId:id,workspaceId:scope.workspace,organizationId:org.id})))linkFailed++};const fail=(entry,failure)=>{failures.push({...failure,name:entry.file?.name||''});entry.retry=failure.retry;entry.failure=failure;entry.kind=failure.kind||'error';if(failure.retry!==false&&failure.kind!=='unknown')retryEntries.push(entry)};
 for(let index=0;index<entries.length;index++){const entry=entries[index];let file=entry.file,shown=null;if(stopped){entry.kind='waiting';retryEntries.push(entry);continue}
 if(luBackGone(scope))return; // 계정·작업공간이 바뀌면 남은 파일을 보내지 않는다
 if(entry.link){const linked=await luLinkDriveEntry(entry,{many,fields,meeting});if(linked.ok){if(linked.created){succeeded++;okDocIds.push(linked.id);okNames.push(file.name);await putFolder(linked.id);await linkOrg(linked.id);lastProjectId=linked.projectId||lastProjectId}}else{fail(entry,linked.failure);if(linked.failure.stop)stopped=linked.failure}continue}
@@ -613,7 +637,7 @@ if(luBackGone(scope))return;
 if(stopped?.type==='project'){try{await luLoadProjects(true);luRenderUploadProject()}catch{}}
 if(filedId){try{await luLoadFolders()}catch(e){console.error('library folders refresh after upload failed',e)}}
 const unknown=failures.some(f=>f.kind==='unknown');
-if(succeeded||unknown){try{await luLoadDocuments();luRenderLibrary()}catch(e){console.error('library list refresh after upload failed',e)}if(filedId)luFolders().revealFolder(filedId)}
+if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments());luRenderLibrary()}catch(e){console.error('library list refresh after upload failed',e)}if(filedId)luFolders().revealFolder(filedId)}
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
 // 올라갔지만 폴더·담당조직에 못 넣은 것: 끝 알림이 이 한 줄을 덮지 않게 끝 알림 자리에 같이 싣는다(성공뿐이면 이 글이 끝 알림).
 const warn=[unfiled?`자료 ${unfiled}개는 올라갔지만 ‘${folder.name}’ 폴더에 넣지 못해 폴더 밖에 있어요. 그 자료를 폴더로 옮겨 주세요.`:'',linkFailed?`자료 ${linkFailed}개는 올라갔지만 담당조직에 붙이지 못했어요. 그 자료의 [정보 수정]에서 담당조직을 선택해 주세요.`:''].filter(Boolean).join(' ');
@@ -638,7 +662,7 @@ if(stopped?.type==='drive_auth')await luMaybeReconnectDrive(stopped.error)}
 // 서버가 사업영역을 거절한 뒤 [다시]: 못 올린 파일과 쓴 칸을 넣은 등록 창을 다시 연다(사업영역만 비움 — 고르는 단계부터).
 function luReopenUpload(job,list){if(!luOpenUploadWindow())return false;luUploadEntries=list;luRenderSelectedFiles();
 for(const[k,sel]of Object.entries(LU_LINK_FIELDS)){if(k==='project_id')continue;const el=document.querySelector(sel),v=job.fields[k];if(!el||v==null)continue;el.value=v;if(el.tagName==='SELECT')el.dispatchEvent(new Event('change',{bubbles:true}))}
-luSetUploadOrg(job.org);luSetUploadMeeting(job.meeting);luSetUploadFolder(job.folder?.id||null);luSetStatus(document.querySelector('#documentStatus'),LU_UPLOAD_FAILURES.project.message,true);return true}
+luSetUploadOrg(job.org);luSetUploadMeeting(job.meeting);luSetUploadFolder(job.folder?.receive?null:job.folder?.id||null);luSetStatus(document.querySelector('#documentStatus'),LU_UPLOAD_FAILURES.project.message,true);return true}
 // BIZ-저장먼저닫기(S58-1, 요청함 11/11 07:01): 사업 보고에 사진·자료 '한 묶음 올리기' 들머리(창 없이). 새 사업 보고 [저장]은 글 저장이 끝나면 창을 닫고
 // 고른 파일을 여기로 넘긴다. 묶음은 위 자료 등록 창과 같은 뒤 줄(luBackTail) 끝에 서서 하나씩 올라간다(meeting-send.mjs — 놓은 그 사업 보고 id로, 화면을 옮겨도
 // 끝까지, 줄은 메모리뿐). 차례를 기다리는 파일도 처음부터 올리는 중 표시에 있어, 다른 화면에서는 하단바 위 한 줄이 묶음 전체의 %로 끝까지 가고 그 보고를 다시 열면
@@ -950,7 +974,7 @@ function luRenderFolderNav(tree){
   card.dataset.luSplit='1';
   const path=luNavPath(),rows=[];
   const walk=(list,depth)=>{for(const n of list||[]){if(n.kind!=='folder')continue;const kids=(n.children||[]).filter(c=>c.kind==='folder'),open=kids.length>0&&!luNavShut.has(n.id)&&(path.has(n.id)||luNavOpen.has(n.id));
-    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
+    rows.push(ftFolderRowHtml({name:n.label,count:n.count,countLabel:`${n.count}건`,depth,open,hasContent:kids.length>0,color:n.fc,current:n.id===luInFolder,tree:true,tag:n.rc?RECEIVE_MARK:'',mainAttrs:luCanDrag()?{'data-lu-nav':n.id,draggable:'true'}:{'data-lu-nav':n.id},toggle:{attrs:{'data-lu-nav-tog':n.id},label:`${n.label} ${open?'접기':'펼치기'}`}}));
     if(open)walk(kids,depth+1)}};
   walk(tree,0);
   const all=!luInFolder&&!luOutOnly;
@@ -998,7 +1022,7 @@ function luRenderLibrary(){const box=document.querySelector('#documentList');if(
 luSyncSearchPickAll(q,matches);
 const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luCategoryOff].sort(),luCategorySub,luOrganization?.id||'',pid,luGroupBy]):'-';if(signature!==luFilterSignature){luFilterOpen.clear();luFilterSignature=signature}
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();
-const tree=buildTree({groupBy:luGroupBy,docs:matches,filtering,tree:luCatalog()?.tree||[],folders:luFolders_,items:luFolderItems,organizations:luOrganizations||[],categories:orderedDocumentCategories(),categoryOf,categoryLabel,projectName:luProjectName,sortKey:luSortKey,monthLabel:luMonthLabel});
+const tree=buildTree({groupBy:luGroupBy,docs:matches,filtering,receiveId:luReceiveFolder()?.id||'',tree:luCatalog()?.tree||[],folders:luFolders_,items:luFolderItems,organizations:luOrganizations||[],categories:orderedDocumentCategories(),categoryOf,categoryLabel,projectName:luProjectName,sortKey:luSortKey,monthLabel:luMonthLabel});
 if(luTwoActive())luOutOnly=false;const shown=luFolderScope(tree),inKey=luInFolder?'f:'+luInFolder:luOutOnly?OUT_KEY:'';
 luLastTree=shown;const matched=filtering?matchedKeys(luTwoActive()?tree:shown):new Set();luTwins=twinPlan(luTwoActive()?luTwo.shownNodes(tree,luTwoOpen=k=>luIsOpen(k,filtering,matched)):shown);
 // LIB-정리보충 ③: 폴더 묶기의 '폴더 밖' 자료마다 작게 '📁 ○○?' 추천(AI 없음, 고르는 중에는 숨김). 누르면 그 폴더로 옮기고 '옮겼어요 · 되돌리기'.
@@ -1166,7 +1190,7 @@ async function luRenameUndo(id,renamed,snapshot){
   finally{luRenameBusy=false}
 }
 function luFolderStatus(text,error=false){const el=document.querySelector('#libraryFolderStatusLine');if(!el)return;el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error)}
-function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:(id,trigger)=>luTwoActive()?luTwo.enter(id,trigger):luEnterFolder(id),photoSetDocs:luPhotoSetMembers,twinDocs:luTwinDocs,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?[...luPick.items]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&[...done,...failed].some(id=>luPick.items.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder}});return luFolderUi}
+function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({selectNode:luSelectNode,enter:(id,trigger)=>luTwoActive()?luTwo.enter(id,trigger):luEnterFolder(id),photoSetDocs:luPhotoSetMembers,twinDocs:luTwinDocs,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',inFolder:!!luInFolder,treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luPick.items?[...luPick.items]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luPick.items&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luPick.items&&ids.every(id=>luPick.items.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luPick.items&&[...done,...failed].some(id=>luPick.items.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder},receive:{ready:()=>luReceive.status==='ok'&&luReceive.owner===(luUser?.id||''),get:()=>luReceiveFolder()?.id||null,set:luSetReceive,outside:()=>outsideDocuments(luDocuments,luFolderItems)}});return luFolderUi}
 // 토글 하나를 접거나 편다(폴더 ⋯ 메뉴의 [접기·펼치기]). 상태는 머리를 눌렀을 때와 같은 곳(luOpened·luFilterOpen)에 적는다.
 const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu-node]')].find(x=>x.dataset.luNode===key);
 // LIB-두칸폴더펼치기(S56-40): 두 칸은 details가 없고 칸 안 나무 줄이다 — 펼침은 같은 곳(luOpened·luFilterOpen)에 적고 다시 그린다.
@@ -1752,5 +1776,5 @@ function luBindFind(){
   close.addEventListener('click',()=>{luFindOpen=false;const had=!!input.value;input.value='';luSyncFind();if(had)luRenderLibrary();open.focus()});
   input.addEventListener('keydown',e=>{if(e.key==='Escape'&&luFindOpen&&!input.value){e.preventDefault();close.click()}});
 }
-async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForProject:luStartUploadForProject,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,sendForMeeting:(meeting,files)=>luMeetingSend.send(meeting,files),sendFileForMeeting:luSendOneForMeeting,meetingSending:(id,file)=>luMeetingSend.has(id,file),startUploadFromFiles:luStartUploadFromFiles};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null);luSetUploadFolder(window.KPTURouter?.current==='library'?luOpenedFolder():null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);const search=document.querySelector('#documentSearch');if(search)search.oninput=()=>{luSyncFind();luRenderLibrary()};luBindFind();window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luFindOpen=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luRefreshView();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead();luWarmHwp()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead();luWarmHwp()}
+async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView(),luRefreshReceive()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForProject:luStartUploadForProject,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,sendForMeeting:(meeting,files)=>luMeetingSend.send(meeting,files),sendFileForMeeting:luSendOneForMeeting,meetingSending:(id,file)=>luMeetingSend.has(id,file),startUploadFromFiles:luStartUploadFromFiles};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null);luSetUploadFolder(window.KPTURouter?.current==='library'?luOpenedFolder():null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);const search=document.querySelector('#documentSearch');if(search)search.oninput=()=>{luSyncFind();luRenderLibrary()};luBindFind();window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luFindOpen=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luRefreshView();void luRefreshReceive();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead();luWarmHwp()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead();luWarmHwp()}
 window.__KPTU_LIBRARY_UPLOAD_READY__=Promise.resolve().then(luInit).then(()=>true).catch(err=>{console.error('library upload init',err);return false});

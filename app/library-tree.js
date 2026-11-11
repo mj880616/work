@@ -142,7 +142,10 @@ function byMonth(o){
 // 묶기에 맞는 노드 목록. 담당조직·종류·월별 묶기에는 폴더가 없다(결정 D11). 폴더 묶기는 프로젝트와 무관한 폴더 나무(설계 12절).
 export function buildTree(o){
   const groupBy=GROUP_BY.includes(o.groupBy)?o.groupBy:'project';
-  return groupBy==='organization'?byOrganization(o):groupBy==='category'?byCategory(o):groupBy==='month'?byMonth(o):groupBy==='folder'?byFolder(o):byProject(o);
+  const list=groupBy==='organization'?byOrganization(o):groupBy==='category'?byCategory(o):groupBy==='month'?byMonth(o):groupBy==='folder'?byFolder(o):byProject(o);
+  // LIB-받는폴더(S59-11): 받는 폴더로 켠 폴더 줄에 표시(rc). 한 칸·두 칸·왼쪽 나무가 모두 이 표시 하나를 읽어 '받는 폴더'를 붙인다.
+  if(o.receiveId)walk(list,n=>{if(n.kind==='folder'&&n.id===o.receiveId)n.rc=true});
+  return list;
 }
 export function walk(list,fn,parents=[]){for(const n of list){fn(n,parents);walk(n.children,fn,[...parents,n])}}
 export function keys(list){const out=[];walk(list,n=>out.push(n.key));return out}
@@ -161,6 +164,8 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // 펼칠 때 이어진 폴더들도 함께 펼친다(library-upload.js luOnHeadClick). 메뉴·끌어 놓기는 지금처럼 맨 위 폴더 기준.
 export function folderChain(n){const out=[];let c=n,guard=0;while(c?.kind==='folder'&&!c.files.length&&c.children.length===1&&c.children[0].kind==='folder'&&guard++<FOLDER_DEPTH){c=c.children[0];out.push(c)}return out}
 export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false}){
+  // LIB-받는폴더: 받는 폴더 줄에 작은 '받는 폴더' 표시(시안 ①③). 외줄 경로로 접힌 아래 폴더면 펼쳤을 때 그 줄에 보인다(두 번 보이지 않게).
+  const receiveTag=n=>n.rc?'<span class="lu-receive-mark">받는 폴더</span>':'';
   const head=n=>{
     const face=emoji&&(n.kind==='folder'||n.key==='x:out');
     // FOLDER-나무새기준 ③⑥: 폴더는 닫힌/열린 폴더 그림 하나(색을 고른 폴더는 그 색, 안 고른 폴더는 기본 노랑). 펼침에 따라 CSS가 둘 중 하나를 보이고,
@@ -171,7 +176,7 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     const mark=face&&n.key==='x:out'?`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${treeIconHtml('outside',{className:'ft-ico'})}</span>`:`<span class="lu-folder-emoji lu-folder-shape" aria-hidden="true">${shapes}</span>`;
     const more=menu?.(n);
     const rest=folderChain(n);
-    return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
+    return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${receiveTag(n)}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
   const body=n=>{
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;

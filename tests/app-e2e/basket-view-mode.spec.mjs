@@ -123,20 +123,21 @@ test('basket address restores a note in the read view without a keyboard',async(
  noDialog(page);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
 });
 
-test('basket quick input explains a lock below the input and offers a new memo',async({page})=>{
+// BIZ-저장먼저닫기 2차(S59-10): 글과 파일을 [추가]하면 글이 먼저 업데이트로 저장되고 입력칸은 바로 풀린다(잠그지 않는다 — 옛 잠금 안내·[새 업데이트 입력]은 없앰).
+// 파일은 그 업데이트의 뒤 줄에서 올라가고, 결과를 모르는 실패(이미 붙었을 수 있음)는 하단바 위 한 줄에 남되 [다시 올리기]는 두지 않는다.
+test('basket quick input never locks: a result-unknown upload behind is said on the line above the bottom bar, without a retry',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page,{query:'?view=basket'});
  await expect(page.locator('[data-basket-row]')).toHaveCount(1);
- let calls=0;await page.route(SB+'/functions/v1/basket-files',r=>++calls===1?r.fulfill({json:{ok:true,note_id:'n',attachments:[]}}):r.fulfill({status:503,json:{error:'첨부를 저장하지 못했어요.',code:'note_save_result_unknown',note_id:'n'}}));
- const q=page.locator('#basketView [data-basket-list] [data-home-quick]'),input=q.locator('[data-quick-input]'),lock=q.locator('[data-quick-lock]');
- await expect(lock).toBeHidden();
+ let calls=0;await page.route(SB+'/functions/v1/basket-files',r=>{if(r.request().method()!=='POST')return r.fallback();const raw=r.request().postDataBuffer()?.toString('utf8')||'',id=raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1];return ++calls===1?r.fulfill({json:{ok:true,note_id:id,attachments:[{drive_file_id:'d1',file_name:'a.txt',mime_type:'text/plain',size_bytes:5}]}}):r.fulfill({status:503,json:{error:'첨부를 저장하지 못했어요.',code:'note_save_result_unknown',note_id:id}});});
+ const q=page.locator('#basketView [data-basket-list] [data-home-quick]'),input=q.locator('[data-quick-input]');
+ await expect(q.locator('[data-quick-lock],[data-quick-new-note]')).toHaveCount(0);
  await input.fill('첨부와 함께 쓴 글');await q.locator('input[type=file]').setInputFiles(['a.txt','b.txt'].map(name=>({name,mimeType:'text/plain',buffer:Buffer.from(name)})));
- await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('잊지 말기에서 확인');
- await expect(lock).toBeVisible();await expect(q.locator('[data-quick-lock-reason]')).toContainText('입력창을 잠갔어요');await expect(q.locator('[data-quick-new-note]')).toBeVisible();
- expect(await input.evaluate(el=>el.readOnly)).toBe(true);
- // 8-9e-2: 폰 입력칸은 하단 탭 바로 위에 붙어 맨 아래에 있으므로 잠금 안내는 입력칸 바로 위에 붙는다.
- const inputBox=await input.boundingBox(),lockBox=await lock.boundingBox();expect(lockBox.y+lockBox.height).toBeLessThanOrEqual(inputBox.y);expect(inputBox.y-(lockBox.y+lockBox.height)).toBeLessThan(24);
- await press(page,q.locator('[data-quick-new-note]'),390);await answerAsk(page,true);
- await expect(lock).toBeHidden();await expect(input).toBeFocused();await expect(input).toHaveValue('');expect(await input.evaluate(el=>el.readOnly)).toBe(false);
- await page.keyboard.type('새로 쓰는 메모');await expect(input).toHaveValue('새로 쓰는 메모');
+ await q.locator('[data-quick-save]').click();
+ await expect(input).toHaveValue('');expect(await input.evaluate(el=>el.readOnly)).toBe(false);await expect(q.locator('[data-basket-file]')).toHaveCount(0);
+ const dock=page.locator('#uploadDock:not([hidden])');
+ await expect(dock).toContainText('업데이트에 파일 1개 못 올렸어요');await expect(dock).toContainText('파일 1개 올렸어요');
+ await expect(dock.getByRole('button',{name:'못 올린 파일 다시 올리기'})).toHaveCount(0);
+ expect(calls).toBe(2);expect(f.writes.filter(w=>w.method==='POST')).toHaveLength(1);
+ await input.click();await page.keyboard.type('새로 쓰는 메모');await expect(input).toHaveValue('새로 쓰는 메모');
  expect(f.errors.filter(e=>!e.includes('503'))).toEqual([]);
 });

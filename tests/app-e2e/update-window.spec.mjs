@@ -122,8 +122,7 @@ for(const width of [390,1280]){
 
 test('attachments in the home input stay when an organization is chosen in the window, and go with the update',async({page})=>{
  const f=await fixture(page,1280),q=quick(page),uploads=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const raw=r.request().postDataBuffer()?.toString('utf8')||'';uploads.push(raw);return r.fulfill({json:{ok:true,note_id:'up-1',attachments:[{file_name:'메모.txt',size_bytes:2,drive_file_id:'file_1',mime_type:'text/plain'}]}});});
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes'&&u.search.includes('doc=is.null'),r=>r.request().method()==='PATCH'?r.fulfill({json:[{id:'up-1',updated_at:'2026-10-06T01:00:01Z'}]}):r.fallback());
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const raw=r.request().postDataBuffer()?.toString('utf8')||'';uploads.push(raw);const id=raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1]||'up-1';return r.fulfill({json:{ok:true,note_id:id,attachments:[{file_name:'메모.txt',size_bytes:2,drive_file_id:'file_1',mime_type:'text/plain'}]}});});
  await q.locator('#quickBasketFiles').setInputFiles({name:'메모.txt',mimeType:'text/plain',buffer:Buffer.from('합성')});
  await q.locator('[data-quick-input]').fill('첨부와 함께');
  await q.locator('[data-quick-big]').click();
@@ -132,11 +131,13 @@ test('attachments in the home input stay when an organization is chosen in the w
  // BUG-업데이트첨부연결: the file stays with the organization chosen (saving there: update-attach-target.spec.mjs). Files make it a basket update, so the form is kept.
  await expect(e.locator('[data-edw-attach] [data-basket-file]')).toHaveCount(1);
  expect([f.notes,f.orgs,uploads]).toEqual([[],[],[]]);
- // Back to the basket: the text and file go through the basket upload path (one request with the text), then it closes.
+ // Back to the basket. BIZ-저장먼저닫기 2차(S59-10): the letters (with the form) are saved first as the basket update, the window closes on that,
+ // and the file goes up behind to that update (note_id, no letters in the upload).
  await e.locator('[data-edw-place]').click();await sheet(page).locator('[data-sheet-basket] button').click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
  await e.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
- expect(uploads).toHaveLength(1);expect(uploads[0]).toContain('filename="메모.txt"');expect(uploads[0]).toContain('name="raw_text"');
- expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);
+ expect(f.notes).toHaveLength(1);expect(f.notes[0].raw_text).toBe('첨부와 함께');expect(f.notes[0].doc).toMatchObject({v:'ed1'});expect(f.orgs).toEqual([]);
+ await expect.poll(()=>uploads.length).toBe(1);expect(uploads[0]).toContain('filename="메모.txt"');expect(uploads[0]).toContain('name="note_id"\r\n\r\nnew-1');expect(uploads[0]).not.toContain('name="raw_text"');
+ await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
  await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(q.locator('[data-basket-file]')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
