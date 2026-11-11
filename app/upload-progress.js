@@ -13,6 +13,8 @@
 // BIZ-저장먼저닫기(S58-1): 뒤 줄에 선 한 묶음(사업 보고 저장 뒤 사진·자료)은 차례를 기다리는 파일도 처음부터 목록에 있다(phase 'waiting', '대기').
 //   묶음(group)의 %는 이미 올린 양을 더해 끝까지 한 방향으로 오르고, 묶음이 끝나면 announceDock으로 ③ 한 줄에 그 묶음의 말
 //   ('사진 n장·자료 n개 올렸어요', 못 올렸으면 [다시 올리기])을 띄운다.
+// APP-뒤에서올리기 PR-2(S58-12): 폰 앱에 넘긴 파일은 phase 'handed'('앱이 올리는 중' — 화면은 보내지 않으므로 %·막대·✕가 없다). 앱이 끝을 알려 오면
+//   부른 곳이 done()·fail()로 옮긴다. 앱이 멈췄으면 '멈춤'(까닭은 부른 곳이 한 줄로 알린다). 올리는 중 합계·하단 한 줄의 %에는 세지 않는다(보낸 양을 모른다).
 import {amount, percent} from './upload-send.mjs';
 
 export const SLOW_SENDING_MS = 20000;
@@ -95,7 +97,12 @@ export function trackUpload({file = null, name = '', size = 0, back = null, wait
     // ✕: 다 보내기 전만(upload-send.mjs가 끊음). 목록에서는 바로 빠진다. 차례를 기다리던 파일은 보내지 않는다.
     cancel() {
       if (job.phase === 'sending' || job.phase === 'waiting') { controller.abort(); jobs.delete(job.id); changed(); }
-      else if (job.phase === 'failed') { jobs.delete(job.id); changed(); }
+      else if (job.phase === 'failed' || job.phase === 'handed') { jobs.delete(job.id); changed(); }
+    },
+    // 폰 앱에 넘김: 이 화면은 보내지 않는다(앱이 뒤에서 올림). stopped = 앱이 멈춰 있음(앱을 열면 잇는다). 끝은 done()·fail()로 온다.
+    hand({stopped = false} = {}) {
+      if (!jobs.has(job.id) || job.phase === 'done' || job.phase === 'failed') return;
+      job.phase = 'handed'; job.stopped = !!stopped; job.slow = false; job.loaded = 0; changed();
     },
     keepWaiting() {
       if (job.phase === 'sending') job.waitSending = now() - job.lastMove + SLOW_SENDING_MS * 2;
@@ -141,7 +148,8 @@ function paintBar(line, job) {
   line.firstChild.style.width = p + '%';
   line.classList.toggle('is-finishing', job.phase === 'finishing');
 }
-const stateText = job => job.phase === 'done' ? '✓ 완료' : job.phase === 'failed' ? '실패' : job.phase === 'finishing' ? '마무리 중…' : job.phase === 'waiting' ? '대기' : percent(job.loaded, job.total) + '%';
+const stateText = job => job.phase === 'done' ? '✓ 완료' : job.phase === 'failed' ? '실패' : job.phase === 'finishing' ? '마무리 중…' : job.phase === 'waiting' ? '대기'
+  : job.phase === 'handed' ? (job.stopped ? '멈춤' : '앱이 올리는 중') : percent(job.loaded, job.total) + '%';
 
 function rowNode(job, preview) {
   const row = el('div', 'up-row' + (preview ? ' up-tile' : ''));
@@ -161,6 +169,8 @@ function paintRow(row, job) {
   row.dataset.phase = job.phase;
   row.classList.toggle('is-slow', job.slow);
   paintBar(row.querySelector('.up-bar'), job);
+  // 앱에 넘긴 줄은 보낸 양을 모른다: 막대를 그리지 않는다(가짜로 움직이는 값을 만들지 않음).
+  row.querySelector('.up-bar').style.visibility = job.phase === 'handed' ? 'hidden' : '';
   const pc = row.querySelector('.up-pc');
   pc.textContent = row.classList.contains('up-tile') ? (job.phase === 'sending' ? `사진 올리는 중 ${stateText(job)}` : stateText(job)) : stateText(job);
   const acts = row.querySelector('.up-acts'), want = job.phase === 'sending' || job.phase === 'waiting' ? 'x' : job.phase === 'failed' ? 'f' + (job.retry ? 'r' : '') : '';
@@ -182,7 +192,8 @@ function paintRow(row, job) {
 // 합계 줄: 보내는 중·마무리 중·차례를 기다리는 것만 센다(그 칸에 남은 것의 양 — 묶음 전체의 %는 하단 한 줄이 맡는다).
 export function summaryText(list) {
   const open = list.filter(live);
-  if (!open.length) return '';
+  // 화면이 보내는 것이 없고 앱이 맡은 것만 남았으면 그 수를 알린다(멈춘 것이 있으면 멈춤).
+  if (!open.length) { const app = list.filter(job => job.phase === 'handed'); return app.length ? `${app.some(job => job.stopped) ? '앱이 멈춤' : '앱이 뒤에서 올리는 중'} ${app.length}개` : ''; }
   const total = open.reduce((sum, job) => sum + (job.total || 0), 0), loaded = open.reduce((sum, job) => sum + (job.phase === 'finishing' ? job.total : job.loaded), 0);
   const all = open.every(job => job.phase === 'finishing');
   return `올리는 중 ${open.length}개 · ${amount(loaded)} / ${amount(total)} · ${all ? '마무리 중…' : percent(loaded, total) + '%'}`;
@@ -368,6 +379,8 @@ function paintDock() {
   if (!dock.shown) return;
   if (open.length) { dock.node.hidden = true; dock.shown = false; dock.done = 0; dock.failed = 0; return; } // 올리는 화면으로 돌아옴: 그 화면이 보인다.
   if (dock.node.dataset.state === 'end') return;
+  // 차례를 기다리던 파일을 모두 앱에 넘겼다(화면이 올린 것·못 올린 것이 없다): 끝 글 대신 접는다 — 부른 곳이 '앱이 뒤에서 올리는 중' 한 줄을 띄운다.
+  if (!dock.done && !dock.failed && uploadJobs().some(job => job.phase === 'handed')) { resetDock(); return; }
   // 다른 화면에 있는 동안 끝남: 'n개 올림 · 보기'(실패가 있으면 'n개 못 올림').
   const node = dock.node; node.dataset.state = 'end'; node.classList.remove('is-error'); node.setAttribute('role', 'status');
   node.querySelector('.up-dock-text').textContent = dock.failed ? `${dock.failed}개 못 올림${dock.done ? ` · ${dock.done}개 올림` : ''}` : `${dock.done}개 올림`;
