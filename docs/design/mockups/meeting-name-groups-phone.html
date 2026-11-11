@@ -1,0 +1,101 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 사업 보고 추가 창 회의명 — 조직별로 묶인 채로 뜨기 (MTG-회의명처음배치)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#ece9e1;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2b2b28}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#555;line-height:1.55;margin:0 0 12px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#666}
+/* 폰 화면 그림: 안쪽 크기는 모두 em(13px = 1em). 보는 화면이 좁으면 통째로 작아진다. */
+.phone{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;color:#2a2a23;border:1px solid #cfc8b6;border-radius:1.2em;overflow:hidden;line-height:1.45;padding:1.2em 1.2em 1em}
+.ttl{display:flex;justify-content:space-between;align-items:center;font-size:1.5em;font-weight:500;margin:0 0 .6em}
+.ttl span{color:#6e6c60;font-weight:400}
+.seg{display:inline-flex;background:#e9e6dc;border-radius:1.2em;padding:.2em;gap:.2em;margin:0 0 1em}
+.seg span{padding:.3em 1em;border-radius:1em;color:#6e6c60}
+.seg span.on{background:#fffefa;color:#2a2a23;font-weight:500}
+.card{border:1px solid #e2ddd0;border-radius:1em;padding:1em 1em .4em}
+.card h2{font-size:1.25em;font-weight:400;color:#6e6c60;margin:0 0 .6em;padding:0 0 .6em;border-bottom:1px solid #e2ddd0}
+.kinds{display:flex;align-items:center;gap:.5em;color:#6e6c60;margin:0 0 .8em}
+.kinds .chips{display:inline-flex;background:#f1efe8;border-radius:1em;padding:.15em}
+.kinds .chips span{padding:.25em .62em;border-radius:.9em;color:#47532a}
+.kinds .chips span.on{background:#fffefa;color:#2a2a23;font-weight:700}
+.lab{color:#6e6c60;margin:0 0 .4em}
+.sel{display:flex;justify-content:space-between;align-items:center;border:1px solid #cfc8b6;border-radius:.7em;padding:.55em .9em;font-size:1.15em}
+.sel i{font-style:normal;color:#6e6c60;font-size:.8em}
+.pop{margin:.3em 0 .8em;border:1px solid #cfc8b6;border-radius:.7em;background:#fffefa;padding:.35em;box-shadow:0 .4em 1.2em rgba(0,0,0,.08)}
+.find{border:1px solid #cfc8b6;border-radius:.7em;padding:.5em .8em;color:#8f8c7f;font-size:1.1em;margin:0 0 .2em}
+.g{padding:.7em .7em .15em;color:#6e6c60;font-size:.92em}
+.g:first-of-type{padding-top:.45em}
+.it{display:flex;justify-content:space-between;align-items:center;padding:.55em .7em;font-size:1.15em}
+.it .m{color:#8f8c7f;letter-spacing:-.08em;font-size:.9em}
+.pop.grp .it{padding-left:1.3em}
+.irr{padding:.45em .7em .45em 2.6em;color:#6e6c60;font-size:1.05em}
+.etc{padding:.55em .7em;font-size:1.15em}
+.foot{margin:.3em 0 0;padding:.6em .7em .35em;border-top:1px solid #e2ddd0;color:#6e6c60}
+.tag{margin-left:.5em;padding:0 .4em;border-radius:.4em;background:#f6e3d6;color:#9a4f24;font-size:.72em;white-space:nowrap}
+.nm{display:flex;align-items:center;min-width:0}
+.legend{background:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;margin-top:14px}
+.legend b{color:#55632f}
+.legend .tag{font-size:11px;margin:0 2px}
+</style></head><body>
+<h1>시안: 사업 보고 추가 창 — 회의명이 조직별로 묶인 채로 뜨기</h1>
+<p class="note">11/10에 확정한 묶음(시안 meeting-name-groups.html)을 폰 사업 보고 추가 창에 그대로 넣은 그림이에요. 주황 꼬리표는 설명용이고 실제 화면에는 없어요.</p>
+
+<div class="cap">① 지금 <small>조직 구분 없이 한 줄로 섞여 있음</small></div>
+<div class="phone"><div class="scr">
+<div class="ttl">사업 보고<span>✕</span></div>
+<div class="seg"><span class="on">직접 쓰기</span><span>파일·글로 만들기</span></div>
+<div class="card"><h2>기본정보</h2>
+<div class="kinds">칸 <span class="chips"><span class="on">회의</span><span>정책</span><span>교섭</span><span>언론</span><span>국회</span><span>투쟁</span><span>교육</span><span>기타</span></span></div>
+<div class="lab">회의명</div>
+<div class="sel">기타(직접 입력)<i>▼</i></div>
+<div class="pop"><div class="find">회의 찾기 (비정기 포함)</div>
+<div class="it">노조 상집<span class="m">⋯</span></div>
+<div class="it">본부 집행위<span class="m">⋯</span></div>
+<div class="it">궤도 집행국 회의<span class="m">⋯</span></div>
+<div class="it">궤도협의회 대표자 회의<span class="m">⋯</span></div>
+<div class="irr">└ 궤도협의회 비정기 회의 2 ›</div>
+<div class="it">○○노조 정기간담회<span class="m">⋯</span></div>
+<div class="it">노조 중앙집행위원회<span class="m">⋯</span></div>
+<div class="it">궤도협의회 집행위원회<span class="m">⋯</span></div>
+<div class="etc">기타(직접 입력)</div>
+<div class="foot">조직 목록 수정</div></div>
+</div></div></div>
+
+<div class="cap">② 바꾼 뒤 <small>창을 열면 처음부터 조직 머리글 아래로 묶여 있음</small></div>
+<div class="phone"><div class="scr">
+<div class="ttl">사업 보고<span>✕</span></div>
+<div class="seg"><span class="on">직접 쓰기</span><span>파일·글로 만들기</span></div>
+<div class="card"><h2>기본정보</h2>
+<div class="kinds">칸 <span class="chips"><span class="on">회의</span><span>정책</span><span>교섭</span><span>언론</span><span>국회</span><span>투쟁</span><span>교육</span><span>기타</span></span></div>
+<div class="lab">회의명</div>
+<div class="sel">기타(직접 입력)<i>▼</i></div>
+<div class="pop grp"><div class="find">회의 찾기 (비정기 포함)</div>
+<div class="g">공공기관사업본부</div>
+<div class="it">본부 집행위<span class="m">⋯</span></div>
+<div class="it"><span class="nm">본부 운영위원회<span class="tag">새로</span></span><span class="m">⋯</span></div>
+<div class="it"><span class="nm">본부 확대대표자회의<span class="tag">새로</span></span><span class="m">⋯</span></div>
+<div class="it"><span class="nm">본부 대표자회의<span class="tag">새로</span></span><span class="m">⋯</span></div>
+<div class="g">공공운수노조</div>
+<div class="it">노조 상집<span class="m">⋯</span></div>
+<div class="it"><span class="nm">노조 중집<span class="tag">이름 맞춤</span></span><span class="m">⋯</span></div>
+<div class="it"><span class="nm">노조 대의원회<span class="tag">새로</span></span><span class="m">⋯</span></div>
+<div class="g">궤도협의회</div>
+<div class="it"><span class="nm">궤도협의회 대표자회의<span class="tag">이름 맞춤</span></span><span class="m">⋯</span></div>
+<div class="it">궤도협의회 집행위원회<span class="m">⋯</span></div>
+<div class="it"><span class="nm">궤도협의회 확대간부회의<span class="tag">새로</span></span><span class="m">⋯</span></div>
+<div class="it"><span class="nm">궤도협의회 집행국회의<span class="tag">이름 맞춤</span></span><span class="m">⋯</span></div>
+<div class="it">○○노조 정기간담회<span class="m">⋯</span></div>
+<div class="irr">└ 비정기 회의 2 ›</div>
+<div class="etc">기타(직접 입력)</div>
+<div class="foot">조직 목록 수정</div></div>
+</div></div></div>
+
+<div class="legend"><b>바뀌는 것</b>: 회의명 상자를 열면 조직 이름(작은 회색 글자, 누를 수 없음) 아래에 그 조직 회의가 모여 있어요. 순서는 정한 그대로예요.<br>
+<span class="tag">이름 맞춤</span> 3개: 궤도 집행국 회의 → 궤도협의회 집행국회의, 궤도협의회 대표자 회의 → 궤도협의회 대표자회의, 노조 중앙집행위원회 → 노조 중집. 지난 보고의 회의명도 같이 바뀌어요(보고 글은 그대로).<br>
+<span class="tag">새로</span> 5개: 아직 보고가 없어도 목록에 미리 들어가요. 안 쓰면 ⋯ 에서 뺄 수 있어요.<br>
+<b>같이 따라오는 것</b>: 사업 보고 › 회의 [목록] 왼쪽 회의명 칸, 보고 고치기 창의 회의명 상자도 같은 묶음으로 보여요.<br>
+<b>그대로인 것</b>: 회의 찾기, 줄 끝 ⋯ 메뉴, 비정기 회의 접기, 기타(직접 입력), 조직 목록 수정. 목록이 길어지면 지금처럼 상자 안에서 스크롤해요.</div>
+</body></html>
