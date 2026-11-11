@@ -2,7 +2,9 @@
 // Data side of "챙길 것": the owner-RLS candidate table app_todo_candidates (20261021075034_todo_radar_candidates), read and
 // changed with the signed-in token through the shared runtime. The find state table belongs to the server (ai-assist).
 // Finding is the server's job: ai-assist kind=todo_radar reads the Web2 records itself and adds "open" candidates.
-// The screen only sends {kind,mode}; it never sends record text. [할 일로] uses the existing Google task create path
+// The screen only sends {kind,mode}; it never sends record text. One exception adds rows from the screen: the follow-up tasks the
+// recording summary (meeting-ai-draft / server job) already found are added as open candidates of the saved report (addMeetingCandidates,
+// MTG-할일자동생성금지) instead of becoming Google tasks. [할 일로] uses the existing Google task create path
 // (quick-save.js createGoogleTask) and then marks the candidate; [무시] marks it. A counterpart promise (COM) is never
 // stored: the server returns it once and the screen offers [원장으로 복사] (todo-radar 결정 6).
 // When the table or the function is not deployed yet, every read reports {missing:true} and the screen hides quietly.
@@ -162,6 +164,45 @@ export async function findMeetingTodos(meetingId, options = {}) {
   if (!r.ok) return {ok:false, code:r.code, message:RADAR_TEXT[r.code] || RADAR_TEXT.internal_error};
   if (!Number.isSafeInteger(r.data.added) || r.data.added < 0) return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
   return {ok:true, added:r.data.added};
+}
+
+// MTG-할일자동생성금지(요청함 11/11 15:25): 녹음 요약(meeting-ai-draft·서버 정리)이 찾은 후속 할 일은 Google 할 일로 만들지 않고,
+// 저장한 그 사업 보고의 챙길 것 후보로만 올린다. 같은 표(app_todo_candidates)·같은 칸 권한(insert는 내용 칸만, 상태는 늘 open)·같은
+// 열쇠 꼴(서버 todo_radar dedupeKey = 'meeting:<회의 id>:<요약 정규화>')이라 [후속 할 일 만들기]가 같은 일을 다시 올리지 않는다.
+// 할 일은 사람이 [할 일로]를 눌러야 생긴다(candidateToTask). 글은 AI에 보내지 않고, 기기에 남기지 않는다.
+export const MEETING_CANDIDATE_MAX = 30;
+const SUMMARY_MAX = 100;
+export function meetingCandidateSummary(title) {
+  const text = String(title ?? '').replace(/\p{Cc}+/gu, ' ').replace(/\s+/g, ' ').trim();
+  const chars = [...text];
+  return chars.length > SUMMARY_MAX ? chars.slice(0, SUMMARY_MAX - 1).join('') + '…' : text;
+}
+// items: [{title, due}] (meeting-transcript-model.mjs actionRows). 빈 줄·같은 요약은 한 번만, 많아도 MEETING_CANDIDATE_MAX개까지.
+export function meetingCandidateRows(meetingId, items, {workspaceId, day, projectId = null} = {}) {
+  const id = String(meetingId || '').toLowerCase();
+  if (!UUID.test(id) || !workspaceId || !DAY.test(String(day || ''))) return [];
+  const seen = new Set(), rows = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const summary = meetingCandidateSummary(item?.title);
+    const key = normalizeTitle(summary);
+    if (!summary || seen.has(key)) continue;
+    seen.add(key);
+    rows.push({workspace_id:workspaceId, kind:'my_task', summary, due:DAY.test(String(item?.due || '')) ? item.due : null,
+      source_kind:'meeting', source_id:id, source_day:day, evidence:'', dedupe_key:`meeting:${id}:${key || '-'}`,
+      project_id:UUID.test(String(projectId || '')) ? String(projectId).toLowerCase() : null, organization_id:null});
+    if (rows.length >= MEETING_CANDIDATE_MAX) break;
+  }
+  return rows;
+}
+// 사업 보고 저장 뒤(kptu:record-saved) 한 번. 반환: {ok:true, added} | {missing:true}(표 없음) | {ok:false}.
+export async function addMeetingCandidates(meetingId, items, {day, projectId = null, rt = window.KPTURuntime} = {}) {
+  let rows;
+  try { rows = meetingCandidateRows(meetingId, items, {workspaceId:workspace(rt), day, projectId}); } catch { return {ok:false}; }
+  if (!rows.length) return {ok:true, added:0};
+  try {
+    const made = await rt.api('/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id', {method:'POST', prefer:'resolution=ignore-duplicates,return=representation', body:rows, singleFlight:false});
+    return {ok:true, added:Array.isArray(made) ? made.length : 0};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
 
 // ---- TODO-이미함·환류: 누른 결과 기록(app_todo_feedback, migration 20261101180000, 소유자 RLS) ---------------------------

@@ -3,7 +3,7 @@
 // - 요약은 기존 Edge meeting-ai-draft의 '새 회의' 길(meeting_id 없음 = 서버에 저장하지 않음)을 쓴다. 긴 글은 나눠 요약(stage part·merge, S48-64).
 // - 전사 전문은 '회의록 전문' 칸(app_meetings.notes)에 넣어 [사업 보고 저장] 때 회의와 함께 남긴다(S48-64, 명진 지시 '전사 전문 저장 허용').
 // - 채우는 곳은 입력 창의 기존 칸뿐이다: 일시(#meetingAt), 참석인원(#meetingAttendees, 비어 있을 때만), 회의 결과 원문(#meetingTranscript: 참석·결정·공유),
-//   후속 할 일(task-workflow.js의 입력 줄 + [추가]를 그대로 눌러 같은 주인이 줄을 그린다). 저장은 명진이 [사업 보고 저장]으로 한다(자동 저장 없음).
+//   AI가 찾은 후속 할 일은 입력 줄에 넣지 않는다(MTG-할일자동생성금지): [사업 보고 저장] 뒤 그 보고의 챙길 것 후보로만 올린다. 저장은 명진이 [사업 보고 저장]으로 한다(자동 저장 없음).
 // - 이 모듈은 #mtdBar·#mtdPanel 두 곳만 그린다.
 // - 2단계(녹음 파일 → 전사): 녹음 파일을 고르면 [전사] → Edge meeting-transcribe가 명진 Drive에 올리고 Gemini로 전사해 글을 돌려준다.
 //   글은 전사 칸(#mtdText)에 넣고 바로 위 [녹음 요약하기]와 같은 흐름을 이어 부른다. 전사 서버는 글을 저장하지 않고, 화면이 회의록 전문 칸에 넣는다.
@@ -69,7 +69,7 @@ function clearAudio(){audio=null;audioSeconds=null;audioJob='';recJobs=[];const 
 // 진행 중인 요약은 버린다(늦게 온 답이 다른 창·다른 칸을 채우지 않게).
 function stop(){epoch++;busy=false;const run=$('#mtdRun');if(run){run.disabled=false;run.textContent='녹음 요약하기'}paintAudio()}
 function reset(){
-  stop();fileName='';fileInfo={date:'',time:''};attachJobs=[];clearAudio();
+  stop();fileName='';fileInfo={date:'',time:''};attachJobs=[];todoRows=[];clearAudio();
   const text=$('#mtdText');if(text)text.value='';
   paintFile();status('');toggle(false);
 }
@@ -167,14 +167,22 @@ window.addEventListener('kptu:record-saved',e=>{
   })();
 });
 
-function addAction(row){
-  const title=$('#meetingActionTitle'),due=$('#meetingActionDue'),add=$('#meetingActionAdd');
-  if(!title||!add)return false;
-  title.value=row.title;
-  if(due){due.value=row.due||'';due.dispatchEvent(new Event('change',{bubbles:true}))}
-  add.click();
-  return true;
-}
+// MTG-할일자동생성금지(요청함 11/11 15:25, 명진 "회의결과가 할일을 자동으로 만드는 거 그러지마"): AI가 찾은 후속 할 일은 '후속 할 일' 입력 줄에
+// 넣지 않는다(그 줄은 [사업 보고 저장] 때 Google 할 일이 된다). 화면에만 들고 있다가 저장 뒤 그 보고의 챙길 것 후보로 올린다(todo-radar-data.js).
+// 할 일은 잊지 말기·보고 상세에서 [할 일로]를 눌러야 생긴다. 명진이 입력 줄에 직접 쓴 할 일은 지금처럼 저장 때 만들어진다.
+let todoRows=[];
+window.addEventListener('kptu:record-saved',e=>{
+  const d=e.detail||{},id=d.kind==='meeting'?d.id:'',rows=todoRows;
+  if(!id||!rows.length)return;
+  todoRows=[];
+  void (async()=>{
+    let r;
+    try{r=await (await import('./todo-radar-data.js')).addMeetingCandidates(id,rows,{day:d.day,projectId:d.project_id})}catch{r={ok:false}}
+    if(r?.ok){if(r.added)window.dispatchEvent(new CustomEvent('kptu:todo-radar-changed',{detail:{reload:true}}));return}
+    console.warn('meeting todo candidates failed',r?.missing?'missing':'');
+    try{(await import('./small-notice.js')).notify('할 일 후보를 잊지 말기에 올리지 못했어요. 사업 보고에서 [후속 할 일 만들기]를 눌러 주세요.',{error:true})}catch{}
+  })();
+});
 
 // S48-64(REC-전사원문저장): 전사 글은 요약 전에 '회의록 전문' 칸(#meetingNotes = app_meetings.notes)에 먼저 넣는다.
 // 요약이 실패해도 [사업 보고 저장]을 누르면 전문이 회의와 함께 남는다. 이미 쓴 글은 지우지 않고 아래에 덧붙인다.
@@ -195,7 +203,7 @@ function askDraft(rt,workspaceId,{text,stage='',part=0,parts=0}){
   }});
 }
 
-// 요약 답 → 입력 창 칸(일시·결과 원문·후속 할 일). 화면 요약([녹음 요약하기])과 서버 정리 결과(fillResult) 공용.
+// 요약 답 → 입력 창 칸(일시·결과 원문·참석인원). 후속 할 일은 칸에 넣지 않고 후보로 들고 있다. 화면 요약([녹음 요약하기])과 서버 정리 결과(fillResult) 공용.
 function applyDraft(data,text,at){
   const draft=normalizeDraft(data);
   if(!draft)throw new Error('invalid_meeting_draft');
@@ -206,10 +214,9 @@ function applyDraft(data,text,at){
   // MTG-참석인원칸(S56-31): 참석을 찾았고 '참석인원' 칸이 비어 있으면 채운다(이미 쓴 값은 두고, 원문 안 '참석:' 줄도 그대로).
   const who=$('#meetingAttendees'),line=attendeesLine(draft);
   if(who&&line&&!who.value.trim()){who.value=line;who.dispatchEvent(new Event('input',{bubbles:true}))}
-  const rows=actionRows(draft);let added=0;
-  for(const row of rows)if(addAction(row))added++;
+  const found=actionRows(draft);todoRows=[...todoRows,...found];
   const warn=(data?.warnings||[]).length;
-  status(`초안을 채웠어요${added?` · 후속 할 일 ${added}개`:''}${warn?` · 확인할 것 ${warn}건`:''} · 전사 전문은 '회의록 전문' 칸에. 수정한 뒤 [사업 보고 저장]을 누르세요.`,'ok');
+  status(`초안을 채웠어요${found.length?` · 할 일 후보 ${found.length}개는 저장하면 잊지 말기에`:''}${warn?` · 확인할 것 ${warn}건`:''} · 전사 전문은 '회의록 전문' 칸에. 수정한 뒤 [사업 보고 저장]을 누르세요.`,'ok');
   toggle(false);
 }
 
