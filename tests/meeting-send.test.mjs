@@ -16,7 +16,7 @@ function makeLine() {
 }
 function makeJob(file) {
   let cancelled = false;
-  return {file, failed: '', fail(m) { this.failed = m || 'x'; }, cancel() { cancelled = true; }, cancelled: () => cancelled};
+  return {file, phase: 'waiting', failed: '', fails: 0, start() { this.phase = 'sending'; }, fail(m) { this.fails++; this.phase = 'failed'; this.failed = m || 'x'; }, cancel() { cancelled = true; }, cancelled: () => cancelled};
 }
 function setup(over = {}) {
   const {line, idle} = makeLine();
@@ -107,7 +107,17 @@ test('멈춰야 하는 실패(로그인 만료 등) 뒤 남은 파일은 보내�
   const done = s.events.at(-1);
   assert.deepEqual([done.badPhotos, done.badFiles, done.okPhotos, done.retry], [2, 1, 0, true]);
   assert.equal(done.message, '로그인 세션이 만료됐습니다.');
-  assert.deepEqual(s.jobs.map(j => !!j.failed), [false, true, true], '서 있던 파일의 표시도 실패로 바뀐다(첫 파일은 올리기 길이 직접 표시)');
+  assert.deepEqual(s.jobs.map(j => j.fails), [1, 1, 1], '못 올린 파일·서 있던 파일의 표시가 모두 실패로 바뀐다(한 번씩)');
+  assert.deepEqual(s.jobs.map(j => j.failed), Array(3).fill('로그인 세션이 만료됐습니다.'));
+});
+
+test('올리기 길이 이미 실패로 바꾼 표시는 다시 건드리지 않는다 · 보내기 전에 멈춘 실패(읽지 못함)는 여기서 실패로 바꾼다', async () => {
+  const s = setup({upload: async (t, f, {job}) => { if (f.name === 'a.pdf') job.fail('길이 표시한 까닭'); throw Object.assign(new Error('x'), {code: f.name === 'a.pdf' ? 'http_500' : 'file_read_failed'}); },
+    classify: e => ({kind: 'error', message: e.code === 'file_read_failed' ? '파일을 읽지 못했어요.' : '서버 오류', retry: e.code !== 'file_read_failed'})});
+  const batch = s.send.send(target, [file('a.pdf'), file('b.pdf')]);
+  await batch.settled;
+  assert.deepEqual(s.jobs.map(j => [j.phase, j.fails, j.failed]), [['failed', 1, '길이 표시한 까닭'], ['failed', 1, '파일을 읽지 못했어요.']]);
+  assert.deepEqual(s.jobs.map(j => j.phase === 'sending'), [false, false], "끝없이 '올리는 중'으로 남는 표시가 없다");
 });
 
 test('결과를 확인하지 못한 파일은 저절로 다시 보내지 않는다 — 확인을 받은 것만', async () => {
@@ -199,4 +209,28 @@ test('파일이 없으면 줄을 세우지 않는다 · 알림을 닫으면 못 
   s.send.forget(batch);
   assert.equal(s.send.has('m1', f), false);
   assert.equal(await s.send.retry(batch), false);
+});
+
+test('화면 알림: 올리는 동안 새로 고침은 먼저 묻고, 계정이 바뀌면 못 올린 파일을 놓는다', async () => {
+  const listeners = new Map(), win = {addEventListener: (type, fn) => listeners.set(type, fn)};
+  let who = 'u1', hold = null;
+  const s = setup({scope: () => who, gone: scope => scope !== who,
+    upload: async (t, f) => { if (f.name === 'slow.pdf') await new Promise(r => { hold = r; }); else throw new Error('x'); return {}; },
+    classify: () => ({kind: 'error', message: '실패'})});
+  s.send.watch(win);
+  const ask = () => { const detail = {otherDraft: false}; listeners.get('kptu:before-reload')({detail}); return detail.otherDraft; };
+  assert.equal(ask(), false);
+  const bad = file('bad.pdf'), failed = s.send.send(target, [bad]);
+  await failed.settled;
+  assert.equal(ask(), false, '못 올린 것만 남아 있을 때는 묻지 않는다');
+  const going = s.send.send(target, [file('slow.pdf')]);
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(ask(), true, '올리는 동안은 먼저 묻는다');
+  hold(); await going.settled;
+  assert.equal(ask(), false);
+  assert.equal(s.send.has('m1', bad), true);
+  listeners.get('kptu:session-changed')(); // 같은 사람: 그대로
+  assert.equal(s.send.has('m1', bad), true);
+  who = 'u2'; listeners.get('kptu:session-changed')();
+  assert.equal(s.send.has('m1', bad), false, '다른 계정이 되면 못 올린 파일을 놓는다');
 });

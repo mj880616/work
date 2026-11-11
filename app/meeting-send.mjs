@@ -89,6 +89,8 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
         const why = classify(error) || {};
         entry.state = why.kind === 'unknown' ? 'unknown' : 'failed'; entry.message = String(why.message || error?.message || '');
         entry.fixed = why.retry === false;
+        // 보내기 전에 멈춘 실패(파일을 읽지 못함 등)는 올리기 길이 표시를 바꾸지 못했다: 여기서 실패로 바꾼다(끝없이 '올리는 중'으로 남지 않게).
+        if (entry.job && entry.job.phase !== 'failed') { try { entry.job.fail?.(entry.message); } catch { /* 표시뿐 */ } }
         if (why.stop) stopped = {message: entry.message, error, type: why.type || ''};
       }
       tell({type: 'file', batch, entry});
@@ -132,6 +134,11 @@ export function createMeetingSend({line, upload, isPhoto, track = () => null, cl
     forget(batch) { if (batch && !live(batch)) batches.delete(batch); },
     /** 계정·작업공간이 바뀜: 그 사람의 묶음이 아니게 된 것(when)을 놓는다. 올리는 중이던 것은 run()이 gone으로 멈춘다. */
     clear(when = () => true) { for (const b of [...batches]) if (when(b)) { for (const e of b.entries) if (OPEN.has(e.state) && e.state !== 'sending') e.state = 'gone'; if (!live(b)) batches.delete(b); } },
+    /** 화면 알림 듣기(win = window): 올리는 동안 새로 고치려 하면 먼저 묻게 하고(줄은 메모리뿐), 계정·작업공간이 바뀌면 그 사람 것이 아니게 된 묶음을 놓는다. */
+    watch(win) {
+      win?.addEventListener?.('kptu:before-reload', event => { if (event?.detail && [...batches].some(live)) event.detail.otherDraft = true; });
+      win?.addEventListener?.('kptu:session-changed', () => this.clear(batch => gone(batch.scope)));
+    },
     tally,
   };
 }
