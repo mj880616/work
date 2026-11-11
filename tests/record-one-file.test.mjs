@@ -176,3 +176,50 @@ test('B-4 ④: [확정] 사진 2. 1) 줄 = 파일에 넣은 지금 상황·담�
   const hw = read('app/journal-hwpx.js');
   assert.match(hw, /\.\.\.\(bizRows \? bizRows\.map\(r => draft\.summarySnapshotRow\(r\)\)\.filter\(Boolean\) : \[\]\)/);
 });
+
+// ORG-폴드두열표(요청함 11/11, 시안 docs/design/mockups/org-table-fold-two-cols.html): 담당조직 [전체 표](.oa-table)는 접은 폰·폴드 펼침·PC 모두 두 열 표.
+// 화면 시험(tests/app-e2e/org-overview.spec.mjs)이 세 폭을 실제로 재고, 여기서는 그 바탕이 되는 CSS·소스 약속을 지킨다.
+test('ORG-폴드두열표 ①: 760 이하 쌓기 규칙은 [전체 표](.oa-table)에 걸지 않고, 홈 [주간 정리] 표는 그대로 쌓인다(우선순위 변화 없음)', () => {
+  const css = read('app/weekly-org-lines.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  // 첫 760 이하 블록 = 이 표 틀 전체를 쌓는 규칙(thead 감춤 포함). 그 안의 선택자는 모두 .wl-table:where(:not(.oa-table))로 시작해야 한다.
+  const blocks = [...css.matchAll(/@media \(max-width:760px\)\{([\s\S]*?)\n\}/g)].map(m => m[1]);
+  const stack = blocks.find(b => /thead\{display:none\}/.test(b));
+  assert.ok(stack, '표 틀을 쌓는 760 이하 블록이 있다');
+  const selectors = [...stack.matchAll(/(^|\n)\s*([^{}\n]+)\{/g)].flatMap(m => m[2].split(',').map(s => s.trim()));
+  assert.ok(selectors.length >= 5);
+  for (const sel of selectors) assert.match(sel, /^\.wl-table:where\(:not\(\.oa-table\)\)/, `${sel} — 쌓기 규칙은 .oa-table을 빼야 한다`);
+  assert.doesNotMatch(stack, /\.wl-table\s+thead\{/, '옛 선택자(.wl-table thead)가 남아 있으면 [전체 표]도 쌓인다');
+  // 홈 [주간 정리](.wl-weekly)의 자기 규칙(두 번째 760 이하 블록·컨테이너 쿼리)은 그대로 있다.
+  assert.match(css, /\.wl-table\.wl-weekly tbody th\.wl-c-org\{background:none;padding-top:6px;border-top:1px solid var\(--kptu-border\)\}/);
+  assert.match(css, /@container \(max-width:30em\)\{[\s\S]*\.wl-table\.wl-weekly thead\{display:none\}/);
+  assert.match(read('app/journal.css'), /@media\(max-width:760px\)\{\n  #appView #homeView \.journal-weekly\{ padding:10px; \}\n  #appView #homeView \.journal-weekly-table,/, '주간 정리의 다른 표(journal.css) 폰 쌓기는 건드리지 않았다');
+});
+
+test('ORG-폴드두열표 ②: [조직] 열 폭 = 끌어 정한 폭 → 가장 긴 이름 맞춤 → 9.5em(600 이상), 접은 폰(600 미만)은 7em 고정에 끌기 손잡이 감춤', () => {
+  const css = read('app/weekly-org-lines.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(css, /\.wl-table\.oa-table \.wl-c-org\{width:var\(--oa-w-org,var\(--oa-w-org-fit,9\.5em\)\)\}/);
+  const phone = css.match(/@media \(max-width:599px\)\{([\s\S]*?)\n\}/)?.[1] ?? '';
+  assert.match(phone, /\.wl-table\.oa-table \.wl-c-org\{width:7em\}/);
+  assert.match(phone, /\.wl-table\.oa-table \.col-grip\{display:none\}/);
+  // 끌어 정한 폭 변수에 CSS가 기본값을 주면 이름 맞춤 폭이 쓰일 자리가 없다(예전 .oa{--oa-w-org:11em}).
+  assert.doesNotMatch(read('app/suborganizations.css'), /--oa-w-org\s*:/);
+  // 화면 폭 경계는 앱 공용 600(screen-width.mjs)과 같다.
+  assert.match(read('app/org-overview.js'), /import \{SPLIT_QUERY\} from '\.\/screen-width\.mjs'/);
+});
+
+test('ORG-폴드두열표 ③: org-overview.js는 가장 긴 이름을 한 줄로 두고 재어 --oa-w-org-fit(표 폭 45% 상한)을 정하고, 칸 끌기 맞춤도 같은 측정을 쓴다', () => {
+  const src = read('app/org-overview.js');
+  assert.match(src, /function nameWidth\(panel\)/);
+  assert.match(src, /style\.whiteSpace = 'nowrap'/, '꺾여 있어도 본래 이름 길이를 재려고 잠깐 한 줄로 둔다');
+  assert.match(src, /function fitOrgColumn\(\)/);
+  assert.match(src, /--oa-w-org-fit/);
+  assert.match(src, /tableWidth \* 0\.45/);
+  assert.match(src, /mountColResize\(\{host: panel, name: 'orgall', vars: \{org: '--oa-w-org'\}[^)]*fit: \(\) => nameWidth\(panel\)\}\)/, '칸 경계 두 번 누르기 맞춤도 같은 측정');
+  // 그린 뒤·[전체 표] 탭을 열 때·화면 폭이 바뀔 때·글꼴이 온 뒤 다시 맞춘다.
+  assert.ok((src.match(/fitOrgColumn\(\)/g) || []).length >= 5);
+  assert.match(src, /addEventListener\('resize'/);
+  assert.match(src, /document\.fonts\?\.ready/);
+  // 표 틀·쟁의 단계·줄 ⋯는 그대로: 같은 표 부품 한 곳과 조직 이름 → 상세 열기.
+  assert.match(src, /tableClass: 'oa-table'/);
+  assert.match(src, /data-oa-open=/);
+});

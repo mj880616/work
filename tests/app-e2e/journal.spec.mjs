@@ -258,9 +258,9 @@ for(const width of [390,1280]){
   const f=await fixture(page,{width});await openJournal(page,width);
   const row=page.locator('#journalRoot [data-journal-date]');
   await expect(row).toHaveCount(7);
-  // HOME-업무일지홈: 요일 글자는 화면에서 숨기고(읽기 이름에는 있음) 머리줄 ‹ › 사이에 숫자만.
+  // HOME-업무일지홈 → FOLD-넓은화면 ④(S57-16): 머리줄 ‹ › 사이 날짜 칸은 요일·날짜 한 줄('수 11'). 400px 미만 접은 폰만 자리가 모자라 요일 글자를 숨긴다(읽기 이름에는 있음).
   await expect(row.locator('.journal-weekday')).toHaveText(['월','화','수','목','금','토','일']);
-  for(const w of await row.locator('.journal-weekday').all())await expect(w).toBeHidden();
+  for(const w of await row.locator('.journal-weekday').all())await (width<400?expect(w).toBeHidden():expect(w).toBeVisible());
   expect(await page.evaluate(()=>{const d=document.querySelector('#journalRoot [data-journal-days]');return d.previousElementSibling?.matches('[data-journal-prev]')&&d.nextElementSibling?.matches('[data-journal-next]');})).toBe(true);
   await expect(row.locator('.journal-num')).toHaveText(['5','6','7','8','9','10','11']);
   // 7칸이 한 줄(폰에서도).
@@ -709,7 +709,8 @@ const journalBox=page=>page.evaluate(()=>{
  return {root:r(document.querySelector('#journalRoot')).width,panel:view.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),
   right:r(document.querySelector('#journalRoot')).right,copies:document.querySelectorAll('#journalRoot .journal-head [data-journal-copy]').length,days:r(document.querySelector('#journalRoot .journal-head')).width,
   rows:new Set(groups.map(g=>Math.round(g.y))).size,cols:new Set(groups.map(g=>Math.round(g.x))).size,
-  schedule:r(document.querySelector('#journalRoot [data-journal-schedule]')),todo:r(document.querySelector('#journalRoot [data-journal-group="todo"]')),done:r(document.querySelector('#journalRoot [data-journal-group="done"]')),
+  schedule:(()=>{const s=document.querySelector('#journalRoot [data-journal-schedule]');return r(s.getBoundingClientRect().width?s:s.querySelector('.journal-schedule-body'));})(), // 폴드 두 단(<1200)에서는 일정 칸이 display:contents라 머리·목록 묶음을 잰다
+  todo:r(document.querySelector('#journalRoot [data-journal-group="todo"]')),done:r(document.querySelector('#journalRoot [data-journal-group="done"]')),
   report:[...document.querySelectorAll('#journalRoot [data-journal-report] [data-journal-group]')].map(e=>{const b=r(e);return [Math.round(b.x),Math.round(b.y)];}),
   main:{max:main.maxWidth,pl:main.paddingLeft,pr:main.paddingRight},doc:document.documentElement.scrollWidth,vw:innerWidth};
 });
@@ -724,8 +725,14 @@ for(const width of [1024,1279,1280,1920]){
   expect(Math.abs(j.root-j.panel)).toBeLessThan(2);expect(Math.abs(j.days-j.root)).toBeLessThan(2);expect(j.copies).toBe(0);
   expect(j.root).toBeGreaterThan(760);
   // HOME-업무일지홈: [그날 일정 | 할 일]은 좌우(같은 줄, 할 일이 오른쪽, 폭 절반쯤), 끝낸 할 일(한 일)은 그 아래 '오늘 한 일' 칸. 주간보고 재료 세 칸은 보고서 순서대로 위아래.
+  if(width<1200){
+   // FOLD-넓은화면 ④(S57-16): 폴드 펼침·작은 창(600~1199)은 5:5 두 단 — 왼쪽 일정 위·할 일 아래(같은 x), 오른쪽에 오늘 한 일(끝낸 할 일 칸)이 일정과 같은 줄에서.
+   expect(Math.round(j.todo.x)).toBe(Math.round(j.schedule.x));expect(j.todo.y).toBeGreaterThan(j.schedule.y);
+   expect(j.done.x).toBeGreaterThan(j.schedule.x+j.schedule.width-1);expect(j.todo.width).toBeLessThan(j.root*0.6);
+  }else{
   expect(Math.round(j.todo.y)).toBe(Math.round(j.schedule.y));expect(j.todo.x).toBeGreaterThan(j.schedule.x+j.schedule.width-1);
   expect(j.todo.width).toBeLessThan(j.root*0.6);expect(j.done.y).toBeGreaterThan(j.todo.y);
+  }
   expect(j.report).toHaveLength(3);
   for(let i=1;i<3;i++){expect(j.report[i][0]).toBe(j.report[0][0]);expect(j.report[i][1]).toBeGreaterThan(j.report[i-1][1]);}
   // 같은 창에서 [일기]로 옮겨도 바깥 폭(본문 칸 상한·좌우 여백)과 화면 칸 폭이 같다.

@@ -441,7 +441,12 @@
 #appView #homeView .journal-head .journal-mode-switch{ margin-left:auto; }
 #appView #homeView .journal-head .journal-days{ display:flex; gap:2px; }
 #appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:32px; height:32px; padding:0 4px; flex-direction:row; justify-content:center; gap:0; border-color:transparent; background:transparent; }
-#appView #homeView .journal-head .journal-weekday{ display:none; }
+/* FOLD-넓은화면 ④(S57-16, 명진 11/11 "날짜랑 요일이 세로로 긴 게 이상해"): 날짜 칸은 요일·날짜 한 줄('수 11'), 높이는 옆 단추(‹ › [이번 주])와 같은 32px(위 .journal-head .journal-date).
+   오늘·고른 날 표시와 한 줄 쓴 날 점은 그대로. 400px 미만 접은 폰은 7칸에 자리가 모자라 요일 글자를 숨긴다(읽기 이름에는 있음). */
+#appView #homeView .journal-head .journal-weekday{ margin-right:3px; line-height:1; }
+@media(min-width:400px){ #appView #homeView .journal-head .journal-weekday + .journal-num{ min-width:0; padding:0; } }
+@media(min-width:761px){ #appView #homeView .journal-head .journal-date{ min-width:44px; } }
+@media(max-width:399px){ #appView #homeView .journal-head .journal-weekday{ display:none; } }
 #appView #homeView .journal-head .journal-dot{ bottom:1px; width:4px; height:4px; margin-left:-2px; }
 /* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
@@ -664,3 +669,23 @@
 #appView #homeView .journal-suggest{ display:flex; align-items:center; gap:6px; }
 #appView #homeView .journal-suggest-text{ display:flex; flex-direction:column; flex:1; min-width:0; }
 #appView #homeView .journal-suggest > .secondary{ flex:none; }
+
+/* FOLD-넓은화면 ④(S57-16, 시안 docs/design/mockups/home-fold-two-columns.html '안 1', 명진 선택 11/11 09:51): 폴드 펼침(600~1199px, 공용 판정 screen-width.mjs와 같은 값,
+   PC는 1200~)에서 [하루] 카드를 5:5 두 단으로 — 왼쪽 [그날 일정 · 할 일], 오른쪽 [오늘 한 일 · 읽을 글·사진 · 소식], '다가오는 일' 줄은 두 단 폭 전체 한 줄.
+   두 단은 같이 내린다(스크롤 칸 하나). 입력 줄(home-quick)은 카드 밖이라 그대로 날짜 줄 아래 전체 폭. 폰(600 미만)·PC(1200~)는 아래 묶음 두 개가 없는 것과 같아 그대로다.
+   .journal-top-cols·.journal-schedule은 display:contents로 접어 날짜 줄·일정 묶음·할 일·오른쪽 묶음이 .journal-day 격자의 칸이 된다(DOM 순서는 그대로 → 키보드 순서 그대로).
+   행 셋: ① 다가오는 일(없으면 0) ② 일정 ③ 할 일(1fr) — 오른쪽 묶음이 ②~③ 두 행에 걸치고, 남는 높이는 ③이 받아 왼쪽 칸 사이가 벌어지지 않는다. */
+#appView #homeView .journal-schedule-body,
+#appView #homeView .journal-day-right{ display:contents; }
+@media (min-width:600px) and (max-width:1199px){
+  #appView #homeView .journal-day{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:auto auto 1fr; gap:0; align-items:start; }
+  #appView #homeView .journal-top-cols,
+  #appView #homeView .journal-schedule{ display:contents; }
+  #appView #homeView .journal-schedule > .journal-dday{ grid-column:1 / -1; grid-row:1; margin:0 0 12px; }
+  #appView #homeView .journal-schedule-body{ display:flex; flex-direction:column; gap:2px; grid-column:1; grid-row:2; min-width:0; padding-right:16px; }
+  #appView #homeView .journal-top-cols > .journal-tasks{ grid-column:1; grid-row:3; min-width:0; margin-top:12px; padding:0 16px 0 0; border-left:0; }
+  #appView #homeView .journal-top-cols > .journal-tasks > .journal-task-col{ border-top:0; padding-top:0; }
+  #appView #homeView .journal-day-right{ display:flex; flex-direction:column; gap:12px; grid-column:2; grid-row:2 / 4; align-self:stretch; min-width:0; padding-left:16px; border-left:var(--ds-line-width) solid var(--ds-line); }
+  #appView #homeView .journal-day-right > .journal-done-day{ border-top:0; padding-top:0; }
+  #appView #homeView .journal-day-right > .journal-materials:empty{ display:none; }
+}
