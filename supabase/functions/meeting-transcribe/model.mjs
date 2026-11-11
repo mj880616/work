@@ -12,12 +12,14 @@ export const GEMINI_KEY_NAME = 'GEMINI_API_KEY';
 export const MAX_BYTES = 100 * 1024 * 1024;      // 회의자료 올리기(meeting-files)와 같은 100MB
 export const MAX_SECONDS = 60 * 60;              // Gemini 한 번 요청 상한 1시간
 export const DIARIZE_MAX_SECONDS = 30 * 60;      // 화자 구분은 30분까지
-export const MONTHLY_LIMIT_KRW = 5000;           // 회의 전사 이번 달 상한(추정 금액, 서울 날짜 기준)
+export const MONTHLY_LIMIT_KRW = 15000;          // 회의 전사 이번 달 상한(추정 금액, 서울 날짜 기준)
 export const RUNNING_STALE_MS = 15 * 60 * 1000;  // 진행 중으로 15분 넘게 남은 작업은 끊긴 것으로 본다
 export const UNATTACHED_TRASH_DAYS = 30;         // 회의에 붙이지 않은 녹음은 30일 뒤 Drive 휴지통
 export const SWEEP_LIMIT = 5;                    // 한 번 부를 때 정리하는 녹음 수
 export const AUDIO_TOKENS_PER_SECOND = 32;       // Gemini 음성 토큰(사용량이 비어 올 때 추정용)
 export const USAGE_REF_PREFIX = 'mtg-';
+// 글을 못 받은 시도(빈 답·끝나지 않은 답)는 이 머리로 적는다 — 쓴 돈은 홈 AI 사용량에 그대로 보이고, 월 상한(monthKrw)에는 들어가지 않는다(명진 결정 11/12).
+export const FAILED_USAGE_REF_PREFIX = 'mtgfail-';
 const KST = 9 * 3600000;
 
 const EXT_MIME = Object.freeze({
@@ -291,7 +293,7 @@ export function readUsage(json, duration, model = TRANSCRIBE_MODEL) {
 export function seoulDay(at) { return new Date(at.getTime() + KST).toISOString().slice(0, 10); }
 export function monthStart(at) { return `${seoulDay(at).slice(0, 7)}-01`; }
 // 사용량 보고 번호. 작업마다·시도마다 하나(같은 작업을 다시 전사해도 겹치지 않게).
-export function usageRef(jobId, at) { return `${USAGE_REF_PREFIX}${jobId}-${at.getTime().toString(36)}`; }
+export function usageRef(jobId, at, failed = false) { return `${failed ? FAILED_USAGE_REF_PREFIX : USAGE_REF_PREFIX}${jobId}-${at.getTime().toString(36)}`; }
 // 이번 달 회의 전사 추정 금액(원). rows: app_ai_external_usage 중 ref가 mtg-로 시작하는 행.
 export function monthKrw(rows) {
   let sum = 0;
