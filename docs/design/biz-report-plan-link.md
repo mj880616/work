@@ -9,7 +9,7 @@
 - 사업 보고(`app_meetings`)에 **일정 id 칸 두 개**(`google_calendar_id`, `google_event_id`)를 더해 보고 ↔ 일정을 진짜 연결로 묶는다.
 - '같은 이름 기억'은 따로 저장 칸을 만들지 않는다. 새 표에 쌓인 결정(켬·빼기)에서 계산한다(BIZ-사업영역기억과 같은 방식).
 - 권한 경계는 그대로다: 소유자만(`private.app_is_workspace_owner`), anon·PUBLIC·service_role 권한 없음, 함수·트리거 없음.
-- migration은 둘로 나눈다(되돌리기 길이 다르다): `20261111020000_calendar_report_plans`(새 표), `20261111021000_bizreport_event_link`(사업 보고 칸).
+- migration은 하나다: `20261111020000_report_plan_event_link`(새 표 + 사업 보고 칸). 화면이 둘을 같이 쓰므로 한 번에 들어가거나 하나도 안 들어가게 했다(시험 적용·적용 한 번씩).
 
 ## 1. 요청과 이 단계의 범위
 
@@ -58,6 +58,7 @@
 | `starts_at` | timestamptz | 시작 시각. 종일 일정은 비움 |
 | `created_at` | timestamptz, 기본값 `now()` | 만든 때 |
 
+- 검사: 일정 id는 빈칸·제어 글자 없는 ASCII 1~1024자, 캘린더 id는 빈칸 없는 1~255자, 제목은 1~300자 한 줄, 날짜는 2000~2100년, `rule` 줄은 `on`만.
 - 색인: `unique (workspace_id, google_event_id)`, `(workspace_id, event_day desc)`.
 - 일정 id만으로 하나뿐으로 본 이유: 화면이 캘린더 id를 `primary`와 실제 주소 두 가지로 부를 수 있어, 캘린더 id까지 묶으면 같은 일정에 줄이 둘 생길 수 있다. 사업영역 연결(`eventAreaRows`)도 일정 id만으로 찾는다.
 - 제목·날짜 사본을 두는 이유: '안 쓴 보고' 줄과 사업 보고 달력의 □가 Google을 다시 부르지 않고도 그려져야 한다(지난달 것도 포함). 사업영역 주요 일정 행이 제목·시작 시각 사본을 두는 것과 같은 방식이다. 화면은 일정을 볼 때 사본이 다르면 고쳐 쓴다(4-5).
@@ -72,7 +73,7 @@
 | `google_calendar_id` | text | 이어진 일정의 캘린더 id |
 | `google_event_id` | text | 이어진 일정 id |
 
-- 검사: 둘 다 비었거나 둘 다 채움(`app_project_milestones`의 짝 검사와 같은 규칙), 길이·글자 검사.
+- 검사: 둘 다 비었거나 둘 다 채움(`app_project_milestones`의 짝 검사와 같은 규칙), 길이·글자 검사(새 표의 일정 id·캘린더 id와 같은 규칙).
 - 색인: `(workspace_id, google_event_id) where google_event_id is not null`.
 - 한 일정에 보고가 둘 이상일 수 있다(지금도 '같은 날 같은 이름' 물음에서 [새로 만들기]를 고를 수 있다). 그래서 하나뿐 검사는 두지 않는다. 화면은 가장 나중 보고를 연다.
 - 보고를 휴지통에 넣으면 기존 restrictive 정책이 그 줄을 가리므로 일정 달력의 ✓는 저절로 □로 돌아간다.
@@ -81,7 +82,7 @@
 ### 3-3. 권한·RLS
 
 - 새 표: RLS 켬, 정책 하나 `calendar_report_plans_owner_all`(authenticated, `private.app_is_workspace_owner(workspace_id)`), PUBLIC·anon·service_role 권한 없음.
-  authenticated는 읽기·지우기(표 단위), 넣기(값 칸), 고치기(값 칸 — `workspace_id`·`google_event_id`·`id`·`created_at`은 못 고침).
+  authenticated는 읽기·지우기(표 단위), 넣기(`id`와 값 칸 — `created_at`은 못 넣음), 고치기(값 칸 — `workspace_id`·`google_event_id`·`id`·`created_at`은 못 고침).
 - 사업 보고 표: grant·정책·RLS 변경 없음. 표 단위 권한이라 새 칸도 소유자만 읽고 쓴다(참석인원 칸과 같음).
 - 함수·트리거·view·시퀀스 없음. `rtw_*` 객체는 건드리지 않는다.
 
@@ -160,14 +161,14 @@ with reports as (
   join public.app_spaces s on s.id = ms.project_id
   where ms.google_event_id is not null and ms.start_at is not null
 ), pairs as (
-  select r.id as report_id, e.google_event_id
+  select r.id as report_id, r.workspace_id, e.google_event_id
   from reports r
   join events e on e.workspace_id = r.workspace_id and e.day = r.day and e.name_key = r.name_key
   where r.name_key <> ''
 ), per_report as (
   select report_id, count(distinct google_event_id) as n from pairs group by report_id
 ), per_event as (
-  select google_event_id, count(distinct report_id) as n from pairs group by google_event_id
+  select workspace_id, google_event_id, count(distinct report_id) as n from pairs group by workspace_id, google_event_id
 )
 select '연결 없는 보고(휴지통 제외)' as item, count(*)::text as value from reports
 union all select '같은 날·같은 이름 일정이 있는 보고', count(*)::text from per_report
@@ -195,12 +196,13 @@ union all select '이미 연결된 보고', count(*)::text from public.app_meeti
 
 ## 7. 적용 순서와 되돌리기
 
-1. `20261111020000_calendar_report_plans` — 시험 적용 → 적용. 새 표만 생긴다(화면이 아직 쓰지 않음).
-2. `20261111021000_bizreport_event_link` — 시험 적용 → 적용. 사업 보고 표에 빈 칸 두 개.
-3. 5절 확인 SQL로 숫자 확인(선택).
-4. 화면 PR A부터.
+1. `20261111020000_report_plan_event_link` — 승인형 workflow로 시험 적용(dry-run) → 적용(apply). 새 표(빈 표)와 사업 보고 표의 빈 칸 두 개가 생긴다. 화면은 아직 쓰지 않는다.
+2. 5절 확인 SQL로 숫자 확인(선택).
+3. 화면 PR A부터.
 
-되돌리기: 사업 보고 칸은 짝 rollback이 칸·검사·색인·기록만 지운다(연결이 채워진 보고가 있으면 멈춘다). 새 표는 SQL Editor 경로로 표를 걷어 낸다(일정·보고 원본은 그대로, 표시 결정만 사라진다). 둘 다 자동으로 실행되지 않는다.
+짝 파일: `docs/20261111020000_report_plan_event_link.{precheck,snapshot,postcheck,rollback,preserve}.sql`, `.summary.md`. DB 시험: `tests/auth-handoff/report-plan-event-link-db.test.mjs`(5절 확인 SQL도 가짜 데이터로 돌려 본다).
+
+되돌리기: 짝 rollback(SQL Editor 경로 전용 — 새 표 지우기는 workflow rollback 모드 밖)이 새 표·새 칸·검사·색인·기록만 지운다. 일정에 이어진 보고나 표시 줄이 하나라도 있으면 멈춘다(지워서 통과시키지 않는다). 그때는 preserve SQL로 값을 보관하고 화면을 되돌린 뒤, 값을 비우는 일은 커맨드센터가 따로 승인한 SQL로 한다. 일정·보고 원본은 지우지 않는다. 자동으로 실행되지 않는다.
 
 ## 8. 남은 결정·위험
 
