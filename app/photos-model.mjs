@@ -152,7 +152,7 @@ export const photoViewValue = ({filter = 'all', cols = null, sort = DEFAULT_SORT
 // 서버 한 쪽(odLibrary items) → 화면 칸. 같은 id가 다시 오면 빼고 잇는다.
 export const toItem = p => ({kind: 'od', source: 'onedrive', key: p.id, id: p.id, day: p.day, name: p.name || '', taken_at: p.taken_at || '', approx: p.approx === true,
   video: p.kind === 'video', duration_ms: p.duration_ms ?? null, width: p.width ?? null, height: p.height ?? null, screenshot: p.screenshot === true,
-  size_bytes: p.size_bytes ?? null, uploaded_at: p.uploaded_at || ''});
+  size_bytes: p.size_bytes ?? null, uploaded_at: p.uploaded_at || '', folder: typeof p.folder === 'string' && p.folder ? p.folder : null});
 export function appendItems(list, page) {
   const seen = new Set(list.map(x => x.id));
   const out = list.slice();

@@ -184,3 +184,12 @@ test('photo cell: a failed picture waits and tries again by itself, then rests w
   } finally { globalThis.setTimeout = realTimeout; }
   m.clearOdPhotoCache();
 });
+
+// S59-12 OPS-빠진일2차 6: library 칸의 folder(든 원드라이브 폴더 id)를 그대로 넘긴다. 항목 id 모양이 아니면 null, 옛 서버(칸 없음)도 null.
+test('library keeps the folder id of each photo (OneDrive item id shape only); an old server without it gives null', async () => {
+  const m = await mod;
+  const row = (id, extra = {}) => ({id, name:'a.jpg', taken_at:'2026-10-01T01:00:00.000Z', day:'2026-10-01', kind:'photo', size_bytes:1, ...extra});
+  const rt = runtime(() => ({items:[row('A1', {folder:'F1!100'}), row('A2'), row('A3', {folder:'../x'}), row('A4', {folder:'a b'}), row('A5', {folder:'F'.repeat(201)})], next_cursor:null}));
+  const {items} = await m.odLibrary(rt);
+  assert.deepEqual(items.map(i => i.folder), ['F1!100', null, null, null, null]);
+});

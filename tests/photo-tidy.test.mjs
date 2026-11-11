@@ -661,3 +661,63 @@ test('copyCheckPair: size plus kind, dims and exact taken time; unknown values l
   // 사진 이름·폴더 같은 다른 값은 보내지 않는다.
   assert.deepEqual(Object.keys(copyCheckPair(ph(3, 'c.jpg', 5, t, 'DCIM/Camera/', {width:1, height:1}), 'O3')).sort(), ['h', 'id', 'size', 'taken_at', 'video', 'w']);
 });
+
+// S59-12 OPS-빠진일2차 6: 원드라이브 사진 '있는 곳' 경로. 서버 library가 주는 든 폴더 id(folder)를 폴더 나무(folders-tree)로 맨 위까지 잇는다.
+import {odPathFinder} from '../app/photo-tidy-model.mjs';
+import {toItem} from '../app/photos-model.mjs';
+const TREE_WHOLE = {top:{id:'ROOT', name:'OneDrive'}, whole:true, folders:[
+  {id:'P', name:'사진', parent_id:'ROOT'}, {id:'Y', name:'2026', parent_id:'P'}, {id:'LOOP1', name:'고리1', parent_id:'LOOP2'}, {id:'LOOP2', name:'고리2', parent_id:'LOOP1'},
+  {id:'CUT', name:'끊김', parent_id:'NOWHERE'}]};
+test('원드라이브 경로: 폴더 id → 나무 이름 잇기(전체 보기는 루트 빼고, 루트 바로 안은 맨 위), 모르면 빈 값', () => {
+  const path = odPathFinder(TREE_WHOLE);
+  assert.equal(path({folder:'Y'}), '사진/2026');
+  assert.equal(path({folder:'P'}), '사진');
+  assert.equal(path({folder:'ROOT'}), '맨 위');
+  assert.equal(path({folder:'GONE'}), '', '나무에 없는 폴더');
+  assert.equal(path({folder:'CUT'}), '', '맨 위까지 이어지지 않음');
+  assert.equal(path({folder:'LOOP1'}), '', '고리');
+  assert.equal(path({folder:null}), '', '옛 서버(폴더 칸 없음)');
+  assert.equal(path({}), '');
+  assert.equal(path(null), '');
+  // 고른 폴더 하나(옛 연결): 그 폴더 이름부터.
+  const one = odPathFinder({top:{id:'F1', name:'카메라 앨범'}, whole:false, folders:[{id:'S', name:'2025', parent_id:'F1'}]});
+  assert.equal(one({folder:'S'}), '카메라 앨범/2025');
+  assert.equal(one({folder:'F1'}), '카메라 앨범');
+  // 나무를 못 읽음 → 모두 빈 값.
+  for (const bad of [null, undefined, {}, {top:{}}, {top:{id:''}}]) assert.equal(odPathFinder(bad)({folder:'Y'}), '');
+  // whereLines와 함께: 폰 폴더 줄 + 원드라이브 사본마다 경로(모르면 폴더 모름).
+  const p = ph(1, 'IMG_1.jpg', 100, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/');
+  assert.deepEqual(whereLines(p, [{...ODS[0], folder:'Y'}, {...ODS[0], id:'A2', folder:'ROOT'}, {...ODS[0], id:'A3', folder:'GONE'}], path),
+    ['폰 · DCIM/Camera', '원드라이브 · 사진/2026', '원드라이브 · 맨 위', '원드라이브 · 폴더 모름']);
+  assert.deepEqual(whereLines({...ODS[1], folder:'P'}, [], path), ['원드라이브 · 사진']);
+});
+test('원드라이브 칸 모양: 서버 folder(폴더 id)를 칸의 folder로 그대로, 없으면 null(구글 드라이브 칸 folder와 같은 뜻)', () => {
+  const base = {id:'O1', name:'a.jpg', day:'2026-10-01', taken_at:'2026-10-01T01:00:00.000Z', kind:'photo', size_bytes:1};
+  assert.equal(toItem({...base, folder:'F1!100'}).folder, 'F1!100');
+  assert.equal(toItem(base).folder, null);
+  assert.equal(toItem({...base, folder:''}).folder, null);
+  assert.equal(toItem({...base, folder:7}).folder, null);
+});
+test('사진 정리: 찾을 때 원드라이브 폴더 나무를 함께 읽어 비교 칸 있는 곳에 경로, 나무를 못 읽으면 폴더 모름(찾기는 끝남)', async () => {
+  const c1 = ph(50, 'IMG_1.jpg', 100e3, '2026-10-01T01:00:00.000Z', 'DCIM/Camera/', {width:10, height:10});
+  const c2 = ph(51, 'IMG_1(1).jpg', 100e3, '2026-10-01T01:00:01.000Z', 'Pictures/KakaoTalk/', {width:10, height:10});
+  const odA = {...od('A', 'IMG_1.jpg', 100e3, '2026-10-01T01:00:00.000Z'), folder:'Y'};
+  const make = readOdTree => createPhotoTidy({phone:{page:async () => ({items:[c1, c2], next:null})}, odReady:() => true, readOd:async () => ({items:[odA], next:null}), readOdTree,
+    odError:() => '', phoneError:() => '', phoneOff:() => new Set(), now:() => NOW, hashThumb:async () => 'ff00ff00ff00ff00'});
+  let calls = 0;
+  const t = make(async () => { calls++; return TREE_WHOLE; });
+  await t.rescan(); await settle();
+  assert.equal(calls, 1, '찾을 때 한 번');
+  t.toggle('dup:ph:50');
+  assert.match(t.html(), /<span class="photos-tidy-where">폰 · DCIM\/Camera<\/span><span class="photos-tidy-where">원드라이브 · 사진\/2026<\/span>/);
+  assert.match(t.html(), /<span class="photos-tidy-where">폰 · Pictures\/KakaoTalk<\/span><span class="photos-tidy-where">원드라이브 · 사진\/2026<\/span>/);
+  await t.rescan(); await settle();
+  assert.equal(calls, 2, '[다시 찾기]면 나무도 다시');
+  const bad = make(async () => { throw new Error('onedrive_unavailable'); });
+  await bad.rescan(); await settle();
+  assert.equal(bad.state.done, true); assert.equal(bad.state.odOn, true); assert.equal(bad.state.odFailed, '');
+  bad.toggle('dup:ph:50');
+  assert.match(bad.html(), /<span class="photos-tidy-where">폰 · DCIM\/Camera<\/span><span class="photos-tidy-where">원드라이브 · 폴더 모름<\/span>/);
+  // 화면 연결: photos.js가 폴더 나무 읽기(odFolderTree)를 넘긴다.
+  assert.match(read('app/photos.js'), /readOdTree:\(\) => odFolderTree\(rt\)/);
+});
