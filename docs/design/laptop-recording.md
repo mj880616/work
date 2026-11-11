@@ -127,6 +127,7 @@
 - 고친 것
   - 서버 `transcribe`가 Gemini에 올리기 전에 Ogg/Opus 파일의 쪽 머리만 규격(RFC 3533·7845)대로 다시 쓴다(`supabase/functions/meeting-transcribe/ogg.mjs`): granule = 묶음 길이(TOC)로 센 누적 표본 수, 쪽 번호 0부터, 처음/끝 표시, 검사합. 소리 바이트·쪽 수·크기는 그대로(끝이 잘린 쪽·찌꺼기만 뺌). Drive 원본은 그대로 두므로 이미 합친 오늘 녹음도 [다시]·'이어서 정리'로 같은 길을 탄다. 48MB 넘는 Ogg와 다른 형식(webm·m4a 등)은 지금처럼 흘려 보낸다.
   - 실패 코드 세분화: `gemini_upload`(올리기)·`gemini_timeout`(늦음)·`gemini_failed`(그 밖) = 전사 서비스, `gemini_file_failed`(Gemini가 파일 처리 실패)·`gemini_rejected`(400·422)·`bad_format`(Ogg를 읽을 수 없음) = 파일 형식. 화면은 서버 줄을 그대로 보이고, 시간 초과·네트워크 오류·서버 강제 종료(504·546 일반 글)는 '연결이 끊겨…'로 따로 보인다. Gemini 실패 로그는 HTTP 상태·오류 종류 이름만.
+  - REC-글못찾음(2026-11-11, S59-2): 전사 답(Interactions REST)은 `steps[type model_output].content[type text].text`에 글이 있고 `status`는 in_progress·requires_action·completed·failed·cancelled·incomplete다(공식 문서 확인). 서버는 완료 아닌 답을 원인별로 가른다 — in_progress `gemini_timeout`, incomplete `gemini_incomplete`(끝까지 못 옮김), 그 밖 `gemini_failed`, 완료인데 글 없음 `gemini_empty`. `empty_transcript`는 서버 정리의 '구간 없음'·'이은 글에 말 없음'에만 남고, 띠에서 [다시]를 둔다. 답을 못 읽으면 `meeting-transcribe: gemini answer <코드> <모양>` 한 줄(키 이름·status·단계/조각 수·글자 수·출력 토큰 수만, 글 내용 없음)을 남기고, 몸통을 못 받으면 `gemini answer unread`(상한 넘김이면 늦음)·`not json`(HTTP 상태·길이)을 남긴다.
 - 같은 서버를 쓰는 길: 노트북 녹음(브라우저 `audio/mp4`·`audio/webm`, Firefox면 `audio/ogg`)과 파일 올려 전사도 같은 실패 코드·문구를 쓴다. Ogg 파일이면 같은 고치기를 탄다(규격대로인 파일은 그대로 나옴). 노트북 5분·30분 시험은 아직 안 함.
 
 ## 새로고침해도 녹음이 날아가지 않게 (REC-새로고침, 요청함 11/03 11:21·11:29, S49-7)

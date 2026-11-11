@@ -50,6 +50,9 @@ export const MESSAGES = Object.freeze({
   gemini_rejected: '전사 서비스가 녹음 파일을 받지 않았어요(파일 형식). 녹음은 Drive에 그대로 있어요.',
   bad_format: '녹음 파일이 깨져 읽지 못했어요(파일 형식). 녹음은 Drive에 그대로 있어요.',
   empty_transcript: '녹음에서 글을 찾지 못했어요.',
+  // REC-글못찾음: 전사 서비스 답 자체가 글 없이 왔거나(완료인데 빈 답), 끝까지 못 만들고 일부만 왔을 때(incomplete). 같은 소리도 다시 하면 될 수 있다.
+  gemini_empty: '전사 서비스(Gemini)가 글 없이 답했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_incomplete: '전사 서비스(Gemini)가 녹음 끝까지 글로 옮기지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   usage_unavailable: '이번 달 사용량을 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   failed: '처리하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   // REC-정리멈춤반복: 서버 정리 단계가 Edge 실행 시간 안에 끝나지 못해 두 번 끊김 / 요약 답이 길어 잘림.
@@ -78,6 +81,7 @@ export const MESSAGES = Object.freeze({
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
   not_found: 404, not_done: 409, drive_failed: 502, drive_not_connected: 424, gemini_failed: 502,
+  gemini_empty: 502, gemini_incomplete: 502,
   gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,
   draft_failed: 502, daily_limit: 429, jobs_unavailable: 503, too_many_steps: 409, step_cut: 504, draft_cut: 502,
   draft_timeout: 504, draft_step_cut: 504,
@@ -88,6 +92,7 @@ export const STATUS = Object.freeze({
 export const FAIL_KIND = Object.freeze({
   gemini_failed: 'gemini', gemini_upload: 'gemini', gemini_timeout: 'gemini',
   gemini_file_failed: 'format', gemini_rejected: 'format', bad_format: 'format', bad_type: 'format',
+  gemini_empty: 'gemini', gemini_incomplete: 'gemini',
 });
 // Gemini 답(HTTP 상태) → 실패 코드. 400·422(요청은 닿았지만 받지 않음)는 파일 형식, 408·504는 늦음, 나머지는 전사 서비스 실패.
 export function geminiCode(status) {
@@ -153,15 +158,80 @@ export function transcriptionRequest(fileUri, mimeType, diarize, model = TRANSCR
 // REC-발언자구분: [녹음] 구간은 29분(recording.mjs REC_SEGMENT_SECONDS)이라 긴 회의도 구간마다 켜진다. 옛 59분 구간·30분 넘는 한 파일은 통글(실패 아님).
 export const wantsDiarize = duration => Number.isFinite(duration) && duration > 0 && duration <= DIARIZE_MAX_SECONDS;
 
+// ---- 전사 답 읽기(REC-글못찾음, Gemini Interactions REST 답 모양은 2026-11-11 공식 문서로 확인) ----
+// 답: { id, status, steps:[{ type:'model_output', content:[{ type:'text', text, annotations:[word_info…] }] }], usage, errors }.
+// - 글은 steps 중 model_output 단계의 text 조각에 있다. 긴 소리는 단계·조각이 여러 개일 수 있어 모두 잇는다.
+//   thought(생각)·user_input 등 다른 단계는 전사 글이 아니므로 읽지 않는다. type이 없는 단계는 예전 답과 같게 글로 본다.
+// - output_text는 REST 답이 아니라 SDK 편의 값이다(통화 전사 스크립트와 맞춰 계속 먼저 읽는다). 옛 outputs 모양은 2026-06-08에
+//   없어졌다(공식 '2026년 5월 변경 안내')라 읽지 않는다.
+// - status: in_progress(아직 진행 중) · requires_action · completed · failed · cancelled · incomplete(끝났지만 일부만, 예: 출력 한도).
+//   이 함수는 store:false 한 번 요청이라 진행 중 답을 다시 물어볼 수 없다(공식 문서: store false는 background와 함께 못 씀).
+function interactionOf(json) {
+  return json && typeof json.interaction === 'object' && json.interaction && !Array.isArray(json.interaction) ? json.interaction : json;
+}
 function stepsOf(json) {
   if (Array.isArray(json?.steps)) return json.steps;
   if (Array.isArray(json?.interaction?.steps)) return json.interaction.steps;
   return [];
 }
+const isOutputStep = step => !!step && typeof step === 'object' && (step.type === undefined || step.type === 'model_output');
+const outputSteps = json => stepsOf(json).filter(isOutputStep);
+const contentOf = step => (Array.isArray(step?.content) ? step.content : []);
+// 답의 상태(문자열이 아니면 '').
+export function answerStatus(json) {
+  const s = json?.status ?? json?.interaction?.status;
+  return typeof s === 'string' ? s : '';
+}
+// 답에서 전사 글 조각들. output_text가 있으면 그것, 없으면 model_output 단계의 text 조각 모두(여러 단계·여러 조각).
+function answerTexts(json) {
+  const it = interactionOf(json);
+  for (const v of [json?.output_text, it?.output_text]) if (typeof v === 'string' && v.trim()) return [v];
+  const parts = [];
+  for (const step of outputSteps(json)) {
+    for (const part of contentOf(step)) if (part && part.type === 'text' && typeof part.text === 'string') parts.push(part.text);
+  }
+  return parts;
+}
+// 답의 '모양'만 한 줄로(운영 로그용): 키 이름·status·단계/조각 종류와 수·글자 수·낱말 표시 수·오류 코드·출력 토큰 수.
+// 전사 글·오류 글·파일 주소는 넣지 않는다. 이름은 영문 소문자·밑줄만 남기고 나머지는 '?'.
+const NAME = /^[a-z][a-z0-9_]{0,39}$/;
+const nameOf = v => (typeof v === 'string' && NAME.test(v) ? v : '?');
+const tally = list => {
+  const m = new Map();
+  for (const k of list) m.set(k, (m.get(k) || 0) + 1);
+  return m.size ? [...m].map(([k, n]) => `${k}:${n}`).join(',') : '-';
+};
+export function answerShape(json) {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return `type=${json === null ? 'null' : Array.isArray(json) ? 'array' : typeof json}`;
+  const it = interactionOf(json);
+  const steps = stepsOf(json);
+  const parts = steps.filter(isOutputStep).flatMap(contentOf).filter(p => p && typeof p === 'object');
+  const texts = parts.filter(p => p.type === 'text' && typeof p.text === 'string');
+  const words = parts.flatMap(p => (Array.isArray(p.annotations) ? p.annotations : [])).filter(a => a && a.type === 'word_info');
+  const speakers = new Set(words.map(a => a.speaker).filter(s => typeof s === 'string' && s));
+  const errors = Array.isArray(it.errors) ? it.errors : [];
+  const outText = typeof json.output_text === 'string' ? json.output_text : typeof it.output_text === 'string' ? it.output_text : null;
+  const usage = json.usage ?? it.usage;
+  const out = Number(usage?.total_output_tokens ?? usage?.output_tokens);
+  return [
+    `status=${answerStatus(json) ? nameOf(answerStatus(json)) : '-'}`,
+    `wrap=${it === json ? '-' : 'interaction'}`,
+    `keys=${Object.keys(it).map(nameOf).sort().join(',') || '-'}`,
+    `steps=${steps.length}(${tally(steps.map(s => (s && typeof s === 'object' ? (s.type === undefined ? 'none' : nameOf(s.type)) : '?')))})`,
+    `parts=${tally(parts.map(p => nameOf(p.type)))}`,
+    `chars=${texts.reduce((n, p) => n + p.text.trim().length, 0)}`,
+    `blank=${texts.filter(p => !p.text.trim()).length}`,
+    `words=${words.length}`,
+    `speakers=${speakers.size}`,
+    `output_text=${outText === null ? '-' : outText.trim().length}`,
+    `errors=${tally(errors.map(e => (typeof e?.code === 'number' && Number.isSafeInteger(e.code) ? String(e.code) : nameOf(String(e?.code ?? '').toLowerCase()))))}`,
+    `out_tokens=${Number.isSafeInteger(out) && out >= 0 ? out : '-'}`,
+  ].join(' ');
+}
 // 단어별 화자 표시(spk_1 …)로 같은 화자가 이어지는 단어를 한 줄로 묶는다. 화자 표시가 없거나 한 명뿐이면 ''.
 export function speakerLines(json) {
   const words = [];
-  for (const step of stepsOf(json)) {
+  for (const step of outputSteps(json)) {
     if (!step || !Array.isArray(step.content)) continue;
     for (const part of step.content) {
       if (!part || !Array.isArray(part.annotations)) continue;
@@ -186,23 +256,20 @@ export function speakerLines(json) {
   if (buffer.length) lines.push(`화자${order.indexOf(current) + 1}: ${buffer.join(' ')}`);
   return lines.map(line => line.replace(/\s+([.,?!。])/g, '$1')).join('\n');
 }
-// 전사 응답 읽기. 끝나지 않았거나 글이 없으면 Fail.
+// 전사 응답 읽기. 끝나지 않았거나 글이 없으면 원인별 Fail(REC-글못찾음: 전엔 완료 아닌 답은 모두 gemini_failed, 빈 답은
+// '녹음에 글 없음'(empty_transcript)과 같은 코드라 [다시]도 막혔다).
+//   in_progress → gemini_timeout(한 번 요청 안에 끝나지 않음) · incomplete → gemini_incomplete · 그 밖 완료 아님 → gemini_failed
+//   완료(또는 상태 없음)인데 글 없음 → gemini_empty. empty_transcript는 서버 정리의 '구간 없음'·'이은 글에 말 없음'에만 남는다.
 export function readTranscript(json) {
-  if (!json || typeof json !== 'object') throw new Fail('gemini_failed');
-  if (json.status && json.status !== 'completed') throw new Fail('gemini_failed');
-  const parts = [];
-  if (typeof json.output_text === 'string' && json.output_text.trim()) parts.push(json.output_text);
-  else if (typeof json.interaction?.output_text === 'string' && json.interaction.output_text.trim()) parts.push(json.interaction.output_text);
-  else {
-    for (const step of stepsOf(json)) {
-      if (!Array.isArray(step?.content)) continue;
-      for (const part of step.content) if (part && part.type === 'text' && typeof part.text === 'string') parts.push(part.text);
-    }
-  }
-  const plain = parts.join('\n').trim();
+  if (!json || typeof json !== 'object' || Array.isArray(json)) throw new Fail('gemini_failed');
+  const status = answerStatus(json);
+  if (status === 'in_progress') throw new Fail('gemini_timeout');
+  if (status === 'incomplete') throw new Fail('gemini_incomplete');
+  if (status && status !== 'completed') throw new Fail('gemini_failed');
+  const plain = answerTexts(json).join('\n').trim();
   const split = speakerLines(json);
   const text = split || plain;
-  if (!text) throw new Fail('empty_transcript');
+  if (!text) throw new Fail('gemini_empty');
   return { text, speakerSplit: !!split };
 }
 

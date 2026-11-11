@@ -33,7 +33,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
   Fail, GEMINI_KEY_NAME, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
-  attachDocument, audioMime, canStart, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
+  answerShape, attachDocument, audioMime, canStart, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
   seoulDay, transcriptionRequest, trashBefore, usageRef, wantsDiarize,
 } from './model.mjs';
 import {
@@ -238,9 +238,26 @@ async function geminiTranscribe(key: string, uri: string, mime: string, diarize:
   // 통화 전사와 같은 규칙: 화자 구분을 거절(400)하면 화자 구분 없이 한 번 더.
   if (diarize && r.status === 400) { await geminiWarn('transcribe_diarize', r); r = await send(false); }
   if (!r.ok) { await geminiWarn('transcribe', r); throw new Fail(geminiCode(r.status)); }
-  const d = await r.json().catch(() => null);
-  if (!d) throw new Fail('gemini_failed');
-  return d;
+  // 답 몸통 읽기(REC-글못찾음: 전엔 못 읽어도 로그 없이 gemini_failed). 받는 중에 기다림 상한(380초)이 지나면 늦음(gemini_timeout),
+  // 연결이 끊겨 못 받았거나 JSON이 아니면 실패 — 어느 쪽인지 HTTP 상태·길이만 한 줄 남긴다(답 내용은 쓰지 않음).
+  let raw = '';
+  try { raw = await r.text(); } catch (e) {
+    const late = e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    console.warn('meeting-transcribe: gemini answer unread', r.status, late ? 'timeout' : 'cut');
+    throw new Fail(late ? 'gemini_timeout' : 'gemini_failed');
+  }
+  try { return JSON.parse(raw); } catch {
+    console.warn('meeting-transcribe: gemini answer not json', r.status, raw.length);
+    throw new Fail('gemini_failed');
+  }
+}
+// 전사 답 → 글(model.mjs readTranscript). 끝나지 않았거나 글이 없는 답이면 그 모양(키 이름·status·조각 수·글자 수만, 글 내용 없음)을
+// 한 줄 남겨 다음에 바로 원인을 가른다(REC-글못찾음: 11/11 41분 구간 실패 때 로그가 없어 원인을 가르지 못했다).
+function readAnswer(d: unknown) {
+  try { return readTranscript(d); } catch (e) {
+    if (e instanceof Fail) console.warn('meeting-transcribe: gemini answer', e.code, answerShape(d));
+    throw e;
+  }
 }
 
 // ---- 이번 달 금액(기존 사용량 기록, 호출한 사람 토큰 + 소유자 RLS로 읽음) ----
@@ -358,7 +375,7 @@ async function runTranscription(key: string, job: Job) {
       workspace_id: job.workspace_id, ref: usageRef(job.id, at), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
     });
     if (usageError) console.warn('meeting-transcribe: usage not recorded', usageError.code);
-    const result = readTranscript(response);
+    const result = readAnswer(response);
     return { text: result.text as string, speakerSplit: result.speakerSplit, model: usage.model as string };
   } finally {
     if (geminiFile) await geminiDelete(key, geminiFile);
