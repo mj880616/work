@@ -125,24 +125,26 @@ for (const width of [390, 1280]) test(`an old update's saved marks still show as
   expect(f.errors).toEqual([]);
 });
 
-// An update saved with an attachment is made by the upload (basket-files); no metadata write follows it any more.
+// An update saved with an attachment: no metadata write follows it any more.
+// BIZ-저장먼저닫기 2차(S59-10): the letters are the one write (no metadata), then the file goes up behind to that update.
 test('an update saved with a file gets no follow-up request write', async ({ page }) => {
   const f = await fixture(page, 1280, []);
   const uploads = [];
   await page.route(SB + '/functions/v1/basket-files', async r => {
-    uploads.push(r.request().postDataBuffer().toString());
-    const saved = row('up-1', '첨부 업데이트', {}, { attachments: [{ drive_file_id: 'file_1', file_name: 'a.txt', size_bytes: 12 }] });
-    f.rows.unshift(saved);
-    return r.fulfill({ json: { ok: true, note_id: 'up-1', attachments: saved.attachments } });
+    const raw = r.request().postDataBuffer().toString(); uploads.push(raw);
+    const id = raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1], saved = f.rows.find(x => x.id === id);
+    saved.attachments = [{ drive_file_id: 'file_1', file_name: 'a.txt', size_bytes: 12 }];
+    return r.fulfill({ json: { ok: true, note_id: id, attachments: saved.attachments } });
   });
   const q = page.locator('#homeView [data-home-quick]');
   await q.locator('[data-quick-input]').focus(); await q.locator('[data-quick-input]').fill('첨부 업데이트');
   await q.locator('input[type=file]').setInputFiles([{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('fake file') }]);
   await noToggles(q);
   await q.locator('[data-quick-save]').click();
-  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
-  expect(uploads).toHaveLength(1);
-  expect(f.writes).toHaveLength(0);
+  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요. 사진·파일은 올리는 중이에요.');
+  await expect.poll(() => uploads.length).toBe(1);expect(uploads[0]).toContain('name="note_id"\r\n\r\nnew-1');
+  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].method).toBe('POST');expect(f.writes[0].body.metadata).toBeUndefined();
   expect(f.rows[0].metadata).toEqual({});
   await expect(q.locator('[data-quick-status]')).toHaveText('');
   expect(f.errors).toEqual([]);

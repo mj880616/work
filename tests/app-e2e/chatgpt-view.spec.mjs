@@ -52,7 +52,7 @@ window.__brokenTool.init();
 </script></body></html>`;
 
 async function fixture(page,{notes,htmlReply}={}){
- const seen={requested:[],cspBlocked:[],errors:[],sbFromFrame:[],uploads:[],htmlCalls:[]};
+ const seen={requested:[],cspBlocked:[],errors:[],sbFromFrame:[],uploads:[],htmlCalls:[],notePosts:[]};
  // Playwright reports a request the page's CSP refused (failure "csp"); such a request never reaches the network.
  Object.defineProperty(seen,'external',{get:()=>seen.requested.filter(url=>!seen.cspBlocked.includes(url))});
  page.on('requestfailed',request=>{if(request.failure()?.errorText==='csp')seen.cspBlocked.push(request.url());});
@@ -65,7 +65,8 @@ async function fixture(page,{notes,htmlReply}={}){
  });
  await openHome(page);
  await page.route('https://images.example/**',r=>r.fulfill({contentType:'image/png',body:PNG}));
- await page.route(SB+'/rest/v1/app_notes**',r=>r.request().method()==='GET'?r.fulfill({json:notes}):r.fulfill({status:500,json:{}}));
+ // BIZ-저장먼저닫기 2차(S59-10): 글이 있는 업데이트 + 첨부는 글이 먼저 저장(POST)되고, 첨부는 그 업데이트로(note_id) 올라간다.
+ await page.route(SB+'/rest/v1/app_notes**',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:notes});if(m==='POST'&&new URL(r.request().url()).pathname==='/rest/v1/app_notes'){const body=r.request().postDataJSON();seen.notePosts.push(body);return r.fulfill({status:201,json:[{id:'pasted',kind:'basket',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[],metadata:{},...body}]});}return r.fulfill({status:500,json:{}});});
  await page.route(SB+'/rest/v1/app_record_links?**',r=>new URL(r.request().url()).searchParams.has('note_id')?r.fulfill({json:[]}):r.fallback());
  await page.route(SB+'/functions/v1/document-actions',r=>{const body=r.request().postDataJSON();seen.htmlCalls.push(body);return htmlReply?htmlReply(r,body):r.fulfill({status:500,json:{}});});
  await page.route(SB+'/functions/v1/basket-files',r=>{
@@ -140,8 +141,11 @@ for(const width of [390,1280]){
   await press(page,quick.locator('[data-quick-save]'),width);
   await expect.poll(()=>seen.uploads.length).toBe(1);
   expect(seen.uploads[0]).toMatch(/filename="chatgpt-\d{8}-\d{4}\.html"\r\nContent-Type: text\/html/);
-  expect(seen.uploads[0]).toContain('name="raw_text"\r\n\r\n오늘 받은 답변\r\n설명\r\n📄 ChatGPT HTML\r\n끝');
+  expect(seen.notePosts.map(x=>x.raw_text)).toEqual(['오늘 받은 답변\n설명\n📄 ChatGPT HTML\n끝']);
+  expect(seen.uploads[0]).toContain('name="note_id"\r\n\r\npasted');expect(seen.uploads[0]).not.toContain('name="raw_text"');
   expect(seen.uploads[0]).toContain('<div class="card" id="card">');
+  // 뒤 올리기가 끝나면 목록을 한 번 더 읽는다 — 그 읽기가 끝난 뒤 줄을 누른다.
+  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');await expect(page.locator('[data-basket-list-status] [data-wait]')).toHaveCount(0);
 
   // The reading screen shows the attachment in a sandboxed frame.
   const probe=page.evaluate(()=>new Promise(resolve=>addEventListener('message',e=>{if(e.data?.type==='web2-test-probe')resolve(e.data.result);})));

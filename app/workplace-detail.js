@@ -357,17 +357,21 @@ async function wdOpenBig(){if(!wdOrg?.canEdit||bigWindowOpen())return;const box=
   onSaved:saved=>{if(!here())return;box.value='';wdBigDraft=null;if(saved.kind==='update'&&saved.place?.kind==='organization'&&saved.place.id===orgId)void wdReloadUpdates(orgId).catch(()=>{st.textContent='기록은 저장했어요. 목록을 다시 불러오지 못했어요.';st.className='status error'})},
   onClose:(letters,{saved,value})=>{if(!here())return;if(!saved){box.value=letters;wdBigDraft=letters.trim()&&value?{orgId,text:letters,doc:value}:null}box.focus({preventScroll:true})}})}
 // ORG-기록첨부(S50-22): the record input also takes pictures and files (clip, drop, Ctrl+V — record-attach.js on the update input's
-// own file part). With files the record is the update-with-files save (update-places.js saveUpdateWithFiles: the basket update with
+// own file part). With files the record is the update-with-files save (update-places.js saveUpdateFilesBehind: the basket update with
 // its files, linked to this organization, files also into this organization's 자료). Letters written → they are the record; no
 // letters → the server AI's one line about a file (else '그림 1장 · 이름'), which ⋯ [요약 수정] changes later. Without files nothing changed.
 let wdAttach=null,wdAttachFlight=null;
 function wdMountAttach(){if(wdAttach||wdAttachFlight)return;const clip=document.querySelector('#wdInboxClip'),files=document.querySelector('#wdInboxFiles'),box=document.querySelector('#wdInbox');if(!clip||!files||!box)return;
  wdAttachFlight=import('./record-attach.js').then(m=>{wdAttach=m.mountRecordAttach({pickerHost:clip,filesHost:files,box,id:'wdInboxAttach',isBusy:()=>!!document.querySelector('#wdInboxSave')?.disabled,isActive:()=>!!wdOrg?.canEdit&&wdRecordCurrent(wdTargetId),onError:message=>{const st=document.querySelector('#wdInboxState');if(st){st.textContent=message;st.className='status error'}}})}).catch(()=>{wdAttachFlight=null})}
-async function wdSaveInbox(){if(!wdOrg?.canEdit)return;const box=document.querySelector('#wdInboxText'),st=document.querySelector('#wdInboxState'),btn=document.querySelector('#wdInboxSave'),text=box.value.trim(),orgId=wdOrg.id,count=wdAttach?.pending()||0;if(!text&&!count){st.textContent='내용을 입력해 주세요.';st.className='status error';box.focus();return}if(btn.disabled)return;btn.disabled=true;wdAttach?.render();st.textContent=count?'올리는 중…':'저장 중…';st.className='status';try{
- if(count){const [{saveUpdateWithFiles,linkFailText,fileFailText},{recordLineFor}]=await Promise.all([import('./update-places.js'),import('./record-attach.js')]);const owner=wdUser?.id,same=()=>wdRt.session.read()?.user?.id===owner,batch=wdAttach.getBatch();
-  const result=await saveUpdateWithFiles({places:[{kind:'organization',id:orgId}],text,batch,isCurrent:same,sameOwner:same,onChange:()=>wdAttach.render(),fileLine:list=>recordLineFor(list,wdRt)},wdRt);
-  if(!batch.blocked&&batch.entries.every(e=>e.kind==='success'))wdAttach.reset();if(wdOrg?.id!==orgId)return;box.value='';await wdRefreshLinks();
-  const warn=[result?.linkError?linkFailText:'',result?.filed?.ok===false?fileFailText:''].filter(Boolean).join(' ');st.textContent=warn||'저장했습니다.';st.className=warn?'status error':'status ok';return}
+// BIZ-저장먼저닫기 2차(S59-10): with files only the letters are saved (and linked to this organization) while [저장] waits; the input is then
+// emptied and the files go up behind on the update's line to the end, even to another organization or screen (update-places.js
+// saveUpdateFilesBehind: the line above the bottom bar, [다시 올리기] for what did not go up). Files without letters: nothing to wait for —
+// the first file makes the update and the record is linked with the AI line behind. A failed letters save keeps the letters and files.
+async function wdSaveInbox(){if(!wdOrg?.canEdit)return;const box=document.querySelector('#wdInboxText'),st=document.querySelector('#wdInboxState'),btn=document.querySelector('#wdInboxSave'),text=box.value.trim(),orgId=wdOrg.id,count=wdAttach?.pending()||0;if(!text&&!count){st.textContent='내용을 입력해 주세요.';st.className='status error';box.focus();return}if(btn.disabled)return;btn.disabled=true;wdAttach?.render();st.textContent='저장 중…';st.className='status';try{
+ if(count){const [{saveUpdateFilesBehind,linkFailText},{recordLineFor}]=await Promise.all([import('./update-places.js'),import('./record-attach.js')]);const owner=wdUser?.id,batch=wdAttach.getBatch(),name=wdOrg.name||'담당조직';
+  const result=await saveUpdateFilesBehind({places:[{kind:'organization',id:orgId}],text,batch,fileLine:list=>recordLineFor(list,wdRt),where:`${name} 기록`},wdRt);
+  if(wdAttach.getBatch()===batch)wdAttach.reset();if(result.stale||wdRt.session.read()?.user?.id!==owner||wdOrg?.id!==orgId)return;box.value='';if(text)await wdRefreshLinks();
+  st.textContent=result.linkError?linkFailText:text?'저장했어요. 사진·파일은 올리는 중이에요.':'사진·파일을 올리는 중이에요.';st.className=result.linkError?'status error':'status ok';return}
  const {saveOrganizationUpdate}=await import('./quick-save.js');await saveOrganizationUpdate({organization_id:orgId,raw_text:text,created_by:wdUser.id});if(wdOrg?.id!==orgId)return;box.value='';await wdReloadUpdates(orgId);st.textContent='저장했습니다.';st.className='status ok'}catch(e){st.textContent=e.message||String(e);st.className='status error'}finally{btn.disabled=false;wdAttach?.render()}}
 // TASK-조직상세: Google tasks linked to this organization, drawn by google-tasks.js like the project detail (all pending and
 // those completed in the last 3 days). A fresh box per opening, and an emptied one on close, so a closed detail is not refreshed.
