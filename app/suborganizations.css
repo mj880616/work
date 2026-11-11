@@ -90,7 +90,7 @@
 .so-team-tabs[hidden]{display:none}
 #soTeamSection.so-view-table>#soOrganizationList,#soTeamSection.so-view-table>#wdDetailPane{display:none!important}
 #soTeamSection.so-view-table>.so-team-head .so-team-title{display:none}
-.oa{--oa-w-org:11em;min-width:0}
+.oa{min-width:0} /* [조직] 열 기본 폭은 weekly-org-lines.css(.oa-table)가 정한다 — 끌어 정한 폭 --oa-w-org가 없을 때 이름 맞춤 폭(ORG-폴드두열표) */
 .oa[hidden]{display:none}
 .oa-bar{margin:0 0 8px}
 /* S50-7: 표 모양·칸 선·폰 두 줄 배치는 공용 .wl-table(weekly-org-lines.css)이 맡는다. 여기는 조직 이름 버튼만. */
