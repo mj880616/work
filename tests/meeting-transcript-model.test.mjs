@@ -106,7 +106,8 @@ test('화면 연결: [회의] 칸 입력 창에서 기존 meeting-ai-draft 새 �
   assert.doesNotMatch(s,/saveMeetingBtn/);
   assert.match(s,/kptu:report-entry-kind/);
   assert.match(s,/isMeetingKind/);
-  assert.match(s,/#meetingActionAdd/);
+  // MTG-할일자동생성금지: AI 요약은 '후속 할 일' 입력 줄·[추가]를 건드리지 않는다(할 일 후보로만, tests/security/meeting-no-auto-tasks.test.mjs).
+  assert.doesNotMatch(s,/#meetingActionAdd/);
   const loader=read('app/view-loader.js');
   assert.match(loader,/module\('\.\/meeting-transcript-draft\.js'\)/);
   assert.doesNotMatch(loader,/meeting-transcript-draft\.js\?v=/);
