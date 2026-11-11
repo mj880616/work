@@ -624,6 +624,9 @@ jobs:
       - name: Check home request box and forget box share one part (UI-요청상자통일)
         run: node --test tests/notice-box.test.mjs
 
+      - name: Check small fixes (S59-20 OPS-작은손보기 — empty box text, ** marks, menu icons)
+        run: node --test tests/s59-20-small-fixes.test.mjs
+
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs
 
