@@ -66,7 +66,10 @@ class QuickPhotoTest {
             assertFalse(a, WidgetRules.allowed("POST", "$base/functions/v1/basket-files?action=$a"))
             assertFalse(a, WidgetRules.allowed("GET", "$base/functions/v1/basket-files?action=$a"))
         }
-        assertFalse(WidgetRules.allowed("POST", "$base/functions/v1/library-files"))
+        // APP-뒤에서올리기(설계 16절)에서 자료실 올리기 주소 하나(library-files, 정해진 multipart 모양만)가 더해졌다. 모양은 BackUploadTest가 고정한다.
+        // 정리함 모양(파일 + note_id)은 그 주소로 보내지 못하고, 자료실의 다른 입구는 그대로 막혀 있다.
+        assertFalse(WidgetRules.allowedParts("POST", "$base/functions/v1/library-files", null, listOf(WidgetPart("file", file = photo(), fileName = "a.jpg", type = "image/jpeg"))))
+        assertFalse(WidgetRules.allowed("POST", "$base/functions/v1/document-actions"))
     }
 
     @Test
