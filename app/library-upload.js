@@ -635,7 +635,8 @@ function luMeetingSendReport(ev){
   // 못 올린 줄의 [다시]도 같은 길(못 올린 것만). 다시 골라야 하는 파일·결과 불명에는 붙이지 않는다.
   if(ev.retry)for(const e of batch.entries)if((e.state==='failed'||e.state==='held')&&!e.fixed)setUploadRetry(e.file,retry);
   const bad=ev.badPhotos+ev.badFiles,ok=ev.okPhotos+ev.okFiles,again=ev.retry?[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]:[];
-  if(bad)announceDock({text:sendFailLine(ev),note:ev.message,error:true,back,ms:0,actions:again});
+  // 못 올린 것이 있으면 한 줄은 짧게('사진 2장 못 올렸어요'), 작은 둘째 줄에 올라간 것과 까닭. 누를 때까지 남는다(저절로 사라지면 못 올린 줄 모르고 지나간다).
+  if(bad)announceDock({text:sendFailLine({badPhotos:ev.badPhotos,badFiles:ev.badFiles}),note:[sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),ev.message].filter(Boolean).join(' · '),error:true,back,ms:0,actions:again});
   else if(ev.cancelled)announceDock({text:ok?`${sendDoneLine({photos:ev.okPhotos,files:ev.okFiles})} · ${ev.cancelled}개 취소`:'올리기를 취소했어요',back,ms:LU_BACK_FAIL_MS,actions:again});
   else if(ok)announceDock({text:sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),back});
   if(ev.stopped?.type==='drive_auth')void luMaybeReconnectDrive(ev.stopped.error);

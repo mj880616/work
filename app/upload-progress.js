@@ -271,7 +271,17 @@ function resetDock() {
 }
 const visible = node => !!node?.isConnected && node.getClientRects().length > 0 && !node.closest('[hidden],[inert]');
 // 칸 자신은 올리기가 생긴 뒤에야 보이므로(위 paint) 칸이 든 자리(부모)가 보이는지로 판단한다.
-const covered = job => [...hosts].some(({host, has}) => { try { return has(job) && host.isConnected && visible(host.parentElement); } catch { return false; } });
+// 뒤 줄 한 묶음(group)은 창이 닫힌 뒤에 올라가므로, 그 묶음의 올리는 줄이 지금 화면 안에 실제로 보일 때만 그 줄에 맡긴다
+// (PC는 저장한 보고가 오른쪽 칸에 붙지만 사진·회의자료 칸은 화면 아래에 있어 안 보인다 — 그때는 이 한 줄이 진행을 알린다).
+// 사진 칸·회의자료 칸처럼 줄이 두 곳으로 나뉘어도, 그 묶음의 줄이 한 곳이라도 화면에 보이면 묶음 전체를 그 줄에 맡긴다.
+const inView = node => { const box = node.getBoundingClientRect(), tall = globalThis.window?.innerHeight || document.documentElement.clientHeight || 0; return box.height > 0 && box.bottom > 0 && box.top < tall; };
+const shows = ({host, has}, job) => { try { return has(job) && host.isConnected && visible(host.parentElement); } catch { return false; } };
+function covered(job) {
+  if (![...hosts].some(entry => shows(entry, job))) return false;
+  if (!job.group) return true;
+  const peers = uploadJobs().filter(item => item.group === job.group);
+  return [...hosts].some(entry => { try { return inView(entry.host) && peers.some(peer => shows(entry, peer)); } catch { return false; } });
+}
 function dockNode() {
   if (dock.node?.isConnected) return dock.node;
   const node = el('div', 'up-dock'); node.id = 'uploadDock'; node.hidden = true;

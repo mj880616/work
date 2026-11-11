@@ -200,7 +200,9 @@ for(const width of [390,1280]){
     // 폰은 하단바 위 한 줄, PC는 저장한 보고가 붙은 오른쪽 칸의 회의자료 올리는 줄.
     await expect(page.locator('#meetingModal')).toBeHidden();
     await expect(page.getByRole('button',{name:'keep.pdf 선택 취소',exact:true})).toBeHidden();
-    await expect(page.locator(width<761?'#uploadDock:not([hidden]) .up-bar':'#mcolResult #mrdDropRows .up-row [role="progressbar"]')).toBeVisible();
+    // (PC는 그 칸이 화면 안에 보이면 칸의 줄이, 화면 아래에 있으면 하단바 위 한 줄이 맡는다 — 어느 쪽이든 공용 막대가 보인다.)
+    const bar=page.locator('#uploadDock:not([hidden]) .up-bar');
+    await expect(width<761?bar:bar.or(page.locator('#mcolResult #mrdDropRows .up-row [role="progressbar"]')).first()).toBeVisible();
     await expect(page.locator('#newMeetingBtn')).toBeEnabled();
     expect(await selectionDraft(page)).toBe(true); // 올리는 중 새로 고치면 줄에 선 파일이 사라지므로 먼저 묻는다
     state.hold=false;state.release();
@@ -404,8 +406,8 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
     }else{
       // 새 사업 보고: 읽은 파일은 올라가고 읽지 못한 파일만 하단바 위 한 줄에 남는다([다시 올리기] 없음).
       await expect(page.locator('#meetingModal')).toBeHidden();
-      await expect(dockLine(page).locator('.up-dock-text')).toHaveText('자료 1개 못 올렸어요 · 자료 1개 올렸어요');
-      await expect(dockLine(page).locator('.up-dock-note')).toHaveText(READ_ERROR);
+      await expect(dockLine(page).locator('.up-dock-text')).toHaveText('자료 1개 못 올렸어요');
+      await expect(dockLine(page).locator('.up-dock-note')).toHaveText('자료 1개 올렸어요 · '+READ_ERROR);
       await expect(dockRetry(page)).toHaveCount(0);
     }
     if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();

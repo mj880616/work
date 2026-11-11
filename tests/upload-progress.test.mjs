@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {sendUpload, percent, amount} from '../app/upload-send.mjs';
-import {trackUpload, uploadJobs, summaryText, setUploadClock, checkSlow, setUploadRetry, isUploading, SLOW_SENDING_MS, SLOW_FINISH_MS} from '../app/upload-progress.js';
+import {trackUpload, uploadJobs, summaryText, setUploadClock, checkSlow, setUploadRetry, isUploading, announceDock, SLOW_SENDING_MS, SLOW_FINISH_MS} from '../app/upload-progress.js';
 
 // 흉내 XMLHttpRequest: 시험이 보낸 양·끝을 직접 일으킨다.
 function fakeXhr() {
@@ -79,6 +79,39 @@ test('올리는 중 목록: 합계 줄·완료 1초·실패 [다시]·느려요(
   assert.equal(j3.phase, 'done');
   await new Promise(r => setTimeout(r, 1100));
   assert.equal(uploadJobs().length, 0, '완료는 1초 뒤 빠진다');
+});
+
+// BIZ-저장먼저닫기(S58-1): 뒤 줄에 선 한 묶음은 차례를 기다리는 파일도 처음부터 목록에 있고('대기'), 묶음의 %는 이미 올린 양을 더해 끝까지 한 방향으로 오른다.
+test('뒤 줄 한 묶음: 대기 파일도 합계에 들고, %는 파일이 끝나도 0으로 돌아가지 않는다 · 대기는 느려요가 되지 않는다 · 대기 ✕는 보내지 않음', async () => {
+  for (const job of uploadJobs()) job.cancel();
+  let t = 0; setUploadClock(() => t);
+  const group = {sent: 0};
+  const files = [{name: 'p1.jpg', size: 1024, type: 'image/jpeg'}, {name: 'p2.jpg', size: 1024, type: 'image/jpeg'}, {name: 'a.hwp', size: 2048}];
+  const [j1, j2, j3] = files.map(file => trackUpload({file, waiting: true, group}));
+  assert.deepEqual([j1.phase, j2.phase, j3.phase], ['waiting', 'waiting', 'waiting']);
+  assert.equal(summaryText(uploadJobs()), '올리는 중 3개 · 0B / 4KB · 0%');
+  t += SLOW_SENDING_MS * 3; checkSlow();
+  assert.deepEqual([j1.slow, j2.slow], [false, false], '차례를 기다리는 파일은 느려요가 아니다');
+  j1.start(); assert.equal(j1.phase, 'sending');
+  j1.progress({loaded: 1024, total: 1024}); j1.done();
+  assert.equal(group.sent, 1024);
+  assert.equal(summaryText(uploadJobs()), '올리는 중 2개 · 1KB / 4KB · 25%', '끝난 파일의 양이 묶음에 남아 %가 이어진다');
+  j2.progress({loaded: 512, total: 1024}); // 첫 progress가 대기를 보내는 중으로 바꾼다
+  assert.equal(j2.phase, 'sending');
+  assert.equal(summaryText(uploadJobs()), '올리는 중 2개 · 2KB / 4KB · 37%'); // 양은 KB 반올림, %는 내림
+  j3.cancel();
+  assert.ok(j3.cancelled() && !isUploading(files[2]), '대기 ✕ = 보내지 않고 목록에서 빠짐');
+  j2.fail('연결이 끊겼어요');
+  assert.equal(summaryText(uploadJobs()), '', '살아 있는 것이 없으면 합계 줄이 없다');
+  for (const job of uploadJobs()) job.cancel();
+  await new Promise(r => setTimeout(r, 1100));
+  assert.equal(uploadJobs().length, 0);
+});
+
+test('한 줄 끝 알림(announceDock)은 화면이 없으면 아무것도 하지 않고, 글이 없으면 만들지 않는다', () => {
+  assert.equal(typeof announceDock({text: ''}).close, 'function');
+  const note = announceDock({text: '사진 1장 올렸어요', ms: 0});
+  note.close(); note.close();
 });
 
 test('올리는 길: basket-files는 공용 보내기(upload-send.mjs)와 표시(upload-progress.js)를 쓰고 fetch로 직접 보내지 않는다', () => {

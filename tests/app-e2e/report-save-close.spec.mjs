@@ -18,8 +18,8 @@ const paper=(name='자료.hwp')=>({name,mimeType:'application/x-hwp',buffer:Buff
 const dock=page=>page.locator('#uploadDock:not([hidden])');
 const reloadAsks=page=>page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{detail}));return detail.otherDraft});
 
-async function boot(page,width){
-  await page.setViewportSize({width,height:900});
+async function boot(page,width,height=900){
+  await page.setViewportSize({width,height});
   const state={meetings:[],docs:[],uploads:[],posts:0,hold:false,waiting:[],inFlight:0,most:0,failNames:new Set(),failMeeting:false,errors:[]};
   // 붙잡아 둔 올리기 하나를 놓아 준다(먼저 온 것부터).
   state.release=()=>{const next=state.waiting.shift();if(next)next()};
@@ -83,7 +83,8 @@ const names=n=>[...Array.from({length:n},(_,i)=>`사진${i+1}.jpg`),'자료.hwp'
 
 for(const width of [412,1280]){
   test(`사진 7장 + 자료 1개 [저장]: 창이 바로 닫히고 아래 한 줄이 끝까지, 다시 열면 모두 붙어 있다 ${width}px`,async({page})=>{
-    const state=await boot(page,width);
+    // PC는 낮은 화면(640)으로: 오른쪽 칸에 붙는 보고의 사진·회의자료 칸이 처음에는 화면 아래에 있다.
+    const state=await boot(page,width,width<761?900:640);
     await fillReport(page);
     state.hold=true;
     await page.locator('#saveMeetingBtn').click();
@@ -95,12 +96,18 @@ for(const width of [412,1280]){
     await expect(page.locator('#newMeetingBtn')).toBeEnabled();
     expect(await reloadAsks(page)).toBe(true); // 올리는 중 새로 고치면 줄에 선 파일이 사라지므로 먼저 묻는다
     // 폰: 창이 닫혀 올리는 줄을 보이는 화면이 없으므로 하단바 위 한 줄이 묶음 전체(8개)를 센다. PC: 저장한 보고가 오른쪽 칸에 붙어 그 칸의 올리는 줄이 맡는다.
-    if(width<761){
-      await expect(dock(page).locator('.up-dock-text')).toHaveText('파일 8개 올리는 중');
-      await expect(dock(page).locator('.up-dock-pc')).toHaveText(/^\d+%$|마무리 중…/);
-    }else{
+    // 창이 닫혔으니 하단바 위 한 줄이 묶음 전체(8개)를 센다. PC는 저장한 보고가 오른쪽 칸에 붙어 그 칸에도 올리는 줄이 있지만,
+    // 사진·회의자료 칸이 화면 아래에 있어 보이지 않는 동안은 한 줄이 진행을 알린다. 그 칸을 화면에 올리면 한 줄은 자리를 내준다.
+    await expect(dock(page).locator('.up-dock-text')).toHaveText('파일 8개 올리는 중');
+    await expect(dock(page).locator('.up-dock-pc')).toHaveText(/^\d+%$|마무리 중…/);
+    if(width>=761){
       await expect(page.locator('#mcolResult #mrdPhotoRows .up-row')).toHaveCount(7);
       await expect(page.locator('#mcolResult #mrdDropRows .up-row')).toHaveCount(1);
+      await page.locator('#mcolResult #mrdPhotoRows').scrollIntoViewIfNeeded();
+      await expect(dock(page)).toHaveCount(0);
+      await page.locator('#mcolResult #mrdMeta').scrollIntoViewIfNeeded();
+      await page.evaluate(()=>{for(const node of [document.scrollingElement,...document.querySelectorAll('#appView *')])if(node&&node.scrollTop)node.scrollTop=0});
+      await expect(dock(page).locator('.up-dock-text')).toHaveText('파일 8개 올리는 중');
     }
     // 한 번에 하나씩, 고른 순서대로.
     for(let sent=1;sent<8;sent++){
@@ -135,9 +142,10 @@ for(const width of [412,1280]){
     await expect(page.locator('#meetingModal')).toBeHidden();
     await expect.poll(()=>state.uploads.length).toBe(3);
     const line=dock(page);
-    await expect(line.locator('.up-dock-text')).toHaveText('사진 1장 못 올렸어요 · 사진 1장·자료 1개 올렸어요');
+    await expect(line.locator('.up-dock-text')).toHaveText('사진 1장 못 올렸어요');
     await expect(line).toHaveAttribute('role','alert');
-    await expect(line.locator('.up-dock-note')).toContainText('파일을 업로드하지 못했어요');
+    // 작은 둘째 줄: 올라간 것 + 까닭.
+    await expect(line.locator('.up-dock-note')).toHaveText(/^사진 1장·자료 1개 올렸어요 · 파일을 업로드하지 못했어요/);
     const again=line.getByRole('button',{name:'못 올린 파일 다시 올리기'});
     await expect(again).toHaveText('다시 올리기');
     // 저절로 사라지지 않는다(누를 때까지).

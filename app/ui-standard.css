@@ -1737,10 +1737,10 @@ button.icon-btn.up-x{ position:relative; width:var(--ds-compact-height-sm,28px);
 #uploadDock .up-bar > i{ background:var(--kptu-surface); }
 #uploadDock :is(button.row-act,button.icon-btn){ color:var(--kptu-surface); }
 /* 묶음 끝 알림(BIZ-저장먼저닫기): '사진 n장·자료 n개 올렸어요', 못 올렸으면 [다시 올리기] + 작은 둘째 줄(까닭). 글이 잘리지 않게 줄을 바꾼다. */
-#uploadDock[data-state="note"] .up-dock-text{ white-space:normal; overflow:visible; }
+#uploadDock[data-state="note"] .up-dock-text{ white-space:normal; overflow:visible; word-break:keep-all; }
 #uploadDock[data-state="note"] .up-dock-acts{ flex:none; }
 #uploadDock[data-state="note"] .up-dock-acts button.row-act{ white-space:nowrap; }
-#uploadDock .up-dock-note{ padding:0 0 4px; opacity:.8; white-space:normal; overflow-wrap:anywhere; }
+#uploadDock .up-dock-note{ padding:0 0 4px; opacity:.8; white-space:normal; word-break:keep-all; overflow-wrap:anywhere; }
 
 /* UI-줄⋯공용맞추기(요청함 11/09 07:36): 줄 끝 ⋯ (row-more.js)의 모양·작은 메뉴는 모든 화면 공용 — 예전에는 #homeView 안에서만 정해져 담당조직 등에서 ▶·▼와 큰 버튼 메뉴가 보였다. 홈 모양은 그대로, 규칙만 화면 밖으로 옮김.
    ▶·▼ 펼침 표시는 없고 ⋯ 만 보인다. 줄(.wl-line)에서는 ⋯ 를 글 오른쪽 위(첫 줄 높이)에 고정해 긴 글에서도 아래로 내려가지 않고 줄 높이를 늘리지 않는다. */
