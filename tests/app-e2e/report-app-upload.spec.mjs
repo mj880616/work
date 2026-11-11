@@ -105,13 +105,22 @@ async function fakeVisibility(page){
   return value=>page.evaluate(v=>{window.__vis=v;document.dispatchEvent(new Event('visibilitychange'))},value);
 }
 const pickPhotos=(page,n)=>page.locator('#mrdPhotoInput').setInputFiles(Array.from({length:n},(_,i)=>photo(i+1)));
+// STAB-report-app-upload(S59-5): 사업 보고를 다 읽은 뒤에 사진을 고른다. 폰은 줄을 누르면 곧 돌아오는데, 사진 고르기 칸(#mrdPhotoInput)은
+// 창을 깔 때 이미 있고 그 보고는 그 뒤에 읽는다. 읽기가 끝나기 전에 넣은 파일은 화면이 받을 보고가 없어 받지 않는다 — CI에서 읽기가 조금 늦으면
+// 고른 사진이 통째로 사라져 '2장을 올렸어요'·하단 한 줄이 끝내 나오지 않았다. 사람은 창이 열린 뒤에야 [+]를 누를 수 있으므로,
+// 창이 그 보고를 다 읽었다(data-meeting-id)·[+]가 보인다를 확인한 뒤에 고른다.
+async function openReport(page,id=OLD_ID){
+  await openMeetingResult(page,id);
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id',id);
+  await expect(page.locator('#mrdPickPhotos')).toBeVisible();
+}
 
 test.describe('폰 앱(가짜 다리)',()=>{
   test.use({userAgent:ANDROID});
 
   test('상세 사진 줄: 사진 3장을 앱에 넘기고 화면은 보내지 않는다 → 끝 알림으로 채워지고, 멈춤·실패 줄·[다시 올리기] 412px',async({page})=>{
     const state=await boot(page,412,{app:{know:true,on:true}});
-    await openMeetingResult(page,OLD_ID);
+    await openReport(page,OLD_ID);
     await pickPhotos(page,3);
     // 넘김: 화면은 서버로 보내지 않고, 줄은 '앱이 올리는 중'.
     await expect(page.locator('#mrdPhotoRows .up-row[data-phase="handed"]')).toHaveCount(3,{timeout:FIRST});
@@ -185,7 +194,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
     const ids=[state.attach(1,'사진1.jpg',NEW_ID),state.attach(2,'사진2.jpg',NEW_ID),state.attach(3,'자료.hwp',NEW_ID)];
     await appJob(page,1,{target:NEW_ID,total:3,docs:ids,errors:['','','']});
     await expect(dock(page).locator('.up-dock-text')).toHaveText('사진 2장·자료 1개 올렸어요');
-    await openMeetingResult(page,NEW_ID);
+    await openReport(page,NEW_ID);
     await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(1);
     await expect(page.locator('#mrdPhotoRows .up-row,#mrdDropRows .up-row')).toHaveCount(0);
@@ -196,7 +205,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
   for(const [label,app] of [['옛 앱(물음에 답 없음)',{know:false,on:true}],['위젯 로그인 없음',{know:true,on:false}]]){
     test(`${label}: 넘기지 않고 지금 길 그대로 화면 안에서 올린다 412px`,async({page})=>{
       const state=await boot(page,412,{app});
-      await openMeetingResult(page,OLD_ID);
+      await openReport(page,OLD_ID);
       await pickPhotos(page,2);
       await expect(page.locator('#mrdPhotoStatus')).toContainText('2장을 올렸어요',{timeout:10000});
       await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
@@ -211,7 +220,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
 for(const width of [412,1280]){
   test(`브라우저: 화면을 벗어난 사이 끊긴 사진은 돌아오면 저절로 다시 올리고, 까닭을 인터넷 탓으로 알리지 않는다 ${width}px`,async({page})=>{
     const state=await boot(page,width);
-    await openMeetingResult(page,OLD_ID);
+    await openReport(page,OLD_ID);
     const setVisible=await fakeVisibility(page);
     state.hold=true;state.cut.add('사진1.jpg');
     await pickPhotos(page,2);
@@ -239,7 +248,7 @@ for(const width of [412,1280]){
 
   test(`브라우저: 돌아와 다시 보내도 안 되면 그 줄에 [다시] — 못 올린 사진만 다시 올린다(처음부터 다시 고르지 않음) ${width}px`,async({page})=>{
     const state=await boot(page,width);
-    await openMeetingResult(page,OLD_ID);
+    await openReport(page,OLD_ID);
     const setVisible=await fakeVisibility(page);
     state.hold=true;state.cutAlways=true;
     await pickPhotos(page,2);
@@ -273,7 +282,7 @@ for(const width of [412,1280]){
 
 test('브라우저: 화면이 멈춘 사이 서버가 이미 받은 사진은 돌아와도 다시 보내지 않는다(같은 사진이 두 번 붙지 않게) 412px',async({page})=>{
   const state=await boot(page,412);
-  await openMeetingResult(page,OLD_ID);
+  await openReport(page,OLD_ID);
   const setVisible=await fakeVisibility(page);
   state.hold=true;state.cutAfterSave=true;
   await pickPhotos(page,2);
@@ -296,7 +305,7 @@ test('브라우저: 화면이 멈춘 사이 서버가 이미 받은 사진은 �
 
 test('브라우저: 다 보낸 뒤 끊긴 사진(올렸는지 모름)은 돌아와도 저절로 다시 보내지 않는다 412px',async({page})=>{
   const state=await boot(page,412);
-  await openMeetingResult(page,OLD_ID);
+  await openReport(page,OLD_ID);
   const setVisible=await fakeVisibility(page);
   // 다 보낸 뒤 끊김 흉내: 올리기 길이 '다 보냄' 뒤의 끊김으로 알린다(서버가 받았을 수 있다).
   await page.evaluate(()=>{const Real=window.XMLHttpRequest;window.XMLHttpRequest=function(){const xhr=new Real(),send=xhr.send.bind(xhr);xhr.send=body=>{if(!(body instanceof FormData))return send(body);setTimeout(()=>{window.__vis='hidden';document.dispatchEvent(new Event('visibilitychange'));xhr.upload.onload?.();xhr.onerror?.()},50)};return xhr}});
