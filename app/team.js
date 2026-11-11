@@ -220,9 +220,43 @@ function leaveReport(go){const guard=window.KPTUMeetingRoundDetail?.guardLeave;i
 function selectReportView(next){next=reportViewOf(next);if(next===reportView)return;if(!leaveReport(()=>{reportViewChosen=true;reportView=next;viewPrefs.set('report_view',next);renderMeetings({resetList:true})}))renderReportViewSelect()}
 function viewRows(){renderMeetingTypeOptions();const filter=typeFilter();return sortRecentFirst(reportRows().filter(m=>filter==='all'||(filter==='__none__'?!meetingName(m):meetingName(m)===filter)))}
 const viewName=m=>meetingName(m)||'이름 없음',viewColor=m=>meetingColor(meetingName(m)),viewMeta=m=>[reportKindLabel(reportKindOf(m)),areaNameOf(m),...meetingRowMeta(m)].filter(Boolean).join(' · ');
-function renderReportCalendar(box){meetingWhere(null);const active=box.contains(document.activeElement)?document.activeElement:null,keep=active?(active.dataset.rvNav?['data-rv-nav',active.dataset.rvNav]:active.dataset.rvDay?['data-rv-day',active.dataset.rvDay]:active.dataset.rvMore?['data-rv-more',active.dataset.rvMore]:null):null;box.innerHTML=calendarHtml({rows:viewRows(),month:reportMonth,selectedDay:reportDay,todayKey:seoulDateKey(),photos:photosByMeeting(documents),colorOf:viewColor,nameOf:viewName,metaOf:viewMeta});mountStrips(box,()=>box.isConnected);mountReportDrag();if(keep)box.querySelector(`[${keep[0]}="${keep[1]}"]`)?.focus({preventScroll:true});showReportDay('',true)}
+function renderReportCalendar(box){meetingWhere(null);const active=box.contains(document.activeElement)?document.activeElement:null,keep=active?(active.dataset.rvNav?['data-rv-nav',active.dataset.rvNav]:active.dataset.rvDay?['data-rv-day',active.dataset.rvDay]:active.dataset.rvMore?['data-rv-more',active.dataset.rvMore]:null):null,keepPlan=keep?null:planFocusOf(active),dueOpen=!!box.querySelector('[data-rv-due]')?.open;planNow=reportPlans?.planView({month:reportMonth,todayKey:seoulDateKey(),nameFilter:typeFilter()})||null;box.innerHTML=calendarHtml({rows:viewRows(),month:reportMonth,selectedDay:reportDay,todayKey:seoulDateKey(),photos:photosByMeeting(documents),colorOf:viewColor,nameOf:viewName,metaOf:viewMeta,plan:planNow,planColorOf:planColor,dueOpen});mountStrips(box,()=>box.isConnected);mountReportDrag();if(keep)box.querySelector(`[${keep[0]}="${keep[1]}"]`)?.focus({preventScroll:true});else if(keepPlan)planFocusBack(box,keepPlan);wantReportPlans();showReportDay('',true)}
+// S58-10 BIZ-보고할일정 PR C(설계 docs/design/biz-report-plan-link.md 4절): 달력에 □ 보고할 일정·점선 □ 보고할까요?·'안 쓴 보고 n'을 같이 그린다.
+// 읽기·저장은 report-calendar-plans.js(달력을 처음 그릴 때 한 번 부름), 규칙은 report-calendar-plan.mjs. 그리는 곳은 위 renderReportCalendar 하나이고
+// 여기는 지금 그린 값(planNow)과 단추 누름을 저장 길에 잇기만 한다. 서버에 새 표가 없으면 planNow=null → 표시 없이 지금 그대로.
+let reportPlans=null,reportPlansFlight=null,planNow=null;const planBusy=new Set();
+const planColor=item=>meetingColor(item.title);
+// 읽기가 끝났거나 줄이 바뀌었을 때: 그릴 것이 지금 그린 것과 같으면 다시 그리지 않는다(보고할 일정이 없는 사람의 달력은 한 번만 그린다 — 다시 그리면 누르던 줄·끌던 보고가 끊긴다).
+// 그림은 같아도 다음 읽기(이 달 일정)는 이어 가야 하므로 wantReportPlans는 부른다. 보고를 끄는 중이면 끝난 뒤에 그린다.
+const planSig=p=>{if(!p)return '';const items=[...p.byDay.values()].flat();return items.length||p.overdue.length?JSON.stringify([items.map(i=>[i.eventId,i.status,i.day,i.title,i.startsAt]),p.overdue.map(i=>[i.eventId,i.day,i.title])]):''};
+function redrawReportPlans(){if(!(workspace?.id&&reportKitLoaded&&reportView==='calendar'&&teamViewLoaded.has('meetings')))return;
+  if(document.documentElement.classList.contains('cal-drag-on')){setTimeout(redrawReportPlans,400);return}
+  const next=reportPlans?.planView({month:reportMonth,todayKey:seoulDateKey(),nameFilter:typeFilter()})||null;
+  if(planSig(next)===planSig(planNow)){wantReportPlans();return}
+  renderMeetings()}
+function wantReportPlans(){if(reportPlans){reportPlans.wantPlans(reportMonth,redrawReportPlans);return}
+  reportPlansFlight||=import('./report-calendar-plans.js').then(m=>{reportPlans=m;m.onPlansChanged(redrawReportPlans);$('#meetingList')?.addEventListener('keydown',planKeys);redrawReportPlans()},()=>{reportPlansFlight=null})}
+function planItemOf(id){if(!planNow)return null;for(const list of planNow.byDay.values()){const hit=list.find(i=>i.eventId===id);if(hit)return hit}return planNow.overdue.find(i=>i.eventId===id)||null}
+// 다시 그린 뒤 초점: 누른 단추가 있던 줄(그날 목록·'안 쓴 보고' 목록·칸)의 단추로. 줄이 없어졌으면(뺐거나 보고를 씀) 고른 날 숫자로.
+function planFocusOf(el){if(!el)return null;if(el.matches('[data-rv-due]>summary'))return {summary:true};const row=el.closest('[data-rv-plan]');return row?{id:row.dataset.rvPlan,scope:row.closest('[data-rv-due]')?'[data-rv-due]':row.closest('.rv-table')?'.rv-table':'.rv-day-list'}:null}
+function planFocusBack(box,k){const id=k.summary?'':CSS.escape(k.id),el=k.summary?box.querySelector('[data-rv-due]>summary'):box.querySelector(`${k.scope} [data-rv-plan="${id}"] button`)||box.querySelector(`${k.scope} [data-rv-plan="${id}"][tabindex]`)||box.querySelector('.rv-sel .rv-num');el?.focus({preventScroll:true})}
+// [보고 쓰기] = 일정 창 [결과 남기기]와 같은 쓰기 창(일정 제목·시각·장소가 채워지고, 저장하면 보고 줄에 일정이 이어진다 — PR A).
+function planWrite(id,trigger){const item=planItemOf(id);if(!item||!reportPlans)return;void window.KPTUReportEntry.open({...reportPlans.writeOptions(item,reportMonth),trigger:trigger?.isConnected?trigger:document.body,onSaved:()=>reportPlans.noteWritten(item.eventId)})}
+// [보고할까요?](on)·⋯ [보고할 일정 ✓](off — 이 일정만 끔)·⋯ [빼기](skip — 같은 이름은 다시 묻지 않음). 저장되면 report-plan-data.js가 알려 다시 그린다.
+// 저장하는 동안 같은 일정을 또 누르면 받지 않는다(planBusy). 단추를 꺼 두지는 않는다 — 꺼진 단추는 초점을 잃어, 다시 그린 뒤 그 줄로 초점을 돌려줄 수 없다.
+async function planDecide(id,state){const item=planItemOf(id);if(!item||!reportPlans||planBusy.has(id))return;planBusy.add(id);
+  try{await reportPlans.decidePlan(item,state);toast(reportPlans.DECIDED_TEXT[state])}
+  catch(err){console.error('report plan decide',err);toast('저장하지 못했어요. 다시 눌러 주세요.')}
+  finally{planBusy.delete(id)}}
+function planMenu(id,trigger,at=null){const item=planItemOf(id);if(!item||!reportPlans)return false;return reportPlans.openPlanMenu(trigger,item,at,state=>void planDecide(id,state))}
+// 칸 안 □ 줄(글자 단추 role=button)의 Enter·Space = 누름.
+function planKeys(e){if((e.key==='Enter'||e.key===' ')&&e.target instanceof Element&&e.target.matches('[data-rv-plan-write][role="button"]')){e.preventDefault();e.target.click()}}
+// 달력 안 보고할 일정 누름(reportViewClick 맨 앞에서 부른다). 받았으면 true.
+function planClick(e){const t=e.target;const w=t.closest('[data-rv-plan-write]');if(w){planWrite(w.dataset.rvPlanWrite,w);return true}const a=t.closest('[data-rv-plan-ask]');if(a){void planDecide(a.dataset.rvPlanAsk,'on');return true}const m=t.closest('[data-rv-plan-more]');if(m){planMenu(m.dataset.rvPlanMore,m);return true}
+  // '안 쓴 보고' 접는 줄·그날 목록의 보고할 일정 줄 바탕은 아무 일도 하지 않는다(펼치기는 브라우저가, 동작은 단추가) — 칸 고르기로 넘기지 않는다.
+  return !!t.closest('[data-rv-due],.rv-plan-row')}
 function renderReportPhotos(box){meetingWhere(null);const rows=viewRows(),photos=photosByMeeting(documents);box.innerHTML=photoViewHtml({rows,photos,colorOf:viewColor,nameOf:viewName,kindOf:m=>reportKindLabel(reportKindOf(m))});mountPhotoView(box,{rows,photos,api,onError:m=>toast(m),openReport:id=>import('./report-open.js').then(mod=>mod.openReport(id))});if(photoFocusId&&meetings.length){const el=box.querySelector(`[data-rv-set="${CSS.escape(photoFocusId)}"] .rv-set-head`);photoFocusId=null;if(el){el.scrollIntoView({block:'start'});el.focus({preventScroll:true})}}}
-function reportViewClick(e){const nav=e.target.closest('[data-rv-nav]');if(nav){const to=nav.dataset.rvNav;if(to==='today'){const p=seoulParts();reportMonth={year:p.year,month:p.month};reportDay=seoulDateKey()}else{reportMonth=shiftMonth(reportMonth,to==='next'?1:-1);reportDay=''}renderMeetings();return true}if(e.target.closest('[data-mrd-meeting]'))return false;const more=e.target.closest('[data-rv-more]');if(more){const day=more.dataset.rvMore;pickReportDay(day,false);showReportDay(day);return true}const cell=e.target.closest('[data-rv-cell]');if(cell){pickReportDay(cell.dataset.rvCell,false);return true}return false}
+function reportViewClick(e){if(planClick(e))return true;const nav=e.target.closest('[data-rv-nav]');if(nav){const to=nav.dataset.rvNav;if(to==='today'){const p=seoulParts();reportMonth={year:p.year,month:p.month};reportDay=seoulDateKey()}else{reportMonth=shiftMonth(reportMonth,to==='next'?1:-1);reportDay=''}renderMeetings();return true}if(e.target.closest('[data-mrd-meeting]'))return false;const more=e.target.closest('[data-rv-more]');if(more){const day=more.dataset.rvMore;pickReportDay(day,false);showReportDay(day);return true}const cell=e.target.closest('[data-rv-cell]');if(cell){pickReportDay(cell.dataset.rvCell,false);return true}return false}
 // S57-8: 그날 고르기 한 길(칸 누름·+n·우클릭 [이날 보기]). scroll = 그날 목록이 보이게.
 function pickReportDay(day,scroll){reportDay=day;renderMeetings();if(scroll)$('#meetingList')?.querySelector('.rv-day-list')?.scrollIntoView?.({block:'nearest'})}
 // MTG-프로젝트합치기 2단계: 칸 칩 아래 사업영역 칩([전체]·1단 사업영역·[꼬리표 없음 n]). 예전 프로젝트 화면 대신 여기서 사업영역별로 걸러 본다.
@@ -385,6 +419,11 @@ function reportViewMenu(e){
   const t=e.target instanceof Element?e.target:null;if(!t)return false;
   const rep=t.closest('[data-mrd-meeting]');
   if(rep&&!t.closest('button,a,input,select,textarea')){const at=appMenuPoint(e,rep);if(!at)return false;e.preventDefault();const id=String(rep.dataset.mrdMeeting);void window.KPTUMeetingRoundDetail?.open?.(id);void openReportMenuAt(id,at);return true}
+  // S58-10: 칸 안 보고할 일정 줄(⋯ 단추가 없는 자리) 우클릭 = 그날 목록 그 줄의 ⋯와 같은 메뉴. ⋯가 있는 줄(그날 목록·'안 쓴 보고' 목록)의 우클릭은
+  // 사이트 공통 우클릭(context-menu.js)이 그 줄의 ⋯를 눌러 준다 — 여기서 받지 않고 넘긴다(칸 메뉴로도 가지 않게).
+  const plan=reportView==='calendar'?t.closest('#meetingList .rv-table [data-rv-plan]'):null;
+  if(plan){const at=appMenuPoint(e,plan);if(!at)return false;e.preventDefault();return planMenu(plan.dataset.rvPlan,plan,at)}
+  if(reportView==='calendar'&&t.closest('[data-rv-due],.rv-plan-row'))return false;
   const cell=reportView==='calendar'?t.closest('[data-rv-cell]'):null;if(!cell)return false;
   const at=appMenuPoint(e,cell);if(!at)return false;e.preventDefault();
   void reportActions().then(a=>a.openReportDayMenu(cell,at,{add:(day,from)=>newReport(from.querySelector('.rv-num')||from,day),show:day=>pickReportDay(day,true)}));return true}
@@ -395,6 +434,7 @@ const reportActions=()=>reportActionsFlight||=import('./report-calendar-actions.
 // 달력을 다시 그릴 때(renderReportCalendar)도 창이 열려 있으면 again으로 같은 길을 타 그날 줄을 다시 채우고, 그날 '+n'이 없어졌거나 달력 보기가 아니면 닫는다.
 function showReportDay(day,again=false){void reportActions().then(a=>{if(again&&!(day=a.reportDayWindowDay()))return;const box=$('#meetingList'),on=reportView==='calendar'&&!!box;
   return a.showReportDayWindow({day,again,rows:on?viewRows():[],colorOf:viewColor,nameOf:viewName,anchor:()=>box?.querySelector(`[data-rv-cell="${day}"]`),trigger:()=>on?box.querySelector(`[data-rv-more="${day}"]`):null,
+    plans:on?planNow?.byDay.get(day)||[]:[],planColorOf:planColor,plan:(kind,id)=>kind==='write'?planWrite(id,box?.querySelector(`[data-rv-more="${day}"]`)):void planDecide(id,'on'),
     open:id=>void window.KPTUMeetingRoundDetail?.open?.(id),add:d=>newReport(box?.querySelector(`[data-rv-more="${d}"]`)||document.activeElement,d),menu:reportViewMenu})},()=>{})}
 function mountReportDrag(){void reportActions().then(a=>{reportMover||=a.createReportDayMover({api,workspaceId:()=>workspace?.id,meetingOf:id=>meetings.find(x=>String(x.id)===String(id)),reload:()=>window.__KPTU_RELOAD_MEETINGS__(),setDay:d=>{reportDay=d},toast});a.installReportDrag({move:reportMover})},()=>{})}
 async function meetingListMenu(e){if(reportView!=='list'&&reportViewMenu(e))return;const round=e.target.closest?.('[data-meeting-round]');if(!round)return;const at=appMenuPoint(e,round);if(!at)return;e.preventDefault();
