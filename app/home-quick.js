@@ -13,7 +13,7 @@ import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK
 import { dayKey } from './home-read-model.js';
 import { quickDueDay, weekdayLabel, newTaskDue } from './task-due.mjs';
 import { openWeekPick } from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
-import { taskFilesAvailable, taskFilesKnown, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
+import { taskFilesAvailable, taskFilesKnown, onTaskFilesReady, sendTaskFilesBehind, MAX_TASK_FILES } from './task-files.js';
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, noteOnly=false, onBig=null, onFolder=null, view="home", idPrefix="home", onSaved=()=>{}}) {
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
@@ -231,34 +231,33 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     attempt.defaultDue||=dayKey(Date.now());
     const body=Object.freeze({title,due:newTaskDue(taskOnly?'':due,attempt.defaultDue),notes:attempt.task?.notes||'',links:Object.freeze(project?[Object.freeze({project_id:project})]:[])}),r={owner:attempt.owner,workspace:attempt.workspace,epoch:attempt.epoch,token:++taskSequence,attempt,body,draft:taskSnapshot()};
     taskAttempt=attempt;taskRequest=r;attempt.pending=true;saving=true;taskControls(true);taskNotice('저장 중…');let stage='body';
-    // TASK-추가창파일: the chosen files go up once the task exists (once per attempt, also after a recovered create).
-    const sendFiles=async()=>{if(!files.length||attempt.filesSent||!attempt.task)return;attempt.filesSent=true;
-      const result=await attachNewTaskFiles(attempt.task.id,files,{onProgress:(i,n,f)=>{if(taskCurrent(r))taskNotice(`${f.name} 올리는 중… (${i+1}/${n})`)}});
-      attempt.filesNotice=newTaskFilesNotice(result);if(upload===batch)upload=createUploadBatch();
-      if(attempt.filesNotice&&taskScopeCurrent(r))taskToast(r,'할 일은 저장했습니다. 파일을 확인해 주세요.');};
+    // BIZ-저장먼저닫기 3차(S59-18): 할 일이 생기면 고른 파일은 그 할 일의 뒤 줄로 넘긴다(시도마다 한 번, 목록에서 고른 할 일도) — 입력칸은 기다리지 않고
+    // 풀리며, 진행·끝·못 올림·[다시 올리기]는 하단바 위 한 줄 하나(task-files.js sendTaskFilesBehind). 그래서 파일이 있으면 위쪽 작은 알림은 띄우지 않는다.
+    const sendFiles=()=>{if(!files.length||attempt.filesSent||!attempt.task||!taskScopeCurrent(r))return;attempt.filesSent=true;
+      sendTaskFilesBehind({task:attempt.task,files,count:attempt.bodyState==='confirmed'&&!a?0:null,rt:taskRuntime});if(upload===batch)upload=createUploadBatch();pickerFiles.render();};
     const call=(action,body)=>{if(!taskCurrent(r))throw new Error('입력창이나 로그인이 바뀌었습니다.');return taskRuntime.api('/functions/v1/google-tasks?action='+action,{method:'POST',body,expectedSessionEpoch:r.epoch})};
     try{
       if(!attempt.task){
         const result=await createGoogleTask({...body,expectedSessionEpoch:r.epoch});if(!taskScopeCurrent(r))return;
         if(result?.ok===true&&taskIdentity(result.task))attempt.task=structuredClone(result.task);
         if(!attempt.task||!taskBodyMatches(attempt.task,body))throw new Error('Google 할 일의 저장 결과를 확인하지 못했어요.');attempt.bodyState='confirmed';
-        // TASK-추가창파일: the task exists; the chosen files go up now (once, even if the links need another save).
-        await sendFiles();
+        // BIZ-저장먼저닫기 3차: the task exists; the chosen files go behind now (once, even if the links need another save).
+        sendFiles();
         if(!taskCurrent(r)){attempt.needsReview=true;return}
         stage='links';attempt.links=taskLinkKeys(result);
-        if(result.link_error||body.links.some(l=>!attempt.links.has(taskLinkKey(l)))){attempt.linkState='partial';attempt.needsReview=true;taskNotice('할 일은 저장했습니다. 사업영역 연결을 확인해 주세요.'+(attempt.filesNotice?' '+attempt.filesNotice:''),{confirm:true});taskToast(r,'할 일은 저장했습니다. 사업영역 연결을 확인해 주세요.');return}
+        if(result.link_error||body.links.some(l=>!attempt.links.has(taskLinkKey(l)))){attempt.linkState='partial';attempt.needsReview=true;taskNotice('할 일은 저장했습니다. 사업영역 연결을 확인해 주세요.',{confirm:true});taskToast(r,'할 일은 저장했습니다. 사업영역 연결을 확인해 주세요.');return}
       }else if(!taskBodyMatches(attempt.task,body)){
         const result=await call('update',{action:'update',task_id:attempt.task.id,task_list_id:attempt.task.taskListId,title:body.title,notes:body.notes,due:body.due});if(!taskScopeCurrent(r))return;
         if(result?.ok!==true||!taskIdentity(result.task)||result.task.id!==attempt.task.id||result.task.taskListId!==attempt.task.taskListId||!taskBodyMatches(result.task,body))throw new Error('기존 할 일의 수정 결과를 확인하지 못했어요.');attempt.task=structuredClone(result.task);attempt.bodyState='confirmed';if(!taskCurrent(r)){attempt.needsReview=true;return}
       }
-      await sendFiles();if(!taskCurrent(r)){attempt.needsReview=true;return}
+      sendFiles();if(!taskCurrent(r)){attempt.needsReview=true;return}
       stage='links';const missing=body.links.filter(l=>!attempt.links.has(taskLinkKey(l)));
       if(missing.length){const result=await call('link',{action:'link',task_id:attempt.task.id,links:missing});if(!taskScopeCurrent(r))return;const confirmed=taskLinkKeys(result);if(result?.ok!==true||missing.some(l=>!confirmed.has(taskLinkKey(l))))throw new Error('사업영역 연결의 저장 결과를 확인하지 못했어요.');attempt.links=confirmed;if(!taskCurrent(r)){attempt.needsReview=true;return}}
       attempt.linkState='confirmed';if(!taskCurrent(r))return;taskAttempt=null;r.completed=true;
       
-      if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice(attempt.filesNotice||'')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.'+(attempt.filesNotice?' '+attempt.filesNotice:''))}
+      if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice('')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.')}
       // UI-기록할곳되돌리기 (c): the next task starts with no project (the date choice stays as before).
-      project='';paint();taskToast(r,attempt.filesNotice?'할 일은 저장했습니다. 파일을 확인해 주세요.':'할 일을 추가했습니다.');
+      project='';paint();if(!attempt.filesSent)taskToast(r,'할 일을 추가했습니다.');
       try{void Promise.resolve(refreshTasks()).catch(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence&&mode==='task'&&!input.value)taskNotice('할 일은 저장했어요. 목록을 다시 불러오지 못했어요.')})}catch(error){if(taskCurrent(r))taskNotice('할 일은 저장했어요. 목록을 다시 불러오지 못했어요.')}
     }catch(error){if(!taskScopeCurrent(r))return;if(stage==='body')attempt.bodyState='unknown';else attempt.linkState='unknown';attempt.needsReview=true;if(taskCurrent(r))taskNotice((attempt.task?'할 일은 확인했습니다. 연결과 수정 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했어요. ')+(error.message||error),{confirm:true})}
     finally{attempt.pending=false;if(taskRequest===r&&taskScopeCurrent(r)&&r.token===taskSequence){taskRequest=null;saving=false;taskControls(false);paint()}}

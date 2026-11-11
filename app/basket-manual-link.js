@@ -463,18 +463,18 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
       const linkMissing=body.links.length&&(result.link_error||!(result.links||[]).some(l=>l.project_id===task.project&&l.status==='confirmed'));
       // BASKET-할일출처: the task exists now, so a failed record is only reported, never retried by making another task.
       task.status='할 일을 만들었어요. 업데이트에 기록하는 중…';paint();
+      // BIZ-저장먼저닫기 3차(S59-18): 할 일이 생기면 고른 파일은 그 할 일의 뒤 줄로 넘긴다(task-files.js sendTaskFilesBehind — 기다리지 않음,
+      // 진행·끝·못 올림·[다시 올리기]는 하단바 위 한 줄 하나. 그래서 파일이 있으면 위쪽 '할 일을 만들었어요' 알림은 띄우지 않는다).
+      const handed=files.length>0;if(handed){taskFilesMod.sendTaskFilesBehind({task:result.task,files,count:0,rt});taskFilesPick?.clear?.();}
       let recorded=null;
       try{recorded=await recordNoteTask(id,noteTaskEntry(result.task),{rt,expectedSessionEpoch:epoch});}catch{recorded=null;}
-      // TASK-첨부교체: the chosen files go up once the task exists; a file that did not go up is named, never retried by making another task.
-      let filesNotice='';
-      if(files.length){const sent=await taskFilesMod.attachNewTaskFiles(result.task.id,files,{rt,onProgress:(i,count,f)=>{if(current()){task.status=`${f.name} 올리는 중… (${i+1}/${count})`;paint();}}});filesNotice=taskFilesMod.newTaskFilesNotice(sent);}
       setBusy(false);
       // A result that lands after an account switch or a different note is never shown or applied.
       if(!current())return;
       if(recorded?.ok)onTaskRecorded?.(recorded.note);
       reset();paint();
-      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 업데이트에 기록했어요.':'할 일은 만들었지만 업데이트에 기록하지 못했어요.',linkMissing?'사업영역 연결은 할 일 화면에서 확인해 주세요.':'',filesNotice].filter(Boolean).join(' ');
-      document.querySelector('[data-basket-status]')?.replaceChildren(message);showToast('Google 할 일을 만들었어요.');
+      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 업데이트에 기록했어요.':'할 일은 만들었지만 업데이트에 기록하지 못했어요.',linkMissing?'사업영역 연결은 할 일 화면에서 확인해 주세요.':''].filter(Boolean).join(' ');
+      document.querySelector('[data-basket-status]')?.replaceChildren(message);if(!handed)showToast('Google 할 일을 만들었어요.');
       window.KPTUGoogleTasks?.invalidateAfterCreate?.();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
       document.querySelector('[data-basket-task-open]')?.focus();return;
     }
