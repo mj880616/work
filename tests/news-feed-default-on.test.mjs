@@ -269,6 +269,52 @@ test('겹침: 같은 글이 키워드 찾기(같은 중계 주소)나 RSS(같은
   assert.equal(rows.find(r => r.workspace_id === WS2 && r.title === '합성 첫째 기사').url_key, U.urlKey(link1));
 });
 
+// ---- S58-9 NEWS-못넣은곳대안 뒤처리: 구글 뉴스 robots.txt의 실제 모양 -------------------------------------------------
+// 11/11 운영에서 매체 단위 14곳이 모두 'robots'·0건이었다. 구글 뉴스 robots.txt는 '전부 금지 + 짧은 허용 목록' 모양이고 /rss/ 허용 줄이 없다
+// (제3자 기록에 적힌 모양 — 원문 그대로는 아님, docs/design/news-google-site-robots.md 2.3). 위 시험들의 `Allow: /rss/`는 지어낸 글이다.
+// 이 모양에서 판정(robotsAllows)은 표준대로 '금지'다 — 해석 오류가 아니다. 매체 단위 줄도, 같은 경로를 쓰는 키워드 찾기도 검색 RSS를 요청하지 않는다(우회 없음).
+const GOOGLE_ROBOTS_SHAPE = 'User-agent: *\nDisallow: /\nAllow: /$\nAllow: /home\nAllow: /topics/\nAllow: /publications/\nAllow: /stories/\nAllow: /swg/\n';
+const pathOf = url => { const u = new URL(url); return u.pathname + u.search; };
+
+test('구글 뉴스 robots 모양(전부 금지 + 짧은 허용 목록): 검색 RSS는 금지 — 매체 단위 줄과 키워드 찾기가 같은 판정', async () => {
+  const P = await import('../supabase/functions/outside-feed/parse.ts');
+  const allows = path => P.robotsAllows(GOOGLE_ROBOTS_SHAPE, H.ROBOTS_AGENT, path);
+  // 허용 목록에 든 경로는 열린다: 가장 긴 규칙이 이기고(`Allow: /$`가 `Disallow: /`보다 길다) `$`는 끝 표시다.
+  assert.deepEqual(['/', '/home', '/topics/x', '/stories/x?hl=ko'].map(allows), [true, true, true, true]);
+  // 검색 RSS는 허용 목록에 없다 → `Disallow: /` 하나만 맞는다. 검색어(물음표 뒤)가 무엇이든 같다.
+  assert.deepEqual(['/rss/search', '/rss/search?q=x', '/rss/articles/SYN1?oc=5', '/rss'].map(allows), [false, false, false, false]);
+  const sites = C.NEWS_CATALOG.filter(s => C.isGoogleSite(s));
+  assert.equal(sites.length, Object.keys(GOOGLE_SITES).length);
+  for (const s of sites) assert.equal(allows(pathOf(s.lists[0])), false, `${s.key}: 매체 단위 줄`);
+  for (const word of ['합성어', 'synthetic word', '합성 "따옴표"']) assert.equal(allows(pathOf(C.googleNewsUrl(word))), false, `키워드 찾기: ${word}`);
+  // 막는 까닭은 해석이 아니라 /rss/ 허용 줄이 없어서다: 그 줄이 있는 글이면(`*` 묶음이든 우리 이름 묶음이든) 같은 판정 함수가 연다.
+  assert.equal(P.robotsAllows(GOOGLE_ROBOTS_SHAPE + 'Allow: /rss/\n', H.ROBOTS_AGENT, pathOf(sites[0].lists[0])), true);
+  assert.equal(P.robotsAllows(GOOGLE_ROBOTS_SHAPE + '\nUser-agent: Web2NewsFeed\nAllow: /rss/search\nDisallow: /\n', H.ROBOTS_AGENT, pathOf(C.googleNewsUrl('합성어'))), true);
+  // 수집기 이름을 바꿔 다른 묶음을 타는 길은 없다: 판정에 쓰는 이름은 한 값이다.
+  assert.equal(H.ROBOTS_AGENT, 'Web2NewsFeed');
+});
+
+test('구글 뉴스 robots 모양: 매체 단계는 robots로 적고 검색 RSS를 요청하지 않는다, 키워드 단계도 요청하지 않고 그 실행의 키워드 읽기를 그만둔다', async () => {
+  const s = C.newsSourceByKey('news-busan');
+  const feed = `<rss><channel>${gItem(1, '합성 기사', ' - 부산일보')}</channel></rss>`;
+  const sites = {'https://news.google.com/robots.txt': {body: GOOGLE_ROBOTS_SHAPE}, [s.lists[0]]: {body: feed, type: 'application/xml'},
+    [C.googleNewsUrl('합성어')]: {body: feed, type: 'application/xml'}, [C.googleNewsUrl('둘째말')]: {body: feed, type: 'application/xml'}};
+  // 매체 단계: 실패 까닭이 그 매체 줄(last_error)에 남는다 — 화면 매체 선택 칸의 '읽지 못함'.
+  const m = world({sources: [{workspace_id: WS1, source_key: 'news-busan', enabled: true}], keywords: [], sites});
+  const out = await m.cron({step: 'media', source: 'news-busan'});
+  assert.deepEqual([out.status, out.raw, out.listed, out.inserted], ['robots', 0, 0, 0]);
+  assert.deepEqual(outside(m).map(c => pathOf(c.url)), ['/robots.txt'], 'robots.txt만 읽고 검색 RSS는 요청하지 않는다');
+  const patch = m.calls.filter(c => c.method === 'PATCH' && c.url.includes('/rest/v1/app_outside_sources'));
+  assert.deepEqual(patch.map(c => c.body), [{last_error: 'robots'}]);
+  assert.equal(m.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).length, 0);
+  // 키워드 단계: 같은 호스트·같은 경로라 같은 판정. 첫 키워드에서 막히면 나머지 키워드도 읽지 않는다(키워드 2개여도 robots.txt 한 번뿐).
+  const k = world({sources: [], keywords: [{workspace_id: WS1, word: '합성어'}, {workspace_id: WS1, word: '둘째말'}], sites});
+  const kout = await k.cron({step: 'keywords'});
+  assert.deepEqual([kout.ok, kout.step, kout.words, kout.inserted], [true, 'keywords', 1, 0]);
+  assert.deepEqual(outside(k).map(c => pathOf(c.url)), ['/robots.txt']);
+  assert.equal(k.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).length, 0);
+});
+
 // ---- S57-13 덧붙임(11/11 '제목만이라도') 전수: 글 링크가 남의 매체로 가는 피드도 기사 줄은 남긴다 ---------------------
 test('남의 매체 링크 피드(LabourStart): 기사 줄(제목·날짜·링크)은 남기고 글 쪽은 읽지 않는다 — https 공개 호스트 링크만', async () => {
   const s = C.newsSourceByKey('news-labourstart');

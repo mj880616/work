@@ -5,7 +5,8 @@ import {uploadTimeoutMs} from './upload-budget.mjs';
 import {floatingWindowOpen} from './open-window.mjs'; // ★LIB-바깥파일놓기안됨: 칸에 붙인 창(사업 보고 결과 등)은 열린 창으로 치지 않는다
 import {sendUpload} from './upload-send.mjs';
 import {trackUpload,setUploadRetry,mountUploadRows,paintUploadLine,watchUploads,announceDock} from './upload-progress.js';
-import {createMeetingSend,sendDoneLine,sendFailLine} from './meeting-send.mjs'; // BIZ-저장먼저닫기: 사업 보고 사진·자료 한 묶음 올리기(뒤 줄)
+import {createMeetingSend,createAppHandoff,bindAppJobs,sendDoneLine,sendFailLine,sendHandedLine,sendHandingLine} from './meeting-send.mjs'; // BIZ-저장먼저닫기: 사업 보고 사진·자료 한 묶음 올리기(뒤 줄)
+import {appUpload,uploadReasonText} from './app-upload.js'; // APP-뒤에서올리기 PR-2: 폰 앱 다리(있으면 넘긴다)
 import {openReport} from './report-open.js';
 import {readView,saveView,orderedGroups} from './library-view-pref.js';
 import {recentFolded,toggleRecentFolded} from './recent-fold.js';
@@ -307,7 +308,7 @@ function luStartUploadForMeeting(meeting,files=[]){if(!normalizeUploadMeeting(me
 // 창 없이 올리기(새 사업 보고를 저장한 뒤 고른 파일, 사업 보고 사진 줄): 같은 library-files 요청 + 같은 AI 채우기. 실패하면 던진다(호출한 쪽이 개수를 센다).
 // ACT-사진 3단계: 사진은 AI에 보내지 않는다. 제목(파일 이름)·종류(사업 보고 칸을 따라감)·날짜(사업 보고 날짜)를 요청에 실어 AI 채우기를 건너뛴다. 서버(library-files)는 이미 이 값을 받는다.
 // opts(BIZ-저장먼저닫기): 뒤 줄 한 묶음이 미리 만든 올리는 중 표시(job)와 계정 바뀜 확인(gone)을 그대로 넘긴다. 없으면 예전과 같다.
-async function luUploadFileForMeeting(meeting,file,opts=null){const target=normalizeUploadMeeting(meeting);if(!target)throw new Error('사업 보고를 확인하지 못했어요.');const fd=new FormData();try{fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('meeting_id',target.id);if(target.projectId)fd.append('project_id',target.projectId);const photo=isPhotoFile(file);if(photo)for(const [key,value] of Object.entries(photoUploadFields(file,target,documentCategories())))fd.append(key,value);const d=await luUploadRequest(fd,file,{job:opts?.job||null,gone:opts?.gone||null});if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');if(!photo)luAiFill(d.document.id,fd,file.name);return d.document}finally{fd.delete('file')}}
+async function luUploadFileForMeeting(meeting,file,opts=null){const target=normalizeUploadMeeting(meeting);if(!target)throw new Error('사업 보고를 확인하지 못했어요.');const fd=new FormData();try{fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('meeting_id',target.id);if(target.projectId)fd.append('project_id',target.projectId);const photo=isPhotoFile(file);if(photo)for(const [key,value] of Object.entries(photoUploadFields(file,target,documentCategories())))fd.append(key,value);const d=await luUploadRequest(fd,file,{job:opts?.job||null,gone:opts?.gone||null,why:luMeetingFailure});if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');if(!photo)luAiFill(d.document.id,fd,file.name);return d.document}finally{fd.delete('file')}}
 // 담당조직 상세의 자료 [+]·끌어다 놓기: 프로젝트 상세의 [+]처럼 이 올리기 창을 열고, 올라온 자료를 그 조직에 붙인다. 파일이 있으면 미리 골라 둔다.
 function luStartUploadForOrganization(org,files=[]){if(!normalizeUploadOrganization(org)||!luOpenUploadWindow())return false;luSetUploadOrg(org);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
 // 프로젝트 상세의 자료 [+]: 같은 올리기 창을 열고 그 사업영역을 미리 고른다.
@@ -486,7 +487,9 @@ function luUploadTimeoutMs(file){return uploadTimeoutMs(file?.size)}
 // UI-올리기진행표시 ②: 보내기는 공용 길(upload-send.mjs, XMLHttpRequest가 실제로 보낸 양)이고 올리는 중 표시는 공용 부품(upload-progress.js)이다.
 // job: 부른 곳이 미리 만든 표시(없으면 여기서 만든다). ✕(취소)는 다 보내기 전만 — 서버는 다 받지 못한 요청을 저장하지 않는다(code upload_cancelled).
 // 다 보낸 뒤 끊김·시간 초과는 지금처럼 결과 불명(timeout·network_error): 자료가 이미 생겼을 수 있어 같은 파일을 저절로 다시 보내지 않는다.
-async function luUploadRequest(fd,file,{job=null,gone=null}={}){
+// why(e): 실패 줄에 적을 까닭을 고르는 길(없으면 공용 luUploadFailure). 보내는 동안 화면이 뒤로 갔었는지(away)·다 보내기 전에 끊겼는지(unsent)를 오류에 적어 둔다
+// (APP-뒤에서올리기 요청 3·4: 화면을 벗어나 끊긴 것을 인터넷 탓으로 알리지 않고, 서버가 받지 못한 것은 돌아와 다시 보낼 수 있게 — 지금은 사업 보고 올리기만 본다).
+async function luUploadRequest(fd,file,{job=null,gone=null,why=null}={}){
   const runtime=window.KPTURuntime,path='/functions/v1/library-files';
   const error=(message,options)=>runtime?.RuntimeError?new runtime.RuntimeError(message,options):Object.assign(new Error(message),{status:0,retryable:false,...options});
   const sessionRequired=()=>error('로그인이 필요합니다.',{status:401,code:'session_required'});
@@ -499,7 +502,9 @@ async function luUploadRequest(fd,file,{job=null,gone=null}={}){
     if(!session?.access_token)throw sessionRequired();
     const headers={apikey:runtime?.config?.key||LU_KEY,Authorization:'Bearer '+session.access_token};
     const started=performance.now();
-    let timer;
+    let timer,away=document.visibilityState==='hidden';
+    const seeAway=()=>{if(document.visibilityState==='hidden')away=true};
+    document.addEventListener('visibilitychange',seeAway);
     // The upload deadline (upload-budget.mjs) reports an unknown outcome without
     // aborting or retrying the upload, as before; only ✕ stops it, and only before everything is sent.
     const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(error('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true})),luUploadTimeoutMs(file))});
@@ -509,11 +514,13 @@ async function luUploadRequest(fd,file,{job=null,gone=null}={}){
       return response;
     }catch(cause){
       window.__KPTU_STARTUP__?.request?.(url,performance.now()-started,0);
-      if(cause?.code==='timeout')throw cause;
+      if(cause?.code==='timeout')throw Object.assign(cause,{away});
       if(cause?.code==='upload_cancelled')throw error('올리기를 취소했어요.',{code:'upload_cancelled',retryable:true,cause});
-      if(cause?.via==='timeout')throw error('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true,cause});
-      throw error('네트워크 연결을 확인한 뒤 다시 시도해 주세요.',{code:'network_error',retryable:true,cause});
-    }finally{clearTimeout(timer)}
+      // unsent: 다 보내기 전에 끊김·시간 한도(upload-send.mjs) — 서버는 다 받지 못한 요청을 저장하지 않는다.
+      const mark={away,unsent:cause?.code==='upload_not_sent'||cause?.code==='upload_timeout_sending'};
+      if(cause?.via==='timeout')throw Object.assign(error('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true,cause}),mark);
+      throw Object.assign(error('네트워크 연결을 확인한 뒤 다시 시도해 주세요.',{code:'network_error',retryable:true,cause}),mark);
+    }finally{clearTimeout(timer);document.removeEventListener('visibilitychange',seeAway)}
   }
   const shown=job||trackUpload({file,name:file?.name,size:file?.size});
   try{
@@ -537,7 +544,7 @@ async function luUploadRequest(fd,file,{job=null,gone=null}={}){
   shown.done();
   return data;
   }catch(e){
-    if(e?.code!=='upload_cancelled')shown.fail(luUploadFailure(e).message);
+    if(e?.code!=='upload_cancelled')shown.fail((why||luUploadFailure)(e).message);
     throw e;
   }
 }
@@ -636,6 +643,34 @@ luSetUploadOrg(job.org);luSetUploadMeeting(job.meeting);luSetUploadFolder(job.fo
 // 끝까지, 줄은 메모리뿐). 차례를 기다리는 파일도 처음부터 올리는 중 표시에 있어, 다른 화면에서는 하단바 위 한 줄이 묶음 전체의 %로 끝까지 가고 그 보고를 다시 열면
 // 사진·회의자료 칸에 올리는 줄이 보인다(meetingSending이 열쇠). 끝은 그 한 줄에 '사진 n장·자료 n개 올렸어요', 못 올렸으면 까닭 + [다시 올리기](못 올린 파일만).
 // 폰 앱 뒤에서 올리기(APP-뒤에서올리기 PR-2)는 여기 createMeetingSend에 handoff 한 칸(app-upload.js appUpload().send)을 더하면 된다 — fields가 사진 칸을 만든다.
+// APP-뒤에서올리기 PR-2(S58-12, 요청함 11/11 06:56 · 앱 쪽 PR 2346 본문 '웹 연결' 1~5번):
+// ① 폰 앱이면 이 들머리에서 묶음을 앱 다리(app-upload.js)에 넘긴다 — 앱이 앱 전용 폴더에 두고 뒤에서 끝까지 올린다(다른 앱으로 가도·앱을 닫아도). 다리가 없거나(PC·폰 브라우저)
+//    옛 앱·위젯 로그인 없음·넘기다 실패({ok:false})면 지금 길 그대로 화면 안에서 올린다. 넘기는 것은 파일·사업 보고 id·사진 칸뿐(로그인 정보 없음), 서버 입구·인증은 그대로다.
+// ② 앱이 끝을 알려 오면(bindAppJobs → handedJob) 그 줄을 올림·못 올림으로 옮기고 목록을 새로 읽는다. 앱이 멈췄으면 '멈춤 · 까닭 · 앱을 열면 이어 올려요'.
+// ③ 브라우저(앱 다리 없음): 화면을 벗어난 사이 다 보내기 전에 끊긴 파일은 돌아오면 그 자리에서 한 번 저절로 다시 보낸다. 그래도 안 되면 그 줄에 [다시](고른 파일은 탭 메모리에만).
+// ④ 문구: 화면(앱)을 벗어나 끊긴 것은 인터넷 탓이 아니다 → '앱을 벗어나 멈췄어요 · 다시 올리는 중'. 다 보낸 뒤 끊긴 것은 결과 불명(저절로 다시 보내지 않음 — 두 번 붙지 않게).
+const luAppUp=appUpload();
+const luAwayWord=()=>/KPTUAndroid/i.test(navigator.userAgent||'')?'앱을':'화면을';
+function luMeetingFailure(e){
+  const f=luUploadFailure(e);
+  if(!e?.away||(f.type!=='unknown_network'&&f.type!=='unknown_timeout'))return f;
+  const unsure=`${luAwayWord()} 벗어난 사이 올리기가 끊겨 올렸는지 확인하지 못했어요. 사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.`;
+  if(e.unsent)return {...f,type:'away',kind:'error',label:'멈춤',away:true,stop:true,message:`${luAwayWord()} 벗어나 올리기가 멈췄어요.`,unsure};
+  return {...f,type:'unknown_away',message:unsure};
+}
+// 돌아와 다시 보내기 전에: 그 사업 보고에 같은 이름·같은 크기의 자료가 이미 붙어 있는지 본다(서버는 올린 파일의 이름·크기를 그대로 적는다).
+// 화면이 멈춘 사이 마지막 조각까지 나가 서버가 이미 저장했을 수 있다 — 그때 다시 보내면 같은 자료가 두 번 붙는다. 자기 로그인(owner RLS)으로 읽기만 한다.
+// skip: 같은 묶음에서 방금 올린 자료(같은 파일을 두 번 고른 때 앞의 것을 이것으로 보지 않게). 못 읽으면 던진다(부른 곳이 결과 불명으로 둔다).
+async function luMeetingHas(target,file,skip=[]){
+  const m=normalizeUploadMeeting(target);if(!m||!file?.name)return null;
+  const rows=await luApi(`/rest/v1/app_documents?meeting_id=eq.${encodeURIComponent(m.id)}&workspace_id=eq.${encodeURIComponent(luWorkspace)}&file_name=eq.${encodeURIComponent(file.name)}&file_size=eq.${Number(file.size)||0}&select=id,project_id&order=created_at.desc&limit=20`,{singleFlight:false});
+  if(!Array.isArray(rows))throw new Error('자료 목록을 확인하지 못했어요.');
+  return rows.find(row=>row?.id&&!skip.includes(row.id))||null;
+}
+// 화면이 다시 보이면 풀린다(이미 보이면 곧). 돌아온 직후 연결이 다시 붙을 틈을 조금 둔다.
+const LU_BACK_SETTLE_MS=600;
+const luScreenBack=()=>new Promise(done=>{const go=()=>setTimeout(done,LU_BACK_SETTLE_MS);if(document.visibilityState!=='hidden'){go();return}const on=()=>{if(document.visibilityState==='hidden')return;document.removeEventListener('visibilitychange',on);go()};document.addEventListener('visibilitychange',on)});
+const luStoppedLine=reason=>`멈춤 · ${uploadReasonText(reason)} · 앱을 열면 이어 올려요`;
 const luMeetingGroups=new WeakMap(),luMeetingNotes=new WeakMap();
 // 묶음의 끝 알림은 하나만: 다시 줄 서면(하단 [다시 올리기]든 상세 줄의 [다시]든) 떠 있던 알림을 닫는다(다 올라간 뒤에도 '못 올렸어요'가 남지 않게).
 const luMeetingNote=(batch,options)=>{luMeetingNotes.get(batch)?.close();if(options)luMeetingNotes.set(batch,announceDock(options));else luMeetingNotes.delete(batch)};
@@ -645,16 +680,30 @@ const luMeetingSend=createMeetingSend({
   upload:(target,file,opts)=>luUploadFileForMeeting(target,file,opts),
   isPhoto:isPhotoFile,
   track:(file,batch)=>{let group=luMeetingGroups.get(batch);if(!group){group={sent:0};luMeetingGroups.set(batch,group)}return trackUpload({file,waiting:true,group,back:()=>luShowReport(batch.target.id)})},
-  classify:e=>luUploadFailure(e),
+  classify:luMeetingFailure,
   scope:luBackScope,gone:luBackGone,
+  handoff:createAppHandoff(luAppUp,{ids:target=>{const m=normalizeUploadMeeting(target);return {meeting:m?.id||'',project:m?.projectId||''}}}),
+  handedText:uploadReasonText,back:luScreenBack,verify:luMeetingHas,
   fields:(file,target)=>photoUploadFields(file,normalizeUploadMeeting(target)||{},documentCategories()),
   confirmUnknown:count=>askConfirm(null,{text:`올렸는지 확인하지 못한 파일이 ${count}개 있어요.`,note:'이미 사업 보고에 붙었다면 다시 올릴 때 같은 자료가 두 번 붙어요. 사업 보고를 열어 없는 것을 확인했다면 [다시 올리기]를 눌러 주세요.',ok:'다시 올리기'}),
   report:luMeetingSendReport});
 function luMeetingSendReport(ev){
   const {batch}=ev,t=batch.target,back=()=>luShowReport(t.id),retry=()=>{void luMeetingSend.retry(batch)};
   // 올라간 파일 하나: 그 보고를 보고 있으면 사진·회의자료 칸이 바로 채워지게 가볍게 알린다(목록 전체를 다시 읽는 kptu:documents-changed는 묶음이 끝날 때 한 번).
-  if(ev.type==='file'){if(ev.entry?.state==='done')window.dispatchEvent(new CustomEvent('kptu:meeting-file-sent',{detail:{meeting_id:t.id}}));return}
+  // 앱이 올린 자료(사진 아님)는 화면이 그 파일을 아직 들고 있을 때 여기서 저절로 채운다(화면 안 올리기는 올린 자리에서 이미 한다).
+  // 돌아와 보니 서버에 이미 붙어 있던 자료(found)도 같다(올린 자리에서 채우지 못했다).
+  if(ev.type==='file'){if(ev.entry?.state==='done'){const file=ev.entry.file;if((ev.entry.byApp||ev.entry.found)&&!ev.entry.photo&&ev.entry.doc?.id&&file){const id=ev.entry.doc.id,fd=new FormData();luAiFill(id,fd,file.name)}window.dispatchEvent(new CustomEvent('kptu:meeting-file-sent',{detail:{meeting_id:t.id}}))}return}
+  // 회의자료 놓기 줄이 부른 한 개짜리 묶음(quiet): 진행·끝 알림·[다시]는 놓기 줄이 맡는다(앱에도 넘기지 않는다 — meeting-send.mjs).
+  if(batch.quiet)return;
   if(ev.type==='queued'){luMeetingNote(batch,null);return}
+  // 앱에 넘기는 동안(몇 초)은 이 화면이 살아 있어야 한다: 넘기는 중임을 알린다. 못 넘기면 지금 길로 올리므로 그 알림을 닫는다.
+  if(ev.type==='handing'){luMeetingNote(batch,{text:sendHandingLine({photos:ev.openPhotos,files:ev.openFiles}),note:'다 넘기면 다른 앱으로 가도 끝까지 올려요',back,ms:0});return}
+  if(ev.type==='handing-failed'){luMeetingNote(batch,null);return}
+  // 앱에 넘김: 화면은 보내지 않는다. 한 줄로 알리고(다른 앱으로 가도 된다), 끝은 앱이 알려 올 때 아래 done이 맡는다.
+  if(ev.type==='handed'){luMeetingNote(batch,{text:sendHandedLine({photos:ev.handedPhotos,files:ev.handedFiles}),back});return}
+  if(ev.type==='handed-stopped'){luMeetingNote(batch,{text:luStoppedLine(ev.job?.reason),error:true,back,ms:LU_BACK_FAIL_MS});return}
+  // 화면을 벗어나 끊긴 파일을 돌아와 다시 보내는 중(까닭대로 — 인터넷 탓이 아니다).
+  if(ev.type==='resumed'){luMeetingNote(batch,{text:`${luAwayWord()} 벗어나 멈췄어요 · 다시 올리는 중`,back});return}
   if(ev.type==='kept'){luMeetingNote(batch,{text:'확인하지 못한 파일은 다시 올리지 않았어요',note:'사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.',error:true,back,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]});return}
   if(ev.type!=='done')return;
   if(ev.sent){if(t.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:t.project_id||null,meeting_id:t.id}}))}
@@ -663,12 +712,33 @@ function luMeetingSendReport(ev){
   const bad=ev.badPhotos+ev.badFiles,ok=ev.okPhotos+ev.okFiles,again=ev.retry?[{label:'다시 올리기',aria:bad?'못 올린 파일 다시 올리기':'취소한 파일 다시 올리기',run:retry}]:[];
   // 못 올린 것이 있으면 한 줄은 짧게('사진 2장 못 올렸어요'), 작은 둘째 줄에 올라간 것과 까닭. 누를 때까지 남는다(저절로 사라지면 못 올린 줄 모르고 지나간다).
   if(bad)luMeetingNote(batch,{text:sendFailLine({badPhotos:ev.badPhotos,badFiles:ev.badFiles}),note:[sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),ev.message].filter(Boolean).join(' · '),error:true,back,ms:0,actions:again});
+  // 화면 쪽은 끝났지만(올림·✕ 취소) 앱이 맡은 파일이 남아 있으면 그 줄을 다시 보인다(다 올렸거나 취소한 것처럼 알리지 않는다). 끝은 앱이 알려 올 때 한 번 더 온다.
+  else if(ev.handedPhotos+ev.handedFiles)luMeetingNote(batch,{text:sendHandedLine({photos:ev.handedPhotos,files:ev.handedFiles})+(ev.cancelled?` · ${ev.cancelled}개 취소`:''),back});
   else if(ev.cancelled)luMeetingNote(batch,{text:ok?`${sendDoneLine({photos:ev.okPhotos,files:ev.okFiles})} · ${ev.cancelled}개 취소`:'올리기를 취소했어요',back,ms:LU_BACK_FAIL_MS,actions:again});
   else if(ok)luMeetingNote(batch,{text:sendDoneLine({photos:ev.okPhotos,files:ev.okFiles}),back});
   if(ev.stopped?.type==='drive_auth')void luMaybeReconnectDrive(ev.stopped.error);
 }
 // 새로 고치면 줄에 선 파일이 알림 없이 사라지므로 올리는 동안은 자료 등록 줄과 같이 먼저 묻는다. 계정·작업공간이 바뀌면 못 올린 파일을 놓는다(meeting-send.mjs watch).
 luMeetingSend.watch(window);
+// 앱이 알려 오는 묶음을 듣는다. 이 화면이 넘기지 않은 묶음(화면을 닫았다 연 사이 끝났거나 멈춘 것)은 목록을 새로 읽고 한 줄로 알린다(파일은 화면에 없다 — 못 올린 것은 다시 골라야 한다).
+function luAppOrphan(job){
+  const id=job.target,back=id?()=>luShowReport(id):null,ok=job.docs.filter(Boolean).length,bad=job.errors.filter(Boolean);
+  if(job.state==='stopped'){announceDock({text:luStoppedLine(job.reason),error:true,back,ms:LU_BACK_FAIL_MS});return}
+  if(ok)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:id||null}}));
+  if(bad.length)announceDock({text:`앱이 올리던 파일 ${bad.length}개를 못 올렸어요`,note:[ok?`${ok}개는 올렸어요`:'',uploadReasonText(bad[0]),'그 파일을 다시 선택해 올려 주세요.'].filter(Boolean).join(' · '),error:true,back,ms:0});
+}
+bindAppJobs(luAppUp,luMeetingSend,{orphan:luAppOrphan});
+// 회의자료 놓기 줄(meeting-drop-queue.mjs)이 파일 하나를 같은 들머리로 올린다: 같은 뒤 줄에 서고(한 번에 하나), 화면을 벗어나 끊기면 돌아와 다시 보낸다.
+// 앱에는 넘기지 않는다(끌어 놓기는 PC 길 — 다리가 없다. 놓기 줄이 '올렸어요'를 스스로 알리므로 넘기기만 한 것을 올렸다고 하지 않게).
+// 돌려줌: 올린 자료 · 못 올렸으면 던진다(놓기 줄이 [다시]를 맡으므로 이 묶음은 놓는다).
+async function luSendOneForMeeting(meeting,file){
+  const batch=luMeetingSend.send(meeting,[file],{quiet:true});
+  await batch.settled;
+  const entry=batch.entries[0];
+  if(entry?.state==='done')return entry.doc;
+  luMeetingSend.forget(batch);
+  throw Object.assign(new Error(entry?.state==='cancelled'?'올리기를 취소했어요.':entry?.state==='gone'?'로그인 계정이 바뀌어 올리지 않았어요.':entry?.message||'파일을 올리지 못했어요.'),{code:entry?.state==='cancelled'?'upload_cancelled':'upload_failed'});
+}
 function luEnsureManageUi(){if(document.querySelector('#libraryManageModal'))return;document.body.insertAdjacentHTML('beforeend',`<div id="libraryManageModal" class="modal le-modal hidden" aria-hidden="true"><div class="modal-card medium-card"><div class="modal-head"><div><h2>분류 수정<span class="le-count" data-le-count></span></h2></div><button id="libraryManageClose" class="icon-btn" type="button">×</button></div><div id="libraryCategoryEditor" class="library-category-editor"></div></div></div><div id="libraryEditModal" class="modal hidden" data-enter-save aria-hidden="true"><div class="modal-card small-card"><div class="modal-head"><div><h2>자료 수정</h2></div><button id="libraryEditClose" class="icon-btn" type="button">×</button></div><input id="libraryEditId" type="hidden"><div id="libraryEditFile" class="library-edit-file" hidden><div id="libraryEditFileLine" aria-live="polite"></div><details id="libraryEditPrev" class="library-edit-prev" hidden><summary>이전 파일${chevHtml(false)}</summary><div id="libraryEditPrevList"></div></details><input id="libraryEditReplaceInput" class="library-file-input" type="file" tabindex="-1" aria-label="교체할 파일"></div><label>자료명<input id="libraryEditTitle" type="text"></label><div class="library-edit-grid"><label>분류<select id="libraryEditCategory">${categoryOptions('')}</select></label><label>사업영역<select id="libraryEditProject"></select></label><label>사업 보고<select id="libraryEditMeeting"></select></label><label>출처<input id="libraryEditSource" type="text"></label><label>문서 날짜<input id="libraryEditDate" type="date"></label></div><label>태그<input id="libraryEditTags" type="text" placeholder="쉼표로 구분"></label><label>설명<textarea id="libraryEditDescription" rows="4"></textarea></label><div class="modal-action-footer"><div id="libraryEditStatus" class="status"></div><button id="libraryEditSave" data-enter-save-submit class="primary wide" type="button">수정 저장</button></div></div></div>`);document.querySelector('#libraryManageClose').onclick=()=>luClose('libraryManageModal');document.querySelector('#libraryEditClose').onclick=()=>luClose('libraryEditModal');document.querySelector('#libraryEditSave').onclick=luSaveEdit;luBindReplaceFile()}
 // UI-Esc로창닫기: 분류 수정·파일 고치기 창도 공용 창 규칙(accessibility-dialog.js)으로 연다 — Esc = 그 창의 ✕.
 // activate·deactivate가 kptu:dialog-opened·closed 알림도 보낸다(전에 여기서 직접 보내던 것과 같은 알림).
@@ -1681,5 +1751,5 @@ function luBindFind(){
   close.addEventListener('click',()=>{luFindOpen=false;const had=!!input.value;input.value='';luSyncFind();if(had)luRenderLibrary();open.focus()});
   input.addEventListener('keydown',e=>{if(e.key==='Escape'&&luFindOpen&&!input.value){e.preventDefault();close.click()}});
 }
-async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForProject:luStartUploadForProject,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,sendForMeeting:(meeting,files)=>luMeetingSend.send(meeting,files),meetingSending:(id,file)=>luMeetingSend.has(id,file),startUploadFromFiles:luStartUploadFromFiles};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null);luSetUploadFolder(window.KPTURouter?.current==='library'?luOpenedFolder():null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);const search=document.querySelector('#documentSearch');if(search)search.oninput=()=>{luSyncFind();luRenderLibrary()};luBindFind();window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luFindOpen=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luRefreshView();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead();luWarmHwp()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead();luWarmHwp()}
+async function luInit(){if(!(await luContext()))return;luTakePlace();luHandleDriveReturn();luEnhanceUpload();luEnhanceDrop();luEnsureManageUi();luBindList();luViewOwner=luUser?.id||'';await Promise.all([luLoadAll(),loadDocumentCategories(),luRefreshView()]);luApplyRememberedFolder();luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,reveal:luGoToRecent,showOrganization:luShowOrganization,startUploadForOrganization:luStartUploadForOrganization,startUploadForProject:luStartUploadForProject,startUploadForMeeting:luStartUploadForMeeting,uploadFileForMeeting:luUploadFileForMeeting,sendForMeeting:(meeting,files)=>luMeetingSend.send(meeting,files),sendFileForMeeting:luSendOneForMeeting,meetingSending:(id,file)=>luMeetingSend.has(id,file),startUploadFromFiles:luStartUploadFromFiles};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('');luSetUploadOrg(null);luSetUploadMeeting(null);luSetUploadFolder(window.KPTURouter?.current==='library'?luOpenedFolder():null)},true);luRenderUploadProject('');const catPick=document.querySelector('#libraryCategoryPick');if(catPick)catPick.onclick=e=>luOpenCategorySheet(e.currentTarget);const search=document.querySelector('#documentSearch');if(search)search.oninput=()=>{luSyncFind();luRenderLibrary()};luBindFind();window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering){luViewHold=false;luFindOpen=false;luResetCategories();luResetTree()}luEntering=false;luApplyEntry();luRenderLibrary();void luRefreshView();void loadDocumentCategories();luLoadAll().then(()=>{luRenderLibrary();luRevealRequested();luStartAutoTidy();luStartTextRead();luWarmHwp()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadAll();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'){luFlushView();if(luOrganization){luOrganization=null;luRenderLibrary()}}});document.addEventListener('visibilitychange',()=>{if(document.hidden)luFlushView()});if(window.KPTURouter?.current==='library')luApplyEntry();luStartAutoTidy();luStartTextRead();luWarmHwp()}
 window.__KPTU_LIBRARY_UPLOAD_READY__=Promise.resolve().then(luInit).then(()=>true).catch(err=>{console.error('library upload init',err);return false});

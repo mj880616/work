@@ -42,6 +42,11 @@ function bindDayWindow(list) {
     if (!mine(e)) return;
     const add = e.target.closest('[data-rv-pop-add]');
     if (add) { const day = add.dataset.rvPopAdd; closeReportDayWindow(); dayDeps?.add(day); return; }
+    // S58-10: 보고할 일정 줄의 [보고 쓰기] = 창을 닫고 쓰기 창(보고 줄을 눌렀을 때와 같은 순서), [보고할까요?] = 창은 그대로 두고 표시만 저장(다시 그릴 때 이 창도 again 길로 다시 채워진다).
+    const write = e.target.closest('[data-rv-plan-write]');
+    if (write) { const id = write.dataset.rvPlanWrite; closeReportDayWindow(); dayDeps?.plan?.('write', id); return; }
+    const ask = e.target.closest('[data-rv-plan-ask]');
+    if (ask) { dayDeps?.plan?.('ask', ask.dataset.rvPlanAsk); return; }
     const row = e.target.closest('[data-mrd-meeting]');
     if (row) { const id = String(row.dataset.mrdMeeting); closeReportDayWindow(); dayDeps?.open(id); }
   });
@@ -51,15 +56,21 @@ function bindDayWindow(list) {
 }
 // rows = 지금 달력에 보이는 사업 보고(칸 칩이 걸린 것), anchor() = 그날 칸, trigger() = 그 칸의 '+n'. again = 달력을 다시 그린 뒤 열려 있는 창을 다시 채우기(초점 줄 유지).
 // 그날 '+n'이 없어졌으면(보고가 줄었거나 다른 달·다른 보기) 창을 닫는다. open(id)·add(day)·menu(event)는 부르는 쪽 길.
-export async function showReportDayWindow({day, rows, colorOf, nameOf, anchor, trigger, again = false, open, add, menu}) {
+// S58-10: plans = 그날의 보고할 일정 항목(report-calendar-plan.mjs), planColorOf(item), plan(kind, eventId) = [보고 쓰기]('write')·[보고할까요?]('ask')를 받는 부르는 쪽 길.
+export async function showReportDayWindow({day, rows, colorOf, nameOf, anchor, trigger, again = false, open, add, menu, plans = [], planColorOf, plan}) {
   await import('./calendar-day-overflow.js');
-  const win = window.KPTUCalendarDayOverflow, list = reportsByDay(rows).get(day) || [], from = trigger();
-  if (!win?.show || !from || !list.length) { closeReportDayWindow(); return false; }
-  const kept = again ? document.activeElement?.closest?.('#calendarDayList [data-mrd-meeting]')?.dataset.mrdMeeting : '';
-  dayDeps = {open, add, menu};
-  win.show({title: dayWindowTitle(day), note: `사업 보고 ${list.length}`, kind: 'report', anchor, trigger: from,
-    initialFocus: kept && list.some(m => String(m.id) === kept) ? `#calendarDayList [data-mrd-meeting="${CSS.escape(kept)}"]` : '#calendarDayList [data-mrd-meeting]',
-    fill: el => { el.innerHTML = dayWindowHtml({day, list, colorOf, nameOf}); bindDayWindow(el); }});
+  const win = window.KPTUCalendarDayOverflow, list = reportsByDay(rows).get(day) || [], items = Array.isArray(plans) ? plans : [], from = trigger();
+  if (!win?.show || !from || (!list.length && !items.length)) { closeReportDayWindow(); return false; }
+  const active = again ? document.activeElement?.closest?.('#calendarDayList') && document.activeElement : null;
+  const kept = active?.closest?.('[data-mrd-meeting]')?.dataset.mrdMeeting || '', keptPlan = active?.closest?.('[data-rv-plan]')?.dataset.rvPlan || '';
+  // 머리 옆 작은 글자: 보고만 있으면 전과 같이 '사업 보고 n', 보고할 일정·보고할까요?가 있으면 뒤에 '일정 n'(작은 창 머리 한 줄에 들어가게 짧게 — 종류는 줄의 표시가 말한다).
+  const note = [list.length ? `사업 보고 ${list.length}` : '', items.length ? `일정 ${items.length}` : ''].filter(Boolean).join(' · ');
+  dayDeps = {open, add, menu, plan};
+  win.show({title: dayWindowTitle(day), note, kind: 'report', anchor, trigger: from,
+    initialFocus: kept && list.some(m => String(m.id) === kept) ? `#calendarDayList [data-mrd-meeting="${CSS.escape(kept)}"]`
+      : keptPlan && items.some(i => i.eventId === keptPlan) ? `#calendarDayList [data-rv-plan="${CSS.escape(keptPlan)}"] button`
+      : '#calendarDayList :is([data-mrd-meeting],button)',
+    fill: el => { el.innerHTML = dayWindowHtml({day, list, colorOf, nameOf, plans: items, planColorOf}); bindDayWindow(el); }});
   return true;
 }
 

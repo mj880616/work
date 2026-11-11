@@ -19,7 +19,15 @@ test('긴 파일 이름은 줄여서 한 줄',()=>{
 test('시간: 기본 알림(2초)보다 길게, 실패는 더 길게',()=>{
   assert.ok(m.uploadDoneMs()>2000);assert.ok(m.uploadDoneMs({failed:1})>m.uploadDoneMs());
 });
-test('자료실 올리기 길(끌어 놓기·등록 창)과 사업 보고 사진이 같은 부품을 부른다',()=>{
-  for(const f of ['library-upload.js','meeting-round-detail.js'])assert.match(readFileSync(new URL('../app/'+f,import.meta.url),'utf8'),/announceUploaded\(/,f);
-  assert.match(readFileSync(new URL('../app/upload-done.js',import.meta.url),'utf8'),/notify\(/);
+test('자료실 올리기 길(끌어 놓기·등록 창)은 끝 알림 부품을, 사업 보고 사진은 새 보고 저장과 같은 올리기 들머리를 부른다',()=>{
+  const read=f=>readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
+  assert.match(read('library-upload.js'),/announceUploaded\(/);
+  assert.match(read('upload-done.js'),/notify\(/);
+  // APP-뒤에서올리기 PR-2(S58-12): 사업 보고 상세의 사진 줄은 스스로 올리지 않고 공용 한 묶음 들머리(sendForMeeting)에 선다 —
+  // 끝 알림('사진 n장 올렸어요', 못 올렸으면 [다시 올리기])은 그 들머리가 아래 한 줄로 한다(따로 또 알리면 두 번 뜬다).
+  const detail=read('meeting-round-detail.js');
+  assert.match(detail,/KPTULibrary\.sendForMeeting\(/);
+  assert.match(detail,/KPTULibrary\.sendFileForMeeting\(/);
+  assert.doesNotMatch(detail,/uploadFileForMeeting\(|announceUploaded\(/);
+  assert.match(read('library-upload.js'),/sendForMeeting:\(meeting,files\)=>luMeetingSend\.send\(meeting,files\),sendFileForMeeting:luSendOneForMeeting/);
 });

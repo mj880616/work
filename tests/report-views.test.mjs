@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {REPORT_VIEWS, validValue, parsePrefs, KEYS} from '../app/view-prefs.js';
 import {REPORT_VIEW_OPTIONS, reportViewOf, shiftMonth, monthWeeks, monthTitle, reportsByDay, cellPlan, CELL_LINES, pickDay, photosByMeeting, photoGroups, dayHeading, dayKeyOf, moveReportAt, REPORT_DAY_MENU_ITEMS, dayWindowTitle} from '../app/report-views-model.mjs';
 import {calendarHtml, photoViewHtml, dayWindowHtml} from '../app/report-views.js';
+import {planItems, itemsByDay, dayEntries, entryMark, cellDots, CELL_DOTS, itemTime, itemMeta, itemEvent, itemWhen, matchesName, overdueItems, overdueSummary, shortDay, monthRange, planRowMenuItems} from '../app/report-calendar-plan.mjs';
 
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const M1 = id(101), M2 = id(102), M3 = id(103), M4 = id(104);
@@ -206,7 +207,9 @@ test('그날 창 연결: 일정 달력과 같은 창 부품, 줄 누름·우클�
   const shell = readFileSync(new URL('../app/calendar-day-overflow.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
   // 같은 창 부품: 일정 달력 그날 창(#calendarDayModal)의 show. 새 창을 만들지 않는다.
-  assert.match(act, /await import\('\.\/calendar-day-overflow\.js'\)/); assert.match(act, /window\.KPTUCalendarDayOverflow/); assert.match(act, /win\.show\(\{title: dayWindowTitle\(day\), note: `사업 보고 \$\{list\.length\}`, kind: 'report', anchor, trigger: from,/);
+  assert.match(act, /await import\('\.\/calendar-day-overflow\.js'\)/); assert.match(act, /window\.KPTUCalendarDayOverflow/); assert.match(act, /win\.show\(\{title: dayWindowTitle\(day\), note, kind: 'report', anchor, trigger: from,/);
+  // 머리 옆 글자: 보고만 있으면 전과 같이 '사업 보고 n'. S58-10: 그날 보고할 일정·보고할까요?가 있으면 뒤에 '일정 n'.
+  assert.match(act, /const note = \[list\.length \? `사업 보고 \$\{list\.length\}` : '', items\.length \? `일정 \$\{items\.length\}` : ''\]\.filter\(Boolean\)\.join\(' · '\);/);
   assert.doesNotMatch(act, /insertAdjacentHTML|class="modal/);
   assert.match(shell, /window\.KPTUCalendarDayOverflow=\{apply,open\};\n  window\.KPTUCalendarDayOverflow\.show=show;/);
   // 일정 달력 쪽은 같은 여닫기(reveal)를 기본값으로 탄다: 가운데 창, 연 곳으로 초점, 첫 일정에 초점, Esc = ✕.
@@ -249,4 +252,243 @@ test('화면 연결: 보기 선택은 서버 칸에만, 자료실 묶음 줄은 
   assert.match(team, /viewPrefs\.set\('report_view'/);
   const lib = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
   assert.match(lib, /async function luOpenPhotoSet[^\n]*showPhotos/);
+});
+
+// ── S58-10 BIZ-보고할일정 PR C: 사업 보고 달력의 '보고할 일정' 규칙(app/report-calendar-plan.mjs). 이름·id는 모두 합성 값. ──
+const PLAN_NOW = '2026-11-11';
+const planRow = (eid, title, state, extra = {}) => ({id: 'row-' + eid, google_event_id: eid, google_calendar_id: 'cal-a', state, decided_by: 'user', decided_at: '2026-11-01T00:00:00.000Z', title, event_day: '2026-11-11', starts_at: '2026-11-11T01:00:00.000Z', ...extra});
+const gEvent = (eid, title, extra = {}) => ({id: eid, calendarId: 'cal-a', title, start: '2026-11-11T01:00:00.000Z', end: '2026-11-11T02:00:00.000Z', allDay: false, organizationIds: [], ...extra});
+const linked = (rid, eid, name, extra = {}) => ({id: rid, google_event_id: eid, google_calendar_id: 'cal-a', series_name: name, title: name, meeting_at: '2026-11-04T01:00:00.000Z', created_at: '2026-11-04T03:00:00.000Z', ...extra});
+
+test('보고할 일정 항목: 켠 줄은 □, 보고를 쓴 일정·끈 줄·뺀 줄은 나오지 않는다(Google 없이 줄 사본만으로)', () => {
+  const data = {plans: [planRow('e1', '시험 회의 가', 'on'), planRow('e2', '시험 회의 나', 'off'), planRow('e3', '시험 회의 다', 'skip'), planRow('e4', '시험 회의 라', 'on')], reports: [linked('r4', 'e4', '시험 회의 라')]};
+  const items = planItems(data);
+  assert.deepEqual(items.map(i => [i.eventId, i.status, i.day, i.title, i.rowId, i.auto]), [['e1', 'todo', '2026-11-11', '시험 회의 가', 'row-e1', false]]);
+  assert.equal(items[0].startsAt, '2026-11-11T01:00:00.000Z');
+  assert.equal(items[0].calendarId, 'cal-a');
+  // 줄이 없거나 날짜를 읽을 수 없는 줄은 놓지 않는다. 표가 없는 서버(data=null)면 빈 목록.
+  assert.deepEqual(planItems({plans: [planRow('e9', '시험', 'on', {event_day: ''})], reports: []}), []);
+  assert.deepEqual(planItems(null), []);
+  assert.deepEqual(planItems({plans: null, reports: null}, null), []);
+});
+
+test('보고할 일정 항목: 읽어 둔 일정이 있으면 같은 이름 기억은 □(auto), 담당조직 연결 일정은 점선 □, 그냥 일정은 없음', () => {
+  const data = {plans: [planRow('old', '시험 정례 회의', 'on', {event_day: '2026-11-04', starts_at: '2026-11-04T01:00:00.000Z'})], reports: []};
+  const events = [
+    gEvent('new', '시험 정례회의', {start: '2026-11-12T01:00:00.000Z'}),                  // 같은 이름(띄어쓰기만 다름) → 저절로 □
+    gEvent('org', '시험 기자회견', {organizationIds: ['o1'], start: '2026-11-12T05:00:00.000Z'}), // 담당조직 연결 → 보고할까요?
+    gEvent('plain', '시험 점심', {start: '2026-11-12T03:00:00.000Z'}),                       // 그냥 일정
+    gEvent('한글id', '시험 정례 회의')                                                       // 표에 넣을 수 없는 id → 표시 없음
+  ];
+  const items = planItems(data, events);
+  assert.deepEqual(items.map(i => [i.eventId, i.status, i.day, i.auto]), [['old', 'todo', '2026-11-04', false], ['new', 'todo', '2026-11-12', true], ['org', 'ask', '2026-11-12', false]]);
+  // [빼기](skip)를 더 나중에 정하면 같은 이름 일정은 □도 점선 □도 아니다(다시 묻지 않음).
+  const skipped = {plans: [planRow('s', '시험 기자회견', 'skip', {decided_at: '2026-11-05T00:00:00.000Z'})], reports: []};
+  assert.deepEqual(planItems(skipped, [gEvent('org', '시험 기자회견', {organizationIds: ['o1']})]), []);
+  // 그 이름으로 일정에 이어 쓴 보고가 있으면 기억이 없어도 □(전에 보고를 쓴 일정과 같은 이름).
+  const wrote = {plans: [], reports: [linked('r1', 'past', '시험 운영위')]};
+  assert.deepEqual(planItems(wrote, [gEvent('next', '시험 운영위')]).map(i => [i.eventId, i.status, i.auto]), [['next', 'todo', true]]);
+  // 그 일정에 이어진 보고가 있으면(보고 씀) 항목이 아니다 — 보고 줄이 ●로 이미 있다.
+  assert.deepEqual(planItems(wrote, [gEvent('past', '시험 운영위')]), []);
+});
+
+test('보고할 일정 항목: 읽어 둔 일정의 제목·날짜가 줄 사본보다 먼저다(종일 일정은 시각 없음)', () => {
+  const data = {plans: [planRow('e1', '옛 제목', 'on')], reports: []};
+  const items = planItems(data, [gEvent('e1', '새 제목', {start: '2026-11-13', end: '2026-11-14', allDay: true})]);
+  assert.deepEqual(items.map(i => [i.eventId, i.title, i.day, i.startsAt, i.rowId, i.auto]), [['e1', '새 제목', '2026-11-13', null, 'row-e1', false]]);
+  assert.equal(itemTime(items[0]), '종일');
+  assert.deepEqual(itemWhen(items[0]), {date: '2026-11-13'});
+  assert.deepEqual(itemEvent(items[0]), {id: 'e1', calendarId: 'cal-a', title: '새 제목', start: '2026-11-13', allDay: true});
+});
+
+test('보고할 일정 항목: 하루 안에서는 종일 → 이른 시각 순, 시각·글자는 서울 기준', () => {
+  const data = {plans: [
+    planRow('late', '시험 다', 'on', {starts_at: '2026-11-11T08:00:00.000Z'}),
+    planRow('all', '시험 나', 'on', {starts_at: null}),
+    planRow('early', '시험 가', 'on', {starts_at: '2026-11-10T23:30:00.000Z'}) // 서울 11일 08:30
+  ], reports: []};
+  const items = planItems(data);
+  assert.deepEqual(items.map(i => i.eventId), ['all', 'early', 'late']);
+  assert.equal(itemTime(items[1]), '08:30');
+  assert.deepEqual(itemWhen(items[1]), {at: '2026-11-11T08:30'});
+  assert.equal(itemMeta(items[1]), '일정 · 08:30');
+  assert.equal(itemMeta({...items[1], status: 'ask'}), '일정 · 08:30 · 담당조직 연결됨');
+  assert.deepEqual([...itemsByDay(items).keys()], ['2026-11-11']);
+});
+
+test('회의명 거르기: 같은 이름 열쇠만, 이름 없음 거르기면 일정은 나오지 않는다', () => {
+  const item = {title: '시험 정례 회의'};
+  assert.equal(matchesName(item, 'all'), true);
+  assert.equal(matchesName(item, ''), true);
+  assert.equal(matchesName(item, '시험정례회의'), true);
+  assert.equal(matchesName(item, '다른 회의'), false);
+  assert.equal(matchesName(item, '__none__'), false);
+});
+
+test('그날 목록: 보고와 보고할 일정을 시각 순으로 섞는다(같은 시각이면 보고 먼저, 종일 일정은 맨 위)', () => {
+  const reports = [meeting(M1, '시험 보고 가', '2026-11-11T00:00:00Z'), meeting(M2, '시험 보고 나', '2026-11-11T01:00:00Z')];
+  const items = planItems({plans: [
+    planRow('p1', '시험 일정 종일', 'on', {starts_at: null}),
+    planRow('p2', '시험 일정 열시', 'on', {starts_at: '2026-11-11T01:00:00.000Z'}),
+    planRow('p3', '시험 일정 아홉시반', 'on', {starts_at: '2026-11-11T00:30:00.000Z'})
+  ], reports: []});
+  const entries = dayEntries(reports, items);
+  assert.deepEqual(entries.map(e => (e.type === 'report' ? e.report.id : e.item.eventId)), ['p1', M1, 'p3', M2, 'p2']);
+  assert.deepEqual(entries.map(entryMark), ['todo', 'done', 'todo', 'done', 'todo']);
+  assert.deepEqual(dayEntries(null, null), []);
+});
+
+test('칸의 점: 3개까지, 넘치면 종류마다 하나씩은 꼭 보이고 순서는 그날 목록 그대로', () => {
+  const r = n => ({type: 'report', report: {id: 'r' + n}}), p = (n, status) => ({type: 'plan', item: {eventId: 'p' + n, status}});
+  assert.equal(CELL_DOTS, 3);
+  assert.deepEqual(cellDots([r(1), p(1, 'todo')]).map(entryMark), ['done', 'todo']);
+  // 보고 4건 뒤에 □ 하나: 앞 3개만 찍으면 □가 사라지므로 □를 꼭 넣는다.
+  assert.deepEqual(cellDots([r(1), r(2), r(3), r(4), p(1, 'todo')]).map(entryMark), ['done', 'done', 'todo']);
+  // 세 종류가 다 있으면 하나씩.
+  assert.deepEqual(cellDots([r(1), r(2), r(3), p(1, 'todo'), p(2, 'todo'), p(3, 'ask')]).map(entryMark), ['done', 'todo', 'ask']);
+  assert.deepEqual(cellDots([p(1, 'ask'), p(2, 'ask'), p(3, 'ask'), p(4, 'ask')]).map(e => e.item.eventId), ['p1', 'p2', 'p3']);
+  assert.deepEqual(cellDots(null), []);
+});
+
+test('안 쓴 보고: 켠 줄 가운데 날짜가 어제보다 앞이고 이어진 보고가 없는 것(최근 것이 위), Google 없이 계산', () => {
+  const data = {plans: [
+    planRow('today', '시험 오늘', 'on', {event_day: '2026-11-11'}),
+    planRow('yesterday', '시험 어제', 'on', {event_day: '2026-11-10'}),          // 지나고 하루가 안 지남
+    planRow('d9', '시험 구일', 'on', {event_day: '2026-11-09', starts_at: null}),
+    planRow('d2', '시험 이일', 'on', {event_day: '2026-11-02'}),
+    planRow('wrote', '시험 쓴 것', 'on', {event_day: '2026-11-03'}),
+    planRow('off', '시험 끈 것', 'off', {event_day: '2026-11-03'}),
+    planRow('skip', '시험 뺀 것', 'skip', {event_day: '2026-11-03'}),
+    planRow('rule', '시험 저절로', 'on', {event_day: '2026-10-28', decided_by: 'rule'})
+  ], reports: [linked('r1', 'wrote', '시험 쓴 것')]};
+  const due = overdueItems(data, PLAN_NOW);
+  assert.deepEqual(due.map(i => i.eventId), ['d9', 'd2', 'rule']);
+  assert.deepEqual(overdueSummary(due), {count: 3, lead: '안 쓴 보고 3', detail: '11. 9. 시험 구일 외 2'});
+  assert.deepEqual(overdueSummary(due.slice(0, 1)), {count: 1, lead: '안 쓴 보고 1', detail: '11. 9. 시험 구일'});
+  assert.equal(overdueSummary([]), null);
+  assert.deepEqual(overdueItems(data, ''), []);
+  assert.deepEqual(overdueItems(null, PLAN_NOW), []);
+  // 달이 바뀌는 날의 '어제'도 맞게 센다(11월 1일의 어제 = 10월 31일).
+  assert.deepEqual(overdueItems({plans: [planRow('a', '시험', 'on', {event_day: '2026-10-31'}), planRow('b', '시험 둘', 'on', {event_day: '2026-10-30'})], reports: []}, '2026-11-01').map(i => i.eventId), ['b']);
+  assert.equal(shortDay('2026-11-09'), '11. 9.');
+  assert.equal(shortDay('x'), '');
+});
+
+test('이 달 일정 읽을 범위는 서울 달 첫날 0시부터 다음 달 첫날 0시까지', () => {
+  assert.deepEqual(monthRange({year: 2026, month: 10}), {timeMin: '2026-10-31T15:00:00.000Z', timeMax: '2026-11-30T15:00:00.000Z'});
+  assert.deepEqual(monthRange({year: 2026, month: 11}), {timeMin: '2026-11-30T15:00:00.000Z', timeMax: '2026-12-31T15:00:00.000Z'});
+});
+
+test('그날 목록 줄 ⋯ 메뉴: 보고할 일정은 [보고할 일정 ✓]·[빼기], 보고할까요?는 [빼기]', () => {
+  assert.deepEqual(planRowMenuItems({status: 'todo'}).map(i => [i.id, i.label]), [['off', '보고할 일정 ✓'], ['skip', '빼기']]);
+  assert.deepEqual(planRowMenuItems({status: 'ask'}).map(i => [i.id, i.label]), [['skip', '빼기']]);
+  // 일정 메뉴(calendar-row-menu.mjs)의 켜진 글자와 같아야 한다.
+  assert.match(readFileSync(new URL('../app/calendar-row-menu.mjs', import.meta.url), 'utf8'), /'보고할 일정 ✓'/);
+});
+
+test('달력 글: 보고할 일정이 없으면(plan 없음·빈 plan) 예전 글 그대로 — 표시·범례·안 쓴 보고 줄이 없다', () => {
+  const base = calendarHtml(ctx());
+  assert.equal(calendarHtml(ctx({plan: null})), base);
+  assert.equal(calendarHtml(ctx({plan: {byDay: new Map(), overdue: []}, planColorOf: () => '#111111', dueOpen: true})), base);
+  assert.doesNotMatch(base, /rv-plan|rv-due|rv-legend|rv-dot-todo|rv-dot-ask/);
+});
+
+test('달력 글: □ 보고할 일정·점선 □ 보고할까요?가 칸의 점·칸 안 줄·그날 목록에 같은 표시로, 단추는 공용 글자·아이콘 버튼', () => {
+  const day = '2026-10-24';
+  const items = planItems({plans: [planRow('p-todo', '시험 <b>간담회</b>', 'on', {event_day: day, starts_at: '2026-10-24T03:00:00.000Z'})], reports: []},
+    [gEvent('p-ask', '시험 기자회견', {start: '2026-10-24T07:00:00.000Z', organizationIds: ['o1']})]);
+  const html = calendarHtml(ctx({selectedDay: day, plan: {byDay: itemsByDay(items), overdue: []}, planColorOf: () => '#123456'}));
+  const cell = html.match(new RegExp(`<td class="rv-cell[^"]*" data-rv-cell="${day}">.*?</td>`))[0];
+  // 숫자 단추 이름: 보고·보고할 일정·보고할까요? 건수.
+  assert.match(cell, /aria-label="10월 24일 \(토\) 사업 보고 2건 · 보고할 일정 1건 · 보고할까요\? 1건"/);
+  // 점(폰): 3개까지 — 종류마다 하나씩(● □ 점선 □).
+  const dots = cell.match(/<span class="rv-dots" aria-hidden="true">(.*?)<\/span><ul/)[1];
+  assert.deepEqual([...dots.matchAll(/class="(rv-dot[^"]*)"/g)].map(m => m[1]), ['rv-dot', 'rv-dot rv-dot-todo', 'rv-dot rv-dot-ask']);
+  // 칸 안 줄(PC): 시각 순(10:00 보고, 12:00 □, 14:00 보고, 16:00 점선 □). □ 줄은 글자 단추(보고 쓰기), 점선 □ 줄은 단추가 아니다.
+  const lines = [...cell.matchAll(/<li>(.*?)<\/li>/g)].map(m => m[1]);
+  assert.equal(lines.length, 4);
+  assert.match(lines[1], /^<span class="rv-title rv-plan" role="button" tabindex="0" data-rv-plan="p-todo" data-rv-plan-write="p-todo" title="시험 &lt;b&gt;간담회&lt;\/b&gt; · 보고할 일정" aria-label="보고 쓰기: 시험 &lt;b&gt;간담회&lt;\/b&gt;"><span class="rv-dot rv-dot-todo" aria-hidden="true" style="--meeting-color:#123456"><\/span>/);
+  assert.match(lines[3], /^<span class="rv-title rv-plan rv-plan-wait" data-rv-plan="p-ask" title="시험 기자회견 · 보고할까요\?"><span class="rv-dot rv-dot-ask" aria-hidden="true"><\/span>/);
+  assert.doesNotMatch(lines[3], /role="button"|tabindex/);
+  assert.doesNotMatch(lines[1] + lines[3], /data-mrd-meeting/, '보고가 아니므로 보고 열기·끌어 옮기기 길에 걸리지 않는다');
+  // 그날 목록: 보고 줄은 그대로, 보고할 일정 줄은 [보고 쓰기] ⋯ / [보고할까요?] ⋯.
+  const list = html.slice(html.indexOf('<section class="rv-day-list"'));
+  const rowsHtml = [...list.matchAll(/<article class="rv-row[^>]*>.*?<\/article>/g)].map(m => m[0]);
+  assert.equal(rowsHtml.length, 4);
+  assert.match(rowsHtml[1], /^<article class="rv-row rv-plan-row" data-rv-plan="p-todo" data-rv-plan-status="todo">/);
+  assert.match(rowsHtml[1], /<h3>시험 &lt;b&gt;간담회&lt;\/b&gt;<\/h3><p>일정 · 12:00<\/p>/);
+  assert.match(rowsHtml[1], /<button type="button" class="row-act rv-plan-write" data-rv-plan-write="p-todo" aria-label="보고 쓰기: [^"]*">보고 쓰기<\/button><button type="button" class="icon-btn rv-plan-more" data-rv-plan-more="p-todo" aria-label="[^"]* 메뉴" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯<\/span><\/button>/);
+  assert.match(rowsHtml[3], /data-rv-plan-status="ask">.*<p>일정 · 16:00 · 담당조직 연결됨<\/p>.*<button type="button" class="row-act rv-plan-ask" data-rv-plan-ask="p-ask"[^>]*>보고할까요\?<\/button>/);
+  // 이 달에 보고할 일정이 있을 때만 범례 한 줄.
+  assert.match(html, /<p class="rv-legend" aria-hidden="true">.*쓴 보고<\/span><span>.*보고할 일정<\/span><span>.*보고할까요\?<\/span><\/p>/);
+  // 보고는 없고 보고할 일정만 있는 달: '맞는 사업 보고 없음' 대신 그 날이 목록에 나온다.
+  const only = calendarHtml(ctx({rows: [], plan: {byDay: itemsByDay(items), overdue: []}}));
+  assert.doesNotMatch(only, /맞는 사업 보고 없음/);
+  assert.match(only, /<h3 class="rv-day-title">10월 24일 \(토\)<\/h3><article class="rv-row rv-plan-row"/);
+});
+
+test('달력 글: 칸 4줄 규칙은 보고할 일정을 합쳐 센다 — 넘치면 +n, 이름은 종류별 건수', () => {
+  const day = '2026-10-12';
+  const many = Array.from({length: 4}, (_, i) => meeting(id(301 + i), `보고${i + 1}`, `${day}T0${i}:00:00Z`));
+  const items = planItems({plans: [planRow('late', '시험 저녁 일정', 'on', {event_day: day, starts_at: '2026-10-12T10:00:00.000Z'})], reports: []});
+  const html = calendarHtml(ctx({rows: many, plan: {byDay: itemsByDay(items), overdue: []}}));
+  const cell = html.match(new RegExp(`<td class="rv-cell[^"]*" data-rv-cell="${day}">.*?</td>`))[0];
+  assert.equal((cell.match(/<span class="rv-title/g) || []).length, 3);
+  assert.match(cell, /data-rv-more="2026-10-12" aria-haspopup="dialog" aria-label="10월 12일 \(월\) 사업 보고 4건 · 보고할 일정 1건 모두 보기">\+2</);
+  // 점은 3개: 보고 넷이 앞서도 □ 하나는 꼭 보인다.
+  assert.deepEqual([...cell.match(/<span class="rv-dots" aria-hidden="true">(.*?)<\/span><ul/)[1].matchAll(/class="(rv-dot[^"]*)"/g)].map(m => m[1]), ['rv-dot', 'rv-dot', 'rv-dot rv-dot-todo']);
+});
+
+test("달력 글: '안 쓴 보고 n' 한 줄은 접는 줄(details)이고 목록 줄마다 날짜·이름·[보고 쓰기]·⋯", () => {
+  const due = overdueItems({plans: [planRow('d9', '시험 운영위', 'on', {event_day: '2026-11-09'}), planRow('d5', '시험 대표자 회의', 'on', {event_day: '2026-11-05'})], reports: []}, PLAN_NOW);
+  const html = calendarHtml(ctx({plan: {byDay: new Map(), overdue: due}}));
+  assert.match(html, /^<div class="rv-cal" data-rv-month="2026-10"><details class="rv-due" data-rv-due><summary><span class="rv-due-text"><b>안 쓴 보고 2<\/b> · 11\. 9\. 시험 운영위 외 1<\/span><i class="kptu-chev" aria-hidden="true"><\/i><\/summary><ul class="rv-due-list">/);
+  assert.equal((html.match(/<li class="rv-due-row"/g) || []).length, 2);
+  assert.match(html, /<li class="rv-due-row" data-rv-plan="d9"><span class="rv-dot rv-dot-todo" aria-hidden="true"[^>]*><\/span><span class="rv-due-day">11\. 9\.<\/span><span class="rv-due-name" title="시험 운영위">시험 운영위<\/span><span class="rv-plan-acts"><button type="button" class="row-act rv-plan-write" data-rv-plan-write="d9"/);
+  // 펼쳐 둔 채 다시 그리면 펼친 채로(open), 다른 달의 안 쓴 보고뿐이면 범례는 없다.
+  assert.match(calendarHtml(ctx({plan: {byDay: new Map(), overdue: due}, dueOpen: true})), /<details class="rv-due" data-rv-due open>/);
+  assert.doesNotMatch(html, /rv-legend/);
+});
+
+test('그날 창 글: 보고할 일정 줄도 같은 표시, 오른쪽 글자 단추 — 보고 줄처럼 열리거나 끌리지 않는다', () => {
+  const day = '2026-11-13';
+  const list = [meeting(id(401), '시험 보고', '2026-11-13T00:00:00Z')];
+  const items = planItems({plans: [planRow('w1', '시험 오후 일정', 'on', {event_day: day, starts_at: '2026-11-13T05:00:00.000Z'})], reports: []},
+    [gEvent('w2', '시험 저녁 방문', {start: '2026-11-13T09:00:00.000Z', organizationIds: ['o1']})]);
+  const html = dayWindowHtml({day, list, colorOf: () => '#808080', nameOf: m => m.title, plans: items, planColorOf: () => '#654321'});
+  const rowsHtml = [...html.matchAll(/<li>(.*?)<\/li>/g)].map(m => m[1]);
+  assert.equal(rowsHtml.length, 3);
+  assert.match(rowsHtml[0], /^<div class="rv-pop-row" role="button" tabindex="0" data-mrd-meeting="/);
+  assert.match(rowsHtml[1], /^<div class="rv-pop-row rv-pop-plan" data-rv-plan="w1" title="시험 오후 일정"><span class="rv-dot rv-dot-todo" aria-hidden="true" style="--meeting-color:#654321"><\/span><span class="rv-pop-name">시험 오후 일정<\/span><span class="rv-pop-time">14:00<\/span><button type="button" class="row-act rv-plan-write" data-rv-plan-write="w1"/);
+  assert.match(rowsHtml[2], /<span class="rv-dot rv-dot-ask" aria-hidden="true"><\/span><span class="rv-pop-name">시험 저녁 방문<\/span><span class="rv-pop-time">18:00<\/span><button type="button" class="row-act rv-plan-ask" data-rv-plan-ask="w2"/);
+  assert.doesNotMatch(rowsHtml[1] + rowsHtml[2], /data-mrd-meeting|data-rv-from|role="button"/);
+  // 보고할 일정이 없으면 예전 글 그대로.
+  assert.equal(dayWindowHtml({day, list, colorOf: () => '#808080', nameOf: m => m.title, plans: []}), dayWindowHtml({day, list, colorOf: () => '#808080', nameOf: m => m.title}));
+});
+
+test('화면 연결(S58-10): 그리는 곳은 renderReportCalendar 하나, 저장은 서버 길만, 그림이 같으면 다시 그리지 않는다', () => {
+  const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
+  const plans = readFileSync(new URL('../app/report-calendar-plans.js', import.meta.url), 'utf8');
+  const rules = readFileSync(new URL('../app/report-calendar-plan.mjs', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
+  // 달력 글은 한 곳에서만 만든다(다른 곳이 표시를 덧그리지 않는다).
+  assert.equal((team.match(/calendarHtml\(/g) || []).length, 1);
+  assert.match(team, /planNow=reportPlans\?\.planView\(\{month:reportMonth,todayKey:seoulDateKey\(\),nameFilter:typeFilter\(\)\}\)\|\|null;box\.innerHTML=calendarHtml\(/);
+  assert.match(team, /if\(planSig\(next\)===planSig\(planNow\)\)\{wantReportPlans\(\);return\}/);
+  assert.match(team, /function reportViewClick\(e\)\{if\(planClick\(e\)\)return true;/);
+  // 읽기·저장 모듈은 달력을 처음 그릴 때만 부른다(사업 보고 밖 화면의 첫 로딩에 싣지 않음).
+  assert.match(team, /reportPlansFlight\|\|=import\('\.\/report-calendar-plans\.js'\)/);
+  assert.doesNotMatch(team, /^import [^\n]*report-calendar-plans/m);
+  // 기기 저장 없음, 작업공간 값을 스스로 정하지 않음(저장 길 report-plan-data.js에 맡김), 사라진 일정의 줄을 저절로 지우지 않음.
+  // 기기 저장 API 이름은 저장소 검사(browser-storage-audit)가 글자로 막으므로 조각으로 만든다(app/ 전체는 그 검사가 본다).
+  const deviceStore = new RegExp(['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB', 'document\\.cookie').join('|'));
+  for (const src of [plans, rules]) assert.doesNotMatch(src, deviceStore);
+  assert.doesNotMatch(plans, /workspace_id|method: 'DELETE'|dropEventPlan/);
+  assert.match(plans, /\/functions\/v1\/google-calendar\?action=events&timeMin=/);
+  assert.doesNotMatch(rules, /document\.|window\.|fetch\(/);
+  // 표시 모양은 CSS 한 곳: 빈 네모(이름 색)·점선 네모(회색). 그날 창에도 같은 모양.
+  assert.match(css, /#meetingList \.rv-dot-todo\{border:1\.5px solid var\(--meeting-color,var\(--kptu-muted\)\)\}/);
+  assert.match(css, /#meetingList \.rv-dot-ask\{border:1\.5px dashed var\(--kptu-faint\)\}/);
+  assert.match(css, /\.rv-pop-row \.rv-dot-todo\{border:1\.5px solid var\(--meeting-color,var\(--kptu-muted\)\)\}/);
+  assert.match(css, /\.rv-pop-row \.rv-dot-ask\{border:1\.5px dashed var\(--kptu-faint\)\}/);
 });
