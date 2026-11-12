@@ -40,7 +40,9 @@ async function fixture(page,{features=['calls','telegram','family'],notes=NOTES(
       const req=r.request(),q=new URL(req.url()).searchParams;
       if(req.method()==='POST'){const body=req.postDataJSON();notePosts.push(body);return r.fulfill({status:201,json:[{id:'c0000000-0000-4000-8000-000000000001',...body,updated_at:'2026-10-06T01:00:00Z'}]});}
       if(req.method()==='PATCH'){
-        const nid=q.get('id').replace(/^eq\./,''),body=req.postDataJSON();notePatches.push({id:nid,query:Object.fromEntries(q),body});
+        const nid=q.get('id').replace(/^eq\./,''),body=req.postDataJSON();
+        // FAMILY-기억알림: 맨 위 '가족 · 기억할 것' 칸이 본 기록(metadata.remind)만 쓰는 PATCH는 세지 않는다(이 시험이 보는 노트 글 쓰기와 다름).
+        if(!(body.metadata&&!('doc' in body)&&body.metadata.remind))notePatches.push({id:nid,query:Object.fromEntries(q),body});
         const row=noteRows.get(nid);Object.assign(row,body);return r.fulfill({json:[row]});
       }
       if(q.get('metadata->>family_list')==='eq.true')return r.fulfill({json:[...noteRows.values()].map(({id,updated_at,metadata})=>({id,updated_at,metadata}))});

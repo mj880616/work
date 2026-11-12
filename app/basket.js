@@ -89,7 +89,7 @@ const LINK_ICONS = {
   edit: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10.5 2.5l3 3-8 8h-3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
-root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div class="basket-switch-row forget-head"><button type="button" class="secondary forget-view" data-forget-view-open aria-haspopup="true" aria-expanded="false" aria-label="목록 보기 선택">처리 전 ▾</button><button type="button" class="row-act inbox-find" data-inbox-find>최신화</button></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><button type="button" class="quick-text-link basket-ref-open" data-basket-ref-open data-goto="reference" hidden>참고 묶음 화면 ›</button><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div class="basket-switch-row forget-head"><button type="button" class="secondary forget-view" data-forget-view-open aria-haspopup="true" aria-expanded="false" aria-label="목록 보기 선택">처리 전 ▾</button><button type="button" class="row-act inbox-find" data-inbox-find>최신화</button></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><button type="button" class="quick-text-link basket-ref-open" data-basket-ref-open data-goto="reference" hidden>참고 묶음 화면 ›</button><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx fam-remind" data-nbx-tone="forget" data-fam-remind aria-label="가족 기억할 것" hidden></section><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation only: the phone header (~760px) and the PC top line (761px~,
 // '정리함' / '노트', UI-화면정리 B ①·UI-폴드PC틀) already name the screen at every width.
 const basketTitle=root.querySelector('.basket-head > h2');basketTitle.classList.add('a11y-only');
@@ -415,6 +415,10 @@ forget=mountForgetList(root.querySelector('[data-basket-rows]'),{rt,statusEl:roo
   updateCount:()=>loadingRun&&!notes.length?null:visibleNotes(notes,links,'unclassified',docs).length,
   onView:view=>{filter=UPDATE_FILTER[view]||'none';place='all';sub='all';renderList();}});
 void forget.refresh();
+// FAMILY-기억알림: 맨 위 '가족 · 기억할 것' 칸(family-remind.js가 유일한 renderer — 가족 노트가 없거나 비면 칸 없음). 이 파일은 칸 자리만 둔다.
+let famRemind=null;
+const refreshFamRemind=()=>import('./family-remind.js').then(m=>{famRemind||=m.mountFamilyRemind(root.querySelector('[data-fam-remind]'),{rt});return famRemind.refresh();}).catch(()=>{});
+void refreshFamRemind();
 // [다시 찾기]: the same finder as the work journal (todo-radar.js); its change event makes the list read its 챙길 것 rows again.
 async function findAgain(){
   paintSummary();
@@ -1388,7 +1392,7 @@ window.KPTURouter.on('basket', detail => {
   // FORGET-원문열기·뒤로가기: coming back by Back (from a source opened on another screen) keeps the list's view and filter as left;
   // the router gives the scroll position back. A step from a menu starts at 처리 전.
   if (basketEntered && detail?.source !== 'popstate') forget.setView('open');
-  void forget.refresh();
+  void forget.refresh(); void refreshFamRemind();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();

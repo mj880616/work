@@ -400,3 +400,10 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 @media(min-width:600px) and (max-width:760px){
   html:has(#basketView.basket-split:not(.hidden)) body #appView > .mobile-shell-header:not([hidden]){ display:flex; }
 }
+
+/* FAMILY-기억알림: '잊지 말기' 화면 맨 위 '가족 · 기억할 것' 칸(family-remind.js). 모양은 공용 상자(ui-standard.css 상자, tone forget) 그대로 — 여기서는 자리만. */
+.fam-remind li{ display:flex; align-items:flex-start; gap:4px; }
+.fam-remind li:first-child{ border-top:0; }
+.fam-remind .fam-remind-text{ flex:1 1 auto; min-width:0; }
+.fam-remind [data-fam-more]{ flex:none; }
+.fam-remind-pick .row-act{ display:block; width:100%; text-align:left; white-space:normal; font-size:var(--ds-text-row); color:var(--kptu-ink); }

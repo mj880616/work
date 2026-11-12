@@ -113,6 +113,7 @@ on:
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
       - 'tests/family-notes-model.test.mjs'
+      - 'tests/family-remind-model.test.mjs'
       - 'tests/note-pick.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
@@ -330,6 +331,7 @@ on:
       - 'tests/phone-reopen.test.mjs'
       - 'tests/phone-push-settings.test.mjs'
       - 'tests/family-notes-model.test.mjs'
+      - 'tests/family-remind-model.test.mjs'
       - 'tests/note-pick.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
@@ -954,6 +956,9 @@ jobs:
 
       - name: Check home forget-not box rules (FAMILY-잊지말기 4단계)
         run: node --test tests/family-notes-model.test.mjs
+
+      - name: Check family remind rules (FAMILY-기억알림)
+        run: node --test tests/family-remind-model.test.mjs
 
       - name: Check forget note pick and append rules (FORGET-노트고르기)
         run: node --test tests/note-pick.test.mjs
