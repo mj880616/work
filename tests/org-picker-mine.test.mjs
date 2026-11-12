@@ -24,6 +24,7 @@ const ALLOWED = Object.freeze({
   'app/org-name-match.mjs': '이름 비교 규칙(주석에서 표 이름만 언급)',
   'app/profile-settings.js': '예외: 내 프로필 › 담당 사업장은 담당을 정하는 칸이라 모든 조직을 보여 준다',
   'app/workplace-detail.js': '조직 한 곳의 상세 읽기·수정(고르기 칸 아님)',
+  'app/same-file.js': '이미 있는 파일 알림: 찾은 자료에 연결된 조직 id를 위치 줄 이름으로만 바꿈(고르기 칸 없음)',
   'app/team.js': '사업 보고에 이미 연결된 조직 이름 표시',
   'app/basket-data.js': '정리함 기록에 이미 연결된 조직 이름 표시',
   'app/basket-classification.js': '정리함 AI 분류의 조직 이름 대조(다른 작업이 정리함 쪽을 고침)',

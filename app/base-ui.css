@@ -319,6 +319,9 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-ask.kptu-ask-center{left:50%;transform:translateX(-50%);width:min(92vw,300px);bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 12px)}
 .kptu-ask-text{margin:0 0 4px;line-height:1.45;white-space:pre-line}
 .kptu-ask-note{display:block;margin:0 0 6px;font-size:11px;color:var(--kptu-muted)}
+/* UX-이미있는파일알림: 확인창 글 아래 위치 줄(여러 개면 줄마다, 긴 경로는 줄바꿈) */
+.kptu-ask-lines{margin:0 0 6px;padding:0;list-style:none;font-size:12px;line-height:1.4;max-height:120px;overflow:auto}
+.kptu-ask-lines li{overflow-wrap:anywhere;padding:1px 0}
 .kptu-ask-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
 /* S52-06 확인창 안 체크 한 줄(백업 없음 함께 지우기 등). 촘촘하게, 누르기 쉽게 줄 전체가 체크. */
 .kptu-ask-check{display:flex;align-items:center;gap:6px;min-height:28px;margin:2px 0;font-size:12px;color:var(--kptu-ink);cursor:pointer}

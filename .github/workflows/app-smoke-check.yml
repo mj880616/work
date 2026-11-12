@@ -10,6 +10,7 @@ on:
       - 'tests/web2-csp.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
+      - 'tests/same-file.test.mjs'
       - 'supabase/functions/basket-files/photo-prune.ts'
       - 'supabase/functions/basket-files/note-delete.ts'
       - 'tests/security/basket-photo-prune.test.mjs'
@@ -456,6 +457,9 @@ jobs:
 
       - name: Check public privacy page matches requested Google scopes (MULTI D4)
         run: node --test tests/about-privacy-page.test.mjs
+
+      - name: Check same-name same-size file notice (UX-이미있는파일알림)
+        run: node --test tests/same-file.test.mjs
 
       - name: Check sticky bars are not white bands on the page background (UI-위쪽줄흰띠·여백)
         run: node --test tests/sticky-bar-background.test.mjs

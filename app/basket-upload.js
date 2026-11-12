@@ -308,7 +308,21 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
     try { validateBatch(batch); } catch(e) { batch.entries = old; render(); onError(e.message); return false; }
     input.value = ''; render(); onChange();
     readNow(batch, added);
+    void sameCheck(added);
     return true;
+  }
+  // UX-이미있는파일알림: 넣은 직후 같은 이름·크기 파일이 내 작업공간에 있는지 뒤에서 보고(same-file.js), 있으면 묻는다.
+  // 넣기는 먼저 한다(폰 앱 사진은 고른 순간 읽어 둬야 해서 readNow를 미루지 않음). [올리지 않기]면 아직 대기인 그 줄만 뺀다.
+  async function sameCheck(added) {
+    try {
+      const {screenSameFiles} = await import('./same-file.js');
+      const r = await screenSameFiles(added.map(e => e.file), {anchor: clip});
+      if (!r.skipped.length || isBusy()) return;
+      const batch = getBatch(), drop = new Set(r.skipped), before = batch.entries.length;
+      if (batch.blocked) return;
+      batch.entries = batch.entries.filter(e => !(e.kind === 'pending' && drop.has(e.file)));
+      if (batch.entries.length !== before) { render(); onChange(); }
+    } catch {}
   }
   input.addEventListener('change', () => add(input.files));
   if (pasteTarget) bindPaste(pasteTarget, files => add(files), {key: id, canTake: () => isActive() && !isBusy() && !getBatch().blocked, taken: () => getBatch().entries.map(e => e.file.name)});

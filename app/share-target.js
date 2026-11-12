@@ -147,7 +147,10 @@ async function filesOf(s) {
   if (s.files) return s.files;
   const got = s.receive ? await s.receive() : {out:[], failed:0, large:0, empty:0};
   s.got = got;
-  s.files = got.out || [];
+  // UX-이미있는파일알림: 받은 파일 중 같은 이름·크기가 내 작업공간에 있으면 넣기 전에 한 번 묻는다(same-file.js 공용, 다시 저장해도 다시 묻지 않음).
+  let files = got.out || [];
+  try { const {screenSameFiles} = await import('./same-file.js'); files = (await screenSameFiles(files, {anchor: document.querySelector('[data-st-save]')})).files; } catch {}
+  s.files = files;
   return s.files;
 }
 

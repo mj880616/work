@@ -60,7 +60,7 @@ function install(){
 </section>`);
   modes.addEventListener('click',e=>{const b=e.target.closest('[data-meeting-mode]');if(b)setMode(b.dataset.meetingMode,true)});
   $('#mffPick').onclick=()=>$('#mffFiles').click();
-  $('#mffFiles').addEventListener('change',()=>{const input=$('#mffFiles'),picked=Array.from(input.files||[]);input.value='';addFiles(picked)});
+  $('#mffFiles').addEventListener('change',()=>{const input=$('#mffFiles'),picked=Array.from(input.files||[]);input.value='';void addFilesChecked(picked)});
   // 글이 바뀐 때만 다시 그린다. 글 칸을 떠나며 생기는 change는 초점이 옮겨 간 뒤에 그려서, 막 누른 표의 칸이 바뀌지 않게 한다.
   const textChanged=()=>{clearTimeout(typingTimer);if(($('#mffText')?.value||'')===lastText)return;rebuildText();paint()};
   $('#mffText').addEventListener('input',()=>{clearTimeout(typingTimer);typingTimer=setTimeout(textChanged,300)});
@@ -70,7 +70,7 @@ function install(){
   list.addEventListener('change',onListChange);
   list.addEventListener('click',onListClick);
   list.addEventListener('toggle',e=>{const row=e.target.closest?.('[data-mff-anchor]');if(row)opened.set(row.dataset.mffAnchor,row.open)},true);
-  bindDropTarget($('#mffPanel'),addFiles,()=>!saving&&mode()==='files');
+  bindDropTarget($('#mffPanel'),files=>void addFilesChecked(files),()=>!saving&&mode()==='files');
   setMode('manual');
   return true;
 }
@@ -83,6 +83,8 @@ function setMode(next,focus=false){
   if(next==='files'){paint();if(focus)$('#mffPick')?.focus()}
 }
 
+// UX-이미있는파일알림: 같은 이름·크기 파일이 내 작업공간에 있으면 넣기 전에 묻는다(same-file.js 공용). 찾지 못하면 그대로 넣는다.
+async function addFilesChecked(picked){let keep=Array.from(picked||[]);try{const {screenSameFiles}=await import('./same-file.js');keep=(await screenSameFiles(keep,{anchor:document.querySelector('#mffPanel')})).files}catch{}if(keep.length)addFiles(keep)}
 function addFiles(picked){
   if(saving)return;
   const rejected=[];
