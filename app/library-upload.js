@@ -41,7 +41,7 @@ import {SPLIT_QUERY,NARROW_QUERY} from './screen-width.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {createLibraryTwo} from './library-two-pane.js';
 import {iconHtml,treeIconHtml} from './tree-icons.js';
-import {ftPressToggle,ftBindTreeArrows,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
+import {ftPressToggle,ftBindTreeArrows,ftKeepPlace,folderPressAction,FOLDER_PRESS_ENTER} from './folder-tree-press.mjs'; // UI-폴더누르기한규칙: 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음), ←/→
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu,moveMenuTrigger} from './anchored-menu.js';
@@ -1032,7 +1032,10 @@ function luRenderFolderNav(tree){
   // S55-08 LIB-나무폴더밖: '자료실 전체' 바로 아래(폴더들 위) '폴더 밖 n' — 오른쪽 목록의 '폴더 밖' 묶음과 같은 그림·같은 개수·같은 규칙(비면 줄 없음, LIB-정리보충).
   const outNode=(tree||[]).find(n=>n.key===OUT_KEY);
   const out=outNode?ftFolderRowHtml({name:outNode.label,count:outNode.count,countLabel:`${outNode.count}건`,depth:0,hasContent:false,current:luOutOnly,tree:true,className:'lu-fnav-out',icon:treeIconHtml('outside',{className:'ft-ico'}),mainAttrs:{'data-lu-nav':OUT_KEY}}):'';
-  nav.innerHTML=`<div class="lu-fnav-in" role="tree" aria-label="자료실 폴더 나무">${top}${out}${rows.join('')}</div>`;
+  // UI-폴더펼치면위로(S61-7): 스크롤 상자(.lu-fnav-in)는 그대로 두고 안쪽 줄만 바꾼다 — 통째로 바꾸면 새 상자가 맨 위부터 보였다.
+  let inner=nav.querySelector(':scope > .lu-fnav-in');
+  if(!inner){nav.innerHTML='<div class="lu-fnav-in" role="tree" aria-label="자료실 폴더 나무"></div>';inner=nav.firstElementChild}
+  inner.innerHTML=`${top}${out}${rows.join('')}`;
 }
 // S51-25 FOLDER-PC나무 → UI-폴더누르기한규칙(S57-5): 줄(이름·아이콘) 누르기 = 오른쪽은 그대로 두고 그 자리에서 펼치기·접기만(세모 없음). 들어가기 = 우클릭 [이 폴더로 들어가기]·두 손가락 벌리기.
 document.addEventListener('click',e=>{
@@ -1083,7 +1086,9 @@ document.addEventListener('dblclick',e=>{
   const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:')||key==='f:'+luInFolder)return;
   e.preventDefault();window.getSelection?.()?.removeAllRanges?.();luEnterFolder(key.slice(2));
 });
-function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luSyncFind();luRenderProjectFilter();luRenderOrganizationFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+// UI-폴더펼치면위로(S61-7): 다시 그리는 앞뒤를 공용 부품(ftKeepPlace)으로 감싼다 — 왼쪽 나무·두 칸 칸 안을 내려 둔 자리가 그대로 남는다.
+function luRenderLibrary(){const card=document.querySelector('#libraryListCard');return card?ftKeepPlace(card,luRenderLibraryNow):luRenderLibraryNow()}
+function luRenderLibraryNow(){const box=document.querySelector('#documentList');if(!box)return;luRenderTwoToggle();const focusId=box.contains(document.activeElement)&&document.activeElement.matches('[data-lu-document]')?document.activeElement.dataset.luDocument:'';const menuSpots=[luMenuSpot(luActiveMenu?.trigger),luMenuSpot(luFolderUi?.menuTrigger)];luApplyPlaceFolder();luRenderGroupBy();luSyncFind();luRenderProjectFilter();luRenderOrganizationFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const inTrash=documentsInTrashedFolders(luFolders_,luFolderItems,luFoldersReady);const found=luListDocs().filter(d=>!inTrash.has(d.id)&&(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));luRenderCategoryFilter(categoryCounts(topDocumentCategories(),found));const hiddenNow=luHiddenCategories(),matches=found.filter(d=>luCategoryShown(categoryOf(d.category),hiddenNow));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
 luSyncSearchPickAll(q,matches);
 const filtering=luFiltering(q,pid),signature=filtering?JSON.stringify([q,[...luCategoryOff].sort(),luCategorySub,luOrganization?.id||'',pid,luGroupBy]):'-';if(signature!==luFilterSignature){luFilterOpen.clear();luFilterSignature=signature}
 if(luGroupBy==='organization'&&!luOrganizations)luLoadOrganizations();

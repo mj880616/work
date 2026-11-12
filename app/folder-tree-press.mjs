@@ -79,13 +79,43 @@ export function ftPressToggle(main, enter = null) {
   return true;
 }
 
-// 나무를 다시 그리는 앞뒤로 나무 안 초점을 같은 단추로 되돌린다. 펼침으로 읽어 온 하위 폴더가 늦게 그려져 줄이 통째로 바뀌어도 키보드 초점(Enter·←/→ 뒤)이 이어진다.
-export function ftKeepFocus(box, paint) {
-  const at = box?.contains?.(document.activeElement) ? document.activeElement : null, sel = at ? sameSelector(at) : '';
-  paint();
-  if (sel && !at.isConnected) box.querySelector(sel)?.focus?.({preventScroll: true});
+// UI-폴더펼치면위로(S61-7, 요청함 11/13 04:24): 나무·목록을 다시 그리는 앞뒤를 감싸 '그 자리'를 지키는 공용 부품 한 곳.
+//  ① 스크롤: box 안(box 자신 포함)에서 스크롤해 내려가 있던 상자는 다시 그린 뒤에도 같은 만큼 내려가 있다. 같은 상자가 남아 있으면 그 상자,
+//     새로 그려 바뀌었으면 box에서의 자리(태그·data- 속성·id, 없으면 첫 class)가 같은 새 상자에 같은 값을 준다(같은 그리기 안 — 늦게 맞추기 아님).
+//     그래서 폴더를 눌러 펼치기·접기만 하면 누른 폴더가 화면에서 같은 높이에 남는다(자료실 왼쪽 나무·두 칸, 사진 PC 나무, [파일] 나무·받을 곳 창).
+//  ② 초점: 나무 안 초점을 같은 단추로 되돌린다. 펼침으로 읽어 온 하위 폴더가 늦게 그려져 줄이 통째로 바뀌어도 키보드 초점(Enter·←/→ 뒤)이 이어진다.
+//  상자를 통째로 바꾸지 않고 안쪽만 바꾸는 것이 먼저다(자료실 왼쪽 나무). 이 부품은 통째로 다시 그리는 화면도 같은 자리를 지키게 한다.
+const segOf = el => {
+  const data = [...el.attributes].filter(a => a.name.startsWith('data-')).map(a => `[${a.name}="${CSS.escape(a.value)}"]`).join('');
+  const tag = el.tagName.toLowerCase();
+  if (el.id) return `${tag}#${CSS.escape(el.id)}${data}`;
+  return data ? tag + data : el.classList[0] ? `${tag}.${CSS.escape(el.classList[0])}` : tag;
+};
+function placeKey(el, box) {
+  if (el === box) return '';
+  const out = [];
+  for (let e = el; e && e !== box; e = e.parentElement) out.unshift(segOf(e));
+  return out.join('>');
 }
-
+function scrolledIn(box) {
+  const out = [];
+  for (const el of [box, ...box.querySelectorAll('*')]) if (el.scrollTop > 0) out.push({el, key: placeKey(el, box), top: el.scrollTop});
+  return out;
+}
+function placeAgain(box, {el, key, top}) {
+  let at = el.isConnected && (el === box || box.contains(el)) ? el : null;
+  if (!at && key) { const last = key.split('>').pop(); at = [...box.querySelectorAll(last)].find(c => placeKey(c, box) === key) || null; }
+  if (at && Math.abs(at.scrollTop - top) > 0.5) at.scrollTop = top;
+}
+export function ftKeepPlace(box, paint) {
+  if (!box?.querySelectorAll) return paint();
+  const at = box.contains(document.activeElement) ? document.activeElement : null, sel = at ? sameSelector(at) : '';
+  const spots = scrolledIn(box);
+  const out = paint();
+  for (const s of spots) placeAgain(box, s);
+  if (sel && !at.isConnected) box.querySelector(sel)?.focus?.({preventScroll: true});
+  return out;
+}
 // ③ ←/→. 처리했으면 true.
 export function ftTreeArrow(event) {
   if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
