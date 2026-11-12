@@ -19,27 +19,46 @@ const gap = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clie
 export function bindFolderPinch(el, {folderAt = () => null, onOut = () => {}, onIn = () => {}, enabled = () => true} = {}) {
   if (!el) return () => {};
   el.classList.add('ft-pinch');
-  let p = null;
+  // STAB-폴더상자시험(S61-10): 손가락 이벤트(touchmove·touchend)는 손가락을 댄 그 요소로만 간다. 손짓 도중 화면이 자료를 받아
+  // 칸을 다시 그리면(innerHTML) 그 요소가 문서에서 떨어져 이벤트가 칸(el)까지 올라오지 않아 벌리기가 사라졌다.
+  // 그래서 손짓이 시작되면 손가락을 댄 요소에도 직접 귀를 단다(떨어져도 그 요소에는 이벤트가 온다). 같은 이벤트는 한 번만 본다.
+  let p = null, seen = null, hooked = [];
+  const unhook = () => {
+    for (const t of hooked) { t.removeEventListener('touchmove', move); t.removeEventListener('touchend', end); t.removeEventListener('touchcancel', end); }
+    hooked = [];
+  };
+  const hook = targets => {
+    unhook();
+    for (const t of new Set(targets)) {
+      if (!t?.addEventListener || t === el) continue;
+      t.addEventListener('touchmove', move, {passive: true}); t.addEventListener('touchend', end, {passive: true}); t.addEventListener('touchcancel', end, {passive: true});
+      hooked.push(t);
+    }
+  };
   const start = e => {
-    if (e.touches.length !== 2 || !enabled()) { if (e.touches.length > 2) p = null; return; }
+    if (e.touches.length !== 2 || !enabled()) { if (e.touches.length > 2) { p = null; unhook(); } return; }
     const [a, b] = e.touches, x = (a.clientX + b.clientX) / 2, y = (a.clientY + b.clientY) / 2;
     const target = document.elementFromPoint(x, y);
     // 두 손가락 가운데가 칸 밖이거나 비어 있으면 칸 자체를 넘긴다(화면이 손짓마다 새로 판정하게 — 지난 손짓의 판정이 남지 않게).
     p = {d: gap(a, b), key: folderAt(target && el.contains(target) ? target : el), done: false};
+    hook([e.target, a.target, b.target]);
   };
   const move = e => {
+    if (e === seen) return;
+    seen = e;
     if (!p || p.done || e.touches.length !== 2) return;
     const step = pinchStep(p.d, gap(e.touches[0], e.touches[1]));
     if (!step) return;
     p.done = true;
     if (step === 'out') { if (p.key) onOut(p.key); } else onIn();
   };
-  const end = e => { if (e.touches.length < 2) p = null; };
+  const end = e => { if (e.touches.length < 2) { p = null; unhook(); } };
   el.addEventListener('touchstart', start, {passive: true});
   el.addEventListener('touchmove', move, {passive: true});
   el.addEventListener('touchend', end, {passive: true});
   el.addEventListener('touchcancel', end, {passive: true});
   return () => {
+    unhook();
     el.classList.remove('ft-pinch');
     el.removeEventListener('touchstart', start); el.removeEventListener('touchmove', move);
     el.removeEventListener('touchend', end); el.removeEventListener('touchcancel', end);

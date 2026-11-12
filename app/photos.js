@@ -88,7 +88,7 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {bindFolderPinch} from './folder-pinch.js';
-import {FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, FOLDER_PRESS_TOGGLE, createLeafWait} from './folder-tree-press.mjs';
+import {FOLDER_ENTER_LABEL, ftKeepPlace, folderPressAction, FOLDER_PRESS_ENTER, FOLDER_PRESS_TOGGLE, createLeafWait} from './folder-tree-press.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
@@ -2386,7 +2386,8 @@ function fxFocusBox({steps = [], head, body}) {
   return `<section class="ft-box ft-focus photos-fx-focus">${anc}${top}<div class="ft-box-body">${body}</div></section>`;
 }
 const phoneFocusHtml = (f, rest) => fxFocusBox({steps:[{attr:'data-photos-pf-at', id:'phone', name:'폰'}], head:phoneHeadHtml(f), body:rest});
-function renderFolders() { return keepPhotoMenus(() => renderFoldersNow()); }
+// UI-폴더펼치면위로(S61-7): 폴더 화면은 통째로 다시 그린다 — PC 나무를 내려 둔 자리는 공용 부품(ftKeepPlace)이 지킨다.
+function renderFolders() { return keepPhotoMenus(() => ftKeepPlace(body, () => renderFoldersNow())); }
 function renderFoldersNow() {
   io?.disconnect();
   const g = listGate();
@@ -2413,7 +2414,7 @@ function renderFoldersNow() {
     else body.innerHTML = f ? `<div class="photos-fx">${phoneFocusHtml(f, '<div data-photos-fx-grid></div><p class="photos-muted photos-foot" data-photos-fx-foot></p>')}</div>`
       : `${top}<div class="photos-fx photos-fx-boxes${cardWide() ? ' is-cards' : ''}">${fxBoxesHtml(u)}</div>`;
     if (!wide && !f) { fxFillStrips(); fxFillCovers(); }
-    if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); fxSplit(); }
+    if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52, reset:false}); fxSplit(); }
     syncFolderLayer();
     if (gdPane) paintGdFolderGrid(); else if (f) paintPhoneFolderGrid();
     return;
@@ -2450,7 +2451,7 @@ function renderFoldersNow() {
     // 폰·폴드에서 여기는 늘 '그 폴더만'(맨 위 폴더 첫 화면은 위 상자 나무).
     body.innerHTML = `${top}<div class="photos-fx">${fxFocusBox({steps:photoFolderTrail(tree, at).slice(0, -1).map(x => ({attr:'data-photos-fx-at', id:x.id, name:x.name})), head, body:inner + grid})}</div>`;
   }
-  if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52}); fxSplit(); } // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
+  if (wide) { followPane(body.querySelector('[data-photos-fx-tree]'), {top:52, reset:false}); fxSplit(); } // UI-칸안스크롤하나로: 나무는 화면에 붙어 따라온다.
   syncFolderLayer();
   if (gdPane) { paintGdFolderGrid(); return; }
   if (pf) { paintPhoneFolderGrid(); return; }

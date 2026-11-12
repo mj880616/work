@@ -64,7 +64,8 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
     content.querySelectorAll('[data-sheet-label-of]').forEach(el=>{el.hidden=!!q&&!visible(content.querySelector(`[data-sheet-part="${el.dataset.sheetLabelOf}"]`));});
     empty.hidden=!q||shown>0;
   }
-  search.addEventListener('input',filter);
+  // S61-8 UI-고르기창넣기안보임: 찾기로 줄이 늘고 줄면 자리·높이를 다시 맞춘다(place가 filter도 부른다). 아래 끝([넣기]·[취소] 줄)은 늘 화면 안.
+  search.addEventListener('input',()=>{if(active)place();else filter();});
   // ↓ from the box goes to the first choice still shown.
   search.addEventListener('keydown',e=>{if(e.key!=='ArrowDown')return;const first=sheet.querySelector('[data-sheet-content] button[data-sheet-value]:not([hidden])');if(first){e.preventDefault();first.focus();}});
   // S54-05 UI-고르기창버튼아래 ②(11/08 명진 결정): 버튼으로 연 고르기 창은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창(아래 자리가 모자라면 위)이다.
@@ -120,7 +121,8 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   sheet.querySelector('[data-sheet-save]').onclick=()=>{if(!active)return;onCommit(active.kind);void close();};
   // S52-01 UI-사업영역조직고르기창: a folding list (area-org-picker.js areaListHtml·orgListHtml) opens or closes a block by its chevron
   // (or a group's name) in any choice sheet; while searching every match shows (.home-choice-searching, area-org-picker.css).
-  sheet.addEventListener('click',e=>{const t=e.target.closest('[data-aop-toggle]');if(!t||!sheet.contains(t))return;e.stopPropagation();const node=t.closest('.aop-node'),open=!node.classList.contains('is-open');node.classList.toggle('is-open',open);t.setAttribute('aria-expanded',String(open));const lbl=t.getAttribute('aria-label');if(lbl)t.setAttribute('aria-label',lbl.replace(/(접기|펼치기)$/,open?'접기':'펼치기'));});
+  // S61-8: 묶음을 펼치거나 접어 목록이 길어지고 짧아지면 같은 공용 자리 맞춤(place)을 다시 부른다(창마다 따로 고치지 않음).
+  sheet.addEventListener('click',e=>{const t=e.target.closest('[data-aop-toggle]');if(!t||!sheet.contains(t))return;e.stopPropagation();const node=t.closest('.aop-node'),open=!node.classList.contains('is-open');node.classList.toggle('is-open',open);t.setAttribute('aria-expanded',String(open));const lbl=t.getAttribute('aria-label');if(lbl)t.setAttribute('aria-label',lbl.replace(/(접기|펼치기)$/,open?'접기':'펼치기'));place();});
   sheet.addEventListener('click',e=>{const b=e.target.closest('[data-sheet-value]');if(b&&active){const kind=active.kind,many=!!multi(kind);onSelect(kind,b.dataset.sheetValue);if(many){if(active)sync();return;}void close();return;}if(e.target===sheet){const r=sheet.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)void close();}});
   sheet.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();void close();return;}if(e.key!=='Tab')return;e.stopPropagation();const buttons=[...sheet.querySelectorAll('button,input')].filter(el=>el.getClientRects().length),i=buttons.indexOf(document.activeElement);if(e.shiftKey&&i===0){e.preventDefault();buttons.at(-1).focus();}else if(!e.shiftKey&&i===buttons.length-1){e.preventDefault();buttons[0].focus();}});
   // A wide↔phone switch while open moves the sheet between the two forms.

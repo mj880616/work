@@ -7,7 +7,23 @@
 export const WIDE_QUERY='(min-width:761px)';
 export const isWide=()=>window.matchMedia(WIDE_QUERY).matches;
 // S54-04·S54-05: 아래 바(하단바·전환 줄)와 자판이 창 아래를 덮는 높이(px). 버튼 아래 창은 그 위에서 끝난다(placeAnchored의 bottomInset).
-export function bottomInset(){const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')+v('--kptu-keyboard-inset')}
+// S61-8 UI-고르기창넣기안보임: 하단바는 실제로 '48px + 시스템 바 자리(env(safe-area-inset-bottom))'만큼 덮는데(topbar-actions.css) 옛 값은 시스템 바 자리를
+// 빼먹어, 화면 끝까지 그리는 폰(삼성 인터넷·크롬, 제스처 줄)에서 창 아래 끝([넣기]·[취소] 줄)이 하단바·시스템 바 밑으로 내려갔다.
+// 그래서 ① 하단바 몫 = max(변수 + 시스템 바 자리, 보이는 하단바가 실제로 덮는 높이) ② 하단바가 숨은 때(쓰기 창·자판)도 시스템 바 자리는 늘 뺀다
+// ③ 자판 몫 = max(--kptu-keyboard-inset, 화면 확대 없이 visualViewport가 창 아래를 가린 높이). 모든 버튼 아래 창(고르기 창·옮기기 창·⋯ 메뉴)이 이 한 값을 쓴다.
+export function safeBottom(){
+  const root=document.documentElement;
+  // env()는 사용자 지정 속성에 넣으면 계산값에서 px로 풀린다(자판 높이 --kptu-keyboard-inset처럼 html 인라인 속성, 화면 상태만·저장 없음).
+  if(!root.style.getPropertyValue('--kptu-safe-bottom'))root.style.setProperty('--kptu-safe-bottom','env(safe-area-inset-bottom, 0px)');
+  return Math.max(0,parseFloat(getComputedStyle(root).getPropertyValue('--kptu-safe-bottom'))||0);
+}
+export function bottomInset(){
+  const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0,vh=window.innerHeight;
+  const tabs=document.querySelector('nav.mobile-tabs'),tr=tabs&&getComputedStyle(tabs).display!=='none'&&getComputedStyle(tabs).position==='fixed'?tabs.getBoundingClientRect():null;
+  const bar=Math.max(v('--kptu-mobile-tab-height')+safeBottom(),tr&&tr.height&&tr.top<vh?vh-tr.top:0);
+  const vv=window.visualViewport,cover=vv&&Math.abs((vv.scale||1)-1)<0.01?Math.max(0,vh-(vv.offsetTop+vv.height)):0;
+  return bar+v('--kptu-switch-dock')+Math.max(v('--kptu-keyboard-inset'),cover);
+}
 const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 
 // Sets the panel's inline position (position:fixed is the caller's CSS) from the anchor's box and returns the side it took
