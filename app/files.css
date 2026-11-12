@@ -388,6 +388,6 @@
 .fx-tphoto .photo-fold-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
 .fx-photo-grid .fx-row { position:relative; }
 /* LIB-최근폴더로가기(S61-12): '최근' 줄 [폴더로 가기]로 간 줄·사진 칸을 잠깐 강조(자료실 '최근 올린 파일'과 같은 색) */
-@keyframes fx-flash { 0%,60% { background:var(--kptu-primary-soft); box-shadow:0 0 0 2px var(--kptu-primary); } 100% { background:transparent; box-shadow:0 0 0 2px transparent; } }
-.fx-flash { animation:fx-flash 1.8s ease-out; }
+@keyframes fx-flash { 0%,60% { background:var(--kptu-primary-soft); outline-color:var(--kptu-primary); } 100% { background:transparent; outline-color:transparent; } }
+.fx-flash { outline:2px solid transparent; outline-offset:-2px; animation:fx-flash 1.8s ease-out; }
 @media (prefers-reduced-motion:reduce) { .fx-flash { animation:none; background:var(--kptu-primary-soft); } }
