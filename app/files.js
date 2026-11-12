@@ -1091,7 +1091,11 @@ function recentBoxHtml() {
     const more = recent.length > RECENT_BOX || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : MORE_LABEL}</button>` : '';
     // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
     const shut = recentFolded('files');
-    return ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body: shut ? '' : shown.map(r => treeFileHtml(r, 0, 'recent')).join('')});
+    // LIB-사진숨김나머지: 보이는 최근 파일 중 사진은 줄에서 빼고 상자 맨 아래 [사진 n] 하나(누르면 그 자리에 작은 그림).
+    const {rest, photos} = fxSplit(shown);
+    const body = shut ? '' : rest.map(r => treeFileHtml(r, 0, 'recent')).join('') + (photos.length
+      ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:0" data-ft-parent="recent">${photoToggleHtml(photos.length, {open: state.photoOpen.has(RECENT_PHOTO_KEY), attrs: ` data-fx-photos="${RECENT_PHOTO_KEY}"`})}</div>` + fxTreePhotosHtml(photos, RECENT_PHOTO_KEY, 0, 'recent') : '');
+    return ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body});
   }
   return '';
 }
@@ -1281,10 +1285,13 @@ const wantsThumb = r => r.source !== PC && thumbWanted(kindOf(r), r.is_folder);
 // ---------- LIB-사진숨김(S60-10, 명진 결정 11/12, 시안 photo-hide-thumbs.html ⑤) ----------
 // 폴더 안을 보이는 곳(목록 칸 목록·격자·'그 폴더만', 펼친 하위 폴더, 폰 나무)에서 사진(공용 판정 kindOf === 'image')은 줄에서 빼고
 // 그 폴더 맨 아래 [사진 n] 하나. 누르면 그 자리에 작은 그림 칸(같은 줄 단추·같은 data-* — 누르기 = 미리보기, 꾹 누르기·우클릭·⋯ = 지금 메뉴).
-// 찾기 결과·묶음(별표·큰 파일)·최근은 그대로(사진도 줄). 펼친 폴더(state.photoOpen)는 화면 메모리만이고 [파일]을 떠나면 비운다(늘 숨김으로 시작).
+// LIB-사진숨김나머지(S61-1, 명진 결정 11/13 "모두 숨김"): '최근' 상자·묶음(별표·큰 파일)·찾기 결과도 같은 규칙 — 목록 맨 아래 [사진 n] 하나.
+// 찾기는 종류 거르기에서 '사진'을 고른 때만 사진을 줄로 보인다(사진만 보려고 고른 것). 펼친 곳(state.photoOpen)은 화면 메모리만이고 [파일]을 떠나면 비운다(늘 숨김으로 시작).
 const isFxPhoto = r => !r.is_folder && kindOf(r) === 'image';
 const fxSplit = rows => ({rest: rows.filter(r => !isFxPhoto(r)), photos: rows.filter(isFxPhoto)});
-const fxPhotoKey = (p, xof) => xof || (p.where ? folderKey(p.where.source, p.where.parent) : '');
+// 펼침 열쇠: 펼친 하위 폴더면 그 폴더, 찾기면 'find:', 묶음이면 'shelf:별표' 같은 이름, 아니면 연 폴더.
+const fxPhotoKey = (p, xof) => xof || (p.query ? 'find:' : p.where?.shelf ? 'shelf:' + p.where.shelf : p.where ? folderKey(p.where.source, p.where.parent) : '');
+const RECENT_PHOTO_KEY = 'recent:';
 // UI-펼친폴더안놓기전체(S60-13): 펼친 폴더 묶음 안 줄이 아닌 것([사진 n]·작은 그림·빈 폴더/기다림 줄·폰 나무 파일 줄)도 그 폴더로 놓는 자리.
 // 판정은 공용 규칙 하나(drop-open-folder.mjs — 가장 가까운 묶음 = 그 폴더)이고 [파일]의 묶음 표시는 data-fx-drop(그 폴더 키)이다. 받을 수 없는 곳(옛 바구니 문 내 PC 등)은 붙이지 않는다.
 const dropIn = key => (key && destOf(key) ? ` data-fx-drop="${esc(key)}"` : '');
@@ -1382,7 +1389,10 @@ function paintListNow(p) {
     if (p.findFailed) { list.innerHTML = failHtml({retry: 'data-fx-retry', text: errorText(p.findFailed), reason: p.findWhy}); return; }
     if (!p.found) { list.innerHTML = waitHtml({rows: 4}); return; }
     const found = foundShown(p);
-    list.innerHTML = findBarHtml(p) + (found.length ? `${fileHeadHtml(true)}<div class="fx-rows fx-with-path" role="list">${found.map(r => rowHtml(p, r, {withPath: true})).join('')}</div>` : emptyHtml(p.found.length ? '거른 뒤 남은 것 없음' : '찾은 것 없음'));
+    // LIB-사진숨김나머지: 찾은 사진도 줄에서 빼고 맨 아래 [사진 n](개수 그대로). 종류 거르기 '사진'이면 줄로 보인다.
+    const {rest, photos} = p.ff?.kind === 'image' ? {rest: found, photos: []} : fxSplit(found), pk = fxPhotoKey(p, '');
+    const foundRows = rest.map(r => rowHtml(p, r, {withPath: true})).join('') + (photos.length ? fxPhotoToggle(pk, photos.length) + fxPhotoGridHtml(p, photos, pk, 0, '') : '');
+    list.innerHTML = findBarHtml(p) + (found.length ? `${fileHeadHtml(true)}<div class="fx-rows fx-with-path" role="list">${foundRows}</div>` : emptyHtml(p.found.length ? '거른 뒤 남은 것 없음' : '찾은 것 없음'));
     list.dataset.fxMode = 'find'; delete list.dataset.fxLook;
     mountThumbs(list);
     return;
@@ -1502,7 +1512,7 @@ const xNoteHtml = (depth, html, xof = '') => `<div class="fx-xnote" style="--fx-
 // 목록 보기: 펼친 폴더 바로 아래에 안 줄을 들여 끼운다(같은 줄 단추·같은 data-* — 누르기·고르기·끌기·놓기·우클릭 길 그대로).
 function xListHtml(p, rows, {withPath = false, depth = 0, xof = ''} = {}) {
   let html = '';
-  const {rest, photos} = withPath ? {rest: rows, photos: []} : fxSplit(rows), pk = fxPhotoKey(p, xof);
+  const {rest, photos} = fxSplit(rows), pk = fxPhotoKey(p, xof);
   if (photos.length) rows = rest;
   for (const r of rows) {
     if (depth) p.inline.set(rowKey(r), r);
@@ -1519,7 +1529,7 @@ function xListHtml(p, rows, {withPath = false, depth = 0, xof = ''} = {}) {
 // 격자 보기: 펼친 폴더 칸 다음 줄에 그 폴더 안 격자 한 묶음(칸 너비 전체, 놓으면 그 폴더).
 function xGridHtml(p, rows, cols, depth = 0, xof = '') {
   let html = '';
-  const {rest, photos} = p.where?.shelf || p.query ? {rest: rows, photos: []} : fxSplit(rows), pk = fxPhotoKey(p, xof);
+  const {rest, photos} = fxSplit(rows), pk = fxPhotoKey(p, xof);
   if (photos.length) rows = rest;
   for (const r of rows) {
     if (depth) p.inline.set(rowKey(r), r);

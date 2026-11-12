@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import { expandLibraryTree } from './helpers/library-tree.mjs';
+import { expandLibraryTree, openLibraryPhotoFolds } from './helpers/library-tree.mjs';
 
 // PHOTO-크게보기밀기(S57-2): 사업 보고 사진 크게 보기(photo-view.js)에서 한 손가락으로 좌우로 밀면 앞뒤 사진, 아래로 밀면 닫기.
 // 판정은 [사진] 메뉴(photo-viewer-model.mjs)와 같다. 두 손가락 중에는 넘기지 않고, 앞뒤 목록이 없는 한 장 보기는 좌우로 밀어도 제자리.
@@ -61,8 +61,9 @@ async function openDetail(page, state, width) {
   await page.goto(`${appOrigin}/app/?view=library`);
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
-  await expect(page.locator('[data-lu-photoset]').first()).toBeAttached({ timeout: 10000 });
+  await expect(page.locator('#documentList [data-lu-photos]').first()).toBeAttached({timeout: 10000});
   await expandLibraryTree(page);
+  await openLibraryPhotoFolds(page); // LIB-사진숨김나머지: 사업 보고 사진 묶음 줄은 [사진 n] 안
   await page.locator(`[data-lu-photoset="${M1}"]`).click();
   await page.locator(`[data-rv-set="${M1}"] .rv-set-head`).click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible({ timeout: 10000 });

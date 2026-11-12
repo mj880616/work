@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import { expandLibraryTree } from './helpers/library-tree.mjs';
+import { expandLibraryTree, openLibraryPhotoFolds } from './helpers/library-tree.mjs';
 
 // S46-20 사진 정리 ⑥(명진 11/01 01:04 추천대로): 사업 보고 사진 줄 안 '그 시각 사진 [골라 붙이기]'.
 // - 폰 앱 412: 그 보고 시각 앞뒤 3시간 폰 사진만 보이고(앱 다리 흉내 + __phone 가로채기 흉내), 고른 사진만 기존 사진 올리기 길(library-files POST)로 올라간다.
@@ -113,8 +113,9 @@ async function openDetail(page) {
   await page.goto(`${appOrigin}/app/?view=library`);
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
-  await expect(page.locator('[data-lu-photoset]').first()).toBeAttached({ timeout: 10000 });
+  await expect(page.locator('#documentList [data-lu-photos]').first()).toBeAttached({timeout: 10000});
   await expandLibraryTree(page);
+  await openLibraryPhotoFolds(page); // LIB-사진숨김나머지: 사업 보고 사진 묶음 줄은 [사진 n] 안
   await page.locator(`[data-lu-photoset="${M1}"]`).click();
   await page.locator(`[data-rv-set="${M1}"] .rv-set-head`).click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible({ timeout: 10000 });
