@@ -83,7 +83,9 @@ for(const width of [412,1280])test(`'가족 · 기억할 것' 3줄이 맨 위에
 for(const width of [412,1280])test(`줄 ⋯ [과거 기록으로]: 같은 가족 폴더 '과거 기록' 노트(AI 제외)를 처음 만들고 '날짜 · 줄', 되돌리기는 제자리 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
   await expect(box(page).locator('.fam-remind-text')).toHaveCount(3);
-  await box(page).locator('[data-fam-more]').nth(1).click();
+  // PC는 줄 우클릭도 같은 메뉴(공통 context-menu.js가 그 줄 ⋯을 연다), 폰은 ⋯.
+  if(width>=761)await box(page).locator('.fam-remind-text').nth(1).click({button:'right'});
+  else await box(page).locator('[data-fam-more]').nth(1).click();
   const menu=page.locator('#familyRemindMenu');
   await expect(menu).toBeVisible();
   await expect(menu.locator('button')).toHaveText(['노트에서 보기','과거 기록으로']);
