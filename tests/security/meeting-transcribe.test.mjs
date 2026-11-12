@@ -114,10 +114,13 @@ test('REC-발언자구분: 29-minute recording segments turn diarization on; old
  for(const s of [1,60,29*60,29*60+rec.REC_PIECE_SECONDS,30*60])assert.equal(m.wantsDiarize(s),true,`${s}초`);
  for(const s of [30*60+1,59*60,3600,0,-1,NaN,Infinity,null,undefined,'1740'])assert.equal(m.wantsDiarize(s),false,`${s}`);
  assert.ok(59*60<=m.MAX_SECONDS);
- // 구분을 켜는 조건은 한 곳뿐이다: 화면 정리(transcribe)·서버 정리(구간·회의자료 파일) 모두 runTranscription 한 길.
+ // 구분을 켜는 조건은 한 곳뿐이다: 화면 정리(transcribe)·서버 정리(구간·회의자료 파일) 모두 transcribeLoaded 한 길(REC-긴녹음나눠전사).
+ // 시간 조각은 조각 길이로(15분 조각이면 구간마다 켜짐), 통째면 구간 행 길이 → 파일에서 읽은 길이.
  assert.equal((index.match(/wantsDiarize\(/g)||[]).length,1);
- assert.match(index,/geminiTranscribe\(key, file\.uri, file\.mimeType \|\| job\.mime_type, wantsDiarize\(job\.duration_sec \?\? audio\.seconds\)\)/);
- assert.equal((index.match(/await runTranscription\(/g)||[]).length,3);
+ assert.match(index,/const duration = range \? span : \(job\.duration_sec \?\? span\);/);
+ assert.match(index,/geminiTranscribe\(key, file\.uri, file\.mimeType \|\| mime, wantsDiarize\(duration\)\)/);
+ assert.equal((index.match(/await transcribeLoaded\(/g)||[]).length,3);
+ assert.equal((index.match(/await runTranscription\(/g)||[]).length,1);
  // 합친 구간의 길이는 녹음 구간 행의 길이 그대로(조각 머리글 x-duration-sec) — 화면이 보낸 작업공간·소유 값은 쓰지 않는다.
  assert.match(index,/duration_sec: seg\.duration_sec \?\? null/);
 });
@@ -287,7 +290,38 @@ test('글을 못 받은 시도는 월 상한에 넣지 않는다(실패 머리 m
  assert.equal(m.monthKrw([row(ok),row(bad)]),2800);
  // 서버는 답을 읽은 뒤 성공 여부로 머리를 정하고, 실패면 기록한 다음 원래 오류를 다시 던진다.
  const index=readFileSync(new URL('../../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
- assert.match(index,/ref: usageRef\(job\.id, at, !result\)/);
- assert.match(index,/if \(!result\) throw answerError;/);
+ // 긴 소리를 나눠 동시에 전사하는 조각은 조각 번호를 붙여 겹치지 않게(REC-긴녹음나눠전사).
+ assert.match(index,/ref: usageRef\(job\.id, at, !result, piece\)/);
+ assert.match(index,/if \(!result\) \{[\s\S]{0,400}?throw answerError;/);
+ assert.match(m.usageRef(id,at,true,3),/^mtgfail-.*-c3$/);
  assert.match(index,/\.like\('ref', `\$\{USAGE_REF_PREFIX\}%`\)/);
+});
+
+// REC-긴녹음나눠전사(S60-7): 11/12 41분 녹음이 출력 상한(32,768토큰)에서 잘림(gemini_incomplete) → 시간 조각으로 나눠 전사.
+test('REC-긴녹음나눠전사: 세 길(화면 transcribe·서버 정리 구간·회의자료 파일) 모두 나눔, 진행·이어하기는 parts 안, 로그는 수만', async () => {
+ const sp=await import('../../supabase/functions/meeting-transcribe/split.mjs');
+ // 조각은 발언자 구분 상한 안·한 번 요청 상한 안. 메모리에 담는 크기는 올리기 상한 안.
+ assert.ok(sp.CHUNK_SECONDS<=m.DIARIZE_MAX_SECONDS&&sp.CHUNK_SECONDS<m.MAX_SECONDS);
+ assert.ok(sp.MIN_CHUNK_SECONDS*2<=sp.CHUNK_SECONDS);
+ assert.ok(sp.SPLIT_MAX_BYTES<=m.MAX_BYTES);
+ assert.match(index,/import \{ CHUNK_SECONDS, SPLIT_MAX_BYTES, chunkRanges, halveRange, openAudio, readRange \} from '\.\/split\.mjs';/);
+ // 크면 담지 않고 지금처럼 흘려 보낸다(나누지 않음).
+ assert.match(index,/if \(!fix && !\(size > 0 && size <= SPLIT_MAX_BYTES\)\) \{/);
+ // 길면 전사하지 않고 나눌 구간부터, 답이 잘리면(gemini_incomplete) 그 조각만 반으로.
+ assert.match(index,/if \(!range && audio\.opened && audio\.opened\.seconds > CHUNK_SECONDS\) return \{ split: chunkRanges\(audio\.opened\.seconds\) \};/);
+ assert.match(index,/answerError\.code === 'gemini_incomplete' && audio\.opened\) \{\n\s*const halves = halveRange\(range, audio\.opened\.seconds\);/);
+ // 서버 정리: 한 단계에 조각 하나, 나누면 parts만 바꾸고(표 칸 추가 없음) 진행 수는 조각 수.
+ assert.match(index,/const next = splitPart\(parts, i, got\.split\);/);
+ assert.match(index,/parts: next, step_no: doneParts\(next\), step_total: partTotal\(next\)/);
+ assert.match(index,/transcribeFile\(key, job, p\.file, range\) : await transcribeSegment\(key, p\.job, range, more\)/);
+ // 구간 행은 마지막 조각 뒤에만 '끝'(그 전엔 '올림' — 이어서 정리·붙이기가 끝난 녹음으로 보지 않음).
+ assert.match(index,/if \('split' in out \|\| more\) await setJob\(job\.id, \{ status: 'uploaded', error_code: null, finished_at: null \}\);/);
+ // 화면 transcribe: 한 번 읽은 소리를 조각마다 동시에(상한 있음), 조각 길이로 머리 줄을 붙여 잇는다.
+ assert.match(index,/const PARALLEL_CHUNKS = 3;/);
+ assert.match(index,/mapLimit\(got\.split, PARALLEL_CHUNKS, run\)/);
+ // 새 로그: 형식·분·크기 수만(글·이름·주소 없음).
+ for(const line of index.match(/console\.warn\('meeting-transcribe: (audio|split[^']*)'[^;]*;/g)||[]){
+  assert.doesNotMatch(line,/text|file_name|drive_file_id|uri|name/,line);
+ }
+ assert.equal((index.match(/console\.warn\('meeting-transcribe: (audio|split skipped|split after incomplete)'/g)||[]).length,3);
 });

@@ -92,10 +92,32 @@ export const nextPart = (parts) => (Array.isArray(parts) ? parts : []).findIndex
 export const doneParts = (parts) => (Array.isArray(parts) ? parts : []).filter((p) => p && p.text !== null && (p.job || p.file)).length;
 export const partTotal = (parts) => (Array.isArray(parts) ? parts : []).filter((p) => p && (p.job || p.file)).length;
 
+// ---- REC-긴녹음나눠전사(S60-7): 긴 구간·파일을 시간 구간 조각으로(parts jsonb 안에서만, 표 칸 추가 없음) ----
+// 조각 모양: 원래 자리 {no, seconds, job|file, text:null}를 같은 no·같은 job|file의 {…, seconds: 조각 길이, range:{from,to}, text:null} 여러 개로 바꾼다
+// (to null = 파일 끝까지). 끝난 조각 글은 그대로 두고 nextPart가 다음 조각부터 잇는다. 진행 표시(doneParts/partTotal)도 조각 수로 센다.
+// ranges: split.mjs chunkRanges·halveRange 결과({from,to,seconds}). 자리가 없거나 이미 글이 있거나 ranges가 둘 미만이면 그대로.
+export function splitPart(parts, i, ranges) {
+  const list = Array.isArray(parts) ? [...parts] : [];
+  const p = list[i];
+  if (!p || p.text !== null || !(p.job || p.file) || !Array.isArray(ranges) || ranges.length < 2) return list;
+  const subs = ranges.map((r) => ({ ...p, seconds: Math.max(1, Math.round(Number(r.seconds) || 0)), range: { from: r.from, to: r.to ?? null }, text: null }));
+  list.splice(i, 1, ...subs);
+  return list;
+}
+const sourceKey = (p) => (p?.job ? `j:${p.job}` : p?.file?.id ? `f:${p.file.id}` : '');
+// i 뒤에 같은 소리(같은 구간 전사 작업·같은 파일)의 아직 안 한 조각이 남았나(구간 전사 작업 행을 '끝'으로 둘지 정할 때).
+export function moreOfSame(parts, i) {
+  const list = Array.isArray(parts) ? parts : [];
+  const key = sourceKey(list[i]);
+  return !!key && list.some((p, k) => k !== i && p && p.text === null && sourceKey(p) === key);
+}
+
 // 구간 글 합치기(화면 meeting-recorder-model.mjs joinSegmentTexts와 같은 머리 줄).
 const minuteText = (m) => { const n = Math.round(m); const h = Math.floor(n / 60), r = n % 60; return h ? (r ? `${h}시간 ${r}분` : `${h}시간`) : `${r}분`; };
 export function joinParts(parts) {
-  const list = (Array.isArray(parts) ? parts : []).slice().sort((a, b) => a.no - b.no);
+  // 같은 no의 시간 조각(range)은 시작 시각 순(REC-긴녹음나눠전사). 조각 사이에도 '― N분부터 ―' 머리 줄이 들어간다.
+  const from = (p) => Number(p?.range?.from) || 0;
+  const list = (Array.isArray(parts) ? parts : []).slice().sort((a, b) => a.no - b.no || from(a) - from(b));
   let offset = 0; const out = [];
   for (const p of list) {
     const head = offset > 0 ? `― ${minuteText(offset / 60)}부터 ―` : '';
@@ -213,7 +235,7 @@ export function jobView(row, withResult = false) {
     error_code: row.error_code ?? null, session_id: row.session_id ?? null, document_id: row.document_id ?? null, meeting_id: row.meeting_id ?? null,
     parts_done: doneParts(parts), parts_total: partTotal(parts),
     seconds: parts.reduce((s, p) => s + (Number(p?.seconds) || 0), 0),
-    jobs: parts.map((p) => p?.job).filter(isUuid),
+    jobs: [...new Set(parts.map((p) => p?.job).filter(isUuid))], // 시간 조각으로 나눈 구간은 같은 작업이 여러 번 — 한 번만
     created_at: row.created_at, finished_at: row.finished_at ?? null, opened_at: row.opened_at ?? null,
   };
   if (withResult && row.status === 'done') { v.transcript_text = row.transcript_text ?? ''; v.draft = row.draft ?? null; }

@@ -27,6 +27,9 @@
 //   join_read {job_id} · join_list {} · join_retry {job_id} · join_seen {job_id, candidates?} · join_undo {job_id, scope:'before'|'joined'|'all'}
 //   몸통에 작업공간 값을 받지 않는다: 고른 보고를 부른 사람 로그인으로 읽고, 그 행의 작업공간으로 owner를 확인한 뒤에만 서비스 권한을 쓴다.
 //   뒤에서 summary(합친 전문으로 다시 요약) → apply(DB 함수 한 번, 보고 글은 여기서만 바뀜) → done. 다음 단계는 join_tick(서버 키 HMAC, job_tick과 다른 서명).
+// REC-긴녹음나눠전사(S60-7): 전사 모델은 한 번 답의 출력이 32,768토큰까지라 15분(split.mjs CHUNK_SECONDS)보다 긴 소리는 시간 조각으로 잘라
+//   따로 전사하고 잇는다(Ogg/Opus·WebM·MP4, 소리는 풀지 않음). 서버 정리는 조각마다 한 단계(parts jsonb 안 range), 화면 transcribe는 한 번 부름 안에서
+//   조각을 동시에. 조각 답이 또 잘리면 그 조각만 반으로. 나눌 수 없는 형식(mp3·wav 등)·64MB 넘는 파일은 지금처럼 통째로.
 // 열쇠(비밀값 GEMINI_API_KEY)가 없으면 config는 ready=false, 나머지는 503 not_ready('준비 중').
 // 실패하면 작업만 failed로 두고, Gemini에 올린 임시 파일은 지운다. 녹음 원본·회의 기록은 그대로다.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -42,6 +45,7 @@ import {
   pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
+import { CHUNK_SECONDS, SPLIT_MAX_BYTES, chunkRanges, halveRange, openAudio, readRange } from './split.mjs';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog } from "../_shared/safe-error.ts";
@@ -52,7 +56,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasWords, jobView, joinParts, leaseTake, needsKick, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, summaryPlan, tickCheck, tickSign,
+  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasWords, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 import {
   JOIN_DAY_COLUMNS, JOIN_JOB_TABLE, JOIN_MEETING_COLUMNS, JOIN_STEP_COLUMNS, JOIN_TICK_ACTION, JOIN_VIEW_COLUMNS,
@@ -190,14 +194,14 @@ async function geminiWarn(step: string, r: Response) {
   const kind = typeof d?.error?.status === 'string' && /^[A-Z_]{1,40}$/.test(d.error.status) ? d.error.status : '-';
   console.warn('meeting-transcribe: gemini', step, r.status, kind);
 }
-async function geminiUpload(key: string, job: Job, body: ReadableStream<Uint8Array> | Uint8Array, size: number) {
+async function geminiUpload(key: string, jobId: string, mime: string, body: ReadableStream<Uint8Array> | Uint8Array, size: number) {
   const start = await fetch(`${GEM}/upload/v1beta/files`, {
     method: 'POST',
     headers: {
       'x-goog-api-key': key, 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start',
-      'X-Goog-Upload-Header-Content-Length': String(size), 'X-Goog-Upload-Header-Content-Type': job.mime_type, 'Content-Type': 'application/json',
+      'X-Goog-Upload-Header-Content-Length': String(size), 'X-Goog-Upload-Header-Content-Type': mime, 'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ file: { display_name: `meeting-${job.id}` } }),
+    body: JSON.stringify({ file: { display_name: `meeting-${jobId}` } }),
   });
   const url = start.headers.get('x-goog-upload-url');
   if (!start.ok || !url) { await geminiWarn('upload_start', start); throw new Fail('gemini_upload'); }
@@ -355,52 +359,105 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
 }
 const failCode = (e: unknown) => e instanceof Fail ? e.code : (e instanceof DOMException && e.name === 'TimeoutError' ? 'gemini_timeout' : 'failed');
 
-// Drive의 소리 → Gemini 전사 → 글. 쓴 만큼 사용량 기록(화면 transcribe·서버 정리 공용). job: 파일 id·형식·크기·이름·길이·작업공간.
-// Gemini에 올린 임시 파일은 끝나면 지운다. 작업 행 상태는 부른 쪽이 정한다.
-async function runTranscription(key: string, job: Job) {
+// ---- 소리 읽기·전사(화면 transcribe·서버 정리 공용) ----
+// REC-긴녹음나눠전사(S60-7): 전사 모델은 한 번 답이 출력 32,768토큰까지라 긴 소리는 글이 잘린다(gemini_incomplete). 길면 시간 구간으로 나눠
+// 따로 전사한다(split.mjs). 나누려면 파일을 메모리에 담아야 해서 SPLIT_MAX_BYTES까지만 담고, 그보다 크면 지금처럼 흘려 보낸다(나누지 않음).
+type Loaded = { body: ReadableStream<Uint8Array> | Uint8Array; size: number; mime: string; seconds: number | null; opened: ReturnType<typeof openAudio> };
+type Range = { from: number; to: number | null; seconds?: number };
+type Piece = { text: string; speakerSplit: boolean; model: string } | { split: Range[] };
+
+// Drive의 소리를 읽는다. Ogg 파일(폰 녹음 등)은 쪽 머리를 규격대로 고친다(ogg.mjs: 안드로이드 녹음기의 granule·끝 표시 문제).
+// Drive 원본은 그대로 둔다(이미 합친 오늘 녹음도 [다시]로 이 길을 탄다).
+async function loadAudio(job: Job): Promise<Loaded> {
+  const token = await driveToken(job.workspace_id);
+  const media = await fetch(`${DRIVE}/${encodeURIComponent(job.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!media.ok || !media.body) throw new Fail('drive_failed');
+  const size = Number(job.size_bytes) || 0;
+  const fix = wantsOggFix(job.mime_type, job.file_name, size);
+  if (!fix && !(size > 0 && size <= SPLIT_MAX_BYTES)) {
+    console.warn('meeting-transcribe: split skipped', 'size', size);
+    return { body: media.body, size, mime: job.mime_type, seconds: null, opened: null };
+  }
+  let bytes: Uint8Array;
+  try { bytes = new Uint8Array(await media.arrayBuffer()); } catch { throw new Fail('drive_failed'); }
+  let seconds: number | null = null;
+  if (fix) {
+    try {
+      const fixed = normalizeOggOpus(bytes);
+      const st = fixed.stats;
+      // 수만 남긴다(운영 로그에서 원인 확인용): 쪽 수·길이·고친 granule·첫 granule 초·검사합 틀림·뺀 바이트·끝 표시 추가.
+      console.warn('meeting-transcribe: ogg', st.kind, st.pages, st.seconds, st.fixed_granule, st.first_granule_sec, st.bad_crc, st.dropped_bytes, st.eos_added);
+      bytes = fixed.bytes;
+      seconds = st.kind === 'opus' ? st.seconds || null : null;
+    } catch (e) {
+      if (e instanceof OggFail) { console.warn('meeting-transcribe: ogg unreadable', bytes.byteLength); throw new Fail('bad_format'); }
+      throw e;
+    }
+  }
+  const opened = openAudio(bytes, job.mime_type, job.file_name);
+  // 나눌 수 있는지·형식·길이(분)만 남긴다(소리·이름 없음).
+  console.warn('meeting-transcribe: audio', opened ? opened.kind : 'unsplittable', opened ? Math.round(opened.seconds / 60) : '-');
+  return { body: bytes, size: bytes.byteLength, mime: job.mime_type, seconds: opened ? Math.round(opened.seconds) : seconds, opened };
+}
+const SLICE_MIME: Record<string, string> = { ogg: 'audio/ogg', webm: 'audio/webm', mp4: 'audio/mp4' };
+
+// 읽은 소리 한 번 전사. range가 없고 소리가 CHUNK_SECONDS보다 길며 나눌 수 있으면 전사하지 않고 {split}(나눌 구간)을 돌려준다.
+// 답이 끝까지 오지 않으면(gemini_incomplete) 나눌 수 있는 한 그 조각을 반으로 나눌 구간을 돌려준다(쓴 비용은 실패 머리로 기록됨).
+// 쓴 만큼 사용량 기록. Gemini에 올린 임시 파일은 끝나면 지운다. 작업 행 상태는 부른 쪽이 정한다.
+async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Range | null, piece = 0): Promise<Piece> {
+  if (!range && audio.opened && audio.opened.seconds > CHUNK_SECONDS) return { split: chunkRanges(audio.opened.seconds) };
+  let body = audio.body, size = audio.size, mime = audio.mime, span = audio.seconds;
+  if (range) {
+    const cut = audio.opened?.slice(range.from, range.to);
+    if (!cut) throw new Fail('bad_format');
+    body = cut; size = cut.byteLength; mime = SLICE_MIME[audio.opened!.kind] || mime;
+    span = Math.round((range.to ?? audio.opened!.seconds) - range.from);
+  }
+  const duration = range ? span : (job.duration_sec ?? span);
   let geminiFile: string | null = null;
   try {
-    const token = await driveToken(job.workspace_id);
-    const media = await fetch(`${DRIVE}/${encodeURIComponent(job.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!media.ok || !media.body) throw new Fail('drive_failed');
-    const audio = await audioForGemini(job, media);
-    const file = await geminiUpload(key, job, audio.body, audio.size);
+    const file = await geminiUpload(key, job.id, mime, body, size);
     geminiFile = file.name;
     await geminiActive(key, file.name, file.state);
-    const response = await geminiTranscribe(key, file.uri, file.mimeType || job.mime_type, wantsDiarize(job.duration_sec ?? audio.seconds));
+    const response = await geminiTranscribe(key, file.uri, file.mimeType || mime, wantsDiarize(duration));
     // Gemini가 답했으면(글이 비었어도) 쓴 만큼 기록한다. 글을 못 받은 시도는 실패 머리로 적어 월 상한에서 뺀다(홈 AI 사용량에는 보임).
-    const usage = readUsage(response, job.duration_sec);
+    const usage = readUsage(response, duration);
     let result: ReturnType<typeof readAnswer> | null = null;
     let answerError: unknown = null;
     try { result = readAnswer(response); } catch (e) { answerError = e; }
     const at = new Date();
     const { error: usageError } = await admin.from('app_ai_external_usage').insert({
-      workspace_id: job.workspace_id, ref: usageRef(job.id, at, !result), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
+      workspace_id: job.workspace_id, ref: usageRef(job.id, at, !result, piece), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
     });
     if (usageError) console.warn('meeting-transcribe: usage not recorded', usageError.code);
-    if (!result) throw answerError;
+    if (!result) {
+      if (answerError instanceof Fail && answerError.code === 'gemini_incomplete' && audio.opened) {
+        const halves = halveRange(range, audio.opened.seconds);
+        if (halves.length) { console.warn('meeting-transcribe: split after incomplete', Math.round((span || 0) / 60)); return { split: halves }; }
+      }
+      throw answerError;
+    }
     return { text: result.text as string, speakerSplit: result.speakerSplit, model: usage.model as string };
   } finally {
     if (geminiFile) await geminiDelete(key, geminiFile);
   }
 }
 
-// Gemini에 보낼 소리. Ogg 파일(폰 녹음 등)은 쪽 머리를 규격대로 고쳐 보낸다(ogg.mjs: 안드로이드 녹음기의 granule·끝 표시 문제).
-// Drive 원본은 그대로 둔다(이미 합친 오늘 녹음도 [다시]로 이 길을 탄다). 그 밖의 형식·큰 파일은 지금처럼 흘려 보낸다.
-async function audioForGemini(job: Job, media: Response): Promise<{ body: ReadableStream<Uint8Array> | Uint8Array; size: number; seconds: number | null }> {
-  if (!wantsOggFix(job.mime_type, job.file_name, job.size_bytes)) return { body: media.body!, size: job.size_bytes, seconds: null };
-  let bytes: Uint8Array;
-  try { bytes = new Uint8Array(await media.arrayBuffer()); } catch { throw new Fail('drive_failed'); }
-  try {
-    const fixed = normalizeOggOpus(bytes);
-    const st = fixed.stats;
-    // 수만 남긴다(운영 로그에서 원인 확인용): 쪽 수·길이·고친 granule·첫 granule 초·검사합 틀림·뺀 바이트·끝 표시 추가.
-    console.warn('meeting-transcribe: ogg', st.kind, st.pages, st.seconds, st.fixed_granule, st.first_granule_sec, st.bad_crc, st.dropped_bytes, st.eos_added);
-    return { body: fixed.bytes, size: fixed.bytes.byteLength, seconds: st.kind === 'opus' ? st.seconds || null : null };
-  } catch (e) {
-    if (e instanceof OggFail) { console.warn('meeting-transcribe: ogg unreadable', bytes.byteLength); throw new Fail('bad_format'); }
-    throw e;
-  }
+// 화면 transcribe(한 번 부름에 글을 돌려줌): 소리를 한 번 읽고, 길면 구간 조각을 동시에(최대 PARALLEL_CHUNKS) 전사해 시각 순으로 잇는다.
+// 조각이 또 잘리면 그 조각만 반으로 다시(MIN_CHUNK_SECONDS까지). 서버 정리 작업은 조각마다 단계 하나씩(stepOnce)이라 이 함수를 쓰지 않는다.
+const PARALLEL_CHUNKS = 3;
+async function runTranscription(key: string, job: Job) {
+  const audio = await loadAudio(job);
+  let piece = 0;
+  const run = async (range: Range | null): Promise<{ range: Range | null; text: string; speakerSplit: boolean; model: string }[]> => {
+    const got = await transcribeLoaded(key, job, audio, range, range ? ++piece : 0);
+    if ('split' in got) return (await mapLimit(got.split, PARALLEL_CHUNKS, run)).flat();
+    return [{ range, ...got }];
+  };
+  const out = await run(null);
+  if (out.length === 1) return out[0];
+  const text = joinParts(out.map((o) => ({ no: 1, seconds: o.range?.seconds ?? 0, range: o.range, text: cleanText(o.text) })));
+  return { text, speakerSplit: out.some((o) => o.speakerSplit), model: out[0].model };
 }
 
 async function attach(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
@@ -879,9 +936,18 @@ async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unk
       const key = GEMINI();
       if (!key) throw new Fail('not_ready');
       const p = parts[i];
-      const text = p.file ? await transcribeFile(key, job, p.file) : await transcribeSegment(key, p.job);
-      parts[i] = { ...p, text: cleanText(text) };
-      if (nextPart(parts) >= 0) return { ...started, status: 'queued', parts, step_no: doneParts(parts) };
+      // REC-긴녹음나눠전사: 조각(range)이 있으면 그 시간 구간만. 길거나 답이 잘리면 이 자리를 시간 조각들로 바꾸고(끝난 조각 글은 그대로) 다음 단계에서 잇는다.
+      const range = p.range === undefined ? null : readRange(p.range);
+      if (p.range !== undefined && !range) throw new Fail('failed');
+      const more = moreOfSame(parts, i);
+      const got = p.file ? await transcribeFile(key, job, p.file, range) : await transcribeSegment(key, p.job, range, more);
+      if ('split' in got) {
+        const next = splitPart(parts, i, got.split);
+        if (next.length === parts.length) throw new Fail('gemini_incomplete');
+        return { ...started, status: 'queued', parts: next, step_no: doneParts(next), step_total: partTotal(next) };
+      }
+      parts[i] = { ...p, text: cleanText(got.text) };
+      if (nextPart(parts) >= 0) return { ...started, status: 'queued', parts, step_no: doneParts(parts), step_total: partTotal(parts) };
     }
     const transcript = joinParts(parts);
     if (!hasWords(transcript)) throw new Fail('empty_transcript');
@@ -940,7 +1006,9 @@ async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unk
 // 녹음 구간 전사(서버 정리). 화면 transcribe와 같은 길이지만, 이미 끝난(done) 구간도 다시 전사한다(옛 화면 정리가 글을 남기지 않았음).
 // 구간 행이 '진행 중'이면: 막 시작한 실행이면 busy, 오래됐으면(SEGMENT_DEAD_MS) 끊긴 앞 실행이라 넘겨받는다(REC-정리멈춤반복:
 // 전엔 15분(RUNNING_STALE_MS)을 기다려, 서버 정리가 9분 뒤 다시 잡을 때 끊긴 자기 흔적에 막혀 busy로 실패했다).
-async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
+// REC-긴녹음나눠전사: range = 이번에 할 시간 조각(없으면 통째). 나눌 구간({split})을 돌려주거나 같은 구간의 조각이 더 남았으면(more)
+// 구간 행은 '끝'(done)이 아니라 '올림'(uploaded)으로 돌려 둔다('이어서 정리'·붙이기가 끝난 녹음으로 보지 않게). 마지막 조각 뒤에 done.
+async function transcribeSegment(key: string, jobId: unknown, range: Range | null = null, more = false): Promise<Piece> {
   if (!isUuid(jobId)) throw new Fail('not_found');
   const { data: job, error } = await admin.from(TABLE).select(JOB_COLUMNS).eq('id', jobId as string).maybeSingle();
   if (error) throw new Fail('failed');
@@ -958,23 +1026,23 @@ async function transcribeSegment(key: string, jobId: unknown): Promise<string> {
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
   if (!started?.length) throw new Fail('busy');
   try {
-    const out = await runTranscription(key, job);
-    const model = out.model;
-    await setJob(job.id, { status: 'done', error_code: null, model, finished_at: new Date().toISOString() });
-    return out.text;
+    const out = await transcribeLoaded(key, job, await loadAudio(job), range);
+    if ('split' in out || more) await setJob(job.id, { status: 'uploaded', error_code: null, finished_at: null });
+    else await setJob(job.id, { status: 'done', error_code: null, model: out.model, finished_at: new Date().toISOString() });
+    return out;
   } catch (e) {
     await setJob(job.id, { status: 'failed', error_code: failCode(e), finished_at: new Date().toISOString() }).catch(() => undefined);
     throw e;
   }
 }
 // 회의자료에 붙은 소리 파일 전사(B). 전사 작업 표에는 넣지 않는다(그 표의 30일 휴지통 정리가 회의자료 원본을 건드리지 않게).
-// 사용량 열쇠는 서버 작업 id로 남긴다.
-async function transcribeFile(key: string, job: Job, file: Record<string, unknown>): Promise<string> {
-  const result = await runTranscription(key, {
+// 사용량 열쇠는 서버 작업 id로 남긴다. 긴 파일은 구간 녹음과 같게 시간 조각으로 나눈다(range).
+async function transcribeFile(key: string, job: Job, file: Record<string, unknown>, range: Range | null = null): Promise<Piece> {
+  const src = {
     id: job.id, workspace_id: job.workspace_id, drive_file_id: file.id, file_name: file.name, mime_type: file.mime,
     size_bytes: file.size, duration_sec: null,
-  });
-  return result.text;
+  };
+  return await transcribeLoaded(key, src, await loadAudio(src), range);
 }
 
 // 서버 요약 한 번(meeting-ai-draft '새 회의' 길과 같은 지시문·한도·사용량 기록). 명진 이름 목록은 읽을 수 있을 때만 넣는다.
