@@ -101,6 +101,11 @@
 .ft-main.fx-picked { background:var(--kptu-primary-soft); box-shadow:inset 2px 0 0 var(--kptu-primary); }
 .ft-main.fx-cut { opacity:.55; }
 .fx-drop-on, .fx-row.fx-drop-on { outline:1.5px dashed var(--kptu-primary); outline-offset:-2px; background:var(--kptu-primary-soft); }
+/* UI-펼친폴더안놓기전체(S60-13): 펼친 폴더 묶음 위로 끌면 묶음 전체 옅은 바탕, 폴더 줄에 '여기에 놓기'(자료실·노트와 같은 표시). */
+.fx-drop-group { background:var(--kptu-primary-soft); }
+.fx-drop-head { position:relative; }
+.fx-drop-head::after { content:'여기에 놓기'; position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:0 4px; background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-size:11.5px; font-weight:700; white-space:nowrap; pointer-events:none; }
+.fx-cell.fx-drop-head::after { top:4px; transform:none; }
 .fx-btn:disabled { opacity:.5; cursor:default; }
 .fx-pv-twins { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0; font-size:12px; }
 .fx-pv-twins[hidden] { display:none; }
