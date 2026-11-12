@@ -25,7 +25,7 @@ async function boot(page,{width,height,safe}){
   const rows=[{...base,id:uid(1),raw_text:'지어낸 업데이트 하나\n둘째 줄',occurred_at:'2026-10-06T04:00:00Z'}];
   await openHome(page,{beforeLoad:async()=>{
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:[]}));
-    await page.route(u=>u.origin===SB&&['/rest/v1/app_todo_candidates','/rest/v1/app_todo_feedback','/rest/v1/app_feed_items','/rest/v1/app_family_notes','/rest/v1/app_record_links','/rest/v1/app_journal_memorable','/rest/v1/app_suborganization_updates','/rest/v1/app_business_records'].includes(u.pathname),r=>r.fulfill({json:[]}));
+    await page.route(u=>u.origin===SB&&['/rest/v1/app_todo_candidates','/rest/v1/app_todo_feedback','/rest/v1/app_feed_items','/rest/v1/app_record_links','/rest/v1/app_journal_memorable','/rest/v1/app_suborganization_updates','/rest/v1/app_business_records'].includes(u.pathname),r=>r.fulfill({json:[]}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{
       const req=r.request(),q=new URL(req.url()).searchParams;
       if(req.method()!=='GET'||q.get('metadata'))return r.fulfill({json:[]});
