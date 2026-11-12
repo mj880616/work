@@ -8,6 +8,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {pressRowAct} from './helpers/nbx-act.mjs';
+import {pressName} from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const cid=n=>`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const fid=n=>`a0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -21,9 +22,9 @@ const notes=()=>[{...base,id:uid(1),raw_text:'지어낸 업데이트 하나\n둘
 // FORGET-소식합치기: AI가 고른 그날 업무 통화·텔레그램 소식(서버 표 app_journal_memorable) — 지어낸 글·지어낸 조직 이름.
 const nid=n=>`b0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const newsRow=(n,over={})=>({id:nid(n),day:'2026-10-06',source:'telegram',feed_item_id:fid(n),org_name:null,line:`가상 소식 ${n}`,status:'suggested',final_line:null,picked_at:`2026-10-06T0${n}:10:00Z`,decided_at:null,...over});
-async function fixture(page,{width=390,features=['telegram','family'],news=[],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
+async function fixture(page,{failReopen=false,width=390,features=['telegram','family'],news=[],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
   await page.setViewportSize({width,height:900});
-  const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[],fixes=[];
+  const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[],fixes=[],orgDeletes=[],bizPosts=[],bizDeletes=[];
   await openHome(page,{beforeLoad:async()=>{
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:features}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',async r=>{
@@ -60,14 +61,23 @@ async function fixture(page,{width=390,features=['telegram','family'],news=[],ca
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_record_links',r=>r.fulfill({json:[]}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_memorable',async r=>{
       const req=r.request(),q=new URL(req.url()).searchParams;
-      if(req.method()==='PATCH'){const id=q.get('id').replace(/^eq\./,''),body=req.postDataJSON(),row=news.find(x=>x.id===id);newsPatches.push({id,body});if(!row)return r.fulfill({json:[]});Object.assign(row,body);return r.fulfill({json:[{id,status:row.status}]});}
+      if(req.method()==='PATCH'){const id=q.get('id').replace(/^eq\./,''),body=req.postDataJSON(),row=news.find(x=>x.id===id);newsPatches.push({id,body});if(!row||(failReopen&&body.status==='suggested'))return r.fulfill({json:[]});Object.assign(row,body);return r.fulfill({json:[{id,status:row.status}]});}
       return r.fulfill({json:news});
     });
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>r.fulfill({json:[{id:'d0000000-0000-4000-8000-000000000001',name:'가상 지부',aliases:['가상지부'],active:true}]}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_assignees',r=>r.fulfill({json:[]}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>{
-      const req=r.request();if(req.method()!=='POST')return r.fulfill({json:[]});
-      const body=req.postDataJSON();orgPosts.push(body);return r.fulfill({status:201,json:[{id:'e1000000-0000-4000-8000-000000000001',...body,occurred_at:'2026-10-06T09:00:00Z'}]});
+      const req=r.request(),q=new URL(req.url()).searchParams;
+      // FORGET-넣기되돌리기: [되돌리기]는 넣을 때 받은 id·그 조직 id로 한 줄 DELETE(org-row-delete.js 기존 길).
+      if(req.method()==='DELETE'){orgDeletes.push({id:q.get('id'),org:q.get('organization_id')});return r.fulfill({json:[{id:q.get('id').replace(/^eq\./,'')}]});}
+      if(req.method()!=='POST')return r.fulfill({json:[]});
+      const body=req.postDataJSON();orgPosts.push(body);return r.fulfill({status:201,json:[{id:`e1000000-0000-4000-8000-00000000000${orgPosts.length}`,...body,occurred_at:'2026-10-06T09:00:00Z'}]});
+    });
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_business_records',r=>{
+      const req=r.request(),q=new URL(req.url()).searchParams;
+      if(req.method()==='DELETE'){bizDeletes.push({id:q.get('id'),ws:q.get('workspace_id')});return r.fulfill({json:[{id:q.get('id').replace(/^eq\./,'')}]});}
+      if(req.method()!=='POST')return r.fulfill({json:[]});
+      const body=req.postDataJSON();bizPosts.push(body);return r.fulfill({status:201,json:[{id:`e2000000-0000-4000-8000-00000000000${bizPosts.length}`,...body}]});
     });
     await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/ai-assist',r=>{
       let body=null;try{body=r.request().postDataJSON();}catch{body=null;}
@@ -83,7 +93,7 @@ async function fixture(page,{width=390,features=['telegram','family'],news=[],ca
   }});
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
-  return {patches,feedback,famPatches,notePatches,cands,newsPatches,orgPosts,asked,fixes};
+  return {patches,feedback,famPatches,notePatches,cands,newsPatches,orgPosts,asked,fixes,orgDeletes,bizPosts,bizDeletes};
 }
 const list=page=>page.locator('#basketView [data-forget-section] .nbx-list');
 const line=(page,key)=>page.locator(`#basketView [data-nbx-row="${key}"]`);
@@ -254,6 +264,73 @@ test('텔레그램 요청 [조직]: 고른 담당조직 기록으로 넣고 후�
   await expect.poll(()=>patches.length).toBe(1);
   expect(patches[0]).toMatchObject({id:cid(1),from:'open',body:{status:'done'}});
   await expect(line(page,`c:${cid(1)}`)).toHaveCount(0);
+});
+// FORGET-넣기되돌리기(요청함 11/12 09:16, 명진 09:46 'ㅇ'): [조직]·[사업]으로 넣으면 '○○ 기록에 넣었어요 · [되돌리기]'(2초, 공용 알림).
+// [되돌리기] = 넣을 때 받은 id로 그 한 줄만 기존 소유자 삭제 길로 지우고, 원래 줄을 처리 전으로 되살린다 → 다시 넣을 수 있다.
+const ORG='d0000000-0000-4000-8000-000000000001';
+const undoBox=page=>page.locator('[data-undo-notice]');
+for(const width of [412,1280])test(`소식 줄 [조직] → [되돌리기]: 넣은 조직 기록 한 줄 삭제·소식 줄 처리 전으로, 다시 [조직]으로 넣기 ${width}`,async({page},info)=>{
+  const news=[newsRow(2,{org_name:'가상지부'})];
+  const {newsPatches,orgPosts,orgDeletes}=await fixture(page,{width,news});
+  await pressRowAct(page,line(page,`n:${nid(2)}`),'org');
+  await page.locator('#areaOrgPickSheet [data-forget-org-match] [data-sheet-value]').click();
+  await expect.poll(()=>orgPosts.length).toBe(1);
+  await expect(undoBox(page)).toContainText('가상 지부 기록에 넣었어요.');
+  await expect(undoBox(page).locator('[data-undo-action]')).toHaveText('되돌리기');
+  await expect(line(page,`n:${nid(2)}`)).toHaveCount(0);
+  await page.screenshot({path:info.outputPath(`forget-save-undo-${width}.png`)});
+  await undoBox(page).locator('[data-undo-action]').click();
+  await expect.poll(()=>orgDeletes.length).toBe(1);
+  expect(orgDeletes[0]).toEqual({id:'eq.e1000000-0000-4000-8000-000000000001',org:`eq.${ORG}`});
+  await expect.poll(()=>newsPatches.length).toBe(2);
+  expect(newsPatches[1]).toMatchObject({id:nid(2),body:{status:'suggested',final_line:null,decided_at:null}});
+  await expect(undoBox(page)).toContainText('기록에서 빼고 다시 보이게 했어요.');
+  await expect(line(page,`n:${nid(2)}`)).toBeVisible();
+  // 다시 [조직] → 다시 넣는다(되돌린 줄은 처리 전 그대로).
+  await pressRowAct(page,line(page,`n:${nid(2)}`),'org');
+  await page.locator('#areaOrgPickSheet .aop-list [data-sheet-value="o:'+ORG+'"][title="가상 지부"]').click();
+  await expect.poll(()=>orgPosts.length).toBe(2);
+  await expect.poll(()=>newsPatches.length).toBe(3);
+  expect(newsPatches[2]).toMatchObject({id:nid(2),body:{status:'kept'}});
+  await expect(line(page,`n:${nid(2)}`)).toHaveCount(0);
+  expect(await noWide(page)).toBe(true);
+});
+test('소식 줄 [사업] → [되돌리기]: 넣은 사업 기록 한 줄 삭제·소식 줄 처리 전으로',async({page})=>{
+  const news=[newsRow(2)];
+  const {newsPatches,bizPosts,bizDeletes}=await fixture(page,{width:1280,news});
+  await pressRowAct(page,line(page,`n:${nid(2)}`),'area');
+  await pressName(page,'테스트 프로젝트');
+  await expect.poll(()=>bizPosts.length).toBe(1);
+  expect(bizPosts[0]).toMatchObject({space_id:'p',body:'가상 소식 2',source_kind:'memorable',source_id:nid(2)});
+  await expect(undoBox(page)).toContainText('테스트 프로젝트 기록에 넣었어요.');
+  await undoBox(page).locator('[data-undo-action]').click();
+  await expect.poll(()=>bizDeletes.length).toBe(1);
+  expect(bizDeletes[0].id).toBe('eq.e2000000-0000-4000-8000-000000000001');
+  await expect.poll(()=>newsPatches.length).toBe(2);
+  expect(newsPatches[1]).toMatchObject({id:nid(2),body:{status:'suggested'}});
+  await expect(line(page,`n:${nid(2)}`)).toBeVisible();
+});
+test('텔레그램 요청 [조직] → [되돌리기]: 조직 기록 한 줄 삭제·후보 처리 전(done → open)',async({page})=>{
+  const {patches,orgPosts,orgDeletes}=await fixture(page,{width:412});
+  await pressRowAct(page,line(page,`c:${cid(1)}`),'org');
+  await page.locator('#areaOrgPickSheet .aop-list [data-sheet-value="o:'+ORG+'"]').click();
+  await expect.poll(()=>patches.length).toBe(1);
+  await expect(undoBox(page)).toContainText('가상 지부 기록에 넣었어요.');
+  await undoBox(page).locator('[data-undo-action]').click();
+  await expect.poll(()=>orgDeletes.length).toBe(1);
+  await expect.poll(()=>patches.length).toBe(2);
+  expect(patches[1]).toMatchObject({id:cid(1),from:'done',body:{status:'open',decided_at:null}});
+  await expect(line(page,`c:${cid(1)}`)).toBeVisible();
+  expect(orgPosts.length).toBe(1);
+});
+test('기록은 뺐지만 줄 되살리기가 실패하면 그대로 알린다(반쯤 된 것을 숨기지 않음)',async({page})=>{
+  const news=[newsRow(2,{org_name:'가상지부'})];
+  const {orgDeletes}=await fixture(page,{width:1280,news,failReopen:true});
+  await pressRowAct(page,line(page,`n:${nid(2)}`),'org');
+  await page.locator('#areaOrgPickSheet [data-forget-org-match] [data-sheet-value]').click();
+  await undoBox(page).locator('[data-undo-action]').click();
+  await expect.poll(()=>orgDeletes.length).toBe(1);
+  await expect(undoBox(page)).toContainText('기록은 뺐지만 이 줄을 다시 보이게 하지 못했어요.');
 });
 // FORGET-소식바로잡기 ②⑤: AI가 정한 종류·이유(app_journal_memorable_picks를 붙여 읽음) — 줄 밑 이유 한 줄, 맞는 버튼만 굵게(누르는 건 사람).
 // 종류가 없는 옛 기준 줄은 처리 전·빨간 숫자에 들지 않는다.
