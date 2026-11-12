@@ -20,12 +20,13 @@ import {RECEIVE_MENU} from './library-receive.js';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[],twinDocs=()=>null,enter=null,selectNode=null,receive=null,tidy=null}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
   // recent: 최근 넣은 폴더 기억(get()=id 목록, push(id)=맨 앞에 두고 서버에 기억). state().treeView: 지금 묶기가 폴더 토글이 보이는 화면(프로젝트·폴더)인지.
   // receive(LIB-받는폴더 S59-11): {ready()=서버 칸이 있어 켜고 끌 수 있나, get()=지금 받는 폴더 id|null, set(id|null)=서버에 저장(성공 true), outside()='폴더 밖' 자료, sortCount()·sort(trigger)=받는 폴더 나누기(S60-18)}.
+  // tidy(LIB-정돈제안 S61-13): {open(trigger, folderId)} — 폴더 메뉴 [정돈 제안]은 그 폴더 안만(창·묶음·옮기기는 library-sort.js createTidySuggest).
   let busy=false,dialog=null;
   const s=()=>state();
   const folder=id=>s().folders.find(f=>f.id===id);
@@ -143,7 +144,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         +(i>0?'<button type="button" data-lu-folder-action="up">위로</button>':'')+(i>=0&&i<sib.length-1?'<button type="button" data-lu-folder-action="down">아래로</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
         +'<button type="button" data-lu-folder-action="paint">색 선택…</button>'
-        +receiveLine(f)+sortLine(f)
+        +receiveLine(f)+sortLine(f)+(tidy&&s().free?'<button type="button" class="lu-menu-tidy" data-lu-folder-action="tidy">정돈 제안</button>':'')
         +sep+'<button type="button" class="lu-menu-danger" data-lu-folder-action="delete">폴더 삭제</button>';
     },
     onClose:()=>{if(!colorReopen)colorFor=null},
@@ -160,6 +161,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='paint'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
     else if(action==='receive')void toggleReceive(f,trigger);
     else if(action==='sort')void receive?.sort?.(trigger);
+    else if(action==='tidy')void tidy?.open?.(trigger,id);
     else if(action==='delete')void trashFolder(f);
   }
   // ---- LIB-받는폴더(S59-11, 시안 ①③): 폴더 우클릭(폰 ⋯) 메뉴 한 줄 [폴더 안 정한 자료 받기] — 켜면 ✓, 다시 누르면 끔. 받는 폴더는 하나뿐(다른 폴더에서 켜면 그쪽으로).
