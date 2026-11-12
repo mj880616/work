@@ -87,6 +87,12 @@ export function bindRecordFiles(host, getRows, {rt = window.KPTURuntime, onError
   host.addEventListener('toggle', e => {
     const box = e.target;
     if (box?.matches?.('details[data-record-photos]') && box.open) paintRecordFiles(box, getRows(), rt);
+    // 사진 칸 ⋯ 판은 칸 오른쪽 끝에 맞춰 왼쪽으로 열린다. 왼쪽이 창·칸 밖으로 잘리면 칸 왼쪽 끝에 맞춰 오른쪽으로 연다(이 화면 메모리만).
+    if (box?.matches?.('details.record-photo-more')) {
+      delete box.dataset.side;
+      const panel = box.open && box.querySelector('.record-photo-panel');
+      if (panel) { let edge = 0; for (let el = box.parentElement; el; el = el.parentElement) { const o = getComputedStyle(el).overflowX; if (o !== 'visible') { edge = Math.max(edge, el.getBoundingClientRect().left); break; } } if (panel.getBoundingClientRect().left < edge + 4) box.dataset.side = 'left'; }
+    }
   }, true);
   host.addEventListener('click', e => {
     const el = e.target.closest?.('[data-record-photo],[data-record-file]');

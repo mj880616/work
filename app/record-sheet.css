@@ -52,4 +52,5 @@
 .record-photo:has(>.fr-box)>.record-file-thumb{width:56px;height:56px;flex:none}
 .record-photo:has(>.fr-box)>details{display:none}
 .record-photo-more[open]{z-index:3}
+.record-photo-more[data-side="left"] .record-photo-panel{left:0;right:auto}
 /* ⋯ 판 모양은 자료 줄 ⋯ 판과 같은 공용 규칙(ui-standard.css .record-photo-panel). */
