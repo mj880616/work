@@ -1029,8 +1029,8 @@ async function runStep(id: string, kind: StepKind = 'job') {
   // 잇기 작업의 apply는 DB 함수가 작업 행(done·적용 기록·잡기 비움)까지 한 트랜잭션으로 쓴다. 여기서 다시 쓰지 않는다
   // (바로 뒤에 온 되돌리기가 바꾼 상태를 done으로 덮지 않게).
   // 단계 사이에는 닫음 표시를 이어 가고(같은 이유로 또 멈추면 닫은 그대로), 끝나면 빈 값.
-  // S61-5 REC-전사삭제: 서버 정리('job')는 위에서 transcribe_off로 멈추므로 여기까지 오는 것은 잇기('join')뿐 — 닫음 표시를 이어 갈 일이 없다.
-  const keep = null;
+  // 서버 정리 작업(job)은 위에서 transcribe_off로 멈추므로 여기에는 잇기 작업만 온다(타입 좁힘을 풀어 둔 비교).
+  const keep = (kind as StepKind) === 'job' && next.status !== 'done' ? carryClosed(job.error_code as string | null) : null;
   if (!(kind === 'join' && job.stage === 'apply')) await patchStepJob(id, { ...next, error_code: keep, lease_until: null, attempts: job.attempts + 1 }, kind);
   if (next.status === 'done') { await notifyDone(job, kind).catch(() => console.warn('meeting-transcribe: job push skipped')); return; }
   await kickTick(id, kind);
