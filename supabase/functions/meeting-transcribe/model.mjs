@@ -166,7 +166,8 @@ export const TRANSCRIBE_PROMPT = [
 ].join('\n');
 export const transcribePath = (model = TRANSCRIBE_MODEL) => `/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 // seconds: 이번에 보내는 소리(조각) 길이. 알면 출력 상한을 길이에 맞춰 줄인다(outputCap), 모르면 모델 상한.
-export function transcriptionRequest(fileUri, mimeType, seconds = null) {
+/** @param {string} fileUri @param {string} mimeType @param {number | null} [seconds] */
+export function transcriptionRequest(fileUri, mimeType, seconds) {
   return {
     contents: [{ role: 'user', parts: [{ fileData: { mimeType, fileUri } }, { text: TRANSCRIBE_PROMPT }] }],
     generationConfig: {
@@ -180,6 +181,7 @@ export function transcriptionRequest(fileUri, mimeType, seconds = null) {
 // 분당 2,000토큰(아주 빠른 말 분당 약 1,040토큰의 두 배 가까이)이면 넉넉하다. 넘으면 지금처럼 잘림·되풀이로 보고 그 조각을 반으로.
 export const OUTPUT_TOKENS_PER_MINUTE = 2000;
 export const OUTPUT_TOKENS_MIN = 8192;
+/** @param {number | null | undefined} seconds */
 export function outputCap(seconds) {
   const s = Number(seconds);
   if (!Number.isFinite(s) || s <= 0) return TRANSCRIBE_MAX_OUTPUT_TOKENS;
