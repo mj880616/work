@@ -7,28 +7,21 @@
 //   예외(REC-한회의로잇기 PR-5, 설계 1-4·3-3절 (라)): [녹음 요약하기] 전에 같은 날 회의록 전문이 있는 [회의] 보고가 있으면 한 번 묻고, 명진이 고른
 //   [그 보고에 잇기]면 이 글을 서버가 그 보고에 이어 붙여 저장한다(물음·잇기의 주인은 meeting-join.js, 이 창은 닫는다). [새로 만들기]는 지금 그대로.
 // - 이 모듈은 #mtdBar·#mtdPanel 두 곳만 그린다.
-// - 2단계(녹음 파일 → 전사): 녹음 파일을 고르면 [전사] → Edge meeting-transcribe가 명진 Drive에 올리고 Gemini로 전사해 글을 돌려준다.
-//   글은 전사 칸(#mtdText)에 넣고 바로 위 [녹음 요약하기]와 같은 흐름을 이어 부른다. 전사 서버는 글을 저장하지 않고, 화면이 회의록 전문 칸에 넣는다.
-//   [이 회의에 녹음 붙이기]를 켜 두면 [사업 보고 저장] 뒤(kptu:record-saved) 그 회의 자료로 녹음 링크를 붙인다.
-//   붙이지 않은 녹음은 서버가 30일 뒤 Drive 휴지통으로 옮긴다(기기에는 아무것도 남기지 않음).
-// - MTG-노트북녹음 2단계: 노트북 [녹음](meeting-recorder.js)이 [멈추고 정리] 뒤 window.KPTUMeetingTranscriptDraft.fill로 합친 전사 글과
-//   구간 전사 작업 id들을 넘긴다. 같은 [녹음 요약하기]가 돌고, [이 회의에 녹음 붙이기]는 켜진 채로 시작해 저장 뒤 구간마다 attach한다.
+// - S61-5 REC-전사삭제(명진 11/13 '회의 전사 기능은 아예 웹2에서 삭제'): 녹음 파일 → 전사([전사]·[이 회의에 녹음 붙이기])와
+//   노트북·폰 녹음이 이 창에 전사 글을 넣던 길은 뺐다. 녹음 파일은 녹음 띠가 자료실 '회의 녹음' 폴더에 저장한다.
+//   다른 곳에서 받은 전사 글(붙여 넣기·txt)을 요약하는 [녹음 요약하기]는 그대로다.
 // - 기기 저장 없음: 넣은 전사 글·고른 녹음은 창이 열려 있는 동안 화면에만 있다.
 import {bindDropTarget} from './meeting-compact.js';
-import {waitInlineHtml} from './wait-state.js';
 import {toMeetingISO} from './meeting-time.js';
 import {isMeetingKind} from './report-words.mjs';
-import {MAX_TRANSCRIPT_FILE,MAX_TRANSCRIPT_CHARS,DRAFT_TIMEOUT_MS,splitTranscript,partsText,keepTranscript,draftFailText,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,attendeesLine,pickMeetingAt,audioCheck,durationText,sizeText,transcribeFailText} from './meeting-transcript-model.mjs';
+import {MAX_TRANSCRIPT_FILE,MAX_TRANSCRIPT_CHARS,DRAFT_TIMEOUT_MS,splitTranscript,partsText,keepTranscript,draftFailText,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,attendeesLine,pickMeetingAt} from './meeting-transcript-model.mjs';
 
 (()=>{
 'use strict';
 if(window.__KPTU_MEETING_TRANSCRIPT_DRAFT__)return;
 window.__KPTU_MEETING_TRANSCRIPT_DRAFT__=true;
 const $=s=>document.querySelector(s);
-const FN='/functions/v1/meeting-transcribe';
 let epoch=0,busy=false,fileInfo={date:'',time:''},fileName='';
-// 고른 녹음(화면에만)과 끝난 전사 작업. recJobs: 노트북 녹음의 구간 전사 작업들. attachJobs: [사업 보고 저장] 뒤 그 회의에 붙일 작업 id들.
-let audio=null,audioSeconds=null,audioJob='',recJobs=[],attachJobs=[];
 // REC-한회의로잇기 PR-5: 이 창에서 잇기 물음에 [새로 만들기]를 골랐음(같은 창에서 다시 [녹음 요약하기]를 눌러도 다시 묻지 않음). 창을 열 때 비운다.
 let joinNew=false;
 
@@ -38,8 +31,7 @@ function install(){
   if(!label)return false;
   label.insertAdjacentHTML('beforebegin',`<div id="mtdBar" class="mtd-bar"><button id="mtdOpen" class="secondary mtd-open" type="button" aria-expanded="false" aria-controls="mtdPanel">녹음·전사 넣기</button><span id="mtdStatus" class="mtd-status" role="status" aria-live="polite"></span></div>
 <section id="mtdPanel" class="mtd-panel" aria-label="녹음·전사 넣기" hidden>
-<div class="mtd-file-line"><button id="mtdPick" class="secondary" type="button">파일</button><input id="mtdFile" type="file" accept=".txt,.md,.srt,.vtt,text/plain,audio/*" hidden><span id="mtdFileName" class="mtd-note">전사 글 txt·녹음 파일을 고르거나 끌어 놓기</span></div>
-<div id="mtdAudio" class="mtd-audio" hidden><button id="mtdTranscribe" class="secondary" type="button">전사</button><label class="mtd-attach"><input id="mtdAttach" type="checkbox"> 이 회의에 녹음 붙이기</label><span id="mtdWait" class="mtd-wait"></span></div>
+<div class="mtd-file-line"><button id="mtdPick" class="secondary" type="button">파일</button><input id="mtdFile" type="file" accept=".txt,.md,.srt,.vtt,text/plain" hidden><span id="mtdFileName" class="mtd-note">전사 글 txt를 고르거나 끌어 놓기</span></div>
 <textarea id="mtdText" rows="6" aria-label="전사 글" placeholder="녹음 앱의 텍스트 변환 글을 그대로 붙여 넣으세요."></textarea>
 <div class="mtd-actions"><button id="mtdCancel" class="secondary" type="button">닫기</button><button id="mtdRun" class="secondary mtd-run" type="button">녹음 요약하기</button></div>
 </section>`);
@@ -48,9 +40,7 @@ function install(){
   $('#mtdPick').onclick=()=>$('#mtdFile').click();
   $('#mtdFile').addEventListener('change',()=>{const input=$('#mtdFile'),file=input.files?.[0];input.value='';if(file)void takeFile(file)});
   $('#mtdRun').onclick=()=>void run({ask:true});
-  $('#mtdTranscribe').onclick=()=>void transcribe();
   $('#mtdText').addEventListener('input',()=>{if(!$('#mtdText').value.trim()){fileName='';fileInfo={date:'',time:''};paintFile()}});
-  $('#mtdAttach').addEventListener('change',syncAttach);
   // 패널 안에 끌어 놓은 파일은 회의자료(창 전체 끌어 놓기)가 아니라 전사로 받는다(bindDropTarget이 전파를 멈춘다).
   bindDropTarget($('#mtdPanel'),files=>void takeFile(files[0]),()=>!busy);
   return true;
@@ -62,18 +52,11 @@ function toggle(open){
   if(open)$('#mtdText')?.focus();
 }
 function status(text,kind=''){const el=$('#mtdStatus');if(!el)return;el.textContent=text||'';el.className='mtd-status'+(kind?' '+kind:'')}
-function paintFile(){const el=$('#mtdFileName');if(el)el.textContent=fileName||'전사 글 txt·녹음 파일을 고르거나 끌어 놓기'}
-function paintAudio(){
-  const box=$('#mtdAudio');if(!box)return;
-  box.hidden=!audio&&!recJobs.length;
-  const btn=$('#mtdTranscribe');if(btn){btn.hidden=!audio;btn.disabled=busy||!audio||!!audioJob;btn.textContent=audioJob?'전사 끝':'전사'}
-  const wait=$('#mtdWait');if(wait)wait.innerHTML=busy&&audio&&!audioJob?waitInlineHtml():'';
-}
-function clearAudio(){audio=null;audioSeconds=null;audioJob='';recJobs=[];const a=$('#mtdAttach');if(a)a.checked=false;paintAudio()}
+function paintFile(){const el=$('#mtdFileName');if(el)el.textContent=fileName||'전사 글 txt를 고르거나 끌어 놓기'}
 // 진행 중인 요약은 버린다(늦게 온 답이 다른 창·다른 칸을 채우지 않게).
-function stop(){epoch++;busy=false;const run=$('#mtdRun');if(run){run.disabled=false;run.textContent='녹음 요약하기'}paintAudio()}
+function stop(){epoch++;busy=false;const run=$('#mtdRun');if(run){run.disabled=false;run.textContent='녹음 요약하기'}}
 function reset(){
-  stop();fileName='';fileInfo={date:'',time:''};attachJobs=[];todoRows=[];joinNew=false;clearAudio();
+  stop();fileName='';fileInfo={date:'',time:''};todoRows=[];joinNew=false;
   const text=$('#mtdText');if(text)text.value='';
   paintFile();status('');toggle(false);
 }
@@ -81,7 +64,7 @@ function reset(){
 async function takeFile(file){
   if(!file||busy)return;
   toggle(true);
-  if(isAudioFile(file.name,file.type)){await takeAudio(file);return}
+  if(isAudioFile(file.name,file.type)){status('녹음 파일은 전사하지 않아요. 다른 곳에서 받은 전사 글(txt)을 넣어 주세요.','error');return}
   if(!isTranscriptFile(file.name,file.type)){status('전사 글은 txt 파일로 넣어 주세요.','error');return}
   if(file.size>MAX_TRANSCRIPT_FILE){status('전사 글 파일은 5MB까지 넣을 수 있어요.','error');return}
   const mine=epoch;
@@ -93,83 +76,6 @@ async function takeFile(file){
     status(`${text.length.toLocaleString('ko-KR')}자를 읽었어요. [녹음 요약하기]를 누르세요.`);
   }catch(e){if(mine===epoch){console.warn('transcript file read failed',e);status('파일을 읽지 못했어요.','error')}}
 }
-
-// 기기가 읽은 녹음 길이(초). 못 읽으면 null(서버·Gemini가 다시 막는다). 기기에 남기지 않는다.
-function readSeconds(file){
-  return new Promise(resolve=>{
-    let url='',done=false;const el=document.createElement('audio');
-    const end=v=>{if(done)return;done=true;clearTimeout(timer);el.removeAttribute('src');try{el.load()}catch{}if(url)URL.revokeObjectURL(url);resolve(Number.isFinite(v)&&v>0?v:null)};
-    const timer=setTimeout(()=>end(null),8000);
-    el.preload='metadata';el.onloadedmetadata=()=>end(el.duration);el.onerror=()=>end(null);
-    try{url=URL.createObjectURL(file);el.src=url}catch{end(null)}
-  });
-}
-async function takeAudio(file){
-  const mine=epoch;
-  clearAudio();
-  const early=audioCheck(file.name,file.size);
-  if(early){status(early,'error');return}
-  const seconds=await readSeconds(file);
-  if(mine!==epoch)return;
-  const late=audioCheck(file.name,file.size,seconds);
-  if(late){status(late,'error');return}
-  audio=file;audioSeconds=seconds;
-  const el=$('#mtdFileName');if(el)el.textContent=[file.name,durationText(seconds),sizeText(file.size)].filter(Boolean).join(' · ');
-  paintAudio();
-  status('[전사]를 누르면 글로 바꾼 뒤 초안까지 채워요.');
-}
-async function transcribe(){
-  if(busy||!audio||audioJob)return;
-  const rt=window.KPTURuntime,workspaceId=rt?.context?.read?.()?.workspace?.id;
-  if(!rt?.api||!workspaceId){status('로그인 상태를 확인하지 못했어요.','error');return}
-  const file=audio,seconds=audioSeconds,mine=++epoch;
-  busy=true;paintAudio();const runBtn=$('#mtdRun');if(runBtn)runBtn.disabled=true;
-  try{
-    const config=await rt.api(FN+'?action=config',{method:'POST',body:{workspace_id:workspaceId}});
-    if(mine!==epoch)return;
-    if(!config?.ready)throw new Error(transcribeFailText('not_ready'));
-    status('녹음을 올리는 중…');
-    const up=await rt.api(FN+'?action=upload',{method:'POST',body:file,singleFlight:false,timeoutMs:600000,headers:{
-      'x-workspace-id':workspaceId,'x-file-name':encodeURIComponent(file.name),...(seconds?{'x-duration-sec':String(Math.ceil(seconds))}:{})
-    }});
-    if(mine!==epoch)return;
-    if(!up?.job_id)throw new Error('');
-    status(seconds&&seconds>600?'전사 중… 녹음이 길어 몇 분 걸릴 수 있어요.':'전사 중…');
-    const done=await rt.api(FN+'?action=transcribe',{method:'POST',body:{job_id:up.job_id},singleFlight:false,timeoutMs:420000});
-    if(mine!==epoch||$('#meetingModal')?.classList.contains('hidden'))return;
-    const text=cleanTranscript(String(done?.text||''),file.name);
-    if(!text)throw new Error(transcribeFailText('empty_transcript'));
-    audioJob=up.job_id;
-    syncAttach();
-    $('#mtdText').value=text;fileName=file.name;fileInfo=dateFromName(file.name);
-    busy=false;paintAudio();
-    // 끝나면 기존 '전사 글 → 회의 기록 초안' 흐름을 그대로 잇는다(같은 날 회의록 전문이 있는 보고가 있으면 그 전에 한 번 묻는다).
-    await run({ask:true});
-  }catch(e){
-    if(mine!==epoch)return;
-    console.warn('meeting transcribe failed',e?.status||'',e?.code||'');
-    status(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':transcribeFailText(e),'error');
-  }finally{
-    if(mine===epoch||!busy){busy=false;paintAudio();const r=$('#mtdRun');if(r&&r.textContent!=='요약 중…')r.disabled=false}
-  }
-}
-// [이 회의에 녹음 붙이기]: 전사가 끝난 뒤 켜거나 끌 수도 있다.
-function syncAttach(){const jobs=audioJob?[audioJob]:recJobs;attachJobs=$('#mtdAttach')?.checked?[...jobs]:[]}
-// [사업 보고 저장]이 회의를 만든 뒤(team.js saveMeeting). 실패해도 회의는 그대로이고 녹음은 Drive에 남는다(30일 뒤 정리).
-window.addEventListener('kptu:record-saved',e=>{
-  const id=e.detail?.kind==='meeting'?e.detail?.id:'',jobs=attachJobs;
-  if(!id||!jobs.length)return;
-  attachJobs=[];
-  // 노트북 녹음은 구간마다 한 파일이라 차례로 붙인다(하나가 실패해도 나머지는 붙인다).
-  void (async()=>{
-    let any=false;
-    for(const job of jobs){
-      try{await window.KPTURuntime?.api?.(FN+'?action=attach',{method:'POST',body:{job_id:job,meeting_id:id},singleFlight:false});any=true}
-      catch(err){console.warn('meeting recording attach failed',err?.status||'')}
-    }
-    if(any)window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));
-  })();
-});
 
 // MTG-할일자동생성금지(요청함 11/11 15:25, 명진 "회의결과가 할일을 자동으로 만드는 거 그러지마"): AI가 찾은 후속 할 일은 '후속 할 일' 입력 줄에
 // 넣지 않는다(그 줄은 [사업 보고 저장] 때 Google 할 일이 된다). 화면에만 들고 있다가 저장 뒤 그 보고의 챙길 것 후보로 올린다(todo-radar-data.js).
@@ -207,7 +113,7 @@ function askDraft(rt,workspaceId,{text,stage='',part=0,parts=0}){
   }});
 }
 
-// 요약 답 → 입력 창 칸(일시·결과 원문·참석인원). 후속 할 일은 칸에 넣지 않고 후보로 들고 있다. 화면 요약([녹음 요약하기])과 서버 정리 결과(fillResult) 공용.
+// 요약 답 → 입력 창 칸(일시·결과 원문·참석인원). 후속 할 일은 칸에 넣지 않고 후보로 들고 있다.
 function applyDraft(data,text,at){
   const draft=normalizeDraft(data);
   if(!draft)throw new Error('invalid_meeting_draft');
@@ -224,7 +130,7 @@ function applyDraft(data,text,at){
   toggle(false);
 }
 
-// ask = 사람이 [녹음 요약하기]를 눌렀거나 [전사]가 끝남(PR-5 (라) 물음을 거친다). 노트북 녹음의 옛 화면 정리 길(fill)은 묻지 않는다.
+// ask = 사람이 [녹음 요약하기]를 누름(PR-5 (라) 물음을 거친다).
 async function run({ask=false}={}){
   if(busy)return false;
   let ok=false;
@@ -281,57 +187,26 @@ async function run({ask=false}={}){
 // REC-한회의로잇기 PR-5 (라): 묻는 동안 [녹음 요약하기]를 잠근다. 돌려줌: 'new' · 'joined' · 'later'(물음을 닫음·시작하지 못함) · 'gone'(창을 닫았거나 다시 엶).
 async function askJoin(text){
   const mine=++epoch,btn=$('#mtdRun');
-  busy=true;paintAudio();if(btn){btn.disabled=true;btn.textContent='확인 중…'}
+  busy=true;if(btn){btn.disabled=true;btn.textContent='확인 중…'}
   let how='new';
-  try{how=await window.KPTUMeetingJoin.askTranscript({text,at:$('#meetingAt')?.value||'',records:[...attachJobs],anchor:btn})}
+  try{how=await window.KPTUMeetingJoin.askTranscript({text,at:$('#meetingAt')?.value||'',records:[],anchor:btn})}
   catch(e){console.warn('meeting join ask failed',e?.name||'');how='new'}
   if(mine!==epoch||$('#meetingModal')?.classList.contains('hidden'))return 'gone';
-  busy=false;paintAudio();if(btn){btn.disabled=false;btn.textContent='녹음 요약하기'}
+  busy=false;if(btn){btn.disabled=false;btn.textContent='녹음 요약하기'}
   if(how==='later')status('전사 글은 그대로 있어요. [녹음 요약하기]를 누르면 다시 물어요.');
   return how;
 }
-// [그 보고에 잇기]: 이 글은 서버가 그 보고에 이어 붙인다(진행·끝은 맨 위 줄). 이 창의 전사 글·녹음·붙일 녹음·할 일 후보를 비우고 창을 닫는다
+// [그 보고에 잇기]: 이 글은 서버가 그 보고에 이어 붙인다(진행·끝은 맨 위 줄). 이 창의 전사 글·할 일 후보를 비우고 창을 닫는다
 // (다른 칸에 쓴 글이 있으면 창의 닫기 물음이 그대로 묻는다 — team.js requestMeetingClose).
 function joined(){
   reset();
   document.querySelector('#meetingModal [data-close="meetingModal"]')?.click();
 }
 
-// MTG-노트북녹음: 노트북 녹음의 합친 전사 글을 넣고 [녹음 요약하기]를 부른다. 창은 부른 쪽이 먼저 연다(KPTUReportEntry.open, [회의] 칸).
-// jobs: 구간 전사 작업 id들([이 회의에 녹음 붙이기]는 켠 채로 시작, 끄면 붙이지 않음). 초안을 채웠으면 true.
-async function fill({text='',jobs=[],name=''}={}){
-  if(!install()||$('#meetingModal')?.classList.contains('hidden'))return false;
-  stop();
-  audio=null;audioSeconds=null;audioJob='';
-  recJobs=(Array.isArray(jobs)?jobs:[]).filter(Boolean);
-  const attach=$('#mtdAttach');if(attach)attach.checked=recJobs.length>0;
-  syncAttach();
-  fileName=name||'노트북 녹음';fileInfo={date:'',time:''};paintFile();paintAudio();
-  $('#mtdText').value=String(text||'');
-  toggle(true);
-  return run();
-}
-// REC-서버정리(S49-2): 서버가 이미 전사·요약을 끝낸 결과를 넣는다(AI를 다시 부르지 않음). 전문은 '회의록 전문' 칸, 요약은 기존 칸.
-// 요약이 없으면(서버 요약 실패) 전문만 넣고 [녹음 요약하기]를 누를 수 있게 둔다. 채웠으면 true.
-function fillResult({text='',draft=null,jobs=[],name=''}={}){
-  if(!install()||$('#meetingModal')?.classList.contains('hidden'))return false;
-  stop();
-  audio=null;audioSeconds=null;audioJob='';
-  recJobs=(Array.isArray(jobs)?jobs:[]).filter(Boolean);
-  const attach=$('#mtdAttach');if(attach)attach.checked=recJobs.length>0;
-  syncAttach();
-  fileName=name||'녹음';fileInfo={date:'',time:''};paintFile();paintAudio();
-  const full=cleanTranscript(String(text||''));
-  $('#mtdText').value=full;
-  keepFull(full);
-  if(!draft){toggle(true);status("전사 전문은 '회의록 전문' 칸에 넣었어요. 요약은 [녹음 요약하기]를 누르세요.",'error');return false}
-  try{applyDraft({draft},full,$('#meetingAt')?.value||'');return true}
-  catch{toggle(true);status("전사 전문은 '회의록 전문' 칸에 넣었어요. 요약은 [녹음 요약하기]를 누르세요.",'error');return false}
-}
-// REC-한회의로잇기 PR-0: 입력 창의 쓰던 글 확인(team.js가 닫기·새로 열기 전에 본다). 고른 녹음 파일, 요약·전사 중, 전사 글 칸에 남은 글.
+// REC-한회의로잇기 PR-0: 입력 창의 쓰던 글 확인(team.js가 닫기·새로 열기 전에 본다). 요약 중, 전사 글 칸에 남은 글.
 // 전사 글 칸은 요약이 끝나면 접히지만 글은 그대로 남으므로, 요약을 채운 뒤에도 '쓰던 글'로 센다(채운 결과는 저장 전까지 쓰던 글).
-function hasDraft(){return !!audio||busy||!!$('#mtdText')?.value.trim()}
-window.KPTUMeetingTranscriptDraft={fill,fillResult,hasDraft};
+function hasDraft(){return busy||!!$('#mtdText')?.value.trim()}
+window.KPTUMeetingTranscriptDraft={hasDraft};
 
 // 창이 열릴 때(team.js openMeetingModal이 칸 글자를 칠하며 알림)와 칸을 바꿀 때. [회의] 칸에서만 보인다.
 window.addEventListener('kptu:report-entry-kind',e=>{

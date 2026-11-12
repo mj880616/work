@@ -95,10 +95,10 @@ test('일시: 파일 이름 > AI 날짜 > 글 첫 줄, 시각은 파일 시각 �
 test('화면 연결: [회의] 칸 입력 창에서 기존 meeting-ai-draft 새 회의 길만 쓰고, 자동 저장·기기 저장·[녹음] 버튼이 없다',()=>{
   const s=read('app/meeting-transcript-draft.js');
   assert.match(s,/\/functions\/v1\/meeting-ai-draft/);
-  // 요약(meeting-ai-draft)은 새 회의 길만: 그 호출 몸통에 meeting_id가 없다. meeting_id는 저장 뒤 녹음 붙이기(attach)에만.
+  // 요약(meeting-ai-draft)은 새 회의 길만: 그 호출 몸통에 meeting_id가 없다. 녹음 붙이기(attach)는 S61-5에서 뺐다(meeting_id:id는 할 일 후보 한 곳).
   const draftCall=s.slice(s.indexOf("'/functions/v1/meeting-ai-draft'"),s.indexOf('}});',s.indexOf("'/functions/v1/meeting-ai-draft'")));
   assert.ok(draftCall.length>0);assert.doesNotMatch(draftCall,/meeting_id/);
-  assert.deepEqual([...s.matchAll(/meeting_id\s*:\s*id/g)].length,2);
+  assert.deepEqual([...s.matchAll(/meeting_id\s*:\s*id/g)].length,0);
   assert.doesNotMatch(s,/\/rest\/v1\//);
   // 기기 저장소 낱말은 저장소 검사(browser-storage-audit)가 글자로 막으므로 조각으로 만든다.
   assert.doesNotMatch(s,new RegExp(['local','session'].map(x=>x+'Storage').concat(['indexed'+'DB']).join('|')));
@@ -131,15 +131,10 @@ test('2단계 녹음 전사: 상한·종류는 서버와 같고, 실패 문구�
   assert.match(transcribeFailText('Error: boom'),/녹음은 그대로/);
 });
 
-test('2단계 화면 연결: [전사] → config·upload·transcribe → 전사 칸 → 기존 초안 흐름, 붙이기는 저장 뒤, 기다림 부품',()=>{
+// S61-5 REC-전사삭제(명진 11/13): 입력 창의 녹음 파일 → [전사]·[이 회의에 녹음 붙이기]는 지금은 없다. 녹음 파일을 넣으면 안내만.
+test('지금은 없음: 입력 창에 [전사]·녹음 붙이기·meeting-transcribe 호출이 없고, 녹음 파일은 받지 않는다',()=>{
   const s=read('app/meeting-transcript-draft.js');
-  assert.match(s,/const FN='\/functions\/v1\/meeting-transcribe'/);
-  for(const a of ['config','upload','transcribe','attach'])assert.match(s,new RegExp("FN\\+'\\?action="+a+"'"));
-  assert.match(s,/import \{waitInlineHtml\} from '\.\/wait-state\.js'/);
-  assert.match(s,/\$\('#mtdText'\)\.value=text;[\s\S]{0,300}await run\(\{ask:true\}\);/); // REC-한회의로잇기 PR-5: 요약 전에 같은 날 보고 물음을 거친다
-  assert.match(s,/window\.addEventListener\('kptu:record-saved'/);
-  assert.match(s,/body:file,singleFlight:false/);
-  assert.doesNotMatch(s,/다음 단계에서 열려요/);
-  const rt=read('app/runtime-client.js');
-  assert.match(rt,/body instanceof Blob\)\)?;?/);
+  for(const gone of ['meeting-transcribe','mtdTranscribe','mtdAttach','action=upload','action=transcribe','action=attach','audio/*','fillResult','function fill('])assert.ok(!s.includes(gone),gone);
+  assert.match(s,/if\(isAudioFile\(file\.name,file\.type\)\)\{status\('녹음 파일은 전사하지 않아요\./);
+  assert.match(s,/accept="\.txt,\.md,\.srt,\.vtt,text\/plain"/);
 });

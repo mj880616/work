@@ -1,12 +1,10 @@
 // MTG-폰녹음(요청함 10/30 10:56): 폰 앱(웹2 앱 0.3.3+)의 [녹음] 흐름. 화면(DOM)은 phone-recorder.js, 여기는 순서·서버 호출만(단위 시험 대상).
 // - 녹음은 앱이 한다(RecorderService, 화면이 꺼져도 계속). 앱은 1분마다 조각을 자르고 앱 전용 공간에만 둔다.
-// - 서버 호출(rec_start·rec_piece·rec_finish·transcribe·rec_pending·rec_discard·rec_restore)은 이 화면이 웹2 로그인 세션(runtime api)으로 한다.
+// - 서버 호출(rec_start·rec_piece·rec_finish·rec_save·rec_pending·rec_discard·rec_restore)은 이 화면이 웹2 로그인 세션(runtime api)으로 한다.
 //   앱은 토큰을 보지 않는다. 조각 내용은 ./__rec/<한 번 번호>를 fetch하면 앱이 WebView 안에서 흘려준다(서버로 나가지 않음).
-// - 정리 흐름(rec_finish → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 [녹음 요약하기])은 노트북 녹음(meeting-recorder.js)과 같은
-//   규칙(meeting-recorder-model.mjs)을 쓴다. 노트북 모듈은 고치지 않는다(같은 시간 다른 작업과 겹치지 않게, PR 본문 참고).
-import {retryDelay,pieceOutcome,transcribePlan,joinSegmentTexts,seoulLocal,pendingOthers} from './meeting-recorder-model.mjs';
-import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
-import {unavailable as serverUnavailable,requestFail,OFFLINE_START_TEXT} from './meeting-server-job.mjs';
+// - 저장 흐름(rec_finish → rec_save: 자료실 '회의 녹음' 폴더)은 노트북 녹음(meeting-recorder.js)과 같은 규칙(meeting-recorder-model.mjs saveRecording)을 쓴다.
+//   S61-5 REC-전사삭제(명진 11/13): 전사·요약·회의 기록 초안은 하지 않는다. 띠에는 저장한 파일 이름 · [내려받기] · [Drive에서 열기].
+import {retryDelay,pieceOutcome,pendingOthers,saveRecording,saveFailText} from './meeting-recorder-model.mjs';
 
 export const MIME='audio/ogg';
 export const DISCARD_DRAIN_MS=20000;
@@ -45,18 +43,16 @@ export function pendingList(native,server,activeId=''){
 export const pieceHeaders=p=>({'Content-Type':MIME,'x-recording-id':p.id,'x-piece-seq':String(p.seq),'x-duration-sec':String(p.seconds)});
 
 /**
- * deps: {send(text), call(action,body,extra), fetchPiece(token)→Blob, openDraft({text,jobs,startedAt,minutes}), notify(text,opts),
- *        watchServer(job)(서버 정리를 맡긴 뒤 진행 띠를 넘겨받는 쪽, REC-서버정리),
+ * deps: {send(text), call(action,body,extra), fetchPiece(token)→Blob, notify(text,opts),
  *        workspace()→id, sleep(ms, wake?)→Promise, paint(view), now()}
  * 앱이 보낸 글은 receive(text)로 넣는다.
  */
 export function createPhoneRecorder(deps){
   const sleep=deps.sleep||((ms)=>new Promise(r=>setTimeout(r,ms)));
   const now=deps.now||(()=>Date.now());
-  const view={state:'idle',step:'',note:'',error:'',canRetry:false,native:null,nativeAt:0,pending:[],supported:false,busy:false};
+  const view={state:'idle',step:'',note:'',error:'',canRetry:false,native:null,nativeAt:0,pending:[],supported:false,busy:false,files:[]};
   const waiters=[];
-  let wakers=[],pumping=null,startFails=0,serverPending=[],sessionId='',startedAt='',knownMinutes=0;
-  const doneTexts=new Map();
+  let wakers=[],pumping=null,startFails=0,serverPending=[],sessionId='',startedAt='';
 
   const paint=()=>{view.pending=view.state==='idle'&&!view.busy?pendingList(view.native,serverPending,activeId()):[];deps.paint?.(view)};
   const activeId=()=>['recording','paused'].includes(view.native?.state)?view.native.session_id:'';
@@ -93,12 +89,12 @@ export function createPhoneRecorder(deps){
 
   // ---- 시작 ----
   async function start(){
-    if(!['idle','done','error'].includes(view.state)||view.busy)return;
+    if(!['idle','saved','error'].includes(view.state)||view.busy)return;
     const st=view.native?.state;
-    if(st&&st!=='idle'){deps.notify?.('끝나지 않은 폰 녹음이 있어요. 먼저 [이어서 정리]하거나 [삭제]를 눌러 주세요.',{error:true});return}
+    if(st&&st!=='idle'){deps.notify?.('끝나지 않은 폰 녹음이 있어요. 먼저 [이어서 저장]하거나 [삭제]를 눌러 주세요.',{error:true});return}
     const ws=deps.workspace();
     if(!ws){fail('로그인 상태를 확인하지 못했어요.',false);return}
-    view.state='starting';view.step='';view.note='';view.error='';doneTexts.clear();paint();
+    view.state='starting';view.step='';view.note='';view.error='';view.files=[];paint();
     const ok=await ask('rec:prepare',['ready','denied'],120000);
     if(ok?.kind!=='ready'){fail(ok?'마이크를 쓸 수 없어요. 폰 설정 › 애플리케이션 › 웹2 › 권한에서 마이크를 허용해 주세요.':'앱이 답하지 않아요. 앱을 다시 열어 주세요.',false);return}
     let r;
@@ -182,7 +178,7 @@ export function createPhoneRecorder(deps){
 
   function pause(){if(view.state==='recording')deps.send('rec:pause');else if(view.state==='paused')deps.send('rec:resume')}
 
-  // ---- 멈추고 정리 ----
+  // ---- 멈추고 저장 ----
   async function stopAndFinish(){
     if(!['recording','paused'].includes(view.state))return;
     view.state='finishing';view.step='올림';paint();
@@ -190,85 +186,37 @@ export function createPhoneRecorder(deps){
     await waitStopped();
     await finishLocal();
   }
-  // 이 폰에 남은 녹음을 다 올리고 정리한다(멈추고 정리·알림 [멈추고 정리]·'이어서 정리' 공통).
+  // 이 폰에 남은 녹음을 다 올리고 저장한다(멈추고 저장·알림 버튼·'이어서 저장' 공통).
   async function finishLocal(){
     const n=view.native;
     if(!n?.session_id)return;
     view.state='finishing';view.step='올림';view.error='';paint();
     deps.send('rec:finishing');
-    sessionId=n.session_id;startedAt=n.started_at;knownMinutes=Math.round(elapsedMs()/60000);
+    sessionId=n.session_id;startedAt=n.started_at;
     await drain();
-    await finishSession(null,true);
+    await finishSession(true);
   }
-
-  // REC-서버정리(S49-2): 정리는 서버 작업(job_start)에 맡긴다. 조각은 이미 다 올렸으므로 앱의 임시 파일·상태를 지우고,
-  // 진행 띠·끝 알림·[초안 열기]는 노트북과 같은 주인(watchServer = meeting-recorder.js)이 그린다. 화면·앱을 닫아도 서버가 끝까지 한다.
-  // 서버가 아직 이 길을 모르면(옛 Edge·표 적용 전) 아래 화면 정리 길로 간다.
-  async function finishSession(known=null,clearLocal=false){
+  // rec_finish(합치기) → rec_save(자료실 '회의 녹음' 폴더). 합친 뒤에는 앱의 임시 파일·상태를 지운다(clearLocal).
+  async function finishSession(clearLocal=false){
     if(!sessionId)return;
     view.state='finishing';view.step='올림';view.error='';view.canRetry=false;paint();
-    let job=null;
     try{
-      if(deps.watchServer)job=(await deps.call('job_start',{workspace_id:deps.workspace(),kind:'recording',session_id:sessionId},{timeoutMs:60000}))?.job||null;
-    }catch(e){
-      if(!serverUnavailable(e)){
-        // REC-정리상태확인못함(S60-3): 서버가 거절한 이유(한도·준비 중·다른 정리 중 등)는 그 이유 글로(노트북 띠와 같은 표).
-        const f=requestFail(e);
-        fail(f.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':f.auto?OFFLINE_START_TEXT:f.text,f.retry);
-        return;
-      }
-    }
-    if(job){
-      if(clearLocal&&view.native?.session_id===sessionId)deps.send('rec:clear');
-      view.state='idle';view.step='';view.note='';paint();
+      const r=await saveRecording(deps.call,sessionId,{onStep:s=>{
+        if(s==='저장'&&clearLocal&&view.native?.session_id===sessionId)deps.send('rec:clear');
+        view.step=s;paint();
+      }});
+      view.files=r.files;view.step='';view.note='';view.state='saved';
       serverPending=serverPending.filter(s=>s.session_id!==sessionId);
-      deps.watchServer(job);
-      return;
-    }
-    await finishOnScreen(known,clearLocal);
-  }
-  // 화면 정리 길(S49-2 전과 같음). clearLocal: rec_finish가 끝나면 앱의 임시 파일·상태를 지운다.
-  async function finishOnScreen(known=null,clearLocal=false){
-    view.state='finishing';view.step='올림';view.error='';view.canRetry=false;paint();
-    try{
-      let res=null;
-      for(let i=0;i<30;i++){res=await deps.call('rec_finish',{session_id:sessionId},{timeoutMs:260000});if(!res?.more)break}
-      if(clearLocal&&view.native?.session_id===sessionId)deps.send('rec:clear');
-      const status=new Map((known?.segments||[]).map(s=>[s.segment_no,s.job_status]));
-      const plan=transcribePlan((res?.segments||[]).map(s=>({...s,job_status:s.job_status??status.get(s.segment_no)??null})));
-      const todo=plan.filter(p=>p.action==='transcribe');
-      if(!todo.length&&!plan.some(p=>p.action==='gone'))throw stopError('녹음에서 정리할 소리를 찾지 못했어요.',false);
-      view.step='전사';
-      const parts=[],jobs=[];let k=0;
-      for(const p of plan){
-        if(p.action==='skip'){parts.push({no:p.no,seconds:p.seconds,text:''});continue}
-        if(p.action==='gone'&&!doneTexts.has(p.job)){parts.push({no:p.no,seconds:p.seconds,text:null});jobs.push(p.job);continue}
-        k++;
-        if(!doneTexts.has(p.job)){
-          view.note=todo.length>1?`${k}/${todo.length}`:'';paint();
-          const done=await deps.call('transcribe',{job_id:p.job},{timeoutMs:420000});
-          doneTexts.set(p.job,cleanTranscript(String(done?.text||'')));
-        }
-        parts.push({no:p.no,seconds:p.seconds,text:doneTexts.get(p.job)});jobs.push(p.job);
-      }
-      view.note='';
-      const text=joinSegmentTexts(parts);
-      if(!text.replace(/^―.*―$/gm,'').trim())throw stopError(transcribeFailText('empty_transcript'),false);
-      view.step='요약';paint();
-      const minutes=knownMinutes||Math.round(plan.reduce((s,p)=>s+p.seconds,0)/60);
-      await deps.openDraft({text,jobs,startedAt:seoulLocal(startedAt),minutes});
-      view.step='초안 열림';view.state='done';paint();
-      serverPending=serverPending.filter(s=>s.session_id!==sessionId);
+      paint();
+      deps.notify?.(`자료실 '${r.folder}' 폴더에 저장했어요`);
       void loadPending(true);
     }catch(e){
-      const text=e?.recText||(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':view.step==='전사'?transcribeFailText(e):view.step==='요약'?'초안 창을 열지 못했어요. [다시]를 누르세요.':'녹음을 합치지 못했어요. 올린 소리는 Drive에 남아 있어요.');
-      fail(text,e?.recRetry!==false);
+      fail(saveFailText(e,view.step),e?.code!=='no_recording');
     }
   }
-  function stopError(text,retry){const e=new Error('');e.recText=text;e.recRetry=retry;return e}
   function fail(text,retry){view.state='error';view.error=text;view.canRetry=!!retry&&!!sessionId;view.step='';view.note='';paint()}
   function retry(){if(view.state==='error'&&view.canRetry)void finishSession()}
-  function close(){if(['done','error'].includes(view.state)){view.state='idle';view.step='';view.error='';paint()}}
+  function close(){if(['saved','error'].includes(view.state)){view.state='idle';view.step='';view.error='';view.files=[];paint()}}
 
   // ---- 버리기 ----
   async function discardLive(){
@@ -315,8 +263,8 @@ export function createPhoneRecorder(deps){
     if(view.state==='finishing'||['recording','paused','starting'].includes(view.state)||view.busy)return;
     const item=view.pending.find(s=>s.session_id===id);if(!item)return;
     if(item.local){void finishLocal();return}
-    sessionId=item.session_id;startedAt=item.started_at||new Date(now()).toISOString();knownMinutes=Math.round((Number(item.duration_sec)||0)/60);doneTexts.clear();
-    void finishSession(item);
+    sessionId=item.session_id;startedAt=item.started_at||new Date(now()).toISOString();
+    void finishSession();
   }
   function discardPending(id){
     if(view.state==='finishing'||['recording','paused','starting'].includes(view.state)||view.busy)return;

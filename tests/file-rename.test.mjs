@@ -185,7 +185,7 @@ test('첨부 파일 줄이 있는 화면마다 같은 부품을 쓴다', () => {
     // FILE-이름고치기연필먹통: ⋯가 있는 줄은 ✎ 없이 ⋯ 안 [이름 수정](renameMenuAttrs → menuItemsHtml {rename}).
     'workplace-detail.js': /rename:renameMenuAttrs\(rn\)/,
     'project-system-v3.js': /rename:renameMenuAttrs\(rn\)/,
-    'meeting-round-detail.js#menu': /mrdTranscribeItem\(d\)\+mrdFileOwnItems\(d\),mrdRename\(d\)\)/,
+    'meeting-round-detail.js#menu': /mrdFileOwnItems\(d\),mrdRename\(d\)\)/,
     // 빠짐12: 자료실 [이름 바꾸기]·F2 — 보이는 이름이 파일 이름인 줄은 같은 부품(target document).
     'library-upload.js': /fileNameShown\(d\)\)\{[^}]*markRenameHost\(title,\{target:'document',id:d\.id,driveId:d\.file_id,name:d\.file_name\}\);openRenameEditor\(title\)/,
   };
@@ -226,7 +226,7 @@ test('⋯가 있는 파일 줄 전수: ✎(renameButtonHtml)를 그리지 않고
   }
   const mrd = read('../app/meeting-round-detail.js');
   // ⋯ 칸(fileMoreHtml)의 extra 첫머리에 [이름 수정], 덮개(.file-line-open) 앞에는 ✎ 없음.
-  assert.match(mrd, /fileMoreHtml\(d,name,mrdTranscribeItem\(d\)\+mrdFileOwnItems\(d\),mrdRename\(d\)\)/);
+  assert.match(mrd, /fileMoreHtml\(d,name,mrdFileOwnItems\(d\),mrdRename\(d\)\)/);
   assert.doesNotMatch(mrd, /\$\{mrdRename\(d\)\}<button class="file-line-open"/);
   assert.match(read('../app/workplace-detail.js'), /menuItemsHtml\(fa,\{attrs:fileAttrs\(fa\),attr:'data-fa-menu',rename:renameMenuAttrs\(rn\)\}\)\}<button type="button" data-wd-doc-remove/);
   assert.match(read('../app/project-system-v3.js'), /menuItemsHtml\(fa,\{attrs:fileAttrs\(fa\),attr:'data-fa-menu',rename:renameMenuAttrs\(rn\)\}\)\}<button type="button" data-ps3-edit-doc/);

@@ -178,7 +178,8 @@ test('code shape: owner only, key name only, no transcript stored, no prune/dele
  // 작업 표에 글을 넣지 않는다: setJob·insert 몸통에 text 칸 없음
  for(const call of index.matchAll(/(?:setJob\([^;]*|from\(TABLE\)\.(?:insert|update)\([^;]*)/g))assert.doesNotMatch(call[0],/\btext\b|result\./);
  assert.match(index,/userDb\.from\('app_ai_external_usage'\)\.select/);
- assert.match(index,/moveDriveFileToTrash\(fetch, job\.drive_file_id, folder, token\)/);
+ // S61-5 REC-전사삭제: 녹음 파일은 자료실 원본이라 '30일 지난 붙이지 않은 녹음 → Drive 휴지통' 정리는 없다.
+ assert.doesNotMatch(index,/trashBefore\(|UNATTACHED_TRASH_DAYS/);
  assert.match(index,/if \(!GEMINI\(\)\) throw new Fail\('not_ready'\)/);
  assert.equal(m.failBody('not_ready').error,'녹음 전사는 준비 중이에요.');assert.equal(m.STATUS.not_ready,503);
  const doc=readFileSync('docs/web2-env6b-edge-source.md','utf8');

@@ -11,10 +11,11 @@ const tick = ms => new Promise(r => setTimeout(r, Math.min(ms, 5)));
 const until = async (fn, n = 400) => { for (let i = 0; i < n; i++) { if (fn()) return; await tick(1); } throw new Error('기다림 초과'); };
 
 // 앱 흉내: 다리 글을 받아 RecordHub·MainActivity와 같은 답을 준다.
-function setup({failPieceOnce = false, discardStatus = 0, openDraft = null} = {}) {
+function setup({failPieceOnce = false, discardStatus = 0, saveFailOnce = false} = {}) {
   const st = {state:'idle', session_id:'', started_at:'', elapsed_ms:0, queued:0, auto_finish:false, discard:false, want_start:false};
   let pieces = [], seq = 0, core = null;
-  const sent = [], calls = [], notes = [], drafts = [];
+  const sent = [], calls = [], notes = [];
+  let saveFailed = !saveFailOnce;
   const reply = t => queueMicrotask(() => core.receive(t));
   const state = () => reply('rec:state:' + JSON.stringify({...st, queued:pieces.length}));
   const add = () => { seq++; pieces.push({no:1, id:RID, seq, seconds:seq * 60, size:100, token:`tok${seq}xxxxxxxxxxxxxxxxxxxx`}); };
@@ -35,7 +36,10 @@ function setup({failPieceOnce = false, discardStatus = 0, openDraft = null} = {}
     if (action === 'rec_start') return {recording_id:RID, session_id:SID, segment_no:1, piece_seconds:300, segment_seconds:3540};
     if (action === 'rec_piece') { if (!failed) { failed = true; const e = new Error('잠시 뒤'); e.status = 503; throw e; } return {ok:true}; }
     if (action === 'rec_finish') return {segments:[{segment_no:1, status:'combined', job_id:'job-1', duration_sec:120}]};
-    if (action === 'transcribe') return {text:'회의를 시작합니다.'};
+    if (action === 'rec_save') {
+      if (!saveFailed) { saveFailed = true; const e = new Error('잠시 뒤'); e.status = 503; throw e; }
+      return {ok:true, folder_name:'회의 녹음', files:[{document_id:'doc-1', file_name:'회의 녹음 1.ogg', drive_file_id:'drive1', drive_url:'https://drive.google.com/file/d/drive1/view', mime_type:'audio/ogg'}]};
+    }
     if (action === 'rec_pending') return {sessions:[]};
     if (action === 'rec_discard') { if (discardStatus) { const e = new Error(''); e.status = discardStatus; throw e; } return {ok:true}; }
     if (action === 'rec_restore') return {ok:true};
@@ -44,10 +48,9 @@ function setup({failPieceOnce = false, discardStatus = 0, openDraft = null} = {}
   core = createPhoneRecorder({
     send, call, sleep:tick, workspace:() => WS,
     fetchPiece:async token => ({size:100, token}),
-    openDraft:async d => { if (openDraft) await openDraft(d); drafts.push(d); },
     notify:(text, opts) => notes.push({text, opts}),
   });
-  return {core, st, sent, calls, notes, drafts, pieces:() => pieces, state};
+  return {core, st, sent, calls, notes, pieces:() => pieces, state};
 }
 
 test('앱 글 읽기: 상태·다음 일·기다림만, 그 밖은 삭제한다', () => {
@@ -84,7 +87,9 @@ test('끝나지 않은 녹음 줄: 이 폰 녹음 먼저, 서버 목록에서 �
   assert.deepEqual(pendingList({state:'idle'}, [{session_id:'x'}]).map(s => s.session_id), ['x']);
 });
 
-test('녹음 → 조각 올리기(재시도 포함) → 멈추고 정리 → 회의 초안', async () => {
+// S61-5 REC-전사삭제(명진 11/13): 멈추면 자료실 '회의 녹음' 폴더에 저장(rec_finish → rec_save). 전사·요약·초안 호출은 0번.
+const noTranscribe = t => assert.equal(t.calls.some(c => /transcribe|job_/.test(c.action)), false, '전사·서버 정리 호출 없음');
+test('녹음 → 조각 올리기(재시도 포함) → 멈추고 저장 → 자료실 파일 줄', async () => {
   const t = setup({failPieceOnce:true});
   await t.core.hello();
   assert.equal(t.core.view.supported, true);
@@ -105,50 +110,50 @@ test('녹음 → 조각 올리기(재시도 포함) → 멈추고 정리 → 회
   assert.ok(t.sent.includes('rec:sent:1:2'), '멈춘 뒤 마지막 조각까지 올린다');
   const order = t.calls.map(c => c.action);
   assert.ok(order.indexOf('rec_finish') > order.lastIndexOf('rec_piece'));
+  assert.ok(order.indexOf('rec_save') > order.indexOf('rec_finish'));
+  assert.deepEqual(t.calls.find(c => c.action === 'rec_save').body, {session_id:SID});
   assert.ok(t.sent.indexOf('rec:clear') > t.sent.indexOf('rec:sent:1:2'), 'rec_finish 뒤 앱 임시 파일 삭제');
-  assert.equal(t.drafts.length, 1);
-  assert.match(t.drafts[0].text, /회의를 시작합니다/);
-  assert.deepEqual(t.drafts[0].jobs, ['job-1']);
-  assert.equal(t.core.view.state, 'done');
+  assert.equal(t.core.view.state, 'saved');
+  assert.deepEqual(t.core.view.files.map(f => [f.name, f.documentId, f.driveId]), [['회의 녹음 1.ogg', 'doc-1', 'drive1']]);
+  assert.ok(t.notes.some(n => /자료실 '회의 녹음' 폴더에 저장했어요/.test(n.text)));
+  noTranscribe(t);
+  t.core.close();
+  assert.equal(t.core.view.state, 'idle');
 });
 
-// REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있어 사람이 [쓰던 창 두기]를 고르면 phone-recorder.js의 openDraft가 그 까닭으로 멈춘다.
-// 멈춤 줄에 그 글 + [다시], [다시]는 이미 전사한 구간을 다시 전사하지 않고 초안만 다시 연다(쓰던 창은 그대로 — 두 번째에야 열림).
-test('쓰던 사업 보고 창을 두면 멈춤 줄에 까닭 + [다시], 다시 누르면 전사는 그대로 두고 초안만 다시 연다', async () => {
-  const KEPT = '쓰던 사업 보고 창을 그대로 뒀어요. 저장하거나 닫은 뒤 [다시]를 누르세요.';
-  let tries = 0;
-  const t = setup({openDraft:async () => { if (++tries === 1) { const e = new Error(''); e.recText = KEPT; e.recRetry = true; throw e; } }});
+test('저장이 실패하면 멈춤 줄 + [다시], 다시 누르면 같은 녹음을 다시 저장한다', async () => {
+  const t = setup({saveFailOnce:true});
   Object.assign(t.st, {state:'stopped', session_id:SID, started_at:'2026-10-30T05:00:00.000Z', auto_finish:true, elapsed_ms:120000});
   await t.core.hello();
   await until(() => t.core.view.state === 'error');
-  assert.equal(t.core.view.error, KEPT);
+  assert.match(t.core.view.error, /자료실에 저장하지 못했어요/);
   assert.equal(t.core.view.canRetry, true);
-  assert.equal(t.drafts.length, 0);
   t.core.retry();
-  await until(() => t.core.view.state === 'done');
-  assert.equal(t.drafts.length, 1);
-  assert.equal(t.calls.filter(c => c.action === 'transcribe').length, 1, '이미 전사한 구간은 다시 전사하지 않는다');
+  await until(() => t.core.view.state === 'saved');
+  assert.equal(t.calls.filter(c => c.action === 'rec_save').length, 2);
+  noTranscribe(t);
 });
 
-test('알림줄 [멈추고 정리]: 앱이 멈춘 상태(auto_finish)를 알리면 화면이 바로 정리한다', async () => {
+test('알림줄 버튼으로 멈춤: 앱이 멈춘 상태(auto_finish)를 알리면 화면이 바로 저장한다', async () => {
   const t = setup();
   Object.assign(t.st, {state:'stopped', session_id:SID, started_at:'2026-10-30T05:00:00.000Z', auto_finish:true, elapsed_ms:300000});
   await t.core.hello();
-  await until(() => t.core.view.state === 'done');
+  await until(() => t.core.view.state === 'saved');
   assert.ok(t.sent.includes('rec:finishing'));
   assert.ok(t.calls.some(c => c.action === 'rec_finish' && c.body.session_id === SID));
-  assert.equal(t.drafts[0].minutes, 5);
+  noTranscribe(t);
 });
 
-test('앱이 죽은 뒤 다시 열면 이어서 정리 줄 → 누르면 남은 조각을 올리고 정리', async () => {
+test('앱이 죽은 뒤 다시 열면 끝나지 않은 녹음 줄 → [이어서 저장]을 누르면 남은 조각을 올리고 저장', async () => {
   const t = setup();
   Object.assign(t.st, {state:'interrupted', session_id:SID, started_at:'2026-10-30T05:00:00.000Z', elapsed_ms:60000});
   await t.core.hello();
   await until(() => t.core.view.pending.length === 1);
   assert.equal(t.core.view.pending[0].local, true);
   t.core.resume(SID);
-  await until(() => t.core.view.state === 'done');
+  await until(() => t.core.view.state === 'saved');
   assert.ok(t.sent.includes('rec:clear'));
+  noTranscribe(t);
 });
 
 test('녹음 중 [삭제]: 멈추고 남은 조각을 마저 올린 뒤 rec_discard, 앱 임시 파일 지움, 되돌리기 알림', async () => {
@@ -159,8 +164,7 @@ test('녹음 중 [삭제]: 멈추고 남은 조각을 마저 올린 뒤 rec_disc
   assert.ok(t.sent.includes('rec:discard'));
   assert.ok(t.sent.includes('rec:clear'));
   assert.ok(t.calls.some(c => c.action === 'rec_discard' && c.body.session_id === SID));
-  assert.equal(t.calls.some(c => c.action === 'rec_finish' || c.action === 'transcribe'), false, '전사·초안 없음');
-  assert.equal(t.drafts.length, 0);
+  assert.equal(t.calls.some(c => c.action === 'rec_finish' || c.action === 'rec_save' || c.action === 'transcribe'), false, '저장·전사 없음');
   const note = t.notes.at(-1);
   assert.equal(note.text, '녹음을 삭제했어요');
   assert.equal((await note.opts.undo()).status, 'restored');
@@ -177,7 +181,7 @@ test('끝나지 않은 폰 녹음이 있으면 새 녹음을 시작하지 않는
 });
 
 test('옛 앱(다리 답 없음)이면 [녹음]을 보이지 않는다', async () => {
-  const core = createPhoneRecorder({send:() => {}, call:async () => ({}), sleep:tick, workspace:() => WS, fetchPiece:async () => null, openDraft:async () => {}});
+  const core = createPhoneRecorder({send:() => {}, call:async () => ({}), sleep:tick, workspace:() => WS, fetchPiece:async () => null});
   const r = await core.hello();
   assert.equal(r, null);
   assert.equal(core.view.supported, false);
@@ -202,7 +206,11 @@ test('화면 연결: 폰 앱에서만 불러오고, 노트북 녹음과 따로 �
   assert.match(ui, /__rec\//);
   assert.match(ui, /b\.id='phoneRecordBtn'[^\n]*add\.before\(b\)/);
   assert.match(ui, /d\.id='phoneRecPendingLine'[^\n]*list\.before\(d\)/);
-  // REC-한회의로잇기 PR-0: 입력 창은 team.js가 쓰던 글을 먼저 묻는다. 두기로 하면(open이 false, 창은 열린 채) 그 까닭으로 멈추고, 창을 다시 비우지 않는다.
-  assert.match(ui, /entry\.open\(\{kind:'meeting',[^\n]*keepNote:/);
-  assert.match(ui, /if\(opened===false\)throw stop\(entryKept\(\)\?'쓰던 사업 보고 창을 그대로 뒀어요\. 저장하거나 닫은 뒤 \[다시\]를 누르세요\.'/);
+  // S61-5 REC-전사삭제: 초안 창·서버 정리 띠로 넘기는 길이 없고, 저장 끝 띠에 파일 줄([내려받기]·[Drive에서 열기]).
+  for (const gone of ['KPTUReportEntry', 'KPTUMeetingTranscriptDraft', 'KPTUMeetingRecorder', 'openDraft', 'watchServer', '멈추고 정리']) assert.ok(!ui.includes(gone), gone);
+  assert.match(ui, /savedFilesHtml\(view\.files,'prec'\)/);
+  assert.match(ui, /downloadFile\(file,\{onError\}\)/);
+  assert.match(ui, /openInDrive\(file,\{onError\}\)/);
+  const core = readFileSync(new URL('../app/phone-recorder-core.mjs', import.meta.url), 'utf8');
+  for (const gone of ["'transcribe'", 'job_start', 'openDraft', 'watchServer']) assert.ok(!core.includes(gone), gone);
 });

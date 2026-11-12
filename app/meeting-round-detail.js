@@ -26,7 +26,6 @@ import {mountBigWrite} from './record-text-write.js'; // MTG-결과마크다운:
 import {dropZoneOf,askDropped,readResultText,appendResult,bindDropZones} from './meeting-drop-attach.js';
 import {createDropQueue} from './meeting-drop-queue.mjs'; // UX-먼저묻고뒤에처리: 놓은 파일의 뒤처리 줄(올리기 → 본문 읽기 → 결과 칸 더하기)
 import {mountUploadRows,watchUploads,setUploadRetry,announceDock} from './upload-progress.js';
-import {isAudioFile,keepTranscript,normalizeDraft,draftText,actionRows,mergeText} from './meeting-transcript-model.mjs'; // MTG-첨부녹음전사(S49-2) // HOTFIX-회의첨부칸 ②: 끌어 놓기(놓은 자리·결과 본문 묻기)
 import {sameVersionFilter} from './meeting-join-model.mjs'; // REC-한회의로잇기 PR-3: 두 글 칸을 쓰는 저장은 '읽었을 때 그대로일 때만'(설계 3-5절)
 let mrdTodos=null,mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;const mrdTaskToggleSeq=new Map();
 let mrdEditSequence=0,mrdEditor=null,mrdEditObservedScope=null;const mrdEditAttempts=new Map();
@@ -141,13 +140,12 @@ function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
     // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 종류별 동작, ⋯는 [Drive에서 열기]·[내려받기](FILE-사업보고⋯)·[이름 수정](FILE-이름고치기연필먹통)·[빼기]·[삭제](FILE-첨부삭제 결정 3).
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdTranscribeItem(d)+mrdFileOwnItems(d),mrdRename(d))}`})}).join(''):''; // S59-20: 회의자료가 하나도 없으면 칸 제목 [+]만 둔다(후속 할 일·사진 칸과 같은 빈 칸 규칙)
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',attrs:` data-fr-row data-mrd-doc-row="${mrdEsc(d.id)}"`,end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button>${fileMoreHtml(d,name,mrdFileOwnItems(d),mrdRename(d))}`})}).join(''):''; // S59-20: 회의자료가 하나도 없으면 칸 제목 [+]만 둔다(후속 할 일·사진 칸과 같은 빈 칸 규칙)
     // ATT-이름고치기: 이름 글자(두 번 누르기·꾹 누르기)와 ⋯ [이름 수정]으로 파일 이름을 그 자리에서 고친다(file-rename.js, ✎는 따로 두지 않는다). 자료는 고친 뒤 kptu:documents-changed로 다시 읽는다.
     document.querySelectorAll('#mrdMaterials [data-mrd-doc-row]').forEach(row=>{const d=(docs||[]).find(x=>x.id===row.dataset.mrdDocRow);mrdAppendOwnItems(row,d,d?.file_name||d?.title||'자료');if(d?.file_id&&d.file_name)markRenameHost(row.querySelector('.file-line-main b'),{target:'document',id:d.id,driveId:d.file_id,name:d.file_name})});
     document.querySelectorAll('#mrdMaterials [data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDeleteMaterial(b,allDocs,box?.querySelector('summary'))});
     document.querySelectorAll('#mrdMaterials [data-mrd-detach-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDetachMaterial(b,allDocs,box?.querySelector('summary'))});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
-    document.querySelectorAll('[data-mrd-transcribe]').forEach(b=>b.onclick=e=>{e.stopPropagation();b.closest('details')?.removeAttribute('open');mrdTranscribeAttached(b.dataset.mrdTranscribe)});
 }
 // FILE-첨부삭제 ② 뒤 결정 3(2026-11-11 명진 '추천대로'): 자료 줄 끝 ×(지우기)를 없애고 같은 줄 ⋯ 안에 [빼기]·[삭제]로 나눈다.
 // [빼기] = 이 회의(사업 보고)에서만 떼기 — 자료실 자료·Drive 파일은 그대로. 담당조직 자료 [조직에서 빼기]와 같은 서버 길(app_documents PATCH,
@@ -671,43 +669,6 @@ window.addEventListener('popstate',e=>{
 window.addEventListener('kptu:tasks-changed',()=>{if(mrdDocked&&mrdCurrent&&!mrdEditor)void mrdRefreshTasks()});
 async function mrdInit(){const shared=window.KPTURuntime?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){mrdUser=shared.user;mrdWorkspace=shared.workspace.id;mrdRole=shared.membership?.role||null}else{try{mrdUser=await mrdApi('/auth/v1/user')}catch{return false}const ms=await mrdApi('/rest/v1/app_workspace_members?user_id=eq.'+mrdUser.id+'&select=workspace_id,user_id,role&limit=1');if(!ms?.length)return false;mrdWorkspace=ms[0].workspace_id;mrdRole=ms[0].role}const loadedProjects=window.KPTUTeamData?.spaces?.();mrdProjects=Array.isArray(loadedProjects)&&loadedProjects.length?loadedProjects:await mrdApi('/rest/v1/app_spaces?workspace_id=eq.'+mrdWorkspace+'&select=id,name,status,parent_id');mrdInstallModal();const list=document.querySelector('#meetingList');if(list){list.addEventListener('click',e=>{if(e.target.closest('button,a,input,select,textarea,label'))return;const card=e.target.closest('[data-mrd-meeting]');if(card)mrdOpenMeeting(card.dataset.mrdMeeting)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-mrd-meeting]')){e.preventDefault();mrdOpenMeeting(e.target.dataset.mrdMeeting)}})}return true}
 // PRJ-회의표시: the project detail's 회의 rows open this same meeting result dialog over the projects screen.
-// MTG-첨부녹음전사(S49-2, 요청함 11/03 11:31): 회의자료에 붙은 소리 파일 ⋯ [전사해서 결과에 넣기].
-// 서버 정리(meeting-recorder.js transcribeAttached → Edge meeting-transcribe job_start kind 'attached')가 Drive의 그 파일을 바로 전사·요약한다.
-// 화면을 닫아도 서버가 끝까지 하고, 끝나면 이 회의 [수정] 창에 회의록 전문·요약을 채운다(mrdFillTranscript). 저장은 명진이 [저장].
-// 예외(REC-한회의로잇기 PR-5, 설계 3-3절 (다)): 이 회의에 회의록 전문이 이미 있으면 채우기 전에 한 번 묻고(meeting-recorder.js openServerResult →
-// meeting-join.js), 명진이 [그 보고에 잇기]를 고르면 서버가 두 전사 전체로 다시 요약해 이 회의에 저장한다(수정 창은 열지 않음). [수정 창에 넣기]는 지금 그대로.
-function mrdTranscribeItem(d){
-  if(!d?.id||!d.file_id||!mrdCurrent||!mrdCanEdit(mrdCurrent)||!isAudioFile(d.file_name||d.title||'',d.mime_type||''))return '';
-  return `<button type="button" data-mrd-transcribe="${mrdEsc(d.id)}">녹음 글로 옮기고 요약하기</button>`;
-}
-function mrdTranscribeAttached(documentId){
-  const rec=window.KPTUMeetingRecorder;
-  if(!rec?.transcribeAttached){notify('전사를 시작하지 못했어요. 화면을 새로 열어 주세요.',{error:true});return}
-  rec.transcribeAttached({documentId,meetingId:mrdCurrent?.id||''});
-}
-// 서버가 끝낸 결과를 이 회의 [수정] 창에 넣는다. 회의록 전문 = 특이사항 칸(app_meetings.notes, 이미 쓴 글은 지우지 않고 아래에),
-// 요약 = 결과 원문 끝에(참석·결정·공유 + 후속 할 일 줄). 저장은 명진이 [저장](자동 저장 없음). 넣었으면 true.
-async function mrdFillTranscript(meetingId,{text='',draft=null}={}){
-  if(mrdCurrent?.id!==meetingId){
-    await mrdOpenMeeting(meetingId);
-    for(let i=0;i<40&&mrdCurrent?.id!==meetingId;i++)await new Promise(r=>setTimeout(r,150));
-  }
-  if(mrdCurrent?.id!==meetingId||!mrdCanEdit(mrdCurrent))return false;
-  if(!mrdEditing())mrdStartEdit();
-  const notes=document.querySelector('#mrdEditNotes'),ta=document.querySelector('#mrdEditTranscript');
-  if(!notes||!ta)return false;
-  const full=String(text||'').trim();
-  if(full){const next=keepTranscript(notes.value,full);if(next!==notes.value){notes.value=next;notes.dispatchEvent(new Event('input',{bubbles:true}))}}
-  const d=normalizeDraft({draft});
-  if(d){
-    const acts=actionRows(d).map(a=>`- ${a.title}${a.due?` (${a.due})`:''}`);
-    const add=[draftText(d),acts.length?['후속 할 일',...acts].join('\n'):''].filter(Boolean).join('\n\n');
-    const next=mergeText(ta.value,add);
-    if(next!==ta.value){ta.value=next;ta.dispatchEvent(new Event('input',{bubbles:true}))}
-  }
-  const st=document.querySelector('#mrdEditStatus');
-  if(st){st.textContent=d?'전사 전문은 회의록 전문 칸에, 요약은 결과 원문 끝에 넣었어요. 확인한 뒤 [저장]을 누르세요.':'전사 전문을 회의록 전문 칸에 넣었어요(요약은 만들지 못했어요). 확인한 뒤 [저장]을 누르세요.';st.className='status ok'}
-  return true;
-}
-window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,menuAt:mrdMenuAt,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave,fillTranscript:mrdFillTranscript};
+// S61-5 REC-전사삭제(명진 11/13): 회의자료 소리 파일 ⋯ [녹음 글로 옮기기·요약]와 결과를 [수정] 창에 넣는 길은 뺐다. 소리 파일은 다른 자료처럼 열기·내려받기만.
+window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,menuAt:mrdMenuAt,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave};
 window.__KPTU_MEETING_ROUND_DETAIL_READY__=mrdInit().then(ok=>{if(ok)window.dispatchEvent(new CustomEvent('kptu:report-detail-ready'));return ok}).catch(err=>{console.error('meeting detail init',err);return false});

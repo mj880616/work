@@ -11,7 +11,8 @@ const read = rel => readFileSync(join(root, rel), 'utf8');
 
 test('새 이름이 그 단추 자리에 있다(회의 보고 창 2곳·파일 이름 칸·사업영역 칸·공유 페이지·주간 초안)', () => {
   assert.match(read('app/meeting-round-detail.js'), /id="mrdMakeTodos"[^>]*>할 일 후보 찾기<\/button>/);
-  assert.match(read('app/meeting-round-detail.js'), /data-mrd-transcribe="\$\{mrdEsc\(d\.id\)\}">녹음 글로 옮기고 요약하기<\/button>/);
+  // S61-5 REC-전사삭제(명진 11/13): 회의자료 녹음 ⋯ [녹음 글로 옮기고 요약하기]는 지금은 없다.
+  assert.doesNotMatch(read('app/meeting-round-detail.js'), /data-mrd-transcribe/);
   assert.match(read('app/file-rename.js'), /data-fr-ai>이름 추천 받기<\/button>/);
   assert.match(read('app/business-area-fields.js'), /data-biz-area-ai>사업영역 추천<\/button>/);
   const share = read('app/share-pages.js');
@@ -46,7 +47,7 @@ test('옛 이름이 화면 코드의 단추·안내 글자로 남지 않았다(�
 
 test('기준표 ui-words.md와 제안 표 ai-button-names.md에 새 이름이 올라갔다', () => {
   const words = read('docs/design/ui-words.md'), names = read('docs/design/ai-button-names.md');
-  for (const n of ['이름 추천 받기', '사업영역 추천', '할 일 후보 찾기', '녹음 글로 옮기고 요약하기', '글 초안 만들기', '초안 다시 쓰기']) {
+  for (const n of ['이름 추천 받기', '사업영역 추천', '할 일 후보 찾기', '글 초안 만들기', '초안 다시 쓰기']) {
     assert.ok(words.includes(n), `ui-words.md: ${n}`);
     assert.ok(names.includes(n), `ai-button-names.md: ${n}`);
   }
@@ -54,7 +55,7 @@ test('기준표 ui-words.md와 제안 표 ai-button-names.md에 새 이름이 �
 });
 
 test('새 이름은 용어 기준표의 바꿀 말(고치기·고르기 등)을 쓰지 않는다', () => {
-  for (const n of ['이름 추천 받기', '사업영역 추천', '할 일 후보 찾기', '녹음 글로 옮기고 요약하기', '글 초안 만들기', '초안 다시 쓰기']) {
+  for (const n of ['이름 추천 받기', '사업영역 추천', '할 일 후보 찾기', '글 초안 만들기', '초안 다시 쓰기']) {
     assert.doesNotMatch(n, /고치|고르|지우|버리|편집|원래대로|새로고침|더보기/);
   }
 });

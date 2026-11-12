@@ -84,6 +84,9 @@ export const MESSAGES = Object.freeze({
   bad_target: '[회의] 보고에만 이어 붙일 수 있어요.',
   not_applied: '되돌릴 내용을 찾지 못했어요.',
   text_too_long: '글이 너무 길어 이어 붙일 수 없어요.',
+  // S61-5 REC-전사삭제(명진 11/13 '회의 전사 기능은 아예 웹2에서 삭제, 파일만 제공'): 전사·요약 입구는 이 코드로만 답한다.
+  transcribe_off: '회의 녹음 전사는 이제 하지 않아요. 녹음 파일은 자료실 \'회의 녹음\' 폴더에 있어요.',
+  no_recording: '저장할 녹음 파일을 찾지 못했어요.',
 });
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
@@ -93,7 +96,7 @@ export const STATUS = Object.freeze({
   draft_failed: 502, daily_limit: 429, jobs_unavailable: 503, too_many_steps: 409, step_cut: 504, draft_cut: 502,
   draft_timeout: 504, draft_step_cut: 504,
   report_changed: 409, report_gone: 404, source_changed: 409, source_gone: 404, already_joined: 409, no_first_transcript: 422, bad_target: 422,
-  not_applied: 409, text_too_long: 413,
+  not_applied: 409, text_too_long: 413, transcribe_off: 410, no_recording: 422,
 });
 // 실패 코드 → 화면 갈래. 'gemini'(전사 서비스) · 'format'(파일 형식). 연결 끊김은 화면이 받은 오류(시간 초과·네트워크)로 가른다.
 export const FAIL_KIND = Object.freeze({
@@ -394,6 +397,31 @@ export function isStale(job, now) {
 export const canStart = (job, now) => job?.status === 'uploaded' || job?.status === 'failed' || isStale(job, now);
 // 30일 지난 붙이지 않은 녹음의 기준 시각.
 export function trashBefore(now) { return new Date(now.getTime() - UNATTACHED_TRASH_DAYS * 86400000).toISOString(); }
+// S61-5 REC-전사삭제: 녹음을 멈추면 합친 녹음 파일(구간마다 하나)을 자료실 자료로 남긴다. 자료실 맨 위 '회의 녹음' 폴더에 넣고,
+// 회의(회차)에서 녹음했으면 그 회의 자료(meeting_id)로도 붙인다. 원본은 Drive '회의 녹음' 폴더 그대로(링크만).
+export const LIBRARY_RECORDING_FOLDER = '회의 녹음';
+/** @param {{ job: any, workspaceId: string, meeting?: { id: string, project_id: string | null } | null, userId: string }} args */
+export function recordingDocument({ job, workspaceId, meeting = null, userId }) {
+  const title = String(job.file_name || '').replace(/\.[^.]+$/, '').trim() || job.file_name;
+  const at = new Date(job.created_at || Date.now());
+  return {
+    workspace_id: workspaceId, project_id: meeting?.project_id ?? null, meeting_id: meeting?.id ?? null,
+    title, category: '회의자료', source: null, document_date: Number.isFinite(at.getTime()) ? seoulDay(at) : null, description: null,
+    tags: ['회의녹음'],
+    drive_url: `https://drive.google.com/file/d/${job.drive_file_id}/view`, file_id: job.drive_file_id,
+    file_name: job.file_name, mime_type: job.mime_type, file_size: job.size_bytes,
+    visibility: 'private', uploaded_by: userId, auto_classified: false,
+  };
+}
+// 자료 행 → 화면에 보일 파일 한 줄(이름·내려받기·Drive에서 열기에 필요한 것만).
+export function savedFileView(doc, job) {
+  return {
+    document_id: doc.id, file_name: doc.file_name || job.file_name, drive_file_id: job.drive_file_id,
+    drive_url: doc.drive_url || `https://drive.google.com/file/d/${job.drive_file_id}/view`,
+    mime_type: doc.mime_type || job.mime_type || null, size_bytes: job.size_bytes ?? null, duration_sec: job.duration_sec ?? null,
+    meeting_id: doc.meeting_id ?? null,
+  };
+}
 // 회의에 붙일 자료 행(meeting-files가 만드는 회의자료 행과 같은 모양, 링크만).
 export function attachDocument({ job, meeting, userId }) {
   const title = job.file_name.replace(/\.[^.]+$/, '').trim() || job.file_name;

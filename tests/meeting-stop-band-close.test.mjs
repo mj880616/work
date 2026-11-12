@@ -50,28 +50,20 @@ test('Edge: 다시·단계·실패가 닫음 표시를 이어 가고, job_list�
   assert.match(retry,/SPLIT_CODES\.includes\(failReason\(job\)\)/,'나눠 잇기는 이유로 판단');
   const step=body('runStep');
   assert.match(step,/kind === 'job' \? failedCode\(job\.error_code as string \| null, code\) : code/);
-  assert.match(step,/kind === 'job' && next\.status !== 'done' \? carryClosed\(job\.error_code as string \| null\) : null/);
+  // S61-5: 서버 정리('job')는 단계 앞에서 transcribe_off로 멈춘다. 이 줄은 타입 좁힘을 풀어 둔 같은 규칙.
+  assert.match(step,/\(kind as StepKind\) === 'job' && next\.status !== 'done' \? carryClosed\(job\.error_code as string \| null\) : null/);
   const discard=body('jobDiscard');
   assert.match(discard,/await ownServerJob\(user\.id, body\.job_id\)/,'소유 확인 그대로');
   assert.doesNotMatch(discard,/delete|trash|transcript_text|draft|opened_at/i,'소리·글은 그대로');
   assert.doesNotMatch(src,/discarded_at|dismissed_at/,'새 칸 없음');
 });
 
-test('화면: 멈춤 띠 [닫기] → job_discard·[되돌리기] job_restore, 다시 열 때 닫은 멈춤은 띠 아닌 녹음 줄 [다시]',()=>{
+// S61-5 REC-전사삭제(명진 11/13): 녹음 띠는 서버 정리를 맡기지 않으므로 '멈춘 서버 정리' 띠·녹음 줄 [다시]는 지금은 없다.
+// 멈춤 띠는 저장이 멈춘 것뿐이고 [닫기]는 띠만 닫는다(서버 표시 없음).
+test('지금은 없음: 녹음 띠에 서버 정리 멈춤 닫기(job_discard)·녹음 줄 [다시](data-rec-stopped)가 없고 [닫기]는 띠만 닫는다',()=>{
   const src=read('app/meeting-recorder.js');
-  assert.match(src,/what==='close'\)\{if\(state==='error'\)void closeStopped\(\);else closeBand\(\)\}/);
-  const fn=src.slice(src.indexOf('async function closeStopped('),src.indexOf('function retryStopped('));
-  assert.match(fn,/jobId&&!recheck/,'잠깐 끊긴 띠·화면 정리 멈춤은 띠만 닫음');
-  assert.match(fn,/call\('job_discard',\{job_id:job\.id\}\)/);
-  assert.match(fn,/call\('job_restore',\{job_id:job\.id\}\)/);
-  assert.match(fn,/notify\(STOP_CLOSED_TEXT/);
-  const load=src.slice(src.indexOf('async function loadServerJobs('),src.indexOf('// 서버가 서버 정리를 아직 모를 때'));
-  assert.match(load,/closedStops=jobs\.filter\(j=>j\?\.discarded&&j\.status==='failed'\)/);
-  assert.match(load,/jobs=jobs\.filter\(j=>!j\?\.discarded\)/,'닫은 멈춤은 띠 후보에서 뺌');
-  const retry=src.slice(src.indexOf('function retryStopped('),src.indexOf('function closeBand('));
-  assert.match(retry,/serverFinish\(\{jobId:job\.id,retry:true\}\)/,'같은 job_retry 길');
-  assert.match(src,/data-rec-stopped="\$\{escapeText\(stop\.id\)\}">다시<\/button>/);
-  assert.match(src,/const st=e\.target\.closest\('\[data-rec-stopped\]'\)/);
+  for(const gone of ['closeStopped','retryStopped','job_discard','job_restore','data-rec-stopped','loadServerJobs','closedStops'])assert.ok(!src.includes(gone),gone);
+  assert.match(src,/else if\(what==='close'\)closeBand\(\);/);
 });
 
 test('녹음 줄 글·닫은 뒤 알림 글',()=>{

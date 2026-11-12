@@ -71,6 +71,9 @@ const FAIL_TEXT={
   bad_target:'[회의] 보고에만 이어 붙일 수 있어요.',
   not_applied:'되돌릴 내용을 찾지 못했어요.',
   text_too_long:'글이 너무 길어 이어 붙일 수 없어요.',
+  // S61-5 REC-전사삭제: 배포 때 돌던 서버 정리가 다음 단계에서 멈춘 이유 · 저장할 녹음이 없음.
+  transcribe_off:`회의 녹음 전사는 이제 하지 않아요. 녹음 파일은 자료실 '회의 녹음' 폴더에 있어요.`,
+  no_recording:'저장할 녹음 파일을 찾지 못했어요.',
 };
 // REC-정리상태확인못함(S60-3): 정리 입구(job_start·job_retry·job_read)가 요청을 거절한 이유 → 띠 글. 작업 행의 실패 코드(위 표)와
 // 뜻이 다른 것만 따로 둔다(busy는 요청에서는 '다른 정리가 도는 중', not_found는 '작업 없음'). 나머지 코드는 위 표 글 그대로.
@@ -167,6 +170,8 @@ export const SERVER_TEXT=Object.freeze({
   bad_target:'[회의] 보고에만 이어 붙일 수 있어요.',
   not_applied:'되돌릴 내용을 찾지 못했어요.',
   text_too_long:'글이 너무 길어 이어 붙일 수 없어요.',
+  transcribe_off:'회의 녹음 전사는 이제 하지 않아요. 녹음 파일은 자료실 \'회의 녹음\' 폴더에 있어요.',
+  no_recording:'저장할 녹음 파일을 찾지 못했어요.',
 });
 export const JOIN_SERVER_TEXT=SERVER_TEXT;
 // 화면이 받은 오류 → 이유 코드. 서버 code(글로 되찾음) · 화면 쪽 이유(session_required·timeout·network_error) · 모름이면 HTTP 상태로.
@@ -195,7 +200,7 @@ export const undoFailText=code=>UNDO_FAIL_TEXT[code]||'되돌리지 못했어요
 export const joinCanRetry=code=>!['report_gone','source_gone','already_joined','no_first_transcript','bad_target','not_found','text_too_long','not_applied'].includes(code);
 // 다시 눌러서 될 수 있는 실패인가. REC-글못찾음: empty_transcript도 [다시]를 둔다 — 11/11 전엔 전사 서비스의 빈 답도 이 코드였고
 // (같은 41분 구간이 한 번은 실패, 한 번은 빈 답), 구간 없음·말 없음이면 [다시]가 전사를 다시 부르지 않고 바로 같은 이유로 멈춘다.
-export const canRetry=code=>!['not_found','bad_type','too_large','too_long'].includes(code);
+export const canRetry=code=>!['not_found','bad_type','too_large','too_long','transcribe_off','no_recording'].includes(code);
 
 /**
  * 서버 정리 하나를 끝까지 지켜본다. 시작(start) 또는 이어 보기(jobId).
