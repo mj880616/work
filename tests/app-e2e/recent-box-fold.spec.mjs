@@ -24,7 +24,9 @@ const expectChev = async (box, open, titleSel) => {
 
 test('파일 폰 412: \'최근\' 머리 줄 누르면 접힘(▾, 줄 없음) → 새로고침해도 접힘 → 다시 누르면 펼침', async ({ page }) => {
   const { start, openFiles } = await import('./helpers/files-server.mjs');
-  const { errors } = await start(page, 412);
+  const { errors, server } = await start(page, 412);
+  // LIB-사진숨김나머지(S61-1): 사진(가짜 현장.jpg)은 '최근' 줄 수에 들지 않으므로 사진 아닌 파일을 하나 더 두어 6개(→ [펼치기 ›])로 맞춘다.
+  server.items.push({ ...server.items.find(i => i.item_id === 'OD!13'), item_id: 'OD!40', name: '가짜 회의록.txt', modified_at: '2026-09-10T01:00:00Z' });
   const prefs = await installViewPrefsServer(page);
   await openFiles(page, 412);
   const box = page.locator('#filesRoot [data-fx-tree] [data-fx-box="recent"]');

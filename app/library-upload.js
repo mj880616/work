@@ -23,7 +23,7 @@ import {openAreaOrgPicker,usedKeysNow,catalogAreas,orderedOrgGroups,areaTree,are
 import {pickedFrom,offFrom,togglePick,isPicked,pickLabel,pickCount} from './library-category-pick.mjs';
 import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially} from './library-select.js';
 import {isLibraryPhoto,hydrateLibraryThumbs} from './library-photo.js';
-import {isPictureDoc} from './photo-fold-model.mjs'; // LIB-사진숨김: 묶음 안 사진은 줄에서 빼고 끝에 '사진 n'
+import {isPictureDoc,recentSplit} from './photo-fold-model.mjs'; // LIB-사진숨김: 묶음 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {photoToggleHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
 import {foldPhotoSets,isPhotoSet,photoMeetingChunks} from './library-photoset.mjs';
 import {twinPlan,withTwins,pickCountText} from './library-twins.mjs';
@@ -1101,11 +1101,11 @@ if(focusId)box.querySelector(`[data-lu-document="${CSS.escape(focusId)}"]`)?.foc
 let luRecentMore=false,luRecentPhotos=false,luFlashTimer=0;
 function luRenderRecent(rows){
   const box=document.querySelector('#libraryRecent');if(!box)return;
-  const all=recentUploads((rows||[]).filter(d=>!isPhotoSet(d)),{limit:RECENT_UPLOAD_MORE});
+  // LIB-사진숨김나머지: 사진은 줄 수에 들지 않으므로(맨 아래 [사진 n]) 올린 순서 전체에서 사진 아닌 줄 5·15개와 그 사이 사진을 고른다.
+  const all=recentUploads((rows||[]).filter(d=>!isPhotoSet(d)),{limit:Infinity});
   if(!all.length){box.hidden=true;box.innerHTML='';return}
-  const window_=luRecentMore?all:all.slice(0,RECENT_UPLOAD_LIMIT),now=Date.now(),more=all.length>RECENT_UPLOAD_LIMIT;
-  // LIB-사진숨김나머지(S61-1): 보이는 최근 파일 중 사진은 줄에서 빼고 목록 맨 아래 [사진 n] 하나(누르면 그 자리에 작은 그림). 펼침은 화면 메모리만.
-  const shown=window_.filter(d=>!isPictureDoc(d)),photos=window_.filter(d=>isPictureDoc(d));
+  // LIB-사진숨김나머지(S61-1): 사진은 줄에서 빼고 목록 맨 아래 [사진 n] 하나(누르면 그 자리에 작은 그림). 펼침은 화면 메모리만.
+  const {rest:shown,pictures:photos}=recentSplit(all,isPictureDoc,luRecentMore?RECENT_UPLOAD_MORE:RECENT_UPLOAD_LIMIT),now=Date.now(),more=recentSplit(all,isPictureDoc,RECENT_UPLOAD_LIMIT).more;
   const where=d=>{const key=pathTo(luLastTree,d.id).at(-1);return key?luTreeNode(key)?.label||'':''};
   box.hidden=false;
   // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded — recent-fold.js). 접으면 머리 줄 한 줄만.

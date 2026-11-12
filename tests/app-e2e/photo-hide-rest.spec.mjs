@@ -84,7 +84,7 @@ for (const width of [412, 1280]) test(`자료실 ${width}: 최근 올린 파일�
   await tile.locator('.lu-thumb').click();
   const view = page.locator('[data-basket-photo-view]');
   await expect(view).toBeVisible();
-  expect(state.photoCalls.some(c => c.id === ID(1) && c.size === 'large')).toBe(true);
+  await expect.poll(() => state.photoCalls.some(c => c.id === ID(1) && c.size === 'large')).toBe(true);
   await page.keyboard.press('Escape');
   await expect(view).toHaveCount(0);
   // 아래 목록의 [사진 2]·자료 수는 그대로(#2448).
@@ -97,7 +97,7 @@ const addPhoto = server => {
   server.items.push({ ...base, item_id: 'OD!33', parent_id: 'OD!1', name: '가짜 회견.png', mime: 'image/png', size_bytes: 2048, modified_at: '2026-10-07T01:00:00Z', starred: true });
 };
 
-test('파일 412: 폰 나무 \'최근\' 상자의 사진은 맨 아래 [사진 1], 누르면 그 자리에 작은 그림', async ({page}) => {
+test('파일 412: 폰 나무 \'최근\' 상자의 사진은 맨 아래 [사진 2], 누르면 그 자리에 작은 그림', async ({page}) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   addPhoto(server);
@@ -105,11 +105,11 @@ test('파일 412: 폰 나무 \'최근\' 상자의 사진은 맨 아래 [사진 1
   const box = page.locator('#filesRoot [data-fx-tree] [data-fx-box="recent"]');
   await expect(box.locator('[data-fx-tfile]').first()).toBeVisible();
   await expect(box.locator('[data-fx-tfile="od:OD!33"]')).toHaveCount(0);
-  // 최근 5개 안의 사진만 센다('가짜 현장.jpg'는 6번째라 상자에 없음).
+  // 사람 파일 5줄은 그대로(사진은 줄 수에 들지 않음), 그 5줄 사이 시간의 사진 2장은 맨 아래 [사진 2].
   await expect(box.locator('[data-fx-tfile="od:OD!20"]')).toHaveCount(0);
-  await expect(box.locator('[data-fx-tfile]')).toHaveCount(4);
+  await expect(box.locator('[data-fx-tfile]')).toHaveCount(5);
   const toggle = box.locator('[data-fx-photos]');
-  await expect(toggle).toHaveText('사진 1');
+  await expect(toggle).toHaveText('사진 2');
   await shot(page, 'files-recent-412');
   await toggle.click();
   const tile = box.locator('[data-photo-tile="od:OD!33"]');

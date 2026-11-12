@@ -50,6 +50,7 @@ import {recentHumanRows} from './files-auto-model.mjs';
 import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml, iconSvg} from './tree-icons.js';
 import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js';
+import {recentSplit} from './photo-fold-model.mjs';
 import {openFolderAt, paintDropGroup} from './drop-open-folder.mjs'; // UI-펼친폴더안놓기전체: 놓일 묶음 표시(공용) // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
@@ -577,7 +578,8 @@ async function loadRecent() {
   try {
     const rows = await rpc('app_cloud_find_in', {p_sources: on, p_query: null, p_shelf: 'recent', p_limit: RECENT_FETCH});
     if (state.scope !== scope) return;
-    state.recent = recentHumanRows((Array.isArray(rows) ? rows : []).filter(r => !r.is_folder && !isLockedItem(r)), RECENT_BOX_MORE);
+    // LIB-사진숨김나머지: 사진은 상자 줄 수에 들지 않으므로(맨 아래 [사진 n]) 받은 줄을 모두 두고 그릴 때 사진 아닌 줄 5·15개를 고른다.
+    state.recent = recentHumanRows((Array.isArray(rows) ? rows : []).filter(r => !r.is_folder && !isLockedItem(r)));
   } catch { if (state.scope === scope) state.recent = null; }
   paintTree();
 }
@@ -1087,12 +1089,11 @@ function treeFolderHtml(r) {
 function recentBoxHtml() {
   const recent = state.recent || [];
   if (recent.length) {
-    const shown = recent.slice(0, state.recentAll ? RECENT_BOX_MORE : RECENT_BOX);
-    const more = recent.length > RECENT_BOX || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : MORE_LABEL}</button>` : '';
+    // LIB-사진숨김나머지: 사진 아닌 줄 5개([더보기]면 15개) + 그 사이에 있던 사진은 상자 맨 아래 [사진 n] 하나(누르면 그 자리에 작은 그림).
+    const {rest, pictures: photos} = recentSplit(recent, isFxPhoto, state.recentAll ? RECENT_BOX_MORE : RECENT_BOX);
+    const more = recentSplit(recent, isFxPhoto, RECENT_BOX).more || state.recentAll ? `<button type="button" class="ft-btn ft-box-more" data-fx-recent-more aria-expanded="${state.recentAll}">${state.recentAll ? '접기' : MORE_LABEL}</button>` : '';
     // S51-22: 머리 줄을 누르면 접기(서버 view_prefs.recent_folded, recent-fold.js).
     const shut = recentFolded('files');
-    // LIB-사진숨김나머지: 보이는 최근 파일 중 사진은 줄에서 빼고 상자 맨 아래 [사진 n] 하나(누르면 그 자리에 작은 그림).
-    const {rest, photos} = fxSplit(shown);
     const body = shut ? '' : rest.map(r => treeFileHtml(r, 0, 'recent')).join('') + (photos.length
       ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:0" data-ft-parent="recent">${photoToggleHtml(photos.length, {open: state.photoOpen.has(RECENT_PHOTO_KEY), attrs: ` data-fx-photos="${RECENT_PHOTO_KEY}"`})}</div>` + fxTreePhotosHtml(photos, RECENT_PHOTO_KEY, 0, 'recent') : '');
     return ftBoxHtml({head: '최근', tail: more, collapsible: true, caret: true, open: !shut, toggleAttrs: {'data-fx-recent-fold': ''}, label: '최근 파일', attrs: {'data-fx-box': 'recent'}, body});
