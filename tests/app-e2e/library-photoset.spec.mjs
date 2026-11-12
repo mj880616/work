@@ -99,7 +99,9 @@ for (const width of [390, 1440]) {
     // 처음에는 묶음 줄·직접 올린 그림 모두 접힌 [사진 7](5 + 1 + 1, 휴지통 사업 보고 사진은 빠짐). 자료 수는 그대로.
     await expect(page.locator('[data-lu-photoset]')).toHaveCount(0);
     await expect(page.locator('#documentList [data-lu-photos]')).toHaveText(['사진 7']);
+    await page.screenshot({path: process.env.S61_SHOTS ? `${process.env.S61_SHOTS}/library-photoset-${width}.png` : test.info().outputPath(`library-photoset-${width}.png`)});
     await openPhotoFolds(page);
+    await page.screenshot({path: process.env.S61_SHOTS ? `${process.env.S61_SHOTS}/library-photoset-open-${width}.png` : test.info().outputPath(`library-photoset-open-${width}.png`)});
     // 사업 보고마다 한 줄. 사진 5장이어도 한 줄, 제목 = 사진 n · 사업 보고 제목.
     await expect(page.locator('[data-lu-photoset]')).toHaveCount(2);
     await expect(set(M1).locator('.lu-row-title')).toHaveText('사진 5 · ○○ 결의대회');
