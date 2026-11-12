@@ -457,7 +457,7 @@ onReads(() => { paintList(); if (state.tab === 'archive') saved.paint(); });
 // UI-Now PC정돈(명진 11/03 09:39): PC·폴드 펼침에서 상세 칸이 비어 안내문만 있지 않게 — 목록이 보이면 맨 위 글을 바로 연다(탭마다 이 화면에 들어온 뒤 한 번,
 // 닫으면 다시 열지 않음). 글이 없는 탭(빈 목록)은 상세 칸을 열지 않고 목록이 폭을 쓴다(CSS가 data-detail="closed"일 때 한 칸).
 const autoOpened = new Set();
-let autoOpenWaiting = false; // 열린 메뉴가 닫히기를 기다리는 중(한 번만 걸어 둠)
+let autoOpenWaiting = false; // 열린 메뉴가 닫힌 뒤 맨 위 글 열기를 한 번만 걸어 둠
 let restoring = false; // 주소에 남은 글을 다시 열기(restorePlaced)
 function autoOpenTop() {
   if (!PC.matches || state.mode !== 'list' || detail.current() || autoOpened.has(state.tab) || restoring) return;
