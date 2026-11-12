@@ -165,6 +165,28 @@ test('Now [사회운동] ⋯ [지금 채우기]: 켠 단체만 read_now로 하�
   expect(errors).toEqual([]);
 });
 
+// STAB-갈래4흔들림: PC에서 목록이 오기 전에 ⋯를 열어 두면, 목록이 온 뒤 '맨 위 글 저절로 열기'가 그 메뉴를 닫지 않는다(CI에서 [지금 채우기]를 60초 못 찾던 경쟁).
+// 목록 읽기를 붙잡아 두고 ⋯를 연 뒤 풀어, 목록 줄이 그려진 다음에도 메뉴가 그대로인지 본다. 메뉴를 닫으면 그때 맨 위 글이 열린다.
+test('PC News: 목록이 오기 전에 연 ⋯ 메뉴는 목록이 와도 닫히지 않음', async ({ page }) => {
+  test.setTimeout(60000);
+  const { errors } = await start(page, 1440);
+  let release; const held = new Promise(r => { release = r; });
+  await page.route(u => /\/rest\/v1\/(app_news_items|app_outside_posts)$/.test(u.pathname), async r => { await held; return r.fallback(); });
+  await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
+  await expect(page.locator('#outsideView')).toBeVisible();
+  await page.locator('#outsideRoot [data-os-more]').click();
+  const fill = page.locator('#osMenu').getByRole('button', { name: '지금 채우기' });
+  await expect(fill).toBeVisible();
+  release();
+  await expect(page.locator('#nowPanelAll .now-row').first()).toBeVisible();
+  await expect(fill).toBeVisible();
+  await expect(page.locator('#outsideRoot [data-os-more]')).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#osMenu')).toBeHidden();
+  await expect(page.locator('#nowPanelAll .now-row.is-open').first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 // S48-66 NOW-뉴스상세: 아직 안 읽은 기사는 상세 전에 그 기사 하나를 먼저 읽는다(news-feed open → ai-assist now_detail 순서).
 // 읽지 못하면 AI를 부르지 않고 이유·[다시]·[원래 사이트 ↗]만 보인다. 저장 원문(app_feed_bodies) 줄이 없는 옛 기사만 이 길(S51-14).
 const NOW_DETAIL = { ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가짜 기사 한 줄 요약입니다.', key_sentences: [{ orig: '가짜 본문 첫 문단.', ko: null }], relevance: null, implications: null, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false };

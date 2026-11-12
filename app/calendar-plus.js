@@ -123,6 +123,7 @@ async function cmRecover(kind){
   }catch(e){if(active())cmUnknownNotice(kind,e.message||String(e))}
 }
 async function cmSaveTask(){
+  {const w=cmFiles?.settled?.();if(w)await w} // STAB-갈래4흔들림: 고른 파일의 같은 파일 찾기가 끝난 뒤에 파일을 읽는다(빠진 채 저장되지 않게)
   if(cmSavePending)return false;
   const title=document.querySelector('#eventTitle').value.trim();if(!title){cmStatus('제목을 입력해 주세요.',true);return false}
   const owner=cmOwner(),epoch=cmSession();if(!owner){cmStatus('로그인이 필요합니다.',true);return false}

@@ -5,6 +5,12 @@ import {markScrollMore} from './anchored-popup.js';
 // S51-31 UI-⋯작은메뉴: 폰·폴드·PC 모두 같은 작은 상자. 화면 아래를 덮는 판(옛 sheet)은 없앴다.
 // row(trigger): 그 ⋯가 속한 줄. 주면 상자를 그 줄 바로 아래(모자라면 바로 위)에 두어 줄을 가리지 않는다. boxWidth: 상자 폭(기본 200px).
 // 아래쪽 끝은 하단바(--kptu-mobile-tab-height)·전환 줄(--kptu-switch-dock) 위라 상자가 아래 바에 가리지 않는다.
+// STAB-갈래4흔들림: 지금 열린 메뉴들(모든 createAnchoredMenu 공통). 화면이 스스로 하는 일(예: PC News 목록이 오면 맨 위 글 열기)이
+// 버튼 누르기를 흉내 내면 아래 '바깥 누름' 잡기가 사람이 방금 연 메뉴를 닫으므로, 그런 일은 열린 메뉴가 없을 때까지 미룬다.
+const openMenus=new Set();let afterClose=[];
+export const anyMenuOpen=()=>openMenus.size>0;
+export function whenMenusClosed(fn){if(!openMenus.size){fn();return}afterClose.push(fn)}
+function menusClosed(){if(openMenus.size||!afterClose.length)return;const list=afterClose;afterClose=[];list.forEach(fn=>fn())}
 export function createAnchoredMenu({id,className,label,historyKey,parent=document.body,key,render,onAction,onClose=()=>{},onOpen=()=>{},canOpen=()=>true,row=()=>null,boxWidth=200,actDetached=false}){
   let active=null,closing=null;
   const panel=document.createElement('div');panel.id=id;panel.className=className;panel.hidden=true;panel.setAttribute('role','group');panel.setAttribute('aria-label',label);
@@ -15,9 +21,9 @@ export function createAnchoredMenu({id,className,label,historyKey,parent=documen
   panel.addEventListener('click',e=>{const button=e.target.closest('button'),previous=active;if(!button||!previous)return;close(()=>{if(actDetached||previous.trigger.isConnected)onAction(button,previous)});});
 function close(then,fromBack=false){
   const previous=active;if(!previous){if(then){if(closing)closing.then(then);else then()}return closing||Promise.resolve()}
-  active=null;if(popover)panel.hidePopover();panel.hidden=true;previous.trigger.setAttribute('aria-expanded','false');
+  active=null;openMenus.delete(panel);if(popover)panel.hidePopover();panel.hidden=true;previous.trigger.setAttribute('aria-expanded','false');
   let release;const pending=new Promise(resolve=>{release=resolve});closing=pending;
-  const finish=()=>queueMicrotask(()=>{if(closing===pending)closing=null;release();if(then)then();else if(previous.trigger.isConnected)previous.trigger.focus({preventScroll:true});onClose()});
+  const finish=()=>queueMicrotask(()=>{if(closing===pending)closing=null;release();if(then)then();else if(previous.trigger.isConnected)previous.trigger.focus({preventScroll:true});onClose();menusClosed()});
   if(!fromBack&&history.state?.[historyKey]===previous.id){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();return pending;
 }
 function dock(){const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')}
@@ -41,7 +47,7 @@ function open(trigger,{at=null}={}){
   const point=at&&Number.isFinite(at.x)&&Number.isFinite(at.y)?{x:at.x,y:at.y}:null;
   if(closing){closing.then(()=>{if(trigger.isConnected)open(trigger,{at:point})});return}
   if(active){close(active.trigger===trigger&&!point?null:()=>open(trigger,{at:point}));return}
-  const id=key(trigger),to=host(trigger);if(panel.parentElement!==to)to.append(panel);active={trigger,id,at:point,row:point?null:row(trigger)||null};
+  const id=key(trigger),to=host(trigger);if(panel.parentElement!==to)to.append(panel);active={trigger,id,at:point,row:point?null:row(trigger)||null};openMenus.add(panel);
   panel.innerHTML=render(id);
   panel.hidden=false;if(popover){try{panel.showPopover()}catch{popover=false;panel.removeAttribute('popover')}}
   position();trigger.setAttribute('aria-expanded','true');history.pushState({...history.state,[historyKey]:id},'',location.href);onOpen(trigger,panel);panel.querySelector('button')?.focus({preventScroll:true});

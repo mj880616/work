@@ -314,6 +314,8 @@ async function saveEditor(opt){
   // S51-13: in the pane (docked) a save keeps it open, except a 기한 move (S51-21 autoQuick); a change made while one is running is saved right after it.
   const docked=isDocked()&&!!editing;let field=opt&&typeof opt==='object'&&opt.field||autoField||'title';
   if(editorSaving||!editorReady){if(docked)autoAgain=true;return}
+  {const w=[newFiles?.settled?.(),attach?.settled?.()].filter(Boolean);if(w.length)await Promise.all(w)} // STAB-갈래4흔들림: 고른 파일의 같은 파일 찾기가 끝난 뒤에 파일을 읽는다
+  if(editorSaving||!editorReady){if(docked)autoAgain=true;return}
   const title=document.querySelector('#gtEditTitle').value.trim();if(!title){editorNotice('할 일을 입력해 주세요.');if(docked)fieldNotice('title','할 일을 입력해 주세요.');return}
   const chosen=chosenLinks();if(chosen&&[...chosen].filter(k=>!k.startsWith('m:')).length>MAX_LINKS)return editorNotice(`연결은 ${MAX_LINKS}개까지 선택할 수 있습니다.`);
   const owner=currentOwner(),epoch=editorSession();if(!owner)return editorNotice('로그인이 필요합니다.');

@@ -475,6 +475,9 @@ test('서버 준비(DB 적용) 전: 첫 줄은 저장, 둘째 줄은 안내와 �
 
 test('다른 기기가 먼저 쓴 날(409)은 그 행을 읽어 그 줄들 뒤에 더한다',async({page})=>{
  const f=await fixture(page);await openJournal(page,390);
+ // STAB-갈래4흔들림: 이미 열린 홈을 다시 누르면 '연 화면 유지'로 뒤에서 조용히 다시 읽는다. 그 읽기가 끝난 뒤(data-journal-refreshing 없음)에
+ // 다른 기기 줄을 서버에 넣는다 — 넣은 뒤에 이 읽기가 답하면 화면이 그 줄을 미리 알아 409 길(POST → 다시 읽기 → PATCH)을 타지 않던 경쟁.
+ await expect(page.locator('#journalRoot[data-journal-refreshing]')).toHaveCount(0);
  // 화면이 읽은 뒤 다른 기기가 같은 날 한 줄을 씀.
  f.rows.push({id:'k-other',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'다른 기기 한 줄',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
  await page.locator('#journalRoot [data-journal-input]').fill('이 기기 한 줄');

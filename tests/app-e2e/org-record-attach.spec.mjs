@@ -26,6 +26,10 @@ async function fixture(page,width,{aiLine='합성 공문 사진 · 교섭 일정
  await clickView(page,'team');await page.locator('[data-so-org="o"]').first().click();
  await expect(page.locator('#wdModal')).toBeVisible();
  await expect(page.locator('#wdInboxClip [data-basket-clip]')).toBeVisible();
+ // STAB-갈래4흔들림: 📎는 창을 만들 때부터 보이지만, 붙여넣기·끌어 놓기는 그 조직을 다 읽은 뒤(수정 권한이 정해진 뒤)부터 받는다.
+ // 조직 읽기가 끝났다는 신호(#wdState의 기다림 표시가 사라짐)를 기다린다 — 읽기가 늦으면 붙여넣기가 그냥 지나가던 경쟁.
+ await expect(page.locator('#wdState [data-wait]')).toHaveCount(0);
+ await expect(page.locator('#wdState')).toHaveText('');
  return {...home,errors,s};
 }
 
