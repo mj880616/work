@@ -14,7 +14,7 @@ import {readDiaryList, setDiaryMark, diaryPhotos, photoElement, ownerScope} from
 import {buildDiaryList, withDoneDays, rowText, dayLabel, diaryPinnedAt, diaryStarredAt, MARK_KEYS} from './diary-list-model.mjs';
 import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
 import {swipeIntent, swipeOffset, swipeSettle, swipeOpenOffset, swipeEdge} from './tg-day-model.mjs';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import { chevHtml } from './fold-chevron.mjs';
 import {iconHtml} from './tree-icons.js';
 
@@ -67,7 +67,10 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}"${open}><div class="diary-lv-acts diary-lv-acts-start"><button type="button" class="diary-lv-act" data-diary-lv-act="pin" tabindex="-1" aria-hidden="true">${iconHtml('pin')}<span>${pinned ? '고정 풀기' : '고정'}</span></button></div><div class="diary-lv-acts diary-lv-acts-end"><button type="button" class="diary-lv-act" data-diary-lv-act="star" tabindex="-1" aria-hidden="true">${iconHtml('star')}<span>${star ? '별표 풀기' : '별표'}</span></button></div>`
       + `<div class="diary-lv-row"><button type="button" class="diary-lv-open" data-diary-lv-open="${esc(day)}" aria-label="${esc(label)}"><span class="diary-lv-thumb" data-diary-lv-thumb="${esc(day)}" aria-hidden="true"></span><span class="diary-lv-text"><span class="diary-lv-top"><b>${esc(dayLabel(day))}</b>${title ? `<span class="diary-lv-title">${esc(title)}</span>` : ''}</span>${line ? `<span class="diary-lv-line">${esc(line)}</span>` : ''}</span></button>${markButtons(row)}</div></div>`;
   }
-  function paint() {
+  // FILES-다시그리기메뉴자리: 메뉴가 열린 채 다시 그려도(재조회·다른 화면 알림) 열린 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
+  var dlMenus; // 메뉴는 아래에서 만든다(그 전 그리기는 붙일 메뉴 없음)
+  function paint() { return keepMenus(dlMenus || [], {attrs:['data-diary-lv-more']}, paintNow); }
+  function paintNow() {
     if (host.hidden) return;
     observer?.disconnect();
     searchRow.hidden = !state.search;
@@ -137,6 +140,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
       return `<button type="button" data-diary-lv-menu="open">열기</button><button type="button" data-diary-lv-menu="pin">${iconHtml('pin')} ${diaryPinnedAt(row) ? '고정 풀기' : '고정'}</button><button type="button" data-diary-lv-menu="star">${diaryStarredAt(row) ? '★ 별표 풀기' : '☆ 별표'}</button>`;
     },
     onAction:(button, {id}) => { const act = button.dataset.diaryLvMenu; if (act === 'open') onOpen(id); else if (act) toggleMark(id, act); }});
+  dlMenus = [menu];
 
   // 줄 밀기(폰, 터치만).
   function syncSwipe(wrap, side) {

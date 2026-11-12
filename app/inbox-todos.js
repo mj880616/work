@@ -8,7 +8,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // as the PC home card). Each has [원장으로] (copies the same 쓰기요청 text as the card's [원장으로 복사]). They are never stored and never counted.
 // The home card and the work journal box (todo-radar.js) stay as they are; both sides tell each other through the same change
 // event ('kptu:todo-radar-changed'). Nothing is kept in browser storage.
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {plainText} from './notice-box.mjs'; // S59-20: 줄 글·할 일 제목에서 마크다운 기호(`**`)를 뺀 글자(잊지 말기 줄과 같은 함수 하나)
 import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markNotMine, undoNotMine, markTasked, candidateToTask, validateTaskDraft, notPlanned,
   quickDue, dotDay, radarScope, ledgerRequestText, sourceText, RADAR_SOURCE_LABEL, markDone, logFeedback, dropFeedback, readFeedbackSince, TASK_TITLE_MAX,
@@ -110,7 +110,9 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     const label = copied.has(ledgerRequestText(p)) ? '복사함' : '원장으로';
     return `<li class="inbox-todo-row inbox-todo-promise" data-inbox-promise="${i}"><div class="inbox-todo-line"><span class="inbox-todo-source inbox-todo-tag">상대 약속</span><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(plainText(p.summary))}</span><span class="inbox-todo-meta">${meta}</span></div><span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-promise-ledger="${i}">${label}</button></span></div></li>`;
   }
-  function paint() {
+  // FILES-다시그리기메뉴자리: 메뉴가 열린 채 다시 그려도(재조회·다른 화면 알림) 열린 ⋯ 메뉴는 이 목록 안 같은 줄의 새 칸에 붙는다(공용 keepMenus).
+  function paint() { return keepMenus(rowMenu ? [rowMenu] : [], {attrs:['data-inbox-todo-more'], root:host}, paintNow); }
+  function paintNow() {
     tell(); paintChips();
     if (host.hidden) return;
     const focusAttr = host.contains(document.activeElement) ? [...document.activeElement.attributes].find(a => a.name.startsWith('data-inbox-todo-')) : null;
