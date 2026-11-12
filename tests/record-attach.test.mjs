@@ -167,7 +167,7 @@ test('wiring: the organization record input uses the shared picker and the updat
   assert.match(wd,/fileLine:list=>recordLineFor\(list,wdRt\)/);
   assert.match(wd,/withFiles:true/);assert.match(wd,/linkRecordHtml\(x,\{extra:recordFilesHtml\(x\)\}\)/);
   const ra=read('app/record-attach.js');assert.match(ra,/mountBasketPicker\(pickerHost, \{id, filesHost, dropTarget:box, pasteTarget:box/);
-  const ps=read('app/project-system-v3.js');assert.match(ps,/withFiles:true/);assert.match(ps,/\$\{recordFilesHtml\(b\)\}<\/div>`\}/);
+  const ps=read('app/project-system-v3.js');assert.match(ps,/withFiles:true/);assert.match(ps,/\$\{recordFilesHtml\(b,\{open\}\)\}<\/div>`\}/);
   // The home and 정리함 saves do not pass fileLine (their rule is unchanged).
   for(const f of ['app/home-quick.js','app/basket.js'])assert.doesNotMatch(read(f),/fileLine/);
 });

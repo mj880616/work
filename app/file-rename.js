@@ -5,7 +5,7 @@
 // 고치는 칸: [이름 부분 입력].확장자 [AI 이름] [저장] [취소] + 작은 빨간 안내. 확장자는 따로 두고 저장 때 서버가 붙인다.
 //   Enter 저장·Esc 취소. 빈 이름·못 쓰는 글자는 저장 전에 막는다(규칙은 file-rename-name.mjs 한 곳, 서버도 같은 규칙으로 다시 검사).
 // 저장: document-actions action=rename-file — 서버가 Drive 원본 이름과 그 파일을 가리키는 Web2 줄(노트 첨부·할 일 첨부·자료)을 함께 바꾼다.
-//   성공하면 window에 'kptu:file-renamed' {drive_file_id, name, notes:[{id,updated_at}]}를 보낸다. 화면마다 들고 있는 값을 이 알림으로 고쳐
+//   성공하면 window에 'kptu:file-renamed' {drive_file_id, name, old_name, notes:[{id,updated_at}]}를 보낸다. 화면마다 들고 있는 값을 이 알림으로 고쳐
 //   다시 그린다(화면의 한 그리기 주인이 그림 — 여기서는 화면 글자를 직접 덮지 않는다). 자료가 바뀌면 'kptu:documents-changed'도 보낸다.
 // [AI 이름]: ai-assist kind=file_name — 이미 읽어 둔 글자(사진 OCR·자료 본문)로 이름 하나를 추천받아 칸에 채운다. 저장은 하지 않는다.
 // 기기 저장 없음. 실패 안내는 그 칸 아래 작은 글자(role=alert).
@@ -111,8 +111,10 @@ export function openRenameEditor(trigger, {rt = globalThis.window?.KPTURuntime} 
       const data = spec.target === 'event' ? await eventRename(rt, spec, r.base) : await rt.api('/functions/v1/document-actions', {method: 'POST', body: {action: 'rename-file', target: spec.target, id: spec.id, drive_file_id: spec.driveId, base: r.base}, refreshSession: false, singleFlight: false});
       if (!data || data.ok !== true || typeof data.name !== 'string' || data.drive_file_id !== spec.driveId) throw Object.assign(new Error(''), {status: 0});
       if (open === state) closeEditor({focus: true});
-      const detail = {drive_file_id: data.drive_file_id, name: data.name, notes: Array.isArray(data.notes) ? data.notes : [], updated: data.updated || {}};
+      const detail = {drive_file_id: data.drive_file_id, name: data.name, old_name: spec.name, notes: Array.isArray(data.notes) ? data.notes : [], updated: data.updated || {}};
       window.dispatchEvent(new CustomEvent('kptu:file-renamed', {detail}));
+      // ORG-기록첨부이름반영(S60-14): 그 파일이 붙은 기록의 자동 줄 글('그림 1장 · 옛 이름')도 새 이름으로(요약 쓰기 한 길, 같은지 확인 뒤 씀).
+      if (detail.notes.length && detail.old_name !== detail.name) import('./record-name-sync.js').then(m => m.syncRecordLines(detail, rt)).catch(() => {});
       if (detail.updated.documents) window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
       const t = document.querySelector('#toast');
       if (t) { t.textContent = 'Drive 원본 이름도 바꿨어요.'; holdToast(t); }

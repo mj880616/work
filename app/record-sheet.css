@@ -39,3 +39,18 @@
 .record-photos>summary::-webkit-details-marker{display:none}
 .record-photos[open]>summary{background:var(--kptu-surface-subtle);border-color:var(--kptu-muted)}
 .record-photo-thumbs{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px}
+/* ORG-기록첨부이름반영(S60-14): 띠에서 바로 이름 고치기(file-rename.js 공용 부품).
+   파일 줄 = [파일 단추][✎](한 줄 칸 data-fr-row). 이름을 고치는 동안 그 줄은 한 줄 전체를 쓴다. */
+.record-file{display:inline-flex;align-items:center;min-width:0;max-width:100%}
+.record-file:has(>.fr-box){flex:1 0 100%}
+/* 사진 칸 = 작은 그림 + 오른쪽 위 ⋯(자료 사진 칸과 같은 photo-fold-tile 모양, 크기만 기록 띠의 56px). 이름 글자는 평소 보이지 않고([이름 수정]이 고치는 칸으로 바꿈),
+   고치는 동안 그 칸이 한 줄 전체를 쓰고 ⋯는 숨는다. */
+.record-photo-thumbs .photo-fold-tile.record-photo{width:56px;height:56px}
+.record-photo .record-file-thumb{width:100%;height:100%}
+.record-photo-name{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.record-photo-thumbs .photo-fold-tile.record-photo:has(>.fr-box){display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:auto;height:auto;flex:1 0 100%}
+.record-photo:has(>.fr-box)>.record-file-thumb{width:56px;height:56px;flex:none}
+.record-photo:has(>.fr-box)>details{display:none}
+.record-photo-more[open]{z-index:3}
+.record-photo-more[data-side="left"] .record-photo-panel{left:0;right:auto}
+/* ⋯ 판 모양은 자료 줄 ⋯ 판과 같은 공용 규칙(ui-standard.css .record-photo-panel). */

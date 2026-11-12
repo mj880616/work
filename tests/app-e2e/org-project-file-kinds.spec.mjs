@@ -314,10 +314,10 @@ for(const width of [412,1280])test(`LIB-사진숨김 조직 창 [자료]·기록
  const rec=page.locator('#wdUpdates [data-basket-link="40000000-0000-4000-8000-000000000009"]');
  await expect(rec.locator('[data-record-file]')).toHaveCount(1);
  const recPics=rec.locator('[data-record-photos]');
- await expect(recPics.locator('summary')).toHaveText('사진 2');
+ await expect(recPics.locator(':scope > summary')).toHaveText('사진 2');
  await expect(rec.locator('[data-record-photo]').first()).toBeHidden();
  await capture(page,info,`photo-hide-org-${width}`,page.locator('#wdModal .modal-card'));
- await recPics.locator('summary').click();
+ await recPics.locator(':scope > summary').click();
  await expect(rec.locator('[data-record-photo]')).toHaveCount(2);
  await expect(rec.locator('[data-record-photo] img').first()).toBeVisible();
  // ③ [사진 3]을 누르면 줄 대신 작은 그림 칸 3개. 누르면 크게 보기.

@@ -39,3 +39,22 @@ export function recordFileLine(aiLine, files) {
   if (!ai) return fallbackFileLine(list);
   return list.length > 1 ? `${ai} (${countLabel(list)})` : ai;
 }
+
+// ORG-기록첨부이름반영(S60-14): a file of a record was renamed (file-rename.js → 'kptu:file-renamed' + the old name).
+// When the record's line is still the one made from the files ('그림 1장 · 옛 이름(· 외 n)'), the same line with the new name;
+// any other line (the AI's, or one a person wrote with [요약 수정]) gives null and stays as it is.
+// attachments = the note's attachments after the rename (app_notes.attachments, the server already changed the name).
+// Only the first file's name is in the line, so only renaming the first file changes it. The count part is kept as written.
+const LINE_HEAD = /^((?:그림 \d+장|파일 \d+개)(?: · 파일 \d+개)?) · ([\s\S]*)$/;
+export function renamedRecordLine(summary, attachments, {drive_file_id: id = '', name = '', old_name: oldName = ''} = {}) {
+  if (typeof summary !== 'string' || !id || !name || !oldName || name === oldName) return null;
+  const list = Array.isArray(attachments) ? attachments : [];
+  if (!list.length || list[0]?.drive_file_id !== id) return null;
+  const m = summary.match(LINE_HEAD);
+  if (!m) return null;
+  const more = list.length > 1 ? ` 외 ${list.length - 1}` : '';
+  const shown = n => cut(String(n || '').replace(/\s+/g, ' ').trim() || '이름 없음', 60) + more;
+  if (m[2] !== shown(oldName)) return null;
+  const next = `${m[1]} · ${shown(name)}`;
+  return next === summary ? null : next;
+}
