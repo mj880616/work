@@ -52,21 +52,23 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   // 폴더 그림은 나무·고르기 창과 같은 공용 그림(folder-tree-ui.mjs, 고른 색 그대로).
   const icon=id=>ftIconHtml({color:Number.isInteger(folderOf(id)?.color)?folderOf(id).color:null,open:false,className:'ft-ico lu-sort-ico'});
   function rowHtml(r,firstOfGroup){
-    const kind=r.photoset?'그림':fileKindOf(r.title,null),
+    const d=s().docs.find(x=>x.id===r.ids[0]),kind=r.photoset?'그림':fileKindOf(d?.file_name||r.title,d?.mime_type),
       target=r.wait?`<span class="lu-sort-wait">${waitInlineHtml()}</span>`
         :r.to?.folder?`<button type="button" class="row-act lu-sort-pick" data-sort-pick="${esc(r.key)}" aria-haspopup="true">${icon(r.to.folder)}${esc(pathName(r.to.folder))} ▾</button>`
         :r.to?.group?`<button type="button" class="row-act lu-sort-pick" data-sort-pick="${esc(r.key)}" aria-haspopup="true">${icon(null)}${esc(groupPath(groupOf(r.to.group)))} ▾</button><span class="lu-sort-nf">새 폴더</span>`
         :`<button type="button" class="row-act lu-sort-pick" data-sort-pick="${esc(r.key)}" aria-haspopup="true">${icon(null)}폴더 선택 ▾</button>`;
     const g=r.to?.group&&firstOfGroup?groupOf(r.to.group):null;
-    const edit=g?`<span class="lu-sort-edit"><label>새 폴더 이름 <input type="text" maxlength="40" autocomplete="off" data-sort-gname="${esc(g.gid)}" value="${esc(g.name)}"></label><button type="button" class="row-act lu-sort-pick" data-sort-place="${esc(g.gid)}" aria-haspopup="true">놓을 자리: ${esc(g.parent?pathName(g.parent):'맨 위')} ▾</button></span>`:'';
-    return `<div class="lu-sort-row${r.to?.group?' lu-sort-row-new':''}" data-sort-row="${esc(r.key)}"><input type="checkbox" class="lu-sort-check" data-sort-check="${esc(r.key)}" aria-label="${esc(r.title)} 옮기기"${r.checked?' checked':''}${r.to&&!r.wait?'':' disabled'}><span class="lu-sort-name"><span class="lu-file-kind">${esc(kind)}</span> ${esc(r.title)}${r.ids.length>1?` <small>(${r.ids.length}장)</small>`:''}</span><span class="lu-sort-to">→ ${target}</span>${r.why&&!r.wait?`<span class="lu-sort-why">${esc(r.why)}</span>`:''}${edit}</div>`;
+    const edit=g?`<span class="lu-sort-edit"><span class="lu-sort-edit-label" aria-hidden="true">새 폴더 이름</span><input type="text" maxlength="40" autocomplete="off" aria-label="새 폴더 이름" data-sort-gname="${esc(g.gid)}" value="${esc(g.name)}"><button type="button" class="row-act lu-sort-pick" data-sort-place="${esc(g.gid)}" aria-haspopup="true">놓을 자리: ${esc(g.parent?pathName(g.parent):'맨 위')} ▾</button></span>`:'';
+    return `<div class="lu-sort-row${r.to?.group?' lu-sort-row-new':''}" data-sort-row="${esc(r.key)}"><input type="checkbox" class="lu-sort-check" data-sort-check="${esc(r.key)}" aria-label="${esc(r.title)} 옮기기"${r.checked?' checked':''}${r.to&&!r.wait?'':' disabled'}><span class="lu-sort-name"><span class="lu-sort-kind">${esc(kind)}</span> ${esc(r.title)}${r.ids.length>1?` <small>(${r.ids.length}장)</small>`:''}</span><span class="lu-sort-to">→ ${target}</span>${r.why&&!r.wait?`<span class="lu-sort-why">${esc(r.why)}</span>`:''}${edit}</div>`;
   }
   function paint(){
     if(!root)return;
     const seen=new Set(),line=r=>{const first=!!r.to?.group&&!seen.has(r.to.group);if(first)seen.add(r.to.group);return rowHtml(r,first)};
     const placed=rows.filter(r=>r.wait||r.to),stay=rows.filter(r=>!r.wait&&!r.to);
-    const list=root.querySelector('#librarySortList'),y=list.scrollTop;
-    list.innerHTML=placed.map(line).join('')+(stay.length?`<details class="lu-sort-stay"${placed.length?'':' open'}><summary>어디에도 맞지 않는 ${stay.length}개 — 그대로 둬요</summary>${stay.map(line).join('')}</details>`:'')+(rows.length?'':emptyHtml('없음'));
+    const list=root.querySelector('#librarySortList'),y=list.scrollTop,was=list.querySelector('.lu-sort-stay');
+    // '그대로 둬요' 묶음은 다시 그려도 사람이 연 상태 그대로(처음엔 다른 제안이 없을 때만 펼침).
+    const openStay=was?was.open:!placed.length;
+    list.innerHTML=placed.map(line).join('')+(stay.length?`<details class="lu-sort-stay"${openStay?' open':''}><summary>어디에도 맞지 않는 ${stay.length}개 — 그대로 둬요</summary>${stay.map(line).join('')}</details>`:'')+(rows.length?'':emptyHtml('없음'));
     list.scrollTop=y;
     root.querySelector('#librarySortSub').textContent=sortSummary(rows);
     const n=rows.filter(r=>r.checked&&r.to).length,b=root.querySelector('[data-sort-apply]');
