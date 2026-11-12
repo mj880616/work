@@ -6,7 +6,7 @@
 // - 묻기: 같은 것이 있는 파일만 모아 작은 확인창 하나(small-notice.js askActions) — '이미 있는 자료예요' + 위치 줄 + [그래도 올리기] [올리지 않기]
 //     (그 자리가 있는 자료를 붙일 수 있으면 useExisting을 주어 [있는 것 쓰기]도). 같은 것이 없는 파일은 묻지 않고 그대로 올린다.
 // - 찾기가 안 되면(로그인 없음·표 없음·인터넷·4초 넘음) 묻지 않고 그대로 올린다. 넣기를 막지 않는다. 기기에 아무것도 저장하지 않는다.
-import {sameTargets, inList, noteContains, docHit, noteHits, taskHit, matchFiles, askLines, splitByAnswer} from './same-file-model.mjs';
+import {sameTargets, inList, noteContains, noteHas, docHit, noteHits, taskHit, matchFiles, askLines, splitByAnswer} from './same-file-model.mjs';
 import {askActions} from './small-notice.js';
 
 export const SAME_WAIT_MS = 4000;
@@ -46,11 +46,12 @@ export async function findSameFiles(files, {rt = globalThis.window?.KPTURuntime,
     const [docs, tasks, ...notes] = await Promise.all([
       quiet(api(`/rest/v1/app_documents?workspace_id=eq.${enc(ws)}&file_name=in.${enc(names)}&file_size=in.${sizes}&select=id,title,file_name,file_size,meeting_id,organization_id,file_id,drive_url,mime_type,created_at&order=created_at.desc&limit=60`)),
       quiet(api(`/rest/v1/app_task_attachments?workspace_id=eq.${enc(ws)}&file_name=in.${enc(names)}&size_bytes=in.${sizes}&select=google_task_id,drive_file_id,file_name,size_bytes,created_at&order=created_at.desc&limit=60`)),
-      ...targets.map(t => quiet(api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&attachments=cs.${enc(noteContains(t))}&select=id,kind,title,occurred_at,created_at&order=created_at.desc&limit=5`))),
+      ...targets.map(t => quiet(api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&attachments=cs.${enc(noteContains(t))}&select=id,kind,title,occurred_at,created_at,attachments&order=created_at.desc&limit=5`))),
     ]);
     const hits = [];
     if (docs.length) { const n = await placeNames(api, ws, docs); docs.forEach(d => hits.push(docHit(d, n))); }
-    notes.forEach((found, i) => found.forEach(n => hits.push(noteHits(n, targets[i]))));
+    // 돌아온 노트가 정말 그 첨부(이름·크기)를 가졌는지 한 번 더 본다(서버 거르기를 그대로 믿지 않음).
+    notes.forEach((found, i) => found.filter(n => noteHas(n, targets[i])).forEach(n => hits.push(noteHits(n, targets[i]))));
     tasks.forEach(r => hits.push(taskHit(r)));
     return matchFiles(list, hits);
   })().catch(() => new Map());

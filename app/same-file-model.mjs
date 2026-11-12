@@ -30,6 +30,7 @@ export function inList(values) {
 
 // 노트 첨부(app_notes.attachments jsonb 배열) 안에 같은 이름·크기 한 칸이 있는지 보는 cs 값.
 export function noteContains(t) { return JSON.stringify([{file_name: t.name, size_bytes: t.size}]); }
+export function noteHas(n, t) { return Array.isArray(n?.attachments) && n.attachments.some(a => sameKey(a?.file_name, a?.size_bytes) === t.key); }
 
 export function shortDay(value) {
   const m = DAY.exec(String(value || ''));

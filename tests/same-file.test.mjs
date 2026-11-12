@@ -4,7 +4,7 @@
 // 읽는 표(app_documents·app_notes·app_task_attachments·자료실 폴더 표)의 소유자 RLS는 이 PR이 바꾸지 않는다(새 서버 함수·권한 없음).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sameKey, sameTargets, inList, noteContains, placeLine, shortDay, docHit, noteHits, taskHit, matchFiles, askLines, splitByAnswer} from '../app/same-file-model.mjs';
+import {noteHas, sameKey, sameTargets, inList, noteContains, placeLine, shortDay, docHit, noteHits, taskHit, matchFiles, askLines, splitByAnswer} from '../app/same-file-model.mjs';
 import {findSameFiles, screenSameFiles, takeAfterSameCheck} from '../app/same-file.js';
 import {readFileSync} from 'node:fs';
 import {jsonbContains} from './security/helpers/postgrest-jsonb.mjs'; // 실제 PostgREST·Postgres jsonb @> 답 흉내
@@ -24,6 +24,10 @@ test('열쇠: 이름(NFC)+크기, 크기 0·모름은 열쇠 없음', () => {
 test('서버 읽기 조각: 쉼표·괄호·따옴표가 든 이름도 한 값', () => {
   assert.equal(inList(['a,b', 'c"d', 'e\\f', 'a,b']), '("a,b","c\\"d","e\\\\f")');
   assert.deepEqual(JSON.parse(noteContains({name: 'x.hwp', size: 5})), [{file_name: 'x.hwp', size_bytes: 5}]);
+  const t = sameTargets([{name: 'x.hwp', size: 5}])[0];
+  assert.equal(noteHas({attachments: [{file_name: 'x.hwp', size_bytes: 5}]}, t), true);
+  assert.equal(noteHas({attachments: [{file_name: 'x.hwp', size_bytes: 6}]}, t), false, '서버가 거르지 않은 줄은 버림');
+  assert.equal(noteHas({attachments: null}, t), false);
 });
 
 test('위치 한 줄', () => {

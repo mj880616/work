@@ -464,7 +464,7 @@ function luMarkDrop(t){
 // 다른 곳에 놓은 파일은 지금처럼 폴더 밖. 올리기 중 또 놓으면 그 파일은 놓은 곳(폴더 또는 밖) 그대로 줄 뒤에 이어 올린다.
 // S46-25: 사업영역·담당조직·분류 묶음 머리에 놓았으면(target.field) 그 값을 달아 올린다('공공기관사업본부로 2개 올렸어요').
 // UX-이미있는파일알림: 놓은 파일 중 같은 이름·크기가 내 작업공간에 있으면 올리기 전에 묻는다(same-file.js 공용). 나머지는 바로 올린다.
-async function luDropFiles(files,target=null){const list=Array.from(files||[]);let keep=list;try{const {screenSameFiles}=await import('./same-file.js');keep=(await screenSameFiles(list,{anchor:target?.place||null})).files}catch{keep=list}if(keep.length)return luDropFilesNow(keep,target)}
+async function luDropFiles(files,target=null){const list=Array.from(files||[]);let keep=list;luDropNote?.close();luDropNote=null;try{const {screenSameFiles}=await import('./same-file.js');keep=(await screenSameFiles(list,{anchor:target?.place||null})).files}catch{keep=list}if(keep.length)return luDropFilesNow(keep,target)}
 async function luDropFilesNow(files,target=null){
   const folder=target?.target?{id:target.target,name:target.name||'폴더'}:null;
   const value=!folder&&target?.field?{field:target.field,value:target.value,name:target.name||'',key:target.key}:null;
