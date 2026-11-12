@@ -431,7 +431,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function stopScroll(){scrollDir=0;if(scrollTimer&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(scrollTimer);scrollTimer=0}
   // 자료 여럿(또는 하나)을 폴더로/폴더 밖으로. 이전 자리를 기억해 '되돌리기'가 그 자리로 돌려놓는다(그 사이 또 바뀐 것은 건드리지 않음).
   // all=true(사진 묶음): 하나라도 못 옮기면 이미 옮긴 것을 이전 자리로 되돌려 '모두 옮김 / 모두 그대로' 둘 중 하나로 끝낸다.
-  async function moveDocs(docs,folderId,{all=false}={}){
+  async function moveDocs(docs,folderId,{all=false,open=true}={}){
     const todo=docs.filter(d=>folderId?docFolder(d)?.id!==folderId:!!rawItem(d));if(!todo.length)return false;
     const prev=todo.map(d=>({id:d.id,had:!!rawItem(d),folder:rawItem(d)?.folder_id||null})),w=id=>`?document_id=eq.${enc(id)}&workspace_id=eq.${enc(s().workspace)}`;
     // LIB-후속1 ③: 하나씩 옮기며 'n/전체'를 알리고, 일부가 실패해도 옮긴 것은 그대로 둔다(실패한 것만 onMoved로 돌려 고른 채 남김).
@@ -458,7 +458,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(!done.length)throw firstError||new Error('move failed')});
     try{onMoved({done:ok?done:[],failed:ok?failed:prev.map(p=>p.id),folderId})}catch{}
     if(!ok)return false;
-    if(folderId)reveal(chain(todo[0].project_id||null,folderId));
+    // LIB-추천넣기안열기(S60-27): 점선 추천으로 넣을 때(open:false)는 받는 폴더를 펼치지 않고 화면 자리를 그대로 둔다.
+    if(folderId&&open)reveal(chain(todo[0].project_id||null,folderId));
     const moved=prev.filter(p=>done.includes(p.id)),where_=folderId?`${folder(folderId)?.name||''} 폴더`:'폴더 밖';
     say(`옮겼어요 ${moved.length}개 → ${where_}${failed.length?` · ${failed.length}개는 옮기지 못했어요(선택한 채로 남김)`:''} ·`,{error:failed.length>0,undo:()=>run(async()=>{for(const p of moved){
       const cur=s().items.find(x=>x.document_id===p.id);if((cur?.folder_id||null)!==folderId)continue;
@@ -635,5 +636,5 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-맨위메뉴하나(빠짐9): 자료실 칸 맨 위 ⋯의 [새 폴더]. 폴더 묶기에서만 — 들어간 폴더가 있으면 그 안, 없으면 맨 위(폴더 밖 자리).
   const createIn=(parentId,trigger)=>{const p=parentId?folder(parentId):null;if(parentId&&!p)return;if(p&&!canAddChild(s().folders,p.id)){status('여기에는 폴더를 더 만들 수 없어요.',true);return}
     askName({title:p?'안에 폴더 만들기':'폴더 만들기',hint:p?pathName(p.id)+' 안에 만들어요.':'폴더 밖(맨 위)에 만들어요. 자료실에서만 보이고 Drive 폴더는 바뀌지 않아요.',trigger,then:name=>createFolder(p?.project_id||null,p?.id||null,name)})};
-  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveFolderTo:(id,parentId)=>dragMoveFolder(id,parentId||null),moveDocsTo:(ids,folderId)=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),follow:find=>menu.follow(find),get menuTrigger(){return menu.active?.trigger||null},moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
+  return {openAt:(trigger,x,y)=>menu.open(trigger,{at:{x,y}}),createIn,moveFolderTo:(id,parentId)=>dragMoveFolder(id,parentId||null),moveDocsTo:(ids,folderId,opt={})=>{const docs=ids.map(docById).filter(Boolean);return docs.length?moveDocs(docs,folderId||null,{open:opt.open!==false}):Promise.resolve(false)},open:t=>menu.open(t),close:()=>menu.close(),follow:find=>menu.follow(find),get menuTrigger(){return menu.active?.trigger||null},moveMenuHtml,openMove,closeMove:()=>picker.close(false,false),moveContains:n=>picker.contains(n),get moveOpen(){return picker.isOpen},docFolder,bindDrag,bindKeys,fileTarget,markFile,putUploaded,revealFolder:id=>{const f=folder(id);if(f)reveal(chain(f.project_id||null,id))},startRename,get busy(){return busy}};
 }
