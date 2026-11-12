@@ -161,8 +161,9 @@ for(const width of [390,1280])test(`통화 ${width}: 조직·이름 수정 — �
  await expect(detail.locator('[data-cf-meta]')).toContainText('수정됨');
  expect(f.db.work[0].counterpart).toBe('예시지부 홍길동 팀장'); // AI 값은 그대로
  expect(f.db.work[0].organization_id).toBe(ORG);
- // AI 값으로
+ // [초안으로 되돌리기]
  await tap(page,detail.locator('[data-cf-who-open]'),width);
+ await expect(detail.locator('[data-cf-who-reset]')).toHaveText('초안으로 되돌리기');
  await tap(page,detail.locator('[data-cf-who-reset]'),width);
  await expect.poll(()=>f.calls.at(-1)).toEqual({p_id:W1,p_patch:{reset:['counterpart','organization_id']}});
  await expect(detail.locator('[data-cf-meta]')).toContainText('홍길동');

@@ -4066,18 +4066,19 @@ for(const width of [390,884,1280])test(`WEEKLY-수정표시빼기: 수정한 주
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 // S52-31 WEEKLY-주요일정제자리고치기(요청함 11/08 00:19): '원래: …'·'기억' 표시는 고치기 칸 위, [이번 주만 되돌리기]는 그 줄 ⋯ 작은 메뉴,
-// [AI로 다듬기]는 5. 주요 일정 제목 줄 오른쪽(+ 추가 옆) 작은 글자 버튼. 가짜 일정·가짜 이름만.
-for(const width of [390,884,1280])test(`WEEKLY-주요일정제자리고치기: 줄 ⋯ [이번 주만 되돌리기]·제목 줄 [AI로 다듬기]·[일] 칸 폭 손잡이 ${width}`,async({page})=>{
+// [제목 다듬기]는 5. 주요 일정 제목 줄 오른쪽(+ 추가 옆) 작은 글자 버튼. 가짜 일정·가짜 이름만.
+for(const width of [390,884,1280])test(`WEEKLY-주요일정제자리고치기: 줄 ⋯ [이번 주만 되돌리기]·제목 줄 [제목 다듬기]·[일] 칸 폭 손잡이 ${width}`,async({page})=>{
  const f=await memoryFixture(page,{width,memory:[{key:'가상다음주회의',origin:'가상 다음 주 회의',title:'가상 점검 회의',saved:'2026-10-01'}]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const cal=weekly(page,'calendar');
  const next=cal.locator('tbody tr').filter({hasText:'가상 점검 회의'});
  await expect(next.locator('.journal-weekly-what')).toContainText('가상 점검 회의');
- // 제목 줄: [AI로 다듬기] · [+ 추가]가 제목과 같은 줄 오른쪽, 작은 글자 버튼(32px 이하).
+ // 제목 줄: [제목 다듬기] · [+ 추가]가 제목과 같은 줄 오른쪽, 작은 글자 버튼(32px 이하).
  const head=await cal.locator(':scope > h5').boundingBox(),ai=cal.locator('[data-journal-schedule-ai]'),add=cal.locator('[data-journal-hand-add="calendar"]');
  const ab=await ai.boundingBox(),db=await add.boundingBox();
  expect(Math.abs((ab.y+ab.height/2)-(head.y+head.height/2))).toBeLessThan(14);
  expect(ab.x+ab.width).toBeLessThanOrEqual(db.x+1);expect(ab.height).toBeLessThanOrEqual(32);
+ await expect(ai).toHaveText('제목 다듬기');await expect(ai).toHaveAttribute('aria-label','5. 주요 일정 제목 다듬기');
  // 기억한 이름으로 바뀐 줄 ⋯ : [고치기] · [이번 주만 되돌리기] · [빼기].
  const more=next.locator('details.row-more');
  await more.locator('summary').click();
@@ -4090,7 +4091,7 @@ for(const width of [390,884,1280])test(`WEEKLY-주요일정제자리고치기: �
  await back.locator('summary').click();
  await expect(back.locator('.row-more-menu > button')).toHaveText(['수정','빼기']);
  await back.locator('summary').click();
- // [AI로 다듬기]: 누르면 표 아래 한 줄로 진행·결과(칸 고치기 덩어리 없이).
+ // [제목 다듬기]: 누르면 표 아래 한 줄로 진행·결과(칸 고치기 덩어리 없이).
  await ai.click();
  await expect(cal.locator('[data-journal-schedule-status]')).not.toBeEmpty({timeout:15000});
  await expect(page.locator('#journalRoot [data-hwpx-part="schedule"],#journalRoot [data-hwpx-titles]')).toHaveCount(0);
