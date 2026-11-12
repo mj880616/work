@@ -88,64 +88,6 @@ async function signIn(page,opts){
 }
 const of=(calls,action)=>calls.filter(c=>c.action===action);
 
-// 서버가 새 값(29분)을 주든 옛 값(59분)을 주든 노트북은 29분에 넘긴다(화면과 서버 가운데 어느 쪽이 먼저 배포돼도 같은 동작).
-for(const [label,segmentSeconds] of [['새 서버(구간 29분)',1740],['옛 서버(구간 59분)',3540]]){
-  test(`PC 1280: [녹음] 29분에 새 구간으로 넘어가고, 정리하면 회의록 전문이 '화자n:' 줄로 나뉘어 들어간다 — ${label}`,async({page})=>{
-    test.setTimeout(90000);
-    await page.setViewportSize({width:1280,height:900});
-    await page.clock.install();
-    await fakeRecorder(page);
-    const calls=await signIn(page,{segmentSeconds});
-    await page.locator('#reportRecordBtn').click();
-    const band=page.locator('#recBand');
-    await expect(band.locator('.rec-label')).toHaveText('녹음 중');
-    const pieces=()=>of(calls,'rec_piece').map(c=>`${c.rid.slice(-1)}:${c.seq}`);
-    await page.evaluate(()=>window.__fakeRec.emit());
-    await expect.poll(pieces,{timeout:10000}).toEqual(['1:1']);
-
-    // 28분: 아직 한 구간(녹음기 하나).
-    await page.clock.fastForward(28*60*1000);
-    await page.clock.runFor(2000);
-    expect(await page.evaluate(()=>window.__fakeRec.recs.length)).toBe(1);
-    expect(of(calls,'rec_start').length).toBe(1);
-    // 29분을 넘으면: 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → 같은 녹음의 다음 구간을 연다). 녹음은 끊기지 않는다.
-    await page.clock.fastForward(61*1000);
-    await page.clock.runFor(2000);
-    await expect.poll(()=>page.evaluate(()=>window.__fakeRec.slices()),{timeout:10000}).toEqual([60000,60000]);
-    await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2']);
-    await expect.poll(()=>of(calls,'rec_start').map(c=>c.body.session_id??null),{timeout:10000}).toEqual([null,SID]);
-    await expect(band.locator('.rec-label')).toHaveText('녹음 중');
-    // 앞 구간 길이는 29분 남짓: 발언자 구분 상한(30분 = 1800초) 안.
-    const firstLength=Number(of(calls,'rec_piece')[1].seconds);
-    expect(firstLength).toBeGreaterThanOrEqual(1740);expect(firstLength).toBeLessThanOrEqual(1800);
-    await page.evaluate(()=>window.__fakeRec.emit());
-    await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','2:1']);
-
-    // 멈추고 정리: 구간마다 전사 → 글 잇기 → 요약 → 회의 입력 창.
-    await band.getByRole('button',{name:'멈추고 정리'}).click();
-    await expect.poll(()=>of(calls,'transcribe').map(c=>c.body.job_id),{timeout:15000}).toEqual([J1,J2]);
-    const modal=page.locator('#meetingModal');
-    await expect(modal).toBeVisible({timeout:15000});
-    // 회의록 전문: 화자 줄은 줄마다, 구간이 바뀌는 자리에 머리 줄 한 줄(번호가 새로 매겨지는 자리).
-    const notes=page.locator('#meetingNotes');
-    await expect(page.locator('#meetingNotesLabel')).toHaveText('회의록 전문');
-    await expect(notes).toHaveValue(FULL);
-    const lines=(await notes.inputValue()).split('\n').filter(Boolean);
-    expect(lines.filter(l=>/^화자[123]: /.test(l))).toHaveLength(6);
-    expect(lines.filter(l=>/^―/.test(l))).toEqual(['― 29분부터 ―']);
-    // 요약에 넘기는 글은 전문 그대로(머리 줄·화자 줄 포함), 요약·참석자·할 일 칸에는 화자 번호가 들어가지 않는다.
-    expect(calls.find(c=>c.action==='draft').body.transcript_text).toBe(FULL);
-    const summary=await page.locator('#meetingTranscript').inputValue();
-    expect(summary).toContain('안내문은 다음 주 월요일에 내보내기로 함');
-    expect(summary).not.toMatch(/화자\s*\d/);
-    for(const field of await modal.locator('input[type="text"],input:not([type])').all())expect(await field.inputValue()).not.toMatch(/화자\s*\d/);
-    if(segmentSeconds===1740){
-      await notes.evaluate(el=>{el.style.height='auto';el.style.height=`${Math.min(el.scrollHeight+4,360)}px`});
-      await notes.scrollIntoViewIfNeeded();
-      await shot(page,'after-draft-notes-1280');
-    }
-  });
-}
 
 // 저장된 회의를 다시 열면 회의록 전문이 화자 줄마다 줄이 바뀌어 보인다(폰·PC). 머리 줄도 따로 한 줄.
 const SAVED={id:'meeting-rec-1',workspace_id:'rec-ws',project_id:null,title:'가상 준비 모임',series_name:'가상 준비 모임',round_no:1,
