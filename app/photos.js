@@ -64,7 +64,7 @@ import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml} from './tree-icons.js';
 import {createOdSettings} from './od-settings.js';
 import {createSelectMode} from './select-mode.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {ACT_ICON, actInner} from './action-bar.mjs'; // UI-고르기줄(S48-54): 아래 고르기 줄 공용 부품
 import {folderPathHtml} from './folder-path.mjs';
 import {odFolderTree, odFolderCreate, odFolderRename, odFolderMove, odFolderDelete, odPhotosMove, odFolderToggle} from './diary-onedrive.js';
@@ -228,7 +228,8 @@ const TIDY_STEP = 60;
 const tidyShown = new Map(); // 펼친 칸 key → 그린 장수(다시 그려도 같은 만큼, 이 화면 메모리만)
 const tidyGone = new Set(); // 크게 보기에서 지우는 중인 칸(되돌리면 다시 보임)
 let tidyIo = null;
-function paintTidy() {
+function paintTidy() { return keepPhotoMenus(() => paintTidyNow()); }
+function paintTidyNow() {
   const show = tab === 'all' && phoneUsable();
   const n = tidy.count();
   tidyChip.hidden = !show; tidyChip.textContent = n ? `정리 ${n}` : '정리';
@@ -825,7 +826,8 @@ function dayHeadEl(day, n) {
   return head;
 }
 // [사진] 목록 그리기. 처음이거나 목록이 줄었으면 통째로, 늘었으면 뒤에 이어 붙인다(받은 그림 그대로).
-function paintList({full = false} = {}) {
+function paintList(opts) { return keepPhotoMenus(() => paintListNow(opts)); }
+function paintListNow({full = false} = {}) {
   if (tab === 'all' && level !== 'day') return; // 월·연 보기는 renderZoom이 그린다(한 화면 한 그리기)
   const g = listGate();
   if (g) { rendered = 0; renderedIds = []; body.innerHTML = g; paintRail(); return; }
@@ -1100,7 +1102,14 @@ async function renderTrash({reload = false} = {}) {
   if (trash.length) { const grid = newGrid(); trash.forEach((item, i) => { const b = cell(item, i); b.dataset.photosTrash = ''; grid.append(b); }); body.append(grid); }
   paintSize(); paintSelect();
 }
-function render() {
+// FILES-다시그리기메뉴자리: 뒤에서 목록·폴더·앨범을 다시 그려도 열린 ⋯ 메뉴(폴더·폰 폴더·구글 드라이브 폴더·사진·앨범)는 닫지 않고
+// 같은 칸의 새 단추에 붙인다(공용 anchored-menu keepMenus — 자료실·[파일]과 같은 길). 그 칸이 사라졌거나 안 보이면 그때만 닫는다.
+// 메뉴들은 아래(파일 뒤쪽)에서 만들어지므로 처음 그리기(메뉴가 아직 없음)에서는 건너뛴다.
+let photoMenusMade = false;
+const PHOTO_MENU_SPOT = {attrs: ['data-photos-fx-more', 'data-photos-pf-more', 'data-photos-gf-more', 'data-photos-al-more', 'data-photos-id'], zones: ['.photos-fx-tree', '.photos-fx-pane', '[data-photos-tidy]', '[data-photos-body]']};
+function keepPhotoMenus(paint) { return photoMenusMade ? keepMenus([folderMenu, phoneFolderMenu, gdFolderMenu, photoMenu, albumMenu], PHOTO_MENU_SPOT, paint) : paint(); }
+function render() { return keepPhotoMenus(() => renderNow()); }
+function renderNow() {
   paintTidy();
   $('[data-photos-view]').value = tab;
   paintTools(); paintSortButton();
@@ -2377,7 +2386,8 @@ function fxFocusBox({steps = [], head, body}) {
   return `<section class="ft-box ft-focus photos-fx-focus">${anc}${top}<div class="ft-box-body">${body}</div></section>`;
 }
 const phoneFocusHtml = (f, rest) => fxFocusBox({steps:[{attr:'data-photos-pf-at', id:'phone', name:'폰'}], head:phoneHeadHtml(f), body:rest});
-function renderFolders() {
+function renderFolders() { return keepPhotoMenus(() => renderFoldersNow()); }
+function renderFoldersNow() {
   io?.disconnect();
   const g = listGate();
   if (g) { body.innerHTML = g; return; }
@@ -2457,7 +2467,8 @@ function fxSplit() {
     active:() => treeWide() && tab === 'folders' && box.isConnected && !document.getElementById('photosView')?.classList.contains('hidden')});
 }
 // 폰 폴더 사진 격자(보기 전용: 끌어 옮기기 없음).
-function paintPhoneFolderGrid() {
+function paintPhoneFolderGrid() { return keepPhotoMenus(() => paintPhoneFolderGridNow()); }
+function paintPhoneFolderGridNow() {
   const box = body.querySelector('[data-photos-fx-grid]'), foot = body.querySelector('[data-photos-fx-foot]');
   if (!box || pAt === null) return;
   if (pFor !== pAt) loadPhoneFolder(pAt);
@@ -2500,7 +2511,8 @@ function goPhoneFolder(id, {picked = true} = {}) {
   if (picked) pickFolder(from);
   window.scrollTo?.(0, 0);
 }
-function paintFolderGrid() {
+function paintFolderGrid() { return keepPhotoMenus(() => paintFolderGridNow()); }
+function paintFolderGridNow() {
   const box = body.querySelector('[data-photos-fx-grid]'), foot = body.querySelector('[data-photos-fx-foot]');
   if (!box) return;
   box.replaceChildren();
@@ -2910,7 +2922,8 @@ function gdPaneHtml({wide}) {
   return `${path}${head}${kids}${grid}`;
 }
 // 폰: 들어간 폴더 하나를 한 화면으로.
-function renderGdFolder() {
+function renderGdFolder() { return keepPhotoMenus(() => renderGdFolderNow()); }
+function renderGdFolderNow() {
   body.innerHTML = `${srcNotes()}<div class="photos-fx" data-photos-gd-folder>${gdPaneHtml({wide:false})}</div>`;
   syncFolderLayer();
   paintGdFolderGrid();
@@ -2940,7 +2953,8 @@ function gdLoadFolderPhotos(id) {
   })();
   return job;
 }
-function paintGdFolderGrid() {
+function paintGdFolderGrid() { return keepPhotoMenus(() => paintGdFolderGridNow()); }
+function paintGdFolderGridNow() {
   const box = body.querySelector('[data-photos-fx-grid]'), foot = body.querySelector('[data-photos-fx-foot]');
   if (!box || gdAt === null) return;
   const f = gdFolderInfo(gdAt);
@@ -3125,7 +3139,8 @@ function albumRowHtml(c, view) {
     : `<span class="photos-album-cover" data-photos-al-cover></span>${name}${n}`;
   return `<div class="photos-album" data-photos-album="${esc(c.id)}"><button type="button" class="photos-album-open" data-photos-al-open="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범, 사진 ${c.count}장${view === 'thumb' && period ? `, ${esc(period)}` : ''}">${inner}</button><button type="button" class="photos-album-more" data-photos-al-more="${esc(c.id)}" aria-label="#${esc(c.name)} 앨범 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`;
 }
-function renderAlbums() {
+function renderAlbums() { return keepPhotoMenus(() => renderAlbumsNow()); }
+function renderAlbumsNow() {
   io?.disconnect();
   const g = listGate();
   if (g) { body.innerHTML = g; return; }
@@ -3409,6 +3424,7 @@ const albumMenu = createAnchoredMenu({id:'photosAlbumMenu', className:'od-link-m
       return void (plan.length && albumLook(id, plan.map(p => ({id:p.id, o:p.o})), '앨범 순서를 저장하지 못했어요.'));
     }
     if (b.matches('[data-am-rename]')) return renameAlbum(id); if (b.matches('[data-am-delete]')) return deleteAlbum(trigger, id); }});
+photoMenusMade = true;
 // [정렬 ▾]: 누른 자리 작은 메뉴(공용 anchored-menu). 고른 줄에 ✓. 동영상 길이는 동영상이 있을 때만.
 const sortMenu = createAnchoredMenu({id:'photosSortMenu', className:'od-link-menu photos-sort-menu', label:'정렬 기준', historyKey:'kptuPhotosSortMenu',
   key:() => 'sort',
