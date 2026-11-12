@@ -330,6 +330,8 @@ for(const width of [412,1280])test(`LIB-사진숨김 조직 창 [자료]·기록
  await expect.poll(()=>calls.filter(c=>c.endsWith(':small')).length).toBe(3);
  await capture(page,info,`photo-hide-org-open-${width}`,page.locator('#wdModal .modal-card'));
  // ⋯ = 지금 자료 메뉴(조직에서 빼기 포함)
+ // 작은 그림 칸 안 ⋯는 오른쪽 위 24px 칸(base-ui.css .photo-fold-tile, 우선순위 강제 없이).
+ for(const t of await tiles.all())expect(await t.locator('summary').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('[data-photo-tile]').getBoundingClientRect();return [r.width,r.height,Math.round(p.right-r.right),Math.round(r.top-p.top)]})).toEqual([24,24,0,0]);
  await tap(page,tiles.first().locator('summary'),width);
  await expect(tiles.first().locator('[data-wd-doc-remove]')).toBeVisible();
  await tap(page,tiles.first().locator('summary'),width);
@@ -357,6 +359,8 @@ for(const width of [412,1280])test(`LIB-사진숨김 프로젝트 상세 [자료
  await tap(page,pic,width);
  await expect(section.locator('[data-photo-tile]')).toHaveCount(3);
  await expect(section.locator('[data-photo-tile]').first().locator('.lu-thumb img')).toBeVisible();
+ // 작은 그림 칸 안 ⋯는 오른쪽 위 24px 칸(base-ui.css .photo-fold-tile, 우선순위 강제 없이).
+ for(const t of await section.locator('[data-photo-tile]').all())expect(await t.locator('summary').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('[data-photo-tile]').getBoundingClientRect();return [r.width,r.height,Math.round(p.right-r.right),Math.round(r.top-p.top)]})).toEqual([24,24,0,0]);
  await tap(page,host.locator('[data-cc-tail]'),width);
  await expect(section.locator('.ps3-doc-row')).toHaveCount(2);
  expect(f.errors).toEqual([]);

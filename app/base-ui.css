@@ -438,8 +438,10 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
 .photo-fold-tile .photo-fold-thumb{display:block;box-sizing:border-box;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft);overflow:hidden;cursor:zoom-in;box-shadow:none}
 .photo-fold-tile .photo-fold-thumb img{display:block;width:100%;height:100%;object-fit:cover}
 .photo-fold-thumb:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
-/* 칸 안 ⋯ 는 오른쪽 위에 작게(누르기 칸은 칸 전체 높이의 절반). 메뉴 판은 그 자료 줄 ⋯ 와 같은 것이다. */
+/* 칸 안 ⋯ 는 오른쪽 위에 작게(누르기 칸은 칸 전체 높이의 절반). 메뉴 판은 그 자료 줄 ⋯ 와 같은 것이다.
+   줄 ⋯ 크기는 그리는 화면 이름(#ps3DetailModal .ps3-line-more>summary 44px, .ft-dots 36px·오른쪽 여백 2px …)으로 정해져 있어,
+   사진 칸을 그리는 네 곳(프로젝트 상세·조직 상세·자료실 목록·파일)의 이름으로 같은 무게를 맞춘다(우선순위 강제 표시 없이 — D-6b). */
 .photo-fold-tile>details{position:absolute;top:0;right:0}
-.photo-fold-tile>details>summary,.photo-fold-tile>.icon-btn:not(.photo-fold-thumb),.photo-fold-tile>.ft-dots{width:24px!important;height:24px!important;min-width:0;min-height:0;border-radius:0 var(--kptu-radius-sm,6px) 0 var(--kptu-radius-sm,6px);background:color-mix(in srgb,var(--kptu-surface) 78%,transparent)}
-.photo-fold-tile>.icon-btn:not(.photo-fold-thumb),.photo-fold-tile>.ft-dots{position:absolute;top:0;right:0;padding:0}
+:is(#ps3DetailModal,#wdModal,#documentList,#filesRoot) .photo-fold-tile>details>summary,:is(#ps3DetailModal,#wdModal,#documentList,#filesRoot) .photo-fold-tile>:is(.icon-btn:not(.photo-fold-thumb),.ft-dots){box-sizing:border-box;width:24px;height:24px;min-width:0;min-height:0;margin:0;border-radius:0 var(--kptu-radius-sm,6px) 0 var(--kptu-radius-sm,6px);background:color-mix(in srgb,var(--kptu-surface) 78%,transparent)}
+:is(#ps3DetailModal,#wdModal,#documentList,#filesRoot) .photo-fold-tile>:is(.icon-btn:not(.photo-fold-thumb),.ft-dots){position:absolute;top:0;right:0;padding:0}
 .doc-kind-badge{min-width:30px;height:18px;margin-right:4px;font-size:10.5px;vertical-align:1px}

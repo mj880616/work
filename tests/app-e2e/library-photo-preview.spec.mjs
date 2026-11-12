@@ -90,6 +90,8 @@ for (const width of [412, 1280]) {
     const box = await tile(1).boundingBox(), vw = page.viewportSize().width;
     expect(box.x + box.width).toBeLessThanOrEqual(vw + 1);
     expect(box.width).toBeLessThanOrEqual(72.5);
+    // 작은 그림 칸 안 ⋯는 오른쪽 위 24px 칸(base-ui.css .photo-fold-tile, 우선순위 강제 없이).
+    expect(await tile(1).locator('[data-lu-menu]').evaluate(e => { const r = e.getBoundingClientRect(), p = e.closest('[data-photo-tile]').getBoundingClientRect(); return [r.width, r.height, Math.round(p.right - r.right), Math.round(r.top - p.top)]; })).toEqual([24, 24, 0, 0]);
     await expect(row(3).locator('.lu-row-title')).toBeVisible();
 
     // 누르면 큰 그림(large)으로 크게 보고, 닫으면 줄로 돌아온다.

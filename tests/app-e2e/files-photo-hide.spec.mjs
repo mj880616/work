@@ -51,6 +51,8 @@ test('파일 412: 폰 나무·그 폴더만에서도 사진은 [사진 2] 하나
   const tile = tree.locator('[data-photo-tile="od:OD!32"]');
   await expect(tile).toBeVisible();
   await expect(tile.locator('img')).toBeVisible();
+  // 작은 그림 칸 안 ⋯는 오른쪽 위 24px 칸(base-ui.css .photo-fold-tile, 우선순위 강제 없이).
+  expect(await tile.locator('[data-fx-tmenu]').evaluate(e => { const r = e.getBoundingClientRect(), p = e.closest('[data-photo-tile]').getBoundingClientRect(); return [r.width, r.height, Math.round(p.right - r.right), Math.round(r.top - p.top)]; })).toEqual([24, 24, 0, 0]);
   await shot(page, 'files-photo-tree-412');
   // 다시 누르면 접힌다.
   await tree.locator('[data-fx-photos]').click();
