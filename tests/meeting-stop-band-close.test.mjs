@@ -50,7 +50,8 @@ test('Edge: 다시·단계·실패가 닫음 표시를 이어 가고, job_list�
   assert.match(retry,/SPLIT_CODES\.includes\(failReason\(job\)\)/,'나눠 잇기는 이유로 판단');
   const step=body('runStep');
   assert.match(step,/kind === 'job' \? failedCode\(job\.error_code as string \| null, code\) : code/);
-  assert.match(step,/kind === 'job' && next\.status !== 'done' \? carryClosed\(job\.error_code as string \| null\) : null/);
+  // S61-5: 서버 정리('job')는 단계 앞에서 transcribe_off로 멈춘다. 이 줄은 타입 좁힘을 풀어 둔 같은 규칙.
+  assert.match(step,/\(kind as StepKind\) === 'job' && next\.status !== 'done' \? carryClosed\(job\.error_code as string \| null\) : null/);
   const discard=body('jobDiscard');
   assert.match(discard,/await ownServerJob\(user\.id, body\.job_id\)/,'소유 확인 그대로');
   assert.doesNotMatch(discard,/delete|trash|transcript_text|draft|opened_at/i,'소리·글은 그대로');
