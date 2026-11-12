@@ -3,7 +3,9 @@
 // - 서비스 계정 비밀값 FCM_SERVICE_ACCOUNT_JSON(명진이 Supabase 대시보드에 직접 넣음)에서 project_id·client_email·private_key만 읽는다.
 //   비밀값 안의 token_uri 같은 주소는 쓰지 않는다(보내는 곳은 아래 두 고정 주소뿐).
 // - 서비스 계정으로 RS256 JWT를 만들어 구글 OAuth 토큰(firebase.messaging 범위)을 받고, 데이터 메시지만 보낸다(알림 모양은 앱이 그림).
-// - 싣는 것: 종류·짧은 제목(40자)·누르면 열 앱 안 경로. 본문·첨부·연락처는 싣지 않는다.
+// - 싣는 것: 종류·짧은 제목(40자)·누르면 열 앱 안 경로. 첨부·연락처는 싣지 않는다.
+// - 본문(body)은 BODY_KINDS(지금 family 하나 — FAMILY-기억알림 ②, 명진 결정 11/12 10:56 "보이기")에만 한 줄 120자까지 싣는다.
+//   다른 종류는 body를 넘겨도 버린다(데이터 메시지는 지금처럼 kind·title·open 세 칸).
 // - 오류·로그에는 단계 코드만. 토큰·키·제목은 남기지 않는다.
 import { readBoundedJson } from "./bounded-json.mjs";
 
@@ -12,10 +14,12 @@ export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 export const FCM_SEND_BASE = "https://fcm.googleapis.com/v1/projects/";
 export const TITLE_MAX = 40;
+export const BODY_MAX = 120;
+export const BODY_KINDS: readonly string[] = ["family"];
 const TIMEOUT_MS = 10000;
 
 export type FcmConfig = { projectId: string; clientEmail: string; privateKey: string };
-export type FcmMessage = { kind: string; title: string; open: string; urgent: boolean };
+export type FcmMessage = { kind: string; title: string; open: string; urgent: boolean; body?: string };
 export type FcmResult = "sent" | "unregistered" | "failed";
 
 const PROJECT = /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/;
@@ -44,6 +48,22 @@ export function cutTitle(title: string) {
   const one = title.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
   const chars = [...one];
   return chars.length <= TITLE_MAX ? one : chars.slice(0, TITLE_MAX - 1).join("") + "…";
+}
+
+// 본문 한 줄: 본문을 실을 수 있는 종류만, 제어 글자·줄바꿈은 빈칸으로, BODY_MAX자에서 자름. 실을 것이 없으면 ''.
+export function cutBody(kind: string, body: unknown) {
+  if (!BODY_KINDS.includes(kind) || typeof body !== "string") return "";
+  const one = body.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  const chars = [...one];
+  return chars.length <= BODY_MAX ? one : chars.slice(0, BODY_MAX - 1).join("") + "…";
+}
+
+// FCM data 칸(문자열만). 본문은 실을 것이 있을 때만 칸을 더한다.
+export function fcmData(msg: FcmMessage): Record<string, string> {
+  const data: Record<string, string> = { kind: msg.kind, title: cutTitle(msg.title), open: msg.open };
+  const body = cutBody(msg.kind, msg.body);
+  if (body) data.body = body;
+  return data;
 }
 
 const b64url = (bytes: Uint8Array) => {
@@ -101,7 +121,7 @@ export function makeFcmSender(cfg: FcmConfig, doFetch: typeof fetch, now: () => 
       const body = {
         message: {
           token: deviceToken,
-          data: { kind: msg.kind, title: cutTitle(msg.title), open: msg.open },
+          data: fcmData(msg),
           android: { priority: msg.urgent ? "high" : "normal", ttl: "86400s" },
         },
       };

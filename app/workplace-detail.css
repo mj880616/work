@@ -172,13 +172,20 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 
 /* ORG-주요인물: 맨 아래 작은 탭 [주요 인물][기본 정보][소속][이전 요약](role=tablist, 패널은 hidden 속성) + [주요 인물] 칸(org-key-people.js). */
 /* UI-보기탭한모양(S52-17): 조직 정보 탭·[기록|현황 표]는 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양(넘치면 옆으로 밀기). 여기는 자리만. */
-.wd-tabs{margin-bottom:calc(8px - var(--ds-seg-hit))}
+/* ORG-주요인물칸다듬기(S60-21): 네 탭 모두 탭 막대 아래 첫 줄까지 같은 간격(--kptu-space-3 = 이 창 .wd-sub 첫 줄 간격)·같은 왼쪽(칸 왼쪽 = 탭 막대 왼쪽).
+   첫 칸(.wd-sub:first-child)의 위 선·위 여백은 탭 줄이 대신하므로 지운다 — 탭마다 따로 숫자를 넣지 않는다. */
+.wd-tabs{margin-bottom:calc(var(--kptu-space-3) - var(--ds-seg-hit))}
 .wd-tab-n{margin-left:4px;color:var(--kptu-muted);font-weight:400}
 .wd-tab-n:empty{display:none}
-.wd-tabpanel>.wd-sub:first-child{margin-top:0}
+.wd-tabpanel>.wd-sub:first-child{margin-top:0;padding-top:0;border-top:0}
 .okp{display:grid;gap:6px;font-size:var(--ds-text-row,14px)}
 .okp-faint{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .okp-chips{display:flex;flex-wrap:wrap;gap:4px}
+/* 주요 인물 0명: 공용 빈 글(.wait-empty, 흐린 작은 글) + [+ 인물] 글자 단추 한 줄. 칩 줄은 사람이 있을 때만. */
+.okp-zero{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--kptu-space-1) var(--kptu-space-2)}
+.okp-zero>.wait-empty{margin:0}
+/* 창 공용 글자 규칙(workspace-ui.css D-6b: 창 안 h4 16px·p 14px)이 아이디 무게로 이 칸의 작은 글 규칙을 덮던 것 — 이 칸 작은 머리·'요즘' 줄은 원래대로 작은 글. */
+#wdModal #wdPeople :is(.okp-h,.okp-brief,.okp-faint){font-size:var(--ds-text-meta)}
 /* LIB-맨위다듬기(S53-18) 같은 종류 전수: 주요 인물 칩도 공용 거르기 칩 모양(26px·옅은 선, 고른 칩만 공용 선택 색, 굵게 하지 않음). */
 .okp-chip,.okp-add{position:relative;height:var(--ds-chip-row-height,26px);min-height:0;padding:0 var(--ds-chip-row-pad-x,8px);border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-text-meta);-webkit-touch-callout:none;user-select:none}
 .okp-chip::after,.okp-add::after{content:"";position:absolute;inset:-8px -2px}
