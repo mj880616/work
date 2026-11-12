@@ -1,0 +1,102 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 받는 폴더(잡동사니) 자료를 알맞은 폴더로 나누기 — 제안 보고 승인 (LIB-받는폴더나누기)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#6e6c60}
+.ph{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;border:1px solid #cfc8b6;border-radius:1em;line-height:1.45;padding:.7em .9em .8em;margin-bottom:.6em;position:relative}
+.bar{display:flex;align-items:center;gap:.4em;margin:0 0 .45em;font-size:.92em;color:#6e6c60}
+.bar b{color:#2a2a23}
+.bar .sp{margin-left:auto}
+.rc{font-size:.8em;color:#5c6a35;border:1px solid #cfc8b6;border-radius:1em;padding:0 .45em}
+.btn{border:1px solid #cfc8b6;border-radius:.45em;padding:.1em .55em;font-size:.9em;color:#2a2a23;background:#fffefa;white-space:nowrap}
+.btn.pri{background:#47532a;border-color:#47532a;color:#fffefa}
+.new{outline:.14em solid #b8663a;outline-offset:.12em}
+.lrow{display:flex;align-items:center;gap:.45em;padding:.32em 0;border-top:1px solid #e2ddd0}
+.k{display:inline-block;min-width:2.3em;text-align:center;border-radius:.3em;padding:0 .3em;font-size:.78em;color:#fffefa;flex:none}
+.k.hwp{background:#4a74a8}.k.pdf{background:#b5523f}.k.xls{background:#3f7d4c}.k.ppt{background:#c07a2c}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow small{color:#6e6c60}
+.sheet{border:1px solid #cfc8b6;border-radius:.8em;background:#fffefa;padding:.6em .7em .7em;box-shadow:0 .4em 1.2em rgba(0,0,0,.12)}
+.sheet h3{margin:0 0 .15em;font-size:1em;display:flex;align-items:center}
+.sheet h3 i{margin-left:auto;font-style:normal;color:#6e6c60;font-weight:400}
+.sheet .sub{color:#6e6c60;font-size:.85em;margin:0 0 .4em}
+.sg{display:grid;grid-template-columns:1.3em 1fr;gap:.1em .4em;padding:.38em 0;border-top:1px solid #e2ddd0;align-items:start}
+.cb{width:1em;height:1em;border:1px solid #6e6c60;border-radius:.2em;margin-top:.2em;display:flex;align-items:center;justify-content:center;font-size:.8em;color:#fffefa;background:#47532a;border-color:#47532a}
+.cb.off{background:#fffefa;border-color:#6e6c60}
+.sg .to{grid-column:2;font-size:.88em;color:#47532a}
+.sg .to .pick{border:1px solid #cfc8b6;border-radius:.35em;padding:0 .4em;color:#2a2a23;background:#f7f5ee}
+.sg .why{grid-column:2;font-size:.8em;color:#6e6c60}
+.grp{margin:.5em 0 0;padding:.4em 0 0;border-top:1px solid #e2ddd0;color:#6e6c60;font-size:.86em}
+.foot{display:flex;gap:.4em;justify-content:flex-end;margin-top:.6em}
+.menu{position:absolute;right:.9em;top:2.2em;background:#fffefa;border:1px solid #cfc8b6;border-radius:.6em;box-shadow:0 .4em 1.2em rgba(0,0,0,.14);padding:.25em 0;font-size:.92em;width:15em}
+.menu div{padding:.32em .8em}
+.menu .on{color:#2a2a23}
+.toast{display:inline-flex;gap:.6em;align-items:center;background:#2a2a23;color:#fffefa;border-radius:.5em;padding:.35em .7em;font-size:.88em}
+.toast u{text-decoration:none;color:#e5d9a8}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.65;margin-top:14px;max-width:31.7em}
+.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 잡동사니(받는 폴더) 자료를 알맞은 폴더로 나누기</h1>
+<p class="note">폰 412 폭으로 그렸어요. 폴더·자료 이름은 모두 예시예요. 주황 테두리가 새로 생기는 부분이에요.</p>
+
+<div class="ph">
+<div class="cap">① 잡동사니 폴더를 연 화면 <small>자료가 쌓이면 위 줄에 작은 [폴더로 나누기]</small></div>
+<div class="scr">
+  <div class="bar">‹ 자료실 › <b>잡동사니</b> <span class="rc">받는 폴더</span><span class="sp btn new">폴더로 나누기</span></div>
+  <div class="lrow"><span class="k hwp">한글</span><span class="nm">예시 2026 임금협약 잠정합의서</span><small>11/11</small></div>
+  <div class="lrow"><span class="k pdf">PDF</span><span class="nm">예시 확대쟁대위 자료 최종</span><small>11/11</small></div>
+  <div class="lrow"><span class="k hwp">한글</span><span class="nm">예시 총파업 선포 기자회견문</span><small>11/10</small></div>
+  <div class="lrow"><span class="k xls">엑셀</span><span class="nm">예시 조합원 교육 명단</span><small>11/09</small></div>
+  <div class="lrow"><span class="k ppt">PPT</span><span class="nm">예시 발표자료_v2</span><small>11/08</small></div>
+  <div class="lrow" style="color:#6e6c60;font-size:.9em">… 12개 더</div>
+</div>
+
+<div class="cap">② 같은 것을 폴더 메뉴에서도 <small>잡동사니 우클릭(폰 ⋯)</small></div>
+<div class="scr" style="height:9.2em">
+  <div class="bar">‹ 자료실<span class="sp">날짜순 ▾</span></div>
+  <div class="lrow"><span class="nm">📁 잡동사니</span><small>17</small></div>
+  <div class="menu"><div>이름 바꾸기</div><div class="on">✓ 폴더 안 정한 자료 받기</div><div class="new">폴더로 나누기</div><div>휴지통으로</div></div>
+</div>
+
+<div class="cap">③ [폴더로 나누기]를 누르면 — 제안 창 <small>누르는 즉시 창이 뜨고, 제안은 뒤에서 채워짐</small></div>
+<div class="scr" style="padding:.5em">
+ <div class="sheet new">
+  <h3>폴더로 나누기 제안 <i>✕</i></h3>
+  <p class="sub">17개 중 14개에 폴더를 찾았어요. 체크한 것만 옮겨요.</p>
+  <div class="sg"><span class="cb">✓</span><span class="nm"><span class="k hwp">한글</span> 예시 2026 임금협약 잠정합의서</span>
+    <span class="to">→ <span class="pick">📁 예시 조직 › 교섭 ▾</span></span><span class="why">같은 이름으로 시작하는 자료 4개가 이 폴더에 있어요</span></div>
+  <div class="sg"><span class="cb">✓</span><span class="nm"><span class="k pdf">PDF</span> 예시 확대쟁대위 자료 최종</span>
+    <span class="to">→ <span class="pick">📁 회의 › 쟁대위 ▾</span></span><span class="why">분류 '회의' · 같은 회의 자료가 이 폴더에</span></div>
+  <div class="sg"><span class="cb">✓</span><span class="nm"><span class="k hwp">한글</span> 예시 총파업 선포 기자회견문</span>
+    <span class="to">→ <span class="pick">📁 성명·보도자료 › 2026 ▾</span></span><span class="why">분류 '성명·보도자료'</span></div>
+  <div class="sg"><span class="cb off"></span><span class="nm"><span class="k xls">엑셀</span> 예시 조합원 교육 명단</span>
+    <span class="to">→ <span class="pick">📁 교육 ▾</span></span><span class="why">명진이 체크를 풀면 그대로 잡동사니에 남아요</span></div>
+  <div class="grp">폴더를 못 찾은 3개 — 그대로 둬요 ▸</div>
+  <div class="foot"><span class="btn">닫기</span><span class="btn pri">고른 13개 옮기기</span></div>
+ </div>
+</div>
+
+<div class="cap">④ 폴더를 바꾸고 싶으면 <small>'📁 … ▾'를 누르면 지금 폴더 고르기 창(자료 옮기기와 같은 창)</small></div>
+
+<div class="cap">⑤ 옮긴 뒤</div>
+<div class="scr">
+  <div class="bar">‹ 자료실 › <b>잡동사니</b> <span class="rc">받는 폴더</span></div>
+  <div class="lrow"><span class="k ppt">PPT</span><span class="nm">예시 발표자료_v2</span><small>11/08</small></div>
+  <div class="lrow"><span class="k hwp">한글</span><span class="nm">예시 메모</span><small>11/07</small></div>
+  <div style="margin-top:.6em"><span class="toast">13개를 폴더로 옮겼어요 <u>되돌리기</u></span></div>
+</div>
+</div>
+
+<div class="legend">
+<b>요청함 방 추천 — 명진 확정 아님</b><br>
+· 제안은 두 가지를 섞어요: ① 지금 있는 규칙(같은 이름으로 시작하는 자료가 든 폴더, 분류·사업이 같으면 더 점수) ② 그걸로 못 찾은 것만 AI가 제목·본문 첫머리·분류를 보고 내 폴더 목록 중에서 고름. AI는 새 폴더를 만들지 않아요.<br>
+· AI는 제안까지만 — 명진이 [옮기기]를 눌러야 옮겨요. 체크를 풀거나 폴더를 바꿀 수 있어요.<br>
+· [폴더로 나누기]는 받는 폴더에 자료가 1개 이상일 때만 보여요. 저절로 알림은 띄우지 않아요(필요하면 나중에).<br>
+· 옮긴 뒤 [되돌리기] 한 번으로 이번에 옮긴 것 전부 잡동사니로.
+</div>
+</body></html>
