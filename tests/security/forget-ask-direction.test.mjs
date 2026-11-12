@@ -20,11 +20,13 @@ test('소식: 지시문에 방향 규칙, 답 형식에 from_me 필수', ()=>{
   assert.ok(it.required.includes('from_me'));assert.equal(it.properties.from_me.type,'boolean');
 });
 
-test("소식: '내가 ○○지부에 자료 요청'을 할 일(task)로 고른 답은 버리고, 나에게 온 요청은 그대로 받는다", ()=>{
+test("소식: '내가 ○○지부에 자료 요청'을 할 일(task)로 고른 답은 상대 약속(promise)으로 바꾸고, 나에게 온 요청은 그대로 받는다", ()=>{
   const out=jm.parseMemorable(JSON.stringify({items:[
     {n:1,kind:'task',org:'가상지부',line:'가상지부 자료 보내기.',why:'자료 요청',from_me:true},
     {n:2,kind:'task',org:'가상지부',line:'가상지부에 회신하기.',why:'회신 요청',from_me:false}]}),rows);
-  assert.deepEqual(out.map(p=>[p.feed_item_id,p.kind]),[[F2,'task']]);
+  // S61-11: 버리지 않고 상대 약속(promise)으로 받는다(이유 앞 꼬리도 '상대 약속').
+  assert.deepEqual(out.map(p=>[p.kind,p.reason]),[['promise','상대 약속 · 자료 요청'],['task','할 일 · 회신 요청']]);
+  assert.equal(out[1].feed_item_id,F2);
   // 할 일이 아닌 종류(기억할 것·일정)는 방향과 상관없이 받는다(상대가 하기로 한 약속을 기억해 두는 줄).
   const note=jm.parseMemorable(JSON.stringify({items:[{n:1,kind:'note',org:'가상지부',line:'가상지부가 자료 보내기로 함.',why:'내가 요청',from_me:true}]}),rows);
   assert.deepEqual(note.map(p=>p.kind),['note']);
