@@ -309,7 +309,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     await deleteBusinessRecord(saved.id, rt); // 사업 화면 알림(BIZ_NOW_EVENT)은 그 함수가 낸다
   }
   // 넣기 되돌리기 한 번: 기록 삭제 → 줄 되살리기(reopen). 삭제가 안 되면 줄도 그대로 두고, 삭제만 되고 되살리기가 안 되면 그대로 알린다(반쯤 된 것을 숨기지 않음).
-  const SAVED_UNDO = {failed: '되돌리지 못했어요. 다시 시도해 주세요.', half: '기록은 뺐지만 이 줄을 다시 보이게 하지 못했어요. 새로고침해 주세요.', done: '기록에서 빼고 다시 보이게 했어요.'};
+  const SAVED_UNDO = {failed: '되돌리지 못했어요. 다시 시도해 주세요.', half: '기록은 뺐지만 이 줄을 다시 보이게 하지 못했어요. [최신화]를 눌러 주세요.', done: '기록에서 빼고 다시 보이게 했어요.'};
   async function undoSaved(saved, reopen) {
     try { await dropSaved(saved); } catch { return {status: 'failed', message: SAVED_UNDO.failed}; }
     let back = false;
