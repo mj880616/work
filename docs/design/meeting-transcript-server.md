@@ -201,3 +201,13 @@ CC 지시(11/03 S49-2): A(서버 길·DB)를 먼저, B(회의자료 ⋯ [전사�
 - 서버 정리: `parts` jsonb 안에서만 한 자리를 `{…, range:{from,to}}` 조각 여러 개로 바꾼다(표 칸 추가·DB 변경 없음). 한 단계에 조각 하나, 진행 표시(step_no/step_total·parts_done/parts_total)는 조각 수. 실패하면 끝난 조각 글은 남고 [다시]는 그 조각부터(`nextPart`). 녹음 구간 행은 마지막 조각 뒤에만 done(그 전엔 uploaded).
 - 화면 transcribe([녹음·전사 넣기]·옛 화면 정리): 한 번 부름 안에서 한 번 읽은 소리를 조각마다 동시에(최대 3) 전사해 잇는다.
 - 사용량: 조각마다 지금 규칙대로 한 행(글 못 받으면 `mtgfail-`). 동시에 도는 조각은 ref 끝에 `-c<번호>`.
+
+## 11. 전사 모델 바꾸기 (REC-전사모델바꾸기, S60-9)
+
+- 명진 결정(11/12): 전사 전용 모델 `gemini-3.5-transcribe`(음성 입력 100만 토큰당 2달러·출력 12달러) → 일반 모델 `gemini-2.5-flash`(음성 1달러·출력 2.5달러, 생각 토큰도 출력값). 모델 이름은 `model.mjs TRANSCRIBE_MODEL` 한 곳(나중에 `gemini-2.5-flash-lite`와 비교할 때 여기만 바꿈, 가격표 `_shared/ai-prices.mjs`에 둘 다 있음).
+- 요청: `POST /v1beta/models/{모델}:generateContent` — 올린 녹음(`fileData`) + 받아 적기 지시문, `generationConfig` = temperature 0.2 · maxOutputTokens 65,536(공식 모델 안내의 출력 상한) · `thinkingConfig.thinkingBudget` 0(2.5 Flash는 0 = 생각 끔).
+- 화자: 전용 화자 구분 기능이 없어 지시문으로 '화자1: '·'화자2: ' 줄을 나눈다. 조각마다 1부터 새로 매긴다(구간 사이와 같음). '화자 1:'·'**화자1**:' 같은 머리는 `tidySpeakers`가 '화자N: '로 맞춘다.
+- 답 읽기(`readTranscript`): 차단(`promptFeedback.blockReason`)·그 밖 멈춤(SAFETY 등) → `gemini_failed`, 같은 말 되풀이 → `gemini_repeat`(새 코드), 출력 상한에서 잘림(`MAX_TOKENS`) → `gemini_incomplete`, 끝까지 왔는데 글 없음 → `gemini_empty`. 되풀이·잘림은 그 조각을 반으로 나눠 다시 한다(`HALVE_CODES`, 4분 조각에서 멈춤).
+- 되풀이 기준(`REPEAT_RULES`): 화자 머리·문장부호를 떼고 낱말로 나눠, 같은 묶음이 끊김 없이 이어진 횟수 — 1~3낱말 30번 · 4~15낱말 10번 · 16~80낱말 5번 이상.
+- 조각 길이 15분 → 30분(`split.mjs CHUNK_SECONDS`): 출력 상한이 두 배가 됐고, [녹음] 구간(29분 + 넘길 때 1분 조각)이 한 번 요청에 들어간다.
+- 사용량: `usageMetadata`(promptTokenCount·promptTokensDetails의 AUDIO·candidatesTokenCount + thoughtsTokenCount), 모델 이름은 `modelVersion`. 지난 `gemini-3.5-transcribe` 행은 옛 단가 그대로 센다.

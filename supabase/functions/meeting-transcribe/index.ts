@@ -27,7 +27,9 @@
 //   join_read {job_id} · join_list {} · join_retry {job_id} · join_seen {job_id, candidates?} · join_undo {job_id, scope:'before'|'joined'|'all'}
 //   몸통에 작업공간 값을 받지 않는다: 고른 보고를 부른 사람 로그인으로 읽고, 그 행의 작업공간으로 owner를 확인한 뒤에만 서비스 권한을 쓴다.
 //   뒤에서 summary(합친 전문으로 다시 요약) → apply(DB 함수 한 번, 보고 글은 여기서만 바뀜) → done. 다음 단계는 join_tick(서버 키 HMAC, job_tick과 다른 서명).
-// REC-긴녹음나눠전사(S60-7): 전사 모델은 한 번 답의 출력이 32,768토큰까지라 15분(split.mjs CHUNK_SECONDS)보다 긴 소리는 시간 조각으로 잘라
+// S60-9 REC-전사모델바꾸기: 전사 모델 이름은 model.mjs TRANSCRIBE_MODEL 한 곳 generateContent, 생각 끔·출력 65,536토큰,
+//   화자 구분은 지시문('화자1: ' 줄). 받은 글에 같은 말이 비정상으로 되풀이되면 gemini_repeat → 잘림과 같이 그 조각만 반으로 다시.
+// REC-긴녹음나눠전사(S60-7): 한 번 답의 출력에 상한이 있어 30분(split.mjs CHUNK_SECONDS, S60-9에서 15분 → 30분)보다 긴 소리는 시간 조각으로 잘라
 //   따로 전사하고 잇는다(Ogg/Opus·WebM·MP4, 소리는 풀지 않음). 서버 정리는 조각마다 한 단계(parts jsonb 안 range), 화면 transcribe는 한 번 부름 안에서
 //   조각을 동시에. 조각 답이 또 잘리면 그 조각만 반으로. 나눌 수 없는 형식(mp3·wav 등)·64MB 넘는 파일은 지금처럼 통째로.
 // 열쇠(비밀값 GEMINI_API_KEY)가 없으면 config는 ready=false, 나머지는 503 not_ready('준비 중').
@@ -37,7 +39,7 @@ import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
   Fail, GEMINI_KEY_NAME, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
   answerShape, attachDocument, audioMime, canStart, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
-  seoulDay, transcriptionRequest, trashBefore, usageRef, wantsDiarize,
+  seoulDay, transcribePath, transcriptionRequest, trashBefore, usageRef,
 } from './model.mjs';
 import {
   PIECE_FOLDER, REC_DRIVE_PARALLEL, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_ROLL_PIECES, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
@@ -233,14 +235,12 @@ async function geminiActive(key: string, name: string, state?: string) {
 async function geminiDelete(key: string, name: string) {
   try { await fetch(`${GEM}/v1beta/${name}`, { method: 'DELETE', headers: { 'x-goog-api-key': key } }); } catch { /* 48시간 뒤 Gemini가 지움 */ }
 }
-async function geminiTranscribe(key: string, uri: string, mime: string, diarize: boolean) {
-  const send = (d: boolean) => fetch(`${GEM}/v1beta/interactions`, {
+// S60-9 REC-전사모델바꾸기: 일반 모델(TRANSCRIBE_MODEL) generateContent 한 번. 화자 구분은 지시문으로 하므로 거절 뒤 다시 보내는 길은 없다.
+async function geminiTranscribe(key: string, uri: string, mime: string) {
+  const r = await fetch(`${GEM}${transcribePath(TRANSCRIBE_MODEL)}`, {
     method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
-    body: JSON.stringify(transcriptionRequest(uri, mime, d)), signal: AbortSignal.timeout(380000),
+    body: JSON.stringify(transcriptionRequest(uri, mime)), signal: AbortSignal.timeout(380000),
   });
-  let r = await send(diarize);
-  // 통화 전사와 같은 규칙: 화자 구분을 거절(400)하면 화자 구분 없이 한 번 더.
-  if (diarize && r.status === 400) { await geminiWarn('transcribe_diarize', r); r = await send(false); }
   if (!r.ok) { await geminiWarn('transcribe', r); throw new Fail(geminiCode(r.status)); }
   // 답 몸통 읽기(REC-글못찾음: 전엔 못 읽어도 로그 없이 gemini_failed). 받는 중에 기다림 상한(380초)이 지나면 늦음(gemini_timeout),
   // 연결이 끊겨 못 받았거나 JSON이 아니면 실패 — 어느 쪽인지 HTTP 상태·길이만 한 줄 남긴다(답 내용은 쓰지 않음).
@@ -360,7 +360,7 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
 const failCode = (e: unknown) => e instanceof Fail ? e.code : (e instanceof DOMException && e.name === 'TimeoutError' ? 'gemini_timeout' : 'failed');
 
 // ---- 소리 읽기·전사(화면 transcribe·서버 정리 공용) ----
-// REC-긴녹음나눠전사(S60-7): 전사 모델은 한 번 답이 출력 32,768토큰까지라 긴 소리는 글이 잘린다(gemini_incomplete). 길면 시간 구간으로 나눠
+// REC-긴녹음나눠전사(S60-7): 한 번 답의 출력에 상한이 있어(2.5 Flash 65,536토큰) 긴 소리는 글이 잘린다(gemini_incomplete). 길면 시간 구간으로 나눠
 // 따로 전사한다(split.mjs). 나누려면 파일을 메모리에 담아야 해서 SPLIT_MAX_BYTES까지만 담고, 그보다 크면 지금처럼 흘려 보낸다(나누지 않음).
 type Loaded = { body: ReadableStream<Uint8Array> | Uint8Array; size: number; mime: string; seconds: number | null; opened: ReturnType<typeof openAudio> };
 type Range = { from: number; to: number | null; seconds?: number };
@@ -401,8 +401,10 @@ async function loadAudio(job: Job): Promise<Loaded> {
 }
 const SLICE_MIME: Record<string, string> = { ogg: 'audio/ogg', webm: 'audio/webm', mp4: 'audio/mp4' };
 
+// 조각을 반으로 나눠 다시 하는 실패: 출력 상한에서 잘림 · 같은 말 되풀이(S60-9). 반 나눔은 split.mjs MIN_CHUNK_SECONDS에서 멈춘다(끝없이 나누지 않음).
+const HALVE_CODES = ['gemini_incomplete', 'gemini_repeat'];
 // 읽은 소리 한 번 전사. range가 없고 소리가 CHUNK_SECONDS보다 길며 나눌 수 있으면 전사하지 않고 {split}(나눌 구간)을 돌려준다.
-// 답이 끝까지 오지 않으면(gemini_incomplete) 나눌 수 있는 한 그 조각을 반으로 나눌 구간을 돌려준다(쓴 비용은 실패 머리로 기록됨).
+// 답이 끝까지 오지 않거나(gemini_incomplete) 같은 말을 되풀이하면(gemini_repeat) 나눌 수 있는 한 그 조각을 반으로 나눌 구간을 돌려준다(쓴 비용은 실패 머리로 기록됨).
 // 쓴 만큼 사용량 기록. Gemini에 올린 임시 파일은 끝나면 지운다. 작업 행 상태는 부른 쪽이 정한다.
 async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Range | null, piece = 0): Promise<Piece> {
   if (!range && audio.opened && audio.opened.seconds > CHUNK_SECONDS) return { split: chunkRanges(audio.opened.seconds) };
@@ -419,7 +421,7 @@ async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Ran
     const file = await geminiUpload(key, job.id, mime, body, size);
     geminiFile = file.name;
     await geminiActive(key, file.name, file.state);
-    const response = await geminiTranscribe(key, file.uri, file.mimeType || mime, wantsDiarize(duration));
+    const response = await geminiTranscribe(key, file.uri, file.mimeType || mime);
     // Gemini가 답했으면(글이 비었어도) 쓴 만큼 기록한다. 글을 못 받은 시도는 실패 머리로 적어 월 상한에서 뺀다(홈 AI 사용량에는 보임).
     const usage = readUsage(response, duration);
     let result: ReturnType<typeof readAnswer> | null = null;
@@ -431,9 +433,9 @@ async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Ran
     });
     if (usageError) console.warn('meeting-transcribe: usage not recorded', usageError.code);
     if (!result) {
-      if (answerError instanceof Fail && answerError.code === 'gemini_incomplete' && audio.opened) {
+      if (answerError instanceof Fail && HALVE_CODES.includes(answerError.code) && audio.opened) {
         const halves = halveRange(range, audio.opened.seconds);
-        if (halves.length) { console.warn('meeting-transcribe: split after incomplete', Math.round((span || 0) / 60)); return { split: halves }; }
+        if (halves.length) { console.warn('meeting-transcribe: split after', answerError.code, Math.round((span || 0) / 60)); return { split: halves }; }
       }
       throw answerError;
     }

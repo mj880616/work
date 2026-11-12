@@ -23,133 +23,123 @@ test('upload headers: audio only, 100MB, 1 hour, safe file name',()=>{
  assert.equal(m.MAX_BYTES,100*1024*1024);assert.equal(m.MAX_SECONDS,3600);
 });
 
-test('request matches the call transcription script: ko-KR verbatim, speaker diarization up to 30 min, store false',()=>{
- const r=m.transcriptionRequest('files/x','audio/mp4',true);
- assert.deepEqual(r,{model:m.TRANSCRIBE_MODEL,input:[{type:'audio',uri:'files/x',mime_type:'audio/mp4'}],generation_config:{transcription_config:{language_codes:['ko-KR'],mode:{type:'verbatim',diarization_mode:'speaker'}}},store:false});
- assert.deepEqual(m.transcriptionRequest('u','audio/mp4',false).generation_config.transcription_config.mode,{type:'verbatim'});
- assert.equal(m.wantsDiarize(1800),true);assert.equal(m.wantsDiarize(1801),false);assert.equal(m.wantsDiarize(null),false);
- // 400이면 화자 구분 없이 한 번 더(통화 전사와 같은 규칙)
- assert.match(index,/if \(diarize && r\.status === 400\) \{[^}]*r = await send\(false\); \}/);
+// S60-9 REC-전사모델바꾸기: gemini-2.5-flash generateContent(공식 REST 모양). 아래 답은 그 모양을 흉내 낸 것(글은 모두 지어냄).
+const ans=(text,finish='STOP',extra={})=>({candidates:[{content:{role:'model',parts:[{text}]},finishReason:finish}],usageMetadata:{promptTokenCount:100,candidatesTokenCount:50},modelVersion:'gemini-2.5-flash',...extra});
+const code=j=>{try{m.readTranscript(j);return 'ok'}catch(e){return e.code}};
+
+test('S60-9 request: generateContent with uploaded file + verbatim Korean prompt, thinking off, low temperature, max output 65,536',()=>{
+ assert.equal(m.TRANSCRIBE_MODEL,'gemini-2.5-flash');
+ assert.equal(m.transcribePath(),'/v1beta/models/gemini-2.5-flash:generateContent');
+ assert.equal(m.transcribePath('gemini-2.5-flash-lite'),'/v1beta/models/gemini-2.5-flash-lite:generateContent');
+ const r=m.transcriptionRequest('https://generativelanguage.googleapis.com/v1beta/files/x','audio/ogg');
+ assert.deepEqual(r,{
+  contents:[{role:'user',parts:[{fileData:{mimeType:'audio/ogg',fileUri:'https://generativelanguage.googleapis.com/v1beta/files/x'}},{text:m.TRANSCRIBE_PROMPT}]}],
+  generationConfig:{temperature:0.2,maxOutputTokens:65536,thinkingConfig:{thinkingBudget:0}},
+ });
+ assert.equal(m.TRANSCRIBE_MAX_OUTPUT_TOKENS,65536);assert.ok(m.TRANSCRIBE_TEMPERATURE>0&&m.TRANSCRIBE_TEMPERATURE<=0.3);
+ // 지시문: 그대로 받아 적기(요약·의역 금지) · 화자 줄 · 안 들림 표시 · 머리말 없음.
+ for(const re of [/한국어 회의/,/그대로 받아 적/,/요약·의역/,/'화자1: ', '화자2: '/,/처음 말한 순서대로 1부터/,/'\(안 들림\)'/,/마크다운 없이/])assert.match(m.TRANSCRIBE_PROMPT,re);
+ // 모델 이름은 한 곳: Edge는 TRANSCRIBE_MODEL로만 부르고, 옛 전사 전용 길(interactions·화자 구분 거절 뒤 다시)은 없다.
+ assert.match(index,/fetch\(`\$\{GEM\}\$\{transcribePath\(TRANSCRIBE_MODEL\)\}`/);
+ assert.match(index,/body: JSON\.stringify\(transcriptionRequest\(uri, mime\)\), signal: AbortSignal\.timeout\(380000\)/);
+ assert.doesNotMatch(index,/v1beta\/interactions|diariz|wantsDiarize|gemini-[0-9]/);
+ assert.match(index,/geminiTranscribe\(key, file\.uri, file\.mimeType \|\| mime\)/);
+ assert.equal((index.match(/await transcribeLoaded\(/g)||[]).length,3,'세 길(화면·구간·회의자료 파일) 모두 같은 전사 한 곳');
+ assert.equal((index.match(/await runTranscription\(/g)||[]).length,1);
+ assert.doesNotMatch(index,/body\.segment_seconds|body\.model|body\.prompt/,'화면이 보낸 모델·지시문은 쓰지 않는다');
 });
 
-test('transcript reading: speaker lines like the call script, plain text fallback, incomplete/empty fail',()=>{
- const words=(...w)=>({status:'completed',output_text:'전체 글',steps:[{type:'model_output',content:[{type:'text',text:'전체 글',annotations:w.map(([speaker,text])=>({type:'word_info',speaker,text}))}]}]});
- assert.deepEqual(m.readTranscript(words(['spk_1','안녕하세요'],['spk_1','.'],['spk_2','네'],['spk_1','시작'])),{text:'화자1: 안녕하세요.\n화자2: 네\n화자1: 시작',speakerSplit:true});
- assert.deepEqual(m.readTranscript(words(['spk_1','혼자'])),{text:'전체 글',speakerSplit:false});
- assert.deepEqual(m.readTranscript({steps:[{content:[{type:'text',text:'  a '},{type:'text',text:'b'}]}]}),{text:'a \nb',speakerSplit:false});
- assert.equal(m.readTranscript({interaction:{output_text:'x'}}).text,'x');
- const code=j=>{try{m.readTranscript(j);return 'ok'}catch(e){return e.code}};
- // REC-글못찾음: 완료 아닌 답·빈 답은 원인별 코드(전엔 모두 gemini_failed / '녹음에 글 없음'과 같은 empty_transcript).
- assert.equal(code({status:'in_progress',output_text:'x'}),'gemini_timeout');
- assert.equal(code({status:'completed',output_text:'  '}),'gemini_empty');
- assert.equal(code(null),'gemini_failed');
-});
-
-// REC-글못찾음(S59-2): 11/11 41분 구간이 한 번은 gemini_failed(완료 아닌 답·못 읽은 답, 로그 없음), 한 번은 empty_transcript(완료인데 글 못 찾음).
-// 공식 Interactions REST 답 모양(2026-11-11 확인): steps[type model_output].content[type text].text, output_text는 SDK 편의 값,
-// status in_progress·requires_action·completed·failed·cancelled·incomplete. 아래 답은 그 모양을 흉내 낸 것(글은 지어냄).
-test('REC-글못찾음: long-audio answer shapes — many model_output steps/parts, thought steps, wrapped answers, status by cause',()=>{
- const code=j=>{try{m.readTranscript(j);return 'ok'}catch(e){return e.code}};
- // 긴 소리: 글이 model_output 단계 여러 개·text 조각 여러 개로 온다(output_text 없음) → 모두 잇는다.
- const chunk=i=>({type:'text',text:`구간 ${i} 말`});
- const long={id:'i-1',status:'completed',steps:[
-  {type:'thought',summary:[{type:'text',text:'생각'}],signature:'sig'},
-  {type:'model_output',content:[chunk(1),chunk(2),chunk(3)]},
-  {type:'model_output',content:[chunk(4),{type:'text',text:''},chunk(5)]},
- ],usage:{total_input_tokens:79456,total_output_tokens:9000}};
- assert.deepEqual(m.readTranscript(long),{text:'구간 1 말\n구간 2 말\n구간 3 말\n구간 4 말\n\n구간 5 말',speakerSplit:false});
- // 생각(thought)·입력(user_input) 단계의 글은 전사 글이 아니다.
- assert.equal(code({status:'completed',steps:[{type:'thought',content:[{type:'text',text:'생각만'}]},{type:'user_input',content:[{type:'text',text:'지시'}]}]}),'gemini_empty');
- // 감싼 답(interaction 안에 status·steps)도 같은 규칙.
- assert.equal(m.readTranscript({interaction:{status:'completed',steps:[{type:'model_output',content:[chunk(9)]}]}}).text,'구간 9 말');
- assert.equal(code({interaction:{status:'incomplete',steps:[{type:'model_output',content:[chunk(9)]}]}}),'gemini_incomplete');
- // 완료 아님: 진행 중 = 한 번 요청 안에 안 끝남(늦음), 일부만 = 따로, 나머지 = 전사 서비스 실패. 글이 있어도 일부만인 답은 받지 않는다.
- assert.equal(code({...long,status:'in_progress'}),'gemini_timeout');
- assert.equal(code({...long,status:'incomplete'}),'gemini_incomplete');
- for(const s of ['failed','cancelled','requires_action','done','x'])assert.equal(code({...long,status:s}),'gemini_failed',s);
- // 완료인데 글 없음: 단계 없음 · 빈 text 조각뿐 · 다른 종류 조각뿐 → gemini_empty(소리 탓으로 단정하지 않음, [다시] 가능).
- assert.equal(code({status:'completed',steps:[]}),'gemini_empty');
- assert.equal(code({status:'completed'}),'gemini_empty');
- assert.equal(code({status:'completed',steps:[{type:'model_output',content:[{type:'text',text:' \n '}]}]}),'gemini_empty');
- assert.equal(code({status:'completed',steps:[{type:'model_output',content:[{type:'audio',uri:'x'}]}]}),'gemini_empty');
- assert.equal(code([]),'gemini_failed');assert.equal(code('x'),'gemini_failed');
+test('S60-9 reading: text parts joined, speaker heads tidied, thought parts skipped, cause by finishReason/block',()=>{
+ assert.deepEqual(m.readTranscript(ans('화자1: 안녕하세요.\n화자2: 네.\n화자1: 시작할게요.')),{text:'화자1: 안녕하세요.\n화자2: 네.\n화자1: 시작할게요.',speakerSplit:true});
+ // 한 답 안의 text 조각은 이어진 글(줄바꿈을 끼우지 않음), 생각 조각(thought:true)은 전사 글이 아님.
+ const split={candidates:[{content:{parts:[{text:'생각 요약',thought:true},{text:'화자1: 앞부분 '},{text:'뒷부분\n화자2: 네'}]},finishReason:'STOP'}]};
+ assert.deepEqual(m.readTranscript(split),{text:'화자1: 앞부분 뒷부분\n화자2: 네',speakerSplit:true});
+ // 머리를 조금 다르게 써도 '화자N: '로 맞춘다. 한 사람뿐이면 speakerSplit false(실패 아님).
+ assert.equal(m.readTranscript(ans('**화자 1:** 가\n화자02： 나\n  화자3 :다')).text,'화자1: 가\n화자2: 나\n화자3: 다');
+ assert.deepEqual(m.readTranscript(ans('화자1: 혼자 말함')),{text:'화자1: 혼자 말함',speakerSplit:false});
+ assert.deepEqual(m.readTranscript(ans('머리 없는 글 (안 들림) 이어서')),{text:'머리 없는 글 (안 들림) 이어서',speakerSplit:false});
+ assert.equal(m.readTranscript(ans('화자1: 가','FINISH_REASON_UNSPECIFIED')).text,'화자1: 가');
+ assert.equal(m.readTranscript({candidates:[{content:{parts:[{text:'화자1: 가'}]}}]}).text,'화자1: 가','끝난 이유가 없으면 글로 받음');
+ // 잘림(MAX_TOKENS) → gemini_incomplete(반으로 나눠 다시), 차단·그 밖 멈춤 → gemini_failed, 끝까지 왔는데 글 없음 → gemini_empty.
+ assert.equal(code(ans('화자1: 길게 이어지다','MAX_TOKENS')),'gemini_incomplete');
+ assert.equal(code(ans('','MAX_TOKENS')),'gemini_incomplete');
+ for(const f of ['SAFETY','RECITATION','BLOCKLIST','PROHIBITED_CONTENT','SPII','OTHER','LANGUAGE','MALFORMED_FUNCTION_CALL','weird','설마'])assert.equal(code(ans('화자1: 글',f)),'gemini_failed',f);
+ assert.equal(code({promptFeedback:{blockReason:'SAFETY'}}),'gemini_failed');
+ assert.equal(code({promptFeedback:{blockReason:'OTHER'},candidates:[]}),'gemini_failed');
+ assert.equal(code(ans(' \n ')),'gemini_empty');
+ assert.equal(code({candidates:[]}),'gemini_empty');assert.equal(code({}),'gemini_empty');
+ assert.equal(code({candidates:[{content:{parts:[{text:'생각만',thought:true}]},finishReason:'STOP'}]}),'gemini_empty');
+ assert.equal(code({candidates:[{content:{parts:[{inlineData:{mimeType:'audio/ogg',data:'x'}}]},finishReason:'STOP'}]}),'gemini_empty');
+ assert.equal(code(null),'gemini_failed');assert.equal(code([]),'gemini_failed');assert.equal(code('x'),'gemini_failed');
  // 코드마다 서버 문구·HTTP 상태·화면 갈래(전사 서비스)가 있다.
- for(const c of ['gemini_empty','gemini_incomplete']){assert.ok(m.MESSAGES[c],c);assert.equal(m.STATUS[c],502,c);assert.equal(m.FAIL_KIND[c],'gemini',c);assert.match(m.MESSAGES[c],/녹음은 그대로 있어요/);}
- assert.notEqual(m.MESSAGES.gemini_empty,m.MESSAGES.empty_transcript);assert.notEqual(m.MESSAGES.gemini_incomplete,m.MESSAGES.gemini_failed);
+ for(const c of ['gemini_empty','gemini_incomplete','gemini_repeat']){assert.ok(m.MESSAGES[c],c);assert.equal(m.STATUS[c],502,c);assert.equal(m.FAIL_KIND[c],'gemini',c);assert.match(m.MESSAGES[c],/녹음은 그대로 있어요/);}
+ assert.equal(new Set(['gemini_empty','gemini_incomplete','gemini_repeat','gemini_failed','empty_transcript'].map(c=>m.MESSAGES[c])).size,5,'원인마다 다른 글');
 });
 
-test('REC-글못찾음: answer shape log line has names and counts only — never transcript, error text or file address',()=>{
+test('S60-9 repeat detection: abnormal loops fail as gemini_repeat (before MAX_TOKENS), ordinary meeting talk passes',()=>{
+ const lines=(n,f)=>Array.from({length:n},(_,i)=>f(i)).join('\n');
+ // 받아들임: 보통 회의 말 · 짧은 맞장구 몇 번 · 같은 줄 몇 번 · 표결처럼 같은 말이 이어져도 기준 아래.
+ const normal=lines(400,i=>`화자${i%3+1}: ${i}번째 안건은 예산 ${i*7}만 원과 일정 ${i%12+1}월을 함께 보자는 말입니다.`);
+ assert.equal(m.repeatRun(normal),null);assert.equal(code(ans(normal)),'ok');
+ assert.equal(m.repeatRun('화자1: 네 네 네 네 네 맞아요.\n화자2: 네.\n화자1: 네.\n화자2: 네.'),null);
+ assert.equal(m.repeatRun(lines(29,i=>`화자${i+1}: 찬성.`)),null,'1낱말 29번 연속은 받음');
+ assert.equal(m.repeatRun(lines(9,()=>'화자1: 오늘 회의는 여기까지 하겠습니다 수고하셨습니다.')),null,'한 문장 9번은 받음');
+ assert.equal(m.repeatRun(''),null);
+ // 실패: 1~3낱말 30번 · 4~15낱말 10번 · 16~80낱말 5번 연속(화자 머리·문장부호는 떼고 본다 — 화자를 번갈아도 같은 말이면 되풀이).
+ assert.deepEqual(m.repeatRun(lines(30,i=>`화자${i%2+1}: 찬성.`)),{words:1,times:30});
+ assert.deepEqual(m.repeatRun('그래서 '.repeat(200)),{words:1,times:200});
+ assert.deepEqual(m.repeatRun(lines(10,()=>'화자1: 오늘 회의는 여기까지 하겠습니다 수고하셨습니다.')),{words:5,times:10});
+ const block=Array.from({length:20},(_,i)=>`말${i}`).join(' ');
+ assert.equal(m.repeatRun(Array(4).fill(block).join('\n')),null);
+ assert.deepEqual(m.repeatRun(Array(5).fill(block).join('\n')),{words:20,times:5});
+ // 앞부분이 멀쩡해도 끝에서 되풀이에 빠지면 그 조각은 실패(반으로 나눠 다시) — 잘림(MAX_TOKENS)보다 되풀이를 먼저 본다.
+ const loop=normal+'\n'+lines(60,()=>'화자2: 그 부분은 다시 확인해 보겠습니다.');
+ assert.equal(code(ans(loop)),'gemini_repeat');assert.equal(code(ans(loop,'MAX_TOKENS')),'gemini_repeat');
+ assert.deepEqual(m.REPEAT_RULES.map(r=>[r.maxWords,r.times]),[[3,30],[15,10],[80,5]]);
+ assert.ok(Object.isFrozen(m.REPEAT_RULES));
+ // 끝없이 나누지 않는다: 되풀이·잘림 둘 다 같은 반 나누기(MIN_CHUNK_SECONDS에서 멈춤)를 탄다.
+ assert.match(index,/const HALVE_CODES = \['gemini_incomplete', 'gemini_repeat'\];/);
+ assert.match(index,/answerError instanceof Fail && HALVE_CODES\.includes\(answerError\.code\) && audio\.opened\) \{\n\s*const halves = halveRange\(range, audio\.opened\.seconds\);/);
+ // 긴 답에서도 빠르다(출력 상한 65,536토큰 ≈ 12만 자 이상).
+ const big='화자1: '+Array.from({length:40000},(_,i)=>`낱말${i}`).join(' ');
+ const t0=Date.now();assert.equal(m.repeatRun(big),null);assert.ok(Date.now()-t0<2000,'2초 안');
+});
+
+test('S60-9 answer shape log line has names and counts only — never transcript, block text or file address',()=>{
  const secret='비밀회의내용';
- const shape=m.answerShape({id:'i-1',status:'completed',steps:[
-  {type:'thought',summary:[{type:'text',text:secret}]},
-  {type:'model_output',content:[{type:'text',text:'  ',annotations:[{type:'word_info',text:secret,speaker:'spk_1'},{type:'word_info',text:secret,speaker:'spk_2'}]},{type:'audio',uri:`files/${secret}`}]},
-  {type:'Weird-Type',content:[{type:'text',text:secret}]},
- ],errors:[{code:'RESOURCE_EXHAUSTED',message:secret},{code:13,message:secret},{code:secret}],usage:{total_output_tokens:0},[secret]:1});
+ const shape=m.answerShape({candidates:[{content:{parts:[{text:`화자1: ${secret}\n화자2: 네`},{text:secret,thought:true},{fileData:{fileUri:`files/${secret}`}}]},finishReason:'MAX_TOKENS',safetyRatings:[{category:secret}]}],
+  usageMetadata:{promptTokenCount:78720,candidatesTokenCount:65536,thoughtsTokenCount:0},modelVersion:secret,[secret]:1});
  assert.doesNotMatch(shape,new RegExp(secret));assert.doesNotMatch(shape,/files\//);
- assert.equal(shape,'status=completed wrap=- keys=?,errors,id,status,steps,usage steps=3(thought:1,model_output:1,?:1) parts=text:1,audio:1 chars=0 blank=1 words=2 speakers=2 output_text=- errors=resource_exhausted:1,13:1,?:1 out_tokens=0');
- assert.match(m.answerShape({interaction:{status:'incomplete',steps:[{type:'model_output',content:[{type:'text',text:'가나다'}]}],usage:{total_output_tokens:32000}}}),/^status=incomplete wrap=interaction keys=status,steps,usage steps=1\(model_output:1\) parts=text:1 chars=3 blank=0 words=0 speakers=0 output_text=- errors=- out_tokens=32000$/);
- assert.equal(m.answerShape({status:'completed',output_text:' 가나 '}).includes('output_text=2'),true);
- assert.equal(m.answerShape({status:'설마'}).startsWith('status=? '),true);
+ assert.equal(shape,`finish=MAX_TOKENS block=- keys=?,candidates,modelVersion,usageMetadata cands=1 parts=text:1,thought:1,fileData:1 chars=${`화자1: ${secret}\n화자2: 네`.length} blank=0 lines=2 speakers=2 repeat=- out_tokens=65536 thought_tokens=0`);
+ assert.equal(m.answerShape({promptFeedback:{blockReason:'SAFETY'}}),'finish=- block=SAFETY keys=promptFeedback cands=0 parts=- chars=0 blank=0 lines=0 speakers=0 repeat=- out_tokens=- thought_tokens=-');
+ assert.match(m.answerShape({promptFeedback:{blockReason:secret}}),/ block=\? /);
+ assert.match(m.answerShape(ans('그래서 '.repeat(50),'MAX_TOKENS')),/ repeat=1x50 /);
+ assert.match(m.answerShape(ans('x','설마')),/^finish=\? /);
  assert.equal(m.answerShape(null),'type=null');assert.equal(m.answerShape([]),'type=array');assert.equal(m.answerShape('x'),'type=string');
- // 서버는 답을 못 읽으면(완료 아님·글 없음) 이 모양을 한 줄 남긴다. 사용량은 답이 왔으면 쓴 만큼 기록(못 읽은 시도는 실패 머리로, 월 상한 밖).
+ // 서버는 답을 못 읽으면 이 모양을 한 줄 남긴다. 사용량은 답이 왔으면 쓴 만큼 기록(못 읽은 시도는 실패 머리로, 월 상한 밖).
  assert.match(index,/function readAnswer\(d: unknown\) \{\n\s*try \{ return readTranscript\(d\); \} catch \(e\) \{\n\s*if \(e instanceof Fail\) console\.warn\('meeting-transcribe: gemini answer', e\.code, answerShape\(d\)\);\n\s*throw e;/);
  assert.match(index,/try \{ result = readAnswer\(response\); \} catch \(e\) \{ answerError = e; \}/);
  assert.equal((index.match(/readTranscript\(/g)||[]).length,1,'답 읽기는 readAnswer 한 곳');
- assert.ok(index.indexOf('readUsage(response, job.duration_sec)')<index.indexOf('readAnswer(response)'));
+ assert.ok(index.indexOf('readUsage(response, duration)')<index.indexOf('readAnswer(response)'));
  // 답 몸통을 받다가 기다림 상한이 지나면 늦음, 끊김·JSON 아님은 실패 — 둘 다 상태·길이만 로그(내용 없음).
  const gt=index.slice(index.indexOf('async function geminiTranscribe'),index.indexOf('function readAnswer'));
  assert.match(gt,/try \{ raw = await r\.text\(\); \} catch \(e\) \{/);
  assert.match(gt,/throw new Fail\(late \? 'gemini_timeout' : 'gemini_failed'\)/);
  assert.match(gt,/console\.warn\('meeting-transcribe: gemini answer not json', r\.status, raw\.length\);/);
  assert.doesNotMatch(gt,/console\.warn\([^;]*raw\)/);assert.doesNotMatch(gt,/r\.json\(\)\.catch/);
-});
-
-// REC-발언자구분(S58-6): 녹음 구간을 29분으로 줄여 긴 회의도 구간마다 발언자 구분이 켜진다. 글은 모두 지어낸 것.
-test('REC-발언자구분: 29-minute recording segments turn diarization on; old 59-minute segments stay plain text',()=>{
- // 구간 길이는 서버가 rec_start 답으로 알려 준다(폰 앱은 이 값을 따른다).
+ assert.match(gt,/if \(!r\.ok\) \{ await geminiWarn\('transcribe', r\); throw new Fail\(geminiCode\(r\.status\)\); \}/);
+ // 녹음 구간 길이는 서버가 rec_start 답으로 알려 준다(폰 앱은 이 값을 따른다).
  assert.equal(rec.REC_SEGMENT_SECONDS,29*60);
  assert.match(index,/segment_seconds: REC_SEGMENT_SECONDS/);
- // 구간(넘김이 조각 하나만큼 늦어도)은 발언자 구분 상한 안, 옛 59분 구간·길이 모름은 구분 없이 보낸다(전사는 그대로 됨).
- assert.equal(m.DIARIZE_MAX_SECONDS,30*60);
- for(const s of [1,60,29*60,29*60+rec.REC_PIECE_SECONDS,30*60])assert.equal(m.wantsDiarize(s),true,`${s}초`);
- for(const s of [30*60+1,59*60,3600,0,-1,NaN,Infinity,null,undefined,'1740'])assert.equal(m.wantsDiarize(s),false,`${s}`);
- assert.ok(59*60<=m.MAX_SECONDS);
- // 구분을 켜는 조건은 한 곳뿐이다: 화면 정리(transcribe)·서버 정리(구간·회의자료 파일) 모두 transcribeLoaded 한 길(REC-긴녹음나눠전사).
- // 시간 조각은 조각 길이로(15분 조각이면 구간마다 켜짐), 통째면 구간 행 길이 → 파일에서 읽은 길이.
- assert.equal((index.match(/wantsDiarize\(/g)||[]).length,1);
- assert.match(index,/const duration = range \? span : \(job\.duration_sec \?\? span\);/);
- assert.match(index,/geminiTranscribe\(key, file\.uri, file\.mimeType \|\| mime, wantsDiarize\(duration\)\)/);
- assert.equal((index.match(/await transcribeLoaded\(/g)||[]).length,3);
- assert.equal((index.match(/await runTranscription\(/g)||[]).length,1);
- // 합친 구간의 길이는 녹음 구간 행의 길이 그대로(조각 머리글 x-duration-sec) — 화면이 보낸 작업공간·소유 값은 쓰지 않는다.
  assert.match(index,/duration_sec: seg\.duration_sec \?\? null/);
 });
 
-test('REC-발언자구분: speaker lines are numbered by first appearance; rejected (400) or one-speaker answers are plain text, not a failure',()=>{
- const answer=(text,...w)=>({status:'completed',output_text:text,steps:[{type:'model_output',content:[{type:'text',text,annotations:w.map(([speaker,word])=>({type:'word_info',speaker,text:word}))}]}]});
- // 세 사람: 처음 말한 순서대로 화자1·2·3(서버 표시 이름 spk_7 같은 값은 글에 남지 않는다), 같은 사람이 이어 말하면 한 줄.
- const three=answer('가 나 다 라 마',['spk_7','가'],['spk_7','나'],['spk_2','다'],['spk_9','라'],['spk_7','마'],['spk_7','.']);
- assert.equal(m.speakerLines(three),'화자1: 가 나\n화자2: 다\n화자3: 라\n화자1: 마.');
- assert.deepEqual(m.readTranscript(three),{text:'화자1: 가 나\n화자2: 다\n화자3: 라\n화자1: 마.',speakerSplit:true});
- for(const line of m.readTranscript(three).text.split('\n'))assert.match(line,/^화자[1-9]\d*: \S/);
- assert.doesNotMatch(m.readTranscript(three).text,/spk_/);
- // 한 명뿐·표시 없음(구분을 거절해 구분 없이 다시 받은 답)·빈 낱말: 통글 그대로, 실패 아님.
- assert.equal(m.speakerLines(answer('혼자 말함',['spk_1','혼자'],['spk_1','말함'])),'');
- assert.deepEqual(m.readTranscript(answer('혼자 말함',['spk_1','혼자'],['spk_1','말함'])),{text:'혼자 말함',speakerSplit:false});
- assert.deepEqual(m.readTranscript(answer('구분 없이 받은 글')),{text:'구분 없이 받은 글',speakerSplit:false});
- assert.equal(m.speakerLines({status:'completed',output_text:'x',steps:[{content:[{type:'text',text:'x',annotations:[{type:'word_info',text:'x'},{type:'word_info',speaker:'',text:'y'},{type:'word_info',speaker:'spk_1',text:'  '}]}]}]}),'');
- assert.equal(m.speakerLines(null),'');assert.equal(m.speakerLines({}),'');
- // 거절(400)은 구분 없이 한 번 더 보낸다 — 두 번째 답이 실패일 때만 실패다.
- assert.match(index,/let r = await send\(diarize\);\s*\n[^\n]*\n\s*if \(diarize && r\.status === 400\) \{ await geminiWarn\('transcribe_diarize', r\); r = await send\(false\); \}\s*\n\s*if \(!r\.ok\)/);
- assert.deepEqual(m.transcriptionRequest('u','audio/mp4',false).generation_config.transcription_config.mode,{type:'verbatim'});
- // 인증 경계는 그대로: verify_jwt 표 값·소유자 확인(아래 code shape 시험)에 더해, 구간 길이를 화면 값으로 정하지 않는다.
- assert.doesNotMatch(index,/body\.segment_seconds|body\.diariz/);
-});
-
-test('usage: reported tokens, audio modality, fallback estimate from duration; month sum only mtg- rows; limit',()=>{
- assert.deepEqual(m.readUsage({model:'models/gemini-3.5-transcribe',usage:{total_input_tokens:1000,total_output_tokens:300,total_thought_tokens:20,input_tokens_by_modality:[{modality:'AUDIO',tokens:900}]}},60),
-  {model:'gemini-3.5-transcribe',calls:1,input_tokens:1000,audio_tokens:900,output_tokens:320});
+test('S60-9 usage: usageMetadata tokens, audio modality, thinking counted as output, fallback estimate; month sum only mtg- rows; limit',()=>{
+ assert.deepEqual(m.readUsage({modelVersion:'gemini-2.5-flash',usageMetadata:{promptTokenCount:1000,candidatesTokenCount:300,thoughtsTokenCount:20,totalTokenCount:1320,promptTokensDetails:[{modality:'TEXT',tokenCount:100},{modality:'AUDIO',tokenCount:900}]}},60),
+  {model:'gemini-2.5-flash',calls:1,input_tokens:1000,audio_tokens:900,output_tokens:320});
+ assert.deepEqual(m.readUsage({modelVersion:'models/gemini-2.5-flash-lite',usageMetadata:{promptTokenCount:10,candidatesTokenCount:2}},1),{model:'gemini-2.5-flash-lite',calls:1,input_tokens:10,audio_tokens:10,output_tokens:2});
  assert.deepEqual(m.readUsage({},100),{model:m.TRANSCRIBE_MODEL,calls:1,input_tokens:3200,audio_tokens:3200,output_tokens:0});
+ assert.equal(m.readUsage({modelVersion:'이상한 이름'},1).model,m.TRANSCRIBE_MODEL);
  const ref=m.usageRef('11111111-2222-4333-8444-555555555555',new Date(Date.UTC(2026,9,29)));
  assert.match(ref,/^mtg-11111111-2222-4333-8444-555555555555-[0-9a-z]+$/);assert.match(ref,/^[A-Za-z0-9_.:-]{8,80}$/);
  const krw=m.monthKrw([{ref:'mtg-a',model:'gemini-2.5-flash',input_tokens:1_000_000,audio_tokens:1_000_000,output_tokens:0},{ref:'call-1',model:'gemini-2.5-flash',input_tokens:9_000_000,audio_tokens:0,output_tokens:0}]);
@@ -269,14 +259,24 @@ test('REC-한회의로잇기: 글 내용은 로그·오류·응답에 싣지 않
  assert.match(index,/sender\.send\(d\.fcm_token, \{ kind: 'meeting_done', title: kind === 'join' \? '보고에 이어 붙였어요' : '회의 요약이 준비됐어요', open, urgent: true \}\)/);
 });
 
-test('회의 전사 모델 가격은 가격표에 있다(단가 미확인으로 세지 않음)', async () => {
+test('회의 전사 모델 가격은 가격표에 있다(단가 미확인으로 세지 않음) — S60-9 2.5 Flash, 지난 기록 모델 줄도 그대로', async () => {
  const p = await import('../../supabase/functions/_shared/ai-prices.mjs');
  const base = p.geminiPrice(m.TRANSCRIBE_MODEL);
  assert.ok(base, '전사 모델이 가격표에 있어야 함');
- assert.equal(base.prefix, 'gemini-3.5-transcribe');
+ assert.equal(base.prefix, 'gemini-2.5-flash');
+ // 100만 음성 토큰 + 100만 출력 토큰(생각 포함) = 1달러 + 2.5달러(1달러 1,400원)
+ assert.equal(p.geminiKrw(m.TRANSCRIBE_MODEL, 1_000_000, 1_000_000, 1_000_000), 4900);
+ // 지난 사용량 행(gemini-3.5-transcribe)은 옛 단가 그대로 센다(이번 달 합계가 바뀌지 않음).
+ assert.equal(p.geminiPrice('gemini-3.5-transcribe').prefix, 'gemini-3.5-transcribe');
  assert.equal(p.geminiPrice('gemini-3.5-transcribe-live').prefix, 'gemini-3.5-transcribe-live');
- // 100만 음성 토큰 + 100만 출력 토큰 = 2달러 + 12달러(1달러 1,400원)
- assert.equal(p.geminiKrw(m.TRANSCRIBE_MODEL, 1_000_000, 1_000_000, 1_000_000), 19600);
+ assert.equal(p.geminiKrw('gemini-3.5-transcribe', 1_000_000, 1_000_000, 1_000_000), 19600);
+ // 비교용 Flash-Lite도 표에 있다(모델 이름만 바꾸면 가격 셈도 따라감).
+ assert.equal(p.geminiPrice('gemini-2.5-flash-lite').prefix, 'gemini-2.5-flash-lite');
+ // 41분 녹음 예상(PR 본문): 음성 78,720토큰 + 출력 45,000토큰 ≈ 268원(옛 모델 ≈ 976원).
+ const audio=41*60*m.AUDIO_TOKENS_PER_SECOND;
+ assert.equal(audio,78720);
+ assert.equal(Math.round(p.geminiKrw(m.TRANSCRIBE_MODEL,audio,audio,45000)),268);
+ assert.equal(Math.round(p.geminiKrw('gemini-3.5-transcribe',audio,audio,45000)),976);
 });
 
 test('글을 못 받은 시도는 월 상한에 넣지 않는다(실패 머리 mtgfail-)', () => {
@@ -287,7 +287,7 @@ test('글을 못 받은 시도는 월 상한에 넣지 않는다(실패 머리 m
  assert.ok(!bad.startsWith(m.USAGE_REF_PREFIX), '실패 머리는 월 상한 셈(mtg-)과 겹치면 안 됨');
  assert.match(bad,/^[A-Za-z0-9_.:-]{8,80}$/, 'DB ref 규칙 안');
  const row=ref=>({ref,model:m.TRANSCRIBE_MODEL,input_tokens:1_000_000,audio_tokens:1_000_000,output_tokens:0});
- assert.equal(m.monthKrw([row(ok),row(bad)]),2800);
+ assert.equal(m.monthKrw([row(ok),row(bad)]),1400,'실패 머리 행은 빼고 성공 행만(2.5 Flash 음성 100만 토큰 = 1,400원)');
  // 서버는 답을 읽은 뒤 성공 여부로 머리를 정하고, 실패면 기록한 다음 원래 오류를 다시 던진다.
  const index=readFileSync(new URL('../../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
  // 긴 소리를 나눠 동시에 전사하는 조각은 조각 번호를 붙여 겹치지 않게(REC-긴녹음나눠전사).
@@ -300,16 +300,15 @@ test('글을 못 받은 시도는 월 상한에 넣지 않는다(실패 머리 m
 // REC-긴녹음나눠전사(S60-7): 11/12 41분 녹음이 출력 상한(32,768토큰)에서 잘림(gemini_incomplete) → 시간 조각으로 나눠 전사.
 test('REC-긴녹음나눠전사: 세 길(화면 transcribe·서버 정리 구간·회의자료 파일) 모두 나눔, 진행·이어하기는 parts 안, 로그는 수만', async () => {
  const sp=await import('../../supabase/functions/meeting-transcribe/split.mjs');
- // 조각은 발언자 구분 상한 안·한 번 요청 상한 안. 메모리에 담는 크기는 올리기 상한 안.
- assert.ok(sp.CHUNK_SECONDS<=m.DIARIZE_MAX_SECONDS&&sp.CHUNK_SECONDS<m.MAX_SECONDS);
+ // 조각은 한 번 요청 상한 안. 메모리에 담는 크기는 올리기 상한 안. 녹음 구간(29분 + 넘길 때 1분 조각)은 나누지 않는다(S60-9).
+ assert.ok(sp.CHUNK_SECONDS<m.MAX_SECONDS);assert.ok(rec.REC_SEGMENT_SECONDS+rec.REC_PIECE_SECONDS<=sp.CHUNK_SECONDS);
  assert.ok(sp.MIN_CHUNK_SECONDS*2<=sp.CHUNK_SECONDS);
  assert.ok(sp.SPLIT_MAX_BYTES<=m.MAX_BYTES);
  assert.match(index,/import \{ CHUNK_SECONDS, SPLIT_MAX_BYTES, chunkRanges, halveRange, openAudio, readRange \} from '\.\/split\.mjs';/);
  // 크면 담지 않고 지금처럼 흘려 보낸다(나누지 않음).
  assert.match(index,/if \(!fix && !\(size > 0 && size <= SPLIT_MAX_BYTES\)\) \{/);
- // 길면 전사하지 않고 나눌 구간부터, 답이 잘리면(gemini_incomplete) 그 조각만 반으로.
+ // 길면 전사하지 않고 나눌 구간부터, 답이 잘리거나 되풀이하면(HALVE_CODES) 그 조각만 반으로.
  assert.match(index,/if \(!range && audio\.opened && audio\.opened\.seconds > CHUNK_SECONDS\) return \{ split: chunkRanges\(audio\.opened\.seconds\) \};/);
- assert.match(index,/answerError\.code === 'gemini_incomplete' && audio\.opened\) \{\n\s*const halves = halveRange\(range, audio\.opened\.seconds\);/);
  // 서버 정리: 한 단계에 조각 하나, 나누면 parts만 바꾸고(표 칸 추가 없음) 진행 수는 조각 수.
  assert.match(index,/const next = splitPart\(parts, i, got\.split\);/);
  assert.match(index,/parts: next, step_no: doneParts\(next\), step_total: partTotal\(next\)/);
@@ -323,5 +322,6 @@ test('REC-긴녹음나눠전사: 세 길(화면 transcribe·서버 정리 구간
  for(const line of index.match(/console\.warn\('meeting-transcribe: (audio|split[^']*)'[^;]*;/g)||[]){
   assert.doesNotMatch(line,/text|file_name|drive_file_id|uri|name/,line);
  }
- assert.equal((index.match(/console\.warn\('meeting-transcribe: (audio|split skipped|split after incomplete)'/g)||[]).length,3);
+ assert.equal((index.match(/console\.warn\('meeting-transcribe: (audio|split skipped|split after)'/g)||[]).length,3);
+ assert.match(index,/console\.warn\('meeting-transcribe: split after', answerError\.code, Math\.round\(\(span \|\| 0\) \/ 60\)\)/);
 });
