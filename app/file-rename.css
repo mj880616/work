@@ -1,11 +1,10 @@
 /* ATT-이름고치기: 첨부 파일 이름 그 자리에서 고치기(app/file-rename.js 공용 부품, 이 부품을 쓰는 모든 화면 같은 모양).
    UI-버튼기준: 줄 안의 보조 버튼이라 보이는 높이 --ds-compact-height-sm(28px)·글자 --ds-text-meta, 누르는 범위는 ::after로 --kptu-touch-target. 값은 theme-tokens.css만 쓴다. */
 .fr-edit,.fr-acts button{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--ds-compact-height-sm);min-height:var(--ds-compact-height-sm);padding:0 8px;border:var(--ds-line-width) solid transparent;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1;cursor:pointer;flex:none;vertical-align:middle}
-/* ORG-기록첨부이름반영(S60-14, 요청함 11/12 "연필 단추가 파일명이랑 여백이 없어 거슬림"): ✎는 이름과 반 글자쯤 띄우고, 테두리·바탕 없는 흐린 연필로.
-   마우스를 올리거나 키보드로 오면 진하게. 화면마다 있는 넓은 단추 규칙(예: #basketView button:not(…) — 아이디 하나+단추 무게)이 테두리·44px 높이를
-   덮어써 ✎가 테두리 단추로 보였으므로, 아이디 하나 무게(:is(#appView,body))를 더해 이 한 곳의 모양이 모든 자리에서 이기게 한다(!important 없이). */
-:is(#appView,body) button.fr-edit.fr-edit{width:auto;min-width:var(--ds-compact-height-sm);height:var(--ds-compact-height-sm);min-height:var(--ds-compact-height-sm);margin:0 0 0 .5em;padding:0 4px;border:0;border-radius:var(--ds-radius-control);background:transparent;box-shadow:none;color:var(--kptu-muted);opacity:.6;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular)}
-:is(#appView,body) button.fr-edit.fr-edit:is(:hover,:focus-visible){opacity:1;color:var(--kptu-ink);background:transparent}
+/* ORG-기록첨부이름반영(S60-14, 요청함 11/12 "연필 단추가 파일명이랑 여백이 없어 거슬림"): ✎는 이름과 반 글자쯤 띄우고, 테두리·바탕 없는(위 공용 규칙 그대로) 흐린 연필로.
+   마우스를 올리거나 키보드로 오면 진하게. 이 부품을 쓰는 모든 자리가 이 한 곳을 따른다(정리함의 넓은 단추 규칙은 basket.css에서 ✎를 뺀다). */
+.fr-edit{min-width:var(--ds-compact-height-sm);padding:0 4px;margin-left:.5em;opacity:.6}
+.fr-edit:hover,.fr-edit:focus-visible{opacity:1}
 .fr-edit::after,.fr-acts button::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,var(--kptu-touch-target));height:var(--kptu-touch-target);transform:translate(-50%,-50%)}
 .fr-edit:hover,.fr-edit:focus-visible,.fr-acts button:hover:not(:disabled){background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
 .fr-acts button{border-color:var(--ds-line);color:var(--kptu-ink)}

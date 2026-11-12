@@ -52,6 +52,4 @@
 .record-photo:has(>.fr-box)>.record-file-thumb{width:56px;height:56px;flex:none}
 .record-photo:has(>.fr-box)>details{display:none}
 .record-photo-more[open]{z-index:3}
-.record-photo-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:8;min-width:148px;display:grid;padding:4px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:var(--kptu-shadow-float)}
-.record-photo-panel button{min-height:44px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);padding:0 12px;text-align:left;font-size:var(--kptu-text-meta);font-weight:600;white-space:nowrap}
-.record-photo-panel button:hover,.record-photo-panel button:focus-visible{background:var(--kptu-surface-subtle)}
+/* ⋯ 판 모양은 자료 줄 ⋯ 판과 같은 공용 규칙(ui-standard.css .record-photo-panel). */
