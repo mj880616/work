@@ -15,8 +15,8 @@
 // - REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있으면 비우기 전에 묻고(team.js), 서버 정리 결과의 '열었음'은 저장·버림 때만 보낸다(entryHooks).
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
-import {notify} from './small-notice.js';
-import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry,requestFail,OFFLINE_START_TEXT,OPEN_FAIL_TEXT} from './meeting-server-job.mjs';
+import {notify,askConfirm} from './small-notice.js';
+import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry,requestFail,OFFLINE_START_TEXT,OPEN_FAIL_TEXT,DISCARD_ASK,discardDoneText,meetingDoneNotice} from './meeting-server-job.mjs';
 
 (()=>{
 'use strict';
@@ -37,7 +37,7 @@ let stream=null,current=null,segments=[],sessionId='',workspaceId='',startedAt='
 let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer=0,drainWaiters=[],stopReason='';
 let takeover=null,pending=[],live=[],pendingFor='',pendingFlight=null,discarding=false,livePolls=0,livePollTimer=0;
 // REC-서버정리(S49-2): 지켜보는 서버 정리 작업 id·끝난 결과(띠 [초안 열기]), 지켜보기 세대(다른 정리를 시작하면 앞 것은 그만 봄).
-let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='';
+let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='',droppingJob='';
 // REC-정리상태확인못함(S60-3): 잠깐 끊겨 멈춘 띠(recheck)는 화면이 다시 보이거나 연결이 돌아오면 저절로 다시 본다. 지켜보는 중의 기다림도 그때 깨운다.
 let recheck=false;
 const wakers=new Set();
@@ -112,7 +112,8 @@ function paint(){
   }else if(state==='ready'){
     l='정리 끝';
     m=escapeText(errorText||'회의 요약이 준비됐어요.'); // errorText = 결과를 열지 못한 이유(상태 확인 실패와 나눔)
-    a='<button type="button" class="rec-btn" data-rec="open">초안 열기</button><button type="button" class="rec-btn" data-rec="close">닫기</button>';
+    // REC-초안버리기(S60-20): [닫기] 대신 [삭제] — 닫기는 띠만 숨겨 다음에 앱을 열면 같은 띠가 또 떴다. 멈춤 띠의 [닫기]는 그대로(다시 할 수 있어야 함).
+    a=`<button type="button" class="rec-btn" data-rec="open">초안 열기</button><button type="button" class="rec-btn rec-discard" data-rec="drop"${droppingJob?' disabled':''}>삭제</button>`;
   }else if(state==='error'){
     l='녹음 정리 멈춤';
     m=escapeText(errorText);
@@ -148,6 +149,7 @@ function onBandClick(e){
   else if(what==='discard')void discardLive();
   else if(what==='retry')void retryFinish();
   else if(what==='open')void openReady();
+  else if(what==='drop')void dropReady(b);
   else if(what==='close')closeBand();
 }
 function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';recheck=false;accum=0;runSince=0;readyJob=null;paint()}
@@ -518,6 +520,32 @@ async function openReady(){
   try{const r=await call('job_read',{job_id:id},{timeoutMs:30000});if(r?.job?.status==='done')await openServerResult(r.job)}
   catch(e){console.warn('recording ready read failed',e?.status||'');notify('정리 결과를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',{error:true})}
 }
+// 정리 끝 띠 [삭제](REC-초안버리기, S60-20): 한 번 묻고 → 서버에 '버림' 표시(job_discard, 녹음 소리·전사 글은 그대로) → 띠를 닫고
+// 그 결과의 폰 알림도 '열었음'으로(APP-알림숫자지우기와 같은 길: 서버 기록 + 폰 앱이면 알림창의 그 알림 지우기) → 작은 알림 [되돌리기](2초).
+// 버린 결과는 job_list에서 빠지므로 앱을 다시 열어도·다른 기기에서도 띠에 뜨지 않는다. [되돌리기]는 표시만 빼고 띠를 다시 그린다.
+// 한 회의로 잇기 물음이 열려 있었으면 이 물음이 그 자리를 대신한다(물음은 하나만, 잇기 물음은 '나중에'로 끝남).
+async function dropReady(btn){
+  const job=readyJob;
+  if(state!=='ready'||!job?.id||droppingJob)return;
+  const ok=await askConfirm(btn?.isConnected?btn:$('#recBand'),{text:DISCARD_ASK.text,note:DISCARD_ASK.note,ok:DISCARD_ASK.ok,cancel:DISCARD_ASK.cancel,danger:true});
+  if(!ok||state!=='ready'||readyJob?.id!==job.id||droppingJob)return;
+  droppingJob=job.id;paint();
+  try{await call('job_discard',{job_id:job.id})}
+  catch(e){
+    console.warn('recording draft discard failed',e?.status||'',e?.code||'');
+    notify('초안을 삭제하지 못했어요. 잠시 뒤 다시 눌러 주세요.',{error:true});
+    return;
+  }finally{droppingJob='';paint()}
+  if(state==='ready'&&readyJob?.id===job.id)closeBand();
+  const item=meetingDoneNotice(job);
+  if(item)void import('./phone-push-settings.js').then(m=>m.markNoticeOpened(rt(),item)).catch(()=>{});
+  notify(discardDoneText(job),{label:'녹음 초안 삭제',undo:async()=>{
+    try{await call('job_restore',{job_id:job.id})}
+    catch(e){console.warn('recording draft restore failed',e?.status||'',e?.code||'');return {status:'failed',message:'초안을 되돌리지 못했어요.'}}
+    if(state==='idle'){readyJob=job;jobId='';step='';note='';errorText='';state='ready';paint()}
+    return {status:'restored'};
+  }});
+}
 // 앱을 다시 열 때: 서버 정리 중인 녹음은 띠를 이어 그리고, 끝났는데 아직 열지 않은 것은 '정리 끝 [초안 열기]'.
 // 폰 알림을 눌러 연 주소(?rec_job=…)면 그 결과를 바로 연다.
 async function loadServerJobs(tries=0){
@@ -528,7 +556,7 @@ async function loadServerJobs(tries=0){
   let wanted='';
   try{const u=new URL(location.href);wanted=u.searchParams.get('rec_job')||'';if(wanted){u.searchParams.delete('rec_job');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}
   let jobs=[];
-  try{jobs=(await call('job_list',{workspace_id:id}))?.jobs||[]}catch{return}
+  try{jobs=((await call('job_list',{workspace_id:id}))?.jobs||[]).filter(j=>!j?.discarded)}catch{return} // 버린 결과는 서버가 이미 뺀다(한 번 더)
   if(state!=='idle')return;
   const live=jobs.find(j=>j.status==='queued'||j.status==='running');
   const done=jobs.find(j=>j.status==='done'&&(!wanted||j.id===wanted))||jobs.find(j=>j.status==='done');

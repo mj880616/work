@@ -58,7 +58,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasThinPart, hasWords, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
+  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasThinPart, hasWords, isDiscarded, jobDiscardPatch, jobRestorePatch, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 import {
   JOIN_DAY_COLUMNS, JOIN_JOB_TABLE, JOIN_MEETING_COLUMNS, JOIN_STEP_COLUMNS, JOIN_TICK_ACTION, JOIN_VIEW_COLUMNS,
@@ -851,6 +851,7 @@ async function recRestore(user: { id: string }, body: Record<string, unknown>) {
 // 화면을 닫아도 서버가 합치기 → 구간(파일) 전사 → 요약을 한 단계씩 이어 간다. 한 번 호출 = 한 단계, 끝나면 같은 함수 job_tick을 다시 부른다.
 // job_tick은 사용자 로그인이 없다: 게이트(verify_jwt)는 SUPABASE_ANON_KEY로 지나고, 이 코드가 서버 키 HMAC(작업 id·기한)을 확인한다.
 // 작업 행은 owner만 읽고(RLS), 쓰기는 이 함수(service_role)만 한다. 전사·요약은 명진이 누른 job_start로만 시작한다.
+// REC-초안버리기(S60-20): job_discard {job_id}·job_restore {job_id} — 끝난 결과에 '버림' 표시를 넣고 빼기(job_list에서 빠짐, 소리·글은 그대로).
 // REC-정리멈춤반복(11/09): 서버 요약도 Web2 전용 열쇠만 읽는다(결정 D2, docs/design/ai-server.md). 옛 이름 OPENAI_API_KEY는 Web2 열쇠가 아니라 OpenAI가 401로 거절해 요약이 늘 draft_failed였다.
 const OPENAI = () => (Deno.env.get('WEB2_OPENAI_API_KEY') || '').trim();
 // 사람이 봐야 하는 요약 초안(답 원문 보존·칸 어긋남). 같은 실행 안에서 serverDraft → runStep으로만 넘긴다(저장하지 않음).
@@ -1259,11 +1260,14 @@ async function jobList(user: { id: string }, body: Record<string, unknown>) {
   const workspaceId = String(body.workspace_id || '');
   await requireOwner(user.id, workspaceId);
   const since = new Date(Date.now() - LIST_HOURS * 3600000).toISOString();
-  const { data, error } = await admin.from(SERVER_JOB_TABLE).select(SERVER_JOB_COLUMNS).eq('workspace_id', workspaceId).eq('created_by', user.id)
-    .gte('created_at', since).is('opened_at', null).order('created_at', { ascending: false }).limit(20);
+  let { data, error } = await admin.from(SERVER_JOB_TABLE).select(SERVER_JOB_COLUMNS).eq('workspace_id', workspaceId).eq('created_by', user.id)
+    .gte('created_at', since).is('opened_at', null).or('error_code.is.null,error_code.neq.discarded')
+    .order('created_at', { ascending: false }).limit(20);
   if (error) throw jobsFail(error);
   const nowMs = Date.now();
   for (const j of data || []) if (needsKick(j, nowMs)) inBackground(runStep(j.id));
+  // REC-초안버리기: 쓰지 않기로 한 결과는 다시 띄우지 않는다(이 기기·다른 기기 모두). 위 조건과 같은 규칙을 한 번 더.
+  data = (data || []).filter((j) => !isDiscarded(j));
   // 지금 보고에 잇는 중인 녹음 결과는 뺀다(다른 기기에서 [초안 열기] → 새 보고 저장으로 같은 녹음이 두 보고에 들어가지 않게). 잇기가 실패하면 다시 보인다.
   const joining = await joiningJobs(workspaceId, (data || []).filter((j) => j.status === 'done').map((j) => j.id as string));
   return json({ ok: true, jobs: (data || []).filter((j) => !joining.has(j.id)).map((j) => jobView(j)) });
@@ -1287,6 +1291,32 @@ async function jobOpened(user: { id: string }, userDb: ReturnType<typeof userCli
     patch.meeting_id = meeting.id;
   }
   await patchServerJob(job.id, patch);
+  return json({ ok: true });
+}
+// REC-초안버리기(S60-20): 끝난 결과를 쓰지 않기로(띠 [삭제]). 끝난 작업에 '버림' 표시만 남기고(error_code, server-job.mjs DISCARDED)
+// 녹음 소리(Drive)·전사 글·초안은 그대로 둔다 → job_list에서 빠져 다시 열어도·다른 기기에서도 띠에 뜨지 않는다. '열었음'(opened_at)은 건드리지 않는다.
+// 소유 확인은 다른 job_* 입구와 같은 ownServerJob(작업공간 owner + 만든 사람). 고칠 때도 그 상태 그대로인 행만(동시에 바뀐 행은 건드리지 않음).
+async function jobDiscard(user: { id: string }, body: Record<string, unknown>) {
+  const job = await ownServerJob(user.id, body.job_id);
+  const plan = jobDiscardPatch(job);
+  if (plan.error) throw new Fail(plan.error);
+  if (plan.patch) {
+    const { data, error } = await admin.from(SERVER_JOB_TABLE).update({ ...plan.patch, updated_at: new Date().toISOString() })
+      .eq('id', job.id).eq('status', 'done').is('error_code', null).select('id');
+    if (error) throw jobsFail(error);
+    if (!data?.length) throw new Fail('busy');
+  }
+  return json({ ok: true });
+}
+// 버린 결과 되돌리기(작은 알림 [되돌리기]): 버림 표시만 뺀다 → 띠 [초안 열기]에 다시 뜬다.
+async function jobRestore(user: { id: string }, body: Record<string, unknown>) {
+  const job = await ownServerJob(user.id, body.job_id);
+  const patch = jobRestorePatch(job);
+  if (patch) {
+    const { error } = await admin.from(SERVER_JOB_TABLE).update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', job.id).eq('status', 'done').eq('error_code', 'discarded');
+    if (error) throw jobsFail(error);
+  }
   return json({ ok: true });
 }
 // 실패한 작업 다시: 끝난 단계(합친 구간·전사한 글·조각 요약)는 그대로 두고 멈춘 단계부터.
@@ -1519,6 +1549,8 @@ Deno.serve(withWebCors(async (req: Request) => {
     if (action === 'job_list') return await jobList(user, body);
     if (action === 'job_opened') return await jobOpened(user, userDb, body);
     if (action === 'job_retry') return await jobRetry(user, userDb, body);
+    if (action === 'job_discard') return await jobDiscard(user, body);
+    if (action === 'job_restore') return await jobRestore(user, body);
     if (action === 'join_start') return await joinStart(user, userDb, body);
     if (action === 'join_candidates') return await joinCandidateList(user, userDb, body);
     if (action === 'join_read') return await joinRead(user, userDb, body);

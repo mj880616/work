@@ -278,6 +278,7 @@ async function readMaterial(io, userId, want, target) {
     const job = await io.ownServerJob(userId, want.sourceJobId);
     if (!job || job.workspace_id !== workspaceId || job.created_by !== userId) throw notFound();
     if (job.status !== 'done') throw new Fail('not_done');
+    if (job.error_code === 'discarded') throw notFound(); // REC-초안버리기: 쓰지 않기로 한 결과는 잇지 않는다(되돌리면 다시 이을 수 있음)
     if (job.meeting_id && job.meeting_id !== target.id) throw new Fail('already_joined');
     // 그 자리 전사(attached)는 그 회의의 자료라 고른 보고가 그 회의여야 한다.
     if (job.kind === 'attached' && job.meeting_id !== target.id) throw notFound();
