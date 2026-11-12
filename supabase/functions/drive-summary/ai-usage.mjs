@@ -17,6 +17,20 @@ export const RATIO_RANGE = Object.freeze([0.25, 4]);
 const KEYS = Object.freeze(['ref', 'provider', 'source', 'model', 'calls', 'input_tokens', 'audio_tokens', 'output_tokens']);
 const SOURCES = Object.freeze(['transcript', 'analysis']);
 const REF = /^[A-Za-z0-9_.:-]{8,80}$/;
+// AI-비용보기 2단계: 보고 번호(ref) 앞머리로 어디서 쓴 것인지 나눈다.
+// - mtg-·mtgfail-: 회의 녹음 전사(meeting-transcribe가 서버 안에서 직접 넣음). 수집 비밀값 보고로는 받지 않는다(회의 월 상한을 부풀리지 못하게).
+// - call-: 통화 전사(source transcript), calla-: 통화 분석(source analysis). 명진 앱 스크립트가 docs/ops/ai-usage-report.gs로 보낸다.
+// - 그 밖: 옛 보고(앞머리 없음) — source로만 나눈다.
+export const REF_MEETING = Object.freeze(['mtg-', 'mtgfail-']);
+export const REF_CALL_TRANSCRIPT = 'call-';
+export const REF_CALL_ANALYSIS = 'calla-';
+export function usageKind(ref, source) {
+  const r = typeof ref === 'string' ? ref : '';
+  if (REF_MEETING.some(p => r.startsWith(p))) return 'meeting';
+  if (r.startsWith(REF_CALL_TRANSCRIPT)) return 'call_transcript';
+  if (r.startsWith(REF_CALL_ANALYSIS)) return 'call_analysis';
+  return source === 'analysis' ? 'other_analysis' : 'other_transcript';
+}
 const MODEL = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const PRICE = /^\d{1,6}(\.\d{1,4})?$/;
 const TOKENS_MAX = 1_000_000_000, CALLS_MAX = 10000, KST = 9 * 3600000;
@@ -39,6 +53,9 @@ export function parseAiUsageReport(text) {
   const provider = body.provider ?? 'gemini';
   if (provider !== 'gemini' || typeof body.ref !== 'string' || !REF.test(body.ref)) return null;
   if (!SOURCES.includes(body.source) || typeof body.model !== 'string') return null;
+  if (REF_MEETING.some(p => body.ref.startsWith(p))) return null;
+  if (body.ref.startsWith(REF_CALL_TRANSCRIPT) && body.source !== 'transcript') return null;
+  if (body.ref.startsWith(REF_CALL_ANALYSIS) && body.source !== 'analysis') return null;
   const model = body.model.trim().toLowerCase().replace(/^models\//, '');
   if (!MODEL.test(model)) return null;
   const calls = body.calls ?? 1, audio = body.audio_tokens ?? 0;
@@ -141,17 +158,23 @@ export function summarizeAiUsage({ assist = [], feed = [], external = [], entrie
   if (assistKrw >= AI_MONTHLY_LIMIT_ASSIST_KRW * WARN_RATIO) out.warn.unshift('openai_limit');
   else if (tgKrw + callKrw >= AI_MONTHLY_LIMIT_FEED_KRW * WARN_RATIO) out.warn.unshift('feed_limit');
   let gTranscript = 0, gAnalysis = 0, gCalls = 0;
+  const kinds = { meeting: 0, call_transcript: 0, call_analysis: 0, other_transcript: 0, other_analysis: 0 };
   for (const r of external) if (r.month === month && isDay(r.day)) {
     if (r.source === 'transcript') gTranscript += r._krw || 0; else if (r.source === 'analysis') gAnalysis += r._krw || 0;
+    kinds[usageKind(r.ref, r.source)] += r._krw || 0;
     gCalls += tok(r.calls);
   }
-  Object.assign(out.gemini, { transcript_krw: won(gTranscript), analysis_krw: won(gAnalysis), calls: gCalls, unknown_models: [...days.unknown].slice(0, 5) });
+  // transcript_krw·analysis_krw는 지금 화면이 쓰는 칸이라 그대로 두고(회의+통화 합), 나눈 금액은 by_kind에 더한다(6단계 화면이 씀).
+  const byKind = Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, won(v)]));
+  Object.assign(out.gemini, { transcript_krw: won(gTranscript), analysis_krw: won(gAnalysis), by_kind: byKind, calls: gCalls, unknown_models: [...days.unknown].slice(0, 5) });
   out.entries = [...cleanEntries].sort((a, b) => (String(a.created_at) < String(b.created_at) ? 1 : -1)).slice(0, 10)
     .map(e => ({ id: e.id, provider: e.provider, kind: e.kind, amount_krw: e.amount_krw, month: e.month ? e.month.slice(0, 7) : null, created_at: e.created_at }));
   return out;
 }
 
+export const EXTERNAL_PAGE_ROWS = 1000, EXTERNAL_MAX_PAGES = 20;
 // 소유자 토큰 + anon 키로 읽는다(소유자 RLS). 쪽마다 1000행 넘으면 잘린 숫자를 보여 주지 않고 실패한다.
+// 외부(Gemini) 보고는 통화 전사·분석이 한 건마다 한 행이라 한 달 1000행을 넘을 수 있어 1000행씩 차례로 읽는다(최대 20쪽, 넘으면 실패).
 export async function readAiUsage({ fetcher, baseUrl, anonKey, userAuthorization, workspaceId, now }) {
   const headers = { apikey: anonKey, Authorization: userAuthorization };
   const get = async path => {
@@ -164,13 +187,28 @@ export async function readAiUsage({ fetcher, baseUrl, anonKey, userAuthorization
     if (!Array.isArray(rows) || rows.length >= 1000) throw new Error('AI_USAGE_READ_FAILED');
     return rows;
   };
+  const getPages = async path => {
+    const all = [];
+    for (let page = 0; page < EXTERNAL_MAX_PAGES; page++) {
+      let r;
+      try { r = await fetcher(`${baseUrl}/rest/v1/${path}&limit=${EXTERNAL_PAGE_ROWS}&offset=${page * EXTERNAL_PAGE_ROWS}`, { headers, signal: AbortSignal.timeout(30000) }); }
+      catch { throw new Error('AI_USAGE_READ_FAILED'); }
+      if (r.status === 404) throw new Error('AI_USAGE_TABLE_MISSING');
+      if (!r.ok) throw new Error('AI_USAGE_READ_FAILED');
+      const rows = await r.json().catch(() => null);
+      if (!Array.isArray(rows) || rows.length > EXTERNAL_PAGE_ROWS) throw new Error('AI_USAGE_READ_FAILED');
+      all.push(...rows);
+      if (rows.length < EXTERNAL_PAGE_ROWS) return all;
+    }
+    throw new Error('AI_USAGE_READ_FAILED');
+  };
   const ws = encodeURIComponent(workspaceId);
   const entries = await get(`app_ai_cost_entries?workspace_id=eq.${ws}&select=id,provider,kind,amount_krw,month,created_at&order=created_at.desc&limit=200`);
   const start = readStart(entries, seoulDay(now));
   const [assist, feed, external] = await Promise.all([
     get(`app_ai_daily_usage?workspace_id=eq.${ws}&day=gte.${start}&select=day,requests,input_tokens,output_tokens&limit=1000`),
     get(`app_feed_days?workspace_id=eq.${ws}&day=gte.${start}&select=day,source,ai_requests,ai_input_tokens,ai_output_tokens&limit=1000`),
-    get(`app_ai_external_usage?workspace_id=eq.${ws}&day=gte.${start}&select=day,source,model,calls,input_tokens,audio_tokens,output_tokens&limit=1000`),
+    getPages(`app_ai_external_usage?workspace_id=eq.${ws}&day=gte.${start}&select=day,ref,source,model,calls,input_tokens,audio_tokens,output_tokens&order=day.asc,ref.asc`),
   ]);
   return { assist, feed, external, entries };
 }
