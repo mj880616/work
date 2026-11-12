@@ -233,7 +233,7 @@ function newWhoBox(r) {
 function whoBoxHtml(r) {
   const b = state.who, personal = isPersonal(r);
   const orgRow = personal ? '' : `<div class="feed-link-row"><span class="feed-link-label">조직</span><button type="button" class="feed-small" data-cf-who-pick aria-haspopup="dialog" aria-expanded="false"${b.busy ? ' disabled' : ''}>${esc(b.orgId ? orgName(state.orgs, b.orgId) || '선택한 조직' : '조직 선택')} ▾</button></div>`;
-  const reset = (r.edited?.counterpart || r.edited?.organization_id) ? `<button type="button" class="feed-text-btn" data-cf-who-reset${b.busy ? ' disabled' : ''}>AI 값으로</button>` : '';
+  const reset = (r.edited?.counterpart || r.edited?.organization_id) ? `<button type="button" class="feed-text-btn" data-cf-who-reset${b.busy ? ' disabled' : ''}>초안으로 되돌리기</button>` : '';
   return `<div class="feed-link feed-who-box" data-cf-who-box data-enter-save="[data-cf-who-save]">
 ${orgRow}<div class="feed-link-row"><label class="feed-link-label" for="cfWhoName">이름</label><input id="cfWhoName" type="text" class="feed-edit-input" data-cf-who-name maxlength="${EDIT_NAME_MAX}" autocomplete="off" value="${esc(b.name)}"${b.busy ? ' disabled' : ''}><label class="feed-link-label" for="cfWhoRole">직함</label><input id="cfWhoRole" type="text" class="feed-edit-input" data-cf-who-role maxlength="${EDIT_ROLE_MAX}" autocomplete="off" value="${esc(b.role)}"${b.busy ? ' disabled' : ''}></div>
 <div class="feed-link-actions"><span class="feed-status" role="status">${esc(b.status)}</span>${reset}<button type="button" class="feed-small" data-cf-who-cancel${b.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-cf-who-save data-enter-save-submit${b.busy ? ' disabled' : ''}>저장</button></div>
@@ -244,7 +244,7 @@ function newSumBox(r) { return {rowId:r.id, lines:(Array.isArray(r.points) ? r.p
 function sumBoxHtml(r) {
   const b = state.sum, full = b.lines.length >= EDIT_POINTS_MAX;
   const items = b.lines.map((l, i) => `<li class="feed-sumedit-line"><textarea rows="1" class="feed-edit-input" data-cf-sum-line="${i}" data-autogrow data-enter-field="off" maxlength="${EDIT_POINT_MAX}" autocomplete="off" aria-label="핵심내용 ${i + 1}번째 줄"${b.busy ? ' disabled' : ''}>${esc(l)}</textarea><button type="button" class="feed-text-btn" data-cf-sum-del="${i}" aria-label="${i + 1}번째 줄 삭제"${b.busy ? ' disabled' : ''}>삭제</button></li>`).join('');
-  const reset = r.edited?.points ? `<button type="button" class="feed-text-btn" data-cf-sum-reset${b.busy ? ' disabled' : ''}>AI 값으로</button>` : '';
+  const reset = r.edited?.points ? `<button type="button" class="feed-text-btn" data-cf-sum-reset${b.busy ? ' disabled' : ''}>초안으로 되돌리기</button>` : '';
   return `<div class="feed-sumedit" data-cf-sum><p class="feed-k">핵심내용 수정 <span class="feed-faint">· 줄마다 수정하고, 비운 줄은 저장할 때 빠져요</span></p>
 <ul class="feed-sumedit-lines">${items}</ul>
 <div class="feed-link-actions"><button type="button" class="feed-text-btn" data-cf-sum-add${b.busy || full ? ' disabled' : ''}>+ 줄 더하기</button><span class="feed-status" role="status">${esc(b.status)}</span>${reset}<button type="button" class="feed-small" data-cf-sum-cancel${b.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-cf-sum-save${b.busy ? ' disabled' : ''}>저장</button></div>

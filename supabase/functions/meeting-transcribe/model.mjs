@@ -1,17 +1,20 @@
 // MTG-녹음초안 2단계: 회의 녹음 전사(Edge meeting-transcribe)의 순수 규칙. Node 시험·Deno 배포 양쪽에서 읽으므로 .mjs로 둔다.
-// - 전사 요청 모양·응답 읽기는 명진의 통화 전사 앱 스크립트(Gemini Interactions, docs/ops/call-prompts-patch.md 4절 ⑦)와 같다:
-//   transcription_config(language_codes ko-KR, mode verbatim + diarization_mode speaker), store false,
-//   화자 구분을 거절(HTTP 400)하면 화자 구분 없이 한 번 더, 단어별 화자 표시로 '화자1: …' 줄 묶기.
-// - 다른 점: Gemini 안내(2026-10 확인)상 한 번 요청은 녹음 1시간까지, 화자 구분은 30분까지라 30분 넘는 녹음은 처음부터 화자 구분 없이 보낸다.
+// - S60-9 REC-전사모델바꾸기: 전사 전용 Interactions(gemini-3.5-transcribe, 화자 구분 기능) → 일반 모델 gemini-2.5-flash의
+//   generateContent(올린 파일 주소 + 받아 적기 지시문). 화자 구분 전용 기능이 없으므로 지시문으로 '화자1: …' 줄을 나누게 한다.
 // - 전사 글은 여기서 저장하지 않는다. 부른 화면에 한 번 돌려줄 뿐이다(원문은 회의 기록에만).
 import { geminiKrw } from '../_shared/ai-prices.mjs';
 
-// 통화 전사 스크립트의 MODEL 값은 저장소 밖(앱 스크립트)에 있어 확인하지 못했다. Gemini 전사 안내의 전사 전용 모델을 쓴다.
-export const TRANSCRIBE_MODEL = 'gemini-3.5-transcribe';
+// 회의 녹음 전사 모델(S60-9 REC-전사모델바꾸기, 명진 결정 11/12 "더 싼 전사모델로"): 이 한 줄만 바꾸면 전사 요청·사용량·가격 셈이 모두 따라간다
+// (나중에 같은 녹음으로 gemini-2.5-flash-lite와 비교할 때도 여기만). 옛 전사 전용 모델(gemini-3.5-transcribe)의 지난 사용량 행은 그대로 둔다.
+export const TRANSCRIBE_MODEL = 'gemini-3.5-flash-lite';
+// 공식 안내(2026-11-12 확인): gemini-2.5-flash는 이 열쇠에서 404(퇴역 중, 12/1부터 3.5 Flash-Lite로 넘어감) → gemini-3.5-flash-lite. 출력 상한 65,536토큰.
+// 생각은 끌 수 없고 기본값이 가장 낮은 단계(minimal)라 thinkingConfig를 보내지 않는다(3.x는 thinkingBudget을 받지 않을 수 있음).
+export const TRANSCRIBE_MAX_OUTPUT_TOKENS = 65536;
+// 받아 적기는 답이 하나여야 한다 → 낮게. 0(늘 같은 다음 낱말)은 같은 말 되풀이에 빠지기 쉬워 조금 띄운다.
+export const TRANSCRIBE_TEMPERATURE = 0.2;
 export const GEMINI_KEY_NAME = 'GEMINI_API_KEY';
 export const MAX_BYTES = 100 * 1024 * 1024;      // 회의자료 올리기(meeting-files)와 같은 100MB
 export const MAX_SECONDS = 60 * 60;              // Gemini 한 번 요청 상한 1시간
-export const DIARIZE_MAX_SECONDS = 30 * 60;      // 화자 구분은 30분까지
 export const MONTHLY_LIMIT_KRW = 15000;          // 회의 전사 이번 달 상한(추정 금액, 서울 날짜 기준)
 export const RUNNING_STALE_MS = 15 * 60 * 1000;  // 진행 중으로 15분 넘게 남은 작업은 끊긴 것으로 본다
 export const UNATTACHED_TRASH_DAYS = 30;         // 회의에 붙이지 않은 녹음은 30일 뒤 Drive 휴지통
@@ -55,6 +58,8 @@ export const MESSAGES = Object.freeze({
   // REC-글못찾음: 전사 서비스 답 자체가 글 없이 왔거나(완료인데 빈 답), 끝까지 못 만들고 일부만 왔을 때(incomplete). 같은 소리도 다시 하면 될 수 있다.
   gemini_empty: '전사 서비스(Gemini)가 글 없이 답했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   gemini_incomplete: '전사 서비스(Gemini)가 녹음 끝까지 글로 옮기지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  // S60-9 REC-전사모델바꾸기: 받아 적은 글에 같은 말이 비정상으로 되풀이됨 — 조각을 반으로 나눠 다시 하고도 남으면 이 코드로 멈춘다.
+  gemini_repeat: '전사 서비스(Gemini)가 같은 말을 되풀이해 적었어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   usage_unavailable: '이번 달 사용량을 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   failed: '처리하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   // REC-정리멈춤반복: 서버 정리 단계가 Edge 실행 시간 안에 끝나지 못해 두 번 끊김 / 요약 답이 길어 잘림.
@@ -83,7 +88,7 @@ export const MESSAGES = Object.freeze({
 export const STATUS = Object.freeze({
   not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
   not_found: 404, not_done: 409, drive_failed: 502, drive_not_connected: 424, gemini_failed: 502,
-  gemini_empty: 502, gemini_incomplete: 502,
+  gemini_empty: 502, gemini_incomplete: 502, gemini_repeat: 502,
   gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,
   draft_failed: 502, daily_limit: 429, jobs_unavailable: 503, too_many_steps: 409, step_cut: 504, draft_cut: 502,
   draft_timeout: 504, draft_step_cut: 504,
@@ -94,7 +99,7 @@ export const STATUS = Object.freeze({
 export const FAIL_KIND = Object.freeze({
   gemini_failed: 'gemini', gemini_upload: 'gemini', gemini_timeout: 'gemini',
   gemini_file_failed: 'format', gemini_rejected: 'format', bad_format: 'format', bad_type: 'format',
-  gemini_empty: 'gemini', gemini_incomplete: 'gemini',
+  gemini_empty: 'gemini', gemini_incomplete: 'gemini', gemini_repeat: 'gemini',
 });
 // Gemini 답(HTTP 상태) → 실패 코드. 400·422(요청은 닿았지만 받지 않음)는 파일 형식, 408·504는 늦음, 나머지는 전사 서비스 실패.
 export function geminiCode(status) {
@@ -142,151 +147,156 @@ export function parseUpload({ name, length, type, seconds }) {
   return { fileName, mime, size, duration };
 }
 
-// Gemini 전사 요청 몸통(통화 전사 스크립트와 같은 모양). diarize: 화자 구분 켜기.
-export function transcriptionRequest(fileUri, mimeType, diarize, model = TRANSCRIBE_MODEL) {
+// ---- 전사 요청(S60-9: gemini-2.5-flash generateContent, 공식 REST 모양) ----
+// POST /v1beta/models/{모델}:generateContent
+//   contents[0].parts = [ {fileData:{mimeType,fileUri}}(Files API로 올린 녹음), {text: 지시문} ]
+//   generationConfig = { temperature, maxOutputTokens(모델 최대 65,536) } — 생각은 모델 기본(minimal), 생각 토큰도 출력값으로 셈
+// 지시문: 한국어 회의를 그대로 받아 적기(요약·의역 금지), 말하는 사람이 바뀌면 '화자1: '·'화자2: ' 줄, 안 들리면 '(안 들림)'만.
+// 조각(split.mjs)마다 따로 요청하므로 화자 번호는 조각마다 1부터 새로 시작한다(조각 사이에는 '― N분부터 ―' 머리 줄이 들어감, 구간 사이와 같음).
+export const UNCLEAR_MARK = '(안 들림)';
+export const TRANSCRIBE_PROMPT = [
+  '이 녹음은 한국어 회의입니다. 들리는 말을 처음부터 끝까지 빠짐없이 그대로 받아 적으세요.',
+  '- 요약·의역·정리·번역하지 말고 말한 그대로 적습니다. 실제로 한 번 말한 것은 한 번만 적습니다.',
+  "- 말하는 사람이 바뀔 때마다 새 줄을 시작하고, 줄 맨 앞에 '화자1: ', '화자2: '처럼 번호를 붙입니다.",
+  '- 번호는 이 녹음에서 처음 말한 순서대로 1부터 매기고, 같은 사람에게는 끝까지 같은 번호를 씁니다. 이름을 알아도 번호만 씁니다.',
+  "- 한 사람만 말하면 모든 줄을 '화자1: '로 시작합니다.",
+  `- 알아들을 수 없는 곳은 내용을 짐작하지 말고 '${UNCLEAR_MARK}'로만 표시합니다.`,
+  '- 말이 없는 곳(침묵·잡음·음악)은 적지 않습니다.',
+  '- 시각·제목·설명·머리말·마크다운 없이, 받아 적은 줄만 답합니다.',
+].join('\n');
+export const transcribePath = (model = TRANSCRIBE_MODEL) => `/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+export function transcriptionRequest(fileUri, mimeType) {
   return {
-    model,
-    input: [{ type: 'audio', uri: fileUri, mime_type: mimeType }],
-    generation_config: {
-      transcription_config: {
-        language_codes: ['ko-KR'],
-        mode: diarize ? { type: 'verbatim', diarization_mode: 'speaker' } : { type: 'verbatim' },
-      },
+    contents: [{ role: 'user', parts: [{ fileData: { mimeType, fileUri } }, { text: TRANSCRIBE_PROMPT }] }],
+    generationConfig: {
+      temperature: TRANSCRIBE_TEMPERATURE,
+      maxOutputTokens: TRANSCRIBE_MAX_OUTPUT_TOKENS,
     },
-    store: false,
   };
 }
-// 30분 넘는(또는 길이를 모르는) 녹음은 처음부터 화자 구분 없이 보낸다.
-// REC-발언자구분: [녹음] 구간은 29분(recording.mjs REC_SEGMENT_SECONDS)이라 긴 회의도 구간마다 켜진다. 옛 59분 구간·30분 넘는 한 파일은 통글(실패 아님).
-export const wantsDiarize = duration => Number.isFinite(duration) && duration > 0 && duration <= DIARIZE_MAX_SECONDS;
 
-// ---- 전사 답 읽기(REC-글못찾음, Gemini Interactions REST 답 모양은 2026-11-11 공식 문서로 확인) ----
-// 답: { id, status, steps:[{ type:'model_output', content:[{ type:'text', text, annotations:[word_info…] }] }], usage, errors }.
-// - 글은 steps 중 model_output 단계의 text 조각에 있다. 긴 소리는 단계·조각이 여러 개일 수 있어 모두 잇는다.
-//   thought(생각)·user_input 등 다른 단계는 전사 글이 아니므로 읽지 않는다. type이 없는 단계는 예전 답과 같게 글로 본다.
-// - output_text는 REST 답이 아니라 SDK 편의 값이다(통화 전사 스크립트와 맞춰 계속 먼저 읽는다). 옛 outputs 모양은 2026-06-08에
-//   없어졌다(공식 '2026년 5월 변경 안내')라 읽지 않는다.
-// - status: in_progress(아직 진행 중) · requires_action · completed · failed · cancelled · incomplete(끝났지만 일부만, 예: 출력 한도).
-//   이 함수는 store:false 한 번 요청이라 진행 중 답을 다시 물어볼 수 없다(공식 문서: store false는 background와 함께 못 씀).
-function interactionOf(json) {
-  return json && typeof json.interaction === 'object' && json.interaction && !Array.isArray(json.interaction) ? json.interaction : json;
+// ---- 전사 답 읽기(generateContent 답 모양, 공식 REST 참고) ----
+// 답: { candidates:[{ content:{ parts:[{text}, …] }, finishReason }], promptFeedback:{ blockReason }, usageMetadata, modelVersion }.
+// - 글은 첫 후보의 text 조각을 그대로 잇는다(한 답 안의 조각은 이어진 글). thought:true 조각(생각 요약)은 전사 글이 아니다.
+// - finishReason: STOP(끝까지) · MAX_TOKENS(출력 상한에서 잘림) · SAFETY·RECITATION·BLOCKLIST·PROHIBITED_CONTENT·SPII·OTHER 등(멈춤·차단).
+// - promptFeedback.blockReason이 있으면 요청 자체가 막혀 후보가 없다.
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+const candidateOf = json => (Array.isArray(json?.candidates) && isObj(json.candidates[0]) ? json.candidates[0] : null);
+const partsOf = cand => (Array.isArray(cand?.content?.parts) ? cand.content.parts.filter(isObj) : []);
+const textParts = cand => partsOf(cand).filter(p => typeof p.text === 'string' && p.thought !== true);
+const REASON = /^[A-Z][A-Z_]{0,39}$/;
+// 끝난 이유(대문자·밑줄만, 아니면 '').
+export function finishReason(json) {
+  const r = candidateOf(json)?.finishReason;
+  return typeof r === 'string' && REASON.test(r) ? r : '';
 }
-function stepsOf(json) {
-  if (Array.isArray(json?.steps)) return json.steps;
-  if (Array.isArray(json?.interaction?.steps)) return json.interaction.steps;
-  return [];
+function blockReason(json) {
+  const r = json?.promptFeedback?.blockReason;
+  return typeof r === 'string' && r ? (REASON.test(r) ? r : '?') : '';
 }
-const isOutputStep = step => !!step && typeof step === 'object' && (step.type === undefined || step.type === 'model_output');
-const outputSteps = json => stepsOf(json).filter(isOutputStep);
-const contentOf = step => (Array.isArray(step?.content) ? step.content : []);
-// 답의 상태(문자열이 아니면 '').
-export function answerStatus(json) {
-  const s = json?.status ?? json?.interaction?.status;
-  return typeof s === 'string' ? s : '';
+// '화자 1:'·'**화자1**:'·'화자1：' 같은 머리를 '화자1: '로 맞춘다(지시문과 다르게 써도 화면·잇기 규칙이 받는 한 모양으로).
+const SPEAKER_HEAD = /^[ \t]*(?:\*\*)?화자[ \t]*(\d{1,3})(?:\*\*)?[ \t]*[:：](?:\*\*)?[ \t]*/;
+export function tidySpeakers(text) {
+  return String(text || '').replace(/\r\n?/g, '\n').split('\n').map(line => line.replace(SPEAKER_HEAD, (_, n) => `화자${Number(n)}: `)).join('\n').trim();
 }
-// 답에서 전사 글 조각들. output_text가 있으면 그것, 없으면 model_output 단계의 text 조각 모두(여러 단계·여러 조각).
-function answerTexts(json) {
-  const it = interactionOf(json);
-  for (const v of [json?.output_text, it?.output_text]) if (typeof v === 'string' && v.trim()) return [v];
-  const parts = [];
-  for (const step of outputSteps(json)) {
-    for (const part of contentOf(step)) if (part && part.type === 'text' && typeof part.text === 'string') parts.push(part.text);
+const speakerCount = text => new Set([...String(text || '').matchAll(/^화자(\d{1,3}): /gm)].map(m => m[1])).size;
+
+// ---- 같은 말 되풀이 감지(S60-9) ----
+// 일반 모델은 긴 소리를 받아 적다 같은 말·같은 줄을 끝없이 되풀이하다 출력 상한까지 가는 일이 있다(받아 적기 전용 모델과 다른 점).
+// 화자 머리를 떼고 낱말(띄어쓰기 단위, 앞뒤 문장부호 뗌)로 나눈 뒤, k낱말 묶음이 끊김 없이 이어 되풀이된 횟수를 센다.
+// 기준(사람 말에서는 나오지 않을 만큼 넉넉히, 근거는 PR 본문):
+//   1~3낱말 묶음 30번 이상('네 네 네…' 같은 맞장구·표결 '찬성' 줄도 30번 연속은 드묾)
+//   4~15낱말(한 문장) 10번 이상 · 16~80낱말(여러 문장 덩어리) 5번 이상.
+export const REPEAT_RULES = Object.freeze([
+  Object.freeze({ maxWords: 3, times: 30 }),
+  Object.freeze({ maxWords: 15, times: 10 }),
+  Object.freeze({ maxWords: 80, times: 5 }),
+]);
+const REPEAT_MAX_WORDS = REPEAT_RULES[REPEAT_RULES.length - 1].maxWords;
+const wordsOf = text => String(text || '').split('\n').map(l => l.replace(SPEAKER_HEAD, '')).join(' ').split(/\s+/)
+  .map(w => w.replace(/^[("'“‘\[<]+/u, '').replace(/[.,?!…~·"'”’)\]>:;]+$/u, '')).filter(Boolean);
+// 기준을 넘은 첫 되풀이 {words: 묶음 낱말 수, times: 이어 나온 횟수}. 없으면 null. 글 내용은 돌려주지 않는다(로그에 수만).
+export function repeatRun(text) {
+  const w = wordsOf(text);
+  for (let k = 1; k <= REPEAT_MAX_WORDS && k * 2 <= w.length; k++) {
+    const need = REPEAT_RULES.find(r => k <= r.maxWords).times;
+    let run = 0;
+    for (let i = k; i <= w.length; i++) {
+      if (i < w.length && w[i] === w[i - k]) { run++; continue; }
+      const times = Math.floor(run / k) + 1;
+      if (run && times >= need) return { words: k, times };
+      run = 0;
+    }
   }
-  return parts;
+  return null;
 }
-// 답의 '모양'만 한 줄로(운영 로그용): 키 이름·status·단계/조각 종류와 수·글자 수·낱말 표시 수·오류 코드·출력 토큰 수.
-// 전사 글·오류 글·파일 주소는 넣지 않는다. 이름은 영문 소문자·밑줄만 남기고 나머지는 '?'.
-const NAME = /^[a-z][a-z0-9_]{0,39}$/;
-const nameOf = v => (typeof v === 'string' && NAME.test(v) ? v : '?');
+
+// 답의 '모양'만 한 줄로(운영 로그용): 키 이름·끝난 이유·차단·후보/조각 수·글자 수·줄 수·화자 수·되풀이·토큰 수.
+// 전사 글·오류 글·파일 주소는 넣지 않는다. 키는 영문·숫자·밑줄만 남기고 나머지는 '?'.
+const KEY = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+const keyOf = v => (typeof v === 'string' && KEY.test(v) ? v : '?');
 const tally = list => {
   const m = new Map();
   for (const k of list) m.set(k, (m.get(k) || 0) + 1);
   return m.size ? [...m].map(([k, n]) => `${k}:${n}`).join(',') : '-';
 };
+const num = v => (Number.isSafeInteger(Number(v)) && Number(v) >= 0 && v !== null && v !== '' ? Number(v) : '-');
 export function answerShape(json) {
-  if (!json || typeof json !== 'object' || Array.isArray(json)) return `type=${json === null ? 'null' : Array.isArray(json) ? 'array' : typeof json}`;
-  const it = interactionOf(json);
-  const steps = stepsOf(json);
-  const parts = steps.filter(isOutputStep).flatMap(contentOf).filter(p => p && typeof p === 'object');
-  const texts = parts.filter(p => p.type === 'text' && typeof p.text === 'string');
-  const words = parts.flatMap(p => (Array.isArray(p.annotations) ? p.annotations : [])).filter(a => a && a.type === 'word_info');
-  const speakers = new Set(words.map(a => a.speaker).filter(s => typeof s === 'string' && s));
-  const errors = Array.isArray(it.errors) ? it.errors : [];
-  const outText = typeof json.output_text === 'string' ? json.output_text : typeof it.output_text === 'string' ? it.output_text : null;
-  const usage = json.usage ?? it.usage;
-  const out = Number(usage?.total_output_tokens ?? usage?.output_tokens);
+  if (!isObj(json)) return `type=${json === null ? 'null' : Array.isArray(json) ? 'array' : typeof json}`;
+  const cands = Array.isArray(json.candidates) ? json.candidates : [];
+  const cand = candidateOf(json);
+  const parts = partsOf(cand);
+  const texts = textParts(cand);
+  const text = tidySpeakers(texts.map(p => p.text).join(''));
+  const rep = text ? repeatRun(text) : null;
+  const u = isObj(json.usageMetadata) ? json.usageMetadata : {};
   return [
-    `status=${answerStatus(json) ? nameOf(answerStatus(json)) : '-'}`,
-    `wrap=${it === json ? '-' : 'interaction'}`,
-    `keys=${Object.keys(it).map(nameOf).sort().join(',') || '-'}`,
-    `steps=${steps.length}(${tally(steps.map(s => (s && typeof s === 'object' ? (s.type === undefined ? 'none' : nameOf(s.type)) : '?')))})`,
-    `parts=${tally(parts.map(p => nameOf(p.type)))}`,
-    `chars=${texts.reduce((n, p) => n + p.text.trim().length, 0)}`,
+    `finish=${finishReason(json) || (typeof cand?.finishReason === 'string' ? '?' : '-')}`,
+    `block=${blockReason(json) || '-'}`,
+    `keys=${Object.keys(json).map(keyOf).sort().join(',') || '-'}`,
+    `cands=${cands.length}`,
+    `parts=${tally(parts.map(p => (p.thought === true ? 'thought' : typeof p.text === 'string' ? 'text' : Object.keys(p).map(keyOf)[0] || '?')))}`,
+    `chars=${text.length}`,
     `blank=${texts.filter(p => !p.text.trim()).length}`,
-    `words=${words.length}`,
-    `speakers=${speakers.size}`,
-    `output_text=${outText === null ? '-' : outText.trim().length}`,
-    `errors=${tally(errors.map(e => (typeof e?.code === 'number' && Number.isSafeInteger(e.code) ? String(e.code) : nameOf(String(e?.code ?? '').toLowerCase()))))}`,
-    `out_tokens=${Number.isSafeInteger(out) && out >= 0 ? out : '-'}`,
+    `lines=${text ? text.split('\n').filter(l => l.trim()).length : 0}`,
+    `speakers=${speakerCount(text)}`,
+    `repeat=${rep ? `${rep.words}x${rep.times}` : '-'}`,
+    `out_tokens=${num(u.candidatesTokenCount)}`,
+    `thought_tokens=${num(u.thoughtsTokenCount)}`,
   ].join(' ');
 }
-// 단어별 화자 표시(spk_1 …)로 같은 화자가 이어지는 단어를 한 줄로 묶는다. 화자 표시가 없거나 한 명뿐이면 ''.
-export function speakerLines(json) {
-  const words = [];
-  for (const step of outputSteps(json)) {
-    if (!step || !Array.isArray(step.content)) continue;
-    for (const part of step.content) {
-      if (!part || !Array.isArray(part.annotations)) continue;
-      for (const a of part.annotations) {
-        if (a && a.type === 'word_info' && typeof a.text === 'string' && a.text.trim() && typeof a.speaker === 'string' && a.speaker) {
-          words.push({ speaker: a.speaker, text: a.text.trim() });
-        }
-      }
-    }
-  }
-  if (!words.length) return '';
-  const order = [];
-  for (const w of words) if (!order.includes(w.speaker)) order.push(w.speaker);
-  if (order.length < 2) return '';
-  const lines = [];
-  let current = null, buffer = [];
-  for (const w of words) {
-    if (w.speaker !== current && buffer.length) { lines.push(`화자${order.indexOf(current) + 1}: ${buffer.join(' ')}`); buffer = []; }
-    current = w.speaker;
-    buffer.push(w.text);
-  }
-  if (buffer.length) lines.push(`화자${order.indexOf(current) + 1}: ${buffer.join(' ')}`);
-  return lines.map(line => line.replace(/\s+([.,?!。])/g, '$1')).join('\n');
-}
-// 전사 응답 읽기. 끝나지 않았거나 글이 없으면 원인별 Fail(REC-글못찾음: 전엔 완료 아닌 답은 모두 gemini_failed, 빈 답은
-// '녹음에 글 없음'(empty_transcript)과 같은 코드라 [다시]도 막혔다).
-//   in_progress → gemini_timeout(한 번 요청 안에 끝나지 않음) · incomplete → gemini_incomplete · 그 밖 완료 아님 → gemini_failed
-//   완료(또는 상태 없음)인데 글 없음 → gemini_empty. empty_transcript는 서버 정리의 '구간 없음'·'이은 글에 말 없음'에만 남는다.
+// 전사 응답 읽기. 글을 받지 못했으면 원인별 Fail(지금 갈래 그대로):
+//   형식이 아님 · 요청 차단(blockReason) · 그 밖 멈춤(SAFETY 등) → gemini_failed
+//   같은 말 되풀이(repeatRun) → gemini_repeat(반으로 나눠 다시) · 출력 상한에서 잘림(MAX_TOKENS) → gemini_incomplete(반으로 나눠 다시)
+//   끝까지 왔는데 글 없음 → gemini_empty. 되풀이는 잘림보다 먼저 본다(되풀이하다 상한에 닿는 일이 많아 원인을 사실대로 남김).
+const DONE = new Set(['STOP', 'FINISH_REASON_UNSPECIFIED', '']);
 export function readTranscript(json) {
-  if (!json || typeof json !== 'object' || Array.isArray(json)) throw new Fail('gemini_failed');
-  const status = answerStatus(json);
-  if (status === 'in_progress') throw new Fail('gemini_timeout');
-  if (status === 'incomplete') throw new Fail('gemini_incomplete');
-  if (status && status !== 'completed') throw new Fail('gemini_failed');
-  const plain = answerTexts(json).join('\n').trim();
-  const split = speakerLines(json);
-  const text = split || plain;
+  if (!isObj(json)) throw new Fail('gemini_failed');
+  if (blockReason(json)) throw new Fail('gemini_failed');
+  const cand = candidateOf(json);
+  const finish = finishReason(json);
+  if (cand && typeof cand.finishReason === 'string' && !finish) throw new Fail('gemini_failed');
+  const text = tidySpeakers(textParts(cand).map(p => p.text).join(''));
+  if (text && repeatRun(text)) throw new Fail('gemini_repeat');
+  if (finish === 'MAX_TOKENS') throw new Fail('gemini_incomplete');
+  if (!DONE.has(finish)) throw new Fail('gemini_failed');
   if (!text) throw new Fail('gemini_empty');
-  return { text, speakerSplit: !!split };
+  return { text, speakerSplit: speakerCount(text) >= 2 };
 }
 
 const count = v => (Number.isSafeInteger(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
-// 사용량 읽기. 응답에 숫자가 없으면 녹음 길이(초) × 32로 음성 토큰을 추정해 월 상한이 비지 않게 한다.
+// 사용량 읽기(usageMetadata): 입력 promptTokenCount(그중 음성은 promptTokensDetails의 AUDIO), 출력 = candidatesTokenCount + thoughtsTokenCount
+// (생각 토큰도 출력값 — 생각을 꺼도 혹시 오면 그대로 셈). 숫자가 없으면 녹음 길이(초) × 32로 음성 토큰을 추정해 월 상한이 비지 않게 한다.
 export function readUsage(json, duration, model = TRANSCRIBE_MODEL) {
-  const u = json?.usage ?? json?.interaction?.usage ?? {};
-  let input = count(u.total_input_tokens ?? u.input_tokens ?? u.prompt_token_count);
-  const output = count(u.total_output_tokens ?? u.output_tokens) + count(u.total_thought_tokens ?? u.thought_tokens);
+  const u = isObj(json?.usageMetadata) ? json.usageMetadata : {};
+  let input = count(u.promptTokenCount);
+  const output = count(u.candidatesTokenCount) + count(u.thoughtsTokenCount);
   let audio = 0;
-  const modal = Array.isArray(u.input_tokens_by_modality) ? u.input_tokens_by_modality : [];
-  for (const m of modal) if (String(m?.modality || '').toLowerCase() === 'audio') audio += count(m.tokens ?? m.token_count);
+  const modal = Array.isArray(u.promptTokensDetails) ? u.promptTokensDetails : [];
+  for (const m of modal) if (String(m?.modality || '').toUpperCase() === 'AUDIO') audio += count(m.tokenCount);
   if (!input) input = count(Math.ceil((duration || 0) * AUDIO_TOKENS_PER_SECOND));
   if (!audio || audio > input) audio = input;
-  const name = String(json?.model || model).trim().toLowerCase().replace(/^models\//, '');
+  const name = String(json?.modelVersion || model).trim().toLowerCase().replace(/^models\//, '');
   return { model: /^[a-z0-9][a-z0-9._-]{0,63}$/.test(name) ? name : model, calls: 1, input_tokens: input, audio_tokens: audio, output_tokens: output };
 }
 

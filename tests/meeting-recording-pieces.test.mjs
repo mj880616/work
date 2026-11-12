@@ -4,7 +4,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as r from '../supabase/functions/meeting-transcribe/recording.mjs';
-import {DIARIZE_MAX_SECONDS,MAX_SECONDS,wantsDiarize} from '../supabase/functions/meeting-transcribe/model.mjs';
+import {MAX_SECONDS} from '../supabase/functions/meeting-transcribe/model.mjs';
+import {CHUNK_SECONDS,chunkRanges} from '../supabase/functions/meeting-transcribe/split.mjs';
 import {PIECE_SECONDS,ROLL_PIECES,SEGMENT_SECONDS,pieceSecondsOf,rollPiecesOf,shouldRoll} from '../app/meeting-recorder-model.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -32,12 +33,13 @@ test('간격: 화면·서버 모두 1분, 구간 29분, 조각 한도 60(상한 
   assert.ok(Math.ceil(SEGMENT_SECONDS/PIECE_SECONDS)+1<=ROLL_PIECES);
 });
 
-// REC-발언자구분: 발언자 구분은 30분 이하 녹음에만 켜진다. 구간이 그 안이어야 긴 회의도 구간마다 '화자n:' 줄로 나뉜다.
-test('구간 길이는 발언자 구분 상한 안: 29분 구간(넘김이 조각 하나만큼 늦어도)은 구분을 켜고, 옛 59분 구간은 통글',()=>{
-  assert.ok(SEGMENT_SECONDS+PIECE_SECONDS<=DIARIZE_MAX_SECONDS);
-  assert.equal(wantsDiarize(SEGMENT_SECONDS),true);
-  assert.equal(wantsDiarize(SEGMENT_SECONDS+PIECE_SECONDS),true); // 넘김이 1분 늦은 구간
-  assert.equal(wantsDiarize(59*60),false);                        // 옛 구간·이어서 정리: 실패가 아니라 통글
+// S60-9 REC-전사모델바꾸기: 발언자 구분은 지시문('화자n:' 줄)이라 길이 상한이 없다. 대신 구간이 전사 조각 길이(30분) 안이면
+// 구간 하나가 한 번 요청으로 전사된다(구간 가운데에 이음매가 생기지 않음). 옛 59분 구간은 조각 둘로 나뉘어 전사된다(실패 아님).
+test('구간 길이는 전사 조각 길이 안: 29분 구간(넘김이 조각 하나만큼 늦어도)은 나누지 않고, 옛 59분 구간은 조각 둘',()=>{
+  assert.ok(SEGMENT_SECONDS+PIECE_SECONDS<=CHUNK_SECONDS);
+  assert.deepEqual(chunkRanges(SEGMENT_SECONDS),[]);
+  assert.deepEqual(chunkRanges(SEGMENT_SECONDS+PIECE_SECONDS),[]); // 넘김이 1분 늦은 구간
+  assert.equal(chunkRanges(59*60).length,2);                       // 옛 구간·이어서 정리
   assert.ok(59*60<MAX_SECONDS);                                   // 옛 구간도 전사 한 번 요청 상한 안
   // 구간 수 상한(DB 제약) × 29분 = 11시간 36분: 하루 회의에 충분하다.
   assert.equal(r.REC_MAX_SEGMENTS,24);

@@ -63,7 +63,7 @@ async function mock(page,{segmentSeconds=1740,meetings=[]}={}){
       if(action==='rec_piece')return ok({ok:true,pieces:Number(headers['x-piece-seq'])});
       if(action==='rec_finish')return ok({ok:true,more:false,session_id:body.session_id,segments:[
         {segment_no:1,status:'combined',error_code:null,job_id:J1,duration_sec:1740},{segment_no:2,status:'combined',error_code:null,job_id:J2,duration_sec:600}]});
-      // 발언자 구분이 켜진 구간의 답: '화자n:' 줄(서버 speakerLines가 만든 모양 그대로).
+      // 발언자 구분이 켜진 구간의 답: '화자n:' 줄(서버 readTranscript가 맞춘 모양 그대로).
       if(action==='transcribe')return ok({ok:true,job_id:body.job_id,text:body.job_id===J1?SEG1:SEG2,speaker_split:true});
       if(action==='config')return ok({ok:true,ready:true});
       return ok({ok:true}); // 서버 정리(job_*)를 모르는 옛 서버처럼: 화면이 구간마다 전사해 잇는다

@@ -34,6 +34,8 @@ const FAIL_TEXT={
   // REC-글못찾음: 전사 서비스 답이 글 없이 옴 · 끝까지 못 만듦(같은 소리도 다시 하면 될 수 있음).
   gemini_empty:`전사 서비스가 글 없이 답했어요. ${KEEP} ${AGAIN}`,
   gemini_incomplete:`전사 서비스가 끝까지 옮기지 못했어요. ${KEEP} ${AGAIN}`,
+  // S60-9: 받아 적은 글에 같은 말이 되풀이됨(조각을 반으로 나눠 다시 하고도 남을 때).
+  gemini_repeat:`전사 서비스가 같은 말을 되풀이해 적었어요. ${KEEP} ${AGAIN}`,
   draft_failed:'전사는 끝났는데 요약을 만들지 못했어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
   draft_cut:'회의가 길어 요약이 중간에 잘렸어요. 전사한 글은 남아 있어요. [다시]를 누르세요.',
   draft_timeout:'요약이 오래 걸려 멈췄어요. 전사한 글은 남아 있어요. [다시]를 누르면 멈춘 곳부터 이어요.',
@@ -145,6 +147,7 @@ export const SERVER_TEXT=Object.freeze({
   empty_transcript:'녹음에서 글을 찾지 못했어요.',
   gemini_empty:'전사 서비스(Gemini)가 글 없이 답했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   gemini_incomplete:'전사 서비스(Gemini)가 녹음 끝까지 글로 옮기지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_repeat:'전사 서비스(Gemini)가 같은 말을 되풀이해 적었어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   usage_unavailable:'이번 달 사용량을 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   failed:'처리하지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   step_cut:'한 구간이 서버 시간 안에 끝나지 않아 끊겼어요. 소리는 Drive에 남아 있어요.',

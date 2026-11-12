@@ -40,7 +40,7 @@ test('placeDefaultSummary: an existing summary fills only an empty box; a writte
   assert.equal(A.placeDefaultSummary('','가'.repeat(2001)),'');
 });
 
-test('readDocumentBrief: only a b1: row of my workspace; anything else is empty (then [AI 요약])',async()=>{
+test('readDocumentBrief: only a b1: row of my workspace; anything else is empty (then [요약 만들기])',async()=>{
   const rt=rows=>({context:{read:()=>({workspace:{id:'w'}})},api:async path=>{rt.last=path;return rows}});
   const r1=rt([{document_id:N,content_hash:'b1:'+'0'.repeat(32),summary:'올릴 때 요약.'}]);
   assert.equal(await A.readDocumentBrief(N,{rt:r1}),'올릴 때 요약.');assert.match(rt.last,/content_hash=like\.b1%3A\*/);

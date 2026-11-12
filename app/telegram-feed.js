@@ -383,7 +383,7 @@ function sumeditHtml(se) {
   const head = se.kind === 'day' ? `<textarea rows="1" class="feed-edit-input" data-tg-se-head data-autogrow data-enter-field="single" autocomplete="off" aria-label="목록에 보이는 한 줄" placeholder="목록에 보이는 한 줄 (${SUMEDIT.HEADLINE_MAX}자까지)"${dis}>${esc(se.headline)}</textarea>` : '';
   const rows = se.kind === 'day' ? Math.min(10, Math.max(4, se.value.split('\n').length + 1)) : 3;
   const area = `<textarea class="feed-edit-input feed-se-area" data-tg-se-text rows="${rows}" aria-label="${se.kind === 'day' ? '그날 요약 (한 줄에 요약 한 줄)' : '요약'}" autocomplete="off"${dis}>${esc(se.value)}</textarea>`;
-  const orig = se.edited ? `<button type="button" class="feed-text-btn feed-se-orig" data-tg-se-orig${dis}>AI 원래 요약으로</button>` : '';
+  const orig = se.edited ? `<button type="button" class="feed-text-btn feed-se-orig" data-tg-se-orig${dis}>초안으로 되돌리기</button>` : '';
   return `<div class="feed-se" data-tg-se data-enter-save="[data-tg-se-save]">${head}${area}<div class="feed-se-actions">${orig}<span class="feed-status" role="status">${esc(se.status)}</span><button type="button" class="feed-small" data-tg-se-cancel${dis}>취소</button><button type="button" class="feed-small primary" data-tg-se-save${dis}>저장</button></div></div>`;
 }
 function itemHtml(r) {

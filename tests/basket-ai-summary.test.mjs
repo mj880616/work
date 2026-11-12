@@ -86,7 +86,7 @@ test('the button is hidden for diary, archived, AI-excluded and empty notes',()=
 test('markup escapes the proposal and locks only the run button while busy',()=>{
   const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const busy=mod.aiSummaryMarkup({...mod.newAiState(),busy:true},'organization:'+org,'data-manual',esc);
-  assert.match(busy,/data-manual-ai-run="organization:[^"]+" aria-label="AI 요약 만들기" disabled/);assert.match(busy,/요약 만드는 중…/);
+  assert.match(busy,/data-manual-ai-run="organization:[^"]+" aria-label="요약 만들기" disabled/);assert.match(busy,/요약 만드는 중…/);
   const proposal=mod.aiSummaryMarkup({...mod.newAiState(),proposal:'<img src=x onerror=alert(1)>'},'k','data-manual',esc);
   assert.doesNotMatch(proposal,/<img/);assert.match(proposal,/이걸로 바꾸기/);
   assert.match(mod.aiSummaryMarkup({...mod.newAiState(),retry:true,status:'AI가 지금 바빠요.'},'k','data-manual',esc),/>다시 시도</);
