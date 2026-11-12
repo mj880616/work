@@ -60,7 +60,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     // 왼쪽 나무 빈 곳(마지막 줄 아래).
     const blank={x:nb.x+30,y:nb.y+nb.height-20};
     await page.mouse.click(blank.x,blank.y,{button:'right'});
-    await expect(areaMenu(page)).toBeVisible();await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','자료 등록']);
+    await expect(areaMenu(page)).toBeVisible();await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','자료 등록','정돈 제안']);
     const mb=await areaMenu(page).boundingBox();expect(Math.abs(mb.x-blank.x)).toBeLessThan(40);expect(Math.abs(mb.y-blank.y)).toBeLessThan(220);
     await areaMenu(page).getByRole('button',{name:'새 폴더'}).click();
     await expect(page.locator('#libraryFolderModal')).toBeVisible();await expect(page.locator('#libraryFolderTitle')).toHaveText('폴더 만들기');
@@ -76,7 +76,7 @@ for(const width of [1440,884])test.describe(`자료실 ${width}`,()=>{
     // 오른쪽 목록 바탕(어느 폴더도 아님) = 같은 메뉴, [자료 등록] = 등록 창.
     await page.locator(nav('')).click();await expect.poll(async()=>(await tops(page)).length).toBe(4);
     await page.evaluate(()=>{const l=document.querySelector('#documentList'),r=l.getBoundingClientRect();l.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.right-40,clientY:r.bottom-6}))});
-    await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','자료 등록']);
+    await expect(areaMenu(page).locator('button')).toHaveText(['새 폴더','자료 등록','정돈 제안']);
     await areaMenu(page).getByRole('button',{name:'자료 등록'}).click();
     await expect(page.locator('#documentModal')).toBeVisible();
     await page.keyboard.press('Escape');await expect(page.locator('#documentModal')).toBeHidden();

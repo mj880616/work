@@ -16,7 +16,7 @@ for(const width of [390,1280])test.describe(`자료실 맨 위 ⋯ · 같은 글
     await expect(page.locator('#libraryListCard .lu-select-row')).toBeHidden();
     // 메뉴 항목과 차례.
     await press(page,page.locator('#libraryTopMenuBtn'),width);
-    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더','여러 개 선택','모두 펴기']);
+    await expect(page.locator('#luTopMenu button')).toHaveText(['새 폴더','정돈 제안','여러 개 선택','모두 펴기']);
     await page.keyboard.press('Escape');await expect(page.locator('#luTopMenu')).toBeHidden();
     // 모두 펴기 ↔ 모두 접기.
     await libraryTopMenu(page,'expand',{tap:width<761});await expect(page.locator('#documentList details[data-lu-node]:not([open])')).toHaveCount(0);

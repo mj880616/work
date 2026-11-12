@@ -166,7 +166,7 @@ export function tidyGroups(units,{folders=[],receiveId=null,scopeId=null}={}){
     if(list.length<TIDY_MIN)continue;
     const count=new Map();for(const u of list)count.set(u.from,(count.get(u.from)||0)+1);
     if(count.size<2)continue;
-    const at=[...count].map(([folder,n])=>({folder,n})).sort((a,b)=>b.n-a.n||(order.get(a.folder)??-1)-(order.get(b.folder)??-1));
+    const at=[...count].map(([folder,n])=>({folder,n})).sort((a,b)=>b.n-a.n||(order.get(a.folder)??1e9)-(order.get(b.folder)??1e9));
     const best=at.find(x=>x.folder&&x.folder!==receiveId&&!(byId.get(x.folder)&&String(byId.get(x.folder).name).trim()===TIDY_SKIP_FOLDER));
     let to;
     if(best&&best.n>=2)to={folder:best.folder};
