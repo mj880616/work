@@ -38,7 +38,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
   Fail, GEMINI_KEY_NAME, GEMINI_TIME, HALVE_CODES, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
-  answerShape, answerWindow, attachDocument, audioMime, canStart, stateTag, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
+  answerShape, answerWindow, attachDocument, audioMime, canStart, stateTag, failBody, geminiCode, isStale, isThin, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
   phaseWindow, seoulDay, transcribePath, transcriptionRequest, trashBefore, usageRef,
 } from './model.mjs';
 import {
@@ -58,7 +58,7 @@ import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meet
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasWords, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
+  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasThinPart, hasWords, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 import {
   JOIN_DAY_COLUMNS, JOIN_JOB_TABLE, JOIN_MEETING_COLUMNS, JOIN_STEP_COLUMNS, JOIN_TICK_ACTION, JOIN_VIEW_COLUMNS,
@@ -391,7 +391,8 @@ const failCode = (e: unknown) => e instanceof Fail ? e.code : (e instanceof DOME
 // deadline: 이 실행에서 Gemini 답까지 끝내야 하는 시각(소리 읽기 시작 + GEMINI_TIME.stepMs, S60-11). 화면 길의 동시 조각도 같은 한 번 실행이라 같이 쓴다.
 type Loaded = { body: ReadableStream<Uint8Array> | Uint8Array; size: number; mime: string; seconds: number | null; opened: ReturnType<typeof openAudio>; deadline: number };
 type Range = { from: number; to: number | null; seconds?: number };
-type Piece = { text: string; speakerSplit: boolean; model: string } | { split: Range[] };
+// thin(S60-17): 다시 물어도 글이 적어 그대로 둔 조각의 소리 길이(초). split.thin: 글이 적어 다시 묻는 반 나눔(그 조각들은 더 다시 묻지 않음).
+type Piece = { text: string; speakerSplit: boolean; model: string; thin?: number } | { split: Range[]; thin?: boolean };
 
 // Drive의 소리를 읽는다. Ogg 파일(폰 녹음 등)은 쪽 머리를 규격대로 고친다(ogg.mjs: 안드로이드 녹음기의 granule·끝 표시 문제).
 // Drive 원본은 그대로 둔다(이미 합친 오늘 녹음도 [다시]로 이 길을 탄다).
@@ -433,8 +434,10 @@ const SLICE_MIME: Record<string, string> = { ogg: 'audio/ogg', webm: 'audio/webm
 // 답이 끝까지 오지 않거나(gemini_incomplete) 같은 말을 되풀이하거나(gemini_repeat) 시간 안에 오지 않으면(gemini_timeout, S60-11)
 // 나눌 수 있는 한 그 조각을 반으로 나눌 구간을 돌려준다(model.mjs HALVE_CODES, 쓴 비용은 실패 머리로 기록됨).
 // halveFirst(S60-11): 앞 실행이 이 조각에서 끊겼으면(서버 정리 step_cut 한 번) 같은 크기로 또 걸리지 않게 묻지 않고 반으로 나눌 구간부터 돌려준다.
+// thinTried(S60-17 REC-빈답반복): 글은 왔지만 소리 길이에 비해 아주 적으면(model.mjs isThin) 한 번만 반으로 나눠 다시 묻는다({split, thin:true},
+// 이 시도는 글을 쓰지 않으므로 실패 머리로 기록 = 월 상한에서 뺌). 이미 그렇게 나뉜 조각(thinTried)이거나 더 못 나누면 글을 두고 {thin: 길이}를 붙인다.
 // 쓴 만큼 사용량 기록. Gemini에 올린 임시 파일은 끝나면 지운다. 작업 행 상태는 부른 쪽이 정한다.
-async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Range | null, piece = 0, halveFirst = false): Promise<Piece> {
+async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Range | null, piece = 0, halveFirst = false, thinTried = false): Promise<Piece> {
   if (!range && audio.opened && audio.opened.seconds > CHUNK_SECONDS) return { split: chunkRanges(audio.opened.seconds) };
   let body = audio.body, size = audio.size, mime = audio.mime, span = audio.seconds;
   if (range) span = Math.round((range.to ?? audio.opened?.seconds ?? 0) - range.from);
@@ -471,9 +474,13 @@ async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Ran
     let result: ReturnType<typeof readAnswer> | null = null;
     let answerError: unknown = null;
     try { result = readAnswer(response); } catch (e) { answerError = e; }
+    // 글이 적은가(S60-17): 길이를 아는 소리(duration)만 본다. 다시 물을 수 있으면 이 글은 쓰지 않는다.
+    const thin = !!result && isThin(result.text, duration);
+    const retryThin = thin && !thinTried ? halvesOf('thin') : [];
+    if (thin) console.warn('meeting-transcribe: thin answer', Math.round((duration || 0) / 60), retryThin.length ? 'retry' : 'keep');
     const at = new Date();
     const { error: usageError } = await admin.from('app_ai_external_usage').insert({
-      workspace_id: job.workspace_id, ref: usageRef(job.id, at, !result, piece), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
+      workspace_id: job.workspace_id, ref: usageRef(job.id, at, !result || retryThin.length > 0, piece), provider: 'gemini', source: 'transcript', day: seoulDay(at), ...usage,
     });
     if (usageError) console.warn('meeting-transcribe: usage not recorded', usageError.code);
     if (!result) {
@@ -483,7 +490,8 @@ async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Ran
       }
       throw answerError;
     }
-    return { text: result.text as string, speakerSplit: result.speakerSplit, model: usage.model as string };
+    if (retryThin.length) return { split: retryThin, thin: true };
+    return { text: result.text as string, speakerSplit: result.speakerSplit, model: usage.model as string, ...(thin ? { thin: Math.round(Number(duration) || 0) } : {}) };
   } finally {
     if (geminiFile) await geminiDelete(key, geminiFile);
   }
@@ -495,14 +503,15 @@ const PARALLEL_CHUNKS = 3;
 async function runTranscription(key: string, job: Job) {
   const audio = await loadAudio(job);
   let piece = 0;
-  const run = async (range: Range | null): Promise<{ range: Range | null; text: string; speakerSplit: boolean; model: string }[]> => {
-    const got = await transcribeLoaded(key, job, audio, range, range ? ++piece : 0);
-    if ('split' in got) return (await mapLimit(got.split, PARALLEL_CHUNKS, run)).flat();
+  type Out = { range: Range | null; text: string; speakerSplit: boolean; model: string; thin?: number };
+  const run = async (range: Range | null, thinTried = false): Promise<Out[]> => {
+    const got = await transcribeLoaded(key, job, audio, range, range ? ++piece : 0, false, thinTried);
+    if ('split' in got) { const again = thinTried || !!got.thin; return (await mapLimit(got.split, PARALLEL_CHUNKS, (r: Range) => run(r, again))).flat(); }
     return [{ range, ...got }];
   };
   const out = await run(null);
-  if (out.length === 1) return out[0];
-  const text = joinParts(out.map((o) => ({ no: 1, seconds: o.range?.seconds ?? 0, range: o.range, text: cleanText(o.text) })));
+  if (out.length === 1 && !out[0].thin) return out[0];
+  const text = joinParts(out.map((o) => ({ no: 1, seconds: o.range?.seconds ?? 0, range: o.range, text: cleanText(o.text), thin: o.thin })));
   return { text, speakerSplit: out.some((o) => o.speakerSplit), model: out[0].model };
 }
 
@@ -987,13 +996,14 @@ async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unk
       if (p.range !== undefined && !range) throw new Fail('failed');
       const more = moreOfSame(parts, i);
       // S60-11: 앞 실행이 이 조각에서 끊겼으면(cutBefore) 같은 크기로 또 묻지 않고 반으로 나눈다(요약 단계와 같은 규칙).
-      const got = p.file ? await transcribeFile(key, job, p.file, range, cutBefore) : await transcribeSegment(key, p.job, range, more, cutBefore);
+      const thinTried = p.retry === 'thin';
+      const got = p.file ? await transcribeFile(key, job, p.file, range, cutBefore, thinTried) : await transcribeSegment(key, p.job, range, more, cutBefore, thinTried);
       if ('split' in got) {
-        const next = splitPart(parts, i, got.split);
+        const next = splitPart(parts, i, got.split, got.thin ? 'thin' : '');
         if (next.length === parts.length) throw new Fail('gemini_incomplete');
         return { ...started, status: 'queued', parts: next, step_no: doneParts(next), step_total: partTotal(next) };
       }
-      parts[i] = { ...p, text: cleanText(got.text) };
+      parts[i] = { ...p, text: cleanText(got.text), ...(got.thin ? { thin: got.thin } : {}) };
       if (nextPart(parts) >= 0) return { ...started, status: 'queued', parts, step_no: doneParts(parts), step_total: partTotal(parts) };
     }
     const transcript = joinParts(parts);
@@ -1055,7 +1065,7 @@ async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unk
 // 전엔 15분(RUNNING_STALE_MS)을 기다려, 서버 정리가 9분 뒤 다시 잡을 때 끊긴 자기 흔적에 막혀 busy로 실패했다).
 // REC-긴녹음나눠전사: range = 이번에 할 시간 조각(없으면 통째). 나눌 구간({split})을 돌려주거나 같은 구간의 조각이 더 남았으면(more)
 // 구간 행은 '끝'(done)이 아니라 '올림'(uploaded)으로 돌려 둔다('이어서 정리'·붙이기가 끝난 녹음으로 보지 않게). 마지막 조각 뒤에 done.
-async function transcribeSegment(key: string, jobId: unknown, range: Range | null = null, more = false, halveFirst = false): Promise<Piece> {
+async function transcribeSegment(key: string, jobId: unknown, range: Range | null = null, more = false, halveFirst = false, thinTried = false): Promise<Piece> {
   if (!isUuid(jobId)) throw new Fail('not_found');
   const { data: job, error } = await admin.from(TABLE).select(JOB_COLUMNS).eq('id', jobId as string).maybeSingle();
   if (error) throw new Fail('failed');
@@ -1073,7 +1083,7 @@ async function transcribeSegment(key: string, jobId: unknown, range: Range | nul
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
   if (!started?.length) throw new Fail('busy');
   try {
-    const out = await transcribeLoaded(key, job, await loadAudio(job), range, 0, halveFirst);
+    const out = await transcribeLoaded(key, job, await loadAudio(job), range, 0, halveFirst, thinTried);
     if ('split' in out || more) await setJob(job.id, { status: 'uploaded', error_code: null, finished_at: null });
     else await setJob(job.id, { status: 'done', error_code: null, model: out.model, finished_at: new Date().toISOString() });
     return out;
@@ -1084,12 +1094,12 @@ async function transcribeSegment(key: string, jobId: unknown, range: Range | nul
 }
 // 회의자료에 붙은 소리 파일 전사(B). 전사 작업 표에는 넣지 않는다(그 표의 30일 휴지통 정리가 회의자료 원본을 건드리지 않게).
 // 사용량 열쇠는 서버 작업 id로 남긴다. 긴 파일은 구간 녹음과 같게 시간 조각으로 나눈다(range).
-async function transcribeFile(key: string, job: Job, file: Record<string, unknown>, range: Range | null = null, halveFirst = false): Promise<Piece> {
+async function transcribeFile(key: string, job: Job, file: Record<string, unknown>, range: Range | null = null, halveFirst = false, thinTried = false): Promise<Piece> {
   const src = {
     id: job.id, workspace_id: job.workspace_id, drive_file_id: file.id, file_name: file.name, mime_type: file.mime,
     size_bytes: file.size, duration_sec: null,
   };
-  return await transcribeLoaded(key, src, await loadAudio(src), range, 0, halveFirst);
+  return await transcribeLoaded(key, src, await loadAudio(src), range, 0, halveFirst, thinTried);
 }
 
 // 서버 요약 한 번(meeting-ai-draft '새 회의' 길과 같은 지시문·한도·사용량 기록). 명진 이름 목록은 읽을 수 있을 때만 넣는다.
@@ -1214,7 +1224,8 @@ async function jobStart(user: { id: string }, userDb: ReturnType<typeof userClie
       const { data: prev, error: prevError } = await admin.from(SERVER_JOB_TABLE).select('transcript_text,draft,parts').eq('workspace_id', start.workspaceId)
         .eq('kind', 'attached').eq('source_file_id', audio.fileId).eq('source_md5', md5).eq('status', 'done').order('finished_at', { ascending: false }).limit(1);
       if (prevError) throw jobsFail(prevError);
-      if (prev?.length && prev[0].transcript_text) {
+      // S60-17: 글이 적은 조각이 있던 결과는 다시 쓰지 않는다(그 파일을 다시 전사해야 [다시]가 같은 짧은 글을 돌려주지 않음).
+      if (prev?.length && prev[0].transcript_text && !hasThinPart(prev[0].parts)) {
         const { data: copy, error: copyError } = await admin.from(SERVER_JOB_TABLE).insert({
           ...base, status: 'done', stage: 'done', parts: prev[0].parts, transcript_text: prev[0].transcript_text, draft: prev[0].draft,
           step_no: 1, step_total: 1, finished_at: new Date().toISOString(),
