@@ -25,7 +25,7 @@ const eqv=v=>v?.replace(/^eq\./,'');
 
 async function fixture(page,{width=390,folders=FOLDERS(),rows=NOTES()}={}){
   await page.setViewportSize({width,height:860});
-  const cands=[cand()],fams=family(),f={rows,folders,candPatches:[],famPatches:[],notePosts:[],notePatches:[],noteLists:[]};
+  const cands=[cand()],fams=family(),f={rows,folders,candPatches:[],famPatches:[],notePosts:[],notePatches:[],remindPatches:[],noteLists:[]};
   await openHome(page,{beforeLoad:async()=>{
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['telegram','family']}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',async r=>{
@@ -55,7 +55,9 @@ async function fixture(page,{width=390,folders=FOLDERS(),rows=NOTES()}={}){
         &&(!q.get('ai_export_allowed')||String(row.ai_export_allowed)===q.get('ai_export_allowed').replace(/^is\./,''))&&(!q.get('metadata->>family_list')||row.metadata?.family_list===true);
       if(req.method()==='POST'){const body=req.postDataJSON(),row={id:N(90+f.notePosts.length),attachments:[],archived_at:null,metadata:{},ai_export_allowed:true,...body,updated_at:'2026-10-06T01:00:00Z'};f.notePosts.push(body);rows.push(row);return r.fulfill({status:201,json:[row]});}
       if(req.method()==='PATCH'){
-        const body=req.postDataJSON(),list=rows.filter(hit);f.notePatches.push({query:Object.fromEntries(q),body});
+        const body=req.postDataJSON(),list=rows.filter(hit);
+        // FAMILY-기억알림: 맨 위 '가족 · 기억할 것' 칸이 본 기록(metadata.remind)만 쓰는 PATCH는 따로 센다(이 시험이 보는 노트 글 쓰기와 다름).
+        if(body.metadata&&!('doc' in body)&&body.metadata.remind)f.remindPatches.push(body);else f.notePatches.push({query:Object.fromEntries(q),body});
         list.forEach(row=>Object.assign(row,body));return r.fulfill({json:list});
       }
       if(q.get('kind')==='eq.note'&&!q.get('id')&&!q.get('metadata->>family_list'))f.noteLists.push(Object.fromEntries(q));

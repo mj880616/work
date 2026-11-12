@@ -17,9 +17,10 @@ export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window} 
   function paint() {
     if (!note || !picks.length) { host.hidden = true; host.innerHTML = ''; return; }
     host.hidden = false;
+    // 공용 상자(notice-box: .nbx 머리 줄·줄·⋯·상태 줄) 그대로. 이 칸 CSS는 자리만 정한다(basket.css).
     const other = total > picks.length ? '<button type="button" class="row-act" data-fam-other>↻ 다른 줄</button>' : '';
-    host.innerHTML = `<div class="fam-remind-head"><b>가족 · 기억할 것</b><span class="nbx-faint">${picks.length}/${total}</span><span class="fam-remind-acts">${other}<button type="button" class="row-act" data-fam-open>노트 열기 ›</button></span></div>`
-      + `<ul class="fam-remind-list">${picks.map(p => `<li data-fam-line="${esc(p.key)}"><span class="fam-remind-text">${esc(p.text)}</span><button type="button" class="row-act fam-remind-more" data-fam-more="${esc(p.key)}" aria-label="${esc(`${p.text} — 줄 메뉴`)}" aria-haspopup="true">⋯</button></li>`).join('')}</ul>`
+    host.innerHTML = `<div class="nbx-head"><span class="nbx-title">가족 · 기억할 것</span><span class="nbx-faint">${picks.length}/${total}</span><span class="nbx-acts">${other}<button type="button" class="row-act" data-fam-open>노트 열기 ›</button></span></div>`
+      + `<ul class="nbx-list">${picks.map(p => `<li class="nbx-item" data-fam-line="${esc(p.key)}"><p class="nbx-body fam-remind-text">${esc(p.text)}</p><button type="button" class="icon-btn nbx-more" data-fam-more="${esc(p.key)}" aria-label="${esc(`메뉴: ${p.text}`)}" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></li>`).join('')}</ul>`
       + `<p class="nbx-status" role="status" aria-live="polite" data-fam-status>${esc(status)}</p>`;
   }
   async function save(next) {
