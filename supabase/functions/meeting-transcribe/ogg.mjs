@@ -179,3 +179,97 @@ export function wantsOggFix(mime, fileName, size) {
   const ogg = m === 'audio/ogg' || m === 'audio/opus' || m === 'application/ogg' || ['ogg', 'oga', 'opus'].includes(ext);
   return ogg && Number(size) > 0 && Number(size) <= OGG_FIX_MAX_BYTES;
 }
+
+// ---- REC-긴녹음나눠전사(S60-7): Ogg/Opus를 시간 구간으로 잘라 새 Ogg 파일로 ----
+// 전사 서비스(gemini-3.5-transcribe)는 한 번 답에 출력 32,768토큰까지라 긴 녹음은 글이 잘린다(gemini_incomplete). 요청에 구간(시작·끝 시각)을
+// 지정하는 칸은 없어(공식 전사 안내 2026-11 확인: transcription_config는 language_codes·custom_vocabulary·mode뿐) 파일을 잘라 따로 올린다.
+// 소리는 풀지 않는다: 묶음(packet)을 그대로 옮기고, 쪽(page)만 새로 짠다(쪽 번호 0부터·granule은 잘린 파일 처음부터 센 표본 수·처음/끝 표시·검사합).
+// 머리 두 묶음 중 OpusHead는 그대로, OpusTags는 최소 모양(이름·설명 없음)으로 바꾼다(앨범 그림 같은 큰 꼬리표를 조각마다 싣지 않게).
+const OPUS_RATE = 48000;
+function oggPage(body, lacing, { flags, granule, serial, seq }) {
+  const out = new Uint8Array(HEADER + lacing.length + body.length);
+  out.set(CAPTURE, 0);
+  out[4] = 0; out[5] = flags;
+  setGranule(out, 6, granule);
+  setU32(out, 14, serial); setU32(out, 18, seq);
+  out[26] = lacing.length;
+  out.set(lacing, HEADER);
+  out.set(body, HEADER + lacing.length);
+  setU32(out, 22, oggCrc(out, 0, out.length));
+  return out;
+}
+function packetBytes(b, pk) {
+  const out = new Uint8Array(pk.size);
+  let at = 0;
+  for (const [s, e] of pk.parts) { out.set(b.subarray(s, e), at); at += e - s; }
+  return out;
+}
+const lacingOf = (n) => { const l = []; let r = n; while (r >= 255) { l.push(255); r -= 255; } l.push(r); return l; };
+function minimalTags() {
+  const vendor = new TextEncoder().encode('web2');
+  const out = new Uint8Array(8 + 4 + vendor.length + 4);
+  out.set(new TextEncoder().encode('OpusTags'));
+  setU32(out, 8, vendor.length);
+  out.set(vendor, 12);
+  return out;
+}
+
+/**
+ * Ogg/Opus 한 줄기인지 보고 길이(초)와 묶음 목록을 돌려준다. 아니면 null(Vorbis·여러 줄기·깨짐 — 나눌 수 없음).
+ * starts[k] = 소리 묶음 k가 시작하는 표본 수(48kHz, 머리 두 묶음 뒤부터 0).
+ */
+export function oggOpusIndex(input) {
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  let read;
+  try { read = readPages(b); } catch { return null; }
+  const { pages } = read;
+  if (!pages.length || pages[0].start !== 0 || pages.some(p => p.serial !== pages[0].serial)) return null;
+  const { packets } = packetsOf(b, pages);
+  if (packets.length < 3) return null;
+  const head = packetHead(b, packets[0], 19);
+  if (head.length < 19 || ascii(head, 8) !== 'OpusHead' || ascii(packetHead(b, packets[1], 8), 8) !== 'OpusTags') return null;
+  const audio = packets.slice(2);
+  const starts = new Array(audio.length);
+  let total = 0;
+  audio.forEach((pk, k) => { starts[k] = total; total += opusSamples(packetHead(b, pk, 2)); });
+  if (!total) return null;
+  return { bytes: b, serial: pages[0].serial, head: packetBytes(b, packets[0]), audio, starts, samples: total, seconds: total / OPUS_RATE };
+}
+
+/** index(oggOpusIndex 결과)에서 [from, to)초에 시작하는 소리 묶음만 담은 새 Ogg/Opus 파일. to가 null이면 끝까지. 고른 묶음이 없으면 null. */
+export function sliceOggOpus(index, from, to) {
+  if (!index) return null;
+  const a = Math.max(0, Math.round(Number(from) * OPUS_RATE));
+  const z = to === null || to === undefined ? Infinity : Math.round(Number(to) * OPUS_RATE);
+  const picked = [];
+  index.audio.forEach((pk, k) => { if (index.starts[k] >= a && index.starts[k] < z) picked.push(pk); });
+  if (!picked.length) return null;
+  const pages = [];
+  const opt = (flags, granule) => ({ flags, granule, serial: index.serial, seq: pages.length });
+  pages.push(oggPage(index.head, lacingOf(index.head.length), opt(0x02, 0n)));
+  const tags = minimalTags();
+  pages.push(oggPage(tags, lacingOf(tags.length), opt(0, 0n)));
+  // 소리 묶음: 쪽 하나에 묶음 여러 개(쪽 머리 칸 255개 안, 쪽 몸통 약 4KB 안). Opus 묶음은 1,275바이트를 넘지 않아 한 묶음이 쪽을 넘지 않는다.
+  let lacing = [], bodies = [], size = 0, samples = 0n;
+  const flush = (last) => {
+    if (!bodies.length) return;
+    const body = new Uint8Array(size);
+    let at = 0;
+    for (const x of bodies) { body.set(x, at); at += x.length; }
+    pages.push(oggPage(body, lacing, opt(last ? 0x04 : 0, samples)));
+    lacing = []; bodies = []; size = 0;
+  };
+  picked.forEach((pk, i) => {
+    const bytes = packetBytes(index.bytes, pk);
+    const l = lacingOf(bytes.length);
+    if (lacing.length + l.length > 255 || size + bytes.length > 4096) flush(false);
+    lacing.push(...l); bodies.push(bytes); size += bytes.length;
+    samples += BigInt(opusSamples(bytes.subarray(0, 2)));
+    if (i === picked.length - 1) flush(true);
+  });
+  const total = pages.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const p of pages) { out.set(p, at); at += p.length; }
+  return out;
+}

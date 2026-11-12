@@ -293,7 +293,11 @@ export function readUsage(json, duration, model = TRANSCRIBE_MODEL) {
 export function seoulDay(at) { return new Date(at.getTime() + KST).toISOString().slice(0, 10); }
 export function monthStart(at) { return `${seoulDay(at).slice(0, 7)}-01`; }
 // 사용량 보고 번호. 작업마다·시도마다 하나(같은 작업을 다시 전사해도 겹치지 않게).
-export function usageRef(jobId, at, failed = false) { return `${failed ? FAILED_USAGE_REF_PREFIX : USAGE_REF_PREFIX}${jobId}-${at.getTime().toString(36)}`; }
+// piece: 긴 소리를 나눠 한 번에 여러 조각을 동시에 전사할 때 조각 번호(1부터, REC-긴녹음나눠전사) — 같은 밀리초에 끝나도 겹치지 않게.
+export function usageRef(jobId, at, failed = false, piece = 0) {
+  const n = Number.isSafeInteger(piece) && piece > 0 && piece < 1000 ? `-c${piece}` : '';
+  return `${failed ? FAILED_USAGE_REF_PREFIX : USAGE_REF_PREFIX}${jobId}-${at.getTime().toString(36)}${n}`;
+}
 // 이번 달 회의 전사 추정 금액(원). rows: app_ai_external_usage 중 ref가 mtg-로 시작하는 행.
 export function monthKrw(rows) {
   let sum = 0;

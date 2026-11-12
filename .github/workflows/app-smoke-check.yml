@@ -117,6 +117,9 @@ on:
       - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-recording-ogg.test.mjs'
+      - 'tests/meeting-audio-split.test.mjs'
+      - 'tests/fixtures/audio-split/**'
+      - 'supabase/functions/meeting-transcribe/split.mjs'
       - 'supabase/functions/meeting-transcribe/ogg.mjs'
       - 'supabase/functions/meeting-transcribe/model.mjs'
       - 'tests/meeting-when.test.mjs'
@@ -329,6 +332,9 @@ on:
       - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-recording-ogg.test.mjs'
+      - 'tests/meeting-audio-split.test.mjs'
+      - 'tests/fixtures/audio-split/**'
+      - 'supabase/functions/meeting-transcribe/split.mjs'
       - 'supabase/functions/meeting-transcribe/ogg.mjs'
       - 'supabase/functions/meeting-transcribe/model.mjs'
       - 'tests/meeting-when.test.mjs'
@@ -728,6 +734,9 @@ jobs:
 
       - name: Phone recording Ogg/Opus join and repair before transcription (MTG-폰녹음전사, byte pieces join·granule/EOS fix·failure texts by cause)
         run: node --test tests/meeting-recording-ogg.test.mjs
+
+      - name: Long recording split before transcription (REC-긴녹음나눠전사, Ogg·WebM·MP4 time slices·resume from the failed slice)
+        run: node --test tests/meeting-audio-split.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/meeting-drop-attach.test.mjs tests/meeting-drop-queue.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
