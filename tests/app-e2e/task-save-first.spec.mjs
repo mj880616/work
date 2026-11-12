@@ -218,6 +218,31 @@ for (const viewport of [{ width: 412, height: 915 }, { width: 1280, height: 900 
   });
 }
 
+// STAB-갈래4흔들림: 고른 파일은 같은 파일 찾기(same-file.js, 서버 읽기)가 끝난 뒤에 담긴다. 찾기가 끝나기 전에 [저장]을 눌러도
+// 고른 파일이 빠지지 않는다(저장이 찾기를 기다린 뒤 파일을 읽음). 찾기 읽기를 붙잡아 두고 [저장]을 누른 뒤 푼다.
+test('일정 창 [할 일]로 저장: 같은 파일 찾기가 끝나기 전에 [저장]을 눌러도 고른 파일 2개가 그대로 올라감 1280', async ({ browser }) => {
+  const { context, page, state, errors } = await openTasks(browser, { viewport: { width: 1280, height: 900 } });
+  let release, asked = 0; const held = new Promise(r => { release = r; });
+  await page.route(u => /\/rest\/v1\/(app_documents|app_task_attachments|app_notes)$/.test(u.pathname), async r => {
+    if (!/file_name=in|attachments=cs/.test(decodeURIComponent(r.request().url()))) return r.fallback();
+    asked++; await held; return r.fallback();
+  });
+  const q = page.locator('#tasksView .home-quick[data-home-quick]');
+  await q.locator('[data-quick-input]').fill('현장 점검');
+  await q.locator('[data-quick-detail]').click();
+  const modal = page.locator('#eventModal');
+  await expect(page.locator('#eventModalTitle')).toHaveText('할 일 등록');
+  await modal.locator('#eventTaskFiles [data-gt-pick-input]').setInputFiles([png('현장1.png'), png('현장2.png')]);
+  await expect.poll(() => asked).toBeGreaterThan(0);
+  await page.locator('#saveEventBtn').click();
+  release();
+  await expect(modal).toBeHidden();
+  await expect(dock(page)).toContainText('할 일에 사진 2장 올렸어요');
+  expect(state.calls.attach).toEqual([{ taskId: 'new1', name: '현장1.png' }, { taskId: 'new1', name: '현장2.png' }]);
+  expect(errors).toEqual([]);
+  await context.close();
+});
+
 test('할 일 창: 글 저장이 실패하면 창·고른 파일은 그대로이고 아무것도 보내지 않는다 412', async ({ browser }) => {
   const { context, page, state } = await openTasks(browser, { viewport: { width: 412, height: 915 }, failCreate: true });
   await page.evaluate(() => window.KPTUGoogleTasks.openEditor(null));

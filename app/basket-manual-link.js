@@ -449,6 +449,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
   }
   function showToast(message){const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;kptuHoldToast(toast);}
   async function saveTask(){
+    {const w=mode==='task'&&!isBusy()?taskFilesPick?.settled?.():null;if(w)await w} // STAB-갈래4흔들림: 고른 파일의 같은 파일 찾기가 끝난 뒤에 파일을 읽는다
     const n=note();if(mode!=='task'||!task||!n||isBusy())return;
     if(task.unknown){task.status='앞선 결과를 먼저 확인해 주세요. 새 할 일은 만들지 않았어요.';paint();return;}
     const problem=validateTaskInput(task);if(problem){task.status=problem;paint();host.querySelector(problem.includes('메모')?'[data-manual-task-notes]':'[data-manual-task-title]')?.focus();return;}

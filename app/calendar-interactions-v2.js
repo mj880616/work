@@ -160,6 +160,7 @@ async function ciSaveGoogle(){
     // CAL-일정사업영역: 고른 사업영역과 주요 일정 행을 맞춘다(새로 고른 곳은 행 추가, 뺀 곳은 그 행만 삭제). 실패하면 창을 열어 둔 채 다시 저장하게 한다.
     if(areas&&areaRows){try{await syncEventAreas({had:areaRows,next:areas,title,start_at:allDay?toSeoulISO(startDate+'T00:00'):body.start_iso,notes:body.memo.trim()||null,google_calendar_id:result.event.calendarId,google_event_id:current.id,created_by:r.owner,expectedSessionEpoch:r.epoch},ciRuntime())}catch(e){if(!ciSaveActive(r))return;ciStatus('#ciGoogleStatus','일정은 저장했어요. 사업영역 연결을 저장하지 못했어요. 다시 저장해 주세요. '+(e?.message||''),true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}if(!ciSaveActive(r))return}
     // CAL-일정첨부: 일정이 저장됐으니 고른 파일은 창을 닫은 뒤 뒤에서 올린다(UX-먼저묻고뒤에처리). 파일은 탭 메모리만.
+    {const w=ciFiles?.settled?.();if(w)await w} // STAB-갈래4흔들림: 고른 파일의 같은 파일 찾기가 끝난 뒤에 읽는다
     const picked=ciFiles?.chosen()||[];if(picked.length){ciFiles.clear();void sendEventFilesBehind({calendarId:result.event.calendarId,eventId:current.id,files:picked})}
     let closedSeq=null;if(unchanged){b.disabled=false;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=false;ciClose('#ciGoogleModal');ciGoogleCurrent=null;closedSeq=ciGoogleOpenSeq}else ciStatus('#ciGoogleStatus','보낸 내용은 저장했어요. 이후 수정한 내용은 아직 저장하지 않았어요.');
     try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('일정은 저장했습니다. 목록을 최신화해 주세요.');return}
