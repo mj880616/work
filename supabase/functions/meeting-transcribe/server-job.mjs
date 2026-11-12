@@ -20,6 +20,20 @@ export const LIST_HOURS = 48;                   // job_list가 보여 주는 기
 export const TICK_HEADER = 'x-meeting-job-tick';
 export const KINDS = Object.freeze(['recording', 'attached']);
 export const ACTIVE = Object.freeze(['queued', 'running']);
+// REC-초안버리기(S60-20): 끝난 결과를 쓰지 않기로 한 표시. 새 칸 없이 끝난(done) 작업의 error_code에 둔다
+// (구간 표 app_meeting_recordings의 'discarded' 표시와 같은 방식). '열었음'(opened_at)과 섞지 않고, 녹음 소리·전사 글·초안은 그대로 둔다.
+// 끝나면 error_code는 늘 빈 값이 되므로(runStep) 끝난 작업에서 이 값은 이 표시뿐이다. 실패 기록 트리거(fail_log)는 이 값을 세지 않는다.
+export const DISCARDED = 'discarded';
+export const isDiscarded = (row) => !!row && row.status === 'done' && row.error_code === DISCARDED;
+// job_discard: 끝난 결과만, 이미 표시했으면 그대로(null = 고칠 것 없음). 진행 중·실패한 작업은 버릴 초안이 없다.
+export function jobDiscardPatch(row) {
+  if (!row || row.status !== 'done') return { error: 'not_done' };
+  if (row.error_code === DISCARDED) return { patch: null };
+  if (row.error_code) return { error: 'not_done' };
+  return { patch: { error_code: DISCARDED } };
+}
+// job_restore: 버림 표시만 뺀다. 표시가 없으면 고칠 것 없음.
+export const jobRestorePatch = (row) => (isDiscarded(row) ? { error_code: null } : null);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const isUuid = (v) => typeof v === 'string' && UUID.test(v);
@@ -247,7 +261,7 @@ export function jobView(row, withResult = false) {
     parts_done: doneParts(parts), parts_total: partTotal(parts),
     seconds: parts.reduce((s, p) => s + (Number(p?.seconds) || 0), 0),
     jobs: [...new Set(parts.map((p) => p?.job).filter(isUuid))], // 시간 조각으로 나눈 구간은 같은 작업이 여러 번 — 한 번만
-    created_at: row.created_at, finished_at: row.finished_at ?? null, opened_at: row.opened_at ?? null,
+    created_at: row.created_at, finished_at: row.finished_at ?? null, opened_at: row.opened_at ?? null, discarded: isDiscarded(row),
   };
   if (withResult && row.status === 'done') { v.transcript_text = row.transcript_text ?? ''; v.draft = row.draft ?? null; }
   return v;

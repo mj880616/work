@@ -235,3 +235,16 @@ export async function watchServerJob(deps,{start=null,jobId='',retry=false}={}){
     }
   }
 }
+
+// REC-초안버리기(S60-20): 정리 끝 띠 [삭제] → 한 번 묻고 → 서버 job_discard('버림' 표시, 소리·글은 그대로) → 작은 알림 [되돌리기](job_restore).
+export const DISCARD_ASK=Object.freeze({text:'이 초안을 삭제할까요?',note:'녹음 소리는 Drive에 남아요.',ok:'삭제',cancel:'취소'});
+export function discardDoneText(job){
+  const min=Math.round((Number(job?.seconds)||0)/60);
+  return `${min?`${min}분 `:''}녹음 초안을 삭제했어요`;
+}
+// 그 결과의 '회의 요약이 준비됐어요' 폰 알림 기록 열쇠(서버 notifyDone: 'd' + 끝난 서울 날짜). 모르면 null.
+export function meetingDoneNotice(job){
+  const ms=Date.parse(String(job?.finished_at||''));
+  if(!Number.isFinite(ms))return null;
+  return {kind:'meeting_done',ref_key:`d${new Date(ms+9*3600000).toISOString().slice(0,10)}`};
+}
