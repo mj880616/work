@@ -50,7 +50,7 @@ test('방별의 방 한 줄 밀기는 폴더로·보관만(이 날 한 줄 삭�
 test('화면 연결: 고른 보기는 서버 화면 기억(tg_view) 하나, 주소는 by·room, 기기 저장 없음', () => {
   const js = read('app/telegram-feed.js'), router = read('app/app-router.js');
   assert.match(js, /viewPrefs\.set\('tg_view', by, \{rejectable:true\}\)/);
-  assert.match(router, /telegram:\['by','room'\]/);
+  assert.match(router, /telegram:\['by','room','rday'\]/);
   assert.doesNotMatch(js, new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|')));
   // 방 상세의 날 읽기는 날짜별과 같은 길(readRoomDay)이고 새 서버 읽기는 없다.
   assert.match(js, /async function loadDay\(room, day\)[\s\S]{0,300}readRoomDay\(room, day, rt\)/);

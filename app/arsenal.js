@@ -135,10 +135,13 @@ function closeLayer() {
   detailOpen = false;
   const l = layer; layer = null; l?.close();
 }
-function openMatch(id) {
+// NAV-PC뒤로직전2: picked = 사람이 PC 목록에서 누른 경기 → 뒤로 한 칸(router pick, 한 주인). 주소·위젯으로 연 경기는 자리만 적는다.
+// PC는 고른 것이 없어도 첫 경기를 스스로 보여 주므로 그 첫 경기는 한 칸이 아니다(첫 누름은 들어온 칸에 적힌다).
+function openMatch(id, {picked = false} = {}) {
   selected = id;
   // APP-아스날위젯알차게: 고른 경기를 주소(?match=)에 적어 새로고침·폰 위젯 '지난 경기' 줄에서 같은 리뷰가 열리게 한다(기존 자리 기억 길).
   window.KPTURouter?.setPlace?.('arsenal', {match:id});
+  if (picked && pc.matches) window.KPTURouter?.pick?.record?.('arsenal', {match:id});
   if (!pc.matches) {
     detailOpen = true;
     layer ||= window.KPTURouter?.layer?.open('arsenal-review', {reopen:() => openMatch(id), close:() => { layer = null; detailOpen = false; window.KPTURouter?.setPlace?.('arsenal', {match:null}); paint(); $(`[data-ars-row="${CSS.escape(selected || '')}"]`)?.focus({preventScroll:true}); return true; }}) || null;
@@ -151,7 +154,7 @@ function openMatch(id) {
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (!b || !root.contains(b)) return;
-  if (b.matches('[data-ars-row]')) return openMatch(b.dataset.arsRow);
+  if (b.matches('[data-ars-row]')) return openMatch(b.dataset.arsRow, {picked:true});
   if (b.matches('[data-ars-back]')) { const id = selected; closeLayer(); window.KPTURouter?.setPlace?.('arsenal', {match:null}); paint(); $(`[data-ars-row="${CSS.escape(id || '')}"]`)?.focus({preventScroll:true}); return; }
   if (b.matches('[data-ars-retry]')) { paint(); loadData().then(paint, paint); }
 });
@@ -184,6 +187,14 @@ function enter() {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'arsenal') return;
   layer = null; detailOpen = false;
+});
+// ‹ › over a picked match shows that review again; one no longer listed (or the "no item" step) shows the list's first match.
+window.KPTURouter?.pick?.on?.('arsenal', ({match = null} = {}) => {
+  if (!pc.matches) return true;
+  if (match && match === selected) return true;
+  if (match && matches?.some(m => m.id === match)) openMatch(match);
+  else { selected = null; window.KPTURouter?.setPlace?.('arsenal', {match:null}); paint(); }
+  return true;
 });
 window.KPTURouter?.on?.('arsenal', enter);
 window.KPTUArsenal = {refresh: () => loadData().then(paint, paint)};
