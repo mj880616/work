@@ -194,6 +194,7 @@ export function sessionFiles(rows, jobs) {
 
 // jobbed = 서버 정리 작업(app_meeting_server_jobs)이 있는 녹음 id 모음. 모르면(null) '파일만'으로 가르지 않는다(지금과 같은 '이어서 정리').
 // 모든 구간을 합쳤고(rec_finish) 전사가 끝나지 않았고 서버 정리를 시작한 적 없는 녹음 = [파일만 받기]로 남긴 녹음(file_only, 파일 링크 files).
+/** @param {any[]} rows @param {any[]} jobs @param {Date} now @param {Set<string> | null} [jobbed] */
 export function pendingSessions(rows, jobs, now, jobbed = null) {
   const jobStatus = new Map((Array.isArray(jobs) ? jobs : []).map(j => [j.id, j.status]));
   const by = new Map();
