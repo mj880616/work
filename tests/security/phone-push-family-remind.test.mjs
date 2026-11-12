@@ -39,7 +39,7 @@ function harness({now, note = {id: NOTE_ID, doc: DOC, updated_at: '2026-11-10T01
     const ws = q.get('workspace_id')?.replace('eq.', '');
     if (table === 'app_push_log' && method === 'DELETE') return reply(200, []);
     if (table === 'app_push_devices' && method === 'GET') return reply(200, [{id: 'c0000000-0000-4000-8000-0000000000a1', workspace_id: WS, fcm_token: 'devTokenAAAA_bbbb:cccc-000111'}]);
-    if (table === 'app_family_notes') return reply(200, []);
+    if (table === H.FAMILY_TABLE) return reply(200, []); // 잊지 말기 새 제안(이 시험에서는 없음)
     if (table === 'app_notes' && method === 'GET') {
       assert.equal(q.get('select'), 'id,doc,updated_at,metadata');
       assert.equal(q.get('metadata->>family_list'), 'eq.true');

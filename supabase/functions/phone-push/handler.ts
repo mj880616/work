@@ -23,7 +23,7 @@
 //   종류별 끄기(notify_prefs.kinds.family=false → skipped_off)·조용한 시간(기본 22:00~07:00 → held_quiet, 끝난 뒤 첫 실행에서 보냄)을 지킨다.
 //   기록 열쇠는 가장 새 제안의 시각(fam:<초>) — 새 제안이 생길 때마다 한 번. 기록에는 종류·열쇠·상태만(제목·본문 없음).
 // FAMILY-기억알림 ②(family-remind.ts): 같은 15분 예약이 서울 월요일 08시 이후 그날 첫 실행에서 '가족 · 이번 주 기억할 것 n'을 주 1회
-//   (열쇠 rem:<월요일>, 같은 끄기·조용한 시간). 이 알림만 본문(줄 앞부분)을 싣는다(명진 결정 11/12 "보이기"). 노트는 app_notes 가족 노트 하나만 읽는다.
+//   (열쇠 rem:<월요일>, 같은 끄기·조용한 시간). 이 알림만 본문(줄 앞부분)을 싣는다(명진 결정 11/12 "보이기"). 노트 읽기·쓰기는 family-remind.ts의 경로(가족 노트 하나)만 쓴다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
 import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
