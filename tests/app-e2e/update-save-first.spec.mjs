@@ -169,7 +169,7 @@ for (const width of [412, 1280]) {
     await expect(page.locator('#wdInboxText')).toHaveValue('');
     await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(0);
     await expect(page.locator('#wdInboxSave')).toBeEnabled();
-    expect(f.links.map(l => [l.p_note_id, l.p_targets])).toEqual([['up-1', [{kind: 'organization', target_id: 'o', reason: '직접 연결'}]]]);
+    expect(f.links.map(l => [l.p_note_id, l.p_targets])).toEqual([['up-1', [{kind: 'organization', target_id: 'o', reason: '직접 연결', origin: 'record_input'}]]]);
     await expect(dock(page)).toContainText('2개 올리는 중');
     expect(await noFrameWidth(page)).toBe(true);
     if (SHOTS) await page.screenshot({path: `${SHOTS}/org-saving-${width}.png`});

@@ -88,7 +88,7 @@ for(const width of [390,1280]){
   await e.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
   expect(f.projects).toEqual([]);
   expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({raw_text:'프로젝트 진행'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
-  expect(f.links).toEqual([{p_note_id:'new-1',p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결'}]}]);
+  expect(f.links).toEqual([{p_note_id:'new-1',p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결',origin:'record_input'}]}]);
   // UI-기록할곳되돌리기: after the add, the home input goes back to the basket; the project just used is first on the 최근 line.
   await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택');
   const home=page.locator('#homeChoiceSheet');await q.locator('[data-quick-org]').click();await expect(home).toBeVisible();
