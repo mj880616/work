@@ -33,3 +33,9 @@
 .record-file-name .file-kind{flex:none;padding:0 4px;border-radius:4px;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:11px;line-height:18px}
 .record-file-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .record-files-more{color:var(--kptu-muted);font-size:var(--kptu-text-meta,12px)}
+/* LIB-사진숨김(S60-10): 기록 줄 첨부의 사진은 [사진 n] 하나(접힌 details), 펼치면 그 자리에 작은 그림 줄. */
+.record-photos{flex:1 0 100%;min-width:0}
+.record-photos>summary{list-style:none;display:inline-flex;align-items:center;gap:4px;min-height:26px;margin:0;padding:0 10px;border:1px solid var(--kptu-border);border-radius:999px;color:var(--kptu-ink);font-size:var(--kptu-text-meta,12px);cursor:pointer}
+.record-photos>summary::-webkit-details-marker{display:none}
+.record-photos[open]>summary{background:var(--kptu-surface-subtle);border-color:var(--kptu-muted)}
+.record-photo-thumbs{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px}

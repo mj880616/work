@@ -108,7 +108,9 @@ for (const width of [390, 1440]) {
     // 사업 보고에 붙은 사진 자료 행은 목록에 따로 나오지 않는다. 직접 올린 그림·글 자료는 그대로 한 장 한 줄.
     for (const n of [11, 12, 13, 14, 15, 21, 30, 31]) await expect(page.locator(`[data-lu-document="${ID(n)}"]`)).toHaveCount(0);
     await expect(page.locator(`[data-lu-document="${ID(20)}"]`)).toHaveCount(1);
-    await expect(page.locator(`[data-lu-document="${ID(40)}"]`)).toHaveCount(1);
+    // LIB-사진숨김(S60-10): 직접 올린 그림은 줄 대신 그 묶음 맨 아래 [사진 1](사업 보고 사진 묶음 줄은 그대로).
+    await expect(page.locator(`.lu-row[data-lu-document="${ID(40)}"]`)).toHaveCount(0);
+    await expect(page.locator('[data-lu-photos]')).toHaveText(['사진 1']);
     // 사업 보고는 한 번에 읽는다(줄마다 따로 읽지 않음).
     expect(state.meetingReads.length).toBe(1);
     for (const m of [M1, M2, M3]) expect(state.meetingReads[0]).toContain(m);
@@ -135,7 +137,9 @@ test('library keeps one row per photo when the business reports cannot be read',
   const state = makeState({meetingsFail: true});
   await open(page, state, 390);
   await expect(page.locator('[data-lu-photoset]')).toHaveCount(0);
-  for (const n of [11, 15, 21, 30, 40]) await expect(page.locator(`[data-lu-document="${ID(n)}"]`)).toHaveCount(1);
+  // LIB-사진숨김(S60-10): 묶지 못한 사진은 한 장씩 줄이 아니라 묶음 맨 아래 [사진 n] 안 작은 그림 칸으로(펼치면 한 장에 한 칸).
+  for (const t of await page.locator('[data-lu-photos]').all()) await t.click();
+  for (const n of [11, 15, 21, 30, 40]) await expect(page.locator(`[data-photo-tile="${ID(n)}"]`)).toHaveCount(1);
 });
 
 // LIB-정리보충 ②(2026-10-28 10:41): 폴더 보기에서 사진 묶음 줄도 끌어 폴더에 넣는다 — 묶음 안 실제 사진 자료 모두가 함께 그 폴더로,

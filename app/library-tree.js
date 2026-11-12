@@ -163,7 +163,8 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 // 접힌 줄은 '공공팀 › 회의 › 집행위' 한 줄로 보이고, 펼치면 지금처럼 '공공팀' 아래 단마다 줄이 생긴다(CSS가 펼친 줄의 뒤 경로를 숨김).
 // 펼칠 때 이어진 폴더들도 함께 펼친다(library-upload.js luOnHeadClick). 메뉴·끌어 놓기는 지금처럼 맨 위 폴더 기준.
 export function folderChain(n){const out=[];let c=n,guard=0;while(c?.kind==='folder'&&!c.files.length&&c.children.length===1&&c.children[0].kind==='folder'&&guard++<FOLDER_DEPTH){c=c.children[0];out.push(c)}return out}
-export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false}){
+// LIB-사진숨김(S60-10): isPhoto를 주면 묶음 안 사진은 줄에서 빼고(줄 수·[더 보기]도 사진 뺀 줄 기준) 줄 끝에 photoTail(묶음, 사진들) 하나.
+export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=null,pick=null,emoji=false,isPhoto=null,photoTail=null}){
   // LIB-받는폴더: 받는 폴더 줄에 작은 '받는 폴더' 표시(시안 ①③). 외줄 경로로 접힌 아래 폴더면 펼쳤을 때 그 줄에 보인다(두 번 보이지 않게).
   const receiveTag=n=>n.rc?'<span class="lu-receive-mark">받는 폴더</span>':'';
   const head=n=>{
@@ -179,8 +180,9 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     return `<summary class="lu-node-head lu-node-emoji${face&&n.key==='x:out'?' lu-node-out':''}"${n.depth===0?' data-lu-top':''}${n.kind==='folder'&&canDrag?.(n)?' draggable="true"':''}>${pick?.(n)||''}${mark}<span class="lu-node-name">${esc(n.label)}${rest.length?`<span class="lu-chain-rest">${rest.map(c=>` › ${esc(c.label)}`).join('')}</span>`:''}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${receiveTag(n)}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</summary>`;
   };
   const body=n=>{
-    const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;
-    return n.children.map(one).join('')+files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'');
+    const rows=isPhoto?n.files.filter(d=>!isPhoto(d)):n.files,photos=isPhoto?n.files.filter(isPhoto):[];
+    const all=showAll(n.key),files=all?rows:rows.slice(0,FILE_LIMIT),rest=rows.length-files.length;
+    return n.children.map(one).join('')+files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'')+(photos.length&&photoTail?photoTail(n,photos):'');
   };
   const one=n=>{const rest=folderChain(n);return `<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`};
   return list.map(one).join('');

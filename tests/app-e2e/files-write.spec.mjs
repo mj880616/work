@@ -149,6 +149,7 @@ test('PC 1440: 같은 파일 보기(같은 해시) — 미리보기 아래 작�
   await expect(root(page).locator(':is(.fx-crumb-now, .ft-focus-name)')).toHaveText('가짜 사진함');
   // 해시가 없는 파일은 읽지 않는다.
   const n = server.calls.filter(c => c.what === 'app_cloud_items').length;
+  await root(page).locator('[data-fx-list] [data-fx-photos]').click(); // LIB-사진숨김: 사진은 [사진 1]을 펼쳐 연다
   await row(page, 'od:OD!20').click();
   await expect(root(page).locator('[data-fx-prev] [data-fx-twins] .fx-twin')).toHaveText(['가짜 메모.txt']);
   await treeGo(page, 'od', '');

@@ -9,6 +9,8 @@ const root = page => page.locator('#filesRoot');
 const list = page => root(page).locator('[data-fx-pane-i="0"] [data-fx-list]');
 const cols = page => list(page).locator('.fx-grid').evaluate(e => getComputedStyle(e).gridTemplateColumns.split(' ').filter(Boolean).length);
 const photo = page => list(page).locator('[data-fx-row="od:OD!20"]');
+// LIB-사진숨김(S60-10): 폴더 안 사진은 [사진 n]을 눌러 펼쳐야 보인다(펼침은 화면 메모리 — 새로 고치면 다시 접힘).
+const showPhotos = async page => { const t = list(page).locator('[data-fx-photos]'); await expect(t).toBeVisible(); if ((await t.getAttribute('aria-expanded')) !== 'true') await t.click(); };
 const devOf = w => (w <= 760 ? 'phone' : 'pc'), layOf = w => (w < 600 ? 'narrow' : w >= 1200 ? 'wide' : 'fold');
 
 for (const width of [412, 700, 884, 1280]) test(`파일 ${width}: 두 손가락으로 목록 ⇄ 격자 ⇄ 큰 격자, 사진은 작은 그림, 서버에 기억`, async ({ page }) => {
@@ -18,6 +20,7 @@ for (const width of [412, 700, 884, 1280]) test(`파일 ${width}: 두 손가락�
   const open = async () => {
     await openFiles(page, width);
     if (width < 600) await phoneFolder(page, 'od', 'OD!2'); else await treeGo(page, 'od', 'OD!2');
+    await showPhotos(page);
     await expect(photo(page)).toBeVisible();
   };
   await open();
@@ -43,10 +46,9 @@ for (const width of [412, 700, 884, 1280]) test(`파일 ${width}: 두 손가락�
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
   // 새로고침은 같은 폴더로 돌아온다(주소). 다른 곳이면 그 폴더를 다시 연다.
-  if (!(await photo(page).isVisible().catch(() => false))) {
-    await page.waitForTimeout(800);
-    if (!(await photo(page).isVisible().catch(() => false))) await open();
-  }
+  await page.waitForTimeout(800);
+  if (await list(page).locator('[data-fx-photos]').isVisible().catch(() => false)) await showPhotos(page);
+  if (!(await photo(page).isVisible().catch(() => false))) await open();
   await expect(photo(page)).toBeVisible();
   await expect(list(page)).toHaveAttribute('data-fx-look', 'big');
   // 오므리기 두 번 → 목록.
@@ -80,6 +82,7 @@ test('파일 폰 412: 나무에서 연 폴더 — 격자에서 오므리면 목�
   const { errors } = await start(page, 412);
   await openFiles(page, 412);
   await phoneFolder(page, 'od', 'OD!2');
+  await showPhotos(page);
   await expect(photo(page)).toBeVisible();
   await pinch(page, list(page), 'out');
   await expect(list(page)).toHaveAttribute('data-fx-look', 'grid');

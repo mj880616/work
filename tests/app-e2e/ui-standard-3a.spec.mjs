@@ -84,6 +84,8 @@ async function sameButtons(page,region){
   if(await control.evaluate(el=>el.matches('.lu-expand-all,.lu-more-files,.lu-select-btn,.lu-select-act'))){expect(s.height,label).toBe(28);expect(s.borderWidth,label).toBe('0px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);expect(s.shadow,label).toBe('none');continue}
   // LIB-맨위다듬기(S53-18): 자료실 분류 줄 끝 [✎ 분류 수정]은 공용 ③ 글자 버튼(row-act) — 선 없음, 칩과 같은 12px, 누르는 범위 44px.
   if(await control.evaluate(el=>el.matches('#manageLibraryBtn'))){expect(s.borderWidth,label).toBe('0px');expect(s.fontSize,label).toBe('12px');expect(s.shadow,label).toBe('none');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);continue}
+  // LIB-사진숨김(S60-10): 묶음 끝 [사진 n]은 공용 ④ 칩(button.ds-chip, UI-버튼통일 기준표) — 알약, --ds-compact-height-sm, 12px, 누르는 범위 44px.
+  if(await control.evaluate(el=>el.matches('button.ds-chip:not(.filter-chips button)'))){expect(s.height,label).toBe(28);expect(s.radius,label).toBe('999px');expect(s.fontSize,label).toBe('12px');expect(s.shadow,label).toBe('none');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBeGreaterThanOrEqual(44);continue}
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':'button');
   // UI-PC버튼36: PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(36px), 누르는 범위 44px.
   // UI-버튼전수조사(2026-10-24): 채운 버튼(주 동작·목록 머리 추가)은 36px, 나머지 버튼은 작은 버튼 32px. 둘 다 누르는 범위 44px.
@@ -141,18 +143,21 @@ for(const width of [390,1280])test(`담당조직: 이름 한 줄·마지막 기�
 for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 Drive 파일 종류)·목록 글자·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'library');
- const rows=page.locator('#documentList .lu-row');await expect(rows).toHaveCount(9);
+ // LIB-사진숨김(S60-10, 명진 결정 시안 photo-hide-thumbs.html ⑤): 사진 자료(d9)는 줄 대신 그 묶음 맨 아래 [사진 1]. 그림 종류 색은 아래 찾기(사진도 줄로 보임)에서 본다.
+ const rows=page.locator('#documentList .lu-row');await expect(rows).toHaveCount(8);
+ await expect(page.locator('#documentList [data-lu-photos]')).toHaveText(['사진 1']);
  // LIB-토글트리: 줄을 보는 시험이라 토글을 모두 편다.
  await expandLibraryTree(page);
  const kinds=rows.locator('.lu-file-kind');
- await expect(kinds).toHaveText(['PDF','HWP','XLS','DOC','PPT','DOC','XLS','PDF','그림']);
- const expected=['pdf','hwp','xls','doc','ppt','doc','xls','pdf','img'];
- for(const [i,kind] of expected.entries()){
-  await expect(kinds.nth(i)).toHaveAttribute('data-lu-kind',kind);
-  const s=await look(kinds.nth(i)),name=kind==='other'?'--ds-kind-other':'--ds-file-'+kind;
+ await expect(kinds).toHaveText(['PDF','HWP','XLS','DOC','PPT','DOC','XLS','PDF']);
+ const expected=['pdf','hwp','xls','doc','ppt','doc','xls','pdf'];
+ const kindColor=async(el,kind)=>{
+  await expect(el).toHaveAttribute('data-lu-kind',kind);
+  const s=await look(el),name=kind==='other'?'--ds-kind-other':'--ds-file-'+kind;
   // UI-PC자료실 M2: 폰(760px 이하)은 종류를 상자 없이 색 글자로 이름 아래 작은 줄에 보인다. PC는 연한 바탕 + 진한 글자 상자.
   expect(s.bg,kind).toBe(width<761?'rgba(0, 0, 0, 0)':await token(page,name+'-soft'));expect(s.fg,kind).toBe(await token(page,name+'-ink'));
- }
+ };
+ for(const [i,kind] of expected.entries())await kindColor(kinds.nth(i),kind);
  // 다섯 종류와 그림(LIB-그림형식)과 회색은 서로 다른 색.
  expect(new Set(await Promise.all(['pdf','hwp','xls','doc','ppt','img'].map(k=>token(page,'--ds-file-'+k+'-ink')).concat([token(page,'--ds-kind-other-ink')]))).size).toBe(7);
  await rowText(page,rows.locator('.lu-row-title'));await metaText(page,rows.locator('.lu-row-date'));
@@ -168,6 +173,10 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  const search=await look(page.locator('#documentSearch'));
  if(width<761)await page.locator('#librarySearchOpen').click();
  const shown=await look(page.locator('#documentSearch'));expect(shown.height).toBe(32);expect(search.radius).toBe('8px');expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
+ // 찾기 중에는 사진도 한 줄로 보이고, 종류는 '그림'(LIB-그림형식 색).
+ await page.locator('#documentSearch').fill('사진');
+ const photoRow=page.locator('#documentList .lu-row[data-lu-document="d9"]');await expect(photoRow).toHaveCount(1);
+ await expect(photoRow.locator('.lu-file-kind')).toHaveText('그림');await kindColor(photoRow.locator('.lu-file-kind'),'img');
  await noOverflow(page);
  expect(errors).toEqual([]);
 });

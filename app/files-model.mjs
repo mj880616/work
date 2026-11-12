@@ -675,12 +675,15 @@ export function applyStars(rows, source, ids, on) {
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 저장소마다 둥근 상자(공용 folder-tree-ui.mjs). 한 상자 안 줄 — 맨 위 폴더(depth 0)부터,
 // 펼친 폴더 안에는 하위 폴더 → 그 폴더 파일(처음 limit개 + {type:'more'} 줄). 상자 맨 위(저장소 뿌리)의 파일도 같은 규칙으로 맨 끝에.
 // children·files: Map(folderKey → 폴더 줄·파일 줄 목록, 읽기 전이면 없음). open: 펼친 폴더 열쇠. more: 'n개 더 보기'를 누른 폴더 열쇠.
-export function boxRows({source, children = new Map(), files = new Map(), open = new Set(), more = new Set(), order = (s, rows) => rows, limit = 5} = {}) {
+// LIB-사진숨김(S60-10): isPhoto를 주면 그 폴더 사진은 파일 줄에서 빼고(처음 n개·'더 보기'도 사진 뺀 줄 기준) 맨 끝에 {type:'photos', rows} 한 줄.
+export function boxRows({source, children = new Map(), files = new Map(), open = new Set(), more = new Set(), order = (s, rows) => rows, limit = 5, isPhoto = null} = {}) {
   const out = [];
   const fileRows = (parent, depth) => {
-    const key = folderKey(source, parent), list = files.get(key) || [], cap = more.has(key) ? Infinity : limit;
+    const key = folderKey(source, parent), all = files.get(key) || [], cap = more.has(key) ? Infinity : limit;
+    const list = isPhoto ? all.filter(r => !isPhoto(r)) : all, photos = isPhoto ? all.filter(isPhoto) : [];
     for (const r of list.slice(0, cap)) out.push({type: 'file', source, row: r, key: source + ':' + r.item_id, parent: key, depth});
     if (list.length > cap) out.push({type: 'more', source, key, parent: key, depth, rest: list.length - cap});
+    if (photos.length) out.push({type: 'photos', source, key, parent: key, depth, rows: photos});
   };
   const walk = (parent, depth) => {
     if (depth > 40) return;

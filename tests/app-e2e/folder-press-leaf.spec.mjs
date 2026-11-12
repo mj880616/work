@@ -69,8 +69,10 @@ for (const width of [884, 1280]) test(`[파일] ${width}: 오른쪽 목록 폴�
   }
   // 하위 폴더 없이 파일만 든 맨 위 폴더(가짜 사진함)는 목록에서 그 자리 펼침(파일이 들여 보임)
   await list.locator('[data-fx-row="od:OD!2"]').click();
+  // LIB-사진숨김(S60-10): 펼친 폴더 안 사진은 [사진 1] 하나, 누르면 그 자리(들여 보인 칸)에 작은 그림.
+  await list.locator('[data-fx-photos="od:OD!2"]').click();
   await expect(list.locator('[data-fx-row="od:OD!20"]')).toBeVisible();
-  await expect(list.locator('[data-fx-row="od:OD!20"]')).toHaveClass(/fx-xin/);
+  await expect(list.locator('[data-fx-row="od:OD!20"]')).toHaveAttribute('data-fx-xof', 'od:OD!2');
   // 왼쪽 나무(폴더만 보임)는 하위 폴더 없는 폴더 이름 누르기 = 그 폴더 열기, 하위 폴더 있는 폴더 = 그 자리 펼치기
   await files(page).locator('[data-fx-tree] [data-fx-fold="od:OD!2"] .ft-main').click();
   await expect(crumb).toHaveText('가짜 사진함');

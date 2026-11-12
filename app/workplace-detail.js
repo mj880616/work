@@ -11,6 +11,9 @@ import {recordOneLine} from './record-oneline.mjs'; // RECORD-한줄: 기록 목
 import {formatSeoulTime,seoulParts} from './meeting-time.js';
 import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js';
 import {recordFilesHtml,paintRecordFiles,bindRecordFiles} from './record-files.js'; // ORG-기록첨부: 기록 줄 아래 그림·파일
+import {isPictureDoc,splitPictures} from './photo-fold-model.mjs'; // LIB-사진숨김: 사진은 [자료] 줄에서 빼고 칩 줄 끝 '사진 n'
+import {docKindHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
+import {hydrateLibraryThumbs} from './library-photo.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {followPane} from './follow-pane.js';
 import {SPLIT_QUERY} from './screen-width.mjs'; // FOLD-넓은화면 2차: '목록 | 상세' 칸 나누기 폭은 공용 판정 한 곳(600px~)
@@ -147,25 +150,34 @@ async function wdRefreshLinks(){const id=wdTargetId,epoch=wdEpoch;if(!id)return;
 // 파일은 자료실(Drive)에 하나뿐이고 여기는 붙어 있다는 표시만이다. 줄 ⋯ 의 [조직에서 빼기]는 붙임만 풀고 자료·파일은 그대로 둔다.
 const WD_DOC_ROWS=5;
 function wdReadDocs(id){return readRecordPages(`/rest/v1/app_documents?organization_id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(wdWorkspace)}&select=id,title,file_name,mime_type,file_id,category,document_date,drive_url,created_at&order=document_date.desc.nullslast,created_at.desc,id.asc`,wdRecordRt)}
-function wdDocRow(x,can){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''},title=x.title||x.file_name||'파일',href=httpUrl(x.drive_url),rn=can&&x.file_id&&x.file_name&&(title===x.file_name||title===splitFileName(x.file_name).base)?{target:'document',id:x.id,driveId:x.file_id,name:x.file_name}:null,main=`<b${renameHostAttrs(rn)}>${wdE(title)}</b><small>${categoryTag(x.category)}${x.document_date?' '+wdE(x.document_date):''}</small>`;return `<div class="wd-doc-row" data-wd-doc="${wdE(x.id)}" data-fr-row>${href?`<a class="wd-doc-main" href="${wdE(href)}" target="_blank" rel="noopener noreferrer"${fileAttrs(fa,{press:true})}>${main}</a>`:`<div class="wd-doc-main">${main}</div>`}${can?`<details class="wd-doc-more"><summary class="icon-btn" aria-label="자료 관리: ${wdE(title)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="wd-doc-panel" role="group" aria-label="자료 관리">${menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu',rename:renameMenuAttrs(rn)})}<button type="button" data-wd-doc-remove="${wdE(x.id)}">조직에서 빼기</button></div></details>`:''}</div>`}
+function wdDocRow(x,can){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''},title=x.title||x.file_name||'파일',href=httpUrl(x.drive_url),rn=can&&x.file_id&&x.file_name&&(title===x.file_name||title===splitFileName(x.file_name).base)?{target:'document',id:x.id,driveId:x.file_id,name:x.file_name}:null,main=`<b${renameHostAttrs(rn)}>${wdE(title)}</b><small>${docKindHtml(x)}${categoryTag(x.category)}${x.document_date?' '+wdE(x.document_date):''}</small>`;return `<div class="wd-doc-row" data-wd-doc="${wdE(x.id)}" data-fr-row>${href?`<a class="wd-doc-main" href="${wdE(href)}" target="_blank" rel="noopener noreferrer"${fileAttrs(fa,{press:true})}>${main}</a>`:`<div class="wd-doc-main">${main}</div>`}${can?wdDocMenu(x,fa,rn,title):''}</div>`}
+const wdDocFile=x=>({name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''});
+function wdDocMenu(x,fa,rn,title){return `<details class="wd-doc-more"><summary class="icon-btn" aria-label="자료 관리: ${wdE(title)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="wd-doc-panel" role="group" aria-label="자료 관리">${menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu',rename:renameMenuAttrs(rn)})}<button type="button" data-wd-doc-remove="${wdE(x.id)}">조직에서 빼기</button></div></details>`}
+// LIB-사진숨김: [사진 n]을 켠 동안 사진 자료만 작은 그림 칸으로. 칸을 누르면 크게 보기(file-actions.js 공용 길), ⋯·우클릭·꾹 누르기는 자료 줄과 같은 메뉴.
+function wdPhotoTiles(list,can){return photoTilesHtml(list,x=>{const fa=wdDocFile(x);return {attrs:fileAttrs(fa,{press:true}),menu:can?wdDocMenu(x,fa,null,x.title||x.file_name||'사진'):''}},{id:'wdDocPhotoTiles',label:'이 조직 사진'})}
 // LIB-조직프로젝트자료종류: [자료] 위의 종류 칩은 자료실과 같은 칩 코드(category-chips.js)이고, 꺼 둔 종류는 이 조직을 열어 두는 동안만 기억한다(저장 안 함).
 // 처음엔 모두 켜져 있어('회의' 포함, category-chips.js DETAIL_DEFAULT_OFF) 자료가 숨지 않는다. 거르는 건 줄 보이기뿐이라 위의 자료 수와 [전체 N개 보기]는 이 조직의 전체 자료 기준 그대로다.
 // LIB-소분류: 큰 분류 하나만 켜면 칩 아래 소분류 줄(category-chips.js). 고른 소분류(wdDocSub)도 이 조직을 열어 둔 동안만 기억한다.
-let wdDocOff=detailDefaultOff(),wdDocOffFor='',wdDocSub='';
-function wdToggleDocKind(value){wdDocOff=toggleCategoryOff(topDocumentCategories(),wdDocOff,value);wdRenderDocs()}
-function wdPickDocSub(value){wdDocSub=value;wdRenderDocs()}
+// LIB-사진숨김(S60-10): 사진 자료는 줄에서 빼고 칩 줄 끝 [사진 n]. 켜 둔 것(wdDocPhotos)은 이 조직을 열어 둔 동안만, 열 때마다 꺼진 채 시작(저장 안 함).
+// 종류 칩을 누르면 다시 줄 목록으로. 위의 자료 수·[전체 N개 보기]는 사진을 포함한 전체 그대로이고, 종류 칩 숫자는 줄로 보이는 자료(사진 뺌) 기준이다.
+let wdDocOff=detailDefaultOff(),wdDocOffFor='',wdDocSub='',wdDocPhotos=false;
+function wdToggleDocKind(value){wdDocPhotos=false;wdDocOff=toggleCategoryOff(topDocumentCategories(),wdDocOff,value);wdRenderDocs()}
+function wdPickDocSub(value){wdDocPhotos=false;wdDocSub=value;wdRenderDocs()}
+function wdToggleDocPhotos(){wdDocPhotos=!wdDocPhotos;wdRenderDocs()}
 function wdRenderDocs(){
   const box=document.querySelector('#wdDocBody');if(!box||wdOrg?.id!==wdTargetId)return;
-  if(wdDocOffFor!==wdOrg.id){wdDocOffFor=wdOrg.id;wdDocOff=detailDefaultOff();wdDocSub=''}
-  const hidden=hiddenCategories(topDocumentCategories(),wdDocOff,wdDocSub);
-  const can=!!wdOrg?.canEdit,shown=wdDocs.filter(x=>!hidden.has(categoryOf(x.category))),rows=shown.slice(0,WD_DOC_ROWS),count=document.querySelector('#wdDocs [data-wd-doc-count]');
+  if(wdDocOffFor!==wdOrg.id){wdDocOffFor=wdOrg.id;wdDocOff=detailDefaultOff();wdDocSub='';wdDocPhotos=false}
+  const hidden=hiddenCategories(topDocumentCategories(),wdDocOff,wdDocSub),{rest,pictures}=splitPictures(wdDocs,isPictureDoc);
+  if(!pictures.length)wdDocPhotos=false;
+  const can=!!wdOrg?.canEdit,shown=rest.filter(x=>!hidden.has(categoryOf(x.category))),rows=shown.slice(0,WD_DOC_ROWS),count=document.querySelector('#wdDocs [data-wd-doc-count]');
   if(count){count.textContent=wdDocsError?'':wdDocs.length;count.hidden=wdDocsError}
   const add=document.querySelector('#wdDocAdd');if(add)add.hidden=!can;
   const kinds=document.querySelector('#wdDocKinds');
   // 칩 줄을 숨길 때는 그 아래 소분류 줄도 함께 걷는다(같은 부품).
-  if(kinds){kinds.hidden=wdDocsError||!wdDocs.length;if(kinds.hidden)clearCategorySubRow(kinds);else renderCategoryChips(kinds,{names:topDocumentCategories(),off:wdDocOff,sub:wdDocSub,label:'자료 종류 (여러 개 선택)',controls:'wdDocBody',key:'docKind',counts:categoryCounts(topDocumentCategories(),wdDocs),onToggle:wdToggleDocKind,onSub:wdPickDocSub})}
+  if(kinds){kinds.hidden=wdDocsError||!wdDocs.length;if(kinds.hidden)clearCategorySubRow(kinds);else renderCategoryChips(kinds,{names:topDocumentCategories(),off:wdDocOff,sub:wdDocSub,label:'자료 종류 (여러 개 선택)',controls:'wdDocBody',key:'docKind',counts:categoryCounts(topDocumentCategories(),rest),onToggle:wdToggleDocKind,onSub:wdPickDocSub,tail:pictures.length?{count:pictures.length,pressed:wdDocPhotos,onPress:wdToggleDocPhotos}:null})}
   if(wdDocsError){box.innerHTML='<div class="status error" role="status">자료를 불러오지 못했어요. <button type="button" data-wd-doc-retry>다시</button></div>';return}
-  box.innerHTML=(wdDocs.length?(rows.length?`<div class="wd-doc-lines">${rows.map(x=>wdDocRow(x,can)).join('')}</div>`:emptyHtml('선택한 종류 없음',{attrs:'data-wd-doc-nokind'}))+`<button type="button" class="wd-doc-all" data-wd-library>전체 ${wdDocs.length}개 보기 <span aria-hidden="true">›</span></button>`:'')+`<div class="status${wdDocNote.text?(wdDocNote.error?' error':' ok'):''}" data-wd-doc-state role="status">${wdE(wdDocNote.text)}</div>`;
+  box.innerHTML=(wdDocs.length?(wdDocPhotos?wdPhotoTiles(pictures,can):rows.length?`<div class="wd-doc-lines">${rows.map(x=>wdDocRow(x,can)).join('')}</div>`:rest.length?emptyHtml('선택한 종류 없음',{attrs:'data-wd-doc-nokind'}):'')+`<button type="button" class="wd-doc-all" data-wd-library>전체 ${wdDocs.length}개 보기 <span aria-hidden="true">›</span></button>`:'')+`<div class="status${wdDocNote.text?(wdDocNote.error?' error':' ok'):''}" data-wd-doc-state role="status">${wdE(wdDocNote.text)}</div>`;
+  if(wdDocPhotos){hydrateLibraryThumbs(box);bindPhotoTileMenus(box)}
 }
 async function wdRefreshDocs(){const id=wdTargetId,epoch=wdEpoch;if(!id||!wdRecordCurrent(id,epoch))return;const run=++wdDocsRun;try{const rows=await wdReadDocs(id);if(!wdRecordCurrent(id,epoch)||run!==wdDocsRun)return;wdDocs=rows;wdDocsError=false}catch{if(!wdRecordCurrent(id,epoch)||run!==wdDocsRun)return;wdDocsError=true}wdRenderDocs()}
 async function wdRemoveDoc(docId,btn){

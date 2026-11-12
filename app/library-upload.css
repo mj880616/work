@@ -515,3 +515,6 @@
 #libraryView .lu-two-toggle[aria-pressed="true"]{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
 #documentList [data-lu-pane-i] .ft-row.lu-drop-into>.ft-main,#documentList [data-lu-pane-i] .ft-row.lu-drop-place>.ft-main{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
 #documentList [data-lu-pane-i] .ft-row.lu-drop-no>.ft-main{opacity:.55}
+/* LIB-사진숨김(S60-10): 묶음 안 사진은 줄에서 빼고 맨 아래 [사진 n](photo-fold.js). 펼치면 그 자리에 작은 그림 칸. */
+.lu-photo-fold{padding:2px 2px 6px}
+#documentList .lu-photo-fold .photo-fold-tile .lu-thumb{width:100%;height:100%}

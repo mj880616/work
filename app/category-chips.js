@@ -71,7 +71,8 @@ export function categoryCounts(names,docs){
 // 켜진 큰 분류가 하나이고 그 큰 분류에 소분류가 있을 때만 보인다.
 // subAfter: 소분류 줄을 붙일 자리(이 요소 바로 뒤, 기본 host). 줄은 host와 같은 렌더러가 그리고 지운다.
 // counts(LIB-맨위다듬기): 큰 분류 이름 → 자료 수 Map. 주면 칩마다 작은 숫자(0도)를 붙인다(data-cc-count, 글자는 CSS가 그림 — 칩 이름은 그대로).
-export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,extraClass='',sub='',onSub=null,onAddSub=null,subAfter=null,counts=null}={}){
+// LIB-사진숨김(S60-10): tail = 칩 줄 맨 끝 '사진 n' 칩 하나({count, pressed, onPress}). 종류 칩과 따로 켜고 끄며, 상태 주인은 부른 화면이다.
+export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,extraClass='',sub='',onSub=null,onAddSub=null,subAfter=null,counts=null,tail=null}={}){
   if(!host)return;
   names=chipOrder(names);
   renderSubRow(host,{names,off,sub,onSub,onAddSub,subAfter,controls,key});
@@ -81,15 +82,19 @@ export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,
   host.setAttribute('role','group');host.setAttribute('aria-label',label);
   if(controls)host.setAttribute('aria-controls',controls);
   host._ccToggle=onToggle;
-  const signature=JSON.stringify(names);
+  const signature=JSON.stringify([names,!!tail]);
   if(host._ccSignature!==signature){
-    const focused=host.contains(document.activeElement)?document.activeElement?.dataset[key]:null;
-    host.replaceChildren(...['all',...names].map(value=>{const b=document.createElement('button');b.type='button';b.className='quick-pill-button';b.dataset[key]=value;b.textContent=value==='all'?'전체':value;return b}));
+    const focused=host.contains(document.activeElement)?(document.activeElement?.dataset.ccTail!==undefined?'\u0000tail':document.activeElement?.dataset[key]):null;
+    const chips=['all',...names].map(value=>{const b=document.createElement('button');b.type='button';b.className='quick-pill-button';b.dataset[key]=value;b.textContent=value==='all'?'전체':value;return b});
+    if(tail){const b=document.createElement('button');b.type='button';b.className='quick-pill-button cc-tail-photo';b.dataset.ccTail='';b.textContent='사진';chips.push(b)}
+    host.replaceChildren(...chips);
     host._ccSignature=signature;
-    if(focused)[...host.children].find(b=>b.dataset[key]===focused)?.focus({preventScroll:true});
+    if(focused)[...host.children].find(b=>focused==='\u0000tail'?b.dataset.ccTail!==undefined:b.dataset[key]===focused)?.focus({preventScroll:true});
   }
+  host._ccTail=tail?.onPress||null;
   const fill=filledChips(names,off);
   for(const b of host.children){
+    if(b.dataset.ccTail!==undefined){b.setAttribute('aria-pressed',String(!!tail?.pressed));b.dataset.ccCount=String(tail?.count||0);continue}
     const value=b.dataset[key];
     if(value===undefined)continue;
     b.setAttribute('aria-pressed',value==='all'?(state==='all'?'true':state==='none'?'false':'mixed'):String(!off.has(value)));
@@ -99,12 +104,12 @@ export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,
   }
   if(!host._ccBound){
     host._ccBound=true;
-    host.addEventListener('click',e=>{const b=e.target.closest('button');if(b?.parentElement===host&&b.dataset[host._ccKey]!==undefined)host._ccToggle?.(b.dataset[host._ccKey])});
+    host.addEventListener('click',e=>{const b=e.target.closest('button');if(b?.parentElement!==host)return;if(b.dataset.ccTail!==undefined){host._ccTail?.();return}if(b.dataset[host._ccKey]!==undefined)host._ccToggle?.(b.dataset[host._ccKey])});
   }
   host._ccKey=key;
   // UI-칩줄두줄: 두 줄 + [더보기 ▾](공용 chip-rows.js). 접혀도 [전체]와 고른 칩(켠 것·끈 것 중 적은 쪽)은 보인다.
   const picked=pickedToggles(names,off);
-  fitChipRows(host,{keep:b=>b.dataset[key]==='all'||picked.has(b.dataset[key])});
+  fitChipRows(host,{keep:b=>b.dataset[key]==='all'||b.dataset.ccTail!==undefined||picked.has(b.dataset[key])});
 }
 
 // 칩 줄을 그리지 않고 숨길 때(자료 없음 등) 그 아래 소분류 줄을 걷는다.
