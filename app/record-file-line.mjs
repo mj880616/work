@@ -1,6 +1,7 @@
 // ORG-기록첨부(S50-22): the one line a record gets when only pictures or files were put in (11/05 16:41 명진 결정).
 // The server AI's reading of one file comes first (library-files mode=record_line); when it gives nothing, the line is made here
 // from the files themselves: '그림 1장 · 붙여넣은 그림 11-05 16:18.png'. Pure functions only (the request is in record-attach.js).
+import { isPictureFile } from './photo-fold-model.mjs';
 export const RECORD_LINE_CHARS = 80;
 export const RECORD_LINE_MAX_BYTES = 25 * 1024 * 1024;
 const IMAGE = /^image\//i;
@@ -57,4 +58,13 @@ export function renamedRecordLine(summary, attachments, {drive_file_id: id = '',
   if (m[2] !== shown(oldName)) return null;
   const next = `${m[1]} · ${shown(name)}`;
   return next === summary ? null : next;
+}
+
+// ORG-기록첨부표시이름(S61-2): 글 없이 사진·파일만 올린 기록의 목록 줄(요약도 글도 없을 때) — '요약 없음' 대신 '사진 3장'·'파일 2개'·'사진 2장 · 파일 1개'.
+// attachments = 그 업데이트의 파일 목록(app_notes.attachments: file_name·mime_type). 사진 판정은 [파일]과 같은 공용 판정(photo-fold-model.mjs isPictureFile).
+// 파일이 없으면 ''(부른 곳이 '요약 없음'을 그대로 쓴다).
+export function attachmentsLabel(attachments) {
+  const list = (Array.isArray(attachments) ? attachments : []).filter(f => f && typeof f === 'object');
+  const pics = list.filter(f => isPictureFile({name:String(f.file_name || ''), mime:String(f.mime_type || '')})).length, others = list.length - pics;
+  return [pics ? `사진 ${pics}장` : '', others ? `파일 ${others}개` : ''].filter(Boolean).join(' · ');
 }
