@@ -5,6 +5,7 @@
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {esc} from './notice-box.mjs';
+import {emptyHtml} from './wait-state.js';
 import {seoulDateKey} from './meeting-time.js';
 import {remindLines} from './family-remind-model.mjs';
 
@@ -16,7 +17,7 @@ async function moveOut(c) {
   const {moveToPast, undoPast} = await import('./family-note-send.js');
   let moved;
   try { moved = await moveToPast(c.rt, {noteId: c.noteId, text: c.text, today: seoulDateKey()}); }
-  catch (error) { c.onFail?.(error?.code === 'line_missing' ? '그 줄이 노트에 없어요. 다시 불러왔어요.' : '과거 기록으로 옮기지 못했어요. 다시 눌러 주세요.'); if (error?.code === 'line_missing') tell(); return; }
+  catch (error) { c.onFail?.(error?.code === 'line_missing' ? '그 줄이 노트에 없어요. 최신으로 맞췄어요.' : '과거 기록으로 옮기지 못했어요. 다시 눌러 주세요.'); if (error?.code === 'line_missing') tell(); return; }
   tell();
   c.onMoved?.('');
   offerUndoNotice({text: '과거 기록으로 옮겼어요', onUndo: async () => {
@@ -44,10 +45,10 @@ export function openRemindMenu(trigger, c) {
 export function openRemindLines(trigger, {rt, note, onDone = () => {}, onFail = () => {}}) {
   const lines = remindLines(note?.doc);
   pickCtx = {rt, note, lines, onDone, onFail};
-  pickMenu ||= createAnchoredMenu({id: 'familyRemindLines', className: 'radar-row-menu fam-remind-pick', label: '줄 고르기', historyKey: 'kptuFamilyRemindLines',
+  pickMenu ||= createAnchoredMenu({id: 'familyRemindLines', className: 'radar-row-menu fam-remind-pick', label: '줄 선택', historyKey: 'kptuFamilyRemindLines',
     key: () => 'lines', boxWidth: 280,
     render: () => (pickCtx?.lines.length ? pickCtx.lines.map(l => `<button type="button" class="row-act" data-fam-pick="${esc(l.key)}">${esc(l.text)}</button>`).join('')
-      : '<span class="nbx-faint">옮길 줄이 없어요.</span>'),
+      : emptyHtml()),
     onAction: (button, active) => {
       const p = pickCtx, line = p?.lines.find(l => l.key === button.dataset.famPick);
       if (!line) return;
