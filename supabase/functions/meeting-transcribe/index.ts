@@ -39,7 +39,7 @@ import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
   Fail, GEMINI_KEY_NAME, GEMINI_TIME, HALVE_CODES, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
   answerShape, answerWindow, attachDocument, audioMime, canStart, stateTag, failBody, geminiCode, isStale, isThin, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
-  phaseWindow, seoulDay, transcribePath, transcriptionRequest, trashBefore, usageRef,
+  phaseWindow, seoulDay, transcribePath, transcriptionRequest, usageRef, LIBRARY_RECORDING_FOLDER, recordingDocument, savedFileView,
 } from './model.mjs';
 import {
   PIECE_FOLDER, REC_DRIVE_PARALLEL, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_ROLL_PIECES, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
@@ -59,7 +59,7 @@ import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  SPLIT_CODES, audioDocument, carryClosed, cleanText, combineDrafts, doneParts, draftResult, failReason, failedCode, halfMark, halves, hasThinPart, hasWords, isDiscarded, jobDiscardPatch, jobRestorePatch, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
+  SPLIT_CODES, audioDocument, carryClosed, cleanText, combineDrafts, doneParts, draftResult, failReason, failedCode, halfMark, halves, hasThinPart, hasWords, isDiscarded, jobDiscardPatch, jobRestorePatch, jobView, joinParts, leaseTake, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 import {
   JOIN_DAY_COLUMNS, JOIN_JOB_TABLE, JOIN_MEETING_COLUMNS, JOIN_STEP_COLUMNS, JOIN_TICK_ACTION, JOIN_VIEW_COLUMNS,
@@ -80,6 +80,9 @@ const TABLE = 'app_meeting_transcribe_jobs';
 const REC_TABLE = 'app_meeting_recordings';
 const REC_COLUMNS = 'id,workspace_id,created_by,session_id,segment_no,status,error_code,mime_type,piece_ids,size_bytes,duration_sec,job_id,pieces_trashed_at,closed_at,created_at,updated_at';
 const JOB_COLUMNS = 'id,workspace_id,created_by,status,error_code,drive_file_id,file_name,mime_type,size_bytes,duration_sec,model,meeting_id,started_at,finished_at,trashed_at,created_at,updated_at';
+
+// S61-5 REC-전사삭제(명진 11/13): 회의 녹음 전사·요약을 새로 시작하는 입구. 410 transcribe_off로만 답한다(지난 결과 읽기·버리기·잇기는 그대로).
+const TRANSCRIBE_OFF_ACTIONS = new Set(['upload', 'transcribe', 'job_start', 'job_retry']);
 
 const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-workspace-id, x-file-name, x-duration-sec, x-target-meeting-id, x-record-jobs, x-recording-id, x-piece-seq',
@@ -299,23 +302,14 @@ async function monthUsed(userDb: ReturnType<typeof userClient>, workspaceId: str
   return monthKrw(data);
 }
 
-// ---- 서버 쪽 정리(부를 때마다, 이 작업공간만): 끊긴 진행 중 → 실패, 30일 지난 붙이지 않은 녹음 → Drive 휴지통 ----
+// ---- 서버 쪽 정리(부를 때마다, 이 작업공간만): 끊긴 진행 중 → 실패 ----
+// S61-5 REC-전사삭제: '30일 지난 붙이지 않은 녹음 → Drive 휴지통'은 뺐다. 녹음 파일은 이제 자료실 자료(회의 녹음 폴더)로 남는 원본이라
+// 회의에 붙이지 않았다는 이유로 저절로 지우지 않는다(데이터 보존).
 async function sweep(workspaceId: string) {
   const now = new Date();
   try {
     const { data: running } = await admin.from(TABLE).select('id,status,started_at,updated_at,created_at').eq('workspace_id', workspaceId).eq('status', 'running').limit(5);
     for (const job of running || []) if (isStale(job, now)) await setJob(job.id, { status: 'failed', error_code: 'interrupted', finished_at: now.toISOString() });
-    const { data: old } = await admin.from(TABLE).select('id,drive_file_id').eq('workspace_id', workspaceId).is('meeting_id', null).is('trashed_at', null)
-      .lt('created_at', trashBefore(now)).neq('status', 'running').order('created_at', { ascending: true }).limit(SWEEP_LIMIT);
-    if (!old?.length) return;
-    const token = await driveToken(workspaceId);
-    const folder = await recordingFolder(workspaceId, token, false);
-    if (!folder) return;
-    for (const job of old) {
-      const result = await moveDriveFileToTrash(fetch, job.drive_file_id, folder, token);
-      // 휴지통으로 옮겼거나 이미 없거나 이 폴더 것이 아니면 다시 보지 않는다. 잠시 실패면 다음에.
-      if (result === 'trashed' || result === 'already_trashed' || result === 'not_ours') await setJob(job.id, { trashed_at: new Date().toISOString() });
-    }
   } catch (e) {
     console.warn('meeting-transcribe: sweep skipped', safeErrorLog(e));
   }
@@ -726,6 +720,66 @@ async function recFinish(user: { id: string }, body: Record<string, unknown>) {
   return json({ ok: true, session_id: body.session_id, more, segments: rows.filter(r => r.status !== 'empty').map(segmentView) });
 }
 
+// S61-5 REC-전사삭제: rec_save {session_id, meeting_id?} — 합친 녹음 파일(구간마다 하나)을 자료실 자료로 남긴다.
+//   자료 행·폴더·연결은 부른 사람 로그인(owner RLS)으로만 쓴다(서비스 권한으로 자료실 표를 쓰지 않음). 같은 Drive 파일의 자료 행이 있으면
+//   새로 만들지 않는다(두 번 불러도 한 번). 자료실 맨 위 '회의 녹음' 폴더(프로젝트 없음, 휴지통 아님)가 없으면 처음 저장할 때 만든다.
+//   meeting_id가 있으면 그 회의(부른 사람 로그인으로 읽은 같은 작업공간 회의)의 자료로도 붙인다. 전사·요약은 하지 않는다.
+async function recSave(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
+  const rows = await ownSession(user.id, body.session_id);
+  const ws = rows[0].workspace_id as string;
+  if (rows.some(r => r.status === 'recording' || r.status === 'closed')) throw new Fail('busy'); // rec_finish를 먼저(화면이 more가 끝날 때까지 부름)
+  let meeting: { id: string; workspace_id: string; project_id: string | null } | null = null;
+  if (body.meeting_id !== undefined && body.meeting_id !== null && body.meeting_id !== '') {
+    if (!isUuid(body.meeting_id)) throw new Fail('bad_request');
+    const { data, error } = await userDb.from('app_meetings').select('id,workspace_id,project_id').eq('id', body.meeting_id as string).maybeSingle();
+    if (error) throw new Fail('failed');
+    if (!data || data.workspace_id !== ws) throw new Fail('not_found');
+    meeting = data;
+  }
+  const combined = rows.filter(r => r.status === 'combined' && r.job_id);
+  if (!combined.length) throw new Fail('no_recording');
+  const order = new Map(combined.map(r => [r.job_id, r.segment_no]));
+  const jobs = (await sessionJobs(combined))
+    .filter(j => !j.trashed_at && j.drive_file_id)
+    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  if (!jobs.length) throw new Fail('no_recording');
+  const folderId = await recordingLibraryFolder(userDb, ws);
+  const files = [];
+  for (const job of jobs) {
+    const { data: found, error: findError } = await userDb.from('app_documents').select('id,file_name,drive_url,mime_type,meeting_id')
+      .eq('workspace_id', ws).eq('file_id', job.drive_file_id).limit(1);
+    if (findError) throw new Fail('failed');
+    let doc = found?.[0] ?? null;
+    if (!doc) {
+      const { data: made, error: makeError } = await userDb.from('app_documents').insert(recordingDocument({ job, workspaceId: ws, meeting, userId: user.id }))
+        .select('id,file_name,drive_url,mime_type,meeting_id').single();
+      if (makeError || !made) throw new Fail('failed');
+      doc = made;
+      // 새로 만든 자료만 '회의 녹음' 폴더로(받는 폴더 트리거가 먼저 넣었어도 이 폴더로 고침). 이미 있던 자료는 사람이 옮긴 자리를 그대로 둔다.
+      const { error: linkError } = await userDb.from('app_library_folder_items')
+        .upsert({ document_id: doc.id, folder_id: folderId, workspace_id: ws }, { onConflict: 'document_id' });
+      if (linkError) console.warn('meeting-transcribe: recording folder link skipped', linkError.code || '-');
+    }
+    if (meeting && !job.meeting_id) await setJob(job.id, { meeting_id: meeting.id });
+    files.push(savedFileView(doc, job));
+  }
+  return json({ ok: true, session_id: body.session_id, folder_id: folderId, folder_name: LIBRARY_RECORDING_FOLDER, files });
+}
+// 자료실 맨 위 '회의 녹음' 폴더(프로젝트 없음·휴지통 아님). 없으면 맨 아래 순서로 하나 만든다(자료실 [새 폴더]와 같은 표·같은 owner RLS).
+async function recordingLibraryFolder(userDb: ReturnType<typeof userClient>, ws: string): Promise<string> {
+  const { data: tops, error } = await userDb.from('app_library_folders').select('id,name,sort_order,deleted_at')
+    .eq('workspace_id', ws).is('project_id', null).is('parent_id', null).limit(500);
+  if (error) throw new Fail('failed');
+  const live = (tops || []).filter(f => !f.deleted_at);
+  const have = live.find(f => f.name === LIBRARY_RECORDING_FOLDER);
+  if (have) return have.id as string;
+  const sort = live.reduce((m, f) => Math.max(m, Number(f.sort_order) || 0), 0) + 1;
+  const { data: made, error: makeError } = await userDb.from('app_library_folders')
+    .insert({ workspace_id: ws, project_id: null, parent_id: null, name: LIBRARY_RECORDING_FOLDER, sort_order: sort }).select('id').single();
+  if (makeError || !made?.id) throw new Fail('failed');
+  return made.id as string;
+}
+
 async function recPending(user: { id: string }, body: Record<string, unknown>) {
   const workspaceId = String(body.workspace_id || '');
   await requireOwner(user.id, workspaceId);
@@ -738,9 +792,17 @@ async function recPending(user: { id: string }, body: Record<string, unknown>) {
   const ids = [...new Set((rows || []).map(r => r.job_id).filter(Boolean))] as string[];
   let jobs: Job[] = [];
   if (ids.length) {
-    const { data, error: jobError } = await admin.from(TABLE).select('id,status').in('id', ids);
+    const { data, error: jobError } = await admin.from(TABLE).select('id,status,drive_file_id').in('id', ids);
     if (jobError) throw new Fail('failed');
     jobs = data || [];
+    // S61-5 REC-전사삭제: 자료실에 이미 저장한 녹음(같은 Drive 파일의 자료 행이 있음)은 끝난 녹음이다.
+    const files = jobs.map(j => j.drive_file_id).filter(Boolean) as string[];
+    if (files.length) {
+      const { data: docs, error: docError } = await admin.from('app_documents').select('file_id').eq('workspace_id', workspaceId).in('file_id', files);
+      if (docError) throw new Fail('failed');
+      const kept = new Set((docs || []).map(d => d.file_id));
+      jobs = jobs.map(j => ({ ...j, saved: kept.has(j.drive_file_id) }));
+    }
   }
   return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now), live: liveSessions(rows || [], now) });
 }
@@ -945,6 +1007,8 @@ async function runStep(id: string, kind: StepKind = 'job') {
   let next: Record<string, unknown>;
   try {
     // 같은 단계에서 두 번 끊김: 요약 단계면 요약 쪽 이유(전사한 글은 남음), 그 밖은 구간 쪽 이유.
+    // S61-5 REC-전사삭제: 회의 녹음 서버 정리(합치기 → 전사 → 요약)는 더 하지 않는다. 배포 때 돌던 작업도 다음 단계에서 이 이유로 멈춘다(녹음 파일은 그대로).
+    if (kind === 'job') throw new Fail('transcribe_off');
     if (take.cut >= 2) throw new Fail(job.stage === 'summary' ? 'draft_step_cut' : 'step_cut');
     if (job.attempts >= MAX_ATTEMPTS) throw new Fail('too_many_steps');
     // 잇기 작업: apply 단계는 DB 함수 한 번, 요약 단계는 서버 정리 작업과 같은 stepOnce를 쓰고 끝나면 done 대신 apply로 간다.
@@ -1249,9 +1313,8 @@ async function jobStart(user: { id: string }, userDb: ReturnType<typeof userClie
   inBackground(runStep(data.id));
   return json({ ok: true, job: jobView(data) });
 }
-// 진행 중이면 모양만, 끝났으면 결과까지. 멈춘 것처럼 보이면 다시 깨운다.
+// 진행 중이면 모양만, 끝났으면 결과까지. S61-5 REC-전사삭제: 멈춘 작업을 다시 깨우지 않는다(지난 결과 읽기만).
 function jobAnswer(job: Job) {
-  if (needsKick(job, Date.now())) inBackground(runStep(job.id));
   return json({ ok: true, job: jobView(job, true) });
 }
 async function jobRead(user: { id: string }, body: Record<string, unknown>) {
@@ -1266,8 +1329,6 @@ async function jobList(user: { id: string }, body: Record<string, unknown>) {
     .gte('created_at', since).is('opened_at', null).or('error_code.is.null,error_code.neq.discarded')
     .order('created_at', { ascending: false }).limit(20);
   if (error) throw jobsFail(error);
-  const nowMs = Date.now();
-  for (const j of data || []) if (needsKick(j, nowMs)) inBackground(runStep(j.id));
   // REC-초안버리기: 쓰지 않기로 한 결과는 다시 띄우지 않는다(이 기기·다른 기기 모두). 위 조건과 같은 규칙을 한 번 더.
   // REC-멈춤띠계속뜸: 닫은 멈춤은 discarded:true로 싣는다 — 띠에는 안 뜨고 녹음 줄 [다시]로만 보인다.
   data = (data || []).filter((j) => !isDiscarded(j) || j.status === 'failed');
@@ -1533,7 +1594,8 @@ Deno.serve(withWebCors(async (req: Request) => {
     if (action === JOIN_TICK_ACTION) return await joinTick(req);
     const user = await userOf(req);
     const userDb = userClient(req);
-    if (action === 'upload') return await upload(req, user, userDb);
+    // S61-5 REC-전사삭제: 전사·요약을 새로 시작하는 입구(파일 올려 전사·화면 전사·서버 정리 시작·다시)는 모두 닫는다. 몸통은 읽지 않는다.
+    if (TRANSCRIBE_OFF_ACTIONS.has(action)) { await req.body?.cancel().catch(() => undefined); throw new Fail('transcribe_off'); }
     if (action === 'rec_piece') return await recPiece(req, user);
     if (action === 'join_text') return await joinText(req, user, userDb);
     const raw = await req.text();
@@ -1542,18 +1604,16 @@ Deno.serve(withWebCors(async (req: Request) => {
     try { body = raw ? JSON.parse(raw) : {}; } catch { throw new Fail('bad_request'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Fail('bad_request');
     if (action === 'config') return await config(user, userDb, body);
-    if (action === 'transcribe') return await transcribe(user, userDb, body);
     if (action === 'attach') return await attach(user, userDb, body);
     if (action === 'rec_start') return await recStart(user, body);
     if (action === 'rec_finish') return await recFinish(user, body);
+    if (action === 'rec_save') return await recSave(user, userDb, body);
     if (action === 'rec_pending') return await recPending(user, body);
     if (action === 'rec_discard') return await recDiscard(user, body);
     if (action === 'rec_restore') return await recRestore(user, body);
-    if (action === 'job_start') return await jobStart(user, userDb, body);
     if (action === 'job_read') return await jobRead(user, body);
     if (action === 'job_list') return await jobList(user, body);
     if (action === 'job_opened') return await jobOpened(user, userDb, body);
-    if (action === 'job_retry') return await jobRetry(user, userDb, body);
     if (action === 'job_discard') return await jobDiscard(user, body);
     if (action === 'job_restore') return await jobRestore(user, body);
     if (action === 'join_start') return await joinStart(user, userDb, body);

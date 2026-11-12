@@ -183,6 +183,8 @@ export const toCombine = rows => (Array.isArray(rows) ? rows : []).filter(r => r
 // 끝나지 않은 녹음 = 열린 구간이 조용함 · 닫힘(합치기 전) · 합쳤지만 전사 작업이 아직 끝나지 않음.
 export function pendingSessions(rows, jobs, now) {
   const jobStatus = new Map((Array.isArray(jobs) ? jobs : []).map(j => [j.id, j.status]));
+  // S61-5 REC-전사삭제: 자료실에 저장한 녹음(saved)은 끝난 녹음이다(전사를 기다리지 않음).
+  const saved = new Set((Array.isArray(jobs) ? jobs : []).filter(j => j?.saved).map(j => j.id));
   const by = new Map();
   for (const r of Array.isArray(rows) ? rows : []) {
     if (!r?.session_id) continue;
@@ -194,7 +196,7 @@ export function pendingSessions(rows, jobs, now) {
     list.sort((a, b) => a.segment_no - b.segment_no);
     if (list.some(r => r.status === 'recording' && !isQuiet(r, now))) continue; // 지금 녹음 중인 것은 제외
     const open = list.some(r => r.status === 'recording' || r.status === 'closed'
-      || (r.status === 'combined' && r.job_id && jobStatus.get(r.job_id) !== 'done'));
+      || (r.status === 'combined' && r.job_id && jobStatus.get(r.job_id) !== 'done' && !saved.has(r.job_id)));
     if (!open) continue;
     out.push({
       session_id: session,
