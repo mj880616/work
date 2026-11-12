@@ -384,7 +384,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       comments = cm.comments; commentsReady = cm.ready; commentsMissing = !!cm.missing;
       foldersReady = fold.ready; foldersMissing = !!fold.missing; folders = fold.ready ? fold.folders : foldersFromNames(notes);
       // NAV-새로고침제자리: the folder entered before a reload (?folder=) is entered again once the folders are read.
-      if (pendingFolder) { const id = pendingFolder; pendingFolder = null; if (id === OUTSIDE || folderById(id)) enter(id, {focus:false}); else renderList(); } else renderList();
+      if (pendingFolder) { const id = pendingFolder; pendingFolder = null; if (id === OUTSIDE || folderById(id)) enter(id, {focus:false, picked:false}); else renderList(); } else renderList();
       if (pendingOpen) { const id = pendingOpen; pendingOpen = null; if (notes.some(n => n.id === id)) open(id); }
     } catch {
       if (run !== epoch || owner !== scope()) return;
@@ -1461,16 +1461,28 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (wideList.matches) enter(id); else if (at === null) focusFolder(id); else enter(id);
   }
   // 들어가기(10:34 ②): 그 폴더만 보이고 위에 '이름 · 장수'(2단 이상이면 위치 줄도). 폴더 위쪽은 왼쪽 나무에서 열어 둔다.
-  function enter(id, {focus = true} = {}) {
+  // NAV-PC뒤로직전: on PC·the unfolded Fold (folder tree | notes) a folder the person entered is a back step of its own (router pick):
+  // ‹ = the folder before, then '최근' (the first screen, kept as one step), then the screen before. picked:false for the folder
+  // entered by itself (a reload's ?folder=). The phone keeps its own folder layer (syncFolderLayer).
+  function enter(id, {focus = true, picked = true} = {}) {
+    const from = at;
     at = id === OUTSIDE ? OUTSIDE : id && folderById(id) ? id : null;
     for (const f of at && at !== OUTSIDE ? folderPath(folders, at) : []) openSet.add(f.id);
     renderList();
     // NAV-새로고침제자리: the folder entered is written to the address (?folder=, no entry of its own) after the list is drawn, so on a
     // phone it lands on the folder screen's own layer entry and Back to the folder list leaves it out. A reload enters it again.
     window.KPTURouter?.setPlace?.('basket', {folder:at});
+    if (picked && wideList.matches && from !== at) window.KPTURouter?.pick?.record?.('basket', at === null ? {} : {folder:at}, {fromNone:from === null});
     if (focus) (at !== null ? host.querySelector('#noteRows [data-note-row], #noteRows [data-nx-open]') || host.querySelector('[data-nx-back]') : host.querySelector('#noteRows [data-nx-open]') || host.querySelector('[data-note-search]'))?.focus({preventScroll:true});
     if (!wideList.matches) window.scrollTo({top:0, behavior:'instant'});
   }
+  // ‹ › over an entered folder enters it again; a folder no longer there (deleted) shows '최근' (the list only).
+  window.KPTURouter?.pick?.on?.('basket', ({folder = null} = {}) => {
+    if (!wideList.matches || selected || !loaded || view !== 'folder') return true;
+    const id = folder === OUTSIDE || (folder && folderById(folder)) ? folder : null;
+    if (id !== at) enter(id, {focus:false, picked:false});
+    return true;
+  });
   // 폰 '그 폴더만' 보기 → 나무(FOLDER-나무새기준 ④): [‹]·오므리기·뒤로 키 모두 첫 화면 나무로, 펼친 폴더와 화면 위치 그대로.
   // 그 폴더는 펼친 채로 둔다(벌리기 전 접혀 있었어도 돌아오면 그 자리에서 보인다).
   function focusFolder(id) {
