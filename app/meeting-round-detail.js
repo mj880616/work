@@ -530,9 +530,10 @@ function mrdDropQueue(){
 async function mrdDropFiles(files,e){
   const m=mrdCurrent;if(!m||!mrdCanEdit(m))return;
   const zone=dropZoneOf(e?.target),anchor=(e?.target?.closest?.('[data-drop-zone]'))||mrdDropFace();
-  const kept=await mrdSameFiles(files,anchor);if(!kept.length||mrdCurrent?.id!==m.id)return;
+  // 묻는 사이 다른 보고로 옮겨도 놓은 그 보고(m)에 붙인다(회의자료). 사진 줄은 지금 보는 보고에 붙는 길이라 같은 보고일 때만.
+  const kept=await mrdSameFiles(files,anchor);if(!kept.length)return;
   const {photos,others}=splitPhotoFiles(kept);
-  if(photos.length)void mrdAddPhotos(photos,{checked:true});
+  if(photos.length&&mrdCurrent?.id===m.id)void mrdAddPhotos(photos,{checked:true});
   if(!others.length)return;
   const target=mrdDropTarget(m);
   // 묻기는 한 번에 하나씩(앞 질문이 열려 있으면 그 뒤에), 묻는 데는 읽기·올리기를 기다리지 않는다.
