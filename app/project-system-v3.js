@@ -17,6 +17,9 @@ import {foldedSet,isFoldedOwn,partitionTree,blocks,foldedMetadata,foldSummary} f
 import {recordLines} from './note-preview.mjs';
 import {readRecordPages,readLinkRecords,recordMark,recordText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
 import {recordFilesHtml,paintRecordFiles,bindRecordFiles} from './record-files.js';
+import {isPictureDoc,splitPictures} from './photo-fold-model.mjs'; // LIB-사진숨김: 사진은 [자료] 줄에서 빼고 칩 줄 끝 '사진 n'
+import {docKindHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
+import {hydrateLibraryThumbs} from './library-photo.js';
 import {categoryTag,categoryOf,topDocumentCategories,loadDocumentCategories} from './document-categories.js';
 import {renderCategoryChips,toggleCategoryOff,detailDefaultOff,hiddenCategories,categoryCounts} from './category-chips.js';
 import {disconnectWithUndo,offerUndoNotice} from './basket-record-delete.js';
@@ -514,24 +517,31 @@ function milestones(d){return fold('ps3-milestones',moduleTitle(d,'milestones','
 // Linked Google tasks (TASK-구현 PR 4). The count starts from the completion copy and google-tasks.js replaces it with Google's answer.
 function tasksHtml(d){return `<section class="ps3-section" id="ps3-tasks"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'tasks','할 일'))} <span class="ps3-count" data-ps3-task-count>${d.openTasks}</span></h3><div class="ps3-section-actions"><button type="button" class="ps3-text-btn" data-ps3-gtask-link>기존 할 일 연결</button>${addPlus('할 일 추가','data-ps3-global="task"')}</div></div><div data-ps3-gtasks class="gt-linked gt-status">${waitHtml({rows:3})}</div></section>`}
 function mountGoogleTasks(id){const box=$('#ps3Body [data-ps3-gtasks]'),g=window.KPTUGoogleTasks;if(!box)return;if(!g){box.textContent='Google 할 일 기능을 불러오지 못했어요.';return}g.mountLinked(box,{project_id:id},{onCount:n=>{const c=$('#ps3-tasks [data-ps3-task-count]'),h=$('#ps3Summary [data-ps3-head-tasks]');if(c)c.textContent=n;if(h)h.textContent=n}})}
-function docRow(x){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''},href=httpUrl(x.drive_url),title=String(x.title||''),rn=x.file_id&&x.file_name&&(title===x.file_name||title===splitFileName(x.file_name).base)?{target:'document',id:x.id,driveId:x.file_id,name:x.file_name}:null,main=`<b${renameHostAttrs(rn)}>${esc(x.title)}</b><small>${categoryTag(x.category)}${x.document_date?' '+esc(x.document_date):''}</small>`;return `<div class="ps3-line ps3-doc-row" data-fr-row>${href?`<a class="ps3-line-main" href="${esc(href)}" target="_blank" rel="noopener noreferrer"${fileAttrs(fa,{press:true})}>${main}</a>`:`<div class="ps3-line-main">${main}</div>`}<details class="ps3-more ps3-line-more"><summary class="icon-btn" aria-label="자료 관리: ${esc(x.title)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="ps3-more-panel" role="group" aria-label="자료 관리">${menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu',rename:renameMenuAttrs(rn)})}<button type="button" data-ps3-edit-doc="${esc(x.id)}">수정</button></div></details></div>`}
+function docRow(x){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''},href=httpUrl(x.drive_url),title=String(x.title||''),rn=x.file_id&&x.file_name&&(title===x.file_name||title===splitFileName(x.file_name).base)?{target:'document',id:x.id,driveId:x.file_id,name:x.file_name}:null,main=`<b${renameHostAttrs(rn)}>${esc(x.title)}</b><small>${docKindHtml(x)}${categoryTag(x.category)}${x.document_date?' '+esc(x.document_date):''}</small>`;return `<div class="ps3-line ps3-doc-row" data-fr-row>${href?`<a class="ps3-line-main" href="${esc(href)}" target="_blank" rel="noopener noreferrer"${fileAttrs(fa,{press:true})}>${main}</a>`:`<div class="ps3-line-main">${main}</div>`}${docMenu(x,fa,rn)}</div>`}
+function docMenu(x,fa,rn){return `<details class="ps3-more ps3-line-more"><summary class="icon-btn" aria-label="자료 관리: ${esc(x.title)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="ps3-more-panel" role="group" aria-label="자료 관리">${menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu',rename:renameMenuAttrs(rn)})}<button type="button" data-ps3-edit-doc="${esc(x.id)}">수정</button></div></details>`}
+// LIB-사진숨김: [사진 n]을 켠 동안 사진 자료만 작은 그림 칸으로(누르면 크게 보기, ⋯·우클릭·꾹 누르기 = 자료 줄과 같은 메뉴).
+function docPhotoTiles(list){return photoTilesHtml(list,x=>{const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''};return {attrs:fileAttrs(fa,{press:true}),menu:docMenu(x,fa,null)}},{id:'ps3DocPhotoTiles',label:'이 프로젝트 사진'})}
 // UI-바구니첨부메모 ⑨⑩: 최근 5개 + "전체 N개 보기 ›"(자료실을 이 프로젝트로 걸러 연다).
 // LIB-조직프로젝트자료종류: [자료] 위의 종류 칩은 자료실과 같은 칩 코드(category-chips.js). 꺼 둔 종류는 이 프로젝트를 열어 두는 동안만 기억하고(저장 안 함),
 // 처음엔 모두 켜져 있어('회의' 포함, category-chips.js DETAIL_DEFAULT_OFF) 자료가 숨지 않는다. 거르는 건 줄 보이기뿐이라 위의 자료 수와 [전체 N개 보기]는 프로젝트 전체 자료 기준 그대로다.
 // LIB-소분류: 큰 분류 하나만 켜면 칩 아래 소분류 줄(category-chips.js). 고른 소분류(docSub)도 이 프로젝트를 열어 둔 동안만 기억한다.
-let docOff=detailDefaultOff(),docOffFor='',docSub='';
-function docOffSet(d){if(docOffFor!==d.p.id){docOffFor=d.p.id;docOff=detailDefaultOff();docSub=''}return docOff}
+// LIB-사진숨김(S60-10): 사진 자료는 줄에서 빼고 칩 줄 끝 [사진 n]. 켠 것(docPhotos)은 이 프로젝트를 열어 둔 동안만, 열 때마다 꺼진 채(저장 안 함).
+let docOff=detailDefaultOff(),docOffFor='',docSub='',docPhotos=false;
+function docOffSet(d){if(docOffFor!==d.p.id){docOffFor=d.p.id;docOff=detailDefaultOff();docSub='';docPhotos=false}return docOff}
 // 숨길 분류(전체 이름) 모음: 꺼 둔 큰 분류 + 소분류를 골랐으면 그 밖의 것.
 function docHidden(d){const off=docOffSet(d);return hiddenCategories(topDocumentCategories(),off,docSub)}
-function docListHtml(d){const off=docHidden(d),rows=d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:emptyHtml('선택한 종류 없음',{attrs:'data-ps3-doc-nokind'})):''}
+function docListHtml(d){const off=docHidden(d),{rest,pictures}=splitPictures(d.docs,isPictureDoc);if(!pictures.length)docPhotos=false;if(docPhotos)return docPhotoTiles(pictures);const rows=rest.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:rest.length?emptyHtml('선택한 종류 없음',{attrs:'data-ps3-doc-nokind'}):''):''}
 function docsHtml(d){return `<section class="ps3-section" id="ps3-documents"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'documents','자료'))} ${count(d.docs.length)}</h3><div class="ps3-section-actions">${addPlus('자료 올리기','data-ps3-global="document"')}</div></div><div id="ps3DocKinds" class="doc-kind-chips"${d.docs.length?'':' hidden'}></div><div data-ps3-doc-list>${docListHtml(d)}</div>${d.docs.length?`<button type="button" class="ps3-text-btn ps3-docs-all" data-ps3-library>전체 ${d.docs.length}개 보기 <span aria-hidden="true">›</span></button>`:''}</section>`}
 // 종류 칩을 그리고 누르면 줄 목록만 다시 그린다(칩 단추는 그대로라 초점·터치가 유지됨).
 function mountDocKinds(d){
   const host=$('#ps3-documents #ps3DocKinds');if(!host||d!==detail||!d.docs.length)return;
   const redraw=()=>{const list=$('#ps3-documents [data-ps3-doc-list]');if(list)list.innerHTML=docListHtml(d);mountDocKinds(d)};
-  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 선택)',controls:'ps3-documents',key:'docKind',counts:categoryCounts(topDocumentCategories(),d.docs),onToggle:value=>{
-    if(d!==detail)return;docOff=toggleCategoryOff(topDocumentCategories(),docOffSet(d),value);redraw()},
-    onSub:value=>{if(d!==detail)return;docOffSet(d);docSub=value;redraw()}});
+  const {rest,pictures}=splitPictures(d.docs,isPictureDoc);
+  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 선택)',controls:'ps3-documents',key:'docKind',counts:categoryCounts(topDocumentCategories(),rest),onToggle:value=>{
+    if(d!==detail)return;docOff=toggleCategoryOff(topDocumentCategories(),docOffSet(d),value);docPhotos=false;redraw()},
+    onSub:value=>{if(d!==detail)return;docOffSet(d);docSub=value;docPhotos=false;redraw()},
+    tail:pictures.length?{count:pictures.length,pressed:docPhotos,onPress:()=>{if(d!==detail)return;docOffSet(d);docPhotos=!docPhotos;redraw()}}:null});
+  const list=$('#ps3-documents [data-ps3-doc-list]');if(docPhotos&&list){hydrateLibraryThumbs(list);bindPhotoTileMenus(list)}
 }
 // PRJ-회의표시 → MTG-사업보고 6단계: 이 프로젝트에 연결된 사업 보고(회의·정책·교섭 …, 모든 종류)를 최근 순으로. 연결은 연결 표의 '출처 회의' 줄(report-links.js)이라
 // 사업 보고 쪽에서 연결해도, 여기서 [연결]로 골라도 같은 줄이다. 이미 연결돼 있던 회의는 그대로 '회의' 종류로 나온다. 하위 프로젝트 것은 넣지 않는다.

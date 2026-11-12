@@ -97,7 +97,10 @@ export function createLibraryTwo(h) {
     return ftFolderRowHtml({name: n.label, count: n.count, countLabel: `${n.count}건`, depth, open, hasContent, tree: true, color: n.fc, mainAttrs: attrs, className: 'lu-pane-folder', tag: n.rc ? '받는 폴더' : ''});
   }
   function filesHtml({node, depth, files}) {
-    const rows = files.map(d => { const r = h.rowHtml(d, node); return r ? rowAttr(r, 'd:' + d.id) : ''; }).join('');
+    // LIB-사진숨김(S60-10): 사진은 줄에서 빼고 끝에 '사진 n' 하나(한 칸 목록과 같은 h.isPhoto·h.photoTail).
+    const photos = h.isPhoto ? files.filter(h.isPhoto) : [];
+    const rows = files.filter(d => !photos.includes(d)).map(d => { const r = h.rowHtml(d, node); return r ? rowAttr(r, 'd:' + d.id) : ''; }).join('')
+      + (photos.length && h.photoTail ? h.photoTail(node, photos) : '');
     // 펼친 폴더 안 자료는 그 폴더 줄 아래로 들여 보인다(공용 나무 들여쓰기 --ft-depth). data-lu-pane-sub(그 폴더 id)는 놓을 곳 판정(paneDropAt)도 읽는다.
     return !rows ? '' : depth ? `<div class="lu-pane-sub" data-lu-pane-sub="${h.esc(node?.id || '')}" style="--ft-depth:${depth}">${rows}</div>` : rows;
   }

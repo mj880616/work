@@ -7,6 +7,8 @@ import { openPhotoView } from './photo-view.js';
 import { pressFile } from './file-actions.js';
 import { attachmentName } from './attachment-name.mjs';
 import { fileKind } from './meeting-compact.js';
+import { isPictureFile, splitPictures, pictureCountLabel } from './photo-fold-model.mjs';
+import { chevHtml } from './fold-chevron.mjs';
 
 const SHOWN = 6;
 const PHOTO = /^image\/(jpeg|png|webp|gif)$/i;
@@ -14,24 +16,33 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 const filesOf = row => (Array.isArray(row?.attachments) ? row.attachments : []).filter(f => /^[A-Za-z0-9_-]{1,255}$/.test(String(f?.drive_file_id || '')));
 const isPhoto = file => PHOTO.test(String(file?.mime_type || ''));
 
+// LIB-사진숨김(S60-10, 명진 결정 11/12): 사진은 이름 줄·그림 줄로 늘어놓지 않고 [사진 n] 하나(접힌 <details>). 펼치면 그 자리에 작은 그림,
+// 누르면 크게 보기. 사진 판정은 [파일]과 같은 공용 판정(photo-fold-model.mjs isPictureFile = files-model.mjs kindOf). 펼침은 저장하지 않아
+// 목록을 다시 그리거나 화면을 다시 열면 늘 접힌 채 시작한다. 작은 그림은 펼칠 때만 받는다.
+const isPicture = file => isPhoto(file) || isPictureFile({name: attachmentName(file), mime: file?.mime_type});
 export function recordFilesHtml(row) {
   const files = filesOf(row);
   if (!files.length) return '';
-  const note = esc(row.note_id), more = files.length - SHOWN;
-  const items = files.slice(0, SHOWN).map(file => {
+  const note = esc(row.note_id), {rest, pictures} = splitPictures(files, isPicture), more = rest.length - SHOWN;
+  const items = rest.slice(0, SHOWN).map(file => {
     const id = esc(file.drive_file_id), name = esc(attachmentName(file));
-    if (isPhoto(file)) return `<button type="button" class="record-file-thumb" data-record-photo="${id}" data-record-note="${note}" aria-label="${name} 크게 보기" title="${name}"></button>`;
     const kind = fileKind(attachmentName(file));
     return `<button type="button" class="record-file-name" data-record-file="${id}" data-record-note="${note}" aria-label="${name} 열기"><span class="file-kind" data-kind="${esc(kind.key)}" aria-hidden="true">${esc(kind.label)}</span><span class="record-file-text">${name}</span></button>`;
   }).join('');
-  return `<div class="record-files" data-record-files="${note}">${items}${more > 0 ? `<span class="record-files-more">외 ${more}개</span>` : ''}</div>`;
+  const thumbs = pictures.map(file => {
+    const id = esc(file.drive_file_id), name = esc(attachmentName(file));
+    return `<button type="button" class="record-file-thumb" data-record-photo="${id}" data-record-note="${note}" aria-label="${name} 크게 보기" title="${name}"></button>`;
+  }).join('');
+  const photos = pictures.length ? `<details class="record-photos" data-record-photos="${note}"><summary class="photo-fold-toggle">${esc(pictureCountLabel(pictures.length))}${chevHtml()}</summary><div class="record-photo-thumbs">${thumbs}</div></details>` : '';
+  return `<div class="record-files" data-record-files="${note}">${items}${more > 0 ? `<span class="record-files-more">외 ${more}개</span>` : ''}${photos}</div>`;
 }
 
-// Small pictures for the strips now in host (call after the list is drawn).
+// Small pictures for the strips now in host (call after the list is drawn). Pictures inside a closed [사진 n] wait until it opens.
 export function paintRecordFiles(host, rows, rt = window.KPTURuntime) {
   if (!host) return;
   for (const thumb of host.querySelectorAll('[data-record-photo]')) {
     if (thumb.childElementCount) continue;
+    if (thumb.closest('details:not([open])')) continue;
     const row = rows.find(r => r.note_id === thumb.dataset.recordNote), file = filesOf(row).find(f => f.drive_file_id === thumb.dataset.recordPhoto);
     if (row && file) thumb.append(photoElement({id:row.note_id}, file, 'small', {label:'', link:false, rt, retry:false}));
   }
@@ -42,6 +53,11 @@ const bound = new WeakSet();
 export function bindRecordFiles(host, getRows, {rt = window.KPTURuntime, onError = () => {}} = {}) {
   if (!host || bound.has(host)) return;
   bound.add(host);
+  // [사진 n]을 펼치면 그때 그 안 작은 그림을 받는다(toggle은 거품이 없어 잡기 단계에서 듣는다).
+  host.addEventListener('toggle', e => {
+    const box = e.target;
+    if (box?.matches?.('details[data-record-photos]') && box.open) paintRecordFiles(box, getRows(), rt);
+  }, true);
   host.addEventListener('click', e => {
     const el = e.target.closest?.('[data-record-photo],[data-record-file]');
     if (!el || !host.contains(el)) return;

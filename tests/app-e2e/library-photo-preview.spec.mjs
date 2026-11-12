@@ -53,7 +53,7 @@ async function mock(page, state) {
   });
 }
 
-for (const width of [390, 1440]) {
+for (const width of [412, 1280]) {
   test(`library photo rows show a small picture and open a large one ${width}`, async ({page}) => {
     await page.setViewportSize({width, height: 900});
     const state = makeState();
@@ -64,27 +64,36 @@ for (const width of [390, 1440]) {
     await expect(page.locator('[data-lu-document]').first()).toBeAttached({timeout: 10000});
     await expandLibraryTree(page);
 
-    const row = n => page.locator(`[data-lu-document="${ID(n)}"]`);
-    await expect(row(1).locator('.lu-thumb img')).toBeVisible();
-    await expect(row(2).locator('.lu-thumb img')).toBeVisible();
+    // LIB-사진숨김(S60-10): 그림 자료(Drive 파일 있는 것)는 줄에서 빠지고 묶음 맨 아래 [사진 3] 하나. 누르기 전에는 작은 그림도 받지 않는다.
+    const row = n => page.locator(`.lu-row[data-lu-document="${ID(n)}"]`), tile = n => page.locator(`[data-photo-tile="${ID(n)}"]`);
+    for (const n of [1, 2, 5]) await expect(row(n)).toHaveCount(0);
     await expect(row(3).locator('.lu-thumb')).toHaveCount(0);
     await expect(row(4).locator('.lu-thumb')).toHaveCount(0);
+    const toggle = page.locator('[data-lu-photos]');
+    await expect(toggle).toHaveText('사진 3');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(state.photoCalls.filter(c => c.size === 'small')).toEqual([]);
+    await page.screenshot({path: test.info().outputPath(`library-photo-hide-${width}.png`)});
+    await toggle.click();
+    await expect(page.locator('[data-lu-photos]')).toHaveAttribute('aria-expanded', 'true');
+    await expect(tile(1).locator('.lu-thumb img')).toBeVisible();
+    await expect(tile(2).locator('.lu-thumb img')).toBeVisible();
+    await page.screenshot({path: test.info().outputPath(`library-photo-open-${width}.png`)});
     // 서버가 못 주면 연한 회색 칸에 작은 ↻ 하나(깨진 그림·대체 글자 없음, PHOTO-못받은사진).
-    await expect(row(5).locator('.lu-thumb[data-img-state="failed"] .img-slot-retry')).toHaveText('↻');
-    await expect(row(5).locator('.lu-thumb img')).toHaveCount(0);
-    await expect(row(5).locator('.lu-file-kind')).toHaveText('그림');
+    await expect(tile(5).locator('.lu-thumb[data-img-state="failed"] .img-slot-retry')).toHaveText('↻');
+    await expect(tile(5).locator('.lu-thumb img')).toHaveCount(0);
     const small = state.photoCalls.filter(c => c.size === 'small');
     expect(small.map(c => c.id).sort()).toEqual([ID(1), ID(2), ID(5)]);
     expect(small.every(c => c.action === 'photo' && c.auth === 'Bearer e2e-access')).toBe(true);
 
-    // 줄이 화면 안에 들어가고 작은 그림이 제목을 밀어내지 않는다.
-    const box = await row(1).boundingBox(), thumb = await row(1).locator('.lu-thumb').boundingBox(), vw = page.viewportSize().width;
+    // 작은 그림 칸이 화면 안에 들어간다.
+    const box = await tile(1).boundingBox(), vw = page.viewportSize().width;
     expect(box.x + box.width).toBeLessThanOrEqual(vw + 1);
-    expect(thumb.width).toBeLessThanOrEqual(28.5);
-    await expect(row(1).locator('.lu-row-title')).toBeVisible();
+    expect(box.width).toBeLessThanOrEqual(72.5);
+    await expect(row(3).locator('.lu-row-title')).toBeVisible();
 
     // 누르면 큰 그림(large)으로 크게 보고, 닫으면 줄로 돌아온다.
-    await row(1).click();
+    await tile(1).locator('.lu-thumb').click();
     const view = page.locator('[data-basket-photo-view]');
     await expect(view).toBeVisible();
     await expect(view.locator('img:not(.img-slot-preview)')).toBeVisible();
@@ -94,7 +103,8 @@ for (const width of [390, 1440]) {
     await expect(view).toHaveCount(0);
 
     // 큰 그림을 못 받으면 원본 내려받기 주소로 대신한다.
-    await row(5).click();
+    // (못 받은 칸 가운데 ↻는 작은 그림만 다시 받는다 — 칸의 빈 곳을 누른다.)
+    await tile(5).locator('.lu-thumb').click({position: {x: 8, y: 64}});
     await expect(view).toBeVisible();
     await expect.poll(() => state.tokenCalls || 0).toBeGreaterThan(0);
   });

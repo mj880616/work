@@ -154,6 +154,8 @@ test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), [열기]는
   await openFiles(page, 1440);
   await treeGo(page, 'od', '');
   await enterRow(page, row(page, 'od:OD!2'));
+  // LIB-사진숨김(S60-10): 사진은 [사진 1]을 눌러 펼친 작은 그림 칸에서 연다(같은 줄 단추).
+  await root(page).locator('[data-fx-list] [data-fx-photos]').click();
   await row(page, 'od:OD!20').click();
   const prev = root(page).locator('[data-fx-prev]');
   await expect(prev.locator('.fx-pv-imgbox')).toHaveAttribute('data-img-state', 'shown');

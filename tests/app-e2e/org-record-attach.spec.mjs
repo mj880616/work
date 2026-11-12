@@ -44,6 +44,9 @@ for(const width of [412,1440]){
   expect(f.s.orgPosts).toEqual([]);
   const row=page.locator('#wdUpdates [data-basket-link="l1"]');
   await expect(row.locator('[data-link-summary-text]')).toHaveText('합성 공문 사진 · 교섭 일정 안내임.');
+  // LIB-사진숨김(S60-10): 사진은 접힌 [사진 1] 하나로 보이고, 누르면 그 자리에 작은 그림.
+  await expect(row.locator('[data-record-photo="drv1"]')).toBeHidden();
+  await row.locator('[data-record-photos] > summary').click();
   await expect(row.locator('[data-record-photo="drv1"]')).toBeVisible();
   await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

@@ -24,7 +24,8 @@ test('파일 폰 412: 그 폴더만 아래 빈 곳에서 오므리기 = 나무, 
   await expect(tree.locator('[data-fx-fold="od:OD!2"]')).toBeVisible();
   await emptyIn(page, '#filesRoot [data-fx-tree] .ft-box', '#filesRoot');
   await phoneFolder(page, 'od', 'OD!2');
-  await expect(page.locator('#filesRoot [data-fx-list] [data-fx-row="od:OD!20"]')).toBeVisible();
+  // LIB-사진숨김(S60-10): 사진만 든 폴더는 줄 대신 [사진 1] 하나.
+  await expect(page.locator('#filesRoot [data-fx-list] [data-fx-photos]')).toHaveText('사진 1');
   const spot = await emptyIn(page, '#filesRoot [data-fx-list] .ft-focus', '#filesRoot');
   await pinchAt(page, spot.x, spot.y, 'in');
   await expect(tree).toBeVisible();

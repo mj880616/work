@@ -274,3 +274,90 @@ for(const width of [390,1280])test(`project details open with 회의 on so meeti
  expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
 });
+
+// LIB-사진숨김(S60-10, 명진 결정 11/12, 시안 docs/design/mockups/photo-hide-thumbs.html ②③④): 사업 보고로 올린 사진이 보고 제목을 달고
+// 다른 자료와 같은 줄로 보이던 것 → 사진은 줄에서 빠지고 칩 줄 끝 [사진 n]만, 줄마다 파일 종류(한글·PDF). [사진 n]을 누르면 그때만 작은 그림,
+// 누르면 크게 보기, ⋯는 지금 메뉴. 기록 줄 첨부 사진은 [사진 n] 하나(누르면 작은 그림). 자료 수·[전체 N개 보기]는 그대로. 껐다 켠 것은 기억하지 않는다.
+const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
+const JPG=(id,title,date)=>doc(id,title,'성명·보도자료',date,{organization_id:O,project_id:P,meeting_id:'50000000-0000-4000-8000-000000000001',file_name:title+'.jpg',mime_type:'image/jpeg'});
+const PH1='60000000-0000-4000-8000-000000000001',PH2='60000000-0000-4000-8000-000000000002',PH3='60000000-0000-4000-8000-000000000003';
+const photoDocs=()=>[
+ doc('pd1','합성 보도자료 총파업 선포','성명·보도자료','2026-11-11',{organization_id:O,project_id:P,file_name:'합성 보도자료.hwp',mime_type:'application/x-hwp'}),
+ doc('pd2','합성 확대쟁대위 자료','회의','2026-11-11',{organization_id:O,project_id:P}),
+ JPG(PH1,'합성 기자회견 사진 1','2026-11-11'),JPG(PH2,'합성 기자회견 사진 2','2026-11-11'),JPG(PH3,'합성 기자회견 사진 3','2026-11-11'),
+];
+const IMG={drive_file_id:'drive-img1',file_name:'IMG_1021.jpg',mime_type:'image/jpeg',size_bytes:2048},IMG2={...IMG,drive_file_id:'drive-img2',file_name:'IMG_1022.jpg'};
+async function photoRoutes(page){
+ const calls=[];
+ await page.route(SB+'/functions/v1/library-files?**',route=>{const q=new URL(route.request().url()).searchParams;calls.push(q.get('document_id')+':'+q.get('size'));return route.fulfill({status:200,contentType:'image/png',body:PNG});});
+ await page.route(SB+'/functions/v1/basket-files?**',route=>route.fulfill({status:200,contentType:'image/png',body:PNG}));
+ return calls;
+}
+for(const width of [412,1280])test(`LIB-사진숨김 조직 창 [자료]·기록 첨부: 사진은 [사진 n] 하나, 누를 때만 작은 그림 ${width}`,async({page},info)=>{
+ const f=await fixture(page,{width,docs:photoDocs()});
+ const recNote={id:'10000000-0000-4000-8000-000000000009',workspace_id:'w',kind:'basket',title:null,occurred_at:stamp,created_at:stamp,updated_at:stamp,raw_text:'합성 기자회견 진행',doc:null,ai_export_allowed:true,archived_at:null,attachments:[IMG,IMG2,HWP],metadata:{}};
+ await page.route(SB+'/rest/v1/app_record_links?**',route=>{const q=new URL(route.request().url()).searchParams;if(route.request().method()!=='GET'||q.has('google_task_id')||q.get('organization_id')===undefined)return route.fallback();return route.fulfill({json:q.get('organization_id')?[{id:'40000000-0000-4000-8000-000000000009',workspace_id:'w',summary:'합성 기자회견 진행',note_id:recNote.id,organization_id:O,project_id:null,status:'confirmed',note:recNote}]:[]});});
+ const calls=await photoRoutes(page);
+ await openOrg(page);
+ const section=page.locator('#wdDocs'),host=section.locator('#wdDocKinds');
+ // ② 사진은 줄에서 빠지고, 줄마다 파일 종류. 위 자료 수는 사진 포함 전체 그대로.
+ await expect(section.locator('.wd-doc-row')).toHaveCount(2);
+ await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 보도자료 총파업 선포','합성 확대쟁대위 자료']);
+ await expect(section.locator('.doc-kind-badge')).toHaveText(['한글','PDF']);
+ await expect(section.locator('[data-wd-doc-count]')).toHaveText('5');
+ const pic=host.locator('[data-cc-tail]');
+ await expect(pic).toHaveText('사진');await expect(pic).toHaveAttribute('data-cc-count','3');await expect(pic).toHaveAttribute('aria-pressed','false');
+ expect(await host.evaluate(h=>{const b=[...h.querySelectorAll('button[data-doc-kind],button[data-cc-tail]')];return b.at(-1)?.dataset.ccTail===''})).toBe(true); // 칩 줄 맨 끝
+ await expect(chip(host,'성명·보도자료')).toHaveAttribute('data-cc-count','1'); // 칩 숫자는 줄로 보이는 자료 기준
+ expect(calls).toEqual([]); // 누르기 전에는 작은 그림을 받지 않는다
+ // ④ 기록 줄 첨부: 사진 파일 이름 줄 대신 [사진 2] 하나(접힘), 한글 파일은 이름 줄 그대로.
+ const rec=page.locator('#wdUpdates [data-basket-link="40000000-0000-4000-8000-000000000009"]');
+ await expect(rec.locator('[data-record-file]')).toHaveCount(1);
+ const recPics=rec.locator('[data-record-photos]');
+ await expect(recPics.locator('summary')).toHaveText('사진 2');
+ await expect(rec.locator('[data-record-photo]').first()).toBeHidden();
+ await capture(page,info,`photo-hide-org-${width}`,page.locator('#wdModal .modal-card'));
+ await recPics.locator('summary').click();
+ await expect(rec.locator('[data-record-photo]')).toHaveCount(2);
+ await expect(rec.locator('[data-record-photo] img').first()).toBeVisible();
+ // ③ [사진 3]을 누르면 줄 대신 작은 그림 칸 3개. 누르면 크게 보기.
+ await tap(page,pic,width);
+ await expect(host.locator('[data-cc-tail]')).toHaveAttribute('aria-pressed','true');
+ const tiles=section.locator('[data-photo-tile]');
+ await expect(tiles).toHaveCount(3);
+ await expect(section.locator('.wd-doc-row')).toHaveCount(0);
+ await expect(tiles.first().locator('.lu-thumb img')).toBeVisible();
+ await expect.poll(()=>calls.filter(c=>c.endsWith(':small')).length).toBe(3);
+ await capture(page,info,`photo-hide-org-open-${width}`,page.locator('#wdModal .modal-card'));
+ // ⋯ = 지금 자료 메뉴(조직에서 빼기 포함)
+ await tap(page,tiles.first().locator('summary'),width);
+ await expect(tiles.first().locator('[data-wd-doc-remove]')).toBeVisible();
+ await tap(page,tiles.first().locator('summary'),width);
+ await tiles.nth(1).locator('.photo-fold-thumb').click();
+ const view=page.locator('[data-basket-photo-view]');
+ await expect(view).toBeVisible();
+ await expect.poll(()=>calls.some(c=>c===PH2+':large')).toBe(true);
+ await page.keyboard.press('Escape');await expect(view).toHaveCount(0);
+ // 종류 칩을 누르면 줄 목록으로 돌아간다. 다시 열면 늘 숨김으로 시작.
+ await tap(page,chip(host,'회의'),width);
+ await expect(section.locator('[data-photo-tile]')).toHaveCount(0);
+ await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 보도자료 총파업 선포']);
+ expect(await noWideScroll(page)).toBe(true);
+ expect(f.calls('app_documents','PATCH')).toEqual([]);
+ expect(f.errors).toEqual([]);
+});
+for(const width of [412,1280])test(`LIB-사진숨김 프로젝트 상세 [자료]도 같은 규칙 ${width}`,async({page})=>{
+ const f=await fixture(page,{width,docs:photoDocs()});
+ await photoRoutes(page);
+ await openProjectDetail(page);
+ const section=page.locator('#ps3-documents'),host=section.locator('#ps3DocKinds');
+ await expect(section.locator('.ps3-doc-row')).toHaveCount(2);
+ await expect(section.locator('.doc-kind-badge')).toHaveText(['한글','PDF']);
+ const pic=host.locator('[data-cc-tail]');await expect(pic).toHaveAttribute('data-cc-count','3');
+ await tap(page,pic,width);
+ await expect(section.locator('[data-photo-tile]')).toHaveCount(3);
+ await expect(section.locator('[data-photo-tile]').first().locator('.lu-thumb img')).toBeVisible();
+ await tap(page,host.locator('[data-cc-tail]'),width);
+ await expect(section.locator('.ps3-doc-row')).toHaveCount(2);
+ expect(f.errors).toEqual([]);
+});

@@ -178,7 +178,7 @@ test('자료실 폰 412: 폴더 그림 열림/닫힘·점 없음·두 손가락 
 test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개 더 보기·두 손가락 그 폴더만·뒤로 키로 나무', async ({ page }) => {
   const { start, openFiles } = await import('./helpers/files-server.mjs');
   const { errors, server } = await start(page, 412);
-  for (let i = 1; i <= 7; i++) server.items.push({ source: 'od', item_id: 'OD!3' + i, parent_id: 'OD!2', name: `가짜 사진 ${i}.jpg`, is_folder: false, mime: 'image/jpeg', size_bytes: 1000, modified_at: `2026-09-0${i}T01:00:00Z`, hash: null, trashed: false, starred: false, library_doc_id: null });
+  for (let i = 1; i <= 7; i++) server.items.push({ source: 'od', item_id: 'OD!3' + i, parent_id: 'OD!2', name: `가짜 문서 ${i}.pdf`, is_folder: false, mime: 'application/pdf', size_bytes: 1000, modified_at: `2026-09-0${i}T01:00:00Z`, hash: null, trashed: false, starred: false, library_doc_id: null });
   await openFiles(page, 412);
   const tree = page.locator('#filesRoot [data-fx-tree]');
   await expect(tree.locator('[data-fx-box="recent"] .ft-box-toggle')).toHaveText('최근');
@@ -190,10 +190,12 @@ test('파일 폰 412: 저장소 상자·그 자리 펼치기(파일까지)·n개
   expect(await box.locator('.ft-ico').getAttribute('data-ft-shape')).toBe('closed');
   await box.locator('.ft-main').tap();
   await expect(box.locator('.ft-ico')).toHaveAttribute('data-ft-shape', 'open'); // 하위 폴더를 먼저 읽고 정한다(OPS-빠진일2차 1)
+  // LIB-사진숨김(S60-10): 사진(가짜 현장.jpg)은 파일 줄에서 빠지고 맨 끝 [사진 1] — 처음 5개·'n개 더 보기'는 사진 뺀 파일 기준.
   await expect(od.locator('[data-ft-parent="od:OD!2"] [data-fx-tfile]')).toHaveCount(5);
-  await expect(od.locator('[data-fx-tmore="od:OD!2"]')).toContainText('3개 더 보기');
+  await expect(od.locator('[data-fx-tmore="od:OD!2"]')).toContainText('2개 더 보기');
+  await expect(od.locator('[data-fx-photos="od:OD!2"]')).toHaveText('사진 1');
   await od.locator('[data-fx-tmore="od:OD!2"]').tap();
-  await expect(od.locator('[data-ft-parent="od:OD!2"] [data-fx-tfile]')).toHaveCount(8);
+  await expect(od.locator('[data-ft-parent="od:OD!2"] [data-fx-tfile]')).toHaveCount(7);
   await noDots(page, '#filesRoot [data-fx-tree]');
   await page.screenshot({ path: 'test-results/ft-files-phone-tree.png' });
   // 상자 머리를 누르면 그 저장소 접기.

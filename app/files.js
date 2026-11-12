@@ -48,6 +48,7 @@ import {MORE_LABEL} from './fold-chevron.mjs';
 import {recentHumanRows} from './files-auto-model.mjs';
 import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml, iconSvg} from './tree-icons.js';
+import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js'; // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
@@ -217,6 +218,8 @@ const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', 
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
   // 두 손가락으로 그 폴더만 보기 전 나무 화면 위치. 모두 화면 메모리만(기기 저장 없음).
   files: new Map(), more: new Set(), recent: null, recentAll: false, treeBack: null, treeRows: new Map(),
+  // LIB-사진숨김: [사진 n]을 펼친 폴더(folderKey). 화면 메모리만, [파일]을 떠나면 비움.
+  photoOpen: new Set(),
   // FILES-폰폴더위로: 폰 '그 폴더만'에서 들어온 폴더부터 한 단계씩 내려온 길(folder-walk.mjs). ‹·뒤로 키·왼쪽 끝 밀기가 이 길로 한 단계씩 나온다.
   walk: [],
   // S51-22 나무 ⋯ 메뉴: 색을 바꿀 폴더·올릴 폴더(그 메뉴에서 고른 것, 화면 메모리만).
@@ -1048,6 +1051,7 @@ function paintMainTreeBody(tree) {
   if (treePane() && !state.status) { tree.innerHTML = state.statusFailed ? failHtml({retry: 'data-fx-retry', text: errorText(state.statusFailed), reason: state.statusWhy}) : waitHtml({rows: 4}); return; }
   if (nothingOn() && treePane()) { tree.innerHTML = emptyHtml(SOURCES_OFF_TEXT); return; }
   tree.innerHTML = treePane() ? phoneTreeHtml() : treeHtml(P());
+  if (state.photoOpen.size) mountThumbs(tree); // LIB-사진숨김: 펼친 [사진 n]의 작은 그림
 }
 // ---------- FOLDER-나무새기준 ②(S51-12): 폰 나무 = '최근' 상자 + 묶음(별표·큰 파일) + 저장소마다 상자 ----------
 // 폴더를 누르면 화면이 바뀌지 않고 그 자리에서 하위 폴더·파일까지 펼침(처음 5개 + 'n개 더 보기'), 상자 머리를 누르면 그 저장소 접기.
@@ -1093,10 +1097,12 @@ function phoneTreeHtml() {
   let syncPut = false;
   for (const source of onSources()) {
     const shut = boxShut('files', source);
-    const rows = shut ? [] : boxRows({source, children: state.children, files: state.files, open: state.open, more: state.more, order: lookOrder, limit: FT_PREVIEW});
+    const rows = shut ? [] : boxRows({source, children: state.children, files: state.files, open: state.open, more: state.more, order: lookOrder, limit: FT_PREVIEW, isPhoto: isFxPhoto});
     const tail = !syncPut && SOURCES.includes(source) && sync ? (syncPut = true, sync) : '';
     const loading = !shut && !state.children.has(folderKey(source, null));
-    const body = loading ? waitHtml({rows: 2}) : rows.length ? rows.map(r => r.type === 'folder' ? treeFolderHtml(r) : r.type === 'more'
+    const body = loading ? waitHtml({rows: 2}) : rows.length ? rows.map(r => r.type === 'folder' ? treeFolderHtml(r) : r.type === 'photos'
+      ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${r.depth}" data-ft-parent="${esc(r.parent)}">${photoToggleHtml(r.rows.length, {open: state.photoOpen.has(r.key), attrs: ` data-fx-photos="${esc(r.key)}"`})}</div>` + fxTreePhotosHtml(r.rows, r.key, r.depth, r.parent)
+      : r.type === 'more'
       ? ftMoreRowHtml({rest: r.rest, depth: r.depth, attrs: {'data-fx-tmore': r.key, 'data-ft-parent': r.key}}) : treeFileHtml(r.row, r.depth, r.parent)).join('') : emptyHtml('빈 폴더');
     html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut, tail,
       toggleAttrs: {'data-fx-box-tog': source}, attrs: {'data-fx-box': source}, label: SOURCE_NAME[source], body});
@@ -1239,8 +1245,10 @@ function thumbPump() {
 }
 function wantThumb(box) {
   const k = box.dataset.fxThumb, b = box.closest('[data-fx-row]'), i = paneOfEl(box);
-  if (!k || !b || i < 0 || thumbs.has(k) || thumbWait.has(k)) return;
-  const r = rowByKey(b.dataset.fxRow, state.panes[i]);
+  // LIB-사진숨김: 폰 나무의 [사진 n] 작은 그림 칸은 나무 줄(state.treeRows)에서 찾는다.
+  const t = !b ? box.closest('[data-fx-tfile]') : null;
+  if (!k || (!b && !t) || (b && i < 0) || thumbs.has(k) || thumbWait.has(k)) return;
+  const r = t ? state.treeRows.get(t.dataset.fxTfile) : rowByKey(b.dataset.fxRow, state.panes[i]);
   if (!r) return;
   thumbWait.add(k); thumbQueue.push({k, r}); thumbPump();
 }
@@ -1259,6 +1267,34 @@ function mountThumbs(list) {
 }
 const thumbHtml = (r, cls) => `<span class="${cls} fx-th" data-kind="image" data-fx-thumb="${esc(thumbKey(r))}" aria-hidden="true"></span>`;
 const wantsThumb = r => r.source !== PC && thumbWanted(kindOf(r), r.is_folder);
+// ---------- LIB-사진숨김(S60-10, 명진 결정 11/12, 시안 photo-hide-thumbs.html ⑤) ----------
+// 폴더 안을 보이는 곳(목록 칸 목록·격자·'그 폴더만', 펼친 하위 폴더, 폰 나무)에서 사진(공용 판정 kindOf === 'image')은 줄에서 빼고
+// 그 폴더 맨 아래 [사진 n] 하나. 누르면 그 자리에 작은 그림 칸(같은 줄 단추·같은 data-* — 누르기 = 미리보기, 꾹 누르기·우클릭·⋯ = 지금 메뉴).
+// 찾기 결과·묶음(별표·큰 파일)·최근은 그대로(사진도 줄). 펼친 폴더(state.photoOpen)는 화면 메모리만이고 [파일]을 떠나면 비운다(늘 숨김으로 시작).
+const isFxPhoto = r => !r.is_folder && kindOf(r) === 'image';
+const fxSplit = rows => ({rest: rows.filter(r => !isFxPhoto(r)), photos: rows.filter(isFxPhoto)});
+const fxPhotoKey = (p, xof) => xof || (p.where ? folderKey(p.where.source, p.where.parent) : '');
+function fxPhotoToggle(key, n, depth = 0) {
+  return `<div class="fx-photo-fold" role="listitem" style="--fx-xdepth:${depth};--ft-depth:${depth}">${photoToggleHtml(n, {open: state.photoOpen.has(key), attrs: ` data-fx-photos="${esc(key)}"`})}</div>`;
+}
+// 목록 칸: 펼치면 작은 격자(격자 보기 칸과 같은 cellHtml — 그림 칸이 곧 작은 그림).
+function fxPhotoGridHtml(p, photos, key, depth, xof) {
+  if (!state.photoOpen.has(key)) return '';
+  for (const r of photos) if (depth) p.inline.set(rowKey(r), r);
+  return `<div class="fx-rows fx-grid fx-photo-grid" role="list" aria-label="사진" style="--fx-xdepth:${depth}">${photos.map(r => cellHtml(p, r, {xof})).join('')}</div>`;
+}
+// 폰 나무·'그 폴더만': 작은 그림 칸 = 그림 단추(누르기 = 미리보기) + 그 줄 ⋯(지금 메뉴).
+function fxTreePhotosHtml(photos, key, depth, parent, {focus = null} = {}) {
+  if (!state.photoOpen.has(key)) return '';
+  const cells = photos.map(r => {
+    const k = rowKey(r);
+    state.treeRows.set(k, r);
+    const press = focus ? ` data-fx-row="${esc(k)}" aria-selected="${focus.sel === k || focus.picked.has(k)}"` : ` data-fx-tfile="${esc(k)}"`;
+    return `<div class="photo-fold-tile fx-tphoto" data-photo-tile="${esc(k)}"><button type="button" class="icon-btn photo-fold-thumb"${press} aria-label="${esc(r.name)} 보기" title="${esc(r.name)}">${thumbHtml(r, 'fx-tphoto-pic')}</button>`
+      + ftMoreButtonHtml({attrs: {'data-fx-tmenu': k, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
+  }).join('');
+  return `<div class="photo-fold-tiles fx-tphotos" role="group" aria-label="사진" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}">${cells}</div>`;
+}
 // 격자 칸 하나: 줄과 같은 단추·같은 data-*(누르기·꾹 누르기·끌기·놓기 길 그대로), 그림은 사진 = 작은 그림, 폴더 = 큰 폴더, 그 밖 = 종류 글자.
 function cellHtml(p, r, {open = null, xof = ''} = {}) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
@@ -1451,6 +1487,8 @@ const xNoteHtml = (depth, html) => `<div class="fx-xnote" style="--fx-xdepth:${d
 // 목록 보기: 펼친 폴더 바로 아래에 안 줄을 들여 끼운다(같은 줄 단추·같은 data-* — 누르기·고르기·끌기·놓기·우클릭 길 그대로).
 function xListHtml(p, rows, {withPath = false, depth = 0, xof = ''} = {}) {
   let html = '';
+  const {rest, photos} = withPath ? {rest: rows, photos: []} : fxSplit(rows), pk = fxPhotoKey(p, xof);
+  if (photos.length) rows = rest;
   for (const r of rows) {
     if (depth) p.inline.set(rowKey(r), r);
     const open = xOpenOf(p, r);
@@ -1460,11 +1498,14 @@ function xListHtml(p, rows, {withPath = false, depth = 0, xof = ''} = {}) {
     html += kids === null ? xNoteHtml(depth + 1, waitHtml({rows: 1}))
       : kids.length ? xListHtml(p, kids, {withPath, depth: depth + 1, xof: fk}) : xNoteHtml(depth + 1, emptyHtml('빈 폴더'));
   }
+  if (photos.length) html += fxPhotoToggle(pk, photos.length, depth) + fxPhotoGridHtml(p, photos, pk, depth, xof);
   return html;
 }
 // 격자 보기: 펼친 폴더 칸 다음 줄에 그 폴더 안 격자 한 묶음(칸 너비 전체, 놓으면 그 폴더).
 function xGridHtml(p, rows, cols, depth = 0, xof = '') {
   let html = '';
+  const {rest, photos} = p.where?.shelf || p.query ? {rest: rows, photos: []} : fxSplit(rows), pk = fxPhotoKey(p, xof);
+  if (photos.length) rows = rest;
   for (const r of rows) {
     if (depth) p.inline.set(rowKey(r), r);
     const open = xOpenOf(p, r);
@@ -1474,11 +1515,16 @@ function xGridHtml(p, rows, cols, depth = 0, xof = '') {
     const inner = kids === null ? waitHtml({rows: 1}) : kids.length ? `<div class="fx-rows fx-grid" role="list" data-fx-cols="${cols}" style="--fx-cols:${cols}">${xGridHtml(p, kids, cols, depth + 1, fk)}</div>` : emptyHtml('빈 폴더');
     html += `<div class="fx-xsub" role="group" aria-label="${esc(r.name)} 안" data-fx-xof="${esc(fk)}"${local ? '' : ` data-fx-drop="${esc(fk)}"`}>${inner}</div>`;
   }
+  // 격자 보기: [사진 n]은 칸 너비 전체 한 줄, 펼치면 사진 칸이 그 아래 같은 격자로 이어진다.
+  if (photos.length) html += `<div class="fx-photo-fold fx-photo-fold-grid" role="listitem">${photoToggleHtml(photos.length, {open: state.photoOpen.has(pk), attrs: ` data-fx-photos="${esc(pk)}"`})}</div>`
+    + (state.photoOpen.has(pk) ? photos.map(r => { if (depth) p.inline.set(rowKey(r), r); return cellHtml(p, r, {xof}); }).join('') : '');
   return html;
 }
 // 폰 '그 폴더만'(나무와 같은 줄): 펼친 하위 폴더 안을 --ft-depth로 들여 보인다.
 function xFocusHtml(p, rows, parent, depth = 0) {
   let html = '';
+  const {rest, photos} = fxSplit(rows);
+  if (photos.length) rows = rest;
   for (const r of rows) {
     if (depth) p.inline.set(rowKey(r), r);
     if (!r.is_folder) { html += focusFileHtml(p, r, parent, depth); continue; }
@@ -1488,6 +1534,11 @@ function xFocusHtml(p, rows, parent, depth = 0) {
     const kids = xKids(p, r);
     html += kids === null ? `<div class="ft-row ft-item" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}">${waitHtml({rows: 1})}</div>`
       : kids.length ? xFocusHtml(p, kids, fk, depth + 1) : `<div class="ft-row ft-item fx-xnote" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}">${emptyHtml('빈 폴더')}</div>`;
+  }
+  if (photos.length) {
+    if (depth) for (const r of photos) p.inline.set(rowKey(r), r);
+    html += `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}">${photoToggleHtml(photos.length, {open: state.photoOpen.has(parent), attrs: ` data-fx-photos="${esc(parent)}"`})}</div>`
+      + fxTreePhotosHtml(photos, parent, depth, parent, {focus: p});
   }
   return html;
 }
@@ -3765,6 +3816,7 @@ const paneOfEl = el => frame.paneOf(el);
 ftBindTreeArrows(); // LIB-나무접기 ③: PC 나무 ←/→
 root?.addEventListener('pointerdown', event => { const i = paneOfEl(event.target); if (i >= 0) setCur(i); }, true);
 root?.addEventListener('focusin', event => { const i = paneOfEl(event.target); if (i >= 0) setCur(i); });
+bindPhotoTileMenus(root); // LIB-사진숨김: 폰 꾹 누르기(contextmenu)로 작은 그림 칸의 ⋯
 root?.addEventListener('click', event => {
   const b = event.target.closest('button');
   if (state.dropAsk && !event.target.closest('[data-fx-dropask]')) dropAskClose();
@@ -3781,6 +3833,14 @@ root?.addEventListener('click', event => {
     if (p.picked.size) unpick();
     p.anchor = key;
     activate(key); return;
+  }
+  // LIB-사진숨김: [사진 n] = 그 폴더 사진 펼치기·접기(화면 메모리). 목록 칸·나무를 다시 그리고 같은 단추에 초점.
+  if (b.matches('[data-fx-photos]')) {
+    const key = b.dataset.fxPhotos;
+    if (state.photoOpen.has(key)) state.photoOpen.delete(key); else state.photoOpen.add(key);
+    paint();
+    root.querySelector(`[data-fx-photos="${CSS.escape(key)}"]`)?.focus({preventScroll: true});
+    return;
   }
   if (b.matches('[data-fx-two]')) { setTwo(!two()); return; }
   if (b.matches('[data-fx-fscope]')) { const p = P(); p.ff = filterSet(p.ff, 'scope', b.dataset.fxFscope); paint(); inPane(p, `[data-fx-fscope="${p.ff.scope}"]`)?.focus({preventScroll: true}); return; }
@@ -4151,6 +4211,7 @@ window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'files') return;
   // 다른 화면으로 가면 미리보기를 놓는다(받은 그림·PDF 메모리도). 맞추기 시계는 멈춘다.
   layer = null; listLayer = null; dropPreview(); dropThumbs(); delete root?.dataset.fxPreview; clearInterval(syncTimer); clearTimeout(jobTimer);
+  state.photoOpen.clear(); // LIB-사진숨김: 다시 들어오면 늘 숨김으로 시작
   if (state.jobsOpen) { jobsLayer = null; state.jobsOpen = false; paintJobs(); }
   if (state.xfer) { destLayer = null; dropDest(); }
   dropAskClose();
