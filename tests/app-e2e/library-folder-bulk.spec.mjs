@@ -191,7 +191,8 @@ test.describe('LIB-후속1 PC 선택',()=>{
     await page.locator('[data-lu-document="a-2"] .lu-row-title').click({button:'right'});
     await expect(panel).toBeVisible();
     const names=await panel.locator('button').evaluateAll(xs=>xs.map(x=>x.textContent.replace(/[›F2]/g,'').trim()));
-    expect(names[0]).toBe('선택');expect(names).toContain('분류 바꾸기');expect(names).toContain('정보 수정…');expect(names).not.toContain('수정…');
+    // LIB-최근폴더로가기(S61-12): 폴더 묶기 '자료실 전체' 줄은 맨 위 [폴더로 가기], 그다음 [선택].
+    expect(names.slice(0,2)).toEqual(['폴더로 가기','선택']);expect(names).toContain('분류 바꾸기');expect(names).toContain('정보 수정…');expect(names).not.toContain('수정…');
     await panel.getByRole('button',{name:'선택',exact:true}).click();
     await expect(bar(page)).toBeVisible();await expect(page.locator('[data-lu-pick="a-2"]')).toBeChecked();
     await page.locator('[data-lu-document="n-1"]').click();

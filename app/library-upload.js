@@ -25,7 +25,7 @@ import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteS
 import {isLibraryPhoto,hydrateLibraryThumbs} from './library-photo.js';
 import {isPictureDoc,recentSplit} from './photo-fold-model.mjs'; // LIB-사진숨김: 묶음 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {photoToggleHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
-import {GOTO_FOLDER_LABEL,flashRow} from './goto-folder.js'; // LIB-최근폴더로가기(S61-12): 메뉴 맨 위 [폴더로 가기]
+import {GOTO_FOLDER_LABEL,flashRow} from './goto-folder.mjs'; // LIB-최근폴더로가기(S61-12): 메뉴 맨 위 [폴더로 가기]
 import {foldPhotoSets,isPhotoSet,photoMeetingChunks} from './library-photoset.mjs';
 import {twinPlan,withTwins,pickCountText} from './library-twins.mjs';
 import {reportPhotosHtml,mountReportPhotos} from './report-photos.js';
@@ -1134,13 +1134,15 @@ function luGoToRecent(id){
   clearTimeout(luFlashTimer);luFlashTimer=setTimeout(()=>row.classList.remove('lu-flash'),1900);
 }
 // LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 명진 ㅇ + 요청함 방 추천): 자료 메뉴 맨 위 [폴더로 가기] = 그 자료가 든 폴더로 들어가(그 폴더만 보이는 화면)
-// 그 줄을 잠깐 강조. 폴더 밖 자료면 '폴더 밖'으로. 최근 올린 파일 줄·검색 결과·'자료실 전체' 자료 줄 메뉴에 보이고, 이미 그 폴더 안에서 연 메뉴에는 없다.
+// 그 줄을 잠깐 강조. 폴더 밖 자료면 '폴더 밖'으로. 최근 올린 파일 줄·검색 결과(어느 묶기든)·폴더 묶기 '자료실 전체' 자료 줄 메뉴에 보이고, 이미 그 폴더 안에서 연 메뉴에는 없다.
 // 폴더 묶기가 아니면 이번 방문 동안 폴더 묶기로 바꾼다(주소의 폴더로 들어올 때와 같음, 서버에 새로 저장하지 않음).
 // 뒤로: 폰 = 들어오기 전 자리(두 손가락 '그 폴더만'과 같은 돌아올 자리 luTreeBack), PC = 폴더마다 라우터 한 칸(luEnterFolder). 줄 그냥 누르기는 그대로(luGoToRecent).
 function luDocFolder(id){const fid=luFolderItems.find(x=>x.document_id===id)?.folder_id||null;return fid&&luFolders_.some(f=>f.id===fid)?fid:null}
 function luCanGoFolder(trigger,doc){
   if(!luFoldersReady||!doc||luPick.items||!trigger)return false;
-  if(trigger.closest?.('#libraryRecent')||luGroupBy!=='folder')return true;
+  if(trigger.closest?.('#libraryRecent'))return true;
+  // 다른 묶기(프로젝트·분류 …)는 검색 결과 줄만(폴더 보기의 '자료실 전체'는 아래).
+  if(luGroupBy!=='folder')return !!(document.querySelector('#documentSearch')?.value||'').trim();
   const fid=luDocFolder(doc.id);
   if(luTwoActive())return (luTwo.folderAt(trigger)||null)!==fid;
   if(luOutOnly)return !!fid;

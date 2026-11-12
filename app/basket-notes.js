@@ -41,6 +41,7 @@ import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
 import { copyText } from './copy-text.js';
+import { GOTO_FOLDER_LABEL, flashRow } from './goto-folder.mjs'; // LIB-최근폴더로가기(S61-12): '최근' 노트 줄 메뉴 맨 위 [폴더로 가기]
 import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 import { bigWindowOpen } from './big-window-open.js';
 // ED③ 노트: the note's body is the new editor (note-body.js); its big window is note-window.js.
@@ -419,7 +420,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // FILE-첨부삭제: and [삭제] (off this note and the Drive original to the Drive trash, file-trash.js; [되돌리기] brings both back).
   // FILE-이름고치기연필먹통: and [이름 수정] (the line has no ✎; it opens the same in-place name field as pressing the name twice, file-rename.js).
   const canEditFolders = () => foldersReady;
-  const menuItems = (note, from, folderId = null) => {
+  const menuItems = (note, from, folderId = null, {goto = false} = {}) => {
     if (from === 'file') return [['data-note-file-rename', '이름 수정'], ['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
     // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
     if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
@@ -435,6 +436,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
       ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : [])];
     return [
+      // LIB-최근폴더로가기(S61-12): '최근' 노트 줄(폰 첫 화면 '최근' 상자·PC 처음 '최근' 목록)이면 맨 위 [폴더로 가기].
+      ...(from === 'list' && goto ? [['data-nx-goto-folder', GOTO_FOLDER_LABEL]] : []),
       ...(from === 'list' ? [['data-nx-select', '선택']] : []),
       // 17:45 ③: 줄의 복사 아이콘은 없앴다 — 복사는 PC·폰 모두 이 메뉴(⋯·우클릭·꾹 누르기) 안.
       ...(from === 'list' && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
@@ -480,7 +483,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu();
     const el = menuEl();
     el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'board' ? '보드 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '선택한 것 메뉴' : '노트 메뉴');
-    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from, folderId).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from, folderId, {goto: from === 'list' && view === 'folder' && !!trigger.closest?.('[data-nx-recent-row]')}).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
     el.hidden = false;
     // UI-메뉴잘림: 높이를 묶지 않는다(창 높이까지 다 보임, 정말 길 때만 스크롤 + 아래 흐림 — anchored-popup.js).
     const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: window.innerHeight});
@@ -1390,6 +1393,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-up')) void stepNote(note.id, -1);
     else if (b.hasAttribute('data-note-down')) void stepNote(note.id, 1);
     else if (b.hasAttribute('data-note-pin')) void pin(note);
+    else if (b.hasAttribute('data-nx-goto-folder')) gotoFolder(note);
     else if (b.hasAttribute('data-nx-select')) startSelect('n:' + note.id);
     else if (b.hasAttribute('data-note-folder-move')) openMovePicker(from.trigger, {notes:[note.id], folders:[]});
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
@@ -1497,6 +1501,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const from = topOf(host.querySelector(id === OUTSIDE ? '#noteRows [data-nx-outside]' : `#noteRows [data-nx-folder="${CSS.escape(id)}"]`));
     enter(id);
     riseFromRow(from, host.querySelector('#noteRows .ft-focus'));
+  }
+  // LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 명진 ㅇ): '최근' 노트 줄 [폴더로 가기] = 그 노트가 든 폴더(없으면 '폴더 없음')로 들어가 그 줄을 잠깐 강조.
+  // 폰 첫 화면 = 두 손가락 '그 폴더만'과 같은 길(뒤로 = 펼친 나무 자리 그대로), PC = 폴더 들어가기(뒤로 = 앞 화면 '최근'). 줄 그냥 누르기(노트 열기)는 그대로.
+  function gotoFolder(note) {
+    if (!note) return;
+    const id = folderOf(note) || OUTSIDE;
+    if (!wideList.matches && at === null) focusFolder(id); else enter(id);
+    flashRow(host.querySelector(`#noteRows [data-nx-note="${CSS.escape(note.id)}"]`), {cls:'nx-flash', ms:1300});
   }
   const focusHeadTop = () => topOf(host.querySelector('#noteRows .ft-focus-head'));
   function up() {
