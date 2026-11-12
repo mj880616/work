@@ -88,8 +88,8 @@ for(const [width,height] of FOLD){
   await page.goBack();
   await expect.poll(()=>current(page)).toBe('home');
   await expect(page.locator('#wdModal')).toBeHidden();
-  // 다시 오면 마지막으로 본 조직.
-  await clickView(page,'team');await expect(orgTitle(page)).toHaveText('합성 다 지부');
+  // 다시 오면 마지막으로 본 조직(뒤로가기로 마지막에 본 나 지부).
+  await clickView(page,'team');await expect(orgTitle(page)).toHaveText('합성 나 지부');
   expect(writes).toEqual([]);expect(errors).toEqual([]);
  });
 }
