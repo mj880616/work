@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { start, openFiles } from './helpers/files-server.mjs';
+import { start, openFiles, treeGo } from './helpers/files-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
@@ -67,7 +67,7 @@ for (const width of [412, 1280]) test.describe(`다시 그려도 메뉴 자리 $
     expect(errors).toEqual([]);
   });
 
-  test('[파일] 나무 파일 ⋯: 연 채 다시 그려도 같은 줄 옆에 붙고 항목이 눌린다', async ({ page }) => {
+  if (width < 761) test('[파일] 나무 파일 ⋯: 연 채 다시 그려도 같은 줄 옆에 붙고 항목이 눌린다', async ({ page }) => {
     const { errors } = await start(page, width);
     await openFiles(page, width);
     const tree = page.locator('#filesRoot [data-fx-tree]'), od = tree.locator('[data-fx-box="od"]');
@@ -84,6 +84,27 @@ for (const width of [412, 1280]) test.describe(`다시 그려도 메뉴 자리 $
     await expect(file()).toHaveClass(/row-menu-owner/); // 연보라 표시도 새 줄로
     expect(await nextTo(panel, more())).toBe(true);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/${width < 761 ? 'phone' : 'pc'}-${width}-files-row-menu-kept.png` });
+    await panel.getByRole('button', { name: '이름 바꾸기' }).click();
+    await expect(page.locator('.kptu-ask .kptu-ask-field')).toHaveValue('가짜 안내문');
+    expect(errors).toEqual([]);
+  });
+
+  if (width >= 761) test('[파일] 목록 줄 PC 우클릭 메뉴: 연 채 다시 그려도 누른 자리 그대로 · 새 줄 표시 · 항목이 눌린다', async ({ page }) => {
+    const { errors } = await start(page, width);
+    await openFiles(page, width);
+    await treeGo(page, 'od', 'OD!1');
+    const row = () => page.locator('#filesRoot [data-fx-list] [data-fx-row]').filter({ hasText: '가짜 안내문.pdf' }).first(), panel = page.locator('#rowMenu');
+    await expect(row()).toBeVisible();
+    await row().click({ button: 'right' });
+    await expect(panel).toBeVisible();
+    const before = await panel.boundingBox();
+    await redraw(page, row(), prefsReady(page));
+    await expect(panel).toBeVisible();
+    await expect(row()).toHaveClass(/row-menu-owner/);
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    const after = await panel.boundingBox();
+    expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y)).toBeLessThan(4);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/pc-${width}-files-list-menu-kept.png` });
     await panel.getByRole('button', { name: '이름 바꾸기' }).click();
     await expect(page.locator('.kptu-ask .kptu-ask-field')).toHaveValue('가짜 안내문');
     expect(errors).toEqual([]);
