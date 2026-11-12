@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHandler } from '../../supabase/functions/drive-summary/core.mjs';
-import { parseAiUsageReport, summarizeAiUsage, openAiPrice, readStart } from '../../supabase/functions/drive-summary/ai-usage.mjs';
+import { parseAiUsageReport, summarizeAiUsage, openAiPrice, readStart, readAiUsage, usageKind } from '../../supabase/functions/drive-summary/ai-usage.mjs';
 import * as model from '../../supabase/functions/_shared/ai-model.ts';
 import * as prices from '../../supabase/functions/_shared/ai-prices.mjs';
 import * as assist from '../../supabase/functions/ai-assist/handler.ts';
@@ -163,4 +163,49 @@ test('GET ?action=status도 같은 요약을 ai_usage 칸에 싣고, 표가 없�
     assert.equal(calls.filter(c => c.method !== 'GET' && !c.url.hostname.includes('google')).length, 0);
     for (const c of calls.filter(c => /app_ai_|app_feed_days/.test(c.url.pathname))) assert.equal(c.init.headers.apikey, 'anon');
   }
+});
+
+// AI-비용보기 2단계: 통화 전사(call-)·통화 분석(calla-)을 회의 전사(mtg-)와 나눠 센다.
+test('보고 번호 앞머리: 회의(mtg-·mtgfail-)는 수집 비밀값으로 못 넣고, call-은 전사·calla-는 분석만', () => {
+  const ok = { ...report };
+  assert.equal(parseAiUsageReport(JSON.stringify({ ...ok, ref: 'call-0123456789abcdef', source: 'transcript' })).ref, 'call-0123456789abcdef');
+  assert.equal(parseAiUsageReport(JSON.stringify({ ...ok, ref: 'calla-0123456789abcdef', source: 'analysis' })).source, 'analysis');
+  for (const bad of [
+    { ref: 'mtg-job-123456', source: 'transcript' }, { ref: 'mtgfail-job-123456', source: 'transcript' },
+    { ref: 'call-0123456789abcdef', source: 'analysis' }, { ref: 'calla-0123456789abcdef', source: 'transcript' },
+  ]) assert.equal(parseAiUsageReport(JSON.stringify({ ...ok, ...bad })), null, JSON.stringify(bad));
+  assert.equal(usageKind('mtg-a', 'transcript'), 'meeting');
+  assert.equal(usageKind('mtgfail-a', 'transcript'), 'meeting');
+  assert.equal(usageKind('call-a', 'transcript'), 'call_transcript');
+  assert.equal(usageKind('calla-a', 'analysis'), 'call_analysis');
+  assert.equal(usageKind('gm-a', 'analysis'), 'other_analysis');
+  assert.equal(usageKind(undefined, 'transcript'), 'other_transcript');
+});
+
+test('요약: 회의 전사·통화 전사·통화 분석을 by_kind로 나누고, 옛 칸(transcript_krw·analysis_krw)은 합으로 그대로', () => {
+  const row = (ref, source) => ({ day: '2026-10-28', ref, source, model: 'gemini-2.5-flash', calls: 1, input_tokens: 1_000_000, audio_tokens: 1_000_000, output_tokens: 0 });
+  const s = summarizeAiUsage({ assist: [], feed: [], entries: [], external: [row('mtg-a-1', 'transcript'), row('mtgfail-a-2', 'transcript'), row('call-x1', 'transcript'), row('calla-x1', 'analysis'), row('gm-old', 'analysis')] }, now, openAiPrice({}));
+  assert.deepEqual(s.gemini.by_kind, { meeting: 2800, call_transcript: 1400, call_analysis: 1400, other_transcript: 0, other_analysis: 1400 });
+  assert.equal(s.gemini.transcript_krw, 4200);
+  assert.equal(s.gemini.analysis_krw, 2800);
+  assert.equal(s.gemini.krw, 7000);
+});
+
+test('외부 보고 읽기: 1000행이 넘으면 offset으로 다음 쪽을 읽고, ref 칸을 함께 읽는다', async () => {
+  const urls = [];
+  const many = Array.from({ length: 1000 }, (_, i) => ({ day: '2026-10-28', ref: `call-${String(i).padStart(8, '0')}`, source: 'transcript', model: 'gemini-2.5-flash', calls: 1, input_tokens: 0, audio_tokens: 0, output_tokens: 0 }));
+  const fetcher = async input => {
+    const url = new URL(input); urls.push(url);
+    const table = url.pathname.split('/').at(-1);
+    if (table !== 'app_ai_external_usage') return Response.json([]);
+    return Response.json(url.searchParams.get('offset') === '0' ? many : many.slice(0, 5));
+  };
+  const rows = await readAiUsage({ fetcher, baseUrl: 'https://db.test', anonKey: 'anon', userAuthorization: 'Bearer owner-jwt', workspaceId: 'ws', now });
+  assert.equal(rows.external.length, 1005);
+  const ext = urls.filter(u => u.pathname.endsWith('app_ai_external_usage'));
+  assert.deepEqual(ext.map(u => u.searchParams.get('offset')), ['0', '1000']);
+  assert.match(ext[0].searchParams.get('select'), /(^|,)ref(,|$)/);
+  // 20쪽을 모두 채우면 잘린 숫자 대신 실패
+  const full = async input => Response.json(new URL(input).pathname.endsWith('app_ai_external_usage') ? many : []);
+  await assert.rejects(readAiUsage({ fetcher: full, baseUrl: 'https://db.test', anonKey: 'anon', userAuthorization: 'Bearer owner-jwt', workspaceId: 'ws', now }), /AI_USAGE_READ_FAILED/);
 });
