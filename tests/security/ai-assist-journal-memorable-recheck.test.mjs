@@ -78,7 +78,7 @@ test('preview changes nothing and gives counts only; run keeps the lines AI pick
   const h=harness({memo,feeds:[feed(1),feed(2),feed(3),feed(4)],openai:ai});
   const before=snapshot(h.db);
   const p=await (await post(h.handler,preview)).json();
-  assert.deepEqual(p,{ok:true,kind:'journal_memorable_recheck',mode:'preview',target:3,keep:1,drop:2,left:0,calls:1,sent:3});
+  assert.deepEqual(p,{ok:true,kind:'journal_memorable_recheck',mode:'preview',target:3,keep:1,drop:2,left:0,promise:0,calls:1,sent:3});
   assert.equal(snapshot(h.db),before,'preview writes nothing to the news tables');
   assert.ok(!h.calls.rest.some(c=>c.method!=='GET'&&c.table!=='app_ai_daily_usage'));
   // 같은 지시문·같은 스키마(복제 아님), 고를 수 있는 수는 10, 줄마다 날짜, 기록 id·연락처는 보내지 않음.
