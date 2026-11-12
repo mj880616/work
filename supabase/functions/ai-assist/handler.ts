@@ -55,6 +55,7 @@
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { DAILY_TOTAL_LIMIT } from "../_shared/ai-daily-usage.mjs";
 import { NOW_DETAIL_DAILY, NOW_INTERESTS_DAILY, parseNowRequest, runNow, type NowInput, type NowKit } from "./now-detail.ts";
 import {
   AREA_SUGGEST_BODY_BYTES, AREA_SUGGEST_INSTRUCTIONS, AREA_SUGGEST_MAX_OUTPUT_TOKENS, AREA_SUGGEST_SCHEMA, areaOptions, areaSuggestMaterial,
@@ -194,7 +195,8 @@ export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
-export const DAILY_TOTAL_LIMIT = 80;
+// 숫자는 _shared/ai-daily-usage.mjs 한 곳(녹음 요약·초안 함수와 같은 한도).
+export { DAILY_TOTAL_LIMIT };
 export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, library_sort: 30, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, home_day_picks: 8, next_week_sheet: 5, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;

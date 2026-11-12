@@ -56,6 +56,7 @@ import { outputText } from '../_shared/openai-responses.ts';
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
 import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, normalizeDraft, partsText } from '../_shared/meeting-draft-prompt.mjs';
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
+import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
   SPLIT_CODES, audioDocument, carryClosed, cleanText, combineDrafts, doneParts, draftResult, failReason, failedCode, halfMark, halves, hasThinPart, hasWords, isDiscarded, jobDiscardPatch, jobRestorePatch, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
@@ -1113,9 +1114,9 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
   if (!key) throw new Fail('draft_failed');
   const { data: set, error: setError } = await admin.from('app_ai_workspace_settings').select('*').eq('workspace_id', job.workspace_id).maybeSingle();
   if (setError || !set) throw new Fail('draft_failed');
-  const day = new Date().toISOString().slice(0, 10);
-  const { data: used } = await admin.from('app_ai_daily_usage').select('*').eq('workspace_id', job.workspace_id).eq('user_id', job.created_by).eq('day', day).maybeSingle();
-  if ((used?.requests || 0) >= set.daily_request_limit) throw new Fail('daily_limit');
+  // 하루 한도: ai-assist와 같은 서울 날짜·같은 합계 한도(_shared/ai-daily-usage.mjs). 작업공간 설정 daily_request_limit은 보지 않는다.
+  const today = await readTodayAiUsage(admin, { workspaceId: job.workspace_id, userId: job.created_by });
+  if (today.over) throw new Fail('daily_limit');
   let names = '';
   try {
     const { data: me } = await admin.from('app_profiles').select('display_name').eq('user_id', job.created_by).maybeSingle();
@@ -1139,10 +1140,7 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
     throw e instanceof Fail ? e : new Fail(late ? 'draft_timeout' : 'draft_failed');
   }
   const u = d.usage || {};
-  await admin.from('app_ai_daily_usage').upsert({
-    workspace_id: job.workspace_id, user_id: job.created_by, day, requests: (used?.requests || 0) + 1, advanced_requests: used?.advanced_requests || 0,
-    input_tokens: (used?.input_tokens || 0) + (u.input_tokens || 0), output_tokens: (used?.output_tokens || 0) + (u.output_tokens || 0), updated_at: new Date().toISOString(),
-  }, { onConflict: 'workspace_id,user_id,day' }).then(({ error }) => { if (error) console.warn('meeting-transcribe: draft usage not recorded', error.code); });
+  if (await addAiRequest(admin, { workspaceId: job.workspace_id, userId: job.created_by, day: today.day, row: today.row, usage: u }) === 'failed') console.warn('meeting-transcribe: draft usage not recorded');
   // 답 상태별 실패 갈래: 답이 길어 잘림(max_output_tokens) = draft_cut(부른 쪽이 조각을 나눔), 그 밖 = draft_failed. 로그는 이유 이름만.
   const result = draftResult(d);
   if (result.code) { console.warn('meeting-transcribe: draft answer', stage.kind || 'one', result.why, transcript.length); throw new Fail(result.code); }
