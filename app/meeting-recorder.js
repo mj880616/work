@@ -93,31 +93,31 @@ function paint(){
     const first=list[0],id=escapeText(first.session_id);
     l='일시 정지됨';
     m=escapeText(`${pendingText(first)}${list.length>1?` 외 ${list.length-1}건`:''}`);
-    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">삭제</button>`;
+    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어 녹음</button>${lineButtons(id,'이어서 정리')}`;
   }else if(state==='starting'){l='녹음 준비 중';m=escapeText('마이크를 허락해 주세요.')}
   else if(state==='suspended'){
     l='일시 정지됨';
     t=clockText(sec);
     const q=queuedPieces(segments);
     m=escapeText(SUSPEND_NOTE+(q?` (조각 ${q}개 올리는 중)`:''));
-    a=`<button type="button" class="rec-btn" data-rec="resume">이어 녹음</button><button type="button" class="rec-btn rec-stop" data-rec="stop">${FILE_STOP_BUTTON}</button><button type="button" class="rec-btn" data-rec="stop-ai">${AI_STOP_BUTTON}</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>`;
+    a=`<button type="button" class="rec-btn" data-rec="resume">이어 녹음</button>${END_BUTTONS}`;
   }
   else if(state==='recording'||state==='paused'){
     l=state==='paused'?'일시정지':'녹음 중';
     t=clockText(sec);
     const q=queuedPieces(segments);
     m=fails&&q?escapeText(`조각 ${q}개 올리기 다시 시도 중`):'';
-    a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">${FILE_STOP_BUTTON}</button><button type="button" class="rec-btn" data-rec="stop-ai">${AI_STOP_BUTTON}</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>`;
+    a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button>${END_BUTTONS}`;
   }else if(state==='finishing'&&filing){
     l='녹음 파일';t=sec?clockText(sec):'';m=escapeText('파일 만드는 중');
   }else if(state==='filed'){
     l='녹음 파일';t=sec?clockText(sec):'';
-    a=`${fileLinksHtml(filedFiles)}<button type="button" class="rec-btn" data-rec="transcribe">${AI_LATER_BUTTON}</button><button type="button" class="rec-btn" data-rec="close">닫기</button>`;
+    a=`${fileLinksHtml(filedFiles)}${resumeButton(escapeText(sessionId),AI_LATER_BUTTON)}${CLOSE_BUTTON}`;
   }else if(state==='finishing'||state==='done'){
     l=state==='done'?'정리 끝':'정리 중';
     t=sec?clockText(sec):'';
     m=stepParts(step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(note?` <span class="rec-sub">${escapeText(note)}</span>`:'');
-    a=state==='done'?'<button type="button" class="rec-btn" data-rec="close">닫기</button>':'';
+    a=state==='done'?CLOSE_BUTTON:'';
   }else if(state==='ready'){
     l='정리 끝';
     m=escapeText(errorText||'회의 요약이 준비됐어요.'); // errorText = 결과를 열지 못한 이유(상태 확인 실패와 나눔)
@@ -126,12 +126,18 @@ function paint(){
   }else if(state==='error'){
     l='녹음 정리 멈춤';
     m=escapeText(errorText);
-    a=`${canRetry?'<button type="button" class="rec-btn" data-rec="retry">다시</button>':''}<button type="button" class="rec-btn" data-rec="close">닫기</button>`;
+    a=`${canRetry?'<button type="button" class="rec-btn" data-rec="retry">다시</button>':''}${CLOSE_BUTTON}`;
   }
   setText(label,l);setText(time,t);setHtml(msg,m);setHtml(act,a);
   paintButton();
   paintOldLine();
 }
+// 녹음 끝 버튼 묶음(녹음 중·일시 정지됨 띠 공통): [파일만 받기](기본, 앞) [전사·요약까지] [삭제]. 닫기 버튼·줄 버튼도 한 곳에서.
+const END_BUTTONS=`<button type="button" class="rec-btn rec-stop" data-rec="stop">${FILE_STOP_BUTTON}</button><button type="button" class="rec-btn" data-rec="stop-ai">${AI_STOP_BUTTON}</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>`;
+const CLOSE_BUTTON='<button type="button" class="rec-btn" data-rec="close">닫기</button>';
+// 그 녹음 정리 시작([이어서 정리]·[전사·요약] — 둘 다 job_start) · 삭제. id는 escapeText를 거친 값.
+const resumeButton=(id,label)=>`<button type="button" class="rec-btn" data-rec-resume="${id}">${label}</button>`;
+const lineButtons=(id,label)=>`${resumeButton(id,label)}<button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">삭제</button>`;
 const escapeText=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 function paintButton(){
   const btn=$('#reportRecordBtn');if(!btn)return;
@@ -152,13 +158,13 @@ function paintOldLine(){
   const rows=[];
   if(list.length){
     const first=list[0];
-    rows.push(`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">삭제</button>`);
+    rows.push(`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button>${lineButtons(escapeText(first.session_id),'이어서 정리')}`);
   }else if(stop){
     rows.push(`<span class="rec-pending-text">${escapeText(stoppedLineText(stop))}${closedStops.length>1?` 외 ${closedStops.length-1}건`:''}</span>${serverCanRetry(stop.error_code)?`<button type="button" class="row-act" data-rec-stopped="${escapeText(stop.id)}">다시</button>`:''}`);
   }
   if(files?.length){
     const first=files[0],id=escapeText(first.session_id);
-    rows.push(`<span class="rec-pending-text">녹음 파일 · ${escapeText(pendingText(first))}${files.length>1?` 외 ${files.length-1}건`:''}</span>${fileLinksHtml(first.files)}<button type="button" class="rec-btn" data-rec-resume="${id}">${AI_LATER_BUTTON}</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">삭제</button>`);
+    rows.push(`<span class="rec-pending-text">녹음 파일 · ${escapeText(pendingText(first))}${files.length>1?` 외 ${files.length-1}건`:''}</span>${fileLinksHtml(first.files)}${lineButtons(id,AI_LATER_BUTTON)}`);
   }
   setHtml(line,rows.length>1?rows.map(r=>`<span class="rec-pending-row">${r}</span>`).join(''):rows[0]);
 }
@@ -169,7 +175,6 @@ function onBandClick(e){
   else if(what==='resume')void resumeSuspended();
   else if(what==='stop')void stopAndFinish('file');
   else if(what==='stop-ai')void stopAndFinish('ai');
-  else if(what==='transcribe')transcribeFiled();
   else if(what==='discard')void discardLive();
   else if(what==='retry')void retryFinish();
   else if(what==='open')void openReady();
@@ -774,7 +779,7 @@ document.addEventListener('click',e=>{
   const c=e.target.closest('[data-rec-continue]');
   if(c){e.preventDefault();askTakeOver('continue',c.dataset.recContinue);return}
   const r=e.target.closest('[data-rec-resume]');
-  if(r){e.preventDefault();askTakeOver('resume',r.dataset.recResume);return}
+  if(r){e.preventDefault();if(state==='filed'&&r.dataset.recResume===sessionId)transcribeFiled();else askTakeOver('resume',r.dataset.recResume);return}
   const d=e.target.closest('[data-rec-discard]');
   if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard);return}
   const st=e.target.closest('[data-rec-stopped]');

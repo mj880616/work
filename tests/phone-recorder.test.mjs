@@ -226,7 +226,7 @@ test('[파일만 받기](기본): 전사 작업을 만들지 않고 녹음 파�
   assert.ok(!actions.includes('transcribe'), '화면 전사도 하지 않는다');
   assert.ok(t.sent.indexOf('rec:clear') > t.sent.indexOf('rec:sent:1:2'), '합친 뒤 앱 임시 파일 삭제');
   assert.equal(t.drafts.length, 0);
-  t.core.transcribeFiled();
+  t.core.resume(SID); // 띠 '녹음 파일' [전사·요약](data-prec-resume)
   await until(() => watched.length === 1);
   const start = t.calls.find(c => c.action === 'job_start');
   assert.deepEqual(start.body, {workspace_id:WS, kind:'recording', session_id:SID});
@@ -238,6 +238,7 @@ test('screen: 폰 띠 [파일만 받기](앞·기본)·[전사·요약까지], �
   const ui = readFileSync('app/phone-recorder.js', 'utf8');
   assert.match(ui, /data-prec="stop">\$\{FILE_STOP_BUTTON\}<\/button><button type="button" class="rec-btn" data-prec="stop-ai">\$\{AI_STOP_BUTTON\}<\/button>/);
   assert.match(ui, /what==='stop'\)void core\.stopAndFinish\('file'\)/);
-  assert.match(ui, /data-prec="transcribe">\$\{AI_LATER_BUTTON\}/);
+  assert.match(ui, /\$\{resumeButton\(esc\(view\.session_id\|\|''\),AI_LATER_BUTTON\)\}\$\{CLOSE_BUTTON\}/);
+  assert.match(ui, /\$\{lineButtons\(id,AI_LATER_BUTTON\)\}/);
   assert.match(ui, /녹음 파일 · \$\{esc\(pendingText\(first\)\)\}/);
 });

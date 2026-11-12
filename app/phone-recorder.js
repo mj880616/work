@@ -64,6 +64,10 @@ export function mountPhoneRecorder(win=window){
   const setHtml=(el,html)=>{if(drawn.get(el)!==html){el.innerHTML=html;drawn.set(el,html)}};
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
   let doneTimer=0;
+  const CLOSE_BUTTON='<button type="button" class="rec-btn" data-prec="close">닫기</button>';
+  // 그 녹음 정리 시작([이어서 정리]·[전사·요약] — 둘 다 job_start) · 삭제. id는 esc를 거친 값.
+  const resumeButton=(id,label)=>`<button type="button" class="rec-btn" data-prec-resume="${id}">${label}</button>`;
+  const lineButtons=(id,label)=>`${resumeButton(id,label)}<button type="button" class="rec-btn rec-discard" data-prec-discard="${id}">삭제</button>`;
   function band(){
     let el=$('#phoneRecBand');if(el)return el;
     el=doc.createElement('div');
@@ -99,15 +103,15 @@ export function mountPhoneRecorder(win=window){
     }else if(state==='filed'){
       // REC-파일만받기(S61-3): 합친 녹음 파일 — 내려받아 다른 곳(예: 다른 AI)에서 따로 전사할 수 있게. [전사·요약]은 같은 서버 정리.
       l='녹음 파일';
-      a=`${fileLinksHtml(view.files)}<button type="button" class="rec-btn" data-prec="transcribe">${AI_LATER_BUTTON}</button><button type="button" class="rec-btn" data-prec="close">닫기</button>`;
+      a=`${fileLinksHtml(view.files)}${resumeButton(esc(view.session_id||''),AI_LATER_BUTTON)}${CLOSE_BUTTON}`;
     }else if(state==='finishing'||state==='done'){
       l=state==='done'?'정리 끝':'정리 중';
       m=stepParts(view.step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(view.note?` <span class="rec-sub">${esc(view.note)}</span>`:'');
-      a=state==='done'?'<button type="button" class="rec-btn" data-prec="close">닫기</button>':'';
+      a=state==='done'?CLOSE_BUTTON:'';
       if(state==='done'&&!doneTimer)doneTimer=setTimeout(()=>{doneTimer=0;core.close()},8000);
     }else if(state==='error'){
       l='녹음 정리 멈춤';m=esc(view.error);
-      a=`${view.canRetry?'<button type="button" class="rec-btn" data-prec="retry">다시</button>':''}<button type="button" class="rec-btn" data-prec="close">닫기</button>`;
+      a=`${view.canRetry?'<button type="button" class="rec-btn" data-prec="retry">다시</button>':''}${CLOSE_BUTTON}`;
     }
     const label=el.querySelector('.rec-label'),time=el.querySelector('.rec-time');
     if(label.textContent!==l)label.textContent=l;
@@ -129,11 +133,11 @@ export function mountPhoneRecorder(win=window){
       const rows=[];
       if(list.length){
         const first=list[0];
-        rows.push(`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-prec-resume="${esc(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${esc(first.session_id)}">삭제</button>`);
+        rows.push(`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span>${lineButtons(esc(first.session_id),'이어서 정리')}`);
       }
       if(files.length){
         const first=files[0],id=esc(first.session_id);
-        rows.push(`<span class="rec-pending-text">녹음 파일 · ${esc(pendingText(first))}${files.length>1?` 외 ${files.length-1}건`:''}</span>${fileLinksHtml(first.files)}<button type="button" class="rec-btn" data-prec-resume="${id}">${AI_LATER_BUTTON}</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${id}">삭제</button>`);
+        rows.push(`<span class="rec-pending-text">녹음 파일 · ${esc(pendingText(first))}${files.length>1?` 외 ${files.length-1}건`:''}</span>${fileLinksHtml(first.files)}${lineButtons(id,AI_LATER_BUTTON)}`);
       }
       setHtml(line,rows.length>1?rows.map(r=>`<span class="rec-pending-row">${r}</span>`).join(''):rows[0]||'');
     }
@@ -144,7 +148,6 @@ export function mountPhoneRecorder(win=window){
     if(what==='pause')core.pause();
     else if(what==='stop')void core.stopAndFinish('file');
     else if(what==='stop-ai')void core.stopAndFinish('ai');
-    else if(what==='transcribe')core.transcribeFiled();
     else if(what==='discard')void core.discardLive();
     else if(what==='retry')core.retry();
     else if(what==='close')core.close();

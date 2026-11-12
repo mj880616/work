@@ -50,7 +50,8 @@ test('화면: 정리 끝 띠는 [초안 열기] [삭제], 멈춤 띠 [닫기]는
   assert.match(ready,/data-rec="drop"[^>]*>삭제<\/button>/);
   assert.doesNotMatch(ready,/data-rec="close"/,'[닫기] 뺌');
   const error=src.slice(src.indexOf("}else if(state==='error'){"),src.indexOf('setText(label,l)'));
-  assert.match(error,/data-rec="close">닫기/,'멈춤 띠 [닫기]는 남음(누르면 서버 닫음 표시 — S60-26)');
+  assert.match(error,/\$\{CLOSE_BUTTON\}/,'멈춤 띠 [닫기]는 남음(누르면 서버 닫음 표시 — S60-26)');
+  assert.match(src,/const CLOSE_BUTTON='<button type="button" class="rec-btn" data-rec="close">닫기<\/button>';/); // REC-파일만받기(S61-3): 닫기 버튼은 한 곳
   assert.match(src,/call\('job_discard',\{job_id:job\.id\}\)/);
   assert.match(src,/call\('job_restore',\{job_id:job\.id\}\)/);
   assert.match(src,/markNoticeOpened\(rt\(\),item\)/,'폰 알림도 열었음(APP-알림숫자지우기 길)');

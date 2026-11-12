@@ -54,7 +54,7 @@ export function createPhoneRecorder(deps){
   const sleep=deps.sleep||((ms)=>new Promise(r=>setTimeout(r,ms)));
   const now=deps.now||(()=>Date.now());
   // REC-파일만받기(S61-3): state 'filed' = [파일만 받기]로 합친 녹음 파일(files)을 띠에 보이는 중. filing = 그 파일을 만드는 중(전사 단계 글자 대신 '파일 만드는 중').
-  const view={state:'idle',step:'',note:'',error:'',canRetry:false,native:null,nativeAt:0,pending:[],supported:false,busy:false,files:[],filing:false};
+  const view={state:'idle',step:'',note:'',error:'',canRetry:false,native:null,nativeAt:0,pending:[],supported:false,busy:false,files:[],filing:false,session_id:''};
   const waiters=[];
   let wakers=[],pumping=null,startFails=0,serverPending=[],sessionId='',startedAt='',knownMinutes=0,mode='file';
   const doneTexts=new Map();
@@ -216,7 +216,7 @@ export function createPhoneRecorder(deps){
       if(view.native?.session_id===sessionId)deps.send('rec:clear');
       const files=Array.isArray(res?.files)?res.files:[];
       if(!recordingFiles(files).length)throw stopError('녹음에서 소리를 찾지 못했어요.',false);
-      view.files=files;view.filing=false;view.state='filed';view.step='';view.note='';paint();
+      view.files=files;view.session_id=sessionId;view.filing=false;view.state='filed';view.step='';view.note='';paint();
       void loadPending(true);
     }catch(e){
       view.filing=false;
@@ -342,6 +342,7 @@ export function createPhoneRecorder(deps){
     return pendingFlight;
   }
   function resume(id){
+    if(view.state==='filed'&&id===sessionId){transcribeFiled();return} // 띠 '녹음 파일' [전사·요약]
     if(view.state==='finishing'||['recording','paused','starting'].includes(view.state)||view.busy)return;
     const item=view.pending.find(s=>s.session_id===id);if(!item)return;
     if(item.local){void finishLocal();return}

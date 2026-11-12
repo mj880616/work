@@ -50,3 +50,9 @@ body:has(.rec-band.rec-why:not([hidden])){--rec-band-height:44px}
 a.rec-btn{text-decoration:none}
 .rec-pending:has(.rec-pending-row){flex-wrap:wrap;row-gap:2px}
 .rec-pending-row{flex:1 1 100%;display:flex;align-items:center;gap:8px;min-width:0}
+/* 폰 폭(갤럭시 폴드 앞 화면·412px): 녹음 끝 두 버튼·녹음 파일 링크가 한 줄에 들어가게 띠 버튼 여백만 줄인다(글자 크기·높이는 그대로). */
+@media (max-width:480px){
+  .rec-band{gap:6px;padding:0 8px}
+  .rec-band .rec-btn{padding:0 5px}
+  .rec-band .rec-actions{gap:0}
+}
