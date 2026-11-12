@@ -70,6 +70,8 @@ async function boot(page,width,{app=null,height=900}={}){
     }
     if(path==='/rest/v1/app_documents'){
       const eq=key=>url.searchParams.get(key)?.replace(/^eq\./,''),mid=eq('meeting_id'),name=eq('file_name'),size=eq('file_size');
+      // UX-이미있는파일알림: 고른 직후 같은 이름·크기를 찾는 읽기(file_name=in.)는 '다시 보내기 전 확인'이 아니다 — 이 시험의 자료는 같은 것이 없다.
+      if(String(url.searchParams.get('file_name')||'').startsWith('in.'))return ok([]);
       if(name)state.checks.push(name); // 다시 보내기 전에 '이미 붙었는지' 묻는 읽기
       return ok(state.docs.filter(d=>(!mid||d.meeting_id===mid)&&(!name||d.file_name===name)&&(!size||String(d.file_size)===size)));
     }
