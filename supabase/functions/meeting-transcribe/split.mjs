@@ -89,6 +89,9 @@ export function openAudio(input, mime, name) {
     }
     if (kind === 'mp4') {
       const idx = mp4Index(b);
+      // S60-11: 보통 m4a는 처음·가운데 2초를 시험으로 잘라 본다(잘린 파일을 다시 읽어 표본 수·바이트가 맞는지 sliceMp4가 확인).
+      // 못 자르는 모양이면 '나눌 수 없음'(null) → 통째로 보낸다(Flash-Lite 출력 상한 65,536토큰, 41분 녹음 첫 21분이 7,585토큰).
+      if (idx && idx.kind === 'plain' && !(sliceMp4(idx, 0, 2) && sliceMp4(idx, Math.floor(idx.seconds / 2), Math.floor(idx.seconds / 2) + 2))) return null;
       return idx ? { kind, seconds: idx.seconds, slice: (f, t) => sliceMp4(idx, f, t) } : null;
     }
   } catch { return null; }
@@ -323,7 +326,7 @@ export function mp4Index(input) {
   if (!timescale) return null;
   const moofs = top.filter((x) => x.type === 'moof');
   if (moofs.length) return fragmentedIndex(b, top, ftyp, moov, timescale);
-  return plainIndex(b, ftyp, moov, trak, timescale);
+  return plainIndex(b, ftyp, moov, trak, timescale, top.filter((x) => x.type === 'mdat'));
 }
 
 // 조각난 mp4: [moof, mdat] 쌍. 시각은 tfdt, 길이는 trun 표본 길이(없으면 tfhd·trex 기본값).
@@ -364,13 +367,15 @@ function fragmentedIndex(b, top, ftyp, moov, timescale) {
 }
 
 // 보통 m4a: stts·stsc·stsz·stco(co64)로 표본마다 위치·크기·길이를 푼다.
-function plainIndex(b, ftyp, moov, trak, timescale) {
+// S60-11: 안전하게 자를 수 있는 모양만 받는다 — 소리 설명(stsd) 하나, 모든 묶음이 그 설명(stsc 설명 번호 1), 모든 표본이 파일 안 mdat 상자 안.
+function plainIndex(b, ftyp, moov, trak, timescale, mdats) {
   const stbl = path(b, trak, 'mdia', 'minf', 'stbl');
   if (!stbl) return null;
   const kids = boxes(b, stbl.dataStart, stbl.end) || [];
   const get = (t) => kids.find((x) => x.type === t) || null;
   const stsd = get('stsd'), stts = get('stts'), stsc = get('stsc'), stsz = get('stsz'), stco = get('stco') || get('co64');
   if (!stsd || !stts || !stsc || !stsz || !stco || get('ctts')) return null; // stz2·ctts(순서 바뀐 표본)는 다루지 않음
+  if (u32(b, stsd.dataStart + 4) !== 1 || !mdats.length) return null;
   const count = u32(b, stsz.dataStart + 8), fixed = u32(b, stsz.dataStart + 4);
   if (!count || count > 2_000_000) return null;
   const sizes = new Uint32Array(count);
@@ -383,7 +388,9 @@ function plainIndex(b, ftyp, moov, trak, timescale) {
   const offsets = new Float64Array(count);
   {
     const n = u32(b, stsc.dataStart + 4);
-    const rows = Array.from({ length: n }, (_, e) => ({ first: u32(b, stsc.dataStart + 8 + 12 * e) - 1, per: u32(b, stsc.dataStart + 12 + 12 * e) }));
+    if (stsc.dataStart + 8 + 12 * n > stsc.end || stco.dataStart + 8 + (wide ? 8 : 4) * chunks > stco.end) return null;
+    const rows = Array.from({ length: n }, (_, e) => ({ first: u32(b, stsc.dataStart + 8 + 12 * e) - 1, per: u32(b, stsc.dataStart + 12 + 12 * e), desc: u32(b, stsc.dataStart + 16 + 12 * e) }));
+    if (rows.some((r) => r.desc !== 1 || r.first < 0)) return null;
     let s = 0;
     for (let e = 0; e < rows.length; e++) {
       const endChunk = e + 1 < rows.length ? rows[e + 1].first : chunks;
@@ -394,7 +401,14 @@ function plainIndex(b, ftyp, moov, trak, timescale) {
     }
     if (s !== count) return null;
   }
-  for (let s = 0; s < count; s++) if (offsets[s] + sizes[s] > b.length) return null;
+  // 표본마다 들어 있는 mdat 상자 안인지(보통 표본은 앞에서 뒤로 이어지므로 앞 상자부터 찾는다).
+  for (let s = 0, m = 0; s < count; s++) {
+    const a = offsets[s], z = a + sizes[s];
+    if (!(mdats[m] && a >= mdats[m].dataStart && z <= mdats[m].end)) {
+      m = mdats.findIndex((x) => a >= x.dataStart && z <= x.end);
+      if (m < 0) return null;
+    }
+  }
   const starts = new Float64Array(count);
   let t = 0;
   for (let s = 0; s < count; s++) { starts[s] = t; t += durs[s]; }
@@ -459,5 +473,9 @@ export function sliceMp4(index, from, to) {
   out.set(ftyp, 0); out.set(moov, ftyp.length); out.set(mdatHead, ftyp.length + moov.length);
   let at = dataAt;
   for (let s = s0; s <= s1; s++) { out.set(b.subarray(index.offsets[s], index.offsets[s] + index.sizes[s]), at); at += index.sizes[s]; }
+  // S60-11: 만든 파일을 다시 읽어 표본 수·바이트·길이가 고른 것과 같은지 확인한다. 어긋나면 null(자르지 않음).
+  const back = mp4Index(out);
+  if (!back || back.kind !== 'plain' || back.sizes.length !== n || back.timescale !== ts || Math.abs(back.seconds - dur / ts) > 1e-6) return null;
+  for (let k = 0, pos = dataAt; k < n; pos += back.sizes[k], k++) if (back.sizes[k] !== index.sizes[s0 + k] || back.offsets[k] !== pos) return null;
   return out;
 }

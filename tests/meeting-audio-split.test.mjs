@@ -122,6 +122,75 @@ test('MP4 조각: 보통 m4a는 표본 수·바이트가 빠짐없이, 조각난
  assert.equal(frags,frag.frags.length);
 });
 
+// ---- S60-11 REC-m4a뒤조각멈춤: 보통 m4a(삼성 음성 녹음 모양)의 '시작이 0이 아닌' 뒤 조각 ----
+// 11/12 41분 녹음 {0~1241초} 조각은 성공, {1241초~끝} 조각에서 로그 없이 두 번 멈췄다. 같은 자르기가 뒤 조각도 온전한 파일을 만드는지,
+// moov 뒤(mdat 먼저)·앞, stco·co64 모두 확인한다. 시험 소리 voice-tail.m4a = ffmpeg 30초 사인파 2채널 48kHz AAC, moov가 파일 끝(사람 목소리 없음).
+const u32=(b,i)=>b[i]*2**24+(b[i+1]<<16)+(b[i+2]<<8)+b[i+3];
+const t4=(b,i)=>String.fromCharCode(b[i],b[i+1],b[i+2],b[i+3]);
+const be32=n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];
+// 상자 트리를 풀어(moov 안 컨테이너만) fn으로 바꾼 뒤 다시 짠다. moov가 파일 끝이면 mdat 위치가 그대로라 표본 위치를 고칠 필요가 없다.
+const CONT=new Set(['moov','trak','mdia','minf','stbl']);
+function rebuild(b,s,e,fn){
+ const out=[];let i=s;
+ while(i<e){const size=u32(b,i),type=t4(b,i+4);let body=b.subarray(i+8,i+size);
+  if(CONT.has(type))body=rebuild(b,i+8,i+size,fn);
+  const r=fn(type,body);if(r!==null){const bb=r??body;out.push(Uint8Array.from([...be32(bb.length+8),...[...(r&&r.type?r.type:type)].map(c=>c.charCodeAt(0))]),bb)}
+  i+=size;}
+ const n=out.reduce((a,x)=>a+x.length,0),o=new Uint8Array(n);let at=0;for(const x of out){o.set(x,at);at+=x.length}return o;
+}
+// stco(32비트 위치) → co64(64비트 위치): 긴 녹음·큰 파일에서 쓰는 모양.
+const toCo64=b=>rebuild(b,0,b.length,(type,body)=>{
+ if(type!=='stco')return undefined;
+ const n=u32(body,4),o=new Uint8Array(8+8*n);o.set(body.subarray(0,8));
+ for(let k=0;k<n;k++)o.set([0,0,0,0,...be32(u32(body,8+4*k))],8+8*k);
+ o.type='co64';return o;
+});
+// 뒤 조각 하나를 검사: 다시 읽힘·첫 표본 시각 0·표본 바이트가 원본 그 자리 바이트와 같음·길이.
+function checkTail(src,idx,from,to){
+ const out=sp.sliceMp4(idx,from,to);assert.ok(out,`${from}~${to} 잘림`);
+ const back=sp.mp4Index(out);assert.equal(back.kind,'plain');
+ assert.equal(back.starts[0],0,'조각의 첫 표본 시각은 0');
+ const s0=idx.starts.findIndex(t=>t/idx.timescale>=from);
+ for(let k=0;k<back.sizes.length;k++){
+  const a=idx.offsets[s0+k],z=a+idx.sizes[s0+k];
+  assert.deepEqual(out.subarray(back.offsets[k],back.offsets[k]+back.sizes[k]),src.subarray(a,z));
+ }
+ // 길이: 고른 표본 길이의 합(mvhd·tkhd·mdhd 모두 같은 값)
+ near(back.seconds,(to??idx.seconds)-from,0.15,'조각 길이(AAC 한 묶음 단위)');
+ return back.sizes.length;
+}
+test('S60-11 보통 m4a 뒤 조각: moov 뒤·앞, stco·co64 모두 시작이 0이 아닌 조각도 온전한 파일(표본 바이트 그대로, 첫 시각 0)',()=>{
+ const tail=fx('voice-tail.m4a');
+ const variants=[['moov 뒤·stco',tail],['moov 뒤·co64',toCo64(tail)],['moov 앞·stco(voice.m4a)',fx('voice.m4a')]];
+ for(const [name,src] of variants){
+  const o=sp.openAudio(src,'audio/mp4','a.m4a');assert.ok(o,name);assert.equal(o.kind,'mp4');
+  const idx=sp.mp4Index(src);assert.equal(idx.kind,'plain',name);
+  // 41분 녹음의 나눔(0~1241 / 1241~끝, 전체의 약 50.2%)과 같은 비율 + 세 조각
+  const mid=Math.round(idx.seconds*1241/2470);
+  let n=checkTail(src,idx,0,mid)+checkTail(src,idx,mid,null);
+  assert.equal(n,idx.sizes.length,`${name}: 두 조각 표본 합 = 원본`);
+  n=0;for(const [f,t] of RANGES)n+=checkTail(src,idx,f,t);
+  assert.equal(n,idx.sizes.length,`${name}: 세 조각 표본 합 = 원본`);
+ }
+ const co=sp.mp4Index(toCo64(tail));assert.deepEqual([...co.sizes],[...sp.mp4Index(tail).sizes],'co64로 바꿔도 같은 표본');
+ // 자르기는 소리를 풀지 않으므로 빠르다(운영 41분 40MB 같은 모양 측정: 열기 약 60ms, 뒤 조각 자르기 약 30~90ms).
+ const t0=Date.now();for(let k=0;k<50;k++)sp.sliceMp4(sp.mp4Index(tail),13,null);assert.ok(Date.now()-t0<2000);
+});
+test('S60-11 안전하게 못 자르는 m4a 모양은 나눌 수 없음(null) → 통째로 보낸다',()=>{
+ const tail=fx('voice-tail.m4a');
+ // 표본 위치가 mdat 밖을 가리킴(깨진 위치 표)
+ const badOffset=rebuild(tail,0,tail.length,(type,body)=>{if(type!=='stco')return undefined;const o=body.slice();o.set(be32(4),8);return o;});
+ assert.equal(sp.mp4Index(badOffset),null);assert.equal(sp.openAudio(badOffset,'audio/mp4','a.m4a'),null);
+ // 소리 설명(stsd)이 둘
+ const twoDesc=rebuild(tail,0,tail.length,(type,body)=>{if(type!=='stsd')return undefined;const o=body.slice();o.set(be32(2),4);return o;});
+ assert.equal(sp.openAudio(twoDesc,'audio/mp4','a.m4a'),null);
+ // 묶음이 다른 설명 번호를 가리킴
+ const otherDesc=rebuild(tail,0,tail.length,(type,body)=>{if(type!=='stsc')return undefined;const o=body.slice();o.set(be32(2),16);return o;});
+ assert.equal(sp.openAudio(otherDesc,'audio/mp4','a.m4a'),null);
+ // 통째 전사 출력 상한: 41분 통째도 모델 상한 65,536토큰(이 녹음 첫 21분이 7,585토큰).
+ assert.equal(m.outputCap(41*60),m.TRANSCRIBE_MAX_OUTPUT_TOKENS);
+});
+
 test('나눌 수 없는 형식은 null(mp3·깨진 파일·빈 파일) — 지금처럼 통째로 보낸다',()=>{
  assert.equal(sp.openAudio(fx('other.mp3'),'audio/mpeg','a.mp3'),null);
  assert.equal(sp.openAudio(new Uint8Array(0),'audio/webm','a.webm'),null);
@@ -163,6 +232,31 @@ test('조각 parts: 나누기 → 차례로 전사 → 실패 뒤 그 조각부�
  // 회의자료 파일(kind attached)도 같은 모양
  const file=job.splitPart([{no:1,seconds:0,file:{id:'abcdefghijk',name:'a.m4a',mime:'audio/mp4',size:1},text:null}],0,sp.chunkRanges(1900,900));
  assert.equal(file.length,3);assert.ok(file.every(p=>p.file.id==='abcdefghijk'&&p.range));assert.equal(job.moreOfSame(file,0),true);
+});
+
+// S60-11: 11/12 멈춘 작업 살리기. parts = 첫 조각(0~1241초, 글 있음) + 둘째 조각(1241초~끝, 글 없음, 두 번 끊겨 step_cut).
+// [다시] → 둘째 조각부터. 다시 끊기거나(앞 실행 끊김 → 같은 크기로 묻지 않음) 답이 늦으면(gemini_timeout) 둘째 조각만 반으로, 첫 조각 글은 그대로.
+test('S60-11 멈춘 41분 녹음 이어하기: 끝난 첫 조각 글은 두고 1241초부터, 늦거나 끊기면 그 조각만 반으로 나눠 끝까지',()=>{
+ const J='33333333-3333-4333-8333-333333333333',TOTAL=2470;
+ let parts=[{no:1,seconds:1241,job:J,range:{from:0,to:1241},text:'화자1: 첫 21분 글'},{no:1,seconds:1229,job:J,range:{from:1241,to:null},text:null}];
+ assert.equal(job.nextPart(parts),1);assert.deepEqual(sp.readRange(parts[1].range),{from:1241,to:null});
+ assert.equal(job.doneParts(parts),1);assert.equal(job.partTotal(parts),2);
+ // 둘째 조각 반 나누기(끝 null 유지) — 첫 조각은 그대로
+ assert.ok(m.HALVE_CODES.includes('gemini_timeout'));
+ parts=job.splitPart(parts,1,sp.halveRange(sp.readRange(parts[1].range),TOTAL));
+ assert.deepEqual(parts.map(p=>[p.range.from,p.range.to,p.text]),[[0,1241,'화자1: 첫 21분 글'],[1241,1856,null],[1856,null,null]]);
+ assert.equal(job.nextPart(parts),1);assert.equal(job.moreOfSame(parts,1),true);
+ // 반으로 나눈 조각은 출력 상한도 길이에 맞게(10분 → 20,000토큰), 반 나눔은 4분 아래로 내려가지 않는다
+ assert.equal(m.outputCap(615),20500);
+ let r={from:1241,to:1856},depth=0;for(;;){const h=sp.halveRange(r,TOTAL);if(!h.length)break;depth++;r=h[0];}
+ assert.equal(depth,1);
+ // 끝까지 전사 → 시각 순으로 이어짐
+ parts[1]={...parts[1],text:'화자1: 가운데'};parts[2]={...parts[2],text:'화자2: 끝'};
+ assert.equal(job.nextPart(parts),-1);
+ assert.equal(job.joinParts(parts),'화자1: 첫 21분 글\n\n― 21분부터 ―\n화자1: 가운데\n\n― 31분부터 ―\n화자2: 끝');
+ // 실제 m4a로: 반으로 나눈 두 조각도 자를 수 있다(시험 소리 비율로)
+ const idx=sp.mp4Index(fx('voice-tail.m4a')),k=idx.seconds/TOTAL;
+ assert.ok(sp.sliceMp4(idx,1241*k,1856*k));assert.ok(sp.sliceMp4(idx,1856*k,null));
 });
 
 test('사용량 번호: 동시에 전사하는 조각마다 다르고 DB 모양(8~80자) 안',()=>{

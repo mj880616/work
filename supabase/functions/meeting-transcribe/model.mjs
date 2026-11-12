@@ -165,15 +165,56 @@ export const TRANSCRIBE_PROMPT = [
   '- 시각·제목·설명·머리말·마크다운 없이, 받아 적은 줄만 답합니다.',
 ].join('\n');
 export const transcribePath = (model = TRANSCRIBE_MODEL) => `/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-export function transcriptionRequest(fileUri, mimeType) {
+// seconds: 이번에 보내는 소리(조각) 길이. 알면 출력 상한을 길이에 맞춰 줄인다(outputCap), 모르면 모델 상한.
+/** @param {string} fileUri @param {string} mimeType @param {number | null} [seconds] */
+export function transcriptionRequest(fileUri, mimeType, seconds) {
   return {
     contents: [{ role: 'user', parts: [{ fileData: { mimeType, fileUri } }, { text: TRANSCRIBE_PROMPT }] }],
     generationConfig: {
       temperature: TRANSCRIBE_TEMPERATURE,
-      maxOutputTokens: TRANSCRIBE_MAX_OUTPUT_TOKENS,
+      maxOutputTokens: outputCap(seconds),
     },
   };
 }
+// S60-11 REC-m4a뒤조각멈춤: 조각 길이에 맞춘 출력 상한. 같은 말 되풀이에 빠지면 모델 상한(65,536토큰)까지 글을 만들며 몇 분을 쓰고,
+// 그 사이 Edge 실행 시간(벽시계 약 400초)이 다해 로그 없이 끊긴다. 실제 말은 11/12 41분 녹음 첫 21분이 7,585토큰(분당 약 360) —
+// 분당 2,000토큰(아주 빠른 말 분당 약 1,040토큰의 두 배 가까이)이면 넉넉하다. 넘으면 지금처럼 잘림·되풀이로 보고 그 조각을 반으로.
+export const OUTPUT_TOKENS_PER_MINUTE = 2000;
+export const OUTPUT_TOKENS_MIN = 8192;
+/** @param {number | null | undefined} seconds */
+export function outputCap(seconds) {
+  const s = Number(seconds);
+  if (!Number.isFinite(s) || s <= 0) return TRANSCRIBE_MAX_OUTPUT_TOKENS;
+  return Math.min(TRANSCRIBE_MAX_OUTPUT_TOKENS, Math.max(OUTPUT_TOKENS_MIN, Math.ceil(s / 60 * OUTPUT_TOKENS_PER_MINUTE)));
+}
+
+// ---- 한 번 전사의 시간 상한(S60-11 REC-m4a뒤조각멈춤) ----
+// 왜: 11/12 41분 녹음 두 번째 조각이 'audio mp4 41' 로그 뒤 아무 줄 없이 두 번 멈췄다(lease 9분 → step_cut). Edge 한 번 실행은
+//   벽시계 약 400초(waitUntil 포함)에서 로그 없이 끝나는데, 소리 읽기 + Gemini 올리기(시간 상한 없음) + 파일 준비 기다리기 + 답 기다리기(380초)를
+//   합치면 그보다 길 수 있었다. 이제 소리 읽기부터 STEP_BUDGET_MS 안에서 끝나게 각 단계 상한을 두고, 넘으면 사실대로 실패 코드와 로그 한 줄(걸린 초)을 남긴다.
+//   남은 여유(약 60초)는 사용량 기록·임시 파일 지우기·작업 행 저장·다음 부르기 몫.
+export const GEMINI_TIME = Object.freeze({
+  stepMs: 340000,      // 소리 읽기 시작부터 답 받기 끝까지
+  uploadMs: 120000,    // Gemini에 올리기(시작 + 몸통) 한 번
+  activeMs: 60000,     // 올린 파일이 ACTIVE가 될 때까지(전부터 60초)
+  pollMs: 15000,       // 파일 상태 한 번 묻기
+  answerMaxMs: 380000, // 답 기다림 상한(전과 같음, 남은 예산이 더 짧으면 그만큼)
+  answerMinMs: 45000,  // 남은 예산이 이보다 짧으면 묻지 않고 늦음으로 끝낸다(묻고 나서 잘리지 않게)
+  deleteMs: 10000,     // 임시 파일 지우기
+});
+// 남은 예산으로 답을 얼마나 기다릴지(ms). 0이면 묻지 않는다.
+export function answerWindow(deadlineMs, nowMs) {
+  const left = Number(deadlineMs) - Number(nowMs);
+  if (!Number.isFinite(left) || left < GEMINI_TIME.answerMinMs) return 0;
+  return Math.min(GEMINI_TIME.answerMaxMs, left);
+}
+// 다른 단계(올리기·상태 묻기)의 이번 시간 상한(ms): 단계 상한과 남은 예산 중 짧은 쪽, 최소 1초.
+export const phaseWindow = (limitMs, deadlineMs, nowMs) => Math.max(1000, Math.min(limitMs, Number(deadlineMs) - Number(nowMs)));
+// 조각을 반으로 나눠 다시 하는 실패: 출력 상한에서 잘림 · 같은 말 되풀이(S60-9) · 답이 시간 안에 안 옴(S60-11, 짧은 조각은 답이 빨리 끝난다).
+// 반 나눔은 split.mjs MIN_CHUNK_SECONDS에서 멈춘다(끝없이 나누지 않음).
+export const HALVE_CODES = Object.freeze(['gemini_incomplete', 'gemini_repeat', 'gemini_timeout']);
+// 로그용 Gemini 파일 상태 이름(대문자 이름만, 그 밖은 '-').
+export const stateTag = (s) => (typeof s === 'string' && /^[A-Z_]{1,30}$/.test(s) ? s : '-');
 
 // ---- 전사 답 읽기(generateContent 답 모양, 공식 REST 참고) ----
 // 답: { candidates:[{ content:{ parts:[{text}, …] }, finishReason }], promptFeedback:{ blockReason }, usageMetadata, modelVersion }.

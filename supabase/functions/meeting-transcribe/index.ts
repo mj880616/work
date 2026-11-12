@@ -37,9 +37,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
-  Fail, GEMINI_KEY_NAME, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
-  answerShape, attachDocument, audioMime, canStart, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
-  seoulDay, transcribePath, transcriptionRequest, trashBefore, usageRef,
+  Fail, GEMINI_KEY_NAME, GEMINI_TIME, HALVE_CODES, MAX_BYTES, MAX_SECONDS, MONTHLY_LIMIT_KRW, STATUS, SWEEP_LIMIT, TRANSCRIBE_MODEL, USAGE_REF_PREFIX,
+  answerShape, answerWindow, attachDocument, audioMime, canStart, stateTag, failBody, geminiCode, isStale, isUuid, monthKrw, monthStart, overLimit, parseUpload, readTranscript, readUsage,
+  phaseWindow, seoulDay, transcribePath, transcriptionRequest, trashBefore, usageRef,
 } from './model.mjs';
 import {
   PIECE_FOLDER, REC_DRIVE_PARALLEL, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_ROLL_PIECES, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
@@ -196,58 +196,84 @@ async function geminiWarn(step: string, r: Response) {
   const kind = typeof d?.error?.status === 'string' && /^[A-Z_]{1,40}$/.test(d.error.status) ? d.error.status : '-';
   console.warn('meeting-transcribe: gemini', step, r.status, kind);
 }
-async function geminiUpload(key: string, jobId: string, mime: string, body: ReadableStream<Uint8Array> | Uint8Array, size: number) {
-  const start = await fetch(`${GEM}/upload/v1beta/files`, {
-    method: 'POST',
-    headers: {
-      'x-goog-api-key': key, 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start',
-      'X-Goog-Upload-Header-Content-Length': String(size), 'X-Goog-Upload-Header-Content-Type': mime, 'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ file: { display_name: `meeting-${jobId}` } }),
-  });
-  const url = start.headers.get('x-goog-upload-url');
-  if (!start.ok || !url) { await geminiWarn('upload_start', start); throw new Fail('gemini_upload'); }
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Length': String(size), 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' },
-    body, ...(body instanceof Uint8Array ? {} : { duplex: 'half' }),
-  } as RequestInit);
-  if (!r.ok) { await geminiWarn('upload', r); throw new Fail(r.status === 400 ? 'gemini_rejected' : 'gemini_upload'); }
-  const d = await r.json().catch(() => null);
-  const file = d?.file;
-  if (typeof file?.name !== 'string' || typeof file?.uri !== 'string') throw new Fail('gemini_upload');
-  return file as { name: string; uri: string; state?: string; mimeType?: string };
+// S60-11 REC-m4a뒤조각멈춤: Gemini에 묻는 모든 요청에 시간 상한(GEMINI_TIME, 남은 예산 deadline 안). 전엔 올리기·상태 묻기에 상한이 없어
+// 답이 늦으면 Edge 실행 시간(벽시계 약 400초)이 다해 로그 없이 끊겼다(lease 9분 뒤 step_cut). 넘으면 걸린 초를 한 줄 남기고 실패 코드로 끝낸다.
+const isLate = (e: unknown) => e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError');
+const secSince = (t0: number) => Math.round((Date.now() - t0) / 1000);
+async function geminiUpload(key: string, jobId: string, mime: string, body: ReadableStream<Uint8Array> | Uint8Array, size: number, deadline: number) {
+  const t0 = Date.now();
+  const signal = AbortSignal.timeout(phaseWindow(GEMINI_TIME.uploadMs, deadline, t0));
+  try {
+    const start = await fetch(`${GEM}/upload/v1beta/files`, {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': key, 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start',
+        'X-Goog-Upload-Header-Content-Length': String(size), 'X-Goog-Upload-Header-Content-Type': mime, 'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ file: { display_name: `meeting-${jobId}` } }), signal,
+    });
+    const url = start.headers.get('x-goog-upload-url');
+    if (!start.ok || !url) { await geminiWarn('upload_start', start); throw new Fail('gemini_upload'); }
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Length': String(size), 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' },
+      body, signal, ...(body instanceof Uint8Array ? {} : { duplex: 'half' }),
+    } as RequestInit);
+    if (!r.ok) { await geminiWarn('upload', r); throw new Fail(r.status === 400 ? 'gemini_rejected' : 'gemini_upload'); }
+    const d = await r.json().catch(() => null);
+    const file = d?.file;
+    if (typeof file?.name !== 'string' || typeof file?.uri !== 'string') throw new Fail('gemini_upload');
+    return file as { name: string; uri: string; state?: string; mimeType?: string };
+  } catch (e) {
+    if (e instanceof Fail) throw e;
+    // 크기(MB)·걸린 초만(주소·이름 없음).
+    console.warn('meeting-transcribe: gemini upload', isLate(e) ? 'late' : 'error', Math.round(size / 1048576), secSince(t0));
+    throw new Fail(isLate(e) ? 'gemini_timeout' : 'gemini_upload');
+  }
 }
-// Gemini가 올린 파일을 다 읽을 때까지. FAILED = 파일을 풀지 못함(형식), 60초 안에 안 끝나면 늦음.
-async function geminiActive(key: string, name: string, state?: string) {
+// Gemini가 올린 파일을 다 읽을 때까지. FAILED = 파일을 풀지 못함(형식), GEMINI_TIME.activeMs(60초) 안에 안 되면 늦음 — 상태 이름·걸린 초를 남긴다.
+async function geminiActive(key: string, name: string, state: string | undefined, deadline: number) {
+  const t0 = Date.now();
+  const until = Math.min(t0 + GEMINI_TIME.activeMs, deadline);
   let s = state;
-  for (let i = 0; s !== 'ACTIVE' && i < 30; i++) {
-    if (s === 'FAILED') { console.warn('meeting-transcribe: gemini file FAILED'); throw new Fail('gemini_file_failed'); }
+  while (s !== 'ACTIVE' && s !== 'FAILED' && Date.now() + 2000 < until) {
     await new Promise(res => setTimeout(res, 2000));
-    const r = await fetch(`${GEM}/v1beta/${name}`, { headers: { 'x-goog-api-key': key } });
+    let r: Response;
+    try { r = await fetch(`${GEM}/v1beta/${name}`, { headers: { 'x-goog-api-key': key }, signal: AbortSignal.timeout(phaseWindow(GEMINI_TIME.pollMs, until, Date.now())) }); }
+    catch (e) { console.warn('meeting-transcribe: gemini file_state', isLate(e) ? 'late' : 'error', stateTag(s), secSince(t0)); throw new Fail(isLate(e) ? 'gemini_timeout' : 'gemini_failed'); }
     if (!r.ok) { await geminiWarn('file_state', r); throw new Fail('gemini_failed'); }
     const d = await r.json().catch(() => null);
     s = d?.state;
   }
-  if (s === 'FAILED') { console.warn('meeting-transcribe: gemini file FAILED'); throw new Fail('gemini_file_failed'); }
-  if (s !== 'ACTIVE') throw new Fail('gemini_timeout');
+  if (s === 'FAILED') { console.warn('meeting-transcribe: gemini file FAILED', secSince(t0)); throw new Fail('gemini_file_failed'); }
+  if (s !== 'ACTIVE') { console.warn('meeting-transcribe: gemini file stuck', stateTag(s), secSince(t0)); throw new Fail('gemini_timeout'); }
 }
 async function geminiDelete(key: string, name: string) {
-  try { await fetch(`${GEM}/v1beta/${name}`, { method: 'DELETE', headers: { 'x-goog-api-key': key } }); } catch { /* 48시간 뒤 Gemini가 지움 */ }
+  try { await fetch(`${GEM}/v1beta/${name}`, { method: 'DELETE', headers: { 'x-goog-api-key': key }, signal: AbortSignal.timeout(GEMINI_TIME.deleteMs) }); } catch { /* 48시간 뒤 Gemini가 지움 */ }
 }
 // S60-9 REC-전사모델바꾸기: 일반 모델(TRANSCRIBE_MODEL) generateContent 한 번. 화자 구분은 지시문으로 하므로 거절 뒤 다시 보내는 길은 없다.
-async function geminiTranscribe(key: string, uri: string, mime: string) {
-  const r = await fetch(`${GEM}${transcribePath(TRANSCRIBE_MODEL)}`, {
-    method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
-    body: JSON.stringify(transcriptionRequest(uri, mime)), signal: AbortSignal.timeout(380000),
-  });
+// S60-11: 기다림은 남은 예산(answerWindow, 최대 380초)만큼, 출력 상한은 조각 길이에 맞춘다(outputCap). 늦으면 걸린 초를 남기고 gemini_timeout.
+async function geminiTranscribe(key: string, uri: string, mime: string, seconds: number | null, deadline: number) {
+  const t0 = Date.now();
+  const wait = answerWindow(deadline, t0);
+  if (!wait) { console.warn('meeting-transcribe: gemini answer no time', Math.round((deadline - t0) / 1000)); throw new Fail('gemini_timeout'); }
+  let r: Response;
+  try {
+    r = await fetch(`${GEM}${transcribePath(TRANSCRIBE_MODEL)}`, {
+      method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(transcriptionRequest(uri, mime, seconds)), signal: AbortSignal.timeout(wait),
+    });
+  } catch (e) {
+    console.warn('meeting-transcribe: gemini answer', isLate(e) ? 'late' : 'cut', secSince(t0), Math.round(wait / 1000));
+    throw new Fail(isLate(e) ? 'gemini_timeout' : 'gemini_failed');
+  }
   if (!r.ok) { await geminiWarn('transcribe', r); throw new Fail(geminiCode(r.status)); }
-  // 답 몸통 읽기(REC-글못찾음: 전엔 못 읽어도 로그 없이 gemini_failed). 받는 중에 기다림 상한(380초)이 지나면 늦음(gemini_timeout),
+  // 답 몸통 읽기(REC-글못찾음: 전엔 못 읽어도 로그 없이 gemini_failed). 받는 중에 기다림 상한이 지나면 늦음(gemini_timeout),
   // 연결이 끊겨 못 받았거나 JSON이 아니면 실패 — 어느 쪽인지 HTTP 상태·길이만 한 줄 남긴다(답 내용은 쓰지 않음).
   let raw = '';
   try { raw = await r.text(); } catch (e) {
-    const late = e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError');
-    console.warn('meeting-transcribe: gemini answer unread', r.status, late ? 'timeout' : 'cut');
+    const late = isLate(e);
+    console.warn('meeting-transcribe: gemini answer unread', r.status, late ? 'timeout' : 'cut', secSince(t0));
     throw new Fail(late ? 'gemini_timeout' : 'gemini_failed');
   }
   try { return JSON.parse(raw); } catch {
@@ -362,13 +388,15 @@ const failCode = (e: unknown) => e instanceof Fail ? e.code : (e instanceof DOME
 // ---- 소리 읽기·전사(화면 transcribe·서버 정리 공용) ----
 // REC-긴녹음나눠전사(S60-7): 한 번 답의 출력에 상한이 있어(2.5 Flash 65,536토큰) 긴 소리는 글이 잘린다(gemini_incomplete). 길면 시간 구간으로 나눠
 // 따로 전사한다(split.mjs). 나누려면 파일을 메모리에 담아야 해서 SPLIT_MAX_BYTES까지만 담고, 그보다 크면 지금처럼 흘려 보낸다(나누지 않음).
-type Loaded = { body: ReadableStream<Uint8Array> | Uint8Array; size: number; mime: string; seconds: number | null; opened: ReturnType<typeof openAudio> };
+// deadline: 이 실행에서 Gemini 답까지 끝내야 하는 시각(소리 읽기 시작 + GEMINI_TIME.stepMs, S60-11). 화면 길의 동시 조각도 같은 한 번 실행이라 같이 쓴다.
+type Loaded = { body: ReadableStream<Uint8Array> | Uint8Array; size: number; mime: string; seconds: number | null; opened: ReturnType<typeof openAudio>; deadline: number };
 type Range = { from: number; to: number | null; seconds?: number };
 type Piece = { text: string; speakerSplit: boolean; model: string } | { split: Range[] };
 
 // Drive의 소리를 읽는다. Ogg 파일(폰 녹음 등)은 쪽 머리를 규격대로 고친다(ogg.mjs: 안드로이드 녹음기의 granule·끝 표시 문제).
 // Drive 원본은 그대로 둔다(이미 합친 오늘 녹음도 [다시]로 이 길을 탄다).
 async function loadAudio(job: Job): Promise<Loaded> {
+  const deadline = Date.now() + GEMINI_TIME.stepMs;
   const token = await driveToken(job.workspace_id);
   const media = await fetch(`${DRIVE}/${encodeURIComponent(job.drive_file_id)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
   if (!media.ok || !media.body) throw new Fail('drive_failed');
@@ -376,7 +404,7 @@ async function loadAudio(job: Job): Promise<Loaded> {
   const fix = wantsOggFix(job.mime_type, job.file_name, size);
   if (!fix && !(size > 0 && size <= SPLIT_MAX_BYTES)) {
     console.warn('meeting-transcribe: split skipped', 'size', size);
-    return { body: media.body, size, mime: job.mime_type, seconds: null, opened: null };
+    return { body: media.body, size, mime: job.mime_type, seconds: null, opened: null, deadline };
   }
   let bytes: Uint8Array;
   try { bytes = new Uint8Array(await media.arrayBuffer()); } catch { throw new Fail('drive_failed'); }
@@ -397,31 +425,47 @@ async function loadAudio(job: Job): Promise<Loaded> {
   const opened = openAudio(bytes, job.mime_type, job.file_name);
   // 나눌 수 있는지·형식·길이(분)만 남긴다(소리·이름 없음).
   console.warn('meeting-transcribe: audio', opened ? opened.kind : 'unsplittable', opened ? Math.round(opened.seconds / 60) : '-');
-  return { body: bytes, size: bytes.byteLength, mime: job.mime_type, seconds: opened ? Math.round(opened.seconds) : seconds, opened };
+  return { body: bytes, size: bytes.byteLength, mime: job.mime_type, seconds: opened ? Math.round(opened.seconds) : seconds, opened, deadline };
 }
 const SLICE_MIME: Record<string, string> = { ogg: 'audio/ogg', webm: 'audio/webm', mp4: 'audio/mp4' };
 
-// 조각을 반으로 나눠 다시 하는 실패: 출력 상한에서 잘림 · 같은 말 되풀이(S60-9). 반 나눔은 split.mjs MIN_CHUNK_SECONDS에서 멈춘다(끝없이 나누지 않음).
-const HALVE_CODES = ['gemini_incomplete', 'gemini_repeat'];
 // 읽은 소리 한 번 전사. range가 없고 소리가 CHUNK_SECONDS보다 길며 나눌 수 있으면 전사하지 않고 {split}(나눌 구간)을 돌려준다.
-// 답이 끝까지 오지 않거나(gemini_incomplete) 같은 말을 되풀이하면(gemini_repeat) 나눌 수 있는 한 그 조각을 반으로 나눌 구간을 돌려준다(쓴 비용은 실패 머리로 기록됨).
+// 답이 끝까지 오지 않거나(gemini_incomplete) 같은 말을 되풀이하거나(gemini_repeat) 시간 안에 오지 않으면(gemini_timeout, S60-11)
+// 나눌 수 있는 한 그 조각을 반으로 나눌 구간을 돌려준다(model.mjs HALVE_CODES, 쓴 비용은 실패 머리로 기록됨).
+// halveFirst(S60-11): 앞 실행이 이 조각에서 끊겼으면(서버 정리 step_cut 한 번) 같은 크기로 또 걸리지 않게 묻지 않고 반으로 나눌 구간부터 돌려준다.
 // 쓴 만큼 사용량 기록. Gemini에 올린 임시 파일은 끝나면 지운다. 작업 행 상태는 부른 쪽이 정한다.
-async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Range | null, piece = 0): Promise<Piece> {
+async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Range | null, piece = 0, halveFirst = false): Promise<Piece> {
   if (!range && audio.opened && audio.opened.seconds > CHUNK_SECONDS) return { split: chunkRanges(audio.opened.seconds) };
   let body = audio.body, size = audio.size, mime = audio.mime, span = audio.seconds;
+  if (range) span = Math.round((range.to ?? audio.opened?.seconds ?? 0) - range.from);
+  const halvesOf = (why: string) => {
+    const halves = audio.opened ? halveRange(range, audio.opened.seconds) : [];
+    if (halves.length) console.warn('meeting-transcribe: split after', why, Math.round((span || 0) / 60));
+    return halves;
+  };
+  if (halveFirst) { const halves = halvesOf('step_cut'); if (halves.length) return { split: halves }; }
   if (range) {
     const cut = audio.opened?.slice(range.from, range.to);
     if (!cut) throw new Fail('bad_format');
     body = cut; size = cut.byteLength; mime = SLICE_MIME[audio.opened!.kind] || mime;
-    span = Math.round((range.to ?? audio.opened!.seconds) - range.from);
   }
   const duration = range ? span : (job.duration_sec ?? span);
   let geminiFile: string | null = null;
   try {
-    const file = await geminiUpload(key, job.id, mime, body, size);
+    const t0 = Date.now();
+    const file = await geminiUpload(key, job.id, mime, body, size, audio.deadline);
     geminiFile = file.name;
-    await geminiActive(key, file.name, file.state);
-    const response = await geminiTranscribe(key, file.uri, file.mimeType || mime);
+    const t1 = Date.now();
+    await geminiActive(key, file.name, file.state, audio.deadline);
+    const t2 = Date.now();
+    let response: unknown;
+    try { response = await geminiTranscribe(key, file.uri, file.mimeType || mime, duration ?? null, audio.deadline); }
+    catch (e) {
+      if (e instanceof Fail && e.code === 'gemini_timeout') { const halves = halvesOf(e.code); if (halves.length) return { split: halves }; }
+      throw e;
+    }
+    // 단계별 걸린 초(올리기·파일 준비·답)와 크기(MB)·길이(분)만 — 다음에 멈추면 어느 단계인지 바로 가른다(글·주소 없음).
+    console.warn('meeting-transcribe: gemini timing', Math.round((t1 - t0) / 1000), Math.round((t2 - t1) / 1000), secSince(t2), Math.round(size / 1048576), Math.round((span || 0) / 60));
     // Gemini가 답했으면(글이 비었어도) 쓴 만큼 기록한다. 글을 못 받은 시도는 실패 머리로 적어 월 상한에서 뺀다(홈 AI 사용량에는 보임).
     const usage = readUsage(response, duration);
     let result: ReturnType<typeof readAnswer> | null = null;
@@ -433,9 +477,9 @@ async function transcribeLoaded(key: string, job: Job, audio: Loaded, range: Ran
     });
     if (usageError) console.warn('meeting-transcribe: usage not recorded', usageError.code);
     if (!result) {
-      if (answerError instanceof Fail && HALVE_CODES.includes(answerError.code) && audio.opened) {
-        const halves = halveRange(range, audio.opened.seconds);
-        if (halves.length) { console.warn('meeting-transcribe: split after', answerError.code, Math.round((span || 0) / 60)); return { split: halves }; }
+      if (answerError instanceof Fail && HALVE_CODES.includes(answerError.code)) {
+        const halves = halvesOf(answerError.code);
+        if (halves.length) return { split: halves };
       }
       throw answerError;
     }
@@ -942,7 +986,8 @@ async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unk
       const range = p.range === undefined ? null : readRange(p.range);
       if (p.range !== undefined && !range) throw new Fail('failed');
       const more = moreOfSame(parts, i);
-      const got = p.file ? await transcribeFile(key, job, p.file, range) : await transcribeSegment(key, p.job, range, more);
+      // S60-11: 앞 실행이 이 조각에서 끊겼으면(cutBefore) 같은 크기로 또 묻지 않고 반으로 나눈다(요약 단계와 같은 규칙).
+      const got = p.file ? await transcribeFile(key, job, p.file, range, cutBefore) : await transcribeSegment(key, p.job, range, more, cutBefore);
       if ('split' in got) {
         const next = splitPart(parts, i, got.split);
         if (next.length === parts.length) throw new Fail('gemini_incomplete');
@@ -1010,7 +1055,7 @@ async function stepOnce(job: Job, cutBefore = false): Promise<Record<string, unk
 // 전엔 15분(RUNNING_STALE_MS)을 기다려, 서버 정리가 9분 뒤 다시 잡을 때 끊긴 자기 흔적에 막혀 busy로 실패했다).
 // REC-긴녹음나눠전사: range = 이번에 할 시간 조각(없으면 통째). 나눌 구간({split})을 돌려주거나 같은 구간의 조각이 더 남았으면(more)
 // 구간 행은 '끝'(done)이 아니라 '올림'(uploaded)으로 돌려 둔다('이어서 정리'·붙이기가 끝난 녹음으로 보지 않게). 마지막 조각 뒤에 done.
-async function transcribeSegment(key: string, jobId: unknown, range: Range | null = null, more = false): Promise<Piece> {
+async function transcribeSegment(key: string, jobId: unknown, range: Range | null = null, more = false, halveFirst = false): Promise<Piece> {
   if (!isUuid(jobId)) throw new Fail('not_found');
   const { data: job, error } = await admin.from(TABLE).select(JOB_COLUMNS).eq('id', jobId as string).maybeSingle();
   if (error) throw new Fail('failed');
@@ -1028,7 +1073,7 @@ async function transcribeSegment(key: string, jobId: unknown, range: Range | nul
   if (startError) throw new Fail(startError.code === '23505' ? 'busy' : 'failed');
   if (!started?.length) throw new Fail('busy');
   try {
-    const out = await transcribeLoaded(key, job, await loadAudio(job), range);
+    const out = await transcribeLoaded(key, job, await loadAudio(job), range, 0, halveFirst);
     if ('split' in out || more) await setJob(job.id, { status: 'uploaded', error_code: null, finished_at: null });
     else await setJob(job.id, { status: 'done', error_code: null, model: out.model, finished_at: new Date().toISOString() });
     return out;
@@ -1039,12 +1084,12 @@ async function transcribeSegment(key: string, jobId: unknown, range: Range | nul
 }
 // 회의자료에 붙은 소리 파일 전사(B). 전사 작업 표에는 넣지 않는다(그 표의 30일 휴지통 정리가 회의자료 원본을 건드리지 않게).
 // 사용량 열쇠는 서버 작업 id로 남긴다. 긴 파일은 구간 녹음과 같게 시간 조각으로 나눈다(range).
-async function transcribeFile(key: string, job: Job, file: Record<string, unknown>, range: Range | null = null): Promise<Piece> {
+async function transcribeFile(key: string, job: Job, file: Record<string, unknown>, range: Range | null = null, halveFirst = false): Promise<Piece> {
   const src = {
     id: job.id, workspace_id: job.workspace_id, drive_file_id: file.id, file_name: file.name, mime_type: file.mime,
     size_bytes: file.size, duration_sec: null,
   };
-  return await transcribeLoaded(key, src, await loadAudio(src), range);
+  return await transcribeLoaded(key, src, await loadAudio(src), range, 0, halveFirst);
 }
 
 // 서버 요약 한 번(meeting-ai-draft '새 회의' 길과 같은 지시문·한도·사용량 기록). 명진 이름 목록은 읽을 수 있을 때만 넣는다.
