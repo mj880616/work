@@ -14,7 +14,7 @@ const ok=(route,data,status=200)=>route.fulfill({status,contentType:'application
 const row=(page,title)=>page.locator('#gtTaskBody .gt-row',{hasText:title});
 const txt=(name,body='abc')=>({name,mimeType:'text/plain',buffer:Buffer.from(body)});
 
-async function openTasks(browser,{viewport={width:1280,height:900},supported=true,failAttach=()=>false}={}){
+async function openTasks(browser,{viewport={width:1280,height:900},supported=true,failAttach=()=>false,slowReadBeforeAttach=false}={}){
   const context=await browser.newContext({timezoneId:'Asia/Seoul',viewport,hasTouch:viewport.width<600,isMobile:viewport.width<600});
   const page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -40,7 +40,10 @@ async function openTasks(browser,{viewport={width:1280,height:900},supported=tru
     if(p==='/rest/v1/app_task_attachments'){
       if(!supported)return ok(route,{code:'PGRST205',message:'Could not find the table'},404);
       const ids=((u.searchParams.get('google_task_id')||'').match(/^in\.\((.*)\)$/)?.[1]||'').split(',');
-      return ok(route,state.files.filter(f=>ids.includes(f.google_task_id)).map(({google_task_id,drive_file_id,file_name,size_bytes})=>({google_task_id,drive_file_id,file_name,size_bytes})));
+      const rows=state.files.filter(f=>ids.includes(f.google_task_id)).map(({google_task_id,drive_file_id,file_name,size_bytes})=>({google_task_id,drive_file_id,file_name,size_bytes}));
+      // A list read sent while the new task's file is not attached yet answers (with no file) only after the attach has answered.
+      if(slowReadBeforeAttach&&ids.includes('new1')&&!state.calls.attach.length){state.slowReads=(state.slowReads||0)+1;await new Promise(done=>{const wait=()=>state.attached?setTimeout(done,50):setTimeout(wait,10);wait()})}
+      return ok(route,rows);
     }
     if(p==='/functions/v1/google-tasks'&&action==='attach'){
       const body=req.postDataBuffer()?.toString('latin1')||'';
@@ -50,6 +53,7 @@ async function openTasks(browser,{viewport={width:1280,height:900},supported=tru
       if(failAttach(name,state.calls.attach.filter(c=>c.name===name).length))return ok(route,{ok:false,code:'drive_failed',error:'Drive에 올리지 못했습니다.',message:'Drive에 올리지 못했습니다.'},502);
       const f={google_task_id:taskId,drive_file_id:'drv'+state.next++,file_name:name,size_bytes:3};
       state.files.push(f);
+      setTimeout(()=>{state.attached=true},0);
       return ok(route,{ok:true,file:f,files:state.files.filter(x=>x.google_task_id===taskId),task:{...google[taskId]},notes_synced:true});
     }
     if(p.startsWith('/rest/v1/')||p.startsWith('/functions/v1/'))return ok(route,[]);
@@ -126,6 +130,28 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
     await context.close();
   });
 }
+
+// STAB-할일첨부시험: the list's file read that went out before the upload (the list reloads when the task is saved) answers late, with no file.
+// The read made after the upload is its own request, so the late old answer does not wipe the name drawn under the task.
+test('a file read sent before the upload answers late: the name under the new task stays (PC)',async({browser})=>{
+  const {context,page,state,errors}=await openTasks(browser,{slowReadBeforeAttach:true});
+  await page.evaluate(()=>window.KPTUGoogleTasks.openEditor(null));
+  await page.locator('#gtNewFiles [data-gt-pick-input]').setInputFiles([txt('회의록.txt')]);
+  await page.locator('#gtEditTitle').fill('보고서 정리');
+  // Hold the upload until the list's read with the new task has gone out, so the two always cross.
+  let sendAttach;const attachHeld=new Promise(r=>{sendAttach=r});
+  await page.route(`${SB}/functions/v1/google-tasks?*action=attach*`,async route=>{await attachHeld;await route.fallback()});
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>state.slowReads||0).toBeGreaterThan(0);
+  sendAttach();
+  await expect.poll(()=>state.calls.attach).toEqual([{taskId:'new1',name:'회의록.txt'}]);
+  await expect(dock(page)).toContainText('할 일에 파일 1개 올렸어요');
+  await expect(row(page,'보고서 정리').locator('.gt-files a.gt-file')).toHaveText('회의록.txt');
+  // Still there once every read has answered.
+  await expect.poll(()=>page.evaluate(()=>document.querySelector('#gtTaskBody [data-google-task="new1"] .gt-files a.gt-file')?.textContent||'')).toBe('회의록.txt');
+  expect(errors).toEqual([]);
+  await context.close();
+});
 
 test('upload failure in the 할 일 등록 window: the task stays, the window closes and the bottom line offers [다시 올리기] for that file only (phone)',async({browser})=>{
   const {context,page,state}=await openTasks(browser,{viewport:{width:390,height:844},failAttach:(name,tries)=>name==='큰 자료.txt'&&tries===1});

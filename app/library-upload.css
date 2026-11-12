@@ -116,9 +116,12 @@
 #libraryView .lu-head-actions button{margin:0}
 /* 자료실 위쪽 줄(.lu-search-row) 모양은 아래 'LIB-위쪽한줄' 절 한 곳. */
 :is(.lu-more-panel,.lu-folder-menu){position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
-:is(.lu-more-panel,.lu-folder-menu) button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:600;cursor:pointer}
-:is(.lu-more-panel,.lu-folder-menu) button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
-:is(.lu-more-panel,.lu-folder-menu) button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* LIB-나누기메뉴모양(S60-27): 메뉴 안 글자 버튼(③ row-act)도 메뉴 줄 공용 모양 하나로 — .topline-add-menu·.feed-menu와 같은 방식. */
+:is(.lu-more-panel,.lu-folder-menu) button,:is(.lu-more-panel,.lu-folder-menu) button.row-act{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:600;cursor:pointer}
+:is(.lu-more-panel,.lu-folder-menu) button.row-act{position:static;line-height:inherit}
+:is(.lu-more-panel,.lu-folder-menu) button.row-act::after{content:none}
+:is(.lu-more-panel,.lu-folder-menu) button:is(:hover,:focus-visible),:is(.lu-more-panel,.lu-folder-menu) button.row-act:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
+:is(.lu-more-panel,.lu-folder-menu) button:focus-visible,:is(.lu-more-panel,.lu-folder-menu) button.row-act:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* LIB-줄안이름바꾸기: 메뉴 줄 높이는 다른 ⋯ 메뉴(프로젝트 상세 등)와 같은 36px. F2 안내는 PC에서만 오른쪽에 작게, 삭제 앞에는 구분선. */
 :is(.lu-more-panel,.lu-folder-menu) .lu-menu-key{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
 :is(.lu-more-panel,.lu-folder-menu) .lu-menu-check{color:var(--kptu-primary-ink);font-weight:700}

@@ -24,9 +24,11 @@ export { driveFileUrl };
 
 // task id -> files (attach order), read from the link table with the owner's session (owner RLS).
 // Throws when the table is not there yet (migration not applied): the caller then hides the menu item and names.
-export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessionEpoch = null} = {}) {
+// fresh: 늘 새 요청으로 읽는다(같은 주소의 읽기가 이미 나가 있어도 그 답을 나눠 받지 않음 — 파일을 붙인 뒤 다시 읽을 때, 붙이기 전에 나간 읽기의
+// 옛 답이 새 파일을 지우지 않게. STAB-할일첨부시험).
+export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessionEpoch = null, fresh = false} = {}) {
   const list = [...new Set((ids || []).filter(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(id)))];
-  const out = new Map(), options = expectedSessionEpoch == null ? {} : {expectedSessionEpoch};
+  const out = new Map(), options = {...(expectedSessionEpoch == null ? {} : {expectedSessionEpoch}), ...(fresh ? {singleFlight: false} : {})};
   const cols = 'select=google_task_id,drive_file_id,file_name,size_bytes&order=created_at.asc';
   // One request even with no tasks, so the answer still says whether the table exists.
   for (let i = 0; i === 0 || i < list.length; i += LIST_CHUNK) {

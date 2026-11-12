@@ -486,10 +486,12 @@ window.addEventListener('kptu:task-files-sent',e=>{const d=e.detail;if(!d?.id||!
 // TASK-첨부교체: every paint starts from the saved files, so closing the window or opening another task forgets held changes.
 function paintAttach(task){if(!attach)return;const table=task?filesOf(task.id):[],ids=new Set(table.map(f=>f.drive_file_id));attach.set(task?taskAttachments(task.notes,table).map(f=>({...f,inTable:ids.has(f.drive_file_id)})):[],{editable:!!task?.id&&filesSupported(),shown:!!task,taskId:task?.id||''})}
 // 마지막에 보낸 읽기만 쓴다(뒤 줄이 파일을 붙인 뒤 다시 읽으면, 그 전에 나간 읽기가 늦게 와도 새 파일을 지우지 않게 — S59-18).
+// 읽기마다 새 요청이다(fresh): 같은 주소의 읽기가 붙이기 전에 나가 아직 오는 중이면 기본 동작은 그 답을 나눠 받아, '마지막 읽기'도 옛 답(파일 없음)이
+// 되어 방금 그린 파일 이름을 지웠다(STAB-할일첨부시험).
 let filesSeq=0;
 async function loadTaskFiles(owner,epoch,tasks){
   const mine=++filesSeq;
-  let map=null;try{map=await readTaskFiles(tasks.map(t=>t.id),{rt})}catch{map=null}
+  let map=null;try{map=await readTaskFiles(tasks.map(t=>t.id),{rt,fresh:true})}catch{map=null}
   if(!stillCurrent(epoch,owner)||mine!==filesSeq)return false;
   const before=taskFiles.supported+':'+JSON.stringify([...taskFiles.map]);
   taskFiles=map?{owner,supported:true,map}:{owner,supported:false,map:new Map()};

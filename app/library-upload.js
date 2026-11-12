@@ -45,7 +45,7 @@ import {ftPressToggle,ftBindTreeArrows,folderPressAction,FOLDER_PRESS_ENTER} fro
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu,moveMenuTrigger} from './anchored-menu.js';
-import {notify,NOTICE_UNDO_MS,askConfirm} from './small-notice.js';
+import {notify,NOTICE_UNDO_MS,askConfirm,recordUndo,dropUndo} from './small-notice.js';
 // UI-알림창정리(자료실): 파일 열기·내려받기·Drive 열기 실패는 브라우저 기본 알림창 대신 위쪽 작은 알림(오류 5초).
 const luErrorNotice=message=>notify(message,{error:true});
 import {takeLibraryDocumentRequest,takeLibrarySelectionRequest} from './basket-library-send.js';
@@ -1161,7 +1161,7 @@ let luSuggest=new Map();
 // 반환: 고를 자료 수(0이면 메뉴에 항목을 내지 않음). go=true면 실제로 고른다.
 function luSelectNode(key,go=false){const ids=nodeDocumentIds(luTreeNode(key));if(!go||!ids.length||luSelBusy)return ids.length;luPick.stop();luPick.start(ids);luRenderLibrary();return ids.length}
 function luSuggestHtml(d,node){const fid=node?.key==='x:out'?luSuggest.get(d.id):null,f=fid&&luFolders_.find(x=>x.id===fid);if(!f)return '';return `<button type="button" class="lu-suggest" data-lu-suggest="${luEsc(d.id)}" data-lu-suggest-folder="${luEsc(f.id)}" aria-label="${luEsc(f.name)} 폴더로 옮기기">${iconHtml('folder')} ${luEsc(f.name)}?</button>`}
-document.addEventListener('click',e=>{const b=e.target.closest?.('#documentList [data-lu-suggest]');if(!b)return;e.preventDefault();e.stopPropagation();void luFolders().moveDocsTo([b.dataset.luSuggest],b.dataset.luSuggestFolder)},true);
+document.addEventListener('click',e=>{const b=e.target.closest?.('#documentList [data-lu-suggest]');if(!b)return;e.preventDefault();e.stopPropagation();void luFolders().moveDocsTo([b.dataset.luSuggest],b.dataset.luSuggestFolder,{open:false})},true);
 // 빠짐10(LIB-정리보충 ⑤): 같은 글의 원본 두 개(웹 + PDF/HWP)는 한 줄(대표 = 웹이 아닌 원본)로 묶고 줄 오른쪽 작은 [원본 n]으로 펼친다.
 // 화면에서만 묶는다(자료 행은 그대로). 상태 주인: luTwins(이번 그리기의 묶음 계획)·luTwinOpen(펼친 대표 id, 화면 메모리만).
 let luTwins=new Map();const luTwinOpen=new Set();
@@ -1182,7 +1182,9 @@ function luBindRename(list){list.addEventListener('keydown',e=>{if(e.key!=='F2'|
 function luRenameNotice(text,{error=false,undo=null}={}){
   const token=++luRenameNoticeToken;luFolderStatus(text,error);
   const el=document.querySelector('#libraryFolderStatusLine');if(!el||!text)return;
-  if(undo){const b=document.createElement('button');b.type='button';b.className='lu-undo';b.textContent='되돌리기';b.addEventListener('click',()=>{if(token===luRenameNoticeToken)void undo()},{once:true});el.append(' ',b)}
+  // S60-27: 줄의 [되돌리기]와 Ctrl+Z(UI-작은알림자리)는 같은 기록 하나 — 어느 쪽으로든 한 번만 되돌린다.
+  if(undo){let ran=false;const once=()=>{if(ran)return {silent:true};ran=true;return undo()};const id=recordUndo({label:String(text).replace(/\s*·\s*$/,''),undo:once});
+    const b=document.createElement('button');b.type='button';b.className='lu-undo';b.textContent='되돌리기';b.addEventListener('click',()=>{if(token!==luRenameNoticeToken)return;dropUndo(id);void once()},{once:true});el.append(' ',b)}
   if(!error)setTimeout(()=>{if(token===luRenameNoticeToken)luFolderStatus('')},10000);
 }
 function luStartRename(id){
