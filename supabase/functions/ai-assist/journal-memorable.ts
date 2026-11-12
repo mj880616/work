@@ -10,6 +10,9 @@
 // 정해야만 고르고, 이유 한 줄(why)을 쓴다. 다섯 어디에도 안 드는 것은 고르지 않는다(통화·텔레그램 화면에는 그대로 남음).
 // - 양: 하루(day) 새 기준 소식은 MEMORABLE_DAY_CAP개까지. 이미 고른 것·이미 있는 것(잊지 말기 소식·처리 전 챙길 것/텔레그램 요청)과 같은 내용은
 //   고르지 않게 '이미 있는 것' 목록을 함께 보내고, 텔레그램 요청 후보가 이미 가리키는 같은 기록은 서버가 아예 보내지 않는다.
+// S61-9 FORGET-요청방향(요청함 11/13 05:14, 명진 확정 05:19): 이 사용자가 다른 사람·조직에게 부탁·요청·지시한 일은 '이 사용자가 할 일'이 아니다.
+//   AI는 고른 기록마다 from_me(이 사용자가 남에게 부탁한 일인가)를 함께 적고, 서버는 from_me=true인 할 일(task)을 처리 전 소식에 넣지 않는다
+//   (그 일은 상대가 할 일 — 상대 약속 쪽 길은 PR 본문 제안). 텔레그램 요청(collector-feed/telegram.ts ask_me)·챙길 것(todo-radar.ts owner)과 같은 규칙.
 // - AI는 고르기·종류·이유까지만. 할 일·일정·보고를 대신 만들지 않는다(외부 입력 분석과 행동 분리 — 누르는 건 사람).
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
@@ -114,6 +117,8 @@ export function memorableMaterial(day: string, rows: FeedRow[], ctx: MemorableCo
 export const MEMORABLE_INSTRUCTIONS = [
   "너는 노동조합 상근자 한 사람(이 사용자 본인)의 업무 비서다. 아래는 그날 업무 통화와 텔레그램 소식 기록이다. 번호가 붙은 기록 중 이 사용자 본인에게 해당하는 것만 고른다.",
   "기록마다 kind를 다섯 중 하나로 정할 수 있을 때만 고른다. task = 이 사용자가 해야 할 일(부탁·요청·준비·회신). event = 날짜나 시각이 있고 이 사용자가 가거나 알아야 할 일정. note = 이 사용자가 나중에 기억해야 할 사실·약속·결정. org = '내 담당조직' 중 한 곳의 소식(조직보고에 넣을 것). area = '내 사업' 중 하나의 소식(사업보고에 넣을 것).",
+  "방향: '나'(이 사용자)가 다른 사람·조직에게 부탁·요청·지시·문의한 일은 그 사람이 할 일이다. 이 사용자의 task로 고르지 않는다. 상대의 '네'·'알겠습니다'·'보내겠습니다' 같은 답도 상대가 할 일이다. 이 사용자에게 온 부탁·요청(상대 → 나)만 task다.",
+  "고른 기록마다 from_me를 쓴다: 그 일이 이 사용자가 남에게 부탁·요청·지시한 일(상대가 할 일)이면 true, 이 사용자에게 온 일이거나 부탁과 상관없으면 false. 누가 누구에게 부탁했는지 재료에서 분명하지 않으면 task로 고르지 않는다.",
   "고르지 않을 것: 다섯 어디에도 안 드는 것, 남의 단체 성명·보도자료·기사 단순 공유, 안부·잡담·단순 연락·광고성 글, 이 사용자와 상관없는 다른 조직 일, '이미 있는 것' 목록과 같은 내용. 애매하면 고르지 않는다. '고를 수 있는 수'를 넘기지 않는다. 없으면 items를 빈 배열로 둔다.",
   "org·area는 '내 담당조직'·'내 사업' 목록에 있는 것과 맞을 때만 쓴다. 목록이 비었거나 맞는 곳이 없으면 org·area로 고르지 않는다.",
   "고른 기록마다 org(관련 조직 이름, 모르면 빈 문자열, 60자 안), line(한 줄 요약, 120자 안팎·160자를 넘지 않음), why(왜 이 종류인지 한 줄, 40자 안 — 예: 조직 이름, 사업 이름, '11.14. 14:00', '집행위 안건으로 올리기')를 쓴다. 번호는 재료의 번호 그대로 쓴다.",
@@ -130,9 +135,9 @@ export const MEMORABLE_SCHEMA = {
         type: "object",
         properties: {
           n: { type: "integer" }, kind: { type: "string", enum: [...MEMORABLE_KINDS] },
-          org: { type: "string" }, line: { type: "string" }, why: { type: "string" },
+          org: { type: "string" }, line: { type: "string" }, why: { type: "string" }, from_me: { type: "boolean" },
         },
-        required: ["n", "kind", "org", "line", "why"],
+        required: ["n", "kind", "org", "line", "why", "from_me"],
         additionalProperties: false,
       },
     },
@@ -150,6 +155,9 @@ const cleanLine = (t: unknown, max: number): string | null => {
 };
 
 export type Pick = { feed_item_id: string; source: "call" | "telegram"; org_name: string | null; line: string; kind: MemorableKind; reason: string };
+// S61-9: 이 사용자가 남에게 부탁한 일(from_me=true)을 이 사용자의 할 일(task)로 고른 항목은 버린다(상대가 할 일).
+// from_me가 없던 옛 답 형식은 false로 본다(이 검사 전과 같음). task가 아닌 종류(일정·기억할 것·조직·사업)는 방향과 상관없이 받는다.
+export const askedByMe = (kind: unknown, fromMe: unknown) => kind === "task" && fromMe === true;
 // AI 답 검사. 보낸 번호만 받고, 같은 번호는 한 번만, 종류가 다섯 밖이거나 줄·이유가 틀리면 그 항목만 버린다. max개까지. 전체가 깨졌으면 null.
 // 저장할 이유 = '종류 이름 · why'(why가 비면 종류 이름만, 60자 안).
 // cap: ④ 다시 판정만 MEMORABLE_RECHECK_KEEP_MAX(그 밖의 값은 MEMORABLE_MAX_PICKS로 본다).
@@ -164,9 +172,10 @@ export function parseMemorable(raw: string, sent: FeedRow[], max = MEMORABLE_MAX
   for (const it of items) {
     if (out.length >= limit) break;
     if (!it || typeof it !== "object") continue;
-    const { n, org, line, kind, why } = it as Record<string, unknown>;
+    const { n, org, line, kind, why, from_me } = it as Record<string, unknown>;
     if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > sent.length || seen.has(n)) continue;
     if (typeof kind !== "string" || !(MEMORABLE_KINDS as readonly string[]).includes(kind)) continue;
+    if (askedByMe(kind, from_me)) continue;
     const l = cleanLine(line, MEMORABLE_LINE_CHARS), o = cleanLine(org, MEMORABLE_ORG_CHARS), w = cleanLine(why, MEMORABLE_WHY_CHARS);
     if (!l || o === null || w === null) continue;
     seen.add(n);

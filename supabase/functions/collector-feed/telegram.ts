@@ -55,6 +55,7 @@ export const TELEGRAM_INSTRUCTIONS = [
   "할 일: 이 중 남겨 둘 만한 소식만 골라 소식 단위로 묶고 요약한다.",
   "중요한 것: 노조, 산하 조직, 기관, 교섭, 투쟁, 회의, 일정, 자료, 정책, 인사, 언론 중 하나라도 구체적인 내용이 있는 것.",
   "개인 대화방이면 업무뿐 아니라 대화 상대와의 약속·일정·부탁·챙겨야 할 일·기억해 둘 개인 사정(건강, 경조사, 가족 일정 등)도 소식으로 남긴다. 누가 누구에게 무엇을 부탁했는지, 날짜와 시각이 있으면 그대로 쓴다.",
+  "업무 단체방이든 개인 대화방이든 소식에 부탁·요청·지시·문의가 있으면 summary에 누가 누구에게 부탁했는지를 그대로 쓴다(예: '나가 ○○지부에 자료를 요청함', '○○지부가 나에게 회신을 요청함'). '나'가 부탁한 일을 '나'가 부탁받은 일처럼 쓰지 않는다.",
   "버리는 것: 잡담, 인사, 안부, 이모티콘, 단순 '확인했습니다'·'네', 광고, 택배·쇼핑 같은 일회성 생활 소식. 위에서 남기라고 한 약속·일정·부탁·챙길 일·개인 사정은 버리지 않는다. 버린 메시지는 어디에도 쓰지 않는다.",
   "예정이나 계획을 확정된 일로 바꾸지 않는다('가기로 함'을 '감'으로, '될 것 같음'을 '됨'으로 쓰지 않는다). 추측해서 덧붙이지 않는다.",
   "같은 일에 대한 메시지 여러 개(질문과 답, 이어지는 글)는 소식 하나로 묶는다. 소식 하나는 1~2문장, 400자 안쪽 summary로 쓴다.",
@@ -181,8 +182,10 @@ export function askEvidence(m: TgMessage, senderNames: ReadonlyMap<string, strin
 
 // ask_me 검사(FEAT-1029 ⑤). 칸이 없거나 ask가 true가 아니면 null. 틀린 요청은 그 요청만 버리고 소식은 살린다(dropped로 센다).
 // - quote는 입력에 있는 메시지 참조여야 하고, '나'가 보낸 메시지면 버린다(내 말은 나한테 온 요청이 아님).
+// - S61-9 FORGET-요청방향: 그 소식의 근거 메시지(refs)가 모두 '나'가 보낸 것이면 버린다 — 내가 남에게 한 부탁('다들 ~해 주세요' 포함)은
+//   상대가 할 일이고, 나에게 온 요청이 아니다(근거 메시지 하나만 보던 검사를 소식 전체로 넓힘).
 // - due는 실제 있는 날짜(YYYY-MM-DD)만, 아니면 기한 없음.
-function parseAsk(raw: unknown, messageCount: number, selfAt: (i: number) => boolean): { ask: TgAsk | null; dropped: boolean } {
+function parseAsk(raw: unknown, messageCount: number, selfAt: (i: number) => boolean, refs: number[] = []): { ask: TgAsk | null; dropped: boolean } {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ask: null, dropped: false };
   const a = raw as Record<string, unknown>;
   if (a.ask !== true) return { ask: null, dropped: false };
@@ -190,6 +193,7 @@ function parseAsk(raw: unknown, messageCount: number, selfAt: (i: number) => boo
   const m = typeof a.quote === "string" ? /^m([1-9]\d{0,3})$/.exec(a.quote.trim()) : null;
   const quote = m ? Number(m[1]) - 1 : -1;
   if (!request || quote < 0 || quote >= messageCount || selfAt(quote)) return { ask: null, dropped: true };
+  if (refs.length && refs.every((i) => selfAt(i))) return { ask: null, dropped: true };
   const d = typeof a.due === "string" ? a.due.trim() : "";
   const t = /^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(`${d}T00:00:00Z`) : NaN;
   const due = Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === d ? d : null;
@@ -241,7 +245,7 @@ export function parseTelegram(text: string | null, messageCount: number, orgs: L
     if (!refs.length || !summary) { dropped++; continue; }
     const org = typeof it.organization === "string" ? it.organization.trim() : "", proj = typeof it.project === "string" ? it.project.trim() : "";
     if ((org && !orgRef.has(org)) || (proj && !projRef.has(proj))) unlinked++;
-    const asked = parseAsk(it.ask_me, messageCount, selfAt);
+    const asked = parseAsk(it.ask_me, messageCount, selfAt, refs);
     if (asked.dropped) askDropped++;
     out.push({
       title: typeof it.title === "string" ? cleanLine(it.title, TG_LIMITS.title) : null,
