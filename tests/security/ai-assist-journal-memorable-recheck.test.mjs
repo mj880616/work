@@ -57,6 +57,12 @@ function harness({features=['calls','telegram'],memo=[],feeds=[],picks=[],cands=
         if(!rows.some(r=>r.memorable_id===x.memorable_id))rows.push({...x});}
       return respond('',201);
     }
+    if(table==='app_journal_memorable_picks'&&method==='PATCH'){
+      // S61-11: 다시 판정이 거꾸로 적힌 '할 일' 줄의 종류만 상대 약속으로 바꾼다(표가 허락한 kind·reason만).
+      assert.deepEqual(Object.keys(b).sort(),['kind','reason'],'only kind and reason');assert.equal(b.kind,'promise');
+      for(const r of rows)if(visible(r)&&matches(r,url))Object.assign(r,b);
+      return new Response(null,{status:204});
+    }
     if(table==='app_journal_memorable'&&method==='PATCH'){
       assert.deepEqual(Object.keys(b).sort(),['decided_at','status'],'only status and decided_at');assert.equal(b.status,'dropped');
       for(const r of rows)if(visible(r)&&matches(r,url))Object.assign(r,b);
@@ -194,4 +200,50 @@ test('pure split: keep up to ten, judged-but-not-picked and unjudgeable drop, un
   assert.equal(jm.parseMemorable(JSON.stringify({items}),rows,9,jm.MEMORABLE_RECHECK_KEEP_MAX).length,8);
   assert.match(jm.memorableMaterial('2026-11-09',rows,{max:9}),/최대 5개/);
   assert.match(jm.memorableMaterial('2026-11-09',rows,{max:9,cap:99}),/최대 5개/,'only the recheck cap can raise it');
+});
+
+// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 방향 규칙(S61-9) 전에 '할 일'로 고른 처리 전 줄도 다시 보고, 거꾸로 적힌 줄은 종류만 상대 약속으로.
+test('S61-11: suspect task lines picked before the direction rule are re-judged; reversed ones become promise (kind only), the rest stay untouched',async()=>{
+  const pk=(n,kind,at)=>({memorable_id:lid(n),workspace_id:WS,kind,reason:kind==='task'?'할 일 · 옛 이유':'일정 · x',picked_at:at});
+  const memo=[line(1,'2026-11-08'),line(2,'2026-11-08'),line(3,'2026-11-07'),line(4,'2026-11-07'),line(5,'2026-11-06')];
+  // 1·2: 방향 규칙 전 '할 일'(suspect) / 3: 방향 규칙 뒤 '할 일'(대상 아님) / 4: 방향 규칙 전 '일정'(대상 아님) / 5: 종류 없는 옛 줄
+  const picks=[pk(1,'task','2026-11-08T01:00:00Z'),pk(2,'task','2026-11-08T01:00:00Z'),pk(3,'task','2026-11-13T01:00:00Z'),pk(4,'event','2026-11-07T01:00:00Z')];
+  const ai=(req)=>{
+    const sent=req.input[1].content;
+    assert.ok(/가상 통화 1/.test(sent)&&/가상 통화 2/.test(sent)&&/가상 통화 5/.test(sent),'suspects and the old line are sent');
+    assert.ok(!/가상 통화 3/.test(sent)&&!/가상 통화 4/.test(sent),'new-rule and non-task lines are not sent');
+    const order=[...sent.matchAll(/가상 통화 (\d)/g)].map(m=>Number(m[1])); // 번호 = 보낸 순서
+    const n=k=>order.indexOf(k)+1;
+    return respond(answer([
+      {n:n(1),kind:'task',org:'가상지부',line:'가상지부 자료 보내기.',why:'자료 요청',from_me:true}, // 거꾸로 → 상대 약속
+      {n:n(2),kind:'task',org:'',line:'가상 회신하기.',why:'회신',from_me:false},                 // 그대로 할 일
+      {n:n(5),kind:'task',org:'가상지부',line:'가상지부 명단 보내기.',why:'명단 요청',from_me:true}])); // 옛 줄 → 상대 약속으로 남김
+  };
+  const h=harness({memo,feeds:[feed(1),feed(2),feed(3),feed(4),feed(5)],picks,openai:ai});
+  const before=snapshot(h.db);
+  const p=await (await post(h.handler,preview)).json();
+  assert.deepEqual([p.target,p.keep,p.drop,p.left,p.promise],[3,1,0,0,2]);
+  assert.equal(snapshot(h.db),before,'preview changes nothing');
+  const r=await (await post(h.handler,run)).json();
+  assert.deepEqual([r.keep,r.drop,r.promise],[1,0,2]);
+  assert.deepEqual(r.promise_ids.sort(),[lid(1),lid(5)].sort());
+  const kinds=Object.fromEntries(h.db.app_journal_memorable_picks.map(x=>[x.memorable_id,[x.kind,x.reason]]));
+  assert.deepEqual(kinds[lid(1)],['promise','상대 약속 · 자료 요청']);
+  assert.deepEqual(kinds[lid(2)],['task','할 일 · 옛 이유'],'kept as task: unchanged');
+  assert.deepEqual(kinds[lid(3)],['task','할 일 · 옛 이유'],'new-rule task: untouched');
+  assert.deepEqual(kinds[lid(4)],['event','일정 · x']);
+  assert.deepEqual(kinds[lid(5)],['promise','상대 약속 · 명단 요청']);
+  assert.ok(h.db.app_journal_memorable.every(m=>m.status==='suggested'),'no line is dropped or deleted');
+  assert.ok(!/가상/.test(JSON.stringify(h.calls.logs)),'logs have counts only');
+  // 사람이 그 사이 종류를 바꾼 줄은 바꾸지 않는다(PATCH는 kind=eq.task 조건).
+  assert.ok(h.calls.rest.filter(c=>c.table==='app_journal_memorable_picks'&&c.method==='PATCH').every(c=>/kind=eq\.task/.test(c.query)));
+});
+test('S61-11: AI saying a suspect is not reversed changes nothing and drops nothing',async()=>{
+  const memo=[line(1,'2026-11-08')];
+  const picks=[{memorable_id:lid(1),workspace_id:WS,kind:'task',reason:'할 일 · 옛 이유',picked_at:'2026-11-08T01:00:00Z'}];
+  const h=harness({memo,feeds:[feed(1)],picks,openai:()=>respond(answer([]))});
+  const before=snapshot(h.db);
+  const r=await (await post(h.handler,run)).json();
+  assert.deepEqual([r.target,r.keep,r.drop,r.left,r.promise],[1,0,0,0,0]);
+  assert.equal(snapshot(h.db),before);
 });
