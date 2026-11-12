@@ -80,7 +80,7 @@ test('screen: ⋯ menu with [내 일 아님] on the candidate list, shared ancho
   assert.doesNotMatch(readFileSync('app/todo-radar.js','utf8'),/export function mountRadar/);
   for(const f of ['app/inbox-todos.js']){
     const src=readFileSync(f,'utf8');
-    assert.match(src,/import \{createAnchoredMenu\} from '\.\/anchored-menu\.js'/,f);
+    assert.match(src,/import \{createAnchoredMenu(, keepMenus)?\} from '\.\/anchored-menu\.js'/,f);
     assert.match(src,/>내 일 아님<\/button>/,f);assert.match(src,/aria-label="더 보기"/,f);assert.match(src,/markNotMine\(c, rt\)/,f);
   }
   assert.doesNotMatch(readFileSync('app/profile-settings.js','utf8'),/todo-rules-settings|calendar-ref-settings|phone-reopen/,'프로필에 챙길 것 기준·참고 캘린더·다시 연 기록 칸이 없다(요청함 11/04)');
