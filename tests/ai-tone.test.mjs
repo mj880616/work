@@ -96,6 +96,7 @@ const EXCLUDED = new Map([
   ['ai-assist/business-area.ts', '사업영역 추천(참조만 답함) — 문장 말투 규칙과 무관(사업요약표 진행 칸 한 줄은 S49-39에서 없앰)'],
   ['ai-assist/note-title.ts', '노트 목록의 짧은 명사형 제목(제목, 문장 아님 — 10/28 09:24 말투 규칙과 무관)'],
   ['ai-assist/record-one-line.ts', '조직 기록 표의 개조식 한 줄(명사형 요약, 문장 아님 — 말투 규칙과 무관, RECORD-한줄AI요약)'],
+  ['ai-assist/library-sort.ts', '받는 폴더 자료를 나눌 폴더 번호·새 폴더 이름과 짧은 까닭(폴더 고르기, 요약 문장 아님 — LIB-받는폴더나누기)'],
   ['ai-assist/file-name.ts', '첨부 파일 이름 추천(명사형 파일 이름, 문장 아님 — ATT-이름고치기)'],
   ['ai-assist/work-scope.ts', '오늘 한 일 줄마다 업무·개인 판정(ref·work|personal만 답함, 문장 아님 — JOURNAL-오늘한일업무개인)'],
   ['library-files/index.ts', '자료 제목 찾기(제목, 문장 아님)'],

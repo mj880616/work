@@ -75,7 +75,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     const reason=[...data.recent,...data.all].find(r=>r.reason)?.reason;
     note.hidden=!reason;note.textContent=reason?`흐린 폴더는 ${reason}. 묶기를 ‘폴더’로 바꾸면 선택할 수 있어요.`:'';
     if(!withFoot){foot.replaceChildren();position();return}
-    foot.innerHTML=`<button type="button" class="lu-move-foot-btn" data-lu-move-new${state.canNew?'':' aria-disabled="true"'}>+ 새 폴더 만들어 넣기</button>${state.canOut?'<button type="button" class="lu-move-foot-btn" data-lu-move-out>폴더 밖으로</button>':''}`;
+    foot.innerHTML=`<button type="button" class="lu-move-foot-btn" data-lu-move-new${state.canNew?'':' aria-disabled="true"'}>+ 새 폴더 만들어 넣기</button>${state.canOut?`<button type="button" class="lu-move-foot-btn" data-lu-move-out>${esc(state.outLabel||'폴더 밖으로')}</button>`:''}`;
     position();
   }
 
@@ -105,7 +105,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     panel.style.left=Math.round(left)+'px';panel.style.top=Math.round(Math.max(EDGE,top))+'px';panel.style.right='auto';panel.style.bottom='auto';
   }
 
-  // opts: {anchor, place:'side'|'below', rows(query)->{recent,all,total}, canOut, canNew, history, onPick(id), onNew(), onOut(), onClosed()}
+  // opts: {anchor, place:'side'|'below', rows(query)->{recent,all,total}, canOut, outLabel(기본 '폴더 밖으로'), canNew, history, onPick(id), onNew(), onOut(), onClosed()}
   function open(opts){
     ensure();
     if(closing){closing.then(()=>open(opts));return}

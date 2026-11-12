@@ -72,6 +72,10 @@ import {
   FILE_NAME_INSTRUCTIONS, FILE_NAME_MAX_OUTPUT_TOKENS, FILE_NAME_SCHEMA, fileNameMaterial, noteOcrText, parseFileNameAnswer, parseFileNameRequest, type FileNameRequest,
 } from "./file-name.ts";
 import {
+  LIBRARY_SORT_INSTRUCTIONS, LIBRARY_SORT_MAX_FOLDERS, LIBRARY_SORT_MAX_OUTPUT_TOKENS, LIBRARY_SORT_SCHEMA, librarySortMaterial, parseLibrarySort,
+  parseLibrarySortRequest, type LibrarySortRequest, type SortDoc, type SortFolder,
+} from "./library-sort.ts";
+import {
   JOURNAL_DRAFT_BODY_BYTES, JOURNAL_DRAFT_HOUR, JOURNAL_DRAFT_INSTRUCTIONS, JOURNAL_DRAFT_MAX_OUTPUT_TOKENS, JOURNAL_DRAFT_SCHEMA,
   journalDraftMaterial, parseJournalDraft, parseJournalDraftRequest, seoulHour,
 } from "./journal-draft.ts";
@@ -191,7 +195,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, home_day_picks: 8, next_week_sheet: 5, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, library_sort: 30, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, journal_memorable_recheck: 6, home_day_picks: 8, next_week_sheet: 5, share_draft: SHARE_LIMITS.daily, pre_meeting_sheet: PRE_MEETING_DAILY, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -519,6 +523,7 @@ type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
 type RecordOneLineInput = { kind: "record_one_line"; id: string };
 type FileNameInput = { kind: "file_name" } & FileNameRequest;
+type LibrarySortInput = { kind: "library_sort" } & LibrarySortRequest;
 type JournalDraftInput = { kind: "journal_draft"; day: string; lines: string[] };
 type JournalMemorableInput = { kind: "journal_memorable"; day: string };
 type JournalMemorableRecheckInput = { kind: "journal_memorable_recheck"; mode: "preview" | "run" };
@@ -564,7 +569,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | LibrarySortInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -679,6 +684,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     return { kind: "hwp_convert", ...parsed };
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
+  // 받는 폴더 나누기(LIB-받는폴더나누기, library-sort.ts): 자료 id 1~40개만 받는다(폴더·글은 서버가 읽음).
+  if (b.kind === "library_sort") {
+    const parsed = parseLibrarySortRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "library_sort", ...parsed };
+  }
   if (b.kind === "share_draft") {
     const parsed = parseShareBody(b);
     if (!parsed) throw new Fail(400, "invalid_request");
@@ -4729,6 +4740,79 @@ async function runFileName(ctx: Ctx, input: FileNameInput, deps: RadarDeps): Pro
   return json({ ok: true, kind: "file_name", name });
 }
 
+// ---- 쓰임 library_sort: 받는 폴더 자료 나누기 제안(LIB-받는폴더나누기, library-sort.ts) ---------------------------------------------
+// 저장하지 않는다(제안만). 자료·폴더·자료 연결은 내 로그인 토큰 + 내 작업공간 거르기로만 읽는다(다른 작업공간 것은 RLS와 거르기 두 겹으로 안 보임).
+// 지금 그 자료들이 든 폴더는 후보에서 뺀다. 후보 폴더가 없거나 읽을 자료가 없으면 AI를 부르지 않는다(사용량에 잡지 않음).
+async function runLibrarySort(ctx: Ctx, input: LibrarySortInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId), ids = input.document_ids;
+  const skip = (reason: string) => { deps.log("library_sort_skipped", { reason }); return json({ ok: true, kind: "library_sort", items: [], skipped: reason }); };
+  let docRows: unknown, folderRows: unknown, itemRows: unknown;
+  try {
+    [docRows, folderRows, itemRows] = await Promise.all([
+      rest(ctx, `app_documents?id=in.(${ids.join(",")})&workspace_id=eq.${ws}&select=id,workspace_id,title,file_name,category,extracted_text,extraction_status&limit=${ids.length + 1}`),
+      rest(ctx, `app_library_folders?workspace_id=eq.${ws}&select=id,workspace_id,parent_id,name&order=sort_order.asc,created_at.asc&limit=${LIBRARY_SORT_MAX_FOLDERS + 1}`),
+      rest(ctx, `app_library_folder_items?workspace_id=eq.${ws}&document_id=in.(${ids.join(",")})&select=document_id,folder_id,workspace_id&limit=${ids.length + 1}`),
+    ]);
+  } catch {
+    throw new Fail(503, "library_unavailable");
+  }
+  if (!Array.isArray(docRows) || !Array.isArray(folderRows) || !Array.isArray(itemRows)) throw new Fail(503, "library_unavailable");
+  const mine = (r: Record<string, unknown>) => String(r?.workspace_id ?? "").toLowerCase() === ctx.workspaceId;
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const docs: SortDoc[] = (docRows as Record<string, unknown>[]).filter((r) => mine(r) && ids.includes(String(r.id).toLowerCase())).map((r) => ({
+    id: String(r.id).toLowerCase(), title: str(r.title).trim() || str(r.file_name), category: str(r.category) || null,
+    text: r.extraction_status === "ready" ? str(r.extracted_text) : "",
+  }));
+  if (!docs.length) throw new Fail(404, "not_found");
+  const current = new Set((itemRows as Record<string, unknown>[]).filter(mine).map((r) => String(r.folder_id ?? "").toLowerCase()));
+  const all: SortFolder[] = (folderRows as Record<string, unknown>[]).filter(mine).map((r) => ({ id: String(r.id).toLowerCase(), name: str(r.name), parent_id: r.parent_id ? String(r.parent_id).toLowerCase() : null }));
+  const { material, fref, dref } = librarySortMaterial(docs, all, current);
+  if (!fref.size) return skip("no_folders");
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "library_sort", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: LIBRARY_SORT_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: LIBRARY_SORT_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "library_sort", strict: true, schema: LIBRARY_SORT_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LIBRARY_SORT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const items = parseLibrarySort(outputText(result.raw, 64 * 1024) ?? "", fref, dref);
+  if (!items) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  deps.log("library_sort_done", { documents: docs.length, folders: fref.size, items: items.length });
+  return json({ ok: true, kind: "library_sort", items });
+}
+
 // ---- 사업영역 AI(MTG-프로젝트합치기, business-area.ts) ------------------------------------------------------------------
 // 쓰기 창 추천(area_suggest). 월 AI 상한·하루 횟수 안에서만, 부르면 사용량 줄(app_ai_daily_usage)에 더한다.
 // AI를 부르지 않는 경우(고친 요약·같은 지문의 저장된 요약·보고 없음·짧거나 비밀 모양 글)는 사용량에 잡지 않는다.
@@ -5192,6 +5276,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "record_one_line") return await runRecordOneLine(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "file_name") return await runFileName(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "library_sort") return await runLibrarySort(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_draft") return await runJournalDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_memorable") return await runJournalMemorable(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "journal_memorable_recheck") return await runJournalMemorableRecheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
