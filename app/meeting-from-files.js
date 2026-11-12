@@ -32,7 +32,7 @@ const ROLE_LABEL={result:'결과',material:'자료'};
 
 let files=[],textItems=[],lastText='',seq=0,saving=false,generation=0,hwp=null,readQueue=Promise.resolve(),typingTimer=0;
 const confirmed=new Set(),opened=new Map(),textOverride=new Map(),textSaved=new Map();
-let runMessage='';
+let runMessage='',painting=false;
 
 const modal=()=>$('#meetingModal');
 const rt=()=>window.KPTURuntime;
@@ -69,6 +69,9 @@ function install(){
   const list=$('#mffList');
   list.addEventListener('change',onListChange);
   list.addEventListener('click',onListClick);
+  // 다시 그리는 동안 이어 쓰던 칸(아래 restoreFocus의 data-mff-pending)은 칸을 떠날 때 고친 값으로 반영한다.
+  // 고친 글을 코드로 되돌려 넣은 칸은 브라우저가 change를 내지 않으므로 여기서 같은 반영 길(onListChange)로 보낸다.
+  list.addEventListener('focusout',e=>{const f=e.target.closest?.('[data-mff-pending]');if(!f||painting||!f.isConnected)return;delete f.dataset.mffPending;if(f.value!==f.defaultValue)onListChange({target:f})});
   list.addEventListener('toggle',e=>{const row=e.target.closest?.('[data-mff-anchor]');if(row)opened.set(row.dataset.mffAnchor,row.open)},true);
   bindDropTarget($('#mffPanel'),files=>void addFilesChecked(files),()=>!saving&&mode()==='files');
   setMode('manual');
@@ -177,6 +180,9 @@ function paintMffUploads(){
 watchUploads(()=>{if(files.some(i=>i.handed)&&!modal()?.classList.contains('hidden'))paintMffUploads()});
 function paint(){
   const list=$('#mffList');if(!list)return;
+  painting=true;try{paintList(list)}finally{painting=false}
+}
+function paintList(list){
   const focus=document.activeElement&&list.contains(document.activeElement)?focusKey(document.activeElement):null;
   const groups=plan();
   // S53-20 MTG-비정기회의접기: 종류 칸 추천 목록에는 정기 회의명만(비정기·지운 회의명은 안 보임, 회의명 창에서 정리를 읽은 뒤). 이미 있는 회의와 맞추기(kinds)는 모두 그대로.
@@ -198,10 +204,16 @@ function paint(){
   const text=$('#mffText');if(text)text.readOnly=saving||textSaved.size>0;
   const pick=$('#mffPick');if(pick)pick.disabled=saving;
 }
+// STAB-회의자료이름시험: 결과 파일 본문 읽기가 끝나면 표를 다시 그린다. 그때 사람이 종류·차수·날짜 칸에 쓰던 글(아직 반영 전)이
+// 처음 값으로 돌아가 사라지던 문제 — 초점과 함께 쓰던 글·커서도 새 칸에 옮기고, 반영은 칸을 떠날 때(focusout) 한다.
 function focusKey(el){
   const row=el.closest('[data-mff-anchor]');
   if(el.dataset.mffRole)return {sel:`[data-mff-role="${CSS.escape(el.dataset.mffRole)}"]`};
-  if(el.dataset.mffField&&row)return {sel:`[data-mff-field="${el.dataset.mffField}"]`,items:groupIds(row)};
+  if(el.dataset.mffField&&row){
+    const typed=el.value!==el.defaultValue?el.value:null;
+    let caret=null;try{caret=[el.selectionStart,el.selectionEnd]}catch{}
+    return {sel:`[data-mff-field="${el.dataset.mffField}"]`,items:groupIds(row),typed,caret};
+  }
   if(row&&el.matches('summary'))return {sel:'summary',items:groupIds(row)};
   return null;
 }
@@ -210,7 +222,11 @@ function restoreFocus(key){
   const list=$('#mffList');
   if(!key.items){list.querySelector(key.sel)?.focus({preventScroll:true});return}
   const row=[...list.querySelectorAll('[data-mff-anchor]')].find(r=>key.items.includes(r.dataset.mffAnchor)||groupIds(r).some(id=>key.items.includes(id)));
-  row?.querySelector(key.sel)?.focus({preventScroll:true});
+  const el=row?.querySelector(key.sel);
+  if(!el)return;
+  if(key.typed!=null&&!el.disabled){el.value=key.typed;el.dataset.mffPending='1'}
+  el.focus({preventScroll:true});
+  if(key.typed!=null&&key.caret?.[0]!=null)try{el.setSelectionRange(key.caret[0],key.caret[1])}catch{}
 }
 function rowItems(row){
   const groups=plan(),g=groups.find(x=>x.anchor===row.dataset.mffAnchor);
@@ -222,6 +238,7 @@ function onListChange(e){
   if(role){const item=files.find(i=>i.id===role.dataset.mffRole);if(item){item.role=role.value;if(item.role==='result')queueRead(item);paint()}return}
   const field=e.target.closest('[data-mff-field]');
   if(!field)return;
+  delete field.dataset.mffPending;
   const row=field.closest('[data-mff-anchor]'),name=field.dataset.mffField;
   const value=name==='round'?(Number(field.value)>0?Math.floor(Number(field.value)):null):field.value.trim();
   for(const item of rowItems(row)){
