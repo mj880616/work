@@ -3,6 +3,7 @@
 // 단계: combine(구간 합치기, recording만) → transcribe(구간·파일 하나씩) → summary(요약 한 번씩, 긴 글은 조각 → 합치기) → done.
 // 한 번의 서버 호출은 한 단계만 하고 같은 함수의 job_tick을 다시 불러 다음 단계로 간다(index.ts). 여기서는 DB·네트워크를 쓰지 않는다.
 import { DRAFT_ONE_CHARS, splitTranscript } from '../_shared/meeting-draft-prompt.mjs';
+import { isThin, thinNote } from './model.mjs';
 
 export const SERVER_JOB_TABLE = 'app_meeting_server_jobs';
 export const SERVER_JOB_COLUMNS = 'id,workspace_id,created_by,kind,session_id,document_id,meeting_id,source_file_id,source_md5,status,stage,step_no,step_total,parts,summary_parts,transcript_text,draft,error_code,lease_until,attempts,started_at,finished_at,opened_at,created_at,updated_at';
@@ -96,11 +97,14 @@ export const partTotal = (parts) => (Array.isArray(parts) ? parts : []).filter((
 // 조각 모양: 원래 자리 {no, seconds, job|file, text:null}를 같은 no·같은 job|file의 {…, seconds: 조각 길이, range:{from,to}, text:null} 여러 개로 바꾼다
 // (to null = 파일 끝까지). 끝난 조각 글은 그대로 두고 nextPart가 다음 조각부터 잇는다. 진행 표시(doneParts/partTotal)도 조각 수로 센다.
 // ranges: split.mjs chunkRanges·halveRange 결과({from,to,seconds}). 자리가 없거나 이미 글이 있거나 ranges가 둘 미만이면 그대로.
-export function splitPart(parts, i, ranges) {
+// retry(S60-17): 'thin'이면 글이 적어 다시 묻는 조각 표시(retry:'thin')를 붙인다 — 그 조각들은 글이 적어도 더 나누지 않는다(무한 재시도 막기).
+// 표시는 나뉜 조각이 또 나뉘어도(되풀이·잘림) 이어진다(...p).
+export function splitPart(parts, i, ranges, retry = '') {
   const list = Array.isArray(parts) ? [...parts] : [];
   const p = list[i];
   if (!p || p.text !== null || !(p.job || p.file) || !Array.isArray(ranges) || ranges.length < 2) return list;
-  const subs = ranges.map((r) => ({ ...p, seconds: Math.max(1, Math.round(Number(r.seconds) || 0)), range: { from: r.from, to: r.to ?? null }, text: null }));
+  const mark = retry === 'thin' ? { retry: 'thin' } : {};
+  const subs = ranges.map((r) => ({ ...p, ...mark, seconds: Math.max(1, Math.round(Number(r.seconds) || 0)), range: { from: r.from, to: r.to ?? null }, text: null }));
   list.splice(i, 1, ...subs);
   return list;
 }
@@ -118,15 +122,22 @@ export function joinParts(parts) {
   // 같은 no의 시간 조각(range)은 시작 시각 순(REC-긴녹음나눠전사). 조각 사이에도 '― N분부터 ―' 머리 줄이 들어간다.
   const from = (p) => Number(p?.range?.from) || 0;
   const list = (Array.isArray(parts) ? parts : []).slice().sort((a, b) => a.no - b.no || from(a) - from(b));
+  // S60-17: 다시 물어도 글이 적었던 조각(thin = 그 조각 소리 길이, 초)은 글 맨 앞에 '(이 구간은 글이 적어요 m:ss~m:ss)' 줄을 둔다.
   let offset = 0; const out = [];
   for (const p of list) {
     const head = offset > 0 ? `― ${minuteText(offset / 60)}부터 ―` : '';
-    const text = String(p.text ?? '').trim();
+    const len = Math.max(0, Number(p.seconds) || 0) || Math.max(0, Number(p.thin) || 0);
+    let text = String(p.text ?? '').trim();
+    if (text && Number(p.thin) > 0) text = `${thinNote(offset, offset + len)}\n${text}`;
     if (text) out.push(head ? `${head}\n${text}` : text);
     offset += Math.max(0, Number(p.seconds) || 0);
   }
   return out.join('\n\n');
 }
+// 글이 적은 조각이 있나(S60-17). 표시(thin)가 있거나, 표시가 생기기 전 결과라도 조각 길이(초)에 비해 글이 적으면(isThin) 참.
+// 같은 파일 결과 다시 쓰기(jobStart attached)에서 이런 결과는 다시 쓰지 않고 새로 전사한다([다시]가 같은 짧은 글을 돌려주지 않게).
+export const hasThinPart = (parts) => (Array.isArray(parts) ? parts : []).some((p) => p && typeof p.text === 'string' && p.text.trim()
+  && (Number(p.thin) > 0 || isThin(p.text, Number(p.seconds) || 0)));
 // 전사 글 정리(화면 cleanTranscript와 같은 규칙, 자막 파일 줄 빼기는 없음).
 export const cleanText = (text) => String(text || '').replace(/\r\n?/g, '\n').split('\0').join('').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 export const hasWords = (text) => !!String(text || '').replace(/^―.*―$/gm, '').trim();
