@@ -72,7 +72,7 @@ const whenName=id=>{const m=rowOf(id);return m?labelWhen(m,Date.now()):'그 보�
 function fromName(sourceId,targetId){const s=rowOf(sourceId);if(!s)return '';return whenText(atMs(s.meeting_at),atMs(rowOf(targetId)?.meeting_at))||reportName(s)}
 
 // ---- 물음(3-3절) ----
-// S61-5 REC-전사삭제(명진 11/13): 녹음 정리 결과를 열기 전에 묻던 길(ask·회의자료 그 자리 전사 askAttached·join_start {job_id})은 뺐다.
+// S61-5 REC-전사삭제(명진 11/13): 녹음 정리 결과를 열기 전에 묻던 길(ask·회의자료 그 자리 전사·join_start {job_id})은 뺐다.
 //   녹음은 전사하지 않으므로 새 녹음 결과가 없다. 지난 잇기 줄·되돌리기, 보고 합치기, 전사 글 [녹음 요약하기] 물음(askTranscript)은 그대로다.
 // 서버가 잇기를 아는가. 앱을 연 뒤 join_list 답을 아직 못 받았으면(잠깐 끊김 포함) 지금 한 번 묻는다. 모르면 false(지금 길).
 async function joinReady(){

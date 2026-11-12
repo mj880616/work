@@ -43,20 +43,17 @@ test('Edge: job_discard·job_restore는 소유 확인(ownServerJob) 뒤 그 상�
   assert.equal(src.includes('discarded_at'),false,'새 칸 없음(DB 변경 없음)');
 });
 
-test('화면: 정리 끝 띠는 [초안 열기] [삭제], 멈춤 띠 [닫기]는 그대로, 묻는 말·알림 글',()=>{
+// S61-5 REC-전사삭제(명진 11/13): 녹음 띠에 '정리 끝 [초안 열기] [삭제]'는 지금은 없다(초안을 만들지 않음). 버림 표시 서버 규칙·글자는 지난 결과용으로 남는다.
+test('지금은 없음: 녹음 띠에 [초안 열기]·초안 [삭제]가 없고, 저장 끝 띠는 파일 줄 + [닫기]',()=>{
   const src=read('app/meeting-recorder.js');
-  const ready=src.slice(src.indexOf("}else if(state==='ready'){"),src.indexOf("}else if(state==='error'){"));
-  assert.match(ready,/data-rec="open">초안 열기<\/button>/);
-  assert.match(ready,/data-rec="drop"[^>]*>삭제<\/button>/);
-  assert.doesNotMatch(ready,/data-rec="close"/,'[닫기] 뺌');
+  for(const gone of ["state==='ready'",'초안 열기','data-rec="drop"','job_discard','markNoticeOpened'])assert.ok(!src.includes(gone),gone);
+  const saved=src.slice(src.indexOf("}else if(state==='saved'){"),src.indexOf("}else if(state==='error'){"));
+  assert.match(saved,/savedFilesHtml\(savedFiles,'rec'\)/);
+  assert.match(saved,/data-rec="close">닫기/);
   const error=src.slice(src.indexOf("}else if(state==='error'){"),src.indexOf('setText(label,l)'));
-  assert.match(error,/data-rec="close">닫기/,'멈춤 띠 [닫기]는 남음(누르면 서버 닫음 표시 — S60-26)');
-  assert.match(src,/call\('job_discard',\{job_id:job\.id\}\)/);
-  assert.match(src,/call\('job_restore',\{job_id:job\.id\}\)/);
-  assert.match(src,/markNoticeOpened\(rt\(\),item\)/,'폰 알림도 열었음(APP-알림숫자지우기 길)');
+  assert.match(error,/data-rec="close">닫기/);
   assert.deepEqual({...DISCARD_ASK},{text:'이 초안을 삭제할까요?',note:'녹음 소리는 Drive에 남아요.',ok:'삭제',cancel:'취소'});
   assert.equal(discardDoneText({seconds:1500}),'25분 녹음 초안을 삭제했어요');
-  assert.equal(discardDoneText({seconds:10}),'녹음 초안을 삭제했어요');
   assert.deepEqual(meetingDoneNotice({finished_at:'2026-11-12T15:30:00Z'}),{kind:'meeting_done',ref_key:'d2026-11-13'},'서울 날짜');
   assert.equal(meetingDoneNotice({}),null);
 });

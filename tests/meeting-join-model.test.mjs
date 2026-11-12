@@ -139,27 +139,20 @@ test('잇기 문구 표: 서버 글로 실패 코드를 되찾고(서버 표와 
   assert.match(undoFailText('__x__'),/바뀐 것은 없어요/);
 });
 
-test('화면 연결: 물음은 정리 결과를 열기 직전 한 곳, 잇기는 id만 보내고, 할 일은 후보로만', ()=>{
+// S61-5 REC-전사삭제(명진 11/13): 녹음 정리 결과를 열기 전 물음(ask·join_start {job_id})은 지금은 없다. 보고 합치기(merge)는 그대로.
+test('화면 연결: 녹음 결과 잇기 물음은 지금은 없음, 합치기만 사람이 고른 뒤 join_start(id만), 할 일은 후보로만', ()=>{
   const rec=read('app/meeting-recorder.js'),join=read('app/meeting-join.js'),loader=read('app/loader-v2.js');
-  const open=rec.slice(rec.indexOf('async function openServerResult'),rec.indexOf('// 입력 창을 연다.'));
-  assert.ok(open.indexOf('KPTUMeetingJoin.ask(job')>0&&open.indexOf('KPTUMeetingJoin.ask(job')<open.indexOf('openEntry(began'),'물음은 openEntry 앞(설계 3-3절)');
-  // PR-5 (다): 그 자리 전사(attached)도 수정 창에 넣기(fillTranscript) 전에 같은 주인에게 묻는다.
-  const att=open.slice(open.indexOf("kind==='attached'"),open.indexOf("step='초안 열림';note='';paint();\n    // 회의 시각"));
-  assert.ok(att.indexOf('KPTUMeetingJoin.ask(job)')>0&&att.indexOf('KPTUMeetingJoin.ask(job)')<att.indexOf('fillTranscript'),'(다) 물음은 수정 창에 넣기 앞');
-  assert.match(att,/how==='joined'[^\n]*state='idle'/,'(다) 잇기를 고르면 띠를 바로 닫는다');
-  assert.match(open,/how==='joined'[^\n]*state='idle'/,'잇기를 고르면 띠를 바로 닫는다');
-  assert.match(rec,/window\.KPTUMeetingRecorder=\{state:\(\)=>state,mime:MIME,watch,transcribeAttached,ready\}/);
+  for(const gone of ['KPTUMeetingJoin','openServerResult'])assert.ok(!rec.includes(gone),gone);
+  for(const gone of ['async function ask(','async function askAttached(','source:{job_id:job.id}','toBand(','KPTUMeetingRecorder'])assert.ok(!join.includes(gone),gone);
+  assert.match(join,/window\.KPTUMeetingJoin=\{paintDetail,/);
   assert.match(loader,/import\('\.\/meeting-join\.js'\)/);
-  // 잇기 요청 몸통: 고른 보고 id + 녹음 결과 id만(작업공간·소유 값은 서버가 로그인으로 정함, 설계 3-7절)
-  assert.match(join,/call\('join_start',\{target_meeting_id:String\(targetId\),source:\{job_id:job\.id\}\}/);
   assert.doesNotMatch(join,/workspace_id:/,'join_* 몸통에 작업공간 값을 싣지 않는다');
   // 할 일은 후보로만(MTG-할일자동생성금지와 같은 부품) — Google 할 일을 직접 만들지 않는다
   assert.match(join,/addMeetingCandidates\(target,items/);
   assert.doesNotMatch(join,/google-tasks\?action=create|createGoogleTask|candidateToTask/);
   assert.doesNotMatch(join,/\?v=/);
-  // 어느 보고에 이을지는 사람이 고른다: join_start는 물음의 [그 보고에 잇기]·[다른 보고 선택] 뒤(start)와 ⋯ [다른 보고에 합치기]의 고르기 뒤(merge, PR-4)에서만
-  assert.equal((join.match(/call\('join_start'/g)||[]).length,2);
-  assert.ok(join.indexOf("call('join_start'")>join.indexOf('async function start('));
+  // join_start는 ⋯ [다른 보고에 합치기]의 고르기 뒤(merge, PR-4) 한 곳뿐
+  assert.equal((join.match(/call\('join_start'/g)||[]).length,1);
   const merge=join.slice(join.indexOf('async function merge('),join.indexOf('// 그 보고에 마지막으로 적용된 잇기 작업 행'));
   assert.ok(merge.indexOf('await askChoice(')>0&&merge.indexOf('await askChoice(')<merge.indexOf("call('join_start'"),'합칠 보고를 사람이 고른 뒤에만');
 });
@@ -233,35 +226,26 @@ test('PR-5 물음 글·같은 날 범위: (라)는 "회의록 전문이 있는 �
   assert.deepEqual(jm.seoulDayRange(Date.parse('2026-11-11T02:20:00Z')),['2026-11-10T15:00:00.000Z','2026-11-11T15:00:00.000Z']);
 });
 
-test('PR-5 화면 연결: (다)는 전문이 있을 때만·고칠 곳이 정해진 잇기, (라)는 [녹음 요약하기] 전 물음과 join_text(글 + id만), 서버가 모르면 지금 길', ()=>{
+test('PR-5 화면 연결: (다) 회의자료 그 자리 전사는 지금은 없음, (라)는 [녹음 요약하기] 전 물음과 join_text(글만), 서버가 모르면 지금 길', ()=>{
   const join=read('app/meeting-join.js'),draft=read('app/meeting-transcript-draft.js'),detail=read('app/meeting-round-detail.js');
-  // (다) 그 회의에 회의록 전문이 있을 때만(글은 받지 않고 빈 글 아닌 행만), 서버가 알 때만. 고르는 보고는 그 회의 하나(후보를 묻지 않음).
-  const att=join.slice(join.indexOf('async function askAttached('),join.indexOf('async function start('));
-  assert.match(att,/app_meetings\?id=eq\.\$\{enc\(target\)\}&notes=not\.is\.null&notes=neq\.&select=\$\{MEETING_FIELDS\}/);
-  assert.ok(att.indexOf('await joinReady()')<att.indexOf('await askActions('),'서버가 모르면 묻지 않음');
-  assert.doesNotMatch(att,/join_candidates/);
-  assert.match(att,/start\(job,target\)/);
-  assert.match(join,/if\(job\?\.id&&job\.kind==='attached'\)return askAttached\(job\);/);
+  // (다) S61-5 REC-전사삭제: 지금은 없음.
+  assert.ok(!join.includes('askAttached'));assert.ok(!detail.includes('data-mrd-transcribe'));
   // (라) 같은 날 회의록 전문이 있는 [회의] 보고(내 로그인), 서버가 알 때만, 사람이 고른 뒤에만 join_text.
   const txt=join.slice(join.indexOf('async function askTranscript('),join.indexOf('// ---- 진행 줄·끝 줄'));
   assert.match(txt,/meeting_at=gte\.\$\{enc\(from\)\}&meeting_at=lt\.\$\{enc\(to\)\}&notes=not\.is\.null&notes=neq\.&select=\$\{MEETING_FIELDS\}/);
   assert.ok(txt.indexOf('await joinReady()')<txt.indexOf('await askActions('));
   assert.ok(txt.indexOf('await askActions(')<txt.indexOf('startText(target'),'고른 뒤에만');
   assert.match(txt,/action=join_text`,\{method:'POST',body:new Blob\(\[text\],\{type:'text\/plain;charset=utf-8'\}\)/,'몸통 = 글 그대로(JSON 아님)');
-  assert.match(txt,/headers:\{'x-target-meeting-id':String\(targetId\),\.\.\.\(records\.length\?\{'x-record-jobs':records\.join\(','\)\}:\{\}\)\}/);
   assert.doesNotMatch(join,/workspace_id:|x-workspace-id/,'작업공간 값은 싣지 않는다');
   assert.equal((join.match(/action=join_text/g)||[]).length,1);
-  // 입력 창: 사람이 누른 [녹음 요약하기]·[전사] 끝에서만 묻고(옛 화면 정리 fill은 묻지 않음), [새로 만들기] 뒤 같은 창은 다시 묻지 않으며, 잇기면 창을 닫는다.
+  // 입력 창: 사람이 누른 [녹음 요약하기]에서만 묻고, [새로 만들기] 뒤 같은 창은 다시 묻지 않으며, 잇기면 창을 닫는다.
   assert.match(draft,/\$\('#mtdRun'\)\.onclick=\(\)=>void run\(\{ask:true\}\);/);
-  assert.match(draft,/await run\(\{ask:true\}\);/);
-  assert.match(draft,/toggle\(true\);\n  return run\(\);\n\}/,'fill(노트북 녹음 옛 화면 정리 길)은 묻지 않는다');
   const run=draft.slice(draft.indexOf('async function run('),draft.indexOf('// REC-한회의로잇기 PR-5 (라): 묻는 동안'));
   assert.ok(run.indexOf('askJoin(text)')<run.indexOf('keepFull(text)'),'묻고 나서 전문 칸에 넣는다(잇기면 입력 창 칸을 건드리지 않음)');
   assert.match(run,/if\(how==='joined'\)\{joined\(\);return false\}/);
   assert.match(draft,/function joined\(\)\{\n  reset\(\);\n  document\.querySelector\('#meetingModal \[data-close="meetingModal"\]'\)\?\.click\(\);\n\}/);
-  assert.match(draft,/records:\[\.\.\.attachJobs\]/,'붙일 녹음은 [이 회의에 녹음 붙이기]를 켠 것만');
+  assert.match(draft,/records:\[\]/,'붙일 녹음 없음(녹음 붙이기는 지금은 없음)');
   // '자동 저장 없음' 주석 예외(설계 1-4)
-  assert.match(draft,/예외\(REC-한회의로잇기 PR-5/);assert.match(detail,/예외\(REC-한회의로잇기 PR-5/);
-  // 할 일은 후보로만·Google 할 일을 직접 만들지 않음(PR-3과 같음)
+  assert.match(draft,/예외\(REC-한회의로잇기 PR-5/);
   assert.doesNotMatch(join,/google-tasks\?action=create|createGoogleTask|candidateToTask/);
 });

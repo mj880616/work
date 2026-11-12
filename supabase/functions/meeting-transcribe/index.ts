@@ -780,7 +780,7 @@ async function recordingLibraryFolder(userDb: ReturnType<typeof userClient>, ws:
   return made.id as string;
 }
 
-async function recPending(user: { id: string }, body: Record<string, unknown>) {
+async function recPending(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
   const workspaceId = String(body.workspace_id || '');
   await requireOwner(user.id, workspaceId);
   await sweep(workspaceId);
@@ -798,7 +798,8 @@ async function recPending(user: { id: string }, body: Record<string, unknown>) {
     // S61-5 REC-전사삭제: 자료실에 이미 저장한 녹음(같은 Drive 파일의 자료 행이 있음)은 끝난 녹음이다.
     const files = jobs.map(j => j.drive_file_id).filter(Boolean) as string[];
     if (files.length) {
-      const { data: docs, error: docError } = await admin.from('app_documents').select('file_id').eq('workspace_id', workspaceId).in('file_id', files);
+      // 자료 행은 부른 사람 로그인(owner RLS)으로만 읽는다(서비스 권한으로 app_documents를 읽지 않음).
+      const { data: docs, error: docError } = await userDb.from('app_documents').select('file_id').eq('workspace_id', workspaceId).in('file_id', files);
       if (docError) throw new Fail('failed');
       const kept = new Set((docs || []).map(d => d.file_id));
       jobs = jobs.map(j => ({ ...j, saved: kept.has(j.drive_file_id) }));
@@ -1608,7 +1609,7 @@ Deno.serve(withWebCors(async (req: Request) => {
     if (action === 'rec_start') return await recStart(user, body);
     if (action === 'rec_finish') return await recFinish(user, body);
     if (action === 'rec_save') return await recSave(user, userDb, body);
-    if (action === 'rec_pending') return await recPending(user, body);
+    if (action === 'rec_pending') return await recPending(user, userDb, body);
     if (action === 'rec_discard') return await recDiscard(user, body);
     if (action === 'rec_restore') return await recRestore(user, body);
     if (action === 'job_read') return await jobRead(user, body);

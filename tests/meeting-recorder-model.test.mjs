@@ -1,8 +1,8 @@
-// MTG-노트북녹음 2단계: 노트북 [녹음] 순수 규칙(형식·구간 넘김·조각 대기열·재시도·글 합치기·띠 글자)과 화면 연결(정적) 검사.
+// MTG-노트북녹음 2단계: 노트북 [녹음] 순수 규칙(형식·구간 넘김·조각 대기열·재시도·녹음 저장·띠 글자)과 화면 연결(정적) 검사.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,minuteText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan,resumables,takeOverRisk,LIVE_FRESH_SEC} from '../app/meeting-recorder-model.mjs';
+import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,minuteText,stepParts,STEPS,seoulLocal,pendingText,pendingOthers,resumables,takeOverRisk,LIVE_FRESH_SEC,saveRecording,savedFiles,saveFailText,savedFilesHtml,savedBandHeight} from '../app/meeting-recorder-model.mjs';
 import {REC_PIECE_SECONDS,REC_SEGMENT_SECONDS,REC_MESSAGES} from '../supabase/functions/meeting-transcribe/recording.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -91,58 +91,59 @@ test('시간·분 글자',()=>{
   assert.equal(minuteText(120),'2시간');
 });
 
-test('구간 글 합치기: 둘째부터 머리 줄, 빈 구간은 건너뛰고, 이미 끝난 구간은 한 줄 안내',()=>{
-  assert.equal(joinSegmentTexts([{no:1,seconds:3540,text:'첫 구간'}]),'첫 구간');
-  assert.equal(joinSegmentTexts([{no:2,seconds:600,text:'둘'},{no:1,seconds:3540,text:'하나'}]),'하나\n\n― 59분부터 ―\n둘');
-  assert.equal(joinSegmentTexts([{no:1,seconds:3540,text:''},{no:2,seconds:3540,text:'둘'},{no:3,seconds:10,text:'셋'}]),'― 59분부터 ―\n둘\n\n― 1시간 58분부터 ―\n셋');
-  assert.match(joinSegmentTexts([{no:1,seconds:3540,text:null},{no:2,seconds:1,text:'둘'}]),/^― 처음부터 ―\n\(이 구간 글은 이미 전사가 끝나/);
-  assert.equal(joinSegmentTexts([]),'');
+// S61-5 REC-전사삭제(명진 11/13): 구간 글 합치기·전사 계획은 지금은 없다(전사를 하지 않음). 그 자리에 녹음 저장 규칙.
+test('지금은 없음: 전사 계획·구간 글 합치기 함수가 모델에 없다',async()=>{
+  const m=await import('../app/meeting-recorder-model.mjs');
+  assert.equal(m.transcribePlan,undefined);
+  assert.equal(m.joinSegmentTexts,undefined);
+});
+test('띠 진행 한 줄: 올림 › 저장(전사·요약·초안 단계 없음)',()=>{
+  assert.deepEqual([...STEPS],['올림','저장']);
+  assert.deepEqual(stepParts('올림').map(p=>p.state),['now','todo']);
+  assert.deepEqual(stepParts('저장').map(p=>p.state),['done','now']);
+  assert.deepEqual(stepParts('').map(p=>p.state),['todo','todo']);
+});
+test('녹음 저장: rec_finish를 more가 끝날 때까지 → rec_save 한 번, 전사 호출 0번',async()=>{
+  const calls=[],steps=[];let more=2;
+  const call=async(action,body)=>{calls.push([action,body]);
+    if(action==='rec_finish')return {ok:true,more:more-->0};
+    if(action==='rec_save')return {ok:true,folder_name:'회의 녹음',files:[{document_id:'d1',file_name:'회의 녹음 1.webm',drive_file_id:'f1',drive_url:'https://drive.google.com/file/d/f1/view',mime_type:'audio/webm'},{file_name:'번호 없음'}]};
+    throw new Error('unexpected '+action)};
+  const r=await saveRecording(call,'s1',{onStep:s=>steps.push(s)});
+  assert.deepEqual(calls.map(c=>c[0]),['rec_finish','rec_finish','rec_finish','rec_save']);
+  assert.deepEqual(calls[3][1],{session_id:'s1'});
+  assert.deepEqual(steps,['올림','저장']);
+  assert.equal(r.folder,'회의 녹음');
+  assert.deepEqual(r.files,[{documentId:'d1',name:'회의 녹음 1.webm',driveId:'f1',driveUrl:'https://drive.google.com/file/d/f1/view',mime:'audio/webm'}]);
+  assert.ok(!calls.some(c=>/transcribe|job_/.test(c[0])));
+  // 회의에서 녹음했으면 rec_save에 그 회의 id
+  const c2=[];await saveRecording(async(a,b)=>{c2.push([a,b]);return a==='rec_save'?{files:[{document_id:'d'}]}:{more:false}},'s2',{meetingId:'m1'});
+  assert.deepEqual(c2[1],['rec_save',{session_id:'s2',meeting_id:'m1'}]);
+  // 저장할 파일이 없으면 no_recording
+  await assert.rejects(saveRecording(async a=>a==='rec_save'?{files:[]}:{more:false},'s3'),e=>e.code==='no_recording');
+});
+test('저장 띠 글자: 파일 줄(이름·내려받기·Drive에서 열기, 이름은 글자로), 멈춘 이유, 높이',()=>{
+  const html=savedFilesHtml([{name:'<b>a</b>.webm'},{name:'b.webm'}],'rec');
+  assert.match(html,/data-rec-down="0"[^>]*>내려받기<\/button>/);
+  assert.match(html,/data-rec-open="1"[^>]*>Drive에서 열기<\/button>/);
+  assert.match(html,/&lt;b&gt;a&lt;\/b&gt;\.webm/);
+  assert.doesNotMatch(html,/<b>/);
+  assert.match(savedFilesHtml([{name:'x'}],'prec'),/data-prec-down="0"/);
+  assert.equal(savedBandHeight(1),0);
+  assert.equal(savedBandHeight(2),64);
+  assert.match(saveFailText({code:'no_recording'}),/찾지 못했어요/);
+  assert.match(saveFailText({},'저장'),/자료실에 저장하지 못했어요/);
+  assert.match(saveFailText({},'올림'),/합치지 못했어요/);
+  assert.match(saveFailText({status:401}),/로그인/);
+  assert.deepEqual(savedFiles(null),[]);
 });
 
-// REC-발언자구분(S58-6): 29분 구간마다 '화자n:' 줄. 머리 줄은 구간 사이에 그대로(번호가 새로 매겨지는 자리). 글은 지어낸 것.
-test('구간 글 합치기(29분 구간): 화자 줄은 그대로 두고 구간이 바뀌는 자리에 머리 줄',()=>{
-  const SEG=SEGMENT_SECONDS;
-  assert.equal(joinSegmentTexts([{no:1,seconds:SEG,text:'화자1: 가\n화자2: 나'}]),'화자1: 가\n화자2: 나');
-  assert.equal(joinSegmentTexts([{no:2,seconds:SEG,text:'화자1: 다'},{no:1,seconds:SEG,text:'화자1: 가\n화자2: 나'},{no:3,seconds:120,text:'통글 구간'}]),
-    '화자1: 가\n화자2: 나\n\n― 29분부터 ―\n화자1: 다\n\n― 58분부터 ―\n통글 구간');
-  // 옛 59분 구간과 섞인 녹음(이어서 정리): 머리 줄은 실제 구간 길이를 따른다.
-  assert.equal(joinSegmentTexts([{no:1,seconds:3540,text:'옛 통글'},{no:2,seconds:SEG,text:'화자1: 새'},{no:3,seconds:60,text:'화자1: 끝'}]),
-    '옛 통글\n\n― 59분부터 ―\n화자1: 새\n\n― 1시간 28분부터 ―\n화자1: 끝');
-});
-
-test('전사 계획(이어서 정리): 옛 59분 구간과 새 29분 구간이 섞여도 번호 순으로 모두 전사',()=>{
-  const plan=transcribePlan([
-    {segment_no:4,status:'combined',job_id:'j4',duration_sec:300},
-    {segment_no:2,status:'combined',job_id:'j2',duration_sec:3540},
-    {segment_no:1,status:'combined',job_id:'j1',duration_sec:3540},
-    {segment_no:3,status:'combined',job_id:'j3',duration_sec:SEGMENT_SECONDS},
-  ]);
-  assert.deepEqual(plan.map(p=>[p.no,p.action,p.seconds]),[[1,'transcribe',3540],[2,'transcribe',3540],[3,'transcribe',1740],[4,'transcribe',300]]);
-});
-
-test('띠 진행 한 줄: 올림 › 전사 › 요약 › 초안 열림',()=>{
-  assert.deepEqual(stepParts('전사').map(p=>p.state),['done','now','todo','todo']);
-  assert.deepEqual(stepParts('초안 열림').map(p=>p.state),['done','done','done','now']);
-  assert.deepEqual(stepParts('').map(p=>p.state),['todo','todo','todo','todo']);
-});
-
-test('일시·이어서 정리 글자(서울 시각)',()=>{
+test('일시·이어서 저장 글자(서울 시각)',()=>{
   assert.equal(seoulLocal('2026-10-29T05:30:00Z'),'2026-10-29T14:30');
   assert.equal(seoulLocal('x'),'');
   assert.equal(pendingText({started_at:'2026-10-29T05:30:00Z',duration_sec:1920}),'10/29 14:30 녹음 · 32분');
   assert.equal(pendingText({}),'녹음');
   assert.deepEqual(pendingOthers([{session_id:'a'},{session_id:'b'},{}],'a').map(s=>s.session_id),['b']);
-});
-
-test('전사 계획: 합친 구간만 전사, 이미 끝난 것은 gone, 빈·실패는 건너뜀',()=>{
-  const plan=transcribePlan([
-    {segment_no:3,status:'combined',job_id:'j3',duration_sec:30},
-    {segment_no:1,status:'combined',job_id:'j1',duration_sec:3540,job_status:'done'},
-    {segment_no:2,status:'failed',job_id:null,duration_sec:3540},
-    {segment_no:4,status:'empty'},
-  ]);
-  assert.deepEqual(plan.map(p=>[p.no,p.action]),[[1,'gone'],[2,'skip'],[3,'transcribe']]);
-  assert.equal(plan[1].failed,true);
 });
 
 test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없음, PC에서만',()=>{
@@ -152,9 +153,12 @@ test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없�
   const deviceStore=new RegExp(['local','session'].map(k=>k+'Storage').concat('indexed'+'DB').join('|'),'i');
   assert.doesNotMatch(code,deviceStore);
   assert.match(src,/matchMedia\?\.\('\(min-width:761px\)'\)/);
-  for(const action of ['rec_start','rec_piece','rec_finish','rec_pending','transcribe'])assert.ok(src.includes(`'${action}'`),action);
+  for(const action of ['rec_start','rec_piece','rec_pending','rec_discard'])assert.ok(src.includes(`'${action}'`),action);
+  assert.match(src,/saveRecording\(call,sessionId/);
+  // S61-5 REC-전사삭제: 전사·서버 정리·초안 길이 없다.
+  for(const gone of ["'transcribe'",'job_start','job_list','job_read','job_retry','KPTUMeetingTranscriptDraft','KPTUReportEntry','초안 열기','멈추고 정리'])assert.ok(!code.includes(gone),gone);
+  assert.match(src,/멈추고 저장/);
   assert.match(src,/beforeunload/);
-  assert.match(src,/KPTUMeetingTranscriptDraft/);
   const loader=read('app/loader-v2.js');
   assert.match(loader,/import\('\.\/meeting-recorder\.js'\)/);
   const html=read('app/index.html');
@@ -162,7 +166,7 @@ test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없�
   assert.match(html,/id="recPendingLine"[^>]*hidden/);
   const draft=read('app/meeting-transcript-draft.js');
   // REC-한회의로잇기 PR-0: 입력 창의 쓰던 글 확인(hasDraft)을 더했다(team.js가 닫기·새로 열기 전에 본다).
-  assert.match(draft,/window\.KPTUMeetingTranscriptDraft=\{fill,fillResult,hasDraft\}/);
+  assert.match(draft,/window\.KPTUMeetingTranscriptDraft=\{hasDraft\}/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),/document\.|fetch\(/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),deviceStore);
 });

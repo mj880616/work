@@ -5,7 +5,6 @@ import {readFileSync} from 'node:fs';
 import * as sj from '../supabase/functions/meeting-transcribe/server-job.mjs';
 import * as prompt from '../supabase/functions/_shared/meeting-draft-prompt.mjs';
 import * as appModel from '../app/meeting-transcript-model.mjs';
-import {joinSegmentTexts} from '../app/meeting-recorder-model.mjs';
 import {watchServerJob,unavailable,progressNote,failText,canRetry,STAGE_STEP} from '../app/meeting-server-job.mjs';
 import {createPhoneRecorder} from '../app/phone-recorder-core.mjs';
 
@@ -42,7 +41,7 @@ test('회의자료 소리 파일 판정(B): 소리 형식·이름, Drive id, 100
   assert.equal(sj.audioDocument({file_id:'../x',file_name:'a.mp3'},1e8).code,'not_found');
 });
 
-test('구간 → 전사할 조각, 글 합치기는 화면 joinSegmentTexts와 같은 머리 줄',()=>{
+test('구간 → 전사할 조각, 글 합치기 머리 줄(지난 서버 정리 결과 규칙)',()=>{
   const parts=sj.recordingParts([
     {segment_no:2,status:'combined',job_id:WS,duration_sec:1200},{segment_no:1,status:'combined',job_id:ID,duration_sec:3540},
     {segment_no:3,status:'empty'},{segment_no:4,status:'failed',duration_sec:60},
@@ -51,7 +50,6 @@ test('구간 → 전사할 조각, 글 합치기는 화면 joinSegmentTexts와 �
   assert.equal(sj.partTotal(parts),2);assert.equal(sj.nextPart(parts),0);
   parts[0].text='화자1: 처음';parts[1].text='화자2: 뒤';
   assert.equal(sj.nextPart(parts),-1);assert.equal(sj.doneParts(parts),2);
-  assert.equal(sj.joinParts(parts),joinSegmentTexts(parts));
   assert.match(sj.joinParts(parts),/― 59분부터 ―\n화자2: 뒤/);
   assert.equal(sj.hasWords('― 1시간부터 ―'),false);
   assert.equal(sj.cleanText('a  \r\n\n\n\nb\u0000'),'a\n\nb');
@@ -73,7 +71,6 @@ test('REC-발언자구분: 29분 구간 글 합치기 — 화자 줄은 그대�
     '― 58분부터 ―\n구분이 거절돼 통글로 온 구간',
     '― 1시간 27분부터 ―\n화자1: 끝 구간',
   ].join('\n\n'));
-  assert.equal(text,joinSegmentTexts(parts),'서버 정리 = 화면 정리');
   assert.equal(sj.cleanText(text),text,'글 정리가 화자 줄·머리 줄을 바꾸지 않는다');
   // 머리 줄은 구간 사이에만(첫 구간 앞·화자 줄 사이에는 없음), 화자 줄은 줄 머리에서 시작.
   const lines=text.split('\n').filter(Boolean);
@@ -96,7 +93,6 @@ test('REC-발언자구분: 이어서 정리 — 옛 59분 구간(통글)과 새 
   assert.equal(steps,4);assert.equal(sj.doneParts(parts),4);
   const text=sj.joinParts(parts);
   assert.equal(text,'옛 구간 통글 하나\n\n― 59분부터 ―\n옛 구간 통글 둘\n\n― 1시간 58분부터 ―\n화자1: 새 구간\n화자2: 답\n\n― 2시간 56분부터 ―\n화자1: 끝');
-  assert.equal(text,joinSegmentTexts(parts));
 });
 
 test('REC-발언자구분: 요약 지시문은 화자 번호를 쓰라고 하지 않고, 참석자에서는 번호를 빼라고 한다(지금 규칙 그대로)',()=>{
@@ -235,7 +231,10 @@ test('Edge: job_tick은 로그인 확인보다 먼저 가르고 HMAC만 받는�
   assert.doesNotMatch(src.match(/'Access-Control-Allow-Headers': '[^']*'/)[0],/x-meeting-job-tick/);
   // 회의·회의자료는 부른 사람 로그인으로만 읽는다.
   assert.match(src,/userDb\.from\('app_documents'\)\.select\('id,workspace_id,meeting_id,file_id/);
-  for(const a of ['job_start','job_read','job_list','job_opened','job_retry'])assert.ok(src.includes(`action === '${a}'`),a);
+  for(const a of ['job_read','job_list','job_opened','job_discard','job_restore'])assert.ok(src.includes(`action === '${a}'`),a);
+  // S61-5 REC-전사삭제: 정리 시작·다시는 입구에서 transcribe_off(410)로만 답한다(함수 본문은 남아 있지만 부르는 곳이 없다).
+  for(const a of ['job_start','job_retry'])assert.ok(!src.includes(`action === '${a}'`),a);
+  assert.match(src,/const TRANSCRIBE_OFF_ACTIONS = new Set\(\['upload', 'transcribe', 'job_start', 'job_retry'\]\);/);
   // 같은 파일 두 번이면 앞 결과 재사용(AI 비용 없음).
   assert.match(src,/eq\('source_md5', md5\)\.eq\('status', 'done'\)/);
 });
@@ -283,20 +282,20 @@ test('화면 지켜보기: 옛 서버(모르는 action)·표 없음이면 화면
   assert.equal(unavailable({status:409,code:'busy'}),false);
 });
 
-test('폰 녹음: 서버에 정리를 맡기면 rec_finish·transcribe를 부르지 않고 앱 임시 파일을 지운 뒤 진행 띠를 넘긴다',async()=>{
-  const calls=[],sent=[],watched=[];
+// S61-5 REC-전사삭제(명진 11/13): 폰 녹음은 서버 정리(job_start)를 맡기지 않는다 — rec_finish → rec_save로 자료실에 저장만.
+test('지금은 없음: 폰 녹음은 job_start·transcribe를 부르지 않고 rec_finish → rec_save로 저장한다',async()=>{
+  const calls=[],sent=[];
   const core=createPhoneRecorder({
     send:t=>sent.push(t),workspace:()=>WS,sleep:async()=>{},paint:()=>{},
-    call:async(a,b)=>{calls.push(a);if(a==='job_start')return {job:{id:ID,status:'queued',stage:'combine',session_id:b.session_id}};if(a==='rec_pending')return {sessions:[]};return {}},
-    watchServer:j=>watched.push(j.id),openDraft:async()=>{throw new Error('화면 정리 길로 가면 안 됨')},
+    call:async(a,b)=>{calls.push(a);if(a==='rec_save')return {files:[{document_id:'d',file_name:'n.ogg'}]};if(a==='rec_pending')return {sessions:[]};return {}},
   });
   core.receive(`rec:state:${JSON.stringify({state:'interrupted',session_id:SID,started_at:'2026-11-03T01:24:00Z',elapsed_ms:3000000,queued:0})}`);
   core.resume(SID);
-  for(let i=0;i<20&&!watched.length;i++)await new Promise(r=>setTimeout(r,5));
-  assert.deepEqual(watched,[ID]);
-  assert.ok(calls.includes('job_start'));assert.ok(!calls.includes('rec_finish'));assert.ok(!calls.includes('transcribe'));
+  for(let i=0;i<40&&core.view.state!=='saved';i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(core.view.state,'saved');
+  assert.ok(calls.includes('rec_finish'));assert.ok(calls.includes('rec_save'));
+  assert.ok(!calls.includes('job_start'));assert.ok(!calls.includes('transcribe'));
   assert.ok(sent.includes('rec:clear'));
-  assert.equal(core.view.state,'idle');
 });
 
 test('끝 알림은 내 폰 알림 설정을 따른다(회의 요약 끔·조용한 시간)',()=>{
@@ -309,18 +308,14 @@ test('끝 알림은 내 폰 알림 설정을 따른다(회의 요약 끔·조용
   assert.equal(sj.pushDecision({quiet:{from:'12:00',to:'13:00'}},at(23)),'send');
 });
 
-test('회의자료 소리 파일 ⋯ [녹음 글로 옮기고 요약하기](B): 고칠 수 있는 회의의 소리 파일에만, 서버 정리로 맡기고 결과는 그 회의 [수정] 창에',()=>{
+// S61-5 REC-전사삭제: 회의자료 소리 파일 ⋯ [녹음 글로 옮기고 요약하기]와 그 결과를 [수정] 창에 넣는 길은 지금은 없다.
+test('지금은 없음: 회의자료 소리 파일 ⋯에 전사·요약 항목이 없고, 녹음 띠는 회의자료 전사(kind attached)를 맡기지 않는다',()=>{
   const detail=read('app/meeting-round-detail.js'),rec=read('app/meeting-recorder.js'),cols=read('app/meeting-columns.js');
   assert.match(cols,/export function fileMoreHtml\(d,name=d\?\.file_name\|\|d\?\.title\|\|'파일',extra='',rename=''\)/); // FILE-이름고치기연필먹통: [이름 수정] 속성
-  assert.match(detail,/\$\{fileMoreHtml\(d,name,mrdTranscribeItem\(d\)\+mrdFileOwnItems\(d\),mrdRename\(d\)\)\}/); // FILE-첨부삭제 결정 3: 같은 ⋯ 안 [빼기]·[삭제]
-  assert.match(detail,/!mrdCanEdit\(mrdCurrent\)\|\|!isAudioFile\(/,'고칠 수 있는 회의·소리 파일만');
-  assert.match(detail,/data-mrd-transcribe="\$\{mrdEsc\(d\.id\)\}">녹음 글로 옮기고 요약하기<\/button>/);
-  assert.match(detail,/fillTranscript:mrdFillTranscript/);
-  assert.match(detail,/keepTranscript\(notes\.value,full\)/,'이미 쓴 회의록 전문은 지우지 않고 아래에');
-  assert.doesNotMatch(detail.slice(detail.indexOf('async function mrdFillTranscript'),detail.indexOf('window.KPTUMeetingRoundDetail=')),/mrdSaveEdit\(/,'자동 저장 없음');
-  assert.match(rec,/kind:'attached',document_id:documentId/);
-  assert.match(rec,/window\.KPTUMeetingRoundDetail\?\.fillTranscript\?\.\(job\.meeting_id/);
-  assert.match(rec,/window\.KPTUMeetingRecorder=\{state:\(\)=>state,mime:MIME,watch,transcribeAttached,ready\}/); // REC-한회의로잇기 PR-3: 잇지 못했거나 되돌린 결과를 띠로(ready)
+  assert.match(detail,/\$\{fileMoreHtml\(d,name,mrdFileOwnItems\(d\),mrdRename\(d\)\)\}/); // FILE-첨부삭제 결정 3: 같은 ⋯ 안 [빼기]·[삭제]
+  for(const gone of ['data-mrd-transcribe','녹음 글로 옮기고 요약하기','mrdFillTranscript','fillTranscript','transcribeAttached'])assert.ok(!detail.includes(gone),gone);
+  for(const gone of ["kind:'attached'",'transcribeAttached','fillTranscript'])assert.ok(!rec.includes(gone),gone);
+  assert.match(rec,/window\.KPTUMeetingRecorder=\{state:\(\)=>state,mime:MIME,start:/);
 });
 
 test('REC-정리멈춤반복: 서버가 남길 수 있는 실패 코드는 모두 이유별 띠 글이 있고, 그 밖 문구는 표에 없는 이유에만',async()=>{
@@ -355,7 +350,10 @@ test('REC-정리멈춤반복: 서버가 남길 수 있는 실패 코드는 모�
 test('REC-한회의로잇기: 단계 돌리기를 두 표가 함께 쓴다 — 서버 정리 작업 길은 그대로, 새 실패 코드는 화면 문구가 있다',async()=>{
   const src=read('supabase/functions/meeting-transcribe/index.ts');
   // 서버 정리 작업을 부르는 곳은 표·tick을 넘기지 않는다(기본값 = 지금 그대로).
-  for(const call of ['inBackground(runStep(data.id));','inBackground(runStep(job.id));','inBackground(runStep(j.id));','inBackground(runStep(row.id));','inBackground(runStep(body.job_id as string));'])assert.ok(src.includes(call),call);
+  for(const call of ['inBackground(runStep(data.id));','inBackground(runStep(row.id));','inBackground(runStep(body.job_id as string));'])assert.ok(src.includes(call),call);
+  // S61-5 REC-전사삭제: 읽기(job_read·job_list)는 멈춘 작업을 다시 깨우지 않고, 서버 정리('job') 단계는 transcribe_off로 멈춘다.
+  for(const gone of ['inBackground(runStep(job.id));','inBackground(runStep(j.id));','needsKick('])assert.ok(!src.includes(gone),gone);
+  assert.match(src,/if \(kind === 'job'\) throw new Fail\('transcribe_off'\);/);
   assert.match(src,/async function runStep\(id: string, kind: StepKind = 'job'\)/);
   assert.match(src,/async function kickTick\(id: string, kind: StepKind = 'job'\)/);
   assert.match(src,/job: \{ table: SERVER_JOB_TABLE, columns: SERVER_JOB_COLUMNS, action: 'job_tick' \}/);
@@ -412,19 +410,11 @@ test('REC-정리상태확인못함: [다시](job_retry)가 끝난 작업을 돌�
   await assert.rejects(watchServerJob({call:async()=>{throw refused},sleep:async()=>{}},{jobId:ID,retry:true}),e=>e===refused);
 });
 
-test('REC-정리상태확인못함: 띠는 거절 이유·잠깐 끊김·결과 열기 실패를 나누고, 다시 보일 때·연결이 돌아올 때 저절로 다시 본다(읽기만)',()=>{
-  const rec=read('app/meeting-recorder.js');
-  assert.doesNotMatch(rec,/정리 상태를 확인하지 못했어요\. 서버는 계속 정리 중일 수 있어요/,'옛 뭉갠 글 없음');
-  assert.match(rec,/const f=requestFail\(e\);/);
-  assert.match(rec,/recheck=f\.auto&&!!jobId;/);
-  assert.match(rec,/function recheckNow\(\)\{[^]*?void serverFinish\(\{jobId\}\);/,'저절로 다시 볼 때는 job_retry가 아니라 읽기');
-  assert.match(rec,/window\.addEventListener\('online',recheckNow\)/);
-  assert.match(rec,/else\{onVisibleCheck\(\);recheckNow\(\)\}/);
-  assert.match(rec,/errorText=e\?\.recText\|\|OPEN_FAIL_TEXT/,'결과 열기 실패는 정리 끝 띠에 이유와 함께');
-  const finish=rec.slice(rec.indexOf('async function serverFinish('),rec.indexOf('function recheckNow('));
-  assert.ok(finish.indexOf('await openServerResult(r.job)')>finish.indexOf('}catch(e){'),'결과 열기는 상태 확인 catch 밖');
-  const phone=read('app/phone-recorder-core.mjs');
-  assert.match(phone,/const f=requestFail\(e\);/,'폰 녹음 정리 시작도 같은 표');
+// S61-5 REC-전사삭제: 녹음 띠는 서버 정리를 지켜보지 않는다(저장만). 잇는 중 줄은 그대로 연결이 돌아오면 다시 본다.
+test('지금은 없음: 녹음 띠·폰 녹음에 서버 정리 지켜보기(serverFinish·recheck·requestFail)가 없고, 잇는 중 줄은 다시 본다',()=>{
+  const rec=read('app/meeting-recorder.js'),phone=read('app/phone-recorder-core.mjs');
+  for(const gone of ['serverFinish','recheckNow','requestFail','watchServerJob','OPEN_FAIL_TEXT','meeting-server-job'])assert.ok(!rec.includes(gone),gone);
+  for(const gone of ['requestFail','job_start','meeting-server-job'])assert.ok(!phone.includes(gone),gone);
   const join=read('app/meeting-join.js');
   assert.match(join,/window\.addEventListener\('online',rewatch\)/,'잇는 중 줄도 연결이 돌아오면 다시 본다');
 });
