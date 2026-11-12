@@ -2472,10 +2472,32 @@ function paintPhoneFolderGrid() {
     io.observe(foot);
   }
 }
-function goPhoneFolder(id) {
+// NAV-PC뒤로직전2(명진 결정 11/11 '직전 화면'): 넓은 화면(나무 | 사진)에서 사람이 고른 폴더 = 뒤로 한 칸(router pick, 한 주인).
+// [폴더] 칩은 라우터 겹(photos-tab, picks:true) 하나이고 고른 폴더는 그 위에 한 칸씩: A → B → ‹ = A → ‹ = [사진]. › 도 같은 기록.
+// 화면이 스스로 보여 준 첫 폴더는 한 칸이 아니다(첫 고름은 겹 칸에 적힌다). 주소 키 pf = 종류:id(o 원드라이브 · p 폰 · g 구글 드라이브).
+const fxNow = () => gdAt !== null ? fxKey('g', gdAt) : pAt !== null ? fxKey('p', pAt) : at ? fxKey('o', at) : '';
+function pickFolder(from) {
+  const now = fxNow();
+  if (!treeWide() || tab !== 'folders' || !now || now === from || !/^[A-Za-z0-9_.:-]{1,80}$/.test(now)) return;
+  window.KPTURouter?.pick?.record?.('photos', {tab:'folders', pf:now});
+}
+// ‹ › over a picked folder shows it again; one no longer there shows the top folder (no error).
+window.KPTURouter?.pick?.on?.('photos', ({pf = ''} = {}) => {
+  if (!treeWide() || tab !== 'folders') return true;
+  if (pf && pf === fxNow()) return true;
+  const cut = pf.indexOf(':'), kind = cut > 0 ? pf.slice(0, cut) : '', id = cut > 0 ? pf.slice(cut + 1) : '';
+  if (kind === 'g' && (id === GDRIVE_TOP || gdFolderInfo(id))) goGdFolder(id, {picked:false});
+  else if (kind === 'p' && phoneFolderOf(id)) goPhoneFolder(id, {picked:false});
+  else if (kind === 'o' && tree && photoFolderById(tree, id)) goFolder(id, {picked:false});
+  else if (tree) goFolder(tree.top.id, {picked:false});
+  return true;
+});
+function goPhoneFolder(id, {picked = true} = {}) {
   if (!phoneFolderOf(id)) return;
+  const from = fxNow();
   select.stop(); pAt = id; gdAt = null;
   renderFolders();
+  if (picked) pickFolder(from);
   window.scrollTo?.(0, 0);
 }
 function paintFolderGrid() {
@@ -2511,12 +2533,14 @@ function syncFolderLayer() {
   }}) || null;
   if (!deep && folderLayer) { const l = folderLayer; folderLayer = null; l.close(); }
 }
-function goFolder(id) {
+function goFolder(id, {picked = true} = {}) {
   if (!tree || !photoFolderById(tree, id)) return;
+  const from = fxNow();
   if (!treeWide() && fxWalk.length) fxWalk = walkTo(fxWalk, fxKey('o', id), {down: pAt === null && gdAt === null && photoFolderById(tree, id)?.parent_id === at});
   select.stop(); at = id; pAt = null; gdAt = null; fxTopFocus = false;
   for (const f of photoFolderTrail(tree, id)) openSet.add(f.id);
   renderFolders();
+  if (picked) pickFolder(from);
   window.scrollTo?.(0, 0);
 }
 // 스위치 한 번 = 서버 folder-toggle 한 번. 바로 칠하고(실패하면 되돌림), 끝나면 [사진]·[달력]·앨범을 다시 받는다.
@@ -2930,14 +2954,15 @@ function paintGdFolderGrid() {
   paintSize(); paintSelect();
 }
 // 폴더 고르기(PC: 오른쪽 칸, 폰: 그 폴더 한 화면). 위 폴더들은 나무에서 펼친다. 'root' = 맨 위('구글 드라이브').
-function goGdFolder(id) {
+function goGdFolder(id, {picked = true} = {}) {
   if (id !== GDRIVE_TOP && !gdFolderInfo(id)) return;
+  const from = fxNow();
   // 폰: 나무에서 고른 폴더가 길 처음, 그 안 하위 폴더를 누르면 한 단계 내려옴(FILES-폰폴더위로 ⑤).
   if (!treeWide()) fxWalk = id === GDRIVE_TOP ? [] : walkTo(gdAt === null ? [] : fxWalk, fxKey('g', id), {down: gdAt !== null && gdParentOf(id) === gdAt});
   select.stop();
   for (const f of photoFolderTrail(gdTree(), id)) gdOpen.add(f.id); // 위 폴더들과 그 폴더를 펼친다(원드라이브 goFolder와 같음).
   gdAt = id; pAt = null;
-  renderFolders(); window.scrollTo?.(0, 0);
+  renderFolders(); if (picked) pickFolder(from); window.scrollTo?.(0, 0);
 }
 function gdToggleOpen(id) {
   if (gdOpen.has(id)) gdOpen.delete(id); else gdOpen.add(id);
@@ -3525,7 +3550,7 @@ function setTab(nextTab, {fromBack = false} = {}) {
   tab = nextTab;
   window.KPTURouter?.setPlace?.('photos', tab === 'all' ? {} : {tab});
   // 뒤로가기 = 이전 칩: [달력]·[휴지통]은 라우터 겹 하나라 뒤로가면 [사진]으로 돌아온다.
-  if (tab !== 'all' && !tabLayer) tabLayer = window.KPTURouter?.layer?.open('photos-tab', {reopen:() => setTab(nextTab), close:() => { tabLayer = null; setTab('all', {fromBack:true}); return true; }}) || null;
+  if (tab !== 'all' && !tabLayer) tabLayer = window.KPTURouter?.layer?.open('photos-tab', {picks:true, reopen:() => setTab(nextTab), close:() => { tabLayer = null; setTab('all', {fromBack:true}); return true; }}) || null;
   if (tab === 'all' && tabLayer && !fromBack) { const l = tabLayer; tabLayer = null; l.close(); }
   render();
 }

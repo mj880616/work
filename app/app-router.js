@@ -33,7 +33,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item']};
+  const PLACE_PARAMS={meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -173,7 +173,9 @@
     reopeners.delete(key);reopeners.set(key,{name:layer.name,view:api.current,reopen:layer.reopen});
     while(reopeners.size>100)reopeners.delete(reopeners.keys().next().value);
   }
-  function openLayer(name,{close,reopen=null,adoptOnly=false}){
+  // NAV-PC뒤로직전2: picks:true = a base layer a PC '목록 | 상세' list sits on (a tab of a screen kept as one layer, e.g. 사진 [폴더]).
+  // Picks made on it are steps above its entry (recordPick), so ‹ goes item by item and then closes the layer as before.
+  function openLayer(name,{close,reopen=null,adoptOnly=false,picks=false}){
     const fromSource=adoptSourceEntry(name,{close,reopen});
     if(fromSource)return fromSource;
     const known=layers.find(layer=>layer.name===name);
@@ -189,7 +191,7 @@
     if(adoptOnly&&!adopt)return null;
     // Each layer of the list had its own entry, one under the other: the one at position pos sits that many entries below the top.
     const at=adopt&&entry?entryAt(entry.index-(chain.length-1-pos)):null;
-    const layer={name,close,reopen,index:at?at.index:undefined,key:at?at.key:undefined};
+    const layer={name,close,reopen,picks:!!picks,index:at?at.index:undefined,key:at?at.key:undefined};
     layers.push(layer);
     if(adopt)keepReopen(layer);else if(releasing)deferred.push(layer);else pushLayer(layer);
     return {close:()=>releaseLayer(layer)};
@@ -361,7 +363,10 @@
     if(api.current!==view||viewFromUrl()!==view||!authenticatedShellReady()||!PLACE_PARAMS[view])return false;
     const clean=pickValues(view,values);
     // A layer or a window stands on this entry, or a back is still on its way: the place only (no step of its own).
-    if(releasing||layers.length||chainOf(history.state).length||history.state?.kptuOverlay){setPlace(view,clean);return false}
+    // NAV-PC뒤로직전2: base layers only (picks:true, all alive, exactly the entry's list) let the pick be a step above them.
+    const chain=chainOf(history.state);
+    const base=layers.length>0&&!deferred.length&&layers.every(layer=>layer.picks&&layerAlive(layer)!==false)&&chain.length===layers.length&&layers.every((layer,i)=>chain[i]===layer.name);
+    if(releasing||(layers.length&&!base)||(!layers.length&&chain.length)||history.state?.kptuOverlay){setPlace(view,clean);return false}
     const was=pickOf(history.state);
     pickNow=pickKey(view,clean);
     if(was?.view===view&&sameValues(was.values||{},clean)){setPlace(view,clean);return false}
@@ -374,8 +379,11 @@
     // The entry left keeps its own item in the address (a screen may have written the new one there already).
     else history.replaceState(history.state,'',pickUrl(view,was.values||{}));
     const state={...(history.state||{}),[PICK]:{view,values:clean}};
-    delete state[LAYERS];delete state.kptuOverlay;
+    if(!base)delete state[LAYERS];
+    delete state.kptuOverlay;
     history.pushState(state,'',pickUrl(view,clean));
+    // Over a base layer the new entry keeps its list, and › over it after the layer was closed by ‹ opens the layer again.
+    if(base)keepReopen(layers.at(-1));
     rememberRoute();movedSoon();
     return true;
   }
@@ -727,7 +735,7 @@
   // S48-30: 로그아웃·다른 사람으로 바뀔 때(loader-v2 handleIdentityChange) 앞 사람의 '열린 항목' 칸(그 사람의 자료 id)을 주소에서 지운다.
   // 화면·쪽·창·보기 방식·날짜 칸(?view=·?pane=·areas·chip·day·mode·date·box·tab·by·shelf)은 남긴다 — 다음 로그인·다시 읽기에서 같은 화면은 열되
   // 앞 사람의 열린 노트·할 일·보고·조직·폴더는 되살리지 않는다(자리는 같은 로그인 안의 새로고침용).
-  const ITEM_KEYS=['note','doc','folder','org','call','task','report','room','rday','at'];
+  const ITEM_KEYS=['note','doc','folder','org','call','task','report','room','rday','at','pf'];
   function dropPlaces(){
     const u=new URL(location.href);let changed=false;
     for(const key of ITEM_KEYS)if(u.searchParams.has(key)){u.searchParams.delete(key);changed=true}
