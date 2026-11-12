@@ -732,7 +732,7 @@ function paint() {
 function paintPane(p) { paintPaneTop(p); paintList(p); }
 // FILES-다시그리기메뉴자리: 나무·목록·칸 머리·고르기 막대를 다시 그려도 열린 ⋯ 메뉴(줄 메뉴·폴더 색)는 닫지 않고 같은 줄의 새 칸에 붙인다.
 // 그리기 주인(아래 paint* 함수들)이 그리기 전 자리를 적고 그린 뒤 옮긴다(공용 anchored-menu keepMenus). 그 줄이 사라졌거나 안 보이면 그때만 닫는다.
-const FX_MENU_SPOT = {attrs: ['data-fx-tmenu', 'data-fx-pin-menu', 'data-fx-fdim', 'data-fx-look', 'data-fx-row'], zones: ['[data-fx-pane-i]', '[data-fx-tree]', '[data-fx-ptree]', '[data-fx-bar]']};
+const FX_MENU_SPOT = {attrs: ['data-fx-tmenu', 'data-fx-pin-menu', 'data-fx-fdim', 'data-fx-look', 'data-fx-row'], zones: ['[data-fx-pane-i]', '[data-fx-tree]', '[data-fx-ptree]', '[data-fx-bar]', '[data-fx-box]']};
 // 폴더 색 메뉴는 아래(파일 뒤쪽)에서 만들어지므로 그 전의 그리기에서는 줄 메뉴만 본다.
 let fxLookMade = false;
 function keepFxMenus(paint) { return keepMenus(fxLookMade ? [rowMenuFollower, lookMenu] : [rowMenuFollower], FX_MENU_SPOT, paint); }
