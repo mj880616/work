@@ -101,8 +101,10 @@ for (const width of [412, 1440]) test(`window parts take a pasted picture ${widt
       const e = new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true});
       el.dispatchEvent(e); return e.defaultPrevented;
     };
-    // UX-이미있는파일알림: 할 일 첨부는 넣기 전에 같은 파일을 서버에서 한 번 찾고(뒤에서) 담는다 — 찾기가 끝날 때까지 기다린다.
-    const settle = () => new Promise(r => setTimeout(r, 400));
+    // UX-이미있는파일알림: 할 일 첨부는 넣기 전에 같은 파일을 서버에서 한 번 찾고(뒤에서) 담는다.
+    // STAB-갈래4흔들림: 정해진 400ms가 아니라 '담겼다'(목록 수가 바뀜)를 기다린다. 찾기는 SAME_WAIT_MS(4초) 안에 반드시 끝나므로
+    // 그 뒤에도 안 바뀌면 그대로 넘어가 아래 기대값에서 실패한다(부하가 큰 CI에서 찾기가 400ms를 넘으면 2장 중 1장만 보이던 경쟁).
+    const until = async ok => { const end = Date.now() + 6000; while (!ok() && Date.now() < end) await new Promise(r => setTimeout(r, 20)); };
     const mk = () => { const w = document.createElement('div'); w.className = 'modal-card'; const t = document.createElement('textarea'); w.append(t); document.body.append(w); return {w, t}; };
     // bindDropTarget (library upload, meeting windows)
     { const {w, t} = mk(), got = []; let can = true;
@@ -113,7 +115,7 @@ for (const width of [412, 1440]) test(`window parts take a pasted picture ${widt
     { const {w, t} = mk(), host = document.createElement('div'); w.append(host);
       const m = await import('/app/task-files.js'), errs = [];
       const pick = m.mountNewTaskFilePick(host, {onError: x => errs.push(x)}); pick.show(true);
-      fire(t, ['image.png']); await settle(); fire(t, ['image.png']); await settle();
+      fire(t, ['image.png']); await until(() => pick.files().length === 1); fire(t, ['image.png']); await until(() => pick.files().length === 2);
       out.pick = pick.files().map(f => f.name); out.pickErr = errs.filter(Boolean);
       pick.show(false); fire(t, ['image.png']); out.pickHidden = pick.files().length; }
     // mountTaskAttach (task edit window): adds, never replaces a row
@@ -121,7 +123,7 @@ for (const width of [412, 1440]) test(`window parts take a pasted picture ${widt
       const m = await import('/app/task-files.js');
       const att = m.mountTaskAttach(host);
       att.set([{drive_file_id: 'd1', file_name: '기존.pdf', inTable: true}], {editable: true, shown: true, taskId: 't1'});
-      fire(t, ['image.png']); await settle();
+      fire(t, ['image.png']); await until(() => att.plan().add.length === 1);
       const plan = att.plan(); out.attach = {add: plan.add.map(f => f.name), swap: plan.swap.length, remove: plan.remove.length}; }
     return out;
   });
