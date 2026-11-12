@@ -18,6 +18,8 @@ test('파일 폰 412: 자동 생성 파일은 \'최근\'에서 빠지고 사람 
     item({ source: 'gd', item_id: 'gdTr2', parent_id: 'gdTr', name: '가짜 전사 2.txt', modified_at: '2026-10-06T00:39:00Z' }),
     item({ source: 'gd', item_id: 'gdBak1', parent_id: 'gdBak', name: '가짜 백업.hwp', modified_at: '2026-10-06T00:38:00Z' }),
     item({ source: 'gd', item_id: 'gdBak2', parent_id: 'gdBak', name: '가짜 백업 2.hwp', modified_at: '2026-10-06T00:37:00Z' }),
+    // LIB-사진숨김나머지(S61-1): 사진(가짜 현장.jpg)은 '최근' 줄 수에 들지 않으므로(맨 아래 [사진 n]) 사람 파일을 하나 더 두어 6개로 맞춘다.
+    item({ source: 'od', item_id: 'OD!40', parent_id: 'OD!1', name: '가짜 회의록.txt', modified_at: '2026-09-10T01:00:00Z' }),
   );
   await openFiles(page, 412);
   const box = page.locator('#filesRoot [data-fx-tree] [data-fx-box="recent"]');

@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import { expandLibraryTree } from './helpers/library-tree.mjs';
+import { expandLibraryTree, openLibraryPhotoFolds } from './helpers/library-tree.mjs';
 
 // ACT-사진 3단계: 사업 보고 상세 창의 사진 줄. 작은 그림, 눌러서 크게 보기(넘기기·닫기), 사진 올리기(제목·종류·날짜를 싣고 AI에 보내지 않음).
 // 자료 목록은 자료실 사업 보고 사진 묶음 줄을 눌러 연다(4단계). 모든 이름·번호는 합성 값.
@@ -71,8 +71,9 @@ async function openDetail(page, state, width) {
   await page.goto(`${appOrigin}/app/?view=library`);
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
-  await expect(page.locator('[data-lu-photoset]').first()).toBeAttached({timeout: 10000});
+  await expect(page.locator('#documentList [data-lu-photos]').first()).toBeAttached({timeout: 10000});
   await expandLibraryTree(page);
+  await openLibraryPhotoFolds(page); // LIB-사진숨김나머지: 사업 보고 사진 묶음 줄은 [사진 n] 안
   // 묶음 줄은 사업 보고 화면의 [사진] 보기로 간다(ACT-사진 6단계). 거기서 사업 보고 머리줄을 눌러 상세 창을 연다.
   await page.locator(`[data-lu-photoset="${M1}"]`).click();
   await page.locator(`[data-rv-set="${M1}"] .rv-set-head`).click();
