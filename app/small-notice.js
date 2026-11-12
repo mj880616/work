@@ -194,7 +194,8 @@ function askPanel(anchor,{doc,none,maxHeight=220,build}){
       resolve(value);
     };
     const first=build(panel,finish);
-    doc.body.append(panel);
+    // 누른 자리가 모달 창(<dialog> showModal) 안이면 그 창 안에 붙인다 — 바깥(body)은 모달 동안 누를 수 없다(UX-이미있는파일알림, 폰 공유 창).
+    (back?.closest?.('dialog[open]')||doc.body).append(panel);
     const place=()=>{
       if(!back){panel.classList.add('kptu-ask-center');return}
       placeAnchored(panel,back,{maxWidth:300,maxHeight,minHeight:0});
@@ -238,10 +239,12 @@ export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false
 }
 // REC-한회의로잇기 PR-3: 버튼이 셋인 작은 물음창(askConfirm과 같은 자리·같은 닫기·같은 모양). actions = [{value, label, kind}], kind는 공용 버튼
 // 'primary'(주 동작 하나)·'secondary'·'row-act'(글자 버튼, 줄 왼쪽 끝). 반환: 고른 value 또는 null(Esc·바깥·뒤로가기로 닫음). 초점은 주 동작에.
-export function askActions(anchor,{text,note='',actions=[],className='',doc=globalThis.document}={}){
+// UX-이미있는파일알림: lines = 글 아래 작은 줄 여러 개(위치 줄 등, 한 줄씩 textContent). 없으면 예전과 같다.
+export function askActions(anchor,{text,note='',lines=[],actions=[],className='',doc=globalThis.document}={}){
   return askPanel(anchor,{doc,none:null,build:(panel,finish)=>{
     if(className)panel.classList.add(...String(className).split(/\s+/).filter(Boolean));
     const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg);
+    if(Array.isArray(lines)&&lines.length){const ul=doc.createElement('ul');ul.className='kptu-ask-lines';for(const line of lines){const li=doc.createElement('li');li.textContent=noticeText(line);ul.append(li)}panel.append(ul)}
     if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
     const row=doc.createElement('div');row.className='kptu-ask-actions';
     let first=null,main=null;

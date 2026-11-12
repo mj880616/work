@@ -248,10 +248,17 @@ async function wdLogDrop(files){
   const org=wdOrg;if(!org?.canEdit||!wdRecordCurrent(wdTargetId)||!files?.length)return;
   const t={id:org.id,name:org.name||'조직',owner:wdUser?.id||''},anchor=document.querySelector('#wdLog');
   // 묻기는 한 번에 하나씩(앞 질문이 열려 있으면 그 뒤에), 묻는 데는 올리기를 기다리지 않는다.
-  const asked=wdLogAsk.then(()=>askConfirm(anchor,{text:`${t.name} 기록으로 남길까요?`,note:files.map(f=>f.name).join(', '),ok:'기록 남기기',cancel:'취소'}));
+  // UX-이미있는파일알림: 같은 이름·크기 파일이 내 작업공간에 있으면 먼저 묻는다(same-file.js 공용) — [올리지 않기]로 뺀 파일은 기록으로 묻지 않는다.
+  const asked=wdLogAsk.then(async()=>{
+    let keep=Array.from(files);
+    try{const {screenSameFiles}=await import('./same-file.js');keep=(await screenSameFiles(keep,{anchor})).files}catch{}
+    if(!keep.length)return null;
+    return (await askConfirm(anchor,{text:`${t.name} 기록으로 남길까요?`,note:keep.map(f=>f.name).join(', '),ok:'기록 남기기',cancel:'취소'}))?keep:null;
+  });
   wdLogAsk=asked.then(()=>{},()=>{});
-  if(!(await asked.catch(()=>false)))return;
-  wdLogQueue().add(t,files);
+  const keep=await asked.catch(()=>null);
+  if(!keep?.length)return;
+  wdLogQueue().add(t,keep);
 }
 function wdBindLogDrop(){const zone=document.querySelector('#wdLog');if(zone)bindDropTarget(zone,files=>void wdLogDrop(files),()=>!!wdOrg?.canEdit&&wdRecordCurrent(wdTargetId))}
 // 전체 보기: 새 화면 없이 자료실을 이 조직으로 걸러 연다(프로젝트 상세와 같은 방식).

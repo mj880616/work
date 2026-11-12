@@ -233,11 +233,14 @@ function mrdTimePhotosFor(m){
 // APP-뒤에서올리기 PR-2(S58-12): 올리기는 새 보고 저장과 같은 들머리(library-upload.js sendForMeeting — 공용 뒤 줄 한 묶음, meeting-send.mjs)로 한다.
 // 폰 앱이면 그 들머리가 묶음을 앱에 넘겨 다른 앱으로 가도 끝까지 올리고, 브라우저면 화면을 벗어나 끊긴 사진을 돌아와 다시 보낸다. 진행은 사진 칸의 올리는 줄(#mrdPhotoRows),
 // 못 올린 것은 그 줄의 [다시]와 하단 한 줄의 [다시 올리기]가 맡는다(여기 상태 줄은 다 올렸을 때만 쓴다 — 다시 올린 뒤에도 옛 실패 글이 남지 않게).
-async function mrdAddPhotos(files){
+// UX-이미있는파일알림: 같은 이름·크기 파일이 내 작업공간에 있으면 올리기 전에 묻는다(same-file.js 공용). 이미 물은 파일(checked)은 다시 묻지 않는다.
+async function mrdSameFiles(files,anchor=null){try{const {screenSameFiles}=await import('./same-file.js');return (await screenSameFiles(files,{anchor})).files}catch{return Array.from(files||[])}}
+async function mrdAddPhotos(files,{checked=false}={}){
   const m=mrdCurrent;if(!m||!mrdCanEdit(m))return;
   const st=document.querySelector('#mrdPhotoStatus'),say=(text,cls='status')=>{if(mrdCurrent?.id===m.id){st.textContent=text;st.className=cls}};
-  const {photos}=splitPhotoFiles(files);
+  let {photos}=splitPhotoFiles(files);
   if(!photos.length){if((files||[]).length)say('사진 파일만 올릴 수 있어요.','status error');return}
+  if(!checked){photos=await mrdSameFiles(photos,document.querySelector('#mrdPhotoStatus'));if(!photos.length||mrdCurrent?.id!==m.id)return}
   // UX-먼저묻고뒤에처리 ④: 올리는 중에 또 고르거나 놓아도 거절하지 않고 앞 사진 다음에 올린다(놓은 그 사업 보고로, 화면을 옮겨도 끝까지).
   let release;const mine=new Promise(r=>release=r),turn=mrdPhotoChain;mrdPhotoChain=turn.then(()=>mine);
   if(mrdPhotoBusy)say('앞 사진 다음에 올려요.');
@@ -526,10 +529,12 @@ function mrdDropQueue(){
 }
 async function mrdDropFiles(files,e){
   const m=mrdCurrent;if(!m||!mrdCanEdit(m))return;
-  const zone=dropZoneOf(e?.target),{photos,others}=splitPhotoFiles(files);
-  if(photos.length)void mrdAddPhotos(photos);
+  const zone=dropZoneOf(e?.target),anchor=(e?.target?.closest?.('[data-drop-zone]'))||mrdDropFace();
+  const kept=await mrdSameFiles(files,anchor);if(!kept.length||mrdCurrent?.id!==m.id)return;
+  const {photos,others}=splitPhotoFiles(kept);
+  if(photos.length)void mrdAddPhotos(photos,{checked:true});
   if(!others.length)return;
-  const anchor=(e?.target?.closest?.('[data-drop-zone]'))||mrdDropFace(),target=mrdDropTarget(m);
+  const target=mrdDropTarget(m);
   // 묻기는 한 번에 하나씩(앞 질문이 열려 있으면 그 뒤에), 묻는 데는 읽기·올리기를 기다리지 않는다.
   const asked=mrdAskChain.then(()=>askDropped(others,{zone:zone==='photo'?'':zone,anchor}));
   mrdAskChain=asked.then(()=>{},()=>{});
