@@ -326,6 +326,10 @@
 @keyframes lu-flash{0%,60%{background:var(--kptu-primary-soft)}100%{background:transparent}}
 #appView #libraryView .lu-row.lu-flash{animation:lu-flash 1.8s ease-out}
 @media(prefers-reduced-motion:reduce){#appView #libraryView .lu-row.lu-flash{animation:none;background:var(--kptu-primary-soft)}}
+/* LIB-최근폴더로가기(S61-12): [폴더로 가기]로 간 사진은 작은 그림 칸 테두리를 잠깐 */
+@keyframes lu-flash-ring{0%,60%{box-shadow:0 0 0 2px var(--kptu-primary)}100%{box-shadow:0 0 0 2px transparent}}
+#appView #libraryView .photo-fold-tile.lu-flash{animation:lu-flash-ring 1.8s ease-out}
+@media(prefers-reduced-motion:reduce){#appView #libraryView .photo-fold-tile.lu-flash{animation:none;box-shadow:0 0 0 2px var(--kptu-primary)}}
 
 /* LIB-폴더로옮기기: [폴더로 옮기기 ›]로 여는 작은 폴더 목록. PC는 누른 버튼 옆, 폰은 아래 시트. */
 .lu-move-picker{position:fixed;inset:auto;margin:0;z-index:110;box-sizing:border-box;display:flex;flex-direction:column;width:248px;max-width:calc(100vw - 16px);padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:hidden}
