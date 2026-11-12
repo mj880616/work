@@ -146,7 +146,7 @@ function paintOldLine(){
     const first=list[0];
     html+=`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">삭제</button>`;
   }else{
-    html+=`<span class="rec-pending-text">${escapeText(stoppedLineText(stop))}${closedStops.length>1?` 외 ${closedStops.length-1}건`:''}</span>${serverCanRetry(stop.error_code)?`<button type="button" class="rec-btn" data-rec-stopped="${escapeText(stop.id)}">다시</button>`:''}`;
+    html+=`<span class="rec-pending-text">${escapeText(stoppedLineText(stop))}${closedStops.length>1?` 외 ${closedStops.length-1}건`:''}</span>${serverCanRetry(stop.error_code)?`<button type="button" class="row-act" data-rec-stopped="${escapeText(stop.id)}">다시</button>`:''}`;
   }
   setHtml(line,html);
 }
