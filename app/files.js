@@ -34,6 +34,7 @@ import {folderShapeHtml} from './folder-look-model.mjs';
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {openRowMenu, appMenuPoint, rowMenuFollower} from './row-menu.js';
 import {treeMenuItems} from './files-tree-menu.mjs';
+import {flashRow} from './goto-folder.mjs'; // LIB-최근폴더로가기(S61-12): '최근' 줄 [폴더로 가기] 뒤 그 줄 강조
 import {lastClean, lastPut, lastStart} from './files-last-model.mjs';
 import {zipPlan, zipName, zipBusyText, zipDoneText} from './files-zip-model.mjs';
 import {writeZip} from './weekly-hwpx/zip.mjs';
@@ -1133,9 +1134,25 @@ function focusTreeFolder(key) {
   state.open.add(key);
   // S51-24 ④: 그 줄 자리에서 상자 머리로 올라오는 0.2초(folder-focus-motion.js). 그 폴더만은 화면 맨 위부터.
   const from = topOf(root?.querySelector(`[data-fx-fold="${CSS.escape(key)}"]`) || root?.querySelector(`[data-fx-box="${CSS.escape(source)}"]`));
-  goFolder(source, id);
+  const done = goFolder(source, id);
   window.scrollTo({top: 0, behavior: 'instant'});
   riseFromRow(from, inPane(state.panes[0], '.ft-focus'));
+  return done;
+}
+// LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 명진 ㅇ): '최근' 상자 파일 줄 ⋯·우클릭 맨 위 [폴더로 가기] = 그 파일이 든 폴더로 들어가 그 줄을 잠깐 강조.
+// 폰 나무 = 두 손가락 '그 폴더만'과 같은 길(뒤로·[‹] = 들어오기 전 나무 자리), PC = 지금 칸에 그 폴더 열기(뒤로 = 앞 화면, 폴더 열기와 같은 기록).
+// 사진이면 그 폴더의 [사진 n]을 펴고 그 칸을 강조한다. 줄 그냥 누르기(미리보기)는 그대로.
+async function gotoFolder(r) {
+  if (!r || r.is_folder) return;
+  const key = rowKey(r), parent = r.parent_id || null;
+  await (treePane() ? focusTreeFolder(folderKey(r.source, parent)) : goFolder(r.source, parent));
+  const p = P(), find = () => inPane(p, `[data-photo-tile="${CSS.escape(key)}"]`) || inPane(p, `[data-fx-row="${CSS.escape(key)}"]`);
+  let el = find();
+  if (!el && isFxPhoto(r)) {
+    const fold = inPane(p, '[data-fx-photos][aria-expanded="false"]');
+    if (fold) { state.photoOpen.add(fold.dataset.fxPhotos); paintLists(); el = find(); }
+  }
+  flashRow(el, {cls: 'fx-flash'});
 }
 // S51-24 FILES-핀치돌아오기(요청함 11/06 20:27): 폰 '그 폴더만'(칸 0 목록)에서 나무로 돌아올 자리 한 곳.
 // 두 손가락으로 들어왔으면 그때 화면 위치(treeBack), 다른 길(두 칸 → 한 칸·새로고침·⋯ 등)로 들어왔으면 그 폴더 줄 자리.
@@ -1172,7 +1189,7 @@ function treeMenu(b) {
   const key = b.dataset.fxTmenu, inKey = b.dataset.fxTin || '', r = state.treeRows.get(key);
   if (!r) return;
   const sib = r.is_folder && SOURCES.includes(r.source) ? treeSibs(r.source, inKey) : [];
-  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r)});
+  const items = treeMenuItems(r, {phoneWrite: phoneWrite(), pcWrite: pcWrite(), pcEdit: pcEdit(), copyPath: canCopyPath(), sibIndex: sib.indexOf(r.item_id), sibCount: sib.length, pinned: pinState(r), goto: inKey === 'recent'});
   openRowMenu(b, {key, label: r.name, items, note: r.source === PC && !pcWrite() ? PC_READONLY_TEXT : '', run: id => { if (!offStop(items, id)) treeAct(id, r, inKey, liveMenuButton(key, b)); }});
 }
 // S53-10 메뉴 모양 통일: 흐린 항목(off — 지금은 지울 수 없는 줄의 [휴지통])을 누르면 지우지 않고 이유·할 일 한 줄만.
@@ -1200,6 +1217,7 @@ const liveMenuButton = (key, b) => (b?.isConnected ? b : root?.querySelector(`[d
 async function treeAct(id, r, inKey, anchor) {
   const key = rowKey(r), here = {source: r.source, parent: r.item_id};
   if (id === 'open') { openPreview(r); return; }
+  if (id === 'goto') { await gotoFolder(r); return; }
   // '그 폴더만'(S51-24) 안 하위 폴더의 ⋯ '이 폴더만' = 한 단계 더 안으로(같은 상자 모양).
   if (id === 'only') { if (treePane()) focusTreeFolder(key); else goFolder(r.source, r.item_id); return; }
   if (id === 'mkdir') { await makeFolder(anchor, here); return; }
@@ -4074,6 +4092,10 @@ root?.addEventListener('keydown', event => {
 // S51-27 UI-PC우클릭: PC 마우스 우클릭(Shift+F10·메뉴 키)은 그 줄 하나의 메뉴를 누른 자리에 연다 — 나무 줄 ⋯와 같은 항목(files-tree-menu.mjs)·
 // 같은 실행(treeAct). 폴더의 '이 폴더로 들어가기'는 목록에서는 [열기](줄을 누른 것과 같은 폴더 들어가기). 고르기는 Ctrl·Shift 누름·폰 꾹 누르기 그대로.
 root?.addEventListener('contextmenu', event => {
+  // LIB-최근폴더로가기(S61-12): 폰 '최근' 상자 파일 줄 꾹 누르기 = 그 줄 ⋯ 메뉴(맨 위 [폴더로 가기]) — 자료실 '최근 올린 파일'과 같다.
+  const recentFile = !state.busy && event.target.closest?.('[data-fx-box="recent"] [data-fx-tfile]');
+  const recentMore = recentFile && recentFile.closest('.ft-row')?.querySelector('[data-fx-tmenu]');
+  if (recentMore) { event.preventDefault(); window.KPTUContextMenu?.pinAt?.(recentMore, event.clientX, event.clientY); treeMenu(recentMore); return; }
   const b = event.target.closest('[data-fx-row]');
   if (!b || state.busy) return;
   if (!touchDrag?.holding() && listMenu(b, event)) { event.preventDefault(); return; }

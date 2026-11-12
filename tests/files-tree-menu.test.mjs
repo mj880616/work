@@ -119,3 +119,14 @@ test('S53-10 FILES-이폰지우기 덧붙임: 모든 저장소·파일·폴더 �
   assert.match(src, /phoneTrashAsk\(/);
   assert.match(src, /PHONE_TRASH_BATCH/);
 });
+
+test('LIB-최근폴더로가기(S61-12): \'최근\' 파일 줄만 맨 위 [폴더로 가기], 폴더 줄·다른 줄에는 없음', () => {
+  const ids = (row, opt) => treeMenuItems(row, opt).map(x => x.id);
+  for (const source of ['od', 'gd', 'ph', 'pc']) {
+    assert.equal(ids({source}, {goto: true})[0], 'goto', source);
+    assert.ok(!ids({source}).includes('goto'), source);
+    assert.ok(!ids({source, is_folder: true}, {goto: true}).includes('goto'), source);
+  }
+  assert.equal(treeMenuItems({source: 'od'}, {goto: true})[0].label, '폴더로 가기');
+  assert.equal(treeMenuItems({source: 'od'}, {goto: true})[0].sep, undefined);
+});
