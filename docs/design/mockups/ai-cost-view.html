@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 비용 칸 시안</title>
+<style>
+/* Web2 기본 테마(olive) 변수 이름·값 그대로 (app/theme-tokens.css). 숫자는 모두 가짜. */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --kptu-warning:#8a6218;--kptu-warning-soft:#f6eed9;--kptu-danger:#9a4048;
+  --oa:#6f7d4a;--gm:#7a8aa6;--ds-line:var(--kptu-border-strong);
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --kptu-warning:#e0c97f;--kptu-warning-soft:#3a3322;--oa:#a3b27a;--gm:#9fb0cc;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 14px;max-width:760px}
+.section{margin-bottom:26px}
+.cap{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.scroll{overflow-x:auto;padding-bottom:4px}
+.row-of{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:412px;max-width:100%;background:var(--kptu-bg);border:.5px solid var(--ds-line);border-radius:12px;overflow:hidden;padding:8px}
+.pc{width:1280px;background:var(--kptu-bg);border:.5px solid var(--ds-line);border-radius:10px;overflow:hidden;display:flex}
+.pc .nav{width:180px;flex:none;border-right:.5px solid var(--kptu-border);padding:10px 12px;color:var(--kptu-muted);font-size:12px;background:var(--kptu-surface-subtle)}
+.pc .nav div{padding:4px 6px;border-radius:6px}.pc .nav .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.pc .main{flex:1;min-width:0;padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.fa{color:var(--kptu-faint)}.mu{color:var(--kptu-muted)}
+.panel{background:var(--kptu-surface);border:.5px solid var(--kptu-border);border-radius:8px;padding:8px 10px}
+.panel h3{font-size:12px;font-weight:500;color:var(--kptu-muted);margin:0 0 6px}
+.ghost{color:var(--kptu-faint);font-size:12px;padding:3px 0;border-bottom:.5px dashed var(--kptu-border)}
+/* AI 비용 칸 */
+.ac-top{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:13px;padding:4px 0;border-top:.5px solid var(--kptu-border)}
+.ac-top b{font-weight:500}
+.ac-top .chev{margin-left:auto;font-size:11px;color:var(--kptu-faint)}
+.warn{display:flex;gap:6px;align-items:flex-start;background:var(--kptu-warning-soft);color:var(--kptu-warning);border-radius:6px;padding:4px 7px;font-size:12px;margin:4px 0}
+.prov{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;align-items:baseline;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:12px}
+.prov .nm{font-weight:500;font-size:12.5px}.prov .nm i{font-style:normal;font-weight:400;color:var(--kptu-faint);font-size:11px}
+.prov .v{text-align:right;font-variant-numeric:tabular-nums}
+.prov .sub{grid-column:1/-1;color:var(--kptu-muted);font-size:11.5px;display:flex;gap:8px;flex-wrap:wrap}
+.prov a{color:var(--kptu-primary-ink);text-decoration:none;font-size:11.5px}
+.tag{font-size:10.5px;border:.5px solid var(--kptu-border-strong);border-radius:4px;padding:0 4px;color:var(--kptu-muted)}
+.bar{height:5px;background:var(--kptu-surface-subtle);border-radius:3px;overflow:hidden;grid-column:1/-1}
+.bar span{display:block;height:100%;background:var(--gm)}.bar span.w{background:var(--kptu-warning)}
+.feat{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.feat th{font-weight:400;color:var(--kptu-faint);font-size:11px;text-align:right;padding:2px 0}
+.feat th:first-child{text-align:left}
+.feat td{padding:3px 0;border-bottom:.5px solid var(--kptu-border);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.feat td:first-child{text-align:left;white-space:normal}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.dot.oa{background:var(--oa)}.dot.gm{background:var(--gm)}
+.miss{color:var(--kptu-warning);font-size:11px}
+.mini{display:inline-block;width:42px;height:4px;background:var(--kptu-surface-subtle);border-radius:2px;vertical-align:2px;margin-left:5px;overflow:hidden}
+.mini span{display:block;height:100%;background:var(--kptu-primary)}
+.trend{display:flex;align-items:flex-end;gap:2px;height:38px;margin:6px 0 2px}
+.trend i{flex:1;height:100%;display:flex;flex-direction:column-reverse;min-width:2px}
+.trend b{display:block;background:var(--oa)}.trend u{display:block;background:var(--gm);text-decoration:none}
+.legend{font-size:11px;color:var(--kptu-faint);display:flex;gap:10px}
+details{border-top:.5px solid var(--kptu-border);margin-top:6px;padding-top:4px;font-size:12px}
+summary{cursor:pointer;color:var(--kptu-muted);font-size:12px;list-style:none}
+summary::before{content:"▸ ";color:var(--kptu-faint)}details[open] summary::before{content:"▾ "}
+.inp{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:12px}
+.inp input{width:84px;font:inherit;padding:2px 5px;border:.5px solid var(--kptu-border-strong);border-radius:5px;background:var(--kptu-surface);color:var(--kptu-ink);text-align:right}
+.inp button{font:inherit;font-size:11.5px;padding:2px 8px;border:.5px solid var(--kptu-border-strong);border-radius:5px;background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.note{color:var(--kptu-faint);font-size:11px;margin:3px 0}
+.seg{display:inline-flex;border:.5px solid var(--kptu-border-strong);border-radius:6px;overflow:hidden;font-size:11px;margin-left:auto}
+.seg span{padding:1px 7px}.seg .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.fhead{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--kptu-muted)}
+</style>
+</head>
+<body>
+<h1>AI 비용 칸 시안 (프로필 › 수집·사용량)</h1>
+<p class="lead">지금 'AI 사용량' 한 줄 자리를 키운 모양입니다. 숫자는 모두 가짜. A는 목록형(기능별 표가 중심), B는 공급자 막대가 중심입니다. 어느 쪽이든 접힌 상태에서는 머리 한 줄만 보입니다.</p>
+
+<template id="feat-rows">
+<tr><td><span class="dot gm"></span>통화 전사</td><td>31,200원</td><td>78,000원</td></tr>
+<tr><td><span class="dot gm"></span>회의 녹음 전사<span class="mini"><span style="width:42%"></span></span></td><td>6,300원</td><td>15,700원</td></tr>
+<tr><td><span class="dot gm"></span>통화 분석</td><td>4,100원</td><td>10,200원</td></tr>
+<tr><td><span class="dot oa"></span>원장 자동 기록</td><td>2,400원</td><td>6,000원</td></tr>
+<tr><td><span class="dot oa"></span>텔레그램·통화 판정<span class="mini"><span style="width:35%"></span></span></td><td>2,100원</td><td>5,200원</td></tr>
+<tr><td><span class="dot oa"></span>업무일지</td><td>1,500원</td><td>3,700원</td></tr>
+<tr><td><span class="dot oa"></span>뉴스·번역<span class="mini"><span style="width:22%"></span></span></td><td>1,100원</td><td>2,700원</td></tr>
+<tr><td><span class="dot oa"></span>자료실</td><td>900원</td><td>2,200원</td></tr>
+<tr><td><span class="dot oa"></span>회의 요약</td><td>600원</td><td>1,500원</td></tr>
+<tr><td><span class="dot oa"></span>Web2에 묻기</td><td>300원</td><td>700원</td></tr>
+<tr><td><span class="dot oa"></span>그 밖</td><td>200원</td><td>500원</td></tr>
+</template>
+
+<div class="section">
+<p class="cap">폰 412 — 시안 A(목록형), 펼친 상태</p>
+<div class="row-of">
+<div class="phone" id="phoneA">
+  <div class="panel">
+    <h3>수집·사용량</h3>
+    <div class="ghost">마지막 수집 · 텔레그램 3분 전 · 통화 12분 전</div>
+    <div class="ac-top"><b>AI 비용</b><span class="mu">11월 1~12일</span><span>50,700원</span><span class="fa">· 월말 약 126,000원</span><span class="chev">접기 ▴</span></div>
+    <div class="warn">⚠ 이 속도면 11월 24일에 Gemini 한도 — 회의·통화 전사가 멈춰요</div>
+    <div class="prov">
+      <span class="nm"><span class="dot oa"></span>OpenAI <i>선불</i></span><span class="mu">이번 달</span><span class="v">9,100원 <span class="tag">추정</span></span>
+      <div class="sub"><span>월말 약 22,600원</span><span>자동 충전 20,000원씩 → 한 달 약 1번</span><a href="#">대시보드 ↗</a></div>
+    </div>
+    <div class="prov">
+      <span class="nm"><span class="dot gm"></span>Gemini <i>후불</i></span><span class="mu">이번 달</span><span class="v">41,600원 <span class="tag">추정</span></span>
+      <div class="bar"><span class="w" style="width:52%"></span></div>
+      <div class="sub"><span>한도 80,000원 중 52%</span><span>월말 약 104,000원</span><a href="#">대시보드 ↗</a></div>
+    </div>
+    <div class="fhead">기능별</div>
+    <table class="feat"><thead><tr><th>기능</th><th>이번 달</th><th>월말</th></tr></thead><tbody data-rows></tbody></table>
+    <div class="trend" data-trend></div>
+    <div class="legend"><span><span class="dot oa"></span>OpenAI</span><span><span class="dot gm"></span>Gemini</span><span>최근 30일 하루 금액</span></div>
+    <details><summary>권장 · 한도 · 계산 방법</summary>
+      <p class="note">권장: Gemini 한도 140,000원으로 올리기 · OpenAI 자동 충전 20,000원 유지(잔액 3,000원 아래에서 충전)</p>
+      <div class="inp">Gemini 월 한도 <input value="80,000"> 원 <button>저장</button></div>
+      <div class="inp">OpenAI 자동 충전 <input value="20,000"> 원 <button>저장</button></div>
+      <p class="note">최근 14일 하루 평균으로 월말을 셈. 'Web2 추정'은 Web2가 센 토큰 × 단가라 실제 청구와 다를 수 있어요.</p>
+    </details>
+  </div>
+</div>
+
+<div class="phone" id="phoneB">
+  <p class="cap" style="margin:2px 4px 6px">폰 412 — 시안 B(막대형), 펼친 상태</p>
+  <div class="panel">
+    <h3>수집·사용량</h3>
+    <div class="ac-top"><b>AI 비용</b><span class="mu">11월 1~12일</span><span>50,700원</span><span class="fa">· 월말 약 126,000원</span><span class="chev">접기 ▴</span></div>
+    <div class="warn">⚠ 11월 24일 Gemini 한도 예상 — 한도 140,000원 권장</div>
+    <div class="prov"><span class="nm"><span class="dot gm"></span>Gemini</span><span></span><span class="v">41,600 / 80,000원</span><div class="bar"><span class="w" style="width:52%"></span></div><div class="sub"><span>통화 전사 31,200 · 회의 전사 6,300 · 통화 분석 4,100</span><a href="#">↗</a></div></div>
+    <div class="prov"><span class="nm"><span class="dot oa"></span>OpenAI</span><span></span><span class="v">9,100원 · 충전 월 1번</span><div class="bar"><span style="width:40%;background:var(--oa)"></span></div><div class="sub"><span>원장 2,400 · 판정 2,100 · 업무일지 1,500 · 그 밖 3,100</span><a href="#">↗</a></div></div>
+    <details><summary>기능별 전체 11줄</summary><table class="feat"><tbody data-rows></tbody></table></details>
+    <details><summary>추세 · 한도 · 계산 방법</summary><div class="trend" data-trend></div></details>
+  </div>
+</div>
+
+<div class="phone" id="phoneFold">
+  <p class="cap" style="margin:2px 4px 6px">폰 412 — 접힌 상태(평소)</p>
+  <div class="panel">
+    <h3>수집·사용량</h3>
+    <div class="ghost">마지막 수집 · 텔레그램 3분 전 · 통화 12분 전</div>
+    <div class="ac-top"><b>AI 비용</b><span class="mu">11월 1~12일</span><span>50,700원</span><span class="fa">· 월말 약 126,000원</span><span class="chev">펼치기 ▾</span></div>
+    <div class="warn">⚠ 이 속도면 11월 24일에 Gemini 한도</div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="section">
+<p class="cap">PC 1280 — 시안 A, 프로필 화면</p>
+<div class="scroll"><div class="pc" id="pc">
+  <div class="nav"><div>홈</div><div>업무일지</div><div>프로젝트</div><div>자료실</div><div class="on">내 프로필</div></div>
+  <div class="main">
+    <div class="panel"><h3>내 정보</h3><div class="ghost">이름 · 담당조직 · 보고 캘린더</div><div class="ghost">Drive 연결</div><div class="ghost">화면 설정</div></div>
+    <div class="panel">
+      <h3>수집·사용량</h3>
+      <div class="ghost">마지막 수집 · 텔레그램 3분 전 · 통화 12분 전</div>
+      <div class="ac-top"><b>AI 비용</b><span class="mu">11월 1~12일</span><span>50,700원</span><span class="fa">· 월말 약 126,000원</span><span class="chev">접기 ▴</span></div>
+      <div class="warn">⚠ 이 속도면 11월 24일에 Gemini 한도 — 회의·통화 전사가 멈춰요</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="prov"><span class="nm"><span class="dot oa"></span>OpenAI <i>선불</i></span><span></span><span class="v">9,100원 <span class="tag">추정</span></span><div class="sub"><span>월말 약 22,600원</span><span>충전 20,000원씩 월 1번</span><a href="#">대시보드 ↗</a></div></div>
+        <div class="prov"><span class="nm"><span class="dot gm"></span>Gemini <i>후불</i></span><span></span><span class="v">41,600원 <span class="tag">추정</span></span><div class="bar"><span class="w" style="width:52%"></span></div><div class="sub"><span>한도 80,000원 중 52%</span><span>월말 약 104,000원</span><a href="#">대시보드 ↗</a></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:12px;margin-top:4px">
+        <table class="feat"><thead><tr><th>기능</th><th>이번 달</th><th>월말</th></tr></thead><tbody data-rows></tbody></table>
+        <div><div class="trend" data-trend style="height:70px"></div><div class="legend"><span><span class="dot oa"></span>OpenAI</span><span><span class="dot gm"></span>Gemini</span><span>최근 30일</span></div>
+          <p class="note">권장: Gemini 한도 140,000원 · OpenAI 자동 충전 20,000원 유지</p>
+          <details><summary>한도 · 계산 방법</summary>
+            <div class="inp">Gemini 월 한도 <input value="80,000"> 원 <button>저장</button></div>
+            <div class="inp">OpenAI 자동 충전 <input value="20,000"> 원 <button>저장</button></div>
+            <p class="note">최근 14일 하루 평균으로 월말을 셈. 추정은 실제 청구와 다를 수 있어요.</p>
+          </details></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+</div>
+
+<script>
+const rows = document.getElementById('feat-rows').innerHTML;
+document.querySelectorAll('[data-rows]').forEach(t => { t.innerHTML = rows; });
+const days = Array.from({length:30}, (_, i) => ({o: 200 + (i * 37) % 450, g: 900 + (i * 211) % 2600}));
+const max = Math.max(...days.map(d => d.o + d.g));
+document.querySelectorAll('[data-trend]').forEach(t => {
+  t.innerHTML = days.map(d => `<i><b style="height:${d.o / max * 100}%"></b><u style="height:${d.g / max * 100}%"></u></i>`).join('');
+});
+</script>
+</body>
+</html>
