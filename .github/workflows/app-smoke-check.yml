@@ -78,6 +78,7 @@ on:
       - 'tests/paste-files.test.mjs'
       - 'tests/record-attach.test.mjs'
       - 'tests/record-file-rename.test.mjs'
+      - 'tests/org-record-label.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
@@ -297,6 +298,7 @@ on:
       - 'tests/paste-files.test.mjs'
       - 'tests/record-attach.test.mjs'
       - 'tests/record-file-rename.test.mjs'
+      - 'tests/org-record-label.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
@@ -478,6 +480,9 @@ jobs:
 
       - name: Check record file rename reaches record lines and strips (ORG-기록첨부이름반영)
         run: node --test tests/record-file-rename.test.mjs
+
+      - name: Check file-only record lines show photo and file counts (ORG-기록첨부표시이름)
+        run: node --test tests/org-record-label.test.mjs
 
       - name: Check attachment delete and undo (FILE-첨부삭제)
         run: node --test tests/file-trash.test.mjs
