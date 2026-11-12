@@ -207,7 +207,7 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
   onRead: (item, row) => { const c = detail.current(); if (c && itemKey(c) === itemKey(item)) detail.setHead(describe('news', row)); window.KPTUNews?.refresh?.(); },
   onRelated: r => openRelated(r)});
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, rowOf, query: () => state.query,
-  onOpen: (item, head) => openDetail(item, head), onListed: () => autoOpenTop(),
+  onOpen: (item, head) => openDetail(item, head, {picked: true}), onListed: () => autoOpenTop(),
   onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list') paintList(); }); }});
 // [밑줄] 탭: 줄을 누르면 그 글을 읽어 상세를 열고 그 밑줄 자리로. 텔레그램 원문 밑줄은 텔레그램 소식 화면으로(그 소식은 거기서 연다).
 const marks = createNowHighlights({box: root?.querySelector('[data-now-panel-marks]'), query: () => state.query, onOpen: h => openHighlight(h)});
@@ -231,6 +231,7 @@ function askInterests() {
 let autoOpening = false;
 function openDetail(item, head, opts = {}) {
   if (!item || !head) return;
+  const shown = !!detail.current();
   detail.open(item, head, opts);
   // 상세를 열면 읽음(app_feed_reads, 이미 있으면 서버가 그대로 둔다). PC에서 맨 위 글을 저절로 연 것은 읽은 것으로 치지 않는다.
   if (!autoOpening) markRead(item);
@@ -240,8 +241,22 @@ function openDetail(item, head, opts = {}) {
   if (!PC.matches) { detailLayer ||= window.KPTURouter?.layer?.open('now-detail', {reopen: () => openDetail(item, head), close: () => { detailLayer = null; closeDetail({fromLayer: true}); return true; }}) || null; window.scrollTo({top: 0, behavior: 'instant'}); }
   // 주소에 연 글(?item=outside:<id>) — 새로고침해도 같은 글. PC에서 맨 위 글을 저절로 연 것은 남기지 않는다.
   if (!autoOpening) window.KPTURouter?.setPlace?.('outside', {item: itemKey(item)});
+  // NAV-PC뒤로직전: on PC·the unfolded Fold a post the person picked in the list is a back step of its own (router pick).
+  if (opts.picked && PC.matches && !autoOpening) window.KPTURouter?.pick?.record?.('outside', {item: itemKey(item)}, {fromNone: !shown});
   markOpen();
 }
+// ‹ › over a picked post opens it again; a post no longer there, or the "no post" step, leaves the list only.
+window.KPTURouter?.pick?.on?.('outside', ({item = null} = {}) => {
+  if (!PC.matches) return true;
+  const m = /^(outside|news):(.+)$/.exec(item || ''), now = detail.current();
+  if (!m || !isUuid(m[2])) { if (now) closeDetail(); return true; }
+  if (now && itemKey(now) === item) return true;
+  fetchItem(m[1], m[2]).then(row => {
+    if (window.KPTURouter?.current !== 'outside') return;
+    if (row) openDetail({type: m[1], id: row.id}, describe(m[1], row)); else if (detail.current()) closeDetail();
+  }).catch(() => {});
+  return true;
+});
 function closeDetail({fromLayer = false} = {}) {
   const was = detail.current();
   detail.close();

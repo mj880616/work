@@ -255,12 +255,24 @@ function sumBoxHtml(r) {
 function openLayer(id) {
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('call-detail', {reopen:() => select(id), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
 }
-function select(id) {
-  if (!dropBoxes(() => select(id))) return;
+function select(id, {picked = false} = {}) {
+  if (!dropBoxes(() => select(id, {picked}))) return;
+  const shown = !!state.selected;
   state.selected = id; state.rawOpen = false; state.status = ''; undo = null; state.confirm = null; ledgerAsk = null;
   openLayer(id); paint(); void loadRaw(id);
+  // NAV-PC뒤로직전: on PC a call the person picked is a back step of its own (router pick); the phone keeps its layer (openLayer).
+  if (picked && pc.matches) window.KPTURouter?.pick?.record?.('calls', {box:state.box === 'personal' ? 'personal' : null, call:id}, {fromNone:!shown});
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
 }
+// ‹ › over a picked call opens it again; a call no longer in this box (deleted, moved) or the "no call" step leaves the list only.
+window.KPTURouter?.pick?.on?.('calls', ({call = null} = {}) => {
+  if (!pc.matches || !state.loaded) return true;
+  if (call && call === state.selected) return true;
+  const r = call && rowOf(call);
+  if (r && isPersonal(r) === (state.box === 'personal')) select(call);
+  else if (state.selected) closeDetail();
+  return true;
+});
 // 지금 통화함 목록의 맨 위 통화(날짜별 목록의 첫 줄, 없으면 확인할 통화의 첫 줄)를 고른 상태로 둔다. 그리기는 부르는 쪽 paint() 한 번.
 function pickTop() {
   const top = state.box === 'personal' ? groupByDay(personalRows())[0]?.items[0] : groupByDay(state.rows)[0]?.items[0] || unsureRows()[0];
@@ -534,7 +546,7 @@ function bind() {
   root.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.disabled || !root.contains(b)) return;
     const d = b.dataset;
-    if (d.cfRow) select(d.cfRow);
+    if (d.cfRow) select(d.cfRow, {picked:true});
     else if (d.cfRowmore) menu.open(b);
     else if (d.cfBox) setBox(d.cfBox);
     else if (d.cfDecide) { const r = rowOf(d.cfId); if (r) void moveRow(r, d.cfDecide); }

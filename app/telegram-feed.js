@@ -600,16 +600,27 @@ function closeDetail({fromBack = false, quiet = false} = {}) {
   paint(); $(room ? `#tgList [data-tg-roomopen="${CSS.escape(room)}"]` : `#tgList [data-tg-rdopen="${CSS.escape(key)}"]`)?.focus({preventScroll:true});
 }
 // TG-방별보기: 방 상세(방별) 열기. 폰은 router layer 한 칸(뒤로가기 = 방 목록). 주소에 방을 남겨 새로고침해도 그 방이 열린다.
-function openRoom(room) {
+function openRoom(room, {picked = false} = {}) {
   if (!room) return;
-  if (state.link && !dropLink(() => openRoom(room))) return;
+  if (state.link && !dropLink(() => openRoom(room, {picked}))) return;
   if (state.sedit?.kind === 'raw') endEdit();
+  const shown = !!state.rsel || !!state.sel;
   state.sel = null; state.rsel = room; state.rshown = ROOM_DAY_PAGE; state.rstop = false; state.status = ''; state.note = ''; state.open = new Set(); state.more = new Set(); undo = null;
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-room', {reopen:() => openRoom(room), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   window.KPTURouter?.setPlace?.('telegram', {by:'room', room});
+  // NAV-PC뒤로직전: on PC a room the person picked is a back step of its own (router pick); the phone keeps its layer above.
+  if (picked && pc.matches) window.KPTURouter?.pick?.record?.('telegram', {by:'room', room}, {fromNone:!shown});
   paint(); void ensureRoomDays();
   (pc.matches ? $(`#tgList [data-tg-roomopen="${CSS.escape(room)}"]`) : $('#tgDetail [data-tg-back]'))?.focus({preventScroll:true});
 }
+// ‹ › over a picked room opens it again (방별 보기 그대로일 때); a room no longer there, or the "no room" step, leaves the list only.
+window.KPTURouter?.pick?.on?.('telegram', ({room = null} = {}) => {
+  if (!pc.matches || byNow() !== 'room') return true;
+  if (room && room === state.rsel) return true;
+  if (room && (state.rooms.has(room) || state.lines.some(l => l.room_key === room))) openRoom(room);
+  else if (state.rsel || state.sel) { closeDetail({quiet:true}); paint(); }
+  return true;
+});
 // [날짜별 | 방별] 바꾸기: 열린 상세는 닫고, 고른 보기는 서버 화면 기억에 남긴다(DB 적용 전에는 거절되어 이번 접속만 기억).
 function setBy(by) {
   if (byNow() === by || state.busy) return;
@@ -1038,7 +1049,7 @@ function bind() {
     else if (b.hasAttribute('data-tg-fedit-save')) void saveFolder();
     else if (d.tgRestoreDay) { const k = splitRdKey(d.tgRestoreDay); if (k) void restoreDay(k.room, k.day); }
     else if (d.tgRdopen) { const k = splitRdKey(d.tgRdopen); if (k) select(k.room, k.day); }
-    else if (d.tgRoomopen) openRoom(d.tgRoomopen);
+    else if (d.tgRoomopen) openRoom(d.tgRoomopen, {picked:true});
     else if (d.tgBy) setBy(d.tgBy === 'room' ? 'room' : 'day');
     else if (b.hasAttribute('data-tg-rolder')) void moreRoomDays();
     else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { if (roomMode()) openRoom(r.room_key); else select(r.room_key, r.day, r.id); } }

@@ -334,6 +334,10 @@
   //   input kept) returns to the entry left, without rewriting history.
   const PICK='kptuPick';
   const pickShows=new Map();
+  // The pick in effect on the screen now. Entries pushed above a pick by a menu or a small window copy its record, so coming back
+  // from them lands on the same pick: nothing to show again. A screen change forgets it (the screen may have opened another item).
+  let pickNow=null;
+  const pickKey=(view,values)=>JSON.stringify([view,Object.entries(values||{}).sort()]);
   const pickOf=state=>state?.[PICK]&&typeof state[PICK]==='object'?state[PICK]:null;
   function pickValues(view,values){
     const keys=PLACE_PARAMS[view]||[],out={};
@@ -359,6 +363,7 @@
     // A layer or a window stands on this entry, or a back is still on its way: the place only (no step of its own).
     if(releasing||layers.length||chainOf(history.state).length||history.state?.kptuOverlay){setPlace(view,clean);return false}
     const was=pickOf(history.state);
+    pickNow=pickKey(view,clean);
     if(was?.view===view&&sameValues(was.values||{},clean)){setPlace(view,clean);return false}
     if(was?.view!==view&&!fromNone){
       history.replaceState({...(history.state||{}),[PICK]:{view,values:clean}},'',pickUrl(view,clean));
@@ -383,9 +388,11 @@
   function showPick(){
     const view=api.current,picked=pickOf(history.state),show=pickShows.get(view);
     if(!picked||picked.view!==view||!show)return;
+    const key=pickKey(view,picked.values);
+    if(key===pickNow)return;
     let shown=true;
     try{shown=show({...(picked.values||{})})!==false}catch(err){console.error('pick show',view,err)}
-    if(!shown)returnToLeft();
+    if(shown)pickNow=key;else returnToLeft();
   }
   function returnToLeft(){
     const left=pickLeft,entry=here();pickLeft=null;
@@ -608,7 +615,7 @@
       if(source==='popstate'){if(fromEntry)rememberScroll(fromEntry.key,fromEntry.y)}
       else rememberScroll(entry?.key,window.scrollY);
     }
-    if(api.current!==view)forgetLayers();
+    if(api.current!==view){forgetLayers();pickNow=null}
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
     syncNavigationState(view);
     api.current=view;api.sub=sub;
