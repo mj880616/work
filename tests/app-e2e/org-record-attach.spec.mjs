@@ -106,3 +106,21 @@ test('PC 1440 ⑥: [취소]면 올리지 않고, 남기기 뒤 다른 화면으�
  release();
  await expect.poll(()=>f.s.confirms.length).toBe(1);expect(f.s.uploads).toBe(1);
 });
+
+// ORG-기록첨부안됨(S60-1b): 창을 연 직후 📎가 켜져 있고 누르면 파일 고르기가 뜬다. 끌어 놓기도 바로 받는다.
+// (창을 열 때 첨부 부품을 조직을 읽기 전에 다시 그려 꺼진 채 남던 것 — 조직을 다 읽은 뒤의 한 그리기가 다시 그린다.)
+for(const width of [412,1280]){
+ test(`창을 연 직후 📎가 켜지고 누르면 파일 고르기, 끌어 놓기도 받는다 ${width}`,async({page})=>{
+  const f=await fixture(page,width);
+  const clip=page.locator('#wdInboxClip [data-basket-clip]');
+  await expect(clip).toBeEnabled();
+  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),clip.click()]);
+  await chooser.setFiles({name:'공문.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-')});
+  await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(1);
+  await page.locator('#wdInbox').evaluate(el=>{const dt=new DataTransfer();dt.items.add(new File([new Uint8Array([137,80,78,71])],'끌어.png',{type:'image/png'}));for(const type of ['dragenter','dragover','drop'])el.dispatchEvent(new DragEvent(type,{bubbles:true,cancelable:true,dataTransfer:dt}))});
+  await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(2);
+  expect(await pasteInto(page.locator('#wdInboxText'),[{name:'image.png',type:'image/png'}])).toBe(true);
+  await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(3);
+  expect(f.errors).toEqual([]);
+ });
+}
