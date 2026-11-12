@@ -180,7 +180,7 @@ export function disconnectRecordLink(linkId,{name='',rt=window.KPTURuntime,isCur
 // The note's current version is read first; one call only, and an unclear result is re-read by the screens' lists.
 const RESTORE_ERROR={NOTE_MISSING:'RESTORE_NOTE_MISSING',NOTE_WORKSPACE:'RESTORE_NOTE_MISSING',NOTE_ARCHIVED:'RESTORE_ARCHIVED',AI_EXCLUDED:'RESTORE_AI_EXCLUDED',
   TARGET_MISSING:'RESTORE_TARGET',TARGET_WORKSPACE:'RESTORE_TARGET',TARGET_UNSELECTABLE:'RESTORE_TARGET'};
-export async function restoreRecordLink({noteId,kind,targetId,summary=null},{rt=window.KPTURuntime}={}){
+export async function restoreRecordLink({noteId,kind,targetId,summary=null,origin=null},{rt=window.KPTURuntime}={}){
   const key=`restore:${noteId}:${kind}:${targetId}`;
   if(pending.has(key))return {status:'busy',message:RECORD_DELETE_TEXT.BUSY};
   // REF-참고묶음: kind 'reference' re-links a reference bundle (bundle_id) through the same RPC.
@@ -198,7 +198,7 @@ export async function restoreRecordLink({noteId,kind,targetId,summary=null},{rt=
     if(owner!==scope(rt))return {status:'stale'};
     if(!note)return {status:'failed',message:RECORD_DELETE_TEXT.RESTORE_NOTE_MISSING};
     let result;
-    try{result=await confirmLinks(noteId,note.updated_at,[{kind,target_id:targetId,reason:'직접 연결',...(summary===null||summary===undefined?{}:{summary})}],rt);}
+    try{result=await confirmLinks(noteId,note.updated_at,[{kind,target_id:targetId,reason:'직접 연결',...(summary===null||summary===undefined?{}:{summary}),...(origin==='record_input'||origin==='basket'?{origin}:{})}],rt);}
     catch{notify();return owner===scope(rt)?{status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN}:{status:'stale'};}
     if(result?.ok===true){notify();return owner===scope(rt)?{status:'restored',message:RECORD_DELETE_TEXT.RESTORED}:{status:'stale'};}
     if(owner!==scope(rt))return {status:'stale'};
@@ -247,7 +247,7 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
     const owner=scope(rt),kind=linkRestoreKind(link);
     offerUndoNotice({text:`${String(name||'').trim()||'이'} 연결을 해제했어요. 업데이트는 남아요.`,onUndo:async()=>{
       if(owner!==scope(rt))return {status:'stale'};
-      const restored=await restoreRecordLink({noteId:link.note_id,kind,targetId:linkRestoreTarget(link),summary:link.summary??null},{rt});
+      const restored=await restoreRecordLink({noteId:link.note_id,kind,targetId:linkRestoreTarget(link),summary:link.summary??null,origin:link.origin??null},{rt});
       if(restored.status==='restored')onRestored(restored);
       return restored;
     }});

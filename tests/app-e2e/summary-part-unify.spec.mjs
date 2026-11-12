@@ -62,7 +62,7 @@ for(const width of [390,1280])test(`A: 참고 묶음 요약 칸에도 [요약 �
  expect(f.ai).toEqual([{kind:'link_summary',note_id:n,target_kind:'reference',target_id:b}]);
  expect(f.calls).toEqual([]);expect(await noWideScroll(page)).toBe(true);
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);await expect(detail.locator('[data-basket-status]')).toContainText('1곳에 연결했어요.');
- expect(f.calls[0].p_targets).toEqual([{kind:'reference',target_id:b,reason:'직접 연결',summary:AI_TEXT}]);
+ expect(f.calls[0].p_targets).toEqual([{kind:'reference',target_id:b,reason:'직접 연결',origin:'basket',summary:AI_TEXT}]);
  expect(f.errors).toEqual([]);
 });
 
@@ -83,7 +83,7 @@ for(const width of [390,1280])test(`C: 사진 여러 장 업데이트 → [요�
  expect(f.ai).toHaveLength(1);expect(await noWideScroll(page)).toBe(true);
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);
  await expect.poll(()=>f.calls.length).toBe(1);
- expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o,reason:'직접 연결',summary:'사용자가 고친 기록'}]);
+ expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o,reason:'직접 연결',origin:'basket',summary:'사용자가 고친 기록'}]);
  expect(f.errors).toEqual([]);
 });
 

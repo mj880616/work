@@ -4,7 +4,7 @@ import {plainText} from './notice-box.mjs'; // S59-20: 업데이트 첫 줄을 �
 // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 const WAITING='\u0000wait';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
+import {confirmLinks,ERROR_TEXT,LINK_ORIGIN} from './basket-classification.js';
 import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
 import {selectMyOrganizations} from './my-organizations.js';
 import {createChoiceSheet,orgRow} from './choice-sheet.js';
@@ -39,10 +39,10 @@ const MANUAL_ERROR_TEXT=Object.freeze({
 });
 export const manualErrorText=code=>MANUAL_ERROR_TEXT[code]||ERROR_TEXT[code]||'연결하지 못했어요. 다시 시도해 주세요.';
 const linkKey=(kind,id)=>kind+':'+id;
-// RPC payload: only the four keys the database accepts, one fixed reason.
+// RPC payload: only the keys the database accepts, one fixed reason. ORG-기록첨부표시이름 ①: 잊지 말기에서 옮긴 연결은 origin 'basket'.
 export function manualLinkTargets(selections){
   // A blank summary leaves the key out: the database stores NULL and the note body is shown as the record.
-  return selections.map(s=>({kind:s.kind,target_id:s.id,reason:MANUAL_LINK_REASON,...(isBlankLinkSummary(s.summary)?{}:{summary:s.summary})}));
+  return selections.map(s=>({kind:s.kind,target_id:s.id,reason:MANUAL_LINK_REASON,origin:LINK_ORIGIN.BASKET,...(isBlankLinkSummary(s.summary)?{}:{summary:s.summary})}));
 }
 // Returns the first selection whose summary the database would refuse, with a plain message.
 export function invalidManualSelection(selections){

@@ -44,7 +44,7 @@ for(const width of [412,1440]){
   await expect(page.locator('#wdInboxFiles [data-basket-file]')).toHaveCount(0);
   await expect.poll(()=>f.s.docPatches.map(p=>p.organization_id)).toEqual(['o']);
   expect(f.s.uploads).toBe(1);expect(f.s.lines).toEqual([true]);expect(f.s.notePosts||0).toBe(0);
-  expect(f.s.confirms[0].p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결',summary:'합성 공문 사진 · 교섭 일정 안내임.'}]);
+  expect(f.s.confirms[0].p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결',origin:'record_input',summary:'합성 공문 사진 · 교섭 일정 안내임.'}]);
   expect(f.s.orgPosts).toEqual([]);
   const row=page.locator('#wdUpdates [data-basket-link="l1"]');
   await expect(row.locator('[data-link-summary-text]')).toHaveText('합성 공문 사진 · 교섭 일정 안내임.');
@@ -73,7 +73,7 @@ test('글을 쓰고 파일을 붙이면 글이 기록(AI 부르지 않음), 글�
  await pasteInto(page.locator('#wdInboxText'),[{name:'image.png',type:'image/png'}]);
  await page.locator('#wdInboxSave').click();
  await expect(page.locator('#wdInboxState')).toHaveText('저장했어요.');
- expect(f.s.notePosts).toBe(1);expect(f.s.lines).toEqual([]);expect(f.s.confirms[0].p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결'}]);
+ expect(f.s.notePosts).toBe(1);expect(f.s.lines).toEqual([]);expect(f.s.confirms[0].p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결',origin:'record_input'}]);
  await expect.poll(()=>f.s.docPatches.map(p=>p.organization_id)).toEqual(['o']);expect(f.s.uploads).toBe(1);
  await page.locator('#wdInboxText').fill('글만 쓴 기록');await page.locator('#wdInboxSave').click();
  await expect.poll(()=>f.s.orgPosts.length).toBe(1);expect(f.s.orgPosts[0].raw_text).toBe('글만 쓴 기록');
@@ -92,7 +92,7 @@ test('PC 1440 ⑥: 기록 표에 파일 놓기 → 먼저 묻고, 남기기면 �
  await ask.getByRole('button',{name:'기록 남기기'}).click();
  await expect.poll(()=>f.s.confirms.length).toBe(2);
  expect(f.s.uploads).toBe(2);expect(f.s.lines).toEqual([true,true]);
- for(const c of f.s.confirms)expect(c.p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결',summary:'합성 공문 사진 · 교섭 일정 안내임.'}]);
+ for(const c of f.s.confirms)expect(c.p_targets).toEqual([{kind:'organization',target_id:'o',reason:'직접 연결',origin:'record_input',summary:'합성 공문 사진 · 교섭 일정 안내임.'}]);
  // 조직 연결(자료 PATCH)은 기록 줄 저장 뒤에 따로 가서, 둘째 파일 것은 조금 늦게 올 수 있다 — 다 올 때까지 기다려 비교한다(같은 값 그대로).
  await expect.poll(()=>f.s.docPatches.map(p=>p.organization_id)).toEqual(['o','o']);expect(f.s.orgPosts).toEqual([]);
  await expect(page.locator('#kptuNotice .kptu-notice-text')).toContainText('파일 2개를 기록으로 남겼어요');

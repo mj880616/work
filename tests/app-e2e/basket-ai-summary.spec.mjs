@@ -88,7 +88,7 @@ for(const width of [390,1280])test(`an empty summary box is filled by [요약 �
  if(width===390)await page.screenshot({path:info.outputPath('ai-summary-filled-390.png'),fullPage:true});
  await box.fill(AI_TEXT+' 사용자가 수정한 끝.');
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
- expect(f.calls).toEqual([{p_note_id:n,p_note_updated_at:stamp,p_targets:[{kind:'organization',target_id:o,reason:'직접 연결',summary:AI_TEXT+' 사용자가 수정한 끝.'}]}]);
+ expect(f.calls).toEqual([{p_note_id:n,p_note_updated_at:stamp,p_targets:[{kind:'organization',target_id:o,reason:'직접 연결',origin:'basket',summary:AI_TEXT+' 사용자가 수정한 끝.'}]}]);
  expect(f.ai).toHaveLength(1);expect(f.errors).toEqual([]);
 });
 
@@ -105,7 +105,7 @@ for(const width of [390,1280])test(`a box with text keeps it; the proposal repla
  await expect(box).toHaveValue(AI_TEXT);await expect(detail.locator('[data-manual-ai-proposal]')).toHaveCount(0);await expect(box).toBeFocused();
  expect(f.calls).toEqual([]);
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
- expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o,reason:'직접 연결',summary:AI_TEXT}]);expect(f.errors).toEqual([]);
+ expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o,reason:'직접 연결',origin:'basket',summary:AI_TEXT}]);expect(f.errors).toEqual([]);
 });
 
 const failures=[

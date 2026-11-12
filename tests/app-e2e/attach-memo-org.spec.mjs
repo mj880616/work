@@ -182,7 +182,7 @@ for(const width of [390,1280])test(`[기록도 남기기] on an organization add
  await target.locator('textarea').fill('한빛지부 요구안 전달');
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 2개를 합성 한빛지부 자료로 넣었어요.');
- expect(f.rpc[0].p_targets).toEqual([{kind:'organization',target_id:O,reason:'직접 연결',summary:'한빛지부 요구안 전달'}]);
+ expect(f.rpc[0].p_targets).toEqual([{kind:'organization',target_id:O,reason:'직접 연결',origin:'basket',summary:'한빛지부 요구안 전달'}]);
  expect(f.calls('app_documents','PATCH')).toHaveLength(2);
  expect(f.errors).toEqual([]);
 });
@@ -198,7 +198,7 @@ test('a memo with text keeps the required summary and its file goes into the org
  await target.locator('textarea').fill('2차 교섭 일정 합의');
  await detail.getByRole('button',{name:'연결',exact:true}).click();
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 1개를 합성 한빛지부 자료로 넣었어요.');
- expect(f.rpc[0].p_targets).toEqual([{kind:'organization',target_id:O,reason:'직접 연결',summary:'2차 교섭 일정 합의'}]);
+ expect(f.rpc[0].p_targets).toEqual([{kind:'organization',target_id:O,reason:'직접 연결',origin:'basket',summary:'2차 교섭 일정 합의'}]);
  expect(f.tables.app_documents.find(d=>d.file_id==='drive-pdf').organization_id).toBe(O);
  expect(f.errors).toEqual([]);
 });

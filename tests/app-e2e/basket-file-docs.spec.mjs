@@ -253,7 +253,7 @@ test('[기록도 남기기] adds an optional summary and also records the memo',
  await target.locator('textarea').fill('10/6 요구안 최종본 공유');
  await detail.getByRole('button',{name:'연결',exact:true}).click();
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 2개를 합성 임단협 자료로 넣었어요.');
- expect(f.rpc).toHaveLength(1);expect(f.rpc[0].p_targets).toEqual([{kind:'project',target_id:P,reason:'직접 연결',summary:'10/6 요구안 최종본 공유'}]);
+ expect(f.rpc).toHaveLength(1);expect(f.rpc[0].p_targets).toEqual([{kind:'project',target_id:P,reason:'직접 연결',origin:'basket',summary:'10/6 요구안 최종본 공유'}]);
  expect(f.calls('app_documents','PATCH')).toHaveLength(2);
  await expect(detail.locator('[data-basket-state]')).toContainText('사업영역: 합성 임단협');
  expect(f.errors).toEqual([]);
@@ -274,7 +274,7 @@ test('a memo with text still needs a summary, and its attachment goes into that 
  await target.locator('textarea').fill('2차 교섭 일정 합의');
  await detail.getByRole('button',{name:'연결',exact:true}).click();
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 1개를 합성 임단협 자료로 넣었어요.');
- expect(f.rpc[0].p_targets).toEqual([{kind:'project',target_id:P,reason:'직접 연결',summary:'2차 교섭 일정 합의'}]);
+ expect(f.rpc[0].p_targets).toEqual([{kind:'project',target_id:P,reason:'직접 연결',origin:'basket',summary:'2차 교섭 일정 합의'}]);
  expect(f.tables.app_documents.find(d=>d.file_id==='drive-pdf').project_id).toBe(P);
  expect(f.errors).toEqual([]);
 });
