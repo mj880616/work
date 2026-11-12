@@ -262,6 +262,9 @@ test('오늘 표시 토큰: 칸 둘레 선은 진한 강조 글자색, 모든 �
   const v=vars(css);
   assert.equal(v['--ds-today-line'],'var(--kptu-primary-ink)');
   assert.equal(v['--ds-today-line-width'],'2px');assert.equal(v['--ds-today-line-width-sm'],'1.5px');
+  // UI-고른날진하게: 고른 날 동그라미 = 테마 주 색 + 그 위 글자색. 모든 색·밝은/어두운 화면에서 흰(주 색 위) 숫자 4.5:1 이상.
+  assert.equal(v['--ds-day-sel-bg'],'var(--kptu-primary)');assert.equal(v['--ds-day-sel-ink'],'var(--kptu-on-primary)');
+  for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]])need(`${name} ${mode} selected day number`,c['--kptu-on-primary'],c['--kptu-primary'],4.5);
   for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]])
     for(const surface of ['--kptu-surface','--kptu-surface-subtle','--kptu-bg'])need(`${name} ${mode} today frame on ${surface}`,c['--kptu-primary-ink'],c[surface],3);
 });
@@ -284,7 +287,11 @@ test('오늘 표시 규칙: 오늘 모양(네모 선)·고른 날(옅은 바탕)
   assert.match(num,/box-shadow:none/);assert.match(num,/color:var\(--ds-today-ink\)/);assert.doesNotMatch(num,/border-radius|border:/);
   const photo=shared.match(/#appView \.ds-today:has\(img\) \.ds-today-num\{([^}]*)\}/)[1];
   assert.match(photo,/box-shadow:none/);assert.match(photo,/background:var\(--ds-photo-scrim\)/);
-  assert.match(shared,/\.ds-day-sel:not\(#ds-none\)\{ background:var\(--ds-select-bg\); \}/);
+  // UI-고른날진하게(명진 2026-11-12): 고른 날은 칸이 아니라 날짜 숫자(.ds-day-num)를 진한 채운 동그라미·흰 숫자로. 칸 옅은 바탕·사진 위 옅은 막은 없앴다.
+  const sel=shared.match(/\.ds-day-sel \.ds-day-num:not\(#ds-none\)\{([^}]*)\}/)[1];
+  assert.match(sel,/color:var\(--ds-day-sel-ink\)/);assert.match(sel,/background:var\(--ds-day-sel-bg\)/);assert.match(sel,/border-radius:999px/);
+  assert.doesNotMatch(sel,/(min-|max-)?(width|height|padding|margin)\s*:/,'고른 날은 색만 바꾼다(크기는 각 달력 숫자 상자가 정해 골라도 변하지 않음)');
+  assert.doesNotMatch(shared,/\.ds-day-sel(:not\(#ds-none\))?\{[^}]*background:var\(--ds-select-bg\)/,'고른 날 칸 옅은 바탕은 없앴다');
   // 고른 날 모양은 공용 규칙만: 화면 CSS에서 날짜 칸의 고른 상태(aria-pressed·.rv-sel·.ds-day-sel)에 바탕·테두리·그림자를 따로 주지 않는다.
   const DAY=/\.(journal-date|diary-cell|rv-cell|rv-num|cal-cell|cwv-day|photos-cal-cell)[^,]*\[aria-pressed="true"\]|\.rv-sel\b|\.ds-day-sel\b/;
   const badSel=[];
@@ -296,7 +303,7 @@ test('오늘 표시 규칙: 오늘 모양(네모 선)·고른 날(옅은 바탕)
     }
   }
   assert.deepEqual(badSel,[],'고른 날 표시는 .ds-day-sel 공용 규칙(ui-standard.css)만 쓴다');
-  for(const file of ['journal.js','diary.js','report-views.js'])assert.ok(readFileSync('app/'+file,'utf8').includes('ds-day-sel'),file+': 고른 날 .ds-day-sel');
+  for(const file of ['journal.js','diary.js','report-views.js']){const js=readFileSync('app/'+file,'utf8');assert.ok(js.includes('ds-day-sel'),file+': 고른 날 .ds-day-sel');assert.ok(js.includes('ds-day-num'),file+': 날짜 숫자 .ds-day-num');}
   // 오늘을 표시하는 달력은 모두 공용 클래스를 붙인다(칸 + 날짜 숫자).
   for(const file of ['calendar-month-view.js','calendar-week-view.js','diary.js','journal.js','report-views.js','photos.js']){
     const js=readFileSync('app/'+file,'utf8');

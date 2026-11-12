@@ -55,7 +55,7 @@ export function calendarHtml(ctx) {
     const counts = [list.length ? `사업 보고 ${list.length}건` : '', todo ? `보고할 일정 ${todo}건` : '', ask ? `보고할까요? ${ask}건` : ''].filter(Boolean).join(' · ');
     const cls = ['rv-cell', c.inMonth ? '' : 'rv-out', c.key === todayKey ? (c.inMonth ? 'rv-now ds-today' : 'rv-now') : '', c.key === selected ? 'rv-sel ds-day-sel' : ''].filter(Boolean).join(' ');
     const label = `${dayHeading(c.key)}${counts ? ` ${counts}` : ''}`;
-    const num = c.inMonth ? `<button type="button" class="rv-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
+    const num = c.inMonth ? `<button type="button" class="rv-num ds-day-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
     // 점(폰): 3개까지. 넘치면 종류마다 하나씩은 보이게 고른다(cellDots) — 점만 보고도 쓸 보고가 있는 날을 안다.
     const dots = cell.total ? `<span class="rv-dots" aria-hidden="true">${cellDots(entries).map(e => markHtml(entryMark(e), colorOfEntry(e))).join('')}</span>` : '';
     // BIZ-달력그날창: 칸에 4줄까지(cellPlan). 넘는 날만 마지막 줄 자리에 '+n' 단추 — 누르면 그날 창(team.js reportViewClick → calendar-day-overflow.js).

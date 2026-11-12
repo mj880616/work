@@ -812,7 +812,7 @@ for(const width of [390,1280]){
   await cell(page,'2026-10-04').click();
   await expectDiaryDay(page,'10월 4일 일요일');await expect(list).toBeHidden();
   await page.locator('#diaryRoot [data-diary-detail-close]').click();
-  // 표시색: 글만 있는 날 점은 --kptu-primary-ink, 오늘 숫자는 --kptu-primary-text 글자(동그라미 없음, UI-오늘네모), 고른 날은 옅은 바탕(--ds-select-bg).
+  // 표시색: 글만 있는 날 점은 --kptu-primary-ink, 오늘 숫자는 --kptu-primary-text 글자(동그라미 없음, UI-오늘네모), 고른 날은 숫자 채운 동그라미(--ds-day-sel-bg·--ds-day-sel-ink, UI-고른날진하게).
   const color=(token)=>page.evaluate(t=>{const e=document.createElement('span');e.style.color=`var(${t})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},token);
   const ink=await color('--kptu-primary-ink');
   expect(await cell(page,'2026-10-04').locator('[data-diary-dot]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(ink);
@@ -822,8 +822,8 @@ for(const width of [390,1280]){
   expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).color)).toBe(accent);
   expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).boxShadow)).toBe('none');
   await cell(page,'2026-10-04').click();
-  const soft=await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-select-bg)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;});
-  expect(await cell(page,'2026-10-04').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(soft);
+  const fill=await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-day-sel-bg)';e.style.color='var(--ds-day-sel-ink)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e);const v=[c.backgroundColor,c.color];e.remove();return v;});
+  expect(await cell(page,'2026-10-04').locator('.diary-num').evaluate(el=>[getComputedStyle(el).backgroundColor,getComputedStyle(el).color])).toEqual(fill);
   expect(await cell(page,'2026-10-04').evaluate(el=>getComputedStyle(el).boxShadow)).toBe('none');
   expect(f.errors).toEqual([]);
  });
