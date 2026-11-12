@@ -103,16 +103,24 @@ object PushSetup {
             .setContentTitle(PushRules.PUBLIC_TITLE)
             .setPriority(priority)
             .build()
-        val note = NotificationCompat.Builder(app, m.channel)
+        val builder = NotificationCompat.Builder(app, m.channel)
             .setSmallIcon(R.drawable.ic_push)
             .setContentTitle(m.title)
             .setContentIntent(tap)
             .setAutoCancel(true)
             .setPriority(priority)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(hidden)
-            .build()
+        // FAMILY-기억알림 ②(명진 결정 11/12 "보이기"): 본문을 그리는 종류(family)만 본문을 보이고 잠금 화면에도 그대로. 그 밖은 지금처럼 내용 숨김.
+        val note = if (m.showOnLock) {
+            builder.setContentText(m.body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(m.body))
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .build()
+        } else {
+            builder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(hidden)
+                .build()
+        }
         try {
             app.getSystemService(NotificationManager::class.java)?.notify(PushRules.noticeTag(m.open), id, note)
         } catch (_: SecurityException) {

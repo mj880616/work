@@ -2,7 +2,7 @@ package kr.or.kptu.work
 
 /**
  * APP-폰알림 N4(설계 docs/design/phone-notifications.md 3·4.4절): 폰 알림의 판단 규칙. 안드로이드 API를 쓰지 않아 JVM 단위 시험으로 확인한다.
- * - 받은 데이터 메시지(kind·title·open)를 고르고 자르기
+ * - 받은 데이터 메시지(kind·title·open, family만 body)를 고르고 자르기
  * - 누르면 열 주소(open)를 웹2 안쪽 주소로만 바꾸기(아니면 첫 화면)
  * - 종류별 알림 채널·급함
  * - 웹 화면과 주고받는 다리 글(push:…)
@@ -22,6 +22,7 @@ object PushRules {
         "quiet_digest" to "조용한 시간 묶음",
         "test" to "시험 알림",
         // FAMILY-잊지말기 4단계: "잊지 말기 n건"(제목만, 잠금 화면은 PUBLIC_TITLE). 묶음처럼 보통(급하지 않음).
+        // FAMILY-기억알림 ②: 월요일 '가족 · 이번 주 기억할 것 n'(본문 있음 → 잠금 화면에도 그대로, BODY_KINDS).
         "family" to "잊지 말기",
     )
 
@@ -34,6 +35,9 @@ object PushRules {
     /** 잠금 화면에 보이는 글(설계 N-D4: 내용 숨김). */
     const val PUBLIC_TITLE = "웹2 · 새 알림"
     const val MAX_TITLE = 80
+    /** 본문을 그리는 종류(서버 fcm-send.ts BODY_KINDS와 같음). 명진 결정 11/12 "보이기": 이 종류는 본문이 있으면 잠금 화면에도 그대로 보인다. */
+    val BODY_KINDS: Set<String> = setOf("family")
+    const val MAX_BODY = 160
 
     /** 서버 OPEN_PATH와 같은 모양: /work/app/ + 선택 질의(영문·숫자·_=&%.-, 200자까지). */
     private val OPEN = Regex("^/work/app/(\\?[A-Za-z0-9_=&%.-]{0,200})?$")
@@ -42,27 +46,32 @@ object PushRules {
     /** 빌드 변수 값 모양(Firebase project id·app id·sender id·API key). 그 밖의 글은 설정 없음으로 본다. */
     private val CONFIG = Regex("^[A-Za-z0-9:._-]{1,200}$")
 
-    data class Message(val kind: String, val title: String, val open: String) {
+    data class Message(val kind: String, val title: String, val open: String, val body: String = "") {
         val urgent: Boolean get() = kind in URGENT
         val channel: String get() = channelId(kind)
+        /** 잠금 화면에 글을 그대로 보이는지: 본문을 그리는 종류이면서 본문이 있을 때만. 그 밖에는 PUBLIC_TITLE(내용 숨김). */
+        val showOnLock: Boolean get() = kind in BODY_KINDS && body.isNotEmpty()
     }
 
     fun channelId(kind: String): String = CHANNEL_PREFIX + kind
 
     fun urgent(kind: String): Boolean = kind in URGENT
 
-    /** 데이터 메시지 → 그릴 알림. 모르는 종류·빈 제목은 null. 이상한 open은 첫 화면. 제목은 한 줄로 자른다. */
+    /** 데이터 메시지 → 그릴 알림. 모르는 종류·빈 제목은 null. 이상한 open은 첫 화면. 제목·본문은 한 줄로 자른다. 본문은 BODY_KINDS만(그 밖은 버림). */
     fun message(data: Map<String, String>?): Message? {
         if (data == null) return null
         val kind = data["kind"] ?: return null
         if (kind !in KINDS) return null
-        val title = (data["title"] ?: "").replace(Regex("[\\r\\n\\t]+"), " ").trim()
+        val title = oneLine(data["title"], MAX_TITLE)
         if (title.isEmpty()) return null
-        val cut = if (title.codePointCount(0, title.length) > MAX_TITLE) {
-            title.substring(0, title.offsetByCodePoints(0, MAX_TITLE - 1)) + "…"
-        } else title
+        val body = if (kind in BODY_KINDS) oneLine(data["body"], MAX_BODY) else ""
         val open = data["open"]?.takeIf { OPEN.matches(it) } ?: "/work/app/"
-        return Message(kind, cut, open)
+        return Message(kind, title, open, body)
+    }
+
+    private fun oneLine(raw: String?, max: Int): String {
+        val one = (raw ?: "").replace(Regex("[\\u0000-\\u001f\\u007f]+"), " ").replace(Regex("\\s+"), " ").trim()
+        return if (one.codePointCount(0, one.length) > max) one.substring(0, one.offsetByCodePoints(0, max - 1)) + "…" else one
     }
 
     /** 누르면 열 주소. 허용 모양이 아니면 첫 화면. 결과는 늘 ShellRules.isInternalApp을 통과한다. */

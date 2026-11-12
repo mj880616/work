@@ -45,7 +45,7 @@ import {ftPressToggle,ftBindTreeArrows,folderPressAction,FOLDER_PRESS_ENTER} fro
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu,moveMenuTrigger} from './anchored-menu.js';
-import {notify,NOTICE_UNDO_MS,askConfirm} from './small-notice.js';
+import {notify,NOTICE_UNDO_MS,askConfirm,recordUndo,dropUndo} from './small-notice.js';
 // UI-알림창정리(자료실): 파일 열기·내려받기·Drive 열기 실패는 브라우저 기본 알림창 대신 위쪽 작은 알림(오류 5초).
 const luErrorNotice=message=>notify(message,{error:true});
 import {takeLibraryDocumentRequest,takeLibrarySelectionRequest} from './basket-library-send.js';
@@ -934,7 +934,8 @@ function luSyncFolderLayer(){
   if(luFolderStepping)return;
   // NAV-PC앞뒤통일: › (or the browser's forward) over the folder's entry enters the same folder again (reopen).
   const reopenId=luInFolder;
-  if(luInFolder&&!luFolderLayer&&window.KPTURouter?.current==='library')luFolderLayer=window.KPTURouter?.layer?.open('library-folder',{reopen:()=>luEnterFolder(reopenId),close:()=>{
+  // NAV-PC뒤로직전2: 겹은 폰(≤760)만. 넓은 화면은 들어간 폴더마다 라우터 pick 한 칸(luEnterFolder) — 노트 폴더와 같은 규칙.
+  if(luInFolder&&!luFolderLayer&&luPhone()&&window.KPTURouter?.current==='library')luFolderLayer=window.KPTURouter?.layer?.open('library-folder',{reopen:()=>luEnterFolder(reopenId),close:()=>{
     // FILES-폰폴더위로 ⑤: '그 폴더만'에서 한 단계씩 내려왔으면 [‹]와 같이 한 단계 위(돌아올 나무 자리는 그대로).
     // FOLDER-나무새기준 ④: 들어온 폴더(두 손가락)에서는 뒤로 키 한 번에 펼친 자리 그대로 나무로.
     const step=LU_PHONE?.matches?walkUp(luWalk):{to:null,walk:[]};
@@ -1045,16 +1046,28 @@ const id=b.dataset.luNav||null; // 폴더가 아닌 줄('자료실 전체'·'폴
 });
 ftBindTreeArrows();
 LU_SPLIT?.addEventListener?.('change',()=>{if(document.querySelector('#libraryListCard'))luRenderLibrary()});
+// ‹ › over an entered folder (wide screen) enters it again; a folder no longer there, or the "자료실" step, shows the top.
+window.KPTURouter?.pick?.on?.('library',({folder=null}={})=>{
+  if(luPhone()||!luFoldersReady||luGroupBy!=='folder')return true;
+  const id=folder&&luFolders_.some(f=>f.id===folder)?folder:null;
+  if(id!==luInFolder||luOutOnly){luTreeBack=null;luEnterFolder(id,{picked:false})}
+  return true;
+});
 function luShowOut(){if(luGroupBy!=='folder')return;luInFolder=null;luOutOnly=true;luRenderLibrary();document.querySelector('#documentList')?.scrollIntoView?.({block:'nearest'})}
 function luSyncOutLayer(){
   if(luOutOnly&&!luOutLayer&&window.KPTURouter?.current==='library')luOutLayer=window.KPTURouter?.layer?.open('library-out',{reopen:()=>luShowOut(),close:()=>{luOutLayer=null;if(!luOutOnly)return true;luOutOnly=false;luRenderLibrary();return true}})||null;
   else if(!luOutOnly&&luOutLayer){const l=luOutLayer;luOutLayer=null;l.close()}
 }
-function luEnterFolder(id){
+// NAV-PC뒤로직전2(명진 결정 11/11 '직전 화면'): 넓은 화면(폰 아님)에서 사람이 들어간 폴더 = 뒤로 한 칸(router pick, 한 주인).
+// A폴더 → B폴더 → ‹ = A폴더 → ‹ = 자료실(맨 위) → ‹ = 앞 화면. › 도 같은 기록. picked:false = ‹ ›로 다시 보여 줄 때(기록 안 함).
+// 폰은 지금처럼 겹 하나(luSyncFolderLayer, 뒤로 = 한 단계 위).
+function luEnterFolder(id,{picked=true}={}){
   if(luGroupBy!=='folder'||(id&&!luFolders_.some(f=>f.id===id)))return;
+  const from=luInFolder;
   // FILES-폰폴더위로 ⑤: 지금 폴더의 하위 폴더로 들어가면 한 단계 내려옴(길에 더함), 위 단계면 길을 거기까지.
   luWalk=walkTo(luWalk,id||'',{down:!!luInFolder&&!!id&&luFolders_.find(f=>f.id===id)?.parent_id===luInFolder});
   luOutOnly=false;luInFolder=id||null;if(luInFolder)luOpened.add('f:'+luInFolder);luRenderLibrary();
+  if(picked&&!luPhone()&&from!==luInFolder)window.KPTURouter?.pick?.record?.('library',luInFolder?{folder:luInFolder}:{},{fromNone:from===null});
   const list=document.querySelector('#documentList');list?.scrollIntoView?.({block:'nearest'});
   const head=luInFolder?[...document.querySelectorAll('#documentList summary.lu-node-head')].find(h=>h.parentElement?.dataset.luNode==='f:'+luInFolder):null;
   (head||document.querySelector('#libraryPath [data-lu-path]'))?.focus?.({preventScroll:true});
@@ -1148,7 +1161,7 @@ let luSuggest=new Map();
 // 반환: 고를 자료 수(0이면 메뉴에 항목을 내지 않음). go=true면 실제로 고른다.
 function luSelectNode(key,go=false){const ids=nodeDocumentIds(luTreeNode(key));if(!go||!ids.length||luSelBusy)return ids.length;luPick.stop();luPick.start(ids);luRenderLibrary();return ids.length}
 function luSuggestHtml(d,node){const fid=node?.key==='x:out'?luSuggest.get(d.id):null,f=fid&&luFolders_.find(x=>x.id===fid);if(!f)return '';return `<button type="button" class="lu-suggest" data-lu-suggest="${luEsc(d.id)}" data-lu-suggest-folder="${luEsc(f.id)}" aria-label="${luEsc(f.name)} 폴더로 옮기기">${iconHtml('folder')} ${luEsc(f.name)}?</button>`}
-document.addEventListener('click',e=>{const b=e.target.closest?.('#documentList [data-lu-suggest]');if(!b)return;e.preventDefault();e.stopPropagation();void luFolders().moveDocsTo([b.dataset.luSuggest],b.dataset.luSuggestFolder)},true);
+document.addEventListener('click',e=>{const b=e.target.closest?.('#documentList [data-lu-suggest]');if(!b)return;e.preventDefault();e.stopPropagation();void luFolders().moveDocsTo([b.dataset.luSuggest],b.dataset.luSuggestFolder,{open:false})},true);
 // 빠짐10(LIB-정리보충 ⑤): 같은 글의 원본 두 개(웹 + PDF/HWP)는 한 줄(대표 = 웹이 아닌 원본)로 묶고 줄 오른쪽 작은 [원본 n]으로 펼친다.
 // 화면에서만 묶는다(자료 행은 그대로). 상태 주인: luTwins(이번 그리기의 묶음 계획)·luTwinOpen(펼친 대표 id, 화면 메모리만).
 let luTwins=new Map();const luTwinOpen=new Set();
@@ -1169,7 +1182,9 @@ function luBindRename(list){list.addEventListener('keydown',e=>{if(e.key!=='F2'|
 function luRenameNotice(text,{error=false,undo=null}={}){
   const token=++luRenameNoticeToken;luFolderStatus(text,error);
   const el=document.querySelector('#libraryFolderStatusLine');if(!el||!text)return;
-  if(undo){const b=document.createElement('button');b.type='button';b.className='lu-undo';b.textContent='되돌리기';b.addEventListener('click',()=>{if(token===luRenameNoticeToken)void undo()},{once:true});el.append(' ',b)}
+  // S60-27: 줄의 [되돌리기]와 Ctrl+Z(UI-작은알림자리)는 같은 기록 하나 — 어느 쪽으로든 한 번만 되돌린다.
+  if(undo){let ran=false;const once=()=>{if(ran)return {silent:true};ran=true;return undo()};const id=recordUndo({label:String(text).replace(/\s*·\s*$/,''),undo:once});
+    const b=document.createElement('button');b.type='button';b.className='lu-undo';b.textContent='되돌리기';b.addEventListener('click',()=>{if(token!==luRenameNoticeToken)return;dropUndo(id);void once()},{once:true});el.append(' ',b)}
   if(!error)setTimeout(()=>{if(token===luRenameNoticeToken)luFolderStatus('')},10000);
 }
 function luStartRename(id){

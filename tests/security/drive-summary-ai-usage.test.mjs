@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHandler } from '../../supabase/functions/drive-summary/core.mjs';
-import { parseAiUsageReport, summarizeAiUsage, openAiPrice, readStart } from '../../supabase/functions/drive-summary/ai-usage.mjs';
+import { parseAiUsageReport, summarizeAiUsage, openAiPrice, readStart, readAiUsage, usageKind } from '../../supabase/functions/drive-summary/ai-usage.mjs';
 import * as model from '../../supabase/functions/_shared/ai-model.ts';
 import * as prices from '../../supabase/functions/_shared/ai-prices.mjs';
 import * as assist from '../../supabase/functions/ai-assist/handler.ts';
@@ -103,8 +103,8 @@ test('GET: 소유자 JWT만, 읽기는 소유자 토큰 + anon 키(서버 키로
   assert.equal(s.openai.assist_krw, 8400); assert.equal(s.openai.telegram_krw, 840); assert.equal(s.openai.krw, 9240);
   assert.equal(s.gemini.krw, 1400); assert.equal(s.gemini.transcript_krw, 1400); assert.equal(s.gemini.calls, 2);
   assert.deepEqual(s.warn, []);
-  const reads = h.calls.filter(c => c.url.pathname.startsWith('/rest/v1/app_ai') || c.url.pathname.endsWith('app_feed_days'));
-  assert.equal(reads.length, 4);
+  const reads = h.calls.filter(c => c.url.pathname.startsWith('/rest/v1/app_ai') || c.url.pathname.endsWith('app_feed_days') || c.url.pathname.endsWith('app_news_days'));
+  assert.equal(reads.length, 5);
   for (const c of reads) { assert.equal(c.method, 'GET'); assert.equal(c.init.headers.Authorization, 'Bearer owner-jwt'); assert.equal(c.init.headers.apikey, 'anon'); }
   assert.equal(h.calls.filter(c => c.method !== 'GET').length, 0);
   assert.equal((await harness({ missing: 'app_ai_cost_entries' }).get({ Authorization: 'Bearer owner-jwt' })).status, 404);
@@ -163,4 +163,111 @@ test('GET ?action=status도 같은 요약을 ai_usage 칸에 싣고, 표가 없�
     assert.equal(calls.filter(c => c.method !== 'GET' && !c.url.hostname.includes('google')).length, 0);
     for (const c of calls.filter(c => /app_ai_|app_feed_days/.test(c.url.pathname))) assert.equal(c.init.headers.apikey, 'anon');
   }
+});
+
+// AI-비용보기 2단계: 통화 전사(call-)·통화 분석(calla-)을 회의 전사(mtg-)와 나눠 센다.
+test('보고 번호 앞머리: 회의(mtg-·mtgfail-)는 수집 비밀값으로 못 넣고, call-은 전사·calla-는 분석만', () => {
+  const ok = { ...report };
+  assert.equal(parseAiUsageReport(JSON.stringify({ ...ok, ref: 'call-0123456789abcdef', source: 'transcript' })).ref, 'call-0123456789abcdef');
+  assert.equal(parseAiUsageReport(JSON.stringify({ ...ok, ref: 'calla-0123456789abcdef', source: 'analysis' })).source, 'analysis');
+  for (const bad of [
+    { ref: 'mtg-job-123456', source: 'transcript' }, { ref: 'mtgfail-job-123456', source: 'transcript' },
+    { ref: 'call-0123456789abcdef', source: 'analysis' }, { ref: 'calla-0123456789abcdef', source: 'transcript' },
+  ]) assert.equal(parseAiUsageReport(JSON.stringify({ ...ok, ...bad })), null, JSON.stringify(bad));
+  assert.equal(usageKind('mtg-a', 'transcript'), 'meeting');
+  assert.equal(usageKind('mtgfail-a', 'transcript'), 'meeting');
+  assert.equal(usageKind('call-a', 'transcript'), 'call_transcript');
+  assert.equal(usageKind('calla-a', 'analysis'), 'call_analysis');
+  assert.equal(usageKind('gm-a', 'analysis'), 'other_analysis');
+  assert.equal(usageKind(undefined, 'transcript'), 'other_transcript');
+});
+
+test('요약: 회의 전사·통화 전사·통화 분석을 by_kind로 나누고, 옛 칸(transcript_krw·analysis_krw)은 합으로 그대로', () => {
+  const row = (ref, source) => ({ day: '2026-10-28', ref, source, model: 'gemini-2.5-flash', calls: 1, input_tokens: 1_000_000, audio_tokens: 1_000_000, output_tokens: 0 });
+  const s = summarizeAiUsage({ assist: [], feed: [], entries: [], external: [row('mtg-a-1', 'transcript'), row('mtgfail-a-2', 'transcript'), row('call-x1', 'transcript'), row('calla-x1', 'analysis'), row('gm-old', 'analysis')] }, now, openAiPrice({}));
+  assert.deepEqual(s.gemini.by_kind, { meeting: 2800, call_transcript: 1400, call_analysis: 1400, other_transcript: 0, other_analysis: 1400 });
+  assert.equal(s.gemini.transcript_krw, 4200);
+  assert.equal(s.gemini.analysis_krw, 2800);
+  assert.equal(s.gemini.krw, 7000);
+});
+
+test('외부 보고 읽기: 1000행이 넘으면 offset으로 다음 쪽을 읽고, ref 칸을 함께 읽는다', async () => {
+  const urls = [];
+  const many = Array.from({ length: 1000 }, (_, i) => ({ day: '2026-10-28', ref: `call-${String(i).padStart(8, '0')}`, source: 'transcript', model: 'gemini-2.5-flash', calls: 1, input_tokens: 0, audio_tokens: 0, output_tokens: 0 }));
+  const fetcher = async input => {
+    const url = new URL(input); urls.push(url);
+    const table = url.pathname.split('/').at(-1);
+    if (table !== 'app_ai_external_usage') return Response.json([]);
+    return Response.json(url.searchParams.get('offset') === '0' ? many : many.slice(0, 5));
+  };
+  const rows = await readAiUsage({ fetcher, baseUrl: 'https://db.test', anonKey: 'anon', userAuthorization: 'Bearer owner-jwt', workspaceId: 'ws', now });
+  assert.equal(rows.external.length, 1005);
+  const ext = urls.filter(u => u.pathname.endsWith('app_ai_external_usage'));
+  assert.deepEqual(ext.map(u => u.searchParams.get('offset')), ['0', '1000']);
+  assert.match(ext[0].searchParams.get('select'), /(^|,)ref(,|$)/);
+  // 20쪽을 모두 채우면 잘린 숫자 대신 실패
+  const full = async input => Response.json(new URL(input).pathname.endsWith('app_ai_external_usage') ? many : []);
+  await assert.rejects(readAiUsage({ fetcher: full, baseUrl: 'https://db.test', anonKey: 'anon', userAuthorization: 'Bearer owner-jwt', workspaceId: 'ws', now }), /AI_USAGE_READ_FAILED/);
+});
+
+// AI-비용보기 3단계: 뉴스·번역 합산과 '얼마를 언제 충전' 계산(설계 4절).
+test('뉴스·사회운동 [번역](app_news_days)을 OpenAI에 더하고 news_krw·상한 80% 경고를 낸다', async () => {
+  const price = { input: 140, output: 700 };
+  const s = summarizeAiUsage({ assist: [], feed: [], external: [], entries: [], news: [{ day: '2026-10-28', ai_requests: 3, ai_input_tokens: 1_000_000, ai_output_tokens: 1_000_000 }] }, now, price);
+  assert.equal(s.openai.news_krw, 840); assert.equal(s.openai.krw, 840); assert.equal(s.openai.requests, 3);
+  assert.equal(s.openai.limit_news_krw, prices.AI_MONTHLY_LIMIT_NEWS_KRW);
+  assert.deepEqual(s.warn, []);
+  const w = summarizeAiUsage({ assist: [], feed: [], external: [], entries: [], news: [{ day: '2026-10-28', ai_requests: 1, ai_input_tokens: 0, ai_output_tokens: 6_000_000 }] }, now, price);
+  assert.deepEqual(w.warn, ['news_limit']);
+  // 읽기: 소유자 토큰으로 app_news_days 하루 줄만(숫자 칸만)
+  const h = harness({ app_news_days: [{ day: '2026-10-28', ai_requests: 1, ai_input_tokens: 0, ai_output_tokens: 1_000_000 }] });
+  const r = await (await h.get({ Authorization: 'Bearer owner-jwt' })).json();
+  assert.equal(r.openai.news_krw, 700);
+  const nr = h.calls.find(c => c.url.pathname.endsWith('app_news_days'));
+  assert.equal(nr.init.headers.Authorization, 'Bearer owner-jwt');
+  assert.equal(nr.url.searchParams.get('select'), 'day,ai_requests,ai_input_tokens,ai_output_tokens');
+});
+
+test('뉴스 월 상한 값은 _shared/news-days.ts MONTHLY_LIMIT_KRW와 같다', async () => {
+  const news = await import('../../supabase/functions/_shared/news-days.ts');
+  assert.equal(prices.AI_MONTHLY_LIMIT_NEWS_KRW, news.MONTHLY_LIMIT_KRW);
+});
+
+test('예측: 14일 평균·월말 예상·OpenAI 권장 자동 충전·잔액 기준·Gemini 한도 도달일·권장 한도·경고 순서', () => {
+  const price = { input: 140, output: 700 };
+  const assist = [];
+  for (let d = 14; d <= 28; d++) assist.push({ day: `2026-10-${d}`, input_tokens: 0, output_tokens: 1_000_000 }); // 하루 700원
+  const external = [{ day: '2026-10-20', ref: 'call-aaaaaaaa', source: 'transcript', model: 'gemini-2.5-flash', calls: 1, input_tokens: 1_000_000, audio_tokens: 1_000_000, output_tokens: 0 }]; // 1,400원
+  const entries = [
+    { id: 'r', provider: 'openai', kind: 'reload', amount_krw: 2000, month: null, created_at: '2026-10-01T00:00:00Z' },
+    { id: 'c', provider: 'gemini', kind: 'cap', amount_krw: 1500, month: null, created_at: '2026-10-01T00:00:00Z' },
+    { id: 'b', provider: 'gemini', kind: 'bill', amount_krw: 3000, month: '2026-09-01', created_at: '2026-10-01T00:00:00Z' },
+  ];
+  const s = summarizeAiUsage({ assist, feed: [], news: [], external, entries }, now, price);
+  const o = s.forecast.openai, g = s.forecast.gemini;
+  // 10/14~10/27(오늘 10/28 뺌) 14일 × 700 ÷ 14 = 700. 지금까지 15일 10,500 + 남은 3일 × 700 = 12,600.
+  assert.deepEqual({ avg: o.daily_avg_krw, end: o.month_end_krw, rem: o.remaining_days }, { avg: 700, end: 12600, rem: 3 });
+  assert.equal(o.suggest_reload_krw, 10000);   // 12,600 ÷ 2 = 6,300 → 1만 원 단위 올림
+  assert.equal(o.suggest_threshold_krw, 3000); // 최근 7일 최대 700 × 3 = 2,100 → 1천 원 단위 올림
+  assert.equal(o.reload_krw, 2000); assert.equal(o.reloads_per_month, 6.3);
+  // Gemini: 평균 1,400 ÷ 14 = 100, 지금까지 1,400 → 한도 1,500까지 1일 → 10/29(이번 달 안)
+  assert.deepEqual({ avg: g.daily_avg_krw, end: g.month_end_krw, days: g.days_to_cap, day: g.cap_day }, { avg: 100, end: 1700, days: 1, day: '2026-10-29' });
+  assert.equal(g.suggest_cap_krw, 4000); // max(1,700×1.3, 9월 3,000×1.2=3,600) → 4,000
+  assert.equal(g.raise_cap, true);
+  assert.deepEqual(s.warn, ['gemini_cap', 'openai_reload_often']);
+  // 한도·자동 충전 금액이 없으면(4단계 DB 전) 권장값만, 경고 없음
+  const bare = summarizeAiUsage({ assist, feed: [], news: [], external, entries: [] }, now, price);
+  assert.equal(bare.forecast.openai.reloads_per_month, null); assert.equal(bare.forecast.gemini.cap_day, null);
+  assert.equal(bare.forecast.gemini.suggest_cap_krw, 3000); // 1,700 × 1.3 = 2,210 → 3,000
+  assert.deepEqual(bare.warn, []);
+});
+
+test('예측: 달 초에는 지난달 끝을 이어 14일 평균, 읽기 시작일도 14일 전까지', () => {
+  const early = new Date('2026-11-03T05:00:00Z');
+  assert.equal(readStart([], '2026-11-03'), '2026-10-20');
+  const s = summarizeAiUsage({ assist: [{ day: '2026-10-25', input_tokens: 0, output_tokens: 1_000_000 }, { day: '2026-10-10', input_tokens: 0, output_tokens: 9_000_000 }], feed: [], news: [], external: [], entries: [] }, early, { input: 140, output: 700 });
+  assert.equal(s.forecast.openai.daily_avg_krw, 50); // 10/20~11/2 안의 700원만 ÷ 14
+  assert.equal(s.forecast.openai.remaining_days, 27);
+  assert.equal(s.forecast.openai.month_end_krw, 1350); // 이번 달 0 + 27 × 50
+  assert.equal(s.openai.krw, 0);
 });

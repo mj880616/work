@@ -39,6 +39,7 @@
 - **사실**: 보고 길(`drive-summary` `POST ?action=ai_usage`, 수집 점검 신호와 같은 비밀값 머리글)은 10/28부터 열려 있다. 그러나 저장소의 앱 스크립트 문서(`docs/ops/collector-heartbeat.gs`·`collector-feed.gs`)에는 이 보고를 부르는 코드가 없다. 원장 AI-사용량줄 행의 "명진 할 일: 앱 스크립트에 보고 함수 붙여 넣기"가 끝났다는 기록도 없다.
 - **추정**: 통화 전사·분석 앱 스크립트가 Gemini를 부른 뒤 사용량을 보내지 않는다. 그래서 Gemini 지출의 대부분(통화)이 Web2에 없다.
 - 확인 방법: 앱 스크립트 편집기에서 `ai_usage` 문자열 검색(명진 또는 브라우저 연결된 CC). 없으면 2단계(5절)로 메운다.
+- **2단계 확인 결과(S60-25, 11/12)**: 저장소 전체(`docs/ops`·`scripts`·`windows-app`·`basket-pc`·`android-app`)에 `ai_usage`를 보내는 코드가 없다(사실). 서버는 받은 보고를 source(`transcript`/`analysis`)로만 나눠 **회의 전사(`mtg-`)와 통화 전사가 같은 '전사' 칸에 섞였다**(사실, `drive-summary/ai-usage.mjs`). 또 외부 보고 읽기가 1000행에서 실패하게 되어 있어, 통화 보고가 붙으면 한 달 안에 AI 사용량 줄 전체가 실패할 수 있었다(사실). 2단계 PR에서 ① 보고 함수 `docs/ops/ai-usage-report.gs` ② ref 앞머리로 나눈 `gemini.by_kind`(회의·통화 전사·통화 분석) ③ 1000행씩 차례 읽기(최대 20쪽) ④ 수집 비밀값 보고로 `mtg-`·`mtgfail-` 거절(회의 월 상한 보호)을 더했다. 실제 앱 스크립트 편집기 검색은 웹 세션이라 못 했다(붙일 때 CC가 브라우저로 확인).
 
 ### 1.2 그 밖의 발견
 
