@@ -353,6 +353,33 @@ test('a material file is matched the same way, joins its result file, and the ki
   expect(f.errors).toEqual([]);
 });
 
+// STAB-회의자료이름시험: 결과 파일 본문 읽기가 끝나 표를 다시 그려도, 그 사이 종류 칸에 쓰던 글은 사라지지 않고 칸을 떠날 때 반영된다.
+// (전에는 읽기가 쓰는 도중에 끝나면 칸이 처음 값으로 돌아가 위 시험이 15번 중 3~5번 실패했다.) pdf.js 일꾼 파일을 붙잡아 읽기를 쓰는 도중에 끝낸다.
+test('a field being typed in keeps the typed text when the result file finishes reading, and is applied on leaving the field',async({page})=>{
+  const f=await fixture(page,{extraKinds:['본부 집행위']});
+  let release;const held=new Promise(r=>{release=r});
+  await page.route('**/pdf.worker.min.mjs*',async route=>{await held;await route.continue()});
+  await page.locator('#mffFiles').setInputFiles([
+    pdf('261020 제38차 본부집행위 회의자료.pdf'),
+    pdf('261020_38차 본부 집행위 회의결과.pdf',['Result body']),
+  ]);
+  const r=rows(page);
+  await expect(r).toHaveCount(1);
+  await expect(create(page)).toHaveAttribute('aria-busy','true');
+  await r.locator('summary').click();
+  const kind=r.locator('[data-mff-field="name"]');
+  await expect(kind).toHaveValue('본부 집행위');
+  await kind.fill('본부 운영위원회');
+  release();
+  await expect(create(page)).toBeEnabled({timeout:30000});
+  await expect(kind).toHaveValue('본부 운영위원회');
+  await expect(kind).toBeFocused();
+  await kind.press('Tab');
+  await expect(r.locator('summary')).toHaveAttribute('aria-label','2026-10-20, 본부 운영위원회, 38차, 자료 1개, 결과 있음, 새로 만들기');
+  await expect(r.locator('[data-mff-field="name"]')).toHaveValue('본부 운영위원회');
+  expect(f.errors).toEqual([]);
+});
+
 // MTG-기록겹침거르기 3단계: 파일·글로 새로 만든 사업 보고도 저장이 끝나면 같은 kptu:record-saved 알림을 낸다(겹침 확인은 이 알림을 받는다).
 // 같은 종류·차수 회의에 결과만 더한 경우는 새 기록이 아니므로 알리지 않는다.
 test('a meeting made from pasted text announces the saved record once; adding a result to an existing meeting announces nothing',async({page})=>{
