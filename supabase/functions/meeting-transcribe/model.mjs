@@ -325,6 +325,30 @@ export function readTranscript(json) {
   return { text, speakerSplit: speakerCount(text) >= 2 };
 }
 
+// ---- 글이 적은 조각(S60-17 REC-빈답반복) ----
+// 왜: 11/12 41분 m4a의 뒤 20분 조각이 같은 말 되풀이로 반 나눔 → 앞 반(약 10분)이 출력 210토큰·416자, 뒤 반이 2,542자로 '끝(STOP)'까지 와
+//   readTranscript가 그대로 받았다. 같은 20분을 처음 물었을 때는 출력 9,963토큰이었고 앞 20분은 분당 약 700자였다 — 말이 있는데 모델이 일찍 멈춘 것으로 본다(추정).
+//   지금까지는 '글이 있고 STOP이면 성공'이라 소리 길이에 비해 글이 아주 적어도 걸러지지 않았다.
+// 기준: 화자 머리·'(안 들림)'·띄어쓰기를 뺀 글자 수가 분당 THIN_CHARS_PER_MINUTE 미만(조각이 THIN_MIN_SECONDS 이상일 때만).
+//   보통 회의 말은 분당 400~700자(11/12 앞 20분 697자, 띄어쓰기 포함), 문제 조각은 분당 40자. 150자는 느린 회의(띄어쓰기 뺀 분당 약 300자)의 절반쯤이라
+//   말이 드문 회의도 걸리지 않을 만큼 낮고, 일찍 멈춘 답은 넉넉히 걸린다. 걸리면 한 번만 반으로 나눠 다시 묻고(retry 'thin'), 그래도 적으면 글을 두고 표시만 남긴다.
+export const THIN_CHARS_PER_MINUTE = 150;
+export const THIN_MIN_SECONDS = 120;
+// 실제 말 글자 수(화자 머리·'(안 들림)'·빈칸 뺌).
+export function speechChars(text) {
+  return String(text || '').split('\n').map(l => l.replace(SPEAKER_HEAD, '')).join('').split(UNCLEAR_MARK).join('').replace(/\s+/g, '').length;
+}
+// 소리 길이(초)에 비해 글이 너무 적은가. 길이를 모르거나 짧은 조각(2분 미만)은 보지 않는다(짧은 녹음은 원래 조용할 수 있음).
+export function isThin(text, seconds) {
+  const s = Number(seconds);
+  if (!Number.isFinite(s) || s < THIN_MIN_SECONDS) return false;
+  return speechChars(text) < (s / 60) * THIN_CHARS_PER_MINUTE;
+}
+// 표시 시각 'm:ss'(분은 60을 넘어도 그대로, 예: 75:10).
+export const clockText = (sec) => { const n = Math.max(0, Math.round(Number(sec) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
+// 글이 적은 구간 표시 줄(전문 그 자리 맨 앞, 요약에도 같이 들어감). 글 내용은 넣지 않는다.
+export const thinNote = (from, to) => `(이 구간은 글이 적어요 ${clockText(from)}~${clockText(to)})`;
+
 const count = v => (Number.isSafeInteger(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
 // 사용량 읽기(usageMetadata): 입력 promptTokenCount(그중 음성은 promptTokensDetails의 AUDIO), 출력 = candidatesTokenCount + thoughtsTokenCount
 // (생각 토큰도 출력값 — 생각을 꺼도 혹시 오면 그대로 셈). 숫자가 없으면 녹음 길이(초) × 32로 음성 토큰을 추정해 월 상한이 비지 않게 한다.

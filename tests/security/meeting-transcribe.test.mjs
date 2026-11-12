@@ -297,7 +297,7 @@ test('글을 못 받은 시도는 월 상한에 넣지 않는다(실패 머리 m
  // 서버는 답을 읽은 뒤 성공 여부로 머리를 정하고, 실패면 기록한 다음 원래 오류를 다시 던진다.
  const index=readFileSync(new URL('../../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
  // 긴 소리를 나눠 동시에 전사하는 조각은 조각 번호를 붙여 겹치지 않게(REC-긴녹음나눠전사).
- assert.match(index,/ref: usageRef\(job\.id, at, !result, piece\)/);
+ assert.match(index,/ref: usageRef\(job\.id, at, !result \|\| retryThin\.length > 0, piece\)/);
  assert.match(index,/if \(!result\) \{[\s\S]{0,400}?throw answerError;/);
  assert.match(m.usageRef(id,at,true,3),/^mtgfail-.*-c3$/);
  assert.match(index,/\.like\('ref', `\$\{USAGE_REF_PREFIX\}%`\)/);
@@ -316,14 +316,14 @@ test('REC-긴녹음나눠전사: 세 길(화면 transcribe·서버 정리 구간
  // 길면 전사하지 않고 나눌 구간부터, 답이 잘리거나 되풀이하면(HALVE_CODES) 그 조각만 반으로.
  assert.match(index,/if \(!range && audio\.opened && audio\.opened\.seconds > CHUNK_SECONDS\) return \{ split: chunkRanges\(audio\.opened\.seconds\) \};/);
  // 서버 정리: 한 단계에 조각 하나, 나누면 parts만 바꾸고(표 칸 추가 없음) 진행 수는 조각 수.
- assert.match(index,/const next = splitPart\(parts, i, got\.split\);/);
+ assert.match(index,/const next = splitPart\(parts, i, got\.split, got\.thin \? 'thin' : ''\);/);
  assert.match(index,/parts: next, step_no: doneParts\(next\), step_total: partTotal\(next\)/);
- assert.match(index,/transcribeFile\(key, job, p\.file, range, cutBefore\) : await transcribeSegment\(key, p\.job, range, more, cutBefore\)/);
+ assert.match(index,/transcribeFile\(key, job, p\.file, range, cutBefore, thinTried\) : await transcribeSegment\(key, p\.job, range, more, cutBefore, thinTried\)/);
  // 구간 행은 마지막 조각 뒤에만 '끝'(그 전엔 '올림' — 이어서 정리·붙이기가 끝난 녹음으로 보지 않음).
  assert.match(index,/if \('split' in out \|\| more\) await setJob\(job\.id, \{ status: 'uploaded', error_code: null, finished_at: null \}\);/);
  // 화면 transcribe: 한 번 읽은 소리를 조각마다 동시에(상한 있음), 조각 길이로 머리 줄을 붙여 잇는다.
  assert.match(index,/const PARALLEL_CHUNKS = 3;/);
- assert.match(index,/mapLimit\(got\.split, PARALLEL_CHUNKS, run\)/);
+ assert.match(index,/mapLimit\(got\.split, PARALLEL_CHUNKS, \(r: Range\) => run\(r, again\)\)/);
  // 새 로그: 형식·분·크기 수만(글·이름·주소 없음).
  for(const line of index.match(/console\.warn\('meeting-transcribe: (audio|split[^']*)'[^;]*;/g)||[]){
   assert.doesNotMatch(line,/text|file_name|drive_file_id|uri|name/,line);
@@ -368,6 +368,56 @@ test('S60-11 Gemini 단계마다 시간 상한(남은 예산 안), 넘으면 로
  // 답이 늦으면(gemini_timeout) 그 조각을 반으로. 앞 실행이 이 조각에서 끊겼으면(cutBefore) 묻지 않고 반으로(요약 단계와 같은 규칙).
  assert.match(index,/if \(e instanceof Fail && e\.code === 'gemini_timeout'\) \{ const halves = halvesOf\(e\.code\); if \(halves\.length\) return \{ split: halves \}; \}/);
  assert.match(index,/if \(halveFirst\) \{ const halves = halvesOf\('step_cut'\); if \(halves\.length\) return \{ split: halves \}; \}/);
- assert.match(index,/transcribeFile\(key, job, p\.file, range, cutBefore\) : await transcribeSegment\(key, p\.job, range, more, cutBefore\)/);
+ assert.match(index,/transcribeFile\(key, job, p\.file, range, cutBefore, thinTried\) : await transcribeSegment\(key, p\.job, range, more, cutBefore, thinTried\)/);
  assert.match(index,/next = await stepOnce\(job, take\.cut === 1\);/);
+});
+
+// S60-17 REC-빈답반복: 11/12 41분 m4a 뒤 20분이 되풀이로 반 나눔 → 앞 반 약 10분이 416자(출력 210토큰)로 STOP. 글이 소리 길이에 비해 아주 적으면
+// 한 번만 반으로 나눠 다시 묻고(그 시도는 mtgfail = 월 상한 밖), 그래도 적으면 글을 두고 '(이 구간은 글이 적어요 m:ss~m:ss)'를 남긴다.
+test('S60-17 글이 적은 조각: 기준·한 번만 다시·표시·같은 파일 결과 다시 쓰지 않음', async () => {
+ const sj=await import('../../supabase/functions/meeting-transcribe/server-job.mjs');
+ const sp=await import('../../supabase/functions/meeting-transcribe/split.mjs');
+ // 기준: 화자 머리·(안 들림)·빈칸은 세지 않는다.
+ assert.equal(m.speechChars('화자1: 가나 다\n화자2: (안 들림) 라'),4);
+ // 11/12 실제 수: 앞 20분 14,423자는 정상, 10분 416자는 적음. 뒤 10분 2,542자(분당 약 250자)는 걸리지 않음.
+ const fill=(n)=>'화자1: '+'가'.repeat(n);
+ assert.equal(m.isThin(fill(14423),1241),false);
+ assert.equal(m.isThin(fill(416),621),true);
+ assert.equal(m.isThin(fill(2000),621),false);
+ // 말이 드문 회의(분당 띄어쓰기 뺀 160자)는 정상, 짧은 조각(2분 미만)·길이 모름은 보지 않는다.
+ assert.equal(m.isThin(fill(160*10),600),false);
+ assert.equal(m.isThin('화자1: 네',119),false);
+ assert.equal(m.isThin('화자1: 네',null),false);
+ assert.equal(m.isThin('화자1: 네',0),false);
+ // 표시 줄: 시각만(글 내용 없음).
+ assert.equal(m.thinNote(1241,1862),'(이 구간은 글이 적어요 20:41~31:02)');
+ assert.equal(m.clockText(4510),'75:10');
+ // 한 번만 다시: 글이 적어 나눈 조각에는 retry:'thin'이 붙고, 그 조각이 또 나뉘어도(되풀이 등) 이어진다. 보통 나눔에는 붙지 않는다.
+ let parts=[{no:1,seconds:0,file:{id:'abcdefghijk'},text:'앞'},{no:1,seconds:621,file:{id:'abcdefghijk'},range:{from:1241,to:1862},text:null}];
+ parts=sj.splitPart(parts,1,sp.halveRange(parts[1].range,2483),'thin');
+ assert.deepEqual(parts.slice(1).map(p=>[p.retry,p.range.from,p.range.to]),[['thin',1241,1552],['thin',1552,1862]]);
+ const again=sj.splitPart(parts,1,sp.halveRange(parts[1].range,2483));
+ assert.equal(again.length,3);// 310초는 더 못 나눔(MIN_CHUNK_SECONDS×2 미만)
+ assert.deepEqual(sp.halveRange(parts[1].range,2483),[]);
+ assert.equal(sj.splitPart([{no:1,seconds:900,file:{id:'abcdefghijk'},range:{from:0,to:900},text:null}],0,sp.halveRange({from:0,to:900},1800)).every(p=>p.retry===undefined),true);
+ // 그래도 적으면 그 자리 맨 앞에 표시 줄(전체 시각 기준).
+ const done=[{no:1,seconds:1241,range:{from:0,to:1241},text:'화자1: 앞'},{no:1,seconds:311,range:{from:1241,to:1552},text:'화자1: 조금',thin:311},{no:1,seconds:310,range:{from:1552,to:1862},text:'화자1: 뒤'}];
+ assert.equal(sj.joinParts(done),'화자1: 앞\n\n― 21분부터 ―\n(이 구간은 글이 적어요 20:41~25:52)\n화자1: 조금\n\n― 26분부터 ―\n화자1: 뒤');
+ // 통째(길이 0으로 시작한 회의자료 파일)도 표시 줄의 끝 시각은 그 조각 길이.
+ assert.equal(sj.joinParts([{no:1,seconds:0,text:'화자1: 네',thin:300}]),'(이 구간은 글이 적어요 0:00~5:00)\n화자1: 네');
+ // 같은 파일 결과 다시 쓰기: 표시가 있거나, 표시 전 옛 결과(11/12 모양)라도 글이 적은 조각이 있으면 다시 쓰지 않는다.
+ assert.equal(sj.hasThinPart(done),true);
+ assert.equal(sj.hasThinPart([{no:1,seconds:1241,text:fill(14423)},{no:1,seconds:621,text:fill(416)},{no:1,seconds:621,text:fill(2542)}]),true);
+ assert.equal(sj.hasThinPart([{no:1,seconds:1241,text:fill(14423)},{no:1,seconds:1242,text:fill(9000)}]),false);
+ assert.equal(sj.hasThinPart([{no:1,seconds:0,text:'화자1: 짧은 통째'}]),false);
+ assert.match(index,/if \(prev\?\.length && prev\[0\]\.transcript_text && !hasThinPart\(prev\[0\]\.parts\)\) \{/);
+ // 코드 모양: 글이 적으면 다시 묻는 시도는 실패 머리(월 상한 밖), 다시 묻는 것은 thinTried가 아닐 때 한 번만, 로그는 수만.
+ assert.match(index,/const thin = !!result && isThin\(result\.text, duration\);/);
+ assert.match(index,/const retryThin = thin && !thinTried \? halvesOf\('thin'\) : \[\];/);
+ assert.match(index,/if \(retryThin\.length\) return \{ split: retryThin, thin: true \};/);
+ assert.match(index,/const thinTried = p\.retry === 'thin';/);
+ assert.match(index,/parts\[i\] = \{ \.\.\.p, text: cleanText\(got\.text\), \.\.\.\(got\.thin \? \{ thin: got\.thin \} : \{\}\) \};/);
+ assert.match(index,/const again = thinTried \|\| !!got\.thin;/);
+ for(const line of index.match(/console\.warn\('meeting-transcribe: thin answer'[^;]*;/g)||[]) assert.doesNotMatch(line,/text|name|uri/,line);
+ assert.equal((index.match(/console\.warn\('meeting-transcribe: thin answer'/g)||[]).length,1);
 });

@@ -12,6 +12,7 @@ import { trackUpload, mountUploadRows, announceDock } from './upload-progress.js
 import { createAttachQueue, sendFilesBehind } from './basket-upload.js'; // BIZ-저장먼저닫기 3차: 할 일 첨부도 노트·업데이트와 같은 뒤 줄·끝 알림
 import { renameHostAttrs, renameButtonHtml, applyRenamed, openRenameEditor } from './file-rename.js';
 import { rowMore } from './row-more.js';
+import { takeAfterSameCheck } from './same-file.js'; // UX-이미있는파일알림: 넣기 전에 같은 이름·크기 파일이 있으면 묻는 공용 부품
 import { deleteAttachment } from './file-trash.js'; // FILE-첨부삭제 ②: [삭제] = 할 일에서 떼고 Drive 원본 휴지통(30일 안 되살림) + [되돌리기] // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
@@ -99,7 +100,7 @@ export function openTaskFilesDialog({task, files = [], rt = window.KPTURuntime, 
     dialog = {m, state: null};
     m.querySelector('[data-gt-files-close]').onclick = closeTaskFilesDialog;
     m.querySelector('[data-gt-files-pick]').onclick = () => { if (canPick(dialog.state)) m.querySelector('[data-gt-files-input]').click(); };
-    m.querySelector('[data-gt-files-input]').onchange = e => { const picked = [...(e.target.files || [])]; e.target.value = ''; void upload(picked); };
+    m.querySelector('[data-gt-files-input]').onchange = e => { const picked = [...(e.target.files || [])]; e.target.value = ''; void takeAfterSameCheck(picked, upload, {anchor: m.querySelector('[data-gt-files-pick]')}); };
   }
   // UX-먼저묻고뒤에처리 3차: 같은 할 일의 올리기가 아직 돌고 있으면 그 줄을 이어서 보여 준다(다시 열어도 줄이 둘로 갈리지 않게).
   const running = runningUploads.get(task.id);
@@ -403,10 +404,8 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
   };
   button.onclick = () => { if (!isBusy()) input.click(); };
   input.onchange = () => {
-    const added = [...(input.files || [])]; input.value = '';
-    const problem = pickProblem(chosen, added);
-    if (problem) { onError(problem); return; }
-    chosen = [...chosen, ...added]; onError(''); render();
+    const picked = [...(input.files || [])]; input.value = '';
+    void takeAfterSameCheck(picked, take, {anchor: button});
   };
   // TASK-첨부교체: PC can drop files on the part too (the same checks as the picker). The drop stays here (no page-level drop).
   const takesDrop = e => !host.hidden && !host.hasAttribute('data-gt-pick-wait') && !isBusy() && [...(e.dataTransfer?.types || [])].includes('Files');
@@ -416,7 +415,7 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
     host.classList.remove('is-drop');
     if (!takesDrop(e)) return;
     e.preventDefault(); e.stopPropagation();
-    take([...(e.dataTransfer.files || [])]);
+    void takeAfterSameCheck([...(e.dataTransfer.files || [])], take, {anchor: button});
   });
   // UPD-그림붙여넣기: Ctrl+V of a picture (or files) while the cursor is in this add window takes the same road as the drop.
   const take = added => {
@@ -425,7 +424,7 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
     if (!added.length) return;
     chosen = [...chosen, ...added]; onError(''); render();
   };
-  bindPaste(host.closest('.modal-card, .modal, form') || host.parentElement || host, take, {key: 'new-task-files', canTake: () => !host.hidden && !host.hasAttribute('data-gt-pick-wait') && !isBusy(), taken: () => chosen.map(f => f.name)});
+  bindPaste(host.closest('.modal-card, .modal, form') || host.parentElement || host, files => void takeAfterSameCheck(files, take, {anchor: button}), {key: 'new-task-files', canTake: () => !host.hidden && !host.hasAttribute('data-gt-pick-wait') && !isBusy(), taken: () => chosen.map(f => f.name)});
   list.onclick = e => {
     const b = e.target.closest('[data-gt-pick-remove]'); if (!b || isBusy()) return;
     chosen.splice(Number(b.dataset.gtPickRemove), 1); render();
@@ -505,7 +504,7 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
     if (b.dataset.gtAttUndo) { const id = b.dataset.gtAttUndo; edits.delete(id); changed(); list.querySelector(`[data-gt-att-swap="${CSS.escape(id)}"]`)?.focus(); return; }
     if (b.dataset.gtAttDrop != null) { added.splice(Number(b.dataset.gtAttDrop), 1); changed(); list.querySelector('[data-gt-att-add]')?.focus(); }
   });
-  addInput.onchange = () => { const files = [...(addInput.files || [])]; addInput.value = ''; addFiles(files); };
+  addInput.onchange = () => { const files = [...(addInput.files || [])]; addInput.value = ''; void takeAfterSameCheck(files, addFiles, {anchor: list.querySelector('[data-gt-att-add]')}); };
   swapInput.onchange = () => { const file = swapInput.files?.[0]; swapInput.value = ''; const id = swapFor; swapFor = ''; if (file) swapFile(id, file); };
   // PC: drop a file on a row to put it in that row's place; anywhere else in the box adds it.
   const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
@@ -516,10 +515,10 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
     if (!editable || isBusy() || !hasFiles(e)) return;
     e.preventDefault(); e.stopPropagation();
     const files = [...(e.dataTransfer.files || [])], row = e.target.closest?.('[data-gt-att-id]'), id = row?.dataset.gtAttId;
-    if (id && files.length === 1 && edits.get(id)?.kind !== 'remove') swapFile(id, files[0]); else addFiles(files);
+    if (id && files.length === 1 && edits.get(id)?.kind !== 'remove') swapFile(id, files[0]); else void takeAfterSameCheck(files, addFiles, {anchor: list.querySelector('[data-gt-att-add]')});
   });
   // UPD-그림붙여넣기: a pasted picture while the cursor is in this edit window is added like a dropped file (never replaces a row).
-  bindPaste(host.closest('.modal-card, .modal, form') || host.parentElement || host, files => addFiles(files), {key: 'task-attach', canTake: () => editable && shown && !isBusy(), taken: () => [...added.map(f => f.name), ...base.map(f => f.file_name)]});
+  bindPaste(host.closest('.modal-card, .modal, form') || host.parentElement || host, files => void takeAfterSameCheck(files, addFiles, {anchor: list.querySelector('[data-gt-att-add]')}), {key: 'task-attach', canTake: () => editable && shown && !isBusy(), taken: () => [...added.map(f => f.name), ...base.map(f => f.file_name)]});
   return {
     // files: the task's current files ({drive_file_id, file_name, inTable}); a new set forgets every held change.
     set(files = [], {editable: canEdit = false, shown: visible = true, taskId: id = ''} = {}) { base = files.map(f => ({...f})); editable = !!canEdit; shown = !!visible; taskId = String(id || ''); edits = new Map(); added = []; swapFor = ''; render(); },

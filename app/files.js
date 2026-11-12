@@ -42,6 +42,7 @@ import {PINS_MAX, pinParse, pinKey, pinsClean, pinHas, pinAdd, pinRemove, pinMov
 import {mountReorder} from './reorder-drag.js';
 import {mountColResize, gripHtml} from './col-resize.js';
 import {askConfirm, askText, notify} from './small-notice.js';
+import {screenSameFiles} from './same-file.js'; // UX-이미있는파일알림: 기기에서 넣는 파일은 올리기 전에 같은 이름·크기가 내 작업공간에 있는지 묻는다
 import {viewPrefs} from './view-prefs.js';
 import {recentFolded, toggleRecentFolded} from './recent-fold.js';
 import {MORE_LABEL} from './fold-chevron.mjs';
@@ -3445,6 +3446,12 @@ async function trashLanded(landed) {
   }
   return kept;
 }
+// UX-이미있는파일알림: 기기에서 새로 넣는 파일(고르기·끌어 놓기·붙여넣기)만 먼저 같은 파일을 찾는다(same-file.js 공용). 클라우드끼리 옮기기·복사(devMove)는 묻지 않는다.
+async function uploadNewFiles(files, dest) {
+  let keep = files;
+  try { keep = (await screenSameFiles(files)).files; } catch { keep = files; }
+  if (keep.length) await uploadFiles(keep, dest);
+}
 async function uploadFiles(files, dest, {devMove = null} = {}) {
   if (!dest?.source || !SOURCES.includes(dest.source)) return;
   if (state.ask || state.busy) { notify('다른 일을 묻는 중이에요. 끝난 뒤 다시 해 주세요.', {record: false}); return; }
@@ -3663,7 +3670,7 @@ const upTarget = event => {
 const pasteDest = () => { const d = hereDest(); return d && SOURCES.includes(d.source) && onSources().includes(d.source) ? d : null; };
 // 붙여 넣은 그림의 이름('붙여넣은 그림 11-08 01:57.png')의 ':'는 클라우드 파일 이름에 쓸 수 없어 '.'으로('01.57').
 const cloudSafe = f => (f.name.includes(':') ? new File([f], f.name.replace(/:/g, '.'), {type: f.type, lastModified: f.lastModified}) : f);
-bindPaste(document, files => { const d = pasteDest(); if (d) void uploadFiles(files.map(cloudSafe), d); }, {key: 'files-view',
+bindPaste(document, files => { const d = pasteDest(); if (d) void uploadNewFiles(files.map(cloudSafe), d); }, {key: 'files-view',
   canTake: () => !!root?.isConnected && root.getClientRects().length > 0 && !state.busy && !state.ask && !state.clip && !!pasteDest()});
 
 // 미리보기 ☆ 한 개만 고친다(PDF를 그리는 칸은 다시 그리지 않음).
@@ -3983,7 +3990,7 @@ root?.addEventListener('dblclick', event => {
 });
 root?.addEventListener('input', event => { if (event.target.matches('[data-fx-search]')) setQuery(P(), event.target.value); });
 root?.addEventListener('change', event => {
-  if (event.target.matches('[data-fx-file]')) { const d = state.upTo || hereDest(), files = [...(event.target.files || [])]; state.upTo = null; event.target.value = ''; if (d && files.length) uploadFiles(files, d); return; }
+  if (event.target.matches('[data-fx-file]')) { const d = state.upTo || hereDest(), files = [...(event.target.files || [])]; state.upTo = null; event.target.value = ''; if (d && files.length) void uploadNewFiles(files, d); return; }
   if (event.target.matches('[data-fx-refile]')) { const f = event.target.files?.[0]; event.target.value = ''; refilePicked(f); return; }
   if (!event.target.matches('[data-fx-sort]')) return;
   // 칸 위 줄의 정렬은 그 칸, 위 줄의 정렬은 지금 칸.
@@ -4146,7 +4153,7 @@ root?.addEventListener('drop', event => {
     const dirs = new Set(entries.map((e, i) => (e?.isDirectory ? i : -1)).filter(i => i >= 0));
     const files = [...(event.dataTransfer?.files || [])].filter((_, i) => !dirs.has(i));
     const folders = entries.filter(e => e?.isDirectory).map(e => ({source: DROP, item_id: e.fullPath, name: e.name, is_folder: true, entry: e}));
-    void (async () => { if (files.length) await uploadFiles(files, upHit.dest); if (folders.length) await treeUp('copy', folders, upHit.dest); })();
+    void (async () => { if (files.length) await uploadNewFiles(files, upHit.dest); if (folders.length) await treeUp('copy', folders, upHit.dest); })();
     return;
   }
   const hit = dropAt(event.target);
