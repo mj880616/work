@@ -1161,7 +1161,7 @@ let luSuggest=new Map();
 // 반환: 고를 자료 수(0이면 메뉴에 항목을 내지 않음). go=true면 실제로 고른다.
 function luSelectNode(key,go=false){const ids=nodeDocumentIds(luTreeNode(key));if(!go||!ids.length||luSelBusy)return ids.length;luPick.stop();luPick.start(ids);luRenderLibrary();return ids.length}
 function luSuggestHtml(d,node){const fid=node?.key==='x:out'?luSuggest.get(d.id):null,f=fid&&luFolders_.find(x=>x.id===fid);if(!f)return '';return `<button type="button" class="lu-suggest" data-lu-suggest="${luEsc(d.id)}" data-lu-suggest-folder="${luEsc(f.id)}" aria-label="${luEsc(f.name)} 폴더로 옮기기">${iconHtml('folder')} ${luEsc(f.name)}?</button>`}
-document.addEventListener('click',e=>{const b=e.target.closest?.('#documentList [data-lu-suggest]');if(!b)return;e.preventDefault();e.stopPropagation();void luFolders().moveDocsTo([b.dataset.luSuggest],b.dataset.luSuggestFolder)},true);
+document.addEventListener('click',e=>{const b=e.target.closest?.('#documentList [data-lu-suggest]');if(!b)return;e.preventDefault();e.stopPropagation();void luFolders().moveDocsTo([b.dataset.luSuggest],b.dataset.luSuggestFolder,{open:false})},true);
 // 빠짐10(LIB-정리보충 ⑤): 같은 글의 원본 두 개(웹 + PDF/HWP)는 한 줄(대표 = 웹이 아닌 원본)로 묶고 줄 오른쪽 작은 [원본 n]으로 펼친다.
 // 화면에서만 묶는다(자료 행은 그대로). 상태 주인: luTwins(이번 그리기의 묶음 계획)·luTwinOpen(펼친 대표 id, 화면 메모리만).
 let luTwins=new Map();const luTwinOpen=new Set();
