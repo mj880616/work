@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import { expandLibraryTree } from './helpers/library-tree.mjs';
+import { expandLibraryTree, openLibraryPhotoFolds } from './helpers/library-tree.mjs';
 
 // ACT-사진 4단계(결정 A): 자료실에서 사업 보고에 붙은 사진은 사업 보고마다 한 줄('사진 n · 제목' + 작은 그림 3장).
 // 자료실에 직접 올린 그림은 한 장 한 줄, 휴지통 사업 보고의 사진은 보이지 않고, 사업 보고를 읽지 못하면 묶지 않는다. 모든 이름·번호는 합성 값.
@@ -86,12 +86,22 @@ async function open(page, state, width) {
   await expandLibraryTree(page);
 }
 
+// LIB-사진숨김나머지(S61-1, 명진 결정 11/13 "모두 숨김"): 사업 보고 사진 묶음 줄도 그 묶음 맨 아래 [사진 n]에 합쳐져 접혀 있다.
+// 펼친 뒤에는 묶음 줄이 그대로(누르기·⋯·끌기).
+const openPhotoFolds = openLibraryPhotoFolds;
+
 for (const width of [390, 1440]) {
   test(`library folds photos of a business report into one row ${width}`, async ({page}) => {
     const state = makeState();
     await open(page, state, width);
     const set = id => page.locator(`[data-lu-photoset="${id}"]`);
 
+    // 처음에는 묶음 줄·직접 올린 그림 모두 접힌 [사진 7](5 + 1 + 1, 휴지통 사업 보고 사진은 빠짐). 자료 수는 그대로.
+    await expect(page.locator('[data-lu-photoset]')).toHaveCount(0);
+    await expect(page.locator('#documentList [data-lu-photos]')).toHaveText(['사진 7']);
+    await page.screenshot({path: process.env.S61_SHOTS ? `${process.env.S61_SHOTS}/library-photoset-${width}.png` : test.info().outputPath(`library-photoset-${width}.png`)});
+    await openPhotoFolds(page);
+    await page.screenshot({path: process.env.S61_SHOTS ? `${process.env.S61_SHOTS}/library-photoset-open-${width}.png` : test.info().outputPath(`library-photoset-open-${width}.png`)});
     // 사업 보고마다 한 줄. 사진 5장이어도 한 줄, 제목 = 사진 n · 사업 보고 제목.
     await expect(page.locator('[data-lu-photoset]')).toHaveCount(2);
     await expect(set(M1).locator('.lu-row-title')).toHaveText('사진 5 · ○○ 결의대회');
@@ -108,9 +118,10 @@ for (const width of [390, 1440]) {
     // 사업 보고에 붙은 사진 자료 행은 목록에 따로 나오지 않는다. 직접 올린 그림·글 자료는 그대로 한 장 한 줄.
     for (const n of [11, 12, 13, 14, 15, 21, 30, 31]) await expect(page.locator(`[data-lu-document="${ID(n)}"]`)).toHaveCount(0);
     await expect(page.locator(`[data-lu-document="${ID(20)}"]`)).toHaveCount(1);
-    // LIB-사진숨김(S60-10): 직접 올린 그림은 줄 대신 그 묶음 맨 아래 [사진 1](사업 보고 사진 묶음 줄은 그대로).
+    // LIB-사진숨김(S60-10): 직접 올린 그림은 줄 대신 [사진 n] 안 작은 그림 칸(묶음 줄 아래).
     await expect(page.locator(`.lu-row[data-lu-document="${ID(40)}"]`)).toHaveCount(0);
-    await expect(page.locator('[data-lu-photos]')).toHaveText(['사진 1']);
+    await expect(page.locator(`.lu-photo-fold [data-photo-tile="${ID(40)}"]`)).toHaveCount(1);
+    await expect(page.locator('.lu-photo-fold .lu-photo-sets [data-lu-photoset]')).toHaveCount(2);
     // 사업 보고는 한 번에 읽는다(줄마다 따로 읽지 않음).
     expect(state.meetingReads.length).toBe(1);
     for (const m of [M1, M2, M3]) expect(state.meetingReads[0]).toContain(m);
@@ -162,6 +173,7 @@ for (const fail of [false, true]) test(`photo set row drags into a folder as one
   await open(page, state, 1440);
   await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   await expandLibraryTree(page);
+  await openPhotoFolds(page);
   const r = await dragSetTo(page, M1, 'f:' + ID(700));
   expect(r).toEqual({draggable: 'true', allowed: true});
   const photos = [11, 12, 13, 14, 15].map(ID);
@@ -170,6 +182,7 @@ for (const fail of [false, true]) test(`photo set row drags into a folder as one
     // 결과 보고(PDF)·다른 사업 보고 사진은 그대로. 사업 보고 연결은 바꾸지 않는다(자료 행 쓰기 없음).
     expect(state.items.map(x => x.document_id).sort()).toEqual([...photos].sort());
     await expandLibraryTree(page);
+    await openPhotoFolds(page);
     await expect(page.locator(`#documentList details[data-lu-node="f:${ID(700)}"] [data-lu-photoset="${M1}"]`)).toHaveCount(1);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 5개');
   } else {
@@ -178,6 +191,7 @@ for (const fail of [false, true]) test(`photo set row drags into a folder as one
     expect(state.items).toEqual([]);
     expect(state.itemWrites.filter(m => m === 'DELETE')).toHaveLength(2);
     await expandLibraryTree(page);
+    await openPhotoFolds(page);
     await expect(page.locator(`#documentList details[data-lu-node="x:out"] [data-lu-photoset="${M1}"]`)).toHaveCount(1);
   }
 });
@@ -189,6 +203,7 @@ test('photo set row menu moves the whole set into a folder', async ({page}) => {
   await open(page, state, 1440);
   await page.locator('#libraryGroupBy').selectOption({label:'폴더'});
   await expandLibraryTree(page);
+  await openPhotoFolds(page);
   await page.locator(`[data-lu-photoset="${M1}"] [data-lu-menu]`).click();
   await expect(page.locator('#luMorePanel button')).toHaveText(['폴더로 옮기기›']);
   await page.locator(`#luMorePanel [data-lu-move-open="photoset:${M1}"]`).click();

@@ -528,7 +528,10 @@
 #documentList [data-lu-pane-i] .ft-row.lu-drop-group:is(.lu-drop-into,.lu-drop-place)>.ft-main::after{content:'여기에 놓기';flex:none;margin-left:auto;padding:0 6px;font-size:var(--ds-text-meta,12px);font-weight:700;color:var(--kptu-primary-ink);white-space:nowrap}
 /* LIB-사진숨김(S60-10): 묶음 안 사진은 줄에서 빼고 맨 아래 [사진 n](photo-fold.js). 펼치면 그 자리에 작은 그림 칸. */
 .lu-photo-fold{padding:2px 2px 6px}
-#documentList .lu-photo-fold .photo-fold-tile .lu-thumb{width:100%;height:100%}
+:is(#documentList,#libraryRecent) .lu-photo-fold .photo-fold-tile .lu-thumb{width:100%;height:100%}
+/* LIB-사진숨김나머지(S61-1): 묶음의 사업 보고 사진 묶음 줄은 [사진 n]을 펼쳤을 때 그 아래에 그대로, 최근 올린 파일의 [사진 n]은 목록 맨 아래. */
+.lu-photo-sets{display:grid;gap:2px;padding:2px 0}
+.lu-recent-photos{list-style:none;padding:2px 2px 4px}
 /* LIB-받는폴더나누기(S60-18, 시안 lib-receive-sort.html): 받는 폴더 위치 줄·칸 머리의 작은 [폴더로 나누기]와 제안 창. 콤팩트 줄, 크고 굵은 버튼 없음. */
 .lu-sort-btn{flex:none;margin-left:auto;white-space:nowrap}
 #libraryPath .lu-sort-btn{margin-left:auto}

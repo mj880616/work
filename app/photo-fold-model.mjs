@@ -28,3 +28,16 @@ export function docKindBadge(doc) {
 const TONE = {pdf: 'pdf', hwp: 'hwp', excel: 'xls', word: 'doc', slide: 'ppt', image: 'img'};
 
 export const pictureCountLabel = n => `사진 ${Math.max(0, n | 0)}`;
+
+// LIB-사진숨김나머지(S61-1): '최근' 목록(새것부터 차례로 놓인 목록)에서 사진을 뺀 줄 limit개와, 그 줄들 사이·위에 끼어 있던 사진(=그 줄 수만큼
+// 보이던 시간 안의 사진)을 나눈다. 사진 아닌 줄 수는 지금처럼 limit개 그대로이고, [사진 n]은 그 시간 안 사진만 센다.
+// more = 사진 아닌 줄이 limit개보다 많다([더보기]를 둘지).
+export function recentSplit(list, isPicture, limit) {
+  const rows = [], pictures = [];
+  let more = false;
+  for (const item of Array.isArray(list) ? list : []) {
+    if (isPicture(item)) { if (rows.length < limit) pictures.push(item); continue; }
+    if (rows.length < limit) rows.push(item); else { more = true; break; }
+  }
+  return {rest: rows, pictures, more};
+}

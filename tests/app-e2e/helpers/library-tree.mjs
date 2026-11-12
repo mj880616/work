@@ -53,3 +53,11 @@ export async function libraryExpandItem(page){
   await expect(page.locator('#luTopMenu')).toBeHidden();
   return out;
 }
+// LIB-사진숨김나머지(S61-1): 사진(사업 보고 사진 묶음 줄 포함)은 묶음 맨 아래 접힌 [사진 n] 안에 있다. 접힌 것을 모두 펼친다(누를 때마다 다시 그리므로 하나씩).
+export async function openLibraryPhotoFolds(page){
+  for(let i=0;i<30;i++){
+    const shut=page.locator('#documentList [data-lu-photos][aria-expanded="false"]');
+    if(!(await shut.count()))return;
+    await shut.first().click();
+  }
+}

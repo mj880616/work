@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {personDraft, needlesOf, whoIn, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, normName} from '../app/org-key-people-model.mjs';
+import {personDraft, savedNamesDraft, needlesOf, whoIn, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, normName} from '../app/org-key-people-model.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const KIM = {id:'p1', name:'김하나', match_names:['김하나', '김 위원장']};
@@ -102,4 +102,32 @@ test('화면 연결: 맨 아래 작은 탭 4개(주요 인물 첫 탭), renderer
   assert.match(read('app/call-feed.js'), /window\.KPTUCallFeed = \{reload:\(\) => load\(\), open:openCall, show:showCall\}/);
   assert.match(read('app/telegram-feed.js'), /window\.KPTUTelegramFeed = \{reload:\(\) => load\(\), show:showDay\}/);
   assert.match(read('app/ledger-browse-model.mjs'), /export const waitingCommitmentsPath/);
+});
+
+// ORG-찾을이름칸삭제(S61-4): 창은 이름만 받는다. 고쳐 저장해도 이미 저장된 찾을 이름은 비우지 않고 이어 붙인다.
+test('S61-4 이름만 저장 — 새 인물은 이름, 고칠 때 저장된 찾을 이름 보존(빈 배열로 덮지 않음)', () => {
+  assert.deepEqual(savedNamesDraft({name:'김하나'}), {ok:true, name:'김하나', match_names:['김하나']});
+  assert.deepEqual(savedNamesDraft({name:'김'}), {ok:true, name:'김', match_names:[]});
+  assert.equal(savedNamesDraft({name:'  '}).ok, false);
+  // 이름 그대로 고쳐 저장: 찾을 이름 그대로.
+  assert.deepEqual(savedNamesDraft({name:'김하나', keep:KIM.match_names}).match_names, ['김하나', '김 위원장']);
+  // 이름을 바꿔도 옛 이름·찾을 이름은 남는다(기록 찾기가 끊기지 않음).
+  assert.deepEqual(savedNamesDraft({name:'김하나 위원장', keep:KIM.match_names}).match_names, ['김하나 위원장', '김하나', '김 위원장']);
+  // 저장된 값 중 규칙에 어긋난 것은 건너뛰고, 20개를 넘기지 않는다(DB 규칙과 같음).
+  const many = Array.from({length:25}, (_, i) => '이름' + i);
+  const d = savedNamesDraft({name:'김하나', keep:['김', null, ' 김하나 ', ...many]});
+  assert.equal(d.ok, true); assert.equal(d.match_names.length, 20); assert.equal(d.match_names[0], '김하나');
+  assert.equal(new Set(d.match_names).size, 20);
+  assert.ok(d.match_names.every(m => [...m].length >= 2 && m === m.trim()));
+  // keep이 배열이 아니어도 안전.
+  assert.deepEqual(savedNamesDraft({name:'박둘', keep:null}).match_names, ['박둘']);
+});
+
+test('S61-4 [+ 인물]·[수정] 창 — 찾을 이름 칸·찾은 이름 코드가 없고 저장은 savedNamesDraft 한 길', () => {
+  const ui = read('app/org-key-people.js'), css = read('app/workplace-detail.css');
+  for (const gone of ['okpMatches', 'okpMatchInput', 'okpSuggest', 'okpMatchAdd', 'okp-match', 'okp-sg', 'addMatch', 'paintSuggest', 'paintMatches', '찾을 이름 <small>'])
+    assert.equal(ui.includes(gone), false, gone);
+  for (const gone of ['.okp-matches', '.okp-mchip', '.okp-match-add', '.okp-suggest', '.okp-sg']) assert.equal(css.includes(gone), false, gone);
+  assert.match(ui, /savedNamesDraft\(\{name:m\.querySelector\('#okpName'\)\.value, keep:ed\.person\?\.match_names \|\| \[\]\}\)/);
+  assert.match(ui, /method:'PATCH'[^\n]*match_names:d\.match_names/);
 });
