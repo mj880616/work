@@ -841,7 +841,8 @@ function luDisplayName(d){const raw=String(d.title||d.file_name||'파일');let n
 function luAddSuggest(html,d,node){const s=luSuggestHtml(d,node);return s?html.replace('<button class="icon-btn lu-more-trigger"',s+'<button class="icon-btn lu-more-trigger"'):html}
 // LIB-사진숨김(S60-10, 시안 photo-hide-thumbs.html ⑤): 묶음(폴더·프로젝트·분류 …) 안 사진 자료는 줄에서 빼고 그 묶음 맨 아래 [사진 n] 하나.
 // 누르면 그 자리에 작은 그림(누르면 크게 보기, ⋯·우클릭·꾹 누르기 = 그 자료 메뉴). 펼친 묶음(luPhotoOpen)은 화면 메모리만이고
-// 자료실에 들어올 때마다 비운다(늘 숨김으로 시작). 검색어가 있으면 사진도 줄로 보인다.
+// 자료실에 들어올 때마다 비운다(늘 숨김으로 시작).
+// S61-12(커맨드센터 결정 11/13, [파일] 찾기와 같은 규칙): 검색 결과에서도 사진은 줄로 보이지 않고 그 묶음 맨 아래 [사진 n](개수 그대로, 누르면 작은 그림).
 // LIB-사진숨김나머지(S61-1, 명진 결정 11/13 "모두 숨김"): 사업 보고 사진 묶음 줄(ACT-사진 4단계, '사진 n · 보고 제목')도 줄에서 빼고
 // 같은 묶음의 [사진 n]에 합친다(n = 직접 올린 사진 + 묶음 안 사진 수). 펼치면 묶음 줄을 그대로(누르기 = 사업 보고 사진 보기, ⋯·끌기 = 폴더로 옮기기)
 // 먼저 보이고 이어서 직접 올린 사진의 작은 그림. 묶음은 계산된 줄이라 자료는 바뀌지 않는다.
@@ -1000,7 +1001,7 @@ const luTwoActive=()=>!!luTwo&&!!LU_SPLIT?.matches&&luGroupBy==='folder'&&luFold
 function luMakeTwo(){
   if(luTwo||!document.querySelector('#libraryListCard'))return;
   luTwo=createLibraryTwo({on:luTwoActive,ready:()=>luFoldersReady,folders:()=>luFolders_,rightFolder:()=>luInFolder,enterRight:id=>luEnterFolder(id),render:()=>luRenderLibrary(),
-    rowHtml:(d,node)=>luDragRowHtml(d,node),isPhoto:d=>!(document.querySelector('#documentSearch')?.value||'').trim()&&luIsPhotoRow(d),photoTail:(node,photos)=>luPhotoTail(node,photos),toggle:luTwoToggle,canDrag:()=>luCanDrag(),ui:()=>luFolders(),picked:()=>luPick.items?[...luPick.items].filter(id=>luDocuments.some(d=>d.id===id)):[],
+    rowHtml:(d,node)=>luDragRowHtml(d,node),isPhoto:luIsPhotoRow,photoTail:(node,photos)=>luPhotoTail(node,photos),toggle:luTwoToggle,canDrag:()=>luCanDrag(),ui:()=>luFolders(),picked:()=>luPick.items?[...luPick.items].filter(id=>luDocuments.some(d=>d.id===id)):[],
     sortBtn:id=>luSortReady(id)?sortButtonHtml('lu-pane-sort-btn'):'',busy:()=>luSelBusy||!!luFolderUi?.busy,say:text=>notify(text,{record:false}),esc:luEsc});
   luTwo.bind();
 }
@@ -1097,7 +1098,7 @@ if(luTwoActive())luOutOnly=false;const shown=luFolderScope(tree),inKey=luInFolde
 luLastTree=shown;const matched=filtering?matchedKeys(luTwoActive()?tree:shown):new Set();luTwins=twinPlan(luTwoActive()?luTwo.shownNodes(tree,luTwoOpen=k=>luIsOpen(k,filtering,matched)):shown);
 // LIB-정리보충 ③: 폴더 묶기의 '폴더 밖' 자료마다 작게 '📁 ○○?' 추천(AI 없음, 고르는 중에는 숨김). 누르면 그 폴더로 옮기고 '옮겼어요 · 되돌리기'.
 luSuggest=luGroupBy==='folder'&&!luPick.items?folderSuggestions(tree.find(n=>n.key==='x:out')?.files||[],{docs:luDocuments,items:luFolderItems,folders:luFolders_,categoryOf}):new Map();
-const html=luTwoActive()?luTwo.html(tree):((inKey?shown.length>0:(matches.length||tree.some(n=>n.children.length)||(luGroupBy==='folder'&&!filtering)))?treeHtml(shown,{isOpen:k=>k===inKey||luIsOpen(k,filtering,matched),showAll:k=>luShowAll.has(k),fileHtml:luDragRowHtml,esc:luEsc,menu:luNodeMenuLabel,canDrag:n=>luCanDrag()&&n.kind==='folder',pick:luNodePick,emoji:luGroupBy==='folder',isPhoto:q?null:luIsPhotoRow,photoTail:luPhotoTail}):'');
+const html=luTwoActive()?luTwo.html(tree):((inKey?shown.length>0:(matches.length||tree.some(n=>n.children.length)||(luGroupBy==='folder'&&!filtering)))?treeHtml(shown,{isOpen:k=>k===inKey||luIsOpen(k,filtering,matched),showAll:k=>luShowAll.has(k),fileHtml:luDragRowHtml,esc:luEsc,menu:luNodeMenuLabel,canDrag:n=>luCanDrag()&&n.kind==='folder',pick:luNodePick,emoji:luGroupBy==='folder',isPhoto:luIsPhotoRow,photoTail:luPhotoTail}):'');
 luRenderPath(box);luRenderFolderNav(tree);box.innerHTML=(html||(globalThis.KPTUWait?.emptyHtml?.(!inKey&&topDocumentCategories().every(n=>luCategoryOff.has(n))?'선택한 분류 없음':'없음')||''))+(q?luOffHint(found.filter(d=>!luCategoryShown(categoryOf(d.category),hiddenNow))):'');// 다시 그려도 초점이 있던 자료 줄에 초점을 돌려준다(다른 화면이 짚어 연 줄이 늦게 끝난 읽기의 다시 그리기로 초점을 잃지 않게).
 if(focusId)box.querySelector(`[data-lu-document="${CSS.escape(focusId)}"]`)?.focus({preventScroll:true});luRenderExpandAll(filtering,matched);luMarkLongNames(box);if(luTwoActive())luTwo.after(SPLIT_QUERY);hydrateLibraryThumbs(box);mountReportPhotos(box,{isCurrent:()=>box.isConnected});luRenderRecent(matches);luFollowMenus(...menuSpots);luAfterRender()}
 // LIB-최근올린파일 (2026-10-27 17:01 요청): 묶기 칩 바로 아래 작은 칸. 서버에 있는 올린 시각(created_at) 기준 최근 5개(더보기 15개)를 줄마다

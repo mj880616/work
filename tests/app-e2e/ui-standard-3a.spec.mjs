@@ -173,10 +173,11 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  const search=await look(page.locator('#documentSearch'));
  if(width<761)await page.locator('#librarySearchOpen').click();
  const shown=await look(page.locator('#documentSearch'));expect(shown.height).toBe(32);expect(search.radius).toBe('8px');expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
- // 찾기 중에는 사진도 한 줄로 보이고, 종류는 '그림'(LIB-그림형식 색).
+ // S61-12: 찾기 결과에서도 사진은 줄 대신 [사진 1](개수 그대로), 누르면 작은 그림.
  await page.locator('#documentSearch').fill('사진');
- const photoRow=page.locator('#documentList .lu-row[data-lu-document="d9"]');await expect(photoRow).toHaveCount(1);
- await expect(photoRow.locator('.lu-file-kind')).toHaveText('그림');await kindColor(photoRow.locator('.lu-file-kind'),'img');
+ await expect(page.locator('#documentList .lu-row[data-lu-document="d9"]')).toHaveCount(0);
+ const photoToggle=page.locator('#documentList [data-lu-photos]');await expect(photoToggle).toHaveText(['사진 1']);
+ await photoToggle.click();await expect(page.locator('#documentList [data-photo-tile="d9"]')).toHaveCount(1);
  await noOverflow(page);
  expect(errors).toEqual([]);
 });
