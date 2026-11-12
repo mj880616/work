@@ -1158,7 +1158,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     return {ok:!items.notes.includes(overKey.slice(2)), canInside:false};
   };
   let hoverTimer = null, hoverId = null, dragPointer = '', suppressUntil = 0, dragging = false;
-  const clearDrop = () => host.querySelectorAll('.nx-drop,.nx-line-before,.nx-line-after').forEach(el => el.classList.remove('nx-drop', 'nx-line-before', 'nx-line-after'));
+  const clearDrop = () => host.querySelectorAll('.nx-drop,.nx-line-before,.nx-line-after,.nx-drop-group').forEach(el => el.classList.remove('nx-drop', 'nx-line-before', 'nx-line-after', 'nx-drop-group'));
   function hoverOpen(target) {
     if (target === hoverId) return; clearTimeout(hoverTimer); hoverId = target;
     // PC 마우스: 끄는 동안 닫힌 왼쪽 나무 폴더 위에 머물면 열림(폰 손가락 끌기는 목록을 다시 그리면 잡은 줄이 사라져 열지 않는다)
@@ -1173,6 +1173,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!plan) return;
     const cls = plan.mark.inside ? 'nx-drop' : plan.mark.line === 'before' ? 'nx-line-before' : plan.mark.line === 'after' ? 'nx-line-after' : '';
     if (cls) for (const key of plan.mark.keys) keyEls(key).forEach(el => el.classList.add(cls));
+    // UI-펼친폴더안놓기전체(S60-13): 폴더로 넣을 때는 그 폴더 안 노트 줄(묶음)도 옅은 바탕 — 자료실·[파일]과 같은 표시. 판정(dropPlan)은 그대로.
+    if (plan.kind === 'move' && plan.mark.inside) for (const n of notes) if ((folderOf(n) ?? null) === (plan.target ?? null)) keyEls('n:' + n.id).forEach(el => el.classList.add('nx-drop-group'));
   }
   const reorderHint = () => notify('노트 순서를 바꾸려면 목록 ⋯ 메뉴에서 정렬을 [내가 정한 순서]로 바꿔 주세요.');
   function handleDrop({id, over, zone}) {

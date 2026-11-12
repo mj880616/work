@@ -440,7 +440,7 @@ function luDropTarget(e){
     if(nav){const f=luDropFolderOf(nav.dataset.luNav);return f?{ok:true,kind:'into',target:f.id,name:f.name,place:nav.closest('.ft-row')||nav}:{ok:false,place:nav}}
     // LIB-펼친폴더안놓기(S59-9): 펼친 폴더 안 자료 줄·그 묶음 안 빈 틈이면 그 폴더(표시는 그 폴더 줄) — 자료 옮기기와 같은 판정(paneDropAt).
     const spot=paneDropAt(at);
-    if(spot){const f=luDropFolderOf(spot.id);return f?{ok:true,kind:'into',target:f.id,name:f.name,place:spot.place}:spot.sub?{ok:false,place:spot.place}:{out:true,place:spot.place}}
+    if(spot){const f=luDropFolderOf(spot.id);return f?{ok:true,kind:'into',target:f.id,name:f.name,place:spot.place,group:spot.group||null}:spot.sub?{ok:false,place:spot.place}:{out:true,place:spot.place}}
   }
   const el=e?.target,opt={inFolder:luInFolder,folderOf:luDropFolderOf};
   const step=placeDropTarget(el,{...opt,step:true});if(step)return step;
@@ -455,6 +455,8 @@ let luDropPlaceEl=null;
 function luMarkDrop(t){
   const el=t?.ok===false?null:t?.place||null;if(el!==luDropPlaceEl){luDropPlaceEl?.classList.remove('lu-drop-place');luDropPlaceEl=el;el?.classList.add('lu-drop-place')}
   if(t?.head)luFolders().markFile(t);else if(luFolderUi)luFolderUi.markFile(null);
+  // UI-펼친폴더안놓기전체(S60-13): 두 칸 펼친 폴더 묶음이면 묶음 전체 옅은 바탕(자료 옮기기와 같은 표시).
+  const g=t?.ok!==false&&t?.group?t.group:[];for(const el of document.querySelectorAll('#documentList [data-lu-pane-i] .lu-drop-group'))if(!g.includes(el))el.classList.remove('lu-drop-group');for(const el of g)el.classList.add('lu-drop-group');
 }
 // LIB-폴더로올리기 (2026-10-30): 폴더 묶기에서 폴더 줄에 놓았으면(target) 올린 자료마다 그 폴더에 넣는다(옮기기와 같은 자료 연결 표, 폴더 부품 putUploaded).
 // 다른 곳에 놓은 파일은 지금처럼 폴더 밖. 올리기 중 또 놓으면 그 파일은 놓은 곳(폴더 또는 밖) 그대로 줄 뒤에 이어 올린다.

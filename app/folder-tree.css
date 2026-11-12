@@ -20,6 +20,8 @@
 .nx-current > .nx-main { background:var(--kptu-primary-soft); font-weight:600; }
 .nx-drop { background:var(--kptu-primary-soft); border-radius:var(--kptu-radius-sm); }
 .ft-row.nx-drop > .ft-main { background:var(--kptu-primary-soft); }
+/* UI-펼친폴더안놓기전체(S60-13): 노트를 폴더로 넣을 때 그 폴더 안 노트 줄(묶음)도 옅은 바탕(자료실·[파일]과 같은 표시). */
+.nx-drop-group, .ft-row.nx-drop-group > .ft-main { background:var(--kptu-primary-soft); }
 .nx-dragging, .nx-grabbed { opacity:.55; }
 /* FOLDER-순서·색: 폴더 색 규칙([data-fc]·.fl-ico·.fl-choice)은 folder-look.css 한 곳. 아래는 노트 전용 꼬리표·포스트잇과 끌어 놓기 자리 표시. */
 .nx-path[data-fc] { padding:1px 6px; border-radius:var(--ds-chip-radius,10px); background:var(--fl-tag); color:var(--kptu-ink); font-size:11px; }

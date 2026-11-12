@@ -48,7 +48,8 @@ import {MORE_LABEL} from './fold-chevron.mjs';
 import {recentHumanRows} from './files-auto-model.mjs';
 import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml, iconSvg} from './tree-icons.js';
-import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js'; // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
+import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js';
+import {openFolderAt, paintDropGroup} from './drop-open-folder.mjs'; // UI-펼친폴더안놓기전체: 놓일 묶음 표시(공용) // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
@@ -1061,7 +1062,7 @@ const fileDay = r => dayText(r.modified_at);
 function treeFileHtml(r, depth, parent) {
   const key = rowKey(r), kind = kindOf(r);
   state.treeRows.set(key, r);
-  return `<div class="ft-row ft-item fx-titem" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"><button type="button" class="ft-btn ft-main" data-fx-tfile="${esc(key)}">`
+  return `<div class="ft-row ft-item fx-titem" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"${depth ? dropIn(parent) : ''}><button type="button" class="ft-btn ft-main" data-fx-tfile="${esc(key)}">`
     + `<span class="fx-tkind" data-kind="${kind}" aria-hidden="true">${esc(kindLabel(r))}</span><span class="ft-name">${esc(r.name)}</span>${r.starred ? STAR_ICO : ''}<span class="ft-num fx-tday">${esc(fileDay(r))}</span></button>`
     + ftMoreButtonHtml({attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
 }
@@ -1101,7 +1102,7 @@ function phoneTreeHtml() {
     const tail = !syncPut && SOURCES.includes(source) && sync ? (syncPut = true, sync) : '';
     const loading = !shut && !state.children.has(folderKey(source, null));
     const body = loading ? waitHtml({rows: 2}) : rows.length ? rows.map(r => r.type === 'folder' ? treeFolderHtml(r) : r.type === 'photos'
-      ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${r.depth}" data-ft-parent="${esc(r.parent)}">${photoToggleHtml(r.rows.length, {open: state.photoOpen.has(r.key), attrs: ` data-fx-photos="${esc(r.key)}"`})}</div>` + fxTreePhotosHtml(r.rows, r.key, r.depth, r.parent)
+      ? `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${r.depth}" data-ft-parent="${esc(r.parent)}"${r.depth ? dropIn(r.parent) : ''}>${photoToggleHtml(r.rows.length, {open: state.photoOpen.has(r.key), attrs: ` data-fx-photos="${esc(r.key)}"`})}</div>` + fxTreePhotosHtml(r.rows, r.key, r.depth, r.parent)
       : r.type === 'more'
       ? ftMoreRowHtml({rest: r.rest, depth: r.depth, attrs: {'data-fx-tmore': r.key, 'data-ft-parent': r.key}}) : treeFileHtml(r.row, r.depth, r.parent)).join('') : emptyHtml('빈 폴더');
     html += ftBoxHtml({head: `${treeIconHtml(source, {className: 'ft-box-ico'})}<span>${esc(SOURCE_NAME[source])}</span>`, collapsible: true, open: !shut, tail,
@@ -1274,14 +1275,17 @@ const wantsThumb = r => r.source !== PC && thumbWanted(kindOf(r), r.is_folder);
 const isFxPhoto = r => !r.is_folder && kindOf(r) === 'image';
 const fxSplit = rows => ({rest: rows.filter(r => !isFxPhoto(r)), photos: rows.filter(isFxPhoto)});
 const fxPhotoKey = (p, xof) => xof || (p.where ? folderKey(p.where.source, p.where.parent) : '');
-function fxPhotoToggle(key, n, depth = 0) {
-  return `<div class="fx-photo-fold" role="listitem" style="--fx-xdepth:${depth};--ft-depth:${depth}">${photoToggleHtml(n, {open: state.photoOpen.has(key), attrs: ` data-fx-photos="${esc(key)}"`})}</div>`;
+// UI-펼친폴더안놓기전체(S60-13): 펼친 폴더 묶음 안 줄이 아닌 것([사진 n]·작은 그림·빈 폴더/기다림 줄·폰 나무 파일 줄)도 그 폴더로 놓는 자리.
+// 판정은 공용 규칙 하나(drop-open-folder.mjs — 가장 가까운 묶음 = 그 폴더)이고 [파일]의 묶음 표시는 data-fx-drop(그 폴더 키)이다. 받을 수 없는 곳(옛 바구니 문 내 PC 등)은 붙이지 않는다.
+const dropIn = key => (key && destOf(key) ? ` data-fx-drop="${esc(key)}"` : '');
+function fxPhotoToggle(key, n, depth = 0, xof = '') {
+  return `<div class="fx-photo-fold" role="listitem" style="--fx-xdepth:${depth};--ft-depth:${depth}"${dropIn(xof)}>${photoToggleHtml(n, {open: state.photoOpen.has(key), attrs: ` data-fx-photos="${esc(key)}"`})}</div>`;
 }
 // 목록 칸: 펼치면 작은 격자(격자 보기 칸과 같은 cellHtml — 그림 칸이 곧 작은 그림).
 function fxPhotoGridHtml(p, photos, key, depth, xof) {
   if (!state.photoOpen.has(key)) return '';
   for (const r of photos) if (depth) p.inline.set(rowKey(r), r);
-  return `<div class="fx-rows fx-grid fx-photo-grid" role="list" aria-label="사진" style="--fx-xdepth:${depth}">${photos.map(r => cellHtml(p, r, {xof})).join('')}</div>`;
+  return `<div class="fx-rows fx-grid fx-photo-grid" role="list" aria-label="사진" style="--fx-xdepth:${depth}"${dropIn(xof)}>${photos.map(r => cellHtml(p, r, {xof})).join('')}</div>`;
 }
 // 폰 나무·'그 폴더만': 작은 그림 칸 = 그림 단추(누르기 = 미리보기) + 그 줄 ⋯(지금 메뉴).
 function fxTreePhotosHtml(photos, key, depth, parent, {focus = null} = {}) {
@@ -1293,7 +1297,7 @@ function fxTreePhotosHtml(photos, key, depth, parent, {focus = null} = {}) {
     return `<div class="photo-fold-tile fx-tphoto" data-photo-tile="${esc(k)}"><button type="button" class="icon-btn photo-fold-thumb"${press} aria-label="${esc(r.name)} 보기" title="${esc(r.name)}">${thumbHtml(r, 'fx-tphoto-pic')}</button>`
       + ftMoreButtonHtml({attrs: {'data-fx-tmenu': k, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
   }).join('');
-  return `<div class="photo-fold-tiles fx-tphotos" role="group" aria-label="사진" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}">${cells}</div>`;
+  return `<div class="photo-fold-tiles fx-tphotos" role="group" aria-label="사진" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"${depth ? dropIn(parent) : ''}>${cells}</div>`;
 }
 // 격자 칸 하나: 줄과 같은 단추·같은 data-*(누르기·꾹 누르기·끌기·놓기 길 그대로), 그림은 사진 = 작은 그림, 폴더 = 큰 폴더, 그 밖 = 종류 글자.
 function cellHtml(p, r, {open = null, xof = ''} = {}) {
@@ -1425,7 +1429,7 @@ function focusFileHtml(p, r, parent, depth = 0) {
   const key = rowKey(r), sel = p.sel === key || p.picked.has(key), kind = kindOf(r);
   const cls = ['ft-btn', 'ft-main', p.picked.has(key) ? 'fx-picked' : '', state.clip?.keys.includes(key) ? 'fx-cut' : ''].filter(Boolean).join(' ');
   state.treeRows.set(key, r);
-  return `<div class="ft-row ft-item fx-titem" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"${depth ? ` data-fx-xof="${esc(parent)}"` : ''}><button type="button" class="${cls}" data-fx-row="${esc(key)}" aria-selected="${sel}">`
+  return `<div class="ft-row ft-item fx-titem" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"${depth ? ` data-fx-xof="${esc(parent)}"${dropIn(parent)}` : ''}><button type="button" class="${cls}" data-fx-row="${esc(key)}" aria-selected="${sel}">`
     + `${wantsThumb(r) ? thumbHtml(r, 'fx-tthumb') : `<span class="fx-tkind" data-kind="${kind}" aria-hidden="true">${esc(kindLabel(r))}</span>`}<span class="ft-name">${esc(r.name)}</span>${r.starred ? STAR_ICO : ''}<span class="ft-num fx-tday">${esc(fileDay(r))}</span></button>`
     + ftMoreButtonHtml({attrs: {'data-fx-tmenu': key, 'data-fx-tin': parent}, label: `${r.name} 메뉴`}) + '</div>';
 }
@@ -1483,7 +1487,7 @@ function xKids(p, r) {
   return folders.length > 1 ? [...folderLook.sort(r.source, folders, x => x.item_id), ...rows.filter(x => !x.is_folder)] : rows;
 }
 const xOpenOf = (p, r) => (r.is_folder && xable(p) ? p.xopen.has(folderKey(r.source, r.item_id)) : null);
-const xNoteHtml = (depth, html) => `<div class="fx-xnote" style="--fx-xdepth:${depth}">${html}</div>`;
+const xNoteHtml = (depth, html, xof = '') => `<div class="fx-xnote" style="--fx-xdepth:${depth}"${dropIn(xof)}>${html}</div>`;
 // 목록 보기: 펼친 폴더 바로 아래에 안 줄을 들여 끼운다(같은 줄 단추·같은 data-* — 누르기·고르기·끌기·놓기·우클릭 길 그대로).
 function xListHtml(p, rows, {withPath = false, depth = 0, xof = ''} = {}) {
   let html = '';
@@ -1495,10 +1499,10 @@ function xListHtml(p, rows, {withPath = false, depth = 0, xof = ''} = {}) {
     html += rowHtml(p, r, {withPath, depth, open, xof});
     if (!open || depth >= 40) continue;
     const kids = xKids(p, r), fk = folderKey(r.source, r.item_id);
-    html += kids === null ? xNoteHtml(depth + 1, waitHtml({rows: 1}))
-      : kids.length ? xListHtml(p, kids, {withPath, depth: depth + 1, xof: fk}) : xNoteHtml(depth + 1, emptyHtml('빈 폴더'));
+    html += kids === null ? xNoteHtml(depth + 1, waitHtml({rows: 1}), fk)
+      : kids.length ? xListHtml(p, kids, {withPath, depth: depth + 1, xof: fk}) : xNoteHtml(depth + 1, emptyHtml('빈 폴더'), fk);
   }
-  if (photos.length) html += fxPhotoToggle(pk, photos.length, depth) + fxPhotoGridHtml(p, photos, pk, depth, xof);
+  if (photos.length) html += fxPhotoToggle(pk, photos.length, depth, depth ? xof : '') + fxPhotoGridHtml(p, photos, pk, depth, xof);
   return html;
 }
 // 격자 보기: 펼친 폴더 칸 다음 줄에 그 폴더 안 격자 한 묶음(칸 너비 전체, 놓으면 그 폴더).
@@ -1532,12 +1536,12 @@ function xFocusHtml(p, rows, parent, depth = 0) {
     const fk = folderKey(r.source, r.item_id);
     if (!p.xopen.has(fk) || depth >= 40) continue;
     const kids = xKids(p, r);
-    html += kids === null ? `<div class="ft-row ft-item" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}">${waitHtml({rows: 1})}</div>`
-      : kids.length ? xFocusHtml(p, kids, fk, depth + 1) : `<div class="ft-row ft-item fx-xnote" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}">${emptyHtml('빈 폴더')}</div>`;
+    html += kids === null ? `<div class="ft-row ft-item" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}"${dropIn(fk)}>${waitHtml({rows: 1})}</div>`
+      : kids.length ? xFocusHtml(p, kids, fk, depth + 1) : `<div class="ft-row ft-item fx-xnote" style="--ft-depth:${depth + 1}" data-fx-xof="${esc(fk)}"${dropIn(fk)}>${emptyHtml('빈 폴더')}</div>`;
   }
   if (photos.length) {
     if (depth) for (const r of photos) p.inline.set(rowKey(r), r);
-    html += `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}">${photoToggleHtml(photos.length, {open: state.photoOpen.has(parent), attrs: ` data-fx-photos="${esc(parent)}"`})}</div>`
+    html += `<div class="ft-row ft-item fx-photo-fold" style="--ft-depth:${depth}" data-ft-parent="${esc(parent)}"${depth ? dropIn(parent) : ''}>${photoToggleHtml(photos.length, {open: state.photoOpen.has(parent), attrs: ` data-fx-photos="${esc(parent)}"`})}</div>`
       + fxTreePhotosHtml(photos, parent, depth, parent, {focus: p});
   }
   return html;
@@ -4084,7 +4088,7 @@ root?.addEventListener('dragstart', event => {
 const dropAt = (target, {any = false} = {}) => {
   if (!drag || !target?.closest) return null;
   const {i, box, cross} = frame.dropPane(target, drag.pane);
-  const t = target.closest('[data-fx-drop]') || (cross ? box : null);
+  const t = openFolderAt(target, {group: '[data-fx-drop]', keyOf: g => g.dataset.fxDrop})?.el || (cross ? box : null); // 공용 규칙: 가장 가까운 묶음 = 그 폴더
   if (!t || !root.contains(t)) return null;
   const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
   if (!dest || pcWhy(drag.rows, dest)) return null;
@@ -4096,7 +4100,23 @@ const dropAt = (target, {any = false} = {}) => {
   return moveTargetOk(drag.rows, dest) ? {t, dest, rows: drag.rows, cross} : null;
 };
 const dropOff = keep => {
-  for (const el of root.querySelectorAll('.fx-drop-on, .fx-drop-up')) if (el !== keep) { el.classList.remove('fx-drop-on', 'fx-drop-pane', 'fx-drop-up'); delete el.dataset.fxUptext; }
+  for (const el of root.querySelectorAll('.fx-drop-on, .fx-drop-up')) if (el !== keep) { el.classList.remove('fx-drop-on', 'fx-drop-pane', 'fx-drop-up', 'fx-drop-head'); delete el.dataset.fxUptext; }
+  if (!keep) paintDropGroup(root, [], 'fx-drop-group');
+};
+// UI-펼친폴더안놓기전체(S60-13): 놓일 곳 표시 = 같은 칸 안 그 폴더 묶음 전체(그 폴더 줄 + 펼친 안의 줄·[사진 n]·빈 폴더 줄)를 옅은 바탕(fx-drop-group),
+// 묶음 맨 앞(그 폴더 줄)은 점선 + '여기에 놓기'(fx-drop-head). 파일 줄 위에 있어도 '이 묶음에 놓는다'가 보인다. 칸 상자·닫힌 폴더 줄은 그 하나만.
+const dropGroupOf = t => {
+  const k = t?.dataset?.fxDrop, scope = k && t.closest('[data-fx-pane-i]');
+  return scope ? [...scope.querySelectorAll('[data-fx-drop]')].filter(el => el.dataset.fxDrop === k) : [];
+};
+const markHit = hit => {
+  const group = hit ? dropGroupOf(hit.t) : [], many = group.length > 1, head = many ? group[0] : hit?.t;
+  dropOff(head || null);
+  paintDropGroup(root, many ? group : [], 'fx-drop-group');
+  if (!head) return;
+  head.classList.add('fx-drop-on');
+  head.classList.toggle('fx-drop-pane', head.matches('[data-fx-pane-i]'));
+  head.classList.toggle('fx-drop-head', many);
 };
 root?.addEventListener('dragover', event => {
   // 바탕화면 파일(시안 ⑦): 점선 '여기 놓으면 ○○에 올리기'.
@@ -4110,12 +4130,10 @@ root?.addEventListener('dragover', event => {
     return;
   }
   const hit = dropAt(event.target);
-  dropOff(hit?.t);
+  markHit(hit);
   if (!hit) return;
   event.preventDefault();
   if (event.dataTransfer) event.dataTransfer.dropEffect = hit.cross ? 'copy' : 'move';
-  hit.t.classList.add('fx-drop-on');
-  hit.t.classList.toggle('fx-drop-pane', hit.t.matches('[data-fx-pane-i]'));
 });
 root?.addEventListener('dragleave', event => { if (!event.relatedTarget || !root.contains(event.relatedTarget)) dropOff(null); });
 root?.addEventListener('drop', event => {
@@ -4154,7 +4172,7 @@ const touchDrag = bindTouchDrag(root, {
     return {key, pane: i, rows, label: rows.length > 1 ? `${rows.length}개` : rows[0].name};
   },
   hold: item => togglePick(item.key),
-  over: (item, el) => { drag = {pane: item.pane, rows: item.rows}; const hit = dropAt(el, {any: true}); dropOff(hit?.t); if (hit) { hit.t.classList.add('fx-drop-on'); hit.t.classList.toggle('fx-drop-pane', hit.t.matches('[data-fx-pane-i]')); } },
+  over: (item, el) => { drag = {pane: item.pane, rows: item.rows}; markHit(dropAt(el, {any: true})); },
   drop: (item, el, x, y) => {
     drag = {pane: item.pane, rows: item.rows};
     const hit = dropAt(el, {any: true});
