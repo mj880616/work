@@ -92,8 +92,8 @@ test('code shape: owner check first, guarded writes, Drive trash/untrash only in
  for(const l of index.matchAll(/console\.(?:log|warn|error)\(([^;]*)\);/g))assert.doesNotMatch(l[1],/name|piece|text|body|value/i,l[0]);
 });
 
-test('screen: [삭제] after [멈추고 정리] in the band and in the pending line, red, small notice with undo (no browser dialogs, no device storage)',()=>{
- assert.match(recorder,/data-rec="stop">멈추고 정리<\/button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제<\/button>/);
+test('screen: [삭제] after the two stop buttons([파일만 받기][전사·요약까지]) in the band and in the pending line, red, small notice with undo (no browser dialogs, no device storage)',()=>{
+ assert.match(recorder,/data-rec="stop">\$\{FILE_STOP_BUTTON\}<\/button><button type="button" class="rec-btn" data-rec="stop-ai">\$\{AI_STOP_BUTTON\}<\/button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제<\/button>/);
  assert.match(recorder,/data-rec-resume="[^"]*">이어서 정리<\/button><button type="button" class="rec-btn rec-discard" data-rec-discard="/);
  assert.match(readFileSync('app/meeting-recorder.css','utf8'),/\.rec-btn\.rec-discard\{color:var\(--kptu-danger\)\}/);
  assert.match(recorder,/import \{notify(?:,askConfirm)?\} from '\.\/small-notice\.js';/); // askConfirm = 화면 안 작은 확인창(REC-초안버리기), 브라우저 창 아님

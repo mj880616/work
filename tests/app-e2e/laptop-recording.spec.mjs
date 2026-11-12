@@ -144,7 +144,7 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   await band.getByRole('button',{name:'이어 녹음'}).click();
   expect(await page.evaluate(()=>window.__fakeRec.state())).toBe('recording');
 
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   // 마지막 조각(2) → 합치기 → 전사 → 요약 → 회의 입력 창
   await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1','1','2']);
   await expect.poll(()=>recCalls(calls,'rec_finish').length).toBe(1);
@@ -231,7 +231,7 @@ test('PC: 서버가 1분 조각을 알려 주면 1분 간격으로 보내고, �
   await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','1:3','1:4','1:5','2:1']);
   expect(await page.evaluate(()=>window.__fakeRec.recs[0].state)).toBe('inactive');
   // 멈추고 정리: 새 구간 마지막 조각 → rec_finish
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','1:3','1:4','1:5','2:1','2:2']);
   await expect.poll(()=>recCalls(calls,'rec_finish').length,{timeout:10000}).toBe(1);
   await expect(page.locator('#meetingModal')).toBeVisible({timeout:10000});
@@ -250,7 +250,7 @@ test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·정리 없음 → 위�
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   // [일시정지] [멈추고 정리] [버리기] 순서, 같은 크기, [버리기]는 빨강 글자.
-  const stop=band.getByRole('button',{name:'멈추고 정리'}),drop=band.getByRole('button',{name:'삭제'});
+  const stop=band.getByRole('button',{name:'전사·요약까지'}),drop=band.getByRole('button',{name:'삭제'});
   const [s1,d1]=await Promise.all([stop.boundingBox(),drop.boundingBox()]);
   expect(s1.x+s1.width).toBeLessThanOrEqual(d1.x);
   expect(d1.height).toBeCloseTo(s1.height,0);
@@ -325,7 +325,7 @@ test('PC: 서버 정리(S49-2) — [멈추고 정리] 뒤 서버가 합치기·�
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   await page.evaluate(()=>window.__fakeRec.emit());
   await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect.poll(()=>recCalls(calls,'job_start').map(c=>c.body)).toEqual([{workspace_id:'rec-ws',kind:'recording',session_id:'00000000-0000-4000-8000-0000000000aa'}]);
   await expect(band.locator('.rec-label')).toHaveText('정리 중');
   await expect(band.locator('.rec-note')).toContainText('화면을 닫아도 서버에서 계속 정리해요');
@@ -387,7 +387,7 @@ test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음
   await page.evaluate(()=>window.__fakeRec.emit());
   await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
   // 멈추고 정리: 같은 session 전체를 서버 정리로(끊긴 앞 구간 포함).
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
 });
 

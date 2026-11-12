@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,minuteText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan,resumables,takeOverRisk,LIVE_FRESH_SEC} from '../app/meeting-recorder-model.mjs';
+import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,minuteText,joinSegmentTexts,stepParts,seoulLocal,pendingText,pendingOthers,transcribePlan,resumables,takeOverRisk,LIVE_FRESH_SEC,finishMode,recordingFiles,fileLinksHtml} from '../app/meeting-recorder-model.mjs';
 import {REC_PIECE_SECONDS,REC_SEGMENT_SECONDS,REC_MESSAGES} from '../supabase/functions/meeting-transcribe/recording.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -181,7 +181,7 @@ test('resumables: live(방금 끊김)는 늘 띠, 닫힌 것은 하루 안쪽만
   assert.deepEqual(r.top.map(s=>s.session_id),['L','P1']);
   assert.equal(r.top[0].live,true);assert.equal(r.top[1].live,false);
   assert.deepEqual(r.old.map(s=>s.session_id),['P2']);
-  assert.deepEqual(resumables(null,undefined,'',now),{top:[],old:[]});
+  assert.deepEqual(resumables(null,undefined,'',now),{top:[],old:[],files:[]});
 });
 test('takeOverRisk: live이고 마지막 조각 뒤 100초 안쪽이면 묻는다(조회 뒤 흐른 시간 포함)',()=>{
   assert.equal(LIVE_FRESH_SEC,100);
@@ -210,4 +210,23 @@ test('meeting-recorder.js: 끊김은 일시 정지됨으로, 이어 녹음은 �
   assert.match(js,/visibilitychange/);
   assert.match(js,/no:\(last\?\.no\|\|0\)\+1/);
   assert.doesNotMatch(js,/visibilityState==='visible'[^\n]*getUserMedia/);
+});
+
+// REC-파일만받기(S61-3): 녹음 끝 두 갈래(기본 파일만)·녹음 파일 링크·'녹음 파일' 줄 나누기.
+test('파일만 받기: 기본은 file, 녹음 파일 링크는 Drive 번호 형식만, 파일만 남긴 녹음은 띠가 아니라 files',()=>{
+  assert.equal(finishMode(),'file');assert.equal(finishMode('x'),'file');assert.equal(finishMode('ai'),'ai');
+  const f=recordingFiles([{segment_no:2,drive_file_id:'bbbbbbbbbb2'},{segment_no:1,drive_file_id:'aaaaaaaaaa1'},{segment_no:3,drive_file_id:'bad id"><x'},null]);
+  assert.deepEqual(f.map(x=>x.no),[1,2]);
+  assert.equal(f[0].view,'https://drive.google.com/file/d/aaaaaaaaaa1/view');
+  assert.equal(f[0].download,'https://drive.google.com/uc?export=download&id=aaaaaaaaaa1');
+  const one=fileLinksHtml([{segment_no:1,drive_file_id:'aaaaaaaaaa1'}]);
+  assert.match(one,/>내려받기<\/a><a [^>]*>Drive 열기<\/a>$/);
+  assert.match(one,/target="_blank" rel="noopener"/);
+  assert.match(fileLinksHtml([{segment_no:1,drive_file_id:'aaaaaaaaaa1'},{segment_no:2,drive_file_id:'bbbbbbbbbb2'}]),/내려받기 1<\/a>.*내려받기 2<\/a>.*Drive 열기/);
+  assert.equal(fileLinksHtml([]),'');assert.equal(fileLinksHtml([{drive_file_id:'<script>'}]),'');
+  const now=Date.parse('2026-11-13T12:00:00Z');
+  const r=resumables([{session_id:'F',started_at:'2026-11-13T11:00:00Z',duration_sec:600,file_only:true,files:[{segment_no:1,drive_file_id:'aaaaaaaaaa1'}]},{session_id:'P',started_at:'2026-11-13T11:10:00Z',duration_sec:60}],[],'',now);
+  assert.deepEqual(r.top.map(s=>s.session_id),['P']);
+  assert.deepEqual(r.files.map(s=>s.session_id),['F']);
+  assert.deepEqual(r.old,[]);
 });

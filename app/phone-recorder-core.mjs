@@ -4,7 +4,7 @@
 //   앱은 토큰을 보지 않는다. 조각 내용은 ./__rec/<한 번 번호>를 fetch하면 앱이 WebView 안에서 흘려준다(서버로 나가지 않음).
 // - 정리 흐름(rec_finish → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 [녹음 요약하기])은 노트북 녹음(meeting-recorder.js)과 같은
 //   규칙(meeting-recorder-model.mjs)을 쓴다. 노트북 모듈은 고치지 않는다(같은 시간 다른 작업과 겹치지 않게, PR 본문 참고).
-import {retryDelay,pieceOutcome,transcribePlan,joinSegmentTexts,seoulLocal,pendingOthers} from './meeting-recorder-model.mjs';
+import {retryDelay,pieceOutcome,transcribePlan,joinSegmentTexts,seoulLocal,pendingOthers,finishMode,recordingFiles} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
 import {unavailable as serverUnavailable,requestFail,OFFLINE_START_TEXT} from './meeting-server-job.mjs';
 
@@ -53,9 +53,10 @@ export const pieceHeaders=p=>({'Content-Type':MIME,'x-recording-id':p.id,'x-piec
 export function createPhoneRecorder(deps){
   const sleep=deps.sleep||((ms)=>new Promise(r=>setTimeout(r,ms)));
   const now=deps.now||(()=>Date.now());
-  const view={state:'idle',step:'',note:'',error:'',canRetry:false,native:null,nativeAt:0,pending:[],supported:false,busy:false};
+  // REC-파일만받기(S61-3): state 'filed' = [파일만 받기]로 합친 녹음 파일(files)을 띠에 보이는 중. filing = 그 파일을 만드는 중(전사 단계 글자 대신 '파일 만드는 중').
+  const view={state:'idle',step:'',note:'',error:'',canRetry:false,native:null,nativeAt:0,pending:[],supported:false,busy:false,files:[],filing:false};
   const waiters=[];
-  let wakers=[],pumping=null,startFails=0,serverPending=[],sessionId='',startedAt='',knownMinutes=0;
+  let wakers=[],pumping=null,startFails=0,serverPending=[],sessionId='',startedAt='',knownMinutes=0,mode='file';
   const doneTexts=new Map();
 
   const paint=()=>{view.pending=view.state==='idle'&&!view.busy?pendingList(view.native,serverPending,activeId()):[];deps.paint?.(view)};
@@ -93,7 +94,8 @@ export function createPhoneRecorder(deps){
 
   // ---- 시작 ----
   async function start(){
-    if(!['idle','done','error'].includes(view.state)||view.busy)return;
+    if(!['idle','done','error','filed'].includes(view.state)||view.busy)return;
+    if(view.state==='filed'){view.files=[]}
     const st=view.native?.state;
     if(st&&st!=='idle'){deps.notify?.('끝나지 않은 폰 녹음이 있어요. 먼저 [이어서 정리]하거나 [삭제]를 눌러 주세요.',{error:true});return}
     const ws=deps.workspace();
@@ -183,22 +185,49 @@ export function createPhoneRecorder(deps){
   function pause(){if(view.state==='recording')deps.send('rec:pause');else if(view.state==='paused')deps.send('rec:resume')}
 
   // ---- 멈추고 정리 ----
-  async function stopAndFinish(){
+  // how: 'file'(기본, 띠 [파일만 받기]) | 'ai'(띠 [전사·요약까지]).
+  async function stopAndFinish(how='file'){
     if(!['recording','paused'].includes(view.state))return;
-    view.state='finishing';view.step='올림';paint();
+    mode=finishMode(how);
+    view.state='finishing';view.step='올림';view.filing=mode==='file';paint();
     deps.send('rec:stop');
     await waitStopped();
-    await finishLocal();
+    await finishLocal(mode);
   }
-  // 이 폰에 남은 녹음을 다 올리고 정리한다(멈추고 정리·알림 [멈추고 정리]·'이어서 정리' 공통).
-  async function finishLocal(){
+  // 이 폰에 남은 녹음을 다 올리고 정리한다(띠 두 버튼·알림 [멈추고 정리]·'이어서 정리' 공통). 알림·'이어서 정리'는 전사·요약까지(how 'ai').
+  async function finishLocal(how='ai'){
     const n=view.native;
     if(!n?.session_id)return;
-    view.state='finishing';view.step='올림';view.error='';paint();
+    mode=finishMode(how);
+    view.state='finishing';view.step='올림';view.error='';view.filing=mode==='file';paint();
     deps.send('rec:finishing');
     sessionId=n.session_id;startedAt=n.started_at;knownMinutes=Math.round(elapsedMs()/60000);
     await drain();
-    await finishSession(null,true);
+    if(mode==='file')await fileOnly();else await finishSession(null,true);
+  }
+  // REC-파일만받기(S61-3): 올린 조각을 녹음 파일로 합치기만 한다(rec_finish — 서버 전사 작업·AI 호출 없음). 끝나면 띠 '녹음 파일 [내려받기][Drive 열기][전사·요약]'.
+  async function fileOnly(){
+    if(!sessionId)return;
+    mode='file';view.state='finishing';view.step='올림';view.error='';view.canRetry=false;view.filing=true;paint();
+    try{
+      let res=null;
+      for(let i=0;i<30;i++){res=await deps.call('rec_finish',{session_id:sessionId},{timeoutMs:260000});if(!res?.more)break}
+      if(res?.more)throw stopError('녹음 파일을 다 만들지 못했어요. [다시]를 누르세요.',true);
+      if(view.native?.session_id===sessionId)deps.send('rec:clear');
+      const files=Array.isArray(res?.files)?res.files:[];
+      if(!recordingFiles(files).length)throw stopError('녹음에서 소리를 찾지 못했어요.',false);
+      view.files=files;view.filing=false;view.state='filed';view.step='';view.note='';paint();
+      void loadPending(true);
+    }catch(e){
+      view.filing=false;
+      fail(e?.recText||(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [다시]를 눌러 주세요.':'녹음 파일을 만들지 못했어요. 올린 소리는 서버에 있어요.'),e?.recRetry!==false);
+    }
+  }
+  // 띠 '녹음 파일' [전사·요약]: 같은 녹음을 서버 정리(job_start)로 — [전사·요약까지]와 같은 길.
+  function transcribeFiled(){
+    if(view.state!=='filed'||!sessionId)return;
+    view.files=[];
+    void finishSession();
   }
 
   // REC-서버정리(S49-2): 정리는 서버 작업(job_start)에 맡긴다. 조각은 이미 다 올렸으므로 앱의 임시 파일·상태를 지우고,
@@ -206,6 +235,7 @@ export function createPhoneRecorder(deps){
   // 서버가 아직 이 길을 모르면(옛 Edge·표 적용 전) 아래 화면 정리 길로 간다.
   async function finishSession(known=null,clearLocal=false){
     if(!sessionId)return;
+    mode='ai';view.filing=false;
     view.state='finishing';view.step='올림';view.error='';view.canRetry=false;paint();
     let job=null;
     try{
@@ -267,8 +297,8 @@ export function createPhoneRecorder(deps){
   }
   function stopError(text,retry){const e=new Error('');e.recText=text;e.recRetry=retry;return e}
   function fail(text,retry){view.state='error';view.error=text;view.canRetry=!!retry&&!!sessionId;view.step='';view.note='';paint()}
-  function retry(){if(view.state==='error'&&view.canRetry)void finishSession()}
-  function close(){if(['done','error'].includes(view.state)){view.state='idle';view.step='';view.error='';paint()}}
+  function retry(){if(view.state==='error'&&view.canRetry)void(mode==='file'?fileOnly():finishSession())}
+  function close(){if(['done','error','filed'].includes(view.state)){const filed=view.state==='filed';view.state='idle';view.step='';view.error='';view.files=[];paint();if(filed)void loadPending(true)}}
 
   // ---- 버리기 ----
   async function discardLive(){
@@ -315,6 +345,7 @@ export function createPhoneRecorder(deps){
     if(view.state==='finishing'||['recording','paused','starting'].includes(view.state)||view.busy)return;
     const item=view.pending.find(s=>s.session_id===id);if(!item)return;
     if(item.local){void finishLocal();return}
+    if(view.state==='filed')view.files=[];
     sessionId=item.session_id;startedAt=item.started_at||new Date(now()).toISOString();knownMinutes=Math.round((Number(item.duration_sec)||0)/60);doneTexts.clear();
     void finishSession(item);
   }
@@ -325,5 +356,5 @@ export function createPhoneRecorder(deps){
   }
   function reset(){waiters.splice(0);serverPending=[];view.state='idle';view.native=null;view.supported=false;paint()}
 
-  return {view,receive,hello,start,pause,stopAndFinish,discardLive,retry,close,resume,discardPending,loadPending,elapsedMs,reset,_drain:drain};
+  return {view,receive,hello,start,pause,stopAndFinish,transcribeFiled,discardLive,retry,close,resume,discardPending,loadPending,elapsedMs,reset,_drain:drain};
 }

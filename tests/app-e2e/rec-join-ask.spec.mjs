@@ -192,7 +192,7 @@ test('① PC: 같은 날 녹음으로 쓴 보고가 있으면 묻고, [그 보�
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   await page.evaluate(()=>window.__recs.at(-1).chunk());
   await expect.poll(()=>calls(s,'rec_piece').length).toBe(1);
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect(askBox(page)).toBeVisible({timeout:20000});
   await expect(askBox(page).locator('.kptu-ask-text')).toHaveText('오늘 녹음으로 쓴 보고가 있어요. 같은 회의인가요?');
   await expect(askBox(page).locator('.kptu-ask-note')).toHaveText('10:02 예시 집행위 · 녹음 38분');

@@ -4,7 +4,7 @@
 // - 앱 다리(KPTUAppShell, 허용 Origin 최상위 화면에만 보임)에 'rec:hello'를 보내 답이 와야(0.3.3+) [녹음]이 보인다. 웹 브라우저·옛 앱에서는 아무것도 보이지 않는다.
 // - 기기 저장 없음(웹): 녹음 조각은 앱 전용 공간에만 있고 올린 뒤 앱이 지운다. 이 화면은 브라우저 저장 공간을 쓰지 않는다.
 import {createPhoneRecorder} from './phone-recorder-core.mjs';
-import {clockText,stepParts,pendingText} from './meeting-recorder-model.mjs';
+import {clockText,stepParts,pendingText,fileLinksHtml,FILE_STOP_BUTTON,AI_STOP_BUTTON,AI_LATER_BUTTON} from './meeting-recorder-model.mjs';
 import {notify} from './small-notice.js';
 
 const BRIDGE='KPTUAppShell';
@@ -93,7 +93,13 @@ export function mountPhoneRecorder(win=window){
       l=state==='paused'?'일시정지':'녹음 중';t=clockText(sec);
       const q=view.native?.queued||0;
       m=view.note&&q?esc(`${view.note} · 조각 ${q}개`):'';
-      a=`<button type="button" class="rec-btn" data-prec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-prec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-prec="discard">삭제</button>`;
+      a=`<button type="button" class="rec-btn" data-prec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-prec="stop">${FILE_STOP_BUTTON}</button><button type="button" class="rec-btn" data-prec="stop-ai">${AI_STOP_BUTTON}</button><button type="button" class="rec-btn rec-discard" data-prec="discard">삭제</button>`;
+    }else if(state==='finishing'&&view.filing){
+      l='녹음 파일';m=esc('파일 만드는 중');
+    }else if(state==='filed'){
+      // REC-파일만받기(S61-3): 합친 녹음 파일 — 내려받아 다른 곳(예: 다른 AI)에서 따로 전사할 수 있게. [전사·요약]은 같은 서버 정리.
+      l='녹음 파일';
+      a=`${fileLinksHtml(view.files)}<button type="button" class="rec-btn" data-prec="transcribe">${AI_LATER_BUTTON}</button><button type="button" class="rec-btn" data-prec="close">닫기</button>`;
     }else if(state==='finishing'||state==='done'){
       l=state==='done'?'정리 끝':'정리 중';
       m=stepParts(view.step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(view.note?` <span class="rec-sub">${esc(view.note)}</span>`:'');
@@ -111,26 +117,34 @@ export function mountPhoneRecorder(win=window){
     if(btn){
       btn.hidden=!view.supported;
       const live=state==='recording'||state==='paused'||state==='starting';
-      btn.disabled=!['idle','done','error'].includes(state)||view.busy;
+      btn.disabled=!['idle','done','error','filed'].includes(state)||view.busy;
       btn.textContent=live?'녹음 중':'녹음';
       btn.setAttribute('aria-pressed',String(live));
     }
     const line=$('#phoneRecPendingLine');
     if(line){
-      const list=view.pending||[];
-      line.hidden=!list.length;
-      if(!list.length)setHtml(line,'');
-      else{
+      // REC-파일만받기(S61-3): [파일만 받기]로 남긴 녹음(서버 file_only)은 '녹음 파일' 줄 [내려받기][Drive 열기][전사·요약][삭제].
+      const all=view.pending||[],list=all.filter(s=>!s.file_only),files=all.filter(s=>s.file_only);
+      line.hidden=!all.length;
+      const rows=[];
+      if(list.length){
         const first=list[0];
-        setHtml(line,`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-prec-resume="${esc(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${esc(first.session_id)}">삭제</button>`);
+        rows.push(`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-prec-resume="${esc(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${esc(first.session_id)}">삭제</button>`);
       }
+      if(files.length){
+        const first=files[0],id=esc(first.session_id);
+        rows.push(`<span class="rec-pending-text">녹음 파일 · ${esc(pendingText(first))}${files.length>1?` 외 ${files.length-1}건`:''}</span>${fileLinksHtml(first.files)}<button type="button" class="rec-btn" data-prec-resume="${id}">${AI_LATER_BUTTON}</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${id}">삭제</button>`);
+      }
+      setHtml(line,rows.length>1?rows.map(r=>`<span class="rec-pending-row">${r}</span>`).join(''):rows[0]||'');
     }
   }
   function onClick(e){
     const b=e.target.closest('[data-prec]');if(!b)return;
     const what=b.dataset.prec;
     if(what==='pause')core.pause();
-    else if(what==='stop')void core.stopAndFinish();
+    else if(what==='stop')void core.stopAndFinish('file');
+    else if(what==='stop-ai')void core.stopAndFinish('ai');
+    else if(what==='transcribe')core.transcribeFiled();
     else if(what==='discard')void core.discardLive();
     else if(what==='retry')core.retry();
     else if(what==='close')core.close();

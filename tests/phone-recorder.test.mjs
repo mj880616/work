@@ -11,7 +11,7 @@ const tick = ms => new Promise(r => setTimeout(r, Math.min(ms, 5)));
 const until = async (fn, n = 400) => { for (let i = 0; i < n; i++) { if (fn()) return; await tick(1); } throw new Error('기다림 초과'); };
 
 // 앱 흉내: 다리 글을 받아 RecordHub·MainActivity와 같은 답을 준다.
-function setup({failPieceOnce = false, discardStatus = 0, openDraft = null} = {}) {
+function setup({failPieceOnce = false, discardStatus = 0, openDraft = null, watchServer = null} = {}) {
   const st = {state:'idle', session_id:'', started_at:'', elapsed_ms:0, queued:0, auto_finish:false, discard:false, want_start:false};
   let pieces = [], seq = 0, core = null;
   const sent = [], calls = [], notes = [], drafts = [];
@@ -34,7 +34,8 @@ function setup({failPieceOnce = false, discardStatus = 0, openDraft = null} = {}
     calls.push({action, body, extra});
     if (action === 'rec_start') return {recording_id:RID, session_id:SID, segment_no:1, piece_seconds:300, segment_seconds:3540};
     if (action === 'rec_piece') { if (!failed) { failed = true; const e = new Error('잠시 뒤'); e.status = 503; throw e; } return {ok:true}; }
-    if (action === 'rec_finish') return {segments:[{segment_no:1, status:'combined', job_id:'job-1', duration_sec:120}]};
+    if (action === 'rec_finish') return {segments:[{segment_no:1, status:'combined', job_id:'job-1', duration_sec:120}], files:[{segment_no:1, drive_file_id:'drivefile0001', duration_sec:120}]};
+    if (action === 'job_start') return {job:{id:'srv-1', session_id:body.session_id, stage:'combine', status:'queued'}};
     if (action === 'transcribe') return {text:'회의를 시작합니다.'};
     if (action === 'rec_pending') return {sessions:[]};
     if (action === 'rec_discard') { if (discardStatus) { const e = new Error(''); e.status = discardStatus; throw e; } return {ok:true}; }
@@ -46,6 +47,7 @@ function setup({failPieceOnce = false, discardStatus = 0, openDraft = null} = {}
     fetchPiece:async token => ({size:100, token}),
     openDraft:async d => { if (openDraft) await openDraft(d); drafts.push(d); },
     notify:(text, opts) => notes.push({text, opts}),
+    ...(watchServer ? {watchServer} : {}),
   });
   return {core, st, sent, calls, notes, drafts, pieces:() => pieces, state};
 }
@@ -84,7 +86,7 @@ test('끝나지 않은 녹음 줄: 이 폰 녹음 먼저, 서버 목록에서 �
   assert.deepEqual(pendingList({state:'idle'}, [{session_id:'x'}]).map(s => s.session_id), ['x']);
 });
 
-test('녹음 → 조각 올리기(재시도 포함) → 멈추고 정리 → 회의 초안', async () => {
+test('녹음 → 조각 올리기(재시도 포함) → [전사·요약까지] → 회의 초안', async () => {
   const t = setup({failPieceOnce:true});
   await t.core.hello();
   assert.equal(t.core.view.supported, true);
@@ -100,7 +102,7 @@ test('녹음 → 조각 올리기(재시도 포함) → 멈추고 정리 → 회
   const pieceCalls = t.calls.filter(c => c.action === 'rec_piece');
   assert.equal(pieceCalls.length, 2);
   assert.equal(pieceCalls[1].extra.headers['x-piece-seq'], '1');
-  await t.core.stopAndFinish();
+  await t.core.stopAndFinish('ai');
   assert.ok(t.sent.includes('rec:stop'));
   assert.ok(t.sent.includes('rec:sent:1:2'), '멈춘 뒤 마지막 조각까지 올린다');
   const order = t.calls.map(c => c.action);
@@ -205,4 +207,37 @@ test('화면 연결: 폰 앱에서만 불러오고, 노트북 녹음과 따로 �
   // REC-한회의로잇기 PR-0: 입력 창은 team.js가 쓰던 글을 먼저 묻는다. 두기로 하면(open이 false, 창은 열린 채) 그 까닭으로 멈추고, 창을 다시 비우지 않는다.
   assert.match(ui, /entry\.open\(\{kind:'meeting',[^\n]*keepNote:/);
   assert.match(ui, /if\(opened===false\)throw stop\(entryKept\(\)\?'쓰던 사업 보고 창을 그대로 뒀어요\. 저장하거나 닫은 뒤 \[다시\]를 누르세요\.'/);
+});
+
+// REC-파일만받기(S61-3): 띠 기본 [파일만 받기] = 합치기만(rec_finish), 서버 전사 작업(job_start)·화면 전사(transcribe) 없음 → '녹음 파일' 띠.
+// 그 띠 [전사·요약]은 같은 녹음으로 job_start(서버 정리)를 시작한다.
+test('[파일만 받기](기본): 전사 작업을 만들지 않고 녹음 파일만, 나중에 [전사·요약]으로 서버 정리', async () => {
+  const watched = [];
+  const t = setup({watchServer:job => watched.push(job)});
+  await t.core.hello();
+  await t.core.start();
+  await until(() => t.sent.includes('rec:sent:1:1'));
+  await t.core.stopAndFinish();
+  assert.equal(t.core.view.state, 'filed');
+  assert.deepEqual(t.core.view.files.map(f => f.drive_file_id), ['drivefile0001']);
+  const actions = t.calls.map(c => c.action);
+  assert.ok(actions.includes('rec_finish'));
+  assert.ok(!actions.includes('job_start'), '서버 전사 작업을 만들지 않는다');
+  assert.ok(!actions.includes('transcribe'), '화면 전사도 하지 않는다');
+  assert.ok(t.sent.indexOf('rec:clear') > t.sent.indexOf('rec:sent:1:2'), '합친 뒤 앱 임시 파일 삭제');
+  assert.equal(t.drafts.length, 0);
+  t.core.transcribeFiled();
+  await until(() => watched.length === 1);
+  const start = t.calls.find(c => c.action === 'job_start');
+  assert.deepEqual(start.body, {workspace_id:WS, kind:'recording', session_id:SID});
+  assert.equal(t.core.view.state, 'idle');
+  assert.deepEqual(t.core.view.files, []);
+});
+
+test('screen: 폰 띠 [파일만 받기](앞·기본)·[전사·요약까지], 녹음 파일 띠·줄 [내려받기][Drive 열기][전사·요약]', () => {
+  const ui = readFileSync('app/phone-recorder.js', 'utf8');
+  assert.match(ui, /data-prec="stop">\$\{FILE_STOP_BUTTON\}<\/button><button type="button" class="rec-btn" data-prec="stop-ai">\$\{AI_STOP_BUTTON\}<\/button>/);
+  assert.match(ui, /what==='stop'\)void core\.stopAndFinish\('file'\)/);
+  assert.match(ui, /data-prec="transcribe">\$\{AI_LATER_BUTTON\}/);
+  assert.match(ui, /녹음 파일 · \$\{esc\(pendingText\(first\)\)\}/);
 });

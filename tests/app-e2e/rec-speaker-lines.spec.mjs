@@ -122,7 +122,7 @@ for(const [label,segmentSeconds] of [['새 서버(구간 29분)',1740],['옛 서
     await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','2:1']);
 
     // 멈추고 정리: 구간마다 전사 → 글 잇기 → 요약 → 회의 입력 창.
-    await band.getByRole('button',{name:'멈추고 정리'}).click();
+    await band.getByRole('button',{name:'전사·요약까지'}).click();
     await expect.poll(()=>of(calls,'transcribe').map(c=>c.body.job_id),{timeout:15000}).toEqual([J1,J2]);
     const modal=page.locator('#meetingModal');
     await expect(modal).toBeVisible({timeout:15000});

@@ -117,8 +117,10 @@ export function pendingText(session){
 // 띠에는 하루 안쪽 녹음만 보이고(새로고침 직후 이어 녹음하려는 것), 더 오래된 것은 사업 보고 위 한 줄에만 남긴다.
 export const LIVE_FRESH_SEC=100;            // 마지막 조각 뒤 이 초 안쪽이면 다른 곳에서 지금 녹음 중일 수 있다(조각 1분 + 여유).
 export const BAND_RECENT_MS=24*3600*1000;
+// REC-파일만받기(S61-3): [파일만 받기]로 남긴 녹음(서버 file_only)은 맨 위 띠·'끝나지 않은 녹음'이 아니라 사업 보고 위 '녹음 파일' 줄(files)에만.
 export function resumables(pending,live,activeSessionId='',nowMs=Date.now()){
-  const seen=new Set(activeSessionId?[activeSessionId]:[]),all=[];
+  const seen=new Set(activeSessionId?[activeSessionId]:[]),all=[],files=[];
+  for(const s of Array.isArray(pending)?pending:[])if(s?.session_id&&s.file_only&&!seen.has(s.session_id)){seen.add(s.session_id);files.push(s)}
   for(const [list,isLive] of [[live,true],[pending,false]]){
     for(const s of Array.isArray(list)?list:[]){
       if(!s?.session_id||seen.has(s.session_id))continue;
@@ -131,7 +133,24 @@ export function resumables(pending,live,activeSessionId='',nowMs=Date.now()){
     return Number.isFinite(t)&&nowMs-(t+(Number(s.duration_sec)||0)*1000)<BAND_RECENT_MS;
   };
   const byStart=(a,b)=>String(b.started_at).localeCompare(String(a.started_at));
-  return {top:all.filter(recent).sort(byStart),old:all.filter(s=>!recent(s)).sort(byStart)};
+  return {top:all.filter(recent).sort(byStart),old:all.filter(s=>!recent(s)).sort(byStart),files:files.sort(byStart)};
+}
+
+// REC-파일만받기(S61-3, 명진 11/13): 녹음 끝 두 갈래. 'file' = 녹음 파일만(서버 전사 작업을 만들지 않음, AI 비용 0) — 기본,
+// 'ai' = 전사·요약까지(지금 흐름, job_start). 띠 버튼은 [파일만 받기](기본, 앞) · [전사·요약까지].
+export const finishMode=v=>v==='ai'?'ai':'file';
+export const FILE_STOP_BUTTON='파일만 받기',AI_STOP_BUTTON='전사·요약까지',AI_LATER_BUTTON='전사·요약';
+// rec_finish·rec_pending의 files → 내려받기·Drive 열기 주소. Drive 파일 번호 형식만 믿는다(화면이 주소를 만들고 이름은 쓰지 않음).
+const DRIVE_ID=/^[A-Za-z0-9_-]{10,255}$/;
+export function recordingFiles(files){
+  const list=(Array.isArray(files)?files:[]).filter(f=>f&&DRIVE_ID.test(String(f.drive_file_id||''))).slice().sort((a,b)=>(Number(a.segment_no)||0)-(Number(b.segment_no)||0));
+  return list.map((f,i)=>({no:i+1,view:`https://drive.google.com/file/d/${f.drive_file_id}/view`,download:`https://drive.google.com/uc?export=download&id=${encodeURIComponent(f.drive_file_id)}`}));
+}
+// 녹음 파일 링크 한 묶음(띠·줄 공통): 파일 하나면 [내려받기][Drive 열기], 여럿(29분마다 한 파일)이면 [내려받기 1][내려받기 2]… + 첫 파일 [Drive 열기].
+export function fileLinksHtml(files){
+  const list=recordingFiles(files);if(!list.length)return '';
+  const a=(href,text)=>`<a class="rec-btn" href="${href.replace(/&/g,'&amp;')}" target="_blank" rel="noopener">${text}</a>`;
+  return list.map(f=>a(f.download,list.length>1?`내려받기 ${f.no}`:'내려받기')).join('')+a(list[0].view,'Drive 열기');
 }
 // 이 녹음을 이어받으면 다른 곳의 지금 녹음이 멈출 수 있는지(확인창을 띄울지).
 export function takeOverRisk(item,nowMs=Date.now()){

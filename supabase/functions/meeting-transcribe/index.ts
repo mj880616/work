@@ -43,7 +43,7 @@ import {
 } from './model.mjs';
 import {
   PIECE_FOLDER, REC_DRIVE_PARALLEL, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_ROLL_PIECES, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
-  appendPatch, closePatch, combineWithin, discardPatch, discardPlan, joinPieces, mapLimit, nextSegment, ownRows, parsePiece, liveSessions, pendingSessions, pendingSince, pieceDecision,
+  appendPatch, closePatch, combineWithin, discardPatch, discardPlan, joinPieces, mapLimit, nextSegment, ownRows, parsePiece, liveSessions, pendingSessions, pendingSince, pieceDecision, sessionFiles,
   pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
 } from './recording.mjs';
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
@@ -721,9 +721,11 @@ async function finishSegments(userId: string, sessionId: unknown) {
   return { more, rows };
 }
 
+// REC-파일만받기(S61-3): 합치기만 한다(전사 작업을 만들지 않음, AI 비용 0). 다 합쳤으면 녹음 파일 번호(files)도 준다 — 화면 [파일만 받기]가 내려받기·Drive 열기로 쓴다.
 async function recFinish(user: { id: string }, body: Record<string, unknown>) {
   const { more, rows } = await finishSegments(user.id, body.session_id);
-  return json({ ok: true, session_id: body.session_id, more, segments: rows.filter(r => r.status !== 'empty').map(segmentView) });
+  const files = more ? [] : sessionFiles(rows, await sessionJobs(rows));
+  return json({ ok: true, session_id: body.session_id, more, segments: rows.filter(r => r.status !== 'empty').map(segmentView), files });
 }
 
 async function recPending(user: { id: string }, body: Record<string, unknown>) {
@@ -738,11 +740,18 @@ async function recPending(user: { id: string }, body: Record<string, unknown>) {
   const ids = [...new Set((rows || []).map(r => r.job_id).filter(Boolean))] as string[];
   let jobs: Job[] = [];
   if (ids.length) {
-    const { data, error: jobError } = await admin.from(TABLE).select('id,status').in('id', ids);
+    const { data, error: jobError } = await admin.from(TABLE).select('id,status,drive_file_id,trashed_at').in('id', ids);
     if (jobError) throw new Fail('failed');
     jobs = data || [];
   }
-  return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now), live: liveSessions(rows || [], now) });
+  // REC-파일만받기(S61-3): 서버 정리를 시작한 적 있는 녹음은 '파일만'이 아니다(멈춘 정리는 지금처럼 '이어서 정리'·[다시]). 못 읽으면 가르지 않는다.
+  const sessionIds = [...new Set((rows || []).map(r => r.session_id).filter(Boolean))] as string[];
+  let jobbed: Set<string> | null = new Set();
+  if (sessionIds.length) {
+    const { data: serverJobs, error: serverError } = await admin.from(SERVER_JOB_TABLE).select('session_id').eq('workspace_id', workspaceId).in('session_id', sessionIds);
+    jobbed = serverError ? null : new Set((serverJobs || []).map(j => j.session_id as string));
+  }
+  return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now, jobbed), live: liveSessions(rows || [], now) });
 }
 
 // ---- 버리기·되돌리기 ----

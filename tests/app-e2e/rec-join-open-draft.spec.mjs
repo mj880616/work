@@ -114,7 +114,7 @@ test('초안 지키기 ① 저장 안 한 초안 창은 닫기 전에 묻고, �
 
   // 첫 녹음 → [멈추고 정리] → 첫 초안이 채워진 입력 창. 창을 열기만 했을 때는 '열었음'을 보내지 않는다.
   let band=await startRecording(page,calls);
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect(modal).toBeVisible({timeout:20000});
   await expect(notes).toHaveValue(/가짜 첫 녹음 전문/);
   await expect(result).toHaveValue(/가짜 첫 결정/);
@@ -161,7 +161,7 @@ test('초안 지키기 ① 저장 안 한 초안 창은 닫기 전에 묻고, �
   await expect(band).toBeHidden({timeout:15000});
   await expect(page.locator('#reportRecordBtn')).toBeEnabled();
   band=await startRecording(page,calls);
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect(modal).toBeVisible({timeout:20000});
   await expect(notes).toHaveValue(/가짜 둘째 녹음 전문/);
   await expect(result).toHaveValue(/가짜 둘째 결정/);
@@ -182,7 +182,7 @@ test('초안 지키기 ② 녹음 중 입력 창에 직접 쓰던 글이 있으�
   await expect(modal).toBeVisible();
   await result.fill('가짜 직접 쓴 메모');
   // 녹음 띠는 입력 창 위에 떠 있어 창을 연 채 누를 수 있다. 결과가 오면 비우기 전에 묻는다.
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect(askBox(page).locator('.kptu-ask-text')).toHaveText('쓰던 사업 보고가 있어요. 저장하지 않고 새로 열까요?',{timeout:20000});
   await expect(askBox(page).locator('.kptu-ask-note')).toHaveText('두면 새 녹음 정리 결과는 맨 위 [초안 열기]에 남아요.');
   await askBox(page).getByRole('button',{name:'쓰던 창 두기'}).click();
@@ -211,7 +211,7 @@ test('초안 지키기 ③ 녹음 결과 창에 다른 녹음 결과가 오면 �
   const modal=page.locator('#meetingModal'),notes=page.locator('#meetingNotes');
 
   const band=await startRecording(page,calls);
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  await band.getByRole('button',{name:'전사·요약까지'}).click();
   await expect(notes).toHaveValue(/가짜 첫 녹음 전문/,{timeout:20000});
   // 다른 기기(폰 앱)에서 맡긴 둘째 정리를 같은 띠가 넘겨받는 길(phone-recorder.js → KPTUMeetingRecorder.watch).
   await page.evaluate(id=>window.KPTUMeetingRecorder.watch({id,kind:'recording',status:'queued',stage:'combine'}),JOB(2));

@@ -181,7 +181,20 @@ export const toCombine = rows => (Array.isArray(rows) ? rows : []).filter(r => r
 
 // '이어서 정리' 목록. rows: 이 사람의 최근 구간들, jobs: 그 구간들의 전사 작업({id,status}).
 // 끝나지 않은 녹음 = 열린 구간이 조용함 · 닫힘(합치기 전) · 합쳤지만 전사 작업이 아직 끝나지 않음.
-export function pendingSessions(rows, jobs, now) {
+// REC-파일만받기(S61-3): 합친 녹음 파일(구간마다 한 파일) → 화면이 내려받기·Drive 열기 링크를 만든다. 휴지통에 간 파일·번호가 이상한 것은 뺀다.
+// jobs = 전사 작업 표 행(id·drive_file_id·trashed_at). 파일 번호만 준다(이름·크기는 주지 않는다).
+const DRIVE_FILE_ID = /^[A-Za-z0-9_-]{10,255}$/;
+export function sessionFiles(rows, jobs) {
+  const byId = new Map((Array.isArray(jobs) ? jobs : []).map(j => [j.id, j]));
+  return (Array.isArray(rows) ? rows : []).filter(r => r?.status === 'combined' && r.job_id).slice().sort((a, b) => a.segment_no - b.segment_no)
+    .map(r => ({ r, j: byId.get(r.job_id) }))
+    .filter(({ j }) => j && !j.trashed_at && DRIVE_FILE_ID.test(String(j.drive_file_id || '')))
+    .map(({ r, j }) => ({ segment_no: r.segment_no, drive_file_id: j.drive_file_id, duration_sec: r.duration_sec ?? null }));
+}
+
+// jobbed = 서버 정리 작업(app_meeting_server_jobs)이 있는 녹음 id 모음. 모르면(null) '파일만'으로 가르지 않는다(지금과 같은 '이어서 정리').
+// 모든 구간을 합쳤고(rec_finish) 전사가 끝나지 않았고 서버 정리를 시작한 적 없는 녹음 = [파일만 받기]로 남긴 녹음(file_only, 파일 링크 files).
+export function pendingSessions(rows, jobs, now, jobbed = null) {
   const jobStatus = new Map((Array.isArray(jobs) ? jobs : []).map(j => [j.id, j.status]));
   const by = new Map();
   for (const r of Array.isArray(rows) ? rows : []) {
@@ -196,7 +209,7 @@ export function pendingSessions(rows, jobs, now) {
     const open = list.some(r => r.status === 'recording' || r.status === 'closed'
       || (r.status === 'combined' && r.job_id && jobStatus.get(r.job_id) !== 'done'));
     if (!open) continue;
-    out.push({
+    const item = {
       session_id: session,
       started_at: list[0].created_at,
       duration_sec: list.reduce((s, r) => s + (Number(r.duration_sec) || 0), 0),
@@ -204,7 +217,13 @@ export function pendingSessions(rows, jobs, now) {
         segment_no: r.segment_no, status: r.status, job_id: r.job_id ?? null,
         job_status: r.job_id ? (jobStatus.get(r.job_id) ?? null) : null, duration_sec: r.duration_sec ?? null,
       })),
-    });
+    };
+    const kept = list.filter(r => r.status !== 'empty');
+    if (jobbed instanceof Set && !jobbed.has(session) && kept.length && kept.every(r => r.status === 'combined' && r.job_id)) {
+      const files = sessionFiles(kept, jobs);
+      if (files.length) Object.assign(item, { file_only: true, files });
+    }
+    out.push(item);
   }
   return out.sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)));
 }

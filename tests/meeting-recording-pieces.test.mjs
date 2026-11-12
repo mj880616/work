@@ -195,5 +195,32 @@ test('liveSessions(S49-7): 열린 구간이 7분 안쪽이면 live로 따로 주
   assert.deepEqual(r.liveSessions([mk(1,{status:'failed'})],now),[]);
   assert.deepEqual(r.liveSessions(null,now),[]);
   const index=readFileSync(new URL('../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
-  assert.match(index,/sessions: pendingSessions\(rows \|\| \[\], jobs, now\), live: liveSessions\(rows \|\| \[\], now\)/);
+  assert.match(index,/sessions: pendingSessions\(rows \|\| \[\], jobs, now, jobbed\), live: liveSessions\(rows \|\| \[\], now\)/);
+});
+
+// REC-파일만받기(S61-3): [파일만 받기] = rec_finish(합치기만). 서버는 전사 작업을 만들지 않고, 합친 파일 번호만 돌려준다.
+// 파일만 남긴 녹음(다 합쳤고·전사 안 끝났고·서버 정리 시작한 적 없음)은 rec_pending에서 file_only + files.
+test('파일만 받기: sessionFiles·pendingSessions file_only, rec_finish는 전사 작업·job_start를 부르지 않는다',()=>{
+  const now=new Date('2026-11-13T05:00:00Z');
+  const seg=(no,extra={})=>({session_id:'S',segment_no:no,status:'combined',job_id:`J${no}`,duration_sec:1740,created_at:'2026-11-13T02:00:00Z',updated_at:'2026-11-13T03:00:00Z',workspace_id:'W',created_by:'U',...extra});
+  const jobs=[{id:'J1',status:'uploaded',drive_file_id:'drivefile0001',trashed_at:null},{id:'J2',status:'uploaded',drive_file_id:'drivefile0002',trashed_at:null}];
+  assert.deepEqual(r.sessionFiles([seg(2),seg(1)],jobs).map(f=>[f.segment_no,f.drive_file_id]),[[1,'drivefile0001'],[2,'drivefile0002']]);
+  assert.deepEqual(r.sessionFiles([seg(1)],[{...jobs[0],trashed_at:'2026-11-13T04:00:00Z'}]),[],'휴지통 파일은 빼기');
+  assert.deepEqual(r.sessionFiles([seg(1,{status:'closed',job_id:null})],jobs),[]);
+  const [p]=r.pendingSessions([seg(1),seg(2)],jobs,now,new Set());
+  assert.equal(p.file_only,true);assert.equal(p.files.length,2);
+  // 서버 정리를 시작한 적 있으면(멈춘 정리 등) 지금처럼 '이어서 정리'.
+  assert.equal(r.pendingSessions([seg(1),seg(2)],jobs,now,new Set(['S']))[0].file_only,undefined);
+  // 서버 정리 표를 못 읽으면(null) 가르지 않는다. 아직 합치지 않은 구간이 있으면 파일만이 아니다.
+  assert.equal(r.pendingSessions([seg(1)],jobs,now)[0].file_only,undefined);
+  assert.equal(r.pendingSessions([seg(1),seg(2,{status:'closed',job_id:null})],jobs,now,new Set())[0].file_only,undefined);
+  // 전사가 끝난 녹음은 줄에서 빠진다(지금과 같음).
+  assert.equal(r.pendingSessions([seg(1)],[{...jobs[0],status:'done'}],now,new Set()).length,0);
+  const index=read('supabase/functions/meeting-transcribe/index.ts');
+  const fin=index.match(/async function recFinish\([\s\S]*?\n\}/)[0];
+  assert.match(fin,/files = more \? \[\] : sessionFiles\(rows, await sessionJobs\(rows\)\)/);
+  assert.doesNotMatch(fin,/SERVER_JOB_TABLE|runStep|transcribe|insert/);
+  const finish=index.match(/async function finishSegments\([\s\S]*?\n\}/)[0];
+  assert.doesNotMatch(finish,/SERVER_JOB_TABLE|runStep|GEMINI/);
+  assert.match(index,/select\('session_id'\)\.eq\('workspace_id', workspaceId\)\.in\('session_id', sessionIds\)/);
 });
