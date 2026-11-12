@@ -206,6 +206,7 @@ async function removeEmptyFolders(api,ids,ws){
 }
 
 // ---- LIB-정돈제안(S61-13, 시안 docs/design/mockups/lib-tidy-suggest.html, 명진 11/13 04:31·04:36 ㅇ) ----
+// (기다림 표시는 공용 waitInlineHtml — 따로 쓴 기다림 글자 없음.)
 // 자료실 맨 위 ⋯·빈 자리 우클릭·폴더 메뉴의 [정돈 제안] → 같은 종류인데 폴더가 둘 이상으로 갈라진 자료를 묶음으로 보여 준다(폴더 메뉴에서 열면 그 폴더 안만).
 // 받는 폴더 나누기와 같은 부품: 같은 창 모양(lu-sort-*)·같은 폴더 고르기 창(createMovePicker)·같은 옮기기 길(소유자 RLS 표 두 개)·같은 되돌리기(빈 새 폴더 지우기).
 // 묶음 찾기는 1차로 규칙만(library-sort-model.mjs tidyGroups — AI 없음). 녹음('회의 녹음' 폴더·소리 파일)은 묶음에서 뺀다.
@@ -255,19 +256,19 @@ export function createTidySuggest({api,esc,state,reload,say}){
   }
   function groupHtml(g){
     const move=g.mode==='move',n=g.rows.filter(r=>r.checked).length;
-    return `<section class="lu-tidy-group${move?'':' lu-tidy-keep'}" data-tidy-group="${esc(g.gid)}" aria-label="${esc(g.word)} 묶음"><div class="lu-tidy-head"><b>${esc(g.word)}</b> <small>${g.total}개</small><span class="lu-tidy-seg" role="group" aria-label="${esc(g.word)} 묶음 옮기기 여부"><button type="button" data-tidy-mode="move" data-tidy-g="${esc(g.gid)}" aria-pressed="${move}">옮기기</button><button type="button" data-tidy-mode="keep" data-tidy-g="${esc(g.gid)}" aria-pressed="${!move}">그대로</button></span></div>`
+    return `<section class="lu-tidy-group${move?'':' lu-tidy-keep'}" data-tidy-group="${esc(g.gid)}" aria-label="${esc(g.word)} 묶음"><div class="lu-tidy-head"><b>${esc(g.word)}</b> <small>${g.total}개</small><span class="lu-tidy-seg ds-seg" role="group" aria-label="${esc(g.word)} 묶음 옮기기 여부"><button type="button" class="ds-seg-btn" data-tidy-mode="move" data-tidy-g="${esc(g.gid)}" aria-pressed="${move}">옮기기</button><button type="button" class="ds-seg-btn" data-tidy-mode="keep" data-tidy-g="${esc(g.gid)}" aria-pressed="${!move}">그대로</button></span></div>`
       +`<p class="lu-tidy-at">${esc(tidyAtText(g.at,fromText))}</p>`
-      +(move?`<div class="lu-tidy-to">${n?`고른 ${n}개 → `:'모두 → '}${targetHtml(g)}</div>${g.rows.map(r=>rowHtml(g,r)).join('')}${g.stay?`<p class="lu-sort-why lu-tidy-stay">이미 그 폴더에 있는 ${g.stay}개는 그대로</p>`:''}`
-        :`<p class="lu-sort-why">'그대로'를 골라 이 묶음은 옮기지 않아요.</p>`)+'</section>';
+      +(move?`<div class="lu-tidy-to">${n?`선택한 ${n}개 → `:'모두 → '}${targetHtml(g)}</div>${g.rows.map(r=>rowHtml(g,r)).join('')}${g.stay?`<p class="lu-sort-why lu-tidy-stay">이미 그 폴더에 있는 ${g.stay}개는 그대로</p>`:''}`
+        :`<p class="lu-sort-why">'그대로'를 선택해 이 묶음은 옮기지 않아요.</p>`)+'</section>';
   }
   function paint(){
     if(!root)return;
     const list=root.querySelector('#libraryTidyList'),y=list.scrollTop;
-    list.innerHTML=groups.map(groupHtml).join('')+(done?(groups.length?'':emptyHtml('흩어진 자료 없음')):`<p class="lu-tidy-wait">${waitInlineHtml()} 더 찾는 중…</p>`);
+    list.innerHTML=groups.map(groupHtml).join('')+(done?(groups.length?'':emptyHtml('흩어진 자료 없음')):`<p class="lu-tidy-wait">${waitInlineHtml()}</p>`);
     list.scrollTop=y;
     root.querySelector('#libraryTidySub').textContent=(scope?pathName(scope)+' 안 · ':'')+tidySummary(groups,{done});
     const n=tidyPlan(groups,made).count,b=root.querySelector('[data-tidy-apply]');
-    b.textContent=`고른 ${n}개 옮기기`;b.disabled=!n||busy||!done;
+    b.textContent=`선택한 ${n}개 옮기기`;b.disabled=!n||busy||!done;
   }
   const say2=(text,error=false)=>{if(!root)return;const el=root.querySelector('#libraryTidyStatus');el.textContent=text;el.className=error?'status error':'status'};
 

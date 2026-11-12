@@ -562,10 +562,7 @@
 #libraryTidyModal .lu-tidy-group{padding:6px 2px 4px;border-bottom:1px solid var(--kptu-border)}
 #libraryTidyModal .lu-tidy-head{display:flex;align-items:center;gap:6px;font-size:var(--ds-text-body,14px)}
 #libraryTidyModal .lu-tidy-head small{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
-#libraryTidyModal .lu-tidy-seg{margin-left:auto;display:inline-flex;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);overflow:hidden}
-#libraryTidyModal .lu-tidy-seg button{min-height:26px;padding:0 8px;border:0;border-left:1px solid var(--kptu-border);background:var(--kptu-surface,transparent);color:var(--kptu-ink);font-size:var(--ds-text-meta,12px);cursor:pointer}
-#libraryTidyModal .lu-tidy-seg button:first-child{border-left:0}
-#libraryTidyModal .lu-tidy-seg button[aria-pressed="true"]{background:var(--kptu-primary);color:var(--kptu-on-primary)}
+#libraryTidyModal .lu-tidy-seg{margin-left:auto}
 #libraryTidyModal .lu-tidy-at{margin:1px 0 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);overflow-wrap:anywhere}
 #libraryTidyModal .lu-tidy-to{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-primary-ink,var(--kptu-ink))}
 #libraryTidyModal .lu-tidy-to .lu-sort-edit{flex-basis:100%}

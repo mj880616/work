@@ -26,7 +26,7 @@ async function openFromTop(page,width){
   await expect(modal(page)).toBeVisible();
 }
 async function checkDialog(page){
-  await expect(modal(page).locator('#libraryTidySub')).toHaveText('같은 종류인데 폴더가 갈라진 자료 2묶음(4개)을 찾았어요. 묶음마다 고르세요.');
+  await expect(modal(page).locator('#libraryTidySub')).toHaveText('같은 종류인데 폴더가 갈라진 자료 2묶음(4개)을 찾았어요. 묶음마다 선택하세요.');
   const h=group(page,'합의서');
   await expect(h.locator('.lu-tidy-head b')).toHaveText('합의서');
   await expect(h.locator('.lu-tidy-head small')).toHaveText('5개');
@@ -41,7 +41,7 @@ async function checkDialog(page){
   await expect(m.locator('[data-tidy-gname]')).toHaveValue('명단');
   // 녹음(회의 녹음 폴더·소리 파일)은 어느 묶음에도 없다.
   await expect(modal(page).locator(`[data-tidy-row="${H7}"]`)).toHaveCount(0);
-  await expect(modal(page).locator('[data-tidy-apply]')).toHaveText('고른 4개 옮기기');
+  await expect(modal(page).locator('[data-tidy-apply]')).toHaveText('선택한 4개 옮기기');
 }
 
 test.describe('PC 1280',()=>{
@@ -55,11 +55,11 @@ test.describe('PC 1280',()=>{
     // 묶음 '그대로' → 그 묶음은 옮기지 않음.
     await group(page,'명단').locator('[data-tidy-mode="keep"]').click();
     await expect(group(page,'명단').locator('[data-tidy-mode="keep"]')).toHaveAttribute('aria-pressed','true');
-    await expect(modal(page).locator('[data-tidy-apply]')).toHaveText('고른 2개 옮기기');
+    await expect(modal(page).locator('[data-tidy-apply]')).toHaveText('선택한 2개 옮기기');
     await group(page,'명단').locator('[data-tidy-mode="move"]').click();
     // 체크 하나 빼기.
     await group(page,'합의서').locator(`[data-tidy-row="${H5}"] [data-tidy-check]`).uncheck();
-    await expect(modal(page).locator('[data-tidy-apply]')).toHaveText('고른 3개 옮기기');
+    await expect(modal(page).locator('[data-tidy-apply]')).toHaveText('선택한 3개 옮기기');
     await group(page,'합의서').locator(`[data-tidy-row="${H5}"] [data-tidy-check]`).check();
     // 옮길 폴더 바꾸기: 성명·보도자료로 바꾸면 그 안 1개는 그대로, 임금협약 3개가 줄로. 다시 임금협약으로.
     await group(page,'합의서').locator('[data-tidy-pick]').click();

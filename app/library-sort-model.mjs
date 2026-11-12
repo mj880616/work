@@ -213,7 +213,7 @@ export function tidyPlan(groups,newGroups){
 // '지금: 임금협약 5 · 성명·보도자료 2 · 폴더 밖 2'
 export const tidyAtText=(at,nameOf)=>'지금: '+at.map(x=>`${x.folder?nameOf(x.folder):'폴더 밖'} ${x.n}`).join(' · ');
 export function tidySummary(groups,{done=true}={}){
-  if(!groups.length)return done?'흩어진 같은 종류 자료를 찾지 못했어요.':'찾는 중…';
+  if(!groups.length)return done?'흩어진 같은 종류 자료를 찾지 못했어요.':'';
   const n=groups.reduce((s,g)=>s+g.rows.length,0);
-  return `같은 종류인데 폴더가 갈라진 자료 ${groups.length}묶음(${n}개)을 찾았어요. 묶음마다 고르세요.`;
+  return `같은 종류인데 폴더가 갈라진 자료 ${groups.length}묶음(${n}개)을 찾았어요. 묶음마다 선택하세요.`;
 }

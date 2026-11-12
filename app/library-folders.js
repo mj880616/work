@@ -144,7 +144,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         +(i>0?'<button type="button" data-lu-folder-action="up">위로</button>':'')+(i>=0&&i<sib.length-1?'<button type="button" data-lu-folder-action="down">아래로</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
         +'<button type="button" data-lu-folder-action="paint">색 선택…</button>'
-        +receiveLine(f)+sortLine(f)+(tidy&&s().free?'<button type="button" class="lu-menu-tidy" data-lu-folder-action="tidy">정돈 제안</button>':'')
+        +receiveLine(f)+sortLine(f)+(tidy&&s().free?'<button type="button" class="row-act lu-menu-tidy" data-lu-folder-action="tidy">정돈 제안</button>':'')
         +sep+'<button type="button" class="lu-menu-danger" data-lu-folder-action="delete">폴더 삭제</button>';
     },
     onClose:()=>{if(!colorReopen)colorFor=null},

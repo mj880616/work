@@ -56,7 +56,7 @@ test('묶음: 폴더가 둘 이상으로 갈라진 같은 종류만, 가장 많�
   // 명단: 잡동사니 1 · 폴더 밖 1 — 마땅한 폴더가 없어 새 폴더 '명단'(맨 위).
   assert.deepEqual(groups[1].to,{group:newGroups[0].gid});
   assert.deepEqual(newGroups,[{gid:newGroups[0].gid,name:'명단',parent:null}]);
-  assert.equal(tidySummary(groups),'같은 종류인데 폴더가 갈라진 자료 2묶음(5개)을 찾았어요. 묶음마다 고르세요.');
+  assert.equal(tidySummary(groups),'같은 종류인데 폴더가 갈라진 자료 2묶음(5개)을 찾았어요. 묶음마다 선택하세요.');
   assert.equal(tidySummary([]),'흩어진 같은 종류 자료를 찾지 못했어요.');
 });
 
