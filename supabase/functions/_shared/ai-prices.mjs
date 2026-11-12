@@ -8,6 +8,7 @@ export const OPENAI_DEFAULT_IN_KRW = 140;
 export const OPENAI_DEFAULT_OUT_KRW = 700;
 export const AI_MONTHLY_LIMIT_ASSIST_KRW = 15000; // ai-assist: Web2 AI 기능 전체
 export const AI_MONTHLY_LIMIT_FEED_KRW = 6000;    // collector-feed: 텔레그램·통화 판정
+export const AI_MONTHLY_LIMIT_NEWS_KRW = 5000;    // news-feed·outside-feed: 뉴스 요약·제목·[번역]·사회운동 [번역](_shared/news-days.ts)
 // 2025년 Google 공식 가격표 기준(유료 등급, 20만 토큰 이하 요청). 음성 입력은 글 입력보다 비싸 따로 둔다.
 // 모델 이름 앞부분으로 찾고(긴 것부터), 표에 없는 모델은 가장 비싼 줄(GEMINI_UNKNOWN_PRICE)로 세고 화면에 '단가 미확인'을 붙인다.
 export const GEMINI_PRICES = Object.freeze([
