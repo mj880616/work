@@ -32,6 +32,21 @@ export function personDraft({name, matches = []} = {}) {
   return {ok:true, name:n, match_names:list};
 }
 
+// ORG-찾을이름칸삭제(S61-4): [+ 인물]·[수정] 창은 이름만 받는다. 고칠 때는 이미 저장된 찾을 이름(옛 이름 포함)을 그대로 이어 붙여
+// 기록 찾기가 끊기지 않게 한다(빈 배열로 덮어쓰지 않음). 저장된 값이 규칙에 어긋나면 그 하나만 건너뛰고, 20개를 넘기면 앞의 것만 둔다.
+export function savedNamesDraft({name, keep = []} = {}) {
+  const d = personDraft({name});
+  if (!d.ok) return d;
+  const list = [...d.match_names], seen = new Set(list);
+  for (const raw of Array.isArray(keep) ? keep : []) {
+    const m = clean(raw);
+    if (!m || CTRL.test(m) || chars(m) < MATCH_MIN || chars(m) > MATCH_MAX || seen.has(m)) continue;
+    if (list.length >= MATCHES_MAX) break;
+    seen.add(m); list.push(m);
+  }
+  return {ok:true, name:d.name, match_names:list};
+}
+
 // 사람마다 비교할 이름(정리한 글자, 2자 이상).
 export function needlesOf(person) {
   const out = new Set();
