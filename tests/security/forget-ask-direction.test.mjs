@@ -68,3 +68,14 @@ test("챙길 것: 내가 남에게 부탁한 일은 owner=other(명진 할 일 �
 test('챙길 것 다시 거르기: 내가 부탁한 일(requested_by_me)은 남기지 않는다', ()=>{
   assert.ok(RECHECK_VERDICTS.includes('requested_by_me'));assert.ok(!RECHECK_KEEP.includes('requested_by_me'));
 });
+
+test('통화: 약속 후보의 주체 편(우리측·상대측·제3자)을 점 끝에 남긴다 — 이름은 옮기지 않음', async ()=>{
+  const {sections,pointsOf}=await import('../../supabase/functions/collector-feed/call-analysis.ts');
+  const md=['## 약속 후보','### 1. 가상지부에 자료 요청','- 주체: 가상인물 (우리측)','- 원문표현: “근거비밀”','### 2. 가상지부 자료 보내기','- 주체: 가상지부 (상대측)',
+    '### 3. 가상 일','- 주체: 확인필요 (확인필요)','## 후속확인 필요사항','- 가상 확인'].join('\n');
+  const s=sections(md);
+  assert.deepEqual(s.promises,['- 가상지부에 자료 요청 (우리가 할 일)','- 가상지부 자료 보내기 (상대가 할 일)','- 가상 일']);
+  const pts=pointsOf(s);
+  assert.ok(pts.includes('[예정] 가상지부 자료 보내기 (상대가 할 일)'));
+  assert.ok(!pts.some(p=>p.includes('가상인물')||p.includes('근거비밀')),'주체 이름·원문은 옮기지 않음');
+});
