@@ -13,7 +13,7 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 // CALL-손고치기 (docs/design/call-user-edit.md): 제목(줄 안 바로 고치기, F2)·조직/이름(상세 박스)·핵심내용(상세 줄 고치기)을 손으로 고친다.
 // 고친 값은 서버의 app_call_edits에 사용자 값으로 저장되고(DB 함수 app_call_edit) AI가 채운 칸은 그대로다. 줄은 feed-model.mjs applyCallEdit으로 사용자 값을 덧씌워 그린다.
 import './enter-save.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
 import {createFeedHold} from './feed-hold.js';
@@ -100,7 +100,10 @@ async function loadRaw(id) {
 let rendering = false;
 const guardRender = fn => (...a) => { const was = rendering; rendering = true; try { return fn(...a); } finally { rendering = was; } };
 // UI-줄입력늘어나기: 제목·핵심내용 고치기 칸은 그린 뒤 글 전체가 보이게(공용 auto-grow.js).
-const paintList = guardRender(() => { paintListNow(); fitAll($('#cfList')); }), paintDetail = guardRender(() => { paintDetailNow(); fitAll($('#cfDetail')); });
+// FILES-다시그리기메뉴자리: 20초 재조회 등으로 목록·상세를 다시 그려도 열린 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
+let cfMenus = []; const CF_SPOT = {attrs:['data-cf-rowmore', 'data-cf-more'], zones:['#cfList', '#cfDetail']};
+const cfKeep = fn => () => keepMenus(cfMenus, CF_SPOT, fn);
+const paintList = guardRender(cfKeep(() => { paintListNow(); fitAll($('#cfList')); })), paintDetail = guardRender(cfKeep(() => { paintDetailNow(); fitAll($('#cfDetail')); }));
 // NAV-새로고침제자리: the box (?box=personal) and the open call (?call=<id>) are written to the address (no history entry of their own;
 // the phone keeps its layer entries), so a reload opens the same box and call. The address is read once when this module loads and
 // applied after the first list read; until then nothing is written.
@@ -538,6 +541,7 @@ const menu = createAnchoredMenu({id:'cfMenu', className:'feed-menu', label:'통�
     else if (act === 'drive' && /^https:\/\/(drive|docs)\.google\.com\//.test(r.drive_url || '')) window.open(r.drive_url, '_blank', 'noopener,noreferrer');
   },
   onClose:() => hold.unpin()});
+cfMenus = [menu];
 const hold = createFeedHold({menu, itemSelector:'[data-cf-item]', moreSelector:'[data-cf-rowmore]', skipSelector:'[data-cf-decide]', busy:() => state.busy, isPhone:() => phone.matches});
 
 function bind() {

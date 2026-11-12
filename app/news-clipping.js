@@ -1,5 +1,5 @@
 import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {createMovePicker} from './library-move-picker.js';
 import {pickerRows} from './library-move.mjs';
 import {folderSiblings, nextSortOrder, cleanFolderName, folderErrorText} from './library-tree.js';
@@ -194,7 +194,10 @@ function sourcesHtml() {
   return head + panelFail() + groups;
 }
 
-function paint() {
+// FILES-다시그리기메뉴자리: 자동 채우기·읽음 표시 등으로 다시 그려도 열린 폴더 ⋯ 메뉴는 같은 폴더의 새 칸에 붙는다(공용 keepMenus).
+var ncMenus; // 메뉴는 아래에서 만든다(그 전 그리기는 붙일 메뉴 없음)
+function paint() { return keepMenus(ncMenus || [], {attrs:['data-nc-folder-more']}, paintNow); }
+function paintNow() {
   if (!root) return;
   root.dataset.mode = state.mode;
   const when = $('[data-nc-when]');
@@ -524,6 +527,7 @@ async function deleteFolder(id, trigger) {
 const folderMenu = createAnchoredMenu({id: 'ncFolderMenu', className: 'topline-add-menu nc-menu', label: '폴더 메뉴', historyKey: 'kptuNewsFolderMenu', key: b => b.dataset.ncFolderMore,
   render: () => '<button type="button" data-nc-fact="child">안에 폴더 만들기</button><button type="button" data-nc-fact="rename">이름 바꾸기</button><button type="button" data-nc-fact="delete">삭제</button>',
   onAction: (button, active) => { const trigger = active?.trigger, id = trigger?.dataset?.ncFolderMore; if (!id) return; const a = button.dataset.ncFact; if (a === 'child') newFolder(id); else if (a === 'rename') renameFolder(id); else if (a === 'delete') deleteFolder(id, trigger); }});
+ncMenus = [folderMenu];
 
 // 목록 줄 또는 키워드 칸 줄(같은 기사가 두 곳에 있을 수 있다 — 목록 것을 먼저).
 const itemById = id => state.items.find(x => x.id === id) || [...state.kwHits.values()].flatMap(h => h.items).find(x => x.id === id) || null;

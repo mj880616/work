@@ -65,3 +65,20 @@ export function moveMenuTrigger(old,next){
   if(Object.prototype.hasOwnProperty.call(old,'getBoundingClientRect')){const r=old.getBoundingClientRect();window.KPTUContextMenu?.pinAt?.(next,r.left,r.top)}
   next.setAttribute('aria-expanded','true');
 }
+// FILES-다시그리기메뉴자리: 그리기 주인이 열린 메뉴를 새 칸에 붙이는 공용 길(자료실 luRenderLibrary와 같은 순서).
+// 그리기 전에 메뉴를 연 칸의 자리(표시 이름=값 + 그 칸이 든 구역)를 적고, 그린 뒤 같은 자리의 새 칸으로 follow 한다.
+// menus: follow·active가 있는 메뉴들(createAnchoredMenu 결과, row-menu의 rowMenuFollower). attrs: 칸을 알아보는 표시 이름(앞의 것부터),
+// zones: 같은 표시가 여러 구역(두 칸·나무와 목록)에 있을 때 옛 칸과 같은 구역의 것을 먼저 고르는 선택자. 새 칸이 없거나 안 보이면 follow가 닫는다.
+const zoneKey=el=>el?[...el.attributes].filter(a=>a.name==='id'||a.name.startsWith('data-')).map(a=>a.name+'='+a.value).join(','):'';
+export function menuSpot(trigger,{attrs,zones=[]}){
+  if(!trigger?.isConnected)return null;const attr=attrs.find(a=>trigger.hasAttribute(a));if(!attr)return null;
+  return {trigger,attr,value:trigger.getAttribute(attr),zones:zones.map(z=>zoneKey(trigger.closest(z)))};
+}
+export function findSpot(spot,{zones=[],root=document}={}){
+  const all=[...root.querySelectorAll(`[${spot.attr}]`)].filter(x=>x.getAttribute(spot.attr)===spot.value&&x.getClientRects().length);
+  return all.find(x=>zones.every((z,i)=>zoneKey(x.closest(z))===spot.zones[i]))||all[0]||null;
+}
+export function keepMenus(menus,opts,paint){
+  const spots=menus.map(m=>m?.active?menuSpot(m.active.trigger,opts):null);
+  try{return paint()}finally{menus.forEach((m,i)=>{const s=spots[i];if(s&&m.active?.trigger===s.trigger)m.follow(()=>findSpot(s,opts))})}
+}

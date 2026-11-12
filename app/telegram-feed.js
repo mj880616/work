@@ -7,7 +7,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 // 읽기: DB 함수 app_feed_room_day_lines(14일씩) + 소유자 읽기 표(feed-data.js), 규칙은 tg-day-model.mjs. 소식 삭제·되살리기는 DB 함수 app_feed_set_state.
 // TG-발언자이름: 원문에 이름을 입히고([이름 붙이기]) 머리줄 ⋯ → '보낸 사람 이름'에서 관리한다(tg-sender-model.mjs, tg-sender-data.js). 방 색은 저장하지 않는다(feed-model.mjs roomTone).
 import './enter-save.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {iconSvg} from './tree-icons.js';
 import {createFeedHold} from './feed-hold.js';
 import {mountSplitResize} from './split-resize.js';
@@ -345,7 +345,11 @@ function trashDayRowHtml(d) {
   const key = rdKey(d.room_key, d.day);
   return `<div class="feed-rd feed-r${roomTone(d.room_key)}" data-tg-tdrow="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(labelOfRoom(d.room_key)))}</span><div class="feed-rdb"><span class="feed-rn">${esc(labelOfRoom(d.room_key))}</span><span class="feed-rl">${esc(dayLabel(d.day))} 하루 전체</span></div><button type="button" class="feed-small" data-tg-restore-day="${esc(key)}">되살리기</button></div>`;
 }
-function paintList() {
+// FILES-다시그리기메뉴자리: 20초 재조회 등으로 목록·상세를 다시 그려도 열린 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
+let tgMenus = []; const TG_SPOT = {attrs:['data-tg-rdmore', 'data-tg-act-btn', 'data-tg-more', 'data-tg-head-more', 'data-tg-person-more', 'data-tg-folder-more'], zones:['#tgList', '#tgDetail', '[data-tg-swipe]']};
+function paintList() { return keepMenus(tgMenus, TG_SPOT, paintListNow); }
+function paintDetailNow() { return keepMenus(tgMenus, TG_SPOT, paintDetailNow); }
+function paintListNow() {
   const box = $('#tgList');
   if (!state.loaded) { box.innerHTML = headHtml() + waitHtml({rows:6, h:34}); return; }
   if (state.missing) { box.innerHTML = headHtml() + '<p class="feed-empty" data-tg-empty="ready">준비 중이에요. 텔레그램 수집이 연결되면 여기에 보여요.</p>'; return; }
@@ -995,6 +999,7 @@ const femenu = createAnchoredMenu({id:'tgFolderMenu', className:'feed-menu', lab
   key:() => 'folder:' + state.folder,
   render:() => '<button type="button" data-tg-fact="rename">이름 바꾸기</button><button type="button" class="feed-menu-danger" data-tg-fact="delete">폴더 삭제 <span class="feed-faint">방은 그대로</span></button>',
   onAction:button => { if (state.folder) startFolderEdit(button.dataset.tgFact === 'rename' ? 'rename' : 'delete'); }});
+tgMenus = [menu, pmenu, rmenu, fmenu, femenu];
 const hold = createFeedHold({menu:rmenu, itemSelector:'[data-tg-rd]', moreSelector:'[data-tg-rdmore]', skipSelector:'[data-tg-act-btn],[data-tg-unarchive],[data-tg-unpin]', busy:() => state.busy, isPhone:() => !pc.matches});
 
 // 줄 밀기(폰, 터치만): 가로로 분명히 밀었을 때만 반응하고 세로 스크롤·화면 가장자리 시작은 건드리지 않는다. 열린 줄은 하나뿐.

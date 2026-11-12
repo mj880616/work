@@ -16,7 +16,7 @@
 //   운영자 기능(통화·텔레그램)은 서버 판정 그대로다.
 // - 가족 줄은 이 화면에 보이기만 한다. 업데이트·원장·주간보고·업무일지·AI 길에는 넘기지 않는다(docs/design/tg-personal.md 7절).
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
 import {esc, rowHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
 import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
@@ -174,7 +174,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       : `<span class="nbx-faint">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="row-act" data-forget-link-retry="${id}"${dis}>다시</button>` : ''}`;
     return `<div class="nbx-below" data-forget-link="${id}" role="group" aria-label="이미 있는 할 일 선택">${picks}<button type="button" class="row-act" data-forget-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="row-act" data-forget-link-cancel="${id}"${dis}>취소</button></div>`;
   }
-  function paint() {
+  // FILES-다시그리기메뉴자리: 메뉴가 열린 채 다시 그려도(재조회·다른 화면 알림) 열린 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
+  function paint() { return keepMenus([more], {attrs:['data-forget-more']}, paintNow); }
+  function paintNow() {
     paintViewButton();
     // UI-앱안알림 3단계(A4) → S52-20: 메뉴 '홈' 표시는 홈 '잊지 말기' 한 줄과 같은 숫자(처리 안 한 수, 새 읽기 없음).
     { const n = api.openCount(updateCount()); if (n !== null) setHomeAsks(n); }

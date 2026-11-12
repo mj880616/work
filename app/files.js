@@ -31,8 +31,8 @@ import {twoPaneFrame} from './two-pane.js';
 import {folderLook} from './folder-prefs.js'; // FOLDER-순서·색 ③-2: 폴더 색·순서 읽기 사본([파일]·사진 폴더가 같이 씀)
 import {colorChoiceHtml, createColorMode} from './folder-look.js';
 import {folderShapeHtml} from './folder-look-model.mjs';
-import {createAnchoredMenu} from './anchored-menu.js';
-import {openRowMenu, appMenuPoint} from './row-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
+import {openRowMenu, appMenuPoint, rowMenuFollower} from './row-menu.js';
 import {treeMenuItems} from './files-tree-menu.mjs';
 import {lastClean, lastPut, lastStart} from './files-last-model.mjs';
 import {zipPlan, zipName, zipBusyText, zipDoneText} from './files-zip-model.mjs';
@@ -730,6 +730,12 @@ function paint() {
   paintScroll();
 }
 function paintPane(p) { paintPaneTop(p); paintList(p); }
+// FILES-다시그리기메뉴자리: 나무·목록·칸 머리·고르기 막대를 다시 그려도 열린 ⋯ 메뉴(줄 메뉴·폴더 색)는 닫지 않고 같은 줄의 새 칸에 붙인다.
+// 그리기 주인(아래 paint* 함수들)이 그리기 전 자리를 적고 그린 뒤 옮긴다(공용 anchored-menu keepMenus). 그 줄이 사라졌거나 안 보이면 그때만 닫는다.
+const FX_MENU_SPOT = {attrs: ['data-fx-tmenu', 'data-fx-pin-menu', 'data-fx-fdim', 'data-fx-look', 'data-fx-row'], zones: ['[data-fx-pane-i]', '[data-fx-tree]', '[data-fx-ptree]', '[data-fx-bar]', '[data-fx-box]']};
+// 폴더 색 메뉴는 아래(파일 뒤쪽)에서 만들어지므로 그 전의 그리기에서는 줄 메뉴만 본다.
+let fxLookMade = false;
+function keepFxMenus(paint) { return keepMenus(fxLookMade ? [rowMenuFollower, lookMenu] : [rowMenuFollower], FX_MENU_SPOT, paint); }
 // ---------- FILES-칸따로스크롤(S52-41 ②, 요청함 11/08) ----------
 // 폴드 펼침·PC(600px~)에서 왼쪽 나무와 오른쪽 목록이 각자 따로 스크롤한다: 맨 위 줄(위치 길·찾기·정렬·출처·두 칸 보기)과 고르기 막대는 화면 위에 고정(sticky),
 // 나무는 공용 부품 follow-pane.js로 그 아래에 붙어 화면보다 길면 나무만 스크롤(UI-상세칸고정과 같은 칸 모양). 한 칸 목록은 화면 스크롤 그대로라
@@ -780,7 +786,8 @@ function crumbHtml(p, {noRoot = false} = {}) {
 }
 const sortHtml = p => `<select class="fx-sort" data-fx-sort aria-label="${p ? side(idxOf(p)) + ' 칸 ' : ''}정렬">${SORTS.map(k => `<option value="${k}"${p?.sort === k ? ' selected' : ''}>${SORT_NAME[k]}</option>`).join('')}</select>`;
 // 칸 위 줄(두 칸일 때만): 폴드는 ▾(그 칸 위로 나무) + 위치 줄 + 정렬, PC는 위치 줄 + 정렬(나무는 왼쪽 그대로).
-function paintPaneTop(p) {
+function paintPaneTop(p) { return keepFxMenus(() => paintPaneTopNow(p)); }
+function paintPaneTopNow(p) {
   const top = inPane(p, '[data-fx-ptop]'), pt = inPane(p, '[data-fx-ptree]');
   if (!top) return;
   if (!two()) { top.hidden = true; top.innerHTML = ''; if (pt) { pt.hidden = true; pt.innerHTML = ''; } return; }
@@ -823,7 +830,8 @@ function paneSrcPick(p, src) {
   setWhere(p, {source: src, parent: null}, {keepPreview: i !== state.cur});
   inPane(p, '[data-fx-psrc]')?.focus({preventScroll: true});
 }
-function paintPaneTree(p) {
+function paintPaneTree(p) { return keepFxMenus(() => paintPaneTreeNow(p)); }
+function paintPaneTreeNow(p) {
   const pt = inPane(p, '[data-fx-ptree]');
   if (!pt) return;
   const on = two() && !WIDE.matches && p.drop;
@@ -1042,7 +1050,8 @@ function paintTree() {
   if (state.xfer) paintDest();
 }
 // 왼쪽 나무(한 칸·PC 두 칸). 지금 칸의 위치를 칠한다. 폴드 두 칸은 CSS가 숨기고 칸 위 ▾ 나무를 쓴다.
-function paintMainTree() {
+function paintMainTree() { return keepFxMenus(() => paintMainTreeNow()); }
+function paintMainTreeNow() {
   const tree = $('[data-fx-tree]');
   if (!tree) return;
   ftKeepFocus(tree, () => paintMainTreeBody(tree));
@@ -1361,7 +1370,8 @@ function mountWidths(list) {
 }
 const MANY_ROWS = 300;
 const scanningNow = () => state.syncing || SOURCES.some(x => state.status?.[x]?.scanning);
-function paintList(p) {
+function paintList(p) { return keepFxMenus(() => paintListNow(p)); }
+function paintListNow(p) {
   const list = inPane(p, '[data-fx-list]');
   if (!list) return;
   const drawn = list.fxHtml; list.fxHtml = '';
@@ -1949,6 +1959,7 @@ const lookMenu = createAnchoredMenu({id: 'fxLookMenu', className: 'od-link-menu'
     const picked = lookMode.pick('x', b);
     if (picked !== undefined) lookSave(() => folderLook.setColor(rt(), r.source, r.item_id, picked), '폴더 색을 저장하지 못했어요.');
   }});
+fxLookMade = true;
 function lookSave(job, failText) { return job().catch(() => notify(`${failText} 잠시 뒤 다시 해 주세요.`, {error: true})); }
 function lookDo(act, button) {
   const p = P(), r = pickedRows(p)[0];
@@ -1966,7 +1977,8 @@ const PH_TRASH_HTML = '<button type="button" class="danger" data-fx-trash>휴지
 const PV_TRASH_HTML = '<button type="button" class="danger" data-fx-trash-one>휴지통</button>';
 const trashOff = (html, code) => html.replace('>휴지통<', ` aria-disabled="true" data-fx-off="${code}">휴지통<`);
 const sendButtonsHtml = (i, off, keys) => ['copy', 'move'].map(m => `<button type="button" class="secondary" data-fx-send="${m}"${off}>${esc(sendLabel(i, m, VERT()))}${keys ? (m === 'copy' ? ' (F5)' : ' (F6)') : ''}</button>`).join('');
-function paintBar() {
+function paintBar() { return keepFxMenus(() => paintBarNow()); }
+function paintBarNow() {
   const bar = $('[data-fx-bar]');
   if (!bar) return;
   const p = P(), n = p.picked.size, clip = state.clip;

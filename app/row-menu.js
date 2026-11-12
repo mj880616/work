@@ -72,6 +72,20 @@ export function openRowMenu(trigger, {key = '', title = '', label = '', items = 
   return true;
 }
 export const rowMenuOpen = () => !!menu?.active;
+// FILES-다시그리기메뉴자리: 부르는 화면이 줄을 다시 그린 뒤 열린 줄 메뉴를 새 칸에 붙인다(anchored-menu keepMenus에 넘김).
+// 우클릭으로 연 메뉴는 누른 줄 자체가 표시 줄이라 새 칸으로 함께 옮기고, 연보라 표시도 새 줄에 단다.
+export const rowMenuFollower = {
+  get active() { return menu?.active || null; },
+  follow(find) {
+    const a = menu?.active; if (!a || a.trigger.isConnected) return;
+    const old = a.trigger, wasRow = ctx?.row === old;
+    if (ctx?.row && !ctx.row.isConnected) ctx.row = null;
+    menu.follow(find);
+    const now = menu.active; if (!now || now.trigger === old) return;
+    if (wasRow && ctx) ctx.row = now.trigger;
+    mark(ctx?.row || rowOf(now.trigger));
+  }
+};
 
 // S51-27 PC 우클릭 공용 규칙: 앱 메뉴를 열 자리 {x, y}를 돌려주고, 브라우저 기본 메뉴를 그대로 둘 때는 null.
 // 기본 메뉴 그대로: 폰 폭(761px 미만)·손가락 꾹 누르기, 글자 칸(입력·메모·본문) 안, 글을 골라 둔 때, 마우스 우클릭에 Shift·Ctrl·Alt·Meta.

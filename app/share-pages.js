@@ -27,7 +27,7 @@ import {copyText} from './copy-text.js';
 import {flashDone} from './press-feedback.js';
 import {createDocEditor} from './ed-editor.js';
 import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {askConfirm} from './small-notice.js';
 import {archiveFilter, boxFilter, archiveConfirmText, archivePatch, undoPatch, restorePatch, shortTitle} from './share-pages-archive.mjs';
@@ -118,7 +118,10 @@ function buildHead() {
 buildHead();
 listView.replaceChildren(headEl, statusEl);
 phoneQuery.addEventListener?.('change', () => buildHead());
-function renderList() {
+// FILES-다시그리기메뉴자리: 목록을 다시 읽어 그려도 열린 줄 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
+let rowMenu = null, rowBusy = false;
+function renderList() { return keepMenus(rowMenu ? [rowMenu] : [], {attrs:['data-sp-row-menu', 'data-sp-box-menu']}, renderListNow); }
+function renderListNow() {
   const status = statusEl;
   status.textContent = '';
   const body = [];
@@ -181,7 +184,6 @@ async function loadList({force = false} = {}) {
 }
 
 // ── 보관 · 보관함 · 삭제 (SHARE-페이지삭제) ──
-let rowMenu = null, rowBusy = false;
 const MENU_ITEMS = {
   list:'<button type="button" data-sp-row-action="archive">보관</button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제</button>',
   box:'<button type="button" data-sp-row-action="restore">되살리기</button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제</button>',
