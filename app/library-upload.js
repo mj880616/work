@@ -45,7 +45,7 @@ import {ftPressToggle,ftBindTreeArrows,folderPressAction,FOLDER_PRESS_ENTER} fro
 import {ftFolderRowHtml} from './folder-tree-ui.mjs'; // FOLDER-나무새기준 ④: 두 손가락 벌리기 = 그 폴더만(노트·파일·사진과 같은 부품)
 import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
 import {createAnchoredMenu,moveMenuTrigger} from './anchored-menu.js';
-import {notify,NOTICE_UNDO_MS,askConfirm} from './small-notice.js';
+import {notify,NOTICE_UNDO_MS,askConfirm,recordUndo,dropUndo} from './small-notice.js';
 // UI-알림창정리(자료실): 파일 열기·내려받기·Drive 열기 실패는 브라우저 기본 알림창 대신 위쪽 작은 알림(오류 5초).
 const luErrorNotice=message=>notify(message,{error:true});
 import {takeLibraryDocumentRequest,takeLibrarySelectionRequest} from './basket-library-send.js';
@@ -1182,7 +1182,9 @@ function luBindRename(list){list.addEventListener('keydown',e=>{if(e.key!=='F2'|
 function luRenameNotice(text,{error=false,undo=null}={}){
   const token=++luRenameNoticeToken;luFolderStatus(text,error);
   const el=document.querySelector('#libraryFolderStatusLine');if(!el||!text)return;
-  if(undo){const b=document.createElement('button');b.type='button';b.className='lu-undo';b.textContent='되돌리기';b.addEventListener('click',()=>{if(token===luRenameNoticeToken)void undo()},{once:true});el.append(' ',b)}
+  // S60-27: 줄의 [되돌리기]와 Ctrl+Z(UI-작은알림자리)는 같은 기록 하나 — 어느 쪽으로든 한 번만 되돌린다.
+  if(undo){let ran=false;const once=()=>{if(ran)return {silent:true};ran=true;return undo()};const id=recordUndo({label:String(text).replace(/\s*·\s*$/,''),undo:once});
+    const b=document.createElement('button');b.type='button';b.className='lu-undo';b.textContent='되돌리기';b.addEventListener('click',()=>{if(token!==luRenameNoticeToken)return;dropUndo(id);void once()},{once:true});el.append(' ',b)}
   if(!error)setTimeout(()=>{if(token===luRenameNoticeToken)luFolderStatus('')},10000);
 }
 function luStartRename(id){
