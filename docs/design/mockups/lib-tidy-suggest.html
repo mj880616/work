@@ -1,0 +1,115 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 자료실 정돈 제안 — 흩어진 같은 종류 자료를 한 폴더로 (LIB-정돈제안)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#6e6c60}
+.ph{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;border:1px solid #cfc8b6;border-radius:1em;line-height:1.45;padding:.7em .9em .8em;margin-bottom:.6em;position:relative}
+.bar{display:flex;align-items:center;gap:.4em;margin:0 0 .45em;font-size:.92em;color:#6e6c60}
+.bar b{color:#2a2a23}
+.bar .sp{margin-left:auto}
+.rc{font-size:.8em;color:#5c6a35;border:1px solid #cfc8b6;border-radius:1em;padding:0 .45em}
+.btn{border:1px solid #cfc8b6;border-radius:.45em;padding:.1em .55em;font-size:.9em;color:#2a2a23;background:#fffefa;white-space:nowrap}
+.btn.pri{background:#47532a;border-color:#47532a;color:#fffefa}
+.new{outline:.14em solid #b8663a;outline-offset:.12em}
+.lrow{display:flex;align-items:center;gap:.45em;padding:.32em 0;border-top:1px solid #e2ddd0}
+.k{display:inline-block;min-width:2.3em;text-align:center;border-radius:.3em;padding:0 .3em;font-size:.78em;color:#fffefa;flex:none}
+.k.hwp{background:#4a74a8}.k.pdf{background:#b5523f}.k.xls{background:#3f7d4c}.k.ppt{background:#c07a2c}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow small{color:#6e6c60}
+.sheet{border:1px solid #cfc8b6;border-radius:.8em;background:#fffefa;padding:.6em .7em .7em;box-shadow:0 .4em 1.2em rgba(0,0,0,.12)}
+.sheet h3{margin:0 0 .15em;font-size:1em;display:flex;align-items:center}
+.sheet h3 i{margin-left:auto;font-style:normal;color:#6e6c60;font-weight:400}
+.sheet .sub{color:#6e6c60;font-size:.85em;margin:0 0 .4em}
+.sg{display:grid;grid-template-columns:1.3em 1fr;gap:.1em .4em;padding:.38em 0;border-top:1px solid #e2ddd0;align-items:start}
+.cb{width:1em;height:1em;border:1px solid #6e6c60;border-radius:.2em;margin-top:.2em;display:flex;align-items:center;justify-content:center;font-size:.8em;color:#fffefa;background:#47532a;border-color:#47532a}
+.cb.off{background:#fffefa;border-color:#6e6c60}
+.sg .to{grid-column:2;font-size:.88em;color:#47532a}
+.sg .to .pick{border:1px solid #cfc8b6;border-radius:.35em;padding:0 .4em;color:#2a2a23;background:#f7f5ee}
+.sg .why{grid-column:2;font-size:.8em;color:#6e6c60}
+.nf{display:inline-block;font-size:.78em;color:#9a4f24;border:1px solid #b8663a;border-radius:1em;padding:0 .4em;margin-left:.3em}
+.grp{margin:.5em 0 0;padding:.4em 0 0;border-top:1px solid #e2ddd0;color:#6e6c60;font-size:.86em}
+.foot{display:flex;gap:.4em;justify-content:flex-end;margin-top:.6em}
+.menu{position:absolute;right:.9em;top:2.2em;background:#fffefa;border:1px solid #cfc8b6;border-radius:.6em;box-shadow:0 .4em 1.2em rgba(0,0,0,.14);padding:.25em 0;font-size:.92em;width:15em}
+.menu div{padding:.32em .8em}
+.menu .on{color:#2a2a23}
+.toast{display:inline-flex;gap:.6em;align-items:center;background:#2a2a23;color:#fffefa;border-radius:.5em;padding:.35em .7em;font-size:.88em}
+.toast u{text-decoration:none;color:#e5d9a8}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.65;margin-top:14px;max-width:31.7em}
+.legend b{color:#47532a}
+.gh{display:flex;align-items:center;gap:.4em;padding:.45em 0 .2em;border-top:1px solid #cfc8b6;font-weight:700}
+.gh small{font-weight:400;color:#6e6c60}
+.gh .sp{margin-left:auto;font-weight:400}
+.from{font-size:.8em;color:#6e6c60}
+.from b{color:#9a4f24;font-weight:400}
+.ok{font-size:.8em;color:#5c6a35}
+.seg{display:inline-flex;border:1px solid #cfc8b6;border-radius:.45em;overflow:hidden;font-size:.85em}
+.seg span{padding:.05em .55em;border-left:1px solid #cfc8b6}.seg span:first-child{border-left:0}
+.seg .on{background:#47532a;color:#fffefa}
+.wait{color:#6e6c60;font-size:.85em;padding:.3em 0}
+</style></head><body>
+<h1>시안: 자료실 정돈 제안 — 여기저기 흩어진 같은 종류 자료를 한 폴더로</h1>
+<p class="note">폰 412 폭으로 그렸어요(PC·폴드는 같은 창이 가운데에 떠요). 폴더·자료 이름은 모두 예시예요. 주황 테두리가 새로 생기는 부분이에요.</p>
+
+<div class="ph">
+<div class="cap">① 자료실 맨 위 폴더 메뉴 <small>'자료실' 우클릭(폰 ⋯) — 어느 폴더에서 열면 그 폴더 안만 정돈</small></div>
+<div class="scr" style="height:10.4em">
+  <div class="bar"><b>자료실</b><span class="sp">날짜순 ▾</span></div>
+  <div class="lrow"><span class="nm">📁 예시 조직</span><small>48</small></div>
+  <div class="lrow"><span class="nm">📁 임금협약</span><small>23</small></div>
+  <div class="lrow"><span class="nm">📁 성명·보도자료</span><small>31</small></div>
+  <div class="menu" style="top:1.6em"><div>새 폴더</div><div>정렬 바꾸기</div><div class="new">정돈 제안</div></div>
+</div>
+
+<div class="cap">② [정돈 제안]을 누르면 — 묶음별 제안 창 <small>누르는 즉시 창이 뜨고, 묶음은 뒤에서 하나씩 채워짐</small></div>
+<div class="scr" style="padding:.5em">
+ <div class="sheet new">
+  <h3>정돈 제안 <i>✕</i></h3>
+  <p class="sub">같은 종류인데 폴더가 갈라진 자료 3묶음(15개)을 찾았어요. 묶음마다 고르세요.</p>
+
+  <div class="gh">합의서 <small>9개</small><span class="sp seg"><span class="on">옮기기</span><span>그대로</span></span></div>
+  <div class="from">지금: 임금협약 5 · <b>성명·보도자료 2</b> · <b>잡동사니 2</b></div>
+  <div class="sg"><span class="cb">✓</span><span class="nm"><span class="k hwp">한글</span> 예시 철도 잠정합의서</span>
+    <span class="why">지금 성명·보도자료에 있음</span></div>
+  <div class="sg"><span class="cb">✓</span><span class="nm"><span class="k" style="background:#b0607e">그림</span> 예시 합의서 3쪽</span>
+    <span class="why">지금 잡동사니에 있음</span></div>
+  <div class="sg"><span class="cb off"></span><span class="nm"><span class="k hwp">한글</span> 예시 합의서 이행 촉구 보도자료</span>
+    <span class="why">성명·보도자료에 그대로(이름에 '보도자료' — 체크 풀어 둠)</span></div>
+  <div class="to" style="font-size:.88em;color:#47532a;margin:.2em 0 .1em">모두 → <span class="btn" style="padding:0 .4em">📁 임금협약 › 합의서 ▾</span><span class="nf">새 폴더</span></div>
+  <div class="why" style="font-size:.8em;color:#6e6c60">'임금협약'에 합의서가 가장 많아 그 안에 '합의서' 폴더를 새로 제안 · 이미 맞는 곳에 있는 5개도 함께</div>
+
+  <div class="gh">회의 자료 <small>4개</small><span class="sp seg"><span>옮기기</span><span class="on">그대로</span></span></div>
+  <div class="from">지금: 회의 › 쟁대위 2 · <b>예시 조직 2</b></div>
+  <div class="ok">'그대로'를 골라 이 묶음은 안 옮겨요 ▸</div>
+
+  <div class="gh">교육 명단 <small>2개</small><span class="sp seg"><span class="on">옮기기</span><span>그대로</span></span></div>
+  <div class="from">지금: <b>잡동사니 1</b> · 교육 1 → 모두 📁 교육 ▾</div>
+
+  <div class="wait">더 찾는 중… (자료 340개 중 220개 봄)</div>
+  <div class="foot"><span class="btn">닫기</span><span class="btn pri">고른 11개 옮기기</span></div>
+ </div>
+</div>
+
+<div class="cap">③ 옮긴 뒤</div>
+<div class="scr">
+  <div class="bar">‹ 자료실 › 임금협약 › <b>합의서</b></div>
+  <div class="lrow"><span class="k hwp">한글</span><span class="nm">예시 철도 잠정합의서</span><small>11/13</small></div>
+  <div class="lrow"><span class="k" style="background:#b0607e">그림</span><span class="nm">예시 합의서 3쪽</span><small>11/13</small></div>
+  <div class="lrow" style="color:#6e6c60;font-size:.9em">… 6개 더</div>
+  <div style="margin-top:.6em"><span class="toast">11개를 옮겼어요 · 새 폴더 1개 <u>되돌리기</u></span></div>
+</div>
+</div>
+
+<div class="legend">
+<b>요청함 방 추천 — 명진 확정 아님</b><br>
+· '받는 폴더 나누기'(잡동사니 하나만 봄)와 같은 부품을 자료실 전체(또는 고른 폴더 안)로 넓힌 것. 같은 제안 창·고르기 창·[되돌리기]를 그대로 씀.<br>
+· 묶음 찾기: ① 이름에 같은 낱말(합의서·회의록·명단 등)이 있거나 분류·사업이 같은 자료인데 폴더가 둘 이상으로 갈라진 것 ② 그걸로 못 묶은 것만 AI가 제목·본문 첫머리를 보고 묶음. 묶음마다 가장 많이 든 폴더를 옮길 곳으로, 마땅치 않으면 새 폴더 제안.<br>
+· AI는 제안까지만 — 명진이 [옮기기]를 눌러야 옮겨요. 묶음은 [옮기기]/[그대로], 자료는 체크로 하나씩 뺄 수 있고, 옮길 폴더도 ▾로 바꿔요.<br>
+· 저절로 돌지 않아요. 명진이 메뉴를 누를 때만. [되돌리기] 한 번이면 이번에 옮긴 것 전부 원래 폴더로, 새로 만든 빈 폴더도 지움.<br>
+· 파일 원본(Drive)은 그대로 두고 자료실 폴더만 바뀌어요.
+</div>
+</body></html>
