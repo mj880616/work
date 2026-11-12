@@ -28,13 +28,13 @@ const ans=(text,finish='STOP',extra={})=>({candidates:[{content:{role:'model',pa
 const code=j=>{try{m.readTranscript(j);return 'ok'}catch(e){return e.code}};
 
 test('S60-9 request: generateContent with uploaded file + verbatim Korean prompt, thinking off, low temperature, max output 65,536',()=>{
- assert.equal(m.TRANSCRIBE_MODEL,'gemini-2.5-flash');
- assert.equal(m.transcribePath(),'/v1beta/models/gemini-2.5-flash:generateContent');
+ assert.equal(m.TRANSCRIBE_MODEL,'gemini-3.5-flash-lite');
+ assert.equal(m.transcribePath(),'/v1beta/models/gemini-3.5-flash-lite:generateContent');
  assert.equal(m.transcribePath('gemini-2.5-flash-lite'),'/v1beta/models/gemini-2.5-flash-lite:generateContent');
  const r=m.transcriptionRequest('https://generativelanguage.googleapis.com/v1beta/files/x','audio/ogg');
  assert.deepEqual(r,{
   contents:[{role:'user',parts:[{fileData:{mimeType:'audio/ogg',fileUri:'https://generativelanguage.googleapis.com/v1beta/files/x'}},{text:m.TRANSCRIBE_PROMPT}]}],
-  generationConfig:{temperature:0.2,maxOutputTokens:65536,thinkingConfig:{thinkingBudget:0}},
+  generationConfig:{temperature:0.2,maxOutputTokens:65536},
  });
  assert.equal(m.TRANSCRIBE_MAX_OUTPUT_TOKENS,65536);assert.ok(m.TRANSCRIBE_TEMPERATURE>0&&m.TRANSCRIBE_TEMPERATURE<=0.3);
  // 지시문: 그대로 받아 적기(요약·의역 금지) · 화자 줄 · 안 들림 표시 · 머리말 없음.
@@ -259,23 +259,25 @@ test('REC-한회의로잇기: 글 내용은 로그·오류·응답에 싣지 않
  assert.match(index,/sender\.send\(d\.fcm_token, \{ kind: 'meeting_done', title: kind === 'join' \? '보고에 이어 붙였어요' : '회의 요약이 준비됐어요', open, urgent: true \}\)/);
 });
 
-test('회의 전사 모델 가격은 가격표에 있다(단가 미확인으로 세지 않음) — S60-9 2.5 Flash, 지난 기록 모델 줄도 그대로', async () => {
+test('회의 전사 모델 가격은 가격표에 있다(단가 미확인으로 세지 않음) — CC V60 3.5 Flash-Lite(2.5 Flash는 404·퇴역), 지난 기록 모델 줄도 그대로', async () => {
  const p = await import('../../supabase/functions/_shared/ai-prices.mjs');
  const base = p.geminiPrice(m.TRANSCRIBE_MODEL);
  assert.ok(base, '전사 모델이 가격표에 있어야 함');
- assert.equal(base.prefix, 'gemini-2.5-flash');
- // 100만 음성 토큰 + 100만 출력 토큰(생각 포함) = 1달러 + 2.5달러(1달러 1,400원)
- assert.equal(p.geminiKrw(m.TRANSCRIBE_MODEL, 1_000_000, 1_000_000, 1_000_000), 4900);
+ assert.equal(base.prefix, 'gemini-3.5-flash-lite');
+ // 100만 음성 토큰 + 100만 출력 토큰(생각 포함) = 0.30달러 + 2.5달러(1달러 1,400원)
+ assert.equal(p.geminiKrw(m.TRANSCRIBE_MODEL, 1_000_000, 1_000_000, 1_000_000), 3920);
+ // 2.5 Flash 줄도 그대로(지난 사용량·수집기 셈)
+ assert.equal(p.geminiPrice('gemini-2.5-flash').prefix, 'gemini-2.5-flash');
  // 지난 사용량 행(gemini-3.5-transcribe)은 옛 단가 그대로 센다(이번 달 합계가 바뀌지 않음).
  assert.equal(p.geminiPrice('gemini-3.5-transcribe').prefix, 'gemini-3.5-transcribe');
  assert.equal(p.geminiPrice('gemini-3.5-transcribe-live').prefix, 'gemini-3.5-transcribe-live');
  assert.equal(p.geminiKrw('gemini-3.5-transcribe', 1_000_000, 1_000_000, 1_000_000), 19600);
  // 비교용 Flash-Lite도 표에 있다(모델 이름만 바꾸면 가격 셈도 따라감).
  assert.equal(p.geminiPrice('gemini-2.5-flash-lite').prefix, 'gemini-2.5-flash-lite');
- // 41분 녹음 예상(PR 본문): 음성 78,720토큰 + 출력 45,000토큰 ≈ 268원(옛 모델 ≈ 976원).
+ // 41분 녹음 예상: 음성 78,720토큰 + 출력 45,000토큰 ≈ 191원(3.5 Flash-Lite, 옛 전사 모델 ≈ 976원).
  const audio=41*60*m.AUDIO_TOKENS_PER_SECOND;
  assert.equal(audio,78720);
- assert.equal(Math.round(p.geminiKrw(m.TRANSCRIBE_MODEL,audio,audio,45000)),268);
+ assert.equal(Math.round(p.geminiKrw(m.TRANSCRIBE_MODEL,audio,audio,45000)),191);
  assert.equal(Math.round(p.geminiKrw('gemini-3.5-transcribe',audio,audio,45000)),976);
 });
 
@@ -287,7 +289,7 @@ test('글을 못 받은 시도는 월 상한에 넣지 않는다(실패 머리 m
  assert.ok(!bad.startsWith(m.USAGE_REF_PREFIX), '실패 머리는 월 상한 셈(mtg-)과 겹치면 안 됨');
  assert.match(bad,/^[A-Za-z0-9_.:-]{8,80}$/, 'DB ref 규칙 안');
  const row=ref=>({ref,model:m.TRANSCRIBE_MODEL,input_tokens:1_000_000,audio_tokens:1_000_000,output_tokens:0});
- assert.equal(m.monthKrw([row(ok),row(bad)]),1400,'실패 머리 행은 빼고 성공 행만(2.5 Flash 음성 100만 토큰 = 1,400원)');
+ assert.equal(m.monthKrw([row(ok),row(bad)]),420,'실패 머리 행은 빼고 성공 행만(3.5 Flash-Lite 음성 100만 토큰 = 420원)');
  // 서버는 답을 읽은 뒤 성공 여부로 머리를 정하고, 실패면 기록한 다음 원래 오류를 다시 던진다.
  const index=readFileSync(new URL('../../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
  // 긴 소리를 나눠 동시에 전사하는 조각은 조각 번호를 붙여 겹치지 않게(REC-긴녹음나눠전사).

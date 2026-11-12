@@ -11,6 +11,8 @@ export const AI_MONTHLY_LIMIT_FEED_KRW = 6000;    // collector-feed: 텔레그�
 // 2025년 Google 공식 가격표 기준(유료 등급, 20만 토큰 이하 요청). 음성 입력은 글 입력보다 비싸 따로 둔다.
 // 모델 이름 앞부분으로 찾고(긴 것부터), 표에 없는 모델은 가장 비싼 줄(GEMINI_UNKNOWN_PRICE)로 세고 화면에 '단가 미확인'을 붙인다.
 export const GEMINI_PRICES = Object.freeze([
+  // Gemini 3.5 Flash-Lite(공식 가격표 2026-11-12: 입력 글·그림·영상·소리 0.30달러, 출력 2.50달러 — 생각 토큰 포함)
+  { prefix: 'gemini-3.5-flash-lite', input: usd(0.30), audio: usd(0.30), output: usd(2.50) },
   { prefix: 'gemini-2.5-flash-lite', input: usd(0.10), audio: usd(0.30), output: usd(0.40) },
   { prefix: 'gemini-2.5-flash', input: usd(0.30), audio: usd(1.00), output: usd(2.50) },
   { prefix: 'gemini-2.5-pro', input: usd(1.25), audio: usd(1.25), output: usd(10.00) },

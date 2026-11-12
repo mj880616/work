@@ -6,8 +6,9 @@ import { geminiKrw } from '../_shared/ai-prices.mjs';
 
 // 회의 녹음 전사 모델(S60-9 REC-전사모델바꾸기, 명진 결정 11/12 "더 싼 전사모델로"): 이 한 줄만 바꾸면 전사 요청·사용량·가격 셈이 모두 따라간다
 // (나중에 같은 녹음으로 gemini-2.5-flash-lite와 비교할 때도 여기만). 옛 전사 전용 모델(gemini-3.5-transcribe)의 지난 사용량 행은 그대로 둔다.
-export const TRANSCRIBE_MODEL = 'gemini-2.5-flash';
-// 공식 모델 안내(ai.google.dev gemini-2.5-flash, 2026-11-12 확인): 출력 상한 65,536토큰. 생각은 thinkingBudget 0으로 끈다(2.5 Flash는 0 = 끔).
+export const TRANSCRIBE_MODEL = 'gemini-3.5-flash-lite';
+// 공식 안내(2026-11-12 확인): gemini-2.5-flash는 이 열쇠에서 404(퇴역 중, 12/1부터 3.5 Flash-Lite로 넘어감) → gemini-3.5-flash-lite. 출력 상한 65,536토큰.
+// 생각은 끌 수 없고 기본값이 가장 낮은 단계(minimal)라 thinkingConfig를 보내지 않는다(3.x는 thinkingBudget을 받지 않을 수 있음).
 export const TRANSCRIBE_MAX_OUTPUT_TOKENS = 65536;
 // 받아 적기는 답이 하나여야 한다 → 낮게. 0(늘 같은 다음 낱말)은 같은 말 되풀이에 빠지기 쉬워 조금 띄운다.
 export const TRANSCRIBE_TEMPERATURE = 0.2;
@@ -149,7 +150,7 @@ export function parseUpload({ name, length, type, seconds }) {
 // ---- 전사 요청(S60-9: gemini-2.5-flash generateContent, 공식 REST 모양) ----
 // POST /v1beta/models/{모델}:generateContent
 //   contents[0].parts = [ {fileData:{mimeType,fileUri}}(Files API로 올린 녹음), {text: 지시문} ]
-//   generationConfig = { temperature, maxOutputTokens(모델 최대 65,536), thinkingConfig:{thinkingBudget:0}(생각 끔 — 생각 토큰도 출력값으로 셈) }
+//   generationConfig = { temperature, maxOutputTokens(모델 최대 65,536) } — 생각은 모델 기본(minimal), 생각 토큰도 출력값으로 셈
 // 지시문: 한국어 회의를 그대로 받아 적기(요약·의역 금지), 말하는 사람이 바뀌면 '화자1: '·'화자2: ' 줄, 안 들리면 '(안 들림)'만.
 // 조각(split.mjs)마다 따로 요청하므로 화자 번호는 조각마다 1부터 새로 시작한다(조각 사이에는 '― N분부터 ―' 머리 줄이 들어감, 구간 사이와 같음).
 export const UNCLEAR_MARK = '(안 들림)';
@@ -170,7 +171,6 @@ export function transcriptionRequest(fileUri, mimeType) {
     generationConfig: {
       temperature: TRANSCRIBE_TEMPERATURE,
       maxOutputTokens: TRANSCRIBE_MAX_OUTPUT_TOKENS,
-      thinkingConfig: { thinkingBudget: 0 },
     },
   };
 }
