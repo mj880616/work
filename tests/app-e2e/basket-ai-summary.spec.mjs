@@ -72,9 +72,9 @@ async function openLink(page,width){
 const pressHeight=button=>button.evaluate(el=>Math.max(el.getBoundingClientRect().height,parseFloat(getComputedStyle(el,'::after').height)||0));
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [390,1280])test(`an empty summary box is filled by [AI 요약] and saved only by [연결] ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`an empty summary box is filled by [요약 만들기] and saved only by [연결] ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openLink(page,width);
- const box=detail.locator(`[data-manual-summary="organization:${o}"]`),run=detail.getByRole('button',{name:'AI 요약 만들기'});
+ const box=detail.locator(`[data-manual-summary="organization:${o}"]`),run=detail.getByRole('button',{name:'요약 만들기'});
  await expect(box).toHaveValue('');await expect(run).toBeVisible();expect(await pressHeight(run)).toBeGreaterThanOrEqual(44);
  f.queue.push({hold:true});await tap(page,run,width);
  await expect(detail.locator('[data-manual-ai-status]')).toHaveText('요약 만드는 중…');await expect(run).toBeDisabled();
@@ -95,13 +95,13 @@ for(const width of [390,1280])test(`an empty summary box is filled by [AI 요약
 for(const width of [390,1280])test(`a box with text keeps it; the proposal replaces it only on [이걸로 바꾸기] ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openLink(page,width);
  const box=detail.locator(`[data-manual-summary="organization:${o}"]`);await box.fill('직접 쓴 요약');
- await tap(page,detail.getByRole('button',{name:'AI 요약 만들기'}),width);
+ await tap(page,detail.getByRole('button',{name:'요약 만들기'}),width);
  const proposal=detail.locator('[data-manual-ai-proposal]');await expect(proposal).toContainText(AI_TEXT);await expect(box).toHaveValue('직접 쓴 요약');
  await expect(detail.locator('[data-manual-ai-status]')).toHaveText('칸에 쓴 글은 그대로 두었어요. 제안을 쓰려면 [이걸로 바꾸기]를 눌러 주세요.');
  const apply=proposal.getByRole('button',{name:'이걸로 바꾸기'});await expect(apply).toBeFocused();expect(await pressHeight(apply)).toBeGreaterThanOrEqual(44);
  // Closing the proposal keeps the written text.
  await tap(page,proposal.getByRole('button',{name:'제안 닫기'}),width);await expect(proposal).toHaveCount(0);await expect(box).toHaveValue('직접 쓴 요약');
- await tap(page,detail.getByRole('button',{name:'AI 요약 만들기'}),width);await tap(page,detail.locator('[data-manual-ai-proposal]').getByRole('button',{name:'이걸로 바꾸기'}),width);
+ await tap(page,detail.getByRole('button',{name:'요약 만들기'}),width);await tap(page,detail.locator('[data-manual-ai-proposal]').getByRole('button',{name:'이걸로 바꾸기'}),width);
  await expect(box).toHaveValue(AI_TEXT);await expect(detail.locator('[data-manual-ai-proposal]')).toHaveCount(0);await expect(box).toBeFocused();
  expect(f.calls).toEqual([]);
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
@@ -121,30 +121,30 @@ const failures=[
 for(const [name,reply,message,retry] of failures)test(`${name}: the box stays as it was with one plain message`,async({page})=>{
  const f=await fixture(page),detail=await openLink(page,1280),box=detail.locator(`[data-manual-summary="organization:${o}"]`);
  await box.fill('삭제하면 안 되는 초안');f.queue.push(reply);
- await detail.getByRole('button',{name:'AI 요약 만들기'}).click();
+ await detail.getByRole('button',{name:'요약 만들기'}).click();
  await expect(detail.locator('[data-manual-ai-status]')).toHaveText(message);await expect(box).toHaveValue('삭제하면 안 되는 초안');
  await expect(detail.locator('[data-manual-ai-proposal]')).toHaveCount(0);await expect(detail.locator('[data-manual-status]')).toHaveText('');
- const again=detail.locator('[data-manual-ai-run]');await expect(again).toBeEnabled();await expect(again).toHaveText(retry?'다시 시도':'AI 요약');await expect(again).toBeFocused();
+ const again=detail.locator('[data-manual-ai-run]');await expect(again).toBeEnabled();await expect(again).toHaveText(retry?'다시 시도':'요약 만들기');await expect(again).toBeFocused();
  await expect(detail.locator('.ai-summary-status')).toHaveCount(1);expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
 
 test('[다시 시도] after a busy AI asks once more and then offers the proposal',async({page})=>{
  const f=await fixture(page),detail=await openLink(page,1280);f.queue.push({status:503,json:{ok:false,error:'ai_busy'}});
- await detail.getByRole('button',{name:'AI 요약 만들기'}).click();await expect(detail.locator('[data-manual-ai-status]')).toHaveText('AI가 지금 바빠요. 잠시 뒤 다시 눌러 주세요.');
- await detail.getByRole('button',{name:'AI 요약 다시 시도'}).click();
- await expect(detail.locator(`[data-manual-summary="organization:${o}"]`)).toHaveValue(AI_TEXT);await expect(detail.locator('[data-manual-ai-run]')).toHaveText('AI 요약');
+ await detail.getByRole('button',{name:'요약 만들기'}).click();await expect(detail.locator('[data-manual-ai-status]')).toHaveText('AI가 지금 바빠요. 잠시 뒤 다시 눌러 주세요.');
+ await detail.getByRole('button',{name:'요약 만들기 다시 시도'}).click();
+ await expect(detail.locator(`[data-manual-summary="organization:${o}"]`)).toHaveValue(AI_TEXT);await expect(detail.locator('[data-manual-ai-run]')).toHaveText('요약 만들기');
  expect(f.ai).toHaveLength(2);expect(f.errors).toEqual([]);
 });
 
 test('a late AI answer for a removed pick or a cancelled panel changes nothing',async({page})=>{
  const f=await fixture(page),detail=await openLink(page,1280);f.queue.push({hold:true});
- await detail.getByRole('button',{name:'AI 요약 만들기'}).click();await expect(detail.locator('[data-manual-ai-status]')).toHaveText('요약 만드는 중…');
+ await detail.getByRole('button',{name:'요약 만들기'}).click();await expect(detail.locator('[data-manual-ai-status]')).toHaveText('요약 만드는 중…');
  await detail.getByRole('button',{name:'합성 한빛지부 빼기'}).click();await expect(detail.locator('[data-manual-target]')).toHaveCount(0);
  await f.release();await expect.poll(()=>f.ai.length).toBe(1);await page.waitForTimeout(100);
  await expect(detail.locator('[data-manual-target]')).toHaveCount(0);await expect(detail.locator('[data-manual-status]')).toHaveText('');expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('an AI-excluded update never opens the link panel, so there is no [AI 요약]',async({page})=>{
+test('an AI-excluded update never opens the link panel, so there is no [요약 만들기]',async({page})=>{
  const f=await fixture(page,{note:{ai_export_allowed:false}});
  await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);await page.locator(`[data-basket-row="${n}"]`).click();
  const detail=page.locator('[data-basket-detail]');await expect(page.locator('[data-basket-read-text]')).toBeVisible();
@@ -166,7 +166,7 @@ const editRow=async(page,which)=>{const id=await page.evaluate(w=>window.__detai
 
 for(const width of [390,1280])test(`요약 수정: the current summary stays; the proposal needs [이걸로 바꾸기], then [저장] saves ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await detailReady(page),row=await editRow(page,'link'),input=row.locator('[data-link-summary-input]');
- await expect(input).toHaveValue('연결 요약');const run=row.getByRole('button',{name:'AI 요약 만들기'});await expect(run).toBeVisible();expect(await pressHeight(run)).toBeGreaterThanOrEqual(44);
+ await expect(input).toHaveValue('연결 요약');const run=row.getByRole('button',{name:'요약 만들기'});await expect(run).toBeVisible();expect(await pressHeight(run)).toBeGreaterThanOrEqual(44);
  await run.click();const proposal=row.locator('[data-link-summary-ai-proposal]');await expect(proposal).toContainText(AI_TEXT);await expect(input).toHaveValue('연결 요약');
  expect(f.ai).toEqual([{kind:'link_summary',note_id:await page.evaluate(()=>window.__detailState.ids.note),target_kind:'organization',target_id:await page.evaluate(()=>window.__detailState.ids.org)}]);
  expect(await page.evaluate(()=>window.__detailState.calls.filter(x=>x.method!=='GET'))).toEqual([]);
@@ -178,7 +178,7 @@ for(const width of [390,1280])test(`요약 수정: the current summary stays; th
 
 test('요약 수정: an empty summary (NULL) is filled at once and not saved until [저장]',async({page})=>{
  await detailReady(page);const row=await editRow(page,'nullLink'),input=row.locator('[data-link-summary-input]');await expect(input).toHaveValue('');
- await row.getByRole('button',{name:'AI 요약 만들기'}).click();await expect(input).toHaveValue(AI_TEXT);
+ await row.getByRole('button',{name:'요약 만들기'}).click();await expect(input).toHaveValue(AI_TEXT);
  await expect(row.locator('[data-link-summary-ai-status]')).toHaveText('AI 요약을 칸에 넣었어요. 아직 저장 전이에요. 수정한 뒤 [저장]을 눌러 주세요.');
  expect(await page.evaluate(()=>window.__detailState.calls.filter(x=>x.method!=='GET'))).toEqual([]);
 });
@@ -186,12 +186,12 @@ test('요약 수정: an empty summary (NULL) is filled at once and not saved unt
 test('요약 수정: not deployed and daily limit keep the box with one plain message',async({page})=>{
  const f=await detailReady(page),row=await editRow(page,'link'),input=row.locator('[data-link-summary-input]');
  f.queue.push('abort',{status:429,json:{ok:false,error:'daily_limit'}});
- await row.getByRole('button',{name:'AI 요약 만들기'}).click();await expect(row.locator('[data-link-summary-ai-status]')).toHaveText('AI 요약은 아직 준비 중이에요.');await expect(input).toHaveValue('연결 요약');
- await row.getByRole('button',{name:'AI 요약 만들기'}).click();await expect(row.locator('[data-link-summary-ai-status]')).toHaveText('오늘 AI 요약을 쓸 수 있는 횟수를 다 썼어요. 요약은 직접 써 주세요.');await expect(input).toHaveValue('연결 요약');
+ await row.getByRole('button',{name:'요약 만들기'}).click();await expect(row.locator('[data-link-summary-ai-status]')).toHaveText('AI 요약은 아직 준비 중이에요.');await expect(input).toHaveValue('연결 요약');
+ await row.getByRole('button',{name:'요약 만들기'}).click();await expect(row.locator('[data-link-summary-ai-status]')).toHaveText('오늘 AI 요약을 쓸 수 있는 횟수를 다 썼어요. 요약은 직접 써 주세요.');await expect(input).toHaveValue('연결 요약');
  await expect(row.locator('[data-link-summary-status]')).toHaveText('');
 });
 
-for(const [name,note] of [['archived',{archived_at:'2026-10-12T01:00:00Z'}],['AI-excluded',{ai_export_allowed:false}],['diary',{kind:'diary'}]])test(`요약 수정: no [AI 요약] for a ${name} note`,async({page})=>{
+for(const [name,note] of [['archived',{archived_at:'2026-10-12T01:00:00Z'}],['AI-excluded',{ai_export_allowed:false}],['diary',{kind:'diary'}]])test(`요약 수정: no [요약 만들기] for a ${name} note`,async({page})=>{
  const f=await detailReady(page,note),row=await editRow(page,'link');await expect(row.locator('[data-link-summary-input]')).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>window.__detailState.calls.some(c=>c.path.includes('/app_notes?')))).toBe(true);
  await page.waitForTimeout(100);await expect(row.locator('[data-link-summary-ai-run]')).toHaveCount(0);expect(f.ai).toEqual([]);

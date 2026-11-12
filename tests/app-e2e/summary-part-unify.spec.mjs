@@ -2,7 +2,7 @@ import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helper
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// UPD-요약부품통일 A·C: 업데이트 [연결하기]에서 참고 묶음에도 [AI 요약], 사진·파일 업데이트에는 [요약해서 기록으로].
+// UPD-요약부품통일 A·C: 업데이트 [연결하기]에서 참고 묶음에도 [요약 만들기], 사진·파일 업데이트에는 [요약해서 기록으로].
 // ai-assist·Supabase는 모두 가짜. 합성 ID·글만 쓴다.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-24T01:00:00Z';
@@ -52,7 +52,7 @@ async function pick(page,detail,kind,name,width){
 }
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [390,1280])test(`A: 참고 묶음 요약 칸에도 [AI 요약] — 빈 칸은 바로 채우고 [연결]이 저장 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`A: 참고 묶음 요약 칸에도 [요약 만들기] — 빈 칸은 바로 채우고 [연결]이 저장 ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openLink(page,width);
  await pick(page,detail,'reference','철도 안전',width);
  const key=`reference:${b}`,box=detail.locator(`[data-manual-summary="${key}"]`);
@@ -139,7 +139,7 @@ test('C: 읽은 글자가 없다는 서버 답은 칸을 그대로 두고 한 �
  expect(f.errors).toEqual([]);
 });
 
-// ---- B①: 사업 보고 수정 창 — 연결한 곳마다 요약 칸 + [AI 요약](재료 = 이 사업 보고 본문), 저장은 [수정 저장] ----
+// ---- B①: 사업 보고 수정 창 — 연결한 곳마다 요약 칸 + [요약 만들기](재료 = 이 사업 보고 본문), 저장은 [수정 저장] ----
 import {signInWithSession} from './helpers/session-login.mjs';
 import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -176,7 +176,7 @@ async function meetingFixture(page,{linkSummary=null}={}){
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
  return {sets,ai,errors};
 }
-for(const width of [390,1280])test(`B①: 사업 보고 연결 곳마다 요약 칸 — [AI 요약]이 빈 칸을 채우고 [수정 저장]이 그 곳 요약으로 저장 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`B①: 사업 보고 연결 곳마다 요약 칸 — [요약 만들기]가 빈 칸을 채우고 [수정 저장]이 그 곳 요약으로 저장 ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await meetingFixture(page);
  await openMeetingResult(page,MID);await mrdMenu(page,'edit');
  const box=page.locator(`[data-report-summary-input="project:${PROJ}"]`);await expect(box).toBeVisible();await expect(box).toHaveValue('');

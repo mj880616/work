@@ -154,7 +154,7 @@ export const newAiState=()=>({busy:false,status:'',retry:false,proposal:'',run:0
 // slot: a second row on the same box uses its own attribute names (UPD-사진요약기록 [요약해서 기록으로] = slot 'files-ai').
 // waiting: a fixed note shown instead of the button (for example '글자 읽는 중'), so the person sees why it cannot run yet.
 // cls: extra classes for the host's own small-button look (the 사업 보고 window uses 'mini secondary').
-export function aiSummaryMarkup(state,key,attr,esc,{label:name='AI 요약',slot='ai',aria='AI 요약 만들기',waiting='',cls=''}={}){
+export function aiSummaryMarkup(state,key,attr,esc,{label:name='요약 만들기',slot='ai',aria='요약 만들기',waiting='',cls=''}={}){
   const k=esc(key),p=`${attr}-${slot}`,label=state.retry&&!state.busy?'다시 시도':name;
   if(waiting&&!state.busy)return `<div class="ai-summary" data-ai-summary data-ai-slot="${esc(slot)}"><div class="ai-summary-row"><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(waiting)}</span></div></div>`;
   return `<div class="ai-summary" data-ai-summary data-ai-slot="${esc(slot)}"><div class="ai-summary-row"><button type="button" class="ai-summary-run${cls?' '+esc(cls):''}" ${p}-run="${k}" aria-label="${state.retry&&!state.busy?esc(name)+' 다시 시도':esc(aria)}"${state.busy?' disabled aria-busy="true"':''}>${esc(label)}</button><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(state.busy?'요약 만드는 중…':state.status)}</span></div>`

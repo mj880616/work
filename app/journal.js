@@ -580,7 +580,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (isRecordWeek(start)) paintBizDetail(host);
   else W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // S52-31: 5. 주요 일정 제목 줄 [AI로 다듬기](달력 일정이 있을 때, + 추가 옆 작은 글자 버튼) — 아래로 따로 빠진 칸 고치기 덩어리에서 옮김.
-  const aiLead = weekModel.calendar?.rows?.length ? [{text:'AI로 다듬기', data:'journalScheduleAi', aria:'5. 주요 일정 제목 AI로 다듬기', disabled:!!weekModel.scheduleView?.aiBusy}] : [];
+  const aiLead = weekModel.calendar?.rows?.length ? [{text:'제목 다듬기', data:'journalScheduleAi', aria:'5. 주요 일정 제목 다듬기', disabled:!!weekModel.scheduleView?.aiBusy}] : [];
   for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek), lead:part === 'calendar' ? aiLead : []});
   hwpx?.afterRender?.(); // 열린 일정 고치기 칸의 초점을 되돌린다
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),

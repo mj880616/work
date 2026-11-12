@@ -30,7 +30,7 @@ export const SOURCES = Object.freeze([
   {key:'telegramSend', label:'텔레그램 보내기', collector:'telegram_send', send:true},
   {key:'callSend', label:'통화 보내기', collector:'call_send', send:true},
   {key:'copy', label:'Claude용 Drive 사본'},
-  {key:'radar', label:'챙길 것 찾기(AI)'},
+  {key:'radar', label:'챙길 것 찾기'},
 ]);
 // 건수 칸을 채우는 줄(통화 전사·텔레그램). 값은 점검 신호의 최근 24시간 새 파일 수이고, 신호에 건수가 없으면 칸을 비운다.
 const COUNT_KEYS = new Set(['call', 'telegram']);
