@@ -116,7 +116,7 @@ export function createLibraryTwo(h) {
     const node = c.node || {key: id ? 'f:' + id : OUT_KEY};
     const rows = paneRows({...c, node}, isOpen, sorts[i]).map(r => (r.kind === 'folder' ? folderRow(r) : filesHtml(r))).join('');
     return `<section class="lu-pane" data-lu-pane-i="${i}" data-lu-pane-folder="${h.esc(id || '')}" aria-label="${side} 칸">`
-      + `<div class="lu-pane-head">${up}<nav class="lu-pane-path" aria-label="${side} 칸 위치">${steps}</nav>${sort}</div>`
+      + `<div class="lu-pane-head">${up}<nav class="lu-pane-path" aria-label="${side} 칸 위치">${steps}</nav>${h.sortBtn?.(id) || ''}${sort}</div>`
       + `<div class="lu-pane-list" role="list">${rows || (h.ready() ? emptyHtml(c.found ? '빈 폴더' : '없음') : waitHtml({rows: 3}))}</div></section>`;
   }
   // #documentList 안에 넣을 두 칸 HTML. tree = 거르기까지 한 폴더 묶기 나무(폴더 밖 묶음 포함, 들어가기 전 전체).

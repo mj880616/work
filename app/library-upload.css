@@ -526,3 +526,25 @@
 /* LIB-사진숨김(S60-10): 묶음 안 사진은 줄에서 빼고 맨 아래 [사진 n](photo-fold.js). 펼치면 그 자리에 작은 그림 칸. */
 .lu-photo-fold{padding:2px 2px 6px}
 #documentList .lu-photo-fold .photo-fold-tile .lu-thumb{width:100%;height:100%}
+/* LIB-받는폴더나누기(S60-18, 시안 lib-receive-sort.html): 받는 폴더 위치 줄·칸 머리의 작은 [폴더로 나누기]와 제안 창. 콤팩트 줄, 크고 굵은 버튼 없음. */
+.lu-sort-btn{flex:none;margin-left:auto;white-space:nowrap}
+#libraryPath .lu-sort-btn{margin-left:auto}
+.lu-pane-head .lu-sort-btn{margin-left:4px}
+#librarySortModal .lu-sort-card{max-width:560px;width:calc(100vw - 24px);display:flex;flex-direction:column;max-height:min(86vh,720px)}
+#librarySortModal .lu-sort-sub{margin:2px 0 0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#librarySortModal .lu-sort-list{overflow:auto;min-height:60px;flex:1 1 auto;border-top:1px solid var(--kptu-border)}
+#librarySortModal .lu-sort-row{display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:6px;row-gap:1px;padding:6px 2px;border-bottom:1px solid var(--kptu-border);align-items:start}
+#librarySortModal .lu-sort-check{margin:3px 0 0;width:16px;height:16px}
+#librarySortModal .lu-sort-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-body,14px)}
+#librarySortModal .lu-sort-name small{color:var(--kptu-muted)}
+#librarySortModal .lu-file-kind{display:inline-block;min-width:2.3em;padding:0 3px;border-radius:var(--kptu-radius-sm,4px);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:11px;text-align:center}
+#librarySortModal .lu-sort-to,#librarySortModal .lu-sort-why,#librarySortModal .lu-sort-edit{grid-column:2;min-width:0;font-size:var(--ds-text-meta,12px)}
+#librarySortModal .lu-sort-to{color:var(--kptu-primary-ink,var(--kptu-ink));display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+#librarySortModal .lu-sort-why{color:var(--kptu-muted)}
+#librarySortModal .lu-sort-wait{color:var(--kptu-muted)}
+#librarySortModal .lu-sort-pick{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+#librarySortModal .lu-sort-nf{flex:none;padding:0 6px;border:1px solid var(--kptu-warning,var(--kptu-border));border-radius:999px;color:var(--kptu-warning,var(--kptu-muted));font-size:11px}
+#librarySortModal .lu-sort-edit{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:2px}
+#librarySortModal .lu-sort-edit label{display:flex;align-items:center;gap:4px;color:var(--kptu-muted)}
+#librarySortModal .lu-sort-edit input{width:11em;min-height:26px;padding:0 6px;font-size:var(--ds-text-meta,12px)}
+#librarySortModal .lu-sort-stay>summary{padding:6px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);cursor:pointer}

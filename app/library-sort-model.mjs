@@ -62,11 +62,11 @@ export function mergeAi(rows,groups,answer,{folders=[],receiveId}={}){
     if(!r.wait)continue;
     const it=byId.get(String(r.ids[0]||'').toLowerCase());if(!it)continue;
     const why=typeof it.why==='string'?it.why.trim().slice(0,80):'';
-    if(it.folder_id&&ok.has(it.folder_id)){Object.assign(r,{to:{folder:it.folder_id},checked:true,why:why||'AI가 고른 폴더예요',wait:false,from:'ai'});continue}
+    if(it.folder_id&&ok.has(it.folder_id)){Object.assign(r,{to:{folder:it.folder_id},checked:true,why:why||'AI가 선택한 폴더예요',wait:false,from:'ai'});continue}
     const name=cleanFolderName(it.new?.name),parent=it.new?.parent_id||null;
     if(name&&(parent===null||ok.has(parent))&&canAddChild(folders,parent)){
       const same=open.find(f=>(f.parent_id||null)===parent&&String(f.name).trim()===name);
-      if(same){Object.assign(r,{to:{folder:same.id},checked:true,why:why||'AI가 고른 폴더예요',wait:false,from:'ai'});continue}
+      if(same){Object.assign(r,{to:{folder:same.id},checked:true,why:why||'AI가 선택한 폴더예요',wait:false,from:'ai'});continue}
       let g=nextGroups.find(x=>x.name===name&&(x.parent||null)===parent);
       if(!g){g={gid:'n'+(nextGroups.length+1),name,parent};nextGroups.push(g)}
       Object.assign(r,{to:{group:g.gid},checked:true,why:why||'맞는 폴더가 없어 새 폴더를 제안해요',wait:false,from:'ai'});
@@ -101,7 +101,7 @@ export function sortSummary(rows){
   const total=rows.length,wait=rows.filter(r=>r.wait).length,old=rows.filter(r=>!r.wait&&r.to?.folder).length,neu=rows.filter(r=>!r.wait&&r.to?.group).length,stay=rows.filter(r=>!r.wait&&!r.to).length;
   if(!total)return '받는 폴더에 나눌 자료가 없어요.';
   const parts=[old?`${old}개는 있는 폴더`:'',neu?`${neu}개는 새 폴더`:''].filter(Boolean);
-  return `${total}개 중 `+(parts.length?parts.join(', ')+'를 제안해요':'맞는 폴더를 아직 못 찾았어요')+(stay?` · 그대로 둬요 ${stay}개`:'')+(wait?` · 나머지 ${wait}개 찾는 중`:'')+'. 체크한 것만 옮겨요.';
+  return `${total}개 중 `+(parts.length?parts.join(', ')+'를 제안해요':'맞는 폴더를 아직 못 찾았어요')+(stay?` · 그대로 둬요 ${stay}개`:'')+(wait?` · 나머지 ${wait}개는 AI가 보고 있어요`:'')+'. 체크한 것만 옮겨요.';
 }
 // 옮긴 뒤 한 줄.
 export const doneText=(moved,made,failed=0)=>`${moved}개를 폴더로 옮겼어요${made?` · 새 폴더 ${made}개`:''}${failed?` · ${failed}개는 옮기지 못했어요`:''} ·`;

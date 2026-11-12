@@ -72,6 +72,6 @@ test('새 폴더 이름·자리 고치기, 체크를 다 풀면 만들지 않음
 });
 
 test('창 위 한 줄과 옮긴 뒤 한 줄',()=>{
-  assert.equal(sortSummary([{to:{folder:'a'}},{to:{group:'n1'}},{to:null},{wait:true}]),'4개 중 1개는 있는 폴더, 1개는 새 폴더를 제안해요 · 그대로 둬요 1개 · 나머지 1개 찾는 중. 체크한 것만 옮겨요.');
+  assert.equal(sortSummary([{to:{folder:'a'}},{to:{group:'n1'}},{to:null},{wait:true}]),'4개 중 1개는 있는 폴더, 1개는 새 폴더를 제안해요 · 그대로 둬요 1개 · 나머지 1개는 AI가 보고 있어요. 체크한 것만 옮겨요.');
   assert.equal(doneText(16,1),'16개를 폴더로 옮겼어요 · 새 폴더 1개 ·');
 });

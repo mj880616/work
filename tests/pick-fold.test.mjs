@@ -58,6 +58,7 @@ const SHORT_OR_OTHER = {
   'now-highlights.js': 'News [밑줄] 탭 [여러 개 선택] — 밑줄 줄마다 선택 칸(노트 하나로 묶기), 찾기는 위 News 찾기 칸',
   'ledger-browse.js': '기록 종류 칩(정해진 몇 개)',
   'library-upload.js': '자료 여러 개 선택 모드: 목록 자체에서 선택하는 것이라 선택 목록이 아님',
+  'library-sort.js': '받는 폴더 나누기 제안 창: 줄마다 옮길지 체크 + 갈 폴더(시안 lib-receive-sort.html) — 고르는 목록이 아니라 제안 승인 목록',
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',
   'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 선택은 사람 몇 명',
   'task-row-view.js': '할 일 완료 체크',
