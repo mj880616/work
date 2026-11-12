@@ -16,6 +16,52 @@ export function seoulDay(nowMs) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
+// 하루 요청 수 한도(모든 AI 쓰임 합계, 10/25 명진 결정 80). ai-assist(checkBudget)·meeting-transcribe·meeting-ai-draft·page-ai-draft가
+// 이 숫자 하나와 서울 날짜 하나로 같은 행(requests)을 센다(REC-멈춤띠계속뜸, S60-26b). 작업공간 설정 daily_request_limit은 하루 한도에 쓰지 않는다.
+export const DAILY_TOTAL_LIMIT = 80;
+
+/** @param {unknown} requests */
+export const overDailyLimit = requests => tok(requests) >= DAILY_TOTAL_LIMIT;
+
+// 오늘(서울 날짜) 행을 읽는다. 읽지 못하면 row=null(지금까지와 같이 본 작업을 막지 않음). 작업공간·사용자는 서버가 확인한 값만 넘긴다.
+/**
+ * @param {any} admin
+ * @param {{ workspaceId: string, userId: string, nowMs?: number }} opts
+ * @returns {Promise<{ day: string, row: any, over: boolean }>}
+ */
+export async function readTodayAiUsage(admin, { workspaceId, userId, nowMs = Date.now() }) {
+  const day = seoulDay(nowMs);
+  let row = null;
+  try {
+    const { data, error } = await admin.from('app_ai_daily_usage')
+      .select('requests,advanced_requests,input_tokens,output_tokens')
+      .eq('workspace_id', workspaceId).eq('user_id', userId).eq('day', day).maybeSingle();
+    if (!error && data) row = data;
+  } catch { row = null; }
+  return { day, row, over: overDailyLimit(row?.requests) };
+}
+
+// AI 한 번 부른 뒤 같은 행에 요청 1·토큰을 더한다(readTodayAiUsage가 준 day·row 그대로). 실패는 던지지 않고 'failed'.
+/**
+ * @param {any} admin
+ * @param {{ workspaceId: string, userId: string, day: string, row: any, usage?: any, nowMs?: number }} opts
+ * @returns {Promise<'recorded'|'failed'>}
+ */
+export async function addAiRequest(admin, { workspaceId, userId, day, row, usage, nowMs = Date.now() }) {
+  try {
+    const u = usage && typeof usage === 'object' ? usage : {};
+    const { error } = await admin.from('app_ai_daily_usage').upsert({
+      workspace_id: workspaceId, user_id: userId, day,
+      requests: tok(row?.requests) + 1,
+      advanced_requests: tok(row?.advanced_requests),
+      input_tokens: tok(row?.input_tokens) + tok(u.input_tokens),
+      output_tokens: tok(row?.output_tokens) + tok(u.output_tokens),
+      updated_at: new Date(nowMs).toISOString(),
+    }, { onConflict: 'workspace_id,user_id,day' });
+    return error ? 'failed' : 'recorded';
+  } catch { return 'failed'; }
+}
+
 // 요청 하나 동안 부른 AI 횟수·토큰을 모은다. raw는 OpenAI Responses 응답(usage.input_tokens·output_tokens).
 /** @returns {{ add: (raw: unknown) => void, readonly calls: number, readonly input: number, readonly output: number }} */
 export function createAiUsageMeter() {

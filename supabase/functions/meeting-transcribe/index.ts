@@ -56,9 +56,10 @@ import { outputText } from '../_shared/openai-responses.ts';
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
 import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, normalizeDraft, partsText } from '../_shared/meeting-draft-prompt.mjs';
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
+import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
-  SPLIT_CODES, audioDocument, cleanText, combineDrafts, doneParts, draftResult, halfMark, halves, hasThinPart, hasWords, isDiscarded, jobDiscardPatch, jobRestorePatch, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
+  SPLIT_CODES, audioDocument, carryClosed, cleanText, combineDrafts, doneParts, draftResult, failReason, failedCode, halfMark, halves, hasThinPart, hasWords, isDiscarded, jobDiscardPatch, jobRestorePatch, jobView, joinParts, leaseTake, needsKick, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
 } from './server-job.mjs';
 import {
   JOIN_DAY_COLUMNS, JOIN_JOB_TABLE, JOIN_MEETING_COLUMNS, JOIN_STEP_COLUMNS, JOIN_TICK_ACTION, JOIN_VIEW_COLUMNS,
@@ -955,12 +956,16 @@ async function runStep(id: string, kind: StepKind = 'job') {
   } catch (e) {
     const code = failCode(e);
     console.warn('meeting-transcribe: job step failed', kind, job.stage, code);
-    await patchStepJob(id, { status: 'failed', error_code: code, lease_until: null, attempts: job.attempts + 1, finished_at: new Date().toISOString() }, kind).catch(() => undefined);
+    // REC-멈춤띠계속뜸: 닫은 멈춤을 [다시] 했는데 같은 이유로 또 멈추면 닫은 그대로(띠를 또 띄우지 않음). 잇기 작업에는 이 표시가 없다.
+    const failed = kind === 'job' ? failedCode(job.error_code as string | null, code) : code;
+    await patchStepJob(id, { status: 'failed', error_code: failed, lease_until: null, attempts: job.attempts + 1, finished_at: new Date().toISOString() }, kind).catch(() => undefined);
     return;
   }
   // 잇기 작업의 apply는 DB 함수가 작업 행(done·적용 기록·잡기 비움)까지 한 트랜잭션으로 쓴다. 여기서 다시 쓰지 않는다
   // (바로 뒤에 온 되돌리기가 바꾼 상태를 done으로 덮지 않게).
-  if (!(kind === 'join' && job.stage === 'apply')) await patchStepJob(id, { ...next, error_code: null, lease_until: null, attempts: job.attempts + 1 }, kind);
+  // 단계 사이에는 닫음 표시를 이어 가고(같은 이유로 또 멈추면 닫은 그대로), 끝나면 빈 값.
+  const keep = kind === 'job' && next.status !== 'done' ? carryClosed(job.error_code as string | null) : null;
+  if (!(kind === 'join' && job.stage === 'apply')) await patchStepJob(id, { ...next, error_code: keep, lease_until: null, attempts: job.attempts + 1 }, kind);
   if (next.status === 'done') { await notifyDone(job, kind).catch(() => console.warn('meeting-transcribe: job push skipped')); return; }
   await kickTick(id, kind);
 }
@@ -1109,9 +1114,9 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
   if (!key) throw new Fail('draft_failed');
   const { data: set, error: setError } = await admin.from('app_ai_workspace_settings').select('*').eq('workspace_id', job.workspace_id).maybeSingle();
   if (setError || !set) throw new Fail('draft_failed');
-  const day = new Date().toISOString().slice(0, 10);
-  const { data: used } = await admin.from('app_ai_daily_usage').select('*').eq('workspace_id', job.workspace_id).eq('user_id', job.created_by).eq('day', day).maybeSingle();
-  if ((used?.requests || 0) >= set.daily_request_limit) throw new Fail('daily_limit');
+  // 하루 한도: ai-assist와 같은 서울 날짜·같은 합계 한도(_shared/ai-daily-usage.mjs). 작업공간 설정 daily_request_limit은 보지 않는다.
+  const today = await readTodayAiUsage(admin, { workspaceId: job.workspace_id, userId: job.created_by });
+  if (today.over) throw new Fail('daily_limit');
   let names = '';
   try {
     const { data: me } = await admin.from('app_profiles').select('display_name').eq('user_id', job.created_by).maybeSingle();
@@ -1135,10 +1140,7 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
     throw e instanceof Fail ? e : new Fail(late ? 'draft_timeout' : 'draft_failed');
   }
   const u = d.usage || {};
-  await admin.from('app_ai_daily_usage').upsert({
-    workspace_id: job.workspace_id, user_id: job.created_by, day, requests: (used?.requests || 0) + 1, advanced_requests: used?.advanced_requests || 0,
-    input_tokens: (used?.input_tokens || 0) + (u.input_tokens || 0), output_tokens: (used?.output_tokens || 0) + (u.output_tokens || 0), updated_at: new Date().toISOString(),
-  }, { onConflict: 'workspace_id,user_id,day' }).then(({ error }) => { if (error) console.warn('meeting-transcribe: draft usage not recorded', error.code); });
+  if (await addAiRequest(admin, { workspaceId: job.workspace_id, userId: job.created_by, day: today.day, row: today.row, usage: u }) === 'failed') console.warn('meeting-transcribe: draft usage not recorded');
   // 답 상태별 실패 갈래: 답이 길어 잘림(max_output_tokens) = draft_cut(부른 쪽이 조각을 나눔), 그 밖 = draft_failed. 로그는 이유 이름만.
   const result = draftResult(d);
   if (result.code) { console.warn('meeting-transcribe: draft answer', stage.kind || 'one', result.why, transcript.length); throw new Fail(result.code); }
@@ -1267,7 +1269,8 @@ async function jobList(user: { id: string }, body: Record<string, unknown>) {
   const nowMs = Date.now();
   for (const j of data || []) if (needsKick(j, nowMs)) inBackground(runStep(j.id));
   // REC-초안버리기: 쓰지 않기로 한 결과는 다시 띄우지 않는다(이 기기·다른 기기 모두). 위 조건과 같은 규칙을 한 번 더.
-  data = (data || []).filter((j) => !isDiscarded(j));
+  // REC-멈춤띠계속뜸: 닫은 멈춤은 discarded:true로 싣는다 — 띠에는 안 뜨고 녹음 줄 [다시]로만 보인다.
+  data = (data || []).filter((j) => !isDiscarded(j) || j.status === 'failed');
   // 지금 보고에 잇는 중인 녹음 결과는 뺀다(다른 기기에서 [초안 열기] → 새 보고 저장으로 같은 녹음이 두 보고에 들어가지 않게). 잇기가 실패하면 다시 보인다.
   const joining = await joiningJobs(workspaceId, (data || []).filter((j) => j.status === 'done').map((j) => j.id as string));
   return json({ ok: true, jobs: (data || []).filter((j) => !joining.has(j.id)).map((j) => jobView(j)) });
@@ -1293,7 +1296,7 @@ async function jobOpened(user: { id: string }, userDb: ReturnType<typeof userCli
   await patchServerJob(job.id, patch);
   return json({ ok: true });
 }
-// REC-초안버리기(S60-20): 끝난 결과를 쓰지 않기로(띠 [삭제]). 끝난 작업에 '버림' 표시만 남기고(error_code, server-job.mjs DISCARDED)
+// REC-초안버리기(S60-20)·REC-멈춤띠계속뜸(S60-26): 끝난 결과를 쓰지 않기로(띠 [삭제])·멈춘 작업 띠를 닫기(띠 [닫기], 'discarded_'+이유). 끝난 작업에 '버림' 표시만 남기고(error_code, server-job.mjs DISCARDED)
 // 녹음 소리(Drive)·전사 글·초안은 그대로 둔다 → job_list에서 빠져 다시 열어도·다른 기기에서도 띠에 뜨지 않는다. '열었음'(opened_at)은 건드리지 않는다.
 // 소유 확인은 다른 job_* 입구와 같은 ownServerJob(작업공간 owner + 만든 사람). 고칠 때도 그 상태 그대로인 행만(동시에 바뀐 행은 건드리지 않음).
 async function jobDiscard(user: { id: string }, body: Record<string, unknown>) {
@@ -1301,20 +1304,21 @@ async function jobDiscard(user: { id: string }, body: Record<string, unknown>) {
   const plan = jobDiscardPatch(job);
   if (plan.error) throw new Fail(plan.error);
   if (plan.patch) {
-    const { data, error } = await admin.from(SERVER_JOB_TABLE).update({ ...plan.patch, updated_at: new Date().toISOString() })
-      .eq('id', job.id).eq('status', 'done').is('error_code', null).select('id');
+    let q = admin.from(SERVER_JOB_TABLE).update({ ...plan.patch, updated_at: new Date().toISOString() }).eq('id', job.id).eq('status', job.status);
+    q = job.error_code ? q.eq('error_code', job.error_code) : q.is('error_code', null);
+    const { data, error } = await q.select('id');
     if (error) throw jobsFail(error);
     if (!data?.length) throw new Fail('busy');
   }
   return json({ ok: true });
 }
-// 버린 결과 되돌리기(작은 알림 [되돌리기]): 버림 표시만 뺀다 → 띠 [초안 열기]에 다시 뜬다.
+// 버린 결과·닫은 멈춤 되돌리기(작은 알림 [되돌리기]): 표시만 뺀다 → 띠 [초안 열기]·멈춤 띠에 다시 뜬다.
 async function jobRestore(user: { id: string }, body: Record<string, unknown>) {
   const job = await ownServerJob(user.id, body.job_id);
   const patch = jobRestorePatch(job);
   if (patch) {
     const { error } = await admin.from(SERVER_JOB_TABLE).update({ ...patch, updated_at: new Date().toISOString() })
-      .eq('id', job.id).eq('status', 'done').eq('error_code', 'discarded');
+      .eq('id', job.id).eq('status', job.status).eq('error_code', job.error_code);
     if (error) throw jobsFail(error);
   }
   return json({ ok: true });
@@ -1325,9 +1329,10 @@ async function jobRetry(user: { id: string }, userDb: ReturnType<typeof userClie
   if (job.status !== 'failed') return await jobAnswer(job);
   if (!GEMINI()) throw new Fail('not_ready');
   if (overLimit(await monthUsed(userDb, job.workspace_id))) throw new Fail('monthly_limit');
-  const patch: Record<string, unknown> = { status: 'queued', error_code: null, finished_at: null, lease_until: null, attempts: 0, updated_at: new Date().toISOString() };
+  // 닫은 멈춤(녹음 줄 [다시])은 닫음 표시를 이어 간다 — 같은 이유로 또 멈추면 띠를 또 띄우지 않는다(runStep failedCode).
+  const patch: Record<string, unknown> = { status: 'queued', error_code: carryClosed(job.error_code), finished_at: null, lease_until: null, attempts: 0, updated_at: new Date().toISOString() };
   // 요약이 시간 안에 끝나지 못해 멈췄으면 다시 할 때는 반으로 나눠 잇는다(같은 크기로 또 걸리지 않게).
-  if (job.stage === 'summary' && SPLIT_CODES.includes(job.error_code)) {
+  if (job.stage === 'summary' && SPLIT_CODES.includes(failReason(job))) {
     const split = splitJobSummary(job);
     if (split) patch.summary_parts = split;
   }

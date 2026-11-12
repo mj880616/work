@@ -639,7 +639,8 @@ test('Edge 단계: 요약 코드는 한 벌(서버 정리 작업과 같이 씀),
   const run=src.slice(src.indexOf('async function runStep('),src.indexOf('async function stepOnce('));
   assert.match(run,/if \(kind === 'join' && job\.stage === 'apply'\) next = await applyJoin\(job\);\n\s*else \{\n\s*next = await stepOnce\(job, take\.cut === 1\);\n\s*if \(kind === 'join'\) next = joinAfterSummary\(next, /);
   // apply가 끝난 작업 행은 DB 함수가 쓴 그대로 둔다(바로 뒤의 되돌리기를 done으로 덮지 않게). 그 밖의 단계는 지금처럼 결과를 저장한다.
-  assert.match(run,/if \(!\(kind === 'join' && job\.stage === 'apply'\)\) await patchStepJob\(id, \{ \.\.\.next, error_code: null, lease_until: null, attempts: job\.attempts \+ 1 \}, kind\);/);
+  assert.match(run,/if \(!\(kind === 'join' && job\.stage === 'apply'\)\) await patchStepJob\(id, \{ \.\.\.next, error_code: keep, lease_until: null, attempts: job\.attempts \+ 1 \}, kind\);/);
+  assert.match(run,/const keep = kind === 'job' && next\.status !== 'done' \? carryClosed\(/,'잇기 작업은 늘 빈 값(닫음 표시는 녹음 정리 작업만, S60-26)');
   assert.match(run,/admin\.rpc\('app_meeting_join_apply', \{ p_job: job\.id \}\)/);
   assert.match(run,/throw new Fail\(joinRpcCode\(error\)\)/);
   // 잇기 작업 표를 고치는 곳은 모두 joinPatch(고치기 권한이 있는 칸만)를 지난다. 잡기(lease)는 두 표가 같은 코드.
