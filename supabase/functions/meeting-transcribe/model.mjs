@@ -400,6 +400,7 @@ export function trashBefore(now) { return new Date(now.getTime() - UNATTACHED_TR
 // S61-5 REC-전사삭제: 녹음을 멈추면 합친 녹음 파일(구간마다 하나)을 자료실 자료로 남긴다. 자료실 맨 위 '회의 녹음' 폴더에 넣고,
 // 회의(회차)에서 녹음했으면 그 회의 자료(meeting_id)로도 붙인다. 원본은 Drive '회의 녹음' 폴더 그대로(링크만).
 export const LIBRARY_RECORDING_FOLDER = '회의 녹음';
+/** @param {{ job: any, workspaceId: string, meeting?: { id: string, project_id: string | null } | null, userId: string }} args */
 export function recordingDocument({ job, workspaceId, meeting = null, userId }) {
   const title = String(job.file_name || '').replace(/\.[^.]+$/, '').trim() || job.file_name;
   const at = new Date(job.created_at || Date.now());
