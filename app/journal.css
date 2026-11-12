@@ -15,7 +15,7 @@
 #appView #homeView .journal-status{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #homeView .journal-status:empty{ display:none; }
 
-/* 날짜 숫자 줄: 7칸, 오늘(네모 선)·고른 날(옅은 바탕)은 앱 공용 표시(ui-standard.css .ds-today·.ds-day-sel, UI-오늘네모), 한 줄 쓴 날은 아래 초록 점(J4 ①). */
+/* 날짜 숫자 줄: 7칸, 고른 날(채운 동그라미)은 앱 공용 표시(ui-standard.css .ds-day-sel·.ds-day-num, UI-고른날진하게), 오늘은 아래 홈 예외(동그라미 선), 한 줄 쓴 날은 아래 초록 점(J4 ①). */
 #appView #homeView .journal-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
 #appView #homeView .journal-date{ position:relative; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; width:100%; height:auto;
   min-height:60px; margin:0; padding:6px 0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line);
@@ -27,14 +27,13 @@
 #appView #homeView .journal-dot{ position:absolute; left:50%; bottom:6px; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-journal-ink); }
 #appView #homeView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView .journal-date:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
-/* HOME-날짜줄고른날(명진 2026-11-12, 시안 #2431): 요일은 위에 작게, 날짜는 아래(폰·폴드·PC 모두 두 줄). 고른 날 = 진한 초록 채운 동그라미·흰 숫자, 오늘 = 동그라미 선,
-   오늘을 고르면 채운 동그라미 하나. 앱 공용 '오늘 = 네모 선'·'고른 날 = 옅은 바탕'(ui-standard.css)에서 홈 날짜 줄만 빠지는 예외이며, 다른 달력은 그대로다.
-   공용 규칙(id 3개)을 이기려고 :not(#ds-none)을 붙인다. 한 줄 쓴 날 초록 점은 그대로. */
+/* HOME-날짜줄고른날(명진 2026-11-12, 시안 #2431): 요일은 위에 작게, 날짜는 아래(폰·폴드·PC 모두 두 줄). 고른 날 = 진한 채운 동그라미·흰 숫자(앱 공용 .ds-day-sel·.ds-day-num,
+   UI-고른날진하게), 오늘 = 동그라미 선, 오늘을 고르면 채운 동그라미 하나. 앱 공용 '오늘 = 칸 둘레 네모 선'에서 홈 날짜 줄만 빠지는 예외(칸 테두리가 없는 날짜 줄이라)다.
+   칸 바탕·테두리를 없애는 규칙은 화면 칸 규칙을 이기려고 :not(#ds-none)을 붙인다. 한 줄 쓴 날 초록 점은 그대로. */
 #appView #homeView .journal-date.journal-date:not(#ds-none){ background:transparent; border-color:transparent; }
 #appView #homeView .journal-date.ds-today::before{ display:none; }
 #appView #homeView .journal-num{ padding:0; border:var(--ds-today-line-width-sm) solid transparent; }
 #appView #homeView .journal-date.ds-today .journal-num{ border-color:var(--ds-today-line); }
-#appView #homeView .journal-date.ds-day-sel .journal-num{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); font-weight:var(--ds-weight-medium); }
 @media(hover:hover){ #appView #homeView .journal-date:not([aria-pressed="true"]):hover .journal-num{ background:var(--kptu-surface-subtle); } }
 
 /* 고른 날: 맨 위 "오늘 한 줄", 아래 재료. */

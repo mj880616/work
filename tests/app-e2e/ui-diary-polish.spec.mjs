@@ -100,13 +100,13 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`② today is a square frame only (no ring on the number), the chosen day is a soft fill (일기·달력) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`② today is a square frame only (no ring on the number), the chosen day is a filled number circle (일기·달력) ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('diary'));
  const TODAY='#diaryRoot [data-diary-day="2026-10-06"]',OTHER='#diaryRoot [data-diary-day="2026-10-04"]',today=page.locator(TODAY),other=page.locator(OTHER);
  await expect(today).toHaveAttribute('aria-current','date');
  const tokenColor=(t,prop='color')=>page.evaluate(([t,prop])=>{const e=document.createElement('span');e.style[prop]=`var(${t})`;document.querySelector('#diaryView').append(e);const c=getComputedStyle(e)[prop];e.remove();return c;},[t,prop]);
- const accent=await tokenColor('--kptu-primary-text'),ink=await tokenColor('--kptu-primary-ink'),soft=await tokenColor('--ds-select-bg','backgroundColor');
+ const accent=await tokenColor('--kptu-primary-text'),ink=await tokenColor('--kptu-primary-ink'),soft=await tokenColor('--ds-select-bg','backgroundColor'),fill=await tokenColor('--ds-day-sel-bg','backgroundColor'),onFill=await tokenColor('--ds-day-sel-ink');
  // 달력 칸은 읽기가 끝날 때마다(일기·별표·원드라이브) 새로 그려진다. 이 달 읽기가 끝난 뒤, 잴 때마다 그 순간의 칸을 한 번에 찾아 잰다
  // (찾은 칸을 들고 있다가 재면 그 사이 새로 그려진 옛 칸을 재어 빈 값이 나온다).
  await expect(page.locator('#diaryRoot [data-diary-status] [data-wait]')).toHaveCount(0);
@@ -116,16 +116,19 @@ for(const width of [390,1280])test(`② today is a square frame only (no ring on
  expect(t.numRing).toBe('none');expect(o.numRing).toBe('none');
  if(!t.photo){expect(t.bg).toBe('rgba(0, 0, 0, 0)');expect(t.fg).toBe(accent);}
  expect(t.frame).toBe('2px');expect(t.frameColor).toBe(ink);expect(o.frame).not.toBe('2px');
- // 고른 날 = 테두리·그림자 없이 옅은 바탕(--ds-select-bg). 고르지 않은 오늘은 바탕 없음.
+ // UI-고른날진하게(명진 2026-11-12): 고른 날 = 칸은 그대로, 날짜 숫자만 진한 채운 동그라미·흰 숫자(--ds-day-sel-bg·--ds-day-sel-ink). 고르지 않은 오늘은 바탕 없음.
  expect(t.ring).toBe('none');expect(t.cellBg).not.toBe(soft);
+ const numBox=sel=>page.evaluate(s=>{const r=document.querySelector(s).querySelector('.diary-num').getBoundingClientRect();return [Math.round(r.width),Math.round(r.height)];},sel);
+ const before=await numBox(OTHER);
  await other.click();await expect(other).toHaveAttribute('aria-pressed','true');await expect(other).toHaveClass(/ds-day-sel/);
- const picked=await look(OTHER);expect(picked.ring).toBe('none');expect(picked.numRing).toBe('none');if(!picked.photo)expect(picked.cellBg).toBe(soft);
+ const picked=await look(OTHER);expect(picked.ring).toBe('none');expect(picked.numRing).toBe('none');expect(picked.cellBg).not.toBe(soft);
+ expect(picked.bg).toBe(fill);expect(picked.fg).toBe(onFill);expect(await numBox(OTHER)).toEqual(before);
  expect((await look(TODAY)).frame).toBe('2px');expect((await look(TODAY)).cellBg).not.toBe(soft);
  await page.locator('#diaryRoot [data-diary-detail-close]').click();
  await expect(other).not.toHaveClass(/ds-day-sel/);
- // 오늘을 고르면 네모 + 바탕.
+ // 오늘을 고르면 네모 + 숫자 채운 동그라미.
  await today.click();await expect(today).toHaveClass(/ds-day-sel/);
- const both=await look(TODAY);expect(both.frame).toBe('2px');expect(both.numRing).toBe('none');expect(both.ring).toBe('none');if(!both.photo)expect(both.cellBg).toBe(soft);
+ const both=await look(TODAY);expect(both.frame).toBe('2px');expect(both.numRing).toBe('none');expect(both.ring).toBe('none');expect(both.cellBg).not.toBe(soft);expect(both.bg).toBe(fill);expect(both.fg).toBe(onFill);
  // [달력]: 오늘 숫자는 같은 강조 글자색, 동그라미 없음. 칸은 일기 달력과 같은 네모 선(같은 굵기·색).
  await openMonth(page);
  const day=page.locator('#calendarGrid .cal-cell.today .cal-day');

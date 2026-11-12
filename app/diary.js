@@ -141,7 +141,7 @@ function renderMonth() {
         else { box = photoElement(row, photos[0], 'small', {label:'', link:false, retry:false}); box.dataset.diaryCellPhoto = photo; }
         cell.append(box);
       }
-      const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-today-num' : 'diary-num'; num.textContent = String(n); cell.append(num);
+      const num = document.createElement('span'); num.className = day === today ? 'diary-num ds-day-num ds-today-num' : 'diary-num ds-day-num'; num.textContent = String(n); cell.append(num);
       if (!photos.length && text) { const dot = document.createElement('span'); dot.className = 'diary-dot'; dot.dataset.diaryDot = ''; cell.append(dot); }
       else if (!row && done) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-done'; dot.dataset.diaryDoneDot = ''; cell.append(dot); }
       if (od) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-od'; dot.dataset.diaryOdDot = ''; cell.append(dot); }
