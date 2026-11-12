@@ -400,3 +400,17 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 @media(min-width:600px) and (max-width:760px){
   html:has(#basketView.basket-split:not(.hidden)) body #appView > .mobile-shell-header:not([hidden]){ display:flex; }
 }
+
+/* FAMILY-기억알림: '잊지 말기' 화면 맨 위 '가족 · 기억할 것' 칸(family-remind.js). 촘촘한 한 상자, 줄마다 ⋯ 하나. */
+.fam-remind{ margin:0 0 8px; padding:6px 10px 4px; border-radius:var(--kptu-radius-md); background:var(--kptu-surface-subtle); font-size:var(--ds-text-row); }
+.fam-remind[hidden]{ display:none; }
+.fam-remind-head{ display:flex; align-items:center; gap:6px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+.fam-remind-head b{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium); }
+.fam-remind-acts{ margin-left:auto; display:flex; gap:2px; }
+.fam-remind .row-act{ min-height:0; height:auto; padding:2px 6px; font-size:var(--ds-text-meta); }
+.fam-remind-list{ list-style:none; margin:2px 0 0; padding:0; }
+.fam-remind-list li{ display:flex; align-items:flex-start; gap:4px; padding:3px 0; border-top:1px solid var(--kptu-border); }
+.fam-remind-list li:first-child{ border-top:0; }
+.fam-remind-text{ flex:1; min-width:0; overflow-wrap:anywhere; color:var(--kptu-ink); line-height:1.45; }
+.fam-remind .row-act.fam-remind-more{ flex:none; color:var(--kptu-muted); padding:0 6px; }
+.fam-remind-pick .row-act{ text-align:left; white-space:normal; height:auto; }
