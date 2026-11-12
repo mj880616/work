@@ -22,9 +22,12 @@
 //   제목 "잊지 말기 n건"만 보낸다(본문·내용 없음 — 잠금 화면에 대화 내용이 뜨지 않게). 줄은 운영자 기능 family 작업공간에만 있다(DB 트리거).
 //   종류별 끄기(notify_prefs.kinds.family=false → skipped_off)·조용한 시간(기본 22:00~07:00 → held_quiet, 끝난 뒤 첫 실행에서 보냄)을 지킨다.
 //   기록 열쇠는 가장 새 제안의 시각(fam:<초>) — 새 제안이 생길 때마다 한 번. 기록에는 종류·열쇠·상태만(제목·본문 없음).
+// FAMILY-기억알림 ②(family-remind.ts): 같은 15분 예약이 서울 월요일 08시 이후 그날 첫 실행에서 '가족 · 이번 주 기억할 것 n'을 주 1회
+//   (열쇠 rem:<월요일>, 같은 끄기·조용한 시간). 이 알림만 본문(줄 앞부분)을 싣는다(명진 결정 11/12 "보이기"). 노트는 app_notes 가족 노트 하나만 읽는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
 import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
+import { remindNotePath, remindPatchPath, REMIND_OPEN, remindRef, remindWeek, weekPicks, withRemind } from "./family-remind.ts";
 import { doneItems, NOTICE_LOG_KINDS, RECENT_LIMIT, recentRows, recentSince, REF_KEY, type DoneItem } from "./done-items.ts";
 
 type Env = (name: string) => string | undefined;
@@ -300,6 +303,44 @@ async function familyPush(db: Db, ids: string[], nowMs: number, sender: FcmSende
   return { sent, held, off };
 }
 
+// 월요일 아침 '가족 · 이번 주 기억할 것'(FAMILY-기억알림 ②). 월요일 08시 전·다른 요일이면 아무것도 읽지 않는다.
+async function remindPush(db: Db, ids: string[], nowMs: number, sender: FcmSender | null, log: Log) {
+  let sent = 0, held = 0, off = 0;
+  const week = remindWeek(nowMs);
+  if (!sender || !week.due) return { sent, held, off };
+  const ref = remindRef(week.monday), nowIso = new Date(nowMs).toISOString(), day = kstDay(nowMs);
+  for (const ws of ids.slice(0, 50)) {
+    try {
+      const logged = await db.get(`app_push_log?workspace_id=eq.${ws}&kind=eq.family&ref_key=eq.${encodeURIComponent(ref)}&select=status,day&limit=5`);
+      if (logged.some((r) => r.status !== "held_quiet")) continue;
+      const devices = (await activeDevices(db, ws)).slice(0, MAX_DEVICES);
+      if (!devices.length) continue;
+      const note = (await db.get(remindNotePath(ws)))[0];
+      const week3 = weekPicks(note, day);
+      if (!week3) continue;
+      const owners = (await db.get(`app_workspace_members?workspace_id=eq.${ws}&role=eq.owner&select=user_id&limit=2`)).map((r) => r.user_id).filter((v): v is string => typeof v === "string" && UUID.test(v));
+      if (owners.length !== 1) continue;
+      const prefs = (await db.get(`app_profiles?user_id=eq.${owners[0]}&select=notify_prefs&limit=1`))[0]?.notify_prefs ?? null;
+      const decision = familyDecision(prefs, nowMs);
+      if (decision === "held_quiet") { if (!logged.length) await logPush(db, ws, "family", ref, day, "held_quiet"); held++; continue; }
+      if (decision === "skipped_off") { await logPush(db, ws, "family", ref, day, "skipped_off"); off++; continue; }
+      const out = await sendToDevices(db, sender, devices, { kind: "family", title: week3.text.title, body: week3.text.body, open: REMIND_OPEN, urgent: false }, nowIso);
+      await logPush(db, ws, "family", ref, day, out.sent ? "sent" : "failed");
+      if (!out.sent) continue;
+      sent++;
+      // 보인 줄을 노트 본 기록(metadata.remind)에 남긴다. 읽은 판 그대로일 때만 — 그사이 바뀌었으면 넘긴다(알림은 이미 갔고, 홈 칸이 다시 고른다).
+      const metadata = week3.next && note ? withRemind(note.metadata, week3.next) : null;
+      if (metadata) {
+        try { await db.send("PATCH", remindPatchPath(note!, ws), { metadata }, "return=minimal"); }
+        catch (e) { log("family_remind_mark_failed", { stage: e instanceof Fail ? e.code : "INTERNAL" }); }
+      }
+    } catch (e) {
+      log("family_remind_failed", { stage: e instanceof Fail ? e.code : "INTERNAL" });
+    }
+  }
+  return { sent, held, off };
+}
+
 async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | null = null, log: Log = () => {}) {
   // 30일 지난 기록 정리(설계 4.1). 기록에는 종류·열쇠·날짜·상태만 있다.
   const cutoff = new Date(nowMs - LOG_KEEP_DAYS * DAY_MS).toISOString();
@@ -310,7 +351,8 @@ async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | 
   // 종류 판단·보내기는 N5(설계 6절)에서 더한다. 지금은 잊지 말기(15분 예약)만 보낸다.
   if (slot === "quarter") {
     const fam = await familyPush(db, ids, nowMs, sender, log);
-    return { ok: true, slot, workspaces: ids.length, sent: fam.sent, pruned: pruned.length, family: fam };
+    const remind = await remindPush(db, ids, nowMs, sender, log);
+    return { ok: true, slot, workspaces: ids.length, sent: fam.sent + remind.sent, pruned: pruned.length, family: fam, remind };
   }
   if (slot !== "evening") return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length };
   // 저녁: Now 한 줄('새 성명 n · 새 기사 n', now-line.ts)이 생길 작업공간 수만 센다(줄 글은 응답·로그에 싣지 않음). 보내기는 N5 저녁 묶음.

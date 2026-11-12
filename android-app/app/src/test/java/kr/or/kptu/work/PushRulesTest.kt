@@ -140,4 +140,27 @@ class PushRulesTest {
         val open = "/work/app/?view=calendar&notice=next_week.2026-11-16"
         assertEquals(PushRules.noticeTag(open), PushRules.clearKey("push:clear:next_week.2026-11-16"))
     }
+
+    // FAMILY-기억알림 ②: 본문은 family 종류만, 잠금 화면 공개도 family + 본문 있을 때만(다른 종류는 지금처럼 숨김).
+    @Test
+    fun bodyOnlyForFamilyAndShownOnLockScreen() {
+        val f = PushRules.message(mapOf("kind" to "family", "title" to "가족 · 이번 주 기억할 것 3", "body" to "가짜 하나 · 가짜 둘\n · 가짜 셋", "open" to "/work/app/?view=basket"))!!
+        assertEquals("가짜 하나 · 가짜 둘 · 가짜 셋", f.body)
+        assertTrue(f.showOnLock)
+        assertEquals("/work/app/?view=basket", f.open)
+        // 잊지 말기 n건(본문 없음)은 지금처럼 잠금 화면에 숨김.
+        val n = PushRules.message(mapOf("kind" to "family", "title" to "잊지 말기 2건", "open" to "/work/app/?view=home&family=1"))!!
+        assertEquals("", n.body)
+        assertFalse(n.showOnLock)
+        assertNotEquals(PushRules.notifyId(f), PushRules.notifyId(n))
+        for (kind in PushRules.KINDS.keys.filter { it != "family" }) {
+            val m = PushRules.message(mapOf("kind" to kind, "title" to "제목", "body" to "가짜 본문", "open" to "/work/app/"))!!
+            assertEquals(kind, "", m.body)
+            assertFalse(kind, m.showOnLock)
+        }
+        assertEquals(setOf("family"), PushRules.BODY_KINDS)
+        val long = PushRules.message(mapOf("kind" to "family", "title" to "t", "body" to "가".repeat(400)))!!
+        assertEquals(PushRules.MAX_BODY, long.body.codePointCount(0, long.body.length))
+        assertTrue(long.body.endsWith("…"))
+    }
 }
