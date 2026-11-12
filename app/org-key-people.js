@@ -1,7 +1,7 @@
 import {waitHtml, emptyHtml} from './wait-state.js';
 // ORG-주요인물 화면: 담당조직 상세 맨 아래 작은 탭 [주요 인물][기본 정보][소속][이전 요약] 중 [주요 인물] 칸의 유일한 renderer.
 // 칩 줄([모두][이름…][+ 인물]) → '요즘' 한 문장(조직 단위, 하루 한 번) → 열린 것(약속·챙길 것) → 지난 기록(통화·텔레그램·회의).
-// - 지정·찾을 이름은 서버 표 app_org_key_people(20261029014700). 표가 없으면(적용 전) 조용히 '준비 중' 한 줄.
+// - 지정·찾을 이름(창에서는 이름만 받고, 저장된 찾을 이름은 보존)은 서버 표 app_org_key_people(20261029014700). 표가 없으면(적용 전) 조용히 '준비 중' 한 줄.
 // - 기록은 기존 읽기 경로를 그대로 쓴다: feed-data.js(통화·개인 통화함·통화 고침·텔레그램), tg-sender-data.js(보낸 사람 이름표),
 //   todo-radar-data.js(챙길 것), ledger-browse-model.mjs(약속), 사업 보고(app_meetings 제목·내용). 고르는 규칙은 org-key-people-model.mjs.
 // - 줄을 누르면 그 기록으로: 통화 KPTUCallFeed.show, 텔레그램 KPTUTelegramFeed.show, 회의 openReport, 약속 KPTULedgerBrowse.show, 챙길 것 정리함.
@@ -14,7 +14,7 @@ import {waitingCommitmentsPath} from './ledger-browse-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 import {openReport} from './report-open.js';
 import {askConfirm, notify} from './small-notice.js';
-import {personDraft, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, KIND_LABEL, MATCHES_MAX, PEOPLE_MAX, normName} from './org-key-people-model.mjs';
+import {savedNamesDraft, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, KIND_LABEL, PEOPLE_MAX} from './org-key-people-model.mjs';
 import {openCallSource, openTelegramSource} from './source-open.js';
 
 const TABLE = '/rest/v1/app_org_key_people', BRIEFS = '/rest/v1/app_org_key_people_briefs';
@@ -223,8 +223,10 @@ async function removePerson(id, anchor) {
   }});
 }
 
-// ───────────── [+ 인물] 창 ─────────────
-let ed = null; // {person, matches:[], back, busy}
+// ───────────── [+ 인물]·[수정] 창 ─────────────
+// ORG-찾을이름칸삭제(S61-4): 창은 이름 칸 + [취소][저장]만. '찾을 이름' 칸(설명·직접 적기·[추가]·찾은 이름)은 뺐다.
+// 이미 저장된 찾을 이름(match_names)은 지우지 않고 기록 찾기에 계속 쓴다 — 고쳐 저장할 때 그대로 이어 붙인다(savedNamesDraft).
+let ed = null; // {person, back, busy, org}
 function modal() {
   let m = document.getElementById('okpModal');
   if (m) return m;
@@ -232,9 +234,6 @@ function modal() {
   m.id = 'okpModal'; m.className = 'modal hidden'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'okpTitle');
   m.innerHTML = '<div class="modal-card small-card okp-card"><div class="modal-head"><h2 id="okpTitle">주요 인물</h2><button type="button" class="icon-btn" data-okp-close aria-label="닫기">×</button></div>'
     + '<label class="okp-field">이름<input id="okpName" type="text" maxlength="40" autocomplete="off"></label>'
-    + '<div class="okp-field"><span id="okpMatchLabel">찾을 이름 <small>통화·텔레그램에 이 사람이 찍히는 이름</small></span><div class="okp-matches" id="okpMatches" aria-labelledby="okpMatchLabel"></div>'
-    + '<div class="okp-match-add"><input id="okpMatchInput" type="text" maxlength="40" autocomplete="off" placeholder="직접 적기" aria-label="찾을 이름 직접 적기"><button type="button" class="secondary" data-okp-match-add>추가</button></div>'
-    + '<div class="okp-suggest" id="okpSuggest" aria-label="통화·텔레그램에서 찾은 이름"></div></div>'
     + '<div class="modal-action-footer"><div id="okpStatus" class="status" role="status"></div><button type="button" class="secondary" data-okp-close>취소</button><button type="button" class="primary" data-okp-save>저장</button></div></div>';
   document.body.append(m);
   m.addEventListener('click', e => {
@@ -242,31 +241,23 @@ function modal() {
     const b = e.target.closest?.('button'); if (!b) return;
     if ('okpClose' in b.dataset) closeEditor();
     else if ('okpSave' in b.dataset) void saveEditor();
-    else if ('okpMatchAdd' in b.dataset) addMatch(m.querySelector('#okpMatchInput').value, true);
-    else if (b.dataset.okpMatchDel !== undefined) { ed.matches.splice(Number(b.dataset.okpMatchDel), 1); paintMatches(); }
-    else if (b.dataset.okpSuggest !== undefined) addMatch(b.dataset.okpSuggest, false);
   });
   m.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && e.target.id === 'okpMatchInput') { e.preventDefault(); addMatch(e.target.value, true); }
-    else if (e.key === 'Enter' && e.target.id === 'okpName') { e.preventDefault(); void saveEditor(); }
+    if (e.key === 'Enter' && e.target.id === 'okpName' && !e.isComposing) { e.preventDefault(); void saveEditor(); }
   });
-  m.querySelector('#okpName').addEventListener('input', paintSuggest);
   return m;
 }
 function openEditor(person, back) {
   if (!ui?.canEdit) return;
   const m = modal();
-  ed = {person, back, busy:false, matches:person ? (person.match_names || []).filter(x => x !== person.name) : [], org:ui.orgId};
+  ed = {person, back, busy:false, org:ui.orgId};
   m.querySelector('#okpTitle').textContent = person ? '주요 인물 수정' : '주요 인물 추가';
   m.querySelector('#okpName').value = person?.name || '';
-  m.querySelector('#okpMatchInput').value = '';
   m.querySelector('#okpStatus').textContent = '';
-  paintMatches(); paintSuggest();
   m.classList.remove('hidden');
   // UI-Esc로창닫기: 공용 창 규칙(accessibility-dialog.js) — Esc = ✕(한글 입력 중이면 닫지 않음). 따로 두던 Esc 처리는 뺐다.
   window.KPTUA11y?.dialog?.activate?.(m, {trigger:back || document.activeElement, initialFocus:'#okpName', onRequestClose:closeEditor});
   m.querySelector('#okpName').focus();
-  if (!ui.data) void readPool(ui.rt).then(paintSuggest, () => {});
 }
 function closeEditor() {
   const m = document.getElementById('okpModal'); if (!m || m.classList.contains('hidden')) return;
@@ -275,42 +266,10 @@ function closeEditor() {
   window.KPTUA11y?.dialog?.deactivate?.(m, {restoreFocus:false});
   if (back?.isConnected) back.focus({preventScroll:true});
 }
-function addMatch(value, fromInput) {
-  if (!ed) return;
-  const v = String(value ?? '').replace(/\s+/g, ' ').trim(), status = document.getElementById('okpStatus');
-  if (!v) return;
-  if ([...v].length < 2) { status.textContent = '찾을 이름은 2자 이상이에요.'; return; }
-  if (ed.matches.length >= MATCHES_MAX - 1) { status.textContent = `찾을 이름은 ${MATCHES_MAX}개까지예요.`; return; }
-  if (!ed.matches.includes(v)) ed.matches.push(v);
-  status.textContent = '';
-  if (fromInput) document.getElementById('okpMatchInput').value = '';
-  paintMatches(); paintSuggest();
-}
-function paintMatches() {
-  const box = document.getElementById('okpMatches'); if (!box || !ed) return;
-  box.innerHTML = ed.matches.length
-    ? ed.matches.map((x, i) => `<span class="okp-mchip">${esc(x)}<button type="button" data-okp-match-del="${i}" aria-label="${esc(x)} 빼기">×</button></span>`).join('')
-    : '<span class="okp-faint">이름만으로 찾아요. 다르게 찍히면 아래에서 선택해 두세요.</span>';
-}
-// 통화 상대·텔레그램 이름표 중 적은 이름(2자 이상)과 겹치는 것을 골라 보인다(최대 8개).
-function paintSuggest() {
-  const box = document.getElementById('okpSuggest'); if (!box || !ed) return;
-  const name = normName(document.getElementById('okpName')?.value);
-  if ([...name].length < 2) { box.innerHTML = ''; return; }
-  const seen = new Set(ed.matches.map(normName).concat(name)), out = [];
-  const add = v => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(), k = normName(t); if ([...t].length < 2 || [...t].length > 40 || seen.has(k) || !(k.includes(name) || name.includes(k))) return; seen.add(k); out.push(t); };
-  void readPool(ui?.rt || window.KPTURuntime).then(data => {
-    if (!ed) return;
-    for (const s of data?.senders?.senders || []) { if (!s.is_self) { add(s.name); add(s.auto_name); } }
-    for (const r of [...(data?.calls || []), ...(data?.personal || [])]) add(r.counterpart);
-    box.innerHTML = out.length ? `<small>찾은 이름</small>${out.slice(0, 8).map(x => `<button type="button" class="okp-sg" data-okp-suggest="${esc(x)}">+ ${esc(x)}</button>`).join('')}` : '';
-  }, () => {});
-}
 async function saveEditor() {
   if (!ed || ed.busy || !ui) return;
   const m = document.getElementById('okpModal'), status = m.querySelector('#okpStatus');
-  const pending = m.querySelector('#okpMatchInput').value.trim();
-  const d = personDraft({name:m.querySelector('#okpName').value, matches:pending ? [...ed.matches, pending] : ed.matches});
+  const d = savedNamesDraft({name:m.querySelector('#okpName').value, keep:ed.person?.match_names || []});
   if (!d.ok) { status.textContent = d.error; return; }
   if (ui.people.some(p => p.name === d.name && p.id !== ed.person?.id)) { status.textContent = '이 조직에 같은 이름이 이미 있어요.'; return; }
   const {rt, orgId} = ui, run = ui.run;
