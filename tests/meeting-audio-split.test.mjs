@@ -14,19 +14,28 @@ const fx=n=>new Uint8Array(readFileSync(new URL('./fixtures/audio-split/'+n,impo
 const near=(a,b,d,msg)=>assert.ok(Math.abs(a-b)<=d,`${msg}: ${a} vs ${b}`);
 const RANGES=[[0,7],[7,13],[13,null]];
 
-test('구간 계산: 15분 넘을 때만 고른 길이로 나눔, 마지막은 끝까지, 반 나누기는 4분 조각까지',()=>{
- assert.equal(sp.CHUNK_SECONDS,900);assert.equal(sp.MIN_CHUNK_SECONDS,240);
- assert.deepEqual(sp.chunkRanges(900),[]);assert.deepEqual(sp.chunkRanges(null),[]);
- // 11/12 실패한 41분 녹음 → 3조각(13분 40초씩)
+test('구간 계산: 30분 넘을 때만 고른 길이로 나눔, 마지막은 끝까지, 반 나누기는 4분 조각까지',()=>{
+ // S60-9: 2.5 Flash 출력 상한(65,536토큰)에 맞춰 15분 → 30분. 29분 구간 + 넘길 때 1분 조각은 나누지 않는다.
+ assert.equal(sp.CHUNK_SECONDS,1800);assert.equal(sp.MIN_CHUNK_SECONDS,240);
+ assert.deepEqual(sp.chunkRanges(1800),[]);assert.deepEqual(sp.chunkRanges(null),[]);
+ // 11/12 41분 녹음 → 2조각(20분 30초씩)
  const r=sp.chunkRanges(41*60);
- assert.deepEqual(r,[{from:0,to:820,seconds:820},{from:820,to:1640,seconds:820},{from:1640,to:null,seconds:820}]);
- // 59분 옛 구간 → 4조각, 경계가 이어지고 빈틈이 없다
- const r59=sp.chunkRanges(59*60+7);
- assert.equal(r59.length,4);
- for(let i=1;i<r59.length;i++)assert.equal(r59[i].from,r59[i-1].to);
- assert.equal(r59.at(-1).to,null);
- near(r59.reduce((s,x)=>s+x.seconds,0),59*60+7,1,'합');
- assert.ok(r59.every(x=>x.seconds<=sp.CHUNK_SECONDS));
+ assert.deepEqual(r,[{from:0,to:1230,seconds:1230},{from:1230,to:null,seconds:1230}]);
+ // 59분 옛 구간 → 2조각, 85분 → 3조각. 경계가 이어지고 빈틈이 없다
+ for(const [len,n] of [[59*60+7,2],[85*60,3]]){
+  const rr=sp.chunkRanges(len);
+  assert.equal(rr.length,n);
+  for(let i=1;i<rr.length;i++)assert.equal(rr[i].from,rr[i-1].to);
+  assert.equal(rr.at(-1).to,null);
+  near(rr.reduce((s,x)=>s+x.seconds,0),len,1,'합');
+  assert.ok(rr.every(x=>x.seconds<=sp.CHUNK_SECONDS));
+ }
+ // 조각 길이를 넘겨 부를 수도 있다(15분 조각 — 아래 parts 시험).
+ assert.equal(sp.chunkRanges(41*60,900).length,3);
+ // 반 나누기 상한: 30분 → 15분 → 7.5분에서 멈춤(끝없이 나누지 않음).
+ let depth=0,range={from:0,to:1800};
+ for(;;){const h=sp.halveRange(range,3600);if(!h.length)break;depth++;range=h[0];}
+ assert.equal(depth,2);assert.equal(range.to-range.from,450);
  // 반 나누기: 잘린 조각만, 마지막 조각이면 끝(null) 유지, 8분 미만은 더 나누지 않음
  assert.deepEqual(sp.halveRange({from:820,to:1640},2460),[{from:820,to:1230,seconds:410},{from:1230,to:1640,seconds:410}]);
  assert.deepEqual(sp.halveRange({from:1640,to:null},2460),[{from:1640,to:2050,seconds:410},{from:2050,to:null,seconds:410}]);
@@ -125,14 +134,14 @@ test('조각 parts: 나누기 → 차례로 전사 → 실패 뒤 그 조각부�
  // 41분 구간 하나 + 뒤에 10분 구간
  let parts=[{no:1,seconds:2460,job:J1,text:null},{no:2,seconds:600,job:J2,text:null}];
  assert.equal(job.partTotal(parts),2);
- parts=job.splitPart(parts,0,sp.chunkRanges(2460));
+ parts=job.splitPart(parts,0,sp.chunkRanges(2460,900));
  assert.equal(parts.length,4);assert.equal(job.partTotal(parts),4);assert.equal(job.doneParts(parts),0);
  assert.deepEqual(parts.slice(0,3).map(p=>[p.no,p.job,p.range.from,p.range.to,p.seconds]),[[1,J1,0,820,820],[1,J1,820,1640,820],[1,J1,1640,null,820]]);
  // 같은 소리의 조각이 더 남았나(구간 행을 '끝'으로 둘지)
  assert.equal(job.moreOfSame(parts,0),true);
  parts[0]={...parts[0],text:'첫 조각 말'};
  assert.equal(job.nextPart(parts),1);assert.equal(job.doneParts(parts),1);
- // 둘째 조각이 잘려(gemini_incomplete) 반으로 → 첫 조각 글은 그대로
+ // 둘째 조각이 잘려(gemini_incomplete)·되풀이해(gemini_repeat) 반으로 → 첫 조각 글은 그대로
  parts=job.splitPart(parts,1,sp.halveRange(parts[1].range,2460));
  assert.equal(parts.length,5);assert.equal(parts[0].text,'첫 조각 말');assert.equal(job.nextPart(parts),1);
  assert.deepEqual(parts.slice(1,3).map(p=>[p.range.from,p.range.to]),[[820,1230],[1230,1640]]);
@@ -149,10 +158,10 @@ test('조각 parts: 나누기 → 차례로 전사 → 실패 뒤 그 조각부�
  const v=job.jobView({id:'x',parts,status:'running',stage:'transcribe'});
  assert.deepEqual(v.jobs,[J1,J2]);assert.equal(v.parts_total,5);assert.equal(v.seconds,820+410+410+820+600);
  // 이미 글이 있거나 구간이 하나뿐이면 바꾸지 않음
- assert.equal(job.splitPart(parts,0,sp.chunkRanges(2460)).length,parts.length);
+ assert.equal(job.splitPart(parts,0,sp.chunkRanges(2460,900)).length,parts.length);
  assert.equal(job.splitPart([{no:1,seconds:0,file:{id:'f'},text:null}],0,[{from:0,to:null,seconds:1}]).length,1);
  // 회의자료 파일(kind attached)도 같은 모양
- const file=job.splitPart([{no:1,seconds:0,file:{id:'abcdefghijk',name:'a.m4a',mime:'audio/mp4',size:1},text:null}],0,sp.chunkRanges(1900));
+ const file=job.splitPart([{no:1,seconds:0,file:{id:'abcdefghijk',name:'a.m4a',mime:'audio/mp4',size:1},text:null}],0,sp.chunkRanges(1900,900));
  assert.equal(file.length,3);assert.ok(file.every(p=>p.file.id==='abcdefghijk'&&p.range));assert.equal(job.moreOfSame(file,0),true);
 });
 

@@ -158,6 +158,7 @@ const TRANSCRIBE_FAIL=Object.freeze({
   empty_transcript:'녹음에서 글을 찾지 못했어요.',
   gemini_empty:'전사 서비스(Gemini)가 글 없이 답했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   gemini_incomplete:'전사 서비스(Gemini)가 녹음 끝까지 글로 옮기지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
+  gemini_repeat:'전사 서비스(Gemini)가 같은 말을 되풀이해 적었어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   drive_failed:'녹음 파일을 Drive에서 읽거나 저장하지 못했어요.',
   gemini_failed:'전사 서비스(Gemini)가 실패했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
   gemini_upload:'전사 서비스(Gemini)에 녹음을 올리지 못했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',
