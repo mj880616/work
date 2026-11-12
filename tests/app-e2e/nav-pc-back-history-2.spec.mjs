@@ -2,7 +2,7 @@
 // 사업 보고, 자료실 폴더, 사진 폴더. PC에서 사람이 누른 항목 = 뒤로 한 칸(A → B → C 에서 ‹ = B, ‹ = A, ‹ = 앞), › 는 같은 기록.
 // 기록은 라우터 한 곳(KPTURouter.pick). 폰 뒤로가기(겹·창)는 그대로. 이름·내용은 모두 지어낸 것.
 import {test,expect} from '@playwright/test';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdirSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -16,6 +16,9 @@ import {installBusinessNowServer} from './helpers/business-now-server.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const topBack=page=>page.locator('[data-history-step="back"]');
 const topForward=page=>page.locator('[data-history-step="forward"]');
+// 화면 사진: S60_24_SHOTS=docs/design/screens/s60-24 일 때만 저장.
+const SHOTS=process.env.S60_24_SHOTS||'';
+const shot=async(page,name)=>{if(SHOTS){mkdirSync(SHOTS,{recursive:true});await page.screenshot({path:`${SHOTS}/${name}.png`})}};
 const watchErrors=page=>{const errors=[];page.on('pageerror',e=>errors.push(e.message));return errors};
 
 // ── 아스날 ──
@@ -37,7 +40,7 @@ test('PC 1280 아스날: 경기 B → C → D 에서 ‹ = C, ‹ = B, ‹ = 그
  for(const m of [b,c,d]){await arsRow(page,m.id).click();await arsPicked(page,m.id)}
  expect(await page.evaluate(()=>history.length)).toBe(start+2);
  await expect(page).toHaveURL(new RegExp(`[?&]match=${d.id}(?:&|$)`));
- await topBack(page).click();await arsPicked(page,c.id);
+ await topBack(page).click();await arsPicked(page,c.id);await shot(page,'1-arsenal-back-C');
  await page.goBack();await arsPicked(page,b.id);
  await topBack(page).click();await expect(page.locator('#calendarView')).toBeVisible();
  await topForward(page).click();await expect(page.locator('#arsenalView')).toBeVisible();await arsPicked(page,b.id);
@@ -81,7 +84,7 @@ test('PC 1280 텔레그램 날짜별: A → B → C 에서 ‹ = B, ‹ = A, ‹
  await expect(detail).toBeHidden();
  for(const key of [A6,B6,A5]){await tgOpen(page,key).click();await tgPicked(page,key)}
  await expect(page).toHaveURL(/[?&]rday=room-a%3A2026-10-05(?:&|$)|[?&]rday=room-a:2026-10-05(?:&|$)/);
- await topBack(page).click();await tgPicked(page,B6);
+ await topBack(page).click();await tgPicked(page,B6);await shot(page,'2-telegram-day-back-B');
  await page.goBack();await tgPicked(page,A6);
  await topBack(page).click();await expect(detail).toBeHidden();await expect(page).not.toHaveURL(/[?&]rday=/);
  await topBack(page).click();await expect(page.locator('#calendarView')).toBeVisible();
@@ -117,7 +120,7 @@ test('PC 1280 자료실 폴더: C → N 에서 ‹ = C, ‹ = 자료실(맨 위)
  await libNav(page).locator('[data-lu-nav="fc"]').click();await expect.poll(()=>libTops(page)).toEqual(['f:fc']);
  await libNav(page).locator('[data-lu-nav="fn"]').click();await expect.poll(()=>libTops(page)).toEqual(['f:fn']);
  await expect(page).toHaveURL(/[?&]folder=fn(?:&|$)/);
- await topBack(page).click();await expect.poll(()=>libTops(page)).toEqual(['f:fc']);await expect(page).toHaveURL(/[?&]folder=fc(?:&|$)/);
+ await topBack(page).click();await expect.poll(()=>libTops(page)).toEqual(['f:fc']);await shot(page,'3-library-folder-back-C');await expect(page).toHaveURL(/[?&]folder=fc(?:&|$)/);
  await page.goBack();await expect.poll(()=>libTops(page)).toEqual(['x:out','f:fa','f:fn']);await expect(page).not.toHaveURL(/[?&]folder=/);
  await expect(page.locator('#libraryView')).toBeVisible();
  await topForward(page).click();await expect.poll(()=>libTops(page)).toEqual(['f:fc']);
@@ -139,7 +142,7 @@ test('폰 412 자료실 폴더: 들어간 폴더는 겹 하나 — 뒤로 = 한 
 });
 });
 
-// ── 사진 폴더(PC 1440: 왼쪽 나무 | 사진) ──
+// ── 사진 폴더(PC 1280: 왼쪽 나무 | 사진) ──
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==','base64');
 const media=(id,parent,day)=>({id,parent,name:id+'.jpg',day,taken_at:`${day}T03:00:00.000Z`,approx:false,kind:'photo',screenshot:false,duration_ms:null});
 async function photosFixture(page,width){
@@ -164,9 +167,9 @@ async function photosFixture(page,width){
 const photoTree=page=>page.locator('#photosRoot [data-photos-fx-tree]');
 const photoAt=(page,id)=>expect(photoTree(page).locator(`[data-photos-folder="${id}"]`)).toHaveClass(/nx-current/);
 
-test('PC 1440 사진 폴더: 2026 → 제주 에서 ‹ = 2026, ‹ = [사진], › = 2026 → 제주 (폴더 밖으로 한 번에 나가지 않는다)',async({page})=>{
+test('PC 1280 사진 폴더: 2026 → 제주 에서 ‹ = 2026, ‹ = [사진], › = 2026 → 제주 (폴더 밖으로 한 번에 나가지 않는다)',async({page})=>{
  const errors=watchErrors(page);
- await photosFixture(page,1440);
+ await photosFixture(page,1280);
  await clickView(page,'photos');await expect(page.locator('#photosView')).toBeVisible();
  const chip=page.locator('#photosRoot [data-photos-view]');
  await chip.selectOption('folders');await expect(chip).toHaveValue('folders');
@@ -175,7 +178,7 @@ test('PC 1440 사진 폴더: 2026 → 제주 에서 ‹ = 2026, ‹ = [사진], 
  await photoTree(page).locator('[data-photos-fx-tog="S2"]').click();
  await photoTree(page).locator('[data-photos-fx-open="S21"]').click();await photoAt(page,'S21');
  await expect(page).toHaveURL(/[?&]pf=o(?::|%3A)S21(?:&|$)/);
- await topBack(page).click();await photoAt(page,'S1');await expect(chip).toHaveValue('folders');
+ await topBack(page).click();await photoAt(page,'S1');await shot(page,'4-photos-folder-back-2026');await expect(chip).toHaveValue('folders');
  await page.goBack();await expect(chip).toHaveValue('all');
  await topForward(page).click();await expect(chip).toHaveValue('folders');await photoAt(page,'S1');
  await topForward(page).click();await photoAt(page,'S21');
@@ -213,7 +216,7 @@ test('PC 1280 사업 보고: (스스로 연 상집 46) → 상집 45 → [집행
  await kindBtn(page,'합성 집행위').click();await reportAt(page,'m-b');
  expect(await page.evaluate(()=>history.length)).toBe(start+1);
  await expect(page).toHaveURL(/[?&]report=m-b(?:&|$)/);
- await topBack(page).click();await reportAt(page,'m-c');await expect(page).toHaveURL(/[?&]report=m-c(?:&|$)/);
+ await topBack(page).click();await reportAt(page,'m-c');await shot(page,'5-report-back-45');await expect(page).toHaveURL(/[?&]report=m-c(?:&|$)/);
  await page.goBack();await expect(page.locator('#calendarView')).toBeVisible();
  await topForward(page).click();await expect(page.locator('#meetingsView')).toBeVisible();await reportAt(page,'m-c');
  await topForward(page).click();await reportAt(page,'m-b');
