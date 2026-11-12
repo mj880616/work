@@ -64,8 +64,9 @@ export function paneDropAt(el){
   const pane=el?.closest?.('#documentList [data-lu-pane-i]');if(!pane)return null;
   const sub=el.closest('[data-lu-pane-sub]'),id=sub&&pane.contains(sub)?sub.dataset.luPaneSub||'':'';
   if(!id)return {id:pane.dataset.luPaneFolder||'',place:pane,sub:false};
-  const row=[...pane.querySelectorAll('[data-lu-nav]')].find(b=>b.dataset.luNav===id);
-  return {id,place:row?row.closest('.ft-row')||row:sub,sub:true};
+  const row=[...pane.querySelectorAll('[data-lu-nav]')].find(b=>b.dataset.luNav===id),head=row?row.closest('.ft-row')||row:null;
+  // UI-펼친폴더안놓기전체(S60-13): group = 놓일 묶음 전체(그 폴더 줄 + 안의 자료 묶음) — 옅은 바탕 표시.
+  return {id,place:head||sub,sub:true,group:[head,sub].filter(Boolean)};
 }
 
 export const hasFiles=event=>[...(event?.dataTransfer?.types||[])].includes('Files');

@@ -13,6 +13,7 @@ import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf} from './folder-look-model.mjs';
 import {setLibraryFolderColor} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
+import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
 
@@ -297,6 +298,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // LIB-펼친폴더안놓기(S59-9): 칸 안에서 펼친 폴더 안 자료 줄(과 그 묶음 안 빈 틈)이면 그 폴더(가장 가까운 펼친 폴더)로, 표시는 그 폴더 줄.
   // 판정은 PC 파일 올리기와 같은 하나(library-drop.js paneDropAt) — {id, place(표시할 곳)}.
   const paneAt=el=>paneDropAt(el);
+  // UI-펼친폴더안놓기전체(S60-13): 한 칸 목록에서 펼친 폴더 묶음(details.lu-node) 안 아무 자리 — 자료 줄뿐 아니라 [사진 n]·작은 그림·줄 사이 틈·기다림 줄 —
+  // 이면 그 묶음의 폴더(공용 규칙 drop-open-folder.mjs). 원인(사실): 전에는 '.lu-row' 위만 보아서 #2448 뒤 묶음 끝 [사진 n]·그 사이 틈에 놓으면 아무 일도 없었다.
+  const openAt=el=>openFolderAt(el,{group:'details.lu-node',keyOf:g=>g.dataset.luNode||'',within:'#documentList',skip:'summary.lu-node-head'});
+  const openHead=el=>{const g=openAt(el);return g?g.el.querySelector(':scope > summary.lu-node-head'):null};
   function dragFrom(el,touch=false){
     const nav=!touch&&el?.closest?.('#libraryListCard [data-lu-nav][draggable="true"]');
     if(nav){const f=folder(nav.dataset.luNav);return f?{kind:'folder',id:f.id,frame:f.project_id||null,els:[nav.closest('.ft-row')||nav]}:null}
@@ -317,27 +322,26 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     // 원인(사실): 끌기·놓기 이벤트를 오른쪽 목록(#documentList)에만 걸어 두어 나무 줄 위에서는 놓기를 받는 곳이 없었다(브라우저가 놓기를 거절).
     const nav=navAt(e.target),spot=!nav&&paneAt(e.target);
     if(nav||spot){
-      const head=nav?nav.closest('.ft-row')||nav:spot.place,id=nav?nav.dataset.luNav||'':spot.id;
+      const head=nav?nav.closest('.ft-row')||nav:spot.place,id=nav?nav.dataset.luNav||'':spot.id,group=spot?.group||null;
       if(!s().free)return null;
       if(!id||id===OUTSIDE_KEY){
         if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};
         return {head,nav:true,ok:!!folder(drag.id)?.parent_id,kind:'top'};
       }
       const target=folder(id);if(!target)return {head,nav:true,ok:false};
-      if(drag.kind==='file')return {head,nav:true,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
+      if(drag.kind==='file')return {head,nav:true,group,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
       if(target.id===drag.id||target.id===folder(drag.id)?.parent_id)return {head,nav:true,ok:false};
-      return {head,nav:true,ok:folderMoveTargets(s().folders,drag.id,true).includes(target.id),kind:'into',target:target.id};
+      return {head,nav:true,group,ok:folderMoveTargets(s().folders,drag.id,true).includes(target.id),kind:'into',target:target.id};
     }
     // LIB-후속1 ⑤: 분류로 묶은 화면에서 자료를 다른 분류 머리(또는 그 분류의 열린 자료 줄) 위에 놓으면 그 분류로 바꾼다. 왼쪽 폴더 팝업은 그대로(폴더 옮기기).
     if(drag.kind==='file'&&categoryOf&&changeCategory){
-      const rowNode=e.target?.closest?.('#documentList .lu-row')?.closest('details.lu-node');
-      const cHead=e.target?.closest?.('#documentList summary.lu-node-head')||(rowNode?.dataset.luNode?.startsWith('c:')?rowNode.querySelector(':scope > summary.lu-node-head'):null);
+      const cHead=e.target?.closest?.('#documentList summary.lu-node-head')||openHead(e.target);
       const cKey=cHead?.parentElement?.dataset.luNode||'';
       if(cKey.startsWith('c:')){const name=cKey.slice(2);return {head:cHead,ok:drag.docs.some(d=>categoryOf(d.category)!==name),kind:'category',value:name}}
     }
     // LIB-정리보충 ④(10:41): 폴더 머리뿐 아니라 열린 폴더 안의 자료 줄 위에 놓아도 그 자료가 든 폴더(가장 가까운 토글)로. '폴더 밖' 자료 줄이면 폴더 밖으로.
     let head=e.target?.closest?.('#documentList summary.lu-node-head'),viaRow=false;
-    if(!head){const rowNode=e.target?.closest?.('#documentList .lu-row')?.closest('details.lu-node');if(rowNode){head=rowNode.querySelector(':scope > summary.lu-node-head');viaRow=!!head}}
+    if(!head){head=openHead(e.target);viaRow=!!head}
     if(!head)return null;
     const node=head.parentElement,key=node?.dataset.luNode;if(!key)return null;
     const free=!!s().free,r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=viaRow?-1:r.height/4;
@@ -375,7 +379,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   function fileTarget(e){
     if(drag||!s().free)return null;
     let head=e?.target?.closest?.('#documentList summary.lu-node-head');
-    if(!head){const rowNode=e?.target?.closest?.('#documentList .lu-row')?.closest('details.lu-node');if(rowNode)head=rowNode.querySelector(':scope > summary.lu-node-head')}
+    if(!head)head=openHead(e?.target);
     const key=head?.parentElement?.dataset.luNode||'';
     if(!key.startsWith('f:'))return null;
     const f=folder(key.slice(2));
@@ -404,10 +408,12 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(!t)return;t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
     t.head.classList.add(!t.ok?'lu-drop-no':t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
     document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>{if(t.nav||el!==t.head.parentElement)el.classList.remove('lu-drop-group')});
-    if(t.nav)return; // 나무 줄은 그 줄만 표시(묶음 강조 없음).
+    // UI-펼친폴더안놓기전체(S60-13): 두 칸 칸 안 펼친 폴더 묶음이면 그 폴더 줄 + 안의 자료 묶음 전체를 옅은 바탕으로(한 칸 목록과 같은 표시).
+    if(t.nav){paneGroup(t);return} // 나무 줄·칸 상자는 그 줄만 표시(묶음 강조 없음).
     // 놓일 묶음 전체(머리줄 + 안의 줄)를 연한 강조색으로: 분류 바꾸기, 그리고 자료를 폴더(또는 폴더 밖)에 넣을 때.
     t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&(t.kind==='category'||((drag?.kind==='file'||fileDrag)&&(t.kind==='into'||t.kind==='top'))));
   }
+  function paneGroup(t){for(const el of t?.ok!==false&&t?.kind!=='before'&&t?.kind!=='after'?t?.group||[]:[])el.classList.add('lu-drop-group')}
   const markDragging=d=>{for(const el of d?.els||[])el.classList.add('lu-dragging')};
   // 화면 가장자리 근처에서 끌면 목록이 저절로 움직인다(끌기가 끝나면 멈춤).
   let scroller=null,scrollTimer=0,scrollDir=0,scrollSpeed=0;
