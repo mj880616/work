@@ -147,7 +147,7 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 정�
  await q.locator('[data-quick-input]').fill('합성 진행');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  // MTG-프로젝트합치기 3단계: 사업영역 하나는 진행 기록이 아니라 정리함 업데이트 1건 + 그 사업영역 연결이다.
  expect(projectBodies).toHaveLength(0);expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'합성 진행'});
- expect(links).toEqual([{p_note_id:'n1',p_note_updated_at:'2026-10-06T01:00:00.123456Z',p_targets:[{kind:'project',target_id:'child',reason:'직접 연결'}]}]);
+ expect(links).toEqual([{p_note_id:'n1',p_note_updated_at:'2026-10-06T01:00:00.123456Z',p_targets:[{kind:'project',target_id:'child',reason:'직접 연결',origin:'record_input'}]}]);
  await expect(q).toHaveAttribute('data-mode','basket');
  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await expect(sheet.locator('[data-sheet-recent] [data-sheet-value]').first()).toHaveText('자식 프로젝트');
  await expect(sheet.locator('[data-sheet-recent] [aria-pressed="true"]')).toHaveCount(0);

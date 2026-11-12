@@ -91,7 +91,7 @@ test('one organization record is saved with its saved form in the same insert; o
     assert.deepEqual(calls.map(c => c.path.split('?')[0]), ['/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links', '/rest/v1/app_business_records', '/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links', '/rest/v1/app_business_records']);
     assert.deepEqual(calls[0].body, {organization_id:'o', raw_text:'글', created_by:'u', doc:DOC});
     assert.deepEqual(calls[1].body, {workspace_id:'w', raw_text:'글', doc:DOC});
-    assert.deepEqual(calls[2].body, {p_note_id:'n', p_note_updated_at:'2026-10-28T00:00:00Z', p_targets:[{kind:'project', target_id:'p', reason:'직접 연결'}]});
+    assert.deepEqual(calls[2].body, {p_note_id:'n', p_note_updated_at:'2026-10-28T00:00:00Z', p_targets:[{kind:'project', target_id:'p', reason:'직접 연결', origin:'record_input'}]});
     assert.equal(one.linkError, '');
     assert.deepEqual({...calls[3].body, day:'d'}, {workspace_id:'w', space_id:'p', day:'d', body:'글', source_kind:'update', source_id:'n'});
     assert.match(calls[3].body.day, /^\d{4}-\d{2}-\d{2}$/);

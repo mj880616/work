@@ -29,7 +29,7 @@ import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTa
 import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
-import {newsOn, readNews, pickTodayNews, decideNews, openNews, oldNews, recheckNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
+import {newsOn, readNews, pickTodayNews, decideNews, openNews, oldNews, promiseNews, suspectNews, recheckNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 // FORGET-노트고르기: 업무 줄 [노트]의 처음 폴더(맨 위 폴더 이름, 없으면 폴더 없음).
@@ -44,6 +44,11 @@ export const NEWS_VIEW = Object.freeze({open: 'suggested', linked: 'kept', dismi
 export const newsFor = (view, rows, picks = false) => view === 'open' ? openNews(rows, picks) : (rows || []).filter(r => NEWS_VIEW[view] && r.status === NEWS_VIEW[view]);
 // AI가 정한 종류 → 굵게 보일 버튼(같은 이름). 누르는 건 사람이다.
 export const NEWS_HINT = Object.freeze({task: 'task', event: 'event', note: 'note', org: 'org', area: 'area'});
+// S61-11: 상대 약속 소식 줄의 버튼. 받음 = 상대가 해 줌(소식 '처리함'), 무시 = 소식 '무시'. 둘 다 되돌리기 있음.
+export const PROMISE_NEWS_ACTS = Object.freeze([['ledger', '원장으로'], ['done', '받음'], ['dismissed', '무시']]);
+// 상대 약속 소식 → 원장 쓰기요청 글(챙길 것 약속과 같은 모양, 근거는 출처 이름만 — 사람 이름·연락처 없음).
+export const promiseNewsLedger = r => ledgerRequestText({summary: newsText(r), due: '', evidence: '', source_kind: '', source_day: r?.day || ''})
+  .replace('- 출처: Web2 기록', `- 출처: Web2 소식(${r?.source === 'telegram' ? '텔레그램' : '통화'})`);
 export const newsDone = r => { const d = shortDay(r.decidedAt ? seoulDateKey(new Date(r.decidedAt)) : ''); const t = r.status === 'kept' ? '처리함' : '무시함'; return d ? `${t} · ${d}` : t; };
 
 const shortDay = v => { const m = String(v ?? '').match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${Number(m[1])}/${Number(m[2])}` : ''; };
@@ -88,7 +93,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   if (!host) return null;
   let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
   // fix: 옛 소식 정리(FORGET-소식바로잡기 ④) 한 줄의 상태 — null(안 함) · {phase:'preview'|'confirm'|'run', keep, drop, left}.
-  let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null, fix = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
+  let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null, fix = null, fixedOnce = false; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
   const busy = new Set(), unknown = new Set(), linking = new Map();
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
   const changed = () => win.dispatchEvent(new CustomEvent(CHANGED, {detail: {reload: true}}));
@@ -160,9 +165,18 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         report: true, done: view === 'open' ? '' : (u.done || ' '), open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
     }
     const sorted = newestFirst(out);
-    // 상대 약속: 처리 전·모든 출처일 때만, 맨 아래(시각 없음). 처리 상태가 없어 다른 보기에는 없다.
-    if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: SOURCE_TAG.promise,
+    // 상대 약속: 처리 전일 때만, 맨 아래(시각 없음). 세지 않는다(상대가 할 일).
+    // S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁해 상대가 하기로 한 일은 어느 길에서 왔든 여기 한 곳에 모은다. 꼬리표 = '상대 약속 · 출처'.
+    // - 챙길 것 찾기가 돌려준 약속(radarPromises, 저장하지 않음): 모든 출처일 때만, 버튼 [원장으로] 하나(그대로).
+    // - 소식(통화·텔레그램, 서버 표 종류 promise): 모든 출처·소식일 때. [원장으로][받음][무시] — 받음·무시는 소식 줄의 기존 상태 길(되돌리기 있음).
+    if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: `${SOURCE_TAG.promise} · ${SOURCE_TAG.todo}`,
       meta: [RADAR_SOURCE_LABEL[p.source_kind] || '', dueLabel(p.due) ? `기한 ${dueLabel(p.due)}` : ''].filter(Boolean).join(' · '), acts: [['ledger', '원장으로']], attrs: 'data-forget-src="promise" data-inbox-promise'})}));
+    if (view === 'open' && nOn && (src === 'all' || src === 'news')) for (const r of promiseNews(news)) {
+      const label = newsText(r);
+      sorted.push({html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: `${SOURCE_TAG.promise} · ${r.source === 'telegram' ? '텔레그램' : '통화'}`, busy: busy.has(`n:${r.id}`),
+        open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
+        why: r.reason, acts: PROMISE_NEWS_ACTS, attrs: 'data-forget-src="promise" data-forget-promise-news'})});
+    }
     return sorted;
   }
   // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개(같은 ③ 글자 버튼). 고르면 그 할 일과 잇고 목록에서 뺀다. 새 할 일은 만들지 않는다.
@@ -195,15 +209,18 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   }
   // FORGET-소식바로잡기 ④: 옛 기준으로 쌓인 처리 전 소식이 있을 때만 상태 줄에 작은 한 줄. [정리] → 서버 미리 보기 수 → [확인]으로 실행.
   // 판정·바꾸기는 모두 서버가 한다(forget-news-data.js recheckNews). 끝나면 옛 줄이 없어져 이 줄도 사라진다(한 번만 보임).
+  // S61-11: 방향 규칙 전에 '할 일'로 고른 줄(suspectNews)도 함께 다시 본다. 거꾸로 적힌 줄은 상대 약속으로 옮긴다(서버).
   function fixHtml() {
     if (!nOn || !nPicks || view !== 'open' || (src !== 'all' && src !== 'news')) return '';
-    const n = oldNews(news, nPicks).length;
+    if (fixedOnce && !fix) return '';
+    const n = oldNews(news, nPicks).length + suspectNews(news, nPicks).length;
     if (!n && !fix) return '';
     if (fix?.phase === 'preview') return `<span class="nbx-faint" data-forget-fix>옛 소식 ${n}개 살펴보는 중…</span>`;
     if (fix?.phase === 'run') return `<span class="nbx-faint" data-forget-fix>옛 소식 정리하는 중…</span>`;
     if (fix?.phase === 'confirm') {
       const wait = fix.left ? ` · ${fix.left}개는 다음에` : '';
-      return `<span data-forget-fix>옛 소식 ${n}개 중 ${fix.keep}개 남기고 ${fix.drop}개는 무시로${wait} <button type="button" class="row-act" data-forget-fix-go>확인</button><button type="button" class="row-act" data-forget-fix-cancel>취소</button></span>`;
+      const moved = fix.promise ? ` · ${fix.promise}개는 상대 약속으로` : '';
+      return `<span data-forget-fix>옛 소식 ${n}개 중 ${fix.keep}개 남기고 ${fix.drop}개는 무시로${moved}${wait} <button type="button" class="row-act" data-forget-fix-go>확인</button><button type="button" class="row-act" data-forget-fix-cancel>취소</button></span>`;
     }
     return n ? `<span data-forget-fix>옛 소식 ${n}개 새 기준으로 정리 <button type="button" class="row-act" data-forget-fix-ask>정리</button></span>` : '';
   }
@@ -214,11 +231,12 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (owner !== radarScope(rt)) return;
     if (!r.ok) { fix = null; say('옛 소식을 정리하지 못했어요. 잠시 뒤 다시 눌러 주세요.'); return; }
     if (mode === 'preview') {
-      if (!r.keep && !r.drop) { fix = null; say(r.left ? '지금은 정리할 옛 소식이 없어요.' : '정리할 옛 소식이 없어요.'); return; }
-      fix = {phase: 'confirm', keep: r.keep, drop: r.drop, left: r.left}; paint(); return;
+      // 옮길 줄이 없으면(남길 옛 줄도 무시할 줄도 상대 약속으로 옮길 줄도 없음) 이 탭에서는 다시 묻지 않는다(방향만 다시 본 '할 일' 줄은 그대로 남음).
+      if (!r.keep && !r.drop && !r.promise) { fix = null; fixedOnce = true; say(r.left ? '지금은 정리할 옛 소식이 없어요.' : '정리할 옛 소식이 없어요.'); return; }
+      fix = {phase: 'confirm', keep: r.keep, drop: r.drop, left: r.left, promise: r.promise}; paint(); return;
     }
-    fix = null;
-    status = `옛 소식 정리: ${r.keep}개 남김 · ${r.drop}개 무시`;
+    fix = null; fixedOnce = true;
+    status = `옛 소식 정리: ${r.keep}개 남김 · ${r.drop}개 무시${r.promise ? ` · ${r.promise}개 상대 약속으로` : ''}`;
     await loadNews();
     paint();
   }
@@ -376,7 +394,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (r.status !== 'suggested' || busy.has(`n:${r.id}`)) return;
     const text = newsText(r), memo = [NEWS_SOURCE_TAG[r.source], shortDay(r.day)].filter(Boolean).join(' · '), mine = radarScope(rt), live = () => mine === radarScope(rt);
     if (act === 'dismissed') return newsMark(r, 'dropped', '무시했어요.', true);
-    if (act === 'done') return newsMark(r, 'kept', '이미 한 일로 뺐어요.', true);
+    if (act === 'done') return newsMark(r, 'kept', r.kind === 'promise' ? '받음으로 뺐어요.' : '이미 한 일로 뺐어요.', true);
+    if (act === 'ledger') { void copyText(promiseNewsLedger(r)).then(ok => say(ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.')); return; }
     // [조직]: 그 조직 이름이 이미 줄 앞에 있으면 줄만, 다른 조직에 넣으면 AI가 쓴 이름까지 그대로 남긴다.
     if (act === 'org') return pickOrg(button, {guess: read => matchOrg(r.org, read.orgs, read.mine),
       onPick: org => void newsKeep(r, () => saveOrg(org, matchOrg(r.org, [org], new Set([org.id])) ? r.line : text, r.id), orgDone(org))});
@@ -642,7 +661,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   win.addEventListener('kptu:google-tasks-changed', () => { if (cState === 'ok') paint(); });
   win.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; fix = null; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
+    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; fix = null; fixedOnce = false; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
     onView(view); paint();
   });
   const api = {refresh, paint, setView, view: () => view, source: () => src,

@@ -27,10 +27,10 @@ for(const width of [390,1280])test(`상대 약속 줄 and [원장으로] in 정�
  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  await basketKindButton(page,'memo').click();
  await expect(page.locator('#basketView')).toBeVisible();
- // S52-20: 정리함 한 목록의 처리 전 맨 아래, 같은 줄 부품(출처 꼬리표 '상대 약속', 버튼은 [원장으로] 하나).
+ // S52-20: 정리함 한 목록의 처리 전 맨 아래, 같은 줄 부품(출처 꼬리표 '상대 약속 · 챙길 것'(S61-11), 버튼은 [원장으로] 하나).
  const row=page.locator('#basketView [data-inbox-promise]');
  await expect(row).toHaveCount(1);
- await expect(row.locator('.nbx-src')).toHaveText('상대 약속');await expect(row).toContainText('상대 측 자료 송부 약속');
+ await expect(row.locator('.nbx-src')).toHaveText('상대 약속 · 챙길 것');await expect(row).toContainText('상대 측 자료 송부 약속');
  await expect(row.getByRole('button',{name:'할 일로'})).toHaveCount(0);
  await expect(page.locator('#basketView [data-forget-section] [data-nbx-row]').last()).toHaveAttribute('data-inbox-promise','');
  await row.getByRole('button',{name:'원장으로'}).click();

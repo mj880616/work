@@ -31,6 +31,6 @@ test('one bundle alone is a basket update linked to it (never an organization or
   assert.equal(result.note.id,'n1');assert.equal(result.linkError,'');
   assert.equal(calls[0].path,'/rest/v1/app_notes');
   assert.equal(calls[1].path,'/rest/v1/rpc/app_basket_confirm_links');
-  assert.deepEqual(calls[1].body.p_targets,[{kind:'reference',target_id:'b1',reason:'직접 연결'}]);
+  assert.deepEqual(calls[1].body.p_targets,[{kind:'reference',target_id:'b1',reason:'직접 연결',origin:'record_input'}]);
   assert.ok(!calls.some(c=>/suborganization_updates|project_progress/.test(c.path)));
 });

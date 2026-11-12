@@ -4,6 +4,7 @@ import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
 import {previewText,markdownSource,writtenText} from './note-preview.mjs';
+import {attachmentsLabel} from './record-file-line.mjs';
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -46,7 +47,7 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
   const kinds=noteKinds.filter(k=>['basket','note'].includes(k));if(!kinds.length)return [];const withNotes=kinds.includes('note');
   const owner=scope(rt),encode=encodeURIComponent,bundle=kind==='bundle',target=kind==='organization'?'organization_id':bundle?'bundle_id':'project_id';
   const columns=`organization_id,project_id${bundle?',bundle_id':''}`;
-  const fields=dateOnly?`id,workspace_id,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at)`:`id,workspace_id,summary,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''}${withFiles?',attachments':''})`;
+  const fields=dateOnly?`id,workspace_id,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at)`:`id,workspace_id,summary,origin,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''}${withFiles?',attachments':''})`;
   const places=bundle?'bundle_id=not.is.null':'or=(organization_id.not.is.null,project_id.not.is.null)';
   const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=${kinds.length===1?'eq.'+kinds[0]:'in.('+kinds.join(',')+')'}&status=eq.confirmed&note_id=not.is.null&${places}&select=${fields}&order=id.asc`;
   const batches=targetIds?Array.from({length:Math.ceil(targetIds.length/PAGE_SIZE)},(_,i)=>targetIds.slice(i*PAGE_SIZE,(i+1)*PAGE_SIZE)):[null];
@@ -62,7 +63,7 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
       if(linkId&&row.id!==linkId||kind&&!row[target]||targetIds&&!targetIds.includes(row[target]))continue;
       if(weekStart&&Date.parse(note.occurred_at)<Date.parse(weekStart)||weekEnd&&Date.parse(note.occurred_at)>=Date.parse(weekEnd))continue;
       const noteKind=withNotes&&note.kind==='note'?'note':'basket';if(!kinds.includes(noteKind))continue;
-      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{}),...(withFiles&&!dateOnly?{attachments:Array.isArray(note.attachments)?note.attachments:[]}:{})});
+      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,origin:row.origin??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{}),...(withFiles&&!dateOnly?{attachments:Array.isArray(note.attachments)?note.attachments:[]}:{})});
     }
   }
   return rows;
@@ -96,10 +97,16 @@ export async function updateLinkSummary(id,expected,summary,rt=window.KPTURuntim
 const UPDATE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5 6.5h6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 const NOTE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3.5 2.5h6l3 3v8h-9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 2.5v3h3M5.5 8.5h5M5.5 11h3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 export const isNoteRecord=row=>row?.note_kind==='note';
+// ORG-기록첨부표시이름 ①(S61-6): 기록 입력칸에서 바로 올린 업데이트(연결 origin 'record_input')는 일반 기록처럼 이름표·표시 없이 날짜만.
+// 잊지 말기에서 옮긴 연결('basket')과 표시가 없는 지난 연결(null)은 지금처럼 '잊지 말기 연결'. 노트 연결은 늘 '노트 연결'.
+export const isDirectRecord=row=>!isNoteRecord(row)&&row?.origin==='record_input';
+export const recordMenuLabel=row=>isDirectRecord(row)?'기록 메뉴':'잊지 말기 기록 메뉴';
 export function recordMark(row,className='record-mark'){const note=isNoteRecord(row);return `<span class="${className}" data-record-mark="${note?'note':'update'}" role="img" aria-label="${note?'노트':'잊지 말기 업데이트'}">${note?NOTE_ICON:UPDATE_ICON}</span>`;}
 // A note record shows the summary written when it was linked, else the note's title, else its opening text.
 // BUG-미리보기기호: every line is shown as plain letters (no #·|·** marks, no &#x20; entities); the stored text is unchanged.
 export const recordText=row=>row.summary!=null?previewText(row.summary):(isNoteRecord(row)&&String(row.title||'').trim()?previewText(row.title):noteExcerpt(row.raw_text));
+// ORG-기록첨부표시이름(S61-2): 목록 줄에 보이는 글. 요약·글이 없고 사진·파일만 있는 기록은 '사진 3장'·'파일 2개'(readLinkRecords withFiles의 attachments), 그것도 없으면 '요약 없음'.
+export const recordShownText=row=>recordText(row)||attachmentsLabel(row?.attachments)||'요약 없음';
 // BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
 // [메모 열기]·[연결 해제]·[요약 수정] and, for an update in organization detail, [원문 삭제].
 // BUG-미리보기기호: the written text a record's [더보기] opens as headings and tables (only when it carries marks the line removed).
@@ -111,7 +118,7 @@ export const recordWrittenSource=row=>{const text=recordSourceText(row);return !
 export function linkRecordHtml(row,{extra=''}={}){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="잊지 말기 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div>${extra}<p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${isDirectRecord(row)?`<time>${escape(date)}</time>`:`${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'} · <time>${escape(date)}</time>`}</small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div>${extra}<p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).

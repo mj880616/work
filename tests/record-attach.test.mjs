@@ -76,7 +76,7 @@ test('files without letters in an organization record: linked with the AI line a
   const result=await withUploadFetch(()=>places.saveUpdateWithFiles({places:[{kind:'organization',id:'o1'}],text:'',batch:batchOf([pic()]),fileLine:async files=>{seen.push(files.map(f=>f.name));return '합성 공문 사진 한 줄임.'}},rt));
   assert.deepEqual(seen,[['붙여넣은 그림 11-05 16:18.png']]);
   const confirm=calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links');
-  assert.deepEqual(confirm.body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결',summary:'합성 공문 사진 한 줄임.'}]);
+  assert.deepEqual(confirm.body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결',origin:'record_input',summary:'합성 공문 사진 한 줄임.'}]);
   assert.equal(result.linkError,'');assert.equal(result.filed.ok,true);
   assert.ok(calls.some(c=>c.method==='PATCH'&&c.path.startsWith('/rest/v1/app_documents?')&&c.body.organization_id==='o1'));
 });
@@ -94,7 +94,7 @@ test('letters written: the letters are the record (no summary, no AI); without f
   {const {rt,calls}=fakeRt();let asked=0;
     await withUploadFetch(()=>places.saveUpdateWithFiles({places:[{kind:'organization',id:'o1'}],text:'교섭 메모',batch:batchOf([pic()]),fileLine:async()=>{asked++;return 'x'}},rt));
     assert.equal(asked,0);
-    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결'}]);}
+    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결',origin:'record_input'}]);}
   {const {rt,calls}=fakeRt();
     await withUploadFetch(()=>places.saveUpdateWithFiles({places:[{kind:'organization',id:'o1'}],text:'',batch:batchOf([pic()])},rt));
     assert.ok(!calls.some(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links'),'unchanged shared rule');}
@@ -118,7 +118,7 @@ test('save first: with letters, the letters are saved and linked before it retur
     const result=await places.saveUpdateFilesBehind({places:[{kind:'organization',id:'o1'}],text:'교섭 메모',batch},rt);
     assert.equal(result.note.id,'n1');assert.equal(result.linkError,'');
     assert.equal(calls[0].path,'/rest/v1/app_notes');assert.equal(calls[0].method,'POST');assert.equal(calls[0].body.raw_text,'교섭 메모');
-    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결'}]);
+    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결',origin:'record_input'}]);
     assert.ok(!calls.some(c=>c.method==='PATCH'&&c.path.startsWith('/rest/v1/app_documents?')),'자료로 넣기는 올린 뒤');
     assert.equal(updateFileLine.going('n1'),true);
     up.open();await updateFileLine.settled('n1');
@@ -144,7 +144,7 @@ test('save first: files without letters wait for nothing; the first file makes t
     for(let i=0;i<50&&!calls.some(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links');i++)await new Promise(r=>setTimeout(r,10));
     await updateFileLine.settled('n1');
     assert.deepEqual(up.sent,[{note_id:null,raw_text:null,name:'합성 안내문.pdf'}]);
-    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결',summary:'합성 공문 한 줄임.'}]);
+    assert.deepEqual(calls.find(c=>c.path==='/rest/v1/rpc/app_basket_confirm_links').body.p_targets,[{kind:'organization',target_id:'o1',reason:'직접 연결',origin:'record_input',summary:'합성 공문 한 줄임.'}]);
   });
 });
 

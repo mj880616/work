@@ -68,7 +68,7 @@ test('MTG-겹침 홈 [업데이트]로 사업영역 하나에 기록하면 연�
   await expect(notice(page)).toContainText('비슷한 기록이 있어요');await expect(notice(page)).toContainText(TITLE);
   expect(progress).toEqual([]);
   expect(posts).toHaveLength(1);expect(posts[0].prefer).toContain('return=representation');
-  expect(links).toEqual([{p_note_id:NOTE,p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결'}]}]);
+  expect(links).toEqual([{p_note_id:NOTE,p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결',origin:'record_input'}]}]);
   expect(calls.ai).toHaveLength(1);
   expect(calls.ai[0].pairs).toEqual([{a:`basket:${NOTE}`,b:`meeting:${MID}`}]);
   await notice(page).getByRole('button',{name:'연결로 바꾸기'}).click();

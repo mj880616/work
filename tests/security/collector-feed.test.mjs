@@ -236,7 +236,7 @@ test('통화 업무: AI 없이 분석 파일만 읽어 저장(제목·점·상�
   const row=h.db.app_feed_items[0];
   assert.equal(row.source,'call');assert.equal(row.day,TODAY);assert.equal(row.occurred_at,'2026-10-24T00:30:00.000Z');
   assert.equal(row.title,'가상노조 위원장 · 3차 교섭 일정 변경');
-  assert.deepEqual(row.points,['3차 교섭을 10. 28.(화) 14:00로 미루기로 함.','사측 안은 서면으로 받기로 함.','[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지']);
+  assert.deepEqual(row.points,['3차 교섭을 10. 28.(화) 14:00로 미루기로 함.','사측 안은 서면으로 받기로 함.','[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지 (상대가 할 일)']);
   assert.equal(row.counterpart,'가상노동조합 홍길동 위원장');assert.equal(row.organization_id,ORG);
   assert.equal(row.speaker_split,false);assert.match(row.raw_text,new RegExp(RAW_MARK));
   assert.equal(row.model,'gemini-fake');assert.equal(row.drive_url,'https://drive.google.com/file/d/SRCFAKE0001aa/view');
@@ -361,7 +361,7 @@ test('v3.2 업무: 제목은 call_title, 조직은 related_organizations(담당�
   const base=p({});
   assert.equal(base.kind,'business');assert.equal(base.title,'가상노조 위원장 · 3차 교섭 일정 변경');
   assert.equal(base.counterpart,'가상노동조합 홍길동 위원장');assert.equal(base.organization_id,ORG);
-  assert.deepEqual(base.points,['3차 교섭을 10. 28.(화) 14:00로 미루기로 함.','사측 안은 서면으로 받기로 함.','[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지']);
+  assert.deepEqual(base.points,['3차 교섭을 10. 28.(화) 14:00로 미루기로 함.','사측 안은 서면으로 받기로 함.','[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지 (상대가 할 일)']);
   assert.equal(base.speaker_split,false);
   // related_organizations가 다른 담당조직이면 그것이 조직 연결 후보
   assert.equal(p({related:'["예시지부"]'}).organization_id,ORG2);
@@ -384,7 +384,7 @@ test('v3.2 업무: 제목은 call_title, 조직은 related_organizations(담당�
   assert.equal(p({head:'',counterpart:'- 이름: 박가상\n- 직책: 지부장\n- 소속: 예시지부',related:'[]'}).counterpart,'예시지부 박가상 지부장');
   // 핵심요약이 "없음" 문구면 점은 후보에서만, 제목은 call_title
   const empty=p({summary:'- 장기적으로 남길 핵심요약 없음'});assert.equal(empty.kind,'business');
-  assert.deepEqual(empty.points,['[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지']);
+  assert.deepEqual(empty.points,['[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지 (상대가 할 일)']);
   // 화자 구분이 없는 전사는 한 문단 그대로
   assert.equal(p({},'네 위원장님 교섭 일정 건으로 전화드렸습니다').speaker_split,false);
   assert.equal(p({},'나: 교섭 건입니다\n가상노동조합 홍길동 위원장: 네').speaker_split,true);
