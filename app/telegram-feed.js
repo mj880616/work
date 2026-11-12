@@ -118,6 +118,8 @@ async function load() {
   if (!state.placed && state.loaded && !state.error && !state.missing) {
     state.placed = true; const at = window.KPTURouter?.place?.('telegram') || {};
     if (at.by === 'room' && at.room && !state.sel && !state.rsel) { openRoom(at.room); return; }
+    const rd = splitPickDay(at.rday);
+    if (rd && byNow() !== 'room' && !state.sel && !state.rsel) { select(rd.room, rd.day); return; }
   }
   paint();
   if (state.sel) void ensureDetail(); else if (state.rsel) void ensureRoomDays();
@@ -585,28 +587,50 @@ function saveSelf(id, self) {
 
 // ---------- actions
 // 방 상세 열기. item: 열자마자 원문을 펼칠 소식. 폰은 router layer 한 칸(뒤로가기 = 목록).
-function select(room, day, item = '') {
-  if (state.link && !dropLink(() => select(room, day, item))) return;
+// NAV-PC뒤로직전: picked = the person chose this day on the list (PC): a back step of its own (router pick, one owner).
+const pickDay = (room, day) => { const v = `${room}:${day}`; return /^[A-Za-z0-9_.:-]{1,80}$/.test(v) ? v : ''; };
+const splitPickDay = v => { const s = String(v || ''), at = s.lastIndexOf(':'); return at > 0 && at < s.length - 1 ? {room:s.slice(0, at), day:s.slice(at + 1)} : null; };
+// Back or forward landed on a picked entry (PC): show that room or day again; one no longer there shows the list only (no error).
+// Unsaved input kept (link box) → false: the router returns to the entry left.
+function showPicked({by = '', room = '', rday = ''} = {}) {
+  if (window.KPTURouter?.current !== 'telegram') return true;
+  if (state.link && !dropLink(() => {})) return false;
+  if (state.mode !== 'live') leaveShelf();
+  const rd = splitPickDay(rday);
+  if (room && by === 'room') { if (byNow() !== 'room') setBy('room'); if (state.loaded && !state.rooms.has(room) && !allLines().some(l => l.room_key === room)) { closeDetail(); return true; } openRoom(room); return true; }
+  if (rd) { if (byNow() === 'room') setBy('day'); if (state.loaded && !lineAt(rd.room, rd.day)) { closeDetail(); return true; } select(rd.room, rd.day); return true; }
+  if (state.sel || state.rsel) closeDetail(); else paint();
+  return true;
+}
+window.KPTURouter?.pick?.on?.('telegram', showPicked);
+function select(room, day, item = '', {picked = false} = {}) {
+  if (state.link && !dropLink(() => select(room, day, item, {picked}))) return;
+  const wasOpen = !!(state.sel || state.rsel);
   if (state.sedit?.kind === 'raw') endEdit();
   state.rsel = ''; state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null; markSeen(room, day);
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {reopen:() => select(room, day), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
+  const rday = pickDay(room, day);
+  if (picked && pc.matches && rday) window.KPTURouter?.pick?.record?.('telegram', {rday}, {fromNone:!wasOpen});
+  else window.KPTURouter?.setPlace?.('telegram', {room:null, rday:rday || null});
   paint(); void ensureDetail().then(() => { if (item) void loadRaw(item); });
   (pc.matches ? $(`#tgList [data-tg-rdopen="${CSS.escape(rdKey(room, day))}"]`) : $('#tgDetail [data-tg-back]'))?.focus({preventScroll:true});
 }
 function closeDetail({fromBack = false, quiet = false} = {}) {
-  const key = selKey(), room = state.rsel; state.sel = null; state.rsel = ''; state.rbusy = false; state.link = null; if (room) window.KPTURouter?.setPlace?.('telegram', {room:null}); state.note = ''; state.open = new Set(); state.more = new Set(); if (state.sedit?.kind === 'raw') endEdit();
+  const key = selKey(), room = state.rsel; state.sel = null; state.rsel = ''; state.rbusy = false; state.link = null; if (room || key) window.KPTURouter?.setPlace?.('telegram', {room:null, rday:null}); state.note = ''; state.open = new Set(); state.more = new Set(); if (state.sedit?.kind === 'raw') endEdit();
   const l = layer; layer = null; if (!fromBack) l?.close();
   if (quiet) return;
   paint(); $(room ? `#tgList [data-tg-roomopen="${CSS.escape(room)}"]` : `#tgList [data-tg-rdopen="${CSS.escape(key)}"]`)?.focus({preventScroll:true});
 }
 // TG-방별보기: 방 상세(방별) 열기. 폰은 router layer 한 칸(뒤로가기 = 방 목록). 주소에 방을 남겨 새로고침해도 그 방이 열린다.
-function openRoom(room) {
+function openRoom(room, {picked = false} = {}) {
   if (!room) return;
-  if (state.link && !dropLink(() => openRoom(room))) return;
+  if (state.link && !dropLink(() => openRoom(room, {picked}))) return;
+  const wasOpen = !!(state.sel || state.rsel);
   if (state.sedit?.kind === 'raw') endEdit();
   state.sel = null; state.rsel = room; state.rshown = ROOM_DAY_PAGE; state.rstop = false; state.status = ''; state.note = ''; state.open = new Set(); state.more = new Set(); undo = null;
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-room', {reopen:() => openRoom(room), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
-  window.KPTURouter?.setPlace?.('telegram', {by:'room', room});
+  if (picked && pc.matches) window.KPTURouter?.pick?.record?.('telegram', {by:'room', room}, {fromNone:!wasOpen});
+  else window.KPTURouter?.setPlace?.('telegram', {by:'room', room, rday:null});
   paint(); void ensureRoomDays();
   (pc.matches ? $(`#tgList [data-tg-roomopen="${CSS.escape(room)}"]`) : $('#tgDetail [data-tg-back]'))?.focus({preventScroll:true});
 }
@@ -1037,11 +1061,11 @@ function bind() {
     else if (b.hasAttribute('data-tg-fedit-cancel')) cancelFolderEdit();
     else if (b.hasAttribute('data-tg-fedit-save')) void saveFolder();
     else if (d.tgRestoreDay) { const k = splitRdKey(d.tgRestoreDay); if (k) void restoreDay(k.room, k.day); }
-    else if (d.tgRdopen) { const k = splitRdKey(d.tgRdopen); if (k) select(k.room, k.day); }
-    else if (d.tgRoomopen) openRoom(d.tgRoomopen);
+    else if (d.tgRdopen) { const k = splitRdKey(d.tgRdopen); if (k) select(k.room, k.day, '', {picked:true}); }
+    else if (d.tgRoomopen) openRoom(d.tgRoomopen, {picked:true});
     else if (d.tgBy) setBy(d.tgBy === 'room' ? 'room' : 'day');
     else if (b.hasAttribute('data-tg-rolder')) void moreRoomDays();
-    else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { if (roomMode()) openRoom(r.room_key); else select(r.room_key, r.day, r.id); } }
+    else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { if (roomMode()) openRoom(r.room_key, {picked:true}); else select(r.room_key, r.day, r.id, {picked:true}); } }
     else if (d.tgNav) void navDay(d.tgNav);
     else if (d.tgRestore) void restoreItem(d.tgRestore);
     else if (b.hasAttribute('data-tg-older')) { b.disabled = true; void extend().then(() => { paintList(); if (state.rsel) paintDetail(); }).catch(() => { state.status = '이전 날을 불러오지 못했어요.'; paintList(); }); }

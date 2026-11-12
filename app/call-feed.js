@@ -255,13 +255,30 @@ function sumBoxHtml(r) {
 function openLayer(id) {
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('call-detail', {reopen:() => select(id), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
 }
-function select(id) {
-  if (!dropBoxes(() => select(id))) return;
+// NAV-PC뒤로직전: picked = the person chose this call on the list (PC): a back step of its own (router pick, one owner).
+function select(id, {picked = false} = {}) {
+  if (!dropBoxes(() => select(id, {picked}))) return;
+  const wasOpen = !!state.selected;
+  if (picked && pc.matches && id !== state.selected) window.KPTURouter?.pick?.record?.('calls', {box:state.box === 'personal' ? 'personal' : null, call:id}, {fromNone:!wasOpen});
   state.selected = id; state.rawOpen = false; state.status = ''; undo = null; state.confirm = null; ledgerAsk = null;
   openLayer(id); paint(); void loadRaw(id);
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
 }
 // 지금 통화함 목록의 맨 위 통화(날짜별 목록의 첫 줄, 없으면 확인할 통화의 첫 줄)를 고른 상태로 둔다. 그리기는 부르는 쪽 paint() 한 번.
+// Back or forward landed on a picked entry (PC): show that call again; one no longer there shows the list only (no error).
+// Unsaved input kept (an open edit box) → false: the router returns to the entry left.
+function showPicked({call = ''} = {}) {
+  if (window.KPTURouter?.current !== 'calls') return true;
+  if (!state.loaded || call === state.selected) return true;
+  if (!dropBoxes(() => {})) return false;
+  const r = call && rowOf(call);
+  if (!r) { if (state.selected) closeDetail(); return true; }
+  const box = isPersonal(r) ? 'personal' : 'work';
+  if (box !== state.box) setBox(box);
+  select(call);
+  return true;
+}
+window.KPTURouter?.pick?.on?.('calls', showPicked);
 function pickTop() {
   const top = state.box === 'personal' ? groupByDay(personalRows())[0]?.items[0] : groupByDay(state.rows)[0]?.items[0] || unsureRows()[0];
   if (!top) return;
@@ -534,7 +551,7 @@ function bind() {
   root.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.disabled || !root.contains(b)) return;
     const d = b.dataset;
-    if (d.cfRow) select(d.cfRow);
+    if (d.cfRow) select(d.cfRow, {picked:true});
     else if (d.cfRowmore) menu.open(b);
     else if (d.cfBox) setBox(d.cfBox);
     else if (d.cfDecide) { const r = rowOf(d.cfId); if (r) void moveRow(r, d.cfDecide); }
