@@ -170,7 +170,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     return `<button type="button" class="lu-menu-receive" data-lu-folder-action="receive" aria-pressed="${on}"><span>${on?'<span class="lu-menu-check" aria-hidden="true">✓ </span>':''}${RECEIVE_MENU}</span></button>`;
   }
   // LIB-받는폴더나누기(S60-18, 시안 ②): 받는 폴더 메뉴에 [폴더로 나누기] — 그 폴더에 자료가 있을 때만(창·제안·옮기기는 library-sort.js).
-  function sortLine(f){return receive?.ready?.()&&receive.get()===f.id&&(receive.sortCount?.()||0)>0?'<button type="button" class="lu-menu-sort" data-lu-folder-action="sort">폴더로 나누기</button>':''}
+  function sortLine(f){return receive?.ready?.()&&receive.get()===f.id&&(receive.sortCount?.()||0)>0?'<button type="button" class="row-act lu-menu-sort" data-lu-folder-action="sort">폴더로 나누기</button>':''}
   async function toggleReceive(f,trigger){
     if(!receive||busy)return;
     const was=receive.get();

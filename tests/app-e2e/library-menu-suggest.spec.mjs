@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {revealLibraryRow} from './helpers/library-tree.mjs';
 import {bootLibrary,libDoc,libFolder,menuButton,press} from './helpers/library-folder-server.mjs';
-// S60-27 LIB-나누기메뉴모양: 받는 폴더 메뉴의 [폴더로 나누기]가 다른 메뉴 줄과 같은 모양(row-act 작은 글자 단추가 아님).
+// S60-27 LIB-나누기메뉴모양: 받는 폴더 메뉴의 [폴더로 나누기](③ 글자 버튼 row-act)가 다른 메뉴 줄과 같은 모양(메뉴 안 row-act는 메뉴 줄 공용 모양).
 // S60-27 LIB-추천넣기안열기: 폴더 밖 자료의 점선 추천 '📁 ○○?'으로 넣을 때 받는 폴더를 펼치지 않고 화면 자리를 그대로 둔다
 // (되돌리기·Ctrl+Z는 그대로). 가짜 서버·지어낸 이름만. MENU_SHOTS에 폴더를 주면 PR 사진을 남긴다.
 const u=n=>`5f270000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -16,7 +16,7 @@ const SHOTS=process.env.MENU_SHOTS||'';
 const shot=async(page,name,info)=>{if(SHOTS){mkdirSync(SHOTS,{recursive:true});await page.screenshot({path:`${SHOTS}/${name}`})}await page.screenshot({path:info.outputPath(name)})};
 const folderOf=(s,id)=>s.items.find(x=>x.document_id===id)?.folder_id||null;
 const recvOpen=page=>page.locator(`#documentList details[data-lu-node="f:${RECV}"]`).evaluate(d=>d.open);
-const looks=loc=>loc.evaluate(b=>{const c=getComputedStyle(b);return {size:c.fontSize,color:c.color,weight:c.fontWeight,width:Math.round(b.getBoundingClientRect().width),height:Math.round(b.getBoundingClientRect().height)}});
+const looks=loc=>loc.evaluate(b=>{const c=getComputedStyle(b);return {size:c.fontSize,color:c.color,weight:c.fontWeight,lineHeight:c.lineHeight,padding:c.padding,bg:c.backgroundColor,width:Math.round(b.getBoundingClientRect().width),height:Math.round(b.getBoundingClientRect().height)}});
 
 for(const width of [1280,412])test.describe(`폴더 메뉴 [폴더로 나누기] 모양 ${width}`,()=>{
   test.use(width<761?{hasTouch:true,isMobile:true}:{hasTouch:false});
@@ -27,13 +27,12 @@ for(const width of [1280,412])test.describe(`폴더 메뉴 [폴더로 나누기]
     const menu=page.locator('#luFolderMenu');
     const sort=menu.locator('[data-lu-folder-action="sort"]'),recv=menu.locator('[data-lu-folder-action="receive"]');
     await expect(sort).toHaveText('폴더로 나누기');
-    await expect(sort).not.toHaveClass(/row-act/);
     // 자리: 받기 줄 바로 다음.
     expect(await recv.evaluate(b=>b.nextElementSibling?.dataset.luFolderAction)).toBe('sort');
     const a=await looks(sort),b=await looks(recv);
     expect(a).toEqual(b);
-    // 메뉴 안 어느 단추에도 row-act가 섞이지 않는다.
-    await expect(menu.locator('button.row-act')).toHaveCount(0);
+    // 메뉴 안 글자 버튼(row-act)도 메뉴 줄 모양: 누르는 범위 덧칸(::after) 없음, 줄 높이·글자·색이 다른 줄과 같음.
+    expect(await sort.evaluate(b=>getComputedStyle(b,'::after').content)).toBe('none');
     await shot(page,`folder-menu-${width}.png`,info);
     await press(page,sort,width);
     await expect(page.locator('#librarySortModal')).toBeVisible();
