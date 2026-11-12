@@ -143,7 +143,7 @@ test('Edge: 전사 전에 Ogg를 고쳐 보내고(원본 Drive 파일은 그대�
   assert.match(index,/import \{ OggFail, normalizeOggOpus, wantsOggFix \} from '\.\/ogg\.mjs'/);
   // REC-긴녹음나눠전사: Drive에서 읽고(loadAudio) Ogg면 고친 뒤 나눌지 본다 → 고친 바이트(또는 그 조각)를 올린다.
   assert.match(index,/const fixed = normalizeOggOpus\(bytes\);[\s\S]{0,500}bytes = fixed\.bytes;[\s\S]{0,300}const opened = openAudio\(bytes, job\.mime_type, job\.file_name\);/);
-  assert.match(index,/const file = await geminiUpload\(key, job\.id, mime, body, size\);/);
+  assert.match(index,/const file = await geminiUpload\(key, job\.id, mime, body, size, audio\.deadline\);/);
   assert.match(index,/throw new Fail\('bad_format'\)/);
   assert.match(index,/throw new Fail\('gemini_file_failed'\)/);
   assert.match(index,/throw new Fail\(geminiCode\(r\.status\)\)/);

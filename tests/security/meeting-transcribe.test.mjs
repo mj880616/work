@@ -41,9 +41,11 @@ test('S60-9 request: generateContent with uploaded file + verbatim Korean prompt
  for(const re of [/한국어 회의/,/그대로 받아 적/,/요약·의역/,/'화자1: ', '화자2: '/,/처음 말한 순서대로 1부터/,/'\(안 들림\)'/,/마크다운 없이/])assert.match(m.TRANSCRIBE_PROMPT,re);
  // 모델 이름은 한 곳: Edge는 TRANSCRIBE_MODEL로만 부르고, 옛 전사 전용 길(interactions·화자 구분 거절 뒤 다시)은 없다.
  assert.match(index,/fetch\(`\$\{GEM\}\$\{transcribePath\(TRANSCRIBE_MODEL\)\}`/);
- assert.match(index,/body: JSON\.stringify\(transcriptionRequest\(uri, mime\)\), signal: AbortSignal\.timeout\(380000\)/);
+ // S60-11: 출력 상한은 조각 길이에 맞추고(outputCap), 기다림은 남은 예산(answerWindow, 최대 380초)만큼.
+ assert.match(index,/body: JSON\.stringify\(transcriptionRequest\(uri, mime, seconds\)\), signal: AbortSignal\.timeout\(wait\),/);
+ assert.equal(m.transcriptionRequest('u','audio/mp4',1229).generationConfig.maxOutputTokens,40967);
  assert.doesNotMatch(index,/v1beta\/interactions|diariz|wantsDiarize|gemini-[0-9]/);
- assert.match(index,/geminiTranscribe\(key, file\.uri, file\.mimeType \|\| mime\)/);
+ assert.match(index,/geminiTranscribe\(key, file\.uri, file\.mimeType \|\| mime, duration \?\? null, audio\.deadline\)/);
  assert.equal((index.match(/await transcribeLoaded\(/g)||[]).length,3,'세 길(화면·구간·회의자료 파일) 모두 같은 전사 한 곳');
  assert.equal((index.match(/await runTranscription\(/g)||[]).length,1);
  assert.doesNotMatch(index,/body\.segment_seconds|body\.model|body\.prompt/,'화면이 보낸 모델·지시문은 쓰지 않는다');
@@ -98,8 +100,10 @@ test('S60-9 repeat detection: abnormal loops fail as gemini_repeat (before MAX_T
  assert.deepEqual(m.REPEAT_RULES.map(r=>[r.maxWords,r.times]),[[3,30],[15,10],[80,5]]);
  assert.ok(Object.isFrozen(m.REPEAT_RULES));
  // 끝없이 나누지 않는다: 되풀이·잘림 둘 다 같은 반 나누기(MIN_CHUNK_SECONDS에서 멈춤)를 탄다.
- assert.match(index,/const HALVE_CODES = \['gemini_incomplete', 'gemini_repeat'\];/);
- assert.match(index,/answerError instanceof Fail && HALVE_CODES\.includes\(answerError\.code\) && audio\.opened\) \{\n\s*const halves = halveRange\(range, audio\.opened\.seconds\);/);
+ assert.deepEqual([...m.HALVE_CODES],['gemini_incomplete','gemini_repeat','gemini_timeout']);assert.ok(Object.isFrozen(m.HALVE_CODES));
+ assert.doesNotMatch(index,/const HALVE_CODES/,'반 나눔 코드는 model.mjs 한 곳');
+ assert.match(index,/if \(answerError instanceof Fail && HALVE_CODES\.includes\(answerError\.code\)\) \{\n\s*const halves = halvesOf\(answerError\.code\);/);
+ assert.match(index,/const halves = audio\.opened \? halveRange\(range, audio\.opened\.seconds\) : \[\];/);
  // 긴 답에서도 빠르다(출력 상한 65,536토큰 ≈ 12만 자 이상).
  const big='화자1: '+Array.from({length:40000},(_,i)=>`낱말${i}`).join(' ');
  const t0=Date.now();assert.equal(m.repeatRun(big),null);assert.ok(Date.now()-t0<2000,'2초 안');
@@ -314,7 +318,7 @@ test('REC-긴녹음나눠전사: 세 길(화면 transcribe·서버 정리 구간
  // 서버 정리: 한 단계에 조각 하나, 나누면 parts만 바꾸고(표 칸 추가 없음) 진행 수는 조각 수.
  assert.match(index,/const next = splitPart\(parts, i, got\.split\);/);
  assert.match(index,/parts: next, step_no: doneParts\(next\), step_total: partTotal\(next\)/);
- assert.match(index,/transcribeFile\(key, job, p\.file, range\) : await transcribeSegment\(key, p\.job, range, more\)/);
+ assert.match(index,/transcribeFile\(key, job, p\.file, range, cutBefore\) : await transcribeSegment\(key, p\.job, range, more, cutBefore\)/);
  // 구간 행은 마지막 조각 뒤에만 '끝'(그 전엔 '올림' — 이어서 정리·붙이기가 끝난 녹음으로 보지 않음).
  assert.match(index,/if \('split' in out \|\| more\) await setJob\(job\.id, \{ status: 'uploaded', error_code: null, finished_at: null \}\);/);
  // 화면 transcribe: 한 번 읽은 소리를 조각마다 동시에(상한 있음), 조각 길이로 머리 줄을 붙여 잇는다.
@@ -325,5 +329,45 @@ test('REC-긴녹음나눠전사: 세 길(화면 transcribe·서버 정리 구간
   assert.doesNotMatch(line,/text|file_name|drive_file_id|uri|name/,line);
  }
  assert.equal((index.match(/console\.warn\('meeting-transcribe: (audio|split skipped|split after)'/g)||[]).length,3);
- assert.match(index,/console\.warn\('meeting-transcribe: split after', answerError\.code, Math\.round\(\(span \|\| 0\) \/ 60\)\)/);
+ assert.match(index,/console\.warn\('meeting-transcribe: split after', why, Math\.round\(\(span \|\| 0\) \/ 60\)\)/);
+});
+
+// S60-11 REC-m4a뒤조각멈춤: 11/12 41분 녹음 두 번째 조각이 로그 없이 두 번 멈춤(Edge 실행 시간 안에 Gemini 단계가 끝나지 않아 끊김 → step_cut).
+test('S60-11 Gemini 단계마다 시간 상한(남은 예산 안), 넘으면 로그 한 줄(상태·걸린 초)과 기존 실패 코드, 끊긴 조각은 반으로',()=>{
+ const T=m.GEMINI_TIME;assert.ok(Object.isFrozen(T));
+ // 소리 읽기부터 답까지 예산 + 뒷정리 여유 < Edge 벽시계 약 400초(docs/design/meeting-transcript-server.md). 답 기다림 상한은 전과 같은 380초.
+ assert.ok(T.stepMs+50000<=400000);assert.equal(T.answerMaxMs,380000);
+ assert.ok(T.uploadMs+T.activeMs+T.answerMinMs<=T.stepMs);
+ // 답 기다림: 남은 예산만큼(최대 380초), 남은 예산이 짧으면 묻지 않음(0)
+ assert.equal(m.answerWindow(1_000_000,1_000_000-400000),380000);
+ assert.equal(m.answerWindow(1_000_000,1_000_000-200000),200000);
+ assert.equal(m.answerWindow(1_000_000,1_000_000-T.answerMinMs+1),0);
+ assert.equal(m.answerWindow(NaN,0),0);
+ assert.equal(m.phaseWindow(120000,1_000_000,1_000_000-30000),30000);assert.equal(m.phaseWindow(120000,1_000_000,2_000_000),1000);
+ // 출력 상한: 길이에 맞춤(최소 8,192, 최대 65,536), 길이를 모르면 모델 상한
+ assert.equal(m.outputCap(null),65536);assert.equal(m.outputCap(60),8192);assert.equal(m.outputCap(20*60),40000);assert.equal(m.outputCap(3600),65536);
+ assert.equal(m.stateTag('PROCESSING'),'PROCESSING');assert.equal(m.stateTag('files/abc'),'-');assert.equal(m.stateTag(undefined),'-');
+ // 예산은 소리 읽기 시작에서 한 번 정하고, 올리기·파일 준비·답 모두 그 안에서.
+ assert.match(index,/async function loadAudio\(job: Job\): Promise<Loaded> \{\n\s*const deadline = Date\.now\(\) \+ GEMINI_TIME\.stepMs;/);
+ assert.match(index,/await geminiUpload\(key, job\.id, mime, body, size, audio\.deadline\)/);
+ assert.match(index,/await geminiActive\(key, file\.name, file\.state, audio\.deadline\)/);
+ // Gemini로 가는 fetch는 모두 시간 상한(signal)을 단다.
+ const gem=index.slice(index.indexOf('async function geminiUpload('),index.indexOf('// 전사 답 → 글(model.mjs readTranscript).'));
+ const calls=[...gem.matchAll(/await fetch\(/g)].length;
+ assert.equal(calls,5,'올리기 시작·몸통·상태·지우기·답');
+ assert.equal([...gem.matchAll(/signal(: AbortSignal\.timeout\(|,)/g)].length,5,'다섯 곳 모두 시간 상한');
+ assert.match(gem,/method: 'DELETE', headers: \{ 'x-goog-api-key': key \}, signal: AbortSignal\.timeout\(GEMINI_TIME\.deleteMs\)/);
+ // 파일 준비가 안 되면 상태 이름·걸린 초 한 줄 + 기존 코드 gemini_timeout(화면 문구표에 이미 있음, 새 코드 없음).
+ assert.match(gem,/console\.warn\('meeting-transcribe: gemini file stuck', stateTag\(s\), secSince\(t0\)\); throw new Fail\('gemini_timeout'\);/);
+ assert.match(gem,/console\.warn\('meeting-transcribe: gemini upload', isLate\(e\) \? 'late' : 'error', Math\.round\(size \/ 1048576\), secSince\(t0\)\);/);
+ assert.match(gem,/console\.warn\('meeting-transcribe: gemini answer', isLate\(e\) \? 'late' : 'cut', secSince\(t0\), Math\.round\(wait \/ 1000\)\);/);
+ assert.match(index,/console\.warn\('meeting-transcribe: gemini timing', /);
+ for(const l of index.matchAll(/console\.warn\('meeting-transcribe: gemini (upload|file|answer|timing)[^;]*;/g))assert.doesNotMatch(l[0],/uri|file\.name|text|raw\)|key\b/,l[0]);
+ const screen=readFileSync(new URL('../../app/meeting-server-job.mjs',import.meta.url),'utf8');
+ for(const c of ['gemini_timeout','gemini_upload','gemini_file_failed']){assert.ok(m.MESSAGES[c],c);assert.match(screen,new RegExp(`\\b${c}:`),c);}
+ // 답이 늦으면(gemini_timeout) 그 조각을 반으로. 앞 실행이 이 조각에서 끊겼으면(cutBefore) 묻지 않고 반으로(요약 단계와 같은 규칙).
+ assert.match(index,/if \(e instanceof Fail && e\.code === 'gemini_timeout'\) \{ const halves = halvesOf\(e\.code\); if \(halves\.length\) return \{ split: halves \}; \}/);
+ assert.match(index,/if \(halveFirst\) \{ const halves = halvesOf\('step_cut'\); if \(halves\.length\) return \{ split: halves \}; \}/);
+ assert.match(index,/transcribeFile\(key, job, p\.file, range, cutBefore\) : await transcribeSegment\(key, p\.job, range, more, cutBefore\)/);
+ assert.match(index,/next = await stepOnce\(job, take\.cut === 1\);/);
 });
