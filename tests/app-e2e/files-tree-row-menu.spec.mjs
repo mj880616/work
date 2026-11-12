@@ -114,7 +114,9 @@ test('파일 폰 412: 폴더 줄 ⋯ = 새 폴더·올리기·복사·옮기기�
   const recent = tree(page).locator('[data-fx-box="recent"] [data-fx-tmenu]').first();
   await recent.click();
   await expect(menu(page)).toBeVisible();
-  await expect(menu(page).locator('button').first()).toHaveText('열기');
+  // LIB-최근폴더로가기(S61-12): '최근' 줄은 맨 위 [폴더로 가기], 그다음 [열기].
+  await expect(menu(page).locator('button').nth(0)).toHaveText('폴더로 가기');
+  await expect(menu(page).locator('button').nth(1)).toHaveText('열기');
   await stillTree(page);
   // '이 폴더로 들어가기'는 고른 때만 그 폴더 목록으로(⋯ 자체는 화면을 바꾸지 않음).
   await page.keyboard.press('Escape');
