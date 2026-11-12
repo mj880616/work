@@ -196,6 +196,13 @@ export function sections(body: string): Record<string, string[]> {
       continue;
     }
     if (current && !inItem) out[current].push(line);
+    // S61-9 FORGET-요청방향: 약속 후보 근거 줄 `- 주체: 이름 (우리측|상대측|제3자)`의 편만 항목 끝에 남긴다(이름은 옮기지 않음).
+    // 누가 할 일인지가 통화 점에 남아야 소식 고르기(journal-memorable)가 내가 남에게 부탁한 일을 내 할 일로 적지 않는다.
+    else if (current === "promises" && inItem && out.promises.length) {
+      const side = /^\s*[-*]\s*주체\s*[:：].*[(（]\s*(우리측|상대측|제3자)\s*[)）]\s*$/.exec(line)?.[1];
+      const last = out.promises.length - 1;
+      if (side && !/\((우리가|상대가) 할 일\)$/.test(out.promises[last])) out.promises[last] += side === "우리측" ? " (우리가 할 일)" : " (상대가 할 일)";
+    }
   }
   return out;
 }
