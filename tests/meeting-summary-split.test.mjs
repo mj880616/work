@@ -94,7 +94,7 @@ test('Edge: 요약 갈래마다 AI 요청 한 번, 끊긴 뒤·[다시] 때 반�
   assert.match(src, /throw new Fail\(job\.stage === 'summary' \? 'draft_step_cut' : 'step_cut'\);/);
   assert.match(src, /new Fail\(late \? 'draft_timeout' : 'draft_failed'\)/);
   const retry = src.slice(src.indexOf('async function jobRetry('), src.indexOf('async function jobTick('));
-  assert.match(retry, /if \(job\.stage === 'summary' && SPLIT_CODES\.includes\(job\.error_code\)\) \{\n\s*const split = splitJobSummary\(job\);/);
+  assert.match(retry, /if \(job\.stage === 'summary' && SPLIT_CODES\.includes\(failReason\(job\)\)\) \{\n\s*const split = splitJobSummary\(job\);/);
   assert.match(src, /signal: AbortSignal\.timeout\(300000\)/, '요약 한 번 기다림은 늘리지 않음');
   assert.match(read('supabase/functions/meeting-transcribe/server-job.mjs'), /export const MAX_STEP_CUTS = 2;/, '끊김 허용 횟수는 늘리지 않음');
   assert.doesNotMatch(src, /fail_log[:'"]|'fail_log/, 'Edge는 이력 칸을 쓰지 않는다(트리거가 남김)');

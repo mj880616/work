@@ -16,7 +16,7 @@
 import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
 import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
 import {notify,askConfirm} from './small-notice.js';
-import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry,requestFail,OFFLINE_START_TEXT,OPEN_FAIL_TEXT,DISCARD_ASK,discardDoneText,meetingDoneNotice} from './meeting-server-job.mjs';
+import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry,requestFail,OFFLINE_START_TEXT,OPEN_FAIL_TEXT,DISCARD_ASK,discardDoneText,meetingDoneNotice,STOP_CLOSED_TEXT,stoppedLineText} from './meeting-server-job.mjs';
 
 (()=>{
 'use strict';
@@ -38,6 +38,8 @@ let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer
 let takeover=null,pending=[],live=[],pendingFor='',pendingFlight=null,discarding=false,livePolls=0,livePollTimer=0;
 // REC-서버정리(S49-2): 지켜보는 서버 정리 작업 id·끝난 결과(띠 [초안 열기]), 지켜보기 세대(다른 정리를 시작하면 앞 것은 그만 봄).
 let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='',droppingJob='';
+// REC-멈춤띠계속뜸(S60-26): 멈춤 띠의 작업(서버 행 모양, 모르면 {id}) · [닫기]로 닫은 멈춘 작업들(서버 job_list의 discarded 실패, 녹음 줄 [다시]).
+let stoppedJob=null,closedStops=[],closingStop='';
 // REC-정리상태확인못함(S60-3): 잠깐 끊겨 멈춘 띠(recheck)는 화면이 다시 보이거나 연결이 돌아오면 저절로 다시 본다. 지켜보는 중의 기다림도 그때 깨운다.
 let recheck=false;
 const wakers=new Set();
@@ -112,7 +114,7 @@ function paint(){
   }else if(state==='ready'){
     l='정리 끝';
     m=escapeText(errorText||'회의 요약이 준비됐어요.'); // errorText = 결과를 열지 못한 이유(상태 확인 실패와 나눔)
-    // REC-초안버리기(S60-20): [닫기] 대신 [삭제] — 닫기는 띠만 숨겨 다음에 앱을 열면 같은 띠가 또 떴다. 멈춤 띠의 [닫기]는 그대로(다시 할 수 있어야 함).
+    // REC-초안버리기(S60-20): [닫기] 대신 [삭제] — 닫기는 띠만 숨겨 다음에 앱을 열면 같은 띠가 또 떴다. 멈춤 띠 [닫기]는 서버 '닫음' 표시(REC-멈춤띠계속뜸, closeStopped).
     a=`<button type="button" class="rec-btn" data-rec="open">초안 열기</button><button type="button" class="rec-btn rec-discard" data-rec="drop"${droppingJob?' disabled':''}>삭제</button>`;
   }else if(state==='error'){
     l='녹음 정리 멈춤';
@@ -132,13 +134,21 @@ function paintButton(){
   btn.setAttribute('aria-pressed',String(active()));
 }
 // 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 두지 않고 사업 보고 목록 위 한 줄에만 남긴다.
+// 멈춤 띠를 [닫기]로 닫은 녹음 정리도 이 줄에 [다시]로 남는다(모든 화면 너비, 띠에는 다시 뜨지 않음).
 function paintOldLine(){
   const line=$('#recPendingLine');if(!line)return;
   const list=bandList().old;
-  line.hidden=!list.length;
-  if(!list.length){setHtml(line,'');return}
-  const first=list[0];
-  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">삭제</button>`);
+  const stop=state==='idle'&&!discarding?closedStops[0]:null;
+  line.hidden=!list.length&&!stop;
+  if(line.hidden){setHtml(line,'');return}
+  let html='';
+  if(list.length){
+    const first=list[0];
+    html+=`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">삭제</button>`;
+  }else{
+    html+=`<span class="rec-pending-text">${escapeText(stoppedLineText(stop))}${closedStops.length>1?` 외 ${closedStops.length-1}건`:''}</span>${serverCanRetry(stop.error_code)?`<button type="button" class="rec-btn" data-rec-stopped="${escapeText(stop.id)}">다시</button>`:''}`;
+  }
+  setHtml(line,html);
 }
 function onBandClick(e){
   const b=e.target.closest('[data-rec]');if(!b)return;
@@ -150,7 +160,36 @@ function onBandClick(e){
   else if(what==='retry')void retryFinish();
   else if(what==='open')void openReady();
   else if(what==='drop')void dropReady(b);
-  else if(what==='close')closeBand();
+  else if(what==='close'){if(state==='error')void closeStopped();else closeBand()}
+}
+// 멈춤 띠 [닫기](REC-멈춤띠계속뜸, S60-26): 서버 멈춘 작업이면 '닫음' 표시(job_discard — 초안 삭제와 같은 길, 녹음 소리·전사 글 그대로)를 남겨
+// 다시 열어도·다른 기기·폰에서도 띠에 뜨지 않게 한다. 그 녹음은 사업 보고 위 녹음 줄 [다시]로 살린다. 작은 알림 [되돌리기]는 표시만 빼고 띠를 다시 그린다.
+// 잠깐 끊겨 확인하지 못한 띠(recheck — 서버에서는 아직 진행 중일 수 있음)·서버 작업이 아닌 화면 정리 멈춤은 띠만 닫는다(지금과 같음).
+async function closeStopped(){
+  const job=jobId&&!recheck?{...(stoppedJob?.id===jobId?stoppedJob:{}),id:jobId}:null;
+  const text=errorText,retry=canRetry;
+  closeBand();
+  if(!job||closingStop)return;
+  closingStop=job.id;
+  try{await call('job_discard',{job_id:job.id})}
+  catch(e){console.warn('recording stop close failed',e?.status||'',e?.code||'');return} // 표시를 못 남겨도 띠는 닫힌 채(다음에 열면 다시 뜸)
+  finally{closingStop=''}
+  closedStops=[{...job,status:'failed',discarded:true},...closedStops.filter(j=>j.id!==job.id)];paint();
+  notify(STOP_CLOSED_TEXT,{label:'멈춘 녹음 정리 닫기',undo:async()=>{
+    try{await call('job_restore',{job_id:job.id})}
+    catch(e){console.warn('recording stop reopen failed',e?.status||'',e?.code||'');return {status:'failed',message:'되돌리지 못했어요.'}}
+    closedStops=closedStops.filter(j=>j.id!==job.id);
+    if(state==='idle'){jobId=job.id;stoppedJob=job;fail(text,retry)}else paint();
+    return {status:'restored'};
+  }});
+}
+// 녹음 줄 [다시]: 닫은 멈춤을 다시 정리한다(서버는 닫음 표시를 이어 가서, 같은 이유로 또 멈추면 띠를 또 띄우지 않는다 — 지금 보는 이 띠에만 보임).
+function retryStopped(id){
+  const job=closedStops.find(j=>j.id===id);
+  if(!job||active()||state==='finishing'||discarding)return;
+  closedStops=closedStops.filter(j=>j.id!==id);
+  jobId=job.id;stoppedJob=job;sessionId=job.session_id||'';readyJob=null;state='finishing';step=STAGE_STEP[job.stage]||'';errorText='';canRetry=false;note='';paint();
+  void serverFinish({jobId:job.id,retry:true});
 }
 function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';recheck=false;accum=0;runSince=0;readyJob=null;paint()}
 function startTicker(){clearInterval(ticker);ticker=setInterval(tick,1000)}
@@ -415,7 +454,7 @@ async function serverFinish(opts,known=null){
     if(opts?.start?.kind==='attached'){fail('붙은 녹음 전사는 서버 준비가 끝나면 쓸 수 있어요.',false);return}
     await finishOnScreen(known);return;
   }
-  if(r.kind==='failed'){fail(serverFailText(r.job?.error_code),serverCanRetry(r.job?.error_code));return}
+  if(r.kind==='failed'){stoppedJob=r.job||null;fail(serverFailText(r.job?.error_code),serverCanRetry(r.job?.error_code));return}
   // 결과 열기의 실패는 openServerResult가 띠 '정리 끝 [초안 열기]'에 이유와 함께 남긴다(상태 확인 실패로 뭉개지 않게 위 catch 밖에서 연다).
   await openServerResult(r.job);
 }
@@ -556,15 +595,19 @@ async function loadServerJobs(tries=0){
   let wanted='';
   try{const u=new URL(location.href);wanted=u.searchParams.get('rec_job')||'';if(wanted){u.searchParams.delete('rec_job');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}
   let jobs=[];
-  try{jobs=((await call('job_list',{workspace_id:id}))?.jobs||[]).filter(j=>!j?.discarded)}catch{return} // 버린 결과는 서버가 이미 뺀다(한 번 더)
-  if(state!=='idle')return;
+  try{jobs=(await call('job_list',{workspace_id:id}))?.jobs||[]}catch{return}
+  // 버린 초안은 서버가 이미 뺀다. 닫은 멈춤(discarded 실패)은 띠가 아니라 녹음 줄 [다시]로만(REC-멈춤띠계속뜸).
+  closedStops=jobs.filter(j=>j?.discarded&&j.status==='failed');
+  jobs=jobs.filter(j=>!j?.discarded);
+  if(state!=='idle'){paint();return}
   const live=jobs.find(j=>j.status==='queued'||j.status==='running');
   const done=jobs.find(j=>j.status==='done'&&(!wanted||j.id===wanted))||jobs.find(j=>j.status==='done');
   if(wanted&&done?.id===wanted){readyJob=done;state='ready';errorText='';paint();await openReady();return}
   if(live){jobId=live.id;sessionId=live.session_id||'';state='finishing';step=STAGE_STEP[live.stage]||'올림';note='화면을 닫아도 서버에서 계속 정리해요';paint();void serverFinish({jobId:live.id});return}
   if(done){readyJob=done;state='ready';errorText='';paint();return}
   const failed=jobs.find(j=>j.status==='failed');
-  if(failed){jobId=failed.id;sessionId=failed.session_id||'';fail(serverFailText(failed.error_code),serverCanRetry(failed.error_code))}
+  if(failed){jobId=failed.id;stoppedJob=failed;sessionId=failed.session_id||'';fail(serverFailText(failed.error_code),serverCanRetry(failed.error_code));return}
+  paint();
 }
 
 // 서버가 서버 정리를 아직 모를 때(옛 Edge·표 적용 전)의 화면 정리 길(S49-2 전과 같음).
@@ -692,7 +735,9 @@ document.addEventListener('click',e=>{
   const r=e.target.closest('[data-rec-resume]');
   if(r){e.preventDefault();askTakeOver('resume',r.dataset.recResume);return}
   const d=e.target.closest('[data-rec-discard]');
-  if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard)}
+  if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard);return}
+  const st=e.target.closest('[data-rec-stopped]');
+  if(st){e.preventDefault();retryStopped(st.dataset.recStopped)}
 });
 // 녹음 중(아직 올리지 못한 조각이 있을 때 포함)에만 창 닫기 경고.
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')onHiddenFlush();else{onVisibleCheck();recheckNow()}});
@@ -708,7 +753,7 @@ window.addEventListener('kptu:session-changed',e=>{
   // 로그아웃: 녹음을 멈추고 메모리의 조각을 버린다(서버에 올린 것은 다음 로그인 때 '이어서 정리').
   if(current){current.wanted=true;try{current.rec.stop()}catch{}}
   current=null;releaseStream();clearInterval(ticker);clearTimeout(retryTimer);retryTimer=0;segments=[];pending=[];live=[];clearTimeout(livePollTimer);pendingFor='';
-  state='idle';sessionId='';jobId='';readyJob=null;watchEpoch++;jobsLoadedFor='';paint();
+  state='idle';sessionId='';jobId='';readyJob=null;stoppedJob=null;closedStops=[];watchEpoch++;jobsLoadedFor='';paint();
 });
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
 PC?.addEventListener?.('change',()=>{paintButton();paint();if(PC.matches&&onMeetings())void loadPending()});

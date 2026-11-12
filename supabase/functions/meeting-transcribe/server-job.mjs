@@ -24,16 +24,35 @@ export const ACTIVE = Object.freeze(['queued', 'running']);
 // (구간 표 app_meeting_recordings의 'discarded' 표시와 같은 방식). '열었음'(opened_at)과 섞지 않고, 녹음 소리·전사 글·초안은 그대로 둔다.
 // 끝나면 error_code는 늘 빈 값이 되므로(runStep) 끝난 작업에서 이 값은 이 표시뿐이다. 실패 기록 트리거(fail_log)는 이 값을 세지 않는다.
 export const DISCARDED = 'discarded';
-export const isDiscarded = (row) => !!row && row.status === 'done' && row.error_code === DISCARDED;
-// job_discard: 끝난 결과만, 이미 표시했으면 그대로(null = 고칠 것 없음). 진행 중·실패한 작업은 버릴 초안이 없다.
+// REC-멈춤띠계속뜸(S60-26): 멈춘(failed) 작업의 띠 [닫기]도 같은 표시 하나로 — 'discarded_' + 멈춘 이유(error_code 검사 ^[a-z_]{1,40}$ 안,
+// 이유는 길어야 19자). 이유를 그대로 품으므로 되돌리기·다시 하기가 이유를 잃지 않는다. 닫은 멈춤은 띠에 다시 뜨지 않고 녹음 줄 [다시]로만 살린다.
+export const CLOSED_PREFIX = `${DISCARDED}_`;
+const CLOSED_MAX = 40 - CLOSED_PREFIX.length;
+const closedCode = (code) => `${CLOSED_PREFIX}${code && /^[a-z_]+$/.test(code) && code.length <= CLOSED_MAX ? code : 'failed'}`;
+export const isClosedMark = (code) => typeof code === 'string' && code.startsWith(CLOSED_PREFIX);
+// 멈춘 이유(닫음 표시를 뗀 것). 화면·다시 하기는 이 값만 본다.
+export const failReason = (row) => (row && isClosedMark(row.error_code) ? row.error_code.slice(CLOSED_PREFIX.length) : row?.error_code ?? null);
+export const isDiscarded = (row) => !!row && ((row.status === 'done' && row.error_code === DISCARDED) || (row.status === 'failed' && isClosedMark(row.error_code)));
+// job_discard: 끝난 결과(초안 삭제)·멈춘 작업(띠 닫기)만, 이미 표시했으면 그대로(null = 고칠 것 없음). 진행 중인 작업은 닫을 것이 없다.
 export function jobDiscardPatch(row) {
-  if (!row || row.status !== 'done') return { error: 'not_done' };
+  if (!row) return { error: 'not_done' };
+  if (row.status === 'failed') return isClosedMark(row.error_code) ? { patch: null } : { patch: { error_code: closedCode(row.error_code) } };
+  if (row.status !== 'done') return { error: 'not_done' };
   if (row.error_code === DISCARDED) return { patch: null };
   if (row.error_code) return { error: 'not_done' };
   return { patch: { error_code: DISCARDED } };
 }
-// job_restore: 버림 표시만 뺀다. 표시가 없으면 고칠 것 없음.
-export const jobRestorePatch = (row) => (isDiscarded(row) ? { error_code: null } : null);
+// job_restore: 버림·닫음 표시만 뺀다(멈춤이면 멈춘 이유로 돌아감). 표시가 없으면 고칠 것 없음.
+export function jobRestorePatch(row) {
+  if (!isDiscarded(row)) return null;
+  return { error_code: row.status === 'failed' ? failReason(row) : null };
+}
+// 닫은 멈춤을 [다시] 하는 동안에도 닫음 표시는 이어 간다(진행 중·단계 사이). 끝나면(done) 빈 값, 또 멈추면:
+// 같은 이유 = 닫은 그대로(같은 실패로 띠를 또 띄우지 않음), 다른 이유 = 새 멈춤(띠에 한 번 뜸).
+export const carryClosed = (prev) => (isClosedMark(prev) ? prev : null);
+export function failedCode(prev, code) {
+  return isClosedMark(prev) && failReason({ error_code: prev }) === code ? prev : code;
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const isUuid = (v) => typeof v === 'string' && UUID.test(v);
@@ -257,7 +276,7 @@ export function jobView(row, withResult = false) {
   const parts = Array.isArray(row.parts) ? row.parts : [];
   const v = {
     id: row.id, kind: row.kind, status: row.status, stage: row.stage, step_no: row.step_no ?? 0, step_total: row.step_total ?? 0,
-    error_code: row.error_code ?? null, session_id: row.session_id ?? null, document_id: row.document_id ?? null, meeting_id: row.meeting_id ?? null,
+    error_code: failReason(row), session_id: row.session_id ?? null, document_id: row.document_id ?? null, meeting_id: row.meeting_id ?? null,
     parts_done: doneParts(parts), parts_total: partTotal(parts),
     seconds: parts.reduce((s, p) => s + (Number(p?.seconds) || 0), 0),
     jobs: [...new Set(parts.map((p) => p?.job).filter(isUuid))], // 시간 조각으로 나눈 구간은 같은 작업이 여러 번 — 한 번만

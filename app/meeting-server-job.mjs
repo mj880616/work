@@ -242,6 +242,17 @@ export function discardDoneText(job){
   const min=Math.round((Number(job?.seconds)||0)/60);
   return `${min?`${min}분 `:''}녹음 초안을 삭제했어요`;
 }
+// REC-멈춤띠계속뜸(S60-26): 멈춤 띠 [닫기] → 서버 '닫음' 표시(job_discard, 녹음 소리·전사 글 그대로). 닫은 멈춤은 띠에 다시 뜨지 않고
+// 사업 보고 목록 위 녹음 줄에만 [다시]로 남는다(48시간, 서버 job_list). 줄 글: 언제·길이·멈춘 이유 짧게.
+const STOP_SHORT={daily_limit:'오늘 AI 한도',monthly_limit:'이달 AI 한도',usage_unavailable:'AI 사용량 확인 못함'};
+export const STOP_CLOSED_TEXT='멈춘 녹음 정리를 닫았어요. 사업 보고 위 녹음 줄에서 [다시] 할 수 있어요';
+export function stoppedLineText(job){
+  const ms=Date.parse(String(job?.created_at||''));
+  const at=Number.isFinite(ms)?new Date(ms+9*3600000).toISOString():'';
+  const when=at?`${Number(at.slice(5,7))}/${Number(at.slice(8,10))} ${at.slice(11,16)}`:'';
+  const min=Math.round((Number(job?.seconds)||0)/60);
+  return ['멈춘 녹음 정리',when,min?`${min}분`:'',STOP_SHORT[job?.error_code]||''].filter(Boolean).join(' · ');
+}
 // 그 결과의 '회의 요약이 준비됐어요' 폰 알림 기록 열쇠(서버 notifyDone: 'd' + 끝난 서울 날짜). 모르면 null.
 export function meetingDoneNotice(job){
   const ms=Date.parse(String(job?.finished_at||''));
