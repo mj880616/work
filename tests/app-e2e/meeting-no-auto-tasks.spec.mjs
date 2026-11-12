@@ -1,5 +1,5 @@
 // S59-7 MTG-할일자동생성금지(요청함 11/11 15:25, 명진 "회의결과가 할일을 자동으로 만드는 거 같은데 그러지마. 잊지말기에서 제안은 몰라도 자동생성은 안된다"):
-// - 녹음 요약([녹음 요약하기])·서버 정리 결과(fillResult)는 '후속 할 일' 입력 줄을 채우지 않는다 → [사업 보고 저장]해도 Google 할 일 0개.
+// - 녹음 요약([녹음 요약하기])은 '후속 할 일' 입력 줄을 채우지 않는다(서버 정리 결과 넣기(fillResult)는 S61-5에서 없앰) → [사업 보고 저장]해도 Google 할 일 0개.
 // - AI가 찾은 할 일은 저장한 그 보고의 챙길 것 후보(app_todo_candidates)로만 올라가고, 보고 상세·잊지 말기에서 [할 일로]를 눌러야 할 일이 생긴다.
 // - 명진이 입력 줄에 직접 쓴 할 일은 지금처럼 저장 때 만들어진다.
 // 서버는 흉내, 글·이름은 모두 지어낸 것. KPTU_SHOTS=1이면 docs/design/screens/s59-7/에 사진을 남긴다(PR 첨부용).
@@ -150,36 +150,3 @@ test('1280: 손으로 쓴 후속 할 일은 그대로 저장 때 생기고, AI�
   expect(errors).toEqual([]);
 });
 
-test('412: 서버 정리 결과(폰 앱·노트북 녹음)도 같은 길 — 입력 줄 0, 저장해도 할 일 0, 후보만. 저장하지 않고 닫으면 후보도 없음',async({page})=>{
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const s=state();await openWrite(page,s,412);
-  const filled=await page.evaluate(draft=>window.KPTUMeetingTranscriptDraft.fillResult({text:'합성 전문 한 줄',draft,name:'녹음'}),DRAFT);
-  expect(filled).toBe(true);
-  expect(s.draftCalls).toBe(0);
-  await expect(page.locator('#mtdStatus')).toContainText('할 일 후보 2개는 저장하면 잊지 말기에');
-  await expect(actionRows(page)).toHaveCount(0);
-  await expect(page.locator('#meetingNotes')).toHaveValue(/합성 전문 한 줄/);
-  // 저장하지 않고 닫고 다시 열면 들고 있던 후보는 버린다(다른 보고에 붙지 않게).
-  // REC-한회의로잇기 PR-0: 쓰던 글이 있으면 닫기 전에 묻는다 → [닫기].
-  await page.locator('#meetingModal [data-close="meetingModal"]').click();
-  await page.locator('.kptu-ask').getByRole('button',{name:'닫기'}).click();
-  await expect(page.locator('#meetingModal')).toBeHidden();
-  await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
-  if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');
-  await page.locator('#meetingTitle').fill('합성 다른 회의');await fillDateTime(page,'#meetingAt','2026-11-11T10:00');
-  await page.locator('#saveMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeHidden();
-  await expect.poll(()=>s.meetingWrites.length).toBe(1);
-  await page.waitForTimeout(300);
-  expect(s.candidatePosts).toEqual([]);
-  expect(s.googleCreates).toEqual([]);
-  // 다시 정리 결과를 넣고 저장하면 그때 후보만.
-  await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
-  if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');
-  await page.locator('#meetingTitle').fill('합성 운영회의');await fillDateTime(page,'#meetingAt','2026-11-10T10:00');
-  await page.evaluate(draft=>window.KPTUMeetingTranscriptDraft.fillResult({text:'합성 전문 한 줄',draft,name:'녹음'}),DRAFT);
-  await page.locator('#saveMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeHidden();
-  await expect.poll(()=>s.candidates.length).toBe(2);
-  await page.waitForTimeout(300);
-  expect(s.googleCreates).toEqual([]);
-  expect(errors).toEqual([]);
-});
