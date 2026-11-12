@@ -13,6 +13,10 @@
 // S61-9 FORGET-요청방향(요청함 11/13 05:14, 명진 확정 05:19): 이 사용자가 다른 사람·조직에게 부탁·요청·지시한 일은 '이 사용자가 할 일'이 아니다.
 //   AI는 고른 기록마다 from_me(이 사용자가 남에게 부탁한 일인가)를 함께 적고, 서버는 from_me=true인 할 일(task)을 처리 전 소식에 넣지 않는다
 //   (그 일은 상대가 할 일 — 상대 약속 쪽 길은 PR 본문 제안). 텔레그램 요청(collector-feed/telegram.ts ask_me)·챙길 것(todo-radar.ts owner)과 같은 규칙.
+// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 버리지 않고 종류 'promise'(상대 약속)로 저장한다(DB 20261112221000이 종류 표에 promise를 더함).
+//   AI가 고르는 다섯 종류는 그대로이고, 서버가 from_me=true인 할 일(task)만 promise로 바꾼다(AI가 promise를 직접 고르지 않음).
+//   promise 줄은 잊지 말기 '처리 전' 할 일 줄·빨간 숫자에 들지 않고 맨 아래 '상대 약속' 줄에 보인다(app/forget-list.js).
+//   쌓인 줄 다시 판정(④)은 S61-9 이전에 '할 일'로 고른 처리 전 줄(MEMORABLE_DIRECTION_SINCE 전)도 같은 기준으로 다시 보고, 거꾸로 적힌 줄은 종류만 promise로 바꾼다.
 // - AI는 고르기·종류·이유까지만. 할 일·일정·보고를 대신 만들지 않는다(외부 입력 분석과 행동 분리 — 누르는 건 사람).
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
@@ -24,8 +28,10 @@ export const MEMORABLE_DAY_CAP = 5; // 하루(day)에 쌓이는 새 기준 소�
 export const MEMORABLE_WHY_CHARS = 40; // 이유 한 줄(종류 이름 뒤) 상한. 저장은 '종류 · 이유' 60자 안.
 export const MEMORABLE_KNOWN_MAX = 40; // '이미 있는 것' 목록 상한(줄마다 80자).
 export const MEMORABLE_KINDS = Object.freeze(["task", "event", "note", "org", "area"] as const);
-export type MemorableKind = typeof MEMORABLE_KINDS[number];
-export const MEMORABLE_KIND_LABEL: Readonly<Record<MemorableKind, string>> = Object.freeze({ task: "할 일", event: "일정", note: "기억할 것", org: "조직보고", area: "사업보고" });
+export type MemorableKind = typeof MEMORABLE_KINDS[number] | "promise";
+export const MEMORABLE_KIND_LABEL: Readonly<Record<MemorableKind, string>> = Object.freeze({ task: "할 일", event: "일정", note: "기억할 것", org: "조직보고", area: "사업보고", promise: "상대 약속" });
+// S61-11: 방향 규칙(S61-9, from_me)이 들어간 때. 이보다 먼저 '할 일'로 고른 처리 전 줄은 방향을 보지 않고 고른 줄이라 ④ 다시 판정 대상이다.
+export const MEMORABLE_DIRECTION_SINCE = "2026-11-12T23:00:00Z";
 export const MEMORABLE_LINE_CHARS = 160;
 export const MEMORABLE_ORG_CHARS = 60;
 export const MEMORABLE_MAX_OUTPUT_TOKENS = 1200;
@@ -155,7 +161,8 @@ const cleanLine = (t: unknown, max: number): string | null => {
 };
 
 export type Pick = { feed_item_id: string; source: "call" | "telegram"; org_name: string | null; line: string; kind: MemorableKind; reason: string };
-// S61-9: 이 사용자가 남에게 부탁한 일(from_me=true)을 이 사용자의 할 일(task)로 고른 항목은 버린다(상대가 할 일).
+// S61-9: 이 사용자가 남에게 부탁한 일(from_me=true)을 이 사용자의 할 일(task)로 고른 항목은 할 일이 아니다(상대가 할 일).
+// S61-11: 그 항목은 버리지 않고 종류 promise(상대 약속)로 받는다(이유 = '상대 약속 · why').
 // from_me가 없던 옛 답 형식은 false로 본다(이 검사 전과 같음). task가 아닌 종류(일정·기억할 것·조직·사업)는 방향과 상관없이 받는다.
 export const askedByMe = (kind: unknown, fromMe: unknown) => kind === "task" && fromMe === true;
 // AI 답 검사. 보낸 번호만 받고, 같은 번호는 한 번만, 종류가 다섯 밖이거나 줄·이유가 틀리면 그 항목만 버린다. max개까지. 전체가 깨졌으면 null.
@@ -175,12 +182,12 @@ export function parseMemorable(raw: string, sent: FeedRow[], max = MEMORABLE_MAX
     const { n, org, line, kind, why, from_me } = it as Record<string, unknown>;
     if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > sent.length || seen.has(n)) continue;
     if (typeof kind !== "string" || !(MEMORABLE_KINDS as readonly string[]).includes(kind)) continue;
-    if (askedByMe(kind, from_me)) continue;
+    const k: MemorableKind = askedByMe(kind, from_me) ? "promise" : kind as MemorableKind;
     const l = cleanLine(line, MEMORABLE_LINE_CHARS), o = cleanLine(org, MEMORABLE_ORG_CHARS), w = cleanLine(why, MEMORABLE_WHY_CHARS);
     if (!l || o === null || w === null) continue;
     seen.add(n);
-    const label = MEMORABLE_KIND_LABEL[kind as MemorableKind];
-    out.push({ feed_item_id: sent[n - 1].id, source: sent[n - 1].source, org_name: o || null, line: l, kind: kind as MemorableKind, reason: w ? `${label} · ${w}` : label });
+    const label = MEMORABLE_KIND_LABEL[k];
+    out.push({ feed_item_id: sent[n - 1].id, source: sent[n - 1].source, org_name: o || null, line: l, kind: k, reason: w ? `${label} · ${w}` : label });
   }
   return out;
 }

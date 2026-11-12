@@ -13,7 +13,7 @@ import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate } from './quick-save.js';
 import { projectRows } from './choice-sheet.js';
 import { areaTree, areaListHtml, orgListHtml, openKeysFor, ensureStyles } from './area-org-picker.js';
-import { confirmLinks } from './basket-classification.js';
+import { confirmLinks, LINK_ORIGIN } from './basket-classification.js';
 import { announceRecordSaved, basketDetail } from './record-saved.js';
 import { readReferenceBundles } from './reference-bundles-data.js';
 import { pickMyOrganizations } from './my-organizations.js';
@@ -170,7 +170,7 @@ async function saveLetters({list, text, doc}, rt) {
   let linkError = '';
   if (list.length) {
     try {
-      const result = await confirmLinks(note.id, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
+      const result = await confirmLinks(note.id, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, origin:LINK_ORIGIN.RECORD_INPUT})), rt);
       if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
     } catch (error) { linkError = error?.message || 'UNKNOWN'; }
   }
@@ -191,6 +191,7 @@ async function addBusinessRecord(note, list, text, rt) {
     await saveBusinessRecord({space_id:project.id, day:seoulDateKey(), body:text, source_kind:'update', source_id:note.id}, rt);
   } catch { /* 사업 기록은 덤 — 업데이트 저장·연결 결과를 바꾸지 않는다 */ }
 }
+// ORG-기록첨부표시이름 ①(S61-6): 여기서 만든 연결은 모두 기록할 곳을 고르고 바로 올린 것이라 origin 'record_input'(목록은 일반 기록처럼 날짜만).
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 잊지 말기에 저장했지만 선택한 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.';
 // ED③ 기록: the most letters a record may hold at these places. MTG-프로젝트합치기 3단계: no place takes a one-line progress record any more.
@@ -233,7 +234,7 @@ async function placeFiles({noteId, list, link, line, files, sameOwner}, rt) {
     if (!note) linkError = 'NOTE_MISSING';
     else {
       try {
-        const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, ...(line && p.kind !== 'reference' ? {summary:line} : {})})), rt);
+        const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON, origin:LINK_ORIGIN.RECORD_INPUT, ...(line && p.kind !== 'reference' ? {summary:line} : {})})), rt);
         if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
       } catch (error) { linkError = error?.message || 'UNKNOWN'; }
       if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); if (sameOwner() && line) await addBusinessRecord(note, linkTo, line, rt); }

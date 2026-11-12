@@ -84,7 +84,7 @@ for(const width of [390,1280])test(`첨부 → 조직 고르기: 파일이 남�
  await expect(page.locator('#toast')).toContainText('기록을 저장했어요.');
  // The letters first (one basket update, linked to the organization), then the file up to that update and into its documents.
  expect(f.notes).toHaveLength(1);expect(f.notes[0].raw_text).toBe('합성 조직 소식');
- expect(f.links).toEqual([{p_note_id:'note-1',p_note_updated_at:'2026-10-23T01:00:00Z',p_targets:[{kind:'organization',target_id:ID(1),reason:'직접 연결'}]}]);
+ expect(f.links).toEqual([{p_note_id:'note-1',p_note_updated_at:'2026-10-23T01:00:00Z',p_targets:[{kind:'organization',target_id:ID(1),reason:'직접 연결',origin:'record_input'}]}]);
  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('시험지부 기록에 파일 1개 올렸어요');
  expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('filename="회의자료.txt"');expect(f.uploads[0]).toContain('name="note_id"\r\n\r\nnote-1');expect(f.uploads[0]).not.toContain('name="raw_text"');
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:'note-1',drive_file_id:'drive-1'}]);
@@ -105,7 +105,7 @@ test('조직을 먼저 고른 뒤 PC 끌어 놓기도 된다(클립 보임), 프
  await drop(page,q,'끌어온 파일.txt');await expect(fileRows(q)).toHaveCount(1);
  await q.locator('[data-quick-input]').fill('합성 프로젝트 진행');
  await q.locator('[data-quick-save]').click();await expect(q).toHaveAttribute('data-mode','basket');
- expect(f.links[0].p_targets).toEqual([{kind:'project',target_id:PID,reason:'직접 연결'}]);
+ expect(f.links[0].p_targets).toEqual([{kind:'project',target_id:PID,reason:'직접 연결',origin:'record_input'}]);
  await expect.poll(()=>f.patches).toEqual([{id:'doc-drive-1',project_id:PID,organization_id:undefined}]);
  expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('filename="끌어온 파일.txt"');
  expect(f.projects).toEqual([]);await expect(fileRows(q)).toHaveCount(0);
@@ -168,7 +168,7 @@ test('홈 [크게]에서 조직 + 홈 입력의 파일: 같은 결과(연결 + �
  await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
  // ED③ 업데이트: the saved form goes with the letters (BIZ-저장먼저닫기 2차: the letters are saved first, in the same insert).
  expect(f.notes).toHaveLength(1);expect(f.notes[0].doc).toMatchObject({v:'ed1'});expect(f.docs2).toEqual([]);
- expect(f.links[0].p_targets).toEqual([{kind:'organization',target_id:ID(1),reason:'직접 연결'}]);
+ expect(f.links[0].p_targets).toEqual([{kind:'organization',target_id:ID(1),reason:'직접 연결',origin:'record_input'}]);
  await expect.poll(()=>f.patches).toEqual([{id:'doc-drive-1',project_id:undefined,organization_id:ID(1)}]);expect(f.uploads).toHaveLength(1);
  await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(fileRows(q)).toHaveCount(0);await expect(q).toHaveAttribute('data-mode','basket');
  expect(f.errors).toEqual([]);
@@ -183,7 +183,7 @@ test('메뉴 [쓰기] 창의 자체 첨부 + 프로젝트: 같은 길로 연결 
  await sheet.locator('[data-sheet-projects]').getByRole('button',{name:'합성 프로젝트',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();
  await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
  await expect(page.locator('#toast')).toContainText('합성 프로젝트 기록에 저장했어요.');
- expect(f.links[0].p_targets).toEqual([{kind:'project',target_id:PID,reason:'직접 연결'}]);
+ expect(f.links[0].p_targets).toEqual([{kind:'project',target_id:PID,reason:'직접 연결',origin:'record_input'}]);
  await expect.poll(()=>f.patches).toEqual([{id:'doc-drive-1',project_id:PID,organization_id:undefined}]);expect(f.uploads).toHaveLength(1);expect(f.projects).toEqual([]);
  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('합성 프로젝트 기록에 파일 1개 올렸어요');
  expect(f.errors).toEqual([]);

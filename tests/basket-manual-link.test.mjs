@@ -11,10 +11,10 @@ const picks=[{kind:'organization',id:org,name:'합성 조직',summary:'10/20 14�
 test('manual targets carry only the keys the RPC accepts, with the summary and one fixed reason',()=>{
   const targets=mod.manualLinkTargets(picks);
   assert.deepEqual(targets,[
-    {kind:'organization',target_id:org,reason:'직접 연결',summary:'10/20 14시 본사 앞, 조합원 30명'},
-    {kind:'project',target_id:project,reason:'직접 연결',summary:'기자회견 장소 협의'},
+    {kind:'organization',target_id:org,reason:'직접 연결',origin:'basket',summary:'10/20 14시 본사 앞, 조합원 30명'},
+    {kind:'project',target_id:project,reason:'직접 연결',origin:'basket',summary:'기자회견 장소 협의'},
   ]);
-  for(const target of targets)assert.deepEqual(Object.keys(target).sort(),['kind','reason','summary','target_id']);
+  for(const target of targets)assert.deepEqual(Object.keys(target).sort(),['kind','origin','reason','summary','target_id']);
   // The RPC requires reason 1~2,000 characters; the fixed text is never empty.
   assert.ok([...mod.MANUAL_LINK_REASON].length>=1&&[...mod.MANUAL_LINK_REASON].length<=2000);
 });
@@ -71,7 +71,7 @@ test('plain-language errors for manual linking',()=>{
 
 test('manual linking reuses the existing RPC and task paths and adds no new write path',()=>{
   const source=readFileSync(new URL('../app/basket-manual-link.js',import.meta.url),'utf8');
-  assert.match(source,/import \{confirmLinks,ERROR_TEXT\} from '\.\/basket-classification\.js'/);
+  assert.match(source,/import \{confirmLinks,ERROR_TEXT,LINK_ORIGIN\} from '\.\/basket-classification\.js'/);
   assert.match(source,/import \{createGoogleTask\} from '\.\/quick-save\.js'/);
   assert.doesNotMatch(source,/method:'(POST|PATCH|DELETE)'/);
   assert.doesNotMatch(source,/app_record_links/);
@@ -79,7 +79,7 @@ test('manual linking reuses the existing RPC and task paths and adds no new writ
 
 test('a blank summary is left out of the RPC target so the database keeps NULL; a written one is sent as is',()=>{
   const targets=mod.manualLinkTargets([{...picks[0],summary:''},{...picks[1],summary:' 　\n'},{...picks[0],id:'x',summary:'쓴 요약'}]);
-  assert.deepEqual(targets[0],{kind:'organization',target_id:picks[0].id,reason:'직접 연결'});
-  assert.deepEqual(Object.keys(targets[1]).sort(),['kind','reason','target_id']);
+  assert.deepEqual(targets[0],{kind:'organization',target_id:picks[0].id,reason:'직접 연결',origin:'basket'});
+  assert.deepEqual(Object.keys(targets[1]).sort(),['kind','origin','reason','target_id']);
   assert.equal(targets[2].summary,'쓴 요약');
 });

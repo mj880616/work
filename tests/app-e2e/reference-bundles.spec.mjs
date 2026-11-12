@@ -86,7 +86,7 @@ for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 선택 → �
  expect(await noWideScroll(page)).toBe(true);
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
- expect(f.calls).toEqual([{p_note_id:n,p_note_updated_at:stamp,p_targets:[{kind:'reference',target_id:b2,reason:'직접 연결'}]}]);
+ expect(f.calls).toEqual([{p_note_id:n,p_note_updated_at:stamp,p_targets:[{kind:'reference',target_id:b2,reason:'직접 연결',origin:'basket'}]}]);
  await expect(detail.locator('[data-basket-state]')).toContainText('합성 본부 사업');
  if(width===390)await page.screenshot({path:info.outputPath('reference-linked-390.png'),fullPage:true});
 
@@ -259,6 +259,6 @@ for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트:
  await tap(page,quick.locator('.home-quick-save'),width);
  await expect(page.locator('#toast')).toHaveText('기록을 저장했습니다.');
  expect(posted).toHaveLength(1);expect(posted[0].raw_text).toBe('합성 다른 조직 소식');
- expect(f.calls.at(-1).p_targets).toEqual([{kind:'reference',target_id:b3,reason:'직접 연결'}]);
+ expect(f.calls.at(-1).p_targets).toEqual([{kind:'reference',target_id:b3,reason:'직접 연결',origin:'record_input'}]);
  expect(f.errors).toEqual([]);
 });

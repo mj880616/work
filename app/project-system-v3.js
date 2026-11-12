@@ -15,7 +15,7 @@ import { createAnchoredMenu } from './anchored-menu.js';
 import {tapExpand} from './text-clamp.js';
 import {foldedSet,isFoldedOwn,partitionTree,blocks,foldedMetadata,foldSummary} from './project-fold.mjs';
 import {recordLines} from './note-preview.mjs';
-import {readRecordPages,readLinkRecords,recordMark,recordShownText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
+import {readRecordPages,readLinkRecords,recordMark,recordShownText,isNoteRecord,isDirectRecord,recordMenuLabel,mountLinkSummaryEditor} from './basket-link-records.js';
 import {recordFilesHtml,paintRecordFiles,bindRecordFiles,renameInRecordRows,applyRenamedLines,recordPhotosOpen} from './record-files.js';
 import {isPictureDoc,splitPictures} from './photo-fold-model.mjs'; // LIB-사진숨김: 사진은 [자료] 줄에서 빼고 칩 줄 끝 '사진 n'
 import {docKindHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
@@ -421,7 +421,7 @@ function itemRecord(w){return recordButton(w.id,keyOf(w.created_at),esc(w.title|
 // delete here; UI-연결요약수정 added [요약 수정] with the organization detail's editor and save path). UI-기록아이콘: notes linked to this project join the list too (same confirmed links, kind=note); the mark in
 // front is the update or note icon (basket-link-records.js), and a note line opens the note's read view ([노트 열기]·[연결 해제]).
 const LINK_NOTE_KINDS=['basket','note'];
-function basketRecord(b,{open=false}={}){const text=recordShownText(b),note=isNoteRecord(b);return `<div class="ps3-rec ps3-rec-basket${note?' ps3-rec-note':''}" data-basket-link="${esc(b.id)}"><a class="ps3-rec-line" href="${esc(note?'./?view=basket':basketNoteHref(b.note_id))}" data-ps3-basket-note="${esc(b.note_id)}" data-ps3-note-kind="${note?'note':'basket'}"><time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text kptu-clamp">${recordMark(b,'ps3-rec-mark')} ${esc(text)}</span></a><button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="잊지 말기 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>${recordFilesHtml(b,{open})}</div>`}
+function basketRecord(b,{open=false}={}){const text=recordShownText(b),note=isNoteRecord(b);return `<div class="ps3-rec ps3-rec-basket${note?' ps3-rec-note':''}" data-basket-link="${esc(b.id)}"><a class="ps3-rec-line" href="${esc(note?'./?view=basket':basketNoteHref(b.note_id))}" data-ps3-basket-note="${esc(b.note_id)}" data-ps3-note-kind="${note?'note':'basket'}"><time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text kptu-clamp">${isDirectRecord(b)?'':`${recordMark(b,'ps3-rec-mark')} `}${esc(text)}</span></a><button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="${recordMenuLabel(b)}" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>${recordFilesHtml(b,{open})}</div>`}
 // ORG-기록첨부(S50-22): 연결 줄 아래 그 업데이트의 그림(작게, 누르면 크게)·파일(이름 줄, 누르면 열기) — 담당조직 기록과 같은 부품(record-files.js).
 function ps3PaintFiles(){const host=$('#ps3Body');if(!host||!detail)return;paintRecordFiles(host,detail.basketLinks||[],rt);bindRecordFiles(host,()=>detail?.basketLinks||[],{rt,onError:text=>toast(text)})}
 // MTG-프로젝트합치기 결정 ⑥(10/28 19:38 '지난 진행 기록 화면 없음'): 옛 진행 기록(app_project_progress_updates)·기록 없는 진행 항목

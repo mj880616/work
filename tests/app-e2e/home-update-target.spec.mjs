@@ -49,7 +49,7 @@ test('project choice saves a basket update linked to the project and organizatio
  await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
  expect(orgBodies).toHaveLength(0);expect(projectBodies).toHaveLength(0);
  expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'기록 내용'});
- expect(links).toEqual([{p_note_id:'new-note',p_note_updated_at:'2026-10-06T01:00:00.123456Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결'}]}]);
+ expect(links).toEqual([{p_note_id:'new-note',p_note_updated_at:'2026-10-06T01:00:00.123456Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결',origin:'record_input'}]}]);
  await q.locator('[data-quick-input]').fill('조직 기록');
  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));
  await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();

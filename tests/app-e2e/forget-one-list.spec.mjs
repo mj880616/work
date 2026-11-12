@@ -85,8 +85,10 @@ async function fixture(page,{failReopen=false,width=390,features=['telegram','fa
       // FORGET-소식바로잡기 ④ 흉내: 옛 기준(종류 없는) 처리 전 줄은 모두 안 듦 → 미리 보기는 수만, 실행은 상태만 무시로.
       if(body?.kind==='journal_memorable_recheck'){
         fixes.push(body);const old=news.filter(x=>x.status==='suggested'&&!x.app_journal_memorable_picks);
-        if(body.mode==='run')old.forEach(x=>{x.status='dropped';x.decided_at='2026-10-06T09:00:00Z';});
-        return r.fulfill({json:{ok:true,kind:'journal_memorable_recheck',mode:body.mode,target:old.length,keep:0,drop:old.length,left:0}});
+        // S61-11 흉내: 방향 규칙 전에 '할 일'로 고른 줄(picked_at이 있는 task)은 모두 거꾸로 적힌 줄로 보고 종류만 상대 약속으로.
+        const sus=news.filter(x=>x.status==='suggested'&&x.app_journal_memorable_picks?.kind==='task'&&x.app_journal_memorable_picks.picked_at);
+        if(body.mode==='run'){old.forEach(x=>{x.status='dropped';x.decided_at='2026-10-06T09:00:00Z';});sus.forEach(x=>{x.app_journal_memorable_picks={...x.app_journal_memorable_picks,kind:'promise',reason:'상대 약속 · 자료 요청'};});}
+        return r.fulfill({json:{ok:true,kind:'journal_memorable_recheck',mode:body.mode,target:old.length+sus.length,keep:0,drop:old.length,left:0,promise:sus.length}});
       }
       return r.fallback();
     });
@@ -456,4 +458,47 @@ for(const width of [412,884])test(`폰 ${width}(터치): 줄에는 [할 일로][
   await umenu.getByRole('button',{name:'보류로',exact:true}).tap();
   await expect.poll(()=>notePatches.length).toBe(1);expect(notePatches[0].body.archived_at).toBeTruthy();
   await ctx.close();
+});
+
+// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁한 일(소식 종류 promise)은 처리 전 할 일·숫자에서 빠지고
+// 맨 아래 '상대 약속' 줄(꼬리표 '상대 약속 · 텔레그램/통화')에 [원장으로][받음][무시]로 보인다. 화면 사진(SHOT_DIR=docs/design/screens/s61-11로 돌릴 때만): docs/design/screens/s61-11/.
+for(const width of [412,1280])test(`상대 약속 줄: 소식에서 온 상대 약속이 맨 아래, 세지 않음, [받음]은 소식 처리함·되돌리기 ${width}`,async({page})=>{
+  const pk=(kind,reason)=>({kind,reason,picked_at:'2026-10-06T01:00:00Z'});
+  const news=[newsRow(2,{org_name:'가상지부',line:'회의 자료 회신하기',app_journal_memorable_picks:{kind:'task',reason:'할 일 · 회신 요청'}}),
+    newsRow(4,{org_name:'가상지부',line:'명단 자료 보내기로 함',app_journal_memorable_picks:pk('promise','상대 약속 · 명단 요청')}),
+    newsRow(6,{source:'call',org_name:'가상분회',line:'현황표 다시 보내 주기로 함',app_journal_memorable_picks:pk('promise','상대 약속 · 현황표 요청')})];
+  const {newsPatches}=await fixture(page,{width,news});
+  const rows=list(page).locator('[data-nbx-row]');
+  await expect(list(page).locator('[data-forget-promise-news]')).toHaveCount(2);
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(1);
+  // 맨 아래 두 줄이 상대 약속(시각 없음), 꼬리표에 출처.
+  await expect(list(page).locator('[data-forget-src="telegram"]').first()).toBeVisible();
+  await expect.poll(()=>rows.evaluateAll(rs=>rs.slice(-2).map(r=>r.dataset.forgetSrc))).toEqual(['promise','promise']);
+  await expect(list(page).locator(`[data-nbx-row="n:${nid(4)}"] .nbx-src`)).toHaveText('상대 약속 · 텔레그램');
+  await expect(list(page).locator(`[data-nbx-row="n:${nid(6)}"] .nbx-src`)).toHaveText('상대 약속 · 통화');
+  await expect(list(page).locator(`[data-nbx-row="n:${nid(4)}"] .nbx-why`)).toHaveText('상대 약속 · 명단 요청');
+  await expect(list(page).locator(`[data-nbx-row="n:${nid(4)}"] [data-nbx-act]`)).toHaveText(['원장으로','받음','무시']);
+  expect(await noWide(page)).toBe(true);
+  if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/${width}-promise.png`});
+  await list(page).locator(`[data-nbx-row="n:${nid(4)}"] [data-nbx-act="done"]`).click();
+  await expect.poll(()=>newsPatches.length).toBe(1);
+  expect(newsPatches[0]).toMatchObject({id:nid(4),body:{status:'kept'}});
+  await expect(list(page).locator('[data-forget-promise-news]')).toHaveCount(1);
+});
+for(const width of [412,1280])test(`옛 소식 정리: 방향 규칙 전 할 일 줄도 함께 보고, 미리 보기에 상대 약속으로 옮길 수, [확인] 뒤 상대 약속 줄로 ${width}`,async({page})=>{
+  const news=[newsRow(2,{org_name:'가상지부',line:'자료 보내기',app_journal_memorable_picks:{kind:'task',reason:'할 일 · 자료 요청',picked_at:'2026-10-06T01:00:00Z'}}),
+    newsRow(5,{line:'옛 기준 소식',app_journal_memorable_picks:null})];
+  const {fixes}=await fixture(page,{width,news});
+  const fix=page.locator('#basketView [data-forget-status] [data-forget-fix]');
+  await expect(fix).toHaveText(/옛 소식 2개 새 기준으로 정리\s*정리/);
+  await fix.getByRole('button',{name:'정리',exact:true}).click();
+  await expect(fix).toHaveText(/옛 소식 2개 중 0개 남기고 1개는 무시로 · 1개는 상대 약속으로\s*확인\s*취소/);
+  expect(news[0].app_journal_memorable_picks.kind).toBe('task');
+  if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/${width}-recheck.png`});
+  await fix.getByRole('button',{name:'확인'}).click();
+  await expect(page.locator('#basketView [data-forget-status]')).toHaveText('옛 소식 정리: 0개 남김 · 1개 무시 · 1개 상대 약속으로');
+  await expect(fix).toHaveCount(0);
+  expect(fixes.map(f=>f.mode)).toEqual(['preview','run']);
+  await expect(list(page).locator(`[data-nbx-row="n:${nid(2)}"]`)).toHaveAttribute('data-forget-src','promise');
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(0);
 });

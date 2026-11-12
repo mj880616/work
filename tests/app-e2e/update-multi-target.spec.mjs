@@ -73,7 +73,7 @@ for(const width of [390,1280])test(`여러 곳 고르기: 눌러도 창이 열�
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({raw_text:'합성 기록'});expect(f.orgs).toEqual([]);expect(f.projects).toEqual([]);
  expect(f.links).toEqual([{p_note_id:'note-1',p_note_updated_at:'2026-10-22T01:00:00.123456Z',p_targets:[
-  {kind:'organization',target_id:ID(2),reason:'직접 연결'},{kind:'project',target_id:PID,reason:'직접 연결'},{kind:'organization',target_id:ID(1),reason:'직접 연결'}]}]);
+  {kind:'organization',target_id:ID(2),reason:'직접 연결',origin:'record_input'},{kind:'project',target_id:PID,reason:'직접 연결',origin:'record_input'},{kind:'organization',target_id:ID(1),reason:'직접 연결',origin:'record_input'}]}]);
  await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
  // ⑦ back to the basket; the places just used lead the 최근 line, none chosen.
  await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
@@ -127,7 +127,7 @@ test('사업영역 하나만 고르면 정리함 1건 + 그 사업영역에 연�
  await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
  expect(f.projects).toEqual([]);expect(f.orgs).toEqual([]);
  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({raw_text:'합성 기록'});
- expect(f.links).toEqual([{p_note_id:'note-1',p_note_updated_at:'2026-10-22T01:00:00.123456Z',p_targets:[{kind:'project',target_id:PID,reason:'직접 연결'}]}]);
+ expect(f.links).toEqual([{p_note_id:'note-1',p_note_updated_at:'2026-10-22T01:00:00.123456Z',p_targets:[{kind:'project',target_id:PID,reason:'직접 연결',origin:'record_input'}]}]);
  await expect(q).toHaveAttribute('data-mode','basket');
  expect(f.errors).toEqual([]);
 });
@@ -169,5 +169,5 @@ test('빠른 추가 [업데이트]도 같은 창: 여러 곳 저장은 정리함
  await expect(e.locator('[data-edw-place]')).toContainText('전국철도노동조합 외 1');
  await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
  await expect(page.locator('#toast')).toContainText('전국철도노동조합 외 1 기록에 저장했어요.');
- expect(f.notes).toEqual([expect.objectContaining({raw_text:'쓰기 여러 곳'})]);expect(f.links[0].p_targets).toEqual([{kind:'organization',target_id:ID(0),reason:'직접 연결'},{kind:'project',target_id:PID,reason:'직접 연결'}]);
+ expect(f.notes).toEqual([expect.objectContaining({raw_text:'쓰기 여러 곳'})]);expect(f.links[0].p_targets).toEqual([{kind:'organization',target_id:ID(0),reason:'직접 연결',origin:'record_input'},{kind:'project',target_id:PID,reason:'직접 연결',origin:'record_input'}]);
 });

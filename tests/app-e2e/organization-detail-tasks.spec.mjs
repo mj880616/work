@@ -162,7 +162,7 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   expect(taskReads.length).toBeLessThanOrEqual(3);
   const ids=[...orgs.map(o=>o.id),...Array.from({length:extra},(_,i)=>'extra-'+i)];
   const batchCount=Math.ceil(ids.length/100);
-  const homeProjection='id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text)';
+  const homeProjection='id,workspace_id,summary,origin,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text)';
   const dateProjection='id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)';
   const homeReads=noteReads.filter(r=>r.query.select===homeProjection);
   const dateReads=noteReads.filter(r=>r.query.select===dateProjection);

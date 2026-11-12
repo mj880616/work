@@ -83,7 +83,7 @@ import {
 import {
   MEMORABLE_DAY_CAP, MEMORABLE_INSTRUCTIONS, MEMORABLE_MAX_ITEMS, MEMORABLE_MAX_OUTPUT_TOKENS, MEMORABLE_SCHEMA, memorableDayInRange, memorableDue,
   memorableMaterial, parseJournalMemorableRecheckRequest, parseJournalMemorableRequest, parseMemorable, MEMORABLE_RECHECK_AI_CALLS, MEMORABLE_RECHECK_DAYS,
-  MEMORABLE_RECHECK_KEEP_MAX, MEMORABLE_RECHECK_LINES_MAX, MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS, recheckSplit, toFeedRow,
+  MEMORABLE_DIRECTION_SINCE, MEMORABLE_RECHECK_KEEP_MAX, MEMORABLE_RECHECK_LINES_MAX, MEMORABLE_RECHECK_MAX_OUTPUT_TOKENS, recheckSplit, toFeedRow,
 } from "./journal-memorable.ts";
 import type { FeedRow } from "./journal-memorable.ts";
 import {
@@ -3950,6 +3950,10 @@ async function callDayAi(ctx: Ctx, deps: RadarDeps, started: number, name: strin
 //   'dropped'(무시)로 바꾼다(지우지 않음, 내용 칸 그대로). 바꾼 줄 id(무시로 옮긴 줄·종류를 붙인 줄)와 시각(decided_at)을 응답·기록에 남긴다(내용 없이 id·수만) — 되돌리기용.
 // - 같은 줄은 두 번 판정하지 않는다: 판정이 끝난 줄은 picks가 있거나 처리 전이 아니므로 다음 요청의 대상이 아니다.
 // - 하루 5개 상한은 쓰지 않고, 새 기준에 드는 줄은 최근 것부터 MEMORABLE_RECHECK_KEEP_MAX개까지만 남긴다. AI는 한 번 요청에 MEMORABLE_RECHECK_AI_CALLS번까지.
+// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 방향 규칙 전(MEMORABLE_DIRECTION_SINCE 전)에 '할 일'로 고른 처리 전 줄(suspect)도 같은 지시문으로 다시 본다.
+//   AI가 그 줄을 '내가 남에게 부탁한 일'(from_me)로 보면 종류만 promise(상대 약속)로 바꾼다(줄·상태 그대로, 지우지 않음 — 되돌리기는 종류를 task로).
+//   그 밖의 판정(할 일 그대로·다른 종류·고르지 않음)은 그 줄을 바꾸지 않는다(이미 새 기준으로 고른 줄을 무시로 보내지 않음). 남길 자리(KEEP_MAX)는 옛 줄만 쓴다.
+//   옛 줄(종류 없음)도 promise로 판정되면 종류 promise로 남는다(상대 약속 줄에 보임). 응답에 promise 수·id(내용 없음).
 async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableRecheckInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
   const ws = encodeURIComponent(ctx.workspaceId), mode = input.mode;
@@ -3974,23 +3978,31 @@ async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableReche
     .filter((r) => String(r?.workspace_id ?? "").toLowerCase() === ctx.workspaceId && r?.status === "suggested" && UUID.test(String(r?.id ?? ""))
       && UUID.test(String(r?.feed_item_id ?? "")) && sources.includes(String(r?.source)))
     .map((r) => ({ id: String(r.id).toLowerCase(), day: String(r.day ?? ""), source: String(r.source), feed: String(r.feed_item_id).toLowerCase() }));
-  // 종류·이유가 이미 있는 줄(새 기준)은 대상이 아니다.
-  const withPick = new Set<string>();
+  // 종류·이유가 이미 있는 줄(새 기준)은 대상이 아니다. 다만 방향 규칙 전에 '할 일'로 고른 줄은 다시 본다(suspect).
+  const withPick = new Set<string>(), suspectIds = new Set<string>();
+  const since = Date.parse(MEMORABLE_DIRECTION_SINCE);
   for (let i = 0; i < lines.length; i += 50) {
     const ids = lines.slice(i, i + 50).map((l) => l.id).join(",");
-    for (const p of await readRows(`app_journal_memorable_picks?workspace_id=eq.${ws}&memorable_id=in.(${ids})&select=memorable_id&limit=50`)) withPick.add(String(p?.memorable_id ?? "").toLowerCase());
+    for (const p of await readRows(`app_journal_memorable_picks?workspace_id=eq.${ws}&memorable_id=in.(${ids})&select=memorable_id,kind,picked_at&limit=50`)) {
+      const id = String(p?.memorable_id ?? "").toLowerCase();
+      withPick.add(id);
+      const at = Date.parse(String(p?.picked_at ?? ""));
+      if (p?.kind === "task" && Number.isFinite(at) && at < since) suspectIds.add(id);
+    }
   }
   const old = lines.filter((l) => !withPick.has(l.id));
-  const done = (out: { keep: string[]; drop: string[]; left: string[] }, extra: Record<string, unknown> = {}) => {
-    deps.log("journal_memorable_recheck_done", { mode, target: old.length, keep: out.keep.length, drop: out.drop.length, left: out.left.length, ...extra });
-    return json({ ok: true, kind: "journal_memorable_recheck", mode, target: old.length, keep: out.keep.length, drop: out.drop.length, left: out.left.length, ...extra });
+  const suspects = lines.filter((l) => suspectIds.has(l.id));
+  const done = (out: { keep: string[]; drop: string[]; left: string[] }, promise: string[] = [], extra: Record<string, unknown> = {}) => {
+    const counts = { target: old.length + suspects.length, keep: out.keep.length, drop: out.drop.length, left: out.left.length, promise: promise.length };
+    deps.log("journal_memorable_recheck_done", { mode, ...counts, ...extra });
+    return json({ ok: true, kind: "journal_memorable_recheck", mode, ...counts, ...extra });
   };
-  if (!old.length) return done({ keep: [], drop: [], left: [] });
+  if (!old.length && !suspects.length) return done({ keep: [], drop: [], left: [] });
 
   // 원본(통화·텔레그램 기록)은 출처마다 따로 읽는다(source=eq.call / source=eq.telegram). 숨긴 기록은 읽지 않는다.
   const feedById = new Map<string, FeedRow>();
   for (const src of sources) {
-    const ids = old.filter((l) => l.source === src).map((l) => l.feed);
+    const ids = [...old, ...suspects].filter((l) => l.source === src).map((l) => l.feed);
     for (let i = 0; i < ids.length; i += 50) {
       const chunk = ids.slice(i, i + 50).join(",");
       const got = src === "call"
@@ -4003,10 +4015,12 @@ async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableReche
       }
     }
   }
-  const { asked, myOrgs, areas, known } = await memorableContext(ctx, today, new Set(old.map((l) => l.id)));
-  const judgeable = old.filter((l) => feedById.has(l.feed) && !asked.has(l.feed));
+  const { asked, myOrgs, areas, known } = await memorableContext(ctx, today, new Set([...old, ...suspects].map((l) => l.id)));
+  // 옛 줄 먼저(최근 것부터), 그다음 suspect(최근 것부터). suspect는 원본이 없거나 판정할 수 없으면 그대로 둔다.
+  const judgeable = [...old, ...suspects].filter((l) => feedById.has(l.feed) && !asked.has(l.feed));
   const unjudgeable = old.filter((l) => !feedById.has(l.feed) || asked.has(l.feed)).map((l) => l.id);
   const lineByFeed = new Map(judgeable.map((l) => [l.feed, l]));
+  const toPromise: string[] = [];
 
   // 최근 것부터 MEMORABLE_MAX_ITEMS줄씩 AI에 보내고, 남길 자리가 다 차거나 AI 횟수 상한이면 멈춘다. 쓰기는 모두 끝난 뒤 한 번에(중간 실패 = 아무것도 안 바꿈).
   const judged: string[] = [], kept: string[] = [];
@@ -4021,7 +4035,8 @@ async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableReche
     for (let i = 0; i < judgeable.length && calls < MEMORABLE_RECHECK_AI_CALLS && kept.length < MEMORABLE_RECHECK_KEEP_MAX; i += MEMORABLE_MAX_ITEMS) {
       const batch = judgeable.slice(i, i + MEMORABLE_MAX_ITEMS);
       const rows = batch.map((l) => ({ ...feedById.get(l.feed)!, day: l.day }));
-      const room = MEMORABLE_RECHECK_KEEP_MAX - kept.length;
+      // suspect는 남길 자리를 쓰지 않는다: 고를 수 있는 수 = 남은 자리 + 이 묶음의 suspect 수(KEEP_MAX 안).
+      const room = Math.min(MEMORABLE_RECHECK_KEEP_MAX, MEMORABLE_RECHECK_KEEP_MAX - kept.length + batch.filter((l) => suspectIds.has(l.id)).length);
       const material = memorableMaterial(`${from}~${today}`, rows, { orgs: myOrgs, areas, known, max: room, cap: MEMORABLE_RECHECK_KEEP_MAX });
       const budget = await checkBudget(ctx, "journal_memorable_recheck", deps.now(), config.price);
       try {
@@ -4059,23 +4074,31 @@ async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableReche
         throw new Fail(502, "ai_invalid_response");
       }
       sentLines += batch.length;
-      judged.push(...batch.map((l) => l.id));
+      judged.push(...batch.filter((l) => !suspectIds.has(l.id)).map((l) => l.id));
       for (const p of picks) {
         const line = lineByFeed.get(p.feed_item_id);
         if (!line || picksByLine.has(line.id)) continue;
         picksByLine.set(line.id, { kind: p.kind, reason: p.reason });
-        kept.push(line.id);
+        if (suspectIds.has(line.id)) { if (p.kind === "promise") toPromise.push(line.id); }
+        else if (kept.length < MEMORABLE_RECHECK_KEEP_MAX) kept.push(line.id);
       }
     }
   }
   const split = recheckSplit(old.map((l) => l.id), judged, kept, unjudgeable);
-  if (mode === "preview") return done(split, { calls, sent: sentLines });
+  const promise = [...split.keep.filter((id) => picksByLine.get(id)?.kind === "promise"), ...toPromise];
+  if (mode === "preview") return done(split, promise, { calls, sent: sentLines });
 
   // 실행: 남는 줄에 종류·이유(같은 줄은 한 번만), 안 드는 줄은 처리 전일 때만 상태를 무시로(그 사이 사람이 정한 줄은 그대로).
   const at = new Date(started).toISOString();
   try {
     const marks = split.keep.map((id) => ({ memorable_id: id, workspace_id: ctx.workspaceId, kind: picksByLine.get(id)!.kind, reason: picksByLine.get(id)!.reason }));
     if (marks.length) await rest(ctx, "app_journal_memorable_picks?on_conflict=memorable_id", { method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: marks });
+    // suspect → 상대 약속: 아직 '할 일'인 종류만 바꾼다(그 사이 사람이 바꾼 줄은 그대로). 표가 허락한 칸(kind·reason)만.
+    for (const id of toPromise) {
+      await rest(ctx, `app_journal_memorable_picks?workspace_id=eq.${ws}&memorable_id=eq.${id}&kind=eq.task`, {
+        method: "PATCH", prefer: "return=minimal", body: { kind: "promise", reason: picksByLine.get(id)!.reason },
+      });
+    }
     for (let i = 0; i < split.drop.length; i += 50) {
       await rest(ctx, `app_journal_memorable?workspace_id=eq.${ws}&status=eq.suggested&id=in.(${split.drop.slice(i, i + 50).join(",")})`, {
         method: "PATCH", prefer: "return=minimal", body: { status: "dropped", decided_at: at },
@@ -4084,7 +4107,7 @@ async function runJournalMemorableRecheck(ctx: Ctx, input: JournalMemorableReche
   } catch {
     throw new Fail(503, "journal_memorable_unavailable");
   }
-  return done(split, { calls, sent: sentLines, at, dropped_ids: split.drop, kept_ids: split.keep });
+  return done(split, promise, { calls, sent: sentLines, at, dropped_ids: split.drop, kept_ids: split.keep, promise_ids: promise });
 }
 
 // ---- 쓰임 work_scope: '오늘 한 일' 줄 업무·개인 가르기(JOURNAL-오늘한일업무개인, work-scope.ts) ---------------------------------
