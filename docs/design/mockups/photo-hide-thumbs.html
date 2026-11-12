@@ -1,0 +1,122 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 사진 파일은 목록에서 기본으로 숨기고, 볼 때는 작은 그림으로 (LIB-사진숨김)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#6e6c60}
+.ph{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;border:1px solid #cfc8b6;border-radius:1em;line-height:1.45;padding:.7em .9em .8em;margin-bottom:.6em}
+.hd{display:flex;align-items:center;gap:.4em;font-weight:700;margin:0 0 .4em}
+.hd .n{font-weight:400;color:#6e6c60;background:#f7f5ee;border-radius:1em;padding:0 .5em;font-size:.9em}
+.hd .plus{margin-left:auto;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:.3em;margin:0 0 .4em}
+.chip{border:1px solid #cfc8b6;border-radius:1em;padding:.05em .55em;font-size:.88em;white-space:nowrap}
+.chip.on{background:#ebe8de;border-color:#6e6c60}
+.chip i{font-style:normal;color:#6e6c60;margin-left:.2em}
+.chip.new{outline:.14em solid #b8663a;outline-offset:.08em}
+.chip.pic{color:#47532a}
+.row{display:flex;align-items:flex-start;padding:.38em 0;border-top:1px solid #e2ddd0}
+.row b{font-weight:500;display:block}
+.row small{color:#6e6c60;font-size:.86em}
+.tag{background:#f1efe8;border-radius:.3em;padding:0 .35em;margin-right:.4em;color:#2a2a23}
+.row .dots{margin-left:auto;color:#6e6c60;padding-left:.6em}
+.k{display:inline-block;min-width:2.3em;text-align:center;border-radius:.3em;padding:0 .3em;margin-right:.4em;font-size:.82em;color:#fffefa;vertical-align:.08em}.k.hwp{background:#4a74a8}.k.pdf{background:#b5523f}.k.ppt{background:#c07a2c}.k.new{outline:.14em solid #b8663a;outline-offset:.08em}
+.row.bad{background:#fbf3ee}
+.thumbs{display:flex;flex-wrap:wrap;gap:.35em;padding:.45em 0 .2em;border-top:1px solid #e2ddd0}
+.thumbs.new{outline:.14em solid #b8663a;outline-offset:.15em;border-radius:.3em}
+.th{width:4.6em;height:4.6em;border-radius:.4em;background:linear-gradient(135deg,#cbd3b4,#8e9b6a);position:relative}
+.th:nth-child(2){background:linear-gradient(135deg,#d9c6ad,#a78a63)}
+.th:nth-child(3){background:linear-gradient(135deg,#b8c4cf,#6f8394)}
+.th:nth-child(4){background:linear-gradient(135deg,#d6cfc0,#9c9381)}
+.th:nth-child(5){background:linear-gradient(135deg,#c9b9c9,#8d7690)}
+.th.sm{width:3.2em;height:3.2em}
+.th.more{background:#f7f5ee;border:1px dashed #cfc8b6;display:flex;align-items:center;justify-content:center;color:#6e6c60;font-size:.85em}
+.rec{padding:.4em 0;border-top:1px solid #e2ddd0}
+.rec .d{color:#6e6c60;font-size:.86em;margin-right:.4em}
+.att{color:#6e6c60;font-size:.86em;padding:.1em 0 0 1em}
+.att.bad{background:#fbf3ee}
+.pill{display:inline-block;margin:.2em 0 0 1em;font-size:.86em;color:#47532a;border:1px solid #cfc8b6;border-radius:1em;padding:0 .5em}
+.pill.new{outline:.14em solid #b8663a;outline-offset:.08em}
+.bar{display:flex;align-items:center;gap:.4em;margin:0 0 .4em;font-size:.92em;color:#6e6c60}
+.bar .sp{margin-left:auto}
+.lrow{display:flex;align-items:center;gap:.45em;padding:.32em 0;border-top:1px solid #e2ddd0}
+.lrow .ic{width:1.2em;text-align:center;color:#6e6c60}
+.lrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow small{color:#6e6c60}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.65;margin-top:14px;max-width:31.7em}
+.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 사진 파일은 목록에서 기본으로 숨기고, 볼 때는 작은 그림으로</h1>
+<p class="note">폰 412 폭으로 그렸어요. 자료 이름은 모두 예시예요. 주황 테두리가 새로 생기는 부분이에요.</p>
+
+<div class="ph">
+<div class="cap">① 조직 창 [자료] — 지금 <small>사진이 보고 제목을 달고 보도자료처럼 3줄로 보임</small></div>
+<div class="scr">
+  <div class="hd">자료 <span class="n">25</span><span class="plus">＋</span></div>
+  <div class="chips"><span class="chip on">전체</span><span class="chip">회의<i>5</i></span><span class="chip">선전<i>3</i></span><span class="chip">성명·보도자료<i>13</i></span><span class="chip">기타<i>0</i></span></div>
+  <div class="row"><div><b>예시 보도자료 — 총파업 선포 기자회견</b><small><span class="tag">성명·보도자료</span>2026-11-11</small></div><span class="dots">⋯</span></div>
+  <div class="row"><div><b>예시 확대쟁대위 자료 최종</b><small><span class="tag">회의</span>2026-11-11</small></div><span class="dots">⋯</span></div>
+  <div class="row bad"><div><b>예시 노동조합 총파업 선포 기자회견</b><small><span class="tag">성명·보도자료</span>2026-11-11</small></div><span class="dots">⋯</span></div>
+  <div class="row bad"><div><b>예시 노동조합 총파업 선포 기자회견</b><small><span class="tag">성명·보도자료</span>2026-11-11</small></div><span class="dots">⋯</span></div>
+  <div class="row bad"><div><b>예시 노동조합 총파업 선포 기자회견</b><small><span class="tag">성명·보도자료</span>2026-11-11</small></div><span class="dots">⋯</span></div>
+</div>
+
+<div class="cap">② 조직 창 [자료] — 안 (기본) <small>사진은 빠지고 칩 줄 끝에 '사진 3'만, 줄마다 한글·PDF 표시</small></div>
+<div class="scr">
+  <div class="hd">자료 <span class="n">25</span><span class="plus">＋</span></div>
+  <div class="chips"><span class="chip on">전체</span><span class="chip">회의<i>5</i></span><span class="chip">선전<i>3</i></span><span class="chip">성명·보도자료<i>10</i></span><span class="chip">기타<i>0</i></span><span class="chip pic new">사진<i>3</i></span></div>
+  <div class="row"><div><b>예시 보도자료 — 총파업 선포 기자회견</b><small><span class="k hwp new">한글</span><span class="tag">성명·보도자료</span>2026-11-11</small></div><span class="dots">⋯</span></div>
+  <div class="row"><div><b>예시 확대쟁대위 자료 최종</b><small><span class="k pdf new">PDF</span><span class="tag">회의</span>2026-11-11</small></div><span class="dots">⋯</span></div>
+  <div class="row"><div><b>예시 교섭 요구안</b><small><span class="k hwp new">한글</span><span class="tag">교섭·합의</span>2026-11-09</small></div><span class="dots">⋯</span></div>
+</div>
+
+<div class="cap">③ 같은 화면에서 [사진 3]을 누르면 <small>목록 대신 작은 그림. 누르면 크게 보기, ⋯·우클릭·꾹 누르기는 지금 메뉴(삭제 등)</small></div>
+<div class="scr">
+  <div class="hd">자료 <span class="n">25</span><span class="plus">＋</span></div>
+  <div class="chips"><span class="chip">전체</span><span class="chip">회의<i>5</i></span><span class="chip">선전<i>3</i></span><span class="chip">성명·보도자료<i>10</i></span><span class="chip">기타<i>0</i></span><span class="chip pic on">사진<i>3</i></span></div>
+  <div class="thumbs new"><span class="th"></span><span class="th"></span><span class="th"></span></div>
+</div>
+
+<div class="cap">④ 조직 기록 줄의 첨부 — 지금 → 안</div>
+<div class="scr">
+  <div class="rec"><span class="d">11/11</span>예시 총파업 선포 기자회견 진행
+    <div class="att bad">📎 IMG_1021.jpg</div><div class="att bad">📎 IMG_1022.jpg</div><div class="att bad">📎 IMG_1023.jpg</div><div class="att">📎 예시 기자회견문.hwp</div></div>
+</div>
+<div class="scr">
+  <div class="rec"><span class="d">11/11</span>예시 총파업 선포 기자회견 진행
+    <div class="att">📎 예시 기자회견문.hwp</div>
+    <span class="pill new">사진 3</span></div>
+  <div class="rec"><span class="d">11/11</span>예시 총파업 선포 기자회견 진행 <small style="color:#6e6c60">([사진 3]을 누르면)</small>
+    <div class="att">📎 예시 기자회견문.hwp</div>
+    <div class="thumbs new" style="border-top:0;padding-left:1em"><span class="th sm"></span><span class="th sm"></span><span class="th sm"></span></div></div>
+</div>
+
+<div class="cap">⑤ 자료실·[파일] 목록 — 안 (기본) <small>폴더 안 사진은 빠지고 맨 아래 '사진 12'만. 누르면 그 자리에 작은 그림</small></div>
+<div class="scr">
+  <div class="bar">‹ 자료실 › 예시 폴더<span class="sp">날짜순 ▾</span></div>
+  <div class="lrow"><span class="ic">📁</span><span class="nm">예시 하위 폴더</span><small>4</small></div>
+  <div class="lrow"><span class="ic">▤</span><span class="nm">예시 보도자료.hwp</span><small>11/11</small></div>
+  <div class="lrow"><span class="ic">▤</span><span class="nm">예시 회의 자료.pdf</span><small>11/10</small></div>
+  <div class="lrow"><span class="pill new" style="margin:0">사진 12</span></div>
+</div>
+<div class="scr">
+  <div class="bar">‹ 자료실 › 예시 폴더<span class="sp">날짜순 ▾</span></div>
+  <div class="lrow"><span class="ic">📁</span><span class="nm">예시 하위 폴더</span><small>4</small></div>
+  <div class="lrow"><span class="ic">▤</span><span class="nm">예시 보도자료.hwp</span><small>11/11</small></div>
+  <div class="lrow"><span class="ic">▤</span><span class="nm">예시 회의 자료.pdf</span><small>11/10</small></div>
+  <div class="lrow"><span class="pill" style="margin:0;background:#ebe8de">사진 12 ▴</span></div>
+  <div class="thumbs new"><span class="th"></span><span class="th"></span><span class="th"></span><span class="th"></span><span class="th"></span><span class="th more">+7</span></div>
+</div>
+</div>
+
+<div class="legend">
+<b>요청함 방 추천 — 명진 확정 아님</b><br>
+· 사진 = 그림 파일(jpg·png·heic 등). 한글·PDF·동영상은 그대로 목록에 보여요.<br>· 자료 줄마다 파일 종류 표시(한글·PDF·PPT·엑셀·워드·동영상 등, 작은 색 글자) — 자료실·[파일]과 같은 종류 판정을 씀.<br>
+· 기본은 숨김, [사진 n]을 누르면 그때만 작은 그림. 껐다 켠 것은 기억하지 않고 늘 숨김으로 시작해요.<br>
+· 숨기는 건 보이기만이에요. 자료·파일은 그대로 있고, 개수(자료 25)·검색·사진 화면에는 그대로 나와요.<br>
+· 같은 곳: 조직 창 [자료]·기록 첨부, 사업 보고·사업영역 [자료], 자료실(한 칸·두 칸), [파일](목록·격자), 폰·폴드·PC.
+</div>
+</body></html>
