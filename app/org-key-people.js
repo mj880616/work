@@ -116,6 +116,12 @@ function paint() {
   if (status === 'loading' && !people.length) { host.innerHTML = waitHtml({rows:3}); return; }
   if (status === 'missing') { host.innerHTML = '<p class="okp-faint" data-okp-preparing>준비 중이에요.</p>'; return; }
   if (status === 'error') { host.innerHTML = '<p class="okp-faint" role="alert">주요 인물을 불러오지 못했어요. <button type="button" class="okp-link" data-okp-retry>다시 시도</button></p>'; return; }
+  // ORG-주요인물칸다듬기(S60-21): 0명이면 거를 사람이 없으므로 [모두]·칩 줄 없이 '주요 인물 없음 · + 인물' 한 줄.
+  if (!people.length) {
+    const add = canEdit ? '<button type="button" class="okp-link" data-okp-add>+ 인물</button>' : '';
+    host.innerHTML = `<div class="okp-zero">${emptyHtml('주요 인물 없음')}${add}</div>`;
+    return;
+  }
   const chips = [`<button type="button" class="okp-chip" data-okp-pick="" aria-pressed="${!ui.pick}">모두</button>`]
     .concat(people.map(p => `<button type="button" class="okp-chip" data-okp-pick="${esc(p.id)}" data-okp-person="${esc(p.id)}" aria-pressed="${ui.pick === p.id}" title="${esc((p.match_names || []).join(', '))}">${esc(p.name)}</button>`));
   if (canEdit && people.length < PEOPLE_MAX) chips.push('<button type="button" class="okp-add" data-okp-add>+ 인물</button>');
@@ -123,10 +129,6 @@ function paint() {
   if (ui.menu && canEdit) {
     const p = people.find(x => x.id === ui.menu);
     if (p) html += `<div class="okp-menu" role="group" aria-label="${esc(p.name)} 메뉴"><span>${esc(p.name)}</span><button type="button" class="okp-link" data-okp-edit="${esc(p.id)}">수정</button><button type="button" class="okp-link danger" data-okp-del="${esc(p.id)}">빼기</button><button type="button" class="okp-link" data-okp-menu-close>닫기</button></div>`;
-  }
-  if (!people.length) {
-    host.innerHTML = html + emptyHtml('주요 인물 없음');
-    return;
   }
   html += briefHtml();
   const data = ui.data, today = kstDay();
