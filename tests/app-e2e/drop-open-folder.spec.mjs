@@ -88,3 +88,30 @@ for(const width of [1280,884])test(`파일 ${width} 목록: 명진 예 — 사�
   await expect.poll(()=>server.items.find(i=>i.item_id==='OD!11').parent_id).toBe('OD!2');
   expect(errors).toEqual([]);
 });
+
+// 폰 412 손가락: 길게 눌러 끌기(같은 판정·같은 표시).
+test.describe('폰 412 손가락',()=>{
+  test.use({hasTouch:true});
+  const center=(page,sel)=>page.locator(sel).first().evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+Math.min(r.width/2,120),y:r.top+r.height/2}});
+  const touch=(cdp,type,pts)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:pts.map((p,i)=>({x:p.x,y:p.y,id:i}))});
+  test('자료실 폰 412: b폴더 \'파일 *\'를 길게 눌러 a폴더 \'파일 a\' 줄 위에 놓으면 a폴더 · 묶음 표시',async({page})=>{
+    test.setTimeout(60000);
+    const {s,errors}=await bootLibrary(page,412,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:null}});
+    for(const k of ['fa','fb']){const n=page.locator(`#documentList details[data-lu-node="f:${k}"]`);if(!(await n.evaluate(e=>e.open)))await n.locator(':scope > summary').click()}
+    await expect(page.locator('#documentList [data-lu-document="b1"]')).toBeVisible();
+    await page.locator('#documentList [data-lu-document="b1"]').scrollIntoViewIfNeeded();
+    const cdp=await page.context().newCDPSession(page);
+    const from=await center(page,'#documentList [data-lu-document="b1"] .lu-row-title');
+    await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);
+    await expect(page.locator('#documentList [data-lu-document="b1"]')).toHaveClass(/lu-grabbed/);
+    const to=await center(page,'#documentList [data-lu-document="a3"]');
+    for(const f of [0.25,0.5,0.75,1])await touch(cdp,'touchMove',[{x:from.x+(to.x-from.x)*f,y:from.y+(to.y-from.y)*f}]);
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"] > summary')).toHaveClass(/lu-drop-into/);
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"]')).toHaveClass(/lu-drop-group/);
+    await shot(page,'phone-412-library-drag');
+    await touch(cdp,'touchEnd',[]);
+    await expect.poll(()=>folderOf(s,'b1')).toBe('fa');
+    await expect(line(page)).toContainText('가상 A 폴더');
+    expect(errors).toEqual([]);
+  });
+});

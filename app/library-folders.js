@@ -299,7 +299,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // 판정은 PC 파일 올리기와 같은 하나(library-drop.js paneDropAt) — {id, place(표시할 곳)}.
   const paneAt=el=>paneDropAt(el);
   // UI-펼친폴더안놓기전체(S60-13): 한 칸 목록에서 펼친 폴더 묶음(details.lu-node) 안 아무 자리 — 자료 줄뿐 아니라 [사진 n]·작은 그림·줄 사이 틈·기다림 줄 —
-  // 이면 그 묶음의 폴더(공용 규칙 drop-open-folder.mjs). 원인(사실): 전에는 '.lu-row' 위만 보아서 #2448 뒤 묶음 끝 [사진 n]·그 사이 틈에 놓으면 아무 일도 없었다.
+  // 이면 그 묶음의 폴더(공용 규칙 drop-open-folder.mjs). 원인(사실): 전에는 '.lu-row' 위만 보아서 LIB-사진숨김(PR 2448) 뒤 묶음 끝 [사진 n]·그 사이 틈에 놓으면 아무 일도 없었다.
   const openAt=el=>openFolderAt(el,{group:'details.lu-node',keyOf:g=>g.dataset.luNode||'',within:'#documentList',skip:'summary.lu-node-head'});
   const openHead=el=>{const g=openAt(el);return g?g.el.querySelector(':scope > summary.lu-node-head'):null};
   function dragFrom(el,touch=false){

@@ -1,0 +1,35 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안 — 펼친 폴더 안에 놓기 표시</title><style>
+:root{--ink:#1f2a27;--muted:#6b7773;--line:#d9e3df;--pri:#2f6f5e;--soft:#e9efe4}
+*{box-sizing:border-box}body{margin:0;padding:10px;font:13px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink);background:#f4f6f5}
+h1{font-size:15px;margin:0 0 4px}p{margin:0 0 8px;color:var(--muted)}h2{font-size:13px;margin:16px 0 6px}
+.box{border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px;margin-bottom:10px}
+.box img{display:block;width:100%;height:auto;border-radius:6px;border:1px solid var(--line)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px}
+.mini{border:1px solid var(--line);border-radius:8px;padding:6px;font-size:12px}
+.f{padding:3px 6px;border-radius:6px}.f.h{outline:2px dashed var(--pri);outline-offset:-2px;display:flex;justify-content:space-between}
+.g{background:var(--soft)}.f small{color:var(--pri);font-weight:700}
+.in{padding-left:20px}
+</style></head><body>
+<h1>시안 — 펼친 폴더 안에 놓기 (S60-13 UI-펼친폴더안놓기전체)</h1>
+<p>판정(놓으면 그 폴더로)은 시안과 상관없이 이 PR에 들어 있다. 고를 것은 <b>끄는 동안 보이는 표시 모양</b>뿐이다.</p>
+
+<h2>안 A (이 PR 기본) — 묶음 전체 옅은 바탕 + 폴더 줄 '여기에 놓기'</h2>
+<div class="row">
+  <div class="mini"><div class="f h g">가상 A <small>여기에 놓기</small></div><div class="f g in">자료 a1</div><div class="f g in">파일 a ← 손 아래</div><div class="f g in">[사진 1]</div><div class="f">가상 B</div><div class="f in">파일 *</div></div>
+  <div class="mini">한 칸 목록은 원래 이 모양이었다(#2408 이전부터). 이 PR은 자료실 두 칸·[파일]·노트를 같은 모양으로 맞춘다. 하위 폴더 줄은 그 하위 폴더 자신의 자리라 칠하지 않는다.</div>
+</div>
+<h2>안 B — 폴더 줄만 표시(옛 두 칸·[파일] 모양)</h2>
+<div class="row">
+  <div class="mini"><div class="f h">가상 A <small>여기에 놓기</small></div><div class="f in">자료 a1</div><div class="f in">파일 a ← 손 아래</div><div class="f in">[사진 1]</div><div class="f">가상 B</div></div>
+  <div class="mini">폴더 줄이 화면 위로 밀려 나 있으면 손 근처에 아무 표시가 없어 '놓을 수 없는 곳'처럼 보인다(명진 화면에서 안 되는 것처럼 보인 까닭 (가)).</div>
+</div>
+
+<h2>실제 화면(가짜 자료, 안 A)</h2>
+<div class="box"><p>PC 1280 자료실 두 칸 — '파일 *'를 '파일 a' 위로 끄는 중</p><img src="../screens/s60-13/pc-1280-library-two-drag.png" alt="PC 1280 자료실 두 칸 끄는 중"></div>
+<div class="box"><p>PC 1280 자료실 한 칸</p><img src="../screens/s60-13/pc-1280-library-one-drag.png" alt="PC 1280 자료실 한 칸 끄는 중"></div>
+<div class="box"><p>PC 1280 [파일] 목록</p><img src="../screens/s60-13/files-1280-drag.png" alt="PC 1280 파일 끄는 중"></div>
+<div class="box"><p>폴드 884 [파일] 목록</p><img src="../screens/s60-13/files-884-drag.png" alt="폴드 884 파일 끄는 중"></div>
+<div class="box"><p>폰 412 자료실 — 길게 눌러 끄는 중</p><img src="../screens/s60-13/phone-412-library-drag.png" alt="폰 412 자료실 끄는 중"></div>
+<div class="box"><p>LIB-두칸아래여백 — PC 1280 자료실 두 칸(두 칸 높이 같음, 아래 약 60px)</p><img src="../screens/s60-13/pc-1280-library-two-bottom.png" alt="PC 1280 두 칸 아래 여백"></div>
+</body></html>
