@@ -236,7 +236,7 @@ export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOS
 // 제목 첫 낱말(흔한 말 '자료·파일·사본' 등과 숫자는 건너뜀)이 같은 자료가 든 폴더만 후보이고, 분류·프로젝트가 같으면 1점씩 더한다.
 // 가장 높은 점수의 폴더가 하나뿐일 때만 추천(헷갈리면 추천하지 않음).
 const COMMON_WORDS=new Set(['자료','파일','문서','사본','복사본','최종','수정','수정본','첨부','붙임','new','copy','file']);
-const titleWord=t=>String(t||'').replace(/\.[a-z0-9]{2,5}$/i,'').split(/[\s_\-·.,()[\]{}<>「」『』"'~]+/).map(w=>w.toLowerCase()).find(w=>w.length>=2&&!/^\d+$/.test(w)&&!COMMON_WORDS.has(w))||'';
+export const titleWord=t=>String(t||'').replace(/\.[a-z0-9]{2,5}$/i,'').split(/[\s_\-·.,()[\]{}<>「」『』"'~]+/).map(w=>w.toLowerCase()).find(w=>w.length>=2&&!/^\d+$/.test(w)&&!COMMON_WORDS.has(w))||'';
 export function folderSuggestions(outside,{docs=[],items=[],folders=[],categoryOf=c=>c}={}){
   const alive=new Set(folders.map(f=>f.id)),where=new Map(items.filter(x=>alive.has(x.folder_id)).map(x=>[x.document_id,x.folder_id]));
   const inside=docs.filter(d=>!d?.photoset&&where.has(d.id)).map(d=>({folder:where.get(d.id),word:titleWord(d.title||d.file_name),category:categoryOf(d.category),project:d.project_id||null}));
