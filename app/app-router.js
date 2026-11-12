@@ -126,7 +126,7 @@
     const current=location.pathname+location.search+location.hash;
     if(next===current)return;
     const state={...(history.state||{}),kptuView:view};
-    delete state[LAYERS];
+    delete state[LAYERS];delete state[PICK];
     if(replace)history.replaceState(state,'',next);
     else history.pushState(state,'',next);
   }
@@ -317,7 +317,92 @@
     restoreFromUrl('popstate');
     // One press, one change: when this Back already closed something, an entry left over below is not passed over now.
     if(!returningTo&&!closed)skipStaleLayer();
+    // NAV-PC뒤로직전: a step between two picked items of the same screen shows the item of the entry landed on.
+    if(sameView&&!returningTo&&!closed&&api.current===viewFromUrl())showPick();
   }
+  // NAV-PC뒤로직전(명진 결정 11/11 (나)): on a PC '목록 | 상세' screen (the detail shown in a pane beside the list, not a window or
+  // layer) the item the person picks is a history step too: A → B → C, then ‹ = B, ‹ = A, ‹ = the screen before (like phone back),
+  // and › goes the same way forward. This router is the one owner of those entries; a screen never writes history for it:
+  // - pick.record(view, values) — only for a pick the person made (a click/key on a row), never for an item the screen opened by
+  //   itself on entry (the last-seen or first one). values are the screen's own place keys (PLACE_PARAMS), written to the address.
+  //   The first pick on the screen's entry is written onto that entry (the item the screen opened by itself is not a step); when
+  //   the screen showed no item yet (fromNone: the list only, e.g. 할 일 with its summary), that entry keeps "no item" (values {})
+  //   and the pick adds one entry, so ‹ first returns to the list only, like phone back closing a detail. Each later pick to
+  //   another item adds one entry.
+  // - pick.on(view, show) — show(values) opens that item again when back/forward lands on its entry (same screen, or coming back
+  //   to the screen). An item no longer there shows the list only (the screen decides; no error). show() returning false (unsaved
+  //   input kept) returns to the entry left, without rewriting history.
+  const PICK='kptuPick';
+  const pickShows=new Map();
+  // The pick in effect on the screen now. Entries pushed above a pick by a menu or a small window copy its record, so coming back
+  // from them lands on the same pick: nothing to show again. A screen change forgets it (the screen may have opened another item).
+  let pickNow=null;
+  const pickKey=(view,values)=>JSON.stringify([view,Object.entries(values||{}).sort()]);
+  const pickOf=state=>state?.[PICK]&&typeof state[PICK]==='object'?state[PICK]:null;
+  function pickValues(view,values){
+    const keys=PLACE_PARAMS[view]||[],out={};
+    for(const key of keys){const value=values?.[key];if(value!==null&&value!==undefined&&value!==''&&PLACE_VALUE.test(String(value)))out[key]=String(value);}
+    return out;
+  }
+  const sameValues=(a,b)=>{const ka=Object.keys(a),kb=Object.keys(b);return ka.length===kb.length&&ka.every(key=>a[key]===b[key])};
+  // The address of a picked item: its own keys set; for "no item" ({}) the item keys (ITEM_KEYS) of the screen dropped.
+  function pickUrl(view,values){
+    if(!Object.keys(values).length)return dropUrl(view);
+    const u=new URL(location.href);
+    for(const key of PLACE_PARAMS[view]||[]){if(key in values)u.searchParams.set(key,values[key]);}
+    return u.pathname+(u.search||'')+u.hash;
+  }
+  function dropUrl(view){
+    const u=new URL(location.href);
+    for(const key of PLACE_PARAMS[view]||[])if(ITEM_KEYS.includes(key))u.searchParams.delete(key);
+    return u.pathname+(u.search||'')+u.hash;
+  }
+  function recordPick(view,values={},{fromNone=false}={}){
+    if(api.current!==view||viewFromUrl()!==view||!authenticatedShellReady()||!PLACE_PARAMS[view])return false;
+    const clean=pickValues(view,values);
+    // A layer or a window stands on this entry, or a back is still on its way: the place only (no step of its own).
+    if(releasing||layers.length||chainOf(history.state).length||history.state?.kptuOverlay){setPlace(view,clean);return false}
+    const was=pickOf(history.state);
+    pickNow=pickKey(view,clean);
+    if(was?.view===view&&sameValues(was.values||{},clean)){setPlace(view,clean);return false}
+    if(was?.view!==view&&!fromNone){
+      history.replaceState({...(history.state||{}),[PICK]:{view,values:clean}},'',pickUrl(view,clean));
+      rememberRoute();movedSoon();
+      return true;
+    }
+    if(was?.view!==view)history.replaceState({...(history.state||{}),[PICK]:{view,values:{}}},'',dropUrl(view));
+    // The entry left keeps its own item in the address (a screen may have written the new one there already).
+    else history.replaceState(history.state,'',pickUrl(view,was.values||{}));
+    const state={...(history.state||{}),[PICK]:{view,values:clean}};
+    delete state[LAYERS];delete state.kptuOverlay;
+    history.pushState(state,'',pickUrl(view,clean));
+    rememberRoute();movedSoon();
+    return true;
+  }
+  function onPick(view,show){
+    if(typeof show!=='function')return()=>{};
+    pickShows.set(view,show);
+    return()=>{if(pickShows.get(view)===show)pickShows.delete(view)};
+  }
+  // Back or forward landed on a picked item's entry: its screen shows that item again.
+  function showPick(){
+    const view=api.current,picked=pickOf(history.state),show=pickShows.get(view);
+    if(!picked||picked.view!==view||!show)return;
+    const key=pickKey(view,picked.values);
+    if(key===pickNow)return;
+    let shown=true;
+    try{shown=show({...(picked.values||{})})!==false}catch(err){console.error('pick show',view,err)}
+    if(shown)pickNow=key;else returnToLeft();
+  }
+  function returnToLeft(){
+    const left=pickLeft,entry=here();pickLeft=null;
+    if(!left||!entry)return;
+    const at=(window.navigation.entries()||[]).findIndex(item=>item.key===left);
+    if(at<0||at===entry.index)return;
+    returningTo=left;
+    history.go(at-entry.index);
+  }
+  let pickLeft=null;
   // FORGET-원문열기·뒤로가기: one way for a line on one screen to open its source on another screen (a call, a telegram day, a record).
   // openFrom(view, open) loads the screen, steps to it with its own history entry, then runs open() (the screen's own opener).
   // The first detail opened there as a layer (phone call detail, telegram day, an update, a task) or as a window (.modal of
@@ -530,7 +615,7 @@
       if(source==='popstate'){if(fromEntry)rememberScroll(fromEntry.key,fromEntry.y)}
       else rememberScroll(entry?.key,window.scrollY);
     }
-    if(api.current!==view)forgetLayers();
+    if(api.current!==view){forgetLayers();pickNow=null}
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
     syncNavigationState(view);
     api.current=view;api.sub=sub;
@@ -545,6 +630,8 @@
       try{fn(detail)}catch(err){console.error('view hook',view,err)}
     }
     if(changing&&source==='popstate')restoreScroll(view);
+    // NAV-PC뒤로직전: coming back (or forward) to a screen on a picked item's entry shows that item, not the one seen last.
+    if(source==='popstate')showPick();
     return true;
   }
 
@@ -651,7 +738,7 @@
   // go() was asked meanwhile (then the late press must not take the screen back from it).
   const askGo=()=>++goSeq;
   const stillLatest=token=>token===goSeq;
-  const api={current:null,sub:null,go,leaveToBrowser,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,adoptSourceWindow,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,go,leaveToBrowser,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,adoptSourceWindow,layer:{open:openLayer},pick:{record:recordPick,on:onPick},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;
@@ -669,6 +756,7 @@
     traverseDelta=e.navigationType==='traverse'&&Number.isInteger(from)&&Number.isInteger(to)?to-from:0;
     // The scroll position still belongs to the entry left (the screens change on popstate, after this).
     if(e.navigationType==='traverse')fromEntry=e.from?.key?{key:e.from.key,y:window.scrollY}:null;
+    pickLeft=e.navigationType==='traverse'?e.from?.key||null:null;
     rememberRoute();
     movedSoon();
   });

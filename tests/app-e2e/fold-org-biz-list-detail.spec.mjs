@@ -42,7 +42,7 @@ const orgPane=page=>page.locator('#wdDetailPane');
 const orgTitle=page=>page.locator('#wdTitle');
 
 for(const [width,height] of FOLD){
- test(`폴드 ${width}: 조직 보고 — 왼쪽 목록 | 오른쪽 상세(창 아님), 다른 줄은 같은 칸·뒤로가기 기록 없음, 뒤로 = 앞 화면, [전체 표]는 두 칸 폭`,async({page})=>{
+ test(`폴드 ${width}: 조직 보고 — 왼쪽 목록 | 오른쪽 상세(창 아님), 다른 줄은 같은 칸·사람이 고른 줄은 뒤로 한 칸(NAV-PC뒤로직전), 뒤로 = 직전 줄 → 앞 화면, [전체 표]는 두 칸 폭`,async({page})=>{
   const {errors,writes}=await orgFixture(page,width,height);
   await clickView(page,'team');
   // 처음 열면 첫 조직이 오른쪽 칸에 바로(884·PC와 같은 규칙). 창(dialog)이 아니라 칸(region)이고 닫기 ×는 없다.
@@ -65,13 +65,14 @@ for(const [width,height] of FOLD){
   else await expect(orgPane(page)).not.toHaveClass(/kptu-follow-narrow/);
   // 칸에 붙은 상세는 창이 아니라 뒤로가기 한 칸(창 기록)을 쌓지 않는다(mobile-modal-history.js role=region).
   expect(await page.evaluate(()=>[history.state?.kptuOverlay??null,document.querySelector('#wdModal').dataset.kptuHistoryOpen??null])).toEqual([null,null]);
-  // 다른 줄: 같은 칸에서 바뀌고 뒤로가기 기록이 늘지 않는다.
+  // 다른 줄: 같은 칸에서 바뀐다. 사람이 고른 줄은 뒤로가기 한 칸(NAV-PC뒤로직전, 명진 11/11 15:37 결정 (나)) —
+  // 처음 고른 줄은 화면 칸에 적히고 그다음 줄부터 한 칸씩 쌓인다(app-router.js pick).
   const length=await page.evaluate(()=>history.length);
   await orgRow(page,'ob').click();await expect(orgTitle(page)).toHaveText('합성 나 지부');
   await orgRow(page,'oc').click();await expect(orgTitle(page)).toHaveText('합성 다 지부');
   await expect(orgRow(page,'oc')).toHaveAttribute('aria-current','true');await expect(orgRow(page,'oa')).not.toHaveAttribute('aria-current','true');
   await expect(modal).toHaveAttribute('role','region');
-  expect(await page.evaluate(()=>history.length)).toBe(length);
+  expect(await page.evaluate(()=>history.length)).toBe(length+1);
   // [전체 표]: 목록·상세 칸 대신 표가 두 칸 폭 전부. [목록]으로 돌아오면 고른 조직 그대로.
   const tabs=page.locator('#soTeamTabs');
   await tabs.getByRole('tab',{name:'전체 표'}).click();
@@ -81,12 +82,14 @@ for(const [width,height] of FOLD){
   expect(await sideways(page)).toBeLessThanOrEqual(1);
   await tabs.getByRole('tab',{name:'목록'}).click();
   await expect(orgPane(page).locator('#wdModal')).toBeVisible();await expect(orgTitle(page)).toHaveText('합성 다 지부');
-  // 뒤로가기 = 앞 화면(홈). 칸은 창이 아니라 닫힐 것이 없다.
+  // 뒤로가기 = 직전에 고른 줄(나 지부), 한 번 더 = 앞 화면(홈). 칸은 창이 아니라 닫힐 것이 없다.
+  await page.goBack();
+  await expect(orgTitle(page)).toHaveText('합성 나 지부');
   await page.goBack();
   await expect.poll(()=>current(page)).toBe('home');
   await expect(page.locator('#wdModal')).toBeHidden();
-  // 다시 오면 마지막으로 본 조직.
-  await clickView(page,'team');await expect(orgTitle(page)).toHaveText('합성 다 지부');
+  // 다시 오면 마지막으로 본 조직(뒤로가기로 마지막에 본 나 지부).
+  await clickView(page,'team');await expect(orgTitle(page)).toHaveText('합성 나 지부');
   expect(writes).toEqual([]);expect(errors).toEqual([]);
  });
 }
