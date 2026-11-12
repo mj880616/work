@@ -259,8 +259,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   // ── [조직]·[사업](가족 줄 빼고 모든 줄 같은 길): 고르기 창 → 기존 기록 길(quick-save.js) → 그 줄을 처리한 것으로 ──
   const myOrgs = () => { if (!orgRead) orgRead = import('./feed-data.js').then(m => m.readOrganizations(rt)).catch(error => { orgRead = null; throw error; }); return orgRead; };
   const user = () => rt.context?.read?.()?.user?.id || null;
-  const orgDone = org => `${org.name || '조직'} 기록에 넣었어요. 이번 주 조직보고에 보여요.`;
-  const areaDone = project => `${project.name || '사업'} 기록에 넣었어요. 주간보고 사업 칸에 올라가요.`;
+  // FORGET-넣기되돌리기: 알림은 '○○ 기록에 넣었어요 · [되돌리기]'(2초, 공용 되돌리기 알림). 잘못 고른 조직·사업이면 바로 뺀다.
+  const orgDone = org => `${org.name || '조직'} 기록에 넣었어요.`;
+  const areaDone = project => `${project.name || '사업'} 기록에 넣었어요.`;
   // [조직]: 담당조직 고르기 창. guess(read)가 내 담당조직 하나를 돌려주면(소식: AI가 쓴 조직 이름, 텔레그램 요청·챙길 것: 후보에 붙은 조직)
   // 창 맨 위에 '조직 › ○○에 넣기'(한 번 누르면 그 조직). 옛 소식 줄 ⋯의 같은 항목을 여기로 옮겼다.
   async function pickOrg(trigger, {guess = () => null, onPick}) {
@@ -288,15 +289,37 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }});
   }
   // ORG-기록하나로 O-4: 소식에서 온 기록은 원래 소식 줄을 함께 남긴다(source_kind memorable, 조직 상세 ⋯ [원래 글 보기]용).
-  const saveOrg = async (org, text, from = null) => (await import('./quick-save.js')).saveOrganizationUpdate({organization_id: org.id, raw_text: text, created_by: user(), ...(from ? {source_kind: 'memorable', source_id: from} : {})}, rt);
+  // FORGET-넣기되돌리기: 넣은 기록 한 줄을 {kind, id, orgId}로 돌려준다(되돌리기가 그 줄만 지운다). 이미 들어가 있던 줄(409, 돌려받은 줄 없음)은 null —
+  // 이번에 넣은 것이 아니므로 지우지 않는다.
+  const savedOf = (kind, rows, orgId = null) => { const id = Array.isArray(rows) ? rows[0]?.id : null; return id ? {kind, id: String(id), orgId} : null; };
+  const saveOrg = async (org, text, from = null) => savedOf('org', await (await import('./quick-save.js')).saveOrganizationUpdate({organization_id: org.id, raw_text: text, created_by: user(), ...(from ? {source_kind: 'memorable', source_id: from} : {})}, rt), org.id);
   // BIZ-기록하나로 B-3(설계 record-one.md 4절): [사업] = 그 사업의 사업 기록 한 줄(app_business_records). 소식 줄은 source_kind memorable·원래 소식 줄 번호·
   // 날짜 = 소식 날짜, 챙길 것 후보는 원래 줄을 남기는 출처가 없어 직접 쓰기(user)·오늘 날짜. 옛 사업 진행 기록(app_project_progress_updates)에는 더 넣지 않는다.
-  const saveArea = async (project, text, news = null) => (await import('./business-now-data.js')).saveBusinessRecord({space_id: project.id, day: news?.day || seoulDateKey(), body: text,
-    ...(news?.id ? {source_kind: 'memorable', source_id: news.id} : {source_kind: 'user'})}, rt);
+  const saveArea = async (project, text, news = null) => savedOf('area', await (await import('./business-now-data.js')).saveBusinessRecord({space_id: project.id, day: news?.day || seoulDateKey(), body: text,
+    ...(news?.id ? {source_kind: 'memorable', source_id: news.id} : {source_kind: 'user'})}, rt));
+  // [되돌리기]의 앞 반: 방금 넣은 그 한 줄만 기존 소유자 삭제 길로 지운다(조직 기록 org-row-delete.js, 사업 기록 business-now-data.js). 새 권한·DB 변경 없음.
+  async function dropSaved(saved) {
+    if (saved.kind === 'org') {
+      const {deleteOrgUpdate} = await import('./org-row-delete.js');
+      await deleteOrgUpdate((path, opts) => rt.api(path, opts), saved.id, saved.orgId);
+      win.dispatchEvent(new CustomEvent('kptu:record-window-changed', {detail: {source: 'forget-list'}})); // 열려 있는 조직 창·조직보고 창이 다시 읽는다
+      return;
+    }
+    const {deleteBusinessRecord} = await import('./business-now-data.js');
+    await deleteBusinessRecord(saved.id, rt); // 사업 화면 알림(BIZ_NOW_EVENT)은 그 함수가 낸다
+  }
+  // 넣기 되돌리기 한 번: 기록 삭제 → 줄 되살리기(reopen). 삭제가 안 되면 줄도 그대로 두고, 삭제만 되고 되살리기가 안 되면 그대로 알린다(반쯤 된 것을 숨기지 않음).
+  const SAVED_UNDO = {failed: '되돌리지 못했어요. 다시 시도해 주세요.', half: '기록은 뺐지만 이 줄을 다시 보이게 하지 못했어요. 새로고침해 주세요.', done: '기록에서 빼고 다시 보이게 했어요.'};
+  async function undoSaved(saved, reopen) {
+    try { await dropSaved(saved); } catch { return {status: 'failed', message: SAVED_UNDO.failed}; }
+    let back = false;
+    try { back = await reopen(); } catch { back = false; }
+    return back ? {status: 'done', message: SAVED_UNDO.done} : {status: 'failed', message: SAVED_UNDO.half};
+  }
 
   // ── 소식 줄(FORGET-소식합치기 → 소식바로잡기): 다른 줄과 같은 일곱 버튼. 상태는 표가 허락한 셋뿐 — 처리하면 kept, ×는 dropped ──
   const newsById = id => news.find(r => r.id === id);
-  async function newsMark(r, next, done, undo = false) {
+  async function newsMark(r, next, done, undo = false, saved = null) {
     const key = `n:${r.id}`;
     if (busy.has(key) || r.status !== 'suggested') return;
     busy.add(key); status = ''; paint();
@@ -305,7 +328,12 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     busy.delete(key);
     if (!ok) { say(next === 'kept' && !undo ? '만들었지만 이 줄은 목록에서 빼지 못했어요. ×로 빼 주세요.' : '저장하지 못했어요. 다시 눌러 주세요'); return; }
     r.status = next; r.decidedAt = new Date().toISOString(); say(done);
-    if (undo) offerUndoNotice({text: done, onUndo: async () => {
+    if (saved) offerUndoNotice({text: done, onUndo: () => undoSaved(saved, async () => {
+      const back = await decideNews(rt, r.id, 'suggested');
+      if (back) { r.status = 'suggested'; r.decidedAt = ''; status = ''; paint(); }
+      return back;
+    })});
+    else if (undo) offerUndoNotice({text: done, onUndo: async () => {
       let back = false;
       try { back = await decideNews(rt, r.id, 'suggested'); } catch { back = false; }
       if (!back) return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
@@ -336,10 +364,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const key = `n:${r.id}`;
     if (busy.has(key) || r.status !== 'suggested') return;
     busy.add(key); status = ''; paint();
-    try { await save(); }
+    let saved = null;
+    try { saved = await save(); }
     catch { busy.delete(key); say('넣지 못했어요. 다시 눌러 주세요'); return; }
     busy.delete(key);
-    await newsMark(r, 'kept', done);
+    await newsMark(r, 'kept', done, false, saved);
   }
   async function newsAct(r, act, button) {
     if (r.status !== 'suggested' || busy.has(`n:${r.id}`)) return;
@@ -370,7 +399,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   }
 
   // ── 챙길 것·텔레그램 후보 줄(기존 정리함 챙길 것·나한테 온 요청 길 그대로) ──
-  async function decideCandidate(c, runIt, outcome, done, undo = null) {
+  async function decideCandidate(c, runIt, outcome, done, undo = null, saved = null) {
     busy.add(c.id); status = ''; paint();
     let ok = false;
     try { ok = await runIt(); } catch { ok = false; }
@@ -379,7 +408,12 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     c.status = outcome === 'dismissed' || outcome === 'already_tasked' ? 'dismissed' : outcome === 'tasked' ? 'tasked' : 'done'; c.outcome = outcome; c.decided_at = new Date().toISOString();
     const feedbackId = await logFeedback(c, outcome, {rt});
     say(done); changed();
-    if (undo) offerUndoNotice({text: done, onUndo: async () => {
+    if (saved) offerUndoNotice({text: done, onUndo: () => undoSaved(saved, async () => {
+      const back = await reopenCandidate(c.id, rt, outcome);
+      if (back) { if (feedbackId) await dropFeedback(feedbackId, rt); c.status = 'open'; c.decided_at = null; delete c.outcome; status = ''; paint(); changed(); }
+      return back;
+    })});
+    else if (undo) offerUndoNotice({text: done, onUndo: async () => {
       let back = false;
       try { back = await reopenCandidate(c.id, rt, undo); } catch { back = false; }
       if (!back) return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
@@ -416,9 +450,10 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   async function candidateReport(c, save, done) {
     if (c.status !== 'open' || busy.has(c.id)) return;
     busy.add(c.id); status = ''; paint();
-    try { await save(); } catch { busy.delete(c.id); say('넣지 못했어요. 다시 눌러 주세요'); return; }
+    let saved = null;
+    try { saved = await save(); } catch { busy.delete(c.id); say('넣지 못했어요. 다시 눌러 주세요'); return; }
     busy.delete(c.id);
-    await decideCandidate(c, () => markDone(c.id, rt), 'done', done);
+    await decideCandidate(c, () => markDone(c.id, rt), 'done', done, null, saved);
   }
   async function candidateAct(c, kind, button) {
     if (c.status !== 'open' || busy.has(c.id) || unknown.has(c.id)) return;
