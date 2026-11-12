@@ -1,4 +1,5 @@
-// MTG-노트북녹음 2단계: 노트북 [녹음] → 녹음 띠 → [멈추고 정리] → 회의 입력 창 초안, '이어서 정리', 폰 폭에는 [녹음] 없음.
+// MTG-노트북녹음 2단계: 노트북 [녹음] → 녹음 띠 → [멈추고 저장] → 자료실 '회의 녹음'(띠에 파일 줄), '이어서 저장', 폰 폭에는 [녹음] 없음.
+// S61-5 REC-전사삭제(명진 11/13): 전사·요약·초안은 없다 — 전사·서버 정리 호출이 0번인지 시험마다 확인한다.
 // 실제 마이크·운영 서버는 쓰지 않는다: 가짜 MediaRecorder·getUserMedia(addInitScript)와 가짜 Supabase(page.route).
 import {test,expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
@@ -30,7 +31,7 @@ async function fakeRecorder(page){
   });
 }
 
-async function mock(page,{pending=[],live=[],pieceFails=1,rec=null,server=false}={}){
+async function mock(page,{pending=[],live=[],pieceFails=1,rec=null}={}){
   const calls=[],meetingPosts=calls.meetingPosts=[];
   let pendingServed=false;
   await page.route(`${SB}/**`,async route=>{
@@ -60,16 +61,10 @@ async function mock(page,{pending=[],live=[],pieceFails=1,rec=null,server=false}
         return ok({ok:true,pieces:Number(headers['x-piece-seq'])});
       }
       if(action==='rec_finish')return ok({ok:true,more:false,session_id:body.session_id,segments:[{segment_no:1,status:'combined',error_code:null,job_id:'00000000-0000-4000-8000-0000000000j1',duration_sec:600}]});
-      if(action==='transcribe')return ok({ok:true,text:'김위원장: 다음 주 화요일 교섭 일정을 확정합니다.\n박간사: 자료는 금요일까지 돌립니다.'});
-      if(action==='attach')return ok({ok:true});
-      if(action==='config')return ok({ok:true,ready:true});
-      // REC-서버정리(S49-2): server=true면 서버가 정리를 맡는다(job_start → job_read 끝). 아니면 옛 서버처럼 모르는 action에 {ok:true}만.
-      if(server&&action==='job_start')return ok({ok:true,job:{id:'00000000-0000-4000-8000-0000000000b1',kind:'recording',status:'queued',stage:'combine',session_id:body.session_id,parts_done:0,parts_total:0,step_no:0,step_total:0,jobs:[]}});
-      if(server&&action==='job_read')return ok({ok:true,job:{id:body.job_id,kind:'recording',status:'done',stage:'done',session_id:'00000000-0000-4000-8000-0000000000aa',
-        created_at:'2026-10-29T06:10:00Z',seconds:600,jobs:['00000000-0000-4000-8000-0000000000j1'],parts_done:1,parts_total:1,step_no:1,step_total:1,
-        transcript_text:'김위원장: 서버가 정리한 전사 전문입니다.\n박간사: 자료는 금요일까지 돌립니다.',
-        draft:{decisions:'서버 요약 결정',information:'서버 요약 공유',actions:[{task:'자료 돌리기',assignee:'박간사',due:'2026-11-06'}],meeting_date:'',attendees:['김위원장']}}});
-      if(server&&action==='job_list')return ok({ok:true,jobs:[]});
+      if(action==='rec_save')return ok({ok:true,session_id:body.session_id,folder_id:'folder-rec',folder_name:'회의 녹음',files:[
+        {document_id:'doc-rec-1',file_name:'회의 녹음 2026-10-29 14-30 (1).webm',drive_file_id:'driveRec1',drive_url:'https://drive.google.com/file/d/driveRec1/view',mime_type:'audio/webm',size_bytes:4096,duration_sec:600,meeting_id:null}]});
+      // 전사·서버 정리 입구는 서버가 닫았다(410). 화면이 부르면 시험이 잡는다(아래 noTranscribe).
+      if(['transcribe','upload','job_start','job_retry'].includes(action))return route.fulfill({status:410,contentType:'application/json',body:JSON.stringify({ok:false,code:'transcribe_off'})});
       return ok({ok:true});
     }
     if(path==='/functions/v1/meeting-ai-draft'){calls.push({action:'draft',body:JSON.parse(req.postData()||'{}')});return ok({draft:{decisions:'다음 주 화요일 교섭 일정 확정',information:'자료는 금요일까지 공유',actions:[],attendees:['김위원장','박간사']}})}
@@ -94,8 +89,10 @@ async function signIn(page,opts){
   return calls;
 }
 const recCalls=(calls,action)=>calls.filter(c=>c.action===action);
+// 전사·서버 정리·요약 호출이 하나도 없다(S61-5).
+const noTranscribe=calls=>{expect(calls.filter(c=>['transcribe','upload','job_start','job_retry','job_read','job_list','attach','draft'].includes(c.action))).toEqual([])};
 
-test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 같은 번호로 재시도 → [멈추고 정리] → 초안이 채워진 회의 창 → 저장 뒤 녹음 붙이기',async({page})=>{
+test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 같은 번호로 재시도 → [멈추고 저장] → 자료실 저장 띠(파일 이름·내려받기·Drive에서 열기), 전사 호출 0번',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page);
@@ -144,36 +141,30 @@ test('PC: [녹음] → 메뉴를 옮겨도 녹음 띠 유지 → 실패 조각 �
   await band.getByRole('button',{name:'이어 녹음'}).click();
   expect(await page.evaluate(()=>window.__fakeRec.state())).toBe('recording');
 
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
-  // 마지막 조각(2) → 합치기 → 전사 → 요약 → 회의 입력 창
+  await band.getByRole('button',{name:'멈추고 저장'}).click();
+  // 마지막 조각(2) → 합치기(rec_finish) → 자료실 저장(rec_save). 전사·요약·초안 창 없음.
   await expect.poll(()=>recCalls(calls,'rec_piece').map(c=>c.seq)).toEqual(['1','1','2']);
   await expect.poll(()=>recCalls(calls,'rec_finish').length).toBe(1);
   expect(recCalls(calls,'rec_finish')[0].body).toEqual({session_id:'00000000-0000-4000-8000-0000000000aa'});
-  await expect.poll(()=>recCalls(calls,'transcribe').map(c=>c.body.job_id)).toEqual(['00000000-0000-4000-8000-0000000000j1']);
-  const modal=page.locator('#meetingModal');
-  await expect(modal).toBeVisible({timeout:10000});
-  await expect(page.locator('#meetingTranscript')).toHaveValue(/결정\n- 다음 주 화요일 교섭 일정 확정/);
-  await expect(page.locator('#meetingTranscript')).toHaveValue(/참석: 김위원장, 박간사/);
-  const draft=calls.find(c=>c.action==='draft');
-  expect(draft.body.transcript_text).toContain('다음 주 화요일 교섭 일정');
-  await expect(page.locator('#mtdStatus')).toContainText('초안을 채웠어요');
-  // S48-64: 전사 전문은 '회의록 전문' 칸(notes)에 들어가 저장 때 함께 남는다. 요약 호출은 15초가 아닌 긴 기다림으로.
-  await expect(page.locator('#meetingNotesLabel')).toHaveText('회의록 전문');
-  await expect(page.locator('#meetingNotes')).toHaveValue(/다음 주 화요일 교섭 일정/);
-  await expect(band.locator('.rec-note strong')).toHaveText('초안 열림');
+  await expect.poll(()=>recCalls(calls,'rec_save').map(c=>c.body)).toEqual([{session_id:'00000000-0000-4000-8000-0000000000aa'}]);
+  await expect(band.locator('.rec-label')).toHaveText('저장됨');
+  await expect(band.locator('.rec-file-name')).toHaveText('회의 녹음 2026-10-29 14-30 (1).webm');
+  await expect(band.getByRole('button',{name:'회의 녹음 2026-10-29 14-30 (1).webm 내려받기'})).toBeVisible();
+  await expect(band.getByRole('button',{name:'회의 녹음 2026-10-29 14-30 (1).webm Drive에서 열기'})).toBeVisible();
+  await expect(page.getByText("자료실 '회의 녹음' 폴더에 저장했어요").first()).toBeVisible();
   expect(await page.evaluate(()=>window.__fakeRec.track.stopped)).toBe(true);
-  await expect(page.locator('#mtdAttach')).toBeChecked();
-
-  // 저장 → 그 회의에 녹음 붙이기(구간마다)
-  const select=page.locator('#meetingNameSelect');
-  if(await select.isVisible())await select.selectOption('__other__');
-  await page.locator('#meetingTitle').fill('운영위');
-  await page.locator('#saveMeetingBtn').click();
-  await expect.poll(()=>recCalls(calls,'attach').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000j1',meeting_id:'meeting-new'}]);
-  await expect.poll(()=>calls.meetingPosts.at(-1)?.notes||'').toContain('다음 주 화요일 교섭 일정');
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  await expect(band.getByText(/전사|요약|초안/)).toHaveCount(0);
+  noTranscribe(calls);
+  // [Drive에서 열기]는 저장된 Drive 주소를 새 탭으로
+  await page.context().route('https://drive.google.com/**',r=>r.fulfill({status:200,contentType:'text/html',body:'drive'}));
+  const [popup]=await Promise.all([page.waitForEvent('popup'),band.getByRole('button',{name:/Drive에서 열기$/}).click()]);
+  await popup.waitForURL(/drive\.google\.com\/file\/d\/driveRec1\/view/);await popup.close();
+  await band.getByRole('button',{name:'닫기'}).click();
+  await expect(band).toBeHidden();
 });
 
-test('PC: 다시 열면 사업 보고 위 \'이어서 정리\' 한 줄 → 전사 → 초안 창',async({page})=>{
+test('PC: 다시 열면 사업 보고 위 \'이어서 저장\' 한 줄 → 자료실 저장(전사 없음)',async({page})=>{
   test.setTimeout(45000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page,{pending:[{session_id:'00000000-0000-4000-8000-0000000000bb',started_at:'2026-10-29T05:30:00Z',duration_sec:1920,
@@ -181,22 +172,22 @@ test('PC: 다시 열면 사업 보고 위 \'이어서 정리\' 한 줄 → 전�
   const line=page.locator('#recPendingLine');
   await expect(line).toBeVisible();
   await expect(line).toContainText('끝나지 않은 녹음 · 10/29 14:30 녹음 · 32분');
-  const btn=line.getByRole('button',{name:'이어서 정리'});
+  const btn=line.getByRole('button',{name:'이어서 저장'});
   expect((await btn.boundingBox()).height).toBeLessThanOrEqual(28);
   await btn.click();
   await expect(page.locator('#recBand')).toBeVisible();
   await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual(['00000000-0000-4000-8000-0000000000bb']);
-  await expect(page.locator('#meetingModal')).toBeVisible({timeout:10000});
-  await expect(page.locator('#meetingTranscript')).toHaveValue(/교섭 일정 확정/);
-  // 일시는 녹음을 시작한 때(서울)
-  await expect(page.locator('#meetingAt')).toHaveValue('2026-10-29T14:30');
+  await expect.poll(()=>recCalls(calls,'rec_save').map(c=>c.body.session_id)).toEqual(['00000000-0000-4000-8000-0000000000bb']);
+  await expect(page.locator('#recBand .rec-label')).toHaveText('저장됨');
+  await expect(page.locator('#meetingModal')).toBeHidden();
   await expect(line).toBeHidden();
   expect(recCalls(calls,'rec_start').length).toBe(0);
+  noTranscribe(calls);
 });
 
 // UI-폴드PC틀: 폴드 펼침(884)은 PC 틀이라 [녹음]이 있다. 없는 쪽은 폰(≤760)뿐.
 for(const width of [412,760]){
-  test(`폰 ${width}px: [녹음]과 '이어서 정리'가 없고 녹음 서버를 부르지 않는다`,async({page})=>{
+  test(`폰 ${width}px: [녹음]과 '이어서 저장'이 없고 녹음 서버를 부르지 않는다`,async({page})=>{
     await page.setViewportSize({width,height:900});
     const calls=await signIn(page,{pending:[{session_id:'s',started_at:'2026-10-29T05:30:00Z',duration_sec:60,segments:[]}]});
     await expect(page.locator('#reportRecordBtn')).toBeHidden();
@@ -230,16 +221,17 @@ test('PC: 서버가 1분 조각을 알려 주면 1분 간격으로 보내고, �
   await page.evaluate(()=>window.__fakeRec.emit());
   await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','1:3','1:4','1:5','2:1']);
   expect(await page.evaluate(()=>window.__fakeRec.recs[0].state)).toBe('inactive');
-  // 멈추고 정리: 새 구간 마지막 조각 → rec_finish
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
+  // 멈추고 저장: 새 구간 마지막 조각 → rec_finish → rec_save
+  await band.getByRole('button',{name:'멈추고 저장'}).click();
   await expect.poll(pieces,{timeout:10000}).toEqual(['1:1','1:2','1:3','1:4','1:5','2:1','2:2']);
   await expect.poll(()=>recCalls(calls,'rec_finish').length,{timeout:10000}).toBe(1);
-  await expect(page.locator('#meetingModal')).toBeVisible({timeout:10000});
+  await expect.poll(()=>recCalls(calls,'rec_save').length,{timeout:10000}).toBe(1);
+  noTranscribe(calls);
 });
 
-// 요청함 10/30 10:01: [버리기] — 멈추고 정리 말고 취소하고 버리기, 위쪽 작은 알림 [되돌리기] 10초.
+// 요청함 10/30 10:01: [버리기] — 멈추고 저장 말고 취소하고 버리기, 위쪽 작은 알림 [되돌리기] 10초.
 const LIVE='00000000-0000-4000-8000-0000000000aa';
-test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·정리 없음 → 위쪽 알림 [되돌리기] → \'이어서 정리\' 줄 → 정리하면 초안',async({page})=>{
+test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·저장 없음 → 위쪽 알림 [되돌리기] → \'이어서 저장\' 줄 → 저장하면 자료실',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:1440,height:900});
   // 되돌린 뒤에만 서버가 이 녹음을 '끝나지 않은 녹음'으로 돌려준다.
@@ -249,8 +241,8 @@ test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·정리 없음 → 위�
   await page.locator('#reportRecordBtn').click();
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
-  // [일시정지] [멈추고 정리] [버리기] 순서, 같은 크기, [버리기]는 빨강 글자.
-  const stop=band.getByRole('button',{name:'멈추고 정리'}),drop=band.getByRole('button',{name:'삭제'});
+  // [일시정지] [멈추고 저장] [버리기] 순서, 같은 크기, [버리기]는 빨강 글자.
+  const stop=band.getByRole('button',{name:'멈추고 저장'}),drop=band.getByRole('button',{name:'삭제'});
   const [s1,d1]=await Promise.all([stop.boundingBox(),drop.boundingBox()]);
   expect(s1.x+s1.width).toBeLessThanOrEqual(d1.x);
   expect(d1.height).toBeCloseTo(s1.height,0);
@@ -288,13 +280,13 @@ test('PC: 녹음 띠 [삭제] → 띠·마이크 꺼짐·정리 없음 → 위�
   await expect(notice).toContainText('되돌렸어요: 녹음 삭제');
   // 마이크는 이미 꺼졌으므로 녹음을 이어 하지 않는다(새 녹음기 없음).
   expect(await page.evaluate(()=>window.__fakeRec.recs.length)).toBe(1);
-  await line.getByRole('button',{name:'이어서 정리'}).click();
+  await line.getByRole('button',{name:'이어서 저장'}).click();
   await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
-  await expect(page.locator('#meetingModal')).toBeVisible({timeout:10000});
-  await expect(page.locator('#meetingTranscript')).toHaveValue(/교섭 일정 확정/);
+  await expect.poll(()=>recCalls(calls,'rec_save').map(c=>c.body.session_id)).toEqual([LIVE]);
+  noTranscribe(calls);
 });
 
-test('PC: \'이어서 정리\' 줄 [삭제] → 줄이 빠지고 서버에 삭제, 정리는 하지 않음',async({page})=>{
+test('PC: \'이어서 저장\' 줄 [삭제] → 줄이 빠지고 서버에 삭제, 저장은 하지 않음',async({page})=>{
   test.setTimeout(45000);
   await page.setViewportSize({width:1440,height:900});
   const id='00000000-0000-4000-8000-0000000000cc';
@@ -302,7 +294,7 @@ test('PC: \'이어서 정리\' 줄 [삭제] → 줄이 빠지고 서버에 삭�
     segments:[{segment_no:1,status:'closed',job_id:null,job_status:null,duration_sec:2280}]}]});
   const line=page.locator('#recPendingLine');
   await expect(line).toContainText('끝나지 않은 녹음 · 10/29 14:00 녹음 · 38분');
-  const resume=line.getByRole('button',{name:'이어서 정리'}),drop=line.getByRole('button',{name:'삭제'});
+  const resume=line.getByRole('button',{name:'이어서 저장'}),drop=line.getByRole('button',{name:'삭제'});
   const [r1,d1]=await Promise.all([resume.boundingBox(),drop.boundingBox()]);
   expect(r1.x+r1.width).toBeLessThanOrEqual(d1.x);
   expect(d1.height).toBeCloseTo(r1.height,0);
@@ -316,38 +308,7 @@ test('PC: \'이어서 정리\' 줄 [삭제] → 줄이 빠지고 서버에 삭�
   await expect(page.locator('#recBand')).toBeHidden();
 });
 
-test('PC: 서버 정리(S49-2) — [멈추고 정리] 뒤 서버가 합치기·전사·요약을 맡고, 끝난 결과가 회의 입력 창에 채워진다(화면 전사·요약 호출 없음)',async({page})=>{
-  test.setTimeout(60000);
-  await page.setViewportSize({width:1440,height:900});
-  const calls=await signIn(page,{server:true,pieceFails:0});
-  await page.locator('#reportRecordBtn').click();
-  const band=page.locator('#recBand');
-  await expect(band.locator('.rec-label')).toHaveText('녹음 중');
-  await page.evaluate(()=>window.__fakeRec.emit());
-  await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
-  await expect.poll(()=>recCalls(calls,'job_start').map(c=>c.body)).toEqual([{workspace_id:'rec-ws',kind:'recording',session_id:'00000000-0000-4000-8000-0000000000aa'}]);
-  await expect(band.locator('.rec-label')).toHaveText('정리 중');
-  await expect(band.locator('.rec-note')).toContainText('화면을 닫아도 서버에서 계속 정리해요');
-  await expect(page.locator('#meetingModal')).toBeVisible({timeout:20000});
-  await expect(page.locator('#meetingTranscript')).toHaveValue(/결정\n- 서버 요약 결정/);
-  await expect(page.locator('#meetingNotes')).toHaveValue(/서버가 정리한 전사 전문입니다/);
-  await expect(page.locator('#mtdStatus')).toContainText('초안을 채웠어요');
-  await expect(page.locator('#mtdAttach')).toBeChecked();
-  expect(recCalls(calls,'rec_finish').length).toBe(0);
-  expect(recCalls(calls,'transcribe').length).toBe(0);
-  expect(calls.some(c=>c.action==='draft')).toBe(false);
-  // REC-한회의로잇기 PR-0: 창을 열기만 해서는 '열었음'을 보내지 않고, [사업 보고 저장] 때 저장한 보고 id와 함께 보낸다(설계 docs/design/rec-join.md 2-3절).
-  expect(recCalls(calls,'job_opened')).toEqual([]);
-  const select=page.locator('#meetingNameSelect');
-  if(await select.isVisible())await select.selectOption('__other__');
-  await page.locator('#meetingTitle').fill('운영위');
-  await page.locator('#saveMeetingBtn').click();
-  await expect(page.locator('#meetingModal')).toBeHidden();
-  await expect.poll(()=>recCalls(calls,'job_opened').map(c=>c.body)).toEqual([{job_id:'00000000-0000-4000-8000-0000000000b1',meeting_id:'meeting-new'}]);
-});
-
-// REC-새로고침(S49-7): 새로고침·창 닫기로 끊긴 녹음은 서버에 조각이 남아 있고(rec_pending의 live), 어느 화면에서든 맨 위 띠에서 이어 녹음·이어서 정리할 수 있다.
+// REC-새로고침(S49-7): 새로고침·창 닫기로 끊긴 녹음은 서버에 조각이 남아 있고(rec_pending의 live), 어느 화면에서든 맨 위 띠에서 이어 녹음·이어서 저장할 수 있다.
 // 브라우저 한계: 마이크는 새로고침에서 꺼진다. 되살리지 않고 같은 녹음(session)의 다음 구간으로 새 녹음기를 켠다.
 const minutesAgo=m=>new Date(Date.now()-m*60000).toISOString();
 test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음\' → [이어서 녹음]은 같은 녹음의 다음 구간으로, 띠 시간은 앞 길이에서 이어 센다',async({page})=>{
@@ -364,7 +325,7 @@ test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음
   await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
   await expect(band).toContainText('50분');
   const names=await band.getByRole('button').allTextContents();
-  expect(names).toEqual(['이어 녹음','이어서 정리','삭제']);
+  expect(names).toEqual(['이어 녹음','이어서 저장','삭제']);
   const b=await band.boundingBox();
   expect(b.y).toBe(0);expect(b.height).toBeLessThanOrEqual(32);
   // 방금 끊긴 것인지 다른 곳에서 녹음 중인지 모르므로(idle 20초) 이어받기 전에 띠에서 한 번 묻는다(브라우저 확인창 없음). [취소]하면 그대로.
@@ -386,19 +347,20 @@ test('PC: 새로고침 직후 어느 화면이든 맨 위 띠에 \'하던 녹음
   // 새 구간의 조각은 새 녹음 id로 올라가고, 길이는 구간 시작부터 잰다(앞 녹음 길이를 더하지 않음).
   await page.evaluate(()=>window.__fakeRec.emit());
   await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(1);
-  // 멈추고 정리: 같은 session 전체를 서버 정리로(끊긴 앞 구간 포함).
-  await band.getByRole('button',{name:'멈추고 정리'}).click();
-  await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
+  // 멈추고 저장: 같은 session 전체를 저장(끊긴 앞 구간 포함).
+  await band.getByRole('button',{name:'멈추고 저장'}).click();
+  await expect.poll(()=>recCalls(calls,'rec_save').map(c=>c.body.session_id)).toEqual([LIVE]);
+  noTranscribe(calls);
 });
 
-test('PC: 하던 녹음이 오래 조용하면(idle 5분) [이어서 정리]도 묻지 않고 바로 한다',async({page})=>{
+test('PC: 하던 녹음이 오래 조용하면(idle 5분) [이어서 저장]도 묻지 않고 바로 한다',async({page})=>{
   test.setTimeout(45000);
   await page.setViewportSize({width:1440,height:900});
   const calls=await signIn(page,{live:[{session_id:LIVE,started_at:minutesAgo(10),duration_sec:300,idle_sec:300,
     segments:[{segment_no:1,status:'recording',job_id:null,job_status:null,duration_sec:300}]}],pieceFails:0});
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('일시 정지됨');
-  await band.getByRole('button',{name:'이어서 정리'}).click();
+  await band.getByRole('button',{name:'이어서 저장'}).click();
   await expect.poll(()=>recCalls(calls,'rec_finish').map(c=>c.body.session_id)).toEqual([LIVE]);
   expect(recCalls(calls,'rec_start').length).toBe(0);
 });
@@ -407,7 +369,7 @@ test('PC: 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 없고 사�
   await page.setViewportSize({width:1440,height:900});
   await signIn(page,{pending:[{session_id:'s-old',started_at:minutesAgo(3*24*60),duration_sec:600,segments:[]}]});
   await expect(page.locator('#recPendingLine')).toBeVisible();
-  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어 녹음','이어서 정리','삭제']);
+  await expect(page.locator('#recPendingLine').getByRole('button').allTextContents()).resolves.toEqual(['이어 녹음','이어서 저장','삭제']);
   await expect(page.locator('#recBand')).toBeHidden();
 });
 

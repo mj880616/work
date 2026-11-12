@@ -147,7 +147,7 @@ function onBandClick(e){
   else if(what==='resume')void resumeSuspended();
   else if(what==='stop')void stopAndFinish();
   else if(what==='discard')void discardLive();
-  else if(what==='retry')void finishSession();
+  else if(what==='retry'){if(state==='error')void finishSession()}
   else if(what==='close')closeBand();
 }
 function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';accum=0;runSince=0;savedFiles=[];paint()}
@@ -381,7 +381,7 @@ const allResumable=()=>{const r=resumables(pending,live,sessionId);return [...r.
 // 저장 흐름(멈추고 저장·이어서 저장·[다시] 공통): rec_finish(합치기) → rec_save(자료실 '회의 녹음' 폴더, 회의가 있으면 그 회의 자료로도).
 // 실패하면 멈춤 띠 + [다시](녹음은 서버 Drive에 그대로라 다시 불러도 같은 파일·같은 자료 행 하나).
 async function finishSession(){
-  if(!sessionId||active()||state==='finishing')return;
+  if(!sessionId||active())return; // 멈추고 저장은 이미 'finishing'으로 들어온다(마지막 조각을 올린 뒤)
   state='finishing';step='올림';errorText='';canRetry=false;paint();
   try{
     const r=await saveRecording(call,sessionId,{meetingId,onStep:s=>{step=s;paint()}});
