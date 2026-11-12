@@ -1,4 +1,4 @@
-// MTG-노트북녹음 2단계: 노트북 [녹음]의 순수 규칙(형식 고르기·구간 넘김·조각 대기열·글 합치기·띠 글자).
+// MTG-노트북녹음 2단계: 노트북 [녹음]의 순수 규칙(형식 고르기·구간 넘김·조각 대기열·녹음 저장·띠 글자).
 // 화면·마이크·네트워크는 meeting-recorder.js가 맡는다. 여기서는 DOM·네트워크를 쓰지 않는다(단위 시험 대상, app-smoke-check).
 // 설계: docs/design/laptop-recording.md 8절. 서버 규칙(조각 1분·구간 29분)은 supabase/functions/meeting-transcribe/recording.mjs와 같다.
 
@@ -76,28 +76,48 @@ export function minuteText(minutes){
   return h?(r?`${h}시간 ${r}분`:`${h}시간`):`${r}분`;
 }
 
-// 구간 글을 순서대로 합친다. 둘째 구간부터 머리 '― 29분부터 ―' 한 줄(실제 구간 길이로 센다 — 옛 59분 구간이 섞이면 '― 59분부터 ―'). parts: [{no, seconds, text}] (seconds = 그 구간 길이)
-// 구간 글의 '화자n:' 줄은 그대로 둔다. 화자 번호는 구간마다 새로 매겨지므로 머리 줄이 그 자리를 알려 준다(REC-발언자구분).
-// 이미 전사가 끝나 글이 서버에 없는 구간은 text가 null → 머리 줄 아래 '(이 구간 글은 이미 전사가 끝나 다시 받을 수 없어요.)'.
-export function joinSegmentTexts(parts){
-  const list=(Array.isArray(parts)?parts:[]).slice().sort((a,b)=>a.no-b.no);
-  let offset=0;const out=[];
-  for(const p of list){
-    const head=offset>0?`― ${minuteText(offset/60)}부터 ―`:'';
-    const text=String(p.text??'').trim();
-    if(p.text===null)out.push(`${head||'― 처음부터 ―'}\n(이 구간 글은 이미 전사가 끝나 다시 받을 수 없어요.)`);
-    else if(text)out.push(head?`${head}\n${text}`:text);
-    offset+=Math.max(0,Number(p.seconds)||0);
-  }
-  return out.join('\n\n');
-}
-
-// 띠 진행 한 줄: 올림 › 전사 › 요약 › 초안 열림. 지금 단계는 strong으로 표시(화면이 그린다).
-export const STEPS=Object.freeze(['올림','전사','요약','초안 열림']);
+// 띠 진행 한 줄: 올림 › 저장. 지금 단계는 strong으로 표시(화면이 그린다).
+// S61-5 REC-전사삭제(명진 11/13): 전사·요약·초안 단계는 없다. 멈추면 녹음 파일을 자료실 '회의 녹음' 폴더에 저장하는 것까지.
+export const STEPS=Object.freeze(['올림','저장']);
 export function stepParts(current){
   const at=STEPS.indexOf(current);
   return STEPS.map((label,i)=>({label,state:at<0?'todo':i<at?'done':i===at?'now':'todo'}));
 }
+
+// 녹음 저장(노트북·폰 공용): 열린 구간을 닫고 조각을 합친 뒤(rec_finish, more면 다시) 합친 파일을 자료실 자료로 남긴다(rec_save).
+// call(action, body, extra)는 화면의 서버 호출. meetingId가 있으면 그 회의 자료로도 붙는다. 전사·요약은 부르지 않는다.
+export async function saveRecording(call,sessionId,{meetingId='',onStep=()=>{}}={}){
+  onStep('올림');
+  for(let i=0;i<30;i++){const r=await call('rec_finish',{session_id:sessionId},{timeoutMs:260000});if(!r?.more)break}
+  onStep('저장');
+  const r=await call('rec_save',{session_id:sessionId,...(meetingId?{meeting_id:meetingId}:{})},{timeoutMs:60000});
+  const files=savedFiles(r);
+  if(!files.length)throw Object.assign(new Error(''),{code:'no_recording'});
+  return {files,folder:String(r?.folder_name||'회의 녹음')};
+}
+// rec_save 답 → 띠에 보일 파일 줄(이름·자료 번호·Drive 번호·주소만).
+export function savedFiles(res){
+  return (Array.isArray(res?.files)?res.files:[]).filter(f=>f&&typeof f.document_id==='string'&&f.document_id).map(f=>({
+    documentId:f.document_id,name:String(f.file_name||'녹음'),driveId:typeof f.drive_file_id==='string'?f.drive_file_id:'',
+    driveUrl:typeof f.drive_url==='string'?f.drive_url:'',mime:typeof f.mime_type==='string'?f.mime_type:'',
+  }));
+}
+// 저장이 멈춘 이유(띠 한 줄). 녹음은 서버(Drive)에 그대로 있으므로 [다시]로 다시 저장한다.
+export function saveFailText(e,step=''){
+  const code=e?.code||'';
+  if(code==='session_required'||e?.status===401)return '로그인이 만료됐어요. 다시 로그인한 뒤 [다시]를 누르세요.';
+  if(code==='drive_not_connected')return 'Google Drive가 아직 연결되지 않았어요. 자료실에서 Drive를 연결해 주세요.';
+  if(code==='no_recording')return '녹음에서 저장할 소리를 찾지 못했어요.';
+  return step==='저장'?'자료실에 저장하지 못했어요. 녹음은 Drive에 그대로 있어요. [다시]를 누르세요.':'녹음을 합치지 못했어요. 올린 소리는 Drive에 그대로 있어요. [다시]를 누르세요.';
+}
+
+// 저장 끝 띠의 파일 줄(노트북·폰 같은 모양). 파일마다 이름 · [내려받기] · [Drive에서 열기]. attr = 버튼 data 속성 머리(노트북 'rec', 폰 'prec').
+export function savedFilesHtml(files,attr='rec'){
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return (Array.isArray(files)?files:[]).map((f,i)=>`<span class="rec-file"><span class="rec-file-name">${esc(f.name)}</span><button type="button" class="rec-btn" data-${attr}-down="${i}" aria-label="${esc(f.name)} 내려받기">내려받기</button><button type="button" class="rec-btn" data-${attr}-open="${i}" aria-label="${esc(f.name)} Drive에서 열기">Drive에서 열기</button></span>`).join('');
+}
+// 저장 끝 띠 높이(파일이 여럿이면 한 줄씩 늘림, px). 한 개면 기본 높이.
+export const savedBandHeight=n=>n>1?Math.min(n,6)*28+8:0;
 
 // 녹음 시작 시각 → 사업 보고 창 일시('YYYY-MM-DDTHH:mm', 서울).
 export function seoulLocal(at){
@@ -105,7 +125,7 @@ export function seoulLocal(at){
   const k=new Date(d.getTime()+9*3600000).toISOString();
   return `${k.slice(0,10)}T${k.slice(11,16)}`;
 }
-// '이어서 정리' 한 줄 글자: '10/29 14:30 녹음 · 32분'
+// '이어서 저장' 한 줄 글자: '10/29 14:30 녹음 · 32분'
 export function pendingText(session){
   const at=seoulLocal(session?.started_at);
   const day=at?`${Number(at.slice(5,7))}/${Number(at.slice(8,10))} ${at.slice(11,16)}`:'';
@@ -144,10 +164,3 @@ export function takeOverRisk(item,nowMs=Date.now()){
 
 // 이어서 정리할 녹음 중 지금 이 창이 녹음 중인 것은 뺀다.
 export const pendingOthers=(sessions,activeSessionId)=>(Array.isArray(sessions)?sessions:[]).filter(s=>s?.session_id&&s.session_id!==activeSessionId);
-
-// rec_finish 답의 구간 → 전사할 것·건너뛸 것. job_status는 rec_pending에서만 온다(없으면 아직 전사 전으로 본다).
-export function transcribePlan(segments){
-  const list=(Array.isArray(segments)?segments:[]).filter(s=>s&&s.status!=='empty').slice().sort((a,b)=>a.segment_no-b.segment_no);
-  return list.map(s=>({no:s.segment_no,job:s.job_id||null,seconds:Number(s.duration_sec)||0,
-    action:s.status==='combined'&&s.job_id?(s.job_status==='done'?'gone':'transcribe'):'skip',failed:s.status==='failed'}));
-}

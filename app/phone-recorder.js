@@ -1,11 +1,13 @@
 // MTG-폰녹음(요청함 10/30 10:56): 폰 앱(웹2 앱 0.3.3+) 안에서만 사업 보고 위쪽 줄 [녹음]·녹음 띠·'끝나지 않은 녹음' 줄을 그린다.
-// 녹음은 앱이 한다(화면이 꺼지거나 다른 앱을 써도 계속, 알림줄 '녹음 중 12:34 [일시정지][멈추고 정리]'). 순서·서버 호출은 phone-recorder-core.mjs.
+// 녹음은 앱이 한다(화면이 꺼지거나 다른 앱을 써도 계속, 알림줄 '녹음 중 12:34 [일시정지][멈추고 …]'). 순서·서버 호출은 phone-recorder-core.mjs.
+// S61-5 REC-전사삭제(명진 11/13): 멈추면 녹음 파일을 자료실 '회의 녹음' 폴더에 저장하고 띠에 파일 이름 · [내려받기] · [Drive에서 열기]. 전사·요약은 없다.
 // - 주인: 이 모듈 하나가 #phoneRecordBtn·#phoneRecBand·#phoneRecPendingLine을 그린다(노트북 녹음 meeting-recorder.js가 그리는 버튼·띠와 따로).
 // - 앱 다리(KPTUAppShell, 허용 Origin 최상위 화면에만 보임)에 'rec:hello'를 보내 답이 와야(0.3.3+) [녹음]이 보인다. 웹 브라우저·옛 앱에서는 아무것도 보이지 않는다.
 // - 기기 저장 없음(웹): 녹음 조각은 앱 전용 공간에만 있고 올린 뒤 앱이 지운다. 이 화면은 브라우저 저장 공간을 쓰지 않는다.
 import {createPhoneRecorder} from './phone-recorder-core.mjs';
-import {clockText,stepParts,pendingText} from './meeting-recorder-model.mjs';
+import {clockText,stepParts,pendingText,savedFilesHtml,savedBandHeight} from './meeting-recorder-model.mjs';
 import {notify} from './small-notice.js';
+import {downloadFile,openInDrive} from './file-actions.js';
 
 const BRIDGE='KPTUAppShell';
 const FN='/functions/v1/meeting-transcribe';
@@ -39,31 +41,14 @@ export function mountPhoneRecorder(win=window){
       if(!r.ok)throw new Error('piece_read_failed');
       return r.blob();
     },
-    // REC-서버정리(S49-2): 서버가 정리를 맡은 뒤의 진행 띠·끝 알림·[초안 열기]는 노트북과 같은 주인(meeting-recorder.js)이 그린다.
-    watchServer:job=>win.KPTUMeetingRecorder?.watch?.(job),
-    openDraft:async({text,jobs,startedAt,minutes})=>{
-      const loader=win.KPTUDeferredFeatures?.loadView||win.KPTUViewLoader?.load;
-      if(loader)await loader('meetings');
-      const entry=win.KPTUReportEntry;
-      if(!entry?.open)throw stop('사업 보고 화면을 열지 못했어요. [다시]를 누르세요.');
-      // REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있으면 team.js가 먼저 묻는다. 두기로 하면 그 창은 그대로 두고 멈춤 줄 + [다시].
-      const opened=await entry.open({kind:'meeting',at:startedAt,trigger:$('#phoneRecordBtn')||doc.activeElement,keepNote:'두면 이 녹음은 [다시]로 정리 결과를 열 수 있어요.'});
-      if(opened===false)throw stop(entryKept()?'쓰던 사업 보고 창을 그대로 뒀어요. 저장하거나 닫은 뒤 [다시]를 누르세요.':'사업 보고 창을 열지 못했어요. [다시]를 누르세요.');
-      const draft=win.KPTUMeetingTranscriptDraft;
-      if(!draft?.fill)throw stop('초안 칸을 찾지 못했어요. [다시]를 누르세요.');
-      await draft.fill({text,jobs,name:`폰 녹음${minutes?` · ${minutes}분`:''}`});
-    },
     notify,
     paint,
   });
-  function stop(text){const e=new Error('');e.recText=text;e.recRetry=true;return e}
-  const entryKept=()=>{const m=$('#meetingModal');return !!m&&!m.classList.contains('hidden')};
 
   // ---- 그리기(이 모듈만) ----
   const drawn=new WeakMap();
   const setHtml=(el,html)=>{if(drawn.get(el)!==html){el.innerHTML=html;drawn.set(el,html)}};
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
-  let doneTimer=0;
   function band(){
     let el=$('#phoneRecBand');if(el)return el;
     el=doc.createElement('div');
@@ -85,6 +70,9 @@ export function mountPhoneRecorder(win=window){
     syncClock(view.state);
     const el=band(),state=view.state,on=state!=='idle';
     el.hidden=!on;el.dataset.state=state;
+    const tall=state==='saved'?savedBandHeight((view.files||[]).length):0;
+    el.classList.toggle('rec-tall',!!tall);
+    if(tall)doc.body.style.setProperty('--rec-band-height',`${tall}px`);else doc.body.style.removeProperty('--rec-band-height');
     doc.body.classList.toggle('phone-rec-on',on);
     let l='',t='',m='',a='';
     const sec=(core?.elapsedMs?.()||0)/1000;
@@ -93,14 +81,16 @@ export function mountPhoneRecorder(win=window){
       l=state==='paused'?'일시정지':'녹음 중';t=clockText(sec);
       const q=view.native?.queued||0;
       m=view.note&&q?esc(`${view.note} · 조각 ${q}개`):'';
-      a=`<button type="button" class="rec-btn" data-prec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-prec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-prec="discard">삭제</button>`;
-    }else if(state==='finishing'||state==='done'){
-      l=state==='done'?'정리 끝':'정리 중';
+      a=`<button type="button" class="rec-btn" data-prec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-prec="stop">멈추고 저장</button><button type="button" class="rec-btn rec-discard" data-prec="discard">삭제</button>`;
+    }else if(state==='finishing'){
+      l='저장 중';
       m=stepParts(view.step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(view.note?` <span class="rec-sub">${esc(view.note)}</span>`:'');
-      a=state==='done'?'<button type="button" class="rec-btn" data-prec="close">닫기</button>':'';
-      if(state==='done'&&!doneTimer)doneTimer=setTimeout(()=>{doneTimer=0;core.close()},8000);
+    }else if(state==='saved'){
+      l='저장됨';
+      m=savedFilesHtml(view.files,'prec');
+      a='<button type="button" class="rec-btn" data-prec="close">닫기</button>';
     }else if(state==='error'){
-      l='녹음 정리 멈춤';m=esc(view.error);
+      l='녹음 저장 멈춤';m=esc(view.error);
       a=`${view.canRetry?'<button type="button" class="rec-btn" data-prec="retry">다시</button>':''}<button type="button" class="rec-btn" data-prec="close">닫기</button>`;
     }
     const label=el.querySelector('.rec-label'),time=el.querySelector('.rec-time');
@@ -111,7 +101,7 @@ export function mountPhoneRecorder(win=window){
     if(btn){
       btn.hidden=!view.supported;
       const live=state==='recording'||state==='paused'||state==='starting';
-      btn.disabled=!['idle','done','error'].includes(state)||view.busy;
+      btn.disabled=!['idle','saved','error'].includes(state)||view.busy;
       btn.textContent=live?'녹음 중':'녹음';
       btn.setAttribute('aria-pressed',String(live));
     }
@@ -122,11 +112,18 @@ export function mountPhoneRecorder(win=window){
       if(!list.length)setHtml(line,'');
       else{
         const first=list[0];
-        setHtml(line,`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-prec-resume="${esc(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${esc(first.session_id)}">삭제</button>`);
+        setHtml(line,`<span class="rec-pending-text">끝나지 않은 ${first.local?'폰 ':''}녹음 · ${esc(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-prec-resume="${esc(first.session_id)}">이어서 저장</button><button type="button" class="rec-btn rec-discard" data-prec-discard="${esc(first.session_id)}">삭제</button>`);
       }
     }
   }
   function onClick(e){
+    const f=e.target.closest('[data-prec-down],[data-prec-open]');
+    if(f){
+      const file=(core.view.files||[])[Number(f.dataset.precDown??f.dataset.precOpen)];if(!file)return;
+      const onError=text=>notify(text,{error:true});
+      if(f.dataset.precDown!==undefined)void downloadFile(file,{onError});else openInDrive(file,{onError});
+      return;
+    }
     const b=e.target.closest('[data-prec]');if(!b)return;
     const what=b.dataset.prec;
     if(what==='pause')core.pause();

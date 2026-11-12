@@ -45,12 +45,10 @@ const enc=encodeURIComponent;
 const call=(action,body,extra={})=>rt().api(`${FN}?action=${action}`,{method:'POST',body,singleFlight:false,...extra});
 const rows=new Map();        // 보고 id → 로그인으로 읽은 행(이름·일시·사업영역)
 const asked=new Set();       // 이름을 읽어 본 보고 id(한 번만)
-const decided=new Map();     // 녹음 결과 id → 'new'([새로 만들기]·[새 보고로 열기]를 고름 — 다시 묻지 않음)
 const lines=new Map();       // 잇기 작업 id → {job, el, sig}
 const watching=new Map();    // 잇기 작업 id → 세대
 const settling=new Set();    // 후보를 올리는 중인 잇기 작업 id
 const joinedNow=new Set();   // 이 창에서 이어 붙인 보고 id(수정 저장이 막혔을 때 '녹음을 이어 붙였어요'로 알림)
-const kinds=new Map();       // 녹음 결과 id → 'attached'(회의자료 그 자리 전사) | 'recording' | ''(아직 모름) — 멈춘 줄의 [새 보고로 열기]·[수정 창에 넣기] 글자
 const lastRows=new Map();    // 보고 id → 그 보고에 마지막으로 적용된 잇기 작업 행(보고 상세 되돌리기·⋯ [두 보고로 되돌리기])
 // 서버가 잇기를 아는가(join_list 답): true · false(모름 — 옛 Edge·표 적용 전, 메뉴 항목을 그리지 않음) · null(아직 모름·잠깐 끊김)
 let known=null,probing=false;
@@ -74,78 +72,13 @@ const whenName=id=>{const m=rowOf(id);return m?labelWhen(m,Date.now()):'그 보�
 function fromName(sourceId,targetId){const s=rowOf(sourceId);if(!s)return '';return whenText(atMs(s.meeting_at),atMs(rowOf(targetId)?.meeting_at))||reportName(s)}
 
 // ---- 물음(3-3절) ----
-const anchor=()=>{const b=document.querySelector('#recBand');return b&&!b.hidden?b:null};
-// 돌려줌: 'new'(지금처럼 초안 창) · 'joined'(잇기 시작 — 띠를 닫음) · 'later'(물음을 닫음 — 결과는 띠 [초안 열기]에).
-async function ask(job,{began=''}={}){
-  if(job?.id&&job.kind==='attached')return askAttached(job);
-  if(!job?.id||(job.kind&&job.kind!=='recording'))return 'new';
-  if(decided.get(job.id)==='new')return 'new';
-  if(!rt()?.api)return 'new';
-  let list;
-  try{list=(await call('join_candidates',{job_id:job.id},{timeoutMs:20000}))?.candidates}
-  catch(e){console.warn('meeting join candidates failed',e?.status||'');return 'new'} // 모름(적용 전·옛 Edge)·실패 → 묻지 않고 지금 길
-  if(!Array.isArray(list)||!list.length)return 'new';
-  let cands=[];
-  try{cands=mergeCandidates(list,await readMeetings(list.map(c=>c?.meeting_id)))}catch{return 'new'}
-  if(!cands.length)return 'new';
-  const startMs=Date.parse(began);
-  for(;;){
-    const first=nearest(cands,startMs);
-    const pick=await askActions(anchor(),{text:askText(startMs),note:whoText(first,startMs),className:'rec-join-ask',actions:[
-      {value:'pick',label:'다른 보고 선택',kind:'row-act'},{value:'new',label:'새로 만들기',kind:'secondary'},{value:'join',label:'그 보고에 잇기',kind:'primary'}]});
-    if(pick==null)return 'later';
-    if(pick==='new'){decided.set(job.id,'new');return 'new'}
-    let target=first.id;
-    if(pick==='pick'){
-      const others=listed();for(const m of others)if(m?.id&&!rows.has(String(m.id)))rows.set(String(m.id),m);
-      target=await askChoice(anchor(),{text:'어느 보고에 이을까요? · 같은 날 보고부터',choices:pickRows(cands,others,{startMs,dayMs:startMs})});
-      if(!target)continue; // 고르기를 닫으면 처음 물음으로
-    }
-    const out=await start(job,target);
-    if(out==='joined')return 'joined';
-    if(out==='unknown')return 'new';
-    return 'later';
-  }
-}
+// S61-5 REC-전사삭제(명진 11/13): 녹음 정리 결과를 열기 전에 묻던 길(ask·회의자료 그 자리 전사 askAttached·join_start {job_id})은 뺐다.
+//   녹음은 전사하지 않으므로 새 녹음 결과가 없다. 지난 잇기 줄·되돌리기, 보고 합치기, 전사 글 [녹음 요약하기] 물음(askTranscript)은 그대로다.
 // 서버가 잇기를 아는가. 앱을 연 뒤 join_list 답을 아직 못 받았으면(잠깐 끊김 포함) 지금 한 번 묻는다. 모르면 false(지금 길).
 async function joinReady(){
   if(known===null&&rt()?.api){try{const r=await call('join_list',{});known=r?.ok===true&&Array.isArray(r.jobs)}catch(e){if(joinUnknown(e))known=false}}
   return known===true;
 }
-// PR-5 (다) 회의자료 그 자리 전사: 그 회의(job.meeting_id)에 회의록 전문이 이미 있을 때만 묻는다. 없으면 지금처럼 그 회의 [수정] 창에 넣는다.
-// 전문 있는지는 글을 받지 않고 '빈 글이 아닌 행만'(notes 거르기)으로 본다(긴 전문을 한 번 더 받지 않게).
-async function askAttached(job){
-  const target=String(job.meeting_id||'');
-  if(!UUID.test(target)||decided.get(job.id)==='new'||!rt()?.api)return 'new';
-  let m=null;
-  try{m=(await rt().api(`/rest/v1/app_meetings?id=eq.${enc(target)}&notes=not.is.null&notes=neq.&select=${MEETING_FIELDS}&limit=1`,{singleFlight:false}))?.[0]||null}
-  catch{return 'new'}
-  if(!m||!isMeetingReport(m))return 'new';
-  rows.set(target,m);
-  if(!(await joinReady()))return 'new';
-  const pick=await askActions(anchor(),{text:'이 보고에 회의록 전문이 이미 있어요. 같은 회의를 이어서 녹음했나요?',
-    note:`${labelWhen(m,Date.now())} · [그 보고에 잇기]는 두 전사 전체로 다시 요약해 저장해요`,className:'rec-join-ask',actions:[
-    {value:'new',label:'수정 창에 넣기',kind:'secondary'},{value:'join',label:'그 보고에 잇기',kind:'primary'}]});
-  if(pick==null)return 'later';
-  if(pick==='new'){decided.set(job.id,'new');return 'new'}
-  kinds.set(job.id,'attached');
-  const out=await start(job,target);
-  return out==='joined'?'joined':out==='unknown'?'new':'later';
-}
-async function start(job,targetId){
-  let r;
-  try{r=await call('join_start',{target_meeting_id:String(targetId),source:{job_id:job.id}},{timeoutMs:60000})}
-  catch(e){
-    if(joinUnknown(e))return 'unknown';
-    console.warn('meeting join start failed',e?.status||'');
-    notify(joinFailText(joinErrorCode(e)),{error:true,note:'녹음 정리 결과는 맨 위 [초안 열기]에 그대로 있어요.'});
-    return 'failed';
-  }
-  if(!r?.job?.id)return 'unknown';
-  follow(r.job);
-  return 'joined';
-}
-
 // ---- PR-5 (라) [회의] 입력 창의 [녹음·전사 넣기] ----
 // 돌려줌: 'new'(지금처럼 화면 요약 — 같은 날 보고가 없거나 서버가 모르거나 [새로 만들기]) · 'joined'(join_text 시작, 부른 쪽이 입력 창을 닫음) ·
 // 'later'(물음을 닫았거나 시작하지 못함 — 글은 입력 창에 그대로).
@@ -211,9 +144,8 @@ function paintLine(job){
   // 합치기는 시각을 붙인 이름(같은 이름 보고가 하루에 둘일 때)과 휴지통으로 옮긴 보고의 시각(시안 ④).
   const name=job.mode==='report'?whenName(target):nameOf(target),from=job.mode==='report'?fromName(job.source_meeting_id,target):'';
   const text=st==='running'?progressText(name,job):st==='done'?doneText(name,job,from):stopText(name,job,joinFailText(job.error_code));
-  const retry=st==='failed'&&joinCanRetry(job.error_code),fresh=st==='failed'&&job.mode==='job'&&UUID.test(String(job.source_job_id||''));
-  if(fresh)kindOf(job);
-  const sig=[st,text,retry,fresh,kinds.get(String(job.source_job_id))||''].join('|');
+  const retry=st==='failed'&&joinCanRetry(job.error_code);
+  const sig=[st,text,retry].join('|');
   const el=cur?.el||Object.assign(document.createElement('aside'),{className:'kptu-notice-line'});
   lines.set(job.id,{job,el,sig});
   if(cur?.sig===sig)return;
@@ -228,8 +160,6 @@ function paintLine(job){
     parts.push(close());
   }else if(st==='failed'){
     if(retry)parts.push(button('다시','kptu-notice-line-action',b=>void retryJoin(lines.get(job.id)?.job||job,b)));
-    // 회의자료 그 자리 전사(attached)였으면 그 회의 [수정] 창에 넣는 길이라 글자가 다르다(종류는 녹음 결과 행에서 한 번 읽음).
-    if(fresh)parts.push(button(kinds.get(String(job.source_job_id))==='attached'?'수정 창에 넣기':'새 보고로 열기','kptu-notice-line-action',()=>{const j=lines.get(job.id)?.job||job;void seen(j);dropLine(job.id);toBand(j.source_job_id,{open:true})}));
     parts.push(close());
   }
   el.replaceChildren(...parts);
@@ -237,15 +167,6 @@ function paintLine(job){
   putNotice(lineKey(job.id),{priority:PRIORITY,element:el});
 }
 const seen=job=>job?.id?call('join_seen',{job_id:job.id}).catch(()=>{}):Promise.resolve();
-// 멈춘 녹음 잇기 줄: 그 녹음 결과가 회의자료 그 자리 전사였는지 내 로그인으로 한 번 읽는다(앱을 다시 열어 그린 줄).
-function kindOf(job){
-  const src=String(job?.source_job_id||'');
-  if(!UUID.test(src)||kinds.has(src)||!rt()?.api)return;
-  kinds.set(src,'');
-  void rt().api(`/rest/v1/app_meeting_server_jobs?id=eq.${enc(src)}&select=id,kind&limit=1`,{singleFlight:false})
-    .then(r=>{kinds.set(src,String(r?.[0]?.kind||''));const l=lines.get(job.id);if(l)paintLine(l.job)},()=>{});
-}
-
 // 지켜보기: 진행 중이면 join_read로 끝까지(녹음 정리와 같은 간격), 끝났으면 후보를 올린다.
 function follow(job){
   if(!job?.id)return;
@@ -292,26 +213,14 @@ async function openReport(id){
     await window.KPTUMeetingRoundDetail?.open?.(String(id));
   }catch(e){console.warn('meeting join open failed',e?.name||'');notify('그 보고를 열지 못했어요.',{error:true})}
 }
-// 녹음 결과를 띠 [초안 열기]로 돌린다(open이면 묻지 않고 바로 초안 창 — [새 보고로 열기]). 띠가 다른 녹음을 하고 있으면 그대로 두고,
-// 그 결과는 다음에 앱을 열 때 띠에 뜬다(서버 job_list — 잇지 못했거나 되돌린 녹음 결과는 다시 보인다).
-function toBand(sourceJobId,{open=false}={}){
-  const rec=window.KPTUMeetingRecorder;
-  if(!UUID.test(String(sourceJobId||''))||!rec?.ready)return false;
-  if(open)decided.set(sourceJobId,'new');
-  if(rec.ready({id:sourceJobId},{open}))return true;
-  if(open)decided.delete(sourceJobId);
-  notify('지금 다른 녹음을 정리하는 중이에요. 끝난 뒤 맨 위 [초안 열기]로 열 수 있어요.');
-  return false;
-}
-// 끝 줄 [되돌리기] = 통째로 되돌리기(all): 두 글을 잇기 전으로, 붙인 녹음을 떼고, 녹음 결과는 띠 [초안 열기]로.
+// 끝 줄 [되돌리기] = 통째로 되돌리기(all): 두 글을 잇기 전으로, 붙인 녹음을 뗀다.
 async function undoAll(job,b){
   if(!job?.id||b?.disabled)return;
   if(b)b.disabled=true;
   try{
     await call('join_undo',{job_id:job.id,scope:'all'},{timeoutMs:30000});
     dropLine(job.id);joinedNow.delete(String(job.target_meeting_id));lastRows.delete(String(job.target_meeting_id));
-    const back=job.mode==='job'&&toBand(job.source_job_id);
-    notify(job.mode==='report'?'두 보고로 되돌렸어요':'잇기 전으로 되돌렸어요',{note:back?'녹음 정리 결과는 맨 위 [초안 열기]에 있어요.':job.mode==='report'?'휴지통에 있던 보고를 꺼냈어요.':job.mode==='text'?'이어 붙였던 전사 글은 새 보고에 다시 넣어 주세요.':''});
+    notify(job.mode==='report'?'두 보고로 되돌렸어요':'잇기 전으로 되돌렸어요',{note:job.mode==='report'?'휴지통에 있던 보고를 꺼냈어요.':job.mode==='text'?'이어 붙였던 전사 글은 새 보고에 다시 넣어 주세요.':''});
     changed(job.target_meeting_id,'undone',job.id);
     if(job.mode==='report'&&UUID.test(String(job.source_meeting_id||'')))window.dispatchEvent(new CustomEvent('kptu:meeting-join-changed',{detail:{meeting_id:String(job.source_meeting_id),job_id:job.id,reason:'restored'}}));
   }catch(e){if(b)b.disabled=false;notify(undoFailText(joinErrorCode(e)),{error:true})}
@@ -454,14 +363,14 @@ async function loadJoins(tries=0){
 window.addEventListener('kptu:session-changed',e=>{
   if(e.detail?.session){void loadJoins();return}
   // 로그아웃: 지켜보기를 멈추고 줄·기억한 이름을 비운다(서버 작업은 계속, 다음 로그인 때 이어 그림).
-  epoch++;watching.clear();for(const id of [...lines.keys()])dropLine(id);rows.clear();asked.clear();decided.clear();joinedNow.clear();lastRows.clear();kinds.clear();known=null;loadedFor='';
+  epoch++;watching.clear();for(const id of [...lines.keys()])dropLine(id);rows.clear();asked.clear();joinedNow.clear();lastRows.clear();known=null;loadedFor='';
 });
 
 // REC-정리상태확인못함(S60-3): 잠깐 끊김이 길어 지켜보기를 놓친 '잇는 중' 줄은 화면이 다시 보이거나 연결이 돌아오면 다시 본다(읽기만).
 function rewatch(){if(document.visibilityState==='hidden')return;for(const l of [...lines.values()])if(l?.job?.id&&lineState(l.job)==='running'&&!watching.has(l.job.id))watch(l.job)}
 document.addEventListener('visibilitychange',rewatch);
 window.addEventListener('online',rewatch);
-window.KPTUMeetingJoin={ask,paintDetail,follow,joinedRecently:id=>joinedNow.has(String(id||'')),canMerge,merge,unmergeRow,unmerge,prepareMenu,askTranscript};
-// 녹음 정리 확인(meeting-recorder.js job_list, 2.5초 뒤)과 같은 때 한 번 묻는다.
+window.KPTUMeetingJoin={paintDetail,follow,joinedRecently:id=>joinedNow.has(String(id||'')),canMerge,merge,unmergeRow,unmerge,prepareMenu,askTranscript};
+// 첫 화면 요청과 겹치지 않게 2.5초 뒤 한 번 묻는다.
 setTimeout(()=>void loadJoins(),2500);
 })();

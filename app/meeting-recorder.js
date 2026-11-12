@@ -1,22 +1,19 @@
-// MTG-노트북녹음 2단계(요청함 10/29 14:26): 노트북(PC 761px~) 사업 보고 위쪽 줄 [녹음] → 화면 맨 위 녹음 띠 → [멈추고 정리] → 회의 기록 초안.
-// 설계: docs/design/laptop-recording.md 8절. 서버: Edge meeting-transcribe의 rec_start·rec_piece·rec_finish·rec_pending(PR 1511)과 기존 transcribe·attach.
-// - 주인: 이 모듈 하나가 녹음기·녹음 띠(#recBand)·[녹음](#reportRecordBtn)·'이어서 정리' 줄(#recPendingLine)을 그린다(AGENTS.md 5절 one state owner).
+// MTG-노트북녹음 2단계(요청함 10/29 14:26): 노트북(PC 761px~) 사업 보고 위쪽 줄 [녹음] → 화면 맨 위 녹음 띠 → [멈추고 저장] → 자료실 '회의 녹음' 폴더.
+// 설계: docs/design/laptop-recording.md 8절. 서버: Edge meeting-transcribe의 rec_start·rec_piece·rec_finish·rec_save·rec_pending·rec_discard·rec_restore.
+// S61-5 REC-전사삭제(명진 11/13 '회의 전사 기능은 아예 웹2에서 삭제, 그냥 파일만 제공'): 전사·요약·회의 기록 초안은 하지 않는다.
+//   멈추면 녹음 파일(29분 구간마다 하나)을 자료실 '회의 녹음' 폴더에 저장하고, 띠에 파일 이름 · [내려받기] · [Drive에서 열기]를 바로 보인다.
+// - 주인: 이 모듈 하나가 녹음기·녹음 띠(#recBand)·[녹음](#reportRecordBtn)·'끝나지 않은 녹음' 줄(#recPendingLine)을 그린다(AGENTS.md 5절 one state owner).
 //   loader-v2.js가 첫 화면 뒤 한 번 불러오고, 화면 전환에 다시 그리지 않으므로 다른 메뉴로 옮겨도 녹음은 계속된다.
 // - 기기 저장 없음: 녹음 조각은 1분마다(서버가 rec_start로 알려 준 간격) 서버(명진 Drive)로 가고, 보내지 못한 조각은 메모리에만 두고 같은 번호로 다시 보낸다.
-//   브라우저 저장 공간을 쓰지 않는다(Browser storage audit). 창을 닫으면 마지막 1분 안쪽만 잃고, 다시 열면 '이어서 정리'(rec_pending).
-// - [버리기](요청함 10/30 10:01): 녹음을 바로 멈추고 마이크를 끈 뒤, 이미 녹음된 것만 마저 올리고(최대 DISCARD_DRAIN_MS) rec_discard로
-//   올린 조각을 모두 Drive 휴지통으로 옮긴다(전사·요약·초안 없음). 올리지 못한 조각은 메모리에서 버린다. 위쪽 작은 알림 [되돌리기](10초)는
-//   rec_restore로 휴지통에서 꺼내 '이어서 정리' 줄로 돌린다(마이크는 꺼졌으므로 녹음을 이어 하지는 않음). '이어서 정리' 줄에도 같은 [버리기].
+//   브라우저 저장 공간을 쓰지 않는다(Browser storage audit). 창을 닫으면 마지막 1분 안쪽만 잃고, 다시 열면 '이어서 저장'(rec_pending).
+// - [삭제](요청함 10/30 10:01): 녹음을 바로 멈추고 마이크를 끈 뒤, 이미 녹음된 것만 마저 올리고(최대 DISCARD_DRAIN_MS) rec_discard로
+//   올린 조각을 모두 Drive 휴지통으로 옮긴다. 올리지 못한 조각은 메모리에서 버린다. 위쪽 작은 알림 [되돌리기](10초)는
+//   rec_restore로 휴지통에서 꺼내 '끝나지 않은 녹음' 줄로 돌린다(마이크는 꺼졌으므로 녹음을 이어 하지는 않음). 그 줄에도 같은 [삭제].
 // - 29분(SEGMENT_SECONDS)마다 같은 마이크 흐름으로 새 녹음기를 먼저 켜고 앞 녹음기를 멈춘다(앞 구간 마지막 조각 → rec_start 같은 session_id → 새 구간 조각).
-// - [멈추고 정리]: 마지막 조각 → rec_finish(more면 반복) → 구간마다 transcribe → 글 합치기 → 사업 보고 › 회의 입력 창 + 기존 [녹음 요약하기]
-//   (meeting-transcript-draft.js). 저장은 명진이 [사업 보고 저장]으로 하고, 그 뒤 구간마다 attach(기존 [이 회의에 녹음 붙이기]).
-// - REC-한회의로잇기 PR-3(예외 하나): 정리 결과를 열기 전 [그 보고에 잇기]를 고르면 사람이 고른 그 보고에 서버가 뒤에서 저장한다(meeting-join.js).
-//   새 보고 만들기는 지금처럼 명진이 [사업 보고 저장].
-// - REC-한회의로잇기 PR-0: 쓰던 사업 보고 창이 열려 있으면 비우기 전에 묻고(team.js), 서버 정리 결과의 '열었음'은 저장·버림 때만 보낸다(entryHooks).
-import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,joinSegmentTexts,stepParts,seoulLocal,pendingText,transcribePlan,resumables,takeOverRisk} from './meeting-recorder-model.mjs';
-import {cleanTranscript,transcribeFailText} from './meeting-transcript-model.mjs';
-import {notify,askConfirm} from './small-notice.js';
-import {watchServerJob,STAGE_STEP,progressNote,failText as serverFailText,canRetry as serverCanRetry,requestFail,OFFLINE_START_TEXT,OPEN_FAIL_TEXT,DISCARD_ASK,discardDoneText,meetingDoneNotice,STOP_CLOSED_TEXT,stoppedLineText} from './meeting-server-job.mjs';
+// - [멈추고 저장]: 마지막 조각 → rec_finish(more면 반복) → rec_save(자료실 자료 + '회의 녹음' 폴더) → 띠 '저장됨'.
+import {PIECE_SECONDS,SEGMENT_SECONDS,AUDIO_BITS,pieceSecondsOf,rollPiecesOf,pickMime,baseMime,shouldRoll,retryDelay,pieceOutcome,nextStep,queuedPieces,clockText,stepParts,pendingText,resumables,takeOverRisk,saveRecording,saveFailText,savedFilesHtml,savedBandHeight} from './meeting-recorder-model.mjs';
+import {notify} from './small-notice.js';
+import {downloadFile,openInDrive} from './file-actions.js';
 
 (()=>{
 'use strict';
@@ -30,25 +27,17 @@ const supported=()=>!!(MIME&&navigator.mediaDevices?.getUserMedia);
 // 띠·버튼 모양(모든 화면 공통이라 화면별 묶음이 아니라 여기서 한 번 붙인다).
 if(!document.querySelector('link[data-rec-style]')){const l=document.createElement('link');l.rel='stylesheet';l.href='./meeting-recorder.css';l.dataset.recStyle='1';document.head.appendChild(l)}
 
-// 상태: idle → starting → recording ⇄ paused → finishing → done | error
+// 상태: idle → starting → recording ⇄ paused → finishing → saved | error
 // suspended = 마이크가 끊겨(덮개 닫기·잠자기·마이크 빠짐) 일시 정지됨. 올린 조각은 그대로, [이어 녹음]을 사람이 눌러야 마이크를 다시 쥔다(브라우저 규칙).
 let state='idle',step='',note='',errorText='',canRetry=false;
 let stream=null,current=null,segments=[],sessionId='',workspaceId='',startedAt='';
 let rollingStops=[],accum=0,runSince=0,ticker=0,pumping=false,fails=0,retryTimer=0,drainWaiters=[],stopReason='';
 let takeover=null,pending=[],live=[],pendingFor='',pendingFlight=null,discarding=false,livePolls=0,livePollTimer=0;
-// REC-서버정리(S49-2): 지켜보는 서버 정리 작업 id·끝난 결과(띠 [초안 열기]), 지켜보기 세대(다른 정리를 시작하면 앞 것은 그만 봄).
-let jobId='',readyJob=null,watchEpoch=0,jobsLoadedFor='',droppingJob='';
-// REC-멈춤띠계속뜸(S60-26): 멈춤 띠의 작업(서버 행 모양, 모르면 {id}) · [닫기]로 닫은 멈춘 작업들(서버 job_list의 discarded 실패, 녹음 줄 [다시]).
-let stoppedJob=null,closedStops=[],closingStop='';
-// REC-정리상태확인못함(S60-3): 잠깐 끊겨 멈춘 띠(recheck)는 화면이 다시 보이거나 연결이 돌아오면 저절로 다시 본다. 지켜보는 중의 기다림도 그때 깨운다.
-let recheck=false;
-const wakers=new Set();
-const sleepWake=ms=>new Promise(r=>{const done=()=>{clearTimeout(t);wakers.delete(done);r()};const t=setTimeout(done,ms);wakers.add(done)});
-const wakeWatch=()=>{for(const w of [...wakers])w()};
+// 저장 끝 띠의 파일들(rec_save 답, 메모리에만)·그 녹음을 붙일 회의(start({meetingId})로 받은 경우만).
+let savedFiles=[],meetingId='';
 let pieceMs=PIECE_SECONDS*1000,rollPieces=rollPiecesOf(null); // 이 녹음의 조각 간격·구간 조각 한도(rec_start 답, 녹음 내내 같음)
 const DISCARD_DRAIN_MS=20000,DISCARD_NOTICE_MS=10000;
 const SUSPEND_NOTE='마이크는 브라우저 규칙상 직접 눌러야 다시 켜져요. 지금까지 녹음은 서버에 있어요.';
-const doneTexts=new Map(); // 이 창에서 전사가 끝난 구간 글(job id → 글). 서버는 전사 글을 저장하지 않으므로 다시 시도할 때 쓴다(메모리에만).
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
@@ -78,7 +67,9 @@ function paint(){
   el.hidden=!on;
   document.body.classList.toggle('rec-on',on);
   el.dataset.state=showPending?'pending':state;
-  el.classList.toggle('rec-why',!showPending&&state==='ready'&&!!errorText); // 정리 끝인데 초안을 열지 못한 이유(멈춤 띠처럼 두 줄)
+  const tall=!showPending&&state==='saved'?savedBandHeight(savedFiles.length):0;
+  el.classList.toggle('rec-tall',!!tall);
+  if(tall)document.body.style.setProperty('--rec-band-height',`${tall}px`);else document.body.style.removeProperty('--rec-band-height');
   const label=el.querySelector('.rec-label'),time=el.querySelector('.rec-time'),msg=el.querySelector('.rec-note'),act=el.querySelector('.rec-actions');
   const sec=elapsed()/1000;
   let l='',t='',m='',a='';
@@ -91,33 +82,33 @@ function paint(){
     const first=list[0],id=escapeText(first.session_id);
     l='일시 정지됨';
     m=escapeText(`${pendingText(first)}${list.length>1?` 외 ${list.length-1}건`:''}`);
-    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">삭제</button>`;
+    a=`<button type="button" class="rec-btn" data-rec-continue="${id}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${id}">이어서 저장</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${id}">삭제</button>`;
   }else if(state==='starting'){l='녹음 준비 중';m=escapeText('마이크를 허락해 주세요.')}
   else if(state==='suspended'){
     l='일시 정지됨';
     t=clockText(sec);
     const q=queuedPieces(segments);
     m=escapeText(SUSPEND_NOTE+(q?` (조각 ${q}개 올리는 중)`:''));
-    a='<button type="button" class="rec-btn" data-rec="resume">이어 녹음</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>';
+    a='<button type="button" class="rec-btn" data-rec="resume">이어 녹음</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 저장</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>';
   }
   else if(state==='recording'||state==='paused'){
     l=state==='paused'?'일시정지':'녹음 중';
     t=clockText(sec);
     const q=queuedPieces(segments);
     m=fails&&q?escapeText(`조각 ${q}개 올리기 다시 시도 중`):'';
-    a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 정리</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>`;
-  }else if(state==='finishing'||state==='done'){
-    l=state==='done'?'정리 끝':'정리 중';
+    a=`<button type="button" class="rec-btn" data-rec="pause">${state==='paused'?'이어 녹음':'일시정지'}</button><button type="button" class="rec-btn rec-stop" data-rec="stop">멈추고 저장</button><button type="button" class="rec-btn rec-discard" data-rec="discard">삭제</button>`;
+  }else if(state==='finishing'){
+    l='저장 중';
     t=sec?clockText(sec):'';
     m=stepParts(step).map(p=>p.state==='now'?`<strong>${p.label}</strong>`:`<span class="rec-step-${p.state}">${p.label}</span>`).join('<span aria-hidden="true"> › </span>')+(note?` <span class="rec-sub">${escapeText(note)}</span>`:'');
-    a=state==='done'?'<button type="button" class="rec-btn" data-rec="close">닫기</button>':'';
-  }else if(state==='ready'){
-    l='정리 끝';
-    m=escapeText(errorText||'회의 요약이 준비됐어요.'); // errorText = 결과를 열지 못한 이유(상태 확인 실패와 나눔)
-    // REC-초안버리기(S60-20): [닫기] 대신 [삭제] — 닫기는 띠만 숨겨 다음에 앱을 열면 같은 띠가 또 떴다. 멈춤 띠 [닫기]는 서버 '닫음' 표시(REC-멈춤띠계속뜸, closeStopped).
-    a=`<button type="button" class="rec-btn" data-rec="open">초안 열기</button><button type="button" class="rec-btn rec-discard" data-rec="drop"${droppingJob?' disabled':''}>삭제</button>`;
+  }else if(state==='saved'){
+    // 저장 끝: 자료실 '회의 녹음' 폴더에 들어간 파일 이름 · [내려받기] · [Drive에서 열기]. [닫기]를 누를 때까지 둔다.
+    l='저장됨';
+    t=sec?clockText(sec):'';
+    m=savedFilesHtml(savedFiles,'rec');
+    a='<button type="button" class="rec-btn" data-rec="close">닫기</button>';
   }else if(state==='error'){
-    l='녹음 정리 멈춤';
+    l='녹음 저장 멈춤';
     m=escapeText(errorText);
     a=`${canRetry?'<button type="button" class="rec-btn" data-rec="retry">다시</button>':''}<button type="button" class="rec-btn" data-rec="close">닫기</button>`;
   }
@@ -134,64 +125,32 @@ function paintButton(){
   btn.setAttribute('aria-pressed',String(active()));
 }
 // 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 두지 않고 사업 보고 목록 위 한 줄에만 남긴다.
-// 멈춤 띠를 [닫기]로 닫은 녹음 정리도 이 줄에 [다시]로 남는다(모든 화면 너비, 띠에는 다시 뜨지 않음).
 function paintOldLine(){
   const line=$('#recPendingLine');if(!line)return;
   const list=bandList().old;
-  const stop=state==='idle'&&!discarding?closedStops[0]:null;
-  line.hidden=!list.length&&!stop;
+  line.hidden=!list.length;
   if(line.hidden){setHtml(line,'');return}
-  let html='';
-  if(list.length){
-    const first=list[0];
-    html+=`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 정리</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">삭제</button>`;
-  }else{
-    html+=`<span class="rec-pending-text">${escapeText(stoppedLineText(stop))}${closedStops.length>1?` 외 ${closedStops.length-1}건`:''}</span>${serverCanRetry(stop.error_code)?`<button type="button" class="row-act" data-rec-stopped="${escapeText(stop.id)}">다시</button>`:''}`;
-  }
-  setHtml(line,html);
+  const first=list[0];
+  setHtml(line,`<span class="rec-pending-text">끝나지 않은 녹음 · ${escapeText(pendingText(first))}${list.length>1?` 외 ${list.length-1}건`:''}</span><button type="button" class="rec-btn" data-rec-continue="${escapeText(first.session_id)}">이어 녹음</button><button type="button" class="rec-btn" data-rec-resume="${escapeText(first.session_id)}">이어서 저장</button><button type="button" class="rec-btn rec-discard" data-rec-discard="${escapeText(first.session_id)}">삭제</button>`);
 }
 function onBandClick(e){
+  const f=e.target.closest('[data-rec-down],[data-rec-open]');
+  if(f){
+    const file=savedFiles[Number(f.dataset.recDown??f.dataset.recOpen)];if(!file)return;
+    const onError=text=>notify(text,{error:true});
+    if(f.dataset.recDown!==undefined)void downloadFile(file,{onError});else openInDrive(file,{onError});
+    return;
+  }
   const b=e.target.closest('[data-rec]');if(!b)return;
   const what=b.dataset.rec;
   if(what==='pause')togglePause();
   else if(what==='resume')void resumeSuspended();
   else if(what==='stop')void stopAndFinish();
   else if(what==='discard')void discardLive();
-  else if(what==='retry')void retryFinish();
-  else if(what==='open')void openReady();
-  else if(what==='drop')void dropReady(b);
-  else if(what==='close'){if(state==='error')void closeStopped();else closeBand()}
+  else if(what==='retry')void finishSession();
+  else if(what==='close')closeBand();
 }
-// 멈춤 띠 [닫기](REC-멈춤띠계속뜸, S60-26): 서버 멈춘 작업이면 '닫음' 표시(job_discard — 초안 삭제와 같은 길, 녹음 소리·전사 글 그대로)를 남겨
-// 다시 열어도·다른 기기·폰에서도 띠에 뜨지 않게 한다. 그 녹음은 사업 보고 위 녹음 줄 [다시]로 살린다. 작은 알림 [되돌리기]는 표시만 빼고 띠를 다시 그린다.
-// 잠깐 끊겨 확인하지 못한 띠(recheck — 서버에서는 아직 진행 중일 수 있음)·서버 작업이 아닌 화면 정리 멈춤은 띠만 닫는다(지금과 같음).
-async function closeStopped(){
-  const job=jobId&&!recheck?{...(stoppedJob?.id===jobId?stoppedJob:{}),id:jobId}:null;
-  const text=errorText,retry=canRetry;
-  closeBand();
-  if(!job||closingStop)return;
-  closingStop=job.id;
-  try{await call('job_discard',{job_id:job.id})}
-  catch(e){console.warn('recording stop close failed',e?.status||'',e?.code||'');return} // 표시를 못 남겨도 띠는 닫힌 채(다음에 열면 다시 뜸)
-  finally{closingStop=''}
-  closedStops=[{...job,status:'failed',discarded:true},...closedStops.filter(j=>j.id!==job.id)];paint();
-  notify(STOP_CLOSED_TEXT,{label:'멈춘 녹음 정리 닫기',undo:async()=>{
-    try{await call('job_restore',{job_id:job.id})}
-    catch(e){console.warn('recording stop reopen failed',e?.status||'',e?.code||'');return {status:'failed',message:'되돌리지 못했어요.'}}
-    closedStops=closedStops.filter(j=>j.id!==job.id);
-    if(state==='idle'){jobId=job.id;stoppedJob=job;fail(text,retry)}else paint();
-    return {status:'restored'};
-  }});
-}
-// 녹음 줄 [다시]: 닫은 멈춤을 다시 정리한다(서버는 닫음 표시를 이어 가서, 같은 이유로 또 멈추면 띠를 또 띄우지 않는다 — 지금 보는 이 띠에만 보임).
-function retryStopped(id){
-  const job=closedStops.find(j=>j.id===id);
-  if(!job||active()||state==='finishing'||discarding)return;
-  closedStops=closedStops.filter(j=>j.id!==id);
-  jobId=job.id;stoppedJob=job;sessionId=job.session_id||'';readyJob=null;state='finishing';step=STAGE_STEP[job.stage]||'';errorText='';canRetry=false;note='';paint();
-  void serverFinish({jobId:job.id,retry:true});
-}
-function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';recheck=false;accum=0;runSince=0;readyJob=null;paint()}
+function closeBand(){if(active()||state==='finishing')return;state='idle';step='';note='';errorText='';accum=0;runSince=0;savedFiles=[];paint()}
 function startTicker(){clearInterval(ticker);ticker=setInterval(tick,1000)}
 function tick(){
   if(state==='recording'&&current&&!current.rolling){
@@ -235,13 +194,14 @@ function roll(){
 }
 // from = 끝나지 않은 녹음(rec_pending/live 한 건)이면 [이어서 녹음]: 같은 session_id의 다음 구간으로 새로 녹음한다(REC-새로고침, S49-7).
 // 새로고침·창 닫기로 끊긴 마이크는 되살릴 수 없으므로(브라우저 한계) 이미 올라간 조각은 그대로 두고 마이크만 다시 켠다. 띠 시간은 앞 녹음 길이에서 이어 센다.
-async function start(from=null){
-  if(state!=='idle'&&state!=='done'&&state!=='error')return;
+// opts.meetingId: 회의(회차)에서 녹음하면 그 회의 자료로도 붙인다(rec_save meeting_id). 사업 보고 목록 [녹음]은 회의 없이 자료실에만.
+async function start(from=null,opts={}){
+  if(state!=='idle'&&state!=='saved'&&state!=='error')return;
   if(!supported()||discarding)return;
   workspaceId=ws();
   if(!rt()?.api||!workspaceId){fail('로그인 상태를 확인하지 못했어요.',false);return}
   const before=from?Math.max(0,Number(from.duration_sec)||0)*1000:0;
-  state='starting';step='';note='';errorText='';accum=before;runSince=0;segments=[];rollingStops=[];sessionId=from?.session_id||'';if(from)startedAt=from.started_at||new Date().toISOString();fails=0;stopReason='';doneTexts.clear();paint();
+  state='starting';step='';note='';errorText='';savedFiles=[];meetingId=from?'':String(opts?.meetingId||'');accum=before;runSince=0;segments=[];rollingStops=[];sessionId=from?.session_id||'';if(from)startedAt=from.started_at||new Date().toISOString();fails=0;stopReason='';paint();
   try{
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
   }catch(e){
@@ -263,7 +223,7 @@ async function start(from=null){
     console.warn('recording start failed',e?.status||'',e?.code||'');
     releaseStream();
     sessionId='';accum=0;
-    fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':from?'이어서 녹음하지 못했어요. 올린 소리는 그대로 있어요. [이어서 정리]로 정리할 수 있어요.':'녹음을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.',false);
+    fail(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인해 주세요.':from?'이어서 녹음하지 못했어요. 올린 소리는 그대로 있어요. [이어서 저장]으로 저장할 수 있어요.':'녹음을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.',false);
     if(from)void loadPending(true);
   }
 }
@@ -344,7 +304,7 @@ async function pump(){
         if(outcome==='stop'){
           // 서버가 이 구간을 닫았다(다른 창에서 새 녹음 등) → 남은 조각은 버리고 녹음을 멈춘다.
           seg.stopped=true;seg.pieces=[];
-          if(active()){stopReason='다른 곳에서 녹음 구간이 닫혀 녹음을 멈췄어요. 지금까지 올린 것은 정리할 수 있어요.';void stopAndFinish()}
+          if(active()){stopReason='다른 곳에서 녹음 구간이 닫혀 녹음을 멈췄어요. 지금까지 올린 것은 저장해요.';void stopAndFinish()}
           continue;
         }
         fails++;
@@ -357,7 +317,7 @@ async function pump(){
 }
 const drained=()=>nextStep(segments).kind==='drained'?Promise.resolve():new Promise(resolve=>{drainWaiters.push(resolve);void pump()});
 
-// ---- 멈추고 정리 ----
+// ---- 멈추고 저장 ----
 async function stopAndFinish(){
   if(!active()||(!current&&state!=='suspended'))return;
   accum=elapsed();runSince=0;
@@ -374,7 +334,7 @@ async function stopAndFinish(){
 
 // ---- 버리기 ----
 // 녹음 띠의 [버리기]: 띠는 바로 사라지고 마이크도 바로 끈다. 녹음기가 내놓는 마지막 조각까지 마저 올린 뒤(되돌리기로 살릴 수 있게,
-// 최대 DISCARD_DRAIN_MS) 서버에 버리기를 부른다. 시간 안에 못 올린 조각은 메모리에서 버린다. 전사·요약·초안은 하지 않는다.
+// 최대 DISCARD_DRAIN_MS) 서버에 버리기를 부른다. 시간 안에 못 올린 조각은 메모리에서 버린다.
 async function discardLive(){
   if(!active()||(!current&&state!=='suspended')||discarding)return;
   const sid=sessionId,holder=current,stops=[holder?.stopped,...rollingStops];
@@ -387,10 +347,10 @@ async function discardLive(){
   const wait=new Promise(r=>{timer=setTimeout(r,DISCARD_DRAIN_MS)});
   await Promise.race([Promise.all(stops).then(()=>drained()),wait]);
   clearTimeout(timer);
-  current=null;rollingStops=[];segments=[];clearTimeout(retryTimer);retryTimer=0;fails=0;stopReason='';doneTexts.clear();
+  current=null;rollingStops=[];segments=[];clearTimeout(retryTimer);retryTimer=0;fails=0;stopReason='';
   await discardSession(sid);
 }
-// 서버에 버리기(띠·'이어서 정리' 줄 공통) → 위쪽 작은 알림 '녹음을 버렸어요 [되돌리기]' 10초.
+// 서버에 버리기(띠·'끝나지 않은 녹음' 줄 공통) → 위쪽 작은 알림 '녹음을 버렸어요 [되돌리기]' 10초.
 async function discardSession(sid){
   discarding=true;paint();
   let ok=false;
@@ -418,262 +378,26 @@ function discardPending(id){
 }
 const allResumable=()=>{const r=resumables(pending,live,sessionId);return [...r.top,...r.old]};
 
-// 정리 흐름(멈추고 정리·이어서 정리·[다시] 공통). REC-서버정리(S49-2): 서버 작업(job_start)으로 맡기고 진행만 본다.
-// 화면을 닫거나 다른 앱으로 가도 서버가 끝까지 하고 폰 알림을 보낸다. 서버가 아직 이 길을 모르면 아래 화면 정리 길로 간다.
-async function finishSession(known=null){
-  if(!sessionId)return;
-  state='finishing';step='올림';errorText='';canRetry=false;note='';paint();
-  await serverFinish({start:{workspace_id:workspaceId||ws(),kind:'recording',session_id:sessionId}},known);
-}
-// [다시]: 서버 작업이 멈췄으면 그 작업을 멈춘 단계부터, 아니면 처음부터.
-function retryFinish(){
-  if(jobId){state='finishing';step='';errorText='';canRetry=false;paint();void serverFinish({jobId,retry:true});return}
-  void finishSession();
-}
-async function serverFinish(opts,known=null){
-  const mine=++watchEpoch;recheck=false;
-  let r;
-  try{
-    r=await watchServerJob({
-      call,sleep:sleepWake,alive:()=>mine===watchEpoch,hidden:()=>document.visibilityState==='hidden',
-      onProgress:job=>{jobId=job.id;step=STAGE_STEP[job.stage]||step;note=progressNote(job)||'화면을 닫아도 서버에서 계속 정리해요';paint()},
-    },opts);
-  }catch(e){
-    if(mine!==watchEpoch)return;
-    // REC-정리상태확인못함(S60-3): 서버가 거절한 이유(한도·준비 중·작업 없음 등)는 그 이유 글로, 잠깐 끊김만 '확인하지 못했어요'.
-    const f=requestFail(e);
-    console.warn('recording server finish failed',e?.status||'',f.code);
-    if(!jobId&&opts?.start?.kind==='attached'){fail(f.auto?'전사를 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.':f.text,false);return}
-    // 지켜볼 작업이 있으면 다시 보일 때·연결이 돌아올 때 저절로 다시 본다. 시작 답을 못 받았으면(작업 모름) 사람이 [다시].
-    fail(f.auto&&!jobId?OFFLINE_START_TEXT:f.text,f.retry);
-    recheck=f.auto&&!!jobId;
-    return;
-  }
-  if(r.kind==='gone')return;
-  if(r.kind==='unavailable'){
-    if(opts?.start?.kind==='attached'){fail('붙은 녹음 전사는 서버 준비가 끝나면 쓸 수 있어요.',false);return}
-    await finishOnScreen(known);return;
-  }
-  if(r.kind==='failed'){stoppedJob=r.job||null;fail(serverFailText(r.job?.error_code),serverCanRetry(r.job?.error_code));return}
-  // 결과 열기의 실패는 openServerResult가 띠 '정리 끝 [초안 열기]'에 이유와 함께 남긴다(상태 확인 실패로 뭉개지 않게 위 catch 밖에서 연다).
-  await openServerResult(r.job);
-}
-// 잠깐 끊겨 멈춘 띠: 화면이 다시 보이거나 연결이 돌아오면 그 작업을 다시 본다(다시 하기 job_retry가 아니라 읽기만).
-function recheckNow(){
-  wakeWatch();
-  if(state!=='error'||!recheck||!jobId||document.visibilityState==='hidden')return;
-  recheck=false;state='finishing';step='';errorText='';canRetry=false;note='화면을 닫아도 서버에서 계속 정리해요';paint();
-  void serverFinish({jobId});
-}
-// 서버가 끝낸 결과 → 사업 보고 › 회의 입력 창(전문·요약을 채운 채). 저장은 명진이 [사업 보고 저장](예외: 물음에서 [그 보고에 잇기] — 서버가 그 보고에 저장).
-// 회의자료 그 자리 전사(kind attached)는 그 회의 [수정] 창에 넣는다(meeting-round-detail.js fillTranscript).
-async function openServerResult(job){
-  if(job?.kind==='attached'){
-    try{
-      // REC-한회의로잇기 PR-5(설계 3-3절 (다)): 그 회의에 회의록 전문이 이미 있으면 [수정] 창에 넣기 전에 한 번 묻는다(물음·잇기의 주인은 meeting-join.js).
-      // [그 보고에 잇기]면 창 없이 서버가 그 회의에 이어 붙이고 띠는 바로 닫는다. 물음을 닫으면 결과는 띠 [초안 열기]에 남는다. 서버가 모르면 묻지 않음.
-      if(window.KPTUMeetingJoin?.ask){
-        readyJob=job;jobId='';state='ready';errorText='';paint();
-        const how=await window.KPTUMeetingJoin.ask(job);
-        if(how==='joined'){if(readyJob?.id===job.id){readyJob=null;state='idle';step='';note='';paint()}return}
-        if(how==='later')return;
-        if(state!=='ready'||readyJob?.id!==job.id)return;
-        state='finishing';
-      }
-      step='초안 열림';note='';paint();
-      const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
-      if(loader)await loader('meetings');
-      const ok=await window.KPTUMeetingRoundDetail?.fillTranscript?.(job.meeting_id,{text:job.transcript_text,draft:job.draft});
-      if(!ok)throw stopError('그 회의를 열지 못했어요. [초안 열기]를 다시 누르세요.',true);
-      void call('job_opened',{job_id:job.id}).catch(()=>{});
-      readyJob=null;jobId='';state='done';paint();
-      setTimeout(()=>{if(state==='done')closeBand()},8000);
-    }catch(e){console.warn('attached result open failed',e?.status||'',e?.code||'');readyJob=job;state='ready';errorText=e?.recText||OPEN_FAIL_TEXT;paint()}
-    return;
-  }
-  try{
-    step='초안 열림';note='';paint();
-    // 회의 시각 = 녹음을 시작한 때(이 창에서 녹음했으면 그 시각, 아니면 정리를 맡긴 때에서 녹음 길이만큼 앞).
-    const began=startedAt&&job.session_id===sessionId?startedAt:new Date((Date.parse(job.created_at)||Date.now())-(Number(job.seconds)||0)*1000).toISOString();
-    // REC-한회의로잇기 PR-3(설계 3-3절): 같은 날 녹음으로 쓴 보고가 있으면 열기 전에 한 번 묻는다(물음·잇기의 주인은 meeting-join.js, 묻는 동안 띠는 '정리 끝').
-    // [그 보고에 잇기]면 창 없이 서버가 뒤에서 그 보고에 저장하고 띠는 바로 닫는다(다음 녹음을 막지 않게). 물음을 닫으면 결과는 띠 [초안 열기]에 남는다.
-    // 서버가 잇기를 모르면(적용 전·옛 Edge) 묻지 않고 아래 지금 길.
-    if(window.KPTUMeetingJoin?.ask){
-      readyJob=job;jobId='';state='ready';errorText='';paint();
-      const how=await window.KPTUMeetingJoin.ask(job,{began});
-      if(how==='joined'){if(readyJob?.id===job.id){readyJob=null;state='idle';step='';note='';accum=0;runSince=0;paint()}pending=pending.filter(s=>s.session_id!==job.session_id);void loadPending(true);return}
-      if(how==='later')return;
-      if(state!=='ready'||readyJob?.id!==job.id)return; // 묻는 사이 띠를 닫았거나 다른 녹음을 시작함 — 결과는 서버에 '안 열림'으로 남는다
-      step='초안 열림';note='';state='finishing';paint();
-    }
-    // REC-한회의로잇기 PR-0: 쓰던 사업 보고 창을 두기로 하면 결과는 띠 [초안 열기]에 남는다(창은 그대로).
-    if(!await openEntry(began,entryHooks(job))){readyJob=job;jobId='';state='ready';errorText='';paint();return}
-    const draft=window.KPTUMeetingTranscriptDraft;
-    if(!draft?.fillResult)throw stopError('초안 칸을 찾지 못했어요. [초안 열기]를 다시 누르세요.',true);
-    const minutes=Math.round((Number(job.seconds)||elapsed()/1000)/60);
-    draft.fillResult({text:job.transcript_text,draft:job.draft,jobs:job.jobs,name:`녹음${minutes?` · ${minutes}분`:''}`});
-    readyJob=null;jobId='';state='done';paint();
-    setTimeout(()=>{if(state==='done')closeBand()},8000);
-    pending=pending.filter(s=>s.session_id!==job.session_id);
-    void loadPending(true);
-  }catch(e){
-    console.warn('recording open result failed',e?.status||'',e?.code||'');
-    readyJob=job;state='ready';errorText=e?.recText||OPEN_FAIL_TEXT;paint();
-  }
-}
-// 입력 창을 연다. 쓰던 사업 보고 창을 두기로 했으면 false(그 창은 그대로, team.js settleOpenEntry).
-async function openEntry(at,hooks={}){
-  const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
-  if(loader)await loader('meetings');
-  const entry=window.KPTUReportEntry;
-  if(!entry?.open)throw stopError('사업 보고 화면을 열지 못했어요. [초안 열기]를 다시 누르세요.',true);
-  const opened=await entry.open({kind:'meeting',at:seoulLocal(at||startedAt||new Date().toISOString()),trigger:$('#reportRecordBtn')||document.activeElement,...hooks});
-  if(opened===false){if(entryKept())return false;throw stopError('사업 보고 창을 열지 못했어요. [초안 열기]를 다시 누르세요.',true)}
-  return true;
-}
-const entryKept=()=>{const m=$('#meetingModal');return !!m&&!m.classList.contains('hidden')};
-const KEEP_NOTE='두면 새 녹음 정리 결과는 맨 위 [초안 열기]에 남아요.';
-// REC-한회의로잇기 PR-0(설계 docs/design/rec-join.md 2-3절): 녹음 정리 결과의 '열었음'(job_opened)은 창을 열 때가 아니라
-// 사업 보고를 저장했을 때(그 보고 id와 함께 — 서버가 '이 녹음으로 쓴 보고'를 안다) 또는 사람이 쓰던 글을 버리고 새로 열기를 골랐을 때만 보낸다.
-// 저장하지 않고 닫은 초안은 '열었음'이 아니므로 띠 [초안 열기]로 다시 연다(띠가 다른 녹음을 하고 있으면 다음에 앱을 열 때 띠에 뜬다).
-function entryHooks(job){
-  return {
-    keepNote:KEEP_NOTE,
-    closeNote:'녹음 정리 결과는 맨 위 [초안 열기]로 다시 열 수 있어요.',
-    onSaved:meeting=>{markOpened(job,meeting?.id)},
-    onClosed:({reason}={})=>{if(reason==='replaced')markOpened(job);else backToBand(job)},
-  };
-}
-function markOpened(job,meetingId=''){
-  if(!job?.id)return;
-  void call('job_opened',{job_id:job.id,...(meetingId?{meeting_id:String(meetingId)}:{})}).catch(()=>{});
-  if(state==='ready'&&readyJob?.id===job.id)closeBand();
-}
-function backToBand(job){
-  if(!job?.id)return;
-  if(state==='idle'||state==='done'||(state==='ready'&&(!readyJob||readyJob.id===job.id))){readyJob=job;jobId='';step='';note='';errorText='';state='ready';paint()}
-}
-// 띠 [초안 열기]: 끝난 작업의 결과(전문·요약)를 읽어 입력 창을 연다.
-async function openReady(){
-  const id=readyJob?.id;if(!id)return;
-  try{const r=await call('job_read',{job_id:id},{timeoutMs:30000});if(r?.job?.status==='done')await openServerResult(r.job)}
-  catch(e){console.warn('recording ready read failed',e?.status||'');notify('정리 결과를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',{error:true})}
-}
-// 정리 끝 띠 [삭제](REC-초안버리기, S60-20): 한 번 묻고 → 서버에 '버림' 표시(job_discard, 녹음 소리·전사 글은 그대로) → 띠를 닫고
-// 그 결과의 폰 알림도 '열었음'으로(APP-알림숫자지우기와 같은 길: 서버 기록 + 폰 앱이면 알림창의 그 알림 지우기) → 작은 알림 [되돌리기](2초).
-// 버린 결과는 job_list에서 빠지므로 앱을 다시 열어도·다른 기기에서도 띠에 뜨지 않는다. [되돌리기]는 표시만 빼고 띠를 다시 그린다.
-// 한 회의로 잇기 물음이 열려 있었으면 이 물음이 그 자리를 대신한다(물음은 하나만, 잇기 물음은 '나중에'로 끝남).
-async function dropReady(btn){
-  const job=readyJob;
-  if(state!=='ready'||!job?.id||droppingJob)return;
-  const ok=await askConfirm(btn?.isConnected?btn:$('#recBand'),{text:DISCARD_ASK.text,note:DISCARD_ASK.note,ok:DISCARD_ASK.ok,cancel:DISCARD_ASK.cancel,danger:true});
-  if(!ok||state!=='ready'||readyJob?.id!==job.id||droppingJob)return;
-  droppingJob=job.id;paint();
-  try{await call('job_discard',{job_id:job.id})}
-  catch(e){
-    console.warn('recording draft discard failed',e?.status||'',e?.code||'');
-    notify('초안을 삭제하지 못했어요. 잠시 뒤 다시 눌러 주세요.',{error:true});
-    return;
-  }finally{droppingJob='';paint()}
-  if(state==='ready'&&readyJob?.id===job.id)closeBand();
-  const item=meetingDoneNotice(job);
-  if(item)void import('./phone-push-settings.js').then(m=>m.markNoticeOpened(rt(),item)).catch(()=>{});
-  notify(discardDoneText(job),{label:'녹음 초안 삭제',undo:async()=>{
-    try{await call('job_restore',{job_id:job.id})}
-    catch(e){console.warn('recording draft restore failed',e?.status||'',e?.code||'');return {status:'failed',message:'초안을 되돌리지 못했어요.'}}
-    if(state==='idle'){readyJob=job;jobId='';step='';note='';errorText='';state='ready';paint()}
-    return {status:'restored'};
-  }});
-}
-// 앱을 다시 열 때: 서버 정리 중인 녹음은 띠를 이어 그리고, 끝났는데 아직 열지 않은 것은 '정리 끝 [초안 열기]'.
-// 폰 알림을 눌러 연 주소(?rec_job=…)면 그 결과를 바로 연다.
-async function loadServerJobs(tries=0){
-  const id=ws();
-  if(!id||!rt()?.api){if(tries<5)setTimeout(()=>void loadServerJobs(tries+1),1000);return}
-  if(jobsLoadedFor===id)return;
-  jobsLoadedFor=id;
-  let wanted='';
-  try{const u=new URL(location.href);wanted=u.searchParams.get('rec_job')||'';if(wanted){u.searchParams.delete('rec_job');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}
-  let jobs=[];
-  try{jobs=(await call('job_list',{workspace_id:id}))?.jobs||[]}catch{return}
-  // 버린 초안은 서버가 이미 뺀다. 닫은 멈춤(discarded 실패)은 띠가 아니라 녹음 줄 [다시]로만(REC-멈춤띠계속뜸).
-  closedStops=jobs.filter(j=>j?.discarded&&j.status==='failed');
-  jobs=jobs.filter(j=>!j?.discarded);
-  if(state!=='idle'){paint();return}
-  const live=jobs.find(j=>j.status==='queued'||j.status==='running');
-  const done=jobs.find(j=>j.status==='done'&&(!wanted||j.id===wanted))||jobs.find(j=>j.status==='done');
-  if(wanted&&done?.id===wanted){readyJob=done;state='ready';errorText='';paint();await openReady();return}
-  if(live){jobId=live.id;sessionId=live.session_id||'';state='finishing';step=STAGE_STEP[live.stage]||'올림';note='화면을 닫아도 서버에서 계속 정리해요';paint();void serverFinish({jobId:live.id});return}
-  if(done){readyJob=done;state='ready';errorText='';paint();return}
-  const failed=jobs.find(j=>j.status==='failed');
-  if(failed){jobId=failed.id;stoppedJob=failed;sessionId=failed.session_id||'';fail(serverFailText(failed.error_code),serverCanRetry(failed.error_code));return}
-  paint();
-}
-
-// 서버가 서버 정리를 아직 모를 때(옛 Edge·표 적용 전)의 화면 정리 길(S49-2 전과 같음).
-async function finishOnScreen(known=null){
-  if(!sessionId)return;
+// 저장 흐름(멈추고 저장·이어서 저장·[다시] 공통): rec_finish(합치기) → rec_save(자료실 '회의 녹음' 폴더, 회의가 있으면 그 회의 자료로도).
+// 실패하면 멈춤 띠 + [다시](녹음은 서버 Drive에 그대로라 다시 불러도 같은 파일·같은 자료 행 하나).
+async function finishSession(){
+  if(!sessionId||active()||state==='finishing')return;
   state='finishing';step='올림';errorText='';canRetry=false;paint();
   try{
-    let res=null;
-    for(let i=0;i<30;i++){
-      res=await call('rec_finish',{session_id:sessionId},{timeoutMs:260000});
-      if(!res?.more)break;
-    }
-    const status=new Map((known?.segments||[]).map(s=>[s.segment_no,s.job_status]));
-    const plan=transcribePlan((res?.segments||[]).map(s=>({...s,job_status:s.job_status??status.get(s.segment_no)??null})));
-    const todo=plan.filter(p=>p.action==='transcribe');
-    if(!todo.length&&!plan.some(p=>p.action==='gone'))throw stopError('녹음에서 정리할 소리를 찾지 못했어요.',false);
-    step='전사';
-    const parts=[],jobs=[];
-    let n=0;
-    for(const p of plan){
-      if(p.action==='skip'){parts.push({no:p.no,seconds:p.seconds,text:''});continue}
-      if(p.action==='gone'&&!doneTexts.has(p.job)){parts.push({no:p.no,seconds:p.seconds,text:null});jobs.push(p.job);continue}
-      n++;
-      if(!doneTexts.has(p.job)){
-        note=todo.length>1?`${n}/${todo.length}`:'';paint();
-        const done=await call('transcribe',{job_id:p.job},{timeoutMs:420000});
-        doneTexts.set(p.job,cleanTranscript(String(done?.text||'')));
-      }
-      parts.push({no:p.no,seconds:p.seconds,text:doneTexts.get(p.job)});
-      jobs.push(p.job);
-    }
-    note='';
-    const text=joinSegmentTexts(parts);
-    if(!text.replace(/^―.*―$/gm,'').trim())throw stopError(transcribeFailText('empty_transcript'),false);
-    step='요약';paint();
-    await openDraft(text,jobs);
-    step='초안 열림';state='done';paint();
-    setTimeout(()=>{if(state==='done')closeBand()},8000);
+    const r=await saveRecording(call,sessionId,{meetingId,onStep:s=>{step=s;paint()}});
+    savedFiles=r.files;note='';step='';state='saved';
     pending=pending.filter(s=>s.session_id!==sessionId);
+    paint();
+    notify(`자료실 '${r.folder}' 폴더에 저장했어요`);
     void loadPending(true);
   }catch(e){
-    console.warn('recording finish failed',e?.status||'',e?.code||'');
-    const text=e?.recText||(e?.code==='session_required'?'로그인이 만료됐어요. 다시 로그인한 뒤 [이어서 정리]를 눌러 주세요.':step==='전사'?transcribeFailText(e):step==='요약'?'초안 창을 열지 못했어요. [다시]를 누르세요.':'녹음을 합치지 못했어요. 소리는 Drive에 남아 있어요.');
-    fail(text,e?.recRetry!==false);
+    console.warn('recording save failed',e?.status||'',e?.code||'');
+    fail(saveFailText(e,step),e?.code!=='no_recording');
   }
 }
-function stopError(text,retry){const e=new Error('');e.recText=text;e.recRetry=retry;return e}
-function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&(!!sessionId||!!jobId);recheck=false;step='';note='';clearInterval(ticker);paint()}
+function fail(text,retry){state='error';errorText=text;canRetry=!!retry&&!!sessionId;step='';note='';clearInterval(ticker);paint()}
 
-// 사업 보고 › 회의 입력 창을 열고 기존 [녹음 요약하기] 흐름에 글을 넣는다(meeting-transcript-draft.js).
-// 쓰던 사업 보고 창을 두기로 하면 멈춤 띠 + [다시](이미 전사한 구간 글은 이 창 메모리에 있어 다시 전사하지 않음).
-const KEPT_TEXT='쓰던 사업 보고 창을 그대로 뒀어요. 저장하거나 닫은 뒤 [다시]를 누르세요.';
-async function openDraft(text,jobs){
-  const loader=window.KPTUDeferredFeatures?.loadView||window.KPTUViewLoader?.load;
-  if(loader)await loader('meetings');
-  const entry=window.KPTUReportEntry;
-  if(!entry?.open)throw stopError('사업 보고 화면을 열지 못했어요. [다시]를 누르세요.',true);
-  const opened=await entry.open({kind:'meeting',at:seoulLocal(startedAt),trigger:$('#reportRecordBtn')||document.activeElement,keepNote:'두면 이 녹음은 [다시]로 정리 결과를 열 수 있어요.'});
-  if(opened===false)throw stopError(entryKept()?KEPT_TEXT:'사업 보고 창을 열지 못했어요. [다시]를 누르세요.',true);
-  const draft=window.KPTUMeetingTranscriptDraft;
-  if(!draft?.fill)throw stopError('초안 칸을 찾지 못했어요. [다시]를 누르세요.',true);
-  const minutes=Math.round(elapsed()/60000);
-  await draft.fill({text,jobs,name:`노트북 녹음${minutes?` · ${minutes}분`:''}`});
-}
-
-// ---- 이어서 정리 ----
+// ---- 이어서 저장 ----
 const onMeetings=()=>{const v=window.KPTURouter?.current;return v==='meetings'||v==='reports'};
 async function loadPending(force=false,tries=0){
   const id=ws();
@@ -719,10 +443,10 @@ function continueRecording(id){
 function resume(id){
   if(active()||state==='finishing')return;
   const session=allResumable().find(s=>s.session_id===id);if(!session)return;
-  sessionId=session.session_id;startedAt=session.started_at||new Date().toISOString();workspaceId=ws();
-  accum=(Number(session.duration_sec)||0)*1000;runSince=0;doneTexts.clear();
+  sessionId=session.session_id;startedAt=session.started_at||new Date().toISOString();workspaceId=ws();meetingId='';
+  accum=(Number(session.duration_sec)||0)*1000;runSince=0;
   paint();
-  void finishSession(session);
+  void finishSession();
 }
 
 // ---- 연결 ----
@@ -735,61 +459,28 @@ document.addEventListener('click',e=>{
   const r=e.target.closest('[data-rec-resume]');
   if(r){e.preventDefault();askTakeOver('resume',r.dataset.recResume);return}
   const d=e.target.closest('[data-rec-discard]');
-  if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard);return}
-  const st=e.target.closest('[data-rec-stopped]');
-  if(st){e.preventDefault();retryStopped(st.dataset.recStopped)}
+  if(d){e.preventDefault();askTakeOver('discard',d.dataset.recDiscard)}
 });
 // 녹음 중(아직 올리지 못한 조각이 있을 때 포함)에만 창 닫기 경고.
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')onHiddenFlush();else{onVisibleCheck();recheckNow()}});
-window.addEventListener('online',recheckNow);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')onHiddenFlush();else onVisibleCheck()});
 window.addEventListener('pagehide',onHiddenFlush);
 window.addEventListener('beforeunload',e=>{
   if(state==='suspended'&&!queuedPieces(segments))return;
-  if(!(active()||(state==='finishing'&&step==='올림'&&!jobId)))return;
+  if(!(active()||(state==='finishing'&&step==='올림')))return;
   e.preventDefault();e.returnValue='';
 });
 window.addEventListener('kptu:session-changed',e=>{
-  if(e.detail?.session){void loadServerJobs();return}
-  // 로그아웃: 녹음을 멈추고 메모리의 조각을 버린다(서버에 올린 것은 다음 로그인 때 '이어서 정리').
+  if(e.detail?.session)return;
+  // 로그아웃: 녹음을 멈추고 메모리의 조각을 버린다(서버에 올린 것은 다음 로그인 때 '이어서 저장').
   if(current){current.wanted=true;try{current.rec.stop()}catch{}}
   current=null;releaseStream();clearInterval(ticker);clearTimeout(retryTimer);retryTimer=0;segments=[];pending=[];live=[];clearTimeout(livePollTimer);pendingFor='';
-  state='idle';sessionId='';jobId='';readyJob=null;stoppedJob=null;closedStops=[];watchEpoch++;jobsLoadedFor='';paint();
+  state='idle';sessionId='';savedFiles=[];meetingId='';paint();
 });
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
 PC?.addEventListener?.('change',()=>{paintButton();paint();if(PC.matches&&onMeetings())void loadPending()});
 
-// MTG-첨부녹음전사(S49-2): 회의 결과 창의 회의자료 소리 파일 ⋯ [전사해서 결과에 넣기]. 서버 정리(kind attached)로 맡기고 같은 띠로 진행을 보인다.
-// 같은 파일을 전에 정리했으면 서버가 앞 결과를 바로 돌려준다(비용 없음).
-function transcribeAttached({documentId='',meetingId=''}={}){
-  if(!documentId)return false;
-  if(active()||state==='finishing'||discarding){notify('다른 녹음을 정리하는 중이에요. 끝난 뒤 다시 눌러 주세요.',{error:true});return false}
-  const id=ws();if(!id||!rt()?.api){notify('로그인 상태를 확인하지 못했어요.',{error:true});return false}
-  jobId='';sessionId='';readyJob=null;accum=0;runSince=0;
-  state='finishing';step='전사';errorText='';canRetry=false;note='화면을 닫아도 서버에서 계속 정리해요';paint();
-  void serverFinish({start:{workspace_id:id,kind:'attached',document_id:documentId}});
-  return true;
-}
-// 폰 녹음(phone-recorder.js)이 서버에 정리를 맡긴 뒤 진행 띠를 넘긴다(띠·알림·[초안 열기]의 주인은 이 모듈 하나).
-function watch(job){
-  if(!job?.id||active()||discarding)return false;
-  jobId=job.id;sessionId=job.session_id||sessionId;readyJob=null;
-  state='finishing';step=STAGE_STEP[job.stage]||'올림';note='화면을 닫아도 서버에서 계속 정리해요';errorText='';canRetry=false;paint();
-  void serverFinish({jobId:job.id});
-  return true;
-}
-// REC-한회의로잇기 PR-3: 잇지 못했거나 통째로 되돌린 녹음 결과를 띠 '정리 끝 · [초안 열기]'로 돌린다(open이면 바로 연다 — meeting-join.js [새 보고로 열기]).
-// 띠가 녹음·정리 중이거나 다른 결과를 들고 있으면 건드리지 않고 false(그 결과는 서버에 '안 열림'으로 남아 다음에 앱을 열 때 띠에 뜬다).
-function ready(job,{open=false}={}){
-  if(!job?.id||active()||state==='finishing'||discarding)return false;
-  backToBand(job);
-  if(state!=='ready'||readyJob?.id!==job.id)return false;
-  if(open)void openReady();
-  return true;
-}
-window.KPTUMeetingRecorder={state:()=>state,mime:MIME,watch,transcribeAttached,ready};
+window.KPTUMeetingRecorder={state:()=>state,mime:MIME,start:(opts={})=>start(null,opts),files:()=>savedFiles.map(f=>({...f}))};
 paint();
-// 첫 화면 요청과 겹치지 않게 조금 뒤에 한 번 묻는다(서버 정리 중·끝난 녹음이 있을 때만 띠가 뜬다).
-setTimeout(()=>void loadServerJobs(),2500);
-// 끝나지 않은 녹음 띠는 어느 화면에서든 보이므로(새로고침 직후 PC에서 바로 이어 녹음), 서버 정리 확인 뒤 한 번 묻는다. 폰 폭에서는 부르지 않는다.
+// 끝나지 않은 녹음 띠는 어느 화면에서든 보이므로(새로고침 직후 PC에서 바로 이어 녹음), 첫 화면 요청과 겹치지 않게 조금 뒤 한 번 묻는다. 폰 폭에서는 부르지 않는다.
 setTimeout(()=>void loadPending(),3500);
 })();
