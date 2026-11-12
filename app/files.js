@@ -15,7 +15,7 @@ import {SOURCES, SOURCE_NAME, SHELVES, SHELF_NAME, SYNC_EVERY_MS, SHELF_LIMIT, F
   starWant, starLabel, applyStars, boxRows, MEDIA_PREVIEW_MAX, HWP_PREVIEW_MAX, HWP_PREVIEW_PAGES, mediaMime, stepFile, pathCopyText, treeAcrossBig, treeAcrossTooBigText, treeBigAsk, treeDoneText, TREE_MOVE_NOTE,
   TREE_DEV_MOVE_NOTE, treeDevKeptText, treeDevDoneText, LIB_TREE_MAX, LIB_TREE_BYTES, libTreeTooBigText, UPLOAD_MAX_BYTES} from './files-model.mjs';
 // FOLDER-나무새기준 ②(S51-12): 폰 나무는 노트·자료실·사진과 같은 공용 줄·상자, 두 손가락 그 폴더만.
-import {ftKeepFocus, ftBindTreeArrows, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, createLeafWait} from './folder-tree-press.mjs';
+import {ftKeepPlace, ftBindTreeArrows, FOLDER_ENTER_LABEL, folderPressAction, FOLDER_PRESS_ENTER, createLeafWait} from './folder-tree-press.mjs';
 import {ftFolderRowHtml, ftMoreRowHtml, ftBoxHtml, ftMoreButtonHtml, ftFocusHtml, ftFocusCount, FT_PREVIEW} from './folder-tree-ui.mjs';
 import {boxShut, toggleBoxShut} from './box-fold.js';
 import {riseFromRow, sinkToRow, topOf} from './folder-focus-motion.js';
@@ -837,7 +837,7 @@ function paintPaneTreeNow(p) {
   const pt = inPane(p, '[data-fx-ptree]');
   if (!pt) return;
   const on = two() && !WIDE.matches && p.drop;
-  pt.hidden = !on; pt.innerHTML = on ? treeHtml(p) : '';
+  ftKeepPlace(pt, () => { pt.hidden = !on; pt.innerHTML = on ? treeHtml(p) : ''; });
 }
 const syncNow = () => ({label: syncLabel(state.status, state.syncedAt, Date.now(), SOURCES), scanning: SOURCES.some(x => state.status?.[x]?.scanning), shown: !!state.status && connected().length > 0});
 const syncTreeHtml = () => { const sn = syncNow(); return sn.shown ? `<button type="button" class="fx-sync fx-sync-tree" data-fx-sync title="${esc(sn.label.title)}" data-fx-sync-state="${esc(sn.label.state)}" aria-busy="${state.syncing || sn.scanning}"${state.syncing ? ' disabled' : ''}>${esc(sn.label.text)}</button>` : ''; };
@@ -1056,7 +1056,7 @@ function paintMainTree() { return keepFxMenus(() => paintMainTreeNow()); }
 function paintMainTreeNow() {
   const tree = $('[data-fx-tree]');
   if (!tree) return;
-  ftKeepFocus(tree, () => paintMainTreeBody(tree));
+  ftKeepPlace(tree, () => paintMainTreeBody(tree));
 }
 function paintMainTreeBody(tree) {
   // 폰 첫 화면 나무: 상태를 읽는 동안 회색 빈 줄, 못 읽으면 까닭 + [다시], 켜진 출처가 없으면 안내 한 줄(연결된 클라우드가 없음은 위 알림 줄)
@@ -2400,9 +2400,10 @@ function destNameOf(dest) {
   for (const list of state.children.values()) { const f = list.find(r => r.source === dest.source && r.item_id === dest.parent); if (f) return destName(dest, f.name); }
   return destName(dest, '폴더');
 }
-function paintDest() {
-  const box = $('[data-fx-dest]'), dim = $('[data-fx-dim]');
-  if (!box) return;
+// UI-폴더펼치면위로(S61-7): 받을 곳 창은 통째로 다시 그린다 — 나무를 내려 둔 자리는 공용 부품(ftKeepPlace)이 지킨다.
+function paintDest() { const box = $('[data-fx-dest]'); return box ? ftKeepPlace(box, () => paintDestNow(box)) : undefined; }
+function paintDestNow(box) {
+  const dim = $('[data-fx-dim]');
   const x = state.xfer;
   if (!x) { box.hidden = true; box.innerHTML = ''; if (dim) dim.hidden = true; root.classList.remove('fx-dest-open'); return; }
   box.hidden = false; if (dim) dim.hidden = false; root.classList.add('fx-dest-open');
