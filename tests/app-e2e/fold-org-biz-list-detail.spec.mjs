@@ -155,7 +155,7 @@ const bizPane=page=>bizList(page).locator('.mcol-result');
 const shownReport=page=>bizPane(page).locator('#meetingRoundDetailModal.mrd-docked');
 
 for(const [width,height] of FOLD){
- test(`폴드 ${width}: 사업 보고 [회의] — '날짜·이름 목록 | 결과' 두 칸, 줄을 누르면 같은 칸, 회의명 거르기·주 넘기기 그대로, 뒤로 = 앞 화면`,async({page})=>{
+ test(`폴드 ${width}: 사업 보고 [회의] — '날짜·이름 목록 | 결과' 두 칸, 줄을 누르면 같은 칸·사람이 고른 줄은 뒤로 한 칸(NAV-PC뒤로직전2), 회의명 거르기·주 넘기기 그대로, 뒤로 = 직전 보고 → 앞 화면`,async({page})=>{
   const {errors}=await bizFixture(page,width,height,{start:'home'});
   // 두 칸(세 칸의 종류 칸 없음). 가장 최근 보고(m-c 11.11)가 오른쪽 결과 칸에.
   await expect(bizList(page).locator('.mcol-layout.mcol-two')).toBeVisible();
@@ -182,7 +182,8 @@ for(const [width,height] of FOLD){
   if(width<=760){await expect(bizPane(page)).toHaveClass(/kptu-follow-narrow/);await expect.poll(async()=>(await box(bizPane(page))).bottom-await dockTop(page)).toBeLessThanOrEqual(0)}
   // 칸에 붙은 보고는 창이 아니라 뒤로가기 한 칸(창 기록)을 쌓지 않는다(mobile-modal-history.js role=region).
   expect(await page.evaluate(()=>[history.state?.kptuOverlay??null,document.querySelector('#meetingRoundDetailModal').dataset.kptuHistoryOpen??null])).toEqual([null,null]);
-  // 다른 줄: 같은 칸에서 그 보고로 바뀌고 뒤로가기 기록이 늘지 않는다.
+  // 다른 줄: 같은 칸에서 그 보고로 바뀐다. 사람이 고른 보고는 뒤로가기 한 칸(NAV-PC뒤로직전2, 명진 11/11 15:37 결정) —
+  // 처음 고른 줄은 화면 칸에 적히고(스스로 연 m-c는 기록 아님) 그다음 줄부터 한 칸씩 쌓인다(app-router.js pick).
   const length=await page.evaluate(()=>history.length);
   await bizRow(page,'m-b').click();
   await expect(bizRow(page,'m-b')).toHaveAttribute('aria-current','true');
@@ -191,7 +192,7 @@ for(const [width,height] of FOLD){
   await bizRow(page,'m-a').click();
   await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id','m-a');
   await expect(shownReport(page)).toHaveAttribute('role','region');
-  expect(await page.evaluate(()=>history.length)).toBe(length);
+  expect(await page.evaluate(()=>history.length)).toBe(length+1);
   // 회의명 거르기: 위 [종류 ▾] 상자에 '회의명' 묶음이 있고(폴드는 종류 칸이 없으므로), 고르면 목록이 그 회의만.
   const kind=page.locator('#reportKindSelect');
   await expect(kind.locator('option',{hasText:'합성 집행위'})).toHaveCount(1);
@@ -215,7 +216,9 @@ for(const [width,height] of FOLD){
   await next.click();
   await expect(bizList(page).locator('[data-meeting-round]')).toHaveCount(3);
   expect(await sideways(page)).toBeLessThanOrEqual(1);
-  // 뒤로가기 = 앞 화면(홈). 결과 칸은 창이 아니라 닫힐 것이 없다.
+  // 뒤로가기 = 직전에 고른 보고(m-b), 한 번 더 = 앞 화면(홈). 결과 칸은 창이 아니라 닫힐 것이 없다.
+  await page.goBack();
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('data-meeting-id','m-b');
   await page.goBack();
   await expect.poll(()=>current(page)).toBe('home');
   expect(errors).toEqual([]);
