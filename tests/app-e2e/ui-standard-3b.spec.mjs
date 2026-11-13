@@ -122,7 +122,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
   const button=page.locator(id);await expect(button).toBeVisible();expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
   if(text!==null)await expect(button).toHaveText(text);
  }
- await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
+ await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
 
@@ -178,10 +178,10 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  expect(errors).toEqual([]);
 });
 
-test('담당조직: 폰에도 추가 버튼·글자 링크를 그리지 않음(UI-조직추가숨김)',async({page})=>{
+test('담당조직: 폰에도 맨 위 [+ 담당조직] 하나, 옛 글자 링크는 없음(MULTI-다른담당자맞춤 ①)',async({page})=>{
  const {errors}=await boot(page,390);
  await page.locator('.mobile-tabs [data-view="team"]').click();await loaded(page,'team');
- await expect(page.locator('#soAddOrg,#soAddOrgLink,.so-add-link')).toHaveCount(0);
+ await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);
  await expect(page.locator('#soOrganizationList')).toBeVisible();
  expect(errors).toEqual([]);
 });

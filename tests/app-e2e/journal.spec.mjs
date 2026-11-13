@@ -1569,6 +1569,8 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
  expect(row().draft.rules.retired.map(x=>x.text)).toEqual(['가상 규칙 하나','가상 규칙 후보']);
  await expect(learn.locator('[data-journal-learn-retired]')).toHaveCount(0); // 뺀 규칙 목록 두지 않기(S48-33, 데이터는 retired 에 그대로)
+ await expect(learn).not.toContainText('다시 후보로');await expect(learn).not.toContainText('뺀 규칙'); // 명진 11/13 19:03: 뺀 규칙 접힘·[다시 후보로] 없음(처리 코드째 삭제)
+ {const vp=page.viewportSize();for(const w of [412,1280]){await page.setViewportSize({width:w,height:900});await learn.screenshot({path:`docs/design/screens/s61-42/4-learn-no-retired-${w}.png`})}await page.setViewportSize(vp)} // 폰 412·PC 1280 사진
  // ③ 개선 제안 묶음 [+ 추가]: 내 개선 생각 한 줄 → 동작 기록('add', 손) → '만들기로 보낸 것'에 '손'으로.
  await learn.locator('[data-learn-idea-add]').click();
  const idea=learn.locator('[data-learn-idea-input]');
@@ -2762,6 +2764,44 @@ for(const width of [390,884,1440])test(`[주간 정리] 2. 1) 사업요약(전�
   ['wb1','사업영역 나 › 세부 과제 나-1','',['가상 나-1 새 상황']],
  ]);
  expect(snaps[1].rows.some(r=>r.section==='org')).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// WEEKLY-사업영역묶음 ①·①-b(시안 docs/design/mockups/weekly-tidy.html ②): 팀 양식은 첫 칸 = 묶음, 둘째 칸 = 내 사업영역. 한글 파일은 양식 둘째 칸 이름으로 내 줄을 찾아
+// 그 칸을 채우고(세부 과제는 '◦ 이름' + 줄), 표 끝에 새 줄을 만들지 않는다. 양식에 없는 사업영역만 확정 줄 아래 한 줄에서 칸을 한 번 골라 그 주 draft(서버)에 저장. 이름·글은 합성 값.
+for(const width of [412,1280])test(`[주간 정리] 2. 1) 한글 파일: 양식 둘째 칸으로 내 줄 찾기, 양식에 없는 사업영역은 칸 한 번 고르기 ${width}`,async({page})=>{
+ const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['가상 빈 자리'],progress:[],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
+ const f=await weekLinesFixture(page,{width,hwpx:true,team});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text:'',updated_at:'2026-11-10T00:00:00Z'});
+ await installBusinessNowServer(page,{now:[now('n1','wa1','2026-11-09','가상 가-1 상황'),now('n2','wa2','2026-11-16','가상 가-2 상황'),now('n3','wb1','2026-11-16','가상 나-1 상황')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const box=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box]');
+ await expect(box.locator('.biz-sum-table tbody tr')).toHaveCount(3);
+ const grid=report=>report.summary.map(a=>[a.area.join(' '),a.rows.map(r=>[(r.task??[]).join(' '),r.progress])]);
+ const [d1]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ expect(grid((await savedReport(d1)).report)).toEqual([
+  ['가상 묶음',[['사업영역 가',['◦ 세부 과제 가-1','가상 가-1 상황','◦ 세부 과제 가-2','가상 가-2 상황']],['가상 빈 자리',[]],['남의 칸',[]]]],
+  ['사업영역 나',[['',[]],['세부 과제 나-1',['가상 나-1 상황']]]], // 양식에 없는 사업영역 = 아직 표 끝 새 줄(고르기 전)
+ ]);
+ // 확정 줄 아래 한 줄: 양식에 자리가 없는 사업영역만, 칸 고르기(내 양식 줄만 — 남의 칸 없음).
+ const place=page.locator('#journalRoot [data-hwpx-place]');
+ await expect(place.locator('[data-hwpx-place-row]')).toHaveCount(1);
+ await expect(place).toContainText('사업영역 나: 양식에 자리가 없어 표 끝 새 줄로 넣었어요.');
+ await expect(place.locator('select option')).toHaveText(['칸 선택','가상 묶음 › 사업영역 가','가상 묶음 › 가상 빈 자리','표 끝 새 줄로 두기']);
+ const before=f.exec.calls.filter(c=>c.method==='PATCH'||c.method==='POST').length;
+ await place.locator('select').selectOption({label:'가상 묶음 › 가상 빈 자리'});
+ await expect(place).toBeHidden();
+ // 고른 자리는 그 주 draft(서버)에 저장된다(앞서 돌던 임시저장이 있으면 그다음 쓰기에 실림).
+ await expect.poll(()=>f.exec.calls.filter(c=>c.method==='PATCH'||c.method==='POST').slice(before).some(c=>JSON.stringify(c).includes('"places"')),{timeout:15000}).toBe(true);
+ const [d2]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ expect(grid((await savedReport(d2)).report)).toEqual([
+  ['가상 묶음',[['사업영역 가',['◦ 세부 과제 가-1','가상 가-1 상황','◦ 세부 과제 가-2','가상 가-2 상황']],['가상 빈 자리',['◦ 세부 과제 나-1','가상 나-1 상황']],['남의 칸',[]]]],
+ ]);
+ await expect(place).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
