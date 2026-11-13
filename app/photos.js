@@ -1933,8 +1933,9 @@ function deleteDirect(anchor, all) {
   const b = {taken:t.taken, run, tab:t0, timer:setTimeout(() => commitBatch(), UNDO_MS)};
   batch = b;
   const more = picked.length > ids.length ? ` (한 번에 ${SELECT_MAX}장까지)` : '';
-  notify(`${t.taken.length}장을 휴지통으로 옮겼어요${more}`, {ms:UNDO_MS, record:false, undo:() => {
-    if (batch !== b) return;
+  // FILE-옮긴뒤CtrlZ: [되돌리기]와 Ctrl+Z가 같은 undo 하나. 이미 원드라이브 휴지통으로 보낸 뒤면 되돌렸다고 하지 않는다.
+  notify(`${t.taken.length}장을 휴지통으로 옮겼어요${more}`, {ms:UNDO_MS, label:`휴지통으로 옮기기 ${t.taken.length}장`, undo:() => {
+    if (batch !== b) return {status:'failed', message:'이미 원드라이브 휴지통으로 보냈어요. [휴지통]에서 되살려 주세요.'};
     batch = null; clearTimeout(b.timer); setListFor(b.tab, putItems(listFor(b.tab), b.taken)); if (current(b.run) && tab === b.tab) repaintShown();
   }});
 }
@@ -2691,8 +2692,9 @@ async function moveFolder(id, parentId) {
   busy = true;
   try {
     await odFolderMove(rt, id, parentId); await loadTree(true); openSet.add(parentId);
-    notify(`'${f.name}' 폴더를 옮겼어요`, {ms:UNDO_MS, record:false, undo:async () => {
-      try { await odFolderMove(rt, id, from); await loadTree(true); if (tab === 'folders') renderFolders(); } catch (error) { folderFail(error, '되돌리지 못했어요'); }
+    notify(`'${f.name}' 폴더를 옮겼어요`, {ms:UNDO_MS, label:`폴더 옮기기 '${f.name}'`, undo:async () => {
+      try { await odFolderMove(rt, id, from); await loadTree(true); if (tab === 'folders') renderFolders(); return {status:'restored'}; }
+      catch (error) { return {status:'failed', message:folderErrorText(error?.message) || `되돌리지 못했어요: ${odErrorText(error)}`}; }
     }});
   } catch (error) { folderFail(error, '폴더를 옮기지 못했어요'); }
   finally { busy = false; if (tab === 'folders') renderFolders(); }
@@ -2731,12 +2733,13 @@ async function movePhotos(allIds, target) {
   afterMove(moved.map(m => m.id), target);
   const groups = moveUndoGroups(moved, target), done = moved.filter(m => m.from !== target).length;
   const text = bad.length ? `${done}장을 '${name}'(으)로 옮겼어요 · ${bad.length}장은 못 옮겼어요` : `${done}장을 '${name}'(으)로 옮겼어요`;
-  notify(text, {error:!!bad.length, ms:UNDO_MS, record:false, undo:groups.size ? async () => {
+  const back = [...groups.values()].reduce((n, list) => n + list.length, 0);
+  notify(text, {error:!!bad.length, ms:UNDO_MS, ...(groups.size ? {label:`옮기기 ${back}장`, undo:async () => {
     let fail = 0;
     for (const [from, list] of groups) { try { const r = await odPhotosMove(rt, list, from); fail += Object.keys(r.failed).length; } catch { fail += list.length; } }
     afterMove(null, null);
-    notify(fail ? `${fail}장은 되돌리지 못했어요.` : '되돌렸어요', {error:!!fail});
-  } : null});
+    return fail ? {status:'failed', message:`${fail}장은 되돌리지 못했어요.`} : {status:'restored'};
+  }} : {record:false})});
 }
 // 옮긴 뒤: 지금 폴더 목록에서 뺀다(옮긴 곳이 지금 폴더가 아니면). 나무 장수·[사진]·달력·앨범은 다시 받는다.
 function afterMove(ids, target) {
@@ -3204,15 +3207,17 @@ async function tagItems(tag, all, {quiet = false} = {}) {
   // 구글 드라이브 사진은 아직 앨범에 넣지 않는다(앨범 표는 원드라이브·폰 사진만 안다).
   const list = all.filter(it => it.kind !== 'gdrive');
   if (list.length < all.length) notify('구글 드라이브 사진은 아직 앨범에 못 넣어요.');
-  if (!list.length) return;
+  if (!list.length) return false;
   const fresh = list.filter(it => !links.some(l => l.tag_id === tag.id && l.item_key === it.key)).slice(0, 200);
+  let ok = true;
   try {
     if (fresh.length) await addPhotoTagItems(tag.id, fresh, rt);
     links = [...links, ...fresh.map(it => ({tag_id:tag.id, source:it.source === 'phone' ? 'phone' : 'onedrive', item_key:it.key, taken_day:it.day || null}))];
     select.stop(); paintSelect(); aFor = null;
     notify(`${list.length}장을 #${tag.name} 앨범에 넣었어요${list.length > 200 ? ' (한 번에 200장까지)' : ''}`);
-  } catch { notify('앨범에 넣지 못했어요.', {error:true}); }
+  } catch { notify('앨범에 넣지 못했어요.', {error:true}); ok = false; }
   if (!quiet && tab === 'albums') renderAlbums();
+  return ok ? {status:'restored'} : {status:'failed', message:'앨범에 다시 넣지 못했어요.'};
 }
 async function untagPicked(from = pickedItems()) {
   const c = cardOf(album), list = from; if (!c || !list.length || busy) return;
@@ -3224,7 +3229,7 @@ async function untagPicked(from = pickedItems()) {
     const gone = new Set(keys);
     links = links.filter(l => !(l.tag_id === c.id && gone.has(l.item_key))); aItems = aItems.filter(x => !gone.has(x.key));
     select.stop(); for (const it of list) photoStripDrop(it.id);
-    notify(`${keys.length}장을 #${c.name} 앨범에서 뺐어요`, {ms:UNDO_MS, record:false, undo:() => tagItems({id:c.id, name:c.name}, list)});
+    notify(`${keys.length}장을 #${c.name} 앨범에서 뺐어요`, {ms:UNDO_MS, label:`앨범에서 빼기 ${keys.length}장`, undo:() => tagItems({id:c.id, name:c.name}, list)});
   } catch { notify('앨범에서 빼지 못했어요.', {error:true}); }
   finally { busy = false; renderAlbums(); }
 }
