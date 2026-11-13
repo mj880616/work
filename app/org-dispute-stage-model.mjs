@@ -108,10 +108,15 @@ export function reportKind(cur, week) {
   return '';
 }
 
-// 목록 꼬리표: 투쟁 중 + 이번 주 끝남만. 평시 조직은 null.
-export function listTag(cur, today) {
-  const kind = reportKind(cur, weekOf(today));
-  return kind ? {kind, text: cur.name} : null;
+// 목록 꼬리표(ORG-단계꼬리표전부, 2026-11-13 명진 결정): 날짜와 상관없이 모든 조직에 지금 단계를 늘 보인다.
+//   kind = 'struggle'(투쟁 중, 주황) | 'ended'(끝남, 초록) | 'quiet'(평시·지워진 단계, 회색). 판정은 stageOfOrg의 단계 표시 그대로.
+//   이력이 없으면 stageOfOrg가 기본 단계(교섭 시작 전)를 돌려준다. 이름이 없을 때(단계 목록이 비어 있음)만 null.
+//   주간보고 투쟁 사업장 표 규칙(reportKind)과는 따로다 — 표 규칙은 바꾸지 않는다.
+export function listTag(cur) {
+  const text = String(cur?.name ?? '').trim();
+  if (!text) return null;
+  const kind = cur.kind === 'struggle' || cur.kind === 'ended' ? cur.kind : 'quiet';
+  return {kind, text};
 }
 
 // 관리 화면 순서 바꾸기: ids(보이는 순서)에서 id를 index 자리로 옮긴 새 순서 값 [{id, sort_order}] 중 바뀐 것만.
