@@ -24,16 +24,22 @@ const rows = () => [
   { id: 'b4', document_id: D(4), status: 'failed', stage: 'read', step_no: 0, step_total: 0, page_count: null, brief: null, error_code: 'no_text', created_at: '2026-10-04T00:00:00Z', updated_at: '2026-10-04T00:00:10Z' },
 ];
 
-async function open(page) {
+async function open(page, { allDocs = false } = {}) {
   const calls = [];
   await openHome(page, {
     beforeLoad: async () => {
-      await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: rows() }));
+      await page.route(SB + '/rest/v1/app_document_briefs**', r => {
+        // 자료실은 다 된 것의 한 줄 요지만 읽는다(select=document_id,lead:brief->>lead).
+        const u = new URL(r.request().url());
+        if (u.searchParams.get('status') === 'eq.done') return r.fulfill({ json: rows().filter(x => x.status === 'done').map(x => ({ document_id: x.document_id, lead: x.brief.lead })) });
+        return r.fulfill({ json: rows() });
+      });
       await page.route(SB + '/rest/v1/app_library_folders**', r => r.fulfill({ json: r.request().method() === 'GET' ? [{ id: 'f-brief' }] : [] }));
       await page.route(SB + '/rest/v1/app_library_folder_items**', r => r.fulfill({ json: [{ document_id: D(1) }, { document_id: D(2) }] }));
       await page.route(SB + '/rest/v1/app_documents?**', r => {
         const u = new URL(r.request().url());
-        return u.searchParams.get('id')?.startsWith('in.') ? r.fulfill({ json: docs }) : r.fallback();
+        if (r.request().method() !== 'GET') return r.fallback();
+        return u.searchParams.get('id')?.startsWith('in.') || allDocs ? r.fulfill({ json: docs.map(d => ({ workspace_id: 'w', category: '기타', visibility: 'private', ...d })) }) : r.fallback();
       });
       await page.route(SB + '/functions/v1/document-actions', r => {
         const body = r.request().postDataJSON();
@@ -88,4 +94,23 @@ test('메뉴에 브리핑 룸이 있다(폰 메뉴 창·PC 왼쪽 메뉴)', asyn
   await page.locator('.app-nav [data-view="brief"]').click();
   await expect(page.locator('#briefView')).toBeVisible();
   await expect(page).toHaveURL(/view=brief/);
+});
+
+test('자료실: 다 된 브리핑의 한 줄 요지가 이름 밑에, 자료 ⋯ [브리핑 받기]는 브리핑 룸으로 가서 시작한다', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 860 });
+  const calls = await open(page, { allDocs: true });
+  await page.evaluate(() => window.KPTURouter.go('library'));
+  await page.waitForFunction(() => window.__KPTU_LIBRARY_UPLOAD_READY__ !== undefined || document.querySelector('#documentList [data-lu-document]'));
+  await page.evaluate(() => window.__KPTU_LIBRARY_UPLOAD_READY__);
+  await page.locator('#documentList summary', { hasText: '사업영역 없음' }).first().click();
+  const done = page.locator(`#documentList [data-lu-document="${D(3)}"]`);
+  await expect(done.locator('.lu-row-brief')).toBeVisible();
+  await expect(done.locator('.lu-row-brief')).toHaveText(brief.lead);
+  await expect(page.locator(`#documentList [data-lu-document="${D(1)}"] .lu-row-brief`)).toHaveCount(0);
+  await page.screenshot({ path: 'docs/design/screens/s61-45/pc-1280-library.png', fullPage: false });
+  await page.locator(`#documentList [data-lu-document="${D(1)}"]`).hover();
+  await page.locator(`#documentList [data-lu-menu="${D(1)}"]`).click();
+  await page.locator(`#luMorePanel [data-lu-brief="${D(1)}"]`).click();
+  await expect(page.locator('#briefView')).toBeVisible();
+  await expect.poll(() => calls.filter(c => c.action === 'brief-start').map(c => c.document_id)).toEqual([D(1)]);
 });
