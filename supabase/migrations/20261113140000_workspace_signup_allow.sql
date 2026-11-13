@@ -1,15 +1,16 @@
 begin;
--- MULTI-가입명단(★급★, 명진 11/13 13:51·13:54): 가입 문을 '명단에 적은 사람만' 열 수 있게 한다. 이 파일은 스위치를 켜지 않고 명단에 아무도 넣지 않는다.
+-- MULTI-가입열기(★급★, 명진 11/13 14:01 "모두 열어 걍 / 나중에 특정 사용자는 배제시키는 방식"): 누구나 자기 작업공간을 만들 수 있게 하되,
+-- 막을 사람은 차단 명단으로 막는다. 이 파일은 스위치를 켜지 않고 차단 명단도 비워 둔다(스위치는 적용 뒤 CC가 SQL로 켬).
 -- 1) 새 표 public.app_workspace_signup_allow(email, kind): RLS 켬·정책 없음·API 역할 권한 없음 → SQL로만 읽고 쓴다(스위치 표와 같은 잠금).
 --    kind 'operator' = 운영자(지금 역할 트리거 안에 고정된 메일, 이 파일이 운영 정의에서 옮겨 적는다 — 저장소에는 메일이 없다),
---    kind 'self_start' = 스스로 작업공간을 만들 수 있는 사람(CC가 SQL로 한 줄씩 넣는다).
--- 2) 역할 트리거 함수 private.app_enforce_workspace_member_role(): 고정 메일 비교를 명단 표 조회로 바꾼다.
---    운영자 → owner(지금과 같음). self_start 명단 사람 → 그 작업공간에 구성원이 아직 하나도 없을 때(새로 만든 자기 작업공간)만 owner.
+--    kind 'blocked' = 가입·작업공간 만들기를 막을 사람(CC가 SQL로 한 줄씩 넣는다).
+-- 2) 역할 트리거 함수 private.app_enforce_workspace_member_role(): 고정 메일 비교를 표 조회로 바꾼다.
+--    운영자 → owner(지금과 같음). 차단 명단 밖 사람 → 그 작업공간에 구성원이 아직 하나도 없을 때(새로 만든 자기 작업공간)만 owner.
 --    그 밖은 지금과 같다(viewer·author·editor 밖이면 author). UPDATE 쪽은 한 글자도 바꾸지 않는다.
--- 3) public.app_workspace_start(): 이미 owner 행이 있으면 그대로 돌려주고(지금과 같음), 없을 때는 본인 메일(auth.users, 확인된 메일)이
---    self_start 명단에 있어야만 만든다. 아니면 42501 SIGNUP_NOT_LISTED(아무것도 안 만듦).
--- 4) public.app_workspace_start_status(): open = 스위치 켜짐 그리고(본인이 명단에 있음 또는 이미 owner). 명단 밖 사람에게는 [내 작업공간 만들기]가 안 보인다.
--- 안 하는 것: 스위치 켜기, 명단에 사람 넣기, Auth 트리거, 운영자 기능 표, 기존 정책·표 권한, rtw 객체.
+-- 3) public.app_workspace_start(): 이미 owner 행이 있으면 그대로 돌려주고(지금과 같음), 없을 때 본인 메일이 차단 명단에 있으면
+--    42501 SIGNUP_BLOCKED(아무것도 안 만듦). 아니면 지금처럼 본인 작업공간 1개 + owner 1행.
+-- 4) public.app_workspace_start_status(): open = 스위치 켜짐 그리고 본인이 차단 명단에 없음. 차단된 사람에게는 [내 작업공간 만들기]가 안 보인다.
+-- 안 하는 것: 스위치 켜기, 차단 명단에 사람 넣기, Auth 트리거, 운영자 기능 표, 기존 정책·표 권한, rtw 객체.
 -- 짝: docs/20261113140000_workspace_signup_allow.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
@@ -30,7 +31,7 @@ create table public.app_workspace_signup_allow (
   email text primary key,
   kind text not null,
   created_at timestamptz not null default now(),
-  constraint app_workspace_signup_allow_kind check (kind in ('operator', 'self_start')),
+  constraint app_workspace_signup_allow_kind check (kind in ('operator', 'blocked')),
   constraint app_workspace_signup_allow_email check (email = lower(btrim(email)) and position('@' in email) > 1)
 );
 alter table public.app_workspace_signup_allow enable row level security;
@@ -56,7 +57,7 @@ begin
     if exists (select 1 from public.app_workspace_signup_allow a where a.email = v_email and a.kind = 'operator') then
       new.role := 'owner';
     elsif new.role = 'owner'
-      and exists (select 1 from public.app_workspace_signup_allow a where a.email = v_email and a.kind = 'self_start')
+      and not exists (select 1 from public.app_workspace_signup_allow a where a.email = v_email and a.kind = 'blocked')
       and not exists (select 1 from public.app_workspace_members m where m.workspace_id = new.workspace_id) then
       new.role := 'owner';
     elsif new.role not in ('viewer','author','editor') then
@@ -93,9 +94,8 @@ as $$
   select pg_catalog.jsonb_build_object(
     'open', exists (select 1 from public.app_workspace_signup s where s.id = 1 and s.open)
       and (select auth.uid()) is not null
-      and (exists (select 1 from public.app_workspace_signup_allow a join auth.users u on pg_catalog.lower(u.email) = a.email
-                    where u.id = (select auth.uid()) and a.kind = 'self_start' and u.email_confirmed_at is not null)
-        or exists (select 1 from public.app_workspace_members m where m.user_id = (select auth.uid()) and m.role = 'owner')),
+      and not exists (select 1 from public.app_workspace_signup_allow a join auth.users u on pg_catalog.lower(u.email) = a.email
+                       where u.id = (select auth.uid()) and a.kind = 'blocked'),
     'has_workspace', (select auth.uid()) is not null
       and exists (select 1 from public.app_workspace_members m where m.user_id = (select auth.uid()) and m.role = 'owner'))
 $$;
@@ -126,9 +126,9 @@ begin
   if v_workspace is not null then
     return pg_catalog.jsonb_build_object('ok', true, 'created', false, 'workspace_id', v_workspace);
   end if;
-  if not exists (select 1 from public.app_workspace_signup_allow a join auth.users u on pg_catalog.lower(u.email) = a.email
-                  where u.id = v_user and a.kind = 'self_start' and u.email_confirmed_at is not null) then
-    raise exception using errcode = '42501', message = 'SIGNUP_NOT_LISTED';
+  if exists (select 1 from public.app_workspace_signup_allow a join auth.users u on pg_catalog.lower(u.email) = a.email
+              where u.id = v_user and a.kind = 'blocked') then
+    raise exception using errcode = '42501', message = 'SIGNUP_BLOCKED';
   end if;
   v_workspace := pg_catalog.gen_random_uuid();
   insert into public.app_workspaces (id, slug, name)
@@ -161,7 +161,7 @@ begin
      or has_table_privilege('authenticated', 'public.app_workspace_signup_allow', 'select,insert,update,delete')
      or has_table_privilege('service_role', 'public.app_workspace_signup_allow', 'select,insert,update,delete')
      or (select count(*) from public.app_workspace_signup_allow where kind = 'operator') <> 1
-     or (select count(*) from public.app_workspace_signup_allow where kind = 'self_start') <> 0
+     or (select count(*) from public.app_workspace_signup_allow where kind = 'blocked') <> 0
      or (select count(*) from public.app_workspace_signup where id = 1 and not open) <> 1
      or pg_catalog.pg_get_functiondef('private.app_enforce_workspace_member_role()'::regprocedure) ~ '@'
      or (select count(*) from pg_proc where oid in (to_regprocedure('public.app_workspace_start()'), to_regprocedure('public.app_workspace_start_status()'))
@@ -177,5 +177,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261113140000', 'workspace_signup_allow', array['MULTI signup allow-list: new table app_workspace_signup_allow (email, kind operator|self_start; RLS on, no policies, no API privileges; written only by SQL); operator email moved from the role trigger body into the table; private.app_enforce_workspace_member_role() reads the table (operator -> owner as before; self_start -> owner only on a workspace with no members yet); app_workspace_start() also requires the caller''s confirmed email on the self_start list (else SIGNUP_NOT_LISTED); app_workspace_start_status() open only for listed callers or existing owners; switch stays off, no one listed']);
+values ('20261113140000', 'workspace_signup_allow', array['MULTI open signup with block list: new table app_workspace_signup_allow (email, kind operator|blocked; RLS on, no policies, no API privileges; written only by SQL); operator email moved from the role trigger body into the table; private.app_enforce_workspace_member_role() reads the table (operator -> owner as before; anyone not blocked -> owner only on a workspace with no members yet); app_workspace_start() refuses blocked callers (SIGNUP_BLOCKED); app_workspace_start_status() open only for callers not blocked; switch stays off, block list empty']);
 commit;
