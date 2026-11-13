@@ -2027,6 +2027,40 @@ for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 줄 ⋯ [�
  await expect(cal.locator('tbody details.row-more')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+// WEEKLY-주간정리다듬기 ⑥(시안 weekly-tidy.html ③): 확정한 주에만 확정 줄 아래 ① Web2가 만든 파일 · ② 내가 고친 최종본(끌어 놓기·[올리기]).
+// ②를 올리면 그 주 자료실 개인 확정본을 그 파일로 바꾸고(replace_document_id — 새 자료 안 만듦), 그 주 행 draft.confirmed.final 에 기록(서버). 가짜 서버·가짜 글만.
+for(const width of [412,1280])test(`[주간 정리] 확정 뒤 '내가 수정한 최종본' 올리기 → 자료실 개인 확정본 새 판·그 주 행 기록 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const fin=page.locator('#journalRoot [data-hwpx-final]');
+ await expect(fin).toBeHidden(); // 확정 전에는 없음
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
+ const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ await expect.poll(()=>row()?.draft?.confirmed?.document_id).toBe('doc-new');
+ await expect(fin).toBeVisible();
+ await expect(fin).toContainText('① Web2가 만든 파일');
+ await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('② 내가 수정한 최종본 한글에서 수정한 파일을 끌어 놓거나');
+ await page.screenshot({path:`docs/design/screens/s61-42/6-final-before-${width}.png`});
+ // 한글 파일이 아니면 올리지 않는다.
+ await page.locator('[data-hwpx-final-file]').setInputFiles({name:'메모.txt',mimeType:'text/plain',buffer:Buffer.from('가상')});
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('HWP(.hwp) 또는 한글 파일(.hwpx)만');
+ expect(f.sent.library).toHaveLength(1);
+ // 고친 최종본(.hwpx) → 한 번 묻고 → 같은 자료의 새 판.
+ await page.locator('[data-hwpx-final-file]').setInputFiles({name:'주간보고_고친본.hwpx',mimeType:'application/hwp+zip',buffer:teamHwpx()});
+ expect(await answerAsk(page,true)).toBe('"주간보고_고친본.hwpx"을(를) 이번 주 개인 확정본으로 저장할까요?');
+ await expect.poll(()=>f.sent.library.length).toBe(2);
+ const up=f.sent.library[1];
+ expect([up.replace_document_id,up.file.file,up.category]).toEqual(['doc-new','주간보고_고친본.hwpx',undefined]);
+ await expect.poll(()=>row().draft.confirmed?.final?.file_name).toBe('주간보고_고친본.hwpx');
+ expect(row().draft.confirmed.document_id).toBe('doc-new');
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('수정한 최종본을 이번 주 개인 확정본으로 저장했어요');
+ await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('주간보고_고친본.hwpx');
+ await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('이번 주 확정본');
+ await expect(fin.locator('[data-hwpx-final-pick]')).toHaveText('다시 올리기');
+ await expect(fin).toContainText('이전 판');
+ await page.screenshot({path:`docs/design/screens/s61-42/6-final-after-${width}.png`});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
 // WEEKLY-주간정리다듬기 ⑤(시안 weekly-tidy.html ④): [수정]은 누르는 즉시 그 줄에 열린다 — 바탕(한글 파일)을 여는 중이어도 기다리지 않고,
 // 그 주 임시저장 행(draft.titles)에 바로 저장한다. [빼기]도 바탕 없이 그 주 행(dropped)에. 바탕 파일 받기를 붙잡아 두고 본다. 가짜 서버·가짜 글만.
 for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 [수정]·[빼기]는 바탕을 열지 않고 바로 ${width}`,async({page})=>{
