@@ -593,6 +593,17 @@
     });
   }
 
+  // 떠나기 물음(위 go 안 detail.ask). 누른 단추(초점) 아래, 없으면 가운데. 한 번에 하나만.
+  let leaveConfirmed=null,leaveAsking=false;
+  function askLeave(text,onLeave){
+    if(leaveAsking)return;leaveAsking=true;
+    const at=document.activeElement,anchor=at&&at!==document.body&&at.getClientRects?.().length?at:null;
+    // 뒤로가기를 되돌리는 중(restoreRoutePosition)이면 끝난 뒤에 묻는다: 물음창도 기록 칸을 하나 쓰므로 겹치지 않게.
+    const settled=()=>new Promise(done=>{let n=0;const tick=()=>{if(!returningTo||++n>60)done();else setTimeout(tick,16)};tick()});
+    settled().then(()=>import('./small-notice.js')).then(({askConfirm})=>askConfirm(anchor,{text,ok:'나가기',cancel:'머물기',danger:true,history:false}))
+      .then(ok=>{leaveAsking=false;if(ok)onLeave()},err=>{leaveAsking=false;console.error('leave ask',err)});
+  }
+
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false}={}){
     if(view==='projects')areas=true;
     view=viewName(view);sub=subName(view,sub);
@@ -614,9 +625,25 @@
     if(!target)return false;
     const entry=window.navigation?.currentEntry;
     const canRestoreHistory=!!(routeEntry&&entry&&Number.isInteger(entry.index)&&routeEntry.index!==entry.index);
-    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory}});
+    // UI-알림창정리(S61-31) 화면 떠나기 묻기: 쓰던 내용이 있는 화면은 detail.ask('물음')를 부른다. 이미 [나가기]로 답한 이동이면
+    // true(그대로 떠남), 아니면 물음을 적어 두고 false — 라우터가 이동을 멈추고 공용 작은 확인창으로 묻는다. [나가기]면 같은 이동을
+    // 다시 하고(뒤로가기는 같은 기록 칸으로) 그때 ask()는 true다. 저장 중처럼 묻지 않고 막을 때는 지금처럼 preventDefault().
+    const confirmed=leaveConfirmed===view;leaveConfirmed=null;
+    const asks=[];
+    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory,confirmed,ask:text=>{if(confirmed)return true;asks.push(String(text||''));return false}}});
     window.dispatchEvent(before);
-    if(before.defaultPrevented){if(source==='popstate')restoreRoutePosition();return false;}
+    if(before.defaultPrevented||asks.length){
+      const backTo=source==='popstate'?window.navigation?.currentEntry?.key:null;
+      if(source==='popstate')restoreRoutePosition();
+      if(!before.defaultPrevented)askLeave(asks[0],()=>{
+        leaveConfirmed=view;
+        const again=()=>{leaveConfirmed=view;go(view,{scroll,source:source==='popstate'?'api':source,updateUrl,replaceUrl,allowUnloaded,sub,areas})};
+        // 뒤로·앞으로 간 이동은 그 기록 칸으로 다시 간다. 칸이 없어졌으면(앞으로 가기 뒤 물음창 기록) 같은 화면을 새로 연다.
+        if(backTo&&backTo!==window.navigation?.currentEntry?.key&&window.navigation?.entries?.().some(e=>e.key===backTo)){try{window.navigation.traverseTo(backTo).committed?.catch(again)}catch{again()}return}
+        again();
+      });
+      return false;
+    }
     const changing=!!api.current&&api.current!==view;
     if(changing){
       // The screen left keeps its scroll position on its own entry: the entry shown now (a step), or the one just left (Back/Forward).

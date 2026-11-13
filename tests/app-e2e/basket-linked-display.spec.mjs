@@ -58,8 +58,8 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
 });
 test('cancelled dirty menu movement preserves URL and editor; accepted movement clears note',async({page})=>{
  const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.evaluate(()=>KPTUViewLoader.load('home'));await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('수정 중');const before=page.url();
- page.once('dialog',d=>d.dismiss());await page.evaluate(()=>KPTURouter.go('home'));expect(page.url()).toBe(before);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('수정 중');
- page.once('dialog',d=>d.accept());await page.evaluate(()=>KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('keep')).toBe('yes');expect(new URL(page.url()).hash).toBe('#here');
+ await page.evaluate(()=>KPTURouter.go('home'));await answerAsk(page,false);expect(page.url()).toBe(before);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('수정 중');
+ await page.evaluate(()=>KPTURouter.go('home'));await answerAsk(page,true);await expect(page.locator('#homeView')).toBeVisible();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('keep')).toBe('yes');expect(new URL(page.url()).hash).toBe('#here');
  await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(f.errors).toEqual([]);
 });
 
@@ -146,8 +146,9 @@ for(const width of [390,1280])test(`declined Back retains history position and c
 test('declined Forward restores its prior position without replacing the forward destination',async({page})=>{
  const f=await fixture(page);await historyStack(page);
  await page.evaluate(()=>history.pushState({marker:'future',unrelated:{value:4}},'','?view=calendar&keep=1#future'));await page.evaluate(()=>history.back());await expect(page).toHaveURL(/view=basket&note=/);
- const quick=page.locator('#basketView [data-basket-list] [data-quick-input]');await quick.fill('Forward 취소 입력');const before=await historyProof(page);let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.forward());await expect.poll(()=>prompted).toBe(true);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);await expect(quick).toHaveValue('Forward 취소 입력');
- await quick.fill('');await page.evaluate(()=>history.forward());await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#future/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'future',unrelated:{value:4}});expect(f.errors).toEqual([]);
+ const quick=page.locator('#basketView [data-basket-list] [data-quick-input]');await quick.fill('Forward 취소 입력');const before=await historyProof(page);await page.evaluate(()=>history.forward());await answerAsk(page,false);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);await expect(quick).toHaveValue('Forward 취소 입력');
+ // UI-알림창정리(S61-31): [나가기]면 같은 앞 기록 칸으로 다시 간다(앞 기록은 그대로).
+ await page.evaluate(()=>history.forward());await answerAsk(page,true);await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#future/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'future',unrelated:{value:4}});expect(f.errors).toEqual([]);
 });
 // A traversal that leaves the view in one step (two entries back from the note) stays the router's: the draft is retained.
 test('API-disabled traversal keeps URL/current/screen consistent and retains the original draft for return',async({page})=>{

@@ -1234,8 +1234,9 @@ root.addEventListener('change', event => {
 
 window.addEventListener('kptu:before-view-change', event => {
   if (window.KPTURouter?.current !== 'diary' || event.detail?.view === 'diary' || !edit) return;
-  // 라우터가 이 자리에서 막을지 정하므로 브라우저 기본 확인창으로 묻는다(작은 확인창은 기다려야 해서 쓸 수 없음).
-  if (edit.busy || (dirty() && !window.confirm('쓰던 일기를 저장하지 않고 나갈까요?'))) { event.preventDefault(); return; }
+  // UI-알림창정리(S61-31): 라우터의 공용 작은 확인창으로 묻는다(event.detail.ask — [나가기]면 같은 이동을 다시 하고 그때 true).
+  if (edit.busy) { event.preventDefault(); return; }
+  if (dirty() && !event.detail.ask('쓰던 일기를 저장하지 않고 나갈까요?')) return;
   closeEditor({force:true, fromBack:true});
 });
 window.addEventListener('kptu:view-changed', event => {

@@ -563,10 +563,6 @@ async function overwrite(){
 }
 
 const LEAVE_TEXT='저장하지 않은 수정 내용이 있어요. 나가면 사라져요. 나갈까요?';
-// 화면 이동(kptu:before-view-change)은 라우터가 그 자리에서 막을지 정하므로 브라우저 기본 확인창으로 묻는다(작은 확인창은 기다려야 해서 쓸 수 없음).
-function leaveOk(){
-  return !dirty()||window.confirm(LEAVE_TEXT);
-}
 // 이 화면 안의 [돌아가기]·[자료실에서 보기]는 작은 확인창으로 묻는다.
 async function askLeave(anchor){
   return !dirty()||askDiscard(anchor,LEAVE_TEXT,'나가기');
@@ -592,7 +588,9 @@ async function back(){
 window.addEventListener('kptu:before-view-change',event=>{
   if(!(drive||current)||!here()||event.detail?.view===VIEW)return;
   if(leaving){leaving=false;return}
-  if((drive&&busy)||!leaveOk())event.preventDefault();
+  // UI-알림창정리(S61-31): 화면 이동은 라우터의 공용 작은 확인창으로 묻는다(event.detail.ask). 드라이브 저장 중이면 묻지 않고 막는다.
+  if(drive&&busy){event.preventDefault();return}
+  if(dirty())event.detail.ask(LEAVE_TEXT);
 });
 window.addEventListener('kptu:before-reload',event=>{if(here()&&((drive&&busy)||dirty()))event.detail.otherDraft=true});
 window.addEventListener('beforeunload',event=>{if(here()&&((drive&&busy)||dirty())){event.preventDefault();event.returnValue=''}});
