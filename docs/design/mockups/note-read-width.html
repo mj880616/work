@@ -1,0 +1,43 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 노트 글 폭 — 읽기 좋은 한 줄 길이 (NOTE-글폭)</title>
+<style>
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}.note{font-size:12px;color:#6e6c60;margin:0 0 10px;line-height:1.55}
+.cap{font-size:13px;font-weight:700;margin:16px 0 6px}.cap small{font-weight:400;color:#6e6c60}
+.pc{font-size:min(13px,calc((100vw - 24px) / 70))}
+.win{box-sizing:border-box;width:70em;display:flex;background:#fffefa;border:1px solid #e2ddd0;border-radius:.8em;overflow:hidden}
+.side{width:10em;flex:none;background:#f7f5ee;border-right:1px solid #e2ddd0;padding:.8em;color:#6e6c60;line-height:2.1}
+.side b{color:#2a2a23;font-weight:400;background:#ecebe5;border-radius:.4em;padding:.1em .4em}
+.main{flex:1;padding:.9em 1.2em;min-width:0}
+.ttl{border:1px solid #cfc8b6;border-radius:.5em;padding:.5em .7em;font-weight:700;margin-bottom:.6em}
+.tools{display:flex;gap:.35em;flex-wrap:wrap;border:1px solid #cfc8b6;border-bottom:0;border-radius:.5em .5em 0 0;padding:.4em;background:#f7f5ee}
+.tools span{border:1px solid #cfc8b6;border-radius:.4em;padding:.05em .5em;font-size:.88em;background:#fffefa}
+.body{border:1px solid #cfc8b6;border-radius:0 0 .5em .5em;padding:1.1em 1.4em;line-height:1.75;min-height:20em}
+.body p{margin:0 0 .9em}
+.narrow .body p,.narrow .ttl{max-width:40em}
+.narrow .body{position:relative}
+.guide{border-left:.14em dashed #b8663a;position:absolute;top:0;bottom:0;left:calc(1.4em + 40em)}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.65;margin-top:14px;max-width:70em;box-sizing:border-box}
+.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 노트 글 폭 — 화면이 넓어도 한 줄은 읽기 좋은 길이까지</h1>
+<p class="note">PC 넓은 창. 글은 예시예요. 주황 점선이 새 글 폭 끝(한 줄 한글 약 40자).</p>
+<div class="pc">
+<div class="cap">지금 <small>창 끝까지 한 줄 — 줄이 길어 눈이 다음 줄 처음을 놓침</small></div>
+<div class="win"><div class="side"><b>노트</b><br>일정<br>조직 보고<br>사업 보고<br>잊지 말기<br>자료실</div>
+<div class="main"><div class="ttl">예시 지부 임단협 잠정합의</div><div class="tools"><span>본문 2 ▾</span><span>굵게</span><span>기울임</span><span>밑줄</span><span>글자색 ▾</span><span>형광펜 ▾</span><span>목록 ▾</span><span>표 ▾</span></div>
+<div class="body"><p>예시 지부가 오늘 새벽 사측과 임단협에 잠정합의했다. 이날 예고했던 경고파업도 철회됐다. 지부는 승진 제도 도입, 하위 직급 처우개선, 안전인력 충원을 핵심 요구로 내걸었다. 잠정합의로 새 승진 제도가 처음 도입되고, 야간 휴게시간 일부가 근로시간으로 인정된다.</p>
+<p>산별전환 후 첫 임단협은 이전과 사뭇 달랐다. 간부들이 조합원을 직접 찾아가 요구를 하나하나 듣고, 지부 회의를 거쳐 요구안으로 모았다. 교섭도 일찍 시작해 쟁점을 분명히 하고, 시간 끌기와 책임 회피로 일관하는 경영진에게 책임을 물었다.</p></div></div></div>
+
+<div class="cap">바뀐 뒤 <small>글은 약 40자 폭까지, 남는 자리는 비움(왼쪽 맞춤)</small></div>
+<div class="win narrow"><div class="side"><b>노트</b><br>일정<br>조직 보고<br>사업 보고<br>잊지 말기<br>자료실</div>
+<div class="main"><div class="ttl">예시 지부 임단협 잠정합의</div><div class="tools"><span>본문 2 ▾</span><span>굵게</span><span>기울임</span><span>밑줄</span><span>글자색 ▾</span><span>형광펜 ▾</span><span>목록 ▾</span><span>표 ▾</span></div>
+<div class="body"><span class="guide"></span><p>예시 지부가 오늘 새벽 사측과 임단협에 잠정합의했다. 이날 예고했던 경고파업도 철회됐다. 지부는 승진 제도 도입, 하위 직급 처우개선, 안전인력 충원을 핵심 요구로 내걸었다. 잠정합의로 새 승진 제도가 처음 도입되고, 야간 휴게시간 일부가 근로시간으로 인정된다.</p>
+<p>산별전환 후 첫 임단협은 이전과 사뭇 달랐다. 간부들이 조합원을 직접 찾아가 요구를 하나하나 듣고, 지부 회의를 거쳐 요구안으로 모았다. 교섭도 일찍 시작해 쟁점을 분명히 하고, 시간 끌기와 책임 회피로 일관하는 경영진에게 책임을 물었다.</p></div></div></div>
+</div>
+<div class="legend"><b>요청함 방 추천 — 명진 확정 아님</b><br>
+· 노트 글(보기·고치기 둘 다)은 한 줄 최대 약 40자(글자 크기 따라 같이 커짐). 창이 그보다 좁으면 지금처럼 창 폭.<br>
+· 표·사진은 그 폭을 넘어도 됨(넓은 표가 잘리지 않게) — 글 줄만 묶음.<br>
+· 폰·폴드 접은 화면은 지금도 40자보다 좁아 바뀌는 것 없음. 폴드 펼침·PC에서만 차이.<br>
+· 업무일지·일기·회의록처럼 같은 글쓰기 부품을 쓰는 곳도 같은 폭.
+</div></body></html>
