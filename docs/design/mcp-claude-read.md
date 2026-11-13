@@ -151,7 +151,7 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 | `web2_business_reports` 사업 보고 | `from`·`to`(최대 90일, 기본 최근 30일), `project`(선택) | `app_business_records`(날짜·끝날짜·본문 300자 이하·프로젝트 이름), 휴지통 제외 | 출처 원문(연결된 업데이트·피드 원문) |
 | `web2_project_status` 프로젝트 현황 | `project`(이름 또는 ID, 없으면 진행 중 목록) | `app_spaces`(이름·상태·상위), 갈래(`app_project_workstreams` 제목·단계), 진행 기록 최근 10건(날짜·상태·요약·다음 할 일), 다가오는 주요 일정(`app_project_milestones` 제목·날짜), 미완료 할 일 **개수**, 자료 **개수** | 보관·휴지통 프로젝트(정확히 지정하면 "보관됨" 한 줄), 할 일 제목·본문, 자료 제목·원문 |
 | `ledger_search` 원장 검색 / `ledger_get` 원장 한 건 | 검색어(100자), 종류·조직·주제·기간·개수 / `ledger_id`(모양 검사) | `app_ledger_search`(민감도 상한·범위 인자는 **DB 함수가 고정**, Claude가 못 바꿈). S0·S1: 요지 앞 300자. **S2: ID·종류·기준일·제목·유효상태만**. 한 건: 허용 칸 + S0·S1 출처 제목·종류·날짜, 연결 | 감사 기록, 원장 후보, 수정 요청, 가져오기 묶음, 출처 위치·Drive 파일 ID, S2의 요지·이유·상대측·근거 |
-| `web2_notes_search` 노트 검색 | `query`(100자), `folder`(선택), `limit` | `app_notes` 중 `kind='note'`만, 휴지통 제외: 제목·폴더 이름·수정일·**요지(본문 앞 200자)** | 일기(`diary`), 정리함(`basket`), 업무일지(`work`, 1차 제외 — 명진 결정 D2), 가족 방(`app_family_notes`), 통화(`app_call_*`), 회의 녹취·회의록, 첨부, 댓글 |
+| `web2_notes_search` 노트 검색 | `query`(100자), `folder`(선택), `limit` | `app_notes` 중 `kind='note'`만, 휴지통 제외: 제목·폴더 이름·수정일·**요지(본문 앞 200자)** | 일기(`diary`), 정리함(`basket`), 업무일지(`work`, 1차 제외 — 명진 결정 D2), 가족 방(가족 방 표), 통화(`app_call_*`), 회의 녹취·회의록, 첨부, 댓글 |
 | `google_where` 할 일·일정 찾는 길 | 없음 | Web2가 쓰는 **Google 캘린더 이름·할 일 목록 이름**(명진 설정에 있는 이름만)과 "Claude의 Google Calendar 커넥터에서 이 이름으로 보세요" 안내 | 일정·할 일 내용·ID·날짜. Web2는 Google 내용을 복사 저장하지 않고 이 도구도 내용을 내지 않음 |
 
 - S2를 아예 숨기지 않고 제목만 내는 이유: "기록이 있다"까지 숨기면 Claude가 "없다"고 잘못 답한다(1판과 같음).
@@ -165,7 +165,7 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 | 일기 | `app_notes` `kind='diary'` | 원칙 2 |
 | 정리함(바구니) 원문 | `app_notes` `kind='basket'`, 바구니 파일 | 원칙 2, 바깥 사람 글이 가장 많이 섞임(프롬프트 주입) |
 | 통화·녹음 원문 | `app_call_*`, 회의 녹음·전사(`app_meeting_recordings`, 회의 `transcript_text`) | 원칙 2 |
-| 가족 방 | `app_family_notes` | 원칙 2 |
+| 가족 방 | 가족 방 표(이름은 정해진 파일에만 씀, 보안 시험) | 원칙 2 |
 | 텔레그램·바깥 수집 원문 | `app_tg_*`, `app_feed_*`, `app_outside_*` | 운영자 전용 수집물·바깥 글 |
 | 읽생기 | `rtw_*` | 범위 밖. L1이 OAuth 열쇠의 직접 접근을 막고, 읽기 함수는 `rtw_`를 부르지 않음(정적 시험) |
 
@@ -253,7 +253,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | T2 | 가짜 연결 링크(confused deputy) | DCR 끔, 클라이언트 1개, 되돌아갈 곳 `claude.ai` 정확히 일치, 동의 화면에 표시, 클릭재킹 막기, DB가 `allowed_client_id` 확인 | 명진이 낯선 화면에서 허락 → 되돌아갈 곳이 claude.ai 고정 |
 | T3 | 열쇠의 받는 곳(aud) 구분 없음 | `client_id` 고정 확인 + L1 | Supabase가 클라이언트별 `aud`를 지원하면 다시 비교 |
 | T4 | 새 Edge 함수가 L3 검사를 빠뜨림 | CI 정적 시험(사용자 확인 함수 = 검사 호출 필수) | 시험 우회는 PR 검토에서 |
-| T5 | 서버 코드 실수로 범위 밖 읽기 | 읽기 함수의 열 허용 목록 SQL 고정, Edge에 표 이름 없음, 정적 시험(`rtw_`·`diary`·`transcript_text`·`app_call_`·`app_family_notes` 금지) | 허용 칸 안에 민감한 글(조직 기록 요지) |
+| T5 | 서버 코드 실수로 범위 밖 읽기 | 읽기 함수의 열 허용 목록 SQL 고정, Edge에 표 이름 없음, 정적 시험(`rtw_`·`diary`·`transcript_text`·`app_call_`·가족 방 표 이름 금지) | 허용 칸 안에 민감한 글(조직 기록 요지) |
 | T6 | 프롬프트 주입 | 1판 8.2의 4겹 그대로: 위험한 재료 빼기, 데이터 표지, 이 연결은 행동 없음, **바깥 행동(메일·공유·Zapier 쓰기)은 Claude 설정에서 "매번 묻기"** | Claude가 글에 끌려가는 것 자체는 서버가 완전히 못 막음 → 최후 방어선은 명진의 확인 |
 | T7 | 읽생기 영향 | 요청 전 함수는 OAuth 열쇠에만 작동, Auth 설정은 OAuth 서버 켜기·클라이언트 추가만, 열쇠 수명 그대로 | 요청 전 함수 자리 충돌(M-1에서 확인, 있으면 멈춤) |
 | T8 | Anthropic으로 가는 데이터 | 5.3 영구 제외, S2 요지 제외, 노트 앞 200자 | 조직 요지·사업 보고·원장 S0~S1 요지·노트 요지는 Anthropic이 처리(명진이 고르는 위험) |
