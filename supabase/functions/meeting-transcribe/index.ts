@@ -55,7 +55,7 @@ import { safeErrorLog } from "../_shared/safe-error.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
-import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, normalizeDraft, partsText } from '../_shared/meeting-draft-prompt.mjs';
+import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, normalizeDraft, ownerRole, partsText } from '../_shared/meeting-draft-prompt.mjs';
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
 // AI-사람별한도: 작업공간 이번 달 AI 한도(기본 3,000원, 운영자 제외) 이상이면 전사를 시작하지 않는다(녹음 전사 월 상한과 별개).
@@ -1225,14 +1225,16 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
   // 하루 한도: ai-assist와 같은 서울 날짜·같은 합계 한도(_shared/ai-daily-usage.mjs). 작업공간 설정 daily_request_limit은 보지 않는다.
   const today = await readTodayAiUsage(admin, { workspaceId: job.workspace_id, userId: job.created_by });
   if (today.over) throw new Fail('daily_limit');
-  let names = '';
+  let names = '', role = ownerRole('');
   try {
-    const { data: me } = await admin.from('app_profiles').select('display_name').eq('user_id', job.created_by).maybeSingle();
+    // MULTI-다른담당자맞춤 ⑤: 직책(job_title)도 같은 행에서 — 안내문의 소속·직책은 맡긴 사람 프로필 값.
+    const { data: me } = await admin.from('app_profiles').select('display_name,job_title').eq('user_id', job.created_by).maybeSingle();
     names = typeof me?.display_name === 'string' ? me.display_name : '';
+    role = ownerRole(me?.job_title);
   } catch { names = ''; }
   const meeting = { title: '회의', meeting_at: job.created_at, location: null, attendee_count: null };
   const prompt = meetingDraftPrompt({ meeting, names, projectContext: null, materialText: '', transcript: cut(transcript, DRAFT_INPUT_CHARS), stage });
-  const body = meetingDraftRequest({ model: set.default_model || DEFAULT_AI_MODEL, maxOutput: set.max_output_tokens, headroom: AI_REASONING_TOKEN_HEADROOM, developer: meetingDraftDeveloper(AI_TONE_RULE), prompt });
+  const body = meetingDraftRequest({ model: set.default_model || DEFAULT_AI_MODEL, maxOutput: set.max_output_tokens, headroom: AI_REASONING_TOKEN_HEADROOM, developer: meetingDraftDeveloper(AI_TONE_RULE, role), prompt });
   let d;
   try {
     const r = await fetch('https://api.openai.com/v1/responses', {
