@@ -58,7 +58,7 @@ import {mountDayFill} from './home-day-fill.js'; // HOME-하루채우기: 오늘
 import {readDayPicks, askDayPicks, markSuggestDone} from './home-day-picks-data.js'; // HOME-하루채우기 ②·③ 서버 결과(ai-assist·owner 표)
 import {sendEvents, sendDone} from './home-day-picks-model.mjs';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
-import {keepMenus} from './anchored-menu.js'; // MENU-자리나머지
+import {keepMenus} from './anchored-menu.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});

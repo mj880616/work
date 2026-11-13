@@ -4,7 +4,7 @@ import {eventColor} from './home-read-model.js';
 import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-model.mjs';
 // BIZ-보고할일정 PR B: 일정 막대 앞 ✓(보고 씀)·□(보고할 일정) 표시 부품.
 import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
-import {keepMenus} from './anchored-menu.js'; // MENU-자리나머지
+import {keepMenus} from './anchored-menu.js';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
