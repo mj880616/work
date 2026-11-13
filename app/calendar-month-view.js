@@ -4,6 +4,7 @@ import {eventColor} from './home-read-model.js';
 import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-model.mjs';
 // BIZ-보고할일정 PR B: 일정 막대 앞 ✓(보고 씀)·□(보고할 일정) 표시 부품.
 import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
+import {keepMenus} from './anchored-menu.js'; // MENU-자리나머지
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
@@ -284,7 +285,9 @@ import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
       ...tasks.map(normalizeTask)
     ].filter(ev=>Number.isFinite(ev.start.getTime())&&Number.isFinite(ev.end.getTime()));
   }
-  function render(options){
+  // MENU-자리나머지: 칸 안 할 일 줄을 우클릭해 연 할 일 메뉴(calendar-tasks.js)는 달력을 다시 그린 뒤 같은 할 일의 새 줄에 붙고, 없어지면 닫힌다(공용 keepMenus).
+  function render(options){const m=window.KPTUCalendarTasks?.menuFollower;return keepMenus(m?[m]:[],{attrs:['data-calendar-task-menu','data-calendar-task'],zones:['#calendarGrid, #calendarDayList']},()=>renderNow(options))}
+  function renderNow(options){
     last=options;
     const grid=document.querySelector('#calendarGrid');if(!grid||(window.KPTUCalendarView&&window.KPTUCalendarView.current()!=='month'))return false;
     bindTouchGuard();

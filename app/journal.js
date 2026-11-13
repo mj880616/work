@@ -58,6 +58,7 @@ import {mountDayFill} from './home-day-fill.js'; // HOME-하루채우기: 오늘
 import {readDayPicks, askDayPicks, markSuggestDone} from './home-day-picks-data.js'; // HOME-하루채우기 ②·③ 서버 결과(ai-assist·owner 표)
 import {sendEvents, sendDone} from './home-day-picks-model.mjs';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
+import {keepMenus} from './anchored-menu.js'; // MENU-자리나머지
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -367,7 +368,9 @@ function partBox(part, {heading = 'h4'} = {}) {
 }
 // HOME-업무일지홈: 할 일 칸(그날 일정 칸 오른쪽, 폰은 아래)은 그날 기한인 할 일 + 기한 지난 것(접힌 한 줄)이고, 끝낸 할 일(한 일)은
 // 아래 '오늘 한 일' 칸에 오늘 한 줄 목록 다음으로 그린다. 둘 다 이 함수가 유일한 renderer다.
-function renderTasks(card) {
+// MENU-자리나머지: 할 일 ⋯ 메뉴를 연 채 할 일 칸이 다시 그려져도(다시 읽기·다른 화면 알림) 열린 메뉴는 같은 할 일의 새 ⋯에 붙고, 없어지면 닫힌다(공용 keepMenus).
+function renderTasks(card) { return keepMenus([taskLine.menuFollower], {attrs: ['data-journal-task-menu']}, () => renderTasksNow(card)); }
+function renderTasksNow(card) {
   const host = $('[data-journal-tasks]'), part = card.tasks, range = {doneDays};
   const box = document.createElement('section');
   box.className = 'journal-group journal-task-col'; box.dataset.journalGroup = 'todo';

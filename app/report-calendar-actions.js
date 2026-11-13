@@ -8,6 +8,7 @@
 // 여기에 화면 상태는 두지 않는다(열려 있는 날은 창에서 읽고, dayDeps는 부르는 쪽 길을 잇는 연결일 뿐).
 import {offerUndoNotice} from './basket-record-delete.js';
 import {openRowMenu} from './row-menu.js';
+import {keepMenus} from './anchored-menu.js';
 import {moveReportAt, dayKeyOf, dayHeading, REPORT_DAY_MENU_ITEMS, reportsByDay, dayWindowTitle} from './report-views-model.mjs';
 import {dayWindowHtml} from './report-views.js';
 
@@ -72,7 +73,8 @@ export async function showReportDayWindow({day, rows, colorOf, nameOf, anchor, t
     initialFocus: kept && list.some(m => String(m.id) === kept) ? `#calendarDayList [data-mrd-meeting="${CSS.escape(kept)}"]`
       : keptPlan && items.some(i => i.eventId === keptPlan) ? `#calendarDayList [data-rv-plan="${CSS.escape(keptPlan)}"] button`
       : '#calendarDayList :is([data-mrd-meeting],button)',
-    fill: el => { el.innerHTML = dayWindowHtml({day, list, colorOf, nameOf, plans: items, planColorOf}); bindDayWindow(el); }});
+    // MENU-자리나머지: 그날 창 줄에서 연 보고 메뉴(창 밖 메뉴)는 창을 다시 채운 뒤 같은 보고의 새 줄에 붙는다(공용 keepMenus).
+    fill: el => { const m = window.KPTUMeetingRoundDetail?.outsideMenu; keepMenus(m ? [m] : [], {attrs: ['data-mrd-meeting'], root: el}, () => { el.innerHTML = dayWindowHtml({day, list, colorOf, nameOf, plans: items, planColorOf}); }); bindDayWindow(el); }});
   return true;
 }
 

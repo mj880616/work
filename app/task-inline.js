@@ -208,7 +208,17 @@ export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAtt
       }});
     menu.open(trigger, {at});
   }
+  // MENU-자리나머지: 줄을 그리는 화면(일지 할 일 칸·달력·연결 할 일)이 다시 그린 뒤 열린 메뉴를 같은 할 일의 새 칸에 붙인다(anchored-menu keepMenus에 넘김).
+  // 메뉴 주인 id는 칸 기준(menuIds)이라 새 칸에도 같은 id를 적어 둔다(우클릭으로 연 ⋯ 없는 칸도 같은 할 일로 남게).
+  const menuFollower = {
+    get active() { return menu?.active || null; },
+    follow(find) {
+      const a = menu?.active; if (!a || a.trigger.isConnected) return;
+      menu.follow((id, old) => { const next = find(id, old); if (next) menuIds.set(next, id); return next; });
+    }
+  };
   return {
+    menuFollower,
     // The circle: a pending line completes (with [되돌리기]), a finished one reopens.
     toggle:(id, el = null) => { const task = look(id, el); if (task) return setDone(id, task.status !== 'completed', {el}); },
     complete:(id, el = null) => setDone(id, true, {el}),

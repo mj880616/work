@@ -11,7 +11,7 @@ import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
 import {mountSplitResize} from './split-resize.js';
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
-import { createAnchoredMenu } from './anchored-menu.js';
+import { createAnchoredMenu, keepMenus } from './anchored-menu.js';
 import {tapExpand} from './text-clamp.js';
 import {foldedSet,isFoldedOwn,partitionTree,blocks,foldedMetadata,foldSummary} from './project-fold.mjs';
 import {recordLines} from './note-preview.mjs';
@@ -384,7 +384,8 @@ async function renderGrid({isCurrent=()=>true}={}){
  // UI-PC프로젝트좌우: the list is replaced in place (keeping its own scroll); the detail pane beside it stays.
  const old=grid.querySelector(':scope>.ps3-plist'),list=document.createElement('div');list.className='ps3-plist';
  list.innerHTML=`<div class="add-list-head"><span class="muted" data-ps3-total>사업영역 ${rows.length}개</span><div class="ps3-project-toolbar"></div></div>${rows.length?foldedListHtml():emptyHtml()}`;
- if(old){const top=old.scrollTop;old.replaceWith(list);list.scrollTop=top}else grid.prepend(list);
+ // MENU-자리나머지: 줄 메뉴(길게 누르기·우클릭)를 연 채 목록을 바꿔 그려도 열린 메뉴는 같은 사업영역의 새 줄에 붙고, 없어지면 닫힌다(공용 keepMenus).
+ keepMenus(foldMenu?[foldMenu]:[],{attrs:['data-ps3-project'],zones:['.ps3-plist, #ps3DetailPane'],root:grid},()=>{if(old){const top=old.scrollTop;old.replaceWith(list);list.scrollTop=top}else grid.prepend(list)});
  if(!$('#ps3DetailPane'))grid.insertAdjacentHTML('beforeend','<aside id="ps3DetailPane" class="ps3-pane" aria-label="사업영역 상세"><p class="ps3-pane-empty">왼쪽에서 사업영역을 선택하면 여기에 보입니다.</p></aside>');
  const actions=list.querySelector('.add-list-head .ps3-project-toolbar');
  if(archiveBtn){paintArchiveBtn(archiveBtn);actions.append(archiveBtn);if(trash.merged!==TRASH_STATE.MISSING)void syncTrash()}if(add&&!add.closest('#areaWindow .area-window-head'))actions.append(add);
