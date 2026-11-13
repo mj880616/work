@@ -385,7 +385,7 @@ function draw(slot, start, s, rt) {
   if (dev.length) {
     const d = el('section', 'journal-weekly-part'); d.dataset.journalLearnDev = '';
     d.append(el('h5', 'journal-weekly-sub', '만들기로 보낸 것'));
-    // CC 전달 길(설계 25.2, #1793 dev-inbox)이 생겨 '준비 중' 한 줄은 지웠다(S61-27). 보낸 결과는 [만들기] 때 알림 끝 한 마디가 말한다.
+    // CC 전달 길(설계 25.2, PR 1793 dev-inbox)이 생겨 '준비 중' 한 줄은 지웠다(S61-27). 보낸 결과는 [만들기] 때 알림 끝 한 마디가 말한다.
     const list = el('ul', 'journal-kinds-off-list');
     for (const x of dev) { const li = el('li'); li.append(el('span', 'journal-weekly-day', slash(x.week)), ' '); if (x.area) li.append(el('small', 'journal-learn-area', SUGGESTION_AREA[x.area]), ' '); if (x.hand) li.append(el('small', 'journal-learn-area', '손'), ' '); li.append(suggestionText(doc, x)); if (x.made) { const m = el('small', 'journal-muted', `만듦 #${x.made}`); m.dataset.learnMade = String(x.made); li.append(' ', m); } list.append(li); }
     d.append(list); box.append(d);
