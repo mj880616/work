@@ -230,6 +230,7 @@
 | `20260927103344_task_impl2_notes_record_links.sql` | 적용 완료·기록 존재 (2026-09-27 운영 적용, read-only 사후 확인) | TASK-구현 PR 2(#335, main `7f13105e`). `app_notes`·`app_record_links` 생성. version `20260927103344`, name `task_impl2_notes_record_links` 일치. 사후 확인 전 항목 일치(RLS 켜짐, 정책 각 1개, anon 권한 없음, authenticated select·insert·update·delete, 행 0). 적용 절차·되돌리기는 `docs/web2-task-impl2-db.md` |
 | `20260929081500_task29_block_writes_delete_app_tasks_rows.sql` | 적용 완료(사용자 보고, 2026-09-29 SQL Editor) | TASK-29 #360·#361 merge 뒤 새 쿼리 창에서 적용. 사용자 보고 사후 확인: `app_tasks` 0행, `authenticated` SELECT만 허용, migration 기록 1행. 첫 실행은 편집기에 남아 있던 옛 쿼리가 실행되어 이 migration이 미적용이었고, 당시 운영 변화 없음 확인 후 새 쿼리 창에서 재실행. 이 문서 갱신 세션은 DB를 재조회하지 않았다. |
 | `20260929072329_task29_delete_app_tasks_rows.sql` | 미적용 | #359의 구 파일은 #360에서 저장소에서 제거하고 `20260929081500`으로 대체. 사용자 보고 기준 production 기록 없음. |
+| `20261113110000_profile_view_prefs_note_zoom.sql` | 미적용(S61-16 NOTE-내용확대축소 DB PR 열림 — CC가 merge 뒤 승인형 DB workflow로 dry-run → apply. 앞 단계 `20261110170000_profile_view_prefs_biz_week_open` 기록 필요, 없으면 멈춤) | S61-16 NOTE-내용확대축소(요청함 11/12 14:34). `app_profiles_view_prefs_check`를 biz_week_open 판 글자 그대로 다시 만들며 `note_zoom`(80·90·100·110·125·150 중 하나인 숫자) 한 칸만 더함. 권한·정책·RLS·새 열 없음. 짝 파일 5개 `docs/20261113110000_profile_view_prefs_note_zoom.*`. 적용 전에는 화면이 이번 접속만 기억 |
 
 아래 ENV-2 집계는 당시 조사값이며 위 후속 적용을 소급 포함하지 않는다.
 
