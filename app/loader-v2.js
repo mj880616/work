@@ -175,6 +175,9 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
+  // 업데이트 안내는 드러낼 때 이미 듣고 있어야 한다(화면이 보이자마자 다른 탭으로 갔다 와도 새 배포를 알림). 작은 파일이라 여기서 받기만 시작하고 드러내기 직전에 켠다.
+  const versionNoticeReady=import('./version-notice.js');
+
   const showFeatureError=(err,retry=null)=>{
     console.error('view feature load failed',err);
     // UI-기다림표시통일: 실패는 공용 부품(wait-state.js) — 빨간 작은 글자 '불러오지 못했습니다' + 작은 [다시](민트 상자 쓰지 않음).
@@ -256,9 +259,11 @@
     try{await viewLoader.load('projects');await window.KPTUAreaWindow?.open({id:params.get('project')||null})}
     catch(err){console.warn('area window open failed',err?.name||'Error')}
   }
+  const {startVersionNotice}=await versionNoticeReady;
+  startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   // PERF-첫로딩 ③(S61-32): 아래는 모두 첫 화면을 드러낸 뒤에 부른다(기다리지 않는 뒤 기능). 전에는 드러내기 전에 받기 시작해(원장 사본·자동 기록·겹침 알림은
-  // 첫 화면 프로그램보다도 먼저) 느린 폰에서 첫 화면 파일과 같은 연결을 다퉜고, 업데이트 안내는 그 받기를 기다린 뒤에야 드러냈다. 하는 일·순서는 그대로다.
+  // 첫 화면 프로그램보다도 먼저) 느린 폰에서 첫 화면 파일과 같은 연결을 다퉜다. 하는 일·순서는 그대로다(업데이트 안내만 위에서 받기를 앞당겨 드러내기 전에 켠다).
   // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
   import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
   // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
@@ -272,8 +277,6 @@
   import('./meeting-recorder.js').catch(err=>console.warn('meeting recorder load failed',err?.name||'Error'));
   // REC-한회의로잇기 PR-3: 두 번 녹음한 회의를 한 보고로 — 정리 결과 앞 물음·[그 보고에 잇기]·맨 위 잇는 중/이어 붙였어요 줄의 주인(meeting-join.js). 기다리지 않는다.
   import('./meeting-join.js').catch(err=>console.warn('meeting join load failed',err?.name||'Error'));
-  const {startVersionNotice}=await import('./version-notice.js');
-  startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   // UI-앱안알림 2단계: 맨 위 알림 줄의 연결 끊김·수집 멈춤(notice-lines.js). 기다리지 않는다.
   import('./notice-lines.js').then(m=>m.startNoticeLines()).catch(err=>console.warn('notice lines load failed',err?.name||'Error'));
   // UI-앱안알림 4단계: 뒤에서 끝난 일(다음 주 준비 한 장 등)도 같은 알림 줄에(notice-done.js, 폰 알림과 같은 서버 목록). 기다리지 않는다.
