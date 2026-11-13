@@ -14,6 +14,7 @@
 //   learnInput(행들, 보고 주)            → 학습 재료: 보고 주 '앞' 주들의 고침 기록·규칙만(이번 주 개인본·이번 주 기록은 넣지 않음)
 import {squashLine} from './weekly-lines.mjs';
 import {readPicks, mergePicks} from './weekly-picks.mjs';
+import {readLayout, layoutHabit} from './weekly-layout.mjs';
 
 export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks', 'places']); // picks: S46-22 제안 [×]·받음 기록(weekly-picks.mjs), places: 아래 readPlaces
 export const FEEDBACK_LINE_CHARS = 300;
@@ -128,20 +129,20 @@ export function diffCells(proposed, final) {
 }
 // [확정] 때 서버(그 주 행의 draft.feedback)에 남길 기록. 사람이 확정한 최종 글만 '배울 값'이다.
 // from: 'confirm'(앱 [확정]) | 'library'(자료실에 올린 개인 확정본 — 앱 밖에서 손으로 다듬은 판, doc = 그 자료 id) | 'test'.
-export function feedbackRecord({week, at, proposed, final, from = 'confirm', doc = ''}) {
+export function feedbackRecord({week, at, proposed, final, from = 'confirm', doc = '', layout = null}) {
   const d = diffCells(proposed, final);
   const counts = {kept:d.kept, changed:d.changed.length, dropped:d.dropped.length, added:d.added.length, proposed:d.proposed, final:d.final, moved:d.moved, reworded:d.reworded};
   const trim = list => list.slice(0, FEEDBACK_LIST_MAX);
-  return readFeedback({at, week, from, ...(doc ? {doc} : {}), counts, cells:d.cells.slice(0, CELL_STATS_MAX), changed:trim(d.changed), dropped:trim(d.dropped), added:trim(d.added)});
+  return readFeedback({at, week, from, ...(doc ? {doc} : {}), ...(layout ? {layout} : {}), counts, cells:d.cells.slice(0, CELL_STATS_MAX), changed:trim(d.changed), dropped:trim(d.dropped), added:trim(d.added)});
 }
 // S53-16 WEEKLY-환류정교화: 자료실의 개인 확정본(그 주 최종)이 앱 [확정] 뒤에 한글에서 더 다듬어 올린 판이면, 그 판을 '최종'으로 고침 기록을 다시 만든다.
 // 같은 주 처음 초안(proposed)이 있어야 하고, 이미 그 자료로 만든 기록이면 그대로(null). 글은 그 주 행(owner 전용)에만, 로그 없음.
 // extras: 그 주 draft 의 readExtras, final: 그 개인 확정본에서 뽑은 칸 글(Map). 새 기록 또는 null.
-export function libraryFeedback({extras, week, at, final, doc}) {
+export function libraryFeedback({extras, week, at, final, doc, layout = null}) {
   const proposed = extras?.proposed, had = extras?.feedback;
   if (!proposed?.cells?.length || !doc || !(final instanceof Map ? final.size : Array.isArray(final) && final.length)) return null;
   if (had?.from === 'library' && had.doc === String(doc)) return null;
-  const next = feedbackRecord({week, at, proposed:proposed.cells, final, from:'library', doc:String(doc)});
+  const next = feedbackRecord({week, at, proposed:proposed.cells, final, from:'library', doc:String(doc), layout});
   if (!next) return null;
   // 앞 기록의 환류 보고(review — 규칙 후보·개선 제안과 그 답)는 잃지 않는다(정리는 다음 보고 때 새 숫자로).
   return had?.review ? {...next, review:had.review} : next;
@@ -220,8 +221,13 @@ export function readFeedback(raw) {
   if (stats.length) out.cells = stats;
   const review = readReview(raw.review);
   if (review) out.review = review;
+  // WEEKLY-자동화 ②(명진 결정 3): Web2 판 ↔ 고친 판 모양(빈 줄·줄머리·들여쓰기) 숫자. 글 없음, weekly-layout.mjs 모양 검사.
+  const layout = readLayout(raw.layout);
+  if (layout) out.layout = layout;
   return bytes(out) > EXTRA_MAX_BYTES ? null : out;
 }
+// 따를 한글 파일 모양: 보고 주 '앞' 주들의 고침 기록(최근 LEARN_WEEKS개, learnInput 과 같은 범위)의 layout 에서 되풀이된 것만(weekly-layout.mjs layoutHabit).
+export const layoutInput = (rows, week) => layoutHabit(learnInput(rows, week).feedback.map(f => f.layout));
 // 규칙 칸 읽기(항상 v2 모양으로 돌려줌). 같은 줄은 확정 → 폐기 → 후보 순으로 하나만.
 export function readRules(raw) {
   if (!isObj(raw) || !at40(raw.at)) return null;
