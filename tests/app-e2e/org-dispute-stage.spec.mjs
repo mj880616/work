@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome,defaultStageRows} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
-// ORG-쟁의단계 화면(2026-10-24 명진 결정): 조직 상세 '쟁의 단계' 한 줄(선택·달력 날짜·저장)과 접힌 단계 이력, 목록 꼬리표(투쟁 중·이번 주 끝남),
+// ORG-쟁의단계 화면(2026-10-24 명진 결정): 조직 상세 '쟁의 단계' 한 줄(선택·달력 날짜·저장)과 접힌 단계 이력, 목록 꼬리표(모든 조직의 지금 단계 — 투쟁 중 주황·끝남 초록·평시 회색, ORG-단계꼬리표전부),
 // 담당조직 화면 ⋯ › 쟁의 단계 관리(추가·이름 바꾸기·투쟁 중 켬/끔·순서·지우기 → 기본 단계로 이동). 서버는 가짜(저장 흐름만 확인). 이름은 모두 합성 값.
 // 시계는 2026-10-06(화)로 고정 → 이번 주는 10.5~10.11.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
@@ -77,20 +77,23 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
  await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');
  expect(db.history).toHaveLength(1);expect(db.history[0]).toMatchObject({organization_id:'oa',stage_id:'stage-3',stage_name:'쟁의발생 결의',stage_date:'2026-10-02'});
  await expect(line.locator('summary')).toHaveText('단계 이력 1');
- await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('쟁의발생 결의');await expect(row(page,'ob').locator('.so-stage-tag')).toHaveCount(0);
+ await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('쟁의발생 결의');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveAttribute('data-so-stage','struggle');
+ // 단계를 정하지 않은 조직도 기본 단계 꼬리표(회색)
+ await expect(row(page,'ob').locator('.so-stage-tag')).toHaveText('교섭 시작 전');await expect(row(page,'ob').locator('.so-stage-tag')).toHaveClass(/is-quiet/);
  // 같은 단계를 다시 저장하면 날짜만 고친 것(줄이 늘지 않음)
  await line.locator('[data-stage-date]').fill('2026-10-03');await line.locator('[data-stage-save]').click();
  // 저장이 끝날 때까지(새 줄 넣기 → 옛 줄 지우기 → 다시 읽기) 기다린 뒤 다음 조작을 한다. 끝나기 전에 고르면 다시 그리기가 고른 값을 덮는다(기존 시험의 간헐 실패 원인).
  await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');await expect(line.locator('[data-stage-save]')).toBeHidden();
  expect(db.history).toHaveLength(1);expect(db.history[0].stage_date).toBe('2026-10-03');
- // 끝남: 이번 주(10.5~10.11)에 끝나면 꼬리표, 지난 주에 끝난 건 없음
+ // 끝남: 이번 주(10.5~10.11)든 지난 주든 늘 초록 꼬리표
  await stageSelect(page).selectOption({label:'협약체결'});await line.locator('[data-stage-date]').fill('2026-10-05');await line.locator('[data-stage-save]').click();
  await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');
  await expect(line.locator('summary')).toHaveText('단계 이력 2');
  await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('협약체결');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveClass(/is-end/);
- await line.locator('[data-stage-date]').fill('2026-10-04');await line.locator('[data-stage-save]').click(); // 지난 주로 고치면 꼬리표가 빠짐
+ await line.locator('[data-stage-date]').fill('2026-10-04');await line.locator('[data-stage-save]').click(); // 지난 주로 고쳐도 꼬리표는 그대로
+ await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');await expect(line.locator('[data-stage-save]')).toBeHidden();
  await expect(line.locator('summary')).toHaveText('단계 이력 2');
- await expect(row(page,'oa').locator('.so-stage-tag')).toHaveCount(0);
+ await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('협약체결');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveClass(/is-end/);
  await line.locator('summary').click();
  await expect(line.locator('details')).toContainText('10.4 협약체결');await expect(line.locator('details')).toContainText('10.3 쟁의발생 결의');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -263,7 +266,7 @@ for(const width of [390,1280])test(`이력 한 줄 ⋯ → 수정(단계·날짜
  await line.locator('[data-stage-hrow="h-b"] [data-stage-hdel-yes]').click();
  await expect(line.locator('[data-stage-msg]')).toHaveText('이력 한 줄을 삭제했어요.');
  expect(db.hdeletes).toEqual(['h-b']);
- await expect(stageSelect(page)).toHaveValue('stage-2');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveCount(0);
+ await expect(stageSelect(page)).toHaveValue('stage-2');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('교섭 중');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveClass(/is-quiet/);
  await expect(line.locator('summary')).toHaveText('단계 이력 1');
  // 마지막 줄까지 지우면 기본 단계(교섭 시작 전)
  await line.locator('[data-stage-hrow="h-a"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-a"] [data-stage-hdel]').click();await line.locator('[data-stage-hrow="h-a"] [data-stage-hdel-yes]').click();

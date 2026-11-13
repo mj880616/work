@@ -46,15 +46,14 @@ let soTeamHtml=null,soTeamBox=null;
 function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const mine=myOrganizations();document.querySelector('#soTeamSection')?.classList.toggle('so-none',!mine.length);const html=(mine.length?ordered(mine,o=>`<article class="so-card kptu-list-row" data-so-org="${esc(o.id)}" data-ps-workplace-org="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.name)} 상세 열기"><div class="so-card-main kptu-list-row-main"><span class="so-dot" data-so-dot="${esc(o.id)}" aria-hidden="true"></span><h4 class="kptu-list-name">${esc(o.name)}</h4><span class="so-chevron kptu-list-chevron" aria-hidden="true">›</span></div></article>`,true):(globalThis.KPTUWait?.emptyHtml?.()||''))+'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>';if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}paintSelection();paintStageTags();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
  // DESK-전체현황표: 담당조직 맨 위 소탭 [목록|전체 표]. 전체 표(org-overview.js)는 같은 내 담당조직 목록을 받아 묶음별 표로 그린다.
  if(mine.length||document.querySelector('#soTeamTabs'))import('./org-overview.js').then(m=>m.syncOverview({orgs:mine,workspaceId:soWorkspace,rt})).catch(err=>console.error('org overview',err))}
-// ORG-쟁의단계: 목록 줄 꼬리표(투쟁 중 + 이번 주 끝남만)와 ⋯ 메뉴 [쟁의 단계 관리]. 판정은 org-dispute-stage-model.mjs 한 곳, 읽기·쓰기는 org-dispute-stage.js.
+// ORG-쟁의단계: 목록 줄 꼬리표(모든 조직의 지금 단계, 색 = 투쟁 중·끝남·평시 — ORG-단계꼬리표전부)와 ⋯ 메뉴 [쟁의 단계 관리]. 판정은 org-dispute-stage-model.mjs 한 곳, 읽기·쓰기는 org-dispute-stage.js.
 let stageMod=null,stageMenu=null;
 async function stageModules(){if(!stageMod){const [data,model,ui]=await Promise.all([import('./org-dispute-stage.js'),import('./org-dispute-stage-model.mjs'),import('./org-dispute-stage-ui.js')]);stageMod={...data,...model,...ui}}return stageMod}
 function paintStageTags(){
  document.querySelectorAll('#soOrganizationList .so-stage-tag').forEach(el=>el.remove());document.querySelectorAll('#soOrganizationList .has-stage').forEach(el=>el.classList.remove('has-stage'));
  const state=stageMod?.peekDisputeState();if(!state||state.status!=='ready')return;
- const today=kstDay(Date.now());
- document.querySelectorAll('#soOrganizationList [data-so-org]').forEach(row=>{const tag=stageMod.listTag(stageMod.stageOfOrg(row.dataset.soOrg,state.histories,state.stages),today),main=row.querySelector('.kptu-list-row-main');if(!tag||!main)return;
-  const span=document.createElement('span');span.className='so-stage-tag'+(tag.kind==='ended'?' is-end':'');span.dataset.soStage=tag.kind;span.textContent=tag.text;main.querySelector('.kptu-list-chevron')?.before(span);main.classList.add('has-stage')});
+ document.querySelectorAll('#soOrganizationList [data-so-org]').forEach(row=>{const tag=stageMod.listTag(stageMod.stageOfOrg(row.dataset.soOrg,state.histories,state.stages)),main=row.querySelector('.kptu-list-row-main');if(!tag||!main)return;
+  const span=document.createElement('span');span.className='so-stage-tag'+(tag.kind==='ended'?' is-end':tag.kind==='quiet'?' is-quiet':'');span.dataset.soStage=tag.kind;span.textContent=tag.text;main.querySelector('.kptu-list-chevron')?.before(span);main.classList.add('has-stage')});
 }
 async function refreshStages(){if(!soWorkspace)return;try{await stageModules();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
 // UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 선택하지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
