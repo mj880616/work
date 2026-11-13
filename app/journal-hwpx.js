@@ -207,7 +207,7 @@ const latestBase = findBase;
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
 // draftDelay: how long typing must pause before the draft is saved (tests may pass a shorter one).
 // onMemory(list): [기억하기]로 내 프로필의 주간보고 기억을 쓴 뒤 저장된 목록을 알린다(journal.js가 [주간 정리]를 다시 그림).
-export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onFlow = () => {}, onRequestsSlot = () => {}, onSchedule = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
+export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onFlow = () => {}, onRequestsSlot = () => {}, onSchedule = () => {}, onLearn = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
   if (!host) return null;
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -238,8 +238,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   panel.append(undoLine, body);
   const confirmBtn = button('확정하고 한글 파일 받기', 'hwpxConfirm', 'mini primary');
   const confirmState = el('span', 'weekly-flow-confirm-state'); confirmState.dataset.hwpxConfirmState = '';
-  const more = rowMore(doc, {label:'HWP로 받기·확정 없이 파일만 받기·글로 복사·학습 시험', data:{hwpxMore:''}, items:[
-    {text:'HWP로 받기', data:{hwpxHwp:''}}, {text:'확정 없이 파일만 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간보고 초안 글로 복사'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
+  // WEEKLY-주간정리다듬기 ④(시안 docs/design/mockups/weekly-tidy.html ③): 버튼 아래에 늘어놓던 [초안 다시 쓰기]·주간보고 기억·규칙·환류는 ⋯ 안으로.
+  const more = rowMore(doc, {label:'HWP로 받기·확정 없이 파일만 받기·글로 복사·초안 다시 쓰기·배운 것 보기', data:{hwpxMore:''}, items:[
+    {text:'HWP로 받기', data:{hwpxHwp:''}}, {text:'확정 없이 파일만 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간보고 초안 글로 복사'},
+    {text:'초안 다시 쓰기', data:{hwpxAiAgain:''}, aria:'초안 다시 쓰기(손대지 않은 칸만)'}, {text:'배운 것 보기', data:{hwpxLearnShow:''}, aria:'주간보고 기억·규칙 보기'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
   const confirmRow = el('div', 'weekly-flow-confirm'); confirmRow.dataset.weeklyFlowConfirm = '';
   confirmRow.append(confirmBtn, more, confirmState);
   const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = '.hwp,.hwpx'; fileInput.hidden = true; fileInput.dataset.hwpxFile = '';
@@ -1159,7 +1161,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!p) return;
     p.hidden = !a?.note && a?.status !== 'done';
     p.replaceChildren(a?.note ?? '');
-    if (a && a.status !== 'running' && a.status !== 'wait') { const again = button('초안 다시 쓰기', 'hwpxAiAgain'); again.setAttribute('aria-label', '초안 다시 쓰기(손대지 않은 칸만)'); p.append(' ', again); p.hidden = false; }
   }
 
   // ---- 환류학습 6: [학습 시험] — 저장하지 않고 이번 주 개인본과 나란히 ----
@@ -1590,6 +1591,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-build]')) { void doBuild(); return; }
     if (b.matches('[data-hwpx-hwp]')) { void doHwp(); return; }
     if (b.matches('[data-hwpx-copy]')) { void Promise.resolve(onCopy?.()).then(ok => { if (ok) flashDone(confirmBtn); }); return; }
+    // ⋯ [초안 다시 쓰기]: 바탕을 열고(처음이면) 사람이 손대지 않은 칸만 다시 쓴다. 쓰는 중이면 한 줄 알림.
+    if (b.matches('[data-hwpx-ai-again]')) { void ensure().then(s => { if (!s) return; if (s.ai?.status === 'running' || s.ai?.status === 'wait') { say('초안을 쓰는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; } void aiDraft(s, true); }); return; }
+    if (b.matches('[data-hwpx-learn-show]')) { onLearn(); return; }
     if (b.matches('[data-hwpx-learn-test]')) { void ensure().then(s => { if (s) void learnTest(s, b); }); return; }
     if (b.matches('[data-hwpx-pick]')) { fileInput.click(); return; }
     if (b.matches('[data-hwpx-top-me]')) { void editTop('me'); return; }
@@ -1598,7 +1602,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-top-save]')) { saveTop(topLine.querySelector('[data-hwpx-top-input]')?.value); return; }
     if (b.matches('[data-hwpx-restart]')) { void restart(b); return; }
     if (false) return;
-    else if (b.matches('[data-hwpx-ai-again]') && state) void aiDraft(state, true);
     else if (b.closest('[data-hwpx-review]') && state?.review) void learnAnswer(state, b);
     else if (b.matches('[data-hwpx-stage-clear]') && state) void clearStage(state, Number(b.dataset.hwpxIndex), b);
     else if (b.matches('[data-hwpx-draft-retry]')) { if (state?.store) { state.store.dirty = true; void saveDraft(state); } }
