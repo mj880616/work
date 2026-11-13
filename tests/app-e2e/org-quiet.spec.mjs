@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 // FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: 홈 한 줄(폰 412·884, PC 1440). HOME-업무일지홈: 줄은 홈(업무일지) 맨 아래 [data-home-quiet],
-// 기준 주 수는 내 프로필 '수집·사용량' 칸 [data-ps-quiet]. 가짜 이름만. 오늘 = 2026-10-06(KST).
+// 기준 주 수는 조직 보고 화면 ⋯ [data-so-quiet](MULTI-다른담당자맞춤 ⑥, 통화·텔레그램 수집이 있는 작업공간만). 가짜 이름만. 오늘 = 2026-10-06(KST).
 // '연락' = 주요 인물과의 통화, 또는 텔레그램에서 내가 묻고 그쪽이 답한 것. 일방 전달·단체방 소식은 세지 않는다.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ORGS = [['o1', '가지부'], ['o2', '나지부'], ['o3', '다분회'], ['o4', '라지부'], ['o5', '마분회'], ['o6', '바지부'], ['o7', '사지부']];
@@ -100,26 +100,47 @@ for (const [width, phone] of [[412, true], [884, false], [1440, false]]) {
   });
 }
 
-test('기준 주 수는 내 프로필에서 고르고 서버에 저장한다(끄기면 줄 없음)', async ({page}) => {
+// MULTI-다른담당자맞춤 ⑥: 기준은 조직 보고 ⋯에서 선택(내 프로필에는 없음). 값은 그대로 서버 화면 기억 quiet_weeks.
+const SBQ = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+async function teamMenu(page) {
+  await page.evaluate(() => window.KPTURouter.go('team'));
+  await expect(page.locator('#teamView')).toBeVisible();
+  await page.locator('#soTeamMore').click();
+  return page.locator('#soTeamMenu');
+}
+test('기준 주 수는 조직 보고 ⋯에서 선택하고 서버에 저장한다(끄기면 줄 없음)', async ({page}) => {
   await page.setViewportSize({width: 412, height: 900});
-  const home = await openHome(page, {beforeLoad: () => routes(page)});
+  const home = await openHome(page, {beforeLoad: async () => { await routes(page); await page.route(u => u.origin === SBQ && u.pathname === '/rest/v1/rpc/app_my_features', r => r.fulfill({json: ['calls']})); }});
   await expect(line(page)).toBeVisible();
+  // 내 프로필에는 기준 칸이 없다.
   await page.evaluate(() => window.KPTURouter.go('profile'));
-  const seg = page.locator('#psStatusPanel [data-ps-quiet]');
+  await expect(page.locator('#profileView')).toBeVisible();
+  await expect(page.locator('[data-ps-quiet]')).toHaveCount(0);
+  let menu = await teamMenu(page);
+  const seg = menu.locator('.so-quiet-seg');
+  await expect(menu.locator('.so-menu-label')).toHaveText("홈 '연락 없는 조직' 기준");
   await expect(seg.locator('[aria-pressed="true"]')).toHaveText('3주');
-  await seg.locator('[data-ps-weeks="6"]').click();
+  await expect(seg.locator('button')).toHaveText(['2주', '3주', '4주', '6주', '끄기']);
+  await seg.locator('[data-so-quiet="6"]').click();
   await expect.poll(() => home.prefs.value?.quiet_weeks).toBe(6);
-  await expect(seg.locator('[aria-pressed="true"]')).toHaveText('6주');
-  await expect(seg.locator('[data-ps-weeks="6"]')).toBeFocused();
-  await seg.locator('[data-ps-weeks="0"]').click();
+  menu = await teamMenu(page);
+  await expect(menu.locator('.so-quiet-seg [aria-pressed="true"]')).toHaveText('6주');
+  await menu.locator('[data-so-quiet="0"]').click();
   await expect.poll(() => home.prefs.value?.quiet_weeks).toBe(0);
   await page.evaluate(() => window.KPTURouter.go('home'));
   await expect(page.locator('#homeView')).toBeVisible();
   await expect(line(page)).toBeHidden();
-  await page.evaluate(() => window.KPTURouter.go('profile'));
-  await seg.locator('[data-ps-weeks="6"]').click();
+  menu = await teamMenu(page);
+  await menu.locator('[data-so-quiet="6"]').click();
   await page.evaluate(() => window.KPTURouter.go('home'));
   await expect(line(page).locator('.oq-text')).toHaveText('6주째 연락 없음: 사지부 62일 · 마분회 180일+');
+});
+test('통화·텔레그램 수집이 없는 작업공간은 조직 보고 ⋯에 기준 칸이 없다', async ({page}) => {
+  await page.setViewportSize({width: 1280, height: 900});
+  await openHome(page, {beforeLoad: async () => { await routes(page); await page.route(u => u.origin === SBQ && u.pathname === '/rest/v1/rpc/app_my_features', r => r.fulfill({json: []})); }});
+  const menu = await teamMenu(page);
+  await expect(menu.getByRole('button', {name: '쟁의 단계 관리'})).toBeVisible();
+  await expect(menu.locator('.so-quiet-seg, .so-menu-label')).toHaveCount(0);
 });
 
 test('하나라도 읽기에 실패하면 줄을 그리지 않는다', async ({page}) => {

@@ -6,12 +6,14 @@ const mod = await import('../app/collection-status.js');
 const now = Date.parse('2026-10-21T09:00:00Z');
 const H = 3600000, iso = ms => new Date(ms).toISOString();
 
-function fakeRt({copy, radar, role = 'owner', slug = 'kptu-work'} = {}) {
+// MULTI-다른담당자맞춤 ④: 작업공간 이름은 보지 않는다. 운영자 기능 목록(app_my_features)은 calls에 세지 않는다(작업공간마다 한 번, 공용 캐시).
+function fakeRt({copy, radar, role = 'owner', slug = 'any-name', user = 'u', features = ['telegram']} = {}) {
   const calls = [];
   return {calls, rt:{
-    context:{read:() => ({user:{id:'u'}, workspace:{id:'w', slug}, membership:{role}})},
-    session:{read:() => ({access_token:'token-fixture', user:{id:'u'}})},
+    context:{read:() => ({user:{id:user}, workspace:{id:'w', slug}, membership:{role}})},
+    session:{read:() => ({access_token:'token-fixture', user:{id:user}})},
     api:async (path, opts = {}) => {
+      if (path === '/rest/v1/rpc/app_my_features') return features;
       calls.push({path, opts});
       const value = path.startsWith('/functions/v1/drive-summary') ? copy : radar;
       if (value instanceof Error) throw value;
@@ -67,6 +69,12 @@ test('mount: hidden for non-owner and when nothing can be checked; cached for 10
   const h1 = host(); await mod.mountCollectionStatus(h1, {rt:other.rt, now:() => now}).refresh();
   assert.equal(h1.hidden, true); assert.equal(other.calls.length, 0);
 
+  // 운영자 기능(통화·텔레그램)이 없는 다른 사람의 작업공간: 칸을 그리지 않고 drive-summary도 부르지 않는다.
+  const plain = fakeRt({user:'plain-owner', features:[], copy:{ok:true, copy:{state:'found', last_success_at:iso(now - H), last_failure_at:null}}, radar:[{last_success_at:iso(now - H)}]});
+  const hp = host(); await mod.mountCollectionStatus(hp, {rt:plain.rt, now:() => now}).refresh();
+  assert.equal(hp.hidden, true); assert.equal(plain.calls.length, 0);
+  assert.equal(await mod.readCollectionAttention(plain.rt, () => now), null);
+
   const none = fakeRt({copy:{ok:false, error:'METHOD_NOT_ALLOWED'}, radar:missing});
   const h2 = host(); await mod.mountCollectionStatus(h2, {rt:none.rt, now:() => now}).refresh();
   assert.equal(h2.hidden, true); assert.equal(h2.innerHTML, '');
@@ -90,7 +98,7 @@ test('mount: a refresh while the first read is in flight shares it (one radar re
   const gate = new Promise(resolve => { release = resolve; });
   const ok = fakeRt({copy:{ok:true, copy:{state:'found', last_success_at:iso(now - H), last_failure_at:null}}, radar:[{last_success_at:iso(now - 2 * H)}]});
   const api = ok.rt.api;
-  ok.rt.api = async (path, opts) => { await gate; return api(path, opts); };
+  ok.rt.api = async (path, opts) => { if (path !== '/rest/v1/rpc/app_my_features') await gate; return api(path, opts); };
   const h = host(), m = mod.mountCollectionStatus(h, {rt:ok.rt, now:() => now});
   const first = m.refresh(), second = m.refresh();
   release();
@@ -106,7 +114,7 @@ test('mount: a failed shared read does not stick; the next refresh reads again',
   mod.resetCollectionCache();
   const ok = fakeRt({copy:{ok:true, copy:{state:'found', last_success_at:iso(now - H), last_failure_at:null}}, radar:[{last_success_at:iso(now - 2 * H)}]});
   const api = ok.rt.api; let fail = true;
-  ok.rt.api = (path, opts) => { if (fail) { fail = false; throw new Error('not ready'); } return api(path, opts); };
+  ok.rt.api = (path, opts) => { if (fail && path !== '/rest/v1/rpc/app_my_features') { fail = false; throw new Error('not ready'); } return api(path, opts); };
   const h = host(), m = mod.mountCollectionStatus(h, {rt:ok.rt, now:() => now});
   await assert.rejects(m.refresh());
   await m.refresh();

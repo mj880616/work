@@ -93,13 +93,13 @@ async function load(){
   void loadPush();
   return true;
 }
-// MULTI ②-3(D5): '보고 설정' 칸(담당조직 묶음·순서, 고르기에서 뺄 조직, 보고 캘린더 이름)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
+// MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
 let reportSettings=null;
 async function loadReport(){
   try{
     let host=$('#psReportPanel');
-    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="보고 설정"></article>');host=$('#psReportPanel')}
-    if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{organizations:()=>organizations,toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
+    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="주간보고 일정 캘린더"></article>');host=$('#psReportPanel')}
+    if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
     (await reportSettings.ready).refresh();
   }catch(e){console.error('report settings',e?.name||'Error')}
 }
@@ -174,13 +174,13 @@ window.addEventListener('kptu:myspace-access',event=>syncMySpaceEntry(event.deta
 // UI-업데이트기록입구: 업데이트 기록은 계정 메뉴 [업데이트 기록] 화면(release-notes-ui.js) 한 곳이다. 내 프로필에는 두지 않는다.
 // APP-폰앱새로 ③: 폰 앱에서만 '계정' 칸에 [위젯 로그아웃] 작은 줄(phone-widget-line.js). 웹 브라우저에서는 아무것도 붙지 않는다.
 function installWidgetLine(){if(!/KPTUAndroid/i.test(navigator.userAgent||''))return;import('./phone-widget-line.js').then(m=>m.mountWidgetLine($('#profileView .ps-account-actions'))).catch(()=>{})}
-// HOME-업무일지홈: 옛 홈에만 있던 마지막 수집 시각·AI 사용량(+ 글자 읽기 끝남 줄, 연락 없는 조직 기준)은 '수집·사용량' 칸(profile-status.js).
+// HOME-업무일지홈: 옛 홈에만 있던 마지막 수집 시각·AI 사용량(+ 글자 읽기 끝남 줄)은 '사용 현황' 칸(profile-status.js, MULTI-다른담당자맞춤 ⑥).
 let statusMount=null;
-function installStatus(){const grid=$('#profileView .ps-profile-grid');if(!grid)return;if(!$('#psStatusPanel'))grid.insertAdjacentHTML('beforeend','<article class="panel ps-panel ps-status" id="psStatusPanel" aria-label="수집·사용량"></article>');import('./profile-status.js').then(m=>{statusMount=statusMount||m.mountProfileStatus($('#psStatusPanel'))}).catch(()=>{})}
+function installStatus(){const grid=$('#profileView .ps-profile-grid');if(!grid)return;if(!$('#psStatusPanel'))grid.insertAdjacentHTML('beforeend','<article class="panel ps-panel ps-status" id="psStatusPanel" aria-label="사용 현황" hidden></article>');import('./profile-status.js').then(m=>{statusMount=statusMount||m.mountProfileStatus($('#psStatusPanel'))}).catch(()=>{})}
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='profile')statusMount?.refresh()});
 async function boot(){installView();installStatus();installWidgetLine();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
-// MULTI ②-3: 보고 설정에서 묶음·순서를 바꾸면 담당 사업장 목록을 같은 자료로 다시 그린다(서버 다시 읽기 없음).
+// MULTI ②-3: 묶음·순서가 바뀌면(조직 보고 화면) 담당 사업장 목록을 같은 자료로 다시 그린다(서버 다시 읽기 없음).
 window.addEventListener('kptu:report-settings-changed',()=>{if(user&&!saving&&$('#psWorkplaceList'))renderWorkplaces()});
 window.addEventListener('kptu:session-changed',async()=>{user=null;workspaceId=null;workplaces=[];legacyWorkplaces=[];organizations=[];assignments=[];profileWorkplaces=[];baseline=new Set();want.clear();saved={name:'',title:''};const name=$('#psName'),title=$('#psTitle');if(name)name.value='';if(title)title.value='';if(await context()){bind();await load()}});
 window.__KPTU_PROFILE_SETTINGS_READY__=boot().catch(err=>{console.error('profile settings init',err);return false});

@@ -8,7 +8,7 @@
 // - 내용은 업무 글이다. 로그·오류 보고에 내용을 쓰지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
 
 import {readIssued, newerIssued} from './weekly-lines.mjs';
-import {readExtras, mergeExtras, EXTRA_KEYS, readProposed, FEEDBACK_LINE_CHARS} from './weekly-feedback.mjs';
+import {readExtras, mergeExtras, EXTRA_KEYS, readProposed, readPlaces, FEEDBACK_LINE_CHARS} from './weekly-feedback.mjs';
 import {withPick, pickKey, readPicks, PICK_KIND, ANSWER_ACTS, LINE_ACTS, HAVE_ACT} from './weekly-picks.mjs';
 import {cleanTitleEdit, titleFields, readHq, readSiteLayout} from './weekly-schedule-rows.mjs';
 import {readDiscuss} from './weekly-discuss.mjs';
@@ -395,7 +395,12 @@ export function readDraft(raw) {
   putHand(out, raw.hand);
   putOwners(out, raw.owners);
   putSiteLayout(out, raw.site_layout);
-  if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
+  if (raw.confirmed && typeof raw.confirmed === 'object') {
+    out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
+    // WEEKLY-주간정리다듬기 ⑥: 확정 뒤 '내가 고친 최종본'을 올렸으면 {at, file_name}(그 판이 그 주 자료실 개인 확정본). 비교·학습은 서버(S61-43)가 이 칸을 본다.
+    const f = raw.confirmed.final;
+    if (f && typeof f === 'object' && String(f.at ?? '') && String(f.file_name ?? '')) out.confirmed.final = {at:String(f.at).slice(0, 40), file_name:String(f.file_name).slice(0, 200)};
+  }
   putAreas(out, raw.area_summaries);
   putExtras(out, raw);
   const issued = readIssued(raw.issued);
@@ -573,6 +578,15 @@ export async function changeWeekDocs({start, known = null, change}, rt = window.
   throw Object.assign(new Error('changed'), {code:'changed'});
 }
 
+// WEEKLY-사업영역묶음 ①-b: 양식에 없는 사업영역의 고른 자리 이어 쓰기 — 이 주보다 앞선 주 가운데 places 가 있는 가장 가까운 주의 값(없거나 읽기 실패면 null).
+export async function readCarriedPlaces(start, rt = window.KPTURuntime) {
+  if (!DAY.test(String(start))) return null;
+  try {
+    const rows = await rt.api(`${TABLE}?workspace_id=eq.${encode(workspaceOf(rt))}&week_start=lt.${start}&draft->places=not.is.null&select=week_start,places:draft->places&order=week_start.desc&limit=8`, {singleFlight:false});
+    for (const row of Array.isArray(rows) ? rows : []) { const p = readPlaces(row?.places); if (p) return p; }
+    return null;
+  } catch { return null; }
+}
 // 3. 2) 투쟁 사업장 구성 이어 쓰기: 이 주보다 앞선 주 가운데 구성이 있는 가장 가까운 주의 구성(없거나 칸 준비 전·읽기 실패면 null).
 export async function readCarriedLayout(start, rt = window.KPTURuntime) {
   if (!DAY.test(String(start))) return null;

@@ -48,6 +48,8 @@ function ensureBox(el){
   if(compact)box.innerHTML='<div class="biz-paper biz-week-paper biz-paper-compact" data-bp-paper>'+skeletonHtml()+'</div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p>';
   else box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml('<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>');
   box.addEventListener('click',onClick);
+  // WEEKLY-사업영역묶음 ②: 묶음 표의 [수정] 글 칸 위 '수정할 칸' 고르기(사업영역 자기 칸 · ◦ 세부 과제 칸).
+  box.addEventListener('change',e=>{const t=e.target.closest?.('[data-bp-target]');if(!t||!state?.editing)return;const row=Number(t.value);if(!rowRefs()[row])return;state.editing={kind:'progress',row};renderPaper()});
   // 글 칸: 진행 = Ctrl+Enter(맥은 ⌘+Enter), 담당 한 줄 칸 = Enter 저장. Esc = 쓰던 칸만 닫기(저장 안 함).
   box.addEventListener('keydown',e=>{
     if(!state?.editing)return;
@@ -297,9 +299,49 @@ async function saveNowEdit(ed,field,ref){
     state.now.rows=rows;state.editing=null;say('저장했어요.');renderPaper();
   }catch{if(state&&run===state.run){say('저장하지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel]'))b.disabled=false}}
 }
+// ---- WEEKLY-사업영역묶음 ②(시안 docs/design/mockups/weekly-tidy.html ①): 홈 [주간 정리] 2. 1) 첫 칸 = 내 양식의 자리 ----
+// groups = Map(사업영역 이름 → 양식 첫 칸 이름, journal-hwpx.js areaGroups — 한글 파일과 같은 자리 찾기). 양식이 없으면 null → 지금 모양.
+// 한 줄 = 사업영역 하나: 첫 칸 = 양식 자리(같은 자리는 세로로 합침, 자리를 못 찾은 사업영역은 자기 이름), 둘째 칸 = 사업영역 이름,
+// 셋째 칸 = 사업영역 자기 칸 지금 상황 + '◦ 세부 과제' 소제목과 그 칸 지금 상황(지금 상황·이번 주 기록이 없는 세부 과제는 줄을 만들지 않음 — 팀 완성본 모양),
+// 담당 = 사업영역 자기 칸. [수정]은 글 칸 위에서 수정할 칸(사업영역 자기 칸·세부 과제 칸)을 고른다. 저장 자리는 그대로(칸마다 app_business_now).
+function groupsNow(){const g=state?.groups?.();return state?.now&&g instanceof Map&&g.size?g:null}
+const ownRow=area=>area.rows.find(r=>!r.task)||{task:null,items:[]};
+function groupedHtml(placed,records){
+  const g=groupsNow(),{NM}=state.kit,refs=[],order=[],byGroup=new Map();
+  for(const area of placed.areas){const k=g.get(area.name)||area.name;if(!byGroup.has(k)){byGroup.set(k,[]);order.push(k)}byGroup.get(k).push(area)}
+  const rows=[];
+  for(const k of order){
+    const list=byGroup.get(k);
+    list.forEach((area,i)=>{
+      const own=ownRow(area),ownRef={area:area.name,task:'',space:String(area.id)},ownAt=refs.push(ownRef)-1;
+      const subs=area.rows.filter(r=>r.task).map(r=>({row:r,ref:{area:area.name,task:r.task.name||'',space:String(r.task.id)}}));
+      for(const x of subs)x.at=refs.push(x.ref)-1;
+      const ed=state.editing,editing=ed&&ed.kind==='progress'&&[ownAt,...subs.map(x=>x.at)].includes(ed.row);
+      let cell;
+      if(editing){
+        const ref=refs[ed.row],v=NM.nowView(state.now.rows,ref.space,state.from);
+        const pick=subs.length?`<label class="biz-write-target">수정할 칸 <select data-bp-target aria-label="${esc(`${area.name} 수정할 칸`)}"><option value="${ownAt}"${ed.row===ownAt?' selected':''}>${esc(area.name)}</option>${subs.map(x=>`<option value="${x.at}"${ed.row===x.at?' selected':''}>◦ ${esc(x.ref.task)}</option>`).join('')}</select></label>`:'';
+        cell=pick+editBox('progress',v.body,`${area.name}${ref.task?' '+ref.task:''} 지금 상황`,NM.NOW_BODY_MAX);
+      }else{
+        const linesOf=ref=>{const v=NM.nowView(state.now.rows,ref.space,state.from);return v.body?v.body.split('\n').map(l=>`<p class="biz-hand-line">${esc(l)}</p>`).join(''):''};
+        const recN=(ref,items)=>items.length+(state.now.recs.get(ref.space)||[]).length;
+        const ownBody=linesOf(ownRef),ownRecs=recsHtml(ownRef,own.items||[],records);
+        const subHtml=subs.map(x=>{const body=linesOf(x.ref);if(!body&&!recN(x.ref,x.row.items||[]))return '';return `<p class="biz-sub-head">◦ ${esc(x.ref.task)}</p>${body}${recsHtml(x.ref,x.row.items||[],records)}`}).join('');
+        const any=ownBody||subHtml;
+        const btn=state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="progress" data-bp-row="${ownAt}" aria-label="${esc(`${area.name} 지금 상황 쓰기`)}">${any?'수정':'쓰기'}</button>`:'';
+        cell=`${ownBody}${subHtml}${any?'':'<span class="biz-now-empty">—</span>'}<div class="biz-now-foot">${ownRecs}${btn}</div>`;
+      }
+      rows.push(`<tr>${i===0?`<th scope="rowgroup" rowspan="${list.length}">${esc(k)}</th>`:''}<td>${k===area.name&&list.length===1?'':esc(area.name)}</td><td data-bp-box="progress">${cell}</td><td data-bp-box="owner">${ownerCell(ownRef,ownAt)}</td></tr>`);
+    });
+  }
+  state.rowRefs=refs;
+  for(const other of placed.others){const lines=factsHtml(other.items,records);rows.push(`<tr><th scope="row">${esc(other.name==='미분류'?'보관된 사업영역':other.name)}</th><td></td><td>${lines}</td><td></td></tr>`)}
+  return rows.length?`<table class="biz-sum-table biz-sum-grouped" data-bp-grouped><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음');
+}
 function paperHtml(placed,records,untagged,all,lineOf){
   const rows=[],refs=[];
   for(const r of records)delete r.used; // 다시 그릴 때마다 보고 줄을 처음부터 짝지음(전에는 두 번째 그림부터 보고 열기 버튼이 빠졌음)
+  if(compact&&groupsNow())return groupedHtml(placed,records);
   for(const area of placed.areas)area.rows.forEach((row,i)=>{
     const ref={area:area.name,task:row.task?.name||'',space:String(row.task?.id??area.id)},n=refs.push(ref)-1;
     rows.push(`<tr>${i===0?`<th scope="rowgroup" rowspan="${area.rows.length}">${esc(area.name)}</th>`:''}<td>${esc(ref.task)}</td><td data-bp-box="progress">${progressCell(ref,n,row.items,records)}</td><td data-bp-box="owner">${ownerCell(ref,n)}</td></tr>`);
@@ -322,18 +364,21 @@ self.fileRows=week=>{
   const d=state?.done;
   if(!state||!d||d.run!==state.run||d.from!==week||state.from!==week||state.dirty||state.stale||!state.view)return {status:'loading'};
   if(d.now!=='ready'||!state.now)return {status:d.now==='missing'?'missing':d.now==='error'?'error':'loading'};
-  const {NM}=state.kit,rows=[];
-  for(const area of state.view.placed.areas)for(const row of area.rows){
+  const {NM}=state.kit,rows=[],grouped=compact&&!!groupsNow();
+  for(const area of state.view.placed.areas){
+    // 묶음 표(②)는 세부 과제가 있는 사업영역에도 자기 칸이 있다 — 그 칸 글도 한글 파일 그 자리 맨 위 줄로(applyBizWindow head).
+    if(grouped&&!area.rows.some(r=>!r.task)){const v=NM.nowView(state.now.rows,String(area.id),week);rows.push({space:String(area.id),area:area.name,task:'',lines:v.body?v.body.split('\n').map(l=>l.trim()).filter(Boolean):[],owner:v.owner})}
+    for(const row of area.rows){
     const space=String(row.task?.id??area.id),v=NM.nowView(state.now.rows,space,week);
     rows.push({space,area:area.name,task:row.task?.name||'',lines:v.body?v.body.split('\n').map(l=>l.trim()).filter(Boolean):[],owner:v.owner});
-  }
+  }}
   return {status:'ready',rows};
 };
 // meetings(): 사업 보고 화면이 읽어 둔 사업 보고 전체(select=*). 화면의 읽기를 그대로 쓰고 따로 읽지 않는다.
 // el = 사업 보고 화면의 늘 펼친 칸 #bizWeekBox. week = 위 주 고르기의 주(월요일 날짜). 화면이 다시 그려질 때마다 불린다.
 // fold = 사업 보고가 여러 주(전체 기간·정한 기간)를 보는 중 → 접힌 한 줄로 시작(BIZ-주간표이번주 ⑥). 홈 작은 상자는 늘 펼침.
 // auto = 사업 보고 하나를 직접 열어 보는 중 → 접힘(BIZ-주간보고접기). visit = 화면에 들어온 횟수(바뀌면 손으로 고른 접힘을 잊음).
-self.mount=(el,{meetings,week,tree=null,fold=false,auto=false,visit=0,onFold=null})=>{
+self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=0,onFold=null})=>{
   ensureBox(el);
   const from=weekOf(week||seoulDateKey(Date.now())).from,first=!state;
   if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,hand:null,auto:false,visit,told:null,dirty:false};
@@ -342,11 +387,13 @@ self.mount=(el,{meetings,week,tree=null,fold=false,auto=false,visit=0,onFold=nul
   const autoNow=!compact&&!!auto;
   if(state.visit!==visit||state.auto!==autoNow){state.visit=visit;state.hand=null}
   state.fold=foldNow;state.auto=autoNow;state.onFold=onFold;
+  // ② 묶음(양식 자리)이 바뀌면 다시 읽지 않고 표만 다시 그린다(쓰는 칸이 있으면 그대로).
+  state.groups=groups;const gk=groupKey(groups);const regroup=state.groupKey!==gk;state.groupKey=gk;
   if(!first){
     // 같은 주이고 사업 보고 자료(화면이 읽어 둔 배열)도 그대로면 이미 그린 것을 다시 읽지 않는다(화면이 다시 그려질 때마다·[+] 창을 열 때마다 서버를 부르지 않게).
     const same=state.from===from&&state.seen===meetings()&&!!state.view&&!state.stale&&!state.dirty&&(!tree||state.treeSeen===tree());
     state.meetings=meetings;state.tree=tree;
-    if(same||(state.editing&&state.from===from)){applyFold(state.from);return} // 쓰는 칸이 있으면 같은 주에서는 다시 그리지 않는다(쓰던 글 보호)
+    if(same||(state.editing&&state.from===from)){applyFold(state.from);if(same&&regroup&&!state.editing)renderPaper();return} // 쓰는 칸이 있으면 같은 주에서는 다시 그리지 않는다(쓰던 글 보호)
     state.from=from;state.to=shiftDays(from,6);
   }
   state.seen=meetings();state.stale=false;state.treeSeen=tree?tree():null;
@@ -357,6 +404,7 @@ self.mount=(el,{meetings,week,tree=null,fold=false,auto=false,visit=0,onFold=nul
 };
 return self;
 }
+const groupKey=groups=>{const g=groups?.();return g instanceof Map&&g.size?JSON.stringify([...g]):''};
 // 사업 보고 화면의 늘 펼친 칸(#bizWeekBox) — 상자마다 부품 하나.
 const boxes=new WeakMap();
 export function mountWeekSummary(el,{meetings,week,fold=false,auto=false,visit=0,onFold=null}){
@@ -370,5 +418,5 @@ export function mountWeekSummary(el,{meetings,week,fold=false,auto=false,visit=0
 export function createBizSummaryBox(){
   const el=document.createElement('div');el.className='biz-week-box biz-week-compact';el.dataset.bizSummaryBox='';
   const inst=createBizSummary({compact:true});
-  return {el,update:({meetings,week,tree})=>inst.mount(el,{meetings,week,tree}),fileRows:week=>inst.fileRows(week)};
+  return {el,update:({meetings,week,tree,groups=null})=>inst.mount(el,{meetings,week,tree,groups}),fileRows:week=>inst.fileRows(week)};
 }

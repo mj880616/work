@@ -13,12 +13,13 @@ export function isAiCap(x) {
   if (typeof x === 'string') return x === AI_CAP_CODE || x === AI_CAP_CODE.toUpperCase() || x.startsWith('이번 달 AI 사용 한도(');
   return [x.code, x.error, x.message].some(v => typeof v === 'string' && isAiCap(v));
 }
-// 내 프로필 한 줄(ai-assist kind=ai_month 답). 운영자(exempt)·모양이 틀린 답은 null(줄을 그리지 않음 — 명진 화면은 그대로).
+// 내 프로필 한 줄(ai-assist kind=ai_month 답). 운영자(exempt)·한도 전·모양이 틀린 답은 null(줄을 그리지 않음 — 명진 화면은 그대로).
 export function aiMonthLine(d) {
   if (!d || d.ok !== true || d.exempt !== false) return null;
   const used = Number(d.used_krw), cap = Number(d.cap_krw);
   if (!Number.isSafeInteger(used) || used < 0 || !Number.isSafeInteger(cap) || cap < 0) return null;
   const won = n => n.toLocaleString('ko-KR');
+  // MULTI-다른담당자맞춤 ⑥(명진 11/13 15:30): 한도에 닿았을 때만 한 줄. 그 전에는 줄을 그리지 않는다(쓴 금액·한도 줄 없앰).
   if (d.capped) return {text: `이번 달 AI 사용 한도(${won(cap)}원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.`, capped: true};
-  return {text: `이번 달 AI 사용 ${won(used)}원 / 한도 ${won(cap)}원`, capped: false};
+  return null;
 }

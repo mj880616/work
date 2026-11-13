@@ -328,7 +328,7 @@ for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)�
  expect(errors).toEqual([]);
 });
 
-// UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄 우클릭 = [열기] ─ [쟁의 단계 관리](같은 화면 메뉴 + [열기] 한 줄).
+// UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄 우클릭 = [열기] ─ 그 조직 일(MULTI-다른담당자맞춤 ①: 이름 바꾸기·담당 조직에서 제외 ─ 삭제) ─ [쟁의 단계 관리].
 // [열기]는 그 조직을 오른쪽 상세로. 고른 줄 우클릭·⋯ 그냥 누르기는 지금 메뉴 그대로, 폰 폭은 공용 규칙대로 메뉴를 띄우지 않는다.
 const menuLabels=page=>page.locator('#soTeamMenu button').allTextContents();
 test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관리], [열기]는 오른쪽 상세를 그 조직으로 1280px',async({page})=>{
@@ -337,30 +337,31 @@ test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관
  await expect(row(page,'ob')).toBeVisible();
  const target=await row(page,'ob').evaluate(el=>el.classList.contains('is-selected')?'oa':'ob');
  const box=await row(page,target).boundingBox();
- await row(page,target).click({button:'right',position:{x:40,y:box.height/2}});
+ // MULTI-다른담당자맞춤 ②: 묶음이 있으면 줄 맨 앞에 끌기 손잡이 ⋮⋮(누르는 범위 44px)가 있어 이름 쪽(x 80)을 누른다.
+ await row(page,target).click({button:'right',position:{x:80,y:box.height/2}});
  const menu=page.locator('#soTeamMenu');await expect(menu).toBeVisible();
- expect(await menuLabels(page)).toEqual(['열기','쟁의 단계 관리']);
- await expect(menu.locator('hr.so-menu-sep')).toHaveCount(1);
+ expect(await menuLabels(page)).toEqual(['열기','이름 바꾸기','담당 조직에서 제외','삭제','쟁의 단계 관리']);
+ await expect(menu.locator('hr.so-menu-sep')).toHaveCount(3);
  await expect(menu.locator('button').first()).toBeFocused();
  if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/org-row-menu-1280.png`});
  // 메뉴는 누른 자리에(⋯ 밑이 아니라)
- const m=await menu.boundingBox();expect(Math.abs(m.x-(box.x+40))).toBeLessThanOrEqual(16);
+ const m=await menu.boundingBox();expect(Math.abs(m.x-(box.x+80))).toBeLessThanOrEqual(16);
  await menu.getByRole('button',{name:'열기',exact:true}).click();
  await expect(menu).toBeHidden();
  await expect(page.locator('#wdTitle')).toHaveText(orgs.find(o=>o.id===target).name);
  await expect(row(page,target)).toHaveClass(/is-selected/);
- // 고른 줄 우클릭 = 지금처럼 화면 메뉴만
- await row(page,target).click({button:'right',position:{x:40,y:box.height/2}});
- await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['쟁의 단계 관리']);
+ // 고른 줄 우클릭 = 그 줄의 ⋯ 메뉴(MULTI-다른담당자맞춤 ①: 줄마다 ⋯가 생겨 공용 우클릭이 그 ⋯를 연다)
+ await row(page,target).click({button:'right',position:{x:80,y:box.height/2}});
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['이름 바꾸기','쟁의 단계','담당 조직에서 제외','삭제']);
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  // 다른 줄 우클릭 → [열기] 붙음, 메뉴가 열린 채로 또 다른 줄을 우클릭해도 그 줄 기준
  const other=target==='oa'?'ob':'oa';
  await row(page,other).click({button:'right'});
- await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['열기','쟁의 단계 관리']);
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['열기','이름 바꾸기','담당 조직에서 제외','삭제','쟁의 단계 관리']);
  // ⋯ 그냥 누르기는 [열기] 없이
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  await page.locator('#soTeamMore').click();
- await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['쟁의 단계 관리']);
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['묶음 만들기','쟁의 단계 관리']); // MULTI-다른담당자맞춤 ②: 화면 ⋯ 첫 줄 [묶음 만들기]
  await page.keyboard.press('Escape');
  // 우클릭 메뉴의 [쟁의 단계 관리]도 그대로 열린다
  await row(page,other).click({button:'right'});

@@ -208,3 +208,12 @@ test('자료 줄 고침 쓰기: 다시 읽고 docs만 바꿔 draft_saved_at 조�
   const missing = {context:rt.context, async api() { throw Object.assign(new Error('x'), {status:400, message:'column draft does not exist'}); }};
   assert.deepEqual(await d.changeWeekDocs({start:'2026-10-05', change:x => x}, missing), {missing:true});
 });
+
+test('⑥ 확정 칸의 고친 최종본(final): 모양이 맞을 때만 남고, 없으면 지금과 같다', () => {
+  const at = '2026-10-23T01:00:00.000Z';
+  const d = readDraft({v:1, rows:[], titles:[], confirmed:{document_id:'doc-1', at, final:{at, file_name:'가상_고친본.hwpx'}}});
+  assert.deepEqual(d.confirmed, {document_id:'doc-1', at, final:{at, file_name:'가상_고친본.hwpx'}});
+  assert.deepEqual(readDraft({v:1, rows:[], titles:[], confirmed:{document_id:'doc-1', at}}).confirmed, {document_id:'doc-1', at});
+  assert.deepEqual(readDraft({v:1, rows:[], titles:[], confirmed:{document_id:'doc-1', at, final:{at:''}}}).confirmed, {document_id:'doc-1', at});
+  assert.equal(readDraft({v:1, rows:[], titles:[], confirmed:{document_id:'d', at, final:{at, file_name:'가'.repeat(400)}}}).confirmed.final.file_name.length, 200);
+});

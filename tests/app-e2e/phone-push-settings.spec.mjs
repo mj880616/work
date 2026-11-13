@@ -168,16 +168,13 @@ test.describe('폰 앱', () => {
   });
 });
 
-// MULTI-처음쓰는사람 ⑤(docs/design/new-user-start.md 2-5): 통화·텔레그램 수집이 없는 새 계정은 '수집 멈춤·아침 묶음·저녁 묶음' 칩이 없고,
-// '수집·사용량' 칸 대신 'AI 사용'(이번 달 한도 한 줄)만. 운영자 계정은 위 시험 그대로(칩 일곱 개·수집·사용량).
-for (const width of [1280, 760, 412]) test(`새 계정: 폰 알림 칩 넷, 수집 칸 대신 'AI 사용' (${width}px)`, async ({page}) => {
+// MULTI-처음쓰는사람 ⑤(docs/design/new-user-start.md 2-5): 통화·텔레그램 수집이 없는 새 계정은 '수집 멈춤·아침 묶음·저녁 묶음' 칩이 없다.
+// '사용 현황' 칸은 MULTI-다른담당자맞춤 ⑥(#2566)이 정한 그대로: 새 계정은 한도에 닿기 전에는 칸이 없다. 운영자 계정은 위 시험 그대로(칩 일곱 개).
+for (const width of [1280, 760, 412]) test(`새 계정: 폰 알림 칩 넷, 사용 현황 칸 없음 (${width}px)`, async ({page}) => {
   await page.setViewportSize({width, height: 900});
   const state = await boot(page, {features: [], chips: 4, aiMonth: {ok: true, exempt: false, used_krw: 420, cap_krw: 3000, capped: false}});
   await expect(panel(page).locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '원장 약속', '회의 요약', '다음 주 준비']);
-  const status = page.locator('#psStatusPanel');
-  await expect(status.locator('h3')).toHaveText('AI 사용');
-  await expect(status.locator('[data-ps-ai-cap]')).toHaveText('이번 달 AI 사용 420원 / 한도 3,000원');
-  await expect(status.locator('[data-ps-collect], [data-ps-ai-usage], [data-ps-quiet]')).toHaveCount(0);
+  await expect(page.locator('#psStatusPanel')).toBeHidden();
   // 칩을 눌러도 저장 모양은 그대로(숨긴 종류의 값은 건드리지 않음).
   await panel(page).locator('[data-ps-push-kind="task_due"]').click();
   await expect.poll(() => state.patches.length).toBe(1);
@@ -185,15 +182,14 @@ for (const width of [1280, 760, 412]) test(`새 계정: 폰 알림 칩 넷, 수�
   await page.locator('#profileView').screenshot({path: `docs/design/screens/s61-41/profile-new-${width}.png`});
   expect(state.errors).toEqual([]);
 });
-test('운영자 계정: 수집·사용량 칸 그대로', async ({page}) => {
+test('운영자 계정: 폰 알림 칩 일곱 개 그대로', async ({page}) => {
   await page.setViewportSize({width: 1280, height: 900});
-  await boot(page);
-  await expect(page.locator('#psStatusPanel h3')).toHaveText('수집·사용량');
-  await expect(page.locator('#psStatusPanel [data-ps-quiet]')).toHaveCount(1);
+  const state = await boot(page);
+  await expect(panel(page).locator('[data-ps-push-kind]')).toHaveText(['할 일 기한', '원장 약속', '회의 요약', '수집 멈춤', '아침 묶음', '저녁 묶음', '다음 주 준비']);
   await page.locator('#profileView').screenshot({path: 'docs/design/screens/s61-41/profile-operator-1280.png'});
+  expect(state.errors).toEqual([]);
 });
-test('새 계정: 이번 달 한도를 못 읽으면 AI 사용 칸도 그리지 않는다', async ({page}) => {
+test('기능 답을 못 받으면 칩 일곱 개 그대로(운영자 화면이 빠지지 않게)', async ({page}) => {
   await page.setViewportSize({width: 412, height: 900});
-  await boot(page, {features: [], chips: 4});
-  await expect(page.locator('#psStatusPanel')).toBeHidden();
+  await boot(page, {features: {message: 'x'}});
 });
