@@ -62,10 +62,10 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
-import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, whereOf, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
+import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
-import {materialLine} from './weekly-ai-material.mjs';
+import {pickMaterial, draftRequest} from './weekly-draft-request.mjs'; // WEEKLY-자동화 ③: 재료 짝짓기·AI 초안 몸통(금요일 자동 초안과 같은 규칙)
 import {isDropped, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 import {matchOrg} from './org-name-match.mjs';
 import {weeklyCategoryFilter, weeklyCategoryLabel, weeklySearchNote, loadDocumentCategories} from './document-categories.js'; // S53-16: 분류는 역할(팀·개인 확정본)로 찾기 — 이름이 바뀌어도
@@ -114,7 +114,6 @@ const LEARN_TEXT = Object.freeze({
   monthly_limit: '이번 달 AI 한도에 닿았어요. 바탕 그대로 시작해요.',
   ai_monthly_cap: '이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
 });
-const LEARN_BODY_BYTES = 60 * 1024; // 서버 상한(64KB)보다 조금 작게
 const MAX_BYTES = 30 * 1024 * 1024;
 const DRAFT_DELAY = 2000;
 // 담당 팀원 칸 이름이 어디서 왔나(맨 위 한 줄 이름에 title 로, 프로필 이름을 쓴 때만 바탕 아래 한 줄로도).
@@ -620,19 +619,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const c = parseCellId(id);
     return `${c.section}:${c.key}${c.n ? `#${c.n}` : ''}`;
   }
-  const dayText = x => `${x.day ? `${shortDay(x.day)} ` : ''}${String(x.text ?? '').replace(/^-\s*/, '')}`;
-  // 캘린더 추천은 [주간 정리] 4. 산하 조직 현황의 같은 추천과 열쇠가 같게(칸 = 조직 id, 글 = 추천 줄) — 어느 화면에서 빼도 둘 다 빠진다.
-  const describeMaterial = (s, key) => x => ({kind:x.orgRef ? 'calendar' : 'material', from:x.src ?? (x.summary ? 'ai' : 'record'), cell:x.orgRef ? `orgref:${x.orgId}` : cellName(s, key),
-    org:key.startsWith('orgs:') ? x.from ?? '' : '', text:dayText(x)});
-  const describeRest = x => ({kind:'unmatched', from:x.src ?? 'record', cell:x.from ?? '', text:dayText(x)});
-  const withPickInfo = r => r.shown.map(x => ({...x.raw, pick:{kind:x.kind, from:x.from, cell:x.cell, org:x.org, text:x.text, key:x.key}}));
+  // 재료 짝짓기·제안 거르기 규칙은 weekly-draft-request.mjs(pickMaterial) 한 곳 — 금요일 자동 초안(서버)과 같다.
   function materialOf(s, model = getWeek().model) {
-    const m = rawMaterial(s, model), opts = pickOpts(s), gone = new Map();
-    const run = (key, list, describe) => { const r = sortPicks(list ?? [], describe, opts); if (r.gone.length) gone.set(key, r.gone); return withPickInfo(r); };
-    const byRow = new Map([...m.byRow].map(([i, list]) => [i, run(`summary:${i}`, list, describeMaterial(s, `summary:${i}`))]));
-    const byOrg = new Map([...m.byOrg].map(([i, list]) => [i, run(`orgs:${i}`, list, describeMaterial(s, `orgs:${i}`))]));
-    const unmatched = run('unmatched', m.unmatched, describeRest), orgUnmatched = run('orgUnmatched', m.orgUnmatched, describeRest);
-    return {byRow, byOrg, unmatched, orgUnmatched, gone};
+    return pickMaterial(rawMaterial(s, model), {cellName:key => cellName(s, key), opts:pickOpts(s)});
   }
   // 그린 제안 열쇠 → 제안(누를 때 찾음). 다시 그릴 때마다 새로 채운다.
   const pickIndex = s => (s.pickIndex ??= new Map());
@@ -1231,24 +1220,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
 
   // ---- 환류학습 3: AI 초안(ai-assist weekly_draft) ----
   // 칸마다 바탕 줄(처음 바탕 initial — 고친 칸 글이 아님)과 그 칸 옆 이번 주 기록 줄을 보낸다. 서버는 그 주 '앞' 주들의 고침 기록·규칙만 읽는다.
-  const sendLine = (v, max) => [...String(v ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]+/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim()].slice(0, max).join('');
+  // 몸통 규칙(칸·재료 줄 자르기·덜어 내기)은 weekly-draft-request.mjs(draftRequest) 한 곳. 기록마다 '날짜 [끝남|오늘|예정]'(WEEKLY-개발후보연결 1).
   function aiRequest(s, mode) {
-    const m = materialOf(s), report = reportDay(s.start); // 기록마다 '날짜 [끝남|오늘|예정]'(WEEKLY-개발후보연결 1)
-    const refs = new Map(), cells = [];
-    for (const [id, at] of s.cellAt) {
-      if (cells.length >= 80) break;
-      const ref = `c${cells.length + 1}`; refs.set(ref, id);
-      const material = at.section === 'summary' ? m.byRow.get(at.index) : at.section === 'orgs' ? m.byOrg.get(at.index) : [];
-      cells.push({ref, where:sendLine(whereOf(id), 120) || '칸', lines:(s.initial.get(id) ?? []).map(l => sendLine(l, 300)).filter(Boolean).slice(0, 20),
-        material:(material ?? []).map(x => sendLine(materialLine(x, report, shortDay), 400)).filter(Boolean).slice(0, 20)});
-    }
-    const unmatched = [...(m.unmatched ?? []), ...(m.orgUnmatched ?? [])].map(x => sendLine(`${x.from ? `${x.from}: ` : ''}${materialLine(x, report, shortDay)}`, 400)).filter(Boolean).slice(0, 40);
-    const request = {kind:'weekly_draft', week_start:s.start, mode, cells, unmatched};
-    // 몸통이 크면 기록 줄을 뒤에서부터 덜어 낸다(칸 글은 그대로).
-    const size = () => new TextEncoder().encode(JSON.stringify(request)).length;
-    while (size() > LEARN_BODY_BYTES && request.unmatched.length) request.unmatched.pop();
-    for (let k = cells.length - 1; size() > LEARN_BODY_BYTES && k >= 0; k--) while (size() > LEARN_BODY_BYTES && cells[k].material.length) cells[k].material.pop();
-    return {request, refs, cells:cells.length};
+    return draftRequest({start:s.start, mode, cellAt:s.cellAt, initial:s.initial, material:materialOf(s), report:reportDay(s.start)});
   }
   async function callLearn(s, mode) {
     const {request, refs, cells} = aiRequest(s, mode);
