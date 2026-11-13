@@ -41,6 +41,18 @@ export function openRemindMenu(trigger, c) {
   lineMenu.open(trigger);
 }
 
+// MENU-자리나머지: 홈 칸(family-remind.js)이 줄을 다시 그린 뒤 열린 줄 메뉴를 새 ⋯에 붙인다(anchored-menu keepMenus에 넘김).
+// 메뉴가 표시하는 줄(ctx.row)도 떨어졌으면 새 ⋯가 든 줄로 함께 옮긴다(상자가 그 줄을 가리지 않게).
+export const remindMenuFollower = {
+  get active() { return lineMenu?.active || null; },
+  follow(find) {
+    const a = lineMenu?.active; if (!a || a.trigger.isConnected) return;
+    const moveRow = !!ctx?.row && !ctx.row.isConnected;
+    if (moveRow) ctx.row = null;
+    lineMenu.follow((id, old) => { const next = find(id, old); if (next && moveRow && ctx) ctx.row = next.closest('li'); return next; });
+  }
+};
+
 // 노트 화면(가족 '잊지 말기' 노트 ⋯ [줄 정리]): 그 노트의 줄을 고르는 작은 메뉴 → 고른 줄의 같은 메뉴(노트 안이라 [노트에서 보기]는 빼고 [과거 기록으로]).
 export function openRemindLines(trigger, {rt, note, onDone = () => {}, onFail = () => {}}) {
   const lines = remindLines(note?.doc);

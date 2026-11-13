@@ -3,7 +3,7 @@ import {sendSignal, setMark} from './now-marks.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
 import {viewPrefs} from './view-prefs.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
 import {notify} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
@@ -198,7 +198,10 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (i) { const html = impHtml(); i.innerHTML = html; i.hidden = !html; }
     if (r) r.innerHTML = relatedHtml();
   }
-  function paintBody() { const el = cur && part('[data-nd-body]'); if (el) { el.innerHTML = bodyHtml(); marksNow(); } }
+  // MENU-자리나머지: 원문 ⋯ 메뉴를 연 채 원문 칸·상세가 다시 그려져도(원문 읽기 끝·번역·글자 크기) 열린 메뉴는 새 ⋯에 붙고, ⋯가 없어지면 닫힌다(공용 keepMenus).
+  var ndMenus = []; // 메뉴는 아래에서 만든다
+  const keepOb = paintNow => keepMenus(ndMenus, {attrs: ['data-nd-ob-more'], root: box || document}, paintNow);
+  function paintBody() { keepOb(() => { const el = cur && part('[data-nd-body]'); if (el) { el.innerHTML = bodyHtml(); marksNow(); } }); }
   // 저장한 밑줄 칠하기(원문 그대로 볼 때만). [밑줄] 탭에서 연 밑줄이 칠해지면 그 자리로 한 번 옮긴다.
   function marksNow() {
     const z = cur && !cur.tr.on ? part('[data-nd-prose]') : null;
@@ -212,7 +215,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (a) a.innerHTML = actsHtml();
     if (m) m.innerHTML = memoHtml();
   }
-  function paint() {
+  function paint() { keepOb(paintNow); }
+  function paintNow() {
     if (!box) return;
     if (!cur) { box.innerHTML = '<p class="nd-empty" data-nd-empty>글을 누르면 여기에 상세가 열려요</p>'; return; }
     const h = cur.head;
@@ -403,6 +407,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       const a = button.dataset.ndMenu;
       if (a === 'select') selectAll(); else if (a === 'copy') void copyArticle(part('[data-nd-copy]')); else if (a === 'share') void shareArticle();
     }});
+  ndMenus = [obMenu];
   // 고른 글 줄(text-select-bar.js): 이 상세의 원문 칸([data-nd-prose])에서 고른 글만. 출처 = 지금 연 글.
   const sourceNow = () => (cur ? {type: cur.item.type, id: cur.item.id, title: cur.head.title, media: cur.head.meta?.[0] || '', date: cur.head.at || null, url: cur.head.url || ''} : null);
   bindSelectZone(box, {zone: '[data-nd-prose]', source: sourceNow, onSave: saveFromSelection, onNote: noteFromSelection});

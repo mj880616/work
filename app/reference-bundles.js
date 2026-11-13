@@ -11,7 +11,7 @@ import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우�
 import './enter-save.js';
 import {readLinkRecords,noteExcerpt} from './basket-link-records.js';
 import {disconnectWithUndo} from './basket-record-delete.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu,keepMenus} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
 import {requestBasketNote,requestNoteDocOpen} from './basket-note-tasks.js';
@@ -55,7 +55,10 @@ const linksOf=id=>state.links.filter(l=>l.bundle_id===id).sort((a,b)=>String(b.o
 const lineOf=l=>noteExcerpt(l.summary)||(l.note_kind==='note'&&l.title?String(l.title):'')||noteExcerpt(l.raw_text)||'(빈 업데이트)';
 
 // ---------- paint (the only renderer of #referenceView)
-function paint(){
+// MENU-자리나머지: ⋯ 메뉴를 연 채 다시 그려도(묶음 다시 읽기·화면 폭 바뀜) 열린 메뉴는 같은 줄·같은 머리의 새 ⋯에 붙고, 없어지면 닫힌다(공용 keepMenus).
+var rbMenus=[]; // 메뉴는 아래에서 만든다
+function paint(){return keepMenus(rbMenus,{attrs:['data-rb-item-more','data-rb-detail-more','data-rb-list-more']},paintNow);}
+function paintNow(){
   const root=view();if(!root)return;
   const wide=pc.matches,selected=bundleOf(state.selected);
   root.classList.toggle('rb-has-detail',!!selected);
@@ -196,6 +199,7 @@ const menu=createAnchoredMenu({id:'rbMenu',className:'rb-menu',label:'참고 묶
     if(act==='add')startAdd();else if(act==='order')startOrder();else if(act==='rename')startRename();else if(act==='delete')void removeBundle();
     else if(act==='open'&&item)openOriginal(item);else if(act==='disconnect'&&item)void disconnect(item);
   }});
+rbMenus=[menu];
 
 function bind(){
   const root=view();if(!root||root.dataset.rbBound)return;root.dataset.rbBound='1';

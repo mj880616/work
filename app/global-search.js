@@ -16,7 +16,7 @@ import {renderFilterChips} from './filter-chips.js';
 import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
 import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-note-tasks.js';
 import {requestLibraryDocument, requestLibrarySelection} from './basket-library-send.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {notify} from './small-notice.js';
 import {canAsk, looksLikeQuestion, ASK_TEXT, askFailText, cleanAnswer, answerNote, tagLabel, sourcesSummary, sourceTarget, recentLabel} from './ask-web2-model.mjs';
 import {openCallSource, openTelegramSource} from './source-open.js';
@@ -569,7 +569,10 @@ document.addEventListener('pointerdown', e => {
 }, true);
 PC.addEventListener('change', () => { if (!PC.matches && panelOpen) void closePanel(); paintAll(); });
 
-function paintAll() {
+// MENU-자리나머지: 결과 줄 메뉴를 연 채 다시 그려도(다시 찾기·자료 바뀜 알림) 열린 메뉴는 같은 결과 창(결과 창·전용 화면)의 같은 줄 새 칸에 붙는다(공용 keepMenus).
+let rowMenu = null; // 결과 줄 메뉴(처음 열 때 만든다)
+function paintAll() { keepMenus(rowMenu ? [rowMenu] : [], {attrs: ['data-gs-key'], zones: ['.gs-panel, #searchView']}, paintAllNow); }
+function paintAllNow() {
   if (panelOpen) paint(panelBody, 'panel');
   if (view && router()?.current === 'search') paint(viewBody, 'view');
   const where = view?.querySelector('.gs-view-title');
@@ -587,7 +590,6 @@ const docKeys = host => [...(host?.querySelectorAll('[role="option"][data-gs-key
 const isNoteDoc = key => rowsByKey.get(key)?.source === 'note' && rowsByKey.get(key)?.kind === 'note';
 const noteKeys = host => [...(host?.querySelectorAll('[role="option"][data-gs-key^="note:"]') || [])].map(o => o.dataset.gsKey).filter(isNoteDoc);
 const resultsHost = key => document.querySelector(`[role="option"][data-gs-key="${CSS.escape(key)}"]`)?.closest('.gs-panel, #searchView');
-let rowMenu = null;
 function gsRowMenu() {
   if (rowMenu) return rowMenu;
   rowMenu = createAnchoredMenu({id: 'gsRowMenu', className: 'lu-more-panel gs-row-menu', label: '검색 결과 메뉴', historyKey: 'kptuSearchRowMenu',
