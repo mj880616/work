@@ -42,7 +42,8 @@ const routeStyles={
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
   outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./folder-look.css','./ui-standard.css'],
   files:['./od-link.css','./folder-tree.css','./source-chips.css','./files.css','./folder-look.css','./ui-standard.css'],
-  updates:['./release-notes.css','./ui-standard.css']
+  updates:['./release-notes.css','./ui-standard.css'],
+  brief:['./brief-room.css','./ui-standard.css']
 };
 // PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를
 // 받기만 먼저 걸어 둔다(실행 순서는 아래 loaders 그대로). 사슬은 Pages 빌드가 채운다(/*static-chain*/, scripts/build-pages.mjs).
@@ -183,7 +184,9 @@ async function outside(){ await module('./outside-statements.js'); await module(
 async function files(){ await module('./files.js'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates};
+// BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
+async function brief(){ await module('./brief-room.js'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,brief};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home'};
 function normalize(view){
@@ -231,7 +234,8 @@ const warmModules={
   telegram:/*static-chain*/['./telegram-feed.js'],
   photos:/*static-chain*/['./photos.js'],
   outside:/*static-chain*/['./outside-statements.js','./news-clipping.js'],
-  files:/*static-chain*/['./files.js']
+  files:/*static-chain*/['./files.js'],
+  brief:/*static-chain*/['./brief-room.js']
 };
 const warmed=new Set();
 function hint(rel,path,as){

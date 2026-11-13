@@ -179,6 +179,7 @@ on:
       - 'tests/ai-tone.test.mjs'
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
+      - 'tests/brief-room-ui-model.test.mjs'
       - 'supabase/functions/_shared/brief-room.mjs'
       - 'supabase/functions/document-actions/brief-run.mjs'
       - 'supabase/functions/document-actions/brief.ts'
@@ -410,6 +411,7 @@ on:
       - 'tests/ai-tone.test.mjs'
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-run.test.mjs'
+      - 'tests/brief-room-ui-model.test.mjs'
       - 'supabase/functions/_shared/brief-room.mjs'
       - 'supabase/functions/document-actions/brief-run.mjs'
       - 'supabase/functions/document-actions/brief.ts'
@@ -694,7 +696,7 @@ jobs:
         run: node --test tests/s59-20-small-fixes.test.mjs
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
-        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs
 
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs
