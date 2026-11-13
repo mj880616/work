@@ -51,6 +51,7 @@ import {toPlain} from './ed-text.mjs';
 import {slotLoading, slotShown, slotFailed} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
 import {clipboardFiles, namePasted} from './paste-files.mjs';
+import {keepLetterBreaks, splitBlankLines} from './ed-paste.mjs';
 import {splitPictures} from './picture-file.mjs';
 // UI-올리기진행표시: [넣기] 사진·파일이 올라가는 동안 도구줄 아래 공용 올리는 줄(사진은 흐린 미리보기 위 막대 + %).
 import {mountUploadRows, watchUploads, isUploading, announceDock, uploadJobs} from './upload-progress.js';
@@ -155,9 +156,12 @@ function htmlShowsMarkdown(html) {
 }
 
 // Pasted HTML: outside pictures become "이미지: 설명 (주소)" letters, scripts and styles go (parsed inert, nothing loads).
-function cleanPastedHtml(html) {
+// NOTE-붙여넣기문단사라짐: line breaks written as letters (a chat answer's pre-wrap box) become <br> (ed-paste.mjs); plain is
+// the same copy's own letters. A copy from this editor itself (data-pm-slice) is read as it is.
+function cleanPastedHtml(html, plain = '') {
   try {
     const doc = new DOMParser().parseFromString(html, 'text/html');
+    if (!/data-pm-slice/.test(html)) keepLetterBreaks(doc, plain);
     for (const el of doc.querySelectorAll('script,style,template,iframe,object,embed,svg,math,link,meta')) el.remove();
     for (const img of doc.querySelectorAll('img')) {
       const src = img.getAttribute('src') || '';
@@ -771,6 +775,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   if (!endsOpen(state.doc)) state = state.apply(state.tr.insert(state.doc.content.size, N.paragraph.create({style: DEFAULT_BODY})).setMeta('addToHistory', false));
 
   let pendingPaste = null, pastingLetters = false, pointerHeld = false;
+  // NOTE-붙여넣기문단사라짐: the paste being read (set by the paste event, before the reader; cleared by handlePaste).
+  let outsidePaste = null;
   // The letters of a paste are only the names of the files that came with it (one per line, a path's last part counts).
   const onlyFileNames = (data, text) => {
     const names = new Set(clipboardFiles(data).map(file => file.name).filter(Boolean));
@@ -783,10 +789,17 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     nodeViews: {image: node => photoView(node), file: node => fileView(node)},
     attributes: {class: 'ed-doc ed-input', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label, spellcheck: 'false',
       ...(placeholder ? {'data-placeholder': placeholder} : {})},
-    transformPastedHTML: cleanPastedHtml,
+    transformPastedHTML: html => cleanPastedHtml(html, outsidePaste?.text || ''),
     // A whole table copied from this editor (all cells chosen) comes as an open slice that only fits inside a table; outside
     // one it goes in as a table of its own.
     transformPasted(slice, v) {
+      // NOTE-붙여넣기문단사라짐: a formatted copy from outside: a blank line (two or more line breaks) splits the paragraph.
+      if (outsidePaste?.html) {
+        const json = slice.toJSON();
+        const at = v.state.selection.$from.parent;
+        const split = json && splitBlankLines(json, {style: at.type === N.paragraph ? at.attrs.style : DEFAULT_BODY});
+        if (split && split !== json) slice = pm.Slice.fromJSON(schema, split);
+      }
       const only = slice.content.childCount === 1 && slice.content.firstChild;
       if (!only || only.type !== N.table || (slice.openStart === 0 && slice.openEnd === 0) || pm.isInTable(v.state)) return slice;
       return new pm.Slice(slice.content, 0, 0);
@@ -800,6 +813,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       return new pm.Slice(pm.Fragment.from(nodes), 1, 1);
     },
     handlePaste(v, event) {
+      outsidePaste = null;
       const data = event.clipboardData;
       const text = data?.getData('text/plain') || '';
       const html = data?.getData('text/html') || '';
@@ -824,6 +838,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       return true;
     },
     handleDOMEvents: {
+      // NOTE-붙여넣기문단사라짐: what came with this paste, for the reader that runs before handlePaste (transformPastedHTML, transformPasted).
+      paste(v, event) {
+        const data = event.clipboardData, html = data?.getData('text/html') || '';
+        outsidePaste = html && !/data-pm-slice/.test(html) ? {html, text: data.getData('text/plain') || ''} : null;
+        return false;
+      },
       // Letters typed at a gap cursor (before or after a table, rule or photo) start a new line there. The gapcursor plugin
       // covers a composition starting there; this covers plain text input (a pasted word, a keyboard without composition).
       beforeinput(v, event) {
