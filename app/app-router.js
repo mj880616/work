@@ -613,7 +613,7 @@
     if(leaveAsking)return;leaveAsking=true;
     const at=document.activeElement,anchor=at&&at!==document.body&&at.getClientRects?.().length?at:null;
     // 뒤로가기를 되돌리는 중(restoreRoutePosition)이면 끝난 뒤에 묻는다: 물음창도 기록 칸을 하나 쓰므로 겹치지 않게.
-    const settled=()=>new Promise(done=>{let n=0;const tick=()=>{if(!returningTo||++n>60)done();else setTimeout(tick,16)};tick()});
+    const settled=()=>new Promise(done=>{let n=0;const tick=()=>{if(!returningTo||++n>60)done();else requestAnimationFrame(tick)};tick()});
     settled().then(()=>import('./small-notice.js')).then(({askConfirm})=>askConfirm(anchor,{text,ok,cancel:'머물기',danger:true,history:false}))
       .then(ok=>{leaveAsking=false;if(ok)onLeave()},err=>{leaveAsking=false;console.error('leave ask',err)});
   }
