@@ -1569,6 +1569,8 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
  expect(row().draft.rules.retired.map(x=>x.text)).toEqual(['가상 규칙 하나','가상 규칙 후보']);
  await expect(learn.locator('[data-journal-learn-retired]')).toHaveCount(0); // 뺀 규칙 목록 두지 않기(S48-33, 데이터는 retired 에 그대로)
+ await expect(learn).not.toContainText('다시 후보로');await expect(learn).not.toContainText('뺀 규칙'); // 명진 11/13 19:03: 뺀 규칙 접힘·[다시 후보로] 없음(처리 코드째 삭제)
+ {const vp=page.viewportSize();for(const w of [412,1280]){await page.setViewportSize({width:w,height:900});await learn.screenshot({path:`docs/design/screens/s61-42/4-learn-no-retired-${w}.png`})}await page.setViewportSize(vp)} // 폰 412·PC 1280 사진
  // ③ 개선 제안 묶음 [+ 추가]: 내 개선 생각 한 줄 → 동작 기록('add', 손) → '만들기로 보낸 것'에 '손'으로.
  await learn.locator('[data-learn-idea-add]').click();
  const idea=learn.locator('[data-learn-idea-input]');
