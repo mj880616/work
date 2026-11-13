@@ -119,6 +119,7 @@ on:
       - 'tests/family-notes-model.test.mjs'
       - 'tests/family-remind-model.test.mjs'
       - 'tests/note-pick.test.mjs'
+      - 'tests/note-file-drop.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -341,6 +342,7 @@ on:
       - 'tests/family-notes-model.test.mjs'
       - 'tests/family-remind-model.test.mjs'
       - 'tests/note-pick.test.mjs'
+      - 'tests/note-file-drop.test.mjs'
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
@@ -979,6 +981,9 @@ jobs:
 
       - name: Check forget note pick and append rules (FORGET-노트고르기)
         run: node --test tests/note-pick.test.mjs
+
+      - name: Check note list file drop title (NOTE-목록에파일놓기)
+        run: node --test tests/note-file-drop.test.mjs
 
       - name: Check done notices and recent 7 days rules (UI-앱안알림 4·5)
         run: node --test tests/notice-done-model.test.mjs
