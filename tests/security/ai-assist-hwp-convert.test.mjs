@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // HWP-서식변환: the real ai-assist handler, kind=hwp_convert, with a synthetic Supabase (Auth + usage table) and a mocked OpenAI.
@@ -31,8 +32,8 @@ function harness({openai=null,usage=[]}={}){
     if(method==='POST'&&table==='app_ai_daily_usage'){const b=JSON.parse(init.body);const i=rows.findIndex(r=>r.user_id===b.user_id&&r.day===b.day);if(i>=0)rows[i]={...rows[i],...b};else rows.push(b);return respond('',201);}
     throw new Error('unexpected write '+method+' '+table);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const run=(over={})=>({kind:'hwp_convert',doc_type:'report',text:TEXT,...over});

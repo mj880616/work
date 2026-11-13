@@ -21,6 +21,7 @@ function world({items=[],sources=[],clockStep=0,sites={}}={}){
   calls.push({url:u.href,method,body,prefer:init.headers?.Prefer});
   if(u.origin===SB){
    const p=u.pathname.replace('/rest/v1/','');
+   if(p==='rpc/app_workspace_ai_month')return res({month:'2026-11',exempt:false,cap_krw:3000,openai_input_tokens:0,openai_output_tokens:0,gemini:[]}); // AI-사람별한도: 기본은 한도 아래
    if(p==='app_outside_sources')return res(sources);
    if(p==='app_feed_bodies'&&method==='POST'){for(const b of [].concat(body)){const i=bodies.findIndex(x=>x.news_item_id===b.news_item_id);
      if(i<0)bodies.push(b);else if(/merge-duplicates/.test(init.headers.Prefer))bodies[i]=b;}return res(null,201);}

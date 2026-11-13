@@ -43,6 +43,7 @@ const FAIL_TEXT={
   daily_limit:'오늘의 AI 사용 한도에 닿아 요약을 만들지 못했어요. 내일 [다시]를 누르세요.',
   // 한도·준비 중은 [다시]를 눌러도 같은 답이다(REC-정리상태확인못함). 폰 띠는 두 줄에서 잘리므로 그 말을 앞에 둔다. 한도가 풀리거나 준비가 끝나면 [다시]로 이어진다.
   monthly_limit:`이번 달 녹음 전사 한도에 닿았어요. 한도가 풀리기 전엔 [다시]도 같아요. ${KEEP}`,
+  ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
   too_long:'녹음은 구간마다 1시간까지 전사할 수 있어요.',
   too_large:'녹음 파일은 100MB까지 전사할 수 있어요.',
   bad_type:'녹음 파일(m4a·mp3·wav 등)만 전사할 수 있어요.',
@@ -132,6 +133,7 @@ export function joinFailText(code){
 export const SERVER_TEXT=Object.freeze({
   not_ready:'녹음 전사는 준비 중이에요.',
   monthly_limit:'이번 달 녹음 전사 한도에 닿았어요.',
+  ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
   busy:'다른 녹음을 전사하는 중이에요. 끝난 뒤 다시 눌러 주세요.',
   too_large:'녹음 파일은 100MB까지 전사할 수 있어요.',
   too_long:'녹음은 1시간까지 전사할 수 있어요.',
@@ -249,7 +251,7 @@ export function discardDoneText(job){
 }
 // REC-멈춤띠계속뜸(S60-26): 멈춤 띠 [닫기] → 서버 '닫음' 표시(job_discard, 녹음 소리·전사 글 그대로). 닫은 멈춤은 띠에 다시 뜨지 않고
 // 사업 보고 목록 위 녹음 줄에만 [다시]로 남는다(48시간, 서버 job_list). 줄 글: 언제·길이·멈춘 이유 짧게.
-const STOP_SHORT={daily_limit:'오늘 AI 한도',monthly_limit:'이달 AI 한도',usage_unavailable:'AI 사용량 확인 못함'};
+const STOP_SHORT={daily_limit:'오늘 AI 한도',monthly_limit:'이달 AI 한도',ai_monthly_cap:'이달 AI 사용 한도',usage_unavailable:'AI 사용량 확인 못함'};
 export const STOP_CLOSED_TEXT='멈춘 녹음 정리를 닫았어요. 사업 보고 위 녹음 줄에서 [다시] 할 수 있어요';
 export function stoppedLineText(job){
   const ms=Date.parse(String(job?.created_at||''));

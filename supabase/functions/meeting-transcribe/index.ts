@@ -58,6 +58,8 @@ import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-se
 import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, normalizeDraft, partsText } from '../_shared/meeting-draft-prompt.mjs';
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
+// AI-사람별한도: 작업공간 이번 달 AI 한도(기본 3,000원, 운영자 제외) 이상이면 전사를 시작하지 않는다(녹음 전사 월 상한과 별개).
+import { AiCapError, assertAiUserCap } from '../_shared/ai-user-cap.mjs';
 import {
   ACTIVE, LEASE_MS, LIST_HOURS, MAX_ATTEMPTS, SERVER_JOB_COLUMNS, SERVER_JOB_TABLE, TICK_HEADER, TICK_TTL_MS,
   SPLIT_CODES, audioDocument, carryClosed, cleanText, combineDrafts, doneParts, draftResult, failReason, failedCode, halfMark, halves, hasThinPart, hasWords, isDiscarded, jobDiscardPatch, jobRestorePatch, jobView, joinParts, leaseTake, moreOfSame, nextPart, parseStart, partTotal, pushDecision, recordingParts, segmentRun, splitJobSummary, splitPart, summaryPlan, tickCheck, tickSign,
@@ -298,6 +300,10 @@ function readAnswer(d: unknown) {
 }
 
 // ---- 이번 달 금액(기존 사용량 기록, 호출한 사람 토큰 + 소유자 RLS로 읽음) ----
+async function userCap(workspaceId: string) {
+  try { await assertAiUserCap(admin, workspaceId); }
+  catch (e) { if (e instanceof AiCapError) throw new Fail(e.code === 'ai_monthly_cap' ? 'ai_monthly_cap' : 'usage_unavailable'); throw e; }
+}
 async function monthUsed(userDb: ReturnType<typeof userClient>, workspaceId: string) {
   const { data, error } = await userDb.from('app_ai_external_usage').select('ref,model,input_tokens,audio_tokens,output_tokens')
     .eq('workspace_id', workspaceId).like('ref', `${USAGE_REF_PREFIX}%`).gte('day', monthStart(new Date())).limit(1000);
@@ -339,6 +345,7 @@ async function upload(req: Request, user: { id: string }, userDb: ReturnType<typ
   });
   if (!req.body) throw new Fail('bad_request');
   if (overLimit(await monthUsed(userDb, workspaceId))) throw new Fail('monthly_limit');
+  await userCap(workspaceId);
   const token = await driveToken(workspaceId);
   const folder = await recordingFolder(workspaceId, token, true);
   if (!folder) throw new Fail('drive_failed');
@@ -364,6 +371,7 @@ async function transcribe(user: { id: string }, userDb: ReturnType<typeof userCl
   if (job.trashed_at) throw new Fail('not_found');
   if (job.duration_sec && job.duration_sec > MAX_SECONDS) throw new Fail('too_long');
   if (overLimit(await monthUsed(userDb, job.workspace_id))) throw new Fail('monthly_limit');
+  await userCap(job.workspace_id);
   // 같은 작업공간에서 진행 중은 한 건만(부분 유일 색인이 겹침을 막음). 끊긴 작업이면 먼저 실패로 돌린다.
   if (job.status === 'running') await setJob(job.id, { status: 'failed', error_code: 'interrupted' });
   const { data: started, error: startError } = await admin.from(TABLE).update({ status: 'running', error_code: null, model: TRANSCRIBE_MODEL, started_at: now.toISOString(), finished_at: null, updated_at: now.toISOString() })
@@ -1293,6 +1301,7 @@ async function jobStart(user: { id: string }, userDb: ReturnType<typeof userClie
   await requireOwner(user.id, start.workspaceId);
   if (!GEMINI()) throw new Fail('not_ready');
   if (overLimit(await monthUsed(userDb, start.workspaceId))) throw new Fail('monthly_limit');
+  await userCap(start.workspaceId);
   let row: Record<string, unknown>;
   if (start.kind === 'recording') {
     const rows = await ownSession(user.id, start.sessionId);
@@ -1426,6 +1435,7 @@ async function jobRetry(user: { id: string }, userDb: ReturnType<typeof userClie
   if (job.status !== 'failed') return await jobAnswer(job);
   if (!GEMINI()) throw new Fail('not_ready');
   if (overLimit(await monthUsed(userDb, job.workspace_id))) throw new Fail('monthly_limit');
+  await userCap(job.workspace_id);
   // 닫은 멈춤(녹음 줄 [다시])은 닫음 표시를 이어 간다 — 같은 이유로 또 멈추면 띠를 또 띄우지 않는다(runStep failedCode).
   const patch: Record<string, unknown> = { status: 'queued', error_code: carryClosed(job.error_code), finished_at: null, lease_until: null, attempts: 0, updated_at: new Date().toISOString() };
   // 요약이 시간 안에 끝나지 못해 멈췄으면 다시 할 때는 반으로 나눠 잇는다(같은 크기로 또 걸리지 않게).

@@ -1,3 +1,4 @@
+import {AI_CAP_TEXT, aiCapText, isAiCap} from './ai-cap.mjs';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절, news-clipping.md 13절): Now 화면의 순수 계산.
 // DOM·네트워크 없음. 화면 쪽(outside-statements.js = Now 껍데기, now-detail.js, now-saved.js, now-interests.js)이 이 결과대로 그리기만 한다.
 
@@ -199,6 +200,7 @@ export function translatedBlocks(blocks, body, bodyKo) {
 // [번역] 실패 한 줄(서버 오류 코드 → 일상어).
 export function translateError(e) {
   const code = String(e?.message || '').toUpperCase();
+  if (code.includes('AI_MONTHLY_CAP')) return AI_CAP_TEXT;
   if (code.includes('MONTHLY_LIMIT')) return '이번 달 번역 한도를 다 씀';
   if (e?.status === 429 || code.includes('DAILY_LIMIT')) return '오늘 번역을 다 씀 · 내일 다시';
   if (code.includes('NOT_FOREIGN')) return '한글 글이라 번역하지 않아요';
@@ -209,6 +211,7 @@ export function translateError(e) {
 // 상세가 실패했을 때 한 줄.
 export function detailError(e) {
   const code = String(e?.message || '');
+  if (isAiCap(code)) return aiCapText(code);
   if (code.includes('monthly_limit')) return '이번 달 AI 한도를 다 씀';
   if (e?.status === 429 || code.includes('daily_limit')) return '오늘 상세 만들기를 다 씀 · 내일 다시';
   if (e?.status === 404) return '글을 찾지 못함';
