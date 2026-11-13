@@ -6,7 +6,7 @@ import {noteTrash} from './helpers/note-trash.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 // ORG-연결노트삭제(2026-11-12 명진 지시): 조직 창·사업영역 상세 기록 목록의 노트 연결 줄 ⋯에 업데이트와 같은 [원문 삭제](맨 아래, 위험 색).
 // 누르면 한 번 묻고('노트를 삭제할까요? 휴지통으로 가요. 이 기록 줄도 빠져요' + 다른 곳 n군데), 노트 화면 [삭제]와 같은 휴지통 길
-// (owner-RLS DELETE 한 번 → 서버 가로채기가 휴지통 표시)로 보낸 뒤 '노트를 지웠어요 · 되돌리기'. 되돌리면 노트와 기록 줄이 다시 보인다.
+// (owner-RLS DELETE 한 번 → 서버 가로채기가 휴지통 표시)로 보낸 뒤 '노트를 삭제했어요 · 되돌리기'. 되돌리면 노트와 기록 줄이 다시 보인다.
 // 예전 basket-files note-delete 서버 길은 쓰지 않는다. 이름·글은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z';
 const SHOTS=process.env.S61_18_SHOTS?'docs/design/screens/s61-18/':'';
@@ -72,7 +72,7 @@ for(const width of [1280,412])test(`organization ${width}: a note line's ⋯ [�
  const ask=page.locator('.kptu-ask');await ask.waitFor({state:'visible'});if(SHOTS)await page.screenshot({path:`${SHOTS}org-note-ask-${width}.png`});
  expect(await answerAsk(page,true)).toBe(CONFIRM);
  await expect(row).toHaveCount(0);await expect(modal.locator('[data-basket-link="l-up"]')).toBeVisible();
- const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('노트를 지웠어요.');await expect(notice.getByRole('button',{name:'되돌리기'})).toBeVisible();
+ const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('노트를 삭제했어요.');await expect(notice.getByRole('button',{name:'되돌리기'})).toBeVisible();
  if(SHOTS)await page.screenshot({path:`${SHOTS}org-note-deleted-${width}.png`});
  // The same server path as the note screen: one owner-RLS DELETE of this note in this workspace, never the old note-delete function.
  expect(f.deletes).toEqual([{id:'eq.'+note.id,workspace_id:'eq.w',select:'id'}]);expect(f.posts).toEqual([]);expect(f.trash.trash.map(n=>n.id)).toEqual([note.id]);
@@ -93,7 +93,7 @@ for(const width of [1280,412])test(`project ${width}: a note record's ⋯ [원�
  if(SHOTS)await page.screenshot({path:`${SHOTS}project-note-menu-${width}.png`});
  await press(menu.getByRole('button',{name:'원문 삭제',exact:true}),width);expect(await answerAsk(page,true)).toBe(CONFIRM);
  await expect(row).toHaveCount(0);await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('0');
- const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('노트를 지웠어요.');
+ const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('노트를 삭제했어요.');
  expect(f.deletes).toEqual([{id:'eq.'+note.id,workspace_id:'eq.w',select:'id'}]);expect(f.posts).toEqual([]);
  await notice.getByRole('button',{name:'되돌리기'}).click();await expect(notice).toContainText('되돌렸습니다.');
  await expect(records.locator('[data-basket-link="l-note"]')).toBeVisible();await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');

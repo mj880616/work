@@ -293,7 +293,7 @@ async function deleteNoteToTrash(noteId,{rt,isCurrent,confirmed=false,ask,movedT
 export const recordNoteOtherPlaces=info=>Math.max(0,(info?.places||0)+(info?.otherLinks||0)-1);
 export function recordNoteDeleteWords(info){
   const others=recordNoteOtherPlaces(info);
-  return {confirm:['노트를 삭제할까요?','휴지통으로 가요. 이 기록 줄도 빠져요.',others?`다른 곳 ${others}군데에도 연결돼 있어요.`:''].filter(Boolean).join('\n'),moved:'노트를 지웠어요.'};
+  return {confirm:['노트를 삭제할까요?','휴지통으로 가요. 이 기록 줄도 빠져요.',others?`다른 곳 ${others}군데에도 연결돼 있어요.`:''].filter(Boolean).join('\n'),moved:'노트를 삭제했어요.'};
 }
 export const deleteRecordNote=(noteId,options={})=>deleteNoteOriginal(noteId,{...options,trash:true,confirmWords:recordNoteDeleteWords});
 
