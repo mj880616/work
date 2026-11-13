@@ -142,7 +142,7 @@ export async function mountEditField(host, note, {photos = null, files = null, l
     if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
     else dropBox();
   };
-  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead});
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true});
   let base = JSON.stringify(editor.getValue());
   return {
     editor,

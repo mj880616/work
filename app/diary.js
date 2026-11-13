@@ -22,6 +22,7 @@ import {odStatusCached, odTakeWarmMonth, odDelete, odPhotos, odPhotoElement, odP
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
 import {renderDoc} from './ed-render.mjs';
+import {mountLineWidth} from './line-width.js';
 import {diaryHasDoc, diaryStartDoc, joinDiaryDocs, diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 import {plainToDocKeep} from './ed-markdown.mjs';
 // JOURNAL-일기목록: [달력 / 목록] 바꾸기. 목록 칸은 diary-list.js가 그리고, 고른 보기는 서버(view_prefs.diary_view)에 기억한다(기기 저장 없음).
@@ -330,6 +331,8 @@ function renderDetail() {
   paintDone(detail.querySelector('[data-diary-done]'), selected);
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
+  // NOTE-글폭(S61-21): 일기 읽기 글 줄도 노트와 같은 기본 폭(한 줄 약 40자)·같은 손잡이·같은 서버 값.
+  diaryGrip?.destroy(); diaryGrip = view ? mountLineWidth({host:view, target:view}) : null;
   renderPhotos();
   if (hasPhotos) paintContext(detail.querySelector('[data-diary-context-slot]'), selected);
   void loadPhoneDay(selected);
@@ -338,6 +341,7 @@ function renderDetail() {
 // 업무일지와 같은 읽기를 그날 처음 열 때 한 번(주 단위 기억), 다시 그릴 때는 읽은 것을 쓴다(메모리에만). 펼침 상태도 이 접속 동안만 기억한다.
 // 크게 보기 캡션은 찍은 시각과 일정·회의 시간을 맞춘 한 줄(photoContextLine). 맥락은 보여 주기만 하고 일기 글에 쓰지 않는다.
 let dayContext = {key:'', p:null, entries:[]}, contextOpen = '';
+let diaryGrip = null; // NOTE-글폭: 일기 읽기 글 줄 손잡이(renderDetail)
 function paintContext(slot, day) {
   if (!slot || !day) return;
   const key = `${owner}|${day}`;
@@ -662,7 +666,7 @@ async function mountField(session) {
     const {createDocEditor} = await import('./ed-editor.js');
     if (edit !== session) return;
     const used = session.startDoc;
-    const field = await createDocEditor({host:session.host, value:used, label:'일기 글', placeholder:'오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)', shortcuts:true, onBox,
+    const field = await createDocEditor({host:session.host, value:used, label:'일기 글', placeholder:'오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)', shortcuts:true, lineWidth:true, onBox,
       // S52-21 ④: 글 칸에 붙여 넣거나 끌어 놓은 사진은 글자(파일 이름)가 아니라 일기 사진으로 넣는다(고른 사진과 같은 길).
       onFiles:files => { if (edit === session && !session.busy) void pick(files); }});
     if (edit !== session) { field.destroy(); return; }

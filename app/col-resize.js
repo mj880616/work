@@ -27,6 +27,8 @@ function ensureStyle() {
 html.col-resizing,html.col-resizing *{cursor:col-resize!important;user-select:none!important;-webkit-user-select:none!important}`;
   document.head.append(style);
 }
+// NOTE-글폭(S61-21): 글 줄 폭 손잡이(line-width.js)도 같은 금 모양을 쓴다.
+export const ensureGripStyle = () => ensureStyle();
 // 붙인 표들: 화면 종류가 바뀌면 다시 맞춘다(한 번만 듣는다).
 const mounted = new Set();
 let listening = false;
