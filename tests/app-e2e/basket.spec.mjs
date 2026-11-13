@@ -2,7 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox } from './helpers/home-entry.mjs';
 import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
@@ -84,7 +84,7 @@ test('basket raw text and drafts never enter permanent browser storage',async({p
 test('basket direct URL and home return refresh new notes without saving view choice',async({page})=>{
  const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  await pickBasketView(page,'archived');await expect(page.locator('[data-basket-row="a"]')).toBeVisible();
- await page.reload();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
+ await page.reload();await openQuickBox(page);await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
  await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible,.app-nav .sidebar-brand:visible').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
  await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();await expect(page.locator('[data-basket-row]')).toHaveCount(3);expect(f.writes).toHaveLength(1);
 });

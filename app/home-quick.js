@@ -39,7 +39,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // NOTE-추가폴더표시: the note input's [폴더 ▾] shows the folder a new note goes into (null = 폴더 없음). The note list owns the
   // choice and its picker (onFolder opens it under this button); setFolder() only paints the name here and in the placeholder.
   let folderName=null;
-  // UI-폰하단고정(#1708 질문 2 안 A): the home box rests folded to one row on a phone (ui-standard.css, ≤760 only): the
+  // UI-폰하단고정(시안 1708 질문 2 안 A): the home box rests folded to one row on a phone (ui-standard.css, ≤760 only): the
   // [업데이트 ▾ | 할 일] row, the clip and [추가] are put away and a small kind button sits left of the input. Pressing anywhere in the
   // box (or the kind button) opens it as before; pressing outside it with nothing written, chosen or attached, or leaving the
   // screen, folds it again. The basket·note·task boxes have no head row and never fold. PC draws no fold (CSS only on phones).

@@ -10,9 +10,15 @@ const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
 export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
 // UI-폰하단고정: 접혀 있는 폰 홈 빠른 입력을 칸을 눌러 펼친다(접힌 것이 없으면 아무것도 안 함 — PC·다른 화면).
+// 다시 불러온 뒤(page.reload)나 폭을 폰으로 바꾼 뒤에도 같은 뜻으로 부른다.
 export async function openQuickBox(page){
-  const box=page.locator('#homeView [data-home-quick][data-quick-rest]');
-  if(await box.locator('[data-quick-kind]').isVisible().catch(()=>false)){await box.dispatchEvent('pointerdown');await expect(page.locator('#homeView [data-home-quick]')).not.toHaveAttribute('data-quick-rest','');}
+  if((page.viewportSize()?.width||0)>760)return;
+  await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+  if(!(await page.locator('#homeView').isVisible().catch(()=>false)))return;
+  const kind=page.locator('#homeView [data-home-quick] [data-quick-kind]');
+  if(!(await kind.waitFor({state:'visible',timeout:5000}).then(()=>true,()=>false)))return;
+  await page.locator('#homeView [data-home-quick]').dispatchEvent('pointerdown');
+  await expect(page.locator('#homeView [data-home-quick]')).not.toHaveAttribute('data-quick-rest','');
 }
 export async function openHome(
   page,

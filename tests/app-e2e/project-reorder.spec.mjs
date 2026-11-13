@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
@@ -35,7 +35,7 @@ async function fixture(page,{width=1280,height=800,failPatch=false}={}){
   return route.fulfill({json:state.spaces});
  });
  await page.route(SB+'/rest/v1/app_project_modules**',route=>route.fulfill({json:[]}));
- await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+ await page.reload();await openQuickBox(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  return {state,errors};
 }
 const listIds=page=>page.locator('#projectGrid .ps3-plist [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project));
@@ -75,7 +75,7 @@ test('PC 1280: drag a row onto a sibling saves sort_order and every list shows t
  expect(await catalogIds(page)).toEqual(['pe','pa','pg','pc','pd','pb']);
  expect(await optionIds(page)).toEqual(['pe','pa','pg','pc','pd','pb']);
  // After a reload (the read order unchanged), the saved numbers keep the order.
- await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+ await page.reload();await openQuickBox(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  await clickView(page,'projects');await expect.poll(()=>listIds(page)).toEqual(['pe','pa','pg','pc','pd','pb']);
  expect(errors).toEqual([]);
 });

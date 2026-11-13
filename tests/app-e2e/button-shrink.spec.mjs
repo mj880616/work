@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 // UI-버튼줄이기(2026-10-22 사용자 결정): UI-버튼기준 점검 표(#957 ③)와 자료 화면 점검에서 고른 큰 버튼만 줄인다.
 // 창 안 주 동작은 글자 폭·36px(--kptu-control-height)·오른쪽, 보조는 32px(--ds-compact-height), 누르는 범위는 그대로 44px.
 // 모의 자료(openHome)만 쓴다. 실제 서버는 부르지 않는다.
@@ -10,7 +10,7 @@ async function boot(page,width,beforeLoad){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page,beforeLoad?{beforeLoad:()=>beforeLoad(page)}:{});
- if(beforeLoad){await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});}
+ if(beforeLoad){await page.reload();await openQuickBox(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});}
  return errors;
 }
 const go=(page,view)=>page.evaluate(v=>window.KPTURouter.go(v),view);
