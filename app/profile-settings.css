@@ -75,6 +75,7 @@
 #profileView .ps-report-field{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular)}
 #profileView .ps-report-field small{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #profileView .ps-report-field input{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text);max-width:420px}
+#profileView .ps-report-field select{max-width:420px}
 #profileView .ps-report-field textarea{padding:4px 8px;font-size:var(--ds-compact-text);line-height:1.5;resize:vertical}
 #profileView .ps-report-note{margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #profileView .ps-report-actions{display:flex;justify-content:flex-end;margin-top:6px}

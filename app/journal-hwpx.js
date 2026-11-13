@@ -716,7 +716,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // UI-기다림표시통일 2차: 달력 일정을 받는 동안은 글자 대신 회색 칸(wait-state.js).
     if (cal && (!c || c.loading)) cal.innerHTML = '5. 주요 일정 표: ' + waitInlineHtml();
     else if (cal) cal.textContent = c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
-      : c.unsetCalendar ? '5. 주요 일정 표: 보고 캘린더가 정해지지 않아 날짜만 넣어요(내 프로필 › 보고 설정).'
+      : c.unsetCalendar ? '5. 주요 일정 표: 주간보고 일정 캘린더가 정해지지 않아 날짜만 넣어요(내 프로필 › 주간보고 일정 캘린더).'
       : c.noCalendar ? `5. 주요 일정 표: '${c.calendar}' 달력을 찾지 못해 날짜만 넣어요.`
       : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
     syncTitles(fullCalendar());
