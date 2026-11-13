@@ -150,3 +150,33 @@
 #appView #soTeamSection.so-view-table>.so-team-head .so-team-add{display:none}
 /* 줄 ⋯는 화면 오른쪽 끝 가까이라 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 넘친다, 머리줄 ⋯와 같음). */
 #soOrganizationList .so-row-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
+/* MULTI-다른담당자맞춤 ②(시안 #2522): 묶음 칸 손잡이 ⋮⋮·묶음 ⋯·빈 묶음·놓을 자리 줄. 모양은 공용 .icon-btn, 여기는 자리만. */
+#appView #teamView #soOrganizationList .so-group-card>.so-group-heading:has(.so-grip){justify-content:flex-start;align-items:center;gap:var(--kptu-space-2)}
+#appView #teamView #soOrganizationList .so-group-heading:has(.so-grip)>.so-group-count{margin-left:auto}
+#appView #teamView #soOrganizationList .so-group-heading:has(.so-grip){flex-wrap:nowrap;min-width:0}
+#appView #teamView #soOrganizationList .so-group-heading:has(.so-grip)>span:not(.so-group-count){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#appView #teamView #soOrganizationList .so-group-heading:has(.so-grip)>.so-group-count{flex:none;white-space:nowrap}
+#soOrganizationList .so-grip,#soOrganizationList .so-group-more{width:28px;min-width:28px;height:28px;min-height:28px;padding:0;color:var(--kptu-muted);touch-action:none}
+#soOrganizationList .so-grip{cursor:grab;font-size:var(--ds-text-meta);line-height:1;letter-spacing:-.2em}
+#soOrganizationList .so-grip::before{content:"⋮⋮"}
+#soOrganizationList .so-group-more::before{content:"⋯"}
+#soOrganizationList .so-group-heading .so-grip{margin-left:calc(var(--kptu-space-2) * -1)}
+/* 머리줄 높이는 그대로(손잡이·⋯는 글줄 높이 안에서 위아래로 넘침). */
+#soOrganizationList .so-group-heading :is(.so-grip,.so-group-more){margin-block:-5px}
+#soOrganizationList .so-row.has-grip>.so-grip{position:absolute;top:0;bottom:0;left:4px;margin:auto 0;z-index:1}
+#appView #teamView #soOrganizationList .so-row.has-grip>.kptu-list-row{padding-left:36px}
+#soOrganizationList .so-group-empty{padding:var(--kptu-space-3) var(--kptu-space-4);color:var(--kptu-muted);font-size:var(--ds-text-meta);border-top:1px dashed var(--kptu-border)}
+#soOrganizationList .so-group-heading+.so-group-empty{border-top:0}
+#soOrganizationList.is-dragging{user-select:none;-webkit-user-select:none}
+#soOrganizationList.is-dragging .so-grip{cursor:grabbing}
+#soOrganizationList .so-dragging{opacity:.45}
+#soOrganizationList .so-drop-before{box-shadow:inset 0 2px 0 var(--kptu-primary)}
+#soOrganizationList .so-drop-after{box-shadow:inset 0 -2px 0 var(--kptu-primary)}
+#soOrganizationList .so-org-group.so-drop-before{box-shadow:0 -2px 0 var(--kptu-primary)}
+#soOrganizationList .so-org-group.so-drop-after{box-shadow:0 2px 0 var(--kptu-primary)}
+#soOrganizationList .so-drop-into>.so-group-card{outline:2px solid var(--kptu-primary);outline-offset:-1px}
+/* PC(마우스)는 줄 ⋯처럼 묶음 ⋯·손잡이도 그 줄에 올렸을 때만 진하게(명진 화면은 거의 그대로). 키보드 초점·열린 메뉴는 늘 보임. */
+@media(hover:hover) and (min-width:761px){
+  #soOrganizationList .so-group-more,#soOrganizationList .so-grip{opacity:.35}
+  #soOrganizationList :is(.so-group-heading,.so-row):is(:hover,:focus-within) :is(.so-group-more,.so-grip),#soOrganizationList .so-group-more[aria-expanded="true"],#soOrganizationList.is-dragging .so-grip{opacity:1}
+}

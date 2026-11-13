@@ -93,13 +93,13 @@ async function load(){
   void loadPush();
   return true;
 }
-// MULTI ②-3(D5): '보고 설정' 칸(담당조직 묶음·순서, 고르기에서 뺄 조직, 보고 캘린더 이름)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
+// MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
 let reportSettings=null;
 async function loadReport(){
   try{
     let host=$('#psReportPanel');
-    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="보고 설정"></article>');host=$('#psReportPanel')}
-    if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{organizations:()=>organizations,toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
+    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="주간보고 일정 캘린더"></article>');host=$('#psReportPanel')}
+    if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
     (await reportSettings.ready).refresh();
   }catch(e){console.error('report settings',e?.name||'Error')}
 }
@@ -180,7 +180,7 @@ function installStatus(){const grid=$('#profileView .ps-profile-grid');if(!grid)
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='profile')statusMount?.refresh()});
 async function boot(){installView();installStatus();installWidgetLine();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
-// MULTI ②-3: 보고 설정에서 묶음·순서를 바꾸면 담당 사업장 목록을 같은 자료로 다시 그린다(서버 다시 읽기 없음).
+// MULTI ②-3: 묶음·순서가 바뀌면(조직 보고 화면) 담당 사업장 목록을 같은 자료로 다시 그린다(서버 다시 읽기 없음).
 window.addEventListener('kptu:report-settings-changed',()=>{if(user&&!saving&&$('#psWorkplaceList'))renderWorkplaces()});
 window.addEventListener('kptu:session-changed',async()=>{user=null;workspaceId=null;workplaces=[];legacyWorkplaces=[];organizations=[];assignments=[];profileWorkplaces=[];baseline=new Set();want.clear();saved={name:'',title:''};const name=$('#psName'),title=$('#psTitle');if(name)name.value='';if(title)title.value='';if(await context()){bind();await load()}});
 window.__KPTU_PROFILE_SETTINGS_READY__=boot().catch(err=>{console.error('profile settings init',err);return false});
