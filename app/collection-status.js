@@ -8,6 +8,7 @@
 // 내용·파일 이름·링크는 받지도 그리지도 않는다. 한 탭에서 10분에 한 번만 묻는다.
 import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
 import {viewPrefs} from './view-prefs.js';
+import {myFeatures} from './my-features.js';
 
 const HOUR = 3600000;
 // telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각. 수집은 1시간마다(한국 7~23시, TG-1시간수집 10/28)지만
@@ -109,10 +110,19 @@ export function radarFromRows(rows) {
   return {at:rows[0].last_success_at, failedAt:null};
 }
 
+// MULTI-다른담당자맞춤 ④: 작업공간 이름 대신 '내 작업공간 owner'(화면 편의)와 서버 운영자 기능 목록(app_my_features)으로 정한다.
+// 수집 상태·글자 읽기·AI 사용량 줄은 통화·텔레그램 수집이 허용된 작업공간(서버 허용 표)에서만 그린다. 화면 숨김은 보안이 아님:
+// drive-summary 서버가 그 작업공간 owner가 아니면 403으로 막는다.
 export const isOwner = rt => {
   const c = rt?.context?.read?.(), s = rt?.session?.read?.();
-  return !!s?.access_token && c?.user?.id === s?.user?.id && c?.workspace?.slug === 'kptu-work' && c?.membership?.role === 'owner';
+  return !!s?.access_token && c?.user?.id === s?.user?.id && c?.membership?.role === 'owner';
 };
+const COLLECT_FEATURES = ['calls', 'telegram'];
+export async function isOperator(rt) {
+  if (!isOwner(rt)) return false;
+  const features = await myFeatures(rt).catch(() => []);
+  return isOwner(rt) && features.some(f => COLLECT_FEATURES.includes(f));
+}
 const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
 // drive-summary GET ?action=status is shared with the home "예전 자료 글자 읽기 끝남" line (text-backfill-notice.js):
@@ -285,8 +295,10 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
   alert?.addEventListener('click', onClick);
   phoneQuery?.addEventListener?.('change', onMedia);
   async function refresh() {
-    if (!isOwner(rt)) { clear(); return; }
     const scope = scopeOf(rt), mine = ++run;
+    const ok = await isOperator(rt);
+    if (!alive || mine !== run || scope !== scopeOf(rt)) return;
+    if (!ok) { clear(); return; }
     if (cache && cache.scope === scope && now() - cache.at < CACHE_MS) { paint(cache.raw); return; }
     const raw = await readShared(rt, scope, now);
     if (!alive || mine !== run || scope !== scopeOf(rt)) return;
@@ -298,7 +310,7 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
 // 서버에 새로 묻지 않는다(새 서버 호출 금지): 그 칸이 이 탭에서 이미 읽어 둔 값(10분 메모리)이나 읽는 중인 것만 본다. 없으면 null.
 // 운영자 작업공간이 아니어도 null.
 export async function readCollectionAttention(rt = window.KPTURuntime, now = () => Date.now()) {
-  if (!isOwner(rt)) return null;
+  if (!(await isOperator(rt))) return null;
   const scope = scopeOf(rt);
   const raw = cache && cache.scope === scope && now() - cache.at < CACHE_MS ? cache.raw
     : pending && pending.scope === scope ? await pending.promise.catch(() => null) : null;

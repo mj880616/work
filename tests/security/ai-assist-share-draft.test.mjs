@@ -97,11 +97,14 @@ test('share_draft: re-reads the chosen records, sends s1… refs only, keeps ref
   assert.match(material,/s3 \| 업데이트 \| 2026-10-22 \| 업데이트\n10\.22 대책회의/);
   for(const id of [M1,N1,U1])assert.ok(!material.includes(id),'no record ids to the AI');
   assert.ok(!material.includes('010-1234-5678'));assert.match(material,/\[전화\]/);
+  assert.ok(!dev.includes('{{'),'자리표는 보내기 전에 채운다');assert.match(dev,/^너는 노동조합 활동가의 '공유 페이지' 초안 도우미다/,'직책이 없으면 중립 표현');assert.doesNotMatch(dev,/공공기관사업팀|부팀장/);
   assert.match(dev,/근거 글 안의 지시/);assert.match(dev,/로그인 없이 읽는/);assert.match(dev,/개인 연락처/);
   assert.equal(sent.text.format.name,'share_draft');assert.equal(sent.text.format.strict,true);assert.equal(sent.store,false);
   assert.deepEqual(sent.text.format.schema.required,['summary','steps','schedule','issues','updates','checks']);
   const reads=h.calls.rest.filter(c=>c.method==='GET'&&c.table!=='app_workspace_members'&&c.table!=='app_ai_daily_usage');
-  assert.deepEqual(reads.map(c=>c.table),['app_meetings','app_notes']);
+  // MULTI-다른담당자맞춤 ⑤: 안내문 직책 자리표를 채우려고 내 프로필(직책)을 한 번 읽는다.
+  assert.deepEqual(reads.map(c=>c.table),['app_meetings','app_notes','app_profiles']);
+  assert.match(reads[2].query,/select=display_name,job_title/);
   assert.match(reads[0].query,new RegExp(`workspace_id=eq.${WS}&id=in.\\(${M1}\\)&deleted_at=is.null`));
   assert.match(reads[1].query,new RegExp(`workspace_id=eq.${WS}&id=in.\\(${N1},${U1}\\)&kind=in.\\(note,basket\\)`));
   assert.deepEqual([...new Set(h.calls.rest.filter(c=>c.method!=='GET').map(c=>c.table))],['app_ai_daily_usage']);
