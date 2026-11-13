@@ -3,7 +3,7 @@
 // - 평소 한 줄 요약(OpenAI · Gemini · 이 속도면 월말 약 ○원), 누르면 펼침. 월 상한 80%를 넘으면 노란 줄.
 // - 보기만 한다(쓰기 없음). 충전·청구 입력은 없앴다(10/28 요청함). 한 탭에서 10분에 한 번만 묻는다(메모리만, 수집 칸과 같은 요청).
 import {readSummary, titleText, warnText, summaryLine, detailRows} from './ai-usage-model.mjs';
-import {isOwner, readDriveStatus} from './collection-status.js';
+import {isOperator, readDriveStatus} from './collection-status.js';
 import { chevHtml } from './fold-chevron.mjs';
 
 const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
@@ -35,8 +35,8 @@ export function mountAiUsageLine(host, {rt = window.KPTURuntime, now = () => Dat
     onPaint();
   }
   async function refresh() {
-    if (!isOwner(rt)) { paint(null); return; }
     const mine = ++run, scope = scopeOf(rt);
+    if (!(await isOperator(rt))) { if (alive && mine === run) paint(null); return; }
     const s = await readAiUsage(rt);
     if (!alive || mine !== run || scope !== scopeOf(rt)) return;
     paint(s);

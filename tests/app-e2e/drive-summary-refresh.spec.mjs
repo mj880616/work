@@ -9,7 +9,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const WAIT=3*60*1000;
 const success={ok:true,updated_at:'2026-10-21T04:17:00Z',documents:{org:'https://docs.google.com/document/d/mock-org/edit',project:'https://docs.google.com/document/d/mock-project/edit'}};
 
-async function fixture(page,{role='owner',summaryStatus=200,saveStatus=200}={}){
+async function fixture(page,{role='owner',summaryStatus=200,saveStatus=200,summaryError='DRIVE_UPLOAD_FAILED'}={}){
   const calls=[],errors=[];
   page.on('console',msg=>{if(msg.type()==='error'&&!msg.text().startsWith('Failed to load resource:'))errors.push(msg.text())});
   page.on('pageerror',e=>errors.push(e.message));
@@ -17,7 +17,7 @@ async function fixture(page,{role='owner',summaryStatus=200,saveStatus=200}={}){
     const req=route.request();
     if(new URL(req.url()).pathname==='/functions/v1/drive-summary'){
       calls.push({method:req.method(),body:req.postData(),auth:req.headers().authorization});
-      return route.fulfill({status:summaryStatus,contentType:'application/json',body:JSON.stringify(summaryStatus===200?success:{ok:false,error:'DRIVE_UPLOAD_FAILED'})});
+      return route.fulfill({status:summaryStatus,contentType:'application/json',body:JSON.stringify(summaryStatus===200?success:{ok:false,error:summaryError})});
     }
     return route.fulfill({status:saveStatus,contentType:'application/json',body:JSON.stringify(saveStatus===200?[{id:'mock-row'}]:{message:'mock save failed'})});
   });
@@ -27,7 +27,7 @@ async function fixture(page,{role='owner',summaryStatus=200,saveStatus=200}={}){
   await page.evaluate(role=>{
     const user={id:'mock-owner'};
     window.KPTURuntime.session.write({user,access_token:'mock-access',expires_at:Math.floor(Date.now()/1000)+3600});
-    window.KPTURuntime.context.set({user,workspace:{id:'mock-workspace',slug:'kptu-work'},membership:{role,workspace_id:'mock-workspace'}});
+    window.KPTURuntime.context.set({user,workspace:{id:'mock-workspace',slug:'any-name'},membership:{role,workspace_id:'mock-workspace'}});
   },role);
   return {calls,errors};
 }
@@ -127,4 +127,23 @@ for(const [name,width] of [['PC',1280],['phone',390]])test(`app meeting save ref
   expect(ledgerReads.every(r=>r==='GET ledger_status')).toBe(true);
   await expect(page.locator('[data-drive-summary-refresh],[data-drive-summary-status],[data-account-drive-slot],.drive-summary-time,.drive-summary-links')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('사본');
+});
+
+// MULTI-다른담당자맞춤 ④: 작업공간 이름과 상관없이 owner면 부르고, 서버가 403 FORBIDDEN(사본 Drive가 있는 작업공간의 owner가 아님)이면
+// 이 로그인 동안 더 부르지 않는다(drive-summary의 403은 허용 안 됨뿐, Drive 실패는 502로 다음 저장에 다시 부른다).
+test('403 FORBIDDEN stops later calls for this sign-in',async({page})=>{
+  const {calls}=await fixture(page,{summaryStatus:403,summaryError:'FORBIDDEN'});
+  await save(page);
+  await page.clock.fastForward(WAIT);await expect.poll(()=>calls.length).toBe(1);
+  await save(page);
+  await page.clock.fastForward(WAIT*2);
+  await page.evaluate(()=>new Promise(r=>setTimeout(r,50)));
+  expect(calls).toHaveLength(1);
+});
+test('a Drive failure (502) is not a sign-in stop: the next save calls again',async({page})=>{
+  const {calls}=await fixture(page,{summaryStatus:502});
+  await save(page);
+  await page.clock.fastForward(WAIT);await expect.poll(()=>calls.length).toBe(1);
+  await save(page);
+  await page.clock.fastForward(WAIT);await expect.poll(()=>calls.length).toBe(2);
 });

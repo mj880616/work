@@ -9,9 +9,10 @@ const done = (extra = {}) => ({ok:true, copy:{state:'found'}, text_backfill:{don
 function fakeRt({answer, dismiss = {ok:true, dismissed_at:'2026-10-24T00:10:00.000Z'}, role = 'owner'} = {}) {
   const calls = [];
   return {calls, rt:{
-    context:{read:() => ({user:{id:'u'}, workspace:{id:'w', slug:'kptu-work'}, membership:{role}})},
+    context:{read:() => ({user:{id:'u'}, workspace:{id:'w', slug:'any-name'}, membership:{role}})},
     session:{read:() => ({access_token:'token-fixture', user:{id:'u'}})},
     api:async (path, opts = {}) => {
+      if (path === '/rest/v1/rpc/app_my_features') return ['telegram'];
       calls.push({path, opts});
       const value = path.includes('text_backfill_dismiss') ? dismiss : answer;
       if (value instanceof Error) throw value;

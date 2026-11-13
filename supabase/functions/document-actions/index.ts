@@ -5,6 +5,8 @@ import { createDocumentText } from '../_shared/document-text.ts';
 import { renameFile } from './file-rename.ts';
 import { trashFile, restoreFile } from './file-trash.ts';
 import { sendDevInbox, readDevMade } from './dev-inbox.ts';
+import { briefAction } from './brief.ts';
+import { BriefError } from './brief-run.mjs';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { callerOwnerWorkspace, WorkspaceDriveError, workspaceDriveToken } from '../_shared/workspace-drive-token.ts';
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
@@ -438,6 +440,30 @@ Deno.serve(withWebCors(async (req: Request) => {
         const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'TEXT_FAILED';
         console.error('document-actions read-text failed', safeErrorLog(e));
         return json({ error: safeErrorMessage(e), code }, code === 'TEXT_FAILED' ? 503 : 400);
+      }
+    }
+    // BRIEF-브리핑룸(docs/design/brief-room.md 4절, brief.ts): 긴 자료 브리핑 시작·잇기. 응답은 작업 상태만(글·브리핑 내용은 화면이 표를 owner RLS로 읽음).
+    if (action === 'brief-start' || action === 'brief-step') {
+      const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+      try {
+        return json(await briefAction(action, body, {
+          userId: user.id, db: (path, opts = {}) => db(path, opts), userDb: userDbFor(token),
+          extractFor: (workspaceId: string) => (file, opts) => textReader(user.id, workspaceId).extract(file, opts),
+          env: (name: string) => Deno.env.get(name),
+          waitUntil: (p) => { if (rt?.waitUntil) rt.waitUntil(p); else p.catch(() => {}); },
+          continueLater: async (briefId: string) => {
+            const r = await fetch(`${SB}/functions/v1/document-actions`, {
+              method: 'POST', headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'brief-step', brief_id: briefId }), signal: AbortSignal.timeout(15000),
+            });
+            await r.body?.cancel().catch(() => {});
+          },
+        }));
+      } catch (e) {
+        const known = e instanceof BriefError;
+        if (!known) console.error('document-actions brief failed', safeErrorLog(e));
+        return json({ error: known ? e.code : 'brief_unavailable', code: known ? e.code : 'brief_unavailable' }, known ? e.status : 503);
       }
     }
     if (action === 'rename-file') {

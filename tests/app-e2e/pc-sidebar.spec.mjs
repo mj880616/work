@@ -169,7 +169,7 @@ test('업무일지 = 홈: 옛 ?view=journal은 홈, 사이드바·폰 전환 줄
  await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','잊지 말기','일정','사업 보고','조직 보고','메뉴']);
  await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current','page');
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','파일','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
  await expect(nav(page)).toBeHidden();
  expect(errors).toEqual([]);
 });

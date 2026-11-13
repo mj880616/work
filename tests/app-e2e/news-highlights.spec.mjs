@@ -165,3 +165,68 @@ for (const width of [412, 1440]) {
     expect(errors).toEqual([]);
   });
 }
+
+// S61-38 UI-선택줄글아래(11/13 명진 "드래그한 부분 바로 밑에, 가리지는 말고"): 줄은 고른 글 마지막 줄 바로 아래, 오른쪽 끝을 고른 글 끝에 맞춘다.
+// 아래에 자리가 없으면 고른 글 첫 줄 바로 위. 스크롤하면 따라간다. 폰(손가락)은 선택 손잡이만큼 더 띄운다. 어느 폭에서도 화면·하단바 밖으로 안 나간다.
+const selBox = page => page.evaluate(() => { const r = getSelection().getRangeAt(0).getClientRects(), a = [...r].filter(x => x.width && x.height); return { top: Math.min(...a.map(x => x.top)), bottom: Math.max(...a.map(x => x.bottom)), right: a.at(-1).right }; });
+async function barInWindow(page, bb, width) {
+  expect(bb.x).toBeGreaterThanOrEqual(0); expect(bb.x + bb.width).toBeLessThanOrEqual(width + 1); expect(bb.y).toBeGreaterThanOrEqual(0);
+  const tabs = width <= 760 ? await page.locator('.mobile-tabs').boundingBox() : null;
+  if (tabs) expect(bb.y + bb.height).toBeLessThanOrEqual(tabs.y + 1);
+}
+for (const width of [412, 760, 1280]) {
+  test(`고른 글 줄은 고른 글 바로 아래·자리 없으면 위 ${width}`, async ({ page }) => {
+    test.setTimeout(90000);
+    const { errors } = await start(page, width);
+    await open(page, KO);
+    const p = nd(page).locator('[data-nd-prose] p').first();
+    await expect(p).toHaveText(QUOTE_LINE);
+    await p.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await pick(page, QUOTE);
+    await expect(bar(page)).toBeVisible();
+    await expect(bar(page)).toHaveAttribute('data-anchor-side', 'below');
+    let s = await selBox(page), bb = await bar(page).boundingBox();
+    expect(bb.y).toBeGreaterThanOrEqual(s.bottom); // 고른 글을 가리지 않음
+    expect(bb.y - s.bottom).toBeLessThanOrEqual(12); // 바로 아래
+    expect(Math.abs(bb.x + bb.width - s.right) <= 2 || bb.x <= 8 || bb.x + bb.width >= width - 9).toBe(true); // 끝 쪽에 맞춤(화면 끝이면 안쪽으로)
+    await barInWindow(page, bb, width);
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/below-${width}.png` });
+
+    // 화면 아래쪽 글이면 고른 글 바로 위(고른 글을 화면 아래로 밀어 둔다: 원문 위 빈 칸을 늘림 — 시험에서만 쓰는 화면 조작).
+    await p.evaluate(el => { const r = getSelection().getRangeAt(0).getBoundingClientRect(), tabs = document.querySelector('nav.mobile-tabs'), tb = tabs && getComputedStyle(tabs).display !== 'none' ? tabs.getBoundingClientRect().height : 0;
+      el.style.marginTop = (parseFloat(getComputedStyle(el).marginTop) + (innerHeight - tb - 30) - r.bottom) + 'px'; el.style.marginBottom = '1500px'; });
+    await pick(page, QUOTE);
+    await expect(bar(page)).toHaveAttribute('data-anchor-side', 'above');
+    s = await selBox(page); bb = await bar(page).boundingBox();
+    expect(bb.y + bb.height).toBeLessThanOrEqual(s.top + 0.5);
+    expect(s.top - (bb.y + bb.height)).toBeLessThanOrEqual(12);
+    await barInWindow(page, bb, width);
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/above-${width}.png` });
+
+    // 스크롤하면 따라간다(글이 위로 올라오면 다시 아래로 자리 잡음).
+    await p.evaluate(el => { let s = el.parentElement; while (s && !(s.scrollHeight > s.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(s).overflowY))) s = s.parentElement; (s || document.scrollingElement).scrollBy(0, 250); });
+    await expect.poll(async () => { const a = await selBox(page), b = await bar(page).boundingBox(); return b.y >= a.bottom && b.y - a.bottom <= 12; }).toBe(true);
+    await bar(page).getByRole('button', { name: '선택 끝내기' }).click();
+    await expect(bar(page)).toBeHidden();
+    expect(errors).toEqual([]);
+  });
+}
+test.describe('폰 손가락', () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test('고른 글 줄은 선택 손잡이 아래로 띄움 412', async ({ page }) => {
+    test.setTimeout(90000);
+    const { errors } = await start(page, 412);
+    await open(page, KO);
+    const p = nd(page).locator('[data-nd-prose] p').first();
+    await expect(p).toHaveText(QUOTE_LINE);
+    await p.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await pick(page, QUOTE);
+    await expect(bar(page)).toHaveAttribute('data-anchor-side', 'below');
+    const s = await selBox(page), bb = await bar(page).boundingBox();
+    expect(bb.y - s.bottom).toBeGreaterThanOrEqual(24); // 손잡이 자리(약 24px)는 비운다
+    expect(bb.y - s.bottom).toBeLessThanOrEqual(34);
+    await barInWindow(page, bb, 412);
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/touch-412.png` });
+    expect(errors).toEqual([]);
+  });
+});

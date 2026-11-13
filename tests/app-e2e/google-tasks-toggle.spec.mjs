@@ -299,7 +299,8 @@ test('consecutive completions keep independent three second timers',async({brows
   await row(page,'a').locator('[data-gt-toggle]').click();
   await page.waitForTimeout(1400);
   await row(page,'b').locator('[data-gt-toggle]').click();
-  expect(calls.toggles.map(x=>x.task_id)).toEqual(['a','b']);
+  // 저장 요청은 로그인 확인 같은 비동기 단계를 거쳐 나가므로, 누른 직후가 아니라 도착을 기다려 본다(바쁜 CI에서 ['a']만 보이던 간헐 실패).
+  await expect.poll(()=>calls.toggles.map(x=>x.task_id)).toEqual(['a','b']);
   await expect.poll(()=>order(page),{timeout:2500}).toEqual(['b','a']);
   await expect(row(page,'b')).toHaveClass(/completed/);
   await expect(page.locator('#gtTaskBody [data-gt-tomorrow] [data-google-task="b"]')).toBeVisible();

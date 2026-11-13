@@ -19,7 +19,7 @@ const source = withEdgeShared(stripTypeScriptTypes(
     "utf8",
   ),
   { mode: "strip" },
-).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "").replace(/^import .*document-text\.ts.*;\s*$/m, "").replace(/^import .*file-rename\.ts.*;\s*$/m, "").replace(/^import .*file-trash\.ts.*;\s*$/m, "").replace(/^import .*dev-inbox\.ts.*;\s*$/m, ""));
+).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "").replace(/^import .*document-text\.ts.*;\s*$/m, "").replace(/^import .*file-rename\.ts.*;\s*$/m, "").replace(/^import .*file-trash\.ts.*;\s*$/m, "").replace(/^import .*dev-inbox\.ts.*;\s*$/m, "").replace(/^import .*\/brief\.ts.*;\s*$/m, "").replace(/^import .*brief-run\.mjs.*;\s*$/m, ""));
 export const folder = (id = "basket-1") => ({
   id,
   name: "Web2 바구니",
@@ -185,7 +185,7 @@ export function harness(options = {}) {
       handler = fn;
     },
   };
-  new Function("Deno", "fetch", "console", "inspectBasketOriginal", "readBoundedJson", "createHwpEdit", "HwpEditError", "createDocumentText", source)(
+  new Function("Deno", "fetch", "console", "inspectBasketOriginal", "readBoundedJson", "createHwpEdit", "HwpEditError", "createDocumentText", "briefAction", "BriefError", source)(
     Deno,
     fetchMock,
     { error() {} },
@@ -193,6 +193,10 @@ export function harness(options = {}) {
     readBoundedJson,
     createHwpEdit,
     HwpEditError,
+    undefined,
+    // BRIEF-브리핑룸 ②: 브리핑 길은 tests/brief-run.test.mjs가 따로 본다. 여기서는 부르면 실패로 드러나게 한다.
+    () => { throw Error("briefAction is not part of this harness"); },
+    class BriefError extends Error {},
   );
   return {
     calls,

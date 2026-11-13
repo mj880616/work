@@ -71,8 +71,8 @@ test('줄 붙이기: 상태 답의 ai_usage로 그리고, 칸이 없으면 숨�
   const mk = () => ({ hidden: false, innerHTML: '', addEventListener() {}, removeEventListener() {}, querySelector: () => null, contains: () => false });
   const rtWith = data => {
     const calls = [];
-    const ctx = { user: { id: 'u' }, workspace: { id: 'ws', slug: 'kptu-work' }, membership: { role: 'owner' } };
-    return { calls, context: { read: () => ctx }, session: { read: () => ({ access_token: 't', user: { id: 'u' } }) }, api: async path => { calls.push(path); return data; } };
+    const ctx = { user: { id: 'u' }, workspace: { id: 'ws', slug: 'any-name' }, membership: { role: 'owner' } };
+    return { calls, context: { read: () => ctx }, session: { read: () => ({ access_token: 't', user: { id: 'u' } }) }, api: async path => { if (path === '/rest/v1/rpc/app_my_features') return ['calls']; calls.push(path); return data; } };
   };
   resetCollectionCache();
   const rt = rtWith({ ok: true, ai_usage: s });

@@ -319,14 +319,14 @@ export function withAreaRows(base, names, me) {
 // - 짝이 없는 화면 줄은 지금 상황이 있을 때만 그 사업영역 묶음 맨 아래(없으면 표 맨 아래 새 묶음)에 내 줄로 더한다(담당 = 화면 담당, 비면 내 이름).
 // - 짝이 없는 내 줄(지난주 바탕에만 있는 줄)은 진행 칸을 비운다(지난 개인본 글을 깔지 않음 — 줄을 지우지는 않음).
 // - 진행 칸 = 지금 상황 줄 그대로, 담당 = 화면 담당(비면 바탕 담당 그대로 — assembleDraft owners 규칙).
-// 돌려주는 값: {base(줄을 더한 바탕), summary: Map(index → 줄), owners: Map(index → 담당)} — index는 assembleDraft와 같은 effectiveOwners 순서.
+// 돌려주는 값: {base(줄을 더한 바탕), summary: Map(index → 줄), owners: Map(index → 담당), added: [양식에 자리가 없어 새 줄로 넣은 사업영역 이름]} — index는 assembleDraft와 같은 effectiveOwners 순서.
 export function applyBizWindow(base, me, rows, {places = null} = {}) {
   const out = structuredClone(base);
   out.summary = out.summary ?? [];
   const name = String(me ?? '').trim();
   const areaOf = e => e.row.keyArea ?? e.area.join(' ');
   const mine = effectiveOwners(out.summary).filter(e => isMine(e.owner, name));
-  const used = new Set(), want = new Map(), slots = new Map();
+  const used = new Set(), want = new Map(), slots = new Map(), added = [];
   // WEEKLY-사업영역묶음 ①(시안 docs/design/mockups/weekly-tidy.html ②, 명진 11/13 (나)): 양식(지난주 확정본)의 내 줄 가운데
   // 세부 과제(둘째 칸) 이름이 이 사업영역 이름과 같은 줄 = 이 사업영역의 '자리'(첫 칸 이름은 따지지 않음, 띄어쓰기·부호 무시, 내 줄 한정).
   // 자리가 없으면 고른 자리(places: 사업영역 이름 → {area, task}, 양식 줄 이름)를 쓴다. 둘 다 없으면 null(예전처럼 새 줄).
@@ -364,6 +364,7 @@ export function applyBizWindow(base, me, rows, {places = null} = {}) {
       const group = out.summary.find(a => norm(a.area.join('')) === norm(area));
       if (group) group.rows.push(row); else out.summary.push({area: [area], rows: [row]});
     }
+    if (row.keyArea !== undefined && !added.some(n => sameName(n, area))) added.push(area); // 앱이 더한 줄(양식에 없던 자리)
     used.add(row); want.set(row, {lines, owner});
   }
   const summary = new Map(), owners = new Map();
@@ -374,7 +375,41 @@ export function applyBizWindow(base, me, rows, {places = null} = {}) {
       if (w.owner) owners.set(index, w.owner);
     } else if (mine.some(m => m.row === e.row)) summary.set(index, []);
   });
-  return {base: out, summary, owners};
+  return {base: out, summary, owners, added};
+}
+// ①-b 고르기 목록: 양식의 내 줄 가운데 세부 과제 칸 이름이 있는 줄(앱이 더한 빈 줄 제외) {area, task} — 표 순서, 같은 이름은 한 번.
+export function placeChoices(base, me) {
+  const name = String(me ?? '').trim(), seen = new Set(), out = [];
+  for (const e of effectiveOwners(base?.summary ?? [])) {
+    if (!isMine(e.owner, name) || e.row.keyArea !== undefined) continue;
+    const area = e.area.join(' ').trim(), task = e.task.join(' ').trim(), k = `${norm(area)}›${norm(task)}`;
+    if (!area || !task || seen.has(k)) continue;
+    seen.add(k); out.push({area, task});
+  }
+  return out;
+}
+// WEEKLY-사업영역묶음 ②(시안 weekly-tidy.html ①): 화면 2. 1) 요약표 첫 칸 = 양식(지난주 확정본)에서 그 사업영역이 들어가는 줄의 첫 칸 이름.
+// 한글 파일(applyBizWindow slotOf)과 같은 자리 찾기: 내 줄 가운데 세부 과제 칸 이름 = 사업영역 이름(첫 칸까지 같으면 먼저) → 고른 자리(places).
+// 첫 칸 이름이 바로 사업영역 이름인 내 줄이 있으면 그 이름 그대로. 자리를 못 찾으면 넣지 않는다(화면은 사업영역 이름을 첫 칸에).
+// 양식에 내 줄이 하나도 없으면(양식이 없는 사람)·첫 칸이 모두 사업영역 이름 그대로면 null — 화면은 지금 모양 그대로. 앱이 더한 빈 줄(keyArea)은 양식 줄이 아니라 뺀다.
+export function areaGroups(base, me, names, {places = null} = {}) {
+  const name = String(me ?? '').trim();
+  const mine = effectiveOwners(base?.summary ?? []).filter(e => isMine(e.owner, name) && e.row.keyArea === undefined);
+  if (!mine.length) return null;
+  const first = e => e.area.join(' ').trim(), taskOf = e => e.task.join(' ');
+  const out = new Map();
+  for (const raw of names ?? []) {
+    const area = String(raw ?? '').trim();
+    if (!area || out.has(area)) continue;
+    const pick = placeOf(places, area);
+    const hit = mine.find(e => sameName(first(e), area) && sameName(taskOf(e), area))
+      ?? mine.find(e => sameName(taskOf(e), area))
+      ?? mine.find(e => sameName(first(e), area))
+      ?? (pick ? mine.find(e => sameName(first(e), pick.area) && sameName(taskOf(e), pick.task)) : null);
+    if (hit && first(hit)) out.set(area, first(hit));
+  }
+  // 양식 첫 칸이 모두 사업영역 이름 그대로면(양식 모양 = 화면 모양) 묶을 것이 없다 — 지금 모양 그대로(null).
+  return [...out].some(([area, group]) => !sameName(area, group)) ? out : null;
 }
 // 양식에 자리가 없는 사업영역의 고른 자리(places: Map 또는 객체, 열쇠 = 사업영역 이름) → {area, task} 또는 null.
 export function placeOf(places, area) {

@@ -14,7 +14,7 @@ import { withEdgeShared } from './helpers/edge-shared.mjs';
 
 const read = rel => readFileSync(new URL('../../supabase/functions/' + rel, import.meta.url), 'utf8');
 const source = stripTypeScriptTypes(withEdgeShared(read('document-actions/index.ts')), { mode: 'strip' })
-  .replace(/^import .*(?:basket-file-origin\.ts|bounded-json\.mjs|hwp-edit\.ts|document-text\.ts|file-rename\.ts|file-trash\.ts|dev-inbox\.ts).*;\s*$/gm, '');
+  .replace(/^import .*(?:basket-file-origin\.ts|bounded-json\.mjs|hwp-edit\.ts|document-text\.ts|file-rename\.ts|file-trash\.ts|dev-inbox\.ts|\/brief\.ts|brief-run\.mjs).*;\s*$/gm, '');
 
 const MEETING = '20000000-0000-4000-8000-000000000001', OTHER_MEETING = '20000000-0000-4000-8000-000000000002';
 const PHOTO = 'ev-photo_1', LIB = 'lib-folder-1', EVENT_FOLDER = 'event-folder-1';

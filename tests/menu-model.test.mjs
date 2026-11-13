@@ -14,7 +14,7 @@ test('기본 구성은 지금 화면과 같고 모든 항목이 정확히 한 �
   // PHOTO-사진메뉴: [사진]은 원장 다음. OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음). MENU-세칸: 통화·텔레그램 소식·아스날은 아래 붙는 메뉴 칸.
   // FILES-클라우드탐색기 ④: [파일]은 처음 자리가 자료실 바로 아래(명진 결정 F5).
   // OUTSIDE-글상세·관심환류 ③: 사회운동 Now·뉴스 클리핑은 'News' 한 칸(id outside, S51-17 P5에서 Now → News).
-  assert.deepEqual(d.rest, ['note', 'library', 'files', 'hwp', 'pages', 'photos', 'outside']);
+  assert.deepEqual(d.rest, ['note', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
   assert.deepEqual(d.tail, ['calls', 'telegram', 'arsenal']);
   assert.equal(ITEMS.some(i => i.id === 'projects'), false, '[프로젝트] 메뉴 항목은 없다');
   assert.deepEqual(flat(d), ALL());
@@ -40,7 +40,7 @@ test('저장된 값이 이상해도 언제나 올바른 구성으로 읽는다',
 test('옛 저장값({bar, rest}, 표시 없음)은 지금 화면 그대로 옮겨 담는다: 끝에 이어진 통화·텔레그램·아스날 = 아래 칸', () => {
   const old = normalizeLayout({bar: ['home', 'basket', 'calendar', 'meetings'], rest: ['team', 'note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram', 'arsenal']});
   assert.deepEqual(old.tail, ['calls', 'telegram', 'arsenal']);
-  assert.deepEqual(old.rest, ['team', 'note', 'library', 'files', 'hwp', 'pages', 'photos', 'outside'], '그때 없던 바깥 성명은 기본 앞 항목(사진) 뒤, 파일은 자료실 뒤(아래 칸 feed 묶음을 깨지 않음)');
+  assert.deepEqual(old.rest, ['team', 'note', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside'], '그때 없던 바깥 성명은 기본 앞 항목(사진) 뒤, 파일은 자료실 뒤(아래 칸 feed 묶음을 깨지 않음)');
   const up = normalizeLayout({bar: ['home', 'basket', 'calendar', 'meetings', 'team'], rest: ['calls', 'note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'telegram', 'arsenal']});
   assert.deepEqual(up.tail, ['telegram', 'arsenal'], '위로 옮겨 둔 통화는 위 메뉴 그대로');
   assert.equal(up.rest[0], 'calls');
@@ -135,7 +135,7 @@ test('끌어 놓을 자리: 가운데 위치 목록과 y로 몇 번째 앞인지
 
 test('FILES-클라우드탐색기 ④: 저장된 순서에 없던 [파일]은 자료실 바로 아래로 들어간다(F5), 자료실을 옮겨 둔 사람은 그 뒤', () => {
   const saved = normalizeLayout({bar: ['home', 'basket', 'calendar', 'meetings', 'team'], rest: ['note', 'library', 'hwp', 'pages', 'ledger', 'photos', 'outside', 'news', TAIL_MARK, 'calls', 'telegram', 'arsenal']});
-  assert.deepEqual(saved.rest, ['note', 'library', 'files', 'hwp', 'pages', 'photos', 'outside']);
+  assert.deepEqual(saved.rest, ['note', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
   const moved = normalizeLayout({bar: ['home', 'library', 'calendar', 'meetings', 'team'], rest: ['note', 'basket', 'hwp', TAIL_MARK, 'calls', 'telegram', 'arsenal']});
   assert.equal(moved.bar.includes('files'), false, '하단바는 사용자가 고른 그대로');
   assert.equal(moved.rest[0], 'note', '자료실이 하단바에 있으면 기본 순서에서 그 앞(노트) 뒤');
@@ -209,7 +209,7 @@ test('MENU-숨김: 이상한 저장값·옛 저장값·표시를 모르는 옛 �
   // 숨김 표시가 없는 옛 저장값은 숨김 없음.
   assert.deepEqual(normalizeLayout({bar: ['home', 'basket'], rest: ['note', TAIL_MARK, 'calls']}).hidden, []);
   // 숨긴 메뉴는 새 항목 자리 채우기에서도 빠진 것으로 세지 않는다(숨김 유지).
-  const h = normalizeLayout({bar: ['home', 'basket', 'calendar', 'meetings', 'team'], rest: ['note', 'library', 'files', 'photos', 'outside', TAIL_MARK, 'calls', 'telegram', 'arsenal', HIDDEN_MARK, 'hwp', 'pages']});
+  const h = normalizeLayout({bar: ['home', 'basket', 'calendar', 'meetings', 'team'], rest: ['note', 'library', 'files', 'brief', 'photos', 'outside', TAIL_MARK, 'calls', 'telegram', 'arsenal', HIDDEN_MARK, 'hwp', 'pages']});
   assert.deepEqual(h.hidden, ['hwp', 'pages']); assert.ok(!h.rest.includes('hwp'));
   // 표시를 모르는 옛 화면의 읽기: 'hidden' 이름은 메뉴 이름이 아니라 버리고, 숨긴 메뉴는 아래 칸 뒤에 이어져 그대로 보인다(깨지지 않음).
   const legacyRead = normalizeLayout({bar: ['home', 'basket', 'calendar', 'meetings', 'team'], rest: ['note', TAIL_MARK, 'calls', 'hwp', 'pages']});
@@ -232,12 +232,12 @@ const pcMain = l => pcSplit(l).main.filter(x => x !== 'home');
 const changed = () => moveItem(defaultLayout(), 'photos', 'rest', 0).layout;
 test('MENU-왼쪽메뉴바로끌기: 위 메뉴 줄을 같은 칸 안에서 끌면 그 칸 순서만 바뀐다', () => {
   const l = changed(), base = pcMain(l);
-  assert.deepEqual(base, ['basket', 'calendar', 'meetings', 'team', 'photos', 'note', 'library', 'files', 'hwp', 'pages', 'outside']);
+  assert.deepEqual(base, ['basket', 'calendar', 'meetings', 'team', 'photos', 'note', 'library', 'files', 'brief', 'hwp', 'pages', 'outside']);
   // [바깥 성명(News)]을 [자료실] 앞으로: 위 메뉴 안에서만 움직인다(하단바 그대로).
   const r = applyPc(l, 'outside', {part: 'main', index: base.filter(x => x !== 'outside').indexOf('library')});
   assert.ok(r.ok && r.changed);
   assert.deepEqual(r.layout.bar, l.bar);
-  assert.deepEqual(r.layout.rest, ['photos', 'note', 'outside', 'library', 'files', 'hwp', 'pages']);
+  assert.deepEqual(r.layout.rest, ['photos', 'note', 'outside', 'library', 'files', 'brief', 'hwp', 'pages']);
   // 하단바 칸 안에서도(홈 아래 첫 줄 앞 = 하단바 칸 맨 앞 자리, 홈은 그대로 맨 앞).
   const b = applyPc(l, 'team', {part: 'main', index: 0});
   assert.deepEqual(b.layout.bar, ['home', 'team', 'basket', 'calendar', 'meetings']);
@@ -333,7 +333,7 @@ test('MULTI-처음쓰는사람 ④: withFeatures — 답 전(null)은 그대로,
   const none = withFeatures(d, []);
   assert.deepEqual(none.off.sort(), ['arsenal', 'calls', 'files', 'outside', 'telegram']);
   assert.deepEqual(none.bar, d.bar);
-  assert.deepEqual(none.rest, ['note', 'library', 'hwp', 'pages', 'photos']);
+  assert.deepEqual(none.rest, ['note', 'library', 'brief', 'hwp', 'pages', 'photos']);
   assert.deepEqual(none.tail, []);
   const op = withFeatures(d, ['calls', 'telegram', 'files', 'gdrive_photos', 'arsenal', 'outside', 'family']);
   assert.deepEqual(op.off, []); assert.deepEqual({bar: op.bar, rest: op.rest, tail: op.tail, hidden: op.hidden}, d);
