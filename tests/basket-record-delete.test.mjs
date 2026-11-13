@@ -322,4 +322,15 @@ test('screens: every update/note delete call goes to the trash; only the diary k
   }
   const diary=readFileSync(new URL('../app/diary.js',import.meta.url),'utf8');
   assert.doesNotMatch(diary,/trash:\s*true/);
+  // ORG-연결노트삭제: 기록 줄의 노트 [원문 삭제]는 deleteRecordNote(휴지통 길 고정)로만 간다.
+  const shared=readFileSync(new URL('../app/basket-record-delete.js',import.meta.url),'utf8');
+  assert.match(shared,/export const deleteRecordNote=\(noteId,options=\{\}\)=>deleteNoteOriginal\(noteId,\{\.\.\.options,trash:true,/);
+});
+
+// ORG-연결노트삭제(2026-11-12 명진 지시): 기록 줄의 노트 [원문 삭제] 묻는 글. 이 줄 말고 이어진 곳이 있으면 'n군데'를 함께 말한다.
+test('record note delete words: one question, the trash, this line, and other places',()=>{
+  assert.deepEqual(mod.recordNoteDeleteWords({places:1,otherLinks:0}),{confirm:'노트를 삭제할까요?\n휴지통으로 가요. 이 기록 줄도 빠져요.',moved:'노트를 지웠어요.'});
+  assert.equal(mod.recordNoteDeleteWords({places:2,otherLinks:1}).confirm,'노트를 삭제할까요?\n휴지통으로 가요. 이 기록 줄도 빠져요.\n다른 곳 2군데에도 연결돼 있어요.');
+  assert.equal(mod.recordNoteOtherPlaces({places:0,otherLinks:0}),0);
+  assert.equal(mod.recordNoteOtherPlaces(null),0);
 });
