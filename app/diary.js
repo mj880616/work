@@ -320,7 +320,6 @@ function closeDetail({fromBack = false} = {}) {
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
   renderList();
 }
-let diaryGrip = null;
 function renderDetail() {
   if (!selected) return;
   sendWhere(longDay(selected));
@@ -342,6 +341,7 @@ function renderDetail() {
 // 업무일지와 같은 읽기를 그날 처음 열 때 한 번(주 단위 기억), 다시 그릴 때는 읽은 것을 쓴다(메모리에만). 펼침 상태도 이 접속 동안만 기억한다.
 // 크게 보기 캡션은 찍은 시각과 일정·회의 시간을 맞춘 한 줄(photoContextLine). 맥락은 보여 주기만 하고 일기 글에 쓰지 않는다.
 let dayContext = {key:'', p:null, entries:[]}, contextOpen = '';
+let diaryGrip = null; // NOTE-글폭: 일기 읽기 글 줄 손잡이(renderDetail)
 function paintContext(slot, day) {
   if (!slot || !day) return;
   const key = `${owner}|${day}`;
