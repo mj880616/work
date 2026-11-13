@@ -313,7 +313,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   handle.ready = (async () => {
     await ensureStyles();
     if (closed) return handle;
-    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts});
+    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts, lineWidth: true}); // NOTE-글폭: 큰 창 글 줄도 같은 폭·같은 손잡이
     if (closed) { made.destroy(); return handle; }
     editor = made;
     // The editor's own first value is the baseline (its cleaning may differ in small ways from the converted one), so opening alone is "not changed".
