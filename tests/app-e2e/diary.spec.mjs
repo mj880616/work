@@ -394,6 +394,20 @@ test('쓰던 일기가 있으면 다른 화면으로 가기 전에 작은 확인
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
+// UI-알림창정리(S61-31): 쓰던 일기 창을 폰 뒤로가기로 닫을 때도 공용 작은 확인창. [머물기] = 그대로, [닫기] = 한 번 더 뒤로(그날 상자).
+test('폰 뒤로가기로 쓰던 일기 창을 닫을 때 작은 확인창: 머물기는 그대로, 닫기는 그날 상자로',async({page})=>{
+ const f=await fixture(page);await openDiary(page,390);
+ page.on('dialog',d=>{throw Error('unexpected dialog '+d.message())});
+ await cell(page,'2026-10-03').click();await page.locator('#diaryRoot [data-diary-edit]').click();
+ const ed=page.locator('#diaryRoot [data-diary-editor]'),detail=page.locator('#diaryRoot [data-diary-detail]');
+ await expect(ed).toBeVisible();await typeInto(page,field(ed),' 덧붙임');
+ await page.goBack();expect(await answerAsk(page,false)).toBe('쓰던 일기를 저장하지 않고 닫을까요?');
+ await expect(ed).toBeVisible();await expect(field(ed)).toContainText('덧붙임');
+ await page.goBack();expect(await answerAsk(page,true)).toBe('쓰던 일기를 저장하지 않고 닫을까요?');
+ await expect(ed).toBeHidden();await expect(detail).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 test('폰 뒤로가기: 쓰기 창 → 날짜 순서로 닫힘',async({page})=>{
  const f=await fixture(page);await openDiary(page,390);
  await cell(page,'2026-10-03').click();await page.locator('#diaryRoot [data-diary-edit]').click();

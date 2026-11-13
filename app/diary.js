@@ -651,7 +651,7 @@ async function openEditor(day, {line = '', onSaved = null} = {}) {
   cal.hidden = true; detail.hidden = true; list.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
   if (!allHost.hidden) listView.hide();
   renderEditor(EDITOR_LOADING); renderOdPanel();
-  editLayer ||= window.KPTURouter?.layer?.open('diary-edit', {close:() => closeEditor({fromBack:true})}) || null;
+  editLayer ||= window.KPTURouter?.layer?.open('diary-edit', {close:({ask} = {}) => closeEditor({fromBack:true, ask})}) || null;
   requestAnimationFrame(() => editor.querySelector('h3')?.focus());
   edit.mounting = mountField(edit);
 }
@@ -927,12 +927,12 @@ async function discardUploads(session) {
     if (session.owner === ownerScope(rt)) notifySmall(`${shortDay(session.day)} 일기에 올리던 사진을 다시 빼지 못했어요. 일기를 열어 확인해 주세요.`, {error:true});
   }
 }
-// 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻는다.
+// 뒤로가기(fromBack)는 라우터가 준 ask로 묻는다(UI-알림창정리 S61-31: 공용 작은 확인창, [닫기]면 다시 뒤로). [닫기] 버튼은 askCloseEditor가 묻는다.
 const CLOSE_TEXT = '쓰던 일기를 저장하지 않고 닫을까요?';
-function closeEditor({fromBack = false, force = false} = {}) {
+function closeEditor({fromBack = false, force = false, ask = null} = {}) {
   if (!edit) return true;
   if (edit.busy) return false;
-  if (!force && dirty() && !window.confirm(CLOSE_TEXT)) return false;
+  if (!force && dirty() && !ask?.(CLOSE_TEXT)) return false;
   const session = edit;
   releasePending(); dropField(); edit = null; if (!session.behind) discardSession(session); editor.hidden = true; editor.replaceChildren(); listDirty = true;
   cal.hidden = false; renderList(); renderOdPanel(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;

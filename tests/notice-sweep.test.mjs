@@ -4,7 +4,7 @@
 // 남긴 이유:
 //   · 동기 이동 막기 — 뒤로가기(겹 닫기)·새로고침 직전에 '쓰던 내용 버릴까요'를 그 자리에서 예/아니오로 정해야 하는 길.
 //     화면 이동(kptu:before-view-change)은 S61-31에서 라우터의 '막고 → 묻고 → 다시 이동' 공용 길(detail.ask)로 옮겼다.
-//     겹 닫기(mobile-modal-history)에도 같은 공용 길이 생기면 나머지를 옮긴다. 버튼·Esc로 닫는 길은 이미 작은 확인창이다.
+//     겹 닫기(뒤로가기로 상세 창 닫기)도 같은 길(layer close의 ask)로 옮겼다(정리함·일기·공유 페이지). 버튼·Esc로 닫는 길은 이미 작은 확인창이다.
 //   · legacy/meeting-detail-patches.js — 어디서도 불러오지 않는 옛 파일(지우기는 범위 밖, 보고만).
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,11 +15,8 @@ import {fileURLToPath} from 'node:url';
 const APP = fileURLToPath(new URL('../app/', import.meta.url));
 const SKIP = ['hwp-lab/', 'editor-lib/', 'pdf-lib/', 'markdown-lib/'];
 const BASELINE = {
-  'basket.js': 1,                 // 정리함 상세 겹 뒤로가기 닫기 (동기 이동 막기)
   'basket-notes.js': 1,           // 노트 상세 겹 뒤로가기 닫기 (동기 이동 막기)
-  'diary.js': 1,                  // 일기 창 뒤로가기 닫기 (동기 이동 막기)
   'project-system-v3.js': 1,      // confirmDiscard — 새로고침·뒤로가기·창 닫기 (동기 이동 막기)
-  'share-pages.js': 1,            // 공유 페이지 편집 겹 뒤로가기 닫기 (동기 이동 막기)
   'workplace-detail.js': 2,       // wdConfirmDiscard — 뒤로가기·새로고침 (동기 이동 막기)
   'legacy/meeting-detail-patches.js': 2, // 불러오는 곳 없는 옛 파일
 };

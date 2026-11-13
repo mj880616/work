@@ -670,18 +670,18 @@ function showEditor(page) {
   editing.saved = snapshotOf(editing); sendWhere(editing.title.trim() || '제목 없음');
   if (editing.id) { photosFor(editing); photoApi.note(photoIdsIn(editing.blocks)); }
   listView.hidden = true; editorView.hidden = false; view.dataset.spEditing = '1';
-  layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
+  layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:({ask} = {}) => closeEditor({fromBack:true, ask})}) || null;
   const focusDoc = editing.focusDoc || editing.mode === 'full';
   renderEditor();
   if (!focusDoc) editorView.querySelector('[data-sp-title]')?.focus();
   if (editing.id) void loadLinks();
 }
 const CLOSE_TEXT = '저장하지 않은 내용이 있어요. 저장하지 않고 목록으로 돌아갈까요?';
-// 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻고 asked로 부른다.
-function closeEditor({fromBack = false, force = false, asked = false} = {}) {
+// 뒤로가기(fromBack)는 라우터가 준 ask로 묻는다(UI-알림창정리 S61-31: 공용 작은 확인창, [닫기]면 다시 뒤로). [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻고 asked로 다시 부른다.
+function closeEditor({fromBack = false, force = false, asked = false, ask = null} = {}) {
   if (!editing) return true;
   if (busy && !force) return false;
-  if (!force && !asked && dirty() && !window.confirm(CLOSE_TEXT)) return false;
+  if (!force && !asked && dirty() && !ask?.(CLOSE_TEXT)) return false;
   const closing = editing;
   dropDocEditor();
   // Changes are dropped here, so only the photos in the saved page stay (a photo put in and not saved is removed).
@@ -1021,7 +1021,7 @@ window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view !== 'pages') { layer = null; shareHtml.close(); return; }
   if (!editing) { void loadList(); return; }
   // Back in the menu with the editor still open: one history entry again so Back closes it first (not while traversing).
-  if (event.detail?.source !== 'popstate') layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
+  if (event.detail?.source !== 'popstate') layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:({ask} = {}) => closeEditor({fromBack:true, ask})}) || null;
 });
 window.addEventListener('kptu:session-changed', () => {
   const next = ownerScope();

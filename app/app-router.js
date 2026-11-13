@@ -264,14 +264,28 @@
     const alive=layerAlive(layer);
     return alive===null?!chain.includes(layer.name):!alive;
   }
+  // UI-알림창정리(S61-31) 겹 닫기 묻기: 쓰던 것이 있는 겹은 close({fromBack,ask})에서 ask('물음')를 부른다(화면 이동의 detail.ask와 같은
+  // 규칙). 처음엔 false → 그 겹 칸으로 되돌린 뒤 공용 작은 확인창으로 묻고, [닫기]면 같은 뒤로가기를 다시 한다(그때 ask()는 true).
+  let layerConfirmed=null;
   function closeLeftLayers(){
     const chain=chainOf(history.state);
+    const confirmedLayer=layerConfirmed;layerConfirmed=null;
     let count=0;
     while(layers.length&&layerLeft(layers.at(-1),chain)){
       const layer=layers.at(-1);
-      let closed=true;
-      try{closed=layer.close({fromBack:true})!==false}catch(err){console.error('layer close',layer.name,err)}
-      if(!closed){returnToLayer(layer);return 'declined'}
+      let closed=true;const asks=[];
+      const ask=text=>{if(confirmedLayer===layer.name)return true;asks.push(String(text||''));return false};
+      try{closed=layer.close({fromBack:true,ask})!==false}catch(err){console.error('layer close',layer.name,err)}
+      if(!closed){
+        const backTo=window.navigation?.currentEntry?.key;
+        returnToLayer(layer);
+        if(asks.length)askLeave(asks[0],()=>{
+          layerConfirmed=layer.name;
+          if(backTo&&backTo!==window.navigation?.currentEntry?.key&&window.navigation?.entries?.().some(e=>e.key===backTo)){try{window.navigation.traverseTo(backTo).committed?.catch(()=>{layerConfirmed=null})}catch{layerConfirmed=null}return}
+          history.back();
+        },{ok:'닫기'});
+        return 'declined';
+      }
       const now=layers.indexOf(layer);
       if(now>=0)layers.splice(now,1);
       count++;
@@ -595,12 +609,12 @@
 
   // 떠나기 물음(위 go 안 detail.ask). 누른 단추(초점) 아래, 없으면 가운데. 한 번에 하나만.
   let leaveConfirmed=null,leaveAsking=false;
-  function askLeave(text,onLeave){
+  function askLeave(text,onLeave,{ok='나가기'}={}){
     if(leaveAsking)return;leaveAsking=true;
     const at=document.activeElement,anchor=at&&at!==document.body&&at.getClientRects?.().length?at:null;
     // 뒤로가기를 되돌리는 중(restoreRoutePosition)이면 끝난 뒤에 묻는다: 물음창도 기록 칸을 하나 쓰므로 겹치지 않게.
     const settled=()=>new Promise(done=>{let n=0;const tick=()=>{if(!returningTo||++n>60)done();else setTimeout(tick,16)};tick()});
-    settled().then(()=>import('./small-notice.js')).then(({askConfirm})=>askConfirm(anchor,{text,ok:'나가기',cancel:'머물기',danger:true,history:false}))
+    settled().then(()=>import('./small-notice.js')).then(({askConfirm})=>askConfirm(anchor,{text,ok,cancel:'머물기',danger:true,history:false}))
       .then(ok=>{leaveAsking=false;if(ok)onLeave()},err=>{leaveAsking=false;console.error('leave ask',err)});
   }
 
