@@ -65,3 +65,8 @@
 .html-frame-view { display:block; width:100%; min-height:120px; border:1px solid var(--kptu-border); border-radius:6px; background:var(--kptu-surface); }
 .html-frame-full { position:fixed; inset:0; z-index:1000; margin:0; border-radius:0; padding:max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); }
 .html-frame-full .html-frame-view { flex:1 1 auto; height:auto !important; min-height:0; }
+/* NOTE-내용확대축소(S61-16 ③): [−] 100% [+] 작은 묶음(노트 읽기 머리 줄·HTML 칸 머리 줄 공용). 노트 안 HTML은 머리 줄 묶음을 쓰고, [크게 보기]에서만 칸 머리 줄에 보인다. */
+.nz-zoom { display:inline-flex; align-items:center; flex:0 0 auto; }
+.nz-zoom .ds-seg-btn { min-width:28px; font-variant-numeric:tabular-nums; }
+.nz-zoom [data-note-zoom-reset] { min-width:44px; }
+[data-note-read] .html-frame:not(.html-frame-full) .html-frame-zoom { display:none; }

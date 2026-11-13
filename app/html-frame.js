@@ -7,6 +7,9 @@ import {waitHtml} from './wait-state.js';
 // - 내용은 document-actions `html-view`(읽기 전용, 2MB까지)로 받는다. 요청은 자동으로 다시 보내지 않는다.
 // - 메모 읽기(basket.js)와 노트 읽기(basket-notes.js)는 paintHtmlAttachments 하나로 같은 칸막이를 그린다(BUG-노트HTML표시).
 import {frameDocument, isHtmlName, HTML_MAX_BYTES} from './chatgpt-html.mjs';
+// NOTE-내용확대축소: 칸막이 안 문서 배율 = 노트 내용 배율 하나(note-zoom.js). 바뀌면 칸막이를 새 배율 문서로 다시 그린다(sandbox·CSP 그대로).
+// [크게 보기] 안에서도 같은 [−] 100% [+]가 머리 줄에 보인다(작은 보기에서는 노트 머리 줄의 묶음을 쓴다 — 두 번 보이지 않게).
+import {noteZoom, zoomScale, zoomControl, bindZoomKeys, NOTE_ZOOM_EVENT} from './note-zoom.js';
 
 export const HTML_FRAME_TEXT = Object.freeze({
   notReady: 'HTML 보기 서버가 아직 준비되지 않았어요. [Drive에서 열기]로 확인해 주세요.',
@@ -92,8 +95,12 @@ export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML', showTitle = 
   box.className = 'html-frame'; bar.className = 'html-frame-bar'; note.className = 'html-frame-note'; note.setAttribute('role', 'status');
   const name = document.createElement('b');
   name.className = 'html-frame-title'; name.textContent = title;
-  let frame = null, full = false;
+  let frame = null, full = false, shownZoom = noteZoom();
   const big = button('크게 보기', () => setFull(!full));
+  const zoom = zoomControl(); zoom.node.classList.add('html-frame-zoom');
+  const unbindKeys = bindZoomKeys(box, {active: () => full});
+  const onZoom = () => { if (noteZoom() !== shownZoom && frame) show(); };
+  window.addEventListener(NOTE_ZOOM_EVENT, onZoom);
   // Escape leaves the full view only; the memo screen around it must not also close.
   const onKey = event => { if (event.key === 'Escape' && full) { event.preventDefault(); event.stopPropagation(); setFull(false); } };
   box.addEventListener('keydown', onKey);
@@ -109,6 +116,9 @@ export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML', showTitle = 
   }
   function show() {
     note.textContent = '';
+    // 다시 그릴 때 높이는 배율 비율만큼 미리 맞춰 둔다(안 문서가 새 높이를 보내면 그 값으로).
+    const was = frame ? parseFloat(frame.style.height) || 360 : 0, ratio = noteZoom() / shownZoom;
+    shownZoom = noteZoom();
     frame?.remove(); frames.delete(frame);
     frame = document.createElement('iframe');
     frame.setAttribute('sandbox', 'allow-scripts');
@@ -116,7 +126,7 @@ export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML', showTitle = 
     frame.setAttribute('loading', 'lazy');
     frame.title = title;
     frame.className = 'html-frame-view';
-    frame.style.height = '360px';
+    frame.style.height = was ? Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(was * ratio))) + 'px' : '360px';
     // The first load is our document. Any later load means the page navigated itself: close it.
     let loads = 0;
     frame.addEventListener('load', () => {
@@ -125,7 +135,7 @@ export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML', showTitle = 
       note.textContent = HTML_FRAME_TEXT.left;
       again.hidden = false;
     });
-    frame.srcdoc = frameDocument(html);
+    frame.srcdoc = frameDocument(html, {zoom: zoomScale(shownZoom)});
     frames.add(frame);
     again.hidden = true;
     box.append(frame);
@@ -133,11 +143,11 @@ export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML', showTitle = 
   const again = button('다시 보기', show);
   again.hidden = true;
   if (showTitle) bar.append(name);
-  bar.append(big, again);
+  bar.append(zoom.node, big, again);
   box.append(bar, note);
   host.replaceChildren(box);
   show();
-  return {close() { if (full) setFull(false); frames.delete(frame); box.remove(); }};
+  return {close() { if (full) setFull(false); frames.delete(frame); window.removeEventListener(NOTE_ZOOM_EVENT, onZoom); zoom.destroy(); unbindKeys(); box.remove(); }};
 }
 
 

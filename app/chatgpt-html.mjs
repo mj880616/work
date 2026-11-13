@@ -64,9 +64,13 @@ export const FRAME_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-
 const HEIGHT_SCRIPT = '<script>(function(){var last=0;function send(){var d=document.documentElement,b=document.body;var h=Math.ceil(Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0));if(h&&h!==last){last=h;try{parent.postMessage({type:"web2-html-height",height:h},"*")}catch(e){}}}addEventListener("load",send);addEventListener("resize",send);try{new ResizeObserver(send).observe(document.documentElement)}catch(e){setInterval(send,1000)}send()})()</script>';
 
 // The policy comes first so it covers everything in the document. A leading doctype stays first (standards mode).
-export function frameDocument(html) {
+// zoom: NOTE-내용확대축소 — 칸막이 안 문서 전체 배율(1 = 그대로). 문서 맨 앞 정책·높이 스크립트 다음에 인라인 style 하나(CSP가 이미 허용하는 inline style)로만 넣는다.
+// 정해진 단계 숫자만 받는다(그 밖의 값은 무시) — 글자를 문서에 그대로 끼워 넣지 않는다.
+export const FRAME_ZOOMS = Object.freeze([0.8, 0.9, 1, 1.1, 1.25, 1.5]);
+export function frameDocument(html, {zoom = 1} = {}) {
   const value = String(html ?? '').replace(/^﻿/, '');
   const doctype = /^\s*<!doctype[^>]*>/i.exec(value);
-  const head = `<meta http-equiv="Content-Security-Policy" content="${FRAME_CSP}"><meta name="referrer" content="no-referrer">${HEIGHT_SCRIPT}`;
+  const scale = FRAME_ZOOMS.includes(zoom) && zoom !== 1 ? `<style>html{zoom:${zoom}}</style>` : '';
+  const head = `<meta http-equiv="Content-Security-Policy" content="${FRAME_CSP}"><meta name="referrer" content="no-referrer">${HEIGHT_SCRIPT}${scale}`;
   return doctype ? doctype[0].trim() + head + value.slice(doctype[0].length) : '<!doctype html>' + head + value;
 }

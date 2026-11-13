@@ -154,6 +154,9 @@ export const NOW_TABS = Object.freeze(['outside', 'news', 'saved', 'search']);
 // 옛 now_tab은 news_tab이 없을 때 한 번 읽어 옮기기만 한다(now-model.mjs startTab). 서버의 옛 값은 지우지 않는다(데이터 보존, S51-17 P5 확인).
 export const NEWS_TABS = Object.freeze(['all', 'movement', 'media', 'archive']);
 export const NEWS_FONTS = Object.freeze(['s', 'm', 'l']);
+// S61-16 NOTE-내용확대축소: note_zoom = 노트 보기에서 글·HTML 첨부 내용만 키우고 줄이는 배율(%) 하나(모든 기기·모든 노트 같음, 없으면 100).
+// migration 20261113110000. 적용 전에는 쓰기가 400이라 rejectable로 보내고 화면(note-zoom.js)이 이번 접속만 기억한다(알림 없음).
+export const NOTE_ZOOMS = Object.freeze([80, 90, 100, 110, 125, 150]);
 // UI-앱안알림(S48-19): link_hidden_on = 맨 위 알림 줄 '연결 끊김' ✕를 누른 서울 날짜(오늘 하루 숨김, collect_hidden_on과 같은 모양).
 // migration 20261102170000. 적용 전에는 쓰기가 400이라 rejectable로 보내 그 칸만 되돌린다(알림 없음, 이 탭에서는 닫힌 채).
 // S48-21 쓰기 창 서식 줄: ed_more = 편집기 서식 줄 [⌄] 아래 줄을 펼쳐 둔 채인가(참·거짓, 없으면 접힘). 모든 편집기·기기가 같은 값.
@@ -168,7 +171,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -203,6 +206,7 @@ export function validValue(key, value) {
     case 'now_tab': return NOW_TABS.includes(value);
     case 'news_tab': return NEWS_TABS.includes(value);
     case 'news_font': return NEWS_FONTS.includes(value);
+    case 'note_zoom': return NOTE_ZOOMS.includes(value);
     case 'recent_folded': return Array.isArray(value) && value.length <= RECENT_FOLD_SCREENS.length + 1 && value.every(v => RECENT_FOLD_SCREENS.includes(v));
     case 'org_order': return orgOrderOk(value);
     case 'report_calendar': return reportCalendarOk(value);
