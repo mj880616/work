@@ -135,6 +135,9 @@ function recordMenu(host){
   return linkMenu;
 }
 
+// MENU-자리나머지: 기록 줄을 그리는 쪽(업무 기록 창 workplace-detail.js 등)이 줄을 다시 그린 뒤 열린 기록 메뉴를 새 ⋯에 붙인다(anchored-menu keepMenus에 넘김).
+export const linkMenuFollower={get active(){return linkMenu?.active||null},follow(find){linkMenu?.follow(find)}};
+
 // One delegated editor per detail host; drafts and exact previous strings are
 // memory-only. A conflict/unknown result always needs explicit user confirmation.
 // UI-연결요약수정: organization detail (#wdUpdates) and project detail (the record list) both mount this one editor; project

@@ -140,6 +140,6 @@ async function moveDue(id,day){
 }
 // S51-27 UI-PC우클릭: 달력 칸·주간의 할 일 줄(data-calendar-task)을 우클릭한 자리에 그 줄의 ⋯ 메뉴(task-inline.js)를 연다.
 function menuAt(el,at){const id=el?.dataset?.calendarTask;if(!id||!findTask(id))return false;line.openMenu(el,{id,at});return true}
-window.KPTUCalendarTasks={refresh:()=>refresh(),moveDue,menuAt};
+window.KPTUCalendarTasks={refresh:()=>refresh(),moveDue,menuAt,menuFollower:line.menuFollower}; // menuFollower: MENU-자리나머지(달력이 다시 그린 뒤 열린 할 일 메뉴를 새 칸에)
 boot();
 })();

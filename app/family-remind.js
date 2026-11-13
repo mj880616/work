@@ -7,14 +7,17 @@
 import {esc} from './notice-box.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {readRemind, remindLines, pickToday, pickOther} from './family-remind-model.mjs';
-import {openRemindMenu} from './family-remind-menu.js';
+import {openRemindMenu, remindMenuFollower} from './family-remind-menu.js';
+import {keepMenus} from './anchored-menu.js';
 
 export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window} = {}) {
   if (!host) return null;
   let note = null, picks = [], total = 0, run = 0, status = '';
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
 
-  function paint() {
+  // MENU-자리나머지: 줄 ⋯ 메뉴를 연 채 다시 그려도(다시 읽기·다른 화면 알림) 열린 메뉴는 같은 줄의 새 ⋯에 붙고, 그 줄이 없어지면 닫힌다(공용 keepMenus).
+  function paint() { return keepMenus([remindMenuFollower], {attrs: ['data-fam-more'], root: host}, paintNow); }
+  function paintNow() {
     if (!note || !picks.length) { host.hidden = true; host.innerHTML = ''; return; }
     host.hidden = false;
     // 공용 상자(notice-box: .nbx 머리 줄·줄·⋯·상태 줄) 그대로. 이 칸 CSS는 자리만 정한다(basket.css).

@@ -5,7 +5,7 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js';
 import {formatMeetingWhen} from './meeting-when.js';
 import {bindDateTimeFields} from './time-input.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+import {createAnchoredMenu,keepMenus} from './anchored-menu.js';
 import {pressFile} from './file-actions.js';
 import {checkPopAttr,applyCheckPop} from './check-motion.js'; // UI-누름움직임: 방금 끝낸 할 일의 체크 움직임
 import {fileMoreHtml,meetingFileFile} from './meeting-columns.js';
@@ -75,6 +75,13 @@ function mrdPaintMore(editing=false){const b=document.querySelector('#mrdMore');
 let mrdOutside=null,mrdOutsideSeq=0;
 const mrdMenuOut=trigger=>trigger&&mrdOutside?.trigger===trigger?mrdOutside:null;
 const mrdMenuMeeting=trigger=>mrdMenuOut(trigger)?.meeting||mrdCurrent;
+// MENU-자리나머지: 창 밖 줄에서 연 메뉴(mrdOutside)를, 그 줄을 그린 쪽(team.js 사업 보고 목록·달력·사진, 그날 창)이 다시 그린 뒤 같은 보고의 새 줄로 옮긴다(anchored-menu keepMenus에 넘김).
+// 메뉴 주인 판단(mrdMenuOut — trigger 동일성)이 새 줄에서도 맞도록 mrdOutside.trigger도 함께 바꾼다. 창 안 ⋯(#mrdMore)로 연 메뉴는 건드리지 않는다.
+const mrdOutsideFollower={
+  get active(){const a=mrdMoreMenu?.active;return a&&mrdMenuOut(a.trigger)?a:null},
+  follow(find){const a=mrdMoreMenu?.active,out=a&&mrdMenuOut(a.trigger);if(!out||a.trigger.isConnected)return;
+    mrdMoreMenu.follow((id,old)=>{const next=find(id,old);if(next&&mrdOutside===out)out.trigger=next;return next})}
+};
 function mrdEnsureMoreMenu(){
   if(mrdMoreMenu)return mrdMoreMenu;
   const can=m=>!!m&&(mrdCanEdit(m)||mrdCanDelete(m));
@@ -101,7 +108,7 @@ function mrdToggleTaskForm(){const open=!document.querySelector('#mrdTaskForm')?
 // 그 속성 때문에 저장 뒤 다시 읽은 목록이 늘 '다름'이 되어 줄을 통째로 다시 그리며 그 사이 연 ⋯ 메뉴를 닫았다. 같은 내용이면 줄은 그대로 두고 움직임만 그 자리에 건다.
 let mrdTasksDrawn=null;
 function mrdRenderTasks(){const box=document.querySelector('#mrdTasks');if(!box)return;const editable=mrdCanEdit(mrdCurrent);const draw=pop=>mrdTasks.length?mrdTasks.map(t=>`<div class="gt-row gt-side-row ${t.status==='completed'?'completed':'pending'}" data-mrd-task="${mrdEsc(t.id)}"${pop&&t.status==='completed'?checkPopAttr(t.id):''}><button class="gt-check" type="button" data-mrd-task-toggle="${mrdEsc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button>${editable?`<button class="gt-main mrd-task-main" type="button" data-mrd-task-edit="${mrdEsc(t.id)}">`:'<div class="gt-main mrd-task-main">'}<b>${mrdEsc(t.title||'제목 없음')}</b>${t.due?`<div class="gt-meta"><span class="gt-due">${mrdEsc(dueText(mrdDueDateValue(t.due)))}</span></div>`:''}${editable?'</button>':'</div>'}${editable?`<button class="icon-btn gt-menu-trigger" type="button" data-mrd-task-menu="${mrdEsc(t.id)}" aria-label="할 일 관리: ${mrdEsc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="mrdTaskMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>`:''}</div>`).join(''):'',html=draw(false); // S59-20: 후속 할 일이 하나도 없으면 칸 제목 [+]만 둔다('없음' 글자를 따로 붙이지 않음 — 사진 칸과 같은 빈 칸 규칙)
-  document.querySelector('#mrdAddTask')?.classList.toggle('hidden',!editable);document.querySelector('#mrdMakeTodos')?.classList.toggle('hidden',!editable);if(mrdTasksDrawn?.box===box&&mrdTasksDrawn.html===html&&!box.querySelector('[disabled]')){for(const t of mrdTasks)if(t.status==='completed')applyCheckPop(box.querySelector(`[data-mrd-task="${CSS.escape(t.id)}"]`),t.id);return}mrdTaskMenu?.close();box.innerHTML=draw(true);mrdTasksDrawn={box,html}}
+  document.querySelector('#mrdAddTask')?.classList.toggle('hidden',!editable);document.querySelector('#mrdMakeTodos')?.classList.toggle('hidden',!editable);if(mrdTasksDrawn?.box===box&&mrdTasksDrawn.html===html&&!box.querySelector('[disabled]')){for(const t of mrdTasks)if(t.status==='completed')applyCheckPop(box.querySelector(`[data-mrd-task="${CSS.escape(t.id)}"]`),t.id);return}keepMenus(mrdTaskMenu?[mrdTaskMenu]:[],{attrs:['data-mrd-task-menu'],root:box},()=>{box.innerHTML=draw(true)});mrdTasksDrawn={box,html}} // MENU-자리나머지: 연 ⋯ 메뉴는 닫지 않고 같은 할 일의 새 ⋯에 붙인다(없어지면 닫힘, 공용 keepMenus)
 // [할 일로]로 Google 할 일이 생기면 이 창의 후속 할 일 목록만 다시 읽는다(창을 다시 열지 않음).
 async function mrdRefreshTasks(){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!meeting)return;try{const r=await mrdReadTasks(meeting.id);if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id)return;mrdTasks=r?.tasks||[];mrdRenderTasks()}catch(e){console.warn('meeting task refresh failed',e)}}
 // 할 일 화면과 같은 ⋯ 메뉴(수정·삭제). 창 안에 붙여 포커스가 창을 벗어나지 않게 한다.
@@ -670,5 +677,5 @@ window.addEventListener('kptu:tasks-changed',()=>{if(mrdDocked&&mrdCurrent&&!mrd
 async function mrdInit(){const shared=window.KPTURuntime?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){mrdUser=shared.user;mrdWorkspace=shared.workspace.id;mrdRole=shared.membership?.role||null}else{try{mrdUser=await mrdApi('/auth/v1/user')}catch{return false}const ms=await mrdApi('/rest/v1/app_workspace_members?user_id=eq.'+mrdUser.id+'&select=workspace_id,user_id,role&limit=1');if(!ms?.length)return false;mrdWorkspace=ms[0].workspace_id;mrdRole=ms[0].role}const loadedProjects=window.KPTUTeamData?.spaces?.();mrdProjects=Array.isArray(loadedProjects)&&loadedProjects.length?loadedProjects:await mrdApi('/rest/v1/app_spaces?workspace_id=eq.'+mrdWorkspace+'&select=id,name,status,parent_id');mrdInstallModal();const list=document.querySelector('#meetingList');if(list){list.addEventListener('click',e=>{if(e.target.closest('button,a,input,select,textarea,label'))return;const card=e.target.closest('[data-mrd-meeting]');if(card)mrdOpenMeeting(card.dataset.mrdMeeting)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-mrd-meeting]')){e.preventDefault();mrdOpenMeeting(e.target.dataset.mrdMeeting)}})}return true}
 // PRJ-회의표시: the project detail's 회의 rows open this same meeting result dialog over the projects screen.
 // S61-5 REC-전사삭제(명진 11/13): 회의자료 소리 파일 ⋯ [녹음 글로 옮기기·요약]와 결과를 [수정] 창에 넣는 길은 뺐다. 소리 파일은 다른 자료처럼 열기·내려받기만.
-window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,menuAt:mrdMenuAt,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave};
+window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,menuAt:mrdMenuAt,outsideMenu:mrdOutsideFollower,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave};
 window.__KPTU_MEETING_ROUND_DETAIL_READY__=mrdInit().then(ok=>{if(ok)window.dispatchEvent(new CustomEvent('kptu:report-detail-ready'));return ok}).catch(err=>{console.error('meeting detail init',err);return false});

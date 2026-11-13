@@ -20,19 +20,28 @@
 | 뉴스 별표 폴더 | news-clipping.js paint | data-nc-folder-more | 자동 채우기 끝·읽음 표시 |
 | 공유 페이지 | share-pages.js renderList | data-sp-row-menu, data-sp-box-menu | 공유 페이지 바뀜 알림 |
 
-## 같은 문제지만 이 PR에서 고치지 않은 곳(다음 작업 후보)
+## MENU-자리나머지(S61-15)에서 고친 곳
+
+#2472에서 남긴 9곳을 같은 공용 `keepMenus`로 끝냈다(app/anchored-menu.js는 고치지 않음). 시험: tests/app-e2e/menu-follow-rest-a·b·c.spec.mjs, 사진: docs/design/screens/s61-15/.
+
+| 화면 | 그리기 주인 | 칸 표시 | 다시 그리는 길 | 메뉴 쪽 손질 |
+| --- | --- | --- | --- | --- |
+| 업무 기록 창 기록·잊지 말기 기록 | workplace-detail.js wdRenderUpdates·wdPatchLinks(root=#wdUpdates) | data-wd-up-menu, data-basket-link-menu | 기록 창 바뀜 알림·첨부 이름 바뀜 | basket-link-records.js `linkMenuFollower` 내보냄 |
+| 할 일 줄 메뉴(일지·연결 할 일·달력 칸) | journal.js renderTasks, google-tasks.js renderLinked(root=그 목록), calendar-month-view.js render | data-journal-task-menu, data-gt-linked-more, data-calendar-task(-menu) | 할 일 바뀜 알림·다른 할 일 저장 | task-inline.js `menuFollower`(새 칸에도 같은 할 일 id를 적음 — 칸 기준 WeakMap 문제) |
+| 사업 보고 창 후속 할 일 | meeting-round-detail.js mrdRenderTasks(root=#mrdTasks) | data-mrd-task-menu | 할 일 바뀜 알림 | 전에는 다시 그릴 때 메뉴를 닫았다 → 따라감 |
+| 창 밖 사업 보고 메뉴(달력·사진·그날 창) | team.js renderMeetings, report-calendar-actions.js showReportDayWindow(구역 #calendarDayList / #meetingList) | data-mrd-meeting | 사업 보고 다시 읽기·그날 창 다시 채우기 | meeting-round-detail.js `outsideMenu`(mrdOutside.trigger도 새 줄로 — 메뉴 주인 판단 유지) |
+| 통합 검색 결과 | global-search.js paintAll(구역 .gs-panel / #searchView) | data-gs-key | 다시 찾기·자료 바뀜 알림 | — |
+| 원문 메뉴(지금 상세) | now-detail.js paint·paintBody(root=상세 칸) | data-nd-ob-more | 원문 읽기 끝·번역·같은 글 다시 열기 | — |
+| 참고 묶음 | reference-bundles.js paint | data-rb-item-more, data-rb-detail-more, data-rb-list-more | 연결 바뀜 알림 | — |
+| 가족 기억할 것 줄 | family-remind.js paint(root=그 칸) | data-fam-more | 가족 기억 바뀜 알림 | family-remind-menu.js `remindMenuFollower`(메뉴 ctx.row도 새 줄로) |
+| 사업영역 줄(전체 사업) | project-system-v3.js renderGrid(구역 .ps3-plist / #ps3DetailPane) | data-ps3-project | 목록 다시 그리기 | — |
+
+E2E가 없는 곳: 달력 칸 안 할 일 우클릭(#calendarTaskMenu)은 같은 task-inline `menuFollower`를 쓰지만 화면 시험은 일지·연결 할 일 두 곳으로 대신했다. 사업영역 줄 폰 길게 누르기는 PC 우클릭과 같은 다시 그리기 길이라 PC 시험으로 대신했다.
+
+## 아직 남은 곳
 
 | 화면 | 그리기 주인 | 칸 표시 | 남긴 이유 |
 | --- | --- | --- | --- |
-| 업무 기록 창 기록·잊지 말기 기록 | workplace-detail.js wdRenderUpdates·wdPatchLinks(outerHTML) | data-wd-up-menu, data-basket-link-menu | 메뉴 두 개가 다른 파일(basket-link-records.js)에 있어 함께 손봐야 함 |
-| 할 일 줄 메뉴(일지·달력·연결 할 일) | task-inline.js를 부르는 journal·calendar-tasks·google-tasks renderLinked | data-journal-task-menu 등 | 메뉴 key가 칸 기준 WeakMap이라 follow 뒤 새 칸에 기록이 없음 — task-inline 구조 손질 필요 |
-| 사업 보고 창 후속 할 일 | meeting-round-detail.js mrdRenderTasks | data-mrd-task-menu | 다음 작업 |
-| 창 밖 사업 보고 메뉴 | team.js 사업 보고 목록·달력 | data-mrd-meeting | mrdOutside.trigger 동일성 판단도 함께 바꿔야 함 |
-| 통합 검색 결과 | global-search.js paint | data-gs-key | 다음 작업 |
-| 원문 메뉴(지금 상세) | now-detail.js paintBody·paint | data-nd-ob-more | 다음 작업 |
-| 참고 묶음 | reference-bundles.js paintList·paintDetail | data-rb-item-more 등 | 다음 작업 |
-| 가족 기억할 것 줄 | family-remind.js paint | data-fam-more | 메뉴 ctx.row도 옮겨야 함 |
-| 사업영역 줄(전체 사업) | project-system-v3.js renderGrid | data-ps3-project | 다시 들어올 때 경합(약함) |
 | 위치만 튀는 곳(실행은 됨, actDetached) | team.js renderGoogleControls(캘린더 색), list-edit 부르는 곳, text-highlights paintMarks, team.js redrawReportPlans(⋯ 경로) | data-google-cal, data-le-menu, data-hl-id, data-rv-plan-more | 실행 문제 없음, 자리만 |
 
 ## 해당 없음·이미 막음
