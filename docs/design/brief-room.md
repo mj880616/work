@@ -49,19 +49,19 @@
 - anon·PUBLIC 없음. 같은 자료에 진행 중 작업은 하나(부분 유일 색인).
 - 함수·트리거·예약 실행·기존 표 변경 없음.
 
-## 4. 서버 길 (Edge `ai-assist`, PR ②)
+## 4. 서버 길 (Edge `document-actions`, PR ②)
 
-kind 3개. 모두 로그인 토큰으로 사용자·작업공간을 확인하고, 자료는 **로그인 토큰으로 읽어** owner RLS가 남의 작업공간 자료를 막는다(화면이 보낸 작업공간 id를 믿지 않음).
+`ai-assist`는 서버 관리자 키를 읽지 않는 함수라(index.ts 머리 주석) 새 표 쓰기를 둘 수 없다. 그래서 이미 서버 키·Drive 읽기(`createDocumentText`)·로그인 확인이 있는 `document-actions`(verify_jwt=true 그대로)에 action 2개를 더한다. AI 호출은 공용 길(`_shared/openai-responses.ts`, 열쇠 `WEB2_OPENAI_API_KEY`)을 그대로 쓴다.
 
-- `brief_start {document_id}`: 자료 확인 → **사람별 월 한도 판정**(`_shared/ai-user-cap.mjs`, 한도 이상이면 429 `ai_monthly_cap`, 숫자를 못 읽으면 멈춤) → 행 1개(queued) → 바로 이어서 돌리기.
-- `brief_step {brief_id}`: 화면이 열려 있을 때 멈춘 작업을 이어 달라고 부른다(lease가 지난 작업만 잡음). 같은 한도 판정을 다시 거친다.
-- `brief_read {brief_id}`: 필요 없음 — 화면은 표를 owner RLS로 직접 읽는다.
+- `brief-start {document_id}`: 자료를 **로그인 토큰으로** 읽는다(owner RLS가 남의 작업공간 자료를 막음, 화면이 보낸 작업공간 값은 받지 않음) → **사람별 월 한도 판정**(`_shared/ai-user-cap.mjs`, DB 함수 `app_workspace_ai_month`, 한도 이상이면 429 `ai_monthly_cap`, 숫자를 못 읽으면 503 `usage_unavailable`) → 진행 중 작업이 있으면 그것, 없으면 행 1개(queued) → 응답 뒤 이어서 돌리기.
+- `brief-step {brief_id}`: 작업 행을 로그인 토큰으로 읽어(owner 읽기 정책) 내 것일 때만, lease가 비었거나 지난 작업을 이어 간다. 화면이 열려 있을 때와 스스로 잇기가 부른다.
+- 화면은 작업 표를 owner RLS로 직접 읽는다(진행·결과). 응답에는 상태만 싣는다.
 
-돌리기(한 번 부를 때 `EdgeRuntime.waitUntil`로 응답 뒤에도 이어 감, meeting-transcribe와 같은 방식):
+돌리기(한 번 부를 때 `EdgeRuntime.waitUntil`로 응답 뒤에도 이어 감, meeting-transcribe와 같은 방식. 한 번에 140초 안, 못 끝내면 lease를 풀고 같은 함수에 `brief-step`을 한 번 더 부탁한다. 같은 작업은 lease·attempts 값 비교로 한 실행만 잡는다. 40번 넘게 잡히면 `too_many_tries`로 끝):
 
 1. `read`: Drive 파일을 끝까지 읽는다(`createDocumentText`의 자르지 않는 모드, 상한 60만 자). 글자가 300자 미만이면 `failed`/`no_text`("글자를 읽을 수 없는 파일이에요"). AI 비용 없음.
-2. `chunk`: 글을 쪽 경계 우선으로 약 12,000자 조각으로 나눈다(`splitChunks`). 조각마다 AI 한 번 → 메모(다섯 칸 후보 + 원문 인용 후보와 쪽). 한 번 부를 때 조각 2~3개씩, 조각마다 한도 판정·사용 기록(`app_ai_daily_usage` 기존 표).
-3. `merge`: 메모를 모아 AI 한 번 → 다섯 칸. 내 담당조직·사업영역 이름 목록(짧은 참조만)을 함께 보낸다.
+2. `chunk`: 글을 쪽 경계 우선으로 약 12,000자 조각으로 나눈다(`splitChunks`, 60조각 넘으면 `too_large`). 조각마다 AI 한 번 → 메모(다섯 칸 후보 + 원문 인용 후보). 조각마다 한도 판정·사용 기록(`app_ai_daily_usage` 기존 표, 로그인 토큰). AI가 잠깐 막히면 멈췄다가 다음 부름에서 다시.
+3. `merge`: 메모를 모아 AI 한 번 → 다섯 칸. 내 담당조직 이름 목록(이름만, ID 없음)을 함께 보낸다. [다음] 사업영역 이름은 저장 위치를 확인한 뒤 더한다(지금은 빈 목록).
 4. 서버 검사(`verifyBrief`): 칸마다 줄 수·글자 수·제어 문자·꺾쇠 검사, '꼭 읽을 대목'은 **원문 대조**(공백·줄바꿈만 무시하고 원문에 그대로 있는 문장만 남김, 쪽 번호는 서버가 찾은 위치로 다시 매김 — AI가 준 쪽 번호를 믿지 않는다). 남은 대목이 없으면 그 칸은 빈 칸.
 5. `done`: `brief` 저장, `source_text` 비우기, 자료실 자료 맨 위·목록 한 줄은 이 행의 `brief.lead`를 읽는다.
 
@@ -87,14 +87,14 @@ kind 3개. 모두 로그인 토큰으로 사용자·작업공간을 확인하고
 | PR | 내용 | 정지 지점 |
 | --- | --- | --- |
 | ① | 이 설계 + DB 짝 파일(새 표) | DB 적용(CC) |
-| ② | Edge `ai-assist` 브리핑 길(순수 함수 + handler) | Edge 배포(CC), ① 적용 뒤 |
+| ② | Edge `document-actions` 브리핑 길(순수 함수 + action 2개) | Edge 배포(CC), ① 적용 뒤 |
 | ③ | 화면: 메뉴·목록·보기 | ② 배포 뒤 |
 | ④ | 자료실 연결: '브리핑 요청함' 폴더, 자료 맨 위 접힌 브리핑, 목록 한 줄, 자료 ⋯ [브리핑 받기] | ③ 뒤 |
 
 ## 8. 보안 확인
 
 - 인증·RLS·권한 넓히기 없음. 새 표는 owner 읽기만, 쓰기는 서버 키의 정한 칸만.
-- 자료 읽기·Drive 읽기는 로그인 사용자 것만. 남의 작업공간 자료 id를 보내도 owner RLS에서 0행 → 404.
+- 자료 읽기·Drive 읽기는 로그인 사용자 것만. 남의 작업공간 자료 id를 보내도 owner RLS에서 0행 → 404. Drive 토큰은 그 자료 작업공간이 부른 사람의 owner 작업공간일 때만(`driveTokenFor(userId, workspaceId)`).
 - AI 답은 믿지 않는 입력: 모양·길이 검사, 인용은 원문 대조, 쪽 번호는 서버가 다시 매김.
 - 원문 글(`source_text`)은 작업이 끝나면 비운다. 로그·오류에는 글 내용을 싣지 않는다(고정 오류 코드만).
 
