@@ -170,10 +170,13 @@
 #soOrganizationList.is-dragging{user-select:none;-webkit-user-select:none}
 #soOrganizationList.is-dragging .so-grip{cursor:grabbing}
 #soOrganizationList .so-dragging{opacity:.45}
-#soOrganizationList .so-drop-before{box-shadow:inset 0 2px 0 var(--kptu-primary)}
-#soOrganizationList .so-drop-after{box-shadow:inset 0 -2px 0 var(--kptu-primary)}
-#soOrganizationList .so-org-group.so-drop-before{box-shadow:0 -2px 0 var(--kptu-primary)}
-#soOrganizationList .so-org-group.so-drop-after{box-shadow:0 2px 0 var(--kptu-primary)}
+/* 놓을 자리 줄: 그 줄(또는 묶음 칸) 위·아래 가장자리에 2px 선. */
+#soOrganizationList :is(.so-drop-before,.so-drop-after){position:relative}
+#soOrganizationList :is(.so-drop-before,.so-drop-after)::before{content:"";position:absolute;left:8px;right:8px;height:2px;background:var(--kptu-primary);z-index:2;pointer-events:none}
+#soOrganizationList .so-drop-before::before{top:-1px}
+#soOrganizationList .so-drop-after::before{bottom:-1px}
+#soOrganizationList .so-org-group.so-drop-before::before{top:-6px}
+#soOrganizationList .so-org-group.so-drop-after::before{bottom:-6px}
 #soOrganizationList .so-drop-into>.so-group-card{outline:2px solid var(--kptu-primary);outline-offset:-1px}
 /* PC(마우스)는 줄 ⋯처럼 묶음 ⋯·손잡이도 그 줄에 올렸을 때만 진하게(명진 화면은 거의 그대로). 키보드 초점·열린 메뉴는 늘 보임. */
 @media(hover:hover) and (min-width:761px){
