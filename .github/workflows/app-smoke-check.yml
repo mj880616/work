@@ -177,6 +177,11 @@ on:
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
+      - 'tests/brief-room-model.test.mjs'
+      - 'tests/brief-run.test.mjs'
+      - 'supabase/functions/_shared/brief-room.mjs'
+      - 'supabase/functions/document-actions/brief-run.mjs'
+      - 'supabase/functions/document-actions/brief.ts'
       - 'supabase/functions/_shared/ai-model.ts'
       - 'supabase/functions/collector-feed/telegram.ts'
       - 'supabase/functions/collector-feed/handler.ts'
@@ -403,6 +408,11 @@ on:
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
+      - 'tests/brief-room-model.test.mjs'
+      - 'tests/brief-run.test.mjs'
+      - 'supabase/functions/_shared/brief-room.mjs'
+      - 'supabase/functions/document-actions/brief-run.mjs'
+      - 'supabase/functions/document-actions/brief.ts'
       - 'supabase/functions/_shared/ai-model.ts'
       - 'supabase/functions/collector-feed/telegram.ts'
       - 'supabase/functions/collector-feed/handler.ts'
@@ -682,6 +692,9 @@ jobs:
 
       - name: Check small fixes (S59-20 OPS-작은손보기 — empty box text, ** marks, menu icons)
         run: node --test tests/s59-20-small-fixes.test.mjs
+
+      - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs
 
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs
