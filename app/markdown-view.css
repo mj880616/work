@@ -67,6 +67,6 @@
 .html-frame-full .html-frame-view { flex:1 1 auto; height:auto !important; min-height:0; }
 /* NOTE-내용확대축소(S61-16 ③): [−] 100% [+] 작은 묶음(노트 읽기 머리 줄·HTML 칸 머리 줄 공용). 노트 안 HTML은 머리 줄 묶음을 쓰고, [크게 보기]에서만 칸 머리 줄에 보인다. */
 .nz-zoom { display:inline-flex; align-items:center; flex:0 0 auto; }
-.nz-zoom .ds-seg-btn { min-width:28px; height:var(--ds-compact-height-sm, 28px); min-height:0; padding:0 6px; font-size:var(--ds-compact-text, 13px); font-variant-numeric:tabular-nums; }
+.nz-zoom .ds-seg-btn { min-width:28px; font-variant-numeric:tabular-nums; }
 .nz-zoom [data-note-zoom-reset] { min-width:44px; }
 [data-note-read] .html-frame:not(.html-frame-full) .html-frame-zoom { display:none; }
