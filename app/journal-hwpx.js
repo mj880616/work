@@ -683,9 +683,17 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (model && !loading && state.ai?.status === 'wait') void aiDraft(state, false);
   }
   // 바탕을 연 뒤 확정 버튼 줄 아래에 보이는 것만 그린다(WEEKLY-한흐름확정 ②). 보고서 칸 줄·이름·일시·1. 요청사항은 [주간 정리] 흐름에 있다.
+  // WEEKLY-사업영역묶음 ②: 화면 2. 1) 요약표 첫 칸(양식 자리). 바탕·이름·고른 자리가 바뀌어 묶음이 달라졌을 때만 화면에 다시 그리라고 알린다.
+  let groupsKey = '';
+  const groupsOf = s => (s?.draft?.areaGroups ? s.draft.areaGroups(s.base, s.me, areaNames(), {places:placesOf(s)}) : null);
+  function tellGroups() {
+    const g = groupsOf(state), key = g ? JSON.stringify([state.start, ...g]) : '';
+    if (key !== groupsKey) { groupsKey = key; onFlow(); }
+  }
   function renderEdit() {
     const s = state, parts = [];
     panel.hidden = false;
+    queueMicrotask(tellGroups);
     if (s.store?.conflicts.length) parts.push(conflictBox(s));
     if (s.store?.keep.length) parts.push(unplacedBox(s));
     if (s.plans?.length) {
@@ -1659,6 +1667,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     prepare: () => ensure(),
     // 그 주 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳(칸 id → 줄). 바탕을 연 판에서만.
     team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
+    // WEEKLY-사업영역묶음 ②: 그 주 바탕(양식)을 연 판에서만 사업영역 이름 → 양식 첫 칸 이름(Map). 양식에 내 줄이 없거나 아직 안 열었으면 null.
+    areaGroups: start => (state && state.start === start ? groupsOf(state) : null),
     topLine,
     requestNote: reqNote,
     // The week's reads landed: refresh only the candidates beside the rows (what was typed stays).

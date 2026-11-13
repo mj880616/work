@@ -137,3 +137,22 @@ test('①-b places 저장 모양(readPlaces·withPlace) — draft 칸, 칸마다
   const newer = withPlace(p, '사업영역 F', {area: '영역', task: '사업영역 A'}, '2026-11-14T00:00:00Z');
   assert.deepEqual(mergeExtras({places: p}, {places: newer}).places, newer);
 });
+
+test('② 화면 첫 칸: 사업영역 → 양식 첫 칸 이름(한글 파일과 같은 자리), 양식에 내 줄이 없으면 null', async () => {
+  const {areaGroups} = await import('../app/weekly-hwpx/draft.mjs');
+  const g = areaGroups(team(), ME, ['사업영역 A', '사업영역 C', '사업영역 D', '사업영역G', '사업영역 F', '사업영역 남']);
+  assert.equal(g.get('사업영역 A'), '영역');
+  assert.equal(g.get('사업영역 C'), '의제');
+  assert.equal(g.get('사업영역 D'), '의제'); // '사업영역/D' — 부호 무시
+  assert.equal(g.get('사업영역G'), '기본 사업'); // 띄어쓰기 무시, 여러 사람 줄 가운데 내 줄
+  assert.equal(g.has('사업영역 F'), false); // 양식에 없음 → 화면은 자기 이름
+  assert.equal(g.has('사업영역 남'), false); // 남의 줄은 내 자리가 아님
+  // 고른 자리(①-b)가 있으면 그 줄의 첫 칸
+  const p = areaGroups(team(), ME, ['사업영역 F'], {places: {'사업영역 F': {area: '의제', task: '빈 자리 H'}}});
+  assert.equal(p.get('사업영역 F'), '의제');
+  // 양식이 없는 사람: 내 줄이 없으면 null(지금 모양 그대로). 앱이 더한 빈 줄(keyArea)은 양식 줄이 아니다.
+  assert.equal(areaGroups(team(), '처음 쓰는 사람', ['사업영역 A']), null);
+  // 양식 첫 칸이 사업영역 이름 그대로(화면과 같은 모양)면 묶을 것이 없다.
+  assert.equal(areaGroups({summary: [{area: ['사업영역 A'], rows: [{task: ['과제 1'], progress: [], paras: [], owner: [ME]}]}]}, ME, ['사업영역 A']), null);
+  assert.equal(areaGroups({summary: [{area: ['사업영역 A'], rows: [{task: [], progress: [], paras: [], owner: [ME], keyArea: '사업영역 A'}]}]}, ME, ['사업영역 A']), null);
+});

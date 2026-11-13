@@ -388,6 +388,29 @@ export function placeChoices(base, me) {
   }
   return out;
 }
+// WEEKLY-사업영역묶음 ②(시안 weekly-tidy.html ①): 화면 2. 1) 요약표 첫 칸 = 양식(지난주 확정본)에서 그 사업영역이 들어가는 줄의 첫 칸 이름.
+// 한글 파일(applyBizWindow slotOf)과 같은 자리 찾기: 내 줄 가운데 세부 과제 칸 이름 = 사업영역 이름(첫 칸까지 같으면 먼저) → 고른 자리(places).
+// 첫 칸 이름이 바로 사업영역 이름인 내 줄이 있으면 그 이름 그대로. 자리를 못 찾으면 넣지 않는다(화면은 사업영역 이름을 첫 칸에).
+// 양식에 내 줄이 하나도 없으면(양식이 없는 사람)·첫 칸이 모두 사업영역 이름 그대로면 null — 화면은 지금 모양 그대로. 앱이 더한 빈 줄(keyArea)은 양식 줄이 아니라 뺀다.
+export function areaGroups(base, me, names, {places = null} = {}) {
+  const name = String(me ?? '').trim();
+  const mine = effectiveOwners(base?.summary ?? []).filter(e => isMine(e.owner, name) && e.row.keyArea === undefined);
+  if (!mine.length) return null;
+  const first = e => e.area.join(' ').trim(), taskOf = e => e.task.join(' ');
+  const out = new Map();
+  for (const raw of names ?? []) {
+    const area = String(raw ?? '').trim();
+    if (!area || out.has(area)) continue;
+    const pick = placeOf(places, area);
+    const hit = mine.find(e => sameName(first(e), area) && sameName(taskOf(e), area))
+      ?? mine.find(e => sameName(taskOf(e), area))
+      ?? mine.find(e => sameName(first(e), area))
+      ?? (pick ? mine.find(e => sameName(first(e), pick.area) && sameName(taskOf(e), pick.task)) : null);
+    if (hit && first(hit)) out.set(area, first(hit));
+  }
+  // 양식 첫 칸이 모두 사업영역 이름 그대로면(양식 모양 = 화면 모양) 묶을 것이 없다 — 지금 모양 그대로(null).
+  return [...out].some(([area, group]) => !sameName(area, group)) ? out : null;
+}
 // 양식에 자리가 없는 사업영역의 고른 자리(places: Map 또는 객체, 열쇠 = 사업영역 이름) → {area, task} 또는 null.
 export function placeOf(places, area) {
   if (!places) return null;
