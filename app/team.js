@@ -606,7 +606,7 @@ async function choosePlaces(trigger){
 }
 // REC-한회의로잇기 PR-0 '초안 지키기'(설계 docs/design/rec-join.md 2-3절): 사업 보고 입력 창(#meetingModal)의 쓰던 글을 묻지 않고 비우지 않는다.
 // - 묻는 곳은 창의 주인인 이 파일 한 곳이다. 녹음 네 길·다른 화면이 여는 길이 모두 KPTUReportEntry.open을 지나므로 길마다 따로 막지 않는다.
-// - '쓰던 글' = 창을 연 직후의 글 칸(meetingEntryBase)과 지금이 다름(사람이 쓴 글, 녹음 정리 결과가 채운 글, 후속 할 일 줄, 고른 파일, 녹음·전사 넣기 칸).
+// - '쓰던 글' = 창을 연 직후의 글 칸(meetingEntryBase)과 지금이 다름(사람이 쓴 글, 녹음 정리 결과가 채운 글, 후속 할 일 줄, 고른 파일).
 //   회의명·차수·짧은 이름·장소·일시처럼 고르거나 한 줄로 넣는 값만 바꾼 창은 묻지 않는다(다시 고르면 되는 값, 지금처럼 바로 닫힘).
 // - 닫기(×·Esc·폰 뒤로가기·바깥 누르기)는 쓰던 글이 있으면 [계속 쓰기][닫기]로 묻는다(일기·바구니와 같은 작은 확인창).
 // - 열려 있는 창에 새로 열기(녹음 정리 결과 등)는 쓰던 글이 있으면 [쓰던 창 두기][새로 열기]로 묻는다. 두면 KPTUReportEntry.open은 false.
@@ -614,7 +614,7 @@ async function choosePlaces(trigger){
 //   녹음 정리 결과의 '열었음'(서버 job_opened)은 연 쪽(meeting-recorder.js)이 이 두 알림으로 보낸다(창을 열기만 했을 때는 보내지 않음).
 const ENTRY_TEXT_IDS=['meetingTranscript','meetingNotes','meetingAttendees','meetingActionTitle'];
 let meetingEntryBase='',meetingEntryOnClosed=null,meetingEntryCloseNote='',entryAsking=false;
-function entrySnapshot(){return JSON.stringify([ENTRY_TEXT_IDS.map(id=>$('#'+id)?.value??''),$$('#meetingActionList .meeting-action-row').map(r=>[r.dataset.title||'',r.dataset.due||'']),meetingUploadEntries.filter(entry=>entry.kind!=='success').length,!!window.KPTUMeetingTranscriptDraft?.hasDraft?.()])}
+function entrySnapshot(){return JSON.stringify([ENTRY_TEXT_IDS.map(id=>$('#'+id)?.value??''),$$('#meetingActionList .meeting-action-row').map(r=>[r.dataset.title||'',r.dataset.due||'']),meetingUploadEntries.filter(entry=>entry.kind!=='success').length])}
 function meetingEntryOpen(){const m=$('#meetingModal');return !!m&&!m.classList.contains('hidden')}
 function meetingEntryDirty(){return meetingEntryOpen()&&entrySnapshot()!==meetingEntryBase}
 const entryCloseButton=()=>$('#meetingModal [data-close="meetingModal"]');
@@ -632,7 +632,7 @@ async function requestMeetingClose(){
   if(!meetingSavePending)endEntry('closed');
   closeModal('meetingModal');
 }
-// 새로 열기 전: 열려 있는 창을 끝내고 닫는다(다음 창의 칸·녹음·전사 넣기·회의 만들기 상태가 '창이 열릴 때' 처음부터 다시 시작하게).
+// 새로 열기 전: 열려 있는 창을 끝내고 닫는다(다음 창의 칸·회의 만들기 상태가 '창이 열릴 때' 처음부터 다시 시작하게).
 // 쓰던 글이 있으면 먼저 묻는다. 두기로 하거나, 저장 중이거나, 이미 묻는 중이면 false.
 async function settleOpenEntry(opts={}){
   if(!meetingEntryOpen())return true;

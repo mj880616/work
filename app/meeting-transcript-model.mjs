@@ -1,6 +1,8 @@
 // MTG-녹음초안(2026-10-29 사용자 결정): 사업 보고 › 회의 입력 창의 [녹음·전사 넣기]가 쓰는 순수 함수.
 // 전사 글(붙여 넣기·txt 등 파일)을 읽고, 서버(meeting-ai-draft) 답을 회의 기록 초안(일시·참석·결정·공유·후속 할 일)으로 바꾼다.
-// 화면·네트워크는 meeting-transcript-draft.js가 맡는다. 여기서는 DOM·네트워크를 쓰지 않는다(단위 검사 대상).
+// 여기서는 DOM·네트워크를 쓰지 않는다(단위 검사 대상).
+// S61-24 REC-요약단추삭제(명진 11/13): [녹음·전사 넣기] 화면(meeting-transcript-draft.js)은 뺐다. 이 파일은 잇기 요약 후보(meeting-join-model.mjs
+//   normalizeDraft·actionRows)와 Edge 같은 규칙 시험(splitTranscript·partsText·draftText)의 기준으로 남긴다.
 import {parseDate} from './meeting-file-parse.mjs';
 
 const pad=n=>String(n).padStart(2,'0');

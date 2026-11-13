@@ -138,8 +138,6 @@ async function meetings(){
   await module('./meeting-round-detail.js','__KPTU_MEETING_ROUND_DETAIL_READY__');
   // MEET-파일로만들기: 회의 [+] 창의 [직접 쓰기 | 파일·글로 만들기].
   await module('./meeting-from-files.js');
-  // MTG-녹음초안: [회의] 입력 창의 [녹음·전사 넣기](전사 글 → 회의 기록 초안).
-  await module('./meeting-transcript-draft.js');
   return {ok:true}
 }
 async function pages(){
@@ -224,7 +222,7 @@ const warmModules={
   diary:/*static-chain*/['./diary.js'],
   projects:/*static-chain*/['./project-system-v3.js'],
   library:/*static-chain*/['./library-upload.js'],
-  meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js','./meeting-transcript-draft.js'],
+  meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js'],
   pages:/*static-chain*/['./share-pages.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
   ledger:/*static-chain*/['./ledger-browse.js','./ledger-fix.js','./ledger-merge.js','./ledger-export.js'],
