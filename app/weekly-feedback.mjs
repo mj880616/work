@@ -15,7 +15,7 @@
 import {squashLine} from './weekly-lines.mjs';
 import {readPicks, mergePicks} from './weekly-picks.mjs';
 
-export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks']); // picks: S46-22 제안 [×]·받음 기록(weekly-picks.mjs)
+export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks', 'places']); // picks: S46-22 제안 [×]·받음 기록(weekly-picks.mjs), places: 아래 readPlaces
 export const FEEDBACK_LINE_CHARS = 300;
 export const FEEDBACK_LIST_MAX = 60;      // 고침·뺌·더함 목록마다(넘으면 숫자만 맞고 줄은 앞 60개)
 export const PROPOSED_CELLS_MAX = 200;
@@ -244,7 +244,33 @@ export function readExtras(draft) {
   if (r) out.rules = r;
   const k = readPicks(draft.picks);
   if (k) out.picks = k;
+  const pl = readPlaces(draft.places);
+  if (pl) out.places = pl;
   return out;
+}
+// WEEKLY-사업영역묶음 ①-b(시안 docs/design/mockups/weekly-tidy.html ②): 양식(지난주 확정본)에 자리가 없는 내 사업영역을 한 번 고른 자리.
+//   places = {at, map:{'<사업영역 이름>': {area:'양식 첫 칸 이름', task:'양식 둘째 칸 이름'} | {area:'', task:''}(= 새 줄로 둠)}}.
+//   그 주 draft 칸(서버) — 다음 주는 가장 가까운 지난주 값을 이어 쓴다(weekly-draft-store.js readCarriedPlaces). 칸마다 더 나중(at)의 것.
+export const PLACES_MAX = 40, PLACE_NAME_CHARS = 60;
+const placeName = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+export function readPlaces(raw) {
+  if (!isObj(raw) || !isObj(raw.map)) return null;
+  const map = {};
+  for (const [k, v] of Object.entries(raw.map).slice(0, PLACES_MAX)) {
+    const key = placeName(k), area = placeName(v?.area), task = placeName(v?.task);
+    if (!key || [...key].length > PLACE_NAME_CHARS || [...area].length > PLACE_NAME_CHARS || [...task].length > PLACE_NAME_CHARS || !isObj(v)) continue;
+    if (!!area !== !!task) continue; // 자리는 두 이름 모두, '새 줄로 둠'은 둘 다 빈칸
+    map[key] = {area, task};
+  }
+  if (!Object.keys(map).length) return null;
+  return {at:typeof raw.at === 'string' ? raw.at : '', map};
+}
+// 고른 자리 하나를 바꾼 places(at = 지금).
+export function withPlace(places, name, place, at) {
+  const map = {...(readPlaces(places)?.map ?? {})}, key = placeName(name);
+  if (!key) return readPlaces(places);
+  map[key] = {area:placeName(place?.area), task:placeName(place?.task)};
+  return readPlaces({at, map});
 }
 // 칸마다 더 나중(at)의 것(같으면 앞). 없는 쪽은 무시.
 export function mergeExtras(a = {}, b = {}) {
