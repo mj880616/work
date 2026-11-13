@@ -412,3 +412,6 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nx-file-drop { position:sticky; top:var(--kptu-stick-top, 0px); z-index:2; margin:0 0 4px; padding:4px 8px; border-radius:var(--kptu-radius-md); background:var(--kptu-info-soft); color:var(--kptu-link); font-size:12px; text-align:center; pointer-events:none; }
 /* NOTE-제목서식줄고정(S61-16 ②): 노트 고칠 때 제목 칸은 편집기 위 띠(.ed-stick) 안, 서식 줄 바로 위에 들어가 같이 붙는다. */
 #appView #basketView .note-editor .ed-stick > .basket-text-label { display:flex; flex-direction:column; gap:2px; margin:0; padding:6px 8px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+/* NOTE-내용확대축소(S61-16 ③): 노트 읽기 글만 배율(--note-zoom, note-zoom.js). 머리 줄·목록·메뉴는 그대로. HTML 첨부는 칸막이 안 문서가 같은 배율. */
+#appView #basketView [data-note-read] [data-basket-read-text] { zoom:var(--note-zoom, 1); }
+#appView #basketView .note-head-main .nz-zoom { margin-right:auto; }
