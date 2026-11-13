@@ -51,12 +51,32 @@ test('주(월~일)와 표에 나갈지: 투쟁 중은 매주, 끝남은 끝난 �
   assert.equal(reportKind(stageOfOrg('a', new Map(), stages), week), '');
 });
 
-test('목록 꼬리표는 투쟁 중과 이번 주 끝남만', () => {
+test('목록 꼬리표는 날짜와 상관없이 모든 조직에 지금 단계(ORG-단계꼬리표전부)', () => {
   const cur = (name, date) => stageOfOrg('a', new Map([['a', [row(1, 'a', name, date)]]]), stages);
-  assert.deepEqual(listTag(cur('쟁의발생 결의', '2026-10-20'), '2026-10-24'), {kind: 'struggle', text: '쟁의발생 결의'});
-  assert.deepEqual(listTag(cur('협약체결', '2026-10-23'), '2026-10-24'), {kind: 'ended', text: '협약체결'});
-  assert.equal(listTag(cur('협약체결', '2026-10-10'), '2026-10-24'), null);
-  assert.equal(listTag(cur('교섭 중', '2026-10-10'), '2026-10-24'), null);
+  // 투쟁 중 = 주황(struggle), 끝남 = 초록(ended, 지난 끝남도), 평시 = 회색(quiet)
+  assert.deepEqual(listTag(cur('쟁의발생 결의', '2026-10-20')), {kind: 'struggle', text: '쟁의발생 결의'});
+  assert.deepEqual(listTag(cur('협약체결', '2026-10-23')), {kind: 'ended', text: '협약체결'});
+  assert.deepEqual(listTag(cur('협약체결', '2025-03-10')), {kind: 'ended', text: '협약체결'});
+  assert.deepEqual(listTag(cur('종료', '2026-01-02')), {kind: 'ended', text: '종료'});
+  assert.deepEqual(listTag(cur('교섭 중', '2026-10-10')), {kind: 'quiet', text: '교섭 중'});
+  // 단계를 한 번도 정하지 않은 조직 → 기본 단계 '교섭 시작 전'(회색)
+  assert.deepEqual(listTag(stageOfOrg('a', new Map(), stages)), {kind: 'quiet', text: '교섭 시작 전'});
+  // 단계 목록이 비어 있으면(아직 못 읽음) 꼬리표 없음
+  assert.equal(listTag(stageOfOrg('a', new Map(), [])), null);
+  assert.equal(listTag(null), null);
+  // 주간보고 투쟁 사업장 표 규칙은 그대로: 지난 협약체결은 표에 안 나옴
+  assert.equal(reportKind(cur('협약체결', '2025-03-10'), weekOf('2026-10-24')), '');
+});
+
+test('목록 꼬리표 색은 이름이 아니라 단계 표시로(이름을 바꾼 단계·지워진 단계)', () => {
+  const renamed = stages.map(s => s.name === '협약체결' ? {...s, name: '타결'} : s.name === '쟁의중' ? {...s, name: '총파업'} : s);
+  const byName = n => renamed.find(s => s.name === n);
+  const at = (stage, date) => stageOfOrg('a', new Map([['a', [{id: 'x', organization_id: 'a', stage_id: stage.id, stage_name: stage.name, stage_date: date, created_at: date + 'T00:00:00Z'}]]]), renamed);
+  assert.deepEqual(listTag(at(byName('타결'), '2025-01-01')), {kind: 'ended', text: '타결'});
+  assert.deepEqual(listTag(at(byName('총파업'), '2025-01-01')), {kind: 'struggle', text: '총파업'});
+  // 지워진 단계(id 빈 이력 줄)는 평시 회색, 이력에 남은 이름
+  const gone = stageOfOrg('a', new Map([['a', [{id: 'y', organization_id: 'a', stage_id: null, stage_name: '옛 단계', stage_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z'}]]]), stages);
+  assert.deepEqual(listTag(gone), {kind: 'quiet', text: '옛 단계'});
 });
 
 test('날짜 글자', () => {
@@ -125,8 +145,8 @@ test('끝남 단계는 기간이 걸친 주마다 표에 나오고, 투쟁 중�
   // 끝 날짜 없음: 기존처럼 끝난 주 한 번
   assert.equal(reportKind(cur('협약체결', '2026-10-30', null), weekOf('2026-11-02')), '');
   assert.equal(reportKind(cur('파업 찬반투표', '2026-08-01', '2026-08-03'), weekOf('2026-11-02')), 'struggle');
-  // 목록 꼬리표도 같은 판정
-  assert.deepEqual(listTag(cur('협약체결', '2026-10-30', '2026-11-03'), '2026-11-02'), {kind: 'ended', text: '협약체결'});
+  // 목록 꼬리표는 기간과 상관없이 늘 보임
+  assert.deepEqual(listTag(cur('협약체결', '2026-10-30', '2026-11-03')), {kind: 'ended', text: '협약체결'});
 });
 
 test('주간보고 줄: 기간이면 - 파업 찬반투표(11.3~11.5), 앱이 채운 옛 기간 줄도 단계 줄로 알아봄', () => {
