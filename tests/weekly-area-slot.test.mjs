@@ -110,3 +110,30 @@ test('① 고른 자리가 있는 사업영역은 빈 내 줄을 표 끝에 더�
   assert.deepEqual(missingAreas(rows, ['사업영역 F'], {places: {'사업영역 F': {area: '의제', task: '빈 자리 H'}}}), []);
   assert.deepEqual(missingAreas(rows, ['사업영역 F'], {places: {'사업영역 F': {area: '영역', task: '사업영역 남'}}}), ['사업영역 F'], '남의 줄 자리는 무시');
 });
+
+test('①-b 새 줄로 넣은 사업영역(added)·고르기 목록(placeChoices)', async () => {
+  const {applyBizWindow, placeChoices, withAreaRows, missingAreas, editableRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const rows = [{area: '사업영역 F', task: '', lines: ['F 글'], owner: ''}, {area: '사업영역 A', task: '', lines: ['A 글'], owner: ''}];
+  assert.deepEqual(applyBizWindow(team(), ME, rows).added, ['사업영역 F']);
+  // 앱이 더한 빈 줄(withAreaRows)에 들어가도 양식에 없던 자리라 added.
+  const b = withAreaRows(team(), missingAreas(editableRows(team(), ME), ['사업영역 F']), ME);
+  assert.deepEqual(applyBizWindow(b, ME, rows).added, ['사업영역 F']);
+  const places = {'사업영역 F': {area: '의제', task: '빈 자리 H'}};
+  const b2 = withAreaRows(team(), missingAreas(editableRows(team(), ME), ['사업영역 F'], {places}), ME); // 고른 자리가 있으면 빈 줄을 더하지 않음
+  assert.deepEqual(applyBizWindow(b2, ME, rows, {places}).added, []);
+  assert.deepEqual(placeChoices(b, ME), [
+    {area: '기본 사업', task: '사업영역 G'}, {area: '영역', task: '사업영역 A'}, {area: '의제', task: '사업영역 C'}, {area: '의제', task: '사업영역/D'}, {area: '의제', task: '빈 자리 H'},
+  ], '내 양식 줄만, 앱이 더한 줄·남의 줄 제외');
+});
+
+test('①-b places 저장 모양(readPlaces·withPlace) — draft 칸, 칸마다 더 나중 것', async () => {
+  const {readPlaces, withPlace, readExtras, mergeExtras} = await import('../app/weekly-feedback.mjs');
+  const p = withPlace(null, ' 사업영역  F ', {area: '의제', task: '빈 자리 H'}, '2026-11-13T00:00:00Z');
+  assert.deepEqual(p, {at: '2026-11-13T00:00:00Z', map: {'사업영역 F': {area: '의제', task: '빈 자리 H'}}});
+  assert.deepEqual(withPlace(p, '사업영역 K', {area: '', task: ''}, 't2').map['사업영역 K'], {area: '', task: ''}, '새 줄로 둠');
+  assert.equal(readPlaces({map: {x: {area: 'a', task: ''}}}), null, '한쪽만 빈 자리는 버림');
+  assert.equal(readPlaces('x'), null);
+  assert.deepEqual(readExtras({places: p}).places, p);
+  const newer = withPlace(p, '사업영역 F', {area: '영역', task: '사업영역 A'}, '2026-11-14T00:00:00Z');
+  assert.deepEqual(mergeExtras({places: p}, {places: newer}).places, newer);
+});
