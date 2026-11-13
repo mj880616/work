@@ -124,3 +124,30 @@ test('앱이 만든 .hwpx 에서 문단을 읽어 모양을 센다', async () =>
   const layout = layoutDiff(paras, paras);
   for (const s of Object.values(layout.sections)) assert.deepEqual(s.changed, []);
 });
+
+// ---- 환류 기록에 싣기(기존 저장 칸 draft.feedback 그대로, 새 저장소 없음) ----
+import {feedbackRecord, libraryFeedback, readFeedback, readExtras, layoutInput, cellIdOf} from '../app/weekly-feedback.mjs';
+
+test('환류 기록: 고친 판(library) 기록에 layout 이 실리고, 모양이 틀리면 버린다', () => {
+  const id = cellIdOf('summary', '가상영역›가상과제', 0);
+  const layout = layoutDiff(sectionXmlParas(xmlOf(ISSUED)), sectionXmlParas(xmlOf(FINAL)));
+  const extras = {proposed: {at: '2026-11-13T06:00:00Z', cells: [{section: 'summary', key: '가상영역›가상과제', n: 0, lines: ['- 가상 과제 하나 진행']}]}};
+  const fb = libraryFeedback({extras, week: '2026-11-09', at: '2026-11-15T01:00:00Z', final: new Map([[id, ['○ 가상 과제 하나 진행']]]), doc: 'doc-1', layout});
+  assert.equal(fb.from, 'library');
+  assert.deepEqual(fb.layout, layout);
+  assert.deepEqual(readFeedback(JSON.parse(JSON.stringify(fb))).layout, layout);
+  assert.equal(readFeedback({...fb, layout: {v: 1, sections: {work: 'x'}}}).layout, undefined);
+  // layout 없이 만든 기록(앱 [확정])은 지금과 같다
+  assert.equal(feedbackRecord({week: '2026-11-09', at: '2026-11-13T06:00:00Z', proposed: [], final: new Map([[id, ['가']]])}).layout, undefined);
+  // 임시저장 합치기·읽기에서도 남는다
+  assert.deepEqual(readExtras({feedback: fb}).feedback.layout, layout);
+});
+
+test('따를 모양: 보고 주 앞 주들의 고침 기록에서 2주 넘게 되풀이된 것만', () => {
+  const fbOf = (week, gap) => ({week_start: week, draft: {feedback: {at: `${week}T09:00:00Z`, week, from: 'library', doc: `d-${week}`, counts: {},
+    layout: {v: 1, sections: {orgs: {before: {gap: 'tight'}, after: {gap}}}}}}});
+  const rows = [fbOf('2026-10-19', 'blank'), fbOf('2026-10-26', 'blank'), fbOf('2026-11-02', 'tight'), fbOf('2026-11-09', 'blank')];
+  assert.deepEqual(layoutInput(rows, '2026-11-16'), {orgs: {gap: 'blank'}});
+  // 보고 주와 그 뒤 주는 보지 않는다
+  assert.deepEqual(layoutInput(rows, '2026-10-26'), {});
+});

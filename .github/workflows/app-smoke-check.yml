@@ -1408,6 +1408,9 @@ jobs:
       - name: Check weekly feedback loop model (WEEKLY-환류학습)
         run: node --test tests/weekly-feedback.test.mjs
 
+      - name: Check weekly edited-file layout learning (WEEKLY-자동화 ②)
+        run: node --test tests/weekly-layout.test.mjs
+
       - name: Check weekly suggestion dismiss and learning (S46-22)
         run: node --test tests/weekly-picks.test.mjs
 
