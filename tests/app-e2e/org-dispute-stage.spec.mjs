@@ -12,7 +12,7 @@ const orgs=[
 async function fixture(page,{width,tables=true,seeded=true,period=true}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- const f=await openHome(page);
+ const f=await openHome(page,{features:[]}); // MULTI-처음쓰는사람 ④: 운영자 기능 없는 계정(이 시험은 수집 기능 없는 ⋯ 메뉴를 본다)
  const db={stages:seeded?defaultStageRows():[],history:[],rpc:[],patches:[],hpatches:[],hdeletes:[],hposts:[],seq:0};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
