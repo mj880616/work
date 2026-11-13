@@ -157,7 +157,7 @@ test('cancel asks only when something was picked, and leaving the view asks abou
  await detail.getByRole('button',{name:'연결하기'}).click();await pick(page,detail,'organization','합성 한빛지부',1280);await summary(detail,o,'organization').fill('쓰던 요약');
  const asked=[];await detail.getByRole('button',{name:'취소'}).click();asked.push(await answerAsk(page,false));
  await expect(summary(detail,o,'organization')).toHaveValue('쓰던 요약');
- page.once('dialog',d=>{asked.push(d.message());d.dismiss();});await page.evaluate(()=>window.KPTURouter.go('home'));
+ await page.evaluate(()=>window.KPTURouter.go('home'));asked.push(await answerAsk(page,false));
  await expect(page.locator('#basketView')).toBeVisible();await expect(summary(detail,o,'organization')).toHaveValue('쓰던 요약');
  await page.keyboard.press('Escape');asked.push(await answerAsk(page,true));await expect(detail.locator('[data-manual-link]')).toHaveCount(0);
  expect(asked).toEqual(['선택한 곳과 쓰던 요약을 삭제하고 닫을까요?','작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?','선택한 곳과 쓰던 요약을 삭제하고 닫을까요?']);

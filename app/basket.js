@@ -736,10 +736,11 @@ function paintSplit() {
   if (on) followDetail(false); else unfollowDetail();
 }
 SPLIT?.addEventListener?.('change', paintSplit);
-// 뒤로가기(겹 닫기)·화면 들어오기는 라우터가 그 자리에서 답을 받아야 해서 브라우저 기본 확인창을 그대로 쓴다(S48-28 예외).
+// 뒤로가기(겹 닫기)는 라우터가 준 ask로 묻는다(UI-알림창정리 S61-31: 라우터가 겹으로 되돌린 뒤 공용 작은 확인창, [닫기]면 다시 뒤로).
+// ask가 없는 길(force 아님)은 물을 글이 있으면 닫지 않는다.
 // keepLayer(FOLD-넓은화면 ④): 폴드 펼침에서 다른 줄로 바꿀 때 — 뒤로가기 한 걸음(겹)은 그대로 두고 칸 안만 비운다(바로 다음 openDetail이 같은 겹을 쓴다).
-function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false, keepLayer = false} = {}) {
-  if (!force) { const text = closeDetailText(); if (text && !window.confirm(text)) return false; }
+function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false, keepLayer = false, ask = null} = {}) {
+  if (!force) { const text = closeDetailText(); if (text && !ask?.(text)) return false; }
   
   bigWriter?.close({silent:true}); closePhoto({restore:false});
   const wasSplit = isSplit();
@@ -756,7 +757,7 @@ function openNoteLayer({adoptOnly = false} = {}) {
   if (noteLayer || !selected) return;
   // NAV-PC앞뒤통일: › (or the browser's forward) over this update's entry opens the same update again (reopen).
   layerNoteId = selected.id;
-  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true}), reopen: () => openDetail(layerNoteId)}) || null;
+  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: ({ask} = {}) => !busy && closeDetail({fromBack:true, ask}), reopen: () => openDetail(layerNoteId)}) || null;
 }
 function paintStateLine() {
   const state = noteState(selected, links, docs), box = detail.querySelector('[data-basket-state]');
@@ -1368,9 +1369,10 @@ window.addEventListener('kptu:before-view-change',e=>{
     e.detail.retainBasketDraft=true;return;
   }
   const blockedBusy=quick?.isBusy()||noteDocs.isBusy()||busy;
-  if(blockedBusy||(noteDocs.hasDraft()&&!window.confirm('수정하던 노트를 저장하지 않고 다른 화면으로 갈까요?'))||(quick?.hasDraft()&&!window.confirm('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!window.confirm('수정 중인 글을 저장하지 않고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!window.confirm('작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?'))){
-    e.preventDefault();
-  }
+  // UI-알림창정리(S61-31): 쓰던 것이 있으면 라우터의 공용 작은 확인창으로 묻는다(e.detail.ask, app-router.js). 저장 중이면 묻지 않고 막는다.
+  if(blockedBusy){e.preventDefault();return}
+  const ask=text=>e.detail.ask(text);
+  void((noteDocs.hasDraft()&&!ask('수정하던 노트를 저장하지 않고 다른 화면으로 갈까요?'))||(quick?.hasDraft()&&!ask('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!ask('수정 중인 글을 저장하지 않고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!ask('작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?')));
 });
 // FORGET-원문열기·뒤로가기: whether this step enters the 정리함 from another screen (a step inside it, e.g. a source opened on it, is not).
 let basketShown=false,basketEntered=false;
