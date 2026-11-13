@@ -805,47 +805,18 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const confirmSlot = el('div', 'weekly-flow-confirm-slot'); confirmSlot.dataset.weeklyFlowConfirm = '';
   five.append(cal, confirmSlot);
 
-  // S48-3b: 참고 '한 줄' 줄 끝 ⋯ [빼기] = 개인 줄이라 이번 주 업무 재료에서 빼고 다음 가르기에 배우게(work-line-drop.js — 누를 때 불러옴).
-  // 그 주 임시저장 칸을 쓸 수 있을 때만. 하루 화면·달력·일기의 줄은 지우지 않는다.
-  function workLineList(items) {
-    const list = itemList(items);
-    if (!fe.editable) return list;
-    [...list.children].forEach((li, i) => {
-      const item = items[i];
-      li.dataset.journalWorkLine = item.day;
-      li.append(' ', rowMore(doc, {label:`한 줄 빼기: ${item.text}`, data:{journalWorkLineMore:''}, items:[
-        {text:'빼기', data:{journalWorkLineDrop:item.day}, danger:true, aria:`개인 줄이라 빼기: ${item.text}`,
-          onClick:() => { void import('./work-line-drop.js').then(m => m.dropWorkLine({start:model.start, day:item.day, text:item.text, li})); }}]}));
-    });
-    return list;
-  }
-  // 참고
-  // WEEKLY-칸밖재료접기(11/01 01:21): '참고 — 보고서 칸 밖 재료'부터 아래(주간보고 기억·규칙·환류)는 기본 접힘, 눌러 펼침. 접힌 줄은 제목 + 건수.
-  // 펼침은 이 화면을 다시 그릴 때만 이어지고(같은 자리의 열림 값), 기기에 저장하지 않는다.
-  const wasOpen = !!host.querySelector?.('[data-journal-weekly-chapter="notes"]')?.open;
-  const ref = el('details', 'journal-weekly-chapter journal-weekly-fold'); ref.dataset.journalWeeklyChapter = 'notes'; ref.open = wasOpen;
-  const refSum = el('summary'), refCount = el('small', 'journal-others-count'); refSum.append(el('span', 'journal-heading', '참고 — 보고서 칸 밖 재료'), ' ', refCount); ref.append(refSum);
-  let refItems = 0;
-  const quiet = [];
-  for (const [key, label] of NOTE_PARTS) {
-    const part = model.notes[key];
-    if (!part.loading && !part.failed.length && !part.items.length && !part.note) { if (key !== 'memos') quiet.push(label); continue; }
-    const box = block(`note-${key}`, label);
-    if (!status(box, part, label) && !part.failed.length) { if (part.items.length) box.append(key === 'lines' ? workLineList(part.items) : itemList(part.items)); if (part.note) box.append(muted(part.note)); }
-    refItems += part.items?.length ?? 0;
-    ref.append(box);
-  }
-  // 손으로 더한 메모 줄(화면·복사 글에만 — 한글 파일 칸 밖). 그리기는 weekly-hand-lines.js(journal.js가 붙임).
-  const handNotes = block('note-hand', HAND_NOTES_LABEL, 'h5', true);
-  const notesSlot = el('div', 'journal-hand-slot journal-part-slot'); notesSlot.dataset.journalHandSlot = 'notes';
-  handNotes.append(notesSlot); ref.append(handNotes);
-  refItems += model.hand?.notes?.length ?? 0;
-  refCount.textContent = `${refItems}건`;
-  if (quiet.length) { const q = muted(`기록 없는 묶음: ${quiet.join(', ')}`); q.classList.add('journal-empty'); q.dataset.journalWeeklyQuietNotes = ''; ref.append(q); }
-
+  // WEEKLY-주간정리다듬기 ④(명진 11/13 16:57 '밑에 있는 내용은 필요 없을 것 같아, 지저분하기만', 시안 docs/design/mockups/weekly-tidy.html ③):
+  //   '참고 — 보고서 칸 밖 재료' 묶음은 없앴다(재료 자료는 그대로, 화면에서만 뺌). 주간보고 기억·규칙·환류는 확정 버튼 옆 ⋯ [배운 것 보기]를 누르면 열리는 한 칸.
   // WEEKLY-환류학습: '주간보고 규칙·환류' 자리 — 그림은 weekly-learn-panel.js 가 채운다(journal.js 가 그린 뒤 부름).
   const learn = el('div', 'journal-weekly-learn'); learn.dataset.journalWeeklyLearnSlot = '';
-  host.replaceChildren(when, one, two, three, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks), learn);
+  // 배운 것 칸: ⋯ [배운 것 보기]로 연다(memoryUi.shown). 닫혀 있어도 규칙·환류 부품은 그려 둔다(열 때 다시 읽지 않고, 주마다 한 번 도는 정리가 그대로 돈다).
+  const learned = el('section', 'journal-weekly-learned'); learned.dataset.journalWeeklyLearned = ''; learned.hidden = !memoryUi?.shown;
+  const learnedHead = el('div', 'journal-weekly-learned-head');
+  const shut = el('button', 'row-act', '닫기'); shut.type = 'button'; shut.dataset.journalLearnedClose = ''; shut.setAttribute('aria-label', '배운 것 닫기');
+  shut.addEventListener('click', () => { if (memoryUi) memoryUi.shown = false; learned.hidden = true; });
+  learnedHead.append(el('span', 'journal-heading', '배운 것'), shut);
+  learned.append(learnedHead, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks), learn);
+  host.replaceChildren(when, one, two, three, four, five, learned);
   fitAll(host); // UI-줄입력늘어나기: 자료 줄·요청 표 고치기 칸은 열자마자 글 전체가 보이게
 }
 

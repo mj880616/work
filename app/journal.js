@@ -780,6 +780,8 @@ const mountHwpx = () => W.mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
   // S52-31: 5. 주요 일정 줄 제자리 고치기가 열리거나 닫혔다(저장됨·AI 한 줄 포함): 화면만 다시.
   onSchedule: () => renderWeekly_({refreshBox:false}),
+  // WEEKLY-주간정리다듬기 ④: ⋯ [배운 것 보기] — 맨 아래 '배운 것'(주간보고 기억·규칙·환류) 칸을 열고 그리로 옮긴다.
+  onLearn: () => { memoryUi.shown = true; renderWeekly_({refreshBox:false}); $('[data-journal-weekly-learned]')?.scrollIntoView({block:'start'}); },
   // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
   onDraft: (week, row) => { if (week !== start || !row) return; materials.weekDraft = {status:'ok', items:{missing:false, row}}; renderWeekly_({refreshBox:false}); },
   // 바탕을 연 뒤 팀 확정본과 견준 결과('확정본에서 바뀜')가 왔다: 칸 줄만 다시.
@@ -1033,7 +1035,7 @@ function loadWeek({shared = false, quiet = false} = {}) {
   if (shared || changedOwner) {
     loadKinds(sharedRun, scope, quiet);
     if (!defer) loadMemory(sharedRun, scope, quiet); else if (!quiet) memory = {status:'loading'};
-    if (!quiet) memoryUi = {open:false, busy:false, status:'', error:false, undo:null};
+    if (!quiet) memoryUi = {open:false, busy:false, status:'', error:false, undo:null, shown:memoryUi.shown};
   }
   render();
   loadLines(run, scope, quiet);
