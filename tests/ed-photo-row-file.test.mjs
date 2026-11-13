@@ -81,7 +81,7 @@ test('[파일] and [사진] appear only where the opener gives them; notes give 
   assert.match(ed, /const pickFiles = \(\) => pickFrom\('', chosen => files \? filesIn\(chosen\) : chosen\.length && onFiles\?\.\(chosen\)\);/);
   assert.match(ed, /if \(key === 'photo' && !photos\) continue;/);
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
-  assert.match(notes, /mountEditField\(host, selected, \{photos:photosFor\(id\), files:filesFor\(id\)\}\)/);
+  assert.match(notes, /mountEditField\(host, selected, \{photos:photosFor\(id\), files:filesFor\(id\), lead:f\.title\.closest\('label'\)\}\)/); // NOTE-제목서식줄고정: 제목 칸은 lead
   assert.match(notes, /const filesFor = id => noteFiles\(\{getNote:\(\) => selected\?\.id === id \? selected : null, upload:noteUpload\(id\)\}\)/);
   // Share pages get no [파일] yet (their files would need the page's own private storage).
   const share = readFileSync(new URL('../app/share-pages.js', import.meta.url), 'utf8');
