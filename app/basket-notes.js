@@ -689,7 +689,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     paintMode(); fitHeight(f.title); f.title.focus(); // UI-줄입력늘어나기: 긴 제목도 열자마자 전체가 보이게
     const host = detail.querySelector('[data-note-body-field]');
     try {
-      const made = await mountEditField(host, selected, {photos:photosFor(id), files:filesFor(id)});
+      // NOTE-제목서식줄고정(S61-16 ②): 제목 칸은 서식 줄과 한 묶음으로 편집기 위 띠에 들어가 위에 붙는다(닫으면 제자리로 돌아온다).
+      const made = await mountEditField(host, selected, {photos:photosFor(id), files:filesFor(id), lead:f.title.closest('label')});
       if (run !== epoch || !editing || selected?.id !== id || !host.isConnected) { made.destroy(); return; }
       field?.destroy(); field = made;
     } catch { if (run === epoch && editing) say('수정 화면을 열지 못했어요. 다시 눌러 주세요.'); }

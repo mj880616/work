@@ -262,6 +262,9 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 
 // Mounts an editor into host. value: a saved form (or null for an empty one). onChange(value): after each change.
 // label: the text box's accessible name. head: an optional node put between the button row and the text box (a title).
+// lead: an optional node put above the button row (the note edit's 제목 칸). It is moved in at mount and put back where it was on destroy.
+// NOTE-제목서식줄고정(S61-16 ②): lead · button row · head are one band (.ed-stick) that stays at the top while the text scrolls
+// (ed-doc.css: under the PC top line on a page, at the top of the window's own scroll in the big window).
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
 // onFiles: null, or (files) => void — the opener's own attachment row, used when photos/files are not given (UPD-그림붙여넣기).
@@ -273,7 +276,7 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
 // puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
 // by default: the share page editor stays as before (결정 2 가 there: no format while typing).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false} = {}) {
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -429,8 +432,15 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   ctx.append(colRow);
   const measure = document.createElement('div');
   measure.className = 'ed-doc ed-measure'; measure.setAttribute('aria-hidden', 'true');
-  root.append(bar, ...(head ? [head] : []), uploads, box, status, ctx, measure);
+  const band = document.createElement('div'); band.className = 'ed-stick';
+  const leadAt = lead ? {parent: lead.parentNode, next: lead.nextSibling} : null;
+  // Moving a node takes the focus off it: the 제목 칸 the opener focused keeps it (with its cursor).
+  const leadFocus = lead && lead.contains(document.activeElement) ? document.activeElement : null;
+  const leadSel = leadFocus && 'selectionStart' in leadFocus ? [leadFocus.selectionStart, leadFocus.selectionEnd] : null;
+  band.append(...(lead ? [lead] : []), bar, ...(head ? [head] : []));
+  root.append(band, uploads, box, status, ctx, measure);
   host.append(root);
+  if (leadFocus?.isConnected) { leadFocus.focus({preventScroll: true}); if (leadSel) try { leadFocus.setSelectionRange(...leadSel); } catch {} }
 
   // ── plugins ──
   // The pasted part of a plain-letter paste, kept (mapped through later steps) until it is converted or dismissed.
@@ -1876,7 +1886,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
       stopUploads(); upRows.destroy(); for (const url of upPreview.values()) URL.revokeObjectURL(url); upPreview.clear();
-      view.destroy(); root.remove();
+      view.destroy();
+      if (leadAt?.parent?.isConnected) leadAt.parent.insertBefore(lead, leadAt.next?.parentNode === leadAt.parent ? leadAt.next : null);
+      root.remove();
     },
   };
 }

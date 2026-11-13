@@ -9,6 +9,7 @@ import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {pressNewSharePage, pressNewHtmlPage} from './helpers/share-new.mjs';
+import {expectStickyBand} from './helpers/ed-stick.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const user = {id:'full-user', email:'full@example.org', user_metadata:{display_name:'전체 수정 QA'}};
@@ -246,5 +247,24 @@ test('a page with old blocks keeps the block editor; [새 수정 화면으로 �
   expect(state.pages[0].blocks.map(b => b.type)).toEqual(['summary', 'stages']);
   expect(state.pages[0].blocks[0].text).toBe('4차 교섭 예정');
   await expect(editor).not.toHaveClass(/is-full/);
+  expect(errors).toEqual([]);
+});
+
+// NOTE-제목서식줄고정(S61-16 ②): 공유 페이지 쓰기 화면도 같은 띠(.ed-stick = 서식 줄 + 큰 제목) — 긴 글을 내려도 맨 위 얇은 줄 바로 아래에 남는다.
+for (const width of [1280, 412]) test('share page writing: the button row and title stay under the top line while a long text scrolls ' + width, async ({page}) => {
+  await page.setViewportSize({width, height:800});
+  const state = {pages:[]};
+  const errors = await signIn(page, state);
+  await pressNewSharePage(page);
+  const editor = page.locator('[data-sp-editor]');
+  await expect(editor).toHaveClass(/is-full/);
+  const box = editor.getByRole('textbox', {name:'본문', exact:true});
+  await box.click();
+  for (let i = 0; i < 70; i++) { await page.keyboard.insertText('긴 글 ' + (i + 1)); await page.keyboard.press('Enter'); }
+  const r = await expectStickyBand(page, editor);
+  const top = await editor.locator('.sp-topline').boundingBox();
+  expect(Math.abs(r.bandTop - (top.y + top.height))).toBeLessThanOrEqual(2);
+  await expect(editor.locator('.ed-stick [data-sp-title]')).toBeVisible();
+  if (process.env.CAPTURE_DIR) await page.screenshot({path:`${process.env.CAPTURE_DIR}/share-sticky-${width}.png`});
   expect(errors).toEqual([]);
 });

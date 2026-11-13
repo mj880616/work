@@ -27,7 +27,7 @@ const WHITE_OK = {
     '.quick-links-panel .ql-foot': '흰 자주 가는 링크 판 안 아래 줄',
   },
   'ed-doc.css': {
-    '.ed-bar': '흰 편집 칸(테두리 상자) 안 서식 버튼 줄',
+    '.ed-stick': '흰 편집 칸(테두리 상자) 안 [제목 칸·서식 버튼 줄] 띠(NOTE-제목서식줄고정)',
     '.ed-tools .ed-more': '흰 서식 버튼 줄 안 [⋯]',
   },
   'google-tasks.css': { '#gtDetailPane #gtTaskModal.gt-docked .modal-head': '흰 상세 칸 안 제목 줄' },

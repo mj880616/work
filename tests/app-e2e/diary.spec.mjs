@@ -4,6 +4,7 @@ import {expectDiaryDay} from './helpers/screen-title.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import { segBox } from './helpers/seg-box.mjs';
+import { expectStickyBand } from './helpers/ed-stick.mjs';
 // ED③ 일기: the day's text is the new editor ([data-diary-text] .ProseMirror). Typing goes through the editor like a person (select all, type).
 const field=ed=>ed.locator('[data-diary-text] .ProseMirror');
 const plain={useInnerText:true};
@@ -917,4 +918,17 @@ test('1280 일기 날짜 칸 우클릭: 그날을 고르고 그날 일기 메뉴
  await page.keyboard.down('Shift');await page.mouse.click(x,y,{button:'right'});await page.keyboard.up('Shift');
  expect(await page.evaluate(()=>window.__kept.at(-1))).toBe(true);
  expect(f).toBeTruthy();
+});
+
+// NOTE-제목서식줄고정(S61-16 ②): 일기 쓰기 칸도 같은 편집기 띠(.ed-stick) — 긴 일기를 내려도 서식 줄이 위에(PC는 맨 위 줄 아래) 보인다.
+for(const width of [412,1280])test(`일기 쓰기: 긴 글을 내려도 서식 줄이 위에 남는다 ${width}`,async({page})=>{
+ const rows=store();rows.find(r=>r.id==='d4').raw_text=Array.from({length:90},(_,i)=>'일기 줄 '+(i+1)).join('\n\n');
+ const f=await fixture(page,{rows,width,height:800});await openDiary(page,width);
+ await cell(page,'2026-10-04').click();
+ await openEditor(page);
+ const ed=page.locator('#diaryRoot [data-diary-editor]');
+ await expect(field(ed)).toContainText('일기 줄 90');
+ await expectStickyBand(page,ed);
+ if(process.env.CAPTURE_DIR)await page.screenshot({path:`${process.env.CAPTURE_DIR}/diary-sticky-${width}.png`});
+ expect(f.errors).toEqual([]);
 });

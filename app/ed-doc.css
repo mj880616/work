@@ -71,8 +71,14 @@
 /* UI-편집기초점테두리: 본문 칸이나 서식 줄 단추에 초점이 있으면 서식 줄 + 본문 칸을 감싼 편집기 전체에 테두리 하나.
    색·두께는 다른 입력 칸 초점과 같다(base-ui.css input:focus = 진한 1px 선 + 옅은 3px 둘레). 본문 칸 자체에는 초점 선을 그리지 않는다.
    이 편집기를 쓰는 곳(노트, 쓰기 창, 일기, 공유 페이지) 모두 이 한 규칙을 쓴다. 화면 전체를 쓰는 쓰기 창은 둘레가 창 밖이라 보이지 않는다. */
-.ed-editor:focus-within{box-shadow:0 0 0 var(--ds-line-width,1px) var(--kptu-primary-ink),0 0 0 calc(var(--ds-line-width,1px) + 3px) var(--kptu-primary-soft)}
-.ed-bar{position:sticky;top:0;z-index:2;background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:inherit;border-top-right-radius:inherit}
+/* NOTE-제목서식줄고정: 띠 안 제목 칸(lead·head)에 초점이 있을 때는 테두리를 두르지 않는다(제목 칸은 제 입력 칸 초점을 쓴다). */
+.ed-editor:focus-within:not(:has(> .ed-stick > :not(.ed-bar):focus-within)){box-shadow:0 0 0 var(--ds-line-width,1px) var(--kptu-primary-ink),0 0 0 calc(var(--ds-line-width,1px) + 3px) var(--kptu-primary-soft)}
+/* NOTE-제목서식줄고정(S61-16 ②): 위에 붙는 것은 서식 줄 하나가 아니라 [제목 칸(lead)·서식 줄·창 제목 줄(head)] 띠 하나(.ed-stick).
+   붙는 자리는 공용 값 --kptu-stick-top(PC = 맨 위 줄 아래, 폰 = 0; desktop-ui.css). 큰 쓰기 창은 #appView 밖이라 값이 없어 0 = 창 안 스크롤 맨 위.
+   예전에는 서식 줄이 top:0에 붙어 PC 맨 위 줄(고정) 뒤로 들어가 가려졌다(원인). */
+.ed-stick{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;background:var(--kptu-surface);border-top-left-radius:inherit;border-top-right-radius:inherit}
+.ed-bar{background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:inherit;border-top-right-radius:inherit}
+.ed-stick>.ed-bar:not(:first-child){border-top-left-radius:0;border-top-right-radius:0}
 /* 버튼 줄: 폰에서 넘치면 가로로 넘긴다(줄바꿈 없음). 버튼은 보이는 높이 28px, 누르는 범위 44px(UI-버튼기준). */
 .ed-tools,.ed-menu{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;min-height:var(--kptu-touch-target,44px);padding:0 8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;box-sizing:border-box}
 .ed-menu{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
