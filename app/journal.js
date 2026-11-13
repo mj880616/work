@@ -708,15 +708,12 @@ function drawWindow() {
   const table = slot.querySelector('table.wl-weekly');
   if (table) { W.mountWeeklyCols(table, 'org'); W.fitOrgColumn(table); fitAll(slot); }
 }
-// 3. 2) 사업장 칸 안쪽: [쟁의 단계 줄(그 칸 글 가운데 단계 줄 그대로)] + 그 조직의 창 줄. 내 담당조직과 이름이 안 맞는 칸·창을 못 읽은 때는 칸 줄 그대로.
+// 3. 2) 사업장 칸 안쪽: 그 조직의 창 줄(쟁의 단계 줄은 넣지 않음 — 명진 11/13 17:14). 내 담당조직과 이름이 안 맞는 칸·창을 못 읽은 때는 칸 줄 그대로.
 function siteWinBody(c) {
   const org = RW.names.matchOrg(c.key, winOrgs);
   if (!org || siteWin.status === 'error') return null;
-  const st = RW.stage.peekDisputeState(), stages = st?.status === 'ready' ? st.stages : [];
   const box = document.createElement('div'); box.className = 'weekly-flow-window'; box.dataset.flowSiteWindow = org.id;
-  const stageLines = stages.length ? c.lines.filter(l => RW.stageModel.isStageLine(l, stages)) : [];
-  box.innerHTML = stageLines.map(l => `<div class="wl-line rw-line" data-flow-site-stage><span class="wl-text">${esc(l)}</span></div>`).join('')
-    + (siteWin.status === 'ready' ? siteWin.cellHtml(org.id) : waitHtml({rows:1}));
+  box.innerHTML = siteWin.status === 'ready' ? siteWin.cellHtml(org.id) : waitHtml({rows:1});
   return box;
 }
 function paintSites() {
