@@ -147,6 +147,8 @@ on:
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
+      - 'tests/ed-paste-paragraphs.test.mjs'
+      - 'tests/fixtures/ed-paste-sources.mjs'
       - 'tests/ed-window.test.mjs'
       - 'tests/update-window.test.mjs'
       - 'tests/record-doc.test.mjs'
@@ -370,6 +372,8 @@ on:
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
+      - 'tests/ed-paste-paragraphs.test.mjs'
+      - 'tests/fixtures/ed-paste-sources.mjs'
       - 'tests/ed-window.test.mjs'
       - 'tests/update-window.test.mjs'
       - 'tests/record-doc.test.mjs'
@@ -781,6 +785,9 @@ jobs:
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
+
+      - name: Editor paste keeps paragraphs unit tests (NOTE-붙여넣기문단사라짐)
+        run: node --test tests/ed-paste-paragraphs.test.mjs
 
       - name: Organization pickers offer only my organizations (ORG-고르기통일)
         run: node --test tests/org-picker-mine.test.mjs
