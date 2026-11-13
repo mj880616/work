@@ -296,3 +296,10 @@ export function restorePlan(rows) {
   if (!out.length) throw new Fail('not_found');
   return out;
 }
+
+// S61-36 REC-상세녹음: 끝나지 않은·열린 녹음 목록에 그 녹음이 어느 회의 것인지(meeting_id, 없으면 null)를 붙인다.
+// links = app_meeting_recording_meetings 행(session_id·meeting_id). 화면은 이 값으로 [이어 녹음]·[이어서 저장] 뒤에도 같은 회의에 붙인다.
+export function withMeetings(list, links) {
+  const by = new Map((Array.isArray(links) ? links : []).filter(l => l?.session_id && l?.meeting_id).map(l => [l.session_id, l.meeting_id]));
+  return (Array.isArray(list) ? list : []).map(s => ({ ...s, meeting_id: by.get(s.session_id) ?? null }));
+}
