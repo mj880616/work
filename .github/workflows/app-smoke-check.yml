@@ -1411,6 +1411,9 @@ jobs:
       - name: Check weekly suggestion dismiss and learning (S46-22)
         run: node --test tests/weekly-picks.test.mjs
 
+      - name: Check weekly AI draft request shared rules (WEEKLY-자동화 ③)
+        run: node --test tests/weekly-draft-request.test.mjs
+
       - name: Check weekly feedback on every suggestion (WEEKLY-한흐름확정 ⑤)
         run: node --test tests/weekly-feedback-all.test.mjs
 
