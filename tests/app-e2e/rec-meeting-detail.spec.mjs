@@ -147,13 +147,8 @@ test('PC 1280: 끊긴 회의 녹음 [이어 녹음] → 그 회의 단추가 "�
 test('폰 412: 상세에 [녹음]이 보이지 않는다(위쪽 [녹음]과 같은 기기 조건)',async({page})=>{
   test.setTimeout(60000);
   const calls=await open(page,{width:412,height:915});
-  await page.evaluate(id=>window.KPTUMeetingDetail?.open?.(id)??document.dispatchEvent(new CustomEvent('kptu:open-meeting',{detail:{id}})),MA).catch(()=>{});
-  const card=page.locator(`#meetingList [data-mrd-meeting="${MA}"], #meetingList [data-meeting-round="${MA}"]`).first();
-  if(!(await page.locator('#meetingRoundDetailModal:not(.hidden)').count())){
-    const kind=page.locator('#meetingList .mcol-kinds [data-meeting-kind]').filter({hasText:'합성 상집'});
-    if(await kind.count())await kind.click();
-    await card.click();
-  }
+  // 폰은 목록 카드를 누르면 상세가 팝업으로 열린다.
+  await page.locator('#meetingList').getByRole('button').filter({has:page.getByRole('heading',{name:'합성 상집'})}).click();
   const detail=page.locator('#meetingRoundDetailModal');
   await expect(detail).toBeVisible();
   await expect(detail).toHaveAttribute('data-meeting-id',MA);
