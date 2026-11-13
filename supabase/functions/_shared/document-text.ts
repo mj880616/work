@@ -25,6 +25,9 @@ export const TEXT_FILE_MAX_BYTES = 2 * 1024 * 1024;
 export const HWPX_MAX_BYTES = 30 * 1024 * 1024;
 export const HWPX_XML_MAX_BYTES = 20 * 1024 * 1024;
 export const EXPORT_MAX_BYTES = 1024 * 1024;
+// BRIEF-브리핑룸(docs/design/brief-room.md 2절): 브리핑 길만 끝까지 읽는다(raw). 내보내기 상한 4MB, 정리·자르기는 부르는 쪽(_shared/brief-room.mjs)이 한다.
+// 저장 상한 DOCUMENT_TEXT_CHARS와 기존 document-text 동작은 그대로다(raw를 주지 않으면 지금과 같음).
+export const RAW_EXPORT_MAX_BYTES = 4 * 1024 * 1024;
 export const CONVERT_MAX_BYTES = 50 * 1024 * 1024;
 export const TEMP_NAME = "Web2 글자 읽기 임시";
 export const PHOTO_MAX_BYTES = OCR_MAX_BYTES;
@@ -212,7 +215,7 @@ export function createDocumentText(deps: Deps) {
   }
 
   // Drive가 Google 문서(프레젠테이션·스프레드시트)로 바꾼 임시 사본을 글로 내보낸다. 사본은 성공·실패와 관계없이 지운다(원본은 그대로).
-  async function convert(fileId: string, token: string, kind: "convert" | "slides" | "sheet" = "convert", ocr = false): Promise<string> {
+  async function convert(fileId: string, token: string, kind: "convert" | "slides" | "sheet" = "convert", ocr = false, exportMax = EXPORT_MAX_BYTES): Promise<string> {
     const { target, exportMime } = CONVERT[kind];
     const r = await request(`${DRIVE}/${encodeURIComponent(fileId)}/copy?fields=id,mimeType${ocr ? "&ocrLanguage=ko" : ""}`, token, {
       method: "POST",
@@ -228,7 +231,7 @@ export function createDocumentText(deps: Deps) {
       const e = await request(`${DRIVE}/${encodeURIComponent(copy)}/export?mimeType=${encodeURIComponent(exportMime)}`, token);
       if (!e.ok) { await e.body?.cancel().catch(() => {}); throw new Error("EXPORT_FAILED"); }
       // 큰 문서·표는 앞 1MB만 읽는다(잘린 끝 글자는 저장 상한 밖이라 남지 않는다).
-      return new TextDecoder("utf-8").decode(await readBounded(e, EXPORT_MAX_BYTES, { keep: true }));
+      return new TextDecoder("utf-8").decode(await readBounded(e, exportMax, { keep: true }));
     } finally {
       try {
         const d = await request(`${DRIVE}/${encodeURIComponent(copy)}`, token, { method: "DELETE" });
@@ -293,7 +296,8 @@ export function createDocumentText(deps: Deps) {
     }
   }
 
-  async function extract(file: DocumentFile): Promise<TextResult> {
+  // raw: 브리핑 길 전용. 정리(tidyText)·12,000자 자르기 없이 읽은 글 그대로(쪽 나눔 \f 포함)를 돌려준다. cut은 내보내기 상한에 걸렸는지 모르므로 false.
+  async function extract(file: DocumentFile, opts: { raw?: boolean } = {}): Promise<TextResult> {
     const none = (reason: string): TextResult => ({ text: "", source: "none", reason, cut: false });
     if (!DRIVE_ID.test(file.fileId)) return none("no_file");
     const kind = textKindOf(file.name, file.mime);
@@ -307,11 +311,12 @@ export function createDocumentText(deps: Deps) {
       if (kind === "text") raw = new TextDecoder("utf-8").decode(await download(file.fileId, token, max));
       else if (kind === "hwpx") raw = await hwpxText(await download(file.fileId, token, max));
       else if (kind === "image") raw = await photo(file.fileId, token);
-      else raw = await convert(file.fileId, token, kind, kind === "convert" && isPdf(file.name, file.mime));
+      else raw = await convert(file.fileId, token, kind, kind === "convert" && isPdf(file.name, file.mime), opts.raw ? RAW_EXPORT_MAX_BYTES : EXPORT_MAX_BYTES);
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
       return none(code === "CONVERT_UNSUPPORTED" ? "unsupported" : code === "TOO_LARGE" || code === "HWPX_TOO_LARGE" ? "too_large" : "read_failed");
     }
+    if (opts.raw) return raw.trim() ? { text: raw, source: "content", reason: "ok", cut: false } : none("empty");
     const tidy = tidyText(raw);
     return tidy.text ? { text: tidy.text, source: "content", reason: "ok", cut: tidy.cut } : none("empty");
   }

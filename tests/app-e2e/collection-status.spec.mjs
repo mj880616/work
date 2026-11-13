@@ -6,7 +6,7 @@ import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const status=copy=>({ok:true,checked_at:'2026-10-06T01:00:00.000Z',copy:{state:'found',last_failure_at:null,last_failure_code:null,...copy}});
 
-async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.000Z'}),state=[{last_success_at:'2026-10-06T00:30:00Z'}],width=1280}={}){
+async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.000Z'}),state=[{last_success_at:'2026-10-06T00:30:00Z'}],width=1280,features=['calls']}={}){
   await page.setViewportSize({width,height:900});
   await openHome(page,{query:'?view=profile'});
   const calls=[];
@@ -23,6 +23,8 @@ async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.0
     if(state==='missing')return route.fulfill({status:404,json:{code:'PGRST205',message:"Could not find the table 'public.app_todo_radar_state' in the schema cache"}});
     return route.fulfill({json:state});
   });
+  // MULTI-다른담당자맞춤 ④: 수집·사용량 줄은 서버 운영자 기능(app_my_features)이 있는 작업공간에서만 그린다.
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',route=>route.fulfill({json:features}));
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#profileView')).toBeVisible();
@@ -171,4 +173,17 @@ test('a send error and a long collector stall are 주의; a daily cap is not (39
   await expect(card.locator('[data-collect="telegramSend"] .collect-warn')).toHaveCount(1);
   await expect(card.locator('[data-collect="callSend"]')).toHaveAttribute('data-collect-state','limit_day');
   await expect(card.locator('[data-collect="callSend"] .collect-warn')).toHaveCount(0);
+});
+
+// MULTI-다른담당자맞춤 ④: 통화·텔레그램 수집이 없는 다른 사람의 작업공간(서버 운영자 기능 없음)은 작업공간 이름과 상관없이
+// 수집 칸·AI 사용량·글자 읽기 줄을 그리지 않고 drive-summary 상태도 묻지 않는다(화면 숨김은 덤, 서버가 403으로 막는다).
+for(const width of [1280,412])test(`no operator feature: no collection, AI usage or text lines and no status request (${width})`,async({page})=>{
+  const {calls}=await fixture(page,{width,features:[]});
+  await expect(page.locator('#psStatusPanel')).toBeAttached();
+  await page.waitForTimeout(300);
+  await expect(page.locator('#psStatusPanel [data-ps-collect]')).toBeHidden();
+  await expect(page.locator('#psStatusPanel [data-ps-ai-usage]')).toBeHidden();
+  await expect(page.locator('#psStatusPanel [data-ps-text-done]')).toBeHidden();
+  expect(calls.filter(c=>!c.table)).toEqual([]);
+  expect(calls.filter(c=>c.table)).toEqual([]);
 });

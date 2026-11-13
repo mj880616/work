@@ -20,6 +20,8 @@ export const ITEMS = Object.freeze([
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
   // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(명진 결정 F5, 설계 docs/design/files-explorer.md).
   {id: 'files', label: '파일', view: 'files', icon: 'M3 6h7l2 2h9v11H3zM3 10h18'},
+  // BRIEF-브리핑룸 ③(명진 결정 11/13 18:07 ③ 메뉴에 '브리핑 룸'): 처음 자리는 자료실 묶음 — [파일]이 자료실 바로 아래(F5)라 그 다음.
+  {id: 'brief', label: '브리핑 룸', view: 'brief', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2'},
   {id: 'pages', label: '공유 페이지', view: 'pages', icon: 'M4 4h16v16H4zM4 10h16M10 10v10'},
   {id: 'team', label: '조직 보고', view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
   {id: 'hwp', label: 'HWP 편집', view: 'hwp', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'},
@@ -41,7 +43,7 @@ export const BAR_MAX = 5;
 // MENU-세칸(명진 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
 export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'hwp', 'pages', 'ledger', 'photos', 'outside']);
+export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'brief', 'hwp', 'pages', 'ledger', 'photos', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어

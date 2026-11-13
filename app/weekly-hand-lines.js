@@ -14,6 +14,7 @@ import {formDay} from './weekly-exec-requests.js';
 import {TIME_HINT} from './time-input.js';
 import {rowMore, partAdd} from './row-more.js';
 import {waitHtml} from './wait-state.js';
+import {notify} from './small-notice.js'; // WEEKLY-주간정리다듬기 ⑤: 더했어요·삭제했어요·수정했어요는 화면 아래 5초 알림 하나(표 아래에 쌓지 않음)
 
 const TEXT = Object.freeze({
   missing:'저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
@@ -154,7 +155,8 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
       }}, rt);
       if (r.missing) { set({...fresh(start), status:TEXT.missing, error:true}); redraw(); return; }
       if (full) { set({...keep, saving:false, status:act === 'cut' ? '' : TEXT.full(part), error:act !== 'cut'}); redraw(); return; }
-      set({...fresh(start), status:done, focus});
+      set({...fresh(start), status:'', focus});
+      notify(done, {ms:5000});
       onSaved(r.row);
     } catch {
       set({...keep, saving:false, status:TEXT.saveFailed, error:true}); redraw();

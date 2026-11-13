@@ -37,8 +37,8 @@ test('summary-writing instructions carry the one shared rule: telegram news, led
   }
   // S49-2: 회의 초안 지시문은 _shared/meeting-draft-prompt.mjs 한 곳(화면 요약·서버 정리 공용). 말투 규칙은 부르는 쪽이 넘긴다.
   assert.ok(read('_shared/meeting-draft-prompt.mjs').includes('${toneRule}'), 'meeting draft puts the shared rule into its developer text');
-  assert.ok(read('meeting-ai-draft/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE)'), 'meeting draft passes the shared rule');
-  assert.ok(read('meeting-transcribe/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE)'), 'server summary passes the shared rule');
+  assert.ok(read('meeting-ai-draft/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE,'), 'meeting draft passes the shared rule');
+  assert.ok(read('meeting-transcribe/index.ts').includes('meetingDraftDeveloper(AI_TONE_RULE, role)'), 'server summary passes the shared rule');
   assert.match(read('meeting-ai-draft/index.ts'), /import \{[^}]*AI_TONE_RULE[^}]*\} from '\.\.\/_shared\/ai-model\.ts'/);
 });
 
@@ -80,7 +80,7 @@ test('AI 요약 실패 문구 검사 목록: 재료 없음 안내 문장은 잡�
 });
 
 // 새 AI 지시문이 생기면 아래 목록에 '적용' 또는 '제외(이유)'로 올려야 한다. 말투를 빠뜨린 채 새 요약이 생기는 일을 막는다.
-const APPLIED = new Set(['library-files/record-line.ts', 'collector-feed/telegram.ts', 'collector-feed/family.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/journal-memorable.ts', 'ai-assist/home-day-picks.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts', 'outside-feed/handler.ts', '_shared/now-detail-build.ts']);
+const APPLIED = new Set(['document-actions/brief.ts', 'library-files/record-line.ts', 'collector-feed/telegram.ts', 'collector-feed/family.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'ai-assist/journal-memorable.ts', 'ai-assist/home-day-picks.ts', 'ai-assist/next-week-sheet.ts', 'ai-assist/pre-meeting-sheet.ts', 'ai-assist/web2-ask.ts', 'meeting-ai-draft/index.ts', 'outside-feed/handler.ts', '_shared/now-detail-build.ts']);
 const EXCLUDED = new Map([
   ['ai-assist/now-detail.ts', '관심 주제 후보 지시만 남음(30자 쟁점 이름과 근거 한 줄, 요약 문장 아님). 글 상세 요약·시사점 지시는 _shared/now-detail-build.ts(적용, NEWS-전면개편 P3b)'],
   ['collector-feed/handler.ts', '부르기만 한다. 텔레그램 지시문은 telegram.ts, 가족 잊지 말기 지시문은 family.ts(둘 다 적용)에 있다'],
