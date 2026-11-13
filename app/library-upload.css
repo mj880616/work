@@ -569,6 +569,6 @@
 #libraryTidyModal .lu-tidy-group .lu-sort-row{border-bottom:0;padding:3px 2px}
 #libraryTidyModal .lu-tidy-wait{margin:8px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
 #libraryTidyModal .lu-tidy-stay{margin:2px 0 0 28px}
-/* LIB-폴더끌어순서(S61-14): 왼쪽 나무·두 칸 칸의 폴더 줄 위·아래 끝에 놓을 때 가는 선(노트 나무 nx-line-before·after와 같은 모양). */
-#libraryFolderNav .ft-row.lu-drop-before,#documentList [data-lu-pane-i] .ft-row.lu-drop-before{box-shadow:inset 0 2px 0 var(--kptu-primary-ink,var(--kptu-primary))}
-#libraryFolderNav .ft-row.lu-drop-after,#documentList [data-lu-pane-i] .ft-row.lu-drop-after{box-shadow:inset 0 -2px 0 var(--kptu-primary-ink,var(--kptu-primary))}
+/* LIB-폴더끌어순서(S61-14): 왼쪽 나무·두 칸 칸의 폴더 줄 위·아래 끝에 놓을 때 가는 선(한 칸 목록 머리 lu-drop-before·after와 같은 선. 이 파일은 그림자 대신 선을 쓴다 — smoke 검사). */
+#libraryFolderNav .ft-row.lu-drop-before,#documentList [data-lu-pane-i] .ft-row.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
+#libraryFolderNav .ft-row.lu-drop-after,#documentList [data-lu-pane-i] .ft-row.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
