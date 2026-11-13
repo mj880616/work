@@ -26,19 +26,38 @@ const RAW = {
   'r4|2026-10-03': '14:00 A: 자료 받으셨나요\n14:30 B: 네 받았습니다',
 };
 
-async function routes(page, weeks) {
+// ORG-연락없음1대1수집: 1:1 방(app_feed_rooms.chat_kind='user')은 상대가 그 날 직접 쓴 글이 있으면 연락. dm=true일 때만 아래 방을 더한다.
+const DM_SENDERS = [{id: 's5', workspace_id: 'w', name: '마위원장', auto_name: null, is_self: false, sender_key: null},
+  {id: 's7', workspace_id: 'w', name: '사위원장', auto_name: null, is_self: false, sender_key: null}];
+const DM_LINKS = [
+  link('5005', '2026-09-30', 'A', 's5'), link('5005', '2026-09-30', 'B', 'me'),   // 마분회 1:1: 상대가 먼저 쓰고 내가 답함 → 6일(조용하지 않음)
+  link('7007', '2026-10-04', 'A', 's7'), link('7007', '2026-10-04', 'B', 'me'),   // 사지부 1:1: 상대는 전달 글만 → 세지 않음
+  link('7007', '2026-10-05', 'B', 'me'),                                            // 사지부 1:1: 나만 보냄 → 세지 않음
+  link('g2', '2026-10-02', 'A', 's2'),                                              // 나지부 단체방: 상대만 말함 → 세지 않음
+];
+const DM_RAW = {
+  '5005|2026-09-30': '20:00 A: 내일 회의 자료 보냅니다\n20:10 B: 고맙습니다',
+  '7007|2026-10-04': '11:00 A (전달): 공문 원문\n11:05 B: 확인할게요',
+  '7007|2026-10-05': '09:00 B: 요즘 어떠세요?',
+  'g2|2026-10-02': '08:00 A: 오늘 집회 장소 바뀌었습니다',
+};
+const DM_ROOMS = [{room_key: '5005', chat_kind: 'user'}, {room_key: '7007', chat_kind: 'user'}];
+
+async function routes(page, weeks, {dm = false} = {}) {
+  const raw = dm ? {...RAW, ...DM_RAW} : RAW;
   const json = (r, body) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(body)});
   await page.route(SB + '/rest/v1/app_suborganizations?**', r => json(r, ORGS.map(([id, name]) => ({id, name, active: true}))));
   await page.route(SB + '/rest/v1/app_suborganization_assignees?**', r => json(r, ORGS.map(([id]) => ({organization_id: id, user_id: 'home-test'}))));
   await page.route(SB + '/rest/v1/app_org_key_people?**', r => json(r, PEOPLE.map(([id, organization_id, name], i) => ({id, workspace_id: 'w', organization_id, name, match_names: [name], sort_order: i}))));
-  await page.route(SB + '/rest/v1/app_tg_senders?**', r => json(r, SENDERS));
-  await page.route(SB + '/rest/v1/app_tg_day_senders?**', r => json(r, LINKS));
+  await page.route(SB + '/rest/v1/app_tg_senders?**', r => json(r, dm ? [...SENDERS, ...DM_SENDERS] : SENDERS));
+  await page.route(SB + '/rest/v1/app_tg_day_senders?**', r => json(r, dm ? [...LINKS, ...DM_LINKS] : LINKS));
+  await page.route(SB + '/rest/v1/app_feed_rooms?**', r => json(r, dm ? DM_ROOMS : []));
   await page.route(SB + '/rest/v1/app_feed_items?**', r => {
     const u = new URL(r.request().url()), source = u.searchParams.get('source'), room = u.searchParams.get('room_key');
     if (source === 'eq.call') return json(r, CALLS.map(c => ({...c, workspace_id: 'w', source: 'call', occurred_at: c.day + 'T01:00:00Z'})));
     if (source === 'eq.telegram' && room) {
       const key = room.slice(3);
-      return json(r, Object.entries(RAW).filter(([k]) => k.startsWith(key + '|')).map(([k, raw_text], i) => ({id: 't' + i + key, room_key: key, day: k.split('|')[1], occurred_at: k.split('|')[1] + 'T05:00:00Z', raw_text})));
+      return json(r, Object.entries(raw).filter(([k]) => k.startsWith(key + '|')).map(([k, raw_text], i) => ({id: 't' + i + key, room_key: key, day: k.split('|')[1], occurred_at: k.split('|')[1] + 'T05:00:00Z', raw_text})));
     }
     return json(r, []);
   });
@@ -114,4 +133,15 @@ test('하나라도 읽기에 실패하면 줄을 그리지 않는다', async ({p
   await expect.poll(() => failed).toBe(true);
   await expect(line(page)).toBeHidden();
   await expect(line(page)).toBeEmpty();
+});
+
+test('1:1 방은 상대가 쓴 글로 센다(나만 보낸 날·전달 글·단체방 상대 글은 세지 않음)', async ({page}) => {
+  await page.setViewportSize({width: 412, height: 900});
+  await openHome(page, {beforeLoad: () => routes(page, undefined, {dm: true})});
+  const q = line(page);
+  await expect(q.locator('.oq-text')).toHaveText('3주째 연락 없음: 가지부 25일 · 나지부 40일 · 사지부 62일');
+  await q.locator('[data-oq-toggle]').click();
+  await expect(q.locator('.oq-row')).toHaveCount(3);
+  await expect(q).not.toContainText('마분회');
+  await expect(q.locator('.oq-row').nth(2)).toContainText('사지부마지막 · 통화 8.562일');
 });
