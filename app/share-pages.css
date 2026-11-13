@@ -136,7 +136,8 @@
 }
 /* ED-통합편집기 ①b: 열린 글 블록은 새 편집기(ed-editor.js). 블록 안이라 큰 아래 여백은 줄이고, 버튼 줄은 블록 위에 붙인다. */
 #appView #pagesView .sp-doc-host{ min-width:0; }
-#appView #pagesView .sp-doc-host .ed-bar{ top:0; margin:0 -12px; }
+#appView #pagesView .sp-doc-host .ed-stick{ top:0; }
+#appView #pagesView .sp-doc-host .ed-bar{ margin:0 -12px; }
 #appView #pagesView .sp-doc-host .ed-input{ min-height:8em; padding:12px 2px 24px; }
 #appView #pagesView .sp-convert{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px 0; }
 #appView #pagesView .sp-convert[hidden],#appView #pagesView .sp-convert [hidden]{ display:none; }
@@ -176,7 +177,7 @@
 /* 편집기: 버튼 줄은 맨 위 줄 바로 아래에 붙어 따라오고, 제목·본문은 좌우 여백만 두고 꽉 채운다. */
 #appView #pagesView .sp-full-doc{ min-width:0; }
 #appView #pagesView .sp-full-doc > .sp-hint{ padding:12px 28px 0; }
-#appView #pagesView .sp-editor.is-full .ed-bar{ top:calc(var(--kptu-stick-top,0px) + var(--sp-topline-h)); z-index:5; }
+#appView #pagesView .sp-editor.is-full .ed-stick{ top:calc(var(--kptu-stick-top,0px) + var(--sp-topline-h)); z-index:5; }
 #appView #pagesView .sp-full-title{ box-sizing:border-box; display:block; width:100%; height:auto; min-height:0; margin:0; padding:24px 28px 4px; border:0; border-radius:0; box-shadow:none; background:transparent; color:var(--kptu-ink); font:inherit; font-size:30px; font-weight:var(--ds-weight-medium); line-height:1.35; }
 #appView #pagesView .sp-full-title::placeholder{ color:var(--kptu-faint); }
 #appView #pagesView .sp-full-title:focus,#appView #pagesView .sp-full-title:focus-visible{ outline:none; box-shadow:none; }

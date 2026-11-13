@@ -132,7 +132,8 @@ export function noteFiles({getNote, upload, open = url => window.open(url, '_bla
 }
 
 // The edit field: the new editor in the note's detail, on the note's text. Returns {getValue, isChanged, setValue, focus, destroy}.
-export async function mountEditField(host, note, {photos = null, files = null, label = '본문'} = {}) {
+// lead: NOTE-제목서식줄고정 — the 제목 칸 put in the editor's top band with the button row (createDocEditor lead).
+export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null} = {}) {
   const [{createDocEditor}, start] = await Promise.all([editorModule(), startValue(note)]);
   // UI-뒤로가기겹규칙: 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기(일기·창과 같은 onBox 계약).
   let editor = null, boxLayer = null;
@@ -141,7 +142,7 @@ export async function mountEditField(host, note, {photos = null, files = null, l
     if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
     else dropBox();
   };
-  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox});
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead});
   let base = JSON.stringify(editor.getValue());
   return {
     editor,

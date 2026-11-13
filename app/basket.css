@@ -410,3 +410,5 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* NOTE-목록에파일놓기(S61-16 ①): PC 파일을 노트 목록에 끌어 오면 목록 칸에 점선 + '여기 놓으면 새 노트'(놓으면 새 노트 창). */
 .nx-file-over { position:relative; outline:2px dashed var(--kptu-info); outline-offset:-2px; border-radius:var(--kptu-radius-md); background:var(--kptu-info-soft); }
 .nx-file-drop { position:sticky; top:var(--kptu-stick-top, 0px); z-index:2; margin:0 0 4px; padding:4px 8px; border-radius:var(--kptu-radius-md); background:var(--kptu-info-soft); color:var(--kptu-link); font-size:12px; text-align:center; pointer-events:none; }
+/* NOTE-제목서식줄고정(S61-16 ②): 노트 고칠 때 제목 칸은 편집기 위 띠(.ed-stick) 안, 서식 줄 바로 위에 들어가 같이 붙는다. */
+#appView #basketView .note-editor .ed-stick > .basket-text-label { display:flex; flex-direction:column; gap:2px; margin:0; padding:6px 8px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
