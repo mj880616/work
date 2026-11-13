@@ -19,6 +19,12 @@
 | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF` | (이미 있음) | production-edge | 바꾸지 않는다 |
 | `DB_BACKUP_POOLER_HOST` | 변수(선택) | 저장소 Variables | 보통 비워 둔다. CC가 요청할 때만 |
 
+### 0-1. 확인 기록 (2026-11-13, S61-32)
+
+- 장치(#1737 merge, 11/02)는 매일 돌고 있으나 위 설정이 아직 없어 **백업 작업은 매번 건너뜀**이다 [사실: 11/08~11/13 매일 `config` 성공 → `backup` skipped]. 지금 정기 덤프는 **0개**다.
+- 월 복구 시험(`db-restore-test.yml`, 매달 2일)은 아직 한 번도 돈 기록이 없다 [사실].
+- 켜려면 위 1~5단계(명진 로그인·비밀값 등록)가 필요하다. 새 장치·새 비밀값 이름은 더 만들지 않는다.
+
 ## 1. Supabase — 임시 접속 켜기 (로그인 필요)
 
 백업은 DB 비밀번호 없이 이미 있는 운영 토큰으로 잠깐 접속한다(Supabase "temporary access"). 이 기능을 켜야 한다.
