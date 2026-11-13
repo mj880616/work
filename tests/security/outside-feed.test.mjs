@@ -168,7 +168,7 @@ const respond=(body,status=200,headers={})=>new Response(typeof body==='string'?
 const html=(body,status=200,headers={})=>new Response(body,{status,headers:{'Content-Type':'text/html; charset=utf-8',...headers}});
 const KEY_CHECK=/^[a-z0-9][a-z0-9-]{1,39}$/;
 
-function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false,bodies=[],days=[],google}={}){
+function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false,bodies=[],days=[],google,aiMonth={month:'2026-11',exempt:false,cap_krw:3000,openai_input_tokens:0,openai_output_tokens:0,gemini:[]}}={}){
   const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members,app_feed_bodies:bodies.map(b=>({...b})),app_news_days:days.map(d=>({...d}))};
   const calls={site:[],rest:[],ai:[],auth:0,logs:[],google:[]};
   let seq=0;
@@ -198,6 +198,7 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
     const u=new URL(url),table=u.pathname.replace('/rest/v1/',''),q=u.searchParams,method=init?.method??'GET';
     assert.equal(init.headers.apikey,SERVICE);
     calls.rest.push(`${method} ${table}?${decodeURIComponent(u.search.slice(1))}`);
+    if(table==='rpc/app_workspace_ai_month')return new Response(JSON.stringify(aiMonth),{status:200,headers:{'content-type':'application/json'}}); // AI-사람별한도: 기본은 한도 아래
     const rows=db[table];if(!rows)throw new Error('table not allowed: '+table);
     if(table==='app_workspace_members'&&method!=='GET')throw new Error('members are read only');
     if(method==='GET'){let out=rows.filter(r=>match(r,q));if(q.get('limit'))out=out.slice(0,Number(q.get('limit')));return respond(out.map(r=>pick(r,q.get('select'))));}

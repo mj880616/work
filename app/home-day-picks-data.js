@@ -48,7 +48,7 @@ export async function askDayPicks({day, slot, events, done}, rt = window.KPTURun
   try {
     const r = await call({kind:'home_day_picks', day, events, done}, {rt, timeoutMs:DAY_PICKS_TIMEOUT_MS});
     if (r?.ok && r.data?.picks) return {state:picksState(r.data.picks)};
-    if (r?.code === 'monthly_limit' || r?.code === 'daily_limit') return {limit:r.code};
+    if (r?.code === 'monthly_limit' || r?.code === 'daily_limit' || r?.code === 'ai_monthly_cap') return {limit:r.code};
     return null;
   } catch { return null; }
 }

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync,mkdtempSync,mkdirSync,copyFileSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -83,10 +84,10 @@ function harness({env={},openai=[()=>respond(ok('A 사업장 교섭 일정이 �
     assert.ok(source&&method==='GET','unexpected REST call '+method+' '+table);
     return respond(source.filter(visible).filter(r=>match(r,filters(url))));
   };
-  const handler=createAiAssistHandler({
+  const handler=createAiAssistHandler(withAiMonth({
     env:name=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:FAKE_KEY,...env})[name],
     fetch:doFetch,now:()=>NOW,sleep:async ms=>{calls.sleeps.push(ms);},log:(code,detail)=>calls.logs.push({code,detail}),
-  });
+  }));
   return {handler,calls,state};
 }
 const post=(handler,body,{token='owner-token',type='application/json',method='POST'}={})=>handler(new Request(FN,{method,
@@ -138,11 +139,11 @@ test('unauthenticated or invalid session is rejected before any data read or Ope
 
 test('a signed-in user without an owner row is forbidden',async()=>{
   const seen=[];
-  const h=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:FAKE_KEY})[n],now:()=>NOW,log:()=>{},
+  const h=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:FAKE_KEY})[n],now:()=>NOW,log:()=>{},
     fetch:async(input)=>{const u=new URL(String(input));seen.push(u.pathname);
       if(u.pathname==='/auth/v1/user')return respond({id:'e0000000-0000-4000-8000-000000000009'});
       if(u.pathname==='/rest/v1/app_workspace_members')return respond([]);
-      throw new Error('must stop after the owner check');}});
+      throw new Error('must stop after the owner check');}}));
   await expectError(await post(h,req()),403,'forbidden');
   assert.deepEqual(seen,['/auth/v1/user','/rest/v1/app_workspace_members']);
 });

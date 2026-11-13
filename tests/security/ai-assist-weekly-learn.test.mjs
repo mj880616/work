@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // WEEKLY-환류학습: the real ai-assist handler, kind=weekly_draft / weekly_review, with a synthetic Supabase (Auth + PostgREST with owner RLS)
@@ -74,8 +75,8 @@ function harness({openai=null,rows=null,patchMiss=0}={}){
     }
     throw new Error('unexpected write '+method+' '+table);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const cells=[{ref:'c1',where:'요약 · 가 › 가-1',lines:['- 가상 교섭 3차 진행'],material:['가상 교섭 3차 결렬(10/28)']},{ref:'c2',where:'산하조직 · A 지부',lines:['- 가상 소식'],material:[]}];

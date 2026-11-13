@@ -40,7 +40,7 @@ import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
 import { bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
-import { addDay, dayRow, type DayField, kstDay, monthKrw, MONTHLY_LIMIT_KRW } from "../_shared/news-days.ts";
+import { addDay, aiMonthStop, dayRow, type DayField, kstDay, MONTHLY_LIMIT_KRW } from "../_shared/news-days.ts";
 
 export type NewsFeedDeps = { env: Env; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; log?: FeedLog };
 
@@ -247,7 +247,7 @@ export { readTranslation } from "../_shared/feed-translate.ts";
 async function summarize(db: Db, ai: AiDeps, ws: string, title: string, body: string | null, nowMs: number): Promise<string | null> {
   const material = `${title}\n\n${body ?? ""}`.slice(0, 3000);
   if (chars(material.trim()) < MIN_SUMMARY_MATERIAL) return null;
-  if (await monthKrw(db, ws, nowMs) >= MONTHLY_LIMIT_KRW) { ai.log("ai_month_cap"); return null; }
+  if (await aiMonthStop(db, ws, nowMs)) { ai.log("ai_month_cap"); return null; }
   const out = await askAi(ai, "news_summary", SUMMARY_INSTRUCTIONS, material, SUMMARY_SCHEMA, 400);
   if (out.usage.input || out.usage.output) {
     try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
@@ -709,7 +709,7 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
     const today = (await db.get(`app_news_items?workspace_id=eq.${ws}&translated_at=gte.${encodeURIComponent(dayStart)}&select=id&limit=${TITLES_DAILY + 1}`)).length;
     const room = Math.max(0, Math.min(TITLE_BATCH, TITLES_DAILY - today));
     if (!room) { deferred += list.length; continue; }
-    if (await monthKrw(db, ws, nowMs) >= MONTHLY_LIMIT_KRW) { log("ai_month_cap"); deferred += list.length; continue; }
+    if (await aiMonthStop(db, ws, nowMs)) { log("ai_month_cap"); deferred += list.length; continue; }
     const batch = list.slice(0, room);
     deferred += list.length - batch.length;
     const material = batch.map((r, k) => `${k + 1}\t${r.title_ko ? "" : cut(oneLine(String(r.title)), 300)}\t${cut(oneLine(String(r.summary ?? "")), 400)}`).join("\n");
@@ -888,7 +888,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (action === "catalog") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
         // ai.month_capped: 이번 달 AI 한도(MONTHLY_LIMIT_KRW)에 닿았는지(예/아니오만 — 금액은 싣지 않음). 닿으면 수집 때 요약·외국어 제목 번역이 조용히 멈추므로 화면이 알린다(NEWS-다받기 ④).
-        const capped = await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW;
+        const capped = !!(await aiMonthStop(db, who.workspaceId, nowMs));
         return json({ ok: true, sources: publicNewsCatalog(), limits: { fill: FILL_DAILY, translate: TRANSLATE_DAILY, open: OPEN_DAILY, keywords: KEYWORDS_PER_WORKSPACE }, ai: { month_capped: capped } });
       }
       if (action === "fill_now") {
@@ -930,12 +930,13 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!title && !text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
       // AI 월 한도는 AI로 번역할 때만 본다(Google 번역은 AI 비용이 아님 — Google 쪽 하루 글자 한도는 Cloud 콘솔 할당량으로).
       const google = googleKeyFrom(deps.env);
-      if (!google && await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "MONTHLY_LIMIT");
+      const stop = google ? null : await aiMonthStop(db, who.workspaceId, nowMs);
+      if (stop) throw new Fail(stop === "USAGE_UNAVAILABLE" ? 503 : 429, stop);
       await useDaily(db, who.workspaceId, "translate_n", TRANSLATE_DAILY, nowMs);
       const hadTitle = typeof item.title_ko === "string" && !!item.title_ko;
       const got = await translateText({
         doFetch, log, google, title, text, lang: item.lang, needTitle: !hadTitle,
-        monthCapped: async () => await monthKrw(db, who.workspaceId, nowMs) >= MONTHLY_LIMIT_KRW,
+        monthCapped: async () => !!(await aiMonthStop(db, who.workspaceId, nowMs)),
         askAi: async (material, maxOut, timeoutMs) => {
           const out = await askAi(ai, "news_translate", TRANSLATE_INSTRUCTIONS, material, TRANSLATE_SCHEMA, maxOut, timeoutMs);
           if (out.usage.input || out.usage.output) {

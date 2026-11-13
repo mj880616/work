@@ -29,7 +29,7 @@ import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, ruleId, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 import { blocksText, googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
-import { addDay, kstDay, monthKrw, MONTHLY_LIMIT_KRW, takeDaily } from "../_shared/news-days.ts";
+import { addDay, aiMonthStop, kstDay, takeDaily } from "../_shared/news-days.ts";
 import { betterTitle, pageTitleFrom, tidySummary, tidyTitle } from "../_shared/outside-tidy.ts";
 import { BODY_MAX_CHARS, cut, decodeBody, isUrlTitle, looksLikeBotCheck, NO_TITLE, oneLine, pageDate, parseFeed, parseListHtml, parseTelegram, robotsAllows, splitSentences, usableTitle, type ListItem, type ListStats } from "./parse.ts";
 
@@ -150,7 +150,8 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
     }
     let v: unknown;
     try { v = await readBoundedJson(r, { maxBytes: 4 * 1024 * 1024 }); } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
-    return Array.isArray(v) ? v as Record<string, unknown>[] : [];
+    // 읽기 전용 서버 함수(rpc/…)가 객체 하나를 돌려주면 한 줄로 감싼다(AI-사람별한도 app_workspace_ai_month). 그 밖의 답은 예전과 같다.
+    return Array.isArray(v) ? v as Record<string, unknown>[] : (path.startsWith("rpc/") && v && typeof v === "object" ? [v as Record<string, unknown>] : []);
   }
   return { get: (p) => call("GET", p), send: (m, p, b, pr) => call(m, p, b, pr) };
 }
@@ -820,12 +821,13 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         const text = blocksText(fb?.blocks);
         if (!text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
         const google = googleKeyFrom(deps.env);
-        if (!google && await monthKrw(db, ws, nowMs) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "MONTHLY_LIMIT");
+        const stop = google ? null : await aiMonthStop(db, ws, nowMs);
+        if (stop) throw new Fail(stop === "USAGE_UNAVAILABLE" ? 503 : 429, stop);
         if (!await takeDaily(db, ws, "translate_n", TRANSLATE_DAILY, nowMs)) throw new Fail(429, "DAILY_LIMIT");
         const hadTitle = typeof post.title_ko === "string" && !!post.title_ko;
         const got = await translateText({
           doFetch, log, google, title: String(post.title ?? ""), text, lang: post.lang, needTitle: !hadTitle,
-          monthCapped: async () => await monthKrw(db, ws, nowMs) >= MONTHLY_LIMIT_KRW,
+          monthCapped: async () => !!(await aiMonthStop(db, ws, nowMs)),
           askAi: async (material, maxOut, timeoutMs) => {
             let used = { input: 0, output: 0 };
             const v = await askAi({ doFetch, sleep, log, env: deps.env }, "outside_translate", TRANSLATE_INSTRUCTIONS, material, TRANSLATE_SCHEMA, maxOut,

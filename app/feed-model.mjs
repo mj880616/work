@@ -237,6 +237,7 @@ export const REFILL_SKIPPED = '업무 통화로 옮겼어요. 채울 글이 없�
 const REFILL_FAILED = Object.freeze({
   daily_limit:'업무 통화로 옮겼어요. 오늘 AI 횟수를 다 써서 제목·조직·상대는 옛 값 그대로예요.',
   monthly_limit:'업무 통화로 옮겼어요. 이번 달 AI 한도에 닿아 제목·조직·상대는 옛 값 그대로예요.',
+  ai_monthly_cap:'업무 통화로 옮겼어요. 이번 달 AI 사용 한도를 다 써 제목·조직·상대는 옛 값 그대로예요.',
 });
 export const refillFailedText = code => REFILL_FAILED[code] || '업무 통화로 옮겼어요. 제목·조직·상대를 채우지 못해 옛 값 그대로예요.';
 // 옮긴 뒤 한 줄. from: 'work' | 'personal' | 'unsure'.

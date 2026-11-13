@@ -8,6 +8,9 @@ const { readMultipartForm } = await import('../../supabase/functions/_shared/mul
 const { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } = await import('../../supabase/functions/_shared/ai-model.ts');
 const { outputText } = await import('../../supabase/functions/_shared/openai-responses.ts');
 const { createAiUsageMeter, recordAiDailyUsage } = await import('../../supabase/functions/_shared/ai-daily-usage.mjs');
+const { assertAiUserCap } = await import('../../supabase/functions/_shared/ai-user-cap.mjs');
+// AI-사람별한도: 서버 함수 app_workspace_ai_month 답(기본은 한도 아래).
+const AI_MONTH_UNDER = { month: '2026-11', exempt: false, cap_krw: 3000, openai_input_tokens: 0, openai_output_tokens: 0, gemini: [] };
 
 // Runs the real library-files handler with mocked Supabase, Google Drive, and AI so each failure stage
 // can be checked for its status, structured error body, and Drive orphan cleanup. No network calls.
@@ -41,9 +44,10 @@ function harness({
   uploadPut = () => json({ id: 'drive-file-1', webViewLink: 'https://drive.example/file' }),
   driveDelete = () => new Response(null, { status: 204 }),
   openaiFetch = () => json({ output: [] }),
-  usageError = null
+  usageError = null,
+  aiMonth = AI_MONTH_UNDER
 } = {}) {
-  const calls = { fetch: [], inserts: [], errors: [], spaceIs: [], usage: [] };
+  const calls = { fetch: [], inserts: [], errors: [], spaceIs: [], usage: [], rpc: [] };
   const tables = {
     app_workspace_members: () => ({ data: role ? { workspace_id: 'workspace-1', role } : null }),
     app_spaces: b => {
@@ -60,6 +64,7 @@ function harness({
   };
   const admin = {
     auth: { getUser: async () => user },
+    rpc: async (name, args) => { calls.rpc.push([name, args]); return { data: aiMonth, error: null }; },
     from: table => {
       const b = query(builder => tables[table](builder));
       if (table === 'app_spaces') { const neq = b.neq; b.neq = (...a) => { b._list = true; return neq(...a); }; }
@@ -83,8 +88,8 @@ function harness({
   };
   const quietConsole = { ...console, error: (...a) => calls.errors.push(a), warn: () => {}, log: () => {} };
   const fastSignal = { timeout: () => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), 30); return c.signal; } };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'AbortSignal', 'fileNameTitle', 'isMeaninglessName', 'createAiUsageMeter', 'recordAiDailyUsage', SOURCE)(
-    Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fastSignal, fileNameTitle, isMeaninglessName, createAiUsageMeter, recordAiDailyUsage
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'AbortSignal', 'fileNameTitle', 'isMeaninglessName', 'createAiUsageMeter', 'recordAiDailyUsage', 'assertAiUserCap', SOURCE)(
+    Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fastSignal, fileNameTitle, isMeaninglessName, createAiUsageMeter, recordAiDailyUsage, assertAiUserCap
   );
   return { handler, calls };
 }
@@ -289,5 +294,25 @@ test('title AI usage is added to app_ai_daily_usage; a usage write failure never
     const h = harness({ openai: 'test-key', openaiFetch: ai });
     await send(h, { file: new File(['본문'], '주간보고_20261102.txt', { type: 'text/plain' }) });
     assert.equal(h.calls.usage.length, 0, 'no AI call, no usage row');
+  }
+});
+
+test('AI-사람별한도: 작업공간 이번 달 AI 한도 이상이면 제목 AI를 부르지 않고 파일 이름으로 올린다(운영자 제외는 AI를 부름)', async () => {
+  const ai = () => json({ output: [{ type: 'message', content: [{ type: 'output_text', text: '{"title":"본문 제목"}' }] }], usage: { input_tokens: 1, output_tokens: 1 } });
+  const over = { ...AI_MONTH_UNDER, openai_input_tokens: 30_000_000 };
+  {
+    const h = harness({ openai: 'test-key', openaiFetch: ai, aiMonth: over });
+    const { status, body } = await send(h, { file: new File(['첫 줄 제목\n본문'], 'scan001.txt', { type: 'text/plain' }) });
+    assert.equal(status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(h.calls.fetch.filter(f => f.includes('api.openai.com')).length, 0, 'no AI call over the cap');
+    assert.deepEqual(h.calls.rpc, [['app_workspace_ai_month', { p_workspace: 'workspace-1' }]], 'server-verified workspace only');
+    assert.equal(h.calls.inserts.length, 1);
+  }
+  {
+    const h = harness({ openai: 'test-key', openaiFetch: ai, aiMonth: { ...over, exempt: true } });
+    const { status } = await send(h, { file: new File(['첫 줄 제목\n본문'], 'scan001.txt', { type: 'text/plain' }) });
+    assert.equal(status, 200);
+    assert.equal(h.calls.fetch.filter(f => f.includes('api.openai.com')).length, 1, 'operator workspace is not capped');
   }
 });

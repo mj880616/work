@@ -161,7 +161,7 @@ async function askAi(kit: NowKit, kind: string, name: string, instructions: stri
     budget = await kit.budget(kind, config.price);
   } catch (e) {
     const code = kit.failCode(e);
-    if (code === "monthly_limit" || code === "daily_limit") return "limit";
+    if (code === "monthly_limit" || code === "daily_limit" || code === "ai_monthly_cap") return "limit";
     throw e;
   }
   try {
