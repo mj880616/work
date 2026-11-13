@@ -54,7 +54,7 @@ import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 import {dayRowForm} from './weekly-hq-schedule.js'; // S52-31: 5. 주요 일정 줄 제자리 고치기 칸 = 2) 주요 일정과 같은 공용 줄
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, putExtras, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftOwners, draftSiteLayout, readCarriedLayout, changeWeekDocs, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, putExtras, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftOwners, draftSiteLayout, readCarriedLayout, readCarriedPlaces, changeWeekDocs, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
 import {discussLines} from './weekly-discuss.mjs';
 import {rowMore} from './row-more.js';
 import {eventFields, editFrom, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
@@ -62,7 +62,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
-import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, whereOf, TEST_STATUS, readFeedback, readRules, readExtras} from './weekly-feedback.mjs';
+import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, whereOf, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
 import {materialLine} from './weekly-ai-material.mjs';
@@ -73,7 +73,7 @@ import {readStatusRows} from './org-status-table.js'; // DESK-현황표: 담당�
 import {siteLinesFromTable} from './org-status-model.mjs';
 import {readWeekLines} from './weekly-org-lines.js'; // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표 → 4. 1) 산하조직·3. 2) 투쟁 사업장 칸
 import {reportLines as weekReportLines} from './weekly-org-lines-model.mjs';
-import {inSites, SITE_REF_LINE} from './weekly-cell-names.mjs'; // S52-25: 3장에 든 조직은 4장 '참고' 한 줄
+import {inSites, SITE_REF_LINE, sameName} from './weekly-cell-names.mjs'; // S52-25: 3장에 든 조직은 4장 '참고' 한 줄
 import {isOldWeek} from './record-window-model.mjs'; // ORG-기록하나로 O-6: 전환 주(RECORD_ONE_FROM)부터 4. 1)·3. 2)는 조직보고 창 결과
 import {saveReportSnapshot} from './report-snapshot-save.js'; // ORG-기록하나로 O-6: [확정] 성공 직후 그 창 결과 사진
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
@@ -246,7 +246,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   confirmRow.append(confirmBtn, more, confirmState);
   const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = '.hwp,.hwpx'; fileInput.hidden = true; fileInput.dataset.hwpxFile = '';
   fileInput.addEventListener('change', () => { const f = fileInput.files?.[0]; fileInput.value = ''; if (f) void fromFile(f).then(() => onDraft?.(getWeek().start, null)); });
-  host.replaceChildren(confirmRow, status, panel, fileInput);
+  // WEEKLY-사업영역묶음 ①-b: 양식(지난주 확정본)에 자리가 없어 2. 1) 표 끝 새 줄로 넣은 내 사업영역 — 그 이름마다 한 줄 + 칸 고르기(있을 때만).
+  const placeLine = el('div', 'journal-hwpx-place'); placeLine.dataset.hwpxPlace = ''; placeLine.hidden = true;
+  placeLine.addEventListener('change', e => { const sel = e.target.closest?.('select[data-hwpx-place-pick]'); if (sel) pickPlace(sel.dataset.hwpxPlacePick, sel.value); });
+  host.replaceChildren(confirmRow, placeLine, status, panel, fileInput);
   // 5. 주요 일정 줄 제자리 고치기 상태(기기 메모리만): 열린 줄 하나 {start, key, form, focus, saving}, 표 아래 한 줄 {start, text, error}, AI로 다듬기 중.
   let schedEdit = null, schedNote = null, schedAi = false, schedNoteTimer = 0;
   let topEdit = null; // 맨 위 한 줄에서 고치는 칸('me'|'date', 기기 메모리만)
@@ -261,7 +264,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (state?.store) clearTimeout(state.store.timer);
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true;
     schedEdit = null; schedNote = null; schedAi = false; clearTimeout(schedNoteTimer);
-    panel.hidden = true; body.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote();
+    panel.hidden = true; body.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote(); paintPlace();
   }
   // 그 주 바탕을 연다(이미 열려 있으면 그대로). 그 주 임시저장에 바탕 자료가 적혀 있으면 그것을, 없으면 자료실 최신 개인본(없으면 팀 확정본).
   // 반환: 열렸으면 state, 못 열었으면 null(까닭은 상태 줄).
@@ -393,7 +396,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const pkg = await draft.openConfirmed(hwpx);
       const {team, template} = draft.prepareConfirmed(pkg);
       const week = getWeek();
-      const [context, saved, carriedLayout] = await Promise.all([readContext(rt, week.start).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true})), readDraftFor(week.start), readCarriedLayout(week.start, rt)]);
+      const [context, saved, carriedLayout, carriedPlaces] = await Promise.all([readContext(rt, week.start).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true})), readDraftFor(week.start), readCarriedLayout(week.start, rt), readCarriedPlaces(week.start, rt)]);
       if (mine !== run) return;
       const who = draft.resolveMe(team, context.me);
       state = {draft, team, template, source, start:week.start, me:who.me, meFrom:who.from, meResolved:who.me, meResolvedFrom:who.from, date:draft.reportDate(reportDay(week.start)), context,
@@ -403,6 +406,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       // 3. 2) 투쟁 사업장 구성: 이 주 것 > 지난주에서 이어 쓴 것. 이 주에 구성이 생기면(바꾸면) layoutOwn.
       const ownLayout = draftSiteLayout(saved?.row?.draft);
       state.carriedLayout = carriedLayout; state.layout = ownLayout ?? carriedLayout; state.layoutOwn = !!ownLayout;
+      // ①-b 양식에 없는 사업영역의 고른 자리: 이 주 것 > 지난주에서 이어 쓴 것(고르면 이 주 draft.places 로 저장).
+      state.places = readExtras(saved?.row?.draft).places ?? carriedPlaces ?? null; state.placeAsk = [];
       state.hq = draftHq(saved?.row?.draft);
       state.discuss = draftDiscuss(saved?.row?.draft);
       state.owners = draftOwners(saved?.row?.draft); // 사업요약표 담당 칸 직접 쓴 값(미리보기가 씀) — 이 상자는 읽은 그대로 다시 실어 보내고 파일 담당 칸에 넣음
@@ -481,7 +486,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 바탕에 원래 있던 내 줄 수(0이면 '이 이름을 찾지 못했어요' — 더한 줄과 상관없이 이름 확인을 알린다).
     const own = draft.editableRows(state.base, state.me);
     state.ownRows = own.length;
-    state.base = draft.withAreaRows(state.base, draft.missingAreas(own, areaNames()), state.me);
+    state.base = draft.withAreaRows(state.base, draft.missingAreas(own, areaNames(), {places:placesOf(state)}), state.me);
     state.rows = draft.editableRows(state.base, state.me);
     state.orgs = draft.editableOrgs(state.base, 'orgs');
     // ORG-쟁의단계 ②: 투쟁 사업장 표는 쟁의 단계에서 채운다(draft.applySiteStages). 단계를 읽지 못했으면 바탕 그대로.
@@ -954,14 +959,15 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const weekRows = !fresh && orgs0.length ? await readWeekLines({rt, workspaceId:rt.context.read()?.workspace?.id, week:s0.start, orgIds:orgs0.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => s0.context.weekRows ?? null) : null;
     if (state !== s0) throw Object.assign(new Error('주가 바뀌었어요. 다시 눌러 주세요.'), {code:'stale'});
     const siteNames = arrangeSites(siteRows(state), state.layout).shown.map(r => r.org); // S52-25: 3장 구성이 바뀌면 다시 만든다
-    const weekKey = (win ? JSON.stringify([[...win.orgs], [...win.sites]]) : weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames) + (bizRows ? JSON.stringify(bizRows) : '') + (det ? JSON.stringify(det.details) : '');
+    const weekKey = (win ? JSON.stringify([[...win.orgs], [...win.sites]]) : weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames) + (bizRows ? JSON.stringify(bizRows) : '') + (det ? JSON.stringify(det.details) : '') + JSON.stringify(placesOf(state) ?? null);
     if (state.built && state.weekKey === weekKey) return state.built;
     state.weekKey = weekKey;
     const week = win ? applyWindow(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, win) : applyWeekRows(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, weekRows);
     // S52-25 WEEKLY-투쟁사업장참고: 3. 2) 투쟁 사업장 현황에 들어간 조직(구성 순서로 보이는 사업장, 이름 맞추기 = 칸 이름 기준)의 4. 1) 칸은 '참고' 한 줄.
     // 그 조직 칸에 쓴 줄(임시저장·주별 표)은 그대로 두고 파일에만 넣지 않는다. 3장에서 빼면 다음 만들기부터 원래 줄.
     for (const r of state.orgs) if (inSites(siteNames, r.org)) week.orgs.set(r.index, [SITE_REF_LINE]);
-    const sum = bizRows ? draft.applyBizWindow(state.base, state.me, bizRows) : {base:state.base, summary:state.edits.summary, owners:ownerEdits(state)};
+    const sum = bizRows ? draft.applyBizWindow(state.base, state.me, bizRows, {places:placesOf(state)}) : {base:state.base, summary:state.edits.summary, owners:ownerEdits(state), added:[]};
+    state.placeAsk = (sum.added ?? []).filter(n => !Object.keys(placesOf(state) ?? {}).some(k => sameName(k, n))); paintPlace();
     const data = draft.assembleDraft({...sum.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, summary:sum.summary, orgs:week.orgs, sites:week.sites, owners:sum.owners});
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
@@ -1317,6 +1323,35 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const out = new Map(), owners = s.owners ?? {};
     for (const [id, at] of s.cellAt) if (at.section === 'summary') { const text = owners[parseCellId(id).key]; if (text) out.set(at.index, text); }
     return out;
+  }
+  // ---- ①-b 양식에 없는 사업영역 칸 고르기 ----
+  function placesOf(s) { return s?.places?.map ?? null; }
+  function paintPlace() {
+    const s = state && state.start === getWeek().start ? state : null, ask = s?.placeAsk ?? [];
+    placeLine.hidden = !ask.length;
+    if (!ask.length) { placeLine.replaceChildren(); return; }
+    const choices = s.draft.placeChoices(s.base, s.me);
+    placeLine.replaceChildren(...ask.map(name => {
+      const row = el('p', 'journal-hwpx-place-row'); row.dataset.hwpxPlaceRow = name;
+      const sel = el('select'); sel.dataset.hwpxPlacePick = name; sel.setAttribute('aria-label', `${name} 넣을 칸 선택`);
+      const opt = (value, text) => { const o = el('option', '', text); o.value = value; return o; };
+      sel.append(opt('', '칸 선택'), ...choices.map(c => opt(JSON.stringify([c.area, c.task]), `${c.area} › ${c.task}`)), opt('new', '표 끝 새 줄로 두기'));
+      row.append(el('span', 'journal-muted', `${name}: 양식에 자리가 없어 표 끝 새 줄로 넣었어요.`), ' ', sel);
+      return row;
+    }));
+  }
+  function pickPlace(name, value) {
+    const s = state; if (!s || !name || value === '') return;
+    let c = null;
+    try { const [area, task] = value === 'new' ? ['', ''] : JSON.parse(value); c = {area:String(area ?? ''), task:String(task ?? '')}; } catch { return; }
+    if (value !== 'new' && !s.draft.placeChoices(s.base, s.me).some(x => x.area === c.area && x.task === c.task)) return; // 내 양식 줄만
+    s.places = withPlace(s.places, name, c, new Date().toISOString());
+    if (s.store) { s.store.extras = {...(s.store.extras ?? {}), places:s.places}; s.store.dirty = true; }
+    s.placeAsk = (s.placeAsk ?? []).filter(n => !sameName(n, name));
+    const kept = currentDraft(s); rebase(); placeCells(s, kept); s.built = null;
+    if (s.store) void saveDraft(s);
+    paintPlace(); renderEdit();
+    say(value === 'new' ? `${name}은(는) 표 끝 새 줄로 둘게요. 다음 주에도 같아요.` : `${name}을(를) ${c.area} › ${c.task} 칸에 넣을게요. 다음 주에도 같아요.`, 'ok');
   }
   function currentDraft(s) {
     const cells = new Map([...s.cellAt].map(([id, at]) => [id, s.edits[at.section].get(at.index) ?? []]));

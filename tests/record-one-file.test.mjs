@@ -157,7 +157,7 @@ test('B-4 ①: 한글 파일 2. 1)은 화면 사업요약 상자 결과 — 다 
   const hw = read('app/journal-hwpx.js'), jr = read('app/journal.js'), box = read('app/weekly-summary-table.js');
   assert.match(hw, /const biz = fresh \? \(getWeek\(\)\.biz\?\.\(\) \?\? \{status:'loading'\}\) : null;/);
   assert.match(hw, /사업요약표가 아직 다 나오지 않았어요/);
-  assert.match(hw, /draft\.applyBizWindow\(state\.base, state\.me, bizRows\)/);
+  assert.match(hw, /draft\.applyBizWindow\(state\.base, state\.me, bizRows(, \{places:placesOf\(state\)\})?\)/);
   assert.match(jr, /biz:bizFile/);
   assert.match(jr, /bizWeekly\.fileRows\(start\)/);
   assert.match(box, /fileRows:week=>inst\.fileRows\(week\)/);
