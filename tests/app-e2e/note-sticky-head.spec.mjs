@@ -60,7 +60,13 @@ for (const width of [1280, 412]) test(`노트 고치기: 제목 칸과 서식 �
   await expect(pop).toBeVisible();
   const p = await pop.boundingBox(); const shown = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('.ed-pop'), [p.x + p.width / 2, p.y + p.height / 2]);
   expect(shown).toBe(true);
-  await page.keyboard.press('Escape');
+  // 떠 있는 메뉴는 그 단추를 다시 눌러 닫는다(Escape는 PC에서 고치기까지 끝내 읽기 화면이 되므로 쓰지 않는다 — S61-16b).
+  await press(pick); await expect(pop).toBeHidden();
+  // 사진은 고치기 화면 그대로, 긴 노트를 끝까지 내린 상태에서 찍는다: 내린 뒤에도 제목 칸+서식 줄 묶음이 화면 위(붙는 자리)에 보여야 한다.
+  await expect(field.locator('.ed-stick [data-note-title-input]')).toBeVisible();
+  const after = await expectStickyBand(page, field);
+  expect(Math.abs(after.bandTop - stick)).toBeLessThanOrEqual(1);
+  expect(after.titleShown).toBe(true);
   if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-sticky-head-${width}.png`});
   expect(errors).toEqual([]);
 });
