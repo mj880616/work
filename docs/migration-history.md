@@ -231,6 +231,7 @@
 | `20260929081500_task29_block_writes_delete_app_tasks_rows.sql` | 적용 완료(사용자 보고, 2026-09-29 SQL Editor) | TASK-29 #360·#361 merge 뒤 새 쿼리 창에서 적용. 사용자 보고 사후 확인: `app_tasks` 0행, `authenticated` SELECT만 허용, migration 기록 1행. 첫 실행은 편집기에 남아 있던 옛 쿼리가 실행되어 이 migration이 미적용이었고, 당시 운영 변화 없음 확인 후 새 쿼리 창에서 재실행. 이 문서 갱신 세션은 DB를 재조회하지 않았다. |
 | `20260929072329_task29_delete_app_tasks_rows.sql` | 미적용 | #359의 구 파일은 #360에서 저장소에서 제거하고 `20260929081500`으로 대체. 사용자 보고 기준 production 기록 없음. |
 | `20261113110000_profile_view_prefs_note_zoom.sql` | 미적용(S61-16 NOTE-내용확대축소 DB PR 열림 — CC가 merge 뒤 승인형 DB workflow로 dry-run → apply. 앞 단계 `20261110170000_profile_view_prefs_biz_week_open` 기록 필요, 없으면 멈춤) | S61-16 NOTE-내용확대축소(요청함 11/12 14:34). `app_profiles_view_prefs_check`를 biz_week_open 판 글자 그대로 다시 만들며 `note_zoom`(80·90·100·110·125·150 중 하나인 숫자) 한 칸만 더함. 권한·정책·RLS·새 열 없음. 짝 파일 5개 `docs/20261113110000_profile_view_prefs_note_zoom.*`. 적용 전에는 화면이 이번 접속만 기억 |
+| `20261113140000_workspace_signup_allow.sql` | 미적용(CC V61 — merge 뒤 승인형 DB workflow로 dry-run → apply) | MULTI-가입명단(★급★). 새 표 `app_workspace_signup_allow`(email·kind operator/self_start, RLS 켬·정책 없음·API 권한 없음, SQL로만), 역할 트리거 함수의 고정 운영자 메일을 표로 옮김(저장소에 메일 없음), self_start 명단 사람만 빈 새 작업공간에서 owner, `app_workspace_start()`는 명단 밖이면 SIGNUP_NOT_LISTED, `app_workspace_start_status()` open은 명단·기존 owner에게만. 스위치·명단은 비운 채. 짝 파일 5개(되돌리기는 SQL Editor, 명단 표는 남김) |
 
 아래 ENV-2 집계는 당시 조사값이며 위 후속 적용을 소급 포함하지 않는다.
 
