@@ -56,7 +56,7 @@ const menuQuery=mobileQuery;
 const appNav=document.querySelector('#appView>.app-nav');
 // BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','calendar','note','meetings','library','files','pages','team','hwp','ledger','photos','outside','calls','telegram','arsenal'];
+const ALL_KEYS=['home','basket','calendar','note','meetings','library','files','brief','pages','team','hwp','ledger','photos','outside','calls','telegram','arsenal'];
 const keyButton=key=>appNav?.querySelector(key==='note'?'.nav-btn[data-basket-kind-nav="note"]':`.nav-btn[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 // UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
