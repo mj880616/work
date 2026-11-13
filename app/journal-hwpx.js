@@ -249,7 +249,19 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // WEEKLY-사업영역묶음 ①-b: 양식(지난주 확정본)에 자리가 없어 2. 1) 표 끝 새 줄로 넣은 내 사업영역 — 그 이름마다 한 줄 + 칸 고르기(있을 때만).
   const placeLine = el('div', 'journal-hwpx-place'); placeLine.dataset.hwpxPlace = ''; placeLine.hidden = true;
   placeLine.addEventListener('change', e => { const sel = e.target.closest?.('select[data-hwpx-place-pick]'); if (sel) pickPlace(sel.dataset.hwpxPlacePick, sel.value); });
-  host.replaceChildren(confirmRow, placeLine, status, panel, fileInput);
+  // WEEKLY-주간정리다듬기 ⑥(시안 docs/design/mockups/weekly-tidy.html ③): 확정한 주에만 확정 줄 아래 두 줄 —
+  // ① Web2가 만든 파일(확정 시각) · ② 내가 수정한 최종본(한글에서 수정한 파일을 끌어 놓거나 [올리기]). ②를 올리면 그 주 자료실 개인 확정본을 그 파일로 바꾼다
+  // (같은 자료의 새 판 — Web2가 만든 판은 30일 동안 [이전 파일], 다음 주 바탕 = 이 판). 그 주 행 draft.confirmed.final = {at, file_name}(서버).
+  // ①↔② 비교·학습은 서버 쪽(S61-43 주간보고 자동화)이 맡는다 — 여기서는 올리기와 저장까지.
+  const finalLine = el('div', 'journal-hwpx-final'); finalLine.dataset.hwpxFinal = ''; finalLine.hidden = true;
+  const finalInput = el('input'); finalInput.type = 'file'; finalInput.accept = '.hwp,.hwpx'; finalInput.hidden = true; finalInput.dataset.hwpxFinalFile = '';
+  let finalBusy = false;
+  finalInput.addEventListener('change', () => { const f = finalInput.files?.[0]; finalInput.value = ''; if (f) void upFinal(f); });
+  finalLine.addEventListener('click', e => { if (e.target.closest?.('[data-hwpx-final-pick]') && !finalBusy) finalInput.click(); });
+  finalLine.addEventListener('dragover', e => { if (finalBusy || !e.dataTransfer?.types?.includes?.('Files')) return; e.preventDefault(); finalLine.classList.add('is-over'); });
+  finalLine.addEventListener('dragleave', () => finalLine.classList.remove('is-over'));
+  finalLine.addEventListener('drop', e => { finalLine.classList.remove('is-over'); const f = e.dataTransfer?.files?.[0]; if (!f || finalBusy) return; e.preventDefault(); void upFinal(f); });
+  host.replaceChildren(confirmRow, finalLine, placeLine, status, panel, fileInput, finalInput);
   // 5. 주요 일정 줄 제자리 고치기 상태(기기 메모리만): 열린 줄 하나 {start, key, form, focus, saving}, 표 아래 한 줄 {start, text, error}, AI로 다듬기 중.
   let schedEdit = null, schedNote = null, schedAi = false, schedNoteTimer = 0;
   let topEdit = null; // 맨 위 한 줄에서 고치는 칸('me'|'date', 기기 메모리만)
@@ -333,6 +345,49 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const week = getWeek(), d = week.row?.draft ?? null, c = (state && state.start === week.start ? state.store?.confirmed : null) ?? d?.confirmed ?? null;
     confirmState.textContent = c?.at ? `${mdhm(c.at)} 확정 · 다시 누르면 새 판` : '확정 전';
     confirmBtn.disabled = !!state?.confirming;
+    paintFinal(c);
+  }
+  // ⑥ 확정 줄 아래 ①·② 두 줄(확정한 주에만).
+  function paintFinal(c) {
+    finalLine.hidden = !c?.document_id;
+    if (finalLine.hidden) { finalLine.replaceChildren(); return; }
+    const made = el('p', 'journal-hwpx-final-row');
+    made.append(el('b', '', '① Web2가 만든 파일'), ` ${mdhm(c.at)}${c.final ? ' · 이전 판' : ''}`);
+    const mine = el('p', 'journal-hwpx-final-row'); mine.dataset.hwpxFinalMine = '';
+    const pick = button(c.final ? '다시 올리기' : '올리기', 'hwpxFinalPick', 'row-act'); pick.disabled = finalBusy;
+    if (c.final) { mine.dataset.hwpxFinalDone = ''; mine.append(el('b', '', '② 내가 수정한 최종본'), ` ${c.final.file_name} · ${mdhm(c.final.at)} — 이번 주 확정본 `, pick); }
+    else mine.append(el('b', '', '② 내가 수정한 최종본'), ' 한글에서 수정한 파일을 끌어 놓거나 ', pick);
+    finalLine.replaceChildren(made, mine);
+  }
+  async function upFinal(file) {
+    const week = getWeek(), s = state && state.start === week.start ? state : null;
+    const c = (s ? s.store?.confirmed : null) ?? week.row?.draft?.confirmed ?? null;
+    if (!c?.document_id || finalBusy) return;
+    const {draft, drive} = await lazy();
+    if (!drive.isHwpName(file.name)) { say(TEXT.notHwp, 'error'); return; }
+    if (file.size > MAX_BYTES) { say(TEXT.tooBig, 'error'); return; }
+    const bytes = new Uint8Array(await file.arrayBuffer()), kind = draft.hwpKind(bytes);
+    if (!kind) { say(TEXT.notHwp, 'error'); return; }
+    if (kind !== 'hwpx' && draft.hwp5Header(bytes)?.password) { say(TEXT.locked, 'error'); return; }
+    const anchor = finalLine.querySelector('[data-hwpx-final-pick]') ?? finalLine;
+    if (!await askConfirm(anchor, {text:`"${file.name}"을(를) 이번 주 개인 확정본으로 저장할까요?`, note:'Web2가 만든 판은 30일 동안 자료실 [이전 파일]에 남고, 다음 주 바탕은 이 파일이 돼요.', ok:'저장'})) return;
+    if (getWeek().start !== week.start) return;
+    finalBusy = true; paintConfirm(); say('수정한 최종본을 자료실에 저장하는 중…');
+    try {
+      let result = await drive.replaceWeeklyReport(bytes, {fileName:file.name, documentId:c.document_id}, {rt});
+      if (result.kind === 'gone') result = await drive.saveWeeklyReport(bytes, {fileName:file.name, title:fileNameTitle(file.name), documentDate:reportDay(week.start)}, {rt});
+      if (result.kind !== 'created' && result.kind !== 'replaced') { say(`자료실에 저장하지 못했어요 — ${result.message}`, 'error'); return; }
+      const next = {document_id:String(result.document?.id || c.document_id), at:c.at, final:{at:new Date().toISOString(), file_name:String(file.name).slice(0, 200)}};
+      const open = state && state.start === week.start ? state : null;
+      if (open?.store) { open.store.confirmed = next; open.store.dirty = true; clearTimeout(open.store.timer); await saveDraft(open); }
+      else {
+        const r = await changeWeekDocs({start:week.start, known:week.row ?? null, change:d => ({...(d ?? {}), confirmed:next})}, rt);
+        if (r.missing) { say('자료실에는 저장했지만 임시저장 칸이 아직 준비되지 않아 기록하지 못했어요.', 'error'); return; }
+        onDraft?.(week.start, r.row);
+      }
+      say('수정한 최종본을 이번 주 개인 확정본으로 저장했어요. 다음 주 바탕이 돼요.', 'ok');
+    } catch { say('자료실에 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', 'error'); }
+    finally { finalBusy = false; paintConfirm(); }
   }
 
   // pinned: the confirmed report the week's draft was made on ([이어서 고치기] opens the same one again).
