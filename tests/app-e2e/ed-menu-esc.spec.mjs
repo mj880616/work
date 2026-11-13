@@ -77,13 +77,16 @@ test('PC 노트 고치기: 표 칸 메뉴가 열린 채 Esc → 표 칸 메뉴�
   await cell.click({button: 'right'});
   const ctx = field.locator('.ed-ctx:not([hidden]), [role="menu"]:not([hidden])').first();
   await expect(ctx).toBeVisible();
+  // 묻는 창(#kptuAskText)이 잠깐이라도 생기면 기록한다(표 칸 메뉴 단추에 붙어 보이지 않게 뜨는 경우도 잡는다).
+  await page.evaluate(() => { window.__askSeen = false; new MutationObserver(() => { if (document.querySelector('#kptuAskText')) window.__askSeen = true; }).observe(document.body, {childList: true, subtree: true}); });
   await page.keyboard.press('Escape');
   await expect(ctx).toBeHidden();
   await expect(pm).toBeVisible();
   await expect(pm.locator('table')).toHaveCount(1);
   // 바꾼 내용(표)이 있어도 '저장하지 않고 돌아갈까요?' 묻는 창이 뜨면 안 된다(Esc가 노트 화면까지 가지 않았다).
   await page.waitForTimeout(300);
-  await expect(page.getByText('수정하던 내용을 저장하지 않고')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__askSeen)).toBe(false);
+  await expect(page.locator('#kptuAskText')).toHaveCount(0);
   // 메뉴가 닫힌 뒤의 Esc는 지금처럼 고치기 끝내기 → 바꾼 내용이 있으니 묻는 창이 뜬다.
   await pm.click();
   await page.keyboard.press('Escape');
