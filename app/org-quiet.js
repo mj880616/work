@@ -1,6 +1,7 @@
 // FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: 홈 '연락 없는 조직' 줄의 유일한 renderer(설계 docs/design/feature-bundle-1029.md 3절, 시안 mockups/org-quiet-line.html).
 // 줄: '3주째 연락 없음: 가지부 25일 · 나지부 40일 · 다분회 62일 외 2곳 ›'. 이름을 누르면 그 담당조직 상세, ›를 누르면 조직마다 '마지막 · 통화 10.3'.
-// - 무엇을 '연락'으로 세는지는 org-quiet-model.mjs(명진 결정 10/29): 주요 인물과의 통화, 텔레그램에서 내가 묻고 그쪽이 답한 것만.
+// - 무엇을 '연락'으로 세는지는 org-quiet-model.mjs(명진 결정 10/29·11/13): 주요 인물과의 통화, 텔레그램 단체방에서 내가 묻고 그쪽이 답한 것,
+//   1:1 방(app_feed_rooms.chat_kind='user')에서 그쪽이 직접 쓴 글이 있는 날.
 // - 내 담당조직만(my-organizations.js selectMyOrganizations). 담당 지정이 없어 전체로 물러난 경우(fallback)에는 줄을 그리지 않는다.
 // - 읽기는 모두 로그인 토큰 REST(소유자 RLS 그대로): 담당조직·담당 행, 주요 인물(app_org_key_people), 업무 통화(손 고침 반영. 개인 통화함은 설계 3.2대로 읽지 않음),
 //   텔레그램 보낸 사람 이름표(tg-sender-data.js), 그리고 '나'와 주요 인물이 함께 있는 방·날의 원문만. 새 표·새 함수·AI 없음(비용 0원).
@@ -12,7 +13,7 @@ import {readRecordPages} from './basket-link-records.js';
 import {readCallEdits} from './feed-data.js';
 import {readSenders} from './tg-sender-data.js';
 import {applyCallEdit, missingTable, kstDay, telegramLines} from './feed-model.mjs';
-import {weeksOf, addDays, LOOKBACK_DAYS, talkDays, splitKey, orgsOfPeople, lastCallDays, answeredBy, mergeLast, quietList, daysText, lastText, headParts} from './org-quiet-model.mjs';
+import {weeksOf, addDays, LOOKBACK_DAYS, talkDays, splitKey, orgsOfPeople, lastCallDays, contactedBy, directRooms, mergeLast, quietList, daysText, lastText, headParts} from './org-quiet-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const enc = encodeURIComponent;
@@ -43,6 +44,11 @@ async function readCalls(rt, ws, from) {
     readCallEdits(rt).catch(error => { if (missingTable(error)) return null; throw error; })]);
   return (work || []).map(r => edits?.get?.(r.id) ? applyCallEdit(r, edits.get(r.id)) : r);
 }
+// 1:1 방 열쇠(방 종류는 서버 app_feed_rooms.chat_kind, 소유자 RLS 읽기). 표가 아직 없으면 빈 Set(모든 방을 단체방 규칙으로).
+async function readDirect(rt, ws) {
+  try { return directRooms(await readRecordPages(`/rest/v1/app_feed_rooms?workspace_id=eq.${enc(ws)}&chat_kind=eq.user&select=room_key,chat_kind&order=room_key.asc`, rt)); }
+  catch (error) { if (missingTable(error)) return new Set(); throw error; }
+}
 // 그 방의 그 날들 원문(지운 소식 제외). Map('방\0날' → 줄 목록).
 async function readRaw(rt, ws, list) {
   const byRoom = new Map();
@@ -72,8 +78,8 @@ export async function computeQuiet(rt = window.KPTURuntime, weeks = weeksOf(view
     const orgs = await readMine(rt, ws), mineIds = new Set(orgs.map(o => o.id));
     const people = everyone.filter(p => mineIds.has(p.organization_id));
     if (!people.length) return null;
-    const [calls, senders] = await Promise.all([readCalls(rt, ws, from), readSenders(rt)]);
-    const callDays = lastCallDays(calls, people), talks = talkDays(senders, people, from), orgsOf = orgsOfPeople(people);
+    const [calls, senders, direct] = await Promise.all([readCalls(rt, ws, from), readSenders(rt), readDirect(rt, ws)]);
+    const callDays = lastCallDays(calls, people), talks = talkDays(senders, people, from, direct), orgsOf = orgsOfPeople(people);
     const best = new Map(callDays), tgDays = new Map(), unsure = new Set();
     const bump = (org, day) => { if (!best.has(org) || best.get(org) < day) best.set(org, day); if (!tgDays.has(org) || tgDays.get(org) < day) tgDays.set(org, day); };
     // 방·날마다 그 날 이름표에 있는 주요 인물의 조직. 최신 날부터 본다(기준 안부터 확인됨).
@@ -100,7 +106,7 @@ export async function computeQuiet(rt = window.KPTURuntime, weeks = weeksOf(view
       const raw = await readRaw(rt, ws, batch);
       for (const c of batch) {
         const labels = talks.get(c.key);
-        for (const pid of answeredBy(raw.get(c.key) || [], label => labels.get(label) || null)) for (const org of orgsOf.get(pid) || []) bump(org, c.day);
+        for (const pid of contactedBy(raw.get(c.key) || [], label => labels.get(label) || null, direct.has(c.room_key))) for (const org of orgsOf.get(pid) || []) bump(org, c.day);
       }
     }
     return quietList({orgs, people, last:mergeLast(callDays, tgDays), unsure, today, weeks});

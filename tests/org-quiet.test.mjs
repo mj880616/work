@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {isQuestion, answeredBy, talkDays, lastCallDays, mergeLast, quietList, daysText, lastText, headParts, weeksOf, addDays, daysBetween, WEEK_CHOICES} from '../app/org-quiet-model.mjs';
+import {isQuestion, answeredBy, wroteBy, contactedBy, directRooms, talkDays, lastCallDays, mergeLast, quietList, daysText, lastText, headParts, weeksOf, addDays, daysBetween, WEEK_CHOICES} from '../app/org-quiet-model.mjs';
 import {telegramLines} from '../app/feed-model.mjs';
 import {validValue} from '../app/view-prefs.js';
 
@@ -112,4 +112,38 @@ test('화면: org-quiet.js가 줄의 유일한 renderer, 기기 저장·AI 없�
   assert.match(home, /mountOrgQuiet\(root\.querySelector\('\[data-home-quiet\]'\)\)/);
   const prof = readFileSync(new URL('../app/profile-status.js', import.meta.url), 'utf8');
   assert.match(prof, /viewPrefs\.set\('quiet_weeks', w, \{rejectable: true\}\)/);
+});
+
+// ORG-연락없음1대1수집(11/13 명진 결정): 1:1 방은 상대(주요 인물)가 그 날 직접 쓴 글이 있으면 연락. 단체방은 묻고 → 답 그대로.
+test('1:1 방: 상대가 직접 쓴 글이 있는 날만 연락, 단체방은 지금 규칙', () => {
+  const who = {A:{self:true, people:[]}, B:{self:false, people:['p1']}};
+  const of = l => who[l] || null;
+  const L = raw => telegramLines(raw);
+  // 1:1 상대가 먼저 쓰고 내가 답함 → 셈
+  assert.deepEqual(contactedBy(L('09:00 B: 다음 주 3차 교섭 공지\n09:05 A: 확인했어요'), of, true), ['p1']);
+  // 1:1 나만 보냄(질문해도) → 안 셈
+  assert.deepEqual(contactedBy(L('09:00 A: 상황 어때요?\n09:05 A: 자료 보냅니다'), of, true), []);
+  // 1:1 상대 전달 글만·빈 글만 → 안 셈
+  assert.deepEqual(contactedBy(L('09:00 B (전달): 공문 원문\n09:05 A: 고맙습니다'), of, true), []);
+  assert.deepEqual(wroteBy([{at:'09:00', who:'B', forwarded:false, text:'  '}], of), []);
+  // 1:1 상대만 말함(내 글 없음) → 셈
+  assert.deepEqual(contactedBy(L('21:00 B: 내일 뵙겠습니다'), of, true), ['p1']);
+  // 단체방: 상대만 말함·상대가 먼저 알리고 내가 답함 → 안 셈(지금 규칙 유지)
+  assert.deepEqual(contactedBy(L('09:00 B: 다음 주 3차 교섭 공지'), of, false), []);
+  assert.deepEqual(contactedBy(L('09:00 B: 다음 주 3차 교섭 공지\n09:05 A: 확인했어요'), of, false), []);
+  assert.deepEqual(contactedBy(L('09:00 A: 언제 해요?\n09:10 B: 다음 주요'), of, false), ['p1']);
+});
+
+test('1:1 방 고르기: 방 종류 user만, 1:1 방은 나 없이 상대만 있는 날도 남김', () => {
+  const direct = directRooms([{room_key:'1001', chat_kind:'user'}, {room_key:'-2002', chat_kind:'group'}, {room_key:'-1003', chat_kind:null}, {chat_kind:'user'}]);
+  assert.deepEqual([...direct], ['1001']);
+  const senders = {
+    senders:[{id:'s0', name:null, auto_name:'나', is_self:true}, {id:'s1', name:'나철수', auto_name:'철수', is_self:false}],
+    links:[
+      {room_key:'1001', day:'2026-10-20', label:'A', sender_id:'s1'}, // 1:1, 상대만 → 남김
+      {room_key:'-2002', day:'2026-10-20', label:'A', sender_id:'s1'}, // 단체방, 나 없음 → 뺌
+      {room_key:'-1003', day:'2026-10-20', label:'A', sender_id:'s1'}, // 종류 모름 → 단체방 규칙 → 뺌
+    ]};
+  assert.deepEqual([...talkDays(senders, people, '2026-05-01', direct).keys()], ['1001\u00002026-10-20']);
+  assert.equal(talkDays(senders, people, '2026-05-01').size, 0); // 1:1 목록 없으면 지금과 같음
 });
