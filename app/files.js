@@ -2218,7 +2218,7 @@ async function renameRow(r, anchor) {
     const to = await pcOp(() => pc.rename(r.item_id, name), '이름 바꾸는 중');
     if (!to) return;
     await phoneRefresh([pcParent(r.item_id)], {source: PC, gone: [rowKey(r)]}); pcRenamed(r, to);
-    notify(writeDoneText('rename'), {record: false, label, undo: async () => {
+    notify(writeDoneText('rename'), {label, undo: async () => {
       const back = await pc.rename(to, r.name);
       await phoneRefresh([pcParent(back)], {source: PC, gone: [rowKey({source: PC, item_id: to})]}); pcRenamed({...r, item_id: to}, back);
       return {status: 'restored'};
@@ -2230,7 +2230,7 @@ async function renameRow(r, anchor) {
     if (!d) return;
     const dir = phoneParent(r.item_id), now = (dir ? dir + '/' : '') + name;
     await phoneRefresh([dir], {gone: [rowKey(r)]});
-    notify(writeDoneText('rename'), {record: false, label, undo: async () => {
+    notify(writeDoneText('rename'), {label, undo: async () => {
       const b = await phone.op({op: 'rename', path: now, name: r.name});
       if (!b?.ok) return false;
       await phoneRefresh([dir], {gone: [rowKey({source: PH, item_id: now})]});
@@ -2241,7 +2241,7 @@ async function renameRow(r, anchor) {
   const d = await write('rename', {source: r.source, id: r.item_id, name}, '이름 바꾸는 중');
   if (!d) return;
   await applyWrite(d, touchedFolders([r]));
-  notify(writeDoneText('rename'), {record: false, label, undo: async () => {
+  notify(writeDoneText('rename'), {label, undo: async () => {
     const b = await rt().api(FN, {method: 'POST', body: {action: 'rename', source: r.source, id: r.item_id, name: r.name, confirm: true}, singleFlight: false, timeoutMs: 60000});
     await applyWrite(b, touchedFolders([r]));
     return {status: 'restored'};
@@ -2649,6 +2649,7 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
   if (state.scope !== scope) return true;
   const note = run.failed && run.code ? (run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : writeErrorText(run.code))
     : run.code === 'kept_original' ? writeDoneText('across', {kept: true}) : run.pending ? '원드라이브가 마저 복사하는 중이에요. 끝나면 곧 목록에 보여요.' : '';
+  // FILE-옮긴뒤CtrlZ: [되돌리기]가 뜨는 알림은 Ctrl+Z 기록에도 오른다(단추와 같은 undo 하나, small-notice.js). 단추가 없는 일(다른 저장소로 보내기·전송 목록·폰 휴지통)은 record:false 그대로.
   // S51-20 ③: 같은 저장소 안 옮기기는 [되돌리기] — 옮긴 것을 원래 폴더로 다시 move(이름에 번호가 붙은 것은 빼고, 사람이 누른 것만).
   const back = mode === 'move' && run.done && !run.failed && !run.pending ? batch.filter(r => !numbered.has(rowKey(r))) : [];
   const undo = back.length ? async () => {
@@ -2661,7 +2662,7 @@ async function xferRun(mode, rows, dest, {inSheet = false} = {}) {
     }
     return {status: 'restored'};
   } : null;
-  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped: toJobs.length ? 0 : skipped}), {error: !!run.failed, note, record: false, ...(undo ? {undo, label: `옮기기 ${back.length}개`} : {})});
+  notify(xferDoneText(mode, {done: run.done, failed: run.failed, skipped: toJobs.length ? 0 : skipped}), {error: !!run.failed, note, ...(undo ? {undo, label: `옮기기 ${back.length}개`} : {record: false})});
   return true;
 }
 // ---------- 폴더째 다른 저장소로(S52-43 ② FILES-저장소사이, 원드라이브 ↔ 구글 드라이브) ----------
@@ -3420,7 +3421,7 @@ async function pcInPcRun(list, dest, mode) {
     await phoneRefresh([dest.parent, ...back.map(r => r.parent_id)], {source: PC, gone: back.map(r => rowKey({source: PC, item_id: r.to}))});
     return bad ? false : {status: 'restored'};
   } : null;
-  notify(xferDoneText(mode, {done: run.done, skipped}), {record: false, ...(undo ? {undo, label: `옮기기 ${back.length}개`} : {})});
+  notify(xferDoneText(mode, {done: run.done, skipped}), undo ? {undo, label: `옮기기 ${back.length}개`} : {record: false});
 }
 // 클라우드 파일 → 내 PC 폴더: 파일(폴더는 xferRun이 treeDev로 — S53-8, 구글 문서·크기 모름은 xferPlan이 거름). 같은 이름은 한 번 묻고 [그래도 하기]면 문이 '이름 (2)'로 둘 다 둔다(덮어쓰기 없음).
 //   하나씩 차례로: Edge media로 받은 바이트를 문에 4MB씩 새 파일로 쓴다(화면이 열린 동안). 옮기기면 다 쓴 것만 그 클라우드 휴지통으로.
