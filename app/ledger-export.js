@@ -14,10 +14,17 @@ const rt = window.KPTURuntime;
 const STATUS = '/functions/v1/drive-summary?action=ledger_status';
 const EXPORT = '/functions/v1/drive-summary?action=ledger_export';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// MULTI-다른담당자맞춤 ④: 작업공간 이름 대신 '내 작업공간 owner'로 켜고, Claude용 Drive 사본을 만들 수 있는지는 서버가 정한다.
+// drive-summary가 403(사본 Drive가 있는 작업공간의 owner가 아님)이면 이 로그인 동안 끈다(줄·요청 없음). 로그인이 바뀌면 다시 묻는다.
+let denied = null; // 403을 받은 로그인·작업공간 범위
+const scopeOf = () => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const isOwner = () => {
   const c = rt?.context?.read?.(), s = rt?.session?.read?.();
-  return !!s?.access_token && c?.user?.id === s?.user?.id && c?.workspace?.slug === 'kptu-work' && c?.membership?.role === 'owner';
+  return !!s?.access_token && c?.user?.id === s?.user?.id && c?.membership?.role === 'owner' && denied !== scopeOf();
 };
+// drive-summary의 403은 '이 작업공간에는 허용 안 됨'뿐이다(FORBIDDEN 등. Drive 실패는 502). 앱의 fetch 감싸기가 403 본문을
+// '권한 확인 실패' 문구로 바꿀 수 있어 코드가 아니라 상태 번호로 본다.
+const noteDenied = error => { if (Number(error?.status) === 403) denied = scopeOf(); };
 const when = at => formatSeoulTime(at, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 const day = at => formatSeoulTime(at, { month: 'numeric', day: 'numeric' });
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.+]+(Z|[+-]\d{2}:?\d{2})?$/;
@@ -26,7 +33,7 @@ let status = null, lastChangeAt = null, busy = false, lastCheck = 0, lastAttempt
 
 async function readStatus() {
   try { status = ledgerFromStatus(await rt.api(STATUS, { refreshSession: false, singleFlight: false, timeoutMs: 30000 })); }
-  catch { status = null; }
+  catch (error) { noteDenied(error); status = null; }
   return status;
 }
 // 원장이 마지막으로 바뀐 시각(기록의 가장 늦은 updated_at, owner RLS 읽기). 못 읽으면 null(옛 7일 규칙만).
@@ -45,7 +52,7 @@ async function runExport() {
   lastAttempt = Date.now();
   let result;
   try { result = exportResult(await rt.api(EXPORT, { method: 'POST', refreshSession: false, singleFlight: false, timeoutMs: 150000 })); }
-  catch { result = exportResult(null); }
+  catch (error) { noteDenied(error); result = exportResult(null); }
   return result;
 }
 function once(job) {
