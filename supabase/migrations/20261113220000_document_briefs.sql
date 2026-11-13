@@ -1,12 +1,12 @@
 begin;
 -- BRIEF-브리핑룸 PR ①(DB만, S61-45). 설계 docs/design/brief-room.md 3절, 시안 docs/design/mockups/brief-room.html(#2542).
--- 자료 하나의 브리핑 작업 = 한 행. 서버(Edge ai-assist 브리핑 길)가 글 읽기 → 조각 정리 → 합치기를 한 단계씩 이어 가고,
+-- 자료 하나의 브리핑 작업 = 한 행. 서버(Edge document-actions 브리핑 길)가 글 읽기 → 조각 정리 → 합치기를 한 단계씩 이어 가고,
 -- 진행·결과(다섯 칸 브리핑)를 이 행에 둔다. 끝까지 읽은 글(source_text)은 작업 중에만 두고 끝나면 비운다.
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다(이 브랜치는 적용 직전 정지).
 --
 -- 권한(서버 정리 작업 표 20261103170000과 같은 모양): 새 표 1개만. 기존 표의 권한·정책·칸은 건드리지 않는다.
 --   authenticated: 작업공간 소유자(private.app_is_workspace_owner)만 읽기. 넣기·고치기·지우기 없음(화면이 브리핑 결과를 직접 쓰지 못함).
---   service_role(Edge ai-assist 브리핑 길만 씀): 읽기 + 넣기(정한 칸) + 진행 칸 고치기(정한 칸). 지우기 없음.
+--   service_role(Edge document-actions 브리핑 길만 씀): 읽기 + 넣기(정한 칸) + 진행 칸 고치기(정한 칸). 지우기 없음.
 --   anon·PUBLIC: 없음.
 -- 같은 자료(document_id)에 진행 중 작업은 하나만(부분 유일 색인). 자료 행이 지워지면 브리핑 행도 지운다(on delete cascade).
 -- 안 하는 것: 함수·트리거·예약 실행(pg_cron)·기존 표·기존 자료 변경. 읽생기 표는 건드리지 않는다.

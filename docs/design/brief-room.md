@@ -45,7 +45,7 @@
 권한(넓히지 않음):
 
 - authenticated: 작업공간 owner(`private.app_is_workspace_owner`)만 **읽기**. 넣기·고치기·지우기 없음 → 화면이 브리핑 결과를 직접 쓸 수 없고, 인용 대조를 건너뛴 글이 저장되지 않는다.
-- service_role(Edge `ai-assist` 브리핑 길만): 읽기 + 정한 칸 넣기·고치기. 지우기 없음.
+- service_role(Edge `document-actions` 브리핑 길만): 읽기 + 정한 칸 넣기·고치기. 지우기 없음.
 - anon·PUBLIC 없음. 같은 자료에 진행 중 작업은 하나(부분 유일 색인).
 - 함수·트리거·예약 실행·기존 표 변경 없음.
 
