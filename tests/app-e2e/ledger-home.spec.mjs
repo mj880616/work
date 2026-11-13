@@ -111,6 +111,8 @@ async function mockApp(page,{server=true,many=false}={}){
    return ok(out);
   }
   if(path==='/rest/v1/rpc/app_undo_ledger_fix'){db.undo.push(request.postDataJSON());return ok({status:'undone'});}
+  // MULTI-다른담당자맞춤 ④: 운영자 기능 목록(app_my_features)은 GET 읽기라 쓰기 검사에서 뺀다(수집 줄을 그릴지 정함).
+  if(path==='/rest/v1/rpc/app_my_features'&&request.method()==='GET')return ok([]);
   if(path.startsWith('/rest/v1/rpc/')){db.posts.push(path);return ok(null);}
   if(path==='/rest/v1/app_ledger_records'){
    const rows=filterRecords(url);
