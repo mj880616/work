@@ -33,6 +33,18 @@ const BIG = [
 const SUB = /^\d\)(.{1,28})$/;
 const SUB_WORDS = ['요약', '세부내용', '집회', '농성', '투쟁사업장', '참고자료', '요청', '주요일정'];
 const bigHeading = h => { for (const [re, section] of BIG) if (re.test(h)) return {section}; return null; };
+// 한 줄이 절 제목인가: 큰 제목 {kind:'big', section}(5절은 section null) · 작은 제목 {kind:'sub', schedule} · 아니면 null.
+// weeklyLines 와 weekly-layout.mjs(고친 판 모양 읽기)가 같은 규칙으로 절을 나눈다.
+export function headingOf(line) {
+  const h = flat(oneLine(line));
+  const big = bigHeading(h);
+  if (big) return {kind: 'big', section: big.section};
+  const sub = SUB.exec(h);
+  if (sub && SUB_WORDS.some(w => sub[1].includes(w))) return {kind: 'sub', schedule: sub[1].includes('주요일정')};
+  return null;
+}
+// 절 제목·양식 글자·너무 짧은 줄이 아닌 '글 줄'인가(비교용 글자 2자 이상, 표 머리 칸 이름 아님).
+export const isTextLine = line => { const key = squashLine(oneLine(line)); return [...key].length >= 2 && !FORM_KEYS.has(key); };
 
 // 글(문단마다 한 줄) → 절 안의 글 줄 [{section, text}]. 절 제목·양식 글자·너무 짧은 줄은 뺀다. 첫 큰 제목 앞(문서 제목·날짜)과 5절은 읽지 않는다.
 export function weeklyLines(text) {
@@ -41,14 +53,11 @@ export function weeklyLines(text) {
   for (const raw of String(text ?? '').split(/\r?\n/)) {
     const line = oneLine(raw);
     if (!line) continue;
-    const h = flat(line);
-    const big = bigHeading(h);
-    if (big) { section = big.section; skipSub = false; continue; }
-    const sub = SUB.exec(h);
-    if (sub && SUB_WORDS.some(w => sub[1].includes(w))) { skipSub = sub[1].includes('주요일정'); continue; }
+    const head = headingOf(line);
+    if (head?.kind === 'big') { section = head.section; skipSub = false; continue; }
+    if (head) { skipSub = head.schedule; continue; }
     if (!section || skipSub) continue;
-    const key = squashLine(line);
-    if ([...key].length < 2 || FORM_KEYS.has(key)) continue;
+    if (!isTextLine(line)) continue;
     out.push({section, text: line});
     if (out.length >= WEEKLY_MAX_LINES) break;
   }

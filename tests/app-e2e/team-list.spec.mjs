@@ -15,7 +15,7 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
   await page.setViewportSize({width,height:900});await page.goto(url);
   // UI-디자인손질 3: the "N개 담당조직" line is gone; the groups keep their own "N곳".
   await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(16);await expect(page.locator('#soOrgCount')).toHaveCount(0);
-  await expect(page.locator('.so-group-heading')).toHaveText(['철도1곳','지하철4곳','민자철도4곳','민간도시철도4곳','그 외3곳']);
+  await expect(page.locator('.so-group-heading')).toHaveText(['철도1곳','지하철4곳','민자철도4곳','민간도시철도4곳','그 외2곳','제외한 조직1곳']);
   await expect(page.locator('#soOrganizationList .sof-type')).toHaveCount(0);
   const rail=page.locator('[data-so-org="ord-5"]');
   // Before the read answers the dot stays empty and the name is the whole accessible label.
@@ -29,8 +29,8 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
   expect(await rail.locator('.kptu-list-row-main > *').evaluateAll(xs=>xs.map(x=>x.className))).toEqual(['so-dot','kptu-list-name','so-chevron kptu-list-chevron']);
   const layout=await rail.evaluate(el=>({height:el.getBoundingClientRect().height,padding:getComputedStyle(el).paddingLeft}));
   expect(layout.height).toBe(44);expect(layout.padding).toBe('16px');
-  // UI-조직추가숨김: the team menu draws no add button (PC [+ 담당조직], phone "담당조직 추가" link) at any width.
-  await expect(page.locator('#soAddOrg,#soAddOrgLink,.so-add-link')).toHaveCount(0);
+  // MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정, UI-조직추가숨김을 바꿈): 맨 위 [+ 담당조직] 하나가 모든 폭에 보인다(옛 폰 글자 링크는 없음).
+  await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrg')).toHaveText('+ 담당조직');await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);
   await page.evaluate(()=>{document.querySelector('[data-so-org="ord-3"] h4').textContent='아주 긴 조직 이름 '.repeat(30)});
   const name=await page.locator('[data-so-org="ord-3"] h4').evaluate(e=>({overflow:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow,white:getComputedStyle(e).whiteSpace}));expect(name).toEqual({overflow:true,ellipsis:'ellipsis',white:'nowrap'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

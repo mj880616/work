@@ -729,7 +729,8 @@ function paintBizWeekly(host) {
   bizWeekly ||= RW.biz.createBizSummaryBox();
   if (bizWeekly.el.parentNode !== slot) slot.replaceChildren(bizWeekly.el);
   const meetings = materials.meetings?.status === 'ok' && Array.isArray(materials.meetings.items) ? materials.meetings.items : NO_MEETINGS;
-  bizWeekly.update({meetings:() => meetings, week:start, tree:activeTree});
+  // WEEKLY-사업영역묶음 ②: 첫 칸 = 양식(지난주 확정본)의 자리 — 한글 상자가 바탕을 연 뒤에만(그 전·양식 없는 사람은 지금 모양).
+  bizWeekly.update({meetings:() => meetings, week:start, tree:activeTree, groups:() => hwpx?.areaGroups?.(start) ?? null});
 }
 // BIZ-기록하나로 B-4 ②: 2. 2) 주요 사업 창 — 부품 상자 하나를 그 자리에 옮겨 붙인다(사업 보고 '이번 주 주간보고' 2)와 같은 부품).
 // 이 화면이 읽은 그 주 사업 보고·늘 빼는 종류·활성 사업 나무를 넘긴다(따로 읽지 않음). 줄 ⋯ [이 종류 늘 빼기]는 이 화면 toggleKind가 받는다.

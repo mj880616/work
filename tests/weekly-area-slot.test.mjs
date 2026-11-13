@@ -110,3 +110,49 @@ test('① 고른 자리가 있는 사업영역은 빈 내 줄을 표 끝에 더�
   assert.deepEqual(missingAreas(rows, ['사업영역 F'], {places: {'사업영역 F': {area: '의제', task: '빈 자리 H'}}}), []);
   assert.deepEqual(missingAreas(rows, ['사업영역 F'], {places: {'사업영역 F': {area: '영역', task: '사업영역 남'}}}), ['사업영역 F'], '남의 줄 자리는 무시');
 });
+
+test('①-b 새 줄로 넣은 사업영역(added)·고르기 목록(placeChoices)', async () => {
+  const {applyBizWindow, placeChoices, withAreaRows, missingAreas, editableRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const rows = [{area: '사업영역 F', task: '', lines: ['F 글'], owner: ''}, {area: '사업영역 A', task: '', lines: ['A 글'], owner: ''}];
+  assert.deepEqual(applyBizWindow(team(), ME, rows).added, ['사업영역 F']);
+  // 앱이 더한 빈 줄(withAreaRows)에 들어가도 양식에 없던 자리라 added.
+  const b = withAreaRows(team(), missingAreas(editableRows(team(), ME), ['사업영역 F']), ME);
+  assert.deepEqual(applyBizWindow(b, ME, rows).added, ['사업영역 F']);
+  const places = {'사업영역 F': {area: '의제', task: '빈 자리 H'}};
+  const b2 = withAreaRows(team(), missingAreas(editableRows(team(), ME), ['사업영역 F'], {places}), ME); // 고른 자리가 있으면 빈 줄을 더하지 않음
+  assert.deepEqual(applyBizWindow(b2, ME, rows, {places}).added, []);
+  assert.deepEqual(placeChoices(b, ME), [
+    {area: '기본 사업', task: '사업영역 G'}, {area: '영역', task: '사업영역 A'}, {area: '의제', task: '사업영역 C'}, {area: '의제', task: '사업영역/D'}, {area: '의제', task: '빈 자리 H'},
+  ], '내 양식 줄만, 앱이 더한 줄·남의 줄 제외');
+});
+
+test('①-b places 저장 모양(readPlaces·withPlace) — draft 칸, 칸마다 더 나중 것', async () => {
+  const {readPlaces, withPlace, readExtras, mergeExtras} = await import('../app/weekly-feedback.mjs');
+  const p = withPlace(null, ' 사업영역  F ', {area: '의제', task: '빈 자리 H'}, '2026-11-13T00:00:00Z');
+  assert.deepEqual(p, {at: '2026-11-13T00:00:00Z', map: {'사업영역 F': {area: '의제', task: '빈 자리 H'}}});
+  assert.deepEqual(withPlace(p, '사업영역 K', {area: '', task: ''}, 't2').map['사업영역 K'], {area: '', task: ''}, '새 줄로 둠');
+  assert.equal(readPlaces({map: {x: {area: 'a', task: ''}}}), null, '한쪽만 빈 자리는 버림');
+  assert.equal(readPlaces('x'), null);
+  assert.deepEqual(readExtras({places: p}).places, p);
+  const newer = withPlace(p, '사업영역 F', {area: '영역', task: '사업영역 A'}, '2026-11-14T00:00:00Z');
+  assert.deepEqual(mergeExtras({places: p}, {places: newer}).places, newer);
+});
+
+test('② 화면 첫 칸: 사업영역 → 양식 첫 칸 이름(한글 파일과 같은 자리), 양식에 내 줄이 없으면 null', async () => {
+  const {areaGroups} = await import('../app/weekly-hwpx/draft.mjs');
+  const g = areaGroups(team(), ME, ['사업영역 A', '사업영역 C', '사업영역 D', '사업영역G', '사업영역 F', '사업영역 남']);
+  assert.equal(g.get('사업영역 A'), '영역');
+  assert.equal(g.get('사업영역 C'), '의제');
+  assert.equal(g.get('사업영역 D'), '의제'); // '사업영역/D' — 부호 무시
+  assert.equal(g.get('사업영역G'), '기본 사업'); // 띄어쓰기 무시, 여러 사람 줄 가운데 내 줄
+  assert.equal(g.has('사업영역 F'), false); // 양식에 없음 → 화면은 자기 이름
+  assert.equal(g.has('사업영역 남'), false); // 남의 줄은 내 자리가 아님
+  // 고른 자리(①-b)가 있으면 그 줄의 첫 칸
+  const p = areaGroups(team(), ME, ['사업영역 F'], {places: {'사업영역 F': {area: '의제', task: '빈 자리 H'}}});
+  assert.equal(p.get('사업영역 F'), '의제');
+  // 양식이 없는 사람: 내 줄이 없으면 null(지금 모양 그대로). 앱이 더한 빈 줄(keyArea)은 양식 줄이 아니다.
+  assert.equal(areaGroups(team(), '처음 쓰는 사람', ['사업영역 A']), null);
+  // 양식 첫 칸이 사업영역 이름 그대로(화면과 같은 모양)면 묶을 것이 없다.
+  assert.equal(areaGroups({summary: [{area: ['사업영역 A'], rows: [{task: ['과제 1'], progress: [], paras: [], owner: [ME]}]}]}, ME, ['사업영역 A']), null);
+  assert.equal(areaGroups({summary: [{area: ['사업영역 A'], rows: [{task: [], progress: [], paras: [], owner: [ME], keyArea: '사업영역 A'}]}]}, ME, ['사업영역 A']), null);
+});
