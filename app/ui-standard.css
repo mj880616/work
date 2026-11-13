@@ -1870,7 +1870,7 @@ button.ds-chip[data-dot-toggle][aria-pressed="false"] > .ui-color-dot{ backgroun
    ⑤ 보기 바꾸기 .ds-seg 안의 button.ds-seg-btn — 연한 알약 바탕 안 칸들, --ds-compact-height, 고른 칸만 흰 알약 + 굵게, 선·밑줄 없음(UI-보기탭한모양). 보기 탭은 이 부품만(tests/view-tabs-one-look.test.mjs)
    ⑥ 아이콘 button.icon-btn — ⋯ ✕ ‹ › ⤢, 선·바탕 없음(마우스를 올리면 옅은 바탕)
    모두: 모서리는 --ds-radius-control(칩만 알약), 색은 주 색 하나 + 회색 선 하나 + 빨강은 지우기만, 누르는 범위 44px(::after),
-   눌림은 UI-누름움직임(위 공용 규칙), 꺼짐은 흐리게만. 값은 --ds-*·--kptu-* 토큰만 쓰고 숫자를 새로 정하지 않는다.
+   눌림은 UI-누름움직임(위 공용 규칙), 꺼짐은 흐리게만(① 채운 버튼만 아래 '채운 버튼 꺼짐' — 흐리게 하지 않고 옅은 바탕 + 읽히는 글자). 값은 --ds-*·--kptu-* 토큰만 쓰고 숫자를 새로 정하지 않는다.
    재발 방지: tests/button-six-kinds.test.mjs(6가지 밖 버튼·화면별 버튼 모양 선언이 기준표보다 늘면 실패). */
 button.ds-chip{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:var(--ds-chip-row-gap); flex:none;
   height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); margin:0; padding:0 var(--ds-chip-row-pad-x);
@@ -1907,6 +1907,11 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 :is(button.ds-chip,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
 .ds-seg button.ds-seg-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:calc(var(--ds-line-width) * -4); }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }
+/* WEEKLY-주간정리다듬기 ③(요청함 11/13 16:57 '확정 버튼 글자가 검정색이라 안 보여'): 채운 버튼(주 동작)의 누를 수 없음 모양은 여기 한 곳.
+   예전에는 버튼 전체를 흐리게(opacity) 해서 어두운 화면(다크 모드)에서 진한 글자 + 흐린 연한 바탕이 어두운 배경에 묻혀 글자가 안 보였다.
+   이제 흐리게 하지 않고 옅은 주 색 바탕 + 읽히는 주 색 글자(모든 테마·밝은/어두운 화면에서 읽힘). 화면마다 따로 둔 disabled 규칙(base-ui.css·journal.css·HWP·원장)보다
+   앞서도록 !important(꺼짐 모양 하나만, 고르는 범위는 채운 버튼뿐). */
+:is(button.primary,button.quick-pill-primary,button[data-basket-save],button.home-quick-save,button.fx-pri,button.ql-primary):disabled:not(.icon-btn){ opacity:1 !important; color:var(--kptu-primary-ink) !important; background:var(--kptu-primary-soft) !important; border-color:var(--kptu-primary-soft) !important; background-image:none !important; cursor:not-allowed; }
 
 /* ===== UI-창아래버튼통일(2026-11-07 명진 요청 10:55 '삭제 완료 저장 … 같은 디자인에서의 배리에이션으로 안느껴짐', 시안 docs/design/mockups/sheet-footer-buttons.html 'A') =====
    창 아래 버튼 줄은 공용 부품 하나다: 팝업·아래에서 올라오는 창의 .modal-action-footer(base-ui.css)와 화면 안 창·칸의 .save-row(위 UI-저장자리). ②(S54-08)에서 이름이 다른 같은 종류의 줄 .home-choice-foot(고르기 창)·.record-sheet-foot(노트 기록 창)·.diary-od-foot(원드라이브 설정 창)도 같은 부품으로 넣었다.
