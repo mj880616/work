@@ -152,8 +152,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   function unfold(){if(!rest)return;rest=false;paint();}
   function fold(){if(rest||!canRest())return;rest=true;expanded=false;paint();}
   if(folds){
-    pickerWide.addEventListener('change',()=>paint());box.addEventListener('pointerdown',unfold);box.addEventListener('focusin',unfold);
-    box.querySelector('[data-quick-kind]').onclick=()=>{unfold();input.focus({preventScroll:true});};
+    // The kind button is gone once the box opens, so a press on it opens and puts the caret in the input right away (pointerdown);
+    // a keyboard press (Enter·Space) does the same through click. Focus landing on it by Tab leaves the fold as it is.
+    const kindBtn=box.querySelector('[data-quick-kind]'),openToInput=()=>{unfold();input.focus({preventScroll:true});};
+    pickerWide.addEventListener('change',()=>paint());
+    box.addEventListener('pointerdown',e=>{if(kindBtn.contains(e.target)){e.preventDefault();openToInput();}else unfold();});
+    box.addEventListener('focusin',e=>{if(e.target!==kindBtn)unfold();});
+    kindBtn.onclick=openToInput;
     // A press outside the box folds it — not one on a sheet or a small list this box opened (they live outside it).
     document.addEventListener('pointerdown',e=>{if(rest||box.contains(e.target)||e.target.closest?.('[role="dialog"],[role="menu"],[role="listbox"],.home-choice-sheet,.kptu-week-pick,#taskWeekPick'))return;fold();},true);
   }

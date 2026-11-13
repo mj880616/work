@@ -9,9 +9,14 @@ const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Normalized Google Tasks create representation, matching the existing Edge contract.
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
 export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
+// UI-폰하단고정: 접혀 있는 폰 홈 빠른 입력을 칸을 눌러 펼친다(접힌 것이 없으면 아무것도 안 함 — PC·다른 화면).
+export async function openQuickBox(page){
+  const box=page.locator('#homeView [data-home-quick][data-quick-rest]');
+  if(await box.locator('[data-quick-kind]').isVisible().catch(()=>false)){await box.dispatchEvent('pointerdown');await expect(page.locator('#homeView [data-home-quick]')).not.toHaveAttribute('data-quick-rest','');}
+}
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z" } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z", quickRest = false } = {},
 ) {
   await page.clock.setFixedTime(new Date(now)); // now: HOME-하루채우기 ③처럼 저녁 시각이 필요한 시험만 바꾼다(기본 10:00 KST 그대로)
   // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
@@ -217,6 +222,9 @@ export async function openHome(
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/, {
     timeout: 20000,
   });
+  // UI-폰하단고정: 폰 홈 빠른 입력은 쉬는 동안 한 줄로 접혀 있다. 빠른 입력을 쓰는 시험은 사람이 하듯 칸을 먼저 눌러 펼친 상태에서
+  // 시작한다(누르기만, 포커스는 주지 않음). 접힌 모양 자체를 보는 시험만 quickRest:true(home-quick-fold.spec.mjs).
+  if (!quickRest) await openQuickBox(page);
   return {
     prefs,
     requests,
