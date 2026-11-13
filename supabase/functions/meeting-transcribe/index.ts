@@ -11,12 +11,13 @@
 //              사용량은 기존 app_ai_external_usage에 ref 'mtg-…'로 넣는다(홈 AI 사용량 줄·월 상한이 같은 기록을 셈). 글을 못 받은 시도는 'mtgfail-…'(홈 사용량에만, 월 상한 밖).
 //   attach     {job_id, meeting_id}      → 끝난 녹음을 그 회의 자료로 링크(app_documents 한 행, 원본은 Drive 그대로).
 // MTG-노트북녹음 1단계(노트북 Web2 [녹음], 설계 docs/design/laptop-recording.md, 표 app_meeting_recordings):
-//   rec_start   {workspace_id, mime, session_id?} → 녹음 구간 한 행(열린 구간이 있으면 먼저 닫음). 같은 session_id = 한 회의의 다음 구간.
+//   rec_start   {workspace_id, mime, session_id?, meeting_id?} → 녹음 구간 한 행(열린 구간이 있으면 먼저 닫음). 같은 session_id = 한 회의의 다음 구간.
+//               새 녹음에 meeting_id(같은 작업공간 회의)가 오면 그 녹음이 어느 회의 것인지 app_meeting_recording_meetings에 남긴다(S61-36).
 //   rec_piece   몸통 = 5분 조각 그대로     → Drive '회의 녹음/녹음 조각'에 올리고 구간 행에 순서대로 더함. 머리글 x-recording-id,
 //               x-piece-seq(1부터), x-duration-sec(구간 시작부터 잰 초, 없을 수 있음), Content-Length 필수.
 //   rec_finish  {session_id}              → 열린 구간 닫기 → 닫힌 구간마다 조각을 이어 한 파일(회의 녹음 폴더)로 → 전사 작업 한 행(uploaded)
 //               → 조각 휴지통. 전사·붙이기는 위 transcribe·attach를 구간마다 그대로 부른다. 시간이 모자라면 more=true.
-//   rec_pending {workspace_id}            → 끝나지 않은 녹음 목록('이어서 정리').
+//   rec_pending {workspace_id}            → 끝나지 않은 녹음 목록('이어서 정리'). 회의 상세에서 시작한 녹음은 meeting_id도.
 //   rec_discard {session_id}              → 녹음 버리기: 열린 구간 닫기 → 조각(합쳤으면 합친 파일)을 Drive 휴지통으로, 구간은 '버림' 표시.
 //               전사·요약·회의 초안은 하지 않는다. 끝난 전사·회의에 붙인 녹음은 건드리지 않는다.
 //   rec_restore {session_id}              → 버린 녹음 되돌리기: 휴지통에서 다시 꺼내 '이어서 정리' 상태로(닫힘·합침). 녹음을 이어 하지는 않는다.
@@ -44,7 +45,7 @@ import {
 import {
   PIECE_FOLDER, REC_DRIVE_PARALLEL, REC_MAX_SEGMENTS, REC_PIECE_SECONDS, REC_ROLL_PIECES, REC_SEGMENT_SECONDS, REC_STATUS, RecFail,
   appendPatch, closePatch, combineWithin, discardPatch, discardPlan, joinPieces, mapLimit, nextSegment, ownRows, parsePiece, liveSessions, pendingSessions, pendingSince, pieceDecision,
-  pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine,
+  pieceFileName, recFailBody, recMime, restorePlan, segmentFileName, toCombine, withMeetings,
 } from './recording.mjs';
 import { OggFail, normalizeOggOpus, wantsOggFix } from './ogg.mjs';
 import { CHUNK_SECONDS, SPLIT_MAX_BYTES, chunkRanges, halveRange, openAudio, readRange } from './split.mjs';
@@ -80,6 +81,8 @@ const FOLDER = 'application/vnd.google-apps.folder';
 const RECORDING_FOLDER = '회의 녹음';
 const TABLE = 'app_meeting_transcribe_jobs';
 const REC_TABLE = 'app_meeting_recordings';
+// S61-36 REC-상세녹음: 녹음(session) 하나가 어느 회의 것인지(회의 상세 [녹음]으로 시작한 것만). Edge만 읽고 넣는다(화면 권한 없음).
+const REC_MEETING_TABLE = 'app_meeting_recording_meetings';
 const REC_COLUMNS = 'id,workspace_id,created_by,session_id,segment_no,status,error_code,mime_type,piece_ids,size_bytes,duration_sec,job_id,pieces_trashed_at,closed_at,created_at,updated_at';
 const JOB_COLUMNS = 'id,workspace_id,created_by,status,error_code,drive_file_id,file_name,mime_type,size_bytes,duration_sec,model,meeting_id,started_at,finished_at,trashed_at,created_at,updated_at';
 
@@ -646,10 +649,13 @@ async function sweepRecordings(workspaceId: string) {
   }
 }
 
-async function recStart(user: { id: string }, body: Record<string, unknown>) {
+async function recStart(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
   const workspaceId = String(body.workspace_id || '');
   await requireOwner(user.id, workspaceId);
   const mime = recMime(body.mime);
+  const fresh = body.session_id === undefined || body.session_id === null || body.session_id === '';
+  // 회의 상세 [녹음](새 녹음만): 화면이 보낸 회의 id는 부른 사람 로그인(owner RLS)으로 읽어 이 작업공간 회의일 때만 받는다.
+  const meeting = fresh ? await ownMeeting(userDb, body.meeting_id, workspaceId) : null;
   let sessionId: string;
   let segmentNo = 1;
   if (body.session_id !== undefined && body.session_id !== null && body.session_id !== '') {
@@ -659,6 +665,11 @@ async function recStart(user: { id: string }, body: Record<string, unknown>) {
     segmentNo = nextSegment(rows);
   } else {
     sessionId = crypto.randomUUID();
+    // 녹음 구간보다 먼저 남긴다(구간을 못 열면 이 녹음은 없으므로 이 행은 아무 데도 쓰이지 않는다).
+    if (meeting) {
+      const { error: linkError } = await admin.from(REC_MEETING_TABLE).insert({ session_id: sessionId, workspace_id: workspaceId, created_by: user.id, meeting_id: meeting.id });
+      if (linkError) throw new Fail('failed');
+    }
   }
   // 작업공간마다 열린 구간은 하나(부분 유일 색인). 남은 것은 먼저 닫는다(조각이 없으면 empty).
   const now = new Date();
@@ -731,18 +742,16 @@ async function recFinish(user: { id: string }, body: Record<string, unknown>) {
 // S61-5 REC-전사삭제: rec_save {session_id, meeting_id?} — 합친 녹음 파일(구간마다 하나)을 자료실 자료로 남긴다.
 //   자료 행·폴더·연결은 부른 사람 로그인(owner RLS)으로만 쓴다(서비스 권한으로 자료실 표를 쓰지 않음). 같은 Drive 파일의 자료 행이 있으면
 //   새로 만들지 않는다(두 번 불러도 한 번). 자료실 맨 위 '회의 녹음' 폴더(프로젝트 없음, 휴지통 아님)가 없으면 처음 저장할 때 만든다.
-//   meeting_id가 있으면 그 회의(부른 사람 로그인으로 읽은 같은 작업공간 회의)의 자료로도 붙인다. 전사·요약은 하지 않는다.
+//   meeting_id가 있으면(없으면 rec_start가 이 녹음에 남긴 회의, S61-36) 그 회의(부른 사람 로그인으로 읽은 같은 작업공간 회의)의 자료로도 붙인다. 전사·요약은 하지 않는다.
 async function recSave(user: { id: string }, userDb: ReturnType<typeof userClient>, body: Record<string, unknown>) {
   const rows = await ownSession(user.id, body.session_id);
   const ws = rows[0].workspace_id as string;
   if (rows.some(r => r.status === 'recording' || r.status === 'closed')) throw new Fail('busy'); // rec_finish를 먼저(화면이 more가 끝날 때까지 부름)
-  let meeting: { id: string; workspace_id: string; project_id: string | null } | null = null;
-  if (body.meeting_id !== undefined && body.meeting_id !== null && body.meeting_id !== '') {
-    if (!isUuid(body.meeting_id)) throw new Fail('bad_request');
-    const { data, error } = await userDb.from('app_meetings').select('id,workspace_id,project_id').eq('id', body.meeting_id as string).maybeSingle();
-    if (error) throw new Fail('failed');
-    if (!data || data.workspace_id !== ws) throw new Fail('not_found');
-    meeting = data;
+  // 회의: 화면이 보낸 것(지금 녹음한 회의) 또는 rec_start가 이 녹음에 남긴 것(새로고침 뒤 [이어서 저장]). 남긴 회의가 지금 없으면 자료실에만 저장한다.
+  let meeting = await ownMeeting(userDb, body.meeting_id, ws);
+  if (!meeting) {
+    const linked = await sessionMeeting(ws, body.session_id as string);
+    if (linked) meeting = await ownMeeting(userDb, linked, ws).catch(e => { if (e instanceof Fail && e.code === 'not_found') return null; throw e; });
   }
   const combined = rows.filter(r => r.status === 'combined' && r.job_id);
   if (!combined.length) throw new Fail('no_recording');
@@ -772,6 +781,22 @@ async function recSave(user: { id: string }, userDb: ReturnType<typeof userClien
     files.push(savedFileView(doc, job));
   }
   return json({ ok: true, session_id: body.session_id, folder_id: folderId, folder_name: LIBRARY_RECORDING_FOLDER, files });
+}
+// 회의 id(빈칸이면 null) → 부른 사람 로그인(owner RLS)으로 읽은 이 작업공간 회의. 아니면 not_found(남의 작업공간 회의 id는 보이지 않음).
+async function ownMeeting(userDb: ReturnType<typeof userClient>, id: unknown, workspaceId: string): Promise<{ id: string; workspace_id: string; project_id: string | null } | null> {
+  if (id === undefined || id === null || id === '') return null;
+  if (!isUuid(id)) throw new Fail('bad_request');
+  const { data, error } = await userDb.from('app_meetings').select('id,workspace_id,project_id').eq('id', id as string).maybeSingle();
+  if (error) throw new Fail('failed');
+  if (!data || data.workspace_id !== workspaceId) throw new Fail('not_found');
+  return data;
+}
+// rec_start가 이 녹음(session)에 남긴 회의 id(같은 작업공간 행만). 없으면 ''.
+async function sessionMeeting(workspaceId: string, sessionId: string): Promise<string> {
+  const { data, error } = await admin.from(REC_MEETING_TABLE).select('meeting_id').eq('session_id', sessionId).eq('workspace_id', workspaceId).maybeSingle();
+  // 읽지 못하면(표가 아직 없는 배포 순서 등) 회의 없이 자료실에만 저장한다 — 녹음 저장 자체를 막지 않는다.
+  if (error) { console.warn('meeting-transcribe: recording meeting read skipped', error.code || '-'); return ''; }
+  return (data?.meeting_id as string) || '';
 }
 // 자료실 맨 위 '회의 녹음' 폴더(프로젝트 없음·휴지통 아님). 없으면 맨 아래 순서로 하나 만든다(자료실 [새 폴더]와 같은 표·같은 owner RLS).
 async function recordingLibraryFolder(userDb: ReturnType<typeof userClient>, ws: string): Promise<string> {
@@ -813,7 +838,16 @@ async function recPending(user: { id: string }, userDb: ReturnType<typeof userCl
       jobs = jobs.map(j => ({ ...j, saved: kept.has(j.drive_file_id) }));
     }
   }
-  return json({ ok: true, sessions: pendingSessions(rows || [], jobs, now), live: liveSessions(rows || [], now) });
+  // 회의 상세에서 시작한 녹음이면 그 회의 id(화면이 [이어 녹음]·[이어서 저장] 뒤에도 같은 회의로 그린다).
+  const sessionIds = [...new Set((rows || []).map(r => r.session_id).filter(Boolean))] as string[];
+  let links: { session_id: string; meeting_id: string }[] = [];
+  if (sessionIds.length) {
+    const { data: found, error: linkError } = await admin.from(REC_MEETING_TABLE).select('session_id,meeting_id').eq('workspace_id', workspaceId).in('session_id', sessionIds);
+    // 읽지 못하면 회의 표시 없이 목록만 준다(끝나지 않은 녹음 줄이 사라지지 않게).
+    if (linkError) console.warn('meeting-transcribe: recording meeting list skipped', linkError.code || '-');
+    else links = found || [];
+  }
+  return json({ ok: true, sessions: withMeetings(pendingSessions(rows || [], jobs, now), links), live: withMeetings(liveSessions(rows || [], now), links) });
 }
 
 // ---- 버리기·되돌리기 ----
@@ -1617,7 +1651,7 @@ Deno.serve(withWebCors(async (req: Request) => {
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Fail('bad_request');
     if (action === 'config') return await config(user, userDb, body);
     if (action === 'attach') return await attach(user, userDb, body);
-    if (action === 'rec_start') return await recStart(user, body);
+    if (action === 'rec_start') return await recStart(user, userDb, body);
     if (action === 'rec_finish') return await recFinish(user, body);
     if (action === 'rec_save') return await recSave(user, userDb, body);
     if (action === 'rec_pending') return await recPending(user, userDb, body);

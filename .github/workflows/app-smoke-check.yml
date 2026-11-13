@@ -123,6 +123,7 @@ on:
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
+      - 'tests/meeting-recording-meeting.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-recording-ogg.test.mjs'
@@ -348,6 +349,7 @@ on:
       - 'tests/notice-done-model.test.mjs'
       - 'tests/meeting-recording-discard.test.mjs'
       - 'tests/meeting-recording-pieces.test.mjs'
+      - 'tests/meeting-recording-meeting.test.mjs'
       - 'supabase/functions/meeting-transcribe/index.ts'
       - 'supabase/functions/meeting-transcribe/recording.mjs'
       - 'tests/meeting-recording-ogg.test.mjs'
@@ -769,6 +771,9 @@ jobs:
 
       - name: Laptop recording 1-minute pieces (MTG-녹음1분조각, 60 pieces·mixed pieces join·rec_finish more·Drive calls in batches)
         run: node --test tests/meeting-recording-pieces.test.mjs
+
+      - name: Meeting detail recording keeps its meeting (REC-상세녹음, rec_start link·rec_save fallback·rec_pending meeting_id)
+        run: node --test tests/meeting-recording-meeting.test.mjs
 
       - name: Phone recording Ogg/Opus join and repair before transcription (MTG-폰녹음전사, byte pieces join·granule/EOS fix·failure texts by cause)
         run: node --test tests/meeting-recording-ogg.test.mjs
