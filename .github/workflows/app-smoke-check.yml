@@ -595,6 +595,9 @@ jobs:
       - name: Check weekly report file and confirm snapshot from the window (ORG-기록하나로 O-6)
         run: node --test tests/record-one-file.test.mjs
 
+      - name: Check weekly file finds my rows by the form's second column (WEEKLY-사업영역묶음 ①)
+        run: node --test tests/weekly-area-slot.test.mjs
+
       - name: Check business summary window model (BIZ-기록하나로 B-3)
         run: node --test tests/business-now-model.test.mjs
       - name: Check business detail window model (BIZ-기록하나로 B-4 ②)
