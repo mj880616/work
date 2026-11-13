@@ -54,6 +54,7 @@
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
+import { OWNER_ROLE, withOwnerRole } from "./owner-role.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { DAILY_TOTAL_LIMIT } from "../_shared/ai-daily-usage.mjs";
 // AI-사람별한도: 작업공간마다 한 달 한도(기본 3,000원, 운영자 제외). 판정은 공용 함수 한 곳.
@@ -1471,6 +1472,16 @@ async function readRadarProfile(ctx: Ctx) {
   }
 }
 
+// MULTI-다른담당자맞춤 ⑤: 안내문의 직책 자리표(owner-role.ts OWNER_ROLE)를 부른 사람 프로필 직책으로. 자리표가 있을 때만 프로필을 한 번 읽는다
+// (요청마다 한 번, 못 읽으면 중립 표현). 직책은 cleanProfile로 한 줄·40자로 정리된 값만 들어간다.
+const ownerProfiles = new WeakMap<Ctx, Promise<ReturnType<typeof cleanProfile>>>();
+async function ownerRoleIn(ctx: Ctx, instructions: string): Promise<string> {
+  if (!instructions.includes(OWNER_ROLE)) return instructions;
+  let p = ownerProfiles.get(ctx);
+  if (!p) { p = readRadarProfile(ctx); ownerProfiles.set(ctx, p); }
+  return withOwnerRole(instructions, await p);
+}
+
 // [내 일 아님] 예시(TODO-내일만, migration 20261029210000 app_todo_not_mine, 소유자 토큰으로 읽기). 표가 없거나 읽지 못하면 빈 목록(찾기는 계속).
 async function readNotMine(ctx: Ctx): Promise<string[]> {
   try {
@@ -2249,7 +2260,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
       store: false,
       max_output_tokens: AUTO_MAX_OUTPUT_TOKENS,
       input: [
-        { role: "developer", content: LEDGER_AUTO_INSTRUCTIONS },
+        { role: "developer", content: await ownerRoleIn(ctx, LEDGER_AUTO_INSTRUCTIONS) },
         { role: "user", content: material },
       ],
       text: { format: { type: "json_schema", name: "ledger_auto", strict: true, schema: LEDGER_AUTO_SCHEMA } },
@@ -3065,7 +3076,7 @@ async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Prom
     store: false,
     max_output_tokens: SHARE_LIMITS.maxOutputTokens,
     input: [
-      { role: "developer", content: SHARE_DRAFT_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, SHARE_DRAFT_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "share_draft", strict: true, schema: SHARE_DRAFT_SCHEMA } },
@@ -3186,7 +3197,7 @@ async function runScheduleTitles(ctx: Ctx, input: ScheduleTitlesInput, deps: Rad
     store: false,
     max_output_tokens: SCHEDULE_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: SCHEDULE_TITLES_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, SCHEDULE_TITLES_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "schedule_titles", strict: true, schema: SCHEDULE_TITLES_SCHEMA } },
@@ -3402,7 +3413,7 @@ async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDe
     store: false,
     max_output_tokens: OVERLAP_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: OVERLAP_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, OVERLAP_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "overlap_check", strict: true, schema: OVERLAP_SCHEMA } },
@@ -4963,7 +4974,7 @@ async function callWeeklyAi(ctx: Ctx, kind: "weekly_draft" | "weekly_review", de
   try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now()); } catch { throw new Fail(503, "usage_unavailable"); }
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
     model: config.model, store: false, max_output_tokens: maxTokens,
-    input: [{ role: "developer", content: instructions }, { role: "user", content: material }],
+    input: [{ role: "developer", content: await ownerRoleIn(ctx, instructions) }, { role: "user", content: material }],
     text: { format: { type: "json_schema", name: kind, strict: true, schema } },
   });
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
