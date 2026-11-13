@@ -453,48 +453,66 @@ async function saveBody(db: Db, log: Log, source: OutsideSource, ex: Extracted, 
 
 // 다시 뽑기(NEWS-전면개편 P2c, S51-15 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 글 가운데 블록 줄이 없거나,
 // 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을 새 것부터 주소 REFILL_PER_SOURCE개까지
-// 글 쪽을 다시 읽어 블록 줄만 고친다(merge, 지우지 않음). 2년 지난 글·텔레그램(목록 글이 본문)·extract=false·robots 예외 단체는 하지 않는다.
+// 글 쪽을 다시 읽어 블록 줄만 고친다(merge, 지우지 않음). 2년 지난 글·텔레그램(목록 글이 본문)·extract=false 단체는 하지 않는다.
 // 문장 표(app_outside_sentences)·요약·제목은 건드리지 않는다(화면 '원문 전체'는 블록 줄을 읽음). 못 읽은 줄에도 규칙 이름을 적어 같은 판의 영구 실패를 매번 고르지 않는다.
+// S61-44(NEWS-원문표기깨짐2 옛 글): state=ok여도 적힌 판(키@판)이 지금 판과 다르면 다시 뽑는다 — 추출·글자 규칙을 고치고 카탈로그 판을 올리면 옛 글도 고쳐진다.
+//   판이 비어 있는(null) ok 줄은 고르지 않는다(판 칸 이전 줄을 한꺼번에 다시 읽지 않게). 옛 ok 줄은 새로 뽑은 것도 ok일 때만 덮는다(못 읽으면 그대로 둠).
+// robots 예외 단체(공공운수노조·노동당): 하루 3번 새 글만 읽는다는 결정(11/01, 부하 최소)은 그대로 두고, 명진 결정 11/13 17:59(A안)에 따라
+//   '판이 오른 글'만 한 번 다시 읽는다 — 블록 없음·timeout 줄은 고르지 않고, 한 번 부를 때 ROBOTS_EXEMPT_REFILL_MAX개까지, 요청 사이 ROBOTS_EXEMPT_REFILL_GAP_MS.
+//   다시 뽑힌 줄에는 지금 판이 적히므로 같은 글을 두 번 읽지 않는다(못 읽어 그대로 둔 줄만 다음 부르기에 다시 고름).
 export const REFILL_DAYS = 30;
 export const REFILL_PER_SOURCE = 20;
 export const REFILL_SCAN = 1000;
+export const ROBOTS_EXEMPT_REFILL_MAX = 10;
+export const ROBOTS_EXEMPT_REFILL_GAP_MS = 5000;
 export function needsRefill(body: Record<string, unknown> | null | undefined, current: string | null): boolean {
   if (!body) return true;
   if (body.reason === "timeout") return true;
-  return body.state !== "ok" && body.rule !== current;
+  if (body.state === "ok") return ruleBumped(body, current);
+  return body.rule !== current;
+}
+// 적힌 판이 있고 지금 판과 다른가(판이 오른 글).
+export function ruleBumped(body: Record<string, unknown> | null | undefined, current: string | null): boolean {
+  return !!body && typeof body.rule === "string" && body.rule !== "" && current !== null && body.rule !== current;
 }
 const embedOne = (v: unknown): Record<string, unknown> | null =>
   Array.isArray(v) ? (v[0] as Record<string, unknown> | undefined) ?? null : v && typeof v === "object" ? v as Record<string, unknown> : null;
-async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSource, nowMs: number, startMs: number, clock: () => number) {
+async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, sleep: (ms: number) => Promise<void>) {
   const out = { ok: true as const, source: source.key, status: "ok", done: 0, deferred: 0, remaining: 0 };
   if (source.extract === false) return { ...out, status: "off" };
   if (source.mode === "telegram") return { ...out, status: "not_page" };
-  // robots 예외 단체(공공운수노조·노동당)는 하루 3번 예약 때 새 글만 읽는다(명진 결정 11/01 16:49·21:08: 부하 최소) — 다시 뽑기도 하지 않는다.
-  if (robotsExempt(source)) return { ...out, status: "robots_exception" };
+  const exempt = robotsExempt(source);
+  const cap = exempt ? ROBOTS_EXEMPT_REFILL_MAX : REFILL_PER_SOURCE;
   const rule = ruleOf(source);
   const current = ruleId(source.key, rule);
   const since = new Date(nowMs - REFILL_DAYS * 86400000).toISOString();
   const cutoff = nowMs - OLD_DAYS * 86400000;
   const rows = await db.get(`app_outside_posts?source_key=eq.${source.key}&fetched_at=gte.${encodeURIComponent(since)}` +
     `&select=id,workspace_id,url,title,published_at,app_feed_bodies(state,reason,rule)&order=fetched_at.desc&limit=${REFILL_SCAN}`);
-  const byUrl = new Map<string, { id: string; ws: string; title: string }[]>();
+  const byUrl = new Map<string, { id: string; ws: string; title: string; wasOk: boolean }[]>();
   const over = new Set<string>();
   for (const r of rows) {
     if (typeof r.url !== "string" || typeof r.id !== "string" || !UUID.test(r.id) || typeof r.workspace_id !== "string" || !UUID.test(r.workspace_id)) continue;
     if (typeof r.published_at === "string" && Date.parse(r.published_at) < cutoff) continue;
-    if (!needsRefill(embedOne(r.app_feed_bodies), current)) continue;
-    if (!byUrl.has(r.url) && byUrl.size >= REFILL_PER_SOURCE) { over.add(r.url); continue; }
-    byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), { id: r.id, ws: r.workspace_id, title: typeof r.title === "string" ? r.title : "" }]);
+    const body = embedOne(r.app_feed_bodies);
+    // robots 예외 단체는 판이 오른 글만(블록 없음·timeout은 새 글 읽기 몫 — 다시 뽑기로 더 읽지 않음).
+    if (exempt ? !ruleBumped(body, current) : !needsRefill(body, current)) continue;
+    if (!byUrl.has(r.url) && byUrl.size >= cap) { over.add(r.url); continue; }
+    byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), { id: r.id, ws: r.workspace_id, title: typeof r.title === "string" ? r.title : "", wasOk: body?.state === "ok" }]);
   }
   const nowIso = new Date(nowMs).toISOString();
+  let read = 0;
   for (const [url, list] of byUrl) {
     if (clock() - startMs > RUN_BUDGET_MS) { out.deferred++; continue; }
     if (!allowedUrl(source, url)) continue; // 카탈로그 허용 주소만 읽는다(저장된 주소라도 다시 확인)
+    if (exempt && read > 0) await sleep(ROBOTS_EXEMPT_REFILL_GAP_MS); // 부하 최소: 예외 단체는 요청 사이를 더 띄움
+    read++;
     const page = await reader.get(source, url, false);
     const it: ListItem = { url, title: list[0].title, kind: "statement", published_at: null, author: null, summary: null, content: null };
     let ex = postBody(source, it, page);
     if (!ex.rule) ex = { ...ex, rule: current };
     for (const p of list) {
+      if (p.wasOk && ex.state !== "ok") { log("refill_kept", { source: source.key }); continue; } // 옛 ok 본문을 실패로 덮지 않음
       try {
         await db.send("POST", "app_feed_bodies?on_conflict=outside_post_id", bodyRow(ex, { workspace_id: p.ws, outside_post_id: p.id }, nowIso), "return=minimal,resolution=merge-duplicates");
       } catch { log("body_failed", { source: source.key }); }
@@ -771,7 +789,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!exactKeys(b, ["source"])) throw new Fail(400, "INVALID_BODY");
         const source = sourceByKey(b.source);
         if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
-        return json(await refillSource(db, makeReader(doFetch, sleep, log), log, source, nowMs, now(), now));
+        return json(await refillSource(db, makeReader(doFetch, sleep, log), log, source, nowMs, now(), now, sleep));
       }
       if (action === "probe") {
         // 몸통 {}: 카탈로그 키 목록. {source}: 그 단체 하나(카탈로그 밖 키는 400). 켬 여부와 상관없이 읽고, 아무것도 저장하지 않는다.
