@@ -1327,6 +1327,13 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await editSchedule(page,'가상 다음 주 회의');
  await schedField(page,'title').fill('가상 노동조합 다음 주 점검 회의');
  await saveSchedule(page);
+ // WEEKLY-주간정리다듬기 ③: 확정 중(누를 수 없음)인 [확정하고 한글 파일 받기]는 흐리게(opacity) 하지 않고 옅은 주 색 바탕 + 읽히는 주 색 글자 — 어두운 화면에서도.
+ for(const scheme of ['dark','light']){
+  await page.emulateMedia({colorScheme:scheme});
+  const b=confirmRow(page).first().locator('button.primary').first();
+  const look=await b.evaluate(e=>{e.disabled=true;const c=getComputedStyle(e),probe=document.createElement('i');probe.style.color='var(--kptu-primary-ink)';probe.style.background='var(--kptu-primary-soft)';e.after(probe);const p=getComputedStyle(probe),out={opacity:c.opacity,color:c.color,bg:c.backgroundColor,wantColor:p.color,wantBg:p.backgroundColor};probe.remove();e.disabled=false;return out;});
+  expect(look.opacity).toBe('1');expect(look.color).toBe(look.wantColor);expect(look.bg).toBe(look.wantBg);
+ }
  // ⋯ → [확정 없이 파일만 받기]: 규격 검사 통과, 칸 줄 그대로.
  const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  expect(download.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
