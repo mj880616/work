@@ -83,7 +83,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const tiles=page.locator('#mobileMenu nav button:visible');
  await expect(tiles).toHaveText(['노트','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {x:Math.round(r.left),y:Math.round(r.top),h:r.height,touch:r.height-parseFloat(a.top)-parseFloat(a.bottom)};}));
- expect(new Set(boxes.map(b=>b.y)).size).toBe(7);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
+ expect(new Set(boxes.map(b=>b.y)).size).toBe(6);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
  // 보이는 줄 36px, 누르는 범위 44px(줄 사이 8px라 이웃 줄과 겹치지 않음).
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
  // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).

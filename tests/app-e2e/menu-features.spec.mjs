@@ -25,7 +25,7 @@ for(const width of [1280,760,412]){
     await openHome(page,{features:[]});await settle(page);
     await expect.poll(async()=>{const p=await placed(page);return [...p.sheet,...p.pc].filter(v=>OP.includes(v)||v==='ledger')}).toEqual([]);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['note','library','hwp','pages','photos']);
+    expect(p.sheet).toEqual(['note','library','brief','hwp','pages','photos']);
     expect(p.bar).toEqual(['home','basket','calendar','meetings','team']);
     expect(page.locator('#mobileMenu [data-menu-tail-line]')).toHaveCount(0);
     // 메뉴 편집 창: 뺀 메뉴는 칸에도 미리보기에도 없다.
@@ -46,8 +46,8 @@ for(const width of [1280,760,412]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await openHome(page,{features:OPERATOR_MENU_FEATURES});await settle(page);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['note','library','files','hwp','pages','photos','outside','calls','telegram','arsenal']);
-    expect(p.pc).toEqual(['home','basket','calendar','note','meetings','library','files','pages','team','hwp','photos','outside','calls','telegram','arsenal']);
+    expect(p.sheet).toEqual(['note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal']);
+    expect(p.pc).toEqual(['home','basket','calendar','note','meetings','library','files','brief','pages','team','hwp','photos','outside','calls','telegram','arsenal']);
     expect(p.bar).toEqual(['home','basket','calendar','meetings','team']);
     await page.screenshot({path:`docs/design/screens/s61-41/menu-operator-${width}.png`});
     expect(errors).toEqual([]);
