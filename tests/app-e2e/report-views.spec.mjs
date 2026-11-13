@@ -15,8 +15,9 @@ const M1 = ID(901), M2 = ID(902), M3 = ID(903), M4 = ID(904), M5 = ID(905);
 const now = () => new Date().toISOString();
 const seoulKey = d => new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Seoul'}).format(d);
 
-function makeState() {
-  const at = new Date(Date.now()), today = at.toISOString();
+// at: 시험이 보는 '지금'. 기본은 실제 지금, 경계 시각 시험은 page.clock.setFixedTime과 같은 값을 넘긴다(STAB-보고달력날짜경계).
+function makeState(at = new Date()) {
+  const today = at.toISOString();
   const [y, mo] = seoulKey(at).split('-').map(Number);
   const meeting = (id, title, kind, when) => ({id, workspace_id: 'workspace-1', title, series_name: title, round_no: null, meeting_at: when, activity_kind: kind, created_by: 'user-1', notes: '', decisions: '', transcript_text: '원문'});
   const doc = (n, mid, name = `s${n}.jpg`) => ({id: ID(n), workspace_id: 'workspace-1', project_id: null, title: '사진 ' + n, file_name: name, mime_type: 'image/jpeg', category: '회의', tags: [], meeting_id: mid, file_id: 'drive-' + n, created_at: `2026-10-0${n % 9 + 1}T00:00:00Z`, document_date: '2026-10-20'});
@@ -28,7 +29,7 @@ function makeState() {
     user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
     workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
     meetings: [meeting(M1, '○○ 대표자 회의', 'meeting', today), meeting(M2, '□□ 실무 회의', 'meeting', today), meeting(M3, '△△ 점검 회의', 'meeting', today),
-      meeting(M4, '지난 회의', 'meeting', new Date(Date.now() - 40 * 86400000).toISOString()), meeting(M5, '◇◇ 결의대회', 'struggle', today)]
+      meeting(M4, '지난 회의', 'meeting', new Date(at.getTime() - 40 * 86400000).toISOString()), meeting(M5, '◇◇ 결의대회', 'struggle', today)]
   };
 }
 
@@ -287,11 +288,25 @@ test('report calendar (PC): right click on an empty day gives [add report here]/
 // (kptu:dialog-opened, 사업 보고 창)으로 센다(창이 떴다 바로 닫혀도 남는다).
 const watchReportWindow = page => page.evaluate(() => { window.__rvOpened = []; window.addEventListener('kptu:dialog-opened', e => { if (e.detail?.modal?.id === 'meetingRoundDetailModal') window.__rvOpened.push(e.detail.modal.dataset.meetingId || ''); }); });
 const reportWindowOpens = page => page.evaluate(() => window.__rvOpened);
-// 우클릭한 자리 바로 옆에 메뉴(누른 자리 아래, 모자라면 위).
-async function nearPoint(menu, x, y) { const b = await menu.boundingBox(); expect(b).not.toBeNull(); expect(Math.abs(b.x - x)).toBeLessThanOrEqual(4); expect(b.y).toBeGreaterThanOrEqual(y - b.height - 8); expect(b.y).toBeLessThanOrEqual(y + 8); }
+// 우클릭한 자리 바로 옆에 메뉴(누른 자리 아래, 모자라면 위). 왼쪽 끝은 누른 x — 다만 창 오른쪽에 메뉴 폭이 모자라면
+// 창 안쪽(오른쪽 여백 12px)으로 당겨진다(app/anchored-menu.js position). STAB-보고달력날짜경계: 오늘이 토요일(서울)이면 '오늘' 칸이
+// 맨 오른쪽 열이라 메뉴가 당겨진다 — 예전 검사는 x 그대로만 기대해 서울 토요일(UTC 금 15시~토 15시)마다 실패했다.
+async function nearPoint(menu, x, y) {
+  const b = await menu.boundingBox(); expect(b).not.toBeNull();
+  const vw = await menu.page().evaluate(() => document.documentElement.clientWidth || innerWidth);
+  expect(b.x + b.width).toBeLessThanOrEqual(vw); // 창 밖으로 잘리지 않는다
+  expect(Math.abs(b.x - Math.max(12, Math.min(x, vw - b.width - 12)))).toBeLessThanOrEqual(4);
+  expect(b.y).toBeGreaterThanOrEqual(y - b.height - 8); expect(b.y).toBeLessThanOrEqual(y + 8);
+}
 
-test('report calendar (PC): right click or menu key on a report opens only the report menu — the report window stays closed', async ({page}) => {
-  const state = makeState();
+// STAB-보고달력날짜경계: 실제 지금 한 번 + 시계를 고정한 경계 시각. 2026-11-14(토)는 '오늘' 칸이 맨 오른쪽 열,
+// 00:30·08:59 KST는 UTC 날짜(11/13)와 서울 날짜(11/14)가 다른 구간, 09:01 KST는 둘이 같은 구간, 11/15 00:30 KST(일)는 맨 왼쪽 열.
+const CLOCKS = [null, '2026-11-13T15:30:00Z', '2026-11-13T23:59:00Z', '2026-11-14T00:01:00Z', '2026-11-14T15:30:00Z'];
+const clockName = at => at ? ` at ${new Intl.DateTimeFormat('sv-SE', {timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short'}).format(new Date(at))} KST` : '';
+async function pinClock(page, at) { if (!at) return new Date(); const d = new Date(at); await page.clock.setFixedTime(d); return d; }
+
+for (const at of CLOCKS) test(`report calendar (PC): right click or menu key on a report opens only the report menu — the report window stays closed${clockName(at)}`, async ({page}) => {
+  const state = makeState(await pinClock(page, at));
   await open(page, state, 1440);
   await view(page, '달력');
   await watchReportWindow(page);
@@ -321,6 +336,20 @@ test('report calendar (PC): right click or menu key on a report opens only the r
   await menuOnly(title);
   expect(await reportWindowOpens(page)).toEqual([]);
   expect(state.patches).toEqual([]);
+});
+
+// STAB-보고달력날짜경계: '오늘' 칸·그 달·오늘 보고 칸은 서울 날짜를 따른다 — UTC 날짜가 다른 00:00~09:00 KST, 달이 바뀌는 12/1 00:30 KST 포함.
+for (const at of [...CLOCKS.slice(1), '2026-11-30T15:30:00Z']) test(`report calendar today cell follows the Seoul date${clockName(at)}`, async ({page}) => {
+  const now = await pinClock(page, at), state = makeState(now), key = seoulKey(now);
+  await open(page, state, 1440);
+  await view(page, '달력');
+  const cal = page.locator('#meetingList .rv-cal'), today = cal.locator('.rv-cell.rv-now.ds-today');
+  await expect(cal.locator('.rv-cal-title')).toHaveText(`${state.year}년 ${state.month + 1}월`);
+  await expect(today).toHaveCount(1);
+  await expect(today).toHaveAttribute('data-rv-cell', key);
+  await expect(today.locator('[data-mrd-meeting]')).toHaveCount(3);
+  await expect(cal.locator('.rv-sel')).toHaveAttribute('data-rv-cell', key);
+  await expect(cal.locator('.rv-day-list .rv-row')).toHaveCount(3);
 });
 
 test('report calendar (PC): menu from a right click — [수정] opens the edit window then, [종류 바꾸기]·[삭제] work in place, left click still opens the report', async ({page}) => {
