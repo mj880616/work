@@ -106,7 +106,8 @@ function splitIn(nodes) {
   for (const n of nodes || []) {
     if (n.type === 'paragraph') {
       const parts = splitParagraph(n);
-      if (parts.length !== 1 || parts[0] !== n) changed = true;
+      if (parts.length === 1 && (parts[0].content || []).length === (n.content || []).length) { out.push(n); continue; }
+      changed = true;
       out.push(...parts);
     } else if (n.content && n.type !== 'code_block') {
       const inner = splitIn(n.content);
@@ -115,9 +116,17 @@ function splitIn(nodes) {
   }
   return {nodes: out, changed};
 }
+const INLINE = new Set(['text', 'hard_break']);
 // slice: a ProseMirror Slice as JSON ({content, openStart, openEnd}). Returns a new one, or the same one when nothing splits.
-export function splitBlankLines(slice) {
+// A copy of one inline box (a <span>: Chrome's copy from inside one chat message) comes as inline content only; split, it becomes
+// paragraphs with `attrs` (the paragraph pasted into), open at both ends so the first and last join the letters around them.
+export function splitBlankLines(slice, attrs = {}) {
   if (!slice || !slice.content) return slice;
+  if (slice.content.every(n => INLINE.has(n.type))) {
+    const parts = splitParagraph({type: 'paragraph', attrs, content: slice.content});
+    if (parts.length < 2) return slice;
+    return {content: parts, openStart: (slice.openStart || 0) + 1, openEnd: (slice.openEnd || 0) + 1};
+  }
   const {nodes, changed} = splitIn(slice.content);
   return changed ? {...slice, content: nodes} : slice;
 }

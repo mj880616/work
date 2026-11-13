@@ -796,7 +796,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       // NOTE-붙여넣기문단사라짐: a formatted copy from outside: a blank line (two or more line breaks) splits the paragraph.
       if (outsidePaste?.html) {
         const json = slice.toJSON();
-        const split = json && splitBlankLines(json);
+        const at = v.state.selection.$from.parent;
+        const split = json && splitBlankLines(json, {style: at.type === N.paragraph ? at.attrs.style : DEFAULT_BODY});
         if (split && split !== json) slice = pm.Slice.fromJSON(schema, split);
       }
       const only = slice.content.childCount === 1 && slice.content.firstChild;
