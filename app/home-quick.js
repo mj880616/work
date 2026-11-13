@@ -159,8 +159,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     box.addEventListener('pointerdown',e=>{if(kindBtn.contains(e.target)){e.preventDefault();openToInput();}else unfold();});
     box.addEventListener('focusin',e=>{if(e.target!==kindBtn)unfold();});
     kindBtn.onclick=openToInput;
-    // A press outside the box folds it — not one on a sheet or a small list this box opened (they live outside it).
-    document.addEventListener('pointerdown',e=>{if(rest||box.contains(e.target)||e.target.closest?.('[role="dialog"],[role="menu"],[role="listbox"],.home-choice-sheet,.kptu-week-pick,#taskWeekPick'))return;fold();},true);
+    // A press outside the box folds it — not one on a sheet or a small list this box opened (they live outside it). It folds on the
+    // click, after the press has picked its target: folding on pointerdown would move the screen under the finger mid-tap.
+    document.addEventListener('click',e=>{if(rest||box.contains(e.target)||e.target.closest?.('[role="dialog"],[role="menu"],[role="listbox"],.home-choice-sheet,.kptu-week-pick,#taskWeekPick'))return;fold();},true);
   }
   input.addEventListener('focus',expand); input.addEventListener('input',()=>{if(input.value.trim())hint.textContent='';expand();size();});
   const picker=createChoiceSheet({id:idPrefix+'ChoiceSheet',titleId:idPrefix+'ChoiceTitle',historyKey:idPrefix==='home'?'kptuHomeChoice':'kptu'+idPrefix+'Choice',
