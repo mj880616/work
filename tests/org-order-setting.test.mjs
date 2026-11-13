@@ -58,6 +58,6 @@ test('보고 설정 글 ↔ 값: 되돌려 쓰면 같은 값, 비우면 지움(n
   assert.deepEqual(parseCalendar(''), {ok: true, value: null});
   assert.equal(parseCalendar('가'.repeat(61)).ok, false);
   assert.deepEqual(unknownNames(OPERATOR_ORG_ORDER, [{name: '전국철도노동조합'}]).length, 13);
-  assert.equal(summaryText(null, ''), '담당조직 묶음 없음(가나다순) · 보고 캘린더 미지정');
-  assert.equal(summaryText(OPERATOR_ORG_ORDER, OPERATOR_REPORT_CALENDAR), `담당조직 묶음 4개 · 보고 캘린더 '${OPERATOR_REPORT_CALENDAR}'`);
+  assert.equal(summaryText(null, ''), '담당조직 묶음 없음(가나다순) · 주간보고 일정 캘린더 미지정');
+  assert.equal(summaryText(OPERATOR_ORG_ORDER, OPERATOR_REPORT_CALENDAR), `담당조직 묶음 4개 · 주간보고 일정 캘린더 '${OPERATOR_REPORT_CALENDAR}'`);
 });

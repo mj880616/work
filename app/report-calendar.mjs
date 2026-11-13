@@ -9,4 +9,4 @@ export function reportCalendarName() {
     return typeof v === 'string' ? v : '';
   } catch { return ''; }
 }
-export const UNSET_TEXT = '보고 캘린더가 정해지지 않았어요. 내 프로필 › 보고 설정에서 정해 주세요.';
+export const UNSET_TEXT = '주간보고 일정 캘린더가 정해지지 않았어요. 내 프로필 › 보고 설정에서 선택해 주세요.';
