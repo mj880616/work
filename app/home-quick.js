@@ -13,7 +13,11 @@ import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK
 import { dayKey } from './home-read-model.js';
 import { quickDueDay, weekdayLabel, newTaskDue } from './task-due.mjs';
 import { openWeekPick } from './task-week-pick.js'; // S46-30 [다음주] 요일 목록
-import { taskFilesAvailable, taskFilesKnown, onTaskFilesReady, sendTaskFilesBehind, MAX_TASK_FILES } from './task-files.js';
+// PERF-첫로딩 ③(S61-32): 클립 자리 답·개수 한도만 작은 task-files-ready.js에서 받는다. 파일 보내기(task-files.js sendTaskFilesBehind)는 그 큰 사슬을
+// 첫 화면 전에 받지 않도록 [할 일]에서 클립이 보일 때 미리 받기 시작하고, 저장 때 그 받기를 기다린다(taskFilesModule).
+import { taskFilesAvailable, taskFilesKnown, onTaskFilesReady, MAX_TASK_FILES } from './task-files-ready.js';
+let taskFilesFlight=null;
+const taskFilesModule=()=>taskFilesFlight||=import('./task-files.js').catch(e=>{taskFilesFlight=null;throw e;});
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, noteOnly=false, onBig=null, onFolder=null, view="home", idPrefix="home", onSaved=()=>{}}) {
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
@@ -197,7 +201,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){dismissForNavigation();resetChoices();if(folds)fold();}});
   // The clip shows in [할 일] only when the task-file table answers for this owner (checked once; only a yes is kept).
   // The [할 일] screen's own input does not ask: the task list below it reads the table anyway, and its answer turns the clip on.
-  const filesAnswer=on=>{taskFilesWait=false;if(on)taskFilesOn=true;paint();};
+  const filesAnswer=on=>{taskFilesWait=false;if(on){taskFilesOn=true;void taskFilesModule().catch(()=>{});}paint();};
   const checkTaskFiles=()=>{
     if(taskFilesOn||noteOnly||basketOnly||mode!=='task')return;
     if(taskFilesKnown()){filesAnswer(true);return;}
@@ -260,7 +264,10 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     // BIZ-저장먼저닫기 3차(S59-18): 할 일이 생기면 고른 파일은 그 할 일의 뒤 줄로 넘긴다(시도마다 한 번, 목록에서 고른 할 일도) — 입력칸은 기다리지 않고
     // 풀리며, 진행·끝·못 올림·[다시 올리기]는 하단바 위 한 줄 하나(task-files.js sendTaskFilesBehind). 그래서 파일이 있으면 위쪽 작은 알림은 띄우지 않는다.
     const sendFiles=()=>{if(!files.length||attempt.filesSent||!attempt.task||!taskScopeCurrent(r))return;attempt.filesSent=true;
-      sendTaskFilesBehind({task:attempt.task,files,count:attempt.bodyState==='confirmed'&&!a?0:null,rt:taskRuntime});if(upload===batch)upload=createUploadBatch();pickerFiles.render();};
+      const job={task:attempt.task,files,count:attempt.bodyState==='confirmed'&&!a?0:null,rt:taskRuntime};
+      // 보통은 클립이 보일 때 이미 받았다. 받기에 실패하면 파일이 말없이 사라지지 않게 알린다(할 일 자체는 이미 저장됨).
+      taskFilesModule().then(m=>m.sendTaskFilesBehind(job)).catch(()=>{taskNotice('파일 보내기 프로그램을 받지 못했어요. 할 일은 저장됐어요. 할 일 ⋯ → 파일 붙이기로 다시 붙여 주세요.');});
+      if(upload===batch)upload=createUploadBatch();pickerFiles.render();};
     const call=(action,body)=>{if(!taskCurrent(r))throw new Error('입력창이나 로그인이 바뀌었습니다.');return taskRuntime.api('/functions/v1/google-tasks?action='+action,{method:'POST',body,expectedSessionEpoch:r.epoch})};
     try{
       if(!attempt.task){
