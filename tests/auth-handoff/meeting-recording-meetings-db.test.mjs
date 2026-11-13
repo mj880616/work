@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
-// S61-36 REC-상세녹음 ①(20261113160000_meeting_recording_meetings): 녹음(session) → 회의 연결 표.
+// S61-36 REC-상세녹음 ①(20261113173600_meeting_recording_meetings): 녹음(session) → 회의 연결 표.
 // - 승인형 DB workflow 확장 규칙을 통과하고(dry-run은 아무것도 안 바꿈), apply 뒤 사후 확인이 모두 예·기존 표 해시 그대로, 두 번째 apply는 거절.
 // - 표: anon·authenticated(owner 포함)는 읽기·쓰기 모두 거절. service_role은 정한 4칸만 넣고 읽음, 고치기·지우기 없음, 한 녹음에 한 회의.
 // - 회의·작업공간을 영구 삭제하면 연결 행도 지워진다.
@@ -17,7 +17,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261113160000',name='meeting_recording_meetings',stem=version+'_'+name;
+const version='20261113173600',name='meeting_recording_meetings',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];

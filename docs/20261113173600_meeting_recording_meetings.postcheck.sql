@@ -1,7 +1,7 @@
 -- SELECT only. pg_catalog과 migration 기록만 읽는다. 적용 뒤 예/아니오 항목은 모두 예(되돌린 뒤에도 예 — 기록·표가 함께 없음).
 -- 해시 두 항목은 precheck의 같은 이름 값과 같아야 한다(기존 표의 RLS·정책·권한 그대로).
 with t as (select to_regclass('public.app_meeting_recording_meetings') as r),
-history as (select count(*) filter(where name='meeting_recording_meetings') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261113160000')
+history as (select count(*) filter(where name='meeting_recording_meetings') as named,count(*) as n from supabase_migrations.schema_migrations where version='20261113173600')
 select 'table and history agree' as item,case when (history.n=0 and t.r is null) or (history.n=1 and history.named=1 and t.r is not null) then '예' else '아니오' end as value
   from t,history
 union all select 'RLS on, no policies',case when (select r from t) is null or ((select relrowsecurity from pg_class where oid=(select r from t))

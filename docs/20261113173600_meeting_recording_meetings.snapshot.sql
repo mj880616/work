@@ -4,5 +4,5 @@ select 'table' as kind,n as name,coalesce(to_regclass(n)::text,'absent') as defi
   from unnest(array['public.app_meeting_recording_meetings']) n
 union all select 'existing table',c.relname::text,c.relrowsecurity::text||':'||(select count(*) from pg_policy p where p.polrelid=c.oid)::text
   from pg_class c where c.oid in (to_regclass('public.app_workspaces'),to_regclass('public.app_meetings'),to_regclass('public.app_meeting_recordings'))
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261113160000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261113173600'
 order by 1,2;

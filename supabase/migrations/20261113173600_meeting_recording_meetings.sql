@@ -16,7 +16,7 @@ set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261113160000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261113173600')
      or to_regclass('public.app_workspaces') is null
      or to_regclass('public.app_meetings') is null
      or to_regclass('public.app_meeting_recordings') is null
@@ -64,5 +64,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261113160000', 'meeting_recording_meetings', array['S61-36 REC-상세녹음 ① DB: app_meeting_recording_meetings (session_id -> meeting_id, RLS on, no policies, no anon/authenticated, service_role select + 4-column insert, no update/delete, cascade on meeting/workspace delete)']);
+values ('20261113173600', 'meeting_recording_meetings', array['S61-36 REC-상세녹음 ① DB: app_meeting_recording_meetings (session_id -> meeting_id, RLS on, no policies, no anon/authenticated, service_role select + 4-column insert, no update/delete, cascade on meeting/workspace delete)']);
 commit;

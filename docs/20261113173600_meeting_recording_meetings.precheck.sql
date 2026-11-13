@@ -3,7 +3,7 @@
 -- expect: recent migrations = 기록
 -- expect: existing tables RLS policies grants hash = 기록
 -- expect: existing tables column grants hash = 기록
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261113160000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261113173600') then '예' else '아니오' end as value
 union all select 'workspaces, meetings and recordings tables',case when to_regclass('public.app_workspaces') is not null and to_regclass('public.app_meetings') is not null and to_regclass('public.app_meeting_recordings') is not null then '예' else '아니오' end
 union all select 'new table absent',case when to_regclass('public.app_meeting_recording_meetings') is null then '예' else '아니오' end
 union all select 'existing tables RLS policies grants hash',md5(coalesce((select string_agg(c.relname||':'||c.relrowsecurity::text||':'||coalesce(c.relacl::text,'')||':'||coalesce((select string_agg(p.polname::text||p.polcmd::text||p.polroles::text||p.polpermissive::text||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),''),',' order by p.polname) from pg_policy p where p.polrelid=c.oid),''),';' order by c.relname)

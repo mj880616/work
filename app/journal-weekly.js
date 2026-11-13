@@ -546,7 +546,7 @@ export const FILE_EDIT_MAX = 200;
 // 방금 [빼기]한 자료 줄 id(탭 메모리뿐) — 그 줄 자리에만 [되돌리기]를 보인다.
 let lastFileDrop = '';
 let lastScheduleDrop = ''; // 방금 [빼기]한 5. 주요 일정 줄 열쇠(탭 메모리뿐)
-export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}, overlapUi = {}) {
+export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const muted = text => el('p', 'journal-muted', text);
