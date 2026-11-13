@@ -21,6 +21,8 @@ async function fixture(page,{width,ai=usage()}){
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ai_cost_entries',route=>{writes.push(route.request().method());return route.fulfill({json:[]});});
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_radar_state',route=>route.fulfill({json:[{last_success_at:'2026-10-06T00:30:00Z'}]}));
+  // MULTI-다른담당자맞춤 ④: 수집·사용량 줄은 서버 운영자 기능(app_my_features)이 있는 작업공간에서만 그린다.
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',route=>route.fulfill({json:['calls']}));
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#profileView')).toBeVisible();
@@ -80,7 +82,7 @@ test('월 상한 80%는 노란 줄, 펼치면 기간·요약이 맨 위',async({
 for(const width of [412,884,1440])test(`AI 사용량은 내 프로필에만, 홈에는 없음 (${width})`,async({page})=>{
   const {line}=await fixture(page,{width});
   await expect(line).toBeVisible();
-  await expect(page.locator('#psStatusPanel > h3')).toHaveText('수집·사용량');
+  await expect(page.locator('#psStatusPanel > h3')).toHaveText('사용 현황');
   await page.evaluate(()=>window.KPTURouter.go('home'));
   await expect(page.locator('#homeView')).toBeVisible();
   await expect(page.locator('#homeView [data-aiu-toggle],#homeView .home-ai-usage,[data-he-more]')).toHaveCount(0);

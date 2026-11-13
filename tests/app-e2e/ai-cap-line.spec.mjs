@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// AI-사람별한도(S61-35): 내 프로필 '수집·사용량' 칸의 '이번 달 AI 사용 ○원 / 한도 ○원' 한 줄.
+// AI-사람별한도(S61-35) → MULTI-다른담당자맞춤 ⑥(명진 11/13 15:30): 내 프로필 '사용 현황' 칸은 다른 사람에게 안 보이고,
+// 한 달 AI 한도에 닿았을 때만 그 한 줄이 보인다(쓴 금액·한도 줄 없앰).
 // openHome 뒤에 ai-assist kind=ai_month만 가짜로 답한다(나중에 단 길이 먼저)(진짜 서버 호출 없음). 화면은 작업공간을 보내지 않는다. 운영자(exempt)는 줄이 없다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const SHOT=process.env.S61_35_SHOTS||'';
@@ -24,19 +25,22 @@ async function fixture(page,{width,reply=month()}){
   return {sent,line:page.locator('#psStatusPanel [data-ps-ai-cap]')};
 }
 
-for(const width of [412,1280])test(`내 이번 달 AI 사용 한 줄 (${width})`,async({page})=>{
+for(const width of [412,1280])test(`한도 전이면 줄도 '사용 현황' 칸도 없다 (${width})`,async({page})=>{
   const {line,sent}=await fixture(page,{width});
-  await expect(line).toHaveText('이번 달 AI 사용 1,240원 / 한도 3,000원');
-  await expect(line).not.toHaveAttribute('data-capped','');
+  await expect.poll(()=>sent.length).toBeGreaterThan(0);
+  await page.waitForTimeout(300);
+  await expect(line).toBeHidden();
+  await expect(page.locator('#psStatusPanel')).toBeHidden();
   expect(sent.every(b=>JSON.stringify(b)==='{"kind":"ai_month"}')).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  if(SHOT){await line.scrollIntoViewIfNeeded();await page.locator('#psStatusPanel').screenshot({path:`${SHOT}/profile-ai-line-${width}.png`});}
 });
 
 for(const width of [412,1280])test(`한도를 다 쓰면 다음 달 1일 안내 한 줄 (${width})`,async({page})=>{
   const {line}=await fixture(page,{width,reply:month({used_krw:3010,capped:true})});
   await expect(line).toHaveText('이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.');
   await expect(line).toHaveAttribute('data-capped','');
+  await expect(page.locator('#psStatusPanel')).toBeVisible();
+  await expect(page.locator('#psStatusPanel > h3')).toHaveText('사용 현황');
   if(SHOT){await line.scrollIntoViewIfNeeded();await page.locator('#psStatusPanel').screenshot({path:`${SHOT}/profile-ai-capped-${width}.png`});}
 });
 

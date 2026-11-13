@@ -320,11 +320,11 @@ test('담당조직 목록은 정한 13개 순서와 묶음 구분선, 그 밖은
   for(const width of [412,1280]){
     await page.setViewportSize({width,height:900});
     await openAssigned(page,'?orgs=order');
-    expect(await sequence(page,'#soOrganizationList','h4')).toEqual([...ORDERED,'국민연금지부','궤도협의회','한국소비자원지부']);
+    expect(await sequence(page,'#soOrganizationList','h4')).toEqual([...ORDERED,'국민연금지부','한국소비자원지부','|','궤도협의회']); // MULTI-다른담당자맞춤 ①: 제외한 조직(궤도협의회)은 맨 아래 '제외한 조직' 묶음
     await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(16);await expect(page.locator('#soOrgCount')).toHaveCount(0);
-    await expect(page.locator('#soOrganizationList>.so-org-group')).toHaveCount(5);
+    await expect(page.locator('#soOrganizationList>.so-org-group')).toHaveCount(6);
     const groups=await page.locator('#soOrganizationList').evaluate(box=>({gap:getComputedStyle(box).gap,borders:[...box.querySelectorAll('.so-group-card')].map(g=>getComputedStyle(g).borderTopWidth)}));
-    expect(groups.gap).toBe('12px');expect(groups.borders).toEqual(Array(5).fill('1px'));
+    expect(groups.gap).toBe('12px');expect(groups.borders).toEqual(Array(6).fill('1px'));
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`list overflow at ${width}px`).toBeLessThanOrEqual(1);
     await page.locator('[data-so-org="ord-5"]').focus();
     await page.keyboard.press('Enter');

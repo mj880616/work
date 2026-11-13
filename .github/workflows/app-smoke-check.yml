@@ -177,6 +177,12 @@ on:
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
+      - 'tests/brief-room-model.test.mjs'
+      - 'tests/brief-run.test.mjs'
+      - 'tests/brief-room-ui-model.test.mjs'
+      - 'supabase/functions/_shared/brief-room.mjs'
+      - 'supabase/functions/document-actions/brief-run.mjs'
+      - 'supabase/functions/document-actions/brief.ts'
       - 'supabase/functions/_shared/ai-model.ts'
       - 'supabase/functions/collector-feed/telegram.ts'
       - 'supabase/functions/collector-feed/handler.ts'
@@ -403,6 +409,12 @@ on:
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'tests/ai-tone.test.mjs'
+      - 'tests/brief-room-model.test.mjs'
+      - 'tests/brief-run.test.mjs'
+      - 'tests/brief-room-ui-model.test.mjs'
+      - 'supabase/functions/_shared/brief-room.mjs'
+      - 'supabase/functions/document-actions/brief-run.mjs'
+      - 'supabase/functions/document-actions/brief.ts'
       - 'supabase/functions/_shared/ai-model.ts'
       - 'supabase/functions/collector-feed/telegram.ts'
       - 'supabase/functions/collector-feed/handler.ts'
@@ -639,7 +651,7 @@ jobs:
         run: node --test tests/document-delete.test.mjs
 
       - name: Check home KST day and week boundaries
-        run: node --test tests/home-read-model.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs tests/collection-cadence.test.mjs
+        run: node --test tests/home-read-model.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs tests/multi-owner-ledger.test.mjs tests/collection-cadence.test.mjs
 
       - name: Check telegram hourly send (new messages only, night rest, cumulative day summary)
         run: node --test tests/tg-feed-hourly.test.mjs
@@ -682,6 +694,9 @@ jobs:
 
       - name: Check small fixes (S59-20 OPS-작은손보기 — empty box text, ** marks, menu icons)
         run: node --test tests/s59-20-small-fixes.test.mjs
+
+      - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs
 
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs
@@ -1408,8 +1423,14 @@ jobs:
       - name: Check weekly feedback loop model (WEEKLY-환류학습)
         run: node --test tests/weekly-feedback.test.mjs
 
+      - name: Check weekly edited-file layout learning (WEEKLY-자동화 ②)
+        run: node --test tests/weekly-layout.test.mjs
+
       - name: Check weekly suggestion dismiss and learning (S46-22)
         run: node --test tests/weekly-picks.test.mjs
+
+      - name: Check weekly AI draft request shared rules (WEEKLY-자동화 ③)
+        run: node --test tests/weekly-draft-request.test.mjs
 
       - name: Check weekly feedback on every suggestion (WEEKLY-한흐름확정 ⑤)
         run: node --test tests/weekly-feedback-all.test.mjs
