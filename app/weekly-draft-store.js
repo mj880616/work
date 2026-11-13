@@ -395,7 +395,12 @@ export function readDraft(raw) {
   putHand(out, raw.hand);
   putOwners(out, raw.owners);
   putSiteLayout(out, raw.site_layout);
-  if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
+  if (raw.confirmed && typeof raw.confirmed === 'object') {
+    out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
+    // WEEKLY-주간정리다듬기 ⑥: 확정 뒤 '내가 고친 최종본'을 올렸으면 {at, file_name}(그 판이 그 주 자료실 개인 확정본). 비교·학습은 서버(S61-43)가 이 칸을 본다.
+    const f = raw.confirmed.final;
+    if (f && typeof f === 'object' && String(f.at ?? '') && String(f.file_name ?? '')) out.confirmed.final = {at:String(f.at).slice(0, 40), file_name:String(f.file_name).slice(0, 200)};
+  }
   putAreas(out, raw.area_summaries);
   putExtras(out, raw);
   const issued = readIssued(raw.issued);

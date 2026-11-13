@@ -545,7 +545,6 @@ export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝
 export const FILE_EDIT_MAX = 200;
 // 방금 [빼기]한 자료 줄 id(탭 메모리뿐) — 그 줄 자리에만 [되돌리기]를 보인다.
 let lastFileDrop = '';
-let lastScheduleDrop = ''; // 방금 [빼기]한 5. 주요 일정 줄 열쇠(탭 메모리뿐)
 export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
@@ -776,7 +775,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
           {text:'수정', data:{journalScheduleFix:item.key}, aria:`일정 수정: ${item.what}`},
           ...(item.changed ? [{text:'원래 값 보기', data:{journalSchedulePeek:item.key}, aria:`원래 값 보기: ${item.what}`}] : []),
           ...(item.changed || (item.memo?.title && !item.edited) ? [{text:'이번 주만 되돌리기', data:{journalScheduleOrigin:item.key}, aria:`이번 주만 원래 값으로: ${item.title}`}] : []),
-          {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`, onClick:() => { lastScheduleDrop = item.key; }}]}));
+          {text:'빼기', data:{journalScheduleDrop:item.key}, danger:true, aria:`이번 주 보고에서 빼기: ${item.what}`}]}));
         tr.append(what, owner);
         body.append(tr);
       });
@@ -788,15 +787,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     const off = vacationLine(c.vacations);
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
     // WEEKLY-뺀목록삭제(S48-3b): '이번 주 뺀 일정 [다시 넣기]' 접힘·'기억으로 뺀 일정 n개' 줄은 두지 않는다(데이터 draft.dropped·기억 칸은 그대로).
-    // 방금 뺀 일정 하나만 '일정을 뺐어요 [되돌리기]'(누르기 처리는 journal.js 의 기존 data-journal-schedule-put).
-    const cut = lastScheduleDrop && model.calendarDrops?.get?.(lastScheduleDrop) === 'drop'
-      ? (c.allRows ?? []).flatMap(row => row.items.filter(i => i.key === lastScheduleDrop).map(i => ({label:row.label, title:i.title, key:i.key})))[0] : null;
-    if (cut) {
-      const p = el('p', 'journal-line-status'); p.dataset.journalScheduleCut = cut.key; p.setAttribute('role', 'status');
-      const b = el('button', 'mini', '되돌리기'); b.type = 'button'; b.dataset.journalSchedulePut = cut.key; b.setAttribute('aria-label', `다시 넣기: ${cut.label} ${cut.title}`);
-      b.addEventListener('click', () => { lastScheduleDrop = ''; });
-      p.append('일정을 뺐어요 ', b); cal.append(p);
-    }
+    // WEEKLY-주간정리다듬기 ⑤: 방금 뺀 일정의 '일정을 뺐어요 [되돌리기]'는 표 아래 줄이 아니라 화면 아래 5초 알림 하나(journal-hwpx.js dropNotice).
     if (c.unsetCalendar) { const p = muted(UNSET_CALENDAR_TEXT); p.dataset.journalWeeklyNoCalendar = 'unset'; cal.append(p); }
     else if (c.noCalendar) { const p = muted(`'${c.calendar}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록이나 내 프로필 › 보고 설정을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     // S48-33(WEEKLY-화면디자인정리 2): 늘 보이던 안내 한 줄('참석자 칸은 한글 파일에서…')은 없앴다 — 당연한 안내 문구 삭제.
