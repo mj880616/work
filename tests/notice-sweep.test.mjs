@@ -6,7 +6,6 @@
 //     화면 이동(kptu:before-view-change)은 S61-31에서 라우터의 '막고 → 묻고 → 다시 이동' 공용 길(detail.ask)로 옮겼다.
 //     겹 닫기(mobile-modal-history)에도 같은 공용 길이 생기면 나머지를 옮긴다. 버튼·Esc로 닫는 길은 이미 작은 확인창이다.
 //   · legacy/meeting-detail-patches.js — 어디서도 불러오지 않는 옛 파일(지우기는 범위 밖, 보고만).
-//   · news-clipping.js — 다른 세션(S48-27)이 고치는 화면이라 이번에 건드리지 않음.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readdirSync, readFileSync, statSync} from 'node:fs';
@@ -23,7 +22,6 @@ const BASELINE = {
   'share-pages.js': 1,            // 공유 페이지 편집 겹 뒤로가기 닫기 (동기 이동 막기)
   'workplace-detail.js': 2,       // wdConfirmDiscard — 뒤로가기·새로고침 (동기 이동 막기)
   'legacy/meeting-detail-patches.js': 2, // 불러오는 곳 없는 옛 파일
-  'news-clipping.js': 1,          // S48-27 화면(prompt)
 };
 const walk = dir => readdirSync(dir).flatMap(name => {
   const path = join(dir, name);
