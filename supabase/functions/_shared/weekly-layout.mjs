@@ -75,7 +75,7 @@ export function layoutStats(paras) {
     const st = (out[section] ??= emptyStats());
     st.lines++; lines++;
     if (prevText) { st.gaps++; if (blankSince) st.blank_gaps++; }
-    if (/^[ \t　]/.test(text)) st.indented++;
+    if (/^[ \t\u3000]/.test(text)) st.indented++;
     const b = bulletOf(line); st.bullets[b] = (st.bullets[b] ?? 0) + 1;
     prevText = true; blankSince = false;
     if (lines >= WEEKLY_MAX_LINES) break;
