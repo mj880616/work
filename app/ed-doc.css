@@ -228,3 +228,19 @@
 .ed-doc .ed-file-size{flex:0 0 auto;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
 .ed-doc .ed-file-open{flex:0 0 auto;height:24px;padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
 .ed-input .ed-file.ProseMirror-selectednode,.ed-input .ed-photo-row.ProseMirror-selectednode{outline:2px solid var(--kptu-primary);outline-offset:2px}
+/* NOTE-글폭(S61-21, 요청함 11/13): 노트·일기·큰 쓰기 창의 글 줄은 한 줄 약 40자(40em, 글자 크기·배율을 따라감)까지, 남는 자리는 비움(왼쪽 맞춤).
+   폭은 --line-em(문서 뿌리 html, line-width.js가 서버 값으로 넣음) 하나. .line-w를 붙인 곳만 묶는다(공유 페이지는 그대로).
+   --line-w는 숫자 길이로 등록해 .line-w(또는 그 안 .ed-doc)의 글자 크기로 한 번 계산된 px가 아래로 내려간다(제목 1처럼 큰 글자 줄도 같은 폭).
+   표·사진·코드·수식·그림 묶음은 이 폭을 넘어도 된다(잘리지 않게). 창이 더 좁으면 창 폭. 폰·폴드 접은 화면(600px 미만)은 묶지 않는다(지금처럼 창 폭). */
+@property --line-w{syntax:'<length>';inherits:true;initial-value:0px}
+.line-w-host{position:relative}
+@media(min-width:600px){
+.line-w,.line-w>.ed-doc{--line-w:calc(var(--line-em,40) * 1em)}
+.line-w>.ed-doc>:not(.ed-table-wrap,.tableWrapper,.ed-photo,.ed-photo-row,.ed-code,.ed-measure,.ProseMirror-gapcursor),
+.line-w.md-body>:not(table,pre,img,.md-math-block,.md-mermaid,.md-mermaid-figure,.md-image-group){max-width:var(--line-w);box-sizing:border-box}
+/* 그냥 글(마크다운 아님): 글자 하나하나를 묶을 요소가 없어 오른쪽 여백으로 줄을 묶는다(원래 오른쪽 여백 --line-pr 이상). */
+.line-w:not(.md-body):not(:has(>.ed-doc)){padding-right:max(var(--line-pr,0px),calc(100% - var(--line-w) - var(--line-pl,0px)))}
+}
+/* 손잡이(.col-grip 모양, col-resize.js): 위치·높이는 line-width.js가 글 칸에 맞춘다. 폰은 없음. */
+.line-grip{bottom:auto}
+@media(max-width:599px){.line-grip{display:none}}

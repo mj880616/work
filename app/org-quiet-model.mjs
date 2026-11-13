@@ -1,6 +1,9 @@
 // FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: 홈 한 줄의 순수 규칙(입출력 없음). 화면은 org-quiet.js 하나가 그린다.
 // 명진 결정(10/29 07:27~07:31): '연락'은 그 조직의 대표자·간부와
 //   ① 통화한 것, 또는 ② 텔레그램에서 내가 묻고(질문) 같은 대화에서 그쪽 답을 받은 것만 센다.
+//   11/13 명진 결정(ORG-연락없음1대1수집, "상대 답변을 기준으로 세는게 좋을듯?"): 1:1 방(app_feed_rooms.chat_kind='user')에서는
+//   주요 인물(상대)이 그 날 직접 쓴 글(전달 아님, 빈 글 아님)이 하나라도 있으면 그 날을 연락으로 센다(누가 먼저 말했는지 따지지 않음).
+//   상대 글이 없는 날(나만 보낸 날)은 세지 않는다. 단체방·종류를 모르는 방은 위 ② 규칙 그대로.
 //   단체방에 올라온 그 조직 소식, 일방 정보 전달(전달 메시지 포함), 내가 쓴 담당조직 기록·사업 보고·회의는 세지 않는다.
 // 대표자·간부 = 담당조직 [주요 인물](app_org_key_people)에 지정한 사람. 사람마다 이름 + '찾을 이름'으로 통화 상대·텔레그램 보낸 사람 이름표를
 //   대조한다(org-key-people-model.mjs whoIn 그대로). 주요 인물이 없는 조직은 판단할 수 없어 줄에서 빼고 펼친 목록 끝에 수만 적는다.
@@ -44,9 +47,32 @@ export function answeredBy(lines, whoOf) {
   return out;
 }
 
+// 1:1 방 하루: 주요 인물(나 아님)이 직접 쓴 글(전달 아님, 빈 글 아님)이 있으면 그 사람은 연락한 것. 돌려주는 값: 주요 인물 id 목록(처음 쓴 순서, 겹침 없음).
+export function wroteBy(lines, whoOf) {
+  const out = [];
+  for (const l of lines || []) {
+    if (l.forwarded || !String(l.text ?? '').trim()) continue;
+    const w = whoOf(l.who) || {self:false, people:[]};
+    if (w.self) continue;
+    for (const id of w.people || []) if (!out.includes(id)) out.push(id);
+  }
+  return out;
+}
+// 방 종류에 따라 한 곳에서 고른다: 1:1 방(direct)이면 wroteBy, 아니면 answeredBy.
+export const contactedBy = (lines, whoOf, direct = false) => direct ? wroteBy(lines, whoOf) : answeredBy(lines, whoOf);
+
+// 방 줄([{room_key, chat_kind}]) → 1:1 방 열쇠 Set. 종류는 수집기가 보낸 값(없으면 방 번호 모양)으로 서버가 채운 chat_kind='user'만 믿는다.
+//   종류가 비었거나 다른 값이면 단체방 규칙(묻고 → 답)으로 둔다(그 날 말한 사람이 둘뿐인 단체방을 1:1로 잘못 세지 않게).
+export function directRooms(rooms) {
+  const out = new Set();
+  for (const r of rooms || []) if (r?.room_key && r.chat_kind === 'user') out.add(r.room_key);
+  return out;
+}
+
 // 보낸 사람 이름표 → 라벨 판정 표. senders = {senders:[{id,name,auto_name,is_self}], links:[{room_key,day,label,sender_id}]}.
 // 돌려주는 값: Map('방\0날' → Map(라벨 → {self, people})). 주요 인물 이름표가 있고 '나'도 있는 방·날만 남긴다(묻고 답할 수 있는 날).
-export function talkDays(senders, people, from = '') {
+// direct(1:1 방 열쇠 Set)에 든 방은 '나' 없이 주요 인물 이름표만 있어도 남긴다(상대가 쓴 글만으로 센다).
+export function talkDays(senders, people, from = '', direct = new Set()) {
   const out = new Map();
   if (!senders || !Array.isArray(senders.senders) || !people?.length) return out;
   const info = new Map();
@@ -62,7 +88,7 @@ export function talkDays(senders, people, from = '') {
   }
   for (const [k, m] of out) {
     const vals = [...m.values()];
-    if (!vals.some(v => v.self) || !vals.some(v => v.people.length)) out.delete(k);
+    if (!vals.some(v => v.people.length) || (!direct.has(splitKey(k).room_key) && !vals.some(v => v.self))) out.delete(k);
   }
   return out;
 }

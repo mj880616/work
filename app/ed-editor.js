@@ -276,7 +276,10 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
 // puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
 // by default: the share page editor stays as before (결정 2 가 there: no format while typing).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false} = {}) {
+// lineWidth: NOTE-글폭(S61-21) — true keeps the text lines about 40 letters wide (tables and photos may go wider) with a thin handle at the
+// lines' right end to drag the width (line-width.js; one width for notes, the diary and the big windows, kept on the server). Off by default
+// (the share page editor stays as before).
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -902,6 +905,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       paint();
     },
   });
+  // NOTE-글폭(S61-21): 글 줄 폭 묶음은 바로(.line-w), 손잡이는 부품을 불러온 뒤 붙인다(공유 페이지 편집기는 부르지 않음).
+  let lineGrip = null, lineGone = false;
+  if (lineWidth) {
+    box.classList.add('line-w', 'line-w-host');
+    import('./line-width.js').then(({mountLineWidth}) => { if (!lineGone) lineGrip = mountLineWidth({host: box, target: box}); }).catch(() => { /* 손잡이 없이 기본 폭 */ });
+  }
 
   // ── commands ──
   function textblocksInSelection(st) {
@@ -1632,9 +1641,23 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (openName && !bar.contains(e.target)) closePanels();
   };
   document.addEventListener('pointerdown', outside, true);
-  // Esc closes it even when the focus is not in the text box or on a button.
-  const escape = e => { if (e.key === 'Escape' && openName && !root.contains(e.target)) { closePanels(); } };
-  document.addEventListener('keydown', escape);
+  // NOTE-서식메뉴Esc: an Escape that a small box (a popover of the button row, the table cell menu) takes is used up here — it closes
+  // only the box and never reaches the screen around the editor (노트 고치기 끝내기, 큰 창 닫기, 다른 화면의 Esc). One rule for every
+  // opener: the box's own key handlers inside the editor run first, then the editor's root stops the key (a box still open is closed).
+  // With no box open, Escape goes on to the screen as before. Focus outside the editor with a popover open: closed and stopped here.
+  let escTaken = false;
+  root.addEventListener('keydown', e => { if (e.key === 'Escape') escTaken = boxOpen(); }, true);
+  root.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !escTaken) return;
+    escTaken = false;
+    if (boxOpen()) closeBoxes();
+    e.preventDefault(); e.stopPropagation();
+  });
+  const escape = e => {
+    if (e.key !== 'Escape' || !boxOpen() || root.contains(e.target)) return;
+    e.preventDefault(); e.stopPropagation(); closeBoxes();
+  };
+  document.addEventListener('keydown', escape, true);
   // A popover follows its button when the page, the screen or the sideways button row moves.
   window.addEventListener('scroll', followPop, true);
   window.addEventListener('resize', followPop);
@@ -1878,7 +1901,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
       window.removeEventListener('kptu:view-prefs-ready', takeMore);
       document.removeEventListener('pointerdown', outside, true);
-      document.removeEventListener('keydown', escape);
+      document.removeEventListener('keydown', escape, true);
       window.removeEventListener('pointerup', syncSelection, true);
       window.removeEventListener('scroll', followPop, true);
       window.removeEventListener('resize', followPop);
@@ -1886,6 +1909,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
       stopUploads(); upRows.destroy(); for (const url of upPreview.values()) URL.revokeObjectURL(url); upPreview.clear();
+      lineGone = true; lineGrip?.destroy();
       view.destroy();
       if (leadAt?.parent?.isConnected) leadAt.parent.insertBefore(lead, leadAt.next?.parentNode === leadAt.parent ? leadAt.next : null);
       root.remove();
