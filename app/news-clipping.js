@@ -5,7 +5,7 @@ import {pickerRows} from './library-move.mjs';
 import {folderSiblings, nextSortOrder, cleanFolderName, folderErrorText} from './library-tree.js';
 import {treeRows, folderPath, OUTSIDE, OUTSIDE_NAME} from './note-tree.mjs';
 import {FOLDER_DEPTH_LIMIT} from './folder-limits.mjs';
-import {askConfirm} from './small-notice.js';
+import {askConfirm, askText} from './small-notice.js';
 import {treeIconHtml} from './tree-icons.js';
 import {takeNewsItem} from './news-request.mjs';
 import {signalBody} from './now-model.mjs';
@@ -486,12 +486,13 @@ function pickFolder(id, anchor) {
     onPick: fid => putInFolder(id, fid), onOut: () => putInFolder(id, null),
     onNew: async () => { const made = await newFolder(null); if (made) await putInFolder(id, made.id); }});
 }
-const askName = (text, value = '') => { const typed = window.prompt(`${text} (40자까지)`, value); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { state.treeNote = '폴더 이름은 1~40자로 써 주세요'; paint(); return null; } return name; };
-async function newFolder(parentId) {
+// UI-알림창정리: 폴더 이름은 공용 작은 글 입력창(askText)으로 묻는다(브라우저 기본 prompt 없음).
+const askName = async (text, value = '', anchor = null) => { const typed = await askText(anchor, {text: `${text} (40자까지)`, value, ok: value ? '바꾸기' : '만들기', max: 40}); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { state.treeNote = '폴더 이름은 1~40자로 써 주세요'; paint(); return null; } return name; };
+async function newFolder(parentId, anchor = null) {
   const w = workspaceOf(), scope = state.scope;
   if (!w || !await ensureFolders()) return null;
   if (parentId && folderPath(state.folders, parentId).length >= FOLDER_DEPTH_LIMIT) { state.treeNote = `폴더는 ${FOLDER_DEPTH_LIMIT}단까지`; paint(); return null; }
-  const name = askName('새 폴더 이름'); if (!name) return null;
+  const name = await askName('새 폴더 이름', '', anchor); if (!name) return null;
   try {
     const rows = await rt().api(`/rest/v1/app_news_folders?select=${FOLDER_COLS}`, {method: 'POST', body: {workspace_id: w, parent_id: parentId || null, name, sort_order: nextSortOrder(folderSiblings(state.folders, {free: true, parentId: parentId || null}))}, prefer: 'return=representation', singleFlight: false});
     const row = Array.isArray(rows) ? rows[0] : null;
@@ -500,10 +501,10 @@ async function newFolder(parentId) {
     return row;
   } catch (e) { if (scope === state.scope) { state.treeNote = folderErrorText(e); paint(); } return null; }
 }
-async function renameFolder(id) {
+async function renameFolder(id, anchor = null) {
   const w = workspaceOf(), f = state.folders.find(x => x.id === id), scope = state.scope;
   if (!w || !f) return;
-  const name = askName('폴더 이름 바꾸기', f.name); if (!name || name === f.name) return;
+  const name = await askName('폴더 이름 바꾸기', f.name, anchor); if (!name || name === f.name) return;
   try {
     const rows = await rt().api(`/rest/v1/app_news_folders?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${FOLDER_COLS}`, {method: 'PATCH', body: {name}, prefer: 'return=representation', singleFlight: false});
     const row = Array.isArray(rows) ? rows[0] : null; if (!row || scope !== state.scope) return;
@@ -526,7 +527,7 @@ async function deleteFolder(id, trigger) {
 }
 const folderMenu = createAnchoredMenu({id: 'ncFolderMenu', className: 'topline-add-menu nc-menu', label: '폴더 메뉴', historyKey: 'kptuNewsFolderMenu', key: b => b.dataset.ncFolderMore,
   render: () => '<button type="button" data-nc-fact="child">안에 폴더 만들기</button><button type="button" data-nc-fact="rename">이름 바꾸기</button><button type="button" data-nc-fact="delete">삭제</button>',
-  onAction: (button, active) => { const trigger = active?.trigger, id = trigger?.dataset?.ncFolderMore; if (!id) return; const a = button.dataset.ncFact; if (a === 'child') newFolder(id); else if (a === 'rename') renameFolder(id); else if (a === 'delete') deleteFolder(id, trigger); }});
+  onAction: (button, active) => { const trigger = active?.trigger, id = trigger?.dataset?.ncFolderMore; if (!id) return; const a = button.dataset.ncFact; if (a === 'child') newFolder(id, trigger); else if (a === 'rename') renameFolder(id, trigger); else if (a === 'delete') deleteFolder(id, trigger); }});
 ncMenus = [folderMenu];
 
 // 목록 줄 또는 키워드 칸 줄(같은 기사가 두 곳에 있을 수 있다 — 목록 것을 먼저).
@@ -542,7 +543,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-nc-folder]')) { const id = b.dataset.ncFolder; ensureFolders().then(ok => { if (ok) pickFolder(id, b); }); return; }
   if (b.matches('[data-nc-folder-toggle]')) { const id = b.dataset.ncFolderToggle; if (state.openFolders.has(id)) state.openFolders.delete(id); else state.openFolders.add(id); paint(); root.querySelector(`[data-nc-folder-toggle="${CSS.escape(id)}"]`)?.focus({preventScroll: true}); return; }
   if (b.matches('[data-nc-folder-more]')) { folderMenu.open(b); return; }
-  if (b.matches('[data-nc-new-folder]')) { newFolder(null); return; }
+  if (b.matches('[data-nc-new-folder]')) { newFolder(null, b); return; }
   if (b.matches('[data-nc-source]')) { toggleSource(b.dataset.ncSource); return; }
   if (b.matches('[data-nc-kw]')) { toggleKeyword(b.dataset.ncKw); return; }
   if (b.matches('[data-nc-kw-del]')) { deleteKeyword(b.dataset.ncKwDel); return; }
