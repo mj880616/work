@@ -39,7 +39,10 @@ function measure(target) {
   const padR = plain ? parseFloat(cs.getPropertyValue('--line-pr')) || 0 : parseFloat(cs.paddingRight) || 0;
   const room = Math.max(0, d.clientWidth - padL - padR), em = parseFloat(cs.fontSize) || 15;
   const line = parseFloat(cs.getPropertyValue('--line-w')) || em * LINE_DEFAULT_EM;
-  return {left: r.left + (d.clientLeft + padL) * scale, vis: Math.min(line, room) * scale, emPx: em * scale, room: room * scale, top: r.top, height: r.height};
+  // 손잡이 높이는 글이 있는 데까지(빈 쓰기 칸 아래쪽을 누르면 손잡이가 아니라 글 칸이 눌리게). 그냥 글은 칸 전체.
+  const last = [...d.children].reverse().find(el => !el.matches('[data-line-grip],.ed-measure,.ProseMirror-gapcursor'));
+  const bottom = last ? Math.min(r.bottom, last.getBoundingClientRect().bottom + (parseFloat(cs.paddingTop) || 0) * scale) : r.bottom;
+  return {left: r.left + (d.clientLeft + padL) * scale, vis: Math.min(line, room) * scale, emPx: em * scale, room: room * scale, top: r.top, height: Math.max(Math.min(r.height, 48 * scale), bottom - r.top)};
 }
 /**
  * 글 줄 폭 손잡이를 붙인다.
@@ -70,6 +73,9 @@ export function mountLineWidth({host, target}) {
   const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(place); };
   const ro = globalThis.ResizeObserver ? new ResizeObserver(soon) : null;
   ro?.observe(target); if (host !== target) ro?.observe(host);
+  // 쓰는 동안 글 높이가 바뀌어도(칸 크기는 그대로인 큰 창) 손잡이 높이를 맞춘다.
+  const typed = ['input', 'keyup', 'paste', 'drop'];
+  for (const t of typed) target.addEventListener(t, soon);
   let drag = null, lastTap = null;
   const onDown = e => {
     if ((e.pointerType === 'mouse' && e.button !== 0) || phone()) return;
@@ -120,5 +126,5 @@ export function mountLineWidth({host, target}) {
   const entry = {host, place};
   mounted.add(entry);
   place(); soon();
-  return {place: soon, destroy() { mounted.delete(entry); ro?.disconnect(); cancelAnimationFrame(raf); grip.remove(); }};
+  return {place: soon, destroy() { mounted.delete(entry); ro?.disconnect(); for (const t of typed) target.removeEventListener(t, soon); cancelAnimationFrame(raf); grip.remove(); }};
 }
