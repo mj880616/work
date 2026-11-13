@@ -2014,11 +2014,12 @@ for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 줄 ⋯ [�
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  expect(row().draft.dropped).toEqual(['c:camp']);
  expect(row().draft.picks.items.find(i=>i.cell==='calendar')).toMatchObject({kind:'line',act:'cut'});
- const cut=cal.locator('[data-journal-schedule-cut]');
- await expect(cut).toContainText('일정을 뺐어요');
- await expect(cal.locator('details[data-journal-schedule-cut]')).toHaveCount(0);
- await cut.getByRole('button',{name:/다시 넣기/}).click();
- await expect(cut).toHaveCount(0);
+ // ⑤: 방금 뺀 일정은 표 아래 줄이 아니라 화면 아래 5초 알림 하나('일정을 뺐어요 · 되돌리기').
+ const notice=page.locator('#kptuNotice');
+ await expect(notice).toContainText('일정을 뺐어요');
+ await expect(cal.locator('[data-journal-schedule-cut]')).toHaveCount(0);
+ await page.screenshot({path:`docs/design/screens/s61-42/5-drop-notice-${width}.png`});
+ await notice.getByRole('button',{name:'되돌리기'}).click();
  await expect(camp).toHaveCount(1,{timeout:15000});
  expect(row().draft.dropped??[]).toEqual([]);
  // [고치기]: 그 줄 자리에 고치기 칸이 열리고 내용 칸에 초점(한 번에 한 줄 — 다른 줄 ⋯ 없음).
@@ -2026,6 +2027,37 @@ for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 줄 ⋯ [�
  await expect(schedField(page,'title')).toBeFocused({timeout:15000});
  await expect(cal.locator('tr[data-journal-schedule-edit-row]')).toHaveCount(1);
  await expect(cal.locator('tbody details.row-more')).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+// WEEKLY-주간정리다듬기 ⑤(시안 weekly-tidy.html ④): [수정]은 누르는 즉시 그 줄에 열린다 — 바탕(한글 파일)을 여는 중이어도 기다리지 않고,
+// 그 주 임시저장 행(draft.titles)에 바로 저장한다. [빼기]도 바탕 없이 그 주 행(dropped)에. 바탕 파일 받기를 붙잡아 두고 본다. 가짜 서버·가짜 글만.
+for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 [수정]·[빼기]는 바탕을 열지 않고 바로 ${width}`,async({page})=>{
+ const f=await memoryFixture(page,{width});
+ let release;const hold=new Promise(r=>{release=r});
+ await page.route(SB+'/functions/v1/document-actions',async r=>{await hold;return r.fallback();});
+ await openJournal(page,width);await openWeekly(page);
+ const cal=page.locator('#journalRoot [data-journal-weekly="calendar"]');
+ const meet=cal.locator('tbody tr').filter({hasText:'가상 다음 주 회의'});
+ await expect(meet).toHaveCount(1,{timeout:15000});
+ await pressMore(meet,'[data-journal-schedule-fix]');
+ await expect(schedField(page,'title')).toBeFocused({timeout:3000}); // 바탕을 기다리지 않음
+ await page.screenshot({path:`docs/design/screens/s61-42/5-fix-now-${width}.png`});
+ await schedField(page,'title').fill('가상 점검 회의');
+ await schedField(page,'title').press('Enter');
+ const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ await expect.poll(()=>row()?.draft?.titles?.find(t=>t.title==='가상 점검 회의')?.title??null,{timeout:15000}).toBe('가상 점검 회의');
+ expect(row().draft.picks.items.find(i=>i.cell==='calendar')).toMatchObject({kind:'line',act:'fix'});
+ await expect(cal.locator('tbody tr').filter({hasText:'가상 점검 회의'})).toHaveCount(1,{timeout:15000});
+ const camp=cal.locator('tbody tr').filter({hasText:'가상 수련회'});
+ await pressMore(camp,'[data-journal-schedule-drop]');
+ await expect(camp).toHaveCount(0,{timeout:15000});
+ await expect.poll(()=>row().draft.dropped).toEqual(['c:camp']);
+ await expect(page.locator('#kptuNotice')).toContainText('일정을 뺐어요');
+ release();
+ // 바탕이 열린 뒤에도 같은 값(그 주 행에서 읽음).
+ await openDraft(page);
+ await expect(cal.locator('tbody tr').filter({hasText:'가상 점검 회의'})).toHaveCount(1);
+ await expect(camp).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 수정 → [확정하고 한글 파일 받기] 뒤 [기억하기] → 다음 주 초안·화면에 먼저 적용 → [주간 정리]에서 삭제·되돌리기 ${width}`,async({page})=>{
@@ -3284,7 +3316,8 @@ for(const width of [412,1440])test(`[주간 정리] 5. 주요 일정·참고 [+ 
  await expect(calBox(page).locator('[data-journal-hand-status="calendar"]')).toHaveText('날짜를 선택해 주세요(표의 2주 안).');
  await handField(page,'day').fill('2026-10-13');await handField(page,'time').fill('1500');await handField(page,'place').fill('가상 손 회관');
  await calBox(page).locator('[data-journal-hand-save="calendar"]').click();
- await expect(calBox(page).locator('[data-journal-hand-status="calendar"]')).toHaveText('10.13.(화) 줄을 더했어요.');
+ await expect(page.locator('#kptuNotice')).toContainText('10.13.(화) 줄을 더했어요.'); // ⑤: 표 아래가 아니라 화면 아래 5초 알림
+ await expect(calBox(page).locator('[data-journal-hand-status="calendar"]')).toHaveText('');
  // 그날 줄에 시간 순으로(10:30 달력 일정 다음), 작은 '손' 표시.
  const day13=calBox(page).locator('tr[data-journal-schedule-day="2026-10-13"] .journal-weekly-what');
  await expect(day13).toHaveText(['10:30 / 가상 다음 주 회의 / 가상 회의실','15:00 / 가상 손 점검 / 가상 손 회관 손']);
