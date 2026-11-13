@@ -5,12 +5,12 @@ import {emptyHtml} from './wait-state.js';
 // 순환·100단(folder-limits.mjs)·같은 프로젝트 틀은 DB 트리거가 지키고(거절 SQLSTATE 23514 + LIB_FOLDER_*), 화면은 같은 규칙으로 고를 수 있는 곳만 보인다.
 // 폴더·자료 연결만 바꾼다. 자료(app_documents)·프로젝트·Drive 파일은 건드리지 않는다.
 import {createAnchoredMenu} from './anchored-menu.js';
-import {FOLDER_DEPTH,OUTSIDE_KEY,SORT_GAP,canAddChild,cleanFolderName,folderTrashCounts,folderDepth,folderErrorText,folderMoveTargets,folderReorderPlan,folderSiblings,nextSortOrder} from './library-tree.js';
+import {FOLDER_DEPTH,OUTSIDE_KEY,canAddChild,cleanFolderName,folderTrashCounts,folderDepth,folderErrorText,folderMoveTargets,folderSiblings,nextSortOrder} from './library-tree.js';
 import {pickerRows} from './library-move.mjs';
 import {folderIndent} from './folder-limits.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {colorChoiceHtml,colorFromButton} from './folder-look.js';
-import {colorOf} from './folder-look-model.mjs';
+import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look-model.mjs';
 import {setLibraryFolderColor} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
 import {openFolderAt} from './drop-open-folder.mjs';
@@ -60,7 +60,6 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(ok&&before!==undefined&&before!==name)say('이름을 바꿨어요 ·',{undo:async()=>{if(folder(id)?.name!==name){say('그 사이 이름이 또 바뀌어 되돌리지 않았어요.');return}await patchName(id,before,'이름을 되돌렸어요.')}});
     return ok;
   };
-  const reorderFolder=(id,dir)=>{const plan=folderReorderPlan(s().folders,id,dir,!!s().free);if(!plan.length)return Promise.resolve(false);return run(async()=>{for(const p of plan)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})})};
   // 폴더 색(1~8, 기본 = null): 서버 함수(owner만)로 바로 저장하고 다시 읽어 그린다. 같은 폴더를 보이는 모든 곳(토글 머리·폴더 고르기 창)이 이 값 하나를 읽는다. 실패하면 그대로 두고 알린다.
   async function colorFolder(id,color){
     const f=folder(id);if(!f||busy||colorOf(f)===color)return false;
@@ -133,7 +132,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       if(colorFor===key&&key.startsWith('f:')){const f0=folder(key.slice(2));return f0?colorChoiceHtml(colorOf(f0)):''}
       if(!key.startsWith('f:'))return '<button type="button" data-lu-folder-action="create">새 폴더</button>'+(key===OUTSIDE_KEY&&selectNode?.(key)?'<button type="button" data-lu-folder-action="select-all">전체 선택</button>':'');
       const f=folder(key.slice(2));if(!f)return '';
-      const sib=sibs(f.project_id||null,f.parent_id||null),i=sib.findIndex(x=>x.id===f.id);
+      // LIB-폴더끌어순서(S61-14, 명진 11/12 15:30): 순서는 끌어서 바꾸므로 [위로]·[아래로]는 메뉴에서 뺐다. 키보드는 폴더 줄에서 Alt+↑·Alt+↓(bindKeys).
       // LIB-폴더100단 ②(10:34): 폴더 보기에서는 펼치기·접기 다음에 [이 폴더로 들어가기] — 그 폴더만 보이고 위에 위치 줄(자료실 › … ). 폴더 줄을 두 번 눌러도 같다.
       // '폴더 밖'이 비어 그 줄이 없으면(LIB-정리보충) 맨 위 폴더 메뉴 첫 줄이 맨 위 새 폴더 자리.
       const top=s().free&&!s().inFolder&&!f.parent_id&&!outsideHead()?'<button type="button" data-lu-folder-action="create-top">맨 위에 새 폴더</button>':'';
@@ -141,7 +140,6 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         +(canAddChild(s().folders,f.id)?'<button type="button" data-lu-folder-action="create">안에 새 폴더</button>':'')
         +`<button type="button" data-lu-folder-action="toggle">${s().isOpen?.(key)?'접기':'펼치기'}</button>`
         +(enter&&s().free?'<button type="button" data-lu-folder-action="enter">이 폴더로 들어가기</button>':'')
-        +(i>0?'<button type="button" data-lu-folder-action="up">위로</button>':'')+(i>=0&&i<sib.length-1?'<button type="button" data-lu-folder-action="down">아래로</button>':'')
         +(folderMoveTargets(s().folders,f.id,!!s().free).length?'<button type="button" data-lu-folder-action="move">옮기기…</button>':'')
         +'<button type="button" data-lu-folder-action="paint">색 선택…</button>'
         +receiveLine(f)+sortLine(f)+(tidy&&s().free?'<button type="button" class="row-act lu-menu-tidy" data-lu-folder-action="tidy">정돈 제안</button>':'')
@@ -156,7 +154,6 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='enter')enter?.(id,trigger); // LIB-두칸폴더펼치기: 두 칸이면 메뉴를 연 칸에서 들어간다
     else if(action==='rename')startRename(id,trigger);
     else if(action==='toggle')toggleNode('f:'+id);
-    else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
     else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 선택하세요.`:`${f.name}을(를) 옮길 곳을 선택하세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
     else if(action==='paint'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
     else if(action==='receive')void toggleReceive(f,trigger);
@@ -252,7 +249,6 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     input.focus({preventScroll:true});input.select();
   }
   function focusSummary(key){(headOf(key)||(key.startsWith('f:')?navBtnOf(key.slice(2)):null))?.focus({preventScroll:true})}
-  function focusHead(key){const b=[...document.querySelectorAll('#documentList [data-lu-node-menu]')].find(x=>x.dataset.luNodeMenu===key);b?.focus({preventScroll:true})}
 
   // ---- 자료 → 폴더 옮기기 (LIB-폴더로옮기기, 2026-10-27) ----
   // 자료 ⋯·우클릭 메뉴의 [폴더로 옮기기 ›], 선택 모드의 [폴더로 옮기기], 끌어 놓기가 모두 이 아래 moveDocs 하나(app_library_folder_items 쓰기,
@@ -287,9 +283,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   // ---- 끌어 놓기(LIB-토글트리 ④ + LIB-폴더탐색기, 설계 6·12절) ----
   // 끌 수 있는 것: 폴더 머리, 파일 줄(고른 줄이 여럿이면 고른 것 모두). 놓을 곳:
-  //   프로젝트 묶기: 같은 프로젝트 틀 안의 폴더 머리(그 안으로), 같은 상위 형제 폴더의 위·아래 끝(그 앞·뒤로), 그 틀의 프로젝트 머리(폴더 밖으로)
-  //   폴더 보기: 틀과 무관하게 모든 폴더 머리(그 안으로), 형제 폴더 위·아래 끝, 맨 위 '폴더 밖' 머리(폴더 밖으로)
-  // 자기·자기 아래·100단 초과는 놓을 수 없음 표시. 키보드는 ⋯ 메뉴(위로·아래로·옮기기…)가 같은 일을 한다.
+  //   프로젝트 묶기: 같은 프로젝트 틀 안의 폴더 머리(그 안으로), 같은 틀 폴더의 위·아래 끝(그 앞·뒤로), 그 틀의 프로젝트 머리(폴더 밖으로)
+  //   폴더 보기: 틀과 무관하게 모든 폴더 머리(그 안으로), 모든 폴더 위·아래 끝, 맨 위 '폴더 밖' 머리(폴더 밖으로)
+  // 자기·자기 아래·100단 초과는 놓을 수 없음 표시. 키보드는 폴더 줄 Alt+↑·Alt+↓(순서)와 ⋯ 메뉴 [옮기기…]가 같은 일을 한다(S61-14).
+  // LIB-폴더끌어순서(S61-14): 다른 단의 폴더 줄 위·아래 끝에 놓아도 그 단으로 옮기며 그 자리에 끼운다. 왼쪽 나무·두 칸 칸의 폴더 줄도 같다.
   // 놓은 뒤에는 '옮겼어요 · 되돌리기' 한 줄. 바깥 파일을 올리는 끌어놓기(library-drop.js)는 dataTransfer에 'Files'가 있을 때만 반응하고,
   // 여기는 안에서 시작한 끌기(drag)만 보므로 서로 부딪치지 않는다.
   let drag=null;
@@ -335,8 +332,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       }
       const target=folder(id);if(!target)return {head,nav:true,ok:false};
       if(drag.kind==='file')return {head,nav:true,group,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
-      if(target.id===drag.id||target.id===folder(drag.id)?.parent_id)return {head,nav:true,ok:false};
-      return {head,nav:true,group,ok:folderMoveTargets(s().folders,drag.id,true).includes(target.id),kind:'into',target:target.id};
+      // LIB-폴더끌어순서(S61-14): 나무·칸의 폴더 줄도 위 끝 = 그 앞, 아래 끝 = 그 뒤, 가운데 = 안으로(노트 나무와 같은 공용 판정). 칸의 빈 자리·자료 줄은 안으로만.
+      const p=folderPlace(drag.id,target,nav?dropZone(head.getBoundingClientRect(),e.clientY):'inside');
+      if(!p)return {head,nav:true,ok:false};
+      return p.kind==='reorder'?{head,nav:true,ok:true,kind:p.line,target:target.id}:{head,nav:true,group,ok:true,kind:'into',target:target.id};
     }
     // LIB-후속1 ⑤: 분류로 묶은 화면에서 자료를 다른 분류 머리(또는 그 분류의 열린 자료 줄) 위에 놓으면 그 분류로 바꾼다. 왼쪽 폴더 팝업은 그대로(폴더 옮기기).
     if(drag.kind==='file'&&categoryOf&&changeCategory){
@@ -349,7 +348,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(!head){head=openHead(e.target);viaRow=!!head}
     if(!head)return null;
     const node=head.parentElement,key=node?.dataset.luNode;if(!key)return null;
-    const free=!!s().free,r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=viaRow?-1:r.height/4;
+    const free=!!s().free,r=head.getBoundingClientRect();
     const sameFrame=frame=>drag.kind==='folder'?drag.frame===frame:drag.docs.every(d=>(d.project_id||null)===frame);
     // 맨 위 머리: 프로젝트 묶기는 그 프로젝트 머리, 폴더 보기는 '폴더 밖'.
     if(key.startsWith('p:')||key===OUTSIDE_KEY){
@@ -361,11 +360,16 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const target=folder(key.slice(2));if(!target)return {head,ok:false};
     if(!free&&!sameFrame(target.project_id||null))return {head,ok:false};
     if(drag.kind==='file')return {head,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
-    if(target.id===drag.id)return {head,ok:false};
-    const f=folder(drag.id),sibling=(target.parent_id||null)===(f.parent_id||null);
-    if(sibling&&(y<edge||y>r.height-edge))return {head,ok:true,kind:y<edge?'before':'after',target:target.id};
-    const ok=folderMoveTargets(s().folders,drag.id,free).includes(target.id);
-    return {head,ok,kind:'into',target:target.id};
+    // LIB-폴더끌어순서(S61-14): 같은 단·다른 단 모두 위 끝 = 그 앞, 아래 끝 = 그 뒤(다른 단이면 그 단으로 옮기며 그 자리에), 가운데 = 안으로. 열린 폴더 안 자료 줄 위는 안으로만.
+    const p=folderPlace(drag.id,target,viaRow?'inside':dropZone(r,e.clientY));
+    if(!p)return {head,ok:false};
+    return p.kind==='reorder'?{head,ok:true,kind:p.line,target:target.id}:{head,ok:true,kind:'into',target:target.id};
+  }
+  // 폴더를 폴더 줄에 놓을 때의 판정(공용 folderDropPlan). 옮길 수 있는 곳은 메뉴 [옮기기…]와 같은 목록(자기·자기 아래·100단 초과·다른 틀 제외).
+  function folderPlace(dragId,target,zone){
+    const f=folder(dragId);if(!f||!target)return null;
+    let can=null;const ok=id=>(can??=folderMoveTargets(s().folders,dragId,!!s().free)).includes(id);
+    return folderDropPlan({dragId,targetId:target.id,dragParent:f.parent_id||null,targetParent:target.parent_id||null,zone,canPlaceIn:ok,canInto:()=>ok(target.id)});
   }
   // LIB-정리보충 10:42: 끄는 채 닫힌 폴더(또는 '폴더 밖'·프로젝트 토글) 위에 1초 머물면 저절로 열린다(탐색기 방식). 다른 곳으로 가거나 끌기가 끝나면 취소.
   // 여는 것은 details.open만 바꾼다(목록을 다시 그리지 않아 끌기가 끊기지 않음). 펼침 기억은 기존 toggle 이벤트가 맡는다.
@@ -477,16 +481,24 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     say(`폴더를 옮겼어요 → ${parentId?`${folder(parentId)?.name||''} 폴더`:'맨 위'} ·`,{undo:()=>{const cur=folder(id);if(!cur||(cur.parent_id||null)!==(parentId||null)){say('그 사이 폴더가 또 바뀌어 되돌리지 않았어요.');return Promise.resolve(false)}return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:before}),'되돌렸어요.')}});
     return true;
   }
-  // 같은 상위 형제 사이로 옮기기: 끈 폴더를 target 앞/뒤에 두고 그 형제만 1024 간격으로 다시 매긴다(바뀐 행만 저장).
+  // LIB-폴더끌어순서(S61-14): 끈 폴더를 target 앞/뒤에 둔다. 상위가 다르면 target의 상위로 옮기며 그 자리에. 순서 값은 공용 placeAt(틈이 있으면 옮긴 줄 하나, 없으면 그 형제를 1024 간격으로).
+  // 바뀐 행만 저장(기존 소유자 RLS REST, DB 변경 없음). '… · 되돌리기'(Ctrl+Z 포함)는 바뀐 행을 이전 상위·순서로 돌린다(그 사이 또 옮겨졌으면 되돌리지 않음).
   async function placeBeside(id,targetId,after){
-    const f=folder(id),sib=sibs(f.project_id||null,f.parent_id||null).filter(x=>x.id!==id),at=sib.findIndex(x=>x.id===targetId);if(at<0)return false;
-    const order=[...sib.slice(0,at+(after?1:0)).map(x=>x.id),id,...sib.slice(at+(after?1:0)).map(x=>x.id)];
-    const plan=order.map((x,i)=>({id:x,sort_order:(i+1)*SORT_GAP})).filter(p=>Number(folder(p.id)?.sort_order)!==p.sort_order);
-    if(!plan.length)return false;
-    const prev=plan.map(p=>({id:p.id,sort_order:folder(p.id).sort_order}));
-    const patch=list=>async()=>{for(const p of list)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})};
-    const ok=await run(patch(plan));if(!ok)return false;
-    say('순서를 바꿨어요 ·',{undo:()=>run(patch(prev),'되돌렸어요.')});
+    const f=folder(id),t=folder(targetId);if(!f||!t||f.id===t.id)return false;
+    const parent=t.parent_id||null,same=(f.parent_id||null)===parent;
+    const sib=sibs(s().free?null:(f.project_id||null),parent),others=sib.filter(x=>x.id!==id),i=others.findIndex(x=>x.id===targetId);if(i<0)return false;
+    const at=i+(after?1:0);
+    if(same&&isSamePlace(sib,id,at))return false;
+    const plan=placeAt(same?sib:others,id,at).map(c=>({id:c.id,sort_order:c.order}));
+    const prev=plan.map(p=>{const x=folder(p.id);return {id:p.id,parent_id:x.parent_id||null,sort_order:x.sort_order}});
+    const body=p=>p.id===id&&!same?{parent_id:parent,sort_order:p.sort_order}:{sort_order:p.sort_order};
+    // 옮기는 폴더를 먼저 써서 DB 검사(순환·100단·틀)가 거절하면 나머지는 쓰지 않는다.
+    const order=[...plan.filter(p=>p.id===id),...plan.filter(p=>p.id!==id)];
+    const ok=await run(async()=>{for(const p of order)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:body(p)})});if(!ok)return false;
+    if(!same)reveal(chain(f.project_id||null,parent));
+    const text=same?'순서를 바꿨어요 ·':`폴더를 옮겼어요 → ${parent?`${folder(parent)?.name||''} 폴더`:'맨 위'} ·`;
+    say(text,{undo:()=>{const cur=folder(id);if(!cur||(cur.parent_id||null)!==parent){say('그 사이 폴더가 또 바뀌어 되돌리지 않았어요.');return Promise.resolve(false)}
+      return run(async()=>{for(const p of [...prev.filter(p=>p.id===id),...prev.filter(p=>p.id!==id)])await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:p.id===id&&!same?{parent_id:p.parent_id,sort_order:p.sort_order}:{sort_order:p.sort_order}})},'되돌렸어요.')}});
     return true;
   }
   function commitDrop(d,t){
@@ -617,7 +629,24 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(s().free)return null;
     return list.querySelector('[data-lu-node-menu="p:none"]');
   }
+  // LIB-폴더끌어순서(S61-14): 키보드만 쓰는 길 — 폴더 줄(한 칸 머리·왼쪽 나무·두 칸 칸)에 초점을 두고 Alt+↑·Alt+↓ = 한 칸 위·아래(보이는 단추 없음).
+  // 저장·되돌리기는 끌어 놓기와 같은 placeBeside(바로 위 형제 앞 / 바로 아래 형제 뒤).
+  function stepKey(e){
+    if(!e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||(e.key!=='ArrowUp'&&e.key!=='ArrowDown'))return;
+    const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable]'))return;
+    const head=t.closest('summary.lu-node-head'),key=head?.parentElement?.dataset.luNode||'',nav=!head&&t.closest('[data-lu-nav]');
+    const id=key.startsWith('f:')?key.slice(2):nav?.dataset.luNav||'',f=id&&folder(id);if(!f)return;
+    e.preventDefault();e.stopPropagation();
+    const sib=sibs(s().free?null:(f.project_id||null),f.parent_id||null),i=sib.findIndex(x=>x.id===id),j=e.key==='ArrowUp'?i-1:i+1;
+    if(i<0||j<0||j>=sib.length||busy)return;
+    const pane=nav?.closest?.('[data-lu-pane-i]')?.dataset.luPaneI,inTree=!!nav?.closest?.('#libraryFolderNav');
+    void placeBeside(id,sib[j].id,j>i).then(()=>{
+      const back=head?headOf('f:'+id):document.querySelector(pane!==undefined?`#documentList [data-lu-pane-i="${pane}"] [data-lu-nav="${CSS.escape(id)}"]`:inTree?`#libraryFolderNav [data-lu-nav="${CSS.escape(id)}"]`:`[data-lu-nav="${CSS.escape(id)}"]`);
+      back?.focus({preventScroll:true});
+    });
+  }
   function bindKeys(list){
+    (list.closest?.('#libraryListCard')||list).addEventListener('keydown',stepKey,true);
     list.addEventListener('keydown',e=>{
       if(e.key!=='F2'||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
       const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable]'))return;

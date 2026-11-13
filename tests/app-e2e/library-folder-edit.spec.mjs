@@ -83,10 +83,12 @@ for(const width of [390,1280])test.describe(`폴더 수정 ${width}`,()=>{
     await press(page,menuOf(page,'p:top-a'),width);await press(page,action(page,'새 폴더'),width);await page.locator('#libraryFolderName').fill('가상 자료집');await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
     const f2=s.folders[1].id;expect(s.folders[1].sort_order).toBe(2048);
     expect(await body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f1,'f:'+f2,'a-1','a-2']);
-    // 위로: 두 폴더의 순서를 맞바꾼다(요청 2개). 메뉴에는 갈 수 있는 쪽만.
-    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','위로','옮기기…','색 선택…','폴더 삭제']);
-    await press(page,action(page,'위로'),width);await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f2,'f:'+f1,'a-1','a-2']);
-    expect(s.writes.slice(-2).map(w=>[w.method,w.id,w.body.sort_order])).toEqual([['PATCH',f2,1024],['PATCH',f1,2048]]);
+    // LIB-폴더끌어순서(S61-14): 메뉴에는 [위로]·[아래로]가 없다(끌어서 바꾼다). 키보드만 쓰는 길은 폴더 줄 초점 + Alt+↑(옮기는 줄 하나만 저장).
+    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','옮기기…','색 선택…','폴더 삭제']);
+    await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
+    await libraryNodeHead(page,'f:'+f2).focus();await page.keyboard.press('Alt+ArrowUp');await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f2,'f:'+f1,'a-1','a-2']);
+    expect(s.writes.slice(-1).map(w=>[w.method,w.id,w.body.sort_order])).toEqual([['PATCH',f2,0]]);
+    await expect(libraryNodeHead(page,'f:'+f2)).toBeFocused();await expect(page.locator('#libraryFolderStatusLine')).toContainText('순서를 바꿨어요');
     // 이름 바꾸기.
     // 이름 바꾸기: 창 없이 줄 안에서 바로(Enter 저장). 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'.
     await press(page,menuOf(page,'f:'+f1),width);await press(page,action(page,'이름 바꾸기'),width);
@@ -264,11 +266,21 @@ test('PC 1280 끌어 놓기: 같은 틀 안 폴더 안으로·앞뒤로·맨 위
 });
 test.describe('폰 390 끌기 없음',()=>{
   test.use({hasTouch:true,isMobile:true});
-  test('폰 390: 끌 수 있는 줄이 없고 ⋯ 메뉴의 위로·아래로가 같은 일을 한다',async({page})=>{
+  // LIB-폴더끌어순서(S61-14): 폰은 [위로]·[아래로] 대신 폴더 머리를 길게 눌러 끌어 다른 폴더 줄 위 끝에 놓으면 그 앞으로.
+  test('폰 390: 마우스 끌기 표시는 없고, 메뉴에 위로·아래로가 없으며, 길게 눌러 끌어 순서를 바꾼다',async({page})=>{
     const {s,errors}=await boot(page,390,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048}]});
     await libraryTopMenu(page,'expand',{tap:true});
     await expect(page.locator('#documentList [draggable="true"]')).toHaveCount(0);
-    await menuOf(page,'f:fb').tap();await action(page,'위로').tap();
+    await menuOf(page,'f:fb').tap();await expect(page.locator('#luFolderMenu')).toBeVisible();
+    await expect(action(page,'위로')).toHaveCount(0);await expect(action(page,'아래로')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    const cdp=await page.context().newCDPSession(page),touch=(type,pts)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:pts.map((p,i)=>({x:p.x,y:p.y,id:i}))});
+    const box=async key=>libraryNodeHead(page,key).locator('.lu-node-name').evaluate(el=>{const h=el.closest('summary').getBoundingClientRect(),r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,top:h.top}});
+    const from=await box('f:fb'),to=await box('f:fa');
+    await touch('touchStart',[from]);await page.waitForTimeout(700);
+    for(const f of [0.25,0.5,0.75,1])await touch('touchMove',[{x:from.x,y:from.y+(to.top+3-from.y)*f}]);
+    await expect(libraryNodeHead(page,'f:fa')).toHaveClass(/lu-drop-before/);
+    await touch('touchEnd',[]);
     await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:fb','f:fa','a-1','a-2']);
     expect(s.writes.every(w=>w.table==='folders'&&w.method==='PATCH')).toBe(true);expect(errors).toEqual([]);
   });

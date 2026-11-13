@@ -27,7 +27,7 @@ import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, 
 // FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
 import { mountReorder } from './reorder-drag.js';
 import { folderIconHtml, colorChoiceHtml, colorFromButton } from './folder-look.js';
-import { colorOf, sortNotesManual, placeAt, stepPlan, noteOrderOf, isSamePlace, NOTE_SORT_NAMES, isNoteSort } from './folder-look-model.mjs';
+import { colorOf, sortNotesManual, placeAt, stepPlan, noteOrderOf, isSamePlace, NOTE_SORT_NAMES, isNoteSort, folderDropPlan } from './folder-look-model.mjs';
 import { noteFolderId, noteFolderIdLegacy, foldersFromNames, noteLineTitle, noteLineDate, treeRows, paneRows, paneHead, folderPath, canMoveFolder, noteFolderErrorText, OUTSIDE, OUTSIDE_NAME, RECENT, RECENT_NAME, recentRows } from './note-tree.mjs';
 import { FOLDER_DEPTH_LIMIT } from './folder-limits.mjs';
 import { folderSiblings, nextSortOrder, cleanFolderName } from './library-tree.js';
@@ -1138,10 +1138,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (overKey.startsWith('f:')) {
       const target = folderById(overKey.slice(2)); if (!target) return null;
       if (zone !== 'inside' && onlyFolder) {
-        const f = folderById(items.folders[0]); if (!f || f.id === target.id) return null;
-        const parent = target.parent_id || null;
-        if ((f.parent_id || null) !== parent && !canMoveFolder(folders, f.id, parent, FOLDER_DEPTH_LIMIT)) return null;
-        return {kind:'reorder-folder', id:f.id, parent, over:target.id, after:zone === 'after', mark:{keys:[overKey], line:zone}};
+        // LIB-폴더끌어순서(S61-14): 앞·뒤 끼우기 판정은 자료실과 같은 공용 규칙(folder-look-model.mjs folderDropPlan).
+        const f = folderById(items.folders[0]); if (!f) return null;
+        const p = folderDropPlan({dragId:f.id, targetId:target.id, dragParent:f.parent_id, targetParent:target.parent_id, zone,
+          canPlaceIn:parent => canMoveFolder(folders, f.id, parent, FOLDER_DEPTH_LIMIT)});
+        if (!p) return null;
+        return {kind:'reorder-folder', id:f.id, parent:p.parent, over:p.over, after:p.after, mark:{keys:[overKey], line:p.line}};
       }
       if (items.folders.some(id => !canMoveFolder(folders, id, target.id, FOLDER_DEPTH_LIMIT) || folderById(id)?.parent_id === target.id) && !items.notes.length) return null;
       return {kind:'move', target:target.id, items, mark:{keys:[overKey], inside:true}};

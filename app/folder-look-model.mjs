@@ -24,6 +24,21 @@ export function dropZone(rect, y, {canInside = true} = {}) {
   return ratio < 0.25 ? 'before' : ratio > 0.75 ? 'after' : 'inside';
 }
 
+// LIB-폴더끌어순서(S61-14): 폴더 하나를 다른 폴더 줄에 놓을 때의 판정 하나 — 노트 나무(basket-notes.js)와 자료실(library-folders.js)이 같이 쓴다.
+// zone = dropZone 결과('before'|'inside'|'after'). 위·아래 끝 = 그 줄의 형제로 앞·뒤에 끼움(상위가 다르면 그 상위로 옮기며 그 자리에), 가운데 = 그 폴더 안으로.
+// dragParent = 끈 폴더의 지금 상위(null = 맨 위), targetParent = 놓은 줄의 상위.
+// canPlaceIn(parent) = 끈 폴더를 그 상위로 옮길 수 있나(상위가 같으면 묻지 않음), canInto() = 그 폴더 안으로 넣을 수 있나.
+// 돌려줌: {kind:'reorder', parent, over, after, line} | {kind:'into', target} | null(놓을 수 없음). 화면은 line으로 가는 선, 'into'로 바탕을 그린다.
+export function folderDropPlan({dragId, targetId, dragParent = null, targetParent = null, zone, canPlaceIn = () => true, canInto = () => true}) {
+  if (!dragId || !targetId || dragId === targetId) return null;
+  if (zone === 'before' || zone === 'after') {
+    const parent = targetParent || null;
+    if ((dragParent || null) !== parent && !canPlaceIn(parent)) return null;
+    return {kind: 'reorder', parent, over: targetId, after: zone === 'after', line: zone};
+  }
+  return canInto() ? {kind: 'into', target: targetId} : null;
+}
+
 const finite = v => typeof v === 'number' && Number.isFinite(v);
 const orderValue = v => (finite(v) ? v : Number(v) || 0);
 // 같은 부모 안 형제를 순서(sort_order) → 만든 날 → id 로 줄 세운다.

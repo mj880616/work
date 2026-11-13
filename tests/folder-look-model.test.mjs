@@ -108,3 +108,16 @@ test('album order: 0 = not set; step plan uses the same renumber rule', () => {
   assert.equal(albumOrderOf({}), null);
   assert.deepEqual(albumStepPlan(['x', 'y'], 'y', -1, () => null), [{id: 'y', o: 1024}, {id: 'x', o: 2048}]);
 });
+
+// LIB-폴더끌어순서(S61-14): 노트 나무·자료실이 같이 쓰는 폴더 놓기 판정.
+test('folderDropPlan: 위·아래 끝 = 앞·뒤(다른 단이면 그 단으로), 가운데 = 안으로, 못 가는 곳은 null', async () => {
+  const {folderDropPlan} = await import('../app/folder-look-model.mjs');
+  assert.deepEqual(folderDropPlan({dragId:'a', targetId:'b', zone:'before'}), {kind:'reorder', parent:null, over:'b', after:false, line:'before'});
+  assert.deepEqual(folderDropPlan({dragId:'a', targetId:'b', dragParent:'p', targetParent:'q', zone:'after'}), {kind:'reorder', parent:'q', over:'b', after:true, line:'after'});
+  // 같은 단이면 옮길 수 있는지 묻지 않는다. 다른 단은 canPlaceIn이 막으면 null.
+  assert.ok(folderDropPlan({dragId:'a', targetId:'b', dragParent:'p', targetParent:'p', zone:'before', canPlaceIn:() => false}));
+  assert.equal(folderDropPlan({dragId:'a', targetId:'b', dragParent:'p', targetParent:'q', zone:'before', canPlaceIn:() => false}), null);
+  assert.deepEqual(folderDropPlan({dragId:'a', targetId:'b', zone:'inside'}), {kind:'into', target:'b'});
+  assert.equal(folderDropPlan({dragId:'a', targetId:'b', zone:'inside', canInto:() => false}), null);
+  assert.equal(folderDropPlan({dragId:'a', targetId:'a', zone:'before'}), null);
+});
