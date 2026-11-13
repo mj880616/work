@@ -16,6 +16,12 @@ const orgs=[
 // TASK-조직순서: ?orgs=order gives the 13 decided organizations in a scrambled (name) order, two others and the old space
 // name 궤도협의회, all assigned to me, plus one organization that is not mine.
 const orderNames=['공항철도지부','용인경전철지부','서울교통공사9호선지부','인천교통공사노동조합','신분당선지부','전국철도노동조합','메트로9호선노동조합','부산지하철노동조합','김포도시철도지부','서해선지부','대구교통공사노동조합','지티엑스에이운영지부','서울교통공사노동조합','한국소비자원지부','궤도협의회','국민연금지부'];
+// MULTI-다른담당자맞춤 ①: ?orgs=none = 막 가입한 다른 담당자(조직·담당·묶음 설정 없음). 화면 기억 대역도 빈 값으로 먼저 둔다.
+if(fixtureParams.get('orgs')==='none'){
+ orgs.splice(0,orgs.length);
+ const prefs={};window.__orgOrderPrefs=prefs;
+ window.KPTUViewPrefs={get:key=>prefs[key],set:(key,value)=>{if(value===null)delete prefs[key];else prefs[key]=value;return true},flush:async()=>{},status:()=>'ok'};
+}
 if(fixtureParams.get('orgs')==='order'){
  orgs.splice(0,orgs.length,...orderNames.map((name,i)=>({id:'ord-'+i,workspace_id:'ws-1',name,organization_type:'미분류',default_assignee_name:null,created_by:'user-me',active:true})),{id:'ord-other',workspace_id:'ws-1',name:'가나다 다른 담당',organization_type:'미분류',default_assignee_name:null,created_by:'user-me',active:true});
 }
@@ -33,7 +39,7 @@ window.__teamAiCalls=0;window.__reportPatches=[];
 window.__deletes=[];window.__failDelete=false;window.__deleteNoRows=false;
 window.__updatePosts=[];window.__updateClock=Date.parse('2026-09-26T00:00:00Z');window.__failUpdateSave=false;
 let fixtureAffiliations=[{organization_id:'org-rail',tag_id:'tag-1',created_at:'2026-09-01T00:00:00Z'}];window.__affCalls=[];
-let assignments=fixtureParams.get('orgs')==='order'?orgs.filter(o=>o.id!=='ord-other').map(o=>({organization_id:o.id,user_id:'user-me',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'})):[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
+let assignments=fixtureParams.get('orgs')==='none'?[]:fixtureParams.get('orgs')==='order'?orgs.filter(o=>o.id!=='ord-other').map(o=>({organization_id:o.id,user_id:'user-me',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'})):[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
 window.__patches=[];
 window.__holdOrgSave=false;window.__failOrgSave=false;window.__holdAssigneeSave=false;
 let releaseOrgSave,releaseAssigneeSave;
@@ -109,6 +115,8 @@ window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-
    const report=reports.find(x=>x.id===id);if(report)Object.assign(report,opt.body);
    window.__reportPatches.push({id,body:opt.body});return opt.prefer?.includes('return=representation')&&report?[structuredClone(report)]:null;
  }
+ // MULTI-다른담당자맞춤 ①: [+ 담당조직] 저장(새 행을 돌려준다).
+ if(path.split('?')[0]==='/rest/v1/app_suborganizations'&&opt.method==='POST'){window.__orgPosts=(window.__orgPosts||[]).concat([{path,body:opt.body,prefer:opt.prefer||''}]);const row={id:'org-made-'+window.__orgPosts.length,...structuredClone(opt.body)};orgs.push(row);return [row]}
  return [];
 }};
 if(fixtureParams.has('teamstats')){

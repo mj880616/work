@@ -357,6 +357,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // Main's header line under the title keeps its size; then the same current markup is compared under main's and current styles.
   const mainHeaderSize=await original.locator('#ps3Objective').evaluate(el=>getComputedStyle(el).fontSize);
   for(const id of ['ps3DetailModal','ps3WorkstreamModal']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}
+  // MULTI-다른담당자맞춤 ①: 담당조직 창은 이름·종류 두 칸이 되었다 — 지금 마크업을 main 스타일 아래에서도 같은 값으로 비교한다.
+  {const html=await page.locator('#soEditModal').evaluate(el=>el.outerHTML);await original.locator('#soEditModal').evaluate((el,html)=>{el.outerHTML=html},html)}
   await original.locator('#ps3ProgressModal').evaluate(el=>el.remove());await expect(page.locator('#ps3ProgressModal')).toHaveCount(0);
   // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
   const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
