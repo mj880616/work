@@ -34,14 +34,23 @@ export function cut(s: string, max: number): string {
 }
 const len = (s: string) => [...s].length;
 
+// 글자 모양 태그(줄 안에서 글자만 꾸미는 태그)는 빈칸 없이 걷는다(S61-37 NEWS-원문표기깨짐2). 브라우저도 '<span>13</span><span>일</span>'을 '13일'로 그린다.
+// 한글 문서를 붙여 넣은 누리집(공공운수노조 보도자료 등)은 글자 덩어리마다 <span>·<font>로 쪼개 보내서, 예전처럼 모든 태그를 빈칸으로 바꾸면
+// '13 일'·'잠정합의했습니다 .'처럼 빈칸이 끼고, 태그로 쪼개진 '&middot'+';'도 풀리지 않았다. 칸을 나누는 나머지 태그(td·img·input 등)만 빈칸으로 둔다.
+// 'o:p' 같은 이름공간 태그(워드·한글 문서 붙여넣기)도 글자 모양 태그로 본다.
+const INLINE_TAG = /<\/?(?:span|font|b|strong|i|em|u|a|mark|sup|sub|s|strike|del|ins|small|big|abbr|acronym|cite|code|kbd|q|samp|var|tt|dfn|bdi|bdo|label|nobr|wbr|time|data|[a-z][a-z0-9]*:[a-z][a-z0-9-]*)(?=[\s/>])[^>]*>/gi;
+// 태그를 글자로: 글자 모양 태그는 빈칸 없이, 나머지 태그는 빈칸 하나로. 줄바꿈 태그는 부르는 쪽이 먼저 바꾼다(htmlToText).
+export function stripTags(html: string): string {
+  return String(html ?? "").replace(INLINE_TAG, "").replace(/<[^>]*>/g, " ");
+}
+
 // 태그를 걷고 글자만. 문단·줄바꿈 태그는 줄바꿈으로 남긴다.
 export function htmlToText(html: string): string {
-  const t = html
+  const t = stripTags(html
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<(script|style|noscript|template|svg|iframe|object|select|textarea)\b[\s\S]*?<\/\1\s*>/gi, " ")
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|table|section|article|blockquote|header|footer|nav|aside|dd|dt|figure|figcaption|pre|hr)\b[^>]*>/gi, "\n")
-    .replace(/<[^>]*>/g, " ");
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|table|section|article|blockquote|header|footer|nav|aside|dd|dt|figure|figcaption|pre|hr)\b[^>]*>/gi, "\n"));
   return decodeText(t)
     .split("\n")
     // deno-lint-ignore no-control-regex
@@ -145,7 +154,7 @@ export function usableTitle(t: string | null | undefined): boolean {
 }
 export function cleanTitle(raw: string): string | null {
   // RSS·Atom(type="html") 제목은 한 번 더 이스케이프돼 오기도 해서 풀고 → 태그 걷고 → 다시 푼다.
-  const t = cut(oneLine(decodeText(decodeEntitiesDeep(raw).replace(/<[^>]*>/g, " "))), TITLE_MAX_CHARS);
+  const t = cut(oneLine(decodeText(stripTags(decodeEntitiesDeep(raw)))), TITLE_MAX_CHARS);
   return t ? t : null;
 }
 
