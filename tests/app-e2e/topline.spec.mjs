@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // UI-상단줄(2026-10-22 요청함 07:53·07:54): PC(≥1024) 모든 화면 위 얇은 줄
@@ -61,7 +61,7 @@ test('PC: hiding the sidebar widens the body and is remembered on the server',as
  const after=await width(page,'#homeView');
  expect(after).toBeGreaterThan(before+140);
  await expect.poll(()=>prefs.value?.nav_collapsed).toBe(true);
- await page.reload();
+ await page.reload();await openQuickBox(page);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
  await expect(page.locator('#appView>.app-nav')).toBeHidden();
  await toggle(page).click();

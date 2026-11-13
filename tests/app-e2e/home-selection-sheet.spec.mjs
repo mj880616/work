@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome,createdTaskReply} from './helpers/home-entry.mjs';
+import {openHome,createdTaskReply, openQuickBox } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const q=page=>page.locator('#homeView [data-home-quick]');
 const sheet=page=>page.getByRole('dialog');
@@ -9,7 +9,7 @@ async function orgs(page){
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:names.map((name,i)=>({id:String(i),name,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:names.map((_,i)=>({organization_id:String(i)}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[5,1,0].map(i=>({organization_id:String(i),occurred_at:'2026-10-06'}))}));
- await page.reload();await q(page).locator('[data-quick-mode="update"]').click();await q(page).locator('[data-quick-input]').fill('QA');
+ await page.reload();await openQuickBox(page);await q(page).locator('[data-quick-mode="update"]').click();await q(page).locator('[data-quick-input]').fill('QA');
  await q(page).locator('[data-quick-org]').click();await expect(sheet(page)).toBeVisible();
  // S52-01 ②: 담당조직은 접힌 묶음 — 줄을 보려면 펼친다.
  await openFolds(sheet(page));

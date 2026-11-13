@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome, createdTaskReply } from './helpers/home-entry.mjs';
+import { openHome, createdTaskReply, openQuickBox } from './helpers/home-entry.mjs';
 import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey, pressName } from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
@@ -73,18 +73,18 @@ test('recent three unique organizations precede common organization order',async
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:['a','b','c','d','e'].map(id=>({id,name:'QA '+id,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:['a','b','c','d'].map(organization_id=>({organization_id}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:['e','c','c','a','d','b'].map(organization_id=>({organization_id,occurred_at:'2026-10-06'}))}));
- await page.reload();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').focus();
+ await page.reload();await openQuickBox(page);const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').focus();
  await q.locator('[data-quick-org]').click();await expect(page.locator('[data-sheet-recent] button')).toHaveCount(3);
  expect(await page.locator('[data-sheet-recent] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).toEqual(['c','a','d']);
  expect(await page.locator('[data-sheet-all] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).not.toContain('e');
 });
 // 고른 칸은 서버 저장(view_prefs)이 끝난 뒤에 새로고침한다. 저장 요청이 가기 전에 새로고침하면 옛 값이 읽힌다.
 test('mode memory is on the server; unreadable or unsaveable server value defaults to update (basket), reload guard detects hidden home draft',async({page})=>{
- const {prefs}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('task');await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
- const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('update');await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
+ const {prefs}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('task');await page.reload();await openQuickBox(page);await expect(quick(page)).toHaveAttribute('data-mode','task');
+ const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await expect.poll(()=>prefs.value?.home_quick_mode).toBe('update');await page.reload();await openQuickBox(page);await expect(quick(page)).toHaveAttribute('data-mode','basket');
  prefs.failWrite=true;await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','basket');
  await quick(page).locator('[data-quick-input]').fill('QA');expect(await page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);
- prefs.value={home_quick_mode:'task'};prefs.failRead=true;await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
+ prefs.value={home_quick_mode:'task'};prefs.failRead=true;await page.reload();await openQuickBox(page);await expect(quick(page)).toHaveAttribute('data-mode','basket');
 });
 for(const width of [390,1440])test(`quick visual measurements and snapshot ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
@@ -149,6 +149,6 @@ test('recent organization paging finds three unique choices beyond repeated reco
    const url=new URL(r.request().url());if(!url.searchParams.has('created_by'))return r.fulfill({json:[]});
    const offset=Number(url.searchParams.get('offset'));offsets.push(offset);return r.fulfill({json:(offset===0?Array(100).fill('a'):['b','c']).map(organization_id=>({organization_id,occurred_at:'2026-10-06'}))});
  });
- await page.reload();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').focus();
+ await page.reload();await openQuickBox(page);const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').focus();
  await q.locator('[data-quick-org]').click();await expect(page.locator('[data-sheet-recent] button')).toHaveCount(3);expect(offsets).toEqual([0,100]);
 });

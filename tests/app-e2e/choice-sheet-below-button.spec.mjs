@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {expectChoiceAtButton} from './helpers/choice-anchor.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
@@ -20,7 +20,7 @@ async function orgRoutes(page){
 }
 
 for(const width of WIDTHS)test(`${width}: 홈 빠른 입력 [기록할 곳]·[프로젝트] 고르기 창이 누른 버튼 아래`,async({page})=>{
- await page.setViewportSize({width,height:844});await openHome(page);await orgRoutes(page);await page.reload();
+ await page.setViewportSize({width,height:844});await openHome(page);await orgRoutes(page);await page.reload();await openQuickBox(page);
  const q=page.locator('#homeView [data-home-quick]');
  await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-input]').fill('QA');
  const project=q.locator('[data-quick-project]');
@@ -68,7 +68,7 @@ for(const width of WIDTHS)test(`${width}: 보고 [+] 종류 고르기 창이 누
 
 // 버튼 아래 자리가 모자라면 위로: 화면 아래쪽에 있는 버튼에서도 창이 아래 바를 덮지 않는다.
 test('390: 화면 아래쪽 버튼에서 열어도 창은 아래 메뉴 줄 위에서 끝나고 버튼 위나 아래에 붙음',async({page})=>{
- await page.setViewportSize({width:390,height:640});await openHome(page);await orgRoutes(page);await page.reload();
+ await page.setViewportSize({width:390,height:640});await openHome(page);await orgRoutes(page);await page.reload();await openQuickBox(page);
  const q=page.locator('#homeView [data-home-quick]');
  await q.locator('[data-quick-mode="update"]').click();
  const org=q.locator('[data-quick-org]');await org.click();

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox } from './helpers/home-entry.mjs';
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 = 업무일지. PC 1440·폴드 884(PC 틀)·폰 412에서
 // 앱을 열면 오늘 업무일지, 위에서부터 날짜 줄 → 요약 한 줄 → 업데이트 입력줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료(JOURNAL-그밖의기록삭제).
 // PC(≥1200)는 그날 일정·할 일이 좌우, 폰은 위아래이고 입력줄은 하단 탭 위 고정. 시계 2026-10-06(화) 10:00 KST(openHome).
@@ -130,7 +130,7 @@ test('old addresses, reload and back all land on the new home (day kept in the a
   await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 7일 수요일');
   await expect.poll(() => new URL(page.url()).searchParams.get('day')).toBe('2026-10-07');
   // 새로고침해도 그 날.
-  await page.reload();
+  await page.reload();await openQuickBox(page);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 20000});
   await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 7일 수요일');
   // 다른 화면으로 갔다가 뒤로 가기 → 보던 날 그대로.

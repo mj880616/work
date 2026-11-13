@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle,projectColorDot} from './helpers/screen-title.mjs';
 // PRJ-3단(docs/design/project-3-levels.md, 2026-10-21 승인: 최대 3단). 2단 제한은 화면에만 있었다(사실). 이제 화면이 3단(상위 → 하위 → 그 아래)까지
@@ -32,7 +32,7 @@ async function fixture(page,{width=1280}={}){
  await page.route(SB+'/rest/v1/app_project_modules**',route=>{const req=route.request();if(req.method()!=='POST')return route.fulfill({json:[]});return route.fulfill({json:req.postDataJSON().map((x,i)=>({...x,id:'m-'+i}))})});
  await page.route(SB+'/rest/v1/app_documents?**',route=>{const q=new URL(route.request().url()).searchParams,pid=q.get('project_id');return route.fulfill({json:pid?.startsWith('eq.')?docs.filter(d=>d.project_id===pid.slice(3)):pid?.startsWith('in.(')?docs.filter(d=>pid.slice(4,-1).split(',').includes(d.project_id)):docs})});
  // The home read its own projects at sign-in; read again with these routes.
- await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+ await page.reload();await openQuickBox(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  return {state,errors};
 }
 const row=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);

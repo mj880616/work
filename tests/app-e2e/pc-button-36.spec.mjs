@@ -4,6 +4,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { openQuickBox } from './helpers/home-entry.mjs';
 
 // UI-PC버튼36(2026-10-20 사용자 결정): PC(≥1024) 큰 버튼은 회의 [+ 회의 결과]와 같은 입력칸 높이(--kptu-control-height 36px).
 // 같은 줄 입력칸·칸 안 아이콘도 36px로 맞춰 줄이 어긋나지 않는다. 누르는 범위는 44px(::after). 폰 동그란 [+]·폰 버튼·중간 폭은 그대로.
@@ -132,7 +133,7 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
  // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 사업 보고 [+]는 떠 있는 36px 동그라미가 아니라 맨 위 줄 오른쪽 32px 작은 아이콘(떠 있지 않음).
  await open(page,'meetings');{const b=await page.locator('#newMeetingBtn').boundingBox();expect([b.width,b.height],'#newMeetingBtn').toEqual([32,32]);
   expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');}
- await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
+ await open(page,'home');await openQuickBox(page);/* UI-폰하단고정: 접힌 입력칸을 눌러 펼친다 */const home=page.locator('#homeView [data-home-quick]');
  expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(36);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(36);/* HOME-모바일정리④ */
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
  expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(36);
