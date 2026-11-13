@@ -1632,9 +1632,23 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (openName && !bar.contains(e.target)) closePanels();
   };
   document.addEventListener('pointerdown', outside, true);
-  // Esc closes it even when the focus is not in the text box or on a button.
-  const escape = e => { if (e.key === 'Escape' && openName && !root.contains(e.target)) { closePanels(); } };
-  document.addEventListener('keydown', escape);
+  // NOTE-서식메뉴Esc: an Escape that a small box (a popover of the button row, the table cell menu) takes is used up here — it closes
+  // only the box and never reaches the screen around the editor (노트 고치기 끝내기, 큰 창 닫기, 다른 화면의 Esc). One rule for every
+  // opener: the box's own key handlers inside the editor run first, then the editor's root stops the key (a box still open is closed).
+  // With no box open, Escape goes on to the screen as before. Focus outside the editor with a popover open: closed and stopped here.
+  let escTaken = false;
+  root.addEventListener('keydown', e => { if (e.key === 'Escape') escTaken = boxOpen(); }, true);
+  root.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !escTaken) return;
+    escTaken = false;
+    if (boxOpen()) closeBoxes();
+    e.preventDefault(); e.stopPropagation();
+  });
+  const escape = e => {
+    if (e.key !== 'Escape' || !boxOpen() || root.contains(e.target)) return;
+    e.preventDefault(); e.stopPropagation(); closeBoxes();
+  };
+  document.addEventListener('keydown', escape, true);
   // A popover follows its button when the page, the screen or the sideways button row moves.
   window.addEventListener('scroll', followPop, true);
   window.addEventListener('resize', followPop);
@@ -1878,7 +1892,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
       window.removeEventListener('kptu:view-prefs-ready', takeMore);
       document.removeEventListener('pointerdown', outside, true);
-      document.removeEventListener('keydown', escape);
+      document.removeEventListener('keydown', escape, true);
       window.removeEventListener('pointerup', syncSelection, true);
       window.removeEventListener('scroll', followPop, true);
       window.removeEventListener('resize', followPop);
