@@ -1,6 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
@@ -52,7 +52,7 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
  // BUG-뒤로가기: the opened note was one entry over the list; closing returns to the list entry under it.
  await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');expect(new URL(page.url()).hash).toBe('#anchor');expect(await page.evaluate(()=>history.state?.kptuLayers)).toBeUndefined();
  await page.evaluate(()=>history.replaceState({...history.state,custom:'preserve'},'',location.href));await pickBasketView(page,'classified');await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(await page.evaluate(()=>history.state.custom)).toBe('preserve');expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');
- await page.reload();await expect(page.locator('[data-basket-detail]')).toBeHidden();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
+ await page.reload();await openQuickBox(page);await expect(page.locator('[data-basket-detail]')).toBeHidden();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
  const activate=control=>width===390?control.tap():control.click();await pickBasketView(page,'classified');await activate(page.locator('[data-basket-row]'));await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toEqual([]);
  });
 });

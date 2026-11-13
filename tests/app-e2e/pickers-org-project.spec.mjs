@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import { expectChoiceAtButton } from './helpers/choice-anchor.mjs';
 import { SHEET, openPicker, pressRow, openFolds } from './helpers/area-org-picker.mjs';
 // UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 선택은 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
@@ -18,7 +18,7 @@ async function orgRoutes(page,names){
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
 }
 async function homeOrgSheet(page,width,names){
- await page.setViewportSize({width,height:900});await openHome(page);await orgRoutes(page,names);await page.reload();
+ await page.setViewportSize({width,height:900});await openHome(page);await orgRoutes(page,names);await page.reload();await openQuickBox(page);
  const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('QA');
  const trigger=q.locator('[data-quick-org]');await trigger.click();const sheet=dialog(page);await expect(sheet).toBeVisible();
  // S52-01 ②: 담당조직·사업영역은 접힌 묶음(같은 고르기 창 목록) — 줄을 보려면 펼친다.

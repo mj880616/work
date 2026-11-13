@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // BUG-업데이트첨부연결(사용자 요청 2026-10-23 10:39·10:40): 홈 [업데이트 ▾]에서 담당조직·프로젝트를 골라도 첨부(📎·끌어 놓기)가
@@ -54,7 +54,7 @@ async function setup(page,width,{linkReply={ok:true,created:1,existing:0}}={}){
   f.patches.push({id,project_id:body.project_id,organization_id:body.organization_id});Object.assign(doc,body);
   return r.fulfill({json:[{id:doc.id,project_id:doc.project_id,organization_id:doc.organization_id,file_id:doc.file_id}]});
  });
- await page.reload();
+ await page.reload();await openQuickBox(page);
  const q=quick(page);await q.locator('[data-quick-mode="update"]').click();
  return {q,f};
 }

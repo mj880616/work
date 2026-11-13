@@ -2,7 +2,7 @@
 // 같은 접는 목록(area-org-picker.js areaListHtml·orgListHtml)을 쓴다: 담당조직은 묶음만, 사업영역은 상위만 보이고 꺾쇠로 펼침,
 // 고른 것이 든 묶음은 처음부터 펼침, 찾기 칸(폰도)은 접힌 하위도 찾음. 여러 곳 고르기·[저장]·저장 값은 그대로.
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const NAMES=['전국철도노동조합','서울교통공사노동조합','서해선지부'];
 const quick=page=>page.locator('#homeView [data-home-quick]');
@@ -11,7 +11,7 @@ async function setup(page,width){
   await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:NAMES.map((name,i)=>({id:'o'+i,name,active:true}))}));
   await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:NAMES.map((_,i)=>({organization_id:'o'+i}))}));
   await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
-  await page.reload();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('합성 기록');
+  await page.reload();await openQuickBox(page);const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('합성 기록');
   return q;
 }
 for(const width of [390,1280])test(`기록할 곳: 담당조직 묶음·사업영역 상위만, 꺾쇠로 펼침, 찾기(폰도), 선택한 묶음은 다시 열면 펼침 ${width}`,async({page})=>{

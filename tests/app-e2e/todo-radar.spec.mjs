@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {pickBasketView} from './helpers/forget-view.mjs';
 import {pressRowAct} from './helpers/nbx-act.mjs';
 // JOURNAL-챙길것 / AI-서버연동 S5 → HOME-업무일지홈(2026-10-30): 홈·업무일지의 '챙길 것' 상자는 화면째 없앴다. 남은 것:
@@ -49,7 +49,7 @@ async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summ
  await routes?.(); // extra routes (after the home's catch-all, so they win)
  // The home starts before these routes exist; start again from a fresh page so every radar read hits them.
  page.once('framenavigated',()=>{armed=true;});
- await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+ await page.reload();await openQuickBox(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  return {...f,db,calls,errors,queue};
 }
 // S52-20 HOME-잊지말기한목록: 후보 줄은 정리함 한 목록(forget-list.js)의 같은 줄 — 텔레그램 요청·챙길 것·가족·업데이트가 함께.
