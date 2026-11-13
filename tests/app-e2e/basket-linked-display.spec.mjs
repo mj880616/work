@@ -1,6 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
@@ -52,14 +52,14 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
  // BUG-뒤로가기: the opened note was one entry over the list; closing returns to the list entry under it.
  await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');expect(new URL(page.url()).hash).toBe('#anchor');expect(await page.evaluate(()=>history.state?.kptuLayers)).toBeUndefined();
  await page.evaluate(()=>history.replaceState({...history.state,custom:'preserve'},'',location.href));await pickBasketView(page,'classified');await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(await page.evaluate(()=>history.state.custom)).toBe('preserve');expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');
- await page.reload();await expect(page.locator('[data-basket-detail]')).toBeHidden();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
+ await page.reload();await openQuickBox(page);await expect(page.locator('[data-basket-detail]')).toBeHidden();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
  const activate=control=>width===390?control.tap():control.click();await pickBasketView(page,'classified');await activate(page.locator('[data-basket-row]'));await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toEqual([]);
  });
 });
 test('cancelled dirty menu movement preserves URL and editor; accepted movement clears note',async({page})=>{
  const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.evaluate(()=>KPTUViewLoader.load('home'));await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('수정 중');const before=page.url();
- page.once('dialog',d=>d.dismiss());await page.evaluate(()=>KPTURouter.go('home'));expect(page.url()).toBe(before);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('수정 중');
- page.once('dialog',d=>d.accept());await page.evaluate(()=>KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('keep')).toBe('yes');expect(new URL(page.url()).hash).toBe('#here');
+ await page.evaluate(()=>KPTURouter.go('home'));await answerAsk(page,false);expect(page.url()).toBe(before);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('수정 중');
+ await page.evaluate(()=>KPTURouter.go('home'));await answerAsk(page,true);await expect(page.locator('#homeView')).toBeVisible();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('keep')).toBe('yes');expect(new URL(page.url()).hash).toBe('#here');
  await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(f.errors).toEqual([]);
 });
 
@@ -102,7 +102,7 @@ test('archived original and browser Back remain explicit choices',async({page})=
 test('Back declined while editing restores the original URL, history state, and text',async({page})=>{
  const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await pickBasketView(page,'unclassified');
  await page.evaluate(id=>{history.replaceState({marker:'prior'},'','?view=home&keep=yes#here');history.pushState({marker:'editor'},'','?view=basket&note='+id+'&keep=yes#here');},n);
- await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('뒤로가기 취소 원문');const address=page.url();page.once('dialog',d=>d.dismiss());await page.evaluate(()=>history.back());
+ await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('뒤로가기 취소 원문');const address=page.url();await page.evaluate(()=>history.back());await answerAsk(page,false);
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
 });
 test('failed destination loading preserves note URL and the opened original',async({page})=>{
@@ -114,7 +114,7 @@ test('failed destination loading preserves note URL and the opened original',asy
 test('Back declined after lazy-loading an unopened target still restores note URL and text',async({page})=>{
  const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await pickBasketView(page,'unclassified');expect(await page.evaluate(()=>KPTUViewLoader.isLoaded('calendar'))).toBe(false);
  await page.evaluate(id=>{history.replaceState({marker:'calendar'},'','?view=calendar&keep=yes#here');history.pushState({marker:'editor'},'','?view=basket&note='+id+'&keep=yes#here');},n);
- await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('지연 뒤로가기 취소 원문');const address=page.url();let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);
+ await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('지연 뒤로가기 취소 원문');const address=page.url();await page.evaluate(()=>history.back());await answerAsk(page,false);
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('지연 뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
 });
 
@@ -135,8 +135,9 @@ const historyProof=page=>page.evaluate(()=>({index:navigation.currentEntry.index
 // BUG-뒤로가기: an opened note is one entry over the list. Back from an edited note asks once; declining keeps
 // the same note entry, accepting returns to the list entry, and the next Back reaches calendar.
 for(const width of [390,1280])test(`declined Back retains history position and calendar entry for next Back/Forward ${width}`,async({page})=>{
- await page.setViewportSize({width,height:900});const f=await fixture(page);await historyStack(page);await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('history 원문 유지');const before=await historyProof(page);let prompts=0;page.on('dialog',()=>prompts++);
- let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);expect(prompts).toBe(1);await expect(page.locator('[data-basket-text]')).toHaveValue('history 원문 유지');
+ await page.setViewportSize({width,height:900});const f=await fixture(page);await historyStack(page);await page.locator('[data-basket-row]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('history 원문 유지');const before=await historyProof(page);page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});
+ // UI-알림창정리(S61-31): 겹 닫기 물음도 공용 작은 확인창(기록 칸을 쓰지 않음 — 앞뒤 기록 그대로).
+ await page.evaluate(()=>history.back());await answerAsk(page,false);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);await expect(page.locator('.kptu-ask')).toHaveCount(0);await expect(page.locator('[data-basket-text]')).toHaveValue('history 원문 유지');
  const list={marker:'editor',unrelated:{value:3}};expect(before.state).toEqual({...list,kptuLayers:['basket-note']});
  await page.locator('[data-basket-close]').click();await answerAsk(page,true);await expect(page.locator('[data-basket-detail]')).toBeHidden();await expect.poll(()=>page.evaluate(()=>navigation.currentEntry.index)).toBe(before.index-1);expect(await page.evaluate(()=>history.state)).toEqual(list);
  await page.evaluate(()=>history.back());await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#calendar/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'calendar',unrelated:{value:2}});expect(await page.evaluate(()=>navigation.currentEntry.index)).toBe(before.index-2);
@@ -146,8 +147,9 @@ for(const width of [390,1280])test(`declined Back retains history position and c
 test('declined Forward restores its prior position without replacing the forward destination',async({page})=>{
  const f=await fixture(page);await historyStack(page);
  await page.evaluate(()=>history.pushState({marker:'future',unrelated:{value:4}},'','?view=calendar&keep=1#future'));await page.evaluate(()=>history.back());await expect(page).toHaveURL(/view=basket&note=/);
- const quick=page.locator('#basketView [data-basket-list] [data-quick-input]');await quick.fill('Forward 취소 입력');const before=await historyProof(page);let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.forward());await expect.poll(()=>prompted).toBe(true);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);await expect(quick).toHaveValue('Forward 취소 입력');
- await quick.fill('');await page.evaluate(()=>history.forward());await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#future/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'future',unrelated:{value:4}});expect(f.errors).toEqual([]);
+ const quick=page.locator('#basketView [data-basket-list] [data-quick-input]');await quick.fill('Forward 취소 입력');const before=await historyProof(page);await page.evaluate(()=>history.forward());await answerAsk(page,false);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);await expect(quick).toHaveValue('Forward 취소 입력');
+ // UI-알림창정리(S61-31): [나가기]면 같은 앞 기록 칸으로 다시 간다(앞 기록은 그대로).
+ await page.evaluate(()=>history.forward());await answerAsk(page,true);await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#future/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'future',unrelated:{value:4}});expect(f.errors).toEqual([]);
 });
 // A traversal that leaves the view in one step (two entries back from the note) stays the router's: the draft is retained.
 test('API-disabled traversal keeps URL/current/screen consistent and retains the original draft for return',async({page})=>{

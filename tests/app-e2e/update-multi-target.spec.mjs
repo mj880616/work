@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // UPD-여러곳고르기: 홈 [업데이트 ▾] "기록할 곳 선택" 창에서 담당조직·프로젝트를 여러 곳 고른다.
@@ -26,7 +26,7 @@ async function setup(page,width){
  await page.route(SB+'/rest/v1/app_project_progress_updates',r=>{f.projects.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();f.notes.push(body);return r.fulfill({status:201,json:[{id:'note-'+f.notes.length,kind:'basket',occurred_at:'2026-10-22T01:00:00Z',updated_at:'2026-10-22T01:00:00.123456Z',ai_export_allowed:true,archived_at:null,attachments:[],metadata:{},...body}]});});
  await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>{f.links.push(r.request().postDataJSON());return r.fulfill({json:f.linkReply});});
- await page.reload();
+ await page.reload();await openQuickBox(page);
  const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('합성 기록');
  return {q,f};
 }

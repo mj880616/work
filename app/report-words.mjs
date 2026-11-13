@@ -15,7 +15,8 @@ const MEETING=Object.freeze({
   materialsSaved:'회의자료',
   // S48-64(REC-전사원문저장, 명진 11/03 '특이사항을 회의록 전문으로'): [회의] 칸의 notes 칸 = 전사 전문. 칸(DB 열)은 그대로 app_meetings.notes.
   notesLabel:'회의록 전문',
-  notesPlaceholder:'녹음을 전사하면 전사 전문이 여기에 들어가요. 회의록 전문을 붙여 넣어도 돼요.'
+  // S61-24 REC-요약단추삭제: 화면이 전사하지 않으므로 '녹음을 전사하면…' 안내는 뺐다.
+  notesPlaceholder:'회의록 전문을 붙여 넣어도 돼요.'
 });
 const OTHER=Object.freeze({
   meeting:false,

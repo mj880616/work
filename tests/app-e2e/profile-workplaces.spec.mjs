@@ -247,22 +247,18 @@ test('프로필 저장이 실패하면 사업장은 건드리지 않고 입력�
   await expect(page.locator('#psState')).toHaveText('바뀐 것 2곳');
 });
 
-test('저장하지 않고 떠나려 하면 확인창이 한 번 뜨고, 머물면 그대로이고 떠나면 수정한 것은 버려진다',async({page})=>{
+test('저장하지 않고 떠나려 하면 라우터의 작은 확인창 물음을 한 번 남기고, [나가기] 뒤 다시 오면 떠나고 수정한 것은 버려진다',async({page})=>{
   await openProfile(page);
-  const messages=[];
-  let accept=false;
-  page.on('dialog',async dialog=>{messages.push(dialog.message());if(accept)await dialog.accept();else await dialog.dismiss()});
-  const leave=()=>page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view:'team'}})));
+  // UI-알림창정리(S61-31): 브라우저 기본 확인창은 뜨지 않는다. 화면은 라우터의 detail.ask(물음)로 묻고, 라우터가 공용 작은 확인창을 띄운 뒤
+  // [나가기]면 같은 이동을 confirmed로 다시 한다(라우터 쪽 흐름은 basket-linked-display·hwp-menu 시험이 진짜 라우터로 본다).
+  page.on('dialog',d=>{throw Error('unexpected dialog '+d.message())});
+  const leave=confirmed=>page.evaluate(confirmed=>{const asked=[];const e=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view:'team',confirmed,ask:t=>{if(confirmed)return true;asked.push(t);return false}}});const passed=window.dispatchEvent(e);return {passed,asked}},confirmed);
   // 바뀐 것이 없으면 묻지 않는다.
-  expect(await leave()).toBe(true);
-  expect(messages.length).toBe(0);
+  expect(await leave(false)).toEqual({passed:true,asked:[]});
   await page.fill('#psName','쓰던이름');
-  expect(await leave()).toBe(false);
-  expect(messages).toEqual(['저장하지 않은 변경이 있어요. 저장하지 않고 나갈까요?']);
+  expect(await leave(false)).toEqual({passed:true,asked:['저장하지 않은 변경이 있어요. 저장하지 않고 나갈까요?']});
   await expect(page.locator('#psName')).toHaveValue('쓰던이름');
-  accept=true;
-  expect(await leave()).toBe(true);
-  expect(messages.length).toBe(2);
+  expect(await leave(true)).toEqual({passed:true,asked:[]});
   await page.evaluate(()=>window.KPTURouter.go('team'));
   await page.evaluate(()=>window.KPTURouter.go('profile'));
   await expect(page.locator('#psName')).toHaveValue('테스터');

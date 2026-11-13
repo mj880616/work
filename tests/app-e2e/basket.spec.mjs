@@ -2,7 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox } from './helpers/home-entry.mjs';
 import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
@@ -84,7 +84,7 @@ test('basket raw text and drafts never enter permanent browser storage',async({p
 test('basket direct URL and home return refresh new notes without saving view choice',async({page})=>{
  const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  await pickBasketView(page,'archived');await expect(page.locator('[data-basket-row="a"]')).toBeVisible();
- await page.reload();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
+ await page.reload();await openQuickBox(page);await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
  await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible,.app-nav .sidebar-brand:visible').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
  await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();await expect(page.locator('[data-basket-row]')).toHaveCount(3);expect(f.writes).toHaveLength(1);
 });
@@ -109,7 +109,7 @@ test('unsaved detail survives canceled list/Escape dismissal and navigation unti
  await fixture(page);await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();await pickBasketView(page,'classified');await pickBasketView(page,'unclassified');await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');const input=page.locator('[data-basket-text]');await input.fill('수정 중인 원문');
  await page.locator('[data-basket-close]').click();await answerAsk(page,false);await expect(input).toHaveValue('수정 중인 원문');
  await input.press('Escape');await answerAsk(page,false);await expect(input).toHaveValue('수정 중인 원문');
- const address=page.url();page.once('dialog',d=>d.dismiss());await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#basketView')).toBeVisible();expect(page.url()).toBe(address);await expect(input).toHaveValue('수정 중인 원문');
+ const address=page.url();await page.evaluate(()=>window.KPTURouter.go('home'));await answerAsk(page,false);await expect(page.locator('#basketView')).toBeVisible();expect(page.url()).toBe(address);await expect(input).toHaveValue('수정 중인 원문');
  await page.locator('[data-basket-close]').click();await answerAsk(page,true);await expect(page.locator('[data-basket-row="n"]')).toBeFocused();await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row]')).toHaveCount(1);await pickBasketView(page,'unclassified');await expectBasketView(page,'unclassified');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-read-text]')).toHaveText(' 첫 줄\n\n둘째 줄  ');await expect(input).toBeHidden();await expect(input).toHaveValue(' 첫 줄\n\n둘째 줄  ');
 });
 test('explicit task and update modes still save directly when preference storage is blocked',async({page})=>{

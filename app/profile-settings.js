@@ -163,7 +163,9 @@ function bind(){
 window.addEventListener('kptu:before-view-change',e=>{
   if(window.KPTURouter?.current!=='profile'||e.detail?.view==='profile')return;
   if(!saving&&!changeCount())return;
-  if(saving||!window.confirm('저장하지 않은 변경이 있어요. 저장하지 않고 나갈까요?'))e.preventDefault();
+  // UI-알림창정리(S61-31): 라우터의 공용 작은 확인창으로 묻는다(e.detail.ask). 저장 중이면 묻지 않고 막는다.
+  if(saving){e.preventDefault();return}
+  e.detail.ask('저장하지 않은 변경이 있어요. 저장하지 않고 나갈까요?');
 });
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='profile'&&changeCount())discardEdits()});
 window.addEventListener('beforeunload',e=>{if($('#profileView')&&!$('#profileView').classList.contains('hidden')&&(saving||changeCount())){e.preventDefault();e.returnValue=''}});

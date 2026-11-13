@@ -5,6 +5,15 @@ import { start, openNews } from './helpers/news-server.mjs';
 const root = page => page.locator('#newsRoot');
 const item = (page, id) => root(page).locator(`[data-nc-item="${id}"]`);
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+// UI-알림창정리: 폴더 이름은 브라우저 기본 prompt가 아니라 공용 작은 글 입력창(.kptu-ask)으로 묻는다.
+const answerName = async (page, value, ok) => {
+  const ask = page.locator('.kptu-ask');
+  await ask.waitFor({ state: 'visible' });
+  await expect(ask.locator('.kptu-ask-actions button').nth(1)).toHaveText(ok);
+  await ask.locator('.kptu-ask-field').fill(value);
+  await ask.locator('.kptu-ask-actions button').nth(1).click();
+  await ask.waitFor({ state: 'detached' });
+};
 const UID = 'c0000000-0000-4000-8000-0000000000c9';
 const extra = { id: UID, lane: 'channel', url: 'https://example.org/u', title: '가짜 메모 기사', lang: 'ko', publisher: '가짜일보', source_key: null, keywords: [], published_at: null, scrapped_at: '2026-10-06T00:30:00Z', created_at: '2026-10-06T00:31:00Z', state: 'ok', summary: '메모할 가짜 기사 요약.', body_kind: 'full', title_ko: null, translated_at: null, starred_at: null, folder_id: null, _body: '가짜 본문.' };
 
@@ -34,18 +43,18 @@ for (const width of [412, 884, 1440]) {
     expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'GET').at(-1).query).toContain('starred_at=not.is.null');
     await expect(root(page).locator('[data-nc-item]')).toHaveCount(1);
     await expect(item(page, 'c1').locator('[data-nc-star]')).toHaveAttribute('aria-pressed', 'true');
-    page.once('dialog', d => d.accept('가짜 폴더'));
     await item(page, 'c1').locator('[data-nc-folder]').click();
     await expect(page.locator('#luMovePicker')).toBeVisible();
     await page.locator('#luMovePicker [data-lu-move-new]').click();
+    await answerName(page, '가짜 폴더', '만들기');
     await expect(item(page, 'c1').locator('[data-nc-folder]')).toHaveText('가짜 폴더');
     expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body.folder_id).toBe(server.folders[0].id);
     expect(server.calls.find(c => c.what === 'app_news_folders' && c.method === 'POST').body).toMatchObject({ workspace_id: 'w', parent_id: null, name: '가짜 폴더' });
     await expect(root(page).locator('.nc-folder-name')).toHaveText('가짜 폴더');
     // 폴더 ⋯ → 안에 폴더 만들기 → 기사 [폴더] → 안 폴더로.
-    page.once('dialog', d => d.accept('가짜 안 폴더'));
     await root(page).locator('[data-nc-folder-more]').click();
     await page.locator('#ncFolderMenu').getByRole('button', { name: '안에 폴더 만들기' }).click();
+    await answerName(page, '가짜 안 폴더', '만들기');
     await expect(root(page).locator('[data-nc-folder-toggle]')).toHaveCount(2);
     expect(server.folders[1].parent_id).toBe(server.folders[0].id);
     await item(page, 'c1').locator('[data-nc-folder]').click();
@@ -53,9 +62,10 @@ for (const width of [412, 884, 1440]) {
     await expect(item(page, 'c1').locator('[data-nc-folder]')).toHaveText('가짜 폴더 › 가짜 안 폴더');
     await expect(root(page).locator('.nc-tree-item [data-nc-item="c1"]')).toBeVisible();
     // 이름 바꾸기 · 지우기(안 기사는 위 폴더로, 기사는 남음).
-    page.once('dialog', d => d.accept('바꾼 가짜 폴더'));
     await root(page).locator(`[data-nc-folder-more="${server.folders[1].id}"]`).click();
     await page.locator('#ncFolderMenu').getByRole('button', { name: '이름 바꾸기' }).click();
+    await expect(page.locator('.kptu-ask .kptu-ask-field')).toHaveValue('가짜 안 폴더');
+    await answerName(page, '바꾼 가짜 폴더', '바꾸기');
     await expect(root(page).locator('.nc-folder-name').nth(1)).toHaveText('바꾼 가짜 폴더');
     await root(page).locator(`[data-nc-folder-more="${server.folders[1].id}"]`).click();
     await page.locator('#ncFolderMenu').getByRole('button', { name: '삭제' }).click();

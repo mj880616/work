@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 // HOME-빠른입력정리 + UI-선택표시통일: 할 일 옵션 줄은 모드 버튼 줄 위, 안내 화살표 글자 없음,
 // 조직 고르기는 [업데이트] 오른쪽 ▾(누르는 범위 44px, 키보드로 열림), 고른 조직은 입력칸 안내 글자.
 // BASKET-업데이트통합 PR 1: 탭은 [업데이트 ▾][할 일] 둘. 고른 곳이 없으면 바구니(data-mode=basket), 고르면 그 기록(update).
@@ -19,7 +19,7 @@ async function open(page,width,dark){
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:names.map((name,i)=>({id:String(i),name,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:names.map((_,i)=>({organization_id:String(i)}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
- await page.reload();await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
+ await page.reload();await openQuickBox(page);await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
  return errors;
 }
 async function press(page){return {bg:await token(page,'--ds-kind-other-soft','backgroundColor'),fg:await token(page,'--ds-kind-other-ink')};}

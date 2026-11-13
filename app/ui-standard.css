@@ -370,6 +370,12 @@
   #appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-entry{ order:2; }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick > *{ grid-row:auto; margin-top:0; }
   #appView #homeView.view-panel:has(.home-quick[data-home-quick]),#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
+  /* UI-폰하단고정(#1708 질문 2 안 A): 홈 빠른 입력은 쉬는 동안 한 줄로 접힌다(home-quick.js data-quick-rest). [업데이트 ▾ | 할 일]·
+     잊지 말기 칩 줄과 [추가]는 치우고, 입력칸 왼쪽에 작은 종류 글자(누르면 펼침)만 둔다. 칸을 누르면 지금처럼 펼쳐진다. */
+  #appView #homeView .home-quick[data-home-quick][data-quick-rest]{ padding-top:4px; padding-bottom:4px; }
+  #appView #homeView .home-quick[data-home-quick][data-quick-rest] :is(.home-quick-head,.home-quick-save){ display:none; }
+  #appView #homeView .home-quick[data-home-quick] .home-quick-kind:not([hidden]){ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; height:var(--kptu-control-height); min-height:0; margin:0; padding:0 2px; border:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium); white-space:nowrap; cursor:pointer; }
+  #appView #homeView .home-quick[data-home-quick] .home-quick-kind::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
   /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */

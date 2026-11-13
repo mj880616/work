@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {pressName,openFolds} from './helpers/area-org-picker.mjs';
-import {openHome,createdTaskReply} from './helpers/home-entry.mjs';
+import {openHome,createdTaskReply, openQuickBox } from './helpers/home-entry.mjs';
 // UI-기록할곳창PC: 넓은 PC(1024px~)에서 [업데이트 ▾] "기록할 곳 선택" 창은 넓게 — 제목 옆 검색칸 하나, 그 아래 "최근" 한 줄, 그 아래
 // 왼쪽 담당조직(묶음 소제목 아래 한 줄 목록, UPD-여러곳고르기) / 오른쪽 프로젝트(한 줄 목록). 1280×800에서 창 안 스크롤 없이 한 번에 보이고, 항목이 아주 많으면 각 열 안에서만
 // 스크롤. 폰·중간 폭은 위아래 순서 그대로.
@@ -19,7 +19,7 @@ async function setup(page,{width,height=800,projects=12,orgs=NAMES}={}){
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:orgs.map((_,i)=>({organization_id:'o'+i}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[5,1,0].map(i=>({organization_id:'o'+i,occurred_at:'2026-10-06'}))}));
  await page.route(SB+'/rest/v1/app_spaces?**',r=>r.fulfill({json:[...PROJECTS,...synthetic(projects)]}));
- await page.reload();
+ await page.reload();await openQuickBox(page);
  const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('합성 기록');
  return q;
 }
