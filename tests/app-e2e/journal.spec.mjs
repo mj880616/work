@@ -78,7 +78,7 @@ const others=()=>({
 });
 // ORG-담당13기준: the organization read also asks for my assignment rows; o1·o2 are mine. outside:true adds two organizations
 // that are not mine (one active and unassigned, one assigned but inactive), each with a Tuesday record (fake names only).
-async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old',outside=false,extraEvents=[],beforeLoad=null}={}){
+async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old',outside=false,extraEvents=[],beforeLoad=null,unlinked={}}={}){
  const rows=store(),writes=[],reads=[],errors=[],taskCalls=[],calendarReads=[],more=others();
  more.assignees=['o1','o2'].map(organization_id=>({organization_id,user_id:'home-test'}));
  if(outside){
@@ -181,9 +181,13 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
   if(method==='PATCH'){const rows=hit();for(const row of rows)Object.assign(row,body,'updated_at' in body?{updated_at:`2026-10-06T02:00:0${++exec.clock}Z`}:{});return r.fulfill({json:rows});}
   return r.fulfill({status:405,json:{}});
  });
- const sources={events:!fail.events,tasks:!fail.tasks};
+ const sources={events:!fail.events,tasks:!fail.tasks},links=[];
  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-calendar',async r=>{
   const a=new URL(r.request().url()).searchParams.get('action');
+  // MULTI-처음쓰는사람 ①: 구글 캘린더를 연결한 적 없는 계정 — 일정 읽기는 실패, status는 connected:false, start는 연결 주소.
+  if(unlinked.events&&a==='status')return r.fulfill({json:{connected:false}});
+  if(unlinked.events&&a==='start'){links.push('events');return r.fulfill({json:{url:'about:blank#calendar-consent'}});}
+  if(unlinked.events&&a==='events')return r.fulfill({status:400,json:{error:'Google 캘린더가 연결되지 않았습니다.'}});
   if(a==='status')return fail.calendarNames?r.fulfill({status:500,json:{error:'QA failure'}}):r.fulfill({json:{connected:true,enabled:true,selected:['c','p1','p2','p3'],calendars:[{id:'c',summary:'공공운수노조'},{id:'p1',summary:'명진승지'},{id:'p2',summary:'Arsenal  명진'},{id:'p3',summary:'가상 생일 달력'}]}});
   if(a!=='events')return r.fallback();
   const q=new URL(r.request().url()).searchParams;calendarReads.push([q.get('timeMin'),q.get('timeMax')]);
@@ -209,7 +213,11 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  });
  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-tasks',async r=>{
   const a=new URL(r.request().url()).searchParams.get('action');
+  if(a==='status')return r.fulfill({json:unlinked.tasks==='none'?{connected:false,authorized:false}:unlinked.tasks==='reconnect'?{connected:true,authorized:false,needs_reconnect:true}:{connected:true,authorized:true}});
+  if(a==='start'){links.push('tasks:'+new URL(r.request().url()).searchParams.get('platform'));return r.fulfill({json:{url:'about:blank#tasks-consent'}});}
   if(a!=='tasks')return r.fallback();
+  if(unlinked.tasks==='none')return r.fulfill({status:400,json:{error:'Google 계정이 연결되지 않았습니다.'}});
+  if(unlinked.tasks==='reconnect')return r.fulfill({json:{tasks:[],needs_reconnect:true,warning:'다시 연결해 주세요.'}});
   if(!sources.tasks)return r.fulfill({status:500,json:{error:'QA failure'}});
   const asked=new URL(r.request().url()).searchParams.get('completed_days');taskCalls.push(asked);
   const base=[
@@ -228,7 +236,7 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
   ];
   return r.fulfill({json:{tasks:[...base,...more].filter(t=>t.status!=='completed'||Date.parse(t.completed)>=since),needs_reconnect:false,completed_days:days}});
  });
- return {rows,writes,reads,errors,taskCalls,calendarReads,more,exec,heal:key=>{sources[key]=true;delete fail[key];}};
+ return {rows,writes,reads,errors,taskCalls,calendarReads,more,exec,links,heal:key=>{sources[key]=true;delete fail[key];}};
 }
 // HOME-업무일지홈: 업무일지는 홈이다 — 폰은 하단 탭 [홈], PC는 사이드바 맨 위 [홈]. 들어오면 오늘(10월 6일 화요일, [하루]).
 async function openJournal(page,width){
@@ -587,6 +595,42 @@ test('재료 일부를 못 읽어도 한 줄은 쓰고, 못 읽은 묶음만 안
  f.heal('tasks');
  await page.locator('#journalRoot [data-journal-tasks] [data-journal-retry]').click();
  await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포']);
+ expect(f.errors).toEqual([]);
+});
+
+// MULTI-처음쓰는사람 ①(docs/design/new-user-start.md 2-2): 구글 연결이 없는 새 계정은 빨간 고장 글 대신 "연결하면 여기 보여요" 한 줄 +
+// 버튼 하나. 버튼은 일정·할 일 화면과 같은 Edge의 action=start 주소로 간다. 진짜 고장(서버 오류)은 지금 글·[다시] 그대로(위 시험).
+test('구글 연결이 없는 새 계정: 그날 일정·할 일 칸은 연결 안내 한 줄 + 연결 버튼(고장 글 없음)',async({page})=>{
+ const f=await fixture(page,{unlinked:{events:true,tasks:'none'}});await openJournal(page,390);
+ const ev=schedule(page).locator('[data-journal-link="events"]'),tk=page.locator('#journalRoot [data-journal-tasks] [data-journal-link="tasks"]');
+ await expect(ev).toHaveText('구글 캘린더를 연결하면 그날 일정이 여기 보여요. 구글 캘린더 연결');
+ await expect(tk).toHaveText('구글 할 일을 연결하면 할 일이 여기 보여요. 구글 할 일 연결');
+ await expect(page.locator('#journalRoot [data-journal-failed]')).toHaveCount(0);
+ await expect(page.locator('#journalRoot [data-journal-retry]')).toHaveCount(0);
+ await expect(page.locator('#journalRoot [role="alert"]')).toHaveCount(0);
+ // 한 줄은 그대로 쓴다.
+ await expect(page.locator('#journalRoot [data-journal-input]')).toBeEnabled();
+ await tk.getByRole('button',{name:'구글 할 일 연결'}).click();
+ await expect.poll(()=>f.links).toEqual(['tasks:web']);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('구글 할 일 권한만 빠진 계정: 할 일 칸은 [다시 연결] 안내, 일정은 그대로',async({page})=>{
+ const f=await fixture(page,{unlinked:{tasks:'reconnect'}});await openJournal(page,390);
+ await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
+ await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-link="tasks"]')).toHaveText('구글 할 일 권한을 다시 연결하면 할 일이 여기 보여요. 다시 연결');
+ await expect(page.locator('#journalRoot [data-journal-failed]')).toHaveCount(0);
+ await schedule(page).locator('[data-journal-link]').count().then(n=>expect(n).toBe(0));
+ await page.locator('#journalRoot [data-journal-connect="tasks"]').click();
+ await expect.poll(()=>f.links).toEqual(['tasks:web']);
+ expect(f.errors).toEqual([]);
+});
+test('구글 캘린더 연결 버튼은 일정 화면과 같은 연결 주소로 간다',async({page})=>{
+ const f=await fixture(page,{width:1280,unlinked:{events:true}});await openJournal(page,1280);
+ await expect(schedule(page).locator('[data-journal-link="events"]')).toBeVisible();
+ // 할 일은 연결돼 있으므로 평소대로.
+ await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-link]')).toHaveCount(0);
+ await schedule(page).getByRole('button',{name:'구글 캘린더 연결'}).click();
+ await expect.poll(()=>f.links).toEqual(['events']);
  expect(f.errors).toEqual([]);
 });
 
