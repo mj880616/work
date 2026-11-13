@@ -118,3 +118,30 @@
 }
 /* UI-PC손맛묶음 ⑦: 조직 줄 우클릭 메뉴 [열기] ─ [쟁의 단계 관리] 사이 줄(자료실·원장 메뉴 구분선과 같은 모양) */
 .so-team-menu .so-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+/* MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 맨 위 [+ 담당조직](⋯ 왼쪽, 작은 글자 버튼)과 조직 줄 끝 ⋯(그 조직 메뉴).
+   줄은 .so-row 안에 줄(article)과 ⋯(button)를 나란히 둔다(누르는 것 안에 누르는 것을 넣지 않음). ⋯ 자리만큼 줄 글은 왼쪽으로. */
+.so-team-tools .so-team-add{display:inline-flex;align-items:center;height:var(--ds-compact-height);min-height:0;margin:0;padding:0 var(--kptu-space-2);border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-button,13px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;cursor:pointer}
+.so-team-tools .so-team-add:hover{background:var(--kptu-surface-subtle)}
+.so-team-tools .so-team-add:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+#appView #soTeamSection>.so-team-head{gap:2px}
+#appView #soTeamSection>.so-team-head .so-team-title{margin-right:auto}
+@media(max-width:760px){#appView #soTeamSection>.so-team-head .so-team-add{pointer-events:auto;height:var(--kptu-touch-target,44px)}}
+@media(min-width:761px){
+  #appView #soTeamSection>.so-team-head .so-team-add{background:var(--kptu-surface)}
+  #appView #soTeamSection>.so-team-head .so-team-add:hover{background:var(--kptu-surface-subtle)}
+  #appView #teamView #soOrganizationList>.so-org-group:first-child .so-group-card>.so-group-heading{padding-right:calc(var(--kptu-space-2) + var(--ds-compact-height) + 96px)}
+}
+#soOrganizationList .so-row{position:relative;min-width:0}
+#appView #teamView #soOrganizationList .so-row>.kptu-list-row{padding-right:calc(var(--kptu-space-4) + 32px)}
+#appView #teamView .so-group-card .so-row:last-child>.kptu-list-row{border-bottom:0}
+#soOrganizationList .so-row-more{position:absolute;top:0;right:4px;bottom:0;display:grid;place-items:center;width:36px;min-height:0;height:auto;margin:auto 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:18px;line-height:1;cursor:pointer}
+#soOrganizationList .so-row-more:hover,#soOrganizationList .so-row-more[aria-expanded="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+#soOrganizationList .so-row-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+@media(hover:hover) and (min-width:761px){
+  #soOrganizationList .so-row-more{opacity:0}
+  #soOrganizationList .so-row:is(:hover,:focus-within)>.so-row-more,#soOrganizationList .so-row-more[aria-expanded="true"]{opacity:1}
+}
+/* 제외한 조직: 맨 아래 묶음, 흐리게(누르면 상세는 그대로 열림). */
+#soOrganizationList .so-row.is-excluded>.kptu-list-row .kptu-list-name{color:var(--kptu-muted);font-weight:var(--ds-weight-medium,500)}
+#soOrganizationList .so-excluded-group .so-dot{opacity:.5}
+.so-team-menu .so-menu-danger{color:var(--kptu-danger)}
