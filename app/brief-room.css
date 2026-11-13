@@ -1,0 +1,35 @@
+/* BRIEF-브리핑룸 ③: 브리핑 룸(?view=brief, brief-room.js). 시안 docs/design/mockups/brief-room.html(#2542). 촘촘한 줄, 새 색 없음(기존 토큰만). */
+#briefView .br-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:0;min-width:0}
+#briefView .br-head{display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px)}
+#briefView .br-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#briefView .br-head .br-add,#briefView .br-head .br-src{margin-left:auto;flex:none}
+#briefView .br-drop{margin:2px 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView.br-dropping .br-drop{border-color:var(--kptu-primary-ink);color:var(--kptu-ink)}
+#briefView .br-rows{border-top:.5px solid var(--kptu-border)}
+#briefView .br-row{display:grid;grid-template-columns:2.8em minmax(0,1fr) auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row)}
+#briefView .br-row[role=button]{cursor:pointer}
+#briefView .br-row.is-open{background:var(--kptu-surface-soft,var(--kptu-primary-soft))}
+#briefView .br-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#briefView .br-k{flex:none;min-width:2.3em;padding:0 4px;border-radius:var(--kptu-radius-sm,4px);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);text-align:center}
+#briefView .br-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#briefView .br-st{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
+#briefView .br-st-bad{white-space:normal;text-align:right}
+#briefView .br-one{grid-column:2/4;min-width:0;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#briefView .br-muted{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView .br-meta{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView .br-lead{margin:0 0 4px;padding:4px 8px;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-soft,var(--kptu-primary-soft));font-size:var(--ds-text-row);overflow-wrap:anywhere}
+#briefView .br-sec{margin:6px 0 0;padding:6px 0 0;border-top:.5px solid var(--kptu-border)}
+#briefView .br-sec h3{margin:0 0 2px;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium,600);color:var(--kptu-primary-ink)}
+#briefView .br-sec h3 small{font-weight:400;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView .br-sec ul{margin:0;padding-left:18px;font-size:var(--ds-text-row);overflow-wrap:anywhere}
+#briefView .br-q{margin:4px 0;padding:4px 8px;border-left:3px solid var(--kptu-border);background:var(--kptu-surface-soft,transparent);font-size:var(--ds-text-row);line-height:1.55;overflow-wrap:anywhere}
+#briefView .br-pg{display:block;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView .br-pg a{color:var(--kptu-primary-ink);text-decoration:underline}
+#briefView .br-why{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView [hidden]{display:none}
+/* 761px~(폴드 펼침·PC): 왼쪽 목록, 오른쪽 브리핑(같은 내용). */
+@media(min-width:761px){
+  #briefView.br-reading .br-wrap{grid-template-columns:minmax(0,22em) minmax(0,1fr)}
+  #briefView.br-reading .br-detail{padding-left:12px;margin-left:12px;border-left:.5px solid var(--kptu-border)}
+}
+@media(max-width:760px){#briefView .br-row{padding:7px 0}}
