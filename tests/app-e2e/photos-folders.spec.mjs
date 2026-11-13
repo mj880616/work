@@ -69,6 +69,7 @@ async function fixture(page, width) {
       for (const id of body.ids) { const m = state.media.find(x => x.id === id); if (m) { moved.push({ id, from: m.parent }); m.parent = body.parent_id; } }
       return r.fulfill({ json: { moved, failed: {} } });
     }
+    if (body.action === 'folder-move') { const f = state.folders.find(x => x.id === body.folder_id); if (f) f.parent_id = body.parent_id; return r.fulfill({ json: { ok: true } }); }
     if (body.action === 'folder-create') { const f = { id: 'N' + state.folders.length, name: body.name, parent_id: body.parent_id }; state.folders.push(f); return r.fulfill({ json: { folder: f } }); }
     return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
   });
@@ -215,6 +216,49 @@ test('사진 메뉴 ② 폴더 PC 1440: 선택한 사진을 왼쪽 폴더로 끌
   await page.locator('.kptu-notice-undo').click();
   await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
   expect(f.edge.filter(b => b.action === 'photos-move')[1]).toMatchObject({ parent_id: 'S1' });
+  expect(f.errors).toEqual([]);
+});
+
+// S61-17 FILE-옮긴뒤CtrlZ: 사진·폴더 옮기기의 [되돌리기]는 공용 되돌리기 기록에도 올라 PC Ctrl+Z로 되돌린다(같은 undo 하나, '되돌렸어요: …' 한 줄).
+test('사진 [폴더] PC 1280: 사진 옮긴 뒤 Ctrl+Z → 원래 폴더로, 폴더 옮긴 뒤 Ctrl+Z → 원래 자리로', async ({ page }) => {
+  const f = await fixture(page, 1280), shots = process.env.S61_17_SHOTS;
+  const notice = page.locator('#kptuNotice:not([hidden])'), moves = () => f.edge.filter(b => b.action === 'photos-move');
+  await openPhotos(page);
+  await root(page).locator('[data-photos-view]').selectOption('folders');
+  const tree = root(page).locator('[data-photos-fx-tree]');
+  await tree.locator('[data-photos-fx-open="S1"]').click();
+  await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
+  await items(page).nth(2).click({ button: 'right' });
+  await page.locator('#photosPhotoMenu').locator('button', { hasText: '선택' }).click();
+  await items(page).nth(1).click();
+  await items(page).nth(1).dragTo(tree.locator('[data-photos-folder="S2"] .nx-main'));
+  await expect.poll(() => moves().length).toBe(1);
+  await expect.poll(() => ids(page)).toEqual(['B1']);
+  await expect(notice.locator('.kptu-notice-undo')).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/photos-pc-1280-1-moved.png` });
+  await expect(notice).toHaveCount(0, { timeout: 8000 });
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => moves().length).toBe(2);
+  expect(moves()[1].parent_id).toBe('S1');
+  expect(moves()[1].ids.slice().sort()).toEqual(['B2', 'B3']);
+  await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
+  await expect(notice).toContainText('되돌렸어요: 옮기기 2장');
+  if (shots) await page.screenshot({ path: `${shots}/photos-pc-1280-2-ctrlz.png` });
+  // 폴더 옮기기(⋯ → 옮기기… → 여행) → Ctrl+Z = 원래 부모(카메라)로.
+  await tree.locator('[data-photos-folder="S1"] .nx-name').click({ button: 'right' });
+  await page.locator('#photosFolderMenu').getByRole('button', { name: '옮기기…' }).click();
+  await page.locator('#photosPickMenu [data-pick-folder="S2"]').click();
+  await expect.poll(() => f.edge.filter(b => b.action === 'folder-move').length).toBe(1);
+  expect(f.edge.find(b => b.action === 'folder-move')).toMatchObject({ folder_id: 'S1', parent_id: 'S2' });
+  await expect(notice).toContainText("'2026' 폴더를 옮겼어요");
+  await page.locator('body').press('Control+z');
+  await expect.poll(() => f.edge.filter(b => b.action === 'folder-move').length).toBe(2);
+  expect(f.edge.filter(b => b.action === 'folder-move')[1]).toMatchObject({ folder_id: 'S1', parent_id: 'T' });
+  await expect(notice).toContainText("되돌렸어요: 폴더 옮기기 '2026'");
+  // 더 되돌릴 것이 없으면 Ctrl+Z는 아무것도 하지 않는다.
+  await page.locator('body').press('Control+z');
+  await page.waitForTimeout(300);
+  expect(f.edge.filter(b => b.action === 'photos-move' || b.action === 'folder-move')).toHaveLength(4);
   expect(f.errors).toEqual([]);
 });
 

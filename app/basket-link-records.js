@@ -1,6 +1,6 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatSeoulTime} from './meeting-time.js';
-import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js';
+import {disconnectWithUndo,deleteNoteOriginal,deleteRecordNote} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
 import {previewText,markdownSource,writtenText} from './note-preview.mjs';
@@ -108,7 +108,7 @@ export const recordText=row=>row.summary!=null?previewText(row.summary):(isNoteR
 // ORG-기록첨부표시이름(S61-2): 목록 줄에 보이는 글. 요약·글이 없고 사진·파일만 있는 기록은 '사진 3장'·'파일 2개'(readLinkRecords withFiles의 attachments), 그것도 없으면 '요약 없음'.
 export const recordShownText=row=>recordText(row)||attachmentsLabel(row?.attachments)||'요약 없음';
 // BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
-// [메모 열기]·[연결 해제]·[요약 수정] and, for an update in organization detail, [원문 삭제].
+// [메모 열기]·[연결 해제]·[요약 수정]·[원문 삭제] (a note line too since ORG-연결노트삭제).
 // BUG-미리보기기호: the written text a record's [더보기] opens as headings and tables (only when it carries marks the line removed).
 const recordSourceText=row=>row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text);
 export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
@@ -128,9 +128,9 @@ function recordMenu(host){
   if(linkMenu)return linkMenu;
   linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'잊지 말기 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
-    // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정] (the note itself is managed on the note screen, so no
-    // [원문 삭제]). UI-연결요약수정: [요약 수정] changes only this link's summary, never the note.
-    render:id=>[...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button><button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
+    // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정]. UI-연결요약수정: [요약 수정] changes only this link's summary.
+    // ORG-연결노트삭제(2026-11-12 명진 지시): 노트 줄에도 업데이트와 같은 자리·이름의 [원문 삭제](맨 아래, 위험 색). 노트 화면 [삭제]와 같은 휴지통 길.
+    render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button>')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button><button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
     onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
   return linkMenu;
 }
@@ -244,7 +244,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const run=epoch,owner=scope(rt),valid=()=>run===epoch&&owner===scope(rt)&&isCurrent()&&host.isConnected;
     acting.add(key);setRowBusy(rows,true);say(id,'처리 중…');
     let result;
-    try{result=note?await deleteNoteOriginal(row.dataset.basketLinkNote,{rt,isCurrent:valid,trash:true}):await disconnectWithUndo(record,{name:getName(),rt,isCurrent:valid});}
+    try{result=note?await (row.dataset.basketLinkNoteKind==='note'?deleteRecordNote(row.dataset.basketLinkNote,{rt,isCurrent:valid}):deleteNoteOriginal(row.dataset.basketLinkNote,{rt,isCurrent:valid,trash:true})):await disconnectWithUndo(record,{name:getName(),rt,isCurrent:valid});}
     catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.'};}
     finally{acting.delete(key);}
     if(!valid()||result.status==='stale')return;
@@ -263,7 +263,6 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
     const noteRow=row.dataset.basketLinkNoteKind==='note';
     if(name==='open'){openNote(row.dataset.basketLinkNote,noteRow?'note':'basket');return;}
-    if(noteRow&&!['disconnect','summary'].includes(name))return;
     if(name==='summary'){open(id);return;}
     if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
   }
