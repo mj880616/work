@@ -16,3 +16,6 @@ export function myFeaturesOrNull(rt = window.KPTURuntime) {
 export const myFeatures = async (rt = window.KPTURuntime) => (await myFeaturesOrNull(rt)) || [];
 export const hasFeature = async (rt, name) => (await myFeatures(rt)).includes(name);
 if (typeof window !== 'undefined') window.addEventListener?.('kptu:session-changed', () => cache.clear());
+// MULTI-처음쓰는사람 ⑤: 통화·텔레그램 수집을 쓰는 계정인가(내 프로필 '수집·사용량' 칸·수집 알림 칩). 답이 없으면(null) 그렇다고 본다 —
+// 잠깐 못 읽었다고 운영자 칸이 빠지지 않게.
+export const collectsFeeds = features => !Array.isArray(features) || features.includes('calls') || features.includes('telegram');

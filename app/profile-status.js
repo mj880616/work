@@ -10,10 +10,35 @@ import {mountAiUsageLine} from './ai-usage-line.js';
 import {mountAiCapLine} from './ai-cap-line.js';
 import {viewPrefs} from './view-prefs.js';
 import {WEEK_CHOICES, weeksOf} from './org-quiet-model.mjs';
+import {myFeaturesOrNull, collectsFeeds} from './my-features.js';
 
-export function mountProfileStatus(panel) {
+// MULTI-처음쓰는사람 ⑤(docs/design/new-user-start.md 2-5): 수집 상태·AI 전체 사용량·'연락 없는 조직' 기준은 통화·텔레그램 수집이 있는 운영자 칸이다.
+// 서버 운영자 기능 답(app_my_features)에 calls·telegram이 둘 다 없으면 그 줄들을 그리지 않고, 칸 이름을 'AI 사용'으로 해 이번 달 한도 한 줄만 둔다.
+// 답을 못 받으면(null) 지금처럼 모두 그린다(운영자 화면이 빠지지 않게).
+
+export function mountProfileStatus(panel, {rt = window.KPTURuntime} = {}) {
   if (!panel || panel.dataset.psStatusMounted) return null;
   panel.dataset.psStatusMounted = '1';
+  // 운영자 기능 답이 오기 전에는 칸을 비워 둔다(줄이 생겼다 사라지지 않게). 운영자 계정은 답이 오면 지금 모양 그대로 그린다.
+  const show = on => panel.classList.toggle('hidden', !on); // 칸(.panel)은 공용 .hidden 클래스로 감춘다(hidden 속성은 .panel 표시 규칙에 진다)
+  show(false);
+  let inner = null;
+  const ready = Promise.resolve(rt?.api ? myFeaturesOrNull(rt) : null).catch(() => null).then(features => {
+    if (collectsFeeds(features)) { show(true); inner = mountFull(panel); } else inner = mountCapOnly(panel, show);
+  });
+  return {refresh: () => { void ready.then(() => inner?.refresh()); }};
+}
+function mountCapOnly(panel, show) {
+  // 제목은 'AI 사용' — 줄이 '이번 달 AI 사용 ○원 / 한도 ○원'이라 같은 말을 두 번 쓰지 않는다.
+  panel.innerHTML = '<h3>AI 사용</h3><p class="ps-ai-cap" data-ps-ai-cap role="status" hidden></p>';
+  panel.setAttribute('aria-label', 'AI 사용');
+  const line = panel.querySelector('[data-ps-ai-cap]'), aiCap = mountAiCapLine(line);
+  // 한도 줄을 못 읽으면(옛 서버 등) 빈 제목만 남지 않게 칸째 그리지 않는다. 이 칸의 유일한 renderer라 줄 상태를 따라간다.
+  const refresh = () => Promise.resolve(aiCap?.refresh()).then(() => show(!line.hidden));
+  void refresh();
+  return {refresh};
+}
+function mountFull(panel) {
   panel.innerHTML = '<h3>수집·사용량</h3>'
     + '<p class="home-text-done" data-ps-text-done role="status" hidden></p>'
     + '<section class="home-collect" data-ps-collect aria-labelledby="home-collect-title" hidden></section>'
