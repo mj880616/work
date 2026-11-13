@@ -7,7 +7,7 @@
 //   DB 함수 app_workspace_ai_month — 서버가 확인한 작업공간만) 판정. 사용 기록은 기존 표 app_ai_daily_usage(로그인 토큰, ai-assist와 같은 행 모양).
 // - 응답·로그에 글 내용·AI 답을 싣지 않는다(상태·고정 코드만).
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount } from "../_shared/openai-responses.ts";
-import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
+import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { checkAiUserCap } from "../_shared/ai-user-cap.mjs";
 import { BRIEF_PUBLIC, BriefError, createBriefRunner, isUuid } from "./brief-run.mjs";
 import type { DocumentFile, TextResult } from "../_shared/document-text.ts";
@@ -64,7 +64,8 @@ export async function briefAction(action: "brief-start" | "brief-step", body: Re
   const ai = async (name: string, instructions: string, input: string, schema: object, maxTokens: number) => {
     const result = await callOpenAi({ doFetch: fetch, sleep: (ms) => new Promise((r) => setTimeout(r, ms)), log: (c) => log(c) }, config.key, {
       model: config.model, store: false, max_output_tokens: maxTokens + AI_REASONING_TOKEN_HEADROOM,
-      input: [{ role: "developer", content: instructions }, { role: "user", content: input }],
+      // 말투는 공용 규칙 한 줄(AI-말투통일). 옮긴 원문 인용은 규칙이 말하듯 원문 그대로 둔다(서버가 원문 대조).
+      input: [{ role: "developer", content: `${instructions}\n${AI_TONE_RULE}` }, { role: "user", content: input }],
       text: { format: { type: "json_schema", name, strict: true, schema } },
     }, { url: OPENAI_URL, timeoutMs: 90000, retryDelayMs: 1000, maxResponseBytes: 256 * 1024 });
     const used = result.ok ? result.usage : result.charged ? { input: Math.ceil(input.length * 1.2), output: maxTokens } : { input: 0, output: 0 };
