@@ -153,7 +153,8 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 명진이 소속된 노조의 공개 성명 게시판. 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
     // 다른 단체의 robots 규칙은 그대로 지킨다. 2026-11-01 확인: 글 본문은 `div.publishList_write` 안(ASP.NET form 안쪽).
     key: "kptu", name: "공공운수노조", group: "labor", lang: "ko", mode: "html",
-    extract: { version: 1 },
+    // 판 2(S61-44): 한글 문서 붙여넣기 글의 '&middot'·'13 일' 깨짐을 고친 글자 규칙(S61-37 #2538) — 옛 글을 다시 뽑기(refill)로 한 번 고친다.
+    extract: { version: 2 },
     robotsException: "명진 결정 11/01 16:49",
     lists: ["https://www.kptu.net/board/list.aspx?mid=F686C1F3"], hosts: ["www.kptu.net", "kptu.net"],
     bodyClass: /^publishList_write$/,

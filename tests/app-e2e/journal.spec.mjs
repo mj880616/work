@@ -2826,14 +2826,15 @@ async function stageFixture(page,width,{history,fail=false,noEnd=false,team=SITE
  return f;
 }
 const hist=(org,stage,date)=>({id:`h-${org}-${date}`,organization_id:org,stage_id:stage,stage_name:defaultStageRows().find(r=>r.id===stage).name,stage_date:date,created_at:`${date}T00:00:00Z`});
-for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 투쟁 사업장 표를 쟁의 단계로 채움(투쟁 중 첫 줄·끝난 주 한 줄) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 쟁의 단계 줄은 넣지 않음(명진 11/13 — 투쟁 중은 칸 그대로, 끝난 조직은 고칠 목록) ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-10-09')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const sites=page.locator('#journalRoot [data-weekly-flow-cells="sites"]');
  await expect(sites.locator('.weekly-flow-label')).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 쟁의발생 결의(10.7)','- 지난주 현황 줄']);
- await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 협약체결(10.9)']);
- await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 지난주 현황 줄']); // 예전 앱 단계 줄('- 조정 신청(9.28)')도 뺌
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
+ await expect(page.locator('#journalRoot [data-flow-site-stage]')).toHaveCount(0);
+ await expect(hwpx(page).locator('[data-hwpx-stage-fix] li')).toHaveCount(1);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toHaveCount(0);
 });
 for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 더는 투쟁 중이 아닌 확정본 줄은 말없이 삭제하지 않고 '삭제할까요?' 수정할 목록 ${width}`,async({page})=>{
@@ -2848,18 +2849,17 @@ for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 더는 투
 });
 // ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간. 이 주(10.5~10.11)에 기간이 걸친 끝남(10.2~10.6)은 이 주에 한 줄, 투쟁 중은 기간으로 표기.
 const histP=(org,stage,date,end)=>({...hist(org,stage,date),end_date:end});
-for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 단계 기간 표기(- 파업 찬반투표(10.5~10.7))와 기간이 걸친 주의 끝남 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 기간 단계도 줄로 넣지 않음 ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[histP('o1','stage-6','2026-10-05','2026-10-07'),histP('o2','stage-10','2026-10-02','2026-10-06')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
- await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 파업 찬반투표(10.5~10.7)','- 지난주 현황 줄']);
- await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 협약체결(10.2~10.6)']);
- await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 지난주 현황 줄']);
+ await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
 });
-test('[주간 정리] 투쟁 사업장: 끝 날짜 칸이 아직 없어도(DB 적용 전) 단계로 채움',async({page})=>{
+test('[주간 정리] 투쟁 사업장: 끝 날짜 칸이 아직 없어도(DB 적용 전) 단계 줄 없이 칸 그대로',async({page})=>{
  await stageFixture(page,390,{history:[hist('o1','stage-3','2026-10-07')],noEnd:true});
  await openJournal(page,390);await openWeekly(page);await openDraft(page);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toHaveCount(0);
- await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 쟁의발생 결의(10.7)','- 지난주 현황 줄']);
+ await expect(cellLines(siteCell(page,'가상 노동조합'))).toHaveText(['- 지난주 현황 줄']);
 });
 test('[주간 정리] 투쟁 사업장: 단계를 읽지 못하면 직전 확정본 줄 그대로 + 한 줄 알림',async({page})=>{
  await stageFixture(page,390,{history:[],fail:true});
@@ -3579,7 +3579,7 @@ for(const width of [412,1440])test(`[주간 정리] 투쟁 사업장 현황: ⋯
  await sites.locator('[data-flow-site-add]').click();
  await sites.locator('[data-flow-site-pick]').selectOption('나 지역 모임');
  await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(cellLines(site('나 지역 모임'))).toHaveText(['- 쟁의발생 결의(10.8)','- 지난 투쟁 소식']);
+ await expect(cellLines(site('나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
  // 다시 빼고, [+ 사업장 추가]는 내 담당 조직 가운데 칸에 없는 것만(뺀 곳 포함) — 넣으면 적어 둔 글이 돌아온다.
  await pressMore(site('나 지역 모임'),'[data-flow-site-hide]');
  await expect(siteNames(page)).toHaveText(['가상 노동조합']);
@@ -3587,7 +3587,7 @@ for(const width of [412,1440])test(`[주간 정리] 투쟁 사업장 현황: ⋯
  await expect(sites.locator('[data-flow-site-pick] option')).toHaveText(['사업장 선택','나 지역 모임']);
  await sites.locator('[data-flow-site-pick]').selectOption('나 지역 모임');
  await expect(siteNames(page)).toHaveText(['가상 노동조합','나 지역 모임']);
- await expect(cellLines(site('나 지역 모임'))).toHaveText(['- 쟁의발생 결의(10.8)','- 지난 투쟁 소식']);
+ await expect(cellLines(site('나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
  // 순서: ⠿에서 위 화살표.
  n=writes();
  await site('나 지역 모임').locator('[data-reorder-handle]').focus();

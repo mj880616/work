@@ -74,7 +74,6 @@ import {siteLinesFromTable} from './org-status-model.mjs';
 import {readWeekLines} from './weekly-org-lines.js'; // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표 → 4. 1) 산하조직·3. 2) 투쟁 사업장 칸
 import {reportLines as weekReportLines} from './weekly-org-lines-model.mjs';
 import {inSites, SITE_REF_LINE, sameName} from './weekly-cell-names.mjs'; // S52-25: 3장에 든 조직은 4장 '참고' 한 줄
-import {isStageLine} from './org-dispute-stage-model.mjs';
 import {isOldWeek} from './record-window-model.mjs'; // ORG-기록하나로 O-6: 전환 주(RECORD_ONE_FROM)부터 4. 1)·3. 2)는 조직보고 창 결과
 import {saveReportSnapshot} from './report-snapshot-save.js'; // ORG-기록하나로 O-6: [확정] 성공 직후 그 창 결과 사진
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
@@ -180,28 +179,26 @@ async function readContext(rt, week = '') {
   return {stages, statusRows, weekRows, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
 }
 // WEEKLY-메뉴짝짓기 P6: 칸 줄(행 번호 → 줄들)에 그 주 주별 조직보고 줄을 얹는다. rows = Map(조직 id → 그 주 줄들) | null.
-// 4. 1) 산하조직: 넣은 줄이 있는 조직은 그 줄들. 3. 2) 투쟁 사업장: [그 칸의 쟁의 단계 줄] + 같은 줄들. 넣은 줄이 없으면 칸 그대로(바탕·현황 표).
+// 4. 1) 산하조직: 넣은 줄이 있는 조직은 그 줄들. 3. 2) 투쟁 사업장: 같은 줄들(쟁의 단계 줄 없음, 명진 11/13). 넣은 줄이 없으면 칸 그대로(바탕·현황 표).
 function applyWeekRows(s, cells, rows) {
   const orgs = new Map(cells.orgs), sites = new Map(cells.sites);
   const list = s.context.orgFailed || s.context.orgFallback ? [] : s.context.organizations;
   if (!rows || !list.length) return {orgs, sites};
-  const st = s.context.stages, stages = st?.status === 'ready' ? st.stages : [];
   const linesOf = name => { const org = matchOrg(name, list); return org ? weekReportLines(rows.get(org.id) || []) : []; };
   for (const r of s.orgs) { const lines = linesOf(r.org); if (lines.length) orgs.set(r.index, lines); }
-  for (const r of s.sites) { const lines = linesOf(r.org); if (lines.length) sites.set(r.index, [...(sites.get(r.index) ?? r.lines ?? []).filter(l => isStageLine(l, stages)), ...lines]); }
+  for (const r of s.sites) { const lines = linesOf(r.org); if (lines.length) sites.set(r.index, [...lines]); }
   return {orgs, sites};
 }
 // ORG-기록하나로 O-6(설계 docs/design/record-one.md 2-8·4절 '한글 파일'): 전환 주부터 4. 1) 칸 = 그 조직의 조직보고 창 줄(화면에 보이는 그대로,
-// 보이는 일정 줄 포함·'일정' 표시 없이, 줄이 없으면 빈 칸), 3. 2) 칸 = [그 칸의 쟁의 단계 줄] + 같은 조직의 투쟁 사업장 창 줄(3~7줄).
+// 보이는 일정 줄 포함·'일정' 표시 없이, 줄이 없으면 빈 칸), 3. 2) 칸 = 같은 조직의 투쟁 사업장 창 줄(3~7줄, 쟁의 단계 줄 없음 — 명진 11/13).
 // win = {orgs: Map(조직 id → '- 11.2. 글' 줄들), sites: 같은 모양}. 내 담당조직과 이름이 안 맞는 칸은 칸 줄 그대로.
 const isRecordWeek = week => /^\d{4}-\d{2}-\d{2}$/.test(String(week ?? '')) && !isOldWeek(week);
 function applyWindow(s, cells, win) {
   const orgs = new Map(cells.orgs), sites = new Map(cells.sites);
   const list = s.context.orgFailed || s.context.orgFallback ? [] : s.context.organizations;
   if (!win || !list.length) return {orgs, sites};
-  const st = s.context.stages, stages = st?.status === 'ready' ? st.stages : [];
   for (const r of s.orgs) { const org = matchOrg(r.org, list); if (org && win.orgs.has(org.id)) orgs.set(r.index, [...win.orgs.get(org.id)]); }
-  for (const r of s.sites) { const org = matchOrg(r.org, list); if (org && win.sites.has(org.id)) sites.set(r.index, [...(sites.get(r.index) ?? r.lines ?? []).filter(l => isStageLine(l, stages)), ...win.sites.get(org.id)]); }
+  for (const r of s.sites) { const org = matchOrg(r.org, list); if (org && win.sites.has(org.id)) sites.set(r.index, [...win.sites.get(org.id)]); }
   return {orgs, sites};
 }
 // 바탕 고르기는 공용 모듈 weekly-base.js findBase(WEEKLY-한흐름확정 ①: [주간 정리]와 같은 코드).
@@ -497,11 +494,11 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const add = missingSites(draft.editableOrgs(state.base, 'sites'), state.layout, state.context.organizations.map(o => o.name));
     if (add.length) state.base = {...state.base, sites:[...(state.base.sites ?? []), ...add.map(name => ({org:[name], status:[], paras:[]}))]};
     state.sites = draft.editableOrgs(state.base, 'sites').map(r => stage.starts.has(r.index) ? {...r, lines:stage.starts.get(r.index)} : r);
-    // DESK-현황표: 그 조직의 현황 표에 줄이 있으면 칸은 [쟁의 단계 줄] + 표 줄(표에 보이는 그대로)로 시작한다. 이 칸을 여기서 글로 고치면 그 주 보고에만
+    // DESK-현황표: 그 조직의 현황 표에 줄이 있으면 칸은 표 줄(표에 보이는 그대로, 쟁의 단계 줄 없음)로 시작한다. 이 칸을 여기서 글로 고치면 그 주 보고에만
     // 남고(임시저장 칸), 표는 바뀌지 않는다. 다음 주 칸은 다시 표에서 시작한다.
     const table = state.context.statusRows, orgs = state.context.orgFailed || state.context.orgFallback ? [] : state.context.organizations;
-    if (table?.size && orgs.length) state.sites = state.sites.map(r => { const org = matchOrg(r.org, orgs), lines = org ? siteLinesFromTable(r.lines, table.get(org.id), t => isStageLine(t, st?.status === 'ready' ? st.stages : [])) : null; return lines ? {...r, lines} : r; });
-    // WEEKLY-메뉴짝짓기 P6(설계 2절 4·5행): 그 주 주별 조직보고 표에 넣은 줄이 있는 조직은 4. 1) 칸 = 그 줄, 3. 2) 칸 = [쟁의 단계 줄] + 그 줄(같은 표 한 벌).
+    if (table?.size && orgs.length) state.sites = state.sites.map(r => { const org = matchOrg(r.org, orgs), lines = org ? siteLinesFromTable([], table.get(org.id)) : null; return lines ? {...r, lines} : r; });
+    // WEEKLY-메뉴짝짓기 P6(설계 2절 4·5행): 그 주 주별 조직보고 표에 넣은 줄이 있는 조직은 4. 1) 칸 = 그 줄, 3. 2) 칸 = 그 줄(같은 표 한 벌, 쟁의 단계 줄 없음).
     const week = applyWeekRows(state, {orgs:state.orgs.map(r => [r.index, r.lines]), sites:state.sites.map(r => [r.index, r.lines])}, state.context.weekRows);
     state.orgs = state.orgs.map(r => (week.orgs.has(r.index) ? {...r, lines:week.orgs.get(r.index)} : r));
     state.sites = state.sites.map(r => (week.sites.has(r.index) ? {...r, lines:week.sites.get(r.index)} : r));

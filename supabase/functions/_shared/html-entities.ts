@@ -3,7 +3,7 @@
 //          _shared/outside-tidy.ts(제목·요약 정돈, 글 쪽 제목), _shared/feed-extract.ts(사진 대체 글·캡션).
 // 결과는 언제나 '글자'다. 풀린 '<b>' 같은 글자를 태그로 다시 살리지 않는다(화면은 글자로만 그린다).
 //
-// 세 가지를 푼다.
+// 네 가지를 푼다.
 // 1) 이름·숫자 표기: &quot; &middot; &hellip; &lsquo; &rsquo; &#39; &#x27; …
 // 2) 두 번(세 번) 감싼 표기: &amp;quot; → &quot; → "   (decodeEntitiesDeep, 바뀌지 않을 때까지 최대 9번)
 // 3) '&'가 빠진 채 온 표기: 'quot;'·'middot;'·'hellip;'·'#39;' (repairBareEntities)
@@ -11,6 +11,7 @@
 //    (11/08 요청함 캡처 3장, 피드 원문 확인 — 같은 글의 description은 정상 따옴표). 수집기 잘못이 아니라 피드 글자 자체라서
 //    한 번 더 푸는 것으로는 고쳐지지 않는다. 그래서 아래 정해진 낱말만, 앞 글자가 영문·숫자·'&'가 아닐 때만 되살린다
 //    ('Volt;'·'camp;' 같은 낱말 끝은 건드리지 않는다). 이 규칙은 DB 옛 글 고침(20261108010000_feed_entity_text_fix)과 같다.
+// 4) ';'가 빠진 흔한 이름 표기: '&middot'·'&rarr'·'&nbsp' (decodeLooseEntities, S61-37)
 
 // 이름 표기(자주 쓰는 것 전부). 모르는 이름은 그대로 둔다.
 const NAMED: Record<string, string> = {
@@ -72,7 +73,27 @@ export function repairBareEntities(s: string): string {
   return String(s ?? "").replace(BARE_NUMERIC_RE, get).replace(BARE_NAMED_RE, get);
 }
 
-// 표시 글자로: 끝까지 풀고 → '&' 빠진 표기 되살리기. 제목·요약·본문 글자·대체 글처럼 '글자로만' 쓰는 칸에 쓴다.
+// ';'가 빠진 이름 표기(S61-37 NEWS-원문표기깨짐2): '&middot 안전'·'4 급 &rarr 3 급'처럼 끝 ';' 없이 오는 표기.
+// 공공운수노조 보도자료(한글 문서를 붙여 넣은 HTML)가 이런 꼴로 온다(11/13 요청함 캡처). 브라우저도 흔한 이름은 ';' 없이 푼다.
+// 정해진 이름만, '&'가 붙어 있고 바로 뒤가 영문·숫자·';'·'='가 아닐 때만 푼다('&copyright'·'?a=1&lt=2' 같은 주소·낱말은 그대로).
+// 대소문자는 그대로 맞춘다(이름 표기는 대소문자를 가린다). 주소·속성값에는 쓰지 않는다(글자 칸만, decodeText 안에서만).
+export const LOOSE_NAMED: ReadonlyArray<string> = [
+  "amp", "lt", "gt", "quot", "apos", "nbsp", "middot", "hellip", "bull", "rarr", "larr", "uarr", "darr",
+  "lsquo", "rsquo", "ldquo", "rdquo", "ndash", "mdash", "laquo", "raquo", "copy", "reg", "trade", "deg", "times",
+];
+const LOOSE_RE = new RegExp(`&(${[...LOOSE_NAMED].sort((a, b) => b.length - a.length).join("|")})(?![A-Za-z0-9;=])`, "g");
+export function decodeLooseEntities(s: string): string {
+  return String(s ?? "").replace(LOOSE_RE, (m, e: string) => NAMED[e] ?? m);
+}
+
+// 표시 글자로: 끝까지 풀고(';' 빠진 흔한 이름 표기 포함) → '&' 빠진 표기 되살리기. 제목·요약·본문 글자·대체 글처럼 '글자로만' 쓰는 칸에 쓴다.
+// 두 번 감싼 ';' 없는 표기('&amp;middot ')도 풀리도록 한 겹 풀 때마다 ';' 없는 표기도 함께 본다(바뀌지 않을 때까지 최대 9번).
 export function decodeText(s: string): string {
-  return repairBareEntities(decodeEntitiesDeep(s));
+  let t = String(s ?? "");
+  for (let i = 0; i < 9 && t.includes("&"); i++) {
+    const next = decodeLooseEntities(decodeEntities(t));
+    if (next === t) break;
+    t = next;
+  }
+  return repairBareEntities(t);
 }
