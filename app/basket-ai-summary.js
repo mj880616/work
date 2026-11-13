@@ -25,6 +25,7 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   input_too_large:'기록이 너무 길어 AI 요약을 만들 수 없어요.',
   ai_not_configured:'지금은 AI를 쓸 수 없어요.',
   monthly_limit:'이번 달 AI 한도에 닿았어요. 요약은 직접 써 주세요.',
+  ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
   daily_limit:'오늘 AI 요약을 쓸 수 있는 횟수를 다 썼어요. 요약은 직접 써 주세요.',
   usage_unavailable:'AI 사용 기록을 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   read_unavailable:'자료를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.',

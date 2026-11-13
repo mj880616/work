@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // CALL-개인통화함 4단계: the real ai-assist handler, kind=call_refill, with a synthetic Supabase (Auth + PostgREST + the DB function
@@ -63,8 +64,8 @@ function harness({openai=null,feed=[callRow(1)],usage=[],rpcFail=null,feedFail=0
     const eq=[...url.searchParams].filter(([k,v])=>v.startsWith('eq.'));
     return respond(rows.filter(r=>visible(table,r,uid)&&eq.every(([k,v])=>String(r[k])===v.slice(3))).slice(0,Number(url.searchParams.get('limit')||1e9)));
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)}));

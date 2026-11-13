@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
@@ -79,7 +80,7 @@ function harness(){
     const rows=tables[table];assert.ok(rows,'unexpected table '+table);
     return respond(rows.filter(r=>ownerOf[r.workspace_id]===uid).filter(r=>match(r,url)));
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-key'})[n],fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-key'})[n],fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:()=>{}}));
   return {handler,calls,tables};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)}));

@@ -33,7 +33,7 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   plan.addEventListener('input',paintCount);
   // ---- AI 추천 ----
   const aiBtn=host.querySelector('[data-biz-area-ai]'),sugs=host.querySelector('[data-biz-area-sugs]');let aiRun=0;
-  const SUGGEST_NOTE={short:'내용을 조금 더 쓰면 추천할 수 있어요.',secret:'비밀번호·키 같은 글이 있어 AI에 보내지 않았어요.',no_areas:'사업영역이 아직 없어요.',monthly_limit:'이번 달 AI 한도에 닿았어요.',daily_limit:'오늘 AI 횟수를 다 썼어요.',not_ready:'사업영역 추천은 준비 중이에요.',offline:'인터넷 연결이 없어요.'};
+  const SUGGEST_NOTE={short:'내용을 조금 더 쓰면 추천할 수 있어요.',secret:'비밀번호·키 같은 글이 있어 AI에 보내지 않았어요.',no_areas:'사업영역이 아직 없어요.',monthly_limit:'이번 달 AI 한도에 닿았어요.',ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',daily_limit:'오늘 AI 횟수를 다 썼어요.',not_ready:'사업영역 추천은 준비 중이에요.',offline:'인터넷 연결이 없어요.'};
   const clearSugs=()=>{aiRun++;if(sugs)sugs.replaceChildren();if(aiBtn){aiBtn.disabled=false;aiBtn.removeAttribute('aria-busy')}};
   aiBtn?.addEventListener('click',async()=>{
     const mine=++aiRun,m=material?.()||{},title=String(m.title||'').replace(/\s+/g,' ').trim().slice(0,200);

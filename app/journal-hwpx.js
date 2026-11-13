@@ -103,6 +103,7 @@ const TITLE_TEXT = Object.freeze({
   unsupported_kind: 'AI 제목 다듬기는 아직 준비 중이에요. 원래 제목으로 만들어요.',
   daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 제목은 칸에서 직접 수정해 주세요.',
   monthly_limit: '이번 달 AI 한도에 닿았어요. 제목은 칸에서 직접 수정해 주세요.',
+  ai_monthly_cap: '이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
 });
 // WEEKLY-환류학습 3·4·6: ai-assist weekly_draft(AI 초안·학습 시험)·weekly_review(환류 보고) 답의 일상어. 배포 전이면 바탕 그대로.
 const LEARN_TEXT = Object.freeze({
@@ -112,6 +113,7 @@ const LEARN_TEXT = Object.freeze({
   not_found: '이 주 수정 기록을 서버에서 찾지 못했어요.',
   daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 바탕 그대로 시작해요.',
   monthly_limit: '이번 달 AI 한도에 닿았어요. 바탕 그대로 시작해요.',
+  ai_monthly_cap: '이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
 });
 const LEARN_BODY_BYTES = 60 * 1024; // 서버 상한(64KB)보다 조금 작게
 const MAX_BYTES = 30 * 1024 * 1024;

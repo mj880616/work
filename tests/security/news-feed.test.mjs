@@ -34,6 +34,7 @@ function fakeWorld(opts={}){
   if(u.origin===SB){
    if(u.pathname==='/auth/v1/user')return init.headers.Authorization===`Bearer ${JWT}`?res({id:USER}):res({},401);
    const p=u.pathname.replace('/rest/v1/','');
+   if(p==='rpc/app_workspace_ai_month')return res(opts?.aiMonth??{month:'2026-11',exempt:false,cap_krw:3000,openai_input_tokens:0,openai_output_tokens:0,gemini:[]}); // AI-사람별한도: 기본은 한도 아래
    if(p==='app_workspace_members')return res([{workspace_id:WS}]);
    if(p==='app_news_items'&&method==='GET'){
     const id=u.searchParams.get('id'),state=u.searchParams.get('state');

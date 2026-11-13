@@ -3,6 +3,8 @@
 // outside-feed는 [번역] 횟수(translate_n)와 번역용 AI 토큰만 여기에 더한다 — 뉴스 [번역]과 같은 하루·월 한도를 함께 쓴다.
 import { estimateKrw } from "./openai-responses.ts";
 import { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "./ai-model.ts";
+// AI-사람별한도: 뉴스·사회운동 AI도 작업공간 이번 달 사람별 한도(기본 3,000원, 운영자 제외) 안에서만 부른다. 판정은 공용 함수 한 곳.
+import { checkAiUserCap } from "./ai-user-cap.mjs";
 
 type Row = Record<string, unknown>;
 export type DayDb = {
@@ -33,6 +35,13 @@ export async function monthKrw(db: DayDb, ws: string, nowMs: number): Promise<nu
   let i = 0, o = 0;
   for (const r of rows) { i += num(r.ai_input_tokens); o += num(r.ai_output_tokens); }
   return estimateKrw(i, o, { input: DEFAULT_PRICE_IN_KRW_PER_MTOK, output: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
+}
+// AI를 부르기 전 멈춤 판정: 뉴스 월 상한(MONTHLY_LIMIT) 먼저, 그다음 사람별 한도(AI_MONTHLY_CAP). 둘 다 아니면 null.
+// 사람별 한도 숫자는 서버 함수 app_workspace_ai_month(service role, GET — 읽기 전용 함수)로 읽는다. 읽지 못하면 닫힌 쪽(USAGE_UNAVAILABLE).
+export async function aiMonthStop(db: DayDb, ws: string, nowMs: number): Promise<null | "MONTHLY_LIMIT" | "AI_MONTHLY_CAP" | "USAGE_UNAVAILABLE"> {
+  if (await monthKrw(db, ws, nowMs) >= MONTHLY_LIMIT_KRW) return "MONTHLY_LIMIT";
+  const cap = await checkAiUserCap(async () => (await db.get(`rpc/app_workspace_ai_month?p_workspace=${encodeURIComponent(ws)}`))[0]);
+  return cap.ok ? null : cap.code === "ai_monthly_cap" ? "AI_MONTHLY_CAP" : "USAGE_UNAVAILABLE";
 }
 // 하루 횟수 하나 쓰기: 이미 상한이면 false(아무것도 더하지 않음), 아니면 1 더하고 true.
 export async function takeDaily(db: DayDb, ws: string, field: DayField, limit: number, nowMs: number): Promise<boolean> {

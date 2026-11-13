@@ -12,6 +12,7 @@ export const CONVERT_TEXT=Object.freeze({
   invalid_request:`글을 확인해 주세요. ${CONVERT_MAX_CHARS.toLocaleString('ko-KR')}자까지, 이상한 문자가 없어야 해요.`,
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 내일 다시 시도해 주세요.',
   monthly_limit:'이번 달 AI 한도에 닿았어요. 글은 직접 [노조 양식으로 새 문서]에 옮겨 주세요.',
+  ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
   ai_invalid_response:'AI 답을 읽지 못했어요. 다시 [만들기]를 눌러 주세요. 아무것도 바뀌지 않았어요.',
 });
 export const convertRetryable=code=>aiSummaryRetryable(code);

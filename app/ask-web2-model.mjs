@@ -32,6 +32,7 @@ export const ASK_TEXT = Object.freeze({
   empty: '찾은 기록이 없음. 낱말을 바꿔 볼 것.',
   no_lines: '근거로 답을 만들지 못함.',
   monthly_limit: '이번 달 AI 한도에 걸림. 아래 검색 결과만 보임.',
+  ai_monthly_cap: '이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요. 아래 검색 결과만 보임.',
   daily_limit: '오늘 물어보기 횟수를 다 씀.',
   failed: '답을 만들지 못함.',
   not_ready: '물어보기는 준비 중임.',
@@ -42,11 +43,11 @@ export const ASK_TEXT = Object.freeze({
 // callAiAssist 실패 코드 → 한 줄. Edge 배포 전(모르는 쓰임·표 없음)이면 '준비 중'.
 export function askFailText(code) {
   if (code === 'unsupported_kind' || code === 'ask_not_ready' || code === 'not_ready') return ASK_TEXT.not_ready;
-  if (code === 'monthly_limit' || code === 'daily_limit' || code === 'session_required' || code === 'ask_secret') return ASK_TEXT[code];
+  if (code === 'monthly_limit' || code === 'daily_limit' || code === 'ai_monthly_cap' || code === 'session_required' || code === 'ask_secret') return ASK_TEXT[code];
   return ASK_TEXT.failed;
 }
 // callAiAssist에 넘기는 알려진 오류 코드(이 밖은 internal_error로 본다).
-export const ASK_CODES = Object.freeze({unsupported_kind: 1, ask_not_ready: 1, ask_unavailable: 1, ask_secret: 1, monthly_limit: 1, daily_limit: 1,
+export const ASK_CODES = Object.freeze({unsupported_kind: 1, ask_not_ready: 1, ask_unavailable: 1, ask_secret: 1, monthly_limit: 1, daily_limit: 1, ai_monthly_cap: 1,
   session_required: 1, invalid_request: 1, usage_unavailable: 1, ai_not_configured: 1, ai_busy: 1, ai_timeout: 1, internal_error: 1, forbidden: 1, auth_unavailable: 1});
 
 const short = (v, n) => { const s = String(v ?? '').replace(/\s+/g, ' ').trim(); return chars(s) > n ? [...s].slice(0, n).join('') + '…' : s; };

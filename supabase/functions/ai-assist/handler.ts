@@ -56,6 +56,8 @@
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { DAILY_TOTAL_LIMIT } from "../_shared/ai-daily-usage.mjs";
+// AI-사람별한도: 작업공간마다 한 달 한도(기본 3,000원, 운영자 제외). 판정은 공용 함수 한 곳.
+import { AI_CAP_CODE, checkAiUserCap, judgeAiMonth } from "../_shared/ai-user-cap.mjs";
 import { NOW_DETAIL_DAILY, NOW_INTERESTS_DAILY, parseNowRequest, runNow, type NowInput, type NowKit } from "./now-detail.ts";
 import {
   AREA_SUGGEST_BODY_BYTES, AREA_SUGGEST_INSTRUCTIONS, AREA_SUGGEST_MAX_OUTPUT_TOKENS, AREA_SUGGEST_SCHEMA, areaOptions, areaSuggestMaterial,
@@ -236,6 +238,7 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   note_excluded: "이 기록은 AI에 보내지 않도록 되어 있어요.",
   input_too_large: "기록이 너무 길어 AI 요약을 만들 수 없어요.",
   ai_not_configured: "지금은 AI를 쓸 수 없어요.",
+  ai_monthly_cap: "이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.",
   monthly_limit: "이번 달 AI 한도에 닿았어요.",
   daily_limit: "오늘 이 AI 기능을 쓸 수 있는 횟수를 다 썼어요.",
   usage_unavailable: "AI 사용 기록을 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
@@ -287,10 +290,13 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
 class Fail extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string) {
+  // 고정 문구 대신 보낼 한 줄(AI-사람별한도: 한도 금액이 작업공간마다 다름). 없으면 MESSAGES[code].
+  shown?: string;
+  constructor(status: number, code: string, shown?: string) {
     super(code);
     this.status = status;
     this.code = code;
+    if (shown) this.shown = shown;
   }
 }
 
@@ -299,8 +305,8 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
   });
-const failure = (status: number, code: string) =>
-  json({ ok: false, error: code, message: MESSAGES[code] ?? MESSAGES.internal_error }, status);
+const failure = (status: number, code: string, shown?: string) =>
+  json({ ok: false, error: code, message: shown ?? MESSAGES[code] ?? MESSAGES.internal_error }, status);
 
 const chars = (s: string) => [...s].length;
 
@@ -451,6 +457,29 @@ async function myFeatures(ctx: Ctx): Promise<Set<string> | "missing" | "error"> 
   if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) return "error";
   return new Set(value as string[]);
 }
+// AI-사람별한도: 이번 달 그 작업공간의 AI 합계·한도·운영자 제외를 로그인 토큰으로 읽는다(DB 함수가 owner만 답함, 남의 작업공간은 42501).
+const NO_AI_MONTH = Symbol("no_ai_month");
+// 프로필 한 줄: 로그인한 본인 작업공간 것만(DB 함수가 owner 확인). 운영자(exempt)는 줄을 그리지 않게 exempt만 알려 준다(금액·한도도 그대로).
+async function runAiMonth(ctx: Ctx, env: Env): Promise<Response> {
+  const config = aiConfig(env);
+  let raw: unknown;
+  try { raw = await myAiMonth(ctx); } catch { throw new Fail(503, "usage_unavailable"); }
+  const m = judgeAiMonth(raw, config?.price);
+  if (!m) throw new Fail(503, "usage_unavailable");
+  return json({ ok: true, kind: "ai_month", month: m.month, used_krw: m.used_krw, cap_krw: m.cap_krw, exempt: m.exempt, capped: m.capped });
+}
+async function myAiMonth(ctx: Ctx): Promise<unknown> {
+  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/app_my_ai_month`, {
+    method: "POST",
+    headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ p_workspace: ctx.workspaceId }),
+  });
+  if (!r.ok) {
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    throw new Error(`ai_month_${r.status}`);
+  }
+  return await readBoundedJson(r, { maxBytes: 8192 });
+}
 async function hasFeature(ctx: Ctx, feature: "calls" | "telegram"): Promise<boolean> {
   const f = await myFeatures(ctx);
   return f instanceof Set && f.has(feature);
@@ -541,6 +570,8 @@ type AreaSuggestInput = { kind: "area_suggest"; title: string; text: string };
 // 공유 페이지 AI 초안(share-draft.ts): 고른 기록(사업 보고·노트, 종류+ID 1~6)·한 줄 초점만. 기록 글은 서버가 다시 읽는다.
 type ShareDraftRequest = ShareInput;
 type AskWeb2Input = { kind: "ask_web2"; question: string };
+// AI-사람별한도: 내 이번 달 AI 사용액·한도 한 줄(프로필). AI를 부르지 않고 사용 기록도 더하지 않는다.
+type AiMonthInput = { kind: "ai_month" };
 
 type LibraryMode = "fill" | "propose" | "tidy";
 type LibraryFillInput = { kind: "library_fill"; mode: LibraryMode; document_ids: string[]; keep: LibraryField[] };
@@ -571,7 +602,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | LibrarySortInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | LibrarySortInput | JournalDraftInput | JournalMemorableInput | JournalMemorableRecheckInput | HomeDayPicksInput | NextWeekSheetInput | AreaSuggestInput | PreMeetingSheetInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput | AiMonthInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -612,6 +643,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseCallRefillRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "call_refill", ...parsed };
+  }
+  // 내 이번 달 AI 사용액(ai_month, AI-사람별한도): kind 하나만. 작업공간은 서버가 정한다.
+  if (b.kind === "ai_month") {
+    if (Object.keys(b).length !== 1) throw new Fail(400, "invalid_request");
+    return { kind: "ai_month" };
   }
   // 노트 AI 요약 제목(note_title, NOTE-탐색기 ③): 노트 ID 하나만 받는다. 글은 서버가 로그인 토큰으로 읽는다.
   if (b.kind === "note_title") {
@@ -958,6 +994,13 @@ async function checkBudget(ctx: Ctx, kind: string, nowMs: number, price: { input
     if (raw?.day === day && String(raw.user_id).toLowerCase() === ctx.userId) today = raw;
   }
   if (estimateKrw(input, output, price) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "monthly_limit");
+  // AI-사람별한도: 이 작업공간의 이번 달 합계(AI 기능 전체·[번역]·녹음 전사)가 그 사람 한도 이상이면 AI를 부르지 않는다. 운영자 작업공간은 서버 허용 표로 빠진다.
+  // DB 함수가 아직 없으면(적용 전·되돌린 뒤, 404) 이 한도만 건너뛰고 위 월 상한으로 막는다. 그 밖의 읽기 실패는 닫힌 쪽(usage_unavailable).
+  const month = await myAiMonth(ctx).catch((e) => (e instanceof Error && e.message === "ai_month_404" ? NO_AI_MONTH : e));
+  if (month !== NO_AI_MONTH) {
+    const cap = await checkAiUserCap(() => month instanceof Error ? Promise.reject(month) : Promise.resolve(month), { price });
+    if (!cap.ok) throw new Fail(cap.status, cap.code, cap.message);
+  }
   const used = tokenCount(today?.requests);
   // 사용 기록 표는 사용자·날짜마다 1행이라 하루 횟수는 모든 쓰임 합계로 센다. 챙길 것 찾기의 하루 5회는 찾기 상태 표가 센다.
   if (!(kind in DAILY_LIMITS) || used >= DAILY_TOTAL_LIMIT) throw new Fail(429, "daily_limit");
@@ -5202,7 +5245,7 @@ async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promi
     budget = await checkBudget(ctx, "ask_web2", started, config.price);
   } catch (e) {
     // 한도에 걸려도 찾은 근거는 보여 준다(답 줄 없이).
-    if (e instanceof Fail && (e.code === "monthly_limit" || e.code === "daily_limit")) return reply(e.code, [], null);
+    if (e instanceof Fail && (e.code === "monthly_limit" || e.code === "daily_limit" || e.code === AI_CAP_CODE)) return reply(e.code, [], null);
     throw e;
   }
   try {
@@ -5312,6 +5355,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "area_suggest") return await runAreaSuggest(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "share_draft") return await runShareDraft(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "ai_month") return await runAiMonth(ctx, deps.env);
       if (input.kind === "ask_web2") return await runAskWeb2(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "now_detail" || input.kind === "now_interests") return json(await runNow(nowKit(ctx, { env: deps.env, now, sleep, log, doFetch }), input));
       const material = await loadLinkSummaryMaterial(ctx, input);
@@ -5371,7 +5415,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       // 저장하지 않는다. 화면이 요약 칸에 넣고 명진이 기존 저장 버튼을 누른다(5.1, D11).
       return json({ ok: true, kind: input.kind, summary });
     } catch (e) {
-      if (e instanceof Fail) return failure(e.status, e.code);
+      if (e instanceof Fail) return failure(e.status, e.code, e.shown);
       log("internal_error");
       return failure(500, "internal_error");
     }
