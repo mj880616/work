@@ -407,3 +407,6 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .fam-remind .fam-remind-text{ flex:1 1 auto; min-width:0; }
 .fam-remind [data-fam-more]{ flex:none; }
 .fam-remind-pick .row-act{ display:block; width:100%; text-align:left; white-space:normal; font-size:var(--ds-text-row); color:var(--kptu-ink); }
+/* NOTE-목록에파일놓기(S61-16 ①): PC 파일을 노트 목록에 끌어 오면 목록 칸에 점선 + '여기 놓으면 새 노트'(놓으면 새 노트 창). */
+.nx-file-over { position:relative; outline:2px dashed var(--kptu-info); outline-offset:-2px; border-radius:var(--kptu-radius-md); background:var(--kptu-info-soft); }
+.nx-file-drop { position:sticky; top:var(--kptu-stick-top, 0px); z-index:2; margin:0 0 4px; padding:4px 8px; border-radius:var(--kptu-radius-md); background:var(--kptu-info-soft); color:var(--kptu-link); font-size:12px; text-align:center; pointer-events:none; }

@@ -44,6 +44,7 @@ import { copyText } from './copy-text.js';
 import { GOTO_FOLDER_LABEL, flashRow } from './goto-folder.mjs'; // LIB-최근폴더로가기(S61-12): '최근' 노트 줄 메뉴 맨 위 [폴더로 가기]
 import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 import { bigWindowOpen } from './big-window-open.js';
+import { bindNoteFileDrop, droppedTitle } from './note-file-drop.js'; // NOTE-목록에파일놓기: 목록에 PC 파일을 놓으면 그 파일로 새 노트 창
 // ED③ 노트: the note's body is the new editor (note-body.js); its big window is note-window.js.
 import { paintDoc, docCopy, mountEditField, notePhotos, noteFiles } from './note-body.js';
 import { prepareSave } from './ed-window-model.mjs';
@@ -138,6 +139,26 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const quick = mountQuick({root:host.querySelector('[data-note-list]'), esc, noteOnly:true, view:'basket', idPrefix:'basketNote',
     onSaved:saved => noteAdded(saved, {open:false}), onBig:(text, upload) => openNew(text, upload), onFolder:trigger => openAddPicker(trigger)});
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
+  // NOTE-목록에파일놓기(S61-16 ①): PC 파일을 오른쪽 목록(노트 줄 위·빈 자리·포스트잇 보기)에 놓으면 그 파일을 붙인 새 노트 창(⤢와 같은 창).
+  // 노트 줄 위에 놓아도 그 노트에 붙이지 않고 새 노트다. 위 입력칸은 제 첨부로 받고, 왼쪽 폴더 나무·보드 목록은 받지 않는다.
+  // 끌기는 문서 전체에서 듣는다: 목록이 짧으면 그 아래 빈 자리는 노트 화면 바깥 칸이라, 목록 칸과 같은 열(가로 범위)이고 목록 위끝보다
+  // 아래면 받는다. 저장 폴더는 입력칸 [폴더 ▾]와 같은 addTarget().
+  bindNoteFileDrop({zone:document, onFiles:files => void openNew('', null, files), target:e => {
+    if (!host.isConnected || host.hidden || !host.offsetParent || list.hidden || selected || busy || bigWriter || bigWindowOpen()) return null;
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t || t.closest('[data-home-quick], [data-nx-tree], [data-nbb-side], [data-nx-select-bar], #noteDocMenu, [data-note-detail], [role="dialog"], nav, header')) return null;
+    const board = host.querySelector('[data-note-board-wrap]'), pane = board && !board.hidden ? board : host.querySelector('.nx-pane');
+    if (!pane?.offsetParent) return null;
+    if (list.contains(t)) {
+      const tree = host.querySelector('[data-nx-tree]');
+      if (tree && !tree.hidden && tree.offsetParent && e.clientX <= tree.getBoundingClientRect().right) return null;
+      return e.clientY >= list.getBoundingClientRect().top ? pane : null;
+    }
+    // 목록 바깥(목록 아래 빈 자리): 목록 칸과 같은 열이고 목록 칸 위끝보다 아래일 때만.
+    const r = pane.getBoundingClientRect();
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top ? pane : null;
+  }});
+
   const boards = createNoteBoards({esc, rt, wide:window.matchMedia('(min-width:761px)'), bar:host.querySelector('[data-nbb]'), side:host.querySelector('[data-nbb-side]'),
     notes:{get:() => notes, set:fn => { notes = fn(notes); }}, folderOf:note => folderOf(note), folders:() => folders, matches:() => (query ? matches : null),
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }, toast:showToast, refresh:() => refresh(), scope:() => scope(),
@@ -608,16 +629,18 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // ED③ 노트: the new big window (note-window.js) with a title row, [폴더 ▾], [📎 첨부] and the line shortcuts. It saves a note (createNoteDoc
   // with its saved form) and closes; the saved note then opens here in its read view. Text closed without saving goes back into the input
   // as letters (this tab's memory only, never browser storage).
-  async function openNew(text = '', upload = null) {
+  // NOTE-목록에파일놓기: dropped = PC files dropped on the list. Then the window has its own file batch (not the input's), the title box
+  // starts with the first file's name, and closing without saving leaves nothing behind (the input's letters and files stay as they were).
+  async function openNew(text = '', upload = null, dropped = null) {
     if (selected || busy || bigWriter || bigWindowOpen()) return;
     const owner = scope();
     const {openNoteWindow} = await import('./note-window.js');
     if (owner !== scope() || selected || bigWriter) return;
     // NOTE-파일붙이기: the window's [📎 첨부] works on the note input's own files (a saved note empties them).
-    bigWriter = openNoteWindow({text, title:'새 노트', rt, upload, noteFolder:{label:() => folderName(addTarget()) || OUTSIDE_NAME, get:() => addTarget(), open:trigger => openAddPicker(trigger)}, onClose:({saved, text:value}) => {
+    bigWriter = openNoteWindow({text, title:'새 노트', rt, upload, dropped, heading:dropped ? droppedTitle(dropped) : '', noteFolder:{label:() => folderName(addTarget()) || OUTSIDE_NAME, get:() => addTarget(), open:trigger => openAddPicker(trigger)}, onClose:({saved, text:value}) => {
       bigWriter = null;
       if (owner !== scope()) return;
-      quick.setText(saved ? '' : value);
+      if (!dropped) quick.setText(saved ? '' : value);
       // NOTE-주소로 가져오기: [가져오기]로 만든 노트는 폴더까지 넣은 채 만들어졌고 목록 줄은 아래 syncImported가 올린다(열지 않고 목록에 둔다).
       if (saved?.imported) { quick.focus(); return; }
       if (saved?.kind === 'note') { noteAdded(saved, {open:true}); return; }
