@@ -89,7 +89,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test(`폴더 메뉴: 이름 바꾸기 F2·안에 새 폴더·접기/펼치기·구분선·폴더 삭제, 폴더 밖 ⋯는 새 폴더만 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await press(page,menuButton(page,'f:fa'),width);
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','아래로','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
+    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
     await expect(page.locator('#luFolderMenu hr[role="separator"]')).toHaveCount(1);
     // 구분선은 [폴더 지우기] 바로 앞.
     await expect(page.locator('#luFolderMenu > :nth-last-child(2)')).toHaveAttribute('role','separator');
@@ -189,7 +189,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     // 열린 폴더 본문의 빈 곳 = 그 폴더 메뉴.
     await libraryNodeHead(page,'f:fa').click();await expect(libraryNode(page,'f:fa')).toHaveAttribute('open','');
     await page.evaluate(()=>document.querySelector('#documentList details[data-lu-node="f:fa"] > .lu-node-body').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:500,clientY:300})));
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','접기','이 폴더로 들어가기','아래로','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
+    await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','접기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
     await page.keyboard.press('Escape');
     // 파일 줄 위 우클릭은 [새 폴더]를 열지 않는다(파일 ⋯ 메뉴).
     await page.locator('#documentList [data-lu-document="n-1"]').click({button:'right'});
@@ -259,7 +259,7 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items,group:'폴더'});
     expect(await tops(page)).toEqual(['f:fa','f:fn']);
     await press(page,menuButton(page,'f:fa'),width);
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['맨 위에 새 폴더','이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','아래로','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
+    await expect(page.locator('#luFolderMenu button')).toHaveText(['맨 위에 새 폴더','이름 바꾸기F2','안에 새 폴더','펼치기','이 폴더로 들어가기','옮기기…','색 선택…','정돈 제안','폴더 삭제']);
     await press(page,folderMenuItem(page,'맨 위에 새 폴더'),width);
     await expect(page.locator('#libraryFolderHint')).toContainText('폴더 밖(맨 위)에 만들어요');
     await page.locator('#libraryFolderName').fill('가상 새것');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
