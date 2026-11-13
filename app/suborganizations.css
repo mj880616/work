@@ -148,3 +148,5 @@
 }
 /* [전체 표]에서는 맨 위 줄 오른쪽이 표 도구 자리라 [+ 담당조직]은 [목록]에서만. */
 #appView #soTeamSection.so-view-table>.so-team-head .so-team-add{display:none}
+/* 줄 ⋯는 화면 오른쪽 끝 가까이라 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 넘친다, 머리줄 ⋯와 같음). */
+#soOrganizationList .so-row-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
