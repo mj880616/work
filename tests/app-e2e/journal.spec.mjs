@@ -2802,9 +2802,8 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 한글 파일: 양식 
  const before=f.exec.calls.filter(c=>c.method==='PATCH'||c.method==='POST').length;
  await place.locator('select').selectOption({label:'가상 묶음 › 가상 빈 자리'});
  await expect(place).toBeHidden();
- await expect.poll(()=>f.exec.calls.filter(c=>c.method==='PATCH'||c.method==='POST').length).toBeGreaterThan(before);
- const saved=f.exec.calls.filter(c=>c.method==='PATCH'||c.method==='POST').at(-1);
- expect(JSON.stringify(saved)).toContain('"places"');
+ // 고른 자리는 그 주 draft(서버)에 저장된다(앞서 돌던 임시저장이 있으면 그다음 쓰기에 실림).
+ await expect.poll(()=>f.exec.calls.filter(c=>c.method==='PATCH'||c.method==='POST').slice(before).some(c=>JSON.stringify(c).includes('"places"')),{timeout:15000}).toBe(true);
  const [d2]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  expect(grid((await savedReport(d2)).report)).toEqual([
   ['가상 묶음',[['사업영역 가',['◦ 세부 과제 가-1','가상 가-1 상황','◦ 세부 과제 가-2','가상 가-2 상황']],['가상 빈 자리',['◦ 세부 과제 나-1','가상 나-1 상황']],['남의 칸',[]]]],
