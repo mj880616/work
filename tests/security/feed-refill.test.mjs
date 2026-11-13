@@ -45,7 +45,7 @@ function world({table,rows,sites={},clockStep=0}){
  const nh=NH.createNewsFeedHandler({env,fetch:doFetch,now:()=>t,sleep:async()=>{},log:()=>{}});
  const oh=OH.createOutsideFeedHandler({env,fetch:doFetch,now:()=>t,sleep:async()=>{},log:()=>{}});
  const call=async(h,fn,header,secret,body,action='refill')=>{const r=await h(new Request(`${SB}/functions/v1/${fn}?action=${action}`,{method:'POST',headers:{[header]:secret,'content-type':'application/json'},body:JSON.stringify(body)}));return {status:r.status,json:await r.json()};};
- return {calls,bodies,news:(b,a)=>call(nh,'news-feed',NH.CRON_HEADER,NSECRET,b,a),outside:(b,a)=>call(oh,'outside-feed',OH.CRON_HEADER,OSECRET,b,a),unauth:(b)=>nh(new Request(`${SB}/functions/v1/news-feed?action=refill`,{method:'POST',headers:{[NH.CRON_HEADER]:'wrong-secret-value-0123456789abcdef','content-type':'application/json'},body:JSON.stringify(b)}))};
+ return {calls,bodies,fetch:doFetch,news:(b,a)=>call(nh,'news-feed',NH.CRON_HEADER,NSECRET,b,a),outside:(b,a)=>call(oh,'outside-feed',OH.CRON_HEADER,OSECRET,b,a),unauth:(b)=>nh(new Request(`${SB}/functions/v1/news-feed?action=refill`,{method:'POST',headers:{[NH.CRON_HEADER]:'wrong-secret-value-0123456789abcdef','content-type':'application/json'},body:JSON.stringify(b)}))};
 }
 
 test('다시 뽑을 줄 고르기: 블록 없음·timeout·옛 판 실패만, 지금 판 실패·ok는 아님',()=>{
@@ -55,9 +55,14 @@ test('다시 뽑을 줄 고르기: 블록 없음·timeout·옛 판 실패만, �
   assert.equal(f({state:'lead',reason:'no_body',rule:'k@2'},'k@3'),true);
   assert.equal(f({state:'failed',reason:'http_4xx',rule:null},'k@3'),true,'옛 줄(판 없음)');
   assert.equal(f({state:'lead',reason:'no_body',rule:'k@3'},'k@3'),false,'지금 판으로 이미 실패 — 판이 오를 때까지 다시 안 함');
-  assert.equal(f({state:'ok',reason:null,rule:'k@1'},'k@3'),false,'ok는 다시 안 뽑음');
   assert.equal(f({state:'failed',reason:'robots',rule:'k@3'},'k@3'),false);
+  assert.equal(f({state:'ok',reason:null,rule:'k@3'},'k@3'),false,'지금 판 ok는 다시 안 뽑음');
  }
+ assert.equal(NH.needsRefill({state:'ok',reason:null,rule:'k@1'},'k@3'),false,'뉴스 쪽 ok는 그대로(범위 밖)');
+ // S61-44: 바깥 소식은 판이 오른 ok 줄도 다시 뽑는다. 판이 비어 있는 ok 줄은 아님.
+ assert.equal(OH.needsRefill({state:'ok',reason:null,rule:'k@1'},'k@3'),true,'판이 오른 ok 줄');
+ assert.equal(OH.needsRefill({state:'ok',reason:null,rule:null},'k@3'),false,'판 없는 ok 줄은 한꺼번에 다시 읽지 않음');
+ assert.equal(OH.needsRefill({state:'ok',reason:null,rule:'k@1'},null),false);
  assert.equal(NH.REFILL_PER_SOURCE,20);assert.equal(OH.REFILL_PER_SOURCE,20);assert.equal(NH.REFILL_DAYS,30);
 });
 
@@ -110,7 +115,7 @@ test('outside-feed refill: 학비노조처럼 옛 판 실패 줄을 글 쪽 다�
  const page=`<html><head><title>합성 제목</title></head><body><div class="board"><h3>합성 제목</h3><p>합성단체</p><p>6007</p><h4>공유하기</h4><ul><li>트위터</li></ul><div class="view"><p>${LONG}</p></div><p>목록보기</p></div></body></html>`;
  const cur=E.ruleId('hakbi',OC.sourceByKey('hakbi').extract);
  const rows=[{id:id(1),workspace_id:WS,source_key:'hakbi',url:H(1),title:'합성 제목',published_at:null,app_feed_bodies:{state:'failed',reason:'no_body',rule:'hakbi@2'}},
-  {id:id(2),workspace_id:WS,source_key:'hakbi',url:H(2),title:'합성 제목',published_at:null,app_feed_bodies:[{state:'ok',reason:null,rule:'hakbi@2'}]},
+  {id:id(2),workspace_id:WS,source_key:'hakbi',url:H(2),title:'합성 제목',published_at:null,app_feed_bodies:[{state:'ok',reason:null,rule:cur}]},
   {id:id(3),workspace_id:WS,source_key:'hakbi',url:'https://other.example.com/x',title:'x',published_at:null,app_feed_bodies:null}];
  const w=world({table:'app_outside_posts',rows,sites:{[H(1)]:{body:page}}});
  const out=(await w.outside({source:'hakbi'})).json;
@@ -125,14 +130,57 @@ test('outside-feed refill: 학비노조처럼 옛 판 실패 줄을 글 쪽 다�
  assert.equal((await w.outside({source:'nope'})).status,400);
 });
 
-test('outside-feed refill: robots 예외 단체(공공운수노조·노동당)는 다시 뽑지 않음(하루 3번 새 글만 — 명진 결정)',async()=>{
- const w=world({table:'app_outside_posts',rows:[{id:id(1),workspace_id:WS,source_key:'kptu',url:'https://www.kptu.net/board/1',title:'t',published_at:null,app_feed_bodies:null}]});
- for(const key of OH.ROBOTS_EXEMPT_KEYS){
-  const out=(await w.outside({source:key})).json;
-  assert.deepEqual([out.status,out.done],['robots_exception',0],key);
- }
- assert.ok(!w.calls.some(c=>!c.url.startsWith(SB)),'사이트 요청 없음');
- assert.ok(!w.calls.some(c=>c.url.includes('app_outside_posts')),'줄 읽기도 없음');
+test('outside-feed refill: robots 예외 단체는 판이 오른 글만 한 번, 10개까지, 요청 사이 5초(명진 결정 11/13 A안)',async()=>{
+ assert.equal(E.ruleId('kptu',OC.sourceByKey('kptu').extract),'kptu@2','공공운수노조 판 2(S61-37 글자 규칙)');
+ const K=n=>`https://www.kptu.net/board/detail.aspx?mid=F686C1F3&idx=${n}`;
+ const page=`<html><head><title>합성 제목</title></head><body><div class="publishList_write"><p><span>${LONG}</span><span>13</span><span>일</span> &middot 합성</p></div></body></html>`;
+ const rows=[];
+ for(let n=1;n<=14;n++)rows.push({id:id(n),workspace_id:WS,source_key:'kptu',url:K(n),title:'합성 제목',published_at:null,app_feed_bodies:{state:'ok',reason:null,rule:'kptu@1'}});
+ rows.push({id:id(20),workspace_id:WS,source_key:'kptu',url:K(20),title:'t',published_at:null,app_feed_bodies:null});           // 블록 없음 — 새 글 읽기 몫
+ rows.push({id:id(21),workspace_id:WS,source_key:'kptu',url:K(21),title:'t',published_at:null,app_feed_bodies:{state:'failed',reason:'timeout',rule:'kptu@1'}}); // 판 오름 — 고름
+ rows.push({id:id(22),workspace_id:WS,source_key:'kptu',url:K(22),title:'t',published_at:null,app_feed_bodies:{state:'ok',reason:null,rule:'kptu@2'}});  // 이미 지금 판
+ rows.push({id:id(23),workspace_id:WS,source_key:'kptu',url:K(23),title:'t',published_at:null,app_feed_bodies:{state:'failed',reason:'timeout',rule:null}});  // 판 없음 timeout — 고르지 않음
+ const sites=Object.fromEntries(rows.map(r=>[r.url,{body:page}]));
+ sites[K(2)]={body:'',status:503}; // 못 읽음 → 옛 ok 본문 그대로
+ const slept=[];
+ const w=world({table:'app_outside_posts',rows,sites});
+ const oh=OH.createOutsideFeedHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,OUTSIDE_FEED_CRON_SECRET:OSECRET})[n],
+  fetch:(u,i)=>{if(String(u).endsWith('/robots.txt'))throw new Error('robots를 읽으면 안 됨');return w.fetch(u,i);},now:()=>NOW,sleep:async ms=>{slept.push(ms);},log:()=>{}});
+ const r=await oh(new Request(`${SB}/functions/v1/outside-feed?action=refill`,{method:'POST',headers:{[OH.CRON_HEADER]:OSECRET,'content-type':'application/json'},body:JSON.stringify({source:'kptu'})}));
+ const out=await r.json();
+ assert.equal(OH.ROBOTS_EXEMPT_REFILL_MAX,10);
+ assert.deepEqual(out,{ok:true,source:'kptu',status:'ok',done:10,deferred:0,remaining:5});
+ const read=w.calls.filter(c=>c.url.startsWith('https://www.kptu.net/')).map(c=>c.url);
+ assert.equal(read.length,10,'한 번에 10개까지');
+ for(const n of [20,22,23])assert.ok(!read.includes(K(n)),`안 고를 줄 ${n}`);
+ assert.equal(new Set(read).size,read.length,'같은 글 두 번 안 읽음');
+ assert.equal(slept.filter(ms=>ms===OH.ROBOTS_EXEMPT_REFILL_GAP_MS).length,9,'요청 사이 5초');
+ const by=Object.fromEntries(w.bodies.map(x=>[x.b.outside_post_id,x.b]));
+ assert.equal(by[id(2)],undefined,'못 읽은 옛 ok 줄은 덮지 않음');
+ const b=by[id(1)];
+ assert.deepEqual([b.state,b.rule],['ok','kptu@2']);
+ const text=b.blocks.map(x=>x.text).join('\n');
+ assert.match(text,/13일 · 합성/);assert.doesNotMatch(text,/&middot|13 일/);
+ assert.equal(OH.needsRefill(b,'kptu@2'),false,'다시 뽑힌 줄은 다음에 안 고름');
+ assert.ok(w.bodies.every(x=>/merge-duplicates/.test(x.prefer)));
+ // 노동당(판 그대로)은 고를 줄이 없어 사이트를 읽지 않음
+ const lp=(await w.outside({source:'laborparty'})).json;
+ assert.deepEqual([lp.status,lp.done],['ok',0]);
+});
+
+test('outside-feed refill: 판이 오른 ok 줄은 다시 뽑되 못 읽으면 옛 본문 그대로, 판 없는 ok 줄은 고르지 않음',async()=>{
+ const H=n=>`https://www.hakbi.org/board/media_reports/read/${n}`;
+ const cur=E.ruleId('hakbi',OC.sourceByKey('hakbi').extract);
+ const old=cur.replace(/@\d+$/,'@0');
+ const page=`<html><head><title>합성 제목</title></head><body><div class="board"><h3>합성 제목</h3><div class="view"><p>${LONG}</p></div><p>목록보기</p></div></body></html>`;
+ const rows=[{id:id(1),workspace_id:WS,source_key:'hakbi',url:H(1),title:'t',published_at:null,app_feed_bodies:{state:'ok',reason:null,rule:old}},
+  {id:id(2),workspace_id:WS,source_key:'hakbi',url:H(2),title:'t',published_at:null,app_feed_bodies:{state:'ok',reason:null,rule:old}},
+  {id:id(3),workspace_id:WS,source_key:'hakbi',url:H(3),title:'t',published_at:null,app_feed_bodies:{state:'ok',reason:null,rule:null}}];
+ const w=world({table:'app_outside_posts',rows,sites:{[H(1)]:{body:page},[H(2)]:{body:'',status:404}}});
+ const out=(await w.outside({source:'hakbi'})).json;
+ assert.equal(out.done,2);
+ assert.deepEqual(w.bodies.map(x=>[x.b.outside_post_id,x.b.state,x.b.rule]),[[id(1),'ok',cur]]);
+ assert.ok(!w.calls.some(c=>c.url===H(3)));
 });
 
 test('SQL Editor 부르기 파일(docs/ops/feed-refill-once.sql): 지금 판 목록이 카탈로그와 같음, 금고 값은 결과 칸에 없음, 바꾸는 문 없음',async()=>{
