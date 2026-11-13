@@ -150,6 +150,8 @@ async function start(id,button){
   try{
     const data=await rt().api(ACTIONS,{method:'POST',body:{action:'brief-start',document_id:id},refreshSession:false,singleFlight:false,timeoutMs:30000});
     if(data?.brief?.id)state.briefs.set(id,data.brief);
+    // 폴더 밖 자료(자료실 ⋯에서 받은 것)도 목록에 보이게 다시 읽는다.
+    if(!state.docs.some(d=>d.id===id))await load();
   }catch(e){toast(startError(e?.status===429?'ai_monthly_cap':e?.status===404?'not_found':''),true)}
   draw();
 }
@@ -190,5 +192,14 @@ async function refresh(){
 }
 
 install();bind();
-window.KPTURouter?.on?.('brief',()=>{void refresh()});
-void refresh();
+// 자료실 자료 ⋯ [브리핑 받기]·[브리핑 보기](library-upload.js luOpenBrief): 그 자료를 열고, 받기면 [브리핑 받기]와 같은 길로 시작한다.
+async function takeAsked(){
+  const ask=window.KPTUBriefOpen;window.KPTUBriefOpen=null;
+  if(!ask||typeof ask.id!=='string')return;
+  state.open=ask.id;
+  const b=state.briefs.get(ask.id);
+  if(ask.start&&(!b||b.status==='failed'))await start(ask.id,null);
+  else draw();
+}
+window.KPTURouter?.on?.('brief',()=>{void refresh().then(takeAsked)});
+void refresh().then(takeAsked);
