@@ -194,7 +194,11 @@ test('takeOverRisk: live이고 마지막 조각 뒤 100초 안쪽이면 묻는�
 });
 test('meeting-recorder.js: 이어서 녹음은 같은 session으로 rec_start, 띠는 어느 화면에서나, 다른 곳에서 녹음 중일 수 있으면 띠에서 한 번 묻는다(확인창 없음)',()=>{
   const js=readFileSync(new URL('../app/meeting-recorder.js',import.meta.url),'utf8');
-  assert.match(js,/rec_start',\{workspace_id:workspaceId,mime:baseMime\(MIME\),\.\.\.\(from\?\{session_id:from\.session_id\}:\{\}\)\}/);
+  assert.match(js,/rec_start',\{workspace_id:workspaceId,mime:baseMime\(MIME\),\.\.\.\(from\?\{session_id:from\.session_id\}:meetingId\?\{meeting_id:meetingId\}:\{\}\)\}/);
+  // S61-36 REC-상세녹음: 이어 녹음·이어서 저장은 서버가 그 녹음에 남긴 회의(rec_pending meeting_id)를 쓴다(기기 저장 없음).
+  assert.match(js,/meetingId=String\(\(from\?from\.meeting_id:opts\?\.meetingId\)\|\|''\)/);
+  assert.match(js,/meetingId=String\(session\.meeting_id\|\|''\)/);
+  assert.doesNotMatch(js,/meetingId='';\n\s*accum=/);
   assert.match(js,/data-rec-continue/);
   assert.match(js,/data-rec-takeover="go">계속/);
   assert.doesNotMatch(js,/\b(?:alert|confirm)\(/);
