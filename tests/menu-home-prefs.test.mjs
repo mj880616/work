@@ -166,7 +166,7 @@ test('메뉴 목록은 한 곳(menu-model.mjs)에서 정의하고 폰 하단바�
 test('MENU-세칸: 편집 창은 세 칸 + PC 왼쪽 메뉴 미리보기, 맨 아래 묶음은 저장된 아래 칸(숨은 feed 규칙 아님)', () => {
   const edit = read('app/menu-edit.js');
   for (const name of ['bar', 'rest', 'tail']) assert.match(edit, new RegExp(`group\\('${name}'`), name);
-  assert.match(edit, /pcSplit\(layout\)/); assert.match(edit, /data-menu-edit-preview/);
+  assert.match(edit, /pcSplit\(full\)/); assert.match(edit, /data-menu-edit-preview/);
   const top = read('app/topbar-actions.js');
   assert.doesNotMatch(top, /\['calls','telegram','arsenal'\]\.forEach/, 'PC 맨 아래 묶음 표시를 세 메뉴 이름에 묶어 두지 않는다');
   assert.doesNotMatch(read('app/menu-model.mjs').split('export function pcSplit')[1].split('\n}')[0], /\.feed/, 'pcSplit은 저장값(아래 칸)만 본다');

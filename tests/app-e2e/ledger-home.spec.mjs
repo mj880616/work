@@ -111,6 +111,7 @@ async function mockApp(page,{server=true,many=false}={}){
    return ok(out);
   }
   if(path==='/rest/v1/rpc/app_undo_ledger_fix'){db.undo.push(request.postDataJSON());return ok({status:'undone'});}
+  if(path==='/rest/v1/rpc/app_my_features')return ok([]); // MULTI-처음쓰는사람 ④: 메뉴가 묻는 운영자 기능(읽기)
   if(path.startsWith('/rest/v1/rpc/')){db.posts.push(path);return ok(null);}
   if(path==='/rest/v1/app_ledger_records'){
    const rows=filterRecords(url);

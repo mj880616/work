@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, OPERATOR_MENU_FEATURES} from './helpers/home-entry.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
 // MENU-세칸(2026-10-30 요청): 메뉴 편집 창은 화면 모양 그대로 세 칸(폰 하단바 / 위 메뉴 / 아래 붙는 메뉴)이고, 어떤 메뉴든 칸 사이를 끌어 옮긴다.
 // 아래 붙는 메뉴 칸은 PC 왼쪽 맨 아래 묶음과 폰 [메뉴] 창 맨 아래(선 아래)를 함께 정한다. 저장은 서버(view_prefs.menu_layout, 흉내 낸 서버)뿐.
@@ -28,7 +28,7 @@ for(const width of [1440,884,412]){
     test.setTimeout(90000);
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    const {prefs}=await openHome(page);
+    const {prefs}=await openHome(page,{features:OPERATOR_MENU_FEATURES});
     // 처음 모양: 폰 [메뉴] 창도 선 아래에 통화·텔레그램 소식·아스날.
     expect((await sheetOrder(page)).slice(-4)).toEqual(['LINE','calls','telegram','arsenal']);
     await openEdit(page,width);
@@ -56,14 +56,14 @@ for(const width of [1440,884,412]){
     await expect(modal(page).locator('.me-pv-main li').last()).toHaveText('통화');
 
     // 서버 저장 모양은 {bar, rest}뿐이고 아래 칸은 rest 안 'bottom' 표시 뒤(DB 검사가 받는 모양 그대로).
-    const saved=['note','library','files','hwp','pages','ledger','outside','calls','bottom','photos','telegram','arsenal'];
+    const saved=['note','library','files','hwp','pages','outside','calls','bottom','photos','telegram','arsenal'];
     await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(saved);
     expect(Object.keys(prefs.value.menu_layout).sort()).toEqual(['bar','rest']);
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect(modal(page)).toBeHidden();
 
     const check=async()=>{
-      await expect.poll(()=>sheetOrder(page)).toEqual(['note','library','files','hwp','pages','ledger','outside','calls','LINE','photos','telegram','arsenal']);
+      await expect.poll(()=>sheetOrder(page)).toEqual(['note','library','files','hwp','pages','outside','calls','LINE','photos','telegram','arsenal']);
       await expect.poll(()=>pcSide(page)).toEqual({photos:true,calls:false,feed:['photos','telegram','arsenal'],first:'photos'});
     };
     await check();
@@ -76,7 +76,7 @@ for(const width of [1440,884,412]){
     await openEdit(page,width);
     await modal(page).locator('[data-menu-edit-reset]').click();
     await expect.poll(()=>ids(page,'tail')).toEqual(['calls','telegram','arsenal']);
-    expect(await ids(page,'rest')).toEqual(['note','library','files','hwp','pages','ledger','photos','outside']);
+    expect(await ids(page,'rest')).toEqual(['note','library','files','hwp','pages','photos','outside']);
     await expect.poll(()=>prefs.value?.menu_layout??null).toBeNull();
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect.poll(()=>pcSide(page)).toEqual({photos:false,calls:true,feed:['calls','telegram','arsenal'],first:'calls'});
