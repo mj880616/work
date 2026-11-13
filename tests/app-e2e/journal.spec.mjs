@@ -1201,7 +1201,7 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
 });
 
 // WEEKLY-한글초안 2단계: [주간 정리] → [주간보고 한글 파일 만들기]. 지난주 팀 확정본(합성 .hwpx: 저장소 rhwp 빈 문서 → 가짜 양식 → 합성 글)을
-// 자료실 "주간보고 확정본"(document-actions hwp-open) 또는 기기 파일에서 열고, 내 줄·내 담당 조직 줄만 고칠 칸으로 보이고, 이번 주 기록을 줄 옆에
+// 자료실 "주간보고 확정본"(document-actions hwp-open) 또는 기기 파일에서 열고, 내 줄·내 담당 조직 줄만 수정할 칸으로 보이고, 이번 주 기록을 줄 옆에
 // [붙이기]로 더한 뒤 .hwpx / HWP를 내려받고, [확정]하면 library-files로 자료실에 저장한다. 이름·조직은 모두 합성.
 const TEAM_REPORT={
  title:'가상팀 주간보고', date:'2026년 9월 28일(월)',
@@ -2780,7 +2780,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 한글 파일: 양식 
  await openJournal(page,width);await openWeekly(page);
  for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
  const box=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box]');
- await expect(box.locator('.biz-sum-table tbody tr')).toHaveCount(3);
+ await expect(box.locator('table[data-bp-grouped] tbody tr')).toHaveCount(2); // ② 묶음 표(사업영역마다 한 줄) — 바탕(양식)을 연 뒤
  const grid=report=>report.summary.map(a=>[a.area.join(' '),a.rows.map(r=>[(r.task??[]).join(' '),r.progress])]);
  const [d1]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
  expect(grid((await savedReport(d1)).report)).toEqual([
@@ -2802,6 +2802,53 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 한글 파일: 양식 
   ['가상 묶음',[['사업영역 가',['◦ 세부 과제 가-1','가상 가-1 상황','◦ 세부 과제 가-2','가상 가-2 상황']],['가상 빈 자리',['◦ 세부 과제 나-1','가상 나-1 상황']],['남의 칸',[]]]],
  ]);
  await expect(place).toBeHidden();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// WEEKLY-사업영역묶음 ②(시안 docs/design/mockups/weekly-tidy.html ①): 화면 2. 1) 요약표 첫 칸 = 내 양식(지난주 확정본)의 자리(한글 파일과 같은 자리 찾기).
+// 한 줄 = 사업영역 하나(셋째 칸 = 자기 칸 + '◦ 세부 과제' 소제목과 줄, 지금 상황·기록이 없는 세부 과제는 줄 없음). [수정]은 수정할 칸을 고른다(저장 자리는 칸마다 그대로).
+// 양식에 없는 사업영역은 첫 칸 = 자기 이름. 양식이 없는 사람은 지금 모양(위 시험들). 이름·글은 합성 값.
+for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 칸 = 양식 자리, [수정]은 수정할 칸 고르기 ${width}`,async({page})=>{
+ const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
+ const f=await weekLinesFixture(page,{width,hwpx:true,team});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text:'',updated_at:'2026-11-10T00:00:00Z'});
+ const db=await installBusinessNowServer(page,{now:[now('n1','wa1','2026-11-09','가상 가-1 상황'),now('n3','wb1','2026-11-16','가상 나-1 상황')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const box=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box]');
+ const table=box.locator('table[data-bp-grouped]');
+ await expect(table).toBeVisible();
+ await expect(table.locator('tbody th')).toHaveText(['가상 묶음','사업영역 나']);
+ const row=name=>table.locator('tbody tr').filter({has:page.locator('td',{hasText:new RegExp(`^${name}$`)})});
+ const ga=row('사업영역 가');
+ // 지금 상황이 없는 세부 과제 가-2는 줄을 만들지 않는다.
+ await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1']);
+ await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 상황']);
+ await expect(table.locator('tbody tr').nth(1).locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 나-1']);
+ await page.screenshot({path:`docs/design/screens/s61-42/2-groups-${width}.png`});
+ // [수정]: 수정할 칸(사업영역 자기 칸 · 세부 과제 칸) 고르기 → 가-2 칸에 쓰기.
+ await ga.locator('[data-bp-cell="progress"]').click();
+ const pick=ga.locator('select[data-bp-target]');
+ await expect(pick.locator('option')).toHaveText(['사업영역 가','◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
+ await pick.selectOption({label:'◦ 세부 과제 가-2'});
+ await ga.locator('textarea[data-bp-field]').fill('가상 가-2 새 상황');
+ await ga.locator('[data-bp-edit-save]').click();
+ await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
+ expect(db.writes.at(-1)).toMatchObject({space_id:'wa2',week_start:'2026-11-16',body:'가상 가-2 새 상황'});
+ // 자기 칸(고르지 않으면 사업영역 칸)
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await ga.locator('textarea[data-bp-field]').fill('가상 가 자기 칸');
+ await ga.locator('[data-bp-edit-save]').click();
+ await expect(ga.locator('.biz-hand-line').first()).toHaveText('가상 가 자기 칸');
+ expect(db.writes.at(-1)).toMatchObject({space_id:'wa',week_start:'2026-11-16',body:'가상 가 자기 칸'});
+ await page.screenshot({path:`docs/design/screens/s61-42/2-groups-edited-${width}.png`});
+ // 한글 파일도 같은 자리: 자기 칸 글이 맨 위, 세부 과제는 '◦ 이름' + 줄.
+ const [d1]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {report}=await savedReport(d1);
+ expect(report.summary[0].rows[0].progress).toEqual(['가상 가 자기 칸','◦ 세부 과제 가-1','가상 가-1 상황','◦ 세부 과제 가-2','가상 가-2 새 상황']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
