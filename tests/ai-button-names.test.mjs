@@ -13,6 +13,8 @@ test('새 이름이 그 단추 자리에 있다(회의 보고 창 2곳·파일 �
   assert.match(read('app/meeting-round-detail.js'), /id="mrdMakeTodos"[^>]*>할 일 후보 찾기<\/button>/);
   // S61-5 REC-전사삭제(명진 11/13): 회의자료 녹음 ⋯ [녹음 글로 옮기고 요약하기]는 지금은 없다.
   assert.doesNotMatch(read('app/meeting-round-detail.js'), /data-mrd-transcribe/);
+  // S61-24 REC-요약단추삭제(명진 11/13): 회의 입력 창 [녹음 요약하기]도 지금은 없다.
+  for (const rel of screenFiles()) assert.doesNotMatch(read(rel), />녹음 요약하기<|'녹음 요약하기'/, rel);
   assert.match(read('app/file-rename.js'), /data-fr-ai>이름 추천 받기<\/button>/);
   assert.match(read('app/business-area-fields.js'), /data-biz-area-ai>사업영역 추천<\/button>/);
   const share = read('app/share-pages.js');

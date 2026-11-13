@@ -164,9 +164,6 @@ test('화면 연결(정적): 앱 껍데기 한 곳이 주인, 기기 저장 없�
   const html=read('app/index.html');
   assert.match(html,/<div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음<\/button><button id="newMeetingBtn"/);
   assert.match(html,/id="recPendingLine"[^>]*hidden/);
-  const draft=read('app/meeting-transcript-draft.js');
-  // REC-한회의로잇기 PR-0: 입력 창의 쓰던 글 확인(hasDraft)을 더했다(team.js가 닫기·새로 열기 전에 본다).
-  assert.match(draft,/window\.KPTUMeetingTranscriptDraft=\{hasDraft\}/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),/document\.|fetch\(/);
   assert.doesNotMatch(read('app/meeting-recorder-model.mjs'),deviceStore);
 });

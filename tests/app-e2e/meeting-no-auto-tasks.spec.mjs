@@ -1,5 +1,5 @@
 // S59-7 MTG-할일자동생성금지(요청함 11/11 15:25, 명진 "회의결과가 할일을 자동으로 만드는 거 같은데 그러지마. 잊지말기에서 제안은 몰라도 자동생성은 안된다"):
-// - 녹음 요약([녹음 요약하기])은 '후속 할 일' 입력 줄을 채우지 않는다(서버 정리 결과 넣기(fillResult)는 S61-5에서 없앰) → [사업 보고 저장]해도 Google 할 일 0개.
+// - S61-24 REC-요약단추삭제(명진 11/13): 입력 창의 녹음 요약 단추는 없다(서버 정리 결과 넣기(fillResult)는 S61-5에서 없앰).
 // - AI가 찾은 할 일은 저장한 그 보고의 챙길 것 후보(app_todo_candidates)로만 올라가고, 보고 상세·잊지 말기에서 [할 일로]를 눌러야 할 일이 생긴다.
 // - 명진이 입력 줄에 직접 쓴 할 일은 지금처럼 저장 때 만들어진다.
 // 서버는 흉내, 글·이름은 모두 지어낸 것. KPTU_SHOTS=1이면 docs/design/screens/s59-7/에 사진을 남긴다(PR 첨부용).
@@ -75,64 +75,12 @@ async function openWrite(page,s,width){
   if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');
   await page.locator('#meetingTitle').fill('합성 운영회의');await fillDateTime(page,'#meetingAt','2026-11-10T10:00');
 }
-async function summarize(page){
-  await page.locator('#mtdOpen').click();
-  await page.locator('#mtdText').fill('합성 전사 글 첫 줄\n합성 전사 글 둘째 줄');
-  await page.locator('#mtdRun').click();
-  await expect(page.locator('#mtdStatus')).toContainText('할 일 후보 2개는 저장하면 잊지 말기에');
-}
 const actionRows=page=>page.locator('#meetingActionList .meeting-action-row');
 
-for(const width of [412,1280])test(`${width}: 녹음 요약 → 후속 할 일 줄은 비어 있고, 저장해도 할 일 0개 · 후보 2개만 · [할 일로]를 눌러야 1개`,async({page})=>{
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const s=state();await openWrite(page,s,width);
-  await summarize(page);
-  // AI 결과는 결과 원문·참석인원 칸에만 들어가고, '후속 할 일' 입력 줄·목록은 비어 있다.
-  await expect(page.locator('#meetingTranscript')).toHaveValue(/합성 결정 하나/);
-  await expect(actionRows(page)).toHaveCount(0);
-  await expect(page.locator('#meetingActionTitle')).toHaveValue('');
-  await expect(page.locator('#mtdStatus')).not.toContainText('후속 할 일');
-  await page.locator('#mtdStatus').scrollIntoViewIfNeeded();
-  await shot(page.locator('#meetingModal .modal-card'),width>760?'pc-1280-draft':'phone-412-draft');
-  await page.locator('#meetingActionList').evaluate(el=>el.scrollIntoView({block:'center'}));
-  await shot(page.locator('#meetingModal .modal-card'),width>760?'pc-1280-draft-followup':'phone-412-draft-followup');
-  await page.locator('#saveMeetingBtn').click();
-  await expect(page.locator('#meetingModal')).toBeHidden();
-  // 저장한 보고 id로 후보 2개를 한 번에 올린다(상태 칸 없음 = 늘 open). Google 할 일은 하나도 만들지 않는다.
-  await expect.poll(()=>s.candidates.length).toBe(2);
-  expect(s.candidatePosts).toHaveLength(1);
-  expect(s.candidatePosts[0].query).toBe('on_conflict=workspace_id,dedupe_key&select=id');
-  expect(s.candidatePosts[0].prefer).toContain('resolution=ignore-duplicates');
-  expect(s.candidatePosts[0].body.map(r=>[r.summary,r.due,r.source_kind,r.source_id,r.source_day,r.kind])).toEqual([
-    ['합성 자료 정리','2026-11-20','meeting',MEETING,'2026-11-10','my_task'],['합성 공문 회신 (가상 담당)',null,'meeting',MEETING,'2026-11-10','my_task']]);
-  expect(s.candidatePosts[0].body.every(r=>!('status' in r)&&!('task_id' in r))).toBe(true);
-  await page.waitForTimeout(300);
-  expect(s.googleCreates).toEqual([]);
-  // 보고 상세의 후보 줄(잊지 말기와 같은 부품): [할 일로]를 눌러야 그 하나만 할 일이 된다(보고와 연결).
-  await openMeetingResult(page,MEETING);
-  const cand=page.locator('#mrdTodoCand').filter({visible:true});
-  await expect(cand.locator('.inbox-todo-row')).toHaveCount(2);
-  await expect(cand).toContainText('합성 자료 정리');await expect(cand).toContainText('합성 공문 회신 (가상 담당)');
-  await cand.scrollIntoViewIfNeeded();
-  await shot(page,width>760?'pc-1280-candidates':'phone-412-candidates');
-  expect(s.googleCreates).toEqual([]);
-  await cand.locator(`[data-inbox-todo-task="${cid(1)}"]`).click();
-  await expect.poll(()=>s.googleCreates.length).toBe(1);
-  expect(s.googleCreates[0]).toMatchObject({action:'create',title:'합성 자료 정리',due:'2026-11-20'});
-  expect(s.googleCreates[0].links).toContainEqual({meeting_id:MEETING});
-  await expect.poll(()=>s.candidates[0].status).toBe('tasked');
-  expect(s.candidates[1].status).toBe('open');
-  await expect(cand.locator(`[data-inbox-todo-row="${cid(1)}"]`)).toHaveCount(0);
-  await expect(page.locator('#mrdTasks').filter({visible:true})).toContainText('합성 자료 정리');
-  await shot(page,width>760?'pc-1280-tasked':'phone-412-tasked');
-  expect(s.googleCreates).toHaveLength(1);
-  expect(errors).toEqual([]);
-});
-
-test('1280: 손으로 쓴 후속 할 일은 그대로 저장 때 생기고, AI가 찾은 것은 후보로만 — 같은 창에서 섞여도',async({page})=>{
+test('1280: 손으로 쓴 후속 할 일은 그대로 저장 때 생기고, 입력 창은 AI 요약을 부르지 않는다',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();await openWrite(page,s,1280);
-  await summarize(page);
+  await expect(page.locator('#mtdBar')).toHaveCount(0);
   await expect(actionRows(page)).toHaveCount(0);
   await page.locator('#meetingActionTitle').fill('합성 손으로 쓴 일');await page.locator('#meetingActionAdd').click();
   await expect(actionRows(page)).toHaveCount(1);
@@ -143,10 +91,10 @@ test('1280: 손으로 쓴 후속 할 일은 그대로 저장 때 생기고, AI�
   await expect.poll(()=>s.googleCreates.length).toBe(2);
   expect(s.googleCreates.map(c=>c.title)).toEqual(['합성 손으로 쓴 일','합성 손으로 쓴 둘째 일']);
   expect(s.googleCreates[0].links).toContainEqual({meeting_id:MEETING});
-  await expect.poll(()=>s.candidates.length).toBe(2);
-  expect(s.candidates.map(c=>c.summary)).toEqual(['합성 자료 정리','합성 공문 회신 (가상 담당)']);
   await page.waitForTimeout(300);
   expect(s.googleCreates).toHaveLength(2);
+  expect(s.candidatePosts).toEqual([]);
+  expect(s.draftCalls).toBe(0);
   expect(errors).toEqual([]);
 });
 

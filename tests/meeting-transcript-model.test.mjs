@@ -1,7 +1,7 @@
 // MTG-녹음초안: 전사 글 → 회의 기록 초안 순수 함수와 화면 연결(정적) 검사.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {audioCheck,durationText,sizeText,transcribeFailText,MAX_AUDIO_FILE,TRANSCRIBE_EXT,isAudioFile,isTranscriptFile,dateFromName,dateFromText,decodeTranscript,cleanTranscript,normalizeDraft,draftText,actionRows,mergeText,pickMeetingAt} from '../app/meeting-transcript-model.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -92,27 +92,6 @@ test('일시: 파일 이름 > AI 날짜 > 글 첫 줄, 시각은 파일 시각 �
   assert.equal(pickMeetingAt({current:'2026-10-29T14:05',file:{date:'2026-10-29',time:'14:05'}}),'');
 });
 
-test('화면 연결: [회의] 칸 입력 창에서 기존 meeting-ai-draft 새 회의 길만 쓰고, 자동 저장·기기 저장·[녹음] 버튼이 없다',()=>{
-  const s=read('app/meeting-transcript-draft.js');
-  assert.match(s,/\/functions\/v1\/meeting-ai-draft/);
-  // 요약(meeting-ai-draft)은 새 회의 길만: 그 호출 몸통에 meeting_id가 없다. 녹음 붙이기(attach)는 S61-5에서 뺐다(meeting_id:id는 할 일 후보 한 곳).
-  const draftCall=s.slice(s.indexOf("'/functions/v1/meeting-ai-draft'"),s.indexOf('}});',s.indexOf("'/functions/v1/meeting-ai-draft'")));
-  assert.ok(draftCall.length>0);assert.doesNotMatch(draftCall,/meeting_id/);
-  assert.deepEqual([...s.matchAll(/meeting_id\s*:\s*id/g)].length,0);
-  assert.doesNotMatch(s,/\/rest\/v1\//);
-  // 기기 저장소 낱말은 저장소 검사(browser-storage-audit)가 글자로 막으므로 조각으로 만든다.
-  assert.doesNotMatch(s,new RegExp(['local','session'].map(x=>x+'Storage').concat(['indexed'+'DB']).join('|')));
-  assert.doesNotMatch(s,/getUserMedia|MediaRecorder/);
-  assert.doesNotMatch(s,/saveMeetingBtn/);
-  assert.match(s,/kptu:report-entry-kind/);
-  assert.match(s,/isMeetingKind/);
-  // MTG-할일자동생성금지: AI 요약은 '후속 할 일' 입력 줄·[추가]를 건드리지 않는다(할 일 후보로만, tests/security/meeting-no-auto-tasks.test.mjs).
-  assert.doesNotMatch(s,/#meetingActionAdd/);
-  const loader=read('app/view-loader.js');
-  assert.match(loader,/module\('\.\/meeting-transcript-draft\.js'\)/);
-  assert.doesNotMatch(loader,/meeting-transcript-draft\.js\?v=/);
-});
-
 test('2단계 녹음 전사: 상한·종류는 서버와 같고, 실패 문구는 서버가 준 아는 줄만 그대로',async()=>{
   const server=await import('../supabase/functions/meeting-transcribe/model.mjs');
   assert.equal(MAX_AUDIO_FILE,server.MAX_BYTES);
@@ -131,10 +110,13 @@ test('2단계 녹음 전사: 상한·종류는 서버와 같고, 실패 문구�
   assert.match(transcribeFailText('Error: boom'),/녹음은 그대로/);
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 입력 창의 녹음 파일 → [전사]·[이 회의에 녹음 붙이기]는 지금은 없다. 녹음 파일을 넣으면 안내만.
-test('지금은 없음: 입력 창에 [전사]·녹음 붙이기·meeting-transcribe 호출이 없고, 녹음 파일은 받지 않는다',()=>{
-  const s=read('app/meeting-transcript-draft.js');
-  for(const gone of ['meeting-transcribe','mtdTranscribe','mtdAttach','action=upload','action=transcribe','action=attach','audio/*','fillResult','function fill('])assert.ok(!s.includes(gone),gone);
-  assert.match(s,/if\(isAudioFile\(file\.name,file\.type\)\)\{status\('녹음 파일은 전사하지 않아요\./);
-  assert.match(s,/accept="\.txt,\.md,\.srt,\.vtt,text\/plain"/);
+// S61-5 REC-전사삭제 + S61-24 REC-요약단추삭제(명진 11/13 '빼자'): [회의] 입력 창의 [녹음·전사 넣기] → [녹음 요약하기] 길은 화면·경로째 없다.
+test('지금은 없음: [녹음·전사 넣기]·[녹음 요약하기] 화면과 그 길만 쓰던 잇기 물음(join_text)이 없다',()=>{
+  assert.ok(!existsSync(new URL('../app/meeting-transcript-draft.js',import.meta.url)),'화면 모듈 파일을 지웠다');
+  const loader=read('app/view-loader.js');
+  assert.doesNotMatch(loader,/meeting-transcript-draft/);
+  for(const f of ['app/team.js','app/meeting-join.js','app/meeting-ui.css','app/index.html','app/view-loader.js']){
+    const s=read(f);
+    for(const gone of ['mtdBar','mtdPanel','mtdOpen','mtdRun','mtd-bar','mtd-panel','녹음 요약하기','녹음·전사 넣기','KPTUMeetingTranscriptDraft','askTranscript','join_text'])assert.ok(!s.includes(gone),`${f}: ${gone}`);
+  }
 });
