@@ -82,7 +82,7 @@ test('월 상한 80%는 노란 줄, 펼치면 기간·요약이 맨 위',async({
 for(const width of [412,884,1440])test(`AI 사용량은 내 프로필에만, 홈에는 없음 (${width})`,async({page})=>{
   const {line}=await fixture(page,{width});
   await expect(line).toBeVisible();
-  await expect(page.locator('#psStatusPanel > h3')).toHaveText('수집·사용량');
+  await expect(page.locator('#psStatusPanel > h3')).toHaveText('사용 현황');
   await page.evaluate(()=>window.KPTURouter.go('home'));
   await expect(page.locator('#homeView')).toBeVisible();
   await expect(page.locator('#homeView [data-aiu-toggle],#homeView .home-ai-usage,[data-he-more]')).toHaveCount(0);

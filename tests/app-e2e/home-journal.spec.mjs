@@ -150,10 +150,11 @@ for (const [width, height] of WIDTHS) {
     await expect(page.locator('#profileView')).toBeVisible();
     const panel = page.locator('#psStatusPanel');
     await expect(panel).toBeAttached();
-    await expect(panel.locator('h3').first()).toHaveText('수집·사용량');
+    // MULTI-다른담당자맞춤 ⑥: 칸 이름 '사용 현황', '연락 없는 조직' 기준은 조직 보고 ⋯로 옮겼다.
+    await expect(panel.locator('h3').first()).toHaveText('사용 현황');
     await expect(panel.locator('[data-ps-collect]')).toBeAttached();
     await expect(panel.locator('[data-ps-ai-usage]')).toBeAttached();
-    await expect(panel.locator('[data-ps-quiet] button')).toHaveText(['2주', '3주', '4주', '6주', '끄기']);
+    await expect(panel.locator('[data-ps-quiet]')).toHaveCount(0);
     expect(f.errors).toEqual([]);
   });
 }

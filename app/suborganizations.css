@@ -117,6 +117,10 @@
   #appView #teamView #soTeamSection.so-has-tabs.so-view-table>#soOverview{grid-column:1 / -1;grid-row:2}
 }
 /* UI-PC손맛묶음 ⑦: 조직 줄 우클릭 메뉴 [열기] ─ [쟁의 단계 관리] 사이 줄(자료실·원장 메뉴 구분선과 같은 모양) */
+.so-team-menu .so-menu-label{padding:4px 10px 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+.so-team-menu .so-quiet-seg{margin:2px 8px 8px}
+/* 기준 칸(다섯 칸, 공용 .ds-seg 모양 그대로)이 있는 화면 메뉴만 넓힌다. 메뉴 자리는 그려진 폭으로 다시 잡는다(anchored-menu.js). */
+.so-team-menu:has(.so-quiet-seg){min-width:252px}
 .so-team-menu .so-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 /* MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 맨 위 [+ 담당조직](⋯ 왼쪽, 작은 글자 버튼)과 조직 줄 끝 ⋯(그 조직 메뉴).
    줄은 .so-row 안에 줄(article)과 ⋯(button)를 나란히 둔다(누르는 것 안에 누르는 것을 넣지 않음). ⋯ 자리만큼 줄 글은 왼쪽으로. */

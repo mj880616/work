@@ -71,14 +71,22 @@ const soMenuItem=(attr,label)=>`<button type="button" ${attr}>${label}</button>`
 // 화면 제목 줄 ⋯는 지금처럼 [쟁의 단계 관리] 하나. 우클릭은 맨 위 [열기]가 더 붙는다. 어느 조직의 메뉴인지는 이 화면만 기억한다(menuOrg).
 let menuFrom='screen';
 function orgMenuItems(id){const o=soOrganizations.find(x=>x.id===id);if(!o)return '';const out=window.KPTUOrganizationOrder.PICKER_EXCLUDED?.includes(o.name);const mine=canEdit(o);return (mine?soMenuItem('data-so-rename','이름 바꾸기'):'')+(menuFrom==='row'?soMenuItem('data-so-stage-manage','쟁의 단계'):'')+soMenuItem('data-so-exclude',out?'담당 조직으로 추가':'담당 조직에서 제외')+(mine?'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-so-row-delete','삭제'):'')}
+// MULTI-다른담당자맞춤 ⑥: 홈 '연락 없는 조직' 줄의 기준 [2주|3주|4주|6주|끄기]는 내 프로필에서 조직 보고 화면 ⋯로 옮겼다. 값은 그대로
+// 서버 화면 기억 view_prefs.quiet_weeks 하나(바꾸면 바로 서버 저장). 통화·텔레그램 수집이 있는 작업공간(서버 운영자 기능)에서만 보인다.
+let quietMod=null,quietShown=false;
+function quietItems(){if(!quietShown||!quietMod)return '';const now=quietMod.weeksOf(window.KPTUViewPrefs?.get?.('quiet_weeks'));return '<hr class="so-menu-sep" role="separator"><div class="so-menu-label" id="soQuietLabel">홈 \'연락 없는 조직\' 기준</div><span class="ds-seg so-quiet-seg" role="group" aria-labelledby="soQuietLabel">'+quietMod.WEEK_CHOICES.map(w=>`<button type="button" class="ds-seg-btn" data-so-quiet="${w}" aria-pressed="${now===w}">${w?w+'주':'끄기'}</button>`).join('')+'</span>'}
+async function quietReady(){try{const [{myFeatures},m]=await Promise.all([import('./my-features.js'),import('./org-quiet-model.mjs')]);quietMod=m;const f=await myFeatures(rt);quietShown=f.includes('calls')||f.includes('telegram')}catch{quietShown=false}}
+function setQuiet(w){const prefs=window.KPTUViewPrefs;if(!prefs?.set||!quietMod)return;prefs.set('quiet_weeks',w,{rejectable:true});void prefs.flush?.();window.dispatchEvent(new CustomEvent('kptu:quiet-weeks-changed'));toast(w?`'연락 없는 조직' 기준을 ${w}주로 바꿨어요.`:"'연락 없는 조직' 줄을 껐어요.")}
+window.addEventListener('kptu:view-prefs-rejected',e=>{if(!e.detail?.paths?.includes('quiet_weeks'))return;notify('서버가 아직 이 기준을 받지 못해 이전 값으로 되돌렸어요.',{error:true});window.dispatchEvent(new CustomEvent('kptu:quiet-weeks-changed'))});
 async function installStageMenu(trigger,org=null,from=org?'ctx':'screen'){
- await stageModules();const {createAnchoredMenu}=await import('./anchored-menu.js');
+ await Promise.all([stageModules(),org?null:quietReady()]);const {createAnchoredMenu}=await import('./anchored-menu.js');
  if(!stageMenu)stageMenu=createAnchoredMenu({id:'soTeamMenu',className:'basket-link-menu so-team-menu',label:'조직 보고 메뉴',historyKey:'kptuSoTeamMenu',key:()=>'team',
-  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+soMenuItem('data-so-stage-manage','쟁의 단계 관리')},
+  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+soMenuItem('data-so-stage-manage','쟁의 단계 관리')+(menuOrg?'':quietItems())},
   onAction:(button,active)=>{const id=menuOrg;if(button.matches('[data-so-open-org]')){const row=id&&[...document.querySelectorAll('#soOrganizationList [data-so-org]')].find(r=>r.dataset.soOrg===id);row?.click();return}
    if(button.matches('[data-so-rename]')){openEdit(id,{trigger:active.trigger});return}
    if(button.matches('[data-so-exclude]')){void toggleExcluded(id);return}
    if(button.matches('[data-so-row-delete]')){void removeOrg(id);return}
+   if(button.matches('[data-so-quiet]')){setQuiet(Number(button.dataset.soQuiet));return}
    stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
  menuOrg=org;menuFrom=org?from:'screen';stageMenu.open(trigger);
 }

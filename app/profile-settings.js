@@ -174,9 +174,9 @@ window.addEventListener('kptu:myspace-access',event=>syncMySpaceEntry(event.deta
 // UI-업데이트기록입구: 업데이트 기록은 계정 메뉴 [업데이트 기록] 화면(release-notes-ui.js) 한 곳이다. 내 프로필에는 두지 않는다.
 // APP-폰앱새로 ③: 폰 앱에서만 '계정' 칸에 [위젯 로그아웃] 작은 줄(phone-widget-line.js). 웹 브라우저에서는 아무것도 붙지 않는다.
 function installWidgetLine(){if(!/KPTUAndroid/i.test(navigator.userAgent||''))return;import('./phone-widget-line.js').then(m=>m.mountWidgetLine($('#profileView .ps-account-actions'))).catch(()=>{})}
-// HOME-업무일지홈: 옛 홈에만 있던 마지막 수집 시각·AI 사용량(+ 글자 읽기 끝남 줄, 연락 없는 조직 기준)은 '수집·사용량' 칸(profile-status.js).
+// HOME-업무일지홈: 옛 홈에만 있던 마지막 수집 시각·AI 사용량(+ 글자 읽기 끝남 줄)은 '사용 현황' 칸(profile-status.js, MULTI-다른담당자맞춤 ⑥).
 let statusMount=null;
-function installStatus(){const grid=$('#profileView .ps-profile-grid');if(!grid)return;if(!$('#psStatusPanel'))grid.insertAdjacentHTML('beforeend','<article class="panel ps-panel ps-status" id="psStatusPanel" aria-label="수집·사용량"></article>');import('./profile-status.js').then(m=>{statusMount=statusMount||m.mountProfileStatus($('#psStatusPanel'))}).catch(()=>{})}
+function installStatus(){const grid=$('#profileView .ps-profile-grid');if(!grid)return;if(!$('#psStatusPanel'))grid.insertAdjacentHTML('beforeend','<article class="panel ps-panel ps-status" id="psStatusPanel" aria-label="사용 현황" hidden></article>');import('./profile-status.js').then(m=>{statusMount=statusMount||m.mountProfileStatus($('#psStatusPanel'))}).catch(()=>{})}
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='profile')statusMount?.refresh()});
 async function boot(){installView();installStatus();installWidgetLine();syncMySpaceEntry();if(!(await context()))return false;bind();await load();window.KPTUProfileSettings={reload:load};return true}
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
