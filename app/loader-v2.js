@@ -175,13 +175,6 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
-  import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
-  // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
-  import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
-  // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
-  import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
-
   const showFeatureError=(err,retry=null)=>{
     console.error('view feature load failed',err);
     // UI-기다림표시통일: 실패는 공용 부품(wait-state.js) — 빨간 작은 글자 '불러오지 못했습니다' + 작은 [다시](민트 상자 쓰지 않음).
@@ -255,6 +248,24 @@
     showFeatureError(err);
     startup?.mark('requestedViewFailed',{view:requested});
   }
+  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창과 그 목록(·주소의 사업영역)까지 다 그린 뒤에 첫 화면을 드러낸다
+  // (드러낸 뒤에 창이 늦게 덮거나 목록이 다시 그려져 줄이 밀리지 않게 — 시작 순서: 필요한 자료 → 한 번 드러내기).
+  if(areasAtStart&&result?.ok){
+    // 폰 뒤로가기 기록(창 → 상세)을 창이 뜨기 전에 붙인다(상세가 따로 주소 기록을 쌓지 않게).
+    await import('./mobile-modal-history.js').catch(()=>{});
+    try{await viewLoader.load('projects');await window.KPTUAreaWindow?.open({id:params.get('project')||null})}
+    catch(err){console.warn('area window open failed',err?.name||'Error')}
+  }
+  window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
+  // PERF-첫로딩 ③(S61-32): 아래는 모두 첫 화면을 드러낸 뒤에 부른다(기다리지 않는 뒤 기능). 전에는 드러내기 전에 받기 시작해(원장 사본·자동 기록·겹침 알림은
+  // 첫 화면 프로그램보다도 먼저) 느린 폰에서 첫 화면 파일과 같은 연결을 다퉜고, 업데이트 안내는 그 받기를 기다린 뒤에야 드러냈다. 하는 일·순서는 그대로다.
+  // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
+  import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
+  // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
+  import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
+  // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
+  import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
+
   // SEARCH-전체검색: 첫 화면을 그린 뒤 검색칸(PC 상단 줄)·메뉴 검색 입구를 붙인다. 기다리지 않는다.
   viewLoader.load('search').catch(err=>console.warn('search load failed',err?.name||'Error'));
   // MTG-노트북녹음: 노트북 [녹음]·녹음 띠의 주인(앱 껍데기 한 곳). 첫 화면 뒤 한 번 붙여 메뉴를 옮겨도 녹음이 이어진다. 기다리지 않는다.
@@ -269,15 +280,6 @@
   import('./notice-done.js').then(m=>m.startDoneNotices()).catch(err=>console.warn('done notices load failed',err?.name||'Error'));
   // S48-18: 저녁 '새 성명 n건'(사회운동 Now 본 시각 뒤 들어온 글, notice-outside.js). 기다리지 않는다.
   import('./notice-outside.js').then(m=>m.startOutsideNotice()).catch(err=>console.warn('outside notice load failed',err?.name||'Error'));
-  // 사업영역 관리 창으로 시작하면(옛 주소·새로고침) 창과 그 목록(·주소의 사업영역)까지 다 그린 뒤에 첫 화면을 드러낸다
-  // (드러낸 뒤에 창이 늦게 덮거나 목록이 다시 그려져 줄이 밀리지 않게 — 시작 순서: 필요한 자료 → 한 번 드러내기).
-  if(areasAtStart&&result?.ok){
-    // 폰 뒤로가기 기록(창 → 상세)을 창이 뜨기 전에 붙인다(상세가 따로 주소 기록을 쌓지 않게).
-    await import('./mobile-modal-history.js').catch(()=>{});
-    try{await viewLoader.load('projects');await window.KPTUAreaWindow?.open({id:params.get('project')||null})}
-    catch(err){console.warn('area window open failed',err?.name||'Error')}
-  }
-  window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js').catch(()=>{});
   // APP-폰앱새로 ②: 폰 앱(KPTUAndroid)의 [공유]로 받은 것을 정리함 확인 줄로 넣는다. 앱이 아니면 아무것도 하지 않는다. 첫 화면이 뜬 뒤 붙인다(시작 화면 이동과 겹치지 않게). 기다리지 않는다.
   import('./basket-share.js').catch(err=>console.warn('share intake load failed',err?.name||'Error'));
