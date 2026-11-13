@@ -1567,6 +1567,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await learn.locator('summary').first().click();
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(2);
  await expect(learn.locator('[data-journal-learn-dev] h5')).toHaveText('만들기로 보낸 것');
+ await expect(learn.locator('[data-journal-learn-dev]')).not.toContainText('준비 중'); // S61-27: 전달 길(#1793)이 생겨 '준비 중' 한 줄은 없다
  await expect(learn.locator('[data-journal-learn-dev] li')).toContainText(['가상 개선 제안']);
  // 칸별 그대로 쓴 비율(S48-3b): 개선 제안·규칙 후보는 셈 밖 — 이 주는 확정 때 그대로 넣은 1) 요청 줄(S48-43)·2) 세부 내용 줄(S48-35)만 있어 두 묶음.
  await expect(learn.locator('[data-learn-cell-rates]')).toHaveAttribute('data-learn-cell-rates','2');
