@@ -18,7 +18,7 @@ const others=page=>page.locator('#psWorkplaceList [data-pick-others]');
 async function unfold(page){if(!(await fold(page).evaluate(el=>el.open)))await page.locator('#psWorkplaceList .pick-fold-head').click();await expect(page.locator('#psWorkplaceList .pick-picked')).toBeVisible()}
 async function showAll(page){await unfold(page);if(await others(page).count()&&!(await others(page).evaluate(el=>el.open)))await page.locator('#psWorkplaceList .pick-others-head').click();await expect(page.locator('#psWorkplaceList [data-pick-search]')).toBeVisible()}
 const pickedNames=page=>page.locator('#psWorkplaceList .pick-picked .ps-org-name');
-// AI-사람별한도: 프로필 '수집·사용량' 칸의 이번 달 AI 사용 한 줄 읽기(ai-assist kind=ai_month, 쓰기 아님)는 저장 순서 대조에서 뺀다.
+// AI-사람별한도: 프로필 '사용 현황' 칸의 AI 한도 한 줄 읽기(ai-assist kind=ai_month, 쓰기 아님)는 저장 순서 대조에서 뺀다.
 const calls=page=>page.evaluate(()=>window.__state.calls.filter(x=>x.body?.kind!=='ai_month').map(x=>`${x.method} ${x.path.split('?')[0]}${x.body?.organization_id?' '+x.body.organization_id:''}${x.path.includes('organization_id=eq.')?' '+decodeURIComponent(x.path.match(/organization_id=eq\.([^&]+)/)[1]):''}`));
 
 for(const [label,width] of [['폰 412',412],['폰 884',884],['PC 1440',1440]]){

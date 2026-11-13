@@ -789,7 +789,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     // WEEKLY-뺀목록삭제(S48-3b): '이번 주 뺀 일정 [다시 넣기]' 접힘·'기억으로 뺀 일정 n개' 줄은 두지 않는다(데이터 draft.dropped·기억 칸은 그대로).
     // WEEKLY-주간정리다듬기 ⑤: 방금 뺀 일정의 '일정을 뺐어요 [되돌리기]'는 표 아래 줄이 아니라 화면 아래 5초 알림 하나(journal-hwpx.js dropNotice).
     if (c.unsetCalendar) { const p = muted(UNSET_CALENDAR_TEXT); p.dataset.journalWeeklyNoCalendar = 'unset'; cal.append(p); }
-    else if (c.noCalendar) { const p = muted(`'${c.calendar}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록이나 내 프로필 › 보고 설정을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
+    else if (c.noCalendar) { const p = muted(`'${c.calendar}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록이나 내 프로필 › 주간보고 일정 캘린더를 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     // S48-33(WEEKLY-화면디자인정리 2): 늘 보이던 안내 한 줄('참석자 칸은 한글 파일에서…')은 없앴다 — 당연한 안내 문구 삭제.
   }
   // [확정하고 한글 파일 받기] 줄 자리(journal-hwpx.js 마디를 journal.js 가 붙임).
