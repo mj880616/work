@@ -117,12 +117,18 @@ function paint(){
   paintOldLine();
 }
 const escapeText=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+// [녹음] 단추 둘의 모양은 이 모듈만 그린다: 사업 보고 위쪽 줄 #reportRecordBtn, 회의(사업 보고) 상세 머리 줄 #mrdRecordBtn(S61-36 REC-상세녹음).
+// 상세 단추는 상세 화면이 data-rec-meeting에 지금 연 보고 id를 적어 두고(고칠 수 없는 보고면 빈칸) 누르면 start({meetingId})를 부른다.
+// 보이는 기기 조건은 둘이 같다(PC 761px~·녹음 가능 브라우저). 녹음 중·저장 중·버리는 중에는 둘 다 꺼져 두 번 시작하지 못한다.
 function paintButton(){
-  const btn=$('#reportRecordBtn');if(!btn)return;
-  btn.hidden=!(supported()&&PC?.matches);
-  btn.disabled=state!=='idle'||discarding;
-  btn.textContent=active()?'녹음 중':'녹음';
-  btn.setAttribute('aria-pressed',String(active()));
+  const on=supported()&&PC?.matches,off=state!=='idle'||discarding;
+  const btn=$('#reportRecordBtn');
+  if(btn){btn.hidden=!on;btn.disabled=off;btn.textContent=active()?'녹음 중':'녹음';btn.setAttribute('aria-pressed',String(active()))}
+  const mb=$('#mrdRecordBtn');
+  if(mb){
+    const id=mb.dataset.recMeeting||'',mine=active()&&!!id&&meetingId===id;
+    mb.hidden=!(on&&id);mb.disabled=off;mb.textContent=mine?'녹음 중':'녹음';mb.setAttribute('aria-pressed',String(mine));
+  }
 }
 // 하루가 지난 끝나지 않은 녹음은 맨 위 띠에 두지 않고 사업 보고 목록 위 한 줄에만 남긴다.
 function paintOldLine(){
@@ -194,14 +200,16 @@ function roll(){
 }
 // from = 끝나지 않은 녹음(rec_pending/live 한 건)이면 [이어서 녹음]: 같은 session_id의 다음 구간으로 새로 녹음한다(REC-새로고침, S49-7).
 // 새로고침·창 닫기로 끊긴 마이크는 되살릴 수 없으므로(브라우저 한계) 이미 올라간 조각은 그대로 두고 마이크만 다시 켠다. 띠 시간은 앞 녹음 길이에서 이어 센다.
-// opts.meetingId: 회의(회차)에서 녹음하면 그 회의 자료로도 붙인다(rec_save meeting_id). 사업 보고 목록 [녹음]은 회의 없이 자료실에만.
+// opts.meetingId: 회의(사업 보고) 상세 [녹음]이면 그 회의 자료로도 붙인다(rec_start·rec_save meeting_id). 사업 보고 목록 [녹음]은 회의 없이 자료실에만.
+// 서버는 rec_start에서 그 녹음이 어느 회의 것인지 녹음 세션 쪽에 남긴다(S61-36). 그래서 새로고침·창 닫기 뒤 [이어 녹음]·[이어서 저장]도
+// rec_pending이 돌려준 meeting_id로(보내지 않아도 서버가 남긴 것으로) 같은 회의에 붙는다. 기기에는 남기지 않는다.
 async function start(from=null,opts={}){
   if(state!=='idle'&&state!=='saved'&&state!=='error')return;
   if(!supported()||discarding)return;
   workspaceId=ws();
   if(!rt()?.api||!workspaceId){fail('로그인 상태를 확인하지 못했어요.',false);return}
   const before=from?Math.max(0,Number(from.duration_sec)||0)*1000:0;
-  state='starting';step='';note='';errorText='';savedFiles=[];meetingId=from?'':String(opts?.meetingId||'');accum=before;runSince=0;segments=[];rollingStops=[];sessionId=from?.session_id||'';if(from)startedAt=from.started_at||new Date().toISOString();fails=0;stopReason='';paint();
+  state='starting';step='';note='';errorText='';savedFiles=[];meetingId=String((from?from.meeting_id:opts?.meetingId)||'');accum=before;runSince=0;segments=[];rollingStops=[];sessionId=from?.session_id||'';if(from)startedAt=from.started_at||new Date().toISOString();fails=0;stopReason='';paint();
   try{
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
   }catch(e){
@@ -209,7 +217,7 @@ async function start(from=null,opts={}){
     fail(e?.name==='NotAllowedError'?'마이크를 쓸 수 없어요. 주소창 왼쪽 표시를 눌러 마이크를 허용해 주세요.':'마이크를 찾지 못했어요.',false);return;
   }
   try{
-    const r=await call('rec_start',{workspace_id:workspaceId,mime:baseMime(MIME),...(from?{session_id:from.session_id}:{})});
+    const r=await call('rec_start',{workspace_id:workspaceId,mime:baseMime(MIME),...(from?{session_id:from.session_id}:meetingId?{meeting_id:meetingId}:{})});
     if(!r?.recording_id||!r?.session_id)throw new Error('');
     sessionId=r.session_id;
     pieceMs=pieceSecondsOf(r)*1000;rollPieces=rollPiecesOf(r);
@@ -443,7 +451,7 @@ function continueRecording(id){
 function resume(id){
   if(active()||state==='finishing')return;
   const session=allResumable().find(s=>s.session_id===id);if(!session)return;
-  sessionId=session.session_id;startedAt=session.started_at||new Date().toISOString();workspaceId=ws();meetingId='';
+  sessionId=session.session_id;startedAt=session.started_at||new Date().toISOString();workspaceId=ws();meetingId=String(session.meeting_id||'');
   accum=(Number(session.duration_sec)||0)*1000;runSince=0;
   paint();
   void finishSession();
@@ -479,7 +487,7 @@ window.addEventListener('kptu:session-changed',e=>{
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='meetings'){paintButton();void loadPending()}});
 PC?.addEventListener?.('change',()=>{paintButton();paint();if(PC.matches&&onMeetings())void loadPending()});
 
-window.KPTUMeetingRecorder={state:()=>state,mime:MIME,start:(opts={})=>start(null,opts),files:()=>savedFiles.map(f=>({...f}))};
+window.KPTUMeetingRecorder={state:()=>state,mime:MIME,start:(opts={})=>start(null,opts),files:()=>savedFiles.map(f=>({...f})),meeting:()=>active()||state==='finishing'?meetingId:'',paintButtons:paintButton};
 paint();
 // 끝나지 않은 녹음 띠는 어느 화면에서든 보이므로(새로고침 직후 PC에서 바로 이어 녹음), 첫 화면 요청과 겹치지 않게 조금 뒤 한 번 묻는다. 폰 폭에서는 부르지 않는다.
 setTimeout(()=>void loadPending(),3500);
