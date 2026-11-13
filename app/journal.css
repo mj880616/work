@@ -692,3 +692,5 @@
   #appView #homeView .journal-day-right > .journal-done-day{ border-top:0; padding-top:0; }
   #appView #homeView .journal-day-right > .journal-materials:empty{ display:none; }
 }
+/* WEEKLY-주간정리다듬기 ④: ⋯ [배운 것 보기]로 여는 맨 아래 '배운 것'(주간보고 기억·규칙·환류) — 머리 줄 = 제목 + 작은 [닫기]. */
+#appView #homeView .journal-weekly-learned-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin:12px 0 4px; }

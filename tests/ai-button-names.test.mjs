@@ -21,7 +21,7 @@ test('새 이름이 그 단추 자리에 있다(회의 보고 창 2곳·파일 �
   assert.match(share, /dataset:\{spAiDraft:''\}, text:'글 초안 만들기'/);
   assert.match(share, /'aria-label':'사업영역·링크·글 초안 만들기'/);
   assert.match(read('app/share-ai-draft.js'), /<h2 id="shareAiDraftTitle">공유 페이지 글 초안<\/h2>/);
-  assert.match(read('app/journal-hwpx.js'), /button\('초안 다시 쓰기', 'hwpxAiAgain'\)/);
+  assert.match(read('app/journal-hwpx.js'), /\{text:'초안 다시 쓰기', data:\{hwpxAiAgain:''\}/); // WEEKLY-주간정리다듬기 ④: 확정 버튼 옆 ⋯ 안
 });
 
 // 옛 이름은 주석·옛 업데이트 기록(release-notes)에만 남을 수 있다. 화면 코드의 단추·눌림 이름·안내 글자로는 남지 않는다.
