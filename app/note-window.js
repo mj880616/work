@@ -181,13 +181,15 @@ export async function finishNewNote(note, {rt = window.KPTURuntime, noteFolder =
 // '잊지 말기' note) is chosen, [저장] does not make a new note: it hands the written text to target.save({value, text, heading}) → {noteId, folderName,
 // message?} (the existing append path that adds it as paragraphs at the end of that note, guarded by the version it read). A family target
 // (target.family) always saves through target.save (a new family note too: kept out of AI material), and has no [📎 첨부]·사진·파일.
-export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, target = null, onClose = () => {}} = {}) {
+// NOTE-목록에파일놓기: dropped = files dropped on the note list (they go into this window's own batch through the same picker add as [📎 첨부]:
+// the same size limit and the same-file question), heading = the title box's first value; the cursor then starts in the text.
+export function openNoteWindow({text = '', title = '새 노트', rt = window.KPTURuntime, upload = null, noteFolder = null, target = null, dropped = null, heading: firstHeading = '', onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let own = upload ? null : createUploadBatch(), saved = null, busy = false, handle = null;
   const media = waitingMedia();
   const batch = () => upload ? upload.getBatch() : own;
   const say = message => handle?.say(message);
-  const head = titleRow({folder: noteFolder, target});
+  const head = titleRow({value: firstHeading, folder: noteFolder, target});
   const family = !!target?.family, custom = () => !!target && (family || !target.isNew());
   // The title box's Enter goes on to the text (it is not a save).
   head.input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handle?.editor?.focus(); } });
@@ -267,7 +269,11 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
     photos: family ? null : media.photos, files: family ? null : media.files,
     placeholder: '노트 본문을 쓰세요', save: {aria: target ? '노트에 저장' : '새 노트로 저장', run},
     onClose: ({text: letters}) => { waitingRows.destroy(); media.clear(); noteFolder?.close?.(); target?.close?.(); onClose({saved, text: letters}); }});
-  if (handle) { handle.paintFolder = head.paint; queueMicrotask(() => head.input.focus()); }
+  if (handle) {
+    handle.paintFolder = head.paint;
+    if (dropped?.length) { files.picker.add(dropped); void handle.ready?.then(h => { if (h && !h.closed) h.editor?.focus(); }); }
+    else queueMicrotask(() => head.input.focus());
+  }
   return handle;
 }
 
