@@ -59,6 +59,7 @@ import {readDayPicks, askDayPicks, markSuggestDone} from './home-day-picks-data.
 import {sendEvents, sendDone} from './home-day-picks-model.mjs';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
 import {keepMenus} from './anchored-menu.js';
+import {googleLinkState, startGoogleLink, linkText} from './google-link.js'; // MULTI-처음쓰는사람 ①: 구글 연결 없음 안내
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -344,6 +345,12 @@ function taskRow(item, {pending}) {
 }
 function partNotes(box, part) {
   if (part.capped) box.insertAdjacentHTML('beforeend', `<p class="journal-muted" data-journal-capped>이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.</p>`);
+  // MULTI-처음쓰는사람 ①: 구글 연결이 아직 없으면 고장 글 대신 "무엇을 하면 되는지 한 줄 + 버튼 하나"(일정 화면과 같은 연결 흐름).
+  const link = part.link && linkText(part.key, part.link);
+  if (part.failed && link) {
+    box.insertAdjacentHTML('beforeend', `<p class="journal-muted journal-link-note" data-journal-link="${esc(part.key)}">${esc(link.line)} <button type="button" class="secondary journal-link-btn" data-journal-connect="${esc(part.key)}">${esc(link.button)}</button></p>`);
+    return;
+  }
   if (part.failed) {
     box.dataset.failed = '';
     // UI-전수디자인점검 F24: 공용 실패 한 줄(wait-state.js .wait-fail 모양 — 작은 빨간 글자 + 작은 [다시]), 조사는 이름 끝 받침으로.
@@ -954,7 +961,11 @@ const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
 async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
   if (!quiet) { materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_(); }
   let read;
-  try { read = {status:'ok', items:await readers[key]()}; } catch { read = {status:'failed'}; }
+  try { read = {status:'ok', items:await readers[key]()}; } catch {
+    // MULTI-처음쓰는사람 ①: 그날 일정·할 일 읽기가 실패하면 구글 연결이 없는 것인지 서버에 한 번 묻는다(google-link.js).
+    const link = key === 'events' || key === 'tasks' ? await googleLinkState(key, rt) : '';
+    read = link ? {status:'failed', link} : {status:'failed'};
+  }
   if (!liveRun(key, run, scope)) return;
   materials[key] = read; refreshing.delete(key);
   renderDayFor(key); renderWeekly_(); markRefreshing();
@@ -1626,6 +1637,11 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);
   if (button.matches('[data-journal-next]')) return moveWeek(1);
   if (button.matches('[data-journal-today]')) return goThisWeek();
+  if (button.matches('[data-journal-connect]')) {
+    button.disabled = true;
+    void startGoogleLink(button.dataset.journalConnect, rt).catch(() => { button.disabled = false; button.textContent = '다시 눌러 주세요'; });
+    return;
+  }
   if (button.matches('[data-journal-retry]')) { for (const key of DAY_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
   // WEEKLY-자료요약: [주간 정리]의 자료 줄 → 자료실에서 그 자료를 연다(바구니·검색과 같은 열기 요청, 돌아오기는 다른 원본 열기와 같음).
   if (button.matches('[data-journal-weekly-file-open]')) { rememberReturn(button); requestLibraryDocument(button.dataset.journalWeeklyFileOpen, rt); goView('library'); return; }
