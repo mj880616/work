@@ -2137,7 +2137,7 @@ for(const width of [412,1280])test(`[주간 정리] 확정 뒤 '내가 수정한
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  await expect.poll(()=>row()?.draft?.confirmed?.document_id).toBe('doc-new');
  await expect(fin).toBeVisible();
- await expect(fin).toContainText('① Web2가 만든 파일');
+ await expect(fin).toContainText('① 노동조합+가 만든 파일');
  await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('② 내가 수정한 최종본 한글에서 수정한 파일을 끌어 놓거나');
  await page.screenshot({path:`docs/design/screens/s61-42/6-final-before-${width}.png`});
  // 한글 파일이 아니면 올리지 않는다.

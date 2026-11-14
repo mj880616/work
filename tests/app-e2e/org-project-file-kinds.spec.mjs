@@ -138,73 +138,73 @@ async function openOrg(page,id=O){
 }
 
 const kinds=(root)=>root.locator('.doc-category-tag');
-const chip=(host,name)=>host.locator('button',{hasText:new RegExp('^'+name+'$')});
 
 async function openProjectDetail(page){
  await clickView(page,'projects');await page.evaluate(()=>window.__KPTU_PROJECT_V3_READY__);
  await page.locator(`[data-ps3-project="${P}"]`).first().click();
  await expect(page.locator('#ps3-documents')).toBeVisible();
 }
-// UI-칩줄두줄(10/31): 폰·PC 모두 옆으로 밀지 않고 줄바꿈 두 줄까지(넘치면 [더보기]).
-const twoLines=async(host)=>{const b=await host.locator('button').evaluateAll(list=>list.filter(x=>x.getClientRects().length).map(x=>Math.round(x.getBoundingClientRect().top)));return new Set(b).size<=2&&await host.evaluate(h=>getComputedStyle(h).flexWrap==='wrap'&&h.scrollWidth<=h.clientWidth+1);};
+// ORG-자료칩드롭다운(요청함 11/14 "조직 자료 버튼 드롭다운 화"): 종류 칩 13개가 폰에서 두 줄 → [종류 전체 ▾] 고르기 상자 하나.
+// 열린 목록 = 종류 이름 + 건수, 0건 종류는 흐리게(고를 수 없음) 맨 뒤. 고른 종류는 상자 글자에. 담당조직·프로젝트 상세가 같은 부품.
+const pickBox=host=>host.locator('select[data-kind-pick]');
+const shownText=sel=>sel.evaluate(s=>s.selectedOptions[0]?.textContent||'');
+const optionRows=sel=>sel.evaluate(s=>[...s.options].map(o=>[o.textContent,o.dataset.count,o.disabled]));
+const ORG_OPTIONS=[['종류 전체','7',false],['교섭·합의','1',false],['투쟁','2',false],['교육','1',false],['정책','1',false],['성명·보도자료','1',false],['공문','1',false],['선전','0',true],['회의','0',true],['기타','0',true]]; // 옛 이름 '정부자료'는 정책
+async function pickKind(page,sel,label,width){
+ await tap(page,sel,width);
+ const menu=page.locator('#kptuSelectMenu');
+ await expect(menu).toBeVisible();
+ await tap(page,menu.locator('.kptu-select-opt',{hasText:new RegExp('^'+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\d*$')}),width);
+ await expect(menu).toBeHidden();
+}
 
-for(const width of [390,1280])test(`organization documents show each kind and filter by kind chips ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`organization documents: one [종류 전체 ▾] box with counts filters by kind ${width}`,async({page},info)=>{
  const f=await fixture(page,{width,categories:[...DEFAULT]});
  await openOrg(page);
- const section=page.locator('#wdDocs'),host=section.locator('#wdDocKinds');
- // Every file shows its kind (stored old names map to the list's names); chips are the library's kinds in the library's order.
+ const section=page.locator('#wdDocs'),host=section.locator('#wdDocKinds'),sel=pickBox(host);
  await expect(section.locator('.wd-doc-row')).toHaveCount(5);
  await expect(kinds(section)).toHaveText(['교섭·합의','투쟁','공문','성명·보도자료','교육']);
- await expect(host.getByRole('button')).toHaveText(['전체',...DEFAULT]);
- await expect(host).toHaveAttribute('role','group');
- for(const name of DEFAULT)await expect(chip(host,name)).toHaveAttribute('aria-pressed','true');
- // UI-칩줄두줄: phone and PC wrap to at most two lines, never sideways. Small chips.
- expect(await twoLines(host)).toBe(true);
- const box=await chip(host,'투쟁').boundingBox();expect(box.height).toBeLessThanOrEqual(32.5);
- expect(await noWideScroll(page)).toBe(true);
- expect(await host.evaluate(h=>h.scrollWidth<=h.clientWidth+1)).toBe(true);// UI-칩줄두줄: 칩 줄은 옆으로 넘치지 않는다
- // Turning a kind off hides those files and the next ones fill the five lines; the count and 'all N' stay for the whole organization.
- await tap(page,chip(host,'투쟁'),width);
- await expect(chip(host,'투쟁')).toHaveAttribute('aria-pressed','false');
- await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','mixed');
- await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 교섭 일정','합성 공문 회신','합성 성명서','합성 교육 안내','합성 국토부 지침']);
+ await expect(host.locator('button')).toHaveCount(0); // 칩 줄 없음
+ await expect(sel).toHaveAttribute('aria-label','자료 종류');
+ expect(await shownText(sel)).toBe('종류 전체');
+ expect(await optionRows(sel)).toEqual(ORG_OPTIONS);
+ const box=await sel.boundingBox();expect(box.height).toBeLessThanOrEqual(32.5);
+ // 열린 목록: 줄마다 이름 + 오른쪽 작은 건수, 0건은 흐리게(고를 수 없음)
+ await tap(page,sel,width);
+ const menu=page.locator('#kptuSelectMenu');
+ await expect(menu.locator('.kptu-select-opt')).toHaveCount(ORG_OPTIONS.length);
+ await expect(menu.locator('.kptu-select-opt .kptu-select-count')).toHaveText(ORG_OPTIONS.map(o=>o[1]));
+ await expect(menu.locator('.kptu-select-opt[aria-disabled="true"]')).toHaveCount(3);
+ await capture(page,info,`org-doc-kind-pick-open-${width}`,page.locator('#wdModal .modal-card'));
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ // 투쟁을 고르면 그 종류 자료만, 상자 글자는 '투쟁'. 자료 수·[전체 7개 보기]는 조직 전체 그대로.
+ await pickKind(page,sel,'투쟁',width);
+ expect(await shownText(sel)).toBe('투쟁');
+ await expect(sel).toHaveClass(/is-on/);
+ await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 집회 계획','합성 투쟁 일정 2']);
  await expect(section.locator('[data-wd-doc-count]')).toHaveText('7');
  await expect(section.getByRole('button',{name:'전체 7개 보기'})).toBeVisible();
- // [전체] while only some are on turns all on; pressed again (all on) it turns all off (empty line) and then everything on.
- await tap(page,chip(host,'전체'),width);
- await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
- await expect(chip(host,'투쟁')).toHaveAttribute('aria-pressed','true');
- await tap(page,chip(host,'전체'),width);
- await expect(section.locator('[data-wd-doc-nokind]')).toHaveText('선택한 종류 없음');
- await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','false');
- await tap(page,chip(host,'전체'),width);
- await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
- await expect(section.locator('.wd-doc-row')).toHaveCount(5);
- // Only 교육 on: the one file of that kind.
- await tap(page,chip(host,'전체'),width);await tap(page,chip(host,'교육'),width);
+ await pickKind(page,sel,'교육',width);
  await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 교육 안내']);
+ await pickKind(page,sel,'종류 전체',width);
+ await expect(section.locator('.wd-doc-row')).toHaveCount(5);
+ await expect(sel).not.toHaveClass(/is-on/);
  expect(f.calls('app_documents','PATCH')).toEqual([]);expect(f.rpc).toEqual([]);
  expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`project documents show each kind and filter by kind chips ${width}`,async({page})=>{
+for(const width of [390,1280])test(`project documents: the same [종류 전체 ▾] box ${width}`,async({page})=>{
  const f=await fixture(page,{width,categories:[...DEFAULT]});
  await openProjectDetail(page);
- const section=page.locator('#ps3-documents'),host=section.locator('#ps3DocKinds');
+ const section=page.locator('#ps3-documents'),host=section.locator('#ps3DocKinds'),sel=pickBox(host);
  await expect(section.locator('.ps3-doc-row')).toHaveCount(5);
  await expect(kinds(section)).toHaveText(['교섭·합의','투쟁','공문','성명·보도자료','교육']);
- await expect(host.getByRole('button')).toHaveText(['전체',...DEFAULT]);
- // UI-칩줄두줄: phone and PC wrap to at most two lines (no hidden sideways part).
- expect(await twoLines(host)).toBe(true);
- expect((await chip(host,'공문').boundingBox()).height).toBeLessThanOrEqual(32.5);
- await tap(page,chip(host,'공문'),width);
- await expect(section.locator('.ps3-doc-row b')).toHaveText(['합성 교섭 일정','합성 집회 계획','합성 성명서','합성 교육 안내','합성 국토부 지침']);
- await expect(chip(host,'공문')).toHaveAttribute('aria-pressed','false');
- // [전체] while only some are on turns all on; pressed again (all on) it turns all off.
- await tap(page,chip(host,'전체'),width);await expect(chip(host,'공문')).toHaveAttribute('aria-pressed','true');
- await tap(page,chip(host,'전체'),width);await expect(section.locator('[data-ps3-doc-nokind]')).toHaveText('선택한 종류 없음');
- await tap(page,chip(host,'성명·보도자료'),width);
+ await expect(host.locator('button')).toHaveCount(0);
+ expect(await shownText(sel)).toBe('종류 전체');
+ expect((await sel.boundingBox()).height).toBeLessThanOrEqual(32.5);
+ await pickKind(page,sel,'성명·보도자료',width);
+ expect(await shownText(sel)).toBe('성명·보도자료');
  await expect(section.locator('.ps3-doc-row b')).toHaveText(['합성 성명서']);
  await expect(section.getByRole('button',{name:'전체 7개 보기'})).toBeVisible();
  expect(f.calls('app_documents','PATCH')).toEqual([]);expect(f.rpc).toEqual([]);
@@ -212,28 +212,27 @@ for(const width of [390,1280])test(`project documents show each kind and filter 
  expect(f.errors).toEqual([]);
 });
 
-test('kind chips follow the changed kind list and unknown or empty kinds count as 기타',async({page})=>{
+test('kind box follows the changed kind list and unknown or empty kinds count as 기타',async({page})=>{
  const docs=seedDocs();docs.push(doc('od8','합성 종류 없음',null,'2026-09-29',{organization_id:O,project_id:P}));
  const f=await fixture(page,{width:1280,docs,categories:['교섭·합의','투쟁','홍보','기타']});
  await openOrg(page);
- const section=page.locator('#wdDocs'),host=section.locator('#wdDocKinds');
- await expect(host.getByRole('button')).toHaveText(['전체','교섭·합의','투쟁','홍보','기타']);
+ const section=page.locator('#wdDocs'),sel=pickBox(section.locator('#wdDocKinds'));
+ expect(await optionRows(sel)).toEqual([['종류 전체','8',false],['교섭·합의','1',false],['투쟁','2',false],['기타','5',false],['홍보','0',true]]);
  await expect(kinds(section)).toHaveText(['교섭·합의','투쟁','기타','기타','기타']);
- await tap(page,chip(host,'기타'),1280);
- await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 교섭 일정','합성 집회 계획','합성 투쟁 일정 2']);
+ await pickKind(page,sel,'기타',1280);
+ await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 공문 회신','합성 성명서','합성 교육 안내','합성 국토부 지침','합성 종류 없음']);
  expect(f.errors).toEqual([]);
 });
 
-test('a project or organization with no documents shows no kind chips',async({page})=>{
+test('a project or organization with no documents shows no kind box',async({page})=>{
  const f=await fixture(page,{width:1280,docs:[]});
  await openOrg(page);
  await expect(page.locator('#wdDocKinds')).toBeHidden();
  expect(f.errors).toEqual([]);
 });
 
-// 2026-10-24 명진 결정: 담당조직·프로젝트 상세 [자료]는 '회의'를 기본으로 켠 채 연다(회의자료가 처음부터 목록에 보임).
-// 자료실은 '회의'만 꺼진 채 열리고 고른 상태를 서버(library_view)에 기억하지만, 상세 칩은 저장하지 않아 그 기억을 쓰지 않는다.
-for(const width of [390,1280])test(`organization details open with 회의 on so meeting files show, even when the library remembers 회의 off ${width}`,async({page})=>{
+// 2026-10-24 명진 결정: 담당조직·프로젝트 상세 [자료]는 '회의'도 보이는 채 연다(자료실 기억을 쓰지 않음) → 상자는 늘 [종류 전체]에서 시작.
+for(const width of [390,1280])test(`organization details open at 종류 전체 so meeting files show, even when the library remembers 회의 off ${width}`,async({page})=>{
  const docs=[
   doc('m1','합성 노사협의회 안건','회의자료','2026-10-09',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
   doc('m2','합성 노사협의회 결과','회의결과','2026-10-08',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
@@ -241,38 +240,19 @@ for(const width of [390,1280])test(`organization details open with 회의 on so 
  ];
  const f=await fixture(page,{width,docs,libraryView:{categories_off:['회의']}});
  await openOrg(page);
- let section=page.locator('#wdDocs'),host=section.locator('#wdDocKinds');
- await expect(chip(host,'회의')).toHaveAttribute('aria-pressed','true');
- await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
+ let section=page.locator('#wdDocs'),sel=pickBox(section.locator('#wdDocKinds'));
+ expect(await shownText(sel)).toBe('종류 전체');
  await expect(section.locator('.wd-doc-main b').first()).toHaveText('합성 노사협의회 안건');
  await expect(section.locator('.wd-doc-main b').nth(1)).toHaveText('합성 노사협의회 결과');
  await expect(kinds(section).first()).toHaveText('회의');
- // 끄면 숨고, 다른 조직을 열었다 돌아오면 다시 기본(켜짐)에서 시작한다.
- await tap(page,chip(host,'회의'),width);
- await expect(section.locator('.wd-doc-main b').first()).toHaveText('합성 교섭 일정');
+ // 고른 종류는 다른 조직을 열었다 돌아오면 다시 [종류 전체]에서 시작한다.
+ await pickKind(page,sel,'투쟁',width);
+ await expect(section.locator('.wd-doc-main b').first()).toHaveText('합성 집회 계획');
  await page.evaluate(async id=>{await window.KPTUWorkplace.open(id)},O2);await expect(page.locator('#wdDocs .wd-doc-main b').first()).toHaveText('다른 조직 자료');
- await openOrg(page);section=page.locator('#wdDocs');host=section.locator('#wdDocKinds');
- await expect(chip(host,'회의')).toHaveAttribute('aria-pressed','true');
+ await openOrg(page);section=page.locator('#wdDocs');sel=pickBox(section.locator('#wdDocKinds'));
+ expect(await shownText(sel)).toBe('종류 전체');
  await expect(section.locator('.wd-doc-main b').first()).toHaveText('합성 노사협의회 안건');
  expect(f.calls('app_profiles','PATCH')).toEqual([]);expect(f.errors).toEqual([]);
-});
-for(const width of [390,1280])test(`project details open with 회의 on so meeting files show, even when the library remembers 회의 off ${width}`,async({page})=>{
- const docs=[
-  doc('m1','합성 노사협의회 안건','회의자료','2026-10-09',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
-  doc('m2','합성 노사협의회 결과','회의결과','2026-10-08',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
-  ...seedDocs(),
- ];
- const f=await fixture(page,{width,docs,libraryView:{categories_off:['회의']}});
- await openProjectDetail(page);
- const section=page.locator('#ps3-documents'),host=section.locator('#ps3DocKinds');
- await expect(chip(host,'회의')).toHaveAttribute('aria-pressed','true');
- await expect(section.locator('.ps3-doc-row b').first()).toHaveText('합성 노사협의회 안건');
- await expect(section.locator('.ps3-doc-row b').nth(1)).toHaveText('합성 노사협의회 결과');
- await tap(page,chip(host,'회의'),width);await expect(section.locator('.ps3-doc-row b').first()).toHaveText('합성 교섭 일정');
- // 상세의 칩은 저장하지 않는다(자료실 기억을 바꾸지 않음).
- expect(f.calls('app_profiles','PATCH')).toEqual([]);expect(f.calls('app_documents','PATCH')).toEqual([]);
- expect(await noWideScroll(page)).toBe(true);
- expect(f.errors).toEqual([]);
 });
 
 // LIB-사진숨김(S60-10, 명진 결정 11/12, 시안 docs/design/mockups/photo-hide-thumbs.html ②③④): 사업 보고로 올린 사진이 보고 제목을 달고
@@ -305,10 +285,11 @@ for(const width of [412,1280])test(`LIB-사진숨김 조직 창 [자료]·기록
  await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 보도자료 총파업 선포','합성 확대쟁대위 자료']);
  await expect(section.locator('.doc-kind-badge')).toHaveText(['한글','PDF']);
  await expect(section.locator('[data-wd-doc-count]')).toHaveText('5');
- const pic=host.locator('[data-cc-tail]');
- await expect(pic).toHaveText('사진');await expect(pic).toHaveAttribute('data-cc-count','3');await expect(pic).toHaveAttribute('aria-pressed','false');
- expect(await host.evaluate(h=>{const b=[...h.querySelectorAll('button[data-doc-kind],button[data-cc-tail]')];return b.at(-1)?.dataset.ccTail===''})).toBe(true); // 칩 줄 맨 끝
- await expect(chip(host,'성명·보도자료')).toHaveAttribute('data-cc-count','1'); // 칩 숫자는 줄로 보이는 자료 기준
+ // ORG-자료칩드롭다운: 사진은 [종류 ▾] 목록의 '사진 3' 줄(종류 줄 뒤, 0건 종류 앞). 종류 건수는 줄로 보이는 자료(사진 뺌) 기준.
+ const sel=pickBox(host),rowsNow=await optionRows(sel);
+ expect(rowsNow.find(o=>o[0]==='사진')).toEqual(['사진','3',false]);
+ expect(rowsNow.find(o=>o[0]==='성명·보도자료')).toEqual(['성명·보도자료','1',false]);
+ expect(rowsNow.findIndex(o=>o[0]==='사진')).toBe(rowsNow.findIndex(o=>o[2])-1);
  expect(calls).toEqual([]); // 누르기 전에는 작은 그림을 받지 않는다
  // ④ 기록 줄 첨부: 사진 파일 이름 줄 대신 [사진 2] 하나(접힘), 한글 파일은 이름 줄 그대로.
  const rec=page.locator('#wdUpdates [data-basket-link="40000000-0000-4000-8000-000000000009"]');
@@ -321,8 +302,8 @@ for(const width of [412,1280])test(`LIB-사진숨김 조직 창 [자료]·기록
  await expect(rec.locator('[data-record-photo]')).toHaveCount(2);
  await expect(rec.locator('[data-record-photo] img').first()).toBeVisible();
  // ③ [사진 3]을 누르면 줄 대신 작은 그림 칸 3개. 누르면 크게 보기.
- await tap(page,pic,width);
- await expect(host.locator('[data-cc-tail]')).toHaveAttribute('aria-pressed','true');
+ await pickKind(page,sel,'사진',width);
+ expect(await shownText(sel)).toBe('사진');
  const tiles=section.locator('[data-photo-tile]');
  await expect(tiles).toHaveCount(3);
  await expect(section.locator('.wd-doc-row')).toHaveCount(0);
@@ -340,10 +321,10 @@ for(const width of [412,1280])test(`LIB-사진숨김 조직 창 [자료]·기록
  await expect(view).toBeVisible();
  await expect.poll(()=>calls.some(c=>c===PH2+':large')).toBe(true);
  await page.keyboard.press('Escape');await expect(view).toHaveCount(0);
- // 종류 칩을 누르면 줄 목록으로 돌아간다. 다시 열면 늘 숨김으로 시작.
- await tap(page,chip(host,'회의'),width);
+ // 종류를 고르면 줄 목록으로 돌아간다.
+ await pickKind(page,sel,'회의',width);
  await expect(section.locator('[data-photo-tile]')).toHaveCount(0);
- await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 보도자료 총파업 선포']);
+ await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 확대쟁대위 자료']);
  expect(await noWideScroll(page)).toBe(true);
  expect(f.calls('app_documents','PATCH')).toEqual([]);
  expect(f.errors).toEqual([]);
@@ -355,13 +336,13 @@ for(const width of [412,1280])test(`LIB-사진숨김 프로젝트 상세 [자료
  const section=page.locator('#ps3-documents'),host=section.locator('#ps3DocKinds');
  await expect(section.locator('.ps3-doc-row')).toHaveCount(2);
  await expect(section.locator('.doc-kind-badge')).toHaveText(['한글','PDF']);
- const pic=host.locator('[data-cc-tail]');await expect(pic).toHaveAttribute('data-cc-count','3');
- await tap(page,pic,width);
+ const sel=pickBox(host);expect((await optionRows(sel)).find(o=>o[0]==='사진')).toEqual(['사진','3',false]);
+ await pickKind(page,sel,'사진',width);
  await expect(section.locator('[data-photo-tile]')).toHaveCount(3);
  await expect(section.locator('[data-photo-tile]').first().locator('.lu-thumb img')).toBeVisible();
  // 작은 그림 칸 안 ⋯는 오른쪽 위 24px 칸(base-ui.css .photo-fold-tile, 우선순위 강제 없이).
  for(const t of await section.locator('[data-photo-tile]').all())expect(await t.locator('summary').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('[data-photo-tile]').getBoundingClientRect();return [r.width,r.height,Math.round(p.right-r.right),Math.round(r.top-p.top)]})).toEqual([24,24,0,0]);
- await tap(page,host.locator('[data-cc-tail]'),width);
+ await pickKind(page,sel,'종류 전체',width);
  await expect(section.locator('.ps3-doc-row')).toHaveCount(2);
  expect(f.errors).toEqual([]);
 });

@@ -62,7 +62,7 @@
 /* UI-전수디자인점검 F08: 위 ②(입력칸 안 ⤢·작은 [저장] 32px)를 PC 상세 칸만이 아니라 폰 상세 창에도 같은 모양으로 쓴다(ORG-입력칸⤢ 규칙 하나).
    전에는 창에서 [⤢ 크게]가 입력칸 아래 테두리 버튼 한 줄을 따로 만들고 [저장]은 36px였다. 모양의 주인은 이 묶음 하나다(ui-standard.css의 옛 #wdInbox* 크기 줄은 지움).
    #wdInbox를 넣어 id 셋으로 쓰는 것은 화면 공용 채운 버튼 규칙(ui-standard.css '#appView :is(#teamView,…) button.primary')보다 앞서기 위해서다. */
-#wdModal .wd-inbox:not(.hidden){display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;column-gap:var(--kptu-space-2)}
+#wdModal .wd-inbox:not(.hidden){display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;column-gap:var(--kptu-space-2)}
 #wdModal .wd-inbox-actions{display:contents}
 #wdModal #wdInbox #wdInboxText{grid-column:1 / -1;grid-row:1;box-sizing:border-box;padding-right:calc(var(--ds-compact-height) + var(--kptu-space-4))}
 #wdModal #wdInbox #wdInboxBig{grid-column:1 / -1;grid-row:1;justify-self:end;align-self:end;position:relative;z-index:1;display:grid;place-items:center;box-sizing:border-box;width:var(--ds-compact-height);min-width:0;height:var(--ds-compact-height);min-height:0;margin:0 var(--kptu-space-4) var(--kptu-space-1) 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);cursor:pointer}
@@ -70,8 +70,8 @@
 #wdModal #wdInbox #wdInboxBig:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
 #wdModal #wdInbox #wdInboxBig:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 #wdModal .wd-inbox-big-label{display:none}
-#wdModal #wdInbox #wdInboxState{grid-column:1;grid-row:2;margin:var(--kptu-space-2) 0 0}
-#wdModal #wdInbox #wdInboxSave{grid-column:3;grid-row:2;position:relative;min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:var(--kptu-space-2) 0 0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);line-height:1}
+#wdModal #wdInbox #wdInboxState{grid-column:2;grid-row:2;margin:var(--kptu-space-2) 0 0}
+#wdModal #wdInbox #wdInboxSave{grid-column:4;grid-row:2;position:relative;min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:var(--kptu-space-2) 0 0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);line-height:1}
 #wdModal #wdInbox #wdInboxSave::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);width:auto;min-width:0;height:var(--kptu-touch-target,44px)}
 #wdDocs .wd-head{align-items:center}
 .wd-doc-lines{display:grid}
@@ -146,8 +146,9 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
    [쟁의 단계 ▾][날짜][~ 끝 날짜]를 한 줄로. 날짜 칸은 글자 폭(9.5em)만, 좁은 폰에서는 줄바꿈으로 자연스럽게 내려간다. */
 .wd-stage>.date-field.is-block{flex:0 0 9.5em;width:9.5em;min-width:0}
 .wd-stage>.date-field.is-block>.wd-stage-date{width:100%}
-.wd-stage-btn{position:relative;flex:0 0 auto;height:var(--ds-compact-height);min-height:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-text-button)}
-.wd-stage-btn::after{content:"";position:absolute;inset:-6px 0}
+.wd-stage-btn{flex:0 0 auto}
+/* ORG-날짜고치기버튼오른쪽(11/14): 단계 줄 [저장]은 줄 오른쪽 끝(줄이 바뀌어도). 모양은 날짜 수정 칸과 같은 .wl-btn(weekly-org-lines.css). */
+.wd-stage .wd-stage-save{margin-left:auto}
 .wd-stage-msg{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-msg:empty{display:none}.wd-stage-msg.error{color:var(--kptu-danger)}
 .wd-stage-hist{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-hist summary{cursor:pointer}.wd-stage-hist div{padding:1px 0 0 10px}
 /* ORG-쟁의단계 다듬기(2026-10-24 11:05): 저장 줄의 작은 [~ 끝 날짜]와 끝 날짜 칸, 이력 줄 ⋯ → 고치기·지우기. 새 요소만, 크기는 기존 토큰. */
@@ -178,7 +179,11 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-tab-n{margin-left:4px;color:var(--kptu-muted);font-weight:400}
 .wd-tab-n:empty{display:none}
 .wd-tabpanel>.wd-sub:first-child{margin-top:0;padding-top:0;border-top:0}
-.okp{display:grid;gap:6px;font-size:var(--ds-text-row,14px)}
+/* ORG-주요인물여백(S61-53): 한 칸짜리 grid는 칸 폭을 가장 긴 줄(줄바꿈 없는 지난 기록 글)만큼 넓혀 창 오른쪽 밖으로 밀었다(창 카드가 옆으로
+   밀려 왼쪽 여백까지 사라짐). 칸 폭은 창 폭(minmax(0,1fr)) — '요즘'은 줄바꿈, 지난 기록 글은 끝을 …로. 칸 사이 간격은 8px 하나(--kptu-space-2). */
+.okp{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--kptu-space-2);font-size:var(--ds-text-row,14px)}
+.okp>*{min-width:0}
+.okp-fail{padding:2px 2px 4px;color:var(--kptu-danger);font-size:var(--ds-text-meta)}
 .okp-faint{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .okp-chips{display:flex;flex-wrap:wrap;gap:4px}
 /* 주요 인물 0명: 공용 빈 글(.wait-empty, 흐린 작은 글) + [+ 인물] 글자 단추 한 줄. 칩 줄은 사람이 있을 때만. */
@@ -200,9 +205,9 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 details.okp-brief{display:block}
 details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:pointer}
 .okp-brief-k{flex:0 0 auto;color:var(--kptu-muted);font-weight:600}
-.okp-brief-t{min-width:0}
+.okp-brief-t{min-width:0;overflow-wrap:anywhere}
 .okp-brief-d{margin:4px 0 0;color:var(--kptu-muted);white-space:pre-line}
-.okp-h{display:flex;gap:6px;align-items:baseline;margin:6px 0 0;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-weight:600}
+.okp-h{display:flex;gap:6px;align-items:baseline;margin:var(--kptu-space-1) 0 0;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-weight:600}
 .okp-h small{font-weight:400}
 .okp-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--kptu-border)}
 .okp-list li{border-bottom:1px solid var(--kptu-border)}
@@ -229,8 +234,11 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 
 /* ORG-기록첨부(S50-22): 기록 칸의 📎(정리함 입력칸과 같은 부품 basket-picker.css) — [저장] 왼쪽, 고른 파일 줄은 칸 아래 한 줄씩. */
 .wd-inbox-clip{display:flex;align-items:center}
-#wdModal #wdInbox #wdInboxClip{grid-column:2;grid-row:2;margin:var(--kptu-space-2) 0 0}
-#wdModal #wdInbox #wdInboxFiles{grid-column:1 / -1;grid-row:3}
+#wdModal #wdInbox #wdInboxClip{grid-column:3;grid-row:2;margin:var(--kptu-space-2) 0 0}
+#wdModal #wdInbox #wdInboxFiles{grid-column:1 / -1;grid-row:4}
+/* ORG-기록입력날짜: [오늘 ▾] 칩은 아래 줄 왼쪽(1칸), 날짜 칸은 그 아래 한 줄 전체. 칩·칸 모양은 공용(ds-chip·record-day-edit.js). */
+#wdModal #wdInbox #wdInboxDayChip{grid-column:1;grid-row:2;display:flex;align-items:center;margin:var(--kptu-space-2) 0 0}
+#wdModal #wdInbox #wdInboxDay{grid-column:1 / -1;grid-row:3}
 .wd-inbox-files:not([hidden]){margin-top:var(--kptu-space-2)}
 #wdInbox.basket-drop-target{position:relative}
 #wdInbox .basket-clip .basket-clip-label{display:none}

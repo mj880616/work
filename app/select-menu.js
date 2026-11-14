@@ -12,13 +12,14 @@ const KEY = 'kptuSelectMenu';
 
 // ---- pure rules (unit-tested without a browser) ----
 
-// The rows of a select in order: {type:'option', index, value, label, selected, disabled} and {type:'group', label}.
+// The rows of a select in order: {type:'option', index, value, label, selected, disabled, count} and {type:'group', label}.
+// count (ORG-자료칩드롭다운): an option's data-count, shown small at the row's right end (the closed select shows the label only).
 // A hidden option or group is not listed.
 export function selectItems(select) {
   const out = [], current = select.selectedIndex;
   const push = (o, groupDisabled) => {
     if (o.hidden) return;
-    out.push({type: 'option', index: o.index, value: o.value, label: String(o.label || o.textContent || '').trim() || '—', selected: o.index === current, disabled: !!(o.disabled || groupDisabled)});
+    out.push({type: 'option', index: o.index, value: o.value, label: String(o.label || o.textContent || '').trim() || '—', selected: o.index === current, disabled: !!(o.disabled || groupDisabled), count: o.dataset?.count ?? ''});
   };
   for (const child of select.children) {
     if (child.tagName === 'OPTGROUP') {
@@ -170,6 +171,7 @@ if (typeof document !== 'undefined' && !window.__KPTU_SELECT_MENU__) {
       el.className = 'kptu-select-opt'; el.id = `kptuSelectOpt${id}-${pos}`; el.dataset.pos = pos; el.setAttribute('role', 'option');
       el.setAttribute('aria-selected', String(x.selected)); if (x.disabled) el.setAttribute('aria-disabled', 'true');
       el.textContent = x.label; el.title = x.label;
+      if (x.count !== '' && x.count != null) { const n = document.createElement('span'); n.className = 'kptu-select-count'; n.textContent = String(x.count); el.append(n); }
       return el;
     }));
     const label = nameOf(select);

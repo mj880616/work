@@ -11,12 +11,12 @@ async function open(page,width=1280){
 
 test('⑤ PC 1280: 브라우저 탭 제목은 지금 화면 이름',async({page})=>{
  const errors=await open(page);
- await expect(page).toHaveTitle('홈 · 웹2');
+ await expect(page).toHaveTitle('홈 · 노동조합+');
  await nav(page).getByRole('link',{name:'사업 보고',exact:true}).click();await expect(page.locator('#meetingsView')).toBeVisible();
- await expect(page).toHaveTitle('사업 보고 · 웹2');
+ await expect(page).toHaveTitle('사업 보고 · 노동조합+');
  await nav(page).getByRole('link',{name:'할 일',exact:true}).click();await expect(page.locator('#tasksView')).toBeVisible();
- await expect(page).toHaveTitle('할 일 · 웹2');
- await page.goBack();await expect(page.locator('#meetingsView')).toBeVisible();await expect(page).toHaveTitle('사업 보고 · 웹2');
+ await expect(page).toHaveTitle('할 일 · 노동조합+');
+ await page.goBack();await expect(page.locator('#meetingsView')).toBeVisible();await expect(page).toHaveTitle('사업 보고 · 노동조합+');
  expect(errors).toEqual([]);
 });
 
@@ -106,7 +106,7 @@ test('② PC 1280: 목록 ↑↓는 위·아래 줄로, role="button" 줄의 Ent
 
 test('폰 412: 탭 제목만 바뀌고 하단 탭·메뉴 판은 단추 그대로',async({page})=>{
  const errors=await open(page,412);
- await expect(page).toHaveTitle('홈 · 웹2');
+ await expect(page).toHaveTitle('홈 · 노동조합+');
  await expect(page.locator('.mobile-tabs button[data-view="meetings"]')).toBeVisible();
  await expect(page.locator('[data-skip-main]')).not.toBeInViewport();
  expect(errors).toEqual([]);

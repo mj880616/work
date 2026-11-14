@@ -98,6 +98,43 @@ test('저장하면 날짜·시간과 함께 기록 맨 위에 쌓이고 입력�
   expect(await page.evaluate(()=>window.__patches.length)).toBe(0);
 });
 
+// ORG-기록입력날짜(요청함 11/14): 입력 칸 아래 줄 왼쪽 [오늘 ▾] → 날짜 수정 칸과 같은 [하루|기간|없음] + 달력. 고른 날짜로 저장, 저장하면 다시 오늘.
+test('기록 입력 칸에서 저장 전에 날짜를 고르면 그 날짜로 기록된다(11.10)',async({page})=>{
+  await openRail(page);
+  const chip=page.locator('#wdInboxDayChip [data-wdd-day-chip]');
+  await expect(chip).toHaveText(/^오늘/);
+  await expect(page.locator('#wdInboxDay')).toBeHidden();
+  await chip.click();
+  const panel=page.locator('#wdInboxDay');
+  await expect(panel.locator('[data-wdd-mode="day"]')).toHaveAttribute('aria-pressed','true');
+  await panel.locator('[data-wdd-field="day"]').fill('2026-11-10');
+  await expect(chip).toHaveText(/^11\.10\./);
+  // 버튼은 칸 오른쪽 끝(ORG-날짜고치기버튼오른쪽)
+  const [box,btn]=await Promise.all([panel.locator('[data-wdd-day-form]').boundingBox(),panel.locator('[data-wdd-day-close]').boundingBox()]);
+  expect(box.x+box.width-(btn.x+btn.width)).toBeLessThan(16);
+  await panel.locator('[data-wdd-day-close]').click();
+  await expect(panel).toBeHidden();
+  await page.locator('#wdInboxText').fill('11월 10일 지부 간담회');
+  await page.locator('#wdInboxSave').click();
+  await expect(page.locator('#wdInboxState')).toHaveText('저장했습니다.');
+  const posts=await page.evaluate(()=>window.__updatePosts);
+  expect(posts.at(-1)).toEqual({organization_id:'org-rail',raw_text:'11월 10일 지부 간담회',created_by:'user-me',occurred_at:'2026-11-10T12:00:00+09:00'});
+  await expect(chip).toHaveText(/^오늘/);
+  // 기간: 끝나는 날이 앞서면 저장하지 않고 칸을 연다
+  await chip.click();
+  await panel.locator('[data-wdd-mode="range"]').click();
+  await panel.locator('[data-wdd-field="day"]').fill('2026-11-10');
+  await panel.locator('[data-wdd-field="end_day"]').fill('2026-11-08');
+  await page.locator('#wdInboxText').fill('기간 기록');
+  await page.locator('#wdInboxSave').click();
+  await expect(page.locator('#wdInboxState')).toHaveText('끝나는 날은 시작일과 같거나 뒤여야 해요.');
+  expect(await page.evaluate(()=>window.__updatePosts.length)).toBe(posts.length);
+  await panel.locator('[data-wdd-field="end_day"]').fill('2026-11-12');
+  await page.locator('#wdInboxSave').click();
+  await expect(page.locator('#wdInboxState')).toHaveText('저장했습니다.');
+  expect((await page.evaluate(()=>window.__updatePosts)).at(-1)).toMatchObject({occurred_at:'2026-11-10T12:00:00+09:00',end_day:'2026-11-12'});
+});
+
 test('빈칸·공백만 있으면 저장하지 않고, 저장 실패 시 입력 내용을 지우지 않는다',async({page})=>{
   await openRail(page);
   await page.locator('#wdInboxSave').click();

@@ -8,9 +8,10 @@ export function createGoogleTask({title,due=null,links=[],notes='',expectedSessi
 // MTG-기록겹침거르기: 저장된 행(id)을 돌려받아(return=representation) 저장이 끝난 뒤 겹침 확인에 알린다. 알림은 저장 결과를 바꾸지 않는다.
 // ORG-기록하나로 O-4(설계 record-one.md 2-2): 어디서 넣었나(source_kind user·update·feed·memorable)와 원래 줄 번호(source_id)를 함께 남긴다.
 // user는 원래 줄이 없다(DB 검사: user·null ↔ source_id null). 안 주면 칸을 보내지 않는다(null = 직접 쓰기로 봄). 기록 날짜(occurred_at)·기간 끝 날(end_day)은 주면 넣고, 안 주면 서버 기본값(지금).
-export async function saveOrganizationUpdate({organization_id,raw_text,created_by,doc=null,occurred_at=null,end_day=null,source_kind=null,source_id=null}, rt=window.KPTURuntime) {
+// ORG-기록입력날짜: day_none=true(날짜 없음 기록)는 고른 때만 보낸다(DB 적용 전 서버에 없는 칸이라 기본은 보내지 않음).
+export async function saveOrganizationUpdate({organization_id,raw_text,created_by,doc=null,occurred_at=null,end_day=null,day_none=false,source_kind=null,source_id=null}, rt=window.KPTURuntime) {
   const kind=['update','feed','memorable'].includes(source_kind)&&source_id?source_kind:source_kind==='user'?'user':null;
-  const body={organization_id,raw_text,created_by,...(doc?{doc}:{}),...(occurred_at?{occurred_at}:{}),...(end_day?{end_day}:{}),...(kind?{source_kind:kind}:{}),...(kind&&kind!=='user'?{source_id}:{})};
+  const body={organization_id,raw_text,created_by,...(doc?{doc}:{}),...(occurred_at?{occurred_at}:{}),...(end_day?{end_day}:{}),...(day_none===true?{day_none:true}:{}),...(kind?{source_kind:kind}:{}),...(kind&&kind!=='user'?{source_id}:{})};
   let rows;
   // 같은 원래 줄을 같은 조직에 두 번 넣으면 DB 고유 색인이 거절한다(409) — 이미 들어간 것이므로 저장된 것으로 본다.
   try{rows=await rt.api('/rest/v1/app_suborganization_updates', {method:'POST',prefer:'return=representation',body});}

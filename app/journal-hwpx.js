@@ -353,7 +353,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     finalLine.hidden = !c?.document_id;
     if (finalLine.hidden) { finalLine.replaceChildren(); return; }
     const made = el('p', 'journal-hwpx-final-row');
-    made.append(el('b', '', '① Web2가 만든 파일'), ` ${mdhm(c.at)}${c.final ? ' · 이전 판' : ''}`);
+    made.append(el('b', '', '① 노동조합+가 만든 파일'), ` ${mdhm(c.at)}${c.final ? ' · 이전 판' : ''}`);
     const mine = el('p', 'journal-hwpx-final-row'); mine.dataset.hwpxFinalMine = '';
     const pick = button(c.final ? '다시 올리기' : '올리기', 'hwpxFinalPick', 'row-act'); pick.disabled = finalBusy;
     if (c.final) { mine.dataset.hwpxFinalDone = ''; mine.append(el('b', '', '② 내가 수정한 최종본'), ` ${c.final.file_name} · ${mdhm(c.final.at)} — 이번 주 확정본 `, pick); }
@@ -371,7 +371,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!kind) { say(TEXT.notHwp, 'error'); return; }
     if (kind !== 'hwpx' && draft.hwp5Header(bytes)?.password) { say(TEXT.locked, 'error'); return; }
     const anchor = finalLine.querySelector('[data-hwpx-final-pick]') ?? finalLine;
-    if (!await askConfirm(anchor, {text:`"${file.name}"을(를) 이번 주 개인 확정본으로 저장할까요?`, note:'Web2가 만든 판은 30일 동안 자료실 [이전 파일]에 남고, 다음 주 바탕은 이 파일이 돼요.', ok:'저장'})) return;
+    if (!await askConfirm(anchor, {text:`"${file.name}"을(를) 이번 주 개인 확정본으로 저장할까요?`, note:'노동조합+가 만든 판은 30일 동안 자료실 [이전 파일]에 남고, 다음 주 바탕은 이 파일이 돼요.', ok:'저장'})) return;
     if (getWeek().start !== week.start) return;
     finalBusy = true; paintConfirm(); say('수정한 최종본을 자료실에 저장하는 중…');
     try {

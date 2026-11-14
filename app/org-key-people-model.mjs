@@ -2,6 +2,8 @@
 // - 사람마다 '찾을 이름'(이름 + 통화·텔레그램에 찍히는 이름)으로 기록을 고른다. 지정하지 않은 사람은 모으지 않는다(결정 5).
 // - 통화: 상대(counterpart, 손으로 고친 값 우선)·제목. 업무·개인 통화함 모두(10/29 01:29 결정: 개인 통화 구분 없이 다 모음).
 // - 텔레그램: 보낸 사람 이름표(손 이름·수집기 이름)가 찾을 이름이면 그 방·날 전부, 그리고 제목·요약에 이름이 나온 소식.
+//   S61-53: 그 방·날의 소식이 읽어 온 목록(최근 것부터 600개)에 없어도 이름표가 있으면 방 이름 한 줄로 잡는다(누르면 그 방 그날).
+//   줄 key는 'telegram:방|날'(방 key에 '|'는 없음) — 예전 NUL 구분자는 HTML 속성에서 깨져 텔레그램 줄을 눌러도 열리지 않았다.
 // - 회의(사업 보고): 제목·내용 글에 이름이 나오면. 챙길 것: 요약·근거 글. 원장 약속: 상대·제목.
 // DB 규칙(20261029014700_org_key_people)과 같은 숫자: 이름 1~40자, 찾을 이름 2~40자·20개·중복 없음.
 
@@ -71,7 +73,7 @@ const dayOf = v => /^\d{4}-\d{2}-\d{2}/.test(String(v ?? '')) ? String(v).slice(
 const byNewest = (a, b) => String(b.day).localeCompare(String(a.day)) || String(b.at || '').localeCompare(String(a.at || '')) || String(a.id).localeCompare(String(b.id));
 
 // 지난 기록(통화·텔레그램·회의) 한 목록, 최신순. 줄: {key, kind, id, day, at, text, people:[id], open:{…}}.
-export function collectRecords({people = [], calls = [], personal = [], telegram = [], senders = null, meetings = []} = {}, limit = RECORD_LIMIT) {
+export function collectRecords({people = [], calls = [], personal = [], telegram = [], senders = null, meetings = [], rooms = null, since = ''} = {}, limit = RECORD_LIMIT) {
   if (!people.length) return [];
   const out = [];
   for (const [rows, kind] of [[calls, 'call'], [personal, 'personal']]) {
@@ -88,14 +90,15 @@ export function collectRecords({people = [], calls = [], personal = [], telegram
     for (const s of senders.senders) { const ids = whoIn([s.name, s.auto_name], people); if (ids.length && !s.is_self) sid.set(s.id, ids); }
     for (const l of senders.links || []) {
       const ids = sid.get(l.sender_id); if (!ids) continue;
-      const k = `${l.room_key}\u0000${l.day}`, cur = roomDayPeople.get(k) || new Set();
+      if (!l.room_key || !dayOf(l.day) || (since && l.day < since)) continue;
+      const k = `${l.room_key}|${dayOf(l.day)}`, cur = roomDayPeople.get(k) || new Set();
       ids.forEach(i => cur.add(i)); roomDayPeople.set(k, cur);
     }
   }
   const tg = new Map();
   for (const r of telegram || []) {
     if (!r?.id || r.hidden_at || !r.room_key) continue;
-    const day = dayOf(r.day || r.occurred_at), k = `${r.room_key}\u0000${day}`;
+    const day = dayOf(r.day || r.occurred_at), k = `${r.room_key}|${day}`;
     const ids = new Set([...(roomDayPeople.get(k) || []), ...whoIn([r.title, r.summary], people)]);
     if (!ids.size) continue;
     const cur = tg.get(k) || {key:`telegram:${k}`, kind:'telegram', id:r.id, day, at:r.occurred_at || '', room:r.room_label || '', texts:[], people:new Set(), open:{view:'telegram', room:r.room_key, day, item:r.id}};
@@ -103,6 +106,13 @@ export function collectRecords({people = [], calls = [], personal = [], telegram
     const t = clean(r.title || r.summary); if (t && !cur.texts.includes(t)) cur.texts.push(t);
     if (String(r.occurred_at || '') > String(cur.at)) { cur.at = r.occurred_at; cur.id = r.id; cur.open = {...cur.open, item:r.id}; }
     tg.set(k, cur);
+  }
+  // 이름표로 잡힌 방·날 중 소식이 목록에 없는 것: 방 이름 한 줄(시각은 그날 끝으로 두어 같은 날 다른 줄과 순서가 흔들리지 않게).
+  const labelOf = room => rooms?.get?.(room)?.room_label || (telegram || []).find(r => r?.room_key === room && r.room_label)?.room_label || '';
+  for (const [k, ids] of roomDayPeople) {
+    if (tg.has(k)) continue;
+    const at = k.lastIndexOf('|'), room = k.slice(0, at), day = k.slice(at + 1);
+    tg.set(k, {key:`telegram:${k}`, kind:'telegram', id:`${room}|${day}`, day, at:'', room:labelOf(room) || '텔레그램 방', texts:[], people:new Set(ids), open:{view:'telegram', room, day, item:''}});
   }
   for (const v of tg.values()) {
     const order = (people || []).map(p => p.id).filter(i => v.people.has(i));

@@ -91,7 +91,7 @@ export const barItemText = id => PHOTO_BAR_TEXT[id] || PHOTO_ACT_TEXT[id] || id;
 export const FOLDER_DELETE_OFF = Object.freeze({
   odTop: '맨 위 폴더는 삭제할 수 없어요. 안의 폴더를 삭제해 주세요',
   odLink: '삭제하려면 원드라이브를 다시 연결해 주세요',
-  phoneOld: '폰 폴더를 삭제하려면 웹2 앱을 새 판으로 올려 주세요',
+  phoneOld: '폰 폴더를 삭제하려면 노동조합+ 앱을 새 판으로 올려 주세요',
   phoneTop: 'DCIM·Pictures 같은 맨 위 폴더는 삭제할 수 없어요. 안의 폴더를 삭제해 주세요',
   gdLink: '삭제하려면 구글 드라이브를 다시 연결해 주세요(위 구글 드라이브 아이콘)'
 });
@@ -108,7 +108,7 @@ export function folderDeleteOff(kind, {top = false, can = true, ops = true, tras
 // 실제로 막는 것은 지금처럼 폰 앱·서버다(화면에서 권한을 넓히지 않음).
 export const PHOTO_OFF_TEXT = Object.freeze({
   delete: Object.freeze({phone: '이 폰은 여기서 삭제하지 못해요. 갤러리 앱에서 삭제해 주세요.', gdrive: '구글 드라이브 권한이 없어 삭제하지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '삭제하려면 원드라이브를 다시 연결해 주세요.'}),
-  move: Object.freeze({phone: '폰 사진을 옮기려면 웹2 앱을 새 판으로 올려 주세요.', gdrive: '구글 드라이브 권한이 없어 옮기지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '옮기려면 원드라이브를 다시 연결해 주세요.'}),
+  move: Object.freeze({phone: '폰 사진을 옮기려면 노동조합+ 앱을 새 판으로 올려 주세요.', gdrive: '구글 드라이브 권한이 없어 옮기지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '옮기려면 원드라이브를 다시 연결해 주세요.'}),
   rename: Object.freeze({gdrive: '구글 드라이브 권한이 없어 이름을 바꾸지 못해요. 사진 › 출처에서 다시 연결해 주세요.'}),
 });
 export function photoOffWhy(act, kind) {

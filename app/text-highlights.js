@@ -188,5 +188,8 @@ export function revealMark(zoneEl, id) {
   if (!m) return false;
   m.scrollIntoView({block: 'center', behavior: 'smooth'});
   m.focus?.({preventScroll: true});
+  // 잠깐 밝히기: 다른 화면에서 연 기록과 같은 공용 표시(base-ui.css [data-journal-flash], record-flash.js). 끝나면 노란 밑줄 그대로.
+  m.removeAttribute('data-journal-flash'); void m.offsetWidth; m.setAttribute('data-journal-flash', '');
+  m.addEventListener('animationend', () => m.removeAttribute('data-journal-flash'), {once: true});
   return true;
 }

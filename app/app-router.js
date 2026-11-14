@@ -460,17 +460,61 @@
     history.replaceState({...(history.state||{}),kptuOverlay:id},'',location.href);
     return true;
   }
-  async function openFrom(view,open=null,{sub=null}={}){
+  // S61-53 ORG-주요인물기록열기: a line inside a window (.modal of mobile-modal-history.js, e.g. the phone organization detail) that
+  // opens a source on another screen. The window stands on its own history entry (kptuOverlay); stepping to the other screen copied that
+  // mark and the window, closed by its owner on kptu:view-changed, then took Back for itself — the new screen was undone at once and
+  // only the list under the window was left. So the window is first closed the way Back closes it (its owner's popstate: the same
+  // unsaved-input question), and openFrom goes on only once it is closed. back() (the caller's reopener) opens it again when one Back
+  // returns to the entry the line was on (or at once when the step could not be taken), so one Back = that window, at that place.
+  const returns=new Map();
+  function windowHere(){
+    const id=history.state?.kptuOverlay,w=id&&document.getElementById(id);
+    return w&&!w.classList.contains('hidden')&&w.dataset.kptuHistoryOpen==='1'?w:null;
+  }
+  async function leaveWindow(){
+    const w=windowHere();
+    if(!w)return true;
+    const from=here()?.key;
+    if(!from)return false;
+    history.back();
+    // Counted in frames, not a timer: the step back has arrived (the entry changed) and the owners' popstate listeners have run.
+    for(let n=0;n<60&&here()?.key===from;n++)await new Promise(done=>requestAnimationFrame(done));
+    await new Promise(done=>requestAnimationFrame(done));
+    return here()?.key!==from&&(w.classList.contains('hidden')||getComputedStyle(w).display==='none');
+  }
+  function keepReturn(key,view,back){
+    if(!key||typeof back!=='function')return;
+    returns.delete(key);returns.set(key,{view,back});
+    while(returns.size>50)returns.delete(returns.keys().next().value);
+  }
+  function returnHere(){
+    const key=here()?.key,kept=key&&returns.get(key);
+    if(!kept||api.current!==kept.view)return;
+    returns.delete(key);
+    // After every popstate listener (a window opened inside the dispatch would be taken by a later listener for one Back closes).
+    requestAnimationFrame(()=>{if(here()?.key!==key||api.current!==kept.view)return;try{kept.back()}catch(err){console.error('return reopen',err)}});
+  }
+  async function openFrom(view,open=null,{sub=null,back=null}={}){
     view=viewName(view);
     if(!view||!authenticatedShellReady())return false;
-    const lazy=window.KPTUViewLoader,token=askGo();
+    const lazy=window.KPTUViewLoader;let token=askGo();
     if(lazy?.isLoaded&&!lazy.isLoaded(view))await lazy.load(view);
     if(!stillLatest(token))return false;
+    const hadWindow=!!windowHere(),from=api.current;
+    if(hadWindow){
+      // Closing the window is a traversal of its own (the screens may step on it): the line stays asked while the screen is the same.
+      if(!(await leaveWindow())||api.current!==from)return false;
+      token=askGo();
+    }
     const before=here()?.key;
     sourceEntry=null;
-    if(!go(view,{source:'delegated',sub})&&api.current!==view)return false;
+    if(!go(view,{source:'delegated',sub})&&api.current!==view){
+      if(hadWindow&&typeof back==='function')queueMicrotask(()=>{try{back()}catch(err){console.error('return reopen',err)}});
+      return false;
+    }
     const entry=here();
     if(entry&&entry.key!==before&&!sourceEntry)sourceEntry={key:entry.key,view};
+    if(entry&&entry.key!==before)keepReturn(before,from,back);
     return typeof open==='function'?await open():true;
   }
   // Scroll position per history entry, only for a step between screens (a layer's own list scroll stays with its owner, e.g.
@@ -813,10 +857,11 @@
     if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;traverseDelta=0;rememberRoute();return;}
     onTraversal();
     traverseDelta=0;
+    returnHere();
     movedSoon();
   });
   window.addEventListener('kptu:session-changed',e=>{
-    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();reopeners.clear();movedSoon();return}
+    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();reopeners.clear();returns.clear();movedSoon();return}
     if(appReady())restoreFromUrl('session');
   });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});

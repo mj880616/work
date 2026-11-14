@@ -137,3 +137,27 @@ test('사업 보고 상세 창: 사업 기록 줄 ⋯ 맨 아래에만 [삭제](
   assert.match(sql, /grant select, delete on table public\.app_business_records to authenticated;/);
   assert.match(sql, /create policy business_records_owner_all on public\.app_business_records for all to authenticated\s+using \(private\.app_is_workspace_owner\(workspace_id\)\)/);
 });
+
+// ORG-기록입력날짜(요청함 11/14): 새 기록도 수정 칸과 같은 [하루|기간|없음]으로 저장 전에 날짜를 고른다.
+test('새 기록 날짜: 하루·기간·없음 → 서버 칸(occurred_at 서울 정오·end_day·day_none)', () => {
+  assert.deepEqual(M.checkNewDay({mode: 'day', day: '2026-11-10', end_day: '2026-11-12'}), {ok: true, value: {day: '2026-11-10', end_day: null}});
+  assert.deepEqual(M.checkNewDay({mode: 'range', day: '2026-11-10', end_day: '2026-11-12'}).value, {day: '2026-11-10', end_day: '2026-11-12'});
+  assert.deepEqual(M.checkNewDay({mode: 'range', day: '2026-11-10', end_day: ''}), {ok: false, field: 'end_day'});
+  assert.deepEqual(M.checkNewDay({mode: 'none'}, {noneOn: true, today: '2026-11-14'}).value, {day: '2026-11-14', end_day: null, none: true});
+  assert.deepEqual(M.checkNewDay({mode: 'none'}, {noneOn: false, today: '2026-11-14'}), {ok: false, field: 'mode'});
+  assert.deepEqual(M.newRecordFields({day: '2026-11-10', end_day: null}), {occurred_at: '2026-11-10T12:00:00+09:00', end_day: null});
+  assert.deepEqual(M.newRecordFields({day: '2026-11-14', end_day: null, none: true}), {occurred_at: '2026-11-14T12:00:00+09:00', end_day: null, day_none: true});
+  assert.deepEqual(M.checkRecord({mode: 'day', day: '2026-11-10', body: ' 가 '}).value, {day: '2026-11-10', end_day: null, body: '가'});
+});
+
+test('새 기록 날짜 칩 글자: 오늘·날짜·기간·날짜 없음, 두 입력 칸이 같은 칩을 쓴다', async () => {
+  globalThis.window ??= {};
+  const DE = await import('../app/record-day-edit.js');
+  assert.equal(DE.dayChipText({mode: 'day', day: '2026-11-14'}, '2026-11-14'), '오늘');
+  assert.equal(DE.dayChipText({mode: 'day', day: '2026-11-10'}, '2026-11-14'), '11.10.');
+  assert.equal(DE.dayChipText({mode: 'range', day: '2026-11-10', end_day: '2026-11-12'}, '2026-11-14'), '11.10.~11.12.');
+  assert.equal(DE.dayChipText({mode: 'none', day: '2026-11-14'}, '2026-11-14'), '날짜 없음');
+  assert.match(DE.dayFormHtml({mode: 'day', day: '2026-11-10'}, {prefix: 'wdd', pick: true}), /data-wdd-day-close[^>]*>닫기</);
+  assert.match(read('app/workplace-detail.js'), /mountDayPick\(/);
+  assert.match(read('app/record-window-view.js'), /DE\.dayChipHtml\(/);
+});

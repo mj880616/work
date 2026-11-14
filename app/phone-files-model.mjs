@@ -85,7 +85,7 @@ export function phoneSaved(text) {
 }
 export const PHONE_SAVE_MAX = 1024 * 1024 * 1024;
 // 폰 쓰기 실패 글. del = 폰 앱이 0.5.4+(휴지통이 문서까지 되는 판). 옛 판에서 막연히 '못했어요'만 보이지 않게 할 일을 붙인다(S53-7).
-export const PHONE_TRASH_OLD_TEXT = '폰에서 삭제하지 못했어요. 웹2 앱을 새 판으로 올리면 삭제할 수 있어요(앱 위쪽 새 버전 줄)';
+export const PHONE_TRASH_OLD_TEXT = '폰에서 삭제하지 못했어요. 노동조합+ 앱을 새 판으로 올리면 삭제할 수 있어요(앱 위쪽 새 버전 줄)';
 export function phoneWriteText(code, {del = true} = {}) {
   switch (code) {
     case 'exists': return '같은 이름이 이미 있어요';
@@ -116,9 +116,9 @@ export function phoneTrashAsk({files = 0, folders = [], one = ''} = {}) {
 }
 // '이 폰'에서 아직 안 되는 일. 옛 앱(쓰기 모름)은 보기·클라우드로 복사만.
 export const PHONE_READONLY_TEXT = '폰 파일은 지금은 보기·받기만 돼요';
-export const PHONE_OLD_APP_TEXT = '폰에 쓰려면 웹2 앱을 새 판으로 올려 주세요';
+export const PHONE_OLD_APP_TEXT = '폰에 쓰려면 노동조합+ 앱을 새 판으로 올려 주세요';
 // FILES-저장소사이(S52-43 ②): 폰에 쓸 수 있는 앱(3-③)이면 폰 ↔ 클라우드 옮기기(복사 뒤 원본 휴지통)가 된다.
 //   S53-8 FILES-폴더째PC폰: 폰 안끼리도(복사 뒤 원본 휴지통). 폰에 쓸 수 없을 때(옛 앱·권한 없음)만 이 한 줄.
-export const PHONE_MOVE_TEXT = '폰에서 옮기려면 웹2 앱 새 판과 폰 쓰기 허용이 필요해요';
+export const PHONE_MOVE_TEXT = '폰에서 옮기려면 노동조합+ 앱 새 판과 폰 쓰기 허용이 필요해요';
 export const PHONE_ASK_TEXT = "설정에서 '모든 파일 접근 허용'을 켜고 돌아오세요";
 export const PHONE_CANNOT_TEXT = '이 폰(안드로이드 10 이하)에서는 폰 저장 공간을 열 수 없어요';
