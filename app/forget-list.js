@@ -48,7 +48,7 @@ export const NEWS_HINT = Object.freeze({task: 'task', event: 'event', note: 'not
 export const PROMISE_NEWS_ACTS = Object.freeze([['ledger', '원장으로'], ['done', '받음'], ['dismissed', '무시']]);
 // 상대 약속 소식 → 원장 쓰기요청 글(챙길 것 약속과 같은 모양, 근거는 출처 이름만 — 사람 이름·연락처 없음).
 export const promiseNewsLedger = r => ledgerRequestText({summary: newsText(r), due: '', evidence: '', source_kind: '', source_day: r?.day || ''})
-  .replace('- 출처: Web2 기록', `- 출처: Web2 소식(${r?.source === 'telegram' ? '텔레그램' : '통화'})`);
+  .replace('- 출처: 노동조합+ 기록', `- 출처: 노동조합+ 소식(${r?.source === 'telegram' ? '텔레그램' : '통화'})`);
 export const newsDone = r => { const d = shortDay(r.decidedAt ? seoulDateKey(new Date(r.decidedAt)) : ''); const t = r.status === 'kept' ? '처리함' : '무시함'; return d ? `${t} · ${d}` : t; };
 
 const shortDay = v => { const m = String(v ?? '').match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${Number(m[1])}/${Number(m[2])}` : ''; };

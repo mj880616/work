@@ -35,7 +35,7 @@ export const SOURCES = Object.freeze([
 ]);
 // 건수 칸을 채우는 줄(통화 전사·텔레그램). 값은 점검 신호의 최근 24시간 새 파일 수이고, 신호에 건수가 없으면 칸을 비운다.
 const COUNT_KEYS = new Set(['call', 'telegram']);
-export const UNCHECKABLE_NOTE = 'Web2 권한 밖이라 확인 불가';
+export const UNCHECKABLE_NOTE = '노동조합+ 권한 밖이라 확인 불가';
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 

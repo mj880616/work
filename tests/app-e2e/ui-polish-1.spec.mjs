@@ -290,7 +290,7 @@ for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 
 test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 있고 크기가 맞다',async({request})=>{
  const manifest=JSON.parse(readFileSync('app/windows-manifest.json','utf8'));
  // UI-하단바색: background_color·theme_color 모두 앱 바탕(밝은 --kptu-bg). 일부 폰이 background_color를 하단 내비게이션 바에 쓰므로 남색을 쓰지 않는다(아이콘 바탕 app-icon.svg만 남색).
- expect(manifest).toMatchObject({name:'웹2',short_name:'웹2',background_color:'#f3f1ea',theme_color:'#f3f1ea'});
+ expect(manifest).toMatchObject({name:'노동조합+',short_name:'노동조합+',background_color:'#f3f1ea',theme_color:'#f3f1ea'});
  const png=manifest.icons.filter(i=>i.type==='image/png');
  expect(png.map(i=>`${i.sizes} ${i.purpose}`).sort()).toEqual(['192x192 any','192x192 maskable','512x512 any','512x512 maskable']);
  const html=readFileSync('app/index.html','utf8');
