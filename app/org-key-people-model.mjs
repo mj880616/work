@@ -5,9 +5,14 @@
 // - 회의(사업 보고): 제목·내용 글에 이름이 나오면. 챙길 것: 요약·근거 글. 원장 약속: 상대·제목.
 // DB 규칙(20261029014700_org_key_people)과 같은 숫자: 이름 1~40자, 찾을 이름 2~40자·20개·중복 없음.
 
+import {reportKindOf, reportKindLabel} from './report-kinds.mjs';
+
 export const NAME_MAX = 40, MATCH_MIN = 2, MATCH_MAX = 40, MATCHES_MAX = 20, PEOPLE_MAX = 40;
 export const RECORD_LIMIT = 80, OPEN_LIMIT = 30;
 export const KIND_LABEL = Object.freeze({call:'통화', personal:'통화', telegram:'텔레그램', meeting:'회의', todo:'챙길 것', promise:'약속'});
+
+// 줄 꼬리표 글자. 사업 보고 줄은 '회의'로 고정하지 않고 그 줄의 칸 이름(label: 회의·투쟁·정책 …, DIARY-맥락사업보고이름 전수).
+export const recordTag = r => r?.label || KIND_LABEL[r?.kind] || '';
 
 const CTRL = /[\u0000-\u001f\u007f]/;
 // 비교용: 호환 문자 정리, 공백·가운뎃점 제거, 영문 소문자.
@@ -107,7 +112,7 @@ export function collectRecords({people = [], calls = [], personal = [], telegram
     if (!m?.id || m.deleted_at) continue;
     const ids = whoIn([m.title, m.series_name, m.notes], people); if (!ids.length) continue;
     const title = clean(m.title || m.series_name) || '사업 보고';
-    out.push({key:`meeting:${m.id}`, kind:'meeting', id:m.id, day:dayOf(m.meeting_at), at:m.meeting_at || '', text:m.round_no ? `${title} ${m.round_no}차` : title, people:ids, open:{view:'meetings', id:m.id}});
+    out.push({key:`meeting:${m.id}`, kind:'meeting', label:reportKindLabel(reportKindOf(m)), id:m.id, day:dayOf(m.meeting_at), at:m.meeting_at || '', text:m.round_no ? `${title} ${m.round_no}차` : title, people:ids, open:{view:'meetings', id:m.id}});
   }
   return out.sort(byNewest).slice(0, limit);
 }

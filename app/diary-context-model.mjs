@@ -3,22 +3,32 @@
 //   ① 붙이는 것은 일정(Google Calendar)과 회의(Web2 회의 기록)뿐 — 끝낸 할 일·메모는 붙이지 않는다.
 //   ② 크게 보기 캡션: 찍은 시각이 일정·회의 시간 안이면 "14:20 ○○ 회의 중" 한 줄. 찍은 시각이 없거나 대략(approx)인 사진은 생략.
 //   ③ 사진 없는 날에는 맥락을 그리지 않는다(diary.js가 사진 있는 날에만 자리를 만든다).
-// 항목 모양(entry): {kind:'event'|'meeting', id, calendarId?, title, time('HH:MM'|'종일'), startMs, endMs, allDay}
+// 항목 모양(entry): {kind:'event'|'meeting', id, calendarId?, title, time('HH:MM'|'종일'), startMs, endMs, allDay, label?, name?}
+//   회의 항목(= 사업 보고 한 건)의 label은 그 줄의 칸 이름(report-kinds.mjs reportKindLabel: 회의·투쟁·정책 …), name은 이름 앞 [칸] 꼬리표를 뺀 이름.
+//   DIARY-맥락사업보고이름(11/14 명진 확정): 꼬리표·접힌 한 줄·읽어 주는 말은 '회의'로 고정하지 않고 그 칸 이름 그대로.
 
 // 회의 기록에는 끝 시각이 없다. 회의 시각부터 이만큼을 '회의 중'으로 본다.
 export const MEETING_SPAN_MS = 2 * 60 * 60 * 1000;
 const SEOUL_MS = 9 * 60 * 60 * 1000;
 
-// 접힌 한 줄: '그날 맥락 · 일정 2 · 회의 1'. 둘 다 없으면 ''(그리지 않음).
+// 줄의 꼬리표: 일정은 '일정', 사업 보고는 그 칸 이름(label 없으면 옛 모양대로 '회의').
+export const entryKind = entry => (entry?.kind === 'event' ? '일정' : String(entry?.label || '').trim() || '회의');
+
+// 접힌 한 줄: '그날 맥락 · 일정 2 · 투쟁 1 · 회의 1'(일정 먼저, 사업 보고는 칸별로 처음 나온 순서). 아무것도 없으면 ''(그리지 않음).
 export function contextSummary(entries) {
-  const list = Array.isArray(entries) ? entries : [];
-  const events = list.filter(e => e?.kind === 'event').length, meetings = list.filter(e => e?.kind === 'meeting').length;
-  if (!events && !meetings) return '';
-  return ['그날 맥락', events ? `일정 ${events}` : '', meetings ? `회의 ${meetings}` : ''].filter(Boolean).join(' · ');
+  const counts = new Map();
+  for (const e of Array.isArray(entries) ? entries : []) {
+    if (e?.kind !== 'event' && e?.kind !== 'meeting') continue;
+    const kind = entryKind(e);
+    counts.set(kind, (counts.get(kind) || 0) + 1);
+  }
+  if (!counts.size) return '';
+  const order = [...counts.keys()].sort((a, b) => (b === '일정') - (a === '일정'));
+  return ['그날 맥락', ...order.map(kind => `${kind} ${counts.get(kind)}`)].join(' · ');
 }
 
-// 펼친 목록의 한 줄 글자: '14:00 ○○ 회의'(종일 일정은 '종일 ○○').
-export const entryText = entry => `${entry?.time ? entry.time + ' ' : ''}${String(entry?.title ?? '').trim() || '(제목 없음)'}`;
+// 펼친 목록의 한 줄 글자: '14:00 ○○'(종일 일정은 '종일 ○○'). 사업 보고는 꼬리표에 칸이 나오므로 이름 앞 [칸]을 뺀 name을 쓴다.
+export const entryText = entry => `${entry?.time ? entry.time + ' ' : ''}${String(entry?.name ?? entry?.title ?? '').trim() || '(제목 없음)'}`;
 
 // 찍은 시각(ms). 시각이 없거나 대략(파일 생성 시각으로 대신한 것)이면 null.
 export function takenMs(item) {
