@@ -41,7 +41,7 @@ export async function loadLibraryFolders(ids, rt = window.KPTURuntime) {
 // (자료실 화면 폴더 묶기와 같은 쓰기 createLibraryFolder). 만든 폴더는 folders 끝에 더한다. 취소·실패 = null(실패는 한 줄 알림).
 export async function makeLibraryFolder(loaded, {rt = window.KPTURuntime, anchor = null} = {}) {
   if (!loaded?.workspace || typeof rt?.api !== 'function') return null;
-  const typed = await askText(anchor?.isConnected ? anchor : document.activeElement, {text: '새 폴더 이름 (40자까지)', ok: '만들기', max: 40});
+  const typed = await askText(anchor?.isConnected && anchor.getClientRects().length ? anchor : document.activeElement, {text: '새 폴더 이름 (40자까지)', ok: '만들기', max: 40});
   if (typed === null) return null;
   const name = cleanFolderName(typed);
   if (!name) { notify('폴더 이름은 1~40자로 써 주세요.', {error: true}); return null; }

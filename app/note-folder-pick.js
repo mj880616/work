@@ -26,7 +26,7 @@ export async function loadNoteFolders(rt = window.KPTURuntime) {
 // S61-46 UI-새폴더넣기안됨: [+ 새 폴더 만들어 넣기] — 이름을 공용 작은 글 입력창으로 받아 맨 위에 노트 폴더 하나를 만든다
 // (노트 화면 newFolder와 같은 서버 길 createNoteFolder, 기존 owner-RLS). 만든 폴더는 folders 배열 끝에 더한다. 취소·실패 = null(실패는 한 줄 알림).
 export async function makeNoteFolder(folders, {rt = window.KPTURuntime, anchor = null} = {}) {
-  const typed = await askText(anchor?.isConnected ? anchor : document.activeElement, {text: '새 폴더 이름 (40자까지)', ok: '만들기', max: 40});
+  const typed = await askText(anchor?.isConnected && anchor.getClientRects().length ? anchor : document.activeElement, {text: '새 폴더 이름 (40자까지)', ok: '만들기', max: 40});
   if (typed === null) return null;
   const name = cleanFolderName(typed);
   if (!name) { notify('폴더 이름은 1~40자로 써 주세요.', {error: true}); return null; }
