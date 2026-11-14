@@ -57,24 +57,25 @@ const loaded=(page,view)=>expect.poll(()=>page.evaluate(v=>window.KPTUViewLoader
 const box=locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height};});
 const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
 
-test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
+test('폰 하단 탭 6칸: 탭 아이콘 색, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
- // MTG-프로젝트합치기 3단계: 4번째 칸이 [프로젝트] → [사업 보고].
- await expect(tabs).toHaveText(['홈','잊지 말기','일정','사업 보고','조직 보고','메뉴']);
+ // MULTI-하단바기본노트(명진 11/13 15:24): 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·조직 보고·사업 보고.
+ await expect(tabs).toHaveText(['홈','노트','일정','조직 보고','사업 보고','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
- const tabColor=view=>page.locator(`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
- expect(await tabColor('basket')).toBe(await tabColor('meetings'));expect(await tabColor('basket')).toBe(await token(page,'--kptu-muted'));
- expect(await tabColor('basket')).not.toBe(await token(page,'--ds-kind-basket-ink'));
+ const tabColor=view=>page.locator(view==='note'?'.mobile-tabs [data-basket-kind-nav="note"] svg':`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
+ expect(await tabColor('note')).toBe(await tabColor('meetings'));expect(await tabColor('note')).toBe(await token(page,'--kptu-muted'));
+ expect(await tabColor('note')).not.toBe(await token(page,'--ds-kind-basket-ink'));
  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
- // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·게시판.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['노트','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
+ // MULTI-하단바기본노트: 잊지 말기는 [메뉴] 창 맨 앞, 노트는 하단바로.
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
- await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');
+ await menuTab.click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [aria-current="page"]')).toHaveCount(0);
+ await page.locator('.mobile-tabs [data-basket-kind-nav="note"]').click();await expect(page.locator('.mobile-tabs [data-basket-kind-nav="note"]')).toHaveAttribute('aria-current','page');
  expect(errors).toEqual([]);
 });
 
@@ -216,7 +217,7 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
 
 test('정리함: 처리할 것이 없으면 회색 한 줄 "없음"(공용 없음 부품, S52-20 한 목록)',async({page})=>{
  const {errors}=await boot(page,390,{notes:[]});
- await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');
+ await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');
  const empty=page.locator('#basketView [data-forget-empty]');await expect(empty).toHaveText('없음');
  await expect(empty).toHaveCSS('text-align',/^(start|left)$/);
  await expect(page.locator('#basketView [data-forget-view-open]')).toHaveText('처리 전 ▾');
