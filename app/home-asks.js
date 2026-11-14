@@ -19,7 +19,10 @@ function paint() {
 export function setHomeAsks(n) {
   const next = Number.isInteger(n) && n > 0 ? n : 0;
   if (next === count) return;
-  count = next; paint();
+  count = next; owner = ownerNow(); paint();
 }
 export const homeAsks = () => count;
-if (typeof window !== 'undefined') window.addEventListener('kptu:session-changed', () => setHomeAsks(0));
+// HOME-잊지말기숫자(S61-44): 같은 사람의 로그인 이어 가기(토큰 새로 받기)에도 이 알림이 오므로, 표시는 사람이 바뀐 때만 내린다.
+const ownerNow = () => { try { return window.KPTURuntime?.context?.read?.()?.user?.id || ''; } catch { return ''; } };
+let owner = ''; // 지금 표시한 숫자를 센 사람(setHomeAsks 때)
+if (typeof window !== 'undefined') window.addEventListener('kptu:session-changed', () => { const next = ownerNow(); if (next && next === owner) return; owner = next; setHomeAsks(0); });
