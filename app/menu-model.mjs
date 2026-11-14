@@ -45,8 +45,10 @@ export const FIXED_ID = 'home';
 export const BAR_MAX = 5;
 // MENU-세칸(명진 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
-export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
+// MULTI-하단바기본노트(명진 결정 11/13 15:24, 설계 docs/design/new-user-start.md 2-1): 처음 하단바는 홈·노트·일정·조직 보고·사업 보고.
+// 빠진 잊지 말기는 위 메뉴 맨 앞. 저장된 순서(view_prefs.menu_layout)가 있는 사람은 기본값을 쓰지 않으므로 그대로다.
+export const DEFAULT_BAR = Object.freeze(['home', 'note', 'calendar', 'team', 'meetings']);
+export const DEFAULT_REST = Object.freeze(['basket', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
@@ -170,12 +172,12 @@ export function stepItem(layout, id, dir) {
 }
 
 // PC 왼쪽 메뉴 순서: 하단바 칸 메뉴가 위, 그 아래 위 메뉴, 맨 아래 묶음은 아래 칸.
-// 한 번도 바꾸지 않았으면(기본) 지금까지의 PC 순서(ITEMS 순서)를 그대로 둔다. 바꾼 뒤부터 하단바 칸이 위로 올라온다.
-export const pcOrder = layout => { const next = normalizeLayout(layout); return sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id) : [...next.bar, ...next.rest, ...next.tail, ...next.hidden]; };
+// MULTI-하단바기본노트: 한 번도 바꾸지 않은 사람(기본)도 같은 규칙이라 PC 왼쪽 메뉴가 폰 하단바 기본값(홈·노트·일정·조직 보고·사업 보고) 순서로 시작한다.
+export const pcOrder = layout => { const next = normalizeLayout(layout); return [...next.bar, ...next.rest, ...next.tail, ...next.hidden]; };
 // PC 왼쪽 메뉴의 위 줄(main)과 빈 공간 아래 맨 아래 묶음(tail), 숨긴 메뉴는 여기에 없다. 맨 아래 묶음은 저장된 아래 칸 그대로이고, 비면 묶음도 없다.
 export function pcSplit(layout) {
   const next = normalizeLayout(layout), tail = [...next.tail];
-  const main = sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id).filter(id => !tail.includes(id)) : [...next.bar, ...next.rest];
+  const main = [...next.bar, ...next.rest];
   return {main, tail};
 }
 // MENU-왼쪽메뉴바로끌기: PC 왼쪽 메뉴에서 id를 끌어 놓은 자리 → moveItem이 받는 {to, index}.
