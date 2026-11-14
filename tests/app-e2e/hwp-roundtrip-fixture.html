@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>한글 양식 왕복 시험</title>
+</head>
+<body>
+<div id="host" style="width:900px;height:640px"></div>
+<script type="module">
+// PRODUCT-판매준비범용화한글양식 작업 1(S62-10): 앱이 쓰는 칸막이 엔진(hwp-frame.js, rhwp)으로만 바꾼다.
+// 파일은 이 창 안에서만 오가고 서버·Drive로 보내지 않는다. 바이트는 시험(Node)이 넘기고 돌려받는다.
+import {createSandboxedEditor} from '/app/hwp-frame.js';
+let flight=null;
+const editor=()=>flight||(flight=createSandboxedEditor(document.getElementById('host')));
+const bytesOf=list=>new Uint8Array(list);
+// 파일 하나를 열어 원하는 형식으로 내보낸다. pages는 엔진이 잡은 쪽 수.
+window.convert=async(list,name,out)=>{
+  const e=await editor();
+  const opened=await e.loadFile(bytesOf(list),name,{skipUnsavedGuard:true});
+  const bytes=out==='hwp'?await e.exportHwp():await e.exportHwpx();
+  return {bytes:[...bytes],pages:opened?.pageCount??await e.pageCount()};
+};
+// 지금 열린 문서의 n쪽 그림(SVG 글).
+window.pageSvg=async n=>(await editor()).getPageSvg(n);
+window.fixtureReady=true;
+</script>
+</body>
+</html>
