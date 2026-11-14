@@ -615,8 +615,8 @@
   #appView #mobileMenu .mobile-menu-panel nav button:hover{ background:var(--kptu-surface-subtle); }
   /* 계정: 맨 아래 한 줄(선 위). 작은 글자 단추(보이는 32px, 줄 사이 12px라 누르는 범위 44px가 위아래로 겹치지 않음), 넘치면 다음 줄. */
   #appView .mobile-menu-panel #mobileAccountGroup{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 4px; margin-top:10px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
-  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; }
-  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
   /* S49-8 UI-로그아웃자리(2026-11-03 명진): [로그아웃]은 계정 줄 맨 오른쪽 끝(하단바 [메뉴] 칸 바로 위). 줄이 넘치면 다음 줄 오른쪽에 혼자 선다. */
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button[data-kptu-logout]{ margin-left:auto; }
 }
