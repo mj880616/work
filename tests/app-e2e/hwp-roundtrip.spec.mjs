@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {makeRoundtripHwpx, EDIT_TARGET, LONG_ROWS, zlib} from '../../scripts/hwp-roundtrip/fixture.mjs';
-import {openEngine, convert, roundTrip} from '../../scripts/hwp-roundtrip/browser.mjs';
+import {openEngine, convert, roundTrip} from './helpers/hwp-roundtrip.mjs';
 import {shapeOf, shapeCounts, diffShapes} from '../../scripts/hwp-roundtrip/compare.mjs';
 // PRODUCT-판매준비범용화한글양식 작업 1(S62-10): 한글 양식 왕복(HWP → HWPX → 칸 하나 고침 → HWP)을 앱의 브라우저 엔진
 // (칸막이 rhwp, app/hwp-frame.js)으로만 돌려, 서식 뼈대(쪽·문단·표 칸·합친 칸·글자 모양·머리말)가 그대로인지 본다.

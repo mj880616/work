@@ -8,7 +8,7 @@ import {resolve, relative, isAbsolute, basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {chromium} from 'playwright';
 import {zlib} from '../weekly-hwpx/cli.mjs';
-import {openEngine, roundTrip, pageSvgs} from './browser.mjs';
+import {openEngine, roundTrip, pageSvgs, svgText} from '../../tests/app-e2e/helpers/hwp-roundtrip.mjs';
 import {shapeCounts} from './compare.mjs';
 
 const [src, outDir, cellArg] = process.argv.slice(2);
@@ -44,14 +44,20 @@ try {
     changes: result.changes, pureRoundTripChanges: probe.changes,
   };
   writeFileSync(resolve(outDir, 'changes.json'), JSON.stringify(report, null, 2));
-  // 비교 사진: 왼쪽 원본, 오른쪽 왕복 결과. 쪽마다 한 장.
-  const a = await pageSvgs(page, source, 'source.hwp', 4);
-  const b = await pageSvgs(page, result.hwp, 'result.hwp', 4);
+  // 비교 사진: 왼쪽 원본, 오른쪽 왕복 결과. 1쪽, 고친 칸이 있는 쪽, 쪽 글이 처음 어긋나는 쪽과 그다음 쪽.
+  const a = await pageSvgs(page, source, 'source.hwp');
+  const b = await pageSvgs(page, result.hwp, 'result.hwp');
+  const ta = a.svgs.map(svgText), tb = b.svgs.map(svgText);
+  const editPage = tb.findIndex(t => t.includes(svgText(edit.text)));
+  const firstDiff = ta.findIndex((t, i) => t !== tb[i] && i !== editPage);
+  const shown = [...new Set([0, editPage, firstDiff, firstDiff + 1].filter(i => i >= 0 && i < Math.max(a.pages, b.pages)))].sort((x, y) => x - y);
+  report.pagesCompared = {source: a.pages, result: b.pages, editPage: editPage + 1, firstDifferentPage: firstDiff + 1, shown: shown.map(i => i + 1)};
+  writeFileSync(resolve(outDir, 'changes.json'), JSON.stringify(report, null, 2));
   const view = await browser.newPage({viewport: {width: 1700, height: 1200}, deviceScaleFactor: 1});
-  for (let i = 0; i < Math.max(a.svgs.length, b.svgs.length); i++) {
+  for (const i of shown) {
     const box = svg => `<div style="flex:1;border:1px solid #999;background:#fff">${svg ?? '(쪽 없음)'}</div>`;
     await view.setContent(`<body style="margin:0;font:14px sans-serif;background:#eee"><div style="display:flex;gap:8px;padding:8px"><b style="flex:1">원본 ${i + 1}쪽</b><b style="flex:1">왕복 결과 ${i + 1}쪽</b></div><div style="display:flex;gap:8px;padding:0 8px 8px">${box(a.svgs[i])}${box(b.svgs[i])}</div><style>svg{width:100%;height:auto;display:block}</style></body>`);
     await view.screenshot({path: resolve(outDir, `compare-${i + 1}.png`), fullPage: true});
   }
-  console.log(JSON.stringify({...report, pages: [a.pages, b.pages]}, null, 2));
+  console.log(JSON.stringify(report, null, 2));
 } finally { await browser.close(); }

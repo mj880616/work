@@ -1,7 +1,7 @@
 // PRODUCT-판매준비범용화한글양식 작업 1(S62-10): 브라우저 엔진(앱의 칸막이 rhwp, app/hwp-frame.js) 왕복.
 // HWP → HWPX → 칸 하나 고침(Node) → HWP → 다시 읽기. 시험(tests/app-e2e/hwp-roundtrip.spec.mjs)과
 // 로컬 실행 도구(scripts/hwp-roundtrip/run.mjs)가 같이 쓴다. 파일은 브라우저 창과 이 프로세스 사이에서만 오간다.
-import {shapeOf, diffShapes, editCell} from './compare.mjs';
+import {shapeOf, diffShapes, editCell} from '../../../scripts/hwp-roundtrip/compare.mjs';
 
 export const FIXTURE_PATH = '/tests/app-e2e/hwp-roundtrip-fixture.html';
 
@@ -34,10 +34,12 @@ export async function roundTrip(page, hwp, zlib, {edit = null} = {}) {
   return {hwpx: first.bytes, edited, hwp: back.bytes, rereadHwpx: reread.bytes, before, after, changes: diffShapes(before, after)};
 }
 
-// 지금 열린 문서의 쪽 그림(SVG 글)들. 비교 화면 사진용.
-export async function pageSvgs(page, bytes, name, max = 3) {
+// 파일의 쪽 그림(SVG 글) 전부. 비교 화면 사진용.
+export async function pageSvgs(page, bytes, name) {
   const {pages} = await convert(page, bytes, name, 'hwpx');
-  const out = [];
-  for (let i = 0; i < Math.min(pages, max); i++) out.push(await page.evaluate(n => window.pageSvg(n), i));
-  return {pages, svgs: out};
+  const svgs = [];
+  for (let i = 0; i < pages; i++) svgs.push(await page.evaluate(n => window.pageSvg(n), i));
+  return {pages, svgs};
 }
+// SVG에서 글자만 뽑아 쪽마다 비교할 열쇠로 쓴다(Node에서 DOM 없이: 태그를 걷어 낸다).
+export const svgText = svg => String(svg).replace(/<[^>]*>/g, '').replace(/\s+/g, '');
