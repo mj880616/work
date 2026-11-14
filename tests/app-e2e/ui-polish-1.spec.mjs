@@ -302,7 +302,7 @@ test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 
   expect([body.readUInt32BE(16),body.readUInt32BE(20)],path).toEqual([size,size]);
  }
  const svg=readFileSync('app/app-icon.svg','utf8');
- expect(svg).toContain('fill="#F2EFE6"');expect(svg).toContain('#3B4A6B');expect(svg).toContain('#2F9E7A');expect(svg).toContain('@media (max-width:32px){.full{display:none}');
+ expect(svg).toContain('fill="#4D5A2E"');expect(svg).toContain('#FFFEFA');expect(svg).toContain('#E7C25A');expect(svg).toContain('@media (max-width:32px){.full{display:none}');
  expect(svg).not.toMatch(/<image|href=|data:/);
 });
 
