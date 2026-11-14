@@ -1007,12 +1007,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!canEditFolders()) { notReady(); return; }
     picker.open({anchor, place, history:!isWide(), canNew:true, canOut:true, rows:q => pickRows(items, q),
       onPick:id => moveItems(items, id), onOut:() => moveItems(items, null),
-      onNew:async () => { const made = await newFolder(at === OUTSIDE ? null : at, {quiet:true}); if (made) await moveItems(items, made.id); }});
+      onNew:async () => { const made = await newFolder(folderAt(), {quiet:true}); if (made) await moveItems(items, made.id); }});
   }
+  // S61-46 UI-새폴더넣기안됨: 입력 줄·크게 쓰기 창의 [폴더 ▾]에서도 [+ 새 폴더 만들어 넣기]가 동작한다 — 폴더 줄 옮기기와 같은 newFolder 서버 길로
+  // 지금 들어온 폴더 안에(폴더 밖·최근이면 맨 위) 만들고, 만든 폴더를 고른 상태로 둔다. 새 저장 길 없음.
   function openAddPicker(trigger) {
-    if (!foldersReady || !folders.length) { addPick = null; quick.setFolder(null); if (!foldersReady) notReady(); return; }
-    picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:false, canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
-      onPick:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); },
+    if (!foldersReady) { addPick = null; quick.setFolder(null); notReady(); return; }
+    const choose = id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); };
+    picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
+      onPick:choose, onNew:async () => { const made = await newFolder(folderAt(), {quiet:true}); if (made) choose(made.id); },
       onOut:() => { addPick = {at, folder:null}; quick.setFolder(null); bigWriter?.paint?.(); }});
   }
   // NOTE-폴더메뉴새노트: 폴더 ⋯ [새 노트] = 입력 줄 [폴더 ▾]에서 그 폴더를 고른 것과 같게 한 뒤, 입력 줄의 [크게]로 기존 새 노트 창을 연다
@@ -1027,8 +1030,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     let value = initial, watchers = [];
     return {get:() => value, label:() => folderName(value) || OUTSIDE_NAME, watch:fn => watchers.push(fn), close:() => { void picker.close(); },
       open:trigger => { if (!canEditFolders()) { notReady(); return; }
-        picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:false, canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
-          onPick:id => { value = id; watchers.forEach(fn => fn()); }, onOut:() => { value = null; watchers.forEach(fn => fn()); }}); }};
+        const choose = id => { value = id; watchers.forEach(fn => fn()); };
+        picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
+          onPick:choose, onOut:() => choose(null), onNew:async () => { const made = await newFolder(folderAt(), {quiet:true}); if (made) choose(made.id); }}); }};
   }
   // Notes written before the folder table (no metadata.folder_id) sit in the top folder of the same name. Before that folder is
   // renamed, moved or deleted they get its id, so they stay with it.

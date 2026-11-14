@@ -4,7 +4,9 @@
 // 폴더 묶기와 같이 프로젝트 틀을 보지 않는다(LIB-폴더탐색기, DB 20261026170000_library_folders_free). 기기 저장 없음.
 import {createMovePicker} from './library-move-picker.js';
 import {pickerRows} from './library-move.mjs';
-import {readLibraryFolders} from './library-folder-data.js';
+import {readLibraryFolders, createLibraryFolder} from './library-folder-data.js';
+import {folderSiblings, nextSortOrder, cleanFolderName, folderErrorText} from './library-tree.js';
+import {askText, notify} from './small-notice.js';
 
 const T_ITEMS = '/rest/v1/app_library_folder_items';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -35,12 +37,28 @@ export async function loadLibraryFolders(ids, rt = window.KPTURuntime) {
   } catch { return {ready: false, folders: [], itemFolder: new Map()}; }
 }
 
-// 고르기 창 하나 열기. onPick(folder|null): null = 폴더 밖.
-export function openLibraryFolderPicker({anchor, folders, itemFolder = new Map(), docs = [], onPick, onClosed = null}) {
+// S61-46 UI-새폴더넣기안됨: [+ 새 폴더 만들어 넣기] — 이름을 공용 작은 글 입력창으로 받아 맨 위(폴더 밖)에 자료실 폴더 하나를 만든다
+// (자료실 화면 폴더 묶기와 같은 쓰기 createLibraryFolder). 만든 폴더는 folders 끝에 더한다. 취소·실패 = null(실패는 한 줄 알림).
+export async function makeLibraryFolder(loaded, {rt = window.KPTURuntime, anchor = null} = {}) {
+  if (!loaded?.workspace || typeof rt?.api !== 'function') return null;
+  const typed = await askText(anchor?.isConnected ? anchor : document.activeElement, {text: '새 폴더 이름 (40자까지)', ok: '만들기', max: 40});
+  if (typed === null) return null;
+  const name = cleanFolderName(typed);
+  if (!name) { notify('폴더 이름은 1~40자로 써 주세요.', {error: true}); return null; }
+  try {
+    const row = await createLibraryFolder(rt.api.bind(rt), {workspace: loaded.workspace, name, sort_order: nextSortOrder(folderSiblings(loaded.folders, {free: true, parentId: null}))});
+    if (!row?.id) throw new Error('폴더를 만들지 못했어요.');
+    loaded.folders.push(row);
+    return row;
+  } catch (error) { notify(folderErrorText(error), {error: true}); return null; }
+}
+
+// 고르기 창 하나 열기. onPick(folder|null): null = 폴더 밖. onNew()가 있으면 [+ 새 폴더 만들어 넣기]를 그린다(없으면 단추 없음).
+export function openLibraryFolderPicker({anchor, folders, itemFolder = new Map(), docs = [], onPick, onNew = null, onClosed = null}) {
   const docsOk = docs.map(id => ({id, project_id: null}));
-  sharedPicker().open({anchor, place: 'below', history: !wide(), canNew: false, canOut: docs.some(id => itemFolder.has(id)),
+  sharedPicker().open({anchor, place: 'below', history: !wide(), canNew: typeof onNew === 'function', canOut: docs.some(id => itemFolder.has(id)),
     rows: q => pickerRows({folders, docs: docsOk, itemFolder, free: true, query: q}),
-    onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onClosed});
+    onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onNew, onClosed});
 }
 export const libraryPickerOpen = () => !!picker?.isOpen;
 export const libraryPickerContains = node => !!picker?.contains?.(node);

@@ -11,7 +11,7 @@ import {folderIndent} from './folder-limits.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {colorChoiceHtml,colorFromButton} from './folder-look.js';
 import {colorOf,dropZone,folderDropPlan,placeAt,isSamePlace} from './folder-look-model.mjs';
-import {setLibraryFolderColor} from './library-folder-data.js';
+import {setLibraryFolderColor,createLibraryFolder} from './library-folder-data.js';
 import {paneDropAt} from './library-drop.js';
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
@@ -265,7 +265,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const free=!!s().free,frame=free?null:(docs[0]?.project_id||null);
     askName({title:'새 폴더 만들어 넣기',hint:`${docs.length>1?`선택한 ${docs.length}개를`:'이 자료를'} 넣을 폴더예요. ${free?'폴더 밖(맨 위)에':frameName(frame)+' 안에'} 만들고, 자료의 사업영역은 바뀌지 않아요.`,trigger,then:async name=>{
       let created=null;
-      const ok=await run(async()=>{const rows=await api(T_FOLDERS,{method:'POST',prefer:'return=representation',body:{workspace_id:s().workspace,project_id:frame,parent_id:null,name,sort_order:nextSortOrder(sibs(frame,null))}});created=Array.isArray(rows)?rows[0]?.id||null:null});
+      const ok=await run(async()=>{created=(await createLibraryFolder(api,{workspace:s().workspace,project_id:frame,parent_id:null,name,sort_order:nextSortOrder(sibs(frame,null))}))?.id||null});
       if(!ok)return false;
       if(!created){status('폴더는 만들었지만 자료는 옮기지 못했어요. 목록에서 [폴더로 옮기기]를 다시 눌러 주세요.',true);return false}
       return await putDocs(docs,created,opt);

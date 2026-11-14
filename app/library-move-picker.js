@@ -2,7 +2,7 @@ import {pickIconHtml} from './folder-look.js';
 import {emptyHtml} from './wait-state.js';
 import {placeAnchored,followAnchor,clearAnchored,bottomInset} from './anchored-popup.js';
 // LIB-폴더로옮기기 (2026-10-27 17:01 사용자 요청): [폴더로 옮기기 ›]를 누르면 뜨는 작은 폴더 목록(PC·폰 공통, 그리는 곳은 여기 하나).
-// 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기]·[폴더 밖으로].
+// 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기](canNew+onNew일 때만)·[폴더 밖으로](canOut+onOut일 때만).
 // 목록 줄은 library-move.mjs의 pickerRows()가 만든 것을 그대로 그리고, 옮기는 일은 부른 쪽(library-folders.js)이 한다(서버 길은 LIB-폴더탐색기와 같은 하나).
 // PC(761px~)는 누른 버튼 옆(자리가 없으면 반대쪽, 버튼이 모서리 도구줄이면 아래)에, 폰(760px 이하)은 아래에서 올라오는 작은 시트로 연다.
 // S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): 버튼으로 연 창(place 'below')은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창(아래 자리가 모자라면 위)이다.
@@ -75,7 +75,10 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     const reason=[...data.recent,...data.all].find(r=>r.reason)?.reason;
     note.hidden=!reason;note.textContent=reason?`흐린 폴더는 ${reason}. 묶기를 ‘폴더’로 바꾸면 선택할 수 있어요.`:'';
     if(!withFoot){foot.replaceChildren();position();return}
-    foot.innerHTML=`<button type="button" class="lu-move-foot-btn" data-lu-move-new${state.canNew?'':' aria-disabled="true"'}>+ 새 폴더 만들어 넣기</button>${state.canOut?`<button type="button" class="lu-move-foot-btn" data-lu-move-out>${esc(state.outLabel||'폴더 밖으로')}</button>`:''}`;
+    // S61-46 UI-새폴더넣기안됨: [+ 새 폴더 만들어 넣기]는 만들 수 있는 곳(canNew + onNew)에만 그린다 — 흐린 채 눌러도 안 되는 단추는 두지 않는다.
+    const canNew=!!state.canNew&&typeof state.onNew==='function',canOut=!!state.canOut&&typeof state.onOut==='function';
+    foot.innerHTML=`${canNew?'<button type="button" class="lu-move-foot-btn" data-lu-move-new>+ 새 폴더 만들어 넣기</button>':''}${canOut?`<button type="button" class="lu-move-foot-btn" data-lu-move-out>${esc(state.outLabel||'폴더 밖으로')}</button>`:''}`;
+    foot.hidden=!canNew&&!canOut;
     position();
   }
 

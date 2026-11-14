@@ -644,12 +644,13 @@ async function moveNoteResults(anchor, ids) {
 async function moveDocResults(anchor, ids) {
   if (!ids.length) return;
   const rt = window.KPTURuntime, owner = rt?.session?.read?.()?.user?.id;
-  const {loadLibraryFolders, openLibraryFolderPicker, moveLibraryDocsToFolder} = await import('./library-folder-pick.js');
+  const {loadLibraryFolders, openLibraryFolderPicker, moveLibraryDocsToFolder, makeLibraryFolder} = await import('./library-folder-pick.js');
   const loaded = await loadLibraryFolders(ids, rt);
   if (owner !== rt?.session?.read?.()?.user?.id || !anchor.isConnected) return;
   if (!loaded.ready) { notify('자료실 폴더를 읽지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true}); return; }
   const changed = () => { window.dispatchEvent(new CustomEvent('kptu:library-folders-changed')); window.dispatchEvent(new CustomEvent('kptu:documents-changed')); };
-  openLibraryFolderPicker({anchor, folders: loaded.folders, itemFolder: loaded.itemFolder, docs: ids, onPick: async folder => {
+  // S61-46: [+ 새 폴더 만들어 넣기] = 맨 위에 새 자료실 폴더를 만든 뒤 고른 것과 같게 옮긴다.
+  const put = async folder => {
     const result = await moveLibraryDocsToFolder(ids, folder, {rt, loaded});
     if (owner !== rt?.session?.read?.()?.user?.id) return;
     const n = result.done.length;
@@ -658,7 +659,9 @@ async function moveDocResults(anchor, ids) {
     changed();
     notify(`옮겼어요 ${n}개 → ${result.place}${result.failed.length ? ` · ${result.failed.length}개는 못 옮김` : ''}`, {label: `자료 폴더 옮기기 ${n}개`,
       undo: result.undo ? async () => { const ok = await result.undo(); changed(); return ok; } : null});
-  }});
+  };
+  openLibraryFolderPicker({anchor, folders: loaded.folders, itemFolder: loaded.itemFolder, docs: ids, onPick: put,
+    onNew: async () => { const made = await makeLibraryFolder(loaded, {rt, anchor}); if (made && owner === rt?.session?.read?.()?.user?.id) { changed(); await put(made); } }});
 }
 async function selectInLibrary(ids) {
   if (!ids.length) return;
