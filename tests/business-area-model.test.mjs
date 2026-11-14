@@ -105,5 +105,5 @@ test('사업영역 선택: 보고가 있는 1단만(트리 순서), 옛 보고�
   // MTG-프로젝트합치기 3단계: [목록] 보기의 주 거르기(weekMatch)가 사업영역 거르기 바깥에 한 겹 더 걸린다(같은 두 곳).
   assert.match(team, /function reportRows\(\)\{return weekMatch\(areaMatch\(filterByReportKind\(meetings,reportChip\)\)\)\}/);
   assert.match(team, /meetingColumns\(weekMatch\(areaMatch\(filterByReportKind\(meetings,DEFAULT_KIND\)\)\)/);
-  assert.match(team, /resetPrivateState\(\)\{reportChip=DEFAULT_KIND;areaChip='all';reportWeek=null;reportWeekIn='';reportPeriod='week';reportRange=null;reportPeriodChosen=false;periodPanel='';periodDraft=null;isoDraft=null;weekNumbered=false;areaTree=null;/);
+  assert.match(team, /resetPrivateState\(\)\{reportChip=DEFAULT_CHIP;areaChip='all';reportWeek=null;reportWeekIn='';reportPeriod='week';reportRange=null;reportPeriodChosen=false;periodPanel='';periodDraft=null;isoDraft=null;weekNumbered=false;areaTree=null;/);
 });

@@ -28,7 +28,7 @@ test('② 새로고침 제자리: 사업 보고 칸·고른 보고, 할 일 상�
   assert.match(router, /tasks:\['task'\]/);
   const team = read('app/team.js');
   assert.match(team, /function restoreReportPlace\(\)/);
-  assert.match(team, /setPlace\?\.\('meetings',\{chip:reportChip===DEFAULT_KIND\?null:reportChip,report:/);
+  assert.match(team, /setPlace\?\.\('meetings',\{chip:reportChip===DEFAULT_CHIP\?null:reportChip,report:/);
   assert.match(team, /restoreReportPlace\(\);renderMeetings\(\);/);
   for (const fn of ['selectReportChip', 'selectMeetingKind', 'selectMeetingRound']) assert.match(team.match(new RegExp(`function ${fn}\\([^\\n]*`))[0], /renderMeetings\([^)]*\);writeReportPlace\(\)/, fn + '는 고른 뒤 적는다');
   assert.doesNotMatch(team.match(/function renderMeetings\([^\n]*/)[0], /writeReportPlace/, '그릴 때마다 적지 않는다');

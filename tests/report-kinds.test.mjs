@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {REPORT_KINDS,ALL_KINDS,DEFAULT_KIND,isReportKind,reportKindOf,reportKindLabel,reportKindChips,filterByReportKind} from '../app/report-kinds.mjs';
+import {REPORT_KINDS,ALL_KINDS,DEFAULT_KIND,DEFAULT_CHIP,isReportKind,reportKindOf,reportKindLabel,reportKindChips,filterByReportKind} from '../app/report-kinds.mjs';
 import {listHtml} from '../app/meeting-columns.js';
 
 test('칸 8개는 DB 허용값과 같은 순서·같은 값이고 화면 글자는 설계 3절과 같다',()=>{
@@ -11,6 +11,8 @@ test('칸 8개는 DB 허용값과 같은 순서·같은 값이고 화면 글자�
   const sql=readFileSync(new URL('../supabase/migrations/20261022182319_bizreport_activity_kind.sql',import.meta.url),'utf8');
   assert.match(sql,new RegExp(`check \\(activity_kind in\\s+\\(${REPORT_KINDS.map(k=>`'${k.value}'`).join(', ')}\\)\\)`));
   assert.equal(DEFAULT_KIND,'meeting');
+  // MTG-기본종류전체: 화면 거르기의 처음 값은 [종류 전체], 회의 칸 판정(DEFAULT_KIND)과 따로.
+  assert.equal(DEFAULT_CHIP,ALL_KINDS);
   assert.deepEqual(reportKindChips().map(c=>c.label),['전체','회의','정책','교섭','언론','국회','투쟁','교육','기타']);
   assert.equal(reportKindChips()[0].value,ALL_KINDS);
 });
