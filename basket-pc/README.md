@@ -108,7 +108,7 @@ main 최신 커밋에서 `git tag basket-pc-v0.1.2` 후 `git push origin basket-
 - `src/BasketDrop.Core` — 화면과 무관한 논리(남은 대기열 보내기, 로그인, 이 PC 문, 상태 전이, 제한). 윈도우 없이 테스트된다.
 - `src/BasketDrop` — WinForms 트레이 프로그램(.NET 10).
 - `tests/BasketDrop.Tests` — 자동 테스트(가짜 서버 포함, 운영 호출 없음).
-- `icon/basket-icon.svg` — 아이콘 원본 그림 하나(종이색 바탕·남색 바구니·초록 ↓, Web2 아이콘 `app/app-icon.svg`와 같은 색). 16·20·24에서는 화살표와 바구니 몸통만 그린 작은 판을 쓴다. `python3 basket-pc/tools/make-icon.py`(Pillow만 필요)가 `src/BasketDrop/app.ico`(프로그램·설치 파일·시작 메뉴·창), 트레이 상태 아이콘 3개(`tray-pending.ico` 보낼 것 대기 중 = 오른쪽 아래 주황 점, `tray-signedout.ico` 로그인 필요 = 흐린 회색, `tray-signedout-pending.ico` 둘 다), `icon/png/` 크기별 PNG, `docs/design/basket-pc-icon-preview.png` 미리보기를 다시 만든다. 그림을 바꾸면 SVG만 고치고 스크립트를 돌려 결과 파일을 함께 커밋한다.
+- `icon/basket-icon.svg` — 아이콘 원본 그림 하나(노동조합+ 아이콘 J10: 올리브 바탕·흰 '노조'·노랑 '+', Web2 아이콘 `app/app-icon.svg`와 같은 그림). `scripts/app-icon/build-app-icons.py`가 만들며, 16·20·24에서는 글자만 굵은 작은 판을 쓴다. `python3 basket-pc/tools/make-icon.py`(Pillow만 필요)가 `src/BasketDrop/app.ico`(프로그램·설치 파일·시작 메뉴·창), 트레이 상태 아이콘 3개(`tray-pending.ico` 보낼 것 대기 중 = 오른쪽 아래 주황 점, `tray-signedout.ico` 로그인 필요 = 흐린 회색, `tray-signedout-pending.ico` 둘 다), `icon/png/` 크기별 PNG, `docs/design/basket-pc-icon-preview.png` 미리보기를 다시 만든다. 그림을 바꾸면 `scripts/app-icon/build-app-icons.py`를 고쳐 돌린 뒤 이 스크립트를 돌려 결과 파일을 함께 커밋한다.
 - 트레이 그림·툴팁은 `TrayStatus`(Core)가 대기열 상태와 로그인 상태에서 정하고 `TrayApp.RefreshTray` 한 곳에서만 바꾼다. 따로 저장하는 상태는 없다.
 
 남은 항목을 보내는 길은 기존 바구니 길 그대로다: 파일 → `functions/v1/basket-files`(파일 하나씩), 글만 → REST `app_notes`. 서버·DB·Edge·Supabase 설정은 바꾸지 않는다. 공개용 키만 쓰며 서버 전용 키는 없다.

@@ -43,6 +43,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   let picked = null;
   try { picked = pickPhoneApp(JSON.parse(readFileSync(input, 'utf8'))); } catch (error) { console.error(`릴리스 목록을 읽지 못함: ${error.message}`); }
   if (!picked) { console.log('폰 앱 릴리스를 찾지 못함: app/phone-app.json을 만들지 않음(화면은 릴리스 목록 주소로 연다)'); process.exit(0); }
-  writeFileSync(output, `${JSON.stringify(picked)}\n`);
+  try { writeFileSync(output, `${JSON.stringify(picked)}\n`); } catch (error) { console.log(`app/phone-app.json을 쓰지 못함(${error.code || error.message}): 파일 없이 배포`); process.exit(0); }
   console.log(`폰 앱 최신 판 ${picked.version} → ${output}`);
 }
