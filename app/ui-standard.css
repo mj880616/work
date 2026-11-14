@@ -390,8 +390,6 @@
   #appView #homeView .home-quick[data-quick-shape] [data-quick-task-options] > button{ flex:0 0 auto; padding-left:6px; padding-right:6px; }
   /* 한 줄 칸이 좁아 안내 글이 두 줄로 접히면 칸이 그만큼 늘어난다(높이 셈이 안내 글도 잼) — 안내 글은 한 줄, 넘치면 '…'. */
   #appView #homeView .home-quick[data-quick-shape] [data-quick-input]::placeholder{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  /* 종류 고르기 작은 목록(공용 작은 메뉴 od-link-menu): 지금 종류는 선택 색 글자. */
-  .home-quick-kind-menu button[aria-pressed="true"]{ color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
   /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */

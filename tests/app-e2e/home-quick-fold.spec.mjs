@@ -10,7 +10,7 @@ const rowH=async q=>(await q.boundingBox()).height;
 // 박스 높이가 바뀐 횟수를 센다(누를 때 한 번만 바뀌는지 보기). ResizeObserver로 그려진 높이만 적는다.
 const watchHeights=page=>page.evaluate(()=>{const box=document.querySelector('#homeView [data-home-quick]');window.__qh=[Math.round(box.getBoundingClientRect().height)];new ResizeObserver(()=>{const h=Math.round(box.getBoundingClientRect().height);if(window.__qh.at(-1)!==h)window.__qh.push(h);}).observe(box);});
 const heights=page=>page.evaluate(()=>window.__qh.slice());
-async function pickKind(page,name){const q=quick(page);await q.locator('[data-quick-kind]').click();await page.locator('#homeQuickKindMenu').getByRole('button',{name,exact:true}).click();}
+async function pickKind(page,name){const q=quick(page);await q.locator('[data-quick-kind]').click();await page.locator('#rowMenu').getByRole('button',{name,exact:true}).click();}
 test.describe('phone 412',()=>{
   test.use({viewport:{width:412,height:915}});
   test('평소 한 줄: [종류 ▾][입력칸][잊지 말기], 단추 줄 없음, 하단바 바로 위',async({page})=>{

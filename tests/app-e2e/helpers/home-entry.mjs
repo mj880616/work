@@ -23,7 +23,7 @@ export async function pickQuickMode(page,mode,root='#homeView [data-home-quick]'
   const q=page.locator(root),kind=q.locator('[data-quick-kind]');
   if(await kind.isVisible()){
     await kind.click();
-    await page.locator('#homeQuickKindMenu').getByRole('button',{name:mode==='task'?'할 일':mode==='org'?'기록할 곳 선택…':'업데이트',exact:true}).click();
+    await page.locator('#rowMenu').getByRole('button',{name:mode==='task'?'할 일':mode==='org'?'기록할 곳 선택…':'업데이트',exact:true}).click();
   }else await q.locator(mode==='org'?'[data-quick-org]':`[data-quick-mode="${mode}"]`).click();
 }
 // 기록할 곳 고르기 창을 여는 단추(폰: [종류 ▾], 넓은 화면: [업데이트] 옆 ▾) — 창 자리를 재는 시험용.

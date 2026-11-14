@@ -4,7 +4,7 @@ import {holdToast as kptuHoldToast,askConfirm} from './small-notice.js'; // UI-�
 import { viewPrefs } from './view-prefs.js';
 import { waitInlineHtml } from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import { createChoiceSheet } from './choice-sheet.js';
-import { createAnchoredMenu } from './anchored-menu.js';
+import { openRowMenu } from './row-menu.js';
 import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText } from './area-org-picker.js';
 import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateFilesBehind, rememberPlace, linkFailText } from './update-places.js';
 import { createGoogleTask } from './quick-save.js';
@@ -165,7 +165,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // HOME-입력칸두모양: the phone home box (see homeBox above). focusIn = focus is in the box or in a sheet or small list it opened
   // (they live outside it), so pressing a date button or choosing a 사업영역 keeps the date row; focus going anywhere else drops it.
   function phoneHome(){return homeBox&&!pickerWide.matches;}
-  const OPENED_HERE='[role="dialog"],[role="menu"],[role="listbox"],.home-choice-sheet,.kptu-week-pick,#taskWeekPick,#homeQuickKindMenu';
+  const OPENED_HERE='[role="dialog"],[role="menu"],[role="listbox"],.home-choice-sheet,.kptu-week-pick,#taskWeekPick,#rowMenu';
   const focusHere=el=>!!el&&(box.contains(el)||!!el.closest?.(OPENED_HERE));
   const setFocusIn=next=>{if(next===focusIn)return;focusIn=next;if(phoneHome())shape();};
   if(homeBox){
@@ -175,16 +175,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     pickerWide.addEventListener('change',()=>{placeHead();paint();});placeHead();
     document.addEventListener('focusin',e=>setFocusIn(focusHere(e.target)));
     box.addEventListener('focusout',e=>{if(!e.relatedTarget)setFocusIn(false);});
-    // The kind button's small list: [업데이트] · [할 일] (the one kind pressed) and 기록할 곳 선택 (the old ▾ right of [업데이트]).
+    // The kind button's small list: [업데이트] · [할 일] and 기록할 곳 선택 (the old ▾ right of [업데이트]).
     const kindBtn=box.querySelector('[data-quick-kind]');kindBtn.setAttribute('aria-haspopup','true');kindBtn.setAttribute('aria-expanded','false');
-    let kindMenu=null;
+    // 공용 작은 메뉴(row-menu.js, ⋯ 메뉴와 같은 상자). 고르면 그 종류로 바꾸고 입력칸으로 간다.
     kindBtn.onclick=()=>{
-      if(saving)return;
-      kindMenu||=createAnchoredMenu({id:'homeQuickKindMenu',className:'od-link-menu home-quick-kind-menu',label:'입력 종류',historyKey:'kptuHomeQuickKind',key:()=>'kind',boxWidth:180,
-        canOpen:()=>!saving&&window.KPTURouter.current===view,
-        render:()=>[['update','업데이트'],['task','할 일']].map(([k,t])=>`<button type="button" data-quick-kind-pick="${k}" aria-pressed="${k===mode}">${t}</button>`).join('')+'<button type="button" data-quick-kind-pick="org">기록할 곳 선택…</button>',
-        onAction:button=>{const k=button.dataset.quickKindPick;if(saving)return;if(k==='org'){if(mode!=='update')setMode('update');void openSheet('org');return;}if(k!==mode)setMode(k);input.focus({preventScroll:true});}});
-      kindMenu.open(kindBtn);
+      if(saving||window.KPTURouter.current!==view)return;
+      openRowMenu(kindBtn,{key:'home-quick-kind',label:'입력 종류',items:[{id:'kind-update',label:'업데이트'},{id:'kind-task',label:'할 일'},{id:'kind-org',label:'기록할 곳 선택…',sep:true}],
+        run:id=>{if(saving)return;if(id==='kind-org'){if(mode!=='update')setMode('update');void openSheet('org');return;}const k=id==='kind-task'?'task':'update';if(k!==mode)setMode(k);input.focus({preventScroll:true});}});
     };
   }
   input.addEventListener('focus',expand); input.addEventListener('input',()=>{if(input.value.trim())hint.textContent='';expand();size();});
