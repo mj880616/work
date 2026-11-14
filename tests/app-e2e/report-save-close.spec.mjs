@@ -62,6 +62,8 @@ async function boot(page,width,height=900){
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[]});
     if(path==='/functions/v1/google-tasks')return ok({tasks:[]});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
+    // MULTI-사업보고빈화면: 사업영역이 있는 계정(위 '이번 주 주간보고' 표 칸이 있는 화면 높이 그대로). 0개 계정은 biz-week-none.spec.mjs.
+    if(path==='/rest/v1/app_spaces')return ok([{id:'area-1',workspace_id:'ws',name:'합성 사업',parent_id:null,status:'active',visibility:'private',owner_id:'owner',sort_order:10,created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',metadata:{project_system:'v2',management_version:2}}]);
     return ok([]);
   });
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(BASE+'/app/?view=meetings')}`);
