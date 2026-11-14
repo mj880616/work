@@ -2,7 +2,7 @@
 // 가짜 이름·가짜 글만 쓴다. 서버는 흉내(app_reference_bundles·app_record_links·app_notes·연결 RPC)이고 상태를 기억한다.
 import {test,expect} from '@playwright/test';
 import {answerAsk} from './helpers/small-notice.mjs';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode} from './helpers/home-entry.mjs';
 import {showBasketRow} from './helpers/basket-more.mjs';
 import { pickBasketView } from './helpers/forget-view.mjs';
 test.use({hasTouch:true});
@@ -242,7 +242,7 @@ for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트:
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();posted.push(body);return r.fulfill({status:201,json:[{id:'10000000-0000-4000-8000-0000000000b1',workspace_id:'w',kind:'basket',occurred_at:stamp,created_at:stamp,updated_at:stamp,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},...body}]});});
  await page.evaluate(()=>window.KPTURouter.go('home'));
  const quick=page.locator('#homeView [data-home-quick]');
- await tap(page,quick.locator('[data-quick-mode="update"]'),width);await tap(page,quick.locator('[data-quick-org]'),width);
+ await pickQuickMode(page,'update');await pickQuickMode(page,'org'); // HOME-입력칸두모양: 폰은 [종류 ▾] 작은 목록
  const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();
  const labels=await sheet.locator('.home-choice-label').allTextContents();
  expect(labels.at(-1)).toBe('참고');
@@ -254,7 +254,7 @@ for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트:
  await tap(page,sheet.locator(`[data-sheet-value="reference:${b3}"]`),width);
  await expect(sheet.locator(`[data-sheet-value="reference:${b3}"]`)).toHaveAttribute('aria-pressed','true');
  await tap(page,sheet.getByRole('button',{name:'저장',exact:true}),width);await expect(sheet).toBeHidden();
- await expect(quick.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 합성 기타 조직');
+ await expect(quick.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 합성 기타 조직');
  await quick.locator('[data-quick-input]').fill('합성 다른 조직 소식');
  await tap(page,quick.locator('.home-quick-save'),width);
  await expect(page.locator('#toast')).toHaveText('기록을 저장했습니다.');

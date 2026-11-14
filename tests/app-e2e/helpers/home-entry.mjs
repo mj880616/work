@@ -11,14 +11,25 @@ export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:tr
 export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
 // UI-폰하단고정: 접혀 있는 폰 홈 빠른 입력을 칸을 눌러 펼친다(접힌 것이 없으면 아무것도 안 함 — PC·다른 화면).
 // 다시 불러온 뒤(page.reload)나 폭을 폰으로 바꾼 뒤에도 같은 뜻으로 부른다.
+// HOME-입력칸두모양(S61-44): 폰 홈 빠른 입력은 접힘이 없다(늘 한 줄, 펼칠 것 없음). 화면 준비만 기다린다.
 export async function openQuickBox(page){
   if((page.viewportSize()?.width||0)>760)return;
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/,{timeout:20000});
-  if(!(await page.locator('#homeView').isVisible().catch(()=>false)))return;
-  const kind=page.locator('#homeView [data-home-quick] [data-quick-kind]');
-  if(!(await kind.waitFor({state:'visible',timeout:5000}).then(()=>true,()=>false)))return;
-  await page.locator('#homeView [data-home-quick]').dispatchEvent('pointerdown');
-  await expect(page.locator('#homeView [data-home-quick]')).not.toHaveAttribute('data-quick-rest','');
+}
+// 폰 홈은 [업데이트 | 할 일] 단추 줄이 없고 왼쪽 [종류 ▾]의 작은 목록에서 고른다(mode: 'update'|'task'|'org' = 기록할 곳 선택).
+// 넓은 화면은 단추 줄 그대로([업데이트]·[할 일]·▾). 어느 폭이든 같은 시험 줄로 쓴다.
+export const quickKindButton=(page,root='#homeView [data-home-quick]')=>page.locator(root).locator('[data-quick-kind]');
+export async function pickQuickMode(page,mode,root='#homeView [data-home-quick]'){
+  const q=page.locator(root),kind=q.locator('[data-quick-kind]');
+  if(await kind.isVisible()){
+    await kind.click();
+    await page.locator('#homeQuickKindMenu').getByRole('button',{name:mode==='task'?'할 일':mode==='org'?'기록할 곳 선택…':'업데이트',exact:true}).click();
+  }else await q.locator(mode==='org'?'[data-quick-org]':`[data-quick-mode="${mode}"]`).click();
+}
+// 기록할 곳 고르기 창을 여는 단추(폰: [종류 ▾], 넓은 화면: [업데이트] 옆 ▾) — 창 자리를 재는 시험용.
+export async function placeTrigger(page,root='#homeView [data-home-quick]'){
+  const kind=page.locator(root).locator('[data-quick-kind]');
+  return (await kind.isVisible())?kind:page.locator(root).locator('[data-quick-org]');
 }
 // 운영자 계정(명진)의 메뉴 기능: 통화·텔레그램·파일·아스날·News(MULTI-처음쓰는사람 ④ — 서버 허용 표의 키).
 export const OPERATOR_MENU_FEATURES = Object.freeze(['arsenal', 'calls', 'files', 'outside', 'telegram']);
@@ -233,8 +244,7 @@ export async function openHome(
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/, {
     timeout: 20000,
   });
-  // UI-폰하단고정: 폰 홈 빠른 입력은 쉬는 동안 한 줄로 접혀 있다. 빠른 입력을 쓰는 시험은 사람이 하듯 칸을 먼저 눌러 펼친 상태에서
-  // 시작한다(누르기만, 포커스는 주지 않음). 접힌 모양 자체를 보는 시험만 quickRest:true(home-quick-fold.spec.mjs).
+  // HOME-입력칸두모양: 폰 홈 빠른 입력은 접힘이 없다. quickRest는 옛 시험 호환용 이름만 남는다(뜻 없음).
   if (!quickRest) await openQuickBox(page);
   return {
     prefs,

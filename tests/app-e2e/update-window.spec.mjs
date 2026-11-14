@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // ED③ 업데이트(설계 11.4 순서 3): 업데이트를 쓰는 곳(상단 줄 [+ 추가] → [업데이트], 홈·바구니 [크게])은 새 편집기 창(#edWindow)을 연다.
@@ -38,7 +38,7 @@ for(const width of [390,1280]){
   await q.locator('[data-quick-input]').fill('홈에서 쓰던 업데이트');
   const big=q.locator('[data-quick-big]');await expect(big).toBeVisible();await expect(big).toHaveAccessibleName('큰 창에서 쓰기');
   // [할 일] hides it; [업데이트] shows it again.
-  await q.locator('[data-quick-mode="task"]').click();await expect(big).toBeHidden();await q.locator('[data-quick-mode="update"]').click();await expect(big).toBeVisible();
+  await pickQuickMode(page,'task');await expect(big).toBeHidden();await pickQuickMode(page,'update');await expect(big).toBeVisible();
   await big.click();
   const e=win(page);await expect(e).toBeVisible();
   await expect(text(page)).toContainText('홈에서 쓰던 업데이트');
@@ -64,7 +64,7 @@ for(const width of [390,1280]){
  test(`home [크게]: a place chosen at home comes along; ▾ in the window changes it; one organization record keeps the form too, one project is a linked update ${width}`,async({page})=>{
   const f=await fixture(page,width),q=quick(page);
   await q.locator('[data-quick-input]').fill('조직 기록');
-  await q.locator('[data-quick-org]').click();await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();
+  await pickQuickMode(page,'org');await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();
   await expect(q).toHaveAttribute('data-mode','update');
   await q.locator('[data-quick-big]').click();
   const e=win(page);await expect(e).toBeVisible();
@@ -90,8 +90,8 @@ for(const width of [390,1280]){
   expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({raw_text:'프로젝트 진행'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
   expect(f.links).toEqual([{p_note_id:'new-1',p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결',origin:'record_input'}]}]);
   // UI-기록할곳되돌리기: after the add, the home input goes back to the basket; the project just used is first on the 최근 line.
-  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택');
-  const home=page.locator('#homeChoiceSheet');await q.locator('[data-quick-org]').click();await expect(home).toBeVisible();
+  await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택');
+  const home=page.locator('#homeChoiceSheet');await pickQuickMode(page,'org');await expect(home).toBeVisible();
   await expect(home.locator('[data-sheet-recent] [data-sheet-value]').first()).toHaveText('테스트 프로젝트');
   await expect(home.locator('[data-sheet-basket] button')).toHaveAttribute('aria-pressed','true');
   await page.keyboard.press('Escape');await expect(home).toBeHidden();

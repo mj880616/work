@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome, openQuickBox } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // BUG-업데이트첨부연결(사용자 요청 2026-10-23 10:39·10:40): 홈 [업데이트 ▾]에서 담당조직·프로젝트를 골라도 첨부(📎·끌어 놓기)가
@@ -55,7 +55,7 @@ async function setup(page,width,{linkReply={ok:true,created:1,existing:0}}={}){
   return r.fulfill({json:[{id:doc.id,project_id:doc.project_id,organization_id:doc.organization_id,file_id:doc.file_id}]});
  });
  await page.reload();await openQuickBox(page);
- const q=quick(page);await q.locator('[data-quick-mode="update"]').click();
+ const q=quick(page);await pickQuickMode(page,'update');
  return {q,f};
 }
 const org=(page,name)=>dialog(page).locator('[data-sheet-all]').getByRole('button',{name,exact:true});
@@ -72,7 +72,7 @@ for(const width of [390,1280])test(`첨부 → 조직 고르기: 파일이 남�
  const {q,f}=await setup(page,width);
  await q.locator('[data-quick-input]').fill('합성 조직 소식');
  await choose(q,'회의자료.txt');await expect(fileRows(q)).toHaveCount(1);
- await q.locator('[data-quick-org]').click();await org(page,'시험지부').click();await save(page).click();await expect(dialog(page)).toBeHidden();
+ await pickQuickMode(page,'org');await org(page,'시험지부').click();await save(page).click();await expect(dialog(page)).toBeHidden();
  await expect(q).toHaveAttribute('data-mode','update');
  // The file stays chosen and the clip stays usable (phone: inside the input; PC: [📎 첨부] left of [추가]).
  await expect(fileRows(q)).toHaveCount(1);await expect(fileRows(q).first()).toContainText('회의자료.txt');
@@ -99,7 +99,7 @@ for(const width of [390,1280])test(`첨부 → 조직 고르기: 파일이 남�
 
 test('조직을 먼저 고른 뒤 PC 끌어 놓기도 된다(클립 보임), 프로젝트 자료로',async({page})=>{
  const {q,f}=await setup(page,1280);
- await q.locator('[data-quick-org]').click();await project(page).click();await save(page).click();
+ await pickQuickMode(page,'org');await project(page).click();await save(page).click();
  await expect(q).toHaveAttribute('data-mode','update');
  await expect(q.getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
  await drop(page,q,'끌어온 파일.txt');await expect(fileRows(q)).toHaveCount(1);
@@ -116,7 +116,7 @@ for(const width of [390,1280])test(`여러 곳 + 파일 두 개: 연결은 고�
  const {q,f}=await setup(page,width);
  await q.locator('[data-quick-input]').fill('여러 곳 소식');
  await choose(q,'가.txt');await choose(q,'나.txt');await expect(fileRows(q)).toHaveCount(2);
- await q.locator('[data-quick-org]').click();await org(page,'합성노동조합').click();await org(page,'시험지부').click();await project(page).click();await save(page).click();
+ await pickQuickMode(page,'org');await org(page,'합성노동조합').click();await org(page,'시험지부').click();await project(page).click();await save(page).click();
  await expect(q.locator('[data-quick-mode="update"]')).toHaveText('합성노동조합 외 2');await expect(fileRows(q)).toHaveCount(2);
  await q.locator('[data-quick-save]').click();await expect(q).toHaveAttribute('data-mode','basket');
  expect(f.links).toHaveLength(1);expect(f.links[0].p_note_updated_at).toBe('2026-10-23T01:00:00Z');
@@ -131,7 +131,7 @@ for(const width of [390,1280])test(`여러 곳 + 파일 두 개: 연결은 고�
 test('글 없이 파일만 + 조직: 기록(연결) 없이 자료로만 넣는다(정리함 [자료로 넣기]와 같음)',async({page})=>{
  const {q,f}=await setup(page,1280);
  await choose(q,'자료만.txt');
- await q.locator('[data-quick-org]').click();await org(page,'합성노동조합').click();await save(page).click();
+ await pickQuickMode(page,'org');await org(page,'합성노동조합').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(page.locator('#toast')).not.toContainText('올리는 중'); // UX-알림하나로: 진행은 하단바 위 한 줄 하나
  await expect.poll(()=>f.patches).toEqual([{id:'doc-drive-1',project_id:undefined,organization_id:ID(0)}]);
  expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).not.toContain('name="raw_text"');expect(f.uploads[0]).not.toContain('name="note_id"');
@@ -143,7 +143,7 @@ test('글 없이 파일만 + 조직: 기록(연결) 없이 자료로만 넣는�
 test('연결이 거절되면 업데이트·파일은 정리함에 남고 안내, 다시 보내지 않음',async({page})=>{
  const {q,f}=await setup(page,1280,{linkReply:{ok:false,error:'TARGET_UNSELECTABLE',created:0,existing:0}});
  await q.locator('[data-quick-input]').fill('거절될 기록');await choose(q,'파일.txt');
- await q.locator('[data-quick-org]').click();await org(page,'시험지부').click();await save(page).click();
+ await pickQuickMode(page,'org');await org(page,'시험지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  await expect(q.locator('[data-quick-status]')).toContainText('선택한 곳에 연결하지 못했어요');
  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요.');
@@ -154,7 +154,7 @@ test('연결이 거절되면 업데이트·파일은 정리함에 남고 안내,
 test('첨부 없는 한 곳 저장은 예전 그대로 그 곳 기록 표(정리함·연결 없음)',async({page})=>{
  const {q,f}=await setup(page,1280);
  await q.locator('[data-quick-input]').fill('첨부 없는 기록');
- await q.locator('[data-quick-org]').click();await org(page,'시험지부').click();await save(page).click();
+ await pickQuickMode(page,'org');await org(page,'시험지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(f.orgs).toEqual([{organization_id:ID(1),raw_text:'첨부 없는 기록',created_by:'home-test'}]);expect(f.uploads).toEqual([]);expect(f.links).toEqual([]);
 });

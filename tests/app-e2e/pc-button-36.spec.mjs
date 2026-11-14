@@ -134,6 +134,7 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
  await open(page,'meetings');{const b=await page.locator('#newMeetingBtn').boundingBox();expect([b.width,b.height],'#newMeetingBtn').toEqual([32,32]);
   expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');}
  await open(page,'home');await openQuickBox(page);/* UI-폰하단고정: 접힌 입력칸을 눌러 펼친다 */const home=page.locator('#homeView [data-home-quick]');
+ await home.locator('[data-quick-input]').fill('글');/* HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 */
  expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(36);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(36);/* HOME-모바일정리④ */
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
  expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(36);

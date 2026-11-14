@@ -2,7 +2,7 @@
 // 같은 접는 목록(area-org-picker.js areaListHtml·orgListHtml)을 쓴다: 담당조직은 묶음만, 사업영역은 상위만 보이고 꺾쇠로 펼침,
 // 고른 것이 든 묶음은 처음부터 펼침, 찾기 칸(폰도)은 접힌 하위도 찾음. 여러 곳 고르기·[저장]·저장 값은 그대로.
 import { test, expect } from '@playwright/test';
-import { openHome, openQuickBox } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const NAMES=['전국철도노동조합','서울교통공사노동조합','서해선지부'];
 const quick=page=>page.locator('#homeView [data-home-quick]');
@@ -11,11 +11,11 @@ async function setup(page,width){
   await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:NAMES.map((name,i)=>({id:'o'+i,name,active:true}))}));
   await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:NAMES.map((_,i)=>({organization_id:'o'+i}))}));
   await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
-  await page.reload();await openQuickBox(page);const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('합성 기록');
+  await page.reload();await openQuickBox(page);const q=quick(page);await pickQuickMode(page,'update');await q.locator('[data-quick-input]').fill('합성 기록');
   return q;
 }
 for(const width of [390,1280])test(`기록할 곳: 담당조직 묶음·사업영역 상위만, 꺾쇠로 펼침, 찾기(폰도), 선택한 묶음은 다시 열면 펼침 ${width}`,async({page})=>{
-  const q=await setup(page,width);await q.locator('[data-quick-org]').click();
+  const q=await setup(page,width);await pickQuickMode(page,'org');
   const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();
   const orgs=sheet.locator('[data-sheet-all]'),projects=sheet.locator('[data-sheet-projects]');
   await expect(orgs.locator('.aop-group-label')).toHaveText(['철도','지하철','민자철도']);
@@ -32,9 +32,9 @@ for(const width of [390,1280])test(`기록할 곳: 담당조직 묶음·사업�
   await projects.getByRole('button',{name:'테스트 프로젝트 하위 1개 펼치기'}).click();await projects.locator('[data-sheet-value="project:child"]').click();
   await expect(sheet.locator('[data-sheet-count]')).toHaveText('2곳 선택됨');
   await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();
-  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName(/기록할 곳 선택: 서해선지부 외 1/);
+  await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label',/기록할 곳 선택: 서해선지부 외 1/);
   // 다시 열면 고른 것이 든 묶음만 펼쳐져 있다.
-  await q.locator('[data-quick-org]').click();await expect(sheet).toBeVisible();
+  await pickQuickMode(page,'org');await expect(sheet).toBeVisible();
   await expect(orgs.locator('[data-sheet-value="o2"]')).toBeVisible();await expect(orgs.locator('[data-sheet-value="o2"]')).toHaveAttribute('aria-pressed','true');
   await expect(orgs.locator('[data-sheet-value="o0"]')).toBeHidden();
   await expect(projects.locator('[data-sheet-value="project:child"]')).toBeVisible();await expect(projects.locator('[data-sheet-value="project:child"]')).toHaveAttribute('aria-pressed','true');

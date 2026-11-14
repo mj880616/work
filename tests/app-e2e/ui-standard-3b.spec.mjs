@@ -5,7 +5,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { segBox } from './helpers/seg-box.mjs';
-import { openQuickBox } from './helpers/home-entry.mjs';
+import { openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 // UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·사업 보고·담당조직·메뉴; MTG-프로젝트합치기 3단계 전에는 프로젝트),
 // [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
 // [분류 요청] → 조용히 복사 + 한 줄 알림 + [분류 결과 입력] 창(#577). PC(1280)는 그대로.
@@ -191,11 +191,11 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
  const quick=page.locator('#homeView .home-quick'),tabs=page.locator('.mobile-tabs');
  await expect(page.locator('#homeView .home-basket-link')).toBeHidden();
  const q=await box(quick),t=await box(tabs);expect(Math.round(q.bottom)).toBe(Math.round(t.top));expect(q.left).toBe(0);expect(q.right).toBe(390);
- // UI-폰하단고정: 처음엔 한 줄로 접혀 있다 — 칸을 눌러 펼친 뒤에도 하단 탭 바로 위.
- await expect(quick).toHaveAttribute('data-quick-rest','');await openQuickBox(page);expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
- const entry=await box(quick.locator('.home-quick-entry')),modes=await box(quick.locator('.home-quick-modes'));expect(modes.bottom).toBeLessThanOrEqual(entry.top);
+ // HOME-입력칸두모양: 폰 홈은 늘 한 줄([종류 ▾][입력칸][잊지 말기]) — [업데이트 | 할 일] 단추 줄 없음. 칸을 눌러도 하단 탭 바로 위.
+ await expect(quick).toHaveAttribute('data-quick-shape','line');await openQuickBox(page);expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
+ await expect(quick.locator('.home-quick-modes')).toBeHidden();
  // [할 일]의 오늘·내일·날짜·프로젝트 버튼은 입력칸 위.
- await quick.locator('[data-quick-mode="task"]').click();await quick.locator('[data-quick-input]').click();
+ await pickQuickMode(page,'task');await quick.locator('[data-quick-input]').click();
  const options=await box(quick.locator('[data-quick-options]'));expect(options.bottom).toBeLessThanOrEqual((await box(quick.locator('.home-quick-entry'))).top);
  expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
  // 카드는 그 위에서 스크롤: 끝까지 내리면 마지막 카드가 입력칸 위.
