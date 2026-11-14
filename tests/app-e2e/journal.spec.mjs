@@ -1286,11 +1286,27 @@ async function hwpxFixture(page,options={}){
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
  await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
+ // WEEKLY-기본HWP: [확정하고 한글 파일 받기]·[확정 없이 파일만 받기]는 만든 .hwpx를 숨은 칸막이 엔진(hwp-frame.js)으로 .hwp로 바꾼다.
+ // 기본은 가짜 엔진(fakeEngine — 빨리·늘 같게), engine:'real' = 진짜 엔진(servePagesCors는 시험이 부른다), 'broken' = 엔진이 뜨지 않음(.hwpx로 받고 알림).
+ if(options.engine!=='real')await page.route(u=>u.pathname.endsWith('/app/hwp-frame.js'),r=>r.fulfill({contentType:'text/javascript; charset=utf-8',body:fakeEngine(options.engine==='broken')}));
  // HOME-하루채우기 PR-C: 홈 [하루] 읽을 글·기록 제안(home_day_picks)은 [주간 정리]와 무관한 홈 배경 부탁이라 work_scope처럼 기본 가짜 서버로 넘긴다.
  await page.route(SB+'/functions/v1/ai-assist',r=>{if(['work_scope','home_day_picks','journal_memorable'].includes(r.request().postDataJSON()?.kind))return r.fallback();sent.other.push({ai:true,kind:r.request().postDataJSON()?.kind});return r.fulfill({status:500,json:{}});});
  return {...f,sent};
 }
 const hwpx=page=>page.locator('#journalRoot [data-journal-hwpx]');
+// 가짜 한글 엔진: .hwp = OLE 머리 512바이트 + 넣은 .hwpx 그대로(시험이 fakeHwpInner로 내용을 다시 읽는다). broken이면 엔진이 뜨지 않는다.
+const FAKE_HWP_HEAD=512;
+const fakeEngine=broken=>`export const RHWP='./hwp-lab/rhwp-0.8.7/';
+export async function createSandboxedEditor(){
+ if(${broken})throw new Error('HWP 편집을 불러오지 못했어요.');
+ let last=new Uint8Array(0);
+ return {async loadFile(bytes){last=new Uint8Array(bytes);},
+  async exportHwp(){const out=new Uint8Array(${FAKE_HWP_HEAD}+last.length);out.set([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]);out.set(last,${FAKE_HWP_HEAD});return out;},
+  async exportHwpx(){throw new Error('fake engine: no hwpx');},destroy(){}};
+}`;
+const fakeHwpInner=bytes=>{const b=new Uint8Array(bytes);expect([...b.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);return b.subarray(FAKE_HWP_HEAD);};
+const reportOfBytes=bytes=>{expect(validateHwpx(bytes,zlib).errors).toEqual([]);const pkg=openHwpx(bytes,zlib);return {pkg,report:readReport(pkg)};};
+const savedHwpReport=async download=>reportOfBytes(fakeHwpInner(readFileSync(await download.path())));
 // WEEKLY-한흐름확정 ②: 보고서 칸(그 주 draft 한 벌). label = '사업영역 가 › 세부 과제 가-1' 또는 조직 이름.
 const flowCell=(page,label)=>page.locator('#journalRoot [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}$`)})});
 const cellLines=cell=>cell.locator('.weekly-flow-lines > li[data-flow-line] .weekly-flow-text');
@@ -1377,12 +1393,16 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  expect(filled).toBe(1);
  const asks=[];
  const [got]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true)).then(text=>asks.push(text))]);
- expect(got.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
+ // WEEKLY-기본HWP: 받는 파일·자료실 개인 확정본 모두 .hwp(같은 이름, 확장자만 .hwp). 내용은 만든 보고서 그대로.
+ expect(got.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwp');
+ expect((await savedHwpReport(got)).report.summary[0].rows[0].progress).toEqual(['- 지난주 가-1 진행','- 가-1 목요일 기록(수정됨)']);
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "개인 확정본" 분류로 저장했어요');
- expect(asks).toEqual(['"주간보고_20261012_가상담당.hwpx"을(를) 자료실 개인 확정본으로 저장하고 받을까요?']);
+ await expect(hwpx(page).locator('[data-hwpx-status]')).not.toContainText('.hwpx로 받았어요');
+ expect(asks).toEqual(['"주간보고_20261012_가상담당.hwp"을(를) 자료실 개인 확정본으로 저장하고 받을까요?']);
  expect(f.sent.library).toHaveLength(1);
  const saved=f.sent.library[0];
- expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 20261012 가상담당','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwpx']);
+ expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 20261012 가상담당','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwp']);
+ expect([...saved.file.bytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
  await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText('확정 · 다시 누르면 새 판');
  await expect.poll(()=>row().draft.confirmed?.document_id).toBe('doc-new');
  await expect.poll(()=>!!row().draft.feedback).toBe(true);
@@ -1391,11 +1411,11 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
   await expect(page.locator('.kptu-ask .kptu-ask-note')).toHaveText('옛 판은 30일 동안 자료실 [이전 파일]에 남아요.');
   asks.push(await answerAsk(page,true));
  })]);
- expect(again.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
+ expect(again.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwp');
  expect(asks.at(-1)).toBe('이 주 개인 확정본을 새 판으로 바꿀까요?');
  await expect.poll(()=>f.sent.library.length).toBe(2);
  expect(Object.keys(f.sent.library[1]).sort()).toEqual(['file','replace_document_id']);
- expect(f.sent.library[1].replace_document_id).toBe('doc-new');
+ expect([f.sent.library[1].replace_document_id,f.sent.library[1].file.file]).toEqual(['doc-new','주간보고_20261012_가상담당.hwp']);
  // AI 는 처음 초안(weekly_draft)·처음 확정 뒤 환류 정리(weekly_review)만 저절로(여기선 서버 500). 다시 확정은 새 동작이 10건 넘을 때만 → 이 주 1번.
  await expect.poll(()=>f.sent.other.filter(x=>x.kind==='weekly_review').length).toBe(1);
  await page.waitForTimeout(500);
@@ -1424,7 +1444,7 @@ for(const width of [412,1280])test(`[주간 정리] 한흐름 ④: 4. 산하 조
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  await expect.poll(()=>(row()?.draft?.proposed?.cells??[]).filter(c=>c.section==='orgs').map(c=>c.key),{timeout:15000}).toEqual(['나 지역 모임','가상 노동조합']);
  const [download]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
- const {report}=await savedReport(download);
+ const {report}=await savedHwpReport(download);
  expect(report.orgs.map(o=>o.org.join(''))).toEqual(['나 지역 모임','가상 노동조합']);
 });
 
@@ -1675,10 +1695,10 @@ test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 �
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리고, [HWP로 받기]·기기 HWP 파일 선택은 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
- test.setTimeout(120000);
+test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리고, [확정 없이 파일만 받기]·[확정하고 한글 파일 받기](.hwp)·기기 HWP 파일 선택은 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
+ test.setTimeout(150000);
  await servePagesCors(page);
- const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
+ const f=await hwpxFixture(page,{width:1280,noConfirmed:true,engine:'real'});
  await openJournal(page,1280);await openWeekly(page);
  // WEEKLY-한글파일다듬기 ①: 확정본이 없으면 상태 줄에 까닭과 할 일(맨 위 ⋯ → [바탕 바꾸기(기기 파일)]), 칸 자리에도 한 줄.
  await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('자료실에 바탕이 없어요(찾은 분류: 개인 확정본(분류 목록에 없음)·팀 확정본(분류 목록에 없음)). 지난 팀 확정본을 ‘팀 확정본’ 분류로 올리거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.');
@@ -1691,11 +1711,14 @@ test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리�
  await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('가상 담당');
  await expect(topLine(page)).toContainText('바탕 기기 파일');
- // ⋯ → [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
+ // ⋯ → [확정 없이 파일만 받기](WEEKLY-기본HWP: 기본 .hwp): 같은 엔진이 HWP 5로 저장(OLE 머리). .hwpx는 [.hwpx로 받기].
+ await expect(page.locator('#journalRoot [data-hwpx-hwp]')).toHaveText('확정 없이 파일만 받기');
+ await expect(page.locator('#journalRoot [data-hwpx-build]')).toHaveText('.hwpx로 받기');
  const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),confirmMore(page,'[data-hwpx-hwp]')]);
  expect(hwp.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwp');
  const hwpBytes=readFileSync(await hwp.path());
  expect([...hwpBytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('"주간보고_20261012_가상담당.hwp"을(를) 내려받았어요(확정 안 함).');
  // 그 HWP를 다시 기기 파일로: 엔진이 .hwpx로 바꾼 뒤 같은 칸
  // (칸 줄은 그 주 draft 그대로 — 바탕 파일만 바뀐다.) 바꾸는 동안 상태 줄, 끝나면 오류 없이 지워진다.
  const st=hwpx(page).locator('[data-hwpx-status]');
@@ -1709,6 +1732,36 @@ test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리�
  expect(report.summary[0].rows[0].progress).toEqual(['- 지난주 가-1 진행']);
  expect(f.sent.library).toEqual([]);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ // WEEKLY-기본HWP ①: [확정하고 한글 파일 받기] — 진짜 엔진으로 .hwp를 받고, 자료실 개인 확정본도 같은 .hwp(HWP 5).
+ const [conf]=await Promise.all([page.waitForEvent('download',{timeout:90000}),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
+ expect(conf.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwp');
+ expect([...readFileSync(await conf.path()).subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
+ await expect.poll(()=>f.sent.library.length).toBe(1);
+ expect([f.sent.library[0].file.file,[...f.sent.library[0].file.bytes.subarray(0,4)]]).toEqual(['주간보고_20261012_가상담당.hwp',[0xd0,0xcf,0x11,0xe0]]);
+ await expect(hwpx(page).locator('[data-hwpx-status]')).not.toContainText('.hwpx로 받았어요');
+ expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-기본HWP ⑤: 한글(.hwp)로 바꾸지 못하면(엔진이 뜨지 않음) 파일은 꼭 받게 .hwpx로 받고 상태 줄에 한 줄 알림. 자료실 개인 확정본도 그 .hwpx.
+for(const width of [390,1280])test(`[주간 정리] 한글(.hwp)로 못 바꾸면 .hwpx로 받고 알림 — 확정·확정 없이 받기 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width,engine:'broken'});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const st=hwpx(page).locator('[data-hwpx-status]');
+ const [plain]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-hwp]')]);
+ expect(plain.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
+ expect((await savedReport(plain)).report.summary[0].rows[0].progress[0]).toBe('- 지난주 가-1 진행');
+ await expect(st).toHaveText('"주간보고_20261012_가상담당.hwpx"을(를) 내려받았어요(확정 안 함). 한글(.hwp)로 바꾸지 못해 .hwpx로 받았어요(변환기를 불러오지 못함).');
+ await expect(st).toHaveAttribute('data-kind','error');
+ const [got]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
+ expect(got.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
+ await savedReport(got);
+ await expect.poll(()=>f.sent.library.length).toBe(1);
+ expect(f.sent.library[0].file.file).toBe('주간보고_20261012_가상담당.hwpx');
+ await expect(st).toContainText('자료실에 "개인 확정본" 분류로 저장했어요');
+ await expect(st).toContainText('한글(.hwp)로 바꾸지 못해 .hwpx로 받았어요(변환기를 불러오지 못함).');
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText('확정 · 다시 누르면 새 판');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
 });
 
 // WEEKLY-임원요청정리: [주간 정리] 1. 요청사항 › 1) 임원 배정 요청 표 — 작은 [+ 줄 추가]·[고치기]로 일(달력)·시간·내용·장소·참석 요청을
@@ -2105,6 +2158,13 @@ for(const width of [412,1280])test(`[주간 정리] 확정 뒤 '내가 수정한
  await expect(fin.locator('[data-hwpx-final-pick]')).toHaveText('다시 올리기');
  await expect(fin).toContainText('이전 판');
  await page.screenshot({path:`docs/design/screens/s61-42/6-final-after-${width}.png`});
+ // WEEKLY-기본HWP ④: 한글에서 고쳐 .hwp로 저장한 판도 그대로 올린다(내용으로 HWP 5인지 보고, 같은 자료의 새 판). 다음 주 바탕으로 열 때 엔진이 .hwpx로 바꿔 읽는다.
+ await page.locator('[data-hwpx-final-file]').setInputFiles({name:'주간보고_고친본2.hwp',mimeType:'application/x-hwp',buffer:readFileSync('tests/fixtures/hwp-lab/sample.hwp')});
+ expect(await answerAsk(page,true)).toBe('"주간보고_고친본2.hwp"을(를) 이번 주 개인 확정본으로 저장할까요?');
+ await expect.poll(()=>f.sent.library.length).toBe(3);
+ expect([f.sent.library[2].replace_document_id,f.sent.library[2].file.file,[...f.sent.library[2].file.bytes.subarray(0,4)]]).toEqual(['doc-new','주간보고_고친본2.hwp',[0xd0,0xcf,0x11,0xe0]]);
+ await expect.poll(()=>row().draft.confirmed?.final?.file_name).toBe('주간보고_고친본2.hwp');
+ await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('주간보고_고친본2.hwp');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 // WEEKLY-주간정리다듬기 ⑤(시안 weekly-tidy.html ④): [수정]은 누르는 즉시 그 줄에 열린다 — 바탕(한글 파일)을 여는 중이어도 기다리지 않고,
