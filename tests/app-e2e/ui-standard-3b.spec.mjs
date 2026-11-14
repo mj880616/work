@@ -108,7 +108,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
  // UI-밀기탭이동삭제: 탭 이동은 하단 탭 누르기로만 한다. 할 일 쪽에서도 [일정] 자리가 그대로 이어진다.
  const goTab=async view=>{await page.locator('.mobile-tabs [data-view="'+view+'"]').first().click();await loaded(page,view);};
- await goTab('meetings');await goTab('team');await goTab('basket');await goTab('home');
+ await goTab('team');await goTab('meetings');await goTab('home'); // MULTI-하단바기본노트: 하단바 화면 칸은 홈·일정·조직 보고·사업 보고(노트는 노트 쪽 열기)
  expect(errors).toEqual([]);
 });
 
