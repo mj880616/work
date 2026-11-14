@@ -43,9 +43,15 @@
 /* FOLD-넓은화면 2차 — 폰 틀 두 칸(600~760px): 머리줄(⋯)은 아래 폰 규칙대로 앱 머리 줄 자리로 올라가 있고, [목록|전체 표] 전환 줄은 화면 아래에 떠 있다
    (ui-standard.css UI-보기줄자리). 그래서 머리줄은 맨 위 한 줄(두 칸 폭, 높이 0), 목록·상세 칸은 그 아래 같은 줄, 전체 표는 두 칸 폭.
    칸 최소 폭은 이 폭에 맞춘다(할 일 폴드 칸과 같은 방식, 비율 저장·끌기는 split-resize.js 그대로). */
+/* ORG-담당조직버튼자리폴드 ①(요청함 11/14 23:16): 폴드 펼침 앱 머리 줄에는 S57-21부터 '제목 · 찾기' 검색 칸이 있어, 머리줄([+ 담당조직]·⋯)을
+   폰처럼 그 줄로 올리면 검색 칸 오른쪽 끝과 겹쳤다. 이 폭은 PC 틀과 같이 목록 칸 위 한 줄(목록 칸 오른쪽 끝, 낮은 크기)에 둔다.
+   목록 최소 폭은 할 일 폴드 칸과 같게 조금 넓힌다(조직 이름이 읽히게). */
 @media(min-width:600px) and (max-width:760px){
-  #appView #teamView>#soTeamSection{--ds-split-list-min:220px;--ds-split-detail-min:340px}
-  #appView #teamView #soTeamSection>.so-team-head{grid-column:1 / -1;grid-row:1}
+  #appView #teamView>#soTeamSection{--ds-split-list-min:260px;--ds-split-detail-min:300px}
+  #appView #teamView #soTeamSection>.so-team-head{grid-column:1;grid-row:1;min-height:var(--ds-compact-height);margin:0 0 var(--kptu-space-2);pointer-events:auto}
+  #appView #teamView #soTeamSection>.so-team-head .so-team-more{width:var(--ds-compact-height);height:var(--ds-compact-height);font-size:var(--ds-text-button);background:var(--kptu-surface)}
+  #appView #teamView #soTeamSection>.so-team-head .so-team-more::after{content:"";inset:-6px 0}
+  #appView #teamView #soTeamSection:is(.so-none,.so-view-table)>.so-team-head{grid-column:1 / -1}
   #appView #teamView #soTeamSection>#soOrganizationList,#appView #teamView #soTeamSection>#wdDetailPane{grid-row:2}
   #appView #teamView #soTeamSection>#soOverview{grid-column:1 / -1;grid-row:2}
 }
@@ -70,7 +76,8 @@
 .stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}
 /* ORG-쟁의단계 다듬기 ③: 화면 전체 ⋯는 화면 제목 '담당조직' 줄 오른쪽(#soTeamHead). 761px~: 본문 제목 줄(바구니 머리줄과 같은 글자 크기),
    폰: 위 머리줄 "담당조직" 오른쪽 자리로 올린다(바구니 .basket-head와 같은 방식, ☰가 빠진 자리). 크기 값은 기존 토큰만. */
-#appView #soTeamSection>.so-team-head{position:static;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--ds-compact-height);margin:0 0 8px}
+/* ORG-담당조직버튼자리폴드 ①: [+ 담당조직]·⋯는 모든 폭에서 오른쪽 끝에 나란히(제목은 읽기 프로그램용이라 자리를 차지하지 않음). */
+#appView #soTeamSection>.so-team-head{position:static;display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:var(--ds-compact-height);margin:0 0 8px}
 #appView #soTeamSection>.so-team-head .so-team-title{margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
 #appView #soTeamSection>.so-team-head{flex:0 0 auto}
 /* 화면 오른쪽 끝에 붙으므로 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 6px 넘친다). */

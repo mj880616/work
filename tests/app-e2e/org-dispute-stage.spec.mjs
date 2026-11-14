@@ -332,6 +332,46 @@ for(const width of [390,412,900,1280])test(`화면 전체 ⋯(담당조직 메�
  expect(errors).toEqual([]);
 });
 
+// ORG-담당조직버튼자리폴드(요청함 11/14 23:16·23:21 명진 확정): 폴드 펼침 앱 머리 줄에는 '제목 · 찾기' 검색 칸이 있다.
+// ① [+ 담당조직]·⋯는 어느 폭이든 검색 칸과 겹치지 않고 한 줄에 나란히(같은 높이 가운데, ⋯가 바로 오른쪽).
+// ② 폴드 펼침 폭(600~1023px)은 왼쪽 목록 줄에 쟁의 단계 칩을 그리지 않는다(이름이 그 자리를 씀, 색 점은 그대로). 폰·넓은 PC는 칩을 그린다.
+const S62=process.env.S62_05_SHOTS;
+for(const width of [412,690,840,1280])test(`조직 보고 맨 위 [+ 담당조직]·⋯ 자리와 폴드 폭 목록 이름 ${width}px`,async({page})=>{
+ const {errors}=await fixture(page,{width});
+ await clickView(page,'team');
+ const add=page.locator('#soAddOrg'),more=page.locator('#soTeamMore');await expect(add).toBeVisible();await expect(more).toBeVisible();
+ const fold=width>=600&&width<=1023;
+ // 단계 정보를 읽은 뒤 칩 그리기가 끝날 때까지 기다린다(폴드 폭은 0개).
+ await expect(page.locator('#soOrganizationList [data-so-dot]')).toHaveCount(orgs.length);
+ if(fold){await page.waitForTimeout(300);await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(0)}
+ else await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+ const a=await add.boundingBox(),m=await more.boundingBox();
+ expect(Math.abs((a.y+a.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(1);
+ expect(a.x+a.width).toBeLessThanOrEqual(m.x);expect(m.x-(a.x+a.width)).toBeLessThanOrEqual(8);
+ const search=page.locator('.mobile-shell-search:visible,.topline-search:visible').first();
+ if(await search.count()){
+  const s=await search.boundingBox(),apart=(b)=>b.y>=s.y+s.height||b.y+b.height<=s.y||b.x>=s.x+s.width||b.x+b.width<=s.x;
+  expect(apart(a)).toBe(true);expect(apart(m)).toBe(true);
+ }
+ if(width>=600){
+  // 목록 칸 위 한 줄, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
+  const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox();
+  expect(m.y+m.height).toBeLessThanOrEqual(list.y);expect(m.x+m.width).toBeLessThanOrEqual(list.x+list.width+1);
+  expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
+ }
+ // 조직 이름이 한두 글자로 잘리지 않는다(이름 칸이 글자 6개 넘게).
+ for(const w of await page.locator('#soOrganizationList .kptu-list-name').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width)))expect(w).toBeGreaterThanOrEqual(fold?72:60);
+ if(S62)await page.screenshot({path:`${S62}/org-head-${width}.png`});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ expect(errors).toEqual([]);
+});
+test('폴드 폭으로 바뀌면 칩을 지우고, 넓은 PC로 돌아오면 다시 그린다',async({page})=>{
+ await fixture(page,{width:1280});await clickView(page,'team');
+ await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+ await page.setViewportSize({width:900,height:900});await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(0);
+ await page.setViewportSize({width:1280,height:900});await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(orgs.length);
+});
+
 // UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 고르지 않은 조직 줄 우클릭 = [열기] ─ 그 조직 일(MULTI-다른담당자맞춤 ①: 이름 바꾸기·담당 조직에서 제외 ─ 삭제) ─ [쟁의 단계 관리].
 // [열기]는 그 조직을 오른쪽 상세로. 고른 줄 우클릭·⋯ 그냥 누르기는 지금 메뉴 그대로, 폰 폭은 공용 규칙대로 메뉴를 띄우지 않는다.
 const menuLabels=page=>page.locator('#soTeamMenu button').allTextContents();
