@@ -1,6 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import { enterLogin } from './helpers/login-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -181,6 +182,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   if(name==='meetings'&&width>=761){
     await expect(page.locator('#meetingTypeFilter')).toHaveCount(0);
     await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
+    await pickReportKind(page,'회의'); // MTG-기본종류전체: 처음은 [종류 전체], 회의 세 칸은 [회의]에서
     const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
     await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
