@@ -39,6 +39,7 @@ const self={};
 // 큰 칸은 진짜 표와 같은 머리글·제목 글자·칸 폭의 표 모양(biz-week-skeleton.mjs, 사업 과제 4줄), 홈 작은 상자는 기다림 줄. 그리는 곳은 이 부품 하나(자리 → renderPaper가 같은 칸을 표로 바꿈).
 const skeletonHtml=()=>compact?waitHtml({rows:4,h:51}):paperSkeletonHtml();
 const $in=sel=>box?.querySelector(sel);
+const JOURNAL_FOOT='<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>';
 
 function ensureBox(el){
   if(box===el)return box;
@@ -46,7 +47,7 @@ function ensureBox(el){
   // 기억한 접힘은 서버 화면 기억(view_prefs)이 늦게 오면 그때 다시 맞춘다(손으로 고른 것이 없을 때만 바뀜). 펼쳐지면 그때 그린다.
   if(!compact)window.addEventListener('kptu:view-prefs-ready',()=>{if(!state||state.none)return;applyFold(state.from);if(isOpen()&&(state.dirty||!state.view)&&state.seen){state.dirty=false;void paint()}});
   if(compact)box.innerHTML='<div class="biz-paper biz-week-paper biz-paper-compact" data-bp-paper>'+skeletonHtml()+'</div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p>';
-  else box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml('<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>');
+  else box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml(JOURNAL_FOOT);
   box.addEventListener('click',onClick);
   // WEEKLY-사업영역묶음 ②: 묶음 표의 [수정] 글 칸 위 '수정할 칸' 고르기(사업영역 자기 칸 · ◦ 세부 과제 칸).
   box.addEventListener('change',e=>{const t=e.target.closest?.('[data-bp-target]');if(!t||!state?.editing)return;const row=Number(t.value);if(!rowRefs()[row])return;state.editing={kind:'progress',row};renderPaper()});
@@ -401,7 +402,7 @@ self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=
     if(!state.none){state.none=true;drawNone()}
     applyFold(from);return;
   }
-  if(state?.none){state.none=false;box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml('<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>');delete box.dataset.bpReady;state.view=null;state.dirty=true;state.freshPlaces=true} // 막 만든 사업영역이 표에 오게 연결할 곳 기억을 한 번 새로 읽는다
+  if(state?.none){state.none=false;box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml(JOURNAL_FOOT);delete box.dataset.bpReady;state.view=null;state.dirty=true;state.freshPlaces=true} // 막 만든 사업영역이 표에 오게 연결할 곳 기억을 한 번 새로 읽는다
   if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,hand:null,auto:false,visit,told:null,dirty:false};
   const foldNow=!compact&&!!fold;
   // 보고를 연 동안 손으로 고른 것(hand)은 화면을 떠났다 오거나(visit) 보고를 닫거나 새로 열면(auto가 바뀜) 잊는다 — 그다음은 기억한 값(BIZ-주간보고접힘기억).
