@@ -78,7 +78,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   if(!noteOnly)folderBtn.remove();
   else{
     const placeFolder=()=>{if(pickerWide.matches)pickerHost.before(folderBtn);else box.querySelector('[data-quick-save]').before(folderBtn);};
-    pickerWide.addEventListener('change',placeFolder);placeFolder();
+    pickerWide.addEventListener('change',()=>{placeFolder();paint();});placeFolder();
     folderBtn.onclick=()=>{if(saving)return;onFolder?.(folderBtn);};
   }
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
@@ -100,9 +100,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     pickerFiles.render();
     // BIZ-저장먼저닫기 2차(S59-10): the files of a save always go to the update's or note's own line behind (the input gets a fresh batch
     // at once), so the input never holds a saved or unconfirmed batch and never locks.
-    if(noteOnly){const f=box.querySelector('[data-quick-folder]'),label=folderName||'폴더 없음';f.hidden=false;f.textContent=([...label].length>8?[...label].slice(0,8).join('')+'…':label)+' ▾';f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','노트를 넣을 폴더: '+label+'. 누르면 다른 폴더를 고릅니다');}
+    if(noteOnly){const f=box.querySelector('[data-quick-folder]'),label=folderName||'폴더 없음';f.hidden=false;const name=document.createElement('span');name.className='home-quick-folder-name';name.textContent=[...label].length>8?[...label].slice(0,8).join('')+'…':label;f.replaceChildren(name,' ▾');/* NOTE-큰창잘림: 좁으면 이름만 '…'로 줄고 ▾는 늘 보인다(basket.css) */f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','노트를 넣을 폴더: '+label+'. 누르면 다른 폴더를 고릅니다');}
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel(placeChoices(),places);
-    input.placeholder=noteOnly?(folderName?`${folderName}에 노트 추가`:'노트를 입력하세요'):mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(잊지 말기에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
+    input.placeholder=noteOnly?(folderName?(pickerWide.matches?`${folderName}에 노트 추가`:'노트 추가'):'노트를 입력하세요'):mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(잊지 말기에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     const filesWait=!takesFiles()&&taskFilesWait&&mode==='task';
     if(rest&&!canRest())rest=false;
     box.toggleAttribute('data-quick-rest',rest);const kindBtn=box.querySelector('[data-quick-kind]');

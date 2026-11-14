@@ -64,7 +64,8 @@ for (const width of [1280, 390]) test(`the note input names the folder a new not
   await press(page, page.locator(`[data-nx-folder-more="${U(2)}"]`).first(), width);
   await press(page, page.locator('#noteDocMenu [data-nx-enter]'), width);
   await expect(folderBtn(page)).toHaveText('개발 ▾');
-  await expect(input(page)).toHaveAttribute('placeholder', '개발에 노트 추가');
+  // NOTE-큰창잘림: 폰은 옆 [폴더 ▾]가 폴더를 보이므로 안내 글은 '노트 추가'만(한 줄 칸에서 둘째 줄로 잘리지 않게).
+  await expect(input(page)).toHaveAttribute('placeholder', width < 761 ? '노트 추가' : '개발에 노트 추가');
   const box = await folderBtn(page).boundingBox();
   expect(box.height).toBeLessThanOrEqual(36);
   expect(box.width).toBeLessThan(200);

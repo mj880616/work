@@ -66,7 +66,7 @@
 #profileView .ps-push-recent{display:block;width:100%;min-height:var(--ds-compact-height-sm,28px);padding:2px 0;border:0;background:none;text-align:left;font-size:var(--ds-compact-text);color:var(--kptu-ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #profileView .ps-push-recent[data-opened]{color:var(--kptu-muted)}
 #profileView .ps-push-recent:hover,#profileView .ps-push-recent:focus-visible{text-decoration:underline}
-#profileView .ps-push-time{flex:none;width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}
+#profileView .ps-push-time{flex:none;width:auto;min-width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}
 /* MULTI ②-3: 보고 설정 칸(접힌 한 줄 요약 + 펼치면 글 칸 셋) */
 #profileView .ps-report>summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;min-height:var(--ds-compact-height)}
 #profileView .ps-report>summary::-webkit-details-marker{display:none}
