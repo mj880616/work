@@ -419,7 +419,19 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .note-editor .ed-stick > .basket-text-label { display:flex; flex-direction:column; gap:2px; margin:0; padding:6px 8px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
 /* NOTE-내용확대축소(S61-16 ③): 노트 읽기 글만 배율(--note-zoom, note-zoom.js). 머리 줄·목록·메뉴는 그대로. HTML 첨부는 칸막이 안 문서가 같은 배율. */
 #appView #basketView [data-note-read] [data-basket-read-text] { zoom:var(--note-zoom, 1); }
-#appView #basketView .note-head-main .nz-zoom { margin-right:auto; }
+#appView #basketView .note-head-main .nz-fold { margin-right:auto; }
+/* NOTE-배율자리(S61-45, 시안 B): 폰 폭(~599px) 노트 읽기 머리 줄은 글 크기 아이콘(큰 '가'·작은 '가') 한 칸 — 누르면 아래로 [−] 100% [+]가 뜬다.
+   600px 이상(폴드 펼침·PC)은 아이콘 없이 묶음 그대로. 펼침 상태는 note-zoom.js 단추 하나(aria-expanded·nz-open)가 갖는다. */
+#appView #basketView .note-head-main .nz-fold { position:relative; display:inline-flex; align-items:center; flex:0 0 auto; }
+#appView #basketView .note-head-main .nz-fold > button.nz-fold-btn { display:none; }
+#appView #basketView .nz-fz { display:inline-flex; align-items:flex-end; line-height:1; }
+#appView #basketView .nz-fz b { font-size:17px; font-weight:var(--ds-weight-medium); }
+#appView #basketView .nz-fz i { font-style:normal; font-size:11px; margin-left:-1px; }
+@media (max-width:599px) {
+  #appView #basketView .note-head-main .nz-fold > button.nz-fold-btn { display:inline-flex; }
+  #appView #basketView .note-head-main .nz-fold > .nz-zoom { position:absolute; z-index:20; top:calc(100% + 4px); right:0; width:max-content; max-width:none; overflow:visible; flex-wrap:nowrap; padding:4px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:var(--kptu-shadow-float); }
+  #appView #basketView .note-head-main .nz-fold:not(.nz-open) > .nz-zoom { display:none; }
+}
 /* NOTE-글폭(S61-21): 노트 읽기 글 칸(.line-w, ed-doc.css)의 원래 좌우 여백 — 그냥 글(마크다운 아님)은 이 여백으로 줄을 묶는다. */
 #appView #basketView [data-note-read] [data-basket-read-text] { --line-pr:12px; }
 @media (min-width:600px){ #appView #basketView [data-note-read] [data-basket-read-text]:not(.md-body):not(:has(>.ed-doc)) { padding-right:max(12px, calc(100% - var(--line-w) - 12px)); } }

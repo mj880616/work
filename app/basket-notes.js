@@ -45,7 +45,7 @@ import { GOTO_FOLDER_LABEL, flashRow } from './goto-folder.mjs'; // LIB-최근�
 import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 import { bigWindowOpen } from './big-window-open.js';
 import { bindNoteFileDrop, droppedTitle } from './note-file-drop.js';
-import { zoomControl, zoomScale, bindZoomKeys, NOTE_ZOOM_EVENT } from './note-zoom.js'; // NOTE-내용확대축소: 노트 글·HTML 첨부 내용만 배율 // NOTE-목록에파일놓기: 목록에 PC 파일을 놓으면 그 파일로 새 노트 창
+import { zoomFoldControl, zoomScale, bindZoomKeys, NOTE_ZOOM_EVENT } from './note-zoom.js'; // NOTE-내용확대축소: 노트 글·HTML 첨부 내용만 배율 // NOTE-목록에파일놓기: 목록에 PC 파일을 놓으면 그 파일로 새 노트 창
 import { mountLineWidth } from './line-width.js'; // NOTE-글폭: 노트 글 줄 폭 손잡이
 // ED③ 노트: the note's body is the new editor (note-body.js); its big window is note-window.js.
 import { paintDoc, docCopy, mountEditField, notePhotos, noteFiles } from './note-body.js';
@@ -620,7 +620,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected?.id, NOTE_BACK, rt)}<div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more data-ctx="area" aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="ni" data-note-source hidden></div><div class="basket-read-text line-w" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p><section class="note-cm" data-note-comments aria-label="댓글"></section></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<textarea rows="1" data-note-title-input data-autogrow data-enter-field="single" autocomplete="off" enterkeyhint="done"></textarea></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 최신화</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions save-row save-row-sticky" data-note-edit-actions hidden><button type="button" class="secondary save-row-start" data-note-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-note-cancel>취소</button><button type="button" class="primary" data-note-save>저장</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
     // NOTE-내용확대축소(S61-16 ③): 읽기 머리 줄 [−] 100% [+] — 노트 글(--note-zoom)과 HTML 첨부(html-frame.js가 다시 그림)만 바뀐다.
-    zoomBox?.destroy(); zoomBox = zoomControl();
+    // NOTE-배율자리(S61-45): 폰 폭은 글 크기 아이콘 한 칸, 누르면 아래로 펼침(제목 자리 확보). 폴드 펼침·PC는 묶음 그대로.
+    zoomBox?.destroy(); zoomBox = zoomFoldControl();
     detail.querySelector('[data-note-head-main]').prepend(zoomBox.node);
     // NOTE-글폭(S61-21): 글 줄 기본 폭 한 줄 약 40자 + 글 오른쪽 끝 손잡이(폭은 서버, 일기·쓰기 창과 같은 값). 손잡이는 다시 그려지는 글 칸 밖(읽기 칸)에 둔다.
     lineGrip?.destroy(); lineGrip = mountLineWidth({host:detail.querySelector('[data-note-read]'), target:detail.querySelector('[data-basket-read-text]')});
