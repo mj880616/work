@@ -1007,12 +1007,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!canEditFolders()) { notReady(); return; }
     picker.open({anchor, place, history:!isWide(), canNew:true, canOut:true, rows:q => pickRows(items, q),
       onPick:id => moveItems(items, id), onOut:() => moveItems(items, null),
-      onNew:async () => { const made = await newFolder(at === OUTSIDE ? null : at, {quiet:true}); if (made) await moveItems(items, made.id); }});
+      onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor}); if (made) await moveItems(items, made.id); }});
   }
+  // S61-46 UI-새폴더넣기안됨: 입력 줄·크게 쓰기 창의 [폴더 ▾]에서도 [+ 새 폴더 만들어 넣기]가 동작한다 — 폴더 줄 옮기기와 같은 newFolder 서버 길로
+  // 지금 들어온 폴더 안에(폴더 밖·최근이면 맨 위) 만들고, 만든 폴더를 고른 상태로 둔다. 새 저장 길 없음.
   function openAddPicker(trigger) {
-    if (!foldersReady || !folders.length) { addPick = null; quick.setFolder(null); if (!foldersReady) notReady(); return; }
-    picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:false, canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
-      onPick:id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); },
+    if (!foldersReady) { addPick = null; quick.setFolder(null); notReady(); return; }
+    const choose = id => { addPick = {at, folder:id}; quick.setFolder(folderName(addTarget())); bigWriter?.paint?.(); };
+    picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
+      onPick:choose, onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor:trigger}); if (made) choose(made.id); },
       onOut:() => { addPick = {at, folder:null}; quick.setFolder(null); bigWriter?.paint?.(); }});
   }
   // NOTE-폴더메뉴새노트: 폴더 ⋯ [새 노트] = 입력 줄 [폴더 ▾]에서 그 폴더를 고른 것과 같게 한 뒤, 입력 줄의 [크게]로 기존 새 노트 창을 연다
@@ -1027,8 +1030,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     let value = initial, watchers = [];
     return {get:() => value, label:() => folderName(value) || OUTSIDE_NAME, watch:fn => watchers.push(fn), close:() => { void picker.close(); },
       open:trigger => { if (!canEditFolders()) { notReady(); return; }
-        picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:false, canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
-          onPick:id => { value = id; watchers.forEach(fn => fn()); }, onOut:() => { value = null; watchers.forEach(fn => fn()); }}); }};
+        const choose = id => { value = id; watchers.forEach(fn => fn()); };
+        picker.open({anchor:trigger, place:'below', history:!isWide(), canNew:canEditFolders(), canOut:true, rows:q => pickerRows({folders, free:true, query:q}),
+          onPick:choose, onOut:() => choose(null), onNew:async () => { const made = await newFolder(folderAt(), {quiet:true, anchor:trigger}); if (made) choose(made.id); }}); }};
   }
   // Notes written before the folder table (no metadata.folder_id) sit in the top folder of the same name. Before that folder is
   // renamed, moved or deleted they get its id, so they stay with it.
@@ -1075,11 +1079,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   const flash = done => requestAnimationFrame(() => { for (const d of done.notes) host.querySelector(`[data-nx-note="${CSS.escape(d.id)}"]`)?.classList.add('nx-flash'); for (const d of done.folders) host.querySelector(`[data-nx-folder="${CSS.escape(d.id)}"]`)?.classList.add('nx-flash'); });
   // S48-28: 폴더 이름은 공용 작은 글 입력창으로 묻는다(누른 곳 근처). 취소 = null.
-  const askName = async (text, value = '') => { const typed = await askText(document.activeElement, {text:`${text} (40자까지)`, value, max:40}); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { folderSay('폴더 이름은 1~40자로 써 주세요.'); return null; } return name; };
-  async function newFolder(parentId, {quiet = false} = {}) {
+  const askName = async (text, value = '', anchor = null) => { const typed = await askText(anchor?.isConnected && anchor.getClientRects().length ? anchor : document.activeElement, {text:`${text} (40자까지)`, value, max:40}); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { folderSay('폴더 이름은 1~40자로 써 주세요.'); return null; } return name; };
+  async function newFolder(parentId, {quiet = false, anchor = null} = {}) {
     if (!canEditFolders()) { notReady(); return null; }
     if (parentId && folderPath(folders, parentId).length >= FOLDER_DEPTH_LIMIT) { folderSay(`폴더는 ${FOLDER_DEPTH_LIMIT}단까지만 만들 수 있어요.`); return null; }
-    const name = await askName('새 폴더 이름'); if (!name || !canEditFolders()) return null;
+    const name = await askName('새 폴더 이름', '', anchor); if (!name || !canEditFolders()) return null;
     try {
       const row = await createNoteFolder({name, parent_id:parentId || null, sort_order:nextSortOrder(folderSiblings(folders, {free:true, parentId:parentId || null}))}, rt);
       folders = [...folders, row]; if (parentId) openSet.add(parentId); folderSay(''); renderList();

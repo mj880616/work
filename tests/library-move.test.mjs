@@ -111,3 +111,28 @@ test('옮길 곳 목록: 값 없는 [+ 새 폴더 만들어 넣기]·[폴더 밖
   assert.match(src,/hasAttribute\('data-lu-move-out'\)\)void finish\(\(\)=>s\.onOut\(\)\)/);
   assert.doesNotMatch(src,/dataset\.luMove(New|Out)\)/);
 });
+
+// S61-46 UI-새폴더넣기안됨: 만들 수 없는 곳(canNew 없음·onNew 없음)은 [+ 새 폴더 만들어 넣기]를 흐린 채 두지 않고 아예 그리지 않는다.
+// 그리고 폴더 고르기 창을 여는 곳마다 canNew:true면 onNew도 준다(누르면 아무 일 없는 단추가 다시 생기지 않게).
+test('폴더 고르기 창: [+ 새 폴더 만들어 넣기]는 만들 수 있는 곳에만, 흐린 단추 없음',async()=>{
+  const {readFile,readdir}=await import('node:fs/promises');
+  const src=await readFile(new URL('../app/library-move-picker.js',import.meta.url),'utf8');
+  assert.match(src,/const canNew=!!state\.canNew&&typeof state\.onNew==='function'/);
+  assert.match(src,/\$\{canNew\?'<button type="button" class="lu-move-foot-btn" data-lu-move-new>/);
+  assert.doesNotMatch(src,/data-lu-move-new\$\{/,'흐린(aria-disabled) 새 폴더 단추를 그리지 않는다');
+  const dir=new URL('../app/',import.meta.url);
+  for(const name of (await readdir(dir)).filter(n=>n.endsWith('.js'))){
+    const text=await readFile(new URL(name,dir),'utf8');
+    for(const m of text.matchAll(/canNew\s*:\s*true/g)){
+      const call=text.slice(m.index,m.index+1200);
+      assert.match(call,/onNew\s*:/,`${name}: canNew:true인데 onNew가 없다`);
+    }
+  }
+  // 노트 입력 줄·크게 쓰기 창·노트 화면 밖 고르기 창(PC [새 노트]·전체 검색)·자료실 전체 검색 고르기 창은 만들 수 있다.
+  const notes=await readFile(new URL('../app/basket-notes.js',import.meta.url),'utf8');
+  assert.doesNotMatch(notes,/canNew:false/);
+  const nfp=await readFile(new URL('../app/note-folder-pick.js',import.meta.url),'utf8');
+  assert.match(nfp,/canNew: !!newFolder/);
+  const lfp=await readFile(new URL('../app/library-folder-pick.js',import.meta.url),'utf8');
+  assert.match(lfp,/canNew: typeof onNew === 'function'/);
+});

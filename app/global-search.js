@@ -564,7 +564,9 @@ function closePanel() {
 document.addEventListener('pointerdown', e => {
   if (!panelOpen) return;
   if (panel.contains(e.target) || slotInput?.wrap.contains(e.target)) return;
-  if (e.target.closest?.('.lu-move-picker')) return; // 노트 [폴더로 옮기기 ›]의 폴더 고르기 창(결과 창은 그대로 둔다)
+  // 노트 [폴더로 옮기기 ›]의 폴더 고르기 창과, 그 창 [+ 새 폴더 만들어 넣기]의 이름 묻는 작은 창(S61-46) — 결과 창은 그대로 둔다
+  // (작은 창은 자기 기록 칸을 따로 걷어 내므로, 여기서 결과 창까지 닫으면 뒤로가기가 두 번 겹친다).
+  if (e.target.closest?.('.lu-move-picker, .kptu-ask')) return;
   void closePanel();
 }, true);
 PC.addEventListener('change', () => { if (!PC.matches && panelOpen) void closePanel(); paintAll(); });
@@ -644,12 +646,13 @@ async function moveNoteResults(anchor, ids) {
 async function moveDocResults(anchor, ids) {
   if (!ids.length) return;
   const rt = window.KPTURuntime, owner = rt?.session?.read?.()?.user?.id;
-  const {loadLibraryFolders, openLibraryFolderPicker, moveLibraryDocsToFolder} = await import('./library-folder-pick.js');
+  const {loadLibraryFolders, openLibraryFolderPicker, moveLibraryDocsToFolder, makeLibraryFolder} = await import('./library-folder-pick.js');
   const loaded = await loadLibraryFolders(ids, rt);
   if (owner !== rt?.session?.read?.()?.user?.id || !anchor.isConnected) return;
   if (!loaded.ready) { notify('자료실 폴더를 읽지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true}); return; }
   const changed = () => { window.dispatchEvent(new CustomEvent('kptu:library-folders-changed')); window.dispatchEvent(new CustomEvent('kptu:documents-changed')); };
-  openLibraryFolderPicker({anchor, folders: loaded.folders, itemFolder: loaded.itemFolder, docs: ids, onPick: async folder => {
+  // S61-46: [+ 새 폴더 만들어 넣기] = 맨 위에 새 자료실 폴더를 만든 뒤 고른 것과 같게 옮긴다.
+  const put = async folder => {
     const result = await moveLibraryDocsToFolder(ids, folder, {rt, loaded});
     if (owner !== rt?.session?.read?.()?.user?.id) return;
     const n = result.done.length;
@@ -658,7 +661,9 @@ async function moveDocResults(anchor, ids) {
     changed();
     notify(`옮겼어요 ${n}개 → ${result.place}${result.failed.length ? ` · ${result.failed.length}개는 못 옮김` : ''}`, {label: `자료 폴더 옮기기 ${n}개`,
       undo: result.undo ? async () => { const ok = await result.undo(); changed(); return ok; } : null});
-  }});
+  };
+  openLibraryFolderPicker({anchor, folders: loaded.folders, itemFolder: loaded.itemFolder, docs: ids, onPick: put,
+    onNew: async () => { const made = await makeLibraryFolder(loaded, {rt, anchor}); if (made && owner === rt?.session?.read?.()?.user?.id) { changed(); await put(made); } }});
 }
 async function selectInLibrary(ids) {
   if (!ids.length) return;

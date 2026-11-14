@@ -15,3 +15,8 @@ export async function setLibraryFolderColor(api, id, color) {
   if (!result || result.ok !== true) throw new Error('폴더 색을 저장하지 못했어요.');
   return color;
 }
+// S61-46: 자료실 폴더 하나 만들기(기존 소유자 RLS REST, 자료실 화면 [+ 새 폴더 만들어 넣기]와 전체 검색 고르기 창이 같은 쓰기). 반환: 만든 줄(id 포함) 또는 null.
+export async function createLibraryFolder(api, {workspace, project_id = null, parent_id = null, name, sort_order}) {
+  const rows = await api('/rest/v1/app_library_folders', {method: 'POST', prefer: 'return=representation', body: {workspace_id: workspace, project_id, parent_id, name, sort_order}});
+  return Array.isArray(rows) ? rows[0] || null : null;
+}

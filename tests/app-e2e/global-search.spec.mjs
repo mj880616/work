@@ -352,3 +352,74 @@ test('PC 1280: 노트 결과 우클릭 [폴더로 옮기기 ›] → 노트 폴�
   expect(patches[1].metadata).toEqual({});
   expect(errors).toEqual([]);
 });
+
+// S61-46 UI-새폴더넣기안됨: 전체 검색 결과의 [폴더로 옮기기 ›] 창에서도 [+ 새 폴더 만들어 넣기]가 동작한다(흐린 채 안 되던 단추) —
+// 이름을 받아 맨 위에 새 폴더를 만들고(노트 폴더 표·자료실 폴더 표에 POST 한 번, 화면과 같은 쓰기) 곧바로 그 폴더로 옮긴다.
+test('PC 1280: 노트 결과 [폴더로 옮기기 ›] → [+ 새 폴더 만들어 넣기]',async({page})=>{
+  await page.setViewportSize({width:1280,height:860});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const calls=[],patches=[],made=[];let meta={};
+  const F1='00000000-0000-4000-8000-0000000000a1',NEW='00000000-0000-4000-8000-0000000000a9';
+  await openHome(page,{beforeLoad:async()=>{
+    await routeSearch(page,calls);
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_note_folders',r=>{
+      if(r.request().method()==='POST'){const body=r.request().postDataJSON();made.push(body);return r.fulfill({status:201,json:[{id:NEW,parent_id:null,name:body.name,sort_order:body.sort_order,created_at:'2026-11-14T00:00:00+00:00'}]})}
+      return r.fulfill({json:[{id:F1,parent_id:null,name:'회의',sort_order:1024,created_at:'2026-10-01T00:00:00+00:00'}]});
+    });
+    await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{
+      if(r.request().method()==='PATCH'){const body=r.request().postDataJSON();patches.push(body);meta=body.metadata;return r.fulfill({json:[{id:'d1',updated_at:'2026-10-02T00:00:00+00:00',metadata:meta}]})}
+      return r.fulfill({json:[{id:'d1',updated_at:'2026-10-01T00:00:00+00:00',metadata:meta}]});
+    });
+  }});
+  await top(page).click();await top(page).fill('교섭');
+  await panel(page).locator('[data-gs-group="note"] .gs-row').first().click({button:'right'});
+  await page.locator('#gsRowMenu').getByRole('button',{name:'폴더로 옮기기 ›'}).click();
+  const picker=page.locator('.lu-move-picker:visible');
+  const make=picker.getByRole('button',{name:'+ 새 폴더 만들어 넣기'});
+  await expect(make).not.toHaveAttribute('aria-disabled','true');
+  await make.click();
+  await page.locator('.kptu-ask-field').fill('새 교섭');
+  await page.locator('.kptu-ask-actions .primary').click();
+  await expect.poll(()=>made.length).toBe(1);
+  expect(made[0]).toMatchObject({name:'새 교섭',parent_id:null,sort_order:2048});
+  await expect.poll(()=>patches.length).toBe(1);
+  expect(patches[0].metadata).toEqual({folder_id:NEW,folder:'새 교섭'});
+  await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 노트 1개 → 새 교섭 폴더');
+  expect(errors).toEqual([]);
+});
+
+test('PC 1280: 자료실 결과 [폴더로 옮기기 ›] → [+ 새 폴더 만들어 넣기]',async({page})=>{
+  await page.setViewportSize({width:1280,height:860});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const calls=[],writes=[],made=[];
+  const D='00000000-0000-4000-8000-0000000000d1',F1='00000000-0000-4000-8000-0000000000f1',NEW='00000000-0000-4000-8000-0000000000f9';
+  let items=[];
+  await openHome(page,{beforeLoad:async()=>{
+    await page.route(SB+'/rest/v1/rpc/app_search_records',route=>{const body=route.request().postDataJSON();calls.push(body);const data=reply(body);
+      for(const g of data.groups)for(const it of g.items)if(it.source==='document')it.id=D;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})});
+    await page.route(SB+'/rest/v1/app_library_folder_items*',route=>{const req=route.request(),m=req.method();
+      if(m==='GET')return route.fulfill({json:items});
+      const body=req.postDataJSON();writes.push({method:m,body});if(m==='POST')items=[...items,body];
+      return route.fulfill({status:201,body:''})});
+    await page.route(SB+'/rest/v1/app_library_folders*',route=>{const req=route.request();
+      if(req.method()==='POST'){const body=req.postDataJSON();made.push(body);return route.fulfill({status:201,json:[{id:NEW,project_id:null,parent_id:null,name:body.name,sort_order:body.sort_order}]})}
+      return route.fulfill({json:[{id:F1,parent_id:null,name:'회의자료',sort_order:1024}]})});
+  }});
+  await top(page).click();await top(page).fill('교섭');
+  const row=panel(page).locator('[data-gs-group="document"] .gs-row').first();
+  await row.click({button:'right'});
+  await page.locator('#gsRowMenu').getByRole('button',{name:'폴더로 옮기기 ›'}).click();
+  const picker=page.locator('.lu-move-picker:visible');
+  // 폴더에 들지 않은 자료라 [폴더 밖으로]는 없고, [+ 새 폴더 만들어 넣기]는 누를 수 있다.
+  await expect(picker.getByRole('button',{name:'폴더 밖으로'})).toHaveCount(0);
+  await picker.getByRole('button',{name:'+ 새 폴더 만들어 넣기'}).click();
+  await page.locator('.kptu-ask-field').fill('교섭 새 폴더');
+  await page.locator('.kptu-ask-actions .primary').click();
+  await expect.poll(()=>made.length).toBe(1);
+  expect(made[0]).toMatchObject({name:'교섭 새 폴더',project_id:null,parent_id:null,sort_order:2048});
+  await expect.poll(()=>writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({method:'POST',body:{document_id:D,folder_id:NEW}});
+  await expect(page.locator('#kptuNotice')).toContainText('옮겼어요 1개 → 교섭 새 폴더 폴더');
+  expect(errors).toEqual([]);
+});
