@@ -20,7 +20,8 @@ import { followPane } from './follow-pane.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
 import { noteChecked, noteUnchecked, checkPopAttr } from './check-motion.js'; // UI-누름움직임: 방금 끝낸 할 일의 체크 움직임(모든 목록 공용)
 import { bindRowSwipe } from './row-swipe.js';
-import { mountAreaOrgLines, loadUsedKeys } from './area-org-picker.js'; // S52-01: 사업영역·조직 두 줄 + 누르면 고르기 창
+import { mountAreaOrgLines, loadUsedKeys } from './area-org-picker.js';
+import { orgWriteInFor } from './feed-link.js'; // S61-52: 조직 줄 [직접 쓰기] // S52-01: 사업영역·조직 두 줄 + 누르면 고르기 창
 import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑥: 칸 나누기 폭은 공용 판정 한 곳
 import { chevHtml } from './fold-chevron.mjs';
 (()=>{
@@ -182,13 +183,15 @@ function errorText(e){const msg=String(e?.message||e);if(/TASKS_SCOPE_REQUIRED|�
 // Link choices: active projects in the shared catalog's tree order, and my organizations (my-organizations.js, ORG-고르기통일;
 // none when nothing is assigned, as before) in the shared organization order (TASK-조직순서), split into its groups.
 // The Edge validates every target again. Existing links to targets not offered here are preserved by chosenLinks().
-async function loadTargets(){const owner=currentOwner(),ws=workspaceOf(),cat=window.KPTUProjectCatalog,order=window.KPTUOrganizationOrder;if(linkTargets?.owner===owner)return linkTargets;if(!owner||!ws)throw new Error('작업공간 정보를 확인할 수 없어요.');const [snap,assignments,orgs]=await Promise.all([cat?.load?cat.load({workspaceId:ws,userId:owner}):null,rt.api(`/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(owner)}&select=organization_id`),rt.api(`/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(ws)}&active=eq.true&select=id,name`)]);const assignedOrgs=order.forPicker(pickMyOrganizations(orgs||[],assignments||[],{whenNone:'none'}));const unlisted=order.hasGroups?.()===false?0:order.unlisted(assignedOrgs);if(unlisted)console.warn(`[Google Tasks] 조직 순서표 미등록: ${unlisted}개. 이름 일치 여부를 확인하세요.`);const out={owner,projects:(snap?.tree||[]).map(x=>({key:'p:'+x.project.id,label:cat.label(x.project.name,x.depth),name:x.project.name,depth:x.depth})),orgGroups:order.groups(assignedOrgs).map(g=>g.map(o=>({key:'o:'+o.id,label:o.name||'(이름 없음)',group:order.groupName(o)})))};if(currentOwner()===owner)linkTargets=out;return out}
+async function loadTargets(){const owner=currentOwner(),ws=workspaceOf(),cat=window.KPTUProjectCatalog,order=window.KPTUOrganizationOrder;if(linkTargets?.owner===owner)return linkTargets;if(!owner||!ws)throw new Error('작업공간 정보를 확인할 수 없어요.');const [snap,assignments,orgs]=await Promise.all([cat?.load?cat.load({workspaceId:ws,userId:owner}):null,rt.api(`/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(owner)}&select=organization_id`),rt.api(`/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(ws)}&active=eq.true&select=id,name`)]);const assignedOrgs=order.forPicker(pickMyOrganizations(orgs||[],assignments||[],{whenNone:'none'}));const unlisted=order.hasGroups?.()===false?0:order.unlisted(assignedOrgs);if(unlisted)console.warn(`[Google Tasks] 조직 순서표 미등록: ${unlisted}개. 이름 일치 여부를 확인하세요.`);const out={owner,projects:(snap?.tree||[]).map(x=>({key:'p:'+x.project.id,label:cat.label(x.project.name,x.depth),name:x.project.name,depth:x.depth})),orgGroups:order.groups(assignedOrgs).map(g=>g.map(o=>({key:'o:'+o.id,label:o.name||'(이름 없음)',group:order.groupName(o)}))),allOrgs:(orgs||[]).filter(o=>o?.id)};if(currentOwner()===owner)linkTargets=out;return out}
 // S52-01 UI-사업영역조직고르기창: the editor shows two lines (사업영역 · 조직) with the chosen ones as tags; [+ 고르기] opens the shared
 // picker (area-org-picker.js). The keys ('p:'/'o:') and the save path below are unchanged. linkLines is the lines of the open editor.
 let linkLines=null;
 function mountLinkLines(box,targets,selected){
   box.innerHTML='';const host=document.createElement('div');box.append(host);
-  linkLines=mountAreaOrgLines(host,{onChange:()=>autoSave('links')});
+  // S61-52(CALL-상대표시정리 ④): 조직 줄 창 맨 아래 [직접 쓰기] — 모든 조직 고르기 창과 같은 부품·만들기 경로(feed-link.js orgWriteInFor).
+  // 담당을 정해 둔 사람만(이 창이 내 담당 조직만 내놓으므로). 새 조직은 이 창 목록(linkTargets)에도 더한다.
+  linkLines=mountAreaOrgLines(host,{onChange:()=>autoSave('links'),create:()=>{const t=linkTargets;return t?.orgGroups?.flat().length?orgWriteInFor({orgs:()=>t.allOrgs||(t.allOrgs=[]),onOrg:org=>{if(!t.orgGroups.flat().some(o=>o.key==='o:'+org.id))(t.orgGroups.at(-1)||(t.orgGroups[0]=[])).push({key:'o:'+org.id,label:org.name||'(이름 없음)',group:''})}}):null}});
   linkLines.set({areas:targets.projects.map(x=>({key:x.key,name:x.name,depth:x.depth})),orgGroups:targets.orgGroups.map(g=>g.map(o=>({key:o.key,name:o.label,group:o.group}))),selected});
   const lines=linkLines;void loadUsedKeys(rt,workspaceOf()).then(keys=>{if(linkLines===lines)lines.used(keys)});
 }
