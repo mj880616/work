@@ -6,7 +6,7 @@ import { waitInlineHtml } from './wait-state.js'; // UI-기다림표시통일 2�
 import { createChoiceSheet } from './choice-sheet.js';
 import { openRowMenu } from './row-menu.js';
 import { openAreaOrgPicker, dismissAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText } from './area-org-picker.js';
-import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateFilesBehind, rememberPlace, linkFailText } from './update-places.js';
+import { readPlaces, placeSheetHtml, placeWriteIn, bindPlaceWriteIn, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateFilesBehind, rememberPlace, linkFailText } from './update-places.js';
 import { createGoogleTask } from './quick-save.js';
 import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from './basket-data.js';
 import { createUploadBatch, sendNoteBehind, mountBasketPicker, fileTitle } from './basket-upload.js';
@@ -203,13 +203,16 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     render:kind=>{
       // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
       // UPD-여러곳고르기: the 기록할 곳 sheet keeps many; presses mark a pending list that only [저장] makes the input's (onCommit).
-      if(kind==='org')pendingPlaces=currentPlaces();
-      return {title:'기록할 곳 선택',search:'조직·사업영역 이름 검색',searchAlways:true,split:true,html:placeSheetHtml(placeChoices(),pendingPlaces,esc)};
+      if(kind==='org'){pendingPlaces=currentPlaces();placeWrite=placeWriteIn(placeChoices());}
+      return {title:'기록할 곳 선택',search:'조직·사업영역 이름 검색',searchAlways:true,split:true,html:placeSheetHtml(placeChoices(),pendingPlaces,esc,{writeIn:placeWrite})};
     },
     multi:kind=>kind==='org'?{pressed:value=>value==='basket'?!pendingPlaces.length:pendingPlaces.some(p=>placeValue(p)===value),label:choiceCountText(pendingPlaces)}:null,
     onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`;}},
     onCommit:kind=>{if(kind!=='org')return;setPlaces(pendingPlaces);status.textContent='';paint();}
   });
+  // S61-52: '기록할 곳' 담당조직 맨 아래 [직접 쓰기](update-places.js, 모든 조직 고르기 창과 같은 부품). 새 조직은 이 입력칸 목록(orgChoices)에도 더해진다.
+  let placeWrite=null;
+  bindPlaceWriteIn(picker,idPrefix+'ChoiceSheet',()=>placeWrite&&{places:placeChoices(),writeIn:placeWrite,toggle:value=>{const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`;}});
   // HOME-입력칸두모양: 폰 홈은 [종류 ▾]에서, 넓은 화면은 [업데이트] 옆 ▾에서 연다. 창 자리는 지금 보이는 그 단추 곁 — 창이 열린 채 폭이
   // 바뀌어도(폴드 접기·펴기) 닫히지 않고 새 단추 곁으로 옮겨 간다(공용 followAnchor는 잴 수 있는 것이면 된다).
   const kindTrigger=box.querySelector('[data-quick-kind]'),placeButton=()=>homeBox&&phoneHome()?kindTrigger:orgSelect;
