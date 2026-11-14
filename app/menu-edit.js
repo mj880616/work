@@ -21,9 +21,11 @@ function rowHtml(id, list) {
 function paint(focusId = '') {
   const body = modal()?.querySelector('[data-menu-edit-body]');
   if (!body) return;
-  const layout = normalizeLayout(window.KPTUMenuLayout?.current?.());
+  // MULTI-처음쓰는사람 ④: 운영자 기능이 없어 메뉴에서 뺀 이름(off)은 편집 칸·미리보기에도 그리지 않는다(menu-layout.js current()).
+  const view = window.KPTUMenuLayout?.current?.(), off = new Set(view?.off || []), shown = id => !off.has(id);
+  const full = normalizeLayout(view), layout = {bar: full.bar.filter(shown), rest: full.rest.filter(shown), tail: full.tail.filter(shown), hidden: full.hidden.filter(shown)};
   const group = (list, label, head) => `<section class="me-group" aria-label="${esc(label)}"><h3>${head}</h3><ol class="me-list" data-reorder-list="${list}">${layout[list].map(id => rowHtml(id, list)).join('')}</ol></section>`;
-  const {main, tail} = pcSplit(layout), {hidden} = layout;
+  const split = pcSplit(full), main = split.main.filter(shown), tail = split.tail.filter(shown), {hidden} = layout;
   const pv = id => `<li>${esc(itemOf(id)?.label)}</li>`;
   body.innerHTML = `<div class="me-cols"><div class="me-lists">`
     + group('bar', '폰 하단바', `폰 하단바 <small>${layout.bar.length}/${BAR_MAX}칸</small>`)

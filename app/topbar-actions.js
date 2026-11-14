@@ -56,7 +56,7 @@ const menuQuery=mobileQuery;
 const appNav=document.querySelector('#appView>.app-nav');
 // BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','calendar','note','meetings','library','files','brief','pages','team','hwp','ledger','photos','outside','calls','telegram','arsenal'];
+const ALL_KEYS=['home','basket','calendar','note','meetings','library','files','brief','pages','team','hwp','photos','outside','calls','telegram','arsenal'];
 const keyButton=key=>appNav?.querySelector(key==='note'?'.nav-btn[data-basket-kind-nav="note"]':`.nav-btn[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 // UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
@@ -82,9 +82,11 @@ function placeSidebar(){
   if(!appNav)return;
   const layout=window.KPTUMenuLayout?.current?.();
   // 한 번도 바꾸지 않았으면 index.html의 처음 모양을 그대로 둔다(다시 끼우지 않음).
-  if(!sidebarMoved&&(!layout||isDefaultLayout(layout)))return;
+  // MULTI-처음쓰는사람 ④: 운영자 기능이 없어 뺀 메뉴(layout.off)가 있으면 기본 순서라도 다시 끼우고 그 메뉴는 뺀다.
+  const off=new Set(layout?.off||[]);
+  if(!sidebarMoved&&(!layout||(isDefaultLayout(layout)&&!off.size)))return;
   sidebarMoved=true;
-  const {main,tail}=pcSplit(layout),{hidden}=layout;
+  const split=pcSplit(layout),main=split.main.filter(id=>!off.has(id)),tail=split.tail.filter(id=>!off.has(id)),hidden=[...layout.hidden,...off];
   const spacer=appNav.querySelector('.sidebar-spacer'),links=appNav.querySelector('.nav-quick-links');
   const unit=id=>{
     const head=buttonByKey.get(id);if(!head)return [];

@@ -17,7 +17,7 @@ const resourceNoise=text=>/Failed to load resource|net::ERR_FAILED/.test(text);
 
 async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summary:'가상 의견 제출'}),cand(2,{source_kind:'org_update',organization_id:ORG,summary:'가상 조직 회신'})],tables=true,fn='ok',state={last_success_at:'2026-10-06T00:30:00Z',last_partial:false},width=1280,routes=null,query=''}={}){
  await page.setViewportSize({width,height:900});
- const f=await openHome(page,{query});
+ const f=await openHome(page,{query,features:[]});
  // Calls are counted only from the reloaded page; the first page (before these routes) may still be finishing.
  let armed=false;
  const db={rows:structuredClone(rows),state:structuredClone(state)},calls={ai:[],patch:[],reads:[]},errors=[],queue=[];

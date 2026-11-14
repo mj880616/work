@@ -17,6 +17,8 @@ async function open(page,url=app+'?view=home'){
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'fold-workspace',role:'owner',workspace:{id:'fold-workspace',name:'QA',slug:'kptu-work'}}]);
     if(p==='/functions/v1/google-calendar')return ok({connected:false,calendars:[],events:[]});
     if(p==='/functions/v1/google-tasks')return ok({connected:false,tasks:[]});
+    // MULTI-처음쓰는사람 ④: 운영자 계정 — 통화·텔레그램·파일·아스날·News 메뉴가 있다(모든 메뉴가 열리는지 보는 시험).
+    if(p==='/rest/v1/rpc/app_my_features')return ok(['arsenal','calls','files','outside','telegram']);
     if(p.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
@@ -46,7 +48,6 @@ const MENU=[
   ['공유 페이지','.nav-btn[data-view="pages"]','pages'],
   ['조직 보고','.nav-btn[data-view="team"]','team'],
   ['HWP 편집','.nav-btn[data-view="hwp"]','hwp'],
-  ['원장','.nav-btn[data-view="ledger"]','ledger'],
   ['사진','.nav-btn[data-view="photos"]','photos'],
   ['News','.nav-btn[data-view="outside"]','outside'],
   ['통화','.nav-btn[data-view="calls"]','calls'],

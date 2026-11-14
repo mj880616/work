@@ -20,9 +20,11 @@ export async function openQuickBox(page){
   await page.locator('#homeView [data-home-quick]').dispatchEvent('pointerdown');
   await expect(page.locator('#homeView [data-home-quick]')).not.toHaveAttribute('data-quick-rest','');
 }
+// 운영자 계정(명진)의 메뉴 기능: 통화·텔레그램·파일·아스날·News(MULTI-처음쓰는사람 ④ — 서버 허용 표의 키).
+export const OPERATOR_MENU_FEATURES = Object.freeze(['arsenal', 'calls', 'files', 'outside', 'telegram']);
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z", quickRest = false } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z", quickRest = false, features = OPERATOR_MENU_FEATURES } = {},
 ) {
   await page.clock.setFixedTime(new Date(now)); // now: HOME-하루채우기 ③처럼 저녁 시각이 필요한 시험만 바꾼다(기본 10:00 KST 그대로)
   // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
@@ -116,6 +118,9 @@ export async function openHome(
         user,
       });
     if (p === "/auth/v1/user") return ok(user);
+    // MULTI-처음쓰는사람 ④: 운영자 기능 답(app_my_features). 기본은 운영자 계정의 메뉴 기능(OPERATOR_MENU_FEATURES — 통화·텔레그램·파일·
+    // 아스날·News, 메뉴가 지금 그대로). 새 계정은 features: [] 로 연다. null이면 가로채지 않는다(아래 기본 []). 시험이 이 경로를 따로 가로채면 그쪽이 이긴다.
+    if (features && p === "/rest/v1/rpc/app_my_features") return ok(features);
     if (p === "/rest/v1/app_workspace_members")
       return ok([
         {

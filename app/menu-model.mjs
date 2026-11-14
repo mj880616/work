@@ -7,6 +7,8 @@
 // - 순서는 서버(view_prefs.menu_layout = {bar, rest})에 둔다(아래 칸은 rest 안 'bottom' 표시 뒤, MENU-세칸). 모르는 항목 이름은 버리고, 빠진 항목은 기본 자리에 다시 붙여
 //   나중에 메뉴가 늘어도 저장된 순서가 깨지지 않는다.
 
+// feature: 운영자 기능 키(서버 허용 표 app_operator_features, app_my_features 답). 이 키가 없는 계정은 메뉴 목록에서 뺀다(withFeatures, 숨김이 아니라 빼기 —
+//   데이터는 서버가 같은 표로 거절한다). MULTI-처음쓰는사람 ④, 설계 docs/design/new-user-start.md 2-1.
 // view: 라우터 화면 이름(없으면 note처럼 정리함 노트 쪽). group: 이 메뉴가 대표하는 화면들(일정 = 달력·할 일·일기).
 // HOME-업무일지홈: [홈]은 업무일지 화면이다(라우터 이름 home, 옛 이름 journal은 라우터 별칭). 그래서 [일정] 묶음에 업무일지가 없다.
 // icon: 24칸 선 그림 한 줄(폰 하단바·[메뉴] 창이 같이 쓴다). pc: PC 왼쪽 메뉴에서 이 항목 밑에 같이 따라오는 작은 메뉴 이름.
@@ -19,22 +21,23 @@ export const ITEMS = Object.freeze([
   {id: 'meetings', label: '사업 보고', view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
   // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(명진 결정 F5, 설계 docs/design/files-explorer.md).
-  {id: 'files', label: '파일', view: 'files', icon: 'M3 6h7l2 2h9v11H3zM3 10h18'},
+  {id: 'files', label: '파일', view: 'files', feature: 'files', icon: 'M3 6h7l2 2h9v11H3zM3 10h18'},
   // BRIEF-브리핑룸 ③(명진 결정 11/13 18:07 ③ 메뉴에 '브리핑 룸'): 처음 자리는 자료실 묶음 — [파일]이 자료실 바로 아래(F5)라 그 다음.
   {id: 'brief', label: '브리핑 룸', view: 'brief', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2'},
   {id: 'pages', label: '공유 페이지', view: 'pages', icon: 'M4 4h16v16H4zM4 10h16M10 10v10'},
   {id: 'team', label: '조직 보고', view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
   {id: 'hwp', label: 'HWP 편집', view: 'hwp', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'},
-  {id: 'ledger', label: '원장', view: 'ledger', icon: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM9 8h6M9 12h6M9 16h4'},
+  // MULTI-처음쓰는사람 ④(명진 11/13 16:25 "원장도 빼, 나한테도 불필요"): [원장]은 모든 계정의 메뉴 목록에서 뺐다. 원장 화면(라우터 ledger)·자동 기록·데이터와
+  // 다른 화면에서 여는 길(업무일지의 원장 줄·전체 검색·잊지 말기의 '원장으로')은 그대로다. 저장된 메뉴 순서의 'ledger'는 모르는 이름이라 버려진다.
   {id: 'photos', label: '사진', view: 'photos', icon: 'M3 6h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01'},
   // OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음, 설계 docs/design/outside-statements.md 4절).
   // OUTSIDE-글상세·관심환류 ③(명진 결정 11/01 23:16): 사회운동과 뉴스 클리핑을 한 칸으로 합쳤다. S51-17 NEWS P5: 이름 'Now' → 'News'(id outside는 그대로 — 저장된 menu_layout이 맞게).
   // id는 outside 그대로라 저장된 메뉴 순서가 맞고, 옛 id news는 아래 OLD_IDS가 outside로 읽는다.
-  {id: 'outside', label: 'News', view: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
-  {id: 'calls', label: '통화', view: 'calls', feed: true, icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
-  {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'},
+  {id: 'outside', label: 'News', view: 'outside', feature: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
+  {id: 'calls', label: '통화', view: 'calls', feed: true, feature: 'calls', icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
+  {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, feature: 'telegram', icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'},
   // 주소 개편 ② E1: [아스날]은 처음 자리가 [메뉴] 창 맨 아래(PC 사이드바도 맨 아래 묶음 끝, feed와 같은 자리). 메뉴 편집으로 옮길 수 있다.
-  {id: 'arsenal', label: '아스날', view: 'arsenal', feed: true, icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7l3.5 2.5-1.3 4h-4.4l-1.3-4zM12 3v4m3.5 2.5 4.6-1.5m-5.9 5.5 2.8 3.8m-7.2-3.8L7 17.3m1.5-7.8L3.9 8'}
+  {id: 'arsenal', label: '아스날', view: 'arsenal', feed: true, feature: 'arsenal', icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7l3.5 2.5-1.3 4h-4.4l-1.3-4zM12 3v4m3.5 2.5 4.6-1.5m-5.9 5.5 2.8 3.8m-7.2-3.8L7 17.3m1.5-7.8L3.9 8'}
 ]);
 export const MENU_ICON = 'M4 6h16M4 12h16M4 18h16';
 export const FIXED_ID = 'home';
@@ -43,7 +46,7 @@ export const BAR_MAX = 5;
 // MENU-세칸(명진 요청 2026-10-30 10:19): 메뉴는 세 칸이다. bar = 폰 하단바, rest = 위 메뉴(폰 [메뉴] 창 · PC 왼쪽 위),
 // tail = 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래 선 아래). 어느 메뉴든 세 칸 사이를 옮길 수 있다.
 export const DEFAULT_BAR = Object.freeze(['home', 'basket', 'calendar', 'meetings', 'team']);
-export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'brief', 'hwp', 'pages', 'ledger', 'photos', 'outside']);
+export const DEFAULT_REST = Object.freeze(['note', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
@@ -111,6 +114,15 @@ export function normalizeLayout(raw) {
   const missing = ITEMS.map(item => item.id).filter(id => !have.has(id));
   // 빠진 항목은 기본에서 하단바 칸이던 것도 위 메뉴에 둔다: 사용자가 고른 하단바를 새 항목이 밀어내지 않게.
   return {bar: [FIXED_ID, ...bar], rest: placeMissing([...spill, ...rest], missing.filter(id => !DEFAULT_TAIL.includes(id)), DEFAULT_REST), tail: [...tail, ...missing.filter(id => DEFAULT_TAIL.includes(id))], hidden};
+}
+// MULTI-처음쓰는사람 ④: 운영자 기능이 없는 메뉴를 목록에서 뺀 '보이는 순서'. features가 아직 없으면(null: 서버 답 전) 그대로 둔다 —
+// 운영자(명진) 화면이 답을 기다리는 동안 메뉴가 빠졌다 다시 생기지 않게. 뺀 이름은 off에 담는다(저장값에는 손대지 않음).
+export function withFeatures(layout, features) {
+  const base = normalizeLayout(layout);
+  if (!Array.isArray(features)) return {...base, off: []};
+  const have = new Set(features), keep = id => { const f = KNOWN.get(id)?.feature; return !f || have.has(f); };
+  const off = ITEMS.map(item => item.id).filter(id => !keep(id));
+  return {bar: base.bar.filter(keep), rest: base.rest.filter(keep), tail: base.tail.filter(keep), hidden: base.hidden.filter(keep), off};
 }
 const sameList = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
 export const sameLayout = (a, b) => sameList(a.bar, b.bar) && sameList(a.rest, b.rest) && sameList(a.tail || [], b.tail || []) && sameList(a.hidden || [], b.hidden || []);
