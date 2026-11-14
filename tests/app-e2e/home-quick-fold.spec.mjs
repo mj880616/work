@@ -9,7 +9,9 @@ test.describe('phone 412',()=>{
     await openHome(page,{quickRest:true});const q=quick(page),input=q.locator('[data-quick-input]'),kind=q.locator('[data-quick-kind]');
     await expect(q).toHaveAttribute('data-quick-rest','');
     await expect(kind).toBeVisible();await expect(kind).toHaveText('업데이트 ▾');
-    await expect(q.locator('.home-quick-head')).toBeHidden();await expect(q.locator('[data-quick-save]')).toBeHidden();
+    await expect(q.locator('.home-quick-modes')).toBeHidden(); // HOTFIX-홈잊지말기칩: 접혀도 [잊지 말기] 칩은 보이고 입력칸과 같은 줄
+    await expect(q.locator('[data-home-forget-open]')).toBeVisible();
+    {const c=await q.locator('[data-home-forget-open]').boundingBox(),i=await q.locator('[data-quick-input]').boundingBox();expect(Math.abs((c.y+c.height/2)-(i.y+i.height/2))).toBeLessThan(i.height/2);}await expect(q.locator('[data-quick-save]')).toBeHidden();
     await expect(q.locator('[data-quick-file-picker]')).toBeHidden();
     const rest=await q.boundingBox();expect(rest.height).toBeLessThanOrEqual(50);
     // 하단바 바로 위에 붙고, 화면 끝(하단바)과 겹치지 않는다.
