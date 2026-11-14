@@ -278,6 +278,8 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-select-opt[aria-selected="true"]{font-weight:700;color:var(--kptu-primary-ink,var(--kptu-ink))}
 .kptu-select-opt[aria-selected="true"]::after{content:"✓";flex:0 0 auto;font-weight:700}
 .kptu-select-opt[aria-disabled="true"]{color:var(--kptu-muted);cursor:default}
+/* ORG-자료칩드롭다운: 줄 오른쪽 끝 작은 건수(option data-count). 닫힌 상자에는 이름만. */
+.kptu-select-count{margin-left:auto;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400;font-variant-numeric:tabular-nums}
 .kptu-select-group{padding:6px 8px 2px;font-size:12px;color:var(--kptu-muted)}
 /* UI-작은알림 (2026-10-28): 브라우저 기본 알림창 대신 쓰는 공용 작은 알림(small-notice.js notify)·작은 확인창(askConfirm). 하단바 위, 톤다운. */
 .kptu-notice{position:fixed;z-index:110;left:50%;transform:translateX(-50%);top:var(--kptu-notice-top);bottom:auto;box-sizing:border-box;width:max-content;max-width:min(calc(100vw - 32px),520px);display:flex;align-items:center;flex-wrap:nowrap;gap:4px 10px;padding:7px 8px 7px 12px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:1.4;box-shadow:var(--kptu-shadow-float)}

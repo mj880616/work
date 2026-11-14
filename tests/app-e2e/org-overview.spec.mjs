@@ -112,12 +112,25 @@ for(const width of [390,884,1280])test(`[전체 표] 조직보고 창: 쓰기 �
  await ob(page).locator(`[data-rw-add="${OB}"]`).click();
  const body=page.locator('#soOverview [data-rw-field="body"]');
  await expect(body).toBeFocused();
- await expect(page.locator('#soOverview [data-rw-field="day"]')).toHaveValue('2026-11-17');
+ // ORG-기록입력날짜: 날짜는 글 아래 작은 [오늘 ▾] 칩(누르기 전에는 달력 칸이 없음)
+ await expect(page.locator('#soOverview [data-rw-day-chip]')).toHaveText(/^오늘/);
+ await expect(page.locator('#soOverview [data-rw-field="day"]')).toHaveCount(0);
  await body.fill('합성 현안 설명회');await body.press('Enter');
  await expect(status(page)).toHaveText('기록을 남겼어요.');
  expect(db.posts.at(-1)).toMatchObject({organization_id:OB,raw_text:'합성 현안 설명회',occurred_at:'2026-11-17T12:00:00+09:00',source_kind:'user'});
  expect(db.posts.at(-1).source_id).toBeUndefined();
  await expect(shown(ob(page))).toHaveText([/11\.17\.합성 현안 설명회/]);
+ // ORG-기록입력날짜: [오늘 ▾] → [하루|기간|없음] + 달력에서 11.18을 고르고 저장 → 그 날짜로 기록.
+ await ob(page).locator(`[data-rw-add="${OB}"]`).click();
+ await page.locator('#soOverview [data-rw-day-chip]').click();
+ const pick=page.locator('#soOverview [data-rw-form="new-day"]');
+ await expect(pick.locator('[data-rw-mode="day"]')).toHaveAttribute('aria-pressed','true');
+ await pick.locator('[data-rw-field="day"]').fill('2026-11-18');
+ await expect(page.locator('#soOverview [data-rw-day-chip]')).toHaveText(/^11\.18\./);
+ await page.locator('#soOverview [data-rw-field="body"]').fill('합성 점검 회의');
+ await page.locator('#soOverview [data-rw-save]').click();
+ await expect(status(page)).toHaveText('기록을 남겼어요.');
+ expect(db.posts.at(-1)).toMatchObject({organization_id:OB,raw_text:'합성 점검 회의',occurred_at:'2026-11-18T12:00:00+09:00',source_kind:'user'});
  // 빼기 → '뺀 줄 1', 그 주 표시 한 행(choice out).
  await menu(page,oa(page),'합성 교섭 상견례','보고에서 빼기');
  await expect(status(page)).toHaveText('이번 주부터 보고에서 뺐어요.');
