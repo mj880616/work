@@ -967,7 +967,7 @@ jobs:
         run: node --test tests/security/app-tasks-loaded-writes.test.mjs
 
       - name: Check domain routing and service worker registration
-        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/supabase-origin.test.mjs
+        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/supabase-origin.test.mjs tests/domain/nojoplus-share-short.test.mjs
 
       - name: Check Web2 report-only CSP and referrer policy (SEC-Web2CSP 1단계)
         run: node --test tests/web2-csp.test.mjs
