@@ -154,7 +154,7 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 /* ORG-쟁의단계 다듬기(2026-10-24 11:05): 저장 줄의 작은 [~ 끝 날짜]와 끝 날짜 칸, 이력 줄 ⋯ → 고치기·지우기. 새 요소만, 크기는 기존 토큰. */
 .wd-stage-tilde{flex:0 0 auto;color:var(--kptu-muted)}
 .wd-stage-end-btn{position:relative;flex:0 0 auto;white-space:nowrap;height:var(--ds-compact-height-sm);min-height:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
-.wd-stage-end-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.wd-stage .wd-stage-end-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .wd-stage-hist .wd-stage-hrow{padding:0 0 0 10px}
 .wd-stage-hline{display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height-sm)}
 .wd-stage-htext{flex:1 1 auto;min-width:0}
