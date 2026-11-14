@@ -19,6 +19,7 @@ const HWP_BODY=[
   `<P class=HStyle0>${S('저연차 ')}${S('(6')}${S('급')}${S(')')} ${S('처우개선 ')}${S('&middot')} ${S('안전인력 충원')}</P>`,
   `<P class=HStyle0>${S('&middot')} ${S('근속승진제 첫 도입 ')}${S('(2027')}${S('년 ')}${S('1')}${S('월 시행')}${S(')')}${S(',')}</P>`,
   `<P class=HStyle0>${S('4')}${S('급 ')}${S('&rarr')} ${S('3')}${S('급')} <FONT color=#000000>승진 </FONT><B>확대</B><o:p></o:p></P>`,
+  `<P class=HStyle0>${S('5')}${S('급 ')}${S('&rarr')}${S('4')}${S('급')} 전환</P>`,
   `<P class=HStyle0>${S('태그로 쪼개진 표기')} ${S('&middot')}${S(';')} ${S('끝')}&nbsp;${S('&amp;rarr;')} ${S('두 번 감싼 표기')}</P>`,
 ].join('\n');
 const PAGE=`<!doctype html><html><head><title>가짜철도 노사 잠정합의, 13일 경고파업 철회 | 가짜노조</title></head><body>
@@ -26,7 +27,7 @@ const PAGE=`<!doctype html><html><head><title>가짜철도 노사 잠정합의, 
 <div class="publishList_title"><H3><SPAN>가짜철도 노사 잠정합의, </SPAN><SPAN>13</SPAN><SPAN>일 경고파업 철회</SPAN></H3></div>
 <div class="publishList_write">${HWP_BODY}</div></form><footer>저작권</footer></body></html>`;
 
-const LEFT=/&(?:middot|rarr|larr|nbsp|quot|amp|lt|gt|hellip)\b|\d \S*[일년월급]|\S \.|\( |\s\)/;
+const LEFT=/&(?:middot|rarr|larr|nbsp|quot|amp|lt|gt|hellip)(?![A-Za-z])|\d \S*[일년월급]|\S \.|\( |\s\)/;
 
 test('decodeText: ";" 빠진 흔한 이름 표기를 푼다, 낱말·주소 꼴은 그대로', ()=>{
  const cases=[
@@ -38,10 +39,18 @@ test('decodeText: ";" 빠진 흔한 이름 표기를 푼다, 낱말·주소 꼴�
   ['A &amp B, 1 &lt 2 &gt 0, 기다림&hellip','A & B, 1 < 2 > 0, 기다림…'],
   ['&amp;middot 두 번 감싼 표기','· 두 번 감싼 표기'],
   ['&amp;amp;rarr 세 번','→ 세 번'],
+  // S61-51b: ';' 없는 표기 바로 뒤에 숫자가 붙은 꼴(태그로 쪼개진 '&rarr</span><span>3'이 붙은 것).
+  ['4급&rarr3급, 3급&larr4급','4급→3급, 3급←4급'],
+  ['4 급 &rarr3급','4 급 →3급'],
+  ['&middot1 첫째 &middot2 둘째','·1 첫째 ·2 둘째'],
+  ['영하 5&deg2분, 2&times3','영하 5°2분, 2×3'],
+  ['&amp;rarr3급','→3급'],
  ];
  for(const [raw,want] of cases)assert.equal(E.decodeText(raw),want,raw);
  // 낱말 끝·주소 꼴·모르는 이름은 그대로.
- for(const s of ['&copyright 2026','?a=1&lt=2','R&D 가짜 & 회사','&middotx','&Middot 대문자 다름','Volt; camp;','&unknown 그대로'])assert.equal(E.decodeText(s),s,s);
+ for(const s of ['&copyright 2026','?a=1&lt=2','R&D 가짜 & 회사','&middotx','&Middot 대문자 다름','Volt; camp;','&unknown 그대로',
+  // 숫자가 붙어도 주소 칸 이름 꼴('=' 앞)·모르는 이름·대문자 다른 이름은 그대로.
+  '?q=1&lt2=3','?a=&times3b=x','&rarr3a=1','&Rarr3급','&unknown3'])assert.equal(E.decodeText(s),s,s);
  // 한 번 풀기(주소·속성값용)는 ';' 없는 표기를 건드리지 않는다.
  assert.equal(E.decodeEntities('a=1&lt=2&middot'),'a=1&lt=2&middot');
  // 두 번 돌려도 같다.
@@ -73,7 +82,7 @@ test('공공운수노조 보도자료 모양(한글 문서 붙여넣기) 원문:
  const text=out.blocks.filter(b=>b.t!=='img').map(b=>b.text).join('\n');
  assert.ok(!LEFT.test(text),text);
  for(const want of ['13일 경고파업을 앞두고 잠정합의했습니다. 이에 따라','저연차 (6급) 처우개선 · 안전인력 충원','· 근속승진제 첫 도입 (2027년 1월 시행),',
-  '4급 → 3급 승진 확대','태그로 쪼개진 표기 · 끝 → 두 번 감싼 표기'])assert.ok(text.includes(want),`${want}\n---\n${text}`);
+  '4급 → 3급 승진 확대','5급 →4급 전환','태그로 쪼개진 표기 · 끝 → 두 번 감싼 표기'])assert.ok(text.includes(want),`${want}\n---\n${text}`);
 });
 
 test('같은 종류 전수: 목록 제목(cleanTitle)·피드 요약(feedText)·기사 쪽 제목(readArticlePage)', ()=>{

@@ -75,13 +75,15 @@ export function repairBareEntities(s: string): string {
 
 // ';'가 빠진 이름 표기(S61-37 NEWS-원문표기깨짐2): '&middot 안전'·'4 급 &rarr 3 급'처럼 끝 ';' 없이 오는 표기.
 // 공공운수노조 보도자료(한글 문서를 붙여 넣은 HTML)가 이런 꼴로 온다(11/13 요청함 캡처). 브라우저도 흔한 이름은 ';' 없이 푼다.
-// 정해진 이름만, '&'가 붙어 있고 바로 뒤가 영문·숫자·';'·'='가 아닐 때만 푼다('&copyright'·'?a=1&lt=2' 같은 주소·낱말은 그대로).
+// 정해진 이름만, '&'가 붙어 있고 바로 뒤가 영문·';'·'='가 아닐 때만 푼다('&copyright'·'?a=1&lt=2' 같은 주소·낱말은 그대로).
+// 바로 뒤 숫자는 푼다('4급 &rarr3급' → '4급 →3급', S61-51b — 태그로 쪼개진 '&rarr</span><span>3'이 붙어 이 꼴이 된다).
+// 다만 숫자·영문이 이어지다 '='가 나오면 주소 칸 이름('&lt2=1'·'&times3a=')이라 그대로 둔다.
 // 대소문자는 그대로 맞춘다(이름 표기는 대소문자를 가린다). 주소·속성값에는 쓰지 않는다(글자 칸만, decodeText 안에서만).
 export const LOOSE_NAMED: ReadonlyArray<string> = [
   "amp", "lt", "gt", "quot", "apos", "nbsp", "middot", "hellip", "bull", "rarr", "larr", "uarr", "darr",
   "lsquo", "rsquo", "ldquo", "rdquo", "ndash", "mdash", "laquo", "raquo", "copy", "reg", "trade", "deg", "times",
 ];
-const LOOSE_RE = new RegExp(`&(${[...LOOSE_NAMED].sort((a, b) => b.length - a.length).join("|")})(?![A-Za-z0-9;=])`, "g");
+const LOOSE_RE = new RegExp(`&(${[...LOOSE_NAMED].sort((a, b) => b.length - a.length).join("|")})(?![A-Za-z;=])(?![A-Za-z0-9_]*=)`, "g");
 export function decodeLooseEntities(s: string): string {
   return String(s ?? "").replace(LOOSE_RE, (m, e: string) => NAMED[e] ?? m);
 }
