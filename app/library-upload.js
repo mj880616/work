@@ -1841,7 +1841,11 @@ async function luOpenBulkMenu(button){
     const cur=commonValue(luBulkDocs(),kind),used=await usedKeysNow().catch(()=>[]),prefix=kind==='project'?'p:':'o:';
     if(!luPick.items||!button.isConnected)return;
     const groups=kind==='organization'?orderedOrgGroups(window.KPTUOrganizationOrder?.groups?window.KPTUOrganizationOrder.groups(luBulkOrganizations(cur)):[luBulkOrganizations(cur)]):[];
-    await openAreaOrgPicker({kind:kind==='project'?'area':'org',trigger:button,used,multi:false,none:BULK_FIELDS[kind].none,title:BULK_FIELDS[kind].label+' 바꾸기',
+    // S61-52(CALL-상대표시정리 ④): 담당조직 창 맨 아래 [직접 쓰기] — 다른 조직 고르기 창과 같은 부품·같은 만들기 경로(feed-link.js orgWriteInFor).
+    // 새 조직은 자료실 조직 목록·내 담당 목록에 더하고 그 조직으로 일괄 바꾼다.
+    const create=kind==='organization'?(await import('./feed-link.js')).orgWriteInFor({orgs:()=>luOrganizations,onOrg:org=>{if(!luMyOrganizations.some(o=>o.id===org.id))luMyOrganizations=[...luMyOrganizations,org]}}):null;
+    if(!luPick.items||!button.isConnected)return;
+    await openAreaOrgPicker({kind:kind==='project'?'area':'org',trigger:button,used,multi:false,none:BULK_FIELDS[kind].none,title:BULK_FIELDS[kind].label+' 바꾸기',create,
       areas:kind==='project'?catalogAreas(luCatalog()?.tree||[]):[],orgGroups:groups,selected:cur?[prefix+cur]:[],
       onCommit:keys=>{const k=[...keys][0]||'';if(!luPick.items)return;void luBulkApply(kind,k.startsWith(prefix)?k.slice(2):'')}});
     return;
