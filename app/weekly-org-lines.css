@@ -22,10 +22,12 @@
 .wl-line.is-sug .wl-text,.wl-line.is-sug .wl-day{color:var(--kptu-muted)}
 .wl-line.is-last .wl-text,.wl-line.is-last .wl-day{color:var(--kptu-muted);opacity:.8}
 .wl-ai{flex:0 0 auto;padding:0 3px;border:1px solid var(--kptu-border);border-radius:3px;color:var(--kptu-muted);font-size:10px;line-height:14px}
-.wl-btns{flex:0 0 auto}
-#appView button.wl-btn,.wl-btn{position:relative;box-sizing:border-box;height:var(--ds-compact-height-sm,26px);min-height:0;padding:0 7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:500;line-height:1;cursor:pointer}
+/* ORG-날짜고치기버튼오른쪽(11/14): 작은 칸(.wl-form 계열·쟁의 단계 줄)의 [취소][저장]은 줄이 바뀌어도 칸 오른쪽 끝. */
+.wl-btns{flex:0 0 auto;margin-left:auto}
+/* 조직 상세 창(.modal)에서도 표와 같은 모양(창 공용 글자 버튼 규칙 .modal button.row-act보다 앞서게). */
+:is(#appView,.modal) button.wl-btn,.wl-btn{position:relative;box-sizing:border-box;height:var(--ds-compact-height-sm,26px);min-height:0;padding:0 7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:500;line-height:1;cursor:pointer}
 .wl-btn::after{content:"";position:absolute;inset:-9px -2px}
-#appView button.wl-btn.is-main,.wl-btn.is-main{background:none;border-color:var(--kptu-info);color:var(--kptu-info)}
+:is(#appView,.modal) button.wl-btn.is-main,.wl-btn.is-main{background:none;border-color:var(--kptu-info);color:var(--kptu-info)}
 .wl-btn:disabled{opacity:.5;cursor:default}
 .wl-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .wl-warn{display:inline-block;margin-left:6px;padding:0 4px;border-radius:3px;background:var(--kptu-warning-soft,var(--kptu-surface-subtle));color:var(--kptu-warning,var(--kptu-muted));font-size:10px;line-height:16px;font-weight:400;white-space:nowrap}
