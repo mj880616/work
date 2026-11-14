@@ -10,6 +10,8 @@ const rowH=async q=>(await q.boundingBox()).height;
 // 박스 높이가 바뀐 횟수를 센다(누를 때 한 번만 바뀌는지 보기). ResizeObserver로 그려진 높이만 적는다.
 const watchHeights=page=>page.evaluate(()=>{const box=document.querySelector('#homeView [data-home-quick]');window.__qh=[Math.round(box.getBoundingClientRect().height)];new ResizeObserver(()=>{const h=Math.round(box.getBoundingClientRect().height);if(window.__qh.at(-1)!==h)window.__qh.push(h);}).observe(box);});
 const heights=page=>page.evaluate(()=>window.__qh.slice());
+// 공용 자판 판정(accessibility-dialog.js)이 보는 visualViewport 높이를 바꿔 자판이 뜨고 내려가는 것을 흉내 낸다.
+const keyboard=(page,open)=>page.evaluate(up=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>up?400:innerHeight});visualViewport.dispatchEvent(new Event('resize'));},open);
 async function pickKind(page,name){const q=quick(page);await q.locator('[data-quick-kind]').click();await page.locator('#rowMenu').getByRole('button',{name,exact:true}).click();}
 test.describe('phone 412',()=>{
   test.use({viewport:{width:412,height:915}});
@@ -64,6 +66,39 @@ test.describe('phone 412',()=>{
     await page.mouse.click(200,300);await expect(q).toHaveAttribute('data-quick-shape','dates typing');
     await input.fill('');await page.mouse.click(200,300);await expect(q).toHaveAttribute('data-quick-shape','line');
     expect(await rowH(q)).toBe(rest);
+  });
+  // HOME-자판내리면한줄(S61-50, 명진 11/14 18:48): 자판(공용 판정, accessibility-dialog.js)을 흉내 낸다 — 화면 높이를 400으로 줄이면
+  // 자판이 뜬 것, 원래대로 돌리면 자판이 내려간 것(안드로이드 뒤로 가기). 날짜 줄은 할 일 칸에 쓰는 중이고 자판이 떠 있을 때만.
+  test('할 일: 자판을 내리면 글자가 있든 없든 한 줄, 글자·날짜는 그대로, 다시 누르면 날짜 줄',async({page})=>{
+    await openHome(page);const q=quick(page),input=q.locator('[data-quick-input]');
+    await pickKind(page,'할 일');await expect(input).toBeFocused();await keyboard(page,true);
+    await expect(page.locator('body')).toHaveClass(/kptu-mobile-keyboard/);await expect(q).toHaveAttribute('data-quick-shape','dates');
+    // 빈 칸에서 자판만 내림 → 한 줄.
+    await keyboard(page,false);await expect(q).toHaveAttribute('data-quick-shape','line');await expect(input).not.toBeFocused();
+    // 다시 누르면 날짜 줄, 날짜를 고르고 글을 쓴 채 자판만 내림 → 한 줄 + [추가], 글자·날짜 그대로.
+    await input.click();await keyboard(page,true);await expect(q).toHaveAttribute('data-quick-shape','dates');
+    await q.locator('[data-quick-day="tomorrow"]').click();await input.click();await input.pressSequentially('내일 할 일');
+    await expect(q).toHaveAttribute('data-quick-shape','dates typing');
+    if(shot)await page.screenshot({path:shot+'/phone-412-keyboard-up.png'});
+    await keyboard(page,false);await expect(q).toHaveAttribute('data-quick-shape','typing');
+    await expect(q.locator('[data-quick-options]')).toBeHidden();await expect(q.locator('[data-quick-save]')).toBeVisible();
+    await expect(input).toHaveValue('내일 할 일');
+    if(shot)await page.screenshot({path:shot+'/phone-412-keyboard-down.png'});
+    await input.click();await keyboard(page,true);await expect(q).toHaveAttribute('data-quick-shape','dates typing');
+    await expect(q.locator('[data-quick-day="tomorrow"]')).toHaveAttribute('aria-pressed','true');
+    // 글이 있는 채 칸 밖을 누름(자판도 내려감) → 한 줄.
+    await page.mouse.click(200,300);await keyboard(page,false);await expect(q).toHaveAttribute('data-quick-shape','typing');
+    await expect(input).toHaveValue('내일 할 일');
+  });
+  test('할 일: 다음주 고르기 창이 열린 동안은 자판이 내려가도 날짜 줄 유지',async({page})=>{
+    await openHome(page);const q=quick(page),input=q.locator('[data-quick-input]');
+    await pickKind(page,'할 일');await keyboard(page,true);await input.pressSequentially('주간 보고');
+    await expect(q).toHaveAttribute('data-quick-shape','dates typing');
+    // 창이 열리면서 포커스가 입력칸에 남아 있어도(창이 포커스를 가져가지 않는 경우) 접지 않는다.
+    await q.locator('[data-quick-day="week"]').click();const pick=page.locator('.kptu-week-pick,#taskWeekPick').first();await expect(pick).toBeVisible();
+    await input.focus();await keyboard(page,false);await expect(q).toHaveAttribute('data-quick-shape','dates typing');
+    await pick.getByRole('button').first().click();await expect(q.locator('[data-quick-day="week"]')).toHaveAttribute('aria-pressed','true');
+    await expect(q).toHaveAttribute('data-quick-shape','dates typing');
   });
   test('[종류 ▾] → 기록할 곳 선택: 고르기 창, 고르고 저장해도 한 줄',async({page})=>{
     await openHome(page);const q=quick(page);
