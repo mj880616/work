@@ -67,6 +67,8 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
   const box = editor.getByRole('textbox', {name:'본문', exact:true});
   await expect(box).toBeVisible();
   await expect(editor.locator(OLD_FRAME)).toHaveCount(0);
+  // SHARE-작성칸기다림안사라짐(S62-03b): 편집기가 뜨면 회색 기다림 막대는 남지 않는다.
+  await expect(editor.locator('kptu-wait')).toHaveCount(0);
   await expect(page.locator('#sharePagesRoot details.sp-box')).toBeHidden();
   // Width: the editor takes (almost) all of the content area, and the text box nearly all of the editor.
   const m = await page.evaluate(() => {
@@ -140,6 +142,7 @@ test('저장: [저장], Ctrl+S and Cmd+S save in place; 저장 안 됨 shows onl
   // An existing page opens with the cursor in the text.
   const box = editor.getByRole('textbox', {name:'본문', exact:true});
   await expect(box).toBeFocused();
+  await expect(editor.locator('kptu-wait')).toHaveCount(0); // S62-03b: 기존 페이지도 기다림 막대 0개
   const unsaved = editor.locator('[data-sp-dirty]');
   await expect(unsaved).toBeHidden();
   await page.keyboard.press('Control+End');

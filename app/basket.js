@@ -1037,7 +1037,8 @@ async function refresh() {
     listStatus.textContent = '업데이트를 불러오지 못했어요. 다시 시도해 주세요.';
     root.querySelector('[data-basket-retry]').hidden = false;
   } finally {
-    if (loadingRun === run) loadingRun = 0;
+    // S62-03b(기다림 막대 전수): 읽는 사이 줄을 열어(epoch) 이 읽기가 버려지면 위에서 그리지 않고 끝난다 — 이 읽기의 기다림 표시는 여기서 거둔다.
+    if (loadingRun === run) { loadingRun = 0; listStatus.querySelector('[data-wait]')?.remove(); }
   }
 }
 // Resolves true when the change was saved, false when it was not (busy, no note, or the save failed).
