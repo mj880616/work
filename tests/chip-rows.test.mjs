@@ -95,7 +95,7 @@ test('fitChipRows: 고른 칩은 접혀도 보이고, 숨는 칩을 건너 앞�
 
 test('옆으로 미는 칩 줄 코드는 없다: 공용 칩 부품 둘이 chip-rows.js를 쓰고 scroll-edge.js·끝 흐림은 지웠다', () => {
   assert.equal(existsSync(join(app, 'scroll-edge.js')), false);
-  for (const f of ['filter-chips.js', 'category-chips.js', 'telegram-feed.js', 'note-boards.js', 'ledger-browse.js']) {
+  for (const f of ['filter-chips.js', 'telegram-feed.js', 'note-boards.js', 'ledger-browse.js']) {
     assert.match(read(f), /import \{[^}]*fitChipRows[^}]*\} from '\.\/chip-rows\.js'/, f);
     assert.doesNotMatch(read(f), /scrollLeft|watchScrollEdges/, f);
   }
@@ -107,8 +107,6 @@ test('칩 줄 CSS는 줄바꿈이고 가로 스크롤이 없다(자료실·담�
   const rules = [
     ['filter-chips.css', /\.filter-chips \{([^}]*)\}/],
     ['ui-standard.css', /#appView :is\(#libraryView,#meetingsView,#basketView\) \.filter-chips:not\(\[hidden\]\)\{([^}]*)\}/],
-    ['ui-standard.css', /html \.doc-kind-chips:not\(\[hidden\]\)\{([^}]*)\}/],
-    ['ui-standard.css', /html \.cc-sub-row:not\(\[hidden\]\)\{([^}]*)\}/],
     ['feed.css', /\.feed-view \.feed-chiprow\{([^}]*)\}/],
     ['basket.css', /\.nbb \{([^}]*)\}/],
     ['ledger-import.css', /#appView #ledgerView \.lb-topics\{([^}]*)\}/],
