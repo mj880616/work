@@ -5,3 +5,5 @@
 /* APP-앱내려받기버튼: 로그인 버튼 아래 작은 [안드로이드 앱 내려받기]와 설치 안내 한 줄(크고 굵은 버튼 아님) */
 .login-app{margin:12px 0 14px;text-align:center}.login-app-btn{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 12px;font-size:13px;text-decoration:none}
 .login-app-hint{margin:6px 0 0;font-size:12px;color:var(--kptu-muted,#646a72)}
+/* BASKET-노조플러스업로드: 안드로이드 줄과 윈도우 PC 줄이 붙어 나올 때 사이를 좁게, 안내 둘째 줄은 붙여서 */
+.login-app+.login-app{margin-top:-4px}.login-app-hint+.login-app-hint{margin-top:2px}

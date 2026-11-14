@@ -9,7 +9,7 @@ public class TrayStatusTests
     {
         var s = TrayStatus.From([], AuthState.SignedIn);
         Assert.Equal(TrayPicture.Normal, s.Picture);
-        Assert.Equal("바구니 PC드롭\n로그인됨 · 보낼 것 없음", s.Tooltip);
+        Assert.Equal("노조+ 업로드\n로그인됨 · 보낼 것 없음", s.Tooltip);
     }
 
     [Fact]
@@ -17,7 +17,7 @@ public class TrayStatusTests
     {
         var s = TrayStatus.From([ItemState.Pending, ItemState.Sending, ItemState.NotReached], AuthState.SignedIn);
         Assert.Equal(TrayPicture.Pending, s.Picture);
-        Assert.Equal("바구니 PC드롭\n보낼 것 3개 대기 중", s.Tooltip);
+        Assert.Equal("노조+ 업로드\n보낼 것 3개 대기 중", s.Tooltip);
     }
 
     [Fact]
@@ -25,17 +25,17 @@ public class TrayStatusTests
     {
         var s = TrayStatus.From([ItemState.Unknown, ItemState.Rejected], AuthState.SignedIn);
         Assert.Equal(TrayPicture.Normal, s.Picture);
-        Assert.Equal("바구니 PC드롭\n확인 필요 2개", s.Tooltip);
+        Assert.Equal("노조+ 업로드\n확인 필요 2개", s.Tooltip);
     }
 
     [Fact]
     public void Login_needed_turns_grey_and_says_so()
     {
         Assert.Equal(TrayPicture.SignedOut, TrayStatus.From([], AuthState.SignedOut).Picture);
-        Assert.Equal("바구니 PC드롭\n로그인 필요", TrayStatus.From([], AuthState.SignedOut).Tooltip);
+        Assert.Equal("노조+ 업로드\n로그인 필요", TrayStatus.From([], AuthState.SignedOut).Tooltip);
         var s = TrayStatus.From([ItemState.LoginRequired, ItemState.Pending], AuthState.ReloginNeeded);
         Assert.Equal(TrayPicture.SignedOutPending, s.Picture);
-        Assert.Equal("바구니 PC드롭\n다시 로그인 필요\n보낼 것 2개 대기 중", s.Tooltip);
+        Assert.Equal("노조+ 업로드\n다시 로그인 필요\n보낼 것 2개 대기 중", s.Tooltip);
     }
 
     [Fact]

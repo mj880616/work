@@ -4,12 +4,22 @@ import {accountButton} from './helpers/shell-navigation.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 // APP-앱내려받기버튼(명진 11/15 00:11): 로그인 화면 [안드로이드 앱 내려받기], 로그인 뒤 계정 메뉴 '앱 내려받기'.
 // 받는 주소는 배포 때 만든 같은 주소 app/phone-app.json(여기서는 흉내)에서 읽은 최신 폰 앱 APK. 없으면 폰 앱 릴리스 목록.
-// 화면 사진: SHOT_DIR=docs/design/screens/s62-04b 로 돌릴 때만. 합성 값만 쓴다.
+// BASKET-노조플러스업로드: 윈도우 PC 프로그램(노조+ 업로드)은 app/pc-app.json의 최신 Setup.exe — PC 브라우저에서 로그인 화면 맨 위·계정 메뉴.
+// 화면 사진: SHOT_DIR=docs/design/screens/s62-09 로 돌릴 때만. 합성 값만 쓴다.
 const ANDROID='Mozilla/5.0 (Linux; Android 14; SM-F956N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36';
 const APP=`${ANDROID} KPTUAndroid/0.5.10`;
 const PC='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 const APK='https://github.com/mj880616/work/releases/download/phone-app-v0.5.10/web2-phone-0.5.10.apk';
 const LIST='https://github.com/mj880616/work/releases?q=phone-app-v&expanded=true';
+const SETUP='https://github.com/mj880616/work/releases/download/basket-pc-v0.6.0/BasketDropApp-win-Setup.exe';
+const PC_LIST='https://github.com/mj880616/work/releases?q=basket-pc-v&expanded=true';
+const PC_DESC='노조+ [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮길 수 있어요';
+const PC_WARN="처음 실행 때 윈도우 경고가 뜨면 '추가 정보 → 실행'을 눌러 주세요";
+async function pcAppJson(page,{missing=false}={}){
+  const seen=[];
+  await page.route('**/app/pc-app.json*',route=>{seen.push(route.request().url());return missing?route.fulfill({status:404,body:''}):route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({version:'0.6.0',url:SETUP,size:90000000})})});
+  return seen;
+}
 const shot=async(page,name)=>{if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/${name}.png`})};
 async function phoneAppJson(page,{missing=false}={}){
   const seen=[];
@@ -32,6 +42,11 @@ test.describe('안드로이드 폰 브라우저',()=>{
     await expect(link).toHaveText('안드로이드 앱 내려받기 (0.5.10)');
     await expect(page.locator('[data-login-app-hint]')).toHaveText("받은 뒤 '알 수 없는 앱 설치 허용'을 한 번 켜야 해요");
     expect(seen.length).toBe(1);
+    // BASKET-노조플러스업로드: 폰에서는 안드로이드 줄이 위, 그 아래 윈도우 PC 안내 한 줄(내려받기 버튼 없음).
+    await expect(page.locator('[data-login-pc-hint]')).toHaveText('윈도우 PC에서 열면 PC 프로그램을 받을 수 있어요');
+    await expect(page.locator('[data-login-pc-link]')).toHaveCount(0);
+    const order=await page.locator('[data-login-pc],[data-login-app]').evaluateAll(list=>list.map(el=>el.hasAttribute('data-login-pc')?'pc':'android'));
+    expect(order).toEqual(['android','pc']);
     await shot(page,'412-1-login');
     expect(errors).toEqual([]);
   });
@@ -68,6 +83,7 @@ test.describe('폰 앱 안',()=>{
     await phoneAppJson(page);
     await login(page);
     await expect(page.locator('[data-login-app]')).toBeHidden();
+    await expect(page.locator('[data-login-pc]')).toBeHidden();
     await openHome(page);
     await page.locator('#mobileMenuTab').click();
     await expect(page.locator('#mobileAccountGroup .account-action').first()).toBeVisible();
@@ -77,20 +93,42 @@ test.describe('폰 앱 안',()=>{
 
 for(const width of [840,1280])test.describe(`PC·폴드 펼침 ${width}`,()=>{
   test.use({userAgent:PC,viewport:{width,height:900}});
-  test('로그인 화면은 버튼 대신 안내 한 줄, 계정 메뉴 앱 내려받기는 누르면 같은 안내',async({page})=>{
+  test('로그인 화면: 맨 위 [윈도우 PC 프로그램 내려받기] = 최신 Setup.exe + 설명·경고 한 줄씩, 그 아래 안드로이드 안내 한 줄',async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    await phoneAppJson(page);
+    await phoneAppJson(page);const seen=await pcAppJson(page);
     await login(page);
+    const pcLink=page.locator('[data-login-pc-link]');
+    await expect(pcLink).toBeVisible();
+    await expect(pcLink).toHaveAttribute('href',SETUP);
+    await expect(pcLink).toHaveText('윈도우 PC 프로그램 내려받기 (0.6.0)');
+    await expect(page.locator('[data-login-pc-hint]')).toHaveText(PC_DESC);
+    await expect(page.locator('[data-login-pc-warn]')).toHaveText(PC_WARN);
     await expect(page.locator('[data-login-app-hint]')).toHaveText('안드로이드 폰에서 열면 앱을 받을 수 있어요');
     await expect(page.locator('[data-login-app-link]')).toHaveCount(0);
+    const order=await page.locator('[data-login-pc],[data-login-app]').evaluateAll(list=>list.map(el=>el.hasAttribute('data-login-pc')?'pc':'android'));
+    expect(order).toEqual(['pc','android']);
+    expect(seen.length).toBe(1);
     await shot(page,`${width}-1-login`);
+    expect(errors).toEqual([]);
+  });
+  test('로그인 화면: 배포 파일이 없으면 PC 릴리스 목록으로',async({page})=>{
+    await phoneAppJson(page);await pcAppJson(page,{missing:true});
+    await login(page);
+    await expect(page.locator('[data-login-pc-link]')).toHaveText('윈도우 PC 프로그램 내려받기');
+    await expect(page.locator('[data-login-pc-link]')).toHaveAttribute('href',PC_LIST);
+  });
+  test('계정 메뉴 앱 내려받기: 최신 PC 설치 파일(판 번호), 누르면 설명·경고 안내',async({page})=>{
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await phoneAppJson(page);await pcAppJson(page);
     await openHome(page);
     await accountButton(page).click();
-    const row=page.locator('#sidebarAccountPanel [data-app-download="other"]');
+    const row=page.locator('#sidebarAccountPanel a[data-app-download="pc"]');
     await expect(row).toBeVisible();
+    await expect(row).toHaveAttribute('href',SETUP);
+    await expect(row.locator('[data-app-download-ver]')).toHaveText('0.6.0');
     await shot(page,`${width}-2-account`);
     await row.click();
-    await expect(page.getByText('안드로이드 폰에서 열면 앱을 받을 수 있어요')).toBeVisible();
+    await expect(page.getByText(`${PC_DESC}. ${PC_WARN}`)).toBeVisible();
     expect(errors).toEqual([]);
   });
 });

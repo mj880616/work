@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {pickPhoneApp, apkUrl, APK_MAX_BYTES} from '../scripts/phone-app-latest.mjs';
-import {downloadPlan, apkFromInfo, loadPhoneAppInfo, RELEASES_PAGE, INSTALL_HINT, OTHER_HINT} from '../app/app-download.mjs';
+import {pickPhoneApp, apkUrl, APK_MAX_BYTES, pickPcApp, setupUrl, SETUP_MAX_BYTES} from '../scripts/phone-app-latest.mjs';
+import {downloadPlan, apkFromInfo, loadPhoneAppInfo, RELEASES_PAGE, INSTALL_HINT, OTHER_HINT, pcPlan, setupFromInfo, loadPcAppInfo, PC_RELEASES_PAGE, PC_SETUP_NAME, PC_DESC, PC_WARN, PC_OTHER_HINT} from '../app/app-download.mjs';
 
 // APP-앱내려받기버튼: 최신 폰 앱 APK 고르기(배포 때)와 화면이 보이는 것(로그인 화면·계정 메뉴)을 한 곳에서 시험한다.
 const rel = (tag, assets = [], extra = {}) => ({tag_name: tag, draft: false, prerelease: false, assets, ...extra});
@@ -59,4 +59,57 @@ test('로그인 화면: 버튼 자리는 처음에 숨김, 받는 길은 같은 
   assert.match(html, /<script type="module" src="\.\/app-download\.js"><\/script>/);
   for (const file of ['../app/login/app-download.js', '../app/app-download.mjs', '../app/topbar-actions.js'])
     assert.doesNotMatch(readFileSync(new URL(file, import.meta.url), 'utf8'), /api\.github\.com/, file);
+});
+
+// BASKET-노조플러스업로드: 윈도우 PC 프로그램 '노조+ 업로드' 설치 파일 고르기(배포 때)와 화면 계획.
+test('PC 프로그램 고르기: basket-pc-v*의 BasketDropApp-win-Setup.exe 중 판 번호가 가장 큰 것, 폰 앱 릴리스와 섞이지 않는다', () => {
+  const setup = (size = 90_000_000) => ({name: PC_SETUP_NAME, size, browser_download_url: 'https://example.invalid/evil.exe'});
+  const list = [
+    rel('phone-app-v9.9.9', [apk('9.9.9'), {name: PC_SETUP_NAME, size: 5}]),
+    rel('basket-pc-v0.5.2', [setup()]),
+    rel('basket-pc-v0.5.10', [setup()]),
+    rel('basket-pc-v0.6.0', [setup()], {draft: true}),
+    rel('basket-pc-v0.7.0', [setup()], {prerelease: true}),
+    rel('basket-pc-v0.8.0', [{name: 'BasketDropApp-0.8.0-full.nupkg', size: 9}]),
+    rel('basket-pc-v0.9.0', [setup(0)]),
+    rel('basket-pc-v1.0.0', [setup(SETUP_MAX_BYTES + 1)]),
+    rel('basket-pc-v0.05.11', [setup()]),
+    rel('basket-pc-v0.5.11-beta', [setup()])
+  ];
+  const got = pickPcApp(list);
+  assert.deepEqual(got, {version: '0.5.10', url: setupUrl('0.5.10'), size: 90_000_000});
+  assert.equal(got.url, 'https://github.com/mj880616/work/releases/download/basket-pc-v0.5.10/BasketDropApp-win-Setup.exe', '주소는 저장소·태그·파일 이름으로 만든다');
+  for (const bad of [null, {}, 'x', [], [rel('phone-app-v0.5.1', [setup()])]]) assert.equal(pickPcApp(bad), null);
+  assert.equal(pickPhoneApp(list).version, '9.9.9', '폰 앱 고르기는 PC 릴리스를 보지 않는다');
+});
+
+test('PC 화면 계획: 윈도우 PC 브라우저만 최신 설치 파일 + 설명·경고, 폰 앱 안은 없음, 그 밖은 안내 한 줄', () => {
+  const info = {version: '0.5.10', url: setupUrl('0.5.10'), size: 1};
+  const win = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130';
+  assert.deepEqual(pcPlan({ua: win, info}), {kind: 'pc', url: info.url, version: '0.5.10', hint: PC_DESC, warn: PC_WARN});
+  assert.deepEqual(pcPlan({ua: win}), {kind: 'pc', url: PC_RELEASES_PAGE, version: '', hint: PC_DESC, warn: PC_WARN});
+  assert.deepEqual(pcPlan({ua: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 KPTUAndroid/0.5.10', info}), {kind: 'app'});
+  for (const ua of ['Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari'])
+    assert.deepEqual(pcPlan({ua, info}), {kind: 'other', hint: PC_OTHER_HINT}, ua);
+  for (const bad of [{version: '0.5.10', url: 'https://evil.example/BasketDropApp-win-Setup.exe'}, {version: '0.5.10', url: apkUrl('0.5.10')}, {version: '0.5'}, null])
+    assert.equal(setupFromInfo(bad), null, JSON.stringify(bad));
+  assert.match(PC_WARN, /추가 정보 → 실행/);
+  assert.match(PC_DESC, /\[파일\]에서 이 PC/);
+});
+
+test('pc-app.json 읽기: 같은 주소 한 파일, 쿠키 없이, 못 읽으면 null', async () => {
+  const seen = [];
+  assert.deepEqual(await loadPcAppInfo(async (url, init) => { seen.push([url, init]); return {ok: true, json: async () => ({version: '0.5.10'})}; }, 'https://nojoplus.com/work/app/app-download.mjs?v=abc'), {version: '0.5.10'});
+  assert.equal(seen[0][0], 'https://nojoplus.com/work/app/pc-app.json');
+  assert.equal(seen[0][1].credentials, 'omit');
+  assert.equal(await loadPcAppInfo(async () => ({ok: false}), 'https://a.test/app/x.mjs'), null);
+  assert.equal(await loadPcAppInfo(async () => { throw new Error('off'); }, 'https://a.test/app/x.mjs'), null);
+});
+
+test('배포: 같은 단계가 pc-app.json을 빌드 결과 폴더에 쓰고, 실패해도 배포를 막지 않는다', () => {
+  const wf = readFileSync(new URL('../.github/workflows/pages-deploy.yml', import.meta.url), 'utf8');
+  assert.match(wf, /phone-app-latest\.mjs "\$RUNNER_TEMP\/releases\.json" "\$RUNNER_TEMP\/pages-out\/app\/phone-app\.json" "\$RUNNER_TEMP\/pages-out\/app\/pc-app\.json" \|\| echo/);
+  assert.doesNotMatch(wf, /_site\/app\/pc-app\.json/);
+  const html = readFileSync(new URL('../app/login/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<div class="login-app" data-login-pc hidden>/);
 });

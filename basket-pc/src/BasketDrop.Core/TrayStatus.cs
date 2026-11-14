@@ -19,7 +19,7 @@ public enum TrayPicture
 /// </summary>
 public sealed record TrayStatus(TrayPicture Picture, int Waiting, int NeedsCheck, string Tooltip)
 {
-    public const string Name = "바구니 PC드롭";
+    public const string Name = "노조+ 업로드";
 
     /// <summary>Windows cuts the tray tooltip; keep it within the old, safe limit.</summary>
     public const int TooltipMax = 63;

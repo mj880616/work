@@ -5,7 +5,7 @@ import {pcSplit,itemOf,isDefaultLayout,pcMoveFor,hideItem,BAR_MAX} from './menu-
 import {mountReorder,dropIndex,dropIndexGrid} from './reorder-drag.js'; // MENU-왼쪽메뉴바로끌기: 메뉴 편집 창과 같은 끌기 부품
 import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클릭: 공용 줄 메뉴(UI-PC우클릭과 같은 모양)
 import './menu-layout.js';
-import {downloadPlan,loadPhoneAppInfo} from './app-download.mjs'; // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'
+import {downloadPlan,loadPhoneAppInfo,pcPlan,loadPcAppInfo} from './app-download.mjs'; // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'(윈도우 PC는 PC 프로그램)
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
 import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 (()=>{
@@ -40,10 +40,17 @@ const accounts=logoutButtons.map(logout=>{
   return {host,trigger,panel,profile,updates,appDl,menuEdit,theme,nativePopover};
 });
 // APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
+// BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 윈도우 PC 프로그램(노조+ 업로드) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
 function appDownloadRow(){
   const plan=downloadPlan({ua:navigator.userAgent||''});
   if(plan.kind==='app')return null;
   const name='<span class="account-action-name">앱 내려받기</span><span class="account-ver" data-app-download-ver></span>';
+  const pc=pcPlan({ua:navigator.userAgent||''});
+  if(pc.kind==='pc'){
+    const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='pc';row.href=pc.url;row.rel='noopener';row.innerHTML=name;
+    row.addEventListener('click',()=>kptuNotify(`${pc.hint}. ${pc.warn}`,{record:false,ms:7000}));
+    return row;
+  }
   if(plan.kind==='other'){
     const row=document.createElement('button');row.type='button';row.className='account-action';row.dataset.appDownload='other';row.innerHTML=name;
     row.addEventListener('click',()=>kptuNotify(plan.hint,{record:false,ms:4000}));
@@ -53,6 +60,10 @@ function appDownloadRow(){
   row.addEventListener('click',()=>kptuNotify(plan.hint,{record:false,ms:6000}));
   return row;
 }
+if(pcPlan({ua:navigator.userAgent||''}).kind==='pc')void loadPcAppInfo().then(info=>{
+  const plan=pcPlan({ua:navigator.userAgent||'',info});
+  document.querySelectorAll('a[data-app-download="pc"]').forEach(row=>{row.href=plan.url;const ver=row.querySelector('[data-app-download-ver]');if(ver)ver.textContent=plan.version});
+});
 if(downloadPlan({ua:navigator.userAgent||''}).kind==='android')void loadPhoneAppInfo().then(info=>{
   const plan=downloadPlan({ua:navigator.userAgent||'',info});
   document.querySelectorAll('a[data-app-download="android"]').forEach(row=>{row.href=plan.url;const ver=row.querySelector('[data-app-download-ver]');if(ver)ver.textContent=plan.version});
