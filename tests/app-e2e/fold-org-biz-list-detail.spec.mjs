@@ -5,6 +5,7 @@
 // - 접은 폰(412)·PC(1280)는 그대로: 412는 목록 + 창, 1280 사업 보고 [회의]는 종류 | 차수 | 결과 세 칸.
 // 서버는 가짜, 이름·글은 모두 합성 값.
 import {test,expect} from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
@@ -157,6 +158,8 @@ const shownReport=page=>bizPane(page).locator('#meetingRoundDetailModal.mrd-dock
 for(const [width,height] of FOLD){
  test(`폴드 ${width}: 사업 보고 [회의] — '날짜·이름 목록 | 결과' 두 칸, 줄을 누르면 같은 칸·사람이 고른 줄은 뒤로 한 칸(NAV-PC뒤로직전2), 회의명 거르기·주 넘기기 그대로, 뒤로 = 직전 보고 → 앞 화면`,async({page})=>{
   const {errors}=await bizFixture(page,width,height,{start:'home'});
+  // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체], [회의]를 고른다.
+  await pickReportKind(page,'회의');
   // 두 칸(세 칸의 종류 칸 없음). 가장 최근 보고(m-c 11.11)가 오른쪽 결과 칸에.
   await expect(bizList(page).locator('.mcol-layout.mcol-two')).toBeVisible();
   await expect(bizList(page).locator('.mcol-three,.mcol-kinds')).toHaveCount(0);
@@ -227,6 +230,7 @@ for(const [width,height] of FOLD){
 
 test('PC 1280: 사업 보고 [회의]는 그대로 종류 | 차수 | 결과 세 칸, 회의명 묶음은 위 상자에 없다',async({page})=>{
  const {errors}=await bizFixture(page,1280,900);
+ await pickReportKind(page,'회의'); // MTG-기본종류전체: 처음은 [종류 전체]
  await expect(bizList(page).locator('.mcol-layout.mcol-three')).toBeVisible();
  await expect(bizList(page).locator('.mcol-kinds [data-meeting-kind]')).toHaveCount(3);
  await expect(page.locator('#reportKindSelect option',{hasText:'합성 집행위'})).toHaveCount(0);

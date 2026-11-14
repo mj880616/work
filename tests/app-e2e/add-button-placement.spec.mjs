@@ -6,6 +6,7 @@ import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {reportFilterKeys,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 
 import {addReport} from './helpers/report-add.mjs';
+import {pickReportKind} from './helpers/report-filter.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'placement-user',email:'placement@example.invalid',user_metadata:{display_name:'Placement QA'}};
@@ -122,6 +123,8 @@ for(const width of [390,1440]){
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
       // S52-22 TEAM-맨위한줄: 폰의 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음이다.
       await showReportsOf(page); // BIZ-주간표이번주: 지난 주 보고는 [전체 기간]으로
+      // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체] — 회의 화면(종류 목록·회의명 묶음)은 [회의]를 고른 뒤.
+      await pickReportKind(page,'회의');
       if(width>=761){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
       else{expect(await reportFilterKeys(page)).toContain('name')}
       await addReport(page);

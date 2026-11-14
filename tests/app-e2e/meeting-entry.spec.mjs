@@ -63,7 +63,7 @@ async function signIn(page){
   // BIZ-주간표이번주(11/09): 사업 보고 목록은 늘 이번 주로 열린다. 가짜 기본 회의(9.17)가 든 주를 '이번 주'로 둔다(시계만 고정, 타이머는 그대로).
   await page.clock.setFixedTime(new Date(PAGE_NOW));
   await mock(page);
-  const returnTo=`${BASE}/app/?view=meetings`;
+  const returnTo=`${BASE}/app/?view=meetings&chip=meeting`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
   await signInWithSession(page,'meeting@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
@@ -451,7 +451,9 @@ test('new meeting suggests the next round from loaded names without extra reques
   // BIZ-위쪽정돈(11/09): '이번 주 주간보고' 칸이 늘 펼쳐져 화면을 열 때 읽기를 한다 — 그 읽기가 끝난 뒤부터 [+]가 요청을 안 하는지 센다.
   await expect(page.locator('#bizWeekBox [data-bp-paper]')).toContainText('1) 사업요약표');
   let requests=0;const seen=[];
-  page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url())){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
+  // S62-02: [+]는 이제 종류 고르기 창을 거쳐 열리므로, 원드라이브 상태가 준비된 뒤에 열리면 '그 시각 사진' 줄이 그달 별표(app_diary_stars)를 읽는다.
+  // 이 시험은 회의명·차수 추천이 요청을 더 하지 않는지만 본다 — 사진 줄의 별표 읽기는 세지 않는다.
+  page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url())&&!request.url().includes('/rest/v1/app_diary_stars?')){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
   await addReport(page);
   expect(requests,seen.join(' | ')).toBe(0);
   const title=page.locator('#meetingTitle'),round=page.locator('#meetingRoundNo'),select=page.locator('#meetingNameSelect');

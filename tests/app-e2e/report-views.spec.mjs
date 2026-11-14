@@ -83,7 +83,7 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
   await page.setViewportSize({width, height: 900});
   const prefs = await installViewPrefsServer(page, prefsInitial, prefsOptions);
   await mock(page, state);
-  await page.goto(`${appOrigin}/app/?view=meetings`);
+  await page.goto(`${appOrigin}/app/?view=meetings&chip=meeting`);
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));

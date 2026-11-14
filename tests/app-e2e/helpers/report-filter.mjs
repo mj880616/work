@@ -26,6 +26,7 @@ export async function pickReportFilter(page,key,pick){
 // 한 묶음의 줄 글자(순서대로, 첫 줄은 '전체').
 export async function reportFilterLabels(page,key){
   const sel=reportFilterSelect(page,key);
+  if(key==='name'&&!(await sel.locator('optgroup[label="회의명"]').count())&&await sel.inputValue()==='kind:all'){await sel.selectOption('kind:meeting');await expect(sel).toHaveValue('kind:meeting')} // MTG-기본종류전체: 회의명 묶음은 [회의]에서
   if(key==='name')return ['전체',...(await sel.locator('optgroup[label="회의명"] option').allTextContents()).map(t=>t.trim())];
   const labels=(await sel.locator('option').allTextContents()).map(t=>t.trim());labels[0]='전체';return labels;
 }

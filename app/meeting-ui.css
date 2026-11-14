@@ -559,7 +559,7 @@ button.record-big-write,:is(#meetingModal,#meetingRoundDetailModal) .record-big-
 :is(button.record-big-write):hover{color:var(--kptu-ink)}
 /* S62-02 MTG-원문칸넘침(11/15 명진): 결과·내용 안 주소는 눌러 새 창으로 여는 링크, 주소만 있는 줄은 작은 북마크 줄(도메인 + 주소).
    북마크는 줄 하나 높이의 얇은 줄(크고 굵은 카드 아님), 주소는 칸 안에서 줄을 바꾼다. */
-.mrd-text a.record-link{color:var(--kptu-primary);text-decoration:underline;text-underline-offset:2px}
+.mrd-text a.record-link{color:var(--kptu-primary-text);text-decoration:underline;text-underline-offset:2px}
 .mrd-text a.record-bookmark{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 6px;min-width:0;max-width:100%;box-sizing:border-box;margin:2px 0;padding:3px 8px;color:var(--kptu-ink);text-decoration:none;line-height:1.4;background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:6px}
 .mrd-text a.record-bookmark:hover{border-color:var(--kptu-border-strong)}
 .mrd-text .record-bookmark-host{flex:none;font-size:var(--ds-text-meta,12px);font-weight:600;color:var(--kptu-ink)}

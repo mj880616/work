@@ -68,7 +68,7 @@ async function open(page, state, width, height = 900) {
   await page.setViewportSize({width, height});
   await installViewPrefsServer(page, {report_view: 'calendar'});
   await mock(page, state);
-  await page.goto(`${appOrigin}/app/?view=meetings`);
+  await page.goto(`${appOrigin}/app/?view=meetings&chip=meeting`);
   await enterLogin(page);
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));

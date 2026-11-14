@@ -2,6 +2,7 @@
 // 사업 보고, 자료실 폴더, 사진 폴더. PC에서 사람이 누른 항목 = 뒤로 한 칸(A → B → C 에서 ‹ = B, ‹ = A, ‹ = 앞), › 는 같은 기록.
 // 기록은 라우터 한 곳(KPTURouter.pick). 폰 뒤로가기(겹·창)는 그대로. 이름·내용은 모두 지어낸 것.
 import {test,expect} from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import {readFileSync,mkdirSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {openHome} from './helpers/home-entry.mjs';
@@ -208,6 +209,8 @@ test('PC 1280 사업 보고: (스스로 연 상집 46) → 상집 45 → [집행
  await openReports(page,1280);
  await clickView(page,'calendar');await expect(page.locator('#calendarView')).toBeVisible();
  await clickView(page,'meetings');
+ // MTG-기본종류전체(11/15 명진): 메뉴로 들어오면 [종류 전체]부터 — 회의 세 칸은 [회의]를 고른 뒤.
+ await pickReportKind(page,'회의');
  // 화면이 스스로 연 첫 보고(가장 최근 상집 46)는 한 칸이 아니다.
  await reportAt(page,'m-a');
  const start=await page.evaluate(()=>history.length);
