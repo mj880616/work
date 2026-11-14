@@ -37,7 +37,10 @@ async function fixture(page,width,{reply=article}={}){
  });
  await page.route(SB+'/rest/v1/app_record_links?**',r=>new URL(r.request().url()).searchParams.has('note_id')?r.fulfill({json:[]}):r.fallback());
  // 가져온 노트로는 AI·공유·발송 쪽 서버를 부르지 않는다: 불리면 여기 적힌다.
- await page.route(u=>u.origin===SB&&/^\/functions\/v1\/(ai-assist|note-ai-title|page-share|telegram)/.test(u.pathname),r=>{other.push(new URL(r.request().url()).pathname+' '+(r.request().postData()||''));return r.fulfill({json:{ok:false}});});
+ // 홈이 배경으로 보내는 하루 단위 AI 부탁(오늘 일정·챙길 것·오늘 소식 고르기, 노트 내용 없음)은 이 가로채기를 깐 뒤에 늦게 올 수 있어
+ // 세지 않고 openHome이 깐 기본 가짜 서버로 넘긴다(basket-ai-summary.spec.mjs HOME_BACKGROUND_ASKS와 같은 방식). 그 밖의 종류는 전처럼 센다.
+ const HOME_BACKGROUND_ASKS=['home_day_picks','todo_radar','work_scope','journal_memorable'];
+ await page.route(u=>u.origin===SB&&/^\/functions\/v1\/(ai-assist|note-ai-title|page-share|telegram)/.test(u.pathname),r=>{if(new URL(r.request().url()).pathname==='/functions/v1/ai-assist'){let kind=null;try{kind=r.request().postDataJSON()?.kind;}catch{}if(HOME_BACKGROUND_ASKS.includes(kind))return r.fallback();}other.push(new URL(r.request().url()).pathname+' '+(r.request().postData()||''));return r.fulfill({json:{ok:false}});});
  await page.route(SB+'/functions/v1/note-import',async r=>{
   const req=r.request(),body=req.postDataJSON(),n=calls.length;
   calls.push({body,auth:/^Bearer .+/.test(req.headers().authorization||''),method:req.method()});

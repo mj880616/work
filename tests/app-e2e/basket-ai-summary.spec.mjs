@@ -12,7 +12,7 @@ const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000
 const RAW='10/20 합성 기자회견 준비 회의\n장소: 합성 본사 앞\n참석 30명';
 const AI_TEXT='합성 한빛지부는 10/20 합성 본사 앞 기자회견에 30명이 참석하기로 했다. 준비 회의에서 장소를 정했다.';
 // 홈 화면이 스스로 보내는 AI 부탁 종류(읽을 만한 글·챙길 것·업무 가르기). 이 파일의 시험 대상이 아니다.
-const HOME_BACKGROUND_ASKS=['home_day_picks','todo_radar','work_scope'];
+const HOME_BACKGROUND_ASKS=['home_day_picks','todo_radar','work_scope','journal_memorable']; // journal_memorable: 홈을 열 때 오늘 소식 고르기(forget-news-data.js pickTodayNews, PERF-첫로딩 ③ 뒤 첫 화면 뒤에 끝날 수 있음)
 // Errors the browser itself logs for a mocked 4xx/5xx or an aborted request are not page errors.
 const resourceNoise=text=>/Failed to load resource|net::ERR_FAILED/.test(text);
 
