@@ -6,8 +6,9 @@ import { signInWithSession } from './helpers/session-login.mjs';
 const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // 8-9e-2: 폰 하단 탭 6칸 중 화면 탭 다섯(메뉴 탭은 메뉴 창을 연다). 할 일은 [일정] 탭의 [할 일] 쪽.
-// MTG-프로젝트합치기 3단계: 4번째 칸은 [사업 보고](사업영역 관리는 그 화면 ⋯ 안에서 연다).
-const tabs=['home','basket','calendar','meetings','team'];
+// MTG-프로젝트합치기 3단계: 사업영역 관리는 [사업 보고] 화면 ⋯ 안에서 연다.
+// MULTI-하단바기본노트: 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·조직 보고·사업 보고. [노트] 칸은 화면 이름이 아니라 노트 쪽 열기(data-basket-kind-nav)라 아래에서 따로 본다.
+const tabs=['home','calendar','team','meetings'];
 async function open(page,url=app+'?view=home'){
   const user={id:'home-qa',email:'home-qa@example.org'};
   await page.route(`${SB}/**`,route=>{
@@ -40,19 +41,22 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   await expect(page.locator('#mobileMenuTab')).toBeVisible({visible:mobile});
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){
-    expect(await page.locator('.mobile-tabs [data-view]').evaluateAll(ns=>ns.map(n=>n.dataset.view))).toEqual(tabs);
+    expect(await page.locator('.mobile-tabs > button:not(#mobileMenuTab)').evaluateAll(ns=>ns.map(n=>n.dataset.view||n.dataset.basketKindNav))).toEqual(['home','note','calendar','team','meetings']);
     const box=await page.locator('.mobile-tabs').boundingBox();expect(box.y+box.height).toBe(844);expect(box.height).toBe(48); // S48-6 하단바 44px → S49-8 UI-하단바위여백: 아이콘 위 4px 더해 48px
     for(const view of tabs){
       const tab=page.locator(`.mobile-tabs [data-view="${view}"]`),r=await tab.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
       await tab.click();await expect(page.locator('#'+view+'View')).toBeVisible();await expect(tab).toHaveAttribute('aria-current','page');
     }
+    const note=page.locator('.mobile-tabs [data-basket-kind-nav="note"]');
+    await note.click();await expect(page.locator('#basketView')).toBeVisible();await expect(note).toHaveAttribute('aria-current','page');
   }else if(width<761)expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('home');
   else{
     // UI-PC사이드바: the top line (icon + 홈) is the home menu and carries its selection; the separate [홈] row is gone.
     const brand=page.locator('#appView>.app-nav .sidebar-brand');
     await expect(brand).toHaveText('홈');await expect(brand).toHaveClass(/active/);await expect(brand).toHaveAttribute('aria-current','page');
     await expect(page.locator('#appView>.app-nav .nav-btn[data-view="home"]')).toBeHidden();
-    expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('basket');
+    // MULTI-하단바기본노트: PC 왼쪽 메뉴도 하단바 기본과 같은 순서라 홈 다음 첫 줄은 [노트].
+    expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-basket-kind-nav')).toBe('note');
   }
 });
 test('drawer consumes history before navigation, theme and logout',async({page})=>{

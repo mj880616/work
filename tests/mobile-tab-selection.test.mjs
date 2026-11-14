@@ -10,12 +10,14 @@ test('메뉴 창이 열려 있으면 어느 화면에서든 [메뉴]만', () => 
 });
 
 test('메뉴 창이 닫혀 있으면 지금 화면의 칸 하나', () => {
-  const expected = {home: 'home', basket: 'basket', calendar: 'schedule', tasks: 'schedule', diary: 'schedule', meetings: 'meetings', projects: 'meetings', team: 'team'};
+  // MULTI-하단바기본노트: 처음 하단바는 홈·노트·일정·조직 보고·사업 보고 — 잊지 말기는 [메뉴] 창 화면, 노트는 하단바 [노트] 칸.
+  const expected = {home: 'home', calendar: 'schedule', tasks: 'schedule', diary: 'schedule', meetings: 'meetings', projects: 'meetings', team: 'team'};
   // MTG-프로젝트합치기 3단계: 하단바 4번째 칸은 [사업 보고]이고, 사업영역 관리(라우터 이름 projects)에서도 그 칸이 켜진다.
   for (const [view, tab] of Object.entries(expected)) assert.equal(selectedMobileTab({view}), tab, view);
   // UI-화면정리 C5(S48-30): 하단바에 칸이 없는 화면(메뉴 창으로 들어가는 화면·노트)은 [메뉴]를 칠하지 않는다(위쪽 제목이 지금 메뉴).
   for (const view of MENU_SHEET_VIEWS) assert.equal(selectedMobileTab({view}), null, view);
-  assert.equal(selectedMobileTab({view: 'basket', noteMode: true}), null, '노트는 하단바에 칸이 없다');
+  assert.equal(selectedMobileTab({view: 'basket', noteMode: true}), 'note', '노트 화면은 하단바 [노트] 칸');
+  assert.equal(selectedMobileTab({view: 'basket'}), null, '잊지 말기는 하단바에 칸이 없다(위쪽 제목이 지금 메뉴)');
   for (const view of ['search', 'settings', null]) assert.equal(selectedMobileTab({view}), null, String(view));
 });
 

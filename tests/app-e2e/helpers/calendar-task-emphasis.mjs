@@ -1,5 +1,5 @@
-import {OPERATOR_ORG_ORDER,OPERATOR_REPORT_CALENDAR} from '../../org-order-fixture.mjs';
-const operatorViewPrefs=()=>({org_order:OPERATOR_ORG_ORDER,report_calendar:OPERATOR_REPORT_CALENDAR});
+import {OPERATOR_ORG_ORDER,OPERATOR_REPORT_CALENDAR,OPERATOR_MENU_LAYOUT} from '../../org-order-fixture.mjs';
+const operatorViewPrefs=()=>({org_order:OPERATOR_ORG_ORDER,report_calendar:OPERATOR_REPORT_CALENDAR,menu_layout:OPERATOR_MENU_LAYOUT});
 import { installViewPrefsServer } from './view-prefs-server.mjs';
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';

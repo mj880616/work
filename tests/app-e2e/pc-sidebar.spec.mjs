@@ -8,7 +8,7 @@ const nav=page=>page.locator('#appView>.app-nav');
 async function open(page,width){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await openHome(page);return errors;
+ await openHome(page,{menuLayout:null});return errors; // MULTI-하단바기본노트: 메뉴를 바꾸지 않은 새 계정의 왼쪽 메뉴
 }
 
 test('PC 1280: 맨 위 "홈" 줄이 홈 메뉴이고 고른 표시를 가진다; 아래 [홈] 줄은 없다',async({page})=>{
@@ -29,13 +29,13 @@ test('PC 1280: 맨 위 "홈" 줄이 홈 메뉴이고 고른 표시를 가진다;
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] 다음 독립 줄, 누르면 노트 쪽을 연다',async({page})=>{
+test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] 앞 독립 줄, 누르면 노트 쪽을 연다',async({page})=>{
  const errors=await open(page,1280),basketRow=nav(page).locator('.nav-btn[data-view="basket"]'),noteRow=nav(page).locator('.nav-btn[data-basket-kind-nav="note"]');
  await expect(basketRow).toHaveText('잊지 말기');await expect(nav(page).locator('.nav-sub[aria-label="정리함"]')).toHaveCount(0);
  await expect(nav(page).locator('.nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력','할 일','일기']);
  await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
- // 순서: 정리함 / 일정 / 달력…일기 / 노트 / 사업 보고.
- const ys=[];for(const l of [basketRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),noteRow,nav(page).locator('.nav-btn[data-view="meetings"]')])ys.push((await l.boundingBox()).y);
+ // 순서(MULTI-하단바기본노트, 하단바 기본과 같음): 노트 / 일정 / 달력…일기 / 조직 보고 / 사업 보고 / 잊지 말기.
+ const ys=[];for(const l of [noteRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),nav(page).locator('.nav-btn[data-view="team"]'),nav(page).locator('.nav-btn[data-view="meetings"]'),basketRow])ys.push((await l.boundingBox()).y);
  expect([...ys].sort((a,b)=>a-b)).toEqual(ys);
  const n=await noteRow.boundingBox(),b=await basketRow.boundingBox();expect(Math.abs(n.x-b.x)).toBeLessThan(2);
  await noteRow.click();
