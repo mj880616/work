@@ -61,6 +61,9 @@ for (const width of [390, 1280]) test(`pin a note to the top of the list and unp
   await page.locator('#noteDocMenu [data-note-pin]').focus(); await page.keyboard.press('Enter');
   await expect.poll(() => f.writes.length).toBe(2);
   expect(f.writes[1].body.metadata).toMatchObject({ tasks: [] });
+  // STAB-노트핀시험: 이 안내는 첫 고정 때 뜬 것과 글이 같아 저장 끝 신호가 못 된다(서버 답 전에도 이미 같은 글).
+  // 저장하는 동안 앱은 열린 노트의 단추를 잠그고 Esc 닫기를 받지 않으므로, 잠금이 풀린 것(⋯ 다시 눌림)을 끝 신호로 본다.
+  await expect(page.locator('[data-note-detail] [data-note-more]')).toBeEnabled();
   await expect(page.locator('#toast')).toHaveText('노트를 맨 위에 고정했어요.');
   await closeNote(page);
   await expect(page.locator('[data-note-detail]')).toBeHidden();
