@@ -126,7 +126,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     return {ok:true};
   }
   handle = openEdWindow({title, doc, text, draft, saveUnchanged:true, limit:() => files.pending() ? UPDATE_TEXT_MAX : textLimitFor(state.chosen), head:head.row, foot:files.node, onFiles:list => files.picker.add(list),
-    dirty:() => files.pending() > 0, placeholder:'업데이트 입력(잊지 말기에 저장)', save:{aria:'업데이트로 저장', run},
+    dirty:() => files.pending() > 0, placeholder:'업데이트를 입력하세요', save:{aria:'업데이트로 저장', run},
     onClose:({text: letters, value}) => { closed = true; if (active === state) active = null; sheet?.dismiss(); onClose(letters, {saved, places:[...state.chosen], value}); }});
   if (!handle) return null;
   active = state;
