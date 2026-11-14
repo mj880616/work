@@ -12,6 +12,23 @@ internal static class LegacyEntries
     public static string SendToLinkPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SendTo), "바구니 PC드롭.lnk");
 
+    /// <summary>
+    /// Where the installer puts its Start menu and desktop shortcuts. The old "BasketDrop.lnk" there is removed by
+    /// <see cref="RenamedShortcuts"/> (BASKET-노조플러스업로드: the program was renamed to "노조+ 업로드").
+    /// </summary>
+    public static string[] ShortcutFolders =>
+    [
+        Environment.GetFolderPath(Environment.SpecialFolder.Programs),
+        Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+    ];
+
+    /// <summary>At every start of the installed program: the old-name shortcut goes once the new one is there.</summary>
+    public static void RemoveRenamedShortcuts(ILog log)
+    {
+        try { RenamedShortcuts.RemoveWhereReplaced(ShortcutFolders); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { log.Write(LogCode.Error); }
+    }
+
     /// <summary>Deletes the Send to shortcut if it is there. Safe to call any time (also used by uninstall).</summary>
     public static void RemoveSendTo()
     {

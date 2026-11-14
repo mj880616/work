@@ -35,3 +35,37 @@ export async function loadPhoneAppInfo(fetchImpl = globalThis.fetch, base = impo
     return await res.json();
   } catch { return null; }
 }
+
+// BASKET-노조플러스업로드: 윈도우 PC 프로그램 '노조+ 업로드'. 받을 주소는 배포 때 같은 스크립트가 고른 최신 PC 설치 파일
+// (basket-pc-v<버전>의 BasketDropApp-win-Setup.exe)을 적은 같은 주소의 app/pc-app.json. 폰 앱 파일과 섞이지 않는다.
+export const PC_RELEASES_PAGE = `https://github.com/${PHONE_REPO}/releases?q=basket-pc-v&expanded=true`;
+export const PC_SETUP_NAME = 'BasketDropApp-win-Setup.exe';
+export const PC_DESC = '노조+ [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮길 수 있어요';
+export const PC_WARN = "처음 실행 때 윈도우 경고가 뜨면 '추가 정보 → 실행'을 눌러 주세요";
+export const PC_OTHER_HINT = '윈도우 PC에서 열면 PC 프로그램을 받을 수 있어요';
+
+export function setupFromInfo(info) {
+  const version = typeof info?.version === 'string' && VERSION.test(info.version) ? info.version : '';
+  if (!version) return null;
+  const url = `https://github.com/${PHONE_REPO}/releases/download/basket-pc-v${version}/${PC_SETUP_NAME}`;
+  return info.url === url ? {version, url} : null;
+}
+
+export const isWindowsPc = ua => /Windows NT/i.test(ua) && !/Android|Windows Phone/i.test(ua);
+
+// app = 폰 앱 안(없음), pc = 윈도우 PC 브라우저(내려받기 + 설명·경고 안내), other = 그 밖(안내 한 줄).
+export function pcPlan({ua = '', info = null} = {}) {
+  if (isPhoneApp(ua)) return {kind: 'app'};
+  if (!isWindowsPc(ua)) return {kind: 'other', hint: PC_OTHER_HINT};
+  const setup = setupFromInfo(info);
+  return {kind: 'pc', url: setup?.url || PC_RELEASES_PAGE, version: setup?.version || '', hint: PC_DESC, warn: PC_WARN};
+}
+
+// 같은 주소의 pc-app.json(배포물에만 있음). 못 읽으면 null — 그때는 PC 릴리스 목록 주소.
+export async function loadPcAppInfo(fetchImpl = globalThis.fetch, base = import.meta.url) {
+  try {
+    const res = await fetchImpl(new URL('./pc-app.json', base).href, {cache: 'no-cache', credentials: 'omit'});
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}

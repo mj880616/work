@@ -24,13 +24,14 @@ internal static class Program
 
     /// <summary>
     /// Uninstall removes what the program put outside its own folder: the start-with-Windows entry, a leftover
-    /// right-click Send to shortcut of older versions, and the saved login. The waiting queue and history folder is kept
+    /// right-click Send to shortcut and old-name ("BasketDrop") shortcuts of older versions, and the saved login. The waiting queue and history folder is kept
     /// so a reinstall can pick it up. Each step is independent; one failing must not block the uninstall.
     /// </summary>
     private static void CleanUpForUninstall()
     {
         try { new RegistryStartup().RemoveRunValue(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
         try { LegacyEntries.RemoveSendTo(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        try { RenamedShortcuts.RemoveOld(LegacyEntries.ShortcutFolders); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         try { new CredentialManagerTokenStore().Delete(); } catch (TokenStoreException) { }
     }
 }
