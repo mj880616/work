@@ -126,13 +126,13 @@ test('PC 1280: 종류는 [종류 ▾] 상자 하나(칩 줄 없음) / [회의] 3
   await expect(page.locator('#meetingList .mcol-kinds')).toBeVisible();
   await expect(page.locator('#meetingList .mcol-kinds .mcol-name')).toHaveText(['합성 운영 회의','합성 정기 회의']);
   expect(await reportFilterKeys(page)).not.toContain('name');
-  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('회의 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toHaveText(/^회의( · |$)/);
   // [언론]: 종류 단이 접히고 2단.
   await pickReportKind(page,'언론');
   await expect(page.locator('#meetingList .mcol-kinds')).toHaveCount(0);await expect(page.locator('#meetingList .mcol-two')).toBeVisible();
   await expect(page.locator('#meetingList .mcol-rounds .mcol-card')).toHaveCount(1);
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','p-1');
-  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('언론 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toHaveText(/^언론( · |$)/);
   await expect(page.locator('#meetingList #mcolResult #mrdResult')).toHaveText('합성 결과 p-1');
   const cols=await page.evaluate(()=>{const l=document.querySelector('#meetingList .mcol-rounds').getBoundingClientRect(),r=document.querySelector('#meetingList #mcolResult').getBoundingClientRect();return {l:l.width,r:r.width,side:l.right<=r.left,top:Math.abs(l.top-r.top)}});
   expect(cols.side).toBe(true);expect(cols.top).toBeLessThanOrEqual(1);expect(cols.r/cols.l).toBeGreaterThan(1.5);
@@ -143,7 +143,7 @@ test('PC 1280: 종류는 [종류 ▾] 상자 하나(칩 줄 없음) / [회의] 3
   await expect(page.locator('#meetingList [data-meeting-round="q-1"] .mcol-kind-tag').first()).toHaveText('정책');
   await page.locator('#meetingList [data-meeting-round="x-1"]').click();
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','x-1');
-  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('기타 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toHaveText(/^기타( · |$)/);
   await expect(page.locator('#meetingList [data-meeting-round="x-1"]')).toBeFocused();
   await page.keyboard.press('ArrowUp');await expect(page.locator('#meetingList [data-meeting-round="m-1"]')).toBeFocused();
   await expect(page.locator('#meetingModal')).toBeHidden();
@@ -165,19 +165,19 @@ test('PC 1280: 결과 ⋯ → [종류 바꾸기] PATCH activity_kind, 바꾼 건
   await expect.poll(()=>pickedReportKind(page)).toBe('투쟁');
   await expect(page.locator('#meetingList .mcol-two')).toBeVisible();
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m-2');
-  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('투쟁 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toHaveText(/^투쟁( · |$)/);
 });
 
 test('폰 390: 결과 창에 칸 표시·[종류 바꾸기] PATCH, 뒤로가기는 선택 창부터 닫는다',async({page})=>{
   const s=kindState();await open(page,s,390);
   await pickReportKind(page,'언론');await page.locator('#meetingList [data-mrd-meeting="p-1"]').click();
-  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdMeta')).toContainText('언론 칸');
+  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdMeta')).toHaveText(/^언론( · |$)/);
   await mrdMenu(page,'kind');const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
   const box=await sheet.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(391);
   await page.goBack();await expect(sheet).toBeHidden();await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
   await mrdMenu(page,'kind');await sheet.locator('[data-sheet-value="education"]').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('education');
-  await expect(page.locator('#mrdMeta')).toContainText('교육 칸');await expect(page.locator('#mrdStatus')).toContainText('교육');
+  await expect(page.locator('#mrdMeta')).toHaveText(/^교육( · |$)/);await expect(page.locator('#mrdStatus')).toContainText('교육');
   await closeMeetingResult(page);
   await expect.poll(()=>pickedReportKind(page)).toBe('교육');
   await expect(page.locator('#meetingList [data-mrd-meeting="p-1"]')).toBeVisible();

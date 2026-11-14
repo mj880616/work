@@ -695,7 +695,7 @@ function paintEntryWords(){
   renderMeetingSelectedFiles();
   window.dispatchEvent(new CustomEvent('kptu:report-entry-kind',{detail:{kind}}));
 }
-function paintEntryKind(){const host=$('#meetingKindPick');if(!host)return;renderFilterChips(host,{label:'칸',value:entryKind(),options:REPORT_KINDS.map(k=>({value:k.value,label:k.label})),onChange:value=>{meetingEntryKind=value;paintEntryKind()}});paintEntryWords()}
+function paintEntryKind(){const host=$('#meetingKindPick');if(!host)return;renderFilterChips(host,{label:'종류',value:entryKind(),options:REPORT_KINDS.map(k=>({value:k.value,label:k.label})),onChange:value=>{meetingEntryKind=value;paintEntryKind()}});paintEntryWords()}
 // [+]: [전체] 칩이면 칸 고르기 창을 먼저 열고, 다른 칩이면 그 칸이 채워진 입력 창을 바로 연다.
 // MTG-한줄업데이트: [전체]의 [+] 메뉴 맨 위 [한 줄 업데이트], [한 줄] 칩에서 [+]는 바로 한 줄 창. 사업영역 칩을 고른 채면 그 사업영역을 미리 고른다.
 function openOnelineEntry(trigger){const area=areaChip!=='all'&&areaChip!==AREA_NONE?areaChip:'';import('./report-oneline.js').then(m=>m.openOneline(trigger,{areaId:area,onSaved:row=>{showSaved(row);renderMeetings({resetList:true})}}),err=>toast(err?.message||'한 줄 업데이트 창을 열지 못했어요.'))}

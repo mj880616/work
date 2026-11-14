@@ -312,7 +312,7 @@ function mrdPaintWords(m){
 function mrdRenderMeetingInfo(m){
     const name=mrdMeetingName(m)||'사업 보고',legacyTitle=mrdLegacyTitle(m);
     document.querySelector('#mrdTitle').textContent=name;if(mrdDocked)mrdModalEl()?.setAttribute('aria-label',name);mrdPaintWords(m);
-    document.querySelector('#mrdMeta').textContent=[`${reportKindLabel(reportKindOf(m))} 칸`,legacyTitle?(m.round_no?`기존 제목: ${legacyTitle}`:legacyTitle):null,(mrdDocked||!m.round_no)?null:`${m.round_no}차`,formatMeetingWhen(m,{year:'numeric'}),m.location&&String(m.location).trim()?`장소 ${String(m.location).trim()}`:null,m.attendees&&String(m.attendees).trim()?`참석 ${String(m.attendees).trim()}`:null,mrdLinkText(m)].filter(Boolean).join(' · ');
+    document.querySelector('#mrdMeta').textContent=[reportKindLabel(reportKindOf(m)),legacyTitle?(m.round_no?`기존 제목: ${legacyTitle}`:legacyTitle):null,(mrdDocked||!m.round_no)?null:`${m.round_no}차`,formatMeetingWhen(m,{year:'numeric'}),m.location&&String(m.location).trim()?`장소 ${String(m.location).trim()}`:null,m.attendees&&String(m.attendees).trim()?`참석 ${String(m.attendees).trim()}`:null,mrdLinkText(m)].filter(Boolean).join(' · ');
     if(!mrdLinkRefreshed.has(m.id)){mrdLinkRefreshed.add(m.id);Promise.resolve(window.KPTUTeamData?.refreshReportLinks?.()).then(()=>{if(mrdCurrent?.id===m.id)mrdRenderMeetingInfo(mrdCurrent)},()=>{})}
     {const text=mrdResultText(m),same=()=>mrdCurrent?.id===m.id;document.querySelector('#mrdResultSection').classList.toggle('hidden',!text);paintRecordText(document.querySelector('#mrdResult'),text,{toggle:document.querySelector('#mrdResultRaw'),isCurrent:same})}
     paintAreaView(document.querySelector('#mrdAreaView'),m,{tasks:mrdTasks,onMessage:msg=>notify(msg,{error:true})});
