@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
@@ -173,7 +174,9 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed'); // BIZ-위쪽정돈(11/09 01:22): 사업 보고 [+]는 맨 윗줄 작은 아이콘이라 떠 있지 않다
  // BIZ-위쪽정돈PC(11/09 10:52 A): 사업 보고 종류 칩 줄은 없앴다 — 종류는 모든 폭에서 [회의 ▾] 상자 하나이고, 고른 값이 있으면 상자 글자가 진하다(is-on).
  await expect(page.locator('#reportKindFilter')).toHaveCount(0);
- await expect(page.locator('#reportKindSelect')).toBeVisible();await expect(page.locator('#reportKindSelect')).toHaveClass(/is-on/);
+ // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체]라 진하지 않고, 종류를 고르면 진하다.
+ await expect(page.locator('#reportKindSelect')).toBeVisible();await expect(page.locator('#reportKindSelect')).not.toHaveClass(/is-on/);
+ await pickReportKind(page,'회의');await expect(page.locator('#reportKindSelect')).toHaveClass(/is-on/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });

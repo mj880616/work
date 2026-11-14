@@ -1,6 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import { enterLogin } from './helpers/login-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -51,6 +52,7 @@ async function signIn(page){
 import {execFileSync} from 'node:child_process';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { closeProjectDetail } from './helpers/project-detail.mjs';
+import {addReport} from './helpers/report-add.mjs';
 // Compare retained styles on the same calendar day in both the historical device-time app and KST app.
 const fixtureNow=new Date('2026-10-05T03:00:00Z');
 const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(fixtureNow);
@@ -180,6 +182,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   if(name==='meetings'&&width>=761){
     await expect(page.locator('#meetingTypeFilter')).toHaveCount(0);
     await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
+    await pickReportKind(page,'회의'); // MTG-기본종류전체: 처음은 [종류 전체], 회의 세 칸은 [회의]에서
     const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
     await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
@@ -215,7 +218,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
 
  }
  await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expectProjectTitle(page,'Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await closeProjectDetail(page);
- await view(page,'meetings');await page.locator('#newMeetingBtn').click();await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
+ await view(page,'meetings');await addReport(page);await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
  await view(page,'team');// UI-조직추가숨김: no add button on screen, so open the same dialog through the edit delegate.
  await page.evaluate(()=>{const b=document.createElement('button');b.id='soTestOpenEdit';b.setAttribute('data-so-edit','');document.body.append(b)});await page.locator('#soTestOpenEdit').dispatchEvent('click');await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
  await view(page,'library');await page.locator('#newDocumentBtn').click();await audit(page,'documentModal');await page.locator('#documentModal').evaluate(el=>el.classList.add('hidden'));

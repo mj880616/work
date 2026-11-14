@@ -4,6 +4,7 @@ import {openSeoulApp} from './helpers/seoul-time-fixture.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 // UI-엔터저장: one shared rule (app/enter-save.js) for add/edit windows and side edit panels.
 // One-line field: Enter saves (PC and phone). Many-line field: Enter is a new line; Ctrl+Enter saves on PC.
 // A composing Korean Enter never saves, one press saves once, and the save button shows ↵ / Ctrl+↵ on PC only.
@@ -52,7 +53,7 @@ for(const width of [1280,390])test.describe(`${width}px`,()=>{
 
   test('회의 결과: 원문 엔터 = 줄바꿈, PC Ctrl+엔터 = 저장(폰은 제목 엔터), 후속 할 일 줄은 그 줄만 추가',async({page})=>{
     const s=baseState();s.meetingWrites=[];s.meetings=[];await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=meetings`);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-    await page.locator('#newMeetingBtn').click();
+    await addReport(page);
     await page.locator('#meetingTitle').fill('엔터 회의');await page.locator('#meetingAtDate').fill('2026-10-11');await page.locator('#meetingAtTime').fill('1405');
     const transcript=page.locator('#meetingTranscript');
     await transcript.fill('1. 안건');await transcript.press('Enter');await transcript.pressSequentially('2. 결과');

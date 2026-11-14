@@ -9,6 +9,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {pickReportKind} from './helpers/report-filter.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const SHOTS=process.env.KPTU_SHOTS==='1';
@@ -24,7 +25,7 @@ for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`${label}: 
   await expect(page.locator('#meetingsView')).toBeVisible();await showAllReportWeeks(page);
   // 녹음 파일 저장 길([녹음])은 그대로 있다(PC 머리 줄 — 폰은 녹음 앱 띠가 맡음).
   await expect(page.locator('#reportRecordBtn')).toHaveCount(1);
-  await pickReportKind(page,'회의');await page.locator('#newMeetingBtn').click();
+  await pickReportKind(page,'회의');await addReport(page);
   const modal=page.locator('#meetingModal');await expect(modal).toBeVisible();
   // 지운 길: 줄·창·단추·글자 모두 없다(숨김이 아니라 없음).
   await expect(page.locator('#mtdBar, #mtdOpen, #mtdPanel, #mtdRun, #mtdText')).toHaveCount(0);

@@ -3,6 +3,7 @@ import {loginEntry} from './helpers/login-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const labels={meetings:['newMeetingBtn','+ 사업 보고','+ 사업 보고']};/* LIB-위쪽한줄(11/09): 자료실 [+]는 글자 없는 작은 아이콘(이름은 aria-label '자료 등록')이라 이 표에서 뺐다 *//* 사업영역 관리 [+]는 마크업·CSS가 글자를 정한다(AREA-추가버튼잘림, area-add-button.spec) */
 async function boot(page,view){
@@ -68,7 +69,7 @@ for(const width of [390,1280])test(`active modal titles survive eyebrow removal 
   await page.locator('#newDocumentBtn').click();await expect(page.locator('#documentModal')).toBeVisible();
   await page.locator('#documentModal [data-close]').click();
   await clickView(page,'meetings');await ready(page,'meetings');
-  await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
+  await addReport(page);await expect(page.locator('#meetingModal')).toBeVisible();
   expect(await page.locator('#appView,.modal').evaluateAll(nodes=>nodes.flatMap(n=>[...n.querySelectorAll('.eyebrow')].map(e=>e.textContent)).filter(t=>/[A-Z]{2}/.test(t)))).toEqual([]);
 });
 

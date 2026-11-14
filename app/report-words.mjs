@@ -8,8 +8,9 @@ const MEETING=Object.freeze({
   nameLabel:'회의명',
   nameMissing:'회의명을 입력해 주세요.',
   resultLegend:'회의 결과',
-  textLabel:'회의 결과 원문',
-  textPlaceholder:'회의 결과를 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
+  // S62-02 MTG-원문칸넘침(11/15 명진 '원문이라는 표현을 내용으로'): '원문' 말을 뺀다. [회의] 칸은 '회의 결과'.
+  textLabel:'회의 결과',
+  textPlaceholder:'회의 결과를 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'회의자료',
   pickFiles:'회의자료 파일 선택',
   materialsSaved:'회의자료',
@@ -23,13 +24,13 @@ const OTHER=Object.freeze({
   nameLabel:'제목',
   nameMissing:'제목을 입력해 주세요.',
   resultLegend:'내용',
-  textLabel:'원문',
-  textPlaceholder:'내용을 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
+  textLabel:'내용',
+  textPlaceholder:'내용을 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'자료',
   pickFiles:'자료 파일 선택',
   materialsSaved:'자료',
   notesLabel:'특이사항',
-  notesPlaceholder:'원문과 별도로 남겨야 할 특이사항이 있을 때만 입력하세요.'
+  notesPlaceholder:'내용과 별도로 남겨야 할 특이사항이 있을 때만 입력하세요.'
 });
 
 // 칸 값 → 화면 글자 묶음. 모르는 값·빈 값은 [회의](옛 행과 같다).

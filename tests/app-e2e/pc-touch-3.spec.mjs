@@ -3,6 +3,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 
 // #2332 범위 밖 발견 ①: 묶음 제목(legend) 옆에 0 폭으로 끼던 [녹음·전사 넣기] 줄은 S61-24(REC-요약단추삭제)에서 화면째 뺐다.
@@ -11,7 +12,7 @@ for(const width of [1280,412])test(`사업 보고 등록 창 ${width}: [녹음·
   const s=baseState();s.meetingWrites=[];
   await page.setViewportSize({width,height:900});await mockApp(page,s);
   await signIn(page,testOrigin+'/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-  await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
+  await addReport(page);await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#mtdBar, #mtdOpen, #mtdPanel')).toHaveCount(0);
   await expect(page.locator('#meetingModal').getByText(/녹음·전사 넣기|녹음 요약하기/)).toHaveCount(0);
   const box=await page.evaluate(()=>{const l=document.querySelector('#meetingTranscript').closest('label'),f=l.closest('fieldset')||l.parentElement,r=l.getBoundingClientRect(),fr=f.getBoundingClientRect();return {left:r.left-fr.left,right:fr.right-r.right,width:r.width,fieldWidth:fr.width}});

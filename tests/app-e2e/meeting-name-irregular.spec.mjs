@@ -4,6 +4,7 @@
 import {test, expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId: 'Asia/Seoul'});
 const BASE = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -47,7 +48,7 @@ async function openEntry(page, state) {
   await signInWithSession(page, 'mn@example.org');
   await expect(page.locator('#meetingsView')).toBeVisible({timeout: 15000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 15000});
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#meetingNameSelect')).toHaveAttribute('data-name-panel', '1');
 }

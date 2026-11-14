@@ -30,7 +30,7 @@ async function open(page,s,width){
 const chip=(page,name)=>page.locator('#reportKindSelect option').filter({hasText:new RegExp(`^${name}$`)});
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 업데이트 → 사업영역·날짜·한 줄·다음 할 일 저장 → 목록에 문장, [한 줄] 칩의 [+]는 바로 창`,async({page})=>{
+for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 업데이트 → 사업영역·날짜·한 줄·다음 할 일 저장 → 목록에 문장, [한 줄] 칩의 [+]도 고르기 창`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();await open(page,s,width);
   // [한 줄] 칩은 한 줄 업데이트가 생기기 전에는 없다.
@@ -78,9 +78,10 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   await expect(page.locator('#meetingList').getByText(LINE).first()).toBeVisible();
   await expect(chip(page,'한 줄')).toHaveCount(1);
   if(width<=884)expect(await noSideScroll(page)).toBe(true);
-  // [한 줄] 칩: 그 칸만, [+]는 칸 고르기 없이 바로 한 줄 창. Esc로 닫힌다.
+  // [한 줄] 칩: 그 칸만. MTG-더하기늘고르기(11/14 명진): [+]는 거르기와 상관없이 늘 고르기 창 — 맨 위 [한 줄 업데이트]로 한 줄 창. Esc로 닫힌다.
   await pickReportKind(page,'한 줄');
   await page.locator('#newMeetingBtn').click();
+  await expect(sheet).toBeVisible();await sheet.locator('[data-report-oneline]').click();
   await expect(dialog).toBeVisible();await expect(sheet).toBeHidden();
   await expect(dialog.locator('[data-ol-text]')).toHaveValue('');
   await page.keyboard.press('Escape');await expect(dialog).toBeHidden();
@@ -88,10 +89,16 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   expect(errors).toEqual([]);
 });
 
-test('412: 칸 칩([회의])에서 [+]는 지금처럼 바로 쓰기 창(한 줄 줄 없음)',async({page})=>{
+// MTG-더하기늘고르기(11/14 명진 '거르기 상관 없이 늘 고르기 창'): [회의]를 고른 채여도 [+]는 고르기 창, 고른 종류 줄이 표시된다.
+test('412: 칸 칩([회의])에서도 [+]는 고르기 창([회의] 줄 표시) → [회의]로 쓰기 창',async({page})=>{
   const s=state();await open(page,s,412);
   await pickReportKind(page,'회의');
   await page.locator('#newMeetingBtn').click();
+  const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
+  await expect(sheet.locator('[data-sheet-value="meeting"]')).toHaveAttribute('aria-pressed','true');
+  await expect(sheet.locator('[data-sheet-value="meeting"]')).toBeFocused();
+  await expect(sheet.locator('[data-report-oneline]')).toHaveCount(1);
+  await sheet.locator('[data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#reportOnelineDialog')).toHaveCount(0);
 });

@@ -19,11 +19,14 @@ async function nameValue(page,pick){
 export async function pickReportFilter(page,key,pick){
   const sel=reportFilterSelect(page,key);await expect(sel).toBeVisible();
   if(key==='area'){if(typeof pick==='object')await sel.selectOption({label:pick.label});else await sel.selectOption(pick);return}
+  // MTG-기본종류전체(11/15 명진): 사업 보고는 [종류 전체]로 열린다. 회의명 묶음은 [회의]를 고른 뒤에만 있으므로 사람처럼 [회의]부터 고른다.
+  if(!(await sel.locator('optgroup[label="회의명"]').count())&&await sel.inputValue()!=='kind:meeting'){await sel.selectOption('kind:meeting');await expect(sel).toHaveValue('kind:meeting')}
   await sel.selectOption(await nameValue(page,pick));
 }
 // 한 묶음의 줄 글자(순서대로, 첫 줄은 '전체').
 export async function reportFilterLabels(page,key){
   const sel=reportFilterSelect(page,key);
+  if(key==='name'&&!(await sel.locator('optgroup[label="회의명"]').count())&&await sel.inputValue()==='kind:all'){await sel.selectOption('kind:meeting');await expect(sel).toHaveValue('kind:meeting')} // MTG-기본종류전체: 회의명 묶음은 [회의]에서
   if(key==='name')return ['전체',...(await sel.locator('optgroup[label="회의명"] option').allTextContents()).map(t=>t.trim())];
   const labels=(await sel.locator('option').allTextContents()).map(t=>t.trim());labels[0]='전체';return labels;
 }

@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {signInWithSession} from './helpers/session-login.mjs';
+import {addReport} from './helpers/report-add.mjs';
 // S57-23 UI-회의명창가로막대(CC가 1920 폭 운영 화면에서 확인): PC 사업 보고 추가 창의 [회의명] 고르기 창(meeting-name-panel.js·.css) 아래에 가로 스크롤 막대가 보였다.
 // 원인은 줄 끝 ⋯(.icon-btn.mnp-more, 폭 30px)의 44px 누르는 자리(base-ui.css 공용 ::after)가 단추 양옆으로 7px씩 나와, 맨 오른쪽 7px이 이 창(overflow-y:auto → 가로도 auto)의
 // 가로 넘침이 된 것이다. 이 시험은 창이 가로로 넘치지 않고(scrollWidth ≤ clientWidth), ⋯의 누르는 자리가 여전히 44×44이며 창 안 오른쪽 끝을 넘지 않는지 본다.
@@ -50,7 +51,7 @@ for (const [label, size] of [['폰 412', {width: 412, height: 915}], ['폴드 �
     await signInWithSession(page, 'mp@example.org');
     await expect(page.locator('#meetingsView')).toBeVisible({timeout: 15000});
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 15000});
-    await page.locator('#newMeetingBtn').click();
+    await addReport(page);
     await expect(page.locator('#meetingModal')).toBeVisible();
     await expect(page.locator('#meetingNameSelect')).toHaveAttribute('data-name-panel', '1');
     await page.locator('#meetingNameSelect').selectOption('__other__');

@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {makeState, openReportCalendar, SB} from './helpers/report-calendar-plan-server.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 // S59-13 BIZ-보고할일정 PR D(요청 ⑤, 설계 docs/design/biz-report-plan-link.md 10절, 시안 docs/design/mockups/biz-report-plan-link.html ④).
 // 사업 보고 달력 [보고 쓰기] → 쓰기 창을 열면 그 일정 시각의 사진이 미리 골라져 있다(시작 30분 전 ~ 3시간 뒤). 고르기만 한다:
 // 칸을 누르면 빼기·더하기, 서버에는 아무것도 가지 않는다. [저장]을 누르면 창이 먼저 닫히고, 그때 고른 사진만 파일로 만들어
@@ -192,7 +193,7 @@ test('1280 다 빼고 [저장] = 사진 없이 저장(아무것도 받거나 올
   expect(state.photo.uploads).toEqual([]);
   await expect(dock(page)).toHaveCount(0);
   // [+]로 연 새 보고(일정 없음): 미리 골라 두지 않는다 — 줄은 접힌 '그 시각 사진 [선택해 붙이기]' 그대로.
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   const sheet = page.locator('#reportKindSheet');
   if (await sheet.isVisible()) await sheet.locator('[data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();

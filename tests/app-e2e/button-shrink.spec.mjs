@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome, openQuickBox } from './helpers/home-entry.mjs';
+import {addReport} from './helpers/report-add.mjs';
 // UI-버튼줄이기(2026-10-22 사용자 결정): UI-버튼기준 점검 표(#957 ③)와 자료 화면 점검에서 고른 큰 버튼만 줄인다.
 // 창 안 주 동작은 글자 폭·36px(--kptu-control-height)·오른쪽, 보조는 32px(--ds-compact-height), 누르는 범위는 그대로 44px.
 // 모의 자료(openHome)만 쓴다. 실제 서버는 부르지 않는다.
@@ -69,7 +70,7 @@ for(const width of [390,1280]){
   const errors=await boot(page,width);
   await go(page,'calendar');await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
   await modalSave(page,'#eventModal','#saveEventBtn','일정 [저장]');await page.keyboard.press('Escape');await expect(page.locator('#eventModal')).toBeHidden();
-  await go(page,'meetings');await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
+  await go(page,'meetings');await addReport(page);await expect(page.locator('#meetingModal')).toBeVisible();
   await modalSave(page,'#meetingModal','#saveMeetingBtn','[사업 보고 저장]');await page.keyboard.press('Escape');await expect(page.locator('#meetingModal')).toBeHidden();
   await go(page,'library');await page.locator('#newDocumentBtn').click();await expect(page.locator('#documentModal')).toBeVisible();
   await modalSave(page,'#documentModal','#saveDocumentBtn','자료 [등록]');await page.keyboard.press('Escape');await expect(page.locator('#documentModal')).toBeHidden();

@@ -11,6 +11,7 @@ import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {openMeetingResult} from './helpers/meeting-open.mjs';
 import {pickReportKind} from './helpers/report-filter.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const SHOTS=process.env.KPTU_SHOTS==='1';
@@ -70,7 +71,7 @@ async function openWrite(page,s,width){
   await page.setViewportSize({width,height:width>760?900:915});await routes(page,s);
   await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#meetingsView')).toBeVisible();await showAllReportWeeks(page);
-  await pickReportKind(page,'회의');await page.locator('#newMeetingBtn').click();
+  await pickReportKind(page,'회의');await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');
   await page.locator('#meetingTitle').fill('합성 운영회의');await fillDateTime(page,'#meetingAt','2026-11-10T10:00');

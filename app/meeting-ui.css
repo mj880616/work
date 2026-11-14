@@ -13,7 +13,8 @@
 .mrd-special-section h3{margin:0 0 var(--kptu-space-3)}
 .mrd-special-text{padding:var(--kptu-space-3);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
 .mrd-result-text{min-height:72px;padding:var(--kptu-space-4);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}
-.mrd-text{white-space:pre-wrap;line-height:1.65;color:var(--kptu-ink)}
+/* S62-02 MTG-원문칸넘침: 띄어쓰기 없는 긴 주소·긴 말도 칸 안에서 줄을 바꾼다(가로 넘침 없음). */
+.mrd-text{white-space:pre-wrap;overflow-wrap:anywhere;min-width:0;line-height:1.65;color:var(--kptu-ink)}
 .mrd-editor-actions{display:flex;justify-content:flex-end;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
 /* MTG-보고창정리: 제목 줄 오른쪽 끝 ⋯(사업 보고 관리)와 ×는 한 묶음. */
 .mrd-head-ends{display:flex;align-items:flex-start;gap:var(--kptu-space-1,4px);flex:none}
@@ -235,7 +236,6 @@
 /* 줄 오른쪽 끝 ⋯의 누르는 범위 44px은 위아래로만 넓힌다(옆으로 넓히면 화면 칸 밖으로 넘친다, 기간 줄 ‹ ›와 같은 방식). */
 #appView #meetingsView .report-top-line button.report-more::after{inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
 #meetingModal .report-kind-pick{display:flex;align-items:center;gap:var(--kptu-space-2);min-width:0;margin:0 0 var(--kptu-space-2)}
-#meetingModal .report-kind-pick-label{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #meetingModal .report-kind-pick>#meetingKindPick{flex:0 1 auto;min-width:0;max-width:100%}
 #meetingModal label[hidden],#meetingRoundDetailModal label[hidden]{display:none}
 @media(min-width:600px){
@@ -551,18 +551,20 @@
 .mrd-text-head{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2,8px);margin:0 0 var(--kptu-space-3)}
 .mrd-result-section .mrd-text-head h3,.mrd-special-section .mrd-text-head h3{margin:0}
 .mrd-text.md-body{white-space:normal}
-.mrd-text.record-text-raw{white-space:pre-wrap;overflow-wrap:anywhere}
 .mrd-text.md-body :is(td,th){overflow-wrap:normal;word-break:keep-all}
 .mrd-text.md-body table{display:block;max-width:100%;overflow-x:auto}
-button.record-raw-toggle{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:32px;height:var(--ds-compact-height,32px);min-height:0;padding:0 8px;color:var(--kptu-muted);background:transparent;border-color:transparent}
-button.record-raw-toggle[aria-pressed="true"]{color:var(--kptu-ink);background:var(--kptu-surface-subtle);border-color:var(--kptu-border)}
 /* 큰 창 ⤢: 칸 이름 줄 끝의 글자 높이 아이콘(모든 글 칸 공통, record-text-write.js). 줄 높이를 늘리지 않는다. */
 .record-big-head{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
 button.record-big-write,:is(#meetingModal,#meetingRoundDetailModal) .record-big-head button.record-big-write{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:22px;min-width:22px;height:22px;min-height:22px;margin:0 0 0 2px;padding:0;color:var(--kptu-muted);background:transparent;border-color:transparent;border-radius:var(--kptu-radius-sm,6px)}
-:is(button.record-raw-toggle,button.record-big-write):hover{color:var(--kptu-ink)}
-/* S48-64: [원문]/[서식]은 아이콘 대신 작은 글자 버튼(무슨 일인지 보이게). */
-button.record-raw-toggle{font-size:12px;font-weight:500;line-height:1}
-/* S48-64: '회의록 전문'([회의] 칸)·특이사항 접기. 머리줄 한 줄 = 이름 · 글자 수 · [원문]. 펼침 표시는 이름 앞 작은 ▸/▾. */
+:is(button.record-big-write):hover{color:var(--kptu-ink)}
+/* S62-02 MTG-원문칸넘침(11/15 명진): 결과·내용 안 주소는 눌러 새 창으로 여는 링크, 주소만 있는 줄은 작은 북마크 줄(도메인 + 주소).
+   북마크는 줄 하나 높이의 얇은 줄(크고 굵은 카드 아님), 주소는 칸 안에서 줄을 바꾼다. */
+.mrd-text a.record-link{color:var(--kptu-primary-text);text-decoration:underline;text-underline-offset:2px}
+.mrd-text a.record-bookmark{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 6px;min-width:0;max-width:100%;box-sizing:border-box;margin:2px 0;padding:3px 8px;color:var(--kptu-ink);text-decoration:none;line-height:1.4;background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+.mrd-text a.record-bookmark:hover{border-color:var(--kptu-border-strong)}
+.mrd-text .record-bookmark-host{flex:none;font-size:var(--ds-text-meta,12px);font-weight:600;color:var(--kptu-ink)}
+.mrd-text .record-bookmark-url{flex:1 1 12em;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow-wrap:anywhere}
+/* S48-64: '회의록 전문'([회의] 칸)·특이사항 접기. 머리줄 한 줄 = 이름 · 글자 수. 펼침 표시는 이름 앞 작은 ▸/▾. */
 .mrd-special-fold>summary{cursor:pointer;list-style:none}
 .mrd-special-fold>summary::-webkit-details-marker{display:none}
 .mrd-special-fold:not([open])>summary{margin-bottom:0}

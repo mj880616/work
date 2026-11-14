@@ -58,7 +58,7 @@ for (const width of [1280, 1440]) {
     await expect(page.locator('#ps3Summary')).toContainText('할 일');
     await expect(page.locator('#ps3Summary > .ps3-color-dot')).toHaveCount(1);
     await expect(page.locator('#ps3Menu details.ps3-more')).toBeVisible();
-    // 사업 보고: the result column's head has no name/round line; the meta line (칸) and ⋯ stay.
+    // 사업 보고: the result column's head has no name/round line; the meta line (종류) and ⋯ stay.
     await go(page, 'meetings');
     // MTG-프로젝트합치기 3단계: [목록]은 한 주씩이고, 홈 공용 가짜 보고(home-entry.mjs)는 일시가 없어 어느 주에도 들지 않는다. [전체]로 모든 주를 본다.
     await showAllReportWeeks(page);
@@ -66,7 +66,7 @@ for (const width of [1280, 1440]) {
     await expect(result).toHaveAttribute('data-meeting-result', /.+/);
     await expect(toplineItem(page)).toHaveText('테스트 회의 회차');
     await expect(result.locator('#mrdTitle')).toBeHidden();
-    await expect(result.locator('#mrdMeta')).toContainText('칸');
+    await expect(result.locator('#mrdMeta')).toHaveText(/^회의( · |$)/);
     await expect(result.locator('#mrdMore')).toBeVisible();
     await expect(result).toHaveAttribute('aria-label', '사업 보고 결과');
     expect(errors).toEqual([]);

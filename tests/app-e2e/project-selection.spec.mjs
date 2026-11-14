@@ -4,6 +4,7 @@ import {calendarToday} from './helpers/calendar-today.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -66,7 +67,7 @@ async function expectCanonical(select){
 
 test('new meeting uses the project catalog tree while calendar has no project selector',async({page})=>{
   await signIn(page,'meetings',{});
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingPlaces')).toBeVisible();
   await page.locator('#meetingModal [data-close]').click();
   await clickView(page,'calendar');
