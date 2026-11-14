@@ -39,7 +39,7 @@ test('PC 1440: a question shows the ask line first; Enter asks once; lines carry
   await top.click();await top.fill('교섭');
   await expect(panel.locator('.gs-ask-line')).toHaveCount(0);
   await top.fill(Q);
-  await expect(panel.locator('.gs-ask-line')).toContainText('Web2에 물어보기');
+  await expect(panel.locator('.gs-ask-line')).toContainText('노동조합+에 물어보기');
   expect(asks.length).toBe(0); // 글자를 칠 때 AI를 부르지 않음
   await top.press('Enter');
   const box=panel.locator('.gs-ask-box');

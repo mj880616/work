@@ -5,7 +5,7 @@
 // - 결과 창·전용 화면·전체 화면은 같은 그리기 함수(paint)로 그린다. 형광은 textContent 조각 + <mark>(HTML 삽입 없음).
 // - 결과를 누르면 source 칸 기준으로 원본 화면의 기존 여는 함수를 부른다. 상단 줄 ←→(앱 안 이동 기록)로 돌아온다.
 // 저장하는 것 없음(최근 검색어 기억 안 함, 결정 7). 로그인이 바뀌면 메모리를 비운다.
-// FEAT-1029묶음 ① Web2에 물어보기(docs/design/ask-web2.md 1절): 질문처럼 보이면 결과 맨 위 [Web2에 물어보기 ↵] 줄, 누르거나 Enter면 답 상자.
+// FEAT-1029묶음 ① 노동조합+에 물어보기(docs/design/ask-web2.md 1절): 질문처럼 보이면 결과 맨 위 [노동조합+에 물어보기 ↵] 줄, 누르거나 Enter면 답 상자.
 //   답 상자·최근 물어본 것도 이 모듈의 paint가 그린다(규칙은 ask-web2-model.mjs, 서버 호출은 global-search-data.js). AI는 누를 때만 부른다.
 import {parseQuery, QUERY_MESSAGES, errorMessage, highlightParts, buildGroups, chipOptions, countLabel, GROUPS, groupOf, serverKindOf,
   groupKeyOfServer, openTarget, dateLabel, placeLabel, STATE_LABEL, PREVIEW, PAGE, byRecent} from './global-search-model.mjs';
@@ -212,7 +212,7 @@ function groupNode(g, where) {
   }
   return sec;
 }
-// ---------- Web2에 물어보기(답 상자·물어보기 줄·최근 물어본 것) ----------
+// ---------- 노동조합+에 물어보기(답 상자·물어보기 줄·최근 물어본 것) ----------
 let askSeq = 0, recentSeq = 0;
 const askSources = new Map(); // 'ref:답id' → 근거(누르면 연다)
 // 질문처럼 보이면 결과 맨 위 한 줄(↑↓·Enter로도 고름). 물었으면 그 아래 답 상자.
@@ -221,7 +221,7 @@ function askNodes(where) {
   const q = state.text.trim();
   if (state.ask.phase === 'idle' && looksLikeQuestion(q)) {
     const line = el('div', 'gs-ask-line'); line.setAttribute('role', 'option'); line.id = `gsOpt-${where}-${++optionSeq}`; line.dataset.gsKey = 'ask'; line.dataset.gsAsk = '1';
-    line.append(icon('ask'), el('b', 'gs-ask-name', 'Web2에 물어보기 ↵'), el('span', 'gs-ask-hint', 'AI · 근거 기록과 함께'));
+    line.append(icon('ask'), el('b', 'gs-ask-name', '노동조합+에 물어보기 ↵'), el('span', 'gs-ask-hint', 'AI · 근거 기록과 함께'));
     out.push(line);
   }
   if (state.ask.phase !== 'idle') out.push(answerBox(where));
@@ -231,14 +231,14 @@ function askNodes(where) {
 function appendAskMore(box) {
   const q = state.text.trim();
   if (state.ask.phase !== 'idle' || !canAsk(q) || looksLikeQuestion(q)) return;
-  const b = el('button', 'gs-ask-more', '이 내용으로 Web2에 물어보기'); b.type = 'button'; b.dataset.gsAskMore = '1';
+  const b = el('button', 'gs-ask-more', '이 내용으로 노동조합+에 물어보기'); b.type = 'button'; b.dataset.gsAskMore = '1';
   box.append(b);
 }
 function answerBox(where) {
   const a = state.ask, answer = a.answer;
-  const box = el('section', 'gs-ask-box'); box.setAttribute('aria-label', 'Web2에 물어보기 답');
+  const box = el('section', 'gs-ask-box'); box.setAttribute('aria-label', '노동조합+에 물어보기 답');
   const head = el('div', 'gs-ask-head');
-  head.append(icon('ask'), el('b', 'gs-ask-name', 'Web2에 물어보기'));
+  head.append(icon('ask'), el('b', 'gs-ask-name', '노동조합+에 물어보기'));
   if (answer?.at) { const t = new Date(Date.parse(answer.at) + 9 * 3600 * 1000); if (Number.isFinite(t.getTime())) head.append(el('span', 'gs-ask-time', `${t.getUTCMonth() + 1}/${t.getUTCDate()} ${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`)); }
   if (a.phase !== 'busy') { const again = el('button', 'gs-ask-again', '다시 묻기'); again.type = 'button'; again.dataset.gsAskAgain = '1'; head.append(again); }
   box.append(head, el('p', 'gs-ask-q', a.q));

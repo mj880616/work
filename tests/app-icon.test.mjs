@@ -82,8 +82,8 @@ test('SVG: 고정 색 3개, 32px 이하에서 작은 모양으로 바뀌고 외�
   assert.equal((svg.match(/class="full"/g) || []).length, 1); assert.equal((svg.match(/class="tab"/g) || []).length, 1);
   assert.ok(!/prefers-color-scheme|currentColor|<image|href=|data:/.test(svg), '색은 화면 테마를 따르지 않고 외부 자원 없음');
 });
-test('manifest 이름은 웹2이고 아이콘 주소에 새 판 번호가 붙는다', () => {
+test('manifest 이름은 노동조합+이고 아이콘 주소에 새 판 번호가 붙는다', () => {
   const m = JSON.parse(icon('windows-manifest.json').toString('utf8'));
-  assert.equal(m.name, '웹2'); assert.equal(m.short_name, '웹2');
+  assert.equal(m.name, '노동조합+'); assert.equal(m.short_name, '노동조합+');
   for (const i of m.icons) assert.ok(i.src.includes('?v=20261027-memocheck'), i.src);
 });

@@ -296,7 +296,7 @@ function headHtml() {
     return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">보관함 ${archivedRooms(state.rooms, state.lines).length}</span></div>`;
   }
   if (state.mode === 'trash') {
-    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">휴지통 ${trashCount()}</span></div><p class="feed-note" data-tg-trash-note>Web2 목록에서만 뺀 것이에요. 원문은 Drive에 그대로 있어요. 직접 비우기 전까지 남아요.</p>`;
+    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">휴지통 ${trashCount()}</span></div><p class="feed-note" data-tg-trash-note>노동조합+ 목록에서만 뺀 것이에요. 원문은 Drive에 그대로 있어요. 직접 비우기 전까지 남아요.</p>`;
   }
   const today = telegramToday(state.days, kstDay());
   const failed = today?.failed ? ` · 판정 실패 ${today.failed}` : '';

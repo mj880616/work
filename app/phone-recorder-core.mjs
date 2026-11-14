@@ -96,7 +96,7 @@ export function createPhoneRecorder(deps){
     if(!ws){fail('로그인 상태를 확인하지 못했어요.',false);return}
     view.state='starting';view.step='';view.note='';view.error='';view.files=[];paint();
     const ok=await ask('rec:prepare',['ready','denied'],120000);
-    if(ok?.kind!=='ready'){fail(ok?'마이크를 쓸 수 없어요. 폰 설정 › 애플리케이션 › 웹2 › 권한에서 마이크를 허용해 주세요.':'앱이 답하지 않아요. 앱을 다시 열어 주세요.',false);return}
+    if(ok?.kind!=='ready'){fail(ok?'마이크를 쓸 수 없어요. 폰 설정 › 애플리케이션 › 노동조합+ › 권한에서 마이크를 허용해 주세요.':'앱이 답하지 않아요. 앱을 다시 열어 주세요.',false);return}
     let r;
     try{
       r=await deps.call('rec_start',{workspace_id:ws,mime:MIME});

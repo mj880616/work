@@ -57,10 +57,10 @@ async function fixture(page, list) {
 const dialog = page => page.locator('#shareTargetDialog');
 const notice = page => page.locator('#kptuNotice:not([hidden])');
 
-test('웹2 노트: 링크 제목이 제목, 폴더 고르고 한 줄 더해 저장하면 노트·폴더·첨부가 기존 길로 들어간다 412', async ({page}, info) => {
+test('노동조합+ 노트: 링크 제목이 제목, 폴더 고르고 한 줄 더해 저장하면 노트·폴더·첨부가 기존 길로 들어간다 412', async ({page}, info) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'기사 제목', text:'https://example.org/a', target:'note', items:[{i:0, name:'사진1.gif', type:'image/gif', size:6}]});
   await expect(dialog(page)).toBeVisible();
-  await expect(dialog(page).getByRole('heading')).toHaveText('웹2 노트');
+  await expect(dialog(page).getByRole('heading')).toHaveText('노동조합+ 노트');
   await expect(dialog(page).getByRole('textbox', {name:'제목'})).toHaveValue('기사 제목');
   // 받기만 하고 [저장] 전에는 아무것도 저장하지 않는다.
   expect(state.posts).toEqual([]);
@@ -88,9 +88,9 @@ test('웹2 노트: 링크 제목이 제목, 폴더 고르고 한 줄 더해 저�
   expect(errors).toEqual([]);
 });
 
-test('웹2 할 일: 링크 뺀 첫 줄이 제목, 링크는 메모, [내일]을 골라 저장하면 Google 할 일로 간다 412', async ({page}, info) => {
+test('노동조합+ 할 일: 링크 뺀 첫 줄이 제목, 링크는 메모, [내일]을 골라 저장하면 Google 할 일로 간다 412', async ({page}, info) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'자료 정리 https://example.org/b\n둘째 줄', target:'task', items:[]});
-  await expect(dialog(page).getByRole('heading')).toHaveText('웹2 할 일');
+  await expect(dialog(page).getByRole('heading')).toHaveText('노동조합+ 할 일');
   await expect(dialog(page).getByRole('textbox', {name:'제목'})).toHaveValue('자료 정리');
   await expect(dialog(page).getByRole('combobox', {name:'폴더'})).toBeHidden();
   const dues = dialog(page).getByRole('group', {name:'기한'});
@@ -112,7 +112,7 @@ test('웹2 할 일: 링크 뺀 첫 줄이 제목, 링크는 메모, [내일]을 
   expect(errors).toEqual([]);
 });
 
-test('웹2 할 일: 기한을 고르지 않으면 오늘로 저장 412', async ({page}) => {
+test('노동조합+ 할 일: 기한을 고르지 않으면 오늘로 저장 412', async ({page}) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'오늘 할 일', target:'task', items:[]});
   const dues = dialog(page).getByRole('group', {name:'기한'});
   await expect(dues.getByRole('button', {name:'오늘', exact:true})).toHaveAttribute('aria-pressed', 'true');
@@ -124,7 +124,7 @@ test('웹2 할 일: 기한을 고르지 않으면 오늘로 저장 412', async (
   expect(errors).toEqual([]);
 });
 
-test('웹2 할 일: [기한 없음]을 누르면 기한 없이 저장 412', async ({page}) => {
+test('노동조합+ 할 일: [기한 없음]을 누르면 기한 없이 저장 412', async ({page}) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'기한 없는 일', target:'task', items:[]});
   const dues = dialog(page).getByRole('group', {name:'기한'});
   await dues.getByRole('button', {name:'기한 없음'}).tap();
@@ -149,7 +149,7 @@ test('창을 닫으면 저장하지 않고 앱에 끝났다고만 알린다 412'
 
 // BIZ-저장먼저닫기 2차(S59-8): 노트(글)가 저장되면 공유 창은 올리기를 기다리지 않고 닫힌다. 받은 사진은 그 노트의 뒤 줄에서 올라가고,
 // 못 올린 것은 하단바 위 한 줄에 남아 [다시 올리기](못 올린 것만, 같은 노트로)로 다시 보낸다. 글 저장이 실패하면 창은 그대로·아무것도 보내지 않는다.
-test('웹2 노트: [저장]하면 창이 바로 닫히고 사진은 뒤에서, 못 올리면 [다시 올리기] 412', async ({page}) => {
+test('노동조합+ 노트: [저장]하면 창이 바로 닫히고 사진은 뒤에서, 못 올리면 [다시 올리기] 412', async ({page}) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'사진 공유', text:'', target:'note', items:[{i:0, name:'사진1.gif', type:'image/gif', size:6}, {i:1, name:'사진2.gif', type:'image/gif', size:6}]});
   let open, tries = 0; const gate = new Promise(resolve => { open = resolve; });
   await page.route(SB + '/functions/v1/basket-files**', async route => {
@@ -179,7 +179,7 @@ test('웹2 노트: [저장]하면 창이 바로 닫히고 사진은 뒤에서, �
 
 // BIZ-저장먼저닫기 3차(S59-18): 웹2 할 일도 할 일(글)이 저장되면 창이 바로 닫히고 받은 사진은 그 할 일의 뒤 줄에서 올라간다.
 // 알림은 하단바 위 한 줄 하나(위쪽 '할 일에 넣었어요' 알림과 겹치지 않음). 못 올린 사진은 [다시 올리기]로 그것만, 같은 할 일로.
-test('웹2 할 일: [저장]하면 창이 바로 닫히고 사진은 뒤에서, 못 올리면 [다시 올리기] 412', async ({page}) => {
+test('노동조합+ 할 일: [저장]하면 창이 바로 닫히고 사진은 뒤에서, 못 올리면 [다시 올리기] 412', async ({page}) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'현장 사진 정리', target:'task', items:[{i:0, name:'현장1.gif', type:'image/gif', size:6}, {i:1, name:'현장2.gif', type:'image/gif', size:6}]});
   let open, tries = 0; const gate = new Promise(resolve => { open = resolve; });
   const sent = [];

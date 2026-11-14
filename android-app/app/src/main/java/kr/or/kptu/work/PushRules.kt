@@ -33,7 +33,7 @@ object PushRules {
     const val ACTION_OPEN = "kr.or.kptu.work.PUSH_OPEN"
     const val EXTRA_OPEN = "open"
     /** 잠금 화면에 보이는 글(설계 N-D4: 내용 숨김). */
-    const val PUBLIC_TITLE = "웹2 · 새 알림"
+    const val PUBLIC_TITLE = "노동조합+ · 새 알림"
     const val MAX_TITLE = 80
     /** 본문을 그리는 종류(서버 fcm-send.ts BODY_KINDS와 같음). 명진 결정 11/12 "보이기": 이 종류는 본문이 있으면 잠금 화면에도 그대로 보인다. */
     val BODY_KINDS: Set<String> = setOf("family")
