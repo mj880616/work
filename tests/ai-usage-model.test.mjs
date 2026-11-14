@@ -24,7 +24,7 @@ test('맨 위 기간·요약·월말 예상(시안 문구), 줄마다 추정 없
   assert.equal(summaryLine(s, NOW), 'OpenAI 393원 · Gemini 0원 · 이 속도면 월말 약 440원');
   assert.equal(barRatio({ ...s, openai: { ...s.openai, assist_krw: 8400 } }), 0.56);
   const html = detailRows(s);
-  assert.match(html, /Web2 AI 기능<\/span><span class="aiu-value">156원 \/ 한 달 상한 15,000원/);
+  assert.match(html, /노동조합\+ AI 기능<\/span><span class="aiu-value">156원 \/ 한 달 상한 15,000원/);
   assert.match(html, /텔레그램·통화 판정<\/span><span class="aiu-value">237원 \/ 한 달 상한 6,000원/);
   assert.match(html, /전사·분석\(Gemini\)<\/span><span class="aiu-value">0원/);
   assert.doesNotMatch(html, /추정|보정|실제|잔액|충전|청구|수집/);
@@ -54,7 +54,7 @@ test('서버 셈도 서울 달 첫날부터 다시 0원(지난 달 사용은 더
 });
 test('경고 문장: 월 상한 80%만, 잔액 경고는 쓰지 않음', () => {
   assert.equal(warnText(s), '');
-  assert.match(warnText({ ...s, warn: ['openai_limit'] }), /^Web2 AI 이번 달 상한 80% 넘음/);
+  assert.match(warnText({ ...s, warn: ['openai_limit'] }), /^노동조합\+ AI 이번 달 상한 80% 넘음/);
   assert.equal(warnText({ ...s, warn: ['openai_balance'] }), '');
   assert.match(warnText({ ...s, warn: ['openai_balance', 'feed_limit'] }), /^텔레그램·통화 판정 상한 80% 넘음 \(237원 \/ 6,000원\)$/);
   assert.equal(warnText({ ...s, warn: ['openai_limit', 'gemini_balance', 'feed_limit'] }).endsWith(' 외 1건'), true);

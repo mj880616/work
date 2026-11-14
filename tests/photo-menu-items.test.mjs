@@ -57,8 +57,8 @@ test('사진 메뉴들은 공용 목록을 읽고 옛 이름이 남지 않는다
   assert.match(photos, /label:SEND_NOTE\.retry/);
   // 폰 공유 창 이름(앱 새 판에 들어감).
   const manifest = read('android-app/app/src/main/AndroidManifest.xml');
-  assert.equal((manifest.match(/android:label="웹2 업데이트로 보내기"/g) || []).length, 2);
-  assert.doesNotMatch(manifest, /android:label="웹2 정리함"/);
+  assert.equal((manifest.match(/android:label="노동조합\+ 업데이트로 보내기"/g) || []).length, 2);
+  assert.doesNotMatch(manifest, /android:label="노동조합\+ 정리함"/);
 });
 
 // PHOTO-아래줄정돈(S49-34, 요청함 11/04 11:40·명진 결정 12:06 'A안'): 아래 줄은 다섯 칸까지. 나머지 기능은 [공유 ▾]·[편집 ▾]·[더보기] 안 글자 항목.

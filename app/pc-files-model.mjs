@@ -110,7 +110,7 @@ export function pcStateText(why) {
     case 'off': return "내 PC가 꺼져 있어요. 화면 오른쪽 아래 바구니 아이콘을 오른쪽 클릭 → [웹2에서 이 PC 보기]를 켜 주세요. 처음 한 번 크롬이 '다른 앱에 연결' 허락을 물으면 [허용]을 눌러 주세요.";
     case 'pc_signed_out': return '바구니 PC 앱이 로그아웃돼 있어요. 트레이 아이콘에서 다시 로그인해 주세요.';
     case 'other_user': return '바구니 PC 앱에 다른 계정으로 로그인돼 있어요. 같은 계정으로 로그인해 주세요.';
-    case 'bad_token': case 'no_token': return '웹2 로그인을 확인하지 못했어요. 다시 확인을 눌러 주세요.';
+    case 'bad_token': case 'no_token': return '노동조합+ 로그인을 확인하지 못했어요. 다시 확인을 눌러 주세요.';
     case 'auth_unavailable': return '바구니 PC 앱이 로그인을 확인하지 못했어요(인터넷 연결). 잠시 뒤 다시 확인해 주세요.';
     case 'old_app': return '바구니 PC 앱을 새 판으로 올려 주세요.';
     case 'ask': return "'내 PC'를 누르면 크롬이 처음 한 번 '다른 앱에 연결' 허락을 물어요. [허용]을 눌러 주세요.";

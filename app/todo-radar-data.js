@@ -338,7 +338,7 @@ export function notPlanned(rows, taskTitles = []) {
 // 결정 6: a counterpart promise goes to the ledger by the user's own paste ("쓰기요청" text), never stored here.
 export function ledgerRequestText(p) {
   return ['쓰기요청', '- 종류: 약속(상대·제3자)', `- 내용: ${p.summary}`, `- 기한: ${p.due || '없음'}`,
-    `- 근거: ${p.evidence || '없음'}`, `- 출처: Web2 ${RADAR_SOURCE_LABEL[p.source_kind] || '기록'} ${p.source_day}`].join('\n');
+    `- 근거: ${p.evidence || '없음'}`, `- 출처: 노동조합+ ${RADAR_SOURCE_LABEL[p.source_kind] || '기록'} ${p.source_day}`].join('\n');
 }
 
 // ---- TODO-내일만: [내 일 아님]·예외 방·쌓인 후보 다시 거르기 (migration 20261029210000, 소유자 RLS) ----------------------

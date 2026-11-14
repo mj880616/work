@@ -41,7 +41,7 @@ for(const width of [412,884,1440])test(`기간이 맨 위, 월말 예상, 입력
   const panel=line.locator('.aiu-panel');
   await expect(panel).toBeVisible();
   await expect(panel.locator('.aiu-row')).toHaveCount(3);
-  await expect(panel.locator('.aiu-row').nth(0)).toContainText('Web2 AI 기능');
+  await expect(panel.locator('.aiu-row').nth(0)).toContainText('노동조합+ AI 기능');
   await expect(panel.locator('.aiu-row').nth(0).locator('.aiu-value')).toHaveText('156원 / 한 달 상한 15,000원');
   await expect(panel.locator('.aiu-row').nth(1).locator('.aiu-value')).toHaveText('237원 / 한 달 상한 6,000원');
   await expect(panel.locator('.aiu-row').nth(2)).toContainText('전사·분석(Gemini)');
@@ -70,7 +70,7 @@ test('월 상한 80%는 노란 줄, 펼치면 기간·요약이 맨 위',async({
   const {line}=await fixture(page,{width:412,ai:usage({warn:['openai_balance','openai_limit'],openai:{...usage().openai,assist_krw:12500}})});
   const head=line.locator('[data-aiu-toggle]');
   await expect(head).toHaveAttribute('data-warn','');
-  await expect(head).toHaveText(/Web2 AI 이번 달 상한 80% 넘음 \(12,500원 \/ 15,000원\)/);
+  await expect(head).toHaveText(/노동조합\+ AI 이번 달 상한 80% 넘음 \(12,500원 \/ 15,000원\)/);
   await expect(head).not.toContainText('외 1건');
   await head.click();
   await expect(line.locator('.aiu-head-line')).toContainText('AI 사용량 · 10월 1일~6일 (이번 달, 추정)');
