@@ -38,7 +38,7 @@ test('granted-scope check: exact full drive scope only',()=>{
 
 test('callback keeps saving the connection and only flags the photo source when full drive is missing',()=>{
   // S50-8: 사진 안내는 전체 권한을 요청한 운영자 작업공간에서 그 칸이 빠졌을 때만.
-  assert.match(source,/return Response\.redirect\(driveRedirect\('connected', undefined, fullAllowed && !fullDrive \? 'scope_missing' : undefined\), 302\);/);
+  assert.match(source,/return Response\.redirect\(driveRedirect\('connected', undefined, fullAllowed && !fullDrive \? 'scope_missing' : undefined, state\), 302\);/);
   assert.match(source,/if \(photos\) u\.searchParams\.set\('photos', photos\);/);
   // 기존 확인(about·폴더 접근)과 토큰 저장 순서는 그대로.
   const about=source.indexOf("drive/v3/about?fields=user(emailAddress)"),save=source.indexOf("servicePatch('public_policy_drive_config?id=eq.1'");

@@ -6,11 +6,23 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const DRIVE_APP_URL = 'https://bokdoong.com/work/app/?view=library';
 const CALENDAR_APP_URL = 'https://bokdoong.com/work/app/';
 const CALLBACK_URL = `${SB}/functions/v1/public-policy-drive/callback`;
+// DOMAIN-nojoplus 1단계: 연결을 nojoplus.com 화면에서 시작했으면(요청 Origin이 정확히 이 값) state에 'nojo' 칸을 넣고,
+// 돌아갈 때 같은 주소로 보낸다(로그인 정보는 주소마다 따로라 다른 주소로 돌아가면 로그인 화면이 뜬다).
+// 돌아갈 곳은 이 두 고정 주소 중 하나뿐이다. state는 서버에 해시로 저장된 값과 맞아야 연결이 저장된다(바뀐 state는 'invalid_state').
+const NEW_APP_ORIGIN = 'https://nojoplus.com';
+function startedOnNewHost(req: Request) {
+  return req.headers.get('Origin') === NEW_APP_ORIGIN;
+}
+function returnOrigin(state?: string | null) {
+  return state?.split('.').includes('nojo') ? NEW_APP_ORIGIN : null;
+}
 const ALLOWED_ORIGINS = new Set([
   'https://mj880616.github.io',
   'https://work.bokdoong.com',
   'https://desk.bokdoong.com',
   'https://bokdoong.com',
+  // DOMAIN-nojoplus 1단계: 새 Web2 주소(정확한 출처 하나).
+  'https://nojoplus.com',
 ]);
 
 function corsHeaders(req: Request) {
@@ -155,7 +167,7 @@ async function startDriveAuth(req: Request) {
   const workspaceId = await ownWorkspace(user.id);
   const full = await fullDriveAllowed(workspaceId);
   const cfg = await getOAuthConfig();
-  const raw = 'drive.' + crypto.randomUUID() + crypto.randomUUID();
+  const raw = 'drive.' + (startedOnNewHost(req) ? 'nojo.' : '') + crypto.randomUUID() + crypto.randomUUID();
   const stateHash = await sha256(raw);
   await servicePost('app_google_oauth_states', {
     state_hash: stateHash,
@@ -179,8 +191,10 @@ async function startDriveAuth(req: Request) {
   });
 }
 
-function driveRedirect(result: 'connected' | 'error', reason?: string, photos?: 'scope_missing') {
+function driveRedirect(result: 'connected' | 'error', reason?: string, photos?: 'scope_missing', state?: string | null) {
   const u = new URL(DRIVE_APP_URL);
+  const back = returnOrigin(state);
+  if (back) u.host = new URL(back).host;
   u.searchParams.set('drive', result);
   if (reason) u.searchParams.set('reason', reason);
   if (photos) u.searchParams.set('photos', photos);
@@ -188,6 +202,8 @@ function driveRedirect(result: 'connected' | 'error', reason?: string, photos?: 
 }
 function calendarRedirect(result: 'connected' | 'error', state?: string | null) {
   const u = new URL(CALENDAR_APP_URL);
+  const back = returnOrigin(state);
+  if (back) u.host = new URL(back).host;
   u.searchParams.set('view', 'calendar');
   u.searchParams.set('google', result);
   if (state?.split('.').includes('android')) u.searchParams.set('native', 'android');
@@ -228,7 +244,7 @@ Deno.serve(async (req) => {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const isDriveState = oauthKind(state) === 'drive';
-  if (!code || !state) return Response.redirect(isDriveState ? driveRedirect('error', 'missing_oauth_params') : calendarRedirect('error', state), 302);
+  if (!code || !state) return Response.redirect(isDriveState ? driveRedirect('error', 'missing_oauth_params', undefined, state) : calendarRedirect('error', state), 302);
 
   try {
     const stateHash = await sha256(state);
@@ -236,7 +252,7 @@ Deno.serve(async (req) => {
       `app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=*`
     );
     if (!Array.isArray(rows) || !rows.length) {
-      return Response.redirect(isDriveState ? driveRedirect('error', 'invalid_state') : calendarRedirect('error', state), 302);
+      return Response.redirect(isDriveState ? driveRedirect('error', 'invalid_state', undefined, state) : calendarRedirect('error', state), 302);
     }
 
     const row = rows[0];
@@ -257,7 +273,7 @@ Deno.serve(async (req) => {
     if (!tokenRes.ok) {
       console.error('public-policy-drive token exchange failed', { status: tokenRes.status });
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
-      return Response.redirect(isDriveState ? driveRedirect('error', 'token_exchange_failed') : calendarRedirect('error', state), 302);
+      return Response.redirect(isDriveState ? driveRedirect('error', 'token_exchange_failed', undefined, state) : calendarRedirect('error', state), 302);
     }
 
     const tokens = await tokenRes.json();
@@ -265,7 +281,7 @@ Deno.serve(async (req) => {
     if (isDriveState) {
       if (!tokens.refresh_token || !tokens.access_token) {
         await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
-        return Response.redirect(driveRedirect('error', 'refresh_token_missing'), 302);
+        return Response.redirect(driveRedirect('error', 'refresh_token_missing', undefined, state), 302);
       }
       const driveCheck = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)', {
         headers: { Authorization: `Bearer ${tokens.access_token}` }
@@ -273,14 +289,14 @@ Deno.serve(async (req) => {
       if (!driveCheck.ok) {
         console.error('public-policy-drive drive check failed', { status: driveCheck.status });
         await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
-        return Response.redirect(driveRedirect('error', 'drive_scope_failed'), 302);
+        return Response.redirect(driveRedirect('error', 'drive_scope_failed', undefined, state), 302);
       }
 
       // 연결을 시작한 사람(state의 user_id)이 지금도 owner인 작업공간. 화면 값은 쓰지 않는다.
       const workspaceId = await callerOwnerWorkspace({ rest: serviceGet }, row.user_id).catch(() => null);
       if (!workspaceId) {
         await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
-        return Response.redirect(driveRedirect('error', 'workspace_missing'), 302);
+        return Response.redirect(driveRedirect('error', 'workspace_missing', undefined, state), 302);
       }
       const settings = await serviceGet(
         `app_drive_settings?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=library_folder_id,root_folder_id&limit=1`
@@ -294,7 +310,7 @@ Deno.serve(async (req) => {
         if (!folderCheck.ok) {
           console.error('public-policy-drive folder check failed', { status: folderCheck.status });
           await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
-          return Response.redirect(driveRedirect('error', 'drive_folder_access_failed'), 302);
+          return Response.redirect(driveRedirect('error', 'drive_folder_access_failed', undefined, state), 302);
         }
       }
 
@@ -328,7 +344,7 @@ Deno.serve(async (req) => {
       }
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`);
       // 사진 권한 안내는 전체 권한을 요청한 운영자 작업공간에서 그 칸이 빠졌을 때만. 다른 사람은 사진 출처 기능이 없으므로 안내하지 않는다.
-      return Response.redirect(driveRedirect('connected', undefined, fullAllowed && !fullDrive ? 'scope_missing' : undefined), 302);
+      return Response.redirect(driveRedirect('connected', undefined, fullAllowed && !fullDrive ? 'scope_missing' : undefined, state), 302);
     }
 
     let email: string | null = null;
@@ -366,6 +382,6 @@ Deno.serve(async (req) => {
     return Response.redirect(calendarRedirect('connected', state), 302);
   } catch (e) {
     console.error('public-policy-drive callback failed', safeErrorLog(e));
-    return Response.redirect(isDriveState ? driveRedirect('error', 'callback_failed') : calendarRedirect('error', state), 302);
+    return Response.redirect(isDriveState ? driveRedirect('error', 'callback_failed', undefined, state) : calendarRedirect('error', state), 302);
   }
 });
