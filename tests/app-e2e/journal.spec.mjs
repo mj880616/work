@@ -2877,7 +2877,7 @@ for(const width of [390,1280])test(`[주간 정리] 4. 조직보고(전환 주�
  expect(report.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 11.3. 가상 지난 기록','- 11.17. 가상 창 교섭']);
  expect(snaps).toEqual([]); // 확정 없이 파일만 받으면 사진을 남기지 않는다
  const [got]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
- const {report:confirmed}=await savedReport(got);
+ const {report:confirmed}=await savedHwpReport(got);
  expect(confirmed.orgs.find(o=>o.org.join(' ')==='가상 노동조합').status).toEqual(['- 11.3. 가상 지난 기록','- 11.17. 가상 창 교섭']);
  await expect.poll(()=>snaps.length).toBe(2);
  expect(snaps.map(x=>x.m)).toEqual(['PATCH','POST']);
@@ -2925,7 +2925,7 @@ for(const width of [390,884,1440])test(`[주간 정리] 2. 1) 사업요약(전�
  expect(snaps).toEqual([]); // 확정 없이 파일만 받으면 사진 없음
  // B-4 ④: [확정] 성공 직후 사진에 2. 1) 줄(파일에 넣은 지금 상황·담당)도 조직 칸과 함께.
  const [got]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
- await savedReport(got);
+ await savedHwpReport(got);
  await expect.poll(()=>snaps.length).toBe(2);
  const biz=snaps[1].rows.filter(r=>r.section==='biz_summary');
  expect(biz.map(r=>[r.ref_key,r.label,r.owner,r.lines.map(l=>l.text)])).toEqual([
