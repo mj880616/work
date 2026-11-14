@@ -220,14 +220,19 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (painted.get(el) === html) return;
     painted.set(el, html); el.innerHTML = html;
   }
-  // HOME-읽을글밀기: 고른 글 가운데 숨기거나 보관한 글(뉴스 줄의 hidden_at·starred_at)을 서버에서 읽어 둔다(탭 메모리, 글 묶음마다 하나).
+  // HOME-읽을글밀기: 고른 글 가운데 숨기거나 보관한 글(뉴스 줄의 hidden_at·starred_at)을 서버에서 읽어 둔다(탭 메모리).
   // 글 묶음(= 서버가 고른 글 id들)이 바뀌면 새로 읽고, 그 묶음은 홈을 다시 열거나(view-changed) 탭이 다시 보일 때 MARK_FRESH_MS 지났으면 다시 읽는다.
   // 밀어 처리한 일(changed)은 바로 여기에 반영하고(rev), 그보다 먼저 시작한 읽기 결과는 버리고 다시 읽는다(옛 값이 되살리지 않게).
+  // HOME-읽을글한글만(11/14 명진 제보 '한 글 보관인데 전체가 없어짐'): 글마다 '처리 여부를 안다(checked)'를 두고, 글 묶음이 바뀌어도
+  // 같은 사람이면 이미 아는 글의 표시를 그대로 이어 쓴다. 아직 모르는 글만 읽기가 끝날 때까지 기다리고, 아는 글은 계속 보인다(칸을 비우지 않음).
   const MARK_FRESH_MS = 30 * 1000;
-  let marks = {key:'', handled:new Set(), settled:true, at:0, busy:false, rev:0};
+  let marks = {key:'', who:'', handled:new Set(), checked:new Set(), settled:true, at:0, busy:false, rev:0};
   function syncMarks(ids, {force = false} = {}) {
-    const key = `${owner()}:${ids.join(',')}`;
-    if (marks.key !== key) marks = {key, handled:new Set(), settled:!ids.length, at:0, busy:false, rev:0};
+    const who = owner(), key = `${who}:${ids.join(',')}`;
+    if (marks.key !== key) {
+      const keep = marks.who === who; // 같은 사람: 이미 아는 글 표시는 이어 쓴다(밀어 처리한 글도 그대로 빠져 있다)
+      marks = {key, who, handled:keep ? marks.handled : new Set(), checked:keep ? marks.checked : new Set(), settled:!ids.length, at:0, busy:false, rev:keep ? marks.rev : 0};
+    }
     const m = marks;
     if (!ids.length || m.busy || !onHome()) return m;
     if (!force && m.settled && Date.now() - m.at < MARK_FRESH_MS) return m;
@@ -235,9 +240,10 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     const rev = m.rev;
     Promise.resolve(readMarks(ids, rt)).catch(() => null).then(out => {
       m.busy = false;
-      if (marks !== m) return;
+      if (marks !== m) return; // 그사이 묶음이 바뀜 → 새 묶음은 따로 읽는다(이 결과는 버림)
       if (m.rev !== rev) { m.at = 0; if (last && !last.hidden) drawReads(); return; } // 읽는 사이 밀어 처리함 → 다시 읽는다(drawReads가 부름)
-      if (out?.ok) m.handled = out.handled;
+      if (out?.ok) for (const id of ids) { m.checked.add(id); if (out.handled.has(id)) m.handled.add(id); else m.handled.delete(id); }
+      else for (const id of ids) m.checked.add(id); // 못 읽음: 거르지 않고 그대로 보인다(아는 처리 표시는 그대로)
       m.settled = true; m.at = Date.now();
       if (last && !last.hidden) drawReads();
     });
@@ -249,8 +255,10 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     const {day, today, reads} = last, all = day === today ? cleanReads(reads?.items) : [];
     const limit = day === today ? limitNote(last.limit) : '';
     const m = syncMarks(all.map(item => newsIdOf(item.id)).filter(Boolean));
-    const waiting = all.length > 0 && !m.settled; // 처리한 글을 읽기 전에는 그리지 않는다
-    const list = waiting ? [] : visibleReads(all, m.handled);
+    // 처리 여부를 아직 모르는 글은 읽기가 끝날 때까지 그리지 않는다(처리한 글이 잠깐 보였다 사라지지 않게). 아는 글은 그대로 보인다.
+    const known = all.filter(item => { const id = newsIdOf(item.id); return !id || m.checked.has(id); });
+    const waiting = known.length < all.length;
+    const list = visibleReads(known, m.handled);
     const done = !waiting && all.length > 0 && !list.length; // 다 처리함 → '다 읽었어요' 한 줄
     if (!list.length && !done && !limit) { readsHost.hidden = true; readsHost.replaceChildren(); painted.delete(readsHost); return; }
     readsHost.hidden = false;
@@ -270,8 +278,9 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     enabled: () => !!last && !last.hidden,
     changed: (item, kind, on) => {
       const m = marks, id = newsIdOf(item.id);
-      if (!id || m.key !== `${owner()}:${readIds().join(',')}`) return;
+      if (!id || m.who !== owner()) return; // 그 글 하나만 처리한 글로(묶음이 그사이 바뀌어도 같은 사람이면 그대로 반영)
       if (kind === 'release' || !on) m.handled.delete(id); else m.handled.add(id);
+      m.checked.add(id);
       m.rev++; drawReads();
     }});
   function drawSuggests() {

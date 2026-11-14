@@ -206,7 +206,10 @@ test('화면 연결 HOME-읽을글밀기: 공용 줄 밀기(bindNowRows) 그대�
   assert.match(fill, /import \{bindNowRows, hoverActsHtml\} from '\.\/now-row-acts\.js'/);
   assert.match(fill, /bindNowRows\(readsHost, \{row:'\[data-journal-read\]'/);
   assert.match(fill, /itemOf: el => \{ const id = newsIdOf\(el\.dataset\.journalRead\); return id \? \{type:'news', id\} : null; \}/);
-  assert.match(fill, /visibleReads\(all, m\.handled\)/);
+  assert.match(fill, /visibleReads\(known, m\.handled\)/);
+  // HOME-읽을글한글만: 처리 여부를 아는 글은 읽는 중에도 보이고(글마다 checked), 같은 사람이면 묶음이 바뀌어도 표시를 이어 쓴다.
+  assert.match(fill, /m\.checked\.has\(id\)/);
+  assert.match(fill, /const keep = marks\.who === who/);
   assert.match(fill, /READS_DONE_NOTE/);
   assert.doesNotMatch(fill, /isSaved/, '홈에서는 보관한 글이 빠지므로 오른쪽 밀기는 늘 보관');
   assert.match(acts, /titleOf = nwTitle/);
