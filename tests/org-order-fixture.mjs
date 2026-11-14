@@ -13,3 +13,9 @@ export const OPERATOR_ORG_ORDER = Object.freeze({
 export const OPERATOR_REPORT_CALENDAR = '공공운수노조';
 // window.KPTUViewPrefs 대역: get(key)만(organization-order.js·report-calendar.mjs가 읽는 문).
 export const prefsStub = (prefs = {org_order: OPERATOR_ORG_ORDER, report_calendar: OPERATOR_REPORT_CALENDAR}) => ({get: key => prefs[key]});
+// MULTI-하단바기본노트: 시험용 운영자 메뉴 순서(view_prefs.menu_layout). 새 계정 기본값이 홈·노트·일정·조직 보고·사업 보고로 바뀐 뒤에도
+// 저장값이 있는 운영자 화면은 그대로라, 화면 시험(운영자 계정)은 11/13까지의 기본 모양을 저장해 둔 사람으로 본다. 새 기본값은 menu-new-default.spec.mjs가 본다.
+export const OPERATOR_MENU_LAYOUT = Object.freeze({
+  bar: ['home', 'basket', 'calendar', 'meetings', 'team'],
+  rest: ['note', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside', 'bottom', 'calls', 'telegram', 'arsenal']
+});

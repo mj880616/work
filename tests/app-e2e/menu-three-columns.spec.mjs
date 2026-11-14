@@ -28,7 +28,8 @@ for(const width of [1440,884,412]){
     test.setTimeout(90000);
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    const {prefs}=await openHome(page,{features:OPERATOR_MENU_FEATURES});
+    // MULTI-하단바기본노트: 저장값 없는 새 계정으로 연다(처음대로가 새 기본 구성으로 돌아가는지까지 본다).
+    const {prefs}=await openHome(page,{features:OPERATOR_MENU_FEATURES,menuLayout:null});
     // 처음 모양: 폰 [메뉴] 창도 선 아래에 통화·텔레그램 소식·아스날.
     expect((await sheetOrder(page)).slice(-4)).toEqual(['LINE','calls','telegram','arsenal']);
     await openEdit(page,width);
@@ -56,14 +57,14 @@ for(const width of [1440,884,412]){
     await expect(modal(page).locator('.me-pv-main li').last()).toHaveText('통화');
 
     // 서버 저장 모양은 {bar, rest}뿐이고 아래 칸은 rest 안 'bottom' 표시 뒤(DB 검사가 받는 모양 그대로).
-    const saved=['note','library','files','brief','hwp','pages','outside','calls','bottom','photos','telegram','arsenal'];
+    const saved=['basket','library','files','brief','hwp','pages','outside','calls','bottom','photos','telegram','arsenal'];
     await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(saved);
     expect(Object.keys(prefs.value.menu_layout).sort()).toEqual(['bar','rest']);
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect(modal(page)).toBeHidden();
 
     const check=async()=>{
-      await expect.poll(()=>sheetOrder(page)).toEqual(['note','library','files','brief','hwp','pages','outside','calls','LINE','photos','telegram','arsenal']);
+      await expect.poll(()=>sheetOrder(page)).toEqual(['basket','library','files','brief','hwp','pages','outside','calls','LINE','photos','telegram','arsenal']);
       await expect.poll(()=>pcSide(page)).toEqual({photos:true,calls:false,feed:['photos','telegram','arsenal'],first:'photos'});
     };
     await check();
@@ -76,7 +77,7 @@ for(const width of [1440,884,412]){
     await openEdit(page,width);
     await modal(page).locator('[data-menu-edit-reset]').click();
     await expect.poll(()=>ids(page,'tail')).toEqual(['calls','telegram','arsenal']);
-    expect(await ids(page,'rest')).toEqual(['note','library','files','brief','hwp','pages','photos','outside']);
+    expect(await ids(page,'rest')).toEqual(['basket','library','files','brief','hwp','pages','photos','outside']);
     await expect.poll(()=>prefs.value?.menu_layout??null).toBeNull();
     await modal(page).locator('[data-close="menuEditModal"]').click();
     await expect.poll(()=>pcSide(page)).toEqual({photos:false,calls:true,feed:['calls','telegram','arsenal'],first:'calls'});
