@@ -122,6 +122,12 @@ async function openDetail(page) {
 }
 const strip = page => page.locator('#mrdTimePhotos [data-tp-item]');
 const itemIds = page => strip(page).evaluateAll(els => els.map(e => e.dataset.tpItem));
+// MTG-그시각사진크기(S62-03a, 시안 #2594 가): 여러 줄 격자 — 한 줄 칸 수·칸 너비·두 줄 반 높이(넘으면 칸 안에서만 위아래로).
+const gridShape = page => page.locator('#mrdTimePhotos [data-tp-strip]').evaluate(el => {
+  const cs = getComputedStyle(el), item = el.querySelector('.tp-item').getBoundingClientRect();
+  return {cols: cs.gridTemplateColumns.split(' ').length, cell: Math.round(item.width), square: Math.abs(item.width - item.height) < 1,
+    rows: Math.round((parseFloat(cs.maxHeight) - 8) / item.width * 10) / 10, overflowY: cs.overflowY};
+});
 
 test.describe('폰 앱 412', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
@@ -138,6 +144,14 @@ test.describe('폰 앱 412', () => {
     await line.locator('[data-tp-open]').click();
     await expect.poll(() => itemIds(page)).toEqual(['ph:2', 'ph:1']);
     await expect(line.locator('[data-tp-head]')).toHaveText('그 시각 사진 2장');
+    {
+      const g = await gridShape(page);
+      expect(g.cols).toBe(4);
+      expect(g.cell).toBeGreaterThanOrEqual(80);
+      expect(g.square).toBe(true);
+      expect(g.rows).toBeGreaterThanOrEqual(2.4); expect(g.rows).toBeLessThanOrEqual(2.7);
+      expect(g.overflowY).toBe('auto');
+    }
     const attach = line.locator('[data-tp-attach]');
     await expect(attach).toBeDisabled();
     // 한 장 고르기 → [붙이기 1].
@@ -171,6 +185,12 @@ test.describe('PC 1280', () => {
     await line.locator('[data-tp-open]').click();
     await expect.poll(() => itemIds(page)).toEqual(['A']);
     expect(state.phoneReads).toEqual([]);
+    {
+      const g = await gridShape(page);
+      expect(g.cols).toBe(8);
+      expect(g.cell).toBeGreaterThanOrEqual(60);
+      expect(g.square).toBe(true);
+    }
     // 고르지 않고 [닫기] → 아무것도 올리지 않는다.
     await line.locator('[data-tp-close]').click();
     await expect(line.locator('[data-tp-pick]')).toBeHidden();
