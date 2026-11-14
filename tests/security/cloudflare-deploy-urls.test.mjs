@@ -154,7 +154,8 @@ test('workflow checks Web2 on bokdoong.com and the 302 moves from desk, work and
   assert.ok(workflow.includes('https://bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA'));
   assert.ok(!workflow.includes('https://desk.bokdoong.com/work/app/__missing-cache-probe__'));
   assert.ok(workflow.includes("--write-out '%{http_code}|%{redirect_url}'"));
-  assert.ok(workflow.includes('if [[ "$result" == "302|$expected" ]]; then'));
+  assert.ok(workflow.includes('local status="${3:-302}"'));
+  assert.ok(workflow.includes('if [[ "$result" == "$status|$expected" ]]; then'));
   for (const [from, to] of [
     ['https://bokdoong.com/', 'https://bokdoong.com/work/app/'],
     ['https://desk.bokdoong.com/', 'https://bokdoong.com/work/app/'],
@@ -162,6 +163,14 @@ test('workflow checks Web2 on bokdoong.com and the 302 moves from desk, work and
     ['https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1', 'https://bokdoong.com/work/app/onedrive-return.html?probe=1'],
     ['https://work.bokdoong.com/work/app/?view=calendar', 'https://bokdoong.com/work/app/?view=calendar']
   ]) assert.ok(workflow.includes(`check_redirect '${from}' '${to}'`), from);
+});
+
+// DOMAIN-nojoplus 1단계: the deploy also checks the new address and its www 301.
+test('workflow checks nojoplus.com on its own host and www.nojoplus.com with 301', () => {
+  assert.ok(workflow.includes("check_redirect 'https://nojoplus.com/' 'https://nojoplus.com/work/app/'"));
+  assert.ok(workflow.includes("check_redirect 'https://www.nojoplus.com/work/app/?view=calendar' 'https://nojoplus.com/work/app/?view=calendar' 301"));
+  assert.ok(workflow.includes("check_200 'https://nojoplus.com/work/app/' 'text/html'"));
+  assert.ok(workflow.includes("check_200 'https://nojoplus.com/work/about/' 'text/html'"));
 });
 
 // WEB1-페이지삭제 D1: work.bokdoong.com answers Web1 paths with the 410 one-line notice; share·about·favicon.svg stay 200.
