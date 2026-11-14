@@ -81,20 +81,19 @@
   #appView #soTeamSection>.so-team-head .so-team-more::after{content:none}
 }
 /* UI-화면정리 B ①: PC(761px~)는 위쪽 경로 줄('담당조직')이 화면 이름을 보인다. 큰 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 두고, ⋯는 같은 줄 오른쪽 끝.
-   UI-전수디자인점검 F07: PC에서는 ⋯ 하나만 담은 빈 줄(32px)을 두지 않는다. 머리줄은 좌우 격자(#soTeamSection)의 목록 칸·첫 줄에 목록과 겹쳐 놓여
-   ⋯가 목록 칸 맨 위 줄(첫 묶음 머리줄 '그 외 … 3곳') 오른쪽 끝에 온다. 오른쪽 상세 칸은 화면 맨 위부터 쓴다. 첫 묶음 머리줄은 ⋯ 자리만큼 오른쪽을 비운다. */
+   MULTI-다른담당자맞춤 ②(S61-39c, CC 사진 검토): PC 머리줄([+ 담당조직]·⋯)은 묶음이 있든 없든 목록 위 한 줄(#2546 자리)이다.
+   전에는(UI-전수디자인점검 F07) ⋯ 하나뿐이라 첫 묶음 머리줄 오른쪽 끝에 겹쳐 두었으나, [+ 담당조직]이 더해져 첫 묶음 이름·'N곳'·묶음 ⋯와 겹쳤다.
+   오른쪽 상세 칸은 머리줄 줄부터(화면 맨 위부터) 쓴다. 자리는 아래 '목록 위 한 줄' 규칙 하나. */
 @media(min-width:761px){
-  #appView #soTeamSection>.so-team-head{grid-column:1;grid-row:1;align-self:start;justify-self:end;position:relative;z-index:1;justify-content:flex-end;box-sizing:border-box;min-height:0;height:calc(2 * var(--kptu-space-3) + 18px);margin:var(--ds-line-width) var(--kptu-space-2) 0 0}
   #appView #soTeamSection>.so-team-head .so-team-more{background:var(--kptu-surface)}
   #appView #soTeamSection>.so-team-head .so-team-more:is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle)}
-  #appView #teamView #soOrganizationList>.so-org-group:first-child .so-group-card>.so-group-heading{padding-right:calc(var(--kptu-space-2) + var(--ds-compact-height) + var(--kptu-space-2))}
 }
 /* REF-참고묶음 화면 2: 담당조직 목록 맨 아래 입구 한 줄 "참고 묶음 ›"(질문 1 추천안). 담당조직 줄처럼 낮은 줄, 흐린 글자. */
 #soOrganizationList .so-reference-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px var(--kptu-space-4);border:0;border-top:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
 #soOrganizationList .so-reference-entry:hover{background:var(--kptu-surface-subtle)}
 #soOrganizationList .so-reference-entry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
-/* UI-기다림표시통일 3차: 담당조직이 하나도 없을 때의 공용 '없음'(.wait-empty)은 목록 한 줄 높이 — 오른쪽 위 ⋯ 와 아래 [참고 묶음] 줄이 겹치지 않게. */
-#soOrganizationList>.wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target);margin:0;padding:0 calc(var(--kptu-space-2) + var(--ds-compact-height) + var(--kptu-space-2)) 0 var(--kptu-space-4)}
+/* UI-기다림표시통일 3차: 담당조직이 하나도 없을 때의 공용 '없음'(.wait-empty)은 목록 한 줄 높이 — 아래 [참고 묶음] 줄과 겹치지 않게. */
+#soOrganizationList>.wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target);margin:0;padding:0 var(--kptu-space-4)}
 
 /* DESK-전체현황표(요청함 11/03 07:48): 담당조직 맨 위 소탭 [목록 | 전체 표]와 전체 표(org-overview.js). 작고 낮게(UI-버튼기준), 새 색 없음. */
 /* UI-보기탭한모양(S52-17): [목록|전체 표]는 공용 ⑤ 보기 바꾸기(.ds-seg). 여기는 자리만. */
@@ -128,9 +127,6 @@
 #appView #soTeamSection>.so-team-head{gap:2px}
 #appView #soTeamSection>.so-team-head .so-team-title{margin-right:auto}
 @media(max-width:760px){#appView #soTeamSection>.so-team-head .so-team-add{pointer-events:auto}}
-@media(min-width:761px){
-  #appView #teamView #soOrganizationList>.so-org-group:first-child .so-group-card>.so-group-heading{padding-right:calc(var(--kptu-space-2) + var(--ds-compact-height) + 108px)}
-}
 #soOrganizationList .so-row{position:relative;min-width:0}
 #appView #teamView #soOrganizationList .so-row>.kptu-list-row{padding-right:calc(var(--kptu-space-4) + 32px)}
 #appView #teamView .so-group-card .so-row:last-child>.kptu-list-row{border-bottom:0}
@@ -142,13 +138,17 @@
 /* 제외한 조직: 맨 아래 묶음, 흐리게(누르면 상세는 그대로 열림). */
 #soOrganizationList .so-row.is-excluded>.kptu-list-row .kptu-list-name{color:var(--kptu-muted);font-weight:var(--ds-weight-medium,500)}
 #soOrganizationList .so-excluded-group .so-dot{opacity:.5}
+/* PC [목록] 머리줄 자리 하나(MULTI-다른담당자맞춤 ①·②): 목록 위 한 줄, 오른쪽 상세 칸은 그 줄부터. 소탭 [목록|전체 표]가 있으면 한 줄씩 아래로. */
 @media(min-width:761px){
-  #appView #teamView #soTeamSection.so-flat:not(.so-view-table)>.so-team-head{grid-row:1;position:static;height:auto;min-height:var(--ds-compact-height);margin:0 0 var(--kptu-space-2)}
-  #appView #teamView #soTeamSection.so-flat:not(.so-view-table)>#soOrganizationList{grid-row:2}
-  #appView #teamView #soTeamSection.so-flat:not(.so-view-table)>#wdDetailPane{grid-row:1 / span 2}
-  #appView #teamView #soTeamSection.so-flat.so-has-tabs:not(.so-view-table)>.so-team-head{grid-row:2}
-  #appView #teamView #soTeamSection.so-flat.so-has-tabs:not(.so-view-table)>#soOrganizationList{grid-row:3}
-  #appView #teamView #soTeamSection.so-flat.so-has-tabs:not(.so-view-table)>#wdDetailPane{grid-row:2 / span 2}
+  /* 오른쪽 상세 칸이 머리줄·목록 두 줄에 걸쳐 길어도 남는 높이는 목록 줄(마지막 1fr)이 받는다 — 머리줄과 목록 사이가 벌어지지 않게. */
+  #appView #teamView>#soTeamSection:not(.so-view-table){grid-template-rows:auto 1fr}
+  #appView #teamView>#soTeamSection.so-has-tabs:not(.so-view-table){grid-template-rows:auto auto 1fr}
+  #appView #teamView #soTeamSection:not(.so-view-table)>.so-team-head{grid-row:1;position:static;height:auto;min-height:var(--ds-compact-height);margin:0 0 var(--kptu-space-2)}
+  #appView #teamView #soTeamSection:not(.so-view-table)>#soOrganizationList{grid-row:2}
+  #appView #teamView #soTeamSection:not(.so-view-table)>#wdDetailPane{grid-row:1 / span 2}
+  #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>.so-team-head{grid-row:2}
+  #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#soOrganizationList{grid-row:3}
+  #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#wdDetailPane{grid-row:2 / span 2}
 }
 /* [전체 표]에서는 맨 위 줄 오른쪽이 표 도구 자리라 [+ 담당조직]은 [목록]에서만. */
 #appView #soTeamSection.so-view-table>.so-team-head .so-team-add{display:none}
