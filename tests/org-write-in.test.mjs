@@ -1,5 +1,5 @@
 // S61-52·S62-01 (CALL-상대표시정리 ④ 같은 종류 전수): 모든 조직 고르기 창의 맨 아래 [직접 쓰기].
-// 지킬 것: 비슷한 이름을 먼저 보여 준다(중복 방지) / 만들기는 담당조직 추가와 같은 서버 경로 한 곳 / 새 저장소(브라우저 저장) 없음.
+// 지킬 것: 비슷한 이름을 먼저 보여 준다(중복 방지) / 만들기는 담당조직 추가와 같은 서버 경로 한 곳 / 새 저장소 없음(브라우저 저장은 CI browser-storage-audit가 본다).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -70,11 +70,9 @@ test('같은 종류 전수: 조직 고르기 창을 여는 곳이 모두 같은 
   for (const [file, pattern] of Object.entries(callers)) assert.match(read(file), pattern, file);
   const places = read('app/update-places.js');
   assert.match(places, /orgWriteInFor\(\{orgs:[^}]*key:id => id\}\)/, "'기록할 곳' 창도 같은 만들기 경로");
-  // 조직을 새로 만드는 곳은 feed-data.js createMyOrganization 한 곳뿐(중복 구현 없음).
+  // 브라우저 저장 금지는 CI browser-storage-audit가 저장소 전체를 본다. 조직을 새로 만드는 곳은 feed-data.js createMyOrganization 한 곳뿐(중복 구현 없음).
   for (const file of [...Object.keys(callers), 'app/update-places.js', 'app/area-org-picker.js']) {
     const src = read(file);
-    // google-tasks.js는 이 작업 전부터 쓰던 Google 할 일 화면 상태 보관이 있어(main 그대로) 브라우저 저장 검사에서 뺀다.
-    if (file !== 'app/google-tasks.js') assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/, `${file}: 브라우저 저장 금지`);
     // suborganizations.js는 원래 [담당조직 추가] 화면 자체(같은 표)라 뺀다.
     if (!['app/feed-link.js', 'app/suborganizations.js'].includes(file)) assert.doesNotMatch(src, /app_suborganizations\?[^'"`]*['"`],\s*\{method:'POST'/, `${file}: 조직 만들기는 한 곳`);
   }
