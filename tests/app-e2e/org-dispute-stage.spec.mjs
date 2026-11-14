@@ -294,7 +294,7 @@ for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적�
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)는 제목 '담당조직' 줄 오른쪽(PC는 목록 칸 맨 위 줄 오른쪽 끝), 목록 HTML 안에 없음 ${width}px`,async({page})=>{
+for(const width of [390,412,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)는 제목 '담당조직' 줄 오른쪽(PC는 목록 위 한 줄 오른쪽 끝), 목록 HTML 안에 없음 ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width});
  await clickView(page,'team');
  const more=page.locator('#soTeamMore');await expect(more).toBeVisible();await expect(more).toHaveCount(1);
@@ -306,18 +306,22 @@ for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)�
   const name=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();
   expect(Math.abs((m.y+m.height/2)-(name.y+name.height/2))).toBeLessThanOrEqual(6);
   expect(m.x).toBeGreaterThan(name.x+name.width);
+  if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
  }else{
   const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('조직 보고');
   // UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄이 화면 이름을 맡아 본문 큰 제목은 읽기 프로그램용(잘라 숨김), 중간 폭은 제목 줄 그대로.
   if(width>=761){
    await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
-   // UI-전수디자인점검 F07: PC는 ⋯ 하나만 담은 빈 줄이 없다. ⋯는 목록 칸 맨 위 줄(첫 묶음 머리줄) 오른쪽 끝, 'N곳'과 겹치지 않음, 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
-   const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox(),count=await page.locator('#soOrganizationList .so-group-count').first().boundingBox();
-   // OPS-작업속도: ⋯·머리줄 위치는 화면이 다 그려진 뒤의 값으로 본다(위 299줄의 m·group은 제목 줄 확인 전에 잰 값이라, 바쁜 러너에서 그 뒤 자리 잡기 전 값일 수 있다). 기준 3px은 그대로.
-   await expect.poll(async()=>{const a=await more.boundingBox(),b=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();return Math.abs((a.y+a.height/2)-(b.y+b.height/2));}).toBeLessThanOrEqual(3);
-   expect(m.x+m.width).toBeLessThanOrEqual(list.x+list.width+1);expect(m.x).toBeGreaterThan(list.x+list.width/2);
-   expect(count.x+count.width).toBeLessThanOrEqual(m.x);
+   // MULTI-다른담당자맞춤 ①·②(S61-39c): PC 머리줄([+ 담당조직]·⋯)은 묶음이 있어도 목록 위 한 줄(전에는 F07로 ⋯만 첫 묶음 머리줄에 겹쳐 두었다).
+   // [+ 담당조직]·⋯는 첫 묶음 머리줄보다 위, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
+   const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox();
+   await expect.poll(async()=>{const a=await more.boundingBox(),b=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();return b.y-(a.y+a.height);}).toBeGreaterThanOrEqual(0);
+   const a=await more.boundingBox(),add=await page.locator('#soAddOrg').boundingBox(),first=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
+   expect(add.y+add.height).toBeLessThanOrEqual(first.y);expect(add.x+add.width).toBeLessThanOrEqual(a.x);
+   expect(a.x+a.width).toBeLessThanOrEqual(list.x+list.width+1);expect(a.x).toBeGreaterThan(list.x+list.width/2);
    expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
+   expect(list.y-(a.y+a.height)).toBeLessThanOrEqual(12); // 머리줄과 목록 사이가 벌어지지 않음
+   if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
   }else{
    await expect(title).toBeVisible();const t=await title.boundingBox();expect(Math.abs((m.y+m.height/2)-(t.y+t.height/2))).toBeLessThanOrEqual(6);
    const list=await page.locator('#soOrganizationList').boundingBox();expect(m.x+m.width).toBeGreaterThan(list.x+list.width-1); // 목록 칸 밖(화면 오른쪽)

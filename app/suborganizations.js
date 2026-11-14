@@ -48,7 +48,7 @@ function renderTeam(){const box=document.querySelector('#soOrganizationList');if
  // MULTI-다른담당자맞춤 ①: [담당 조직에서 제외]한 조직(org_order.hidden)은 원래 묶음에서 빠져 맨 아래 '제외한 조직' 묶음에 흐리게(가나다순).
  const excludedHtml=excluded.length?`<div class="so-org-group so-excluded-group"><div class="so-group-card"><div class="so-group-heading"><span>제외한 조직</span><span class="so-group-count">${excluded.length}곳</span></div>${excluded.map(row).join('')}</div></div>`:'';
  // 묶음 이름 줄이 없는 목록(묶음을 정하지 않은 사람)은 PC에서 맨 위 줄(+ 담당조직·⋯)을 목록 위 따로 한 줄로(첫 조직 줄을 덮지 않게).
- const sec=document.querySelector('#soTeamSection');sec?.classList.toggle('so-none',!mine.length);sec?.classList.toggle('so-flat',!!shown.length&&window.KPTUOrganizationOrder.hasGroups?.()===false&&!soGroupsMod?.hasPending?.());
+ const sec=document.querySelector('#soTeamSection');sec?.classList.toggle('so-none',!mine.length);
  // MULTI-다른담당자맞춤 ②: 묶음이 있거나(값) 빈 묶음을 만들었으면 묶음 칸·손잡이·묶음 ⋯(org-groups-drag.js), 아니면 지금처럼 가나다순 한 목록.
  const grouped=!!soGroupsMod&&(window.KPTUOrganizationOrder.hasGroups?.()||soGroupsMod.hasPending());
  const html=(mine.length?(grouped?soGroupsMod.sectionsHtml(shown,row):ordered(shown,row,true))+excludedHtml:(globalThis.KPTUWait?.emptyHtml?.()||''))+'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>';if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}paintSelection();paintStageTags();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
