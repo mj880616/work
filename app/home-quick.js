@@ -120,7 +120,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     // at once), so the input never holds a saved or unconfirmed batch and never locks.
     if(noteOnly){const f=box.querySelector('[data-quick-folder]'),label=folderName||'폴더 없음';f.hidden=false;const name=document.createElement('span');name.className='home-quick-folder-name';name.textContent=[...label].length>8?[...label].slice(0,8).join('')+'…':label;f.replaceChildren(name,' ▾');/* NOTE-큰창잘림: 좁으면 이름만 '…'로 줄고 ▾는 늘 보인다(basket.css) */f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','노트를 넣을 폴더: '+label+'. 누르면 다른 폴더를 고릅니다');}
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel(placeChoices(),places);
-    input.placeholder=noteOnly?(folderName?(pickerWide.matches?`${folderName}에 노트 추가`:'노트 추가'):'노트를 입력하세요'):mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(잊지 말기에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
+    input.placeholder=noteOnly?(folderName?(pickerWide.matches?`${folderName}에 노트 추가`:'노트 추가'):'노트를 입력하세요'):mode==='task'?'할 일을 입력하세요':toBasket()?'업데이트를 입력하세요':(targetName||'담당조직')+' 기록을 입력하세요';
     const filesWait=!takesFiles()&&taskFilesWait&&mode==='task';
     const phone=shape();
     const kindBtn=box.querySelector('[data-quick-kind]');

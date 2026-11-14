@@ -61,7 +61,7 @@ for(const width of [390,1280])test(`saving without a place puts the update in th
  const notes=[],orgBodies=[];
  await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({json:[{id:'new-note',kind:'basket',occurred_at:'2026-10-06T01:00:00Z',...body}]});});
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(잊지 말기에 저장)');
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트를 입력하세요');
  await expect(q.locator('[data-quick-mode]')).toHaveText(['업데이트','할 일']);
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(dialog(page)).toBeHidden();
  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
@@ -95,6 +95,15 @@ for(const width of [870,1280])test(`wide screen opens the sheet beside the butto
  await page.keyboard.press('Escape');await expect(dialog(page)).toBeHidden();await expect(trigger).toBeFocused();
  await trigger.click();await expect(dialog(page)).toBeVisible();
  await page.mouse.click(2,2);await expect(dialog(page)).toBeHidden();
+});
+// UI-업데이트안내글짧게(S61-49): 폰 412 홈 한 줄 칸에서 업데이트 안내 글이 잘리지 않고 칸 안에 다 들어간다.
+test('phone 412 update hint fits inside the one-line box',async({page},info)=>{
+ const {q}=await ready(page,412);const input=q.locator('[data-quick-input]');
+ await input.fill('');await expect(q).toHaveAttribute('data-mode','basket');
+ await expect(input).toHaveAttribute('placeholder','업데이트를 입력하세요');
+ const fit=await input.evaluate(el=>{const s=getComputedStyle(el),c=document.createElement('canvas').getContext('2d');c.font=`${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;return {text:c.measureText(el.placeholder).width,room:el.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight),scroll:el.scrollWidth,client:el.clientWidth};});
+ expect(fit.text).toBeLessThanOrEqual(fit.room);expect(fit.scroll).toBeLessThanOrEqual(fit.client);
+ await q.screenshot({path:info.outputPath('home-update-hint-412.png')});
 });
 // S54-05(11/08 명진 결정): 폰도 누른 버튼 아래 작은 창이다(전에는 아래 시트였다).
 test('phone opens below the button',async({page})=>{

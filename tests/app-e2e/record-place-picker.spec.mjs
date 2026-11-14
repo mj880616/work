@@ -131,7 +131,7 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 정�
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(orgBodies).toEqual([{organization_id:'o8',raw_text:'합성 기록',created_by:'home-test'}]);
  // Back to the basket at once.
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(잊지 말기에 저장)');
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트를 입력하세요');
  await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택');
  // The place just used is first on the 최근 line (after [바구니(미분류)]), not chosen.
  await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));const sheet=dialog(page);
