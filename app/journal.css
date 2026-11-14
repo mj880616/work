@@ -81,6 +81,8 @@
 #appView #homeView .journal-group > .mini{ align-self:flex-start; }
 #appView #homeView .journal-muted{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); }
 #appView #homeView .journal-failed{ color:var(--kptu-danger); }
+/* HOME-연결안내한줄아래(S62-03c): 구글 연결 안내는 어느 칸이든 '안내 한 줄 → 그 아래 줄 왼쪽에 연결 버튼'(폭과 상관없이 같은 모양). */
+#appView .journal-link-note{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
 /* JOURNAL-하루개편: 재료 칸은 위에서부터 주간보고 재료(한 상자) → 그 밖의 기록(접힘). 예전 2칸 격자는 할 일/한 일과 주간보고 재료 안쪽으로 옮겼다. */
 /* JOURNAL-주간보고허브 1단계: 빈 묶음은 상자 대신 맨 아래 한 줄("기록 없는 묶음: …"). 2칸 줄에서는 두 칸을 다 쓴다. */
 #appView #homeView .journal-empty{ grid-column:1/-1; padding-top:8px; border-top:var(--ds-line-width) solid var(--ds-line); }
