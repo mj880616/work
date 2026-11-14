@@ -564,7 +564,9 @@ function closePanel() {
 document.addEventListener('pointerdown', e => {
   if (!panelOpen) return;
   if (panel.contains(e.target) || slotInput?.wrap.contains(e.target)) return;
-  if (e.target.closest?.('.lu-move-picker')) return; // 노트 [폴더로 옮기기 ›]의 폴더 고르기 창(결과 창은 그대로 둔다)
+  // 노트 [폴더로 옮기기 ›]의 폴더 고르기 창과, 그 창 [+ 새 폴더 만들어 넣기]의 이름 묻는 작은 창(S61-46) — 결과 창은 그대로 둔다
+  // (작은 창은 자기 기록 칸을 따로 걷어 내므로, 여기서 결과 창까지 닫으면 뒤로가기가 두 번 겹친다).
+  if (e.target.closest?.('.lu-move-picker, .kptu-ask')) return;
   void closePanel();
 }, true);
 PC.addEventListener('change', () => { if (!PC.matches && panelOpen) void closePanel(); paintAll(); });
