@@ -1090,7 +1090,7 @@ jobs:
         run: node --test tests/row-swipe-model.test.mjs
 
       - name: MTG-결과마크다운 사업 보고 결과 원문 마크다운 보기·쓰기 창 글자 보존
-        run: node --test tests/report-result-markdown.test.mjs
+        run: node --test tests/report-result-markdown.test.mjs tests/record-links.test.mjs
 
       - name: Check list reads skip body columns (APP-낭비줄이기 ①)
         run: node --test tests/report-list-read.test.mjs
