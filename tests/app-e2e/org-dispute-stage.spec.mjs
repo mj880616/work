@@ -313,14 +313,14 @@ for(const width of [390,412,900,1280])test(`화면 전체 ⋯(담당조직 메�
   if(width>=761){
    await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
    // MULTI-다른담당자맞춤 ①·②(S61-39c): PC 머리줄([+ 담당조직]·⋯)은 묶음이 있어도 목록 위 한 줄(전에는 F07로 ⋯만 첫 묶음 머리줄에 겹쳐 두었다).
-   // [+ 담당조직]·⋯는 첫 묶음 머리줄보다 위, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 머리줄 줄부터 시작.
+   // [+ 담당조직]·⋯는 첫 묶음 머리줄보다 위, 목록 칸 오른쪽 끝 안. 오른쪽 상세 칸은 목록과 같은 높이에서 시작.
    const list=await page.locator('#soOrganizationList').boundingBox(),pane=await page.locator('#wdDetailPane').boundingBox();
    await expect.poll(async()=>{const a=await more.boundingBox(),b=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();return b.y-(a.y+a.height);}).toBeGreaterThanOrEqual(0);
    const a=await more.boundingBox(),add=await page.locator('#soAddOrg').boundingBox(),first=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
    expect(add.y+add.height).toBeLessThanOrEqual(first.y);expect(add.x+add.width).toBeLessThanOrEqual(a.x);
    expect(a.x+a.width).toBeLessThanOrEqual(list.x+list.width+1);expect(a.x).toBeGreaterThan(list.x+list.width/2);
-   expect(pane.y).toBeLessThanOrEqual(a.y+1);
-   expect(list.y-(a.y+a.height)).toBeLessThanOrEqual(12); // 상세 칸이 길어도 머리줄과 목록 사이가 벌어지지 않음
+   expect(Math.abs(pane.y-list.y)).toBeLessThanOrEqual(1);
+   expect(list.y-(a.y+a.height)).toBeLessThanOrEqual(12); // 머리줄과 목록 사이가 벌어지지 않음
    if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
   }else{
    await expect(title).toBeVisible();const t=await title.boundingBox();expect(Math.abs((m.y+m.height/2)-(t.y+t.height/2))).toBeLessThanOrEqual(6);

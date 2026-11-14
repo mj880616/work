@@ -83,7 +83,7 @@
 /* UI-화면정리 B ①: PC(761px~)는 위쪽 경로 줄('담당조직')이 화면 이름을 보인다. 큰 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 두고, ⋯는 같은 줄 오른쪽 끝.
    MULTI-다른담당자맞춤 ②(S61-39c, CC 사진 검토): PC 머리줄([+ 담당조직]·⋯)은 묶음이 있든 없든 목록 위 한 줄(#2546 자리)이다.
    전에는(UI-전수디자인점검 F07) ⋯ 하나뿐이라 첫 묶음 머리줄 오른쪽 끝에 겹쳐 두었으나, [+ 담당조직]이 더해져 첫 묶음 이름·'N곳'·묶음 ⋯와 겹쳤다.
-   오른쪽 상세 칸은 머리줄 줄부터(화면 맨 위부터) 쓴다. 자리는 아래 '목록 위 한 줄' 규칙 하나. */
+   오른쪽 상세 칸은 목록과 같은 줄에서 시작한다. 자리는 아래 '머리줄 자리 하나' 규칙. */
 @media(min-width:761px){
   #appView #soTeamSection>.so-team-head .so-team-more{background:var(--kptu-surface)}
   #appView #soTeamSection>.so-team-head .so-team-more:is(:hover,[aria-expanded="true"]){background:var(--kptu-surface-subtle)}
@@ -138,17 +138,15 @@
 /* 제외한 조직: 맨 아래 묶음, 흐리게(누르면 상세는 그대로 열림). */
 #soOrganizationList .so-row.is-excluded>.kptu-list-row .kptu-list-name{color:var(--kptu-muted);font-weight:var(--ds-weight-medium,500)}
 #soOrganizationList .so-excluded-group .so-dot{opacity:.5}
-/* PC [목록] 머리줄 자리 하나(MULTI-다른담당자맞춤 ①·②): 목록 위 한 줄, 오른쪽 상세 칸은 그 줄부터. 소탭 [목록|전체 표]가 있으면 한 줄씩 아래로. */
+/* PC [목록] 머리줄 자리 하나(MULTI-다른담당자맞춤 ①·②): 목록 칸 위 한 줄. 오른쪽 상세 칸은 목록과 같은 줄에서 시작(왼쪽 첫 카드 윗선 = 상세 칸 윗선).
+   소탭 [목록|전체 표]가 있으면 한 줄씩 아래로. */
 @media(min-width:761px){
-  /* 오른쪽 상세 칸이 머리줄·목록 두 줄에 걸쳐 길어도 남는 높이는 목록 줄(마지막 1fr)이 받는다 — 머리줄과 목록 사이가 벌어지지 않게. */
-  #appView #teamView>#soTeamSection:not(.so-view-table){grid-template-rows:auto 1fr}
-  #appView #teamView>#soTeamSection.so-has-tabs:not(.so-view-table){grid-template-rows:auto auto 1fr}
   #appView #teamView #soTeamSection:not(.so-view-table)>.so-team-head{grid-row:1;position:static;height:auto;min-height:var(--ds-compact-height);margin:0 0 var(--kptu-space-2)}
   #appView #teamView #soTeamSection:not(.so-view-table)>#soOrganizationList{grid-row:2}
-  #appView #teamView #soTeamSection:not(.so-view-table)>#wdDetailPane{grid-row:1 / span 2}
+  #appView #teamView #soTeamSection:not(.so-view-table)>#wdDetailPane{grid-row:2}
   #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>.so-team-head{grid-row:2}
   #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#soOrganizationList{grid-row:3}
-  #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#wdDetailPane{grid-row:2 / span 2}
+  #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#wdDetailPane{grid-row:3}
 }
 /* [전체 표]에서는 맨 위 줄 오른쪽이 표 도구 자리라 [+ 담당조직]은 [목록]에서만. */
 #appView #soTeamSection.so-view-table>.so-team-head .so-team-add{display:none}
