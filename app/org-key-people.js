@@ -14,7 +14,7 @@ import {waitingCommitmentsPath} from './ledger-browse-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 import {openReport} from './report-open.js';
 import {askConfirm, notify} from './small-notice.js';
-import {savedNamesDraft, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, KIND_LABEL, PEOPLE_MAX} from './org-key-people-model.mjs';
+import {savedNamesDraft, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, recordTag, PEOPLE_MAX} from './org-key-people-model.mjs';
 import {openCallSource, openTelegramSource} from './source-open.js';
 
 const TABLE = '/rest/v1/app_org_key_people', BRIEFS = '/rest/v1/app_org_key_people_briefs';
@@ -50,7 +50,7 @@ function readPool(rt) {
     const ws = workspaceOf(rt);
     const [calls, personal, edits, telegram, senders, meetings, todos, promises] = await Promise.all([
       settle(readFeed('call', rt)), settle(readPersonal(rt)), settle(readCallEdits(rt)), settle(readFeed('telegram', rt)), settle(readSenders(rt)),
-      settle(rt.api(`/rest/v1/app_meetings?workspace_id=eq.${enc(ws)}&deleted_at=is.null&select=id,title,series_name,round_no,meeting_at,notes&order=meeting_at.desc.nullslast&limit=300`, {singleFlight:false})),
+      settle(rt.api(`/rest/v1/app_meetings?workspace_id=eq.${enc(ws)}&deleted_at=is.null&select=id,title,series_name,round_no,meeting_at,notes,activity_kind&order=meeting_at.desc.nullslast&limit=300`, {singleFlight:false})),
       settle(readOpenCandidates(rt)), settle(rt.api(waitingCommitmentsPath(ws), {singleFlight:false}))]);
     const edited = rows => (rows || []).map(r => edits?.get?.(r.id) ? applyCallEdit(r, edits.get(r.id)) : r);
     return {calls:edited(calls), personal:personal || [], telegram:telegram || [], senders, meetings:Array.isArray(meetings) ? meetings : [],
@@ -139,10 +139,10 @@ function paint() {
   const recs = onlyPerson(collectRecords({people, calls:data.calls, personal:data.personal, telegram:data.telegram, senders:data.senders, meetings:data.meetings}), ui.pick);
   const many = people.length > 1 && !ui.pick;
   html += `<h4 class="okp-h">열린 것<small>${open.length || ''}</small></h4>`;
-  html += open.length ? `<ul class="okp-list">${open.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-tag ${r.kind}">${KIND_LABEL[r.kind]}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}<span class="okp-due${dday(r.due, today).startsWith('D+') ? ' late' : ''}">${esc(dday(r.due, today))}</span></button></li>`).join('')}</ul>`
+  html += open.length ? `<ul class="okp-list">${open.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}<span class="okp-due${dday(r.due, today).startsWith('D+') ? ' late' : ''}">${esc(dday(r.due, today))}</span></button></li>`).join('')}</ul>`
     : emptyHtml('약속·챙길 것 없음');
   html += `<h4 class="okp-h">지난 기록<small>${recs.length || ''}</small></h4>`;
-  html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${KIND_LABEL[r.kind]}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>`).join('')}</ul>`
+  html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>`).join('')}</ul>`
     : emptyHtml('최근 120일 기록 없음');
   if (data.partial) html += '<p class="okp-faint">일부 기록을 불러오지 못했어요.</p>';
   host.innerHTML = html;

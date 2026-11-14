@@ -11,7 +11,8 @@ const uid = n => `00000000-0000-4000-8000-00000000000${n}`;
 const READS = [1, 2, 3].map(n => ({ id: uid(n), title: `가상 소식 ${n}`, what: `가상 일 ${n}`, why: `담당 가상지부 ${n}`, source: '가상신문', at: '2026-10-06T00:10:00Z', url: `https://news.example.test/${n}` }));
 const ROW = { day: '2026-10-06', reads: READS, reads_at: '2026-10-06T10:00:00Z', suggests: [], suggests_at: null, suggests_done: [] };
 
-async function boot(page, width, height, { marks = {} } = {}) {
+// gate.hold: 처리 표시 읽기(뉴스 줄 GET)를 붙잡아 느린 서버를 흉내 낸다. ask: 서버 고르기 답을 붙잡았다가 ask.row로 돌려준다.
+async function boot(page, width, height, { marks = {}, gate = null, ask = null } = {}) {
   await page.setViewportSize({ width, height });
   const errors = [], patches = [], signals = [], reads = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -22,6 +23,7 @@ async function boot(page, width, height, { marks = {} } = {}) {
     await page.route(u => u.origin === SB && u.pathname === '/functions/v1/ai-assist', async r => {
       let body = null; try { body = r.request().postDataJSON(); } catch { body = null; }
       if (body?.kind !== 'home_day_picks') return r.fallback();
+      if (ask) { await ask.hold; return r.fulfill({ json: { ok: true, kind: 'home_day_picks', day: body.day, picks: ask.row || ROW } }); }
       return r.fulfill({ json: { ok: true, kind: 'home_day_picks', day: body.day, picks: ROW } });
     });
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_home_day_picks', r => r.fulfill({ json: [ROW] }));
@@ -30,6 +32,7 @@ async function boot(page, width, height, { marks = {} } = {}) {
       if (req.method() === 'GET') {
         const ids = (/^in\.\((.*)\)$/.exec(q.get('id') || '')?.[1] || '').split(',').filter(Boolean);
         reads.push(ids);
+        if (gate?.hold) await gate.hold;
         return r.fulfill({ json: ids.map(i => news.get(i)).filter(Boolean).map(({ id, hidden_at, starred_at }) => ({ id, hidden_at, starred_at })) });
       }
       if (req.method() === 'PATCH') {
@@ -95,6 +98,47 @@ test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되
   await expect(item(page, 2)).toBeVisible();
   expect(f.patches.at(-1).body).toMatchObject({ starred_at: null });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(f.errors).toEqual([]);
+});
+
+test('폰 412: 처리 표시를 읽는 중에도 한 글만 빠지고 칸은 그대로, [되돌리기]는 그 글만(HOME-읽을글한글만)', async ({ page }) => {
+  test.setTimeout(90000);
+  const gate = { hold: null };
+  let answer; const ask = { hold: new Promise(r => { answer = r; }), row: null };
+  const f = await boot(page, 412, 900, { gate, ask });
+  await expect(shown(page)).toHaveCount(3);
+  // ① 다시 읽기(홈을 나갔다 돌아옴)가 느린 사이 한 줄 보관 → 그 줄만 빠진다.
+  let release; gate.hold = new Promise(r => { release = r; });
+  await page.evaluate(() => window.KPTURouter.go('diary'));
+  await page.evaluate(() => window.KPTURouter.go('home'));
+  await expect.poll(() => f.reads.length).toBeGreaterThan(1);
+  await swipe(item(page, 1), 320);
+  await expect(item(page, 1)).toHaveCount(0);
+  await expect(reads(page)).toBeVisible();
+  await expect(shown(page)).toHaveCount(2);
+  release(); gate.hold = null;
+  // ② 그 뒤 서버가 고른 글 묶음이 바뀌어 오고(보관한 1번 대신 4번, 최대 3개) 처리 표시를 다시 읽는 동안에도 칸은 비지 않는다.
+  const four = { ...READS[0], id: uid(4), title: '가상 소식 4' };
+  f.news.set(uid(4), { id: uid(4), hidden_at: null, starred_at: null });
+  ask.row = { ...ROW, reads: [READS[1], READS[2], four] };
+  gate.hold = new Promise(r => { release = r; });
+  answer();
+  await expect.poll(() => f.reads.some(ids => ids.includes(uid(4))), { timeout: 15000 }).toBe(true); // 새 묶음의 처리 표시를 읽기 시작함(붙잡힘)
+  await expect(reads(page)).toBeVisible();
+  await expect(item(page, 2)).toBeAttached();
+  await expect(item(page, 3)).toBeAttached();
+  await expect(item(page, 4)).toHaveCount(0); // 아직 처리 여부를 모르는 새 글만 기다린다
+  release(); gate.hold = null;
+  await expect(item(page, 4)).toBeAttached();
+  await expect(reads(page).locator('.journal-head-count')).toHaveText('3');
+  // ③ [되돌리기]는 그 한 글만 되살린다.
+  await swipe(item(page, 2), -320);
+  await expect(item(page, 2)).toHaveCount(0);
+  await expect(reads(page).locator('.journal-head-count')).toHaveText('2');
+  await page.locator('#kptuNotice .kptu-notice-undo').click();
+  await expect(item(page, 2)).toBeAttached();
+  await expect(item(page, 1)).toHaveCount(0);
+  await expect(reads(page).locator('.journal-head-count')).toHaveText('3');
   expect(f.errors).toEqual([]);
 });
 
