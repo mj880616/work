@@ -17,6 +17,7 @@ import {createNowDetail} from './now-detail.js';
 import {createNowSaved} from './now-saved.js';
 import {createNowHighlights} from './now-highlights.js';
 import {notify} from './small-notice.js';
+import {openTelegramItem} from './source-open.js';
 import {createNowInterests} from './now-interests.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {readOutsideMarks} from './now-marks.js';
@@ -209,10 +210,16 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, rowOf, query: () => state.query,
   onOpen: (item, head) => openDetail(item, head, {picked: true}), onListed: () => autoOpenTop(),
   onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list') paintList(); }); }});
-// [밑줄] 탭: 줄을 누르면 그 글을 읽어 상세를 열고 그 밑줄 자리로. 텔레그램 원문 밑줄은 텔레그램 소식 화면으로(그 소식은 거기서 연다).
+// [밑줄] 탭: 줄을 누르면 그 글을 읽어 상세를 열고 그 밑줄 자리로. 텔레그램 원문 밑줄은 텔레그램 화면에서 그 방·날·소식 원문을 열고 그 밑줄 자리로
+// (S61-51a, source-open.js openTelegramItem — 뒤로가기 한 번 = [밑줄] 탭).
 const marks = createNowHighlights({box: root?.querySelector('[data-now-panel-marks]'), query: () => state.query, onOpen: h => openHighlight(h)});
 async function openHighlight(h) {
-  if (h.source_type === 'telegram') { window.KPTURouter?.go?.('telegram', {source: 'delegated'}); return; }
+  if (h.source_type === 'telegram') {
+    let ok = false;
+    try { ok = await openTelegramItem(h.source_id, {highlight: h.id}); } catch { ok = false; }
+    if (!ok) notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false});
+    return;
+  }
   let row = null;
   try { row = await fetchItem(h.source_type, h.source_id); } catch { row = null; }
   if (!row) { notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false}); return; }

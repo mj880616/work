@@ -22,7 +22,7 @@ import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {askConfirm} from './small-notice.js';
 import {bindSelectZone} from './text-select-bar.js';
-import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection} from './text-highlights.js';
+import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
@@ -74,7 +74,18 @@ bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource, onSav
 bindMarks($('#telegramView'));
 // 원문 칸마다 그 소식의 밑줄을 칠한다(칸은 paintDetail·paintRoomDetail이 그린 그대로, 글자 마디만 감쌈).
 function paintTgMarks(box) { for (const el of box?.querySelectorAll('[data-tg-di] [data-tg-raw]') || []) paintMarks(el, sourceHighlights('telegram', el.closest('[data-tg-di]').dataset.tgDi)); }
-onHighlights(() => { const box = $('#tgDetail'); if (box && !box.hidden) paintTgMarks(box); });
+onHighlights(() => { const box = $('#tgDetail'); if (box && !box.hidden) { paintTgMarks(box); revealTg(box); } });
+// S61-51a NEWS-밑줄모으기: News [밑줄] 탭에서 연 텔레그램 밑줄(reveal = 밑줄 id). 원문이 그려지고 밑줄이 칠해지면 그 자리로 한 번 옮기고 잠깐 밝힌다
+// (뉴스·사회운동 원문과 같은 revealMark). 그 밑줄이 6줄 접힘 안이면 그 줄을 펼친 뒤 옮긴다. 다른 방·날을 열면 잊는다.
+let reveal = '';
+function revealTg(box) {
+  if (!reveal || !box) return;
+  const m = box.querySelector(`[data-tg-raw] mark.hl-mark[data-hl-id="${CSS.escape(reveal)}"]`), t = m?.closest('.feed-rt');
+  if (!m) return;
+  const more = t?.classList.contains('is-fold') && !t.classList.contains('is-more') ? t.nextElementSibling?.dataset?.tgRtMore : '';
+  if (more) { state.more.add(more); paintDetail(); return; } // 다시 그리면 이 함수가 다시 불린다
+  if (revealMark(m.closest('[data-tg-raw]'), reveal)) reveal = '';
+}
 const view = () => $('#telegramView');
 const pull = createFeedPull({source:'telegram', rt, scope:() => scopeOf(rt), reload:() => load(), paint:() => paintList(), attr:'data-tg-pull'});
 const itemOf = id => { for (const d of state.dcache.values()) { const r = d.items?.find(x => x.id === id); if (r) return r; } return state.pins.find(r => r.id === id) || state.trashed.find(r => r.id === id) || null; };
@@ -422,7 +433,7 @@ function paintDetail() {
   const note = state.note ? `<p class="feed-notice" role="status" data-tg-note>${esc(state.note)}</p>` : '';
   roomSeen?.disconnect();
   box.innerHTML = `${head}${nav}${note}<div class="feed-detail" data-tg-detail="${esc(selKey())}">${dayBodyHtml(sel.room, sel.day, d, sum, dedit)}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  paintTgMarks(box); fitRawFolds(box); fitAll(box); // UI-줄입력늘어나기: 목록 한 줄 고치기 칸은 글 전체가 보이게
+  paintTgMarks(box); fitRawFolds(box); revealTg(box); fitAll(box); // UI-줄입력늘어나기: 목록 한 줄 고치기 칸은 글 전체가 보이게
 }
 // 방·날 하나의 몸통: 요약 상자(고치기·복사) + 그날 소식 줄. 날짜별 상세와 방별 상세가 같이 쓴다. 단추의 값은 그 방·날 열쇠.
 function dayBodyHtml(room, day, d, sum, dedit) {
@@ -452,7 +463,7 @@ function paintRoomDetail(box) {
   const more = state.rbusy ? `<div class="feed-older">${waitInlineHtml()}</div>` : page.more ? '<div class="feed-older"><button type="button" class="feed-text-btn" data-tg-rolder>이전 날 더 보기</button></div>' : '';
   const body = page.days.length ? page.days.map(dayHtml).join('') : emptyHtml('불러온 기간에 소식이 없어요');
   box.innerHTML = `${head}${note}<div class="feed-detail feed-rdays" data-tg-roomdetail="${esc(room)}">${body}${more}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  paintTgMarks(box); fitRawFolds(box);
+  paintTgMarks(box); fitRawFolds(box); revealTg(box);
   roomSeen?.disconnect(); roomSeen = null;
   const tail = box.querySelector('[data-tg-rolder]');
   if (tail && !state.rstop && 'IntersectionObserver' in window) { roomSeen = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { roomSeen?.disconnect(); roomSeen = null; void moreRoomDays(); } }, {rootMargin:'0px 0px 200px 0px'}); roomSeen.observe(tail); }
@@ -599,6 +610,7 @@ function select(room, day, item = '', {picked = false} = {}) {
   if (state.link && !dropLink(() => select(room, day, item, {picked}))) return;
   if (state.sedit?.kind === 'raw') endEdit();
   const shown = !!state.rsel || !!state.sel;
+  reveal = '';
   state.rsel = ''; state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null; markSeen(room, day);
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {reopen:() => select(room, day), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   const rday = pickDay(room, day);
@@ -619,6 +631,7 @@ function openRoom(room, {picked = false} = {}) {
   if (state.link && !dropLink(() => openRoom(room, {picked}))) return;
   if (state.sedit?.kind === 'raw') endEdit();
   const shown = !!state.rsel || !!state.sel;
+  reveal = '';
   state.sel = null; state.rsel = room; state.rshown = ROOM_DAY_PAGE; state.rstop = false; state.status = ''; state.note = ''; state.open = new Set(); state.more = new Set(); undo = null;
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-room', {reopen:() => openRoom(room), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   window.KPTURouter?.setPlace?.('telegram', {by:'room', room, rday:null});
@@ -1135,9 +1148,12 @@ window.addEventListener('kptu:session-changed', () => { run++; layer = null; she
 pc.addEventListener?.('change', () => { if (view() && !view().classList.contains('hidden')) { if (pc.matches && layer) { const l = layer; layer = null; l.close(); } paint(); } });
 paint();
 // ORG-주요인물: 담당조직 [주요 인물] 탭의 텔레그램 줄이 부른다. 그 방·날 상세를 열고(item이 있으면 그 소식 원문을 펼침).
-async function showDay(room, day, item = '') {
+// highlight: News [밑줄] 탭에서 연 그 원문의 밑줄 id(S61-51a) — 원문·밑줄이 그려지면 그 자리로(revealTg).
+async function showDay(room, day, item = '', {highlight = ''} = {}) {
   if (!room || !day) return false;
   if (!state.loaded || state.owner !== scopeOf(rt)) await load();
-  select(room, day, item); return true;
+  select(room, day, item);
+  if (item && highlight) { reveal = highlight; void loadHighlights().catch(() => {}); revealTg($('#tgDetail')); }
+  return true;
 }
 window.KPTUTelegramFeed = {reload:() => load(), show:showDay};
