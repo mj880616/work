@@ -15,14 +15,19 @@ object ShellRules {
     const val WEB2_HOST = "bokdoong.com"
     const val HOME = "https://$WEB2_HOST/work/app/"
 
+    /** 새 웹2 주소(DOMAIN-nojoplus, docs/design/domain-nojoplus.md). 1단계에서는 허용만 하고 처음 여는 주소(HOME)는 그대로다. */
+    const val NEW_WEB2_HOST = "nojoplus.com"
+
     /**
      * 웹2를 앱 안에 띄우는 호스트. auth-handoff 허용 Origin과 같다.
      * desk·work는 넘김(302) 기간 동안 안쪽으로 둔다(옛 링크가 bokdoong.com으로 넘어올 때 앱 안에 머물게).
+     * nojoplus.com: 새 주소(DOMAIN-nojoplus 1단계). 앱은 아직 bokdoong.com을 열지만, 새 주소 링크도 앱 안에 두고
+     * 2단계(옛 주소 → 새 주소 301)에서 넘어와도 다리·로그인 복귀가 그대로 되게 미리 허용한다. www는 Worker가 넘기므로 넣지 않는다.
      */
-    val INTERNAL_HOSTS: Set<String> = setOf(WEB2_HOST, "desk.bokdoong.com", "work.bokdoong.com", "mj880616.github.io")
+    val INTERNAL_HOSTS: Set<String> = setOf(WEB2_HOST, NEW_WEB2_HOST, "desk.bokdoong.com", "work.bokdoong.com", "mj880616.github.io")
 
     /** 맨 앞(/)이 웹2로 넘어가는 호스트(Worker movesToWeb2). work의 / 는 Web1이라 넣지 않는다. */
-    private val ROOT_TO_WEB2_HOSTS: Set<String> = setOf(WEB2_HOST, "desk.bokdoong.com")
+    private val ROOT_TO_WEB2_HOSTS: Set<String> = setOf(WEB2_HOST, NEW_WEB2_HOST, "desk.bokdoong.com")
     val ALLOWED_ORIGINS: Set<String> = INTERNAL_HOSTS.map { "https://$it" }.toSet()
     private const val APP_PATH = "/work/app/"
 

@@ -37,7 +37,8 @@ public interface IPcShell
 public sealed class PcDoor : IDisposable
 {
     /// <summary>Web2 addresses (same list as supabase/functions/_shared/web-cors.ts, minus the Pages preview host). Exact match only: no other scheme, host or port.</summary>
-    public static readonly IReadOnlyList<string> AllowedOrigins = new[] { "https://bokdoong.com", "https://work.bokdoong.com", "https://desk.bokdoong.com" };
+    // DOMAIN-nojoplus 1단계: 새 Web2 주소 nojoplus.com(정확히 이 값, www 없음)도 받는다.
+    public static readonly IReadOnlyList<string> AllowedOrigins = new[] { "https://bokdoong.com", "https://work.bokdoong.com", "https://desk.bokdoong.com", "https://nojoplus.com" };
 
     public static bool IsAllowedOrigin(string? origin) => origin != null && AllowedOrigins.Contains(origin, StringComparer.Ordinal);
     /// <summary>Fixed candidates the Web2 page knocks on in order. Different from the sign-in ports (47615~47617).</summary>
