@@ -1,10 +1,11 @@
-import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {holdToast as kptuHoldToast,notify as kptuNotify} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 import {pcSplit,itemOf,isDefaultLayout,pcMoveFor,hideItem,BAR_MAX} from './menu-model.mjs';
 import {mountReorder,dropIndex,dropIndexGrid} from './reorder-drag.js'; // MENU-왼쪽메뉴바로끌기: 메뉴 편집 창과 같은 끌기 부품
 import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클릭: 공용 줄 메뉴(UI-PC우클릭과 같은 모양)
 import './menu-layout.js';
+import {downloadPlan,loadPhoneAppInfo} from './app-download.mjs'; // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
 import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 (()=>{
@@ -28,12 +29,33 @@ const accounts=logoutButtons.map(logout=>{
   // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
   const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
   updates.innerHTML='<span class="account-action-name">업데이트 기록</span><span class="account-ver" data-account-ver></span>';
+  // APP-앱내려받기버튼(명진 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
+  // 폰 앱 안에서는 줄이 없다(앱이 스스로 업데이트한다).
+  const appDl=appDownloadRow();
   const menuEdit=document.createElement('button');menuEdit.type='button';menuEdit.className='account-action';menuEdit.dataset.menuEditOpen='';menuEdit.textContent='메뉴 수정';menuEdit.setAttribute('aria-haspopup','dialog');menuEdit.setAttribute('aria-controls','menuEditModal');
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(profile,updates,menuEdit,theme,logout);document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(...[profile,updates,appDl,menuEdit,theme,logout].filter(Boolean));document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,profile,updates,menuEdit,theme,nativePopover};
+  return {host,trigger,panel,profile,updates,appDl,menuEdit,theme,nativePopover};
+});
+// APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
+function appDownloadRow(){
+  const plan=downloadPlan({ua:navigator.userAgent||''});
+  if(plan.kind==='app')return null;
+  const name='<span class="account-action-name">앱 내려받기</span><span class="account-ver" data-app-download-ver></span>';
+  if(plan.kind==='other'){
+    const row=document.createElement('button');row.type='button';row.className='account-action';row.dataset.appDownload='other';row.innerHTML=name;
+    row.addEventListener('click',()=>kptuNotify(plan.hint,{record:false,ms:4000}));
+    return row;
+  }
+  const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='android';row.href=plan.url;row.rel='noopener';row.innerHTML=name;
+  row.addEventListener('click',()=>kptuNotify(plan.hint,{record:false,ms:6000}));
+  return row;
+}
+if(downloadPlan({ua:navigator.userAgent||''}).kind==='android')void loadPhoneAppInfo().then(info=>{
+  const plan=downloadPlan({ua:navigator.userAgent||'',info});
+  document.querySelectorAll('a[data-app-download="android"]').forEach(row=>{row.href=plan.url;const ver=row.querySelector('[data-app-download-ver]');if(ver)ver.textContent=plan.version});
 });
 let activeAccount=null;
 const mobileQuery=window.matchMedia('(max-width:760px)');
@@ -122,7 +144,7 @@ function syncMobile(){
   const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
-    target.append(mobileAccount.profile,mobileAccount.updates,mobileAccount.menuEdit,mobileAccount.theme,logoutButtons[0]);
+    target.append(...[mobileAccount.profile,mobileAccount.updates,mobileAccount.appDl,mobileAccount.menuEdit,mobileAccount.theme,logoutButtons[0]].filter(Boolean));
   }
   syncKeyboard();
 }

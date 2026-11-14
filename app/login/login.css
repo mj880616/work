@@ -2,3 +2,6 @@
 .login-shell{min-height:100vh;display:grid;grid-template-rows:1fr}.oauth-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 8px}.hidden{display:none!important}
 /* AUTH-구글화면이름: 로그인 카드 아래 작은 소개·처리방침 링크 한 줄 */
 .login-legal{margin:10px 0 0;font-size:12px;text-align:center;color:var(--kptu-muted,#646a72)}.login-legal a{color:inherit}
+/* APP-앱내려받기버튼: 로그인 버튼 아래 작은 [안드로이드 앱 내려받기]와 설치 안내 한 줄(크고 굵은 버튼 아님) */
+.login-app{margin:12px 0 0;text-align:center}.login-app-btn{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 12px;font-size:13px;text-decoration:none}
+.login-app-hint{margin:6px 0 0;font-size:12px;color:var(--kptu-muted,#646a72)}

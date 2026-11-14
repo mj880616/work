@@ -133,6 +133,8 @@
 .account-action .account-action-name{flex:1;min-width:0}
 .account-action .account-ver{flex:none;margin-left:8px;color:var(--kptu-muted);font-size:var(--ds-text-meta,11px);font-variant-numeric:tabular-nums}
 .account-action .account-ver:empty{display:none}
+/* APP-앱내려받기버튼: '앱 내려받기'는 받는 주소 링크라 <a> — 다른 줄(button)과 같은 모양, 밑줄 없음. */
+a.account-action{text-decoration:none;box-sizing:border-box}
 
 /* S48-30 ▾ 펼침: 넓은 화면의 [화면 색 ▾]는 계정 버튼 바로 아래 작은 목록(자리는 anchored-popup.js). 바탕을 어둡게 하지 않는다. */
 #themeModal.theme-anchored{background:transparent}
