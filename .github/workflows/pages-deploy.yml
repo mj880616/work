@@ -61,20 +61,20 @@ jobs:
           package-manager-cache: false
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+      - name: Add content-hash ?v= and build the asset manifest
+        run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
       # APP-앱내려받기버튼: 최신 폰 앱(태그 phone-app-v*, 파일 web2-phone-*.apk — 바구니 PC 릴리스와 섞이지 않음)을 공개 릴리스 목록에서 골라
-      # _site/app/phone-app.json에 둔다. 화면은 같은 주소의 이 파일만 읽는다. 목록을 못 읽으면 파일 없이 배포한다(화면은 릴리스 목록 주소로 연다).
+      # 빌드 결과($RUNNER_TEMP/pages-out)의 app/phone-app.json에 둔다(_site는 Jekyll이 root로 만들어 쓸 수 없다 — 2026-11-14 배포 실패 원인). 화면은 같은 주소의 이 파일만 읽는다. 목록을 못 읽으면 파일 없이 배포한다(화면은 릴리스 목록 주소로 연다).
       # 배포(main push·손 실행) 때마다 다시 고른다. 폰 앱 릴리스 뒤 바로 맞추려면 이 workflow를 손으로 한 번 돌린다(받은 옛 판도 앱이 스스로 업데이트한다).
       - name: Pick the latest phone app APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"; then
-            node scripts/phone-app-latest.mjs "$RUNNER_TEMP/releases.json" _site/app/phone-app.json
+            node scripts/phone-app-latest.mjs "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/pages-out/app/phone-app.json"
           else
             echo "릴리스 목록을 읽지 못함: app/phone-app.json 없이 배포"
           fi
-      - name: Add content-hash ?v= and build the asset manifest
-        run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
       - name: Check hashed references, manifest and Worker fingerprints
         run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
       - name: Check Worker deploy URL extraction on the output
