@@ -141,7 +141,7 @@ export function reportDate(day) {
 }
 // WEEKLY-한글파일다듬기 ④(2026-10-23 사용자 요청 12:12): 파일 이름 = 주간보고_YYYYMMDD_이름.hwpx(날짜 = 상집 보고일, 이름 = 로그인 사용자의
 // 표시 이름 — 프로필 display_name, 없으면 로그인 정보의 표시 이름). 이름이 없으면 주간보고_YYYYMMDD.hwpx. 파일 이름에 쓸 수 없는 글자와
-// 띄어쓰기는 뺀다(PC·폰 내려받기와 Drive에서 같은 이름이 되게). [HWP로 받기]·[확정] 저장도 같은 이름(.hwp는 확장자만 다름).
+// 띄어쓰기는 뺀다(PC·폰 내려받기와 Drive에서 같은 이름이 되게). [확정하고 한글 파일 받기]·[확정 없이 파일만 받기](.hwp, WEEKLY-기본HWP)도 같은 이름(확장자만 다름).
 export const fileNamePart = name => String(name ?? '').normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '').replace(/\s+/g, '').replace(/^\.+|\.+$/g, '').slice(0, 40);
 export const fileNameFor = (day, name = '', ext = 'hwpx') => {
   const who = fileNamePart(name);
