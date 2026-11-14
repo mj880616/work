@@ -478,6 +478,9 @@
 .biz-week-go{position:relative;padding:0;border:0;background:none;color:var(--kptu-info);font:inherit;font-size:12px;cursor:pointer}
 .biz-week-go::after{content:"";position:absolute;inset:-12px -4px}
 .biz-week-go:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+/* MULTI-사업보고빈화면(설계 new-user-start.md 2-4): 사업영역이 없는 계정의 칸 = 안내 한 줄 + [+ 사업 만들기](공용 ③ 글자 버튼). 표·제목 줄 없음, 낮게. */
+.biz-week-none{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin:0;padding:8px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-row,13px);line-height:1.5}
+.biz-week-none .biz-week-new{font-size:inherit;color:var(--kptu-link)}
 /* 사업요약표(.biz-paper·.biz-sum-table·직접 쓰기·지금 상황) 모양은 biz-summary.css — 홈 [주간 정리]·업무일지와 같은 부품이라 함께 부른다. */
 
 /* MTG-프로젝트합치기 3단계 → S52-22 TEAM-맨위한줄: 사업 보고 [목록]의 기간 한 줄 ‹ 11.2(월)~11.8(일) · n건 › ……… [이번 주 ▾].

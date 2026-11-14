@@ -27,6 +27,8 @@ function makeState() {
   docs.push(doc(21, M2), doc(31, M5));
   return {
     year: y, month: mo - 1, photoCalls: [], meetingOpens: [], docs,
+    // MULTI-사업보고빈화면: 이 시험은 사업영역이 있는 계정(명진)의 위쪽 줄·주간보고 표를 본다. 사업영역 0개(새 계정)는 biz-week-none.spec.mjs.
+    spaces: [{id: 'area-1', workspace_id: 'workspace-1', name: '합성 사업', description: null, parent_id: null, status: 'active', visibility: 'private', owner_id: 'user-1', sort_order: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', metadata: {project_system: 'v2', management_version: 2}}],
     user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
     workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
     meetings: [meeting(M1, '○○ 대표자 회의', 'meeting', today), meeting(M2, '□□ 실무 회의', 'meeting', today), meeting(M3, '△△ 점검 회의', 'meeting', today),
@@ -51,6 +53,7 @@ async function mock(page, state) {
     if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'workspace-1', user_id: state.user.id, role: 'owner', workspace: state.workspace, created_at: now()}]);
     if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
     if (path === '/rest/v1/app_documents' && req.method() === 'GET') return ok(state.docs);
+    if (path === '/rest/v1/app_spaces' && req.method() === 'GET') return ok(state.spaces);
     if (path === '/rest/v1/app_meetings' && req.method() === 'GET') {
       const id = url.searchParams.get('id') || '';
       if (!id || id.startsWith('in.(')) return ok(state.meetings);

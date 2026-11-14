@@ -3,7 +3,8 @@ import {showAllReportWeeks} from './report-week.mjs';
 // BIZ-주간표이번주(2026-11-09): 사업 보고 목록은 늘 이번 주(오늘이 든 월~일)로 연다. 가짜 보고가 모두 지난 주에 있으면 이번 주 목록은 비므로,
 // 사람이 하듯 [전체 기간]으로 바꿔 보고를 찾는다(이번 주에 보고가 보이면 그대로 둔다).
 export async function showReportsOf(page){
-  const list=page.locator('#meetingList'),any=list.locator('[data-mrd-meeting],[data-meeting-kind],[data-meeting-round]').first(),empty=list.locator('[data-wait-empty]').first();
+  // MULTI-사업보고빈화면: 사업영역이 없는 계정은 빈 목록 '없음' 대신 위 '이번 주 주간보고' 칸의 안내 한 줄이 빈 자리를 맡는다.
+  const list=page.locator('#meetingList'),any=list.locator('[data-mrd-meeting],[data-meeting-kind],[data-meeting-round]').first(),empty=list.locator('[data-wait-empty]').first().or(page.locator('#bizWeekBox .biz-week-none')).first();
   await expect(any.or(empty).first()).toBeVisible();
   if(await any.isVisible())return;
   await showAllReportWeeks(page);
