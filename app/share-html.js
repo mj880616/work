@@ -5,7 +5,7 @@
 // A row press: preview only. Everything is stored on the server (owner-RLS tables); nothing is kept in this browser.
 // The file is shown only in a sandboxed frame without allow-same-origin (HTML_SANDBOX): it cannot read this app's sign-in.
 // The short link (name + 8 letters the DB makes) is read from the DB when needed and is not kept in this module.
-import {HTML_SANDBOX, SHORT_BASE, CODE_LENGTH, NAME_MAX, fileProblem, textProblem, htmlTitle, nameFrom, nameProblem, shortUrl, expiryOf}
+import {HTML_SANDBOX, shortBase, CODE_LENGTH, NAME_MAX, fileProblem, textProblem, htmlTitle, nameFrom, nameProblem, shortUrl, expiryOf}
   from './share-html-model.mjs';
 import {askText} from './small-notice.js';
 import {copyText} from './copy-text.js';
@@ -103,7 +103,7 @@ export function createShareHtml({rt, workspaceId, onChanged}) {
         el('label', {class:'sp-field'}, el('span', {text:'제목'}), title),
         el('div', {class:'sp-field'}, el('span', {id:'shNameLabel', text:'링크'}),
           el('div', {class:'sh-url', role:'group', 'aria-labelledby':'shNameLabel'},
-            el('span', {class:'sh-url-base', text:SHORT_BASE.replace(/^https:\/\//, '')}), name,
+            el('span', {class:'sh-url-base', text:shortBase().replace(/^https:\/\//, '')}), name,
             el('span', {class:'sh-url-code', title:'저장할 때 무작위 글자가 붙어요', text:'-' + '·'.repeat(CODE_LENGTH)}))),
         el('label', {class:'sp-field'}, el('span', {text:'기한'}), expiry,
           el('input', {type:'date', class:'sp-input', hidden:s.expiry !== 'date', 'aria-label':'기한 날짜', dataset:{shExpiryDay:''}}))));

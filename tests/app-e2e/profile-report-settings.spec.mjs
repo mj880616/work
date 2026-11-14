@@ -65,6 +65,8 @@ for(const [label,width] of [['폰 412',412],['PC 1280',1280]])test(`${label}: �
   await expect(box).toContainText("지금: '공공운수노조'");
   await expect(box.getByRole('button',{name:'구글 캘린더 연결'})).toBeVisible();
   await expect(panel.locator('#psReportCalendar')).toHaveCount(0);
+  // HOME-연결안내한줄아래(S62-03c): 홈 연결 안내와 같은 모양 — 안내 글 아래 줄 왼쪽에 버튼.
+  expect(await box.locator('.ps-report-note').evaluate(p=>{const b=p.querySelector('button').getBoundingClientRect(),r=p.getBoundingClientRect(),t=document.createRange();t.selectNodeContents(p.firstChild);const tr=t.getBoundingClientRect();return{below:b.top>=tr.bottom-1,left:Math.abs(b.left-r.left)<=1}})).toEqual({below:true,left:true});
   await panel.locator('[data-ps-report-save]').click();
   await expect(panel.locator('[data-ps-report-summary]')).toHaveText("'공공운수노조'");
   expect(await page.evaluate(()=>window.__orgOrderPrefs.report_calendar)).toBe('공공운수노조');
