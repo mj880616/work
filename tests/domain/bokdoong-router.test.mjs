@@ -324,7 +324,8 @@ test('read is neither routed to the shared Worker nor proxied by it', async () =
   const config = await readFile(new URL('../../cloudflare/wrangler.toml', import.meta.url), 'utf8');
   const routes = [...config.matchAll(/^pattern = "([^"]+)"$/gm)].map((match) => match[1]);
   assert.deepEqual(routes, [
-    'bokdoong.com', 'work.bokdoong.com', 'desk.bokdoong.com', 'arsenal.bokdoong.com'
+    'bokdoong.com', 'work.bokdoong.com', 'desk.bokdoong.com', 'arsenal.bokdoong.com',
+    'nojoplus.com', 'www.nojoplus.com'
   ]);
   for (const path of ['/', '/favicon.ico', '/read-think-write/records/?tab=recent']) {
     const { response, calls } = await request(`https://read.bokdoong.com${path}`);
@@ -994,4 +995,102 @@ test('every HWP editor build file has a hashed name the keep rule matches; fonts
     }
   }
   assert.equal(editorHashedAsset('bokdoong.com', at('index.html')), false);
+});
+
+// DOMAIN-nojoplus 1단계: nojoplus.com answers like bokdoong.com; www goes to nojoplus.com; old hosts are unchanged.
+test('nojoplus.com root and /work/app go to its own /work/app/ with 302, keeping ?query', async () => {
+  for (const [path, location] of [
+    ['/', 'https://nojoplus.com/work/app/'],
+    ['/?view=calendar', 'https://nojoplus.com/work/app/?view=calendar'],
+    ['/work/app?view=tasks', 'https://nojoplus.com/work/app/?view=tasks']
+  ]) {
+    const { response, calls } = await request(`https://nojoplus.com${path}`);
+    assert.equal(response.status, 302, path);
+    assert.equal(response.headers.get('Location'), location, path);
+    assert.equal(calls.length, 0, path);
+  }
+});
+
+test('nojoplus.com serves Web2 from the same Pages tree without credentials, with the Web2 headers', async () => {
+  const { response, calls } = await request('https://nojoplus.com/work/app/', {
+    upstream: new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  });
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].url.startsWith('https://mj880616.github.io/work/app/?__fresh='));
+  assert.equal(calls[0].headers.get('Cookie'), null);
+  assert.equal(calls[0].headers.get('Authorization'), null);
+  assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+  assert.ok(response.headers.get('Content-Security-Policy-Report-Only'));
+  assert.equal(response.headers.get('X-Frame-Options'), 'SAMEORIGIN');
+  assert.match(response.headers.get('Set-Cookie') || '', /kptu_cache_epoch=/);
+});
+
+test('nojoplus.com favicon, short share address and about pages', async () => {
+  const icon = await request('https://nojoplus.com/favicon.png', { upstream: new Response('png') });
+  assert.equal(icon.calls[0].url, 'https://mj880616.github.io/work/personal/portal/favicon.png');
+  assert.equal(icon.response.headers.get('Content-Type'), 'image/png');
+
+  const slug = 'meeting-notes-abcdefgh';
+  const short = await request(`https://nojoplus.com/s/${slug}`);
+  assert.equal(short.response.status, 302);
+  assert.equal(short.response.headers.get('Location'), `https://work.bokdoong.com/work/share/?s=${slug}`);
+  assert.equal(short.calls.length, 0);
+
+  for (const path of ['/work/about/', '/work/about/privacy/', '/work/about/about.css']) {
+    const { response, calls } = await request(`https://nojoplus.com${path}`);
+    assert.equal(response.status, 200, path);
+    assert.equal(calls[0].url, `https://mj880616.github.io${path}`, path);
+  }
+  const noSlash = await request('https://nojoplus.com/work/about', {
+    upstream: new Response(null, { status: 301, headers: { Location: 'https://mj880616.github.io/work/about/' } })
+  });
+  assert.equal(noSlash.response.headers.get('Location'), 'https://nojoplus.com/work/about/');
+});
+
+test('nojoplus.com sends other /work/ paths (share page, Web1) to work.bokdoong.com and 404s the rest', async () => {
+  for (const path of ['/work/share/', '/work/press/', '/work/', '/work/aboutx/']) {
+    const { response, calls } = await request(`https://nojoplus.com${path}`);
+    assert.equal(response.status, 302, path);
+    assert.equal(response.headers.get('Location'), `https://work.bokdoong.com${path}`, path);
+    assert.equal(calls.length, 0, path);
+  }
+  for (const path of ['/robots.txt', '/about/', '/read-think-write/']) {
+    const { response, calls } = await request(`https://nojoplus.com${path}`);
+    assert.equal(response.status, 404, path);
+    assert.equal(calls.length, 0, path);
+  }
+  const post = await request('https://nojoplus.com/work/app/', { method: 'POST' });
+  assert.equal(post.response.status, 405);
+  assert.equal(post.calls.length, 0);
+});
+
+test('www.nojoplus.com goes to the same path and ?query on nojoplus.com with 301 (http too)', async () => {
+  for (const [url, location] of [
+    ['https://www.nojoplus.com/', 'https://nojoplus.com/'],
+    ['http://www.nojoplus.com/work/app/?view=calendar', 'https://nojoplus.com/work/app/?view=calendar'],
+    ['https://WWW.nojoplus.com/work/about/', 'https://nojoplus.com/work/about/']
+  ]) {
+    const { response, calls } = await request(url);
+    assert.equal(response.status, 301, url);
+    assert.equal(response.headers.get('Location'), location, url);
+    assert.equal(calls.length, 0, url);
+  }
+});
+
+test('old hosts still send Web2 visitors to bokdoong.com (not nojoplus.com) in 1단계', async () => {
+  for (const [url, location] of [
+    ['https://desk.bokdoong.com/', 'https://bokdoong.com/work/app/'],
+    ['https://work.bokdoong.com/work/app/?view=calendar', 'https://bokdoong.com/work/app/?view=calendar'],
+    ['https://bokdoong.com/', 'https://bokdoong.com/work/app/'],
+    ['https://arsenal.bokdoong.com/', 'https://bokdoong.com/work/app/?view=arsenal']
+  ]) {
+    const { response } = await request(url);
+    assert.equal(response.headers.get('Location'), location, url);
+  }
+  for (const url of ['https://nojoplus.com.evil.example/work/app/', 'https://xnojoplus.com/work/app/', 'https://app.nojoplus.com/work/app/']) {
+    const { response, calls } = await request(url);
+    assert.equal(response.status, 404, url);
+    assert.equal(calls.length, 0, url);
+  }
 });

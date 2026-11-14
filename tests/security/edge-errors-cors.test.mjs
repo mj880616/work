@@ -33,8 +33,8 @@ test('safeErrorLog records only name, short code and numeric status', () => {
   assert.equal(JSON.stringify(safeErrorLog(Object.assign(new Error('token-abc'), { code: 'x' }))).includes('token-abc'), false);
 });
 
-test('web CORS echoes only the four owned origins and never sends a wildcard', async () => {
-  assert.deepEqual([...WEB2_ORIGINS].sort(), ['https://bokdoong.com', 'https://desk.bokdoong.com', 'https://mj880616.github.io', 'https://work.bokdoong.com']);
+test('web CORS echoes only the five owned origins and never sends a wildcard', async () => {
+  assert.deepEqual([...WEB2_ORIGINS].sort(), ['https://bokdoong.com', 'https://desk.bokdoong.com', 'https://mj880616.github.io', 'https://nojoplus.com', 'https://work.bokdoong.com']);
   const h = withWebCors(async req => new Response(req.method === 'OPTIONS' ? 'ok' : '{}', { status: req.method === 'OPTIONS' ? 200 : 401, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization', Vary: 'Accept-Encoding' } }));
   for (const origin of WEB2_ORIGINS) {
     for (const method of ['OPTIONS', 'POST']) {
@@ -45,7 +45,7 @@ test('web CORS echoes only the four owned origins and never sends a wildcard', a
       assert.equal(r.status, method === 'OPTIONS' ? 200 : 401);
     }
   }
-  for (const origin of ['https://evil.example', 'http://bokdoong.com', 'https://www.bokdoong.com', 'https://bokdoong.com.evil.example', 'https://bokdoong.com:8443', 'null']) {
+  for (const origin of ['https://www.nojoplus.com', 'http://nojoplus.com', 'https://nojoplus.com.evil.example', 'https://evilnojoplus.com', 'https://app.nojoplus.com', 'https://nojoplus.com:8443', 'https://evil.example', 'http://bokdoong.com', 'https://www.bokdoong.com', 'https://bokdoong.com.evil.example', 'https://bokdoong.com:8443', 'null']) {
     const r = await h(new Request('https://x.supabase.co/functions/v1/f', { method: 'OPTIONS', headers: { Origin: origin } }));
     assert.equal(r.status, 200, 'preflight still answers; the browser blocks the read');
     assert.equal(r.headers.get('Access-Control-Allow-Origin'), null, origin);

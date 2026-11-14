@@ -5,6 +5,13 @@
 export const MAX_HTML_BYTES = 5 * 1024 * 1024; // the DB check app_share_page_html_size_check uses the same number
 export const HTML_SANDBOX = 'allow-scripts allow-popups';
 export const SHORT_BASE = 'https://bokdoong.com/s/';
+// DOMAIN-nojoplus 1단계: 새 주소(nojoplus.com)에서 만든 링크는 nojoplus.com/s/로, 그 밖은 지금처럼 bokdoong.com/s/로 준다.
+// 두 주소 모두 Worker가 같은 공유 화면으로 보내므로 이미 보낸 bokdoong.com/s/ 링크는 계속 열린다.
+// 새 주소 화면이 열렸다는 것은 Worker가 그 주소를 받고 있다는 뜻이라, 아직 연결되지 않은 주소로 링크가 나가지 않는다.
+const SHORT_HOSTS = new Set(['https://bokdoong.com', 'https://nojoplus.com']);
+export function shortBase(origin = globalThis.location?.origin) {
+  return SHORT_HOSTS.has(origin) ? `${origin}/s/` : SHORT_BASE;
+}
 export const CODE_LENGTH = 8; // letters the DB adds after the name (design 3: 4 letters are too few to be safe)
 export const NAME_MAX = 40;
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -56,9 +63,9 @@ export function nameProblem(name) {
   if (!NAME.test(value)) return '링크 이름은 영어 소문자·숫자와 가운데 하이픈(-)만 써요.';
   return '';
 }
-export function shortUrl(name, code) {
+export function shortUrl(name, code, origin) {
   if (nameProblem(name) || !CODE.test(String(code ?? ''))) throw new Error('링크 주소를 확인할 수 없어요.');
-  return `${SHORT_BASE}${name}-${code}`;
+  return `${shortBase(origin)}${name}-${code}`;
 }
 
 // 기한 choice: 'none' | '30' | '90' | 'date' (with a yyyy-mm-dd day). The end of that day in Korea.

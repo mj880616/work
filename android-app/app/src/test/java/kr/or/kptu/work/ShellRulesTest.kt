@@ -15,9 +15,25 @@ class ShellRulesTest {
         assertTrue(ShellRules.isInternalApp(ShellRules.HOME))
         assertTrue("https://bokdoong.com" in ShellRules.ALLOWED_ORIGINS)
         assertEquals(
-            setOf("https://bokdoong.com", "https://desk.bokdoong.com", "https://work.bokdoong.com", "https://mj880616.github.io"),
+            setOf("https://bokdoong.com", "https://nojoplus.com", "https://desk.bokdoong.com", "https://work.bokdoong.com", "https://mj880616.github.io"),
             ShellRules.ALLOWED_ORIGINS,
         )
+    }
+
+    @Test
+    fun newAddressStaysInsideTheApp() {
+        // DOMAIN-nojoplus 1단계: 새 주소도 앱 안. 처음 여는 주소는 아직 bokdoong.com.
+        assertEquals("https://bokdoong.com/work/app/", ShellRules.HOME)
+        assertTrue(ShellRules.isInternalApp("https://nojoplus.com/work/app/"))
+        assertTrue(ShellRules.isInternalApp("https://nojoplus.com/work/app/?view=basket"))
+        assertTrue(ShellRules.isInternalApp("https://nojoplus.com/"))
+        assertTrue(ShellRules.isInternalApp("https://NOJOPLUS.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://nojoplus.com/s/abc123"))
+        assertFalse(ShellRules.isInternalApp("https://nojoplus.com/work/about/"))
+        assertFalse(ShellRules.isInternalApp("http://nojoplus.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://www.nojoplus.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://nojoplus.com.evil.example/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://app.nojoplus.com/work/app/"))
     }
 
     @Test

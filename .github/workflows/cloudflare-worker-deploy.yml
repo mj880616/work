@@ -271,6 +271,7 @@ jobs:
           check_redirect() {
             local url="$1"
             local expected="$2"
+            local status="${3:-302}"
             local result=""
 
             for attempt in {1..20}; do
@@ -284,8 +285,8 @@ jobs:
                 --write-out '%{http_code}|%{redirect_url}' \
                 "$url" || true)"
 
-              if [[ "$result" == "302|$expected" ]]; then
-                echo "OK  $url -> 302 $expected"
+              if [[ "$result" == "$status|$expected" ]]; then
+                echo "OK  $url -> $status $expected"
                 return 0
               fi
 
@@ -293,11 +294,14 @@ jobs:
               sleep 5
             done
 
-            echo "FAIL  $url (last $result, expected 302|$expected)"
+            echo "FAIL  $url (last $result, expected $status|$expected)"
             return 1
           }
 
           check_redirect 'https://bokdoong.com/' 'https://bokdoong.com/work/app/'
+          # DOMAIN-nojoplus 1단계: the new Web2 address answers on its own host; www goes there with 301.
+          check_redirect 'https://nojoplus.com/' 'https://nojoplus.com/work/app/'
+          check_redirect 'https://www.nojoplus.com/work/app/?view=calendar' 'https://nojoplus.com/work/app/?view=calendar' 301
           check_redirect 'https://desk.bokdoong.com/' 'https://bokdoong.com/work/app/'
           check_redirect 'https://desk.bokdoong.com/work/app/?view=library&drive=connected' 'https://bokdoong.com/work/app/?view=library&drive=connected'
           check_redirect 'https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1' 'https://bokdoong.com/work/app/onedrive-return.html?probe=1'
@@ -343,6 +347,8 @@ jobs:
           check_200 'https://bokdoong.com/work/app/' 'text/html'
           check_200 'https://work.bokdoong.com/work/share/' 'text/html'
           check_200 'https://work.bokdoong.com/work/about/' 'text/html'
+          check_200 'https://nojoplus.com/work/app/' 'text/html'
+          check_200 'https://nojoplus.com/work/about/' 'text/html'
           check_200 'https://work.bokdoong.com/work/favicon.svg'
           check_icon 'https://bokdoong.com/favicon.png' 'image/png'
           check_icon 'https://bokdoong.com/favicon.ico' 'image/x-icon'
