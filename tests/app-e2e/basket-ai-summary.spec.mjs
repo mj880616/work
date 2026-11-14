@@ -17,7 +17,7 @@ const HOME_BACKGROUND_ASKS=['home_day_picks','todo_radar','work_scope'];
 const resourceNoise=text=>/Failed to load resource|net::ERR_FAILED/.test(text);
 
 async function fixture(page,{note:over={}}={}){
- await openHome(page);const errors=[],calls=[],ai=[],note={id:n,workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:RAW,ai_export_allowed:true,archived_at:null,attachments:[],...over};
+ await openHome(page,{features:[]}); /* MULTI-처음쓰는사람 ④: 운영자 기능 없는 계정(운영자 홈은 잊지 말기 소식 AI를 부른다) */const errors=[],calls=[],ai=[],note={id:n,workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:RAW,ai_export_allowed:true,archived_at:null,attachments:[],...over};
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!resourceNoise(e.text()))errors.push(e.text());});
  const links=[];
  const tables={app_notes:[note],app_suborganizations:[{id:o,workspace_id:'w',name:'합성 한빛지부',active:true}],app_suborganization_assignees:[{organization_id:o,user_id:'home-test'}],app_spaces:[{id:p,workspace_id:'w',owner_id:'home-test',name:'합성 기자회견 준비',status:'active',metadata:{project_system:'v2'}}],app_suborganization_updates:[]};

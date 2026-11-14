@@ -13,6 +13,8 @@ export const KINDS = Object.freeze([
   ['next_week', '다음 주 준비'],
 ]);
 export const KIND_KEYS = Object.freeze(KINDS.map(([k]) => k));
+// MULTI-처음쓰는사람 ⑤: 통화·텔레그램 수집이 있는 운영자 계정에만 보이는 종류(고르기 칩만 빼고 저장 모양·서버 검사는 그대로).
+export const COLLECT_KINDS = new Set(['collect_stall', 'morning', 'evening']);
 // FAMILY-잊지말기 4단계: 운영자 기능 family가 있는 사람에게만 보이는 종류(잠금 화면엔 "잊지 말기 n건"만). 기본 켬이라 저장 값에는 끌 때만 kinds.family=false로 들어간다
 // (DB 검사 20261105120000_family_push_kind가 이 키를 받는다. 켬일 때는 칸을 만들지 않아 기존 일곱 종류 모양 그대로).
 export const FAMILY_KIND = Object.freeze(['family', '잊지 말기']);

@@ -133,3 +133,10 @@ test('FAMILY-잊지말기: 잊지 말기 종류는 기본 켬이라 저장 값�
   const sql = read('supabase/migrations/20261105120000_family_push_kind.sql');
   assert.match(sql, /@\.key == "family"/);
 });
+
+// MULTI-처음쓰는사람 ⑤: 운영자(통화·텔레그램 수집) 계정에만 보이는 종류 셋. 저장 모양(KIND_KEYS)은 그대로.
+test('운영자 알림 종류는 수집 멈춤·아침 묶음·저녁 묶음이고 모두 아는 종류다', async () => {
+  const {COLLECT_KINDS} = await import('../app/phone-push-model.mjs');
+  assert.deepEqual([...COLLECT_KINDS].sort(), ['collect_stall', 'evening', 'morning']);
+  for (const k of COLLECT_KINDS) assert.ok(KIND_KEYS.includes(k));
+});

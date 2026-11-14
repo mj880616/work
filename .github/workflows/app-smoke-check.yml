@@ -1003,7 +1003,7 @@ jobs:
         run: node --test tests/phone-reopen.test.mjs
 
       - name: Check phone push settings and device sync (APP-폰알림 N4)
-        run: node --test tests/phone-push-settings.test.mjs
+        run: node --test tests/phone-push-settings.test.mjs tests/my-features.test.mjs
 
       - name: Check home forget-not box rules (FAMILY-잊지말기 4단계)
         run: node --test tests/family-notes-model.test.mjs

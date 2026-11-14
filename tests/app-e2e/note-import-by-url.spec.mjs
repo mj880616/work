@@ -26,7 +26,7 @@ async function fixture(page,width,{reply=article}={}){
   {id:'n-old2',workspace_id:'w',kind:'note',title:'장보기 목록',raw_text:'예시 목록',occurred_at:at,created_at:at,updated_at:'2026-10-02T02:00:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},doc:null}];
  const writes=[],calls=[],errors=[],gates=[],other=[];let stamp=10,active=0,maxActive=0,next=reply;
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
- await openHome(page); // 시각은 도우미 기본값(2026-10-06 10:00 서울)에 고정된다
+ await openHome(page,{features:[]}); // MULTI-처음쓰는사람 ④: 운영자 기능 없는 계정(운영자 홈은 잊지 말기 소식 AI를 부른다). 시각은 도우미 기본값(2026-10-06 10:00 서울)에 고정된다
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',async r=>{
   const req=r.request(),q=new URL(req.url()).searchParams,method=req.method();
   const pick=row=>(!q.get('kind')||'eq.'+row.kind===q.get('kind'))&&(!q.get('id')||'eq.'+row.id===q.get('id'))&&(!q.get('updated_at')||'eq.'+row.updated_at===q.get('updated_at'));
