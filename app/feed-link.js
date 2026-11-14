@@ -42,12 +42,28 @@ export async function openOrgPicker(trigger, {orgs, mine, selected, onPick, top 
   const used = await usedKeysNow().catch(() => []);
   if (!trigger?.isConnected) return;
   const mineNow = pick;
-  // CALL-상대표시정리 ④: 맨 아래 [직접 쓰기]. 비슷한 이름의 조직(활동 중인 내 작업공간 조직 전체)이 있으면 먼저 보이고, 새로 만들면 그 조직을
-  // 이 화면의 조직 목록·내 담당에 더한 뒤 고른 것으로 한다(onPick). 만들기는 feed-data.js createMyOrganization(담당조직 추가와 같은 표) 한 곳.
-  const create = {similar:name => similarOrgs(name, (orgs || []).filter(o => o.active !== false)).map(o => ({key:'o:' + o.id, name:o.name || '이름 없는 조직'})),
-    make:async name => { const {org} = await createMyOrganization(name); if (Array.isArray(orgs) && !orgs.some(o => o.id === org.id)) orgs.push(org); mine?.add?.(org.id); return {key:'o:' + org.id, name:org.name}; }};
+  // CALL-상대표시정리 ④: 맨 아래 [직접 쓰기](orgWriteInFor). 새로 만들면 그 조직을 이 화면의 조직 목록·내 담당에 더한 뒤 고른 것으로 한다(onPick).
+  const create = orgWriteInFor({orgs, mine});
   return openAreaOrgPicker({kind:'org', trigger, used, multi:false, none:'연결 안 함', top, title, orgGroups:orderedOrgGroups(groups), selected:sel ? ['o:' + sel] : [], create,
     onCommit:keys => { if (pick !== mineNow) return; const k = [...keys][0] || ''; mineNow.onPick(k.startsWith('o:') ? k.slice(2) : ''); }});
+}
+
+// CALL-상대표시정리 ④·S61-52: 조직 고르기 창 [직접 쓰기]의 만들기·비슷한 이름 찾기 — 모든 조직 고르기 창이 이 하나를 쓴다
+// (통화·텔레그램 연결, 업데이트 '기록할 곳', 사업 보고 [연결할 곳], 잊지 말기 [연결하기], 할 일 조직 줄, 자료실 일괄 바꾸기).
+// orgs: 그 창이 아는 조직 배열(비슷한 이름은 활동 중인 것 전체에서 찾는다 — 중복 방지). 새 조직은 이 배열·mine(Set)에 더한다.
+// key(id): 그 창의 값 모양(기본 'o:<id>', 업데이트 '기록할 곳'은 id 그대로). onOrg(org): 새로 만든 조직(창 밖 목록 갱신용).
+// 만들기는 feed-data.js createMyOrganization(담당조직 [담당조직 추가]와 같은 표·작업공간 주인 RLS) 한 곳.
+export function orgWriteInFor({orgs, mine = null, key = id => 'o:' + id, onOrg = () => {}} = {}) {
+  const row = o => ({key:key(o.id), name:o.name || '이름 없는 조직', org:o});
+  return {
+    similar:name => similarOrgs(name, (typeof orgs === 'function' ? orgs() : orgs || []).filter(o => o && o.active !== false)).map(row),
+    make:async name => {
+      const {org} = await createMyOrganization(name), list = typeof orgs === 'function' ? orgs() : orgs;
+      if (Array.isArray(list) && !list.some(o => o.id === org.id)) list.push(org);
+      mine?.add?.(org.id); onOrg(org);
+      return row(org);
+    },
+  };
 }
 
 export async function saveLinkBox(row, box, rt = window.KPTURuntime) {

@@ -162,7 +162,13 @@ async function readSummaries(){
 // 저장은 부르는 쪽(calendar-plus.js·calendar-interactions-v2.js)이 '사업영역 주요 일정' 행으로 한다(quick-save.js syncEventAreas).
 // 목록에 없는 사업영역(보관한 곳 등)에 이미 걸린 것은 보이지 않아도 그대로 둔다. Google 일정의 연결을 읽지 못했으면 사업영역 줄만 누를 수 없다.
 let soEventSel=[],soGoogleSel=[],soEventAreas=[],soGoogleAreas=[],soGoogleAreasKnown=true,soPicker=null,soPickerFlight=null;const soLines=new Map();
-function pickerModule(){soPickerFlight||=import('./area-org-picker.js').then(m=>soPicker=m);return soPickerFlight}
+let soWriteInFor=null;
+// [직접 쓰기] 부품(feed-link.js)은 고르기 창 줄을 그리는 것을 기다리게 하지 않고 따로 불러 둔다(창을 열기 전에는 거의 늘 도착한다;
+// 아직이면 그 한 번만 칸 없이 열린다). 같이 기다리면 일정 창 줄이 늦게 그려져 창 자리가 흔들린다.
+function pickerModule(){if(!soPickerFlight){soPickerFlight=import('./area-org-picker.js').then(m=>soPicker=m);import('./feed-link.js').then(f=>{soWriteInFor=f.orgWriteInFor}).catch(()=>{})}return soPickerFlight}
+// S61-52(CALL-상대표시정리 ④): '관련 담당조직' 창 맨 아래 [직접 쓰기] — 모든 조직 고르기 창과 같은 부품·만들기 경로(feed-link.js orgWriteInFor).
+// 담당을 정해 둔 사람만(이 창이 내 담당 조직만 내놓으므로, 만든 조직은 내 담당에도 더해져 다음에도 보인다).
+const soWriteIn=()=>soWriteInFor&&pickerOrganizations().length?soWriteInFor({orgs:()=>soOrganizations,onOrg:org=>{if(soUser?.id&&!soAssignments.some(x=>x.organization_id===org.id&&x.user_id===soUser.id))soAssignments.push({organization_id:org.id,user_id:soUser.id})}}):null;
 async function areaChoices(){const ctx=rt.context?.read?.(),ws=ctx?.workspace?.id||ctx?.workspaceId,owner=ctx?.user?.id;if(!ws||!owner)return [];if(!window.KPTUProjectCatalog?.load)await import('./project-catalog.js');const snap=await window.KPTUProjectCatalog.load({workspaceId:ws,userId:owner});return (snap?.tree||[]).filter(x=>x?.project?.id&&x.project.status==='active')}
 // pick: {orgs(), setOrgs(ids), areas(), setAreas(ids), areasKnown()}.
 function orgLine(boxId,pick,{withAreas=true}={}){
@@ -171,7 +177,7 @@ function orgLine(boxId,pick,{withAreas=true}={}){
  const areas=entry=>{if(!withAreas&&!entry.areaRows)return;void areaChoices().then(rows=>{if(soLines.get(boxId)!==entry||!entry.host.isConnected)return;entry.areaRows=rows;paint(entry)}).catch(err=>console.error('area choices',err))};
  const have=soLines.get(boxId);if(have&&have.host===box&&soPicker){have.pick=pick;paint(have);areas(have);return}
  void pickerModule().then(()=>{const now=document.querySelector('#'+boxId);if(!now)return;let entry=soLines.get(boxId);
-  if(!entry||entry.host!==now){entry={host:now,lines:null,areaRows:null,pick};const e=entry;entry.lines=soPicker.mountAreaOrgLines(now,{kinds:['area','org'],labels:{org:'관련 담당조직'},onChange:()=>{const keys=[...e.lines.value()],known=e.lines.known(),keep=e.pick.areas().filter(id=>!known.has('p:'+id));e.pick.setOrgs(keys.filter(k=>k.startsWith('o:')).map(k=>k.slice(2)));e.pick.setAreas([...keep,...keys.filter(k=>k.startsWith('p:')).map(k=>k.slice(2))])}});soLines.set(boxId,entry)}
+  if(!entry||entry.host!==now){entry={host:now,lines:null,areaRows:null,pick};const e=entry;entry.lines=soPicker.mountAreaOrgLines(now,{kinds:['area','org'],labels:{org:'관련 담당조직'},create:soWriteIn,onChange:()=>{const keys=[...e.lines.value()],known=e.lines.known(),keep=e.pick.areas().filter(id=>!known.has('p:'+id));e.pick.setOrgs(keys.filter(k=>k.startsWith('o:')).map(k=>k.slice(2)));e.pick.setAreas([...keep,...keys.filter(k=>k.startsWith('p:')).map(k=>k.slice(2))])}});soLines.set(boxId,entry)}
   entry.pick=pick;paint(entry);areas(entry)}).catch(err=>console.error('organization picker',err));
 }
 const eventPick={orgs:()=>soEventSel,setOrgs:ids=>{soEventSel=ids},areas:()=>soEventAreas,setAreas:ids=>{soEventAreas=ids},areasKnown:()=>true};

@@ -20,6 +20,15 @@ custom_domain = true
 pattern = "arsenal.bokdoong.com"
 custom_domain = true
 
+# DOMAIN-nojoplus 1단계: the new Web2 address (same answers as bokdoong.com) and its www (301 to nojoplus.com).
+[[routes]]
+pattern = "nojoplus.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.nojoplus.com"
+custom_domain = true
+
 # SHARE-미리보기제목: share links (/work/share/?t=<link value>) reach this Worker, and Workers Logs would store each
 # request URL. Keep invocation logs off so link values are not kept in Cloudflare's log store.
 [observability]

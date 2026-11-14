@@ -547,7 +547,7 @@ public class PcDoorTests
             Assert.DoesNotMatch(@"_log\.Write\([^)]*(path|Path|name|Name|full)", text);
         }
         var door = File.ReadAllText(Path.Combine(SourceRoot(), "src", "BasketDrop.Core", "PcDoor.cs"));
-        Assert.Contains("\"https://bokdoong.com\", \"https://work.bokdoong.com\", \"https://desk.bokdoong.com\"", door);
+        Assert.Contains("\"https://bokdoong.com\", \"https://work.bokdoong.com\", \"https://desk.bokdoong.com\", \"https://nojoplus.com\"", door);
         Assert.DoesNotContain("github.io", door);
         Assert.DoesNotContain("Access-Control-Allow-Origin: *", door);
         Assert.DoesNotContain("Allow-Credentials", door);
@@ -716,6 +716,10 @@ public class PcDoorTests
     [InlineData("https://bokdoong.com", true)]
     [InlineData("https://work.bokdoong.com", true)]
     [InlineData("https://desk.bokdoong.com", true)]
+    [InlineData("https://nojoplus.com", true)]
+    [InlineData("https://www.nojoplus.com", false)]
+    [InlineData("http://nojoplus.com", false)]
+    [InlineData("https://nojoplus.com.evil.example", false)]
     [InlineData("https://bokdoong.com.evil.example", false)]
     [InlineData("http://bokdoong.com", false)]
     [InlineData("https://bokdoong.com/work", false)]
