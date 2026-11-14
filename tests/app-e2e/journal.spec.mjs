@@ -600,6 +600,8 @@ test('재료 일부를 못 읽어도 한 줄은 쓰고, 못 읽은 묶음만 안
 
 // MULTI-처음쓰는사람 ①(docs/design/new-user-start.md 2-2): 구글 연결이 없는 새 계정은 빨간 고장 글 대신 "연결하면 여기 보여요" 한 줄 +
 // 버튼 하나. 버튼은 일정·할 일 화면과 같은 Edge의 action=start 주소로 간다. 진짜 고장(서버 오류)은 지금 글·[다시] 그대로(위 시험).
+// HOME-연결안내한줄아래(S62-03c): 연결 안내는 폭과 상관없이 '안내 한 줄 → 그 아래 줄 왼쪽에 버튼'.
+const linkShape=note=>note.evaluate(p=>{const b=p.querySelector('button').getBoundingClientRect(),r=p.getBoundingClientRect(),t=document.createRange();t.selectNodeContents(p.firstChild);const tr=t.getBoundingClientRect();return{below:b.top>=tr.bottom-1,left:Math.abs(b.left-r.left)<=1}});
 test('구글 연결이 없는 새 계정: 그날 일정·할 일 칸은 연결 안내 한 줄 + 연결 버튼(고장 글 없음)',async({page})=>{
  const f=await fixture(page,{unlinked:{events:true,tasks:'none'}});await openJournal(page,390);
  const ev=schedule(page).locator('[data-journal-link="events"]'),tk=page.locator('#journalRoot [data-journal-tasks] [data-journal-link="tasks"]');
@@ -607,6 +609,7 @@ test('구글 연결이 없는 새 계정: 그날 일정·할 일 칸은 연결 �
  await expect(tk).toHaveText('구글 할 일을 연결하면 할 일이 여기 보여요. 구글 할 일 연결');
  await expect(page.locator('#journalRoot [data-journal-failed]')).toHaveCount(0);
  await expect(page.locator('#journalRoot [data-journal-retry]')).toHaveCount(0);
+ expect(await linkShape(ev)).toEqual({below:true,left:true});expect(await linkShape(tk)).toEqual({below:true,left:true});
  await expect(page.locator('#journalRoot [role="alert"]')).toHaveCount(0);
  // 한 줄은 그대로 쓴다.
  await expect(page.locator('#journalRoot [data-journal-input]')).toBeEnabled();
@@ -627,6 +630,7 @@ test('구글 할 일 권한만 빠진 계정: 할 일 칸은 [다시 연결] 안
 test('구글 캘린더 연결 버튼은 일정 화면과 같은 연결 주소로 간다',async({page})=>{
  const f=await fixture(page,{width:1280,unlinked:{events:true}});await openJournal(page,1280);
  await expect(schedule(page).locator('[data-journal-link="events"]')).toBeVisible();
+ expect(await linkShape(schedule(page).locator('[data-journal-link="events"]'))).toEqual({below:true,left:true});
  // 할 일은 연결돼 있으므로 평소대로.
  await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-link]')).toHaveCount(0);
  await schedule(page).getByRole('button',{name:'구글 캘린더 연결'}).click();
