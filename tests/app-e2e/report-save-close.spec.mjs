@@ -10,6 +10,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const NEW_ID='11111111-1111-4111-8111-111111111111';
@@ -70,7 +71,7 @@ async function boot(page,width,height=900){
 }
 // 새 사업 보고 창을 열어 글을 채우고 사진 n장 + 자료를 고른다.
 async function fillReport(page,{photos=7,papers=['자료.hwp']}={}){
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   const select=page.locator('#meetingNameSelect');if(await select.isVisible())await select.selectOption('__other__');
   await page.locator('#meetingTitle').fill('가짜 회의');

@@ -200,7 +200,7 @@ test('task detail stays inside a 390px mobile viewport',async({page})=>{
 for(const c of [
   {name:'event',view:'calendar',trigger:'#newEventBtn',modal:'#eventModal',initial:'#eventTitle'},
   {name:'document',view:'library',trigger:'#newDocumentBtn',modal:'#documentModal',initial:'#docTitle'},
-  {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle'}
+  {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle',pick:'#reportKindSheet [data-sheet-value="meeting"]'} // MTG-더하기늘고르기: [+]는 늘 종류 고르기 창부터
 ]){
   test(`${c.name} dialog focuses its first field and restores its trigger`,async({page})=>{
     await boot(page,{width:1024,height:768});
@@ -208,6 +208,7 @@ for(const c of [
     const trigger=page.locator(c.trigger);
     await trigger.focus();
     await trigger.click();
+    if(c.pick)await page.locator(c.pick).click();
     await expect(page.locator(c.modal)).toBeVisible();
     await expect(page.locator(c.initial)).toBeFocused();
     await page.keyboard.press('Escape');

@@ -6,6 +6,7 @@ import { calendarToday } from './helpers/calendar-today.mjs';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { closeProjectDetail, expectProjectDetail } from './helpers/project-detail.mjs';
+import {addReport} from './helpers/report-add.mjs';
 watchRetiredCollaboration(test);
 test.use({ timezoneId: 'Asia/Seoul' });
 
@@ -234,7 +235,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await clickView(page,'meetings');
   await expect(page.locator('#meetingsView')).toBeVisible();
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await page.locator('#meetingTitle').fill('E2E 회의');
   await fillDateTime(page,'#meetingAt',`${today}T11:00`);
   await page.locator('#meetingTranscript').fill('E2E 회의 결과 원문');

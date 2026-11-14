@@ -8,6 +8,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {openMeetingResult,mrdMenu,closeMeetingResult,showReportsOf} from './helpers/meeting-open.mjs';
 import {expandLibraryTree,focusLibraryProject,libraryNodeHead} from './helpers/library-tree.mjs';
 import {reportFilterSelect,reportFilterPicked,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
+import {addReport} from './helpers/report-add.mjs';
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 // UI-PC회의: PC(≥1024) 회의는 유형별 열이고 위쪽 칩은 "보일 열 고르기"(meeting-columns.spec.mjs). 회의명 필터는 폰(≤760, UI-폴드PC틀)에서 본다.
 // FOLD-넓은화면 2차(S59-19): 760(펼친 폴드, 폰 틀)은 '날짜·이름 목록 | 결과' 두 칸이라 목록 줄은 [data-meeting-round], 접은 폰(390)은 한 줄 목록(.meeting-list-row). 회의명 거르기는 둘 다 같다.
@@ -68,7 +69,7 @@ for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezon
   if(await page.locator('#meetingList [data-meeting-round="meeting-0"]').count())await expect(page.locator('#meetingList [data-meeting-round="meeting-0"]')).toContainText('10.11');else await expect(page.locator('#meetingList [data-mrd-meeting="meeting-0"] p')).toContainText('10:00');
   await openMeetingResult(page,'meeting-0');await expect(page.locator('#mrdMeta')).toContainText('10:00');await mrdMenu(page,'edit');await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T10:00');
   await fillDateTime(page,'#mrdEditAt','2026-10-11T00:30');await page.locator('#mrdSaveEdit').click();await expect.poll(()=>s.meetingWrites[0]?.meeting_at).toBe('2026-10-10T15:30:00.000Z');await expect(page.locator('#mrdSaveEdit')).toBeHidden();/* STAB-E2E간헐1104: 요청이 나간 것만이 아니라 고치는 화면이 닫힌 뒤에 ⋯를 연다 */await mrdMenu(page,'edit');await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T00:30');await closeMeetingResult(page);
-  await page.locator('#newMeetingBtn').click();await page.locator('#meetingNameSelect').selectOption('궤도협의회');await fillDateTime(page,'#meetingAt','2026-10-11T10:00');await page.locator('#meetingTranscript').fill('새 원문');await page.locator('#saveMeetingBtn').click();await expect.poll(()=>s.meetingWrites.at(-1)?.meeting_at).toBe('2026-10-11T01:00:00.000Z');
+  await addReport(page);await page.locator('#meetingNameSelect').selectOption('궤도협의회');await fillDateTime(page,'#meetingAt','2026-10-11T10:00');await page.locator('#meetingTranscript').fill('새 원문');await page.locator('#saveMeetingBtn').click();await expect.poll(()=>s.meetingWrites.at(-1)?.meeting_at).toBe('2026-10-11T01:00:00.000Z');
 })});
 
 test('프로젝트 자료 전체 보기는 하위 알약과 같은 필터 결과로 이동',async({page})=>{

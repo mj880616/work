@@ -5,6 +5,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {reportFilterKeys,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'placement-user',email:'placement@example.invalid',user_metadata:{display_name:'Placement QA'}};
@@ -123,7 +124,7 @@ for(const width of [390,1440]){
       await showReportsOf(page); // BIZ-주간표이번주: 지난 주 보고는 [전체 기간]으로
       if(width>=761){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
       else{expect(await reportFilterKeys(page)).toContain('name')}
-      await page.locator('#newMeetingBtn').click();
+      await addReport(page);
       await expect(page.locator('#meetingModal')).toBeVisible();
     });
     test('calendar card has the right label, 44px target and same form',async({page})=>{

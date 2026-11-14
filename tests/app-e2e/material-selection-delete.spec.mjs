@@ -7,6 +7,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
 import {openMeetingResult,closeMeetingResult,showReportsOf} from './helpers/meeting-open.mjs';
 import {noticeText,answerAsk} from './helpers/small-notice.mjs';
+import {addReport} from './helpers/report-add.mjs';
 // 회의 목록의 회의자료 표시: 폰은 줄의 "회의자료 있음", PC 3단(MEET-결과3단)은 가운데 줄에 표시가 없고 오른쪽 결과의 회의자료 줄 수로 본다.
 async function expectMeetingDocs(page,width,count){
   await showReportsOf(page); // BIZ-주간표이번주: 가짜 보고가 지난 주뿐이면 [전체 기간]으로
@@ -183,7 +184,7 @@ for(const width of [390,1280]){
   // BIZ-저장먼저닫기(S58-1): [저장]은 글 저장이 끝나면 창을 먼저 닫고 고른 파일은 뒤에서 올린다 — 올리는 동안 창·[+ 사업 보고]를 잠그지 않는다.
   test(`new meeting cancellation sends only retained files and closes on save, uploading behind ${width}px`,async({page})=>{
     const state=await boot(page,width);
-    await page.locator('#newMeetingBtn').click();
+    await addReport(page);
     await page.locator('#meetingNameSelect').selectOption('__other__');
     await page.locator('#meetingTitle').fill('새 회의');
     await fillDateTime(page,'#meetingAt','2026-10-10T10:00');
@@ -310,7 +311,7 @@ async function openUploadScreen(page,screen){
     return {input:'#libraryFileInput',save:'#saveDocumentBtn',rows:'[data-lu-upload-file]',status:'#documentStatus'};
   }
   if(screen==='new meeting'){
-    await page.locator('#newMeetingBtn').click();
+    await addReport(page);
     await page.locator('#meetingNameSelect').selectOption('__other__');
     await page.locator('#meetingTitle').fill('사본 업로드 회의');
     await fillDateTime(page,'#meetingAt','2026-10-10T10:00');

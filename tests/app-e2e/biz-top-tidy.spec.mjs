@@ -157,14 +157,16 @@ test('390: 달력·사진 보기에서는 기간 줄만 빠지고, 보기를 바
   await expect(page.locator('#reportPeriodPick select')).toBeVisible();
 });
 
-test('390: 추가 +를 누르면 사업 보고 등록 창이 열리고, 작은 아이콘(글자 없음)이다', async ({page}) => {
+test('390: 추가 +를 누르면 종류를 고른 뒤 사업 보고 등록 창이 열리고, 작은 아이콘(글자 없음)이다', async ({page}) => {
   const state = makeState();
   await open(page, state, 390);
   const add = page.locator('#newMeetingBtn');
   const box = await add.boundingBox();
   expect(box.width).toBeLessThanOrEqual(34); expect(box.height).toBeLessThanOrEqual(34);
   await expect(add).toHaveAttribute('aria-label', '사업 보고 등록');
+  // MTG-더하기늘고르기: [+]는 늘 종류 고르기 창부터.
   await add.click();
+  await page.locator('#reportKindSheet [data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
 });
 

@@ -173,7 +173,7 @@ test('끌어 옮기기 연결: 달력 그릴 때 한 번 설치, 우클릭은 �
   assert.doesNotMatch(menu, /KPTUMeetingRoundDetail\?\.open/); assert.doesNotMatch(menu, /openReportMenuAt/);
   assert.match(menu, /reportView==='calendar'\?t\.closest\('\[data-rv-cell\]'\)/); assert.match(menu, /appMenuPoint\(e,cell\)/);
   assert.match(menu, /newReport\(from\.querySelector\('\.rv-num'\)\|\|from,day\)/);
-  assert.match(team, /function newReport\(trigger,date=''\)/); assert.match(team, /openMeetingModal\(\{name:newMeetingName\(\),kind:reportChip,date\}\)/); assert.match(team, /openMeetingModal\(\{kind,trigger,date\}\)/);
+  assert.match(team, /function newReport\(trigger,date=''\)/); assert.match(team, /openMeetingModal\(\{name:kind===chip\?newMeetingName\(\):'',kind,trigger,date\}\)/);
   // 저장: 보고 수정 창과 같은 app_meetings PATCH(내 작업공간·지금 일시 그대로인 줄만), 회차 번호·Google 일정·사진 칸은 보내지 않는다.
   assert.match(act, /app_meetings\?id=eq\.[^`]*workspace_id=eq\.[^`]*meeting_at=eq\./);
   assert.match(act, /body: \{meeting_at: iso\(toAt\), updated_at: new Date\(\)\.toISOString\(\)\}/);

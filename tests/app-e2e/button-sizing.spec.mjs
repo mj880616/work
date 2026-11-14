@@ -48,6 +48,7 @@ async function signIn(page){
 
 import {execFileSync} from 'node:child_process';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {addReport} from './helpers/report-add.mjs';
 async function boot(page,tasks=[],calendarEvents=[]){
  await mockApp(page,{tasks,calendarEvents,spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
  await page.goto(`${appOrigin}/app/`);await signIn(page);
@@ -179,7 +180,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
  await closeProjectDetail(page);
  await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',32);/* ORG-PC상세정리 → UI-전수디자인점검 F08: 담당조직 상세 [저장]은 PC 칸·폰 창 모두 작은 버튼 32px */
  await closeOrganizationDetail(page);
- await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
+ await view(page,'meetings');await addReport(page);await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
 });
 
 for(const width of [390,1440])test('D-button undo painted size and real 44px target '+width,async({page})=>{

@@ -232,6 +232,8 @@ test('day window [add report on this day] opens the new report window with that 
   await openWindow(page, cal, state);
   await page.locator('#calendarDayList .rv-pop-add').click();
   await expect(win(page)).toBeHidden();
+  // MTG-더하기늘고르기: 새 보고는 늘 종류 고르기 창부터.
+  await page.locator('#reportKindSheet [data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#meetingAt')).toHaveValue(`${state.key(SIX)}T10:00`);
   await page.locator('#meetingModal [data-close="meetingModal"]').first().click();

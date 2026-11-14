@@ -6,6 +6,7 @@
 import {test, expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId: 'Asia/Seoul'});
 const BASE = process.env.APP_E2E_ORIGIN || 'http://127.0.0.1:8123';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -46,7 +47,7 @@ async function mock(page, state) {
 async function openModal(page) {
   await expect(page.locator('#meetingsView')).toBeVisible({timeout: 15000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 15000});
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#meetingNameSelect')).toHaveAttribute('data-name-panel', '1');
   // PC는 입력 창이 가장 최근 회의명을 미리 고른 채 열린다 — 빈 이름에서 시작한다.

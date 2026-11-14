@@ -270,6 +270,8 @@ test('report calendar (PC): right click on an empty day gives [add report here]/
   // [이날 사업 보고 추가]: 새 보고 창에 그 날짜(시각은 기본값 10:00).
   await cell.click({button: 'right', position: await emptySpot(cell)});
   await menu.getByRole('button', {name: '이날 사업 보고 추가'}).click();
+  // MTG-더하기늘고르기: 새 보고는 늘 종류 고르기 창부터.
+  await page.locator('#reportKindSheet [data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#meetingAt')).toHaveValue(`${key}T10:00`);
   await page.locator('#meetingModal [data-close="meetingModal"]').first().click();

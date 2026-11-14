@@ -9,6 +9,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 test.setTimeout(120000);
 const BASE=process.env.APP_E2E_ORIGIN||testOrigin;
@@ -66,7 +67,7 @@ async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,fail
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   // MTG-프로젝트합치기 3단계: [목록]은 한 주씩이다. 기존·새로 만든 회의가 여러 주(2025.8~12)에 걸쳐 있어, 창을 열기 전에 [전체]로 모든 주를 본다.
   await showAllReportWeeks(page);
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   await page.locator('[data-meeting-mode="files"]').click();
   await expect(page.locator('#mffPanel')).toBeVisible();
@@ -92,7 +93,7 @@ test('the meeting [+] window switches between writing by hand and files·text; t
   await page.locator('#mffText').fill('제9차 중앙집행위원회 결과 2025.12.10\n- 승인');
   await expect(rows(page)).toHaveCount(1);
   await page.locator('#meetingModal [data-close="meetingModal"]').click();
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('[data-meeting-mode="manual"]')).toHaveAttribute('aria-pressed','true');
   await page.locator('[data-meeting-mode="files"]').click();
   await expect(page.locator('#mffText')).toHaveValue('');

@@ -4,6 +4,7 @@ import {enterLogin} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 // ORG-사본자동갱신: 사본에 들어가는 것을 저장하면 3분 묶어 drive-summary를 한 번만 부른다. 화면 표시는 없다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const WAIT=3*60*1000;
@@ -113,7 +114,7 @@ for(const [name,width] of [['PC',1280],['phone',390]])test(`app meeting save ref
   await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#meetingsView')).toBeVisible({timeout:15000});
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');
   await page.locator('#meetingTitle').fill('Mock meeting');
   await fillDateTime(page,'#meetingAt','2026-10-21T12:30');

@@ -7,6 +7,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {mrdMenu,openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {reportFilterKeys,reportFilterLabels,pickReportKind,pickedReportKind} from './helpers/report-filter.mjs';
+import {addReport} from './helpers/report-add.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const CHIPS=['전체','회의','정책','교섭','언론','국회','투쟁','교육','기타'];
@@ -41,8 +42,12 @@ test('폰 390: 종류는 맨 위 [종류 ▾] 선택 상자 하나(칩 줄 없�
   await expect(chips(page)).toHaveCount(0);
   const kind=page.locator('#reportKindSelect');await expect(kind).toBeVisible();
   await expect(kind.locator(':scope > option')).toHaveText(['종류 전체',...CHIPS.slice(1)]);
-  // 처음은 [회의]: 지금 기록은 모두 회의라 첫 화면이 그대로다. 칸이 없는 옛 행도 회의다.
-  await expect(kind).toHaveValue('kind:meeting');
+  // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체] — 모든 칸이 보이고 회의명 묶음은 없다.
+  await expect(kind).toHaveValue('kind:all');
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(6);
+  expect(await reportFilterKeys(page)).not.toContain('name');
+  // [회의]를 고르면 지금의 회의 화면 그대로. 칸이 없는 옛 행도 회의다.
+  await pickReportKind(page,'회의');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(3);
   // 회의명은 [종류 ▾] 안 '회의명' 묶음.
   expect(await reportFilterLabels(page,'name')).toEqual(['전체','합성 운영 회의','합성 정기 회의','회의명 미지정']);
@@ -62,7 +67,7 @@ test('폰 390: 종류는 맨 위 [종류 ▾] 선택 상자 하나(칩 줄 없�
   expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 → 칸 채워진 창, 저장 본문에 activity_kind / 칩에서 [+]는 칸 자동`,async({page})=>{
+for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 → 칸 채워진 창, 저장 본문에 activity_kind / 칩에서 [+]도 고르기 창(그 칸 표시)`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,width);
   await pickReportKind(page,'전체');
@@ -101,13 +106,15 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('assembly');
   expect(s.meetingWrites.at(-1)).toMatchObject({series_name:'합성 의원실 면담',transcript_text:'합성 면담 결과'});
   await expect(page.locator('#meetingModal')).toBeHidden();
-  // 칩에서 [+]: 칸 고르기 없이 그 칸이 채워진 창.
+  // MTG-더하기늘고르기(11/14 명진): 칩을 고른 채여도 [+]는 늘 고르기 창, 고른 칩의 줄이 표시된다.
   await pickReportKind(page,'교육');await page.locator('#newMeetingBtn').click();
+  await expect(sheet).toBeVisible();await expect(sheet.locator('[data-sheet-value="education"]')).toHaveAttribute('aria-pressed','true');
+  await sheet.locator('[data-sheet-value="education"]').click();
   await expect(sheet).toBeHidden();await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#meetingKindPick').getByRole('radio',{name:'교육',exact:true})).toHaveAttribute('aria-checked','true');
   await page.locator('[data-close="meetingModal"]').click();
-  // [회의] 칩의 [+]: 회의 칸, 차수 칸 보임(지금과 같음).
-  await pickReportKind(page,'회의');await page.locator('#newMeetingBtn').click();
+  // [회의] 칩의 [+] → [회의]: 회의 칸, 차수 칸 보임(지금과 같음).
+  await pickReportKind(page,'회의');await addReport(page,'meeting');
   await expect(page.locator('#meetingKindPick').getByRole('radio',{name:'회의',exact:true})).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#meetingRoundNo')).toBeVisible();
   await expect(page.locator('#meetingTitleLabel')).toHaveText('회의명');await expect(page.locator('[data-rw="meetingResultLegend"]')).toHaveText('회의 결과');await expect(page.locator('#meetingTextLabel')).toHaveText('회의 결과 원문');
@@ -122,7 +129,9 @@ test('PC 1280: 종류는 [종류 ▾] 상자 하나(칩 줄 없음) / [회의] 3
   const kind=page.locator('#reportKindSelect');await expect(kind).toBeVisible();
   await expect(kind.locator(':scope > option')).toHaveText(['종류 전체',...CHIPS.slice(1)]);
   expect(await noSideScroll(page)).toBe(true);
-  // [회의]: 지금 3단 그대로(회의 칸 행만).
+  // MTG-기본종류전체: 처음은 [종류 전체] 2단. [회의]를 고르면 지금 3단 그대로(회의 칸 행만).
+  await expect(kind).toHaveValue('kind:all');await expect(page.locator('#meetingList .mcol-kinds')).toHaveCount(0);await expect(page.locator('#meetingList .mcol-two')).toBeVisible();
+  await pickReportKind(page,'회의');
   await expect(page.locator('#meetingList .mcol-kinds')).toBeVisible();
   await expect(page.locator('#meetingList .mcol-kinds .mcol-name')).toHaveText(['합성 운영 회의','합성 정기 회의']);
   expect(await reportFilterKeys(page)).not.toContain('name');
@@ -154,6 +163,7 @@ test('PC 1280: 종류는 [종류 ▾] 상자 하나(칩 줄 없음) / [회의] 3
 
 test('PC 1280: 결과 ⋯ → [종류 바꾸기] PATCH activity_kind, 바꾼 건은 그 칸 칩에서 계속 보인다',async({page})=>{
   const s=kindState();await open(page,s,1280);
+  await pickReportKind(page,'회의');
   await page.locator('#meetingList [data-meeting-kind="합성운영회의"]').click();
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m-2');
   await mrdMenu(page,'kind');
@@ -189,8 +199,7 @@ test('폰 390: 결과 창에 칸 표시·[종류 바꾸기] PATCH, 뒤로가기�
 test('입력 창: 원문 없이도 저장된다 / 안내는 [선택]',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,1280);
-  await pickReportKind(page,'교육');await page.locator('#newMeetingBtn').click();
-  await expect(page.locator('#meetingModal')).toBeVisible();
+  await pickReportKind(page,'교육');await addReport(page,'education');
   await expect(page.locator('#meetingTextLabel').locator('xpath=..')).toContainText('안 써도 됨');
   await page.locator('#meetingTitle').fill('합성 교육 행사');await fillDateTime(page,'#meetingAt','2026-10-22T10:00');
   await page.locator('#saveMeetingBtn').click();

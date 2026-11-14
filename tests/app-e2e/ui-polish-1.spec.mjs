@@ -7,6 +7,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
+import {addReport} from './helpers/report-add.mjs';
 // UI-디자인손질(8-9e 후속): 메뉴 판(폰)·메뉴 [쓰기]·메모 [⋯]·상자 안쪽 여백·일정 하루 보기 할 일·담당조직 머리줄·
 // [AI 분류 요청]·앱 아이콘. Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
 test.use({locale:'ko-KR'});
@@ -260,7 +261,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
 for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 결과 창, 담당조직 머리줄, 일정 하루 보기 할 일 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  // 1 회의 결과 창: 묶음 상자 안 입력칸이 테두리에서 12px 이상 떨어지고, "차수"에 "선택" 이름표가 없다.
- await view(page,'meetings');await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
+ await view(page,'meetings');await addReport(page);await expect(page.locator('#meetingModal')).toBeVisible();
  for(const box of await page.locator('#meetingModal fieldset.meeting-entry-section').all()){
   const gap=await box.evaluate(el=>{const r=el.getBoundingClientRect();return Math.min(...[...el.querySelectorAll('input:not([type=file]),select,textarea,legend')].filter(c=>c.getClientRects().length).map(c=>{const b=c.getBoundingClientRect();return Math.min(b.left-r.left,r.right-b.right);}));});
   expect(gap).toBeGreaterThanOrEqual(12);

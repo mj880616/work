@@ -10,6 +10,7 @@ import {toplineItem} from './helpers/screen-title.mjs';
 import {showAllReportWeeks,reportWeekButton,reportPeriodSelect} from './helpers/report-week.mjs';
 import {reportFilterKeys,pickReportFilter} from './helpers/report-filter.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 
 // 궤도협의회 6건, 노사협의회 2건(가장 최근), 안전위원회 1건(가장 오래됨), 회의명 미지정 1건. 모두 가짜 회의 이름.
@@ -216,13 +217,13 @@ test('PC 1440: 사업 보고 결과 칸(mrd-docked)은 따로 스크롤 없이 �
 test('PC ④: [+ 회의 결과]는 화면에 하나, 왼쪽에서 선택한 종류를 미리 선택한 기존 만들기 창(회의명 미지정은 비운 채)',async({page})=>{
   const s=columnState();await open(page,s,1440);
   await expect(page.locator('#meetingsView button:visible').filter({hasText:'사업 보고'})).toHaveCount(1);
-  await kind(page,'궤도협의회').click();await page.locator('#newMeetingBtn').click();
+  await kind(page,'궤도협의회').click();await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#meetingNameSelect')).toHaveValue('궤도협의회');await expect(page.locator('#meetingTitle')).toHaveValue('궤도협의회');
   // 기존 창의 차수 제안(최대 차수 + 1)도 그대로.
   await expect(page.locator('#meetingRoundNo')).toHaveValue('7');
   await page.locator('[data-close="meetingModal"]').click();await expect(page.locator('#meetingModal')).toBeHidden();
-  await kind(page,'__none__').click();await page.locator('#newMeetingBtn').click();
+  await kind(page,'__none__').click();await addReport(page);
   await expect(page.locator('#meetingNameSelect')).toHaveValue('__other__');await expect(page.locator('#meetingTitle')).toHaveValue('');
   await page.locator('[data-close="meetingModal"]').click();
 });
@@ -289,14 +290,14 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
 
 test('③ 새 회의 결과에서 짧은 이름: 종류 이름은 그대로, 제목만 짧은 이름',async({page})=>{
   const s=columnState();await open(page,s,1280);
-  await kind(page,'궤도협의회').click();await page.locator('#newMeetingBtn').click();
+  await kind(page,'궤도협의회').click();await addReport(page);
   await page.locator('#meetingRoundNo').fill('');await page.locator('#meetingShortName').fill('파생 간담회');
   await fillDateTime(page,'#meetingAt','2026-10-19T14:00');await page.locator('#meetingTranscript').fill('가상 원문');await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.series_name).toBe('궤도협의회');
   expect(s.meetingWrites.at(-1).title).toBe('파생 간담회');expect(s.meetingWrites.at(-1).round_no).toBeNull();
   await expect(round(page,'new-meeting').locator('.mcol-round')).toHaveText('파생 간담회');
   // 다시 열면 짧은 이름 칸은 비어 있다.
-  await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingShortName')).toHaveValue('');
+  await addReport(page);await expect(page.locator('#meetingShortName')).toHaveValue('');
 });
 
 test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없음), 시각·짧은 이름 규칙은 같다',async({page})=>{
@@ -315,7 +316,7 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   await expect(page.locator('[data-mrd-meeting="rail-derived"] p')).toHaveText('파생 간담회 · 10. 19. 14:00');
   await expect(page.locator('[data-mrd-meeting="blank-1"] p')).toHaveText('8. 20. 10:00');
   // 폰의 [+ 회의 결과]는 지금처럼 회의명 없이 연다.
-  await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingNameSelect')).toHaveValue('__other__');await expect(page.locator('#meetingTitle')).toHaveValue('');
+  await addReport(page);await expect(page.locator('#meetingNameSelect')).toHaveValue('__other__');await expect(page.locator('#meetingTitle')).toHaveValue('');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 });
 
