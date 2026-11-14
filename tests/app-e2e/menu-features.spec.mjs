@@ -22,11 +22,12 @@ for(const width of [1280,760,412]){
   test(`새 계정 (${width}px): 운영자 메뉴·원장은 메뉴 목록에 없고, 메뉴 편집에도 없다`,async({page})=>{
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    await openHome(page,{features:[]});await settle(page);
+    // MULTI-하단바기본노트: 새 계정은 저장된 메뉴 순서가 없다(menuLayout: null) — 하단바 홈·노트·일정·조직 보고·사업 보고, 잊지 말기는 [메뉴] 창 맨 앞.
+    await openHome(page,{features:[],menuLayout:null});await settle(page);
     await expect.poll(async()=>{const p=await placed(page);return [...p.sheet,...p.pc].filter(v=>OP.includes(v)||v==='ledger')}).toEqual([]);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['note','library','brief','hwp','pages','photos']);
-    expect(p.bar).toEqual(['home','basket','calendar','meetings','team']);
+    expect(p.sheet).toEqual(['basket','library','brief','hwp','pages','photos']);
+    expect(p.bar).toEqual(['home','note','calendar','team','meetings']);
     expect(page.locator('#mobileMenu [data-menu-tail-line]')).toHaveCount(0);
     // 메뉴 편집 창: 뺀 메뉴는 칸에도 미리보기에도 없다.
     await accountButton(page).click();
@@ -47,7 +48,8 @@ for(const width of [1280,760,412]){
     await openHome(page,{features:OPERATOR_MENU_FEATURES});await settle(page);
     const p=await placed(page);
     expect(p.sheet).toEqual(['note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal']);
-    expect(p.pc).toEqual(['home','basket','calendar','note','meetings','library','files','brief','pages','team','hwp','photos','outside','calls','telegram','arsenal']);
+    // 운영자는 메뉴 순서를 저장해 둔 사람(OPERATOR_MENU_LAYOUT)이라 PC 왼쪽 메뉴도 그 저장 순서(하단바 칸 → 위 메뉴 → 아래 칸)다.
+    expect(p.pc).toEqual(['home','basket','calendar','meetings','team','note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal']);
     expect(p.bar).toEqual(['home','basket','calendar','meetings','team']);
     await page.screenshot({path:`docs/design/screens/s61-41/menu-operator-${width}.png`});
     expect(errors).toEqual([]);
