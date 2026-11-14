@@ -178,7 +178,11 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-tab-n{margin-left:4px;color:var(--kptu-muted);font-weight:400}
 .wd-tab-n:empty{display:none}
 .wd-tabpanel>.wd-sub:first-child{margin-top:0;padding-top:0;border-top:0}
-.okp{display:grid;gap:6px;font-size:var(--ds-text-row,14px)}
+/* ORG-주요인물여백(S61-53): 한 칸짜리 grid는 칸 폭을 가장 긴 줄(줄바꿈 없는 지난 기록 글)만큼 넓혀 창 오른쪽 밖으로 밀었다(창 카드가 옆으로
+   밀려 왼쪽 여백까지 사라짐). 칸 폭은 창 폭(minmax(0,1fr)) — '요즘'은 줄바꿈, 지난 기록 글은 끝을 …로. 칸 사이 간격은 8px 하나(--kptu-space-2). */
+.okp{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--kptu-space-2);font-size:var(--ds-text-row,14px)}
+.okp>*{min-width:0}
+.okp-fail{padding:2px 2px 4px;color:var(--kptu-danger);font-size:var(--ds-text-meta)}
 .okp-faint{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 .okp-chips{display:flex;flex-wrap:wrap;gap:4px}
 /* 주요 인물 0명: 공용 빈 글(.wait-empty, 흐린 작은 글) + [+ 인물] 글자 단추 한 줄. 칩 줄은 사람이 있을 때만. */
@@ -200,9 +204,9 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 details.okp-brief{display:block}
 details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:pointer}
 .okp-brief-k{flex:0 0 auto;color:var(--kptu-muted);font-weight:600}
-.okp-brief-t{min-width:0}
+.okp-brief-t{min-width:0;overflow-wrap:anywhere}
 .okp-brief-d{margin:4px 0 0;color:var(--kptu-muted);white-space:pre-line}
-.okp-h{display:flex;gap:6px;align-items:baseline;margin:6px 0 0;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-weight:600}
+.okp-h{display:flex;gap:6px;align-items:baseline;margin:var(--kptu-space-1) 0 0;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-weight:600}
 .okp-h small{font-weight:400}
 .okp-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--kptu-border)}
 .okp-list li{border-bottom:1px solid var(--kptu-border)}

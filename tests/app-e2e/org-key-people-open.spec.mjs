@@ -89,3 +89,24 @@ for(const width of [412,720,1280]){
     expect(errors).toEqual([]);
   });
 }
+
+// ORG-주요인물여백: 주요 인물 칸이 창 폭 안(가로 넘침 0), '요즘'은 줄바꿈, 지난 기록 글은 끝을 …로. 네 탭 모두 같은 왼쪽.
+for(const width of [412,720,1280])test(`${width}: 주요 인물 칸 — 가로 넘침 없음, '요즘' 줄바꿈, 지난 기록 …, 칩↔'요즘' 8px`,async({page})=>{
+  const {errors}=await fixture(page,width);
+  await openOrg(page);
+  const m=page.locator('#wdModal');
+  const wide=()=>m.evaluate(m=>{const c=m.querySelector('.modal-card');return {card:c.scrollWidth-c.clientWidth,people:m.querySelector('#wdPeople').scrollWidth-m.querySelector('#wdPeople').clientWidth,page:document.documentElement.scrollWidth-innerWidth}});
+  expect(await wide()).toEqual({card:0,people:0,page:0});
+  const got=await m.evaluate(m=>{
+    const host=m.querySelector('#wdPeople'),hr=host.getBoundingClientRect(),t=m.querySelector('.okp-brief-t'),tr=t.getBoundingClientRect(),lh=parseFloat(getComputedStyle(t).lineHeight)||16;
+    const chips=m.querySelector('.okp-chips').getBoundingClientRect(),brief=m.querySelector('.okp-brief').getBoundingClientRect();
+    const texts=[...m.querySelectorAll('.okp-row .okp-text')];
+    return {inside:[...host.querySelectorAll('.okp-row,.okp-brief,.okp-chips')].every(e=>{const r=e.getBoundingClientRect();return r.left>=hr.left-0.5&&r.right<=hr.right+0.5}),
+      lines:Math.round(tr.height/lh),gap:Math.round(brief.top-chips.bottom),cut:texts.some(e=>e.scrollWidth>e.clientWidth&&getComputedStyle(e).textOverflow==='ellipsis')};
+  });
+  expect(got.inside,'칩·요즘·지난 기록 줄이 칸 안').toBe(true);
+  expect(got.gap,'칩 줄 ↔ 요즘').toBe(8);
+  if(width<761){expect(got.lines,"'요즘' 줄바꿈").toBeGreaterThan(1);expect(got.cut,'긴 지난 기록 글은 …').toBe(true)}
+  for(const key of ['basic','aff','recent']){await m.locator(`[data-wd-tab="${key}"]`).click();expect(await wide(),key).toEqual({card:0,people:0,page:0})}
+  expect(errors).toEqual([]);
+});
