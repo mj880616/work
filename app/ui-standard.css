@@ -1321,8 +1321,13 @@ html .doc-kind-pick > select.cc-kind-select.is-on{ color:var(--kptu-ink); font-w
 .tp[hidden],.tp-pick[hidden],.tp [hidden]{display:none}
 .tp-line{display:flex;align-items:center;gap:6px;min-height:28px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .tp-pick{margin:2px 0 4px}
-.tp-strip{display:flex;gap:4px;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0;scrollbar-width:thin}
-.tp-item{position:relative;display:block;flex:none;width:56px;height:56px;margin:0;padding:0;overflow:hidden;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);cursor:pointer}
+/* MTG-그시각사진크기(S62-03a, 시안 #2594 가): 한 줄 가로 넘김 → 여러 줄 격자. 폰 한 줄 4장(약 90px), 폭 560px 넘으면(폴드 펼침·PC) 8장.
+   두 줄 반을 넘으면 이 칸 안에서만 위아래로 밀린다. 칸 너비 기준은 .tp(부품 바깥 칸)의 폭(cqi). */
+.tp{container-type:inline-size}
+.tp-strip{--tp-cols:4;--tp-gap:4px;display:grid;grid-template-columns:repeat(var(--tp-cols),minmax(0,1fr));gap:var(--tp-gap);max-height:calc((100cqi - (var(--tp-cols) - 1) * var(--tp-gap)) / var(--tp-cols) * 2.5 + 2 * var(--tp-gap) + 4px);overflow-y:auto;overscroll-behavior-y:contain;padding:2px 0;scrollbar-width:thin}
+@container (min-width:560px){.tp-strip{--tp-cols:8}}
+.tp-strip>:not(.tp-item){grid-column:1/-1}
+.tp-item{position:relative;display:block;width:100%;height:auto;aspect-ratio:1;margin:0;padding:0;overflow:hidden;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);cursor:pointer}
 .tp-item .diary-photo{position:absolute;inset:0;display:block}
 /* CAL-일정첨부 6번(S59-23): 사업 보고 쓰기 창 '일정에 붙인 사진' 줄도 같은 칸(.tp-item) — 그림 칸(img-slot)이 칸을 채운다 */
 .tp-item .ev-pick-img{position:absolute;inset:0;display:block}
