@@ -1,6 +1,6 @@
 // WEEKLY-한글초안 2단계: 업무일지 [주간 정리]의 [주간보고 한글 파일 만들기] (docs/design/weekly-hwpx-draft.md 8절 2단계).
 // 지난주 팀 확정본(자료실 "주간보고 확정본" 최신 또는 기기 파일) → 내 칸 바탕 → 이번 주 기록을 줄 옆에 보여 주고 사람이 붙이기·고치기
-// → .hwpx 내려받기 / [HWP로 받기] / [확정]하면 자료실(Drive)에 저장. AI 없음.
+// → [확정하고 한글 파일 받기]하면 .hwp 내려받기 + 자료실(Drive) 개인 확정본 .hwp 저장(WEEKLY-기본HWP; 못 바꾸면 .hwpx) / ⋯ [확정 없이 파일만 받기](.hwp)·[.hwpx로 받기]. AI 없음.
 // - 파일은 이 기기 안에서만 다룬다(화면 안내문에는 쓰지 않음, WEEKLY-한글파일다듬기 ①). HWP 5 ↔ .hwpx 바꾸기는 HWP 편집기와 같은 칸막이 엔진(hwp-frame.js, sandbox iframe —
 //   Web2 창·로그인 정보에 닿지 못함)이 하고, 표 읽기·빈 서식·보고서 만들기는 weekly-hwpx/*.mjs(외부 라이브러리 없음)가 한다.
 //   서버로 가는 것은 자료실 확정본 열기(기존 document-actions hwp-open, owner 확인)와 [확정] 저장(기존 library-files)뿐이다.
@@ -151,6 +151,7 @@ function createEngine() {
   };
 }
 
+const HWP_TYPE = 'application/x-hwp', HWPX_TYPE = 'application/hwp+zip';
 function download(bytes, name, type) {
   const url = URL.createObjectURL(new Blob([bytes], {type}));
   const a = document.createElement('a');
@@ -216,7 +217,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   let reopenNote = null;
   // WEEKLY-한흐름확정 ②(명진 결정 ①: 위 상자 없앰): 이 모듈은 [주간 정리] 안 두 자리를 그린다.
   //   topLine — 맨 위 한 줄 '■ 일시 · 이름 · 바탕 … 임시저장 HH:MM ⋯'(⋯ = 이름 고치기·일시 고치기·바탕 바꾸기(기기 파일)·처음부터)
-  //   host    — 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼) + ⋯(HWP로 받기·확정 없이 파일만 받기·글로 복사·학습 시험)
+  //   host    — 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼, .hwp) + ⋯(확정 없이 파일만 받기(.hwp)·.hwpx로 받기·글로 복사·학습 시험)
   //             + 상태 한 줄, 그 아래 바탕을 연 뒤에만 보이는 것(다른 기기와 겹친 칸·본문과 일정표가 다른 곳·환류 보고·기억).
   // 보고서 칸 줄은 weekly-flow-cells.js 가 그 주 draft 에서 그린다. 바탕 파일은 그 주 처음(칸 만들기)·파일 만들 때·5. 주요 일정 줄 [고치기]·[AI로 다듬기] 때만 연다(ensure).
   // S52-31 WEEKLY-주요일정제자리고치기(요청함 11/08 00:19·00:20): 아래로 따로 빠진 '5. 주요 일정 칸 고치기' 덩어리는 없앴다. 고치기 칸은 [주간 정리] 5. 주요 일정 표의
@@ -238,8 +239,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const confirmBtn = button('확정하고 한글 파일 받기', 'hwpxConfirm', 'mini primary');
   const confirmState = el('span', 'weekly-flow-confirm-state'); confirmState.dataset.hwpxConfirmState = '';
   // WEEKLY-주간정리다듬기 ④(시안 docs/design/mockups/weekly-tidy.html ③): 버튼 아래에 늘어놓던 [초안 다시 쓰기]·주간보고 기억·규칙·환류는 ⋯ 안으로.
-  const more = rowMore(doc, {label:'HWP로 받기·확정 없이 파일만 받기·글로 복사·초안 다시 쓰기·배운 것 보기', data:{hwpxMore:''}, items:[
-    {text:'HWP로 받기', data:{hwpxHwp:''}}, {text:'확정 없이 파일만 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간보고 초안 글로 복사'},
+  // WEEKLY-기본HWP(명진 11/13 'a'): 받는 파일 기본은 .hwp — [확정 없이 파일만 받기]도 .hwp, .hwpx는 [.hwpx로 받기]로만.
+  const more = rowMore(doc, {label:'확정 없이 파일만 받기·.hwpx로 받기·글로 복사·초안 다시 쓰기·배운 것 보기', data:{hwpxMore:''}, items:[
+    {text:'확정 없이 파일만 받기', data:{hwpxHwp:''}}, {text:'.hwpx로 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간보고 초안 글로 복사'},
     {text:'초안 다시 쓰기', data:{hwpxAiAgain:''}, aria:'초안 다시 쓰기(손대지 않은 칸만)'}, {text:'배운 것 보기', data:{hwpxLearnShow:''}, aria:'주간보고 기억·규칙 보기'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
   const confirmRow = el('div', 'weekly-flow-confirm'); confirmRow.dataset.weeklyFlowConfirm = '';
   confirmRow.append(confirmBtn, more, confirmState);
@@ -1097,22 +1099,41 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   }
   async function doBuild() {
     if (!await ensure()) return;
-    try { const b = await build(); download(b.bytes, b.name, 'application/hwp+zip'); say(`"${b.name}"을(를) 내려받았어요(확정 안 함). 바뀐 줄 ${b.changed}개는 파란 글씨예요.`, 'ok'); void recordIssued(state, b.bytes); }
+    try { const b = await build(); download(b.bytes, b.name, HWPX_TYPE); say(`"${b.name}"을(를) 내려받았어요(확정 안 함). 바뀐 줄 ${b.changed}개는 파란 글씨예요.`, 'ok'); void recordIssued(state, b.bytes); }
     catch (error) { say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); }
   }
+  // WEEKLY-기본HWP ⑤: 만든 .hwpx → .hwp(숨은 칸막이 엔진, 이 기기 안). 바꾸지 못하면 .hwpx 그대로 돌려준다(파일은 꼭 받게) — fell = 까닭 짧은 말.
+  // 엔진 결과가 HWP 5(OLE 머리)가 아니면 실패로 본다. 시작하지 못했거나 시간이 다 된 바꾸개는 버린다(다음에 새로 만든다).
+  async function asHwp(b) {
+    const draft = state?.draft;
+    try {
+      engine ||= createEngine();
+      const out = await engine.toHwp(b.bytes);
+      const bytes = out instanceof Uint8Array ? out : new Uint8Array(out ?? []);
+      if (draft?.hwpKind(bytes) !== 'hwp5') throw new Error('not hwp5');
+      return {bytes, name:b.name.replace(/\.hwpx$/, '.hwp'), type:HWP_TYPE, fell:''};
+    } catch (error) {
+      const why = draft?.engineReason(error) ?? '파일을 열지 못함';
+      console.warn('weekly hwpx: HWP export failed', why);
+      if (why !== '파일을 열지 못함') { engine?.close(); engine = null; }
+      return {bytes:b.bytes, name:b.name, type:HWPX_TYPE, fell:why};
+    }
+  }
+  const fellNote = f => (f.fell ? ` 한글(.hwp)로 바꾸지 못해 .hwpx로 받았어요(${f.fell}).` : '');
   async function doHwp() {
     if (!await ensure()) return;
     const mine = run;
     try {
       const b = await build();
-      say('HWP로 바꾸는 중…');
-      engine ||= createEngine();
-      const hwp = await engine.toHwp(b.bytes);
+      say('한글(.hwp) 파일로 바꾸는 중…');
+      const f = await asHwp(b);
       if (mine !== run) return;
-      const name = b.name.replace(/\.hwpx$/, '.hwp');
-      download(hwp, name, 'application/x-hwp'); say(`"${name}"을(를) 내려받았어요.`, 'ok'); void recordIssued(state, b.bytes);
-    } catch (error) { if (mine === run) say(error?.code ? error.message : 'HWP로 바꾸지 못했어요. .hwpx 파일을 써 주세요.', 'error'); }
+      download(f.bytes, f.name, f.type); say(`"${f.name}"을(를) 내려받았어요(확정 안 함).${fellNote(f)}`, f.fell ? 'error' : 'ok'); void recordIssued(state, b.bytes);
+    } catch (error) { if (mine === run) say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); }
   }
+  // WEEKLY-기본HWP: 받는 파일과 자료실 개인 확정본은 .hwp(주간보고_보고일_이름.hwp). 바꾸지 못하면 둘 다 .hwpx + 한 줄 알림.
+  // 같은 주 다시 확정은 옛 판이 .hwpx여도 그 자료의 파일을 .hwp 새 판으로 바꾼다(library-files 교체는 새 파일 이름·형식을 그대로 받음).
+  // 환류 기록(recordIssued)은 만든 .hwpx로 읽는다(같은 내용).
   // [확정하고 한글 파일 받기](설계 4.2): 파일 만들기 → 확인 한 번 → 자료실 개인본(처음 = 새 자료, 같은 주 다시 = 그 자료를 새 판으로 교체, 명진 결정 ②)
   // → 환류 기록(처음 초안 ↔ 이번 판) → 환류 정리(weekly_review, 명진 결정 ③: 처음 확정 1회, 다시 확정은 새 동작 10건 이상, 주 3회 상한) → 일정 기억 묻기 → 내려받기.
   // 자료실 저장이 안 돼도 파일은 받는다(환류 기록은 저장된 판에만). 교체가 거절되면 새 자료를 만들지 않는다(개인본 두 벌 방지, 설계 7.4).
@@ -1122,21 +1143,24 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     let b;
     try { b = await build(); } catch (error) { say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); return; }
     const prev = s.store?.confirmed?.document_id || getWeek().row?.draft?.confirmed?.document_id || '';
-    const ask = prev ? {text:'이 주 개인 확정본을 새 판으로 바꿀까요?', note:'옛 판은 30일 동안 자료실 [이전 파일]에 남아요.', ok:'바꾸기'} : {text:`"${b.name}"을(를) 자료실 개인 확정본으로 저장하고 받을까요?`, ok:'저장'};
+    const ask = prev ? {text:'이 주 개인 확정본을 새 판으로 바꿀까요?', note:'옛 판은 30일 동안 자료실 [이전 파일]에 남아요.', ok:'바꾸기'} : {text:`"${b.name.replace(/\.hwpx$/, '.hwp')}"을(를) 자료실 개인 확정본으로 저장하고 받을까요?`, ok:'저장'};
     if (!await askConfirm(trigger, ask)) return;
     // 묻는 동안 다른 주로 바뀌었거나 이미 확정이 시작됐으면 하지 않는다.
     if (mine !== run || state !== s || s.confirming) return;
     const {drive} = await lazy();
     s.confirming = true; paintConfirm(); trigger.setAttribute('aria-busy', 'true');
-    say(prev ? '자료실 개인 확정본을 새 판으로 바꾸는 중…' : '자료실에 저장하는 중…');
     try {
-      let result = prev ? await drive.replaceWeeklyReport(b.bytes, {fileName:b.name, documentId:prev}, {rt}) : null;
-      if (!result || result.kind === 'gone') result = await drive.saveWeeklyReport(b.bytes, {fileName:b.name, title:fileNameTitle(b.name), documentDate:reportDay(s.start)}, {rt});
+      say('한글(.hwp) 파일로 바꾸는 중…');
+      const f = await asHwp(b);
+      if (mine !== run || state !== s) return;
+      say(prev ? '자료실 개인 확정본을 새 판으로 바꾸는 중…' : '자료실에 저장하는 중…');
+      let result = prev ? await drive.replaceWeeklyReport(f.bytes, {fileName:f.name, documentId:prev}, {rt}) : null;
+      if (!result || result.kind === 'gone') result = await drive.saveWeeklyReport(f.bytes, {fileName:f.name, title:fileNameTitle(f.name), documentDate:reportDay(s.start)}, {rt});
       if (mine !== run) return;
       const ok = result.kind === 'created' || result.kind === 'replaced';
-      download(b.bytes, b.name, 'application/hwp+zip');
+      download(f.bytes, f.name, f.type);
       state.saved = result;
-      say(ok ? `${result.message} "${b.name}"을(를) 내려받았어요.` : `자료실에 저장하지 못했어요 — ${result.message} 파일은 내려받았어요.`, ok ? 'ok' : 'error');
+      say(ok ? `${result.message} "${f.name}"을(를) 내려받았어요.${fellNote(f)}` : `자료실에 저장하지 못했어요 — ${result.message} 파일은 내려받았어요.${fellNote(f)}`, ok && !f.fell ? 'ok' : 'error');
       if (ok && s.store) {
         s.store.confirmed = {document_id:String(result.document?.id ?? prev), at:new Date().toISOString()};
         // ORG-기록하나로 O-6(설계 2-8): 개인 확정본 저장에 성공한 직후 한 번, 이 파일을 만든 창 결과를 사진으로. 실패해도 확정·파일은 그대로(그 주는 창 규칙으로 보임).
