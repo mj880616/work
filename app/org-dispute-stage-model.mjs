@@ -118,6 +118,14 @@ export function listTag(cur) {
   const kind = cur.kind === 'struggle' || cur.kind === 'ended' ? cur.kind : 'quiet';
   return {kind, text};
 }
+// ORG-담당조직버튼자리폴드 ②(2026-11-14 명진 확정 "폴드 펼침에선 쟁의단계 안 보이게"): 조직 보고 왼쪽 목록 줄에 꼬리표를 그리는 폭.
+//   폴드 펼침(600~1023px — 칸 나누기 시작 screen-width.mjs 600px부터 좁은 PC 틀 UI-폴드PC틀 끝 1023px까지)은 목록 칸이 좁아
+//   꼬리표가 조직 이름 자리를 먹으므로 그리지 않는다(이름이 그 자리를 씀). 쟁의 단계는 오른쪽 상세 맨 위 '쟁의 단계' 줄에서 보고 바꾼다.
+//   폰 한 칸(600px 미만)·넓은 PC(1024px~)는 지금처럼 그린다. 화면 쪽은 같은 숫자로 matchMedia(LIST_TAG_FOLD_QUERY)를 쓴다.
+export const LIST_TAG_FOLD_MIN = 600;
+export const LIST_TAG_FOLD_MAX = 1023;
+export const LIST_TAG_FOLD_QUERY = `(min-width:${LIST_TAG_FOLD_MIN}px) and (max-width:${LIST_TAG_FOLD_MAX}px)`;
+export const listTagShownAt = width => !(Number(width) >= LIST_TAG_FOLD_MIN && Number(width) <= LIST_TAG_FOLD_MAX);
 
 // 관리 화면 순서 바꾸기: ids(보이는 순서)에서 id를 index 자리로 옮긴 새 순서 값 [{id, sort_order}] 중 바뀐 것만.
 export function reorderChanges(stages, id, toIndex) {

@@ -60,10 +60,14 @@ async function stageModules(){if(!stageMod){const [data,model,ui]=await Promise.
 function paintStageTags(){
  document.querySelectorAll('#soOrganizationList .so-stage-tag').forEach(el=>el.remove());document.querySelectorAll('#soOrganizationList .has-stage').forEach(el=>el.classList.remove('has-stage'));
  const state=stageMod?.peekDisputeState();if(!state||state.status!=='ready')return;
+ // ORG-담당조직버튼자리폴드 ②: 폴드 펼침 폭에서는 꼬리표를 그리지 않는다(조직 이름이 그 자리를 씀, 판정은 model 한 곳). 폭이 바뀌면 아래 change에서 다시 그린다.
+ if(window.matchMedia?.(stageMod.LIST_TAG_FOLD_QUERY).matches)return;
  document.querySelectorAll('#soOrganizationList [data-so-org]').forEach(row=>{const tag=stageMod.listTag(stageMod.stageOfOrg(row.dataset.soOrg,state.histories,state.stages)),main=row.querySelector('.kptu-list-row-main');if(!tag||!main)return;
   const span=document.createElement('span');span.className='so-stage-tag'+(tag.kind==='ended'?' is-end':tag.kind==='quiet'?' is-quiet':'');span.dataset.soStage=tag.kind;span.textContent=tag.text;main.querySelector('.kptu-list-chevron')?.before(span);main.classList.add('has-stage')});
 }
-async function refreshStages(){if(!soWorkspace)return;try{await stageModules();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
+let stageFoldWatch=null;
+function watchStageFold(){if(stageFoldWatch||!stageMod||!window.matchMedia)return;stageFoldWatch=window.matchMedia(stageMod.LIST_TAG_FOLD_QUERY);stageFoldWatch.addEventListener?.('change',()=>paintStageTags())}
+async function refreshStages(){if(!soWorkspace)return;try{await stageModules();watchStageFold();await stageMod.loadDisputeState({rt,workspaceId:soWorkspace});paintStageTags()}catch(err){console.error('dispute stages',err)}}
 // UI-PC손맛묶음 ⑦(2026-11-11 명진 결정 B안): PC에서 선택하지 않은 조직 줄을 우클릭하면 같은 화면 메뉴 맨 위에 [열기] 한 줄이 더 붙는다
 // ([열기] ─ [쟁의 단계 관리]). [열기] = 그 줄을 왼쪽 누름과 같은 길로 눌러 오른쪽 상세를 그 조직으로. 메뉴를 띄우는 길은 공용 우클릭(context-menu.js openAt)
 // 그대로이고, 어느 줄에서 열었는지만 이 화면이 기억한다(⋯를 그냥 누르면 [열기] 없이 지금 메뉴).
