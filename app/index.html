@@ -51,17 +51,17 @@
   <nav id="appNav" class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="홈"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>홈</span></a>
     <a class="nav-btn nav-home-mid" data-view="home" href="./">홈</a>
-    <a class="nav-btn" data-view="basket" href="./?view=basket">잊지 말기</a>
+    <a class="nav-btn" data-basket-kind-nav="note" href="./?view=basket&amp;pane=note">노트</a>
         <a class="nav-btn" data-view="calendar" data-nav-group="calendar tasks diary" href="./?view=calendar">일정</a>
     <div class="nav-sub" role="group" aria-label="일정"><a class="nav-sub-btn" data-goto="calendar" href="./?view=calendar">달력</a><a class="nav-sub-btn" data-view="tasks" href="./?view=tasks">할 일</a><a class="nav-sub-btn" data-view="diary" href="./?view=diary">일기</a></div>
-    <a class="nav-btn" data-basket-kind-nav="note" href="./?view=basket&amp;pane=note">노트</a>
+    <a class="nav-btn" data-view="team" href="./?view=team">조직 보고</a>
     <a class="nav-btn" data-view="meetings" data-nav-group="meetings projects" href="./?view=reports">사업 보고</a>
+    <a class="nav-btn" data-view="basket" href="./?view=basket">잊지 말기</a>
     <a class="nav-btn" data-view="library" href="./?view=library">자료실</a>
     <a class="nav-btn" data-view="files" href="./?view=files">파일</a>
     <a class="nav-btn" data-view="brief" href="./?view=brief">브리핑 룸</a>
-    <a class="nav-btn" data-view="pages" href="./?view=pages">공유 페이지</a>
-    <a class="nav-btn" data-view="team" href="./?view=team">조직 보고</a>
     <a class="nav-btn" data-view="hwp" href="./?view=hwp">HWP 편집</a>
+    <a class="nav-btn" data-view="pages" href="./?view=pages">공유 페이지</a>
     <a class="nav-btn" data-view="photos" href="./?view=photos">사진</a>
     <a class="nav-btn" data-view="outside" href="./?view=news">News</a>
     <div class="sidebar-spacer" aria-hidden="true"></div>
@@ -83,10 +83,10 @@
 
   <nav class="mobile-tabs" aria-label="주 메뉴">
     <button type="button" data-view="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9"/></svg><span>홈</span></button>
-    <button type="button" data-view="basket" class="mobile-tab-basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3"/></svg><span>잊지 말기</span></button>
+    <button type="button" data-basket-kind-nav="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19zM14 7l3 3"/></svg><span>노트</span></button>
     <button type="button" data-view="calendar" data-mobile-schedule-tab><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v16H5zM8 3v4m8-4v4M5 10h14"/></svg><span>일정</span></button>
-    <button type="button" data-view="meetings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span>사업 보고</span></button>
     <button type="button" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2"/></svg><span>조직 보고</span></button>
+    <button type="button" data-view="meetings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span>사업 보고</span></button>
     <button id="mobileMenuTab" type="button" aria-controls="mobileMenu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>메뉴</span></button>
   </nav>
   <div id="mobileMenu" class="mobile-menu" hidden>
@@ -94,7 +94,7 @@
       <div class="mobile-menu-head"><b>메뉴</b><button type="button" data-mobile-menu-close aria-label="메뉴 닫기"><span class="mobile-menu-x" aria-hidden="true">×</span></button></div>
       <div class="mobile-menu-search" data-search-entry></div>
       <nav aria-label="더 보기">
-        <button type="button" data-basket-kind-nav="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19zM14 7l3 3"/></svg><span>노트</span></button>
+        <button type="button" data-view="basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3"/></svg><span>잊지 말기</span></button>
         <button type="button" data-view="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v5H4zM5 9v11h14V9M10 13h4"/></svg><span>자료실</span></button>
         <button type="button" data-view="files"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v11H3zM3 10h18"/></svg><span>파일</span></button>
         <button type="button" data-view="brief"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2"/></svg><span>브리핑 룸</span></button>
