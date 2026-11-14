@@ -114,6 +114,7 @@ async function paint(){
   try{
     const [{placeRecords},{meetingLine},sheet,kinds,store]=await Promise.all([import('./journal-weekly.js'),import('./journal-data.js'),import('./report-places-sheet.js'),import('./journal-meeting-kinds.js'),import('./weekly-draft-store.js')]);
     const kit=await nowKit();
+    if(state.freshPlaces){state.freshPlaces=false;sheet.forgetReportPlaces()}
     // 사업 나무: 화면이 이미 읽은 나무를 넘겨주면 그것(홈 — 따로 읽지 않음), 아니면 사업 보고의 연결할 곳 읽기.
     const places=state.tree?{projects:state.treeSeen||null}:await sheet.loadReportPlaces().catch(()=>null);
     // 늘 빼는 회의 종류: 내부 정례 회의는 목록을 못 읽어도 빠진다(reportsMeeting). 주간 정리와 같은 한 곳.
@@ -400,7 +401,7 @@ self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=
     if(!state.none){state.none=true;drawNone()}
     applyFold(from);return;
   }
-  if(state?.none){state.none=false;box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml('<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>');delete box.dataset.bpReady;state.view=null;state.dirty=true}
+  if(state?.none){state.none=false;box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml('<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>');delete box.dataset.bpReady;state.view=null;state.dirty=true;state.freshPlaces=true} // 막 만든 사업영역이 표에 오게 연결할 곳 기억을 한 번 새로 읽는다
   if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,hand:null,auto:false,visit,told:null,dirty:false};
   const foldNow=!compact&&!!fold;
   // 보고를 연 동안 손으로 고른 것(hand)은 화면을 떠났다 오거나(visit) 보고를 닫거나 새로 열면(auto가 바뀜) 잊는다 — 그다음은 기억한 값(BIZ-주간보고접힘기억).
