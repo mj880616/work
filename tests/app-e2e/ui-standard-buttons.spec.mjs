@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
 // UI-디자인기준 1/3 보완(8-9c2): 홈·바구니 버튼 높이 하나(홈 빠른 입력 [추가] 높이), 버튼 4종,
 // 홈 빠른 입력 탭 종류 색, 홈 "할 일" 칸 제목, 바구니 AI 버튼 [⋯ 더보기], 다크 모드 끔.
 test.use({hasTouch:true});
@@ -65,12 +65,18 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  const height=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
  // UI-버튼줄이기 + HOME-모바일정리④: 빠른 입력 [추가]와 홈 입력칸은 폭과 상관없이 36px(--kptu-control-height).
  const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))),inputHeight=quickHeight;
+ // HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 보인다(그 전에는 [잊지 말기] 자리).
+ if(width<761)await quick.locator('[data-quick-input]').fill('글');
  expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);expect(quickHeight).toBe(36);
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
  // Home tabs: one height; UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 고른 칸만 흰 알약(--ds-seg-on, [업데이트 ▾]는 두 칸 묶음이 알약) + 진한 글자, 나머지는 칠하지 않음.
  const pill=locator=>locator.evaluate(el=>getComputedStyle(el.closest('.ds-seg-group')||el).backgroundColor);
  const kinds={update:'--ds-kind-other',task:'--ds-kind-other'};
- for(const [mode,kind] of Object.entries(kinds)){
+ // HOME-입력칸두모양: 폰 홈에는 [업데이트 | 할 일] 단추 줄이 없다(왼쪽 [종류 ▾] 작은 목록). 단추 줄 모양은 넓은 화면에서만 본다.
+ if(width<761){await expect(quick.locator('.home-quick-modes')).toBeHidden();await expect(quick.locator('[data-quick-kind]')).toBeVisible();
+  const filled=await look(save);expect(filled.height).toBe(quickHeight);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
+  expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);await quick.locator('[data-quick-input]').fill('');}
+ else for(const [mode,kind] of Object.entries(kinds)){
   const tab=quick.locator(`[data-quick-mode="${mode}"]`);
   if(width<761)await tab.tap();else await tab.click();
   await expect(tab).toHaveAttribute('aria-pressed','true');
@@ -81,7 +87,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
   expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
   await sameButtons(quick.locator('.home-quick-modes'),height,quickHeight);
  }
- await quick.locator('[data-quick-mode="update"]').click();
+ await pickQuickMode(page,'update');
  // HOME-업무일지홈: 홈 할 일 칸 제목은 '할 일'(밀린 것은 '기한 지난 것' 접힌 줄 안).
  const tasks=page.locator('#homeView [data-journal-group="todo"]');
  await expect(tasks.locator('h4').first()).toContainText('할 일');await expect(tasks.locator('h4').first()).not.toContainText('밀린');

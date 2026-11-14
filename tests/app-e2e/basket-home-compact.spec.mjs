@@ -33,7 +33,8 @@ for (const width of [390, 1280]) {
         pickerHeight: picker.getBoundingClientRect().height,
         zoneHeight: zone.getBoundingClientRect().height,
         zoneTouch: parseFloat(getComputedStyle(zone, '::after').height) || 0,
-        linkToInput: entry.getBoundingClientRect().top - link.getBoundingClientRect().bottom, // S53-13: [잊지 말기] 칩은 입력 칸 위 머리 줄
+        linkToInput: entry.getBoundingClientRect().top - link.getBoundingClientRect().bottom, // S53-13: [잊지 말기] 칩은 입력 칸 위 머리 줄(넓은 화면)
+        linkRightOfInput: link.getBoundingClientRect().left - entry.getBoundingClientRect().right, // HOME-입력칸두모양: 폰은 입력 칸과 같은 줄 오른쪽
         background: style.backgroundColor, padding: style.padding,
       };
     }) };
@@ -42,7 +43,7 @@ for (const width of [390, 1280]) {
     // HOME-모바일정리④: the phone input is 36px, so the phone clip paints inside its borders (34px), also with a 44px ::after.
     expect(values.home.zoneHeight).toBeGreaterThanOrEqual(width === 390 ? 34 : 36);
     expect(values.home.zoneTouch).toBeGreaterThanOrEqual(44);
-    expect(values.home.linkToInput).toBeGreaterThanOrEqual(0);
+    expect(width === 390 ? values.home.linkRightOfInput : values.home.linkToInput).toBeGreaterThanOrEqual(0);
     if (width === 390) {
       expect(values.home.background).toBe('rgba(0, 0, 0, 0)');
       expect(values.home.padding).toBe('0px');

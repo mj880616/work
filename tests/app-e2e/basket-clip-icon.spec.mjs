@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {noteAction} from './helpers/basket-more.mjs';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, pickQuickMode } from './helpers/home-entry.mjs';
 import fs from 'node:fs';
 
 test.use({ hasTouch: true });
@@ -67,14 +67,14 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   await expect(q.locator('[data-basket-count]')).toBeHidden();
   await expect(q.locator('[data-basket-hint]')).toBeHidden();
   await expect(q.locator('[data-quick-input]')).toHaveValue('');
-  await q.locator('[data-quick-mode="task"]').click();
+  await pickQuickMode(page,'task');
   await expect(clip).toBeHidden();
   const ignored = await transfer('ignored.txt');
   await q.dispatchEvent('dragover', { dataTransfer: ignored });
   await expect(q).not.toHaveClass(/basket-dragover/);
   await q.dispatchEvent('drop', { dataTransfer: ignored });
   await ignored.dispose();
-  await q.locator('[data-quick-mode="update"]').click();
+  await pickQuickMode(page,'update');
   await expect(q.locator('[data-basket-file]')).toHaveCount(0);
   await expect(page.locator('#toast')).toHaveClass(/hidden/);
   await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();
@@ -111,7 +111,8 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     // HOME-빠른입력정리 + BASKET-업데이트통합 → S53-13 HOME-잊지말기칩: the last control before the clip on home is the head row's
     // [잊지 말기] chip, right of [업데이트 ▾ | 할 일].
     // UI-PC바구니첨부버튼: on PC the clip follows the input's [크게] icon (it sits right before [추가]).
-    await (name === 'home' ? root.locator(width === 1280 ? '[data-quick-big]' : '[data-home-forget-open]') : root.locator('textarea')).focus();
+    // HOME-입력칸두모양: the phone home row is [종류 ▾][📎 입력칸][잊지 말기] — the clip follows the kind button.
+    await (name === 'home' ? root.locator(width === 1280 ? '[data-quick-big]' : '[data-quick-kind]') : root.locator('textarea')).focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const chooser = page.waitForEvent('filechooser');

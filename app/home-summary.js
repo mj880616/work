@@ -103,7 +103,11 @@ export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged 
   // 칩 자리: 입력 칸 머리 줄 오른쪽 빈 자리(home-quick.js가 놓기만 함). 이 파일이 그 자리의 유일한 renderer.
   line = root.querySelector('.home-quick[data-home-quick] [data-home-summary]');
   draw(null);
-  window.addEventListener('kptu:session-changed', () => { flights.clear(); run++; paint(null); });
+  // HOME-잊지말기숫자(S61-44): 'kptu:session-changed'는 로그인한 사람이 바뀔 때만이 아니라 같은 사람의 로그인 이어 가기(토큰 새로 받기, 약 1시간마다·
+  // 앱을 다시 열 때)에도 온다(runtime-client.js write). 그때마다 칩을 '모름'(숫자 없는 흐린 칩)으로 내리고 읽던 셈까지 버리면, 홈에 다시 들어올 때까지
+  // 숫자가 사라진다. 사람·작업공간(scope)이 바뀐 때만 지우고, 같은 사람이면 숫자를 그대로 둔다.
+  let shown = scope();
+  window.addEventListener('kptu:session-changed', () => { const next = scope(); if (next === shown) return; shown = next; flights.clear(); run++; paint(null); });
   // 정리함(잊지 말기) 한 목록에서 처리하면 숫자를 다시 센다(홈이 보이는 동안만 읽음).
   window.addEventListener('kptu:todo-radar-changed', event => { if (event.detail?.reload && window.KPTURouter?.current === 'home') void refresh(); });
   return {

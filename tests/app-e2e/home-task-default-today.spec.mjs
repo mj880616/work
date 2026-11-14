@@ -1,11 +1,11 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
 // S50-35(2026-11-05 명진 결정): 홈 입력칸 [할 일] 모드에서 새로 넣는 할 일은 기한을 고르지 않으면 오늘(한국 날짜)로 저장해
 // 넣자마자 홈 [할 일] 칸에 보인다. 기한을 고르면 그날. 이미 있는 할 일을 고칠 때는 그 할 일의 기한을 그대로 둔다.
 // 모의 자료만 쓴다(openHome: 시계는 2026-10-06 10:00 KST). 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
-async function taskMode(page){const q=quick(page);await q.locator('[data-quick-mode="task"]').click();await expect(q.locator('[data-quick-mode="task"]')).toHaveAttribute('aria-pressed','true');return q;}
+async function taskMode(page){const q=quick(page);await pickQuickMode(page,'task');await expect(q.locator('[data-quick-mode="task"]')).toHaveAttribute('aria-pressed','true');return q;}
 async function watchCreates(page){
  const bodies=[];
  await page.route(SB+'/functions/v1/google-tasks?**',route=>{const req=route.request();if(new URL(req.url()).searchParams.get('action')==='create')bodies.push(req.postDataJSON());return route.fallback();});

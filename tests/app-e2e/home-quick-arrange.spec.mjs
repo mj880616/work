@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome, openQuickBox } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 // HOME-빠른입력정리 + UI-선택표시통일: 할 일 옵션 줄은 모드 버튼 줄 위, 안내 화살표 글자 없음,
 // 조직 고르기는 [업데이트] 오른쪽 ▾(누르는 범위 44px, 키보드로 열림), 고른 조직은 입력칸 안내 글자.
 // BASKET-업데이트통합 PR 1: 탭은 [업데이트 ▾][할 일] 둘. 고른 곳이 없으면 바구니(data-mode=basket), 고르면 그 기록(update).
@@ -26,14 +26,15 @@ async function press(page){return {bg:await token(page,'--ds-kind-other-soft','b
 async function gray(page){return {bg:await token(page,'--ds-seg-on','backgroundColor'),fg:await token(page,'--kptu-ink')};} // 고른 칸: 흰 알약 + 진한 글자
 const shot=(info,name)=>process.env.KPTU_SHOT_DIR?`${process.env.KPTU_SHOT_DIR}/${name}.png`:info.outputPath(`${name}.png`);
 
-for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 선택한 쪽 테마색 ${width}${dark?' 다크':''}`,async({page},info)=>{
+// HOME-입력칸두모양(S61-44): 폰 홈에는 [업데이트 ▾ | 할 일] 단추 줄이 없다(왼쪽 [종류 ▾] 작은 목록, home-quick-fold.spec.mjs). 단추 줄 배치·색은 넓은 화면에서 본다.
+for(const [width,dark] of [[1280,false],[1280,true]])test(`빠른 입력 배치와 선택한 쪽 테마색 ${width}${dark?' 다크':''}`,async({page},info)=>{
  const errors=await open(page,width,dark),box=q(page),selected=await gray(page),white='rgba(0, 0, 0, 0)'; // 안 고른 칸은 칠하지 않음(연한 알약 바탕이 비침)
  const modes=box.locator('.home-quick-modes'),update=box.locator('[data-quick-mode="update"]'),org=box.locator('[data-quick-org]'),input=box.locator('[data-quick-input]');
  // 안내 화살표 글자는 어느 모드에서도 없다.
  await expect(box.locator('[data-quick-destination],[data-quick-update-options]')).toHaveCount(0);
 
  // [할 일]: 프로젝트·기한 줄이 모드 버튼 줄 위에 나온다.
- await box.locator('[data-quick-mode="task"]').click();await input.click();
+ await pickQuickMode(page,'task');await input.click();
  const options=box.locator('[data-quick-task-options]');await expect(options).toBeVisible();
  await expect(box).not.toContainText('Google 할 일');await expect(box).not.toContainText('→');
  const o=await options.boundingBox(),m=await modes.boundingBox(),e=await input.boundingBox();
@@ -71,7 +72,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await page.screenshot({path:shot(info,`home-quick-update-${width}-${dark?'dark':'light'}`)});
 
  // 다른 모드에서 ▾를 누르면 [업데이트]로 바뀐 뒤 창이 열린다.
- await box.locator('[data-quick-mode="task"]').click();await expect(org).toHaveAttribute('aria-expanded','false');
+ await pickQuickMode(page,'task');await expect(org).toHaveAttribute('aria-expanded','false');
  await org.click();await expect(box).toHaveAttribute('data-mode','update');await expect(sheet).toBeVisible();
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -82,14 +83,15 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
 // 글에 맞춰 늘고 5줄(130px)에서 멈춘 뒤 칸 안에서 스크롤한다. [업데이트]도 처음부터 여러 줄 높이가 아니다.
 for(const width of [390,1280])test(`빠른 입력칸: 한 줄에서 시작해 5줄까지 늘고 그 뒤 스크롤 ${width}`,async({page})=>{
  const errors=await open(page,width,false),box=q(page),input=box.locator('[data-quick-input]'),save=box.locator('[data-quick-save]');
- const measure=()=>page.evaluate(()=>{const b=document.querySelector('#homeView [data-home-quick]'),i=b.querySelector('[data-quick-input]'),s=b.querySelector('[data-quick-save]').getBoundingClientRect(),r=i.getBoundingClientRect();return {h:r.height,scroll:i.scrollHeight>i.clientHeight,saveTop:s.top-r.top,saveH:s.height};});
+ const measure=()=>page.evaluate(()=>{const b=document.querySelector('#homeView [data-home-quick]'),i=b.querySelector('[data-quick-input]'),s=b.querySelector('[data-quick-save]').getBoundingClientRect(),r=i.getBoundingClientRect();return {h:r.height,scroll:i.scrollHeight>i.clientHeight,...(s.height?{saveTop:s.top-r.top,saveH:s.height}:{})};});
  for(const [tab,mode] of [['update','basket'],['task','task']]){
-  await box.locator(`[data-quick-mode="${tab}"]`).click();await expect(box).toHaveAttribute('data-mode',mode);
+  await pickQuickMode(page,tab);await expect(box).toHaveAttribute('data-mode',mode);
   // UI-PC버튼36 + HOME-모바일정리④(2026-10-22): PC·폰 모두 입력칸 36px(padding 7/6px)에서 시작해 3줄 78px, 5줄 120px.
   const [one,three,five]=[36,78,120];
   // [추가]는 폭과 상관없이 36px, 입력칸과 같은 높이·같은 위치.
   const saveH=36,saveTop=0;
-  await input.fill('');expect(await measure(),mode+' empty').toEqual({h:one,scroll:false,saveTop,saveH});
+  // HOME-입력칸두모양: 폰 홈 [추가]는 글이 있을 때만(빈 칸은 [잊지 말기] 자리).
+  await input.fill('');expect(await measure(),mode+' empty').toEqual(width<761?{h:one,scroll:false}:{h:one,scroll:false,saveTop,saveH});
   await input.fill('첫 줄\n둘째 줄\n셋째 줄');expect(await measure(),mode+' 3 lines').toEqual({h:three,scroll:false,saveTop,saveH});
   await input.fill('1\n2\n3\n4\n5\n6\n7');expect(await measure(),mode+' 7 lines').toEqual({h:five,scroll:true,saveTop,saveH});
   await input.fill('');expect((await measure()).h,mode+' cleared').toBe(one);
@@ -107,7 +109,7 @@ for(const dark of [false,true])test(`눌림 색: 탭 하이라이트 없음, :ac
   const v=await page.locator(selector).evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,tap:s.webkitTapHighlightColor};});
   await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});return v;
  };
- await box.locator('[data-quick-mode="update"]').click();
+ await pickQuickMode(page,'update');
  // 보기 바꾸기 칸은 누르는 동안 글자만 진하게(바탕은 연한 알약 그대로), 탭 하이라이트 없음.
  expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({bg:'rgba(0, 0, 0, 0)',fg:await token(page,'--kptu-ink'),tap:'rgba(0, 0, 0, 0)'});
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-forget-view-open]')).toBeVisible();

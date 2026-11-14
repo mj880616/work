@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import { openHome, openQuickBox } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): while the write window is open on a phone the bottom tabs are hidden and
 // the window (and its sheets) reach the screen's end, so a press where a tab used to be lands in the window, never on a tab.
@@ -132,7 +132,7 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
  await page.reload();await openQuickBox(page);
  const quick=page.locator('#homeView [data-home-quick]');
- await quick.locator('[data-quick-mode="update"]').tap();await quick.locator('[data-quick-org]').tap();
+ await pickQuickMode(page,'update');await pickQuickMode(page,'org'); // HOME-입력칸두모양: 폰은 [종류 ▾] 작은 목록
  const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();await settle(sheet);
  await expectAboveTabs(page,sheet);
  // UPD-여러곳고르기: a press on a row marks it and keeps the sheet open; [저장] (at the very bottom, just above the tabs) closes it.
@@ -144,7 +144,7 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
  const save=await sheet.getByRole('button',{name:'저장',exact:true}).boundingBox(),x=save.x+save.width/2,y=save.y+save.height-2;
  await touch(page,x,y);
  await expect(sheet).toBeHidden();
- await expect(quick.locator('[data-quick-org]')).toHaveAccessibleName(`기록할 곳 선택: ${names.at(-1)}`);
+ await expect(quick.locator('[data-quick-org]')).toHaveAttribute('aria-label',`기록할 곳 선택: ${names.at(-1)}`);
  await touch(page,x,y);
  expect(await current(page)).toBe('home');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);

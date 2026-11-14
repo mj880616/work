@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome, openQuickBox } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox, pickQuickMode, placeTrigger } from './helpers/home-entry.mjs';
 import { expectChoiceAtButton } from './helpers/choice-anchor.mjs';
 import { SHEET, openPicker, pressRow, openFolds } from './helpers/area-org-picker.mjs';
 // UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 선택은 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
@@ -19,8 +19,8 @@ async function orgRoutes(page,names){
 }
 async function homeOrgSheet(page,width,names){
  await page.setViewportSize({width,height:900});await openHome(page);await orgRoutes(page,names);await page.reload();await openQuickBox(page);
- const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('QA');
- const trigger=q.locator('[data-quick-org]');await trigger.click();const sheet=dialog(page);await expect(sheet).toBeVisible();
+ const q=quick(page);await pickQuickMode(page,'update');await q.locator('[data-quick-input]').fill('QA');
+ const trigger=await placeTrigger(page);await pickQuickMode(page,'org');const sheet=dialog(page);await expect(sheet).toBeVisible();
  // S52-01 ②: 담당조직·사업영역은 접힌 묶음(같은 고르기 창 목록) — 줄을 보려면 펼친다.
  await openFolds(sheet);
  return {q,trigger,sheet};
@@ -32,11 +32,11 @@ async function homeProjectSheet(page,width){
  await page.setViewportSize({width,height:900});await openHome(page);
  await page.route(SB+'/rest/v1/app_spaces?**',route=>route.fulfill({json:[...BASE,...EXTRA]}));
  await page.evaluate(extra=>{const c=KPTUProjectCatalog,s=c.snapshot();c.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:[...s.spaces,...extra]});},EXTRA);
- const q=quick(page);await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-input]').fill('QA');
+ const q=quick(page);await pickQuickMode(page,'task');await q.locator('[data-quick-input]').fill('QA');
  const trigger=q.locator('[data-quick-project]');await trigger.click();const sheet=dialog(page);await expect(sheet).toBeVisible();
  return {q,trigger,sheet};
 }
-const quickOrgButton=page=>quick(page).locator('[data-quick-org]');
+const quickOrgButton=page=>placeTrigger(page); // HOME-입력칸두모양: 폰은 [종류 ▾]
 const below=async(trigger,sheet)=>{const t=await trigger.boundingBox(),d=await sheet.boundingBox();return {t,d,gap:d.y-(t.y+t.height)};};
 
 // UPD-여러곳고르기 ①: 담당조직도 프로젝트처럼 — 묶음 이름은 작은 소제목, 그 아래 조직이 한 줄에 하나씩 체크칸과 함께.
@@ -87,9 +87,9 @@ test('PC 담당조직: 검색칸이 이름으로 거르고 빈 묶음은 숨김,
  await box.fill('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeHidden();
  // ↓ goes from the box to the first choice shown; Enter marks it and [저장] closes the list.
  await box.fill('공항');await box.press('ArrowDown');const first=sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true});await expect(first).toBeFocused();
- await page.keyboard.press('Enter');await expect(first).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(quick(page).locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');
+ await page.keyboard.press('Enter');await expect(first).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(quick(page).locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 공항철도지부');
  // Opening again starts with an empty box and every choice.
- await quick(page).locator('[data-quick-org]').click();await expect(box).toHaveValue('');await openFolds(sheet);await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
+ await pickQuickMode(page,'org');await expect(box).toHaveValue('');await openFolds(sheet);await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
 });
 
 test('묶음 값이 없을 때(묶음에 든 조직이 없음): 지금처럼 한 묶음 + 검색, 묶음 이름 없음',async({page})=>{
@@ -137,7 +137,7 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
 test('폰: 아래에서 올라오는 시트, 찾기 칸, 묶음 이름 + 조직 줄 44px, 체크칸, 아래 [취소] [저장]',async({page})=>{
  const {sheet}=await homeOrgSheet(page,390,NAMES);
  // S54-05(11/08 명진 결정): 폰도 누른 버튼 아래 작은 창(전에는 아래에서 올라오는 시트). 폰 줄 높이·체크칸·아래 [취소] [저장]은 그대로.
- await expectChoiceAtButton(page,sheet,quickOrgButton(page),{firstRow:false});
+ await expectChoiceAtButton(page,sheet,await quickOrgButton(page),{firstRow:false});
  /* S52-01 ②: 폰도 찾기 칸 */await expect(sheet.getByRole('searchbox')).toBeVisible();await expect(sheet.locator('[data-sheet-all] .aop-group-label')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]').first()).toHaveCSS('min-height','44px');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(NAMES);
@@ -145,7 +145,7 @@ test('폰: 아래에서 올라오는 시트, 찾기 칸, 묶음 이름 + 조직 
  await expect(row.locator('.home-choice-check')).toBeVisible();
  await expect(sheet.getByRole('button',{name:'저장',exact:true})).toBeVisible();
  // S52-01 ②: 찾기 칸은 폰에도 있어, PC에서 쓴 글자가 폰 폭으로 줄여도 그대로 거른다.
- await page.keyboard.press('Escape');await page.setViewportSize({width:1280,height:900});await quick(page).locator('[data-quick-org]').click();
+ await page.keyboard.press('Escape');await page.setViewportSize({width:1280,height:900});await pickQuickMode(page,'org');
  await sheet.getByRole('searchbox').fill('9호선');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);
  await page.setViewportSize({width:390,height:844});await expect(sheet).toHaveClass(/home-choice-anchored/);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);

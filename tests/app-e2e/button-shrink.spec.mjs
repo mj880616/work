@@ -32,6 +32,8 @@ const noWideScroll=async page=>expect(await page.evaluate(()=>document.documentE
 for(const width of [390,1280]){
  test(`빠른 입력 [추가] 36px·할 일 추가 창 ${width}`,async({page})=>{
   const errors=await boot(page,width);
+  // HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 [잊지 말기] 자리에 온다.
+  if(width<761)await page.locator('#homeView .home-quick [data-quick-input]').fill('글');
   await check(page.locator('#homeView .home-quick [data-quick-save]'),36,'홈 [추가]');
   if(width<761)await check(page.locator('#homeView .home-quick .home-quick-big'),32,'홈 [큰 창에서 쓰기]');
   await go(page,'basket');await check(page.locator('#basketView [data-basket-list] .home-quick [data-quick-save]').first(),36,'정리함 [추가]');

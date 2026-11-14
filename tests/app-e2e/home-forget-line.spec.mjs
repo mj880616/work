@@ -58,9 +58,11 @@ for(const width of [344,390,884,1280])test(`${width}px: '잊지 말기' 띠 줄 
   const quick=page.locator('#homeView .home-quick[data-home-quick]');
   const [c,m,e,q]=await Promise.all([chip,quick.locator('.home-quick-modes'),quick.locator('.home-quick-entry'),quick].map(x=>x.boundingBox()));
   expect(c.height).toBeLessThanOrEqual(40);
-  expect(Math.abs((c.y+c.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(4);
+  // HOME-입력칸두모양(S61-44): 폰(≤760) 홈은 단추 줄이 없고 칩이 입력 칸과 같은 한 줄 오른쪽 끝([종류 ▾][입력칸][잊지 말기]).
+  if(width<761){expect(m).toBeNull();expect(Math.abs((c.y+c.height/2)-(e.y+e.height/2))).toBeLessThanOrEqual(4);expect(c.x).toBeGreaterThanOrEqual(e.x+e.width-1);}
+  else{expect(Math.abs((c.y+c.height/2)-(m.y+m.height/2))).toBeLessThanOrEqual(4);
   expect(c.x).toBeGreaterThan(m.x+m.width);
-  expect(c.y+c.height).toBeLessThanOrEqual(e.y+1);
+  expect(c.y+c.height).toBeLessThanOrEqual(e.y+1);}
   expect(c.x+c.width).toBeLessThanOrEqual(q.x+q.width+1);
   expect(await noWide(page)).toBe(true);
   await page.screenshot({path:info.outputPath(`home-forget-chip-${width}.png`)});

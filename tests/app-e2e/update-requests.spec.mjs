@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, pickQuickMode } from './helpers/home-entry.mjs';
 import {showBasketRow,noteAction} from './helpers/basket-more.mjs';
 
 // JOURNAL-요청표시 → UI-요청버튼삭제: the [임원 요청]·[논의 요청] toggles are gone from the home and basket inputs and from an open
@@ -72,9 +72,9 @@ for (const width of [390, 1280]) test(`home and basket inputs have no request to
   await expect(input).toHaveValue('');
   // [할 일] and back: still no toggles.
   await input.fill('다음 업데이트');
-  await press(page, q.locator('[data-quick-mode="task"]'), width);
+  await pickQuickMode(page, 'task');
   await noToggles(q);
-  await press(page, q.locator('[data-quick-mode="update"]'), width);
+  await pickQuickMode(page, 'update');
   await noToggles(q);
   // The basket screen's input has none either.
   await page.evaluate(() => window.KPTURouter.go('basket'));

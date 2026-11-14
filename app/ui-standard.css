@@ -370,18 +370,26 @@
   #appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-entry{ order:2; }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick > *{ grid-row:auto; margin-top:0; }
   #appView #homeView.view-panel:has(.home-quick[data-home-quick]),#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
-  /* UI-폰하단고정(#1708 질문 2 안 A): 홈 빠른 입력은 쉬는 동안 한 줄로 접힌다(home-quick.js data-quick-rest). [업데이트 ▾ | 할 일]
-     단추와 [추가]는 치우고(잊지 말기 칩은 남김, 아래 HOTFIX), 입력칸 왼쪽에 작은 종류 글자(누르면 펼침)만 둔다. 칸을 누르면 지금처럼 펼쳐진다. */
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest]{ padding-top:4px; padding-bottom:4px; }
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-save{ display:none; }
-  /* HOTFIX-홈잊지말기칩(명진 11/14 10:41 '홈에서 잊지 말기 버튼이 없어졌다'): 접힌 한 줄에서도 [잊지 말기 n] 칩은 남긴다 —
-     [업데이트 ▾ | 할 일] 단추만 치우고, 칩 자리는 입력칸 오른쪽 같은 줄에 둔다(줄 수는 그대로 한 줄). */
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest]{ flex-direction:row; flex-wrap:nowrap; align-items:center; gap:6px; }
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-entry{ order:1; flex:1 1 auto; min-width:0; }
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-head{ order:2; flex:0 0 auto; display:flex; align-items:center; margin:0; }
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-modes{ display:none; }
+  /* HOME-입력칸두모양(S61-44, 명진 11/14 '한 줄·두 줄·세 줄 왔다 갔다' → 'ㄱ'): 폰 홈 빠른 입력은 모양이 둘뿐이다(home-quick.js paint 한 곳이
+     data-quick-shape 하나에 적는다). 평소 한 줄 [종류 ▾][입력칸][잊지 말기 n] — [업데이트 | 할 일] 단추 줄은 폰 홈에 없다.
+     [할 일]에서 글이 있거나 칸에 포커스가 있을 때만(dates) 날짜 줄 한 줄이 입력칸 위에 붙는다. 글(또는 파일)이 있으면(typing)
+     오른쪽 [잊지 말기] 자리에 [추가]가 온다. 옛 접힘(한 줄 → 두 줄 → 세 줄)은 없앴다. 바구니·노트·할 일 화면과 PC 홈은 이 속성이 없다. */
+  #appView #homeView .home-quick[data-home-quick][data-quick-shape]{ flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; padding-top:4px; padding-bottom:4px; }
+  #appView #homeView .home-quick[data-quick-shape] > [data-quick-options]{ order:0; flex:1 0 100%; min-width:0; }
+  #appView #homeView .home-quick[data-quick-shape] > .home-quick-entry{ order:1; flex:1 1 0; min-width:0; gap:6px; }
+  #appView #homeView .home-quick[data-quick-shape] > .home-quick-head{ order:2; flex:0 0 auto; display:flex; align-items:center; margin:0; }
+  #appView #homeView .home-quick[data-quick-shape] > :is(.home-quick-hint,[data-quick-basket-options],[data-quick-status]){ order:3; flex:1 0 100%; min-width:0; }
+  #appView #homeView .home-quick[data-quick-shape] .home-quick-modes{ display:none; }
+  #appView #homeView .home-quick[data-quick-shape~="typing"] > .home-quick-head{ display:none; }
+  #appView #homeView .home-quick[data-quick-shape]:not([data-quick-shape~="typing"]) .home-quick-save{ display:none; }
   #appView #homeView .home-quick[data-home-quick] .home-quick-kind:not([hidden]){ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; height:var(--kptu-control-height); min-height:0; margin:0; padding:0 2px; border:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium); white-space:nowrap; cursor:pointer; }
   #appView #homeView .home-quick[data-home-quick] .home-quick-kind::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+  #appView #homeView .home-quick[data-quick-shape] .home-quick-save{ height:var(--kptu-control-height); min-height:0; }
+  /* 날짜 줄은 한 줄: 폴드 덮개 화면(344px)까지 접히지 않게 단추 안쪽 여백·사이를 좁힌다(누르는 범위는 각 단추의 ::after 44px 그대로). */
+  #appView #homeView .home-quick[data-quick-shape] [data-quick-task-options]:not([hidden]){ flex-wrap:nowrap; gap:4px; }
+  #appView #homeView .home-quick[data-quick-shape] [data-quick-task-options] > button{ flex:0 0 auto; padding-left:6px; padding-right:6px; }
+  /* 한 줄 칸이 좁아 안내 글이 두 줄로 접히면 칸이 그만큼 늘어난다(높이 셈이 안내 글도 잼) — 안내 글은 한 줄, 넘치면 '…'. */
+  #appView #homeView .home-quick[data-quick-shape] [data-quick-input]::placeholder{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
   /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */

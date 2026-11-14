@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome, openQuickBox } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // UPD-여러곳고르기: 홈 [업데이트 ▾] "기록할 곳 선택" 창에서 담당조직·프로젝트를 여러 곳 고른다.
@@ -27,7 +27,7 @@ async function setup(page,width){
  await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();f.notes.push(body);return r.fulfill({status:201,json:[{id:'note-'+f.notes.length,kind:'basket',occurred_at:'2026-10-22T01:00:00Z',updated_at:'2026-10-22T01:00:00.123456Z',ai_export_allowed:true,archived_at:null,attachments:[],metadata:{},...body}]});});
  await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>{f.links.push(r.request().postDataJSON());return r.fulfill({json:f.linkReply});});
  await page.reload();await openQuickBox(page);
- const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').fill('합성 기록');
+ const q=quick(page);await pickQuickMode(page,'update');await q.locator('[data-quick-input]').fill('합성 기록');
  return {q,f};
 }
 const org=(page,name)=>dialog(page).locator('[data-sheet-all]').getByRole('button',{name,exact:true});
@@ -36,7 +36,7 @@ const cancel=page=>dialog(page).getByRole('button',{name:'취소',exact:true});
 
 for(const width of [390,1280])test(`여러 곳 고르기: 눌러도 창이 열린 채 체크, N곳 선택됨, [저장]으로 반영, 버튼 '첫 곳 외 N' ${width}`,async({page},info)=>{
  const {q,f}=await setup(page,width);
- await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await expect(dialog(page)).toBeVisible();
+ await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await expect(dialog(page)).toBeVisible();
  // ④ 최근 line stays on top: [바구니(미분류)] (chosen) then the recent organization.
  const labels=await dialog(page).locator('[data-sheet-content] .home-choice-label').allTextContents();expect(labels[0]).toBe('최근');
  await expect(dialog(page).locator('[data-sheet-basket] button')).toHaveAttribute('aria-pressed','true');
@@ -64,7 +64,7 @@ for(const width of [390,1280])test(`여러 곳 고르기: 눌러도 창이 열�
  await save(page).click();await expect(dialog(page)).toBeHidden();
  // ⑥ the input's button says "첫 곳 이름 외 N" (in the order picked).
  await expect(q.locator('[data-quick-mode="update"]')).toHaveText('부산지하철노동조합 외 2');
- await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 부산지하철노동조합 외 2');
+ await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 부산지하철노동조합 외 2');
  await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','부산지하철노동조합 외 2 기록을 입력하세요');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`multi-button-${width}.png`)});
@@ -77,7 +77,7 @@ for(const width of [390,1280])test(`여러 곳 고르기: 눌러도 창이 열�
  await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
  // ⑦ back to the basket; the places just used lead the 최근 line, none chosen.
  await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
- await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));
+ await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));
  await expect(dialog(page).locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['부산지하철노동조합','합성 프로젝트','서울교통공사노동조합']);
  await expect(dialog(page).locator('[data-sheet-recent] [aria-pressed="true"]')).toHaveCount(0);
  await expect(dialog(page).locator('[data-sheet-basket] button')).toHaveAttribute('aria-pressed','true');
@@ -86,21 +86,21 @@ for(const width of [390,1280])test(`여러 곳 고르기: 눌러도 창이 열�
 
 test('[취소]·×·Esc는 고른 것을 버리고 이전 선택을 유지',async({page})=>{
  const {q}=await setup(page,1280);
- await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await org(page,'서해선지부').click();await save(page).click();
- await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 서해선지부');
+ await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await org(page,'서해선지부').click();await save(page).click();
+ await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 서해선지부');
  for(const close of [()=>cancel(page).click(),()=>dialog(page).getByRole('button',{name:'선택판 닫기'}).click(),()=>page.keyboard.press('Escape')]){
-  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await org(page,'서해선지부').click();
+  await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await org(page,'서해선지부').click();
   await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
   await close();await expect(dialog(page)).toBeHidden();
-  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 서해선지부');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
+  await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 서해선지부');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
   // Opening again shows the kept choice, not the dropped one.
-  await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await expect(dialog(page).locator('[data-sheet-all] [aria-pressed="true"]')).toHaveText(['서해선지부']);await cancel(page).click();
+  await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await expect(dialog(page).locator('[data-sheet-all] [aria-pressed="true"]')).toHaveText(['서해선지부']);await cancel(page).click();
  }
 });
 
 test('잊지 말기(미분류)는 다른 곳과 함께 고를 수 없음(정리함을 고르면 나머지 해제, 반대도)',async({page})=>{
  const {q,f}=await setup(page,1280);
- await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));const basket=dialog(page).locator('[data-sheet-basket] button');
+ await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));const basket=dialog(page).locator('[data-sheet-basket] button');
  await org(page,'전국철도노동조합').click();await org(page,'공항철도지부').click();
  await expect(basket).toHaveAttribute('aria-pressed','false');await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('2곳 선택됨');
  await basket.click();await expect(basket).toHaveAttribute('aria-pressed','true');
@@ -113,7 +113,7 @@ test('잊지 말기(미분류)는 다른 곳과 함께 고를 수 없음(정리�
 
 test('한 곳만 고르면 기존 그대로 그 곳 기록(연결 없음)',async({page})=>{
  const {q,f}=await setup(page,1280);
- await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await save(page).click();
+ await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await save(page).click();
  await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(f.orgs).toEqual([{organization_id:ID(5),raw_text:'합성 기록',created_by:'home-test'}]);expect(f.notes).toEqual([]);expect(f.links).toEqual([]);
@@ -122,7 +122,7 @@ test('한 곳만 고르면 기존 그대로 그 곳 기록(연결 없음)',async
 // MTG-프로젝트합치기 3단계: 사업영역(프로젝트) 하나만 고르면 진행 기록이 아니라 여러 곳과 같은 길(정리함 1건 + 연결)로 간다.
 test('사업영역 하나만 고르면 정리함 1건 + 그 사업영역에 연결(진행 기록 없음)',async({page})=>{
  const {q,f}=await setup(page,1280);
- await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'합성 프로젝트',exact:true}).click();await save(page).click();
+ await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'합성 프로젝트',exact:true}).click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
  expect(f.projects).toEqual([]);expect(f.orgs).toEqual([]);
@@ -134,7 +134,7 @@ test('사업영역 하나만 고르면 정리함 1건 + 그 사업영역에 연�
 
 test('연결이 거절되면 업데이트는 정리함에 남고 안내(두 번 저장하지 않음)',async({page})=>{
  const {q,f}=await setup(page,1280);f.linkReply={ok:false,error:'TARGET_UNSELECTABLE',created:0,existing:0};
- await q.locator('[data-quick-org]').click();await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await org(page,'서해선지부').click();await save(page).click();
+ await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await org(page,'서해선지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  await expect(q.locator('[data-quick-status]')).toHaveText('업데이트는 잊지 말기에 저장했지만 선택한 곳에 연결하지 못했어요. 잊지 말기에서 [연결하기]로 다시 연결해 주세요.');
  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');

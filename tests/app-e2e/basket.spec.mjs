@@ -2,7 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import {noteAction} from './helpers/basket-more.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-import { openHome, openQuickBox } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 import { pickBasketView, expectBasketView } from './helpers/forget-view.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
@@ -66,7 +66,9 @@ for(const width of [390,1280]){
  test(`basket validation and RLS failures keep draft and AI hidden ${width}`,async({page})=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page),q=quick(page),input=q.locator('[data-quick-input]');
   // UI-빈입력안내: blank text is a small hint under the input (no error status); too long text is still an error. Both keep the draft.
-  await input.fill(' \n ');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-hint]')).toHaveText('글을 입력해 주세요.');await expect(q.locator('[data-quick-status]')).toBeEmpty();await expect(input).toHaveValue(' \n ');
+  // HOME-입력칸두모양: 폰 홈은 빈 글(공백만)이면 [추가]가 없다([잊지 말기] 자리 그대로) — 빈 저장을 누를 길이 없다. 넓은 화면은 작은 안내.
+  if(width<761){await input.fill(' \n ');await expect(q.locator('[data-quick-save]')).toBeHidden();await expect(q.locator('[data-home-forget-open]')).toBeVisible();await q.locator('[data-quick-hint]').evaluate(()=>{});}
+  else{await input.fill(' \n ');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-hint]')).toHaveText('글을 입력해 주세요.');}await expect(q.locator('[data-quick-status]')).toBeEmpty();await expect(input).toHaveValue(' \n ');
   await input.fill('가'.repeat(20001));await expect(q.locator('[data-quick-hint]')).toBeEmpty();await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).not.toBeEmpty();await expect(input).toHaveValue('가'.repeat(20001));expect(f.writes).toHaveLength(0);
   f.setDenied(true);await input.fill(' 원문 유지\n ');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('RLS 거부');await expect(input).toHaveValue(' 원문 유지\n ');
   f.setDenied(false);await input.fill('가'.repeat(20000));await q.locator('[data-quick-save]').click();await expect(input).toHaveValue('');
@@ -114,8 +116,8 @@ test('unsaved detail survives canceled list/Escape dismissal and navigation unti
 });
 test('explicit task and update modes still save directly when preference storage is blocked',async({page})=>{
  const f=await fixture(page),q=quick(page);await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('blocked');};});
- await q.locator('[data-quick-mode="task"]').click();await expect(q).toHaveAttribute('data-mode','task');await q.locator('[data-quick-input]').fill('할 일 직접 저장');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(f.requests.filter(r=>r.action==='create')).toHaveLength(1);expect(f.writes).toHaveLength(0);
- await q.locator('[data-quick-mode="update"]').click();await expect(q).toHaveAttribute('data-mode','basket');await q.locator('[data-quick-input]').fill('조직 직접 저장');await q.locator('[data-quick-org]').click();await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();await expect(q).toHaveAttribute('data-mode','update');const bodies=[];
+ await pickQuickMode(page,'task');await expect(q).toHaveAttribute('data-mode','task');await q.locator('[data-quick-input]').fill('할 일 직접 저장');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(f.requests.filter(r=>r.action==='create')).toHaveLength(1);expect(f.writes).toHaveLength(0);
+ await pickQuickMode(page,'update');await expect(q).toHaveAttribute('data-mode','basket');await q.locator('[data-quick-input]').fill('조직 직접 저장');await pickQuickMode(page,'org');await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();await expect(q).toHaveAttribute('data-mode','update');const bodies=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies[0]).toEqual({organization_id:'o',raw_text:'조직 직접 저장',created_by:'home-test'});expect(f.writes).toHaveLength(0);
 });
 test('opening and saving unchanged CRLF text does not rewrite original or create a false dirty draft',async({page})=>{
@@ -153,7 +155,7 @@ for(const width of [390,1280]){
   await q.locator('[data-quick-save]').dispatchEvent('click');await expect(q.locator('[data-quick-hint]')).toContainText('글을 입력해 주세요');
   finish();u.setPending(null);await expect(dock).toContainText('업데이트에 파일 3개 올렸어요');
   expect(u.calls).toHaveLength(3);for(const raw of u.calls){expect(raw).toContain('name="note_id"\r\n\r\nnew');expect(raw).not.toContain('name="raw_text"');}expect(f.writes).toHaveLength(1);
-  await q.locator('[data-quick-save]').click();expect(u.calls).toHaveLength(3);await expect(page.locator('#toast')).toHaveClass(/hidden/);await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:info.outputPath(`basket-upload-home-${width}.png`),fullPage:true});
+  await q.locator('[data-quick-save]').dispatchEvent('click');/* 폰 홈은 빈 칸에 [추가]가 보이지 않으므로 누름만 흉내 */expect(u.calls).toHaveLength(3);await expect(page.locator('#toast')).toHaveClass(/hidden/);await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:info.outputPath(`basket-upload-home-${width}.png`),fullPage:true});
   await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();await expect(page.locator('[data-basket-row-item="new"]')).toContainText('첨부 3개');await page.locator('[data-basket-row="new"]').click();await noteAction(page,'[data-basket-edit]');await expect(page.locator('[data-basket-attachments] a')).toHaveCount(3);await expect(page.locator('[data-basket-attachments] a').first()).toHaveAttribute('href','https://drive.google.com/file/d/file_1/view');
   const picker=page.locator('[data-basket-detail]').getByRole('button', { name: '파일 첨부', exact: true });await picker.focus();await expect(picker).toBeFocused();const chooser=page.waitForEvent('filechooser');await picker.press('Enter');await (await chooser).setFiles(uploadFiles(['four.txt']));
   const btn=page.locator('[data-basket-upload]');await btn.scrollIntoViewIfNeeded();const b=await btn.boundingBox();expect(b.height).toBeGreaterThanOrEqual(32);expect(await btn.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);/* UI-업데이트편집한줄: 작은 버튼(32px), 누르는 범위 44px */if(width===390)await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);else await btn.click();
@@ -164,7 +166,7 @@ for(const width of [390,1280]){
   // BIZ-저장먼저닫기 2차(S59-10): 파일만이면 앞에서 저장할 글이 없다 — 입력칸은 바로 풀리고 첫 파일이 뒤에서 업데이트를 만든다.
   await q.locator('input[type=file]').setInputFiles(uploadFiles(['only.txt']));await q.locator('[data-quick-save]').click();await expect(q.locator('[data-basket-file]')).toHaveCount(0);await expect.poll(()=>u.calls.length).toBe(1);expect(u.calls[0]).not.toContain('name="raw_text"');expect(u.calls[0]).not.toContain('name="note_id"');await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');expect(f.writes).toHaveLength(0);
   // UPD-사진여러장: a file is read as soon as it is chosen; one that cannot be read leaves the list with a plain line and sends nothing.
-  await page.evaluate(()=>{window.KPTURuntime.copyUploadFile=async()=>{throw Object.assign(Error('read'),{code:'file_read_failed'});};});await q.locator('input[type=file]').setInputFiles(uploadFiles(['bad.txt','later.txt']));await expect(q.locator('[data-quick-status]')).toContainText('사진을 못 받았어요');await expect(q.locator('[data-basket-file]')).toHaveCount(0);await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-hint]')).toContainText('사진을 못 받았어요');expect(u.calls).toHaveLength(1);expect(f.errors).toEqual([]);
+  await page.evaluate(()=>{window.KPTURuntime.copyUploadFile=async()=>{throw Object.assign(Error('read'),{code:'file_read_failed'});};});await q.locator('input[type=file]').setInputFiles(uploadFiles(['bad.txt','later.txt']));await expect(q.locator('[data-quick-status]')).toContainText('사진을 못 받았어요');await expect(q.locator('[data-basket-file]')).toHaveCount(0);/* HOME-입력칸두모양: 폰 홈은 빈 칸에 [추가]가 없다 */if(width<761)await expect(q.locator('[data-quick-save]')).toBeHidden();else{await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-hint]')).toContainText('사진을 못 받았어요');}expect(u.calls).toHaveLength(1);expect(f.errors).toEqual([]);
  });
  // BIZ-저장먼저닫기 2차(S59-10): 글은 먼저 저장되고 입력칸은 바로 풀린다. 뒤 줄에서 둘째 파일이 실패하면 그 뒤 파일은 보내지 않고, 하단바 위 한 줄에
 // '업데이트에 파일 2개 못 올렸어요' + 올라간 것·까닭. 결과를 모르거나(503) 글이 바뀐(409) 실패는 [다시 올리기]가 없고, 나머지는 못 올린 것만 다시 보낸다.

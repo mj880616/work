@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome,createdTaskReply, openQuickBox } from './helpers/home-entry.mjs';
+import {openHome,createdTaskReply, openQuickBox, pickQuickMode, placeTrigger } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const q=page=>page.locator('#homeView [data-home-quick]');
 const sheet=page=>page.getByRole('dialog');
@@ -9,13 +9,13 @@ async function orgs(page){
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:names.map((name,i)=>({id:String(i),name,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:names.map((_,i)=>({organization_id:String(i)}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[5,1,0].map(i=>({organization_id:String(i),occurred_at:'2026-10-06'}))}));
- await page.reload();await openQuickBox(page);await q(page).locator('[data-quick-mode="update"]').click();await q(page).locator('[data-quick-input]').fill('QA');
- await q(page).locator('[data-quick-org]').click();await expect(sheet(page)).toBeVisible();
+ await page.reload();await openQuickBox(page);await pickQuickMode(page,'update');await q(page).locator('[data-quick-input]').fill('QA');
+ await pickQuickMode(page,'org');await expect(sheet(page)).toBeVisible();
  // S52-01 ②: 담당조직은 접힌 묶음 — 줄을 보려면 펼친다.
  await openFolds(sheet(page));
 }
 for(const width of [390,1440])test(`organization rows fit, preserve order and non-overlapping targets at ${width}`,async({page},info)=>{
- await page.setViewportSize({width,height:844});await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await orgs(page);
+ await page.setViewportSize({width,height:844});await openHome(page);await pickQuickMode(page,'task');await orgs(page);
  await sheet(page).evaluate(async dialog=>{await Promise.all(dialog.getAnimations().map(animation=>animation.finished));});
  const recent=sheet(page).locator('[data-sheet-recent] button'),all=sheet(page).locator('[data-sheet-all] [data-sheet-value]');
  await expect(recent).toHaveCount(3);await expect(all).toHaveCount(13);
@@ -48,12 +48,12 @@ for(const width of [390,1440])test(`organization rows fit, preserve order and no
  await expect(sheet(page)).toBeVisible();await expect(all.filter({hasText:'서해선지부'})).toHaveAttribute('aria-pressed','true');
  await expect(sheet(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
  await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
- await expect(sheet(page)).toBeHidden();await expect(q(page).locator('[data-quick-org]')).toHaveText('▾');await expect(q(page).locator('[data-quick-mode="update"]')).toHaveText('업데이트');await expect(q(page).locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 서해선지부');await expect(q(page).locator('[data-quick-input]')).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');await expect(q(page).locator('[data-quick-org]')).toBeFocused();
- await q(page).locator('[data-quick-org]').click();await expect(sheet(page).locator('[aria-pressed="true"]').first()).toBeFocused();
+ await expect(sheet(page)).toBeHidden();await expect(q(page).locator('[data-quick-org]')).toHaveText('▾');await expect(q(page).locator('[data-quick-mode="update"]')).toHaveText('업데이트');await expect(q(page).locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 서해선지부');await expect(q(page).locator('[data-quick-input]')).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');await expect(await placeTrigger(page)).toBeFocused();/* HOME-입력칸두모양: 폰은 연 단추 [종류 ▾]로 돌아감 */
+ await pickQuickMode(page,'org');await expect(sheet(page).locator('[aria-pressed="true"]').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(sheet(page)).toBeHidden();
 });
 test('close paths consume one history entry, focus is contained and project none clears selection',async({page})=>{
- await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await q(page).locator('[data-quick-input]').fill('QA');
+ await openHome(page);await pickQuickMode(page,'task');await q(page).locator('[data-quick-input]').fill('QA');
  const trigger=q(page).locator('[data-quick-project]');
  const before=await page.evaluate(()=>history.state);
  await trigger.click();await expect(sheet(page)).toBeVisible();await expect(sheet(page).getByRole('button',{name:'사업영역 없음',exact:true})).toBeFocused();
@@ -71,7 +71,7 @@ test('close paths consume one history entry, focus is contained and project none
 });
 
 test('long projects scroll only inside the sheet and remain one-line with child indentation',async({page},info)=>{
- await page.setViewportSize({width:390,height:844});await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();
+ await page.setViewportSize({width:390,height:844});await openHome(page);await pickQuickMode(page,'task');
  await page.evaluate(()=>{const c=KPTUProjectCatalog,s=c.snapshot();c.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:[{...s.spaces[0],name:'QA 긴 프로젝트 이름 '.repeat(15)},...Array.from({length:30},(_,i)=>({id:'child-'+i,name:'QA 자식 '+i,parent_id:'p',owner_id:s.userId,status:'active'}))]});});
  await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();
  const content=sheet(page).locator('[data-sheet-content]'),parent=sheet(page).locator('.aop-list [data-sheet-value="p:p"]'),child=sheet(page).locator('.aop-list [data-sheet-value="p:child-0"]');
@@ -86,7 +86,7 @@ test('long projects scroll only inside the sheet and remain one-line with child 
 });
 
 test('routing while a sheet is open closes it without undoing navigation',async({page})=>{
- await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();await expect(sheet(page)).toBeVisible();
+ await openHome(page);await pickQuickMode(page,'task');await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();await expect(sheet(page)).toBeVisible();
  await page.evaluate(async()=>{await KPTUViewLoader.load('calendar');KPTURouter.go('calendar',{source:'delegated'});});
  await expect(sheet(page)).toBeHidden();await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
  expect(await page.evaluate(()=>history.state?.kptuHomeChoice)).toBeUndefined();expect(await page.evaluate(()=>history.state?.kptuAreaOrgPick)).toBeUndefined();

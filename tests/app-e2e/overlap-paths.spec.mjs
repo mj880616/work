@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 // MTG-기록겹침거르기 3단계 나머지: 홈 [업데이트] 사업영역 한 곳(MTG-프로젝트합치기 3단계부터 연결 업데이트)·여러 곳 연결 업데이트·담당조직 기록도 저장이 끝나면 같은 "비슷한 기록이 있어요" 알림을 낸다.
 // 진짜 앱이 Chromium에서 돌고, Supabase REST·ai-assist·판정 저장·연결 저장 경계만 모의다. 이름은 모두 합성 값이다.
@@ -41,12 +41,12 @@ async function homeUpdate(page,text='출정 기자회견 진행함'){
   await page.setViewportSize({width:1280,height:844});
   await openHome(page);
   const q=quick(page);
-  await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-mode="update"]').click();
+  await pickQuickMode(page,'task');await pickQuickMode(page,'update');
   await q.locator('[data-quick-input]').fill(text);
   return q;
 }
 async function pick(page,q,...names){
-  await q.locator('[data-quick-org]').click();await expect(dialog(page)).toBeVisible();
+  await pickQuickMode(page,'org');await expect(dialog(page)).toBeVisible();
   for(const name of names)await dialog(page).getByRole('button',{name,exact:true}).first().click();
   await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
 }
