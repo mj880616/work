@@ -30,7 +30,7 @@ function columnState(){
 // (주 넘기기 자체는 맨 아래 '주 단위 목록' 시험이 allWeeks:false로 본다).
 async function open(page,s,width,height=900,{routes=async()=>{},allWeeks=true}={}){
   await page.setViewportSize({width,height});await mockApp(page,s);await routes();
-  await signIn(page,testOrigin+'/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  await signIn(page,testOrigin+'/app/?view=meetings&chip=meeting');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   if(allWeeks)await showAllReportWeeks(page);
 }
 const kinds=page=>page.locator('#meetingList .mcol-kinds [data-meeting-kind]');

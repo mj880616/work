@@ -66,7 +66,7 @@ async function open(page,{width=1280,height=900,pending=[]}={}){
   await page.route(`${SB}/rest/v1/app_weekly_exec_requests**`,route=>route.fulfill({status:200,contentType:'application/json',body:'[]'}));
   await installBusinessNowServer(page,{});
   const calls=await recServer(page,{pending});
-  await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  await signIn(page,testOrigin+'/app/?view=reports&chip=meeting');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await page.waitForFunction(()=>!!window.KPTUMeetingRecorder,null,{timeout:15000});
   return calls;
 }

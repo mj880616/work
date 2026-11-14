@@ -117,7 +117,7 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 선택 
   await pickReportKind(page,'회의');await addReport(page,'meeting');
   await expect(page.locator('#meetingKindPick').getByRole('radio',{name:'회의',exact:true})).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#meetingRoundNo')).toBeVisible();
-  await expect(page.locator('#meetingTitleLabel')).toHaveText('회의명');await expect(page.locator('[data-rw="meetingResultLegend"]')).toHaveText('회의 결과');await expect(page.locator('#meetingTextLabel')).toHaveText('회의 결과 원문');
+  await expect(page.locator('#meetingTitleLabel')).toHaveText('회의명');await expect(page.locator('[data-rw="meetingResultLegend"]')).toHaveText('회의 결과');await expect(page.locator('#meetingTextLabel')).toHaveText('회의 결과');
   expect(errors).toEqual([]);
 });
 

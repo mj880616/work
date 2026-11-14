@@ -61,7 +61,7 @@ async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,fail
     if(path.startsWith('/rest/v1/')||path.startsWith('/functions/v1/'))return ok([]);
     return ok({});
   });
-  await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(BASE+'/app/?view=meetings')}`);
+  await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(BASE+'/app/?view=meetings&chip=meeting')}`);
   await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#meetingsView')).toBeVisible({timeout:15000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});

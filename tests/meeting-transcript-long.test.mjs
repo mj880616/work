@@ -82,9 +82,9 @@ test('AI 재료: 특이사항(=회의록 전문)은 맨 뒤 300자만',()=>{
   assert.match(read('app/report-area-tag.js'),/String\(body\.notes\|\|''\)\.slice\(0,300\)\]/);
 });
 
-test('[원문]/[서식]: <> 아이콘 대신 작은 글자 버튼(사업 보고·업데이트 같게)',()=>{
+test('[원문]/[서식]: 업데이트(정리함)는 <> 아이콘 대신 작은 글자 버튼, 사업 보고 상세에는 버튼이 없다(S62-02)',()=>{
   const v=read('app/record-text-view.js'),b=read('app/basket.js');
-  assert.match(v,/hidden>원문<\/button>`/);assert.match(v,/toggle\.textContent = state\.raw \? '서식' : '원문';/);
+  assert.doesNotMatch(v,/원문<\/button>|toggle/);
   assert.match(b,/title="원문 그대로 보기">원문<\/button>/);assert.match(b,/toggle\.textContent = rawView \? '서식' : '원문';/);
   assert.doesNotMatch(v+b,/M5\.5 4\.5 2 8l3\.5 3\.5/);
 });

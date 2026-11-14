@@ -58,7 +58,9 @@ test('letters that look like marks inside a formatted text are escaped, date lin
 
 test('사업 보고 screens use the shared reader and the one write window', () => {
   const mrd = read('app/meeting-round-detail.js'), team = read('app/team.js'), loader = read('app/view-loader.js');
-  assert.match(mrd, /import \{paintRecordText,rawToggleHtml\} from '\.\/record-text-view\.js'/);
+  assert.match(mrd, /import \{paintRecordText\} from '\.\/record-text-view\.js'/);
+  // S62-02 MTG-원문칸넘침(11/15 명진 '우측 불필요'): 사업 보고 상세의 [원문] 버튼은 없다.
+  assert.doesNotMatch(mrd, /rawToggleHtml|mrdResultRaw|mrdSpecialRaw/);
   assert.match(mrd, /paintRecordText\(document\.querySelector\('#mrdResult'\)/);
   assert.match(mrd, /paintRecordText\(document\.querySelector\('#mrdSpecial'\)/);
   assert.doesNotMatch(mrd, /#mrdResult'\)\.textContent=/);
