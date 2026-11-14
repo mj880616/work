@@ -19,7 +19,11 @@ const EVENTS = [
   { id: 'ev2', title: '다른 날 일정', start: '2026-10-13T10:00:00+09:00', end: '2026-10-13T11:00:00+09:00', calendarId: 'c' },
   { id: 'ev3', title: '취소된 일정', start: '2026-10-12T15:00:00+09:00', end: '2026-10-12T16:00:00+09:00', calendarId: 'c', status: 'cancelled' },
 ];
-const MEETINGS = [{ id: 'mt1', workspace_id: 'workspace-1', title: '시험 회의', series_name: '시험 회의', round_no: 3, meeting_at: '2026-10-12T05:00:00Z' }];
+// DIARY-맥락사업보고이름(11/14 명진 확정): 사업 보고 줄의 꼬리표는 그 칸 이름 그대로(회의 칸 '회의', 투쟁 칸 '투쟁' …), 이 줄에서는 이름 앞 [칸]을 뺀다.
+const MEETINGS = [
+  { id: 'mt1', workspace_id: 'workspace-1', title: '시험 회의', series_name: '시험 회의', round_no: 3, meeting_at: '2026-10-12T05:00:00Z' },
+  { id: 'mt2', workspace_id: 'workspace-1', title: '가상 총력결의대회', series_name: '가상 총력결의대회', round_no: null, meeting_at: '2026-10-12T07:00:00Z', activity_kind: 'struggle' },
+];
 
 async function fixture(page, { width }) {
   const state = { errors: [], writes: [], eventReads: [], meetingReads: [] };
@@ -80,7 +84,7 @@ for (const width of [390, 884, 1440]) {
     await cell(page, '2026-10-12').click();
     await expect(detail.locator('[data-diary-grid] .diary-grid-item')).toHaveCount(4);
     const ctx = detail.locator('details[data-diary-context]');
-    await expect(ctx.locator('summary')).toHaveText('그날 맥락 · 일정 1 · 회의 1');
+    await expect(ctx.locator('summary')).toHaveText('그날 맥락 · 일정 1 · 회의 1 · 투쟁 1');
     expect(await ctx.evaluate(el => el.open)).toBe(false);
     const order = await page.evaluate(() => {
       const g = document.querySelector('#diaryRoot [data-diary-grid]').getBoundingClientRect(), c = document.querySelector('#diaryRoot [data-diary-context]').getBoundingClientRect();
@@ -92,7 +96,9 @@ for (const width of [390, 884, 1440]) {
     await ctx.locator('summary').focus();
     await page.keyboard.press('Enter');
     const lines = ctx.locator('[data-diary-context-open]');
-    await expect(lines).toHaveText(['일정 10:00 시험 일정', '회의 14:00 시험 회의 3차']);
+    await expect(lines).toHaveText(['일정 10:00 시험 일정', '회의 14:00 시험 회의 3차', '투쟁 16:00 가상 총력결의대회']);
+    await expect(lines.nth(2)).toHaveAttribute('aria-label', '투쟁 16:00 가상 총력결의대회 열기');
+    await expect(lines.nth(2).locator('.diary-ctx-kind')).toHaveText('투쟁');
     // 업무일지와 같은 주 단위 읽기(그 주 월요일부터) 한 번. 폰은 달력 화면을 거쳐 오므로 달력의 읽기(다른 주)가 앞에 있을 수 있다.
     expect(f.eventReads.filter(t => t === new Date('2026-10-12T00:00:00+09:00').toISOString())).toHaveLength(1);
     expect(f.meetingReads.length).toBeGreaterThanOrEqual(1);
