@@ -376,9 +376,9 @@
   #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-save{ display:none; }
   /* HOTFIX-홈잊지말기칩(명진 11/14 10:41 '홈에서 잊지 말기 버튼이 없어졌다'): 접힌 한 줄에서도 [잊지 말기 n] 칩은 남긴다 —
      [업데이트 ▾ | 할 일] 단추만 치우고, 칩 자리는 입력칸 오른쪽 같은 줄에 둔다(줄 수는 그대로 한 줄). */
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest]{ grid-template-columns:minmax(0,1fr) auto; align-items:center; column-gap:6px; }
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-entry{ grid-column:1; grid-row:1; }
-  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-head{ grid-column:2; grid-row:1; display:flex; align-items:center; margin:0; }
+  #appView #homeView .home-quick[data-home-quick][data-quick-rest]{ flex-direction:row; flex-wrap:nowrap; align-items:center; gap:6px; }
+  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-entry{ order:1; flex:1 1 auto; min-width:0; }
+  #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-head{ order:2; flex:0 0 auto; display:flex; align-items:center; margin:0; }
   #appView #homeView .home-quick[data-home-quick][data-quick-rest] .home-quick-modes{ display:none; }
   #appView #homeView .home-quick[data-home-quick] .home-quick-kind:not([hidden]){ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; height:var(--kptu-control-height); min-height:0; margin:0; padding:0 2px; border:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium); white-space:nowrap; cursor:pointer; }
   #appView #homeView .home-quick[data-home-quick] .home-quick-kind::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
