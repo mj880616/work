@@ -6,8 +6,8 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 //   todo-radar-data.js(챙길 것), ledger-browse-model.mjs(약속), 사업 보고(app_meetings 제목·내용). 고르는 규칙은 org-key-people-model.mjs.
 // - 줄을 누르면 그 기록으로: 통화 KPTUCallFeed.show, 텔레그램 KPTUTelegramFeed.show, 회의 openReport, 약속 KPTULedgerBrowse.show, 챙길 것 정리함.
 // - 칩 빼기·고치기: 칩 꾹 누르기(폰) 또는 우클릭(PC) → 칩 줄 아래 작은 메뉴.
-import {readFeed, readPersonal, readCallEdits, workspaceOf, scopeOf} from './feed-data.js';
-import {applyCallEdit, missingTable, kstDay} from './feed-model.mjs';
+import {readFeed, readPersonal, readCallEdits, readFeedRooms, workspaceOf, scopeOf, LIST_DAYS} from './feed-data.js';
+import {applyCallEdit, missingTable, kstDay, addDays} from './feed-model.mjs';
 import {readSenders} from './tg-sender-data.js';
 import {readOpenCandidates} from './todo-radar-data.js';
 import {waitingCommitmentsPath} from './ledger-browse-model.mjs';
@@ -48,12 +48,12 @@ function readPool(rt) {
   const settle = p => p.then(v => v, () => null);
   const promise = (async () => {
     const ws = workspaceOf(rt);
-    const [calls, personal, edits, telegram, senders, meetings, todos, promises] = await Promise.all([
-      settle(readFeed('call', rt)), settle(readPersonal(rt)), settle(readCallEdits(rt)), settle(readFeed('telegram', rt)), settle(readSenders(rt)),
+    const [calls, personal, edits, telegram, senders, rooms, meetings, todos, promises] = await Promise.all([
+      settle(readFeed('call', rt)), settle(readPersonal(rt)), settle(readCallEdits(rt)), settle(readFeed('telegram', rt)), settle(readSenders(rt)), settle(readFeedRooms(rt)),
       settle(rt.api(`/rest/v1/app_meetings?workspace_id=eq.${enc(ws)}&deleted_at=is.null&select=id,title,series_name,round_no,meeting_at,notes,activity_kind&order=meeting_at.desc.nullslast&limit=300`, {singleFlight:false})),
       settle(readOpenCandidates(rt)), settle(rt.api(waitingCommitmentsPath(ws), {singleFlight:false}))]);
     const edited = rows => (rows || []).map(r => edits?.get?.(r.id) ? applyCallEdit(r, edits.get(r.id)) : r);
-    return {calls:edited(calls), personal:personal || [], telegram:telegram || [], senders, meetings:Array.isArray(meetings) ? meetings : [],
+    return {calls:edited(calls), personal:personal || [], telegram:telegram || [], senders, rooms:rooms?.rooms || null, meetings:Array.isArray(meetings) ? meetings : [],
       todos:todos?.ok ? todos.rows : [], promises:Array.isArray(promises) ? promises : [],
       partial:[calls, personal, telegram, meetings].some(x => x === null) || !todos?.ok};
   })();
@@ -66,7 +66,7 @@ export function dropKeyPeoplePool() { pool = null; }
 export function paintKeyPeople(opts) {
   if (!opts?.host || !opts.orgId || !opts.rt?.api) return;
   const same = ui && ui.host === opts.host && ui.orgId === opts.orgId;
-  ui = {people:[], status:'loading', brief:null, pick:null, menu:null, data:null, ...(same ? {people:ui.people, status:ui.status, brief:ui.brief, pick:ui.pick, data:ui.data} : {}), ...opts, run:(ui?.run || 0) + 1};
+  ui = {people:[], status:'loading', brief:null, pick:null, menu:null, data:null, ...(same ? {people:ui.people, status:ui.status, brief:ui.brief, pick:ui.pick, data:ui.data} : {}), ...opts, loaded:false, run:(ui?.run || 0) + 1};
   bind(ui.host);
   paint();
   void load(ui.run);
@@ -85,7 +85,9 @@ async function load(run) {
   const data = await readPool(rt).catch(() => null);
   if (!ui || ui.run !== run) return;
   ui.data = data || {calls:[], personal:[], telegram:[], senders:null, meetings:[], todos:[], promises:[], partial:true};
+  ui.loaded = true;
   paint();
+  restorePlace();
   askBrief(run);
 }
 // '요즘': 오늘 것이 없거나 주요 인물이 바뀌었으면 서버 AI에 한 번 부탁한다(재료는 서버가 로그인으로 읽음). 실패하면 빈 상태 그대로.
@@ -136,18 +138,19 @@ function paint() {
   const data = ui.data, today = kstDay();
   if (!data) { host.innerHTML = html + '<p class="okp-faint" role="status">기록을 모으는 중…</p>'; return; }
   const open = onlyPerson(collectOpen({people, todos:data.todos, promises:data.promises}), ui.pick);
-  const recs = onlyPerson(collectRecords({people, calls:data.calls, personal:data.personal, telegram:data.telegram, senders:data.senders, meetings:data.meetings}), ui.pick);
+  const recs = onlyPerson(collectRecords({people, calls:data.calls, personal:data.personal, telegram:data.telegram, senders:data.senders, meetings:data.meetings, rooms:data.rooms, since:addDays(today, -LIST_DAYS)}), ui.pick);
   const many = people.length > 1 && !ui.pick;
   html += `<h4 class="okp-h">열린 것<small>${open.length || ''}</small></h4>`;
-  html += open.length ? `<ul class="okp-list">${open.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}<span class="okp-due${dday(r.due, today).startsWith('D+') ? ' late' : ''}">${esc(dday(r.due, today))}</span></button></li>`).join('')}</ul>`
+  html += open.length ? `<ul class="okp-list">${open.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}<span class="okp-due${dday(r.due, today).startsWith('D+') ? ' late' : ''}">${esc(dday(r.due, today))}</span></button></li>${failHtml(r.key)}`).join('')}</ul>`
     : emptyHtml('약속·챙길 것 없음');
   html += `<h4 class="okp-h">지난 기록<small>${recs.length || ''}</small></h4>`;
-  html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>`).join('')}</ul>`
+  html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>${failHtml(r.key)}`).join('')}</ul>`
     : emptyHtml('최근 120일 기록 없음');
   if (data.partial) html += '<p class="okp-faint">일부 기록을 불러오지 못했어요.</p>';
   host.innerHTML = html;
   ui.rows = new Map([...open, ...recs].map(r => [r.key, r]));
 }
+const failHtml = key => failed && failed.orgId === ui.orgId && failed.key === key ? '<li class="okp-fail" role="alert">원문을 열지 못했어요.</li>' : '';
 // '요즘' 줄은 늘 보인다. 문장이 없으면 빈 상태 글자. 세부(detail)는 접기.
 function briefHtml() {
   const b = ui.brief, text = b?.brief ? b.brief : '아직 정리된 문장이 없어요.';
@@ -193,17 +196,80 @@ function showMenu(id) {
   ui.host.querySelector(`[data-okp-edit="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
 }
 
+// S61-53 ORG-주요인물기록열기: 줄을 누를 때의 자리(이 조직·누른 줄·그 줄의 화면 높이). 뒤로가기로 돌아오면 조직 상세를 다시 열고
+// 그 줄을 같은 높이에 둔다. 기억은 이 화면 메모리에만(기기 저장 없음).
+let returnTo = null; // {orgId, key, top}
+let failed = null;   // {orgId, key} — 원문을 열지 못한 줄(그 줄 아래 한 줄 안내)
+const rowEl = key => ui?.host.querySelector(`[data-okp-open="${CSS.escape(key)}"]`);
+function placeNow(key) {
+  return {orgId:ui.orgId, key, top:Math.round(rowEl(key)?.getBoundingClientRect().top ?? 0)};
+}
+// 라우터 openFrom의 back: 돌아온 조직 보고 화면에서 이 조직 상세를 다시 연다(이미 그 조직이 열려 있으면 자리만 맞춘다).
+function reopenAt(place) {
+  returnTo = place;
+  const m = document.querySelector('#wdModal'), shown = m && !m.classList.contains('hidden');
+  // 이미 그 조직이 열려 있으면(폴드·PC 칸은 조직 보고로 돌아오면 마지막 조직을 스스로 연다) 다시 열지 않는다: 기록을 다 읽었으면 바로, 아니면 읽은 뒤 맞춘다.
+  if (shown && window.KPTURouter?.place?.('team')?.org === place.orgId) { if (ui?.orgId === place.orgId && ui.loaded && ui.host.isConnected) restorePlace(); return; }
+  void window.KPTUWorkplace?.open?.(place.orgId);
+}
+// 줄을 off만큼 위로 올린다: 가까운 세로 스크롤 칸(폰 창 카드·폴드/PC 오른쪽 칸)부터, 끝에 닿으면 남은 만큼 바깥 칸·문서로.
+function scrollBy(el, off) {
+  const list = [];
+  for (let n = el?.parentElement; n && n !== document.body; n = n.parentElement) {
+    const y = getComputedStyle(n).overflowY;
+    if ((y === 'auto' || y === 'scroll') && n.scrollHeight > n.clientHeight) list.push(n);
+  }
+  list.push(document.scrollingElement || document.documentElement);
+  for (const n of list) {
+    if (Math.abs(off) <= 1) return;
+    const before = n.scrollTop; n.scrollTop = before + off; off -= n.scrollTop - before;
+  }
+}
+// 그 조직의 기록을 다 그린 뒤: [주요 인물] 탭으로, 누른 줄을 누를 때와 같은 화면 높이로. 위쪽 칸(업데이트·자료)이 늦게 그려져
+// 줄이 밀리거나 다시 그려지면 프레임마다 다시 맞추고, 높이가 30프레임 그대로이거나 240프레임이 지나거나 사람이 만지면 멈춘다(타이머 없음).
+function restorePlace() {
+  const p = returnTo; if (!p || !ui || ui.orgId !== p.orgId || !ui.data || !rowEl(p.key)) return;
+  returnTo = null;
+  const tab = document.querySelector('#wdModal [data-wd-tab="people"]');
+  if (tab?.getAttribute('aria-selected') === 'false') tab.click();
+  const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
+  let frames = 0, still = 0, ended = false;
+  const stop = () => { if (ended) return; ended = true; events.forEach(t => window.removeEventListener(t, stop, true)); };
+  events.forEach(t => window.addEventListener(t, stop, true));
+  const tick = () => {
+    if (ended) return;
+    if (ui?.orgId !== p.orgId || window.KPTURouter?.current !== 'team') { stop(); return; }
+    // 조직 상세가 다시 읽는 중이면(줄이 잠깐 없음) 기다린다.
+    const row = rowEl(p.key);
+    if (!row) { still = 0; if (frames++ >= 240) stop(); else requestAnimationFrame(tick); return; }
+    const off = Math.round(row.getBoundingClientRect().top) - p.top;
+    if (Math.abs(off) > 1) { scrollBy(row, off); still = 0; } else still++;
+    if (frames++ === 0) row.focus({preventScroll:true});
+    if (still >= 30 || frames >= 240) { stop(); return; }
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+
 async function openRecord(r) {
-  const router = window.KPTURouter, o = r.open; if (!router || !o) return;
+  const router = window.KPTURouter, o = r.open; if (!router || !o || !ui) return;
+  const place = placeNow(r.key), back = () => reopenAt(place);
+  failed = null;
+  let opened = true;
   try {
     if (o.view === 'meetings') { await openReport(o.id); return; }
     await window.KPTUViewLoader?.load?.(o.view);
-    // FORGET-원문열기·뒤로가기: 통화·텔레그램은 원문 열기 한 곳(source-open.js) — 뒤로가기 한 번이면 이 조직 상세 그 자리.
-    if (o.view === 'calls') await openCallSource(o.id);
-    else if (o.view === 'telegram') await openTelegramSource(o.room, o.day, o.item);
-    else if (o.view === 'ledger') { window.KPTULedgerBrowse?.show?.({kinds:['commitment'], openId:o.id}); router.go('ledger', {source:'delegated'}); }
-    else if (o.view === 'basket') router.go('basket', {source:'delegated', sub:'todo'});
-  } catch (e) { console.warn('key people open failed', e?.name || 'Error'); }
+    // FORGET-원문열기·뒤로가기: 통화·텔레그램은 원문 열기 한 곳(source-open.js) — 뒤로가기 한 번이면 이 조직 상세 그 자리(back).
+    if (o.view === 'calls') opened = await openCallSource(o.id, {back});
+    else if (o.view === 'telegram') opened = await openTelegramSource(o.room, o.day, o.item, {back});
+    else if (o.view === 'ledger') { window.KPTULedgerBrowse?.show?.({kinds:['commitment'], openId:o.id}); opened = await router.openFrom('ledger', null, {back}); }
+    else if (o.view === 'basket') opened = await router.openFrom('basket', null, {sub:'todo', back});
+  } catch (e) { opened = false; console.warn('key people open failed', e?.name || 'Error'); }
+  if (opened !== false) return;
+  // 못 열었다: 화면을 옮긴 뒤면 뒤로 한 칸(이 조직 상세가 다시 열린다), 옮기지 못했으면 창은 그대로(또는 back이 다시 연다). 그 줄 아래 한 줄 안내.
+  failed = {orgId:place.orgId, key:r.key};
+  if (router.current === o.view && o.view !== 'team') history.back();
+  else if (ui?.orgId === place.orgId) paint();
 }
 
 async function removePerson(id, anchor) {
