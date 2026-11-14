@@ -1,0 +1,48 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 사업 보고 링크 여러 개 (MTG-링크여러개)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:16px 0 6px}.cap small{font-weight:400;color:#6e6c60}
+.ph{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;border:1px solid #cfc8b6;border-radius:1em;padding:.8em 1em;line-height:1.5;margin-bottom:.4em}
+.t{font-weight:700;font-size:1.15em}.meta{font-size:.85em;color:#6e6c60}
+.sec{display:flex;align-items:center;gap:.5em;margin:.9em 0 .3em;font-weight:700;font-size:1.05em}.sec .plus{font-weight:400;color:#47532a}
+.box{border:1px solid #e2ddd0;border-radius:.5em;background:#f7f5ee;padding:.4em .6em;font-size:.9em;overflow-wrap:anywhere}
+.lk{display:flex;align-items:center;gap:.45em;padding:.35em 0;border-top:1px solid #e2ddd0;font-size:.92em}
+.lk:first-of-type{border-top:0}
+.lk .d{flex:none;font-size:.75em;color:#6e6c60;border:1px solid #e2ddd0;border-radius:.3em;padding:0 .3em}
+.lk .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2a4a6a}
+.lk .m{flex:none;color:#6e6c60}
+.add{display:flex;gap:.4em;margin-top:.35em}.add input{flex:1;min-width:0;border:1px solid #cfc8b6;border-radius:.4em;padding:.25em .5em;font:inherit;font-size:.9em;background:#fffefa}
+.btn{border:1px solid #cfc8b6;border-radius:.45em;padding:.1em .55em;font-size:.9em;background:#fffefa;white-space:nowrap}.btn.pri{background:#47532a;border-color:#47532a;color:#fffefa}
+.new{outline:.14em solid #b8663a;outline-offset:.25em}.gone{text-decoration:line-through;opacity:.5}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;margin-top:14px;max-width:412px}.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 사업 보고 상세 — 링크 여러 개</h1>
+<p class="note">폰 412 폭. 주소·제목은 예시. 주황 테두리가 새로 생기는 부분.</p>
+<div class="ph">
+<div class="cap">① 상세 창 <small>— 사진·자료처럼 '링크 +' 칸</small></div>
+<div class="scr">
+<div class="t">예시 결의대회</div><div class="meta">투쟁 · 11. 14. 14:00 · 장소 예시역</div>
+<div class="sec">원문</div><div class="box">https://news.example.com/view/NISX20261114_0003868135 — 긴 주소도 칸 안에서 줄바꿈</div>
+<div class="sec new">링크 3 <span class="plus">+</span></div>
+<div class="new">
+<div class="lk"><span class="d">example.com</span><span class="n">예시 일보 — 결의대회 기사</span><span class="m">⋯</span></div>
+<div class="lk"><span class="d">example.org</span><span class="n">예시 방송 — 현장 영상</span><span class="m">⋯</span></div>
+<div class="lk"><span class="d">example.net</span><span class="n">news.example.net/2026/11/14/12345</span><span class="m">⋯</span></div>
+</div>
+<div class="sec">사진 3 <span class="plus">+</span></div>
+<div class="sec">자료 <span class="plus">+</span></div>
+</div>
+<div class="cap">② [+]를 누르면 <small>— 주소를 붙여 넣고 [넣기], 여러 줄 한 번에 붙여 넣어도 줄마다 하나씩</small></div>
+<div class="scr">
+<div class="sec">링크 3 <span class="plus">+</span></div>
+<div class="add new"><input placeholder="주소 붙여 넣기 (여러 개면 줄마다)"><span class="btn pri">넣기</span></div>
+<div class="meta" style="margin-top:.3em">처음엔 주소가 제목 자리에 보여요. ⋯ [제목 고치기]로 이름을 붙여요.</div>
+</div>
+<div class="cap">③ 줄 ⋯ <small>— [열기] [제목 고치기] [빼기]</small></div>
+</div>
+<div class="legend"><b>요청함 방 추천 — 명진 확정 아님</b>: 링크는 사업 보고마다 여러 개, 서버 저장. 누르면 새 창(앱은 바깥 브라우저). 쓰기 창(새 보고)에도 같은 '링크 +' 칸. 원문 칸의 긴 주소 넘침은 따로 고장 제보로 고침.</div>
+</body></html>
