@@ -37,7 +37,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // BASKET-업데이트통합 PR 1: the home box has two modes, [업데이트 ▾] and [할 일]. [업데이트] with no place chosen is the old
   // [바구니] (a basket note, attachments allowed); with an organization or a project chosen it is that place's record, saved
   // through the same existing paths as before. toBasket() is that one rule; data-mode shows the effective kind (basket/update/task).
-  let mode='update',saving=false,expanded=false,focusIn=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]},bundleChoices=[];
+  let mode='update',saving=false,expanded=false,focusIn=false,keyboardSeen=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]},bundleChoices=[];
   { const saved=basketOnly||taskOnly?null:viewPrefs.get('home_quick_mode'); mode=saved==='task'?'task':'update'; }
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
@@ -106,10 +106,11 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // 같은 글이면 글자 칸을 갈지 않는다: 누르는 사이(포커스가 들어와 paint)에 단추 안 글자 칸이 바뀌면 브라우저가 그 누름을 click으로 치지 않는다.
   const setText=(el,text)=>{if(el.textContent!==text)el.textContent=text;};
   // HOME-입력칸두모양: the one writer of the phone home's shape (data-quick-shape, ui-standard.css) and of the date row's hidden:
-  // 'dates' ([할 일] with text or focus), 'typing' (text or files: [추가] in the chip's place), else 'line'. PC/other boxes: no shape.
+  // 'dates' ([할 일] with focus — or, where no phone keyboard was ever seen (the shared detector, accessibility-dialog.js), with
+  // text too), 'typing' (text or files: [추가] in the chip's place), else 'line'. PC/other boxes: no shape.
   // paint() calls it; a focus change calls only this (a full paint would redraw the file rows under a press and lose its click).
   function shape(){
-    const phone=phoneHome(),text=!!input.value.trim(),written=text||takesFiles()&&upload.entries.length>0,dates=phone&&mode==='task'&&(text||focusIn);
+    const phone=phoneHome(),text=!!input.value.trim(),written=text||takesFiles()&&upload.entries.length>0,dates=phone&&mode==='task'&&(focusIn||!keyboardSeen&&text);
     if(phone)box.dataset.quickShape=[dates&&'dates',written&&'typing'].filter(Boolean).join(' ')||'line';else delete box.dataset.quickShape;
     options.hidden=phone?!dates:taskOnly||!expanded||mode!=='task';
     return phone;
@@ -175,6 +176,18 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     pickerWide.addEventListener('change',()=>{placeHead();paint();});placeHead();
     document.addEventListener('focusin',e=>setFocusIn(focusHere(e.target)));
     box.addEventListener('focusout',e=>{if(!e.relatedTarget)setFocusIn(false);});
+    // HOME-자판내리면한줄(S61-50, 명진 11/14 18:48): on the phone the date row shows only while writing a task with the keyboard up.
+    // The keyboard state comes from the one shared detector (accessibility-dialog.js, event kptu:keyboard). When it goes down
+    // (Android back closes only the keyboard) with focus still in the input, the input lets go of focus, so the box is one row
+    // again; the text, the chosen date and 사업영역 stay, and pressing the input brings the date row back. While a sheet or small
+    // list this box opened is showing (a date, the next-week days, 사업영역) the row stays. Without a detected keyboard (PC) the
+    // old rule stays (text keeps the row).
+    document.addEventListener('kptu:keyboard',e=>{
+      if(e.detail?.open){keyboardSeen=true;return;}
+      if(!phoneHome()||document.activeElement!==input)return;
+      if([...document.querySelectorAll(OPENED_HERE)].some(el=>!box.contains(el)&&el.getClientRects().length>0))return;
+      input.blur();shape();
+    });
     // The kind button's small list: [업데이트] · [할 일] and 기록할 곳 선택 (the old ▾ right of [업데이트]).
     const kindBtn=box.querySelector('[data-quick-kind]');kindBtn.setAttribute('aria-haspopup','true');kindBtn.setAttribute('aria-expanded','false');
     // 공용 작은 메뉴(row-menu.js, ⋯ 메뉴와 같은 상자). 고르면 그 종류로 바꾸고 입력칸으로 간다.
