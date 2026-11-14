@@ -1,0 +1,50 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 노트 읽기 머리 줄 — 폰에서 제목 가림 없애기 (NOTE-배율자리)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:16px 0 6px}
+.cap small{font-weight:400;color:#6e6c60}
+.ph{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;border:1px solid #cfc8b6;border-radius:1em;line-height:1.45;padding:.6em .8em .7em;margin-bottom:.4em}
+.head{display:flex;align-items:center;gap:.45em;font-size:1em}
+.back{font-weight:700;white-space:nowrap;flex:none}
+.title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.title.two{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.seg{display:inline-flex;align-items:center;gap:.6em;background:#efece2;border-radius:1em;padding:.15em .7em;color:#6e6c60;flex:none;white-space:nowrap;font-size:.92em}
+.ic{flex:none;color:#6e6c60;border:1px solid #cfc8b6;border-radius:.4em;padding:0 .35em;font-size:.9em;white-space:nowrap}
+.gone{text-decoration:line-through;opacity:.55}
+.new{outline:.14em solid #b8663a;outline-offset:.12em}
+.body{margin-top:.55em;border-top:1px solid #e2ddd0;padding-top:.45em;color:#6e6c60;font-size:.9em}
+.menu{margin:.35em 0 0 auto;width:13em;border:1px solid #cfc8b6;border-radius:.5em;background:#fffefa;font-size:.9em;box-shadow:0 .2em .6em rgba(0,0,0,.08)}
+.menu div{padding:.35em .6em;border-top:1px solid #e2ddd0;display:flex;align-items:center;gap:.4em}
+.menu div:first-child{border-top:0}
+.menu .seg{margin-left:auto}
+.pop{display:flex;justify-content:flex-end;margin-top:.3em}
+.fz{display:inline-flex;align-items:flex-end;line-height:1;padding:.12em .3em}.fz b{font-size:1.05em;font-weight:600}.fz i{font-style:normal;font-size:.7em;margin-left:-.12em}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;margin-top:14px;max-width:31.7em*13px}
+.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 노트 읽기 머리 줄 — 폰에서 [− 100% +] 때문에 제목이 가림</h1>
+<p class="note">폰 412 폭만 바뀌어요. 폴드 펼침·PC는 지금 그대로(자리가 넉넉함). 제목은 예시.</p>
+<div class="ph">
+<div class="cap">지금</div>
+<div class="scr"><div class="head"><span class="back">‹ 노트</span><span class="title">[예시] 긴 제목의 노트 하나…</span><span class="seg">− 100% +</span><span class="ic">⧉</span><span>⋯</span></div><div class="body">본문…</div></div>
+
+<div class="cap">A. 배율은 ⋯ 안으로 <small>— 머리 줄엔 제목만 넓게</small></div>
+<div class="scr"><div class="head"><span class="back">‹ 노트</span><span class="title new">[예시] 긴 제목의 노트 하나 — 이제 거의 다 보임</span><span class="ic">⧉</span><span>⋯</span></div>
+<div class="menu new"><div>글 크기 <span class="seg">− 100% +</span></div><div>…(지금 ⋯ 항목 그대로)</div></div>
+<div class="body">본문…</div></div>
+
+<div class="cap">B. 글 크기 아이콘(큰 가·작은 가) 한 칸 <small>— 명진 선택. 누르면 그 자리 아래로 − 100% + 펼침</small></div>
+<div class="scr"><div class="head"><span class="back">‹ 노트</span><span class="title">[예시] 긴 제목의 노트 하나 — 대부분 보임</span><span class="ic new fz" aria-label="글 크기"><b>가</b><i>가</i></span><span class="ic">⧉</span><span>⋯</span></div>
+<div class="pop"><span class="seg new">− 100% +</span></div>
+<div class="body">본문…</div></div>
+
+<div class="cap">C. 제목을 두 줄까지 <small>— 버튼은 그대로, 제목이 길면 두 줄로</small></div>
+<div class="scr"><div class="head"><span class="back">‹ 노트</span><span class="title two new">[예시] 긴 제목의 노트 하나 — 인간의 변화에 대하여</span><span class="seg">− 100% +</span><span class="ic">⧉</span><span>⋯</span></div><div class="body">본문…</div></div>
+</div>
+<div class="legend"><b>명진 선택(11/14 11:39): B</b> — 아이콘은 큰 '가'와 작은 '가'가 겹친 글 크기 모양. 다시 누르거나 바깥을 누르면 접힘(요청함 방 추천). 폰 폭만, 폴드 펼침·PC는 지금 그대로.<br><b>(처음 추천이었던 A)</b> 배율은 한 번 맞추면 모든 노트·모든 기기에 남아서(서버 기억) 자주 누를 일이 없음 → 숨은 자리여도 불편이 적고, 제목이 가장 넓어짐. 폰에서 두 손가락으로 벌리고 오므려 배율 바꾸기는 따로 정할 일(지금은 넣지 않음).</div>
+</body></html>
