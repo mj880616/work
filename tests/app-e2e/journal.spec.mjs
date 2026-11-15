@@ -3358,106 +3358,12 @@ test('[주간 정리] 자료 요약: 요약 표를 못 읽으면 조직 칸에 �
  expect(f.errors).toEqual([]);
 });
 
-// JOURNAL-다음주준비: [주간 정리] 맨 위 [다음 주] 칸. 표(app_journal_next_week_sheets)와 ai-assist kind=next_week_sheet를 흉내 낸다(가짜 자료만).
-// 금요일 15시 뒤 이번 주를 처음 열면 한 번 자동으로 만든다(mode=auto). 업무 캘린더(공공운수노조) 일정만 재료로 가고, 개인 달력 일정은 가지 않는다.
-async function nextWeekServer(page,{missing=false}={}){
- const sheets=[],calls=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_journal_next_week_sheets',async r=>{
-  if(r.request().method()!=='GET')return r.fulfill({status:405,json:{}});
-  if(missing)return r.fulfill({status:404,json:{code:'PGRST205'}});
-  const week=(new URL(r.request().url()).searchParams.get('week_start')||'').replace(/^eq\./,'');
-  return r.fulfill({json:sheets.filter(s=>s.week_start===week)});
- });
- await page.route(SB+'/functions/v1/ai-assist',async r=>{
-  const body=r.request().postDataJSON();
-  if(body?.kind!=='next_week_sheet')return r.fallback();
-  calls.push(body);
-  const sheet={week_start:body.week_start,top_lines:body.items.length?[{text:'화요일 회의 준비 필요함.',refs:[0]}]:[],groups:body.items,ai_status:'ok',made_by:body.mode,created_at:'2026-10-09T07:00:05Z',updated_at:`2026-10-09T07:0${calls.length}:05Z`};
-  const i=sheets.findIndex(s=>s.week_start===sheet.week_start);if(i>=0)sheets[i]=sheet;else sheets.push(sheet);
-  return r.fulfill({json:{ok:true,kind:'next_week_sheet',week_start:body.week_start,sheet}});
- });
- return {sheets,calls};
-}
 // HOME-업무일지홈: 업무일지는 홈 — 폰은 하단 탭 [홈], PC 틀(761px~, 폴드 884 포함)은 사이드바 맨 위 [홈].
 async function openJournalAt(page,width){
  if(width<=760)await page.locator('.mobile-tabs [data-view="home"]').click();
  else await page.locator('#appView>.app-nav .sidebar-brand').click();
  await expect(page.locator('#homeView')).toBeVisible();
 }
-const nextBox=page=>page.locator('#journalRoot [data-journal-next-week]');
-for(const width of [412,884,1440])test(`[주간 정리] [다음 주] 칸: 금요일 15시 뒤 자동으로 한 번, 업무 캘린더만, 핵심 세 가지·접힌 묶음, 줄 누르면 그 기록 ${width}`,async({page})=>{
- await weeklyFixture(page,{width});
- const s=await nextWeekServer(page);
- await page.clock.setFixedTime(new Date('2026-10-09T07:00:00Z')); // 금요일 16:00(서울)
- await openJournalAt(page,width);
- await openWeekly(page);
- const box=nextBox(page);
- await expect(box.locator('h4')).toHaveText('다음 주 10/12(월)~10/18(일) 준비');
- await expect(box.locator('.journal-next-top .journal-next-top-text')).toHaveText(['화요일 회의 준비 필요함.']);
- await expect(box.locator('.journal-next-top [data-journal-next-ref]')).toHaveText('근거 ›');
- expect(s.calls.length).toBe(1);
- const sent=s.calls[0];
- expect(sent.mode).toBe('auto');expect(sent.week_start).toBe('2026-10-12');
- const titles=sent.items.map(i=>i.title).join('|');
- expect(titles).toContain('가상 다음 주 회의');expect(titles).toContain('가상 수련회');
- // 개인 달력(가상 개인 약속·가상 아스날 경기)·일기 일정은 장에도 AI에도 가지 않는다(결정 2).
- expect(titles).not.toMatch(/개인 약속|아스날|일기/);
- for(const it of sent.items)expect(Object.keys(it).sort()).toEqual(['day','group','org','source_id','source_kind','title']);
- // 만든 시각과 [다시 만들기]. 묶음은 접혀 있어도 한 줄 요약.
- await expect(box.locator('.journal-next-meta')).toContainText('10/9(금) 16:01 만듦');
- await expect(box.locator('[data-journal-next-make]')).toHaveText('다시 만들기');
- const events=box.locator('[data-journal-next-group="events"]');
- await expect(events).not.toHaveAttribute('open','');
- await expect(events.locator('summary')).toContainText('① 다음 주 일정');
- await expect(box.locator('[data-journal-next-group="overdue"] summary')).toContainText('넘어가는 할 일 2건 — 이번 주 기한 지남');
- // PREP-서식: 묶음 번호는 보이는 묶음 차례로(빈 묶음을 빼도 번호가 비지 않음).
- const labels=await box.locator('.journal-next-group > summary .journal-next-label').allTextContents();
- expect(labels.map(l=>l.charAt(0))).toEqual([...'①②③④⑤⑥'].slice(0,labels.length));
- // 가로로 넘치지 않는다.
- expect(await box.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
- // 핵심 줄 → 근거 묶음이 열리고 그 줄로.
- await box.locator('[data-journal-next-ref]').click();
- await expect(events).toHaveAttribute('open','');
- await expect(events.locator('[data-journal-next-open]').first()).toBeFocused();
- await expect(box.locator('[data-journal-next-item="0"]')).toHaveClass(/is-flash/);
- // 다시 그려도(주간 정리를 다시 열어도) 자동은 한 번뿐.
- await page.locator('#journalRoot [data-journal-mode="day"]').click();await openWeekly(page);
- await expect(box.locator('.journal-next-top li')).toHaveCount(1);
- expect(s.calls.length).toBe(1);
- // 일정 줄 → 달력 그날.
- await box.locator('[data-journal-next-group="events"]').evaluate(d=>{d.open=true;});
- await events.locator('[data-journal-next-open]').first().click();
- await expect(page.locator('#calendarView')).toBeVisible();
-});
-test('[주간 정리] [다음 주] 칸: 금요일 전에는 자동 없이 [지금 만들기], [다시 만들기]는 덮어씀, 지난 주는 그 주 장만 1440',async({page})=>{
- await weeklyFixture(page,{width:1440});
- const s=await nextWeekServer(page);
- await openJournalAt(page,1440);await openWeekly(page);
- const box=nextBox(page);
- await expect(box.locator('.journal-next-note')).toHaveText('금요일 15시 뒤에 만듦.');
- expect(s.calls.length).toBe(0);
- await box.locator('[data-journal-next-make]').click();
- await expect(box.locator('.journal-next-top li')).toHaveCount(1);
- expect(s.calls.map(c=>c.mode)).toEqual(['user']);
- await expect(box.locator('[data-journal-next-make]')).toHaveText('다시 만들기');
- await box.locator('[data-journal-next-make]').click();
- await expect(box.locator('.journal-next-meta')).toContainText('16:02 만듦');
- expect(s.calls.map(c=>c.mode)).toEqual(['user','user']);
- // 지난 주로 넘기면 그 주에 만든 장(없음)만 보여 주고 만들기 단추는 없다.
- await page.locator('#journalRoot [data-journal-prev]').click();
- await expect(box.locator('.journal-next-note')).toHaveText('이 주에는 만든 장이 없음.');
- await expect(box.locator('[data-journal-next-make]')).toHaveCount(0);
-});
-test('[주간 정리] [다음 주] 칸: 표가 아직 없으면(DB 적용 전) "준비 중" 한 줄, AI를 부르지 않음 412',async({page})=>{
- await weeklyFixture(page,{width:412});
- const s=await nextWeekServer(page,{missing:true});
- await page.clock.setFixedTime(new Date('2026-10-09T07:00:00Z'));
- await openJournalAt(page,412);await openWeekly(page);
- await expect(nextBox(page).locator('.journal-next-note')).toHaveText('다음 주 준비는 아직 준비 중이에요.');
- await expect(nextBox(page).locator('button')).toHaveCount(0);
- expect(s.calls.length).toBe(0);
-});
-
 // WEEKLY-주요일정칸(요청함 10/30 13:17·13:38): [주간 정리] 1. 2) 주요 일정 수기 표와 한글 파일 상자 5. 주요 일정이 같은 자료(그 주 행 draft의 hq·titles)를 본다.
 // 상자 5번은 줄마다 날짜·시간·제목·장소·참석 칸(파일에는 '시간 / 제목 / 장소' 한 줄), 3. 2) 투쟁 사업장은 넣기·빼기·순서가 다음 주에도 이어진다. 가짜 이름·일정만.
 const hqBox=page=>weekly(page,'hq-schedule');

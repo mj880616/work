@@ -65,7 +65,7 @@ import {googleLinkState, startGoogleLink, linkText} from './google-link.js'; // 
 await import('./organization-order.js').catch(() => {});
 // [주간 정리] places project records in the project tree and its order (PRJ-3단): the shared project catalog.
 await import('./project-catalog.js').catch(() => {});
-// PERF-첫로딩 P2(docs/design/first-load.md 6절): [주간 정리]·한글 파일 상자·다음 주 준비 모듈(journal-weekly-kit.js)은 하루 화면에 쓰지 않아
+// PERF-첫로딩 P2(docs/design/first-load.md 6절): [주간 정리]·한글 파일 상자 모듈(journal-weekly-kit.js)은 하루 화면에 쓰지 않아
 // 맨 위 정적 import에서 뺐다. 하루 화면이면 앱 첫 화면이 보인 뒤에, [주간 정리]로 열거나 바꾸면 바로 부른다(한 번만, 실패하면 다음에 다시).
 // 다 오기 전 [주간 정리]는 기다림 표시만 그리고, 오면 그 자리를 다시 그린다(이 화면이 유일한 renderer — 그리는 곳은 그대로).
 let W = null, kitFlight = null;
@@ -106,7 +106,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <div class="journal-materials" data-journal-materials></div>
 </div>
 </section>
-<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><div class="journal-weekly-body" data-journal-weekly></div></section>
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><div class="journal-weekly-body" data-journal-weekly></div></section>
 <section class="home-quiet" data-home-quiet aria-labelledby="home-quiet-title" hidden></section>`;
 const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
@@ -166,9 +166,6 @@ const freshFileUi = () => ({editing:null, value:'', saving:false, status:'', err
 let fileUi = freshFileUi();
 // MTG-기록겹침거르기 4단계: overlapFor = 겹침 확인을 이미 한 주 읽기(epoch). 겹쳐서 뺀 줄 접힘·[되살리기]는 S48-49 A·S61-27에서 코드째 없앴다(판정은 서버 표 그대로).
 let overlapFor = -1;
-// JOURNAL-다음주준비: [다음 주] 칸 상태(탭 메모리뿐 — 장은 서버 표에만). nextAsked = 이번 방문에 자동 만들기를 이미 부른 주(owner:week).
-let nextUi = {busy:false, message:'', error:false, open:new Set()};
-const nextAsked = new Set();
 let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
 // JOURNAL-오늘한줄초안: days this visit already asked the server for an AI draft (owner:day; memory only, the server keeps one a day).
@@ -561,7 +558,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   const host = $('[data-journal-weekly]');
   // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 확정본)이 없고 그 주 초안도 없으면 다른 팀 양식 대신 백지 + 올리기 한 줄.
   hwpx?.checkBase?.(start);
-  if (hwpx?.baseState?.(start) === 'none' && !weekRow()?.draft) { paintBlank(host); renderNextWeek_(); return; }
+  if (hwpx?.baseState?.(start) === 'none' && !weekRow()?.draft) { paintBlank(host); return; }
   // 다시 그려도 초점이 있던 칸(id 가 있는 입력칸)은 그 칸으로 돌아간다 — 바탕을 여는 동안·저장 뒤 다시 그릴 때 2)·3) 표 입력 초점이 빠지지 않게.
   const was = document.activeElement, keep = was && was.id && host.contains(was) && /^(INPUT|TEXTAREA|SELECT)$/.test(was.tagName) ? {id:was.id, at:[was.selectionStart, was.selectionEnd]} : null;
   // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
@@ -598,7 +595,6 @@ function renderWeekly_({refreshBox = true} = {}) {
   paintFlow(host, weekModel);
   W.paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js)
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
-  renderNextWeek_();
   if (execFocus) root.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).
   if (refreshBox) hwpx?.refresh();
@@ -871,7 +867,7 @@ function weeklyKit() {
     // 한꺼번에 받기 시작한다(view-loader 받기 도구, 빌드가 사슬을 채움). 그래야 홈 뒤 쉬는 틈 미리 받기·다른 메뉴 첫 전환과 겹치지 않는다.
     kitFlight = (mode === 'week' ? Promise.resolve() : appShown()).then(() => { window.KPTUViewLoader?.preload?.(/*static-chain*/['./journal-weekly-kit.js']); return import('./journal-weekly-kit.js'); }).then(kit => {
       W = kit; hwpx = mountHwpx();
-      if (mode === 'week') { renderWeekly_(); void checkOverlaps(); maybeNextWeek(); }
+      if (mode === 'week') { renderWeekly_(); void checkOverlaps(); }
       return kit;
     }, error => { kitFlight = null; throw error; });
   }
@@ -902,7 +898,7 @@ function setMode(next) {
   mode = next; editing = null;
   startWeekReads();
   writePlace(); renderMode();
-  if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); maybeNextWeek(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
+  if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
 }
 // NAV-새로고침제자리: the day shown (?day=, left out for today) and [주간 정리] (?mode=week) are written to the address (no history
 // entry of their own), so a reload opens the same day or the same weekly view; enter() reads them back.
@@ -916,11 +912,6 @@ const aiDraft = day => draftFor(materials.journalDrafts?.status === 'ok' ? mater
 // After 18:00 KST, on today with no line and no draft, ask the server once with the day's materials (일정·한 일·회의·소식·업무 통화).
 // Waits until those reads have landed (a failed one is just left out). The server checks the same rules again and never overwrites.
 const DRAFT_SOURCES = ['events', 'tasks', 'meetings', 'basket', 'orgUpdates', 'projectUpdates', 'calls', 'journalDrafts'];
-// FEAT-1029묶음 ②: 18시(서울) 뒤 업무일지를 열면 내일 교섭·회의 전 한 장을 한 번 만든다(규칙·만들기는 pre-meeting-sheet.js 하나, 서버가 다시 봄).
-function preMeetingAuto() {
-  if (new Date(Date.now() + 9 * 3600 * 1000).getUTCHours() < 18) return;
-  void import('./pre-meeting-sheet.js').then(m => m.autoMakeTomorrow(rt)).catch(() => {});
-}
 async function maybeDraft() {
   const day = todayKey(), key = `${ownerScope(rt)}:${day}`, read = materials.journalDrafts;
   if (mode !== 'day' || selected !== day || linesState !== 'ok' || read?.status !== 'ok') return;
@@ -935,45 +926,7 @@ async function maybeDraft() {
   if (selected === day && !saving && !editing) renderLine({keepStatus:true});
 }
 
-// JOURNAL-다음주준비: [주간 정리] 맨 위 [다음 주] 칸. 보이는 주의 다음 주 장(그 주 금요일에 만든 것)을 그린다.
-function renderNextWeek_() {
-  const box = $('[data-journal-next-week]');
-  if (!box || mode !== 'week' || !W) return;
-  for (const d of box.querySelectorAll('[data-journal-next-group]')) { if (d.open) nextUi.open.add(d.dataset.journalNextGroup); else nextUi.open.delete(d.dataset.journalNextGroup); }
-  const read = materials.nextWeek, week = shiftWeek(start, 1), now = new Date();
-  const state = !read || read.status === 'loading' ? 'loading' : read.status !== 'ok' ? 'failed' : read.items.missing ? 'missing' : 'ok';
-  const sheet = state === 'ok' ? read.items.sheet : null;
-  W.renderNextWeekSheet(box, {state, week, view:sheet ? W.sheetView(sheet, week) : null, canMake:start === W.seoulNow(now).thisMonday,
-    afterTime:W.isAutoTime(now), busy:nextUi.busy, message:nextUi.message, error:nextUi.error, open:nextUi.open});
-}
-// 금요일 15시 뒤(또는 토·일) 이번 주 [주간 정리]가 처음 열릴 때 다음 주 장이 없으면 한 번 만든다(mode=auto). 서버가 같은 규칙을 다시
-// 보고, 이미 있으면 덮지 않는다. [지금 만들기]·[다시 만들기]는 mode=user.
-async function makeNextWeek(kind) {
-  const run = epoch, scope = owner, week = shiftWeek(start, 1), thisMonday = start;
-  if (nextUi.busy) return;
-  nextUi.busy = true; nextUi.message = ''; nextUi.error = false; renderNextWeek_();
-  let result;
-  try { result = await W.makeNextWeekSheet({week, thisMonday, mode:kind}, rt); } catch { result = {ok:false, message:'만들지 못했어요. 잠시 뒤 다시 시도해 주세요.'}; }
-  if (!current(run, scope)) { nextUi.busy = false; return; }
-  nextUi.busy = false;
-  if (result.ok) {
-    if (result.sheet) materials.nextWeek = {status:'ok', items:{missing:false, sheet:result.sheet}};
-    nextUi.message = kind === 'user' && result.sheet ? '다음 주 준비를 만들었어요.' : '';
-  } else if (kind === 'user') { nextUi.message = result.message; nextUi.error = true; }
-  else if (result.code === 'not_ready' || result.code === 'next_week_sheet_not_ready') materials.nextWeek = {status:'ok', items:{missing:true, sheet:null}};
-  renderNextWeek_();
-}
-function maybeNextWeek() {
-  if (mode !== 'week' || !W) return;
-  const key = `${ownerScope(rt)}:${shiftWeek(start, 1)}`;
-  if (!W.shouldAutoMake({shownStart:start, read:materials.nextWeek, asked:nextAsked.has(key)})) return;
-  nextAsked.add(key);
-  void makeNextWeek('auto');
-}
-
 const readers = {
-  // JOURNAL-다음주준비: 보이는 주의 다음 주 장(표가 없으면 {missing:true}).
-  nextWeek: async () => { const week = shiftWeek(start, 1); return (await weeklyKit()).readNextWeekSheet(week, rt); },
   events: () => readWeekScheduleEvents(start, rt),
   // JOURNAL-오늘한줄초안: 업무 통화(업무 통화함만)와 그 주 AI 초안(표가 없으면 {missing:true}).
   calls: () => readWeekCalls(start, rt),
@@ -1026,7 +979,7 @@ async function loadTaskMeetings(run, scope) {
 const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
-const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'execRequests']);
+const WEEK_ONLY_KEYS = new Set(['weekDraft', 'execRequests']);
 const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
 async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
   if (!quiet) { materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_(); }
@@ -1042,8 +995,6 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   if (key === 'tasks' && materials.tasks?.status === 'ok') void loadTaskMeetings(run, scope);
   void checkOverlaps();
   void maybeDraft();
-  maybeNextWeek();
-  preMeetingAuto();
 }
 async function loadLines(run, scope, quiet = false) {
   if (!quiet) { linesState = 'loading'; renderLine(); }
@@ -1077,7 +1028,7 @@ async function loadMemory(run, scope, quiet = false) {
 // PERF-첫로딩 요청 합치기(S48-59, docs/design/first-load.md 14절): [주간 정리]에만 쓰는 읽기(다음 주 장·5. 주요 일정 두 주·조직 요약·
 // 임원 요청·임시저장·조직 참고 캘린더·주간보고 기억)는 하루 화면에서는 보내지 않고, 그 주 [주간 정리]를 처음 열 때 보낸다.
 // 묶음 프로그램은 전처럼 앱이 보인 뒤 미리 받아 두므로(맨 아래 weeklyKit), 열 때는 읽기만 기다린다(칸마다 기다림 표시 → 채움).
-const WEEK_READS = ['nextWeek', 'upcoming', 'execRequests', 'weekDraft'];
+const WEEK_READS = ['upcoming', 'execRequests', 'weekDraft'];
 let weekReads = null; // 미룬 읽기 {run, sharedRun, scope, quiet, memory}; 탭 메모리만
 let weekReadsFlight = Promise.resolve(); // 그 읽기들이 다 끝나면 풀림([주간보고 초안 복사]가 기다림)
 function startWeekReads() {
@@ -1097,11 +1048,10 @@ function loadWeek({shared = false, quiet = false} = {}) {
   const run = ++epoch, scope = owner = ownerScope(rt);
   const sharedRun = shared || changedOwner ? ++sharedEpoch : sharedEpoch;
   if (!quiet) {
-    nextUi = {busy:false, message:'', error:false, open:nextUi.open};
     lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises'];
+  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises'];
   // 하루 화면: [주간 정리] 전용 읽기는 미뤄 둔다(startWeekReads). 주를 넘겨도 기억 읽기는 방문(sharedEpoch)에 묶여 있으므로 함께 넘긴다.
   const defer = mode !== 'week', memoryRead = shared || changedOwner || (!!weekReads?.memory && weekReads.sharedRun === sharedRun);
   const keys = defer ? allKeys.filter(key => !WEEK_READS.includes(key)) : allKeys;
@@ -1296,23 +1246,6 @@ const RECORD = {
   // MTG-프로젝트합치기 결정 ⑥: 사업영역 화면은 옛 진행 기록 줄을 그리지 않는다 → 그 기록은 사업영역 화면만 열고 강조할 줄은 없다.
   project:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id || kind === 'progress' ? '' : `#ps3Body [data-basket-link="${CSS.escape(id)}"]`; },
 };
-// JOURNAL-다음주준비: 장의 한 줄(저장된 줄 번호) → 원래 기록. 약속은 원장 화면에서 그 약속을 펼친 채로, 챙길 것은 정리함.
-async function openNextWeekLine(index, trigger) {
-  const sheet = materials.nextWeek?.status === 'ok' ? materials.nextWeek.items.sheet : null;
-  const target = W.nextOpenTarget(Array.isArray(sheet?.groups) ? sheet.groups[index] : null);
-  if (!target) return;
-  if (target.type === 'ledger') {
-    try {
-      await window.KPTUViewLoader?.load?.('ledger');
-      rememberReturn(trigger);
-      window.KPTULedgerBrowse?.show?.({openId:target.id});
-      if (!goView('ledger')) pendingReturn = null;
-    } catch { status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.'; }
-    return;
-  }
-  if (target.type === 'todos') { rememberReturn(trigger); if (!goView('basket')) pendingReturn = null; return; }
-  return openOriginal(target, trigger);
-}
 async function openOriginal(target, trigger) {
   const wide = !!WIDE?.matches, loader = window.KPTUViewLoader;
   status.textContent = '';
@@ -1422,7 +1355,7 @@ async function copyDraft() {
   const text = W.weeklyReportText({...W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}), orgLines:weekOrgLines()});
   const ok = await copyText(text);
   // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
+  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간 보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
@@ -1736,16 +1669,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-sched-save]')) { hwpx?.schedule(button.dataset.journalSchedSave, 'save'); return; }
   if (button.matches('[data-journal-sched-cancel]')) { hwpx?.schedule(button.dataset.journalSchedCancel, 'cancel'); return; }
   if (button.matches('[data-journal-schedule-ai]')) { hwpx?.schedule('', 'ai'); return; }
-  // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, '근거 ›' → 근거 묶음 하나만 열고 그 줄로(잠깐 옅게 칠함, 공용 jumpToPrepRef).
   // 브라우저는 한 번 받기에 실패한 모듈을 같은 페이지에서 다시 받지 않는다 → 앱의 다른 화면 받기 실패와 같이 다시 연다(주소에 [주간 정리]가 남아 그 화면으로).
   if (button.matches('[data-journal-kit-retry]')) { location.reload(); return; }
-  if (button.matches('[data-journal-next-make]')) { void makeNextWeek('user'); return; }
-  if (button.matches('[data-journal-next-open]')) { void openNextWeekLine(Number(button.dataset.journalNextOpen), button); return; }
-  if (button.matches('[data-journal-next-ref]')) {
-    const group = W.jumpToPrepRef(root.querySelector('[data-journal-next-week]'), button.dataset.journalNextRef, W.NEXT_WEEK_SKIN);
-    if (group) nextUi.open.add(group);
-    return;
-  }
   if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }
   if (button.matches('[data-journal-original]')) { const target = opens.get(button.dataset.journalOriginal); button.closest('details')?.removeAttribute('open'); if (target) void openOriginal(target, button.closest('li')?.querySelector('[data-journal-open]') || button); return; }
   if (button.matches('[data-journal-complete]')) return void taskLine.complete(button.dataset.journalComplete, button);
