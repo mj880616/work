@@ -42,7 +42,7 @@ function installModals(){if(document.querySelector('#soEditModal'))return;docume
 const ordered=(list,item,headings=false)=>(headings=headings&&window.KPTUOrganizationOrder.hasGroups?.()!==false,window.KPTUOrganizationOrder.groups(list)).map(g=>`<div class="so-org-group">${headings?`<div class="so-group-card"><div class="so-group-heading"><span>${esc(window.KPTUOrganizationOrder.groupName(g[0]))}</span><span class="so-group-count">${g.length}곳</span></div>`:''}${g.map(item).join('')}${headings?'</div>':''}</div>`).join('');
 // One renderer for the list. The list is read twice on the way in (module start, then entering team); the same rows are not rebuilt,
 // so a row someone is about to tap (or has focus on) is not swapped out under them. Selection, stage tags and dots repaint on top as before.
-let soTeamHtml=null,soTeamBox=null,soGroupsMod=null,soGroupEditing=null;
+let soRecency=null,soTeamHtml=null,soTeamBox=null,soGroupsMod=null,soGroupEditing=null;
 function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const mine=myOrganizations();const hidden=new Set(window.KPTUOrganizationOrder.PICKER_EXCLUDED||[]),shown=mine.filter(o=>!hidden.has(o.name)),excluded=mine.filter(o=>hidden.has(o.name)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
  const row=o=>`<div class="so-row${hidden.has(o.name)?' is-excluded':''}" data-so-row="${esc(o.id)}"><article class="so-card kptu-list-row" data-so-org="${esc(o.id)}" data-ps-workplace-org="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.name)} 상세 열기"><div class="so-card-main kptu-list-row-main"><span class="so-dot" data-so-dot="${esc(o.id)}" aria-hidden="true"></span><h4 class="kptu-list-name">${esc(o.name)}</h4><span class="so-chevron kptu-list-chevron" aria-hidden="true">›</span></div></article><button type="button" class="icon-btn so-row-more" data-so-row-more="${esc(o.id)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(o.name)} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`;
  // MULTI-다른담당자맞춤 ①: [담당 조직에서 제외]한 조직(org_order.hidden)은 원래 묶음에서 빠져 맨 아래 '제외한 조직' 묶음에 흐리게(가나다순).
@@ -51,7 +51,7 @@ function renderTeam(){const box=document.querySelector('#soOrganizationList');if
  const sec=document.querySelector('#soTeamSection');sec?.classList.toggle('so-none',!mine.length);
  // MULTI-다른담당자맞춤 ②: 묶음이 있거나(값) 빈 묶음을 만들었으면 묶음 칸·손잡이·묶음 ⋯(org-groups-drag.js), 아니면 지금처럼 가나다순 한 목록.
  const grouped=!!soGroupsMod&&(window.KPTUOrganizationOrder.hasGroups?.()||soGroupsMod.hasPending());
- const html=(mine.length?(grouped?soGroupsMod.sectionsHtml(shown,row):ordered(shown,row,true))+excludedHtml:(globalThis.KPTUWait?.emptyHtml?.()||''))+'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>';if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}paintSelection();paintStageTags();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
+ const html=(mine.length?(grouped?soGroupsMod.sectionsHtml(shown,row):ordered(shown,row,true))+excludedHtml:(globalThis.KPTUWait?.emptyHtml?.()||''))+'<button type="button" class="so-reference-entry" data-goto="reference">참고 묶음 <span aria-hidden="true">›</span></button>';if(html!==soTeamHtml||box!==soTeamBox||!box.firstElementChild){box.innerHTML=html;soTeamHtml=html;soTeamBox=box}paintSelection();paintStageTags();repaintRecency();window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}));
  // DESK-전체현황표: 담당조직 맨 위 소탭 [목록|전체 표]. 전체 표(org-overview.js)는 같은 내 담당조직 목록을 받아 묶음별 표로 그린다.
  if(mine.length||document.querySelector('#soTeamTabs'))import('./org-overview.js').then(m=>m.syncOverview({orgs:mine,workspaceId:soWorkspace,rt})).catch(err=>console.error('org overview',err))}
 // ORG-쟁의단계: 목록 줄 꼬리표(모든 조직의 지금 단계, 색 = 투쟁 중·끝남·평시 — ORG-단계꼬리표전부)와 ⋯ 메뉴 [쟁의 단계 관리]. 판정은 org-dispute-stage-model.mjs 한 곳, 읽기·쓰기는 org-dispute-stage.js.
@@ -115,11 +115,14 @@ function summaryCurrent(run,user,workspace){const c=rt.context?.read?.();return 
 // Painted only after the read. The same words go into the row's accessible name, so the color is not the only signal.
 const kstDay=ms=>new Date(ms+9*3600000).toISOString().slice(0,10);
 function recency(at){if(!at)return {level:'stale',text:'기록 없음'};const days=Math.max(0,Math.round((Date.parse(kstDay(Date.now()))-Date.parse(kstDay(Date.parse(at))))/86400000));return {level:days<=7?'fresh':days<=20?'warn':'stale',text:days?`${days}일 전 기록`:'오늘 기록',days}}
+// STAB-바구니연결표시시험: 점 색·시각은 마지막으로 읽은 값(soRecency)이 원본이고, 목록을 다시 그리면(묶음 모듈·순서가 늦게 도착) 그 값을 다시 칠한다.
+// 읽은 사람·작업공간이 지금과 같을 때만 다시 칠한다(로그인이 바뀌면 clearRecency가 비운다).
+function repaintRecency(){if(soRecency&&soRecency.user===soUser?.id&&soRecency.workspace===soWorkspace)paintRecency(soRecency.latest)}
 function paintRecency(latest){
  document.querySelectorAll('[data-so-dot]').forEach(dot=>{const id=dot.dataset.soDot,at=latest.get(id),r=recency(at),row=dot.closest('.so-card'),name=row?.querySelector('.kptu-list-name')?.textContent||'';
   dot.dataset.soRecency=r.level;if(at)dot.dataset.soAt=at;else delete dot.dataset.soAt;row?.setAttribute('aria-label',`${name}, ${r.text}, 상세 열기`)});
 }
-function clearRecency(){document.querySelectorAll('[data-so-dot]').forEach(dot=>{delete dot.dataset.soRecency;delete dot.dataset.soAt;const row=dot.closest('.so-card'),name=row?.querySelector('.kptu-list-name')?.textContent||'';row?.setAttribute('aria-label',`${name} 상세 열기`)})}
+function clearRecency(){soRecency=null;document.querySelectorAll('[data-so-dot]').forEach(dot=>{delete dot.dataset.soRecency;delete dot.dataset.soAt;const row=dot.closest('.so-card'),name=row?.querySelector('.kptu-list-name')?.textContent||'';row?.setAttribute('aria-label',`${name} 상세 열기`)})}
 function loadSummaries(){
  if(window.KPTURouter&&window.KPTURouter.current!=='team')return Promise.resolve();
  if(summaryFlight){summaryDirty=true;return summaryFlight;}
@@ -154,7 +157,7 @@ async function readSummaries(){
   const [,basket]=await Promise.all([legacy(),readLinkRecords({kind:'organization',targetIds:ids,dateOnly:true},rt)]);
   basket.forEach(newer);
   if(!current())return;
-  paintRecency(latest);
+  soRecency={user,workspace,latest};paintRecency(latest);
  };
  await updateRead().catch(()=>{});
 }
