@@ -122,6 +122,8 @@ test('하루 화면은 [주간 정리] 전용 자료를 읽지 않고, [주간 �
   await expect(chapters(page)).toHaveCount(5);
   await expect.poll(() => weekOnly.filter(u => /app_weekly_exec_requests/.test(u)).length).toBeGreaterThan(0);
   await expect.poll(() => events.length).toBe(dayEvents + 1);
+  // S62-27(JOURNAL-다음주준비삭제): [주간 정리] 맨 위 '다음 주 준비' 칸은 없다(숨김 아님 — 칸 자체가 없음).
+  await expect(page.locator('#journalRoot [data-journal-next-week], #journalRoot .journal-next-week')).toHaveCount(0);
   // 하루로 돌아갔다 다시 열어도 같은 주는 업무일지가 다시 읽지 않는다(미룬 읽기는 한 번). 임원 요청 표는 한글 파일 상자도 제 몫으로 읽으므로 뺀다.
   const mine = () => weekOnly.filter(u => /app_weekly_org_summaries|select=weekly_schedule_memory|select=ledger_calendar/.test(u)).length;
   await page.waitForTimeout(1000);
@@ -132,5 +134,20 @@ test('하루 화면은 [주간 정리] 전용 자료를 읽지 않고, [주간 �
   await page.waitForTimeout(800);
   expect(mine()).toBe(after);
   expect(events.length).toBe(eventsAfter);
+  expect(errors).toEqual([]);
+});
+
+// S62-27(JOURNAL-다음주준비삭제): 폰 412·폴드 880·PC 1280에서 [주간 정리] 맨 위에 '다음 주 준비' 칸이 없다. 화면 사진은 PR 확인용.
+for (const width of [412, 880, 1280]) test(`[주간 정리] 맨 위에 다음 주 준비 칸이 없다 (${width}px)`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await page.waitForFunction(() => !!document.querySelector('#journalRoot') && window.KPTUJournal);
+  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await expect(chapters(page)).toHaveCount(5);
+  await expect(page.locator('#journalRoot [data-journal-next-week], #journalRoot .journal-next-week, #journalRoot [data-journal-next-make]')).toHaveCount(0);
+  await expect(page.getByText('다음 주 준비')).toHaveCount(0);
+  await page.screenshot({ path: `docs/design/screens/s62-27/weekly-${width}.png` });
   expect(errors).toEqual([]);
 });
