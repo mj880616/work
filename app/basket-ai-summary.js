@@ -54,6 +54,11 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   journal_memorable_unavailable:'소식을 읽거나 저장하지 못했어요.',
   home_day_picks_not_ready:'읽을 만한 글·기록 제안 기능이 아직 준비되지 않았어요.',
   home_day_picks_unavailable:'읽을 만한 글·기록 제안을 읽거나 저장하지 못했어요.',
+  // S62-27: 서버 정리 PR(②)이 이 코드들을 지울 때 함께 지운다(그 전까지 서버 오류 문구 표와 짝 — tests/basket-ai-summary.test.mjs).
+  next_week_sheet_not_ready:'다음 주 준비 기능이 아직 준비되지 않았어요.',
+  next_week_sheet_unavailable:'다음 주 준비 한 장을 읽거나 저장하지 못했어요.',
+  pre_meeting_sheet_not_ready:'교섭 전 한 장 기능이 아직 준비되지 않았어요.',
+  pre_meeting_sheet_unavailable:'교섭 전 한 장을 읽거나 저장하지 못했어요.',
   org_summary_not_ready:'조직 요약은 아직 준비 중이에요.',
   org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   org_people_not_ready:'주요 인물 기능이 아직 준비되지 않았어요.',
