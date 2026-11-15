@@ -15,7 +15,7 @@ import {followPane} from './follow-pane.js';
 import {fitChipRows} from './chip-rows.js';
 import {hhmm, dayLabel, telegramLines, telegramToday, telegramHeadText, roomTone, roomInitial, pinnedOf, missingTable, kstDay} from './feed-model.mjs';
 import {readDays, readRaw, readOrganizations, setPinned, setFeedState, scopeOf, readRoomDayLines, readRoomDay, readTitleRows, readPinnedItems, readTrashedItems,
-  readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder, readSummaryEdits, editSummary, readLineMarks, readSeenDays, markRoomDaySeen, setRoomPin, readRoomLatestLine} from './feed-data.js';
+  readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder, readSummaryEdits, editSummary, readLineMarks, readSeenDays, markRoomDaySeen, setRoomPin, setRoomNews, readRoomLatestLine} from './feed-data.js';
 import {summaryCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
@@ -115,9 +115,9 @@ async function load() {
       readFeedFolders(rt).catch(() => []), roomsP, readTrashedDays(rt).catch(() => []), readSummaryEdits(rt).then(editMap).catch(() => null)]);
     const [asks, markRows, seenRows, titles, pinLines] = await extra;
     if (me !== run || owner !== scopeOf(rt)) return;
-    const {rooms, pinReady} = roomState;
+    const {rooms, pinReady, newsReady = false} = roomState;
     if (titles) state.titles = titles;
-    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, pinLines:withRoomState(pinLines, rooms), lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
+    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, newsReady, pinLines:withRoomState(pinLines, rooms), lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
     setSenders(senders);
     if (state.folder && !folders.some(f => f.id === state.folder)) state.folder = '';
     if (state.mode === 'trash' && !trashed.length && !trashedDays.length) leaveShelf();
@@ -781,6 +781,18 @@ async function pinCore(room, on, text, current, isUndo = false) {
   return true;
 }
 const pinRoom = (room, on) => guarded(current => pinCore(room, on, on ? '고정했어요' : '고정을 풀었어요', current));
+// NEWS-모두에게열기: [뉴스방으로]·[뉴스방에서 빼기]. 판정·거절은 서버(app_feed_room_news — 텔레그램 허용 작업공간 주인, 그룹·채널만, 가족 방 거절).
+// 화면은 서버가 받아 준 뒤에만 표시를 바꾼다. 1:1 방에는 단추를 두지 않는다(서버도 거절).
+const NEWS_FAIL = {...ROOM_FAIL, NEWS_KIND:'1:1 대화방은 뉴스방으로 정할 수 없어요.', NEWS_FAMILY:'가족 방은 뉴스방으로 정할 수 없어요.', UNAVAILABLE:'뉴스방은 아직 준비 중이에요.'};
+const isNewsRoom = room => !!roomRow(room).news_at;
+const newsRoomOk = room => state.newsReady && ['group', 'channel'].includes(roomRow(room).chat_kind);
+const newsRoom = (room, on) => guarded(async current => {
+  const prev = roomRow(room), saved = await setRoomNews(room, on, rt); if (!current()) return;
+  if (!saved.ok) { state.status = NEWS_FAIL[saved.error] || NEWS_FAIL.REFUSED; if (saved.error === 'UNAVAILABLE') state.newsReady = false; if (saved.error === 'GONE') void load(); return; }
+  const rooms = new Map(state.rooms); rooms.set(room, {...prev, news_at:on ? (saved.news_at || prev.news_at || new Date().toISOString()) : null});
+  applyRooms(rooms);
+  state.status = on ? '뉴스방으로 정했어요 · 이 방 글 속 기사 주소가 News에 들어가요' : '뉴스방에서 뺐어요 · 이미 들어간 기사는 남아요';
+});
 const moveRoom = (room, folder, archived, text) => guarded(current => roomCore(room, folder, archived, text, current));
 function trashDay(room, day) {
   return guarded(async current => {
@@ -983,11 +995,13 @@ const rmenu = createAnchoredMenu({id:'tgRowMenu', className:'feed-menu', label:'
     const pin = state.pinReady ? `<button type="button" data-tg-ract="pin">${isPinned(k.room) ? '고정 풀기' : '고정'}</button>` : '';
     // TG-방별보기: 방별의 방 한 줄은 방 전체라 '이 날 한 줄만 삭제'를 두지 않는다.
     const trash = roomMode() ? '' : '<button type="button" class="feed-menu-danger" data-tg-ract="trash">삭제 <span class="feed-faint">이 날 한 줄만</span></button>';
-    return `${pin}<button type="button" data-tg-ract="folder">폴더로</button><button type="button" data-tg-ract="archive">보관</button>${trash}`;
+    const news = newsRoomOk(k.room) ? `<button type="button" data-tg-ract="news">${isNewsRoom(k.room) ? '뉴스방에서 빼기' : '뉴스방으로'}</button>` : '';
+    return `${pin}<button type="button" data-tg-ract="folder">폴더로</button><button type="button" data-tg-ract="archive">보관</button>${news}${trash}`;
   },
   onAction:(button, active) => {
     const k = splitRdKey(active.id.slice(4)); if (!k) return; const act = button.dataset.tgRact;
     if (act === 'pin') void pinRoom(k.room, !isPinned(k.room));
+    else if (act === 'news') void newsRoom(k.room, !isNewsRoom(k.room));
     else if (act === 'folder') { wantPicker = true; fmenu.open(active.trigger); }
     else if (act === 'archive') void moveRoom(k.room, roomRow(k.room).folder_id, true, '보관했어요');
     else if (act === 'trash') void trashDay(k.room, k.day);

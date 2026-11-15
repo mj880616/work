@@ -139,14 +139,18 @@ export async function readFeedFolders(rt = window.KPTURuntime) {
   return rows.filter(f => f?.id && typeof f.name === 'string');
 }
 // TG-방고정: pinned_at = 고정한 시각(고정 순서). 칸이 아직 없으면(DB 20261030060000 적용 전) 고정 없이 읽고 pinReady=false(화면이 [고정]을 감춘다).
-// 돌려주는 값 {rooms: Map(room_key → {room_label, folder_id, archived_at, pinned_at}), pinReady}.
+// 돌려주는 값 {rooms: Map(room_key → {room_label, folder_id, archived_at, pinned_at, chat_kind, news_at}), pinReady, newsReady}.
+// NEWS-모두에게열기 ③: chat_kind(1:1·그룹·채널)·news_at(뉴스방으로 정한 시각)은 따로 읽는다 — 칸이 없거나 못 읽으면 newsReady=false(화면이 [뉴스방으로]를 감춘다).
 export async function readFeedRooms(rt = window.KPTURuntime) {
   const ws = workspaceOf(rt), path = cols => `/rest/v1/app_feed_rooms?workspace_id=eq.${encode(ws)}&select=${cols}&order=room_key.asc`;
   let rows, pinReady = true;
   try { rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at,pinned_at'), rt); }
   catch { pinReady = false; rows = await readRecordPages(path('room_key,room_label,folder_id,archived_at'), rt); }
-  const rooms = new Map(rows.filter(r => r?.room_key).map(r => [r.room_key, {room_label:r.room_label || '', folder_id:r.folder_id || null, archived_at:r.archived_at || null, pinned_at:(pinReady && r.pinned_at) || null}]));
-  return {rooms, pinReady};
+  let news = null;
+  try { news = new Map((await readRecordPages(path('room_key,chat_kind,news_at'), rt)).filter(r => r?.room_key).map(r => [r.room_key, r])); } catch { news = null; }
+  const rooms = new Map(rows.filter(r => r?.room_key).map(r => [r.room_key, {room_label:r.room_label || '', folder_id:r.folder_id || null, archived_at:r.archived_at || null, pinned_at:(pinReady && r.pinned_at) || null,
+    chat_kind:news?.get(r.room_key)?.chat_kind || null, news_at:news?.get(r.room_key)?.news_at || null}]));
+  return {rooms, pinReady, newsReady:!!news};
 }
 // TG-방고정: 고정한 방이 불러온 기간에 줄이 없을 때, 그 방의 가장 최근 날(지우지 않은 소식) 한 줄을 따로 읽는다. 없으면 null.
 export async function readRoomLatestLine(roomKey, rt = window.KPTURuntime) {
@@ -164,7 +168,7 @@ export async function readTrashedDays(rt = window.KPTURuntime) {
   return page.filter(r => r?.room_key && r.day);
 }
 const TGDG = [[/TGDG_FOLDER_NAME_TAKEN/, 'TAKEN'], [/TGDG_FOLDER_LIMIT/, 'LIMIT'], [/TGDG_FOLDER_NAME|TGDG_ARGS/, 'INVALID'], [/TGDG_NOT_FOUND|TGDG_NO_ROOM/, 'GONE'],
-  [/TGPIN_ARCHIVED/, 'ARCHIVED'], [/TGPIN_LIMIT/, 'PIN_LIMIT'], [/TGSE_NOT_FOUND/, 'GONE'], [/TGSE_(SUMMARY|HEADLINE|LINES|ARGS|FIELD|PATCH|RESET)/, 'INVALID']];
+  [/TGNEWS_KIND/, 'NEWS_KIND'], [/TGNEWS_FAMILY/, 'NEWS_FAMILY'], [/OPERATOR_FEATURE_REQUIRED/, 'REFUSED'], [/TGPIN_ARCHIVED/, 'ARCHIVED'], [/TGPIN_LIMIT/, 'PIN_LIMIT'], [/TGSE_NOT_FOUND/, 'GONE'], [/TGSE_(SUMMARY|HEADLINE|LINES|ARGS|FIELD|PATCH|RESET)/, 'INVALID']];
 function tgdgError(error) {
   const status = Number(error?.status) || 0, text = String(error?.message || '') + ' ' + String(error?.code || '');
   for (const [re, code] of TGDG) if (re.test(text)) return code;
@@ -181,6 +185,9 @@ async function tgdg(name, body, rt) {
 export const setRoom = (roomKey, folder, archived, rt = window.KPTURuntime) => tgdg('app_feed_room_set', {p_room_key:roomKey, p_folder:folder || null, p_archived:!!archived}, rt);
 // TG-방고정: 방 고정(true)·풀기(false). DB 함수 app_feed_room_pin(소유자·텔레그램 허용 작업공간만, 보관한 방 거절, 20곳까지). 돌려주는 값 {ok, changed, pinned_at} 또는 {ok:false, error}.
 export const setRoomPin = (roomKey, pinned, rt = window.KPTURuntime) => tgdg('app_feed_room_pin', {p_room_key:roomKey, p_pinned:!!pinned}, rt);
+// NEWS-모두에게열기: 방을 뉴스방으로(true)·뉴스방에서 빼기(false). DB 함수 app_feed_room_news(텔레그램 허용 작업공간 주인만 — 서버 판정, 1:1·가족 방 거절).
+// 뉴스방 글에서는 기사 주소만 공용 News로 간다(글·방 이름·보낸 사람은 가지 않음). 빼도 이미 들어간 기사는 남는다. 돌려주는 값 {ok, changed, news_at} 또는 {ok:false, error}.
+export const setRoomNews = (roomKey, on, rt = window.KPTURuntime) => tgdg('app_feed_room_news', {p_room_key:roomKey, p_on:!!on}, rt);
 // 그날 그 줄만 삭제('trashed')·되살리기('active').
 export const setRoomDay = (roomKey, day, state, rt = window.KPTURuntime) => tgdg('app_feed_room_day_set', {p_room_key:roomKey, p_day:day, p_state:state}, rt);
 // TG-안본것: 방·날을 열면 '봤음' 시각을 서버에 남긴다(DB 함수 app_feed_room_day_seen, 소유자·텔레그램 허용 작업공간만). 기기에는 남기지 않는다.
