@@ -94,7 +94,7 @@ for (const width of [412, 1280]) {
     await expect(page.locator('#basketView')).toBeVisible();
     f.release();
     await expect.poll(() => f.uploads).toEqual([{noteId: 'up-1', name: '현장 사진.png'}, {noteId: 'up-1', name: '점검표.pdf'}]);
-    await expect(dock(page)).toContainText('업데이트에 사진 1장·파일 1개 올렸어요');
+    await expect(dock(page)).toContainText('잊지 말기에 사진 1장·파일 1개 올렸어요');
     if (SHOTS) await page.screenshot({path: `${SHOTS}/quick-done-${width}.png`});
     expect(f.notes.find(n => n.id === 'up-1').attachments).toHaveLength(2);
     await expect(page.locator('[data-basket-row-item="up-1"]')).toContainText('첨부 2개');

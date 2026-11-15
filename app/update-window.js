@@ -100,7 +100,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
   async function saveOwn(letters, target, doc1, label) {
     const list = batch();
     if (!list.entries.length) return saveUpdate({places:target, text:letters, owner, doc:doc1}, rt);
-    const result = await saveUpdateFilesBehind({places:target, text:letters, batch:list, doc:doc1, where:target.length ? `${label || '선택한 곳'} 기록` : '업데이트', ...(fileLine ? {fileLine} : {})}, rt);
+    const result = await saveUpdateFilesBehind({places:target, text:letters, batch:list, doc:doc1, where:target.length ? `${label || '선택한 곳'} 기록` : '잊지 말기', ...(fileLine ? {fileLine} : {})}, rt);
     if (upload) upload.reset?.(); else ownBatch = createUploadBatch();
     return {...result, sending:true};
   }
@@ -128,7 +128,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     return {ok:true};
   }
   handle = openEdWindow({title, doc, text, draft, saveUnchanged:true, limit:() => files.pending() ? UPDATE_TEXT_MAX : textLimitFor(state.chosen), head:head.row, foot:files.node, onFiles:list => files.picker.add(list),
-    dirty:() => files.pending() > 0, placeholder:'업데이트를 입력하세요', save:{aria:'업데이트로 저장', run},
+    dirty:() => files.pending() > 0, placeholder:'남길 것을 입력하세요', save:{aria:'업데이트로 저장', run},
     onClose:({text: letters, value}) => { closed = true; if (active === state) active = null; sheet?.dismiss(); onClose(letters, {saved, places:[...state.chosen], value}); }});
   if (!handle) return null;
   active = state;
@@ -142,7 +142,7 @@ export function openUpdateEditWindow({doc = null, text = '', save, attach = null
   let handle = null;
   const files = attach ? attachRow({id:'edwUpdateEditAttach', getBatch:attach.getBatch, isBusy:attach.isBusy, say:message => handle?.say(message)}) : null;
   handle = openEdWindow({title:'큰 창에서 수정', doc, text, limit:UPDATE_TEXT_MAX, foot:files?.node || null, onFiles:files ? list => files.picker.add(list) : null,
-    dirty:() => (files?.pending() || 0) > 0, placeholder:'업데이트를 쓰세요',
+    dirty:() => (files?.pending() || 0) > 0, placeholder:'잊지 말기에 남길 것',
     save:{aria:'업데이트 저장', run:({value, text: letters}) => save({value, text:letters})}, onClose});
   if (handle && files) handle.renderFiles = () => files.picker.render();
   return handle;

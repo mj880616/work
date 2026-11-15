@@ -188,7 +188,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  await editor.locator('[data-close="edWindow"]').click();
  // Unsaved text asks first; the answer is to close without saving.
  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(editor).toHaveCount(0);
- await expect(page.locator('#toast')).toContainText('빠른 추가의 [업데이트]로 다시 열면 이어서');
+ await expect(page.locator('#toast')).toContainText('빠른 추가의 [잊지 말기]로 다시 열면 이어서');
  await openWriteFromEntry(page,width);
  await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('쓰기에서 저장');
  await page.locator('#edWindow [data-edw-save]').click();

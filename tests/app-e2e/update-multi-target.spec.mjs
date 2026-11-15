@@ -76,7 +76,7 @@ for(const width of [390,1280])test(`여러 곳 고르기: 눌러도 창이 열�
   {kind:'organization',target_id:ID(2),reason:'직접 연결',origin:'record_input'},{kind:'project',target_id:PID,reason:'직접 연결',origin:'record_input'},{kind:'organization',target_id:ID(1),reason:'직접 연결',origin:'record_input'}]}]);
  await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
  // ⑦ back to the basket; the places just used lead the 최근 line, none chosen.
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('잊지 말기');
  await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));
  await expect(dialog(page).locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['부산지하철노동조합','합성 프로젝트','서울교통공사노동조합']);
  await expect(dialog(page).locator('[data-sheet-recent] [aria-pressed="true"]')).toHaveCount(0);
@@ -92,7 +92,7 @@ test('[취소]·×·Esc는 고른 것을 버리고 이전 선택을 유지',asyn
   await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await org(page,'서해선지부').click();
   await expect(dialog(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
   await close();await expect(dialog(page)).toBeHidden();
-  await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 서해선지부');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
+  await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 서해선지부');await expect(q.locator('[data-quick-mode="update"]')).toHaveText('잊지 말기');
   // Opening again shows the kept choice, not the dropped one.
   await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await expect(dialog(page).locator('[data-sheet-all] [aria-pressed="true"]')).toHaveText(['서해선지부']);await cancel(page).click();
  }
@@ -114,7 +114,7 @@ test('잊지 말기(미분류)는 다른 곳과 함께 고를 수 없음(정리�
 test('한 곳만 고르면 기존 그대로 그 곳 기록(연결 없음)',async({page})=>{
  const {q,f}=await setup(page,1280);
  await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));await org(page,'공항철도지부').click();await save(page).click();
- await expect(q.locator('[data-quick-mode="update"]')).toHaveText('업데이트');
+ await expect(q.locator('[data-quick-mode="update"]')).toHaveText('잊지 말기');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(f.orgs).toEqual([{organization_id:ID(5),raw_text:'합성 기록',created_by:'home-test'}]);expect(f.notes).toEqual([]);expect(f.links).toEqual([]);
 });
