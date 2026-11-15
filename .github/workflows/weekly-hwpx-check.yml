@@ -41,6 +41,8 @@ on:
       - 'app/weekly-own-form-model.mjs'
       - 'app/weekly-own-form-store.js'
       - 'app/weekly-own-draft-model.mjs'
+      - 'app/weekly-own-draft-store.js'
+      - 'app/weekly-own-draft.js'
       - 'tests/weekly-own-form.test.mjs'
       - '.github/workflows/weekly-hwpx-check.yml'
   pull_request:
@@ -82,6 +84,8 @@ on:
       - 'app/weekly-own-form-model.mjs'
       - 'app/weekly-own-form-store.js'
       - 'app/weekly-own-draft-model.mjs'
+      - 'app/weekly-own-draft-store.js'
+      - 'app/weekly-own-draft.js'
       - 'tests/weekly-own-form.test.mjs'
       - '.github/workflows/weekly-hwpx-check.yml'
   workflow_dispatch:
