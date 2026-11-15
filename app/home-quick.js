@@ -372,7 +372,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   }
   async function saveWithFiles({doc,owner}){
     const batch=upload,chosen=currentPlaces(),text=input.value,basketSave=!chosen.length,quickOwner=quickScope();
-    const where=basketSave?'잊지 말기':`${placesLabel(placeChoices(),chosen)||'선택한 곳'} 기록`;
+    const where=basketSave?'업데이트':`${placesLabel(placeChoices(),chosen)||'선택한 곳'} 기록`;
     saving=true;status.textContent='';hint.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{

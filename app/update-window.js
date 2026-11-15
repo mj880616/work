@@ -100,7 +100,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
   async function saveOwn(letters, target, doc1, label) {
     const list = batch();
     if (!list.entries.length) return saveUpdate({places:target, text:letters, owner, doc:doc1}, rt);
-    const result = await saveUpdateFilesBehind({places:target, text:letters, batch:list, doc:doc1, where:target.length ? `${label || '선택한 곳'} 기록` : '잊지 말기', ...(fileLine ? {fileLine} : {})}, rt);
+    const result = await saveUpdateFilesBehind({places:target, text:letters, batch:list, doc:doc1, where:target.length ? `${label || '선택한 곳'} 기록` : '업데이트', ...(fileLine ? {fileLine} : {})}, rt);
     if (upload) upload.reset?.(); else ownBatch = createUploadBatch();
     return {...result, sending:true};
   }
