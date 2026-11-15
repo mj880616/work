@@ -7,5 +7,15 @@ export const hasNewsItem = () => !!pending;
 export function takeNewsItem() { const v = pending; pending = null; return v; }
 // S51-8 NEWS P4b: 알림 줄 '새 성명 n건' [보기]가 News에 "[사회운동] 탭으로 열어 줘"를 남기는 곳(화면 메모리만). 껍데기가 들어올 때 한 번 꺼낸다.
 let pendingTab = null;
-export function requestNewsTab(tab) { pendingTab = ['all', 'movement', 'media', 'archive'].includes(tab) ? tab : null; return !!pendingTab; }
+export function requestNewsTab(tab) { pendingTab = ['all', 'movement', 'media', 'archive', 'marks'].includes(tab) ? tab : null; return !!pendingTab; }
 export function takeNewsTab() { const v = pendingTab; pendingTab = null; return v; }
+// NOTE-News밑줄보관보기: 노트 'News에서'(note-news-marks.js)가 "이 글을 열어 줘(밑줄이면 그 자리로)"를 남기는 곳(화면 메모리만).
+// {type:'news'|'outside'|'telegram', id, highlight?:밑줄 id}. 껍데기(outside-statements.js)가 들어올 때 한 번 꺼낸다.
+let pendingOpen = null;
+export function requestNewsOpen(o) {
+  const ok = o && ['news', 'outside', 'telegram'].includes(o.type) && typeof o.id === 'string' && o.id && (o.highlight == null || UUID.test(o.highlight));
+  pendingOpen = ok ? {type: o.type, id: o.id, highlight: o.highlight || null} : null;
+  return !!pendingOpen;
+}
+export const hasNewsOpen = () => !!pendingOpen;
+export function takeNewsOpen() { const v = pendingOpen; pendingOpen = null; return v; }

@@ -51,6 +51,14 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, saved = f
     event.preventDefault(); event.stopPropagation();
     run(b.dataset.nowAct, item);
   }, true);
+  // 줄 ⋯(data-now-more, 노트 'News에서 › 보관한 글' 줄 — note-news-marks.js): 우클릭과 같은 줄 메뉴를 그 ⋯ 옆에 연다.
+  host.addEventListener('click', event => {
+    const b = event.target.closest?.('[data-now-more]'); if (!b || !host.contains(b) || !enabled()) return;
+    const el = b.closest(row), item = el && itemOf(el); if (!item) return;
+    event.preventDefault(); event.stopPropagation();
+    const items = saved ? [{id: 'release', label: RELEASE_LABEL}] : [{id: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL}, {id: 'hide', label: HIDE_LABEL}];
+    openRowMenu(b, {key: 'now:' + item.type + ':' + item.id, title: (titleOf(el) || '').replace(/\s+/g, ' ').trim(), items, run: key => run(key, item)});
+  }, true);
   // S51-27 UI-PC우클릭: PC에서 줄을 우클릭(또는 Shift+F10)하면 크롬 기본 메뉴 대신 누른 자리에 같은 [보관][숨기기]([보관] 탭은 [보관 풀기]) — 공용 줄 메뉴(row-menu.js).
   host.addEventListener('contextmenu', event => {
     const el = event.target.closest?.(row); if (!el || !host.contains(el) || !enabled()) return;

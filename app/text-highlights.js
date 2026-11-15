@@ -155,15 +155,17 @@ const markMenu = createAnchoredMenu({id: 'hlMarkMenu', className: 'topline-add-m
   render: id => {
     const h = highlightById(id);
     if (!h) return '<p class="hl-menu-memo">이미 삭제한 밑줄이에요</p>';
-    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button><button type="button" class="row-act" data-hl-menu="note">노트로</button><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
+    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button>${menuSource ? '<button type="button" class="row-act" data-hl-menu="source">원문에서 보기</button>' : ''}<button type="button" class="row-act" data-hl-menu="note">노트로</button><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const h = highlightById(active.id);
     if (!h) return;
     const a = button.dataset.hlMenu, at = active.trigger?.isConnected ? active.trigger : null;
-    if (a === 'memo') void editMemo(h, at); else if (a === 'note') void noteWithNotice([h]); else if (a === 'copy') void copyHighlight(h); else if (a === 'delete') void deleteHighlight(h, at);
+    if (a === 'source') menuSource?.(h); else if (a === 'memo') void editMemo(h, at); else if (a === 'note') void noteWithNotice([h]); else if (a === 'copy') void copyHighlight(h); else if (a === 'delete') void deleteHighlight(h, at);
   }});
-export const openMarkMenu = (trigger, opts) => markMenu.open(trigger, opts);
+// onSource(h): 밑줄 목록이 글 상세 밖(노트 'News에서 › 밑줄')에 있을 때만 [원문에서 보기]를 더한다(그 글 그 자리로). 글 칸 안 밑줄 메뉴는 없음.
+let menuSource = null;
+export const openMarkMenu = (trigger, {onSource = null, ...opts} = {}) => { menuSource = typeof onSource === 'function' ? onSource : null; return markMenu.open(trigger, opts); };
 export function bindMarks(container) {
   if (!container || container.dataset.hlMarksBound) return;
   container.dataset.hlMarksBound = '1';
@@ -173,12 +175,14 @@ export function bindMarks(container) {
     if (!mark || !container.contains(mark)) return;
     const sel = window.getSelection?.();
     if (sel && !sel.isCollapsed) return; // 글을 고르는 중이면 메뉴를 열지 않는다
+    menuSource = null;
     markMenu.open(first(mark));
   });
   container.addEventListener('keydown', e => {
     const mark = e.target.closest?.('mark.hl-mark');
     if (!mark || (e.key !== 'Enter' && e.key !== ' ')) return;
     e.preventDefault();
+    menuSource = null;
     markMenu.open(first(mark));
   });
 }
