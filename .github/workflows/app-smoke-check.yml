@@ -1050,6 +1050,9 @@ jobs:
       - name: Check quick input kind words (HOME-입력종류업데이트글자잊지말기)
         run: node --test tests/ui-words-quick-kind.test.mjs
 
+      - name: FEEDBACK-의견보내기 자동 정보·보내기 전 검사
+        run: node --test tests/feedback-model.test.mjs
+
       - name: Check view tabs one look (UI-보기탭한모양)
         run: node --test tests/view-tabs-one-look.test.mjs
 
