@@ -42,7 +42,7 @@ export async function newsServer(page) {
     // S51-8 읽음 표(app_feed_reads): 넣은 것만 기억, 처음엔 모두 안 읽음.
     if (p === '/rest/v1/app_feed_reads') {
       server.calls.push({ what: 'app_feed_reads', method, query: decodeURIComponent(u.search), body });
-      if (method === 'POST') { server.reads.add(body.news_item_id || body.outside_post_id); return route.fulfill({ status: 201 }); }
+      if (method === 'POST') return route.fulfill({ status: 201 }); // 옮기는 동안 같이 써 보는 옛 표 — 읽음은 app_news_reads가 기준
       const col = u.searchParams.has('news_item_id') ? 'news_item_id' : 'outside_post_id';
       const ids = /^in\.\((.*)\)$/.exec(u.searchParams.get(col) || '')?.[1]?.split(',') || [];
       return ok(ids.filter(id => server.reads.has(id)).map(id => ({ [col]: id })));
@@ -79,9 +79,40 @@ export async function newsServer(page) {
       if (method === 'DELETE') { const f = server.folders.find(x => x.id === id); server.folders = server.folders.filter(x => x.id !== id); for (const x of server.folders) if (x.parent_id === id) x.parent_id = f.parent_id; for (const it of server.items) if (it.folder_id === id) it.folder_id = f.parent_id; return route.fulfill({ status: 204 }); }
       return ok(server.folders);
     }
+    // NEWS-모두에게열기 ③: 지도 함수(옛 id → 공용 id) — 이 가짜 서버의 id는 모두 공용 id라 지도 줄 없음(화면은 같은 id로 읽는다).
+    if (p === '/rest/v1/rpc/app_news_article_of' || p === '/rest/v1/rpc/app_outside_article_of') { server.calls.push({ what: 'map', path: p, body }); return ok(server.idMap?.(body) || []); }
     if (!p.startsWith('/rest/v1/app_news_') && p !== '/rest/v1/app_outside_sources') return route.fallback();
     server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
+    // NEWS-모두에게열기 ③: 공용 기사(app_news_articles) + 내 표시(app_news_marks) + 내 읽음(app_news_reads). 가짜 기사 한 줄에 둘 다 들고 있다.
+    const MARK = ['starred_at', 'folder_id', 'hidden_at'];
+    const marked = it => !!(it._marked || it.starred_at || it.folder_id || it.hidden_at || (it.keywords || []).length);
+    const art = it => { const { _body, _body_ko, _marked, starred_at, folder_id, hidden_at, keywords, ...row } = it; return { ...row, body: _body ?? null, body_ko: _body_ko ?? null }; };
+    const markOf = it => ({ starred_at: it.starred_at, folder_id: it.folder_id, hidden_at: it.hidden_at ?? null, keywords: it.keywords || [] });
+    const inIds = v => /^in\.\((.*)\)$/.exec(v || '')?.[1]?.split(',') || [];
+    if (p === '/rest/v1/app_news_articles') {
+      const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
+      const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
+      const rows = server.items.filter(i => (!id || i.id === id) && (!inKeys || inKeys.includes(i.source_key)));
+      return ok(rows.map(i => ({ ...art(i), app_news_marks: marked(i) ? [markOf(i)] : [] })));
+    }
+    if (p === '/rest/v1/app_news_marks') {
+      const aid = (u.searchParams.get('article_id') || '').replace(/^eq\./, '');
+      const view = i => ({ article_id: i.id, ...markOf(i), app_news_articles: art(i) });
+      if (method === 'PATCH') { const it = server.items.find(i => i.id === aid); if (!it || !marked(it)) return ok([]); Object.assign(it, body); return ok([{ article_id: it.id, ...markOf(it) }]); }
+      if (method === 'POST') { const it = server.items.find(i => i.id === body.article_id); Object.assign(it, body, { _marked: true }); delete it.article_id; delete it.workspace_id; return ok([{ article_id: it.id, ...markOf(it) }], 201); }
+      const star = u.searchParams.get('starred_at'), hidden = u.searchParams.get('hidden_at');
+      const cs = /^cs\.\{"((?:[^"\\]|\\.)*)"\}$/.exec(u.searchParams.get('keywords') || '')?.[1]?.replace(/\\(.)/g, '$1');
+      const rows = server.items.filter(i => marked(i) && (!aid || i.id === aid) && (!star || !!i.starred_at) && (hidden !== 'is.null' || !i.hidden_at) && (cs === undefined || (i.keywords || []).includes(cs)));
+      return ok(rows.map(view));
+    }
+    if (p === '/rest/v1/app_news_reads') {
+      server.calls.push({ what: 'app_news_reads', method, query: decodeURIComponent(u.search), body });
+      if (method === 'POST') { server.reads.add(body.article_id); return route.fulfill({ status: 201 }); }
+      return ok(inIds(u.searchParams.get('article_id')).filter(id => server.reads.has(id)).map(id => ({ article_id: id })));
+    }
+    // 옛 표(옮기는 동안 화면이 같은 id로 한 번 더 써 보는 곳)는 기록만 남기고 아무것도 바꾸지 않는다.
     if (p === '/rest/v1/app_news_items') {
+      if (method !== 'GET') return ok([]);
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       const view = it => { const { _body, _body_ko, ...row } = it; return { ...row, body: _body ?? null, body_ko: _body_ko ?? null }; };
       if (method === 'PATCH') { const row = server.items.find(i => i.id === id); Object.assign(row, body); return ok([{ id: row.id, starred_at: row.starred_at, folder_id: row.folder_id }]); }
