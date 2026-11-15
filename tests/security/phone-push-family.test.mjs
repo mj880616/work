@@ -91,7 +91,7 @@ test('조용한 시간이면 held_quiet로만 남기고, 끝난 뒤 첫 실행�
 });
 
 test('다른 예약·FCM 비밀값 없음이면 잊지 말기를 읽지도 보내지도 않는다',async()=>{
-  for(const slot of ['morning','evening','friday']){
+  for(const slot of ['morning','evening']){
     const h=harness({now:DAY,notes:[note(1,'2026-11-05T01:00:00Z')]});
     await h.cron(slot);
     assert.ok(h.state.rest.every(c=>c.table!==H.FAMILY_TABLE),slot);assert.equal(h.state.fcm.length,0);

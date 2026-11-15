@@ -72,7 +72,7 @@ function harness({now,people=[],prefs=null,log=[],devices=true,operator=OP_WS}={
       return reply(200,ws===OP_WS?[{user_id:OP_USER}]:ws===OTHER_WS?[{user_id:OTHER_USER}]:[]);
     }
     if(table==='app_profiles')return reply(200,[{notify_prefs:prefs}]);
-    if(table===H.FAMILY_TABLE||table==='app_journal_next_week_sheets'||table==='app_meeting_transcribe_jobs')return reply(200,[]);
+    if(table===H.FAMILY_TABLE||table==='app_meeting_transcribe_jobs')return reply(200,[]);
     if(table==='app_push_devices'&&method==='PATCH')return reply(204);
     throw new Error('unexpected '+method+' '+table);
   };

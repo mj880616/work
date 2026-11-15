@@ -1,11 +1,8 @@
-// PERF-첫로딩 P2(docs/design/first-load.md 6절): 홈의 [주간 정리]·한글 파일 상자·다음 주 준비가 쓰는 모듈 한 묶음.
+// PERF-첫로딩 P2(docs/design/first-load.md 6절): 홈의 [주간 정리]·한글 파일 상자가 쓰는 모듈 한 묶음.
 // journal.js가 홈 첫 화면을 보인 뒤(또는 [주간 정리]를 열 때) import()로 한 번 부른다. 이 파일은 다시 내보내기만 한다.
 // 하루 화면에 쓰는 모듈은 여기에 넣지 않는다(journal.js 맨 위 정적 import).
 export {requestWorkScope} from './work-scope.js';
-export {weeklySummary, renderWeekly, weeklyReportText, renderNextWeekSheet, NEXT_WEEK_SKIN} from './journal-weekly.js';
-export {jumpToPrepRef} from './prep-sheet-view.js';
-export {readNextWeekSheet, makeNextWeekSheet} from './next-week-sheet-data.js';
-export {sheetView, shouldAutoMake, isAutoTime, seoulNow, openTarget as nextOpenTarget} from './next-week-sheet-model.mjs';
+export {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js';
 export {mountWeeklyHwpx} from './journal-hwpx.js';
 export {paintFlowCells, FLOW_SECTIONS, shownSiteNames, siteLayoutSettled} from './weekly-flow-cells.js';
 export {inSites} from './weekly-cell-names.mjs';
