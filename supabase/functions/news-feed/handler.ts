@@ -1197,6 +1197,15 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       const text = typeof item.body === "string" ? item.body : "";
       if (typeof item.body_ko === "string" && item.body_ko) return json({ ok: true, status: "stored" });
       if (!text && typeof item.title_ko === "string" && item.title_ko) return json({ ok: true, status: "stored" });
+      // NEWS-모두에게열기 ②: 같은 주소·같은 본문의 공용 기사에 번역이 이미 있으면(다른 사람이 먼저 누름) 옮겨 적기만 — 다시 번역하지 않고 하루 한도도 쓰지 않는다.
+      const art = typeof item.url_key === "string" ? (await articlesByKey(db, [item.url_key], log)).get(item.url_key) : undefined;
+      const sameBody = !!art && (art.body ?? "") === (item.body ?? "");
+      if (art && sameBody && typeof art.body_ko === "string" && art.body_ko) {
+        const nowIso = new Date(nowMs).toISOString();
+        await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${who.workspaceId}`,
+          { title_ko: item.title_ko ?? art.title_ko ?? null, body_ko: art.body_ko, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+        return json({ ok: true, status: "stored" });
+      }
       if (item.lang === "ko") throw new Fail(409, "NOT_FOREIGN");
       if (!title && !text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
       // AI 월 한도는 AI로 번역할 때만 본다(Google 번역은 AI 비용이 아님 — Google 쪽 하루 글자 한도는 Cloud 콘솔 할당량으로).
@@ -1224,6 +1233,10 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       const keepTitle = hadTitle ? item.title_ko : null;
       await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${who.workspaceId}`,
         { title_ko: keepTitle ?? tr.title_ko, body_ko: tr.body_ko, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+      // 공용 기사에도 저장(본문이 같을 때만) → 두 번째 사람은 저장본을 읽는다.
+      if (art && sameBody && tr.body_ko) {
+        await patchArticle(db, log, art.id, { title_ko: art.title_ko ?? keepTitle ?? tr.title_ko ?? null, body_ko: tr.body_ko, translated_at: art.translated_at ?? nowIso, updated_at: nowIso }, "&body_ko=is.null");
+      }
       return json({ ok: true, status: "translated", engine });
     } catch (e) {
       if (e instanceof Fail) {
