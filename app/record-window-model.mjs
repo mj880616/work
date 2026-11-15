@@ -8,7 +8,6 @@
 // - 확정 사진(app_report_snapshots)이 있는 주는 사진 줄 그대로 + 사진 뒤 새로 생긴 줄을 흐린 '확정 뒤 추가'로.
 // - 전환 주(RECORD_ONE_FROM) 이전 주는 옛 주별 조직보고 표를 읽기 전용으로 보인다(화면 쪽, record-window-view.js).
 import {dayText, validDay, shiftWeek, mondayOf} from './weekly-org-lines-model.mjs';
-import {linkedOrgs, titleOrg} from './pre-meeting-sheet-model.mjs';
 import {isOrgRefTitle, cleanTitle} from './calendar-ref-model.mjs';
 import {oneLine, recordOneLine, plainLines} from './record-oneline.mjs';
 
@@ -32,6 +31,26 @@ const seoulDay = value => { const t = Date.parse(String(value ?? '')); return Nu
 export const cleanBody = text => String(text ?? '').replace(/[\p{Cc}\u200b-\u200f\u202a-\u202e\u2060-\u2069]/gu, ' ').replace(/\s+/g, ' ').trim();
 const compact = text => String(text ?? '').normalize('NFC').replace(/[\s·‧․.,()[\]{}<>「」『』'"“”‘’\-–_/~]/g, '').toLowerCase();
 export const lineId = (kind, key) => `${kind}:${key}`;
+
+// 일정에 붙인 조직 연결(kptu_suborg_ids) 중 내 조직 목록에 있는 것 전부(연결 순서). S62-27: 교섭·회의 전 한 장을 지우며 그 모델에서 이 파일로 옮겼다.
+export function linkedOrgs(event, orgs) {
+  const list = Array.isArray(orgs) ? orgs : [];
+  const out = [];
+  for (const raw of Array.isArray(event?.organizationIds) ? event.organizationIds : []) {
+    const id = String(raw).toLowerCase(), hit = list.find(o => String(o?.id ?? '').toLowerCase() === id);
+    if (hit && !out.includes(hit)) out.push(hit);
+  }
+  return out;
+}
+const cleanName = s => String(s ?? '').replace(/[\s·.,()[\]]/g, '');
+// 제목에 조직 이름·다른 이름(2글자 이상, 띄어쓰기·문장부호 무시)이 정확히 한 조직만 맞으면 그 조직, 아니면 null.
+export function titleOrg(event, orgs) {
+  const list = Array.isArray(orgs) ? orgs : [];
+  const title = cleanName(event?.title);
+  if (!title) return null;
+  const hits = list.filter(o => [o?.name, ...(Array.isArray(o?.aliases) ? o.aliases : [])].some(n => cleanName(n).length >= 2 && title.includes(cleanName(n))));
+  return hits.length === 1 ? hits[0] : null;
+}
 
 export const isOldWeek = week => validDay(week) && week < RECORD_ONE_FROM;
 // 조직 창 [from, to)(to 제외).

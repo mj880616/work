@@ -1,7 +1,7 @@
 // 근거 검사 공용 함수(FEAT-1029묶음 공통 규칙, docs/design/ask-web2.md 2.2절 7번).
 // AI 답은 "줄마다 근거 꼬리표(ref)"를 붙여 받고, 서버가 이번에 보낸 근거에 없는 ref·근거 없는 줄·위험한 줄을 버린다.
-// 같은 부품 한 벌: Web2에 물어보기(web2-ask.ts, ref "s1" 모양)와 '한 장'(next-week-sheet.ts·pre-meeting-sheet.ts, 줄 번호 모양)이
-// 모두 아래 checkedLines 하나로 줄을 검사한다. 꼬리표 모양만 부르는 쪽이 고른다(evidenceLines / groundedLines).
+// 같은 부품 한 벌: Web2에 물어보기(web2-ask.ts, ref "s1" 모양)·공유 초안(share-draft.ts)이 아래 checkedLines 하나로 줄을 검사한다(evidenceLines).
+// (줄 번호 모양 groundedLines를 쓰던 '한 장' 두 기능은 S62-27에서 지웠다.)
 // 순수 함수만 둔다(입출력은 handler.ts). AI 답은 믿지 않는 입력이다.
 import { looksSecret } from "./note-title.ts";
 
@@ -91,10 +91,4 @@ export function evidenceLines(raw: string, allowed: ReadonlySet<string>, opt: { 
   const lines = (data as Record<string, unknown>).lines;
   if (!Array.isArray(lines) || lines.length > opt.maxLines * 2) return null;
   return checkedLines(lines, (r): r is string => typeof r === "string" && EVIDENCE_REF.test(r) && allowed.has(r), opt);
-}
-
-// '한 장': 재료 줄 번호(sent)를 근거로 쓰는 답 배열. 배열이 아니면 null.
-export type GroundedLine = { text: string; refs: number[] };
-export function groundedLines(list: unknown, sent: ReadonlySet<number>, opts: { max: number; maxChars: number }): GroundedLine[] | null {
-  return checkedLines(list, (n): n is number => Number.isInteger(n) && sent.has(n as number), { maxLines: opts.max, maxChars: opts.maxChars });
 }
