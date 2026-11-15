@@ -1,4 +1,4 @@
-// UI-앱안알림 4단계(docs/design/in-app-notices.md 4절 3, 7절 4): 맨 위 알림 줄의 '뒤에서 끝난 일' 손님(예: 다음 주 준비 한 장).
+// UI-앱안알림 4단계(docs/design/in-app-notices.md 4절 3, 7절 4): 맨 위 알림 줄의 '뒤에서 끝난 일' 손님(예: 회의 요약).
 // 자리·높이는 notice-bar.js가 맡고, 이 파일은 이 줄들의 상태 주인이자 유일한 렌더러다.
 // - 재료: 서버 phone-push `notices`(폰 알림과 같은 '보낼 일' 목록, supabase/functions/phone-push/done-items.ts). 무엇을 띄울지·열었는지는
 //   서버 기록(app_push_log)이 정한다 — 폰·PC가 같다. 이 기기에는 아무것도 저장하지 않는다.
