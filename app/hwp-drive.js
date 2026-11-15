@@ -3,7 +3,7 @@
 // - 새 파일로 저장(기본): 자료실은 library-files로 새 자료 등록, 바구니는 basket-files로 같은 메모에 첨부 추가.
 // 어떤 요청도 자동으로 다시 보내지 않는다. 400대 거절은 "바뀐 것 없음", 시간 초과·5xx·응답 이상은 "결과 불명"이다.
 // 서버가 아직 배포되지 않았으면 열기가 거절되어 편집기에 Drive 파일이 들어오지 않으므로 아무것도 바뀌지 않는다.
-import {weeklySaveCategory,weeklyCategoryLabel,loadDocumentCategories} from './document-categories.js'; // S53-16: '개인 확정본' 역할 분류(이름이 바뀌어도 표식으로)로 저장
+import {weeklySaveCategory,weeklyCategoryLabel,loadDocumentCategories,documentCategories,addDocumentCategory} from './document-categories.js'; // S53-16: '개인 확정본' 역할 분류(이름이 바뀌어도 표식으로)로 저장
 import {sendUpload} from './upload-send.mjs';
 import {trackUpload} from './upload-progress.js';
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 자료실에 새로 등록된 파일 안 글자를 서버가 한 번 읽어 둠
@@ -20,31 +20,38 @@ export const HWP_TEXT={
 export const isHwpName=name=>/\.hwpx?$/i.test(String(name||''));
 export const editedName=name=>`${String(name||'문서').replace(/\.(hwpx?)$/i,'').trim()||'문서'}-수정.hwp`;
 
-// HWP-노조양식 1단계: 노조 문서 양식 HWP는 사용자가 자료실에 분류 "양식"으로 한 번 등록해 둔 자료다(Drive 권한 확대 없음).
+// HWP-노조양식 1단계: 노조 문서 양식 HWP는 사용자가 자료실에 분류 "노조 서식"으로 등록해 둔 자료다(Drive 권한 확대 없음).
 // [노조 양식으로 새 문서]는 그 자료를 기존 hwp-open 흐름으로 열되, 원본에는 덮어쓰지 않고 새 파일 제목을 사용자가 정한다.
-export const UNION_TEMPLATE_CATEGORY='양식';
+// HWP-노조서식분류(요청함 11/16 07:26): 분류 이름은 '노조 서식'. 새로 등록할 때는 '노조 서식'만 쓰고, 예전 이름 '양식'으로 등록된 자료도
+// 계속 찾는다(읽을 때 두 이름 모두 — 운영 자료 일괄 변경 없음). 자료실 꼬리표도 '양식' → '노조 서식'으로 보인다(document-categories.js LEGACY).
+export const UNION_TEMPLATE_CATEGORY='노조 서식';
+export const UNION_TEMPLATE_OLD_CATEGORY='양식';
+export const UNION_TEMPLATE_CATEGORIES=Object.freeze([UNION_TEMPLATE_CATEGORY,UNION_TEMPLATE_OLD_CATEGORY]);
+export const isUnionTemplateCategory=value=>UNION_TEMPLATE_CATEGORIES.includes(String(value??''));
 const UNION_HINT=/노조|문서\s*스타일|통일/;
+const isUnionTemplateRow=row=>row&&typeof row.id==='string'&&isUnionTemplateCategory(row.category)&&/\.hwp$/i.test(String(row.file_name||''));
 export function pickUnionTemplate(rows){
-  const list=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row.id==='string'&&row.category===UNION_TEMPLATE_CATEGORY&&/\.hwp$/i.test(String(row.file_name||'')));
+  const list=(Array.isArray(rows)?rows:[]).filter(isUnionTemplateRow);
   const hinted=list.filter(row=>UNION_HINT.test(`${row.title||''} ${row.file_name||''}`));
   const pool=hinted.length?hinted:list;
   const sorted=[...pool].sort((a,b)=>String(a.title||a.file_name).localeCompare(String(b.title||b.file_name),'ko'));
   return {chosen:sorted[0]||null,others:sorted.slice(1),total:list.length};
 }
+export const UNION_TEMPLATE_FILTER='in.('+encodeURIComponent(UNION_TEMPLATE_CATEGORIES.map(name=>`"${name}"`).join(','))+')';
 async function templateRows({rt}){
   const workspace=rt?.context?.read?.()?.workspace?.id;
   if(!workspace||typeof rt?.api!=='function')throw failure('session',HWP_TEXT.session);
-  return rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(workspace)}&category=eq.${encodeURIComponent(UNION_TEMPLATE_CATEGORY)}&select=id,title,file_name,category&order=created_at.desc&limit=50`,{singleFlight:false});
+  return rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(workspace)}&category=${UNION_TEMPLATE_FILTER}&select=id,title,file_name,category&order=created_at.desc&limit=50`,{singleFlight:false});
 }
 export async function findUnionTemplate({rt=window.KPTURuntime}={}){
   return pickUnionTemplate(await templateRows({rt}));
 }
 
-// HWP-서식변환: 문서 종류(보고서·공문·회의자료)별 빈 양식도 같은 자료실 분류 "양식"의 HWP다. 이름(자료명·파일 이름)에 종류 낱말이 든 것을 먼저 쓰고,
+// HWP-서식변환: 문서 종류(보고서·공문·회의자료)별 빈 양식도 같은 자료실 분류 "노조 서식"(옛 "양식")의 HWP다. 이름(자료명·파일 이름)에 종류 낱말이 든 것을 먼저 쓰고,
 // 없으면 종류 낱말이 없는 일반 노조 양식을 쓴다(specific:false). 다른 종류의 양식은 쓰지 않는다(공문에 보고서 양식을 넣지 않는다).
 export const CONVERT_TYPE_HINTS=Object.freeze({report:/보고/,letter:/공문/,meeting:/회의/});
 export function pickConvertTemplate(rows,docType){
-  const list=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row.id==='string'&&row.category===UNION_TEMPLATE_CATEGORY&&/\.hwp$/i.test(String(row.file_name||'')));
+  const list=(Array.isArray(rows)?rows:[]).filter(isUnionTemplateRow);
   const nameOf=row=>`${row.title||''} ${row.file_name||''}`;
   const hint=CONVERT_TYPE_HINTS[docType];
   const byName=(a,b)=>String(a.title||a.file_name).localeCompare(String(b.title||b.file_name),'ko');
@@ -144,7 +151,7 @@ export function newFileOutcome({status,data,error},where){
 export async function saveLibraryCopy(target,bytes,{rt=window.KPTURuntime,fetcher,newTitle}={}){
   const doc=target.document,form=new FormData();
   if(target.template){
-    // 양식에서 시작한 새 문서: 양식 자료의 분류("양식")·태그를 물려받지 않는다. 분류·프로젝트는 자료실에서 정한다.
+    // 양식에서 시작한 새 문서: 양식 자료의 분류("노조 서식")·태그를 물려받지 않는다. 분류·프로젝트는 자료실에서 정한다.
     const title=String(newTitle||'').trim()||'새 문서';
     form.append('file',new File([bytes],newDocumentFileName(title),{type:'application/x-hwp'}));
     form.append('title',title);
@@ -163,7 +170,7 @@ export async function saveLibraryCopy(target,bytes,{rt=window.KPTURuntime,fetche
 
 // HWP-서식변환 [자료실에 저장]: [노조 서식으로 만들기]로 만든 한글 파일을 자료실에 새 자료로 등록한다(library-files).
 // 자료명과 파일 이름은 화면이 정해 보내므로 서버가 파일 내용을 읽어 이름을 짐작하지 않는다. 분류·프로젝트는 비워 두고 자료실에서 정한다
-// (분류 "양식"을 달지 않는다: 양식 목록에 섞이지 않게). 한 번만 보내고 결과를 모르면 다시 보내지 않는다.
+// (분류 "노조 서식"을 달지 않는다: 서식 목록에 섞이지 않게). 한 번만 보내고 결과를 모르면 다시 보내지 않는다.
 export async function saveConvertedCopy(bytes,{fileName,title},{rt=window.KPTURuntime,fetcher}={}){
   const form=new FormData();
   form.append('file',new File([bytes],newDocumentFileName(String(fileName||'').replace(/\.hwpx?$/i,'')||title),{type:'application/x-hwp'}));
@@ -172,6 +179,44 @@ export async function saveConvertedCopy(bytes,{fileName,title},{rt=window.KPTURu
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 저장했어요. 분류·사업영역은 자료실에서 정해 주세요.'};}
+  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
+}
+
+// HWP-노조서식분류: 자료실 분류 '노조 서식'이 내 분류 목록에 없으면 기존 분류 추가 함수(app_document_category_add)로 한 번 더한다("폴더 없으면 만들고").
+// 목록을 못 읽었거나(기본 7개뿐), 30개가 찼거나, 추가가 실패해도 올리기는 막지 않는다(자료는 '노조 서식' 값으로 저장되고 꼬리표만 '기타'로 보임).
+export async function ensureUnionFormCategory({rt=window.KPTURuntime}={}){
+  try{await loadDocumentCategories({rt});}catch{return false}
+  const list=documentCategories();
+  if(list.includes(UNION_TEMPLATE_CATEGORY))return true;
+  if(list.length>=30)return false;
+  try{return (await addDocumentCategory(UNION_TEMPLATE_CATEGORY,{rt})).ok===true;}catch{return false}
+}
+// 서식 파일 올리기 규칙: 한글 파일(.hwp·.hwpx)만, 30MB까지. hwpOnly면 .hwp만([노조 서식으로 만들기]의 칸막이 엔진은 HWP 5 바탕만 받음).
+export function unionFormFileProblem(file,{hwpOnly=false}={}){
+  if(!file)return '파일을 읽지 못했어요.';
+  const name=String(file.name||'');
+  if(hwpOnly&&/\.hwpx$/i.test(name))return '한글(.hwp) 파일만 서식으로 쓸 수 있어요. 한글에서 다른 이름으로 저장 → .hwp로 저장해 올려 주세요.';
+  if(!(hwpOnly?/\.hwp$/i:/\.hwpx?$/i).test(name))return hwpOnly?'한글(.hwp) 파일만 올릴 수 있어요.':'한글 파일(.hwp·.hwpx)만 올릴 수 있어요.';
+  if(!(file.size>0))return '빈 파일이에요. 다른 파일을 선택해 주세요.';
+  if(file.size>HWP_EDIT_MAX_BYTES)return '파일이 30MB보다 커서 올리지 않아요.';
+  return '';
+}
+// 서식 파일 원본을 자료실에 분류 '노조 서식'으로 등록한다(기존 library-files — 내 Drive 자료실 폴더, owner 전용 자료 1행). 자료명은 파일 이름에서
+// 정해 보내므로 서버가 내용을 읽어 이름을 짐작하지 않는다. 한 번만 보내고 결과를 모르면 다시 보내지 않는다. 로컬 저장 없음.
+export async function saveUnionForm(file,{title}={},{rt=window.KPTURuntime,fetcher}={}){
+  await ensureUnionFormCategory({rt});
+  const name=String(file?.name||'서식.hwp');
+  const form=new FormData();
+  form.append('file',file instanceof File?file:new File([file],name,{type:/\.hwpx$/i.test(name)?'application/hwp+zip':'application/x-hwp'}));
+  form.append('title',String(title||'').trim()||name.replace(/\.hwpx?$/i,'').trim()||'노조 서식');
+  form.append('category',UNION_TEMPLATE_CATEGORY);
+  let response;
+  try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
+  const data=await readJson(response);
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){
+    try{window.dispatchEvent(new CustomEvent('kptu:documents-changed'))}catch{/* 목록 새로 고침 알림만 */}
+    return {kind:'created',document:{id:data.document.id,title:String(data.document.title||''),file_name:String(data.document.file_name||name),category:UNION_TEMPLATE_CATEGORY},message:`자료실 '${UNION_TEMPLATE_CATEGORY}'에 올렸어요.`};
+  }
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 

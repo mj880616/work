@@ -1705,6 +1705,11 @@ test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올�
  const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
  const forms=[];let row=null;
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:row?[row]:[]});const body=r.request().postDataJSON();forms.push({method:m,query:Object.fromEntries(new URL(r.request().url()).searchParams),body});row={id:'form-1',...(row??{}),...body,updated_at:'2026-11-16T00:00:0'+forms.length+'Z'};return r.fulfill({status:m==='POST'?201:200,json:[row]});});
+ // HWP-노조서식분류 ②: 파일에서 읽은 양식을 저장하면 원본 한글 파일을 자료실 '노조 서식'에 한 번 올리고 그 자료 번호를 내 양식에 둔다.
+ const uploads=[],catAdds=[],SRC='0b8f5a3e-1111-4222-8333-444455556666';
+ await page.route(SB+'/rest/v1/rpc/app_document_category_add',r=>{catAdds.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,categories:['교섭','투쟁','교육','선전','정책','회의','노조 서식','기타'],documents:0}});});
+ await page.unroute(SB+'/functions/v1/library-files');
+ await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());uploads.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:SRC,title:body.title}}});});
  await openJournal(page,1280);await openWeekly(page);
  // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 자료실에 바탕이 없으면 [주간 보고]는 백지 + 한 줄 [파일 올리기] — 다른 팀 양식(항목 이름·표 칸)은 하나도 안 보인다.
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
@@ -1734,11 +1739,14 @@ test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올�
  await expect(rows.nth(1)).toHaveAttribute('data-own-form-row',id);
  await ed.getByRole('button',{name:'저장'}).click();
  await expect(weekly.locator('[data-weekly-own-form-saved]')).toHaveText(/^내 양식 · .+ · 항목 \d+개 양식 수정$/);
- await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText('내 양식으로 저장했어요.');
+ await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText("내 양식으로 저장했어요. 원본 파일은 자료실 '노조 서식'에 두었어요.");
  await expect(weekly.locator('[data-weekly-blank]')).toHaveCount(1);
+ expect(uploads).toHaveLength(1);
+ expect(uploads[0]).toMatchObject({category:'노조 서식',title:'my-form'});
+ expect(catAdds).toEqual([{p_name:'노조 서식'}]);
  expect(forms.map(x=>x.method)).toEqual(['POST']);
- expect(Object.keys(forms[0].body).sort()).toEqual(['form','name','source_name','workspace_id']);
- expect(forms[0].body).toMatchObject({workspace_id:'w',source_name:'my-form.hwpx',form:{v:1}});
+ expect(Object.keys(forms[0].body).sort()).toEqual(['form','name','source_file_id','source_name','workspace_id']);
+ expect(forms[0].body).toMatchObject({workspace_id:'w',source_name:'my-form.hwpx',source_file_id:SRC,form:{v:1}});
  const saved=forms[0].body.form.sections;expect(saved.length).toBe(n-1);
  expect(saved[1]).toMatchObject({id,title:'1. 이번 주 활동',fill:'todo'});expect(saved[1].columns.at(-1)).toBe('담당');
  for(const s of saved)expect(Object.keys(s).sort()).toEqual(['columns','fill','id','level','title']);
@@ -1752,6 +1760,7 @@ test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올�
  await expect(weekly.locator('[data-weekly-own-form-saved]')).toBeVisible();
  expect(forms[1]).toMatchObject({method:'PATCH',query:{workspace_id:'eq.w',id:'eq.form-1',updated_at:'eq.2026-11-16T00:00:01Z'}});
  expect(forms[1].body.workspace_id).toBeUndefined();
+ expect(forms[1].body.source_file_id).toBeUndefined();expect(uploads).toHaveLength(1);
  // 한글이 아닌 파일: 열지 않고 한 줄.
  await weekly.locator('[data-weekly-blank-file]').setInputFiles({name:'note.txt',mimeType:'text/plain',buffer:Buffer.from('x')});
  await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText('HWP(.hwp) 또는 한글 파일(.hwpx)만 선택할 수 있어요.');

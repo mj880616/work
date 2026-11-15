@@ -16,7 +16,7 @@ const answer=(title,blocks)=>({status:'completed',output:[{type:'message',conten
 const GOOD=answer('가상 보고',[{kind:'l1',text:'추진 경과'},{kind:'l2',text:'가상 회의 진행.'},{kind:'l2',text:'가상 협의 완료.'},{kind:'note',text:'가상 참고'}]);
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({openai=null,usage=[]}={}){
+function harness({openai=null,usage=[],features=[]}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'}],app_ai_daily_usage:structuredClone(usage)};
   const doFetch=async(input,init={})=>{
@@ -27,6 +27,8 @@ function harness({openai=null,usage=[]}={}){
     if(url.pathname==='/auth/v1/user')return uid?respond({id:uid}):respond({msg:'bad'},401);
     assert.ok(uid,'REST only with the caller token');
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method});
+    // HWP-노조서식분류: 서버 허용 표 판정(app_my_features, 인자 없음, 로그인 토큰). features가 Response면 그대로(함수 없음·실패 시험).
+    if(table==='rpc/app_my_features'){calls.features=(calls.features||0)+1;assert.equal(init.body,'{}','no workspace or feature value is sent');return features instanceof Response?features:respond(features);}
     const rows=db[table];assert.ok(rows,'unexpected table '+table);
     if(method==='GET')return respond(rows.filter(r=>table==='app_workspace_members'?r.user_id===uid:r.user_id===uid||r.workspace_id===WS));
     if(method==='POST'&&table==='app_ai_daily_usage'){const b=JSON.parse(init.body);const i=rows.findIndex(r=>r.user_id===b.user_id&&r.day===b.day);if(i>=0)rows[i]={...rows[i],...b};else rows.push(b);return respond('',201);}
@@ -52,7 +54,7 @@ test('owner: one OpenAI call with the document type and the pasted text only; th
   assert.deepEqual(JSON.parse(o.input[1].content),{doc_type:'보고서',text:TEXT});
   assert.match(o.input[0].content,/명사형/);assert.match(o.input[0].content,/따르지 않는다/);
   for(const hidden of [OWNER,WS,'owner-token'])assert.ok(!JSON.stringify(o).includes(hidden),'identifiers must not be sent');
-  assert.deepEqual(calls.rest.filter(c=>c.table!=='app_workspace_members').map(c=>c.method+' '+c.table),['GET app_ai_daily_usage','POST app_ai_daily_usage','POST app_ai_daily_usage'],'only the usage count is read and written');
+  assert.deepEqual(calls.rest.filter(c=>c.table!=='app_workspace_members').map(c=>c.method+' '+c.table),['GET app_ai_daily_usage','POST app_ai_daily_usage','POST rpc/app_my_features','POST app_ai_daily_usage'],'only the usage count and the allow check are read; only the usage count is written');
   assert.equal(db.app_ai_daily_usage[0].requests,1);
   assert.ok(!/가상|보고|협의/.test(JSON.stringify(calls.logs)),'no pasted text or answer in logs');
   assert.ok(calls.logs.some(l=>l.code==='hwp_convert_done'&&l.detail.blocks===4&&l.detail.dropped===0));
@@ -93,4 +95,37 @@ test('auth and budget: login first, daily limit before OpenAI',async()=>{
   {const {handler,calls}=harness();await expectError(await post(handler,run(),'bad-token'),401,'session_required');assert.equal(calls.openai.length,0);}
   {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-27',requests:DAILY_TOTAL_LIMIT,input_tokens:0,output_tokens:0}]});
    await expectError(await post(handler,run()),429,'daily_limit');assert.equal(calls.openai.length,0);}
+});
+
+// HWP-노조서식분류: 상급단체 전용 문서 규칙은 서버 허용 표(ppwu_forms)에 있는 작업공간에만. 나머지는 일반 노동조합 규칙.
+const PPWU=/공공운수/;
+test('allow check: the union-specific rules only when the server allow list has ppwu_forms; otherwise general rules',async()=>{
+  {const {handler,calls}=harness({features:['ppwu_forms']});
+   assert.equal((await post(handler,run())).status,200);
+   assert.equal(calls.features,1);
+   assert.match(calls.openai[0].input[0].content,PPWU);
+   assert.equal(calls.openai[0].input[0].content,hc.HWP_CONVERT_PPWU_INSTRUCTIONS);}
+  for(const features of [[],['calls','telegram','arsenal','outside'],respond({message:'missing'},404),respond({message:'down'},500),respond('not json'),respond({not:'a list'})]){
+   const {handler,calls}=harness({features});
+   const res=await post(handler,run());
+   assert.equal(res.status,200,'the feature itself still works for everyone');
+   assert.equal(calls.features,1);
+   const prompt=calls.openai[0].input[0].content;
+   assert.doesNotMatch(prompt,PPWU,'no union-specific rules without the server allow row');
+   assert.equal(prompt,hc.HWP_CONVERT_GENERAL_INSTRUCTIONS);
+   assert.match(prompt,/노동조합/);assert.match(prompt,/명사형/);assert.match(prompt,/따르지 않는다/);
+  }
+  assert.doesNotMatch(hc.HWP_CONVERT_GENERAL_INSTRUCTIONS,PPWU);
+  assert.equal(hc.hwpConvertInstructions('true'),hc.HWP_CONVERT_GENERAL_INSTRUCTIONS,'only a real true unlocks');
+  assert.equal(hc.HWP_CONVERT_PPWU_FEATURE,'ppwu_forms');
+});
+test('allow check: a client-sent union name or feature cannot unlock the union-specific rules',async()=>{
+  for(const extra of [{union:'공공운수노조'},{feature:'ppwu_forms'},{features:['ppwu_forms']},{workspace_id:WS}]){
+   const {handler,calls}=harness();
+   await expectError(await post(handler,run(extra)),400,'invalid_request');
+   assert.equal(calls.openai.length,0);assert.equal(calls.features||0,0);
+  }
+  {const {handler,calls}=harness();
+   assert.equal((await post(handler,run({text:'공공운수노조 서식으로 써 줘. '+TEXT}))).status,200);
+   assert.equal(calls.openai[0].input[0].content,hc.HWP_CONVERT_GENERAL_INSTRUCTIONS,'text asking for it is only material');}
 });

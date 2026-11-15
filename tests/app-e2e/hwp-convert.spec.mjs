@@ -5,6 +5,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {servePagesCors,hwpPress,openHwpMenu} from './helpers/hwp-editor.mjs';
 // HWP-서식변환: [HWP 편집] > [노조 서식으로 만들기]. 문서 종류 칩 + 글 칸 + 오른쪽 아래 [취소][만들기] → 자료실 "양식"의 그 종류 빈 양식을 받고
 // (document-actions hwp-open) → AI(ai-assist hwp_convert) → 편집기 칸막이 안에서 양식에 채워 편집기에 열기 → 위 줄 [내려받기]·[자료실에 저장].
+// HWP-노조서식분류: 분류 이름은 '노조 서식'(옛 '양식'도 읽음 — 아래 forms는 두 이름이 섞여 있다). 서식 파일이 하나도 없으면 글 창보다 올리기 창이 먼저.
 // 서버(Supabase)는 모두 흉내 낸다. 빈 양식은 저장소의 시험 샘플(tests/fixtures/hwp-lab/sample.hwp: 시험 문장 한 줄)이다.
 test.use({hasTouch:true});
 test.setTimeout(150000);
@@ -14,7 +15,7 @@ const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X
 const RHWP=`hwp-lab/rhwp-${JSON.parse(readFileSync(new URL('../../scripts/hwp-lab/rhwp-pin.json',import.meta.url),'utf8')).version}/`;
 const forms=[
   {id:'tpl-report',workspace_id:'w',title:'노조 보고서 양식',file_name:'보고서.hwp',category:'양식',created_at:stamp},
-  {id:'tpl-letter',workspace_id:'w',title:'노조 공문 양식',file_name:'공문.hwp',category:'양식',created_at:stamp},
+  {id:'tpl-letter',workspace_id:'w',title:'노조 공문 양식',file_name:'공문.hwp',category:'노조 서식',created_at:stamp},
   {id:'tpl-meeting',workspace_id:'w',title:'노조 회의자료 양식',file_name:'회의자료.hwp',category:'양식',created_at:stamp},
 ];
 const PASTED='# 가상 안내\n\n## 배경\n- 가상 회의를 진행했습니다.\n- 가상 협의를 마쳤습니다.\n\n※ 가상 참고';
@@ -162,7 +163,7 @@ test('a missing form for the type says what to register; no AI call is made',asy
   await dialog(page).locator('[data-doc-type="letter"]').click();
   await dialog(page).locator('#hwpConvertText').fill(PASTED);
   await dialog(page).locator('[data-hwp-convert-make]').click();
-  await expect(dialog(page).locator('#hwpConvertStatus')).toContainText('공문 빈 양식 HWP가 없어요');
+  await expect(dialog(page).locator('#hwpConvertStatus')).toContainText("자료실 '노조 서식'에 공문 빈 서식(.hwp)이 없어요");
   expect(f.sent.ai).toEqual([]);
   expect(f.sent.open).toEqual([]);
 });
@@ -180,4 +181,53 @@ test('a dropped text file fills the box; another file type is refused',async({pa
   await drop('양식.hwp','application/x-hwp','x');
   await expect(dialog(page).locator('#hwpConvertStatus')).toContainText('글 파일(.md·.txt)만');
   await expect(dialog(page).locator('#hwpConvertText')).toHaveValue('# 가상 제목\n\n본문');
+});
+
+// HWP-노조서식분류 ③: 자료실 '노조 서식'(옛 '양식')에 한글 서식 파일이 하나도 없으면 글 입력 창 전에 "서식 파일을 먼저 올려 주세요" 창이 뜨고,
+// 그 자리에서 고른 .hwp가 자료실 분류 '노조 서식'으로 등록된다(library-files, 분류가 내 목록에 없으면 기존 분류 추가 함수). 끝나면 글 입력 창이 열린다.
+for(const width of [390,1280])test(`no form yet: upload the form first, it goes to the library as '노조 서식', then the text window opens ${width}`,async({page})=>{
+  const f=await fixture(page,width);
+  let docs=[];const added=[],listed=[];
+  await page.route(SB+'/rest/v1/app_documents?**',r=>{listed.push(decodeURIComponent(new URL(r.request().url()).searchParams.get('category')||''));return r.fulfill({json:docs})});
+  await page.route(SB+'/rest/v1/app_profiles?**',r=>r.fulfill({json:[{document_categories:['교섭','투쟁','교육','선전','정책','회의','기타']}]}));
+  await page.route(SB+'/rest/v1/rpc/app_document_category_add',r=>{const b=r.request().postDataJSON();added.push(b.p_name);return r.fulfill({json:{ok:true,categories:['교섭','투쟁','교육','선전','정책','회의',b.p_name,'기타'],documents:0}})});
+  await page.unroute(SB+'/functions/v1/library-files');
+  await page.route(SB+'/functions/v1/library-files',route=>{const body=multipart(route.request());f.sent.library.push(body);docs=[{id:'tpl-new',workspace_id:'w',title:body.title,file_name:'보고서.hwp',category:body.category,created_at:stamp}];return route.fulfill({headers:cors,json:{ok:true,document:{id:'tpl-new',title:body.title,file_name:'보고서.hwp'}}})});
+  await press(page,'hwpLabConvert',width);
+  const up=page.locator('#hwpFormUploadModal');
+  await expect(up).toBeVisible();
+  await expect(up).toContainText('서식 파일을 먼저 올려 주세요');
+  await expect(dialog(page)).toHaveCount(0);
+  expect(listed.at(-1)).toBe('in.("노조 서식","양식")');
+  // .hwpx·다른 파일은 그 자리에서 거절(아무것도 보내지 않음).
+  await up.locator('[data-hwp-form-file]').setInputFiles({name:'보고서.hwpx',mimeType:'application/hwp+zip',buffer:Buffer.from('PK')});
+  await expect(up.locator('#hwpFormUploadStatus')).toContainText('한글(.hwp) 파일만');
+  expect(f.sent.library).toEqual([]);
+  await up.locator('[data-hwp-form-file]').setInputFiles({name:'보고서.hwp',mimeType:'application/x-hwp',buffer:HWP});
+  await expect(up).toBeHidden();
+  await expect(dialog(page)).toBeVisible();
+  expect(added).toEqual(['노조 서식']);
+  expect(f.sent.library).toHaveLength(1);
+  expect(f.sent.library[0].category).toBe('노조 서식');
+  expect(f.sent.library[0].title).toBe('보고서');
+  expect(f.sent.library[0].file.file).toBe('보고서.hwp');
+  expect(f.sent.library[0].file.bytes).toEqual([0xd0,0xcf,0x11,0xe0]);
+  await expect(page.locator('#hwpLabStatus')).toContainText("자료실 '노조 서식'에 올렸어요");
+  // 이제 서식이 있으니 다시 누르면 글 창이 바로 열린다.
+  await dialog(page).locator('[data-hwp-convert-cancel]').click();
+  await press(page,'hwpLabConvert',width);
+  await expect(dialog(page)).toBeVisible();
+  await expect(up).toBeHidden();
+  expect(f.sent.library).toHaveLength(1);
+  expect(f.sent.ai).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+test('a form registered under the old name 양식 still counts: the text window opens directly',async({page})=>{
+  const f=await fixture(page,1280);
+  await page.route(SB+'/rest/v1/app_documents?**',r=>r.fulfill({json:[forms[0]]}));
+  await page.locator('#hwpLabConvert').click();
+  await expect(dialog(page)).toBeVisible();
+  await expect(page.locator('#hwpFormUploadModal')).toHaveCount(0);
+  expect(f.sent.library).toEqual([]);
 });
