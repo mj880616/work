@@ -1,4 +1,4 @@
-import {waitHtml, emptyHtml, failHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -613,12 +613,12 @@ function paintBlank(host) {
   const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]'), pick = box.querySelector('[data-weekly-blank-pick]');
   const open = async file => {
     if (!file || pick.disabled) return;
-    pick.disabled = true; note.textContent = `"${file.name}"을(를) 여는 중…`;
+    pick.disabled = true; note.innerHTML = waitInlineHtml();
     try {
       const r = await hwpx.openFile(file);
       if (r.state === 'some') { renderWeekly_(); return; }
-      note.textContent = r.note || '파일을 열지 못했어요. 다시 골라 주세요.';
-    } catch { note.textContent = '파일을 열지 못했어요. 다시 골라 주세요.'; }
+      note.textContent = r.note || '파일을 열지 못했어요. 다시 선택해 주세요.';
+    } catch { note.textContent = '파일을 열지 못했어요. 다시 선택해 주세요.'; }
     pick.disabled = false;
   };
   pick.addEventListener('click', () => input.click());
