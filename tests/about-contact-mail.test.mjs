@@ -72,7 +72,8 @@ test('소개 페이지들은 지금 가입·요금 상태와 맞는 문장만 �
   for (const file of ABOUT_PAGES) {
     const html = read(file);
     assert.doesNotMatch(html, /10명|비영리|준비한 사람만|새로 가입할 수 없/, `${file}: 지금과 맞지 않는 옛 문장`);
-    assert.doesNotMatch(html, /\d[\d,]*\s*원/, `${file}: 요금 금액은 확정 전이라 쓰지 않는다`);
+    // 금액은 확정된 두 가지(월 5,500원·연 55,000원)만 쓸 수 있다.
+    for (const m of html.match(/\d[\d,]*\s*원/g) || []) assert.ok(['5,500원', '55,000원'].includes(m), `${file}: 확정되지 않은 금액 ${m}`);
   }
   const about = read('about/index.html');
   assert.match(about, /누구나 가입할 수 있습니다\(운영자가 막은 계정 제외\)/);
