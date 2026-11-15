@@ -319,3 +319,14 @@ test('E3 translate: 공용 id로 번역하면 공용 기사에 1번 저장, 다�
   assert.equal(second.calls.ai, 0); assert.equal(second.db.app_news_days.length, 0);
   assert.equal(w.calls.ai, ai); assert.equal(JSON.stringify(w.db.app_news_days), days);
 });
+
+test('E3 소스: 화면 입구(open·translate)는 공용 기사를 새로 만들지 않고, 텔레그램 방·글·가족 표를 읽거나 쓰지 않는다', async () => {
+  const {readFileSync} = await import('node:fs');
+  const src = readFileSync(new URL('../../supabase/functions/news-feed/handler.ts', import.meta.url), 'utf8').replace(/\/\/.*$/gm, '');
+  const screen = src.slice(src.indexOf('const who = await authorizeUser('), src.indexOf('} catch (e) {', src.indexOf('const who = await authorizeUser(')));
+  assert.ok(screen.includes('readSharedArticle') || screen.includes('ownArticle('), '공용 기사는 사용자 로그인으로 읽음');
+  assert.doesNotMatch(screen, /"POST", "app_news_articles|insertArticles\(/, '공용 기사 새로 만들기 없음');
+  assert.doesNotMatch(screen, /app_feed_items|app_feed_rooms|app_family|app_tg_|app_call/, '텔레그램·가족·통화 표 없음');
+  const shared = readFileSync(new URL('../../supabase/functions/_shared/shared-article.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(shared, /SERVICE_ROLE|Deno\.env|method: "(PATCH|DELETE|PUT)"/, '공용 글 찾기는 사용자 로그인 읽기만');
+});
