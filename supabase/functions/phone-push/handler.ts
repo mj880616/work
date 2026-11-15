@@ -4,8 +4,8 @@
 // - 사용자 입구(`register`·`unregister`·`devices`·`test`): Authorization 사용자 로그인을 Auth 서버로 확인하고,
 //   본인 app_workspace_members 행이 owner인 작업공간 하나만 쓴다(private.app_is_workspace_owner와 같은 기준). 화면이 보낸
 //   사용자·작업공간 id는 받지 않는다.
-// - 예약 입구(`run`, ?slot=quarter|morning|evening|friday): `x-phone-push-cron-secret` 헤더를 비밀값 PHONE_PUSH_CRON_SECRET(32자 이상)과
-//   SHA-256 고정 길이 비교. 누구에게 보낼지는 서버가 정한다(요청 몸통은 빈 {}만). 종류 판단(할 일 기한·원장 약속·묶음·수집 멈춤)은 N5에서
+// - 예약 입구(`run`, ?slot=quarter|morning|evening): `x-phone-push-cron-secret` 헤더를 비밀값 PHONE_PUSH_CRON_SECRET(32자 이상)과
+//   SHA-256 고정 길이 비교. 누구에게 보낼지는 서버가 정한다(요청 몸통은 빈 {}만). 종류 판단(할 일 기한·묶음·수집 멈춤)은 N5에서
 //   더한다. 지금(N3)은 30일 지난 기록 정리와 받을 작업공간 수 세기만 한다.
 // - 두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙거나, 열쇠가 하나도 없으면 401.
 // DB는 service role로 migration 20261101010000의 grant(app_push_devices·app_push_log select·insert·update·delete) 안에서만 쓰고,
@@ -16,7 +16,8 @@
 // - `opened` {kind, ref_key}: 폰 알림·알림 줄을 눌러 연 것 → 같은 종류·열쇠 기록에 opened_at(한 번 열면 끝).
 // - `recent`: 최근 알림 7일(폰으로 보낸 것·알림 줄에 뜬 것) — 내 프로필 '폰 알림' 아래 목록. 종류·열쇠·시각·여는 주소만.
 // 저녁 'Now' 한 줄(now-line.ts, OUTSIDE-글상세·관심환류): 사회운동 글·뉴스 기사·본 시각 표를 service_role select로 건수만 센다.
-// 재료 표 중 service_role 권한이 없는 것(다음 주 준비 한 장)은 그 사용자 로그인 그대로(owner RLS) 읽는다(SUPABASE_ANON_KEY).
+// 재료 표 중 service_role 권한이 없는 것(회의 녹음 전사 작업)은 그 사용자 로그인 그대로(owner RLS) 읽는다(SUPABASE_ANON_KEY).
+// S62-27(JOURNAL-다음주준비삭제·PUSH-원장약속알림빼기): 다음 주 준비(next_week)·원장 약속(commitment) 종류와 금요일 예약(slot=friday)을 지웠다.
 // FAMILY-잊지말기 4단계(설계 docs/design/tg-personal.md 5.2절, migration 20261105120000_family_push_kind): 15분 예약(quarter)마다
 //   잊지 말기 새 제안(app_family_notes status 'new', service_role 칸 읽기 id·workspace_id·status·created_at만)이 새로 생긴 작업공간에 한 번,
 //   제목 "잊지 말기 n건"만 보낸다(본문·내용 없음 — 잠금 화면에 대화 내용이 뜨지 않게). 줄은 운영자 기능 family 작업공간에만 있다(DB 트리거).
@@ -46,7 +47,7 @@ export const CRON_HEADER = "x-phone-push-cron-secret";
 export const SECRET_NAME = "PHONE_PUSH_CRON_SECRET";
 export const SECRET_MIN_CHARS = 32;
 const FOREIGN_SECRET_HEADERS = ["x-drive-summary-cron-secret", "x-collector-feed-secret", "x-collector-heartbeat-secret", "x-outside-feed-cron-secret"];
-export const SLOTS = ["quarter", "morning", "evening", "friday"] as const;
+export const SLOTS = ["quarter", "morning", "evening"] as const;
 export const USER_ACTIONS = ["register", "unregister", "devices", "test", "notices", "opened", "recent"] as const;
 export const MAX_DEVICES = 10;          // 작업공간마다 살아 있는 기기 수 상한
 export const TEST_DAILY_PER_USER = 20;  // 시험 알림 하루 상한(인스턴스 메모리)

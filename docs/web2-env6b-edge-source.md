@@ -238,7 +238,7 @@ JPEG만(3MB 이하), 머리 구간에 EXIF·XMP·IPTC가 있으면 거절한다.
 첫 배포는 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`(열쇠 없는 POST는 401)로 한다. 이전 버전이 없으므로 되돌리기는 예약 workflow를 끄고(화면이 아직 이 함수를 쓰지 않음) 필요하면 사용자가 대시보드에서 삭제를 판단한다. 비밀값을 지우면 예약 입구가 바로 닫힌다.
 
 `phone-push`(41행)는 **배포 대기**다(APP-폰알림 N3, `docs/design/phone-notifications.md` 4.2절, 명진 2026-11-01 01:04 결정). 예약 호출(`.github/workflows/phone-push-schedule.yml`, 15분·08:0x·18:2x·금 15:2x, 저장소 변수 `PHONE_PUSH_ENABLED=true`일 때만)은 사용자 로그인이 없으므로 `verify_jwt=false`를 선택한다.
-예약 입구(`run`, `slot=quarter|morning|evening|friday`)는 함수 코드가 `x-phone-push-cron-secret` 헤더를 새 비밀값 `PHONE_PUSH_CRON_SECRET`(32자 이상)과 SHA-256 고정 길이로 비교한다. 받을 작업공간은 서버가 정한다(몸통은 빈 `{}`만). 사용자 입구는 Auth 서버로 로그인을 확인하고 본인 `app_workspace_members` 행이 `owner`인 작업공간 하나만 받는다(화면이 보낸 사용자·작업공간 id는 받지 않음). 열쇠가 없거나, 두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401이다.
+예약 입구(`run`, `slot=quarter|morning|evening`(금요일 `friday`는 S62-27에서 지움))는 함수 코드가 `x-phone-push-cron-secret` 헤더를 새 비밀값 `PHONE_PUSH_CRON_SECRET`(32자 이상)과 SHA-256 고정 길이로 비교한다. 받을 작업공간은 서버가 정한다(몸통은 빈 `{}`만). 사용자 입구는 Auth 서버로 로그인을 확인하고 본인 `app_workspace_members` 행이 `owner`인 작업공간 하나만 받는다(화면이 보낸 사용자·작업공간 id는 받지 않음). 열쇠가 없거나, 두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401이다.
 DB는 service role로 migration `20261101010000_phone_push`의 두 표(`app_push_devices`·`app_push_log`) 안에서만 쓰고, 기기 토큰은 응답·로그에 싣지 않는다(화면에는 끝 6자리). 보내기는 `_shared/fcm-send.ts`(FCM HTTP v1, 비밀값 `FCM_SERVICE_ACCOUNT_JSON`, 보내는 곳은 구글 OAuth·FCM 고정 주소 둘뿐)이며 비밀값이 없으면 시험 알림은 424로 멈춘다. N3의 예약 입구는 30일 지난 기록 정리와 받을 작업공간 수 세기만 하고 보내지 않는다(종류 판단은 N5).
 첫 배포는 DB 적용 뒤 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`(열쇠 없는 POST는 401)로 한다. 이전 버전이 없으므로 되돌리기는 예약 변수를 끄고(화면·앱이 아직 이 함수를 쓰지 않음) 필요하면 사용자가 대시보드에서 삭제를 판단한다. 비밀값을 지우면 예약 입구·보내기가 바로 닫힌다.
 

@@ -5,24 +5,24 @@ import {readFileSync} from 'node:fs';
 import {noticeParam, noticePlace, noticeItems, recentItems, noticeClearMessage, NOTICE_TEXT, RECENT_LABEL} from '../app/phone-push-model.mjs';
 
 test('notice mark in the address: kind.ref only, known kinds, shaped ref', () => {
-  assert.deepEqual(noticeParam('?view=home&mode=week&notice=next_week.w2026-11-09'), {kind:'next_week', ref_key:'w2026-11-09'});
+  assert.deepEqual(noticeParam('?view=reports&notice=meeting_done.d2026-11-09'), {kind:'meeting_done', ref_key:'d2026-11-09'});
   assert.deepEqual(noticeParam('?notice=test.t1762'), {kind:'test', ref_key:'t1762'});
   assert.deepEqual(noticeParam('?notice=task_due.a:b.c'), {kind:'task_due', ref_key:'a:b.c'});
-  for (const bad of ['', '?view=home', '?notice=', '?notice=next_week', '?notice=.w1', '?notice=calendar.x', '?notice=next_week.a%20b', `?notice=next_week.${'x'.repeat(81)}`, '?notice=constructor.x'])
+  for (const bad of ['', '?view=home', '?notice=', '?notice=meeting_done', '?notice=.w1', '?notice=calendar.x', '?notice=next_week.w1', '?notice=commitment.c1', '?notice=meeting_done.a%20b', `?notice=meeting_done.${'x'.repeat(81)}`, '?notice=constructor.x'])
     assert.equal(noticeParam(bad), null, bad);
 });
 
-test('open place: only /work/app/ addresses, view/pane/mode', () => {
-  assert.deepEqual(noticePlace('/work/app/?view=home&mode=week&notice=next_week.w1'), {view:'home', pane:null, mode:'week'});
-  assert.deepEqual(noticePlace('/work/app/?view=basket&pane=todo&notice=morning.d'), {view:'basket', pane:'todo', mode:null});
-  assert.deepEqual(noticePlace('/work/app/'), {view:'home', pane:null, mode:null});
+test('open place: only /work/app/ addresses, view/pane', () => {
+  assert.deepEqual(noticePlace('/work/app/?view=reports&notice=meeting_done.d1'), {view:'reports', pane:null});
+  assert.deepEqual(noticePlace('/work/app/?view=basket&pane=todo&notice=morning.d'), {view:'basket', pane:'todo'});
+  assert.deepEqual(noticePlace('/work/app/'), {view:'home', pane:null});
   for (const bad of ['https://evil.example/work/app/', '//evil.example/work/app/', '/work/app/../x', '/work/app/?view=<x>', 'javascript:alert(1)', null, 1])
     assert.equal(noticePlace(bad), null, String(bad));
-  assert.deepEqual(noticePlace('/work/app/?view=Home1'), {view:'home', pane:null, mode:null});
+  assert.deepEqual(noticePlace('/work/app/?view=Home1'), {view:'home', pane:null});
 });
 
 test('bar items: known done kinds with a safe place only, at most five', () => {
-  const ok = {kind:'next_week', ref_key:'w2026-11-09', open:'/work/app/?view=home&mode=week&notice=next_week.w2026-11-09'};
+  const ok = {kind:'meeting_done', ref_key:'d2026-11-09', open:'/work/app/?view=reports&notice=meeting_done.d2026-11-09'};
   assert.deepEqual(noticeItems({items:[ok, {...ok, kind:'test'}, {...ok, open:'https://evil/'}, {...ok, ref_key:'a b'}]}), [ok]);
   assert.equal(noticeItems({items:Array(9).fill(ok)}).length, 5);
   assert.deepEqual(noticeItems(null), []);
@@ -31,12 +31,14 @@ test('bar items: known done kinds with a safe place only, at most five', () => {
 
 test("recent list: one line 'MM/DD HH:MM · 무엇' in Seoul time, opened flag, unknown kinds dropped", () => {
   const out = recentItems({items:[
-    {kind:'next_week', ref_key:'w2026-11-09', at:'2026-11-06T07:00:00.000Z', opened:false, open:'/work/app/?view=home&mode=week&notice=next_week.w2026-11-09'},
+    {kind:'meeting_done', ref_key:'d2026-11-06', at:'2026-11-06T07:00:00.000Z', opened:false, open:'/work/app/?view=reports&notice=meeting_done.d2026-11-06'},
+    {kind:'next_week', ref_key:'w2026-11-09', at:'2026-11-06T07:00:00.000Z', opened:false, open:'/work/app/?view=home&notice=next_week.w2026-11-09'},
+    {kind:'commitment', ref_key:'c1', at:'2026-11-06T07:00:00.000Z', opened:false, open:'/work/app/?view=ledger&notice=commitment.c1'},
     {kind:'test', ref_key:'t1', at:'2026-11-05T15:30:00.000Z', opened:true, open:'/work/app/?view=profile&notice=test.t1'},
     {kind:'calendar', ref_key:'x', at:'2026-11-05T15:30:00.000Z', open:'/work/app/'},
     {kind:'test', ref_key:'t2', at:'nope', open:'/work/app/'},
   ]});
-  assert.deepEqual(out.map(r => [r.line, r.opened]), [['11/06 16:00 · 다음 주 준비 한 장', false], ['11/06 00:30 · 시험 알림', true]]);
+  assert.deepEqual(out.map(r => [r.line, r.opened]), [['11/06 16:00 · 회의 요약', false], ['11/06 00:30 · 시험 알림', true]]);
 });
 
 test('screen boundary: phone-push is called only through phone-push-settings.js; no device storage; no bell or red badge', () => {
@@ -51,11 +53,13 @@ test('screen boundary: phone-push is called only through phone-push-settings.js;
 
 // APP-알림숫자지우기 ②: 알림 자리를 열면 폰 앱에 그 폰 알림 지우기 다리 글(서버 open의 notice= 값과 같은 모양).
 test('noticeClearMessage: 알려진 종류·열쇠만, 서버처럼 encodeURIComponent', () => {
-  assert.equal(noticeClearMessage('next_week', 'w2026-11-09'), 'push:clear:next_week.w2026-11-09');
+  assert.equal(noticeClearMessage('signup', 'd2026-11-09'), 'push:clear:signup.d2026-11-09');
+  assert.equal(noticeClearMessage('next_week', 'w2026-11-09'), null);
+  assert.equal(noticeClearMessage('commitment', 'c1'), null);
   assert.equal(noticeClearMessage('meeting_done', 'm:abc-1'), 'push:clear:meeting_done.m%3Aabc-1');
   assert.equal(noticeClearMessage('nope', 'x1'), null);
-  assert.equal(noticeClearMessage('next_week', ''), null);
-  assert.equal(noticeClearMessage('next_week', 'a b'), null);
+  assert.equal(noticeClearMessage('meeting_done', ''), null);
+  assert.equal(noticeClearMessage('meeting_done', 'a b'), null);
   assert.equal(noticeClearMessage(undefined, 'x1'), null);
   // 주소 표시(noticeParam)를 거꾸로 만든 것과 같다.
   const back = noticeParam('?notice=' + noticeClearMessage('meeting_done', 'm:abc-1').slice('push:clear:'.length));
