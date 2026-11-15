@@ -282,15 +282,26 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 개인·팀 확정본) 있는지 주마다 한 번 본다. 없으면 [주간 보고]는 백지 + 올리기 한 줄
   // (journal.js) — 바탕이 없는 새 가입자에게 코드에 박힌 다른 팀 양식(항목 이름·표 칸)을 보이지 않는다. 못 읽으면 'unknown'(지금처럼 그림).
   const baseKnown = new Map(), baseFlight = new Set();
+  // 그 주 바탕 찾기 한 번을 바탕 열기(fromLibrary)와 나눠 쓴다 — 자료실 읽기가 늘지 않게. 열기가 한 번 쓰면 버린다(다음 열기는 새로 읽음).
+  const basePick = new Map();
+  function pickFor(week) {
+    if (basePick.has(week)) return basePick.get(week);
+    baseFlight.add(week);
+    const p = latestBase(rt, reportDay(week));
+    basePick.set(week, p);
+    const was = baseKnown.get(week);
+    p.then(pick => { baseKnown.set(week, pick?.doc ? 'some' : 'none'); }, () => { if (basePick.get(week) === p) basePick.delete(week); })
+      .finally(() => { baseFlight.delete(week); if (baseKnown.get(week) !== was && getWeek().start === week) onBase(week); });
+    return p;
+  }
+  const takePick = week => { const p = pickFor(week); basePick.delete(week); return p; };
   function baseState(week) {
     if (state && state.start === week) return 'some';
     return baseKnown.get(week) ?? 'unknown';
   }
   function checkBase(week) {
     if (!week || baseKnown.has(week) || baseFlight.has(week) || (state && state.start === week)) return;
-    baseFlight.add(week);
-    latestBase(rt, reportDay(week)).then(pick => { baseKnown.set(week, pick?.doc ? 'some' : 'none'); }, () => {})
-      .finally(() => { baseFlight.delete(week); if (baseKnown.has(week) && getWeek().start === week) onBase(week); });
+    void pickFor(week).catch(() => {});
   }
   // 그 주 바탕을 연다(이미 열려 있으면 그대로). 그 주 임시저장에 바탕 자료가 적혀 있으면 그것을, 없으면 자료실 최신 개인본(없으면 팀 확정본).
   // 반환: 열렸으면 state, 못 열었으면 null(까닭은 상태 줄).
@@ -411,7 +422,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     try {
       const day = reportDay(getWeek().start);
       // [이어서 고치기]는 그때 바탕을 다시 연다. 그것이 지금 고른 개인본이면 팀 확정본 참고 표시도 함께 본다.
-      const pick = pinned ? (confirmed !== undefined ? confirmed : await latestBase(rt, day).catch(() => null)) : (confirmed !== undefined ? confirmed : await latestBase(rt, day));
+      const week = getWeek().start, lookup = () => (reportDay(week) === day ? takePick(week) : latestBase(rt, day));
+      const pick = pinned ? (confirmed !== undefined ? confirmed : await lookup().catch(() => null)) : (confirmed !== undefined ? confirmed : await lookup());
       const chosen = pinned ? (pick?.doc?.id === pinned.id ? pick : {doc:pinned, from:pinned.from === 'personal' ? 'personal' : 'confirmed', team:null}) : pick;
       const found = chosen?.doc ?? null;
       if (mine !== run) return;
