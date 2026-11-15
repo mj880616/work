@@ -330,3 +330,18 @@ test('E3 소스: 화면 입구(open·translate)는 공용 기사를 새로 만�
   const shared = readFileSync(new URL('../../supabase/functions/_shared/shared-article.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(shared, /SERVICE_ROLE|Deno\.env|method: "(PATCH|DELETE|PUT)"/, '공용 글 찾기는 사용자 로그인 읽기만');
 });
+
+test('S62-22: 사람이 공유로 먼저 넣은 기사(origin user)를 매체 수집이 만나면 새 줄 없이 매체 기사로 넓힌다(모두의 목록에)', async () => {
+  const s = C.newsSourceByKey('news-labortoday');
+  const rss = `<rss><channel><item><title>합성 공유 먼저 기사</title><link>https://www.labortoday.co.kr/news/articleView.html?idxno=7</link></item></channel></rss>`;
+  const w = world({tables: {
+    app_outside_sources: [{workspace_id: OP, source_key: 'news-labortoday', enabled: true}],
+    app_news_articles: [{id: id(70), origin: 'user', lane: 'channel', url: 'https://www.labortoday.co.kr/news/articleView.html?idxno=7', url_key: 'labortoday.co.kr/news/articleView.html?idxno=7', title: '합성 공유 먼저 기사', state: 'ok'},
+      {id: id(71), origin: 'user', lane: 'channel', url: 'https://other.example.org/x', url_key: 'other.example.org/x', state: 'ok'}],
+  }, sites: {[s.lists[0]]: rss, 'https://www.labortoday.co.kr/robots.txt': 'User-agent: *\nAllow: /\n'}});
+  assert.equal((await w.cron({step: 'media', source: 'news-labortoday'})).ok, true);
+  assert.equal(w.db.app_news_articles.length, 2, '새 줄 없음');
+  const a = w.db.app_news_articles.find(x => x.id === id(70));
+  assert.deepEqual([a.origin, a.lane, a.source_key], ['site', 'media', 'news-labortoday']);
+  assert.equal(w.db.app_news_articles.find(x => x.id === id(71)).origin, 'user', '수집이 만나지 않은 공유 기사는 그대로(넣은 사람만)');
+});
