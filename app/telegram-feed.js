@@ -995,7 +995,7 @@ const rmenu = createAnchoredMenu({id:'tgRowMenu', className:'feed-menu', label:'
     const pin = state.pinReady ? `<button type="button" data-tg-ract="pin">${isPinned(k.room) ? '고정 풀기' : '고정'}</button>` : '';
     // TG-방별보기: 방별의 방 한 줄은 방 전체라 '이 날 한 줄만 삭제'를 두지 않는다.
     const trash = roomMode() ? '' : '<button type="button" class="feed-menu-danger" data-tg-ract="trash">삭제 <span class="feed-faint">이 날 한 줄만</span></button>';
-    const news = newsRoomOk(k.room) ? `<button type="button" data-tg-ract="news">${isNewsRoom(k.room) ? '뉴스방에서 빼기' : '뉴스방으로'}</button>` : '';
+    const news = newsRoomOk(k.room) ? `<button type="button" class="row-act" data-tg-ract="news">${isNewsRoom(k.room) ? '뉴스방에서 빼기' : '뉴스방으로'}</button>` : '';
     return `${pin}<button type="button" data-tg-ract="folder">폴더로</button><button type="button" data-tg-ract="archive">보관</button>${news}${trash}`;
   },
   onAction:(button, active) => {
