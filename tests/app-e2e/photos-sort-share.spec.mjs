@@ -139,7 +139,7 @@ for (const width of [1440, 884, 412]) {
   });
 }
 
-test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 5줄(일기에 넣기 포함), 사진 복사는 image/png 클립보드, 업데이트로 보내기는 기존 저장 길, 동영상은 복사·보내기 없음 1440', async ({ page }) => {
+test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 5줄(하루 기록에 넣기 포함), 사진 복사는 image/png 클립보드, 업데이트로 보내기는 기존 저장 길, 동영상은 복사·보내기 없음 1440', async ({ page }) => {
   const f = await fixture(page, 1440);
   await openPhotos(page, 1440);
   await expect.poll(() => order(page)).toEqual(EXPECT.taken_desc);
@@ -150,7 +150,7 @@ test('PC 공유: 넓은 화면 [공유] → Web2 메뉴 5줄(일기에 넣기 �
   const shareMenu = page.locator('#shareMenu');
   await viewer.locator('[data-diary-share]').click();
   await expect(shareMenu).toBeVisible();
-  await expect(shareMenu.locator('button')).toHaveText(['사진 복사', '일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
+  await expect(shareMenu.locator('button')).toHaveText(['사진 복사', '하루 기록에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
   expect(await page.evaluate(() => window.__shared)).toBe(0);
   await shareMenu.getByRole('button', { name: '사진 복사' }).click();
   await expect.poll(() => page.evaluate(() => window.__clip)).toEqual([{ types: ['image/png'], type: 'image/png', size: PNG.length }]);
@@ -200,7 +200,7 @@ test('선택한 사진 업데이트로 보내기 → 선택 풀림·알림 한 �
   await item('A3').click({ button: 'right' });
   const pm = page.locator('#photosPhotoMenu');
   await expect(pm).toBeVisible();
-  await expect(pm.getByRole('button', { name: '일기에 넣기' })).toBeVisible();
+  await expect(pm.getByRole('button', { name: '하루 기록에 넣기' })).toBeVisible();
   await expect(pm.getByRole('button', { name: '업데이트로 보내기' })).toBeVisible();
   await pm.getByRole('button', { name: '선택' }).click();
   await item('A2').click();
@@ -210,7 +210,7 @@ test('선택한 사진 업데이트로 보내기 → 선택 풀림·알림 한 �
   await expect(bar.locator('button:visible')).toHaveCount(5);
   // 여러 장 [공유] 메뉴: 복사 없이 일기에 넣기 · 업데이트로 보내기 · 다운로드 · 다른 앱으로 공유….
   await bar.locator('[data-photos-act-share]').click();
-  await expect(page.locator('#shareMenu button')).toHaveText(['일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
+  await expect(page.locator('#shareMenu button')).toHaveText(['하루 기록에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
   await page.keyboard.press('Escape');
   // [별표]: 고른 채 둔다.
   await bar.locator('[data-photos-act-star]').click();

@@ -163,7 +163,7 @@ test.describe('PC 1440', () => {
     await page.locator('#photosRoot [data-photos-id="gd:G1"]').click({ button: 'right' });
     const menu = page.locator('#photosPhotoMenu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('button')).toHaveText(['선택', '공유', '일기에 넣기', '업데이트로 보내기', '이름 바꾸기…', '폴더로 옮기기…', '정보수정', '삭제']);
+    await expect(menu.locator('button')).toHaveText(['선택', '공유', '하루 기록에 넣기', '업데이트로 보내기', '이름 바꾸기…', '폴더로 옮기기…', '정보수정', '삭제']);
     await menu.getByRole('button', { name: '삭제' }).click();
     const ask = page.locator('.kptu-ask');
     await expect(ask).toBeVisible();

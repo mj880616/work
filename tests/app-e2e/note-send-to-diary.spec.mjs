@@ -60,27 +60,27 @@ async function diaryRoute(page, f, {fail = false} = {}) {
   return posts;
 }
 for (const width of [390, 1280]) {
-  test(`노트 ⋯ [일기로 보내기]: 날짜 창 기본 = 만든 날, 그날 일기에 글이 들어가고 노트는 휴지통 ${width}`, async ({ page }) => {
+  test(`노트 ⋯ [하루 기록으로 보내기]: 날짜 창 기본 = 만든 날, 그날 하루 기록에 글이 들어가고 노트는 휴지통 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     const posts = await diaryRoute(page, f);
     await press(page, rowMore(page, 'n-plain'), width);
-    await press(page, menu(page).getByRole('button', { name: '일기로 보내기', exact: true }), width);
+    await press(page, menu(page).getByRole('button', { name: '하루 기록으로 보내기', exact: true }), width);
     const ask = page.locator('.kptu-ask');
     await expect(ask.locator('input[type="date"]')).toHaveValue('2026-10-12');
-    expect(await answerAsk(page, true)).toContain('어느 날 일기로 보낼까요?');
+    expect(await answerAsk(page, true)).toContain('어느 날 하루 기록으로 보낼까요?');
     await expect.poll(() => posts.length).toBe(1);
     expect(posts[0]).toMatchObject({ kind: 'diary', journal_day: '2026-10-12', raw_text: '평범한 노트\n둘째 줄 글', ai_export_allowed: false });
     await expect(page.locator('[data-note-row="n-plain"]')).toHaveCount(0);
     expect(f.deletes).toHaveLength(1); expect(f.deletes[0]).toMatchObject({ id: 'eq.n-plain' });
-    await expect(page.locator('[data-undo-notice]')).toContainText('10월 12일 일기로 보냈어요');
+    await expect(page.locator('[data-undo-notice]')).toContainText('10월 12일 하루 기록으로 보냈어요');
     expect(f.errors).toEqual([]);
   });
 }
-test('일기 저장이 실패하면 노트는 삭제하지 않고 그대로 둔다 1280', async ({ page }) => {
+test('하루 기록 저장이 실패하면 노트는 삭제하지 않고 그대로 둔다 1280', async ({ page }) => {
   const f = await fixture(page, 1280);
   const posts = await diaryRoute(page, f, { fail: true });
   await press(page, rowMore(page, 'n-plain'), 1280);
-  await press(page, menu(page).getByRole('button', { name: '일기로 보내기', exact: true }), 1280);
+  await press(page, menu(page).getByRole('button', { name: '하루 기록으로 보내기', exact: true }), 1280);
   await answerAsk(page, true);
   await expect.poll(() => posts.length).toBe(1);
   await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toContainText('원래 기록은 그대로');

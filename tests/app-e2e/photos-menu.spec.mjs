@@ -375,7 +375,7 @@ test('사진 메뉴: 원드라이브 아이콘은 공식 아이콘 원래 색, �
   expect(f.errors).toEqual([]);
 });
 
-test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 일기로 넘어가지 않고 이 화면 안에서 연다 390', async ({ page }) => {
+test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 하루 기록으로 넘어가지 않고 이 화면 안에서 연다 390', async ({ page }) => {
   const f = await fixture(page, { width: 390 });
   await openPhotos(page, 390);
   await expect(items(page)).toHaveCount(7);

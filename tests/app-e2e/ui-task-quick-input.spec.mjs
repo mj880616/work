@@ -78,7 +78,7 @@ for(const width of [390,1280]){
  });
 }
 
-test('[달력]·[일기]는 [+] 그대로, [할 일]만 입력 칸(폰 390)',async({page})=>{
+test('[달력]·[하루 기록]는 [+] 그대로, [할 일]만 입력 칸(폰 390)',async({page})=>{
  const f=await fixture(page);
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  await expect(page.locator('#calendarView .calendar-toolbar #newEventBtn')).toBeVisible();
