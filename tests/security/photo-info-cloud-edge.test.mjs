@@ -104,7 +104,7 @@ test('onedrive meta write: changed in between (412) is not overwritten; reconnec
 // ---------- 구글 드라이브 ----------
 const SB='https://sb.example.test',GENV={SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:'synthetic-service-key',SUPABASE_ANON_KEY:'synthetic-anon-key'};
 const FULL='https://www.googleapis.com/auth/drive';
-function gdrive({features=['gdrive_photos'],revBump=false}={}){
+function gdrive({connected=true,revBump=false}={}){
  const db={folders:[{workspace_id:WS,item_id:'F1',parent_id:'root',name:'가상',enabled:true}],photos:[
   {workspace_id:WS,item_id:'G1',parent_id:'F1',name:'a.jpg',video:false,taken_at:'2026-10-01T10:00:00.000Z',approx:false,taken_day:'2026-10-01'},
   {workspace_id:WS,item_id:'G2',parent_id:'F1',name:'b.png',video:false,taken_at:'2026-10-01T10:00:00.000Z',approx:false,taken_day:'2026-10-01'},
@@ -116,12 +116,10 @@ function gdrive({features=['gdrive_photos'],revBump=false}={}){
   const u=new URL(url),h=init.headers||{},method=init.method||'GET';calls.push({host:u.host,path:u.pathname,search:u.search,method,headers:h});
   if(u.host==='sb.example.test'){
    if(u.pathname==='/auth/v1/user')return h.Authorization==='Bearer '+JWT?ok({id:USER}):ok({},401);
-   if(u.pathname==='/rest/v1/rpc/app_my_features')return ok(features);
-   if(u.pathname==='/rest/v1/rpc/app_operator_feature_workspace')return ok(WS);
    const name=u.pathname.replace('/rest/v1/',''),p=u.searchParams;
    if(name==='app_workspace_members')return ok([{workspace_id:WS}]);
-   if(name==='app_workspaces')return ok([{id:WS}]);
-   if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s',google_refresh_token:'synthetic-refresh'}]);
+   if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s'}]);
+   if(name==='app_drive_connections')return ok(connected&&p.get('workspace_id')==='eq.'+WS?[{google_refresh_token:'synthetic-refresh'}]:[]);
    if(name==='app_gdrive_folders')return ok(db.folders);
    if(name==='app_gdrive_photos'&&method==='GET'){const ids=p.get('item_id').slice(4,-1).split(',').map(s=>s.replace(/"/g,''));return ok(db.photos.filter(r=>ids.includes(r.item_id)));}
    if(name==='app_gdrive_photos'&&method==='POST'){for(const r of JSON.parse(init.body)){const i=db.photos.findIndex(x=>x.item_id===r.item_id);if(i<0)db.photos.push(r);else Object.assign(db.photos[i],r);}return ok(null,201);}
@@ -156,8 +154,8 @@ test('gdrive meta read: indexed (folder on) JPEG only, first 256KB only; operato
  assert.equal(by.G1.can,true);assert.equal(by.G1.taken,'2026-10-01T10:00:00.000Z');assert.equal(by.G1.lat,37.56);
  assert.equal(by.G2.why,'not_jpeg');assert.equal(by.G4.why,'missing','folder off = not in the list');
  assert.ok(w.calls.filter(c=>c.search.includes('alt=media')).every(c=>c.headers.Range==='bytes=0-262143'));
- const gate=gdrive({features:[]});
- assert.equal((await gate.call({action:'photos-meta-read',ids:['G1']})).body.error,'feature_required');
+ const gate=gdrive({connected:false});
+ assert.equal((await gate.call({action:'photos-meta-read',ids:['G1']})).body.error,'drive_not_connected');
  assert.ok(!gate.calls.some(c=>c.host==='www.googleapis.com'));
 });
 

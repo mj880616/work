@@ -1,13 +1,15 @@
 // S46-24 사진 출처 구글 드라이브(명진 G1 2026-10-31: 드라이브 읽기·쓰기). 설계: docs/design/photo-gdrive-permission.md 0·6절.
-// 문(네 겹, 모두 서버에서): ① 로그인(Auth) ② 그 사람이 작업공간 owner ③ 로그인 토큰으로 부른 app_my_features()에 gdrive_photos
-//   ④ 그 작업공간 = gdrive_photos가 허용된 단 하나의 작업공간 = Drive 연결 작업공간(slug kptu-work, 토큰 public_policy_drive_config id=1의 주인).
-//   화면이 보낸 작업공간·사용자 값은 쓰지 않는다. 다른 작업공간은 403.
+// S62-11 MULTI-구글드라이브사진모두(설계: docs/design/gdrive-photos-all.md 2절, 명진 11/15 결정 2 '예'): Drive를 연결한 사람 모두 각자 자기 드라이브만.
+// 문(모두 서버에서): ① 로그인(Auth) ② 그 사람이 owner인 작업공간 정확히 1개 ③ 그 작업공간의 Drive 연결(app_drive_connections 그 행)로만 토큰을 받는다.
+//   운영자 기능 키(gdrive_photos)·단 하나 작업공간(slug) 판정은 없앴다. 화면이 보낸 작업공간·사용자 값은 쓰지 않는다.
+//   연결이 없으면 424 drive_not_connected. 다른 작업공간 연결이나 프로젝트 전체 연결(public_policy_drive_config id=1의 갱신 토큰)로 넘어가는 길은 없다.
+//   토큰 실제 권한에 drive가 없으면 403 scope_missing(상태는 scope:false) — 화면 '[Drive 다시 연결]'.
 // 쓰기(이름 바꾸기·옮기기·휴지통으로·폴더 만들기·이름·휴지통으로)는 화면이 confirm:true를 보낼 때만(사용자가 누르고 확인 한 번). 자동·일괄 정리 없음.
 // 지우기는 Drive 휴지통으로 옮기기(files.update trashed=true)만 쓴다. 영구 삭제(files.delete)·휴지통 비우기는 이 함수에 없다.
 // 토큰은 service role로만 읽고 응답·로그에 싣지 않는다. 기존 Drive 함수들이 부르는 API는 바꾸지 않는다(쓰기는 이 함수에만).
 // 사진 정보 고치기 ②(S50-31, 명진 결정 E3 (가)·E4·E5): photos-meta-read(앞 256KB만 받아 EXIF 찍은 시각·위치)·photos-meta-write(confirm:true).
 //   원본을 메모리로만 받아 EXIF 칸만 바꾸고 같은 파일의 새 판(revision)으로 올린다. 받기 전 headRevisionId를 적고 올리기 직전 다시 확인(바뀌었으면 멈춤).
-//   JPEG만, 한 장 30MB·한 번 10장까지. 권한(drive)·네 겹 문은 그대로.
+//   JPEG만, 한 장 30MB·한 번 10장까지. 권한(drive)·위 문은 그대로.
 // 원본·썸네일은 저장하지 않는다. DB에는 켠 폴더와 그 폴더 사진 목록 사본만 둔다(migration 20261031120000).
 
 import { readJpegMeta, validLoc, writeJpegMeta } from "../_shared/jpeg-exif.ts";
@@ -16,8 +18,6 @@ type Env = (name: string) => string | undefined;
 export type GdriveOptions = { fetch?: typeof fetch; env: Env; now?: () => number };
 
 export const DRIVE_FULL_SCOPE = "https://www.googleapis.com/auth/drive";
-export const FEATURE = "gdrive_photos";
-export const DRIVE_WORKSPACE_SLUG = "kptu-work";
 const DRIVE = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
 const META_MAX = 10, META_BYTES = 30 * 1024 * 1024, META_HEAD = 256 * 1024;
@@ -110,7 +110,6 @@ export function createGdriveHandler(options: GdriveOptions) {
   const now = options.now ?? (() => Date.now());
   const SB = options.env("SUPABASE_URL") || "";
   const SERVICE = options.env("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const ANON = options.env("SUPABASE_ANON_KEY") || "";
   const log = (code: string) => console.error("gdrive_photos:" + code);
 
   async function call(stage: string, url: string, init: RequestInit = {}) {
@@ -149,7 +148,7 @@ export function createGdriveHandler(options: GdriveOptions) {
     return Array.isArray(v) ? v as Record<string, unknown>[] : [];
   };
 
-  // ---- 문: 로그인 → owner → 운영자 기능 → Drive 연결 주인 ----
+  // ---- 문: 로그인 → 본인 owner 작업공간(정확히 1개). 토큰은 그 작업공간 연결로만(driveToken) ----
   async function authorize(jwt: string) {
     const ur = await call("auth", `${SB}/auth/v1/user`, { headers: { apikey: SERVICE, Authorization: `Bearer ${jwt}` } });
     const user = await body(ur);
@@ -158,23 +157,14 @@ export function createGdriveHandler(options: GdriveOptions) {
     const members = await rows("member", `app_workspace_members?user_id=eq.${encodeURIComponent(user.id)}&role=eq.owner&select=workspace_id`);
     if (members.length !== 1 || typeof members[0].workspace_id !== "string") throw new Fail(403, "forbidden");
     const workspaceId = members[0].workspace_id as string;
-    const fr = await call("features", `${SB}/rest/v1/rpc/app_my_features`, {
-      method: "POST",
-      headers: { apikey: ANON || SERVICE, Authorization: `Bearer ${jwt}`, Accept: "application/json", "Content-Type": "application/json" },
-      body: "{}",
-    });
-    const features = fr.ok ? await body(fr) : null;
-    if (!Array.isArray(features) || !features.includes(FEATURE)) throw new Fail(403, "feature_required");
-    const allowed = await db("feature_ws", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) });
-    const driveWs = await rows("drive_ws", `app_workspaces?slug=eq.${DRIVE_WORKSPACE_SLUG}&select=id&limit=2`);
-    if (allowed !== workspaceId || driveWs.length !== 1 || driveWs[0].id !== workspaceId) throw new Fail(403, "drive_owner_mismatch");
     return { userId: user.id as string, workspaceId };
   }
 
   // ---- Drive 토큰. 권한(scope)도 함께 확인 ----
   // S54-16: 접근 토큰만 이 인스턴스 안에서 약 50분 기억한다(사진 한 장마다 구글 토큰을 새로 받지 않게, onedrive-photos와 같은 방식).
   // 키 = 작업공간 id + 갱신 토큰 지문(SHA-256 앞 16자). 갱신 토큰이 바뀌거나(다시 연결) 작업공간이 다르면 다른 키라 섞이지 않는다.
-  // 설정 1행(갱신 토큰)은 요청마다 그대로 읽는다 — 연결을 끊으면 바로 drive_not_connected. 위 문(authorize)도 요청마다 그대로다.
+  // 갱신 토큰은 요청마다 그 작업공간 연결 행(app_drive_connections)에서 그대로 읽는다 — 연결을 끊으면 바로 drive_not_connected.
+  // 앱 값(client id/secret)만 public_policy_drive_config id=1에서 읽는다(그 행의 갱신 토큰은 읽지 않음). 위 문(authorize)도 요청마다 그대로다.
   // 같은 순간 여러 요청(썸네일 묶음)은 토큰 교환 하나를 함께 기다린다. 구글이 401을 주면 기억한 토큰을 버린다(drive()).
   const tokenCache = new Map<string, { token: string; full: boolean; until: number }>();
   const tokenFlights = new Map<string, Promise<{ token: string; full: boolean }>>();
@@ -184,9 +174,14 @@ export function createGdriveHandler(options: GdriveOptions) {
     return [...d.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
   }
   async function driveToken(workspaceId: string): Promise<{ token: string; full: boolean }> {
-    const cfg = await rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret,google_refresh_token");
-    const c = cfg[0];
-    if (!c?.google_refresh_token) throw new Fail(424, "drive_not_connected");
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(workspaceId)) throw new Fail(500, "drive_workspace_missing");
+    const [cfg, conn] = await Promise.all([
+      rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret"),
+      rows("drive_conn", `app_drive_connections?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=google_refresh_token&limit=1`),
+    ]);
+    if (!cfg[0]?.google_client_id || !cfg[0]?.google_client_secret) throw new Fail(503, "drive_config_missing");
+    if (!conn[0]?.google_refresh_token) throw new Fail(424, "drive_not_connected");
+    const c = { ...cfg[0], google_refresh_token: conn[0].google_refresh_token };
     const key = workspaceId + ":" + await fingerprint(String(c.google_refresh_token));
     const hit = tokenCache.get(key);
     if (hit && hit.until > now()) return { token: hit.token, full: hit.full };
