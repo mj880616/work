@@ -1,16 +1,16 @@
 // APP-폰알림 N4(설계 docs/design/phone-notifications.md 3절): 내 프로필 '폰 알림' 칸의 규칙. 화면·서버 호출 없이 node --test로 확인한다.
 // 설정 모양은 DB 검사 제약(app_profiles_notify_prefs_check, migration 20261101010000)과 같다:
-//   {"kinds":{"task_due":true,…7가지},"quiet":{"from":"22:00","to":"07:00"}}. 비어 있으면 기본(전부 켬, 22:00~07:00 서울).
+//   {"kinds":{"task_due":true,…},"quiet":{"from":"22:00","to":"07:00"}}. 비어 있으면 기본(전부 켬, 22:00~07:00 서울).
 // 폰 앱 다리 글(push:…)은 android-app PushRules.kt와 같다.
+// S62-27(JOURNAL-다음주준비삭제·PUSH-원장약속알림빼기): 'next_week'(다음 주 준비)·'commitment'(원장 약속) 종류는 없앴다. 저장된 설정에 옛 키가 남아 있어도
+// parsePrefs가 모르는 칸으로 버리고, 다음 저장에서 빠진다(DB 검사는 허용 키 목록만 보므로 빠져도 통과).
 
 export const KINDS = Object.freeze([
   ['task_due', '할 일 기한'],
-  ['commitment', '원장 약속'],
   ['meeting_done', '회의 요약'],
   ['collect_stall', '수집 멈춤'],
   ['morning', '아침 묶음'],
   ['evening', '저녁 묶음'],
-  ['next_week', '다음 주 준비'],
 ]);
 export const KIND_KEYS = Object.freeze(KINDS.map(([k]) => k));
 // MULTI-처음쓰는사람 ⑤: 통화·텔레그램 수집이 있는 운영자 계정에만 보이는 종류(고르기 칩만 빼고 저장 모양·서버 검사는 그대로).
@@ -120,14 +120,13 @@ export function deviceLabel(device) {
 // 서버(phone-push notices·recent)는 종류·기록 열쇠·시각·여는 주소만 준다. 보일 말은 종류에서 여기서 정한다(업무 내용 없음).
 /** 알림 줄 한 줄(뒤에서 끝난 일). */
 export const NOTICE_TEXT = Object.freeze({
-  next_week: '다음 주 준비 한 장을 볼 때예요',
   meeting_done: '회의 요약이 준비됐어요',
   signup: '새 가입', // 서버가 '새 가입 n명 — 이름'(text)을 함께 준다(이름은 기록에 남기지 않으므로). 없으면 이 말.
 });
 /** 최근 알림 목록의 '무엇'. */
 export const RECENT_LABEL = Object.freeze({
-  task_due: '할 일 기한', commitment: '원장 약속', meeting_done: '회의 요약', collect_stall: '수집 멈춤',
-  morning: '아침 묶음', evening: '저녁 묶음', next_week: '다음 주 준비 한 장', quiet_digest: '조용한 시간 묶음', test: '시험 알림', family: '잊지 말기', signup: '새 가입',
+  task_due: '할 일 기한', meeting_done: '회의 요약', collect_stall: '수집 멈춤',
+  morning: '아침 묶음', evening: '저녁 묶음', quiet_digest: '조용한 시간 묶음', test: '시험 알림', family: '잊지 말기', signup: '새 가입',
 });
 const NOTICE_KIND = /^[a-z_]{1,20}$/;
 const NOTICE_REF = /^[A-Za-z0-9_.:-]{1,80}$/;
