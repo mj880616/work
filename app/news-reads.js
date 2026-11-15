@@ -1,12 +1,13 @@
-// S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.3절): News 글 읽음 표시의 유일한 길. 서버 표 public.app_feed_reads(작업공간 소유자 RLS, DB 20261106080000)만 쓴다.
+import {readReads, writeRead} from './feed-shared.js';
+// S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.3절): News 글 읽음 표시의 유일한 길.
+// NEWS-모두에게열기 ③: 읽음은 사람별 표(app_news_reads·app_outside_reads, 작업공간 소유자 RLS)에 공용 글 id로 — 읽고 쓰는 길은 feed-shared.js.
 // - 읽기: 목록 주인이 보이는 글 id를 넘기면(ensure) 아직 모르는 것만 한 번 묻는다. 결과가 오면 구독한 목록 주인이 자기 칸을 다시 그린다(onReads).
 // - 넣기: 상세를 열 때(markRead) 한 줄 — 같은 글이 이미 있으면 서버가 그대로 둔다(on_conflict + ignore-duplicates = ON CONFLICT DO NOTHING).
 //   넣는 칸은 workspace_id와 글 id 하나뿐(id·read_at은 서버 기본값). 실패해도 상세는 그대로 열린다.
 // 기기 저장 없음(이번 접속 메모리만). 로그에 글 제목·주소를 남기지 않는다.
-const q = v => encodeURIComponent(v);
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
-const COL = {outside: 'outside_post_id', news: 'news_item_id'};
+const COL = {outside: true, news: true};
 const CHUNK = 80;
 let scope = '';
 const known = new Map(); // 'outside:<id>' → true(읽음) | false(안 읽음)
@@ -39,11 +40,10 @@ export async function ensureReads(items) {
   const jobs = [];
   for (const type of ['outside', 'news']) {
     for (let i = 0; i < want[type].length; i += CHUNK) {
-      const ids = want[type].slice(i, i + CHUNK), col = COL[type];
-      jobs.push(rt().api(`/rest/v1/app_feed_reads?workspace_id=eq.${q(w)}&${col}=in.(${ids.map(q).join(',')})&select=${col}&limit=${ids.length}`, {singleFlight: false})
-        .then(rows => {
+      const ids = want[type].slice(i, i + CHUNK);
+      jobs.push(readReads(type, ids)
+        .then(got => {
           if (mine !== scope) return;
-          const got = new Set((Array.isArray(rows) ? rows : []).map(r => String(r?.[col] || '')));
           for (const id of ids) { const k = `${type}:${id}`; if (known.get(k) !== true) known.set(k, got.has(id)); asking.delete(k); }
         })
         .catch(() => { for (const id of ids) asking.delete(`${type}:${id}`); }));
@@ -54,11 +54,11 @@ export async function ensureReads(items) {
   if (mine === scope) notify();
 }
 export function markRead(item) {
-  const w = checkScope(), col = COL[item?.type];
-  if (!w || !col || !item.id) return;
+  const w = checkScope();
+  if (!w || !COL[item?.type] || !item.id) return;
   const k = keyOf(item);
   if (known.get(k) === true) return;
   known.set(k, true); notify();
-  rt().api(`/rest/v1/app_feed_reads?on_conflict=${col}`, {method: 'POST', body: {workspace_id: w, [col]: item.id}, prefer: 'resolution=ignore-duplicates,return=minimal', singleFlight: false})
+  writeRead(item.type, item.id)
     .catch(() => { /* 못 넣어도 이번 접속에서는 읽음으로 보인다. 다음에 들어오면 서버 값대로 */ });
 }

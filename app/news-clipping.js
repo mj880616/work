@@ -8,12 +8,13 @@ import {FOLDER_DEPTH_LIMIT} from './folder-limits.mjs';
 import {askConfirm, askText} from './small-notice.js';
 import {treeIconHtml} from './tree-icons.js';
 import {takeNewsItem} from './news-request.mjs';
-import {signalBody} from './now-model.mjs';
+import {articleIdOf, readNewsArticles, readNewsOne, readNewsStarred, readNewsKeywordHits, writeNewsMark, writeSignal} from './feed-shared.js';
+import {newsPage} from './feed-shared-model.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
-import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, pgTextArray, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
+import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
 // - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords + 키워드에 걸린 글 모아 보기, S59-1) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
@@ -54,7 +55,7 @@ const $ = sel => root?.querySelector(sel);
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-const fresh = () => ({scope: '', tab: ALL, items: [], loaded: false, failed: false, end: true, more: false,
+const fresh = () => ({scope: '', tab: ALL, items: [], raw: 0, loaded: false, failed: false, end: true, more: false,
   busy: new Set(), notes: new Map(),
   limits: {...DEFAULT_LIMITS}, catalog: null, catalogFailed: false, aiCapped: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   keywords: [], keywordsLoaded: false, keywordsFailed: false, kwHits: new Map(), kwHitsFailed: false, saving: new Set(), panelNote: '', draft: '',
@@ -66,30 +67,28 @@ let state = fresh(), loadSeq = 0, layer = null;
 const q = v => encodeURIComponent(v);
 const edge = (action, body = {}, timeoutMs = 60000) => rt().api(`/functions/v1/news-feed?action=${action}`, {method: 'POST', body, singleFlight: false, timeoutMs});
 // 목록 읽기. [언론] 목록은 껍데기가 고른 매체(news- 키)만, 별표 폴더 칸은 별표한 기사 전부.
-function readItems(w, tab, offset) {
-  const keys = tab === STAR ? null : now()?.newsKeys?.() ?? null;
-  if (keys && !keys.length) return Promise.resolve([]);
+// NEWS-모두에게열기 ③: 기사는 공용 표(모두 같은 목록), 별표·폴더·숨김·키워드는 내 표시(feed-shared.js). 돌려줌: {rows(숨김 뺀 줄), raw(읽은 줄 수 = 다음 쪽 자리), end}.
+async function readItems(w, tab, offset) {
+  if (tab === STAR) {
+    const got = await readNewsStarred(ITEM_COLS, PAGE_SIZE + 1, offset);
+    return {rows: got.slice(0, PAGE_SIZE), raw: Math.min(got.length, PAGE_SIZE), end: got.length <= PAGE_SIZE};
+  }
+  const keys = now()?.newsKeys?.() ?? null;
+  if (keys && !keys.length) return {rows: [], raw: 0, end: true};
   const filter = keys ? `&source_key=in.(${keys.map(q).join(',')})` : '';
-  return rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&hidden_at=is.null${laneFilter(tab)}${filter}&select=${ITEM_COLS}&order=${orderOf(tab)}&limit=${PAGE_SIZE + 1}&offset=${offset}`, {singleFlight: false});
+  return newsPage(await readNewsArticles({cols: ITEM_COLS, filter: laneFilter(tab) + filter, order: orderOf(tab), limit: PAGE_SIZE + 1, offset}), PAGE_SIZE);
 }
-const readOne = (w, id, cols) => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${cols}&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
+const readOne = (w, id, cols) => readNewsOne(id, cols);
 const readSources = w => rt().api(`/rest/v1/app_outside_sources?workspace_id=eq.${q(w)}&source_key=like.news-*&select=${SOURCE_COLS}`, {singleFlight: false});
 const readKeywords = w => rt().api(`/rest/v1/app_news_keywords?workspace_id=eq.${q(w)}&select=${KEYWORD_COLS}&order=created_at.asc&limit=100`, {singleFlight: false});
-// 키워드 하나에 걸린 글(S59-1): 서버 키워드 단계가 keywords 칸에 그 낱말을 적어 둔 글, 새 것부터 KW_GROUP_SIZE건(하나 더 읽어 '더 있음'을 안다). 지운 줄은 뺀다.
-const readKeywordHits = (w, word) => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=${ITEM_COLS}&order=created_at.desc,id.desc&limit=${KW_GROUP_SIZE + 1}`, {singleFlight: false});
+// 키워드 하나에 걸린 글(S59-1): 서버 키워드 단계가 내 표시 keywords 칸에 그 낱말을 적어 둔 글, 새 것부터 KW_GROUP_SIZE건(하나 더 읽어 '더 있음'을 안다). 숨긴 것은 뺀다.
+const readKeywordHits = (w, word) => readNewsKeywordHits(word, ITEM_COLS, KW_GROUP_SIZE + 1);
 const readFolders = w => rt().api(`/rest/v1/app_news_folders?workspace_id=eq.${q(w)}&select=${FOLDER_COLS}&order=sort_order.asc&limit=1000`, {singleFlight: false});
-async function patchItem(w, id, body) {
-  const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=id,starred_at,folder_id`, {method: 'PATCH', body: {...body, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
-  const row = Array.isArray(rows) ? rows[0] : null;
-  if (!row || row.id !== id) throw new Error('save');
-  return row;
-}
-// 환류 기록 한 줄(app_now_signals, 화면은 더하기만). 실패해도 누른 일은 그대로.
+const patchItem = (w, id, body) => writeNewsMark(id, body);
+// 환류 기록 한 줄(사람별 반응 표, 화면은 더하기만). 실패해도 누른 일은 그대로.
 function signal(id, action) {
-  const w = workspaceOf();
-  if (!w) return;
-  rt().api('/rest/v1/app_now_signals', {method: 'POST', body: signalBody(w, {type: 'news', id}, action), prefer: 'return=minimal', singleFlight: false})
-    .then(() => now()?.signaled?.()).catch(() => {});
+  if (!workspaceOf()) return;
+  writeSignal({type: 'news', id}, action).then(() => now()?.signaled?.()).catch(() => {});
 }
 // 매체 표는 읽기(열 때·처음)와 쓰기(켜고 끄기)가 겹칠 수 있다. 쓰기가 시작·끝난 뒤에 도착한 '그 전에 시작한 읽기'는
 // 옛 값이라 버린다(상태 주인 하나: 마지막에 서버가 확인해 준 쓰기 결과). 읽는 동안 쓰기가 있었는지는 이 번호로 안다.
@@ -228,12 +227,12 @@ async function loadItems({append = false, keep = false} = {}) {
   if (append) { state.more = true; paint(); }
   else { state.failed = false; if (!keep || !state.loaded) { state.loaded = false; state.items = []; } paint(); }
   try {
-    const rows = await readItems(w, state.tab, append ? state.items.length : 0);
+    const got = await readItems(w, state.tab, append ? state.raw : 0);
     if (seq !== loadSeq) return;
-    const got = Array.isArray(rows) ? rows : [];
-    const page = got.slice(0, PAGE_SIZE);
+    const page = got.rows;
     state.items = append ? [...state.items, ...page.filter(p => !state.items.some(x => x.id === p.id))] : page;
-    state.end = got.length <= PAGE_SIZE;
+    state.raw = (append ? state.raw : 0) + got.raw;
+    state.end = got.end;
     state.loaded = true;
     void ensureReads(page.map(it => ({type: 'news', id: it.id})));
     if (state.tab === STAR || page.some(it => it.starred_at)) ensureFolders().then(ok => { if (ok && state.mode === 'folders') paint(); });
@@ -293,9 +292,14 @@ function enter() {
   return want ? entering.then(() => showFocus(want)) : entering;
 }
 // 노트의 [기사로 가기]: 그 기사를 목록 맨 위에 두고(첫 쪽에 없으면 한 줄 읽어 앞에), 상세를 연다(메모는 상세에 있다).
-async function showFocus(id) {
+// 노트에 남은 id가 옛 기사 id면 공용 기사 id로 바꿔 연다(feed-shared.js 지도).
+async function showFocus(want) {
   const w = workspaceOf(), scope = state.scope;
-  if (!w || state.focus !== id) return;
+  if (!w || state.focus !== want) return;
+  let id = want;
+  try { id = await articleIdOf('news', want); } catch { /* 그대로 */ }
+  if (scope !== state.scope || state.focus !== want) return;
+  state.focus = id;
   let it = state.items.find(x => x.id === id);
   if (!it) {
     try { const row = await readOne(w, id, ITEM_COLS); if (scope !== state.scope || !row) return; it = row; state.items = [row, ...state.items]; }

@@ -1,3 +1,4 @@
+import {pgTextArray} from './news-clipping-model.mjs';
 import {articleCols, flatNews, flatNewsMark, isUuid, mapIds, markFields, savedOutsideMark, NEWS_MARK_EMBED} from './feed-shared-model.mjs';
 // NEWS-모두에게열기 ③ 화면(설계 docs/design/news-for-all.md 13·14절): News·[사회운동] 글을 서버에서 읽고 쓰는 유일한 길.
 // - 기사·글 내용은 공용 표 한 벌(app_news_articles·app_outside_articles, 본문 블록·문장도 공용) — 가입자 모두 같은 줄(서버 정책: 로그인 + 자기 작업공간 + 차단 명단 아님).
@@ -61,14 +62,13 @@ export async function readNewsOne(id, cols) {
   return flatNews(first(await rt().api(`/rest/v1/${T.news.art}?id=eq.${q(aid)}&select=${articleCols(cols)},${NEWS_MARK_EMBED}&app_news_marks.workspace_id=eq.${q(w)}&limit=1`, {singleFlight: false})));
 }
 // 내 별표 기사(최근 별표 먼저).
-export async function readNewsStarred(cols, limit = 300) {
-  const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(workspaceOf())}&starred_at=not.is.null&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)})&order=starred_at.desc&limit=${limit}`, {singleFlight: false});
+export async function readNewsStarred(cols, limit = 300, offset = 0) {
+  const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(workspaceOf())}&starred_at=not.is.null&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)})&order=starred_at.desc,article_id.desc&limit=${limit}&offset=${offset}`, {singleFlight: false});
   return (Array.isArray(rows) ? rows : []).map(flatNewsMark).filter(Boolean);
 }
 // 내 키워드 하나에 걸린 기사(서버 키워드 단계가 내 표시 keywords 칸에 적음). 숨긴 것은 뺀다. 최근 표시 먼저.
 export async function readNewsKeywordHits(word, cols, limit) {
-  const words = `{"${String(word).replace(/["\\]/g, c => '\\' + c)}"}`;
-  const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(workspaceOf())}&hidden_at=is.null&keywords=cs.${q(words)}&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)})&order=created_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false});
+  const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(workspaceOf())}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)})&order=created_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false});
   return (Array.isArray(rows) ? rows : []).map(flatNewsMark).filter(Boolean);
 }
 // 내 표시 쓰기: 줄이 있으면 칸만 고치고, 없으면 넣는다(지울 것만 있고 줄이 없으면 할 일 없음). 돌려줌: {id, starred_at, folder_id, hidden_at}.
