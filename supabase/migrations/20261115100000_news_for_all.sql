@@ -291,9 +291,9 @@ begin
   for it in select e from pg_catalog.jsonb_array_elements(p_items) as x(e) loop
     v_url := case when pg_catalog.jsonb_typeof(it) = 'object' and pg_catalog.jsonb_typeof(it -> 'url') = 'string' then it ->> 'url' end;
     v_key := case when pg_catalog.jsonb_typeof(it) = 'object' and pg_catalog.jsonb_typeof(it -> 'url_key') = 'string' then it ->> 'url_key' end;
-    v_host := pg_catalog.lower(pg_catalog.substring(v_url from '^https://([^/?#:@[:space:]]+)(?:[/?#]|$)'));
+    v_host := pg_catalog.lower(pg_catalog.substring(v_url, '^https://([^/?#:@[:space:]]+)(?:[/?#]|$)'));
     if v_url is null or v_key is null or v_host is null
-       or v_url !~ '^https://[^[:space:]@]+$' or pg_catalog.char_length(v_url) > 2000
+       or v_url !~ '^https://[^[:space:]]+$' or pg_catalog.char_length(v_url) > 2000
        or pg_catalog.char_length(v_key) not between 1 and 2000 or v_key ~ '[[:space:][:cntrl:]]'
        or v_host !~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
        or v_host ~ '^[0-9.]+$'
