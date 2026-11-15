@@ -39,9 +39,9 @@ async function server(page) {
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
     if (table) s.calls.push(table + decodeURIComponent(u.search));
-    if (table === 'app_outside_posts') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
-    if (table === 'app_feed_bodies') { const id = (u.searchParams.get('outside_post_id') || '').replace(/^eq\./, ''); return ok(id === EN || id === KO ? [{ state: 'ok', reason: null, blocks: id === EN ? BLOCKS : [{ t: 'p', text: '가상 한글 문단.' }] }] : []); }
-    if (table === 'app_feed_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (table === 'app_outside_articles') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
+    if (table === 'app_outside_article_bodies') { const id = (u.searchParams.get('article_id') || '').replace(/^eq\./, ''); return ok(id === EN || id === KO ? [{ state: 'ok', reason: null, blocks: id === EN ? BLOCKS : [{ t: 'p', text: '가상 한글 문단.' }] }] : []); }
+    if (table === 'app_outside_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (table === 'app_outside_sources') return ok(SOURCES.map(x => ({ source_key: x.key, enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null })));
     if (table === 'app_outside_seen') return ok([{ seen_at: '2026-10-06T00:00:00Z' }]);
     if (table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
@@ -98,7 +98,7 @@ for (const width of [412, 1440]) {
     expect(s.translate[0].body).toEqual({ id: EN });
     expect(s.translate[0].auth).toMatch(/^Bearer /);
     // 번역본은 그 글 줄(내 작업공간)의 body_ko만 읽는다. 뉴스 함수는 부르지 않는다.
-    expect(s.calls.some(c => c.startsWith('app_outside_posts?') && c.includes(`id=eq.${EN}`) && c.includes('select=body_ko') && c.includes('workspace_id=eq.w'))).toBe(true);
+    expect(s.calls.some(c => c.startsWith('app_outside_articles?') && c.includes(`id=eq.${EN}`) && c.includes('select=body_ko') && !c.includes('workspace_id='))).toBe(true);
     expect(s.calls.some(c => c.includes('news-feed?action=translate'))).toBe(false);
     // 다시 누르면 원문, 또 누르면 서버를 다시 부르지 않고 바로.
     await d.locator('[data-nd-translate]').click();

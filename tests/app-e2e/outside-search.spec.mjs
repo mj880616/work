@@ -30,7 +30,7 @@ async function server(page) {
       if (action === 'expand') { s.expand++; return ok({ ok: true, terms: ['인력 감축', '구조조정', '정원 축소'] }); }
       return ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
     }
-    if (p === '/rest/v1/rpc/app_outside_search') { s.calls.push({ what: 'search', body }); return ok(body.p_offset ? [] : HITS); }
+    if (p === '/rest/v1/rpc/app_outside_search_shared') { s.calls.push({ what: 'search', body }); return ok(body.p_offset ? [] : HITS); }
     if (p === '/rest/v1/rpc/app_search_records') {
       s.calls.push({ what: 'records', body });
       return ok({ groups: [{ kind: 'document', total: 2, items: [
@@ -43,7 +43,7 @@ async function server(page) {
     }
     if (p === '/rest/v1/app_outside_sources') return ok([{ source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }, { source_key: 'laborparty', enabled: true, last_ok_at: null, last_error: null }]);
     if (p === '/rest/v1/app_outside_seen') return ok(method === 'PATCH' ? [{ seen_at: body.seen_at }] : [{ seen_at: '2026-10-05T00:00:00Z' }]);
-    if (p === '/rest/v1/app_outside_posts') return ok([]);
+    if (p === '/rest/v1/app_outside_articles') return ok([]);
     return route.fallback();
   });
   return s;
