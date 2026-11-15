@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic(가상 이름·가상 메일).
-// S62-29 OPS-가입자현황 PR①(20261116003000_signup_status): 운영자 가입자 목록 함수 넓히기 — 승인형 DB workflow 실행기로.
+// S62-29 OPS-가입자현황 PR①(20261116002500_signup_status): 운영자 가입자 목록 함수 넓히기 — 승인형 DB workflow 실행기로.
 // - 규칙 통과(full 흐름), 시험 적용은 아무것도 안 바꿈, 적용 뒤 사후 확인 모두 예, 두 번째 적용 거절.
 // - 운영자(dev_inbox owner)만: 어제와 같은 배열(새 가입부터)에 칸 일곱(조직·부서·이름·직책·이메일·가입일·마지막 사용)만 받는다.
 //   배열 모양 유지 — 배포된 phone-push 알림 줄(name·signed_up_at)과 지금 화면이 그대로 읽는다. 숫자 셋은 화면이 센다(app/signups-model).
@@ -19,7 +19,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261116003000',name='signup_status',stem=version+'_'+name;
+const version='20261116002500',name='signup_status',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];

@@ -12,13 +12,13 @@ begin;
 --   - 노조명·부서명·직책은 각자 내 프로필에 쓴 그대로(없으면 null). 이름은 기존과 같은 순서(구글 이름 → 프로필 이름 → '이름 없음').
 -- 운영자 판정은 기존 그대로: 서버 허용 표의 dev_inbox 기능이 있는 작업공간 owner(private.app_workspace_has_feature). 아니면 42501 OPERATOR_FEATURE_REQUIRED.
 -- 권한: authenticated만 실행(기존 그대로), anon·PUBLIC·service_role 실행 없음. 표·칸·정책·RLS·허용 행·다른 함수 변경 없음. rtw_* 객체 없음.
--- 짝: docs/20261116003000_signup_status.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261116002500_signup_status.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261116003000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261116002500')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261115234500' and name = 'signup_notify') <> 1
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261115223000' and name = 'profile_union_department') <> 1
      or to_regprocedure('private.app_workspace_has_feature(uuid,text)') is null
@@ -104,5 +104,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261116003000', 'signup_status', array['S62-29 OPS signup status: public.app_signup_list() re-defined with the same signature and return type (jsonb, SECURITY DEFINER, search_path empty, authenticated only, operator dev_inbox owner check unchanged); still an array newest first (limit 2000), each row now union name, department name, name, job title, email, signed-up time, last used time; no record content; no table, column, policy, RLS, grant-on-table or row change; no anon, PUBLIC or service_role execute']);
+values ('20261116002500', 'signup_status', array['S62-29 OPS signup status: public.app_signup_list() re-defined with the same signature and return type (jsonb, SECURITY DEFINER, search_path empty, authenticated only, operator dev_inbox owner check unchanged); still an array newest first (limit 2000), each row now union name, department name, name, job title, email, signed-up time, last used time; no record content; no table, column, policy, RLS, grant-on-table or row change; no anon, PUBLIC or service_role execute']);
 commit;
