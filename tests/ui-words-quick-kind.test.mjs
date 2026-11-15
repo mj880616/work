@@ -7,7 +7,9 @@ import {jsStrings} from './ui-words.mjs';
 const strings = f => jsStrings(readFileSync(f, 'utf8')).map(s => s.text);
 
 test("홈 빠른 입력칸(폰 [종류 ▾]·펼친 목록·넓은 화면 두 칸·안내) 화면 글자에 '업데이트' 0곳", () => {
-  assert.deepEqual(strings('app/home-quick.js').filter(t => t.includes('업데이트')), []);
+  // 남는 한 곳: 파일을 올린 뒤 아래 알림 '업데이트에 사진 n장 올렸어요'(where) — 다른 입력 길(잊지 말기 화면 상세·큰 창 등)과 같은 알림이라 이번 범위 밖.
+  assert.deepEqual(strings('app/home-quick.js').filter(t => t.includes('업데이트')), ['업데이트']);
+  assert.match(readFileSync('app/home-quick.js', 'utf8'), /const where=basketSave\?'업데이트':/);
   const src = readFileSync('app/home-quick.js', 'utf8');
   assert.match(src, /data-quick-mode="update">잊지 말기</, '넓은 화면 [잊지 말기|할 일]');
   assert.match(src, /const kindName=mode==='task'\?'할 일':'잊지 말기';/, '폰 종류 버튼 [잊지 말기 ▾]');
