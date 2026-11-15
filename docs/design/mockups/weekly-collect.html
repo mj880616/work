@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 주간보고 모으기 (함께 쓰기 첫 기능)</title>
+<style>
+:root{--bg:#f3f0e8;--card:#fffdf8;--line:#e3ded2;--ink:#2b2a26;--sub:#7a766c;--olive:#5b6b33;--sel:#edf0e2;--warn:#fff4e5}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8cf;font:14px/1.45 "Noto Sans KR",system-ui,sans-serif;color:var(--ink);padding:16px}
+h1{font-size:18px;margin:0 0 4px}
+.lead{color:#555;margin:0 0 12px;font-size:13px;max-width:1280px}
+.row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
+.cap{font-size:12px;color:#444;margin:0 0 6px;font-weight:600;max-width:412px}
+.frame{background:var(--bg);border:1px solid #bbb;border-radius:14px;overflow:hidden;position:relative}
+.ph{width:412px;height:800px}.fold{width:880px;height:640px}.pc{width:1280px;height:660px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:8px 10px;padding:10px 12px}
+.sec{font-weight:700;font-size:15px;margin:2px 0 6px}
+.muted{color:var(--sub);font-size:12px}
+.ln{padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.ln:first-of-type{border-top:0}
+.btn{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 11px;font-size:13px;white-space:nowrap}
+.btn.p{background:var(--olive);color:#fff;border-color:var(--olive)}
+.btn.s{padding:3px 8px;font-size:12px}
+.acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--line);margin-top:8px}
+.ok{color:var(--olive);font-size:12px}
+.nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;border-top:1px solid var(--line);padding:8px 0 10px;font-size:11px;color:var(--sub);background:var(--card)}
+.sheet{position:absolute;left:0;right:0;bottom:46px;background:#fff;border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.12);padding:12px 14px 14px}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.sheet h3{margin:0 0 8px;font-size:15px}
+.pick{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+.pick:first-of-type{border-top:0}
+.radio{width:16px;height:16px;border:2px solid var(--olive);border-radius:50%;display:inline-block;position:relative}
+.radio.on:after{content:"";position:absolute;inset:3px;background:var(--olive);border-radius:50%}
+.chk{width:15px;height:15px;border:1.5px solid var(--olive);border-radius:3px;display:inline-block;background:var(--olive);color:#fff;font-size:11px;line-height:13px;text-align:center}
+.hint{background:var(--warn);border-radius:8px;padding:7px 9px;font-size:12px;color:#5c4a1f;margin:8px 0}
+.inbox-head{display:flex;align-items:center;gap:6px;font-weight:700}
+.inbox-head .n{font-weight:400;color:var(--sub);font-size:12px}
+.p-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+.p-row .nm{font-weight:600;min-width:62px}
+.p-row .t{color:var(--sub);font-size:12px;flex:1}
+.p-row.wait{color:var(--sub)}
+.p-row.wait .nm{font-weight:400}
+.new{background:#fff7e0;border:1px solid #f0d58a;border-radius:8px;padding:7px 9px;font-size:12.5px;margin:6px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.more{color:var(--sub)}
+.split{display:flex;height:100%}
+.side{width:150px;background:var(--card);border-right:1px solid var(--line);padding:12px 8px;font-size:13px;color:#555}
+.side div{padding:6px 8px;border-radius:6px}.side .on{background:var(--sel);color:var(--ink);font-weight:600}
+.main{flex:1;min-width:0;padding:10px 14px;overflow:hidden}
+.two{display:flex;gap:12px}
+.lst{width:250px;flex:none}
+.lst .p-row{padding:8px 6px;border-radius:8px}
+.lst .p-row.on{background:var(--sel)}
+.view{flex:1;min-width:0}
+.ro{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--sub);background:#fff;font-weight:400}
+.mtab{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
+.mtab td,.mtab th{border:1px solid var(--line);padding:6px 8px;vertical-align:top;text-align:left}
+.mtab th{background:#f7f4ec;font-weight:600;width:150px}
+.who{display:inline-block;font-size:10.5px;border-radius:4px;padding:0 5px;margin-right:4px;background:#eef0e6;color:#4d5a2a;border:1px solid #d5dcc0}
+.drag{color:#b5b0a3;margin-right:4px;cursor:grab}
+.note{background:#fffbe8;border:1px dashed #d9b93a;border-radius:10px;padding:10px 12px;font-size:12.5px;max-width:1280px;margin-bottom:14px}
+.note li{margin:2px 0}
+</style>
+</head>
+<body>
+<h1>시안 1차 — 주간보고 모으기 (함께 쓰기 첫 기능, 명진 11/15 11:23 결정)</h1>
+<p class="lead">팀원이 자기 주간보고를 확정한 뒤 <b>[팀장에게 보내기]</b>를 누르면 <b>복사본</b>이 팀장의 '받은 주간 정리'에 쌓인다. 팀장은 모인 것을 <b>[합쳐서 한글 파일]</b>로 받는다. 서로의 노조+ 기록은 열 수 없고, 누가 직접 누른 복사본만 오간다. 사람·내용은 모두 가상 예시.</p>
+<div class="note"><b>정할 것(요청함 방 추천 — 명진 확정 아님)</b>
+<ol>
+<li>받는 사람 정하기: <b>팀장의 구글 이메일을 한 번 넣어 저장</b>(추천) / 노조+ 사용자 목록에서 고르기 — 목록을 보여 주면 다른 사람이 쓰는지가 드러나서 비추천</li>
+<li>처음 보낸 사람은 팀장이 <b>[받기]</b>를 눌러야 쌓임(추천 — 모르는 사람이 보낸 것이 섞이지 않게) / 바로 쌓임</li>
+<li>합친 한글 파일에서 줄마다 쓴 사람 이름: <b>화면에만 꼬리표, 파일에는 넣지 않음</b>(추천 — 지금 팀 주간보고 양식과 같게) / 파일에도 '(이름)'</li>
+</ol></div>
+
+<div class="row">
+<div><p class="cap">① 팀원 폰 412 — 확정 뒤 [팀장에게 보내기] → 보낼 사람 고르기</p>
+<div class="frame ph">
+  <div class="card">
+    <div class="sec">5. 주요 일정</div>
+    <div class="ln"><b>11.18.(화)</b> 10:30 / 가상 지부 간담회 / 가상 회의실</div>
+    <div class="ln"><b>11.20.(목)</b> 종일 / 가상 수련회</div>
+    <div class="acts"><span class="btn">한글 파일 다시 받기</span><span class="btn p">팀장에게 보내기</span><span class="more">⋯</span><span class="ok">확정됨 11/14</span></div>
+  </div>
+  <div class="dim"></div>
+  <div class="sheet">
+    <h3>주간보고 보내기</h3>
+    <div class="pick"><span class="radio on"></span><b>가상 팀장</b><span class="muted">tea…@gmail.com</span></div>
+    <div class="pick"><span class="radio"></span><b>가상 부팀장</b><span class="muted">sub…@gmail.com</span></div>
+    <div class="pick" style="color:var(--olive)">+ 받는 사람 추가(구글 이메일)</div>
+    <div class="pick"><span class="chk">✓</span>이번 주(11/10~11/16) 확정본</div>
+    <div class="hint">보낸 것은 복사본이에요. 보낸 뒤에 고친 건 [다시 보내기]로 새로 보내야 해요. 내 노조+의 다른 기록은 보이지 않아요.</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><span class="btn">취소</span><span class="btn p">보내기</span></div>
+  </div>
+  <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>사업 보고</span><span>조직 보고</span><span>메뉴</span></div>
+</div></div>
+
+<div><p class="cap">② 팀장 폰 412 — 주간보고 맨 위 '받은 주간 정리 3/5' (처음 보낸 사람은 [받기])</p>
+<div class="frame ph">
+  <div class="card">
+    <div class="inbox-head">받은 주간 정리 <span class="n">이번 주 3/5</span><span style="margin-left:auto" class="btn p s">합쳐서 한글 파일</span></div>
+    <div class="new"><b>가상 팀원 라</b>가 처음 보냈어요 <span class="btn s">받기</span><span class="btn s">거절</span></div>
+    <div class="p-row"><span class="nm">가상 팀원 가</span><span class="t">11/14 17:20</span><span class="more">⋯</span></div>
+    <div class="p-row"><span class="nm">가상 팀원 나</span><span class="t">11/14 18:05 · 다시 보냄</span><span class="more">⋯</span></div>
+    <div class="p-row"><span class="nm">나(팀장)</span><span class="t">내 주간보고 · 확정 전</span></div>
+    <div class="p-row wait"><span class="nm">가상 팀원 다</span><span class="t">아직 안 옴</span></div>
+    <div class="p-row wait"><span class="nm">가상 팀원 마</span><span class="t">아직 안 옴</span></div>
+  </div>
+  <div class="card">
+    <div class="sec">1. 투쟁 사업</div>
+    <div class="ln">- 가상 지부 임단협 3차 교섭(11/13)</div>
+    <div class="ln">- 가상 공동 기자회견 준비</div>
+    <div class="sec" style="margin-top:8px">2. 산하조직 현황</div>
+    <div class="ln">가상 노동조합 — 지난주 조직 소식</div>
+  </div>
+  <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>사업 보고</span><span>조직 보고</span><span>메뉴</span></div>
+</div></div>
+</div>
+
+<div class="row">
+<div><p class="cap" style="max-width:880px">③ 폴드 펼침 880 — 팀장이 받은 것 하나 열어 보기(읽기만, 복사본)</p>
+<div class="frame fold"><div class="main">
+  <div class="inbox-head" style="margin-bottom:8px">받은 주간 정리 <span class="n">이번 주 3/5</span><span style="margin-left:auto" class="btn p">합쳐서 한글 파일</span></div>
+  <div class="two">
+    <div class="lst card" style="margin:0">
+      <div class="p-row on"><span class="nm">가상 팀원 가</span><span class="t">11/14 17:20</span></div>
+      <div class="p-row"><span class="nm">가상 팀원 나</span><span class="t">11/14 18:05</span></div>
+      <div class="p-row"><span class="nm">나(팀장)</span><span class="t">확정 전</span></div>
+      <div class="p-row wait"><span class="nm">가상 팀원 다</span><span class="t">아직 안 옴</span></div>
+      <div class="p-row wait"><span class="nm">가상 팀원 마</span><span class="t">아직 안 옴</span></div>
+    </div>
+    <div class="view card" style="margin:0">
+      <div class="inbox-head">가상 팀원 가 · 11/10~11/16 <span class="ro">받은 복사본 · 읽기만</span><span style="margin-left:auto" class="more">⋯</span></div>
+      <div class="sec" style="margin-top:8px">1. 투쟁 사업</div>
+      <div class="ln">- 가상 지부 파업 찬반투표 결과 정리(찬성 가결)</div>
+      <div class="ln">- 가상 지부 쟁의조정 신청 준비</div>
+      <div class="sec" style="margin-top:8px">2. 산하조직 현황</div>
+      <div class="ln">가상 노동조합 나 — 신규 가입 설명회(11/12)</div>
+      <div class="sec" style="margin-top:8px">5. 주요 일정</div>
+      <div class="ln"><b>11.18.(화)</b> 10:30 / 가상 지부 간담회</div>
+      <div class="muted" style="margin-top:8px">⋯ = 한글 파일로 받기 · 받은 것 지우기(보낸 사람 쪽에는 남음)</div>
+    </div>
+  </div>
+</div></div></div>
+</div>
+
+<div class="row">
+<div><p class="cap" style="max-width:1280px">④ PC 1280 — [합쳐서 한글 파일]: 칸마다 사람별 줄을 모아 보여 주고, 끌어서 순서를 바꾼 뒤 받기</p>
+<div class="frame pc"><div class="split">
+  <div class="side"><div class="on">홈</div><div>잊지 말기</div><div>일정</div><div>노트</div><div>사업 보고</div><div>자료실</div><div>파일</div><div>조직 보고</div><div>HWP 편집</div><div>News</div></div>
+  <div class="main">
+    <div class="inbox-head" style="margin-bottom:8px">합쳐서 한글 파일 <span class="n">가상 팀원 가 · 가상 팀원 나 · 나(팀장) — 3명</span><span style="margin-left:auto" class="btn">취소</span><span class="btn p">한글 파일 받기</span></div>
+    <table class="mtab">
+      <tr><th>1. 투쟁 사업</th><td>
+        <div><span class="drag">⠿</span><span class="who">팀장</span>- 가상 지부 임단협 3차 교섭(11/13)</div>
+        <div><span class="drag">⠿</span><span class="who">팀원 가</span>- 가상 지부 파업 찬반투표 결과 정리(찬성 가결)</div>
+        <div><span class="drag">⠿</span><span class="who">팀원 가</span>- 가상 지부 쟁의조정 신청 준비</div>
+        <div><span class="drag">⠿</span><span class="who">팀원 나</span>- 가상 공동 기자회견 준비(11/19)</div></td></tr>
+      <tr><th>2. 산하조직 현황</th><td>
+        <div><span class="drag">⠿</span><span class="who">팀장</span>가상 노동조합 — 지난주 조직 소식</div>
+        <div><span class="drag">⠿</span><span class="who">팀원 가</span>가상 노동조합 나 — 신규 가입 설명회(11/12)</div>
+        <div><span class="drag">⠿</span><span class="who">팀원 나</span>가상 노동조합 다 — 대의원대회 준비</div></td></tr>
+      <tr><th>5. 주요 일정</th><td>
+        <div><span class="drag">⠿</span><span class="who">팀원 가</span><b>11.18.(화)</b> 10:30 / 가상 지부 간담회</div>
+        <div><span class="drag">⠿</span><span class="who">팀장</span><b>11.20.(목)</b> 종일 / 가상 수련회</div>
+        <div class="muted">같은 날짜·같은 일정은 한 줄로 합쳐요(겹침 표시)</div></td></tr>
+    </table>
+    <p class="muted" style="margin-top:8px">순서: 조직 순서 설정대로 먼저 놓고, 끌어서 바꿀 수 있어요. 이름 꼬리표는 화면에만 보이고 한글 파일에는 들어가지 않아요. 아직 안 온 2명(가상 팀원 다·마)은 빠진 채로 받아요.</p>
+  </div>
+</div></div></div>
+</div>
+</body>
+</html>
