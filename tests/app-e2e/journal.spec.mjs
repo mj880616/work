@@ -1699,19 +1699,22 @@ test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 �
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리고, [확정 없이 파일만 받기]·[확정하고 한글 파일 받기](.hwp)·기기 HWP 파일 선택은 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
+test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 백지 + [파일 올리기], [확정 없이 파일만 받기]·[확정하고 한글 파일 받기](.hwp)·기기 HWP 파일 선택은 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
  test.setTimeout(150000);
  await servePagesCors(page);
  const f=await hwpxFixture(page,{width:1280,noConfirmed:true,engine:'real'});
  await openJournal(page,1280);await openWeekly(page);
- // WEEKLY-한글파일다듬기 ①: 확정본이 없으면 상태 줄에 까닭과 할 일(맨 위 ⋯ → [바탕 바꾸기(기기 파일)]), 칸 자리에도 한 줄.
- await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('자료실에 바탕이 없어요(찾은 분류: 개인 확정본(분류 목록에 없음)·팀 확정본(분류 목록에 없음)). 지난 팀 확정본을 ‘팀 확정본’ 분류로 올리거나 맨 위 ⋯ → [바탕 바꾸기(기기 파일)]를 써 주세요.');
- await expect(page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-flow-no-base]')).toContainText('바탕을 열지 못해');
+ // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 자료실에 바탕이 없으면 [주간 보고]는 백지 + 한 줄 [파일 올리기] — 다른 팀 양식(항목 이름·표 칸)은 하나도 안 보인다.
+ const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
+ await expect(weekly.locator('[data-weekly-blank]')).toHaveText('내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 파일 올리기');
+ for(const word of ['요청사항','임원 배정','상집','투쟁 사업장','산하','요약','주요 일정','기본·영역·의제'])await expect(weekly).not.toContainText(word);
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('이 기기 안에서만');
- await expect(topLine(page).locator('[data-hwpx-pick]')).toHaveText('바탕 바꾸기(기기 파일)');
  expect(f.sent.open).toEqual([]);
- // 기기 파일(.hwpx) → 칸 줄
- await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
+ // [파일 올리기]로 기기 파일(.hwpx) → 그 파일이 바탕이 되어 칸 줄
+ const [chooser]=await Promise.all([page.waitForEvent('filechooser'),weekly.getByRole('button',{name:'파일 올리기'}).click()]);
+ await chooser.setFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
+ await expect(weekly.locator('[data-weekly-blank]')).toHaveCount(0);
+ await expect(topLine(page).locator('[data-hwpx-pick]')).toHaveText('바탕 바꾸기(기기 파일)');
  await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('가상 담당');
  await expect(topLine(page)).toContainText('바탕 기기 파일');
@@ -1743,6 +1746,17 @@ test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 알리�
  await expect.poll(()=>f.sent.library.length).toBe(1);
  expect([f.sent.library[0].file.file,[...f.sent.library[0].file.bytes.subarray(0,4)]]).toEqual(['주간보고_20261012_가상담당.hwp',[0xd0,0xcf,0x11,0xe0]]);
  await expect(hwpx(page).locator('[data-hwpx-status]')).not.toContainText('.hwpx로 받았어요');
+ expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 바탕(자료실 확정본)이 있는 사람은 지금 화면 그대로 — 백지·올리기 줄 없이 양식 칸이 다 보인다.
+for(const width of [412,1280])test(`[주간 보고] 바탕이 있으면 백지 없이 지금 화면 그대로 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);
+ const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
+ await expect(weekly).toContainText('1. 요청사항');await expect(weekly).toContainText('5. 주요 일정');
+ await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
+ await expect(weekly.locator('[data-weekly-blank]')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
 

@@ -138,6 +138,10 @@
 #appView #homeView .journal-weekly .journal-muted,
 #appView #homeView .journal-weekly .journal-org-name{ font-size:var(--kptu-text-body); }
 #appView #homeView .journal-weekly-list{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
+#appView #homeView .journal-weekly-blank{ margin:0; padding:10px 0; border:1px dashed transparent; border-radius:var(--kptu-radius-md); }
+#appView #homeView .journal-weekly-blank.is-over{ border-color:var(--kptu-primary-ink); }
+#appView #homeView .journal-weekly-blank-line{ margin:0; font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+#appView #homeView .journal-weekly-blank [data-weekly-blank-note]:empty{ display:none; }
 #appView #homeView .journal-weekly-day{ display:inline-block; min-width:5.2em; margin-right:6px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
 /* JOURNAL-회의종류표시: 회의 줄 끝의 작은 ⋯ (누르면 작은 글자 버튼 하나) + 이 주 뺀 회의 종류 줄. 새 크기 값 없음(UI-버튼기준).
    ⋯ 는 줄이 촘촘해 44px 확장(::after)을 쓰면 위아래 줄의 ⋯ 가 서로 가리므로, 보이는 28px 칸 자체를 누르는 범위로 둔다. */
