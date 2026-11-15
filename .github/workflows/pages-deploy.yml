@@ -113,3 +113,29 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+
+  # UPDATE-운영자전용기록업데이트소식 PR1: 개발 기록(app/release-notes/*.json)은 공개 배포물에 싣지 않고(build-pages.mjs),
+  # 배포가 끝난 뒤 묶어서 서버 표(app_release_notes, 운영자만 읽음)로 보낸다. 열쇠는 이 job의 GitHub OIDC 토큰(새 비밀값 없음) —
+  # Edge release-notes-sync가 저장소·main·이 workflow 파일을 확인한다. 실패해도 화면 배포는 그대로(이 job만 실패로 남음).
+  release-notes:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            app/release-notes
+            app/release-notes-model.mjs
+            scripts/ops/release-notes-sync.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Send release notes to the server
+        run: node scripts/ops/release-notes-sync.mjs .

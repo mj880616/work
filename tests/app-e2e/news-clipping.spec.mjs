@@ -94,7 +94,7 @@ for (const width of [412, 884, 1440]) {
     await expect(items(page)).toHaveCount(5);
     // [매체 ▾] → 'Fake Wire'만: 서버에 그 news- 키만 묻는다.
     await page.locator('#outsideRoot [data-nw-media]').click();
-    await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 외국', 'Fake Wire']);
+    await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 국제', 'Fake Wire']);
     await page.locator('#nwMediaPicker [data-lu-move-folder="n:news-fake-en"]').click();
     await expect(items(page)).toHaveCount(1);
     expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-en)');

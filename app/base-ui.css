@@ -392,6 +392,8 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 /* S62-16 연결 안내 공용 부품(connect-note.mjs): 안내 한 줄 → 그 아래 줄 왼쪽에 버튼 하나. 폭과 상관없이 늘 두 줄(HOME-연결안내한줄아래와 같은 모양). */
 .connect-note{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:4px 0}
 .connect-note-line{margin:0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-muted)}
+.connect-note-why{margin-left:4px;font-size:11px;color:var(--kptu-muted)}
+.connect-note-btns{display:flex;flex-wrap:wrap;gap:6px}
 .connect-note .connect-note-btn{width:auto;min-width:0;min-height:28px;padding:0 10px;font-size:var(--kptu-text-meta,12px);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.top-wait-run{animation:none;width:100%;opacity:.25}}
 /* UI-창잘림·끌어옮기기: 넓은 화면(761px~)에서 버튼 옆에 뜬 작은 창(data-anchor-side, anchored-popup.js)은 제목 줄을 잡고 끌어 옮긴다.

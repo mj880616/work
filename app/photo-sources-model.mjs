@@ -70,8 +70,17 @@ const GDRIVE_TEXT = Object.freeze({
   thumb_unavailable:'그림을 받지 못했어요', media_unsupported:'열 수 없는 파일이에요', gdrive_unavailable:'구글 드라이브에 연결하지 못했어요',
   gdrive_store_unavailable:'사진 목록 저장소에 닿지 못했어요', session_required:'로그인이 필요해요', action_invalid:'서버가 아직 이 기능을 몰라요',
 });
-// 권한·연결 문제(칩 '권한 없음'·'연결 전' + [Drive 다시 연결]·[연결])로 볼 코드.
+// 권한·연결 문제(칩 '권한 없음'·'연결 전' + [구글 드라이브 다시 연결]·[구글 드라이브 연결])로 볼 코드.
 export const GDRIVE_RECONNECT = Object.freeze(['scope_missing', 'drive_auth_expired', 'drive_not_connected']);
+// S62-16 FILES-구글드라이브아이콘연결전: 구글 드라이브 연결 글 규칙 한 곳(사진 칩·[파일] 아이콘 공용, connect-note.mjs와 짝).
+// 사진(gdrive-photos)은 drive_*·scope_missing, [파일](cloud-files)은 gd_* 코드를 준다. 'none' = 아직 연결 전 → [구글 드라이브 연결],
+// 'reconnect' = 권한 빠짐·연결 풀림 → [구글 드라이브 다시 연결], '' = 연결 문제가 아님(그 화면의 [다시]).
+export function gdriveLinkMode(problem) {
+  const p = String(problem || '');
+  if (/^(drive|gd)_not_connected$/.test(p)) return 'none';
+  if (/^(gd_)?scope_missing$|^(drive|gd)_auth_expired$/.test(p)) return 'reconnect';
+  return '';
+}
 export const gdriveCode = error => { const m = String(error?.message || ''); return /^[a-z_]{1,40}$/.test(m) ? m : (error?.status ? `http_${error.status}` : 'error'); };
 export const gdriveNeedsReconnect = error => GDRIVE_RECONNECT.includes(gdriveCode(error));
 export function gdriveErrorText(error) {
