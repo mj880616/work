@@ -29,6 +29,9 @@ const accounts=logoutButtons.map(logout=>{
   // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
   const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
   updates.innerHTML='<span class="account-action-name">업데이트 기록</span><span class="account-ver" data-account-ver></span>';
+  // UPDATE-운영자전용기록업데이트소식 PR1: 개발 기록은 운영자만 — 서버 허용 표(app_my_features)에 운영자 개발 키가 있을 때만 줄을 그린다.
+  // 읽기 자체는 서버 함수가 운영자만 허용한다(화면에서 줄을 그리는 것은 편의일 뿐 막는 장치가 아님).
+  updates.hidden=true;
   // APP-앱내려받기버튼(명진 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
   // 폰 앱 안에서는 줄이 없다(앱이 스스로 업데이트한다).
   const appDl=appDownloadRow();
@@ -159,17 +162,22 @@ function syncMobile(){
   }
   syncKeyboard();
 }
-// UI-업데이트기록입구: 판 이름은 계정 메뉴(폰은 메뉴 판)를 처음 열 때 한 번 읽어 채운다. 못 읽으면 비운 채(다음 열 때 다시).
-// 기록 파일은 배포 빌드가 만들므로, 빌드한 화면(app.js에 ?v=가 붙은 화면, version-notice.js와 같은 기준)에서만 읽는다(개발·시험 화면에서 헛된 404 없음).
+// UI-업데이트기록입구 → UPDATE-운영자전용기록업데이트소식 PR1: 계정 메뉴(폰은 메뉴 판)를 처음 열 때 운영자인지 서버에 한 번 묻고,
+// 운영자면 [업데이트 기록] 줄을 보이고 판 이름을 서버 기록(app_release_notes_read)에서 채운다. 못 읽으면 다음 열 때 다시.
 let versionFilled=false;
-const builtShell=()=>[...document.scripts].some(script=>{try{const url=new URL(script.src,location.href);return /\/app\.js$/.test(url.pathname)&&url.searchParams.has('v')}catch{return false}});
 function fillVersion(){
-  if(versionFilled||!builtShell())return;versionFilled=true;
-  import('./release-notes-read.js').then(m=>m.readReleaseNotes()).then(list=>{
+  if(versionFilled)return;versionFilled=true;
+  import('./release-notes-read.js').then(async m=>{
+    if(!await m.canReadReleaseNotes()){versionFilled=false;return}
+    accounts.forEach(account=>{account.updates.hidden=false});
+    const list=await m.readReleaseNotes();
     if(!list?.current){versionFilled=false;return}
     accounts.forEach(account=>{const ver=account.updates.querySelector('[data-account-ver]');if(ver)ver.textContent=`현재 ${list.current}`});
   }).catch(()=>{versionFilled=false});
 }
+window.addEventListener('kptu:session-changed',()=>{versionFilled=false;accounts.forEach(account=>{account.updates.hidden=true})});
+// 메뉴를 처음 열 때 줄이 늦게 생기지 않게, 작업공간이 준비되면 한 번 미리 묻는다(답은 my-features.js가 이 탭에 한 번만 기억).
+if(window.__KPTU_TEAM_READY_STATE__==='workspace')fillVersion();else window.addEventListener('kptu:team-ready',e=>{if(e.detail?.state==='workspace')fillVersion()});
 function openMobile(trigger){
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}

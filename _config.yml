@@ -8,3 +8,4 @@ exclude:
   - cloudflare
   - AGENTS.md
   - CLAUDE.md
+  - app/release-notes

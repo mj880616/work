@@ -1,10 +1,11 @@
 // UI-업데이트기록입구(요청함 10/30): '업데이트 기록' 화면(?view=updates). #updatesView의 유일한 그리기 주인.
 // 입구는 계정 메뉴(PC 오른쪽 위·폰 [메뉴]의 계정 칸) [내 프로필] 바로 아래 [업데이트 기록] 한 줄(topbar-actions.js)이고,
 // 화면 전환·뒤로가기는 라우터(KPTURouter) 한 주인이 맡는다. 옛 내 프로필 맨 아래 칸은 없앴다(같은 기록 두 곳 금지).
-// 읽는 것은 배포물 app/release-notes.json 하나(빌드가 만든 공개 파일). 서버·기기 저장 없음. 글자는 textContent로만 넣는다.
+// UPDATE-운영자전용기록업데이트소식 PR1: 읽는 것은 서버 기록 하나(app_release_notes_read — 운영자만, 서버가 거절). 기기 저장 없음. 글자는 textContent로만 넣는다.
+// 운영자가 아닌 계정이 주소로 들어오면 서버에 묻지 않고 '운영자만 볼 수 있어요' 한 줄.
 import {shortDate,PAGE_SIZE,searchNotes,searchWords} from './release-notes-model.mjs';
 import {highlightParts} from './global-search-model.mjs';
-import {readReleaseNotes} from './release-notes-read.js';
+import {readReleaseNotes,canReadReleaseNotes} from './release-notes-read.js';
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
 
 // UI-업데이트기록찾기(요청함 11/02): 목록 위 검색 칸 하나. 치는 대로 이 화면 안에서만 거르고(서버 호출 없음) 낱말을 칠한다.
@@ -52,7 +53,8 @@ function draw(){
   if(!root||drawn)return Promise.resolve();
   if(drawing)return drawing;
   root.innerHTML=waitHtml();
-  drawing=readReleaseNotes().then(list=>{
+  drawing=canReadReleaseNotes().then(yes=>yes?readReleaseNotes():'denied').then(list=>{
+    if(list==='denied'){root.innerHTML=emptyHtml('운영자만 볼 수 있어요');return}
     if(!list){root.innerHTML=failHtml({retry:'data-rn-retry'});return}
     drawn=true;
     if(!list.notes.length){root.innerHTML=emptyHtml();return}
