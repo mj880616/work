@@ -16,8 +16,8 @@
 .hl-menu .hl-menu-memo{ margin:2px 4px 6px; padding:4px 6px; font-size:12.5px; line-height:1.45; border-left:3px solid var(--kptu-warning); white-space:pre-line; overflow-wrap:anywhere; max-height:8em; overflow:auto; }
 
 /* 노트 'News에서'(시안 note-news-marks.html ①~④): 폴더 목록 맨 아래 얇은 구분 줄 + 두 줄, 오른쪽(폰은 '그 폴더만' 상자) 목록·찾은 것. */
-#basketView .nnm-sep{ display:flex; align-items:center; gap:8px; padding:8px 10px 2px; font-size:11px; color:var(--kptu-muted); }
-#basketView .nnm-sep::after{ content:""; flex:1 1 auto; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+/* NOTE-News에서글자빼기: 구분 줄은 글자 없이 얇은 선 하나(폴더 목록과 밑줄·보관한 글 두 줄을 나눔). */
+#basketView .nnm-sep{ margin:6px 10px 2px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
 #basketView .nnm-hlico{ display:inline-block; flex:0 0 auto; width:14px; height:6px; margin:0 1px; background:var(--kptu-warning-soft); border-bottom:2px solid var(--kptu-warning); }
 #basketView .nnm:not([hidden]){ display:flex; flex-direction:column; gap:6px; min-width:0; }
 #basketView .nnm-head{ display:flex; align-items:center; gap:6px; min-height:28px; font-size:14px; }
