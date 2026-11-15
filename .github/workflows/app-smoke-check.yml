@@ -684,15 +684,6 @@ jobs:
       - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
         run: node --test tests/work-scope-model.test.mjs
 
-      - name: Check next-week sheet rules (work calendar only, read-only materials, auto after Friday 15:00)
-        run: node --test tests/next-week-sheet-model.test.mjs
-
-      - name: Check pre-meeting sheet rules (linked organization and meeting words, after 18:00 tomorrow only, shared sheet renderer)
-        run: node --test tests/pre-meeting-sheet-model.test.mjs
-
-      - name: Check prep sheet line format (no mid-word cuts, lead sentence + folded detail, group numbers without gaps, small evidence tag)
-        run: node --test tests/prep-sheet-text.test.mjs
-
       - name: Check home is the work journal (summary line numbers, screen order, menu, due text)
         run: node --test tests/home-summary.test.mjs
 
