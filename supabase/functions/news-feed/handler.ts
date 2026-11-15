@@ -144,7 +144,8 @@ const inList = (values: string[]) => `(${values.map((v) => `"${v.replace(/\\/g, 
 
 // ---- DB(service role, PostgREST) ------------------------------------------------------------------------------------
 type Row = Record<string, unknown>;
-type Db = { get: (p: string) => Promise<Row[]>; send: (m: "POST" | "PATCH", p: string, b: unknown, prefer?: string) => Promise<Row[]>; rpcNumber: (fn: string, b: unknown) => Promise<number> };
+type Db = { get: (p: string) => Promise<Row[]>; send: (m: "POST" | "PATCH", p: string, b: unknown, prefer?: string) => Promise<Row[]>; rpcNumber: (fn: string, b: unknown) => Promise<number>;
+  rpcValue: (fn: string, b: unknown) => Promise<unknown> };
 function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
   async function call(method: string, path: string, body?: unknown, prefer?: string, raw = false): Promise<unknown> {
     let r: Response;
@@ -165,11 +166,44 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
     get: (p) => call("GET", p) as Promise<Row[]>,
     send: (m, p, b, pr) => call(m, p, b, pr) as Promise<Row[]>,
     rpcNumber: async (fn, b) => { const v = await call("POST", `rpc/${fn}`, b, undefined, true); return typeof v === "number" ? v : 0; },
+    rpcValue: (fn, b) => call("POST", `rpc/${fn}`, b, undefined, true),
   };
 }
 
 // ---- 하루 사용량(app_news_days) --------------------------------------------------------------------------------------
 // dayRow·addDay·monthKrw는 _shared/news-days.ts(outside-feed [번역]과 공용).
+
+// ---- 공용 기사 한 벌(NEWS-모두에게열기 ②, 설계 news-for-all.md 2-3·4절 E1) -----------------------------------------------
+// 기사 내용(주소·제목·요약·본문·번역)은 공용 표 app_news_articles에 한 번만 모은다(service role만 씀, 작업공간 칸 없음).
+// 사람별 키워드 표시는 app_news_marks.keywords(서버만 씀). 별표·폴더·숨김은 화면이 자기 줄만(이 함수는 건드리지 않음).
+// 옮기는 동안(D2·화면 ③ 전) 화면은 아직 작업공간별 옛 표 app_news_items를 읽으므로 옛 표에도 같은 결과를 쓴다
+// (새로 넣는 운영자 줄은 공용 id 그대로 — D2 '옛 id = 새 id'). 같은 주소의 공용 기사에 이미 요약·제목 번역·본문 번역이 있으면
+// 옛 줄에는 그것을 옮겨 적고 AI를 다시 부르지 않는다(기사마다 1회). 공용 표를 읽거나 쓰지 못하면(일시 장애) 옛 표 흐름은 그대로 간다.
+// 공용 기사에 드는 AI(요약·제목 번역)는 운영자 작업공간(app_operator_feature_workspace 'telegram') 하루 사용량에 센다 — 사람 수만큼 늘지 않는다.
+export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publisher,published_at,state,fetched_at,summary,body,body_kind,title_ko,body_ko,translated_at,source_key";
+async function operatorWs(db: Db): Promise<string | null> {
+  try {
+    const v = await db.rpcValue("app_operator_feature_workspace", { p_feature: "telegram" });
+    return typeof v === "string" && UUID.test(v) ? v.toLowerCase() : null;
+  } catch { return null; }
+}
+async function articlesByKey(db: Db, keys: unknown[], log: FeedLog): Promise<Map<string, Row>> {
+  const out = new Map<string, Row>();
+  const uniq = [...new Set(keys.filter((k): k is string => typeof k === "string" && !!k))];
+  try {
+    for (const part of inChunks(uniq)) {
+      for (const r of await db.get(`app_news_articles?url_key=in.${part}&select=${ART_SELECT}`)) {
+        if (typeof r.url_key === "string" && typeof r.id === "string" && UUID.test(r.id)) out.set(r.url_key, r);
+      }
+    }
+  } catch { log("shared_read_failed"); }
+  return out;
+}
+// 공용 기사 줄 고치기(id로). 실패해도 옛 표 결과는 그대로(로그만).
+async function patchArticle(db: Db, log: FeedLog, id: unknown, patch: Row, guard = "") {
+  if (typeof id !== "string" || !UUID.test(id) || !Object.keys(patch).length) return;
+  try { await db.send("PATCH", `app_news_articles?id=eq.${id}${guard}`, patch, "return=minimal"); } catch { log("shared_write_failed"); }
+}
 
 // ---- AI ------------------------------------------------------------------------------------------------------------
 type AiDeps = { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: FeedLog; env: Env };
@@ -281,12 +315,13 @@ export function videoId(url: string): string | null {
     : /^\/(shorts|live|embed)\/([^/]+)/.exec(u.pathname)?.[2] ?? null;
   return id && /^[A-Za-z0-9_-]{6,20}$/.test(id) ? id : null;
 }
-async function fillVideo(db: Db, reader: FeedReader, item: Row, vid: string, nowMs: number): Promise<string> {
+// shared: 공용 기사 줄이면 true(작업공간 칸이 없어 id로만 고치고, 열기 횟수는 세지 않는다).
+async function fillVideo(db: Db, reader: FeedReader, item: Row, vid: string, nowMs: number, shared = false): Promise<Row> {
   const ws = String(item.workspace_id), id = String(item.id);
   const nowIso = new Date(nowMs).toISOString();
   const watch = `https://www.youtube.com/watch?v=${vid}`;
   const got = await reader.get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watch)}`, "application/json");
-  try { await addDay(db, ws, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ }
+  if (!shared) { try { await addDay(db, ws, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
   let title: string | null = null, author: string | null = null;
   if (got.ok) {
     try {
@@ -298,8 +333,8 @@ async function fillVideo(db: Db, reader: FeedReader, item: Row, vid: string, now
   const t = typeof item.title === "string" && item.title && !isUrlTitle(item.title) ? item.title : title ? `[영상] ${title}` : "영상";
   const patch: Row = { state: "ok", fetched_at: nowIso, updated_at: nowIso, title: t, title_key: titleKey(t) };
   if (!item.publisher) patch.publisher = author ?? "YouTube";
-  await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, patch, "return=minimal");
-  return "ok";
+  await db.send("PATCH", shared ? `app_news_articles?id=eq.${id}` : `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, patch, "return=minimal");
+  return patch;
 }
 
 // 본문 규칙 고르기: 매체 기사는 카탈로그(extract·bodyClass), 채널 기사는 열린 주소 규칙(open@판). 카탈로그 밖 매체(옛 키워드 기사 포함)는 null(읽지 않음).
@@ -319,17 +354,37 @@ async function saveNewsBody(db: Db, log: FeedLog, item: Row, ex: Extracted, nowI
   } catch { log("body_failed", { lane: String(item.lane ?? "") }); }
 }
 
-type FillOpts = { rule: RuleFor; summarize?: boolean; countFetch?: boolean };
-// 원문 한 번 읽기 → 같은 주소의 기사 줄들(items, 보통 하나 — 수집 때는 같은 기사를 켠 작업공간마다 한 줄)에 같은 결과를 쓴다.
+// article: 같은 주소의 공용 기사 줄(없으면 undefined → 찾아 봄, null → 없음). chargeWs: 옛 줄이 없을 때(공용 기사만) AI·사용량을 셀 작업공간.
+// reuse: 공용 기사가 이미 읽힌 기사(state ok)면 원문을 다시 읽지 않고 그 결과를 옛 줄에 옮겨 적는다(예약 '대기 기사'만 — 사람이 누른 '열기'는 새로 읽음).
+type FillOpts = { rule: RuleFor; summarize?: boolean; countFetch?: boolean; article?: Row | null; chargeWs?: string | null; reuse?: boolean };
+// 원문 한 번 읽기 → 같은 주소의 기사 줄들(items, 수집 때는 같은 기사를 켠 작업공간마다 한 줄)과 공용 기사 한 줄에 같은 결과를 쓴다.
+// 요약(AI)은 주소마다 한 번: 공용 기사에 요약이 있으면 그것을 쓰고, 없을 때만 한 번 만들어 모두에 적는다.
 async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], nowMs: number, opts: FillOpts): Promise<string> {
   const first = items[0];
-  const url = String(first.url);
+  let article = opts.article;
+  if (article === undefined) {
+    const key = first && typeof first.url_key === "string" ? first.url_key : null;
+    article = key ? (await articlesByKey(db, [key], ai.log)).get(key) ?? null : null;
+  }
+  const lead = first ?? article;
+  if (!lead) return "failed";
+  const url = String(lead.url);
+  const chargeWs = first ? String(first.workspace_id) : opts.chargeWs ?? null;
   const nowIso = new Date(nowMs).toISOString();
+  if (opts.reuse && article && article.state === "ok" && items.length) return await copyArticle(db, ai.log, article, items, nowIso);
   const vid = videoId(url);
-  if (vid) { let st = "ok"; for (const it of items) st = await fillVideo(db, reader, it, vid, nowMs); return st; }
+  if (vid) {
+    let last: Row | null = null;
+    for (const it of items) last = await fillVideo(db, reader, it, vid, nowMs);
+    if (article && (article.state !== "ok" || !article.title)) {
+      if (last) await patchArticle(db, ai.log, article.id, { state: "ok", fetched_at: nowIso, updated_at: nowIso, title: last.title, title_key: last.title_key, ...(article.publisher ? {} : { publisher: last.publisher ?? "YouTube" }) });
+      else { try { await fillVideo(db, reader, article, vid, nowMs, true); } catch { ai.log("shared_write_failed"); } }
+    }
+    return "ok";
+  }
   const got = await reader.get(url, ACCEPT_HTML);
   // 하루 열기 횟수(fetch_n)는 사람이 누른 읽기만 센다(수집 때 읽기는 세지 않음 — 화면 '열기' 한도를 먹지 않게).
-  if (opts.countFetch !== false) { try { await addDay(db, String(first.workspace_id), kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
+  if (opts.countFetch !== false && chargeWs) { try { await addDay(db, chargeWs, kstDay(nowMs), { fetch_n: 1 }, nowMs); } catch { /* 사용량 기록 실패는 읽기를 막지 않음 */ } }
   if (!got.ok) {
     // 못 읽은 줄에도 규칙 이름을 적는다(S51-15): 다시 뽑기가 같은 판의 영구 실패(4xx·robots 등)를 매번 다시 고르지 않게. timeout은 판과 상관없이 다시.
     const r = opts.rule(url);
@@ -337,31 +392,54 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
       await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${item.workspace_id}`, { state: storedState(got.code), fetched_at: nowIso, updated_at: nowIso }, "return=minimal");
       await saveNewsBody(db, ai.log, item, failedBody(readFailReason(got.code), ruleId(r.key, r.rule)), nowIso);
     }
+    // 공용 기사는 이미 읽힌 것(ok)을 일시 실패로 덮지 않는다.
+    if (article && article.state !== "ok") await patchArticle(db, ai.log, article.id, { state: storedState(got.code), fetched_at: nowIso, updated_at: nowIso });
     return storedState(got.code);
   }
   const page = readArticlePage(got.text, nowMs, opts.rule(got.url));
+  const targets = article ? [...items, article] : items;
+  let sum: string | null = article && typeof article.summary === "string" && article.summary ? article.summary : null;
+  if (opts.summarize !== false && page.state !== "bot_check" && !sum && targets.some((t) => !t.summary)) {
+    const own = targets.map(ownTitle).find((t) => t) ?? "";
+    const title = own || page.title;
+    if (title && chargeWs) sum = await summarize(db, ai, chargeWs, title, page.body, nowMs);
+  }
   for (const item of items) {
     const ws = String(item.workspace_id), id = String(item.id);
-    const patch: Row = { state: page.state, fetched_at: nowIso, updated_at: nowIso, lang: page.lang };
-    if (page.state !== "bot_check") {
-      // 줄에 든 제목이 주소뿐이면 없는 것으로 본다(도메인·주소가 제목으로 남지 않게, 11/02).
-      const own = typeof item.title === "string" && item.title && !isUrlTitle(item.title) ? item.title : "";
-      const title = own || page.title;
-      if (!own && page.title) { const t = newsTitle(page.title); patch.title = t; patch.title_key = titleKey(t); }
-      if (!item.publisher && page.publisher) patch.publisher = page.publisher;
-      if (!item.published_at && page.published_at) patch.published_at = page.published_at;
-      if (page.body && page.body_kind) { patch.body = page.body; patch.body_kind = page.body_kind; }
-      if (opts.summarize !== false && !item.summary && title) {
-        const s = await summarize(db, ai, ws, title, page.body, nowMs);
-        if (s) patch.summary = s;
-      }
-    }
-    await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, patch, "return=minimal");
+    await db.send("PATCH", `app_news_items?id=eq.${id}&workspace_id=eq.${ws}`, pagePatch(item, page, nowIso, sum), "return=minimal");
     await saveNewsBody(db, ai.log, item, page.blocks, nowIso);
   }
+  if (article) await patchArticle(db, ai.log, article.id, pagePatch(article, page, nowIso, sum));
   return page.state;
 }
 const fillItem = (db: Db, reader: FeedReader, ai: AiDeps, item: Row, nowMs: number, opts: FillOpts) => fillItems(db, reader, ai, [item], nowMs, opts);
+// 줄에 든 제목이 주소뿐이면 없는 것으로 본다(도메인·주소가 제목으로 남지 않게, 11/02).
+const ownTitle = (row: Row) => (typeof row.title === "string" && row.title && !isUrlTitle(row.title) ? row.title : "");
+// 읽은 쪽 결과 → 한 줄 고칠 칸(옛 줄·공용 기사 같은 규칙). 제목·매체·날짜·요약은 비어 있을 때만 채운다.
+function pagePatch(row: Row, page: ReturnType<typeof readArticlePage>, nowIso: string, sum: string | null): Row {
+  const patch: Row = { state: page.state, fetched_at: nowIso, updated_at: nowIso, lang: page.lang };
+  if (page.state === "bot_check") return patch;
+  if (!ownTitle(row) && page.title) { const t = newsTitle(page.title); patch.title = t; patch.title_key = titleKey(t); }
+  if (!row.publisher && page.publisher) patch.publisher = page.publisher;
+  if (!row.published_at && page.published_at) patch.published_at = page.published_at;
+  if (page.body && page.body_kind) { patch.body = page.body; patch.body_kind = page.body_kind; }
+  if (!row.summary && sum) patch.summary = sum;
+  return patch;
+}
+// 이미 읽힌 공용 기사 → 옛 줄에 옮겨 적기(원문 읽기·AI 없음). 옛 줄에 이미 있는 제목·요약은 그대로 둔다.
+async function copyArticle(db: Db, log: FeedLog, article: Row, items: Row[], nowIso: string): Promise<string> {
+  for (const item of items) {
+    const patch: Row = { state: "ok", fetched_at: article.fetched_at ?? nowIso, updated_at: nowIso };
+    if (typeof article.lang === "string") patch.lang = article.lang;
+    if (!ownTitle(item) && ownTitle(article)) { patch.title = article.title; patch.title_key = article.title_key ?? titleKey(String(article.title)); }
+    for (const k of ["publisher", "published_at", "summary"]) if (!item[k] && article[k]) patch[k] = article[k];
+    if (article.body && article.body_kind) { patch.body = article.body; patch.body_kind = article.body_kind; }
+    if (!item.title_ko && article.title_ko && !item.translated_at) { patch.title_ko = article.title_ko; patch.translated_at = article.translated_at ?? nowIso; }
+    await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${item.workspace_id}`, patch, "return=minimal");
+  }
+  log("shared_reused", { rows: items.length });
+  return "ok";
+}
 
 // 수집 때 본문 읽기(NEWS-전면개편 P2b, 4.7절): 이 매체의 최근 PENDING_STALE_DAYS일 기사 가운데 블록 줄이 아직 없는 것을 새 것부터 주소 MEDIA_BODY_PER_RUN개,
 // 같은 주소는 한 번만 읽어 그 주소의 작업공간 줄 모두에 쓴다(요청 사이 GAP_MS — 같은 reader). 시간 예산을 넘으면 멈추고, 남은 것은 다음 '대기 기사' 일이 읽는다.
@@ -370,7 +448,7 @@ async function runMediaBodies(db: Db, reader: FeedReader, ai: AiDeps, source: Ne
   if (source.extract === false) return { done: 0, deferred: 0 };
   const since = new Date(nowMs - PENDING_STALE_DAYS * 86400000).toISOString();
   const rows = await db.get(`app_news_items?lane=eq.media&source_key=eq.${source.key}&created_at=gte.${encodeURIComponent(since)}` +
-    `&select=id,workspace_id,lane,url,source_key,title,publisher,published_at,summary,app_feed_bodies(id)&app_feed_bodies=is.null&order=created_at.desc&limit=${MEDIA_BODY_PER_RUN * 4}`);
+    `&select=id,workspace_id,lane,url,url_key,source_key,title,publisher,published_at,summary,app_feed_bodies(id)&app_feed_bodies=is.null&order=created_at.desc&limit=${MEDIA_BODY_PER_RUN * 4}`);
   const byUrl = new Map<string, Row[]>();
   for (const r of rows) {
     if (typeof r.url !== "string" || typeof r.id !== "string" || !UUID.test(r.id) || typeof r.workspace_id !== "string" || !UUID.test(r.workspace_id)) continue;
@@ -407,7 +485,7 @@ async function runRefill(db: Db, readers: Readers, ai: AiDeps, source: NewsSourc
   const current = ruleId(source.key, source.extract);
   const since = new Date(nowMs - REFILL_DAYS * 86400000).toISOString();
   const rows = await db.get(`app_news_items?lane=eq.media&source_key=eq.${source.key}&created_at=gte.${encodeURIComponent(since)}` +
-    `&select=id,workspace_id,lane,url,source_key,title,publisher,published_at,summary,app_feed_bodies(state,reason,rule)&order=created_at.desc&limit=${REFILL_SCAN}`);
+    `&select=id,workspace_id,lane,url,url_key,source_key,title,publisher,published_at,summary,app_feed_bodies(state,reason,rule)&order=created_at.desc&limit=${REFILL_SCAN}`);
   const byUrl = new Map<string, Row[]>();
   const over = new Set<string>();
   for (const r of rows) {
@@ -485,7 +563,7 @@ export function httpsLinkXml(source: NewsSource, xml: string): string {
   const inHref = new RegExp(`(<link\\b[^>]*?\\bhref\\s*=\\s*["']\\s*)http://(${hosts})(?=[/?#"'\\s])`, "gi");
   return xml.replace(inTag, (_m, head, _t, host) => `${head}https://${host}`).replace(inHref, (_m, head, host) => `${head}https://${host}`);
 }
-type NewRow = { workspace_id: string; lane: "keyword" | "media"; url: string; url_key: string; title: string; title_key: string | null;
+type NewRow = { id?: string; workspace_id: string; lane: "keyword" | "media"; url: string; url_key: string; title: string; title_key: string | null;
   lang: string; publisher: string | null; source_key: string | null; keywords: string[]; published_at: string | null; fetched_at: string;
   state: "ok"; summary: string | null; body: string | null; body_kind: "full" | "lead" | null };
 // 같은 작업공간에 같은 주소(url_key) 또는 같은 제목(title_key)이 이미 있으면 넣지 않는다(채널 기사와 겹침 포함).
@@ -513,6 +591,40 @@ async function insertNew(db: Db, rows: NewRow[]): Promise<number> {
     }
   }
   return n;
+}
+// 공용 기사 넣기(매체 단계): 같은 주소(url_key 전체 유일) 또는 같은 제목(title_key)의 공용 기사가 이미 있으면 넣지 않는다.
+// 돌려주는 것: 이번에 새로 들어간 줄의 url_key → id(넣은 줄만 — 저장소가 돌려준 줄 기준). 공용 표를 못 쓰면 빈 표(옛 표 흐름은 그대로).
+type ArtRow = Row & { id: string; url_key: string; title_key: string | null };
+async function insertArticles(db: Db, rows: ArtRow[], log: FeedLog): Promise<Map<string, string>> {
+  const fresh = new Map<string, string>();
+  if (!rows.length) return fresh;
+  try {
+    const keys = [...new Set(rows.map((r) => r.url_key))], tks = [...new Set(rows.map((r) => r.title_key).filter((t): t is string => !!t))];
+    const have = new Set<string>();
+    for (const part of inChunks(keys)) for (const r of await db.get(`app_news_articles?url_key=in.${part}&select=url_key`)) have.add(`u:${r.url_key}`);
+    for (const part of inChunks(tks)) for (const r of await db.get(`app_news_articles?title_key=in.${part}&select=title_key`)) have.add(`t:${r.title_key}`);
+    const list: ArtRow[] = [];
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if (have.has(`u:${r.url_key}`) || (r.title_key && have.has(`t:${r.title_key}`)) || seen.has(r.url_key)) continue;
+      seen.add(r.url_key); if (r.title_key) have.add(`t:${r.title_key}`);
+      list.push(r);
+    }
+    for (let i = 0; i < list.length; i += 100) {
+      const got = await db.send("POST", "app_news_articles?on_conflict=url_key&select=id,url_key", list.slice(i, i + 100), "resolution=ignore-duplicates,return=representation");
+      for (const g of got) if (typeof g.url_key === "string" && typeof g.id === "string" && UUID.test(g.id)) fresh.set(g.url_key, g.id);
+    }
+  } catch { log("shared_write_failed"); }
+  return fresh;
+}
+// 사람별 키워드 표시(app_news_marks.keywords, 서버만 씀): 작업공간·기사마다 한 줄, 있으면 keywords 칸만 고친다(별표·폴더·숨김은 그대로).
+type MarkRow = { workspace_id: string; article_id: string; keywords: string[]; updated_at: string };
+async function saveMarks(db: Db, marks: MarkRow[], log: FeedLog) {
+  try {
+    for (let i = 0; i < marks.length; i += 200) {
+      await db.send("POST", "app_news_marks?on_conflict=workspace_id,article_id", marks.slice(i, i + 200), "resolution=merge-duplicates,return=minimal");
+    }
+  } catch { log("marks_write_failed"); }
 }
 function oneLineLead(s: string | null): string | null {
   if (!s) return null;
@@ -546,23 +658,41 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
     const items = parseFeed(parseSource(source, xml), xml, nowMs, MEDIA_LIST_LIMIT);
     raw += Math.min((got.text.match(/<(item|entry)\b/gi) ?? []).length, 1000);
     listed += items.length;
-    const rows: NewRow[] = [];
+    const rows: NewRow[] = [], arts: ArtRow[] = [], hits: { w: string; key: string; kws: string[] }[] = [];
     for (const it of items) {
       const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
       const full = it.content && chars(it.content) >= 200 ? it.content : null;
       const lead = it.summary;
       const title = newsTitle(it.title, source.name);
+      const content = { lane: "media" as const, url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
+        lang: source.lang, publisher: source.name, source_key: source.key, published_at: it.published_at, fetched_at: nowIso, state: "ok" as const,
+        summary: oneLineLead(lead), body: full ?? (lead ? cut(lead, 1200) : null), body_kind: full ? "full" as const : lead ? "lead" as const : null };
+      let kept = false;
       for (const w of ws) {
         const kws = keywordHits(`${it.title}\n${it.summary ?? ""}`, wordsByWs.get(w) ?? []);
         // take=keywords(종합지·방송사)는 작업공간마다 자기 키워드에 글자가 맞는 글만(AI 없이). take=all은 전부.
         if (source.take === "keywords" && !kws.length) continue;
-        rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
-          lang: source.lang, publisher: source.name, source_key: source.key, keywords: kws, published_at: it.published_at, fetched_at: nowIso, state: "ok",
-          summary: oneLineLead(lead), body: full ?? (lead ? cut(lead, 1200) : null), body_kind: full ? "full" : lead ? "lead" : null });
+        kept = true;
+        rows.push({ id: crypto.randomUUID(), workspace_id: w, keywords: kws, ...content });
+        if (kws.length) hits.push({ w, key: content.url_key, kws });
       }
+      // 공용 기사는 한 번(켠 작업공간 합집합 — take=keywords는 누군가의 키워드에 맞은 글만).
+      if (kept) arts.push({ id: crypto.randomUUID(), origin: "site", ...content });
+    }
+    const fresh = await insertArticles(db, arts, log);
+    // 새 공용 기사의 운영자 옛 줄은 같은 id로(D2 '옛 id = 새 id'). 다른 작업공간 옛 줄은 새 id(D2가 주소로 합침).
+    if (fresh.size) {
+      const op = await operatorWs(db);
+      if (op) for (const r of rows) if (r.workspace_id === op && fresh.has(r.url_key)) r.id = fresh.get(r.url_key);
     }
     inserted += await insertNew(db, rows);
+    if (hits.length) {
+      const byKey = await articlesByKey(db, hits.map((h) => h.key), log);
+      const marks: MarkRow[] = [];
+      for (const h of hits) { const a = byKey.get(h.key); if (a) marks.push({ workspace_id: h.w, article_id: String(a.id), keywords: h.kws, updated_at: nowIso }); }
+      if (marks.length) await saveMarks(db, marks, log);
+    }
   }
   await db.send("PATCH", `app_outside_sources?source_key=eq.${source.key}&workspace_id=in.(${ws.join(",")})`,
     status === "ok" ? { last_ok_at: nowIso, last_error: null } : { last_error: status.replace(/[^a-z0-9_-]/g, "_").slice(0, 40) }, "return=minimal");
@@ -638,27 +768,90 @@ async function runKeywords(db: Db, nowMs: number, startMs: number, clock: () => 
       done += ids.length;
     }
   }
-  log("keywords_done", { workspaces, scanned, done, deferred });
-  return { ok: true, step: "keywords", workspaces, scanned, done, deferred };
+  // NEWS-모두에게열기 ②: 공용 기사에는 사람별 표시(app_news_marks.keywords)로. 최근 글을 한 번만 읽고 작업공간마다 글자 맞추기(AI 없음).
+  const marks = await runKeywordMarks(db, words, all, since, nowIso, startMs, clock, log);
+  deferred += marks.deferred;
+  log("keywords_done", { workspaces, scanned, done, deferred, marks: marks.done });
+  return { ok: true, step: "keywords", workspaces, scanned, done, deferred, marks: marks.done };
+}
+
+async function runKeywordMarks(db: Db, words: Map<string, string[]>, all: Set<string>, since: string, nowIso: string, startMs: number, clock: () => number, log: FeedLog) {
+  let done = 0, deferred = 0;
+  try {
+    const arts: Row[] = [];
+    for (let offset = 0; offset < KEYWORD_SCAN_ROWS; offset += KEYWORD_SCAN_PAGE) {
+      if (clock() - startMs > RUN_BUDGET_MS) { deferred++; return { done, deferred }; }
+      const page = await db.get(`app_news_articles?lane=eq.media&created_at=gte.${since}&select=id,title,title_ko,summary&order=created_at.desc,id.desc&limit=${KEYWORD_SCAN_PAGE}&offset=${offset}`);
+      arts.push(...page);
+      if (page.length < KEYWORD_SCAN_PAGE) break;
+    }
+    const inWindow = new Set(arts.map((a) => String(a.id)));
+    for (const ws of all) {
+      if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
+      const list = words.get(ws) ?? [];
+      const cur = new Map<string, unknown>();
+      for (const m of await db.get(`app_news_marks?workspace_id=eq.${ws}&keywords=neq.{}&select=article_id,keywords&limit=${KEYWORD_SCAN_ROWS}`)) cur.set(String(m.article_id), m.keywords);
+      const up: MarkRow[] = [], clear: string[] = [];
+      for (const a of arts) {
+        const id = String(a.id);
+        if (!UUID.test(id)) continue;
+        const kws = list.length ? keywordHits([a.title, a.title_ko, a.summary].filter((v) => typeof v === "string").join("\n"), list) : [];
+        const old = cur.get(id);
+        if (kws.length && !sameWords(old, kws)) up.push({ workspace_id: ws, article_id: id, keywords: kws, updated_at: nowIso });
+        else if (!kws.length && old !== undefined) clear.push(id);
+      }
+      if (up.length) await saveMarks(db, up, log);
+      // 끄거나 지운 키워드: 창 안 공용 기사의 표시만 비운다(별표·폴더·숨김은 그대로).
+      const off = clear.filter((id) => inWindow.has(id));
+      for (let i = 0; i < off.length; i += 40) {
+        await db.send("PATCH", `app_news_marks?workspace_id=eq.${ws}&article_id=in.(${off.slice(i, i + 40).join(",")})`, { keywords: [], updated_at: nowIso }, "return=minimal");
+      }
+      done += up.length + off.length;
+    }
+  } catch { log("marks_write_failed"); }
+  return { done, deferred };
 }
 
 async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, log: FeedLog, onlyWs?: string, max = PENDING_PER_RUN) {
   const only = onlyWs ? `&workspace_id=eq.${onlyWs}` : "";
   // 새 것부터(오늘 들어온 채널 기사 먼저). 옛 대기 줄은 그 뒤에 — 옛 것부터 채우면 오늘 기사가 계속 밀린다(11/02).
-  const rows = await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id,workspace_id,lane,url,title,publisher,published_at,summary&order=created_at.desc&limit=${max}`);
+  const rows = await db.get(`app_news_items?state=eq.pending&lane=eq.channel${only}&select=id,workspace_id,lane,url,url_key,title,publisher,published_at,summary,title_ko,translated_at&order=created_at.desc&limit=${max}`);
   const reader = readers.open();
+  // NEWS-모두에게열기 ②: 같은 주소는 한 묶음(옛 줄들 + 공용 기사 한 줄). 공용 기사가 이미 읽혔으면 옮겨 적기만(reuse).
+  // 예약 실행(onlyWs 없음)은 옛 줄 없이 공용 표에만 있는 대기 기사(뉴스방 수집분 등)도 읽는다 — AI는 운영자 작업공간에 센다.
+  const groups = new Map<string, { items: Row[]; article: Row | null }>();
+  for (const r of rows) {
+    const k = typeof r.url_key === "string" && r.url_key ? r.url_key : `id:${String(r.id)}`;
+    const g = groups.get(k) ?? { items: [], article: null };
+    g.items.push(r); groups.set(k, g);
+  }
+  const shared = await articlesByKey(db, [...groups.keys()], ai.log);
+  for (const [k, g] of groups) g.article = shared.get(k) ?? null;
+  let chargeWs: string | null = null;
+  if (!onlyWs) {
+    try {
+      const extra = await db.get(`app_news_articles?state=eq.pending&lane=eq.channel&select=${ART_SELECT}&order=created_at.desc&limit=${max}`);
+      for (const a of extra) {
+        if (groups.size >= max) break;
+        if (typeof a.url_key !== "string" || groups.has(a.url_key) || typeof a.id !== "string" || !UUID.test(a.id)) continue;
+        groups.set(a.url_key, { items: [], article: a });
+      }
+      if ([...groups.values()].some((g) => !g.items.length)) chargeWs = await operatorWs(db);
+    } catch { log("shared_read_failed"); }
+  }
+  const list = [...groups.values()];
   let done = 0, deferred = 0, next = 0;
   const states: Record<string, number> = {};
   const worker = async () => {
-    while (next < rows.length) {
-      const r = rows[next++];
+    while (next < list.length) {
+      const g = list[next++];
       if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
-      const s = await fillItem(db, reader, ai, r, nowMs, { rule: openRule });
+      const s = await fillItems(db, reader, ai, g.items, nowMs, { rule: openRule, article: g.article, chargeWs, reuse: true });
       states[s] = (states[s] ?? 0) + 1;
       done++;
     }
   };
-  await Promise.all(Array.from({ length: Math.min(PENDING_PARALLEL, rows.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(PENDING_PARALLEL, list.length) }, worker));
   // 남은 대기 건수(이번에 못 채운 것 포함)와 그 가운데 PENDING_STALE_DAYS일 넘은 것. 건수만 — 주소·제목은 적지 않는다.
   let remaining = 0, stale = 0;
   try {
@@ -684,26 +877,129 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
   return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred };
 }
 
-// 외국어 기사 제목만 한국어로(백그라운드). 작업공간마다 AI 한 번에 묶고, 하루 상한·이번 달 AI 한도 안에서만.
+// 외국어 기사 제목만 한국어로(백그라운드). 하루 상한·이번 달 AI 한도 안에서만.
 // 하루 상한은 오늘(서울 날짜) translated_at이 찍힌 줄 수로 센다(본문 번역은 translated_at을 다시 찍지 않음).
+// NEWS-모두에게열기 ②: 같은 주소의 공용 기사가 있으면 기사마다 한 번만 번역한다 —
+//   ① 공용 기사에 이미 한국어 제목·소개가 있으면 옛 줄에 옮겨 적기만(AI 없음) ② 없으면 공용 기사 묶음으로 AI 한 번(운영자 작업공간에 셈,
+//   화면 '지금 채우기'는 누른 사람 작업공간에 셈) → 공용 기사와 그 주소의 옛 줄 모두에 적기 ③ 공용 기사가 없는 옛 줄만 예전처럼 작업공간마다.
+//   예약 실행은 옛 줄 없이 공용 표에만 있는 외국어 기사도 같은 묶음에 넣는다.
+type TitleOut = { got: Map<number, string>; sums: Map<number, string>; answered: boolean };
+async function titleBatch(db: Db, ai: AiDeps, ws: string, batch: Row[], nowMs: number, log: FeedLog): Promise<TitleOut> {
+  const material = batch.map((r, k) => `${k + 1}\t${r.title_ko ? "" : cut(oneLine(String(r.title)), 300)}\t${cut(oneLine(String(r.summary ?? "")), 400)}`).join("\n");
+  const out = await askAi(ai, "news_titles", TITLES_INSTRUCTIONS, material, TITLES_SCHEMA, Math.min(12000, batch.length * 260 + 200), 90000);
+  if (out.usage.input || out.usage.output) {
+    try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
+    catch { log("usage_record_failed"); }
+  }
+  // AI가 답했는지(답 글이 있거나 토큰을 썼음). 답하지 않았으면 시도 시각을 적지 않는다.
+  return { got: readTitles(out.value, batch.length), sums: readTitleSums(out.value, batch.length), answered: out.value !== null || out.usage.input > 0 || out.usage.output > 0 };
+}
+// 한 줄(옛 줄·공용 기사 같은 규칙)에 적을 칸. ko·sum은 AI 결과(또는 공용 기사에서 옮겨 올 값). tried: 부탁한 것 가운데 하나라도 못 받음.
+function titlePatch(r: Row, ko: string | undefined, sum: string | undefined, answered: boolean, nowIso: string): { patch: Row | null; tried: boolean } {
+  const wantSum = typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
+  const patch: Row = {};
+  if (!r.title_ko && ko) patch.title_ko = ko;
+  if (sum && wantSum) patch.summary = sum;
+  const missing = answered && ((!r.title_ko && !ko) || (wantSum && !sum));
+  if (!Object.keys(patch).length) return { patch: null, tried: missing };
+  // 하루 상한은 translated_at 줄 수로 센다 — 제목을 새로 채운 줄만 찍는다.
+  if (patch.title_ko) patch.translated_at = nowIso;
+  if (missing) patch.title_tried_at = nowIso;
+  patch.updated_at = nowIso;
+  return { patch, tried: false };
+}
+// 그 사이 다른 실행·번역 버튼이 먼저 채웠으면 덮지 않는다(제목은 title_ko=is.null, 소개만이면 title_ko가 이미 있는 줄).
+const titleGuard = (r: Row) => (r.title_ko ? "title_ko=not.is.null" : "title_ko=is.null");
+async function patchOldTitles(db: Db, list: { r: Row; patch: Row }[]) {
+  for (let p = 0; p < list.length; p += TITLE_PATCH_PARALLEL) {
+    await Promise.all(list.slice(p, p + TITLE_PATCH_PARALLEL).map(({ r, patch }) =>
+      db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${r.workspace_id}&${titleGuard(r)}`, patch, "return=minimal")));
+  }
+}
 async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, log: FeedLog, onlyWs?: string) {
   const only = onlyWs ? `&workspace_id=eq.${onlyWs}` : "";
   const since = new Date(nowMs - TITLE_WINDOW_DAYS * 86400000).toISOString();
   // ① 제목 번역이 아직 없는 외국어 기사 ② 제목은 있지만 소개(summary)가 아직 외국어 그대로인 기사(11/04: 해외 기사 본문 줄이 영어로 보임).
   // 소개 원문은 body(앞부분)에 그대로 남아 있어서 summary만 한국어로 바꿔도 원문은 [본문]·[번역]에서 본다.
   const retryBefore = new Date(nowMs - TITLE_RETRY_HOURS * 3600000).toISOString();
-  const base = `lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}${only}` +
-    `&or=(title_tried_at.is.null,title_tried_at.lt.${encodeURIComponent(retryBefore)})` +
-    `&select=id,workspace_id,title,title_ko,summary&order=created_at.desc&limit=1000`;
+  const cond = `lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}` +
+    `&or=(title_tried_at.is.null,title_tried_at.lt.${encodeURIComponent(retryBefore)})`;
+  const base = `${cond}${only}&select=id,workspace_id,url_key,title,title_ko,summary&order=created_at.desc&limit=1000`;
+  const foreignSum = (r: Row) => typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
   const titleRows = await db.get(`app_news_items?title_ko=is.null&${base}`);
-  const sumRows = (await db.get(`app_news_items?title_ko=not.is.null&summary=not.is.null&${base}`)).filter((r) => typeof r.summary === "string" && r.summary.trim() && !HANGUL.test(r.summary));
+  const sumRows = (await db.get(`app_news_items?title_ko=not.is.null&summary=not.is.null&${base}`)).filter(foreignSum);
+  const olds = [...titleRows, ...sumRows].filter((r) => typeof r.title === "string" && r.title.trim());
+  const nowIso = new Date(nowMs).toISOString();
+  const shared = await articlesByKey(db, olds.map((r) => r.url_key), log);
+  // 공용 기사에 이미 있는 한국어 제목·소개 → 옛 줄에 옮겨 적기(AI 없음).
+  const copies: { r: Row; patch: Row }[] = [];
+  const byArt = new Map<string, { a: Row; olds: Row[] }>();
   const byWs = new Map<string, Row[]>();
-  for (const r of [...titleRows, ...sumRows]) {
-    if (typeof r.title !== "string" || !r.title.trim()) continue;
-    byWs.set(String(r.workspace_id), [...(byWs.get(String(r.workspace_id)) ?? []), r]);
+  for (const r of olds) {
+    const a = typeof r.url_key === "string" ? shared.get(r.url_key) : undefined;
+    if (!a) { byWs.set(String(r.workspace_id), [...(byWs.get(String(r.workspace_id)) ?? []), r]); continue; }
+    const ko = typeof a.title_ko === "string" && a.title_ko ? a.title_ko : undefined;
+    const sum = typeof a.summary === "string" && HANGUL.test(a.summary) ? a.summary : undefined;
+    const c = titlePatch(r, ko, sum, false, nowIso);
+    if (c.patch) { copies.push({ r, patch: c.patch }); continue; }
+    const g = byArt.get(String(a.id)) ?? { a, olds: [] };
+    g.olds.push(r); byArt.set(String(a.id), g);
   }
+  await patchOldTitles(db, copies);
+  let done = copies.length, deferred = 0, calls = 0;
+  // 공용 기사 묶음(기사마다 1회). 예약 실행은 옛 줄 없는 공용 외국어 기사도.
+  if (!onlyWs) {
+    try {
+      const artSel = `${cond}&select=${ART_SELECT}&order=created_at.desc&limit=1000`;
+      const arts = [...await db.get(`app_news_articles?title_ko=is.null&${artSel}`), ...await db.get(`app_news_articles?title_ko=not.is.null&summary=not.is.null&${artSel}`)];
+      for (const a of arts) {
+        if (typeof a.id !== "string" || byArt.has(a.id) || typeof a.title !== "string" || !a.title.trim()) continue;
+        if (a.title_ko && !foreignSum(a)) continue;
+        byArt.set(a.id, { a, olds: [] });
+      }
+    } catch { log("shared_read_failed"); }
+  }
+  const groups = [...byArt.values()].filter((g) => !g.a.title_ko || foreignSum(g.a));
+  // 공용 기사에 이미 번역이 있고 옛 줄만 소개가 다른 경우 등 — 공용 쪽에 할 일이 없는 옛 줄은 작업공간 묶음으로 돌린다.
+  for (const g of byArt.values()) if (!groups.includes(g)) for (const r of g.olds) byWs.set(String(r.workspace_id), [...(byWs.get(String(r.workspace_id)) ?? []), r]);
+  if (groups.length) {
+    const ws = onlyWs ?? await operatorWs(db);
+    const dayStart = new Date(`${kstDay(nowMs)}T00:00:00+09:00`).toISOString();
+    if (!ws || clock() - startMs > RUN_BUDGET_MS) deferred += groups.length;
+    else {
+      const today = (await db.get(`app_news_articles?translated_at=gte.${encodeURIComponent(dayStart)}&select=id&limit=${TITLES_DAILY + 1}`)).length;
+      const room = Math.max(0, Math.min(TITLE_BATCH, TITLES_DAILY - today));
+      if (!room) deferred += groups.length;
+      else if (await aiMonthStop(db, ws, nowMs)) { log("ai_month_cap"); deferred += groups.length; }
+      else {
+        const batch = groups.slice(0, room);
+        deferred += groups.length - batch.length;
+        const out = await titleBatch(db, ai, ws, batch.map((g) => g.a), nowMs, log);
+        calls++;
+        const oldPatches: { r: Row; patch: Row }[] = [], tried: string[] = [];
+        for (const [k, g] of batch.entries()) {
+          const ko = out.got.get(k + 1), sum = out.sums.get(k + 1);
+          const ap = titlePatch(g.a, ko, sum, out.answered, nowIso);
+          if (ap.patch) await patchArticle(db, log, g.a.id, ap.patch, `&${titleGuard(g.a)}`);
+          else if (ap.tried) tried.push(String(g.a.id));
+          // 옛 줄에는 공용 기사에 들어간(또는 이미 있던) 값을 적는다.
+          const koAll = ko ?? (typeof g.a.title_ko === "string" ? g.a.title_ko : undefined);
+          for (const r of g.olds) {
+            const op = titlePatch(r, koAll, sum, out.answered, nowIso);
+            if (op.patch) oldPatches.push({ r, patch: op.patch });
+            else if (op.tried) await db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${r.workspace_id}`, { title_tried_at: nowIso }, "return=minimal");
+          }
+        }
+        await patchOldTitles(db, oldPatches);
+        if (tried.length) {
+          try { await db.send("PATCH", `app_news_articles?id=in.(${tried.join(",")})`, { title_tried_at: nowIso }, "return=minimal"); } catch { log("shared_write_failed"); }
+        }
+        done += batch.length;
+      }
+    }
+  }
+  // 공용 기사가 없는 옛 줄(옮기기 사이에 옛 표에만 들어온 줄): 예전처럼 작업공간마다.
   const dayStart = new Date(`${kstDay(nowMs)}T00:00:00+09:00`).toISOString();
-  let done = 0, deferred = 0, calls = 0;
   for (const [ws, list] of byWs) {
     if (clock() - startMs > RUN_BUDGET_MS) { deferred += list.length; continue; }
     const today = (await db.get(`app_news_items?workspace_id=eq.${ws}&translated_at=gte.${encodeURIComponent(dayStart)}&select=id&limit=${TITLES_DAILY + 1}`)).length;
@@ -712,46 +1008,21 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
     if (await aiMonthStop(db, ws, nowMs)) { log("ai_month_cap"); deferred += list.length; continue; }
     const batch = list.slice(0, room);
     deferred += list.length - batch.length;
-    const material = batch.map((r, k) => `${k + 1}\t${r.title_ko ? "" : cut(oneLine(String(r.title)), 300)}\t${cut(oneLine(String(r.summary ?? "")), 400)}`).join("\n");
-    const out = await askAi(ai, "news_titles", TITLES_INSTRUCTIONS, material, TITLES_SCHEMA, Math.min(12000, batch.length * 260 + 200), 90000);
+    const out = await titleBatch(db, ai, ws, batch, nowMs, log);
     calls++;
-    if (out.usage.input || out.usage.output) {
-      try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
-      catch { log("usage_record_failed"); }
-    }
-    const got = readTitles(out.value, batch.length);
-    const sums = readTitleSums(out.value, batch.length);
-    const nowIso = new Date(nowMs).toISOString();
-    // AI가 답했는지(답 글이 있거나 토큰을 썼음). 답하지 않았으면 시도 시각을 적지 않는다.
-    const answered = out.value !== null || out.usage.input > 0 || out.usage.output > 0;
     const patches: { r: Row; patch: Row }[] = [], tried: string[] = [];
     for (const [k, r] of batch.entries()) {
-      const i = k + 1, ko = got.get(i), sum = sums.get(i);
-      const wantSum = typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
-      const patch: Row = {};
-      if (!r.title_ko && ko) patch.title_ko = ko;
-      if (sum && wantSum) patch.summary = sum;
-      // 부탁한 것(제목이 없으면 제목, 소개가 외국어면 소개) 가운데 하나라도 못 받았으면 시도 시각을 적는다.
-      const missing = answered && ((!r.title_ko && !ko) || (wantSum && !sum));
-      if (!Object.keys(patch).length) { if (missing) tried.push(String(r.id)); continue; }
-      // 하루 상한은 translated_at 줄 수로 센다 — 제목을 새로 채운 줄만 찍는다.
-      if (patch.title_ko) patch.translated_at = nowIso;
-      if (missing) patch.title_tried_at = nowIso;
-      patch.updated_at = nowIso;
-      patches.push({ r, patch });
+      const p = titlePatch(r, out.got.get(k + 1), out.sums.get(k + 1), out.answered, nowIso);
+      if (p.patch) patches.push({ r, patch: p.patch }); else if (p.tried) tried.push(String(r.id));
     }
-    // 그 사이 다른 실행·번역 버튼이 먼저 채웠으면 덮지 않는다(제목은 title_ko=is.null, 소개만이면 title_ko가 이미 있는 줄).
-    for (let p = 0; p < patches.length; p += TITLE_PATCH_PARALLEL) {
-      await Promise.all(patches.slice(p, p + TITLE_PATCH_PARALLEL).map(({ r, patch }) =>
-        db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${ws}&${r.title_ko ? "title_ko=not.is.null" : "title_ko=is.null"}`, patch, "return=minimal")));
-    }
+    await patchOldTitles(db, patches);
     done += patches.length;
     // 아무것도 못 받은 줄은 시도 시각만 한 번에 적는다(번역 칸은 건드리지 않음).
     if (tried.length) {
       await db.send("PATCH", `app_news_items?workspace_id=eq.${ws}&id=in.(${tried.join(",")})`, { title_tried_at: nowIso }, "return=minimal");
     }
   }
-  log("titles_done", { done, deferred, calls });
+  log("titles_done", { done, deferred, calls, copied: copies.length });
   return { ok: true, step: "titles", done, deferred };
 }
 
@@ -805,7 +1076,7 @@ async function useDaily(db: Db, ws: string, field: DayField, limit: number, nowM
 }
 async function ownItem(db: Db, ws: string, id: unknown): Promise<Row> {
   if (typeof id !== "string" || !UUID.test(id)) throw new Fail(400, "INVALID_BODY");
-  const row = (await db.get(`app_news_items?id=eq.${id}&workspace_id=eq.${ws}&select=id,workspace_id,lane,url,source_key,title,lang,publisher,published_at,summary,body,body_kind,title_ko,body_ko,translated_at,state&limit=1`))[0];
+  const row = (await db.get(`app_news_items?id=eq.${id}&workspace_id=eq.${ws}&select=id,workspace_id,lane,url,url_key,source_key,title,lang,publisher,published_at,summary,body,body_kind,title_ko,body_ko,translated_at,state&limit=1`))[0];
   if (!row) throw new Fail(404, "NOT_FOUND");
   return row;
 }
@@ -926,6 +1197,15 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       const text = typeof item.body === "string" ? item.body : "";
       if (typeof item.body_ko === "string" && item.body_ko) return json({ ok: true, status: "stored" });
       if (!text && typeof item.title_ko === "string" && item.title_ko) return json({ ok: true, status: "stored" });
+      // NEWS-모두에게열기 ②: 같은 주소·같은 본문의 공용 기사에 번역이 이미 있으면(다른 사람이 먼저 누름) 옮겨 적기만 — 다시 번역하지 않고 하루 한도도 쓰지 않는다.
+      const art = typeof item.url_key === "string" ? (await articlesByKey(db, [item.url_key], log)).get(item.url_key) : undefined;
+      const sameBody = !!art && (art.body ?? "") === (item.body ?? "");
+      if (art && sameBody && typeof art.body_ko === "string" && art.body_ko) {
+        const nowIso = new Date(nowMs).toISOString();
+        await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${who.workspaceId}`,
+          { title_ko: item.title_ko ?? art.title_ko ?? null, body_ko: art.body_ko, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+        return json({ ok: true, status: "stored" });
+      }
       if (item.lang === "ko") throw new Fail(409, "NOT_FOREIGN");
       if (!title && !text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
       // AI 월 한도는 AI로 번역할 때만 본다(Google 번역은 AI 비용이 아님 — Google 쪽 하루 글자 한도는 Cloud 콘솔 할당량으로).
@@ -953,6 +1233,10 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       const keepTitle = hadTitle ? item.title_ko : null;
       await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${who.workspaceId}`,
         { title_ko: keepTitle ?? tr.title_ko, body_ko: tr.body_ko, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+      // 공용 기사에도 저장(본문이 같을 때만) → 두 번째 사람은 저장본을 읽는다.
+      if (art && sameBody && tr.body_ko) {
+        await patchArticle(db, log, art.id, { title_ko: art.title_ko ?? keepTitle ?? tr.title_ko ?? null, body_ko: tr.body_ko, translated_at: art.translated_at ?? nowIso, updated_at: nowIso }, "&body_ko=is.null");
+      }
       return json({ ok: true, status: "translated", engine });
     } catch (e) {
       if (e instanceof Fail) {

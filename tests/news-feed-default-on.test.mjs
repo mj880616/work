@@ -335,7 +335,7 @@ test('키워드 단계: 밖으로 요청하지 않고, 최근 받은 매체 글�
   ];
   const w = world({sources: [], keywords: [{workspace_id: WS1, word: '철도'}, {workspace_id: WS1, word: '파업'}, {workspace_id: WS2, word: '버스'}], sites: {}, media});
   const out = await w.cron({step: 'keywords'});
-  assert.deepEqual(out, {ok: true, step: 'keywords', workspaces: 2, scanned: 7, done: 6, deferred: 0});
+  assert.deepEqual(out, {ok: true, step: 'keywords', workspaces: 2, scanned: 7, done: 6, deferred: 0, marks: 0});
   assert.equal(outside(w).length, 0, '구글 뉴스든 어디든 밖으로 요청하지 않는다');
   const id = n => M(n).id;
   assert.deepEqual(finalKeywords(w), {
