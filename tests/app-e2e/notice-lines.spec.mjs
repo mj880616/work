@@ -93,7 +93,7 @@ for(const width of [390,900,1280])test(`Google needs reconnect: link line first,
   await fixture(page,{width,google:'broken'});
   await page.evaluate(()=>window.KPTURouter.go('tasks'));
   await expect(line(page,'link')).toBeVisible();
-  await expect(line(page,'link').getByRole('status')).toHaveText('Google 연결이 끊겨 일정·할 일 저장이 안 돼요');
+  await expect(line(page,'link').getByRole('status')).toHaveText('구글 연결이 끊겨 일정·할 일 저장이 안 돼요');
   await expect(line(page,'link').getByRole('button',{name:'다시 연결'})).toBeVisible();
   await expect(line(page,'collect')).toBeHidden();
   const count=page.locator('#noticeBar .kptu-notice-bar-count');
