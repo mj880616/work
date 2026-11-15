@@ -87,6 +87,8 @@ for (const width of [412, 1280]) {
     await expect.poll(() => store.marks.get('w:c1')?.starred_at).toBeTruthy();
     await expect.poll(() => store.reads.has('w:c1')).toBe(true);
     await expect.poll(() => store.signals.some(s => s.me === 'w' && s.article_id === 'c1' && s.action === 'star')).toBe(true);
+    // 반응은 새 표에만 한 줄(옛 app_now_signals에 같이 쓰면 보충 함수가 다시 옮겨 두 줄이 된다, S62-12g).
+    expect(store.asked.w.filter(c => c.startsWith('POST app_now_signals'))).toEqual([]);
 
     const b = await openAs(browser, store, 'w2', width);
     // B: 같은 공용 기사 목록(같은 줄·같은 제목).

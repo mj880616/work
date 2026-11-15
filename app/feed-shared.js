@@ -7,7 +7,7 @@ import {articleCols, flatNews, flatNewsMark, hasId, isUuid, mapIds, markFields, 
 //   주소에 내 작업공간을 걸고, 서버 정책(작업공간 주인만)이 한 번 더 막는다. 다른 사람 표시는 읽을 길이 없다.
 // - 옛 id(밑줄·노트 메모·주소·AI '함께 볼 것'에 남은 옛 app_news_items·app_outside_posts id)는 지도 함수(app_news_article_of·app_outside_article_of,
 //   자기 작업공간 옛 줄만)로 바꿔 읽는다. 지도에 없으면 옛 id = 공용 id(옮길 때 운영자 줄 id를 그대로 썼다). 바꾼 값은 이 탭 메모리에만.
-// - 옮기는 동안(C1 전): 옛 표를 읽는 서버 일(홈 '읽을 만한 글'·AI 관심 반응·폰 알림 줄)이 그대로 돌게, 별표·숨김·읽음·반응을 옛 표에도 같은 id로 한 번 더 써 본다
+// - 옮기는 동안(C1 전): 옛 표를 읽는 서버 일(홈 '읽을 만한 글'·폰 알림 줄)이 그대로 돌게, 별표·숨김·읽음을 옛 표에도 같은 id로 한 번 더 써 본다
 //   (자기 작업공간에 같은 id 옛 줄이 있을 때만 들어감 — 없으면 서버가 거절하고 화면은 조용히 넘어간다). C1에서 이 줄들을 지운다.
 // 기기 저장 없음. 로그에 기사 제목·주소를 남기지 않는다.
 const q = v => encodeURIComponent(v);
@@ -146,10 +146,11 @@ export function writeRead(type, id) {
   return rt().api(`/rest/v1/${t.read}?on_conflict=workspace_id,article_id`, {method: 'POST', body: {workspace_id: w, article_id: id}, prefer: 'resolution=ignore-duplicates,return=minimal', singleFlight: false});
 }
 // 반응 기록 한 줄(사람별, 더하기만). 실패해도 누른 일은 그대로.
+// 새 표에만 쓴다(S62-12g). 옛 표(app_now_signals)에 같은 id로 한 번 더 쓰면 뉴스 보충 함수(app_news_refs_sync 6단계)가 그 옛 줄을
+// 새 표로 다시 옮겨 같은 반응이 두 줄이 된다 → 관심 주제 기준이 빨리 찬다. 옛 반응 표를 읽는 서버 일은 E3(#2642)로 없어졌다.
 export async function writeSignal(item, action) {
   const t = T[item?.type], w = workspaceOf();
   if (!t || !w || !hasId(item.id)) return;
-  quiet(() => rt().api('/rest/v1/app_now_signals', {method: 'POST', body: {workspace_id: w, [t.old.col]: item.id, action}, prefer: 'return=minimal', singleFlight: false}));
   const id = await articleIdOf(item.type, item.id);
   await rt().api(`/rest/v1/${t.signal}`, {method: 'POST', body: {workspace_id: w, article_id: id, action}, prefer: 'return=minimal', singleFlight: false});
 }
