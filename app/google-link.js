@@ -4,6 +4,7 @@
 // - google-calendar ?action=status: 연결 행이 없으면 {connected:false}.
 // - google-tasks ?action=status: 연결이 없으면 {connected:false}, 할 일 권한이 없으면 {needs_reconnect:true}.
 // 연결 버튼은 일정 화면·할 일 화면과 같은 흐름이다(같은 Edge의 action=start가 준 주소로 이동). 새 저장소·새 Edge 없음.
+import {connectText} from './connect-note.mjs';
 const FN = {events:'google-calendar', tasks:'google-tasks'};
 
 // 'none' = 연결한 적 없음, 'reconnect' = 연결은 있으나 권한을 다시 받아야 함, '' = 알 수 없음(진짜 고장으로 둔다).
@@ -30,12 +31,13 @@ export async function startGoogleLink(kind, rt = window.KPTURuntime) {
   location.href = data.url;
 }
 
-// 화면 글(명진 11/13: "~하면 ~가 여기 보여요").
+// 화면 글(명진 11/13: "~하면 ~가 여기 보여요"). 버튼 글은 연결 안내 공용 부품(connect-note.mjs) 규칙 그대로 —
+// S62-16 TASK-구글할일연결문구: 처음 = '연결', 권한만 빠짐 = '구글 할 일 다시 연결'('다시'만 있는 버튼 없음).
 export const LINK_TEXT = Object.freeze({
-  events:{none:{line:'구글 캘린더를 연결하면 그날 일정이 여기 보여요.', button:'구글 캘린더 연결'}},
+  events:{none:{line:'구글 캘린더를 연결하면 그날 일정이 여기 보여요.', button:connectText('calendar', 'none').button}},
   tasks:{
-    none:{line:'구글 할 일을 연결하면 할 일이 여기 보여요.', button:'구글 할 일 연결'},
-    reconnect:{line:'구글 할 일 권한을 다시 연결하면 할 일이 여기 보여요.', button:'다시 연결'},
+    none:{line:'구글 할 일을 연결하면 할 일이 여기 보여요.', button:connectText('tasks', 'none').button},
+    reconnect:{line:'구글 할 일 권한이 빠졌어요. 다시 연결하면 할 일이 여기 보여요.', button:connectText('tasks', 'reconnect').button},
   },
 });
 export const linkText = (kind, link) => LINK_TEXT[kind]?.[link] || null;
