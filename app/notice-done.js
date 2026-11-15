@@ -8,7 +8,7 @@
 // phone-push를 부르는 곳은 phone-push-settings.js 하나라 그 callPush를 빌려 쓴다('Notification boundary check').
 import {putNotice, removeNotice} from './notice-bar.js';
 import {callPush, markNoticeOpened} from './phone-push-settings.js';
-import {NOTICE_TEXT, noticeItems, noticeParam} from './phone-push-model.mjs';
+import {noticeItems, noticeParam, noticeText} from './phone-push-model.mjs';
 import {goPlace} from './notice-place.js';
 
 const ICON = '<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5 8 14.5 16 6"/></svg>';
@@ -28,7 +28,7 @@ export function startDoneNotices({rt = window.KPTURuntime, win = window} = {}) {
     const el = win.document.createElement('aside');
     el.className = 'kptu-notice-line'; el.dataset.notice = 'done'; el.dataset.noticeKind = item.kind; el.setAttribute('aria-label', '끝난 일 안내');
     el.innerHTML = `${ICON}<span role="status"></span><button type="button" class="kptu-notice-line-action" data-notice-act>열기</button><button type="button" class="kptu-notice-line-close" data-notice-close aria-label="닫기">✕</button>`;
-    el.querySelector('[role="status"]').textContent = NOTICE_TEXT[item.kind];
+    el.querySelector('[role="status"]').textContent = noticeText(item);
     el.querySelector('[data-notice-act]').onclick = () => { drop(keyOf(item)); void opened(item); goPlace(item.open, win); };
     el.querySelector('[data-notice-close]').onclick = () => { drop(keyOf(item)); void opened(item); };
     return el;
