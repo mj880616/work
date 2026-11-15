@@ -26,7 +26,9 @@ export async function readDayPicks(day, rt = window.KPTURuntime) {
   }
 }
 
-// HOME-읽을글밀기: 고른 글(뉴스 기사) 가운데 이미 숨기거나 보관(별표)한 글의 id 모음. 뉴스 표(owner RLS)의 표시를 읽기만 한다 — 홈이 따로 저장하는 것은 없다.
+// HOME-읽을글밀기: 고른 글(뉴스 기사) 가운데 이미 숨기거나 보관(별표)한 글의 id 모음. 내 뉴스 표시(owner RLS)를 읽기만 한다 — 홈이 따로 저장하는 것은 없다.
+// NEWS-모두에게열기 ③: 고른 글 id는 옛 기사 id일 수 있다 → 지도 함수(app_news_article_of, 자기 작업공간 옛 줄만, 없으면 같은 id)로 공용 기사 id를 얻어
+// 내 표시(app_news_marks)를 읽는다. 돌려주는 id는 고른 글 id 그대로.
 // → {ok:true, handled:Set<id>} | {ok:false}(읽지 못함 — 화면은 거르지 않고 그대로 보인다).
 export async function readReadMarks(ids, rt = window.KPTURuntime) {
   const ws = ctx(rt)?.workspace?.id;
@@ -34,8 +36,15 @@ export async function readReadMarks(ids, rt = window.KPTURuntime) {
   if (!ws) return {ok:false};
   if (!list.length) return {ok:true, handled:new Set()};
   try {
-    const rows = await rt.api(`/rest/v1/app_news_items?workspace_id=eq.${enc(ws)}&id=in.(${list.map(enc).join(',')})&select=id,hidden_at,starred_at&limit=${list.length}`);
-    return {ok:true, handled:handledNewsIds(rows)};
+    const map = new Map(list.map(id => [id, id]));
+    try {
+      const got = await rt.api('/rest/v1/rpc/app_news_article_of', {method:'POST', body:{p_old:list}, singleFlight:false});
+      for (const r of Array.isArray(got) ? got : []) { const a = newsIdOf(r?.article_id); if (map.has(r?.old_id) && a) map.set(r.old_id, a); }
+    } catch { /* 지도를 못 읽으면 같은 id로 */ }
+    const arts = [...new Set(map.values())];
+    const rows = await rt.api(`/rest/v1/app_news_marks?workspace_id=eq.${enc(ws)}&article_id=in.(${arts.map(enc).join(',')})&select=article_id,hidden_at,starred_at&limit=${arts.length}`);
+    const done = handledNewsIds((Array.isArray(rows) ? rows : []).map(r => ({id:r?.article_id, hidden_at:r?.hidden_at, starred_at:r?.starred_at})));
+    return {ok:true, handled:new Set(list.filter(id => done.has(map.get(id))))};
   } catch { return {ok:false}; }
 }
 

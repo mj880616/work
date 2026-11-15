@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
 // HOME-읽을글밀기(2026-11-11 명진 요청): 홈 [하루] '읽을 만한 글' 줄을 왼쪽으로 밀면 숨기기(뉴스 글 hidden_at), 오른쪽으로 밀면 보관(뉴스 글 별표) —
 // 어느 쪽이든 홈에서 바로 빠지고(서버 표시를 읽어 거름), 알림 [되돌리기]가 돌려 놓는다. PC는 마우스 단추·우클릭 같은 두 항목. 다 처리하면 '다 읽었어요' 한 줄.
-// 가짜 서버만 쓴다: ai-assist(home_day_picks), 표 app_home_day_picks(읽기), 뉴스 줄 app_news_items(읽기·고치기), 환류 app_now_signals(더하기). 글은 모두 가짜.
+// 가짜 서버만 쓴다: ai-assist(home_day_picks), 표 app_home_day_picks(읽기), 내 뉴스 표시 app_news_marks(읽기·고치기, NEWS-모두에게열기 ③), 환류 app_news_now_signals(더하기). 글은 모두 가짜.
 // 시계: 2026-10-06 19:30 KST(home-day-picks.spec.mjs와 같음).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const EVENING = '2026-10-06T10:30:00Z';
@@ -27,23 +27,27 @@ async function boot(page, width, height, { marks = {}, gate = null, ask = null }
       return r.fulfill({ json: { ok: true, kind: 'home_day_picks', day: body.day, picks: ROW } });
     });
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_home_day_picks', r => r.fulfill({ json: [ROW] }));
-    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_news_items', async r => {
+    // 옛 기사 id 지도: 가짜 글 id가 곧 공용 기사 id(지도 줄 없음). 옛 표는 옮기는 동안 화면이 한 번 더 써 보는 곳 — 받기만 한다.
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/rpc/app_news_article_of', r => r.fulfill({ json: [] }));
+    await page.route(u => u.origin === SB && (u.pathname === '/rest/v1/app_news_items' || u.pathname === '/rest/v1/app_now_signals'), r => r.fulfill({ status: 200, json: [] }));
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_news_marks', async r => {
       const req = r.request(), q = new URL(req.url()).searchParams;
       if (req.method() === 'GET') {
-        const ids = (/^in\.\((.*)\)$/.exec(q.get('id') || '')?.[1] || '').split(',').filter(Boolean);
+        const ids = (/^in\.\((.*)\)$/.exec(q.get('article_id') || '')?.[1] || '').split(',').filter(Boolean);
         reads.push(ids);
         if (gate?.hold) await gate.hold;
-        return r.fulfill({ json: ids.map(i => news.get(i)).filter(Boolean).map(({ id, hidden_at, starred_at }) => ({ id, hidden_at, starred_at })) });
+        return r.fulfill({ json: ids.map(i => news.get(i)).filter(Boolean).map(({ id, hidden_at, starred_at }) => ({ article_id: id, hidden_at, starred_at })) });
       }
       if (req.method() === 'PATCH') {
-        const id = (q.get('id') || '').replace(/^eq\./, ''), body = req.postDataJSON(), row = news.get(id);
+        expect(q.get('workspace_id')).toBe('eq.w');
+        const id = (q.get('article_id') || '').replace(/^eq\./, ''), body = req.postDataJSON(), row = news.get(id);
         if (!row) return r.fulfill({ json: [] });
         patches.push({ id, body }); Object.assign(row, body);
-        return r.fulfill({ json: [{ id: row.id, starred_at: row.starred_at, folder_id: null }] });
+        return r.fulfill({ json: [{ article_id: row.id, starred_at: row.starred_at, folder_id: null, hidden_at: row.hidden_at ?? null }] });
       }
       return r.fallback();
     });
-    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_now_signals', async r => {
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_news_now_signals', async r => {
       if (r.request().method() !== 'POST') return r.fallback();
       signals.push(r.request().postDataJSON()); return r.fulfill({ status: 201, body: '' });
     });
@@ -80,7 +84,7 @@ test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되
   expect(f.patches.at(-1).id).toBe(uid(1));
   expect(Object.keys(f.patches.at(-1).body).sort()).toEqual(['hidden_at', 'updated_at']);
   expect(f.patches.at(-1).body.hidden_at).toBeTruthy();
-  await expect.poll(() => f.signals.some(s => s.news_item_id === uid(1) && s.action === 'dismiss')).toBe(true);
+  await expect.poll(() => f.signals.some(s => s.article_id === uid(1) && s.action === 'dismiss')).toBe(true);
   expect(await noticeText(page)).toBe('숨겼어요');
   await page.locator('#kptuNotice .kptu-notice-undo').click();
   await expect(item(page, 1)).toBeVisible();
@@ -92,7 +96,7 @@ test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되
   expect(f.patches.at(-1).id).toBe(uid(2));
   expect(Object.keys(f.patches.at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
   expect(f.patches.at(-1).body.starred_at).toBeTruthy();
-  await expect.poll(() => f.signals.some(s => s.news_item_id === uid(2) && s.action === 'star')).toBe(true);
+  await expect.poll(() => f.signals.some(s => s.article_id === uid(2) && s.action === 'star')).toBe(true);
   expect(await noticeText(page)).toBe('보관했어요');
   await page.locator('#kptuNotice .kptu-notice-undo').click();
   await expect(item(page, 2)).toBeVisible();

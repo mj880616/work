@@ -72,8 +72,9 @@ export async function readNewsKeywordHits(word, cols, limit) {
   return (Array.isArray(rows) ? rows : []).map(flatNewsMark).filter(Boolean);
 }
 // 내 표시 쓰기: 줄이 있으면 칸만 고치고, 없으면 넣는다(지울 것만 있고 줄이 없으면 할 일 없음). 돌려줌: {id, starred_at, folder_id, hidden_at}.
-async function writeMark(type, id, fields) {
+async function writeMark(type, given, fields) {
   const t = T[type], w = workspaceOf(), body = markFields(type, fields);
+  const id = await articleIdOf(type, given); // 홈 '읽을 만한 글'·AI '함께 볼 것'처럼 옛 id로 오는 글도 공용 id로
   const cols = type === 'news' ? 'article_id,starred_at,folder_id,hidden_at' : 'article_id,starred_at,archived_at,dismissed_at';
   const patch = () => rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(w)}&article_id=eq.${q(id)}&select=${cols}`, {method: 'PATCH', body: {...body, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
   let row = first(await patch());
@@ -84,7 +85,7 @@ async function writeMark(type, id, fields) {
   }
   if (!row || row.article_id !== id) throw new Error('save');
   const {article_id: _a, ...rest} = row;
-  return {id, ...rest};
+  return {id: given, ...rest};
 }
 export async function writeNewsMark(id, fields) {
   const row = await writeMark('news', id, fields);
@@ -145,11 +146,12 @@ export function writeRead(type, id) {
   return rt().api(`/rest/v1/${t.read}?on_conflict=workspace_id,article_id`, {method: 'POST', body: {workspace_id: w, article_id: id}, prefer: 'resolution=ignore-duplicates,return=minimal', singleFlight: false});
 }
 // 반응 기록 한 줄(사람별, 더하기만). 실패해도 누른 일은 그대로.
-export function writeSignal(item, action) {
+export async function writeSignal(item, action) {
   const t = T[item?.type], w = workspaceOf();
-  if (!t || !w || !hasId(item.id)) return Promise.resolve();
+  if (!t || !w || !hasId(item.id)) return;
   quiet(() => rt().api('/rest/v1/app_now_signals', {method: 'POST', body: {workspace_id: w, [t.old.col]: item.id, action}, prefer: 'return=minimal', singleFlight: false}));
-  return rt().api(`/rest/v1/${t.signal}`, {method: 'POST', body: {workspace_id: w, article_id: item.id, action}, prefer: 'return=minimal', singleFlight: false});
+  const id = await articleIdOf(item.type, item.id);
+  await rt().api(`/rest/v1/${t.signal}`, {method: 'POST', body: {workspace_id: w, article_id: id, action}, prefer: 'return=minimal', singleFlight: false});
 }
 // 글 메모 노트(metadata.news_item_id|outside_post_id). 옛 노트는 옛 id를 적었으므로 메모 노트들의 id를 지도로 바꿔 이 글 것을 찾는다(최근 고친 것 하나).
 export async function readMemoNote(item, cols) {

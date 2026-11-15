@@ -41,8 +41,8 @@ async function server(page) {
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
     if (table) s.calls.push(table + decodeURIComponent(u.search));
-    if (table === 'app_outside_posts') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
-    if (table === 'app_feed_bodies') { const id = (u.searchParams.get('outside_post_id') || '').replace(/^eq\./, ''); return ok(id === EN || id === KO ? [{ state: 'ok', reason: null, blocks: id === EN ? BLOCKS : [{ t: 'p', text: QUOTE_LINE }] }] : []); }
+    if (table === 'app_outside_articles') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
+    if (table === 'app_outside_article_bodies') { const id = (u.searchParams.get('article_id') || '').replace(/^eq\./, ''); return ok(id === EN || id === KO ? [{ state: 'ok', reason: null, blocks: id === EN ? BLOCKS : [{ t: 'p', text: QUOTE_LINE }] }] : []); }
     if (table === 'app_news_highlights') {
       if (method === 'POST') { const row = { ...body, id: 'b3000000-0000-4000-8000-00000000000' + (s.hl.length + 1), created_at: '2026-11-08T01:0' + s.hl.length + ':00Z', updated_at: '2026-11-08T01:00:00Z' }; s.hlPosts.push(body); s.hl.unshift(row); return ok([row], 201); }
       if (method === 'PATCH') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); const h = s.hl.find(x => x.id === id); if (h) Object.assign(h, body); return ok(h ? [h] : []); }
@@ -50,10 +50,10 @@ async function server(page) {
       return ok(s.hl);
     }
     if (table === 'app_notes' && method === 'POST') { s.notes.push(body); return ok([{ id: 'c3000000-0000-4000-8000-00000000000' + s.notes.length, kind: 'note', title: body.title, raw_text: body.raw_text, metadata: body.metadata || {}, created_at: '2026-11-08T01:00:00Z', updated_at: '2026-11-08T01:00:00Z', archived_at: null }], 201); }
-    if (table === 'app_feed_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (table === 'app_outside_reads' || table === 'app_feed_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (table === 'app_outside_sources') return ok(SOURCES.map(x => ({ source_key: x.key, enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null })));
     if (table === 'app_outside_seen') return ok([{ seen_at: '2026-10-06T00:00:00Z' }]);
-    if (table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (table === 'app_now_signals' || table === 'app_outside_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (table.startsWith('app_now_') || table.startsWith('app_news_') || table.startsWith('app_outside_') || table === 'app_notes') return ok([]);
     return route.fallback();
   });

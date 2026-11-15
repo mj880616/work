@@ -82,9 +82,9 @@ async function outsideServer(page) {
       return ok({ ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가상 상세 요약.', key_sentences: [], relevance: null, implications: { kptu: '', labor: '' }, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false });
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
-    if (table === 'app_outside_posts') return ok([POST]);
-    if (table === 'app_feed_bodies') return ok([{ state: 'ok', reason: null, blocks: [{ t: 'p', text: 'First fake paragraph.' }, { t: 'p', text: 'Second fake paragraph.' }] }]);
-    if (table === 'app_feed_reads' || table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (table === 'app_outside_articles') return ok([POST]);
+    if (table === 'app_outside_article_bodies') return ok([{ state: 'ok', reason: null, blocks: [{ t: 'p', text: 'First fake paragraph.' }, { t: 'p', text: 'Second fake paragraph.' }] }]);
+    if (table === 'app_outside_reads' || table === 'app_outside_now_signals' || table === 'app_feed_reads' || table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (table === 'app_outside_sources') return ok(SOURCES.map(x => ({ source_key: x.key, enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null })));
     if (table === 'app_outside_seen') return ok([{ seen_at: '2026-10-06T00:00:00Z' }]);
     if (table.startsWith('app_now_') || table.startsWith('app_news_') || table.startsWith('app_outside_') || table === 'app_notes') return ok([]);
