@@ -16,8 +16,8 @@
 //   읽기는 사용자 로그인(owner RLS 읽기 정책 meeting_transcribe_jobs_owner_read)으로만 한다.
 
 export const NOTICE_LOG_KINDS = [
-  "task_due", "commitment", "meeting_done", "collect_stall", "morning", "evening", "next_week", "quiet_digest", "test",
-] as const; // app_push_log_kind_check와 같다
+  "task_due", "commitment", "meeting_done", "collect_stall", "morning", "evening", "next_week", "quiet_digest", "test", "signup",
+] as const; // app_push_log_kind_check와 같다(family는 알림 줄·최근 알림에 올리지 않음 — 그대로). signup: OPS-새가입알림(운영자만)
 export const REF_KEY = /^[A-Za-z0-9_.:-]{1,80}$/;
 export const RECENT_DAYS = 7;
 export const RECENT_LIMIT = 50;
@@ -25,7 +25,8 @@ const DAY_MS = 86400000;
 export const MEETING_DONE_HOURS = 24;
 const APP = "/work/app/";
 
-export type DoneItem = { kind: string; ref_key: string; day: string; open: string };
+// text: 보일 말을 서버가 주는 종류만(signup — 가입자 이름은 기록에 남기지 않으므로 그때 읽어 붙인다). 나머지는 화면이 종류로 정한다.
+export type DoneItem = { kind: string; ref_key: string; day: string; open: string; text?: string };
 export type RecentRow = { kind: string; ref_key: string; at: string; opened: boolean; pushed: boolean; open: string };
 
 // 서울 시각의 날짜·요일·시.
@@ -52,6 +53,7 @@ const PLACE: Record<string, string> = {
   collect_stall: "?view=profile",
   morning: "?view=basket&pane=todo",
   test: "?view=profile",
+  signup: "?view=signups", // 운영자 전용 '가입자' 목록(OPS-새가입알림 ③)
 };
 export function openPath(kind: string, refKey: string) {
   const place = PLACE[kind] ?? "";
