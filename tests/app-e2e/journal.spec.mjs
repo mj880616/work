@@ -1044,7 +1044,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  const f=await weeklyFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);
- await expect(page.locator('#journalRoot [data-journal-mode]')).toHaveText(['하루','주간 정리']);
+ await expect(page.locator('#journalRoot [data-journal-mode]')).toHaveText(['하루','주간 보고']);
  await expect(page.locator('#journalRoot [data-journal-mode="day"]')).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeHidden();
  // S49-12: 하루 카드에도 옮긴 노트가 없다(주간 정리에도 없다).
@@ -1054,7 +1054,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeHidden();
- await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 5일 월요일 ~ 10월 11일 일요일');
+ await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 5일 월요일 ~ 10월 11일 일요일');
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','3. 투쟁 사업장 현황','4. 산하 조직 현황','5. 주요 일정']); // WEEKLY-한흐름확정 ②: 3절이 흐름 안으로
  // WEEKLY-주간정리다듬기 ④: '참고 — 보고서 칸 밖 재료' 묶음은 없다. 배운 것(기억·규칙)은 ⋯ [배운 것 보기]를 눌러야 보인다.
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).toHaveCount(0);
@@ -1173,7 +1173,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(weekly(page,'summary').locator('tbody tr')).toHaveCount(3);
  await page.locator('#journalRoot [data-journal-next]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 12일 ~ 18일');
- await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 12일 월요일 ~ 10월 18일 일요일');
+ await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 12일 월요일 ~ 10월 18일 일요일');
  // 탭은 주간 정리 그대로.
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(weekly(page,'summary').locator('[data-journal-weekly-empty]')).toHaveText('없음');
@@ -1238,7 +1238,7 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
   return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-mode],.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today]')};
  });
  // HOME-업무일지홈: 머리줄은 날짜 제목 · ‹ 날짜 줄 › · 이번 주 · (오른쪽 끝) [하루|주간 정리] 순서다.
- expect(metrics.bar.map(b=>b.name)).toEqual(['이전 주','다음 주','이번 주','하루','주간 정리']);
+ expect(metrics.bar.map(b=>b.name)).toEqual(['이전 주','다음 주','이번 주','하루','주간 보고']);
  for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(b.on?600:500)}
  // JOURNAL-주간정리다듬기 ①: 위 줄 [주간보고 초안 복사]는 [하루]·[주간 정리] 모두 없다. [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();

@@ -29,6 +29,9 @@ const accounts=logoutButtons.map(logout=>{
   // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
   const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
   updates.innerHTML='<span class="account-action-name">업데이트 기록</span><span class="account-ver" data-account-ver></span>';
+  // UPDATE-운영자전용기록업데이트소식 PR1: 개발 기록은 운영자만 — 서버 허용 표(app_my_features)에 운영자 개발 키가 있을 때만 줄을 그린다.
+  // 읽기 자체는 서버 함수가 운영자만 허용한다(화면에서 줄을 그리는 것은 편의일 뿐 막는 장치가 아님).
+  updates.hidden=true;
   // APP-앱내려받기버튼(명진 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
   // 폰 앱 안에서는 줄이 없다(앱이 스스로 업데이트한다).
   const appDl=appDownloadRow();
@@ -159,17 +162,22 @@ function syncMobile(){
   }
   syncKeyboard();
 }
-// UI-업데이트기록입구: 판 이름은 계정 메뉴(폰은 메뉴 판)를 처음 열 때 한 번 읽어 채운다. 못 읽으면 비운 채(다음 열 때 다시).
-// 기록 파일은 배포 빌드가 만들므로, 빌드한 화면(app.js에 ?v=가 붙은 화면, version-notice.js와 같은 기준)에서만 읽는다(개발·시험 화면에서 헛된 404 없음).
+// UI-업데이트기록입구 → UPDATE-운영자전용기록업데이트소식 PR1: 계정 메뉴(폰은 메뉴 판)를 처음 열 때 운영자인지 서버에 한 번 묻고,
+// 운영자면 [업데이트 기록] 줄을 보이고 판 이름을 서버 기록(app_release_notes_read)에서 채운다. 못 읽으면 다음 열 때 다시.
 let versionFilled=false;
-const builtShell=()=>[...document.scripts].some(script=>{try{const url=new URL(script.src,location.href);return /\/app\.js$/.test(url.pathname)&&url.searchParams.has('v')}catch{return false}});
 function fillVersion(){
-  if(versionFilled||!builtShell())return;versionFilled=true;
-  import('./release-notes-read.js').then(m=>m.readReleaseNotes()).then(list=>{
+  if(versionFilled)return;versionFilled=true;
+  import('./release-notes-read.js').then(async m=>{
+    if(!await m.canReadReleaseNotes()){versionFilled=false;return}
+    accounts.forEach(account=>{account.updates.hidden=false});
+    const list=await m.readReleaseNotes();
     if(!list?.current){versionFilled=false;return}
     accounts.forEach(account=>{const ver=account.updates.querySelector('[data-account-ver]');if(ver)ver.textContent=`현재 ${list.current}`});
   }).catch(()=>{versionFilled=false});
 }
+window.addEventListener('kptu:session-changed',()=>{versionFilled=false;accounts.forEach(account=>{account.updates.hidden=true})});
+// 메뉴를 처음 열 때 줄이 늦게 생기지 않게, 작업공간이 준비되면 한 번 미리 묻는다(답은 my-features.js가 이 탭에 한 번만 기억).
+if(window.__KPTU_TEAM_READY_STATE__==='workspace')fillVersion();else window.addEventListener('kptu:team-ready',e=>{if(e.detail?.state==='workspace')fillVersion()});
 function openMobile(trigger){
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}
@@ -226,7 +234,7 @@ menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
   // APP-위여백: 홈은 본문 맨 위 날짜가 제목이라 폰 머리줄에 쓸 이름이 없다. 이름이 없으면 머리줄 전체가 자리를 비운다(빈 44px+12px 칸이 남지 않게).
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'조직 보고',meetings:'사업 보고',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',team:'조직 보고',meetings:'사업 보고',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -504,7 +512,7 @@ paintSteps();
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'조직 보고',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'조직 보고',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
+const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'조직 보고',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
 const whereList=topline?.querySelector('[data-topline-where]');
 const APP_TITLE='노동조합+';
 let basketKind=null;
@@ -563,7 +571,7 @@ paintWhere();
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
 // 일기·공유 페이지 (MTG-사업보고 1단계) = the router opens the screen, then that screen's own [새 일기] / [새 공유 페이지] button is pressed (no new save path).
 const addButton=topline?.querySelector('[data-quick-add]');
-const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','일기'],['page','공유 페이지'],['report','사업 보고']];
+const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','하루 기록'],['page','공유 페이지'],['report','사업 보고']];
 async function openEventWindow(task){
   try{
     await window.KPTUDeferredFeatures?.loadView?.('calendar');

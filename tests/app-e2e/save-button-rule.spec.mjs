@@ -39,7 +39,7 @@ async function openWriter(page,width){
 const box=async(page,selector)=>page.locator(selector).first().boundingBox();
 const ACTIONS='#diaryRoot [data-diary-editor] .diary-actions';
 
-test('390 폰: 일기 쓰기 아래 줄은 글이 길어도 화면 아래 오른쪽에 붙어 있고, [취소]가 [저장] 왼쪽',async({page})=>{
+test('390 폰: 하루 기록 쓰기 아래 줄은 글이 길어도 화면 아래 오른쪽에 붙어 있고, [취소]가 [저장] 왼쪽',async({page})=>{
  const f=await fixture(page,{width:390,height:700});await openWriter(page,390);
  await expect(page.locator('#floatSave')).toHaveCount(0);
  await typeInto(page,page.locator('#diaryRoot [data-diary-editor] .ProseMirror'),long);
@@ -83,7 +83,7 @@ test('390 폰: 아래 [저장]을 누르면 저장 요청이 한 번 가고 창�
  expect(f.writes).toHaveLength(1);expect(f.errors).toEqual([]);
 });
 
-test('1280 PC: 일기 쓰기 아래 줄이 화면 아래에 붙고 [저장]이 오른쪽 끝, 가로 넘침 없음',async({page})=>{
+test('1280 PC: 하루 기록 쓰기 아래 줄이 화면 아래에 붙고 [저장]이 오른쪽 끝, 가로 넘침 없음',async({page})=>{
  const f=await fixture(page,{width:1280,height:720});await openWriter(page,1280);
  await typeInto(page,page.locator('#diaryRoot [data-diary-editor] .ProseMirror'),long);
  await page.evaluate(()=>window.scrollTo(0,0));

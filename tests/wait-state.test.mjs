@@ -219,7 +219,8 @@ test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
     assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
-  for (const rel of ['library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
+  // S62-16 PROFILE-없음칸제목: 프로필 담당조직 칸은 제목 없는 '없음' 대신 제목 + 안내 + [조직 보고로](connect-note.mjs)라 빠졌다.
+  for (const rel of ['library-upload.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
     assert.match(read(rel), /globalThis\.KPTUWait\?\.emptyHtml\?\.\(/, rel);
   }
 });

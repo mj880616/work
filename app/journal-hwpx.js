@@ -717,7 +717,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const c = model?.calendar, cal = body.querySelector('[data-hwpx-calendar]');
     // UI-기다림표시통일 2차: 달력 일정을 받는 동안은 글자 대신 회색 칸(wait-state.js).
     if (cal && (!c || c.loading)) cal.innerHTML = '5. 주요 일정 표: ' + waitInlineHtml();
-    else if (cal) cal.textContent = c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
+    else if (cal) cal.textContent = c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 보고]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
       : c.unsetCalendar ? '5. 주요 일정 표: 주간보고 일정 캘린더가 정해지지 않아 날짜만 넣어요(내 프로필 › 주간보고 일정 캘린더).'
       : c.noCalendar ? `5. 주요 일정 표: '${c.calendar}' 달력을 찾지 못해 날짜만 넣어요.`
       : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
@@ -1209,7 +1209,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!box) return;
     box.hidden = !m || m.status === 'none';
     if (box.hidden) { box.replaceChildren(); return; }
-    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 정리] 맨 아래 ‘주간보고 기억’에서 삭제할 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
+    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 보고] 맨 아래 ‘주간보고 기억’에서 삭제할 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
     const fold = el('details', 'journal-hwpx-plans'); fold.open = true; fold.dataset.hwpxRememberAsk = '';
     fold.append(el('summary', '', `다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 ${m.candidates.length}개`));
     // UI-체크칸통일: 공용 체크 목록(.check-list, ui-standard.css) — 줄마다 작은 체크칸 + 한 줄 글자, 목록 점 없음, 줄 아무 곳이나 누르면 체크.

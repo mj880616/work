@@ -275,3 +275,22 @@ test('연결 전 옛 담당 사업장은 목록 아래 작은 글자로만 보�
   expect(box.y).toBeGreaterThanOrEqual(last.y+last.height-1);
   expect(await legacy.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeLessThanOrEqual(12);
 });
+
+// S62-16 PROFILE-없음칸제목: 담당조직이 하나도 없는 새 계정도 칸 제목 '담당조직 현황' + 안내 한 줄 → 아래 [조직 보고로]. 제목 없는 '없음'은 없다.
+for(const [label,width] of [['폰 412',412],['폴드 880',880],['PC 1280',1280]]){
+  test(`${label}: 담당조직 0개면 제목 + 안내 + [조직 보고로](글 한 줄 아래 버튼)`,async({page})=>{
+    await page.setViewportSize({width,height:900});
+    await page.goto(url+'?empty=1');
+    await page.click('#userBadge');
+    const list=page.locator('#psWorkplaceList');
+    await expect(list.locator('h3')).toHaveText('담당조직 현황');
+    const note=list.locator('[data-ps-org-empty]');
+    await expect(note.locator('.connect-note-line')).toHaveText('조직 보고에서 담당조직을 더하면 여기서 선택할 수 있어요.');
+    const btn=note.getByRole('button',{name:'조직 보고로'});
+    await expect(btn).toHaveAttribute('data-goto','team');
+    const [l,b]=await Promise.all([note.locator('.connect-note-line').boundingBox(),btn.boundingBox()]);
+    expect(b.y).toBeGreaterThanOrEqual(l.y+l.height-1);
+    await expect(page.locator('#profileView [data-wait-empty]')).toHaveCount(0);
+    if(process.env.S62_16_SHOTS)await page.screenshot({path:`${process.env.S62_16_SHOTS}/profile-empty-${width}.png`});
+  });
+}

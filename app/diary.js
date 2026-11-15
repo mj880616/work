@@ -49,11 +49,11 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 const longDay = day => formatSeoulTime(day, {month:'long', day:'numeric', weekday:'long'});
 const shortDay = day => formatSeoulTime(day, {month:'long', day:'numeric'});
 
-root.innerHTML = `<div class="diary-head"><div class="diary-source diary-views ds-seg" role="group" aria-label="일기 보기"><button type="button" class="ds-seg-btn" data-diary-view="calendar" aria-pressed="true">달력</button><button type="button" class="ds-seg-btn" data-diary-view="list" aria-pressed="false">목록</button></div><div class="diary-month-od"><div class="diary-month"><button type="button" class="mini" data-diary-prev aria-label="이전 달">‹</button><b data-diary-title aria-live="polite"></b><button type="button" class="mini" data-diary-next aria-label="다음 달">›</button><button type="button" class="mini" data-diary-today>오늘</button></div>${odLinkButtonHtml()}</div><div class="diary-lv-tools" data-diary-lv-tools hidden><div class="diary-source ds-seg" role="group" aria-label="일기 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all" aria-pressed="true">전체</button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star" aria-pressed="false" aria-label="별표한 일기만">★</button></div><button type="button" class="mini diary-lv-find" data-diary-lv-find aria-pressed="false" aria-label="일기 찾기">${iconSvg('search', {size: 15})}</button></div><button type="button" id="newDiaryBtn" class="primary" data-diary-new aria-label="일기 쓰기">+ 일기</button></div>
+root.innerHTML = `<div class="diary-head"><div class="diary-source diary-views ds-seg" role="group" aria-label="하루 기록 보기"><button type="button" class="ds-seg-btn" data-diary-view="calendar" aria-pressed="true">달력</button><button type="button" class="ds-seg-btn" data-diary-view="list" aria-pressed="false">목록</button></div><div class="diary-month-od"><div class="diary-month"><button type="button" class="mini" data-diary-prev aria-label="이전 달">‹</button><b data-diary-title aria-live="polite"></b><button type="button" class="mini" data-diary-next aria-label="다음 달">›</button><button type="button" class="mini" data-diary-today>오늘</button></div>${odLinkButtonHtml()}</div><div class="diary-lv-tools" data-diary-lv-tools hidden><div class="diary-source ds-seg" role="group" aria-label="하루 기록 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all" aria-pressed="true">전체</button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star" aria-pressed="false" aria-label="별표한 하루 기록만">★</button></div><button type="button" class="mini diary-lv-find" data-diary-lv-find aria-pressed="false" aria-label="하루 기록 찾기">${iconSvg('search', {size: 15})}</button></div><button type="button" id="newDiaryBtn" class="primary" data-diary-new aria-label="하루 기록 쓰기">+ 하루 기록</button></div>
 <p class="diary-status" data-diary-status role="status"></p><button type="button" class="secondary" data-diary-retry hidden>다시 시도</button>
 <section class="diary-od" data-diary-od hidden aria-label="원드라이브 사진"></section><div class="diary-cal" data-diary-cal><div class="diary-week-head" aria-hidden="true">${['일','월','화','수','목','금','토'].map((d, i) => `<span${i === 0 ? ' class="sunday"' : i === 6 ? ' class="saturday"' : ''}>${d}</span>`).join('')}</div><div class="diary-days" data-diary-days></div></div>
-<section class="diary-list" data-diary-list hidden aria-label="이 달 일기 목록"></section>
-<section class="diary-all" data-diary-all hidden aria-label="일기 목록"></section>
+<section class="diary-list" data-diary-list hidden aria-label="이 달 하루 기록 목록"></section>
+<section class="diary-all" data-diary-all hidden aria-label="하루 기록 목록"></section>
 <section class="diary-detail" data-diary-detail hidden aria-labelledby="diaryDetailTitle"></section>
 <section class="diary-editor" data-diary-editor data-enter-save hidden aria-labelledby="diaryEditorTitle"></section>`;
 const $ = selector => root.querySelector(selector);
@@ -215,12 +215,12 @@ async function loadMonth({force = false, quiet = false} = {}) {
     const list = await readDiaryMonth(cursor.year, cursor.month, rt);
     if (!current(run)) return;
     rows = new Map((Array.isArray(list) ? list : []).map(row => [row.journal_day, row])); loadedMonth = key;
-    status.textContent = rows.size ? '' : '이 달에는 아직 일기가 없어요. [+]로 사진이나 글을 남겨 보세요.';
+    status.textContent = rows.size ? '' : '이 달에는 아직 하루 기록이 없어요. [+]로 사진이나 글을 남겨 보세요.';
     renderMonth();
     if (selected && monthOf(selected) === key) renderDetail();
   } catch {
     if (!current(run)) return;
-    status.textContent = '일기를 불러오지 못했어요. 다시 시도해 주세요.'; $('[data-diary-retry]').hidden = false;
+    status.textContent = '하루 기록을 불러오지 못했어요. 다시 시도해 주세요.'; $('[data-diary-retry]').hidden = false;
   }
 }
 let refreshSeq = 0;
@@ -236,7 +236,7 @@ async function refreshMonth() {
   const next = Array.isArray(list) ? list : [];
   if (rowsSign(next) === rowsSign([...rows.values()])) return;
   rows = new Map(next.map(row => [row.journal_day, row])); listDirty = true;
-  status.textContent = rows.size ? '' : '이 달에는 아직 일기가 없어요. [+]로 사진이나 글을 남겨 보세요.';
+  status.textContent = rows.size ? '' : '이 달에는 아직 하루 기록이 없어요. [+]로 사진이나 글을 남겨 보세요.';
   renderMonth();
   if (selected && monthOf(selected) === key) renderDetail();
 }
@@ -325,7 +325,7 @@ function renderDetail() {
   sendWhere(longDay(selected));
   const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odShown()).length + phoneShown(selected).length > 0;
   detail.hidden = false; list.hidden = true; if (!allHost.hidden) listView.hide();
-  detail.innerHTML = `<div class="diary-panel-head"><span class="diary-head-ends">${row || hasPhotos ? detailMenuHtml() : ''}<button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></span></div><div class="diary-done" data-diary-done></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source ds-seg" role="group" aria-label="사진 보기"><button type="button" class="ds-seg-btn" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" class="ds-seg-btn" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>${hasPhotos ? '<div class="diary-ctx-slot" data-diary-context-slot></div>' : ''}` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 삭제</button></div>` : emptyHtml('일기 없음')}`;
+  detail.innerHTML = `<div class="diary-panel-head"><span class="diary-head-ends">${row || hasPhotos ? detailMenuHtml() : ''}<button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></span></div><div class="diary-done" data-diary-done></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source ds-seg" role="group" aria-label="사진 보기"><button type="button" class="ds-seg-btn" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" class="ds-seg-btn" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>${hasPhotos ? '<div class="diary-ctx-slot" data-diary-context-slot></div>' : ''}` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>하루 기록 삭제</button></div>` : emptyHtml('하루 기록 없음')}`;
   syncDetailTitle();
   fillDetailMenu(row, hasPhotos);
   paintDone(detail.querySelector('[data-diary-done]'), selected);
@@ -426,9 +426,9 @@ function renderPhotos() {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'diary-grid-item'; button.dataset.diaryOpen = String(i);
     const inDiary = inDiaryPhoto(item, row);
-    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${inDiary ? ', 일기에 넣은 사진' : ''}${isStarred(item) ? ', 별표' : ''}`);
+    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${inDiary ? ', 하루 기록에 넣은 사진' : ''}${isStarred(item) ? ', 별표' : ''}`);
     button.append(itemElement(item, 'small', {label:'', link:false}));
-    if (inDiary) { const inMark = document.createElement('span'); inMark.className = 'diary-in-mark'; inMark.setAttribute('aria-hidden', 'true'); inMark.textContent = '일기'; button.append(inMark); }
+    if (inDiary) { const inMark = document.createElement('span'); inMark.className = 'diary-in-mark'; inMark.setAttribute('aria-hidden', 'true'); inMark.textContent = '하루 기록'; button.append(inMark); }
     const mark = document.createElement('span');
     mark.className = 'diary-star-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '★'; mark.hidden = !isStarred(item);
     button.append(mark); grid.append(button);
@@ -458,7 +458,7 @@ function paintStars() {
     if (!item) return;
     const on = isStarred(item);
     const mark = button.querySelector('.diary-star-mark'); if (mark) mark.hidden = !on;
-    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${inDiaryPhoto(item, rows.get(selected)) ? ', 일기에 넣은 사진' : ''}${on ? ', 별표' : ''}`);
+    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${inDiaryPhoto(item, rows.get(selected)) ? ', 하루 기록에 넣은 사진' : ''}${on ? ', 별표' : ''}`);
   });
   photoStripRefresh();
 }
@@ -511,7 +511,7 @@ function openViewer(index) {
     // PHOTO-전체화면확대: 원드라이브 사진은 확대할 때 원본 해상도(받기 주소, 메모리에만). 직접 올린 사진은 큰 그림 그대로 확대.
     hires:item => (item.kind === 'od' && !item.video ? odMediaUrl(rt, item.id, 'download').then(r => r.url) : item.kind === 'phone' && !item.video ? Promise.resolve(phone.mediaUrl(item) || null) : null),
     isStarred, toggleStar,
-    deletable:item => ({ok:item.kind === 'od' && od.canDelete, title:item.kind === 'od' ? (od.canDelete ? '원드라이브 휴지통으로' : '삭제하려면 원드라이브를 다시 연결해 주세요') : item.kind === 'phone' ? '폰 사진은 사진 메뉴에서 삭제해요' : '직접 올린 사진은 일기 [수정]에서 빼요'}),
+    deletable:item => ({ok:item.kind === 'od' && od.canDelete, title:item.kind === 'od' ? (od.canDelete ? '원드라이브 휴지통으로' : '삭제하려면 원드라이브를 다시 연결해 주세요') : item.kind === 'phone' ? '폰 사진은 사진 메뉴에서 삭제해요' : '직접 올린 사진은 하루 기록 [수정]에서 빼요'}),
     take:item => { const t = takeFromMonth(item); if (t) { renderMonth(); renderPhotos(); } return t; },
     restore:p => { if (putBackMonth(p)) { renderMonth(); if (selected === p.day && !edit) renderPhotos(); } },
     commit:async (p, {keepalive}) => {
@@ -666,7 +666,7 @@ async function mountField(session) {
     const {createDocEditor} = await import('./ed-editor.js');
     if (edit !== session) return;
     const used = session.startDoc;
-    const field = await createDocEditor({host:session.host, value:used, label:'일기 글', placeholder:'오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)', shortcuts:true, lineWidth:true, onBox,
+    const field = await createDocEditor({host:session.host, value:used, label:'하루 기록 글', placeholder:'오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)', shortcuts:true, lineWidth:true, onBox,
       // S52-21 ④: 글 칸에 붙여 넣거나 끌어 놓은 사진은 글자(파일 이름)가 아니라 일기 사진으로 넣는다(고른 사진과 같은 길).
       onFiles:files => { if (edit === session && !session.busy) void pick(files); }});
     if (edit !== session) { field.destroy(); return; }
@@ -687,8 +687,8 @@ function renderEditor(message = '') {
   editor.hidden = false;
   // UI-버튼통일(2026-10-28 19:16 시안 승인): 위 줄 제목 · [⋯](일기 지우기) · ✕(테두리 없음). 날짜는 달력이 열리는 공용 칸 하나(이름표 없음, app/date-field.js)이고
   // 그 옆에 작은 [📷 사진 0/20]. 글 칸도 이름표 없이 편집기만. 아래 줄은 오른쪽에 [취소](작은 버튼)·[저장](진한 버튼 하나).
-  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><span class="diary-head-ends">${row ? '<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-editor-more aria-haspopup="true" aria-expanded="false" aria-controls="diaryEditorMenu" aria-label="일기 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryEditorMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="일기 관리" data-diary-editor-menu hidden><button type="button" class="diary-menu-danger" data-diary-delete>일기 삭제</button></span></span>' : ''}<button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></span></div>
-<div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="일기 날짜"${dateLocked() ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 선택, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>${iconHtml('camera')} 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
+  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '하루 기록 수정' : '하루 기록 쓰기'}</h3><span class="diary-head-ends">${row ? '<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-editor-more aria-haspopup="true" aria-expanded="false" aria-controls="diaryEditorMenu" aria-label="하루 기록 관리"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryEditorMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="하루 기록 관리" data-diary-editor-menu hidden><button type="button" class="diary-menu-danger" data-diary-delete>하루 기록 삭제</button></span></span>' : ''}<button type="button" class="icon-btn" data-diary-editor-close aria-label="하루 기록 창 닫기">×</button></span></div>
+<div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="하루 기록 날짜"${dateLocked() ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 선택, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>${iconHtml('camera')} 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
 <div class="diary-done" data-diary-done></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
 <div data-diary-uploads hidden></div>
@@ -786,10 +786,10 @@ async function finishBehind(session) {
     if (fresh && Object.keys(comments).length) fresh = await saveDiaryComments(fresh, {...photoComments(fresh), ...comments}, rt);
     if (session.owner !== ownerScope(rt)) { behindSessions.delete(session); return; }
     if (fresh) { rows.set(fresh.journal_day, fresh); listDirty = true; if (!edit) { renderMonth(); if (selected === fresh.journal_day) renderDetail(); } }
-  } catch { extra = Object.keys(comments).length ? '사진 코멘트는 저장하지 못했어요. 일기를 열어 다시 적어 주세요.' : ''; }
+  } catch { extra = Object.keys(comments).length ? '사진 코멘트는 저장하지 못했어요. 하루 기록을 열어 다시 적어 주세요.' : ''; }
   for (const entry of done) { entry.behind = false; URL.revokeObjectURL(entry.url); }
   session.pending = session.pending.filter(entry => !done.includes(entry));
-  const head = `${shortDay(session.day)} 일기에 `;
+  const head = `${shortDay(session.day)} 하루 기록에 `;
   if (left.length) {
     const retry = () => { if (session.owner !== ownerScope(rt) || session.pump) return; session.note?.close(); session.note = null; sendBehind(session, session.pending.filter(entry => entry.behind && !entry.up)); };
     for (const entry of left) setUploadRetry(entry.file, retry);
@@ -884,7 +884,7 @@ async function makeRow(session) {
     const message = diaryUploadText(error);
     for (const entry of session.pending) if (!entry.up) entry.failed ||= message;
     for (const entry of session.pending) setUploadRetry(entry.file, () => {});
-    if (edit === session && !session.busy) setEditorStatus(`사진을 올릴 일기를 만들지 못했어요. ${message} [저장]을 누르면 다시 올려요.`);
+    if (edit === session && !session.busy) setEditorStatus(`사진을 올릴 하루 기록을 만들지 못했어요. ${message} [저장]을 누르면 다시 올려요.`);
     return false;
   }
 }
@@ -924,11 +924,11 @@ async function discardUploads(session) {
     rows.set(row.journal_day, row); listDirty = true; renderMonth();
     void pruneDiaryPhotos(there, {rt});
   } catch {
-    if (session.owner === ownerScope(rt)) notifySmall(`${shortDay(session.day)} 일기에 올리던 사진을 다시 빼지 못했어요. 일기를 열어 확인해 주세요.`, {error:true});
+    if (session.owner === ownerScope(rt)) notifySmall(`${shortDay(session.day)} 하루 기록에 올리던 사진을 다시 빼지 못했어요. 하루 기록을 열어 확인해 주세요.`, {error:true});
   }
 }
 // 뒤로가기(fromBack)는 라우터가 준 ask로 묻는다(UI-알림창정리 S61-31: 공용 작은 확인창, [닫기]면 다시 뒤로). [닫기] 버튼은 askCloseEditor가 묻는다.
-const CLOSE_TEXT = '쓰던 일기를 저장하지 않고 닫을까요?';
+const CLOSE_TEXT = '쓰던 하루 기록을 저장하지 않고 닫을까요?';
 function closeEditor({fromBack = false, force = false, ask = null} = {}) {
   if (!edit) return true;
   if (edit.busy) return false;
@@ -958,7 +958,7 @@ async function pick(files) {
   const taken = images.slice(0, room);
   edit.pending.push(...taken.map(file => ({file, url:URL.createObjectURL(file), comment:'', up:null, failed:'', photo:null})));
   const notes = [];
-  if (images.length > room) notes.push(`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요. ${images.length - room}장은 넣지 않았어요.`);
+  if (images.length > room) notes.push(`하루 기록 사진은 ${DIARY_MAX_PHOTOS}장까지예요. ${images.length - room}장은 넣지 않았어요.`);
   if (skipped) notes.push(`사진이 아닌 파일 ${skipped}개는 넣지 않았어요.`);
   renderEditor(notes.join(' '));
   // S52-21: 고르자마자 올린다.
@@ -972,7 +972,7 @@ async function changeDay(day) {
   let existing = rows.get(day) || null;
   if (!existing) { try { existing = await readDiaryDay(day, rt); } catch { existing = null; } }
   if (!edit || edit.day !== day) return;
-  if (existing) adoptExisting(existing, '이 날 일기가 이미 있어 수정으로 열었어요.');
+  if (existing) adoptExisting(existing, '이 날 하루 기록이 이미 있어 수정으로 열었어요.');
 }
 // S52-21: 이 창에서 사진을 붙들려고 만든 일기는 고른 날짜를 따라간다(그 날 일기가 이미 있으면 바꾸지 않음).
 async function moveMadeDay(day) {
@@ -982,7 +982,7 @@ async function moveMadeDay(day) {
   if (session.pump || session.busy) return back('사진을 다 올린 뒤 날짜를 바꿔 주세요.');
   try {
     const fresh = await readDiaryDay(session.day, rt);
-    if (!fresh || fresh.id !== session.row.id) throw new Error('일기를 다시 불러오지 못했어요. 닫고 다시 열어 주세요.');
+    if (!fresh || fresh.id !== session.row.id) throw new Error('하루 기록을 다시 불러오지 못했어요. 닫고 다시 열어 주세요.');
     const moved = await moveDiaryDay(fresh, day, rt);
     if (edit !== session) return;
     session.row = moved; session.day = moved.journal_day;
@@ -1055,7 +1055,7 @@ async function save() {
       // another device is refused, nothing is overwritten (the phone shows the newer one after closing).
       if (!created && session.hadRow && (fresh.raw_text !== session.baseRaw || JSON.stringify(fresh.doc ?? null) !== JSON.stringify(session.baseDoc ?? null))) {
         rows.set(day, fresh);
-        throw Object.assign(new Error('일기 글이 그사이 다른 곳에서 바뀌었어요. 쓴 글을 복사해 두고, 닫았다가 다시 열어 확인해 주세요.'), {code:'note_changed'});
+        throw Object.assign(new Error('하루 기록 글이 그사이 다른 곳에서 바뀌었어요. 쓴 글을 복사해 두고, 닫았다가 다시 열어 확인해 주세요.'), {code:'note_changed'});
       }
       fresh = await saveDiaryText(fresh, text, rt, {doc:value, strict:true});
     }
@@ -1073,13 +1073,13 @@ async function save() {
     closeEditor({force:true});
     if (monthOf(day) === monthKey()) { renderMonth(); selectDay(day); }
     else { const [y, m] = day.split('-').map(Number); cursor = {year:y, month:m - 1}; loadedMonth = ''; await loadMonth(); selectDay(day); }
-    status.textContent = '일기를 저장했어요.';
+    status.textContent = '하루 기록을 저장했어요.';
   } catch (error) {
     session.hold = false;
     if (edit !== session) return;
     session.busy = false;
     pumpUploads(session);
-    renderEditor(error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.message && !error.status ? error.message : '일기를 저장하지 못했어요. 다시 시도해 주세요.');
+    renderEditor(error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.message && !error.status ? error.message : '하루 기록을 저장하지 못했어요. 다시 시도해 주세요.');
   }
 }
 const pruneNote = pruned => !pruned ? '사진을 뺐어요. Drive 원본은 나중에 정리해요.'
@@ -1088,7 +1088,7 @@ const pruneNote = pruned => !pruned ? '사진을 뺐어요. Drive 원본은 나�
 async function removePhoto(fileId, anchor) {
   if (!edit?.row || edit.busy) return;
   const open = edit, day = edit.row;
-  if (!await askConfirm(anchor, {text:'이 사진을 일기에서 뺄까요?', note:'Drive 원본은 휴지통으로 보내요(30일 안에 복구 가능).', ok:'빼기', danger:true})) return;
+  if (!await askConfirm(anchor, {text:'이 사진을 하루 기록에서 뺄까요?', note:'Drive 원본은 휴지통으로 보내요(30일 안에 복구 가능).', ok:'빼기', danger:true})) return;
   if (edit !== open || edit.row !== day || edit.busy) return;
   edit.busy = true; renderEditor('사진을 빼는 중…');
   let row;
@@ -1098,7 +1098,7 @@ async function removePhoto(fileId, anchor) {
     if (edit !== open) return;
     const fresh = open.pending.some(entry => entry.up) || open.dropped.length ? await readDiaryDay(open.day, rt) : open.row;
     if (edit !== open) return;
-    if (!fresh) throw new Error('일기를 다시 불러오지 못했어요. 닫고 다시 열어 주세요.');
+    if (!fresh) throw new Error('하루 기록을 다시 불러오지 못했어요. 닫고 다시 열어 주세요.');
     row = await removeDiaryPhoto(fresh, fileId, rt);
   } catch (error) {
     edit.busy = false; return renderEditor(error?.message && !error.status ? error.message : '사진을 빼지 못했어요. 다시 시도해 주세요.');
@@ -1118,7 +1118,7 @@ async function removePhoto(fileId, anchor) {
 // 실제 지우기(note-delete — 사진은 Drive 휴지통)는 알림이 닫힐 때(2초, 올려 두면 멈춤·다른 알림이 뜨면 바로) 보낸다. [되돌리기]면 아무것도 보내지 않는다.
 // 알림이 떠 있는 동안 페이지를 닫으면 보내지 못해 일기는 남는다(잃는 쪽이 아니라 남는 쪽). 서버가 실패하면 그 날을 되살리고 알린다.
 let pendingDelete = null;
-const DIARY_DELETED = '일기를 삭제했어요.';
+const DIARY_DELETED = '하루 기록을 삭제했어요.';
 function restoreDiaryRow(row) {
   if (!rows.has(row.journal_day)) rows.set(row.journal_day, row);
   listDirty = true; renderMonth();
@@ -1132,20 +1132,20 @@ async function commitDiaryDelete(job) {
   const result = await deleteNoteOriginal(job.row.id, {rt, confirmed:true});
   if (job.owner !== ownerScope(rt) || ['deleted', 'missing', 'stale'].includes(result.status)) return;
   restoreDiaryRow(job.row);
-  notifySmall(`${shortDay(job.row.journal_day)} 일기를 삭제하지 못해 되살렸어요. ${String(result.message || '').replace(/업데이트/g, '일기')}`.trim(), {error:true});
+  notifySmall(`${shortDay(job.row.journal_day)} 하루 기록을 삭제하지 못해 되살렸어요. ${String(result.message || '').replace(/업데이트/g, '하루 기록')}`.trim(), {error:true});
 }
 // [⋯] 작은 목록: 쓰기 창 머리줄 안에 붙어 열린다. 바깥을 누르거나 Esc면 닫힌다.
 // S47-18: 열려 있을 때 뒤로가기 = 메뉴만 닫기(공용 작은 메뉴 겹 KPTUMenuLayer, details-menu-back.js). 쓰기 창은 그대로.
 // UI-우클릭빈곳전수 ①: 일기 상세 전체의 ⋯(data-ctx="area") — PC 우클릭은 공용 context-menu.js가 이 메뉴를 커서 자리에 연다.
 // 항목은 아래 단추와 같은 일([수정]·[그날 사진 크게 보기]·[일기 삭제]); 아래 [수정][일기 삭제] 단추는 그대로 둔다.
 function detailMenuHtml() {
-  return `<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-head-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-controls="diaryDetailMenu" aria-label="이 날 일기 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryDetailMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="이 날 일기 메뉴" data-diary-head-menu hidden></span></span>`;
+  return `<span class="diary-head-menu-wrap"><button type="button" class="icon-btn diary-head-more" data-diary-head-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-controls="diaryDetailMenu" aria-label="이 날 하루 기록 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button><span id="diaryDetailMenu" class="diary-lv-menu diary-head-menu" role="group" aria-label="이 날 하루 기록 메뉴" data-diary-head-menu hidden></span></span>`;
 }
 // 메뉴 항목은 버튼 6가지 모양이 아니라 작은 메뉴(diary-lv-menu) 줄 모양이라 이름표 없이 만든다(쓰기 창 머리줄 메뉴와 같은 모양).
 function fillDetailMenu(row, hasPhotos) {
   const menu = detail.querySelector('[data-diary-head-menu]'); if (!menu) return;
   const item = (label, mark, danger = false) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute(mark, ''); if (danger) b.className = 'diary-menu-danger'; b.textContent = label; return b; };
-  menu.replaceChildren(item(row ? '수정' : '일기 쓰기', 'data-diary-menu-edit'), ...(hasPhotos ? [item('그날 사진 크게 보기', 'data-diary-view-photos')] : []), ...(row ? [item('일기 삭제', 'data-diary-menu-delete', true)] : []));
+  menu.replaceChildren(item(row ? '수정' : '하루 기록 쓰기', 'data-diary-menu-edit'), ...(hasPhotos ? [item('그날 사진 크게 보기', 'data-diary-view-photos')] : []), ...(row ? [item('하루 기록 삭제', 'data-diary-menu-delete', true)] : []));
 }
 const HEAD_MENU = '[data-diary-editor-menu],[data-diary-head-menu]';
 function toggleEditorMenu(button, open = !button.nextElementSibling || button.nextElementSibling.hidden) {
@@ -1180,7 +1180,7 @@ async function removeDiary(row) {
     if (pendingDelete === job) pendingDelete = null;
     if (job.owner !== ownerScope(rt)) return {status:'stale'};
     restoreDiaryRow(row);
-    return {status:'restored', message:'일기를 되돌렸어요.'};
+    return {status:'restored', message:'하루 기록을 되돌렸어요.'};
   }});
   if (!box) return commitDiaryDelete(job);
   job.leave = () => { void commitDiaryDelete(job); };
@@ -1236,7 +1236,7 @@ window.addEventListener('kptu:before-view-change', event => {
   if (window.KPTURouter?.current !== 'diary' || event.detail?.view === 'diary' || !edit) return;
   // UI-알림창정리(S61-31): 라우터의 공용 작은 확인창으로 묻는다(event.detail.ask — [나가기]면 같은 이동을 다시 하고 그때 true).
   if (edit.busy) { event.preventDefault(); return; }
-  if (dirty() && !event.detail.ask('쓰던 일기를 저장하지 않고 나갈까요?')) return;
+  if (dirty() && !event.detail.ask('쓰던 하루 기록을 저장하지 않고 나갈까요?')) return;
   closeEditor({force:true, fromBack:true});
 });
 window.addEventListener('kptu:view-changed', event => {

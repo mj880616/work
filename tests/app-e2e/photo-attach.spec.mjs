@@ -238,9 +238,9 @@ test.describe('PC 1280 · 그 장소', () => {
 });
 
 // 일기: 그날 폰 사진도 같은 격자에 보이기만(서버 저장 없음). 원드라이브에 같은 사진이 있으면 원드라이브 것 한 장.
-test.describe('폰 앱 412 · 일기', () => {
+test.describe('폰 앱 412 · 하루 기록', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
-  test('일기 그날 폰 사진: 원드라이브 사진과 함께 보이고, 같은 사진은 한 장, 다른 날 폰 사진은 없음, 아무것도 올리지 않음', async ({ page }) => {
+  test('하루 기록 그날 폰 사진: 원드라이브 사진과 함께 보이고, 같은 사진은 한 장, 다른 날 폰 사진은 없음, 아무것도 올리지 않음', async ({ page }) => {
     const { openHome } = await import('./helpers/home-entry.mjs');
     const state = { phoneReads: [], writes: [], errors: [] };
     page.on('pageerror', e => state.errors.push(e.message));

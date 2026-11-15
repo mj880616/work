@@ -508,7 +508,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       // FAMILY-기억알림: 가족 '잊지 말기' 노트만 [줄 정리] — 줄을 고르면 홈 '가족 · 기억할 것' 줄 ⋯와 같은 메뉴(family-remind-menu.js, [과거 기록으로]).
       ...(from === 'detail' && note?.metadata?.family_list === true ? [['data-note-remind-lines', '줄 정리']] : []),
-      ['data-note-to-diary', '일기로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
+      ['data-note-to-diary', '하루 기록으로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
   // FILE-누르면동작: a stored attachment as the shared file shape (file-actions.js).

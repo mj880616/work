@@ -289,7 +289,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     suggestHost.hidden = false;
     paint(suggestHost, '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">이런 기록은 어때요?</h4></span></div>'
       + `<ul class="journal-suggest-list">${list.map(item => `<li class="journal-suggest" data-journal-suggest="${esc(item.id)}"><span class="journal-suggest-text"><span>${esc(item.text)}</span>${item.basis ? `<small class="journal-suggest-basis">${esc(item.basis)}</small>` : ''}</span>`
-        + `<button type="button" class="secondary" data-journal-suggest-write="${esc(item.id)}">일기 쓰기</button></li>`).join('')}</ul>`);
+        + `<button type="button" class="secondary" data-journal-suggest-write="${esc(item.id)}">하루 기록 쓰기</button></li>`).join('')}</ul>`);
   }
   function draw() {
     if (!last) return;

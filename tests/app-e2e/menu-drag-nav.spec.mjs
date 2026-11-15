@@ -102,7 +102,7 @@ for(const width of [1280,1440]){
   });
 }
 
-test('PC 왼쪽 메뉴 끌기: 맨 아래 묶음으로 옮기고 다시 위 줄로, 일정은 달력·할 일·일기와 함께, 하단바 칸이 가득 차면 거절',async({page})=>{
+test('PC 왼쪽 메뉴 끌기: 맨 아래 묶음으로 옮기고 다시 위 줄로, 일정은 달력·할 일·하루 기록과 함께, 하단바 칸이 가득 차면 거절',async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width:1280,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -143,7 +143,7 @@ test('PC 왼쪽 메뉴 끌기: 맨 아래 묶음으로 옮기고 다시 위 줄�
     const h=root.querySelector('.nav-btn[data-reorder-id="calendar"]'),sub=h.nextElementSibling;
     return {sub:sub?.classList.contains('nav-sub'),labels:[...sub.querySelectorAll('a')].map(a=>a.textContent.trim())};
   });
-  expect(unit.sub).toBe(true);expect(unit.labels).toEqual(['달력','할 일','일기']);
+  expect(unit.sub).toBe(true);expect(unit.labels).toEqual(['달력','할 일','하루 기록']);
   // 홈 줄(맨 위)은 끌려 가지 않는다.
   const brand=nav(page).locator('.sidebar-brand'),bb=await brand.boundingBox(),before=JSON.stringify(prefs.value);
   await drag(page,brand,bb.x+bb.width/2,sb.y+sb.height-2);

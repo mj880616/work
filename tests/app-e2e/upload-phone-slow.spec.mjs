@@ -78,7 +78,7 @@ test('폰 412 노트 수정 화면: [넣기] → [파일]이 느린 서버(15초
 });
 
 for(const [label,file] of [['큰 사진(4000×3000)',{name:'IMG_1.png',mimeType:'image/png'}],['종류·이름 끝 없는 폰 앱 사진',{name:'1000012346',mimeType:''}]])
-test(`폰 412 일기: ${label}이 느린 서버(15초 넘게)에서도 들어간다`,async({page})=>{
+test(`폰 412 하루 기록: ${label}이 느린 서버(15초 넘게)에서도 들어간다`,async({page})=>{
  const rows=[],uploads=[],errors=[];let n=0;
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await openHome(page);
@@ -112,7 +112,7 @@ test(`폰 412 일기: ${label}이 느린 서버(15초 넘게)에서도 들어간
  await expect(ed.locator('.diary-thumb.pending')).toHaveCount(1);
  await ed.locator('[data-diary-save]').click();
  await expect(ed).toBeHidden({timeout:SLOW_MS+20000});
- await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('일기를 저장했어요.');
+ await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('하루 기록을 저장했어요.');
  expect(uploads).toHaveLength(1);expect(uploads[0].type).toBe('image/jpeg');expect(uploads[0].noteId).toBe('d-new-1');
  expect(rows[0].attachments).toHaveLength(1);
  expect(errors).toEqual([]);
