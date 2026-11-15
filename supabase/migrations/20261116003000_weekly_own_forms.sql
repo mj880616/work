@@ -45,10 +45,10 @@ create table public.app_weekly_forms (
     source_name is null or (char_length(source_name) between 1 and 200 and source_name !~ '[[:cntrl:]]')),
   constraint app_weekly_forms_source_file_check check (
     source_file_id is null or source_file_id ~ '^[A-Za-z0-9_-]{10,200}$'),
-  constraint app_weekly_forms_form_check check (
+  constraint app_weekly_forms_form_check check (coalesce(
     jsonb_typeof(form) = 'object' and form -> 'v' = '1'::jsonb
     and jsonb_typeof(form -> 'sections') = 'array' and jsonb_array_length(form -> 'sections') <= 40
-    and octet_length(form::text) <= 30000)
+    and octet_length(form::text) <= 30000, false))
 );
 
 -- 권한: 호스팅 기본 권한을 모두 걷어 낸다. authenticated: 읽기·지우기, 넣기·고치기는 필요한 칸만.
