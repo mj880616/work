@@ -197,7 +197,7 @@ for (const width of [412, 1280]) {
     // 더하기: 확정으로 바로(origin은 화면이 보내지 않음).
     await box.locator('[data-ni-add-input]').fill('공공 돌봄');
     await box.locator('[data-ni-add-input]').press('Enter');
-    await expect(box.locator('.ni-topic')).toHaveText(['철도 민영화', '공공 돌봄']);
+    await expect(box.locator('.ni-topic')).toHaveText(['공공 돌봄', '철도 민영화']); // 가나다(NEWS-출처목록가나다)
     expect(server.calls.filter(c => c.what === 'app_now_interests' && c.method === 'POST').at(-1).body).toMatchObject({ workspace_id: 'w', topic: '공공 돌봄', state: 'confirmed' });
     expect('origin' in server.calls.filter(c => c.what === 'app_now_interests' && c.method === 'POST').at(-1).body).toBe(false);
     await page.goBack();

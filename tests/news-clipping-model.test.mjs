@@ -115,13 +115,13 @@ test('기본 켬(S53-6): 줄이 없으면 카탈로그 on, 줄이 있으면 줄 
 });
 
 // S59-1 NEWS-키워드살리기: 키워드 칸은 서버가 keywords 칸에 적어 둔 받은 글을 켠 키워드마다 모아 보인다.
-test('키워드 칸 묶음: 켠 키워드만·키워드 목록 순서·걸린 글이 있는 것만, 머리 글자는 건수(더 있으면 최근 N건)', () => {
+test('키워드 칸 묶음: 켠 키워드만·키워드 가나다순(NEWS-출처목록가나다)·걸린 글이 있는 것만, 머리 글자는 건수(더 있으면 최근 N건)', () => {
   const a = {id: 'a'}, b = {id: 'b'}, c = {id: 'c'};
   const hits = new Map([['철도', {items: [a, b], more: false}], ['파업', {items: [c], more: true}], ['버스', {items: [a]}], ['꺼짐', {items: [b]}]]);
   const kw = [{word: '파업', enabled: true}, {word: '없음', enabled: true}, {word: '꺼짐', enabled: false}, {word: '철도', enabled: true}, {word: 7, enabled: true}];
   const groups = M.keywordGroups(kw, hits);
-  assert.deepEqual(groups.map(g => [g.word, g.items.map(i => i.id), g.more]), [['파업', ['c'], true], ['철도', ['a', 'b'], false]]);
-  assert.deepEqual(groups.map(M.keywordGroupLabel), ['파업 · 최근 1건', '철도 · 2건']);
+  assert.deepEqual(groups.map(g => [g.word, g.items.map(i => i.id), g.more]), [['철도', ['a', 'b'], false], ['파업', ['c'], true]]);
+  assert.deepEqual(groups.map(M.keywordGroupLabel), ['철도 · 2건', '파업 · 최근 1건']);
   assert.deepEqual(M.keywordGroups([], hits), []);
   assert.deepEqual(M.keywordGroups(kw, new Map()), []);
   assert.equal(M.KW_GROUP_SIZE, 20);
