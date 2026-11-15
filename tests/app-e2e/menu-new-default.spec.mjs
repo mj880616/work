@@ -28,7 +28,7 @@ for(const width of [360,412]){
     // [메뉴] 창: 잊지 말기가 맨 앞, 노트는 없다(하단바에 있음). 운영자 기능이 없는 계정이라 통화·텔레그램 소식·아스날·News는 없다. [파일]은 모두에게(S62-11 명진 결정, 자료실 바로 아래).
     await page.locator('#mobileMenuTab').click();
     await expect(page.locator('#mobileMenu')).toBeVisible();
-    await expect.poll(()=>sheetIds(page)).toEqual(['basket','library','files','brief','hwp','pages','photos']);
+    await expect.poll(()=>sheetIds(page)).toEqual(['basket','library','files','brief','hwp','pages','photos','outside']);
     await page.waitForTimeout(400);
     await shot(page,`${width}-2-menu`);
     await page.locator('#mobileMenu [data-view="basket"]').click();
@@ -44,7 +44,7 @@ for(const width of [840,1280]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await openHome(page,{features:[],menuLayout:null});
     // 홈은 왼쪽 메뉴 맨 위 이름 줄(홈 줄은 폭에 따라 숨음)이라 비교에서 뺀다.
-    await expect.poll(async()=>(await pcMain(page)).filter(id=>id!=='home')).toEqual(['note','calendar','team','meetings','basket','library','files','brief','hwp','pages','photos']);
+    await expect.poll(async()=>(await pcMain(page)).filter(id=>id!=='home')).toEqual(['note','calendar','team','meetings','basket','library','files','brief','hwp','pages','photos','outside']);
     await shot(page,`${width}-1-side`);
     expect(errors).toEqual([]);
   });
