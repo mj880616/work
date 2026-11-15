@@ -1149,6 +1149,9 @@ jobs:
       - name: Check weekly report screen words (HOME-주간정리이름주간보고)
         run: node --test tests/ui-words-weekly-report.test.mjs
 
+      - name: Check signup notice chip, line and operator list (OPS-새가입알림)
+        run: node --test tests/signup-notify-model.test.mjs
+
       - name: SEC-자주가는링크기본값유출·COLLAB-조직목록없음직접입력 운영자 기본값 없음·남의 작업공간 조직 이름 막힘
         run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
 

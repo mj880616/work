@@ -45,6 +45,7 @@ const routeStyles={
   updates:['./release-notes.css','./update-news.css','./small-form-modal.css','./ui-standard.css'],
   whatsnew:['./update-news.css','./ui-standard.css'],
   feedback:['./feedback.css','./ui-standard.css'],
+  signups:['./signups.css','./ui-standard.css'],
   brief:['./brief-room.css','./ui-standard.css']
 };
 // PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를
@@ -190,9 +191,11 @@ async function updates(){ await module('./release-notes-ui.js'); return {ok:true
 async function whatsnew(){ await module('./update-news-ui.js'); return {ok:true} }
 // FEEDBACK-의견보내기 PR5: 운영자 '받은 의견'(?view=feedback, 운영자 계정 메뉴). 열 때만 불러온다(모듈이 #feedbackView를 만든다, 읽기는 서버가 운영자만).
 async function feedback(){ await module('./feedback-inbox.js'); return {ok:true} }
+// OPS-새가입알림 ③: 운영자 '가입자'(?view=signups, 운영자 계정 메뉴·새 가입 알림). 열 때만 불러온다(모듈이 #signupsView를 만든다, 읽기는 서버가 운영자만).
+async function signups(){ await module('./signups-view.js'); return {ok:true} }
 // BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
 async function brief(){ await module('./brief-room.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,brief};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home'};
 function normalize(view){
