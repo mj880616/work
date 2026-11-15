@@ -1648,7 +1648,7 @@ async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} 
   if (sendBusy) { notify('앞에서 보내는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; }
   const {putPhotosInDiary, dayLabel, diaryDayGroups} = await import('./diary-send.js');
   const groups = where === 'diary' ? diaryDayGroups(list, seoulDateKey(new Date())) : [];
-  if (where === 'diary' && ask && !(await askConfirm(trigger, {text:`사진 ${list.length}장을 찍은 날 일기에 넣을까요?`, note:groups.map(g => `${dayLabel(g.day)} ${g.items.length}장`).join(' · '), ok:'넣기'}))) return;
+  if (where === 'diary' && ask && !(await askConfirm(trigger, {text:`사진 ${list.length}장을 찍은 날 하루 기록에 넣을까요?`, note:groups.map(g => `${dayLabel(g.day)} ${g.items.length}장`).join(' · '), ok:'넣기'}))) return;
   const retry = missedItems => ({label:SEND_NOTE.retry, run:({close}) => { close(); sendItemsTo(where, missedItems, trigger, {fromPick, ask:false}); }});
   const release = () => { if (fromPick && releaseAfter(where, true) && select.active) { select.stop(); paintSelect(); } };
   sendBusy = true;

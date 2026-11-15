@@ -32,7 +32,7 @@ test('PC 1280: 맨 위 "홈" 줄이 홈 메뉴이고 고른 표시를 가진다;
 test('PC 1280: [정리함]은 하위 줄 없는 한 줄, [노트]는 [일정] 앞 독립 줄, 누르면 노트 쪽을 연다',async({page})=>{
  const errors=await open(page,1280),basketRow=nav(page).locator('.nav-btn[data-view="basket"]'),noteRow=nav(page).locator('.nav-btn[data-basket-kind-nav="note"]');
  await expect(basketRow).toHaveText('잊지 말기');await expect(nav(page).locator('.nav-sub[aria-label="정리함"]')).toHaveCount(0);
- await expect(nav(page).locator('.nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력','할 일','일기']);
+ await expect(nav(page).locator('.nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력','할 일','하루 기록']);
  await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
  // 순서(MULTI-하단바기본노트, 하단바 기본과 같음): 노트 / 일정 / 달력…일기 / 조직 보고 / 사업 보고 / 잊지 말기.
  const ys=[];for(const l of [noteRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),nav(page).locator('.nav-btn[data-view="team"]'),nav(page).locator('.nav-btn[data-view="meetings"]'),basketRow])ys.push((await l.boundingBox()).y);
@@ -96,10 +96,10 @@ test('폰 390: 하단 탭 [홈] 그대로, 하위 메뉴는 없다; 870(UI-폴�
 
 // UI-PC일정묶음: [일정] 아래 하위 메뉴 [달력]·[할 일]·[일기](바구니 하위 메뉴와 같은 모양·항상 펼침). HOME-업무일지홈: 업무일지는 홈이라 이 묶음에 없다.
 // 상위 [일정]은 달력, 현재 화면의 하위 줄이 고른 표시, 따로 있던 할 일·일기 줄은 없다.
-test('PC 1280: [일정] 아래 [달력]·[할 일]·[일기], 상위는 달력, 현재 화면의 하위 줄이 고른 표시',async({page})=>{
+test('PC 1280: [일정] 아래 [달력]·[할 일]·[하루 기록], 상위는 달력, 현재 화면의 하위 줄이 고른 표시',async({page})=>{
  const errors=await open(page,1280),head=nav(page).locator('.nav-btn[data-view="calendar"]'),sub=nav(page).locator('.nav-sub[aria-label="일정"]');
  await expect(head).toHaveText('일정');
- await expect(sub).toBeVisible();await expect(sub.getByRole('link')).toHaveText(['달력','할 일','일기']);
+ await expect(sub).toBeVisible();await expect(sub.getByRole('link')).toHaveText(['달력','할 일','하루 기록']);
  // 바로 아래, 들여 쓴 하위 메뉴.
  const shape=loc=>loc.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {h:Math.round(r.height),x:Math.round(r.x),font:s.fontSize,weight:s.fontWeight,color:s.color};});
  const hb=await head.boundingBox(),first=await sub.getByRole('link').first().boundingBox();
@@ -113,7 +113,7 @@ test('PC 1280: [일정] 아래 [달력]·[할 일]·[일기], 상위는 달력, 
  await head.click();await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
  await expect(head).toHaveAttribute('aria-current','page');await expect(head).toHaveClass(/active/);
  await expect(item('달력')).toHaveAttribute('aria-current','true');await expect(sub.locator('[aria-current]')).toHaveCount(1);
- for(const [name,view] of [['할 일','tasks'],['일기','diary'],['달력','calendar']]){
+ for(const [name,view] of [['할 일','tasks'],['하루 기록','diary'],['달력','calendar']]){
   await item(name).click();await expect(page.locator(`#${view}View`)).toBeVisible();await expect(page).toHaveURL(new RegExp(`view=${view}`));
   await expect(item(name)).toHaveAttribute('aria-current',view==='calendar'?'true':'page');await expect(item(name)).toHaveClass(/active/);
   await expect(sub.locator('[aria-current]')).toHaveCount(1);
@@ -122,12 +122,12 @@ test('PC 1280: [일정] 아래 [달력]·[할 일]·[일기], 상위는 달력, 
   if(view==='calendar')await expect(head).toHaveAttribute('aria-current','page');else await expect(head).not.toHaveAttribute('aria-current');
  }
  const look=await shape(item('달력'));expect(look.weight).toBe('500');
- expect(await shape(item('일기'))).toMatchObject({weight:'400'});
+ expect(await shape(item('하루 기록'))).toMatchObject({weight:'400'});
  // 다른 화면으로 가면 [일정] 묶음의 표시는 모두 꺼진다.
  await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();
  await expect(head).not.toHaveClass(/active/);await expect(sub.locator('[aria-current],.active')).toHaveCount(0);
  // 키보드로도 연다.
- await item('일기').focus();await page.keyboard.press('Enter');await expect(page.locator('#diaryView')).toBeVisible();
+ await item('하루 기록').focus();await page.keyboard.press('Enter');await expect(page.locator('#diaryView')).toBeVisible();
  expect(errors).toEqual([]);
 });
 
@@ -136,7 +136,7 @@ for(const view of ['calendar','tasks','diary'])test(`옛 주소 ?view=${view}: �
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page,{query:`?view=${view}`});
  await expect(page.locator(`#${view}View`)).toBeVisible();await expect(page).toHaveURL(new RegExp(`view=${view}`));
- const sub=nav(page).locator('.nav-sub[aria-label="일정"]'),label={calendar:'달력',tasks:'할 일',diary:'일기'}[view];
+ const sub=nav(page).locator('.nav-sub[aria-label="일정"]'),label={calendar:'달력',tasks:'할 일',diary:'하루 기록'}[view];
  await expect(sub.locator('[aria-current]')).toHaveText(label);
  await expect(nav(page).locator('.nav-btn[data-view="calendar"]')).toHaveClass(/active/);
  // 뒤로 가기·앞으로 가기에도 표시가 따라온다.
@@ -162,7 +162,7 @@ test('업무일지 = 홈: 옛 ?view=journal은 홈, 사이드바·폰 전환 줄
  expect(await bare()).toBe(0);
  await page.setViewportSize({width:390,height:844});await expect(page.locator('#homeView')).toBeVisible();
  // 숨은 화면의 전환 줄이라 역할 이름이 아니라 버튼 글자로 본다.
- for(const id of ['#calendarView','#tasksView','#diaryView'])await expect(page.locator(`${id} .schedule-switch button`)).toHaveText(['달력','할 일','일기']);
+ for(const id of ['#calendarView','#tasksView','#diaryView'])await expect(page.locator(`${id} .schedule-switch button`)).toHaveText(['달력','할 일','하루 기록']);
  await expect(page.locator('.schedule-switch [data-view="journal"]')).toHaveCount(0);
  expect(await bare()).toBe(0);
  // 폰: 하단 탭 6칸·메뉴 판 항목은 그대로, 홈 탭이 고른 칸.

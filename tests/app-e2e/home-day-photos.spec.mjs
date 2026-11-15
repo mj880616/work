@@ -26,7 +26,7 @@ async function boot(page, width, height) {
       if (body.action === 'photo') return r.fulfill({ status: 200, contentType: 'image/png', body: PNG });
       if (body.action === 'status') return r.fulfill({ json: { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true } });
       if (body.action === 'photos') return r.fulfill({ json: { month: body.month, days: body.month === '2026-10' ? { '2026-10-06': DAY } : {}, truncated: false } });
-      if (body.action === 'photo-delete') writes.push(body.action); // sync는 일기 화면이 여는 원드라이브 맞추기(쓰기 아님)
+      if (body.action === 'photo-delete') writes.push(body.action); // sync는 하루 기록 화면이 여는 원드라이브 맞추기(쓰기 아님)
       return r.fulfill({ json: {} });
     });
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_diary_stars', r => {

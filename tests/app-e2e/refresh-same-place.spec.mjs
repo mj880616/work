@@ -83,7 +83,7 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     expect(errors).toEqual([]);
   });
 
-  test(`일기·업무일지·달력: 고른 날과 보던 날짜가 새로고침 뒤 그대로 ${width}`, async ({ page }) => {
+  test(`하루 기록·업무일지·달력: 고른 날과 보던 날짜가 새로고침 뒤 그대로 ${width}`, async ({ page }) => {
     const errors = await boot(page, width);
     // 일기: 고른 날(?day=)
     await page.evaluate(() => window.KPTURouter.go('diary'));

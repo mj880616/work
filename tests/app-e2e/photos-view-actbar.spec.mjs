@@ -131,7 +131,7 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       expect(await barNames(page)).toEqual(BAR_NAMES);
       expect(await bar(page).locator('button:visible').count()).toBeLessThanOrEqual(5);
       const b = bar(page);
-      expect(await menuTexts(page, b.locator('[data-diary-share]'))).toEqual(['사진 복사', '일기에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
+      expect(await menuTexts(page, b.locator('[data-diary-share]'))).toEqual(['사진 복사', '하루 기록에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
       expect(await menuTexts(page, b.locator('[data-strip-act="edit"]'))).toEqual(['사진 수정']); // 정보수정은 폰 앱 0.4.15(meta)부터라 이 흉내(0.4.7)에는 없다 — photos-info-edit.spec.mjs가 본다
       const more = await menuTexts(page, b.locator('[data-strip-act="more"]'));
       expect(more).toEqual(['정보', '폴더로 옮기기', '앨범에 넣기']);
@@ -201,7 +201,7 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
     });
 
     // PHOTO-업데이트반응없음(S49-34): 누르면 곧바로 '보내는 중'/결과 알림이 크게 보기 위에 보여야 한다(예전에는 크게 보기 뒤에 깔려 반응이 없어 보임).
-    test('[공유 ▾] → 업데이트로 보내기·일기에 넣기: 알림이 크게 보기 위에 보인다', async ({ page }) => {
+    test('[공유 ▾] → 업데이트로 보내기·하루 기록에 넣기: 알림이 크게 보기 위에 보인다', async ({ page }) => {
       const state = await fixture(page, { app: true });
       await openPhotos(page, width);
       await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);

@@ -77,7 +77,7 @@ for (const width of [390, 1280]) {
     { await press(page, rowMore(page, C), width); await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0); await expect(menu(page).locator('button').first()).toHaveText('수정'); await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden(); }
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '연결하기', '할 일로', '일정으로', '노트로', '일기로 보내기', '조직', '사업', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '연결하기', '할 일로', '일정으로', '노트로', '하루 기록으로 보내기', '조직', '사업', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
     await expect(menu(page).locator('button').last()).toHaveClass(/basket-menu-danger/);
     for (const b of await menu(page).locator('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
     const m = await menu(page).boundingBox();
@@ -218,7 +218,7 @@ test('an archived update leaves 연결하기 out of its row menu, as the detail 
   await pickBasketView(page,'archived');
   await expect(rowMore(page, B)).toBeVisible();
   await rowMore(page, B).click();
-  await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일로', '노트로', '일기로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);
+  await expect(menu(page).locator('button')).toHaveText(['복사', '수정', '할 일로', '노트로', '하루 기록으로 보내기', '사업 보고로 옮기기', '보류 해제', '삭제']);
   await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
   expect(f.errors).toEqual([]);
 });

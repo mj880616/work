@@ -95,7 +95,7 @@ function checkDay(day) {
 export function validateDiaryText(text) {
   if (typeof text !== 'string') throw new Error('글을 확인해 주세요.');
   // PostgreSQL length(text) counts Unicode characters, not UTF-16 code units.
-  if ([...text].length > DIARY_TEXT_MAX) throw new Error('일기 글은 20,000자까지 쓸 수 있어요.');
+  if ([...text].length > DIARY_TEXT_MAX) throw new Error('하루 기록 글은 20,000자까지 쓸 수 있어요.');
   return text;
 }
 const one = rows => {
@@ -125,12 +125,12 @@ const markGuard = (key, value) => typeof value === 'string' ? `&metadata->>${key
 export async function setDiaryMark(row, key, on, rt = window.KPTURuntime, now = new Date()) {
   const where = `${base(rt)}&id=eq.${encode(row.id)}`;
   const rows = await rt.api(`${where}&select=id,journal_day,metadata,updated_at`, {singleFlight:false});
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('일기를 찾지 못했어요.');
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('하루 기록을 찾지 못했어요.');
   const fresh = rows[0], old = fresh.metadata && typeof fresh.metadata === 'object' && !Array.isArray(fresh.metadata) ? fresh.metadata : {};
   const metadata = withMark(old, key, on, now);
   const guard = `&updated_at=eq.${encode(fresh.updated_at)}${markGuard('pinned_at', old.pinned_at)}${markGuard('starred_at', old.starred_at)}`;
   const saved = await rt.api(`${where}${guard}&select=id,journal_day,metadata,updated_at`, {method:'PATCH', prefer:'return=representation', body:{metadata}});
-  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 눌러 주세요.'), {code:'note_changed'});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('하루 기록이 그사이 바뀌었어요. 다시 눌러 주세요.'), {code:'note_changed'});
   return saved[0];
 }
 export async function readDiaryDay(day, rt = window.KPTURuntime) {
@@ -146,7 +146,7 @@ export async function createDiary({day, text = '', doc = null}, rt = window.KPTU
   try {
     return one(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, kind:'diary', journal_day:checkDay(day), raw_text:text.trim() ? text : HOLD_TEXT, ...(form ? {doc:form} : {}), ai_export_allowed:false}}));
   } catch (error) {
-    if (error?.status === 409) throw Object.assign(new Error('이 날 일기가 이미 있어요. 수정으로 열게요.'), {code:'diary_exists'});
+    if (error?.status === 409) throw Object.assign(new Error('이 날 하루 기록이 이미 있어요. 수정으로 열게요.'), {code:'diary_exists'});
     throw error;
   }
 }
@@ -164,7 +164,7 @@ export async function saveDiaryText(row, text, rt = window.KPTURuntime, {doc, st
   if (doc !== undefined) { const form = diaryDocToStore(doc, text); const bad = diaryDocError(form); if (bad) throw new Error(bad); body.doc = form; }
   else if (row.doc) body.doc = null;
   const rows = await patch(row, body, rt, {strict});
-  if (strict && Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+  if (strict && Array.isArray(rows) && !rows.length) throw Object.assign(new Error('하루 기록이 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
   return one(rows);
 }
 // The photo leaves this day (saved first). Its Drive original is then sent to the Drive trash by pruneDiaryPhotos below.
@@ -175,7 +175,7 @@ export async function removeDiaryPhotos(row, fileIds, rt = window.KPTURuntime) {
   const gone = new Set(fileIds);
   const attachments = (row.attachments || []).filter(file => !gone.has(file.drive_file_id));
   if (attachments.length === (row.attachments || []).length) throw new Error('이미 빠진 사진이에요.');
-  if (!attachments.length && !diaryText(row)) throw Object.assign(new Error('글 없이 사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요. 일기를 삭제하려면 [일기 삭제]를 눌러 주세요.'), {code:'last_photo'});
+  if (!attachments.length && !diaryText(row)) throw Object.assign(new Error('글 없이 사진 한 장만 있는 하루 기록이라 이 사진은 뺄 수 없어요. 하루 기록을 삭제하려면 [하루 기록 삭제]를 눌러 주세요.'), {code:'last_photo'});
   // The comment of the removed photo goes in the same write, so no orphan comment stays behind.
   const body = {attachments};
   let metadata = row.metadata;
@@ -184,7 +184,7 @@ export async function removeDiaryPhotos(row, fileIds, rt = window.KPTURuntime) {
   if (row.metadata?.photo_origins !== undefined) { const rest = {...(metadata?.photo_origins || {})}; for (const id of gone) delete rest[id]; metadata = {...metadata}; if (Object.keys(rest).length) metadata.photo_origins = rest; else delete metadata.photo_origins; }
   if (metadata !== row.metadata) body.metadata = metadata;
   const rows = await patch(row, body, rt, {strict:true});
-  if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
+  if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('하루 기록이 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
   return one(rows);
 }
 // DIARY-사진바로올리기: a diary made in this editor only to hold the photos sent right away (no text saved yet) follows the date chosen
@@ -192,10 +192,10 @@ export async function removeDiaryPhotos(row, fileIds, rt = window.KPTURuntime) {
 export async function moveDiaryDay(row, day, rt = window.KPTURuntime) {
   try {
     const rows = await patch(row, {journal_day:checkDay(day)}, rt, {strict:true});
-    if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
+    if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('하루 기록이 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
     return one(rows);
   } catch (error) {
-    if (error?.status === 409) throw Object.assign(new Error('그 날은 이미 일기가 있어 날짜를 바꾸지 않았어요.'), {code:'diary_exists'});
+    if (error?.status === 409) throw Object.assign(new Error('그 날은 이미 하루 기록이 있어 날짜를 바꾸지 않았어요.'), {code:'diary_exists'});
     throw error;
   }
 }
@@ -248,10 +248,10 @@ export async function shrinkPhoto(file, {edge = DIARY_PHOTO_EDGE, quality = 0.86
 }
 const uploadText = error => {
   if (error?.status === 401) return '로그인이 필요해요. 다시 로그인한 뒤 올려 주세요.';
-  if (error?.code === 'too_many_attachments') return '일기 사진은 하루 20장까지예요.';
-  if (error?.code === 'note_changed') return '일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.';
+  if (error?.code === 'too_many_attachments') return '하루 기록 사진은 20장까지예요.';
+  if (error?.code === 'note_changed') return '하루 기록이 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.';
   if (error?.code === 'upload_not_sent' || error?.code === 'upload_timeout_sending') return '연결이 끊겨 다 보내지 못했어요. 연결을 확인해 주세요.';
-  if (error?.code === 'note_save_result_unknown' || !error?.status || error.status >= 500) return '저장 결과를 확인하지 못했어요. 일기를 다시 불러와 확인해 주세요.';
+  if (error?.code === 'note_save_result_unknown' || !error?.status || error.status >= 500) return '저장 결과를 확인하지 못했어요. 하루 기록을 다시 불러와 확인해 주세요.';
   return '사진을 올리지 못했어요. Drive 연결 상태를 확인해 주세요.';
 };
 // One photo onto the day's row. photo: the shrunk photo (or a promise of it — the next photos are shrunk while one is being sent).
@@ -274,7 +274,7 @@ export const diaryUploadText = error => error instanceof Error && error.message 
 export async function uploadDiaryPhotos(row, files, {rt = window.KPTURuntime, isCurrent = () => true, onProgress = () => {}, shrink = shrinkPhoto, request = uploadBasketFile} = {}) {
   let attachments = row.attachments || [], done = 0;
   const uploaded = [], addedIds = {};
-  if (attachments.length + files.length > DIARY_MAX_PHOTOS) throw new Error(`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요.`);
+  if (attachments.length + files.length > DIARY_MAX_PHOTOS) throw new Error(`하루 기록 사진은 ${DIARY_MAX_PHOTOS}장까지예요.`);
   for (const [index, file] of files.entries()) {
     if (!isCurrent()) break;
     onProgress({done, total:files.length, attachments});
@@ -341,7 +341,7 @@ export function photoElement(row, file, size, {label = '', rt = window.KPTURunti
   const box = document.createElement('span');
   box.className = 'diary-photo'; box.dataset.diaryPhoto = file.drive_file_id;
   const img = document.createElement('img');
-  img.alt = label || file.file_name || '일기 사진'; img.decoding = 'async'; img.loading = 'lazy';
+  img.alt = label || file.file_name || '하루 기록 사진'; img.decoding = 'async'; img.loading = 'lazy';
   box.append(img); box.dataset.state = 'loading'; slotBox(box);
   let anchor = null;
   // 큰 그림(크게 보기): 누른 때부터 시간을 재고, 이미 받아 둔 작은 그림이 있으면 받는 동안 먼저 띄운다(PHOTO-크게보기빨리).
@@ -388,10 +388,10 @@ export async function diaryDayPreview(day, {rt = window.KPTURuntime} = {}) {
   const photos = diaryPhotos(row), text = diaryText(row);
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'diary-day-preview'; button.dataset.diaryPreview = day;
-  button.setAttribute('aria-label', `이 날 일기 보기${photos.length ? `, 사진 ${photos.length}장` : ''}`);
-  if (photos[0]) button.append(photoElement(row, photos[0], 'small', {label:'일기 첫 사진', rt, link:false, retry:false}));
+  button.setAttribute('aria-label', `이 날 하루 기록 보기${photos.length ? `, 사진 ${photos.length}장` : ''}`);
+  if (photos[0]) button.append(photoElement(row, photos[0], 'small', {label:'하루 기록 첫 사진', rt, link:false, retry:false}));
   const body = document.createElement('span'); body.className = 'diary-day-preview-text';
-  const title = document.createElement('b'); title.textContent = '일기';
+  const title = document.createElement('b'); title.textContent = '하루 기록';
   const line = document.createElement('span'); line.textContent = text ? [...text.replace(/\s+/g, ' ').trim()].slice(0, 60).join('') : `사진 ${photos.length}장`;
   body.append(title, line); button.append(body);
   return button;
