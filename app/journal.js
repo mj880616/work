@@ -608,7 +608,7 @@ function renderWeekly_({refreshBox = true} = {}) {
 function paintBlank(host) {
   if (host.querySelector('[data-weekly-blank]')) return;
   const box = document.createElement('section'); box.className = 'journal-weekly-blank'; box.dataset.weeklyBlank = '';
-  box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="mini" data-weekly-blank-pick>파일 올리기</button></p>'
+  box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="secondary" data-weekly-blank-pick>파일 올리기</button></p>'
     + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
   const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]'), pick = box.querySelector('[data-weekly-blank-pick]');
   const open = async file => {
