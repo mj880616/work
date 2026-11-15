@@ -71,16 +71,18 @@ test('공개 소개 페이지들의 상대 링크가 저장소 안 파일로 이
   assert.ok(mails.size <= 1, `공개 연락처 메일은 한 주소만: ${mails.size}개`);
 });
 
-// S50-8(명진 결정 11/05 '가'): 일반 사용자는 drive.file만, 전체 drive는 운영자 작업공간에서만 요청한다는 설명이 실제 코드와 맞아야 한다.
-test('Drive 권한 설명: 모든 사용자는 drive.file, 전체 drive는 운영자 작업공간에서만', () => {
+// S62-11 MULTI-구글드라이브사진모두(명진 11/15 결정 1·2): 전체 drive도 Drive를 연결하는 모든 사용자에게 요청하고 각자 자기 것만 본다는 설명이 실제 코드와 맞아야 한다.
+test('Drive 권한 설명: drive.file·전체 drive 모두 모든 사용자, 각자 자기 Drive만', () => {
   const row = scope => {
     const m = page.match(new RegExp(`<tr><td><code>${scope.replace(/\./g, '\\.')}</code></td><td>([^<]*)</td></tr>`));
     assert.ok(m, `처리방침 표에 행 없음: ${scope}`);
     return m[1];
   };
   assert.match(row('https://www.googleapis.com/auth/drive.file'), /모든 사용자/);
-  assert.match(row('https://www.googleapis.com/auth/drive'), /운영자 한 사람의 작업공간에서만 요청/);
+  assert.match(row('https://www.googleapis.com/auth/drive'), /Drive를 연결하는 모든 사용자에게 요청/);
+  assert.match(row('https://www.googleapis.com/auth/drive'), /본인의 노동조합\+ 사진·파일 화면에만/);
+  assert.match(row('https://www.googleapis.com/auth/drive'), /영구 삭제 없음/);
+  assert.doesNotMatch(row('https://www.googleapis.com/auth/drive'), /운영자 한 사람/);
   const code = read('supabase/functions/public-policy-drive/index.ts');
-  assert.match(code, /scope: \(full \? DRIVE_SCOPES : \[DRIVE_FILE_SCOPE\]\)\.join\(' '\),/);
-  assert.match(code, /const full = await fullDriveAllowed\(workspaceId\);/);
+  assert.match(code, /scope: DRIVE_SCOPES\.join\(' '\),/);
 });
