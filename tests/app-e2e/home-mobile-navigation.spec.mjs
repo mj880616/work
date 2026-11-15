@@ -9,7 +9,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // MTG-프로젝트합치기 3단계: 사업영역 관리는 [사업 보고] 화면 ⋯ 안에서 연다.
 // MULTI-하단바기본노트: 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·조직 보고·사업 보고. [노트] 칸은 화면 이름이 아니라 노트 쪽 열기(data-basket-kind-nav)라 아래에서 따로 본다.
 const tabs=['home','calendar','team','meetings'];
-async function open(page,url=app+'?view=home'){
+async function open(page,url=app+'?view=home',{operator=false}={}){
   const user={id:'home-qa',email:'home-qa@example.org'};
   await page.route(`${SB}/**`,route=>{
     const p=new URL(route.request().url()).pathname;
@@ -19,6 +19,8 @@ async function open(page,url=app+'?view=home'){
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'home-workspace',role:'owner',workspace:{id:'home-workspace',name:'QA',slug:'kptu-work'}}]);
     if(p==='/functions/v1/google-calendar')return ok({connected:false,calendars:[],events:[]});
     if(p==='/functions/v1/google-tasks')return ok({connected:false,tasks:[]});
+    // UPDATE-운영자전용기록업데이트소식: 새 판 안내 줄은 운영자(서버 허용 표 dev_inbox)에게만 뜬다.
+    if(p==='/rest/v1/rpc/app_my_features')return ok(operator?['dev_inbox']:[]);
     if(p.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
@@ -102,7 +104,7 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   // 쉬는 틈 미리 받기(UI-기다림표시통일)가 시험이 끝날 때 아직 받는 중일 수 있다: 닫힌 화면의 요청은 조용히 끊는다.
   await page.route(/\.css(?:\?|$)/,async route=>{let r,body;try{r=await route.fetch();body=await r.text()}catch{await route.abort().catch(()=>{});return}await route.fulfill({response:r,body:body.replaceAll('env(safe-area-inset-bottom)','20px')}).catch(()=>{})});
   await serveBuiltShell(page,testOrigin);
-  await open(page,app);
+  await open(page,app,{operator:true});
   await expect(page.locator('.mobile-tabs')).toHaveCSS('height','68px'); // S49-8: 48px + 바닥 여백 20px
   const tabs=await page.locator('.mobile-tabs').boundingBox();expect(tabs.y+tabs.height).toBe(844);
   await page.route('**/app/index.html',r=>r.fulfill({contentType:'text/html',body:'<script src="./app.js?v=999999"></script>'}));

@@ -17,6 +17,8 @@ async function boot(page){
     else if(path==='/rest/v1/app_workspace_members')data=[{workspace_id:workspace.id,user_id:user.id,role:'owner'}];
     else if(path==='/rest/v1/app_workspaces')data=[workspace];
     else if(path==='/rest/v1/app_profiles')data=[{user_id:user.id,display_name:'QA'}];
+    // UPDATE-운영자전용기록업데이트소식: 새 판 안내 줄은 운영자(서버 허용 표 dev_inbox)에게만 뜬다. 이 시험은 운영자 화면을 본다.
+    else if(path==='/rest/v1/rpc/app_my_features')data=['dev_inbox'];
     else if(path.startsWith('/functions/'))data={connected:false,enabled:false,tasks:[],events:[],calendars:[]};
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
