@@ -204,6 +204,21 @@ test('news refs sync (E2): plan, dry-run, apply, backfill after D2, idempotent s
    assert.equal((await pool.query("select count(*)::int n from public.app_news_articles where url_key='good.example.org/x'")).rows[0].n,0,'뉴스방 아닌 업무방·1:1 글은 공용 표로 못 감');
   });
 
+  await t.test('S62-12g: screen writing a reaction to both new and old tables doubles it after sync; new table only stays one row',async()=>{
+   // 운영자 기사(ART2 = 운영자 옛 줄 A2 id). 옛 화면: 새 표 + 옛 표(같은 공용 id)에 한 줄씩 → 보충이 옛 줄을 새 표로 다시 옮김.
+   const n=async act=>(await pool.query('select count(*)::int n from public.app_news_now_signals where workspace_id=$1 and article_id=$2 and action=$3',[WS_A,ART2,act])).rows[0].n;
+   await owner(c=>c.query("insert into public.app_news_now_signals(workspace_id,article_id,action) values ($1,$2,'star')",[WS_A,ART2]));
+   await owner(c=>c.query("insert into public.app_now_signals(workspace_id,news_item_id,action) values ($1,$2,'star')",[WS_A,ART2]));
+   assert.equal((await sync(2000)).signals,1);
+   assert.equal(await n('star'),2,'재현: 한 번 누른 반응이 두 줄');
+   const at=(await pool.query("select array_agg(created_at order by created_at) a from public.app_news_now_signals where workspace_id=$1 and article_id=$2 and action='star'",[WS_A,ART2])).rows[0].a;
+   assert.notEqual(at[0].getTime(),at[1].getTime(),'두 요청은 시각이 달라 (작업공간·기사·행동·시각)으로는 못 거른다');
+   // 고친 화면: 새 표에만 → 보충이 아무것도 더하지 않음.
+   await owner(c=>c.query("insert into public.app_news_now_signals(workspace_id,article_id,action) values ($1,$2,'open')",[WS_A,ART2]));
+   assert.equal((await sync(2000)).signals,0);
+   assert.equal(await n('open'),1);
+  });
+
   await t.test('rollback removes function and record only; old and D2 tables stay; re-apply works',async()=>{
    const maps=await count('app_news_id_map');
    await pool.query(rollbackSQL);

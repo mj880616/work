@@ -27,7 +27,7 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 //   뒤 다시 읽고(S51-17 P5, 설계 7.1), 그래도 없으면 예전 저장 글자(사회운동 문장·뉴스 body)를 문단으로. 막힌 사이트·없는 글은 다시 읽지 않는다.
 // - 사진: https 주소만, referrerpolicy="no-referrer"·loading="lazy", 글을 열었을 때만 그린다. 안 뜨면 '사진 ↗' 링크.
 // - 아래 작은 단추 줄: 사회운동 글은 app_outside_marks(글마다 한 줄), 뉴스는 기존 app_news_items 칸(starred_at·hidden_at). 메모는 노트
-//   (app_notes, metadata.outside_post_id|news_item_id). 누를 때마다 환류 기록 한 줄(app_now_signals). [원래 사이트 ↗] 열기도 기록한다.
+//   (app_notes, metadata.outside_post_id|news_item_id). 누를 때마다 환류 기록 한 줄(지금은 app_news_now_signals·app_outside_now_signals). [원래 사이트 ↗] 열기도 기록한다.
 // - NEWS-모두에게열기 ③: 위 표들은 공용 글(app_news_articles·app_outside_articles·…_article_bodies·문장) + 내 표시·읽음·반응 표로 바뀌었다(feed-shared.js 한 길).
 // - 원문 칸 머리 줄 [복사] ⋯(S52-39 NEWS-원문복사선택, 시안 docs/design/mockups/news-copy-select.html): [복사](공용 칩)는 제목 / 매체·날짜 / 본문 전체(문단 그대로) /
 //   원래 주소를 한 번에 클립보드로(번역해서 보는 중이면 한국어 본문, now-model.mjs copyArticleText). ⋯ 작은 메뉴(UI-⋯작은메뉴) = [모두 선택](원문 본문 전체를
