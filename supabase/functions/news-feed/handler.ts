@@ -563,7 +563,7 @@ export function httpsLinkXml(source: NewsSource, xml: string): string {
   const inHref = new RegExp(`(<link\\b[^>]*?\\bhref\\s*=\\s*["']\\s*)http://(${hosts})(?=[/?#"'\\s])`, "gi");
   return xml.replace(inTag, (_m, head, _t, host) => `${head}https://${host}`).replace(inHref, (_m, head, host) => `${head}https://${host}`);
 }
-type NewRow = { workspace_id: string; lane: "keyword" | "media"; url: string; url_key: string; title: string; title_key: string | null;
+type NewRow = { id?: string; workspace_id: string; lane: "keyword" | "media"; url: string; url_key: string; title: string; title_key: string | null;
   lang: string; publisher: string | null; source_key: string | null; keywords: string[]; published_at: string | null; fetched_at: string;
   state: "ok"; summary: string | null; body: string | null; body_kind: "full" | "lead" | null };
 // 같은 작업공간에 같은 주소(url_key) 또는 같은 제목(title_key)이 이미 있으면 넣지 않는다(채널 기사와 겹침 포함).
@@ -591,6 +591,40 @@ async function insertNew(db: Db, rows: NewRow[]): Promise<number> {
     }
   }
   return n;
+}
+// 공용 기사 넣기(매체 단계): 같은 주소(url_key 전체 유일) 또는 같은 제목(title_key)의 공용 기사가 이미 있으면 넣지 않는다.
+// 돌려주는 것: 이번에 새로 들어간 줄의 url_key → id(넣은 줄만 — 저장소가 돌려준 줄 기준). 공용 표를 못 쓰면 빈 표(옛 표 흐름은 그대로).
+type ArtRow = Row & { id: string; url_key: string; title_key: string | null };
+async function insertArticles(db: Db, rows: ArtRow[], log: FeedLog): Promise<Map<string, string>> {
+  const fresh = new Map<string, string>();
+  if (!rows.length) return fresh;
+  try {
+    const keys = [...new Set(rows.map((r) => r.url_key))], tks = [...new Set(rows.map((r) => r.title_key).filter((t): t is string => !!t))];
+    const have = new Set<string>();
+    for (const part of inChunks(keys)) for (const r of await db.get(`app_news_articles?url_key=in.${part}&select=url_key`)) have.add(`u:${r.url_key}`);
+    for (const part of inChunks(tks)) for (const r of await db.get(`app_news_articles?title_key=in.${part}&select=title_key`)) have.add(`t:${r.title_key}`);
+    const list: ArtRow[] = [];
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if (have.has(`u:${r.url_key}`) || (r.title_key && have.has(`t:${r.title_key}`)) || seen.has(r.url_key)) continue;
+      seen.add(r.url_key); if (r.title_key) have.add(`t:${r.title_key}`);
+      list.push(r);
+    }
+    for (let i = 0; i < list.length; i += 100) {
+      const got = await db.send("POST", "app_news_articles?on_conflict=url_key&select=id,url_key", list.slice(i, i + 100), "resolution=ignore-duplicates,return=representation");
+      for (const g of got) if (typeof g.url_key === "string" && typeof g.id === "string" && UUID.test(g.id)) fresh.set(g.url_key, g.id);
+    }
+  } catch { log("shared_write_failed"); }
+  return fresh;
+}
+// 사람별 키워드 표시(app_news_marks.keywords, 서버만 씀): 작업공간·기사마다 한 줄, 있으면 keywords 칸만 고친다(별표·폴더·숨김은 그대로).
+type MarkRow = { workspace_id: string; article_id: string; keywords: string[]; updated_at: string };
+async function saveMarks(db: Db, marks: MarkRow[], log: FeedLog) {
+  try {
+    for (let i = 0; i < marks.length; i += 200) {
+      await db.send("POST", "app_news_marks?on_conflict=workspace_id,article_id", marks.slice(i, i + 200), "resolution=merge-duplicates,return=minimal");
+    }
+  } catch { log("marks_write_failed"); }
 }
 function oneLineLead(s: string | null): string | null {
   if (!s) return null;
@@ -624,23 +658,41 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
     const items = parseFeed(parseSource(source, xml), xml, nowMs, MEDIA_LIST_LIMIT);
     raw += Math.min((got.text.match(/<(item|entry)\b/gi) ?? []).length, 1000);
     listed += items.length;
-    const rows: NewRow[] = [];
+    const rows: NewRow[] = [], arts: ArtRow[] = [], hits: { w: string; key: string; kws: string[] }[] = [];
     for (const it of items) {
       const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
       const full = it.content && chars(it.content) >= 200 ? it.content : null;
       const lead = it.summary;
       const title = newsTitle(it.title, source.name);
+      const content = { lane: "media" as const, url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
+        lang: source.lang, publisher: source.name, source_key: source.key, published_at: it.published_at, fetched_at: nowIso, state: "ok" as const,
+        summary: oneLineLead(lead), body: full ?? (lead ? cut(lead, 1200) : null), body_kind: full ? "full" as const : lead ? "lead" as const : null };
+      let kept = false;
       for (const w of ws) {
         const kws = keywordHits(`${it.title}\n${it.summary ?? ""}`, wordsByWs.get(w) ?? []);
         // take=keywords(종합지·방송사)는 작업공간마다 자기 키워드에 글자가 맞는 글만(AI 없이). take=all은 전부.
         if (source.take === "keywords" && !kws.length) continue;
-        rows.push({ workspace_id: w, lane: "media", url: clean, url_key: urlKey(clean), title, title_key: titleKey(title),
-          lang: source.lang, publisher: source.name, source_key: source.key, keywords: kws, published_at: it.published_at, fetched_at: nowIso, state: "ok",
-          summary: oneLineLead(lead), body: full ?? (lead ? cut(lead, 1200) : null), body_kind: full ? "full" : lead ? "lead" : null });
+        kept = true;
+        rows.push({ id: crypto.randomUUID(), workspace_id: w, keywords: kws, ...content });
+        if (kws.length) hits.push({ w, key: content.url_key, kws });
       }
+      // 공용 기사는 한 번(켠 작업공간 합집합 — take=keywords는 누군가의 키워드에 맞은 글만).
+      if (kept) arts.push({ id: crypto.randomUUID(), origin: "site", ...content });
+    }
+    const fresh = await insertArticles(db, arts, log);
+    // 새 공용 기사의 운영자 옛 줄은 같은 id로(D2 '옛 id = 새 id'). 다른 작업공간 옛 줄은 새 id(D2가 주소로 합침).
+    if (fresh.size) {
+      const op = await operatorWs(db);
+      if (op) for (const r of rows) if (r.workspace_id === op && fresh.has(r.url_key)) r.id = fresh.get(r.url_key);
     }
     inserted += await insertNew(db, rows);
+    if (hits.length) {
+      const byKey = await articlesByKey(db, hits.map((h) => h.key), log);
+      const marks: MarkRow[] = [];
+      for (const h of hits) { const a = byKey.get(h.key); if (a) marks.push({ workspace_id: h.w, article_id: String(a.id), keywords: h.kws, updated_at: nowIso }); }
+      if (marks.length) await saveMarks(db, marks, log);
+    }
   }
   await db.send("PATCH", `app_outside_sources?source_key=eq.${source.key}&workspace_id=in.(${ws.join(",")})`,
     status === "ok" ? { last_ok_at: nowIso, last_error: null } : { last_error: status.replace(/[^a-z0-9_-]/g, "_").slice(0, 40) }, "return=minimal");
@@ -716,8 +768,48 @@ async function runKeywords(db: Db, nowMs: number, startMs: number, clock: () => 
       done += ids.length;
     }
   }
-  log("keywords_done", { workspaces, scanned, done, deferred });
-  return { ok: true, step: "keywords", workspaces, scanned, done, deferred };
+  // NEWS-모두에게열기 ②: 공용 기사에는 사람별 표시(app_news_marks.keywords)로. 최근 글을 한 번만 읽고 작업공간마다 글자 맞추기(AI 없음).
+  const marks = await runKeywordMarks(db, words, all, since, nowIso, startMs, clock, log);
+  deferred += marks.deferred;
+  log("keywords_done", { workspaces, scanned, done, deferred, marks: marks.done });
+  return { ok: true, step: "keywords", workspaces, scanned, done, deferred, marks: marks.done };
+}
+
+async function runKeywordMarks(db: Db, words: Map<string, string[]>, all: Set<string>, since: string, nowIso: string, startMs: number, clock: () => number, log: FeedLog) {
+  let done = 0, deferred = 0;
+  try {
+    const arts: Row[] = [];
+    for (let offset = 0; offset < KEYWORD_SCAN_ROWS; offset += KEYWORD_SCAN_PAGE) {
+      if (clock() - startMs > RUN_BUDGET_MS) { deferred++; return { done, deferred }; }
+      const page = await db.get(`app_news_articles?lane=eq.media&created_at=gte.${since}&select=id,title,title_ko,summary&order=created_at.desc,id.desc&limit=${KEYWORD_SCAN_PAGE}&offset=${offset}`);
+      arts.push(...page);
+      if (page.length < KEYWORD_SCAN_PAGE) break;
+    }
+    const inWindow = new Set(arts.map((a) => String(a.id)));
+    for (const ws of all) {
+      if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
+      const list = words.get(ws) ?? [];
+      const cur = new Map<string, unknown>();
+      for (const m of await db.get(`app_news_marks?workspace_id=eq.${ws}&keywords=neq.{}&select=article_id,keywords&limit=${KEYWORD_SCAN_ROWS}`)) cur.set(String(m.article_id), m.keywords);
+      const up: MarkRow[] = [], clear: string[] = [];
+      for (const a of arts) {
+        const id = String(a.id);
+        if (!UUID.test(id)) continue;
+        const kws = list.length ? keywordHits([a.title, a.title_ko, a.summary].filter((v) => typeof v === "string").join("\n"), list) : [];
+        const old = cur.get(id);
+        if (kws.length && !sameWords(old, kws)) up.push({ workspace_id: ws, article_id: id, keywords: kws, updated_at: nowIso });
+        else if (!kws.length && old !== undefined) clear.push(id);
+      }
+      if (up.length) await saveMarks(db, up, log);
+      // 끄거나 지운 키워드: 창 안 공용 기사의 표시만 비운다(별표·폴더·숨김은 그대로).
+      const off = clear.filter((id) => inWindow.has(id));
+      for (let i = 0; i < off.length; i += 40) {
+        await db.send("PATCH", `app_news_marks?workspace_id=eq.${ws}&article_id=in.(${off.slice(i, i + 40).join(",")})`, { keywords: [], updated_at: nowIso }, "return=minimal");
+      }
+      done += up.length + off.length;
+    }
+  } catch { log("marks_write_failed"); }
+  return { done, deferred };
 }
 
 async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, log: FeedLog, onlyWs?: string, max = PENDING_PER_RUN) {
@@ -785,26 +877,129 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
   return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred };
 }
 
-// 외국어 기사 제목만 한국어로(백그라운드). 작업공간마다 AI 한 번에 묶고, 하루 상한·이번 달 AI 한도 안에서만.
+// 외국어 기사 제목만 한국어로(백그라운드). 하루 상한·이번 달 AI 한도 안에서만.
 // 하루 상한은 오늘(서울 날짜) translated_at이 찍힌 줄 수로 센다(본문 번역은 translated_at을 다시 찍지 않음).
+// NEWS-모두에게열기 ②: 같은 주소의 공용 기사가 있으면 기사마다 한 번만 번역한다 —
+//   ① 공용 기사에 이미 한국어 제목·소개가 있으면 옛 줄에 옮겨 적기만(AI 없음) ② 없으면 공용 기사 묶음으로 AI 한 번(운영자 작업공간에 셈,
+//   화면 '지금 채우기'는 누른 사람 작업공간에 셈) → 공용 기사와 그 주소의 옛 줄 모두에 적기 ③ 공용 기사가 없는 옛 줄만 예전처럼 작업공간마다.
+//   예약 실행은 옛 줄 없이 공용 표에만 있는 외국어 기사도 같은 묶음에 넣는다.
+type TitleOut = { got: Map<number, string>; sums: Map<number, string>; answered: boolean };
+async function titleBatch(db: Db, ai: AiDeps, ws: string, batch: Row[], nowMs: number, log: FeedLog): Promise<TitleOut> {
+  const material = batch.map((r, k) => `${k + 1}\t${r.title_ko ? "" : cut(oneLine(String(r.title)), 300)}\t${cut(oneLine(String(r.summary ?? "")), 400)}`).join("\n");
+  const out = await askAi(ai, "news_titles", TITLES_INSTRUCTIONS, material, TITLES_SCHEMA, Math.min(12000, batch.length * 260 + 200), 90000);
+  if (out.usage.input || out.usage.output) {
+    try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
+    catch { log("usage_record_failed"); }
+  }
+  // AI가 답했는지(답 글이 있거나 토큰을 썼음). 답하지 않았으면 시도 시각을 적지 않는다.
+  return { got: readTitles(out.value, batch.length), sums: readTitleSums(out.value, batch.length), answered: out.value !== null || out.usage.input > 0 || out.usage.output > 0 };
+}
+// 한 줄(옛 줄·공용 기사 같은 규칙)에 적을 칸. ko·sum은 AI 결과(또는 공용 기사에서 옮겨 올 값). tried: 부탁한 것 가운데 하나라도 못 받음.
+function titlePatch(r: Row, ko: string | undefined, sum: string | undefined, answered: boolean, nowIso: string): { patch: Row | null; tried: boolean } {
+  const wantSum = typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
+  const patch: Row = {};
+  if (!r.title_ko && ko) patch.title_ko = ko;
+  if (sum && wantSum) patch.summary = sum;
+  const missing = answered && ((!r.title_ko && !ko) || (wantSum && !sum));
+  if (!Object.keys(patch).length) return { patch: null, tried: missing };
+  // 하루 상한은 translated_at 줄 수로 센다 — 제목을 새로 채운 줄만 찍는다.
+  if (patch.title_ko) patch.translated_at = nowIso;
+  if (missing) patch.title_tried_at = nowIso;
+  patch.updated_at = nowIso;
+  return { patch, tried: false };
+}
+// 그 사이 다른 실행·번역 버튼이 먼저 채웠으면 덮지 않는다(제목은 title_ko=is.null, 소개만이면 title_ko가 이미 있는 줄).
+const titleGuard = (r: Row) => (r.title_ko ? "title_ko=not.is.null" : "title_ko=is.null");
+async function patchOldTitles(db: Db, list: { r: Row; patch: Row }[]) {
+  for (let p = 0; p < list.length; p += TITLE_PATCH_PARALLEL) {
+    await Promise.all(list.slice(p, p + TITLE_PATCH_PARALLEL).map(({ r, patch }) =>
+      db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${r.workspace_id}&${titleGuard(r)}`, patch, "return=minimal")));
+  }
+}
 async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, log: FeedLog, onlyWs?: string) {
   const only = onlyWs ? `&workspace_id=eq.${onlyWs}` : "";
   const since = new Date(nowMs - TITLE_WINDOW_DAYS * 86400000).toISOString();
   // ① 제목 번역이 아직 없는 외국어 기사 ② 제목은 있지만 소개(summary)가 아직 외국어 그대로인 기사(11/04: 해외 기사 본문 줄이 영어로 보임).
   // 소개 원문은 body(앞부분)에 그대로 남아 있어서 summary만 한국어로 바꿔도 원문은 [본문]·[번역]에서 본다.
   const retryBefore = new Date(nowMs - TITLE_RETRY_HOURS * 3600000).toISOString();
-  const base = `lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}${only}` +
-    `&or=(title_tried_at.is.null,title_tried_at.lt.${encodeURIComponent(retryBefore)})` +
-    `&select=id,workspace_id,title,title_ko,summary&order=created_at.desc&limit=1000`;
+  const cond = `lang=neq.ko&title=not.is.null&created_at=gte.${encodeURIComponent(since)}` +
+    `&or=(title_tried_at.is.null,title_tried_at.lt.${encodeURIComponent(retryBefore)})`;
+  const base = `${cond}${only}&select=id,workspace_id,url_key,title,title_ko,summary&order=created_at.desc&limit=1000`;
+  const foreignSum = (r: Row) => typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
   const titleRows = await db.get(`app_news_items?title_ko=is.null&${base}`);
-  const sumRows = (await db.get(`app_news_items?title_ko=not.is.null&summary=not.is.null&${base}`)).filter((r) => typeof r.summary === "string" && r.summary.trim() && !HANGUL.test(r.summary));
+  const sumRows = (await db.get(`app_news_items?title_ko=not.is.null&summary=not.is.null&${base}`)).filter(foreignSum);
+  const olds = [...titleRows, ...sumRows].filter((r) => typeof r.title === "string" && r.title.trim());
+  const nowIso = new Date(nowMs).toISOString();
+  const shared = await articlesByKey(db, olds.map((r) => r.url_key), log);
+  // 공용 기사에 이미 있는 한국어 제목·소개 → 옛 줄에 옮겨 적기(AI 없음).
+  const copies: { r: Row; patch: Row }[] = [];
+  const byArt = new Map<string, { a: Row; olds: Row[] }>();
   const byWs = new Map<string, Row[]>();
-  for (const r of [...titleRows, ...sumRows]) {
-    if (typeof r.title !== "string" || !r.title.trim()) continue;
-    byWs.set(String(r.workspace_id), [...(byWs.get(String(r.workspace_id)) ?? []), r]);
+  for (const r of olds) {
+    const a = typeof r.url_key === "string" ? shared.get(r.url_key) : undefined;
+    if (!a) { byWs.set(String(r.workspace_id), [...(byWs.get(String(r.workspace_id)) ?? []), r]); continue; }
+    const ko = typeof a.title_ko === "string" && a.title_ko ? a.title_ko : undefined;
+    const sum = typeof a.summary === "string" && HANGUL.test(a.summary) ? a.summary : undefined;
+    const c = titlePatch(r, ko, sum, false, nowIso);
+    if (c.patch) { copies.push({ r, patch: c.patch }); continue; }
+    const g = byArt.get(String(a.id)) ?? { a, olds: [] };
+    g.olds.push(r); byArt.set(String(a.id), g);
   }
+  await patchOldTitles(db, copies);
+  let done = copies.length, deferred = 0, calls = 0;
+  // 공용 기사 묶음(기사마다 1회). 예약 실행은 옛 줄 없는 공용 외국어 기사도.
+  if (!onlyWs) {
+    try {
+      const artSel = `${cond}&select=${ART_SELECT}&order=created_at.desc&limit=1000`;
+      const arts = [...await db.get(`app_news_articles?title_ko=is.null&${artSel}`), ...await db.get(`app_news_articles?title_ko=not.is.null&summary=not.is.null&${artSel}`)];
+      for (const a of arts) {
+        if (typeof a.id !== "string" || byArt.has(a.id) || typeof a.title !== "string" || !a.title.trim()) continue;
+        if (a.title_ko && !foreignSum(a)) continue;
+        byArt.set(a.id, { a, olds: [] });
+      }
+    } catch { log("shared_read_failed"); }
+  }
+  const groups = [...byArt.values()].filter((g) => !g.a.title_ko || foreignSum(g.a));
+  // 공용 기사에 이미 번역이 있고 옛 줄만 소개가 다른 경우 등 — 공용 쪽에 할 일이 없는 옛 줄은 작업공간 묶음으로 돌린다.
+  for (const g of byArt.values()) if (!groups.includes(g)) for (const r of g.olds) byWs.set(String(r.workspace_id), [...(byWs.get(String(r.workspace_id)) ?? []), r]);
+  if (groups.length) {
+    const ws = onlyWs ?? await operatorWs(db);
+    const dayStart = new Date(`${kstDay(nowMs)}T00:00:00+09:00`).toISOString();
+    if (!ws || clock() - startMs > RUN_BUDGET_MS) deferred += groups.length;
+    else {
+      const today = (await db.get(`app_news_articles?translated_at=gte.${encodeURIComponent(dayStart)}&select=id&limit=${TITLES_DAILY + 1}`)).length;
+      const room = Math.max(0, Math.min(TITLE_BATCH, TITLES_DAILY - today));
+      if (!room) deferred += groups.length;
+      else if (await aiMonthStop(db, ws, nowMs)) { log("ai_month_cap"); deferred += groups.length; }
+      else {
+        const batch = groups.slice(0, room);
+        deferred += groups.length - batch.length;
+        const out = await titleBatch(db, ai, ws, batch.map((g) => g.a), nowMs, log);
+        calls++;
+        const oldPatches: { r: Row; patch: Row }[] = [], tried: string[] = [];
+        for (const [k, g] of batch.entries()) {
+          const ko = out.got.get(k + 1), sum = out.sums.get(k + 1);
+          const ap = titlePatch(g.a, ko, sum, out.answered, nowIso);
+          if (ap.patch) await patchArticle(db, log, g.a.id, ap.patch, `&${titleGuard(g.a)}`);
+          else if (ap.tried) tried.push(String(g.a.id));
+          // 옛 줄에는 공용 기사에 들어간(또는 이미 있던) 값을 적는다.
+          const koAll = ko ?? (typeof g.a.title_ko === "string" ? g.a.title_ko : undefined);
+          for (const r of g.olds) {
+            const op = titlePatch(r, koAll, sum, out.answered, nowIso);
+            if (op.patch) oldPatches.push({ r, patch: op.patch });
+            else if (op.tried) await db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${r.workspace_id}`, { title_tried_at: nowIso }, "return=minimal");
+          }
+        }
+        await patchOldTitles(db, oldPatches);
+        if (tried.length) {
+          try { await db.send("PATCH", `app_news_articles?id=in.(${tried.join(",")})`, { title_tried_at: nowIso }, "return=minimal"); } catch { log("shared_write_failed"); }
+        }
+        done += batch.length;
+      }
+    }
+  }
+  // 공용 기사가 없는 옛 줄(옮기기 사이에 옛 표에만 들어온 줄): 예전처럼 작업공간마다.
   const dayStart = new Date(`${kstDay(nowMs)}T00:00:00+09:00`).toISOString();
-  let done = 0, deferred = 0, calls = 0;
   for (const [ws, list] of byWs) {
     if (clock() - startMs > RUN_BUDGET_MS) { deferred += list.length; continue; }
     const today = (await db.get(`app_news_items?workspace_id=eq.${ws}&translated_at=gte.${encodeURIComponent(dayStart)}&select=id&limit=${TITLES_DAILY + 1}`)).length;
@@ -813,46 +1008,21 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
     if (await aiMonthStop(db, ws, nowMs)) { log("ai_month_cap"); deferred += list.length; continue; }
     const batch = list.slice(0, room);
     deferred += list.length - batch.length;
-    const material = batch.map((r, k) => `${k + 1}\t${r.title_ko ? "" : cut(oneLine(String(r.title)), 300)}\t${cut(oneLine(String(r.summary ?? "")), 400)}`).join("\n");
-    const out = await askAi(ai, "news_titles", TITLES_INSTRUCTIONS, material, TITLES_SCHEMA, Math.min(12000, batch.length * 260 + 200), 90000);
+    const out = await titleBatch(db, ai, ws, batch, nowMs, log);
     calls++;
-    if (out.usage.input || out.usage.output) {
-      try { await addDay(db, ws, kstDay(nowMs), { ai_requests: 1, ai_input_tokens: out.usage.input, ai_output_tokens: out.usage.output }, nowMs); }
-      catch { log("usage_record_failed"); }
-    }
-    const got = readTitles(out.value, batch.length);
-    const sums = readTitleSums(out.value, batch.length);
-    const nowIso = new Date(nowMs).toISOString();
-    // AI가 답했는지(답 글이 있거나 토큰을 썼음). 답하지 않았으면 시도 시각을 적지 않는다.
-    const answered = out.value !== null || out.usage.input > 0 || out.usage.output > 0;
     const patches: { r: Row; patch: Row }[] = [], tried: string[] = [];
     for (const [k, r] of batch.entries()) {
-      const i = k + 1, ko = got.get(i), sum = sums.get(i);
-      const wantSum = typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
-      const patch: Row = {};
-      if (!r.title_ko && ko) patch.title_ko = ko;
-      if (sum && wantSum) patch.summary = sum;
-      // 부탁한 것(제목이 없으면 제목, 소개가 외국어면 소개) 가운데 하나라도 못 받았으면 시도 시각을 적는다.
-      const missing = answered && ((!r.title_ko && !ko) || (wantSum && !sum));
-      if (!Object.keys(patch).length) { if (missing) tried.push(String(r.id)); continue; }
-      // 하루 상한은 translated_at 줄 수로 센다 — 제목을 새로 채운 줄만 찍는다.
-      if (patch.title_ko) patch.translated_at = nowIso;
-      if (missing) patch.title_tried_at = nowIso;
-      patch.updated_at = nowIso;
-      patches.push({ r, patch });
+      const p = titlePatch(r, out.got.get(k + 1), out.sums.get(k + 1), out.answered, nowIso);
+      if (p.patch) patches.push({ r, patch: p.patch }); else if (p.tried) tried.push(String(r.id));
     }
-    // 그 사이 다른 실행·번역 버튼이 먼저 채웠으면 덮지 않는다(제목은 title_ko=is.null, 소개만이면 title_ko가 이미 있는 줄).
-    for (let p = 0; p < patches.length; p += TITLE_PATCH_PARALLEL) {
-      await Promise.all(patches.slice(p, p + TITLE_PATCH_PARALLEL).map(({ r, patch }) =>
-        db.send("PATCH", `app_news_items?id=eq.${r.id}&workspace_id=eq.${ws}&${r.title_ko ? "title_ko=not.is.null" : "title_ko=is.null"}`, patch, "return=minimal")));
-    }
+    await patchOldTitles(db, patches);
     done += patches.length;
     // 아무것도 못 받은 줄은 시도 시각만 한 번에 적는다(번역 칸은 건드리지 않음).
     if (tried.length) {
       await db.send("PATCH", `app_news_items?workspace_id=eq.${ws}&id=in.(${tried.join(",")})`, { title_tried_at: nowIso }, "return=minimal");
     }
   }
-  log("titles_done", { done, deferred, calls });
+  log("titles_done", { done, deferred, calls, copied: copies.length });
   return { ok: true, step: "titles", done, deferred };
 }
 
