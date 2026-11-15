@@ -17,20 +17,37 @@ const A='https://news.example.com/article/1001';
 
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({ws=JSON.stringify(WS),existing=[],insertStatus=201}={}){
-  const calls={feature:[],inserts:[],other:[],outside:0,logs:[]};
+function harness({ws=JSON.stringify(WS),existing=[],insertStatus=201,shared=[],sharedStatus=201,takenIds=[]}={}){
+  const calls={feature:[],inserts:[],articles:[],other:[],outside:0,logs:[]};
   const keys=new Set(existing);
+  const ids=new Set(takenIds);
+  // 공용 기사(app_news_articles): url_key 전체 유일. shared = 이미 있는 [url_key, id].
+  const art=new Map(shared);
   const doFetch=async(input,init={})=>{
     const url=new URL(String(input));
     if(url.origin!==SB){calls.outside++;throw new Error('바깥 호출 없음');}
     const path=url.pathname.replace('/rest/v1/','');
     if(path==='rpc/app_operator_feature_workspace'){calls.feature.push(JSON.parse(init.body));return respond(ws);}
+    if(path==='app_news_articles'&&init.method==='POST'){
+      const row=JSON.parse(init.body);calls.articles.push(row);
+      if(sharedStatus!==201)return respond({},sharedStatus);
+      if(art.has(row.url_key))return respond({code:'23505'},409);
+      art.set(row.url_key,row.id);return respond('',201);
+    }
+    if(path==='app_news_articles'&&(init.method||'GET')==='GET'){
+      const k=decodeURIComponent((url.search.match(/url_key=eq\.([^&]*)/)||[])[1]||'');
+      return respond(art.has(k)?[{id:art.get(k)}]:[]);
+    }
     if(path==='app_news_items'&&init.method==='POST'){
       const row=JSON.parse(init.body);calls.inserts.push(row);
       if(insertStatus!==201)return respond({},insertStatus);
       const k=`${row.workspace_id}|${row.url_key}`;
-      if(keys.has(k))return respond({code:'23505'},409);
-      keys.add(k);return respond('',201);
+      if(keys.has(k)||(row.id&&ids.has(row.id)))return respond({code:'23505'},409);
+      keys.add(k);if(row.id)ids.add(row.id);return respond('',201);
+    }
+    if(path==='app_news_items'&&(init.method||'GET')==='GET'){
+      const k=decodeURIComponent((url.search.match(/url_key=eq\.([^&]*)/)||[])[1]||'');
+      return respond(keys.has(`${WS}|${k}`)?[{id:'x'}]:[]);
     }
     calls.other.push(`${init.method||'GET'} ${path}`);
     return respond([]);
@@ -50,7 +67,13 @@ test('정상: 운영자 기능(telegram)으로 작업공간을 정하고, 채널
   assert.equal(r.status,200);
   assert.deepEqual(await r.json(),{ok:true,received:1,inserted:1,duplicate:0,rejected:0});
   assert.deepEqual(h.calls.feature,[{p_feature:'telegram'}]);
-  assert.deepEqual(h.calls.inserts,[{workspace_id:WS,lane:'channel',url:A+'?id=7',url_key:'news.example.com/article/1001?id=7',scrapped_at:'2026-11-01T02:59:00.000Z',state:'pending'}]);
+  const want={lane:'channel',url:A+'?id=7',url_key:'news.example.com/article/1001?id=7',scrapped_at:'2026-11-01T02:59:00.000Z',state:'pending'};
+  // NEWS-모두에게열기 ②: 공용 기사(origin tg_scrap — 운영자만 봄)와 운영자 옛 줄을 같은 id로(옮기는 동안 둘 다).
+  assert.equal(h.calls.articles.length,1);
+  const id=h.calls.articles[0].id;
+  assert.match(id,/^[0-9a-f-]{36}$/);
+  assert.deepEqual(h.calls.articles,[{id,origin:'tg_scrap',...want}]);
+  assert.deepEqual(h.calls.inserts,[{id,workspace_id:WS,...want}]);
   assert.deepEqual(h.calls.other,[]);
   assert.equal(h.calls.outside,0);
   assert.ok(!h.calls.logs.join('\n').includes('example'),'로그에 주소 없음');
@@ -64,7 +87,8 @@ test('겹침: 같은 요청 안·이미 있는 주소(www·추적 값·끝 / 차
     {url:'https://news.example.com/article/2002?utm_campaign=a'},
   ]});
   assert.deepEqual(await r.json(),{ok:true,received:3,inserted:1,duplicate:2,rejected:0});
-  assert.equal(h.calls.inserts.length,2,'요청 안 겹침은 DB에 가지 않음');
+  assert.equal(h.calls.articles.length,2,'요청 안 겹침은 DB에 가지 않음');
+  assert.equal(h.calls.inserts[0].url_key,'news.example.com/article/1001');
   assert.equal(h.calls.inserts[0].scrapped_at,new Date(NOW).toISOString(),'at 없으면 받은 시각');
 });
 
@@ -75,6 +99,32 @@ test('주소 규칙: http·내부 이름·IP 숫자·포트·사용자 정보·S
   const r=await h.send({items:[...bad.map(url=>({url})),{url:A,at:'2026-11-02T03:00:00Z'},{url:A,at:'2026-07-01T00:00:00Z'},{url:A,at:'2026-11-01 12:00:00'},{url:A}]});
   assert.deepEqual(await r.json(),{ok:true,received:bad.length+4,inserted:1,duplicate:0,rejected:bad.length+3});
   assert.deepEqual(h.calls.inserts.map(x=>x.url),[A]);
+  assert.deepEqual(h.calls.articles.map(x=>x.url),[A],'버린 주소는 공용 표에도 안 감');
+});
+
+test('공용 기사에 같은 주소가 이미 있으면(사이트 수집분 등) 공용 쪽은 그대로, 운영자 옛 줄은 그 id로 넣는다',async()=>{
+  const OLD='b0000000-0000-4000-8000-0000000000aa';
+  const h=harness({shared:[['news.example.com/article/1001',OLD]]});
+  const r=await h.send({items:[{url:A}]});
+  assert.deepEqual(await r.json(),{ok:true,received:1,inserted:1,duplicate:0,rejected:0});
+  assert.equal(h.calls.inserts.length,1);
+  assert.equal(h.calls.inserts[0].id,OLD);
+});
+
+test('공용 기사 id가 이미 다른 작업공간 옛 줄에 쓰였으면 운영자 줄은 새 id로(같은 주소 줄이 없을 때만)',async()=>{
+  const OLD='b0000000-0000-4000-8000-0000000000bb';
+  const h=harness({shared:[['news.example.com/article/1001',OLD]],takenIds:[OLD]});
+  const r=await h.send({items:[{url:A}]});
+  assert.equal((await r.json()).inserted,1);
+  assert.deepEqual(h.calls.inserts.map(x=>x.id),[OLD,undefined],'id 충돌 → 같은 주소 줄 없음 확인 → 새 id');
+});
+
+test('공용 표 쓰기가 실패해도(적용 전·일시 장애) 옛 표 쓰기는 그대로 — 화면 유지',async()=>{
+  const h=harness({sharedStatus:503});
+  const r=await h.send({items:[{url:A}]});
+  assert.deepEqual(await r.json(),{ok:true,received:1,inserted:1,duplicate:0,rejected:0});
+  assert.equal(h.calls.inserts[0].id,undefined);
+  assert.ok(h.calls.logs.some(l=>l.includes('news_shared_failed')));
 });
 
 test('몸통 모양: 칸 추가·작업공간 칸·빈 목록·51줄·글자 아닌 주소는 400이고 DB·기능 확인에 가지 않는다',async()=>{
@@ -130,7 +180,9 @@ test('주소 규칙은 news-feed와 한 곳(_shared/news-url.ts): feed-fetch는 
 
 test('원문 주소 칸 넣기는 대기 줄 칸뿐: 제목·본문·요약·번역·별표·폴더 칸을 쓰지 않는다',()=>{
   const src=readFileSync(new URL('../../supabase/functions/collector-feed/handler.ts',import.meta.url),'utf8');
-  const line=src.split('\n').find(l=>l.includes('db.insert("app_news_items"'));
-  assert.ok(line);
-  for(const k of ['title','body','summary','title_ko','starred_at','folder_id','hidden_at','publisher'])assert.ok(!new RegExp(`\\b${k}:`).test(line),k);
+  const lines=[src.split('\n').find(l=>l.includes('const row = { workspace_id: ws, lane: "channel"')),src.split('\n').find(l=>l.includes('db.insert("app_news_articles"'))];
+  for(const line of lines){
+    assert.ok(line);
+    for(const k of ['title','body','summary','title_ko','starred_at','folder_id','hidden_at','publisher','room','sender','text'])assert.ok(!new RegExp(`\\b${k}:`).test(line),k);
+  }
 });
