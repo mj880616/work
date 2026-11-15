@@ -1,6 +1,6 @@
 // OPS-가입자현황(S62-29): 운영자 '가입자 현황' 화면의 숫자 한 줄과 칸 글자. 순수 함수(화면·서버 없음).
 // 서버 app_signup_list(운영자만)가 돌려주는 배열 한 줄 = {union_name, department_name, name, job_title, email, signed_up_at, last_seen_at}
-// (migration 20261116003000_signup_status). 숫자 셋은 이 배열에서 센다: 전체 · 이번 주 새로(한국 시각 월요일 0시부터) · 최근 7일 쓴 사람.
+// (migration 20261116002500_signup_status). 숫자 셋은 이 배열에서 센다: 전체 · 이번 주 새로(한국 시각 월요일 0시부터) · 최근 7일 쓴 사람.
 // 칸은 명진 확정 문장 그대로(11/15 23:17): 조직 · 부서 · 이름 · 직책 · 이메일 · 가입일 · 마지막 사용. 그 밖의 칸은 그리지 않는다.
 export const COLUMNS = Object.freeze([
   ['union_name', '조직'], ['department_name', '부서'], ['name', '이름'], ['job_title', '직책'],
