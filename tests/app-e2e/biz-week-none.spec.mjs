@@ -23,8 +23,10 @@ async function open(page,width,{spaces=[],spacesLate=0,url='/app/?view=reports'}
   if(spacesLate)await page.route(`${SB}/rest/v1/app_spaces**`,async route=>{await new Promise(r=>setTimeout(r,spacesLate));await route.fallback()});
   // 칸이 보이는 동안 표 모양 자리·표·양식 제목이 한 번이라도 그려졌는지 매 그림마다 센다.
   await page.addInitScript(()=>{
-    window.__seen={skel:0,table:0,heading:0};
+    window.__seen={skel:0,table:0,heading:0};window.__drawn=0;
     const tick=()=>{const box=document.querySelector('#bizWeekBox');
+      // 화면에 안 보여도(다른 화면이 앞에 있거나 칸이 숨겨져 있어도) 칸 안에 표 모양·표가 그려진 적이 있는지도 센다 — 보이는 순간과 겹치면 한 프레임 깜빡임이 된다.
+      if(box&&box.querySelector('.biz-skel,.biz-sum-table'))window.__drawn++;
       if(box&&!box.hidden&&box.offsetParent){if(box.querySelector('.biz-skel'))window.__seen.skel++;if(box.querySelector('.biz-sum-table'))window.__seen.table++;if(/사업요약표/.test(box.textContent))window.__seen.heading++}
       requestAnimationFrame(tick)};
     requestAnimationFrame(tick);
@@ -33,7 +35,7 @@ async function open(page,width,{spaces=[],spacesLate=0,url='/app/?view=reports'}
   if(url.includes('reports'))await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
 }
 const hintShown=page=>expect(page.locator('#bizWeekBox .biz-week-none')).toBeVisible();
-const noTableYet=async page=>{await page.waitForTimeout(400);expect(await page.evaluate(()=>window.__seen)).toEqual({skel:0,table:0,heading:0})};
+const noTableYet=async page=>{await page.waitForTimeout(400);expect(await page.evaluate(()=>[window.__seen,window.__drawn])).toEqual([{skel:0,table:0,heading:0},0])};
 
 for(const width of [412,690,840,1280])test(`${width}: 사업영역이 없으면 빈 표 없이 안내 한 줄 + [+ 사업 만들기]`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -76,13 +78,21 @@ for(const width of [412,880,1280]){
     await open(page,width,{spacesLate:1500});
     await hintShown(page);await noTableYet(page);
   });
+  test(`${width}: 목록이 오기 전에 화면 폭이 바뀌어(폴드 접고 펴기·회전) 다시 그려져도 표 모양 0프레임`,async({page})=>{
+    await open(page,width,{spacesLate:2500,url:'/app/'});
+    await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('home'));
+    await page.evaluate(()=>{window.KPTURouter.go('meetings')});
+    await page.waitForTimeout(900); // 사업 보고 부품은 왔고 사업영역 목록은 아직(2.5초)
+    await page.setViewportSize({width:width<600?700:412,height:900});await page.waitForTimeout(200);await page.setViewportSize({width,height:900});
+    await hintShown(page);await noTableYet(page);
+  });
   test(`${width}: 홈에서 시작해 사업 보고로 → 다른 화면 → 다시 사업 보고`,async({page})=>{
     await open(page,width,{spacesLate:800,url:'/app/'});
-    await page.waitForFunction(()=>window.KPTURouter?.go);
+    await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('home'));
     await page.evaluate(()=>window.KPTURouter.go('meetings'));
     await hintShown(page);
-    await page.evaluate(()=>window.KPTURouter.go('home'));
-    await page.evaluate(()=>window.KPTURouter.go('library'));
+    await page.evaluate(()=>window.KPTURouter.go('home'));await page.waitForFunction(()=>window.KPTURouter.current==='home');
+    await page.evaluate(()=>window.KPTURouter.go('library'));await page.waitForFunction(()=>window.KPTURouter.current==='library');
     await page.evaluate(()=>window.KPTURouter.go('meetings'));
     await hintShown(page);await noTableYet(page);
   });
