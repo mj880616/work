@@ -17,7 +17,7 @@ import {seoulDateKey} from './meeting-time.js';
 
 const WARN_ICON = '<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 2.5 16.5h15zM10 8.5v3.5M10 14.2v.3"/></svg>';
 export const LINK_TEXT = Object.freeze({
-  google:'Google 연결이 끊겨 일정·할 일 저장이 안 돼요',
+  google:'구글 연결이 끊겨 일정·할 일 저장이 안 돼요',
   onedrive:'원드라이브 연결이 풀려 사진을 못 읽어요',
 });
 export function linkLineText(sources) {
