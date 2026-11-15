@@ -214,8 +214,8 @@ test('older Edge reconnect states still show the reconnect action',async({page})
   await mockBase(page);
   await mockTasks(page,action=>action==='overview'?{status:400,body:{error:'Unknown action'}}:action==='status'?{body:{connected:true,authorized:false,needs_reconnect:true}}:{body:{tasks:[],needs_reconnect:true}});
   await login(page);await openTasks(page);
-  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없어요');
-  await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
+  await expect(page.locator('#gtTaskSection')).toContainText('구글 할 일 권한이 빠졌어요');
+  await expect(page.locator('[data-gt-connect]')).toHaveText('구글 할 일 다시 연결');
   expect(await cached(page)).toBeNull();
 });
 
