@@ -60,7 +60,7 @@ export function mountOwnFormEditor(host, {form, name = '', fresh = false, read =
     else { title = el('button', 'row-act journal-own-form-title', s.title); title.type = 'button'; title.dataset.ownFormTitle = s.id; title.setAttribute('aria-label', `${s.title} 이름 수정`); }
     const pick = el('select', 'journal-own-form-fill'); pick.dataset.ownFormFill = s.id; pick.setAttribute('aria-label', `${s.title} 채울 기록`);
     for (const f of FILLS) { const o = el('option', '', FILL_LABEL[f]); o.value = f; o.selected = f === s.fill; pick.append(o); }
-    const more = el('button', 'icon-btn'); more.type = 'button'; { const dots = el('span', 'more-dots', '⋯'); dots.setAttribute('aria-hidden', 'true'); more.append(dots); } more.dataset.ownFormMore = s.id;
+    const more = el('button', 'icon-btn'); more.type = 'button'; { const dots = el('span', 'more-dots', '⋯'); dots.setAttribute('aria-hidden', 'true'); more.append(dots); } more.dataset.ownFormMore = s.id; more.dataset.ctx = 'off';
     more.setAttribute('aria-label', `${s.title} 더 보기`); more.setAttribute('aria-expanded', String(menuFor === s.id));
     const act = (text, key, off) => { const b = el('button', 'row-act', text); b.type = 'button'; b.dataset.ownFormAct = key; b.dataset.id = s.id; b.disabled = !!off; return b; };
     line.append(grip, title, pick, more);
