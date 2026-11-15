@@ -617,10 +617,10 @@ test('구글 연결이 없는 새 계정: 그날 일정·할 일 칸은 연결 �
  await expect.poll(()=>f.links).toEqual(['tasks:web']);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('구글 할 일 권한만 빠진 계정: 할 일 칸은 [다시 연결] 안내, 일정은 그대로',async({page})=>{
+test('구글 할 일 권한만 빠진 계정: 할 일 칸은 [구글 할 일 다시 연결] 안내, 일정은 그대로',async({page})=>{
  const f=await fixture(page,{unlinked:{tasks:'reconnect'}});await openJournal(page,390);
  await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
- await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-link="tasks"]')).toHaveText('구글 할 일 권한을 다시 연결하면 할 일이 여기 보여요. 다시 연결');
+ await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-link="tasks"]')).toHaveText('구글 할 일 권한이 빠졌어요. 다시 연결하면 할 일이 여기 보여요. 구글 할 일 다시 연결');
  await expect(page.locator('#journalRoot [data-journal-failed]')).toHaveCount(0);
  await schedule(page).locator('[data-journal-link]').count().then(n=>expect(n).toBe(0));
  await page.locator('#journalRoot [data-journal-connect="tasks"]').click();
