@@ -9,9 +9,9 @@ function gcrsRun(){
   const url=new URL(location.href),result=url.searchParams.get('google');
   if(!result||result==='connected')return;
   const reason=url.searchParams.get('reason')||'';
-  let message='Google Calendar 연결을 완료하지 못했어요. 다시 연결해 주세요.';
-  if(/access_denied|denied/i.test(reason)||result==='denied')message='Google Calendar 연결이 취소되었거나 이 Google 계정에 OAuth 사용 권한이 없어요.';
-  if(/token/i.test(reason))message='Google 인증 정보를 발급받지 못했어요. Google 계정을 다시 연결해 주세요.';
+  let message='구글 캘린더 연결을 끝내지 못했어요. 다시 시도해 주세요.';
+  if(/access_denied|denied/i.test(reason)||result==='denied')message='구글 캘린더 연결이 취소됐거나 이 구글 계정은 연결할 수 없어요.';
+  if(/token/i.test(reason))message='구글에서 연결 정보를 받지 못했어요. 다시 시도해 주세요.';
   gcrsToast(message,'error');
   url.searchParams.delete('google');url.searchParams.delete('reason');
   history.replaceState({},'',url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():'')+url.hash);
