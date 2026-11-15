@@ -8,7 +8,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 
 const origin=appOrigin;
 const SHOTS=process.env.S62_19_SHOTS?'docs/design/screens/s62-19/':'test-results/';
-const PNG=Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5f0000000049454e44ae426082','hex');
+const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=','base64');
 const ITEMS=[
   {id:'f2',name:'가상 이용자',created_at:'2026-11-15T09:10:00Z',screen:'사진',device:'fold',client:'app',version:'abc123',body:'사진 화면에서 별표가 안 눌려요.\n두 번 눌러야 돼요.',photos:1,done_at:null},
   {id:'f1',name:'다른 이용자',created_at:'2026-11-15T08:00:00Z',screen:'홈',device:'phone',client:'browser',version:'',body:'홈 입력칸 글자가 작아요',photos:0,done_at:null}
@@ -65,7 +65,7 @@ for(const width of [412,880,1280])test(`이용자: 메뉴 맨 아래 의견 보�
   const modal=page.locator('#feedbackModal');
   await expect(modal).toBeVisible();
   await expect(modal).toContainText('운영팀만 봐요');
-  await expect(modal.locator('.fb-auto')).toContainText(`함께 보내는 정보: 달력 · ${width<=760?'폰':width<=1100?'폴드':'PC'} · 브라우저 · 판 300`);
+  await expect(modal.locator('.fb-auto')).toContainText(`함께 보내는 정보: 일정 · ${width<=760?'폰':width<=1100?'폴드':'PC'} · 브라우저 · 판 300`);
   await modal.getByRole('button',{name:'보내기',exact:true}).click();
   await expect(modal.locator('[data-sfm-status]')).toHaveText('보낼 글을 써 주세요');
   await modal.getByLabel('의견').fill('  사진 화면에서 별표가 안 눌려요  ');
@@ -78,7 +78,7 @@ for(const width of [412,880,1280])test(`이용자: 메뉴 맨 아래 의견 보�
   await expect(page.getByText('보냈어요, 고맙습니다')).toBeVisible();
   const send=calls.find(c=>c.path.endsWith('app_feedback_send'));
   expect(send.body.p_body).toBe('사진 화면에서 별표가 안 눌려요');
-  expect(send.body.p_context).toEqual({screen:'달력',device:width<=760?'phone':width<=1100?'fold':'pc',client:'browser',version:'300'});
+  expect(send.body.p_context).toEqual({screen:'일정',device:width<=760?'phone':width<=1100?'fold':'pc',client:'browser',version:'300'});
   expect(send.body.p_photos).toHaveLength(1);
   expect(send.body.p_photos[0].mime).toBe('image/jpeg');
   expect(Object.keys(send.body).sort()).toEqual(['p_body','p_context','p_photos']);
