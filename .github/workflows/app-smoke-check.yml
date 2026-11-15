@@ -237,6 +237,8 @@ on:
       - 'scripts/package-lock.json'
       - 'about/**'
       - 'tests/about-privacy-page.test.mjs'
+      - 'tests/about-privacy-public.test.mjs'
+      - 'android-app/app/src/main/AndroidManifest.xml'
       - 'tests/about-contact-mail.test.mjs'
       - 'scripts/personal-data-allowlist.json'
       - 'scripts/check-personal-data.mjs'
@@ -480,6 +482,8 @@ on:
       - 'scripts/package-lock.json'
       - 'about/**'
       - 'tests/about-privacy-page.test.mjs'
+      - 'tests/about-privacy-public.test.mjs'
+      - 'android-app/app/src/main/AndroidManifest.xml'
       - 'tests/about-contact-mail.test.mjs'
       - 'scripts/personal-data-allowlist.json'
       - 'scripts/check-personal-data.mjs'
@@ -1127,6 +1131,9 @@ jobs:
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+
+      - name: Check privacy page is built, reachable, and matches phone permissions and AI vendors (needs the locked parser) (PRODUCT-개인정보처리방침)
+        run: node --test tests/about-privacy-public.test.mjs
 
       - name: Check save keeps other active edit open (needs the locked parser) (STAB-단위시험등록)
         run: node --test tests/save-other-active.test.mjs
