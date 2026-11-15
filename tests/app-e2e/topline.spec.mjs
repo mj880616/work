@@ -184,7 +184,7 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  // 업데이트 (ED③ 업데이트): the update's new big window (기록할 곳 line with 바구니(미분류), new editor, no [업데이트|노트] switch).
  // 노트 (ED③ 노트): the note's new big window (title row, new editor, no [업데이트|노트] switch).
  {
-  await add.click();await menu.getByRole('button',{name:'업데이트'}).click();
+  await add.click();await menu.getByRole('button',{name:'잊지 말기'}).click();
   const editor=page.locator('#edWindow');await expect(editor).toBeVisible();
   await expect(editor.locator('[data-edw-place]')).toContainText('잊지 말기(미분류)');
   await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();

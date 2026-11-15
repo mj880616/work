@@ -50,7 +50,7 @@ for(const [width,dark] of [[1280,false],[1280,true]])test(`빠른 입력 배치�
  await update.click();await expect(box).toHaveAttribute('data-mode','basket');
  await expect(options).toBeHidden();await expect(box.locator('[data-quick-options]')).toBeHidden();
  await expect(box).not.toContainText('담당조직 기록');
- await expect(update).toHaveText('업데이트');await expect(org).toHaveText('▾');await expect(org).toHaveAccessibleName('기록할 곳 선택');
+ await expect(update).toHaveText('잊지 말기');await expect(org).toHaveText('▾');await expect(org).toHaveAccessibleName('기록할 곳 선택');
  await expect(input).toHaveAttribute('placeholder','잊지 말기에 남길 것');
  const u=await update.boundingBox(),g=await org.boundingBox();
  expect(Math.abs(g.x-(u.x+u.width))).toBeLessThanOrEqual(1);expect(Math.abs(g.y-u.y)).toBeLessThanOrEqual(1);
@@ -68,7 +68,7 @@ for(const [width,dark] of [[1280,false],[1280,true]])test(`빠른 입력 배치�
  // UPD-여러곳고르기: a press only marks; [저장] keeps it and closes the sheet.
  await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();
  await expect(input).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');
- await expect(org).toHaveAccessibleName('기록할 곳 선택: 서해선지부');await expect(box).toHaveAttribute('data-mode','update');await expect(update).toHaveText('업데이트');await expect(org).toBeFocused();
+ await expect(org).toHaveAccessibleName('기록할 곳 선택: 서해선지부');await expect(box).toHaveAttribute('data-mode','update');await expect(update).toHaveText('잊지 말기');await expect(org).toBeFocused();
  await page.screenshot({path:shot(info,`home-quick-update-${width}-${dark?'dark':'light'}`)});
 
  // 다른 모드에서 ▾를 누르면 [업데이트]로 바뀐 뒤 창이 열린다.
