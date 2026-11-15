@@ -20,13 +20,13 @@ union all select 'articles: RLS on, no anon privilege, authenticated select only
   and not has_table_privilege('authenticated',(select r from a),'insert,update,delete,truncate,references,trigger')
   and not exists(select 1 from pg_class where oid=(select r from a) and relacl::text ~ '(^|[{,])=') then '예' else '아니오' end
 union all select 'save function: service_role only',case when to_regprocedure('public.app_news_user_save(uuid,text,text,jsonb)') is null
-  or (not has_function_privilege('anon','public.app_news_user_save(uuid,text,text,jsonb)','execute')
-   and not has_function_privilege('authenticated','public.app_news_user_save(uuid,text,text,jsonb)','execute')
-   and has_function_privilege('service_role','public.app_news_user_save(uuid,text,text,jsonb)','execute')
-   and (select prosecdef and proconfig is not null from pg_proc where oid='public.app_news_user_save(uuid,text,text,jsonb)'::regprocedure)) then '예' else '아니오' end
+  or (not has_function_privilege('anon',to_regprocedure('public.app_news_user_save(uuid,text,text,jsonb)')::oid,'execute')
+   and not has_function_privilege('authenticated',to_regprocedure('public.app_news_user_save(uuid,text,text,jsonb)')::oid,'execute')
+   and has_function_privilege('service_role',to_regprocedure('public.app_news_user_save(uuid,text,text,jsonb)')::oid,'execute')
+   and (select prosecdef and proconfig is not null from pg_proc where oid=to_regprocedure('public.app_news_user_save(uuid,text,text,jsonb)'))) then '예' else '아니오' end
 union all select 'marked function: authenticated only',case when to_regprocedure('private.app_news_marked_by_me(uuid)') is null
-  or (not has_function_privilege('anon','private.app_news_marked_by_me(uuid)','execute')
-   and has_function_privilege('authenticated','private.app_news_marked_by_me(uuid)','execute')
-   and not exists(select 1 from pg_proc where oid='private.app_news_marked_by_me(uuid)'::regprocedure and (proacl is null or proacl::text ~ '(^|[{,])='))) then '예' else '아니오' end
+  or (not has_function_privilege('anon',to_regprocedure('private.app_news_marked_by_me(uuid)')::oid,'execute')
+   and has_function_privilege('authenticated',to_regprocedure('private.app_news_marked_by_me(uuid)')::oid,'execute')
+   and not exists(select 1 from pg_proc where oid=to_regprocedure('private.app_news_marked_by_me(uuid)') and (proacl is null or proacl::text ~ '(^|[{,])='))) then '예' else '아니오' end
 union all select 'news days: no authenticated write',case when not has_table_privilege('authenticated','public.app_news_days','insert,update,delete')
   and not has_table_privilege('anon','public.app_news_days','select,insert,update,delete') then '예' else '아니오' end;
