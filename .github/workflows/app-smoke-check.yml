@@ -1124,6 +1124,9 @@ jobs:
       - name: Check note News marks model (NOTE-News밑줄보관보기)
         run: node --test tests/note-news-marks-model.test.mjs
 
+      - name: Check weekly report screen words (HOME-주간정리이름주간보고)
+        run: node --test tests/ui-words-weekly-report.test.mjs
+
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
 
