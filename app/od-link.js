@@ -41,7 +41,7 @@ export function paintOdLink(button, od, fault = false) {
 
 // 드롭다운 항목. model = {od, fault, message, show(일기에서 사진 보이기 켜짐?), showLabel?}
 // 누르면 data-od-act 값('connect'|'retry'|'folder'|'subfolders'|'show'|'reconnect'|'disconnect')을 onAction이 받는다.
-export function odLinkMenuHtml({od = {}, fault = false, message = '', show = true, showLabel = '일기에서 사진 보이기'} = {}) {
+export function odLinkMenuHtml({od = {}, fault = false, message = '', show = true, showLabel = '하루 기록에서 사진 보이기'} = {}) {
   const state = odLinkState(od, fault);
   const where = od.connected && od.folder?.name && !od.whole ? ` · ${esc(od.folder.name)}` : '';
   const status = `<p class="od-link-status" data-od-link-status><span class="od-link-mark" data-state="${state}" aria-hidden="true"></span>${esc(STATE_TEXT[state] || STATE_TEXT.off)}${where}</p>${message ? `<p class="od-link-note">${esc(message)}</p>` : ''}`;

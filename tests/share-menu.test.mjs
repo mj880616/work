@@ -67,6 +67,6 @@ test('화면 연결: [공유]가 있는 곳 모두(사진 크게 보기·문서 
 
 test('S48-56: [일기에 넣기]는 부르는 쪽이 diary()를 줄 때만, 동영상은 없음', async () => {
   const {shareRows, SHARE_ROW_TEXT} = await import('../app/share-menu.js');
-  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['일기에 넣기', '업데이트로 보내기', '받기']);
+  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['하루 기록에 넣기', '업데이트로 보내기', '받기']);
   assert.deepEqual(shareRows({video:true, diary:true}), ['download']);
 });
