@@ -207,7 +207,7 @@ const latestBase = findBase;
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
 // draftDelay: how long typing must pause before the draft is saved (tests may pass a shorter one).
 // onMemory(list): [기억하기]로 내 프로필의 주간보고 기억을 쓴 뒤 저장된 목록을 알린다(journal.js가 [주간 정리]를 다시 그림).
-export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onFlow = () => {}, onRequestsSlot = () => {}, onSchedule = () => {}, onLearn = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
+export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onFlow = () => {}, onBase = () => {}, onRequestsSlot = () => {}, onSchedule = () => {}, onLearn = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
   if (!host) return null;
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -278,6 +278,19 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true;
     schedEdit = null; schedNote = null; schedAi = false; clearTimeout(schedNoteTimer);
     panel.hidden = true; body.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote(); paintPlace();
+  }
+  // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 개인·팀 확정본) 있는지 주마다 한 번 본다. 없으면 [주간 보고]는 백지 + 올리기 한 줄
+  // (journal.js) — 바탕이 없는 새 가입자에게 코드에 박힌 다른 팀 양식(항목 이름·표 칸)을 보이지 않는다. 못 읽으면 'unknown'(지금처럼 그림).
+  const baseKnown = new Map(), baseFlight = new Set();
+  function baseState(week) {
+    if (state && state.start === week) return 'some';
+    return baseKnown.get(week) ?? 'unknown';
+  }
+  function checkBase(week) {
+    if (!week || baseKnown.has(week) || baseFlight.has(week) || (state && state.start === week)) return;
+    baseFlight.add(week);
+    latestBase(rt, reportDay(week)).then(pick => { baseKnown.set(week, pick?.doc ? 'some' : 'none'); }, () => {})
+      .finally(() => { baseFlight.delete(week); if (baseKnown.has(week) && getWeek().start === week) onBase(week); });
   }
   // 그 주 바탕을 연다(이미 열려 있으면 그대로). 그 주 임시저장에 바탕 자료가 적혀 있으면 그것을, 없으면 자료실 최신 개인본(없으면 팀 확정본).
   // 반환: 열렸으면 state, 못 열었으면 null(까닭은 상태 줄).
@@ -1783,6 +1796,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     paint() { if (!topEdit) paintTop(); paintConfirm(); },
     // 칸 줄이 아직 없을 때 [주간 정리]가 부른다: 바탕을 열어 처음 초안(proposed)을 만든다.
     prepare: () => ensure(),
+    // 바탕이 있나: 'some'(열렸거나 자료실에 있음) | 'none'(자료실에 없음) | 'unknown'(아직 모름·못 읽음). checkBase(week)는 한 번 읽고 끝나면 onBase.
+    baseState, checkBase,
+    // 백지 화면의 [파일 올리기]: 기기 한글 파일을 이 주 바탕으로 연다. 끝난 뒤 바탕 상태와 상태 줄 글을 돌려준다.
+    openFile: file => fromFile(file).then(() => ({state:baseState(getWeek().start), note:status.textContent || ''})),
     // 그 주 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳(칸 id → 줄). 바탕을 연 판에서만.
     team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
     // WEEKLY-사업영역묶음 ②: 그 주 바탕(양식)을 연 판에서만 사업영역 이름 → 양식 첫 칸 이름(Map). 양식에 내 줄이 없거나 아직 안 열었으면 null.

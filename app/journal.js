@@ -559,6 +559,9 @@ function renderWeekly_({refreshBox = true} = {}) {
   }
   askScope();
   const host = $('[data-journal-weekly]');
+  // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 확정본)이 없고 그 주 초안도 없으면 다른 팀 양식 대신 백지 + 올리기 한 줄.
+  hwpx?.checkBase?.(start);
+  if (hwpx?.baseState?.(start) === 'none' && !weekRow()?.draft) { paintBlank(host); renderNextWeek_(); return; }
   // 다시 그려도 초점이 있던 칸(id 가 있는 입력칸)은 그 칸으로 돌아간다 — 바탕을 여는 동안·저장 뒤 다시 그릴 때 2)·3) 표 입력 초점이 빠지지 않게.
   const was = document.activeElement, keep = was && was.id && host.contains(was) && /^(INPUT|TEXTAREA|SELECT)$/.test(was.tagName) ? {id:was.id, at:[was.selectionStart, was.selectionEnd]} : null;
   // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
@@ -600,6 +603,30 @@ function renderWeekly_({refreshBox = true} = {}) {
   // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).
   if (refreshBox) hwpx?.refresh();
   if (keep && (document.activeElement === document.body || !document.activeElement)) { const back = document.getElementById(keep.id); if (back && !back.disabled) { back.focus({preventScroll:true}); try { if (keep.at[0] != null) back.setSelectionRange(keep.at[0], keep.at[1]); } catch { /* 글 칸이 아님 */ } } }
+}
+// 바탕 없는 주의 [주간 보고]: 한 줄 + [파일 올리기](끌어 놓기도). 고른 한글 파일을 그 주 바탕으로 열면(journal-hwpx.js openFile) 다시 그린다.
+function paintBlank(host) {
+  if (host.querySelector('[data-weekly-blank]')) return;
+  const box = document.createElement('section'); box.className = 'journal-weekly-blank'; box.dataset.weeklyBlank = '';
+  box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="mini" data-weekly-blank-pick>파일 올리기</button></p>'
+    + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
+  const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]'), pick = box.querySelector('[data-weekly-blank-pick]');
+  const open = async file => {
+    if (!file || pick.disabled) return;
+    pick.disabled = true; note.textContent = `"${file.name}"을(를) 여는 중…`;
+    try {
+      const r = await hwpx.openFile(file);
+      if (r.state === 'some') { renderWeekly_(); return; }
+      note.textContent = r.note || '파일을 열지 못했어요. 다시 골라 주세요.';
+    } catch { note.textContent = '파일을 열지 못했어요. 다시 골라 주세요.'; }
+    pick.disabled = false;
+  };
+  pick.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => { const f = input.files?.[0]; input.value = ''; void open(f); });
+  box.addEventListener('dragover', e => { if (!e.dataTransfer?.types?.includes?.('Files')) return; e.preventDefault(); box.classList.add('is-over'); });
+  box.addEventListener('dragleave', () => box.classList.remove('is-over'));
+  box.addEventListener('drop', e => { box.classList.remove('is-over'); const f = e.dataTransfer?.files?.[0]; if (!f) return; e.preventDefault(); void open(f); });
+  host.replaceChildren(box);
 }
 // [주간 정리]·상자 어느 쪽이 그 주 임시저장(2)·3) 줄)을 쓴 뒤: 재료를 바꾸고 두 자리를 다시 그리고, 열린 상자도 서버 판과 맞춘다.
 // 그 주 처음(칸 줄 없음): 바탕을 한 번 열어 처음 초안을 만든다(상자 ensure). 못 열면 그 주에는 다시 묻지 않고 까닭 한 줄.
@@ -785,6 +812,8 @@ const mountHwpx = () => W.mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
   // S52-31: 5. 주요 일정 줄 제자리 고치기가 열리거나 닫혔다(저장됨·AI 한 줄 포함): 화면만 다시.
   onSchedule: () => renderWeekly_({refreshBox:false}),
+  // 그 주 바탕이 있는지 알게 됐다(없으면 백지, 있으면 지금 화면): 다시 그린다.
+  onBase: week => { if (week === start) renderWeekly_({refreshBox:false}); },
   // WEEKLY-주간정리다듬기 ④: ⋯ [배운 것 보기] — 맨 아래 '배운 것'(주간보고 기억·규칙·환류) 칸을 열고 그리로 옮긴다.
   onLearn: () => { memoryUi.shown = true; renderWeekly_({refreshBox:false}); $('[data-journal-weekly-learned]')?.scrollIntoView({block:'start'}); },
   // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
