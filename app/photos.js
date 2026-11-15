@@ -534,7 +534,7 @@ const gdReconnectable = () => GDRIVE_RECONNECT.includes(gd.problem);
 function gdNoteHtml() {
   if (!gdOn() || !gd.problem) return '';
   // 연결 전: 원드라이브와 같은 한 줄(같은 연결 흐름 drive-start).
-  if (gd.problem === 'drive_not_connected') return `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 연결 뒤 쓸 수 있어요 <button type="button" class="mini" data-photos-gd-reconnect>연결</button></p>`;
+  if (gd.problem === 'drive_not_connected') return `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 연결 뒤 쓸 수 있어요 <button type="button" class="secondary" data-photos-gd-reconnect>연결</button></p>`;
   const why = `<small class="photos-gd-why">${esc(gdriveErrorText({message:gd.problem}))}</small>`;
   return gdReconnectable()
     ? `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 · <span class="photos-gd-state">권한 없음</span> <button type="button" class="mini" data-photos-gd-reconnect>Drive 다시 연결</button> ${why}</p>`

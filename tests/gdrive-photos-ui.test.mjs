@@ -62,7 +62,7 @@ test('사진 화면: 칩은 모두에게(S62-11, 연결 상태는 서버 status)
   const s = read('app/photos.js');
   assert.doesNotMatch(s, /gdriveAllowed|myFeatures/);
   assert.match(s, /try \{ next = \{allowed:true, \.\.\.gdriveState\(await gdStatus\(rt\)\), checked:true\}; \}/);
-  assert.match(s, /gd\.problem === 'drive_not_connected'\) return `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 연결 뒤 쓸 수 있어요 <button type="button" class="mini" data-photos-gd-reconnect>연결<\/button><\/p>`/);
+  assert.match(s, /gd\.problem === 'drive_not_connected'\) return `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 연결 뒤 쓸 수 있어요 <button type="button" class="secondary" data-photos-gd-reconnect>연결<\/button><\/p>`/);
   assert.match(s, /data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>/);
   assert.match(s, /sourceButtons\(sources, \{phone:phone\.available\(\), gdrive:gd\.allowed, gdriveProblem:gd\.problem\}\)/);
   const trash = s.slice(s.indexOf('async function gdTrashPicked'), s.indexOf('const gdName'));
