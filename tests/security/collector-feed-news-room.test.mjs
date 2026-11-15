@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 // NEWS-모두에게열기 ②: collector-feed ?action=telegram이 뉴스방 글에서 기사 주소만 뽑아 서버 전용 DB 함수 app_news_room_take로 보낸다.
 // 지어낸 Supabase로 실제 handler를 돌린다(네트워크·AI 없음 — AI 열쇠가 없어 주소 단계 뒤 503 AI_NOT_CONFIGURED로 멈춘다).
 // 방·사람·주소는 모두 지어낸 것이다. 원문·방 이름·보낸 사람이 공용 표 쪽 호출에 실리지 않는지(거절 시험)를 본다.
-const {createCollectorFeedHandler,newsRoomItems,NEWS_ROOM_FN,NEWS_ROOM_CHUNK}=await import('../../supabase/functions/collector-feed/handler.ts');
+const {createCollectorFeedHandler,newsRoomItems,NEWS_ROOM_FN,NEWS_ROOM_CHUNK,FAMILY_TABLE}=await import('../../supabase/functions/collector-feed/handler.ts');
 
 const SB='https://synthetic.supabase.test';
 const FN=`${SB}/functions/v1/collector-feed`;
@@ -26,7 +26,7 @@ function harness({take=()=>({status:200,body:{ok:true,news:false,taken:0,dup:0,w
     if(path==='rpc/app_operator_feature_workspace')return respond(JSON.stringify(WS));
     if(path===`rpc/${NEWS_ROOM_FN}`){const args=JSON.parse(init.body);calls.take.push(args);const r=take(args,calls.take.length);return respond(r.body,r.status);}
     if(path.startsWith('rpc/'))return respond({ok:true});
-    if(path==='app_family_notes'){calls.family++;return respond(family?[{source_ref:'fam:tg:x:1'}]:[]);}
+    if(path===FAMILY_TABLE){calls.family++;return respond(family?[{source_ref:'fam:tg:x:1'}]:[]);}
     if(path==='app_news_articles'&&method==='GET'){calls.articleGets.push(decodeURIComponent(url.search));return respond(articles);}
     if(path==='app_news_items'&&method==='POST'){calls.oldInserts.push(JSON.parse(init.body));return respond('',201);}
     if(method==='GET')return respond([]);
