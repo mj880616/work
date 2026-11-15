@@ -65,7 +65,7 @@ test('760 ↔ 761 restores week, recalculates defaults and respects explicit cho
   await page.setViewportSize({width:760,height:844});await expect(page.locator('#calendarList')).toBeVisible();
   await expect(page.locator('[data-calendar-view]:visible')).toHaveCount(2);
   expect(saved(prefs)).toBe('week');
-  await page.evaluate(()=>window.KPTUCalendarTasks.refresh());
+  await page.waitForFunction(()=>window.KPTUCalendarTasks);await page.evaluate(()=>window.KPTUCalendarTasks.refresh()); // 할 일 칸은 화면이 보인 뒤 늦게 불러온다(view-loader.js) — 불러온 뒤에 부른다
   await page.setViewportSize({width:761,height:844});await expect(page.locator('#calendarWeek')).toBeVisible();
   await expect(page.locator('[data-calendar-view]:visible')).toHaveCount(3);
   await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-19');

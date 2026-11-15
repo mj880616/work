@@ -25,7 +25,7 @@ test('드롭다운 항목: 연결 상태 / 폴더 바꾸기 / 하위 폴더 켜�
   assert.match(html, /data-od-link-status[^>]*>.*연결됨 · 카메라/);
   assert.deepEqual(acts(html), ['folder', 'subfolders', 'show', 'disconnect']);
   assert.match(html, />폴더 바꾸기</); assert.match(html, />하위 폴더 켜고 끄기</); assert.match(html, /연결 끊기</);
-  assert.match(html, /role="menuitemcheckbox" aria-checked="true" data-od-act="show"><span class="od-link-check" aria-hidden="true">✓<\/span>일기에서 사진 보이기/);
+  assert.match(html, /role="menuitemcheckbox" aria-checked="true" data-od-act="show"><span class="od-link-check" aria-hidden="true">✓<\/span>하루 기록에서 사진 보이기/);
   assert.match(odLinkMenuHtml({od:OK, show:false}), /aria-checked="false" data-od-act="show"><span class="od-link-check" aria-hidden="true"><\/span>/);
   assert.match(odLinkMenuHtml({od:OK, show:true, showLabel:'사진 메뉴에 보이기'}), /사진 메뉴에 보이기/);
   // 폴더 선택 전·삭제 권한 없음·연결 안 됨·상태 확인 실패.

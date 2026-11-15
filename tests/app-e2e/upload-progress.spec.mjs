@@ -176,7 +176,7 @@ test.describe('폰 412',()=>{
 
 test.describe('PC 1440',()=>{
  test.use({viewport:{width:1440,height:900}});
- test('일기 사진: 고른 사진 칸 위 막대·%와 합계 줄이 실제 보낸 양으로 오르고, 끝나면 저장된다',async({page})=>{
+ test('하루 기록 사진: 고른 사진 칸 위 막대·%와 합계 줄이 실제 보낸 양으로 오르고, 끝나면 저장된다',async({page})=>{
   const rows=[],uploads=[];let n=0;
   const srv=await slowServer(raw=>{
    const sent=multipart(raw);uploads.push(sent);
@@ -205,7 +205,7 @@ test.describe('PC 1440',()=>{
   const ed=page.locator('#diaryRoot [data-diary-editor]');
   const jpeg=Buffer.from((await page.evaluate(async()=>{const k=document.createElement('canvas');k.width=2000;k.height=1500;const x=k.getContext('2d');const img=x.createImageData(2000,1500);let s=7;for(let i=0;i<img.data.length;i++){s=(s*1103515245+12345)>>>0;img.data[i]=i%4===3?255:s>>>24;}x.putImageData(img,0,0);return k.toDataURL('image/jpeg',1);})).split(',')[1],'base64');
   expect(jpeg.length).toBeGreaterThan(5*MB);
-  await ed.locator('[data-diary-input]').setInputFiles([{name:'일기.jpg',mimeType:'image/jpeg',buffer:jpeg}]);
+  await ed.locator('[data-diary-input]').setInputFiles([{name:'하루 기록.jpg',mimeType:'image/jpeg',buffer:jpeg}]);
   await expect(ed.locator('.diary-thumb.pending')).toHaveCount(1);
   await ed.locator('[data-diary-save]').click();
   const over=ed.locator('.diary-thumb.pending .up-tile-over');
@@ -215,7 +215,7 @@ test.describe('PC 1440',()=>{
   expect(seen.length).toBeGreaterThan(0);
   expect(rising(seen)).toBe(true);
   await expect(ed).toBeHidden({timeout:30000});
-  await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('일기를 저장했어요.');
+  await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('하루 기록을 저장했어요.');
   expect(uploads).toHaveLength(1);
   expect(errors).toEqual([]);
   srv.server.close();

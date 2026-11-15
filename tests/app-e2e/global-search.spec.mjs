@@ -58,7 +58,7 @@ for(const width of [1280,1440]){
   // 칩: 전체·업데이트·노트·할 일·자료실·사업 보고·일정(+건수). 업무일지 칩 없음, 일기 없음.
   const chips=panel(page).locator('.gs-chips [data-filter-value]');
   await expect(chips).toHaveText([/^전체 \d+$/,'업데이트 5','노트 1',/^할 일 \d+$/,'자료실 1','사업 보고 0',/^일정 \d+$/]);
-  await expect(panel(page)).not.toContainText('일기');
+  await expect(panel(page)).not.toContainText('하루 기록');
   // 업데이트 묶음: 띠(아이콘+굵은 이름+오른쪽 건수), 3줄 + "5건 모두 보기".
   const upd=panel(page).locator('[data-gs-group="update"]');
   await expect(upd.locator('.gs-band .gs-band-name')).toHaveText('업데이트');

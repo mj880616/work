@@ -152,12 +152,14 @@ test('[파일] 폰 412: 모두 끈 채 첫 화면 나무도 안내 한 줄, 켜�
   expect(errors).toEqual([]);
 });
 
-test('[파일] 구글 드라이브가 연결돼 있지 않으면 그 아이콘·나무는 없고, 원드라이브 아이콘을 누르면 켜기/끄기, 연결 안 된 쪽은 연결 안내 한 줄', async ({ page }) => {
+test('[파일] 구글 드라이브가 연결돼 있지 않으면 그 아이콘은 흐리게 보이고 나무는 없고, 원드라이브 아이콘을 누르면 켜기/끄기, 연결 안 된 쪽은 연결 안내 한 줄', async ({ page }) => {
   const { errors } = await start(page, 1440, { connected: { od: true, gd: false } });
   await installViewPrefsServer(page);
   await openFiles(page, 1440);
   await expect(chip(page, 'od')).toBeVisible();
-  await expect(chip(page, 'gd')).toBeHidden();
+  // S62-16 FILES-구글드라이브아이콘연결전: 연결 전에도 흐리게 보인다.
+  await expect(chip(page, 'gd')).toBeVisible();
+  await expect(chip(page, 'gd')).toHaveClass(/fx-src-off/);
   await expect(roots(page)).toHaveCount(1);
   await chip(page, 'od').click();
   await expect(chip(page, 'od')).toHaveAttribute('aria-pressed', 'false');
@@ -171,7 +173,10 @@ test('[파일] 원드라이브가 연결 전이면 아이콘을 눌러도 켜지
   await openFiles(page, 1440);
   await expect(chip(page, 'od')).toHaveAttribute('aria-pressed', 'false');
   await chip(page, 'od').click();
-  await expect(root(page).locator('[data-fx-note]')).toContainText('원드라이브가 연결돼 있지 않아요');
+  // S62-16: 공용 연결 안내(글 한 줄 → 아래 [원드라이브 연결]).
+  const box = root(page).locator('[data-fx-connect-box] [data-connect-note]');
+  await expect(box.locator('.connect-note-line')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요.');
+  await expect(box.getByRole('button', { name: '원드라이브 연결', exact: true })).toBeVisible();
   expect(prefs.patches.filter(p => 'files_sources' in p)).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -278,4 +283,44 @@ test('[파일] 폰 412: [큰 파일]을 못 읽으면 \'불러오지 못했습�
   await fail.locator('[data-fx-retry]').click();
   await expect(root(page).locator('[data-fx-list] [data-fx-row]').first()).toBeVisible();
   expect(errors.filter(e => !/500/.test(e))).toEqual([]);
+});
+
+// S62-16 FILES-구글드라이브아이콘연결전: 구글 드라이브를 아직 연결 안 한 새 계정도 [파일]에서 연결할 길이 있다(사진 칩과 같은 규칙·같은 부품).
+test('[파일] 구글 드라이브 연결 전: 아이콘을 누르면 켜지지 않고 글 한 줄 아래 [구글 드라이브 연결], 누르면 drive-start', async ({ page }) => {
+  const { errors } = await start(page, 412, { connected: { od: true, gd: false } });
+  const prefs = await installViewPrefsServer(page);
+  const starts = [];
+  await page.route('**/functions/v1/public-policy-drive', route => { starts.push(route.request().postDataJSON()); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false }) }); });
+  await openFiles(page, 412);
+  await expect(chip(page, 'gd')).toBeVisible();
+  await chip(page, 'gd').click();
+  const box = root(page).locator('[data-fx-connect-box] [data-connect-note]');
+  await expect(box.locator('.connect-note-line')).toHaveText('구글 드라이브 연결 뒤 쓸 수 있어요.');
+  const btn = box.getByRole('button', { name: '구글 드라이브 연결', exact: true });
+  await expect(btn).toBeVisible();
+  await expect(box).not.toContainText('다시');
+  const [l, bb] = await Promise.all([box.locator('.connect-note-line').boundingBox(), btn.boundingBox()]);
+  expect(bb.y).toBeGreaterThanOrEqual(l.y + l.height - 1);
+  expect(prefs.patches.filter(p => 'files_sources' in p)).toEqual([]);
+  await btn.click();
+  await expect.poll(() => starts.map(b => b?.action)).toEqual(['drive-start']);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/files-gd-connect-412.png` });
+  // 한 번 더 누르면 접는다.
+  await chip(page, 'gd').click();
+  await expect(root(page).locator('[data-fx-connect-box]')).toBeHidden();
+  expect(errors.filter(e => !/연결을 시작하지 못했어요|public-policy-drive/.test(e))).toEqual([]);
+});
+
+test('[파일] 둘 다 연결 전이면 "연결된 클라우드가 없어요." 아래 줄에 두 연결 버튼', async ({ page }) => {
+  const { errors } = await start(page, 1440, { connected: { od: false, gd: false } });
+  await installViewPrefsServer(page);
+  await openFiles(page, 1440);
+  const box = root(page).locator('[data-fx-connect-box] [data-connect-note]');
+  await expect(box.locator('.connect-note-line')).toHaveText('연결된 클라우드가 없어요.');
+  await expect(box.getByRole('button')).toHaveText(['원드라이브 연결', '구글 드라이브 연결']);
+  const [l, bb] = await Promise.all([box.locator('.connect-note-line').boundingBox(), box.getByRole('button').first().boundingBox()]);
+  expect(bb.y).toBeGreaterThanOrEqual(l.y + l.height - 1);
+  await expect(root(page).locator('[data-fx-note]')).toBeHidden();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/files-none-1440.png` });
+  expect(errors).toEqual([]);
 });

@@ -41,3 +41,8 @@ test('할 일 화면은 공용 부품으로 그리고 옛 "권한 다시 연결"
   assert.match(src, /connectNoteFor\('tasks',mode==='none'\?'none':'reconnect'/);
   assert.doesNotMatch(src, /Google 할 일 권한 다시 연결|Google 권한 다시 연결|함께 관리할 수 있습니다/);
 });
+
+test('버튼 여럿: 아래 줄에 나란히(한 줄 묶음), 각자 속성', () => {
+  const h = connectNoteHtml({line:'연결된 클라우드가 없어요.', buttons:[{label:'원드라이브 연결', attrs:{'data-c':'od'}}, {label:'구글 드라이브 연결', attrs:{'data-c':'gd'}}]});
+  assert.match(h, /<\/p><span class="connect-note-btns"><button[^>]*data-c="od">원드라이브 연결<\/button><button[^>]*data-c="gd">구글 드라이브 연결<\/button><\/span><\/div>$/);
+});

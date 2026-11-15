@@ -48,7 +48,7 @@ for(const width of [390,1440])test(`organization rows fit, preserve order and no
  await expect(sheet(page)).toBeVisible();await expect(all.filter({hasText:'서해선지부'})).toHaveAttribute('aria-pressed','true');
  await expect(sheet(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
  await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
- await expect(sheet(page)).toBeHidden();await expect(q(page).locator('[data-quick-org]')).toHaveText('▾');await expect(q(page).locator('[data-quick-mode="update"]')).toHaveText('업데이트');await expect(q(page).locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 서해선지부');await expect(q(page).locator('[data-quick-input]')).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');await expect(await placeTrigger(page)).toBeFocused();/* HOME-입력칸두모양: 폰은 연 단추 [종류 ▾]로 돌아감 */
+ await expect(sheet(page)).toBeHidden();await expect(q(page).locator('[data-quick-org]')).toHaveText('▾');await expect(q(page).locator('[data-quick-mode="update"]')).toHaveText('잊지 말기');await expect(q(page).locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 서해선지부');await expect(q(page).locator('[data-quick-input]')).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');await expect(await placeTrigger(page)).toBeFocused();/* HOME-입력칸두모양: 폰은 연 단추 [종류 ▾]로 돌아감 */
  await pickQuickMode(page,'org');await expect(sheet(page).locator('[aria-pressed="true"]').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(sheet(page)).toBeHidden();
 });

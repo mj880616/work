@@ -10,6 +10,7 @@ import {treeIconHtml} from './tree-icons.js';
 import {takeNewsItem} from './news-request.mjs';
 import {articleIdOf, readNewsArticles, readNewsOne, readNewsStarred, readNewsKeywordHits, writeNewsMark, writeSignal} from './feed-shared.js';
 import {newsPage} from './feed-shared-model.mjs';
+import {sortByName} from './name-order.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
@@ -158,7 +159,7 @@ function keywordsHtml() {
   if (!state.keywordsLoaded) return head + (state.keywordsFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4}));
   const full = state.keywords.length >= max;
   const add = `<form class="nc-kw-add" data-nc-kw-form><input type="text" data-nc-kw-input maxlength="${KEYWORD_MAX_CHARS}" placeholder="키워드" aria-label="새 키워드" value="${esc(state.draft)}"${full ? ' disabled' : ''}><button type="submit" class="secondary nc-kw-add-btn"${full ? ' disabled' : ''}>더하기</button></form>`;
-  const rows = state.keywords.map(k => `<div class="nc-row">${switchHtml('data-nc-kw', k.word, k.enabled === true, k.word, state.saving.has('kw:' + k.word))}<button type="button" class="nc-del" data-nc-kw-del="${esc(k.word)}" aria-label="${esc(k.word)} 삭제"${state.saving.has('kw:' + k.word) ? ' disabled' : ''}><span aria-hidden="true">×</span></button></div>`).join('');
+  const rows = sortByName(state.keywords, k => k.word).map(k => `<div class="nc-row">${switchHtml('data-nc-kw', k.word, k.enabled === true, k.word, state.saving.has('kw:' + k.word))}<button type="button" class="nc-del" data-nc-kw-del="${esc(k.word)}" aria-label="${esc(k.word)} 삭제"${state.saving.has('kw:' + k.word) ? ' disabled' : ''}><span aria-hidden="true">×</span></button></div>`).join('');
   return head + add + panelFail() + (rows || emptyHtml('키워드 없음')) + keywordHitsHtml();
 }
 // 키워드에 걸린 글(S59-1 NEWS-키워드살리기): 켠 키워드마다 묶음 머리 '철도 · 12건' + 목록과 같은 줄(같은 매체 연달아는 접기). 누르면 공용 상세.
@@ -183,7 +184,7 @@ function sourcesHtml() {
   const head = panelHead('매체 선택', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
   if (!state.catalog || !state.sourcesLoaded) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6}));
   const groups = REGIONS.map(g => {
-    const members = state.catalog.filter(s => s.region === g.key);
+    const members = sortByName(state.catalog.filter(s => s.region === g.key)); // 지역 안은 가나다(NEWS-출처목록가나다)
     if (!members.length) return '';
     return `<section class="nc-group" aria-label="${esc(g.label)}"><h3 class="nc-group-head">${esc(g.label)}</h3>${members.map(s => {
       const row = state.sources.get(s.key), note = sourceNote(row);
