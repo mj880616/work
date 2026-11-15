@@ -142,6 +142,27 @@
 #appView #homeView .journal-weekly-blank.is-over{ border-color:var(--kptu-primary-ink); }
 #appView #homeView .journal-weekly-blank-line{ margin:0; font-size:var(--kptu-text-body); color:var(--kptu-ink); }
 #appView #homeView .journal-weekly-blank [data-weekly-blank-note]:empty{ display:none; }
+/* WEEKLY-내양식자유변형 ③: 내 양식 확인·짝짓기(weekly-own-form-edit.js). 자리(간격·줄)만 — 버튼·칩·고르기 상자 모양은 공용 부품. */
+#appView #homeView .journal-own-form{ margin-top:8px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); }
+#appView #homeView .journal-own-form-head{ margin:0; padding:8px 10px; display:flex; gap:8px; align-items:baseline; border-bottom:1px solid var(--kptu-border); font-size:var(--kptu-text-body); }
+#appView #homeView .journal-own-form-head .row-tail{ margin-left:auto; color:var(--kptu-muted); }
+#appView #homeView .journal-own-form-intro{ margin:0; padding:6px 10px; }
+#appView #homeView .journal-own-form-list{ list-style:none; margin:0; padding:0; }
+#appView #homeView .journal-own-form-row{ padding:4px 10px; border-top:1px solid var(--kptu-border); }
+#appView #homeView .journal-own-form-row.is-sub{ padding-left:22px; }
+#appView #homeView .journal-own-form-row.is-drag{ opacity:.5; }
+#appView #homeView .journal-own-form-row.is-drop{ box-shadow:inset 0 2px 0 var(--kptu-primary-ink); }
+#appView #homeView .journal-own-form-line{ display:flex; align-items:center; gap:6px; min-width:0; }
+#appView #homeView .journal-own-form-grip{ cursor:grab; touch-action:none; }
+#appView #homeView .journal-own-form-title{ flex:1; min-width:0; text-align:left; font-size:var(--kptu-text-body); color:var(--kptu-ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#appView #homeView .journal-own-form-input{ flex:1; min-width:0; }
+#appView #homeView .journal-own-form-fill{ flex:0 0 auto; max-width:11em; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding-block:0; line-height:1.2; font-size:var(--ds-compact-text,13px); }
+#appView #homeView .journal-own-form-menu{ display:flex; gap:10px; justify-content:flex-end; padding:2px 0; }
+#appView #homeView .journal-own-form-cols{ display:flex; flex-wrap:wrap; gap:4px; margin:4px 0 2px 32px; align-items:center; }
+#appView #homeView .journal-own-form-cols .journal-own-form-input{ flex:0 1 9em; }
+#appView #homeView .journal-own-form > .row-act{ margin:4px 10px; }
+#appView #homeView .journal-own-form-foot{ display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px; padding:8px 10px; border-top:1px solid var(--kptu-border); }
+#appView #homeView .journal-own-form-foot > .journal-muted:first-child{ flex-basis:100%; }
 #appView #homeView .journal-weekly-day{ display:inline-block; min-width:5.2em; margin-right:6px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
 /* JOURNAL-회의종류표시: 회의 줄 끝의 작은 ⋯ (누르면 작은 글자 버튼 하나) + 이 주 뺀 회의 종류 줄. 새 크기 값 없음(UI-버튼기준).
    ⋯ 는 줄이 촘촘해 44px 확장(::after)을 쓰면 위아래 줄의 ⋯ 가 서로 가리므로, 보이는 28px 칸 자체를 누르는 범위로 둔다. */

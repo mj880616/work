@@ -1699,35 +1699,91 @@ test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 �
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-내양식자유변형 ②(S62-28): 바탕 없는 백지의 [파일 올리기]는 바탕으로 열지 않고 항목·표 머리 칸만 읽어 '내 양식'으로 저장한다(app_weekly_forms).
-test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올리기] — 올린 파일은 내 양식으로 저장, 다른 팀 양식 글자 없음',async({page})=>{
+// WEEKLY-내양식자유변형 ②·③(S62-28): 바탕 없는 백지의 [파일 올리기]는 바탕으로 열지 않고 항목·표 머리 칸만 읽어 확인·짝짓기 화면을 열고,
+// [저장]하면 '내 양식'으로 저장한다(app_weekly_forms). [빈 양식에서 만들기]는 빈 양식에서 항목을 직접 추가.
+test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올리기] — 읽은 양식 확인·짝짓기 → 내 양식 저장, 다른 팀 양식 글자 없음',async({page})=>{
  const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
- const forms=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:[]});forms.push({method:m,query:Object.fromEntries(new URL(r.request().url()).searchParams),body:r.request().postDataJSON()});return r.fulfill({status:201,json:[{id:'form-1',updated_at:'2026-11-16T00:00:00Z',...r.request().postDataJSON()}]});});
+ const forms=[];let row=null;
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:row?[row]:[]});const body=r.request().postDataJSON();forms.push({method:m,query:Object.fromEntries(new URL(r.request().url()).searchParams),body});row={id:'form-1',...(row??{}),...body,updated_at:'2026-11-16T00:00:0'+forms.length+'Z'};return r.fulfill({status:m==='POST'?201:200,json:[row]});});
  await openJournal(page,1280);await openWeekly(page);
  // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 자료실에 바탕이 없으면 [주간 보고]는 백지 + 한 줄 [파일 올리기] — 다른 팀 양식(항목 이름·표 칸)은 하나도 안 보인다.
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
- await expect(weekly.locator('.journal-weekly-blank-line')).toHaveText('내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 파일 올리기');
+ await expect(weekly.locator('.journal-weekly-blank-line')).toHaveText('내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 파일 올리기 빈 양식에서 만들기');
  for(const word of ['요청사항','임원 배정','상집','투쟁 사업장','산하','요약','주요 일정','기본·영역·의제'])await expect(weekly).not.toContainText(word);
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('이 기기 안에서만');
  expect(f.sent.open).toEqual([]);
  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),weekly.getByRole('button',{name:'파일 올리기'}).click()]);
  await chooser.setFiles({name:'my-form.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
- await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText(/^항목 \d+개와 표 \d+개를 읽었어요\. 내 양식으로 저장했어요\.$/);
- // 바탕으로 열지 않는다: 백지 그대로, 칸 줄·한글 파일 상자 없음, 자료실 열기 없음.
+ // 읽은 양식 확인·짝짓기(시안 ②): 아직 저장 안 함, 바탕도 열지 않음.
+ const ed=weekly.locator('[data-own-form]');
+ await expect(ed.locator('.journal-own-form-intro')).toHaveText(/^항목 \d+개와 표 \d+개를 읽었어요\. 항목마다 무엇으로 채울지 선택해 주세요\.$/);
+ const rows=ed.locator('[data-own-form-row]');const n=await rows.count();expect(n).toBeGreaterThan(2);
+ expect(forms).toEqual([]);expect(f.sent.open).toEqual([]);
+ // 이름 수정 → 채울 기록 선택 → 칸 추가 → 빼기 → 아래로
+ const first=rows.first(),id=await first.getAttribute('data-own-form-row');
+ await first.locator('.journal-own-form-title').click();
+ await first.locator('input').fill('1. 이번 주 활동');await first.locator('input').press('Enter');
+ await expect(first.locator('.journal-own-form-title')).toHaveText('1. 이번 주 활동');
+ await first.locator('select').selectOption('todo');
+ await first.getByRole('button',{name:'+ 칸'}).click();
+ await first.locator('input').fill('담당');await first.locator('input').press('Enter');
+ await expect(first.locator('.ds-chip').last()).toHaveText('담당');
+ await rows.nth(1).locator('[data-own-form-more]').click();await rows.nth(1).getByRole('button',{name:'빼기'}).click();
+ await expect(rows).toHaveCount(n-1);
+ await rows.first().locator('[data-own-form-more]').click();await rows.first().getByRole('button',{name:'아래로'}).click();
+ await expect(rows.nth(1)).toHaveAttribute('data-own-form-row',id);
+ await ed.getByRole('button',{name:'저장'}).click();
+ await expect(weekly.locator('[data-weekly-own-form-saved]')).toHaveText(/^내 양식 · .+ · 항목 \d+개 양식 수정$/);
+ await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText('내 양식으로 저장했어요.');
  await expect(weekly.locator('[data-weekly-blank]')).toHaveCount(1);
- expect(f.sent.open).toEqual([]);
  expect(forms.map(x=>x.method)).toEqual(['POST']);
  expect(Object.keys(forms[0].body).sort()).toEqual(['form','name','source_name','workspace_id']);
  expect(forms[0].body).toMatchObject({workspace_id:'w',source_name:'my-form.hwpx',form:{v:1}});
- expect(forms[0].body.form.sections.length).toBeGreaterThan(0);
- for(const s of forms[0].body.form.sections)expect(Object.keys(s).sort()).toEqual(['columns','fill','id','level','title']);
+ const saved=forms[0].body.form.sections;expect(saved.length).toBe(n-1);
+ expect(saved[1]).toMatchObject({id,title:'1. 이번 주 활동',fill:'todo'});expect(saved[1].columns.at(-1)).toBe('담당');
+ for(const s of saved)expect(Object.keys(s).sort()).toEqual(['columns','fill','id','level','title']);
  // 본문 글(보고 내용)은 저장하지 않는다 — 양식 글자만.
  expect(JSON.stringify(forms[0].body)).not.toContain('지난주 가-1 진행');
- // 읽을 항목·표가 없는 파일: 저장하지 않고 한 줄.
+ // [양식 수정] → 이름 수정 → 저장: 읽은 판 조건 PATCH(작업공간은 보내지 않음).
+ await weekly.getByRole('button',{name:'양식 수정'}).click();
+ await expect(ed.getByRole('button',{name:'저장'})).toBeDisabled();
+ await ed.locator('[data-own-form-row]').first().locator('select').selectOption('meeting');
+ await ed.getByRole('button',{name:'저장'}).click();
+ await expect(weekly.locator('[data-weekly-own-form-saved]')).toBeVisible();
+ expect(forms[1]).toMatchObject({method:'PATCH',query:{workspace_id:'eq.w',id:'eq.form-1',updated_at:'eq.2026-11-16T00:00:01Z'}});
+ expect(forms[1].body.workspace_id).toBeUndefined();
+ // 한글이 아닌 파일: 열지 않고 한 줄.
  await weekly.locator('[data-weekly-blank-file]').setInputFiles({name:'note.txt',mimeType:'text/plain',buffer:Buffer.from('x')});
  await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText('HWP(.hwp) 또는 한글 파일(.hwpx)만 선택할 수 있어요.');
- expect(forms.length).toBe(1);
+ expect(forms.length).toBe(2);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('[주간 보고] 백지 [빈 양식에서 만들기]: 항목을 직접 추가하고 저장, 항목이 없으면 저장 못 함',async({page})=>{
+ const f=await hwpxFixture(page,{width:412,noConfirmed:true});
+ const forms=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:[]});const body=r.request().postDataJSON();forms.push(body);return r.fulfill({status:201,json:[{id:'form-1',...body,updated_at:'2026-11-16T00:00:01Z'}]});});
+ await openJournal(page,412);await openWeekly(page);
+ const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
+ await weekly.getByRole('button',{name:'빈 양식에서 만들기'}).click();
+ const ed=weekly.locator('[data-own-form]');
+ await expect(ed.locator('.journal-own-form-intro')).toHaveText('[+ 항목 추가]로 항목을 만들어 주세요.');
+ await expect(ed.getByRole('button',{name:'저장'})).toBeDisabled();
+ await ed.getByRole('button',{name:'+ 항목 추가'}).click();
+ await ed.locator('input').fill('주요 활동');await ed.locator('input').press('Enter');
+ await ed.locator('select').selectOption('biz');
+ await ed.getByRole('button',{name:'+ 항목 추가'}).click();
+ await ed.locator('input').fill('다음 일정');await ed.locator('input').press('Enter');
+ // ⠿ 끌어서 순서: 둘째 항목을 첫째 위로(손가락·마우스 같은 pointer 사건)
+ const rows=ed.locator('[data-own-form-row]'),grip=rows.nth(1).locator('[data-own-form-grip]'),top=await rows.first().boundingBox(),g=await grip.boundingBox();
+ await page.mouse.move(g.x+g.width/2,g.y+g.height/2);await page.mouse.down();
+ await page.mouse.move(g.x+g.width/2,top.y+4,{steps:5});await page.mouse.up();
+ await expect(rows.locator('.journal-own-form-title')).toHaveText(['다음 일정','주요 활동']);
+ await ed.getByRole('button',{name:'저장'}).click();
+ await expect(weekly.locator('[data-weekly-own-form-saved]')).toHaveText('내 양식 · 내 주간 보고 양식 · 항목 2개 양식 수정');
+ expect(forms).toEqual([{workspace_id:'w',name:'내 주간 보고 양식',source_name:null,form:{v:1,sections:[{id:'s2',title:'다음 일정',level:1,columns:[],fill:'blank'},{id:'s1',title:'주요 활동',level:1,columns:[],fill:'biz'}]}}]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
