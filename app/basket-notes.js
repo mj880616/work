@@ -377,10 +377,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (m || !folders.length) rows = paneRows({folders, notes, folderOf, at, matches:m, phone:true, sort:sortList});
       else if (at === OUTSIDE) rows = paneRows({folders, notes, folderOf, at, phone:true, sort:sortList});
       else rows = treeRows({folders, notes, folderOf, root:at, isOpen:id => openSet.has(id), sort:sortList, limit:at === null ? limit : () => Infinity}).map(r => ({...r, tree:true}));
-      const news = !m && at === null && !pick.active ? newsMarks.navHtml() : '';
-      const body = rows.map(r => rowHtml(r)).join('');
       const boxed = !m && folders.length > 0;
-      rowsBox.innerHTML = isNewsAt(at) && !m ? '' : boxed ? (at !== null ? focusBoxHtml(body) : ftBoxHtml({body:body + news, label:'노트 폴더'}) + newFolderRowHtml()) : body + (news ? ftBoxHtml({body:news, label:'News에서'}) : '');
+      // 얇은 구분 줄은 폴더 목록과 같은 상자 안일 때만(따로 선 상자면 상자 테두리가 이미 나눈다 — 줄 두 겹 없음).
+      const news = !m && at === null && !pick.active ? newsMarks.navHtml({sep:boxed}) : '';
+      const body = rows.map(r => rowHtml(r)).join('');
+      rowsBox.innerHTML = isNewsAt(at) && !m ? '' : boxed ? (at !== null ? focusBoxHtml(body) : ftBoxHtml({body:body + news, label:'노트 폴더'}) + newFolderRowHtml()) : body + (news ? ftBoxHtml({body:news, label:'밑줄·보관한 글'}) : '');
       // NOTE-최근5개 → 나무새기준 ①: 폰 첫 화면 맨 위 '최근' 상자(자료실 '최근 올린 파일'과 같은 상자, [더보기]면 15개).
       const recent = !m && at === null && showRecent() ? recentRows({folders, notes, folderOf, count:recentAll ? RECENT_MORE : undefined}) : [];
       recentBox.hidden = !recent.length;

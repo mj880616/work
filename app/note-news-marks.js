@@ -7,7 +7,7 @@ import {readSavedRows} from './now-saved.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {requestNewsOpen} from './news-request.mjs';
 import {sourceTag, quoteGone} from './text-highlights-model.mjs';
-import {NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_GROUP_NAME, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
+import {NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
 // NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
 // 노트 [폴더] 목록 맨 아래(폴더 없음 밑) 얇은 줄 'News에서' + [밑줄 n]·[보관한 글 n]. 노트가 아니라 News와 같은 서버 자료를 그대로 읽어 보인다 —
 // 밑줄은 text-highlights.js가 들고 있는 같은 목록(News에서 지우거나 메모를 고치면 이 칸도 바로 같게), 보관한 글은 News [보관] 탭과 같은 읽기(now-saved.js readSavedRows).
@@ -48,11 +48,13 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   const hlCount = () => highlightsNow()?.length ?? null;
   const svCount = () => saved?.length ?? null;
 
-  // 'News에서' 얇은 줄 + 두 줄(노트 폴더 줄과 같은 공용 줄 — 끌어 놓을 곳이 아니다). at: 지금 고른 곳(PC 나무에서 표시).
-  function navHtml({tree = false, at = null} = {}) {
+  // 글자 없는 얇은 구분 줄 + 두 줄(노트 폴더 줄과 같은 공용 줄 — 끌어 놓을 곳이 아니다). at: 지금 고른 곳(PC 나무에서 표시).
+  // NOTE-News에서글자빼기(11/15 명진): 구분 줄의 'News에서' 글자는 뺐다(밑줄이 노트·텔레그램에서도 옴). 줄마다 붙는 출처 꼬리표(노트·News·텔레그램)는 그대로.
+  // sep: 구분 줄을 넣을지(폰에서 두 줄이 따로 선 상자에 들 때는 상자 테두리가 이미 나누므로 껍데기가 false).
+  function navHtml({tree = false, at = null, sep = true} = {}) {
     const row = (id, icon, count) => ftFolderRowHtml({name: NEWS_NAMES[id], count: count ?? '', countLabel: count === null ? '' : `${NEWS_NAMES[id]} ${count}개`, depth: 0, hasContent: false,
       current: tree && at === id, tree, className: 'nx-news-item', icon, rowAttrs: {'data-nx-news-item': id}, mainAttrs: {'data-nx-open': id}});
-    return `<div class="nnm-sep" role="presentation">${esc(NEWS_GROUP_NAME)}</div>`
+    return (sep ? '<div class="nnm-sep" role="presentation" aria-hidden="true"></div>' : '')
       + row(NEWS_HL, HL_ICON, hlCount())
       + row(NEWS_SAVED, treeIconHtml('starred', {className: 'ft-ico'}), svCount());
   }
