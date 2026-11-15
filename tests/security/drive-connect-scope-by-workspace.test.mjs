@@ -1,7 +1,7 @@
 // S50-8 MULTI-노조사용자(명진 결정 11/05 '가'): Drive 연결 권한 범위를 작업공간 기준으로 서버가 정한다.
 // 실제 public-policy-drive 함수를 지어낸 Supabase(PostgREST)·지어낸 Google로 돌린다. 네트워크·비밀값 없음(모두 가짜 글자).
-// - 운영자 아님: 연결 요청은 drive.file만. 화면이 무엇을 보내도 drive를 요청할 수 없다. 콜백은 full_drive=false로만 저장하고 옛 자리(id=1)를 건드리지 않는다.
-// - 운영자(사진 출처·파일 탐색기 허용): 지금과 같다(drive.file + drive, 받은 권한으로 full_drive, 빠지면 사진 안내).
+// - S62-11부터 모든 작업공간: drive.file + drive 요청, 받은 권한으로 full_drive, 빠지면 사진 안내. 운영자가 아니면 옛 자리(id=1)를 건드리지 않는다.
+// - 운영자(명진): 지금과 같다(drive.file + drive, 받은 권한으로 full_drive, 빠지면 사진 안내, id=1도 갱신).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -76,29 +76,21 @@ async function callback() {
   return new URL(r.headers.get('location'));
 }
 
-test('운영자 아님: 연결 요청은 drive.file만(전체 drive 없음)', async () => {
+// S62-11 MULTI-구글드라이브사진모두(명진 11/14 '가'·11/15 결정 1 '가'): 모든 작업공간이 drive.file + drive를 요청한다.
+test('S62-11 모든 작업공간: 연결 요청은 drive.file + drive(운영자 기능 키 판정 없음)', async () => {
   reset();
   const r = await start('synthetic-other-jwt');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.scopes, [FILE]);
+  assert.deepEqual(r.scopes, [FULL, FILE].sort());
+  reset({ operatorFeatures: [] });
+  assert.deepEqual((await start('synthetic-op-jwt')).scopes, [FULL, FILE].sort());
+  assert.ok(!W.calls.some(c => c.path === '/rest/v1/rpc/app_operator_feature_workspace'), 'start does not ask operator features');
 });
 
-test('운영자 아님: 화면이 전체 권한·다른 작업공간을 보내도 drive.file만', async () => {
+test('S62-11 화면이 무엇을 보내도 범위는 같다(drive.file + drive만, 다른 범위 없음)', async () => {
   reset();
-  const r = await start('synthetic-other-jwt', { action: 'drive-start', full: true, full_drive: true, scope: FULL, scopes: [FULL], workspace_id: OP_WS });
-  assert.deepEqual(r.scopes, [FILE]);
-  // 운영자 기능 표에 calls만 있어도(사진 출처·파일 탐색기 없음) 전체 drive는 요청하지 않는다.
-  reset({ operatorFeatures: ['calls'] });
-  assert.deepEqual((await start('synthetic-op-jwt')).scopes, [FILE]);
-});
-
-test('운영자(사진 출처·파일 탐색기 허용): 지금과 같이 drive.file + drive', async () => {
-  reset();
-  assert.deepEqual((await start('synthetic-op-jwt')).scopes, [FULL, FILE].sort());
-  reset({ operatorFeatures: ['gdrive_photos'] });
-  assert.deepEqual((await start('synthetic-op-jwt')).scopes, [FULL, FILE].sort());
-  reset({ operatorFeatures: ['files'] });
-  assert.deepEqual((await start('synthetic-op-jwt')).scopes, [FULL, FILE].sort());
+  const r = await start('synthetic-other-jwt', { action: 'drive-start', full: false, scope: FILE, scopes: ['https://www.googleapis.com/auth/gmail.readonly'], workspace_id: OP_WS });
+  assert.deepEqual(r.scopes, [FULL, FILE].sort());
 });
 
 test('로그인 없음·작업공간 없음은 연결 요청 거절', async () => {
@@ -107,19 +99,24 @@ test('로그인 없음·작업공간 없음은 연결 요청 거절', async () =
   assert.equal(W.states.length, 0);
 });
 
-test('콜백 운영자 아님: 구글 응답에 drive가 섞여 와도 full_drive=false, 사진 안내 없음, id=1 그대로', async () => {
+test('S62-11 콜백 다른 작업공간: 받은 권한 그대로 자기 작업공간 행에(전체 받음 → true, 빠짐 → false + 사진 안내), id=1 그대로', async () => {
   reset({ stateUser: OTHER_USER, grantedScope: `${FILE} ${FULL}` });
   const loc = await callback();
   assert.equal(loc.searchParams.get('drive'), 'connected');
   assert.equal(loc.searchParams.get('photos'), null);
   assert.equal(W.conn.length, 1);
   assert.equal(W.conn[0].workspace_id, OTHER_WS);
-  assert.equal(W.conn[0].full_drive, false);
-  assert.equal(W.id1.length, 0);
+  assert.equal(W.conn[0].full_drive, true);
+  assert.equal(W.id1.length, 0, 'never writes the operator id=1 row');
 
   reset({ stateUser: OTHER_USER, grantedScope: FILE });
   const loc2 = await callback();
-  assert.equal(loc2.searchParams.get('photos'), null);
+  assert.equal(loc2.searchParams.get('photos'), 'scope_missing');
+  assert.equal(W.conn[0].full_drive, false);
+  assert.equal(W.id1.length, 0);
+  // drive.readonly처럼 비슷한 이름은 전체 권한이 아니다.
+  reset({ stateUser: OTHER_USER, grantedScope: `${FILE} ${FULL}.readonly` });
+  await callback();
   assert.equal(W.conn[0].full_drive, false);
 });
 
