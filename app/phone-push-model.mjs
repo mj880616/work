@@ -149,12 +149,12 @@ export function noticeClearMessage(kind, refKey) {
   return `push:clear:${kind}.${encodeURIComponent(refKey)}`;
 }
 
-/** 서버가 준 여는 주소(/work/app/?view=…) → 화면 안 이동 {view, pane, mode} 또는 null. 웹2 앱 안 주소만. */
+/** 서버가 준 여는 주소(/work/app/?view=…) → 화면 안 이동 {view, pane} 또는 null. 웹2 앱 안 주소만. */
 export function noticePlace(open) {
   if (typeof open !== 'string' || !/^\/work\/app\/(\?[A-Za-z0-9_=&%.-]{0,200})?$/.test(open)) return null;
   const params = new URLSearchParams(open.slice(open.indexOf('?') + 1 || open.length));
   const name = v => (v && /^[a-z][a-z0-9-]{0,31}$/.test(v) ? v : null);
-  return {view: name(params.get('view')) || 'home', pane: name(params.get('pane')), mode: params.get('mode') === 'week' ? 'week' : null};
+  return {view: name(params.get('view')) || 'home', pane: name(params.get('pane'))};
 }
 
 /** 알림 줄에 올릴 수 있는 항목만(알아듣는 종류·모양). */
@@ -170,7 +170,7 @@ export function noticeText(item) {
   return own || NOTICE_TEXT[item?.kind] || '';
 }
 
-/** 최근 알림 한 줄: '11/06 16:00 · 다음 주 준비 한 장'. 모르는 종류는 뺀다. */
+/** 최근 알림 한 줄: '11/06 16:00 · 회의 요약'. 모르는 종류는 뺀다. */
 export function recentItems(out) {
   const list = Array.isArray(out?.items) ? out.items : [];
   return list.filter(i => Object.hasOwn(RECENT_LABEL, i?.kind) && shortWhen(i?.at) && noticePlace(i?.open))
