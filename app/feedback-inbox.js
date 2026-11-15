@@ -10,7 +10,7 @@ const el=(tag,className,text)=>{const node=document.createElement(tag);if(classN
 const rpc=(name,body={})=>window.KPTURuntime.api('/rest/v1/rpc/'+name,{method:'POST',body,singleFlight:false});
 const FILTERS=[['open','처리 전'],['done','처리함'],['all','전체']];
 let state='open',drawing=null;
-const when=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})};
+const when=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})};
 
 function row(item){
   const box=el('article','fb-item');box.dataset.fbId=item.id;if(item.done_at)box.classList.add('is-done');
