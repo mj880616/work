@@ -4,6 +4,7 @@
 // 저장은 부르는 쪽(journal.js)이 넘긴 onSave(form) — 서버 저장(weekly-own-form-store.js) 결과 글을 돌려준다.
 // 쓴 공용 부품: button.primary(저장)·button.secondary(취소)·button.ds-chip(칸)·button.row-act(빼기·위로·아래로·+ 칸·+ 항목 추가)·button.icon-btn(⠿·⋯)·select(공용 고르기 상자). ⋯는 줄 아래에 [위로]·[아래로]·[빼기] 한 줄을 펼친다(떠 있는 창 없음 — 아래 바에 가리지 않게).
 import {FILLS, FILL_LABEL, moveSection, renameSection, removeSection, setFill, addSection, addColumn, renameColumn, sameForm, readSummary, MAX_SECTIONS, MAX_COLUMNS, TITLE_MAX, COLUMN_MAX} from './weekly-own-form-model.mjs';
+import {waitInlineHtml} from './wait-state.js';
 
 export const EDIT_TEXT = Object.freeze({
   // read: 파일에서 읽은 직후면 읽은 수 한 줄을 앞에. 항목이 없으면 추가 안내.
@@ -11,7 +12,6 @@ export const EDIT_TEXT = Object.freeze({
   help: '이름을 눌러 수정 · ⠿ 끌어서 순서 · ⋯ 빼기',
   addSection: '+ 항목 추가',
   addColumn: '+ 칸',
-  saving: '저장하는 중…',
 });
 
 // host: 그릴 자리. → {form()} (지금 고치는 양식). onCancel(): 닫기.
@@ -60,7 +60,7 @@ export function mountOwnFormEditor(host, {form, name = '', fresh = false, read =
     else { title = el('button', 'row-act journal-own-form-title', s.title); title.type = 'button'; title.dataset.ownFormTitle = s.id; title.setAttribute('aria-label', `${s.title} 이름 수정`); }
     const pick = el('select', 'journal-own-form-fill'); pick.dataset.ownFormFill = s.id; pick.setAttribute('aria-label', `${s.title} 채울 기록`);
     for (const f of FILLS) { const o = el('option', '', FILL_LABEL[f]); o.value = f; o.selected = f === s.fill; pick.append(o); }
-    const more = el('button', 'icon-btn', '⋯'); more.type = 'button'; more.dataset.ownFormMore = s.id;
+    const more = el('button', 'icon-btn'); more.type = 'button'; { const dots = el('span', 'more-dots', '⋯'); dots.setAttribute('aria-hidden', 'true'); more.append(dots); } more.dataset.ownFormMore = s.id;
     more.setAttribute('aria-label', `${s.title} 더 보기`); more.setAttribute('aria-expanded', String(menuFor === s.id));
     const act = (text, key, off) => { const b = el('button', 'row-act', text); b.type = 'button'; b.dataset.ownFormAct = key; b.dataset.id = s.id; b.disabled = !!off; return b; };
     line.append(grip, title, pick, more);
@@ -141,7 +141,7 @@ export function mountOwnFormEditor(host, {form, name = '', fresh = false, read =
   box.addEventListener('pointercancel', endDrag);
 
   async function doSave() {
-    busy = true; paint(); note.textContent = EDIT_TEXT.saving;
+    busy = true; paint(); note.innerHTML = waitInlineHtml();
     let r = {ok:false, text:''};
     try { r = await onSave(cur) ?? r; } catch { r = {ok:false, text:''}; } finally { busy = false; }
     if (r.ok) { original = cur; fresh = false; read = false; }
