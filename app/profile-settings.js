@@ -9,6 +9,8 @@ const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-not
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null,workplaces=[],legacyWorkplaces=[],organizations=[],assignments=[],profileWorkplaces=[];
 let baseline=new Set(),saved={name:'',title:''},saving=false,bound=false,fold=null,freshFold=true,note=null;
+// PROFILE-바뀜것없음글자빼기(명진 확정): 바뀐 게 없으면 상태 글자 없음 + [저장] 흐리게. 고쳤을 때만 'n곳 바뀜, 저장 안 됨'. 저장 직후 잠깐 '저장됨'.
+let justSaved=0,justSavedTimer=null;const SAVED_MS=2000;
 // S62-16 PROFILE-없음칸제목: 담당조직이 하나도 없을 때도 칸 제목 + 안내 한 줄 → 아래 [조직 보고로](연결 안내 공용 부품 connect-note.mjs).
 const foldReady=Promise.all([import('./pick-fold.mjs').then(m=>(fold=m)),import('./connect-note.mjs').then(m=>(note=m))]);
 // 사용자가 바꾼 체크만 담는다(조직 id → 체크 여부). 서버 값과 같아지면 지운다.
@@ -69,7 +71,8 @@ function renderWorkplaces(){
 }
 function renderStatus(){
   const n=changeCount(),state=$('#psState'),save=$('#psSave'),count=$('#psWorkplaceList [data-pick-count]');
-  if(state)state.textContent=n?`바뀐 것 ${n}곳`:'바뀐 것 없음';
+  if(n&&justSaved){justSaved=0;clearTimeout(justSavedTimer)}
+  if(state)state.textContent=n?`${n}곳 바뀜, 저장 안 됨`:justSaved?'저장됨':'';
   if(save){save.disabled=saving||!n;save.textContent=saving?'저장 중…':'저장';if(saving)save.setAttribute('aria-busy','true');else save.removeAttribute('aria-busy')}
   if(count)count.textContent=String(listItems().filter(o=>isChecked(o.id)).length);
   for(const id of['#psName','#psTitle']){const el=$(id);if(el)el.disabled=saving}
@@ -146,13 +149,15 @@ async function save(){
     renderWorkplaces();
     if(wpSaved)emitWorkplaceChange();else if(profileSaved)emitProfileChange();
   }
-  if(!failed){toast('변경사항을 저장했습니다.');return}
+  if(!failed){markSaved();return}
   const okParts=[],badParts=[],wpLeft=wpTotal-wpSaved;
   if(wasProfile)(profileSaved?okParts:badParts).push('프로필');
   if(wpSaved)okParts.push(`담당 사업장 ${wpSaved}곳`);
   if(wpLeft)badParts.push(`담당 사업장 ${wpLeft}곳`);
   toast(`${okParts.length?okParts.join('과 ')+'은 저장했고 ':''}${badParts.join('과 ')}은 저장하지 못했어요. 저장을 다시 눌러 주세요.`,6000);
 }
+// 저장 성공: 저장 줄에 '저장됨'을 잠깐 보였다가 지운다(알림 띄우기 대신 — 같은 말을 두 곳에 띄우지 않음).
+function markSaved(){clearTimeout(justSavedTimer);justSaved=1;renderStatus();justSavedTimer=setTimeout(()=>{justSaved=0;renderStatus()},SAVED_MS)}
 function bind(){
   if(bound)return;bound=true;
   $('#psSave')?.addEventListener('click',save);
@@ -183,6 +188,6 @@ async function boot(){installView();installStatus();installWidgetLine();syncMySp
 window.addEventListener('kptu:suborganization-updated',()=>{if(user&&!saving)load().catch(console.error)});
 // MULTI ②-3: 묶음·순서가 바뀌면(조직 보고 화면) 담당 사업장 목록을 같은 자료로 다시 그린다(서버 다시 읽기 없음).
 window.addEventListener('kptu:report-settings-changed',()=>{if(user&&!saving&&$('#psWorkplaceList'))renderWorkplaces()});
-window.addEventListener('kptu:session-changed',async()=>{user=null;workspaceId=null;workplaces=[];legacyWorkplaces=[];organizations=[];assignments=[];profileWorkplaces=[];baseline=new Set();want.clear();saved={name:'',title:''};const name=$('#psName'),title=$('#psTitle');if(name)name.value='';if(title)title.value='';if(await context()){bind();await load()}});
+window.addEventListener('kptu:session-changed',async()=>{user=null;workspaceId=null;workplaces=[];legacyWorkplaces=[];organizations=[];assignments=[];profileWorkplaces=[];baseline=new Set();want.clear();justSaved=0;clearTimeout(justSavedTimer);saved={name:'',title:''};const name=$('#psName'),title=$('#psTitle');if(name)name.value='';if(title)title.value='';if(await context()){bind();await load()}});
 window.__KPTU_PROFILE_SETTINGS_READY__=boot().catch(err=>{console.error('profile settings init',err);return false});
 })();
