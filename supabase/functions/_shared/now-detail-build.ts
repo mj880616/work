@@ -17,6 +17,7 @@ import { newsSourceByKey } from "./news-catalog.ts";
 import { outputText } from "./openai-responses.ts";
 import { AI_TONE_RULE } from "./ai-model.ts";
 import { extractBody } from "../outside-feed/parse.ts";
+import { sharedIdOf } from "./shared-article.ts";
 
 export const NOW_MATERIAL_CHARS = 6000;
 export const NOW_RELATED_MAX = 8;
@@ -91,47 +92,63 @@ export async function readOptional(deps: Pick<DetailDeps, "rest" | "log">, path:
 // ---- 글·재료 ---------------------------------------------------------------------------------------------------------
 
 export type DetailItem = {
-  type: "outside" | "news"; id: string; title: string; titleKo: string; lang: string; source: string; sourceKey: string;
+  type: "outside" | "news";
+  id: string;            // 공용 글 id(app_outside_articles·app_news_articles)
+  oldId: string | null;  // 옮기는 동안: 이 작업공간의 같은 글 옛 줄 id(없으면 null)
+  title: string; titleKo: string; lang: string; source: string; sourceKey: string;
   kind: string; author: string; url: string; summary: string; keySentences: { orig: string; ko: string }[]; body: string;
   fromFeed: boolean; // body가 app_feed_bodies 블록 글자에서 왔는가(그러면 외국 원문 쪽을 다시 읽지 않는다)
 };
 
-const POST_FIELDS = "id,workspace_id,source_key,kind,lang,title,title_ko,author,url,summary_ko,key_sentences,has_body";
-const NEWS_FIELDS = "id,workspace_id,lane,url,title,title_ko,lang,publisher,source_key,summary,body,body_ko";
+// NEWS-모두에게열기 E3: 글은 공용 표(app_outside_articles·app_news_articles)에서 읽는다(사용자 로그인 = 공용 표 읽기 정책 그대로 —
+// 가입자·차단 명단 아님·채널 스크랩 줄은 운영자만). 받은 id가 자기 작업공간 옛 줄 id면 지도 함수로 공용 id로 바꾼다(_shared/shared-article.ts).
+const POST_FIELDS = "id,source_key,kind,lang,title,title_ko,author,url,summary_ko,key_sentences,has_body";
+const NEWS_FIELDS = "id,lane,url,url_key,title,title_ko,lang,publisher,source_key,summary,body,body_ko";
+const SHARED = { outside: { art: "app_outside_articles", body: "app_outside_article_bodies" }, news: { art: "app_news_articles", body: "app_news_article_bodies" } } as const;
 
 // 저장된 본문 블록 글자(없거나 못 읽은 글이면 ""). 부르는 쪽이 이미 가진 글자를 넘기면 그것을 쓰고 표를 읽지 않는다.
-async function feedText(deps: DetailDeps, it: DetailItemRef): Promise<string> {
+async function feedText(deps: DetailDeps, it: DetailItemRef, articleId: string): Promise<string> {
   if (typeof it.feedText === "string") return cut(clean(it.feedText), NOW_MATERIAL_CHARS);
-  const col = it.type === "outside" ? "outside_post_id" : "news_item_id";
-  const rows = await readOptional(deps, `app_feed_bodies?workspace_id=eq.${deps.workspaceId}&${col}=eq.${it.id}&select=state,blocks&limit=1`, "feed_body");
+  const rows = await readOptional(deps, `${SHARED[it.type].body}?article_id=eq.${articleId}&select=state,blocks&limit=1`, "feed_body");
   const row = rows[0];
   if (!row || !NOW_FEED_STATES.includes(String(row.state))) return "";
   return blocksText(row.blocks);
 }
 
+// 옮기는 동안: 이 작업공간의 같은 글 옛 줄 id(있으면). 옛 표(app_now_details)를 읽는 서버 일이 그대로 돌게 같은 결과를 그 줄에도 적는 데만 쓴다.
+async function ownOldId(deps: DetailDeps, type: "outside" | "news", row: Record<string, unknown>): Promise<string | null> {
+  const path = type === "outside"
+    ? (typeof row.url === "string" && row.url ? `app_outside_posts?workspace_id=eq.${deps.workspaceId}&url=eq.${encodeURIComponent(row.url)}&select=id&limit=1` : "")
+    : (typeof row.url_key === "string" && row.url_key ? `app_news_items?workspace_id=eq.${deps.workspaceId}&url_key=eq.${encodeURIComponent(row.url_key)}&select=id&limit=1` : "");
+  if (!path) return null;
+  const got = (await readOptional(deps, path, "old_row"))[0];
+  return typeof got?.id === "string" && UUID.test(got.id) ? got.id.toLowerCase() : null;
+}
+
 export async function loadItem(deps: DetailDeps, it: DetailItemRef): Promise<DetailItem> {
-  const ws = deps.workspaceId;
-  const table = it.type === "outside" ? "app_outside_posts" : "app_news_items";
-  let rows: Record<string, unknown>[];
+  let row: Record<string, unknown> | null = null;
+  let artId: string;
   try {
-    rows = await readRows(deps, `${table}?id=eq.${it.id}&workspace_id=eq.${ws}&select=${it.type === "outside" ? POST_FIELDS : NEWS_FIELDS}&limit=2`);
+    artId = deps.rpc ? await sharedIdOf(it.type, deps.rpc, it.id) : it.id.toLowerCase();
+    const rows = await readRows(deps, `${SHARED[it.type].art}?id=eq.${artId}&select=${it.type === "outside" ? POST_FIELDS : NEWS_FIELDS}&limit=2`);
+    row = rows.length === 1 ? rows[0] : null;
   } catch {
     throw deps.fail(503, "read_unavailable");
   }
-  const row = rows.length === 1 ? rows[0] : null;
-  if (!row || String(row.id).toLowerCase() !== it.id || String(row.workspace_id).toLowerCase() !== ws) throw deps.fail(404, "not_found");
-  const stored = await feedText(deps, it);
+  if (!row || String(row.id).toLowerCase() !== artId) throw deps.fail(404, "not_found");
+  const stored = await feedText(deps, it, artId);
+  const oldId = artId !== it.id.toLowerCase() ? it.id.toLowerCase() : await ownOldId(deps, it.type, row);
   if (it.type === "outside") {
     const src = sourceByKey(row.source_key);
     const sentences = Array.isArray(row.key_sentences) ? (row.key_sentences as Record<string, unknown>[])
       .map((s) => ({ orig: clean(s?.orig), ko: clean(s?.ko) })).filter((s) => s.orig) : [];
     let body = stored;
     if (!body && row.lang === "ko" && row.has_body === true) {
-      const lines = await readOptional(deps, `app_outside_sentences?post_id=eq.${it.id}&workspace_id=eq.${ws}&select=idx,text&order=idx.asc&limit=400`, "sentences");
+      const lines = await readOptional(deps, `app_outside_article_sentences?article_id=eq.${artId}&select=idx,text&order=idx.asc&limit=400`, "sentences");
       body = cut(lines.map((l) => clean(l.text)).filter(Boolean).join(" "), NOW_MATERIAL_CHARS);
     }
     return {
-      type: "outside", id: it.id, title: oneLine(row.title), titleKo: oneLine(row.title_ko), lang: String(row.lang ?? "ko"),
+      type: "outside", id: artId, oldId, title: oneLine(row.title), titleKo: oneLine(row.title_ko), lang: String(row.lang ?? "ko"),
       source: src?.name ?? String(row.source_key ?? ""), sourceKey: String(row.source_key ?? ""), kind: String(row.kind ?? ""),
       author: oneLine(row.author), url: String(row.url ?? ""), summary: clean(row.summary_ko), keySentences: sentences, body,
       fromFeed: !!stored,
@@ -139,7 +156,7 @@ export async function loadItem(deps: DetailDeps, it: DetailItemRef): Promise<Det
   }
   const src = newsSourceByKey(row.source_key);
   return {
-    type: "news", id: it.id, title: oneLine(row.title), titleKo: oneLine(row.title_ko), lang: String(row.lang ?? "ko"),
+    type: "news", id: artId, oldId, title: oneLine(row.title), titleKo: oneLine(row.title_ko), lang: String(row.lang ?? "ko"),
     source: oneLine(row.publisher) || src?.name || "", sourceKey: String(row.source_key ?? ""), kind: "news",
     author: "", url: String(row.url ?? ""), summary: clean(row.summary), keySentences: [],
     body: stored || cut(clean(row.body), NOW_MATERIAL_CHARS), fromFeed: !!stored,
@@ -211,10 +228,14 @@ export async function relatedCandidates(deps: DetailDeps, item: DetailItem, topi
     seen.add(`${kind}:${sid}`);
     out.push({ ref: `r${out.length + 1}`, kind, id: sid, title: t });
   };
-  const posts = await readOptional(deps, `app_outside_posts?workspace_id=eq.${ws}&fetched_at=gte.${encodeURIComponent(since)}&or=${orTitle(words, ["title", "title_ko"])}&select=id,title,title_ko&order=fetched_at.desc&limit=8`, "related_outside");
+  // 공용 글(가입자 누구나 읽는 표)에서 고른다 — id는 공용 글 id(화면이 그 자리를 연다). 내가 숨긴 뉴스는 뺀다(사람별 표시).
+  const posts = await readOptional(deps, `app_outside_articles?fetched_at=gte.${encodeURIComponent(since)}&or=${orTitle(words, ["title", "title_ko"])}&select=id,title,title_ko&order=fetched_at.desc&limit=8`, "related_outside");
   for (const p of posts) push("outside", p.id, p.title_ko || p.title);
-  const news = await readOptional(deps, `app_news_items?workspace_id=eq.${ws}&hidden_at=is.null&created_at=gte.${encodeURIComponent(since)}&or=${orTitle(words, ["title", "title_ko"])}&select=id,title,title_ko&order=created_at.desc&limit=8`, "related_news");
-  for (const n of news) push("news", n.id, n.title_ko || n.title);
+  const news = await readOptional(deps, `app_news_articles?created_at=gte.${encodeURIComponent(since)}&or=${orTitle(words, ["title", "title_ko"])}&select=id,title,title_ko&order=created_at.desc&limit=8`, "related_news");
+  const newsIds = news.map((n) => String(n.id ?? "")).filter((v) => UUID.test(v));
+  const hidden = new Set(newsIds.length ? (await readOptional(deps, `app_news_marks?workspace_id=eq.${ws}&article_id=in.(${newsIds.join(",")})&select=article_id,hidden_at&limit=${newsIds.length}`, "related_marks"))
+    .filter((m) => m.hidden_at != null).map((m) => String(m.article_id).toLowerCase()) : []);
+  for (const n of news) if (!hidden.has(String(n.id).toLowerCase())) push("news", n.id, n.title_ko || n.title);
   if (deps.rpc) {
     try {
       const found = await deps.rpc("app_search_records", { p_query: words.slice(0, 3).join(" "), p_kinds: ["update", "document"], p_per_kind: 4, p_offset: 0, p_kind: null });
@@ -371,6 +392,12 @@ export function cleanContext(v: Record<string, unknown>, allowed: string[], cand
 export const NOW_DETAIL_FIELDS = "id,level,summary,key_sentences,relevance,implications,related,interests_key,generated_at,context_at";
 
 export const detailConflictColumn = (item: { type: "outside" | "news" }) => item.type === "outside" ? "outside_post_id" : "news_item_id";
+// NEWS-모두에게열기 E3: 사람별 자세히 새 표(기본 키 workspace_id·article_id, id 칸 없음).
+export const detailTable = (item: { type: "outside" | "news" }) => item.type === "outside" ? "app_outside_now_details" : "app_news_now_details";
+export const NOW_SHARED_DETAIL_FIELDS = "level,summary,key_sentences,relevance,implications,related,interests_key,generated_at,context_at";
+export function sharedDetailUpsertBody(workspaceId: string, item: { id: string }, row: Record<string, unknown>) {
+  return { workspace_id: workspaceId, article_id: item.id, ...row };
+}
 
 // 넣기(on_conflict=글 칸) 몸통: 늘 이 작업공간 + 글 id 하나.
 export function detailUpsertBody(workspaceId: string, item: { type: "outside" | "news"; id: string }, row: Record<string, unknown>) {
