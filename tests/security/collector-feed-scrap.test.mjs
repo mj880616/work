@@ -18,7 +18,7 @@ const A='https://news.example.com/article/1001';
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
 function harness({ws=JSON.stringify(WS),existing=[],insertStatus=201,shared=[],sharedStatus=201,takenIds=[]}={}){
-  const calls={feature:[],inserts:[],articles:[],other:[],outside:0,logs:[]};
+  const calls={feature:[],inserts:[],articles:[],maps:[],other:[],outside:0,logs:[]};
   const keys=new Set(existing);
   const ids=new Set(takenIds);
   // 공용 기사(app_news_articles): url_key 전체 유일. shared = 이미 있는 [url_key, id].
@@ -49,6 +49,8 @@ function harness({ws=JSON.stringify(WS),existing=[],insertStatus=201,shared=[],s
       const k=decodeURIComponent((url.search.match(/url_key=eq\.([^&]*)/)||[])[1]||'');
       return respond(keys.has(`${WS}|${k}`)?[{id:'x'}]:[]);
     }
+    // NEWS-모두에게열기 E2: 옛 줄을 넣으면 같은 주소 공용 기사로 지도 1줄.
+    if(path==='app_news_id_map'&&init.method==='POST'){calls.maps.push(JSON.parse(init.body));return respond('',201);}
     calls.other.push(`${init.method||'GET'} ${path}`);
     return respond([]);
   };
@@ -74,6 +76,7 @@ test('정상: 운영자 기능(telegram)으로 작업공간을 정하고, 채널
   assert.match(id,/^[0-9a-f-]{36}$/);
   assert.deepEqual(h.calls.articles,[{id,origin:'tg_scrap',...want}]);
   assert.deepEqual(h.calls.inserts,[{id,workspace_id:WS,...want}]);
+  assert.deepEqual(h.calls.maps,[{old_id:id,workspace_id:WS,article_id:id}],'지도 1줄(옛 id = 기사 id)');
   assert.deepEqual(h.calls.other,[]);
   assert.equal(h.calls.outside,0);
   assert.ok(!h.calls.logs.join('\n').includes('example'),'로그에 주소 없음');
@@ -116,7 +119,10 @@ test('공용 기사 id가 이미 다른 작업공간 옛 줄에 쓰였으면 운
   const h=harness({shared:[['news.example.com/article/1001',OLD]],takenIds:[OLD]});
   const r=await h.send({items:[{url:A}]});
   assert.equal((await r.json()).inserted,1);
-  assert.deepEqual(h.calls.inserts.map(x=>x.id),[OLD,undefined],'id 충돌 → 같은 주소 줄 없음 확인 → 새 id');
+  const ids=h.calls.inserts.map(x=>x.id);
+  assert.equal(ids.length,2);assert.equal(ids[0],OLD);
+  assert.match(ids[1],/^[0-9a-f-]{36}$/);assert.notEqual(ids[1],OLD,'id 충돌 → 같은 주소 줄 없음 확인 → 새 id');
+  assert.deepEqual(h.calls.maps,[{old_id:ids[1],workspace_id:WS,article_id:OLD}],'새 id 옛 줄도 같은 주소 공용 기사로 지도');
 });
 
 test('공용 표 쓰기가 실패해도(적용 전·일시 장애) 옛 표 쓰기는 그대로 — 화면 유지',async()=>{
@@ -124,6 +130,7 @@ test('공용 표 쓰기가 실패해도(적용 전·일시 장애) 옛 표 쓰�
   const r=await h.send({items:[{url:A}]});
   assert.deepEqual(await r.json(),{ok:true,received:1,inserted:1,duplicate:0,rejected:0});
   assert.equal(h.calls.inserts[0].id,undefined);
+  assert.deepEqual(h.calls.maps,[],'공용 기사가 없으면 지도 없음(보충 함수가 나중에)');
   assert.ok(h.calls.logs.some(l=>l.includes('news_shared_failed')));
 });
 

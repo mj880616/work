@@ -23,6 +23,8 @@
 //   robots.txt 먼저(막히면 state='robots'), 유료벽 표시면 본문을 읽지 않고 공개 리드만(state='paywall'), 봇 확인 쪽은 저장 안 함.
 // 저장: 서비스 역할로 app_news_items(넣기·고치기)·app_news_days(넣기·고치기)·app_news_keywords(읽기)·app_outside_sources(news- 키 읽기·상태)·
 //   app_workspace_members(owner 확인 읽기)·rpc app_news_prune·app_feed_bodies(본문 블록 넣기·고치기, P2b)만.
+//   NEWS-모두에게열기 E2: app_news_id_map(옛 줄 → 공용 기사 지도 넣기만)·app_news_article_bodies(공용 본문 블록 넣기·고치기)·
+//   rpc app_news_refs_sync(지도·공용 본문·사람별 읽음·자세히·반응 보충, 서버 전용 — prune 단계 앞).
 //   본문 블록(NEWS-전면개편 P2b, 4.7절): media 단계가 피드를 읽은 뒤 새 기사마다 글 쪽 1번(같은 reader라 요청 사이 GAP_MS, 예산 RUN_BUDGET_MS,
 //   매체마다 한 번 MEDIA_BODY_PER_RUN건), 남은 것은 pending 단계가 읽는다. 누를 때 열기(open)도 같은 줄을 고친다. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
 import { allowedUrl } from "../_shared/outside-catalog.ts";
@@ -180,6 +182,19 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
 // (새로 넣는 운영자 줄은 공용 id 그대로 — D2 '옛 id = 새 id'). 같은 주소의 공용 기사에 이미 요약·제목 번역·본문 번역이 있으면
 // 옛 줄에는 그것을 옮겨 적고 AI를 다시 부르지 않는다(기사마다 1회). 공용 표를 읽거나 쓰지 못하면(일시 장애) 옛 표 흐름은 그대로 간다.
 // 공용 기사에 드는 AI(요약·제목 번역)는 운영자 작업공간(app_operator_feature_workspace 'telegram') 하루 사용량에 센다 — 사람 수만큼 늘지 않는다.
+// 보충 DB 함수(migration 20261115160000_news_refs_sync, service_role만 실행). 한 번에 표마다 REFS_SYNC_LIMIT줄까지.
+export const REFS_SYNC_FN = "app_news_refs_sync";
+export const REFS_SYNC_LIMIT = 2000;
+// 돌려받은 jsonb에서 줄 수만(정해진 키·0 이상 정수만 — 그 밖은 버림).
+export function refsCounts(v: unknown): Record<string, number> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const out: Record<string, number> = {};
+  for (const k of ["articles", "map", "bodies", "reads", "details", "signals"]) {
+    const n = (v as Row)[k];
+    if (typeof n === "number" && Number.isInteger(n) && n >= 0) out[k] = n;
+  }
+  return out;
+}
 export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publisher,published_at,state,fetched_at,summary,body,body_kind,title_ko,body_ko,translated_at,source_key";
 async function operatorWs(db: Db): Promise<string | null> {
   try {
@@ -203,6 +218,31 @@ async function articlesByKey(db: Db, keys: unknown[], log: FeedLog): Promise<Map
 async function patchArticle(db: Db, log: FeedLog, id: unknown, patch: Row, guard = "") {
   if (typeof id !== "string" || !UUID.test(id) || !Object.keys(patch).length) return;
   try { await db.send("PATCH", `app_news_articles?id=eq.${id}${guard}`, patch, "return=minimal"); } catch { log("shared_write_failed"); }
+}
+// 옛 줄 → 공용 기사 지도(app_news_id_map, D2). 옛 표에 새 줄을 넣을 때마다 같은 주소(url_key)의 공용 기사로 한 줄(있으면 무시 — 지도는 고치지 않는다).
+// 같은 주소의 공용 기사가 아직 없으면 넣지 않는다(보충 함수 app_news_refs_sync가 나중에 채움). 실패해도 옛 표 흐름은 그대로(로그만).
+type OldRef = { id: string; workspace_id: string; url_key: string };
+export async function mapOldRows(db: Db, log: FeedLog, rows: OldRef[], known?: Map<string, Row>) {
+  const list = rows.filter((r) => UUID.test(r.id) && UUID.test(r.workspace_id) && typeof r.url_key === "string" && r.url_key);
+  if (!list.length) return 0;
+  const byKey = known ?? await articlesByKey(db, list.map((r) => r.url_key), log);
+  const maps = list.flatMap((r) => { const a = byKey.get(r.url_key); return a && typeof a.id === "string" && UUID.test(a.id) ? [{ old_id: r.id, workspace_id: r.workspace_id, article_id: a.id }] : []; });
+  try {
+    for (let i = 0; i < maps.length; i += 200) await db.send("POST", "app_news_id_map?on_conflict=old_id", maps.slice(i, i + 200), "resolution=ignore-duplicates,return=minimal");
+  } catch { log("map_write_failed"); return 0; }
+  return maps.length;
+}
+// 공용 본문 블록 한 줄(app_news_article_bodies, 기사마다 하나). 읽은 결과(ok·lead·image_only)는 새 결과로 고치고,
+// 못 읽은 결과(failed)는 블록이 아직 없을 때만 넣는다(이미 읽힌 본문을 일시 실패로 덮지 않음). 실패해도 옛 본문 블록은 그대로.
+async function saveArticleBody(db: Db, log: FeedLog, article: Row | null | undefined, ex: Extracted, nowIso: string) {
+  if (!article || typeof article.id !== "string" || !UUID.test(article.id)) return;
+  if (article.lane === "media" && newsSourceByKey(article.source_key)?.extract === false) return;
+  const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(ex, { workspace_id: "" }, nowIso);
+  const merge = ex.state !== "failed";
+  try {
+    await db.send("POST", "app_news_article_bodies?on_conflict=article_id", { article_id: article.id, ...body, updated_at: nowIso },
+      `return=minimal,resolution=${merge ? "merge-duplicates" : "ignore-duplicates"}`);
+  } catch { log("shared_body_failed", { lane: String(article.lane ?? "") }); }
 }
 
 // ---- AI ------------------------------------------------------------------------------------------------------------
@@ -394,6 +434,7 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
     }
     // 공용 기사는 이미 읽힌 것(ok)을 일시 실패로 덮지 않는다.
     if (article && article.state !== "ok") await patchArticle(db, ai.log, article.id, { state: storedState(got.code), fetched_at: nowIso, updated_at: nowIso });
+    await saveArticleBody(db, ai.log, article, failedBody(readFailReason(got.code), ruleId(r.key, r.rule)), nowIso);
     return storedState(got.code);
   }
   const page = readArticlePage(got.text, nowMs, opts.rule(got.url));
@@ -410,6 +451,8 @@ async function fillItems(db: Db, reader: FeedReader, ai: AiDeps, items: Row[], n
     await saveNewsBody(db, ai.log, item, page.blocks, nowIso);
   }
   if (article) await patchArticle(db, ai.log, article.id, pagePatch(article, page, nowIso, sum));
+  await saveArticleBody(db, ai.log, article, page.blocks, nowIso);
+  if (article && items.length) await mapOldRows(db, ai.log, items.map(oldRef), new Map([[String(article.url_key), article]]));
   return page.state;
 }
 const fillItem = (db: Db, reader: FeedReader, ai: AiDeps, item: Row, nowMs: number, opts: FillOpts) => fillItems(db, reader, ai, [item], nowMs, opts);
@@ -470,7 +513,10 @@ async function markOffHost(db: Db, log: FeedLog, source: NewsSource, items: Row[
   const r = mediaRule(source, String(items[0]?.url ?? ""));
   const nowIso = new Date(nowMs).toISOString();
   for (const item of items) await saveNewsBody(db, log, item, failedBody("off_host", ruleId(r.key, r.rule)), nowIso);
+  const key = items[0]?.url_key;
+  if (typeof key === "string") await saveArticleBody(db, log, (await articlesByKey(db, [key], log)).get(key), failedBody("off_host", ruleId(r.key, r.rule)), nowIso);
 }
+const oldRef = (r: Row): OldRef => ({ id: String(r.id), workspace_id: String(r.workspace_id), url_key: String(r.url_key ?? "") });
 
 // 다시 뽑을 줄인가(P2c). body: 그 기사의 블록 줄(state·reason·rule) 또는 없음. current: 지금 카탈로그 규칙 이름(키@판).
 export function needsRefill(body: Row | null | undefined, current: string | null): boolean {
@@ -567,8 +613,8 @@ type NewRow = { id?: string; workspace_id: string; lane: "keyword" | "media"; ur
   lang: string; publisher: string | null; source_key: string | null; keywords: string[]; published_at: string | null; fetched_at: string;
   state: "ok"; summary: string | null; body: string | null; body_kind: "full" | "lead" | null };
 // 같은 작업공간에 같은 주소(url_key) 또는 같은 제목(title_key)이 이미 있으면 넣지 않는다(채널 기사와 겹침 포함).
-async function insertNew(db: Db, rows: NewRow[]): Promise<number> {
-  let n = 0;
+async function insertNew(db: Db, rows: NewRow[]): Promise<OldRef[]> {
+  const out: OldRef[] = [];
   const byWs = new Map<string, NewRow[]>();
   for (const r of rows) byWs.set(r.workspace_id, [...(byWs.get(r.workspace_id) ?? []), r]);
   for (const [ws, list] of byWs) {
@@ -587,10 +633,11 @@ async function insertNew(db: Db, rows: NewRow[]): Promise<number> {
     }
     if (fresh.length) {
       await db.send("POST", "app_news_items?on_conflict=workspace_id,url_key", fresh, "resolution=ignore-duplicates,return=minimal");
-      n += fresh.length;
+      // 지도용: 넣은 줄 id는 여기서 정한 것(위에서 같은 작업공간·같은 주소를 이미 걸렀다. 드물게 동시 실행으로 무시된 줄의 지도 줄은 가리키는 옛 줄이 없을 뿐 해가 없다).
+      for (const r of fresh) if (r.id) out.push({ id: r.id, workspace_id: r.workspace_id, url_key: r.url_key });
     }
   }
-  return n;
+  return out;
 }
 // 공용 기사 넣기(매체 단계): 같은 주소(url_key 전체 유일) 또는 같은 제목(title_key)의 공용 기사가 이미 있으면 넣지 않는다.
 // 돌려주는 것: 이번에 새로 들어간 줄의 url_key → id(넣은 줄만 — 저장소가 돌려준 줄 기준). 공용 표를 못 쓰면 빈 표(옛 표 흐름은 그대로).
@@ -686,7 +733,10 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
       const op = await operatorWs(db);
       if (op) for (const r of rows) if (r.workspace_id === op && fresh.has(r.url_key)) r.id = fresh.get(r.url_key);
     }
-    inserted += await insertNew(db, rows);
+    const added = await insertNew(db, rows);
+    inserted += added.length;
+    // 옛 표에 새로 넣은 줄마다 같은 주소 공용 기사로 지도 1줄(NEWS-모두에게열기 E2 — D2 뒤 새 줄이 지도에 빠지지 않게).
+    if (added.length) await mapOldRows(db, log, added);
     if (hits.length) {
       const byKey = await articlesByKey(db, hits.map((h) => h.key), log);
       const marks: MarkRow[] = [];
@@ -1149,8 +1199,12 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         if (step === "pending") return json(await runPending(db, readers, ai, nowMs, startMs, now, log));
         if (step === "titles") return json(await runTitles(db, ai, nowMs, startMs, now, log));
         if (step === "prune") {
+          // 지움 앞에 보충(NEWS-모두에게열기 E2): 지도에 빠진 옛 줄·공용 본문·사람별 읽음·자세히·반응을 새 표로(서버 전용 DB 함수, 여러 번 불러도 같음).
+          // 실패해도 지우기는 그대로 간다(로그에는 단계 코드만).
+          let refs: unknown = null;
+          try { refs = await db.rpcValue(REFS_SYNC_FN, { p_limit: REFS_SYNC_LIMIT }); } catch { log("refs_sync_failed"); }
           const removed = await db.rpcNumber("app_news_prune", { p_now: new Date(nowMs).toISOString(), p_limit: PRUNE_LIMIT });
-          return json({ ok: true, step: "prune", removed });
+          return json({ ok: true, step: "prune", removed, refs: refsCounts(refs) });
         }
         throw new Fail(400, "UNKNOWN_STEP");
       }

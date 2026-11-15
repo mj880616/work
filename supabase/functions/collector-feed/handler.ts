@@ -1092,7 +1092,7 @@ async function runScrap(db: Db, ws: string, items: ScrapItem[], nowMs: number, l
     const id = await sharedArticleId(db, { origin: "tg_scrap", url: u.url, url_key: u.url_key, scrapped_at: at }, log);
     if (id === null) sharedFailed++; else if (id.fresh) shared++;
     // 같은 작업공간·같은 url_key는 유일 제약이 409로 막는다.
-    const r = await mirrorOldItem(db, ws, id?.id ?? null, u.url, u.url_key, at);
+    const r = await mirrorOldItem(db, ws, id?.id ?? null, u.url, u.url_key, at, log);
     if (r === "ok") inserted++; else duplicate++;
   }
   log("scrap_saved", { received: items.length, inserted, duplicate, rejected, shared, shared_failed: sharedFailed });
@@ -1114,13 +1114,26 @@ async function sharedArticleId(db: Db, row: { origin: "tg_scrap"; url: string; u
 
 // 운영자 옛 표 대기 줄(옮기는 동안 화면 유지). id가 있으면 공용 기사 id 그대로 넣고, 그 id가 이미 다른 줄에 쓰였으면(D1이 다른 작업공간 줄 id를 고른 기사)
 // 이 작업공간에 같은 주소 줄이 없을 때만 새 id로 넣는다.
-async function mirrorOldItem(db: Db, ws: string, id: string | null, url: string, key: string, at: string): Promise<"ok" | "conflict"> {
+// 옛 줄을 넣으면 같은 주소 공용 기사로 지도 1줄(app_news_id_map, NEWS-모두에게열기 E2 — 있으면 무시). 공용 기사가 없으면(공용 표 일시 장애) 지도 없이 넣고
+// 뉴스 수집기의 보충 함수(app_news_refs_sync)가 나중에 채운다.
+async function mirrorOldItem(db: Db, ws: string, id: string | null, url: string, key: string, at: string, log?: Log): Promise<"ok" | "conflict"> {
   const row = { workspace_id: ws, lane: "channel", url, url_key: key, scrapped_at: at, state: "pending" };
   if (!id) return await db.insert("app_news_items", row);
-  const r = await db.insert("app_news_items", { id, ...row });
-  if (r === "ok") return r;
-  const mine = await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=eq.${encodeURIComponent(key)}&select=id&limit=1`);
-  return mine.length ? "conflict" : await db.insert("app_news_items", row);
+  let r = await db.insert("app_news_items", { id, ...row });
+  let oldId = id;
+  if (r !== "ok") {
+    const mine = await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=eq.${encodeURIComponent(key)}&select=id&limit=1`);
+    if (mine.length) return "conflict";
+    oldId = crypto.randomUUID();
+    r = await db.insert("app_news_items", { id: oldId, ...row });
+    if (r !== "ok") return r;
+  }
+  await mapOld(db, oldId, ws, id, log);
+  return "ok";
+}
+export async function mapOld(db: Db, oldId: string, ws: string, articleId: string, log?: Log) {
+  try { await db.insert("app_news_id_map", { old_id: oldId, workspace_id: ws, article_id: articleId }); }
+  catch { log?.("news_map_failed"); }
 }
 
 // ---- 뉴스방(NEWS-모두에게열기 ②, 설계 news-for-all.md 2-3·2-4절) ------------------------------------------------------
@@ -1169,7 +1182,7 @@ async function takeNewsRoom(db: Db, ws: string, input: TelegramInput, log: Log) 
         for (const a of rows) {
           if (typeof a.id !== "string" || !UUID_RE.test(a.id) || typeof a.url !== "string" || typeof a.url_key !== "string") continue;
           const at = typeof a.scrapped_at === "string" ? a.scrapped_at : new Date().toISOString();
-          if (await mirrorOldItem(db, ws, a.id, a.url, a.url_key, at) === "ok") mirrored++;
+          if (await mirrorOldItem(db, ws, a.id, a.url, a.url_key, at, log) === "ok") mirrored++;
         }
       } catch { log("news_room_mirror_failed"); }
     }
