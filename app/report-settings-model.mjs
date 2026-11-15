@@ -5,5 +5,5 @@ import {reportCalendarOk} from './view-prefs.js';
 export function parseCalendar(text) {
   const name = String(text ?? '').trim();
   if (!name) return {ok:true, value:null};
-  return reportCalendarOk(name) ? {ok:true, value:name} : {ok:false, error:'주간보고 일정 캘린더 이름은 1~60자예요.'};
+  return reportCalendarOk(name) ? {ok:true, value:name} : {ok:false, error:'주간 보고 일정 캘린더 이름은 1~60자예요.'};
 }

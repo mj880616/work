@@ -43,7 +43,7 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await expect(label(page)).toHaveText('11.9(월)~11.15(일)');
   await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 0건');
   // ② 이번 주 주간보고: 펼친 칸, 칸마다 [쓰기]. BIZ-주간보고접기(11/09): 주 단위에서도 제목 줄이 접고 펴는 버튼(처음엔 펼침).
-  await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','true');
   await expect(box.locator('.biz-sum-table')).toBeVisible();
   const write=box.locator('[data-bp-cell="progress"]').first();
@@ -54,7 +54,7 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   // ③ ‹ 지난주(전환 주 앞)는 그때 글을 읽기만.
   await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
   await expect(label(page)).toHaveText('11.2(월)~11.8(일)');
-  await expect(box.locator('.biz-week-title')).toHaveText('11.2~11.8 주간보고');
+  await expect(box.locator('.biz-week-title')).toHaveText('11.2~11.8 주간 보고');
   await expect(box.locator('[data-bp-status]')).toHaveText('옛 보고라 수정할 수 없어요.');
   await expect(box.locator('[data-bp-cell]')).toHaveCount(0);
   // ⑤⑥ [전체 기간]: 주간보고 칸은 이번 주, 접힌 한 줄. 누르면 펼침.
@@ -62,7 +62,7 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await pick.selectOption('all');
   const fold=box.locator('.biz-week-title [data-bw-fold]');
   await expect(fold).toHaveAttribute('aria-expanded','false');
-  await expect(fold).toHaveText(/이번 주 주간보고\s*11\.9~11\.15/);
+  await expect(fold).toHaveText(/이번 주 주간 보고\s*11\.9~11\.15/);
   await expect(fold.locator('.kptu-chev')).toHaveCount(1);
   await expect(box.locator('[data-bw-body]')).toBeHidden();
   const titleBox=await fold.boundingBox();
@@ -80,7 +80,7 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await expect(box.locator('[data-bw-body]')).toBeHidden();
   // 손으로 펴면 그 값도 기억해 [전체 기간]으로 가도·다시 와도 펼친 채.
   await fold.click();await expect(fold).toHaveAttribute('aria-expanded','true');
-  await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   await expect(box.locator('.biz-sum-table')).toBeVisible();
   await pick.selectOption('all');await expect(fold).toHaveAttribute('aria-expanded','true');
   await pick.selectOption('week');await pick.selectOption('all');
@@ -94,7 +94,7 @@ test('390: 저장된 보기가 [전체 기간]이어도 열면 주간보고 칸�
   await expect(reportPeriodSelect(page)).toHaveValue('all');
   const fold=box.locator('.biz-week-title [data-bw-fold]');
   await expect(fold).toHaveAttribute('aria-expanded','false');
-  await expect(fold).toHaveText(/이번 주 주간보고\s*11\.9~11\.15/);
+  await expect(fold).toHaveText(/이번 주 주간 보고\s*11\.9~11\.15/);
   await expect(box.locator('[data-bw-body]')).toBeHidden();
 });
 

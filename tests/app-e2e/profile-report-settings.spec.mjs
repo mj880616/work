@@ -19,11 +19,11 @@ for(const [label,width] of [['폰 412',412],['PC 1440',1440]]){
     // 담당 사업장 칸 바로 뒤, 접힌 채 한 줄. 카드 이름 = 칸 이름(MULTI-다른담당자맞춤 ②·③).
     await expect(page.locator('#psWorkplacePanel + #psReportPanel')).toHaveCount(1);
     await expect(panel.locator('details')).not.toHaveAttribute('open','');
-    await expect(panel.locator('summary h3')).toHaveText('주간보고 일정 캘린더');
+    await expect(panel.locator('summary h3')).toHaveText('주간 보고 일정 캘린더');
     await expect(panel.locator('[data-ps-report-summary]')).toHaveText("'공공운수노조'");
     await panel.locator('summary').click();
     await expect(panel.locator('#psReportGroups,#psReportHidden,[data-ps-report-missing]')).toHaveCount(0);
-    await expect(panel.locator('[data-ps-report-cal="list"]')).toContainText("주간보고 '주요 일정'에 넣을 일정이 있는 구글 캘린더");
+    await expect(panel.locator('[data-ps-report-cal="list"]')).toContainText("주간 보고 '주요 일정'에 넣을 일정이 있는 구글 캘린더");
     // 이름을 치지 않고 연결된 구글 캘린더 목록에서 고른다. 지금 값이 목록에 없으면 '(목록에 없음)'으로 남는다.
     await expect(panel.locator('#psReportCalendar')).toBeEnabled();
     await expect(panel.locator('#psReportCalendar')).toHaveValue('공공운수노조');

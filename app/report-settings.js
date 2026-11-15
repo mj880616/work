@@ -15,7 +15,7 @@ export const summaryText = calendar => (calendar ? `'${calendar}'` : '미지정'
 
 // 캘린더 선택 칸. cals: null(읽는 중) | {connected, calendars:[{id, summary}]} | {failed:true}
 export function calendarFieldHtml(calendar, cals, busy = false) {
-  const head = `<small>주간보고 '주요 일정'에 넣을 일정이 있는 구글 캘린더</small>`;
+  const head = `<small>주간 보고 '주요 일정'에 넣을 일정이 있는 구글 캘린더</small>`;
   if (cals && !cals.failed && !cals.connected) {
     return `<div class="ps-report-field" data-ps-report-cal="unconnected">${head}<p class="ps-report-note">구글 캘린더를 연결하면 여기서 선택할 수 있어요.${calendar ? ` 지금: '${esc(calendar)}'` : ''} <button type="button" class="secondary" data-ps-report-connect>구글 캘린더 연결</button></p></div>`;
   }
@@ -47,7 +47,7 @@ export function mountReportSettings(host, {prefs = globalThis.KPTUViewPrefs || v
   const read = () => ({calendar: prefs.get('report_calendar') ?? ''});
   function render() {
     const {calendar} = read(), open = opened;
-    host.innerHTML = `<details class="ps-report"${open ? ' open' : ''}><summary><h3>주간보고 일정 캘린더</h3><span class="ps-report-line" data-ps-report-summary>${esc(summaryText(calendar))}</span></summary>
+    host.innerHTML = `<details class="ps-report"${open ? ' open' : ''}><summary><h3>주간 보고 일정 캘린더</h3><span class="ps-report-line" data-ps-report-summary>${esc(summaryText(calendar))}</span></summary>
 ${calendarFieldHtml(calendar, cals, busy)}
 ${note ? `<p class="ps-report-note" role="status">${esc(note)}</p>` : ''}
 <div class="ps-report-actions"><button type="button" class="secondary ps-save" data-ps-report-save${busy ? ' disabled aria-busy="true"' : ''}>${busy ? '저장 중…' : '저장'}</button></div></details>`;
@@ -66,7 +66,7 @@ ${note ? `<p class="ps-report-note" role="status">${esc(note)}</p>` : ''}
     const ok = same(read().calendar || null, cal.value) && prefs.status() === 'ok';
     note = ok ? '' : '저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.';
     render();
-    if (ok) { toast('주간보고 일정 캘린더를 저장했어요.'); globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:report-settings-changed')); }
+    if (ok) { toast('주간 보고 일정 캘린더를 저장했어요.'); globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:report-settings-changed')); }
   }
   host.addEventListener('click', e => {
     if (e.target.closest?.('[data-ps-report-save]')) void save();

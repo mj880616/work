@@ -79,7 +79,7 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 }
 
 const mids = async (page, sel) => (await page.locator(sel).evaluateAll(els => els.filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map(e => { const r = e.getBoundingClientRect(); return {mid: Math.round(r.top + r.height / 2), top: r.top, bottom: r.bottom, right: r.right, h: r.height}; })));
-for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC 한 줄) · 주 고르기 하나 · 이번 주 주간보고 늘 펼침 · 떠 있는 버튼 없음`, async ({page}) => {
+for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC 한 줄) · 주 고르기 하나 · 이번 주 주간 보고 늘 펼침 · 떠 있는 버튼 없음`, async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const state = makeState();
   await open(page, state, width);
@@ -122,7 +122,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await expect(week).toBeVisible();
   expect(await week.evaluate(el => el.tagName.toLowerCase())).not.toBe('details');
   await expect(week.locator(':scope > summary')).toHaveCount(0);
-  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   await expect(week.locator('[data-bp-paper]')).toContainText('1) 사업요약표');
   // 위 주 고르기를 넘기면 이 칸도 같은 주를 보여 준다(이름이 그 주로 바뀐다).
   const label = page.locator('#reportWeekFilter .report-week-label');
@@ -133,7 +133,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   const dayOf = t => t.match(/(\d+)\.(\d+)/).slice(1).map(Number).join('.');
   await expect(week.locator('.biz-week-title')).toContainText(dayOf(after));
   await page.locator('#reportWeekFilter [data-report-week="next"]').click();
-  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   // 떠 있는 버튼은 없다(보기는 위 줄 고르기 상자, 동그란 [+]도 없음: [+]는 첫 줄 안).
   const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);

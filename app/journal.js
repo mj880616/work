@@ -540,7 +540,7 @@ const NO_MEETINGS = Object.freeze([]);
 function dayReportBlock(card) {
   const report = document.createElement('section');
   report.className = 'journal-report'; report.dataset.journalReport = '';
-  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
+  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간 보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
   if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
   else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
@@ -1353,7 +1353,7 @@ async function copyDraft() {
   const ok = await copyText(text);
   // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
-  status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
+  status.textContent = ok ? `주간 보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
 
@@ -1391,7 +1391,7 @@ async function toggleKind(key, hide, name) {
   try {
     const result = await changeKind(key, hide, rt);
     if (scope !== ownerScope(rt)) return;
-    if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간보고에서 빼요.` : `'${name}' 종류를 주간보고에 다시 올려요.`; }
+    if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간 보고에서 빼요.` : `'${name}' 종류를 주간 보고에 다시 올려요.`; }
     else status.textContent = '저장하지 못했어요. 다시 시도해 주세요.';
     renderDay(); renderWeekly_();
   } finally { kindsBusy = false; }
