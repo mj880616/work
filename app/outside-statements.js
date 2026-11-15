@@ -24,6 +24,7 @@ import {readOutsideMarks} from './now-marks.js';
 import {readOutsideArticles, readOutsideOne, readNewsArticles, readNewsOne} from './feed-shared.js';
 import {newsPage} from './feed-shared-model.mjs';
 import {fillGestureArea} from './gesture-fill.js';
+import {sortByName} from './name-order.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
 // - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
@@ -363,7 +364,7 @@ function sourcesHtml() {
   if (!state.catalog) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6}));
   if (!state.sourcesLoaded) return head + (state.sourcesFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6}));
   const groups = GROUPS.map(g => {
-    const members = state.catalog.filter(s => s.group === g.key);
+    const members = sortByName(state.catalog.filter(s => s.group === g.key)); // 묶음 안은 가나다(NEWS-출처목록가나다), 묶음 순서는 GROUPS 그대로
     if (!members.length) return '';
     return `<section class="os-src-group" aria-label="${esc(g.label)}"><h3 class="os-src-group-head">${esc(g.label)}</h3>${members.map(s => {
       const row = state.sources.get(s.key), on = row?.enabled === true, busy = state.saving.has(s.key);

@@ -3,12 +3,12 @@
 import {kstDay, addDays, dayLabel, hhmm} from './feed-model.mjs';
 
 // 단체 묶음(카탈로그 group 값과 같은 이름). 단체 이름·묶음은 서버 카탈로그(outside-feed ?action=catalog)에서만 받는다.
-// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안.
+// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국→11/15 국제]. 민주노총·공공운수노조는 [노동] 안.
 export const GROUPS = Object.freeze([
   {key: 'labor', label: '노동'},
   {key: 'party', label: '정당'},
   {key: 'movement', label: '사회운동'},
-  {key: 'foreign', label: '외국'},
+  {key: 'foreign', label: '국제'}, // 11/15 명진 "외국은 국제"(NEWS-출처목록가나다) — 내부 이름 foreign·DB는 그대로
 ]);
 const GROUP_KEYS = new Set(GROUPS.map(g => g.key));
 // 옛 서버 카탈로그(묶음 kctu·kptu)가 아직 배포돼 있을 때도 [노동]으로 묶는다(Edge 재배포 전후 어느 쪽이든 같은 화면).
