@@ -35,36 +35,51 @@ test('blocksText: text blocks only, joined by lines, capped at the material size
   assert.equal([...B.blocksText([{t:'p',text:'가'.repeat(7000)}])].length,B.NOW_MATERIAL_CHARS);
 });
 
+// NEWS-모두에게열기 E3: 글은 공용 표(app_outside_articles·app_news_articles), 본문 블록·문장도 공용 표(글 id). 옛 줄은 지도 함수로 공용 id로.
+const ART={...POST};delete ART.workspace_id;
+const FART={...FOREIGN};delete FART.workspace_id;
 test('loadItem with feedText (what P3c passes): no body-table or sentence-table read',async()=>{
-  const d=deps({rows:{app_outside_posts:[POST]}});
+  const d=deps({rows:{app_outside_articles:[ART],app_outside_posts:[]}});
   const item=await B.loadItem(d.deps,{type:'outside',id:POST.id,feedText:'수집 때 저장한 본문.'});
   assert.equal(item.body,'수집 때 저장한 본문.');assert.equal(item.fromFeed,true);
-  assert.deepEqual(d.reads.map(p=>p.split('?')[0]),['app_outside_posts']);
-  assert.ok(d.reads[0].includes(`workspace_id=eq.${WS}`));
+  assert.deepEqual(d.reads.map(p=>p.split('?')[0]),['app_outside_articles','app_outside_posts']);
+  assert.ok(d.reads[1].includes(`workspace_id=eq.${WS}`),'옛 줄 찾기는 내 작업공간만');
+  assert.equal(item.oldId,null);
 });
 
-test('loadItem without feedText reads app_feed_bodies first, else the old way; ok/lead only',async()=>{
+test('loadItem without feedText reads the shared body blocks first, else the old way; ok/lead only',async()=>{
   const blocks=[{t:'p',text:'블록 본문.'}];
-  let d=deps({rows:{app_outside_posts:[POST],app_feed_bodies:[{state:'ok',blocks}],app_outside_sentences:[{idx:0,text:'문장 표 본문.'}]}});
+  let d=deps({rows:{app_outside_articles:[ART],app_outside_posts:[{id:POST.id}],app_outside_article_bodies:[{state:'ok',blocks}],app_outside_article_sentences:[{idx:0,text:'문장 표 본문.'}]}});
   let item=await B.loadItem(d.deps,{type:'outside',id:POST.id});
-  assert.equal(item.body,'블록 본문.');assert.ok(!d.reads.some(p=>p.startsWith('app_outside_sentences')));
-  d=deps({rows:{app_outside_posts:[POST],app_feed_bodies:[{state:'image_only',blocks:[{t:'p',text:'첨부.hwp'}]}],app_outside_sentences:[{idx:0,text:'문장 표 본문.'}]}});
+  assert.equal(item.body,'블록 본문.');assert.ok(!d.reads.some(p=>p.startsWith('app_outside_article_sentences')));
+  assert.ok(d.reads.some(p=>p.startsWith('app_outside_article_bodies?article_id=eq.'+POST.id)));
+  assert.equal(item.oldId,POST.id,'운영자 옛 줄 id = 공용 id');
+  d=deps({rows:{app_outside_articles:[ART],app_outside_posts:[],app_outside_article_bodies:[{state:'image_only',blocks:[{t:'p',text:'첨부.hwp'}]}],app_outside_article_sentences:[{idx:0,text:'문장 표 본문.'}]}});
   item=await B.loadItem(d.deps,{type:'outside',id:POST.id});
   assert.equal(item.body,'문장 표 본문.');assert.equal(item.fromFeed,false);
-  d=deps({rows:{app_news_items:[{id:id(3),workspace_id:WS,title:'가상 기사',summary:'',body:'저장 body.',lang:'ko'}]}});
+  d=deps({rows:{app_news_articles:[{id:id(3),url_key:'n.example/3',title:'가상 기사',summary:'',body:'저장 body.',lang:'ko'}],app_news_items:[]}});
   item=await B.loadItem(d.deps,{type:'news',id:id(3)});
   assert.equal(item.body,'저장 body.');assert.ok(d.logs.some(l=>l.detail?.stage==='feed_body'));
   assert.equal(B.itemHasMaterial(item),true);
 });
 
-test('loadItem: another workspace or missing → 404, read failure → 503',async()=>{
-  await assert.rejects(B.loadItem(deps({rows:{app_outside_posts:[{...POST,workspace_id:'a0000000-0000-4000-8000-000000000002'}]}}).deps,{type:'outside',id:POST.id}),{code:'not_found',status:404});
-  await assert.rejects(B.loadItem(deps({rows:{app_outside_posts:[]}}).deps,{type:'outside',id:POST.id}),{code:'not_found'});
+test('loadItem: old id → map rpc → shared id; missing → 404, read failure → 503',async()=>{
+  const OLD=id(50);
+  const rpcCalls=[];
+  const rpc=async(name,args)=>{rpcCalls.push([name,args]);return name==='app_outside_article_of'?[{old_id:OLD,article_id:POST.id}]:[];};
+  const d=deps({rows:{app_outside_articles:[ART],app_outside_article_bodies:[]},rpc});
+  const item=await B.loadItem(d.deps,{type:'outside',id:OLD});
+  assert.deepEqual([item.id,item.oldId],[POST.id,OLD]);
+  assert.deepEqual(rpcCalls,[['app_outside_article_of',{p_old:[OLD]}]]);
+  assert.ok(d.reads[0].startsWith(`app_outside_articles?id=eq.${POST.id}`));
+  await assert.rejects(B.loadItem(deps({rows:{app_outside_articles:[]},rpc:async()=>[]}).deps,{type:'outside',id:POST.id}),{code:'not_found',status:404});
+  await assert.rejects(B.loadItem(deps({rows:{app_outside_articles:[{...ART,id:id(77)}]}}).deps,{type:'outside',id:POST.id}),{code:'not_found'});
   await assert.rejects(B.loadItem(deps().deps,{type:'outside',id:POST.id}),{code:'read_unavailable',status:503});
+  await assert.rejects(B.loadItem(deps({rows:{app_outside_articles:[ART]},rpc:async()=>{throw new Error('x');}}).deps,{type:'outside',id:POST.id}),{code:'read_unavailable'});
 });
 
 test('foreignBody: skipped when the body came from stored blocks; off-catalog url never fetched',async()=>{
-  const d=deps({rows:{app_outside_posts:[FOREIGN],app_feed_bodies:[{state:'ok',blocks:[{t:'p',text:'Stored text.'}]}]}});
+  const d=deps({rows:{app_outside_articles:[FART],app_outside_posts:[],app_outside_article_bodies:[{state:'ok',blocks:[{t:'p',text:'Stored text.'}]}]}});
   const item=await B.loadItem(d.deps,{type:'outside',id:FOREIGN.id});
   const got=await B.detailBody(d.deps,item);
   assert.deepEqual(got,{body:'Stored text.',hay:'Stored text.\n\nSynthetic strike',fetched:false});
@@ -72,12 +87,13 @@ test('foreignBody: skipped when the body came from stored blocks; off-catalog ur
   assert.equal(await B.foreignBody(d.deps,{...item,fromFeed:false,url:'https://evil.example/x'}),'');assert.equal(d.sites.length,0);
 });
 
-test('relatedCandidates without rpc (scheduled callers): only post/news title reads, no record or ledger search',async()=>{
-  const d=deps({rows:{app_outside_posts:[{id:id(9),title:'가상 민영화 성명'}],app_news_items:[]}});
+test('relatedCandidates without rpc (scheduled callers): only shared post/news title reads, no record or ledger search; my hidden news left out',async()=>{
+  const d=deps({rows:{app_outside_articles:[{id:id(9),title:'가상 민영화 성명'}],app_news_articles:[{id:id(10),title:'민영화 숨긴 기사'},{id:id(11),title:'민영화 기사'}],
+    app_news_marks:[{article_id:id(10),hidden_at:'2026-11-01T00:00:00Z'}]}});
   const item={type:'outside',id:id(1),title:'민영화 반대',titleKo:''};
   const c=await B.relatedCandidates(d.deps,item,[]);
-  assert.deepEqual(c,[{ref:'r1',kind:'outside',id:id(9),title:'가상 민영화 성명'}]);
-  assert.ok(d.reads.every(p=>p.includes(`workspace_id=eq.${WS}`)));
+  assert.deepEqual(c,[{ref:'r1',kind:'outside',id:id(9),title:'가상 민영화 성명'},{ref:'r2',kind:'news',id:id(11),title:'민영화 기사'}]);
+  assert.ok(d.reads.find(p=>p.startsWith('app_news_marks')).includes(`workspace_id=eq.${WS}`),'숨김은 내 표시만');
 });
 
 test('AI request body: no storage, no tools, strict JSON schema',()=>{
@@ -95,6 +111,8 @@ test('stored row shapes match the app_now_details columns',()=>{
   assert.deepEqual(Object.keys(B.contextPatch(ctx,'k',t)).sort(),['context_at','implications','interests_key','related','relevance','updated_at']);
   assert.deepEqual(B.detailUpsertBody(WS,{type:'news',id:id(3)},{level:'basic'}),{workspace_id:WS,news_item_id:id(3),level:'basic'});
   assert.equal(B.detailConflictColumn({type:'outside'}),'outside_post_id');
+  assert.equal(B.detailTable({type:'outside'}),'app_outside_now_details');assert.equal(B.detailTable({type:'news'}),'app_news_now_details');
+  assert.deepEqual(B.sharedDetailUpsertBody(WS,{id:id(3)},{level:'basic'}),{workspace_id:WS,article_id:id(3),level:'basic'});
   const fb=B.fallbackRow({lang:'en',summary:'저장 요약',keySentences:[{orig:'A.',ko:'가.'}]},'none',t);
   assert.deepEqual([fb.level,fb.summary,fb.key_sentences],['basic','저장 요약',[{orig:'A.',ko:'가.'}]]);
 });
