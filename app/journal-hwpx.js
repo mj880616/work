@@ -442,6 +442,25 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (mine === run) say(error?.kind ? error.message : TEXT.readFailed, 'error');
     }
   }
+  async function hwpxPackage(file) {
+    const {draft, drive} = await lazy();
+    if (!file || !drive.isHwpName(file.name)) return {error:TEXT.notHwp};
+    if (file.size > MAX_BYTES) return {error:TEXT.tooBig};
+    let bytes = new Uint8Array(await file.arrayBuffer());
+    const kind = draft.hwpKind(bytes);
+    if (!kind) return {error:TEXT.notHwp};
+    if (kind !== 'hwpx') {
+      if (draft.hwp5Header(bytes)?.password) return {error:TEXT.locked};
+      engine ||= createEngine();
+      try { bytes = await engine.toHwpx(bytes, file.name); }
+      catch (error) {
+        const why = draft.engineReason(error);
+        if (why !== '파일을 열지 못함') { engine?.close(); engine = null; }
+        return {error:TEXT.engineFailed};
+      }
+    }
+    return {pkg:await draft.openConfirmed(bytes)};
+  }
   async function fromFile(file) {
     const mine = ++run;
     const {drive} = await lazy();
@@ -1810,8 +1829,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     prepare: () => ensure(),
     // 바탕이 있나: 'some'(열렸거나 자료실에 있음) | 'none'(자료실에 없음) | 'unknown'(아직 모름·못 읽음). checkBase(week)는 한 번 읽고 끝나면 onBase.
     baseState, checkBase,
-    // 백지 화면의 [파일 올리기]: 기기 한글 파일을 이 주 바탕으로 연다. 끝난 뒤 바탕 상태와 상태 줄 글을 돌려준다.
-    openFile: file => fromFile(file).then(() => ({state:baseState(getWeek().start), note:status.textContent || ''})),
+    // WEEKLY-내양식자유변형 ②: 기기 한글 파일 → .hwpx 묶음(옛 .hwp는 같은 변환 엔진으로 바꿈). 바탕으로 열지 않는다(양식 읽기만).
+    // 반환 {pkg} | {error:'화면 글'}. 파일 내용은 기기 메모리에만.
+    hwpxPackage: file => hwpxPackage(file),
     // 그 주 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳(칸 id → 줄). 바탕을 연 판에서만.
     team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
     // WEEKLY-사업영역묶음 ②: 그 주 바탕(양식)을 연 판에서만 사업영역 이름 → 양식 첫 칸 이름(Map). 양식에 내 줄이 없거나 아직 안 열었으면 null.

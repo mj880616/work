@@ -604,22 +604,42 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (refreshBox) hwpx?.refresh();
   if (keep && (document.activeElement === document.body || !document.activeElement)) { const back = document.getElementById(keep.id); if (back && !back.disabled) { back.focus({preventScroll:true}); try { if (keep.at[0] != null) back.setSelectionRange(keep.at[0], keep.at[1]); } catch { /* 글 칸이 아님 */ } } }
 }
-// 바탕 없는 주의 [주간 보고]: 한 줄 + [파일 올리기](끌어 놓기도). 고른 한글 파일을 그 주 바탕으로 열면(journal-hwpx.js openFile) 다시 그린다.
+// 바탕 없는 주의 [주간 보고]: 한 줄 + [파일 올리기](끌어 놓기도). 고른 한글 파일에서 '내 양식'을 읽어 서버에 저장한다(아래 open).
 function paintBlank(host) {
   if (host.querySelector('[data-weekly-blank]')) return;
   const box = document.createElement('section'); box.className = 'journal-weekly-blank'; box.dataset.weeklyBlank = '';
   box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="secondary" data-weekly-blank-pick>파일 올리기</button></p>'
     + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
   const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]'), pick = box.querySelector('[data-weekly-blank-pick]');
+  // WEEKLY-내양식자유변형 ②: 올린 파일은 바탕으로 열지 않고(다른 팀 양식 규칙을 쓰지 않음) 항목·표 머리 칸만 규칙으로 읽어 '내 양식'으로 서버에 저장한다
+  // (hwpx-form-read.mjs → weekly-own-form-store.js, app_weekly_forms). 양식 확인·짝짓기 화면(③)·매주 초안(④)은 다음 PR.
+  const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs')]);
+  let known;
+  void ownForm().then(async ([, store, model]) => {
+    const r = await store.readOwnForm();
+    if (known === undefined) known = r.row;
+    if (r.row && !pick.disabled && !note.textContent) note.textContent = `${model.readSummary(r.row.form)} ${store.OWN_FORM_TEXT.saved}`.trim();
+  }).catch(() => {});
   const open = async file => {
     if (!file || pick.disabled) return;
     pick.disabled = true; note.innerHTML = waitInlineHtml();
     try {
-      const r = await hwpx.openFile(file);
-      if (r.state === 'some') { renderWeekly_(); return; }
-      note.textContent = r.note || '파일을 열지 못했어요. 다시 선택해 주세요.';
+      const [{readHwpxForm}, store, model] = await ownForm();
+      const r = await hwpx.hwpxPackage(file);
+      if (r.error) { note.textContent = r.error; return; }
+      let read;
+      try { read = readHwpxForm(r.pkg); } catch { note.textContent = store.OWN_FORM_TEXT.unreadable; return; }
+      if (!read.form.sections.length) { note.textContent = store.OWN_FORM_TEXT.none; return; }
+      if (known === undefined) known = (await store.readOwnForm()).row;
+      let saved;
+      try { saved = await store.saveOwnForm({known, name:read.title || file.name, sourceName:file.name, form:read.form}); }
+      catch (error) { note.textContent = error?.code === 'too_big' ? store.OWN_FORM_TEXT.tooBig : store.OWN_FORM_TEXT.failed; return; }
+      if (saved.missing) { note.textContent = store.OWN_FORM_TEXT.notReady; return; }
+      if (saved.conflict) { known = saved.row; note.textContent = store.OWN_FORM_TEXT.conflict; return; }
+      known = saved.row;
+      note.textContent = `${model.readSummary(saved.row.form)} ${store.OWN_FORM_TEXT.saved}`;
     } catch { note.textContent = '파일을 열지 못했어요. 다시 선택해 주세요.'; }
-    pick.disabled = false;
+    finally { pick.disabled = false; }
   };
   pick.addEventListener('click', () => input.click());
   input.addEventListener('change', () => { const f = input.files?.[0]; input.value = ''; void open(f); });
