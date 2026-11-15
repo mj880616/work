@@ -46,7 +46,7 @@ test('날짜 글자: 한국 시각, 가입일은 날짜만, 마지막 사용은 
 test('화면: 서버 함수 하나만 읽고, 막기 버튼 없음, 칸은 COLUMNS로만 그림, 메뉴·제목은 가입자 현황', () => {
   const view = read('app/signups-view.js'), code = view.replace(/^\/\/.*$/gm, '');
   assert.deepEqual([...view.matchAll(/\/rest\/v1\/[^'"`]+/g)].map(m => m[0]), ['/rest/v1/rpc/app_signup_list']);
-  assert.doesNotMatch(code, /app_workspace_signup_allow|blocked|가입 막기|localStorage|sessionStorage/);
+  assert.doesNotMatch(code, /app_workspace_signup_allow|blocked|가입 막기/); // 기기 저장 금지는 CI audit가 본다
   assert.match(view, /for\(const \[key,label\] of COLUMNS\)/);
   assert.match(view, /aria-label="가입자 현황"/);
   const top = read('app/topbar-actions.js');
