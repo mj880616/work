@@ -112,7 +112,7 @@ test('signup notify db: plan, dry-run, apply, operator-only list, server-only co
    const lines=summary.trim().split('\n');assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
    for(const sql of [precheck,postcheck])for(const r of (sql.match(/^-- expect: .*$/gm)||[]))assert.match(r,/^-- expect: .+ = (예|기록|1)$/);
    assert.doesNotMatch(snapshot,/from public\./i,'snapshot reads no app table');
-   assert.doesNotMatch(migration+rollbackSQL+summary,/@|example\./,'no mail address');
+   assert.doesNotMatch(migration+rollbackSQL+summary+precheck+postcheck+snapshot,/[A-Za-z0-9._-]+@[A-Za-z0-9-]+\.[A-Za-z]/,'no mail address');
   });
   await t.test('precheck all yes; dry-run changes nothing; apply passes postcheck; second apply refused',async()=>{
    for(const r of beforeCheck)if(/^(예|아니오)$/.test(r.value))assert.equal(r.value,'예',r.item);
