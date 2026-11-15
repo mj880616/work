@@ -1699,25 +1699,50 @@ test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 �
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('[주간 정리] 한글 파일: 자료실에 확정본이 없으면 백지 + [파일 올리기], [확정 없이 파일만 받기]·[확정하고 한글 파일 받기](.hwp)·기기 HWP 파일 선택은 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
- test.setTimeout(150000);
- await servePagesCors(page);
- const f=await hwpxFixture(page,{width:1280,noConfirmed:true,engine:'real'});
+// WEEKLY-내양식자유변형 ②(S62-28): 바탕 없는 백지의 [파일 올리기]는 바탕으로 열지 않고 항목·표 머리 칸만 읽어 '내 양식'으로 저장한다(app_weekly_forms).
+test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올리기] — 올린 파일은 내 양식으로 저장, 다른 팀 양식 글자 없음',async({page})=>{
+ const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
+ const forms=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:[]});forms.push({method:m,query:Object.fromEntries(new URL(r.request().url()).searchParams),body:r.request().postDataJSON()});return r.fulfill({status:201,json:[{id:'form-1',updated_at:'2026-11-16T00:00:00Z',...r.request().postDataJSON()}]});});
  await openJournal(page,1280);await openWeekly(page);
  // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 자료실에 바탕이 없으면 [주간 보고]는 백지 + 한 줄 [파일 올리기] — 다른 팀 양식(항목 이름·표 칸)은 하나도 안 보인다.
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
- await expect(weekly.locator('[data-weekly-blank]')).toHaveText('내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 파일 올리기');
+ await expect(weekly.locator('.journal-weekly-blank-line')).toHaveText('내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 파일 올리기');
  for(const word of ['요청사항','임원 배정','상집','투쟁 사업장','산하','요약','주요 일정','기본·영역·의제'])await expect(weekly).not.toContainText(word);
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('이 기기 안에서만');
  expect(f.sent.open).toEqual([]);
- // [파일 올리기]로 기기 파일(.hwpx) → 그 파일이 바탕이 되어 칸 줄
  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),weekly.getByRole('button',{name:'파일 올리기'}).click()]);
- await chooser.setFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
- await expect(weekly.locator('[data-weekly-blank]')).toHaveCount(0);
+ await chooser.setFiles({name:'my-form.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
+ await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText(/^항목 \d+개와 표 \d+개를 읽었어요\. 내 양식으로 저장했어요\.$/);
+ // 바탕으로 열지 않는다: 백지 그대로, 칸 줄·한글 파일 상자 없음, 자료실 열기 없음.
+ await expect(weekly.locator('[data-weekly-blank]')).toHaveCount(1);
+ expect(f.sent.open).toEqual([]);
+ expect(forms.map(x=>x.method)).toEqual(['POST']);
+ expect(Object.keys(forms[0].body).sort()).toEqual(['form','name','source_name','workspace_id']);
+ expect(forms[0].body).toMatchObject({workspace_id:'w',source_name:'my-form.hwpx',form:{v:1}});
+ expect(forms[0].body.form.sections.length).toBeGreaterThan(0);
+ for(const s of forms[0].body.form.sections)expect(Object.keys(s).sort()).toEqual(['columns','fill','id','level','title']);
+ // 본문 글(보고 내용)은 저장하지 않는다 — 양식 글자만.
+ expect(JSON.stringify(forms[0].body)).not.toContain('지난주 가-1 진행');
+ // 읽을 항목·표가 없는 파일: 저장하지 않고 한 줄.
+ await weekly.locator('[data-weekly-blank-file]').setInputFiles({name:'note.txt',mimeType:'text/plain',buffer:Buffer.from('x')});
+ await expect(weekly.locator('[data-weekly-blank-note]')).toHaveText('HWP(.hwp) 또는 한글 파일(.hwpx)만 선택할 수 있어요.');
+ expect(forms.length).toBe(1);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('[주간 정리] 한글 파일: [확정 없이 파일만 받기]·[확정하고 한글 파일 받기](.hwp)·기기 HWP 파일 선택은 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
+ test.setTimeout(150000);
+ await servePagesCors(page);
+ const f=await hwpxFixture(page,{width:1280,engine:'real'});
+ await openJournal(page,1280);await openWeekly(page);
+ await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
+ // 바탕 바꾸기(기기 파일) → 그 파일이 바탕이 되어 칸 줄
+ await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
+ await expect(topLine(page)).toContainText('바탕 기기 파일');
  await expect(topLine(page).locator('[data-hwpx-pick]')).toHaveText('바탕 바꾸기(기기 파일)');
  await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('가상 담당');
- await expect(topLine(page)).toContainText('바탕 기기 파일');
  // ⋯ → [확정 없이 파일만 받기](WEEKLY-기본HWP: 기본 .hwp): 같은 엔진이 HWP 5로 저장(OLE 머리). .hwpx는 [.hwpx로 받기].
  await expect(page.locator('#journalRoot [data-hwpx-hwp]')).toHaveText('확정 없이 파일만 받기');
  await expect(page.locator('#journalRoot [data-hwpx-build]')).toHaveText('.hwpx로 받기');
