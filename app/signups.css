@@ -1,10 +1,35 @@
-/* OPS-새가입알림 ③: 운영자 '가입자' 화면. 촘촘한 표, 새 색 없음. */
+/* OPS-가입자현황(S62-29): 운영자 '가입자 현황' 화면. 맨 위 숫자 한 줄 + 촘촘한 표, 새 색 없음.
+   넓은 화면: 칸 일곱(조직·부서·이름·직책·이메일·가입일·마지막 사용). 폰(760px 이하): 한 사람 두 줄 —
+   1줄 이름·직책·조직·부서, 2줄 이메일·가입·사용(긴 메일이면 날짜가 다음 줄로). 빈 칸은 폰에서 접는다. */
 #signupsView .su-view{min-width:0}
 #signupsView .su-table{width:100%;border-collapse:collapse;font-size:var(--ds-text-row);table-layout:fixed}
-#signupsView .su-count{caption-side:top;text-align:left;padding:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+#signupsView .su-count{caption-side:top;text-align:left;padding:0 0 6px;color:var(--kptu-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,600)}
 #signupsView th{padding:4px 6px 4px 0;text-align:left;font-weight:var(--ds-weight-medium,600);color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);border-bottom:.5px solid var(--kptu-border)}
 #signupsView td{padding:6px 6px 6px 0;border-bottom:.5px solid var(--kptu-border);overflow-wrap:anywhere;vertical-align:top}
-#signupsView th:nth-child(1),#signupsView td:nth-child(1){width:40%}
+#signupsView :is(th,td)[data-col="union_name"],#signupsView :is(th,td)[data-col="department_name"],#signupsView :is(th,td)[data-col="job_title"]{width:11%}
+#signupsView :is(th,td)[data-col="name"]{width:13%}
+#signupsView :is(th,td)[data-col="email"]{width:24%}
+#signupsView :is(th,td)[data-col="signed_up_at"]{width:11%}
+#signupsView :is(th,td)[data-col="last_seen_at"]{width:19%}
 #signupsView .su-name{font-weight:var(--ds-weight-medium,600)}
-#signupsView .su-when{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);white-space:nowrap}
-@media (max-width:420px){#signupsView .su-when{white-space:normal}}
+#signupsView :is(.su-email,.su-signed,.su-last){color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+#signupsView :is(.su-signed,.su-last){white-space:nowrap}
+@media (max-width:760px){
+  #signupsView .su-table,#signupsView tbody{display:block}
+  #signupsView .su-count{display:block}
+  #signupsView thead{display:none}
+  #signupsView .su-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:6px 0;border-bottom:.5px solid var(--kptu-border)}
+  #signupsView .su-row::after{content:'';flex-basis:100%;order:4}
+  #signupsView .su-row td{display:block;width:auto;padding:0;border:0;min-width:0}
+  #signupsView .su-row td:empty{display:none}
+  #signupsView .su-name{order:1}
+  #signupsView .su-job{order:2}
+  #signupsView .su-union{order:3}
+  #signupsView .su-department{order:3}
+  #signupsView .su-job,#signupsView .su-union,#signupsView .su-department{color:var(--kptu-muted)}
+  #signupsView .su-email{order:5}
+  #signupsView .su-signed{order:6}
+  #signupsView .su-last{order:7}
+  #signupsView .su-signed::before{content:'가입 '}
+  #signupsView .su-last::before{content:'사용 '}
+}

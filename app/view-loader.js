@@ -191,7 +191,7 @@ async function updates(){ await module('./release-notes-ui.js'); return {ok:true
 async function whatsnew(){ await module('./update-news-ui.js'); return {ok:true} }
 // FEEDBACK-의견보내기 PR5: 운영자 '받은 의견'(?view=feedback, 운영자 계정 메뉴). 열 때만 불러온다(모듈이 #feedbackView를 만든다, 읽기는 서버가 운영자만).
 async function feedback(){ await module('./feedback-inbox.js'); return {ok:true} }
-// OPS-새가입알림 ③: 운영자 '가입자'(?view=signups, 운영자 계정 메뉴·새 가입 알림). 열 때만 불러온다(모듈이 #signupsView를 만든다, 읽기는 서버가 운영자만).
+// OPS-새가입알림 ③·OPS-가입자현황: 운영자 '가입자 현황'(?view=signups, 운영자 계정 메뉴·새 가입 알림). 열 때만 불러온다(모듈이 #signupsView를 만든다, 읽기는 서버가 운영자만).
 async function signups(){ await module('./signups-view.js'); return {ok:true} }
 // BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
 async function brief(){ await module('./brief-room.js'); return {ok:true} }
