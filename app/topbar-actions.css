@@ -7,6 +7,7 @@
 .account-panel[hidden]{display:none!important}
 .account-panel{position:fixed;z-index:60;inset:auto;margin:0;width:min(300px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float)}
 .account-action{display:flex;align-items:center;width:100%;min-height:44px;border:0;border-radius:var(--kptu-radius-sm);padding:8px 10px;text-align:left;background:transparent;color:var(--kptu-ink);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.account-action[hidden]{display:none!important}
 .account-action:hover,.account-action:focus-visible{background:var(--kptu-primary-soft)}
 .account-panel{word-break:keep-all;overflow-wrap:normal}
 @media(min-width:761px){#appView>.app-nav .account-menu{width:100%}.account-trigger{font-size:12.5px;line-height:1.25}}

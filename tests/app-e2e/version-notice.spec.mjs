@@ -48,6 +48,8 @@ async function boot(page,{connected=false}={}){
     else if(path==='/rest/v1/app_workspace_members')data=[{workspace_id:workspace.id,user_id:user.id,role:'owner'}];
     else if(path==='/rest/v1/app_workspaces')data=[workspace];
     else if(path==='/rest/v1/app_profiles')data=[{user_id:user.id,display_name:'QA'}];
+    // UPDATE-운영자전용기록업데이트소식: 새 판 안내 줄은 운영자에게만 뜬다(이 파일은 운영자 화면을 본다. 이용자 쪽은 release-notes.spec.mjs).
+    else if(path==='/rest/v1/rpc/app_my_features')data=['dev_inbox'];
     else if(path==='/rest/v1/app_spaces')data=[{id:'version-project',workspace_id:workspace.id,name:'QA project',status:'active',owner_id:user.id,metadata:{project_system:'v2',management_version:2}}];
     else if(path==='/rest/v1/app_project_modules')data=[{project_id:'version-project',module_key:'progress',enabled:true,sort_order:10}];
     // MTG-프로젝트합치기 결정 ⑥: 상세 기록 목록에는 정리함 연결 줄만 그려지고 옛 진행 기록 고치기 칸도 없다. 초안은 이 연결 줄의

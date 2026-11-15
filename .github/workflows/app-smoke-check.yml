@@ -1120,6 +1120,9 @@ jobs:
       - name: UI-업데이트안내 기록 파일 검사·버전명·배포물 생성(needs the locked parser)
         run: node --test tests/release-notes.test.mjs
 
+      - name: UPDATE-운영자전용기록업데이트소식 개발 기록 서버 입구(release-notes-sync, GitHub OIDC 확인)
+        run: node --test tests/release-notes-sync.test.mjs
+
       - name: Check telegram room view model (TG-방별보기)
         run: node --test tests/tg-room-view-model.test.mjs
 
