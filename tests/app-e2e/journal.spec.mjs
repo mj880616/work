@@ -44,7 +44,7 @@ function store(){
   {id:'n1',workspace_id:'w',kind:'note',title:'교섭 정리 노트',journal_day:null,raw_text:'본문',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:40:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}},
   {id:'k5',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-05',raw_text:'월요일 한 줄',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}},
   {id:'k0',workspace_id:'w',kind:'work',title:null,journal_day:'2026-09-30',raw_text:'지난주 수요일',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}},
-  {id:'d1',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'하루 기록 JOURNAL_SECRET',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}},
+  {id:'d1',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'일기 JOURNAL_SECRET',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}},
  ];
 }
 function validWork(row,oneLine){
@@ -202,7 +202,7 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
    {id:'next',title:'가상 다음 주 회의',location:'가상 회의실',start:'2026-10-13T10:30:00+09:00',end:'2026-10-13T11:30:00+09:00',calendarId:'c'},
    {id:'camp',title:'가상 수련회',allDay:true,start:'2026-10-14',end:'2026-10-16',calendarId:'c'},
    {id:'leave',title:'연차',allDay:true,start:'2026-10-23',end:'2026-10-24',calendarId:'c'},
-   {id:'diary',title:'하루 기록 쓰는 날',start:'2026-10-20T20:00:00+09:00',end:'2026-10-20T21:00:00+09:00',calendarId:'c'},
+   {id:'diary',title:'일기 쓰는 날',start:'2026-10-20T20:00:00+09:00',end:'2026-10-20T21:00:00+09:00',calendarId:'c'},
    {id:'mine',title:'가상 개인 약속',start:'2026-10-14T19:00:00+09:00',end:'2026-10-14T20:00:00+09:00',calendarId:'p1'},
    {id:'match',title:'가상 아스날 경기',start:'2026-10-17T21:00:00+09:00',end:'2026-10-17T23:00:00+09:00',calendarId:'p2'},
    {id:'third',title:'가상 셋째 주 집회',start:'2026-10-27T14:00:00+09:00',end:'2026-10-27T15:00:00+09:00',calendarId:'c'},
@@ -688,7 +688,7 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  expect(part('4. 산하 조직 현황')).toEqual(['1) 요약','◦ 가상 노동조합','- 10월 6일(화) 안녕하세요 위원장님','◦ 나 지역 모임','- 10월 6일(화) 조직 화면에서 쓴 업데이트','- 10월 7일(수) 수요일 0시 기록','◦ 미분류','- 10월 6일(화) 현장 간담회 메모']);
  // 5. 주요 일정: 다음 주 월요일부터 2주, 양식 칸 모양, 휴가는 ※ 줄, 일기 표시 일정은 없다. 이번 주 일정(하루 카드의 일정)은 없다.
  expect(part('5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))')).toEqual(['- 10.13.(화) 10:30 / 가상 다음 주 회의 / 가상 회의실','- 10.14.(수) ~ 10.15.(목) 종일 / 가상 수련회','※ 휴가: 10/23(금) 연차']);
- expect(text).not.toContain('가상 개인 약속');expect(text).not.toContain('가상 아스날 경기');expect(text).not.toContain('하루 기록 쓰는 날');expect(text).not.toContain('가상 셋째 주 집회');expect(text).not.toContain('오전 일정');expect(text).not.toContain('가상 생일 모임');
+ expect(text).not.toContain('가상 개인 약속');expect(text).not.toContain('가상 아스날 경기');expect(text).not.toContain('일기 쓰는 날');expect(text).not.toContain('가상 셋째 주 집회');expect(text).not.toContain('오전 일정');expect(text).not.toContain('가상 생일 모임');
  // 참고: 한 줄(저장 순서) → 끝낸 할 일 → 할 일 예정 → 자료실 → 공유 페이지.
  expect(part('참고')).toEqual(['◦ 한 줄','- 10월 5일(월) 월요일 한 줄','- 10월 6일(화) 화요일 첫 줄','- 10월 6일(화) 화요일 둘째 줄','- 10월 8일(목) 목요일 첫 줄','- 10월 8일(목) 목요일 둘째 줄',
   '◦ 끝낸 할 일','- 10월 6일(화) 보도자료 배포','◦ 할 일 예정','- 10월 6일(화) 오늘 마감 할 일','- 10월 7일(수) 남은 할 일',
@@ -767,7 +767,7 @@ const journalBox=page=>page.evaluate(()=>{
   main:{max:main.maxWidth,pl:main.paddingLeft,pr:main.paddingRight},doc:document.documentElement.scrollWidth,vw:innerWidth};
 });
 for(const width of [1024,1279,1280,1920]){
- test(`PC 업무일지 폭: 하루 기록과 같은 바깥 폭, 날짜 줄·카드가 끝까지(위 줄 복사 버튼 없음), 하루 카드 2칸씩 줄 ${width}`,async({page})=>{
+ test(`PC 업무일지 폭: 일기와 같은 바깥 폭, 날짜 줄·카드가 끝까지(위 줄 복사 버튼 없음), 하루 카드 2칸씩 줄 ${width}`,async({page})=>{
   const f=await fixture(page,{width});await openJournal(page,width);
   await expect(itemTexts(page,'activities')).toHaveCount(1);
   // 연 화면 유지(S48-47): 이미 열린 홈을 다시 누르면 보던 화면을 두고 뒤에서 다시 읽으므로, 잴 칸(주간보고 재료 세 칸)이 다 온 뒤에 잰다.
@@ -1104,7 +1104,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(cal.locator('tbody th')).toHaveText(['10.13.(화)','10.14.(수) ~ 10.15.(목)']);
  await expect(cal.locator('tbody .journal-weekly-what')).toHaveText(['10:30 / 가상 다음 주 회의 / 가상 회의실','종일 / 가상 수련회']);
  await expect(cal.locator('[data-journal-weekly-vacation]')).toHaveText('※ 휴가: 10/23(금) 연차');
- await expect(cal).not.toContainText('가상 개인 약속');await expect(cal).not.toContainText('가상 아스날 경기');await expect(cal).not.toContainText("'공공운수노조' 달력 일정만"); /* 늘 보이던 안내 한 줄 삭제(S48-33) */await expect(cal).not.toContainText('가상 생일 모임');await expect(cal).not.toContainText('하루 기록 쓰는 날');await expect(cal).not.toContainText('가상 셋째 주 집회');
+ await expect(cal).not.toContainText('가상 개인 약속');await expect(cal).not.toContainText('가상 아스날 경기');await expect(cal).not.toContainText("'공공운수노조' 달력 일정만"); /* 늘 보이던 안내 한 줄 삭제(S48-33) */await expect(cal).not.toContainText('가상 생일 모임');await expect(cal).not.toContainText('일기 쓰는 날');await expect(cal).not.toContainText('가상 셋째 주 집회');
  // 참고 재료 묶음(한 줄·끝낸 할 일·…)은 화면에 없다(WEEKLY-주간정리다듬기 ④). 옮긴 노트·일기도 없다.
  await expect(weekly(page,'note-lines')).toHaveCount(0);
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('옮긴 합성 노트');
@@ -3306,7 +3306,7 @@ for(const width of [412,884,1440])test(`[주간 정리] [다음 주] 칸: 금요
  const titles=sent.items.map(i=>i.title).join('|');
  expect(titles).toContain('가상 다음 주 회의');expect(titles).toContain('가상 수련회');
  // 개인 달력(가상 개인 약속·가상 아스날 경기)·일기 일정은 장에도 AI에도 가지 않는다(결정 2).
- expect(titles).not.toMatch(/개인 약속|아스날|하루 기록/);
+ expect(titles).not.toMatch(/개인 약속|아스날|일기/);
  for(const it of sent.items)expect(Object.keys(it).sort()).toEqual(['day','group','org','source_id','source_kind','title']);
  // 만든 시각과 [다시 만들기]. 묶음은 접혀 있어도 한 줄 요약.
  await expect(box.locator('.journal-next-meta')).toContainText('10/9(금) 16:01 만듦');
