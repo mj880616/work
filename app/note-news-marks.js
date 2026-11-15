@@ -56,16 +56,16 @@ export function createNoteNewsMarks({head, box, onChange = () => {}} = {}) {
   function savedRowHtml(r, tag = '') {
     const l = savedLine(r, nameOf);
     const mark = tag ? `<span class="nnm-tag">${esc(tag)}</span>` : l.star ? '<span class="nnm-star" aria-label="별표">★</span>' : '<span class="nnm-tag">보관</span>';
-    return `<div class="nnm-sv now-row" data-nw-key="${esc(l.key)}"><button type="button" class="ghost nnm-open" data-nnm-saved="${esc(l.key)}">${mark}<span class="nnm-t">${esc(l.title)}</span><span class="nnm-m">${esc([l.media, l.day].filter(Boolean).join(' · '))}</span></button>${hoverActsHtml({saved: true})}<button type="button" class="icon-btn nh-more" data-now-more aria-haspopup="true" aria-expanded="false" aria-label="보관한 글 메뉴">${MORE}</button></div>`;
+    return `<div class="nnm-sv now-row" data-nw-key="${esc(l.key)}"><button type="button" class="ghost nnm-open" data-nnm-saved="${esc(l.key)}">${mark}<span class="nnm-t">${esc(l.title)}</span><span class="nnm-m">${esc([l.media, l.day].filter(Boolean).join(' · '))}</span></button>${hoverActsHtml({saved: true})}<button type="button" class="icon-btn basket-row-more" data-now-more aria-haspopup="true" aria-expanded="false" aria-label="보관한 글 메뉴">${MORE}</button></div>`;
   }
-  const srcBtn = id => `<button type="button" class="ghost nnm-src" data-nnm-news="${id}">News에서 보기 ↗</button>`;
+  const srcBtn = id => `<button type="button" class="secondary nnm-src" data-nnm-news="${id}">News에서 보기 ↗</button>`;
   function listHtml(at) {
     if (at === NEWS_HL) {
       const all = highlightsNow();
       if (!all) return hlFailed ? failHtml({retry: 'data-nnm-retry'}) : waitHtml({rows: 4, h: 56});
       return all.length ? `<div class="nh-list nw-card nnm-card">${hlRows(all)}</div>` : emptyHtml('저장한 밑줄 없음 · News 원문에서 글을 선택해 [밑줄 저장]', {attrs: 'data-nnm-empty'});
     }
-    const chips = `<div class="filter-chips nnm-chips" role="group" aria-label="보관한 글 거르기">${SAVED_KINDS.map(k => `<button type="button" class="nt-chip" data-nnm-kind="${k.id}" aria-pressed="${kind === k.id}">${esc(k.label)}</button>`).join('')}</div>`;
+    const chips = `<div class="filter-chips nnm-chips" role="group" aria-label="보관한 글 거르기">${SAVED_KINDS.map(k => `<button type="button" class="ds-chip" data-nnm-kind="${k.id}" aria-pressed="${kind === k.id}">${esc(k.label)}</button>`).join('')}</div>`;
     if (!saved) return chips + (savedFailed ? failHtml({retry: 'data-nnm-retry'}) : waitHtml({rows: 4, h: 40}));
     const list = filterSavedKind(saved, kind);
     return chips + (list.length ? `<div class="nw-card nnm-card">${list.map(r => savedRowHtml(r)).join('')}</div>` : emptyHtml('보관한 글 없음', {attrs: 'data-nnm-empty'}));

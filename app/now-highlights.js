@@ -11,11 +11,11 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const TYPE_LABEL = Object.freeze({telegram: '텔레그램'});
 
-// 밑줄 줄 하나(News [밑줄] 탭과 노트 'News에서 › 밑줄'이 같은 줄 — note-news-marks.js). tag: 줄 앞 작은 꼬리표(노트 검색 결과의 '밑줄').
+// 밑줄 줄 하나(News [밑줄] 탭과 — ⋯의 basket-row-more는 노트 칸에서만 모양이 붙는다(노트 줄 ⋯와 같은 자리) — 노트 'News에서 › 밑줄'이 같은 줄 — note-news-marks.js). tag: 줄 앞 작은 꼬리표(노트 검색 결과의 '밑줄').
 export function highlightRowHtml(h, {picking = false, picked = false, tag = ''} = {}) {
   const meta = [h.source_media || TYPE_LABEL[h.source_type] || '', shortDay(h.source_date || h.created_at), h.source_title || ''].filter(Boolean);
   const pick = picking ? `<input type="checkbox" class="nh-pick" data-nh-pick="${esc(h.id)}" aria-label="이 밑줄 선택"${picked ? ' checked' : ''}>` : '';
-  return `<div class="nh-row" data-nh-row="${esc(h.id)}">${pick}<button type="button" class="ghost nh-open" data-nh-open="${esc(h.id)}">${tag ? `<span class="nnm-tag">${esc(tag)}</span>` : ''}<span class="nh-q">${esc(h.quote)}</span>${h.memo ? `<span class="nh-memo"><span class="nh-k">메모</span>${esc(h.memo)}</span>` : ''}<span class="nh-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</span></button><button type="button" class="icon-btn nh-more" data-nh-more data-hl-id="${esc(h.id)}" aria-haspopup="true" aria-expanded="false" aria-label="밑줄 메뉴">${MORE}</button></div>`;
+  return `<div class="nh-row" data-nh-row="${esc(h.id)}">${pick}<button type="button" class="ghost nh-open" data-nh-open="${esc(h.id)}">${tag ? `<span class="nnm-tag">${esc(tag)}</span>` : ''}<span class="nh-q">${esc(h.quote)}</span>${h.memo ? `<span class="nh-memo"><span class="nh-k">메모</span>${esc(h.memo)}</span>` : ''}<span class="nh-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</span></button><button type="button" class="icon-btn basket-row-more nh-more" data-nh-more data-hl-id="${esc(h.id)}" aria-haspopup="true" aria-expanded="false" aria-label="밑줄 메뉴">${MORE}</button></div>`;
 }
 
 // onOpen(h): 그 글 그 자리로(껍데기가 글을 읽어 상세를 연다).
