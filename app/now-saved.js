@@ -16,18 +16,27 @@ const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetch
 const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id,state,body_kind';
 
 // describe(type, row) → {meta, title, ...} 상세 머리, rowOf(type, row, opts) → 줄 글자(News 껍데기가 준다). onOpen(item, head).
+// 보관한 글 읽기(서버, 작업공간 소유자 RLS) — News [보관] 탭과 노트 'News에서 › 보관한 글'(note-news-marks.js)이 같은 길을 쓴다.
+// 두 쪽 다 못 읽으면 null, 하나라도 읽으면 savedRows 결과. 작업공간이 아직 없으면 undefined.
+export async function readSavedRows() {
+  const w = workspaceOf();
+  if (!w) return undefined;
+  const [marks, news] = await Promise.allSettled([
+    rt().api(`/rest/v1/app_outside_marks?workspace_id=eq.${q(w)}&or=(starred_at.not.is.null,archived_at.not.is.null)&select=post_id,starred_at,archived_at,app_outside_posts(${POST_COLS})&limit=300`, {singleFlight: false}),
+    rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&starred_at=not.is.null&select=${NEWS_COLS}&order=starred_at.desc&limit=300`, {singleFlight: false}),
+  ]);
+  if (marks.status === 'rejected' && news.status === 'rejected') return null;
+  return savedRows(marks.status === 'fulfilled' ? marks.value : [], news.status === 'fulfilled' ? news.value : []);
+}
+
 export function createNowSaved({box, describe, rowOf, query = () => '', onOpen, onChanged, onListed} = {}) {
   let rows = [], loaded = false, failed = false, chip = 'all', seq = 0;
   async function load() {
-    const w = workspaceOf(), my = ++seq;
-    if (!w) return;
-    const [marks, news] = await Promise.allSettled([
-      rt().api(`/rest/v1/app_outside_marks?workspace_id=eq.${q(w)}&or=(starred_at.not.is.null,archived_at.not.is.null)&select=post_id,starred_at,archived_at,app_outside_posts(${POST_COLS})&limit=300`, {singleFlight: false}),
-      rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&starred_at=not.is.null&select=${NEWS_COLS}&order=starred_at.desc&limit=300`, {singleFlight: false}),
-    ]);
-    if (my !== seq) return;
-    if (marks.status === 'rejected' && news.status === 'rejected') { if (!loaded) failed = true; paint(); return; }
-    rows = savedRows(marks.status === 'fulfilled' ? marks.value : [], news.status === 'fulfilled' ? news.value : []);
+    const my = ++seq;
+    const got = await readSavedRows();
+    if (my !== seq || got === undefined) return;
+    if (got === null) { if (!loaded) failed = true; paint(); return; }
+    rows = got;
     loaded = true; failed = false;
     void ensureReads(rows.map(r => ({type: r.type, id: r.id})));
     paint();
