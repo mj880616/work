@@ -1,7 +1,7 @@
 // S53-5 NEWS-밑줄모으기: 고른 글(밑줄) 순수 계산 — 자리 찾기·겹침·노트 글·DB 규칙과 같은 제한.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cleanQuote, tooLong, cleanMemo, edgesOf, cleanSource, highlightBody, locate, markRanges, noteOf, copyOf, hlHit, sourceLine, QUOTE_MAX, EDGE} from '../app/text-highlights-model.mjs';
+import {cleanQuote, tooLong, cleanMemo, edgesOf, cleanSource, highlightBody, locate, markRanges, noteOf, copyOf, hlHit, sourceLine, QUOTE_MAX, EDGE, HL_TYPES, sourceTag, quoteGone} from '../app/text-highlights-model.mjs';
 const WS = '21000000-0000-4000-8000-000000000001', ID = '31000000-0000-4000-8000-000000000001';
 
 test('quote cleaning keeps paragraphs and refuses empty or too long', () => {
@@ -57,4 +57,20 @@ test('note, copy and search text carry quote, memo and source', () => {
   assert.equal(noteOf([]), null);
   assert.equal(copyOf(h), '한 줄\n둘째 줄\n\n매체 · 2026-11-07 · 글 제목\n\nhttps://e.org/a');
   assert.equal(hlHit(h, '생 각'), true); assert.equal(hlHit(h, '둘째줄'), true); assert.equal(hlHit(h, '없음'), false); assert.equal(hlHit(h, ''), true);
+});
+
+// S62-17 NOTE-노트에서도밑줄: 노트도 밑줄 출처(DB 20261115194000), 출처 꼬리표, 노트 글이 바뀌어 고른 글이 없는지.
+test('note is a highlight source; source tag; quote gone when the note text changed', () => {
+  assert.deepEqual(HL_TYPES, ['news', 'outside', 'telegram', 'note']);
+  const id = '32000000-0000-4000-8000-000000000002';
+  assert.deepEqual(cleanSource({type: 'note', id, title: '회의 메모', media: '노트', date: '2026-11-15T00:00:00Z', url: ''}), {type: 'note', id, title: '회의 메모', media: '노트', date: '2026-11-15T00:00:00.000Z', url: null});
+  assert.equal(highlightBody('w', {type: 'note', id}, '고른 글').source_type, 'note');
+  assert.equal(cleanSource({type: 'note', id: 'n1'}), null, 'note id must be a uuid');
+  assert.deepEqual(['note', 'telegram', 'news', 'outside'].map(t => sourceTag({source_type: t})), ['노트', '텔레그램', 'News', 'News']);
+  const raw = '# 회의\n\n- **철도** 현장 간담회\n- 다음 주 _재논의_';
+  assert.equal(quoteGone(raw, '철도 현장 간담회'), false, 'markdown marks and spaces are ignored');
+  assert.equal(quoteGone(raw, '다음 주 재논의'), false);
+  assert.equal(quoteGone(raw, '고치기 전 문장'), true);
+  assert.equal(quoteGone(null, '철도'), true, 'a deleted note counts as changed');
+  assert.equal(quoteGone(raw, ''), true);
 });
