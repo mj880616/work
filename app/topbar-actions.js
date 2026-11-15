@@ -38,8 +38,8 @@ const accounts=logoutButtons.map(logout=>{
   const feedback=document.createElement('button');feedback.type='button';feedback.className='account-action';feedback.dataset.feedbackOpen='';feedback.textContent='의견 보내기';feedback.setAttribute('aria-haspopup','dialog');
   const inbox=document.createElement('button');inbox.type='button';inbox.className='account-action';inbox.dataset.feedbackInbox='';inbox.hidden=true;
   inbox.innerHTML='<span class="account-action-name">받은 의견</span><span class="account-count" data-feedback-count></span>';
-  // OPS-새가입알림 ③: '가입자'도 운영자만(같은 서버 허용 표 dev_inbox일 때만 줄을 그림 — 읽기는 서버 app_signup_list가 막음).
-  const signups=document.createElement('button');signups.type='button';signups.className='account-action';signups.dataset.signupsOpen='';signups.hidden=true;signups.textContent='가입자';
+  // OPS-새가입알림 ③·OPS-가입자현황: '가입자 현황'도 운영자만(같은 서버 허용 표 dev_inbox일 때만 줄을 그림 — 읽기는 서버 app_signup_list가 막음).
+  const signups=document.createElement('button');signups.type='button';signups.className='account-action';signups.dataset.signupsOpen='';signups.hidden=true;signups.textContent='가입자 현황';
   // APP-앱내려받기버튼(명진 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
   // 폰 앱 안에서는 줄이 없다(앱이 스스로 업데이트한다).
   const appDl=appDownloadRow();
@@ -250,7 +250,7 @@ menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
   // APP-위여백: 홈은 본문 맨 위 날짜가 제목이라 폰 머리줄에 쓸 이름이 없다. 이름이 없으면 머리줄 전체가 자리를 비운다(빈 44px+12px 칸이 남지 않게).
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',team:'조직 보고',meetings:'사업 보고',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',feedback:'받은 의견',signups:'가입자',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',team:'조직 보고',meetings:'사업 보고',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',feedback:'받은 의견',signups:'가입자 현황',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -528,7 +528,7 @@ paintSteps();
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'조직 보고',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'조직 보고',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',feedback:'받은 의견',signups:'가입자',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
+const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'조직 보고',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',feedback:'받은 의견',signups:'가입자 현황',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
 const whereList=topline?.querySelector('[data-topline-where]');
 const APP_TITLE='노동조합+';
 let basketKind=null;
