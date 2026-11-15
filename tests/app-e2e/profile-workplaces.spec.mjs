@@ -205,6 +205,42 @@ test('이름만 바꿔도 저장되고 이름이 비면 저장하지 않는다',
   expect((await calls(page)).filter(c=>c.startsWith('POST')||c.startsWith('DELETE'))).toEqual([]);
 });
 
+// PROFILE-소속칸글로쓰기: 기본 정보 칸 4개(노조명·부서명·이름·직책). 노조명·부서명은 글로 직접, 이름·직책과 같은 [저장] 한 번으로 내 프로필 행에 저장된다.
+for(const [label,width] of [['폰 412',412],['폴드 880',880],['PC 1280',1280]]){
+  test(`${label}: 노조명·부서명 칸 — 처음엔 빈 칸, 쓰고 저장하면 같은 줄로 서버에 남고 다시 열어도 그대로, 비우면 null`,async({page})=>{
+    await page.setViewportSize({width,height:900});
+    await openProfile(page);
+    const union=page.locator('#psUnion'),dept=page.locator('#psDept');
+    await expect(union).toHaveValue('');await expect(dept).toHaveValue('');
+    await expect(union).toHaveAttribute('placeholder',/노조명/);await expect(dept).toHaveAttribute('placeholder',/부서명/);
+    await expect(union).toHaveAttribute('maxlength','60');await expect(dept).toHaveAttribute('maxlength','60');
+    // 목록·자동완성 없음(글 칸 그대로).
+    await expect(page.locator('#profileView .ps-fields datalist,#profileView .ps-fields [list]')).toHaveCount(0);
+    // 칸 순서: 노조명 · 부서명 · 이름 · 직책(위 두 칸, 아래 두 칸). 가로로 넘치지 않는다.
+    await expect(page.locator('#profileView .ps-fields input')).toHaveCount(4);
+    expect(await page.locator('#profileView .ps-fields input').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['psUnion','psDept','psName','psTitle']);
+    const [u,d,n]=[await union.boundingBox(),await dept.boundingBox(),await page.locator('#psName').boundingBox()];
+    expect(Math.abs(u.y-d.y)).toBeLessThan(2);expect(n.y).toBeGreaterThan(u.y+u.height-1);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await union.fill('  가상노동조합 샘플지부 ');await dept.fill('샘플사업팀');
+    await expect(page.locator('#psState')).toHaveText('1곳 바뀜, 저장 안 됨');
+    await page.click('#psSave');
+    await expect(page.locator('#psState')).toHaveText('저장됨');
+    let row=(await page.evaluate(()=>window.__state)).profile[0];
+    expect([row.union_name,row.department_name,row.display_name,row.job_title]).toEqual(['가상노동조합 샘플지부','샘플사업팀','테스터','국장']);
+    // 다시 열어도(서버 값 다시 읽기) 그대로.
+    await page.evaluate(()=>window.KPTURouter.go('team'));await page.evaluate(()=>window.KPTURouter.go('profile'));
+    await expect(union).toHaveValue('가상노동조합 샘플지부');await expect(dept).toHaveValue('샘플사업팀');
+    await expect(page.locator('#psState')).toHaveText('');
+    // 비우면 null로 저장(빈 글자 저장 없음 — DB 검사와 같음).
+    await union.fill('');await dept.fill('   ');
+    await page.click('#psSave');
+    await expect(page.locator('#psState')).toHaveText('저장됨');
+    row=(await page.evaluate(()=>window.__state)).profile[0];
+    expect([row.union_name,row.department_name]).toEqual([null,null]);
+  });
+}
+
 test('중간에 실패하면 거기서 멈추고, 저장된 것은 그대로, 실패한 체크는 남아 다시 저장할 수 있다',async({page})=>{
   await openProfile(page);
   await showAll(page);
