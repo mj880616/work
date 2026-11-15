@@ -33,6 +33,7 @@ import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleU
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { makeUserReads, readSharedArticle, type UserReads } from "../_shared/shared-article.ts";
 import { cut, isUrlTitle, oneLine, parseFeed } from "../outside-feed/parse.ts";
 import { tidyTitle } from "../_shared/outside-tidy.ts";
 // 기사 제목도 사회운동 Now와 같은 정돈 함수를 거친다(11/02 00:19): 한 줄, 종류 꼬리표·매체명 꼬리·날짜 꼬리만 떼고 '제목 - 부제'는 나누지 않는다.
@@ -1124,11 +1125,30 @@ async function useDaily(db: Db, ws: string, field: DayField, limit: number, nowM
   if (num(cur?.[field]) >= limit) throw new Fail(429, "DAILY_LIMIT");
   await addDay(db, ws, kstDay(nowMs), { [field]: 1 }, nowMs);
 }
-async function ownItem(db: Db, ws: string, id: unknown): Promise<Row> {
+// NEWS-모두에게열기 E3: 화면은 공용 기사 id(옮기는 동안 옛 줄 id도)를 보낸다. 공용 기사는 그 사람 로그인(RLS)으로 읽는다(_shared/shared-article.ts —
+// 가입자·차단 명단 아님·채널 스크랩 줄은 운영자만). 못 읽으면 없는 기사와 같다(404).
+async function ownArticle(reads: UserReads, id: unknown): Promise<Row> {
   if (typeof id !== "string" || !UUID.test(id)) throw new Fail(400, "INVALID_BODY");
-  const row = (await db.get(`app_news_items?id=eq.${id}&workspace_id=eq.${ws}&select=id,workspace_id,lane,url,url_key,source_key,title,lang,publisher,published_at,summary,body,body_kind,title_ko,body_ko,translated_at,state&limit=1`))[0];
-  if (!row) throw new Fail(404, "NOT_FOUND");
+  let row: Row | null;
+  try { row = await readSharedArticle("news", reads, id, ART_SELECT); } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
+  if (!row || typeof row.url_key !== "string" || !row.url_key) throw new Fail(404, "NOT_FOUND");
   return row;
+}
+// 옮기는 동안: 누른 사람 작업공간의 같은 주소 옛 줄(있으면). 그 줄에도 같은 결과를 적어 옛 표를 읽는 서버 일이 그대로 돌게 한다. 다른 작업공간 줄은 읽지 않는다.
+const OLD_SELECT = "id,workspace_id,lane,url,url_key,source_key,title,lang,publisher,published_at,summary,body,body_kind,title_ko,body_ko,translated_at,state";
+async function ownOldRows(db: Db, ws: string, art: Row): Promise<Row[]> {
+  const rows = await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=eq.${encodeURIComponent(String(art.url_key))}&select=${OLD_SELECT}&limit=5`);
+  return rows.filter((r) => typeof r.id === "string" && UUID.test(r.id) && String(r.workspace_id) === ws);
+}
+// 옮기는 동안: 공용 기사의 번역을 내 작업공간 옛 줄에도(본문이 같고 본문 번역이 아직 없을 때만). 실패해도 공용 기사 결과는 그대로(로그만).
+async function copyTranslation(db: Db, log: FeedLog, ws: string, olds: Row[], art: Row, titleKo: unknown, bodyKo: unknown, nowIso: string) {
+  for (const o of olds) {
+    if ((typeof o.body_ko === "string" && o.body_ko) || (o.body ?? "") !== (art.body ?? "")) continue;
+    try {
+      await db.send("PATCH", `app_news_items?id=eq.${o.id}&workspace_id=eq.${ws}&body_ko=is.null`,
+        { title_ko: o.title_ko ?? titleKo ?? null, body_ko: bodyKo ?? null, translated_at: o.translated_at ?? art.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+    } catch { log("old_write_failed"); }
+  }
 }
 
 export function createNewsFeedHandler(deps: NewsFeedDeps) {
@@ -1226,50 +1246,55 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         try { await runTitles(db, ai, nowMs, startMs, now, log, who.workspaceId); } catch { log("titles_after_fill_failed"); }
         return json({ ok: true, done: out.done, deferred: out.deferred });
       }
+      // NEWS-모두에게열기 E3: open·translate는 공용 기사 한 줄에 읽고 쓴다(기사마다 원문 읽기·번역 1번). 하루 한도·AI 사용량은 누른 사람 작업공간.
+      const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", auth!.slice("Bearer ".length), doFetch);
       if (action === "open") {
         if (!exactKeys(b, ["id"])) throw new Fail(400, "INVALID_BODY");
-        const item = await ownItem(db, who.workspaceId, b.id);
-        if (item.body_kind === "full") return json({ ok: true, status: "stored" });
-        if (videoId(String(item.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
+        const art = await ownArticle(reads, b.id);
+        const olds = await ownOldRows(db, who.workspaceId, art);
+        if (art.body_kind === "full") {
+          // 이미 읽힌 공용 기사: 원문을 다시 읽지 않는다. 내 옛 줄이 아직 비었으면 옮겨 적기만(읽기·AI 없음).
+          const lag = olds.filter((o) => o.body_kind !== "full");
+          if (art.state === "ok" && lag.length) await copyArticle(db, log, art, lag, new Date(nowMs).toISOString());
+          return json({ ok: true, status: "stored" });
+        }
+        if (videoId(String(art.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
         let reader: FeedReader;
-        if (item.lane === "channel") reader = readers.open();
+        if (art.lane === "channel") reader = readers.open();
         else {
-          const source = newsSourceByKey(item.source_key);
+          const source = newsSourceByKey(art.source_key);
           // 카탈로그 밖 매체(옛 키워드 기사의 구글 중계 주소, 카탈로그에서 뺀 매체의 글): 읽지 않고 원문 링크로.
           // 남의 매체로 가는 링크(linkOut 피드의 기사)도 카탈로그 호스트 밖이라 읽지 않는다.
-          if (!source || !allowedUrl(source, String(item.url))) return json({ ok: true, status: "original_only" });
+          if (!source || !allowedUrl(source, String(art.url))) return json({ ok: true, status: "original_only" });
           reader = readers.catalog(source);
         }
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
-        const state = await fillItem(db, reader, ai, item, nowMs, { rule: ruleForItem(item) ?? openRule });
+        // 원문은 공용 기사 주소로 한 번만 읽는다(같은 주소의 내 옛 줄에만 같은 결과를 함께 적음).
+        const same = olds.filter((o) => String(o.url) === String(art.url));
+        const state = await fillItems(db, reader, ai, same, nowMs, { rule: ruleForItem(art) ?? openRule, article: art, chargeWs: who.workspaceId });
         return json({ ok: true, status: state });
       }
-      // translate: 외국어 기사만. 본문 번역이 이미 있으면(또는 본문 없이 제목 번역이 있으면) 저장본(다시 부르지 않음).
+      // translate: 외국어 기사만. 공용 기사에 본문 번역이 이미 있으면(또는 본문 없이 제목 번역이 있으면) 저장본(다시 부르지 않음, 하루 한도도 안 씀).
       if (!exactKeys(b, ["id"])) throw new Fail(400, "INVALID_BODY");
-      const item = await ownItem(db, who.workspaceId, b.id);
-      const title = typeof item.title === "string" ? item.title : "";
-      const text = typeof item.body === "string" ? item.body : "";
-      if (typeof item.body_ko === "string" && item.body_ko) return json({ ok: true, status: "stored" });
-      if (!text && typeof item.title_ko === "string" && item.title_ko) return json({ ok: true, status: "stored" });
-      // NEWS-모두에게열기 ②: 같은 주소·같은 본문의 공용 기사에 번역이 이미 있으면(다른 사람이 먼저 누름) 옮겨 적기만 — 다시 번역하지 않고 하루 한도도 쓰지 않는다.
-      const art = typeof item.url_key === "string" ? (await articlesByKey(db, [item.url_key], log)).get(item.url_key) : undefined;
-      const sameBody = !!art && (art.body ?? "") === (item.body ?? "");
-      if (art && sameBody && typeof art.body_ko === "string" && art.body_ko) {
-        const nowIso = new Date(nowMs).toISOString();
-        await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${who.workspaceId}`,
-          { title_ko: item.title_ko ?? art.title_ko ?? null, body_ko: art.body_ko, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+      const art = await ownArticle(reads, b.id);
+      const olds = await ownOldRows(db, who.workspaceId, art);
+      const title = typeof art.title === "string" ? art.title : "";
+      const text = typeof art.body === "string" ? art.body : "";
+      const hadTitle = typeof art.title_ko === "string" && !!art.title_ko;
+      if (typeof art.body_ko === "string" && art.body_ko) {
+        await copyTranslation(db, log, who.workspaceId, olds, art, art.title_ko, art.body_ko, new Date(nowMs).toISOString());
         return json({ ok: true, status: "stored" });
       }
-      if (item.lang === "ko") throw new Fail(409, "NOT_FOREIGN");
+      if (!text && hadTitle) return json({ ok: true, status: "stored" });
+      if (art.lang === "ko") throw new Fail(409, "NOT_FOREIGN");
       if (!title && !text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
       // AI 월 한도는 AI로 번역할 때만 본다(Google 번역은 AI 비용이 아님 — Google 쪽 하루 글자 한도는 Cloud 콘솔 할당량으로).
       const google = googleKeyFrom(deps.env);
       const stop = google ? null : await aiMonthStop(db, who.workspaceId, nowMs);
       if (stop) throw new Fail(stop === "USAGE_UNAVAILABLE" ? 503 : 429, stop);
       await useDaily(db, who.workspaceId, "translate_n", TRANSLATE_DAILY, nowMs);
-      const hadTitle = typeof item.title_ko === "string" && !!item.title_ko;
       const got = await translateText({
-        doFetch, log, google, title, text, lang: item.lang, needTitle: !hadTitle,
+        doFetch, log, google, title, text, lang: art.lang, needTitle: !hadTitle,
         monthCapped: async () => !!(await aiMonthStop(db, who.workspaceId, nowMs)),
         askAi: async (material, maxOut, timeoutMs) => {
           const out = await askAi(ai, "news_translate", TRANSLATE_INSTRUCTIONS, material, TRANSLATE_SCHEMA, maxOut, timeoutMs);
@@ -1283,14 +1308,11 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!got.ok) throw new Fail(got.code === "MONTHLY_LIMIT" ? 429 : 503, got.code);
       const tr = got.tr, engine = got.engine;
       const nowIso = new Date(nowMs).toISOString();
-      // 제목 번역이 이미 있으면(백그라운드) 그대로 두고 본문만 더한다. translated_at은 처음 번역 시각을 유지한다.
-      const keepTitle = hadTitle ? item.title_ko : null;
-      await db.send("PATCH", `app_news_items?id=eq.${item.id}&workspace_id=eq.${who.workspaceId}`,
-        { title_ko: keepTitle ?? tr.title_ko, body_ko: tr.body_ko, translated_at: item.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
-      // 공용 기사에도 저장(본문이 같을 때만) → 두 번째 사람은 저장본을 읽는다.
-      if (art && sameBody && tr.body_ko) {
-        await patchArticle(db, log, art.id, { title_ko: art.title_ko ?? keepTitle ?? tr.title_ko ?? null, body_ko: tr.body_ko, translated_at: art.translated_at ?? nowIso, updated_at: nowIso }, "&body_ko=is.null");
-      }
+      // 공용 기사에 저장(본문 번역이 아직 없을 때만) → 두 번째 사람은 저장본을 읽는다. 제목 번역이 이미 있으면 그대로, translated_at은 처음 번역 시각.
+      const titleKo = hadTitle ? art.title_ko : tr.title_ko ?? null;
+      await db.send("PATCH", `app_news_articles?id=eq.${art.id}&body_ko=is.null`,
+        { title_ko: titleKo, body_ko: tr.body_ko, translated_at: art.translated_at ?? nowIso, updated_at: nowIso }, "return=minimal");
+      await copyTranslation(db, log, who.workspaceId, olds, art, titleKo, tr.body_ko, nowIso);
       return json({ ok: true, status: "translated", engine });
     } catch (e) {
       if (e instanceof Fail) {
