@@ -155,3 +155,35 @@ test('③ 고치기: 순서·이름·채울 기록·항목 추가·빼기·칸 �
   assert.ok(!m.sameForm(base, renamed));
   assert.equal(base.sections[0].title, '1. 활동', '원래 양식은 바뀌지 않음');
 });
+
+test('④-1 초안 모양: 채울 기록대로 줄·표 행, 칸 이름 규칙, 지난주 글 그대로, 빈칸', async () => {
+  const {ownDraft, columnKinds, dayText} = await import('../app/weekly-own-draft-model.mjs');
+  const form = cleanForm({sections: [
+    {id: 's1', title: '1. 금주 주요 활동', fill: 'biz'},
+    {id: 's2', title: '2. 지회 동향', columns: ['지회명', '동향', '비고'], fill: 'org'},
+    {id: 's3', title: '3. 다음 주 일정', columns: ['날짜', '내용', '장소'], fill: 'schedule'},
+    {id: 's4', title: '4. 기타', fill: 'last_week'},
+    {id: 's5', title: '5. 회의', fill: 'meeting'},
+    {id: 's6', title: '6. 빈 항목', columns: ['가', '나'], fill: 'blank'},
+  ]});
+  const model = {
+    summary: {areas: [{name: '교육', rows: [{items: [{day: '2026-11-18', text: '조합원 교육 1회'}, {day: '2026-11-19', label: '실무', text: '3차 실무교섭'}]}]}], others: []},
+    orgs: {sections: [{name: '가 지회', items: [{day: '2026-11-17', text: '요구안 확정'}]}, {name: '나 지회', items: [{day: '2026-11-20', text: '대의원대회'}]}]},
+    calendarView: {rows: [{day: '2026-11-24', items: [{time: '10:00', title: '운영위원회', place: '사무실'}]}]},
+    meetings: {items: [{day: '2026-11-18', text: '가상 회의 결과'}]},
+  };
+  const last = {sections: [{id: 's4', lines: [{text: '- 지난주에 쓴 줄'}]}]};
+  const d = ownDraft(form, model, last);
+  assert.deepEqual(d.sections[0].lines, [{text: '- 11/18 조합원 교육 1회', filled: true}, {text: '- 11/19 실무: 3차 실무교섭', filled: true}]);
+  assert.deepEqual(d.sections[1].rows.map(r => r.map(c => c.text)), [['가 지회', '요구안 확정', ''], ['나 지회', '대의원대회', '']]);
+  assert.deepEqual(d.sections[1].rows[0].map(c => c.filled), [true, true, false]);
+  assert.deepEqual(d.sections[2].rows.map(r => r.map(c => c.text)), [['11/24 10:00', '운영위원회', '사무실']]);
+  assert.deepEqual(d.sections[3].lines, [{text: '- 지난주에 쓴 줄', filled: false}]);
+  assert.deepEqual(d.sections[4].lines, [{text: '- 11/18 가상 회의 결과', filled: true}]);
+  assert.deepEqual(d.sections[5].rows, []);
+  assert.deepEqual(ownDraft(form, model, null).sections[3].lines, [], '지난주 초안이 없으면 비움');
+  assert.deepEqual(ownDraft(form, {summary: {loading: true}}).sections[0].lines, [], '불러오는 중이면 비움');
+  assert.deepEqual(columnKinds(['구분', '내용']), ['name', 'text']);
+  assert.deepEqual(columnKinds(['일시', '회의', '결과', '비고']), ['day', 'name', 'text', '']);
+  assert.equal(dayText('2026-01-05'), '1/5');
+});
