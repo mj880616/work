@@ -114,7 +114,7 @@ test.describe('PC 1440', () => {
     await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
     const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
     await expect(noteEl).toContainText('구글 드라이브 연결 뒤 쓸 수 있어요');
-    await expect(noteEl.getByRole('button', { name: '연결', exact: true })).toBeVisible();
+    await expect(noteEl.getByRole('button', { name: '구글 드라이브 연결', exact: true })).toBeVisible();
     expect(state.gd.map(b => b.action)).toEqual(['status']);
     expect(state.errors).toEqual([]);
   });
@@ -163,7 +163,7 @@ test.describe('PC 1440', () => {
     await page.locator('#photosRoot [data-photos-id="gd:G1"]').click({ button: 'right' });
     const menu = page.locator('#photosPhotoMenu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('button')).toHaveText(['선택', '공유', '일기에 넣기', '업데이트로 보내기', '이름 바꾸기…', '폴더로 옮기기…', '정보수정', '삭제']);
+    await expect(menu.locator('button')).toHaveText(['선택', '공유', '하루 기록에 넣기', '업데이트로 보내기', '이름 바꾸기…', '폴더로 옮기기…', '정보수정', '삭제']);
     await menu.getByRole('button', { name: '삭제' }).click();
     const ask = page.locator('.kptu-ask');
     await expect(ask).toBeVisible();
@@ -232,7 +232,7 @@ test.describe('폰 412', () => {
     { name: '권한 없음(scope:false)', status: { ok: true, scope: false, folders_on: 0, synced_at: null }, statusCode: 200, code: 'scope_missing' },
     { name: '연결 풀림(424)', status: { ok: false, error: 'drive_auth_expired' }, statusCode: 424, code: 'drive_auth_expired' },
   ]) {
-    test(`구글 드라이브 ${c.name}: 칩 빨간 점 + '권한 없음 · [Drive 다시 연결]' + 이유 글, 사진 목록은 부르지 않음`, async ({ page }) => {
+    test(`구글 드라이브 ${c.name}: 칩 빨간 점 + '권한이 빠졌어요' + [구글 드라이브 다시 연결] + 이유 글, 사진 목록은 부르지 않음`, async ({ page }) => {
       const { state } = await fixture(page, { status: c.status, statusCode: c.statusCode, prefs: { photo_sources_pc: { onedrive: true, gdrive: true, phone: true } } });
       await openPhotos(page, 412);
       await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
@@ -241,15 +241,15 @@ test.describe('폰 412', () => {
       await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 권한 없음');
       await expectSmallDot(page);
       const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
-      await expect(noteEl).toContainText('권한 없음');
-      await expect(noteEl.getByRole('button', { name: 'Drive 다시 연결' })).toBeVisible();
-      await expect(noteEl.locator('.photos-gd-why')).toContainText(`(${c.code})`);
+      await expect(noteEl).toContainText('권한이 빠졌어요');
+      await expect(noteEl.getByRole('button', { name: '구글 드라이브 다시 연결' })).toBeVisible();
+      await expect(noteEl.locator('.connect-note-why')).toContainText(`(${c.code})`);
       // 칩을 누르면 이유 + [Drive 다시 연결] 작은 메뉴.
       await gdBtn(page).click();
       const menu = page.locator('#photosGdMenu');
       await expect(menu).toBeVisible();
       await expect(menu).toContainText(`(${c.code})`);
-      await expect(menu.getByRole('button', { name: 'Drive 다시 연결' })).toBeVisible();
+      await expect(menu.getByRole('button', { name: '구글 드라이브 다시 연결' })).toBeVisible();
       expect(state.gd.map(b => b.action)).toEqual(['status']);
       expect(state.errors).toEqual([]);
     });
@@ -305,7 +305,7 @@ for (const width of [412, 840, 1280]) {
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
     await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
     const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
-    await expect(noteEl.getByRole('button', { name: '연결', exact: true })).toBeVisible();
+    await expect(noteEl.getByRole('button', { name: '구글 드라이브 연결', exact: true })).toBeVisible();
     if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/photos-new-${width}.png` });
     if (width <= 760) {
       await page.locator('#mobileMenuTab').click();

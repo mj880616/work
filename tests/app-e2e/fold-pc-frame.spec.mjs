@@ -40,7 +40,7 @@ const MENU=[
   ['잊지 말기','.nav-btn[data-view="basket"]','basket'],
   ['달력','.nav-btn[data-view="calendar"]','calendar'],
   ['할 일','.nav-sub-btn[data-view="tasks"]','tasks',false,true],
-  ['일기','.nav-sub-btn[data-view="diary"]','diary',false,true],
+  ['하루 기록','.nav-sub-btn[data-view="diary"]','diary',false,true],
   ['노트','.nav-btn[data-basket-kind-nav="note"]','basket',true],
   ['사업 보고','.nav-btn[data-view="meetings"]','meetings'],
   ['자료실','.nav-btn[data-view="library"]','library'],
@@ -166,7 +166,7 @@ for(const width of [761,884,900,1023])test(`${width}px: 좁은 칸 메뉴 이름
     });
   });
   const names=rows.map(r=>r.name);
-  for(const want of ['일정','할 일','일기','공유 페이지','텔레그램 소식'])expect(names,want).toContain(want);
+  for(const want of ['일정','할 일','하루 기록','공유 페이지','텔레그램 소식'])expect(names,want).toContain(want);
   const bad=rows.filter(r=>!r.has||r.w<8||!r.below||!r.inside||r.clipped||r.lines>2);
   expect(bad,JSON.stringify(bad)).toEqual([]);
   expect(await overflow(page)).toBeNull();

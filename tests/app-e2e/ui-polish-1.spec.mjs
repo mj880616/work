@@ -152,7 +152,7 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('[data-menu-write]')).toHaveCount(0);
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·일기는 [일정] 아래 하위 메뉴(달력·할 일·일기)로. HOME-업무일지홈: 업무일지는 홈이라 이 줄에 없다.
- await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','일기']);
+ await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','하루 기록']);
  // BASKET-PC메뉴: [정리함] 아래 하위 줄 없음. MULTI-하단바기본노트: 새 계정 PC 왼쪽 메뉴는 하단바 기본(노트·일정·조직 보고·사업 보고) 뒤 잊지 말기.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
  await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['노트','일정','조직 보고','사업 보고','잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
@@ -236,7 +236,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  // [⋯] = 수정·보관·삭제(같은 색), keyboard and Esc. 원문 보기 is the small toggle icon near the text.
  const more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(menu).toBeHidden();await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.locator('button')).toHaveText(['수정','보류로','일기로 보내기','삭제']);
+ await expect(menu.locator('button')).toHaveText(['수정','보류로','하루 기록으로 보내기','삭제']);
  await expect(menu.locator('[data-basket-edit]')).toBeFocused();
  const menuColor=sel=>menu.locator(sel).evaluate(el=>getComputedStyle(el).color);
  expect(await menuColor('[data-basket-delete]')).toBe(await menuColor('[data-basket-edit]'));expect(await menuColor('[data-basket-delete]')).not.toBe(await token('--kptu-danger'));

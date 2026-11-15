@@ -76,7 +76,7 @@ test('① 화면 큰 제목은 공용 .screen-title(폰 머리줄·PC 위쪽 줄
   assert.match(read('suborganizations.js'), /class="so-team-title screen-title">조직 보고</);
   assert.match(read('telegram-feed.js'), /feed-head-title screen-title" aria-hidden="true">텔레그램 소식</);
   assert.match(read('basket.js'), /const basketTitle=root\.querySelector\('\.basket-head > h2'\);basketTitle\.classList\.add\('a11y-only'\);/);
-  assert.match(read('topbar-actions.js'), /tasks:'할 일',diary:'일기'/);
+  assert.match(read('topbar-actions.js'), /tasks:'할 일',diary:'하루 기록'/);
 });
 
 test('② 고르지 않은 칩은 칠하지 않고, 글자 링크는 점선 밑줄을 쓰지 않는다', () => {

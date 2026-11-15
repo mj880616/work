@@ -81,7 +81,7 @@ async function photos(page,count){
 const editorOf=page=>page.locator('#diaryRoot [data-diary-editor]');
 const field=ed=>ed.locator('[data-diary-text] .ProseMirror');
 
-test('새 일기: 사진 2장을 고르자마자 막대·%가 차오르고, 글을 다 쓴 뒤 [저장]은 글 저장 시간 안에 끝난다(폰 412·느린 망)',async({page})=>{
+test('새 하루 기록: 사진 2장을 고르자마자 막대·%가 차오르고, 글을 다 쓴 뒤 [저장]은 글 저장 시간 안에 끝난다(폰 412·느린 망)',async({page})=>{
  const f=await fixture(page);
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=editorOf(page);
@@ -94,7 +94,7 @@ test('새 일기: 사진 2장을 고르자마자 막대·%가 차오르고, 글�
  // 그 날 일기를 먼저 만들어(글 없이) 거기에 올린다.
  await expect.poll(()=>f.writes.filter(w=>w.method==='POST').length).toBe(1);
  expect(f.writes[0].body).toMatchObject({kind:'diary',ai_export_allowed:false});
- await typeInto(page,field(ed),'오늘 쓴 합성 일기');
+ await typeInto(page,field(ed),'오늘 쓴 합성 하루 기록');
  // 글을 쓰는 동안 사진 두 장이 다 올라간다(점선이 빠짐).
  await expect.poll(()=>f.uploads.length,{timeout:30000}).toBe(2);
  await expect(ed.locator('.diary-thumb.pending')).toHaveCount(0);
@@ -103,9 +103,9 @@ test('새 일기: 사진 2장을 고르자마자 막대·%가 차오르고, 글�
  await ed.locator('[data-diary-save]').click();
  await expect(ed).toBeHidden();
  expect(Date.now()-started).toBeLessThan(2000);
- await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('일기를 저장했어요.');
+ await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('하루 기록을 저장했어요.');
  const row=f.rows.find(r=>r.kind==='diary');
- expect(row.raw_text).toBe('오늘 쓴 합성 일기');
+ expect(row.raw_text).toBe('오늘 쓴 합성 하루 기록');
  expect(row.attachments.map(a=>a.file_name)).toEqual(['IMG_1.jpg','IMG_2.jpg']);
  expect(f.uploads.map(u=>u.noteId)).toEqual([row.id,row.id]);
  expect(f.errors).toEqual([]);
@@ -119,37 +119,37 @@ async function saveWhileUploading(page){
  const ed=editorOf(page);
  await ed.locator('[data-diary-input]').setInputFiles(await photos(page,3));
  await expect(ed.locator('.diary-thumb .up-tile-over').first()).toBeVisible();
- await typeInto(page,field(ed),'합성 일기 글');
+ await typeInto(page,field(ed),'합성 하루 기록 글');
  await ed.locator('[data-diary-comment],[data-diary-pending-comment]').nth(2).fill('셋째 사진 코멘트');
  await ed.locator('[data-diary-save]').click();
  await expect(ed).toBeHidden({timeout:15000});
  // 글은 이미 저장됐고 남은 사진은 아직 다 올라가지 않았다.
  const row=f.rows.find(r=>r.kind==='diary');
- expect(row.raw_text).toBe('합성 일기 글');
+ expect(row.raw_text).toBe('합성 하루 기록 글');
  expect(f.uploads.length).toBeLessThan(3);
- await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('일기를 저장했어요.');
+ await expect(page.locator('#diaryRoot [data-diary-status]')).toHaveText('하루 기록을 저장했어요.');
  return {f,row};
 }
 for(const width of [412,1280]){
  test.describe(`${width}`,()=>{
   if(width===1280)test.use({hasTouch:false,isMobile:false,viewport:{width:1280,height:900}});
-  test(`올리는 중에 [저장]: 글이 먼저 저장되고 창이 닫히며, 남은 사진은 다른 화면으로 가도 그 일기로 끝까지 올라간다(${width})`,async({page})=>{
+  test(`올리는 중에 [저장]: 글이 먼저 저장되고 창이 닫히며, 남은 사진은 다른 화면으로 가도 그 하루 기록으로 끝까지 올라간다(${width})`,async({page})=>{
    const {f,row}=await saveWhileUploading(page);
    await page.evaluate(()=>window.KPTURouter.go('home',{source:'test'}));
    const dock=page.locator('#uploadDock');
    await expect(dock).toContainText('올리는 중');
-   await expect(dock).toContainText(/일기에 사진 \d장 올렸어요/,{timeout:45000});
+   await expect(dock).toContainText(/하루 기록에 사진 \d장 올렸어요/,{timeout:45000});
    expect(f.uploads).toHaveLength(3);
    expect(f.uploads.map(u=>u.noteId)).toEqual([row.id,row.id,row.id]);
    expect(row.attachments.map(a=>a.file_name)).toEqual(['IMG_1.jpg','IMG_2.jpg','IMG_3.jpg']);
    // 뒤에서 올라간 사진의 코멘트도 그 사진에 붙는다.
    await expect.poll(()=>row.metadata?.photo_comments?.[row.attachments[2].drive_file_id]).toBe('셋째 사진 코멘트');
-   expect(row.raw_text).toBe('합성 일기 글');
+   expect(row.raw_text).toBe('합성 하루 기록 글');
    // 위쪽 작은 알림은 겹쳐 뜨지 않는다.
    await expect(page.locator('#toast')).not.toContainText('사진');
    expect(f.errors).toEqual([]);
   });
-  test(`뒤에서 못 올린 사진은 아래 한 줄에 남고 [다시 올리기]는 그 사진만 같은 일기로 보낸다(${width})`,async({page})=>{
+  test(`뒤에서 못 올린 사진은 아래 한 줄에 남고 [다시 올리기]는 그 사진만 같은 하루 기록으로 보낸다(${width})`,async({page})=>{
    const {f,row}=await saveWhileUploadingFail(page);
    const dock=page.locator('#uploadDock');
    await expect(dock).toContainText('사진 1장 못 올렸어요',{timeout:45000});
@@ -187,11 +187,11 @@ test('글 저장이 실패하면 창은 그대로이고, 사진은 창에서 이
  await expect(ed).toBeVisible();
  await expect.poll(()=>f.uploads.length,{timeout:30000}).toBe(1);
  expect(rows[0].raw_text).toBe('합성 글');
- await expect(page.locator('#uploadDock',{hasText:'일기에'})).toHaveCount(0);
+ await expect(page.locator('#uploadDock',{hasText:'하루 기록에'})).toHaveCount(0);
  expect(f.errors.filter(e=>!/500/.test(e))).toEqual([]);
 });
 
-test('저장하지 않고 닫으면 이 창에서 올린 사진을 다시 뺀다: 있던 일기는 그 사진만 빼고 Drive 휴지통, 새 일기는 일기째 지움',async({page})=>{
+test('저장하지 않고 닫으면 이 창에서 올린 사진을 다시 뺀다: 있던 하루 기록은 그 사진만 빼고 Drive 휴지통, 새 하루 기록은 하루 기록째 지움',async({page})=>{
  const rows=[{id:'d3',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-03',raw_text:'합성 글',doc:null,occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[{drive_file_id:'pa',file_name:'a.jpg',mime_type:'image/jpeg',size_bytes:10}],metadata:{}}];
  const f=await fixture(page,{rows});
  // 있던 일기: 사진 한 장을 올린 뒤 [취소].
@@ -220,7 +220,7 @@ test('저장하지 않고 닫으면 이 창에서 올린 사진을 다시 뺀다
  expect(f.errors).toEqual([]);
 });
 
-test('글 칸에 사진을 붙여 넣으면(폰 복사처럼 파일 이름 글자가 함께 와도) 이름 글자가 아니라 일기 사진으로 들어간다',async({page})=>{
+test('글 칸에 사진을 붙여 넣으면(폰 복사처럼 파일 이름 글자가 함께 와도) 이름 글자가 아니라 하루 기록 사진으로 들어간다',async({page})=>{
  const f=await fixture(page);
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=editorOf(page);

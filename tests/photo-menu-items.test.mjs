@@ -10,7 +10,7 @@ const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 test('이름은 하나: 업데이트로 보내기 · 일기에 넣기, 좁은 칸 앞부분은 같은 이름의 앞', () => {
   assert.equal(PHOTO_ACT_TEXT.basket, '업데이트로 보내기');
-  assert.equal(PHOTO_ACT_TEXT.diary, '일기에 넣기');
+  assert.equal(PHOTO_ACT_TEXT.diary, '하루 기록에 넣기');
   for (const id of Object.keys(PHOTO_ACT_SHORT)) assert.ok(PHOTO_ACT_TEXT[id].startsWith(PHOTO_ACT_SHORT[id]), id);
   assert.deepEqual(SEND_ROWS, ['diary', 'basket']);
   assert.equal(SEND_NOTE.basketDone, '업데이트로 보냈어요');
@@ -29,8 +29,8 @@ test('공유 메뉴 줄 순서 = 항목 표(viewerShare), 보내기 두 줄 순�
 
 test('알림 한 줄: 11.3 일기에 넣었어요 / 업데이트로 보냈어요', () => {
   assert.equal(shortDay('2026-11-03'), '11.3');
-  assert.equal(diaryDoneText(['2026-11-03']), '11.3 일기에 넣었어요');
-  assert.equal(diaryDoneText(['2026-11-02', '2026-11-03']), '11.2 · 11.3 일기에 넣었어요');
+  assert.equal(diaryDoneText(['2026-11-03']), '11.3 하루 기록에 넣었어요');
+  assert.equal(diaryDoneText(['2026-11-02', '2026-11-03']), '11.2 · 11.3 하루 기록에 넣었어요');
   assert.equal(basketDoneText(1), '업데이트로 보냈어요');
   assert.equal(basketDoneText(2), '업데이트로 보냈어요(2장)');
   assert.equal(basketDoneText(2, 3), '업데이트로 보냈어요(2장, 1장은 받지 못함)');

@@ -123,13 +123,16 @@ test('매체 고르기 줄: 전체 → 묶음 → 켠 매체, 탭마다 쓸 수 
   assert.equal(all.find(r => r.current).id, 's:kctu');
   assert.deepEqual(mediaRows({tab: 'movement', oc, on: ['kctu'], nc, non: ['news-a']}).all.map(r => r.id), ['all', 'g:labor', 's:kctu']);
   assert.deepEqual(mediaRows({tab: 'media', oc, on: ['kctu'], nc, non: ['news-a', 'news-b']}).all.map(r => r.id), ['all', 'r:domestic', 'n:news-a', 'r:foreign', 'n:news-b']);
+  // NEWS-출처목록가나다: 묶음 순서는 그대로, 묶음 안 매체는 가나다(카탈로그 순서와 상관없이). '외국' 묶음 이름은 '국제'.
+  const rows2 = mediaRows({tab: 'all', oc, on: ['kctu', 'kptu', 'jacobin'], nc: [...nc, {key: 'news-c', name: 'Able News', region: 'foreign'}], non: ['news-a', 'news-b', 'news-c']}).all;
+  assert.deepEqual(rows2.map(r => r.name), ['전체', '노동', '공공운수노조', '민주노총', '국제', 'Jacobin', '언론 국내', '가상일보', '언론 국제', 'Able News', 'Fake Times']);
   assert.deepEqual(mediaRows({tab: 'all', oc, on: ['kctu'], nc, non: ['news-a'], query: '가상'}).all.map(r => r.id), ['n:news-a']);
   assert.equal(mediaFits('movement', 'n:news-a'), false);
   assert.equal(mediaFits('media', 'r:domestic'), true);
   assert.equal(mediaFits('archive', 'g:labor'), false);
   assert.equal(keepMedia('media', 's:kctu'), 'all');
   assert.equal(mediaName('s:kctu', {oc}), '민주노총');
-  assert.equal(mediaName('r:foreign'), '언론 외국');
+  assert.equal(mediaName('r:foreign'), '언론 국제');
   assert.equal(mediaName('all'), '전체');
 });
 

@@ -12,7 +12,7 @@ const six = ui.slice(ui.indexOf('/* ===== UI-버튼6가지'));
 const FILTERS = {};
 // 이름에 '보기'가 없거나 화면 코드가 그때그때 그리는 보기 탭 — 따로 확인한다.
 const MORE = [
-  ['app/diary.js', /<div class="diary-source ds-seg" role="group" aria-label="일기 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all"[^>]*>전체<\/button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star"/],
+  ['app/diary.js', /<div class="diary-source ds-seg" role="group" aria-label="하루 기록 선택"><button type="button" class="ds-seg-btn" data-diary-lv-filter="all"[^>]*>전체<\/button><button type="button" class="ds-seg-btn" data-diary-lv-filter="star"/],
   ['app/project-system-v3.js', /class="ps3-archive-tabs ds-seg"[^>]*><button type="button" class="ds-seg-btn" data-ps3-archive-tab="archive">보관<\/button><button type="button" class="ds-seg-btn" data-ps3-archive-tab="trash">/],
   // UI-보기탭드롭다운(11/10): 사진 [사진 ▾]·사업 보고 [목록 ▾]는 보기 탭이 아니라 위 줄 고르기 상자(select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
   // LIB-위쪽한줄(11/09): 자료실 묶기는 보기 탭이 아니라 위 줄 고르기 상자 [폴더 ▾](select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.

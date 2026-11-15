@@ -1,4 +1,5 @@
 import {AI_CAP_TEXT, isAiCap} from './ai-cap.mjs';
+import {sortByName} from './name-order.mjs';
 // NEWS-클리핑 화면 계산(설계 docs/design/news-clipping.md, 명진 11/01 22:34): 그리기 없는 순수 함수만. app/news-clipping.js가 쓴다.
 // - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 어디서 왔는지(채널/자동) 칩·꼬리표는 화면에 없다(11/04 명진: 굳이 구분 안 해도 됨). lane 값·수집 방식은 그대로.
 // - 한 문장 요약은 늘 보이고 본문은 접는다. 외국어 기사 제목은 서버가 수집 때 한국어로 미리 번역해 두고(한국어 제목 + 원제 작게),
@@ -149,13 +150,13 @@ export function cleanWord(raw, have = []) {
 }
 
 // 키워드 칸(S59-1 NEWS-키워드살리기, 11/11 명진 결정): 밖에서 새로 찾지 않고, 받은 매체 글 가운데 서버(news-feed 키워드 단계)가
-// keywords 칸에 키워드를 적어 둔 글을 키워드마다 모아 보인다. 켠 키워드만, 키워드 목록 순서, 키워드마다 새 글부터 KW_GROUP_SIZE건.
+// keywords 칸에 키워드를 적어 둔 글을 키워드마다 모아 보인다. 켠 키워드만, 키워드 가나다순(name-order.mjs, NEWS-출처목록가나다), 키워드마다 새 글부터 KW_GROUP_SIZE건.
 export const KW_GROUP_SIZE = 20;
 // PostgREST 배열 값(cs.{…})의 글자: 낱말마다 큰따옴표로 감싸고, 안의 \ 와 " 는 앞에 \ 를 붙인다(PostgreSQL 배열 글자 규칙). 주소에 넣을 때는 따로 encodeURIComponent.
 export const pgTextArray = words => `{${(words || []).map(w => `"${String(w).replace(/[\\"]/g, c => `\\${c}`)}"`).join(',')}}`;
 // 켠 키워드 → 모아 볼 묶음. hits: Map(낱말 → {items, more}). 걸린 글이 없는 키워드는 묶음을 만들지 않는다.
 export function keywordGroups(keywords, hits) {
-  return (keywords || []).filter(k => k?.enabled === true && typeof k.word === 'string')
+  return sortByName((keywords || []).filter(k => k?.enabled === true && typeof k.word === 'string'), k => k.word)
     .map(k => ({word: k.word, items: hits?.get?.(k.word)?.items || [], more: !!hits?.get?.(k.word)?.more}))
     .filter(g => g.items.length);
 }
