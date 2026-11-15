@@ -415,31 +415,6 @@
 #appView #homeView button.journal-weekly-open::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
 #appView #homeView button.journal-weekly-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView button.journal-weekly-open:hover{ text-decoration:underline; text-underline-offset:2px; } }
-/* JOURNAL-다음주준비: [주간 정리] 맨 위 [다음 주] 칸. 콤팩트 — 제목 한 줄(만든 시각·[다시 만들기] 오른쪽), 핵심 세 가지, 접힌 묶음 한 줄씩. */
-#appView #homeView .journal-next-week{ display:flex; flex-direction:column; gap:4px; padding:8px 10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
-#appView #homeView .journal-next-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 8px; }
-#appView #homeView .journal-next-head > h4.journal-heading{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-ink); }
-#appView #homeView .journal-next-meta{ display:inline-flex; align-items:center; gap:6px; font-size:var(--kptu-text-body); }
-#appView #homeView .journal-next-note{ margin:0; }
-#appView #homeView .journal-next-note.is-error{ color:var(--kptu-danger, var(--kptu-ink)); }
-#appView #homeView .journal-next-sub{ margin:2px 0 0; font-size:var(--kptu-text-body); font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
-#appView #homeView .journal-next-top{ margin:0; padding-left:20px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
-#appView #homeView .journal-next-group > summary{ cursor:pointer; font-size:var(--kptu-text-body); line-height:1.6; overflow-wrap:anywhere; }
-#appView #homeView .journal-next-label{ font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
-#appView #homeView .journal-next-group > .journal-weekly-list{ margin:2px 0 4px; padding-left:4px; list-style:none; }
-/* PREP-서식(2026-10-31): 줄 = [날짜] [글 칸] — 넘친 글은 글 칸 안에서 줄바꿈(날짜 뒤 들여쓴 자리). 핵심 줄은 읽는 글 + 줄 끝 작은 흐린 '근거 ›'.
-   '근거 ›'를 누르면 그 줄이 잠깐 옅게 칠해진다(is-flash). 긴 줄은 한 문장 요약 + 접힌 '세부'. 교섭 전 한 장(pre-meeting-sheet.css .pms-*)과 같은 규칙. */
-#appView #homeView .journal-next-group > .journal-weekly-list > li{ display:flex; align-items:baseline; gap:0; border-radius:var(--ds-radius-box); transition:background-color .6s; }
-#appView #homeView .journal-next-group > .journal-weekly-list > li.is-flash{ background:var(--kptu-warning-soft, var(--kptu-surface)); transition:none; }
-#appView #homeView .journal-next-group .journal-weekly-day{ flex:0 0 auto; }
-#appView #homeView .journal-next-row{ flex:1 1 auto; min-width:0; }
-#appView #homeView .journal-next-go{ color:var(--kptu-muted); }
-#appView #homeView button.journal-next-ref{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta); white-space:nowrap; cursor:pointer; }
-#appView #homeView button.journal-next-ref::after{ content:""; position:absolute; left:-6px; right:-6px; top:calc(50% - 16px); height:32px; }
-#appView #homeView button.journal-next-ref:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-@media(hover:hover){ #appView #homeView button.journal-next-ref:hover{ color:var(--kptu-ink); } }
-#appView #homeView .journal-next-more > summary{ width:max-content; cursor:pointer; font-size:var(--ds-text-meta); }
-#appView #homeView .journal-next-more-text{ display:block; }
 
 /* HOME-업무일지홈(2026-10-30 명진 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
    날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘(네모 선)·고른 날(옅은 바탕)은 공용 표시(ui-standard.css .ds-today·.ds-day-sel). 폰은 제목이 한 줄, 아래 날짜 줄. */
