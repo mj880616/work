@@ -255,7 +255,7 @@
              내보내지 않고, 공유할 때 그 파일에만 임시 읽기 허락을 준다. 권한 추가 없음. -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="kr.or.kptu.work.shareout"
+            android:authorities="${applicationId}.shareout"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

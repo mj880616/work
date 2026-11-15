@@ -3,7 +3,9 @@ const native=q.get('native');
 const p=new URLSearchParams(location.hash.replace(/^#/,''));
 const isLoginCallback=location.pathname.endsWith('/native-callback.html')||
   ['access_token','refresh_token'].some(name=>p.has(name)||q.has(name));
-if((native==='android'||native==='windows')&&isLoginCallback){
+// S62-34: 'android-play' = 플레이 스토어 판(com.nojoplus.app). 돌아갈 앱 패키지는 아래 두 값만 쓴다(주소에서 패키지를 받지 않는다).
+const androidPackage={android:'kr.or.kptu.work','android-play':'com.nojoplus.app'};
+if((Object.hasOwn(androidPackage,native)||native==='windows')&&isLoginCallback){
   window.__KPTU_NATIVE_BRIDGE__=true;
   const access=p.get('access_token')||q.get('access_token');
   const refresh=p.get('refresh_token')||q.get('refresh_token');
@@ -18,7 +20,7 @@ if((native==='android'||native==='windows')&&isLoginCallback){
   }catch{}
   const appTarget=params=>native==='windows'
     ?'kptuwork://auth?'+params
-    :'intent://auth?'+params+'#Intent;scheme=kptuwork;package=kr.or.kptu.work;end';
+    :'intent://auth?'+params+'#Intent;scheme=kptuwork;package='+androidPackage[native]+';end';
   document.documentElement.innerHTML='<head><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:system-ui,sans-serif;padding:28px;line-height:1.6"><h2>업무 현황 앱으로 돌아가는 중입니다.</h2><p id="handoffStatus">로그인 정보를 안전하게 전달하고 있습니다.</p><p><a id="backToApp" style="display:none;padding:12px 16px;border-radius:10px;background:#17324d;color:#fff;text-decoration:none;font-weight:700">앱으로 돌아가기</a></p></body>';
   (async()=>{
     const st=document.querySelector('#handoffStatus');
