@@ -34,3 +34,9 @@ test('화면 글은 "~하면 ~가 여기 보여요" 말투, 개발 용어 없음
   }
   assert.equal(linkText('events', 'reconnect'), null);
 });
+
+test('S62-16: 홈 버튼도 처음 = 연결, 권한 빠짐 = 구글 할 일 다시 연결("다시"만 있는 버튼 없음)', () => {
+  assert.equal(linkText('tasks', 'none').button, '구글 할 일 연결');
+  assert.equal(linkText('tasks', 'reconnect').button, '구글 할 일 다시 연결');
+  assert.equal(linkText('events', 'none').button, '구글 캘린더 연결');
+});

@@ -18,6 +18,7 @@ import { paintFreshness } from './data-freshness.js';
 import { mountSplitResize } from './split-resize.js';
 import { followPane } from './follow-pane.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
+import { connectNoteFor, connectText } from './connect-note.mjs'; // S62-16 TASK-구글할일연결문구: 처음 = '연결', 권한 빠짐 = '다시 연결'(글 한 줄 → 아래 버튼 공용 부품)
 import { noteChecked, noteUnchecked, checkPopAttr } from './check-motion.js'; // UI-누름움직임: 방금 끝낸 할 일의 체크 움직임(모든 목록 공용)
 import { bindRowSwipe } from './row-swipe.js';
 import { mountAreaOrgLines, loadUsedKeys } from './area-org-picker.js';
@@ -179,7 +180,7 @@ const keyLink=k=>k.startsWith('p:')?{project_id:k.slice(2)}:k.startsWith('m:')?{
 const workspaceOf=()=>rt?.context?.read?.()?.workspace?.id||window.__KPTU_BOOT_CONTEXT__?.workspace?.id||'';
 const tasksViewShown=()=>{const v=document.querySelector('#tasksView');return !!v&&!v.classList.contains('hidden')};
 function toast(msg){const t=document.querySelector('#toast');if(!t){setSync(msg,true);return}t.textContent=msg;kptuHoldToast(t)}
-function errorText(e){const msg=String(e?.message||e);if(/TASKS_SCOPE_REQUIRED|권한/.test(msg))return 'Google 할 일 권한을 다시 연결해 주세요(할 일 탭).';if(/연결되지/.test(msg))return 'Google 계정을 연결하면 Google 할 일을 함께 볼 수 있습니다(할 일 탭).';return msg}
+function errorText(e){const msg=String(e?.message||e);if(/TASKS_SCOPE_REQUIRED|권한/.test(msg))return '구글 할 일 권한이 빠졌어요. 할 일 탭에서 다시 연결해 주세요.';if(/연결되지/.test(msg))return '구글 할 일을 연결하면 같이 볼 수 있어요(할 일 탭).';return msg}
 // Link choices: active projects in the shared catalog's tree order, and my organizations (my-organizations.js, ORG-고르기통일;
 // none when nothing is assigned, as before) in the shared organization order (TASK-조직순서), split into its groups.
 // The Edge validates every target again. Existing links to targets not offered here are preserved by chosenLinks().
@@ -243,7 +244,7 @@ const taskUncertaintyKey=id=>`${editorSession()}:${currentOwner()}:${id}`;
 function editorNotice(text,{recover=false,reconnect=false}={}){
   const st=document.querySelector('#gtEditStatus');st.textContent=text;
   const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=label;b.onclick=fn;st.append(document.createTextNode(' '),b)};
-  if(reconnect)button('Google 권한 다시 연결',()=>connect());
+  if(reconnect)button(connectText('tasks','reconnect').button,()=>connect());
   if(recover)button('목록에서 저장 결과 확인',()=>recoverCreatedTask());
 }
 async function recoverCreatedTask(){
@@ -429,7 +430,7 @@ function mergeToggles(tasks,since){for(const [id,s] of savedToggles)if(s.seq<=si
 // An editor opened during a list toggle follows the confirmed status (including rollback), without touching its draft.
 function syncEditorTask(task){if(editing?.id!==task.id)return;editing={...editing,status:task.status,completed:task.completed};document.querySelector('#gtToggleBtn').textContent=task.status==='completed'?'완료 취소':'완료'}
 function toggleTask(task){const owner=currentOwner();if(!task||!owner)return;const p=pendingToggles.get(task.id)||{base:task,want:task.status==='completed',busy:false};p.want=task.status!=='completed';if(p.want)noteChecked(task.id);else noteUnchecked(task.id);pendingToggles.set(task.id,p);setSync('');const next=withStatus(task,p.want);showChange(task.id,task,next,true);putTask(next,owner);syncLinkedTask(next);if(!p.busy)p.saving=saveToggle(task.id,p,sessionEpoch,owner);return p.saving}
-async function saveToggle(id,p,epoch,owner){p.busy=true;let failed=null;while((p.base.status==='completed')!==p.want){const want=p.want;try{const d=await rt.api(endpoint('toggle'),{method:'POST',body:{action:'toggle',task_list_id:p.base.taskListId,task_id:id,task_list_title:p.base.taskListTitle,completed:want}});if(!stillCurrent(epoch,owner))return;p.base=d?.task?.id===id?{...d.task,unlinked:p.base.unlinked}:withStatus(p.base,want)}catch(e){if(!stillCurrent(epoch,owner))return;failed=e;break}}pendingToggles.delete(id);savedToggles.set(id,{task:p.base,seq:++toggleSeq});const shown=lastTasks.find(t=>t.id===id);if(shown&&isDone(shown)!==isDone(p.base))showChange(id,shown,p.base);putTask(p.base,owner);syncLinkedTask(p.base);syncEditorTask(p.base);fetchedOwner='';if(!failed){window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed',{detail:{source:'toggle',task:p.base}}));return {ok:true}};const msg=String(failed?.message||failed),notice=(p.want?'완료를 저장하지 못해 되돌렸습니다':'완료 취소를 저장하지 못해 되돌렸습니다');if(/TASKS_SCOPE_REQUIRED|권한/.test(msg))renderConnect('Google 할 일을 수정하려면 Google 계정을 다시 연결해 주세요.');else setSync(notice,true);for(const box of linkedBoxes.keys())if(box.isConnected&&box.querySelector(`[data-gt-linked-toggle="${CSS.escape(id)}"]`))linkedMessage(box,notice+' '+errorText(failed));return {ok:false,message:notice+' '+errorText(failed)}}
+async function saveToggle(id,p,epoch,owner){p.busy=true;let failed=null;while((p.base.status==='completed')!==p.want){const want=p.want;try{const d=await rt.api(endpoint('toggle'),{method:'POST',body:{action:'toggle',task_list_id:p.base.taskListId,task_id:id,task_list_title:p.base.taskListTitle,completed:want}});if(!stillCurrent(epoch,owner))return;p.base=d?.task?.id===id?{...d.task,unlinked:p.base.unlinked}:withStatus(p.base,want)}catch(e){if(!stillCurrent(epoch,owner))return;failed=e;break}}pendingToggles.delete(id);savedToggles.set(id,{task:p.base,seq:++toggleSeq});const shown=lastTasks.find(t=>t.id===id);if(shown&&isDone(shown)!==isDone(p.base))showChange(id,shown,p.base);putTask(p.base,owner);syncLinkedTask(p.base);syncEditorTask(p.base);fetchedOwner='';if(!failed){window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed',{detail:{source:'toggle',task:p.base}}));return {ok:true}};const msg=String(failed?.message||failed),notice=(p.want?'완료를 저장하지 못해 되돌렸습니다':'완료 취소를 저장하지 못해 되돌렸습니다');if(/TASKS_SCOPE_REQUIRED|권한/.test(msg))renderConnect('reconnect');else setSync(notice,true);for(const box of linkedBoxes.keys())if(box.isConnected&&box.querySelector(`[data-gt-linked-toggle="${CSS.escape(id)}"]`))linkedMessage(box,notice+' '+errorText(failed));return {ok:false,message:notice+' '+errorText(failed)}}
 // Overdue pending tasks (묶음C-4) come first in their own group, oldest due first; then today and tomorrow..+7 days; then every task completed
 // in the last 3 days whatever its due date (2026-09-27 decision: completing an overdue or undated task keeps it visible).
 // TASK-제목날짜만(2026-11-09 명진 결정): 할 일 줄은 '○ 제목… 날짜 ⋯' 한 줄. 연결 조직·사업 이름은 줄에 쓰지 않는다(연결은 상세·담당조직·사업 화면에서 본다).
@@ -577,10 +578,12 @@ function queueDelete(id){const task=lastTasks.find(t=>t.id===id),owner=currentOw
 // TASK-삭제유지: the wait runs to the end on any screen or tab; only [되돌리기] (or another account) cancels it.
 // Closing the page drops the wait (pagehide below): a delete sent from a closing page cannot be confirmed, so the task stays.
 async function finishDelete(id,state){if(pendingDeletes.get(id)!==state)return;state.committing=true;renderUndo();await pendingToggles.get(id)?.saving;if(pendingDeletes.get(id)!==state||!stillCurrent(state.epoch,state.owner)){pendingDeletes.delete(id);return}try{await rt.api(endpoint('delete'),{method:'POST',body:{action:'delete',task_list_id:state.task.taskListId,task_id:id}});if(!stillCurrent(state.epoch,state.owner))return;deletedTombstones.add(id);lastTasks=lastTasks.filter(t=>t.id!==id);cacheWrite(state.owner,lastTasks);linkedCache.clear();refreshLinked()}catch{if(stillCurrent(state.epoch,state.owner)){if(tasksViewShown())setSync('삭제하지 못해 되돌렸습니다',true);else toast('할 일을 삭제하지 못해 되돌렸습니다.')}}finally{if(pendingDeletes.get(id)===state)pendingDeletes.delete(id);if(stillCurrent(state.epoch,state.owner)){renderTasks(lastTasks);notifyState()}}}
-function renderConnect(message='Google 할 일을 함께 보려면 Google Tasks 권한을 연결해 주세요.'){const body=section()?.querySelector('#gtTaskBody');if(!body)return;section().classList.remove('gt-pc');syncSplit();if(isDocked())closeEditor();body.className='gt-status';body.innerHTML=`<div>${esc(message)}</div><button class="secondary gt-connect gt-reconnect" type="button" data-gt-connect>Google 할 일 권한 다시 연결</button>`;body.querySelector('[data-gt-connect]').onclick=connect}
+// S62-16 TASK-구글할일연결문구: mode 'none' = 한 번도 연결 안 함([구글 할 일 연결]), 'reconnect' = 연결은 있는데 권한만 빠짐([구글 할 일 다시 연결]).
+// 글·모양은 connect-note.mjs 한 곳(안내 한 줄 → 아래 버튼). 서버 오류 원문은 화면에 옮기지 않는다.
+function renderConnect(mode='reconnect'){const body=section()?.querySelector('#gtTaskBody');if(!body)return;section().classList.remove('gt-pc');syncSplit();if(isDocked())closeEditor();body.className='gt-status';body.innerHTML=connectNoteFor('tasks',mode==='none'?'none':'reconnect',{attrs:{'data-gt-connect':''}});body.querySelector('[data-gt-connect]').onclick=connect}
 function appendRetry(el){const button=document.createElement('button');button.type='button';button.className='mini gt-retry';button.dataset.gtRetry='';button.textContent='다시 시도';button.onclick=()=>load(true);el.append(button)}
 function renderError(message,retry=false){const body=section()?.querySelector('#gtTaskBody');if(body){section().classList.remove('gt-pc');syncSplit();if(isDocked())closeEditor();body.className='gt-status';body.innerHTML=`<span class="gt-error" role="status">${esc(message)}</span>`;if(retry)appendRetry(body)}}
-async function connect(){const epoch=sessionEpoch;let owner='';try{if(!rt?.session||!(await rt.session.ensure())||epoch!==sessionEpoch)return;owner=currentOwner();if(!owner)return;const params=new URLSearchParams(location.search),platform=/KPTUAndroid/i.test(navigator.userAgent)||params.get('native')==='android'?'android':'web',d=await rt.api(endpoint('start')+'&platform='+platform);if(!stillCurrent(epoch,owner))return;if(d?.url)location.href=d.url;else throw new Error('Google 권한 연결 주소를 받지 못했어요.')}catch(e){if(stillCurrent(epoch,owner))renderError(e.message||String(e))}}
+async function connect(){const epoch=sessionEpoch;let owner='';try{if(!rt?.session||!(await rt.session.ensure())||epoch!==sessionEpoch)return;owner=currentOwner();if(!owner)return;const params=new URLSearchParams(location.search),platform=/KPTUAndroid/i.test(navigator.userAgent)||params.get('native')==='android'?'android':'web',d=await rt.api(endpoint('start')+'&platform='+platform);if(!stillCurrent(epoch,owner))return;if(d?.url)location.href=d.url;else throw new Error('구글 할 일 연결 주소를 받지 못했어요.')}catch(e){if(stillCurrent(epoch,owner))renderError(e.message||String(e))}}
 // CAL-저장본먼저: 새로 불러오는 중 / 최신 아님 · 마지막 확인 HH:MM [다시 시도] while this device's copy is shown (data-freshness.js).
 function setFresh(state=''){const el=document.querySelector('#gtTaskSection [data-gt-fresh]');if(state)el?.closest('.gt-head-left')?.classList.remove('hidden');paintFreshness(el,{state,checkedAt:checkedAt||cacheSavedAt(currentOwner()),onRetry:()=>load(true)})}
 function setSync(text='',failed=false,retry=false){const el=document.querySelector('#gtTaskSection [data-gt-sync]');if(!el)return;el.textContent=text;if(text)el.closest('.gt-head-left')?.classList.remove('hidden');el.style.color=failed?'var(--kptu-danger)':'';if(retry)appendRetry(el)}
@@ -631,7 +634,7 @@ async function load(force=false){
     if(changes!==changeSeq&&prev){loadAgain=epoch;return} // 읽는 사이 저장이 있었다: 이 답은 그리지 않고 끝(finally)에서 다시 읽는다
     if(d?.connected===false||d?.needs_reconnect||d?.authorized===false){
       lastTasks=[];cacheOwnerId=owner;shownOwner='';fetchedOwner='';cacheDrop(owner);setSync('');setFresh('');
-      renderConnect(d?.connected===false?'Google 계정을 연결하면 Google 할 일을 함께 관리할 수 있습니다.':(d?.warning||'기존 Google 연결에 Google Tasks 수정 권한이 없어요. 한 번 다시 연결해 주세요.'));return
+      renderConnect(d?.connected===false?'none':'reconnect');return
     }
     if(d?.error)throw new Error(d.error);
     const fresh=d?.tasks||[];for(const id of deletedTombstones)if(!fresh.some(t=>t.id===id))deletedTombstones.delete(id);
@@ -646,7 +649,7 @@ async function load(force=false){
   }catch(e){
     if(seq!==loadSeq||!stillCurrent(epoch,owner))return;
     const msg=String(e?.message||e);
-    if(/연결되지|재인증|TASKS_SCOPE_REQUIRED|권한/i.test(msg)){shownOwner='';fetchedOwner='';cacheDrop(owner);setSync('');setFresh('');renderConnect(msg)}
+    if(/연결되지|재인증|TASKS_SCOPE_REQUIRED|권한/i.test(msg)){shownOwner='';fetchedOwner='';cacheDrop(owner);setSync('');setFresh('');renderConnect(/연결되지/.test(msg)?'none':'reconnect')}
     else if(prev){setSync('');setFresh('stale')}
     else renderError('Google 할 일을 불러오지 못했어요.',true)
   }finally{loadDone(seq)}
