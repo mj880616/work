@@ -18,7 +18,7 @@ test.describe('phone 412',()=>{
   test('평소 한 줄: [종류 ▾][입력칸][잊지 말기], 단추 줄 없음, 하단바 바로 위',async({page})=>{
     await openHome(page);const q=quick(page),kind=q.locator('[data-quick-kind]'),input=q.locator('[data-quick-input]');
     await expect(q).toHaveAttribute('data-quick-shape','line');
-    await expect(kind).toBeVisible();await expect(kind).toHaveText('업데이트 ▾');
+    await expect(kind).toBeVisible();await expect(kind).toHaveText('잊지 말기 ▾');
     await expect(q.locator('.home-quick-modes')).toBeHidden();await expect(q.locator('[data-quick-options]')).toBeHidden();
     await expect(q.locator('[data-home-forget-open]')).toBeVisible();await expect(q.locator('[data-quick-save]')).toBeHidden();
     const [k,i,c]=await Promise.all([kind,input,q.locator('[data-home-forget-open]')].map(x=>x.boundingBox()));
@@ -107,7 +107,7 @@ test.describe('phone 412',()=>{
     await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();
     await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();
     await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder',/테스트 조직/);
-    await expect(q).toHaveAttribute('data-quick-shape','line');await expect(q.locator('[data-quick-kind]')).toHaveText('업데이트 ▾');
+    await expect(q).toHaveAttribute('data-quick-shape','line');await expect(q.locator('[data-quick-kind]')).toHaveText('잊지 말기 ▾');
   });
 });
 // 폴드 덮개 화면 폭(344px)에서도 날짜 줄은 한 줄이고 평소 한 줄에 가로 넘침이 없다.

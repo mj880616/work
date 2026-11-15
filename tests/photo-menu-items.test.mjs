@@ -57,7 +57,7 @@ test('사진 메뉴들은 공용 목록을 읽고 옛 이름이 남지 않는다
   assert.match(photos, /label:SEND_NOTE\.retry/);
   // 폰 공유 창 이름(앱 새 판에 들어감).
   const manifest = read('android-app/app/src/main/AndroidManifest.xml');
-  assert.equal((manifest.match(/android:label="노동조합\+ 업데이트로 보내기"/g) || []).length, 2);
+  assert.equal((manifest.match(/android:label="노동조합\+ 잊지 말기로 보내기"/g) || []).length, 2);
   assert.doesNotMatch(manifest, /android:label="노동조합\+ 정리함"/);
 });
 

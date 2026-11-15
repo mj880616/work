@@ -272,7 +272,7 @@ async function openWriter(kind='update'){
     openUpdateWindow({text:writeDraft,doc:writeDraftDoc,title:'쓰기',onClose:(text,{saved,value})=>{
       if(saved){writeDraft='';writeDraftDoc=null;return}
       writeDraft=text.trim()?text:'';writeDraftDoc=writeDraft?value:null;
-      if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [업데이트]로 다시 열면 이어서 쓸 수 있어요.');
+      if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [잊지 말기]로 다시 열면 이어서 쓸 수 있어요.');
     }});
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
   finally{writerOpening=false}
@@ -571,7 +571,7 @@ paintWhere();
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
 // 일기·공유 페이지 (MTG-사업보고 1단계) = the router opens the screen, then that screen's own [새 일기] / [새 공유 페이지] button is pressed (no new save path).
 const addButton=topline?.querySelector('[data-quick-add]');
-const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','하루 기록'],['page','공유 페이지'],['report','사업 보고']];
+const ADD_ITEMS=[['update','잊지 말기'],['task','할 일'],['note','노트'],['event','일정'],['diary','하루 기록'],['page','공유 페이지'],['report','사업 보고']];
 async function openEventWindow(task){
   try{
     await window.KPTUDeferredFeatures?.loadView?.('calendar');

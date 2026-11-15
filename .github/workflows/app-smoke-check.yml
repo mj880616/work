@@ -1045,6 +1045,9 @@ jobs:
       - name: Check day record screen words (DIARY-이름하루기록)
         run: node --test tests/ui-words-day-record.test.mjs
 
+      - name: Check quick input kind words (HOME-입력종류업데이트글자잊지말기)
+        run: node --test tests/ui-words-quick-kind.test.mjs
+
       - name: Check view tabs one look (UI-보기탭한모양)
         run: node --test tests/view-tabs-one-look.test.mjs
 
