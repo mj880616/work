@@ -398,10 +398,10 @@ test('사진 메뉴: 원드라이브 설정 창(하위 폴더)을 일기로 넘�
   expect(f.errors).toEqual([]);
 });
 
-test('사진 메뉴: 원드라이브 연결 전에는 한 줄 안내와 [연결]만', async ({ page }) => {
+test('사진 메뉴: 원드라이브 연결 전에는 한 줄 안내와 [원드라이브 연결]만', async ({ page }) => {
   const f = await fixture(page, { width: 390, status: { configured: true, connected: false, folder: null, can_delete: false } });
   await openPhotos(page, 390);
-  await expect(root(page).locator('[data-photos-body]')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요 연결');
+  await expect(root(page).locator('[data-photos-body]')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요.원드라이브 연결');
   await expect(items(page)).toHaveCount(0);
   expect(f.edge.some(b => b.action === 'library')).toBe(false);
   expect(f.errors).toEqual([]);
