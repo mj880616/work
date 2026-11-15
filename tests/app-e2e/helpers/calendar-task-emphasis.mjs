@@ -36,6 +36,12 @@ export async function calendarEventsReady(page){
   await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
 }
 
+// 달력 할 일 모듈(calendar-tasks.js)은 화면이 보인 뒤 배경에서 읽힌다(view-loader.js background). 주간·월간 보기만 연 시험은
+// 할 일 줄을 기다리지 않으므로, refresh 같은 할 일 API를 부르기 전에 그 전역이 생겼는지를 먼저 기다린다(STAB-달력주간보기시험).
+export async function calendarTasksReady(page){
+  await expect.poll(()=>page.evaluate(()=>typeof window.KPTUCalendarTasks?.refresh==='function')).toBe(true);
+}
+
 export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[],links=[],projects=[],onLinks=null,prefsOptions={}}={}){
   const calls=[],external=[];
   // MULTI ②-3: 담당조직 묶음·보고 캘린더(view_prefs)는 기본으로 운영자 값을 가진 사람(prefs.value에는 섞이지 않음).

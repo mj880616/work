@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+import {openEmphasisFixture,calendarTasksReady} from './helpers/calendar-task-emphasis.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 // SET-보기선택서버저장: 보기 선택은 서버(프로필 view_prefs)에 저장된다. 시험은 그 서버를 흉내 낸 prefs 상태를 읽는다.
@@ -65,7 +65,7 @@ test('760 ↔ 761 restores week, recalculates defaults and respects explicit cho
   await page.setViewportSize({width:760,height:844});await expect(page.locator('#calendarList')).toBeVisible();
   await expect(page.locator('[data-calendar-view]:visible')).toHaveCount(2);
   expect(saved(prefs)).toBe('week');
-  await page.evaluate(()=>window.KPTUCalendarTasks.refresh());
+  await calendarTasksReady(page);await page.evaluate(()=>window.KPTUCalendarTasks.refresh());
   await page.setViewportSize({width:761,height:844});await expect(page.locator('#calendarWeek')).toBeVisible();
   await expect(page.locator('[data-calendar-view]:visible')).toHaveCount(3);
   await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-19');
