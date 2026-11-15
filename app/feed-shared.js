@@ -1,5 +1,5 @@
 import {pgTextArray} from './news-clipping-model.mjs';
-import {articleCols, flatNews, flatNewsMark, isUuid, mapIds, markFields, savedOutsideMark, NEWS_MARK_EMBED} from './feed-shared-model.mjs';
+import {articleCols, flatNews, flatNewsMark, hasId, isUuid, mapIds, markFields, savedOutsideMark, NEWS_MARK_EMBED} from './feed-shared-model.mjs';
 // NEWS-모두에게열기 ③ 화면(설계 docs/design/news-for-all.md 13·14절): News·[사회운동] 글을 서버에서 읽고 쓰는 유일한 길.
 // - 기사·글 내용은 공용 표 한 벌(app_news_articles·app_outside_articles, 본문 블록·문장도 공용) — 가입자 모두 같은 줄(서버 정책: 로그인 + 자기 작업공간 + 차단 명단 아님).
 //   화면은 공용 표에 읽기만 한다(넣기·고치기 권한 없음).
@@ -57,7 +57,7 @@ export function readNewsArticles({cols, filter = '', order = 'created_at.desc,id
 // 기사 하나(옛 id도 받음) → 옛 뉴스 줄 모양 또는 null.
 export async function readNewsOne(id, cols) {
   const aid = await articleIdOf('news', id);
-  if (!isUuid(aid)) return null;
+  if (!hasId(aid)) return null;
   const w = workspaceOf();
   return flatNews(first(await rt().api(`/rest/v1/${T.news.art}?id=eq.${q(aid)}&select=${articleCols(cols)},${NEWS_MARK_EMBED}&app_news_marks.workspace_id=eq.${q(w)}&limit=1`, {singleFlight: false})));
 }
@@ -98,7 +98,7 @@ export const readOutsideArticles = ({cols, filter = '', order, limit, offset = 0
   rt().api(`/rest/v1/${T.outside.art}?select=${cols}${filter}&order=${order}&limit=${limit}&offset=${offset}`, {singleFlight: false});
 export async function readOutsideOne(id, cols) {
   const aid = await articleIdOf('outside', id);
-  if (!isUuid(aid)) return null;
+  if (!hasId(aid)) return null;
   return first(await rt().api(`/rest/v1/${T.outside.art}?id=eq.${q(aid)}&select=${cols}&limit=1`, {singleFlight: false}));
 }
 // 내 표시 중 조건(or=…)에 맞는 것 → [{post_id(공용 id), starred_at, archived_at, dismissed_at, app_outside_posts?}].
@@ -147,7 +147,7 @@ export function writeRead(type, id) {
 // 반응 기록 한 줄(사람별, 더하기만). 실패해도 누른 일은 그대로.
 export function writeSignal(item, action) {
   const t = T[item?.type], w = workspaceOf();
-  if (!t || !w || !isUuid(item.id)) return Promise.resolve();
+  if (!t || !w || !hasId(item.id)) return Promise.resolve();
   quiet(() => rt().api('/rest/v1/app_now_signals', {method: 'POST', body: {workspace_id: w, [t.old.col]: item.id, action}, prefer: 'return=minimal', singleFlight: false}));
   return rt().api(`/rest/v1/${t.signal}`, {method: 'POST', body: {workspace_id: w, article_id: item.id, action}, prefer: 'return=minimal', singleFlight: false});
 }

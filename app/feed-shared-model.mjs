@@ -4,6 +4,8 @@
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = v => typeof v === 'string' && UUID.test(v);
+// 줄 id(서버 줄은 uuid — 모양 검사는 서버가 한다. 화면은 빈 값만 거른다).
+const hasId = v => typeof v === 'string' && v.length > 0 && v.length <= 64;
 
 // 사람별 표시 칸(뉴스). 공용 기사 칸이 아니다.
 export const NEWS_MARK_COLS = Object.freeze(['starred_at', 'folder_id', 'hidden_at', 'keywords']);
@@ -15,7 +17,7 @@ export function articleCols(cols) {
 }
 // 공용 기사 + 내 표시(embed: 정책상 내 작업공간 줄만 오고, 주소에도 작업공간을 건다) → 옛 뉴스 줄 모양.
 export function flatNews(row) {
-  if (!row || !isUuid(row.id)) return null;
+  if (!row || !hasId(row.id)) return null;
   const {app_news_marks: marks, ...art} = row;
   const m = Array.isArray(marks) ? marks[0] || null : marks && typeof marks === 'object' ? marks : null;
   return {...art, starred_at: m?.starred_at ?? null, folder_id: m?.folder_id ?? null, hidden_at: m?.hidden_at ?? null, keywords: Array.isArray(m?.keywords) ? m.keywords : []};
@@ -23,7 +25,7 @@ export function flatNews(row) {
 // 내 표시 줄(+ 공용 기사 embed) → 옛 뉴스 줄 모양. 별표 칸·키워드 칸 읽기에 쓴다.
 export function flatNewsMark(mark) {
   const art = mark?.app_news_articles;
-  if (!art || !isUuid(art.id)) return null;
+  if (!art || !hasId(art.id)) return null;
   return {...art, starred_at: mark.starred_at ?? null, folder_id: mark.folder_id ?? null, hidden_at: mark.hidden_at ?? null, keywords: Array.isArray(mark.keywords) ? mark.keywords : []};
 }
 // 목록 한 쪽: 읽은 줄 수(raw, 다음 쪽 시작 자리)와 내가 숨긴 것을 뺀 줄. 숨김은 사람별이라 공용 표 주소로 거를 수 없어 화면에서 뺀다.
@@ -34,10 +36,11 @@ export function newsPage(rows, pageSize) {
 }
 // 사회운동 내 표시 줄 → [보관] 탭이 쓰던 모양({post_id, starred_at, archived_at, app_outside_posts}).
 export function savedOutsideMark(m) {
-  if (!m || !isUuid(m.article_id)) return null;
+  if (!m || !hasId(m.article_id)) return null;
   return {post_id: m.article_id, starred_at: m.starred_at ?? null, archived_at: m.archived_at ?? null, dismissed_at: m.dismissed_at ?? null, app_outside_posts: m.app_outside_articles || null};
 }
 // 옛 id → 공용 id. 지도 함수 답(rows: [{old_id, article_id}])을 넣고, 지도에 없는 id는 그대로(공용 id이거나 옮기기 전 운영자 줄 = 같은 id).
+export {hasId};
 export function mapIds(ids, rows) {
   const out = new Map();
   for (const r of Array.isArray(rows) ? rows : []) if (isUuid(r?.old_id) && isUuid(r?.article_id)) out.set(r.old_id.toLowerCase(), r.article_id.toLowerCase());

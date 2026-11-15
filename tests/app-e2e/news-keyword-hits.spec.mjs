@@ -24,8 +24,8 @@ for (const width of [412, 1280]) {
     await expect(hits(page).locator('.nw-day-head')).toHaveText(['가짜어 · 2건 · 새 글 2']);
     await expect(hits(page).locator('[data-nc-kw-item]')).toHaveCount(2);
     await expect(hits(page).locator('[data-nc-kw-item="m1"] .nw-title')).toHaveText('가짜 철도 파업 기사');
-    // 읽기는 켠 키워드마다 한 번: 자기 작업공간·지우지 않은 줄·keywords 칸에 그 낱말이 있는 글만. 꺼진 키워드는 묻지 않는다.
-    const kwReads = () => server.calls.filter(c => c.what === 'app_news_items' && c.method === 'GET' && c.query.includes('keywords=cs.')).map(c => c.query);
+    // 읽기는 켠 키워드마다 한 번: 내 표시(자기 작업공간)·숨기지 않은 줄·keywords 칸에 그 낱말이 있는 글만(NEWS-모두에게열기 ③: app_news_marks + 공용 기사). 꺼진 키워드는 묻지 않는다.
+    const kwReads = () => server.calls.filter(c => c.what === 'app_news_marks' && c.method === 'GET' && c.query.includes('keywords=cs.')).map(c => c.query);
     await expect.poll(() => kwReads().length).toBe(2);
     for (const q of kwReads()) { expect(q).toContain('workspace_id=eq.w'); expect(q).toContain('hidden_at=is.null'); expect(q).toContain('limit=21'); }
     expect(kwReads().some(q => q.includes('keywords=cs.{"가짜어"}'))).toBe(true);

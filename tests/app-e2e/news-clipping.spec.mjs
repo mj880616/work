@@ -16,10 +16,12 @@ for (const width of [412, 884, 1440]) {
     await openNews(page, width);
     await expect(items(page)).toHaveCount(5);
     expect(await noWideScroll(page)).toBe(true);
-    // 카탈로그는 사용자 로그인으로 Edge에서, 목록은 자기 작업공간·지우지 않은 줄만.
+    // 카탈로그는 사용자 로그인으로 Edge에서. NEWS-모두에게열기 ③: 목록은 공용 기사(작업공간 칸 없음) + 내 표시만 붙여(내 작업공간), 내가 숨긴 줄은 화면에서 뺀다.
     expect(server.calls.find(c => c.what === 'edge')).toMatchObject({ action: 'catalog', method: 'POST', auth: expect.stringMatching(/^Bearer /) });
-    const listQuery = server.calls.find(c => c.what === 'app_news_items').query;
-    expect(listQuery).toContain('workspace_id=eq.w'); expect(listQuery).toContain('hidden_at=is.null'); expect(listQuery).not.toMatch(/[,=]body(,|&|$)/);
+    const listQuery = server.calls.find(c => c.what === 'app_news_articles').query;
+    expect(listQuery).toContain('app_news_marks(starred_at,folder_id,hidden_at,keywords)'); expect(listQuery).toContain('app_news_marks.workspace_id=eq.w');
+    expect(listQuery).not.toMatch(/[?&]workspace_id=/); expect(listQuery).not.toMatch(/[,=]body(,|&|$)/);
+    expect(server.calls.some(c => c.what === 'app_news_items' && c.method === 'GET')).toBe(false);
     // 날짜 묶음(새 글 수) → 흰 상자 안 줄. 칩 줄([전체]·[별표])·이 칸의 ⋯는 없다(S51-8: 위 [매체 ▾]·껍데기 ⋯로).
     await expect(root(page).locator('.nw-day-head')).toHaveText(['오늘 · 새 글 2', '어제 · 새 글 2', '10. 4. (일) · 새 글 1']);
     await expect(root(page).locator('[data-nc-tab], [data-nc-more], .nc-chips')).toHaveCount(0);
@@ -95,7 +97,7 @@ for (const width of [412, 884, 1440]) {
     await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 외국', 'Fake Wire']);
     await page.locator('#nwMediaPicker [data-lu-move-folder="n:news-fake-en"]').click();
     await expect(items(page)).toHaveCount(1);
-    expect(server.calls.filter(c => c.what === 'app_news_items').at(-1).query).toContain('source_key=in.(news-fake-en)');
+    expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-en)');
     expect(await noWideScroll(page)).toBe(true);
     expect(errors).toEqual([]);
   });
@@ -171,7 +173,7 @@ test('PC News: 목록이 오기 전에 연 ⋯ 메뉴는 목록이 와도 닫히
   test.setTimeout(60000);
   const { errors } = await start(page, 1440);
   let release; const held = new Promise(r => { release = r; });
-  await page.route(u => /\/rest\/v1\/(app_news_items|app_outside_posts)$/.test(u.pathname), async r => { await held; return r.fallback(); });
+  await page.route(u => /\/rest\/v1\/(app_news_articles|app_outside_articles)$/.test(u.pathname), async r => { await held; return r.fallback(); });
   await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-more]').click();
