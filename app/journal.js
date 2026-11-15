@@ -608,21 +608,48 @@ function renderWeekly_({refreshBox = true} = {}) {
 function paintBlank(host) {
   if (host.querySelector('[data-weekly-blank]')) return;
   const box = document.createElement('section'); box.className = 'journal-weekly-blank'; box.dataset.weeklyBlank = '';
-  box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="secondary" data-weekly-blank-pick>파일 올리기</button></p>'
-    + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
+  box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="secondary" data-weekly-blank-pick>파일 올리기</button> <button type="button" class="secondary" data-weekly-blank-new>빈 양식에서 만들기</button></p>'
+    + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><div data-weekly-own-form-slot></div><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
   const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]'), pick = box.querySelector('[data-weekly-blank-pick]');
-  // WEEKLY-내양식자유변형 ②: 올린 파일은 바탕으로 열지 않고(다른 팀 양식 규칙을 쓰지 않음) 항목·표 머리 칸만 규칙으로 읽어 '내 양식'으로 서버에 저장한다
-  // (hwpx-form-read.mjs → weekly-own-form-store.js, app_weekly_forms). 양식 확인·짝짓기 화면(③)·매주 초안(④)은 다음 PR.
-  const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs')]);
-  let known;
+  const fresh = box.querySelector('[data-weekly-blank-new]'), slot = box.querySelector('[data-weekly-own-form-slot]');
+  // WEEKLY-내양식자유변형 ②·③: 올린 파일은 바탕으로 열지 않고(다른 팀 양식 규칙을 쓰지 않음) 항목·표 머리 칸만 규칙으로 읽어(hwpx-form-read.mjs)
+  // 확인·짝짓기 화면(weekly-own-form-edit.js, 시안 ②)을 연다. [저장]하면 '내 양식'으로 서버에 둔다(weekly-own-form-store.js, app_weekly_forms).
+  // 저장된 양식이 있으면 한 줄 + [양식 수정]. 매주 초안(④)은 다음 PR.
+  const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs'), import('./weekly-own-form-edit.js')]);
+  let known, editing = false;
+  const setBusy = on => { pick.disabled = on; fresh.disabled = on; };
+  function paintSaved(store, model) {
+    if (editing) return;
+    if (!known) { slot.replaceChildren(); return; }
+    const line = document.createElement('p'); line.className = 'journal-weekly-blank-line'; line.dataset.weeklyOwnFormSaved = '';
+    line.textContent = `내 양식 · ${known.name} · 항목 ${known.form.sections.length}개 `;
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'secondary'; edit.textContent = '양식 수정';
+    edit.addEventListener('click', () => openEditor(known.form, known.name, false));
+    line.append(edit); slot.replaceChildren(line);
+  }
+  async function openEditor(form, name, isNew, sourceName = known?.source_name ?? null, read = false) {
+    const [, store, model, edit] = await ownForm();
+    editing = true; note.textContent = '';
+    edit.mountOwnFormEditor(slot, {form, name, fresh:isNew, read, onCancel:() => { editing = false; paintSaved(store, model); },
+      onSave:async next => {
+        if (known === undefined) known = (await store.readOwnForm()).row;
+        let saved;
+        try { saved = await store.saveOwnForm({known, name, sourceName, form:next}); }
+        catch (error) { return {ok:false, text:error?.code === 'too_big' ? store.OWN_FORM_TEXT.tooBig : store.OWN_FORM_TEXT.failed}; }
+        if (saved.missing) return {ok:false, text:store.OWN_FORM_TEXT.notReady};
+        if (saved.conflict) { known = saved.row; return {ok:false, text:store.OWN_FORM_TEXT.conflict}; }
+        known = saved.row; editing = false; paintSaved(store, model); note.textContent = store.OWN_FORM_TEXT.saved;
+        return {ok:true, text:''};
+      }});
+  }
   void ownForm().then(async ([, store, model]) => {
     const r = await store.readOwnForm();
     if (known === undefined) known = r.row;
-    if (r.row && !pick.disabled && !note.textContent) note.textContent = `${model.readSummary(r.row.form)} ${store.OWN_FORM_TEXT.saved}`.trim();
+    paintSaved(store, model);
   }).catch(() => {});
   const open = async file => {
     if (!file || pick.disabled) return;
-    pick.disabled = true; note.innerHTML = waitInlineHtml();
+    setBusy(true); note.innerHTML = waitInlineHtml();
     try {
       const [{readHwpxForm}, store, model] = await ownForm();
       const r = await hwpx.hwpxPackage(file);
@@ -630,18 +657,12 @@ function paintBlank(host) {
       let read;
       try { read = readHwpxForm(r.pkg); } catch { note.textContent = store.OWN_FORM_TEXT.unreadable; return; }
       if (!read.form.sections.length) { note.textContent = store.OWN_FORM_TEXT.none; return; }
-      if (known === undefined) known = (await store.readOwnForm()).row;
-      let saved;
-      try { saved = await store.saveOwnForm({known, name:read.title || file.name, sourceName:file.name, form:read.form}); }
-      catch (error) { note.textContent = error?.code === 'too_big' ? store.OWN_FORM_TEXT.tooBig : store.OWN_FORM_TEXT.failed; return; }
-      if (saved.missing) { note.textContent = store.OWN_FORM_TEXT.notReady; return; }
-      if (saved.conflict) { known = saved.row; note.textContent = store.OWN_FORM_TEXT.conflict; return; }
-      known = saved.row;
-      note.textContent = `${model.readSummary(saved.row.form)} ${store.OWN_FORM_TEXT.saved}`;
+      await openEditor(read.form, model.formName(read.title || file.name), true, file.name, true);
     } catch { note.textContent = '파일을 열지 못했어요. 다시 선택해 주세요.'; }
-    finally { pick.disabled = false; }
+    finally { setBusy(false); }
   };
   pick.addEventListener('click', () => input.click());
+  fresh.addEventListener('click', () => { void ownForm().then(([, , model]) => openEditor({v:1, sections:[]}, model.formName(''), true, null)).catch(() => {}); });
   input.addEventListener('change', () => { const f = input.files?.[0]; input.value = ''; void open(f); });
   box.addEventListener('dragover', e => { if (!e.dataTransfer?.types?.includes?.('Files')) return; e.preventDefault(); box.classList.add('is-over'); });
   box.addEventListener('dragleave', () => box.classList.remove('is-over'));

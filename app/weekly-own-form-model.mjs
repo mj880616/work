@@ -71,3 +71,38 @@ export function readSummary(form) {
   if (!n) return '';
   return t ? `항목 ${n}개와 표 ${t}개를 읽었어요.` : `항목 ${n}개를 읽었어요.`;
 }
+
+// ---- ③ 양식 확인·짝짓기 화면의 고치기(새 양식을 돌려줌, 원래 것은 그대로) ----
+const at = (form, id) => form.sections.findIndex(s => s.id === id);
+const withSections = (form, sections) => cleanForm({sections});
+const nextId = form => { let n = form.sections.length + 1; const ids = new Set(form.sections.map(s => s.id)); while (ids.has(`s${n}`)) n++; return `s${n}`; };
+// from 자리의 항목을 to 자리로(끌어 옮기기·위로·아래로).
+export function moveSection(form, id, to) {
+  const from = at(form, id);
+  if (from < 0) return form;
+  const list = [...form.sections], [one] = list.splice(from, 1);
+  list.splice(Math.max(0, Math.min(list.length, to)), 0, one);
+  return withSections(form, list);
+}
+export const renameSection = (form, id, title) => (oneLine(title, TITLE_MAX) ? withSections(form, form.sections.map(s => (s.id === id ? {...s, title, ai: false} : s))) : form);
+export const removeSection = (form, id) => withSections(form, form.sections.filter(s => s.id !== id));
+export const setFill = (form, id, fill) => (FILLS.includes(fill) ? withSections(form, form.sections.map(s => (s.id === id ? {...s, fill, ai: false} : s))) : form);
+export function addSection(form, title = '새 항목') {
+  if (form.sections.length >= MAX_SECTIONS) return form;
+  return withSections(form, [...form.sections, {id: nextId(form), title, level: 1, columns: [], fill: 'blank'}]);
+}
+export function addColumn(form, id, name) {
+  return withSections(form, form.sections.map(s => {
+    if (s.id !== id || s.columns.length >= MAX_COLUMNS) return s;
+    return {...s, columns: [...s.columns, oneLine(name, COLUMN_MAX) || `칸 ${s.columns.length + 1}`]};
+  }));
+}
+// 칸 이름 바꾸기. 빈 이름이면 그 칸 빼기.
+export const renameColumn = (form, id, index, name) => withSections(form, form.sections.map(s => {
+  if (s.id !== id || index < 0 || index >= s.columns.length) return s;
+  const text = oneLine(name, COLUMN_MAX), columns = [...s.columns];
+  if (text) columns[index] = text; else columns.splice(index, 1);
+  return {...s, columns};
+}));
+export const removeColumn = (form, id, index) => renameColumn(form, id, index, '');
+export const sameForm = (a, b) => JSON.stringify(cleanForm(a)) === JSON.stringify(cleanForm(b));

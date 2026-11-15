@@ -131,3 +131,27 @@ test('저장: 표 준비 전(404)은 missing, 너무 크면 거절, 화면 글�
   const all = JSON.stringify(OWN_FORM_TEXT);
   for (const word of ['공공기관', '산하조직', '투쟁 사업장', '상집']) assert.ok(!all.includes(word), word);
 });
+
+test('③ 고치기: 순서·이름·채울 기록·항목 추가·빼기·칸 추가·이름·빈 이름이면 빼기, 원래 양식은 그대로', async () => {
+  const m = await import('../app/weekly-own-form-model.mjs');
+  const base = m.cleanForm({sections: [{id: 's1', title: '1. 활동', fill: 'biz', ai: true}, {id: 's2', title: '2. 동향', columns: ['지회명', '동향'], fill: 'org'}, {id: 's3', title: '3. 기타'}]});
+  const ids = f => f.sections.map(s => s.id);
+  assert.deepEqual(ids(m.moveSection(base, 's3', 0)), ['s3', 's1', 's2']);
+  assert.deepEqual(ids(m.moveSection(base, 's1', 9)), ['s2', 's3', 's1']);
+  assert.equal(m.moveSection(base, 'nope', 0), base);
+  const renamed = m.renameSection(base, 's1', ' 이번 주 활동 ');
+  assert.deepEqual(renamed.sections[0], {id: 's1', title: '이번 주 활동', level: 1, columns: [], fill: 'biz'}, '사람이 고치면 AI 표시는 빠짐');
+  assert.equal(m.renameSection(base, 's1', '  '), base, '빈 이름은 무시');
+  assert.equal(m.setFill(base, 's3', 'meeting').sections[2].fill, 'meeting');
+  assert.equal(m.setFill(base, 's3', 'robot'), base);
+  assert.deepEqual(ids(m.removeSection(base, 's2')), ['s1', 's3']);
+  const added = m.addSection(m.removeSection(base, 's2'));
+  assert.deepEqual(added.sections.at(-1), {id: 's4', title: '새 항목', level: 1, columns: [], fill: 'blank'});
+  assert.deepEqual(m.addColumn(base, 's2', '').sections[1].columns, ['지회명', '동향', '칸 3']);
+  assert.deepEqual(m.renameColumn(base, 's2', 1, '이번 주 동향').sections[1].columns, ['지회명', '이번 주 동향']);
+  assert.deepEqual(m.renameColumn(base, 's2', 0, ' ').sections[1].columns, ['동향']);
+  assert.deepEqual(m.removeColumn(base, 's2', 1).sections[1].columns, ['지회명']);
+  assert.ok(m.sameForm(base, m.cleanForm(JSON.parse(JSON.stringify(base)))));
+  assert.ok(!m.sameForm(base, renamed));
+  assert.equal(base.sections[0].title, '1. 활동', '원래 양식은 바뀌지 않음');
+});
