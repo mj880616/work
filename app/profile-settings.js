@@ -63,7 +63,7 @@ function renderWorkplaces(){
   const items=listItems(),picked=items.filter(inPicked),rest=items.filter(o=>!inPicked(o));
   const state=freshFold?null:fold.readPickState(box).ws;freshFold=false;
   const legacy=legacyWorkplaces.length?`<div class="ps-legacy-wrap"><span class="ps-legacy-title">기존 담당사업장 정보</span>${legacyWorkplaces.map(x=>`<span class="ps-legacy-chip">${esc(x.full_name||'이름 없는 사업장')}<small>산하조직 연결 전</small></span>`).join('')}</div>`:'';
-  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:'담당조직 현황',count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:'담당 조직 없음',extra:legacy}):`<h3>담당조직 현황</h3>${note?note.connectNoteHtml({line:'조직 보고에서 담당조직을 더하면 여기서 고를 수 있어요.',button:'조직 보고로',attrs:{'data-goto':'team'},boxAttrs:{'data-ps-org-empty':''}}):''}${legacy}`;
+  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:'담당조직 현황',count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:'담당 조직 없음',extra:legacy}):`<h3>담당조직 현황</h3>${note?note.connectNoteHtml({line:'조직 보고에서 담당조직을 더하면 여기서 선택할 수 있어요.',button:'조직 보고로',attrs:{'data-goto':'team'},boxAttrs:{'data-ps-org-empty':''}}):''}${legacy}`;
   fold.bindPickFold(box);
   renderStatus();
 }

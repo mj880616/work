@@ -285,7 +285,7 @@ for(const [label,width] of [['폰 412',412],['폴드 880',880],['PC 1280',1280]]
     const list=page.locator('#psWorkplaceList');
     await expect(list.locator('h3')).toHaveText('담당조직 현황');
     const note=list.locator('[data-ps-org-empty]');
-    await expect(note.locator('.connect-note-line')).toHaveText('조직 보고에서 담당조직을 더하면 여기서 고를 수 있어요.');
+    await expect(note.locator('.connect-note-line')).toHaveText('조직 보고에서 담당조직을 더하면 여기서 선택할 수 있어요.');
     const btn=note.getByRole('button',{name:'조직 보고로'});
     await expect(btn).toHaveAttribute('data-goto','team');
     const [l,b]=await Promise.all([note.locator('.connect-note-line').boundingBox(),btn.boundingBox()]);
