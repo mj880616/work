@@ -99,7 +99,7 @@ let reportSettings=null;
 async function loadReport(){
   try{
     let host=$('#psReportPanel');
-    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="주간보고 일정 캘린더"></article>');host=$('#psReportPanel')}
+    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="주간 보고 일정 캘린더"></article>');host=$('#psReportPanel')}
     if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
     (await reportSettings.ready).refresh();
   }catch(e){console.error('report settings',e?.name||'Error')}

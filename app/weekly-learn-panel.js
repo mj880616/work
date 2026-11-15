@@ -332,18 +332,18 @@ function draw(slot, start, s, rt) {
   if (s.status === 'missing' || s.status === 'loading') { slot.replaceChildren(); return; }
   const box = el('details', 'journal-weekly-chapter journal-weekly-memory journal-weekly-fold'); box.dataset.journalWeeklyLearn = start; box.open = open;
   box.addEventListener('toggle', () => { s.ui.open = box.open; });
-  if (s.status === 'failed') { box.append(el('summary', null, '주간보고 규칙·환류'), el('p', 'journal-muted', '읽지 못했어요. 업무일지를 다시 열면 다시 읽어요.')); slot.replaceChildren(box); return; }
+  if (s.status === 'failed') { box.append(el('summary', null, '주간 보고 규칙·환류'), el('p', 'journal-muted', '읽지 못했어요. 업무일지를 다시 열면 다시 읽어요.')); slot.replaceChildren(box); return; }
   const rr = rulesRow(s.rows), rules = rr?.rules?.lines ?? [], cands = rr?.rules?.candidates ?? [];
   const mine = s.rows.find(r => r.week_start === start)?.feedback ?? null;
   const prev = s.rows.filter(r => r.week_start < start).map(r => r.feedback).filter(Boolean);
   const dev = [...s.rows.flatMap(r => (r.feedback?.review?.suggestions ?? []).filter(x => x.answer === 'yes').map(x => ({week:r.week_start, text:x.text, how:x.how, area:x.area, made:madeOf(x.made)}))), ...handIdeas(s.rows)];
   const minePicks = s.rows.find(r => r.week_start === start)?.picks ?? null;
   const sum = el('summary');
-  sum.append(el('span', 'journal-heading', '주간보고 규칙·환류'), ' ', el('small', 'journal-others-count', `확정 규칙 ${rules.length}줄${cands.length ? ` · 후보 ${cands.length}` : ''} · ${mine ? `이번 주 ${keptRate(mine.counts) ?? 0}% 그대로` : '이번 주 환류 없음'}${dev.length ? ` · 만들기로 보낸 것 ${dev.length}` : ''}`));
+  sum.append(el('span', 'journal-heading', '주간 보고 규칙·환류'), ' ', el('small', 'journal-others-count', `확정 규칙 ${rules.length}줄${cands.length ? ` · 후보 ${cands.length}` : ''} · ${mine ? `이번 주 ${keptRate(mine.counts) ?? 0}% 그대로` : '이번 주 환류 없음'}${dev.length ? ` · 만들기로 보낸 것 ${dev.length}` : ''}`));
   box.append(sum);
   // 규칙 목록
   const part = el('section', 'journal-weekly-part journal-part-has-add'); part.dataset.journalLearnRules = rr?.week_start ?? '';
-  part.append(el('h5', 'journal-weekly-sub', `주간보고 규칙(확정)${rr ? ` (${slash(rr.week_start)} 주 정리)` : ''}`));
+  part.append(el('h5', 'journal-weekly-sub', `주간 보고 규칙(확정)${rr ? ` (${slash(rr.week_start)} 주 정리)` : ''}`));
   if (!s.ui.adding && rules.length < RULES_MAX) { const add = el('button', 'journal-part-add-button', '+ 추가'); add.type = 'button'; add.dataset.journalLearnAdd = ''; add.disabled = s.ui.busy; add.setAttribute('aria-label', '규칙 더하기'); part.append(partAdd(doc, [add])); }
   if (!rules.length) part.append(emptyEl());
   const ul = el('ul', 'journal-kinds-off-list');

@@ -23,8 +23,8 @@ export const CATEGORY_EDITOR_TEXT=Object.freeze({
   groupDeleteConfirm:(name,count,subs)=>`‘${name}’ 분류와 소분류 ${subs}개를 삭제할까요?\n\n${count?`이 분류의 자료 ${count}개는 ‘${LOCKED_CATEGORY}’로 옮겨져요. `:''}자료와 파일은 삭제되지 않아요.`,
   // S53-16 WEEKLY-분류이름바뀜: 주간보고 환류에 쓰는 분류(팀·개인 확정본)는 '환류' 표시가 붙고 삭제가 막힌다(이름 바꾸기는 됨 — 바꾸면 표식도 새 이름으로).
   roleTag:'환류',
-  roleTitle:'주간보고 환류에 쓰는 분류예요. 이름은 바꿀 수 있고 삭제는 막혀 있어요.',
-  roleLocked:name=>`‘${categoryLabel(name)}’은(는) 주간보고 환류(다음 주 바탕 찾기)에 쓰는 분류라 삭제할 수 없어요. 이름 바꾸기는 돼요.`,
+  roleTitle:'주간 보고 환류에 쓰는 분류예요. 이름은 바꿀 수 있고 삭제는 막혀 있어요.',
+  roleLocked:name=>`‘${categoryLabel(name)}’은(는) 주간 보고 환류(다음 주 바탕 찾기)에 쓰는 분류라 삭제할 수 없어요. 이름 바꾸기는 돼요.`,
   subDeleteConfirm:(name,count)=>`‘${categoryLabel(name)}’ 소분류를 삭제할까요?\n\n${count?`이 소분류의 자료 ${count}개는 ‘${categoryParent(name)}’에 그대로 남아요. `:''}자료와 파일은 삭제되지 않아요.`,
 });
 // host 안에 편집 화면을 그린다. documents(): 지금 불러온 자료들. refresh(): 자료를 다시 읽는다(이름 바꾸기·삭제 직전). onChanged(): 목록이나 자료가 바뀐 뒤.

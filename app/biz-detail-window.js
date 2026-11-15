@@ -89,7 +89,7 @@ export function createBizDetailBox({rt = window.KPTURuntime, kinds = false, onRe
     if (l.kind === 'biz_record') items.push({text: '삭제', data: {bdDel: l.id}, danger: true, aria: `삭제: ${l.text}`});
     if (kinds && where === 'shown' && l.kind === 'meeting') {
       const m = meetingOf(l.key), name = meetingKindName(m), key = meetingKindKey(name);
-      if (validKindKey(key)) items.push({text: '이 종류 늘 빼기', data: {journalKindToggle: key, journalKindHide: '1', journalKindName: name}, aria: `${name} 종류를 주간보고에서 늘 빼기`});
+      if (validKindKey(key)) items.push({text: '이 종류 늘 빼기', data: {journalKindToggle: key, journalKindHide: '1', journalKindName: name}, aria: `${name} 종류를 주간 보고에서 늘 빼기`});
     }
     return moreSlot({label: `줄 메뉴: ${l.text}`, data: {bdMore: l.id}, items});
   };

@@ -264,7 +264,7 @@ test('조직 소식: my organizations each by name, the others under one 그 외
   ]);
 });
 
-test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재료 in report order, no 그 밖의 기록; failed parts are marked, the rest stay', async () => {
+test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간 보고 재료 in report order, no 그 밖의 기록; failed parts are marked, the rest stay', async () => {
   const m = await mod;
   const materials = {
     events:{status:'ok', items:[

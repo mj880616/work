@@ -30,7 +30,7 @@ async function open(page,width,prefs=null){
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
 }
 
-for(const width of [390,884,1440])test(`${width}: 이번 주 주간보고 표가 다 그려져도 아래 목록 위치가 거의 변하지 않는다`,async({page})=>{
+for(const width of [390,884,1440])test(`${width}: 이번 주 주간 보고 표가 다 그려져도 아래 목록 위치가 거의 변하지 않는다`,async({page})=>{
   await open(page,width);
   await expect(page.locator('#bizWeekBox .biz-sum-table')).toBeVisible();
   // 표 모양 자리가 맞추는 것은 구조(머리글·제목·줄 수·누름 자리 50px)다. 칸 안 글(사업영역·세부 과제 이름)이 폰 폭에서 줄바꿈해 진짜 줄이 50px보다 높아진 만큼은 자료를 읽기 전에는 알 수 없으므로 밀림에서 뺀다(그 외 밀림은 8px 이하).
