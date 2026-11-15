@@ -63,9 +63,12 @@ test('server entry: cron header handled before the user gate and the tick; only 
   const cron = entry.indexOf('if (req.headers.has(CRON_HEADER)) return await cronSweep(req);');
   assert.ok(cron > 0 && cron < entry.indexOf('if (req.headers.has(TICK_HEADER))') && cron < entry.indexOf('authorize('));
   const sweep = handler.slice(handler.indexOf('async function cronSweep('), handler.indexOf('function jobsIn('));
-  // 예약 입구가 부르는 것: 기능 작업공간 확인, 작업표 읽기, runJobs뿐(쓰기 action·다른 표 없음).
-  assert.deepEqual([...sweep.matchAll(/(?:db|rows)\("([a-z_]+)"/g)].map((m) => m[1]), ['cron_feature', 'cron_active']);
+  // 예약 입구가 부르는 것: 작업표에서 작업공간 찾기, 작업공간마다 작업표 읽기, runJobs뿐(쓰기 action·다른 표·기능 키 확인 없음, S62-11).
+  assert.deepEqual([...sweep.matchAll(/(?:db|rows)\("([a-z_]+)"/g)].map((m) => m[1]), ['cron_ws', 'cron_active']);
+  assert.match(sweep, /select=workspace_id&order=created_at\.asc&limit=\$\{CRON_SCAN_MAX\}/);
+  assert.match(sweep, /\.slice\(0, CRON_WS_MAX\)/);
+  assert.doesNotMatch(sweep, /app_operator_feature_workspace|p_feature/);
   assert.match(sweep, /origin=eq\.cloud&status=in\.\(\$\{JOB_ACTIVE\.join\(","\)\}\)/);
   assert.match(sweep, /background\(runJobs\(ws\)/);
-  assert.doesNotMatch(sweep, /actions\[|kickTick|PATCH|DELETE|method: "POST", body: JSON\.stringify\(\{ (?!p_feature)/);
+  assert.doesNotMatch(sweep, /actions\[|kickTick|PATCH|DELETE|method: "POST"/);
 });

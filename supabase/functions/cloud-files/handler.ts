@@ -6,22 +6,24 @@
 //   받는 대로 보내며 크기·해시를 맞춘 뒤에만 원본을 휴지통으로). 쓰기 결과는 같은 요청 안에서 색인에 반영하고 바뀐 줄을 돌려준다.
 //   copy(FILES-통합 2-①: 1개씩, 같은 클라우드는 파일·폴더째, 클라우드 사이는 파일만 across와 같은 길, 원본은 그대로).
 //   같은 이름은 덮어쓰지 않고 번호를 붙인다(H-3: copy·across는 늘, move는 numbered:true일 때). 자동·예약 쓰기는 없다(사람이 누른 요청만).
-// 문(모두 서버에서, 매 요청): ① 로그인(Auth) ② 그 사람이 작업공간 owner(owner 행 정확히 1개) ③ 로그인 토큰으로 부른 app_my_features()에 files
-//   ④ (구글) files가 허용된 단 하나의 작업공간 = Drive 연결 작업공간(slug kptu-work, 토큰 public_policy_drive_config id=1의 주인)
-//   ⑤ (원드라이브) 그 작업공간의 app_onedrive_connections 행. 화면이 보낸 작업공간·사용자 값은 쓰지 않는다.
-// 새 OAuth 범위 없음: 원드라이브는 이미 받은 Files.ReadWrite(onedrive-photos/graph.ts SCOPE, .All 섞이면 거절), 구글은 이미 받은 drive.
-//   넓히는 것은 범위가 아니라 이 함수 코드의 경계(드라이브 전체 목록)이고, 그래서 기능 키 files로 운영자 작업공간에만 연다.
+// 문(모두 서버에서, 매 요청): ① 로그인(Auth) ② 그 사람이 작업공간 owner(owner 행 정확히 1개)
+//   ③ (구글) 그 작업공간의 Drive 연결(app_drive_connections 그 행)의 갱신 토큰만 ④ (원드라이브) 그 작업공간의 app_onedrive_connections 행.
+//   화면이 보낸 작업공간·사용자 값은 쓰지 않는다. 다른 작업공간 연결·프로젝트 전체 연결(public_policy_drive_config id=1의 갱신 토큰)로 넘어가는 길은 없다.
+// S62-11 MULTI-구글드라이브사진모두(설계: docs/design/gdrive-photos-all.md 2절, 명진 11/14 22:18): 운영자 기능 키 files·단 하나 작업공간(slug) 판정을 뺐다.
+//   Drive·원드라이브를 연결한 사람 모두 각자 자기 드라이브·자기 작업공간 색인만(색인 표 읽기도 owner RLS, migration 20261115120000).
+// 새 OAuth 범위 없음: 원드라이브는 이미 받은 Files.ReadWrite(onedrive-photos/graph.ts SCOPE, .All 섞이면 거절), 구글은 연결 때 받은 drive
+//   (drive.file만 받은 연결은 gd_scope_missing → 화면 '[Drive 다시 연결]').
 // 1단계는 내 드라이브만(F6): 구글은 ownedByMe 파일만, 공유 드라이브·'공유 문서함'은 넣지 않는다. 원드라이브는 /me/drive만.
 // 함수에 없는 것(시험이 문자열로 막음): 영구 삭제, 휴지통 비우기, 공유 링크·권한 만들기, 소유자 바꾸기.
 // 토큰·임시 받기 주소는 service role로만 읽고 응답·로그에 싣지 않는다. 파일 본문은 저장하지 않는다(중계만).
 import { GRAPH, normalizeScopes, safeDownloadUrl, SCOPE as OD_SCOPE, scopeAllowed, validItemId } from "../onedrive-photos/graph.ts";
-import { DRIVE_WORKSPACE_SLUG, scopeHas } from "../gdrive-photos/handler.ts";
+import { scopeHas } from "../gdrive-photos/handler.ts";
 import { checkFileBase, numberedName } from "../_shared/file-rename-name.mjs";
 import { Md5, Sha1 } from "./hash.ts";
 import {
   ACTIVE as JOB_ACTIVE, BIG_BYTES, BIG_MAX_BYTES, JOB_ADD_MAX, JOB_COLUMNS, JOB_LIST_HOURS, JOB_LIST_MAX, JOB_STEP_MS, LEASE_MS, MAX_ATTEMPTS,
   TICK_HEADER, TICK_TTL_MS, gdOffset, jobCode, jobView, needsKick, nextRange, odOffset, parseAdd, parseIds, rangeOk, tickCheck, tickSign,
-  CRON_HEADER, CRON_SCAN_MAX, CRON_SECRET_NAME, FOREIGN_SECRET_HEADERS, cronSecretMatches, isUuid,
+  CRON_HEADER, CRON_SCAN_MAX, CRON_WS_MAX, CRON_SECRET_NAME, FOREIGN_SECRET_HEADERS, cronSecretMatches, isUuid,
   DEVICE_CHUNK, DEVICE_STALE_MS, deviceStale, parseDeviceRef, parseStar, parseUpload,
 } from "./jobs.mjs";
 import { WEB2_ORIGINS } from "../_shared/web-cors.ts";
@@ -30,7 +32,6 @@ type Env = (name: string) => string | undefined;
 export type CloudFilesOptions = { fetch?: typeof fetch; env: Env; now?: () => number; background?: (p: Promise<unknown>) => void };
 export type Source = "od" | "gd";
 
-export const FEATURE = "files";
 const DRIVE = "https://www.googleapis.com/drive/v3";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const MAX_BODY = 16 * 1024;
@@ -300,7 +301,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return Array.isArray(v) ? v as Record<string, unknown>[] : [];
   };
 
-  // ---- 문: 로그인 → owner → files 기능(사용자 토큰) ----
+  // ---- 문: 로그인 → owner(정확히 1개). 연결은 그 작업공간 행으로만(gdToken·odToken) ----
   async function authorize(jwt: string) {
     const ur = await call("auth", `${SB}/auth/v1/user`, { headers: { apikey: ANON || SERVICE, Authorization: `Bearer ${jwt}` } });
     const user = await body(ur);
@@ -308,27 +309,17 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     if (!ur.ok || typeof user?.id !== "string") throw new Fail(401, "session_required");
     const members = await rows("member", `app_workspace_members?user_id=eq.${encodeURIComponent(user.id)}&role=eq.owner&select=workspace_id`);
     if (members.length !== 1 || typeof members[0].workspace_id !== "string") throw new Fail(403, "forbidden");
-    const fr = await call("features", `${SB}/rest/v1/rpc/app_my_features`, {
-      method: "POST",
-      headers: { apikey: ANON || SERVICE, Authorization: `Bearer ${jwt}`, Accept: "application/json", "Content-Type": "application/json" },
-      body: "{}",
-    });
-    const features = fr.ok ? await body(fr) : null;
-    if (!Array.isArray(features) || !features.includes(FEATURE)) throw new Fail(403, "feature_required");
     return { workspaceId: members[0].workspace_id as string, userId: user.id as string };
   }
-  // 구글: 그 작업공간이 files 허용 단 하나 + Drive 연결 작업공간일 때만(토큰이 프로젝트 전체 1개라서).
-  // 두 읽기는 서로 기다릴 필요가 없어 함께 읽는다(S54-16). 판정은 그대로 요청마다 한다.
-  async function gdOwner(workspaceId: string) {
-    const [allowed, driveWs] = await Promise.all([
-      db("feature_ws", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) }),
-      rows("drive_ws", `app_workspaces?slug=eq.${DRIVE_WORKSPACE_SLUG}&select=id&limit=2`),
-    ]);
-    if (allowed !== workspaceId || driveWs.length !== 1 || driveWs[0].id !== workspaceId) throw new Fail(403, "drive_owner_mismatch");
+  // 구글 연결: 그 작업공간의 app_drive_connections 행(작업공간 id는 늘 서버가 정한 값). 행이 없으면 null.
+  async function gdConnection(workspaceId: string) {
+    if (!isUuid(workspaceId)) throw new Fail(500, "drive_workspace_missing");
+    const c = (await rows("gd_conn", `app_drive_connections?workspace_id=eq.${workspaceId}&select=google_refresh_token&limit=1`))[0];
+    return typeof c?.google_refresh_token === "string" && c.google_refresh_token ? c.google_refresh_token : null;
   }
 
   // ---- 접근 토큰 기억(S54-16) ----
-  // 바깥 접근 토큰만 이 인스턴스 안에서 만료 10분 전까지(길어도 50분) 기억한다. 문(authorize)·gdOwner·연결 행 읽기는 요청마다 그대로.
+  // 바깥 접근 토큰만 이 인스턴스 안에서 만료 10분 전까지(길어도 50분) 기억한다. 문(authorize)·연결 행 읽기는 요청마다 그대로.
   // 키 = 출처 + 작업공간 id + 갱신 토큰 지문(SHA-256 앞 16자): 작업공간이 다르거나 다시 연결하면 다른 키라 섞이지 않는다.
   // 같은 순간 같은 키 요청은 토큰 교환 하나를 함께 기다린다. 모범: onedrive-photos/handler.ts accessToken.
   const tokenCache = new Map<string, { token: string; until: number }>();
@@ -358,16 +349,15 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return await flight;
   }
 
-  // ---- 구글 토큰(drive 범위 확인). 주인 확인과 설정 읽기는 함께, 주인 확인 결과를 먼저 본다 ----
+  // ---- 구글 토큰(drive 범위 확인). 갱신 토큰은 그 작업공간 연결 행, 앱 값(client id/secret)만 id=1에서(그 행의 갱신 토큰은 읽지 않음) ----
   async function gdToken(workspaceId: string): Promise<string> {
-    const [owner, cfg] = await Promise.allSettled([
-      gdOwner(workspaceId),
-      rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret,google_refresh_token"),
+    const [refresh, cfg] = await Promise.all([
+      gdConnection(workspaceId),
+      rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret"),
     ]);
-    if (owner.status === "rejected") throw owner.reason;
-    if (cfg.status === "rejected") throw cfg.reason;
-    const c = cfg.value[0];
-    if (!c?.google_refresh_token) throw new Fail(424, "gd_not_connected");
+    if (!refresh) throw new Fail(424, "gd_not_connected");
+    if (!cfg[0]?.google_client_id || !cfg[0]?.google_client_secret) throw new Fail(503, "cloud_unavailable");
+    const c = { ...cfg[0], google_refresh_token: refresh };
     const key = await tokenKey("gd", workspaceId, String(c.google_refresh_token));
     return await cachedToken(key, () => gdExchange(key, c));
   }
@@ -1329,10 +1319,9 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
   // 한 번 실행: 그 작업공간의 가장 오래된 '기다림·보내는 중' 줄부터 차례로(한 번에 한 줄씩 — 조금씩 차례로).
   async function runJobs(ws: string) {
     const until = now() + JOB_STEP_MS;
-    // 서버가 이어 가는 동안에도 기능(files)이 꺼졌거나 만든 사람이 주인이 아니게 됐으면 이어 가지 않는다(사람 없는 실행이라 매번 다시 본다).
-    const allowed = await db("job_feature", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) });
-    if (allowed !== ws) {
-      log("job_feature_off");
+    // 사람 없는 실행이라 줄마다 '만든 사람이 지금도 그 작업공간 owner인지'를 다시 본다(아래 job_owner). 연결도 그 작업공간 행으로만.
+    if (!isUuid(ws)) {
+      log("job_workspace_invalid");
       return;
     }
     for (let n = 0; n <= JOB_ADD_MAX; n++) {
@@ -1371,7 +1360,8 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
   // 서버 예약 입구(S49-32, H-6 '화면을 닫아도 계속'): 서버 실행이 조각 도중 강제로 끝나 다음 부름(job_tick)이 끊기고 화면도 닫혀 있으면
   //   멈춘 채로 남는다. GitHub 예약이 5분마다 이 입구를 불러, 멈춘 줄이 있으면 다음 실행 한 번을 깨운다(job_list의 needsKick과 같은 판정).
   //   열쇠: 비밀 머리(CLOUD_FILES_CRON_SECRET)만. 사용자 문을 거치지 않으므로 할 수 있는 일을 이것 하나로 좁힌다:
-  //   - 작업공간은 서버가 정한다(app_operator_feature_workspace('files') = 운영자 작업공간 하나). 몸통은 빈 {}만.
+  //   - 작업공간은 서버가 표에서 정한다(기다림·보내는 중 클라우드 줄이 있는 작업공간들, 많아야 CRON_WS_MAX곳). 몸통은 빈 {}만.
+  //     작업공간마다 아래 판정·lease를 따로 한다(S62-11: 운영자 작업공간 하나에서 여러 작업공간으로).
   //   - 'origin cloud'(사람이 job_add·job_resume로 시작한 클라우드 사이 줄)의 '기다림·보내는 중'만 본다. 일시 정지·끝·실패·건너뜀·기기 줄은 보지 않는다.
   //   - 누가 잡고 있으면(lease 기한 안) 깨우지 않는다. 깨운 실행도 줄마다 lease를 다시 잡으므로 두 실행이 한 줄을 동시에 잡지 않는다.
   //   - 한 번에: 살펴보기 CRON_SCAN_MAX줄, 이어 받기는 runJobs 한 번(JOB_STEP_MS 안, 한 줄씩, 남으면 job_tick 사슬로 이어 감).
@@ -1381,13 +1371,20 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     const raw = (await req.text()).trim();
     if (raw !== "" && raw !== "{}") return json({ ok: false, error: "body_invalid" }, 400);
     if (!SB || !SERVICE) throw new Fail(503, "not_ready");
-    const ws = await db("cron_feature", "rpc/app_operator_feature_workspace", { method: "POST", body: JSON.stringify({ p_feature: FEATURE }) });
-    if (typeof ws !== "string" || !isUuid(ws)) return json({ ok: true, active: 0, kicked: false });
-    const list = await rows("cron_active", `${JOBS}?workspace_id=eq.${ws}&origin=eq.cloud&status=in.(${JOB_ACTIVE.join(",")})` +
-      `&select=${JOB_COLUMNS}&order=created_at.asc&limit=${CRON_SCAN_MAX}`);
-    const kicked = needsKick(list, now());
-    if (kicked) background(runJobs(ws).catch(() => log("cron_run_failed")));
-    return json({ ok: true, active: list.length, kicked });
+    const seen = await rows("cron_ws", `${JOBS}?origin=eq.cloud&status=in.(${JOB_ACTIVE.join(",")})` +
+      `&select=workspace_id&order=created_at.asc&limit=${CRON_SCAN_MAX}`);
+    const spaces = [...new Set(seen.map((r) => r.workspace_id).filter((w): w is string => typeof w === "string" && isUuid(w)))].slice(0, CRON_WS_MAX);
+    let active = 0, kicked = 0;
+    for (const ws of spaces) {
+      const list = await rows("cron_active", `${JOBS}?workspace_id=eq.${ws}&origin=eq.cloud&status=in.(${JOB_ACTIVE.join(",")})` +
+        `&select=${JOB_COLUMNS}&order=created_at.asc&limit=${CRON_SCAN_MAX}`);
+      active += list.length;
+      if (needsKick(list, now())) {
+        kicked++;
+        background(runJobs(ws).catch(() => log("cron_run_failed")));
+      }
+    }
+    return json({ ok: true, active, kicked: kicked > 0 });
   }
   function jobsIn(ws: string, ids: { all: boolean; ids: string[] }) {
     return `${JOBS}?workspace_id=eq.${ws}` + (ids.all ? "" : `&id=${inList(ids.ids)}`);
@@ -1463,13 +1460,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     async status({ workspaceId }) {
       const sync = await rows("sync_all", `app_cloud_sync?workspace_id=eq.${workspaceId}&select=source,next_page,scan_started_at,index_done_at,synced_at,last_error`);
       const od = (await rows("od_conn", `app_onedrive_connections?workspace_id=eq.${workspaceId}&select=scope`))[0];
-      let gd = false;
-      try {
-        await gdOwner(workspaceId);
-        gd = !!(await rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_refresh_token"))[0]?.google_refresh_token;
-      } catch (e) {
-        if (!(e instanceof Fail) || e.status !== 403) throw e;
-      }
+      const gd = !!(await gdConnection(workspaceId));
       const one = async (source: Source, connected: boolean) => {
         const s = sync.find((x) => x.source === source);
         const scanning = !!s && (!s.index_done_at || !!s.next_page);
