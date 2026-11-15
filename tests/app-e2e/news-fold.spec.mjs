@@ -26,7 +26,7 @@ async function begin(page, width) {
   server.items = ITEMS.map(x => ({ ...x }));
   server.sources.set('kctu', { source_key: 'kctu', enabled: true, last_ok_at: '2026-10-06T00:07:00Z', last_error: null });
   // 사회운동 글·확정 관심 주제(나중에 단 길이 먼저 잡는다).
-  await page.route(SB + '/rest/v1/app_outside_posts**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(POSTS) }));
+  await page.route(SB + '/rest/v1/app_outside_articles**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(POSTS) }));
   await page.route(SB + '/rest/v1/app_now_interests**', route => (route.request().method() === 'GET'
     ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ id: 'i1', topic: '가짜주제', state: 'confirmed', origin: 'user', reason: null, decided_at: '2026-10-01T00:00:00Z', created_at: '2026-10-01T00:00:00Z' }]) })
     : route.fallback()));

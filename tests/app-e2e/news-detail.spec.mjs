@@ -35,9 +35,9 @@ async function server(page) {
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
     if (table) s.calls.push(table + decodeURIComponent(u.search));
-    if (table === 'app_outside_posts') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
-    if (table === 'app_feed_bodies') { const id = (u.searchParams.get('outside_post_id') || '').replace(/^eq\./, ''); return ok(BODIES[id] ? [BODIES[id]] : []); }
-    if (table === 'app_feed_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (table === 'app_outside_articles') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
+    if (table === 'app_outside_article_bodies') { const id = (u.searchParams.get('article_id') || '').replace(/^eq\./, ''); return ok(BODIES[id] ? [BODIES[id]] : []); }
+    if (table === 'app_outside_reads' || table === 'app_news_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (table === 'app_outside_sources') return ok([{ source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }]);
     if (table === 'app_outside_seen') return ok([{ seen_at: '2026-10-06T00:00:00Z' }]);
     if (table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
@@ -105,9 +105,9 @@ for (const width of [412, 884, 1440]) {
     await expect(d.locator('[data-nd-implications] [data-nd-more] .nd-reason')).toHaveText('가상 연관 이유.');
     await expect(d.locator('[data-nd-prose][data-mark="1"]')).toHaveCount(1);
     // 저장 원문을 사용자 로그인으로 읽었고, 원문 사이트·기사 먼저 읽기(open)는 부르지 않았다. 열면 읽음 한 줄.
-    expect(s.calls.some(c => c.startsWith('app_feed_bodies?') && c.includes(`outside_post_id=eq.${P1}`) && c.includes('workspace_id=eq.w'))).toBe(true);
+    expect(s.calls.some(c => c.startsWith('app_outside_article_bodies?') && c.includes(`article_id=eq.${P1}`) && !c.includes('workspace_id='))).toBe(true);
     expect(s.calls.some(c => c.includes('action=open'))).toBe(false);
-    expect(s.calls.some(c => c.startsWith('app_feed_reads'))).toBe(true);
+    expect(s.calls.some(c => c.startsWith('app_outside_reads'))).toBe(true);
     // 글자 크기 세 단계: 기본 보통(16px) → 크게(19px, 서버 저장) → 작게(14px).
     const fs = () => prose.evaluate(el => getComputedStyle(el).fontSize);
     expect(await fs()).toBe('16px');

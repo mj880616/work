@@ -28,22 +28,25 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른�
 
   await swipe(item(page, 'c1'), -320);
   await expect(item(page, 'c1')).toHaveCount(0);
-  const hide = server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1);
-  expect(Object.keys(hide.body).sort()).toEqual(['hidden_at', 'updated_at']);
+  const hide = server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1);
+  // NEWS-모두에게열기 ③: 표시 줄이 아직 없는 기사는 내 표시 한 줄을 넣는다(작업공간·기사·숨김만, 칸 권한 그대로).
+  expect(hide.method).toBe('POST');
+  expect(Object.keys(hide.body).sort()).toEqual(['article_id', 'hidden_at', 'workspace_id']);
+  expect(hide.body.workspace_id).toBe('w');
   expect(hide.body.hidden_at).toBeTruthy();
-  await expect.poll(() => server.calls.some(c => c.what === 'app_now_signals' && c.body?.news_item_id === 'c1' && c.body?.action === 'dismiss')).toBe(true);
+  await expect.poll(() => server.calls.some(c => c.what === 'app_news_now_signals' && c.body?.article_id === 'c1' && c.body?.action === 'dismiss')).toBe(true);
   expect(await noticeText(page)).toBe('숨겼어요');
   await page.locator('#kptuNotice .kptu-notice-undo').click();
   await expect(item(page, 'c1')).toBeVisible();
-  expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body.hidden_at).toBeNull();
+  expect(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body.hidden_at).toBeNull();
 
   await swipe(item(page, 'k1'), 320);
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(1);
-  expect(Object.keys(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
-  await expect.poll(() => server.calls.some(c => c.what === 'app_now_signals' && c.body?.news_item_id === 'k1' && c.body?.action === 'star')).toBe(true);
+  expect(Object.keys(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
+  await expect.poll(() => server.calls.some(c => c.what === 'app_news_now_signals' && c.body?.article_id === 'k1' && c.body?.action === 'star')).toBe(true);
   await swipe(item(page, 'k1'), 320);
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(0);
-  expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body).toMatchObject({ starred_at: null, folder_id: null });
+  expect(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).toMatchObject({ starred_at: null, folder_id: null });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -73,6 +76,6 @@ test('Now 뉴스 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러
   await c1.hover();
   await c1.locator('[data-now-act="hide"]').click();
   await expect(item(page, 'c1')).toHaveCount(0);
-  expect(server.calls.filter(c => c.what === 'app_news_items' && c.method === 'PATCH').at(-1).body.hidden_at).toBeTruthy();
+  expect(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body.hidden_at).toBeTruthy();
   expect(errors).toEqual([]);
 });
