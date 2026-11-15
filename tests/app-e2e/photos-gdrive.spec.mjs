@@ -316,3 +316,31 @@ for (const width of [412, 840, 1280]) {
     expect(state.errors).toEqual([]);
   });
 }
+
+// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브 둘 다 연결 전이면 [파일]과 같은 한 칸
+// ('연결된 클라우드가 없어요.' + 아래 줄 [원드라이브 연결][구글 드라이브 연결]). 구글 드라이브 칩이 꺼져 있어도(PC 처음 기본값) 두 버튼,
+// [구글 드라이브 연결]을 누르면 칩을 먼저 켜고(서버 view_prefs) drive-start로 간다. 화면 사진은 SHOT_DIR을 줄 때만.
+for (const width of [412, 1280]) {
+  test(`${width}px: 둘 다 연결 전이면 '연결된 클라우드가 없어요.' + 두 연결 버튼(파일 화면과 같은 칸)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { state, server } = await fixture(page, { od: false, status: { ok: false, error: 'drive_not_connected' }, statusCode: 424 });
+    const starts = [];
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/public-policy-drive', r => { starts.push(r.request().postDataJSON()?.action); return r.fulfill({ status: 500, json: { error: 'test' } }); });
+    await openPhotos(page, width);
+    const body = page.locator('#photosRoot [data-photos-body]');
+    const box = body.locator('[data-connect-cloud-none]');
+    await expect(box).toHaveCount(1);
+    await expect(box.locator('.connect-note-line')).toHaveText('연결된 클라우드가 없어요.');
+    await expect(box.getByRole('button')).toHaveText(['원드라이브 연결', '구글 드라이브 연결']);
+    await expect(body.locator('[data-connect-note]')).toHaveCount(1);
+    await expect(body).not.toContainText('연결 뒤 쓸 수 있어요');
+    const [l, b1, b2] = await Promise.all([box.locator('.connect-note-line').boundingBox(), box.getByRole('button').nth(0).boundingBox(), box.getByRole('button').nth(1).boundingBox()]);
+    expect(b1.y).toBeGreaterThanOrEqual(l.y + l.height - 1);
+    expect(Math.abs(b1.y - b2.y)).toBeLessThan(2);
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/photos-none-${width}.png` });
+    await box.getByRole('button', { name: '구글 드라이브 연결', exact: true }).click();
+    await expect.poll(() => starts).toEqual(['drive-start']);
+    await expect.poll(() => server.value?.photo_sources_pc?.gdrive).toBe(true);
+    expect(state.errors).toEqual([]);
+  });
+}

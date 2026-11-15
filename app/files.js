@@ -54,7 +54,7 @@ import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js';
 import {recentSplit} from './photo-fold-model.mjs';
 import {openFolderAt, paintDropGroup} from './drop-open-folder.mjs'; // UI-펼친폴더안놓기전체: 놓일 묶음 표시(공용) // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
-import {connectNoteHtml, connectNoteFor, connectText} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(글 한 줄 → 아래 버튼, 처음 = 연결 · 권한 빠짐 = 다시 연결)
+import {cloudNoneHtml, connectNoteFor} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(글 한 줄 → 아래 버튼, 처음 = 연결 · 권한 빠짐 = 다시 연결)
 import {gdriveLinkMode} from './photo-sources-model.mjs'; // S62-16: 사진 칩과 같은 구글 드라이브 연결 규칙
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
@@ -909,7 +909,7 @@ function linkMode(name) {
 const CONNECT_SERVICE = {od: 'onedrive', gd: 'gdrive'};
 function connectBoxHtml() {
   if (!state.status) return '';
-  if (!anyLinked()) return connectNoteHtml({line: '연결된 클라우드가 없어요.', buttons: SOURCES.map(n => ({label: connectText(CONNECT_SERVICE[n], 'none').button, attrs: {'data-fx-connect': n}}))});
+  if (!anyLinked()) return cloudNoneHtml(SOURCES.map(n => ({service: CONNECT_SERVICE[n], attrs: {'data-fx-connect': n}}))); // S62-36: 사진 화면과 같은 공용 칸
   const n = state.connectAsk, mode = n ? linkMode(n) : '';
   return mode ? connectNoteFor(CONNECT_SERVICE[n], mode, {attrs: {'data-fx-connect': n}}) : '';
 }

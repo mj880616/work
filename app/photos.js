@@ -41,7 +41,7 @@ import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKn
 import {syncPhoneFolders, quickPhoneFolders, onPhoneFoldersLateAdded, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
   gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT, gdriveLinkMode} from './photo-sources-model.mjs';
-import {connectNoteFor, connectText} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(처음 = 연결, 권한 빠짐 = 다시 연결)
+import {connectNoteFor, connectText, cloudNoneHtml} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(처음 = 연결, 권한 빠짐 = 다시 연결)
 // S46-24 ④ 구글 드라이브 칸(운영자 기능 gdrive_photos가 있는 작업공간만, 서버가 네 겹으로 다시 막음). 같은 사진 한 장 규칙·출처 표시는 원드라이브·폰과 같다.
 //   [사진]에 섞이고(거르기 '전체'·'동영상'만 — ★·스크린샷·달력·빠른 이동 막대·앨범은 아직 원드라이브·폰만), [폴더]는 '구글 드라이브' 묶음(맨 위부터 한 층씩, 스위치·⋯).
 //   사진 이름 바꾸기·옮기기·지우기(드라이브 휴지통)는 사진 ⋯(PC 우클릭)·고른 사진 아래 줄에서, 지우기는 확인 창 한 번. 권한이 없으면 칩·목록 위에 '권한 없음 · [구글 드라이브 다시 연결]'.
@@ -782,13 +782,22 @@ function gate() {
 }
 // [사진]·[달력]: 켜진 출처 중 하나라도 읽을 수 있으면 막지 않는다.
 const phoneAskHtml = () => '<p class="photos-muted">폰 사진을 보려면 처음 한 번 허용이 필요해요 <button type="button" class="mini" data-photos-phone-ask>사진 접근 허용</button></p>';
+// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브 둘 다 연결 전이면 [파일]과 같은 한 칸
+// (연결된 클라우드가 없어요 + 아래 줄 [원드라이브 연결][구글 드라이브 연결], 공용 cloudNoneHtml). 하나라도 연결됐으면 ''(그 출처 안내를 따로 보인다).
+// 원드라이브 연결 준비가 안 된 서버(configured:false)면 원드라이브 버튼은 빼고 구글 드라이브 버튼만.
+function cloudNone(cls = '') {
+  if (!odReady || od.failed || od.connected || !gd.checked || gdriveLinkMode(gd.problem) !== 'none') return '';
+  return cloudNoneHtml([od.configured && {service:'onedrive', attrs:{'data-photos-connect':''}}, {service:'gdrive', attrs:{'data-photos-gd-connect':''}}].filter(Boolean), {cls});
+}
 function listGate() {
   if (anyUse()) return '';
   if (noSource()) return NO_SOURCE_HTML;
   if (!odReady) return waitHtml({rows:4, h:72});
-  const gdLine = gdNoteHtml();
-  if (sources.phone && phone.available() && !phoneUsable() && (!sources.onedrive || !ready())) return gdLine + phoneAskHtml() + (sources.onedrive ? gate() : '');
-  if (sources.onedrive) return gdLine + gate();
+  const none = sources.onedrive || gdOn() ? cloudNone() : '';
+  const gdLine = none ? '' : gdNoteHtml();
+  const odLine = none || (sources.onedrive ? gate() : '');
+  if (sources.phone && phone.available() && !phoneUsable() && (!sources.onedrive || !ready())) return gdLine + phoneAskHtml() + odLine;
+  if (odLine) return gdLine + odLine;
   return gdLine || NO_SOURCE_HTML;
 }
 // 목록 위 짧은 안내(한 출처만 못 읽을 때).
@@ -796,8 +805,10 @@ function srcNotes() {
   const out = [];
   if (sources.phone && phone.available() && !phoneUsable() && ready() && sources.onedrive) out.push(phoneAskHtml());
   else if (sources.phone && phoneUsable() && phone.state().access === 'partial') out.push('<p class="photos-muted photos-top">폰 사진은 선택한 것만 보여요 <button type="button" class="mini" data-photos-phone-ask>더 선택</button></p>');
-  if (sources.onedrive && odReady && !ready() && (useSrc().phone || useSrc().gdrive)) out.push(gate());
-  out.push(gdNoteHtml());
+  const odNeed = sources.onedrive && odReady && !ready() && (useSrc().phone || useSrc().gdrive), gdLine = gdNoteHtml();
+  const none = odNeed || gdLine ? cloudNone('photos-top') : '';
+  if (none) out.push(none);
+  else { if (odNeed) out.push(gate()); out.push(gdLine); }
   return out.join('');
 }
 const cellLabel = (item, on) => `${dayHead(item.day)} ${item.video ? '동영상' : '사진'}${on ? ', 별표' : ''}${marks() && item.source !== 'onedrive' ? `, ${SOURCE_TEXT[item.source]}` : ''}`;
@@ -3084,6 +3095,7 @@ function gdFolderClick(b) {
   if (b.matches('[data-photos-gf-retry]')) { gdLevelFailed.clear(); renderFolders(); return true; }
   if (b.matches('[data-photos-gf-again]')) { gdFFor = null; gdFFailed = ''; paintGdFolderGrid(); return true; }
   if (b.matches('[data-photos-gd-reconnect]')) { gdReconnectGo(); return true; }
+  if (b.matches('[data-photos-gd-connect]')) { connectFromNone('gdrive'); return true; }
   if (b.matches('[data-photos-gd-retry]')) { gdRetry(); return true; }
   return false;
 }
@@ -3651,7 +3663,7 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-name-cancel]')) return nameDone(null);
   if (b.matches('[data-photos-newest]')) { resetList(); render(); return window.scrollTo?.(0, 0); }
   if (b.matches('[data-photos-more]')) { failed = ''; paintList(); return loadMore(); }
-  if (b.matches('[data-photos-connect]')) return settings.connect();
+  if (b.matches('[data-photos-connect]')) return connectFromNone('onedrive');
   if (b.matches('[data-photos-folder]')) return settings.run(settings.startBrowse);
   if (b.matches('[data-photos-retry]')) return ensureOd(true).then(render);
 });
@@ -3694,6 +3706,11 @@ function sourceClick(b) {
   // 원드라이브가 아직 연결 전이거나 문제가 있으면 지금처럼 연결 메뉴.
   if (name === 'onedrive' && (!ready() || odFault)) return linkMenu.open(b);
   toggleSourceName(name);
+}
+// S62-36: 연결 안내의 [○○ 연결]은 그 출처 칩이 꺼져 있으면 먼저 켠다(서버 view_prefs). 연결하고 돌아왔을 때 바로 그 사진이 보이게.
+function connectFromNone(name) {
+  if (!sources[name]) { sources = toggleSource(sources, name); viewPrefs.set(deviceSourcesPref(), sourcesValue(sources), {rejectable:true}); paintSources(); }
+  return name === 'gdrive' ? gdReconnectGo() : settings.connect();
 }
 function toggleSourceName(name) {
   sources = toggleSource(sources, name);
