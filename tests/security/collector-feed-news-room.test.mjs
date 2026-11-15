@@ -18,7 +18,7 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 
 // take: app_news_room_take 응답을 정하는 함수(인자 → {status, body}). 기본은 '뉴스방 아님'.
 function harness({take=()=>({status:200,body:{ok:true,news:false,taken:0,dup:0,widened:0,refused:0}}),articles=[],family=false}={}){
-  const calls={take:[],oldInserts:[],articleGets:[],logs:[],openai:0,family:0};
+  const calls={take:[],oldInserts:[],articleGets:[],maps:[],sharedWrites:[],logs:[],openai:0,family:0};
   const doFetch=async(input,init={})=>{
     const url=new URL(String(input)),method=init.method||'GET';
     if(url.origin!==SB){calls.openai++;return respond({},500);}
@@ -29,6 +29,9 @@ function harness({take=()=>({status:200,body:{ok:true,news:false,taken:0,dup:0,w
     if(path===FAMILY_TABLE){calls.family++;return respond(family?[{source_ref:'fam:tg:x:1'}]:[]);}
     if(path==='app_news_articles'&&method==='GET'){calls.articleGets.push(decodeURIComponent(url.search));return respond(articles);}
     if(path==='app_news_items'&&method==='POST'){calls.oldInserts.push(JSON.parse(init.body));return respond('',201);}
+    if(path==='app_news_id_map'&&method==='POST'){calls.maps.push(JSON.parse(init.body));return respond('',201);}
+    // 공용 쪽 표(기사·본문·표시·사람별 새 표)에 직접 쓰는 호출은 모두 기록(거절 시험: 뉴스방이 아니면 0).
+    if(/^app_news_(articles|article_bodies|marks|reads|now_details|now_signals)$/.test(path)&&method!=='GET'){calls.sharedWrites.push(path);return respond('',201);}
     if(method==='GET')return respond([]);
     return respond('',201);
   };
@@ -67,6 +70,7 @@ test('뉴스방이 아니면(함수 news:false) 옛 표·공용 표 어디에도
   await h.send(body());
   assert.equal(h.calls.oldInserts.length,0);
   assert.equal(h.calls.articleGets.length,0);
+  assert.deepEqual(h.calls.maps,[],'지도도 없음');assert.deepEqual(h.calls.sharedWrites,[],'공용·사람별 새 표 쓰기 없음');
   assert.ok(!h.calls.logs.some(l=>l.includes('news_room_taken')),'대부분의 방은 로그도 없음');
 });
 
@@ -75,6 +79,7 @@ test('1:1·종류 모름 방은 함수를 부르지도 않는다(서버도 다�
     const b=body(o);if(o.chat_kind===undefined)delete b.chat_kind;
     const h=harness();await h.send(b);
     assert.equal(h.calls.take.length,0,JSON.stringify(o));
+    assert.deepEqual([h.calls.oldInserts,h.calls.maps,h.calls.sharedWrites],[[],[],[]],'1:1 방 글은 옛 표·지도·공용 표 어디에도 없음');
   }
   const h=harness();await h.send(body({room_key:'-4242',chat_kind:undefined}));
   assert.equal(h.calls.take.length,1,'방 번호 모양이 그룹이면 보낸다');
@@ -85,6 +90,7 @@ test('가족 방은 소식 입구 자체가 400 FAMILY_ROOM — 뉴스방 함수
   const r=await h.send(body());
   assert.equal(r.status,400);assert.equal((await r.json()).error,'FAMILY_ROOM');
   assert.equal(h.calls.take.length,0);
+  assert.deepEqual([h.calls.oldInserts,h.calls.maps,h.calls.sharedWrites],[[],[],[]],'가족 방 글은 어디에도 없음');
 });
 
 test('뉴스방이면 새로 들어온 tg_room 기사만 운영자 옛 표에 같은 id로(옮기는 동안 화면 유지), 로그는 개수만',async()=>{
@@ -94,6 +100,9 @@ test('뉴스방이면 새로 들어온 tg_room 기사만 운영자 옛 표에 �
   await h.send(body());
   assert.match(h.calls.articleGets[0],/origin=eq\.tg_room/);
   assert.deepEqual(h.calls.oldInserts,[{id:ID,workspace_id:WS,lane:'channel',url:'https://news.example.com/a/1',url_key:'news.example.com/a/1',scrapped_at:'2026-10-24T03:00:00.000Z',state:'pending'}]);
+  // E2: 옛 줄마다 지도 1줄 — id 세 칸뿐(방·원문·보낸 사람 없음).
+  assert.deepEqual(h.calls.maps,[{old_id:ID,workspace_id:WS,article_id:ID}]);
+  assert.deepEqual(h.calls.sharedWrites,[],'공용 표 직접 쓰기 없음(넣기는 DB 함수만)');
   const log=h.calls.logs.find(l=>l.includes('news_room_taken'));
   assert.deepEqual(JSON.parse(log),{code:'news_room_taken',found:4,taken:1,dup:1,widened:0,refused:2,mirrored:1});
   assert.ok(!h.calls.logs.join('\n').includes('example'),'로그에 주소 없음');
@@ -127,4 +136,6 @@ test('소스: 뉴스방 처리는 주소만 넘기고, 공용 표 직접 쓰기�
   assert.match(fn,/rpcObject\(NEWS_ROOM_FN, \{ p_workspace: ws, p_room_key: input\.room_key, p_items: part \}\)/);
   assert.ok(!/room_label|sender|\.text\b|messages\[/.test(fn.replace(/\/\/.*$/gm,'').replace(/newsRoomItems\(input\.messages\)/,'')),'방 이름·보낸 사람·원문을 쓰지 않음');
   assert.ok(!/app_news_articles", \{[^}]*(text|room|sender|label)/.test(src),'공용 표 넣기에 원문·방 칸 없음');
+  assert.match(src,/db\.insert\("app_news_id_map", \{ old_id: oldId, workspace_id: ws, article_id: articleId \}\)/,'지도 넣기는 id 세 칸뿐');
+  assert.ok(!/app_news_(article_bodies|reads|now_details|now_signals)/.test(src.replace(/\/\/.*$/gm,'')),'수집기는 공용 본문·사람별 새 표에 직접 쓰지 않음');
 });

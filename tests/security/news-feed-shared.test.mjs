@@ -16,7 +16,7 @@ const PAGE = `<html lang="en"><head><meta property="og:title" content="Synthetic
 
 // 아주 작은 PostgREST 흉내: eq·neq·is·in·gte·lt·not.is 거르기, select·order·limit·offset, POST(ignore/merge), PATCH.
 function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요약.'}, members = [{user_id: USER, workspace_id: WS2}]} = {}) {
-  const db = {app_news_articles: [], app_news_items: [], app_news_marks: [], app_outside_sources: [], app_news_keywords: [], app_news_days: [], ...structuredClone(tables)};
+  const db = {app_news_articles: [], app_news_items: [], app_news_marks: [], app_news_id_map: [], app_news_article_bodies: [], app_outside_sources: [], app_news_keywords: [], app_news_days: [], ...structuredClone(tables)};
   const calls = {ai: 0, site: [], rest: []};
   const res = (v, s = 200) => new Response(v === null ? null : JSON.stringify(v), {status: s, headers: {'content-type': 'application/json'}});
   const test1 = (row, k, v) => {
@@ -96,9 +96,17 @@ test('매체 단계: 두 작업공간이 같은 매체를 켜도 공용 기사�
   assert.notEqual(w.db.app_news_items.find(r => r.workspace_id === WS2 && r.url_key === rail.url_key).id, rail.id);
   const marks = w.db.app_news_marks.map(m => [m.workspace_id, w.db.app_news_articles.find(a => a.id === m.article_id).title, m.keywords]).sort();
   assert.deepEqual(marks, [[OP, '합성 철도 파업 기사', ['철도']], [WS2, '합성 버스 기사', ['버스']]], '자기 키워드만 자기 표시에');
-  // 두 번째 실행: 공용 기사·표시는 늘지 않음.
+  // E2: 옛 표에 넣은 줄마다 같은 주소 공용 기사로 지도 1줄(작업공간 그대로).
+  assert.equal(w.db.app_news_id_map.length, 4);
+  for (const m of w.db.app_news_id_map) {
+    const old = w.db.app_news_items.find(r => r.id === m.old_id), art = w.db.app_news_articles.find(a => a.id === m.article_id);
+    assert.ok(old && art, '옛 줄·기사 있음'); assert.equal(old.url_key, art.url_key); assert.equal(m.workspace_id, old.workspace_id);
+    assert.deepEqual(Object.keys(m).filter(k => k !== 'created_at' && k !== 'id').sort(), ['article_id', 'old_id', 'workspace_id'], '지도 줄은 id 세 칸뿐');
+  }
+  // 두 번째 실행: 공용 기사·표시·지도는 늘지 않음.
   await w.cron({step: 'media', source: 'news-labortoday'});
   assert.equal(w.db.app_news_articles.length, 2);
+  assert.equal(w.db.app_news_id_map.length, 4);
   assert.equal(w.calls.ai, 0, '수집 때 AI 없음');
 });
 
@@ -114,6 +122,39 @@ test('비용: 두 작업공간 옛 대기 줄 + 공용 기사(같은 주소) →
   assert.equal(w.calls.site.filter(u => u === url).length, 1, '원문 1번');
   assert.equal(w.calls.ai, 1, '요약 AI 1번');
   for (const r of [...w.db.app_news_items, ...w.db.app_news_articles]) { assert.equal(r.state, 'ok'); assert.equal(r.summary, '합성 한 문장 요약.'); assert.equal(r.title, 'Synthetic strike story'); }
+  // E2: 공용 본문 블록은 기사마다 한 줄(작업공간 칸 없음), 두 옛 줄 모두 같은 기사로 지도.
+  assert.equal(w.db.app_news_article_bodies.length, 1);
+  const b = w.db.app_news_article_bodies[0];
+  assert.equal(b.article_id, id(1)); assert.equal(b.state, 'ok'); assert.ok(b.chars > 0);
+  for (const k of ['workspace_id', 'news_item_id', 'outside_post_id']) assert.ok(!(k in b), `공용 본문에 ${k} 칸 없음`);
+  assert.deepEqual(w.db.app_news_id_map.map(m => [m.old_id, m.article_id]).sort(), [[id(1), id(1)], [id(2), id(1)]]);
+});
+
+test('공용 본문: 못 읽은 결과는 이미 있는 블록을 덮지 않는다(블록이 없을 때만 failed 한 줄)', async () => {
+  const url = 'https://news.example.org/a/9', key = 'news.example.org/a/9';
+  const okBody = {article_id: id(40), blocks: [{t: 'p', text: '합성'}], state: 'ok', chars: 2, images: 0};
+  const w = world({tables: {
+    app_news_articles: [{id: id(40), origin: 'tg_room', lane: 'channel', url, url_key: key, state: 'pending', created_at: recent},
+      {id: id(41), origin: 'tg_room', lane: 'channel', url: url + '0', url_key: key + '0', state: 'pending', created_at: recent}],
+    app_news_article_bodies: [okBody],
+  }, sites: {'https://news.example.org/robots.txt': 'User-agent: *\nAllow: /\n'}});
+  await w.cron({step: 'pending'});
+  const bodies = Object.fromEntries(w.db.app_news_article_bodies.map(b => [b.article_id, b]));
+  assert.equal(bodies[id(40)].state, 'ok', '읽힌 본문 그대로');
+  assert.equal(bodies[id(41)].state, 'failed', '없던 기사는 failed 한 줄');
+  assert.ok(w.calls.rest.filter(c => c.p === 'app_news_article_bodies').every(c => /ignore-duplicates/.test(c.prefer)));
+});
+
+test('prune 단계: 지우기 앞에 보충 함수(서버 전용)를 한 번 부르고, 실패해도 지우기는 간다. 돌려받은 값은 줄 수만', async () => {
+  const w = world();
+  const out = await w.cron({step: 'prune'});
+  assert.equal(out.ok, true);
+  const rpcs = w.calls.rest.filter(c => c.p.startsWith('rpc/app_news_')).map(c => c.p);
+  assert.deepEqual(rpcs, ['rpc/' + H.REFS_SYNC_FN, 'rpc/app_news_prune']);
+  assert.deepEqual(w.calls.rest.find(c => c.p === 'rpc/' + H.REFS_SYNC_FN).body, {p_limit: H.REFS_SYNC_LIMIT});
+  assert.deepEqual(H.refsCounts({map: 3, bodies: 0, reads: 2, details: 1, signals: 4, articles: 0, note: 'x', bad: -1}), {articles: 0, map: 3, bodies: 0, reads: 2, details: 1, signals: 4});
+  assert.equal(H.refsCounts([1]), null); assert.equal(H.refsCounts(null), null);
+  assert.deepEqual(H.refsCounts({map: 1.5, reads: '2'}), {});
 });
 
 test('공용 기사만 있는 대기 기사(뉴스방 수집분)도 예약 실행이 읽고, AI는 운영자 작업공간에 센다', async () => {
