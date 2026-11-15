@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안 1차: 업데이트 기록(운영자) · 업데이트 소식(이용자)</title>
+<style>
+:root{--bg:#f3f0e8;--card:#fffdf8;--line:#e3ded2;--ink:#2b2a26;--sub:#7a766c;--olive:#5b6b33;--sel:#edf0e2}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8cf;font:14px/1.45 "Noto Sans KR",system-ui,sans-serif;color:var(--ink);padding:16px}
+h1{font-size:18px;margin:0 0 4px}
+.lead{color:#555;margin:0 0 12px;font-size:13px;max-width:1280px}
+.row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
+.cap{font-size:12px;color:#444;margin:0 0 6px;font-weight:600;max-width:412px}
+.frame{background:var(--bg);border:1px solid #bbb;border-radius:14px;overflow:hidden;position:relative}
+.ph{width:412px;height:760px}.fold{width:880px;height:560px}.pc{width:1280px;height:600px}
+.top{padding:14px 12px 4px;font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px}
+.top .tag{font-size:11px;font-weight:600;color:#8a5a00;background:#fff4e5;border:1px solid #f0d58a;border-radius:4px;padding:0 5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:8px 10px;padding:4px 12px}
+.muted{color:var(--sub);font-size:12px}
+.it{padding:9px 0;border-top:1px solid var(--line);position:relative}
+.it:first-child{border-top:0}
+.it .h{display:flex;align-items:center;gap:8px;font-size:13px}
+.it .h b{font-weight:600}
+.it ul{margin:4px 0 0;padding-left:18px;font-size:13px}
+.it li{margin:1px 0}
+.btn{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:12.5px;white-space:nowrap}
+.btn.p{background:var(--olive);color:#fff;border-color:var(--olive)}
+.btn.s{padding:2px 8px;font-size:12px}
+.sent{font-size:11px;color:var(--olive);border:1px solid #c9d1ad;background:#f1f4e6;border-radius:4px;padding:0 5px}
+.cut{display:flex;align-items:center;gap:8px;background:#f6f8f0;border:1px solid #d5dcc0;border-radius:10px;margin:6px 10px;padding:7px 10px;font-size:12.5px}
+.cutline{display:flex;align-items:center;gap:8px;color:#8a5a00;font-size:11px;padding:6px 0}
+.cutline:before,.cutline:after{content:"";flex:1;border-top:1px dashed #e0c070}
+.dot{width:7px;height:7px;border-radius:50%;background:#c2410c;display:inline-block}
+.nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;border-top:1px solid var(--line);padding:8px 0 10px;font-size:11px;color:var(--sub);background:var(--card)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.sheet{position:absolute;left:0;right:0;bottom:46px;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.12);padding:12px 14px 14px}
+.sheet h3{margin:0 0 6px;font-size:15px}
+.field{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 10px;font-size:13px;margin:6px 0}
+.area{min-height:118px}
+.chk{width:15px;height:15px;border:1.5px solid var(--olive);border-radius:3px;display:inline-block;background:var(--olive);color:#fff;font-size:11px;line-height:13px;text-align:center}
+.chk.off{background:#fff}
+.opt{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:4px 0}
+.split{display:flex;height:100%}
+.side{width:150px;background:var(--card);border-right:1px solid var(--line);padding:12px 8px;font-size:13px;color:#555}
+.side div{padding:6px 8px;border-radius:6px}.side .on{background:var(--sel);color:var(--ink);font-weight:600}
+.main{flex:1;min-width:0;padding:10px 14px;display:flex;flex-direction:column}
+.cols{display:flex;gap:12px;flex:1;min-height:0}
+.col{flex:1;min-width:0}
+.col h4{margin:4px 2px 4px;font-size:14px;display:flex;align-items:center;gap:8px}
+.note{background:#fffbe8;border:1px dashed #d9b93a;border-radius:10px;padding:10px 12px;font-size:12.5px;max-width:1280px;margin-bottom:14px}
+.note li{margin:2px 0}
+</style>
+</head>
+<body>
+<h1>시안 1차 — 업데이트 기록(운영자만) · 업데이트 소식(이용자) (명진 11/15 12:56~12:59)</h1>
+<p class="lead">지금의 '업데이트 기록'(개발할 때마다 쌓이는 전체 기록)은 <b>운영자(명진)만</b> 본다 — 서버가 운영자 계정에서만 연다. 이용자에게는 운영자가 고르거나 직접 써서 보낸 것만 <b>'업데이트 소식'</b>으로 보인다. 보이는 범위는 운영자가 정한 시작 날짜 이후 보낸 것 전부. 기록 파일은 공개 배포물에서 뺀다. 글은 모두 가상 예시.</p>
+<div class="note"><b>정할 것(요청함 방 추천 — 명진 확정 아님)</b>
+<ol>
+<li>보낼 때 '폰에서 볼 것' 줄은 기본으로 빼기(추천 — 개발 확인용이라서) / 같이 보내기</li>
+<li>여러 기록을 묶어 한 소식으로 보내기 가능(추천 — 하루치 고친 것을 한 번에)</li>
+<li>새 소식이 오면 메뉴 '업데이트 소식' 옆 작은 점만(추천) / 새 판을 열 때 창으로 한 번 띄우기도</li>
+</ol></div>
+
+<div class="row">
+<div><p class="cap">① 운영자 폰 412 — '업데이트 기록'(전체). 줄마다 [보내기], 보낸 줄은 '보냄'. 맨 위 '이용자 시작 날짜'</p>
+<div class="frame ph">
+  <div class="top">업데이트 기록 <span class="tag">운영자만</span></div>
+  <div class="cut">이용자에게 보이는 시작 날짜 <b>11/20</b><span class="btn s" style="margin-left:auto">바꾸기</span></div>
+  <div class="card">
+    <div class="it"><div class="h"><b>11/15-3</b><span class="muted">11/15</span><span class="sent">보냄</span><span class="btn s" style="margin-left:auto">보내기</span></div>
+      <ul><li>사진 화면에 내 구글 드라이브 칸이 생겼어요</li><li>메뉴에 [파일]이 생겼어요</li></ul></div>
+    <div class="it"><div class="h"><b>11/15-2</b><span class="muted">11/15</span><span class="sent">보냄</span><span class="btn s" style="margin-left:auto">보내기</span></div>
+      <ul><li>PC 프로그램 이름이 '노조+ 업로드'로 바뀌었어요</li></ul></div>
+    <div class="it"><div class="h"><b>11/15-1</b><span class="muted">11/15</span><span class="btn s" style="margin-left:auto">보내기</span></div>
+      <ul><li>가상 단체 게시판 글을 날짜순으로 모아 보여 줘요</li></ul><div class="muted" style="font-size:11.5px">운영자 기능 · 이용자에게 보낼 일 없음</div></div>
+    <div class="it"><div class="h"><b>11/14-9</b><span class="muted">11/14</span><span class="btn s" style="margin-left:auto">보내기</span></div>
+      <ul><li>주간 보고 표에서 자리 바꾸기 손잡이가 줄 맨 왼쪽으로 모였어요</li></ul></div>
+  </div>
+  <div class="nav"><span>홈</span><span>노트</span><span>일정</span><span>사업 보고</span><span>조직 보고</span><span>메뉴</span></div>
+</div></div>
+
+<div><p class="cap">② 운영자 폰 412 — [보내기]: 기록 글이 채워진 채로 고쳐서 보내기</p>
+<div class="frame ph">
+  <div class="top">업데이트 기록 <span class="tag">운영자만</span></div>
+  <div class="dim"></div>
+  <div class="sheet">
+    <h3>이용자에게 업데이트 소식 보내기</h3>
+    <div class="field">제목(선택) — 구글 드라이브 사진·파일</div>
+    <div class="field area">· 사진 화면에 내 구글 드라이브 칸이 생겼어요(각자 자기 드라이브만 보여요)<br>· 메뉴에 [파일]이 생겼어요. 내 구글 드라이브 파일을 볼 수 있어요<br>· 구글 드라이브를 아직 연결하지 않았으면 [연결]이 보여요</div>
+    <div class="opt"><span class="chk off"></span>'폰에서 볼 것' 줄도 같이 보내기</div>
+    <div class="opt"><span class="chk">✓</span>11/15-3 · <span class="muted">+ 다른 기록 묶기</span></div>
+    <div class="muted" style="margin:6px 0">로그인한 모든 이용자에게 보여요. 보낸 뒤에도 고치거나 거둘 수 있어요.</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><span class="btn">취소</span><span class="btn p">보내기</span></div>
+  </div>
+  <div class="nav"><span>홈</span><span>노트</span><span>일정</span><span>사업 보고</span><span>조직 보고</span><span>메뉴</span></div>
+</div></div>
+
+<div><p class="cap">③ 이용자 폰 412 — 메뉴 › '업데이트 소식'(새 소식은 작은 점)</p>
+<div class="frame ph">
+  <div class="top">업데이트 소식</div>
+  <div class="card">
+    <div class="it"><div class="h"><span class="dot"></span><b>구글 드라이브 사진·파일</b><span class="muted" style="margin-left:auto">11/21</span></div>
+      <ul><li>사진 화면에 내 구글 드라이브 칸이 생겼어요(각자 자기 드라이브만 보여요)</li><li>메뉴에 [파일]이 생겼어요. 내 구글 드라이브 파일을 볼 수 있어요</li><li>구글 드라이브를 아직 연결하지 않았으면 [연결]이 보여요</li></ul></div>
+    <div class="it"><div class="h"><b>PC 프로그램 '노조+ 업로드'</b><span class="muted" style="margin-left:auto">11/20</span></div>
+      <ul><li>윈도우 PC 프로그램 이름이 '노조+ 업로드'로 바뀌었어요</li><li>로그인 화면에서 내려받을 수 있어요</li></ul></div>
+  </div>
+  <p class="muted" style="padding:0 14px">11/20 전 소식은 없어요.</p>
+  <div class="nav"><span>홈</span><span>노트</span><span>일정</span><span>사업 보고</span><span>조직 보고</span><span>메뉴 <span class="dot"></span></span></div>
+</div></div>
+</div>
+
+<div class="row">
+<div><p class="cap" style="max-width:1280px">④ 운영자 PC 1280 — 왼쪽 '업데이트 기록'(전체) · 오른쪽 '보낸 소식'(이용자에게 보이는 그대로) + [직접 쓰기]</p>
+<div class="frame pc"><div class="split">
+  <div class="side"><div>홈</div><div>노트</div><div>일정</div><div>사업 보고</div><div>조직 보고</div><div>News</div><div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">통화</div><div>텔레그램 소식</div><div>조직 승인</div><div class="on">업데이트 기록</div><div>업데이트 소식</div></div>
+  <div class="main">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="font-size:16px">업데이트 기록</b><span class="top tag" style="padding:0 5px;font-size:11px">운영자만</span><span class="cut" style="margin:0 0 0 auto">이용자 시작 날짜 <b>11/20</b><span class="btn s">바꾸기</span></span></div>
+    <div class="cols">
+      <div class="col"><h4>전체 기록 <span class="muted" style="font-weight:400">777</span></h4>
+        <div class="card" style="margin:0">
+          <div class="it"><div class="h"><b>11/15-3</b><span class="muted">11/15</span><span class="sent">보냄</span><span class="btn s" style="margin-left:auto">보내기</span></div><ul><li>사진 화면에 내 구글 드라이브 칸이 생겼어요</li><li>메뉴에 [파일]이 생겼어요</li></ul></div>
+          <div class="it"><div class="h"><b>11/15-2</b><span class="muted">11/15</span><span class="sent">보냄</span><span class="btn s" style="margin-left:auto">보내기</span></div><ul><li>PC 프로그램 이름이 '노조+ 업로드'로 바뀌었어요</li></ul></div>
+          <div class="it"><div class="h"><b>11/15-1</b><span class="muted">11/15</span><span class="btn s" style="margin-left:auto">보내기</span></div><ul><li>가상 단체 게시판 글을 날짜순으로 모아 보여 줘요</li></ul></div>
+          <div class="it"><div class="h"><b>11/14-9</b><span class="muted">11/14</span><span class="btn s" style="margin-left:auto">보내기</span></div><ul><li>주간 보고 표에서 자리 바꾸기 손잡이가 줄 맨 왼쪽으로 모였어요</li></ul></div>
+        </div></div>
+      <div class="col"><h4>보낸 소식 <span class="muted" style="font-weight:400">이용자에게 보이는 그대로</span><span class="btn s p" style="margin-left:auto">+ 직접 쓰기</span></h4>
+        <div class="card" style="margin:0">
+          <div class="it"><div class="h"><b>구글 드라이브 사진·파일</b><span class="muted">11/21 · 읽음 7/9</span><span class="btn s" style="margin-left:auto">고치기</span><span class="btn s">거두기</span></div><ul><li>사진 화면에 내 구글 드라이브 칸이 생겼어요(각자 자기 드라이브만 보여요)</li><li>메뉴에 [파일]이 생겼어요</li></ul></div>
+          <div class="it"><div class="h"><b>PC 프로그램 '노조+ 업로드'</b><span class="muted">11/20 · 읽음 9/9</span><span class="btn s" style="margin-left:auto">고치기</span><span class="btn s">거두기</span></div><ul><li>윈도우 PC 프로그램 이름이 '노조+ 업로드'로 바뀌었어요</li></ul></div>
+          <div class="cutline">여기부터 위만 이용자에게 보임 (시작 날짜 11/20)</div>
+        </div></div>
+    </div>
+  </div>
+</div></div></div>
+</div>
+
+<div class="row">
+<div><p class="cap" style="max-width:880px">⑤ 이용자 폴드 펼침 880 — '업데이트 소식'(운영자 메뉴·개발 기록은 메뉴에 아예 없음)</p>
+<div class="frame fold"><div class="split">
+  <div class="side"><div>홈</div><div>노트</div><div>일정</div><div>사업 보고</div><div>조직 보고</div><div>News</div><div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px" class="on">업데이트 소식 <span class="dot"></span></div></div>
+  <div class="main">
+    <b style="font-size:16px;margin-bottom:6px">업데이트 소식</b>
+    <div class="card" style="margin:0">
+      <div class="it"><div class="h"><span class="dot"></span><b>구글 드라이브 사진·파일</b><span class="muted" style="margin-left:auto">11/21</span></div><ul><li>사진 화면에 내 구글 드라이브 칸이 생겼어요(각자 자기 드라이브만 보여요)</li><li>메뉴에 [파일]이 생겼어요. 내 구글 드라이브 파일을 볼 수 있어요</li><li>구글 드라이브를 아직 연결하지 않았으면 [연결]이 보여요</li></ul></div>
+      <div class="it"><div class="h"><b>PC 프로그램 '노조+ 업로드'</b><span class="muted" style="margin-left:auto">11/20</span></div><ul><li>윈도우 PC 프로그램 이름이 '노조+ 업로드'로 바뀌었어요</li><li>로그인 화면에서 내려받을 수 있어요</li></ul></div>
+    </div>
+  </div>
+</div></div></div>
+</div>
+</body>
+</html>
