@@ -140,7 +140,7 @@ jobs:
           cache-disabled: true
 
       - name: Unit tests
-        run: gradle -p android-app :app:testReleaseUnitTest --stacktrace
+        run: gradle -p android-app :app:testGithubReleaseUnitTest --stacktrace
 
       # build.gradle에는 서명 설정이 없다. 서명 없는 release APK를 만든 뒤 아래에서 서명한다.
       - name: Build release APK (unsigned)
@@ -150,7 +150,8 @@ jobs:
           WEB2_FCM_APP_ID: ${{ vars.WEB2_FCM_APP_ID }}
           WEB2_FCM_SENDER_ID: ${{ vars.WEB2_FCM_SENDER_ID }}
           WEB2_FCM_API_KEY: ${{ vars.WEB2_FCM_API_KEY }}
-        run: gradle -p android-app :app:assembleRelease --stacktrace
+        # S62-34: 판이 둘(github·play)이 됐다. 이 릴리스는 지금까지와 같은 github 판(kr.or.kptu.work)만 만든다. 플레이 판은 play-bundle.yml.
+        run: gradle -p android-app :app:assembleGithubRelease --stacktrace
 
       - name: Sign the APK
         shell: bash
@@ -173,7 +174,7 @@ jobs:
           umask 077
           printf '%s' "$PHONE_APP_KEYSTORE_B64" | base64 -d > "$ks"
           mkdir -p out
-          "$tools/zipalign" -p -f 4 android-app/app/build/outputs/apk/release/app-release-unsigned.apk out/aligned.apk
+          "$tools/zipalign" -p -f 4 android-app/app/build/outputs/apk/github/release/app-github-release-unsigned.apk out/aligned.apk
           # 비밀번호는 환경 변수 이름으로만 넘긴다(명령 인자·로그에 값이 나오지 않음).
           "$tools/apksigner" sign --ks "$ks" --ks-key-alias "$PHONE_APP_KEY_ALIAS" \
             --ks-pass env:PHONE_APP_KEYSTORE_PASSWORD --key-pass env:PHONE_APP_KEY_PASSWORD \

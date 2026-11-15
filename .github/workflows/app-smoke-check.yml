@@ -161,6 +161,12 @@ on:
       - 'tests/menu-model.test.mjs'
       - 'tests/phone-app-download.test.mjs'
       - 'scripts/phone-app-latest.mjs'
+      - 'tests/phone-app-play-flavor.test.mjs'
+      - 'android-app/app/build.gradle'
+      - 'android-app/app/src/main/AndroidManifest.xml'
+      - 'android-app/app/src/play/**'
+      - '.github/workflows/play-bundle.yml'
+      - '.github/workflows/phone-app-release.yml'
       - 'tests/menu-home-prefs.test.mjs'
       - 'tests/org-order-setting.test.mjs'
       - 'tests/org-order-fixture.mjs'
@@ -404,6 +410,12 @@ on:
       - 'tests/menu-model.test.mjs'
       - 'tests/phone-app-download.test.mjs'
       - 'scripts/phone-app-latest.mjs'
+      - 'tests/phone-app-play-flavor.test.mjs'
+      - 'android-app/app/build.gradle'
+      - 'android-app/app/src/main/AndroidManifest.xml'
+      - 'android-app/app/src/play/**'
+      - '.github/workflows/play-bundle.yml'
+      - '.github/workflows/phone-app-release.yml'
       - 'tests/menu-home-prefs.test.mjs'
       - 'tests/org-order-setting.test.mjs'
       - 'tests/org-order-fixture.mjs'
@@ -1121,6 +1133,9 @@ jobs:
 
       - name: APP-앱내려받기버튼 최신 폰 앱 APK 고르기·로그인/메뉴 내려받기 계획
         run: node --test tests/phone-app-download.test.mjs
+
+      - name: APP-플레이스토어비공개테스트 폰 앱 두 판(github·play) 앱 ID·권한·로그인 복귀·play-bundle 확인
+        run: node --test tests/phone-app-play-flavor.test.mjs
 
       - name: Check list reads skip body columns (APP-낭비줄이기 ①)
         run: node --test tests/report-list-read.test.mjs
