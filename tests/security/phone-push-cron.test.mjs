@@ -23,14 +23,17 @@ test('missing secret or slot fails before any request', async () => {
 });
 
 test('slot from the cron string (schedule wins over input); one POST with cron header only and body {}', async () => {
-  assert.equal(pickSlot({ schedule: '3 23 * * *', input: 'friday' }), 'morning');
+  assert.equal(pickSlot({ schedule: '3 23 * * *', input: 'evening' }), 'morning');
+  // S62-27: 금요일 예약(slot=friday, 다음 주 준비)은 지웠다.
+  assert.throws(() => pickSlot({ input: 'friday' }), /slot 입력이 없습니다/);
+  assert.throws(() => pickSlot({ schedule: '23 6 * * 5' }), /알 수 없는 예약 시각/);
   assert.equal(pickSlot({ input: 'evening' }), 'evening');
   const seen = [];
-  const r = await runPush({ secret: 'mock', schedule: '23 6 * * 5', sleep: noSleep, fetcher: async (url, init) => { seen.push({ url, init }); return ok('friday'); } });
+  const r = await runPush({ secret: 'mock', schedule: '22 9 * * *', sleep: noSleep, fetcher: async (url, init) => { seen.push({ url, init }); return ok('evening'); } });
   assert.equal(FUNCTION_BASE, 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/phone-push');
-  assert.deepEqual(seen.map(s => [s.url.replace(FUNCTION_BASE, ''), s.init.body]), [['?action=run&slot=friday', '{}']]);
+  assert.deepEqual(seen.map(s => [s.url.replace(FUNCTION_BASE, ''), s.init.body]), [['?action=run&slot=evening', '{}']]);
   assert.ok(seen.every(s => s.init.method === 'POST' && s.init.headers['x-phone-push-cron-secret'] === 'mock' && !('Authorization' in s.init.headers)));
-  assert.deepEqual(r, { slot: 'friday', workspaces: 1, sent: 0, pruned: 0 });
+  assert.deepEqual(r, { slot: 'evening', workspaces: 1, sent: 0, pruned: 0 });
 });
 
 test('401 stops at once; 5xx retried once; odd replies refused without echoing text', async () => {

@@ -42,6 +42,6 @@ test('가입자 화면: 서버 함수 하나(app_signup_list)만 읽고, 기기 
   assert.match(top, /signups\.dataset\.signupsOpen='';signups\.hidden=true;signups\.textContent='가입자 현황'/);
   assert.match(top, /account\.inbox\.hidden=false;account\.signups\.hidden=false/);
   assert.match(read('app/view-loader.js'), /signups:\['\.\/signups\.css'/);
-  assert.match(read('about/privacy/index.html'), /가입한 사람의 이름\(Google 표시 이름\)·가입 시각·마지막 접속 시각/);
+  assert.match(read('about/privacy/index.html'), /운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다\.[\s\S]*운영자에게 제공되는 정보<\/b>: 조직, 부서, 이름, 직책, 이메일주소, 가입일, 마지막 사용 시각/); // ABOUT-문의메일안내문고침: 명진 확정 문장(11/15)
   assert.match(read('app/phone-push-settings.js'), /signup: Array\.isArray\(got\) && got\.includes\(SIGNUP_FEATURE\)/);
 });

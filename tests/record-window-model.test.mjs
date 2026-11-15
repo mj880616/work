@@ -2,7 +2,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as m from '../app/record-window-model.mjs';
-import {eventOrg} from '../app/pre-meeting-sheet-model.mjs';
 
 const W = '2026-11-16'; // 보고하는 주(월)
 const A = 'aaaaaaaa-0000-4000-8000-000000000001', B = 'bbbbbbbb-0000-4000-8000-000000000002';
@@ -143,9 +142,6 @@ test('일정 연결 ①②③: 연결 있으면 제목 판정 안 함, 두 조�
   const refs = m.eventItems([E('e5', '2026-11-19', '총력 결의대회', {calendarId: 'ref@cal'}), E('e6', '2026-11-19', '사무실 청소', {calendarId: 'ref@cal'}), E('e7', '2026-11-19', '중집 회의 집회 논의', {calendarId: 'ref@cal'})], orgs, ref);
   assert.deepEqual(refs.map(x => x.key), ['e5']);
   assert.equal(refs[0].org, B);
-  // 회의 전 한 장 판정은 그대로(첫 연결, 연결 있으면 제목 보지 않음)
-  assert.equal(eventOrg(E('e8', '2026-11-18', 'B 지회', {organizationIds: [A]}), orgs)?.id, A);
-  assert.equal(eventOrg(E('e9', '2026-11-18', 'A 지부', {organizationIds: ['cccccccc-0000-4000-8000-000000000003']}), orgs), null);
 });
 
 test('일정 줄: 취소 뺌, 같은 id 두 캘린더 한 줄, 여러 날 종일 걸침, 기록과 같은 일은 감춤', () => {

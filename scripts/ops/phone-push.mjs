@@ -2,12 +2,11 @@
 // 예약 시각(cron 글자)이나 수동 실행 입력으로 slot을 정하고 phone-push POST ?action=run&slot=…(몸통 {})을 한 번 부른다.
 // 비밀값은 환경변수로만 받고 출력하지 않는다. 응답은 slot·숫자·단계 코드만 읽는다(알림 제목·기기 토큰은 받지도 찍지도 않음).
 export const FUNCTION_BASE = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/phone-push';
-export const SLOTS = ['quarter', 'morning', 'evening', 'friday'];
+export const SLOTS = ['quarter', 'morning', 'evening'];
 export const SCHEDULE_SLOTS = {
   '4,19,34,49 * * * *': 'quarter',
   '3 23 * * *': 'morning',
   '22 9 * * *': 'evening',
-  '23 6 * * 5': 'friday',
 };
 const STAGE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const COUNT = v => (Number.isInteger(v) && v >= 0 ? v : null);
@@ -27,7 +26,7 @@ export function pickSlot({ schedule, input } = {}) {
     return slot;
   }
   if (SLOTS.includes(input)) return input;
-  throw new PushFailure('slot 입력이 없습니다(quarter·morning·evening·friday).');
+  throw new PushFailure('slot 입력이 없습니다(quarter·morning·evening).');
 }
 
 async function post({ secret, fetcher, base, timeoutMs }, slot) {

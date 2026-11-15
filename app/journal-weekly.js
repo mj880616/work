@@ -42,8 +42,6 @@ import {myReportOrgs} from './weekly-org-order-model.mjs';
 import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf} from './overlap-weekly.mjs';
-import {slashDay as nextSlashDay} from './next-week-sheet-model.mjs';
-import {renderPrepSheet} from './prep-sheet-view.js';
 import {reportCalendarName, calendarKey, UNSET_TEXT as UNSET_CALENDAR_TEXT} from './report-calendar.mjs'; // MULTI ②-3: 보고 캘린더 이름(사람마다)
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 긴 글 한 줄 칸 = 글만큼 늘어나는 공용 칸
@@ -949,23 +947,4 @@ function execEditRow(doc, el, ui, item) {
   if (ui.saving) for (const b of actions.children) b.disabled = true;
   form.append(actions); td.append(form); tr.append(td);
   return tr;
-}
-
-// JOURNAL-다음주준비: [주간 정리] 맨 위 [다음 주] 칸(설계 docs/design/next-week-sheet.md 1절). journal.js가 상자를 갖고 이 함수만 그린다
-// (#journalRoot의 그리는 곳은 journal.js 하나, 이 칸도 renderWeekly처럼 journal.js가 부른다). view: next-week-sheet-model.mjs sheetView.
-// ui: {state:'loading'|'missing'|'failed'|'ok', week, view, canMake, busy, message, error, open:Set(묶음 key), afterTime}.
-// 묶음은 <details>(키보드·터치), 접혀 있어도 한 줄 요약. 줄을 누르면 그 기록(data-journal-next-open = 저장된 줄 번호).
-// 그리기는 교섭·회의 전 한 장과 같은 공용 부품(prep-sheet-view.js renderPrepSheet)이다. 클래스·data 이름은 이 칸의 것 그대로.
-export const NEXT_WEEK_SKIN = Object.freeze({
-  cls:'journal-next', data:'journalNext', stateKey:'journalNextWeek', heading:{tag:'h4', cls:'journal-heading'},
-  open:'journal-weekly-open', list:'journal-weekly-list', day:'journal-weekly-day', muted:'journal-muted', button:'mini',
-});
-export function renderNextWeekSheet(host, ui) {
-  const v = ui.view;
-  const view = v ? {...v, groups:v.groups.map(g => ({...g, items:g.items.map(it => ({...it, day:it.day ? nextSlashDay(it.day) : ''}))}))} : null;
-  renderPrepSheet(host, {
-    ...ui, view, title:`다음 주 ${v?.range || (ui.week ? `${nextSlashDay(ui.week)}~` : '')} 준비`,
-    notes:{missing:'다음 주 준비는 아직 준비 중이에요.', failed:'다음 주 준비를 불러오지 못했어요.',
-      none:ui.canMake ? (ui.afterTime ? '아직 만들지 않음.' : '금요일 15시 뒤에 만듦.') : '이 주에는 만든 장이 없음.', empty:'없음'},
-  }, NEXT_WEEK_SKIN);
 }

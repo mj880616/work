@@ -50,6 +50,6 @@ AI로 보내지 않는 노트 읽기(가림 필요 없음): 오늘 일기(`home_
 | `area_suggest` 사업영역 추천 | 화면이 보낸 제목·글 | 비밀 모양이면 `secret` | 위와 같음 |
 | `ask_web2` 질문 글 | 사람이 친 질문 | 비밀 모양이면 400 `ask_secret` | 질문 자체라 그대로 |
 | `journal_draft` 오늘 한 줄 초안 | 일정·할 일·회의·소식 줄(화면이 보냄) | 비밀 모양 줄만 뺌 | 줄 단위로 이미 부분 제외 |
-| `journal_memorable`·`home_day_picks`·`next_week_sheet`·`pre_meeting_sheet` | 통화·텔레그램·일정·원장 줄 | 비밀 모양 줄·항목 뺌 | 노트 아님 |
+| `journal_memorable`·`home_day_picks` | 통화·텔레그램·일정·원장 줄 | 비밀 모양 줄·항목 뺌 | 노트 아님(S62-27에서 `next_week_sheet`·`pre_meeting_sheet` 쓰임은 기능과 함께 지움) |
 | AI 답 검사(`evidence.ts`·`share-draft.ts` 등) | AI가 돌려준 글 | 비밀 모양 줄 버림 | 나가는 글 검사라 그대로 |
 | 노트 첨부 글자(`link_summary` 파일 요약) | 사진·파일 글자 | 검사 없음(전에도 노트 본문만 봄) | 범위 밖 발견사항으로 보고 |
