@@ -95,7 +95,7 @@ test('news user save: plan, dry-run, apply, service-role save, user rows only fo
   const save=(ws,url,key,page=null)=>server(c=>c.query('select public.app_news_user_save($1,$2,$3,$4::jsonb) r',[ws,url,key,page===null?null:JSON.stringify(page)])).then(r=>r.rows[0].r);
   const PAGE={title:'합성 공유 기사',title_key:'합성공유기사',publisher:'합성 매체',published_at:'2026-11-15T00:00:00Z',lang:'ko',state:'ok',body:'합성 본문 '.repeat(50),body_kind:'full'};
   const tgCounts=async()=>(await pool.query(`select (select count(*) from public.app_feed_rooms)::int rooms,(select count(*) from public.app_feed_items)::int items,
-   (select count(*) from public.app_family_notes)::int family,(select count(*) from public.app_news_items)::int old`)).rows[0];
+   (select count(*) from public.app_news_items)::int old`)).rows[0];
   const before=(await pool.query(snapshot)).rows,tg0=await tgCounts();let pre;
 
   await t.test('files: expanded rules with policy replacement, three-line summary, read-only checks, no telegram/family/call table',async()=>{
@@ -194,7 +194,7 @@ test('news user save: plan, dry-run, apply, service-role save, user rows only fo
    assert.deepEqual((await stranger(c=>c.query('select id from public.app_news_articles where id=$1',[SCRAP]))).rows,[]);
    const r=await save(WS_A,'https://news.example.org/s/1','news.example.org/s/1');assert.equal(r.article_id,SCRAP);
    assert.equal((await pool.query('select origin from public.app_news_articles where id=$1',[SCRAP])).rows[0].origin,'tg_scrap');
-   assert.deepEqual(await tgCounts(),tg0,'텔레그램 방·소식·가족·옛 기사 표 그대로');
+   assert.deepEqual(await tgCounts(),tg0,'텔레그램 방·소식·옛 기사 표 그대로(가족 표는 migration 본문 검사가 막음)');
   });
 
   await t.test('rollback removes functions, column, user rows and record; snapshot same; re-apply works',async()=>{
