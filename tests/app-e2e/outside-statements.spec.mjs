@@ -221,6 +221,7 @@ for (const width of [412, 884, 1280]) {
     await expect(pick).toBeVisible();
     await expect(pick.locator('.lu-move-item')).toHaveText([/^전체/, '노동', '민주노총', '정당', '노동당', '녹색당', '국제', 'Jacobin', '언론 국내', '가짜일보', '언론 국제', 'Fake Wire']);
     await expect(pick.locator('.lu-move-foot')).toBeHidden();
+    if (process.env.S62_SHOT) await page.screenshot({ path: `${process.env.S62_SHOT}/news-media-picker-${width}.png` });
     await pick.locator('[data-lu-move-folder="g:party"]').click();
     await expect(dd).toHaveText('매체: 정당 ▾');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(2);
@@ -257,6 +258,10 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator('[data-os-tabs]')).toBeHidden();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
     await expect(root(page).locator('[data-os-on-count]')).toHaveText('켬 4');
+    // NEWS-출처목록가나다: 묶음 순서는 그대로(노동·정당·국제), 묶음 안은 가나다(카탈로그는 민주노총 → 공공운수노조 순서).
+    await expect(root(page).locator('.os-src-group-head')).toHaveText(['노동', '정당', '국제']);
+    await expect(root(page).locator('.os-src-name')).toHaveText(['공공운수노조', '민주노총', '노동당', '녹색당', 'Jacobin']);
+    if (process.env.S62_SHOT) await page.screenshot({ path: `${process.env.S62_SHOT}/news-sources-${width}.png` });
     await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['못 읽음 · 사이트 구조 바뀜', '못 읽음 · 사이트가 자동 읽기 막음']);
     await sw('kptu').click();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'true');
