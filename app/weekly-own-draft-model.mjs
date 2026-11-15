@@ -66,3 +66,67 @@ export function ownDraft(form, model, last = null) {
     return {...base, lines: items.map(i => ({text: `- ${[dayText(i.day), clean(i.text)].filter(Boolean).join(' ')}`, filled: true})), rows: null};
   })};
 }
+
+// ── ④-2 화면 고침(시안 ③ '칸 눌러 수정'): 고친 항목만 서버(app_weekly_own_drafts.sections)에 통째로 둔다.
+// 저장 모양 [{id, lines:[글]|null, rows:[[글]]|null}] — 글만(채움 표시·양식 글자 없음). 고친 항목은 이번 주 기록이 늦게 와도 덮지 않는다.
+// 다음 주 '지난주 글 그대로'(ownDraft last)도 이 모양을 그대로 읽는다.
+export const LINE_MAX = 500, CELL_MAX = 300, SAVED_MAX = 200; // 서버 CHECK: 항목 200개·200000바이트
+const cut = (s, max) => clean(s).slice(0, max);
+export function cleanSaved(sections) {
+  const seen = new Set(), out = [];
+  for (const s of Array.isArray(sections) ? sections : []) {
+    const id = typeof s?.id === 'string' ? s.id.slice(0, 40) : '';
+    if (!id || seen.has(id) || out.length >= SAVED_MAX) continue;
+    seen.add(id);
+    const lines = Array.isArray(s.lines) ? s.lines.map(l => cut(l?.text ?? l, LINE_MAX)).filter(Boolean).slice(0, ROW_MAX) : null;
+    const rows = Array.isArray(s.rows) ? s.rows.filter(Array.isArray).slice(0, ROW_MAX).map(r => r.slice(0, 12).map(c => cut(c?.text ?? c, CELL_MAX))) : null;
+    out.push({id, lines: rows ? null : lines ?? [], rows});
+  }
+  return out;
+}
+
+// 그 항목 재료가 아직 오는 중인지(화면이 그 자리에 기다림 표시).
+export function fillLoading(fill, model) {
+  if (!model) return true;
+  const part = {biz: model.summary, org: model.orgs, meeting: model.meetings, schedule: model.calendarView ?? model.calendar, todo: model.tasks}[fill];
+  return ['biz', 'org', 'meeting', 'schedule', 'todo'].includes(fill) && !!part?.loading;
+}
+
+// 화면에 보일 초안: ownDraft + 고친 항목(saved)은 그 글 그대로(edited, 노란 칸 아님). 칸 수가 바뀐 양식이면 칸 수에 맞춘다.
+export function shownDraft(form, model, last = null, saved = []) {
+  const own = new Map(cleanSaved(saved).map(s => [s.id, s]));
+  const draft = ownDraft(form, model, last);
+  return {sections: draft.sections.map(s => {
+    const mine = own.get(s.id);
+    if (!mine) return {...s, edited: false, loading: s.fill !== 'last_week' && s.fill !== 'blank' && fillLoading(s.fill, model)};
+    if (s.columns.length) return {...s, edited: true, loading: false, lines: null, rows: (mine.rows ?? (mine.lines ?? []).map(l => [l])).map(r => s.columns.map((_, i) => ({text: r[i] ?? '', filled: false})))};
+    return {...s, edited: true, loading: false, rows: null, lines: (mine.lines ?? (mine.rows ?? []).map(r => r.filter(Boolean).join(' '))).map(text => ({text, filled: false}))};
+  })};
+}
+
+// 보이는 항목 하나(shownDraft 한 칸)를 고친 뒤의 saved. change: {lines:'여러 줄 글'} | {row, col, text}(row가 끝 다음이면 새 줄)
+// 내용이 모두 빈 줄은 뺀다(칸을 비우면 그 줄이 사라진다).
+export function editSaved(saved, section, change) {
+  const list = cleanSaved(saved).filter(s => s.id !== section.id);
+  let next;
+  if (section.columns?.length) {
+    const rows = (section.rows ?? []).map(r => r.map(c => c.text));
+    if (change.row === rows.length) rows.push(section.columns.map(() => ''));
+    if (rows[change.row] && change.col >= 0 && change.col < section.columns.length) rows[change.row][change.col] = cut(change.text, CELL_MAX);
+    next = {id: section.id, lines: null, rows: rows.filter(r => r.some(Boolean)).slice(0, ROW_MAX)};
+  } else {
+    const lines = String(change.lines ?? '').split('\n').map(l => cut(l, LINE_MAX)).filter(Boolean).slice(0, ROW_MAX);
+    next = {id: section.id, lines, rows: null};
+  }
+  return cleanSaved([...list, next]);
+}
+
+// 다시 그릴지 견주는 열쇠(그 항목이 바뀌었을 때만 그 자리를 다시 그린다).
+export const sectionKey = s => JSON.stringify([s.title, s.level, s.columns, s.edited, s.loading, s.lines, s.rows]);
+
+// 지난주 월요일(YYYY-MM-DD).
+export function prevWeek(start) {
+  if (!DAY.test(String(start ?? ''))) return '';
+  const d = new Date(`${start}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 7);
+  return d.toISOString().slice(0, 10);
+}

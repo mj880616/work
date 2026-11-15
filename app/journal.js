@@ -558,7 +558,8 @@ function renderWeekly_({refreshBox = true} = {}) {
   const host = $('[data-journal-weekly]');
   // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 확정본)이 없고 그 주 초안도 없으면 다른 팀 양식 대신 백지 + 올리기 한 줄.
   hwpx?.checkBase?.(start);
-  if (hwpx?.baseState?.(start) === 'none' && !weekRow()?.draft) { paintBlank(host); return; }
+  // ④-2: 내 양식이 있으면 그 아래 그 주 초안(weekly-own-draft.js) — 재료는 아래 바탕 있는 길과 같은 주 기록 모델에서.
+  if (hwpx?.baseState?.(start) === 'none' && !weekRow()?.draft) { paintBlank(host, W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory})); return; }
   // 다시 그려도 초점이 있던 칸(id 가 있는 입력칸)은 그 칸으로 돌아간다 — 바탕을 여는 동안·저장 뒤 다시 그릴 때 2)·3) 표 입력 초점이 빠지지 않게.
   const was = document.activeElement, keep = was && was.id && host.contains(was) && /^(INPUT|TEXTAREA|SELECT)$/.test(was.tagName) ? {id:was.id, at:[was.selectionStart, was.selectionEnd]} : null;
   // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
@@ -601,20 +602,31 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (keep && (document.activeElement === document.body || !document.activeElement)) { const back = document.getElementById(keep.id); if (back && !back.disabled) { back.focus({preventScroll:true}); try { if (keep.at[0] != null) back.setSelectionRange(keep.at[0], keep.at[1]); } catch { /* 글 칸이 아님 */ } } }
 }
 // 바탕 없는 주의 [주간 보고]: 한 줄 + [파일 올리기](끌어 놓기도). 고른 한글 파일에서 '내 양식'을 읽어 서버에 저장한다(아래 open).
-function paintBlank(host) {
-  if (host.querySelector('[data-weekly-blank]')) return;
+// weekModel: 그 주 기록 모델(weeklySummary). 백지 상자가 이미 있으면 그 주 초안 자리만 맞춘다(blankDraft — 바뀐 항목만 다시 그림).
+let blankDraft = null;
+function paintBlank(host, weekModel) {
+  if (host.querySelector('[data-weekly-blank]')) { blankDraft?.(weekModel); return; }
   const box = document.createElement('section'); box.className = 'journal-weekly-blank'; box.dataset.weeklyBlank = '';
   box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="secondary" data-weekly-blank-pick>파일 올리기</button> <button type="button" class="secondary" data-weekly-blank-new>빈 양식에서 만들기</button></p>'
-    + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><div data-weekly-own-form-slot></div><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
+    + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><div data-weekly-own-form-slot></div><div data-weekly-own-draft-slot></div><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
   const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]'), pick = box.querySelector('[data-weekly-blank-pick]');
   const fresh = box.querySelector('[data-weekly-blank-new]'), slot = box.querySelector('[data-weekly-own-form-slot]');
   // WEEKLY-내양식자유변형 ②·③: 올린 파일은 바탕으로 열지 않고(다른 팀 양식 규칙을 쓰지 않음) 항목·표 머리 칸만 규칙으로 읽어(hwpx-form-read.mjs)
   // 확인·짝짓기 화면(weekly-own-form-edit.js, 시안 ②)을 연다. [저장]하면 '내 양식'으로 서버에 둔다(weekly-own-form-store.js, app_weekly_forms).
-  // 저장된 양식이 있으면 한 줄 + [양식 수정]. 매주 초안(④)은 다음 PR.
+  // 저장된 양식이 있으면 한 줄 + [양식 수정], 그 아래 내 양식 그대로 그 주 초안(④-2, weekly-own-draft.js — 양식을 고치는 동안은 비움).
   const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs'), import('./weekly-own-form-edit.js')]);
-  let known, editing = false;
+  let known, editing = false, draftModel = weekModel, draft = null;
+  const draftSlot = box.querySelector('[data-weekly-own-draft-slot]');
+  const paintDraft = () => {
+    const form = !editing && known?.form?.sections?.length ? known.form : null;
+    if (!form && !draft) return;
+    if (draft) { draft.update({start, form, model:draftModel}); return; }
+    void import('./weekly-own-draft.js').then(({mountOwnDraft}) => { draft ??= mountOwnDraft(draftSlot, {rt}); paintDraft(); }).catch(error => console.warn('own draft load', error?.message || error));
+  };
+  blankDraft = next => { draftModel = next; paintDraft(); };
   const setBusy = on => { pick.disabled = on; fresh.disabled = on; };
   function paintSaved(store, model) {
+    paintDraft();
     if (editing) return;
     if (!known) { slot.replaceChildren(); return; }
     const line = document.createElement('p'); line.className = 'journal-weekly-blank-line'; line.dataset.weeklyOwnFormSaved = '';
@@ -625,7 +637,7 @@ function paintBlank(host) {
   }
   async function openEditor(form, name, isNew, sourceName = known?.source_name ?? null, read = false) {
     const [, store, model, edit] = await ownForm();
-    editing = true; note.textContent = '';
+    editing = true; note.textContent = ''; paintDraft();
     edit.mountOwnFormEditor(slot, {form, name, fresh:isNew, read, onCancel:() => { editing = false; paintSaved(store, model); },
       onSave:async next => {
         if (known === undefined) known = (await store.readOwnForm()).row;
