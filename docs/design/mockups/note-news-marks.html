@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 노트에서 News 밑줄·보관한 글 보기</title>
+<style>
+:root{--bg:#f3f0e8;--card:#fffdf8;--line:#e3ded2;--ink:#2b2a26;--sub:#7a766c;--olive:#5b6b33;--sel:#edf0e2;--hl:#fbeeb0;--folder:#e0a93c}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8cf;font:14px/1.45 "Noto Sans KR",system-ui,sans-serif;color:var(--ink);padding:16px}
+h1{font-size:18px;margin:0 0 4px}
+.lead{color:#555;margin:0 0 14px;font-size:13px}
+.lead b{color:var(--ink)}
+.row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
+.cap{font-size:12px;color:#444;margin:0 0 6px;font-weight:600}
+.frame{background:var(--bg);border:1px solid #bbb;border-radius:14px;overflow:hidden;position:relative}
+.ph{width:412px;height:760px}.fold{width:880px;height:620px}.pc{width:1280px;height:640px}
+.top{padding:14px 12px 6px;font-size:17px;font-weight:600}
+.search{margin:6px 12px;display:flex;gap:8px;align-items:center}
+.search .in{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 12px;color:var(--sub);font-size:13px}
+.dots{color:var(--sub);padding:0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:6px 12px}
+.tr{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:14px}
+.tr .n{color:var(--sub);font-size:12px}
+.tr.sel{background:var(--sel)}
+.tr b{font-weight:600}
+.ico{width:16px;text-align:center;color:var(--sub);font-size:13px}
+.fold-ico{display:inline-block;width:16px;height:12px;background:var(--folder);border-radius:2px}
+.sep{display:flex;align-items:center;gap:8px;color:var(--sub);font-size:11px;padding:8px 12px 2px}
+.sep:after{content:"";flex:1;border-top:1px solid var(--line)}
+.new{color:#c2410c;font-size:10px;font-weight:700;border:1px solid #f0b090;border-radius:4px;padding:0 3px;margin-left:2px}
+.hlico{display:inline-block;width:14px;height:6px;background:var(--hl);border-bottom:2px solid #d9b93a;margin:0 1px}
+.star{color:#c99a1c}
+.bar{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line)}
+.tabs{display:flex;justify-content:center;gap:4px;padding:8px}
+.tabs span{font-size:12px;padding:4px 10px;border-radius:12px;color:var(--sub)}
+.tabs span.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.nav{display:flex;justify-content:space-around;border-top:1px solid var(--line);padding:6px 0 8px;font-size:11px;color:var(--sub)}
+.crumb{font-size:11px;color:var(--sub);padding:8px 12px 0}
+.hd{display:flex;align-items:center;gap:6px;padding:4px 12px 8px;font-weight:600}
+.hd .n{font-weight:400;color:var(--sub);font-size:12px}
+.hd .src{margin-left:auto;font-weight:400;font-size:12px;color:var(--olive);border:1px solid var(--line);border-radius:8px;padding:2px 8px;background:#fff}
+.chips{display:flex;gap:5px;padding:0 12px 6px}
+.chips span{font-size:11px;border:1px solid var(--line);border-radius:10px;padding:1px 8px;background:#fff;color:var(--sub)}
+.chips span.on{color:var(--ink);border-color:#b8bfa0;background:var(--sel)}
+.hl{padding:9px 12px;border-top:1px solid var(--line);position:relative}
+.hl:first-child{border-top:0}
+.q{background:var(--hl);padding:1px 3px;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;font-size:13px}
+.memo{font-size:12px;margin-top:3px;color:#3c3a33}
+.memo:before{content:"메모 ";color:var(--sub)}
+.meta{font-size:11px;color:var(--sub);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:18px}
+.hl .more,.sv .more{position:absolute;right:8px;top:8px;color:var(--sub)}
+.sv{display:flex;gap:8px;align-items:baseline;padding:9px 30px 9px 12px;border-top:1px solid var(--line);position:relative;font-size:13px}
+.sv:first-child{border-top:0}
+.sv .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv .m{font-size:11px;color:var(--sub);white-space:nowrap}
+.tag{font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--sub);background:#fff}
+.menu{position:absolute;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:4px;font-size:13px;width:178px;z-index:2}
+.menu div{padding:7px 10px;border-radius:6px}
+.menu div.dim{color:#b42318}
+.menu .mm{font-size:12px;color:#3c3a33;border-bottom:1px solid var(--line);border-radius:0;margin-bottom:2px}
+.split{display:flex;height:100%}
+.side{width:150px;background:var(--card);border-right:1px solid var(--line);padding:12px 8px;font-size:13px;color:#555}
+.side div{padding:6px 8px;border-radius:6px}.side .on{background:var(--sel);color:var(--ink);font-weight:600}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.panes{display:flex;flex:1;min-height:0;padding:0 12px}
+.left{width:260px;border-right:1px solid var(--line);padding-right:6px}
+.left .tr{padding:8px 10px;border-radius:8px}
+.right{flex:1;padding-left:10px;min-width:0}
+.right .card{margin:0}
+.add{margin:10px 12px;display:flex;gap:8px}
+.add .in{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 12px;color:var(--sub);height:40px;font-size:13px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-size:13px}
+.btn.p{background:var(--olive);color:#fff;border-color:var(--olive)}
+.toolbar{display:flex;gap:8px;align-items:center;margin:0 12px 8px}
+.toolbar .in{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;color:var(--sub);font-size:13px}
+.seg{display:flex;background:#ebe7dc;border-radius:12px;padding:2px}
+.seg span{font-size:12px;padding:4px 10px;border-radius:10px;color:var(--sub)}.seg span.on{background:#fff;color:var(--ink);font-weight:600}
+.note{background:#fffbe8;border:1px dashed #d9b93a;border-radius:10px;padding:10px 12px;font-size:12.5px;max-width:1280px;margin-bottom:14px}
+.note li{margin:2px 0}
+</style>
+</head>
+<body>
+<h1>시안 1차 — 노트에서 News 밑줄·보관한 글 보기 (명진 11/15 10:07 '가')</h1>
+<p class="lead">노트 [폴더] 목록 아래에 <b>'News에서'</b> 두 줄(<b>밑줄</b>·<b>보관한 글</b>)을 더한다. 복사본이 아니라 News와 같은 자료를 그대로 보여 준다 — News에서 지우면 여기서도 사라지고, 메모를 고치면 양쪽 같다. 줄을 누르면 그 기사의 그 밑줄 자리로 열린다. 글은 모두 가상 예시.</p>
+<div class="note"><b>정할 것(요청함 방 추천 — 명진 확정 아님)</b>
+<ol>
+<li>자리: [폴더] 목록 맨 아래 '폴더 없음' 밑, 얇은 줄 'News에서' 아래 두 줄 (추천) / 맨 위 '최근' 바로 밑</li>
+<li>노트 검색 칸에 쓴 글이 밑줄 글·메모·기사 제목에도 걸리게(결과 줄에 작은 '밑줄' 꼬리표) (추천: 걸리게)</li>
+<li>[목록]·[포스트잇]·[태그]·[댓글] 탭에는 넣지 않음 — 노트가 아니라서 (추천)</li>
+</ol></div>
+
+<div class="row">
+<div><p class="cap">① 폰 412 — [폴더] 목록 아래 'News에서' 두 줄</p>
+<div class="frame ph">
+  <div class="top">노트</div>
+  <div class="search"><div class="in">노트 검색</div><span class="dots">⋯</span></div>
+  <div class="card">
+    <div class="tr"><span class="ico">🕘</span><b>최근</b></div>
+    <div class="tr"><span class="fold-ico"></span><b>가상 회의</b><span class="n">4</span></div>
+    <div class="tr"><span class="fold-ico"></span><b>가상 성명</b><span class="n">1</span></div>
+    <div class="tr"><span class="ico">⬚</span><b>폴더 없음</b><span class="n">1</span></div>
+    <div class="sep">News에서</div>
+    <div class="tr"><span class="hlico"></span><b>밑줄</b><span class="n">12</span></div>
+    <div class="tr"><span class="ico star">★</span><b>보관한 글</b><span class="n">8</span></div>
+    <div class="tr" style="color:var(--sub);font-size:13px">+ 새 폴더</div>
+  </div>
+  <div class="bar">
+    <div class="tabs"><span class="on">폴더</span><span>목록</span><span>포스트잇</span><span>태그</span><span>댓글</span></div>
+    <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>사업 보고</span><span>조직 보고</span><span>메뉴</span></div>
+  </div>
+</div></div>
+
+<div><p class="cap">② 폰 412 — '밑줄'을 누름 (줄 ⋯ 메뉴 열린 모습)</p>
+<div class="frame ph">
+  <div class="top">노트</div>
+  <div class="search"><div class="in">노트 검색</div><span class="dots">⋯</span></div>
+  <div class="card">
+    <div class="crumb">노트 ›</div>
+    <div class="hd">‹ <span class="hlico"></span> 밑줄 <span class="n">12</span><span class="src">News에서 보기 ↗</span></div>
+    <div class="hl"><span class="q">국가철도공단은 내년 상반기까지 점검 인력을 30% 늘리기로 했다</span><div class="memo">국감 자료에 넣기</div><div class="meta">가상일보 · 11/14 · 철도 안전점검 인력 확대 계획 발표</div><span class="more">⋯</span></div>
+    <div class="hl"><span class="q">공공기관 총인건비 인상률은 기획재정부 지침 범위 안에서 정한다</span><div class="meta">가상뉴스 · 11/12 · 내년 공공기관 예산 편성 지침</div><span class="more">⋯</span></div>
+    <div class="hl"><span class="q">2인 1조 작업 원칙은 현장 인력 부족으로 지켜지지 않았다</span><div class="memo">사고 경위 비교</div><div class="meta">텔레그램 · 가상 방 · 11/10</div><span class="more">⋯</span></div>
+    <div class="hl"><span class="q">민자 노선 운영사는 안전 투자 계획을 공개하지 않았다</span><div class="meta">가상경제 · 11/08 · 민자철도 운영 실태</div><span class="more">⋯</span></div>
+  </div>
+  <div class="menu" style="right:22px;top:218px"><div class="mm">메모 · 국감 자료에 넣기</div><div>메모 고치기</div><div>원문 그 자리로 열기</div><div>노트로 복사</div><div>복사</div><div class="dim">밑줄 지우기</div></div>
+  <div class="bar">
+    <div class="tabs"><span class="on">폴더</span><span>목록</span><span>포스트잇</span><span>태그</span><span>댓글</span></div>
+    <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>사업 보고</span><span>조직 보고</span><span>메뉴</span></div>
+  </div>
+</div></div>
+</div>
+
+<div class="row">
+<div><p class="cap">③ 폴드 펼침 880 — 왼쪽 목록 · 오른쪽 '보관한 글'</p>
+<div class="frame fold">
+  <div class="top">노트</div>
+  <div class="toolbar"><div class="in">노트 검색</div><div class="seg"><span class="on">폴더</span><span>목록</span><span>포스트잇</span><span>태그</span><span>댓글</span></div><span class="dots">⋯</span></div>
+  <div class="panes" style="height:470px">
+    <div class="left" style="width:230px">
+      <div class="tr"><span class="ico">🕘</span><b>최근</b></div>
+      <div class="tr"><span class="fold-ico"></span><b>가상 회의</b><span class="n">4</span></div>
+      <div class="tr"><span class="fold-ico"></span><b>가상 성명</b><span class="n">1</span></div>
+      <div class="tr"><span class="ico">⬚</span><b>폴더 없음</b><span class="n">1</span></div>
+      <div class="sep" style="padding-left:10px">News에서</div>
+      <div class="tr"><span class="hlico"></span><b>밑줄</b><span class="n">12</span></div>
+      <div class="tr sel"><span class="ico star">★</span><b>보관한 글</b><span class="n">8</span></div>
+      <div class="tr" style="color:var(--sub);font-size:13px">+ 새 폴더</div>
+    </div>
+    <div class="right">
+      <div class="hd" style="padding-left:0">보관한 글 <span class="n">8</span><span class="src">News에서 보기 ↗</span></div>
+      <div class="chips" style="padding-left:0"><span class="on">전체</span><span>뉴스</span><span>사회운동 글</span></div>
+      <div class="card">
+        <div class="sv"><span class="ico star">★</span><span class="t">철도 안전점검 인력 확대 계획 발표</span><span class="m">가상일보 · 11/14</span><span class="more">⋯</span></div>
+        <div class="sv"><span class="ico star">★</span><span class="t">내년 공공기관 예산 편성 지침, 인건비 상한 유지</span><span class="m">가상뉴스 · 11/12</span><span class="more">⋯</span></div>
+        <div class="sv"><span class="tag">보관</span><span class="t">현장 노동자 안전 증언 모음</span><span class="m">가상 단체 · 11/11</span><span class="more">⋯</span></div>
+        <div class="sv"><span class="ico star">★</span><span class="t">민자철도 운영 실태와 안전 투자</span><span class="m">가상경제 · 11/08</span><span class="more">⋯</span></div>
+        <div class="sv"><span class="tag">보관</span><span class="t">공공부문 비정규직 전환 3년 평가 토론회</span><span class="m">가상 연구소 · 11/05</span><span class="more">⋯</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="add" style="position:absolute;left:0;right:0;bottom:0"><div class="in">노트 추가</div><span class="btn">가상 성명 ▾</span><span class="btn p">추가</span></div>
+</div></div>
+</div>
+
+<div class="row">
+<div><p class="cap">④ PC 1280 — 노트 검색 '철도'가 노트와 밑줄을 함께 찾음(결과 줄에 '밑줄' 꼬리표)</p>
+<div class="frame pc"><div class="split">
+  <div class="side"><div>홈</div><div>잊지 말기</div><div>일정</div><div class="on">노트</div><div>사업 보고</div><div>자료실</div><div>파일</div><div>공유 페이지</div><div>조직 보고</div><div>HWP 편집</div><div>News</div></div>
+  <div class="main">
+    <div class="add"><div class="in" style="height:64px">가상 성명에 노트 추가</div><span class="btn">가상 성명 ▾</span><span class="btn">첨부</span><span class="btn p">추가</span></div>
+    <div class="toolbar"><div class="in" style="color:var(--ink)">철도</div><div class="seg"><span class="on">폴더</span><span>목록</span><span>포스트잇</span><span>태그</span><span>댓글</span></div><span class="dots">⋯</span></div>
+    <div class="panes">
+      <div class="left">
+        <div class="tr"><span class="ico">🕘</span><b>최근</b></div>
+        <div class="tr"><span class="fold-ico"></span><b>가상 회의</b><span class="n">4</span></div>
+        <div class="tr"><span class="fold-ico"></span><b>가상 성명</b><span class="n">1</span></div>
+        <div class="tr"><span class="ico">⬚</span><b>폴더 없음</b><span class="n">1</span></div>
+        <div class="sep" style="padding-left:10px">News에서</div>
+        <div class="tr"><span class="hlico"></span><b>밑줄</b><span class="n">12</span></div>
+        <div class="tr"><span class="ico star">★</span><b>보관한 글</b><span class="n">8</span></div>
+        <div class="tr" style="color:var(--sub);font-size:13px">+ 새 폴더</div>
+      </div>
+      <div class="right">
+        <div class="hd" style="padding-left:0">'철도' 찾은 것 <span class="n">노트 2 · 밑줄 2 · 보관 1</span></div>
+        <div class="card">
+          <div class="sv"><span class="t">가상 회의 — 철도 현장 간담회 정리</span><span class="m">가상 회의 · 11/13</span><span class="more">⋯</span></div>
+          <div class="sv"><span class="t">철도 안전 성명 초안</span><span class="m">가상 성명 · 11/09</span><span class="more">⋯</span></div>
+          <div class="hl" style="padding-right:30px"><span class="tag">밑줄</span> <span class="q">국가<b>철도</b>공단은 내년 상반기까지 점검 인력을 30% 늘리기로 했다</span><div class="memo">국감 자료에 넣기</div><div class="meta">가상일보 · 11/14 · 철도 안전점검 인력 확대 계획 발표</div><span class="more">⋯</span></div>
+          <div class="hl" style="padding-right:30px"><span class="tag">밑줄</span> <span class="q">민자 노선 운영사는 안전 투자 계획을 공개하지 않았다</span><div class="meta">가상경제 · 11/08 · 민자<b>철도</b> 운영 실태</div><span class="more">⋯</span></div>
+          <div class="sv"><span class="tag">보관</span><span class="t"><b>철도</b> 안전점검 인력 확대 계획 발표</span><span class="m">가상일보 · 11/14</span><span class="more">⋯</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div></div>
+</div>
+</body>
+</html>
