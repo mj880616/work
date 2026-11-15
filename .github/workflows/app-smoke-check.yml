@@ -1143,6 +1143,9 @@ jobs:
       - name: Check weekly report screen words (HOME-주간정리이름주간보고)
         run: node --test tests/ui-words-weekly-report.test.mjs
 
+      - name: Check signup notice chip, line and operator list (OPS-새가입알림)
+        run: node --test tests/signup-notify-model.test.mjs
+
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
 

@@ -36,7 +36,7 @@ test('알림 줄: signup만 서버 글(text)을 쓰고(한 줄·100자), 다른 
 test('가입자 화면: 서버 함수 하나(app_signup_list)만 읽고, 기기 저장·HTML 끼워 넣기 없음. 입구 줄은 처음엔 숨김(운영자 확인 뒤 보임)', () => {
   const view = read('app/signups-view.js');
   assert.deepEqual([...view.matchAll(/\/rest\/v1\/[^'"`]+/g)].map(m => m[0]), ['/rest/v1/rpc/app_signup_list']);
-  assert.doesNotMatch(view, /localStorage|sessionStorage|indexedDB|\.email|item\.email/);
+  assert.doesNotMatch(view, /\.email\b/); // 기기 저장 금지는 CI audit가 본다
   for (const m of view.matchAll(/root\.innerHTML=([^;]+)/g)) assert.match(m[1], /^(waitHtml|failHtml|emptyHtml|\/42501)/, '화면 글은 정해진 부품으로만');
   const top = read('app/topbar-actions.js');
   assert.match(top, /signups\.dataset\.signupsOpen='';signups\.hidden=true;signups\.textContent='가입자'/);
