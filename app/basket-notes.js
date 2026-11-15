@@ -143,7 +143,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     onSaved:saved => noteAdded(saved, {open:false}), onBig:(text, upload) => openNew(text, upload), onFolder:trigger => openAddPicker(trigger)});
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
   // NOTE-News밑줄보관보기: [폴더] 보기 맨 아래 'News에서' 밑줄·보관한 글(News와 같은 서버 자료 그대로, 그리기 주인은 note-news-marks.js).
-  const newsMarks = createNoteNewsMarks({head:host.querySelector('[data-nnm-head]'), box:host.querySelector('[data-nnm]'), onChange:() => { if (loaded && !selected) renderList(); }});
+  // STAB-노트폴더끌기시험: 목록을 읽는 동안(marksRun = 그 읽기 번호) 'News에서' 수가 먼저 와도 다시 그리지 않는다 — refresh가 노트·폴더·댓글과
+  // 같이 기다렸다가 한 번만 그린다(줄이 그려진 뒤 늦게 와서 목록 전체를 두 번 더 갈아 끼우던 것, 막 누르거나 끌기 시작한 줄이 떨어져 나갔다).
+  let marksRun = 0;
+  const newsMarks = createNoteNewsMarks({head:host.querySelector('[data-nnm-head]'), box:host.querySelector('[data-nnm]'), onChange:() => { if (loaded && !selected && !marksRun) renderList(); }});
   // NOTE-목록에파일놓기(S61-16 ①): PC 파일을 오른쪽 목록(노트 줄 위·빈 자리·포스트잇 보기)에 놓으면 그 파일을 붙인 새 노트 창(⤢와 같은 창).
   // 노트 줄 위에 놓아도 그 노트에 붙이지 않고 새 노트다. 위 입력칸은 제 첨부로 받고, 왼쪽 폴더 나무·보드 목록은 받지 않는다.
   // 끌기는 문서 전체에서 듣는다: 목록이 짧으면 그 아래 빈 자리는 노트 화면 바깥 칸이라, 목록 칸과 같은 열(가로 범위)이고 목록 위끝보다
@@ -407,8 +410,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (busy) return;
     const run = ++epoch, owner = scope();
     status.innerHTML = waitInlineHtml(); host.querySelector('[data-note-retry]').hidden = true;
+    marksRun = run;
     try {
-      const [result, fold, cm] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt), readNoteComments(rt)]);
+      const [result, fold, cm] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt), readNoteComments(rt), newsMarks.load()]);
+      if (marksRun === run) marksRun = 0;
       if (run !== epoch || owner !== scope()) return;
       notes = result.notes; links = result.links; loaded = true;
       for (const [id, text] of [...lateSent]) if (notes.some(n => n.id === id)) { lateSent.delete(id); void rereadSent(id, text); }
@@ -416,9 +421,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       foldersReady = fold.ready; foldersMissing = !!fold.missing; folders = fold.ready ? fold.folders : foldersFromNames(notes);
       // NAV-새로고침제자리: the folder entered before a reload (?folder=) is entered again once the folders are read.
       if (pendingFolder) { const id = pendingFolder; pendingFolder = null; if (id === OUTSIDE || isNewsAt(id) || folderById(id)) enter(id, {focus:false, picked:false}); else renderList(); } else renderList();
-      void newsMarks.load();
       if (pendingOpen) { const id = pendingOpen; pendingOpen = null; if (notes.some(n => n.id === id)) open(id); }
     } catch {
+      if (marksRun === run) marksRun = 0;
       if (run !== epoch || owner !== scope()) return;
       notes = []; links = []; loaded = false; host.querySelector('[data-note-rows]').replaceChildren();
       status.textContent = '노트를 불러오지 못했어요. 다시 시도해 주세요.';

@@ -45,7 +45,10 @@ async function fixture(page, width, { child = false } = {}) {
     x.color = body.p_color; return r.fulfill({ json: { ok: true, id: body.p_id, color: body.p_color } });
   });
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
-  const show = async () => { await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 }); await page.waitForFunction(() => window.KPTURouter?.go); await page.evaluate(() => window.KPTURouter.go('basket')); await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 4'); };
+  const show = async () => { await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 }); await page.waitForFunction(() => window.KPTURouter?.go); await page.evaluate(() => window.KPTURouter.go('basket')); await chooseBasketKind(page, 'note'); await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 4');
+    // 다 그려짐: 노트 목록이 먼저 그려지고, 'News에서' 두 줄(밑줄·보관한 글)의 수가 늦게 와서 목록을 한 번 더 그린다(note-news-marks.js onChange).
+    // 그 수가 둘 다 나온 뒤에야 줄 자리가 더 바뀌지 않는다 — 그 전에 줄 위치를 읽으면 다시 그려져 떨어진 줄(boundingBox null)을 읽는다(STAB-노트폴더끌기시험).
+    await expect(page.locator('[data-nx-news-item] .ft-num')).toHaveCount(2); };
   await show();
   return { rows, folders, writes, rpc, errors, server, show };
 }
@@ -164,7 +167,7 @@ test.describe('PC 1440', () => {
     await page.reload(); await f.show();
     await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-ico`)).toHaveAttribute('data-fc', '7');
     await pickColor(page, U(1), '기본');
-    expect(f.rpc.at(-1)).toEqual({ p_id: U(1), p_color: null });
+    await expect.poll(() => f.rpc.at(-1)).toEqual({ p_id: U(1), p_color: null }); // 요청은 누른 뒤 따로 도착한다(위 '강청'처럼 도착을 기다림)
     await expect(page.locator(`[data-nx-tree] [data-nx-folder="${U(1)}"] .ft-ico`)).not.toHaveAttribute('data-fc', /./);
     expect(f.errors).toEqual([]);
   });
