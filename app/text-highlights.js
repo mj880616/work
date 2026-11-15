@@ -1,6 +1,7 @@
 import {createNoteDoc} from './basket-data.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
+import {articleOf, knownArticleId} from './feed-shared.js';
 import {notify, askText, askConfirm} from './small-notice.js';
 import {highlightBody, edgesOf, markRanges, noteOf, copyOf, cleanMemo, draftOf, MEMO_MAX} from './text-highlights-model.mjs';
 // S53-5 NEWS-밑줄모으기(시안 docs/design/mockups/news-highlights.html ②·③): 밑줄 저장·읽기·메모·지우기·노트로 + 글 칸 위 노란 밑줄 칠하기.
@@ -24,6 +25,20 @@ const emit = () => { for (const fn of listeners) { try { fn(); } catch { /* 그�
 export const onHighlights = fn => { listeners.add(fn); return () => listeners.delete(fn); };
 const scopeNow = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
+// NEWS-모두에게열기 ③: 뉴스·사회운동 밑줄의 source_id가 옛 글 id면(옮기기 전에 그은 밑줄) 읽을 때 공용 글 id로 바꿔 이 탭 메모리에만 둔다
+// (서버 줄은 그대로 — 고치기는 메모만). 그래서 News 상세·[밑줄] 탭·노트 'News에서'가 모두 같은 공용 id로 밑줄을 찾는다(feed-shared.js 지도).
+async function toArticleIds(list) {
+  const out = Array.isArray(list) ? list : [];
+  for (const type of ['news', 'outside']) {
+    const ids = out.filter(h => h?.source_type === type).map(h => h.source_id);
+    if (!ids.length) continue;
+    let map = null;
+    try { map = await articleOf(type, ids); } catch { map = null; }
+    if (map) for (const h of out) if (h?.source_type === type && map.has(h.source_id)) h.source_id = map.get(h.source_id);
+  }
+  return out;
+}
+const withArticleId = h => (h && (h.source_type === 'news' || h.source_type === 'outside') ? {...h, source_id: knownArticleId(h.source_type, h.source_id)} : h);
 // 내 작업공간 밑줄 전부(새 것이 위, 500개까지). force면 다시 읽는다. 못 읽으면 throw(목록 칸이 [다시]).
 export function loadHighlights({force = false} = {}) {
   if (scope !== scopeNow()) { rows = null; scope = scopeNow(); loading = null; }
@@ -32,7 +47,8 @@ export function loadHighlights({force = false} = {}) {
   const w = workspaceOf(), my = scope;
   if (!w) return Promise.resolve([]);
   const p = rt().api(`/rest/v1/app_news_highlights?workspace_id=eq.${q(w)}&select=${HL_COLS}&order=created_at.desc&limit=${LIMIT}`, {singleFlight: false})
-    .then(r => { if (my === scope) { rows = Array.isArray(r) ? r : []; emit(); } return rows || []; })
+    .then(toArticleIds)
+    .then(r => { if (my === scope) { rows = r; emit(); } return rows || []; })
     .finally(() => { if (loading === p) loading = null; });
   loading = p;
   return p;
@@ -54,7 +70,7 @@ export async function addHighlight(source, quote, edges, memo = null) {
 }
 export async function setMemo(id, memo) {
   const saved = await rt().api(`/rest/v1/app_news_highlights?id=eq.${q(id)}&workspace_id=eq.${q(workspaceOf())}`, {method: 'PATCH', prefer: 'return=representation', body: {memo: cleanMemo(memo), updated_at: new Date().toISOString()}, singleFlight: false});
-  const row = Array.isArray(saved) ? saved[0] : null;
+  const row = withArticleId(Array.isArray(saved) ? saved[0] : null);
   if (!row?.id) throw Object.assign(new Error('gone'), {code: 'gone'});
   rows = (rows || []).map(h => (h.id === id ? row : h));
   emit();

@@ -21,6 +21,8 @@ import {openTelegramItem} from './source-open.js';
 import {createNowInterests} from './now-interests.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {readOutsideMarks} from './now-marks.js';
+import {readOutsideArticles, readOutsideOne, readNewsArticles, readNewsOne} from './feed-shared.js';
+import {newsPage} from './feed-shared-model.mjs';
 import {fillGestureArea} from './gesture-fill.js';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
@@ -77,7 +79,7 @@ const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const fresh = () => ({scope: '', catalog: null, catalogFailed: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   posts: [], postsLoaded: false, postsFailed: false, end: true, more: false, seenRead: false, media: MEDIA_ALL,
-  news: [], newsLoaded: false, newsFailed: false, newsEnd: true, newsMeta: {catalog: [], enabled: []},
+  news: [], newsRaw: 0, newsLoaded: false, newsFailed: false, newsEnd: true, newsMeta: {catalog: [], enabled: []},
   query: '', searching: false, saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map(), tab: '', tabSet: false, marks: new Map()});
 let state = fresh(), loadSeq = 0, newsSeq = 0, layer = null;
 
@@ -89,16 +91,17 @@ async function readCatalog() {
 }
 // 뉴스 클리핑 매체(news- 키)는 같은 표에 있지만 이 화면 단체가 아니다 → 서버에서 빼고 읽는다(화면 계산도 ownSourceRows로 한 번 더).
 const readSources = w => rt().api(`/rest/v1/app_outside_sources?workspace_id=eq.${q(w)}&source_key=not.like.news-*&select=${SOURCE_COLS}`, {singleFlight: false});
+// NEWS-모두에게열기 ③: 사회운동 글·언론 기사는 공용 표(모두 같은 목록), 별표·보관·숨김·읽음은 내 표시(feed-shared.js 한 길).
 function readPosts(w, keys, offset) {
   if (keys && !keys.length) return Promise.resolve([]);
   const filter = keys ? `&source_key=in.(${keys.map(q).join(',')})` : '';
-  return rt().api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}${filter}&select=${POST_COLS}&order=published_at.desc.nullslast,fetched_at.desc,id.desc&limit=${PAGE_SIZE + 1}&offset=${offset}`, {singleFlight: false});
+  return readOutsideArticles({cols: POST_COLS, filter, order: 'published_at.desc.nullslast,fetched_at.desc,id.desc', limit: PAGE_SIZE + 1, offset});
 }
-// [전체] 탭의 언론 기사(지운 줄 hidden_at 빼고, 최신 먼저). 매체를 고르면 그 news- 키만.
-function readNews(w, keys, offset) {
-  if (keys && !keys.length) return Promise.resolve([]);
+// [전체] 탭의 언론 기사(내가 숨긴 것 빼고, 최신 먼저). 매체를 고르면 그 news- 키만. 돌려줌: {rows, raw, end}(newsPage).
+async function readNews(w, keys, offset) {
+  if (keys && !keys.length) return {rows: [], raw: 0, end: true};
   const filter = keys ? `&source_key=in.(${keys.map(q).join(',')})` : '';
-  return rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&hidden_at=is.null${filter}&select=${NEWS_COLS}&order=created_at.desc,id.desc&limit=${PAGE_SIZE + 1}&offset=${offset}`, {singleFlight: false});
+  return newsPage(await readNewsArticles({cols: NEWS_COLS, filter, order: 'created_at.desc,id.desc', limit: PAGE_SIZE + 1, offset}), PAGE_SIZE);
 }
 // 바로 읽기(OUTSIDE-이름·바로읽기): 켠 단체 하나를 서버가 지금 한 번 읽는다(사용자 로그인·owner·켬 확인·하루 횟수는 서버).
 const readNowApi = key => rt().api('/functions/v1/outside-feed?action=read_now', {method: 'POST', body: {source: key}, singleFlight: false, timeoutMs: 120000});
@@ -223,7 +226,7 @@ async function openHighlight(h) {
   let row = null;
   try { row = await fetchItem(h.source_type, h.source_id); } catch { row = null; }
   if (!row) { notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false}); return; }
-  openDetail({type: h.source_type, id: h.source_id}, describe(h.source_type, row), {highlight: h.id});
+  openDetail({type: h.source_type, id: row.id}, describe(h.source_type, row), {highlight: h.id});
 }
 const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list') { paintList(); paintNewsTab(); } detail.paint(); }});
 // 관심 주제가 바뀌면 [언론] 칸도 위 칸·표시를 다시(그 칸 주인 news-clipping.js가 그린다).
@@ -279,14 +282,8 @@ function markOpen() {
   const c = detail.current(), key = c ? itemKey(c) : '';
   root?.querySelectorAll('.now-row[data-nw-key]').forEach(el => el.classList.toggle('is-open', !!key && el.dataset.nwKey === key));
 }
-// 글 하나를 id로 읽는다(함께 볼 것·주소에 남은 글). 없으면 null.
-async function fetchItem(type, id) {
-  const w = workspaceOf();
-  const rows = type === 'news'
-    ? await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${NEWS_COLS}&limit=1`, {singleFlight: false})
-    : await rt().api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${POST_COLS}&limit=1`, {singleFlight: false});
-  return Array.isArray(rows) ? rows[0] || null : null;
-}
+// 글 하나를 id로 읽는다(함께 볼 것·주소·밑줄에 남은 글 — 옛 id면 공용 id로 바꿔 읽음, 돌려준 줄의 id가 공용 id). 없으면 null.
+const fetchItem = (type, id) => (type === 'news' ? readNewsOne(id, NEWS_COLS) : readOutsideOne(id, POST_COLS));
 async function openRelated(r) {
   if (r.kind === 'outside' || r.kind === 'news') {
     try {
@@ -530,12 +527,12 @@ async function loadNews({append = false, keep = false} = {}) {
   if (!append) { state.newsFailed = false; if (!keep || !state.newsLoaded) { state.newsLoaded = false; state.news = []; } }
   try {
     await newsMeta();
-    const rows = await readNews(w, newsKeys(), append ? state.news.length : 0);
+    const got = await readNews(w, newsKeys(), append ? state.newsRaw : 0);
     if (seq !== newsSeq) return;
-    const got = Array.isArray(rows) ? rows : [];
-    const page = got.slice(0, PAGE_SIZE);
+    const page = got.rows;
     state.news = append ? [...state.news, ...page.filter(p => !state.news.some(x => x.id === p.id))] : page;
-    state.newsEnd = got.length <= PAGE_SIZE;
+    state.newsRaw = (append ? state.newsRaw : 0) + got.raw;
+    state.newsEnd = got.end;
     state.newsLoaded = true;
     void ensureReads(page.map(p => ({type: 'news', id: p.id})));
   } catch {
