@@ -35,11 +35,10 @@ test('노트 검색: 밑줄은 글·메모·제목·매체, 보관은 제목(띄
   assert.deepEqual(newsSearch({highlights: hl, saved, query: ''}), {highlights: [], saved: []});
   assert.equal(searchHead(2, 1, 0), '노트 2 · 밑줄 1 · 보관 0');
 });
-test('구조: News와 같은 읽기 길·같은 밑줄 목록을 쓰고 복사본·기기 저장·새 표가 없다', () => {
+test('구조: News와 같은 읽기 길·같은 밑줄 목록을 쓰고 따로 서버 주소를 부르지 않는다(기기 저장 금지는 CI audit가 본다)', () => {
   const src = readFileSync(new URL('../app/note-news-marks.js', import.meta.url), 'utf8');
   assert.match(src, /readSavedRows/);
   assert.match(src, /highlightsNow\(\)/);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
   assert.doesNotMatch(src, /\/rest\/v1\//, '노트 쪽은 따로 서버 주소를 부르지 않는다(now-saved.js·text-highlights.js 길 재사용)');
   const saver = readFileSync(new URL('../app/now-saved.js', import.meta.url), 'utf8');
   assert.match(saver, /export async function readSavedRows/);
