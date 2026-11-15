@@ -121,7 +121,8 @@ export async function saveFromSelection(info) {
   notify('밑줄 저장함', {ms: 8000, label: '밑줄 저장', undo: async () => { await removeHighlight(row.id); },
     actions: [
       {label: '메모', run: ({close}) => { close(); const h = highlightById(row.id); if (h) void editMemo(h, null); }},
-      {label: '노트로도 보내기', run: ({close}) => { close(); const h = highlightById(row.id); if (h) void noteWithNotice([h]); }},
+      // 노트에서 저장한 밑줄(S62-17)은 이미 노트 안이라 [노트로도 보내기]가 없다.
+      ...(row.source_type === 'note' ? [] : [{label: '노트로도 보내기', run: ({close}) => { close(); const h = highlightById(row.id); if (h) void noteWithNotice([h]); }}]),
     ]});
   return row;
 }
@@ -171,7 +172,7 @@ const markMenu = createAnchoredMenu({id: 'hlMarkMenu', className: 'topline-add-m
   render: id => {
     const h = highlightById(id);
     if (!h) return '<p class="hl-menu-memo">이미 삭제한 밑줄이에요</p>';
-    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button>${menuSource ? '<button type="button" class="row-act" data-hl-menu="source">원문에서 보기</button>' : ''}<button type="button" class="row-act" data-hl-menu="note">노트로</button><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
+    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button>${menuSource ? '<button type="button" class="row-act" data-hl-menu="source">원문에서 보기</button>' : ''}${h.source_type === 'note' ? '' : '<button type="button" class="row-act" data-hl-menu="note">노트로</button>'}<button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const h = highlightById(active.id);
