@@ -75,6 +75,8 @@ test('signup notify db: plan, dry-run, apply, operator-only list, server-only co
    alter table public.app_documents enable row level security;
    create policy fake_docs_owner on public.app_documents for select to authenticated using (private.app_is_workspace_owner(workspace_id));
    grant select on public.app_documents to authenticated;`);
+  await pool.query("update public.app_workspaces set slug='kptu-work' where id=$1",[WS_A]);
+  await pool.query("update public.app_workspaces set slug='other-work' where id=$1",[WS_B]);
   for(const f of BEFORE.slice(0,-1))await pool.query(await read('supabase/migrations/'+f+'.sql'));
   await pool.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,title,summary,source_ref) values($1,'call','2026-10-24','2026-10-24T03:00:00Z','가상 통화','가상 요약','call:su1')",[WS_A]);
   await pool.query(await read('supabase/migrations/'+BEFORE.at(-1)+'.sql'));
