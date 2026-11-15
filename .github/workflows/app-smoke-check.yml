@@ -23,6 +23,9 @@ on:
       - 'docs/design/outside-statements.md'
       - 'scripts/ops/db-*.mjs'
       - 'tests/security/db-workflow-annotations.test.mjs'
+      - 'tests/security/no-operator-defaults.test.mjs'
+      - 'tests/security/org-names-cross-workspace.test.mjs'
+      - 'supabase/migrations/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/home-day-picks.ts'
@@ -260,6 +263,9 @@ on:
       - 'docs/design/outside-statements.md'
       - 'scripts/ops/db-*.mjs'
       - 'tests/security/db-workflow-annotations.test.mjs'
+      - 'tests/security/no-operator-defaults.test.mjs'
+      - 'tests/security/org-names-cross-workspace.test.mjs'
+      - 'supabase/migrations/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/home-day-picks.ts'
@@ -1142,6 +1148,9 @@ jobs:
 
       - name: Check weekly report screen words (HOME-주간정리이름주간보고)
         run: node --test tests/ui-words-weekly-report.test.mjs
+
+      - name: SEC-자주가는링크기본값유출·COLLAB-조직목록없음직접입력 운영자 기본값 없음·남의 작업공간 조직 이름 막힘
+        run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
 
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
