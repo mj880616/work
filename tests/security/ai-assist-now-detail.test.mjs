@@ -22,7 +22,10 @@ const BODY_KO='공공기관 민영화 저지 투쟁을 선포한다. 정부는 �
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 const answer=obj=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(obj)}]}],usage:{input_tokens:3000,output_tokens:400}});
 
-function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=null,env={},feed=[]}={}){
+// NEWS-모두에게열기 E3: 글은 공용 표(옛 줄 id = 공용 id — 운영자 줄처럼), 자세히·반응은 사람별 새 표(공용 글 id). 옛 표는 옮기는 동안 함께 적는다.
+const NEW_DETAIL={outside:'app_outside_now_details',news:'app_news_now_details'};
+const toShared=(r,col)=>({workspace_id:r.workspace_id,article_id:r[col],...Object.fromEntries(Object.entries(r).filter(([k])=>!['id','workspace_id','outside_post_id','news_item_id'].includes(k)))});
+function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=null,env={},feed=[],map=[],blocked=false}={}){
   const calls={openai:[],rest:[],service:[],site:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -49,6 +52,20 @@ function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=n
     app_suborganizations:[{id:id(41),workspace_id:WS,name:'가 지부',active:true},{id:id(42),workspace_id:OTHER_WS,name:'남의 지부',active:true}],
     app_ai_daily_usage:structuredClone(usage),
   };
+  const mineOnly=r=>r.workspace_id===WS;
+  db.app_outside_articles=db.app_outside_posts.filter(mineOnly).map(({workspace_id,...p})=>({...p}));
+  db.app_outside_article_sentences=db.app_outside_sentences.map(({post_id,workspace_id,...x})=>({article_id:post_id,...x}));
+  db.app_news_articles=db.app_news_items.map(({workspace_id,hidden_at,...n})=>({...n,url_key:n.url.replace(/^https:\/\//,'')}));
+  db.app_news_items.forEach(n=>{n.url_key=n.url.replace(/^https:\/\//,'');});
+  db.app_news_marks=db.app_news_items.filter(n=>n.hidden_at).map(n=>({workspace_id:n.workspace_id,article_id:n.id,hidden_at:n.hidden_at}));
+  db.app_outside_article_bodies=feed.filter(f=>f.workspace_id===WS&&f.outside_post_id).map(f=>({article_id:f.outside_post_id,state:f.state,blocks:f.blocks}));
+  db.app_news_article_bodies=feed.filter(f=>f.workspace_id===WS&&f.news_item_id).map(f=>({article_id:f.news_item_id,state:f.state,blocks:f.blocks}));
+  db.app_outside_now_details=details.filter(d=>d.outside_post_id).map(d=>toShared(d,'outside_post_id'));
+  db.app_news_now_details=details.filter(d=>d.news_item_id).map(d=>toShared(d,'news_item_id'));
+  db.app_outside_now_signals=signals.filter(x=>x.outside_post_id).map(x=>toShared(x,'outside_post_id'));
+  db.app_news_now_signals=signals.filter(x=>x.news_item_id).map(x=>toShared(x,'news_item_id'));
+  db.app_news_id_map=map.filter(m=>m.kind==='news');db.app_outside_id_map=map.filter(m=>m.kind==='outside');
+  const SHARED_READ=new Set(['app_outside_articles','app_outside_article_sentences','app_outside_article_bodies','app_news_articles','app_news_article_bodies']);
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
   const wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
   const cmp=(cell,op,val)=>{
@@ -79,13 +96,18 @@ function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=n
     if(headers.get('apikey')===SERVICE){
       // 서버 열쇠: Now 세 표만, 정해진 방법만.
       calls.service.push({table,method,query:decodeURIComponent(url.search),body:init.body?JSON.parse(init.body):undefined});
-      assert.ok({app_now_details:['POST','PATCH'],app_now_interests:['POST','PATCH'],app_now_signals:['DELETE']}[table]?.includes(method),'service key misuse '+method+' '+table);
+      assert.ok({app_now_details:['POST','PATCH'],app_now_interests:['POST','PATCH'],app_now_signals:['DELETE'],
+        app_news_now_details:['POST','PATCH'],app_outside_now_details:['POST','PATCH'],app_news_now_signals:['DELETE'],app_outside_now_signals:['DELETE']}[table]?.includes(method),'service key misuse '+method+' '+table);
       const rows=db[table];
       if(method==='POST'){
         const list=[].concat(JSON.parse(init.body)),out=[];
         for(const b of list){
           assert.equal(b.workspace_id,WS,'service writes stay in the caller workspace');
-          if(table==='app_now_details'){
+          if(table===NEW_DETAIL.outside||table===NEW_DETAIL.news){
+            assert.equal(url.searchParams.get('on_conflict'),'workspace_id,article_id');
+            const i=rows.findIndex(r=>r.workspace_id===b.workspace_id&&r.article_id===b.article_id);
+            const row=i>=0?Object.assign(rows[i],b):(rows.push({...b}),rows.at(-1));out.push(row);
+          }else if(table==='app_now_details'){
             const col=b.outside_post_id?'outside_post_id':'news_item_id';
             const i=rows.findIndex(r=>r[col]===b[col]);
             const row=i>=0?Object.assign(rows[i],b):(rows.push({id:id(900+rows.length),...b}),rows.at(-1));out.push(row);
@@ -105,10 +127,16 @@ function harness({openai=null,usage=[],details=[],interests=[],signals=[],site=n
     if(url.pathname==='/auth/v1/user')return users[bearer]?respond({id:users[bearer]}):respond({msg:'bad'},401);
     const uid=users[bearer];assert.ok(uid,'REST only with the caller token');
     calls.rest.push({table,method,query:decodeURIComponent(url.search)});
+    const mine=db.app_workspace_members.filter(m=>m.user_id===uid&&m.role==='owner'),reader=mine.length===1&&!blocked;
+    if(table==='rpc/app_news_article_of'||table==='rpc/app_outside_article_of'){
+      const b=JSON.parse(init.body),m=table.includes('news')?db.app_news_id_map:db.app_outside_id_map;
+      return respond(reader?m.filter(x=>b.p_old.includes(x.old_id)&&x.workspace_id===mine[0].workspace_id).map(x=>({old_id:x.old_id,article_id:x.article_id})):[]);
+    }
     if(url.pathname.startsWith('/rest/v1/rpc/'))return respond(table.endsWith('app_search_records')?{groups:[{items:[{kind:'update',id:id(70),title:'민영화 대응 회의 기록'},{kind:'note',id:id(71),title:'개인 메모'}]}]}:[{id:id(72),title:'민영화 반대 결의',sensitivity:'S1',validity:'current'},{id:id(73),title:'교섭 전략',sensitivity:'S2',validity:'current'}]);
     const rows=db[table];assert.ok(rows,'unexpected table '+table);
     if(method==='GET'){
-      const visible=r=>table==='app_workspace_members'?r.user_id===uid:table==='app_spaces'?r.owner_id===uid:wsOwner[r.workspace_id]===uid;
+      // 공용 표: 가입자(owner 줄 1개·차단 아님) 누구나. 나머지는 owner RLS(자기 작업공간 줄만).
+      const visible=r=>SHARED_READ.has(table)?reader:table==='app_workspace_members'?r.user_id===uid:table==='app_spaces'?r.owner_id===uid:wsOwner[r.workspace_id]===uid;
       return respond(rows.filter(r=>visible(r)&&matches(r,url)).slice(0,Number(url.searchParams.get('limit')||1e9)));
     }
     if(method==='POST'&&table==='app_ai_daily_usage'){
@@ -176,6 +204,9 @@ test('first open makes and stores the full detail once; second open returns the 
   assert.ok(!sent.input[1].content.includes('남의'),'no other workspace names');
   // 저장은 서버 열쇠로 상세 표 한 번, DB 검사 모양 그대로.
   const save=calls.service.filter(s=>s.table==='app_now_details');assert.equal(save.length,1);
+  // E3: 사람별 새 표(공용 글 id)에 한 줄 + 옮기는 동안 같은 작업공간 옛 줄에도 같은 줄.
+  const fresh=calls.service.filter(s=>s.table==='app_outside_now_details');assert.equal(fresh.length,1);
+  assert.deepEqual([db.app_outside_now_details[0].workspace_id,db.app_outside_now_details[0].article_id,db.app_outside_now_details[0].level],[WS,POST_KO,'full']);
   const row=db.app_now_details[0];
   assert.equal(row.outside_post_id,POST_KO);assert.equal(row.workspace_id,WS);assert.equal(row.level,'full');assert.match(row.interests_key,/^[a-z0-9]{1,64}$/);
   assert.equal(calls.site.length,0,'domestic posts never fetch the site');
@@ -261,6 +292,9 @@ test('now_interests: not due → no AI; 10 new signals → candidates (origin ai
   assert.deepEqual(added.map(r=>[r.topic,r.reason]),[['철도 분할','별표 3건·메모 1건']]);
   assert.ok(calls.service.some(s=>s.table==='app_now_signals'&&s.method==='DELETE'&&s.query.includes(`workspace_id=eq.${WS}`)));
   assert.ok(!db.app_now_signals.includes(old),'180-day old signal pruned');
+  for(const t of ['app_outside_now_signals','app_news_now_signals'])assert.ok(calls.service.some(s=>s.table===t&&s.method==='DELETE'&&s.query.includes(`workspace_id=eq.${WS}`)),t);
+  assert.equal(db.app_outside_now_signals.filter(x=>x.created_at<'2026-05-01').length,0,'new table pruned too');
+  assert.ok(calls.rest.some(c=>c.table==='app_outside_now_signals')&&calls.rest.some(c=>c.table==='app_news_now_signals'),'reactions read from the per-person new tables');
 });
 
 test('evening rule and candidate cleaning',()=>{
@@ -304,9 +338,9 @@ test('stored body blocks are the material first: domestic post skips the sentenc
   assert.equal(m.item.material,'공공기관 민영화 저지\n공공기관 민영화 저지 투쟁을 선포한다.\n정부는 철도와 가스의 분할을 멈춰야 한다.');
   assert.ok(!m.item.material.includes('집회 사진')&&!m.item.material.includes('https://'),'photos and captions are not material');
   assert.deepEqual(b.detail.key_sentences,[{orig:'정부는 철도와 가스의 분할을 멈춰야 한다.',ko:null}]);
-  assert.ok(!calls.rest.some(c=>c.table==='app_outside_sentences'),'no sentence-table read');
-  const fb=calls.rest.find(c=>c.table==='app_feed_bodies');
-  assert.ok(fb.query.includes(`workspace_id=eq.${WS}`)&&fb.query.includes(`outside_post_id=eq.${POST_KO}`));
+  assert.ok(!calls.rest.some(c=>c.table==='app_outside_article_sentences'),'no sentence-table read');
+  const fb=calls.rest.find(c=>c.table==='app_outside_article_bodies');
+  assert.ok(fb.query.includes(`article_id=eq.${POST_KO}`),'공용 본문 블록(글마다 한 줄)');
 });
 
 test('stored body blocks for a foreign post: no robots·page read',async()=>{
@@ -331,9 +365,43 @@ test('failed·image-only body rows and another workspace\'s row fall back to the
 
 test('body table not there yet (read fails) → old material, still works',async()=>{
   const {handler,calls,db}=harness();
-  delete db.app_feed_bodies;
+  delete db.app_outside_article_bodies;
   const b=await (await post(handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
   assert.equal(b.detail.level,'full');
   assert.equal(JSON.parse(calls.openai[0].input[1].content).item.material,BODY_KO);
   assert.ok(calls.logs.some(l=>l.code==='now_read_skipped'&&l.detail?.stage==='feed_body'));
+});
+
+// ---- NEWS-모두에게열기 E3: 공용 글 id(옛 id는 지도로)·사람별 새 표·거절 ---------------------------------------------------------
+
+const ART_NEW=id(700);
+test('E3 now_detail: 옛 줄이 없는 공용 글(공용 id)도 열리고 사람별 새 표에만 저장, 옛 id는 지도로 공용 id로', async()=>{
+  const h=harness({interests:confirmed});
+  h.db.app_outside_articles.push({id:ART_NEW,source_key:'kptu',kind:'statement',lang:'ko',title:'[성명] 돌봄 공공성 강화',title_ko:null,author:null,url:'https://www.kptu.net/x/700',summary_ko:'돌봄 공공성 요구.',key_sentences:[],has_body:false,fetched_at:'2026-11-02T08:00:00Z'});
+  const r=await post(h.handler,{kind:'now_detail',outside_post_id:ART_NEW});
+  assert.equal(r.status,200);
+  assert.deepEqual(h.db.app_outside_now_details.map(d=>[d.workspace_id,d.article_id]),[[WS,ART_NEW]]);
+  assert.equal(h.db.app_now_details.length,0,'옛 줄이 없으면 옛 표에 쓰지 않음');
+  // 옛 id(OLD) → 지도 → 공용 글 POST_KO: 새 표는 공용 id로, 옛 표는 그 옛 id로.
+  const OLD=id(701);
+  const m=harness({interests:confirmed,map:[{kind:'outside',old_id:OLD,workspace_id:WS,article_id:POST_KO}]});
+  assert.equal((await post(m.handler,{kind:'now_detail',outside_post_id:OLD})).status,200);
+  assert.deepEqual(m.db.app_outside_now_details.map(d=>d.article_id),[POST_KO]);
+  assert.deepEqual(m.db.app_now_details.map(d=>d.outside_post_id),[OLD]);
+});
+
+test('E3 now_detail 거절: 차단 명단·남의 작업공간 옛 id·없는 id는 404(AI·쓰기 0), 남의 자세히는 읽지도 덮지도 않음', async()=>{
+  const blocked=harness({blocked:true});
+  for(const b of [{kind:'now_detail',outside_post_id:POST_KO},{kind:'now_detail',news_item_id:NEWS_1}])assert.equal((await post(blocked.handler,b)).status,404);
+  assert.equal(blocked.calls.openai.length+blocked.calls.service.length,0);
+  const other=harness({map:[{kind:'outside',old_id:POST_OTHER,workspace_id:OTHER_WS,article_id:POST_KO}]});
+  assert.equal((await post(other.handler,{kind:'now_detail',outside_post_id:POST_OTHER})).status,404,'남의 옛 id는 지도로 안 바뀜');
+  assert.equal(other.calls.openai.length+other.calls.service.length,0);
+  // 다른 작업공간 사람이 같은 공용 글 자세히를 이미 가짐 → 내 것은 따로 만든다(남의 줄을 돌려주거나 고치지 않음).
+  const theirs={workspace_id:OTHER_WS,outside_post_id:POST_KO,level:'full',summary:'남의 요약',key_sentences:[],related:[],interests_key:'x',generated_at:'2026-11-02T01:00:00Z'};
+  const h=harness({details:[theirs]});
+  const b=await (await post(h.handler,{kind:'now_detail',outside_post_id:POST_KO})).json();
+  assert.notEqual(b.detail.summary,'남의 요약');assert.equal(h.calls.openai.length,1);
+  assert.equal(h.db.app_outside_now_details.find(d=>d.workspace_id===OTHER_WS).summary,'남의 요약');
+  assert.ok(h.calls.service.every(s=>s.method!=='POST'||[].concat(s.body).every(x=>x.workspace_id===WS)),'쓰기는 누른 사람 작업공간만');
 });

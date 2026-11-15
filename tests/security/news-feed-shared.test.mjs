@@ -15,7 +15,9 @@ const LONG = 'Workers in the synthetic city walked out today over unsafe staffin
 const PAGE = `<html lang="en"><head><meta property="og:title" content="Synthetic strike story"></head><body><article><p>${LONG}</p></article></body></html>`;
 
 // 아주 작은 PostgREST 흉내: eq·neq·is·in·gte·lt·not.is 거르기, select·order·limit·offset, POST(ignore/merge), PATCH.
-function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요약.'}, members = [{user_id: USER, workspace_id: WS2}]} = {}) {
+const ANON = 'synthetic-anon-key';
+// blocked: 누른 사람이 가입 차단 명단에 있음(공용 표 읽기 정책 private.app_news_reader_ok가 막음).
+function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요약.'}, members = [{user_id: USER, workspace_id: WS2}], blocked = false} = {}) {
   const db = {app_news_articles: [], app_news_items: [], app_news_marks: [], app_news_id_map: [], app_news_article_bodies: [], app_outside_sources: [], app_news_keywords: [], app_news_days: [], ...structuredClone(tables)};
   const calls = {ai: 0, site: [], rest: []};
   const res = (v, s = 200) => new Response(v === null ? null : JSON.stringify(v), {status: s, headers: {'content-type': 'application/json'}});
@@ -41,7 +43,16 @@ function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요�
     if (u.origin !== SB) { calls.site.push(u.href); const s = sites[u.href]; return s === undefined ? new Response('', {status: 404}) : new Response(s, {status: 200, headers: {'content-type': 'text/html'}}); }
     if (u.pathname === '/auth/v1/user') return init.headers.Authorization === `Bearer ${JWT}` ? res({id: USER}) : res({}, 401);
     const p = u.pathname.replace('/rest/v1/', '');
-    calls.rest.push({method, p, q: u.search, body, prefer: init.headers?.Prefer});
+    calls.rest.push({method, p, q: u.search, body, prefer: init.headers?.Prefer, user: init.headers?.apikey === ANON});
+    // 사용자 로그인 읽기(E3): 공용 기사 읽기 정책 흉내 — 로그인 + owner 줄 1개 + 차단 아님, 채널 스크랩 줄은 운영자 작업공간만. 지도 함수는 자기 작업공간 옛 id만.
+    if (init.headers?.apikey === ANON) {
+      assert.equal(init.headers.Authorization, `Bearer ${JWT}`);
+      const mine = members.filter(m => m.user_id === USER), ok = mine.length === 1 && !blocked, myWs = mine[0]?.workspace_id;
+      const can = a => !!a && ok && (a.origin !== 'tg_scrap' || myWs === OP);
+      if (p === 'rpc/app_news_article_of') return res(db.app_news_id_map.filter(m => body.p_old.includes(m.old_id) && m.workspace_id === myWs && can(db.app_news_articles.find(a => a.id === m.article_id))).map(m => ({old_id: m.old_id, article_id: m.article_id})));
+      if (p === 'app_news_articles' && method === 'GET') return res(db.app_news_articles.filter(a => `eq.${a.id}` === u.searchParams.get('id') && can(a)));
+      throw new Error('user login used for ' + method + ' ' + p);
+    }
     if (p === 'rpc/app_operator_feature_workspace') return res(OP);
     if (p === 'rpc/app_workspace_ai_month') return res({month: '2026-11', exempt: true, cap_krw: 3000, openai_input_tokens: 0, openai_output_tokens: 0, gemini: []});
     if (p === 'app_workspace_members') return res(members.filter(m => `eq.${m.user_id}` === u.searchParams.get('user_id')).map(m => ({workspace_id: m.workspace_id})));
@@ -68,7 +79,7 @@ function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요�
     }
     return res(null, 204);
   };
-  const h = H.createNewsFeedHandler({env: n => ({SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'synthetic-service-role-key', NEWS_FEED_CRON_SECRET: SECRET, WEB2_OPENAI_API_KEY: 'synthetic-openai-key-000000000000'})[n], fetch: doFetch, now: () => NOW, sleep: async () => {}, log: () => {}});
+  const h = H.createNewsFeedHandler({env: n => ({SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'synthetic-service-role-key', SUPABASE_ANON_KEY: ANON, NEWS_FEED_CRON_SECRET: SECRET, WEB2_OPENAI_API_KEY: 'synthetic-openai-key-000000000000'})[n], fetch: doFetch, now: () => NOW, sleep: async () => {}, log: () => {}});
   const cron = async b => (await h(new Request(`${FN}?action=run`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: JSON.stringify(b)}))).json();
   const user = async (action, b) => { const r = await h(new Request(`${FN}?action=${action}`, {method: 'POST', headers: {authorization: `Bearer ${JWT}`, 'content-type': 'application/json'}, body: JSON.stringify(b)})); return {status: r.status, body: await r.json()}; };
   return {db, calls, cron, user};
@@ -213,6 +224,7 @@ test('[번역] 재사용: 같은 본문의 공용 기사에 번역이 있으면 
   const w = world({ai: {title_ko: '합성 제목', body_ko: '합성 본문 번역'}, tables: {
     app_news_articles: [{id: id(30), origin: 'site', ...base}],
     app_news_items: [{id: id(31), workspace_id: WS2, ...base}],
+    app_news_id_map: [{old_id: id(31), workspace_id: WS2, article_id: id(30)}],
   }});
   const first = await w.user('translate', {id: id(31)});
   assert.equal(first.body.status, 'translated');
@@ -226,4 +238,95 @@ test('[번역] 재사용: 같은 본문의 공용 기사에 번역이 있으면 
   assert.equal(w.calls.ai, ai, 'AI 다시 안 부름');
   assert.equal(JSON.stringify(w.db.app_news_days), days, '하루 한도 안 씀');
   assert.equal(w.db.app_news_items[0].body_ko, '합성 본문 번역');
+});
+
+// ---- NEWS-모두에게열기 E3: 화면 입구가 공용 기사 id로(옛 줄 id도 지도로) -----------------------------------------------------
+
+const OTHER_USER_WS = 'a0000000-0000-4000-8000-000000000003';
+const artRow = (n, extra = {}) => ({id: id(n), origin: 'site', lane: 'channel', url: `https://e3.example.org/${n}`, url_key: `e3.example.org/${n}`, state: 'pending', lang: 'en', title: 'Synthetic E3', created_at: recent, ...extra});
+const e3Sites = n => ({'https://e3.example.org/robots.txt': 'User-agent: *\nAllow: /\n', [`https://e3.example.org/${n}`]: PAGE});
+
+test('E3 open: 공용 id로 누르면 공용 기사를 읽어 채우고(옛 줄 없음), 하루 한도는 누른 사람 작업공간, 두 번째는 저장본(원문·AI 0)', async () => {
+  const w = world({tables: {app_news_articles: [artRow(50)]}, sites: e3Sites(50)});
+  const r = await w.user('open', {id: id(50)});
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.status, 'ok');
+  const a = w.db.app_news_articles[0];
+  assert.deepEqual([a.state, a.body_kind, a.summary], ['ok', 'full', '합성 한 문장 요약.']);
+  assert.equal(w.db.app_news_article_bodies.length, 1, '공용 본문 한 줄');
+  assert.deepEqual([...new Set(w.db.app_news_days.map(d => d.workspace_id))], [WS2], '한도·사용량은 누른 사람 작업공간');
+  assert.equal(w.db.app_news_items.length, 0, '옛 줄을 만들지 않음');
+  const site = w.calls.site.length, ai = w.calls.ai;
+  const again = await w.user('open', {id: id(50)});
+  assert.equal(again.body.status, 'stored'); assert.equal(w.calls.site.length, site); assert.equal(w.calls.ai, ai, '기사마다 1번');
+  assert.ok(!w.calls.rest.some(c => c.method === 'POST' && c.p === 'app_news_articles'), '화면 입구는 공용 기사를 새로 만들지 않음');
+});
+
+test('E3 open: 옛 줄 id는 지도로 공용 기사로 바꾸고, 내 옛 줄에도 같은 결과(옮기는 동안). 이미 읽힌 기사는 옮겨 적기만', async () => {
+  const key = 'e3.example.org/51', url = 'https://e3.example.org/51';
+  const w = world({tables: {
+    app_news_articles: [artRow(51)],
+    app_news_items: [{id: id(52), workspace_id: WS2, lane: 'channel', url, url_key: key, state: 'pending', created_at: recent},
+      {id: id(53), workspace_id: OTHER_USER_WS, lane: 'channel', url, url_key: key, state: 'pending', created_at: recent}],
+    app_news_id_map: [{old_id: id(52), workspace_id: WS2, article_id: id(51)}, {old_id: id(53), workspace_id: OTHER_USER_WS, article_id: id(51)}],
+  }, sites: e3Sites(51)});
+  const r = await w.user('open', {id: id(52)});
+  assert.equal(r.body.status, 'ok');
+  assert.equal(w.db.app_news_articles[0].body_kind, 'full');
+  assert.equal(w.db.app_news_items.find(i => i.id === id(52)).body_kind, 'full', '내 옛 줄에도');
+  assert.equal(w.db.app_news_items.find(i => i.id === id(53)).state, 'pending', '남의 옛 줄은 건드리지 않음');
+  assert.ok(!w.calls.rest.some(c => !c.user && c.p === 'app_news_items' && (c.q ?? '').includes(OTHER_USER_WS)), '남의 작업공간 줄을 읽지 않음');
+  // 남의 옛 줄 id로 부르면: 지도는 내 것만 바꿔 주므로 그 id 그대로 공용 기사로 찾음 → 없음(404).
+  assert.equal((await w.user('open', {id: id(53)})).status, 404);
+  // 이미 읽힌 공용 기사 + 아직 빈 내 옛 줄: 원문·AI 없이 옮겨 적기.
+  const w2 = world({tables: {
+    app_news_articles: [artRow(54, {state: 'ok', body: '합성 본문', body_kind: 'full', title: '합성 제목', summary: '합성 요약'})],
+    app_news_items: [{id: id(55), workspace_id: WS2, lane: 'channel', url: 'https://e3.example.org/54', url_key: 'e3.example.org/54', state: 'pending', created_at: recent}],
+  }});
+  assert.equal((await w2.user('open', {id: id(54)})).body.status, 'stored');
+  assert.equal(w2.calls.site.length + w2.calls.ai, 0);
+  assert.deepEqual([w2.db.app_news_items[0].state, w2.db.app_news_items[0].body], ['ok', '합성 본문']);
+  assert.equal(w2.db.app_news_days.length, 0, '하루 한도 안 씀');
+});
+
+test('E3 거절: 차단 명단 사람·채널 스크랩(운영자 전용) 줄·owner 아닌 사람·없는 id는 공용 기사를 못 읽음(원문·AI·쓰기 0)', async () => {
+  const tables = {app_news_articles: [artRow(60), artRow(61, {origin: 'tg_scrap'})]};
+  const quiet = w => { assert.equal(w.calls.site.length + w.calls.ai, 0); assert.ok(!w.calls.rest.some(c => ['POST', 'PATCH', 'DELETE'].includes(c.method) && !c.p.startsWith('rpc/'))); };
+  const blocked = world({tables, sites: e3Sites(60), blocked: true});
+  for (const action of ['open', 'translate']) assert.equal((await blocked.user(action, {id: id(60)})).status, 404, action);
+  quiet(blocked);
+  const plain = world({tables, sites: e3Sites(61)});
+  for (const action of ['open', 'translate']) assert.equal((await plain.user(action, {id: id(61)})).status, 404, '채널 스크랩 줄(텔레그램)은 운영자만');
+  for (const action of ['open', 'translate']) assert.equal((await plain.user(action, {id: id(99)})).status, 404);
+  quiet(plain);
+  const stranger = world({tables, sites: e3Sites(60), members: []});
+  assert.equal((await stranger.user('open', {id: id(60)})).status, 403); quiet(stranger);
+  // 운영자는 채널 스크랩 줄을 읽는다(옮기는 동안 그대로).
+  const op = world({tables, sites: e3Sites(61), members: [{user_id: USER, workspace_id: OP}]});
+  assert.equal((await op.user('open', {id: id(61)})).body.status, 'ok');
+});
+
+test('E3 translate: 공용 id로 번역하면 공용 기사에 1번 저장, 다른 사람은 저장본(AI·하루 한도 0), 옛 줄 없는 사람도 됨', async () => {
+  const w = world({ai: {title_ko: '합성 제목', body_ko: '합성 본문 번역'}, tables: {app_news_articles: [artRow(70, {state: 'ok', body: 'Synthetic body.', body_kind: 'full'})]}});
+  const r = await w.user('translate', {id: id(70)});
+  assert.equal(r.body.status, 'translated');
+  const a = w.db.app_news_articles[0];
+  assert.deepEqual([a.title_ko, a.body_ko], ['합성 제목', '합성 본문 번역']); assert.ok(a.translated_at);
+  const patch = w.calls.rest.find(c => c.method === 'PATCH' && c.p === 'app_news_articles');
+  assert.match(patch.q, /body_ko=is\.null/, '이미 있는 번역은 덮지 않음');
+  const ai = w.calls.ai, days = JSON.stringify(w.db.app_news_days);
+  const second = world({tables: {app_news_articles: [structuredClone(a)]}, members: [{user_id: USER, workspace_id: OTHER_USER_WS}]});
+  assert.equal((await second.user('translate', {id: id(70)})).body.status, 'stored');
+  assert.equal(second.calls.ai, 0); assert.equal(second.db.app_news_days.length, 0);
+  assert.equal(w.calls.ai, ai); assert.equal(JSON.stringify(w.db.app_news_days), days);
+});
+
+test('E3 소스: 화면 입구(open·translate)는 공용 기사를 새로 만들지 않고, 텔레그램 방·글·가족 표를 읽거나 쓰지 않는다', async () => {
+  const {readFileSync} = await import('node:fs');
+  const src = readFileSync(new URL('../../supabase/functions/news-feed/handler.ts', import.meta.url), 'utf8').replace(/\/\/.*$/gm, '');
+  const screen = src.slice(src.indexOf('const who = await authorizeUser('), src.indexOf('} catch (e) {', src.indexOf('const who = await authorizeUser(')));
+  assert.ok(screen.includes('readSharedArticle') || screen.includes('ownArticle('), '공용 기사는 사용자 로그인으로 읽음');
+  assert.doesNotMatch(screen, /"POST", "app_news_articles|insertArticles\(/, '공용 기사 새로 만들기 없음');
+  assert.doesNotMatch(screen, /app_feed_items|app_feed_rooms|app_family|app_tg_|app_call/, '텔레그램·가족·통화 표 없음');
+  const shared = readFileSync(new URL('../../supabase/functions/_shared/shared-article.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(shared, /SERVICE_ROLE|Deno\.env|method: "(PATCH|DELETE|PUT)"/, '공용 글 찾기는 사용자 로그인 읽기만');
 });
