@@ -69,3 +69,19 @@ test('확인 줄 화면은 바구니 기존 저장 길만 쓰고 기기에 저�
   const loader = readFileSync(new URL('../app/loader-v2.js', import.meta.url), 'utf8');
   assert.match(loader, /import\('\.\/basket-share\.js'\)/);
 });
+
+// S62-22 APP-공유로뉴스보관: 'News 보관' 칸(target news)과 글에서 기사 주소 하나 고르기.
+test('share target news and article url picking', async () => {
+  const M = await import('../app/share-intake-model.mjs');
+  const id = 'A'.repeat(24);
+  assert.equal(M.parseShareList({id, items: [], target: 'news'}).target, 'news');
+  assert.equal(M.parseShareList({id, items: [], target: 'trash'}).target, 'basket');
+  assert.equal(M.shareArticleUrl({subject: '합성 기사 제목', text: '합성 기사 제목\nhttps://news.example.org/a/1?x=1'}), 'https://news.example.org/a/1?x=1');
+  assert.equal(M.shareArticleUrl({text: '이것 보세요 (https://news.example.org/a/2).'}), 'https://news.example.org/a/2');
+  assert.equal(M.shareArticleUrl({text: '“https://news.example.org/a/3”'}), 'https://news.example.org/a/3');
+  assert.equal(M.shareArticleUrl({text: 'https://ko.example.org/wiki/A_(B)'}), 'https://ko.example.org/wiki/A_(B)');
+  assert.equal(M.shareArticleUrl({subject: 'http://news.example.org/a/4', text: '주소 없는 글'}), 'http://news.example.org/a/4', '본문에 없으면 제목에서');
+  assert.equal(M.shareArticleUrl({text: '첫 https://one.example.org/a 둘 https://two.example.org/b'}), 'https://one.example.org/a', '첫 주소 하나');
+  for (const text of ['', '주소 없는 글', 'javascript:alert(1)', 'ftp://news.example.org/a', 'https://localhost', 'www.example.org/a', `https://news.example.org/${'a'.repeat(2100)}`])
+    assert.equal(M.shareArticleUrl({text}), '', text.slice(0, 40));
+});
