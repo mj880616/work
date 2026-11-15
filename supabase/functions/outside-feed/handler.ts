@@ -21,7 +21,9 @@
 //   한국어 요약·핵심 문장 3개까지(원문+번역). 수집 때는 전문 번역을 하지 않는다 — 사람이 [번역]을 누른 글만 body_ko(작업공간 소유자 비공개)에 저장.
 //   본문 블록(NEWS-전면개편 P2b, D1): 국내·외국 글 모두 본문 문단·사진 주소·캡션을 app_feed_bodies에 작업공간 소유자 비공개로(카탈로그 extract=false 단체는 빼고).
 // DB는 service role로 migration 20261031230000의 grant(네 표 select·insert·update·delete) 안에서만 쓴다. 다른 표는 owner 확인용
-//   app_workspace_members 읽기, 본문 블록 app_feed_bodies, [번역] 하루 사용량 app_news_days(읽기·넣기·고치기)뿐이다. 로그·응답에는 단계 코드·건수·단체 키만(제목·본문·주소 없음).
+//   app_workspace_members 읽기, 본문 블록 app_feed_bodies, [번역] 하루 사용량 app_news_days(읽기·넣기·고치기)뿐이다.
+//   NEWS-모두에게열기 E1b(설계 news-for-all.md 14절, D1b 20261115150000): 공용 글 app_outside_articles·공용 문장 app_outside_article_sentences·
+//   공용 본문 app_outside_article_bodies(넣기·고치기)와 옛 id 지도 app_outside_id_map(넣기만). 글마다 한 번 모으고, 옮기는 동안 옛 표에도 같이 쓴다. 로그·응답에는 단계 코드·건수·단체 키만(제목·본문·주소 없음).
 import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSource } from "../_shared/outside-catalog.ts";
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
@@ -355,6 +357,100 @@ export function readTerms(v: unknown, query: string): string[] | null {
   return out;
 }
 
+// ---- 공용 글 한 벌(NEWS-모두에게열기 E1b, 설계 news-for-all.md 14절) ---------------------------------------------------
+// 글 내용(제목·요약·핵심 문장·문장·본문 블록·본문 번역)은 공용 표 app_outside_articles(작업공간 칸 없음, url 전체 유일)에 한 번만 모은다(service role만 씀).
+// 옮기는 동안(화면 ③ 전) 화면은 작업공간별 옛 표 app_outside_posts를 읽으므로 옛 표에도 같은 결과를 쓰고, 옛 줄마다 지도(app_outside_id_map) 1줄.
+// 같은 주소의 공용 글이 이미 있으면(다른 사람이 켠 단체로 먼저 들어옴·D1b 복사분) 글 쪽 읽기·AI 없이 그것을 옛 표에 옮겨 적는다(글마다 AI 1번).
+// 공용 표를 읽거나 쓰지 못하면(일시 장애) 옛 표 흐름은 그대로 간다(로그만).
+type Row = Record<string, unknown>;
+export const SHARED_SELECT = "id,url,source_key,kind,lang,title,title_ko,author,published_at,summary_ko,key_sentences,has_body,body_ko";
+const SHARED_POST_KEYS = ["source_key", "kind", "lang", "title", "title_ko", "author", "url", "published_at", "summary_ko", "key_sentences", "has_body", "body_ko"] as const;
+export async function sharedByUrl(db: Db, log: Log, urls: string[]): Promise<Map<string, Row>> {
+  const out = new Map<string, Row>();
+  const uniq = [...new Set(urls)];
+  try {
+    for (let i = 0; i < uniq.length; i += HAVE_CHUNK) {
+      for (const r of await db.get(`app_outside_articles?url=in.${encodeURIComponent(quoteIn(uniq.slice(i, i + HAVE_CHUNK)))}&select=${SHARED_SELECT}`)) {
+        if (typeof r.url === "string" && typeof r.id === "string" && UUID.test(r.id)) out.set(r.url, r);
+      }
+    }
+  } catch { log("shared_read_failed"); }
+  return out;
+}
+// 공용 글 한 줄 넣기(없을 때만). 돌려줌: 그 주소의 공용 글 id(새로 넣었으면 fresh). 못 쓰면 null.
+async function insertShared(db: Db, log: Log, post: Row): Promise<{ id: string; fresh: boolean } | null> {
+  const row: Row = { id: crypto.randomUUID() };
+  for (const k of SHARED_POST_KEYS) if (post[k] !== undefined) row[k] = post[k];
+  try {
+    const got = await db.send("POST", "app_outside_articles?on_conflict=url&select=id", row, "return=representation,resolution=ignore-duplicates");
+    if (typeof got[0]?.id === "string" && UUID.test(got[0].id)) return { id: got[0].id, fresh: true };
+    const have = (await db.get(`app_outside_articles?url=eq.${encodeURIComponent(String(post.url))}&select=id&limit=1`))[0];
+    return typeof have?.id === "string" && UUID.test(have.id) ? { id: have.id, fresh: false } : null;
+  } catch { log("shared_write_failed"); return null; }
+}
+async function saveSharedSentences(db: Db, log: Log, articleId: string, sentences: string[]) {
+  if (!sentences.length) return;
+  try {
+    await db.send("POST", "app_outside_article_sentences?on_conflict=article_id,idx", sentences.map((text, idx) => ({ article_id: articleId, idx, text })),
+      "return=minimal,resolution=ignore-duplicates");
+  } catch {
+    log("shared_sentences_failed");
+    try { await db.send("PATCH", `app_outside_articles?id=eq.${articleId}`, { has_body: false }, "return=minimal"); } catch { /* 다음 실행 */ }
+  }
+}
+// 공용 본문 블록(글마다 하나). merge: 새 결과로 고침(다시 뽑기의 ok 결과), 아니면 없을 때만.
+async function saveSharedBody(db: Db, log: Log, source: OutsideSource, articleId: string, ex: Extracted, nowIso: string, merge = false) {
+  if (source.extract === false) return;
+  const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(ex, { workspace_id: "" }, nowIso);
+  try {
+    await db.send("POST", "app_outside_article_bodies?on_conflict=article_id", { article_id: articleId, ...body, updated_at: nowIso },
+      `return=minimal,resolution=${merge ? "merge-duplicates" : "ignore-duplicates"}`);
+  } catch { log("shared_body_failed", { source: source.key }); }
+}
+// 옛 줄 → 공용 글 지도 1줄(있으면 무시). 작업공간은 그 옛 줄의 작업공간.
+async function mapOld(db: Db, log: Log, oldId: string, workspaceId: string, articleId: string) {
+  try {
+    await db.send("POST", "app_outside_id_map?on_conflict=old_id", { old_id: oldId, workspace_id: workspaceId, article_id: articleId }, "return=minimal,resolution=ignore-duplicates");
+  } catch { log("map_write_failed"); }
+}
+// 이미 있는 공용 글 → 그 글이 없는 작업공간마다 옛 줄(글 쪽 읽기·AI 없음). 문장·본문 블록도 공용 것을 옮긴다. 돌려줌: 넣은 줄 수.
+async function copyShared(db: Db, log: Log, source: OutsideSource, art: Row, workspaces: string[], saveBody: boolean, nowIso: string): Promise<number> {
+  const articleId = String(art.id);
+  const post: Row = {};
+  for (const k of SHARED_POST_KEYS) if (art[k] !== undefined && k !== "body_ko") post[k] = art[k];
+  let sentences: Row[] = [];
+  if (art.has_body === true) {
+    try { sentences = await db.get(`app_outside_article_sentences?article_id=eq.${articleId}&select=idx,text&order=idx.asc&limit=3001`); } catch { log("shared_read_failed"); }
+    if (!sentences.length) post.has_body = false;
+  }
+  let body: Row | undefined;
+  if (saveBody && source.extract !== false) {
+    try { body = (await db.get(`app_outside_article_bodies?article_id=eq.${articleId}&select=blocks,state,reason,rule,chars,images,extracted_at&limit=1`))[0]; } catch { log("shared_read_failed"); }
+  }
+  let n = 0;
+  for (const w of workspaces) {
+    const made = await db.send("POST", "app_outside_posts?on_conflict=workspace_id,url&select=id,workspace_id", { workspace_id: w, ...post }, "return=representation,resolution=ignore-duplicates");
+    const id = made[0]?.id;
+    if (typeof id !== "string") continue;
+    n++;
+    await mapOld(db, log, id, w, articleId);
+    if (body) {
+      try { await db.send("POST", "app_feed_bodies?on_conflict=outside_post_id", { workspace_id: w, outside_post_id: id, news_item_id: null, ...body }, "return=minimal,resolution=ignore-duplicates"); }
+      catch { log("body_failed", { source: source.key }); }
+    }
+    if (sentences.length) {
+      try {
+        await db.send("POST", "app_outside_sentences", sentences.map((x) => ({ post_id: id, workspace_id: w, lang: "ko", idx: x.idx, text: x.text })), "return=minimal");
+      } catch {
+        log("sentences_failed", { source: source.key });
+        await db.send("PATCH", `app_outside_posts?id=eq.${id}`, { has_body: false });
+      }
+    }
+  }
+  log("shared_reused", { source: source.key, rows: n });
+  return n;
+}
+
 // ---- 예약 실행 ------------------------------------------------------------------------------------------------------
 
 
@@ -368,10 +464,21 @@ async function pruneOld(db: Db, nowMs: number): Promise<number> {
   await db.send("PATCH", `app_outside_posts?id=in.(${ids.join(",")})`, { has_body: false });
   return ids.length;
 }
+// 공용 글도 같은 규칙(2년 지난 국내 글: 문장 지우고 has_body=false). 실패해도 옛 표 정리는 그대로.
+async function pruneOldShared(db: Db, nowMs: number): Promise<number> {
+  const cutoff = new Date(nowMs - OLD_DAYS * 86400000).toISOString();
+  const old = await db.get(`app_outside_articles?has_body=is.true&lang=eq.ko&or=(published_at.lt.${encodeURIComponent(cutoff)},and(published_at.is.null,fetched_at.lt.${encodeURIComponent(cutoff)}))&select=id&limit=${PRUNE_BATCH}`);
+  const ids = old.map((r) => r.id).filter((id): id is string => typeof id === "string" && UUID.test(id));
+  if (!ids.length) return 0;
+  await db.send("DELETE", `app_outside_article_sentences?article_id=in.(${ids.join(",")})`);
+  await db.send("PATCH", `app_outside_articles?id=in.(${ids.join(",")})`, { has_body: false });
+  return ids.length;
+}
 
 async function runPlan(db: Db, nowMs: number, log: Log) {
   let pruned = 0;
   try { pruned = await pruneOld(db, nowMs); } catch { log("prune_failed"); }
+  try { await pruneOldShared(db, nowMs); } catch { log("shared_prune_failed"); }
   const rows = await db.get("app_outside_sources?enabled=is.true&select=source_key");
   const on = new Set(rows.map((r) => r.source_key));
   return { ok: true, sources: OUTSIDE_CATALOG.filter((s) => on.has(s.key)).map((s) => s.key), pruned };
@@ -404,6 +511,7 @@ async function redateUndated(db: Db, reader: Reader, source: OutsideSource, work
   let n = 0;
   const patch = async (url: string, at: string) => {
     await db.send("PATCH", `app_outside_posts?source_key=eq.${source.key}&url=eq.${encodeURIComponent(url)}&published_at=is.null&workspace_id=in.(${workspaces.join(",")})`, { published_at: at }, "return=minimal");
+    try { await db.send("PATCH", `app_outside_articles?url=eq.${encodeURIComponent(url)}&published_at=is.null`, { published_at: at }, "return=minimal"); } catch { /* 공용 표 일시 장애 — 다음 실행 */ }
     n++;
   };
   for (const u of fromList) await patch(u, listed.get(u)!);
@@ -511,6 +619,9 @@ async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSou
     const it: ListItem = { url, title: list[0].title, kind: "statement", published_at: null, author: null, summary: null, content: null };
     let ex = postBody(source, it, page);
     if (!ex.rule) ex = { ...ex, rule: current };
+    // 공용 본문: ok 결과만 새 것으로 고치고, 못 읽은 결과는 블록이 없을 때만(읽힌 본문을 덮지 않음).
+    const art = (await sharedByUrl(db, log, [url])).get(url);
+    if (art) await saveSharedBody(db, log, source, String(art.id), ex, nowIso, ex.state === "ok");
     for (const p of list) {
       if (p.wasOk && ex.state !== "ok") { log("refill_kept", { source: source.key }); continue; } // 옛 ok 본문을 실패로 덮지 않음
       try {
@@ -619,10 +730,19 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
   out.fresh = todo.filter((x) => x.ws.length).length;
 
   const pageTried = new Map<string, string | null>(); // 이번 실행에서 글 쪽을 읽은 글 → 찾은 게시 날짜
+  // 공용 글(E1b): 새로 넣을 글 주소의 공용 글을 한 번에 찾는다.
+  const shared = await sharedByUrl(db, ai.log, todo.filter((x) => x.ws.length).map((x) => x.it.url));
   // 3) 새 글마다 글 페이지 1번 + AI 1번 → 필요한 작업공간마다 넣기.
   const cutoff = nowMs - OLD_DAYS * 86400000;
   for (const [n, { it, ws, again }] of todo.entries()) {
     if (n >= maxNew || clock() - startMs > budget) { out.deferred = todo.length - n; break; }
+    // 같은 주소 공용 글이 이미 있으면 글 쪽·AI 없이 옮겨 적기만(제목 다시 채우기가 걸린 글은 아래 흐름으로).
+    const art = shared.get(it.url);
+    if (art && ws.length && !again.length) {
+      const pub = typeof art.published_at === "string" ? art.published_at : null;
+      out.inserted += await copyShared(db, ai.log, source, art, ws, !(pub !== null && Date.parse(pub) < cutoff), nowIso);
+      continue;
+    }
     // 본문: 피드 본문(200자 이상)이 있으면 그것, 없으면 글 페이지 1번 읽어 본문 칸을 뽑는다(국내·외국 같음 — 외국 글은 본문을 AI 재료로만 쓰고 버림).
     // 본문(NEWS-전면개편 P2b): 공용 추출기 한 번 → 화면 블록(app_feed_bodies)·문장 표·AI 재료가 같은 결과를 쓴다.
     // 피드 본문(200자 이상)·텔레그램 글은 글 쪽을 읽지 않고 그것으로, 아니면 글 쪽 1번(국내·외국 같음).
@@ -671,6 +791,11 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
         await db.send("PATCH", `app_outside_posts?id=eq.${a.id}`, patch);
         out.refilled++;
       }
+      // 공용 글도 같은 제목으로(요약은 비어 있을 때만).
+      try {
+        await db.send("PATCH", `app_outside_articles?url=eq.${encodeURIComponent(it.url)}`, { title }, "return=minimal");
+        if (fresh) await db.send("PATCH", `app_outside_articles?url=eq.${encodeURIComponent(it.url)}&summary_ko=is.null`, { summary_ko: fresh }, "return=minimal");
+      } catch { ai.log("shared_write_failed"); }
     }
     if (!ws.length) continue;
     const rows: Record<string, unknown>[] = [];
@@ -691,12 +816,24 @@ async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSour
       if (!intro) { out.skipped++; continue; } // AI가 없거나 답 모양이 틀림 — 넣지 않고 다음 실행에 다시 본다.
       for (const w of ws) rows.push({ workspace_id: w, source_key: source.key, kind: "article", lang: "en", title, title_ko: intro.title_ko, author: it.author, url: it.url, published_at: published, summary_ko: intro.summary_ko, key_sentences: intro.key_sentences, has_body: false, _sentences: [], _saveBody: !(published !== null && Date.parse(published) < cutoff) });
     }
+    // 공용 글 한 줄(글마다 한 번 — 위 AI 결과 그대로), 공용 문장·본문 블록.
+    let artId: string | null = null;
+    if (rows.length) {
+      const { _sentences: sents, _saveBody: keepBody, workspace_id: _ws, ...first } = rows[0] as Record<string, unknown> & { _sentences: string[]; _saveBody: boolean };
+      const got = await insertShared(db, ai.log, first);
+      artId = got?.id ?? null;
+      if (got?.fresh) {
+        await saveSharedSentences(db, ai.log, got.id, sents);
+        if (keepBody) await saveSharedBody(db, ai.log, source, got.id, ex, nowIso);
+      }
+    }
     for (const row of rows) {
       const { _sentences, _saveBody, ...post } = row as Record<string, unknown> & { _sentences: string[]; _saveBody: boolean };
       const made = await db.send("POST", "app_outside_posts?on_conflict=workspace_id,url&select=id,workspace_id", post, "return=representation,resolution=ignore-duplicates");
       const id = made[0]?.id;
       if (typeof id !== "string") continue; // 그 사이 다른 실행이 넣음
       out.inserted++;
+      if (artId) await mapOld(db, ai.log, id, String(post.workspace_id), artId);
       if (_saveBody) await saveBody(db, ai.log, source, ex, String(post.workspace_id), id, nowIso);
       if (_sentences.length) {
         try {
@@ -831,10 +968,18 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         // [번역](S52-36): 그 사람 작업공간의 영어 소식 하나(글 id만 받음, 주소·작업공간 값 없음). 본문 번역이 이미 있으면 저장본(다시 부르지 않음).
         if (!exactKeys(b, ["id"]) || typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
         const ws = who.workspaceId;
-        const post = (await db.get(`app_outside_posts?id=eq.${b.id}&workspace_id=eq.${ws}&select=id,lang,title,title_ko,body_ko&limit=1`))[0];
+        const post = (await db.get(`app_outside_posts?id=eq.${b.id}&workspace_id=eq.${ws}&select=id,lang,url,title,title_ko,body_ko&limit=1`))[0];
         if (!post) throw new Fail(404, "NOT_FOUND");
         if (typeof post.body_ko === "string" && post.body_ko) return json({ ok: true, status: "stored" });
         if (post.lang === "ko") throw new Fail(409, "NOT_FOREIGN");
+        // NEWS-모두에게열기 E1b: 같은 주소 공용 글에 본문 번역이 이미 있으면(다른 사람이 먼저 누름) 옮겨 적기만 — 다시 번역하지 않고 하루 한도도 쓰지 않는다.
+        const art = typeof post.url === "string" ? (await sharedByUrl(db, log, [post.url])).get(post.url) : undefined;
+        if (art && typeof art.body_ko === "string" && art.body_ko) {
+          const copy: Record<string, unknown> = { body_ko: art.body_ko };
+          if (!(typeof post.title_ko === "string" && post.title_ko) && typeof art.title_ko === "string" && art.title_ko) copy.title_ko = art.title_ko;
+          await db.send("PATCH", `app_outside_posts?id=eq.${post.id}&workspace_id=eq.${ws}`, copy, "return=minimal");
+          return json({ ok: true, status: "stored" });
+        }
         const fb = (await db.get(`app_feed_bodies?outside_post_id=eq.${post.id}&workspace_id=eq.${ws}&select=blocks&limit=1`))[0];
         const text = blocksText(fb?.blocks);
         if (!text) throw new Fail(409, "NOTHING_TO_TRANSLATE");
@@ -863,6 +1008,13 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         const patch: Record<string, unknown> = { body_ko: got.tr.body_ko };
         if (!hadTitle && got.tr.title_ko) patch.title_ko = got.tr.title_ko;
         await db.send("PATCH", `app_outside_posts?id=eq.${post.id}&workspace_id=eq.${ws}`, patch, "return=minimal");
+        // 공용 글에도 저장(비어 있을 때만) → 두 번째 사람은 저장본을 읽는다.
+        if (art) {
+          try {
+            await db.send("PATCH", `app_outside_articles?id=eq.${art.id}&lang=eq.en&body_ko=is.null`,
+              { body_ko: got.tr.body_ko, ...(art.title_ko ? {} : { title_ko: patch.title_ko ?? post.title_ko ?? null }) }, "return=minimal");
+          } catch { log("shared_write_failed"); }
+        }
         return json({ ok: true, status: "translated", engine: got.engine });
       }
       // expand: 찾는 말 하나 → 비슷한 말 3~6개(설계 3.3). 1~100자, 사람마다 하루 EXPAND_DAILY_PER_USER번.
