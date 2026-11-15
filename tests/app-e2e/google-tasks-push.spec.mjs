@@ -259,8 +259,29 @@ test('Google Tasks missing scope shows an explicit reconnect action',async({page
   await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
-  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없어요');
-  await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
+  await expect(page.locator('#gtTaskSection')).toContainText('구글 할 일 권한이 빠졌어요');
+  await expect(page.locator('[data-gt-connect]')).toHaveText('구글 할 일 다시 연결');
+});
+
+// S62-16 TASK-구글할일연결문구: 한 번도 연결 안 한 새 계정은 '다시' 없이 [구글 할 일 연결], 글 한 줄 → 아래 버튼(공용 부품).
+test('never-connected account sees connect, not reconnect',async({page})=>{
+  await mock(page);
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const u=new URL(route.request().url());
+    const action=u.searchParams.get('action');
+    const body=action==='status'?{connected:false,authorized:false}:{connected:false,authorized:false,tasks:[]};
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+  });
+  await login(page);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
+  const note=page.locator('#gtTaskBody [data-connect-note]');
+  await expect(note.locator('.connect-note-line')).toHaveText('구글 할 일을 연결하면 여기서 같이 볼 수 있어요.');
+  await expect(page.locator('[data-gt-connect]')).toHaveText('구글 할 일 연결');
+  await expect(page.locator('#gtTaskSection')).not.toContainText('다시 연결');
+  // 글 한 줄 아래에 버튼(같은 줄에 붙지 않음).
+  const [line,btn]=await Promise.all([note.locator('.connect-note-line').boundingBox(),page.locator('[data-gt-connect]').boundingBox()]);
+  expect(btn.y).toBeGreaterThanOrEqual(line.y+line.height-1);
 });
 
 test('direct A-to-B session switch discards a stale Google Tasks response',async({page})=>{
