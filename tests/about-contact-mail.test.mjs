@@ -65,3 +65,16 @@ test('처리방침·소개에 명진 확정 문장: 운영자는 가입만 보�
   assert.match(privacy, /AI 처리 업체\(OpenAI\) API로 보내 결과를 받습니다/, 'AI 처리 문장은 지우지 않는다');
   assert.doesNotMatch(privacy, /이메일 주소와 작업공간의 기록은 보지 않습니다/, '확정 문장과 어긋나는 옛 가입자 목록 문장');
 });
+
+// S62-31 ABOUT-현재맞춤(명진 11/16): 소개·처리방침·약관이 지금 운영 상태와 맞아야 한다.
+// 누구나 가입(막은 계정 제외)·광고 없음·요금제 준비 중. 인원 숫자·'비영리'·'운영자가 준비한 사람만' 같은 옛 문장은 다시 들어오지 않는다.
+test('소개 페이지들은 지금 가입·요금 상태와 맞는 문장만 쓴다', () => {
+  for (const file of ABOUT_PAGES) {
+    const html = read(file);
+    assert.doesNotMatch(html, /10명|비영리|준비한 사람만|새로 가입할 수 없/, `${file}: 지금과 맞지 않는 옛 문장`);
+    assert.doesNotMatch(html, /\d[\d,]*\s*원/, `${file}: 요금 금액은 확정 전이라 쓰지 않는다`);
+  }
+  const about = read('about/index.html');
+  assert.match(about, /누구나 가입할 수 있습니다\(운영자가 막은 계정 제외\)/);
+  assert.match(about, /광고가 없습니다\. 요금제는 준비 중입니다\./);
+});
