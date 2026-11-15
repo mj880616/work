@@ -114,7 +114,8 @@ test('weekly own form: the original file id is saved with the form; editing with
   assert.equal(sent[3].body.source_file_id,null,'a malformed id is never sent');
 });
 
-test('screen code: the text window waits for a form; the upload goes through saveUnionForm; no browser storage',()=>{
+// 기기 저장소를 쓰지 않는지는 browser-storage-audit 워크플로가 app/ 전체를 본다.
+test('screen code: the text window waits for a form; the upload goes through saveUnionForm',()=>{
   const lab=readFileSync(new URL('../app/hwp-lab.js',import.meta.url),'utf8');
   const start=lab.slice(lab.indexOf('async function startConvert'),lab.indexOf('async function runConvert'));
   assert.ok(start.indexOf('findUnionTemplate')<start.indexOf('openFormUploadDialog'));
@@ -122,6 +123,4 @@ test('screen code: the text window waits for a form; the upload goes through sav
   assert.match(start,/saveUnionForm/);
   const journal=readFileSync(new URL('../app/journal.js',import.meta.url),'utf8');
   assert.match(journal,/saveUnionForm\(file/);
-  for(const name of ['hwp-drive.js','hwp-convert.js','hwp-lab.js'])
-    assert.doesNotMatch(readFileSync(new URL('../app/'+name,import.meta.url),'utf8'),/localStorage|sessionStorage|indexedDB/);
 });
