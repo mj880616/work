@@ -38,7 +38,7 @@ test('홈 첫 화면이 보이기 전에는 주간 정리 모듈을 받지 않�
   await page.waitForFunction(() => !!document.querySelector('#journalRoot') && window.KPTUJournal);
   await page.locator('#journalRoot [data-journal-mode="week"]').click();
   await expect(chapters(page)).toHaveText(['1. 요청사항', '2. 기본·영역·의제 사업', '3. 투쟁 사업장 현황', '4. 산하 조직 현황', '5. 주요 일정']);
-  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 5일 월요일 ~ 10월 11일 일요일');
+  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 5일 월요일 ~ 10월 11일 일요일');
   await expect(page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-confirm]')).toBeVisible();
   await page.locator('#journalRoot [data-journal-mode="day"]').click();
   await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
@@ -55,7 +55,7 @@ test('[주간 정리] 첫 클릭 때 모듈이 아직 오는 중이면 기다림
   await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
   await page.locator('#journalRoot [data-journal-mode="week"]').click();
   await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 5일 월요일 ~ 10월 11일 일요일');
+  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 5일 월요일 ~ 10월 11일 일요일');
   await expect(weekly(page).locator('[data-journal-kit-wait] [data-wait]')).toBeVisible();
   await expect(chapters(page)).toHaveCount(0);
   release();

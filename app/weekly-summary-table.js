@@ -39,7 +39,7 @@ const self={};
 // 큰 칸은 진짜 표와 같은 머리글·제목 글자·칸 폭의 표 모양(biz-week-skeleton.mjs, 사업 과제 4줄), 홈 작은 상자는 기다림 줄. 그리는 곳은 이 부품 하나(자리 → renderPaper가 같은 칸을 표로 바꿈).
 const skeletonHtml=()=>compact?waitHtml({rows:4,h:51}):paperSkeletonHtml();
 const $in=sel=>box?.querySelector(sel);
-const JOURNAL_FOOT='<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>';
+const JOURNAL_FOOT='<button type="button" class="biz-week-go" data-bw-journal>주간 보고에서 보기 ›</button>';
 
 function ensureBox(el){
   if(box===el)return box;
