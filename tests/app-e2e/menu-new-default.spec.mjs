@@ -19,7 +19,7 @@ for(const width of [360,412]){
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await openHome(page,{features:[],menuLayout:null});
-    await expect.poll(()=>tabLabels(page)).toEqual(['홈','노트','일정','조직 보고','사업 보고','메뉴']);
+    await expect.poll(()=>tabLabels(page)).toEqual(['홈','노트','일정','조직 관리','사업 관리','메뉴']);
     await shot(page,`${width}-1-bar`);
     // [노트] 칸을 누르면 노트가 열리고 그 칸이 켜진다.
     await page.locator('.mobile-tabs [data-basket-kind-nav="note"]').click();
@@ -53,7 +53,7 @@ for(const width of [840,1280]){
 test('메뉴 순서를 저장해 둔 사람(운영자)은 그대로: 하단바 홈·잊지 말기·일정·사업 보고·조직 보고',async({page})=>{
   await page.setViewportSize({width:412,height:900});
   const {prefs}=await openHome(page,{features:OPERATOR_MENU_FEATURES});
-  await expect.poll(()=>tabLabels(page)).toEqual(['홈','잊지 말기','일정','사업 보고','조직 보고','메뉴']);
+  await expect.poll(()=>tabLabels(page)).toEqual(['홈','잊지 말기','일정','사업 관리','조직 관리','메뉴']);
   await page.locator('#mobileMenuTab').click();
   await expect.poll(()=>sheetIds(page)).toEqual(['note','library','files','brief','hwp','pages','photos','outside','LINE','calls','telegram','arsenal']);
   await shot(page,'412-3-saved-operator');

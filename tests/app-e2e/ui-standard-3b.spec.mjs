@@ -61,7 +61,7 @@ test('폰 하단 탭 6칸: 탭 아이콘 색, [메뉴] 탭이 메뉴 창을 열�
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
  // MULTI-하단바기본노트(명진 11/13 15:24): 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·조직 보고·사업 보고.
- await expect(tabs).toHaveText(['홈','노트','일정','조직 보고','사업 보고','메뉴']);
+ await expect(tabs).toHaveText(['홈','노트','일정','조직 관리','사업 관리','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
  const tabColor=view=>page.locator(view==='note'?'.mobile-tabs [data-basket-kind-nav="note"] svg':`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);

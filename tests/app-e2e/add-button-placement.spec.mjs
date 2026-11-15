@@ -191,7 +191,7 @@ for(const width of [390,1440]){
     });
     test('project list card keeps archive and add action after redraw',async({page})=>{
       // MTG-프로젝트합치기 ①(10/29 시안): 사업영역 관리는 사업 보고 위 창이다. [+ 사업영역]은 창 머리줄(제목 오른쪽, ✕ 왼쪽)에 작고 낮게(32px, 누르는 범위 44px),
-      // 폰은 머리 '‹ 사업 보고 · 사업영역 관리 · +'(둥근 [+] 떠 있는 버튼이 아님). [보관 n]은 지금처럼 목록 머리줄.
+      // 폰은 머리 '‹ 사업 관리 · 사업영역 관리 · +'(둥근 [+] 떠 있는 버튼이 아님). [보관 n]은 지금처럼 목록 머리줄.
       await openApp(page,'projects');
       const card='#projectGrid .ps3-plist',head='.add-list-head',title='[data-ps3-total]';
       const checkActions=async()=>{

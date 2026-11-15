@@ -308,7 +308,7 @@ for(const width of [390,412,900,1280])test(`화면 전체 ⋯(담당조직 메�
   expect(m.x).toBeGreaterThan(name.x+name.width);
   if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
  }else{
-  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('조직 보고');
+  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('조직 관리');
   // UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄이 화면 이름을 맡아 본문 큰 제목은 읽기 프로그램용(잘라 숨김), 중간 폭은 제목 줄 그대로.
   if(width>=761){
    await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');

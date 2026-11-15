@@ -18,7 +18,7 @@ export const ITEMS = Object.freeze([
   {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
-  {id: 'meetings', label: '사업 보고', view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
+  {id: 'meetings', label: '사업 관리', view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
   // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(명진 결정 F5, 설계 docs/design/files-explorer.md).
   // S62-11 MULTI-구글드라이브사진모두(명진 11/14 22:18): [파일]은 모두에게 — 각자 자기 드라이브·자기 작업공간만(서버 cloud-files·RLS가 owner로 막음).
@@ -26,7 +26,7 @@ export const ITEMS = Object.freeze([
   // BRIEF-브리핑룸 ③(명진 결정 11/13 18:07 ③ 메뉴에 '브리핑 룸'): 처음 자리는 자료실 묶음 — [파일]이 자료실 바로 아래(F5)라 그 다음.
   {id: 'brief', label: '브리핑 룸', view: 'brief', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2'},
   {id: 'pages', label: '공유 페이지', view: 'pages', icon: 'M4 4h16v16H4zM4 10h16M10 10v10'},
-  {id: 'team', label: '조직 보고', view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
+  {id: 'team', label: '조직 관리', view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
   {id: 'hwp', label: 'HWP 편집', view: 'hwp', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7'},
   // MULTI-처음쓰는사람 ④(명진 11/13 16:25 "원장도 빼, 나한테도 불필요"): [원장]은 모든 계정의 메뉴 목록에서 뺐다. 원장 화면(라우터 ledger)·자동 기록·데이터와
   // 다른 화면에서 여는 길(업무일지의 원장 줄·전체 검색·잊지 말기의 '원장으로')은 그대로다. 저장된 메뉴 순서의 'ledger'는 모르는 이름이라 버려진다.
