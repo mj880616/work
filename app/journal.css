@@ -163,6 +163,26 @@
 #appView #homeView .journal-own-form > .row-act{ margin:4px 10px; }
 #appView #homeView .journal-own-form-foot{ display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px; padding:8px 10px; border-top:1px solid var(--kptu-border); }
 #appView #homeView .journal-own-form-foot > .journal-muted:first-child{ flex-basis:100%; }
+/* WEEKLY-내양식자유변형 ④-2: 내 양식 그대로 그 주 초안(weekly-own-draft.js, 시안 ③). 노란 칸 = 이번 주 기록에서 채운 곳(톤다운 경고 바탕). */
+#appView #homeView .journal-own-draft{ margin-top:8px; }
+#appView #homeView .journal-own-draft-help{ margin:0 0 2px; }
+#appView #homeView .journal-own-draft-mark{ padding:0 3px; border-radius:3px; background:var(--kptu-warning-soft); color:var(--kptu-ink); }
+#appView #homeView .journal-own-draft-note{ margin:0; }
+#appView #homeView .journal-own-draft-note:empty{ display:none; }
+#appView #homeView .journal-own-draft-section{ margin-top:8px; min-width:0; }
+#appView #homeView .journal-own-draft-section.is-sub{ padding-left:12px; }
+#appView #homeView .journal-own-draft-title{ margin:0 0 2px; font-size:var(--kptu-text-body); font-weight:600; color:var(--kptu-ink); }
+#appView #homeView .journal-own-draft-cell{ display:block; width:100%; min-height:28px; margin:0; padding:2px 6px; border:1px solid transparent; border-radius:4px; background:none; color:var(--kptu-ink); font:inherit; font-size:var(--kptu-text-body); line-height:1.5; text-align:left; white-space:normal; overflow-wrap:anywhere; cursor:text; }
+#appView #homeView .journal-own-draft-cell:hover:not(:disabled), #appView #homeView .journal-own-draft-cell:focus-visible{ border-color:var(--kptu-border); }
+#appView #homeView .journal-own-draft-cell:disabled{ cursor:default; opacity:1; }
+#appView #homeView .journal-own-draft-cell.is-filled{ background:var(--kptu-warning-soft); }
+#appView #homeView .journal-own-draft-line{ display:block; }
+#appView #homeView .journal-own-draft-input{ display:block; width:100%; box-sizing:border-box; font-size:var(--kptu-text-body); }
+#appView #homeView .journal-own-draft-table-wrap{ overflow-x:auto; }
+#appView #homeView .journal-own-draft-table{ width:100%; border-collapse:collapse; font-size:var(--kptu-text-body); }
+#appView #homeView .journal-own-draft-table th, #appView #homeView .journal-own-draft-table td{ border:1px solid var(--kptu-border); padding:1px; vertical-align:top; }
+#appView #homeView .journal-own-draft-table th{ padding:3px 6px; background:var(--kptu-surface-subtle); font-weight:600; text-align:left; white-space:nowrap; }
+#appView #homeView .journal-own-draft-section > .row-act{ margin-top:2px; }
 #appView #homeView .journal-weekly-day{ display:inline-block; min-width:5.2em; margin-right:6px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
 /* JOURNAL-회의종류표시: 회의 줄 끝의 작은 ⋯ (누르면 작은 글자 버튼 하나) + 이 주 뺀 회의 종류 줄. 새 크기 값 없음(UI-버튼기준).
    ⋯ 는 줄이 촘촘해 44px 확장(::after)을 쓰면 위아래 줄의 ⋯ 가 서로 가리므로, 보이는 28px 칸 자체를 누르는 범위로 둔다. */

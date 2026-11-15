@@ -1830,14 +1830,105 @@ test('[주간 정리] 한글 파일: [확정 없이 파일만 받기]·[확정�
  expect(f.errors).toEqual([]);
 });
 
+// WEEKLY-내양식자유변형 ④-2(S62-28b, 시안 ③): 내 양식이 있으면 백지 아래에 내 양식 그대로 그 주 초안 — 노란 칸 = 이번 주 기록에서 채운 곳,
+// 칸을 눌러 수정하면 고친 항목만 app_weekly_own_drafts에 읽은 판 조건으로 저장. 지난주 고친 글은 '지난주 글 그대로' 항목에.
+const OWN_FORM_ROW={id:'form-1',name:'가상 주간 보고',source_name:null,source_file_id:null,updated_at:'2026-10-01T00:00:00Z',form:{v:1,sections:[
+ {id:'s1',title:'1. 이번 주 활동',level:1,columns:[],fill:'org'},
+ {id:'s2',title:'2. 주요 일정',level:1,columns:['날짜','내용','장소'],fill:'schedule'},
+ {id:'s3',title:'3. 기타',level:1,columns:[],fill:'last_week'},
+ {id:'s4',title:'4. 메모',level:1,columns:['구분','내용'],fill:'blank'}]}};
+async function ownDraftFixture(page,{width,calendarGate=null}={}){
+ const f=await hwpxFixture(page,{width,noConfirmed:true});
+ const drafts=[],state={row:null,conflict:false,reads:[]};
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>r.request().method()==='GET'?r.fulfill({json:[OWN_FORM_ROW]}):r.fallback());
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_own_drafts',r=>{
+  const m=r.request().method(),query=Object.fromEntries(new URL(r.request().url()).searchParams);
+  const last={id:'d-last',week_start:'2026-09-28',sections:[{id:'s3',lines:['- 지난주에 쓴 가상 줄'],rows:null}],updated_at:'2026-10-02T00:00:00Z'};
+  if(m==='GET'){state.reads.push(query);return r.fulfill({json:[last,...(state.row?[state.row]:[])]});}
+  const body=r.request().postDataJSON();drafts.push({method:m,query,body});
+  if(m==='PATCH'&&state.conflict){state.row={...state.row,sections:[{id:'s1',lines:['- 다른 기기에서 쓴 줄'],rows:null}],updated_at:'2026-10-05T09:00:00Z'};return r.fulfill({json:[]});}
+  state.row={id:'d-1',week_start:'2026-10-05',...(state.row??{}),...body,updated_at:'2026-10-05T00:00:0'+drafts.length+'Z'};
+  return r.fulfill({status:m==='POST'?201:200,json:[state.row]});
+ });
+ if(calendarGate)await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-calendar',async r=>{await calendarGate;return r.fallback();});
+ return {...f,drafts,state};
+}
+const ownSection=(page,id)=>page.locator(`#journalRoot [data-own-draft] [data-own-draft-section="${id}"]`);
+for(const width of [412,880,1280])test(`[주간 보고] 내 양식이 있으면 그 모양 그대로 그 주 초안 — 노란 칸·칸 눌러 수정·지난주 글 ${width}`,async({page})=>{
+ const f=await ownDraftFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);
+ const weekly=page.locator('#journalRoot [data-journal-weekly]').first(),draft=weekly.locator('[data-own-draft]');
+ await expect(weekly.locator('[data-weekly-own-form-saved]')).toHaveText('내 양식 · 가상 주간 보고 · 항목 4개 양식 수정');
+ await expect(draft.locator('.journal-own-draft-title')).toHaveText(['1. 이번 주 활동','2. 주요 일정','3. 기타','4. 메모']);
+ await expect(draft.locator('.journal-own-draft-help')).toHaveText('노란 칸 = 이번 주 기록에서 채운 곳 · 칸을 눌러 수정');
+ expect(f.state.reads[0]).toMatchObject({workspace_id:'eq.w',week_start:'in.(2026-09-28,2026-10-05)'});
+ // 1. 조직 보고 → 노란 칸 줄 목록, 3. 지난주 글 그대로 → 지난주 고친 글(노란 칸 아님), 4. 빈칸 표 → 머리 칸만
+ const s1=ownSection(page,'s1').locator('.journal-own-draft-cell');
+ await expect(s1).toHaveClass(/is-filled/);await expect(s1.locator('.journal-own-draft-line').first()).toHaveText(/^- \d+\/\d+ /);
+ await expect(ownSection(page,'s3').locator('.journal-own-draft-cell')).toHaveText('- 지난주에 쓴 가상 줄');
+ await expect(ownSection(page,'s3').locator('.journal-own-draft-cell')).not.toHaveClass(/is-filled/);
+ await expect(ownSection(page,'s4').locator('th')).toHaveText(['구분','내용']);await expect(ownSection(page,'s4').locator('tbody tr')).toHaveCount(0);
+ await expect(ownSection(page,'s2').locator('th')).toHaveText(['날짜','내용','장소']);
+ // 다른 팀 양식 글자 없음
+ for(const word of ['요청사항','임원 배정','상집','투쟁 사업장','기본·영역·의제'])await expect(weekly).not.toContainText(word);
+ if(process.env.OWN_DRAFT_SHOT)await page.screenshot({path:`docs/design/screens/s62-28/own-draft-${width}.png`,fullPage:true});
+ // 1. 항목 눌러 수정 → 처음 넣기(POST), 고친 항목만, 글만
+ await s1.click();
+ const area=ownSection(page,'s1').locator('textarea');await area.fill('- 가상으로 고친 줄\n- 둘째 줄');await area.blur();
+ await expect(draft.locator('[data-own-draft-note]')).toHaveText('저장했어요.');
+ expect(f.drafts[0]).toMatchObject({method:'POST',body:{workspace_id:'w',week_start:'2026-10-05',sections:[{id:'s1',lines:['- 가상으로 고친 줄','- 둘째 줄'],rows:null}]}});
+ expect(Object.keys(f.drafts[0].body).sort()).toEqual(['sections','week_start','workspace_id']);
+ await expect(ownSection(page,'s1').locator('.journal-own-draft-line')).toHaveText(['- 가상으로 고친 줄','- 둘째 줄']);
+ await expect(ownSection(page,'s1').locator('.journal-own-draft-cell')).not.toHaveClass(/is-filled/);
+ // 4. [+ 줄] → 칸 하나 쓰기 → 읽은 판 조건 고치기(PATCH, 작업공간·주는 보내지 않음)
+ await ownSection(page,'s4').getByRole('button',{name:'4. 메모 줄 추가'}).click();
+ const cell=ownSection(page,'s4').locator('input');await cell.fill('가상 구분');await cell.press('Enter');
+ await expect(ownSection(page,'s4').locator('tbody tr')).toHaveCount(1);
+ await expect(ownSection(page,'s4').locator('tbody td').first()).toHaveText('가상 구분');
+ expect(f.drafts[1]).toMatchObject({method:'PATCH',query:{workspace_id:'eq.w',id:'eq.d-1',updated_at:'eq.2026-10-05T00:00:01Z'},body:{sections:[{id:'s1'},{id:'s4',lines:null,rows:[['가상 구분','']]}]}});
+ expect(Object.keys(f.drafts[1].body)).toEqual(['sections']);
+ // Escape는 고치지 않음
+ await ownSection(page,'s4').locator('tbody td').nth(1).locator('button').click();
+ await ownSection(page,'s4').locator('input').fill('버릴 글');await ownSection(page,'s4').locator('input').press('Escape');
+ await expect(ownSection(page,'s4').locator('tbody td').nth(1)).toHaveText('');expect(f.drafts.length).toBe(2);
+ // 그사이 다른 기기가 고쳤으면: 0행 → 다시 읽은 서버 글 + 한 줄
+ f.state.conflict=true;
+ await ownSection(page,'s4').locator('tbody td').nth(1).locator('button').click();
+ await ownSection(page,'s4').locator('input').fill('늦은 글');await ownSection(page,'s4').locator('input').press('Enter');
+ await expect(draft.locator('[data-own-draft-note]')).toHaveText('다른 기기에서 먼저 수정했어요. 새로 불러온 글을 확인해 주세요.');
+ await expect(ownSection(page,'s1').locator('.journal-own-draft-line')).toHaveText(['- 다른 기기에서 쓴 줄']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[주간 보고] 내 양식 초안: 일정이 늦게 오면 그 항목만 다시 그리고, 고치는 중인 항목은 그대로',async({page})=>{
+ let open;const gate=new Promise(r=>{open=r;});
+ const f=await ownDraftFixture(page,{width:412,calendarGate:gate});
+ await openJournal(page,412);await openWeekly(page);
+ const s1=ownSection(page,'s1'),s2=ownSection(page,'s2');
+ await expect(s1.locator('.journal-own-draft-cell')).toHaveClass(/is-filled/);
+ await expect(s2.locator('[data-wait]')).toHaveCount(1);
+ await s1.locator('.journal-own-draft-cell').click();await s1.locator('textarea').fill('- 고치는 중');
+ await s1.evaluate(n=>{n.dataset.mark='kept';});
+ open();
+ await expect(s2.locator('th')).toHaveText(['날짜','내용','장소']);
+ await expect(s2.locator('tbody tr').first()).toBeVisible();
+ await expect(s2.locator('.journal-own-draft-cell.is-filled').first()).toBeVisible();
+ await expect(s1.locator('textarea')).toHaveValue('- 고치는 중');
+ expect(await s1.getAttribute('data-mark')).toBe('kept');
+ expect(f.drafts).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 바탕(자료실 확정본)이 있는 사람은 지금 화면 그대로 — 백지·올리기 줄 없이 양식 칸이 다 보인다.
 for(const width of [412,1280])test(`[주간 보고] 바탕이 있으면 백지 없이 지금 화면 그대로 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
+ // ④-2: 바탕이 있는 사람(명진)은 내 양식·내 양식 초안을 읽지도 그리지도 않는다.
+ const own=[];page.on('request',q=>{if(/\/rest\/v1\/app_weekly_(forms|own_drafts)/.test(q.url()))own.push(q.url());});
  await openJournal(page,width);await openWeekly(page);
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
  await expect(weekly).toContainText('1. 요청사항');await expect(weekly).toContainText('5. 주요 일정');
  await expect(cellLines(flowCell(page,'사업영역 가 › 세부 과제 가-1'))).toHaveText(['- 지난주 가-1 진행']);
  await expect(weekly.locator('[data-weekly-blank]')).toHaveCount(0);
+ await expect(weekly.locator('[data-own-draft]')).toHaveCount(0);expect(own).toEqual([]);
  expect(f.errors).toEqual([]);
 });
 

@@ -155,3 +155,86 @@ test('③ 고치기: 순서·이름·채울 기록·항목 추가·빼기·칸 �
   assert.ok(!m.sameForm(base, renamed));
   assert.equal(base.sections[0].title, '1. 활동', '원래 양식은 바뀌지 않음');
 });
+
+test('④-1 초안 모양: 채울 기록대로 줄·표 행, 칸 이름 규칙, 지난주 글 그대로, 빈칸', async () => {
+  const {ownDraft, columnKinds, dayText} = await import('../app/weekly-own-draft-model.mjs');
+  const form = cleanForm({sections: [
+    {id: 's1', title: '1. 금주 주요 활동', fill: 'biz'},
+    {id: 's2', title: '2. 지회 동향', columns: ['지회명', '동향', '비고'], fill: 'org'},
+    {id: 's3', title: '3. 다음 주 일정', columns: ['날짜', '내용', '장소'], fill: 'schedule'},
+    {id: 's4', title: '4. 기타', fill: 'last_week'},
+    {id: 's5', title: '5. 회의', fill: 'meeting'},
+    {id: 's6', title: '6. 빈 항목', columns: ['가', '나'], fill: 'blank'},
+  ]});
+  const model = {
+    summary: {areas: [{name: '교육', rows: [{items: [{day: '2026-11-18', text: '조합원 교육 1회'}, {day: '2026-11-19', label: '실무', text: '3차 실무교섭'}]}]}], others: []},
+    orgs: {sections: [{name: '가 지회', items: [{day: '2026-11-17', text: '요구안 확정'}]}, {name: '나 지회', items: [{day: '2026-11-20', text: '대의원대회'}]}]},
+    calendarView: {rows: [{day: '2026-11-24', items: [{time: '10:00', title: '운영위원회', place: '사무실'}]}]},
+    meetings: {items: [{day: '2026-11-18', text: '가상 회의 결과'}]},
+  };
+  const last = {sections: [{id: 's4', lines: [{text: '- 지난주에 쓴 줄'}]}]};
+  const d = ownDraft(form, model, last);
+  assert.deepEqual(d.sections[0].lines, [{text: '- 11/18 조합원 교육 1회', filled: true}, {text: '- 11/19 실무: 3차 실무교섭', filled: true}]);
+  assert.deepEqual(d.sections[1].rows.map(r => r.map(c => c.text)), [['가 지회', '요구안 확정', ''], ['나 지회', '대의원대회', '']]);
+  assert.deepEqual(d.sections[1].rows[0].map(c => c.filled), [true, true, false]);
+  assert.deepEqual(d.sections[2].rows.map(r => r.map(c => c.text)), [['11/24 10:00', '운영위원회', '사무실']]);
+  assert.deepEqual(d.sections[3].lines, [{text: '- 지난주에 쓴 줄', filled: false}]);
+  assert.deepEqual(d.sections[4].lines, [{text: '- 11/18 가상 회의 결과', filled: true}]);
+  assert.deepEqual(d.sections[5].rows, []);
+  assert.deepEqual(ownDraft(form, model, null).sections[3].lines, [], '지난주 초안이 없으면 비움');
+  assert.deepEqual(ownDraft(form, {summary: {loading: true}}).sections[0].lines, [], '불러오는 중이면 비움');
+  assert.deepEqual(columnKinds(['구분', '내용']), ['name', 'text']);
+  assert.deepEqual(columnKinds(['일시', '회의', '결과', '비고']), ['day', 'name', 'text', '']);
+  assert.equal(dayText('2026-01-05'), '1/5');
+});
+
+test('④-2 고친 항목: 저장 모양 맞춤·고친 글 우선(노란 칸 아님)·칸 고침·새 줄·빈 줄 빼기·지난주 월요일', async () => {
+  const {shownDraft, editSaved, cleanSaved, fillLoading, sectionKey, prevWeek} = await import('../app/weekly-own-draft-model.mjs');
+  const form = cleanForm({sections: [
+    {id: 's1', title: '1. 금주 주요 활동', fill: 'biz'},
+    {id: 's2', title: '2. 지회 동향', columns: ['지회명', '동향', '비고'], fill: 'org'},
+  ]});
+  const model = {
+    summary: {areas: [{name: '교육', rows: [{items: [{day: '2026-11-18', text: '조합원 교육 1회'}]}]}], others: []},
+    orgs: {sections: [{name: '가 지회', items: [{day: '2026-11-17', text: '요구안 확정'}]}]},
+  };
+  const first = shownDraft(form, model, null, []).sections;
+  assert.equal(first[0].edited, false);
+  assert.deepEqual(first[0].lines, [{text: '- 11/18 조합원 교육 1회', filled: true}]);
+  // 줄 목록 항목 통째 고침 → 저장 모양은 글만, 빈 줄 뺌
+  const a = editSaved([], first[0], {lines: '- 고친 첫 줄\n\n  - 둘째   줄 '});
+  assert.deepEqual(a, [{id: 's1', lines: ['- 고친 첫 줄', '- 둘째 줄'], rows: null}]);
+  // 표 칸 하나 고침 → 그 항목 전체 행을 글로 저장
+  const b = editSaved(a, first[1], {row: 0, col: 2, text: '가상 비고'});
+  assert.deepEqual(b.find(s => s.id === 's2'), {id: 's2', lines: null, rows: [['가 지회', '요구안 확정', '가상 비고']]});
+  // 새 줄(끝 다음)
+  const shownB = shownDraft(form, model, null, b).sections;
+  const c = editSaved(b, shownB[1], {row: 1, col: 0, text: '나 지회'});
+  assert.deepEqual(c.find(s => s.id === 's2').rows, [['가 지회', '요구안 확정', '가상 비고'], ['나 지회', '', '']]);
+  // 칸을 모두 비우면 그 줄이 빠진다
+  const shownC = shownDraft(form, model, null, c).sections;
+  assert.deepEqual(editSaved(c, shownC[1], {row: 1, col: 0, text: ' '}).find(s => s.id === 's2').rows, [['가 지회', '요구안 확정', '가상 비고']]);
+  // 고친 항목은 늦게 온 기록이 덮지 않는다(노란 칸 아님), 안 고친 항목만 새 기록으로
+  const later = {...model, summary: {areas: [{name: '교육', rows: [{items: [{day: '2026-11-19', text: '늦게 온 기록'}]}]}], others: []}};
+  const shown = shownDraft(form, later, null, c).sections;
+  assert.deepEqual(shown[1].rows.map(r => r.map(x => x.text)), [['가 지회', '요구안 확정', '가상 비고'], ['나 지회', '', '']]);
+  assert.ok(shown[1].edited && shown[1].rows.flat().every(x => !x.filled));
+  assert.deepEqual(shown[0].lines, [{text: '- 고친 첫 줄', filled: false}, {text: '- 둘째 줄', filled: false}]);
+  const onlyTable = c.filter(x => x.id === 's2');
+  const fresh = shownDraft(form, later, null, onlyTable).sections;
+  assert.deepEqual(fresh[0].lines, [{text: '- 11/19 늦게 온 기록', filled: true}]);
+  assert.notEqual(sectionKey(first[0]), sectionKey(fresh[0]), '바뀐 항목만 다시 그림');
+  assert.equal(sectionKey(shownDraft(form, later, null, c).sections[1]), sectionKey(shown[1]));
+  // 불러오는 중
+  assert.equal(fillLoading('biz', {summary: {loading: true}}), true);
+  assert.equal(shownDraft(form, {summary: {loading: true}, orgs: {loading: true}}, null, []).sections[0].loading, true);
+  assert.equal(fillLoading('blank', {}), false);
+  // 저장 모양 맞춤: 모르는 값·중복 id 버림
+  assert.deepEqual(cleanSaved([{id: 'x', lines: ['a', 3, ''], extra: 1}, {id: 'x', lines: ['b']}, {lines: ['c']}, null]), [{id: 'x', lines: ['a', '3'], rows: null}]);
+  // 지난주 고친 글 → 이번 주 '지난주 글 그대로'
+  const lastForm = cleanForm({sections: [{id: 's1', title: '기타', fill: 'last_week'}]});
+  assert.deepEqual(shownDraft(lastForm, model, {sections: [{id: 's1', lines: ['- 지난주 고친 줄'], rows: null}]}, []).sections[0].lines, [{text: '- 지난주 고친 줄', filled: false}]);
+  assert.equal(prevWeek('2026-11-16'), '2026-11-09');
+  assert.equal(prevWeek('2026-03-02'), '2026-02-23');
+  assert.equal(prevWeek('x'), '');
+});
