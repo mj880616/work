@@ -1,0 +1,152 @@
+// UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 + 명진 11/15 13:37): 이용자 '업데이트 소식'·운영자 보내기.
+// - 이용자: 계정 메뉴 '업데이트 소식' → 운영자가 보낸 소식만(서버 app_update_news_list). 점·숫자·새 소식 창 없음. 열면 읽음만 남김(app_update_news_seen).
+// - 운영자: 업데이트 기록 줄마다 [보내기] → 그 기록 글이 채워진 창('폰에서 볼 것'은 기본 빼기, 넣기 고를 수 있음, 다른 기록 묶기) → 서버 save.
+// 서버는 page.route로 흉내 낸다. 화면 사진은 docs/design/screens/s62-19/에 남긴다(폰 412·폴드 펼침 880·PC 1280).
+import { appOrigin } from './helpers/test-origin.mjs';
+import { test, expect } from '@playwright/test';
+import {serveBuiltShell} from './helpers/built-shell.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+
+const origin=appOrigin;
+const SHOTS=process.env.S62_19_SHOTS?'docs/design/screens/s62-19/':'test-results/';
+const note=(v,date,changes,checks=[])=>({v,date,changes,checks});
+const NOTES={schema:1,current:'11/15-3',notes:[
+  note('11/15-3','2026-11-15',['사진 화면에 내 구글 드라이브 칸이 생겼어요','메뉴에 [파일]이 생겼어요'],['사진 열어 보기']),
+  note('11/15-2','2026-11-15',['PC 프로그램 이름이 바뀌었어요']),
+  note('11/15-1','2026-11-15',['게시판 글을 날짜순으로 모아 보여 줘요']),
+  note('11/14-9','2026-11-14',['주간 보고 표에서 자리 바꾸기 손잡이가 줄 맨 왼쪽으로 모였어요'])
+]};
+const ITEMS=[
+  {id:'n2',title:'구글 드라이브 사진·파일',lines:['사진 화면에 내 구글 드라이브 칸이 생겼어요(각자 자기 드라이브만 보여요)','메뉴에 [파일]이 생겼어요. 내 구글 드라이브 파일을 볼 수 있어요'],sent_at:'2026-11-21T01:00:00Z',edited_at:null},
+  {id:'n1',title:'PC 프로그램 새 이름',lines:['윈도우 PC 프로그램 이름이 바뀌었어요','로그인 화면에서 내려받을 수 있어요'],sent_at:'2026-11-20T02:00:00Z',edited_at:null}
+];
+async function boot(page,{operator=false,view='calendar',items=ITEMS}={}){
+  const calls=[];
+  await serveBuiltShell(page,origin);
+  const user={id:'un-user',email:'un@example.org'},workspace={id:'un-workspace',name:'QA',slug:'qa'};
+  await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{
+    const req=route.request(),path=new URL(req.url()).pathname;let data=[];
+    if(path.startsWith('/rest/v1/rpc/app_update_news')||path==='/rest/v1/rpc/app_release_notes_read')calls.push({path,body:req.postDataJSON?.()??null});
+    if(path==='/auth/v1/token')data={access_token:'qa',refresh_token:'qa-refresh',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user};
+    else if(path==='/auth/v1/user')data=user;
+    else if(path==='/rest/v1/app_workspace_members')data=[{workspace_id:workspace.id,user_id:user.id,role:'owner'}];
+    else if(path==='/rest/v1/app_workspaces')data=[workspace];
+    else if(path==='/rest/v1/app_profiles')data=[{user_id:user.id,display_name:'QA'}];
+    else if(path==='/rest/v1/rpc/app_my_features')data=operator?['dev_inbox']:[];
+    else if(path==='/rest/v1/rpc/app_update_news_list')data=items;
+    else if(path==='/rest/v1/rpc/app_update_news_seen')data=items.length;
+    else if(path==='/rest/v1/rpc/app_release_notes_read'||path.startsWith('/rest/v1/rpc/app_update_news_')&&path!=='/rest/v1/rpc/app_update_news_list'&&path!=='/rest/v1/rpc/app_update_news_seen'){
+      if(!operator)return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'42501',message:'OPERATOR_FEATURE_REQUIRED'})});
+      if(path==='/rest/v1/rpc/app_release_notes_read')data=NOTES;
+      else if(path==='/rest/v1/rpc/app_update_news_admin')data={start_on:'2026-11-20',users:9,items:[{...items[0],sources:['11/15-3'],reads:7,withdrawn_at:null},{...items[1],sources:['11/15-2'],reads:9,withdrawn_at:null},{id:'n0',title:null,lines:['시작 날짜 전 소식'],sources:[],sent_at:'2026-11-10T01:00:00Z',reads:0,withdrawn_at:null}]};
+      else if(path==='/rest/v1/rpc/app_update_news_save')data='n3';
+      else data=true;
+    }
+    else if(path==='/functions/v1/push-notifications')data={enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'};
+    else if(path.startsWith('/functions/'))data={connected:false,enabled:false,tasks:[],events:[],calendars:[]};
+    return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await page.goto(origin+'/app/login/?return='+encodeURIComponent(origin+`/app/?view=${view}`));
+  await signInWithSession(page,user.email);
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  return calls;
+}
+const phoneLike=width=>width<=760;
+async function openAccount(page,width){
+  await page.locator('#appView>.app-topline [data-account-open]:visible,#mobileMenuTab:visible').click();
+  const panel=page.locator(phoneLike(width)?'#mobileMenu':'#sidebarAccountPanel');
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+for(const width of [412,880,1280])test(`이용자: 메뉴 › 업데이트 소식에 보낸 소식만, 점·숫자 없음, 열면 읽음 (${width}px)`,async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width,height:860});
+  const calls=await boot(page);
+  const panel=await openAccount(page,width);
+  const entry=panel.locator('[data-whatsnew-open]');
+  await expect(entry).toBeVisible();
+  await expect(entry).toHaveText('업데이트 소식');
+  await expect(panel.locator('[data-updates-open]')).toBeHidden();
+  await entry.click();
+  const view=page.locator('#whatsnewView');
+  await expect(view).toBeVisible({timeout:15000});
+  await expect(page).toHaveURL(/view=whatsnew/);
+  const rows=view.locator('.un-item');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first().locator('.un-title')).toHaveText('구글 드라이브 사진·파일');
+  await expect(rows.first().locator('.un-date')).toHaveText('11/21');
+  await expect(rows.first().locator('.un-lines li')).toHaveCount(2);
+  await expect.poll(()=>calls.some(c=>c.path.endsWith('app_update_news_seen'))).toBe(true);
+  expect(calls.some(c=>c.path.endsWith('app_release_notes_read'))).toBe(false);
+  // 새 소식 알림 없음: 점·숫자·창 어디에도
+  await expect(page.locator('.un-dot,[data-new-dot],#versionNotice')).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`${SHOTS}user-whatsnew-${width}.png`});
+  await page.goBack();
+  await expect(page.locator('#calendarView')).toBeVisible();
+});
+
+test('이용자: 소식이 없으면 한 줄',async({page})=>{
+  await boot(page,{view:'whatsnew',items:[]});
+  await expect(page.locator('#whatsnewView [data-wait-empty]')).toHaveText('아직 소식이 없어요',{timeout:15000});
+});
+
+for(const width of [412,880,1280])test(`운영자: 기록 줄 [보내기] → 글 채워진 창(폰에서 볼 것 기본 빼기·묶기) → 서버로 (${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const calls=await boot(page,{operator:true,view:'updates'});
+  const view=page.locator('#updatesView');
+  await expect(view.locator('.rn-note')).toHaveCount(4,{timeout:15000});
+  await expect(view.locator('.un-cut')).toContainText('이용자에게 보이는 시작 날짜 11/20');
+  const sent=view.locator('.un-sent');
+  if(width<900)await sent.locator('summary').click();
+  await expect(sent.locator('.un-item').first()).toContainText('읽음 7/9');
+  await expect(sent.locator('.un-cutline')).toContainText('여기부터 위만 이용자에게 보임');
+  await expect(view.locator('.rn-note').first().locator('.rn-sent')).toBeVisible();
+  await expect(view.locator('.rn-note').nth(2).locator('.rn-sent')).toBeHidden();
+  await page.screenshot({path:`${SHOTS}operator-updates-${width}.png`});
+  // [보내기]는 줄을 펼치지 않고 창을 연다.
+  const third=view.locator('.rn-note').nth(2);
+  await third.locator('[data-rn-send]').click();
+  await expect(third).not.toHaveAttribute('open','');
+  const modal=page.locator('#updateNewsSend');
+  await expect(modal).toBeVisible();
+  const area=modal.locator('textarea');
+  await expect(area).toHaveValue('· 게시판 글을 날짜순으로 모아 보여 줘요');
+  await modal.locator('.un-adder').selectOption('11/15-3');
+  await expect(area).toHaveValue('· 게시판 글을 날짜순으로 모아 보여 줘요\n· 사진 화면에 내 구글 드라이브 칸이 생겼어요\n· 메뉴에 [파일]이 생겼어요');
+  await modal.getByLabel("'폰에서 볼 것' 줄도 같이 보내기").check();
+  await expect(area).toHaveValue(/사진 열어 보기$/);
+  await modal.getByLabel("'폰에서 볼 것' 줄도 같이 보내기").uncheck();
+  await modal.getByLabel('제목(선택)').fill('사진·파일');
+  await area.fill('· 사진 화면에 내 구글 드라이브 칸이 생겼어요\n· 메뉴에 [파일]이 생겼어요\n\n');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`${SHOTS}operator-send-${width}.png`});
+  await modal.getByRole('button',{name:'보내기',exact:true}).click();
+  await expect(modal).toHaveCount(0);
+  const save=calls.find(c=>c.path.endsWith('app_update_news_save'));
+  expect(save.body).toEqual({p_id:null,p_title:'사진·파일',p_lines:['사진 화면에 내 구글 드라이브 칸이 생겼어요','메뉴에 [파일]이 생겼어요'],p_sources:['11/15-1','11/15-3']});
+});
+
+test('운영자: 보낸 소식 [수정]·[거두기]·시작 날짜 바꾸기',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1280,height:900});
+  const calls=await boot(page,{operator:true,view:'updates'});
+  const sent=page.locator('#updatesView .un-sent');
+  await expect(sent.locator('.un-item').first()).toBeVisible({timeout:15000});
+  await sent.locator('[data-un-edit="n2"]').click();
+  const modal=page.locator('#updateNewsSend');
+  await expect(modal.getByLabel('제목(선택)')).toHaveValue('구글 드라이브 사진·파일');
+  await modal.getByRole('button',{name:'수정',exact:true}).click();
+  await expect(modal).toHaveCount(0);
+  expect(calls.find(c=>c.path.endsWith('app_update_news_save')).body.p_id).toBe('n2');
+  await sent.locator('[data-un-withdraw="n1"]').click();
+  await page.getByRole('button',{name:'거두기',exact:true}).last().click();
+  await expect.poll(()=>calls.some(c=>c.path.endsWith('app_update_news_withdraw')&&c.body.p_id==='n1')).toBe(true);
+  await page.locator('#updatesView [data-un-start]').click();
+  const start=page.locator('#updateNewsStart');
+  await start.getByLabel('시작 날짜').fill('2026-11-25');
+  await start.getByRole('button',{name:'바꾸기',exact:true}).click();
+  await expect.poll(()=>calls.find(c=>c.path.endsWith('app_update_news_set_start'))?.body).toEqual({p_start:'2026-11-25'});
+});

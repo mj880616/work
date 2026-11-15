@@ -7,6 +7,10 @@ import {shortDate,PAGE_SIZE,searchNotes,searchWords} from './release-notes-model
 import {highlightParts} from './global-search-model.mjs';
 import {readReleaseNotes,canReadReleaseNotes} from './release-notes-read.js';
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
+import {draftLines,linesFromText,draftProblem,sentVersions,cutIndex,shortDay} from './update-news-model.mjs';
+import {newsRow} from './update-news-ui.js';
+import {openFormModal} from './small-form-modal.js';
+import {askConfirm,notify} from './small-notice.js';
 
 // UI-업데이트기록찾기(요청함 11/02): 목록 위 검색 칸 하나. 치는 대로 이 화면 안에서만 거르고(서버 호출 없음) 낱말을 칠한다.
 // 찾는 동안은 맞는 줄만 펼쳐 보인다. 목록은 20개씩 그리고, 아래로 내려 [이전 기록 더 보기]가 보이면 다음 20개를 더 그린다.
@@ -26,6 +30,12 @@ function noteRow(item,current,words){
   head.append(marked('span','rn-ver',note.v,words),marked('span','rn-date',shortDate(note.date),words));
   if(note.v===current)head.append(el('span','rn-now','지금'));
   else head.append(marked('span','rn-one',item.changes[0]??item.checks[0],words));
+  // UPDATE-운영자전용기록업데이트소식 PR3: 줄마다 [보내기](이용자에게 업데이트 소식으로), 이미 보낸 기록은 '보냄'. 소식 서버를 못 읽으면 둘 다 없다.
+  if(news.admin){
+    const sent=el('span','rn-sent','보냄');sent.hidden=!news.sent.has(note.v);sent.dataset.rnSent=note.v;
+    const send=el('button','rn-send mini','보내기');send.type='button';send.dataset.rnSend=note.v;send.setAttribute('aria-label',`${note.v} 이용자에게 보내기`);
+    head.append(sent,send);
+  }
   const body=el('div','rn-body');
   if(item.changes.length){
     const list=el('ul','rn-changes');
@@ -42,6 +52,119 @@ function noteRow(item,current,words){
   return row;
 }
 
+// ── UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 ①②④ + 명진 11/15 13:37): 운영자 쪽 '업데이트 소식' 보내기·고치기·거두기·시작 날짜.
+// 쓰기는 서버(app_update_news_*)가 운영자만 받는다. 새 소식 알림·점·숫자는 없다(이용자는 메뉴 › 업데이트 소식을 눌러야만 본다).
+const news={admin:null,sent:new Set(),notes:[],root:null};
+const rpc=(name,body={})=>window.KPTURuntime.api('/rest/v1/rpc/'+name,{method:'POST',body,singleFlight:false});
+async function loadAdmin(){
+  try{const value=await rpc('app_update_news_admin');news.admin=value&&Array.isArray(value.items)?value:null}catch{news.admin=null}
+  news.sent=sentVersions(news.admin?.items);
+  return news.admin;
+}
+function refreshMarks(){
+  news.root?.querySelectorAll('[data-rn-sent]').forEach(tag=>{tag.hidden=!news.sent.has(tag.dataset.rnSent)});
+  paintNews();
+}
+const failLine=error=>/OPERATOR_FEATURE_REQUIRED|42501/.test(String(error?.message||error))?'운영자만 보낼 수 있어요':'보내지 못했어요. 잠시 뒤 다시 해 주세요';
+async function afterWrite(text){await loadAdmin();refreshMarks();notify(text,{record:false})}
+
+// 보내기 창: 기록 줄에서 열면 그 기록 글이 채워진다('폰에서 볼 것'은 기본으로 뺌). [+ 다른 기록 묶기]로 여러 기록을 한 소식으로. 보내기 전에 문구를 고친다.
+function openSend({versions=[],item=null,trigger}={}){
+  let picked=[...versions],edited=false,withChecks=false;
+  const notesOf=()=>picked.map(v=>news.notes.find(n=>n.v===v)).filter(Boolean);
+  let title,area,chips,adder;
+  const regen=()=>{if(!edited)area.value=draftLines(notesOf(),{withChecks}).map(line=>'· '+line).join('\n')};
+  const paintChips=()=>{
+    chips.replaceChildren(...picked.map(v=>{const chip=el('button','un-chip mini',`${v} ×`);chip.type='button';chip.setAttribute('aria-label',`${v} 빼기`);chip.onclick=()=>{picked=picked.filter(x=>x!==v);paintChips();regen()};return chip}));
+    const head=el('option',null,'+ 다른 기록 묶기');head.value='';
+    adder.replaceChildren(head,...news.notes.slice(0,60).filter(n=>!picked.includes(n.v)).map(n=>{const o=el('option',null,`${n.v} · ${n.changes[0]}`);o.value=n.v;return o}));
+    adder.value='';
+  };
+  openFormModal({id:'updateNewsSend',title:item?'업데이트 소식 수정':'이용자에게 업데이트 소식 보내기',okLabel:item?'수정':'보내기',trigger,
+    foot:'로그인한 모든 이용자에게 보여요. 보낸 뒤에도 수정하거나 거둘 수 있어요.',
+    fill(body){
+      title=el('input');Object.assign(title,{type:'text',placeholder:'제목(선택)',maxLength:80});title.setAttribute('aria-label','제목(선택)');
+      area=el('textarea');area.setAttribute('aria-label','보낼 글(줄마다 한 가지)');area.addEventListener('input',()=>{edited=true});
+      body.append(title,area);
+      if(item){title.value=item.title||'';area.value=(item.lines||[]).map(line=>'· '+line).join('\n');picked=[...(item.sources||[])];edited=true}
+      const opt=el('label','sfm-opt');const box=el('input');box.type='checkbox';box.onchange=()=>{withChecks=box.checked;regen()};
+      opt.append(box,document.createTextNode("'폰에서 볼 것' 줄도 같이 보내기"));
+      chips=el('div','un-chips');adder=el('select','un-adder');adder.setAttribute('aria-label','다른 기록 묶기');
+      adder.onchange=()=>{if(adder.value&&!picked.includes(adder.value)){const v=adder.value;picked.push(v);if(edited){const add=draftLines([news.notes.find(n=>n.v===v)].filter(Boolean),{withChecks});area.value=[area.value.trim(),...add.map(l=>'· '+l)].filter(Boolean).join('\n')}paintChips();regen()}};
+      const bundle=el('div','un-bundle');bundle.append(chips,adder);
+      if(!item)body.append(opt);
+      body.append(bundle);
+      paintChips();regen();
+      return item?'textarea':'textarea';
+    },
+    async onSubmit(){
+      const lines=linesFromText(area.value),problem=draftProblem({title:title.value,lines});
+      if(problem)return problem;
+      try{await rpc('app_update_news_save',{p_id:item?.id??null,p_title:title.value.trim()||null,p_lines:lines,p_sources:picked.slice(0,30)})}catch(error){return failLine(error)}
+      void afterWrite(item?'수정했어요':'보냈어요');
+      return true;
+    }});
+}
+function openStart(trigger){
+  let input;
+  openFormModal({id:'updateNewsStart',title:'이용자에게 보이는 시작 날짜',okLabel:'바꾸기',trigger,
+    foot:'이 날짜(0시) 이후 보낸 소식만 이용자에게 보여요. 가입일과는 상관없어요.',
+    fill(body){input=el('input');input.type='date';input.setAttribute('aria-label','시작 날짜');input.value=news.admin?.start_on||'';body.append(input);return 'input'},
+    async onSubmit(){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(input.value))return '날짜를 정해 주세요';
+      try{await rpc('app_update_news_set_start',{p_start:input.value})}catch(error){return failLine(error)}
+      void afterWrite('시작 날짜를 바꿨어요');
+      return true;
+    }});
+}
+function paintNews(){
+  const box=news.root?.querySelector('[data-un-admin]');
+  if(!box)return;
+  const admin=news.admin;
+  if(!admin){box.hidden=true;return}
+  box.hidden=false;
+  const cut=el('div','un-cut');
+  cut.append(document.createTextNode('이용자에게 보이는 시작 날짜 '),el('b',null,admin.start_on?shortDay(admin.start_on):'정하지 않음'));
+  const change=el('button','mini','바꾸기');change.type='button';change.dataset.unStart='';cut.append(change);
+  const write=el('button','mini primary','+ 직접 쓰기');write.type='button';write.dataset.unWrite='';
+  const bar=el('div','un-bar');bar.append(cut,write);
+  const items=admin.items,at=cutIndex(items,admin.start_on);
+  const sent=el('details','un-sent');sent.open=window.matchMedia?.('(min-width:900px)').matches??false;
+  const summary=el('summary','un-sent-head');summary.append(el('span',null,'보낸 소식 '),el('span','un-date',String(items.filter(i=>!i.withdrawn_at).length)),el('span','un-date',' · 이용자에게 보이는 그대로'));
+  const list=el('div','un-list');
+  items.forEach((item,i)=>{
+    if(i===at&&admin.start_on)list.append(el('div','un-cutline',`여기부터 위만 이용자에게 보임 (시작 날짜 ${shortDay(admin.start_on)})`));
+    const extra=[];
+    if(item.withdrawn_at)extra.push(el('span','un-date','거둠'));
+    else{
+      extra.push(el('span','un-date',`읽음 ${item.reads??0}/${admin.users??0}`));
+      const edit=el('button','mini','수정');edit.type='button';edit.dataset.unEdit=item.id;
+      const pull=el('button','mini','거두기');pull.type='button';pull.dataset.unWithdraw=item.id;
+      extra.push(edit,pull);
+    }
+    const row=newsRow(item,extra);if(item.withdrawn_at)row.classList.add('is-withdrawn');
+    list.append(row);
+  });
+  if(!items.length)list.append(el('p','un-date','아직 보낸 소식이 없어요'));
+  sent.append(summary,list);
+  box.replaceChildren(bar,sent);
+}
+async function onNewsClick(event){
+  const send=event.target.closest?.('[data-rn-send]');
+  if(send){event.preventDefault();event.stopPropagation();openSend({versions:[send.dataset.rnSend],trigger:send});return true}
+  if(event.target.closest?.('[data-un-write]')){openSend({trigger:event.target});return true}
+  if(event.target.closest?.('[data-un-start]')){openStart(event.target);return true}
+  const edit=event.target.closest?.('[data-un-edit]');
+  if(edit){const item=news.admin?.items.find(i=>i.id===edit.dataset.unEdit);if(item)openSend({item,trigger:edit});return true}
+  const pull=event.target.closest?.('[data-un-withdraw]');
+  if(pull){
+    if(!await askConfirm(pull,{text:'이 소식을 거둘까요? 이용자 화면에서 사라져요.',ok:'거두기',danger:true}))return true;
+    try{await rpc('app_update_news_withdraw',{p_id:pull.dataset.unWithdraw});void afterWrite('거뒀어요')}catch(error){notify(failLine(error),{record:false,error:true})}
+    return true;
+  }
+  return false;
+}
+
 function install(){
   if(document.getElementById('updatesView'))return;
   document.getElementById('appView')?.insertAdjacentHTML('beforeend','<section id="updatesView" class="view-panel hidden" aria-label="업데이트 기록"><div class="panel rn-view" data-rn-root></div></section>');
@@ -53,11 +176,13 @@ function draw(){
   if(!root||drawn)return Promise.resolve();
   if(drawing)return drawing;
   root.innerHTML=waitHtml();
-  drawing=canReadReleaseNotes().then(yes=>yes?readReleaseNotes():'denied').then(list=>{
+  news.root=root;
+  drawing=canReadReleaseNotes().then(yes=>yes?Promise.all([readReleaseNotes(),loadAdmin()]).then(([list])=>list):'denied').then(list=>{
     if(list==='denied'){root.innerHTML=emptyHtml('운영자만 볼 수 있어요');return}
     if(!list){root.innerHTML=failHtml({retry:'data-rn-retry'});return}
     drawn=true;
     if(!list.notes.length){root.innerHTML=emptyHtml();return}
+    news.notes=list.notes;
     const all=list.notes.map(note=>({note,changes:note.changes,checks:note.checks}));
     const search=el('input','rn-search');
     Object.assign(search,{type:'search',placeholder:'낱말로 찾기',autocomplete:'off',enterKeyHint:'search'});
@@ -84,12 +209,14 @@ function draw(){
     observer=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&!more.hidden)page()},{rootMargin:'0px 0px 120px 0px'}):null;
     observer?.observe(more);
     page();
-    root.replaceChildren(search,count,box,more);
+    const admin=el('div','un-admin');admin.dataset.unAdmin='';
+    root.replaceChildren(admin,search,count,box,more);
+    paintNews();
   }).finally(()=>{drawing=null});
   return drawing;
 }
 
 install();
-document.querySelector('#updatesView')?.addEventListener('click',event=>{if(event.target.closest?.('[data-rn-retry]'))void draw()});
+document.querySelector('#updatesView')?.addEventListener('click',event=>{if(event.target.closest?.('[data-rn-retry]')){void draw();return}void onNewsClick(event)});
 window.KPTURouter?.on?.('updates',()=>draw());
 void draw();
