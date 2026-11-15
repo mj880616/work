@@ -300,7 +300,7 @@ function viewHtml() {
   const loading = state.status === 'loading' && !state.links;
   // 새 계정(링크 0개): 빈 분류 대신 한 줄 안내 — [+ 추가]는 수정 상태로 들어가 첫 링크 줄을 연다.
   const empty = !loading && state.links && !links.length
-    ? '<p class="ql-first">자주 가는 주소를 <button type="button" class="ql-btn ql-add" data-ql-first>+ 추가</button>로 넣어 보세요</p>' : '';
+    ? '<p class="ql-first">자주 가는 주소를 <button type="button" class="ghost" data-ql-first>+ 추가</button>로 넣어 보세요</p>' : '';
   return `<div class="ql-head anchored-drag-title"><h2>자주 가는 링크</h2><button type="button" class="ql-btn" data-ql-edit ${loading ? 'disabled' : ''}>수정</button></div>`
     + (loading ? waitHtml({rows:3}) : empty || sections)
     + `<p class="ql-note" role="status" aria-live="polite">${esc(state.note)}</p>`;
