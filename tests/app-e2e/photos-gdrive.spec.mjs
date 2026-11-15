@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S46-24 ④ 사진 화면 구글 드라이브 칸(지어낸 서버: app_my_features·gdrive-photos·onedrive-photos, 네트워크 없음, 그림은 1×1).
-// - 운영자 기능(gdrive_photos)이 없는 작업공간: 구글 드라이브 칩이 없고 gdrive-photos를 부르지 않는다.
+// - S62-11: 운영자 기능(gdrive_photos)이 없는 작업공간도 칩이 보이고, Drive 연결 전이면 '연결 전 · [연결]'.
 // - PC 1440: 칩 켜기(서버 view_prefs) → [폴더] '구글 드라이브' 묶음에서 폴더 스위치 켜기(folder-toggle) → [사진]에 찍은 날 순서로 섞임
 //   (원드라이브와 같은 사진은 한 장, 출처 표시) → 사진 우클릭 ⋯ [지우기] → 확인 창(드라이브 휴지통 30일 안내) → 그때만 trash(confirm:true).
 // - 폰 412: 권한 없음(scope:false)·연결 풀림(424 drive_auth_expired)이면 칩 빨간 점 + '권한 없음 · [Drive 다시 연결]' + 작은 이유 글.
@@ -104,12 +104,18 @@ async function expectSmallDot(page) {
 test.describe('PC 1440', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('운영자 기능이 없는 작업공간: 구글 드라이브 칩 없음, gdrive-photos를 부르지 않음', async ({ page }) => {
-    const { state } = await fixture(page, { features: ['calls'] });
+  // S62-11 MULTI-구글드라이브사진모두: 칩은 기능 키와 상관없이 모두에게. Drive 연결 전이면(서버 424 drive_not_connected) '연결 전' + [연결] 한 줄.
+  test('운영자 기능이 없는 새 작업공간(Drive 연결 전): 칩 보임 · 연결 전, 켜면 [연결] 한 줄, 사진 목록은 부르지 않음', async ({ page }) => {
+    const { state } = await fixture(page, { features: [], status: { ok: false, error: 'drive_not_connected' }, statusCode: 424, prefs: { photo_sources_pc: { onedrive: true, gdrive: true, phone: true } } });
     await openPhotos(page, 1440);
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
-    await expect(gdBtn(page)).toBeHidden();
-    expect(state.gd).toEqual([]);
+    await expect(gdBtn(page)).toBeVisible();
+    await expect(gdBtn(page)).toHaveAttribute('data-problem', 'drive_not_connected');
+    await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
+    const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
+    await expect(noteEl).toContainText('구글 드라이브 연결 뒤 쓸 수 있어요');
+    await expect(noteEl.getByRole('button', { name: '연결', exact: true })).toBeVisible();
+    expect(state.gd.map(b => b.action)).toEqual(['status']);
     expect(state.errors).toEqual([]);
   });
 
@@ -286,3 +292,27 @@ test.describe('폰 412', () => {
     expect(state.errors).toEqual([]);
   });
 });
+
+// S62-11 MULTI-구글드라이브사진모두: 운영자 기능이 없는 새 작업공간도 폰 412·폴드 840·PC 1280에서 칩 '연결 전'·[연결] 한 줄, 메뉴에 [파일].
+// 화면 사진은 SHOT_DIR=docs/design/screens/s62-11 로 돌릴 때만 남긴다(합성 값만).
+for (const width of [412, 840, 1280]) {
+  test(`새 작업공간 ${width}px: 구글 드라이브 칩 '연결 전' + [연결], 메뉴에 [파일]`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { state } = await fixture(page, { features: [], status: { ok: false, error: 'drive_not_connected' }, statusCode: 424, prefs: { photo_sources_pc: { onedrive: true, gdrive: true, phone: true } } });
+    const files = width <= 760 ? page.locator('#mobileMenu nav').getByRole('button', { name: '파일', exact: true }) : page.locator('#appView>.app-nav').getByRole('link', { name: '파일', exact: true });
+    if (width > 760) await expect(files).toBeVisible();
+    await openPhotos(page, width);
+    await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
+    await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
+    const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
+    await expect(noteEl.getByRole('button', { name: '연결', exact: true })).toBeVisible();
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/photos-new-${width}.png` });
+    if (width <= 760) {
+      await page.locator('#mobileMenuTab').click();
+      await expect(files).toBeVisible();
+      if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/menu-new-${width}.png` });
+    }
+    expect(state.gd.map(b => b.action)).toEqual(['status']);
+    expect(state.errors).toEqual([]);
+  });
+}

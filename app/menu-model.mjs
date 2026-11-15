@@ -21,7 +21,8 @@ export const ITEMS = Object.freeze([
   {id: 'meetings', label: '사업 보고', view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
   // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(명진 결정 F5, 설계 docs/design/files-explorer.md).
-  {id: 'files', label: '파일', view: 'files', feature: 'files', icon: 'M3 6h7l2 2h9v11H3zM3 10h18'},
+  // S62-11 MULTI-구글드라이브사진모두(명진 11/14 22:18): [파일]은 모두에게 — 각자 자기 드라이브·자기 작업공간만(서버 cloud-files·RLS가 owner로 막음).
+  {id: 'files', label: '파일', view: 'files', icon: 'M3 6h7l2 2h9v11H3zM3 10h18'},
   // BRIEF-브리핑룸 ③(명진 결정 11/13 18:07 ③ 메뉴에 '브리핑 룸'): 처음 자리는 자료실 묶음 — [파일]이 자료실 바로 아래(F5)라 그 다음.
   {id: 'brief', label: '브리핑 룸', view: 'brief', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2'},
   {id: 'pages', label: '공유 페이지', view: 'pages', icon: 'M4 4h16v16H4zM4 10h16M10 10v10'},

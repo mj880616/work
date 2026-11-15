@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, GDRIVE_READY, gdriveAllowed, gdriveToItem, gdriveIdOf, gdriveBefore, gdriveFrom, gdriveErrorText, gdriveNeedsReconnect, gdriveState, phoneToItem, phoneIdOfKey, sameMedia, dupFinder, mergeSources, mergeDays, mergeMonths, daysFromItems, SOURCE_DEFAULT} from '../app/photo-sources-model.mjs';
+import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, GDRIVE_READY, gdriveToItem, gdriveIdOf, gdriveBefore, gdriveFrom, gdriveErrorText, gdriveNeedsReconnect, gdriveState, phoneToItem, phoneIdOfKey, sameMedia, dupFinder, mergeSources, mergeDays, mergeMonths, daysFromItems, SOURCE_DEFAULT} from '../app/photo-sources-model.mjs';
 import {validValue} from '../app/view-prefs.js';
 import {albumCards, calendarFromDays} from '../app/photos-model.mjs';
 
@@ -41,8 +41,9 @@ test('아이콘 줄: 폰 사진은 앱에서만, 구글 드라이브는 운영�
 
 test('구글 드라이브: 기능 목록·칸 모양·다음 쪽 기준·오류 글·상태', () => {
   assert.equal(GDRIVE_READY, true);
-  assert.equal(gdriveAllowed(['calls', 'gdrive_photos']), true);
-  assert.equal(gdriveAllowed(['calls']), false); assert.equal(gdriveAllowed(null), false); assert.equal(gdriveAllowed('gdrive_photos'), false);
+  // S62-11: 운영자 기능 키 판정(gdriveAllowed)은 없다. 연결 전이면 칩 '연결 전', 권한 없음이면 '권한 없음'.
+  assert.equal(sourceButtons({gdrive:true}, {gdrive:true, gdriveProblem:'drive_not_connected'}).find(b => b.name === 'gdrive').label, '구글 드라이브 · 연결 전');
+  assert.equal(sourceButtons({gdrive:true}, {gdrive:true, gdriveProblem:'scope_missing'}).find(b => b.name === 'gdrive').label, '구글 드라이브 · 권한 없음');
   const it = gdriveToItem({id:'AbC_1-x', folder:'F1', name:'IMG_1.jpg', video:false, size_bytes:500, taken_at:'2026-10-30T10:00:00+09:00', approx:false, day:'2026-10-30'});
   assert.equal(it.id, 'gd:AbC_1-x'); assert.equal(it.key, 'gd:AbC_1-x'); assert.equal(it.gdId, 'AbC_1-x'); assert.equal(it.source, 'gdrive'); assert.equal(it.kind, 'gdrive');
   assert.equal(it.taken_at, '2026-10-30T01:00:00.000Z', '시각은 원드라이브와 같은 ISO 모양으로');

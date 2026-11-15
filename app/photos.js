@@ -40,11 +40,11 @@ import {keptText, sizeText, totalBytes, COPY_BATCH, LOG_BATCH, copyPairs, copyCh
 import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKnown, knownWith, cleanPhoneName, isPhoneMovable, isPhoneTrashable, newPhonePath, renamedPhonePath, movedPhonePath, phonePickRows, phoneOpText, phoneTrashText} from './phone-folders-model.mjs';
 import {syncPhoneFolders, quickPhoneFolders, onPhoneFoldersLateAdded, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
-  gdriveAllowed, gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT} from './photo-sources-model.mjs';
+  gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT} from './photo-sources-model.mjs';
 // S46-24 ④ 구글 드라이브 칸(운영자 기능 gdrive_photos가 있는 작업공간만, 서버가 네 겹으로 다시 막음). 같은 사진 한 장 규칙·출처 표시는 원드라이브·폰과 같다.
 //   [사진]에 섞이고(거르기 '전체'·'동영상'만 — ★·스크린샷·달력·빠른 이동 막대·앨범은 아직 원드라이브·폰만), [폴더]는 '구글 드라이브' 묶음(맨 위부터 한 층씩, 스위치·⋯).
 //   사진 이름 바꾸기·옮기기·지우기(드라이브 휴지통)는 사진 ⋯(PC 우클릭)·고른 사진 아래 줄에서, 지우기는 확인 창 한 번. 권한이 없으면 칩·목록 위에 '권한 없음 · [Drive 다시 연결]'.
-import {myFeatures, gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
+import {gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
   gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear} from './gdrive-photos.js';
 import {ownerScope, requestDiaryDay} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
@@ -183,7 +183,7 @@ const ready = () => odReady && od.connected && !!od.folder;
 // 이번 [사진]·[달력]에서 실제로 읽는 출처(켜짐 + 쓸 수 있음).
 const phoneUsable = () => phone.available() && !!phone.state().key;
 const gdUsable = () => gd.allowed && !gd.problem;
-// 구글 드라이브 출처가 켜졌나(칩이 보이는 작업공간에서만). 권한 문제가 있어도 켜진 것으로 본다(안내 한 줄을 보이려고).
+// 구글 드라이브 출처가 켜졌나(S62-11: 칩은 모두에게). 권한·연결 문제가 있어도 켜진 것으로 본다(안내 한 줄을 보이려고).
 const gdOn = () => sources.gdrive && gd.allowed;
 const useSrc = () => activeSources(sources, {onedrive:ready(), phone:phoneUsable(), gdrive:gdUsable()});
 const anyUse = () => { const u = useSrc(); return u.onedrive || u.phone || u.gdrive; };
@@ -511,15 +511,16 @@ async function ensureOd(force = false) {
   odReady = true; paintOdLink(linkBtn, od, odFault);
   return od;
 }
-// S46-24 ④: 구글 드라이브 칩을 보일지(app_my_features에 gdrive_photos) + 권한·켠 폴더 수(status). 접속마다 한 번(force면 다시).
+// S46-24 ④·S62-11: 구글 드라이브 칩은 모두에게. 연결·권한·켠 폴더 수는 서버 status 답으로(자기 작업공간 Drive 연결). 접속마다 한 번(force면 다시).
+// 연결 전이면 서버가 424 drive_not_connected → '연결 전 · [연결]', drive.file만이면 scope:false → '권한 없음 · [Drive 다시 연결]'.
 async function ensureGd(force = false) {
   if (gd.checked && !force) return gd;
   const o = owner;
-  const allowed = gdriveAllowed(await myFeatures(rt));
+  let next;
+  try { next = {allowed:true, ...gdriveState(await gdStatus(rt)), checked:true}; }
+  catch (error) { next = {allowed:true, problem:gdriveCode(error), foldersOn:0, checked:true}; }
   if (o !== ownerScope(rt)) return gd;
-  if (!allowed) { gd = {allowed:false, problem:'', foldersOn:0, checked:true}; return gd; }
-  try { gd = {allowed:true, ...gdriveState(await gdStatus(rt)), checked:true}; }
-  catch (error) { gd = {allowed:true, problem:gdriveCode(error), foldersOn:0, checked:true}; }
+  gd = next;
   return gd;
 }
 // 구글 드라이브 요청이 권한·연결 문제로 실패하면 칩을 '권한 없음'으로 바꾼다.
@@ -532,6 +533,8 @@ const gdReconnectable = () => GDRIVE_RECONNECT.includes(gd.problem);
 // 칩·목록 위 안내: '구글 드라이브 · 권한 없음 · [Drive 다시 연결]' + 작은 글자 이유. 연결 문제가 아니면 [다시].
 function gdNoteHtml() {
   if (!gdOn() || !gd.problem) return '';
+  // 연결 전: 원드라이브와 같은 한 줄(같은 연결 흐름 drive-start).
+  if (gd.problem === 'drive_not_connected') return `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 연결 뒤 쓸 수 있어요 <button type="button" class="secondary" data-photos-gd-reconnect>연결</button></p>`;
   const why = `<small class="photos-gd-why">${esc(gdriveErrorText({message:gd.problem}))}</small>`;
   return gdReconnectable()
     ? `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 · <span class="photos-gd-state">권한 없음</span> <button type="button" class="mini" data-photos-gd-reconnect>Drive 다시 연결</button> ${why}</p>`

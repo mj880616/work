@@ -342,14 +342,15 @@ test('MULTI-처음쓰는사람 ④: 원장은 메뉴 목록에 없고, 저장된
   assert.ok(![...saved.bar, ...saved.rest, ...saved.tail, ...saved.hidden].includes('ledger'));
   assert.deepEqual(saved.rest.slice(0, 2), ['note', 'library']);
 });
-test('MULTI-처음쓰는사람 ④: withFeatures — 답 전(null)은 그대로, 기능 없는 계정은 통화·텔레그램·파일·아스날·News를 뺀다, 운영자는 그대로', () => {
+test('MULTI-처음쓰는사람 ④·S62-11: withFeatures — 답 전(null)은 그대로, 기능 없는 계정은 통화·텔레그램·아스날·News를 뺀다([파일]은 모두에게), 운영자는 그대로', () => {
   const d = defaultLayout();
   const before = withFeatures(d, null);
   assert.deepEqual(before.off, []); assert.deepEqual(before.rest, d.rest); assert.deepEqual(before.tail, d.tail);
   const none = withFeatures(d, []);
-  assert.deepEqual(none.off.sort(), ['arsenal', 'calls', 'files', 'outside', 'telegram']);
+  assert.deepEqual(none.off.sort(), ['arsenal', 'calls', 'outside', 'telegram']);
   assert.deepEqual(none.bar, d.bar);
-  assert.deepEqual(none.rest, ['basket', 'library', 'brief', 'hwp', 'pages', 'photos']);
+  assert.deepEqual(none.rest, ['basket', 'library', 'files', 'brief', 'hwp', 'pages', 'photos'], 'S62-11: [파일]은 기능 키 없이도 보인다');
+  assert.equal(ITEMS.find(i => i.id === 'files').feature, undefined);
   assert.deepEqual(none.tail, []);
   const op = withFeatures(d, ['calls', 'telegram', 'files', 'gdrive_photos', 'arsenal', 'outside', 'family']);
   assert.deepEqual(op.off, []); assert.deepEqual({bar: op.bar, rest: op.rest, tail: op.tail, hidden: op.hidden}, d);

@@ -58,9 +58,11 @@ test('썸네일 대기열: 한 번에 4장까지, 차례 전 거두기, 같은 �
   while (waits.length) waits.shift()();
 });
 
-test('사진 화면: 칩은 운영자 기능이 있을 때만, 지우기는 확인 창 한 번 + 30일 안내, 권한 없음 안내·다시 연결', () => {
+test('사진 화면: 칩은 모두에게(S62-11, 연결 상태는 서버 status), 지우기는 확인 창 한 번 + 30일 안내, 연결 전·권한 없음 안내·다시 연결', () => {
   const s = read('app/photos.js');
-  assert.match(s, /const allowed = gdriveAllowed\(await myFeatures\(rt\)\);/);
+  assert.doesNotMatch(s, /gdriveAllowed|myFeatures/);
+  assert.match(s, /try \{ next = \{allowed:true, \.\.\.gdriveState\(await gdStatus\(rt\)\), checked:true\}; \}/);
+  assert.match(s, /gd\.problem === 'drive_not_connected'\) return `<p class="photos-muted photos-top" data-photos-gd-note>구글 드라이브 연결 뒤 쓸 수 있어요 <button type="button" class="secondary" data-photos-gd-reconnect>연결<\/button><\/p>`/);
   assert.match(s, /data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>/);
   assert.match(s, /sourceButtons\(sources, \{phone:phone\.available\(\), gdrive:gd\.allowed, gdriveProblem:gd\.problem\}\)/);
   const trash = s.slice(s.indexOf('async function gdTrashPicked'), s.indexOf('const gdName'));

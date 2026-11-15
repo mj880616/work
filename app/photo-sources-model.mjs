@@ -3,18 +3,16 @@
 //   없으면 원드라이브·폰 사진 켜짐, 구글 드라이브 꺼짐(② 전에는 '준비 중'이라 켜지지 않는다).
 // - 켜진 출처는 같은 정렬 기준으로 한 목록에 섞는다. 출처마다 따로 쪽을 받아 오므로 '모든 출처가 이미 보낸 것보다 앞인 것'만 보인다(safe 앞부분).
 // - 같은 사진이 폰과 원드라이브에 다 있으면(파일 이름·크기·찍은 시각) 한 장만 보인다(원드라이브 것을 남김).
-// S46-24 ④: 구글 드라이브(Edge gdrive-photos, 운영자 기능 gdrive_photos가 있는 작업공간만). 같은 사진 규칙은 원드라이브 > 구글 드라이브 > 폰 사진 순서로 남긴다.
+// S46-24 ④: 구글 드라이브(Edge gdrive-photos). 같은 사진 규칙은 원드라이브 > 구글 드라이브 > 폰 사진 순서로 남긴다.
+// S62-11 MULTI-구글드라이브사진모두: 칩은 모두에게(운영자 기능 키 판정 없음). 각자 자기 Drive 연결로만 — 연결 전이면 '연결 전 · [연결]', drive.file만이면 '권한 없음 · [Drive 다시 연결]'.
 import {sortCompare} from './photos-model.mjs';
 import {parseFlags, toggleFlag} from './source-flags.mjs';
 
 export const SOURCES = Object.freeze(['onedrive', 'gdrive', 'phone']);
 export const SOURCE_DEFAULT = Object.freeze({onedrive:true, gdrive:false, phone:true});
 export const SOURCE_TEXT = Object.freeze({onedrive:'원드라이브', gdrive:'구글 드라이브', phone:'폰 사진'});
-// 구글 드라이브: S46-24 ①~③(DB·연결 권한·Edge gdrive-photos)이 들어와 켰다. 칩은 운영자 기능 gdrive_photos가 있을 때만 보인다(sourceButtons gdrive).
+// 구글 드라이브: S46-24 ①~③(DB·연결 권한·Edge gdrive-photos)이 들어와 켰다. S62-11부터 칩은 모두에게(연결 상태는 서버 status 답으로).
 export const GDRIVE_READY = true;
-export const GDRIVE_FEATURE = 'gdrive_photos';
-// app_my_features() 답(기능 키 목록) → 구글 드라이브 칩을 보일지. 모양이 틀리면 안 보인다(서버가 어차피 403).
-export const gdriveAllowed = features => GDRIVE_READY && Array.isArray(features) && features.includes(GDRIVE_FEATURE);
 
 // PHOTO-기기별출처(S49-5, 요청함 11/03 10:44): 출처 켜기·끄기를 폰 앱과 그 밖(PC·브라우저)이 따로 서버에 기억한다
 // (view_prefs.photo_sources_phone / photo_sources_pc, migration 20261103190000). 옛 photo_sources 한 칸은 두 쪽 시작값으로 복사하지 않고 더는 읽지 않는다.
@@ -30,15 +28,16 @@ export const deviceSourcesDefault = isPhoneApp => (isPhoneApp ? DEVICE_SOURCE_DE
 export function parseSources(value, defaults = SOURCE_DEFAULT) { return parseFlags(value, SOURCES, defaults); }
 export const sourcesValue = state => Object.fromEntries(SOURCES.map(name => [name, parseSources(state)[name]]));
 export function toggleSource(state, name) { return toggleFlag(state, SOURCES, SOURCE_DEFAULT, name); }
-// 아이콘 줄: 폰 사진은 폰 앱에서만(PC·폰 브라우저는 없음), 구글 드라이브는 운영자 기능이 있는 작업공간에서만(gdrive:true).
-// gdriveProblem: 권한이 없거나(scope_missing) 연결이 풀렸으면(drive_auth_expired) 그 이유 — 칩은 '권한 없음'이고 누르면 [Drive 다시 연결].
+// 아이콘 줄: 폰 사진은 폰 앱에서만(PC·폰 브라우저는 없음), 구글 드라이브는 gdrive:true일 때(S62-11: 모두).
+// gdriveProblem: 권한이 없거나(scope_missing) 연결이 풀렸으면(drive_auth_expired) '권한 없음', 아직 연결 전(drive_not_connected)이면 '연결 전'.
 export function sourceButtons(state, {phone = false, gdrive = false, gdriveProblem = ''} = {}) {
   const s = parseSources(state);
   const out = [{name:'onedrive', on:s.onedrive, ready:true}];
   if (gdrive && GDRIVE_READY) out.push({name:'gdrive', on:s.gdrive, ready:!gdriveProblem, problem:gdriveProblem || ''});
   if (phone) out.push({name:'phone', on:s.phone, ready:true});
-  return out.map(b => ({...b, label:`${b.name === 'phone' ? '폰 폴더' : SOURCE_TEXT[b.name]}${b.problem ? (GDRIVE_RECONNECT.includes(b.problem) ? ' · 권한 없음' : ' · 못 읽음') : b.on ? ' 켜짐' : ' 꺼짐'}`}));
+  return out.map(b => ({...b, label:`${b.name === 'phone' ? '폰 폴더' : SOURCE_TEXT[b.name]}${b.problem ? problemLabel(b.problem) : b.on ? ' 켜짐' : ' 꺼짐'}`}));
 }
+const problemLabel = p => (p === 'drive_not_connected' ? ' · 연결 전' : GDRIVE_RECONNECT.includes(p) ? ' · 권한 없음' : ' · 못 읽음');
 // 이번 화면에서 실제로 읽을 출처. gdrive = 칩이 보이고 권한이 있음.
 export function activeSources(state, {onedrive = false, phone = false, gdrive = false} = {}) {
   const s = parseSources(state);
@@ -65,13 +64,13 @@ export const gdriveFrom = t => (Number.isFinite(Date.parse(t || '')) ? {t:new Da
 // 서버 답 오류 코드 → 화면 글(작은 글자로 이유 코드도 함께 보인다).
 const GDRIVE_TEXT = Object.freeze({
   scope_missing:'구글 드라이브 사진 권한이 없어요', drive_auth_expired:'구글 드라이브 연결이 풀렸어요', drive_not_connected:'구글 드라이브가 연결돼 있지 않아요',
-  feature_required:'이 작업공간은 구글 드라이브 사진을 쓰지 않아요', drive_owner_mismatch:'구글 드라이브 연결 주인이 아니에요', forbidden:'쓸 수 없어요',
+  forbidden:'쓸 수 없어요',
   drive_denied:'구글 드라이브가 거절했어요', not_found:'구글 드라이브에 없어요', folder_not_found:'폴더를 찾지 못했어요', photo_not_in_index:'켠 폴더 사진이 아니에요',
   too_many_folders:'켤 수 있는 폴더는 50개까지예요', name_invalid:'이름을 확인해 주세요(1~200자)', confirm_required:'확인이 필요해요', ids_invalid:'한 번에 50장까지예요',
   thumb_unavailable:'그림을 받지 못했어요', media_unsupported:'열 수 없는 파일이에요', gdrive_unavailable:'구글 드라이브에 연결하지 못했어요',
   gdrive_store_unavailable:'사진 목록 저장소에 닿지 못했어요', session_required:'로그인이 필요해요', action_invalid:'서버가 아직 이 기능을 몰라요',
 });
-// 권한·연결 문제(칩 '권한 없음' + [Drive 다시 연결])로 볼 코드.
+// 권한·연결 문제(칩 '권한 없음'·'연결 전' + [Drive 다시 연결]·[연결])로 볼 코드.
 export const GDRIVE_RECONNECT = Object.freeze(['scope_missing', 'drive_auth_expired', 'drive_not_connected']);
 export const gdriveCode = error => { const m = String(error?.message || ''); return /^[a-z_]{1,40}$/.test(m) ? m : (error?.status ? `http_${error.status}` : 'error'); };
 export const gdriveNeedsReconnect = error => GDRIVE_RECONNECT.includes(gdriveCode(error));
