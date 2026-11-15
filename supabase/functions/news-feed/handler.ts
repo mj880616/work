@@ -18,6 +18,11 @@
 //     없거나 Google이 실패하면 기존 AI 번역(news_translate). 흐름은 outside-feed translate와 공용(_shared/feed-translate.ts, S52-36).
 //     입구·로그인·owner·하루 한도·저장 칸은 그대로. 하루·월 한도(app_news_days, _shared/news-days.ts)는 사회운동 [번역]과 함께 센다.
 //     본문 번역은 누를 때만 한다. 백그라운드(titles 단계·fill_now)는 제목만 번역한다(S47-57 명진 결정: 제목만 미리, 본문은 그때).
+//   · save_url(S62-22 APP-공유로뉴스보관, migration 20261115230000): 폰 공유로 받은 기사 주소 하나 → 그 사람 News에 넣고 바로 보관.
+//     몸통 {url}만. 주소는 열린 주소 규칙(https·IP·내부 이름·포트·사용자 정보 거절 — http는 https로 바꿔 읽음) + 문서·텔레그램·대화방·단축 주소 거절,
+//     같은 주소의 공용 기사가 있으면 원문을 읽지 않고 표시만(서버 함수 app_news_user_save, service_role만). 없으면 원문 한 번(robots·유료벽·봇 확인 규칙 그대로,
+//     크기·시간·리다이렉트 상한은 _shared/feed-fetch.ts, 리다이렉트도 같은 규칙) → 'user' 기사 한 줄 + 보관. 하루 SAVE_DAILY번(app_news_days.save_n, 같은 주소 다시 넣기도 셈).
+//     AI 요약 없음. 응답은 상태 코드와 기사 id뿐(제목·주소·본문 없음). 발송·공유·삭제와 잇지 않는다.
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401.
 // 읽는 주소: 매체는 _shared/news-catalog.ts 허용 호스트만, 채널 기사 원문은 _shared/feed-fetch.ts openArticleUrl 규칙.
 //   robots.txt 먼저(막히면 state='robots'), 유료벽 표시면 본문을 읽지 않고 공개 리드만(state='paywall'), 봇 확인 쪽은 저장 안 함.
@@ -88,6 +93,8 @@ export const REFILL_SCAN = 1000;
 export const FILL_DAILY = 10;
 export const FILL_MAX = 5;
 export const OPEN_DAILY = 60;
+export const SAVE_DAILY = 30;
+export const SAVE_URL_MAX = 2000;
 export { TRANSLATE_DAILY, TRANSLATE_MAX_CHARS };
 // 제목 번역(백그라운드): 여러 제목을 AI 한 번에 묶는다. 작업공간마다 한 번에 TITLE_BATCH개, 하루 TITLES_DAILY개까지,
 // 최근 TITLE_WINDOW_DAYS일 안에 들어온 기사만(오래된 밀린 기사는 번역하지 않음).
@@ -649,7 +656,20 @@ async function insertArticles(db: Db, rows: ArtRow[], log: FeedLog): Promise<Map
   try {
     const keys = [...new Set(rows.map((r) => r.url_key))], tks = [...new Set(rows.map((r) => r.title_key).filter((t): t is string => !!t))];
     const have = new Set<string>();
-    for (const part of inChunks(keys)) for (const r of await db.get(`app_news_articles?url_key=in.${part}&select=url_key`)) have.add(`u:${r.url_key}`);
+    const userKeys: string[] = [];
+    for (const part of inChunks(keys)) for (const r of await db.get(`app_news_articles?url_key=in.${part}&select=url_key,origin`)) {
+      have.add(`u:${r.url_key}`);
+      if (r.origin === "user" && typeof r.url_key === "string") userKeys.push(r.url_key);
+    }
+    // 사람이 공유로 먼저 넣은 기사(origin 'user', 넣은 사람만 봄)를 매체 수집이 다시 만나면 매체 기사로 넓힌다(모두의 목록에 — S62-22).
+    for (const k of userKeys) {
+      const r = rows.find((x) => x.url_key === k);
+      if (!r) continue;
+      try {
+        await db.send("PATCH", `app_news_articles?url_key=eq.${encodeURIComponent(k)}&origin=eq.user`,
+          { origin: "site", lane: r.lane, source_key: r.source_key ?? null, updated_at: new Date().toISOString() }, "return=minimal");
+      } catch { log("shared_write_failed"); }
+    }
     for (const part of inChunks(tks)) for (const r of await db.get(`app_news_articles?title_key=in.${part}&select=title_key`)) have.add(`t:${r.title_key}`);
     const list: ArtRow[] = [];
     const seen = new Set<string>();
@@ -1151,6 +1171,72 @@ async function copyTranslation(db: Db, log: FeedLog, ws: string, olds: Row[], ar
   }
 }
 
+// ---- 주소로 보관(save_url, S62-22) -----------------------------------------------------------------------------------
+// 서버 함수 app_news_user_save(migration 20261115230000)와 같은 거절 목록 — 원문을 읽기 전에 먼저 막는다(DB 함수가 한 번 더 본다).
+const SAVE_REFUSED_HOST = /(^|\.)(t\.me|telegram\.org|telegram\.me|telegram\.dog|docs\.google\.com|drive\.google\.com|forms\.gle|forms\.google\.com|sites\.google\.com|meet\.google\.com|onedrive\.live\.com|1drv\.ms|sharepoint\.com|notion\.so|notion\.site|dropbox\.com|box\.com|bokdoong\.com|supabase\.co|supabase\.in|open\.kakao\.com|chat\.whatsapp\.com|discord\.gg|discord\.com|band\.us|zoom\.us|bit\.ly|tinyurl\.com|t\.co|goo\.gl|han\.gl|me2\.do|vo\.la|url\.kr|buly\.kr|ow\.ly|is\.gd|lrl\.kr|naver\.me|kko\.to|shorturl\.at|rb\.gy|cutt\.ly|localhost|local|internal|lan|home|corp)$/;
+// 받은 주소 → 읽을 주소(https) 또는 null. http는 https로 바꾼다(평문으로 읽지 않음). 열린 주소 규칙 + 거절 목록 + 정리(추적 값 떼기).
+export function saveTarget(raw: unknown): { url: string; key: string } | null {
+  if (typeof raw !== "string" || !raw.trim() || raw.length > SAVE_URL_MAX) return null;
+  const given = raw.trim().replace(/^http:\/\//i, "https://");
+  const u = openArticleUrl(given);
+  if (!u || SAVE_REFUSED_HOST.test(u.hostname.toLowerCase().replace(/\.$/, ""))) return null;
+  const clean = cleanArticleUrl(u.href);
+  return clean && openArticleUrl(clean) ? { url: clean, key: urlKey(clean) } : null;
+}
+type SaveOut = { ok: true; status: "saved" | "no_body"; id: string };
+async function userSave(db: Db, ws: string, url: string, key: string, page: Row | null): Promise<Row> {
+  const v = await db.rpcValue("app_news_user_save", { p_workspace: ws, p_url: url, p_url_key: key, p_page: page });
+  if (!v || typeof v !== "object" || (v as Row).ok !== true) throw new Fail(503, "STORE_UNAVAILABLE");
+  return v as Row;
+}
+async function savedOut(db: Db, r: Row): Promise<SaveOut> {
+  const id = typeof r.article_id === "string" && UUID.test(r.article_id) ? r.article_id : null;
+  if (!id) throw new Fail(503, "STORE_UNAVAILABLE");
+  const art = (await db.get(`app_news_articles?id=eq.${id}&select=body_kind&limit=1`))[0];
+  return { ok: true, status: art?.body_kind ? "saved" : "no_body", id };
+}
+async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: unknown, nowMs: number): Promise<SaveOut> {
+  const target = saveTarget(raw);
+  if (!target) throw new Fail(400, "URL_REFUSED");
+  await useDaily(db, ws, "save_n", SAVE_DAILY, nowMs);
+  // 채널 스크랩(운영자 전용) 줄과 같은 주소면 서버 함수가 운영자 밖을 거절한다 — 그때는 409(저장소 장애와 구별).
+  const have = (await db.get(`app_news_articles?url_key=eq.${encodeURIComponent(target.key)}&select=origin&limit=1`))[0];
+  const call = async (url: string, key: string, page: Row | null) => {
+    try { return await userSave(db, ws, url, key, page); }
+    catch (e) { if (e instanceof Fail && have?.origin === "tg_scrap") throw new Fail(409, "UNAVAILABLE"); throw e; }
+  };
+  const first = await call(target.url, target.key, null);
+  if (first.found === true) return await savedOut(db, first);
+  const nowIso = new Date(nowMs).toISOString();
+  const reader = readers.open();
+  let url = target.url, key = target.key;
+  let page: Row, blocks: Extracted;
+  const vid = videoId(url);
+  if (vid) {
+    page = { state: "ok", title: "영상", title_key: titleKey("영상"), publisher: "YouTube", lang: "ko", body: null, body_kind: null };
+    blocks = failedBody("no_body", null);
+  } else {
+    const got = await reader.get(url, ACCEPT_HTML);
+    if (!got.ok) {
+      page = { state: storedState(got.code), title: null, body: null, body_kind: null };
+      blocks = failedBody(readFailReason(got.code), ruleId(OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE));
+    } else {
+      // 리다이렉트로 옮겨 간 주소(같은 열린 주소 규칙을 통과한 곳)를 기사 주소로. 거절 목록이면 처음 주소 그대로.
+      const moved = saveTarget(got.url);
+      if (moved) { url = moved.url; key = moved.key; }
+      const info = readArticlePage(got.text, nowMs, openRule(got.url));
+      const title = info.state === "bot_check" || !info.title ? null : newsTitle(info.title);
+      page = { state: info.state, title, title_key: title ? titleKey(title) : null, publisher: info.state === "bot_check" ? null : info.publisher,
+        published_at: info.state === "bot_check" ? null : info.published_at, lang: info.lang,
+        body: info.body_kind ? info.body : null, body_kind: info.body ? info.body_kind : null };
+      blocks = info.blocks;
+    }
+  }
+  const saved = await call(url, key, page);
+  if (saved.created === true) await saveArticleBody(db, log, { id: saved.article_id, lane: "channel" }, blocks, nowIso);
+  return await savedOut(db, saved);
+}
+
 export function createNewsFeedHandler(deps: NewsFeedDeps) {
   const doFetch = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
@@ -1174,7 +1260,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate"];
+      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate", "save_url"];
       if (!(cron ? cronActions : userActions).includes(action ?? "")) throw new Fail(400, "UNKNOWN_ACTION");
       if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
@@ -1245,6 +1331,10 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         // 채운 채널 기사 중 외국어 제목은 바로 한국어로(제목만, 하루 상한 안). 실패해도 채우기 결과는 그대로 돌려준다.
         try { await runTitles(db, ai, nowMs, startMs, now, log, who.workspaceId); } catch { log("titles_after_fill_failed"); }
         return json({ ok: true, done: out.done, deferred: out.deferred });
+      }
+      if (action === "save_url") {
+        if (!exactKeys(b, ["url"])) throw new Fail(400, "INVALID_BODY");
+        return json(await saveUrl(db, readers, log, who.workspaceId, b.url, nowMs));
       }
       // NEWS-모두에게열기 E3: open·translate는 공용 기사 한 줄에 읽고 쓴다(기사마다 원문 읽기·번역 1번). 하루 한도·AI 사용량은 누른 사람 작업공간.
       const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", auth!.slice("Bearer ".length), doFetch);
