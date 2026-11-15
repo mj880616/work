@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>파일 찾기 줄 시안 (UI-파일검색줄)</title>
+<style>
+/* 값은 app/theme-tokens.css 기본(올리브) 토큰과 app/files.css 폰 규칙(찾기 칸 30px·출처 단추 28px·두 칸 단추 24px/11.5px)을 옮긴 것 */
+:root{--kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;--kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;--kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;--kptu-primary:#5c6a35;--kptu-primary-soft:#eef0e1;--kptu-radius-sm:6px;--ds-compact-height:32px;--ds-compact-height-sm:28px}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#e7e5df;font-family:"Noto Sans KR",system-ui,sans-serif;color:var(--kptu-ink)}
+h1{font-size:15px;margin:0 0 4px}
+.lead{font-size:12.5px;color:var(--kptu-muted);margin:0 0 14px}
+.wrap{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.col{width:412px}
+.cap{font-size:13px;font-weight:700;margin:0 0 6px 2px}
+.ph{width:412px;height:330px;background:var(--kptu-bg);border-radius:14px;box-shadow:0 1px 4px #0002;overflow:hidden}
+.hd{height:40px;display:flex;align-items:center;padding:0 12px;font-size:14px;font-weight:600;background:var(--kptu-surface);border-bottom:.5px solid var(--kptu-border)}
+.body{padding:0 12px}
+.top{display:flex;align-items:center;gap:6px;padding:4px 0 3px;border-bottom:.5px solid var(--kptu-border);flex-wrap:wrap;row-gap:2px}
+.search{height:30px;flex:1 1 auto;min-width:0;border:.5px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface-subtle);color:var(--kptu-faint);padding:0 8px;font-size:12.5px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.src{flex:none;width:28px;height:28px;border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);display:flex;align-items:center;justify-content:center}
+.src.off svg{filter:grayscale(1);opacity:.45}
+.two{flex:none;height:24px;padding:0 8px;font-size:11.5px;border:.5px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface);color:var(--kptu-ink);display:flex;align-items:center;white-space:nowrap}
+.ico{flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--kptu-muted);border-radius:var(--kptu-radius-sm)}
+.line2{width:100%;display:flex;justify-content:flex-end;padding:1px 0}
+.row{display:flex;align-items:center;gap:8px;height:34px;font-size:13px;border-bottom:.5px solid var(--kptu-border)}
+.row .f{color:#b49a4a}.row .n{flex:1}.row .t{font-size:11px;color:var(--kptu-faint)}
+.save{display:inline-block;margin:4px 0 0;font-size:11px;color:#fff;background:var(--kptu-primary);border-radius:4px;padding:1px 6px}
+.cur .save{background:#9a5a3a}
+.note{font-size:12px;line-height:1.55;color:var(--kptu-muted);margin:6px 2px 0}
+.note b{color:var(--kptu-ink)}
+.mark{outline:2px dashed #c0864a;outline-offset:1px}
+.sub{font-size:11.5px;color:var(--kptu-faint);margin:10px 2px 4px}
+@media (max-width:460px){body{padding:0}.col,.ph,.mini-ph{width:100%;border-radius:0}h1,.lead,.cap{padding:0 8px}}
+.mini-ph{width:412px;background:var(--kptu-bg);border-radius:10px;box-shadow:0 1px 3px #0002;padding:0 12px}
+</style></head>
+<body>
+<h1>파일 화면 맨 위 줄 시안 — 한 줄 아끼기</h1>
+<p class="lead">폰 412px 기준, 나무(첫 화면) 상태. 주황 점선 = 지금과 달라진 자리. 아래 줄 내용(폴더 줄)은 모든 안이 같고, 위 줄이 한 줄로 줄어 목록이 한 줄 더 보인다.</p>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="od" viewBox="0 0 16 16"><path d="M4.2 12.5h8.2a2.6 2.6 0 0 0 .3-5.2A3.8 3.8 0 0 0 5.4 6a3.2 3.2 0 0 0-1.2 6.5Z" fill="#2f7fd0"/></symbol>
+<symbol id="gd" viewBox="0 0 16 16"><path d="M5.6 2h4.8l4.2 7.3-2.4 4.2H3.8L1.4 9.3Z" fill="none"/><path d="M5.6 2h4.8L6.2 9.3H1.4Z" fill="#1aa260"/><path d="M10.4 2l4.2 7.3h-4.8L6.2 2Z" fill="#f4b400" transform="translate(0 0)"/><path d="M1.4 9.3h13.2l-2.4 4.2H3.8Z" fill="#3b78e7"/></symbol>
+<symbol id="ph" viewBox="0 0 16 16"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="#6e6c60" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="#6e6c60"/></symbol>
+<symbol id="tw" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h12" stroke="currentColor" stroke-width="1.4"/></symbol>
+<symbol id="one" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+<symbol id="q" viewBox="0 0 24 24"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm5-2 4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="wrap">
+
+<!-- 지금 -->
+<div class="col cur">
+  <div class="cap">지금 (두 줄)</div>
+  <div class="ph"><div class="hd">파일</div><div class="body">
+    <div class="top">
+      <div class="search">이름·자료실 글자 찾기</div>
+      <span class="src"><svg width="16" height="16"><use href="#od"/></svg></span>
+      <span class="src"><svg width="16" height="16"><use href="#gd"/></svg></span>
+      <span class="src off"><svg width="16" height="16"><use href="#ph"/></svg></span>
+      <div class="line2"><span class="two">두 칸 보기</span></div>
+    </div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">원드라이브</span><span class="t">12</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">구글 드라이브</span><span class="t">8</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">회의 자료</span><span class="t">31</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">보도자료</span><span class="t">17</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">사진 원본</span><span class="t">240</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">교육</span><span class="t">9</span></div>
+  </div></div>
+  <p class="note">[두 칸 보기] 하나가 둘째 줄을 혼자 차지한다. <span class="save">현재</span></p>
+</div>
+
+<!-- A안 -->
+<div class="col">
+  <div class="cap">A안 — 찾기 칸 줄이고 [두 칸 보기] 글자 단추를 같은 줄 끝에</div>
+  <div class="ph"><div class="hd">파일</div><div class="body">
+    <div class="top" style="flex-wrap:nowrap">
+      <div class="search mark">이름·자료실 글자 찾기</div>
+      <span class="src"><svg width="16" height="16"><use href="#od"/></svg></span>
+      <span class="src"><svg width="16" height="16"><use href="#gd"/></svg></span>
+      <span class="src off"><svg width="16" height="16"><use href="#ph"/></svg></span>
+      <span class="two mark">두 칸 보기</span>
+    </div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">원드라이브</span><span class="t">12</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">구글 드라이브</span><span class="t">8</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">회의 자료</span><span class="t">31</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">보도자료</span><span class="t">17</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">사진 원본</span><span class="t">240</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">교육</span><span class="t">9</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">개인</span><span class="t">4</span></div>
+  </div></div>
+  <p class="note"><b>장점</b> 글자 그대로라 누르면 무엇이 되는지 바로 안다(두 칸이면 '한 칸 보기'로 바뀜, 지금 방식 유지). <b>단점</b> 찾기 칸이 약 210px(지금 약 290px)로 줄어 안내 글자가 꽉 찬다. 더 좁은 폰(360px)에서는 160px대로 좁아진다.</p>
+</div>
+
+<!-- B안 -->
+<div class="col">
+  <div class="cap">B안 — [두 칸 보기]를 아이콘 단추로, 출처 아이콘 3개 옆에</div>
+  <div class="ph"><div class="hd">파일</div><div class="body">
+    <div class="top" style="flex-wrap:nowrap">
+      <div class="search mark">이름·자료실 글자 찾기</div>
+      <span class="src"><svg width="16" height="16"><use href="#od"/></svg></span>
+      <span class="src"><svg width="16" height="16"><use href="#gd"/></svg></span>
+      <span class="src off"><svg width="16" height="16"><use href="#ph"/></svg></span>
+      <span class="ico mark" aria-label="두 칸 보기" title="두 칸 보기"><svg width="16" height="16"><use href="#tw"/></svg></span>
+    </div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">원드라이브</span><span class="t">12</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">구글 드라이브</span><span class="t">8</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">회의 자료</span><span class="t">31</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">보도자료</span><span class="t">17</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">사진 원본</span><span class="t">240</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">교육</span><span class="t">9</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">개인</span><span class="t">4</span></div>
+  </div></div>
+  <p class="note"><b>장점</b> 찾기 칸이 A안보다 넓게 남는다(약 250px). 아이콘은 공용 ⑥ 아이콘 단추(선·바탕 없음) 그대로. <b>단점</b> 그림만 보고 뜻을 알아야 한다. 두 칸일 때는 그림을 한 칸(□)으로 바꾸고 이름을 '한 칸 보기'로 바꾼다. 출처 단추(테두리 있음)와 모양이 달라 줄 안에서 조금 달라 보인다.</p>
+</div>
+
+<!-- C안 -->
+<div class="col">
+  <div class="cap">C안 — 찾기를 돋보기 아이콘으로 접고, 누르면 줄 전체로 펼침</div>
+  <div class="ph"><div class="hd">파일</div><div class="body">
+    <div class="top" style="flex-wrap:nowrap">
+      <span class="ico mark" aria-label="파일 찾기"><svg width="18" height="18"><use href="#q"/></svg></span>
+      <span class="src"><svg width="16" height="16"><use href="#od"/></svg></span>
+      <span class="src"><svg width="16" height="16"><use href="#gd"/></svg></span>
+      <span class="src off"><svg width="16" height="16"><use href="#ph"/></svg></span>
+      <span style="flex:1"></span>
+      <span class="two mark">두 칸 보기</span>
+    </div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">원드라이브</span><span class="t">12</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">구글 드라이브</span><span class="t">8</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">회의 자료</span><span class="t">31</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">보도자료</span><span class="t">17</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">사진 원본</span><span class="t">240</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">교육</span><span class="t">9</span></div>
+    <div class="row"><span class="f">▸ 📁</span><span class="n">개인</span><span class="t">4</span></div>
+  </div></div>
+  <div class="sub">돋보기를 누른 뒤(같은 줄이 찾기 칸으로 바뀜, ✕로 닫기)</div>
+  <div class="mini-ph"><div class="top" style="flex-wrap:nowrap;border-bottom:0">
+    <div class="search" style="color:var(--kptu-ink)">회의록▏</div>
+    <span class="ico" aria-label="찾기 닫기">✕</span>
+  </div></div>
+  <p class="note"><b>장점</b> 자료실 위 줄(돋보기 → 펼침)과 같은 방식이라 통일된다. 글자 단추·출처 단추 모두 넉넉하다. <b>단점</b> 찾을 때 한 번 더 눌러야 한다. 찾는 중에는 출처 단추가 잠시 가려진다.</p>
+</div>
+
+</div>
+<p class="lead" style="margin-top:16px">PC·폴드 펼침(600px 이상)은 이미 한 줄(위치 길·찾기·정렬·출처·두 칸 보기)이라 어느 안이든 바뀌지 않는다. 고른 안은 폰(600px 미만)에만 적용한다.</p>
+</body></html>
