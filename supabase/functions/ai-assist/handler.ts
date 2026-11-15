@@ -142,7 +142,7 @@ import {
   SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
 } from "./schedule-titles.ts";
 import {
-  HWP_CONVERT_BODY_BYTES, HWP_CONVERT_INSTRUCTIONS, HWP_CONVERT_MAX_OUTPUT_TOKENS, HWP_CONVERT_SCHEMA, hwpConvertMaterial, parseHwpConvert,
+  HWP_CONVERT_BODY_BYTES, HWP_CONVERT_PPWU_FEATURE, hwpConvertInstructions, HWP_CONVERT_MAX_OUTPUT_TOKENS, HWP_CONVERT_SCHEMA, hwpConvertMaterial, parseHwpConvert,
   parseHwpConvertRequest, type HwpConvertDocType,
 } from "./hwp-convert.ts";
 import {
@@ -3206,13 +3206,16 @@ async function runHwpConvert(ctx: Ctx, input: HwpConvertInput, deps: RadarDeps):
   } catch {
     throw new Fail(503, "usage_unavailable");
   }
+  // HWP-노조서식분류: 상급단체 전용 규칙은 서버 허용 표(app_my_features, 로그인 토큰·인자 없음)에 ppwu_forms가 있을 때만. 함수 없음·읽기 실패는 일반 규칙(닫힌 쪽).
+  const features = await myFeatures(ctx);
+  const ppwu = features instanceof Set && features.has(HWP_CONVERT_PPWU_FEATURE);
   const material = hwpConvertMaterial(input.doc_type, input.text);
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
     model: config.model,
     store: false,
     max_output_tokens: HWP_CONVERT_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: HWP_CONVERT_INSTRUCTIONS },
+      { role: "developer", content: hwpConvertInstructions(ppwu) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "hwp_convert", strict: true, schema: HWP_CONVERT_SCHEMA } },

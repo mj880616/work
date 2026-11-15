@@ -39,11 +39,15 @@ export async function readOwnForm(rt = window.KPTURuntime) {
 }
 
 // known: 마지막으로 읽은/쓴 행(없으면 처음 넣기). → {ok, row} | {conflict, row} | {missing:true}. 크기 초과는 code 'too_big' 오류.
-export async function saveOwnForm({known, name, sourceName = null, form}, rt = window.KPTURuntime) {
+// sourceFileId(HWP-노조서식분류): 올린 원본을 자료실 '노조 서식'에 둔 자료 번호(app_documents.id). undefined면 보내지 않아 그대로 두고, null이면 비운다.
+export const SOURCE_FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;
+export async function saveOwnForm({known, name, sourceName = null, sourceFileId, form}, rt = window.KPTURuntime) {
   const clean = cleanForm(form);
   if (formBytes(clean) > FORM_MAX_BYTES) throw Object.assign(new Error(OWN_FORM_TEXT.tooBig), {code: 'too_big'});
   const workspace = workspaceOf(rt);
   const body = {name: formName(name), source_name: sourceName ? String(sourceName).slice(0, 200) : null, form: clean};
+  // 주지 않으면(undefined) 칸을 보내지 않는다(고칠 때 그대로, 처음 넣을 때 DB 기본 null).
+  if (sourceFileId !== undefined) body.source_file_id = typeof sourceFileId === 'string' && SOURCE_FILE_ID.test(sourceFileId) ? sourceFileId : null;
   try {
     if (!known?.id) {
       const rows = await rt.api(`${TABLE}?${SELECT}`, {method: 'POST', prefer: 'return=representation', body: {workspace_id: workspace, ...body}});

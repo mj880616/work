@@ -93,6 +93,7 @@ on:
       - 'tests/hwp-warm.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
+      - 'tests/hwp-union-forms.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
       - 'tests/hwp-studio-focus.test.mjs'
       - 'scripts/hwp-lab/**'
@@ -336,6 +337,7 @@ on:
       - 'tests/hwp-warm.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
+      - 'tests/hwp-union-forms.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
       - 'tests/hwp-studio-focus.test.mjs'
       - 'scripts/hwp-lab/**'
@@ -781,6 +783,9 @@ jobs:
 
       - name: Check HWP union-form conversion (numbers, template pick, in-editor fill, engine line)
         run: node --test tests/hwp-convert.test.mjs
+
+      - name: Check HWP union-form category (노조 서식, old 양식 read), upload-first, weekly original link
+        run: node --test tests/hwp-union-forms.test.mjs
 
       - name: Check HWP editor fills the screen (phone, PC fullscreen, page-width refit)
         run: node --test tests/hwp-fill-screen.test.mjs

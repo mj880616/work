@@ -615,7 +615,7 @@ function paintBlank(host, weekModel) {
   // 확인·짝짓기 화면(weekly-own-form-edit.js, 시안 ②)을 연다. [저장]하면 '내 양식'으로 서버에 둔다(weekly-own-form-store.js, app_weekly_forms).
   // 저장된 양식이 있으면 한 줄 + [양식 수정], 그 아래 내 양식 그대로 그 주 초안(④-2, weekly-own-draft.js — 양식을 고치는 동안은 비움).
   const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs'), import('./weekly-own-form-edit.js')]);
-  let known, editing = false, draftModel = weekModel, draft = null;
+  let known, editing = false, draftModel = weekModel, draft = null, pendingFile = null, uploadedId;
   const draftSlot = box.querySelector('[data-weekly-own-draft-slot]');
   const paintDraft = () => {
     const form = !editing && known?.form?.sections?.length ? known.form : null;
@@ -638,15 +638,26 @@ function paintBlank(host, weekModel) {
   async function openEditor(form, name, isNew, sourceName = known?.source_name ?? null, read = false) {
     const [, store, model, edit] = await ownForm();
     editing = true; note.textContent = ''; paintDraft();
-    edit.mountOwnFormEditor(slot, {form, name, fresh:isNew, read, onCancel:() => { editing = false; paintSaved(store, model); },
+    edit.mountOwnFormEditor(slot, {form, name, fresh:isNew, read, onCancel:() => { editing = false; pendingFile = null; uploadedId = undefined; paintSaved(store, model); },
       onSave:async next => {
         if (known === undefined) known = (await store.readOwnForm()).row;
+        // HWP-노조서식분류: 파일에서 읽은 양식이면 그 원본 한글 파일을 자료실 '노조 서식'에 한 번 올리고(hwp-drive.js saveUnionForm, 기존 library-files),
+        // 그 자료 번호를 '내 양식'의 source_file_id로 둔다. 올리기가 안 돼도 양식 저장은 막지 않는다(한 번만 보내고 다시 보내지 않음).
+        let sourceFileId = uploadedId, upNote = '';
+        if (pendingFile) {
+          const file = pendingFile; pendingFile = null;
+          try {
+            const up = await (await import('./hwp-drive.js')).saveUnionForm(file, {}, {rt});
+            if (up.kind === 'created') sourceFileId = uploadedId = up.document.id; else { sourceFileId = null; upNote = ` 원본 파일은 자료실에 올리지 못했어요. ${up.message}`; }
+          } catch { sourceFileId = null; upNote = ' 원본 파일은 자료실에 올리지 못했어요.'; }
+        }
         let saved;
-        try { saved = await store.saveOwnForm({known, name, sourceName, form:next}); }
+        try { saved = await store.saveOwnForm({known, name, sourceName, sourceFileId, form:next}); }
         catch (error) { return {ok:false, text:error?.code === 'too_big' ? store.OWN_FORM_TEXT.tooBig : store.OWN_FORM_TEXT.failed}; }
         if (saved.missing) return {ok:false, text:store.OWN_FORM_TEXT.notReady};
         if (saved.conflict) { known = saved.row; return {ok:false, text:store.OWN_FORM_TEXT.conflict}; }
-        known = saved.row; editing = false; paintSaved(store, model); note.textContent = store.OWN_FORM_TEXT.saved;
+        known = saved.row; editing = false; uploadedId = undefined; paintSaved(store, model);
+        note.textContent = store.OWN_FORM_TEXT.saved + (sourceFileId ? " 원본 파일은 자료실 '노조 서식'에 두었어요." : upNote);
         return {ok:true, text:''};
       }});
   }
@@ -665,12 +676,13 @@ function paintBlank(host, weekModel) {
       let read;
       try { read = readHwpxForm(r.pkg); } catch { note.textContent = store.OWN_FORM_TEXT.unreadable; return; }
       if (!read.form.sections.length) { note.textContent = store.OWN_FORM_TEXT.none; return; }
+      pendingFile = file; uploadedId = undefined;
       await openEditor(read.form, model.formName(read.title || file.name), true, file.name, true);
     } catch { note.textContent = '파일을 열지 못했어요. 다시 선택해 주세요.'; }
     finally { setBusy(false); }
   };
   pick.addEventListener('click', () => input.click());
-  fresh.addEventListener('click', () => { void ownForm().then(([, , model]) => openEditor({v:1, sections:[]}, model.formName(''), true, null)).catch(() => {}); });
+  fresh.addEventListener('click', () => { pendingFile = null; uploadedId = undefined; void ownForm().then(([, , model]) => openEditor({v:1, sections:[]}, model.formName(''), true, null)).catch(() => {}); });
   input.addEventListener('change', () => { const f = input.files?.[0]; input.value = ''; void open(f); });
   box.addEventListener('dragover', e => { if (!e.dataTransfer?.types?.includes?.('Files')) return; e.preventDefault(); box.classList.add('is-over'); });
   box.addEventListener('dragleave', () => box.classList.remove('is-over'));
