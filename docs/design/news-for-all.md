@@ -199,3 +199,81 @@ select date_trunc('day', created_at) d, count(*) from public.app_news_items
 2. News 안 [사회운동] 탭(단체 성명)도 공용 한 벌로 바꿀까요? 지금은 각자 단체를 켜면 따로 모읍니다. (추천: 이번엔 그대로, 다음 일로)
 3. 지금 앱 스크립트가 읽는 텔레그램 채널 스크랩은, 그 채널들을 [뉴스방으로] 누른 뒤 닫을까요? (추천: 예 — 서버가 방을 판정하는 길 하나로)
 4. [뉴스방에서 빼기]를 하면 이미 들어간 기사는 그대로 둘까요? (추천: 그대로)
+
+## 12. 명진 결정 (11/15, 지시서 S62-12b 기록)
+
+| 질문(11절) | 결정 |
+| --- | --- |
+| 1 다른 사람 목록 | 가 — 모두 같은 목록(매체 끄기는 나중에) |
+| 2 [사회운동] 탭 | **나 — 이번에 공용 한 벌로**(14절) |
+| 3 채널 스크랩 | 예 — [뉴스방으로] 옮긴 뒤 커맨드센터가 앱 스크립트 입구를 닫음 |
+| 4 뉴스방에서 빼기 | 그대로 — 이미 들어간 기사는 남김 |
+| 뉴스방 | 명진이 누른 방만(자동 없음) |
+
+진행: D1 #2628 운영 적용(승인형 workflow dry-run → apply), E1 Edge #2633(collector-feed·news-feed, 옛 표에도 같이 씀).
+
+## 13. D2 설계 보충 — 기사 id를 가리키는 표 (S62-12b 조사, 구현 전)
+
+4절 D2는 "외래 키 4곳을 공용 기사로 옮김"이었으나, 가리키는 표의 **유일 제약·읽기 정책이 작업공간별 기사 줄을 전제**로 되어 있어 외래 키만 옮기면 깨진다. [사실] = 저장소에서 확인.
+
+### 13-1. 지금 (사실)
+
+| 표 | 가리키는 칸 | 유일·정책 | 공용 기사로 옮기면 |
+| --- | --- | --- | --- |
+| `app_feed_bodies`(본문 블록) | `news_item_id`(`20261106050000_feed_bodies.sql` 45줄) | `unique (news_item_id)`(56줄), owner select(100줄), 쓰기 service_role | 기사 내용이라 **공용**이어야 하는데 owner 정책이라 다른 사람이 못 읽음 |
+| `app_feed_reads`(읽음) | `news_item_id`(`20261106080000_feed_reads_news_prefs.sql` 72줄) | `unique (news_item_id)`(75줄, 작업공간 없음), owner 정책 + 같은 작업공간 확인 트리거 `private.app_feed_reads_scope_guard` | 사람별이어야 하는데 유일 제약 때문에 A가 읽으면 B가 못 넣음, 트리거가 작업공간 칸 없는 기사를 거절 |
+| `app_now_details`(한 건 자세히) | `news_item_id`(`20261102140000_now_detail.sql` 50줄) | `unique (news_item_id)`(63줄) | 위와 같은 유일 충돌. [사실] 저장본에 사람 관심사 지문(`interests_key`)이 붙어 관심이 바뀌면 다시 만든다(`ai-assist/now-detail.ts` 5줄) → **사람별** |
+| `app_now_signals`(반응) | `news_item_id`(같은 파일 119줄) | 유일 없음, 사람별 | 외래 키만 옮기면 됨 |
+| `app_news_highlights`(밑줄) | `source_id`(외래 키 없음, `source_type='news'`) | 사람별 | 옛 id → 공용 id 바꿔 읽기 필요 |
+| 노트 `metadata.news_item_id` | 외래 키 없음 | 사람별 | 같음 |
+
+[사실] 사회운동 쪽(`outside_post_id`, `app_outside_marks.post_id` 기본 키)도 같은 모양이다(14절).
+
+### 13-2. 제안 — 옛 표는 건드리지 않고 새 표로 (Expand)
+
+| 새 표·함수 | 내용 | 권한 |
+| --- | --- | --- |
+| `app_news_article_bodies` | 기사마다 블록 한 줄(`article_id` 기본 키 → `app_news_articles`) | RLS, 읽기 `private.app_news_reader_ok()`(tg_scrap 기사는 운영자만 — 기사 정책과 같은 조건), 쓰기 service_role |
+| `app_news_reads` | `(workspace_id, article_id)` 기본 키 | owner 정책, 화면은 자기 줄 넣기·지우기, 넣을 때 읽을 수 있는 기사만(`with check` 하위 조회) |
+| `app_news_id_map` | `old_id`(옛 `app_news_items.id`) → `article_id` | 화면 권한 없음(service_role·DEFINER 함수만). 밑줄·노트 메모·now 줄의 옛 id를 지우거나 고치지 않고 읽을 때 바꿈 |
+| `app_news_now_details` | 사람별 `(workspace_id, article_id)` 기본 키(지금 칸 그대로). `app_now_signals`는 유일 없음 → 새 칸 `article_id`(공용 기사 외래 키)만 더하거나 같은 모양 새 표(구현 때 작은 쪽) | owner 정책(지금 표와 같음), 쓰기 서버 |
+
+- D2 migration: 위 새 표 + 옮기기(옛 표에만 있는 기사 다시 복사 — 운영자 줄 id 우선, `app_news_id_map` 전부, 대표 줄의 본문 블록, 작업공간마다 읽음). 기존 표·정책·트리거·외래 키는 바꾸지 않는다(되돌리기 = 새 표 삭제).
+- E1b Edge: news-feed 본문 블록을 `app_news_article_bodies`에(옮기는 동안 옛 블록도), ai-assist·phone-push·now-detail 읽기를 공용 기사 + 내 표시로(설계 4절 E2를 앞당김).
+- ③ 화면: 공용 기사·`app_news_marks`·`app_news_reads`·새 블록 표를 읽음. 옛 id 링크는 지도 함수로.
+- C1: 옛 표 쓰기 멈춤. 옛 표·옛 본문 블록 지우기는 따로 결정.
+- 시험(실제 PostgreSQL): B가 A 읽음을 못 봄·A가 읽어도 B가 넣을 수 있음, 블록은 가입자 읽기·차단 계정 0줄·tg_scrap 블록은 운영자만, 지도 표 화면 권한 없음, 옮긴 뒤 옛 줄마다 지도 1줄·고아 0.
+
+## 14. [사회운동] 공용 한 벌 (D1b, 명진 결정 2 나 — #2628 '설계 보충' 댓글 그대로)
+
+### 14-1. 지금 (사실)
+
+| 대상 | 위치 | 지금 |
+| --- | --- | --- |
+| `app_outside_posts` | `20261031230000_outside_statements.sql` 57~93줄, `20261108020000_outside_post_body_ko.sql`(`body_ko` 칸) | 작업공간별, `unique (workspace_id, url)`(72줄), `unique (id, workspace_id, lang)`(73줄), owner select |
+| `app_outside_sentences` | 같은 파일 95~107줄 | 외래 키 `(post_id, workspace_id, lang)`, owner select |
+| `app_outside_seen` | 같은 파일 110줄 | 사람별 마지막 본 시각(그대로 둠) |
+| `app_outside_sources` | 같은 파일 44줄 | 사람별 단체 켜기 |
+| `app_outside_search` | 같은 파일 154줄, `20261102150000_outside_search_undated.sql` 29줄 | 자기 작업공간 문장 검색(authenticated) |
+| 가리키는 표 | `app_outside_marks.post_id`(기본 키 — 작업공간 없음), `app_feed_bodies.outside_post_id`·`app_feed_reads.outside_post_id`·`app_now_details.outside_post_id`(각각 유일), `app_now_signals.outside_post_id`, `app_news_highlights`(`source_type='outside'`) | 13-1과 같은 문제 |
+| 읽는 곳 | `outside-feed` Edge, `app/outside-statements.js`·`notice-outside.js`·`outside-search*.js`·`now-*.js`, `ai-assist/now-detail.ts`, `phone-push/now-line.ts`, `_shared/now-detail-build.ts` | — |
+
+### 14-2. 바뀐 뒤
+
+| 표·함수 | 성격 | 권한 |
+| --- | --- | --- |
+| `app_outside_articles`(새) | 공용 글 한 벌: `app_outside_posts` 칸 그대로에서 `workspace_id`만 뺌, `url` 전체 유일, id는 옮길 때 대표 줄(운영자 작업공간 줄 → 먼저 생긴 줄) id 그대로 | RLS, 읽기 `private.app_news_reader_ok()`, 쓰기 service_role. anon·PUBLIC 없음 |
+| `app_outside_article_sentences`(새) | 공용 문장(`article_id`, `idx`) | 같음 |
+| `app_outside_article_marks`(새) | 사람별 별표·보관·숨김 `(workspace_id, article_id)` | owner, 화면은 자기 줄 넣기·칸 고치기·지우기 |
+| `app_outside_article_bodies`·`app_outside_reads`·`app_outside_id_map`(새) | 13-2와 같은 방식 | 13-2와 같음 |
+| `public.app_outside_search_shared`(새) | 공용 문장 검색(인자는 지금 함수와 같게), SECURITY INVOKER — 공용 표 정책을 그대로 거침 | authenticated만 |
+| `app_outside_seen`·`app_outside_sources` | 그대로(사람별) | 그대로 |
+
+- 수집(`outside-feed`, D1b 뒤 Edge): 누구라도 켠 단체의 합집합을 한 번만 읽어 공용 글 한 줄, 요약·핵심 문장·번역은 글마다 한 번(뉴스 E1과 같은 방식, 옮기는 동안 옛 표에도).
+- 처음엔 모두 같은 목록(결정 1 가와 같이). 단체 켜기는 '수집 대상'만 정한다.
+- 순서: 이 절(문서) → D1b migration(새 표·함수·옮기기, 짝 5파일, 실제 PostgreSQL 시험) → outside-feed Edge → ③ 화면(뉴스와 한 번에 또는 바로 뒤).
+- 시험: 가입자 읽기·anon·차단 계정·작업공간 없는 로그인 0줄, 화면 공용 표 쓰기 42501, B가 A 표시를 못 봄, 검색 함수가 공용 문장만, 같은 단체 두 사람 → 요약 AI 1번.
+
+### 14-3. 결정이 필요한 것
+
+- 없음(명진 결정 2 나). `app_now_details`는 사람별로 확인됨(13-1).
