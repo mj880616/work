@@ -229,7 +229,7 @@ class ShellRulesTest {
     @Test
     fun manifestShareAliases() {
         val manifest = java.io.File("src/main/AndroidManifest.xml").readText()
-        assertTrue(manifest.contains("android:label=\"노동조합+ 업데이트로 보내기\""))
+        assertTrue(manifest.contains("android:label=\"노동조합+ 잊지 말기로 보내기\""))
         assertFalse(manifest.contains("노동조합+ 바구니"))
         for ((name, label) in listOf(ShellRules.SHARE_TO_NOTE to "노동조합+ 노트", ShellRules.SHARE_TO_TASK to "노동조합+ 할 일")) {
             val block = manifest.substringAfter("android:name=\".$name\"").substringBefore("</activity-alias>")

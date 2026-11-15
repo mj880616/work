@@ -119,7 +119,7 @@ for(const width of [390,884,1280])test(`${width}: 주차 선택 — 연도·주�
   await page.locator('[data-report-period-panel] [data-report-iso-week]').selectOption('45');
   await page.locator('[data-report-period-panel] [data-report-week="iso-apply"]').click();
   await expect(label(page)).toHaveText('45주차 · 11.2(월)~11.8(일)');
-  await expect(page.locator('#bizWeekBox .biz-week-title')).toHaveText('11.2~11.8 주간보고');
+  await expect(page.locator('#bizWeekBox .biz-week-title')).toHaveText('11.2~11.8 주간 보고');
   // [이번 주]를 고르면 번호 없이 이번 주.
   await pick.selectOption('week');
   await expect(label(page)).toHaveText('11.9(월)~11.15(일)');await expect(pick).toHaveValue('week');

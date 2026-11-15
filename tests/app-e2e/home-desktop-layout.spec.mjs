@@ -95,10 +95,10 @@ for (const width of [1440, 412]) test(`the [일정] menu has no 업무일지 lin
     await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current', 'page');
     await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
     await expect(page.locator('#calendarView')).toBeVisible();
-    await expect(page.locator('#calendarView .schedule-switch button')).toHaveText(['달력', '할 일', '일기']);
+    await expect(page.locator('#calendarView .schedule-switch button')).toHaveText(['달력', '할 일', '하루 기록']);
   } else {
     await expect(page.locator('#appView .sidebar-brand')).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('#appView .nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력', '할 일', '일기']);
+    await expect(page.locator('#appView .nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력', '할 일', '하루 기록']);
   }
 });
 
@@ -114,7 +114,7 @@ test('the update input saves an update from the home', async ({page}) => {
   const quick = page.locator('#homeView .home-quick[data-home-quick]');
   await expect(quick).toBeVisible();
   await expect(quick.locator('[data-quick-mode="update"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(quick.locator('[data-quick-mode]')).toHaveText(['업데이트', '할 일']);
+  await expect(quick.locator('[data-quick-mode]')).toHaveText(['잊지 말기', '할 일']);
   await quick.locator('[data-quick-input]').fill('홈에서 쓴 업데이트');
   await quick.locator('[data-quick-save]').click();
   await expect.poll(() => posts.length).toBe(1);

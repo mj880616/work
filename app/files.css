@@ -17,6 +17,9 @@
 .fx-sync { border:0; background:none; color:var(--kptu-faint); font:inherit; font-size:11px; padding:2px 4px; cursor:pointer; white-space:nowrap; }
 .fx-sync:hover:not(:disabled) { color:var(--kptu-ink); }
 .fx-note { margin:4px 0; font-size:12px; color:var(--kptu-muted); }
+/* S62-16: 연결 전·권한 빠짐 아이콘은 원드라이브 연결 전과 같이 회색조로 엷게(od-link.css data-state=off와 같은 값). */
+.fx-srcs .fx-src-off svg { filter:grayscale(1); opacity:.45; }
+.fx-connect[hidden] { display:none; }
 .fx-cols { display:flex; min-width:0; align-items:flex-start; }
 .fx-tree { flex:0 0 260px; width:260px; padding:0 10px 8px 0; }
 /* S51-25 FOLDER-PC나무: PC·폴드 왼쪽 나무와 두 칸의 ▾ 나무도 공용 상자 나무(folder-tree.css ft-) — 세모 없음, 저장소마다 상자. 화면 CSS는 자리만.

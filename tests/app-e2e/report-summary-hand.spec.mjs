@@ -66,7 +66,7 @@ async function openPreview(page){
 }
 const noOverflow=page=>page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1);
 
-for(const width of [1440,412])test(`${width}: 이번 주 주간보고 칸 — 내부 정례 회의 없음, 진행·담당 직접 쓰기(보고 없는 줄 포함), AI 없음`,async({page})=>{
+for(const width of [1440,412])test(`${width}: 이번 주 주간 보고 칸 — 내부 정례 회의 없음, 진행·담당 직접 쓰기(보고 없는 줄 포함), AI 없음`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();await open(page,s,width);
   const dlg=await openPreview(page);
@@ -117,14 +117,14 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간보고 칸 — �
   expect(s.bizNow.writes.length).toBe(writes);
   // 팝업·HWP 버튼은 없고, 위 ⋯ 메뉴에도 미리보기 줄이 없다.
   await expect(dlg.locator('[data-bp-hwpx]')).toHaveCount(0);
-  await expect(dlg.locator('[data-bw-journal]')).toHaveText('주간 정리에서 보기 ›');
+  await expect(dlg.locator('[data-bw-journal]')).toHaveText('주간 보고에서 보기 ›');
   // BIZ-위쪽정돈(11/09): 칸 안쪽 주 고르기(.week-pick)는 없다 — 위 사업 보고 주 고르기 하나를 따른다. 칸은 접히지 않으므로 '접었다 펼침' 대신
   // 위 주를 넘겼다 돌아와도(칸이 그 주 저장 값을 다시 읽어 그림) 서버에 저장된 값이 그대로 보이는지 본다(같은 칸 = 홈 [주간 정리]와 같은 저장 자리).
   await expect(dlg.locator('.week-pick,.week-pick-label')).toHaveCount(0);
   await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
-  await expect(dlg.locator('.biz-week-title')).not.toHaveText('이번 주 주간보고');
+  await expect(dlg.locator('.biz-week-title')).not.toHaveText('이번 주 주간 보고');
   await page.locator('#reportWeekFilter [data-report-week="next"]').click();
-  await expect(dlg.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(dlg.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   const again=await openPreview(page);
   await expect(again.locator('.biz-sum-table tbody tr',{hasText:TASK_EMPTY}).first().locator('.biz-hand-line')).toHaveCount(2);
   await expect(again.locator('.biz-sum-table tbody tr',{hasText:TASK_WITH}).first()).toContainText('합성 담당 가');

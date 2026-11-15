@@ -40,7 +40,7 @@ test('운영자 값: migration이 옮기는 값 = 시험 대역 두 곳, 화면 
   assert.match(read('app/report-calendar.mjs'), /KPTUViewPrefs\?\.get\?\.\('report_calendar'\)/);
 });
 
-test('주간보고 일정 캘린더 값: 비우면 지움(null), 60자까지', () => {
+test('주간 보고 일정 캘린더 값: 비우면 지움(null), 60자까지', () => {
   assert.deepEqual(parseCalendar('  업무 달력 '), {ok: true, value: '업무 달력'});
   assert.deepEqual(parseCalendar(''), {ok: true, value: null});
   assert.equal(parseCalendar('가'.repeat(61)).ok, false);

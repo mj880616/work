@@ -8,8 +8,9 @@ const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-not
 // 저장 전까지 흐리게 남음), 그 아래 접힌 '그 외 n'(맨 위 찾기 칸, 초성 포함). 모양은 공용 부품 pick-fold.mjs 하나다.
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null,workplaces=[],legacyWorkplaces=[],organizations=[],assignments=[],profileWorkplaces=[];
-let baseline=new Set(),saved={name:'',title:''},saving=false,bound=false,fold=null,freshFold=true;
-const foldReady=import('./pick-fold.mjs').then(m=>(fold=m));
+let baseline=new Set(),saved={name:'',title:''},saving=false,bound=false,fold=null,freshFold=true,note=null;
+// S62-16 PROFILE-없음칸제목: 담당조직이 하나도 없을 때도 칸 제목 + 안내 한 줄 → 아래 [조직 보고로](연결 안내 공용 부품 connect-note.mjs).
+const foldReady=Promise.all([import('./pick-fold.mjs').then(m=>(fold=m)),import('./connect-note.mjs').then(m=>(note=m))]);
 // 사용자가 바꾼 체크만 담는다(조직 id → 체크 여부). 서버 값과 같아지면 지운다.
 const want=new Map();
 const api=(path,options={})=>rt.api(path,options);
@@ -58,11 +59,11 @@ function othersGroups(rest){
   return order.groups(rest).map(g=>{const label=order.groupName(g[0]);return {label:label===tail?'':label,items:g.map(o=>({name:o.name||'',html:orgRow(o)}))}});
 }
 function renderWorkplaces(){
-  const box=$('#psWorkplaceList');if(!box||!fold)return;
+  const box=$('#psWorkplaceList');if(!box||!fold||!note)return;
   const items=listItems(),picked=items.filter(inPicked),rest=items.filter(o=>!inPicked(o));
   const state=freshFold?null:fold.readPickState(box).ws;freshFold=false;
   const legacy=legacyWorkplaces.length?`<div class="ps-legacy-wrap"><span class="ps-legacy-title">기존 담당사업장 정보</span>${legacyWorkplaces.map(x=>`<span class="ps-legacy-chip">${esc(x.full_name||'이름 없는 사업장')}<small>산하조직 연결 전</small></span>`).join('')}</div>`:'';
-  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:'담당조직 현황',count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:'담당 조직 없음',extra:legacy}):`${globalThis.KPTUWait?.emptyHtml?.()||''}${legacy}`;
+  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:'담당조직 현황',count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:'담당 조직 없음',extra:legacy}):`<h3>담당조직 현황</h3>${note?note.connectNoteHtml({line:'조직 보고에서 담당조직을 더하면 여기서 선택할 수 있어요.',button:'조직 보고로',attrs:{'data-goto':'team'},boxAttrs:{'data-ps-org-empty':''}}):''}${legacy}`;
   fold.bindPickFold(box);
   renderStatus();
 }
@@ -98,7 +99,7 @@ let reportSettings=null;
 async function loadReport(){
   try{
     let host=$('#psReportPanel');
-    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="주간보고 일정 캘린더"></article>');host=$('#psReportPanel')}
+    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="주간 보고 일정 캘린더"></article>');host=$('#psReportPanel')}
     if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
     (await reportSettings.ready).refresh();
   }catch(e){console.error('report settings',e?.name||'Error')}

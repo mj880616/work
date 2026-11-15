@@ -76,10 +76,10 @@ for (const [width, height] of WIDTHS) {
     await expect(overdue.locator('li[data-journal-task="overdue"] [data-journal-task-due]')).toHaveText('지남 10.3');
     // ③ [일정] 아래(PC)·폰 전환 줄에 업무일지가 없다.
     await expect(page.locator('[data-view="journal"]')).toHaveCount(0);
-    if (width > 760) await expect(page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력', '할 일', '일기']);
+    if (width > 760) await expect(page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력', '할 일', '하루 기록']);
     else {
       await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
-      await expect(page.locator('#calendarView .schedule-switch').getByRole('button')).toHaveText(['달력', '할 일', '일기']);
+      await expect(page.locator('#calendarView .schedule-switch').getByRole('button')).toHaveText(['달력', '할 일', '하루 기록']);
       await page.locator('.mobile-tabs [data-view="home"]').click();
       await expect(page.locator('#homeView')).toBeVisible();
       await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current', 'page');
@@ -88,7 +88,7 @@ for (const [width, height] of WIDTHS) {
     }
     // ② 업데이트 입력줄([업데이트 ▾ | 할 일])로 저장 → 정리함 미분류(app_notes POST 한 번).
     const quick = page.locator('#homeView [data-home-quick]');
-    await expect(quick.locator('.home-quick-modes button[data-quick-mode]')).toHaveText(['업데이트', '할 일']);
+    await expect(quick.locator('.home-quick-modes button[data-quick-mode]')).toHaveText(['잊지 말기', '할 일']);
     await pickQuickMode(page,'update');
     await quick.locator('[data-quick-input]').fill('합성 홈 업데이트');
     await quick.locator('[data-quick-save]').click();

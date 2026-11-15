@@ -23,10 +23,12 @@ import {SPLIT_QUERY} from './screen-width.mjs'; // FOLD-넓은화면 2차: 사�
 // FOLD-넓은화면 2차(S59-19, 요청함 11/06 01:18 ④): meetingPc = 칸 나누기(공용 판정 600px~ — 펼친 폴드·PC), meetingWide = [회의] 칸 세 칸(종류 | 차수 | 결과)을 쓰는 PC(1200px~, 홈 두 단·잊지 말기와 같은 경계),
 // meetingFramePc = 앱 틀이 PC(761px~)인지(아니면 폰 틀: 결과 칸은 아래 하단바만큼 짧게 붙는다, follow-pane.js narrow).
 // 폴드 펼침(600~1199px)은 칸 칩과 상관없이 '날짜·이름 목록 | 결과' 두 칸(meeting-columns.js listHtml — PC [전체]·다른 칸 칩과 같은 부품)이고, 회의명은 위 [종류 ▾] 상자의 '회의명' 묶음으로 거른다(폰과 같음).
-let reportKitLoaded=false,reportKitFlight=null,meetingPc=null,meetingWide=null,meetingFramePc=null,entryRoundRows=null;
+let reportKitLoaded=false,reportKitFlight=null,weekBoxKit=null,weekBoxFailed=false,meetingPc=null,meetingWide=null,meetingFramePc=null,entryRoundRows=null;
 function reportKit(){
   if(reportKitLoaded)return Promise.resolve();
-  return reportKitFlight||=import('./team-report-kit.js').then(kit=>{
+  // BIZ-빈표잠깐보임다시: '이번 주 주간보고' 칸 부품도 화면 부품과 함께 받아 둔다 — 칸을 보일 때 같은 순간(동기)에 부품이 그려 빈 칸·표 모양이 한 프레임도 끼지 않게.
+  // 칸 부품만 못 받으면 사업 보고 화면은 그대로 열고 칸만 보이지 않는다(알림 한 번).
+  return reportKitFlight||=Promise.all([import('./team-report-kit.js'),import('./weekly-summary-table.js').then(m=>{weekBoxKit=m},err=>{weekBoxFailed=true;console.warn('week box load failed',err?.name||'Error')})]).then(([kit])=>{
     ({renderFilterChips,defaultReportAt,isPhotoFile,paintLocalPhotos,REPORT_VIEW_OPTIONS,reportViewOf,shiftMonth,photosByMeeting,calendarHtml,photoViewHtml,mountPhotoView,mountStrips,PC_QUERY,NONE_KEY,sortRecentFirst,MEETING_DOCS_LABEL,meetingColumns,columnsHtml,listHtml,pickMeeting,assignMeetingColors,meetingPaletteColor,nameHash,MEETING_HUES,roundLabel,hasRound,meetingShortName,formatMeetingWhen,pickReportKind,reportWords,isMeetingKind,createFieldRows,mountSplitResize,followPane,stickTop,targetList,targetsLabel,firstProjectId,saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,attendeesAvailable,noteAttendeesFromMeetings,noteAreaFromMeetings,noteAreaNoneFromMeetings,LEGACY_NOTE,mountAreaFields,mountBigWrite,untaggedInWeek,AREA_NONE,areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,shownReportWeek,inReportWeek,undatedCount,reportWeekLabel,reportDay:reportDayOf,weekOf,shiftDays,readNameSorts,peekNameSorts,orgSections}=kit);
     meetingPc=window.matchMedia?.(SPLIT_QUERY);meetingWide=window.matchMedia?.('(min-width:1200px)');meetingFramePc=window.matchMedia?.(PC_QUERY);
     for(const q of [meetingPc,meetingWide,meetingFramePc])q?.addEventListener?.('change',()=>{if(workspace?.id)renderMeetings()});
@@ -407,7 +409,10 @@ window.addEventListener('kptu:report-pane-free',()=>setWeekAuto(false));
 // MULTI-사업보고빈화면: 내 사업영역(보관 빼고) 수. 사업 보고 첫 읽기(app_spaces)를 공용 목록(KPTUProjectCatalog)에 올린 뒤에만 숫자, 그 전엔 null(모름).
 function areaCount(){const c=window.KPTUProjectCatalog?.snapshot?.();return c?.loaded&&c.workspaceId===workspace?.id&&c.userId===user?.id?c.active.length:null}
 const areaNone=()=>areaCount()===0;
-function syncWeekBox(){const el=$('#bizWeekBox');if(!el)return;el.hidden=reportView!=='list';if(el.hidden)return;const many=!weekOn(),bw=el.querySelector('[data-bw-body]');if(bw&&!el.dataset.bpMounted){bw.hidden=many||weekAuto;el.querySelector('[data-bw-fold]')?.setAttribute('aria-expanded',String(!bw.hidden))} /* 모듈이 오기 전에도 접힌 보기는 한 줄, 펼친 보기는 표 자리를 차지 */ const week=many?todayWeek():currentWeek();/* MULTI-사업보고빈화면 ②: 사업영역이 없는 계정은 index.html의 표 모양 자리를 한 번도 보이지 않는다 — 부품이 안내 한 줄을 그린 뒤에 칸을 보인다 */ const wait=!el.dataset.bpMounted&&areaNone();if(wait)el.hidden=true;import('./weekly-summary-table.js').then(m=>{m.mountWeekSummary(el,{meetings:()=>meetings,week,fold:many,auto:weekAuto,visit:weekVisit,onFold:weekBoxFolded,areas:areaCount});if(wait)el.hidden=reportView!=='list'},err=>toast(err?.message||'주간보고 칸을 열지 못했어요.'))}
+function syncWeekBox(){const el=$('#bizWeekBox');if(!el)return;/* BIZ-빈표잠깐보임다시: 칸은 사업영역 수를 안 뒤에만 보인다(모르면 보이지 않음). 보일 때는 부품이 같은 순간에 그린다 —
+ 사업영역이 있으면 표 모양 자리 → 표(BIZ-주간칸밀림), 0개면 안내 한 줄. 칸 안을 그리는 곳은 부품(weekly-summary-table.js) 하나, index.html에는 표 모양이 없다. */ const n=areaCount();el.hidden=reportView!=='list'||n===null||!weekBoxKit;if(weekBoxFailed&&!weekBoxKit&&reportView==='list'){weekBoxFailed=false;toast('주간 보고 칸을 열지 못했어요.')}if(el.hidden)return;const many=!weekOn(),week=many?todayWeek():currentWeek();weekBoxKit.mountWeekSummary(el,{meetings:()=>meetings,week,fold:many,auto:weekAuto,visit:weekVisit,onFold:weekBoxFolded,areas:areaCount})}
+// 사업영역 공용 목록이 늦게 읽히거나 바뀌면(다른 화면이 먼저 읽음·사업영역 관리 창) 칸만 다시 맞춘다 — 목록이 오기 전에는 위에서 칸을 보이지 않았다.
+window.addEventListener('kptu:project-catalog-updated',()=>{if(workspace?.id&&teamViewLoaded.has('meetings')&&reportKitLoaded)syncWeekBox()});
 // MENU-자리나머지: 달력·사진·목록 줄에서 연 보고 메뉴(창 밖, meeting-round-detail.js outsideMenu)는 다시 그린 뒤 같은 보고의 새 줄에 붙고, 그 줄이 없어지면 닫힌다(공용 keepMenus).
 const outsideReportMenus=()=>{const m=window.KPTUMeetingRoundDetail?.outsideMenu;return m?[m]:[]};
 function renderMeetings(opts){const box=$('#meetingList');if(!box||!reportKitLoaded)return;return keepMenus(outsideReportMenus(),{attrs:['data-mrd-meeting'],zones:['#calendarDayList, #meetingList']},()=>renderMeetingsNow(box,opts))}

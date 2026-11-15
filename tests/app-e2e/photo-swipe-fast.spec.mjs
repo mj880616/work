@@ -193,7 +193,7 @@ for (const width of [412, 1440]) {
     expect(f.errors).toEqual([]);
   });
 
-  test(`C 일기를 안 열어도 앱 시작 뒤 미리 받기 시작, 최근 100장은 큰 그림까지 ${width}`, async ({ page }) => {
+  test(`C 하루 기록을 안 열어도 앱 시작 뒤 미리 받기 시작, 최근 100장은 큰 그림까지 ${width}`, async ({ page }) => {
     const f = await fixture(page, width, { warm: true, prefs: { photo_hint: 3 } });
     const largeIds = () => [...new Set(f.urls.filter(u => u.size === 'large').flatMap(u => u.ids))];
     await expect.poll(() => largeIds().length, { timeout: 45000, intervals: [500] }).toBe(100);

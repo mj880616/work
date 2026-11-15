@@ -673,7 +673,7 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  expect(upcomingRead()).toBe(false);
  await copyDraft(page);
  expect(upcomingRead()).toBe(true);
- await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간 보고 양식 순서로 복사했어요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  const lines=text.split('\n');
  expect(lines.slice(0,2)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)']);
@@ -715,7 +715,7 @@ test('[업무일지] 내 담당 조직만 이름별, 담당 밖·쉬는 조직 �
  expect(f.reads.find(q=>q.table==='app_suborganizations')).toMatchObject({workspace_id:'eq.w',select:'id,name,active'});
  expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2,o3,o4)'});
  await copyDraft(page);
- await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간 보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  const four=lines.indexOf('4. 산하 조직 현황'),orgLines=lines.slice(four+2,lines.indexOf('',four)).filter(l=>!l.includes('10월 7일'));
  expect(orgLines).toEqual(['◦ 가상 노동조합','- 10월 6일(화) 안녕하세요 위원장님','◦ 나 지역 모임','- 10월 6일(화) 조직 화면에서 쓴 업데이트',
@@ -808,13 +808,13 @@ const journalLook=page=>page.evaluate(()=>{
  return {heads,subs,line:{size:line.fontSize,bg:line.backgroundColor,left:line.borderLeftWidth,leftStyle:line.borderLeftStyle},item:item.fontSize,soft,
   actions:cs('#journalRoot [data-journal-lines] .journal-line-actions').display};
 });
-test('PC 하루 카드 모양: 큰 제목(그날 일정·할 일·오늘 한 일·주간보고 재료) 같은 크기 굵게(15px), 칸 이름·내용 14px, 한 줄은 상자 없는 점 목록 1280',async({page})=>{
+test('PC 하루 카드 모양: 큰 제목(그날 일정·할 일·오늘 한 일·주간 보고 재료) 같은 크기 굵게(15px), 칸 이름·내용 14px, 한 줄은 상자 없는 점 목록 1280',async({page})=>{
  const f=await fixture(page,{width:1280});
  f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄\n둘째 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
  await openJournal(page,1280);
  await expect(items(page)).toHaveCount(2);await expect(itemTexts(page,'activities')).toHaveCount(1);
  const look=await journalLook(page);
- expect(look.heads.map(h=>h.text)).toEqual(['그날 일정','할 일','오늘 한 일','오늘 사진','주간보고 재료']);
+ expect(look.heads.map(h=>h.text)).toEqual(['그날 일정','할 일','오늘 한 일','오늘 사진','주간 보고 재료']);
  // '오늘 한 줄' 이름은 입력칸의 읽기 이름으로만 남는다(화면에 두 번째 제목 줄 없음).
  await expect(page.locator('#journalRoot [data-journal-line] label')).toHaveText('오늘 한 줄');await expect(page.locator('#journalRoot [data-journal-line] label')).toHaveClass(/a11y-only/);
  expect(new Set(look.heads.map(h=>h.size))).toEqual(new Set(['15px']));
@@ -983,7 +983,7 @@ for(const width of [390,1280])test(`[업무일지] 요청 표시: 하루 카드 
  await expect(orgs.locator('li',{hasText:'조직 화면에서 쓴 업데이트'}).locator('[data-request-tag]')).toHaveCount(0);
  await page.screenshot({path:info.outputPath(`journal-requests-${width}.png`)});
  await copyDraft(page);
- await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간 보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  expect(lines.slice(0,4)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)','','1. 요청사항']);
  expect(lines.some(l=>l==='[임원 일정 배정 요청]'||l==='[논의 요청]')).toBe(false);
@@ -1044,7 +1044,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  const f=await weeklyFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);
- await expect(page.locator('#journalRoot [data-journal-mode]')).toHaveText(['하루','주간 정리']);
+ await expect(page.locator('#journalRoot [data-journal-mode]')).toHaveText(['하루','주간 보고']);
  await expect(page.locator('#journalRoot [data-journal-mode="day"]')).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeHidden();
  // S49-12: 하루 카드에도 옮긴 노트가 없다(주간 정리에도 없다).
@@ -1054,7 +1054,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeHidden();
- await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 5일 월요일 ~ 10월 11일 일요일');
+ await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 5일 월요일 ~ 10월 11일 일요일');
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','3. 투쟁 사업장 현황','4. 산하 조직 현황','5. 주요 일정']); // WEEKLY-한흐름확정 ②: 3절이 흐름 안으로
  // WEEKLY-주간정리다듬기 ④: '참고 — 보고서 칸 밖 재료' 묶음은 없다. 배운 것(기억·규칙)은 ⋯ [배운 것 보기]를 눌러야 보인다.
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).toHaveCount(0);
@@ -1121,9 +1121,9 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveText('확정하고 한글 파일 받기');
  await confirmRow.locator('details.row-more summary').focus();await page.keyboard.press('Enter');
  const copy=confirmRow.locator('[data-hwpx-copy]');
- await expect(copy).toBeVisible();await expect(copy).toHaveText('글로 복사');await expect(copy).toHaveAccessibleName('주간보고 초안 글로 복사');
+ await expect(copy).toBeVisible();await expect(copy).toHaveText('글로 복사');await expect(copy).toHaveAccessibleName('주간 보고 초안 글로 복사');
  await copy.click();
- await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간 보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  expect(lines.slice(0,4)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)','','1. 요청사항']);
  // 화면과 같은 묶음·순서: 사업영역 → 세부 과제(트리 순서), 5. 주요 일정 표 줄.
@@ -1173,7 +1173,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(weekly(page,'summary').locator('tbody tr')).toHaveCount(3);
  await page.locator('#journalRoot [data-journal-next]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 12일 ~ 18일');
- await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 12일 월요일 ~ 10월 18일 일요일');
+ await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 12일 월요일 ~ 10월 18일 일요일');
  // 탭은 주간 정리 그대로.
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(weekly(page,'summary').locator('[data-journal-weekly-empty]')).toHaveText('없음');
@@ -1238,7 +1238,7 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
   return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-mode],.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today]')};
  });
  // HOME-업무일지홈: 머리줄은 날짜 제목 · ‹ 날짜 줄 › · 이번 주 · (오른쪽 끝) [하루|주간 정리] 순서다.
- expect(metrics.bar.map(b=>b.name)).toEqual(['이전 주','다음 주','이번 주','하루','주간 정리']);
+ expect(metrics.bar.map(b=>b.name)).toEqual(['이전 주','다음 주','이번 주','하루','주간 보고']);
  for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(b.on?600:500)}
  // JOURNAL-주간정리다듬기 ①: 위 줄 [주간보고 초안 복사]는 [하루]·[주간 정리] 모두 없다. [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
@@ -2202,7 +2202,7 @@ for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 [수정]·[
  await expect(camp).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
-for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 수정 → [확정하고 한글 파일 받기] 뒤 [기억하기] → 다음 주 초안·화면에 먼저 적용 → [주간 정리]에서 삭제·되돌리기 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 보고 기억] [빼기]·이름 수정 → [확정하고 한글 파일 받기] 뒤 [기억하기] → 다음 주 초안·화면에 먼저 적용 → [주간 정리]에서 삭제·되돌리기 ${width}`,async({page})=>{
  const f=await memoryFixture(page,{width});
  await openJournal(page,width);await openWeekly(page);
  await openDraft(page);
@@ -2255,7 +2255,7 @@ for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 수�
  // 기억 목록: 일정 이름·일정 빼기, [지우기] → 다시 읽고 그 항목만 빼서 PATCH, [되돌리기].
  await confirmMore(page,'[data-hwpx-learn-show]'); // WEEKLY-주간정리다듬기 ④
  const box=page.locator('#journalRoot [data-journal-weekly-memory]');
- await expect(box.locator(':scope > summary')).toContainText('주간보고 기억 일정 이름 1 · 일정 빼기 1');
+ await expect(box.locator(':scope > summary')).toContainText('주간 보고 기억 일정 이름 1 · 일정 빼기 1');
  await box.locator(':scope > summary').click();
  await expect(box.locator('[data-journal-memory-entry]')).toHaveText([/가상 다음 주 회의 → 가상 점검 회의/,/가상 수련회/]);
  await pressMore(box,'[data-journal-memory-delete="가상다음주회의"]');
@@ -2271,7 +2271,7 @@ for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 수�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
-test('[주간보고 기억] 칸이 아직 없으면(읽지 못함) 기억 없이 지금처럼 — [확정하고 한글 파일 받기] 뒤 묻지 않고 기억 목록에도 일정 줄 없음 1280',async({page})=>{
+test('[주간 보고 기억] 칸이 아직 없으면(읽지 못함) 기억 없이 지금처럼 — [확정하고 한글 파일 받기] 뒤 묻지 않고 기억 목록에도 일정 줄 없음 1280',async({page})=>{
  const f=await hwpxFixture(page,{width:1280});
  await openJournal(page,1280);await openWeekly(page);
  await openDraft(page);
@@ -2345,7 +2345,7 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례
  await page.screenshot({path:info.outputPath(`meeting-kinds-open-${width}.png`),fullPage:true});
  await toggle.click();
  await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 9일(금)10:00 새 회의 종류']);
- await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText("'운영위원회' 종류는 앞으로 주간보고에서 빼요.");
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText("'운영위원회' 종류는 앞으로 주간 보고에서 빼요.");
  expect(f.profile.patches).toEqual([{user_id:'eq.home-test',body:{weekly_hidden_meeting_kinds:['궤도집행국회의','본부집행위','운영위원회']}}]);
  expect(f.profile.patches.every(p=>Object.keys(p.body).join()==='weekly_hidden_meeting_kinds')).toBe(true);
  await expect(weekly(page,'meetings').locator('[data-journal-kinds-off],[data-journal-kind-off]')).toHaveCount(0);

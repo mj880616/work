@@ -61,8 +61,8 @@ for(const width of [390,1280])test(`saving without a place puts the update in th
  const notes=[],orgBodies=[];
  await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({json:[{id:'new-note',kind:'basket',occurred_at:'2026-10-06T01:00:00Z',...body}]});});
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트를 입력하세요');
- await expect(q.locator('[data-quick-mode]')).toHaveText(['업데이트','할 일']);
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','잊지 말기에 남길 것');
+ await expect(q.locator('[data-quick-mode]')).toHaveText(['잊지 말기','할 일']);
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(dialog(page)).toBeHidden();
  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
  expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'기록 내용'});expect(orgBodies).toHaveLength(0);
@@ -100,7 +100,7 @@ for(const width of [870,1280])test(`wide screen opens the sheet beside the butto
 test('phone 412 update hint fits inside the one-line box',async({page},info)=>{
  const {q}=await ready(page,412);const input=q.locator('[data-quick-input]');
  await input.fill('');await expect(q).toHaveAttribute('data-mode','basket');
- await expect(input).toHaveAttribute('placeholder','업데이트를 입력하세요');
+ await expect(input).toHaveAttribute('placeholder','잊지 말기에 남길 것');
  const fit=await input.evaluate(el=>{const s=getComputedStyle(el),c=document.createElement('canvas').getContext('2d');c.font=`${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;return {text:c.measureText(el.placeholder).width,room:el.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight),scroll:el.scrollWidth,client:el.clientWidth};});
  expect(fit.text).toBeLessThanOrEqual(fit.room);expect(fit.scroll).toBeLessThanOrEqual(fit.client);
  await q.screenshot({path:info.outputPath('home-update-hint-412.png')});

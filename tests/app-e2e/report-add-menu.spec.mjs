@@ -5,10 +5,10 @@ const menu=page=>page.locator('#toplineAddMenu');
 const topAdd=page=>page.locator('[data-quick-add]:visible');
 async function addItems(page){await topAdd(page).click();await expect(menu(page)).toBeVisible();return menu(page).locator('button').allTextContents()}
 
-test('PC 1280: [+ 추가] lists 일기 and 공유 페이지 after 일정',async({page})=>{
+test('PC 1280: [+ 추가] lists 하루 기록 and 공유 페이지 after 일정',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
- expect(await addItems(page)).toEqual(['업데이트','할 일','노트','일정','일기','공유 페이지','사업 보고']);
+ expect(await addItems(page)).toEqual(['잊지 말기','할 일','노트','일정','하루 기록','공유 페이지','사업 보고']);
 });
 
 // 폰(390)에는 상단 줄이 없다(PC 전용). 폰의 일기·공유 페이지는 [메뉴]/[일정] 길 그대로다.
@@ -20,14 +20,14 @@ test('폰 390: no top line, so no [+ 추가] and no page error',async({page})=>{
  expect(errors).toEqual([]);
 });
 
-test('PC: 일기 opens the diary screen and its new-diary editor; Esc closes the menu first',async({page})=>{
+test('PC: 하루 기록 opens the diary screen and its new-diary editor; Esc closes the menu first',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
  await topAdd(page).click();await expect(menu(page)).toBeVisible();
  await page.keyboard.press('Escape');await expect(menu(page)).toBeHidden();await expect(topAdd(page)).toBeFocused();
  await topAdd(page).click();
- await menu(page).locator('button',{hasText:'일기'}).click();
+ await menu(page).locator('button',{hasText:'하루 기록'}).click();
  await expect(page.locator('#diaryView')).toBeVisible();
  await expect(page.locator('#diaryView [data-diary-editor], #diaryView .diary-editor, #diaryView textarea').first()).toBeVisible();
  // 뒤로가기: 쓰기 창이 한 칸, 그다음 화면 이동이 한 칸.

@@ -50,7 +50,7 @@ test('그날 일기가 없으면 새로 만들고, 다 들어간 뒤에만 원�
   const post = rt.calls.find(c => c.method === 'POST');
   assert.equal(post.path, '/rest/v1/app_notes');
   assert.deepEqual({kind:post.body.kind, day:post.body.journal_day, text:post.body.raw_text, ai:post.body.ai_export_allowed}, {kind:'diary', day:'2026-11-01', text:'회의 메모\n본문 한 줄', ai:false});
-  assert.deepEqual(trashed, [['n1', '11월 1일 일기로 보냈어요']]);
+  assert.deepEqual(trashed, [['n1', '11월 1일 하루 기록으로 보냈어요']]);
   assert.ok(!rt.calls.some(c => c.method === 'DELETE'), '노트 지우기는 기존 휴지통 길(trash)로만');
 });
 

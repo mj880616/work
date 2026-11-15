@@ -38,6 +38,9 @@ import { createSelectMode } from './select-mode.js';
 import { notify, askConfirm, askText } from './small-notice.js';
 import { requestNewsItem } from './news-request.mjs';
 import { createNoteNewsMarks, isNewsAt } from './note-news-marks.js';
+// NOTE-노트에서도밑줄(S62-17): 노트 읽기 본문에서도 글을 골라 [밑줄 저장](News·텔레그램 원문과 같은 고른 글 줄·밑줄 부품·같은 서버 표 app_news_highlights, 종류 note).
+import { bindSelectZone } from './text-select-bar.js';
+import { paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, revealMark, highlightById } from './text-highlights.js';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
@@ -146,7 +149,26 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // STAB-노트폴더끌기시험: 목록을 읽는 동안(marksRun = 그 읽기 번호) 'News에서' 수가 먼저 와도 다시 그리지 않는다 — refresh가 노트·폴더·댓글과
   // 같이 기다렸다가 한 번만 그린다(줄이 그려진 뒤 늦게 와서 목록 전체를 두 번 더 갈아 끼우던 것, 막 누르거나 끌기 시작한 줄이 떨어져 나갔다).
   let marksRun = 0;
-  const newsMarks = createNoteNewsMarks({head:host.querySelector('[data-nnm-head]'), box:host.querySelector('[data-nnm]'), onChange:() => { if (loaded && !selected && !marksRun) renderList(); }});
+  const newsMarks = createNoteNewsMarks({head:host.querySelector('[data-nnm-head]'), box:host.querySelector('[data-nnm]'), onChange:() => { if (loaded && !selected && !marksRun) renderList(); },
+    // 노트 › 밑줄 줄의 노트 밑줄: 그 노트를 열고 그 자리로(없으면 알림). 노트 글자는 '원문이 바뀌었어요' 판단에만 쓴다.
+    openNote:(id, hlId) => { if (!loaded) return; if (!notes.some(n => n.id === id)) { notify('원문 노트를 찾을 수 없어요', {error:true, record:false}); return; } hlReveal = hlId || null; open(id); },
+    noteText:id => { if (!loaded) return undefined; const n = notes.find(row => row.id === id); return n ? String(n.raw_text || '') : null; }});
+  // 노트 읽기 본문의 밑줄(S62-17): 본문을 그린 뒤 이 노트의 밑줄을 노란 띠로 칠한다(칸 글자는 그대로, <mark>만 — text-highlights.js paintMarks).
+  // hlReveal: 노트 › 밑줄에서 연 밑줄 — 칠해지면 그 자리로 한 번 옮기고, 노트 글이 바뀌어 자리를 못 찾으면 작은 알림 한 번(밑줄은 지우지 않음).
+  let hlReveal = null;
+  function noteMarksNow() {
+    if (!selected || editing) return;
+    const z = detail.querySelector('[data-basket-read-text]');
+    if (!z || z.hidden || z.classList.contains('basket-read-empty')) return;
+    paintMarks(z, sourceHighlights('note', selected.id));
+    if (!hlReveal || !highlightById(hlReveal)) return;
+    if (!revealMark(z, hlReveal)) notify('원문이 바뀌었어요 · 밑줄은 노트 › 밑줄에 그대로 있어요', {record:false});
+    hlReveal = null;
+  }
+  const hlSourceNow = () => (selected ? {type:'note', id:selected.id, title:selected.title || '제목 없음', media:'노트', date:selected.updated_at || selected.created_at || null, url:''} : null);
+  bindSelectZone(detail, {zone:'[data-basket-read-text]', source:hlSourceNow, onSave:saveFromSelection});
+  bindMarks(detail);
+  onHighlights(() => noteMarksNow());
   // NOTE-목록에파일놓기(S61-16 ①): PC 파일을 오른쪽 목록(노트 줄 위·빈 자리·포스트잇 보기)에 놓으면 그 파일을 붙인 새 노트 창(⤢와 같은 창).
   // 노트 줄 위에 놓아도 그 노트에 붙이지 않고 새 노트다. 위 입력칸은 제 첨부로 받고, 왼쪽 폴더 나무·보드 목록은 받지 않는다.
   // 끌기는 문서 전체에서 듣는다: 목록이 짧으면 그 아래 빈 자리는 노트 화면 바깥 칸이라, 목록 칸과 같은 열(가로 범위)이고 목록 위끝보다
@@ -486,7 +508,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       // FAMILY-기억알림: 가족 '잊지 말기' 노트만 [줄 정리] — 줄을 고르면 홈 '가족 · 기억할 것' 줄 ⋯와 같은 메뉴(family-remind-menu.js, [과거 기록으로]).
       ...(from === 'detail' && note?.metadata?.family_list === true ? [['data-note-remind-lines', '줄 정리']] : []),
-      ['data-note-to-diary', '일기로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
+      ['data-note-to-diary', '하루 기록으로 보내기'], // S48-56: 그날 일기 끝에 글·사진을 더하고 노트는 휴지통(diary-send.js)
       ['data-note-delete', '삭제', 'basket-menu-danger']];
   };
   // FILE-누르면동작: a stored attachment as the shared file shape (file-actions.js).
@@ -601,12 +623,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     text.classList.toggle('basket-read-empty', !raw);
     if (!raw) return showPlainText(text, htmlCount || files ? '' : '본문이 없는 노트입니다.');
     // ED③ 노트: a note saved in the new editor reads its saved form (ed-render: headings, tables, colours, photos of this note).
-    if (paintDoc(text, selected, {rt, onOpen:(file, el) => openPhotoView({row:selected, file, trigger:el})})) return;
+    if (paintDoc(text, selected, {rt, onOpen:(file, el) => openPhotoView({row:selected, file, trigger:el})})) { noteMarksNow(); return; }
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
     text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
-    if (!noteMarkdown(selected)) return;
-    void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing});
+    if (!noteMarkdown(selected)) { noteMarksNow(); return; }
+    void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing}).then(() => { if (owner === scope() && selected?.id === id) noteMarksNow(); });
   }
   function paintMode() {
     if (!selected) return;
@@ -650,6 +672,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     selected = notes.find(n => n.id === id); if (!selected) return;
     showDetail();
     paintRead(); paintMeta(); paintMode(); lineGrip?.place();
+    void loadHighlights().catch(() => {}); // 노트 밑줄(S62-17) — 읽히면 onHighlights가 칠한다
     noteComments.attach(detail.querySelector('[data-note-comments]'), selected, detail.querySelector('[data-basket-read-text]'));
     if (focus) readFocus().focus();
   }

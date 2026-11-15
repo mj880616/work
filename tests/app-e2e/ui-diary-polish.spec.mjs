@@ -100,7 +100,7 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`② today is a square frame only (no ring on the number), the chosen day is a filled number circle (일기·달력) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`② today is a square frame only (no ring on the number), the chosen day is a filled number circle (하루 기록·달력) ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('diary'));
  const TODAY='#diaryRoot [data-diary-day="2026-10-06"]',OTHER='#diaryRoot [data-diary-day="2026-10-04"]',today=page.locator(TODAY),other=page.locator(OTHER);
@@ -146,9 +146,9 @@ test('③ no write button under the date; [+] writes the chosen day, an existing
  const editor=page.locator('#diaryRoot [data-diary-editor]'),plus=page.locator('#diaryRoot #newDiaryBtn');
  await page.locator('#diaryRoot [data-diary-day="2026-10-02"]').click();
  const detail=page.locator('#diaryRoot [data-diary-detail]');
- await expect(detail).toContainText('일기 없음');
+ await expect(detail).toContainText('하루 기록 없음');
  await expect(detail.locator('button')).toHaveCount(1);// only × (close)
- await expect(detail.getByText('이 날 일기 쓰기')).toHaveCount(0);
+ await expect(detail.getByText('이 날 하루 기록 쓰기')).toHaveCount(0);
  await plus.click();
  await expect(editor.locator('[data-diary-date]')).toHaveValue('2026-10-02');
  await expect(editor.locator('[data-diary-text] .ProseMirror')).toHaveText('');

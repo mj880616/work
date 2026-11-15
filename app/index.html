@@ -53,7 +53,7 @@
     <a class="nav-btn nav-home-mid" data-view="home" href="./">홈</a>
     <a class="nav-btn" data-basket-kind-nav="note" href="./?view=basket&amp;pane=note">노트</a>
         <a class="nav-btn" data-view="calendar" data-nav-group="calendar tasks diary" href="./?view=calendar">일정</a>
-    <div class="nav-sub" role="group" aria-label="일정"><a class="nav-sub-btn" data-goto="calendar" href="./?view=calendar">달력</a><a class="nav-sub-btn" data-view="tasks" href="./?view=tasks">할 일</a><a class="nav-sub-btn" data-view="diary" href="./?view=diary">일기</a></div>
+    <div class="nav-sub" role="group" aria-label="일정"><a class="nav-sub-btn" data-goto="calendar" href="./?view=calendar">달력</a><a class="nav-sub-btn" data-view="tasks" href="./?view=tasks">할 일</a><a class="nav-sub-btn" data-view="diary" href="./?view=diary">하루 기록</a></div>
     <a class="nav-btn" data-view="team" href="./?view=team">조직 보고</a>
     <a class="nav-btn" data-view="meetings" data-nav-group="meetings projects" href="./?view=reports">사업 보고</a>
     <a class="nav-btn" data-view="basket" href="./?view=basket">잊지 말기</a>
@@ -123,7 +123,7 @@
   </section>
 
   <section id="calendarView" class="view-panel hidden">
-    <div class="schedule-switch ds-seg" role="group" aria-label="일정 보기 전환"><button type="button" class="ds-seg-btn" data-view="calendar" aria-pressed="true">달력</button><button type="button" class="ds-seg-btn" data-view="tasks" aria-pressed="false">할 일</button><button type="button" class="ds-seg-btn" data-view="diary" aria-pressed="false">일기</button></div>
+    <div class="schedule-switch ds-seg" role="group" aria-label="일정 보기 전환"><button type="button" class="ds-seg-btn" data-view="calendar" aria-pressed="true">달력</button><button type="button" class="ds-seg-btn" data-view="tasks" aria-pressed="false">할 일</button><button type="button" class="ds-seg-btn" data-view="diary" aria-pressed="false">하루 기록</button></div>
     <div id="calendarCard" class="calendar-card">
       <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="calendarTodayBtn" class="mini" type="button">오늘</button><span class="calendar-toolbar-divider" aria-hidden="true"></span><div class="calendar-view-switch ds-seg" role="group" aria-label="일정 보기"><button type="button" class="ds-seg-btn" data-calendar-view="list" aria-label="목록 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" class="ds-seg-btn" data-calendar-view="week" aria-label="주간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 7h21v10h-21zM4.5 7v10M7.5 7v10M10.5 7v10M13.5 7v10M16.5 7v10M19.5 7v10"/></svg></button><button type="button" class="ds-seg-btn" data-calendar-view="month" aria-label="월간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v16H4zM8 3v4m8-4v4M4 10h16M4 15h16M9 10v11M15 10v11"/></svg></button></div><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
       <div id="calendarFreshness" class="data-freshness" role="status" aria-live="polite" hidden></div>
@@ -134,13 +134,13 @@
   </section>
 
   <section id="tasksView" class="view-panel hidden">
-    <div class="schedule-switch ds-seg" role="group" aria-label="일정 보기 전환"><button type="button" class="ds-seg-btn" data-view="calendar" aria-pressed="false">달력</button><button type="button" class="ds-seg-btn" data-view="tasks" aria-pressed="true">할 일</button><button type="button" class="ds-seg-btn" data-view="diary" aria-pressed="false">일기</button></div>
+    <div class="schedule-switch ds-seg" role="group" aria-label="일정 보기 전환"><button type="button" class="ds-seg-btn" data-view="calendar" aria-pressed="false">달력</button><button type="button" class="ds-seg-btn" data-view="tasks" aria-pressed="true">할 일</button><button type="button" class="ds-seg-btn" data-view="diary" aria-pressed="false">하루 기록</button></div>
     <div class="home-quick-placeholder" aria-hidden="true"></div>
     <div id="taskList" class="card-list"></div>
   </section>
 
   <section id="diaryView" class="view-panel hidden">
-    <div class="schedule-switch ds-seg" role="group" aria-label="일정 보기 전환"><button type="button" class="ds-seg-btn" data-view="calendar" aria-pressed="false">달력</button><button type="button" class="ds-seg-btn" data-view="tasks" aria-pressed="false">할 일</button><button type="button" class="ds-seg-btn" data-view="diary" aria-pressed="true">일기</button></div>
+    <div class="schedule-switch ds-seg" role="group" aria-label="일정 보기 전환"><button type="button" class="ds-seg-btn" data-view="calendar" aria-pressed="false">달력</button><button type="button" class="ds-seg-btn" data-view="tasks" aria-pressed="false">할 일</button><button type="button" class="ds-seg-btn" data-view="diary" aria-pressed="true">하루 기록</button></div>
     <div id="diaryRoot" class="diary"></div>
   </section>
 
@@ -162,7 +162,7 @@
   <section id="meetingsView" class="view-panel hidden">
     <div class="report-top"><div class="toolbar report-top-line"><h2 class="report-top-title">사업 보고</h2><div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음</button><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="사업 보고 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div>
     <div class="toolbar report-kind-bar"><select id="reportKindSelect" class="report-top-select" aria-label="종류" aria-controls="meetingList"></select><select id="reportAreaSelect" class="report-top-select" aria-label="사업영역" aria-controls="meetingList" hidden></select><span id="reportPeriodPick" class="report-period-host"></span><select id="reportViewSelect" class="report-top-select" aria-label="보기" aria-controls="meetingList"></select></div><div class="toolbar report-week-bar" hidden><div id="reportWeekFilter" role="group" aria-label="기간" aria-controls="meetingList"></div></div></div>
-    <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 보고</h2></div><div id="recPendingLine" class="rec-pending" hidden></div><div id="areaUntaggedLine" class="area-untagged" hidden></div><section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간보고" hidden><h3 class="biz-week-title"><button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="true">이번 주 주간보고 <i class="kptu-chev is-open" aria-hidden="true"></i></button></h3><div data-bw-body><div class="biz-paper biz-week-paper" data-bp-paper><div class="biz-skel" aria-hidden="true"><h3>1) 사업요약표</h3><table class="biz-skel-table"><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody><tr><th scope="rowgroup"></th><td></td><td></td><td></td></tr><tr><th scope="rowgroup"></th><td></td><td></td><td></td></tr><tr><th scope="rowgroup"></th><td></td><td></td><td></td></tr><tr><th scope="rowgroup"></th><td></td><td></td><td></td></tr></tbody></table><h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list"><li><p class="biz-skel-line"></p></li></ul></div></div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p><div class="biz-week-foot"><span class="biz-week-go" aria-hidden="true">주간 정리에서 보기 ›</span></div></div></section><div id="meetingList" class="card-list meeting-list"></div></section>
+    <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 보고</h2></div><div id="recPendingLine" class="rec-pending" hidden></div><div id="areaUntaggedLine" class="area-untagged" hidden></div><section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간 보고" hidden><h3 class="biz-week-title"><button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="true">이번 주 주간 보고 <i class="kptu-chev is-open" aria-hidden="true"></i></button></h3><div data-bw-body></div></section><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
 
   <section id="pagesView" class="view-panel hidden">

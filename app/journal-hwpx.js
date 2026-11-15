@@ -229,7 +229,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const topMenu = rowMore(doc, {label:'일시·이름·바탕 수정', data:{hwpxTopMore:''}, items:[{text:'이름 수정', data:{hwpxTopMe:''}}, {text:'일시 수정', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}]});
   // 1. 요청사항 › 1) 위 한 줄: 바탕(지난주 확정본)에서 가져온 요청 줄 안내. [주간 정리]가 그 자리에 붙인다. 바탕을 연 판에서만 보인다.
   const reqNote = el('p', 'journal-muted journal-hwpx-requests-note'); reqNote.dataset.hwpxRequests = ''; reqNote.hidden = true;
-  const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-label', '주간보고 한글 파일');
+  const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-label', '주간 보고 한글 파일');
   const status = el('p', 'journal-hwpx-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.dataset.hwpxStatus = '';
   const body = el('div', 'journal-hwpx-body');
   const draftLine = el('span', 'journal-hwpx-draft'); draftLine.dataset.hwpxDraftStatus = ''; draftLine.setAttribute('aria-live', 'polite');
@@ -241,8 +241,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // WEEKLY-주간정리다듬기 ④(시안 docs/design/mockups/weekly-tidy.html ③): 버튼 아래에 늘어놓던 [초안 다시 쓰기]·주간보고 기억·규칙·환류는 ⋯ 안으로.
   // WEEKLY-기본HWP(명진 11/13 'a'): 받는 파일 기본은 .hwp — [확정 없이 파일만 받기]도 .hwp, .hwpx는 [.hwpx로 받기]로만.
   const more = rowMore(doc, {label:'확정 없이 파일만 받기·.hwpx로 받기·글로 복사·초안 다시 쓰기·배운 것 보기', data:{hwpxMore:''}, items:[
-    {text:'확정 없이 파일만 받기', data:{hwpxHwp:''}}, {text:'.hwpx로 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간보고 초안 글로 복사'},
-    {text:'초안 다시 쓰기', data:{hwpxAiAgain:''}, aria:'초안 다시 쓰기(손대지 않은 칸만)'}, {text:'배운 것 보기', data:{hwpxLearnShow:''}, aria:'주간보고 기억·규칙 보기'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
+    {text:'확정 없이 파일만 받기', data:{hwpxHwp:''}}, {text:'.hwpx로 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간 보고 초안 글로 복사'},
+    {text:'초안 다시 쓰기', data:{hwpxAiAgain:''}, aria:'초안 다시 쓰기(손대지 않은 칸만)'}, {text:'배운 것 보기', data:{hwpxLearnShow:''}, aria:'주간 보고 기억·규칙 보기'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
   const confirmRow = el('div', 'weekly-flow-confirm'); confirmRow.dataset.weeklyFlowConfirm = '';
   confirmRow.append(confirmBtn, more, confirmState);
   const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = '.hwp,.hwpx'; fileInput.hidden = true; fileInput.dataset.hwpxFile = '';
@@ -717,8 +717,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const c = model?.calendar, cal = body.querySelector('[data-hwpx-calendar]');
     // UI-기다림표시통일 2차: 달력 일정을 받는 동안은 글자 대신 회색 칸(wait-state.js).
     if (cal && (!c || c.loading)) cal.innerHTML = '5. 주요 일정 표: ' + waitInlineHtml();
-    else if (cal) cal.textContent = c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
-      : c.unsetCalendar ? '5. 주요 일정 표: 주간보고 일정 캘린더가 정해지지 않아 날짜만 넣어요(내 프로필 › 주간보고 일정 캘린더).'
+    else if (cal) cal.textContent = c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 보고]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
+      : c.unsetCalendar ? '5. 주요 일정 표: 주간 보고 일정 캘린더가 정해지지 않아 날짜만 넣어요(내 프로필 › 주간 보고 일정 캘린더).'
       : c.noCalendar ? `5. 주요 일정 표: '${c.calendar}' 달력을 찾지 못해 날짜만 넣어요.`
       : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
     syncTitles(fullCalendar());
@@ -1209,7 +1209,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!box) return;
     box.hidden = !m || m.status === 'none';
     if (box.hidden) { box.replaceChildren(); return; }
-    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 정리] 맨 아래 ‘주간보고 기억’에서 삭제할 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
+    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 보고] 맨 아래 ‘주간 보고 기억’에서 삭제할 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
     const fold = el('details', 'journal-hwpx-plans'); fold.open = true; fold.dataset.hwpxRememberAsk = '';
     fold.append(el('summary', '', `다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 ${m.candidates.length}개`));
     // UI-체크칸통일: 공용 체크 목록(.check-list, ui-standard.css) — 줄마다 작은 체크칸 + 한 줄 글자, 목록 점 없음, 줄 아무 곳이나 누르면 체크.

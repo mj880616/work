@@ -1,4 +1,5 @@
 import {AI_CAP_TEXT, aiCapText, isAiCap} from './ai-cap.mjs';
+import {sortByName} from './name-order.mjs';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절, news-clipping.md 13절): Now 화면의 순수 계산.
 // DOM·네트워크 없음. 화면 쪽(outside-statements.js = Now 껍데기, now-detail.js, now-saved.js, now-interests.js)이 이 결과대로 그리기만 한다.
 
@@ -265,8 +266,8 @@ export function dateText(iso) {
 // 고른 값: 'all' | 'g:<사회운동 묶음>' | 's:<단체 키>' | 'r:<언론 지역 domestic|foreign>' | 'n:<news- 매체 키>'. 화면 메모리만(저장하지 않음).
 // 입력: oc = 사회운동 카탈로그 [{key,name,group}], on = 켠 단체 키, nc = 뉴스 카탈로그 [{key,name,region}], non = 켠 news- 키.
 export const MEDIA_ALL = 'all';
-export const OUTSIDE_GROUP_LABEL = Object.freeze({labor: '노동', party: '정당', movement: '사회운동', foreign: '외국'});
-export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', foreign: '언론 외국'});
+export const OUTSIDE_GROUP_LABEL = Object.freeze({labor: '노동', party: '정당', movement: '사회운동', foreign: '국제'});
+export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
 const OUTSIDE_GROUPS = Object.freeze(['labor', 'party', 'movement', 'foreign']);
 const PRESS_REGIONS = Object.freeze(['domestic', 'foreign']);
 const side = pick => (pick === MEDIA_ALL ? 'all' : /^[gs]:/.test(pick || '') ? 'outside' : /^[rn]:/.test(pick || '') ? 'news' : '');
@@ -280,13 +281,13 @@ export function mediaFits(tab, pick) {
   return tab === 'all';
 }
 export const keepMedia = (tab, pick) => (mediaFits(tab, pick) ? pick : MEDIA_ALL);
-// 창에 넣을 줄: 전체 → 묶음(깊이 0) → 매체(깊이 1). 켠 매체만. 찾는 말이 있으면 이름에 든 것만 납작하게.
+// 창에 넣을 줄: 전체 → 묶음(깊이 0, 정한 순서) → 매체(깊이 1, 가나다 — name-order.mjs). 켠 매체만. 찾는 말이 있으면 이름에 든 것만 납작하게.
 export function mediaRows({tab, oc = [], on = [], nc = [], non = [], pick = MEDIA_ALL, query = '', dot = () => ''}) {
   const onSet = new Set(on || []), nonSet = new Set(non || []);
   const rows = [{id: MEDIA_ALL, name: '전체', label: '전체', depth: 0}];
   if (tab !== 'media') {
     for (const g of OUTSIDE_GROUPS) {
-      const members = (oc || []).filter(s => s?.group === g && onSet.has(s.key));
+      const members = sortByName((oc || []).filter(s => s?.group === g && onSet.has(s.key)));
       if (!members.length) continue;
       rows.push({id: 'g:' + g, name: OUTSIDE_GROUP_LABEL[g], label: OUTSIDE_GROUP_LABEL[g], depth: 0, dot: dot('g', g)});
       for (const s of members) rows.push({id: 's:' + s.key, name: s.name, label: `${OUTSIDE_GROUP_LABEL[g]} › ${s.name}`, depth: 1, dot: dot('s', s.key)});
@@ -294,7 +295,7 @@ export function mediaRows({tab, oc = [], on = [], nc = [], non = [], pick = MEDI
   }
   if (tab !== 'movement') {
     for (const r of PRESS_REGIONS) {
-      const members = (nc || []).filter(s => s?.region === r && nonSet.has(s.key));
+      const members = sortByName((nc || []).filter(s => s?.region === r && nonSet.has(s.key)));
       if (!members.length) continue;
       rows.push({id: 'r:' + r, name: PRESS_REGION_LABEL[r], label: PRESS_REGION_LABEL[r], depth: 0, dot: dot('r', r)});
       for (const s of members) rows.push({id: 'n:' + s.key, name: s.name, label: `${PRESS_REGION_LABEL[r]} › ${s.name}`, depth: 1, dot: dot('n', s.key)});

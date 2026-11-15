@@ -89,7 +89,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
  // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
- await expect(account.locator('button')).toHaveText(['내 프로필','업데이트 기록','앱 내려받기','메뉴 수정','화면 색','로그아웃']);
+ await expect(account.locator('button')).toHaveText(['내 프로필','업데이트 기록','업데이트 소식','앱 내려받기','메뉴 수정','화면 색','받은 의견','의견 보내기','로그아웃']);
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
  await expect(account).toHaveAttribute('aria-label','계정');await expect(page.locator('#mobileMenu h2')).toHaveCount(0);
@@ -152,7 +152,7 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('[data-menu-write]')).toHaveCount(0);
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·일기는 [일정] 아래 하위 메뉴(달력·할 일·일기)로. HOME-업무일지홈: 업무일지는 홈이라 이 줄에 없다.
- await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','일기']);
+ await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','하루 기록']);
  // BASKET-PC메뉴: [정리함] 아래 하위 줄 없음. MULTI-하단바기본노트: 새 계정 PC 왼쪽 메뉴는 하단바 기본(노트·일정·조직 보고·사업 보고) 뒤 잊지 말기.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
  await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['노트','일정','조직 보고','사업 보고','잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
@@ -188,7 +188,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  await editor.locator('[data-close="edWindow"]').click();
  // Unsaved text asks first; the answer is to close without saving.
  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(editor).toHaveCount(0);
- await expect(page.locator('#toast')).toContainText('빠른 추가의 [업데이트]로 다시 열면 이어서');
+ await expect(page.locator('#toast')).toContainText('빠른 추가의 [잊지 말기]로 다시 열면 이어서');
  await openWriteFromEntry(page,width);
  await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('쓰기에서 저장');
  await page.locator('#edWindow [data-edw-save]').click();
@@ -236,7 +236,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  // [⋯] = 수정·보관·삭제(같은 색), keyboard and Esc. 원문 보기 is the small toggle icon near the text.
  const more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(menu).toBeHidden();await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.locator('button')).toHaveText(['수정','보류로','일기로 보내기','삭제']);
+ await expect(menu.locator('button')).toHaveText(['수정','보류로','하루 기록으로 보내기','삭제']);
  await expect(menu.locator('[data-basket-edit]')).toBeFocused();
  const menuColor=sel=>menu.locator(sel).evaluate(el=>getComputedStyle(el).color);
  expect(await menuColor('[data-basket-delete]')).toBe(await menuColor('[data-basket-edit]'));expect(await menuColor('[data-basket-delete]')).not.toBe(await token('--kptu-danger'));

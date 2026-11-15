@@ -98,14 +98,14 @@ for (const [width, height] of WIDTHS) {
   });
 }
 
-test('[일기 쓰기]: 첫 줄이 채워진 일기 쓰기 창 → 저장하면 그 제안이 서버 표에서 사라짐(다른 제안은 그대로)', async ({ page }) => {
+test('[하루 기록 쓰기]: 첫 줄이 채워진 하루 기록 쓰기 창 → 저장하면 그 제안이 서버 표에서 사라짐(다른 제안은 그대로)', async ({ page }) => {
   const f = await boot(page, 390, 844);
   const suggests = fill(page).locator('[data-journal-suggests]');
   await expect(suggests.locator('[data-journal-suggest]')).toHaveCount(2);
   await suggests.locator('[data-journal-suggest-write="s1"]').click();
   const editor = page.locator('[data-diary-editor]');
   await expect(editor).toBeVisible();
-  await expect(editor.locator('#diaryEditorTitle')).toHaveText('일기 쓰기');
+  await expect(editor.locator('#diaryEditorTitle')).toHaveText('하루 기록 쓰기');
   await expect(editor.locator('[data-diary-text]')).toContainText('오늘 가상 교섭 준비 회의를 했다');
   await editor.locator('[data-diary-save]').click();
   await expect.poll(() => f.notes.length).toBe(1);

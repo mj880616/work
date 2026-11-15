@@ -91,7 +91,7 @@ const length = text => [...String(text ?? '')].length;
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
-root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 정리</button></div></div>
+root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 보고</button></div></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
@@ -540,7 +540,7 @@ const NO_MEETINGS = Object.freeze([]);
 function dayReportBlock(card) {
   const report = document.createElement('section');
   report.className = 'journal-report'; report.dataset.journalReport = '';
-  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
+  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간 보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
   if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
   else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
@@ -550,7 +550,7 @@ function dayReportBlock(card) {
 function renderWeekly_({refreshBox = true} = {}) {
   if (mode !== 'week') return;
   const list = weekDays(start);
-  $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
+  $('[data-journal-weekly-title]').textContent = `주간 보고 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   if (!W) {
     const host = $('[data-journal-weekly]');
     if (host && !host.querySelector('[data-journal-kit-wait]')) host.innerHTML = `<div data-journal-kit-wait>${waitHtml({rows:3})}</div>`;
@@ -1353,7 +1353,7 @@ async function copyDraft() {
   const ok = await copyText(text);
   // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
-  status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
+  status.textContent = ok ? `주간 보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
 
@@ -1391,7 +1391,7 @@ async function toggleKind(key, hide, name) {
   try {
     const result = await changeKind(key, hide, rt);
     if (scope !== ownerScope(rt)) return;
-    if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간보고에서 빼요.` : `'${name}' 종류를 주간보고에 다시 올려요.`; }
+    if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간 보고에서 빼요.` : `'${name}' 종류를 주간 보고에 다시 올려요.`; }
     else status.textContent = '저장하지 못했어요. 다시 시도해 주세요.';
     renderDay(); renderWeekly_();
   } finally { kindsBusy = false; }

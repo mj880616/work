@@ -215,6 +215,7 @@ on:
       - 'tests/now-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/news-colors.test.mjs'
+      - 'tests/name-order.test.mjs'
       - 'tests/news-name.test.mjs'
       - 'tests/news-fold.test.mjs'
       - 'tests/files-model.test.mjs'
@@ -451,6 +452,7 @@ on:
       - 'tests/now-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/news-colors.test.mjs'
+      - 'tests/name-order.test.mjs'
       - 'tests/news-name.test.mjs'
       - 'tests/news-fold.test.mjs'
       - 'tests/files-model.test.mjs'
@@ -648,7 +650,7 @@ jobs:
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/text-highlights-model.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/text-highlights-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
@@ -1040,6 +1042,17 @@ jobs:
       - name: Check UI words standard ratchet (UI-용어통일)
         run: node --test tests/ui-words.test.mjs
 
+      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
+        run: node --test tests/update-news-model.test.mjs
+      - name: Check day record screen words (DIARY-이름하루기록)
+        run: node --test tests/ui-words-day-record.test.mjs
+
+      - name: Check quick input kind words (HOME-입력종류업데이트글자잊지말기)
+        run: node --test tests/ui-words-quick-kind.test.mjs
+
+      - name: FEEDBACK-의견보내기 자동 정보·보내기 전 검사
+        run: node --test tests/feedback-model.test.mjs
+
       - name: Check view tabs one look (UI-보기탭한모양)
         run: node --test tests/view-tabs-one-look.test.mjs
 
@@ -1115,6 +1128,9 @@ jobs:
       - name: UI-업데이트안내 기록 파일 검사·버전명·배포물 생성(needs the locked parser)
         run: node --test tests/release-notes.test.mjs
 
+      - name: UPDATE-운영자전용기록업데이트소식 개발 기록 서버 입구(release-notes-sync, GitHub OIDC 확인)
+        run: node --test tests/release-notes-sync.test.mjs
+
       - name: Check telegram room view model (TG-방별보기)
         run: node --test tests/tg-room-view-model.test.mjs
 
@@ -1123,6 +1139,9 @@ jobs:
 
       - name: Check note News marks model (NOTE-News밑줄보관보기)
         run: node --test tests/note-news-marks-model.test.mjs
+
+      - name: Check weekly report screen words (HOME-주간정리이름주간보고)
+        run: node --test tests/ui-words-weekly-report.test.mjs
 
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
