@@ -147,7 +147,7 @@ export function writeRead(type, id) {
 }
 // 반응 기록 한 줄(사람별, 더하기만). 실패해도 누른 일은 그대로.
 // 새 표에만 쓴다(S62-12g). 옛 표(app_now_signals)에 같은 id로 한 번 더 쓰면 뉴스 보충 함수(app_news_refs_sync 6단계)가 그 옛 줄을
-// 새 표로 다시 옮겨 같은 반응이 두 줄이 된다 → 관심 주제 기준이 빨리 찬다. 옛 반응 표를 읽는 서버 일은 E3(#2642)로 없어졌다.
+// 새 표로 다시 옮겨 같은 반응이 두 줄이 된다 → 관심 주제 기준이 빨리 찬다. 옛 반응 표를 읽는 서버 일은 E3(PR 2642)로 없어졌다.
 export async function writeSignal(item, action) {
   const t = T[item?.type], w = workspaceOf();
   if (!t || !w || !hasId(item.id)) return;
