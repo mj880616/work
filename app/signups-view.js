@@ -1,26 +1,27 @@
-// OPS-새가입알림 ③(S62-25): 운영자 전용 '가입자' 화면(?view=signups). #signupsView의 유일한 그리기 주인.
-// 입구는 운영자 계정 메뉴의 '가입자'(서버 허용 표 dev_inbox일 때만 줄을 그림)와 새 가입 폰 알림·알림 줄. 읽기는 서버 app_signup_list가
-// 운영자만 받는다(아니면 42501 → '운영자만 볼 수 있어요'). 돌려받는 칸은 이름·가입 시각·마지막 접속뿐(메일·기록 내용 없음).
-// 결제 상태 칸(무료/체험/유료)은 결제가 들어간 뒤에 더한다. 기기 저장 없음. 글자는 textContent로만.
+// OPS-가입자현황(S62-29, OPS-새가입알림 ③ S62-25를 넓힘): 운영자 전용 '가입자 현황' 화면(?view=signups). #signupsView의 유일한 그리기 주인.
+// 입구는 운영자 계정 메뉴의 '가입자 현황'(서버 허용 표 dev_inbox일 때만 줄을 그림)과 새 가입 폰 알림·알림 줄. 읽기는 서버 app_signup_list가
+// 운영자만 받는다(아니면 42501 → '운영자만 볼 수 있어요'). 원칙(명진 11/15): 운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않는다 —
+// 이 화면이 그리는 칸은 조직·부서·이름·직책·이메일·가입일·마지막 사용뿐(app/signups-model.mjs COLUMNS). 맨 위 숫자 한 줄은 같은 목록에서 센다.
+// 차단(가입 막기)은 화면에 없다(AGENTS.md 5절 — 차단 명단은 SQL로만). 기기 저장 없음. 글자는 textContent로만.
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
+import {COLUMNS,summarize,summaryText,cells} from './signups-model.mjs';
 
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!=null)node.textContent=text;return node};
-const when=value=>{const d=new Date(value);return value&&!Number.isNaN(d.getTime())?d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'2-digit',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}):''};
 let drawing=null;
 
 function install(){
   if(document.getElementById('signupsView'))return;
-  document.getElementById('appView')?.insertAdjacentHTML('beforeend','<section id="signupsView" class="view-panel hidden" aria-label="가입자"><div class="panel su-view"><div data-su-root></div></div></section>');
+  document.getElementById('appView')?.insertAdjacentHTML('beforeend','<section id="signupsView" class="view-panel hidden" aria-label="가입자 현황"><div class="panel su-view"><div data-su-root></div></div></section>');
 }
 
 function table(items){
   const t=el('table','su-table');
-  const head=el('tr');for(const h of ['이름','가입','마지막 접속'])head.append(el('th',null,h));
-  t.append(el('caption','su-count',`${items.length}명`));
+  t.append(el('caption','su-count',summaryText(summarize(items))));
+  const head=el('tr');for(const [key,label] of COLUMNS){const th=el('th',null,label);th.dataset.col=key;head.append(th)}
   const thead=el('thead');thead.append(head);const body=el('tbody');
   for(const item of items){
-    const tr=el('tr','su-row');
-    tr.append(el('td','su-name',String(item?.name||'이름 없음')),el('td','su-when',when(item?.signed_up_at)),el('td','su-when',when(item?.last_seen_at)||'—'));
+    const text=cells(item),tr=el('tr','su-row');
+    for(const [key,label] of COLUMNS){const td=el('td','su-'+key.replace(/_.*/,''),text[key]);td.dataset.col=key;td.dataset.label=label;tr.append(td)}
     body.append(tr);
   }
   t.append(thead,body);return t;
