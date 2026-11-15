@@ -187,14 +187,21 @@ test('처리한 글 거르기: 숨김(hidden_at)·보관(starred_at)만 뺀다, 
 test('처리 표시 읽기: 내 작업공간 뉴스 줄의 id·숨김·별표만 한 번에 읽고, 못 읽으면 ok:false(거르지 않음)', async () => {
   const {readReadMarks} = await import('../app/home-day-picks-data.js');
   const calls = [];
-  const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, api:async path => { calls.push(path); return [{id:UUID_A, hidden_at:'2026-11-11T00:00:00Z', starred_at:null}, {id:UUID_B, hidden_at:null, starred_at:null}]; }};
+  // NEWS-모두에게열기 ③: 옛 기사 id → 지도 함수 → 공용 기사 id의 내 표시(app_news_marks). 돌려주는 id는 고른 글 id 그대로.
+  const ART_A = 'aaaaaaaa-0000-4000-8000-00000000000a';
+  const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, api:async (path, opts) => {
+    calls.push(path);
+    if (path === '/rest/v1/rpc/app_news_article_of') { assert.deepEqual(opts.body, {p_old:[UUID_A, UUID_B]}); return [{old_id:UUID_A, article_id:ART_A}]; }
+    return [{article_id:ART_A, hidden_at:'2026-11-11T00:00:00Z', starred_at:null}, {article_id:UUID_B, hidden_at:null, starred_at:null}];
+  }};
   const out = await readReadMarks([UUID_A, UUID_B, UUID_A, 'n1', "x,y"], rt);
   assert.equal(out.ok, true);
   assert.deepEqual([...out.handled], [UUID_A]);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0], `/rest/v1/app_news_items?workspace_id=eq.w&id=in.(${UUID_A},${UUID_B})&select=id,hidden_at,starred_at&limit=2`);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1], `/rest/v1/app_news_marks?workspace_id=eq.w&article_id=in.(${ART_A},${UUID_B})&select=article_id,hidden_at,starred_at&limit=2`);
+  assert.doesNotMatch(calls.join(' '), /app_news_items/);
   assert.deepEqual(await readReadMarks(['n1'], rt), {ok:true, handled:new Set()});
-  assert.equal(calls.length, 1, 'UUID가 없으면 서버에 묻지 않는다');
+  assert.equal(calls.length, 2, 'UUID가 없으면 서버에 묻지 않는다');
   assert.deepEqual(await readReadMarks([UUID_A], {context:{read:() => ({})}, api:async () => []}), {ok:false});
   assert.deepEqual(await readReadMarks([UUID_A], {context:{read:() => ({workspace:{id:'w'}})}, api:async () => { throw new Error('net'); }}), {ok:false});
 });

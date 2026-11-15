@@ -33,7 +33,7 @@ async function fixture(page, width) {
   await page.route(u => u.origin === SB && u.pathname.startsWith('/rest/v1/'), async r => {
     const req = r.request(), u = new URL(req.url()), table = u.pathname.slice('/rest/v1/'.length), method = req.method(), q = u.searchParams;
     const id = (q.get('id') || '').replace(/^eq\./, '');
-    if (['app_news_highlights', 'app_outside_marks', 'app_news_items'].includes(table)) s.calls.push(table + ' ' + method + ' ' + decodeURIComponent(u.search));
+    if (['app_news_highlights', 'app_outside_article_marks', 'app_news_marks'].includes(table)) s.calls.push(table + ' ' + method + ' ' + decodeURIComponent(u.search));
     if (table === 'app_notes' && method === 'GET') return r.fulfill({ json: notes.filter(x => (!q.get('kind') || 'eq.' + x.kind === q.get('kind')) && (!id || x.id === id)).map(x => structuredClone(x)) });
     if (table === 'app_note_folders' && method === 'GET') return r.fulfill({ json: structuredClone(folders) });
     if (table === 'app_news_highlights') {
@@ -41,8 +41,10 @@ async function fixture(page, width) {
       if (method === 'PATCH') { const body = req.postDataJSON(); s.patches.push({ id, body }); const h = s.hl.find(x => x.id === id); if (h) Object.assign(h, body); return r.fulfill({ json: h ? [structuredClone(h)] : [] }); }
       return r.fulfill({ json: structuredClone(s.hl) });
     }
-    if (table === 'app_outside_marks' && method === 'GET') return r.fulfill({ json: structuredClone(marks) });
-    if (table === 'app_news_items' && method === 'GET') return r.fulfill({ json: structuredClone(id ? news.filter(x => x.id === id) : q.get('starred_at') ? news.filter(x => x.starred_at) : news) });
+    // NEWS-모두에게열기 ③: 보관은 내 표시 표(공용 글 embed) — 옛 모양(post_id·app_outside_posts)을 새 모양(article_id·app_outside_articles)으로.
+    if (table === 'app_outside_article_marks' && method === 'GET') return r.fulfill({ json: structuredClone(marks).map(({ post_id, app_outside_posts, ...m }) => ({ ...m, article_id: post_id, dismissed_at: null, app_outside_articles: app_outside_posts })) });
+    if (table === 'app_news_marks' && method === 'GET') return r.fulfill({ json: structuredClone(news.filter(x => x.starred_at)).map(({ starred_at, folder_id, ...a }) => ({ article_id: a.id, starred_at, folder_id: folder_id ?? null, hidden_at: null, keywords: [], app_news_articles: a })) });
+    if (table === 'app_news_articles' && method === 'GET') return r.fulfill({ json: structuredClone(id ? news.filter(x => x.id === id) : news).map(({ starred_at, folder_id, ...a }) => ({ ...a, app_news_marks: starred_at ? [{ starred_at, folder_id: folder_id ?? null, hidden_at: null, keywords: [] }] : [] })) });
     if (table === 'app_record_links' || table === 'app_note_comments') return r.fulfill({ json: [] });
     if (table.startsWith('app_now_') || table.startsWith('app_news_') || table.startsWith('app_outside_') || table === 'app_feed_reads' || table === 'app_feed_bodies') return method === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 201, json: [] });
     return r.fallback();

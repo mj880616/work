@@ -28,7 +28,7 @@ async function openAll(page, width, scheme) {
     const action = new URL(route.request().url()).searchParams.get('action');
     return action === 'catalog' ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, sources: SOURCES }) }) : route.fallback();
   });
-  await page.route(SB + '/rest/v1/app_outside_posts**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(POSTS) }));
+  await page.route(SB + '/rest/v1/app_outside_articles**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(POSTS) }));
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav button:visible', { hasText: 'News' }).click();

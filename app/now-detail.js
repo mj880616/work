@@ -1,5 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
+import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences} from './feed-shared.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
 import {viewPrefs} from './view-prefs.js';
@@ -27,6 +28,7 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 // - 사진: https 주소만, referrerpolicy="no-referrer"·loading="lazy", 글을 열었을 때만 그린다. 안 뜨면 '사진 ↗' 링크.
 // - 아래 작은 단추 줄: 사회운동 글은 app_outside_marks(글마다 한 줄), 뉴스는 기존 app_news_items 칸(starred_at·hidden_at). 메모는 노트
 //   (app_notes, metadata.outside_post_id|news_item_id). 누를 때마다 환류 기록 한 줄(app_now_signals). [원래 사이트 ↗] 열기도 기록한다.
+// - NEWS-모두에게열기 ③: 위 표들은 공용 글(app_news_articles·app_outside_articles·…_article_bodies·문장) + 내 표시·읽음·반응 표로 바뀌었다(feed-shared.js 한 길).
 // - 원문 칸 머리 줄 [복사] ⋯(S52-39 NEWS-원문복사선택, 시안 docs/design/mockups/news-copy-select.html): [복사](공용 칩)는 제목 / 매체·날짜 / 본문 전체(문단 그대로) /
 //   원래 주소를 한 번에 클립보드로(번역해서 보는 중이면 한국어 본문, now-model.mjs copyArticleText). ⋯ 작은 메뉴(UI-⋯작은메뉴) = [모두 선택](원문 본문 전체를
 //   선택된 상태로 → 폰 기본 메뉴 복사·공유·검색)·[복사]·[공유](폰 공유 창 navigator.share — 제목·주소만, 그 길이 없는 화면에는 [공유]를 두지 않는다).
@@ -37,12 +39,9 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 // - 저장은 모두 서버. 기기 저장 없음. 상세·원문은 이 탭 메모리에만 다시 쓰려고 둔다. 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const q = v => encodeURIComponent(v);
 const rt = () => window.KPTURuntime;
-const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const MEMO_COLS = 'id,title,raw_text,metadata,updated_at,doc_type:doc->>type';
 const NEWS_ROW_COLS = 'state,body_kind,summary,title,title_ko,publisher,published_at,url,lang';
-const ITEM_COL = {outside: 'outside_post_id', news: 'news_item_id'};
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
@@ -57,37 +56,23 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
 
   // ---------- 서버 ----------
   const askDetail = item => rt().api('/functions/v1/ai-assist', {method: 'POST', body: detailBody(item), singleFlight: false, timeoutMs: 120000});
-  async function readMarks(item) {
-    const w = workspaceOf();
-    if (item.type === 'news') {
-      const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(item.id)}&select=starred_at,folder_id,hidden_at&limit=1`, {singleFlight: false});
-      const r = Array.isArray(rows) ? rows[0] : null;
-      return {star: !!r?.starred_at, archive: !!r?.folder_id, dismiss: !!r?.hidden_at};
-    }
-    const rows = await rt().api(`/rest/v1/app_outside_marks?workspace_id=eq.${q(w)}&post_id=eq.${q(item.id)}&select=starred_at,archived_at,dismissed_at&limit=1`, {singleFlight: false});
-    const r = Array.isArray(rows) ? rows[0] : null;
-    return {star: !!r?.starred_at, archive: !!r?.archived_at, dismiss: !!r?.dismissed_at, has: !!r};
-  }
-  const readMemo = item => rt().api(`/rest/v1/app_notes?workspace_id=eq.${q(workspaceOf())}&kind=eq.note&archived_at=is.null&metadata->>${item.type === 'news' ? 'news_item_id' : 'outside_post_id'}=eq.${q(item.id)}&select=${MEMO_COLS}&order=updated_at.desc&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
+  // NEWS-모두에게열기 ③: 글 내용·본문 블록·문장·번역은 공용 표, 별표·보관·숨김·메모는 내 것(feed-shared.js 한 길). item.id = 공용 글 id.
+  const readMarks = item => readMarkOf(item);
+  const readMemo = item => readMemoNote(item, MEMO_COLS);
   // 저장 원문 한 줄(없으면 null).
-  const readFeedBody = item => rt().api(`/rest/v1/app_feed_bodies?workspace_id=eq.${q(workspaceOf())}&${ITEM_COL[item.type]}=eq.${q(item.id)}&select=blocks,state,reason&limit=1`, {singleFlight: false})
-    .then(r => (Array.isArray(r) ? r[0] || null : null));
+  const readFeedBody = item => readBody(item);
   // 옛 글: 예전 저장 글자.
   async function readLegacyText(item) {
-    const w = workspaceOf();
     if (item.type === 'news') {
-      const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(item.id)}&select=body,body_kind&limit=1`, {singleFlight: false});
-      const r = Array.isArray(rows) ? rows[0] : null;
+      const r = await readArticleCols(item, 'body,body_kind');
       return legacyBody(plainText(r?.body).trim(), {lead: r?.body_kind === 'lead'});
     }
-    const rows = await rt().api(`/rest/v1/app_outside_sentences?post_id=eq.${q(item.id)}&workspace_id=eq.${q(w)}&select=idx,text&order=idx.asc&limit=3001`, {singleFlight: false});
+    const rows = await readSentences(item.id);
     const text = (Array.isArray(rows) ? rows : []).filter(r => r && typeof r.text === 'string').sort((a, b) => a.idx - b.idx).map(r => r.text.trim()).filter(Boolean).join(' ');
     return legacyBody(text);
   }
-  const readTranslation = item => rt().api(item.type === 'news'
-    ? `/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=body,body_ko&limit=1`
-    : `/rest/v1/app_outside_posts?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=body_ko&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
-  const readNewsRow = item => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(workspaceOf())}&id=eq.${q(item.id)}&select=${NEWS_ROW_COLS}&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
+  const readTranslation = item => readArticleCols(item, item.type === 'news' ? 'body,body_ko' : 'body_ko');
+  const readNewsRow = item => readArticleCols(item, NEWS_ROW_COLS);
   const signal = (item, action) => sendSignal(item, action, onSignal);
 
   // ---------- 그리기(칸마다 따로 — 요약이 와도 원문 칸은 그대로) ----------

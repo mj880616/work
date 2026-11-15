@@ -66,16 +66,25 @@ async function outsideServer(page) {
       if (action === 'fill_now') return ok({ ok: true, done: 0, status: 'nothing' });
       return ok({ ok: false }, 400);
     }
-    if (p === '/rest/v1/app_news_items') {
-      server.calls.push({ what: 'app_news_items', method, query: decodeURIComponent(u.search) });
+    // NEWS-모두에게열기 ③: 언론 기사는 공용 표(+ 내 표시 embed), 읽음은 사람별 표(app_news_reads·app_outside_reads, article_id).
+    if (p === '/rest/v1/app_news_articles') {
+      server.calls.push({ what: 'app_news_articles', method, query: decodeURIComponent(u.search) });
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      return ok(NEWS.filter(r => !inKeys || inKeys.includes(r.source_key)));
+      return ok(NEWS.filter(r => !inKeys || inKeys.includes(r.source_key)).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: starred_at ? [{ starred_at, folder_id: null, hidden_at: null, keywords: [] }] : [] })));
     }
+    if (p === '/rest/v1/app_news_reads' || p === '/rest/v1/app_outside_reads') {
+      const body = req.postDataJSON?.() ?? null;
+      server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body, prefer: req.headers().prefer || '' });
+      if (method === 'POST') { server.reads.add(body.article_id); return route.fulfill({ status: 201 }); }
+      const ids = /^in\.\((.*)\)$/.exec(u.searchParams.get('article_id') || '')?.[1]?.split(',') || [];
+      return ok(ids.filter(id => server.reads.has(id)).map(id => ({ article_id: id })));
+    }
+    if (p === '/rest/v1/app_news_items') return ok([]);
     if (p === '/rest/v1/app_news_keywords' || p === '/rest/v1/app_news_folders' || p === '/rest/v1/app_notes') return ok([]);
     if (p === '/rest/v1/app_feed_reads') {
       const body = req.postDataJSON?.() ?? null;
       server.calls.push({ what: 'app_feed_reads', method, query: decodeURIComponent(u.search), body, prefer: req.headers().prefer || '' });
-      if (method === 'POST') { server.reads.add(body.outside_post_id || body.news_item_id); return route.fulfill({ status: 201 }); }
+      if (method === 'POST') return route.fulfill({ status: 201 }); // 옮기는 동안 같이 써 보는 옛 표 — 읽음 기준은 새 표
       const col = u.searchParams.has('outside_post_id') ? 'outside_post_id' : 'news_item_id';
       const ids = /^in\.\((.*)\)$/.exec(u.searchParams.get(col) || '')?.[1]?.split(',') || [];
       return ok(ids.filter(id => server.reads.has(id)).map(id => ({ [col]: id })));
@@ -86,13 +95,13 @@ async function outsideServer(page) {
     if (!p.startsWith('/rest/v1/app_outside_')) return route.fallback();
     const body = req.postDataJSON?.() ?? null;
     server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
-    if (p === '/rest/v1/app_outside_posts') {
+    if (p === '/rest/v1/app_outside_articles') {
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
       const rows = [...server.extra, ...POSTS].filter(r => !inKeys || inKeys.includes(r.source_key));
       const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 100);
       return ok(rows.slice(offset, offset + limit));
     }
-    if (p === '/rest/v1/app_outside_sentences') return ok(SENTENCES[(u.searchParams.get('post_id') || '').replace(/^eq\./, '')] || []);
+    if (p === '/rest/v1/app_outside_article_sentences') return ok(SENTENCES[(u.searchParams.get('article_id') || '').replace(/^eq\./, '')] || []);
     if (p === '/rest/v1/app_outside_seen') {
       if (method === 'PATCH') { server.seen = [{ seen_at: body.seen_at }]; return ok(server.seen); }
       return ok(server.seen);
@@ -179,7 +188,7 @@ for (const width of [412, 884, 1280]) {
     await expect(row(page, 'outside:p2')).toHaveClass(/is-read/);
     await expect(p1).toHaveClass(/is-new/);
     expect(await p1.locator('.nw-title').evaluate(el => getComputedStyle(el).fontWeight)).toBe('700');
-    expect(server.calls.find(c => c.what === 'app_feed_reads' && c.method === 'GET').query).toContain('workspace_id=eq.w');
+    expect(server.calls.find(c => c.what === 'app_outside_reads' && c.method === 'GET').query).toContain('workspace_id=eq.w');
     expect(await noWideScroll(page)).toBe(true);
 
     // 탭 자리(명진 11/06): 폰 = 아래 가운데 떠 있음, 폴드 = 오른쪽 아래, PC = 위.
@@ -190,9 +199,9 @@ for (const width of [412, 884, 1280]) {
 
     // 상세를 열면 읽음 한 줄(on_conflict + ignore-duplicates = 이미 있으면 그대로), 줄은 흐리게.
     await p1.locator('.now-open').click();
-    await expect.poll(() => server.calls.filter(c => c.what === 'app_feed_reads' && c.method === 'POST').map(c => c.body)).toContainEqual({ workspace_id: 'w', outside_post_id: 'p1' });
-    const post = server.calls.find(c => c.what === 'app_feed_reads' && c.method === 'POST' && c.body.outside_post_id === 'p1');
-    expect(post.query).toBe('?on_conflict=outside_post_id');
+    await expect.poll(() => server.calls.filter(c => c.what === 'app_outside_reads' && c.method === 'POST').map(c => c.body)).toContainEqual({ workspace_id: 'w', article_id: 'p1' });
+    const post = server.calls.find(c => c.what === 'app_outside_reads' && c.method === 'POST' && c.body.article_id === 'p1');
+    expect(post.query).toBe('?on_conflict=workspace_id,article_id');
     expect(post.prefer).toContain('resolution=ignore-duplicates');
     if (width <= 760) await page.goBack();
     await expect(row(page, 'outside:p1')).toHaveClass(/is-read/);
@@ -215,11 +224,11 @@ for (const width of [412, 884, 1280]) {
     await pick.locator('[data-lu-move-folder="g:party"]').click();
     await expect(dd).toHaveText('매체: 정당 ▾');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(2);
-    expect(server.calls.filter(c => c.what === 'app_outside_posts').at(-1).query).toContain('source_key=in.(laborparty,kgreens)');
+    expect(server.calls.filter(c => c.what === 'app_outside_articles').at(-1).query).toContain('source_key=in.(laborparty,kgreens)');
     await dd.click();
     await pick.locator('[data-lu-move-folder="n:news-fake-en"]').click();
     await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
-    expect(server.calls.filter(c => c.what === 'app_news_items').at(-1).query).toContain('source_key=in.(news-fake-en)');
+    expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-en)');
     await dd.click();
     await pick.locator('[data-lu-move-folder="all"]').click();
     await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
