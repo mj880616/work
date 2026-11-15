@@ -10,7 +10,6 @@ const encode = encodeURIComponent;
 
 // 화면 글(docs/design/ui-words.md). 다른 팀 양식 글자를 쓰지 않는다.
 export const OWN_FORM_TEXT = Object.freeze({
-  reading: '파일에서 양식을 읽는 중…',
   saved: '내 양식으로 저장했어요.',
   none: '파일에서 항목이나 표를 찾지 못했어요. 빈 양식에서 직접 만들 수 있어요.',
   unreadable: '파일을 열지 못했어요. 다시 선택해 주세요.',
