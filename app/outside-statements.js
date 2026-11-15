@@ -6,7 +6,7 @@ import {createMovePicker} from './library-move-picker.js';
 import {GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, ownSourceRows, groupPosts, postView, sourceState, feedWhen} from './outside-statements-model.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {mountSplitResize} from './split-resize.js';
-import {hasNewsItem, takeNewsTab} from './news-request.mjs';
+import {hasNewsItem, takeNewsTab, takeNewsOpen} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
 import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
 import {outsideColor, outsideBar, newsColor, newsBar, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
@@ -592,13 +592,22 @@ function restorePlaced() {
     openDetail({type: m[1], id: row.id}, describe(m[1], row));
   }).catch(() => {}).finally(() => { restoring = false; autoOpenTop(); });
 }
+async function openWanted(w) {
+  if (w.highlight) { void openHighlight({id: w.highlight, source_type: w.type, source_id: w.id}); return; }
+  let row = null;
+  try { row = await fetchItem(w.type, w.id); } catch { row = null; }
+  if (!row) { notify('원래 글을 찾지 못했어요', {record: false}); return; }
+  openDetail({type: w.type, id: row.id}, describe(w.type, row), {picked: true});
+}
 function enter() {
   resetIfOwnerChanged();
   restorePlaced();
   // 처음 들어올 때 탭: 노트 [기사로 가기]면 [언론], 아니면 서버에 기억한 마지막 탭(news_tab, 없으면 옛 now_tab을 옮김, 둘 다 없으면 전체).
   // 주소 ?view=news(옛 ?view=outside·?view=now 포함, S51-17 P5)는 탭을 정하지 않는다. 알림 줄 [보기]는 [사회운동](requestNewsTab).
-  const asked = takeNewsTab();
+  const asked = takeNewsTab(), wanted = takeNewsOpen();
   if (hasNewsItem()) { state.tab = ''; setTab('media', {save: false}); }
+  // NOTE-News밑줄보관보기: 노트 'News에서'의 밑줄 → [밑줄] 탭 + 그 글 그 자리로, 보관한 글 → [보관] 탭 + 그 글 상세.
+  else if (wanted) { setTab(wanted.highlight ? 'marks' : 'archive', {save: false}); void openWanted(wanted); }
   else if (asked) setTab(asked, {save: false});
   else if (!state.tabSet) {
     restoreTab();
@@ -826,7 +835,8 @@ window.addEventListener('kptu:view-prefs-ready', () => {
   if (state.tabSet || window.KPTURouter?.current !== 'outside') return;
   restoreTab();
 });
-window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
+// sourceName: 사회운동 글 매체 이름(목록을 읽은 뒤에만, 아니면 null — 노트 'News에서 › 보관한 글' 줄이 쓴다).
+window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }, sourceName: key => catalogOf(key)?.name || null}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {
   open: (item, head) => openDetail(item, head), listed: () => autoOpenTop(), describe, rowOf, topics: () => interests.topics(), hitOf, foldedHtml, selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },

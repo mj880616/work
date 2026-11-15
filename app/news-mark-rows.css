@@ -1,0 +1,41 @@
+/* S53-5 NEWS-밑줄모으기 밑줄 줄(now-highlights.js highlightRowHtml): 고른 글(노란 띠) · 메모 · 매체·날짜·제목 · ⋯. 촘촘하게.
+   NOTE-News밑줄보관보기: News [밑줄] 탭(#outsideView)과 노트 'News에서'(.nnm, note-news-marks.js)가 이 한 곳의 같은 줄 모양을 쓴다. 밑줄 메뉴(.hl-menu)도 여기. */
+#appView :is(#outsideView, #basketView) .nh-row{ display:flex; align-items:flex-start; gap:4px; padding:6px 4px 6px 8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView :is(#outsideView, #basketView) .nh-row:first-child{ border-top:0; }
+#appView :is(#outsideView, #basketView) .nh-pick{ flex:0 0 auto; margin:4px 2px 0 0; }
+#appView :is(#outsideView, #basketView) .nh-open{ flex:1 1 auto; min-width:0; height:auto; min-height:0; display:flex; flex-direction:column; gap:3px; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-ink); font:inherit; text-align:left; cursor:pointer; }
+#appView :is(#outsideView, #basketView) .nh-q{ display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; padding-left:8px; border-left:3px solid var(--kptu-warning); font-size:13.5px; line-height:1.55; white-space:pre-line; overflow-wrap:anywhere; }
+#appView :is(#outsideView, #basketView) .nh-memo{ margin-left:11px; font-size:12.5px; color:var(--kptu-ink); opacity:.85; overflow-wrap:anywhere; }
+#appView :is(#outsideView, #basketView) .nh-k,.hl-menu .hl-menu-k{ margin-right:4px; font-size:11px; color:var(--kptu-muted); }
+#appView :is(#outsideView, #basketView) .nh-meta{ display:flex; flex-wrap:wrap; gap:0 6px; margin-left:11px; font-size:11.5px; color:var(--kptu-muted); }
+#appView :is(#outsideView, #basketView) .nh-meta span+span::before{ content:"·"; margin-right:6px; }
+#appView :is(#outsideView, #basketView) .nh-more{ flex:0 0 auto; }
+.hl-menu .hl-menu-memo{ margin:2px 4px 6px; padding:4px 6px; font-size:12.5px; line-height:1.45; border-left:3px solid var(--kptu-warning); white-space:pre-line; overflow-wrap:anywhere; max-height:8em; overflow:auto; }
+
+/* 노트 'News에서'(시안 note-news-marks.html ①~④): 폴더 목록 맨 아래 얇은 구분 줄 + 두 줄, 오른쪽(폰은 '그 폴더만' 상자) 목록·찾은 것. */
+#basketView .nnm-sep{ display:flex; align-items:center; gap:8px; padding:8px 10px 2px; font-size:11px; color:var(--kptu-muted); }
+#basketView .nnm-sep::after{ content:""; flex:1 1 auto; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#basketView .nnm-hlico{ display:inline-block; flex:0 0 auto; width:14px; height:6px; margin:0 1px; background:var(--kptu-warning-soft); border-bottom:2px solid var(--kptu-warning); }
+#basketView .nnm:not([hidden]){ display:flex; flex-direction:column; gap:6px; min-width:0; }
+#basketView .nnm-head{ display:flex; align-items:center; gap:6px; min-height:28px; font-size:14px; }
+#basketView .nnm-head .nnm-n, #basketView .nnm-found-head .nnm-n{ font-size:12px; color:var(--kptu-muted); }
+#basketView .nnm-found-head:not([hidden]){ display:flex; align-items:baseline; gap:8px; margin:0 0 4px; font-size:13px; }
+#basketView .nnm-q{ font-weight:600; }
+#basketView .nnm-bar{ display:flex; align-items:center; gap:6px; padding:0 2px 4px; }
+#appView #basketView .nnm-src{ margin-left:auto; width:auto; height:24px; min-height:0; padding:0 8px; font-size:12px; color:var(--kptu-link); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); }
+#basketView .nnm-chips{ display:flex; flex-wrap:wrap; gap:4px; }
+#appView #basketView .nnm-chips button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#basketView .nnm-card{ background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:12px; overflow:hidden; }
+#basketView .nnm-sv{ position:relative; display:flex; align-items:center; gap:4px; padding:0 4px 0 8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#basketView .nnm-card > :first-child{ border-top:0; }
+#appView #basketView .nnm-open{ flex:1 1 auto; display:flex; align-items:baseline; gap:8px; min-width:0; height:auto; min-height:36px; margin:0; padding:8px 0; border:0; background:transparent; color:var(--kptu-ink); font:inherit; font-size:13.5px; text-align:left; cursor:pointer; }
+#basketView .nnm-t{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#basketView .nnm-m{ flex:0 0 auto; font-size:11.5px; color:var(--kptu-muted); white-space:nowrap; }
+#basketView .nnm-star{ flex:0 0 auto; color:var(--kptu-warning); }
+#basketView .nnm-tag{ flex:0 0 auto; align-self:flex-start; padding:0 4px; font-size:10.5px; line-height:16px; color:var(--kptu-muted); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:4px; }
+#basketView .nh-open .nnm-tag{ margin-bottom:1px; }
+/* 보관한 글 줄의 [보관 풀기](PC 마우스, now-row-acts.js hoverActsHtml) — News 보관 줄과 같은 작은 단추. 폰은 밀기·⋯. */
+#basketView .nnm-sv .now-hov{ display:none; gap:2px; }
+#basketView .nnm-sv:hover > .now-hov, #basketView .nnm-sv:focus-within > .now-hov{ display:inline-flex; }
+#appView #basketView .nnm-sv .now-hov-btn{ min-height:0; height:20px; padding:0 6px; font-size:11px; line-height:1; color:var(--kptu-muted); background:var(--kptu-surface); border:1px solid var(--kptu-line,currentColor); border-radius:var(--ds-radius-control,6px); cursor:pointer; }
+@media(max-width:760px){ #basketView .nnm-sv .now-hov{ display:none !important; } }
