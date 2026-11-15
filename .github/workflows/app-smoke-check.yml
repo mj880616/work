@@ -1043,6 +1043,9 @@ jobs:
       - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
         run: node --test tests/update-news-model.test.mjs
 
+      - name: FEEDBACK-의견보내기 자동 정보·보내기 전 검사
+        run: node --test tests/feedback-model.test.mjs
+
       - name: Check view tabs one look (UI-보기탭한모양)
         run: node --test tests/view-tabs-one-look.test.mjs
 
