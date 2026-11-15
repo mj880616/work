@@ -1357,3 +1357,12 @@ test('E1b 소스: outside-feed는 텔레그램 소식·방·가족·통화 표�
   assert.doesNotMatch(src,/app_outside_(article_marks|reads|now_details|now_signals)/,'사람별 새 표 직접 쓰기 없음');
   assert.match(src,/"app_outside_id_map\?on_conflict=old_id", \{ old_id: oldId, workspace_id: workspaceId, article_id: articleId \}/,'지도는 id 세 칸뿐');
 });
+
+test('E1b run_plan: 2년 지난 국내 공용 글도 문장을 지우고 has_body=false(제목·요약은 남김)', async () => {
+  const h=harness({sources:[{workspace_id:WS,source_key:'kctu'}],shared:{
+    articles:[{id:ART_A,source_key:'kctu',kind:'statement',lang:'ko',title:'옛 공용 글',url:'https://nodong.org/statement/1',published_at:'2023-01-01T00:00:00Z',fetched_at:'2023-01-01T00:00:00Z',summary_ko:'요약',has_body:true,key_sentences:[]}],
+    sentences:[{article_id:ART_A,idx:0,text:'옛 문장.'}]}});
+  assert.equal((await h.cron('run_plan')).status,200);
+  assert.equal(h.db.app_outside_article_sentences.length,0);
+  assert.deepEqual([h.db.app_outside_articles[0].has_body,h.db.app_outside_articles[0].summary_ko],[false,'요약']);
+});
