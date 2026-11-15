@@ -20,7 +20,7 @@ export function mountOwnFormEditor(host, {form, name = '', fresh = false, read =
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   let original = form;
-  let cur = form, busy = false, editing = null, menuFor = ''; // editing: {id, col?} 이름 칸을 여는 중
+  let cur = form, busy = false, editing = null, menuFor = ''; // editing: {id, col?} 이름을 수정하는 칸
   const box = el('section', 'journal-own-form');
   box.dataset.ownForm = '';
   const head = el('p', 'journal-own-form-head');
