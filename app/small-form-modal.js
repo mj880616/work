@@ -20,6 +20,7 @@ ${foot?`<p class="sfm-note">${esc(foot)}</p>`:''}<p class="sfm-status" data-sfm-
   const first=fill(body);
   let busy=false;
   const close=()=>closeFormModal(id);
+  modal.addEventListener('input',()=>{if(!busy)status.textContent=''});
   modal.addEventListener('click',event=>{
     if(event.target===modal||event.target.closest('[data-sfm-close],[data-sfm-cancel]')){event.stopPropagation();close();return}
     if(event.target.closest('[data-sfm-ok]'))void submit();
