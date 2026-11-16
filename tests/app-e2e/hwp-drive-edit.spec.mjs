@@ -125,13 +125,13 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
   await press(page,'hwpDriveOverwrite',390);
   const note=page.locator('.kptu-ask .kptu-ask-note');
   await expect(note).toContainText('잊지 말기와 자료실 양쪽에 반영돼요.');
-  await expect(note).toContainText('Web2 편집 백업');
+  await expect(note).toContainText('노조+ 편집 백업');
   expect(await answerAsk(page,false)).toContain('덮어쓸까요?');
   expect(f.sent.overwrite).toEqual([]);
 
   await press(page,'hwpDriveOverwrite',390);
   await answerAsk(page,true);
-  await expect(status(page)).toHaveText('원본에 덮어썼어요. 수정 전 사본은 Drive "Web2 편집 백업" 폴더에 "주간보고 수정 전 백업 2026-10-06 1000.hwp"으로 보관했어요.',{timeout:30000});
+  await expect(status(page)).toHaveText('원본에 덮어썼어요. 수정 전 사본은 Drive "노조+ 편집 백업" 폴더에 "주간보고 수정 전 백업 2026-10-06 1000.hwp"으로 보관했어요.',{timeout:30000});
   expect(f.sent.overwrite).toHaveLength(1);
   const {file,...fields}=f.sent.overwrite[0];
   expect(fields).toEqual({action:'hwp-overwrite',document_id:DOC,base_revision:'rev-1',base_md5:MD5A,confirm_shared:'1'});

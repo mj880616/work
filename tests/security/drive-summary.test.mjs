@@ -24,7 +24,7 @@ function harness(options = {}) {
   const calls = [], uploads = [], patches = [];
   let contentReads=0,headerScans=0,linkScans=0;
   const files = new Map(options.existing ? [
-    ['folder', { id: 'folder', mimeType: 'application/vnd.google-apps.folder', appProperties: { kptu_summary: 'folder', last_success_at: 'old-success', extra: 'keep', ...options.folderProps } }],
+    ['folder', { id: 'folder', ...(options.folderName ? { name: options.folderName } : {}), mimeType: 'application/vnd.google-apps.folder', appProperties: { kptu_summary: 'folder', last_success_at: 'old-success', extra: 'keep', ...options.folderProps } }],
     ['org-doc', { id: 'org-doc', mimeType: 'application/vnd.google-apps.document', appProperties: { kptu_summary: 'org' } }],
     ['project-doc', { id: 'project-doc', mimeType: 'application/vnd.google-apps.document', appProperties: { kptu_summary: 'project' } }],
   ] : []);
@@ -112,7 +112,7 @@ function harness(options = {}) {
     }
     if (method === 'POST') {
       const meta = JSON.parse(init.body);
-      assert.equal(meta.name, 'Web2 읽기용 사본');
+      assert.equal(meta.name, '노조+ 읽기용 사본');
       files.set('folder', { id: 'folder', ...meta });
       return reply(files.get('folder'));
     }
@@ -172,6 +172,17 @@ function harness(options = {}) {
     assert.equal(h.files.get('folder').appProperties.extra, 'keep');
     // S7-d + heartbeat: the copy path sends only its own key, never a stale snapshot of ledger/collector keys.
     assert.deepEqual(h.patches.map(p => Object.keys(p.appProperties || {})), [['last_success_at']]);
+  });
+  test('BRAND-웹2흔적지우기: 옛 이름 폴더는 이름만 새 이름으로 바꾸고 새 폴더를 만들지 않는다', async () => {
+    const h = harness({ existing: true, folderName: 'Web2 읽기용 사본' }), response = await h.request({ Authorization: 'Bearer valid-owner' });
+    assert.equal(response.status, 200);
+    assert.equal(h.calls.filter(c => c.method === 'POST' && c.url.pathname === '/drive/v3/files').length, 0);
+    assert.deepEqual(h.patches.filter(p => 'name' in p), [{ name: '노조+ 읽기용 사본' }]);
+    assert.equal(h.files.get('folder').name, '노조+ 읽기용 사본');
+    assert.equal(h.uploads.length, 2); assert.ok(h.uploads.every(u => u.method === 'PATCH'));
+    const again = harness({ existing: true, folderName: '노조+ 읽기용 사본' });
+    assert.equal((await again.request({ Authorization: 'Bearer valid-owner' })).status, 200);
+    assert.equal(again.patches.filter(p => 'name' in p).length, 0);
   });
   test('copy rebuild does not roll back ledger export or heartbeat keys written while it ran', async () => {
     const h = harness({ existing: true });
@@ -241,7 +252,7 @@ function harness(options = {}) {
     const h = harness({ data: { app_suborganizations: [{ id: 'org', name: '<script>alert(1)</script>', recent_month_summary: 'a\nb' }] } });
     await h.request({ Authorization: 'Bearer valid-owner' });
     for (const u of h.uploads) {
-      assert.match(u.body, /<body>\n<p>마지막 갱신: 2026-10-04 00:30 \(KST\)<\/p>\n<p>이 문서는 Web2가 자동으로 만드는 읽기용 사본입니다\. 직접 고쳐도 다음 갱신 때 덮어써집니다\. 원본은 Web2입니다\.<\/p>/);
+      assert.match(u.body, /<body>\n<p>마지막 갱신: 2026-10-04 00:30 \(KST\)<\/p>\n<p>이 문서는 노동조합\+가 자동으로 만드는 읽기용 사본입니다\. 직접 고쳐도 다음 갱신 때 덮어써집니다\. 원본은 노동조합\+입니다\.<\/p>/);
       assert.doesNotMatch(u.body, /<script>/);
     }
     assert.match(h.uploads[0].body, /&lt;script&gt;/);

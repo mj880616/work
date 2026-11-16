@@ -553,7 +553,7 @@ async function saveNew(){
 async function overwrite(){
   const shown=drive;
   if(!shown?.info?.can_overwrite||busy||shown.lockOverwrite)return;
-  const notes=['바꾸기 전 원본 사본을 Drive "Web2 편집 백업" 폴더에 보관해요.'];
+  const notes=['바꾸기 전 원본 사본을 Drive "노조+ 편집 백업" 폴더에 보관해요.'];
   if(shown.info.shared)notes.push('잊지 말기와 자료실 양쪽에 반영돼요.');
   if(!(await askConfirm(anchorFor('hwpDriveOverwrite'),{text:`원본 "${shown.info.file_name}"을 지금 수정한 내용으로 바꿔요. 덮어쓸까요?`,note:notes.join(' '),ok:'덮어쓰기',danger:true})))return;
   if(drive!==shown||busy||shown.lockOverwrite)return;
