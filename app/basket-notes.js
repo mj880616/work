@@ -493,7 +493,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     // PRESS-성명초안삭제(11/09 명진 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
     if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
-      ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : [])];
+      ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : []),
+      ['data-nx-help', '쓰는 법']]; // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
     return [
       // LIB-최근폴더로가기(S61-12): '최근' 노트 줄(폰 첫 화면 '최근' 상자·PC 처음 '최근' 목록)이면 맨 위 [폴더로 가기].
       ...(from === 'list' && goto ? [['data-nx-goto-folder', GOTO_FOLDER_LABEL]] : []),
@@ -1448,6 +1449,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return;
     }
     if (from.from === 'board') { if (b.hasAttribute('data-nbb-newnote')) { const input = host.querySelector('[data-note-list] textarea[data-quick-input]'); input?.scrollIntoView({block:'nearest'}); input?.focus({preventScroll:true}); } return; }
+    if (from.from === 'head' && b.hasAttribute('data-nx-help')) { void import('./help-link.js').then(m => m.openHelp('note')); return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
       if (b.hasAttribute('data-nx-select')) startSelect(from.from === 'folder' ? 'f:' + id : null);

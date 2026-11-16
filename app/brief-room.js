@@ -10,6 +10,7 @@
 import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,briefSections,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,listRows,sourceUrl,startError} from './brief-room-model.mjs';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js';
+import {firstUseEl} from './first-use.js'; // HELP-처음쓰는사람안내 ③: 넣은 자료가 없을 때 목록 자리 안내
 import {createAnchoredMenu} from './anchored-menu.js';
 import {createFeedHold} from './feed-hold.js';
 import {createSelectMode} from './select-mode.js';
@@ -60,7 +61,7 @@ async function load(){
     state.folderDocs=new Set((Array.isArray(items)?items:[]).map(i=>i.document_id));
     const ids=[...new Set([...state.folderDocs,...state.briefs.keys()])].slice(0,500);
     state.docs=ids.length?await rt().api(`/rest/v1/app_documents?workspace_id=eq.${w}&id=in.(${ids.map(enc).join(',')})&select=id,title,file_name,mime_type,file_id,drive_url,file_size,created_at&limit=500`,{refreshSession:false,singleFlight:false}):[];
-    state.failed=false;
+    state.failed=false;state.loaded=true;
   }catch{state.failed=true}
   finally{state.loading=false}
 }
@@ -96,6 +97,8 @@ function drawList(){
     if(row.state.kind==='making')r.append(el('span','br-one br-muted','몇 분 걸려요, 다른 화면에 가도 돼요'));
     list.append(r);
   }
+  // HELP-처음쓰는사람안내 ③: 서버에서 읽은 뒤에도 자료가 하나도 없으면 '처음 쓰는 법' 안내(자료가 생기면 목록이 대신 그려짐). 읽기 전·못 읽음은 지금처럼.
+  if(!rows.length&&state.loaded&&!pick.active){box.replaceChildren(head,firstUseEl('brief'));return}
   if(!rows.length)list.append(emptyEl('넣은 자료 없음 — [자료 넣기]로 긴 자료를 넣고 [브리핑 받기]'));
   box.replaceChildren(head,drop,list);
 }
@@ -189,7 +192,7 @@ function bind(){
     const kill=t.closest?.('[data-br-del-many]');if(kill){void removeMany([...(pick.items||[])],kill.dataset.brDelMany,kill);return}
     if(pick.active){const pr=t.closest?.('[data-br-open]');if(pr){if(!t.matches?.('[data-br-pick]'))e.preventDefault();pick.toggle([pr.dataset.brOpen]);drawList();return}}
     const s=t.closest?.('[data-br-start]');if(s){e.stopPropagation();void start(s.dataset.brStart,s);return}
-    if(t.closest?.('[data-br-add]')){void add();return}
+    if(t.closest?.('[data-br-add],[data-fu-action="brief"]')){void add();return}
     if(t.closest?.('[data-br-retry]')){void refresh();return}
     if(t.closest?.('[data-br-back]')){state.open=null;draw();return}
     const row=t.closest?.('[data-br-open]');if(row&&state.briefs.get(row.dataset.brOpen)?.status==='done'){state.open=row.dataset.brOpen;draw();v.querySelector('[data-br-detail]')?.scrollIntoView?.({block:'start'})}

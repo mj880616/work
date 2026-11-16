@@ -27,9 +27,9 @@ const routeStyles={
   diary:['./diary.css','./od-link.css','./ed-doc.css','./folder-look.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./ui-standard.css'],
   library:['./filter-chips.css','./choice-sheet.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./list-edit.css','./ui-standard.css'],
-  meetings:['./filter-chips.css','./weekly-org-lines.css','./biz-summary.css','./choice-sheet.css','./od-link.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./ui-standard.css'],
+  meetings:['./first-use.css','./filter-chips.css','./weekly-org-lines.css','./biz-summary.css','./choice-sheet.css','./od-link.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./ui-standard.css'],
   pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
-  team:['./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
+  team:['./first-use.css','./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
   ledger:['./ledger-import.css','./ui-standard.css'],
@@ -46,7 +46,9 @@ const routeStyles={
   whatsnew:['./update-news.css','./ui-standard.css'],
   feedback:['./feedback.css','./ui-standard.css'],
   signups:['./signups.css','./ui-standard.css'],
-  brief:['./feed.css','./brief-room.css','./ui-standard.css']
+  brief:['./feed.css','./brief-room.css','./first-use.css','./ui-standard.css'],
+  // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
+  help:['./help.css','./first-use.css','./ui-standard.css']
 };
 // PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를
 // 받기만 먼저 걸어 둔다(실행 순서는 아래 loaders 그대로). 사슬은 Pages 빌드가 채운다(/*static-chain*/, scripts/build-pages.mjs).
@@ -205,7 +207,9 @@ async function feedback(){ await module('./feedback-inbox.js'); return {ok:true}
 async function signups(){ await module('./signups-view.js'); return {ok:true} }
 // BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
 async function brief(){ await module('./brief-room.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief};
+// HELP-메뉴안쓰는법: [쓰는 법](?view=help, 메뉴 맨 아래·각 화면 ⋯ 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #helpView를 만든다).
+async function help(){ await module('./help.js'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,help};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home'};
 function normalize(view){
@@ -256,7 +260,8 @@ const warmModules={
   photos:/*static-chain*/['./photos.js'],
   outside:/*static-chain*/['./outside-statements.js','./news-clipping.js'],
   files:/*static-chain*/['./files.js'],
-  brief:/*static-chain*/['./brief-room.js']
+  brief:/*static-chain*/['./brief-room.js'],
+  help:/*static-chain*/['./help.js']
 };
 const warmed=new Set();
 function hint(rel,path,as){

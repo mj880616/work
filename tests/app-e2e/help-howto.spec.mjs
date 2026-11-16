@@ -1,0 +1,208 @@
+// HELP-메뉴안쓰는법 · HELP-처음쓰는사람안내(시안 docs/design/mockups/help-howto.html · help-first-use.html, 명진 확정 11/16).
+// ① 메뉴 맨 아래 '쓰는 법'(폰 [메뉴] 창 [내 프로필] 다음 · 폴드/PC 왼쪽 메뉴 맨 아래) → 쓰는 법 화면(폰: 줄을 누르면 펼침, 넓은 화면: 목차 | 내용)
+// ② 각 화면 ⋯ 맨 아래 '쓰는 법' → 그 메뉴 줄이 펼쳐진(고른) 채로 ③ 운영자 기능 메뉴 줄은 서버 기능 목록에 있을 때만
+// ④ 조직 관리·사업 관리·브리핑 룸이 비어 있을 때 따라하기 3단계 ⑤ 앱 내려받기 기기별 탭(지금 기기 탭 먼저).
+// 화면 사진: SHOT_DIR=docs/design/screens/s64-02 로 돌릴 때만(지어낸 이름만 보임).
+import {test, expect} from '@playwright/test';
+import {openHome} from './helpers/home-entry.mjs';
+
+const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+const WIDTHS = [['phone-412', 412, 915], ['fold-880', 880, 900], ['pc-1440', 1440, 900]];
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+const shot = async (page, name) => { if (process.env.SHOT_DIR) { await page.waitForTimeout(300); await page.screenshot({path: `${process.env.SHOT_DIR}/${name}.png`}); } };
+const help = page => page.locator('#helpView');
+
+async function openHelpFromMenu(page) {
+  if ((page.viewportSize()?.width || 0) <= 760) {
+    await page.locator('#mobileMenuTab').click();
+    const names = await page.locator('#mobileAccountGroup .account-action').evaluateAll(list => list.map(el => (el.querySelector('.account-action-name') || el).textContent.trim()));
+    expect(names.slice(0, 2)).toEqual(['내 프로필', '쓰는 법']);
+    await page.locator('#mobileAccountGroup [data-help-menu]').click();
+  } else {
+    await expect(page.locator('#appNav .nav-help')).toBeVisible();
+    await page.locator('#appNav .nav-help').click();
+  }
+  await expect(help(page)).toBeVisible();
+}
+
+for (const [label, width, height] of WIDTHS) {
+  test(`쓰는 법: 메뉴 맨 아래에서 열고, 메뉴마다 한 줄 → 펼치면 따라하기·예시 화면·[열기] (${label})`, async ({page}) => {
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    await page.setViewportSize({width, height});
+    await openHome(page, {features: []});
+    await openHelpFromMenu(page);
+    await expect(page).toHaveURL(/view=help/);
+    await expect(help(page).locator('.hp-sum')).toHaveText('노조+는 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.');
+    if (width <= 760) {
+      await expect(help(page).locator('.hp-gl').first()).toHaveText('많이 쓰는 곳');
+      const rows = help(page).locator('details.hp-item');
+      await expect(rows.first().locator('.hp-name')).toHaveText('조직 관리');
+      await expect(help(page).locator('[data-hp-topic="calendar"] .hp-short')).toHaveText('구글 캘린더·할 일·하루 기록');
+      await shot(page, `${label}-1-help-list`);
+      await help(page).locator('[data-hp-topic="team"] > summary').click();
+      const body = help(page).locator('[data-hp-topic="team"] .hp-body');
+      await expect(body.locator('ol.hp-ls li')).toHaveCount(4);
+      await expect(body.locator('[data-hp-ex]')).toContainText('바다지회');
+      await expect(page).toHaveURL(/topic=team/);
+      await shot(page, `${label}-2-help-open`);
+      // 한 번에 하나만 펼친다.
+      await help(page).locator('[data-hp-topic="calendar"] > summary').click();
+      await expect(help(page).locator('[data-hp-topic="team"]')).not.toHaveAttribute('open', '');
+      await expect(help(page).locator('[data-hp-topic="calendar"] [data-hp-ex]')).toBeVisible();
+      await help(page).locator('[data-hp-topic="calendar"] [data-hp-go]').click();
+    } else {
+      const toc = help(page).locator('[data-hp-toc]');
+      await expect(toc.locator('.hp-gl').first()).toHaveText('많이 쓰는 곳');
+      await expect(toc.locator('[aria-current="true"]')).toHaveText('조직 관리');
+      await expect(help(page).locator('[data-hp-detail] .hp-dt')).toHaveText('조직 관리');
+      await toc.locator('[data-hp-pick="brief"]').click();
+      const detail = help(page).locator('[data-hp-detail]');
+      await expect(detail.locator('.hp-dt')).toHaveText('브리핑 룸');
+      await expect(detail).toContainText('글자가 없는 스캔 PDF는 읽지 못해요.');
+      await expect(page).toHaveURL(/topic=brief/);
+      await shot(page, `${label}-1-help-brief`);
+      await toc.locator('[data-hp-pick="privacy"]').click();
+      await expect(detail.locator('[data-hp-privacy]')).toContainText('운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다.');
+      await expect(detail.locator('.hp-contact a').first()).toHaveAttribute('href', /^mailto:/);
+      await toc.locator('[data-hp-pick="calendar"]').click();
+      await detail.locator('[data-hp-go]').click();
+    }
+    await expect(page.locator('#calendarView')).toBeVisible();
+    // 뒤로가기는 쓰는 법으로.
+    await page.goBack();
+    await expect(help(page)).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
+test('찾기: 낱말이 든 줄만, 없으면 한 줄', async ({page}) => {
+  await page.setViewportSize({width: 412, height: 915});
+  await openHome(page, {features: []});
+  await openHelpFromMenu(page);
+  await help(page).locator('[data-hp-find]').fill('스캔');
+  await expect(help(page).locator('details.hp-item')).toHaveCount(1);
+  await expect(help(page).locator('details.hp-item .hp-name')).toHaveText('브리핑 룸');
+  await help(page).locator('[data-hp-find]').fill('없는낱말');
+  await expect(help(page).locator('[data-wait-empty]')).toHaveText('찾는 글이 없어요');
+});
+
+test('운영자 기능 메뉴 줄은 서버 기능 목록에 있을 때만(다른 사람은 줄 자체가 없음)', async ({page}) => {
+  await page.setViewportSize({width: 1440, height: 900});
+  await openHome(page, {features: []});
+  await openHelpFromMenu(page);
+  const toc = help(page).locator('[data-hp-toc]');
+  await expect(toc.locator('[data-hp-pick="files"]')).toHaveCount(1);
+  for (const id of ['calls', 'telegram', 'arsenal', 'outside']) await expect(toc.locator(`[data-hp-pick="${id}"]`)).toHaveCount(0);
+  await expect(toc.locator('.hp-gl', {hasText: '운영자'})).toHaveCount(0);
+});
+
+test('운영자 계정은 운영자 묶음 줄이 있다', async ({page}) => {
+  await page.setViewportSize({width: 1440, height: 900});
+  await openHome(page);
+  await openHelpFromMenu(page);
+  const toc = help(page).locator('[data-hp-toc]');
+  for (const id of ['calls', 'telegram', 'arsenal', 'outside']) await expect(toc.locator(`[data-hp-pick="${id}"]`)).toHaveCount(1);
+});
+
+for (const [label, width, height] of [['phone-412', 412, 915], ['pc-1440', 1440, 900]]) {
+  test(`화면 ⋯ 맨 아래 '쓰는 법' → 그 메뉴 줄이 펼쳐진 채로 (조직 관리·사업 관리, ${label})`, async ({page}) => {
+    await page.setViewportSize({width, height});
+    await openHome(page);
+    await page.evaluate(() => window.KPTURouter.go('team'));
+    await page.locator('#soTeamMore').click();
+    const item = page.locator('#soTeamMenu [data-help-open="team"]');
+    await expect(item).toBeVisible();
+    expect(await page.locator('#soTeamMenu button').last().textContent()).toBe('쓰는 법');
+    await shot(page, `${label}-3-team-more`);
+    await item.click();
+    await expect(help(page)).toBeVisible();
+    await expect(page).toHaveURL(/topic=team/);
+    if (width <= 760) await expect(help(page).locator('[data-hp-topic="team"]')).toHaveAttribute('open', '');
+    else await expect(help(page).locator('[data-hp-toc] [aria-current="true"]')).toHaveText('조직 관리');
+    await page.evaluate(() => window.KPTURouter.go('meetings'));
+    await page.locator('#reportMore').click();
+    await expect(page.locator('#reportMoreMenu button').last()).toHaveText('쓰는 법');
+    await page.locator('#reportMoreMenu [data-help-open="meetings"]').click();
+    await expect(page).toHaveURL(/topic=meetings/);
+    if (width <= 760) await expect(help(page).locator('[data-hp-topic="meetings"]')).toHaveAttribute('open', '');
+    else await expect(help(page).locator('[data-hp-detail] .hp-dt')).toHaveText('사업 관리');
+  });
+}
+
+async function openEmpty(page) {
+  await openHome(page, {features: [], beforeLoad: async () => {
+    for (const t of ['app_suborganizations', 'app_suborganization_assignees', 'app_spaces', 'app_meetings', 'app_document_briefs', 'app_library_folders', 'app_library_folder_items'])
+      await page.route(`${SB}/rest/v1/${t}**`, r => r.request().method() === 'GET' ? r.fulfill({json: []}) : r.fallback());
+  }});
+}
+for (const [label, width, height] of WIDTHS) {
+  test(`처음 쓰는 사람: 비어 있는 조직 관리·사업 관리·브리핑 룸에 따라하기 3단계 (${label})`, async ({page}) => {
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    await page.setViewportSize({width, height});
+    await openEmpty(page);
+    for (const [view, title, action] of [['team', '맡은 조직별 상황을 쌓아 두는 곳이에요', '+ 담당조직'], ['meetings', '회의·면담·집회처럼 날짜 있는 활동을 남기는 곳이에요', '+ 사업 만들기'], ['brief', '긴 자료를 넣으면, 담당자로서 알아야 할 것만 추려 줘요', '자료 넣기']]) {
+      await page.evaluate(v => window.KPTURouter.go(v), view);
+      const card = page.locator(`#${view}View [data-first-use="${view}"]`);
+      await expect(card).toBeVisible();
+      await expect(card.locator('.fu-title')).toHaveText(title);
+      await expect(card.locator('.fu-step')).toHaveCount(3);
+      await expect(card.locator('[data-fu-action]')).toHaveText(action);
+      await expect(card.locator('[data-help-open]')).toHaveText('쓰는 법 보기');
+      if (view === 'meetings') await expect(page.locator('#bizWeekBox')).toBeHidden(); // 같은 뜻 안내 두 번 금지
+      await shot(page, `${label}-4-empty-${view}`);
+    }
+    // [쓰는 법 보기] → 그 줄.
+    await page.locator('#briefView [data-first-use] [data-help-open]').click();
+    await expect(page).toHaveURL(/topic=brief/);
+    // [+ 담당조직] → 담당조직 추가 창.
+    await page.evaluate(() => window.KPTURouter.go('team'));
+    await page.locator('#teamView [data-fu-action="team"]').click();
+    await expect(page.locator('#soEditModal')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
+test('기록이 있으면 안내 대신 목록(조직 관리)', async ({page}) => {
+  await page.setViewportSize({width: 412, height: 915});
+  await openHome(page);
+  await page.evaluate(() => window.KPTURouter.go('team'));
+  await expect(page.locator('#soOrganizationList [data-so-org]').first()).toBeVisible();
+  await expect(page.locator('[data-first-use]')).toHaveCount(0);
+});
+
+test.describe('아이폰', () => {
+  test.use({userAgent: IPHONE, viewport: {width: 412, height: 915}});
+  test("계정 › 앱 내려받기: 아이폰 탭이 먼저 열린 기기별 안내", async ({page}) => {
+    await page.route('**/app/phone-app.json*', r => r.fulfill({status: 404, body: ''}));
+    await openHome(page, {features: []});
+    await page.locator('#mobileMenuTab').click();
+    await page.locator('#mobileAccountGroup [data-app-download="other"]').click();
+    const modal = page.locator('#appGuideModal');
+    await expect(modal).toBeVisible();
+    await expect(modal.locator('[role="tab"][aria-selected="true"]')).toHaveText('아이폰');
+    await expect(modal.locator('.adg-panel')).toContainText('홈 화면에 추가');
+    await expect(modal.locator('[data-sfm-cancel]')).toHaveCount(0);
+    await shot(page, 'phone-412-5-app-guide-iphone');
+    await modal.locator('[data-adg-tab="android"]').click();
+    await expect(modal.locator('[data-adg-android]')).toHaveText('안드로이드 앱 내려받기');
+    await modal.locator('[data-sfm-ok]').click();
+    await expect(modal).toHaveCount(0);
+  });
+});
+
+test.describe('맥', () => {
+  test.use({userAgent: MAC, viewport: {width: 1440, height: 900}});
+  test('쓰는 법 › 앱 내려받기: 맥 탭이 먼저', async ({page}) => {
+    await openHome(page, {features: []});
+    await openHelpFromMenu(page);
+    await help(page).locator('[data-hp-pick="appdl"]').click();
+    const guide = help(page).locator('[data-app-guide]');
+    await expect(guide.locator('[role="tab"][aria-selected="true"]')).toHaveText('맥');
+    await expect(guide).toContainText('Dock에 추가');
+    await shot(page, 'pc-1440-5-app-guide-mac');
+    await guide.locator('[data-adg-tab="windows"]').focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(guide.locator('[role="tab"][aria-selected="true"]')).toHaveText('맥');
+  });
+});
