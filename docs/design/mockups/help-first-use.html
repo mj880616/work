@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안 1차: 처음 쓰는 사람 안내 — 조직 관리·사업 관리·브리핑 룸 + 맥·아이폰 앱처럼 쓰기</title>
+<style>
+:root{--bg:#f3f0e8;--card:#fffdf8;--line:#e3ded2;--ink:#2b2a26;--sub:#7a766c;--olive:#5b6b33;--sel:#edf0e2;--warn:#fff4e5}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8cf;font:14px/1.45 "Noto Sans KR",system-ui,sans-serif;color:var(--ink);padding:16px;width:2180px}
+h1{font-size:18px;margin:0 0 4px}
+h2{font-size:15px;margin:18px 0 6px}
+.lead{color:#555;margin:0 0 10px;font-size:13px;max-width:1440px}
+.row{display:flex;gap:16px;align-items:flex-start;margin-bottom:18px}
+.cap{font-size:12px;color:#444;margin:0 0 6px;font-weight:600;max-width:412px}
+.frame{background:var(--bg);border:1px solid #bbb;border-radius:14px;overflow:hidden;position:relative}
+.ph{width:412px;height:760px}.fold{width:880px;height:560px}.pc{width:1440px;height:430px}
+.top{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--card);font-weight:700;font-size:15px}
+.top .bk{color:var(--sub);font-weight:400}
+.top .sp{flex:1}
+.btn{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:7px;padding:4px 10px;font-size:12.5px;white-space:nowrap;font-weight:400}
+.btn.p{background:var(--olive);color:#fff;border-color:var(--olive)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;font-size:12.5px;font-weight:400}
+.seg span{padding:3px 10px;background:#fff}.seg .on{background:var(--sel);font-weight:600}
+.first{margin:12px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.first .what{font-weight:700;font-size:14px;margin-bottom:2px}
+.first .why{font-size:12.5px;color:#555;margin-bottom:8px}
+.step{display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+.step:first-of-type{border-top:0}
+.num{width:20px;height:20px;border-radius:50%;background:var(--sel);color:var(--olive);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.eg{display:block;color:var(--sub);font-size:12px;margin-top:1px}
+.link{font-size:12px;color:var(--sub);margin-top:6px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ghost{margin:0 12px;border:1px dashed #cfc9bb;border-radius:10px;height:150px;display:flex;align-items:center;justify-content:center;color:#b3ad9f;font-size:12px}
+.nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;border-top:1px solid var(--line);padding:7px 0 9px;font-size:11px;color:var(--sub);background:var(--card)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.sheet{position:absolute;left:0;right:0;bottom:44px;background:#fff;border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.12);padding:12px 14px}
+.sheet h3,.modal h3{margin:0 0 8px;font-size:14.5px}
+.modal{position:absolute;left:50%;top:70px;transform:translateX(-50%);width:520px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:14px 16px}
+.tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+.tabs span{border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:12.5px;background:#fff}
+.tabs .on{background:var(--sel);font-weight:600;border-color:#cdd5b3}
+.how{font-size:13px}
+.how b{font-weight:600}
+.how .step{padding:6px 0}
+.pic{border:1px solid var(--line);border-radius:8px;background:#f7f4ec;height:70px;display:flex;align-items:center;justify-content:center;font-size:11.5px;color:var(--sub);margin:6px 0}
+.hint{background:var(--warn);border-radius:7px;padding:6px 9px;font-size:12px;color:#5c4a1f;margin:8px 0 0}
+.split{display:flex;height:100%}
+.side{width:170px;background:var(--card);border-right:1px solid var(--line);padding:10px 8px;font-size:13px;color:#555;flex:none}
+.side div{padding:5px 8px;border-radius:6px}.side .on{background:var(--sel);color:var(--ink);font-weight:600}
+.side hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.panes{display:flex;flex:1;min-height:0}
+.toc{width:220px;border-right:1px solid var(--line);flex:none;padding:6px 0;font-size:13px}
+.toc div{padding:5px 14px}.toc .on{background:var(--sel);font-weight:600}
+.toc .g{font-size:11.5px;color:var(--sub);font-weight:600;padding-top:10px}
+.body{flex:1;min-width:0;padding:10px 16px;overflow:hidden;font-size:13px}
+.body h3{margin:2px 0 2px;font-size:16px}
+.body .one{color:#444;margin-bottom:8px}
+.body h4{font-size:12.5px;color:var(--sub);margin:10px 0 3px}
+.body ul,.body ol{margin:2px 0;padding-left:20px}
+.body li{margin:2px 0}
+.flow{display:flex;align-items:center;gap:6px;font-size:12px;flex-wrap:wrap}
+.flow span{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 7px}
+.note{background:#fffbe8;border:1px dashed #d9b93a;border-radius:10px;padding:10px 12px;font-size:12.5px;max-width:1440px;margin-bottom:14px}
+.note li{margin:2px 0}
+.ask{background:#fff;border:2px solid var(--olive);border-radius:10px;padding:10px 14px;font-size:13px;max-width:1440px}
+</style>
+</head>
+<body>
+<h1>시안 1차 — 처음 쓰는 사람 안내: 조직 관리 · 사업 관리 · 브리핑 룸 + 맥·아이폰에서 앱처럼 쓰기</h1>
+<p class="lead">베타 사용자 의견("세 메뉴가 제일 많이 쓸 곳인데 헤맬 것 같다", "맥북이라 앱이 없다")을 반영해요. ① 세 화면이 <b>비어 있을 때만</b> '무엇을 하는 곳인지 + 따라하기 3단계 + [쓰는 법 보기]'가 나와요. 기록이 하나라도 생기면 이 안내 대신 기록이 그려져요(숨김이 아니라 그리는 조건). ② 쓰는 법 페이지에 세 메뉴를 '자세히'로 따로 둬요. ③ 계정 메뉴 '앱 내려받기'를 기기별로 나누고, 맥·아이폰은 '앱처럼 설치하기'를 알려 줘요. 예시 이름은 모두 지어낸 것이에요.</p>
+
+<div class="note"><ul style="margin:0;padding-left:18px">
+<li><b>글은 한 곳:</b> 빈 화면 안내 글과 쓰는 법 '자세히'는 같은 글 파일에서 가져와요(두 벌 안 씀). 메뉴 이름이 바뀌면 같이 바뀌어요.</li>
+<li><b>브리핑 룸 AI:</b> [브리핑 받기]만 AI를 써요. 무료체험 AI 한도 안에서 쓰고, 한도를 넘으면 안내 한 줄.</li>
+<li><b>맥용 PC 프로그램(노조+ 업로드)</b>은 이 시안에 없어요. 맥에서는 구글 드라이브에 둔 파일을 [파일]에서 봐요(아래 결정).</li>
+</ul></div>
+
+<h2>폰 412 — 처음 비어 있는 화면</h2>
+<div class="row">
+ <div><p class="cap">① 조직 관리 — 담당조직이 하나도 없을 때</p>
+  <div class="frame ph">
+   <div class="top">조직 관리<span class="sp"></span><span class="seg"><span class="on">목록</span><span>전체 표</span></span><span class="btn">+ 담당조직</span></div>
+   <div class="first"><div class="what">맡은 조직별 상황을 쌓아 두는 곳이에요</div>
+    <div class="why">지부·지회·분회처럼 내가 챙기는 조직마다 '요즘 무슨 일이 있는지'를 한 줄씩 남겨요.</div>
+    <div class="step"><span class="num">1</span><div>[+ 담당조직]으로 조직 이름을 넣어요<span class="eg">예: 바다지회, 들판분회</span></div></div>
+    <div class="step"><span class="num">2</span><div>조직을 눌러 있었던 일을 한 줄씩 적어요. 날짜가 붙어 쌓여요<span class="eg">예: 임금 교섭 3차, 사측 기본급 2% 제시</span></div></div>
+    <div class="step"><span class="num">3</span><div>[전체 표]에서 모든 조직의 이번 주를 한눈에 보고, 주간 보고 '조직' 칸으로 모여요</div></div>
+    <div class="acts"><span class="btn p">+ 담당조직</span><span class="btn">쓰는 법 보기</span></div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">② 사업 관리 — 사업영역도 사업 보고도 없을 때</p>
+  <div class="frame ph">
+   <div class="top">사업 관리<span class="sp"></span><span class="btn">⋯</span></div>
+   <div class="first"><div class="what">회의·면담·집회처럼 날짜 있는 활동을 남기는 곳이에요</div>
+    <div class="why">'사업영역'(큰 주제)별로 활동을 모아 두면, 주간 보고와 '이번 주 사업' 표가 저절로 채워져요.</div>
+    <div class="step"><span class="num">1</span><div>사업영역을 만들어요<span class="eg">예: 임금 교섭, 안전 인력 확충, 조직 확대</span></div></div>
+    <div class="step"><span class="num">2</span><div>달력에서 날짜를 눌러 사업 보고를 써요 — 무엇을 했나 · 결과 · 다음 할 일<span class="eg">예: 11/18 사측 실무 교섭 — 인력 충원안 회신 요구</span></div></div>
+    <div class="step"><span class="num">3</span><div>주간 보고 '사업' 칸과 사업영역별 진행 상황에 모여요</div></div>
+    <div class="acts"><span class="btn p">+ 사업 만들기</span><span class="btn">쓰는 법 보기</span></div>
+   </div>
+   <div class="ghost">(사업영역을 만들면 여기 달력이 보여요)</div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">③ 브리핑 룸 — 넣은 자료가 없을 때</p>
+  <div class="frame ph">
+   <div class="top">브리핑 룸<span class="sp"></span><span class="btn">자료 넣기</span></div>
+   <div class="first"><div class="what">긴 자료를 넣으면, 담당자로서 알아야 할 것만 추려 줘요</div>
+    <div class="why">수십~백 쪽 보고서·법안·공문을 다 읽기 전에 핵심부터 봐요.</div>
+    <div class="step"><span class="num">1</span><div>[자료 넣기]로 PDF·한글 파일을 넣어요 (끌어다 놓아도 돼요)</div></div>
+    <div class="step"><span class="num">2</span><div>[브리핑 받기]를 눌러요. 몇 분 걸리고, 다른 화면에 가 있어도 돼요</div></div>
+    <div class="step"><span class="num">3</span><div>한 줄 요지와 네 칸이 나와요<span class="eg">내게 닿는 것 · 해야 할 일·기한 · 우리 주장과 부딪히는 대목 · 꼭 직접 읽을 대목(쪽 번호를 누르면 원문 그 쪽)</span></div></div>
+    <div class="acts"><span class="btn p">자료 넣기</span><span class="btn">쓰는 법 보기</span></div>
+    <div class="link">넣은 자료는 자료실 '브리핑 요청함' 폴더에도 같이 보여요.</div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">④ 계정 › 앱 내려받기 — 기기에 맞는 칸이 먼저 열림</p>
+  <div class="frame ph">
+   <div class="top">내 프로필</div>
+   <div class="dim"></div>
+   <div class="sheet"><h3>앱 내려받기</h3>
+    <div class="tabs"><span>안드로이드</span><span class="on">아이폰</span><span>윈도우</span><span>맥</span></div>
+    <div class="how">
+     <div class="step"><span class="num">1</span><div><b>사파리</b>로 nojoplus.com에 로그인해요</div></div>
+     <div class="step"><span class="num">2</span><div>아래 <b>[공유]</b> → <b>홈 화면에 추가</b></div></div>
+     <div class="pic">(그림: 사파리 공유 메뉴의 '홈 화면에 추가')</div>
+     <div class="step"><span class="num">3</span><div>홈 화면의 노조+ 아이콘으로 열면 주소창 없이 앱처럼 열려요</div></div>
+    </div>
+    <div class="hint">아이폰은 '공유로 보내기'(다른 앱에서 노조+로 보내기)는 아직 안 돼요.</div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">⑤ 쓰는 법 › 조직 관리 '자세히'(폰)</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>쓰는 법 › 조직 관리</div>
+   <div class="body" style="padding:10px 14px">
+    <div class="one">맡은 조직별 상황을 쌓아 두는 곳이에요.</div>
+    <h4>이럴 때 쓰세요</h4>
+    <ul><li>지회장과 통화하고 "단체협약 갱신 앞둠"을 남겨 둘 때</li><li>주간 보고 쓰기 전에 조직별 이번 주를 훑을 때</li></ul>
+    <h4>따라하기</h4>
+    <ol><li>[+ 담당조직] → 이름 넣기</li><li>조직 누르기 → 있었던 일 한 줄</li><li>[전체 표]로 이번 주 한눈에</li></ol>
+    <div class="pic" style="height:110px">(예시 화면 사진 — 지어낸 조직 이름)</div>
+    <h4>다른 메뉴와 이어지는 곳</h4>
+    <div class="flow"><span>조직 관리 기록</span>→<span>주간 보고 '조직' 칸</span></div>
+    <div class="flow" style="margin-top:4px"><span>홈 '잊지 말기'</span>→<span>조직 고르면 그 조직 기록으로</span></div>
+    <div class="acts"><span class="btn">조직 관리 열기 ›</span></div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+</div>
+
+<h2>폴드 펼침 880 — 쓰는 법 '자세히'(브리핑 룸)</h2>
+<div class="row">
+ <div class="frame fold">
+  <div class="top"><span class="bk">‹</span>쓰는 법</div>
+  <div class="panes">
+   <div class="toc"><div class="g">많이 쓰는 곳</div><div>조직 관리</div><div>사업 관리</div><div class="on">브리핑 룸</div><div class="g">매일</div><div>홈 · 잊지 말기</div><div>일정 · 할 일</div><div>노트</div><div class="g">자료</div><div>자료실 · 파일</div><div>News</div><div class="g">계정</div><div>앱 내려받기(폰·PC·맥)</div><div>내 기록은 누가 보나</div></div>
+   <div class="body"><h3>브리핑 룸</h3><div class="one">긴 자료를 넣으면, 담당자로서 알아야 할 것만 추려 줘요.</div>
+    <h4>이럴 때 쓰세요</h4><ul><li>정부 발표 자료 80쪽을 회의 전에 10분 만에 파악할 때</li><li>사측이 보낸 개정안에서 우리 주장과 부딪히는 곳만 찾을 때</li></ul>
+    <h4>따라하기</h4><ol><li>[자료 넣기] → PDF·한글 파일</li><li>[브리핑 받기] (몇 분)</li><li>한 줄 요지 → 네 칸 → 쪽 번호 눌러 원문 확인</li></ol>
+    <h4>알아 둘 것</h4><ul><li>'꼭 읽을 대목'은 원문 문장을 그대로 옮겨요. 원문에 없는 문장은 서버가 빼요.</li><li>글자가 없는 스캔 PDF는 읽지 못해요.</li></ul>
+    <h4>다른 메뉴와 이어지는 곳</h4><div class="flow"><span>브리핑 룸</span>↔<span>자료실 '브리핑 요청함' 폴더</span></div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<h2>PC 1440 — 사업 관리 빈 화면 / 맥에서 앱 내려받기</h2>
+<div class="row">
+ <div class="frame pc" style="width:1440px">
+  <div class="split">
+   <div class="side"><div>홈</div><div>잊지 말기</div><div>일정</div><div>노트</div><div class="on">사업 관리</div><div>조직 관리</div><div>브리핑 룸</div><div>자료실</div><div>News</div><hr><div>내 프로필</div><div>쓰는 법</div></div>
+   <div class="main">
+    <div class="top">사업 관리<span class="sp"></span><span class="btn">⋯</span></div>
+    <div class="first" style="max-width:720px"><div class="what">회의·면담·집회처럼 날짜 있는 활동을 남기는 곳이에요</div>
+     <div class="why">'사업영역'(큰 주제)별로 활동을 모아 두면, 주간 보고와 '이번 주 사업' 표가 저절로 채워져요.</div>
+     <div class="step"><span class="num">1</span><div>사업영역을 만들어요<span class="eg">예: 임금 교섭, 안전 인력 확충, 조직 확대</span></div></div>
+     <div class="step"><span class="num">2</span><div>달력에서 날짜를 눌러 사업 보고를 써요 — 무엇을 했나 · 결과 · 다음 할 일</div></div>
+     <div class="step"><span class="num">3</span><div>주간 보고 '사업' 칸과 사업영역별 진행 상황에 모여요</div></div>
+     <div class="acts"><span class="btn p">+ 사업 만들기</span><span class="btn">쓰는 법 보기</span></div>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+<div class="row">
+ <div class="frame pc" style="width:1440px">
+  <div class="split">
+   <div class="side"><div>홈</div><div>잊지 말기</div><div>일정</div><div>노트</div><div>사업 관리</div><div>조직 관리</div><div>브리핑 룸</div><div>자료실</div><div>News</div><hr><div class="on">내 프로필</div><div>쓰는 법</div></div>
+   <div class="main">
+    <div class="top">내 프로필</div>
+    <div class="dim"></div>
+    <div class="modal"><h3>앱 내려받기</h3>
+     <div class="tabs"><span>안드로이드</span><span>아이폰</span><span>윈도우</span><span class="on">맥</span></div>
+     <div class="how">
+      <div class="step"><span class="num">1</span><div><b>크롬</b>: 주소창 오른쪽 설치 아이콘 → <b>[설치]</b><span class="eg">사파리(macOS 14 이상): 메뉴 막대 <b>파일 › Dock에 추가</b></span></div></div>
+      <div class="pic">(그림: 크롬 주소창 오른쪽 설치 아이콘)</div>
+      <div class="step"><span class="num">2</span><div>Dock·Launchpad에 노조+ 아이콘이 생기고, 주소창 없는 창 하나로 열려요</div></div>
+      <div class="step"><span class="num">3</span><div>업데이트는 저절로 돼요. 따로 받을 것 없어요</div></div>
+     </div>
+     <div class="hint">윈도우용 '노조+ 업로드'(내 PC 파일 보기)는 맥에 없어요. 맥에서는 구글 드라이브에 둔 파일을 [파일]에서 봐요.</div>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<div class="ask"><b>명진 결정</b>
+<ol style="margin:4px 0 0;padding-left:20px">
+<li><b>쓰는 법 맨 위 '많이 쓰는 곳' 묶음</b>(조직 관리·사업 관리·브리핑 룸 먼저): 가. 넣기(추천) / 나. 메뉴 순서 그대로</li>
+<li><b>맥용 '노조+ 업로드'</b>: 가. 지금 안 만듦 — 구글 드라이브로 대신(추천) / 나. 만들기(새로 만드는 일이라 큼)</li>
+<li><b>빈 화면 예시 글</b>(바다지회·임금 교섭 같은 예): 가. 이대로(추천) / 나. 예시 빼고 단계만</li>
+</ol></div>
+</body>
+</html>
