@@ -84,7 +84,7 @@ test('document brief delete db: plan, dry-run, apply, owner-only delete, no tabl
    assert.deepEqual((await pool.query(snapshot)).rows,before);
    const apply=await run('apply','9982');assert.equal(apply.ok,true,apply.summary);
    for(const r of await readOnly(postcheck))assert.equal(r.ok,'예',r.item);
-   await assert.rejects(()=>run('apply','9983'));
+   assert.equal((await run('apply','9983')).ok,false);
   });
   await t.test('owner deletes only own brief rows of one document (running too); document row stays; returns count only',async()=>{
    assert.equal(await owner(c=>del(c,DOC_A)),2);
