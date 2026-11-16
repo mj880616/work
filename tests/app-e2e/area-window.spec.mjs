@@ -44,7 +44,7 @@ for(const width of [390,1280])test(`${width}: 사업 보고 ⋯ › 사업영역
   await expect(weekLabel(page)).toContainText(WEEK_A);
   await reportWeekButton(page,'prev').click();await expect(weekLabel(page)).toContainText(WEEK_B);
   await openAreas(page);
-  // 화면은 사업 보고 그대로(라우터 이름 projects는 없다), 창 머리줄: PC '사업영역 관리 [+ 사업영역] ✕' / 폰 '‹ 사업 보고 · 사업영역 관리 · +'.
+  // 화면은 사업 보고 그대로(라우터 이름 projects는 없다), 창 머리줄: PC '사업영역 관리 [+ 사업영역] ✕' / 폰 '‹ 사업 관리 · 사업영역 관리 · +'.
   expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('meetings');
   await expect(page.locator('#areaWindowTitle')).toHaveText('사업영역 관리');
   await expect(page.locator('#areaWindow .area-window-head #newProjectBtn')).toBeVisible();
