@@ -43,6 +43,8 @@ export function cleanSection(raw, index = 0) {
   const fill = FILLS.includes(raw.fill) ? raw.fill : 'blank';
   const out = {id, title, level, columns, fill};
   if (raw.ai === true) out.ai = true;
+  // ⑤-1: 한글 파일 엔진 자리(weekly-hwpx/form-profile.mjs ROLES — 요청 표·요약 표처럼 채우는 방법). 글자가 아니라 열쇠라 모양만 본다.
+  if (typeof raw.role === 'string' && /^[A-Za-z]{1,20}$/.test(raw.role)) out.role = raw.role;
   return out;
 }
 

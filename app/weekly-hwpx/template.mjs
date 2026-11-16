@@ -1,24 +1,15 @@
 // WEEKLY-한글초안 시제품: "빈 서식" 다루기.
 // 빈 서식 = 원본 보고서에서 스타일 표(header.xml)·쪽 설정·문단 견본·표 틀(머리 줄 + 빈 견본 줄)만 남기고 글은 모두 지운 .hwpx.
-// 빈 서식 안의 글자는 FORM_LABELS(표 머리 칸 이름)뿐이어야 한다(assertBlank).
+// 빈 서식 안의 글자는 양식 표 머리 칸 이름(profile.formLabels)뿐이어야 한다(assertBlank).
 import {el, clone, kid, kids, walk, textOf} from './xml.mjs';
 import {readXml, setXml, setText, removePart, clonePkg, headerStyles} from './hwpx.mjs';
+import {LEGACY_PROFILE} from './form-profile.mjs';
 
-// 표 머리 칸 이름(양식 글자). 이 밖의 글자는 빈 서식에 남으면 안 된다.
 // BRAND-웹2흔적지우기: 한글 파일 속성 '만든이'(원본 만든이 대신 넣는 이름).
 export const CREATOR = '노동조합+';
-export const REQUEST_HEAD = Object.freeze(['일', '시간/내용/장소', '참석 요청']);
-export const SUMMARY_HEAD = Object.freeze(['사업영역', '세부 과제', '진행 상황 및 이후 계획', '담당 팀원']);
-// 조직보고 이후 절(상집보고 전체 구조, W3 확대): 3. 투쟁 사업 1)·2), 4. 산하조직 현황 1), 5. 주요 일정
-export const RALLY_HEAD = Object.freeze(['일시/장소', '집회/행사명', '참석현황']);
-export const SITE_HEAD = Object.freeze(['조직명', '현황']);
-export const ORG_HEAD = Object.freeze(['사업장', '조직현황']);
-export const SCHEDULE_HEAD = Object.freeze(['일', '시간/내용/장소', '참석자']);
-export const HEADED_TABLES = Object.freeze({requestTable: REQUEST_HEAD, summaryTable: SUMMARY_HEAD, rallyTable: RALLY_HEAD, siteTable: SITE_HEAD, orgTable: ORG_HEAD, scheduleTable: SCHEDULE_HEAD});
-export const FORM_LABELS = Object.freeze([...new Set(Object.values(HEADED_TABLES).flat())]);
-// 회의 결과 상자(2열: 왼쪽 칸 이름 | 내용)의 왼쪽 칸 이름. 같은 문서 안에서 세 가지 묶음이 섞여 쓰인다(기획 문서 1.2절).
-// 상자 견본은 칸 이름을 지운 채 빈 서식에 넣고, 칸 이름은 보고 자료가 준다.
-export const BOX_LABELS = Object.freeze(['제목', '회의제목', '일시/장소', '참석자', '회의 내용', '내용', '차기일정', '보고', '논의결과', '*차기회의']);
+// 양식 글자(표 머리 칸 이름·회의 결과 상자 칸 이름)는 코드에 두지 않는다 — '내 양식'에서 만든 profile(form-profile.mjs profileOf)이 준다.
+// profile 을 주지 않으면 옮기는 동안의 기본값(LEGACY_PROFILE, ⑤-3에서 지움). 빈 서식 안의 글자는 profile.formLabels(표 머리 칸 이름)뿐이어야 한다.
+const headedTables = profile => profile.heads;
 // 빈 서식 본문 견본 순서. 앞 6개는 문단 견본, 뒤 7개는 표 견본(각각 원본에서 표를 담고 있던 문단 속성을 따른다).
 export const PROTO_ORDER = Object.freeze(['title', 'body', 'big', 'mid', 'small', 'note',
   'requestTable', 'summaryTable', 'boxTable', 'rallyTable', 'siteTable', 'orgTable', 'scheduleTable']);
@@ -93,8 +84,8 @@ function protoBoxTable(tbl, {row = 0} = {}) {
   out.children.push(el('hp:tr', {}, [protoCell(label, 0, 0, 1, widths[0]), protoCell(body, 0, 1, 1, widths[1])]));
   return out;
 }
-export const isBoxTable = tbl => tbl.attrs.colCnt === '2' && kids(tbl, 'hp:tr').length >= 3
-  && kids(tbl, 'hp:tr').every(tr => BOX_LABELS.includes(cellText(kids(tr, 'hp:tc')[0] ?? el('x'))));
+export const isBoxTable = (tbl, profile = LEGACY_PROFILE) => tbl.attrs.colCnt === '2' && kids(tbl, 'hp:tr').length >= 3
+  && kids(tbl, 'hp:tr').every(tr => profile.boxLabels.includes(cellText(kids(tr, 'hp:tc')[0] ?? el('x'))));
 
 function anchorWith(p, tbl, make = protoTable) {
   const run = kids(p, 'hp:run').find(r => r.children.some(c => c === tbl || [...walk(c)].includes(tbl)));
@@ -102,7 +93,7 @@ function anchorWith(p, tbl, make = protoTable) {
 }
 
 // 원본 보고서 .hwpx 묶음 → 빈 서식 묶음. 원본은 바꾸지 않는다.
-export function extractBlankTemplate(source) {
+export function extractBlankTemplate(source, {profile = LEGACY_PROFILE} = {}) {
   const pkg = clonePkg(source);
   const header = readXml(pkg, 'Contents/header.xml');
   const names = new Map(headerStyles(header).map(s => [s.id, s.name]));
@@ -117,8 +108,8 @@ export function extractBlankTemplate(source) {
   // 회의 결과 상자가 없는 주(회의 결과를 안 쓴 확정본)도 있다. 그때는 2열 표(투쟁 사업장 → 산하조직)의 첫 내용 줄 칸으로 상자 견본을
   // 만든다(양식 안의 칸 모양·테두리만 쓰므로 머리 header.xml은 그대로).
   const findBox = () => {
-    for (const p of top) for (const t of tablesIn(p)) if (isBoxTable(t)) return [p, t, protoBoxTable];
-    for (const head of [SITE_HEAD, ORG_HEAD]) for (const p of top) for (const t of tablesIn(p)) {
+    for (const p of top) for (const t of tablesIn(p)) if (isBoxTable(t, profile)) return [p, t, protoBoxTable];
+    for (const head of [profile.heads.siteTable, profile.heads.orgTable]) for (const p of top) for (const t of tablesIn(p)) {
       if (headTexts(t).join('|') === head.join('|') && kids(t, 'hp:tr').length >= 2 && kids(kids(t, 'hp:tr')[1], 'hp:tc').length >= 2) return [p, t, tbl => protoBoxTable(tbl, {row: 1})];
     }
     throw new Error('회의 결과 상자(2열, 왼쪽 칸 이름 표)가 없음');
@@ -135,7 +126,7 @@ export function extractBlankTemplate(source) {
     note: protoParagraph(find(STYLE_OF.note) ?? find(STYLE_OF.body) ?? first),
     boxTable: anchorWith(...findBox()),
   };
-  for (const [key, head] of Object.entries(HEADED_TABLES)) protos[key] = anchorWith(...findTable(head));
+  for (const [key, head] of Object.entries(headedTables(profile))) protos[key] = anchorWith(...findTable(head));
   sec.root.children = PROTO_ORDER.map(k => protos[k]);
   renumber(sec.root);
   setXml(pkg, 'Contents/section0.xml', sec);
@@ -168,12 +159,12 @@ export function renumber(root) {
 }
 
 // 빈 서식 견본 읽기(빌더가 씀).
-export function readPrototypes(pkg) {
+export function readPrototypes(pkg, {profile = LEGACY_PROFILE} = {}) {
   const sec = readXml(pkg, 'Contents/section0.xml');
   const top = kids(sec.root, 'hp:p');
   if (top.length !== PROTO_ORDER.length) throw new Error(`빈 서식 견본 수가 ${PROTO_ORDER.length}개가 아님(${top.length})`);
   const protos = Object.fromEntries(PROTO_ORDER.map((k, i) => [k, top[i]]));
-  for (const [key, head] of Object.entries(HEADED_TABLES)) {
+  for (const [key, head] of Object.entries(headedTables(profile))) {
     const [t] = tablesIn(protos[key]);
     if (!t || headTexts(t).join('|') !== head.join('|')) throw new Error(`빈 서식 ${key} 머리가 다름`);
   }
@@ -182,12 +173,12 @@ export function readPrototypes(pkg) {
 }
 
 const HANGUL_OR_WORD = /[가-힣A-Za-z0-9]/;
-// 빈 서식 검사: 본문 글자는 FORM_LABELS만, 그림·미리보기 글 없음, 문서 정보 비움, 머리(header.xml)의 글자는 스타일·글꼴 이름 칸에만.
+// 빈 서식 검사: 본문 글자는 양식 표 머리 칸 이름(profile.formLabels)만, 그림·미리보기 글 없음, 문서 정보 비움, 머리(header.xml)의 글자는 스타일·글꼴 이름 칸에만.
 // forbidden(선택): 원본에서 뽑은 글 조각 목록. 묶음 어디에든 2글자 이상 조각이 남으면 실패(양식 글자·스타일·글꼴 이름 안에 든 조각은 뺌). 결과에는 글 자체를 넣지 않고 개수만 낸다.
-export function assertBlank(pkg, {forbidden = []} = {}) {
+export function assertBlank(pkg, {forbidden = [], profile = LEGACY_PROFILE} = {}) {
   const problems = [];
   const sec = readXml(pkg, 'Contents/section0.xml');
-  const allowed = new Set(FORM_LABELS);
+  const allowed = new Set(profile.formLabels);
   let stray = 0;
   for (const n of walk(sec.root)) if (n.name === 'hp:t') { const t = textOf(el('x', {}, [n])).trim(); if (t && !allowed.has(t)) stray++; }
   if (stray) problems.push(`본문에 양식 밖 글 ${stray}개`);
@@ -215,7 +206,7 @@ export function assertBlank(pkg, {forbidden = []} = {}) {
   if (forbidden.length) {
     // 만든이(CREATOR)는 이 코드가 넣은 이름이라 원본 글 조각이 아니다 — 그 자리만 빼고 찾는다(보고서에 '노동조합'이 있어도 걸리지 않게).
     const blob = [...pkg.files].filter(([name]) => /\.(xml|hpf|rdf|txt)$/.test(name)).map(([, data]) => new TextDecoder().decode(data)).join('\n').split(`>${CREATOR}<`).join('><');
-    const allowedText = new Set([...FORM_LABELS, ...BOX_LABELS, ...headerStyles(header).map(s => s.name), ...[...walk(header.root)].filter(n => n.name === 'hh:font').map(n => n.attrs.face)]);
+    const allowedText = new Set([...profile.formLabels, ...profile.boxLabels, ...headerStyles(header).map(s => s.name), ...[...walk(header.root)].filter(n => n.name === 'hh:font').map(n => n.attrs.face)]);
     const hits = forbidden.map(s => s.trim()).filter(s => [...s].length >= 2 && HANGUL_OR_WORD.test(s) && ![...allowedText].some(a => a.includes(s))).filter(s => blob.includes(s) || blob.includes(escapeForXml(s)));
     if (hits.length) problems.push(`원본 글 조각 ${hits.length}개가 남음`);
   }
