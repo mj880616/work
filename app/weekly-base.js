@@ -48,8 +48,9 @@ export function proposedOf({at = new Date().toISOString(), baseKind = 'confirmed
 // 바탕 찾아 열기(자료실만). mods = {draft, drive}(lazy import 한 weekly-hwpx/draft.mjs·hwp-drive.js). opts 는 baseCells 와 같음.
 // toHwpx(bytes, name): HWP 5 → .hwpx 바꾸개(상자의 숨은 엔진). 없으면 HWP 5 바탕은 {status:'needs_engine', doc}.
 // cellsOf(team): 칸 글을 다르게 셀 때(상자의 쟁의 단계·현황 표 적용 등). 없으면 baseCells.
+// profile: 엔진 양식(weekly-engine-form.js engineForm 의 profile — WEEKLY-내양식자유변형 ⑤-2). 없으면 엔진 기본값.
 // 반환 {status:'ok', doc, from, team, cells, info:{from:'library', document_id, file_name, title}} | {status:'none'} | {status:'not_hwp'|'locked'|'needs_engine', doc}.
-export async function openWeekBase({rt = window.KPTURuntime, day, mods, opts = {}, toHwpx = null, cellsOf = null}) {
+export async function openWeekBase({rt = window.KPTURuntime, day, mods, opts = {}, toHwpx = null, cellsOf = null, profile}) {
   const found = await findBase(rt, day);
   if (!found?.doc) return {status:'none'};
   const doc = found.doc;
@@ -63,7 +64,7 @@ export async function openWeekBase({rt = window.KPTURuntime, day, mods, opts = {
     if (!toHwpx) return {status:'needs_engine', doc};
     hwpx = await toHwpx(bytes, doc.file_name);
   }
-  const {team} = mods.draft.prepareConfirmed(await mods.draft.openConfirmed(hwpx));
+  const {team} = mods.draft.prepareConfirmed(await mods.draft.openConfirmed(hwpx), {profile});
   return {status:'ok', doc, from:found.from, teamDoc:found.team ?? null, team, cells:cellsOf ? cellsOf(team) : baseCells(mods.draft, team, opts),
     info:{from:'library', document_id:String(doc.id), file_name:String(doc.file_name || ''), title:String(doc.title || '')}};
 }

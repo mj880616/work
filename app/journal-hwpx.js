@@ -62,6 +62,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
+import {engineForm, adoptLegacyForm} from './weekly-engine-form.js'; // WEEKLY-내양식자유변형 ⑤-2: 엔진 양식은 '내 양식'에서(없으면 지금 양식을 한 번 옮겨 저장)
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
@@ -472,6 +473,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // Confirmed report bytes → team report + blank template → my base. Nothing is shown from the file but my own rows.
   async function load(bytes, name, format, source, mine, baseInfo, baseKind = baseInfo?.from === 'file' ? 'file' : 'confirmed') {
     const {draft} = await lazy();
+    // ⑤-2: 저장된 '내 양식'을 바탕 바꾸기와 함께 읽는다(던지지 않음 — 못 읽으면 기본 양식 + 한 줄 안내).
+    const formRead = engineForm(rt);
     try {
       let hwpx = bytes;
       // WEEKLY-한글파일다듬기 ②: 이름이 아니라 내용으로 고른다. 내용이 HWPX(ZIP)면 이름이 .hwp여도 엔진 없이 열고, 암호 걸린 HWP 5는 엔진에
@@ -494,7 +497,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         if (mine !== run) return;
       }
       const pkg = await draft.openConfirmed(hwpx);
-      const {team, template} = draft.prepareConfirmed(pkg);
+      const form = await formRead;
+      if (mine !== run) return;
+      const {team, template} = draft.prepareConfirmed(pkg, {profile:form.profile});
       const week = getWeek();
       const [context, saved, carriedLayout, carriedPlaces] = await Promise.all([readContext(rt, week.start).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true})), readDraftFor(week.start), readCarriedLayout(week.start, rt), readCarriedPlaces(week.start, rt)]);
       if (mine !== run) return;
@@ -503,6 +508,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null, titles:new Map(), drops:new Map(), titleRun:0};
       state.defaultDate = state.date;
       state.baseKind = baseKind;
+      state.profile = form.profile; // 같은 양식으로 팀 확정본 참고·[확정] 파일 만들기까지(⑤-2)
       // 3. 2) 투쟁 사업장 구성: 이 주 것 > 지난주에서 이어 쓴 것. 이 주에 구성이 생기면(바꾸면) layoutOwn.
       const ownLayout = draftSiteLayout(saved?.row?.draft);
       state.carriedLayout = carriedLayout; state.layout = ownLayout ?? carriedLayout; state.layoutOwn = !!ownLayout;
@@ -516,7 +522,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       await attachDraft(state, baseInfo, saved);
       if (mine !== run) return;
       carry(week);
-      say(reopenNote?.week === week.start ? reopenNote.text : ''); reopenNote = null;
+      say(reopenNote?.week === week.start ? reopenNote.text : form.note); reopenNote = null;
+      // ⑤-2(명진 결정 11/16 "가"): 자료실 바탕을 지금 양식으로 연 사람이 저장된 '내 양식'이 없으면 지금 양식 그대로를 한 번 옮겨 저장한다.
+      // 바탕 없는 새 가입자·기기 파일로만 연 경우는 저장하지 않는다(11/15 결정). 실패해도 화면은 그대로, 상태 줄 한 줄.
+      if (form.status === 'none' && baseInfo?.from === 'library') {
+        const s = state;
+        void adoptLegacyForm(rt).then(r => { if (r.note && state === s && !status.textContent) say(r.note); });
+      }
       // 환류학습 3: 그 주 처음 초안이 아직 없으면(처음 연 주) AI 초안을 한 번 쓴다(기록을 다 읽은 뒤 — renderMaterial). 있으면 그대로.
       state.ai = {status:state.store?.extras?.proposed ? (state.store.extras.proposed.ai ? 'done' : 'base') : 'wait', note:''};
       if (state.store?.status === 'missing' || state.store?.status === 'readFailed') state.ai.status = 'base';
@@ -558,7 +570,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const {drive} = await lazy();
       if (!drive.isHwpName(teamDoc.file_name)) return;
       const {bytes} = await drive.openHwpFromDrive({kind:'library', document:{id:teamDoc.id}}, {rt});
-      const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, teamDoc.file_name)));
+      const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, teamDoc.file_name)), {profile:s.profile});
       if (state !== s) return;
       s.teamDiff = teamChanges(rawCells(s, s.team), rawCells(s, team));
       s.teamTitle = String(teamDoc.title || teamDoc.file_name || '');
@@ -1135,7 +1147,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     if (det) data.details = det.details;
-    const bytes = await draft.buildHwpx(state.template, data);
+    const bytes = await draft.buildHwpx(state.template, data, undefined, {profile:state.profile});
     // 파일 이름: 주간보고_보고일8자리_이름.hwpx — 이름은 로그인 사용자의 표시 이름(프로필 이름, 없으면 로그인 정보의 표시 이름; readContext).
     // 확정 사진(O-6): 이 파일을 만든 바로 그 창 결과. B-4 ④: 2. 1) 사업요약 창 결과(파일에 넣은 지금 상황·담당)도 같은 사진에(section 'biz_summary'), B-4 ④ 2. 2) 주요 사업 창 결과도(section 'biz_detail'). 3장에 들어가 4. 1)이 '참고' 한 줄인 조직도 사진에는 창 줄 그대로 둔다(화면 4. 칸은 3장 칸이 보여 줌).
     state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me), snapRows:win || bizRows || det ? [...(win ? win.snapshot() : []), ...(bizRows ? bizRows.map(r => draft.summarySnapshotRow(r)).filter(Boolean) : []), ...(det ? det.snapRows : [])] : null};
@@ -1359,7 +1371,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const [ai, mine] = await Promise.all([callLearn(s, 'test'), (async () => {
         const {drive} = await lazy();
         const {bytes} = await drive.openHwpFromDrive({kind:'library', document:{id:doc_.id}}, {rt});
-        const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, doc_.file_name)));
+        const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, doc_.file_name)), {profile:s.profile});
         return rawCells(s, team);
       })().catch(() => null)]);
       if (state !== s || s.learn !== t) return;

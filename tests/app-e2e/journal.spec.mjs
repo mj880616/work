@@ -1930,8 +1930,9 @@ test('[주간 보고] 내 양식 초안: 일정이 늦게 오면 그 항목만 �
 // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 바탕(자료실 확정본)이 있는 사람은 지금 화면 그대로 — 백지·올리기 줄 없이 양식 칸이 다 보인다.
 for(const width of [412,1280])test(`[주간 보고] 바탕이 있으면 백지 없이 지금 화면 그대로 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
- // ④-2: 바탕이 있는 사람(명진)은 내 양식·내 양식 초안을 읽지도 그리지도 않는다.
- const own=[];page.on('request',q=>{if(/\/rest\/v1\/app_weekly_(forms|own_drafts)/.test(q.url()))own.push(q.url());});
+ // ④-2: 바탕이 있는 사람(명진)은 내 양식 초안을 읽지도 그리지도 않는다.
+ // ⑤-2(명진 결정 11/16 '가'): '내 양식'(app_weekly_forms)은 엔진 profile로 읽고 없으면 한 번 자동 저장하므로 그 표 요청은 허용 — 초안 표(own_drafts)만 0.
+ const own=[];page.on('request',q=>{if(/\/rest\/v1\/app_weekly_own_drafts/.test(q.url()))own.push(q.url());});
  await openJournal(page,width);await openWeekly(page);
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
  await expect(weekly).toContainText('1. 요청사항');await expect(weekly).toContainText('5. 주요 일정');
