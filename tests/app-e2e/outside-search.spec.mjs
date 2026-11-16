@@ -66,7 +66,10 @@ for (const width of [412, 1280]) {
     await expect(root.getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-search]')).toBeHidden();
     // S51-8: [문장 찾기] 탭은 없어지고 위 찾기 칸 하나. 글자만 넣으면 제목 거르기만(서버 안 부름), Enter = 문장 찾기 결과 칸.
+    // S63-11: 탭마다 한 길 — 문장 찾기는 [사회운동] 탭(그리고 [보관]·[밑줄])에서. [전체]·[언론]은 서버 제목 찾기.
     await expect(root.getByRole('tab', { name: '문장 찾기' })).toHaveCount(0);
+    await root.getByRole('tab', { name: '사회운동' }).click();
+    await expect(root.getByRole('tab', { name: '사회운동' })).toHaveAttribute('aria-selected', 'true');
     const find = root.locator('[data-nw-find]');
     await expect(find).toHaveAttribute('placeholder', 'News 찾기 — 제목·문장');
     await find.fill('구조조정');

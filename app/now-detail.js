@@ -10,7 +10,7 @@ import {notify} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from './now-model.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
@@ -73,6 +73,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
   const readTranslation = item => readArticleCols(item, item.type === 'news' ? 'body,body_ko' : 'body_ko');
   const readNewsRow = item => readArticleCols(item, NEWS_ROW_COLS);
+  const freshened = new Set(); // freshenHead를 이미 부른 기사(화면 메모리)
   const signal = (item, action) => sendSignal(item, action, onSignal);
 
   // ---------- 그리기(칸마다 따로 — 요약이 와도 원문 칸은 그대로) ----------
@@ -203,7 +204,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function paint() { keepOb(paintNow); }
   function paintNow() {
     if (!box) return;
-    if (!cur) { box.innerHTML = '<p class="nd-empty" data-nd-empty>글을 누르면 여기에 상세가 열려요</p>'; return; }
+    if (!cur) { box.innerHTML = '<p class="nd-empty" data-nd-empty>왼쪽 목록에서 글을 선택하세요</p>'; return; }
     const h = cur.head;
     const hit = interestHit([h.title, h.origTitle], topics());
     const imp = impHtml();
@@ -227,7 +228,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     try { row = await readFeedBody(item); } catch { row = null; }
     if (my !== seq) return {stale: true};
     // 저장 원문 줄이 있으면 그것을 그린다. 뉴스 기사에서 그 줄이 잠깐의 오류(state failed — 늦은 답·사이트 오류)면 아래 '기사 먼저 읽기'로 한 번 다시 읽는다.
-    if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); return {hadRow: true}; }
+    if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
       pre = await readFirst(item, my).catch(() => ({ok: true}));
@@ -246,7 +247,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // 저장 원문 줄이 없는 옛 뉴스 기사: 본문·요약이 아직 없으면 그 기사 하나를 먼저 읽는다(news-feed open). 읽지 못하면 AI를 부르지 않는다.
   async function readFirst(item, my) {
     const row0 = await readNewsRow(item);
-    if (!row0 || !needsRead(row0)) return {ok: true};
+    if (!row0 || !(needsRead(row0) || titlePending(row0))) return {ok: true};
     cur.reading = true; paintAi();
     let status = '';
     try { status = (await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 60000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
@@ -256,6 +257,20 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (my !== seq) return {ok: true, stale: true};
     onRead?.(item, row);
     return hasMaterial(row) ? {ok: true} : {ok: false, why: unreadReason(status, row.state)};
+  }
+  // S63-11: 본문은 이미 저장돼 있는데 기사 줄이 아직 '읽기 전'(제목 없음)이면 서버 열기(news-feed open)를 한 번 불러 제목을 채운다.
+  // 다 되면 onRead로 줄 주인(목록·상세 머리)이 새 제목을 그린다. 원문 칸·AI 칸은 건드리지 않는다. 같은 기사는 이 화면에서 한 번만.
+  async function freshenHead(item) {
+    const key = itemKey(item);
+    if (freshened.has(key)) return;
+    freshened.add(key);
+    let row0 = null;
+    try { row0 = await readNewsRow(item); } catch { return; }
+    if (!titlePending(row0)) return;
+    try { await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 60000}); } catch { return; }
+    let row = null;
+    try { row = await readNewsRow(item); } catch { return; }
+    if (row) onRead?.(item, row);
   }
   async function makeDetail(item, my) {
     const key = itemKey(item);
@@ -441,5 +456,5 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // 서버 기억 값이 늦게 오면(첫 로딩) 그 값으로.
   window.addEventListener('kptu:view-prefs-ready', () => { if (font === null && cur) { const art = box?.querySelector('.nd'); if (art) art.dataset.font = fontNow(); box?.querySelectorAll('[data-nd-font]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ndFont === fontNow()))); } });
   paint();
-  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); translations.clear(); close(); }};
+  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, head: () => (cur ? cur.head : null), current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); translations.clear(); freshened.clear(); close(); }};
 }

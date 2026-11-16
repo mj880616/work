@@ -57,6 +57,11 @@
 #appView #outsideView .nw-fold-sum{ display:flex; align-items:center; gap:4px; min-height:28px; padding:0 11px 0 24px; font-size:11px; color:var(--kptu-muted); cursor:pointer; list-style:none; }
 #appView #outsideView .nw-fold-sum::-webkit-details-marker{ display:none; }
 #appView #outsideView .nw-fold-sum:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
+/* S63-11 [사회운동] '국제' 묶음: 국내 글 아래 접힌 한 줄(날짜 묶음 머리와 같은 작은 글씨), 펼치면 그 안에 날짜 묶음. */
+#appView #outsideView .os-intl{ margin-top:8px; border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #outsideView .os-intl-sum{ display:flex; align-items:center; gap:4px; min-height:32px; padding:0 4px; font-size:12px; font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); cursor:pointer; list-style:none; }
+#appView #outsideView .os-intl-sum::-webkit-details-marker{ display:none; }
+#appView #outsideView .os-intl-sum:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 
 /* 탭 자리(명진 11/06 01:25): 폰 세로 = 아래 가운데 떠 있는 둥근 탭 줄(하단바 위), 폴드 펼침(761~1199px) = 오른쪽 아래, PC(1200px~) = 위. 모양은 어디서나 공용 ⑤ 보기 바꾸기(UI-보기탭한모양). */
 @media (max-width:1199px){
