@@ -74,7 +74,10 @@ test('outside title retidy: same rule as the collector tidyTitle, private backup
    const names=sql=>{const i=sql.indexOf('n(source_key, name) as (');assert.ok(i>=0);const j=sql.indexOf("'Socialist Worker')",i)+"'Socialist Worker')".length;
      return [...sql.slice(i,j).matchAll(/\('([a-z0-9-]+)', '([^']+)'\)/g)].map(m=>[m[1],m[2]]);};
    const table=names(migration);
-   assert.deepEqual(table,OUTSIDE_CATALOG.map(s=>[s.key,s.name]),'SQL 단체 이름표는 카탈로그와 같다');
+   // 한 번만 도는 옛 글 정돈(이미 적용됨)이라 그 뒤 카탈로그에 더한 단체는 표에 없다 — 새 단체 글은 수집기가 넣을 때 tidyTitle로 정돈한다.
+   const AFTER_RETIDY=['edubonbu'];
+   assert.deepEqual(table,OUTSIDE_CATALOG.filter(s=>!AFTER_RETIDY.includes(s.key)).map(s=>[s.key,s.name]),'SQL 단체 이름표는 (그 뒤 더한 단체 빼고) 카탈로그와 같다');
+   assert.ok(AFTER_RETIDY.every(k=>OUTSIDE_CATALOG.some(s=>s.key===k)));
    for(const sql of [precheck,postcheck])assert.deepEqual(names(sql),table);
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
    for(const mode of ['apply','dry-run']){const p=prepareMigration({mode,version,runId:'1',root});assert.equal(p.rules,'expanded');assert.equal(p.flow,'full');assert.deepEqual(p.targets,['app_outside_posts']);assert.deepEqual(p.review.definer,[]);}
