@@ -168,6 +168,15 @@ test.describe('PC 1280', () => {
     expect(await box.locator('p').last().locator('strong').count()).toBe(0);
   });
 
+  test('[지금 시각]: 날짜·요일·시간이 일반 글로 들어가고 [↶] 한 번에 지워짐', async ({page}) => {
+    const box = await open(page);
+    await press(page, '지금 시각');
+    await expect(box).toContainText(/2\d{3}\. \d{1,2}\. \d{1,2}\.\([일월화수목금토]\) \d{2}:\d{2}/);
+    expect(await box.locator('strong, em, u, a, mark').count()).toBe(0);
+    await tool(page, '되돌리기').click();
+    await expect(box).not.toContainText(/\d{2}:\d{2}/);
+  });
+
   test('기호: [·][※][→] 비슷한 기호 펼치기, [①]은 ①~⑩ 펼치고 다음 번호 표시', async ({page}) => {
     const box = await open(page);
     await tool(page, '동그라미 번호 선택').click();
@@ -463,7 +472,7 @@ test.describe('PC 1280', () => {
     expect(await row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     for (const h of await row.locator('button:visible').evaluateAll(l => l.map(b => Math.round(b.getBoundingClientRect().height)))) expect(h).toBeLessThanOrEqual(28);
     await page.locator('.ed-more').click();
-    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 삭제', '서식 없이 붙여넣기', '「」 ▾']);
+    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 삭제', '지금 시각', '서식 없이 붙여넣기', '「」 ▾']);
     await page.screenshot({path: 'test-results/ed-basics-1280.png'});
   });
 });
@@ -485,7 +494,7 @@ test.describe('폰 390', () => {
     }
     const GROUPS = {'글자 서식 선택': ['기울임', '밑줄', '취소선', '글자색 ▾', '형광펜 ▾', '서식 삭제'],
       '문단 서식 선택': ['정렬 왼쪽 ▾', '목록 ▾', '번호 ▾', '들여쓰기', '내어쓰기', '인용', '구분선'],
-      '넣을 것 선택': ['표 ▾', '링크', '서식 없이 붙여넣기'], '기호 선택': ['※ ▾', '→ ▾', '① ▾', '「」 ▾']};
+      '넣을 것 선택': ['표 ▾', '링크', '지금 시각', '서식 없이 붙여넣기'], '기호 선택': ['※ ▾', '→ ▾', '① ▾', '「」 ▾']};
     for (const [name, texts] of Object.entries(GROUPS)) {
       await row.getByRole('button', {name, exact: true}).tap();
       await expect(page.locator('.ed-pop:not([hidden])').first().getByRole('button')).toHaveText(texts);
