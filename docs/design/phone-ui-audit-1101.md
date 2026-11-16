@@ -68,3 +68,20 @@
 5. 쓰기 창이 열리면 **하단바 숨김** — 추천: 예
 6. 달력 [+]: **[달력|할 일] 줄 오른쪽 작은 [+]**(a, 추천) / 동그란 [+] 그대로 두고 달력 아래 빈 띠(b)?
 7. 자료실 ⋯는 이미 누르는 범위 44px이라 그대로 둠 — 알고만 계시면 됨.
+
+## 5. 구현 결과 대조(2026-11-16, S64-07)
+
+원장 행 UI-메뉴판쓰기창이 '확정·구현 대기'로 남아 있어 최신 main(3484a41, #2721 '쓰는 법' 포함)에서 항목별로 대조했다. **네 항목 모두 끝남 → 새 구현 없음.**
+
+| 항목(원장 행) | 결과 | 근거 PR | 근거 파일 |
+| --- | --- | --- | --- |
+| 메뉴 판 — 검색칸 잘림 | 끝남 | #1756(S48-6b) | `app/topbar-actions.js` `sheetToTop`(판이 길면 맨 위부터 열림), `app/ui-standard.css` 4절(판 높이 내용만큼·손잡이 sticky) |
+| 메뉴 판 — 계정 위치 | 끝남 | #1756 · #2721(계정 줄 [내 프로필] 다음 '쓰는 법') | `app/index.html` `#mobileAccountGroup`이 `nav` 다음(맨 아래), `role="group" aria-label="계정"` |
+| 메뉴 판 — 큰 타일 | 끝남 | #1756 | `app/ui-standard.css` 4절: 3열 56px 상자 → 2열 줄 목록(보이는 36px·누르는 범위 44px, 그림 숨김) |
+| 폰 쓰기 창 열리면 하단바 숨김 | 끝남 | #1756 | `app/ed-window.js`가 `html.ed-window-open` 하나를 켬 → `app/topbar-actions.css` `--kptu-mobile-tab-height:0`·`.mobile-tabs` 숨김, `app/ui-standard.css` 전환 줄 0 |
+| 달력 [+]가 마지막 주 가림 | 끝남 | #1749(S48-6, 안 a) | `app/ui-standard.css` [+]를 [달력·할 일·일기] 전환 줄 오른쪽 작은 단추로, 달력 끝 여백에서 [+] 몫 뺌 |
+| 자료실 ⋯ 22px 누름 칸 | 끝남(고칠 것 없음) | #1708 점검 1절 E-4, 결정 7 '그대로' | `app/library-upload.css` 84행: 22px은 PC(761px~)만·폰 32px, 누르는 범위 44px은 공용 `::after` |
+
+지키는 시험: `tests/app-e2e/ui-polish-1.spec.mjs`·`ui-standard-3c.spec.mjs`(메뉴 판 순서·줄 크기·맨 위부터 열림), `ed-window.spec.mjs`·`choice-sheet-tab-gap.spec.mjs`(쓰기 창 하단바 숨김), `calendar-month-view.spec.mjs`·`mobile-ux-shell.spec.mjs`(달력 [+] 자리).
+
+같은 점검의 다른 행: UI-폰하단고정(빠른 입력 한 줄 접기, 안 A)은 #2525(S61-28)로 merge됨.
