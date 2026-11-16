@@ -2,7 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pickPhoneApp, apkUrl, APK_MAX_BYTES, pickPcApp, setupUrl, SETUP_MAX_BYTES} from '../scripts/phone-app-latest.mjs';
-import {downloadPlan, apkFromInfo, loadPhoneAppInfo, RELEASES_PAGE, INSTALL_HINT, OTHER_HINT, pcPlan, setupFromInfo, loadPcAppInfo, PC_RELEASES_PAGE, PC_SETUP_NAME, PC_DESC, PC_WARN, PC_OTHER_HINT} from '../app/app-download.mjs';
+import {downloadPlan, apkFromInfo, loadPhoneAppInfo, RELEASES_PAGE, INSTALL_HINT, OTHER_HINT, pcPlan, setupFromInfo, loadPcAppInfo, PC_RELEASES_PAGE, PC_SETUP_NAME, PC_DESC, PC_WARN, PC_OTHER_HINT, PC_BROWSER_LINE, PC_BUTTON, PC_HELPER_NAME} from '../app/app-download.mjs';
+import {installPlan, runInstall, canPrompt, INSTALL_BUTTON, INSTALL_FALLBACK} from '../app/pwa-install.mjs';
 
 // APP-앱내려받기버튼: 최신 폰 앱 APK 고르기(배포 때)와 화면이 보이는 것(로그인 화면·계정 메뉴)을 한 곳에서 시험한다.
 const rel = (tag, assets = [], extra = {}) => ({tag_name: tag, draft: false, prerelease: false, assets, ...extra});
@@ -86,8 +87,8 @@ test('PC 프로그램 고르기: basket-pc-v*의 BasketDropApp-win-Setup.exe 중
 test('PC 화면 계획: 윈도우 PC 브라우저만 최신 설치 파일 + 설명·경고, 폰 앱 안은 없음, 그 밖은 안내 한 줄', () => {
   const info = {version: '0.5.10', url: setupUrl('0.5.10'), size: 1};
   const win = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130';
-  assert.deepEqual(pcPlan({ua: win, info}), {kind: 'pc', url: info.url, version: '0.5.10', hint: PC_DESC, warn: PC_WARN});
-  assert.deepEqual(pcPlan({ua: win}), {kind: 'pc', url: PC_RELEASES_PAGE, version: '', hint: PC_DESC, warn: PC_WARN});
+  assert.deepEqual(pcPlan({ua: win, info}), {kind: 'pc', url: info.url, version: '0.5.10', browser: PC_BROWSER_LINE, hint: PC_DESC, warn: PC_WARN});
+  assert.deepEqual(pcPlan({ua: win}), {kind: 'pc', url: PC_RELEASES_PAGE, version: '', browser: PC_BROWSER_LINE, hint: PC_DESC, warn: PC_WARN});
   assert.deepEqual(pcPlan({ua: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 KPTUAndroid/0.5.10', info}), {kind: 'app'});
   for (const ua of ['Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari'])
     assert.deepEqual(pcPlan({ua, info}), {kind: 'other', hint: PC_OTHER_HINT}, ua);
@@ -95,6 +96,37 @@ test('PC 화면 계획: 윈도우 PC 브라우저만 최신 설치 파일 + 설�
     assert.equal(setupFromInfo(bad), null, JSON.stringify(bad));
   assert.match(PC_WARN, /추가 정보 → 실행/);
   assert.match(PC_DESC, /\[파일\]에서 이 PC/);
+});
+
+// S63-09 PC도우미구분(명진 11/16): PC 프로그램은 노조+ 자체가 아닌 도우미 — 이름·버튼·안내 글이 그것을 드러내고, 노조+는 브라우저(앱 설치)에서 쓴다고 먼저 말한다.
+test('PC 도우미 이름·안내: 보조 프로그램임이 드러나고 노조+는 브라우저에서 쓴다는 한 줄', () => {
+  assert.equal(PC_HELPER_NAME, '노조+ 파일 올리기');
+  assert.equal(PC_BUTTON, 'PC 파일 올리기 도우미 내려받기');
+  assert.equal(PC_BROWSER_LINE, "노조+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.");
+  assert.match(PC_DESC, /노조\+ 자체가 아니에요/);
+  assert.match(PC_OTHER_HINT, /도우미/);
+  for (const file of ['../app/login/index.html', '../app/login/app-download.js', '../app/topbar-actions.js', '../app/app-download.mjs', '../app/pc-files-model.mjs', '../app/files.js'])
+    assert.doesNotMatch(readFileSync(new URL(file, import.meta.url), 'utf8'), /윈도우 PC 프로그램 내려받기|노조\+ 업로드 프로그램/, file);
+});
+
+test('PC 앱 설치 단추: PC 브라우저에서만, 폰·폰 앱·설치한 창 안에서는 없음, 설치 창이 없으면 안내 한 줄', async () => {
+  const pc = {kind: 'pc', label: INSTALL_BUTTON, fallback: INSTALL_FALLBACK};
+  for (const ua of ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Chrome/130', 'Mozilla/5.0 (X11; Linux x86_64) Chrome/130'])
+    assert.deepEqual(installPlan({ua}), pc, ua);
+  assert.deepEqual(installPlan({ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130', standalone: true}), {kind: 'none'}, '이미 설치한 창 안');
+  for (const ua of ['Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile', 'Mozilla/5.0 (Linux; Android 14) Chrome/130 KPTUAndroid/0.5.10', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari', 'Mozilla/5.0 (Linux; Android 14; SM-X710) Chrome/130'])
+    assert.deepEqual(installPlan({ua}), {kind: 'none'}, ua);
+  assert.equal(INSTALL_BUTTON, 'PC에 앱 설치');
+  assert.match(INSTALL_FALLBACK, /주소창 오른쪽의 설치 아이콘/);
+  assert.equal(canPrompt(), false);
+  assert.equal(await runInstall(), 'fallback', '붙잡은 설치 창이 없으면 안내');
+});
+
+test('로그인 화면: 앱 화면과 같은 manifest(PC 앱 설치), 브라우저 안내·설치 단추 자리는 처음에 숨김', () => {
+  const html = readFileSync(new URL('../app/login/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<link rel="manifest" href="\.\.\/windows-manifest\.json">/);
+  assert.match(html, /<div class="login-app" data-login-pwa hidden>/);
+  assert.ok(html.indexOf('data-login-pwa') < html.indexOf('data-login-pc '), '브라우저 안내가 도우미 위');
 });
 
 test('pc-app.json 읽기: 같은 주소 한 파일, 쿠키 없이, 못 읽으면 null', async () => {

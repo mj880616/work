@@ -107,12 +107,12 @@ export const pcDeviceOk = ({ua = '', kind = ''} = {}) => kind === 'pc' && /Windo
 // 문 상태 → 나무·안내 한 줄. off = 문이 답하지 않음(꺼짐·앱 없음·크롬이 막음).
 export function pcStateText(why) {
   switch (why) {
-    case 'off': return "내 PC가 꺼져 있어요. 화면 오른쪽 아래 노조+ 업로드 아이콘을 오른쪽 클릭 → [노조+에서 이 PC 보기]를 켜 주세요. 처음 한 번 크롬이 '다른 앱에 연결' 허락을 물으면 [허용]을 눌러 주세요.";
-    case 'pc_signed_out': return '노조+ 업로드 프로그램이 로그아웃돼 있어요. 트레이 아이콘에서 다시 로그인해 주세요.';
-    case 'other_user': return '노조+ 업로드 프로그램에 다른 계정으로 로그인돼 있어요. 같은 계정으로 로그인해 주세요.';
+    case 'off': return "내 PC가 꺼져 있어요. 화면 오른쪽 아래 노조+ 파일 올리기 아이콘을 오른쪽 클릭 → [노조+에서 이 PC 보기]를 켜 주세요. 처음 한 번 크롬이 '다른 앱에 연결' 허락을 물으면 [허용]을 눌러 주세요.";
+    case 'pc_signed_out': return '노조+ 파일 올리기 도우미이 로그아웃돼 있어요. 트레이 아이콘에서 다시 로그인해 주세요.';
+    case 'other_user': return '노조+ 파일 올리기 도우미에 다른 계정으로 로그인돼 있어요. 같은 계정으로 로그인해 주세요.';
     case 'bad_token': case 'no_token': return '노동조합+ 로그인을 확인하지 못했어요. 다시 확인을 눌러 주세요.';
-    case 'auth_unavailable': return '노조+ 업로드 프로그램이 로그인을 확인하지 못했어요(인터넷 연결). 잠시 뒤 다시 확인해 주세요.';
-    case 'old_app': return '노조+ 업로드 프로그램을 새 판으로 올려 주세요.';
+    case 'auth_unavailable': return '노조+ 파일 올리기 도우미이 로그인을 확인하지 못했어요(인터넷 연결). 잠시 뒤 다시 확인해 주세요.';
+    case 'old_app': return '노조+ 파일 올리기 도우미을 새 판으로 올려 주세요.';
     case 'ask': return "'내 PC'를 누르면 크롬이 처음 한 번 '다른 앱에 연결' 허락을 물어요. [허용]을 눌러 주세요.";
     case 'denied': return "크롬에서 이 사이트의 '로컬 네트워크 접근'이 막혀 있어요. 주소창 왼쪽 아이콘 → 사이트 설정에서 허용으로 바꿔 주세요.";
     default: return '내 PC에 닿지 못했어요. 다시 확인을 눌러 주세요.';
@@ -135,15 +135,15 @@ export function pcErrorText(code) {
     case 'not_found': return '내 PC에서 찾지 못했어요';
     case 'bad_path': case 'not_folder': return '열 수 없는 경로예요';
     case 'open_failed': return '내 PC에서 열지 못했어요';
-    case 'off': case 'unreached': return '내 PC에 닿지 못했어요(노조+ 업로드 프로그램 확인)';
+    case 'off': case 'unreached': return '내 PC에 닿지 못했어요(노조+ 파일 올리기 도우미 확인)';
     case 'pc_signed_out': case 'other_user': case 'bad_token': case 'no_token': case 'auth_unavailable': return pcStateText(code);
     default: return '내 PC 파일을 읽지 못했어요';
   }
 }
 // 옛 문(0.3.x): 보기·열기만. 0.4.0+이면 복사·옮기기가 된다.
-export const PC_READONLY_TEXT = '노조+ 업로드 프로그램을 새 판(0.4.0)으로 올리면 내 PC ↔ 클라우드 복사·옮기기가 돼요(지금은 보기·열기만)';
+export const PC_READONLY_TEXT = '노조+ 파일 올리기 도우미을 새 판(0.4.0)으로 올리면 내 PC ↔ 클라우드 복사·옮기기가 돼요(지금은 보기·열기만)';
 // 내 PC 안 이름 바꾸기·새 폴더·옮기기·복사·휴지통(FILES-내PC쓰기)은 바구니 PC 앱 0.5.0+ 문에서만.
-export const PC_WRITE_LATER_TEXT = '노조+ 업로드 프로그램을 새 판(0.5.0)으로 올리면 내 PC 안 이름 바꾸기·새 폴더·옮기기·휴지통이 돼요';
+export const PC_WRITE_LATER_TEXT = '노조+ 파일 올리기 도우미을 새 판(0.5.0)으로 올리면 내 PC 안 이름 바꾸기·새 폴더·옮기기·휴지통이 돼요';
 // 내 PC 미리보기: 화면 메모리로 읽어 오는 크기 한도(사진·PDF). 글은 앞 200KB만(files-model TEXT_PREVIEW_BYTES).
 export const PC_PREVIEW_MAX = 50 * 1024 * 1024;
 // 한 번에 보내는 개수·크기(화면이 파일을 메모리에 쥐고 나른다 — '이 폰'과 같은 1GB, 바구니 문은 2GB까지 받음).
