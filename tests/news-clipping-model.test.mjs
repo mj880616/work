@@ -11,7 +11,7 @@ test('한 목록: 채널/자동 구분 없음 — 목록·별표 폴더 칸 걸�
   assert.equal(M.TABS, undefined); assert.equal(M.keepTab, undefined);
   assert.equal(M.laneFilter(M.STAR), '&starred_at=not.is.null');
   assert.equal(M.orderOf(M.STAR), 'starred_at.desc,id.desc');
-  assert.equal(M.orderOf(M.ALL), 'created_at.desc,id.desc');
+  assert.equal(M.orderOf(M.ALL), 'kst_day.desc.nullslast,news_rank.asc.nullslast,created_at.desc,id.desc');
   assert.equal(M.itemView({id: '1', lane: 'channel', lang: 'ko', title: 'T', url: 'https://example.org/a'}).tag, undefined);
 });
 
