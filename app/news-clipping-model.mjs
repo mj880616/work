@@ -187,6 +187,9 @@ export const aiCapped = data => data?.ai?.month_capped === true;
 export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'foreign', label: '해외'}]);
 export function sourceNote(row) {
   if (!row?.enabled) return '';
+  // S63-10: 사이트 robots.txt가 막은 매체는 켜도 소용없다고 알린다(서버 수집 결과 코드만 보고 글자를 고른다 — 거르기 규칙은 서버 한 곳).
+  if (row.last_error === 'robots' || row.last_error === 'robots_denied') return '못 읽음 · 사이트가 자동 읽기 막음';
+  if (row.last_error === 'robots_unreachable') return '못 읽음 · 사이트 연결 안 됨';
   if (row.last_error) return '읽지 못함';
   const t = Date.parse(row.last_ok_at || '');
   if (!Number.isFinite(t)) return '아직 읽지 않음';
