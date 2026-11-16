@@ -79,3 +79,15 @@ test('소개 페이지들은 지금 가입·요금 상태와 맞는 문장만 �
   assert.match(about, /베타 테스트 기간이라 모든 기능을 무료로/);
   assert.match(about, /소정의 비용이 생길 수 있으며, 바뀌기 전에 미리 알립니다/);
 });
+
+// S62-39 PRODUCT-운영자열람안함약속(명진 11/16): 약관·처리방침에 운영자 열람 안 함·영장 통지 약속이 있어야 한다.
+test('약관·처리방침에 운영자 열람 안 함과 영장 즉시 통지 약속이 있다', () => {
+  const terms = read('about/terms/index.html');
+  assert.ok(terms.includes('운영자는 사용자가 기록한 내용을 열어 보지 않습니다.'), '약관: 열람 안 함 약속 없음');
+  assert.ok(terms.includes('법관이 발부한 영장이 있을 때만 응하고, 영장에 적힌 범위만 제공합니다.'), '약관: 영장 범위 약속 없음');
+  assert.ok(terms.includes('압수·수색 과정에 참여할 권리를 쓸 수 있게 합니다.'), '약관: 참여권 통지 약속 없음');
+  assert.ok(terms.includes('영장이 오면 제공해야 할 수 있습니다.'), '약관: 정직한 한계 문장 없음');
+  const privacy = read('about/privacy/index.html');
+  assert.ok(privacy.includes('법관이 발부한 영장이 있을 때만'), '처리방침: 영장 약속 없음');
+  assert.ok(privacy.includes('운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다.'), '처리방침: 확정 문장 없음');
+});
