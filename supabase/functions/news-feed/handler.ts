@@ -689,7 +689,7 @@ async function insertArticles(db: Db, rows: ArtRow[], log: FeedLog): Promise<Map
       if (!r) continue;
       try {
         await db.send("PATCH", `app_news_articles?url_key=eq.${encodeURIComponent(k)}&origin=eq.user`,
-          { origin: "site", lane: r.lane, source_key: r.source_key ?? null, updated_at: new Date().toISOString() }, "return=minimal");
+          { origin: "site", lane: r.lane, source_key: r.source_key ?? null, news_rank: r.news_rank ?? null, updated_at: new Date().toISOString() }, "return=minimal");
       } catch { log("shared_write_failed"); }
     }
     for (const part of inChunks(tks)) for (const r of await db.get(`app_news_articles?title_key=in.${part}&select=title_key`)) have.add(`t:${r.title_key}`);
@@ -740,7 +740,7 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   // 켠 키워드(작업공간마다): take=keywords 매체의 거르기와, 넣는 글의 키워드 표시(S59-1 — 키워드 칸은 이 표시로 모아 본다)에 함께 쓴다.
   const wordsByWs = keywordsByWorkspace(await db.get(`app_news_keywords?enabled=is.true&workspace_id=in.(${ws.join(",")})&select=workspace_id,word&order=created_at.asc&limit=5000`));
   // 언론 거르기(S63-10, news-rank.ts): 정치·경제 섹션 글은 공공 낱말·내 키워드·확정한 관심 주제에 맞을 때만 받는다(뉴스를 쓰는 작업공간 합집합, 글자만 — AI 없음).
-  const rankWords = [...new Set([...[...wordsByWs.values()].flat(), ...await confirmedInterests(db, ws, log)])];
+  const rankWords = await rankWordsOf(db, wordsByWs, ws, log);
   // raw: 피드에 든 글 칸(item·entry) 수, listed: 그 가운데 주소·제목 검사를 통과한 글 수, dropped: 거르기로 받지 않은 글 수(건수만).
   //   raw와 listed가 크게 다르면 링크 호스트·https 문제다(NEWS-새매체글없음).
   let raw = 0, listed = 0, dropped = 0;
@@ -755,7 +755,8 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
     for (const it of items) {
       const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
-      if (newsRank({ source, list, title: it.title, summary: it.summary, url: clean, category: it.category, words: rankWords }) === null) { dropped++; continue; }
+      const rank = newsRank({ source, list, title: it.title, summary: it.summary, url: clean, category: it.category, words: rankWords });
+      if (rank === null) { dropped++; continue; }
       const full = it.content && chars(it.content) >= 200 ? it.content : null;
       const lead = it.summary;
       const title = newsTitle(it.title, source.name);
@@ -772,7 +773,8 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
         if (kws.length) hits.push({ w, key: content.url_key, kws });
       }
       // 공용 기사는 한 번(켠 작업공간 합집합 — take=keywords는 누군가의 키워드에 맞은 글만).
-      if (kept) arts.push({ id: crypto.randomUUID(), origin: "site", ...content });
+      // 등급(news_rank, S63-12)은 공용 기사에만 적는다(옛 표 app_news_items에는 칸이 없음). 받은 날(kst_day)은 DB 기본값이 넣은 순간 서울 날짜로 채운다.
+      if (kept) arts.push({ id: crypto.randomUUID(), origin: "site", ...content, news_rank: rank });
     }
     const fresh = await insertArticles(db, arts, log);
     // 새 공용 기사의 운영자 옛 줄은 같은 id로(D2 '옛 id = 새 id'). 다른 작업공간 옛 줄은 새 id(D2가 주소로 합침).
@@ -801,6 +803,62 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
 }
 
 // 확정한 관심 주제(app_now_interests state=confirmed)의 주제 글자: 언론 거르기 낱말로만 쓴다(저장·로그에 남기지 않음 — 건수도 남기지 않음).
+async function rankWordsOf(db: Db, wordsByWs: Map<string, string[]>, ws: string[], log: FeedLog): Promise<string[]> {
+  return [...new Set([...[...wordsByWs.values()].flat(), ...await confirmedInterests(db, ws, log)])];
+}
+
+// 옛 기사 등급·받은 날 채우기(S63-12 NEWS-언론등급정렬): prune 단계 앞에서 한 번씩. AI 없음, 지우기 없음, 기사 내용은 바꾸지 않는다.
+//   ① kst_day: 최근 RANK_FILL_DAYS일 안에 받은 줄 가운데 빈 줄을 받은 날(서울)별로 한 번씩 채운다(채널 기사 포함 — 화면 정렬이 날짜부터 본다).
+//   ② news_rank: 같은 기간 매체 기사(origin site·lane media) 가운데 빈 줄을 news-rank.ts 규칙 하나로 계산해 적는다.
+//      옛 줄은 어느 피드(섹션)에서 왔는지 남아 있지 않아 섹션은 기사 주소로 짐작한다(규칙의 섞인 피드 길). 지금 규칙이 '안 받음'이면 빈 값 그대로(같은 날 맨 뒤).
+//   여러 번 불러도 같다(빈 줄만 고침). 실패해도 지우기는 그대로 간다.
+export const RANK_FILL_DAYS = 30, RANK_FILL_PAGE = 200, RANK_FILL_MAX = 3000, RANK_FILL_BUDGET_MS = 40000;
+export async function fillRanks(db: Db, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
+  const out = { days: 0, ranked: 0, unranked: 0 };
+  const since = new Date(`${kstDay(nowMs - RANK_FILL_DAYS * 86400000)}T00:00:00+09:00`).toISOString();
+  const sinceQ = encodeURIComponent(since);
+  const empty = await db.get(`app_news_articles?kst_day=is.null&created_at=gte.${sinceQ}&select=created_at&order=created_at.desc&limit=${RANK_FILL_MAX}`);
+  const days = [...new Set(empty.map((r) => Date.parse(String(r.created_at))).filter(Number.isFinite).map((t) => kstDay(t)))];
+  for (const day of days) {
+    if (clock() - startMs > RANK_FILL_BUDGET_MS) break;
+    const from = new Date(`${day}T00:00:00+09:00`), to = new Date(from.getTime() + 86400000);
+    await db.send("PATCH", `app_news_articles?kst_day=is.null&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}`,
+      { kst_day: day }, "return=minimal");
+    out.days++;
+  }
+  const plan = await mediaPlan(db);
+  const ws = [...new Set([...plan.on.values()].flat())];
+  const words = ws.length
+    ? await rankWordsOf(db, keywordsByWorkspace(await db.get(`app_news_keywords?enabled=is.true&workspace_id=in.(${ws.join(",")})&select=workspace_id,word&order=created_at.asc&limit=5000`)), ws, log)
+    : [];
+  let offset = 0, scanned = 0;
+  while (scanned < RANK_FILL_MAX && clock() - startMs <= RANK_FILL_BUDGET_MS) {
+    const page = await db.get(`app_news_articles?news_rank=is.null&origin=eq.site&lane=eq.media&source_key=not.is.null&created_at=gte.${sinceQ}` +
+      `&select=id,source_key,title,summary,url&order=created_at.desc,id.desc&limit=${RANK_FILL_PAGE}&offset=${offset}`);
+    if (!page.length) break;
+    scanned += page.length;
+    const byRank = new Map<number, string[]>();
+    for (const r of page) {
+      const source = newsSourceByKey(r.source_key);
+      const id = String(r.id ?? "");
+      const rank = source && UUID.test(id)
+        ? newsRank({ source, list: "", title: String(r.title ?? ""), summary: typeof r.summary === "string" ? r.summary : null, url: String(r.url ?? ""), category: null, words })
+        : null;
+      if (rank === null) { offset++; out.unranked++; continue; } // 빈 값으로 남는 줄은 다음 쪽에서 건너뛴다
+      byRank.set(rank, [...(byRank.get(rank) ?? []), id]);
+    }
+    for (const [rank, ids] of byRank) {
+      for (let i = 0; i < ids.length; i += 100) {
+        await db.send("PATCH", `app_news_articles?id=in.(${ids.slice(i, i + 100).join(",")})&news_rank=is.null`, { news_rank: rank }, "return=minimal");
+        out.ranked += Math.min(100, ids.length - i);
+      }
+    }
+    if (page.length < RANK_FILL_PAGE) break;
+  }
+  log("rank_fill_done", out);
+  return out;
+}
+
 async function confirmedInterests(db: Db, ws: string[], log: FeedLog): Promise<string[]> {
   if (!ws.length) return [];
   try {
@@ -1348,8 +1406,11 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           // 실패해도 지우기는 그대로 간다(로그에는 단계 코드만).
           let refs: unknown = null;
           try { refs = await db.rpcValue(REFS_SYNC_FN, { p_limit: REFS_SYNC_LIMIT }); } catch { log("refs_sync_failed"); }
+          // 옛 기사 등급·받은 날 채우기(S63-12). 실패해도 지우기는 그대로.
+          let ranks: { days: number; ranked: number; unranked: number } | null = null;
+          try { ranks = await fillRanks(db, nowMs, startMs, now, log); } catch { log("rank_fill_failed"); }
           const removed = await db.rpcNumber("app_news_prune", { p_now: new Date(nowMs).toISOString(), p_limit: PRUNE_LIMIT });
-          return json({ ok: true, step: "prune", removed, refs: refsCounts(refs) });
+          return json({ ok: true, step: "prune", removed, refs: refsCounts(refs), ranks });
         }
         throw new Fail(400, "UNKNOWN_STEP");
       }
