@@ -102,3 +102,17 @@ export function startError(code) {
   if (code === 'not_found') return '자료를 찾을 수 없어요';
   return '브리핑을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.';
 }
+
+// BRIEF-브리핑룸삭제(S63-08, 명진 확정 11/16 10:55): 줄 ⋯·여러 개 선택에서 두 가지 삭제를 고른다.
+// brief = 브리핑 결과만 삭제(자료는 자료실에 그대로, '브리핑 요청함' 폴더에 있었으면 폴더 밖으로), doc = 자료까지 삭제(자료실 삭제와 같은 길, Drive 휴지통).
+export const DELETE_KINDS = Object.freeze({ brief: '브리핑만 삭제', doc: '자료까지 삭제' });
+export function deleteConfirm(kind, n, name = '') {
+  const what = n > 1 ? `${n}개` : `“${String(name || '이름 없는 자료')}”`;
+  if (kind === 'doc') return { text: `${what} 자료까지 삭제할까요?`, note: '자료실에서도 빠지고 Drive 파일은 휴지통으로 옮겨요(30일 뒤 사라짐).', ok: '삭제', danger: true };
+  return { text: `${what} 브리핑만 삭제할까요?`, note: '자료는 자료실에 그대로 남아요. 만드는 중이면 멈춰요.', ok: '삭제', danger: true };
+}
+export function deleteResult(kind, { done = 0, failed = 0, skipped = 0 } = {}) {
+  const bad = failed + skipped, what = kind === 'doc' ? '자료를' : '브리핑을';
+  if (!bad) return { text: done > 1 ? `${done}개 ${what} 삭제했어요` : `${what} 삭제했어요`, error: false };
+  return { text: done ? `${done}개는 삭제했고 ${bad}개는 삭제하지 못했어요` : `${what} 삭제하지 못했어요`, error: true };
+}

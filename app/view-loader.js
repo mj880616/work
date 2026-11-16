@@ -46,7 +46,7 @@ const routeStyles={
   whatsnew:['./update-news.css','./ui-standard.css'],
   feedback:['./feedback.css','./ui-standard.css'],
   signups:['./signups.css','./ui-standard.css'],
-  brief:['./brief-room.css','./ui-standard.css']
+  brief:['./feed.css','./brief-room.css','./ui-standard.css']
 };
 // PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를
 // 받기만 먼저 걸어 둔다(실행 순서는 아래 loaders 그대로). 사슬은 Pages 빌드가 채운다(/*static-chain*/, scripts/build-pages.mjs).

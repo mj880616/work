@@ -36,3 +36,28 @@ test('fileBadge / sourceUrl / isStalled', () => {
   assert.equal(m.isStalled({ status: 'queued', lease_until: null, updated_at: '2026-11-13T09:59:00Z' }, now), true);
   assert.equal(m.isStalled({ status: 'running', lease_until: '2026-11-13T10:02:00Z', updated_at: '2026-11-13T09:59:00Z' }, now), false);
 });
+
+// BRIEF-브리핑룸삭제(S63-08): 두 가지 삭제 이름·확인 글·결과 글.
+test('delete kinds: brief only / with document, confirm and result lines', () => {
+  assert.deepEqual({ ...m.DELETE_KINDS }, { brief: '브리핑만 삭제', doc: '자료까지 삭제' });
+  assert.equal(m.deleteConfirm('brief', 1, '예시 자료').text, '“예시 자료” 브리핑만 삭제할까요?');
+  assert.match(m.deleteConfirm('brief', 1, '예시 자료').note, /자료실에 그대로/);
+  assert.equal(m.deleteConfirm('doc', 3).text, '3개 자료까지 삭제할까요?');
+  assert.match(m.deleteConfirm('doc', 3).note, /휴지통/);
+  assert.equal(m.deleteConfirm('doc', 1).ok, '삭제');
+  assert.deepEqual(m.deleteResult('brief', { done: 1 }), { text: '브리핑을 삭제했어요', error: false });
+  assert.deepEqual(m.deleteResult('doc', { done: 2 }), { text: '2개 자료를 삭제했어요', error: false });
+  assert.deepEqual(m.deleteResult('doc', { done: 1, failed: 1 }), { text: '1개는 삭제했고 1개는 삭제하지 못했어요', error: true });
+  assert.deepEqual(m.deleteResult('brief', { failed: 1 }), { text: '브리핑을 삭제하지 못했어요', error: true });
+});
+
+test('brief-room.js: delete paths use the owner RPC, folder item delete and the shared document delete; no device storage', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(new URL('../app/brief-room.js', import.meta.url), 'utf8');
+  assert.match(src, /\/rest\/v1\/rpc\/app_document_brief_delete/);
+  assert.match(src, /app_library_folder_items\?workspace_id=eq\.\$\{enc\(ws\(\)\)\}&folder_id=eq\.\$\{enc\(state\.folderId\)\}&document_id=eq\./);
+  assert.match(src, /import\('\.\/document-delete\.js'\)/);
+  assert.match(src, /deleteSequentially/);
+  assert.match(src, /createSelectMode/);
+  assert.doesNotMatch(src, /localStorage|sessionStorage|app_document_briefs\?[^`]*method:'DELETE'/);
+});
