@@ -24,3 +24,6 @@
 .sfm .un-bundle{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
 .sfm .un-chips{display:contents}
 .sfm .un-adder{min-width:0;max-width:100%;height:32px;border:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta,12px)}
+/* UPDATE-소식안보임: 시작 날짜가 없거나 소식이 시작 날짜 앞이라 이용자에게 안 보일 때 한 줄(목록 위·보내기 창). 톤다운 경고색, 굵게 하지 않음. */
+.un-notice{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0 0 4px;padding:4px 8px;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-warning-soft,var(--kptu-primary-soft));color:var(--kptu-ink);font-size:var(--ds-text-row,13px)}
+.un-notice>span{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}

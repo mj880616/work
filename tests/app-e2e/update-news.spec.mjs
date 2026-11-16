@@ -20,7 +20,7 @@ const ITEMS=[
   {id:'n2',title:'구글 드라이브 사진·파일',lines:['사진 화면에 내 구글 드라이브 칸이 생겼어요(각자 자기 드라이브만 보여요)','메뉴에 [파일]이 생겼어요. 내 구글 드라이브 파일을 볼 수 있어요'],sent_at:'2026-11-21T01:00:00Z',edited_at:null},
   {id:'n1',title:'PC 프로그램 새 이름',lines:['윈도우 PC 프로그램 이름이 바뀌었어요','로그인 화면에서 내려받을 수 있어요'],sent_at:'2026-11-20T02:00:00Z',edited_at:null}
 ];
-async function boot(page,{operator=false,view='calendar',items=ITEMS}={}){
+async function boot(page,{operator=false,view='calendar',items=ITEMS,startOn='2026-11-20'}={}){
   const calls=[];
   await serveBuiltShell(page,origin);
   const user={id:'un-user',email:'un@example.org'},workspace={id:'un-workspace',name:'QA',slug:'qa'};
@@ -38,7 +38,7 @@ async function boot(page,{operator=false,view='calendar',items=ITEMS}={}){
     else if(path==='/rest/v1/rpc/app_release_notes_read'||path.startsWith('/rest/v1/rpc/app_update_news_')&&path!=='/rest/v1/rpc/app_update_news_list'&&path!=='/rest/v1/rpc/app_update_news_seen'){
       if(!operator)return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'42501',message:'OPERATOR_FEATURE_REQUIRED'})});
       if(path==='/rest/v1/rpc/app_release_notes_read')data=NOTES;
-      else if(path==='/rest/v1/rpc/app_update_news_admin')data={start_on:'2026-11-20',users:9,items:[{...items[0],sources:['11/15-3'],reads:7,withdrawn_at:null},{...items[1],sources:['11/15-2'],reads:9,withdrawn_at:null},{id:'n0',title:null,lines:['시작 날짜 전 소식'],sources:[],sent_at:'2026-11-10T01:00:00Z',reads:0,withdrawn_at:null}]};
+      else if(path==='/rest/v1/rpc/app_update_news_admin')data={start_on:startOn,users:9,items:[{...items[0],sources:['11/15-3'],reads:7,withdrawn_at:null},{...items[1],sources:['11/15-2'],reads:9,withdrawn_at:null},{id:'n0',title:null,lines:['시작 날짜 전 소식'],sources:[],sent_at:'2026-11-10T01:00:00Z',reads:0,withdrawn_at:null}]};
       else if(path==='/rest/v1/rpc/app_update_news_save')data='n3';
       else data=true;
     }
@@ -144,9 +144,72 @@ test('운영자: 보낸 소식 [수정]·[거두기]·시작 날짜 바꾸기',a
   await sent.locator('[data-un-withdraw="n1"]').click();
   await page.getByRole('button',{name:'거두기',exact:true}).last().click();
   await expect.poll(()=>calls.some(c=>c.path.endsWith('app_update_news_withdraw')&&c.body.p_id==='n1')).toBe(true);
-  await page.locator('#updatesView [data-un-start]').click();
+  await page.locator('#updatesView .un-cut [data-un-start]').click();
   const start=page.locator('#updateNewsStart');
   await start.getByLabel('시작 날짜').fill('2026-11-25');
   await start.getByRole('button',{name:'바꾸기',exact:true}).click();
   await expect.poll(()=>calls.find(c=>c.path.endsWith('app_update_news_set_start'))?.body).toEqual({p_start:'2026-11-25'});
+});
+
+// UPDATE-소식안보임(요청함 11/16): 시작 날짜가 없으면 아무 소식도 이용자에게 안 보인다(서버 규칙). 운영자 화면이 한 줄로 알리고, 보낼 때 오늘로 같이 정한다.
+for(const width of [412,880,1280])test(`운영자: 시작 날짜 없음 → 안내 줄·[시작 날짜 정하기], 보내기 창에서 오늘로 같이 정하기 (${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const calls=await boot(page,{operator:true,view:'updates',startOn:null});
+  const view=page.locator('#updatesView');
+  await expect(view.locator('.rn-note')).toHaveCount(4,{timeout:15000});
+  await expect(view.locator('.un-cut')).toContainText('이용자에게 보이는 시작 날짜 정하지 않음');
+  const notice=view.locator('[data-un-notice]');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('시작 날짜가 없어 이용자에게 아직 안 보여요');
+  await expect(notice.getByRole('button',{name:'시작 날짜 정하기'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`${SHOTS}operator-no-start-${width}.png`});
+  // [시작 날짜 정하기] → 오늘이 채워진 창, 버튼 '정하기'
+  const today=await page.evaluate(()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10));
+  await notice.getByRole('button',{name:'시작 날짜 정하기'}).click();
+  const start=page.locator('#updateNewsStart');
+  await expect(start.getByLabel('시작 날짜')).toHaveValue(today);
+  await start.getByRole('button',{name:'취소'}).click();
+  await expect(start).toHaveCount(0);
+  // 기록 줄 [보내기] → 창에 안내 줄 + '오늘부터 보이게 시작 날짜도 정하기'(기본 켬) → 보내면 save 다음 set_start(오늘)
+  await view.locator('.rn-note').nth(2).locator('[data-rn-send]').click();
+  const modal=page.locator('#updateNewsSend');
+  await expect(modal.locator('[data-un-notice="send"]')).toHaveText('시작 날짜가 없어 이용자에게 아직 안 보여요');
+  const box=modal.locator('[data-un-send-start]');
+  await expect(box).toBeChecked();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`${SHOTS}operator-send-no-start-${width}.png`});
+  await modal.getByRole('button',{name:'보내기',exact:true}).click();
+  await expect(modal).toHaveCount(0);
+  await expect.poll(()=>calls.find(c=>c.path.endsWith('app_update_news_set_start'))?.body).toEqual({p_start:today});
+  const order=calls.map(c=>c.path.split('/').pop());
+  expect(order.indexOf('app_update_news_save')).toBeLessThan(order.indexOf('app_update_news_set_start'));
+});
+
+test('운영자: 시작 날짜 없음에서 칸을 끄고 보내면 시작 날짜는 그대로',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:1280,height:900});
+  const calls=await boot(page,{operator:true,view:'updates',startOn:null});
+  await page.locator('#updatesView [data-un-write]').click();
+  const modal=page.locator('#updateNewsSend');
+  await modal.locator('textarea').fill('· 시험 소식');
+  await modal.locator('[data-un-send-start]').uncheck();
+  await modal.getByRole('button',{name:'보내기',exact:true}).click();
+  await expect(modal).toHaveCount(0);
+  await expect.poll(()=>calls.some(c=>c.path.endsWith('app_update_news_save'))).toBe(true);
+  expect(calls.some(c=>c.path.endsWith('app_update_news_set_start'))).toBe(false);
+});
+
+test('운영자: 시작 날짜 앞 소식이 있으면 개수 안내, 수정 창에는 시작 날짜 칸 없음',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:412,height:900});
+  await boot(page,{operator:true,view:'updates'});
+  const notice=page.locator('#updatesView [data-un-notice]');
+  await expect(notice).toContainText('보낸 소식 1개는 시작 날짜 앞이라 이용자에게 안 보여요',{timeout:15000});
+  await page.locator('#updatesView .un-sent summary').click();
+  await page.locator('#updatesView [data-un-edit="n2"]').click();
+  const modal=page.locator('#updateNewsSend');
+  await expect(modal).toBeVisible();
+  await expect(modal.locator('[data-un-send-start]')).toHaveCount(0);
 });
