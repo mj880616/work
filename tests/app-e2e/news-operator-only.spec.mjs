@@ -24,6 +24,9 @@ for (const width of [412, 1280]) {
     const v = await menuViews(page);
     expect([...v.sheet, ...v.pc, ...v.bar]).not.toContain('outside');
     for (const where of ['#appNav', '#mobileMenu']) await expect(page.locator(where)).not.toContainText('News');
+    // 화면 사진(가짜 자료만): CI 묶음 ui-audit-*에 남는다. 폰은 [메뉴] 창을 연 모습, PC는 왼쪽 메뉴.
+    if (width <= 760) { await page.locator('#mobileMenuTab').click(); await expect(page.locator('#mobileMenu')).toBeVisible(); await page.waitForTimeout(400); }
+    await page.screenshot({ path: `test-results/ui-audit/s63-03-news-operator-only-${width}.png` });
     expect(errors).toEqual([]);
   });
 }
