@@ -51,7 +51,7 @@ test('delete kinds: brief only / with document, confirm and result lines', () =>
   assert.deepEqual(m.deleteResult('brief', { failed: 1 }), { text: '브리핑을 삭제하지 못했어요', error: true });
 });
 
-test('brief-room.js: delete paths use the owner RPC, folder item delete and the shared document delete; no device storage', async () => {
+test('brief-room.js: delete paths use the owner RPC, folder item delete and the shared document delete', async () => {
   const { readFile } = await import('node:fs/promises');
   const src = await readFile(new URL('../app/brief-room.js', import.meta.url), 'utf8');
   assert.match(src, /\/rest\/v1\/rpc\/app_document_brief_delete/);
@@ -59,5 +59,6 @@ test('brief-room.js: delete paths use the owner RPC, folder item delete and the 
   assert.match(src, /import\('\.\/document-delete\.js'\)/);
   assert.match(src, /deleteSequentially/);
   assert.match(src, /createSelectMode/);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|app_document_briefs\?[^`]*method:'DELETE'/);
+  // 기기 저장 금지는 CI audit이 본다. 브리핑 표에 직접 DELETE 요청은 없다(서버 함수로만).
+  assert.doesNotMatch(src, /app_document_briefs\?[^`]*method:'DELETE'/);
 });
