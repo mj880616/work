@@ -116,13 +116,20 @@ export function plainToDoc(text) {
 // are hard_break nodes, so toPlain(plainToDocKeep(text)) gives the same lines back (a line of only spaces counts as blank, the
 // way toPlain's own tidy-up does; extra blank lines in a row, trailing spaces and blank ends are the only things toPlain drops).
 // Nothing is read as format: "1." "-" and dates stay letters.
-export function plainToDocKeep(text) {
+// ED-빈줄읽기: {blankLines:true} (a letters-only field, ed-markdown-out.mjs lettersToDoc) keeps the extra blank lines: one blank line
+// is the gap between two paragraphs, and each more blank line in a row is one empty paragraph between them (the way docToMarkdown
+// writes them), so the editor shows them where the letters have them. Without it (every other caller) extra blank lines are gaps only.
+export function plainToDocKeep(text, {blankLines = false} = {}) {
   const lines = String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n');
   const chunks = [];
-  let chunk = null;
+  let chunk = null, blank = 0;
   for (const line of lines) {
-    if (!line.trim()) { chunk = null; continue; }
-    if (!chunk) chunks.push(chunk = []);
+    if (!line.trim()) { chunk = null; blank++; continue; }
+    if (!chunk) {
+      if (blankLines && chunks.length) for (let i = 1; i < blank; i++) chunks.push([]);
+      chunks.push(chunk = []);
+    }
+    blank = 0;
     chunk.push(line);
   }
   const content = chunks.map(chunkLines => {
