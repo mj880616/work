@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안 1차: 메뉴 › 쓰는 법</title>
+<style>
+:root{--bg:#f3f0e8;--card:#fffdf8;--line:#e3ded2;--ink:#2b2a26;--sub:#7a766c;--olive:#5b6b33;--sel:#edf0e2;--warn:#fff4e5}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8cf;font:14px/1.45 "Noto Sans KR",system-ui,sans-serif;color:var(--ink);padding:16px;width:1740px}
+h1{font-size:18px;margin:0 0 4px}
+h2{font-size:15px;margin:18px 0 6px}
+.lead{color:#555;margin:0 0 10px;font-size:13px;max-width:1440px}
+.row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px}
+.cap{font-size:12px;color:#444;margin:0 0 6px;font-weight:600;max-width:412px}
+.frame{background:var(--bg);border:1px solid #bbb;border-radius:14px;overflow:hidden;position:relative}
+.ph{width:412px;height:760px}.fold{width:880px;height:560px}.pc{width:1440px;height:640px}
+.top{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--card);font-weight:700;font-size:15px}
+.top .bk{color:var(--sub);font-weight:400}
+.sum{margin:8px 10px;font-size:13px;color:#444}
+.find{margin:0 10px 6px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 9px;font-size:13px;color:var(--sub)}
+.grp{margin:10px 12px 2px;font-size:11.5px;color:var(--sub);font-weight:600}
+.it{background:var(--card);border-top:1px solid var(--line);padding:7px 12px;font-size:13px;display:flex;gap:8px;align-items:baseline}
+.it:last-of-type{border-bottom:1px solid var(--line)}
+.it .nm{font-weight:600;width:84px;flex:none}
+.it .t{color:var(--sub);font-size:12.5px;flex:1}
+.it .ar{color:var(--sub)}
+.open{background:#fff;border-top:1px solid var(--line);padding:8px 12px 10px;font-size:13px}
+.open .h{display:flex;gap:8px;align-items:baseline}
+.open .h .nm{font-weight:700;width:84px}
+.open ol{margin:6px 0 6px;padding-left:20px;font-size:12.5px}
+.open li{margin:2px 0}
+.btn{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:7px;padding:3px 9px;font-size:12px;white-space:nowrap}
+.priv{margin:10px;background:#f6f8f0;border:1px solid #d5dcc0;border-radius:8px;padding:8px 10px;font-size:12px}
+.priv b{display:block;margin-bottom:2px}
+.nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;border-top:1px solid var(--line);padding:7px 0 9px;font-size:11px;color:var(--sub);background:var(--card)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.sheet{position:absolute;left:0;right:0;bottom:44px;background:#fff;border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.12);padding:10px 12px}
+.mrow{display:flex;flex-wrap:wrap;gap:4px}
+.mrow span{width:30%;padding:7px 6px;font-size:12.5px;border-radius:6px}
+.mrow .on{background:var(--sel);font-weight:600}
+.tline{border-top:1px solid var(--line);margin:6px 0}
+.split{display:flex;height:100%}
+.side{width:170px;background:var(--card);border-right:1px solid var(--line);padding:10px 8px;font-size:13px;color:#555;flex:none}
+.side div{padding:5px 8px;border-radius:6px}.side .on{background:var(--sel);color:var(--ink);font-weight:600}
+.side hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.panes{display:flex;flex:1;min-height:0}
+.toc{width:240px;border-right:1px solid var(--line);flex:none;padding:6px 0;font-size:13px}
+.toc div{padding:5px 14px}.toc .on{background:var(--sel);font-weight:600}
+.toc .g{font-size:11.5px;color:var(--sub);font-weight:600;padding-top:10px}
+.body{flex:1;min-width:0;padding:10px 16px;overflow:hidden}
+.body h3{margin:4px 0 2px;font-size:16px}
+.body .one{color:#444;font-size:13px;margin-bottom:8px}
+.body ol{padding-left:20px;font-size:13px;margin:4px 0 10px}
+.body li{margin:3px 0}
+.shot{border:1px dashed #bbb;border-radius:8px;height:120px;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:12px;background:#faf8f2;margin:6px 0 10px}
+.note{background:#fffbe8;border:1px dashed #d9b93a;border-radius:10px;padding:10px 12px;font-size:12.5px;max-width:1440px;margin-bottom:14px}
+.note li{margin:2px 0}
+.ask{background:#fff;border:2px solid var(--olive);border-radius:10px;padding:10px 14px;font-size:13px;max-width:1440px}
+.ask li{margin:4px 0}
+.cmp{display:flex;gap:16px}
+.cmp .c{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12.5px;width:420px}
+.x{text-decoration:line-through;color:#b06a5a}
+</style>
+</head>
+<body>
+<h1>시안 1차 — 메뉴 › 쓰는 법 (HELP-메뉴안쓰는법)</h1>
+<p class="lead">메뉴 맨 아래에 <b>쓰는 법</b> 한 페이지를 둬요. 맨 위 한 줄 요약 → 메뉴마다 한 줄(누르면 3~4줄로 펼침 + [이 메뉴 열기]) → 맨 아래 '내 기록은 누가 보나'와 문의 메일. 목록은 <b>그 사람 메뉴와 똑같이</b> 만들어서, 운영자 전용 메뉴(통화·텔레그램 소식·가입자 현황·업데이트 기록)는 다른 사람의 쓰는 법에 줄 자체가 없어요(서버가 주는 기능 목록으로 판정, 숨기기 아님). 메뉴 이름은 main #2697 뒤 이름(조직 관리·사업 관리)을 따랐어요.</p>
+
+<div class="note"><ul style="margin:0;padding-left:18px">
+<li><b>글은 한 곳:</b> 쓰는 법 글은 화면 글자 기준표(ui-words)처럼 저장소 파일 하나에 두고, 메뉴 이름이 바뀌면 같이 바뀌게 시험으로 묶어요. 화면 사진은 지어낸 예시로만 찍어요.</li>
+<li><b>각 화면 ⋯ 메뉴 맨 아래 '쓰는 법':</b> 누르면 이 페이지의 그 메뉴 줄이 펼쳐진 채로 열려요(아래 결정 ②).</li>
+<li><b>새 가입자:</b> 가입 직후 한 번 뜨는 안내 끝에 [쓰는 법 보기] 한 줄.</li>
+</ul></div>
+
+<h2>폰 412</h2>
+<div class="row">
+ <div><p class="cap">① 메뉴 창 — 맨 아래 묶음에 '쓰는 법'</p>
+  <div class="frame ph">
+   <div class="top">홈</div>
+   <div class="dim"></div>
+   <div class="sheet">
+    <div class="mrow"><span>사업 관리</span><span>조직 관리</span><span>자료실</span><span>News</span><span>사진</span><span>파일</span><span>공유 페이지</span><span>HWP 편집</span><span>브리핑 룸</span></div>
+    <div class="tline"></div>
+    <div class="mrow"><span>내 프로필</span><span class="on">쓰는 법</span><span>메뉴 편집</span></div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span><b>메뉴</b></span></div>
+  </div></div>
+
+ <div><p class="cap">② 쓰는 법 — 메뉴마다 한 줄</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>쓰는 법</div>
+   <div class="sum">노조+는 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.</div>
+   <div class="find">쓰는 법에서 찾기</div>
+   <div class="grp">매일</div>
+   <div class="it"><span class="nm">홈</span><span class="t">오늘 일정·할 일·잊지 말 것을 한 화면에</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">잊지 말기</span><span class="t">떠오른 것을 바로 적어 두는 곳</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">일정</span><span class="t">구글 캘린더·할 일·하루 기록</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">노트</span><span class="t">길게 쓰는 글, 폴더·밑줄·태그</span><span class="ar">›</span></div>
+   <div class="grp">업무 기록</div>
+   <div class="it"><span class="nm">조직 관리</span><span class="t">맡은 조직별 상황을 쌓아 두기</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">사업 관리</span><span class="t">사업영역별 회의·활동 기록</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">주간 보고</span><span class="t">한 주 기록으로 초안 → 한글 파일</span><span class="ar">›</span></div>
+   <div class="grp">자료</div>
+   <div class="it"><span class="nm">자료실</span><span class="t">문서를 내 구글 드라이브에 정리</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">News</span><span class="t">기사·성명 읽기, 보관·밑줄</span><span class="ar">›</span></div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">③ 한 줄을 누르면 — 3~4줄 + [이 메뉴 열기]</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>쓰는 법</div>
+   <div class="grp">업무 기록</div>
+   <div class="open"><div class="h"><span class="nm">조직 관리</span><span class="muted" style="color:var(--sub);font-size:12.5px">맡은 조직별 상황을 쌓아 두기</span></div>
+    <ol><li>[+ 담당조직]으로 조직 이름을 직접 넣어요.</li><li>조직을 누르고 있었던 일을 한 줄씩 적어요. 날짜가 붙어 쌓여요.</li><li>[전체 표]에서 모든 조직의 이번 주 상황을 한눈에 봐요.</li><li>주간 보고의 조직 칸은 여기 기록으로 채워져요.</li></ol>
+    <span class="btn">조직 관리 열기 ›</span></div>
+   <div class="it"><span class="nm">사업 관리</span><span class="t">사업영역별 회의·활동 기록</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">주간 보고</span><span class="t">한 주 기록으로 초안 → 한글 파일</span><span class="ar">›</span></div>
+   <div class="grp">계정</div>
+   <div class="it"><span class="nm">내 프로필</span><span class="t">소속·폰 알림·내 묶음·구글 연결</span><span class="ar">›</span></div>
+   <div class="it"><span class="nm">백업</span><span class="t">내 구글 드라이브로 기록 받기</span><span class="ar">›</span></div>
+   <div class="priv"><b>내 기록은 누가 보나</b>운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않습니다. 운영자에게 제공되는 정보: 조직, 부서, 이름, 직책, 이메일주소, 가입일, 마지막 사용 시각. 제공되지 않는 정보: 유저가 기록·업로드한 정보.</div>
+   <div class="sum" style="font-size:12px;color:var(--sub)">문의: nojoplus.com@gmail.com · 처리방침 · 이용 약관</div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">④ 화면 ⋯ 메뉴 맨 아래 → 그 줄이 펼쳐진 채로</p>
+  <div class="frame ph">
+   <div class="top">조직 관리<span style="flex:1"></span><span style="color:var(--sub)">⋯</span></div>
+   <div style="position:absolute;right:10px;top:42px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);font-size:13px;width:170px">
+    <div style="padding:7px 12px">조직 순서 바꾸기</div><div style="padding:7px 12px">지난 조직 보기</div><div style="padding:7px 12px;border-top:1px solid var(--line);background:var(--sel)">쓰는 법</div></div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+</div>
+
+<h2>폴드 펼침 880 — 목차 | 내용</h2>
+<div class="row">
+ <div class="frame fold">
+  <div class="top"><span class="bk">‹</span>쓰는 법</div>
+  <div class="panes">
+   <div class="toc"><div class="g">매일</div><div>홈</div><div>잊지 말기</div><div>일정</div><div>노트</div><div class="g">업무 기록</div><div class="on">조직 관리</div><div>사업 관리</div><div>주간 보고</div><div class="g">자료</div><div>자료실</div><div>News</div><div class="g">계정</div><div>내 프로필</div><div>백업</div><div>내 기록은 누가 보나</div></div>
+   <div class="body"><h3>조직 관리</h3><div class="one">맡은 조직별 상황을 쌓아 두는 곳이에요.</div>
+    <ol><li>[+ 담당조직]으로 조직 이름을 직접 넣어요.</li><li>조직을 누르고 있었던 일을 한 줄씩 적어요. 날짜가 붙어 쌓여요.</li><li>[전체 표]에서 모든 조직의 이번 주 상황을 한눈에 봐요.</li><li>주간 보고의 조직 칸은 여기 기록으로 채워져요.</li></ol>
+    <div class="shot">예시 화면 사진(지어낸 조직 이름)</div><span class="btn">조직 관리 열기 ›</span></div>
+  </div>
+ </div>
+</div>
+
+<h2>PC 1440 — 왼쪽 메뉴 · 목차 | 내용</h2>
+<div class="row">
+ <div class="frame pc">
+  <div class="split">
+   <div class="side"><div>홈</div><div>잊지 말기</div><div>일정</div><div>노트</div><div>사업 관리</div><div>조직 관리</div><div>자료실</div><div>News</div><hr><div>내 프로필</div><div class="on">쓰는 법</div></div>
+   <div class="main">
+    <div class="top">쓰는 법 <span style="font-weight:400;font-size:13px;color:#444">· 노조+는 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.</span><span style="flex:1"></span><span class="find" style="margin:0;width:240px">쓰는 법에서 찾기</span></div>
+    <div class="panes">
+     <div class="toc"><div class="g">매일</div><div>홈</div><div>잊지 말기</div><div>일정 · 할 일 · 하루 기록</div><div>노트</div><div class="g">업무 기록</div><div class="on">조직 관리</div><div>사업 관리</div><div>주간 보고</div><div class="g">자료</div><div>자료실 · 파일</div><div>News</div><div>공유 페이지 · HWP 편집</div><div class="g">계정</div><div>내 프로필 · 내 묶음</div><div>백업</div><div>내 기록은 누가 보나</div></div>
+     <div class="body"><h3>조직 관리</h3><div class="one">맡은 조직별 상황을 쌓아 두는 곳이에요.</div>
+      <ol><li>[+ 담당조직]으로 조직 이름을 직접 넣어요.</li><li>조직을 누르고 있었던 일을 한 줄씩 적어요. 날짜가 붙어 쌓여요.</li><li>[전체 표]에서 모든 조직의 이번 주 상황을 한눈에 봐요.</li><li>주간 보고의 조직 칸은 여기 기록으로 채워져요.</li></ol>
+      <div class="shot" style="height:200px">예시 화면 사진(지어낸 조직 이름)</div><span class="btn">조직 관리 열기 ›</span></div>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<h2>운영자 화면과 다른 사람 화면 비교(목차)</h2>
+<div class="cmp" style="margin-bottom:18px">
+ <div class="c"><b>명진(운영자)</b> — 위 목차 + 운영자 묶음<br>통화 · 텔레그램 소식 · 가입자 현황 · 업데이트 기록 · 받은 의견</div>
+ <div class="c"><b>다른 사람</b> — 위 목차만. 운영자 묶음은 <span class="x">숨김</span>이 아니라 <b>줄이 없음</b>(서버 기능 목록에 없는 메뉴는 쓰는 법 글도 안 내려감)</div>
+</div>
+
+<div class="ask"><b>명진 결정</b>
+<ol style="margin:4px 0 0;padding-left:20px">
+<li><b>자리:</b> 가. 메뉴 맨 아래 묶음(내 프로필 옆, 추천) / 나. 내 프로필 안</li>
+<li><b>각 화면 ⋯ 메뉴 맨 아래 '쓰는 법' 한 줄</b>(누르면 그 메뉴 설명이 펼쳐진 채 열림): 가. 넣기(추천) / 나. 안 넣기</li>
+<li><b>화면 사진:</b> 가. 메뉴마다 예시 사진 한 장(지어낸 이름, 추천) / 나. 글만</li>
+</ol></div>
+</body>
+</html>
