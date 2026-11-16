@@ -531,7 +531,7 @@ const autoOpened = new Set();
 let autoOpenWaiting = false; // 열린 메뉴가 닫힌 뒤 맨 위 글 열기를 한 번만 걸어 둠
 let restoring = false; // 주소에 남은 글을 다시 열기(restorePlaced)
 // S63-11: 탭 목록이 다 그려졌으면(줄·빈 목록·실패 표시) 열린 글이 그 목록에 있는지 한 번 본다. 없으면 오른쪽을 비우고 한 줄 안내.
-const settled = panel => !!panel.querySelector('.now-row, [data-wait-empty], [data-wait-fail]') && !panel.querySelector('kptu-wait:not(.wait-inline)');
+const settled = panel => !!panel.querySelector('.now-row, details[data-os-intl], [data-wait-empty], [data-wait-fail]') && !panel.querySelector('kptu-wait:not(.wait-inline)');
 function fitDetail() {
   if (!fitWanted || restoring) return;
   const c = detail.current(), panel = $(`#${PANEL[state.tab] || ''}`);
