@@ -25,7 +25,7 @@ export function shadeOf(text) {
 // 언론 키는 카탈로그 키(news- 앞머리) 그대로라 토큰 이름도 --ds-news-id-news-<이름>이다. 카탈로그에 없는 기사(옛 키워드 기사·카탈로그에서 뺀 매체의 글)는 매체 이름으로 칸을 고른다.
 export const FIXED_OUTSIDE = Object.freeze([
   'justice', 'kgreens', 'laborparty', 'jinboparty', 'kmwu', 'kptu',
-  'kctu', 'kfsu', 'hakbi', 'pssp', 'ws', 'platformc', 'leftall', 'socialism', 'socialist', 'jacobin', 'labornotes', 'redpepper', 'socialistworker',
+  'kctu', 'kfsu', 'hakbi', 'edubonbu', 'pssp', 'ws', 'platformc', 'leftall', 'socialism', 'socialist', 'jacobin', 'labornotes', 'redpepper', 'socialistworker',
 ]);
 export const FIXED_NEWS = Object.freeze([
   'news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain', 'news-newstapa', 'news-hani',

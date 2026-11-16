@@ -20,7 +20,7 @@ const JWT_OK='synthetic.user.jwt-owner-0001',JWT_STRANGER='synthetic.user.jwt-st
 const FN='https://synthetic.supabase.test/functions/v1/outside-feed';
 
 // 단체 키 → 목록 표본(카탈로그 lists 순서대로).
-const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
+const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],edubonbu:['edubonbu.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
   jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html','pssp-focus.html','pssp-j2021.html','pssp-report.html','pssp-pamphlet.html','pssp-document.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html','leftall-newsletter.html'],
   socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 // 단체별 기대: [정규화한 주소, 종류] 순서.
@@ -30,6 +30,7 @@ const EXPECT={
   kmwu:[['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8102','statement'],['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8101','press']],
   kfsu:[['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3302','press'],['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3301','statement']],
   hakbi:[['https://www.hakbi.org/board/media_reports/read/1205','statement'],['https://www.hakbi.org/board/media_reports/read/1203','press']],
+  edubonbu:[['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=340','press'],['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=337','statement'],['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=333','comment'],['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=332','press']],
   laborparty:[['https://laborparty.kr/?mod=document&page_id=13642&uid=5001','comment'],['https://laborparty.kr/?mod=document&page_id=13642&uid=5000','comment']],
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
@@ -52,7 +53,7 @@ const itemsOf=s=>LISTS[s.key].flatMap((f,i)=>s.mode==='rss'?P.parseFeed(s,FX(f),
 // ---- 카탈로그 ------------------------------------------------------------------------------------------------------
 
 test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): 정의당은 홈페이지 없이 텔레그램 채널만, no NLR, kptu·leftall·socialist·4 foreign', () => {
-  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','kmwu','kfsu','hakbi','laborparty','kgreens','jinboparty','justice','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
+  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','kmwu','kfsu','hakbi','edubonbu','laborparty','kgreens','jinboparty','justice','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
   const all=JSON.stringify(OUTSIDE_CATALOG.map(s=>[s.lists,s.hosts]));
   assert.doesNotMatch(all,/justice21|newleftreview|inthesetimes|thenation|tribunemag|spectrejournal/);
   assert.deepEqual(sourceByKey('kptu').lists,['https://www.kptu.net/board/list.aspx?mid=F686C1F3']);
@@ -1063,7 +1064,7 @@ test('글 쪽 날짜: 메타(article:published_time) → 제목 뒤 날짜 → <
 });
 
 test('묶음: [노동](labor)은 민주노총·공공운수노조·금속노조·서비스연맹·학비노조(L1), 묶음은 노동·정당·사회운동·외국 넷뿐', () => {
-  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu','kmwu','kfsu','hakbi']);
+  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu','kmwu','kfsu','hakbi','edubonbu']);
   assert.deepEqual([...new Set(OUTSIDE_CATALOG.map(s=>s.group))].sort(),['foreign','labor','movement','party']);
   // 뉴스 클리핑도 같은 정돈 함수만 부른다(다른 동작은 그대로).
   const news=readFileSync('supabase/functions/news-feed/handler.ts','utf8');
@@ -1086,17 +1087,29 @@ test('[노동] 추가 단체 목록 표본: 고정 공지·다른 게시판·htt
   assert.deepEqual(rows('hakbi','hakbi.html'),[
     ['https://www.hakbi.org/board/media_reports/read/1205','statement','[성명] 가상 학교급식 노동자 산재 대책 촉구','2026-10-29T15:00:00.000Z'],
     ['https://www.hakbi.org/board/media_reports/read/1203','press','[보도자료] 가상 집단교섭 결렬 기자회견','2026-10-26T15:00:00.000Z']]);
+  // 교육공무직본부(S62-42): 한 게시판(브리핑룸)에 머리말로 섞임 — [취재요청서]·다른 게시판·쪽 번호·http 링크는 거르고, 한글 도메인 링크는 punycode 주소로.
+  assert.deepEqual(rows('edubonbu','edubonbu.html'),[
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=340','press','[보도자료] 가상 학교 청소노동자 선도파업','2026-10-29T15:00:00.000Z'],
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=337','statement','[성명] 가상 학교 돌봄 국가책임 촉구','2026-10-28T15:00:00.000Z'],
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=333','comment','[브리핑] 가상 교육감 취임 100일 평가','2026-10-07T15:00:00.000Z'],
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=332','press','[공동보도자료] 가상 교육재정 개편 반대 기자회견','2026-10-06T15:00:00.000Z']]);
+  const e=sourceByKey('edubonbu');
+  assert.equal(e.name,'교육공무직본부');assert.equal(e.group,'labor');
+  assert.equal(e.kindOf('[취재요청서] 가상 기자회견',''),null);assert.equal(e.kindOf('[공지] 가상',''),null);
+  assert.ok(allowedUrl(e,'https://교육공무직.com/sub/sub02_02.php'),'한글 도메인도 같은 호스트(punycode)');
+  for(const bad of ['http://xn--ob0btg349a4slcgd.com/sub/sub02_02.php','https://xn--ob0btg349a4slcgd.com.evil.example/','https://xn--ob0btg349a4slcgd.com:8443/'])assert.equal(allowedUrl(e,bad),null,bad);
 });
 
 test('[노동] 추가 단체 저장: 정돈 함수를 거쳐 제목 한 줄(꼬리표·단체명 꼬리 떼기), 목록 날짜 — robots.txt는 그대로 먼저 읽는다', async () => {
   for(const [key,file,want] of [['kmwu','kmwu.html',['가상 하청노동자 교섭 거부 규탄','가상 완성차 공동투쟁 결과']],
     ['kfsu','kfsu.html',['가상 돌봄노동자 처우개선 기자회견','가상 유통업 의무휴업 폐지 반대']],
-    ['hakbi','hakbi.html',['가상 학교급식 노동자 산재 대책 촉구','가상 집단교섭 결렬 기자회견']]]){
+    ['hakbi','hakbi.html',['가상 학교급식 노동자 산재 대책 촉구','가상 집단교섭 결렬 기자회견']],
+    ['edubonbu','edubonbu.html',['가상 학교 청소노동자 선도파업','가상 학교 돌봄 국가책임 촉구','가상 교육감 취임 100일 평가','가상 교육재정 개편 반대 기자회견']]]){
     const s=sourceByKey(key);
     const sites={[s.lists[0]]:FX(file)};for(const [u] of EXPECT[key])sites[u]=FX('article-ko.html');
     const h=harness({sources:[{workspace_id:WS,source_key:key}],sites});
     const out=await (await h.cron('run',{source:key})).json();
-    assert.equal(out.status,'ok',key);assert.equal(out.inserted,2,key);
+    assert.equal(out.status,'ok',key);assert.equal(out.inserted,EXPECT[key].length,key);
     assert.deepEqual(EXPECT[key].map(([u])=>h.db.app_outside_posts.find(p=>p.url===u).title),want,key);
     assert.ok(h.calls.site.some(u=>new URL(u).pathname==='/robots.txt'),`${key}: robots 예외 아님 — robots.txt를 읽는다`);
   }
@@ -1104,7 +1117,7 @@ test('[노동] 추가 단체 저장: 정돈 함수를 거쳐 제목 한 줄(꼬�
 
 test('[노동] 추가 단체도 robots.txt가 막으면(Disallow: /) 읽지 않는다 — robots 예외는 늘리지 않음(L1·L2)', async () => {
   assert.deepEqual(H.ROBOTS_EXEMPT_KEYS,['kptu','laborparty']);
-  for(const key of ['kmwu','kfsu','hakbi']){
+  for(const key of ['kmwu','kfsu','hakbi','edubonbu']){
     const s=sourceByKey(key);assert.equal(s.robotsException,undefined,key);
     const origin=new URL(s.lists[0]).origin;
     const h=harness({sources:[{workspace_id:WS,source_key:key}],sites:{[s.lists[0]]:FX(`${key}.html`)},robots:{[origin]:'User-agent: *\nDisallow: /\n'}});

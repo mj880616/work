@@ -127,12 +127,15 @@ const FOOT='<footer>합성 저작권 꼬리</footer>';
 const FIG=(cls='')=>`<figure${cls?` class="${cls}"`:''}><img src="/data/photo/sample.jpg" alt="합성 대체 글"><figcaption>합성 캡션 글</figcaption></figure>`;
 const body=(lang)=>lang==='en'?`<p>${EN.repeat(4)}</p><h3>Synthetic subhead</h3><p>${EN.repeat(4)}</p>`:`<p>${LONG}</p><h3>합성 소제목</h3><p>${LONG}</p>`;
 const wrap=(inner,head='')=>`<html><head>${head}</head><body>${NAV}${inner}${FOOT}</body></html>`;
+const EDU_ATT='<div class="file"><a href="#">첨부파일(1) <img src="/img/ico_file.png" alt="첨부파일 보기"></a><div class="layer"><a href="/down.php?idx=1">[보도자료]합성첨부_261111.hwp (214.5 KB)</a><a href="#"><img src="/img/btn_close.png" alt="첨부파일 레이어 닫기"></a></div></div>';
 const SAMPLES={
  kctu:l=>wrap(`<div class="xe_content">${body(l)}${FIG()}</div>`),
  kptu:l=>wrap(`<form><div class="publishList_write">${body(l)}<p><img src="/upload/sample.png"></p></div></form>`.replace('<form>','').replace('</form>','')),
  kmwu:l=>wrap(`<section id="bo_v_atc"><div id="bo_v_con">${body(l)}${FIG()}</div><section id="bo_v_file">합성첨부.hwp 빼는 칸</section><div id="bo_v_sns">공유 빼는 칸</div></section>`),
  kfsu:l=>wrap(`<article class="post"><p>합성 머리 짧은 칸</p></article><div class="kboard-content">${body(l)}${FIG()}</div><div class="kboard-document-action">빼는 칸 좋아요</div>`),
  hakbi:l=>wrap(`<article class="top"><p>짧은 상단 칸</p></article><form name="bbs"><div class="read_body">${body(l)}${FIG()}</div><input type="hidden" name="x"></form>`),
+ // 교육공무직본부(S62-42): 본문 칸 class 미실측 — 글 머리 '… 조회수 N' 줄(start)과 첨부 칸 덧줄(skip)로 자른다. 줄 차례는 실제 글 쪽 [사실], 태그·class는 [추정].
+ edubonbu:l=>wrap(`<div class="board_view"><h3>합성 견본 제목</h3><p><span>합성단체</span> <span>2026-11-12</span> <span>조회수 412</span></p>${EDU_ATT}<div class="view_con">${body(l)}${FIG()}</div><a href="#">목록</a></div>`),
  laborparty:l=>wrap(`<div class="kboard-content">${body(l)}${FIG()}<div class="kboard-document-action">빼는 칸 인쇄</div></div>`),
  kgreens:l=>wrap(`<h1>합성 견본 제목</h1>${body(l)}${FIG()}`),
  jinboparty:l=>wrap(`<div class="content_head">합성 머리 칸</div><div class="content_box">${body(l)}${FIG()}</div>`),
@@ -479,3 +482,44 @@ test('공용: 닫는 꼬리표가 없는 빼는 칸(drop)은 여는 꼬리표만
  const closed=E.extractBlocks({html:`<div class="mine"><span class="byline">합성 기자 줄</span><p>${LONG}</p></div>`,base:'https://www.example.com/a',title:'',key:'synthetic',rule,body:/^mine$/,minChars:200});
  assert.ok(!closed.text.includes('합성 기자 줄'));
 });
+
+// ---- S62-42: 교육공무직본부 글 쪽(실제 줄 차례: 제목 → '단체 날짜 조회수 N' → 첨부 칸 → 본문(사진만인 글 많음) → 목록 → 다음글·이전글) ----
+test('교육공무직본부: 글 머리 줄·첨부 칸 글자는 본문이 아니다, 사진뿐인 글은 사진 + 첨부 이름(크기 꼬리 뗌)',()=>{
+ const s=OC.sourceByKey('edubonbu');
+ assert.equal(s.extract.version,1);assert.equal(s.bodyClass,undefined);
+ for(const k of Object.keys(OC.OUTSIDE_CATALOG.find(x=>x.key==='kctu').extract))assert.notEqual(k,'skip','skip은 이 단체만 씀');
+ assert.deepEqual(OC.OUTSIDE_CATALOG.filter(x=>x.extract&&x.extract.skip).map(x=>x.key),['edubonbu']);
+ const url='https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=340';
+ const page=(head,inner)=>`<html><head><title>브리핑룸 | 합성단체</title></head><body><a href="#c">본문 바로가기</a><div id="header"><h1><a href="/"><img src="/img/logo.png" alt="합성단체"></a></h1></div>
+<div id="gnb"><ul><li><a href="/sub/sub01_01.php">노동조합 소개</a></li><li><a href="/sub/sub02_01.php">노동조합 소식</a></li></ul></div>
+<div id="container"><h2>브리핑룸</h2><div class="board_view"><div class="view_head"><h3>합성 견본 제목</h3>${head}</div>${inner}
+<div class="btn"><a href="/sub/sub02_02.php?boardid=briefing">목록</a></div>
+<ul class="prev_next"><li><span>다음글</span> 다음글이 없습니다.</li><li><span>이전글</span><a href="#">[보도자료] 합성 이전 글 제목이 서른 자 넘게 길게 이어지는 줄</a></li></ul>
+</div></div><div id="footer"><p>합성단체 합성 주소 대표전화 합성</p><p>Copyright 합성</p></div></body></html>`;
+ const oneLineHead='<p><span>합성단체</span> <span>2026-11-12</span> <span>조회수 412</span></p>';
+ const splitHead='<dl><dt>합성단체</dt><dd>2026-11-12</dd><dd>조회수 1,412</dd></dl>';
+ const imgs='<div class="view_con"><p><img src="/upload/editor/a.jpg"></p><p><img src="/upload/editor/b.jpg"></p></div>';
+ const text=`<div class="view_con"><p>${LONG}</p><p>${LONG}</p><p><img src="/upload/editor/a.jpg"></p></div>`;
+ const it={url,title:'합성 견본 제목',kind:'press',published_at:null,author:null,summary:null,content:null};
+ const run=(h,i)=>{const e=OH.postBody(s,it,{ok:true,text:page(h,i),url});assertDbShape(e,'edubonbu');return e;};
+ const junk=['조회수','2026-11-12','첨부파일','KB','목록','이전 글','다음글','노동조합 소개','Copyright','합성단체'];
+ // 사진뿐인 글 + 첨부: 사진 2장 + 첨부 이름 한 줄(크기 꼬리 없음), 머리·첨부 칸 글자 없음.
+ const a=run(oneLineHead,EDU_ATT+imgs);
+ assert.deepEqual([a.state,a.rule,a.images],['image_only','edubonbu@1',2]);
+ assert.deepEqual(a.blocks.map(b=>b.t==='img'?new URL(b.src).pathname:b.text),['/upload/editor/a.jpg','/upload/editor/b.jpg','[보도자료]합성첨부_261111.hwp']);
+ // 첨부 없는 사진뿐인 글, 머리 줄이 여러 줄로 쪼개진 화면.
+ const b=run(splitHead,imgs);
+ assert.deepEqual([b.state,b.images,b.blocks.filter(x=>x.t!=='img').length],['image_only',2,0]);
+ // 글자 본문 + 첨부: 본문 문단만(첨부 이름은 글자 본문이 있으면 넣지 않음 — 공용 규칙).
+ for(const [h,i] of [[oneLineHead,EDU_ATT+text],[splitHead,text],[oneLineHead,text]]){
+  const e=run(h,i);
+  assert.deepEqual([e.state,e.images],['ok',1]);
+  assert.deepEqual(e.blocks.filter(x=>x.t==='p').map(x=>x.text),[LONG.trim(),LONG.trim()]);
+  for(const j of junk)assert.ok(!e.text.includes(j),j);
+ }
+ // 다른 단체 규칙에는 skip이 없어 같은 줄을 예전처럼 다룬다(공용 동작 그대로).
+ const k=OC.sourceByKey('kctu');
+ const ek=OH.postBody(k,{...it,url:'https://nodong.org/statement/1'},{ok:true,text:wrap(`<div class="xe_content"><p>${LONG}</p><p>[보도자료]합성첨부_261111.hwp (214.5 KB)</p></div>`),url:'https://nodong.org/statement/1'});
+ assert.ok(ek.text.includes('214.5 KB'),'kctu: skip 없음 — 공용 동작 그대로');
+});
+
