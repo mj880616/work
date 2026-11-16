@@ -815,9 +815,10 @@ function setQuery(raw, {submit = false} = {}) {
 
 // ---------- 누르기 ----------
 const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: 'News 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
-  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 수정</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button>`,
+  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 수정</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button><button type="button" class="row-act" data-os-act="help">쓰는 법</button>`,
   onAction: button => {
     const a = button.dataset.osAct;
+    if (a === 'help') { void import('./help-link.js').then(m => m.openHelp('outside')); return; } // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
     if (a === 'sources') openSources(); else if (a === 'fill') fillNow(); else if (a === 'interests') openInterests();
     else if (a === 'news-sources') newsPanel('sources'); else if (a === 'keywords' || a === 'folders') newsPanel(a);
   }});

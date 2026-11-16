@@ -101,7 +101,7 @@ test('아스날 폰 390: 메뉴 창 맨 아래에서 열고, 자료는 그때 �
 test('아스날 PC 1280: 사이드바 맨 아래에서 열고, 목록·리뷰 두 칸, 맨 위 경기가 골라져 있음', async ({ page }) => {
   const f = await start(page, 1280);
   const items = await page.locator('#appView>.app-nav .nav-btn:visible').allTextContents();
-  expect(items.at(-2)).toBe('아스날');
+  expect(items.at(-3)).toBe('아스날'); // 그 아래 자주 가는 링크, 맨 끝 '쓰는 법'(HELP-메뉴안쓰는법)
   expect(f.data).toEqual([]);
   await openArsenal(page, 1280);
   await expect(rows(page)).toHaveCount(ALL.length);

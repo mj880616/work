@@ -74,7 +74,7 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   assert.match(html, /<div class="report-head-actions"><button id="reportRecordBtn"[^>]*hidden>녹음<\/button><button id="newMeetingBtn"[^>]*>\+ 사업 보고<\/button><button id="reportMore"[^>]*aria-haspopup="true"/);
   assert.doesNotMatch(html, /id="reportPreviewBtn"/);
   // WEEKLY-메뉴짝짓기 P5: 미리보기 팝업 → 사업 보고 위 접는 칸 '이번 주 주간보고'. ⋯ 메뉴에는 사업영역 관리만.
-  assert.match(team, /render:\(\)=>'<button type="button" data-report-areas>사업영역 관리<\/button>'/);
+  assert.match(team, /render:\(\)=>'<button type="button" data-report-areas>사업영역 관리<\/button>/);
   assert.doesNotMatch(team, /data-report-preview/);
   // BIZ-위쪽정돈(B안, 11/09): 접는 칸(details·summary)이 아니라 늘 펼친 칸. 바뀐 동작이라 기대를 새로 쓴다(지우지 않음).
   // BIZ-주간보고접기: 제목 줄은 처음부터 접고 펴는 버튼(부품이 붙을 때 높이가 바뀌어 아래 목록이 밀리지 않게 — biz-week-no-shift).
