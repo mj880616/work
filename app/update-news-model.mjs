@@ -53,3 +53,26 @@ export function shortDay(value) {
   const [, mm, dd] = day.split('-');
   return `${Number(mm)}/${Number(dd)}`;
 }
+
+// ── UPDATE-소식안보임(요청함 11/16 09:21): 시작 날짜가 없거나 보낸 소식이 시작 날짜 앞이면 이용자 화면에 안 보인다(서버 app_update_news_list 규칙 그대로).
+// 운영자 화면이 그 사실을 한 줄로 알려 주고, 처음 보낼 때는 시작 날짜를 오늘로 같이 정하게 한다.
+
+/** 오늘 서울 날짜(YYYY-MM-DD). */
+export function seoulToday(now = Date.now()) {
+  return new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/** 보낸 소식 목록 위 안내 한 줄. 시작 날짜 없음 / 거두지 않은 소식 중 시작 날짜 앞인 것 n개 / 문제없음(''). */
+export function startGapText(items, startOn) {
+  if (!startOn) return '시작 날짜가 없어 이용자에게 아직 안 보여요';
+  const hidden = (items || []).filter(item => !item.withdrawn_at && !afterStart(item.sent_at, startOn)).length;
+  return hidden ? `보낸 소식 ${hidden}개는 시작 날짜 앞이라 이용자에게 안 보여요` : '';
+}
+
+/** 지금 보내는 새 소식이 이용자에게 보이는지 → 보내기 창 안내와 '시작 날짜도 정하기' 칸. 보이면 null.
+ *  시작 날짜가 없으면 오늘로 정하기 칸을 기본으로 켜고(추천안, 명진 확인 대기), 시작 날짜가 오늘보다 뒤면 당기기 칸을 꺼 둔다(이미 정한 값이라). */
+export function sendStartHint(startOn, today) {
+  if (!startOn) return {text: '시작 날짜가 없어 이용자에게 아직 안 보여요', option: `오늘(${shortDay(today)})부터 보이게 시작 날짜도 정하기`, checked: true};
+  if (startOn > today) return {text: `시작 날짜(${shortDay(startOn)}) 앞이라 이 소식은 이용자에게 아직 안 보여요`, option: `시작 날짜를 오늘(${shortDay(today)})로 당기기`, checked: false};
+  return null;
+}
