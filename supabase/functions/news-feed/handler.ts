@@ -42,6 +42,7 @@ import { NEWS_FEATURE, newsAllowed, newsWorkspaceOf } from "../_shared/news-acce
 import { makeUserReads, readSharedArticle, type UserReads } from "../_shared/shared-article.ts";
 import { cut, isUrlTitle, oneLine, parseFeed } from "../outside-feed/parse.ts";
 import { tidyTitle } from "../_shared/outside-tidy.ts";
+import { newsRank } from "../_shared/news-rank.ts";
 // 기사 제목도 사회운동 Now와 같은 정돈 함수를 거친다(11/02 00:19): 한 줄, 종류 꼬리표·매체명 꼬리·날짜 꼬리만 떼고 '제목 - 부제'는 나누지 않는다.
 const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: false }).title || raw;
 import { secretMatches } from "../outside-feed/handler.ts";
@@ -726,8 +727,11 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   let inserted = 0, status = "ok";
   // 켠 키워드(작업공간마다): take=keywords 매체의 거르기와, 넣는 글의 키워드 표시(S59-1 — 키워드 칸은 이 표시로 모아 본다)에 함께 쓴다.
   const wordsByWs = keywordsByWorkspace(await db.get(`app_news_keywords?enabled=is.true&workspace_id=in.(${ws.join(",")})&select=workspace_id,word&order=created_at.asc&limit=5000`));
-  // raw: 피드에 든 글 칸(item·entry) 수, listed: 그 가운데 주소·제목 검사를 통과한 글 수(건수만). 둘이 크게 다르면 링크 호스트·https 문제다(NEWS-새매체글없음).
-  let raw = 0, listed = 0;
+  // 언론 거르기(S63-10, news-rank.ts): 정치·경제 섹션 글은 공공 낱말·내 키워드·확정한 관심 주제에 맞을 때만 받는다(뉴스를 쓰는 작업공간 합집합, 글자만 — AI 없음).
+  const rankWords = [...new Set([...[...wordsByWs.values()].flat(), ...await confirmedInterests(db, ws, log)])];
+  // raw: 피드에 든 글 칸(item·entry) 수, listed: 그 가운데 주소·제목 검사를 통과한 글 수, dropped: 거르기로 받지 않은 글 수(건수만).
+  //   raw와 listed가 크게 다르면 링크 호스트·https 문제다(NEWS-새매체글없음).
+  let raw = 0, listed = 0, dropped = 0;
   for (const list of source.lists) {
     const got = await reader.get(list, ACCEPT_FEED);
     if (!got.ok) { status = got.code; continue; }
@@ -739,6 +743,7 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
     for (const it of items) {
       const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
+      if (newsRank({ source, list, title: it.title, summary: it.summary, url: clean, category: it.category, words: rankWords }) === null) { dropped++; continue; }
       const full = it.content && chars(it.content) >= 200 ? it.content : null;
       const lead = it.summary;
       const title = newsTitle(it.title, source.name);
@@ -779,10 +784,18 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   // 새 기사 본문(P2b): 피드를 읽은 같은 실행에서 글 쪽 1번씩(예산 안). 실패해도 수집 결과는 그대로.
   let bodies = { done: 0, deferred: 0 };
   try { bodies = await runMediaBodies(db, reader, ai, source, nowMs, startMs, clock); } catch { log("bodies_failed", { source: source.key }); }
-  log("media_done", { source: source.key, inserted, status, raw, listed, bodies: bodies.done, bodies_deferred: bodies.deferred });
-  return { ok: true, step: "media", source: source.key, status, raw, listed, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
+  log("media_done", { source: source.key, inserted, status, raw, listed, dropped, bodies: bodies.done, bodies_deferred: bodies.deferred });
+  return { ok: true, step: "media", source: source.key, status, raw, listed, dropped, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
 }
 
+// 확정한 관심 주제(app_now_interests state=confirmed)의 주제 글자: 언론 거르기 낱말로만 쓴다(저장·로그에 남기지 않음 — 건수도 남기지 않음).
+async function confirmedInterests(db: Db, ws: string[], log: FeedLog): Promise<string[]> {
+  if (!ws.length) return [];
+  try {
+    const rows = await db.get(`app_now_interests?state=eq.confirmed&workspace_id=in.(${ws.join(",")})&select=topic&limit=500`);
+    return rows.map((r) => r.topic).filter((t): t is string => typeof t === "string" && !!t.trim());
+  } catch { log("interests_failed"); return []; }
+}
 // 켠 키워드 줄 → 작업공간마다 낱말 목록(먼저 넣은 것부터 KEYWORDS_PER_WORKSPACE개, 같은 낱말 한 번). 줄은 created_at 순으로 받는다.
 export function keywordsByWorkspace(rows: Row[]): Map<string, string[]> {
   const out = new Map<string, string[]>();

@@ -25,24 +25,28 @@ export const OPEN_ARTICLE_KEY = "open";
 //   — 링크는 열린 주소 규칙(https 공개 호스트, openArticleUrl)을 통과한 것만, 수집기가 읽는 주소는 여전히 hosts뿐이다(S57-13 전수).
 // httpsLinks: 피드는 https로 열리는데 글 링크만 http로 적는 매체(노동과세계, S59-1). 그 매체 hosts의 글 링크만 https로 바꿔 받는다.
 //   수집기는 http 주소를 요청하지 않는다(https 원칙 그대로) — 바꾼 주소도 주소 검사(allowedUrl)를 그대로 받고, 사이트가 http로 넘기면 따라가지 않는다.
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true };
+// beat: "labor" = 노동 전문지·해외 노동 매체 — 거르지 않고 전부 받는다(등급 1, S63-10 news-rank.ts).
+// sections: lists와 같은 차례로 그 피드의 섹션(society·politics·economy·mixed). 없으면 섞인 피드. mixedAs: 섞인 피드에서 섹션을 못 알아볼 때 볼 섹션(없으면 society).
+//   종합지·방송사·통신사의 거르기·등급 규칙은 news-rank.ts 한 곳(S63-10 NEWS-언론거르기, 11/16 명진 결정).
+export type NewsSource = OutsideSource & { region: "domestic" | "foreign"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
+  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed")[]; mixedAs?: "society" | "politics" | "economy" };
 
 const article = () => "article" as const;
 
 export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
-  { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
+  { key: "news-labortoday", name: "매일노동뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all",
     // 본문 칸: 엔디소프트 기사 쪽 `#article-view-content-div`(못 찾으면 흔한 본문 칸·<article> 순서). 유료 기사는 page.ts가 앞부분만(유료벽 넘지 않음).
     // @2(S51-9): 흔한 유료벽 검사를 좁힘(page.ts) — 이 매체는 유료벽 검사를 그대로 받는다(유료 기사 있음 [추정]).
     // @3(S51-15): 공용 추출기 고침(닫는 꼬리표가 없는 빼는 칸이 뒤 본문을 모두 지우던 것, 본문 앞 공유 줄) — lead/no_body 3건을 다시 뽑기(P2c)로 다시 본다.
     extract: { version: 3, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
     bodyClass: /^article-view-content-div$/,
     lists: ["https://www.labortoday.co.kr/rss/allArticle.xml"], hosts: ["www.labortoday.co.kr", "labortoday.co.kr"], kindOf: article },
-  { key: "news-beminor", name: "비마이너", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
+  { key: "news-beminor", name: "비마이너", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all",
     // @2(S51-9): 11/06 probe에서 lead/paywall(블록 1·글자 300)로 잘못 들어감 — 비마이너는 유료벽이 없다(CC 확인) → free(흔한 유료벽 검사 안 함).
     extract: { version: 2, free: true, drop: /^(article-copy|view-copyright|view-editors|tag-group|article-sns|share-btns|relation|ad-template)$/ },
     bodyClass: /^article-view-content-div$/,
     lists: ["https://www.beminor.com/rss/allArticle.xml"], hosts: ["www.beminor.com", "beminor.com"], kindOf: article },
-  { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all",
+  { key: "news-pressian", name: "프레시안", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "society",
     // @2(S51-9): 11/06 probe에서 lead/paywall(블록 1·글자 14)로 잘못 들어감 — 프레시안은 유료벽이 없다(CC 확인) → free.
     // 본문 칸 `div.article_body`를 단체 본문 칸으로 고정 [추정 — 실측 못 함, 없으면 예전처럼 <article>·흔한 본문 칸 순서].
     // @3(S51-15): @2 배포 뒤 30건이 모두 lead/no_body(사이트는 열림) — 본문 칸 `article_body`에서 본문을 못 뽑음 [사실: CC 운영 확인 / 까닭은 추정].
@@ -60,34 +64,34 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   take: 'all'(11/09 NEWS-다받기, 그 전엔 'keywords') — 사회·경제·정치 섹션 피드 글을 키워드 상관없이 모두 받는다. 수집 때 AI는 쓰지 않는다(국내 글이라 제목 번역도 없음).
   //   extract: false — 글 쪽(본문)은 수집 때 읽지 않는다(피드의 제목·소개·주소만, 설계 5절 ③ 매체 경계). 사람이 [본문]을 누를 때 열기는 다른 매체와 같다. 안내 쪽 이용 조건이 '개인 구독'이라 공개로 다시 내보내는 길은 없다.
   //   robots.txt는 수집기가 실행 때마다 읽고 막혀 있으면 건너뛴다. 피드가 실제로 열리는지는 이 세션 도구로 열지 못해 배포 뒤 probe로 확인한다(PR 본문).
-  { key: "news-khan", name: "경향신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-khan", name: "경향신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 khan.co.kr/help/help_rss.html [사실]. 같은 경로의 영문 피드는 RSS 2.0·dc:date·요약 description으로 열림 [사실, 11/08].
     extract: false,
     lists: ["https://www.khan.co.kr/rss/rssdata/society_news.xml", "https://www.khan.co.kr/rss/rssdata/economy_news.xml", "https://www.khan.co.kr/rss/rssdata/politic_news.xml"],
     hosts: ["www.khan.co.kr", "khan.co.kr"], kindOf: article },
-  { key: "news-ohmynews", name: "오마이뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-ohmynews", name: "오마이뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 m.ohmynews.com/NWS_Web/Help/srv/h_help_rss.aspx [사실]: '개인적 이용에 한정, 재배포·재RSS 금지'.
     extract: false,
     lists: ["https://rss.ohmynews.com/rss/society.xml", "https://rss.ohmynews.com/rss/economy.xml", "https://rss.ohmynews.com/rss/politics.xml"],
     hosts: ["rss.ohmynews.com", "www.ohmynews.com", "m.ohmynews.com", "ohmynews.com"], kindOf: article },
-  { key: "news-hankyung", name: "한국경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-hankyung", name: "한국경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 hankyung.com/feed [사실]. 경영계 시각 균형용(설계 3.1b).
     extract: false,
     lists: ["https://www.hankyung.com/feed/society", "https://www.hankyung.com/feed/economy", "https://www.hankyung.com/feed/politics"],
     hosts: ["www.hankyung.com", "hankyung.com"], kindOf: article },
   // ---- 2차(S54-02, 11/08 CC가 크롬으로 직접 열어 확인). 안내 쪽·피드에 AI 금지 문구가 없는 곳만 넣었다(설계 3.1b 2차 표).
   //   hosts의 기사 주소 호스트는 이 세션에서 피드를 열지 못해 [추정]이다 — 배포 뒤 probe에서 글이 0건이면 링크 호스트·https 여부부터 본다(PR 본문).
-  { key: "news-mk", name: "매일경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-mk", name: "매일경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 www.mk.co.kr/rss [사실, 11/08 CC 크롬 확인]: AI 금지 문구 없음. 사회 피드 열림(application/xml·item 50·description 있음, copyright 'Copyright 2026 MK').
     extract: false,
     lists: ["https://www.mk.co.kr/rss/50400012/", "https://www.mk.co.kr/rss/30100041/", "https://www.mk.co.kr/rss/30200030/"],
     hosts: ["www.mk.co.kr", "mk.co.kr"], kindOf: article },
-  { key: "news-sisain", name: "시사IN", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-sisain", name: "시사IN", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "society", on: true,
     // 홈 머리 공식 RSS 링크(cdn.sisain.co.kr/rss/…) [사실, 11/08 CC 크롬 확인]: 전체 피드 열림(item 50·description 있음), AI 문구 없음.
     extract: false,
     lists: ["https://cdn.sisain.co.kr/rss/gns_allArticle.xml"],
     hosts: ["cdn.sisain.co.kr", "www.sisain.co.kr", "sisain.co.kr"], kindOf: article },
-  { key: "news-newstapa", name: "뉴스타파", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-newstapa", name: "뉴스타파", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "society", on: true,
     // 홈 공식 링크 /rss [사실, 11/08 CC 크롬 확인]: 피드 열림(text/xml·item 20·description 있음), AI 문구 없음.
     extract: false,
     lists: ["https://newstapa.org/rss"],
@@ -96,39 +100,39 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   'AI 학습·활용 금지' 문구가 있는 매체도 넣는다 — 11/08 19:46 명진 결정 "AI 문구 매체도 넣어, 어차피 개인 용도"(설계 3.1b 3차).
   //   take·extract: false(글 쪽은 수집 때 읽지 않음)는 1·2차와 같다. hosts에는 피드 호스트와 기사 호스트를 모두 넣는다.
   //   주소에 쿼리(?sectionId·?outputType)가 있어도 allowedUrl은 호스트·https·포트·계정만 보므로 그대로 통과한다(규칙을 넓히지 않음).
-  { key: "news-hani", name: "한겨레", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-hani", name: "한겨레", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 피드 www.hani.co.kr/rss/ [사실, 11/08 CC 크롬 확인: 섹션마다 item 30, 기사 링크 www.hani.co.kr]. AI 문구 있음(피드 copyright 'AI 학습 및 활용 금지'), 명진 결정으로 넣음(개인 용도).
     extract: false,
     lists: ["https://www.hani.co.kr/rss/society/", "https://www.hani.co.kr/rss/economy/", "https://www.hani.co.kr/rss/politics/"],
     hosts: ["www.hani.co.kr", "hani.co.kr"], kindOf: article },
-  { key: "news-yna", name: "연합뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-yna", name: "연합뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 www.yna.co.kr/rss/index(비상업·개인) [사실, 11/08 CC 크롬 확인: 섹션마다 item 120]. 기사 호스트 www.yna.co.kr는 [추정] — 이 세션은 피드를 열지 못함, 배포 뒤 probe로 확인.
     // AI 문구 있음(피드 copyright 'AI 학습 및 활용 금지'), 명진 결정으로 넣음(개인 용도).
     extract: false,
     lists: ["https://www.yna.co.kr/rss/society.xml", "https://www.yna.co.kr/rss/economy.xml", "https://www.yna.co.kr/rss/politics.xml"],
     hosts: ["www.yna.co.kr", "yna.co.kr", "m.yna.co.kr"], kindOf: article },
-  { key: "news-donga", name: "동아일보", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-donga", name: "동아일보", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 rss.donga.com(개인 비상업) [사실, 11/08 CC 크롬 확인: 섹션마다 item 50, 기사 링크 www.donga.com]. AI 문구 있음(하단 'AI학습 이용 금지'), 명진 결정으로 넣음(개인 용도).
     extract: false,
     lists: ["https://rss.donga.com/national.xml", "https://rss.donga.com/economy.xml", "https://rss.donga.com/politics.xml"],
     hosts: ["rss.donga.com", "www.donga.com", "donga.com"], kindOf: article },
-  { key: "news-jtbc", name: "JTBC", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-jtbc", name: "JTBC", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 news.jtbc.co.kr/rss [사실, 11/08 CC 크롬 확인: item 사회 11·경제 4·정치 14, 기사 링크 news.jtbc.co.kr]. AI 문구 있음(하단 'AI 학습 등 금함'), 명진 결정으로 넣음(개인 용도).
     extract: false,
     lists: ["https://news-ex.jtbc.co.kr/v1/get/rss/section/society", "https://news-ex.jtbc.co.kr/v1/get/rss/section/economy", "https://news-ex.jtbc.co.kr/v1/get/rss/section/politics"],
     hosts: ["news-ex.jtbc.co.kr", "news.jtbc.co.kr"], kindOf: article },
-  { key: "news-sbs", name: "SBS", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-sbs", name: "SBS", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 news.sbs.co.kr/news/rss.do [사실, 11/08 CC 크롬 확인: 섹션마다 item 29]. 기사 호스트 news.sbs.co.kr는 [추정] — 배포 뒤 probe로 확인.
     // AI 문구 있음('AI학습 이용 금지'), 명진 결정으로 넣음(개인 용도). sectionId 03 사회·02 경제·01 정치.
     extract: false,
     lists: ["https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03&plink=RSSREADER", "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER", "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER"],
     hosts: ["news.sbs.co.kr", "mnews.sbs.co.kr"], kindOf: article },
-  { key: "news-nocut", name: "노컷뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-nocut", name: "노컷뉴스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 nocutnews.co.kr/rss/ [사실, 11/08 CC 크롬 확인: 섹션마다 item 50, 기사 링크 www.nocutnews.co.kr]. AI 문구 있음('AI 학습 및 활용 금지'), 명진 결정으로 넣음(개인 용도).
     extract: false,
     lists: ["https://rss.nocutnews.co.kr/category/society.xml", "https://rss.nocutnews.co.kr/category/economy.xml", "https://rss.nocutnews.co.kr/category/politics.xml"],
     hosts: ["rss.nocutnews.co.kr", "www.nocutnews.co.kr", "nocutnews.co.kr"], kindOf: article },
-  { key: "news-chosun", name: "조선일보", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-chosun", name: "조선일보", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 공식 안내 쪽 없음 — 사이트 자체 주소(arc outboundfeeds) [사실, 11/08 CC 크롬 확인: 섹션마다 item 100, 기사 링크 www.chosun.com]. AI 문구 없음. 명진 결정으로 넣음(개인 용도).
     extract: false,
     lists: ["https://www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml", "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml", "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml"],
@@ -138,31 +142,31 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   매일신문은 안내 쪽만 [사실]이고 피드·기사 호스트는 배포 뒤 probe(raw·listed)로 CC가 확인했다(11/11 운영: 뉴시스 271·서울경제 146·매일신문 254건 [사실]).
   //   미디어오늘은 같이 넣었으나 그쪽 robots.txt가 `*` 묶음에 `Disallow:/rss/`를 두어(수집 결과 'robots', 0건 [사실: 11/11 CC 운영·크롬 확인]) 카탈로그에서 뺐다(S59-1).
   //   'AI 학습 금지' 문구가 있는 서울경제도 넣는다 — 11/08 명진 결정(개인 용도)과 같은 기준.
-  { key: "news-newsis", name: "뉴시스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-newsis", name: "뉴시스", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 www.newsis.com/RSS/ [사실, 11/10]. 사회 피드 열림(RSS 2.0·description 있음·기사 링크 https://www.newsis.com/view/…) [사실].
     // 조건: 하단 '무단 전재·복사·배포 금지', 피드 안 저작권 고지 줄 [사실]. 전체 피드는 없고 속보(sokbo)는 양이 많아 사회·경제·정치만.
     extract: false,
     lists: ["https://www.newsis.com/RSS/society.xml", "https://www.newsis.com/RSS/economy.xml", "https://www.newsis.com/RSS/politics.xml"],
     hosts: ["www.newsis.com", "newsis.com"], kindOf: article },
-  { key: "news-sedaily", name: "서울경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-sedaily", name: "서울경제", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 안내 쪽 www.sedaily.com/rss [사실, 11/10]: '개인 이용자의 비상업적 사용에만 허용', AI 학습 금지 [사실] → 명진 결정(11/08, 개인 용도)으로 넣음.
     // 사회 피드 열림(RSS 2.0·item 50·description 없음·기사 링크 https://www.sedaily.com/article/…) [사실].
     extract: false,
     lists: ["https://www.sedaily.com/rss/society", "https://www.sedaily.com/rss/economy", "https://www.sedaily.com/rss/politics"],
     hosts: ["www.sedaily.com", "sedaily.com"], kindOf: article },
-  { key: "news-imaeil", name: "매일신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-imaeil", name: "매일신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true, sections: ["society", "economy", "politics"],
     // 대구 지역지. 안내 쪽 www.imaeil.com/rss_service [사실, 11/10]: 이용 조건 문구 없음(저작권 표기만) [사실]. 피드는 ?cate= 쿼리(allowedUrl은 호스트만 봄).
     // 기사 호스트 www.imaeil.com(/page/view/…)은 검색 결과로 본 주소 [사실], 피드 안 링크는 배포 뒤 probe로 확인.
     extract: false,
     lists: ["https://www.imaeil.com/rss?cate=society", "https://www.imaeil.com/rss?cate=economy", "https://www.imaeil.com/rss?cate=politics"],
     hosts: ["www.imaeil.com", "imaeil.com"], kindOf: article },
-  { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+  { key: "news-psi", name: "PSI", group: "foreign", region: "foreign", lang: "en", mode: "rss", beat: "labor",
     extract: { version: 1 },
     lists: ["https://publicservices.international/feed.xml"], hosts: ["publicservices.international"], kindOf: article },
-  { key: "news-itf", name: "ITF", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+  { key: "news-itf", name: "ITF", group: "foreign", region: "foreign", lang: "en", mode: "rss", beat: "labor",
     extract: { version: 1 },
     lists: ["https://www.itfglobal.org/en/rss/feed"], hosts: ["www.itfglobal.org", "itfglobal.org"], kindOf: article },
-  { key: "news-labourstart", name: "LabourStart(아시아)", group: "foreign", region: "foreign", lang: "en", mode: "rss",
+  { key: "news-labourstart", name: "LabourStart(아시아)", group: "foreign", region: "foreign", lang: "en", mode: "rss", beat: "labor",
     // 링크가 남의 매체라 허용 호스트 밖 — 본문은 읽지 않고 failed/off_host(4.3절). 규칙은 판 번호만.
     // S51-9: 피드 글 링크가 모두 허용 호스트 밖이면 parseFeed가 다 빼서 기사 줄 자체가 0건이었다(probe는 off_host로 보고).
     // S57-13(11/11 명진 '제목만이라도'): linkOut — 기사 줄은 남긴다(제목·날짜·링크). 남의 매체 글 쪽은 지금처럼 읽지 않는다.
@@ -173,28 +177,28 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
   //   S57-13에서 구글 뉴스 매체 단위 줄로 넣었던 매체를 자기 RSS 줄로 바꿨다(구글 뉴스 길은 robots 금지 — 위 머리 주석). 키와 자리(순서)는 그대로 — 켬·끔 설정과 색이 그대로다.
   //   규칙은 4차와 같다: take 'all'·기본 켬·extract:false(수집 때 글 쪽은 읽지 않음 — 제목·소개·날짜·링크만, 11/11 '제목만이라도').
   //   매체가 'RSS 안내' 쪽을 두지 않은 피드(레디앙·철도경제신문·머니투데이)도 확인 뒤 넣는다 — 11/11 명진 결정("ㅇㅇ").
-  { key: "news-worknworld", name: "노동과세계", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-worknworld", name: "노동과세계", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // robots `/admin/`만 금지 [사실]. 피드는 https로 열림(50건) [사실], 글 링크는 http://worknworld.kctu.org/… [사실] → httpsLinks로 같은 호스트 링크만 https로 받는다.
     extract: false, httpsLinks: true,
     lists: ["https://worknworld.kctu.org/rss/allArticle.xml"], hosts: ["worknworld.kctu.org"], kindOf: article },
-  { key: "news-newsmin", name: "뉴스민", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-newsmin", name: "뉴스민", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // robots `*` Allow: / [사실]. 워드프레스 피드가 쿠키 없이 열림(12건, 글 링크 https://www.newsmin.co.kr/news/숫자/) [사실: 크롬].
     // 기사 쪽은 봇 확인(쿠키 확인 뒤 넘기는 빈 쪽)이 있었다 [기록] — 서버에서 피드도 그 확인에 걸리는지는 배포 뒤 probe(raw)로 본다. 봇 확인은 풀지 않는다.
     extract: false,
     lists: ["https://www.newsmin.co.kr/news/feed/"], hosts: ["www.newsmin.co.kr", "newsmin.co.kr"], kindOf: article },
-  { key: "news-redaily", name: "철도경제신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-redaily", name: "철도경제신문", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // robots `/admin/`만(GPTBot만 전체 금지 — 우리 이름은 `*` 묶음) [사실]. 피드 50건·글 링크 https [사실]. 유료 기사도 제목·링크는 받는다.
     extract: false,
     lists: ["https://www.redaily.co.kr/rss/allArticle.xml"], hosts: ["www.redaily.co.kr", "redaily.co.kr"], kindOf: article },
-  { key: "news-laborplus", name: "참여와혁신", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-laborplus", name: "참여와혁신", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // 홈 하단 공식 RSS 링크(rssIndex.html) [사실]. robots `/admin/`만 [사실]. 전체 피드 50건·글 링크 https://www.laborplus.co.kr/… [사실].
     extract: false,
     lists: ["https://www.laborplus.co.kr/rss/allArticle.xml"], hosts: ["www.laborplus.co.kr", "laborplus.co.kr"], kindOf: article },
-  { key: "news-redian", name: "레디앙", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-redian", name: "레디앙", group: "movement", region: "domestic", lang: "ko", mode: "rss", beat: "labor", take: "all", on: true,
     // robots `/admin/`만 [사실]. 전체 피드 50건·글 링크 https [사실].
     extract: false,
     lists: ["https://www.redian.org/rss/allArticle.xml"], hosts: ["www.redian.org", "redian.org"], kindOf: article },
-  { key: "news-mt", name: "머니투데이", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", on: true,
+  { key: "news-mt", name: "머니투데이", group: "movement", region: "domestic", lang: "ko", mode: "rss", take: "all", mixedAs: "economy", on: true,
     // 피드 https://rss.mt.co.kr/mt_news.xml 살아 있음, 글 링크 https://www.mt.co.kr/… [사실]. rss.mt.co.kr/robots.txt는 www.mt.co.kr의 없는 쪽(404)으로 넘긴다 [사실]:
     // 수집기는 허용 호스트(https) 안의 넘김만 따라가고, 따라간 끝이 404면 robots.txt가 없는 것(전부 허용)으로 본다(feed-fetch readRobots, 표준 RFC 9309). 하루 글이 많다(약 560건).
     extract: false,
