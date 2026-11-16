@@ -482,6 +482,18 @@ function pagePatch(row: Row, page: ReturnType<typeof readArticlePage>, nowIso: s
   if (!row.summary && sum) patch.summary = sum;
   return patch;
 }
+// S63-11: 본문(full)이 있는 공용 기사인데 제목이 없거나(주소뿐 포함) 상태가 아직 pending이면 고칠 칸. 제목은 내 옛 줄(같은 주소)에 있는 것만 옮긴다. 고칠 것이 없으면 null.
+export function headPatch(art: Row, olds: Row[], nowIso: string): Row | null {
+  const patch: Row = {};
+  if (!ownTitle(art)) {
+    const o = olds.find((x) => ownTitle(x));
+    if (o) { patch.title = String(o.title); patch.title_key = titleKey(String(o.title)); }
+  }
+  if (art.state === "pending" && art.body_kind === "full") { patch.state = "ok"; if (!art.fetched_at) patch.fetched_at = nowIso; }
+  if (!Object.keys(patch).length) return null;
+  patch.updated_at = nowIso;
+  return patch;
+}
 // 이미 읽힌 공용 기사 → 옛 줄에 옮겨 적기(원문 읽기·AI 없음). 옛 줄에 이미 있는 제목·요약은 그대로 둔다.
 async function copyArticle(db: Db, log: FeedLog, article: Row, items: Row[], nowIso: string): Promise<string> {
   for (const item of items) {
@@ -1362,7 +1374,10 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           // 이미 읽힌 공용 기사: 원문을 다시 읽지 않는다. 내 옛 줄이 아직 비었으면 옮겨 적기만(읽기·AI 없음).
           const lag = olds.filter((o) => o.body_kind !== "full");
           if (art.state === "ok" && lag.length) await copyArticle(db, log, art, lag, new Date(nowMs).toISOString());
-          return json({ ok: true, status: "stored" });
+          // S63-11: 본문은 있는데 제목이 비었거나 아직 '읽기 전'인 공용 기사(옛 줄을 옮길 때 생긴 줄)는 내 옛 줄 제목·상태로 채운다(읽기·AI 없음).
+          const head = headPatch(art, olds, new Date(nowMs).toISOString());
+          if (head) await patchArticle(db, log, art.id, head);
+          return json({ ok: true, status: head ? "titled" : "stored" });
         }
         if (videoId(String(art.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
         let reader: FeedReader;

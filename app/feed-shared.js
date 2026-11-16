@@ -1,4 +1,5 @@
 import {pgTextArray} from './news-clipping-model.mjs';
+import {ilikeAny, NEWS_FIND_COLS, POST_FIND_COLS} from './news-find-model.mjs';
 import {articleCols, flatNews, flatNewsMark, hasId, isUuid, mapIds, markFields, savedOutsideMark, NEWS_MARK_EMBED} from './feed-shared-model.mjs';
 // NEWS-모두에게열기 ③ 화면(설계 docs/design/news-for-all.md 13·14절): News·[사회운동] 글을 서버에서 읽고 쓰는 유일한 길.
 // - 기사·글 내용은 공용 표 한 벌(app_news_articles·app_outside_articles, 본문 블록·문장도 공용) — 가입자 모두 같은 줄(서버 정책: 로그인 + 자기 작업공간 + 차단 명단 아님).
@@ -70,6 +71,27 @@ export async function readNewsStarred(cols, limit = 300, offset = 0) {
 export async function readNewsKeywordHits(word, cols, limit) {
   const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(workspaceOf())}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)})&order=created_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false});
   return (Array.isArray(rows) ? rows : []).map(flatNewsMark).filter(Boolean);
+}
+// S63-11 서버 찾기([전체]·[언론] 위 찾기 칸, news-find-model.mjs): 최근 기사(since 뒤 받은 것) + 내 별표 기사(기간 없음)에서 제목·한국어 제목·요약.
+// keys: 고른 매체(news- 키, null = 모두). 숨긴 것은 뺀다. 돌려줌: {recent, kept}(옛 뉴스 줄 모양).
+export async function findNewsArticles(words, cols, {since, limit, keys = null}) {
+  const w = workspaceOf(), or = q(ilikeAny(NEWS_FIND_COLS, words));
+  const inKeys = keys ? `in.(${keys.map(q).join(',')})` : '';
+  const [recent, kept] = await Promise.all([
+    rt().api(`/rest/v1/${T.news.art}?select=${articleCols(cols)},${NEWS_MARK_EMBED}&app_news_marks.workspace_id=eq.${q(w)}&created_at=gte.${q(since)}&or=${or}${inKeys ? `&source_key=${inKeys}` : ''}&order=created_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
+    rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(w)}&starred_at=not.is.null&hidden_at=is.null&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}!inner(${articleCols(cols)})&${T.news.art}.or=${or}${inKeys ? `&${T.news.art}.source_key=${inKeys}` : ''}&order=starred_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false}),
+  ]);
+  return {recent: (Array.isArray(recent) ? recent : []).map(flatNews).filter(it => it && !it.hidden_at), kept: (Array.isArray(kept) ? kept : []).map(flatNewsMark).filter(Boolean)};
+}
+// 사회운동 글 찾기: 최근 글(올린 날, 없으면 받은 날이 since 뒤) + 내가 보관·별표한 글(기간 없음). keys: 고른 단체(null = 모두). 숨긴 글은 화면이 뺀다.
+export async function findOutsideArticles(words, cols, {since, limit, keys = null}) {
+  const w = workspaceOf(), like = ilikeAny(POST_FIND_COLS, words);
+  const inKeys = keys ? `in.(${keys.map(q).join(',')})` : '';
+  const [recent, kept] = await Promise.all([
+    rt().api(`/rest/v1/${T.outside.art}?select=${cols}&and=${q(`(or(published_at.gte.${since},and(published_at.is.null,fetched_at.gte.${since})),or${like})`)}${inKeys ? `&source_key=${inKeys}` : ''}&order=published_at.desc.nullslast,fetched_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
+    rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(w)}&dismissed_at=is.null&or=(archived_at.not.is.null,starred_at.not.is.null)&select=article_id,${T.outside.art}!inner(${cols})&${T.outside.art}.or=${q(like)}${inKeys ? `&${T.outside.art}.source_key=${inKeys}` : ''}&limit=${limit}`, {singleFlight: false}),
+  ]);
+  return {recent: Array.isArray(recent) ? recent.filter(r => r && hasId(r.id)) : [], kept: (Array.isArray(kept) ? kept : []).map(m => m?.[T.outside.art]).filter(r => r && hasId(r.id))};
 }
 // 내 표시 쓰기: 줄이 있으면 칸만 고치고, 없으면 넣는다(지울 것만 있고 줄이 없으면 할 일 없음). 돌려줌: {id, starred_at, folder_id, hidden_at}.
 async function writeMark(type, given, fields) {

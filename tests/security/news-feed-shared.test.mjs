@@ -289,6 +289,26 @@ test('E3 open: 옛 줄 id는 지도로 공용 기사로 바꾸고, 내 옛 줄�
   assert.equal(w2.db.app_news_days.length, 0, '하루 한도 안 씀');
 });
 
+test('S63-11 open: 본문은 있는데 제목 없이 아직 읽기 전인 공용 기사는 내 옛 줄 제목·상태로 채운다(원문·AI·하루 한도 0)', async () => {
+  const key = 'e3.example.org/56', url = 'https://e3.example.org/56';
+  const w = world({tables: {
+    app_news_articles: [artRow(56, {title: null, state: 'pending', body: '합성 본문', body_kind: 'full'})],
+    app_news_items: [{id: id(57), workspace_id: WS2, lane: 'channel', url, url_key: key, state: 'ok', title: '합성 옛 줄 제목', body: '합성 본문', body_kind: 'full', created_at: recent}],
+  }});
+  const r = await w.user('open', {id: id(56)});
+  assert.equal(r.body.status, 'titled');
+  const a = w.db.app_news_articles[0];
+  assert.deepEqual([a.title, a.state], ['합성 옛 줄 제목', 'ok']);
+  assert.equal(w.calls.site.length + w.calls.ai, 0);
+  assert.equal(w.db.app_news_days.length, 0, '하루 한도 안 씀');
+  // 한 번 채운 뒤에는 저장본 그대로.
+  assert.equal((await w.user('open', {id: id(56)})).body.status, 'stored');
+  // 옛 줄에도 제목이 없으면 상태만 ok(제목은 그대로 비움).
+  const H2 = H.headPatch({title: 'https://e3.example.org/9', state: 'pending', body_kind: 'full'}, [{title: 'https://e3.example.org/9'}], '2026-11-16T00:00:00Z');
+  assert.deepEqual(Object.keys(H2).sort(), ['fetched_at', 'state', 'updated_at']);
+  assert.equal(H.headPatch({title: '있는 제목', state: 'ok', body_kind: 'full'}, [], 'x'), null);
+});
+
 test('E3 거절: 차단 명단 사람·채널 스크랩(운영자 전용) 줄·owner 아닌 사람·없는 id는 공용 기사를 못 읽음(원문·AI·쓰기 0)', async () => {
   const tables = {app_news_articles: [artRow(60), artRow(61, {origin: 'tg_scrap'})]};
   const quiet = w => { assert.equal(w.calls.site.length + w.calls.ai, 0); assert.ok(!w.calls.rest.some(c => ['POST', 'PATCH', 'DELETE'].includes(c.method) && !c.p.startsWith('rpc/'))); };

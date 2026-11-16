@@ -99,6 +99,8 @@ export const relatedTarget = r => (r.kind === 'outside' || r.kind === 'news' ? {
 const REASONS = {robots: '이 사이트가 읽기를 막아 둠', paywall: '유료 기사', bot_check: '사이트가 자동 읽기를 막음', original_only: '원문에서 보는 기사', daily_limit: '오늘 읽기 한도를 다 씀', error: '잠시 뒤 다시', unavailable: '기사를 열 수 없음'};
 export const hasMaterial = row => !!(row?.summary || row?.body_kind);
 export const needsRead = row => !hasMaterial(row) && row?.state !== 'paywall';
+// S63-11: 기사 줄이 아직 '읽기 전'(서버가 원문을 한 번도 읽지 않아 제목이 비었을 수 있음) — 본문이 따로 저장돼 있어도 열기를 한 번 부른다.
+export const titlePending = row => row?.state === 'pending';
 export const unreadReason = (status, state) => REASONS[status] || REASONS[state] || '본문을 찾지 못함';
 // ---- 상세 원문 전체(S51-14 NEWS-전면개편 P4c, 설계 docs/design/news-overhaul.md 4.1·4.3·6.2절) ----
 // 저장 원문(app_feed_bodies 한 줄) → 그릴 모양. 블록은 글자·주소로만 그린다(HTML 없음). 사진 주소는 https만, 모양이 틀린 블록은 버린다.
@@ -335,4 +337,13 @@ export function newsKeysOf(pick, nc = []) {
 export function mergeFeed(posts = [], news = []) {
   const list = [...(posts || []).map(row => ({type: 'outside', id: row.id, at: row.at, row: row.row})), ...(news || []).map(row => ({type: 'news', id: row.id, at: row.at, row: row.row}))];
   return list.sort((a, b) => (a.at && b.at ? String(b.at).localeCompare(String(a.at)) : a.at ? -1 : b.at ? 1 : 0) || String(a.id).localeCompare(String(b.id)));
+}
+// S63-11(명진 11/16 '5 고쳐'): 주소 ?item= 로 다시 연 글은 그 글이 들어 있는 탭으로 맞춘다. [전체]·[보관]·[밑줄]은 두 종류 모두 담으므로 그대로,
+// [사회운동]에서 뉴스 기사면 [언론], [언론]에서 사회운동 글이면 [사회운동].
+export function tabForItem(type, tab) {
+  const t = keepNowTab(tab);
+  if (t === 'all' || t === 'archive' || t === 'marks') return t;
+  if (type === 'news') return 'media';
+  if (type === 'outside') return 'movement';
+  return t;
 }
