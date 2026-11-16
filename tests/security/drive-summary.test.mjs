@@ -24,7 +24,7 @@ function harness(options = {}) {
   const calls = [], uploads = [], patches = [];
   let contentReads=0,headerScans=0,linkScans=0;
   const files = new Map(options.existing ? [
-    ['folder', { id: 'folder', mimeType: 'application/vnd.google-apps.folder', appProperties: { kptu_summary: 'folder', last_success_at: 'old-success', extra: 'keep', ...options.folderProps } }],
+    ['folder', { id: 'folder', ...(options.folderName ? { name: options.folderName } : {}), mimeType: 'application/vnd.google-apps.folder', appProperties: { kptu_summary: 'folder', last_success_at: 'old-success', extra: 'keep', ...options.folderProps } }],
     ['org-doc', { id: 'org-doc', mimeType: 'application/vnd.google-apps.document', appProperties: { kptu_summary: 'org' } }],
     ['project-doc', { id: 'project-doc', mimeType: 'application/vnd.google-apps.document', appProperties: { kptu_summary: 'project' } }],
   ] : []);
@@ -112,7 +112,7 @@ function harness(options = {}) {
     }
     if (method === 'POST') {
       const meta = JSON.parse(init.body);
-      assert.equal(meta.name, 'Web2 읽기용 사본');
+      assert.equal(meta.name, '노조+ 읽기용 사본');
       files.set('folder', { id: 'folder', ...meta });
       return reply(files.get('folder'));
     }
@@ -172,6 +172,17 @@ function harness(options = {}) {
     assert.equal(h.files.get('folder').appProperties.extra, 'keep');
     // S7-d + heartbeat: the copy path sends only its own key, never a stale snapshot of ledger/collector keys.
     assert.deepEqual(h.patches.map(p => Object.keys(p.appProperties || {})), [['last_success_at']]);
+  });
+  test('BRAND-웹2흔적지우기: 옛 이름 폴더는 이름만 새 이름으로 바꾸고 새 폴더를 만들지 않는다', async () => {
+    const h = harness({ existing: true, folderName: 'Web2 읽기용 사본' }), response = await h.request({ Authorization: 'Bearer valid-owner' });
+    assert.equal(response.status, 200);
+    assert.equal(h.calls.filter(c => c.method === 'POST' && c.url.pathname === '/drive/v3/files').length, 0);
+    assert.deepEqual(h.patches.filter(p => 'name' in p), [{ name: '노조+ 읽기용 사본' }]);
+    assert.equal(h.files.get('folder').name, '노조+ 읽기용 사본');
+    assert.equal(h.uploads.length, 2); assert.ok(h.uploads.every(u => u.method === 'PATCH'));
+    const again = harness({ existing: true, folderName: '노조+ 읽기용 사본' });
+    assert.equal((await again.request({ Authorization: 'Bearer valid-owner' })).status, 200);
+    assert.equal(again.patches.filter(p => 'name' in p).length, 0);
   });
   test('copy rebuild does not roll back ledger export or heartbeat keys written while it ran', async () => {
     const h = harness({ existing: true });
@@ -241,7 +252,7 @@ function harness(options = {}) {
     const h = harness({ data: { app_suborganizations: [{ id: 'org', name: '<script>alert(1)</script>', recent_month_summary: 'a\nb' }] } });
     await h.request({ Authorization: 'Bearer valid-owner' });
     for (const u of h.uploads) {
-      assert.match(u.body, /<body>\n<p>마지막 갱신: 2026-10-04 00:30 \(KST\)<\/p>\n<p>이 문서는 Web2가 자동으로 만드는 읽기용 사본입니다\. 직접 고쳐도 다음 갱신 때 덮어써집니다\. 원본은 Web2입니다\.<\/p>/);
+      assert.match(u.body, /<body>\n<p>마지막 갱신: 2026-10-04 00:30 \(KST\)<\/p>\n<p>이 문서는 노동조합\+가 자동으로 만드는 읽기용 사본입니다\. 직접 고쳐도 다음 갱신 때 덮어써집니다\. 원본은 노동조합\+입니다\.<\/p>/);
       assert.doesNotMatch(u.body, /<script>/);
     }
     assert.match(h.uploads[0].body, /&lt;script&gt;/);
@@ -357,7 +368,7 @@ test('Drive copy never carries OCR text, attachment links or memo IDs',async()=>
  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
  const html=h.uploads[1].body;
  assert.doesNotMatch(html,/OCR_TEXT|OCR_FAILED_TEXT|RAW_BODY|ocr-id|사진에서 읽은 글|drive\.google\.com\/file|photo-source|원본\.jpg/);
- assert.match(html,/바구니 미분류 메모 1건 \(내용은 Web2 바구니에서 확인\)/);
+ assert.match(html,/바구니 미분류 메모 1건 \(내용은 노조\+ 바구니에서 확인\)/);
 });
 test('basket count line includes only eligible unclassified owner notes with KST boundaries', async () => {
   const window=core.kstWindow(now);
@@ -367,7 +378,7 @@ test('basket count line includes only eligible unclassified owner notes with KST
   }});
   assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
   const project=h.uploads[1].body, org=h.uploads[0].body;
-  assert.match(project,/<h2>바구니<\/h2>\n<p>바구니 미분류 메모 1건 \(내용은 Web2 바구니에서 확인\)<\/p>\n<\/body><\/html>/);
+  assert.match(project,/<h2>바구니<\/h2>\n<p>바구니 미분류 메모 1건 \(내용은 노조\+ 바구니에서 확인\)<\/p>\n<\/body><\/html>/);
   assert.doesNotMatch(project,/TEXT_|inside|대상 건수|4주 이전|view=basket/);
   assert.doesNotMatch(org,/바구니|TEXT_/); assert.match(org,/현재 요약/); assert.match(project,/진행 기록|최근 4주 회의/);
   const notesQuery=h.calls.find(c=>c.url.pathname.endsWith('/app_notes')).url.searchParams;
@@ -380,7 +391,7 @@ test('Drive copy has no memo body, memo ID, Web2 memo link, attachments or class
  const html=h.uploads[1].body;
  assert.doesNotMatch(html,/첫 줄|둘째|<pre|<script>|raw-id|메모 ID|updated_at|fake_file-123|사진|image\/png|view=basket|note=/);
  assert.doesNotMatch(html,/schema_version|note_updated_at|copied_at|제안만 해 주세요|분류 결과 입력|```|organization ·|project ·|담당조직 목록|프로젝트 목록|제안 출력 안내/);
- assert.equal(html.split('<h2>바구니</h2>')[1].split('</body></html>')[0],'\n<p>바구니 미분류 메모 1건 (내용은 Web2 바구니에서 확인)</p>\n');
+ assert.equal(html.split('<h2>바구니</h2>')[1].split('</body></html>')[0],'\n<p>바구니 미분류 메모 1건 (내용은 노조+ 바구니에서 확인)</p>\n');
 });
 test('the notes query reads only the columns the count needs (no raw_text, attachments, created_at, updated_at)',async()=>{
  const h=harness({data:{app_notes:[note('one'),note('two')]}});
@@ -395,13 +406,13 @@ test('basket section lists no organization or project destinations',async()=>{
  const h=harness({data:{app_notes:[],app_suborganizations:[{id:'org',name:'가상 조직',contact:'PRIVATE_CONTACT',recent_month_summary:'PRIVATE_SUMMARY'}],app_spaces:[...fixture.app_spaces,{id:'legacy',name:'PRIVATE_LEGACY'}]}});
  await h.request({Authorization:'Bearer valid-owner'});
  const section=h.uploads[1].body.split('<h2>바구니</h2>')[1].split('</body></html>')[0];
- assert.equal(section,'\n<p>바구니 미분류 메모 0건 (내용은 Web2 바구니에서 확인)</p>\n');
+ assert.equal(section,'\n<p>바구니 미분류 메모 0건 (내용은 노조+ 바구니에서 확인)</p>\n');
 });
 test('more than 100 unclassified memos no longer fail: only the count grows',async()=>{
  const h=harness({data:{app_notes:Array.from({length:150},(_,i)=>note('many'+i,{raw_text:'가'.repeat(20000)}))}});
  const result=await (await h.request({Authorization:'Bearer valid-owner'})).json();
  assert.equal(result.ok,true);
- const html=h.uploads[1].body;assert.match(html,/바구니 미분류 메모 150건 \(내용은 Web2 바구니에서 확인\)/);assert.doesNotMatch(html,/가{10}/);
+ const html=h.uploads[1].body;assert.match(html,/바구니 미분류 메모 150건 \(내용은 노조\+ 바구니에서 확인\)/);assert.doesNotMatch(html,/가{10}/);
  assert.ok(new TextEncoder().encode(html).length<100000);
 });
 test('basket state matches the screen for confirmed, suggested and archived notes',async()=>{
@@ -423,7 +434,7 @@ test('work-journal memos (metadata.journal_at) leave the basket count; unmarked 
  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
  const project=h.uploads[1].body;
  assert.doesNotMatch(project,/TEXT_|PRIVATE_META/);
- assert.match(project,/바구니 미분류 메모 5건 \(내용은 Web2 바구니에서 확인\)/);
+ assert.match(project,/바구니 미분류 메모 5건 \(내용은 노조\+ 바구니에서 확인\)/);
  assert.equal(contentCalls(h).length,0);
 });
 test('Edge noteJournalAt matches the screen rule (app/update-journal.js) for every mark shape',async()=>{
@@ -446,7 +457,7 @@ test('basket section lists no catalog tree; the existing project report stays un
  const spaces=[...fixture.app_spaces,{id:'done',name:'DONE_PROJECT',project_system:'v2',status:'done'},{id:'archived',name:'ARCHIVED_PARENT',project_system:'v2',status:'archived'},{id:'hidden',name:'HIDDEN_CHILD',parent_id:'archived',status:'active'}];
  const h=harness({data:{app_spaces:spaces}});await h.request({Authorization:'Bearer valid-owner'});
  const html=h.uploads[1].body,[before,rest]=html.split('<h2>바구니</h2>');
- assert.equal(rest.split('</body></html>')[0],'\n<p>바구니 미분류 메모 0건 (내용은 Web2 바구니에서 확인)</p>\n');
+ assert.equal(rest.split('</body></html>')[0],'\n<p>바구니 미분류 메모 0건 (내용은 노조+ 바구니에서 확인)</p>\n');
  assert.match(before,/ARCHIVED_PARENT/);assert.match(before,/가상 프로젝트|가상 하위 프로젝트/);
 });
 test('exact 1MiB UTF-8 project limit is inclusive; the next byte fails',()=>{
@@ -546,7 +557,7 @@ test('summary complete capped headers and links are read in full pages; no per-I
  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
  assert.equal(contentCalls(h).length,0);
  assert.ok(!h.calls.some(c=>c.url.pathname.endsWith('/app_notes')&&c.url.searchParams.has('id')),'no per-ID note reads');
- const body=h.uploads[1].body;assert.doesNotMatch(body,/TEXT_/);assert.match(body,/바구니 미분류 메모 10건 \(내용은 Web2 바구니에서 확인\)/);
+ const body=h.uploads[1].body;assert.doesNotMatch(body,/TEXT_/);assert.match(body,/바구니 미분류 메모 10건 \(내용은 노조\+ 바구니에서 확인\)/);
 });
 for(const opts of [{noNoteRange:true},{noteRange:'0-0/*'},{noteRange:'1-1/1'}])test('summary incomplete notes Range fails before document bodies '+JSON.stringify(opts),async()=>{
  const h=harness({existing:true,...opts,data:{app_notes:[note('one')]}});const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();

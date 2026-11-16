@@ -5,6 +5,8 @@ import {el, clone, kid, kids, walk, textOf} from './xml.mjs';
 import {readXml, setXml, setText, removePart, clonePkg, headerStyles} from './hwpx.mjs';
 
 // 표 머리 칸 이름(양식 글자). 이 밖의 글자는 빈 서식에 남으면 안 된다.
+// BRAND-웹2흔적지우기: 한글 파일 속성 '만든이'(원본 만든이 대신 넣는 이름).
+export const CREATOR = '노동조합+';
 export const REQUEST_HEAD = Object.freeze(['일', '시간/내용/장소', '참석 요청']);
 export const SUMMARY_HEAD = Object.freeze(['사업영역', '세부 과제', '진행 상황 및 이후 계획', '담당 팀원']);
 // 조직보고 이후 절(상집보고 전체 구조, W3 확대): 3. 투쟁 사업 1)·2), 4. 산하조직 현황 1), 5. 주요 일정
@@ -147,7 +149,7 @@ export function extractBlankTemplate(source) {
     if (n.name === 'opf:manifest') n.children = n.children.filter(i => !(i.attrs?.href ?? '').startsWith('BinData/') && !/^Contents\/section[1-9]\d*\.xml$/.test(i.attrs?.href ?? ''));
     if (n.name === 'opf:spine') n.children = n.children.filter(i => ['header', 'section0'].includes(i.attrs?.idref));
     if (n.name === 'opf:title') n.children = [];
-    if (n.name === 'opf:meta') n.children = n.attrs.name === 'creator' ? [{text: 'Web2'}] : [];
+    if (n.name === 'opf:meta') n.children = n.attrs.name === 'creator' ? [{text: CREATOR}] : [];
   }
   setXml(pkg, 'Contents/content.hpf', hpf);
   const settings = readXml(pkg, 'settings.xml');
@@ -211,7 +213,8 @@ export function assertBlank(pkg, {forbidden = []} = {}) {
     }
   }
   if (forbidden.length) {
-    const blob = [...pkg.files].filter(([name]) => /\.(xml|hpf|rdf|txt)$/.test(name)).map(([, data]) => new TextDecoder().decode(data)).join('\n');
+    // 만든이(CREATOR)는 이 코드가 넣은 이름이라 원본 글 조각이 아니다 — 그 자리만 빼고 찾는다(보고서에 '노동조합'이 있어도 걸리지 않게).
+    const blob = [...pkg.files].filter(([name]) => /\.(xml|hpf|rdf|txt)$/.test(name)).map(([, data]) => new TextDecoder().decode(data)).join('\n').split(`>${CREATOR}<`).join('><');
     const allowedText = new Set([...FORM_LABELS, ...BOX_LABELS, ...headerStyles(header).map(s => s.name), ...[...walk(header.root)].filter(n => n.name === 'hh:font').map(n => n.attrs.face)]);
     const hits = forbidden.map(s => s.trim()).filter(s => [...s].length >= 2 && HANGUL_OR_WORD.test(s) && ![...allowedText].some(a => a.includes(s))).filter(s => blob.includes(s) || blob.includes(escapeForXml(s)));
     if (hits.length) problems.push(`원본 글 조각 ${hits.length}개가 남음`);

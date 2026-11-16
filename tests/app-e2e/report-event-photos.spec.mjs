@@ -129,12 +129,12 @@ test('못 넣은 사진은 아래 한 줄 [다시 넣기]로 그 사진만 다�
   await expect(tiles(page)).toHaveCount(2);
   await tiles(page).nth(0).click();
   await tiles(page).nth(1).click();
-  state.ev.fail.set('ph-1', {status: 400, body: {error: 'Web2 일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.', code: 'NOT_EVENT_FILE'}});
+  state.ev.fail.set('ph-1', {status: 400, body: {error: '일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.', code: 'NOT_EVENT_FILE'}});
   await page.locator('#meetingTranscript').fill('가짜 결과 내용');
   await page.locator('#saveMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeHidden();
   await expect(dock(page).locator('.up-dock-text')).toHaveText('일정 사진 1장 못 넣었어요');
-  await expect(dock(page)).toContainText('Web2 일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.');
+  await expect(dock(page)).toContainText('일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.');
   expect(state.ev.links.map(b => b.drive_file_id)).toEqual(['ph-1', 'ph-2']);
   await shot(page, 'fail-1280');
   await dock(page).getByRole('button', {name: '못 넣은 일정 사진 다시 넣기'}).click();

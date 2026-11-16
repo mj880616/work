@@ -9,7 +9,7 @@
 //   폰 폴더 바꾸기는 'photos:op:{op,…}'(이름 바꾸기·폴더 옮기기·고른 사진 옮기기·폴더 지우기=폰 휴지통) → 'photos:done:{ok,count,error,path}'.
 //   'photos:manage' = '미디어 관리 허용' 설정 화면(켜 두면 바꿀 때 매번 묻지 않음). 옛 앱(0.4.0 이하)은 hide를 모르므로 붙이지 않는다(400).
 // - PHOTO-갤러리편집(앱 0.4.6+, 상태에 edit): 'photos:edit:{id}|{name,size,taken}' = 삼성 갤러리 편집기(없으면 고르기 창)로 넘김
-//   → 'photos:edited:{ok,changed,error}'. 폰에 없는 사진은 'photos:save:begin|part|end'로 원본 바이트를 Pictures/웹2에 한 장 저장한 뒤 그 번호로 편집.
+//   → 'photos:edited:{ok,changed,error}'. 폰에 없는 사진은 'photos:save:begin|part|end'로 원본 바이트를 Pictures/노조+에 한 장 저장한 뒤 그 번호로 편집.
 // - S48-17 [폰으로 되돌리기](앱 0.4.11+, 상태에 restore): 같은 save 길의 begin에 dir(원래 폰 폴더)·taken(원래 찍은 시각 ms)을 붙인다(동영상도).
 // - S48-60 PHOTO-정보고치기(앱 0.4.15+, 상태에 meta): 'photos:meta:read:[번호]' → 'photos:meta:{ok,items,error}'(찍은 시각·위치·카메라·렌즈),
 //   'photos:meta:write:{items:[{id,taken?,loc?}]}' → 수정 허락 창 한 번 → 'photos:metadone:{ok,count,failed,error}'(파일 EXIF + 사진첩 DATE_TAKEN).
@@ -251,7 +251,7 @@ export function createPhonePhotos(win = globalThis.window) {
         if (!send('photos:edit:' + JSON.stringify(target))) { editWait = null; ok({ok:false, changed:false, error:'failed'}); }
       });
     },
-    // 폰에 없는 사진의 원본(Blob)을 폰 사진첩 Pictures/웹2에 한 장 저장 → {ok, id(폰 사진 번호), error}. 바이트는 앱 다리로만(서버 안 거침).
+    // 폰에 없는 사진의 원본(Blob)을 폰 사진첩 Pictures/노조+에 한 장 저장 → {ok, id(폰 사진 번호), error}. 바이트는 앱 다리로만(서버 안 거침).
     save(blob, name = '') {
       const type = saveType(blob?.type, name);
       if (!api.canEdit() || !blob || !SAVE_MIMES.includes(type) || !(blob.size > 0) || blob.size > SAVE_MAX) return Promise.resolve({ok:false, id:'', error:blob?.size > SAVE_MAX ? 'big' : 'type'});

@@ -23,7 +23,7 @@ function walk(dir) {
 test('Pages 빌드 결과에 about/ 세 페이지와 CSS·로고가 그대로 들어간다', () => {
   const input = Object.fromEntries(walk('about').map(f => [f, f.endsWith('.png') ? readFileSync(join(root, f)) : read(f)]));
   const output = buildPages(input);
-  for (const file of ['about/index.html', 'about/privacy/index.html', 'about/terms/index.html', 'about/about.css', 'about/web2-logo-120.png']) {
+  for (const file of ['about/index.html', 'about/privacy/index.html', 'about/terms/index.html', 'about/about.css', 'about/nojoplus-logo-120.png']) {
     assert.ok(Object.hasOwn(output, file), `빌드 결과에 없음: ${file}`);
   }
   // 빌드는 저장소 안 파일 주소에 ?v=(내용 해시)만 붙인다. 그것을 빼면 원문과 같아야 한다.

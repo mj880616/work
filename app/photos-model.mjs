@@ -312,13 +312,15 @@ export function photoMoveTargets(tree, {moving = null, here = null} = {}) {
   const parentOfMoving = moving ? photoFolderById(tree, moving)?.parent_id : null;
   return photoFolderRows(tree, () => true).filter(r => !skip.has(r.id)).map(r => ({...r, current: moving ? r.id === parentOfMoving : r.id === here}));
 }
-// 폴더 이름 규칙(서버 cleanFolderName과 같음): 원드라이브 금지 글자·제어 글자·끝 점·1~200자·Web2 휴지통 이름 거절. 맞으면 다듬은 이름, 아니면 null.
-export const TRASH_FOLDER_NAME = '.Web2 휴지통';
+// 폴더 이름 규칙(서버 cleanFolderName과 같음): 원드라이브 금지 글자·제어 글자·끝 점·1~200자·휴지통 이름(새·옛) 거절. 맞으면 다듬은 이름, 아니면 null.
+// BRAND-웹2흔적지우기: 휴지통 이름은 '.노조+ 휴지통'. 옛 '.Web2 휴지통'은 서버가 쓸 때 새 이름으로 바꾼다(onedrive-photos/graph.ts).
+export const TRASH_FOLDER_NAME = '.노조+ 휴지통';
+export const OLD_TRASH_FOLDER_NAME = '.Web2 휴지통';
 export function cleanPhotoFolderName(v) {
   if (typeof v !== 'string') return null;
   const name = v.normalize('NFC').trim();
   if (!name || [...name].length > 200 || /["*:<>?/\\|\u0000-\u001f\u007f]/.test(name) || name.endsWith('.')) return null;
-  if (name === TRASH_FOLDER_NAME || name === '.' || name === '..') return null;
+  if (name === TRASH_FOLDER_NAME || name === OLD_TRASH_FOLDER_NAME || name === '.' || name === '..') return null;
   return name;
 }
 // 옮긴 결과(서버 photos-move의 moved[{id, from}])를 되돌리기 묶음으로: 원래 폴더 id → 사진 id들(원래 폴더를 모르면 뺀다).

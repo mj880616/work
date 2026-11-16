@@ -33,5 +33,5 @@ export function prepareBasket(notes, links, now, window) {
   const linked = new Set(links.filter(link => ['confirmed', 'suggested'].includes(link.status)).map(link => link.note_id));
   const recent = notes.filter(note => !note.archived_at && note.ai_export_allowed === true && !linked.has(note.id) && !noteJournalAt(note)
     && Date.parse(note.occurred_at) >= Date.parse(window.start) && Date.parse(note.occurred_at) <= now.getTime());
-  return { recent, count: recent.length, section: `<h2>바구니</h2>\n${p(`바구니 미분류 메모 ${recent.length}건 (내용은 Web2 바구니에서 확인)`)}` };
+  return { recent, count: recent.length, section: `<h2>바구니</h2>\n${p(`바구니 미분류 메모 ${recent.length}건 (내용은 노조+ 바구니에서 확인)`)}` };
 }

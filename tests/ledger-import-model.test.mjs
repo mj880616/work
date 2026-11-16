@@ -164,6 +164,13 @@ test('Web2 organisation link: unknown id is dropped with a warning; one Web2 org
  assert.deepEqual(reasons(r,'warning'),{web2_missing:1});
 });
 
+test('BRAND-웹2흔적지우기: 새 칸 이름 노조+연결ID도 옛 Web2연결ID와 똑같이 읽는다',async()=>{
+ const known='23000000-0000-4000-8000-000000000001';
+ const r=await run([one('조직',[['ID','조직명','노조+연결ID'],['ORG-0901','가 지부',known],['ORG-0902','나 지부','없는 값'],['ORG-0903','다 지부',known]])],{suborganizations:new Set([known])});
+ assert.deepEqual(reasons(r),{duplicate_web2:1});
+ assert.deepEqual(reasons(r,'warning'),{web2_missing:1});
+});
+
 test('Claude import file (JSON): same checks; values must already be fixed-list values; candidate files are shape-checked only',async()=>{
  const sheet=await run(csvFiles());
  const file={...sheet.payload,label:'Claude 묶음'};delete file.sha256;delete file.report;
