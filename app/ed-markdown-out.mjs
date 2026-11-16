@@ -6,9 +6,14 @@
 //   A text that is only plain paragraphs (nothing formatted) comes back as toPlain gives it: the letters exactly as typed, no
 //   backslashes (an old text opened with plainToDocKeep and saved unchanged in letters stays the same letters).
 // The reader is markdown-render.mjs (markdown-it, breaks on): a line break inside a paragraph is a plain "\n".
+// ED-빈줄읽기: empty paragraphs (blank lines typed in the editor) are kept, so the field reads with as many blank lines as the
+// editor showed. Plain letters (read as written, white-space pre-wrap): one more "\n" per empty paragraph between two paragraphs.
+// Markdown (markdown-it folds blank lines into one): a paragraph of "&nbsp;" per empty paragraph, a paragraph one line high, which
+// is plain markdown. Empty paragraphs at the start or end are dropped. lettersToDoc(text, markdownIt) opens the letters again with
+// those empty paragraphs (record-text-write.js), so opening and saving unchanged gives the same letters.
 import {cleanDoc} from './ed-schema.mjs';
-import {toPlain} from './ed-text.mjs';
 import {guardDateLines} from './markdown-render.mjs';
+import {markdownToDoc, plainToDocKeep} from './ed-markdown.mjs';
 
 const plainParagraph = node => node?.type === 'paragraph' && !node.attrs?.align && !node.attrs?.indent &&
   (node.content || []).every(n => n.type === 'hard_break' || (n.type === 'text' && !(n.marks && n.marks.length)));
@@ -50,12 +55,14 @@ function inline(nodes, {cell = false} = {}) {
 }
 const paragraphLines = node => inline(node.content).split('\n').map(escapeLineStart);
 
+const BLANK = '&nbsp;';
 // Blocks → array of block texts (each block is an array of lines); joined with a blank line between.
-function blocks(list, depth = 0) {
+// top: the document's own blocks, where an empty paragraph is kept as a BLANK paragraph.
+function blocks(list, depth = 0, top = false) {
   const out = [];
   for (const node of list || []) {
     switch (node.type) {
-      case 'paragraph': { const lines = paragraphLines(node); if (lines.join('').trim()) out.push(lines); break; }
+      case 'paragraph': { const lines = paragraphLines(node); if (lines.join('').trim()) out.push(lines); else if (top) out.push([BLANK]); break; }
       case 'heading': {
         const level = Math.min(3, Math.max(1, Number(node.attrs?.level) || 2)), text = inline(node.content).replace(/\n/g, ' ').trim();
         if (text) out.push(['#'.repeat(level) + ' ' + text]);
@@ -103,10 +110,40 @@ function blocks(list, depth = 0) {
 const join = (list, gap = true) => list.map(lines => lines.join('\n')).join(gap ? '\n\n' : '\n');
 const tidy = text => text.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
 
+const isBlank = lines => lines.length === 1 && lines[0] === BLANK;
+// Plain paragraphs → the letters as typed: a blank line between two paragraphs, one more per empty paragraph between them.
+const lineText = node => (node.content || []).map(n => (n.type === 'hard_break' ? '\n' : n.text || '')).join('');
+function plainLetters(content) {
+  let out = '', gap = 0;
+  for (const node of content) {
+    const text = lineText(node).replace(/[ \t]+$/gm, '');
+    if (!text.trim()) { gap++; continue; }
+    if (out) out += '\n'.repeat(2 + gap);
+    out += text;
+    gap = 0;
+  }
+  return out.replace(/^\n+|\n+$/g, '');
+}
+
 export function docToMarkdown(value) {
   const clean = cleanDoc(value);
   if (!clean) return '';
   const content = clean.doc.content || [];
-  if (content.every(plainParagraph)) return toPlain(clean);
-  return tidy(join(blocks(content)));
+  if (content.every(plainParagraph)) return plainLetters(content);
+  const list = blocks(content, 0, true);
+  while (list.length && isBlank(list[0])) list.shift();
+  while (list.length && isBlank(list[list.length - 1])) list.pop();
+  return tidy(join(list));
+}
+
+// The field's letters → the editor's saved form, with the empty paragraphs docToMarkdown wrote (above). markdownIt: the loaded
+// library when the letters carry markdown marks, else null (the letters open exactly as written).
+export function lettersToDoc(text, markdownIt = null) {
+  if (!markdownIt) return plainToDocKeep(text, {blankLines: true});
+  const clean = markdownToDoc(markdownIt, guardDateLines(text));
+  for (const node of clean?.doc?.content || []) {
+    const only = node.type === 'paragraph' && node.content?.length === 1 ? node.content[0] : null;
+    if (only && only.type === 'text' && !only.marks?.length && /^\u00a0+$/.test(only.text)) delete node.content;
+  }
+  return cleanDoc(clean);
 }
