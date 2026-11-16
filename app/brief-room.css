@@ -6,7 +6,7 @@
 #briefView .br-drop{margin:2px 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView.br-dropping .br-drop{border-color:var(--kptu-primary-ink);color:var(--kptu-ink)}
 #briefView .br-rows{border-top:.5px solid var(--kptu-border)}
-#briefView .br-row{display:grid;grid-template-columns:2.8em minmax(0,1fr) auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row)}
+#briefView .br-row{display:grid;grid-template-columns:2.8em minmax(0,1fr) auto auto;gap:1px 6px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--kptu-border);font-size:var(--ds-text-row)}
 #briefView .br-row[role=button]{cursor:pointer}
 #briefView .br-row.is-open{background:var(--kptu-surface-soft,var(--kptu-primary-soft))}
 #briefView .br-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
@@ -14,7 +14,7 @@
 #briefView .br-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #briefView .br-st{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
 #briefView .br-st-bad{white-space:normal;text-align:right}
-#briefView .br-one{grid-column:2/4;min-width:0;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#briefView .br-one{grid-column:2/-1;min-width:0;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #briefView .br-muted{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView .br-meta{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView .br-lead{margin:0 0 4px;padding:4px 8px;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-soft,var(--kptu-primary-soft));font-size:var(--ds-text-row);overflow-wrap:anywhere}
@@ -33,3 +33,12 @@
   #briefView.br-reading .br-detail{padding-left:12px;margin-left:12px;border-left:.5px solid var(--kptu-border)}
 }
 @media(max-width:760px){#briefView .br-row{padding:7px 0}}
+/* BRIEF-브리핑룸삭제(S63-08): 줄 끝 ⋯(공용 icon-btn), 선택 모드(줄 앞 네모 칸·위쪽 줄 [모두 선택] n개 선택됨 [브리핑만 삭제] [자료까지 삭제] [취소]).
+   줄 메뉴는 통화·텔레그램과 같은 공용 작은 메뉴(feed.css .feed-menu). 버튼 모양은 공용 6가지 그대로(여기서 정하지 않음). */
+#briefView .br-more{flex:none;color:var(--kptu-muted)}
+#briefView .br-picking .br-row{grid-template-columns:auto 2.8em minmax(0,1fr) auto auto;cursor:pointer}
+#briefView .br-picking .br-one{grid-column:3/-1}
+#briefView .br-pick{margin:0;width:16px;height:16px}
+#briefView .br-head{flex-wrap:wrap}
+#briefView .br-head .br-count{margin-right:auto;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
+#briefView .br-menu-n{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
