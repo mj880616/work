@@ -5,7 +5,7 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 //   거르기·칸 수는 서버 view_prefs.photo_view(명진 결정 6, 일기 칸 수와 따로). 칸 수는 폰 3~6·PC 5~12.
 // - [사진]: 최신순 격자 120장씩(library cursor) + 날짜 머리줄. 오른쪽 끝 얇은 막대(months)를 끌면 달 말풍선 '2026.09', 놓으면 그 달로.
 // - [달력]: 날마다 대표 사진·장수(days). 칸을 누르면 [사진]의 그날부터.
-// - [휴지통](명진 결정 1): Web2에서 지운 사진('.Web2 휴지통' 폴더). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
+// - [휴지통](명진 결정 1): Web2에서 지운 사진('.노조+ 휴지통' 폴더, 옛 이름 '.Web2 휴지통'). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
 // - 크게 보기: 일기와 같은 공용 부품 photo-strip.js. 동영상은 ▶로 재생(media-url play, 주소는 메모리에만), [ⓘ] 판 [⤓ 원본 받기](media-url download).
 // - 여러 장 고르기: 길게 누르기(0.5초)로 시작, 고른 뒤 좌우로 끌면 여러 칸(화면 끝 자동 스크롤). 아래 [☆ 별표] [⇪ 공유] [⤓ 받기] [🗑 지우기].
 //   지우기는 묻지 않고 바로 빠지고 [되돌리기] 5초(명진 결정 7), 그 뒤 한 번에(ids ≤ 50) Web2 휴지통으로.
@@ -1403,7 +1403,7 @@ async function downloadOne(item) {
 }
 // PHOTO-갤러리편집(요청함 11/01 19:00, A안): 크게 보기 [✎ 편집] = 폰 앱이 삼성 편집기(공개 편집 입구가 있을 때) 또는 삼성 갤러리 보기(0.4.10+)로 넘긴다(웹2 자체 편집기 없음).
 // 원드라이브·구글 드라이브 사진은 같은 사진이 폰에 있으면 그것을 열고, 없으면 한 번 더 누를 때(한 줄 확인) 원본을
-// 기존 '원본 받기' 길로 받아 폰 사진첩 Pictures/웹2에 저장한 뒤 연다. 돌아와 사진첩이 바뀌었으면 사진 목록만 다시 읽는다(앱 화면은 다시 열지 않음).
+// 기존 '원본 받기' 길로 받아 폰 사진첩 Pictures/노조+에 저장한 뒤 연다. 돌아와 사진첩이 바뀌었으면 사진 목록만 다시 읽는다(앱 화면은 다시 열지 않음).
 const EDIT_ASK_MS = 8000;
 const EDIT_ERROR = {none:'폰에서 이 사진을 찾지 못했어요.', busy:'사진 수정 앱이 이미 열려 있어요.', noapp:'사진을 수정할 앱이 없어요.', old:'이 앱 판은 수정을 못 해요. 앱을 업데이트해 주세요.', big:'사진이 너무 커서(60MB 넘음) 폰에 받지 못했어요.', type:'이 사진 형식은 폰에 받아 수정하지 못해요.'};
 const editText = error => EDIT_ERROR[error] || '사진 수정 앱을 열지 못했어요.';
@@ -1437,7 +1437,7 @@ async function editOne(item) {
       res = await phone.edit(item);
       if (!res.ok && res.error === 'none' && item.kind !== 'phone') {
         editAsk = {id:item.id, at:Date.now()};
-        say('폰에 없는 사진이에요. [수정]을 한 번 더 누르면 원본을 폰(사진첩 웹2 폴더)에 받아 수정해요.');
+        say('폰에 없는 사진이에요. [수정]을 한 번 더 누르면 원본을 폰(사진첩 노조+ 폴더)에 받아 수정해요.');
         return;
       }
     }
@@ -1487,7 +1487,7 @@ function openViewer(index, own = null) {
     // 못 지우는 까닭 글은 고르기 줄·사진 ⋯와 같은 한 곳(photoOffWhy, S53-12).
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : photoOffWhy('delete', 'phone')}
       : item?.kind === 'gdrive' ? {ok:gdUsable() && !busy, title:!gdUsable() ? photoOffWhy('delete', 'gdrive') : busy ? '다른 일을 하는 중이에요. 잠시 뒤 다시 눌러 주세요.' : '구글 드라이브 휴지통으로(확인 한 번)'}
-      : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : photoOffWhy('delete', 'od')}),
+      : {ok:od.canDelete, title:od.canDelete ? '노조+ 휴지통으로' : photoOffWhy('delete', 'od')}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
     choose:own ? (own.choose || null) : (item, anchor, plain) => {
@@ -1918,7 +1918,7 @@ async function restorePicked(from = pickedItems()) {
     notify('원본을 폰에 넣는 중…', {ms:300000, record:false});
     let blob;
     try { blob = await odOriginalBlob(item); } catch (error) { notify(`원본을 받지 못했어요: ${odErrorText(error)}`, {error:true}); return; }
-    const r = await phone.restore(blob, {name:item.name || '', dir:item.keptPath || 'Pictures/웹2/', taken:item.taken_at});
+    const r = await phone.restore(blob, {name:item.name || '', dir:item.keptPath || 'Pictures/노조+/', taken:item.taken_at});
     if (!r.ok) { notify(RESTORE_ERROR[r.error] || '폰에 넣지 못했어요.', {error:true}); return; }
     const dropped = await dropKept([item.keptId]);
     select.stop(); paintSelect();

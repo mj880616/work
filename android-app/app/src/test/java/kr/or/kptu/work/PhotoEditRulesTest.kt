@@ -160,7 +160,7 @@ class PhotoEditRulesTest {
         assertEquals(PhotoEditRules.SAVE_DIR, PhotoEditRules.restoreDir("Android/media/com.kakao.talk/KakaoTalk/", false))
         assertEquals(PhotoEditRules.SAVE_DIR, PhotoEditRules.restoreDir("Movies/x/", false))
         assertEquals("Movies/x/", PhotoEditRules.restoreDir("Movies/x/", true))
-        assertEquals("Movies/웹2/", PhotoEditRules.restoreDir("Download/", true))
+        assertEquals("Movies/노조+/", PhotoEditRules.restoreDir("Download/", true))
         assertNull(PhotoEditRules.restoreDir(null, false))
         assertNull(PhotoEditRules.restoreDir("x".repeat(256), false))
         assertEquals("VID_1.mp4", PhotoEditRules.fileName("VID_1.mp4", "video/mp4"))

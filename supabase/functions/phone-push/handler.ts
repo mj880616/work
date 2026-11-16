@@ -532,7 +532,7 @@ export function createPhonePushHandler(deps: PhonePushDeps) {
       const devices = (await activeDevices(db, who.workspaceId)).slice(0, MAX_DEVICES);
       if (!devices.length) throw new Fail(409, "NO_DEVICE");
       const out = await sendToDevices(db, makeFcmSender(cfg, doFetch, now), devices,
-        { kind: "test", title: "웹2 · 시험 알림", open: "/work/app/", urgent: true }, nowIso);
+        { kind: "test", title: "노조+ · 시험 알림", open: "/work/app/", urgent: true }, nowIso);
       await logPush(db, who.workspaceId, "test", `t${nowMs}`, day, out.sent ? "sent" : "failed");
       return json({ ok: true, ...out });
     } catch (e) {

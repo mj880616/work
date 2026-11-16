@@ -258,7 +258,7 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   org_people_not_ready: "주요 인물 기능이 아직 준비되지 않았어요.",
   org_people_unavailable: "주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_status_unavailable: "조직 기록을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.",
-  ask_not_ready: "Web2에 물어보기가 아직 준비되지 않았어요.",
+  ask_not_ready: "노동조합+에 물어보기가 아직 준비되지 않았어요.",
   ask_unavailable: "기록을 찾거나 답을 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   ask_secret: "비밀번호·키처럼 보이는 글은 물어볼 수 없어요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",

@@ -218,7 +218,7 @@ class MainActivity : ComponentActivity() {
         PhoneMedia.forget()
         postPhotos(PhotoEditRules.editedMessage(true, PhotoEditRules.changed(before, PhoneMedia.generation(this))))
     }
-    /** 폰에 없는 사진을 Pictures/웹2에 받는 중인 한 장(한 번에 하나). 쓰기는 한 줄 일꾼에서 차례대로. */
+    /** 폰에 없는 사진을 Pictures/노조+에 받는 중인 한 장(한 번에 하나). 쓰기는 한 줄 일꾼에서 차례대로. */
     private var photoSave: PhoneMedia.Save? = null
     private var savedPhoto: Pair<Long, PhoneMedia.Save>? = null
     private val saveWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
@@ -1742,7 +1742,7 @@ class MainActivity : ComponentActivity() {
         pushReply = null
         outReply = null
         upReply = null
-        // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다. '이 폰'으로 받다 만 임시 파일도.
+        // 받다 만 사진(Pictures/노조+의 숨긴 칸)은 지운다. '이 폰'으로 받다 만 임시 파일도.
         saveCancel()
         PhoneFilesWrite.worker.execute { PhoneFilesWrite.drop() }
         saveWorker.shutdown()
