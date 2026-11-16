@@ -53,3 +53,13 @@ export function connectNoteFor(service, mode = 'none', {line = '', attrs = {}, b
   if (!t) return '';
   return connectNoteHtml({line:line || t.line, button:t.button, attrs, boxAttrs:{'data-connect-service':service, 'data-connect-mode':mode === 'reconnect' ? 'reconnect' : 'none', ...boxAttrs}, role, why, cls});
 }
+
+// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브를 둘 다 쓰는 화면에서 둘 다 연결 전이면
+// [파일] 화면과 같은 한 칸 — '연결된 클라우드가 없어요.' 한 줄 + 그 아래 연결 버튼들 한 줄([원드라이브 연결][구글 드라이브 연결]).
+// items: [{service:'onedrive'|'gdrive', attrs}] — 연결 안 된 것만 넘긴다(넘긴 순서대로 왼쪽부터). 버튼 글은 CONNECT_TEXT 그대로.
+export const CLOUD_NONE_LINE = '연결된 클라우드가 없어요.';
+export function cloudNoneHtml(items = [], {boxAttrs = {}, cls = ''} = {}) {
+  const buttons = (Array.isArray(items) ? items : []).map(x => ({label:connectText(x?.service, 'none')?.button || '', attrs:x?.attrs || {}})).filter(x => x.label);
+  if (!buttons.length) return '';
+  return connectNoteHtml({line:CLOUD_NONE_LINE, buttons, boxAttrs:{'data-connect-cloud-none':'', ...boxAttrs}, cls});
+}
