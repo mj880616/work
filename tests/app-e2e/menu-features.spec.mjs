@@ -50,7 +50,7 @@ for(const width of [1280,760,412]){
     const p=await placed(page);
     expect(p.sheet).toEqual(['note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal']);
     // 운영자는 메뉴 순서를 저장해 둔 사람(OPERATOR_MENU_LAYOUT)이라 PC 왼쪽 메뉴도 그 저장 순서(하단바 칸 → 위 메뉴 → 아래 칸)다.
-    expect(p.pc).toEqual(['home','basket','calendar','meetings','team','note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal']);
+    expect(p.pc).toEqual(['home','basket','calendar','meetings','team','note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal','help']); // HELP-메뉴안쓰는법: 맨 끝 '쓰는 법'
     expect(p.bar).toEqual(['home','basket','calendar','meetings','team']);
     await page.screenshot({path:`docs/design/screens/s61-41/menu-operator-${width}.png`});
     expect(errors).toEqual([]);
