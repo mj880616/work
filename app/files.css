@@ -130,7 +130,8 @@
   /* S50-33(시안 승인): 위 줄 = 찾기 칸 + 출처 단추(같은 줄 오른쪽 작은 정사각). 목록일 때만 아래 줄에 위치 길(‹ 원드라이브 › Pictures)·정렬. */
   .fx-top { flex-wrap:wrap; row-gap:2px; min-height:0; padding:4px 0 3px; }
   /* 찾기 칸은 출처 단추(2~4개)와만 한 줄을 채우고, 위치 길은 늘 다음 줄(최소 120px라 첫 줄 남은 자리에 끼지 않음). */
-  .fx-search { flex:1 1 calc(100% - 130px); width:auto; order:1; height:30px; }
+  /* S62-40: [두 칸 보기] 아이콘(28px + 사이 6px)도 같은 줄이라 그만큼 뺀다. */
+  .fx-search { flex:1 1 calc(100% - 164px); width:auto; order:1; height:30px; }
   .fx-srcs { order:2; }
   #appView #filesView .fx-srcs [data-src-chip] { min-width:28px; width:28px; height:28px; min-height:28px; padding:0; }
   .fx-crumb { order:3; flex:1 1 120px; }
@@ -220,7 +221,11 @@
    칸 위 줄(위치 줄 + 정렬, 폴드는 ▾ 나무)은 밑선 2px, 지금 칸은 강조색 밑선(시안 pane-top.cur). 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾ 나무.
    미리보기는 두 칸이면 덮는 칸. 칸 사이로 끌면 받는 칸에 '여기에 놓으면 → 복사 · 옮기기' 점선 안내, 놓으면 작은 고르기(fx-drop-ask). */
 .fx-crumb[hidden], .fx-sort[hidden], .fx-ptop[hidden], .fx-ptree[hidden], .fx-drop-ask[hidden], .fx-two[hidden] { display:none; }
-.fx-two { flex:none; height:24px; padding:0 8px; font-size:11.5px; }
+/* S62-40 UI-파일검색줄(시안 PR 2691 B안): [두 칸 보기]는 공용 ⑥ 아이콘(button.icon-btn, 선·바탕 없음). 출처 단추와 같은 28px 정사각, 켜짐(aria-pressed)은 옅은 바탕.
+   그림은 폰(위·아래 두 칸) 가로 선, 600px~(왼쪽·오른쪽 두 칸)는 돌려서 세로 선. */
+.fx-two { flex:none; width:28px; height:28px; min-width:28px; min-height:28px; font-size:inherit; }
+.fx-two[aria-pressed="true"] { color:var(--kptu-primary-text); background:var(--kptu-primary-soft); }
+@media (min-width:600px) { .fx-two-ic { transform:rotate(90deg); } }
 .fx-listcol { position:relative; }
 .fx[data-fx-two] .fx-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:stretch; }
 /* LIB-두칸아래여백 같은 종류(S60-13): [파일] 두 칸도 두 칸 높이를 긴 쪽에 맞추고 목록 아래 줄 두 개쯤(60px) 비운다(칸 상자는 그대로 블록 — 칸 안 스크롤 길 files-pane-scroll 유지). 빈 자리는 칸 상자라 반대 칸에서 끌어 놓으면 그 칸의 지금 폴더. */
