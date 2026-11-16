@@ -5,7 +5,8 @@ import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {writeZip, readZip, crc32} from '../app/weekly-hwpx/zip.mjs';
 import {parseXml, toXml, walk, textOf} from '../app/weekly-hwpx/xml.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml, setText, headerStyles, REQUIRED_PARTS} from '../app/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate, assertBlank, FORM_LABELS, readPrototypes, PROTO_ORDER} from '../app/weekly-hwpx/template.mjs';
+import {extractBlankTemplate, assertBlank, readPrototypes, PROTO_ORDER} from '../app/weekly-hwpx/template.mjs';
+import {LEGACY_PROFILE} from '../app/weekly-hwpx/form-profile.mjs';
 import {buildReport, readReport, reportTexts, lineText, isChanged} from '../app/weekly-hwpx/report.mjs';
 import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine} from '../app/weekly-hwpx/delta.mjs';
 import {estimateLines, layoutTable, headerMetrics} from '../app/weekly-hwpx/layout.mjs';
@@ -69,7 +70,7 @@ test('빈 서식: 스타일·쪽 설정·표 틀만 남고 실제 글은 한 글
   // 본문에 남은 글은 표 머리 칸 이름뿐(회의 결과 상자의 왼쪽 칸 이름도 지운다)
   const sec = readXml(blank, 'Contents/section0.xml');
   const texts = [...walk(sec.root)].filter(n => n.name === 'hp:t').map(t => textOf({name: 'x', attrs: {}, children: [t]}).trim()).filter(Boolean);
-  assert.deepEqual([...new Set(texts)].sort(), [...FORM_LABELS].sort());
+  assert.deepEqual([...new Set(texts)].sort(), [...LEGACY_PROFILE.formLabels].sort());
   assert.equal(kids(sec.root, 'hp:p').length, PROTO_ORDER.length);
   // 원본 스타일 표·글자 모양·쪽 설정은 그대로
   assert.equal(readXml(blank, 'Contents/header.xml').root.children.length, readXml(source, 'Contents/header.xml').root.children.length);

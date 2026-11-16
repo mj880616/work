@@ -10,6 +10,7 @@
 //   assembleDraft(base, edits) → 보고 자료(바뀐 줄 표시) → buildHwpx(template, data, zlib) → .hwpx 바이트(규격 검사 통과한 것만)
 import {openHwpxAsync, packHwpxAsync, validateHwpxAsync} from './hwpx.mjs';
 import {extractBlankTemplate, assertBlank} from './template.mjs';
+import {LEGACY_PROFILE} from './form-profile.mjs';
 import {readReport, buildReport, reportWords, lineText} from './report.mjs';
 import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.mjs';
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
@@ -122,13 +123,14 @@ export function hwp5Header(bytes) {
 }
 
 // 확정본 → {team(읽은 내용), template(빈 서식)}. 빈 서식 검사(template.mjs assertBlank)에 걸리면 Error(이유는 개수만, 글은 넣지 않음).
-export function prepareConfirmed(pkg) {
+// profile(선택): '내 양식'에서 만든 양식 글자(form-profile.mjs profileOf). 없으면 옮기는 동안의 기본값.
+export function prepareConfirmed(pkg, {profile = LEGACY_PROFILE} = {}) {
   let team;
-  try { team = readReport(pkg); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
+  try { team = readReport(pkg, {profile}); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
   let template;
   // 양식 표(머리 칸 이름)를 찾지 못하면 멈춘다. 이유에는 양식 글자(표 머리 칸 이름)만 들어 있다.
-  try { template = extractBlankTemplate(pkg); } catch (e) { throw Object.assign(new Error(`${DRAFT_TEXT.noForm} (${e.message})`), {code: 'no_form'}); }
-  const problems = assertBlank(template, {forbidden: reportWords(team)});
+  try { template = extractBlankTemplate(pkg, {profile}); } catch (e) { throw Object.assign(new Error(`${DRAFT_TEXT.noForm} (${e.message})`), {code: 'no_form'}); }
+  const problems = assertBlank(template, {forbidden: reportWords(team, {profile}), profile});
   if (problems.length) throw Object.assign(new Error(DRAFT_TEXT.notBlank), {code: 'not_blank', count: problems.length});
   return {team, template};
 }
@@ -513,8 +515,8 @@ export const changedCount = data => [...(data.summary ?? []).flatMap(a => a.rows
   .filter(l => typeof l === 'object' && l?.changed).length;
 
 // 빈 서식 + 보고 자료 → .hwpx 바이트. 규격 검사(hwpx.mjs)를 통과하지 못하면 Error(파일을 내주지 않음).
-export async function buildHwpx(template, data, zlib = browserZlib) {
-  const {pkg} = buildReport(template, data);
+export async function buildHwpx(template, data, zlib = browserZlib, {profile = LEGACY_PROFILE} = {}) {
+  const {pkg} = buildReport(template, data, {profile});
   const bytes = await packHwpxAsync(pkg, zlib);
   const check = await validateHwpxAsync(bytes, zlib);
   if (check.errors.length) throw Object.assign(new Error(DRAFT_TEXT.invalid), {code: 'invalid', count: check.errors.length});
