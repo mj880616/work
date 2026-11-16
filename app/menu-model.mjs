@@ -34,9 +34,9 @@ export const ITEMS = Object.freeze([
   // OUTSIDE-바깥성명 ④: [바깥 성명]은 처음 자리가 위 메뉴 끝(사진 다음, 설계 docs/design/outside-statements.md 4절).
   // OUTSIDE-글상세·관심환류 ③(명진 결정 11/01 23:16): 사회운동과 뉴스 클리핑을 한 칸으로 합쳤다. S51-17 NEWS P5: 이름 'Now' → 'News'(id outside는 그대로 — 저장된 menu_layout이 맞게).
   // id는 outside 그대로라 저장된 메뉴 순서가 맞고, 옛 id news는 아래 OLD_IDS가 outside로 읽는다.
-  // NEWS-모두에게열기(S62-12g): News는 로그인 가입자 모두에게(운영자 기능 키 없음). 공용 기사 표는 서버 정책이 차단 명단을 막고,
-  //   텔레그램 소식·통화·[뉴스방으로]는 아래 운영자 키·서버 판정 그대로. 운영자 채널 스크랩만 있던 기사(tg_scrap)는 서버가 운영자에게만 준다.
-  {id: 'outside', label: 'News', view: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
+  // NEWS-운영자만(S63-03, 명진 11/16 "완성도 높아지면 그 때 열자"): S62-12g에서 모두에게 열었던 News를 다시 운영자 기능 키 'outside'로.
+  //   공용 기사 한 벌 구조(news-for-all)는 그대로 두고, 화면 입구는 이 키, 수집·AI는 Edge가 같은 키로 막는다.
+  {id: 'outside', label: 'News', view: 'outside', feature: 'outside', icon: 'M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3'},
   {id: 'calls', label: '통화', view: 'calls', feed: true, feature: 'calls', icon: 'M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z'},
   {id: 'telegram', label: '텔레그램 소식', view: 'telegram', feed: true, feature: 'telegram', icon: 'M21 4 3 11l6 2 2 6 3-4 5 4z'},
   // 주소 개편 ② E1: [아스날]은 처음 자리가 [메뉴] 창 맨 아래(PC 사이드바도 맨 아래 묶음 끝, feed와 같은 자리). 메뉴 편집으로 옮길 수 있다.
