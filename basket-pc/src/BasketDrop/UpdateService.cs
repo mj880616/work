@@ -63,7 +63,7 @@ internal sealed class UpdateService
     /// <summary>User asked to switch now. Starts the new version after this program has exited.</summary>
     public void ApplyAndRestart()
     {
-        if (_manager != null && _pending != null) _manager.ApplyUpdatesAndRestart(_pending);
+        if (_manager != null && _pending != null) _manager.ApplyUpdatesAndRestart(_pending, [LaunchArgs.Background]); // S63-09: back to the tray without the helper window
     }
 }
 
