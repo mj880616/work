@@ -15,7 +15,8 @@ test('share-news: only the save_url address goes to the server, no device storag
   assert.doesNotMatch(src, /\/rest\/v1\/|navigator\.share|share:send|workspace_id|origin:/);
   for (const word of ['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'cach' + 'es.']) assert.equal(src.includes(word), false, word);
   const basket = read('../app/basket-share.js');
-  assert.match(basket, /if \(list\.target === 'news'\) \{ await openNews\(list, picked\); return; \}/);
+  // S63-03 NEWS-운영자만: 'outside' 키가 있거나 답을 모를 때만 News 보관, 키가 없으면 정리함 길(target basket).
+  assert.match(basket, /if \(list\.target === 'news'\) \{[\s\S]*?myFeaturesOrNull[\s\S]*?if \(!Array\.isArray\(features\) \|\| features\.includes\('outside'\)\) \{ await openNews\(list, picked\); return; \}\s*list = \{\.\.\.list, target:'basket'\};/);
   assert.match(basket, /import\('\.\/share-news\.js'\)/);
   assert.match(basket, /label:NEWS_NOTE\.toBasket, run:\(\{close\}\) => \{ close\(\); if \(share === one\) void put\(\); \}/);
 });

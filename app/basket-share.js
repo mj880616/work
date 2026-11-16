@@ -56,7 +56,14 @@ function start() {
   async function open(list) {
     const picked = pickShareItems(list.items);
     if (list.target === 'note' || list.target === 'task') { await openTarget(list, picked); return; }
-    if (list.target === 'news') { await openNews(list, picked); return; }
+    // NEWS-운영자만(S63-03): 'News 보관' 공유는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 정리함 길(잊지 말기)로 받는다
+    // (앱의 공유 목록은 앱 판이 정해 웹에서 뺄 수 없다 — 서버도 같은 키로 막는다). 답을 모르면(null) 지금처럼 News로 보낸다.
+    if (list.target === 'news') {
+      const {myFeaturesOrNull} = await import('./my-features.js');
+      const features = await myFeaturesOrNull().catch(() => null);
+      if (!Array.isArray(features) || features.includes('outside')) { await openNews(list, picked); return; }
+      list = {...list, target:'basket'};
+    }
     share = {...list, keep:picked.keep, skipped:picked.skipped};
     files = null; batch = null; owner = scope();
     stripAddress();

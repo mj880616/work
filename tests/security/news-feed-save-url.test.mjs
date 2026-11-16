@@ -16,7 +16,7 @@ const PAYWALL = `<html lang="ko"><head><meta property="og:title" content="합성
 const BOT = '<html><head><title>Just a moment...</title></head><body>Checking your browser before accessing. Enable JavaScript and cookies to continue</body></html>';
 const uuid = n => `c0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-function world({sites = {}, members = [{user_id: USER, workspace_id: WS}], articles = [], days = [], failRpc = false} = {}) {
+function world({sites = {}, members = [{user_id: USER, workspace_id: WS}], articles = [], days = [], failRpc = false, newsWs = members[0]?.workspace_id ?? null} = {}) {
   const db = {app_news_articles: structuredClone(articles), app_news_marks: [], app_news_days: structuredClone(days), app_news_article_bodies: []};
   const calls = {site: [], rest: [], rpc: []};
   let n = 100;
@@ -34,6 +34,8 @@ function world({sites = {}, members = [{user_id: USER, workspace_id: WS}], artic
     const p = u.pathname.replace('/rest/v1/', '');
     calls.rest.push({method, p, q: u.search, body});
     if (p === 'app_workspace_members') return res(members.filter(m => `eq.${m.user_id}` === u.searchParams.get('user_id')).map(m => ({workspace_id: m.workspace_id})));
+    // NEWS-운영자만(S63-03): 'outside' 키 작업공간(기본은 누르는 사람).
+    if (p === 'rpc/app_operator_feature_workspace') return res(body?.p_feature === 'outside' ? newsWs : null);
     if (p === 'rpc/app_news_user_save') {
       calls.rpc.push(body);
       if (failRpc) return res({message: 'x'}, 400);
@@ -108,7 +110,7 @@ test('save_url: new article read once (http → https, tracking dropped), saved 
   assert.equal(b.body.id, a.body.id);assert.equal(w.calls.site.length, before, '같은 기사 — 원문을 다시 읽지 않음');
   assert.equal(w.db.app_news_articles.length, 1);assert.equal(w.db.app_news_marks.length, 1);
   assert.equal(w.db.app_news_days[0].save_n, 2);
-  assert.ok(w.calls.rest.every(c => ['app_workspace_members', 'app_news_days', 'app_news_articles', 'app_news_article_bodies', 'rpc/app_news_user_save'].includes(c.p)),
+  assert.ok(w.calls.rest.every(c => ['app_workspace_members', 'app_news_days', 'app_news_articles', 'app_news_article_bodies', 'rpc/app_news_user_save', 'rpc/app_operator_feature_workspace'].includes(c.p)),
     '텔레그램·가족·통화 표로 가는 요청 없음');
 });
 
@@ -140,4 +142,12 @@ test('save_url: daily cap per person; telegram scrap row is unavailable to other
   assert.equal(s.db.app_news_marks.length, 0);assert.equal(s.calls.site.length, 0);
   const f = world({failRpc: true});
   assert.equal((await f.call({url: 'https://news.example.org/a/9'})).status, 503);
+});
+
+test("NEWS-운영자만(S63-03): 'outside' 키가 없는 사람의 공유 보관은 원문 읽기·저장 없이 403", async () => {
+  const w = world({sites: {'https://news.example.org/a/1': PAGE}, newsWs: OP});
+  const r = await w.call({url: 'https://news.example.org/a/1'});
+  assert.equal(r.status, 403);
+  assert.equal(w.calls.site.length, 0); assert.equal(w.calls.rpc.length, 0);
+  assert.equal(w.db.app_news_articles.length, 0); assert.equal(w.db.app_news_days.length, 0);
 });

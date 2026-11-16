@@ -28,6 +28,7 @@ import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSo
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { newsAllowed, newsWorkspace } from "../_shared/news-access.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { bodyNumbers, bodyRow, extractBlocks, failedBody, readFailReason, ruleId, textBlocks, type Extracted, type ExtractRule } from "../_shared/feed-extract.ts";
 import { makeUserReads, readSharedArticle } from "../_shared/shared-article.ts";
@@ -476,11 +477,12 @@ async function pruneOldShared(db: Db, nowMs: number): Promise<number> {
   return ids.length;
 }
 
-async function runPlan(db: Db, nowMs: number, log: Log) {
+async function runPlan(db: Db, nowMs: number, log: Log, newsWs: string | null) {
   let pruned = 0;
   try { pruned = await pruneOld(db, nowMs); } catch { log("prune_failed"); }
   try { await pruneOldShared(db, nowMs); } catch { log("shared_prune_failed"); }
-  const rows = await db.get("app_outside_sources?enabled=is.true&select=source_key");
+  // NEWS-운영자만(S63-03, _shared/news-access.ts): 'outside' 키 작업공간이 켠 단체만 읽는다(키가 없는 곳의 켬 줄은 지우지 않고 건너뜀).
+  const rows = newsWs ? await db.get(`app_outside_sources?enabled=is.true&workspace_id=eq.${newsWs}&select=source_key`) : [];
   const on = new Set(rows.map((r) => r.source_key));
   return { ok: true, sources: OUTSIDE_CATALOG.filter((s) => on.has(s.key)).map((s) => s.key), pruned };
 }
@@ -492,7 +494,8 @@ async function markSources(db: Db, key: string, workspaces: string[], error: str
   await db.send("PATCH", `app_outside_sources?source_key=eq.${key}&workspace_id=in.(${workspaces.join(",")})`, body);
 }
 
-type RunLimits = { onlyWorkspace?: string; budgetMs?: number; maxNew?: number };
+// newsWs: 'outside' 키 작업공간(NEWS-운영자만, 없으면 null = 아무 곳에도 넣지 않음).
+type RunLimits = { newsWs: string | null; onlyWorkspace?: string; budgetMs?: number; maxNew?: number };
 
 // onlyWorkspace: 바로 읽기는 요청한 사람 작업공간(서버가 owner로 확인한 값)에만 넣는다. 예약 실행은 켠 작업공간 모두.
 // 이미 들어온 '날짜 모름' 글(published_at 비어 있음) 날짜 채우기(S50-1). 목록에서 날짜가 읽힌 글은 요청 없이, 나머지는 글 쪽을 REDATE_PER_RUN건까지 다시 읽는다.
@@ -657,12 +660,12 @@ async function probeSource(reader: Reader, source: OutsideSource, nowMs: number)
     from: source.mode === "telegram" ? "telegram" : feedBody ? "feed" : "page", ...bodyNumbers(ex) };
 }
 
-async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, limits: RunLimits = {}): Promise<RunOut> {
+async function runSource(db: Db, reader: Reader, ai: AiDeps, source: OutsideSource, nowMs: number, startMs: number, clock: () => number, limits: RunLimits): Promise<RunOut> {
   const out: RunOut = { ok: true, source: source.key, status: "ok", workspaces: 0, listed: 0, fresh: 0, inserted: 0, skipped: 0, deferred: 0, refilled: 0 };
   const budget = limits.budgetMs ?? RUN_BUDGET_MS, maxNew = limits.maxNew ?? MAX_NEW_PER_RUN;
   const only = limits.onlyWorkspace && UUID.test(limits.onlyWorkspace) ? `&workspace_id=eq.${limits.onlyWorkspace}` : "";
   const wsRows = await db.get(`app_outside_sources?source_key=eq.${source.key}&enabled=is.true${only}&select=workspace_id`);
-  const workspaces = [...new Set(wsRows.map((r) => r.workspace_id).filter((w): w is string => typeof w === "string" && UUID.test(w)))];
+  const workspaces = [...new Set(wsRows.map((r) => r.workspace_id).filter((w): w is string => typeof w === "string" && UUID.test(w) && newsAllowed(w, limits.newsWs)))];
   out.workspaces = workspaces.length;
   if (!workspaces.length) return { ...out, status: "no_workspace" };
   const nowIso = new Date(nowMs).toISOString();
@@ -911,7 +914,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
 
       if (action === "run_plan") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
-        return json(await runPlan(db, nowMs, log));
+        return json(await runPlan(db, nowMs, log, await newsWorkspace(sb, key, doFetch)));
       }
       if (action === "run") {
         // 몸통은 단체 키 하나뿐(주소를 받지 않음). 카탈로그 밖 키는 400.
@@ -919,7 +922,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         const source = sourceByKey(b.source);
         if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
         const reader = makeReader(doFetch, sleep, log);
-        return json(await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now));
+        return json(await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now, { newsWs: await newsWorkspace(sb, key, doFetch) }));
       }
 
       if (action === "refill") {
@@ -940,6 +943,9 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
 
       const jwt = auth!.slice("Bearer ".length);
       const who = await authorizeUser(sb, key, jwt, doFetch, db);
+      // NEWS-운영자만(S63-03): 화면 입구(목록·비슷한 말·바로 읽기·번역)는 'outside' 키 작업공간만. 그 밖은 읽기·AI·저장 없이 403.
+      const newsWs = await newsWorkspace(sb, key, doFetch);
+      if (!newsAllowed(who.workspaceId, newsWs)) throw new Fail(403, "FEATURE_OFF");
       if (action === "catalog") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
         return json({ ok: true, sources: publicCatalog() });
@@ -962,7 +968,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         readNowUse.set(use, n + 1);
         const reader = makeReader(doFetch, sleep, log);
         const out = await runSource(db, reader, { doFetch, sleep, log, env: deps.env }, source, nowMs, now(), now,
-          { onlyWorkspace: who.workspaceId, budgetMs: READ_NOW_BUDGET_MS, maxNew: READ_NOW_MAX_NEW });
+          { newsWs, onlyWorkspace: who.workspaceId, budgetMs: READ_NOW_BUDGET_MS, maxNew: READ_NOW_MAX_NEW });
         return json({ ok: true, source: out.source, status: out.status, inserted: out.inserted, deferred: out.deferred });
       }
       if (action === "translate") {

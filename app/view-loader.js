@@ -182,7 +182,17 @@ async function photos(){ await module('./photos.js'); return {ok:true} }
 async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
 // OUTSIDE-바깥성명 ④: [바깥 성명](?view=outside, 위 메뉴 사진 다음). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #outsideView를 만든다).
 // OUTSIDE-글상세·관심환류 ③: Now 껍데기(outside-statements.js)가 #outsideView와 [뉴스] 탭 자리를 만든 뒤 뉴스 클리핑(news-clipping.js)이 그 자리에 들어간다.
-async function outside(){ await module('./outside-statements.js'); await module('./news-clipping.js'); return {ok:true} }
+// NEWS-운영자만(S63-03, 명진 11/16): News는 서버 운영자 기능 키 'outside'가 있는 작업공간만. 키가 없다는 답이면 화면 모듈을 불러오지 않고
+// 홈으로 보낸다(주소 ?view=news·옛 ?view=outside·now를 직접 열어도). 답을 못 읽었으면(null) 막지 않는다 — 운영자 화면이 잠깐 못 읽었다고 닫히지 않게
+// (메뉴 myFeaturesOrNull 규칙과 같음). 화면 판정은 보안이 아니다: 수집·AI는 Edge가 같은 키로 막는다.
+async function outsideAllowed(){
+  try{const {myFeaturesOrNull}=await import('./my-features.js');const got=await myFeaturesOrNull();return !Array.isArray(got)||got.includes('outside')}
+  catch{return true}
+}
+async function outside(){
+  if(!await outsideAllowed()){window.KPTURouter?.go?.('home',{replaceUrl:true});return {ok:false,denied:true}}
+  await module('./outside-statements.js'); await module('./news-clipping.js'); return {ok:true}
+}
 // FILES-클라우드탐색기 ④: [파일](?view=files, 위 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #filesView를 만든다).
 async function files(){ await module('./files.js'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
@@ -207,6 +217,8 @@ function load(view){
   if(loaded.has(key))return Promise.resolve({ok:true,view:key,cached:true});
   if(flights.has(key))return flights.get(key);
   const flight=Promise.resolve().then(()=>prepare(key)).then(()=>loaders[key]()).then(result=>{
+    // 막힌 화면(ok:false, 예: 기능 키 없는 News)은 불러온 것으로 치지 않는다 — 다음에 다시 판정.
+    if(result&&result.ok===false)return {...result,view:key};
     loaded.add(key);
     window.dispatchEvent(new CustomEvent('kptu:view-loader-ready',{detail:{view:key}}));
     return {...(result||{ok:true}),view:key}

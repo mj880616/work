@@ -38,6 +38,7 @@ import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleU
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { NEWS_FEATURE, newsAllowed, newsWorkspaceOf } from "../_shared/news-access.ts";
 import { makeUserReads, readSharedArticle, type UserReads } from "../_shared/shared-article.ts";
 import { cut, isUrlTitle, oneLine, parseFeed } from "../outside-feed/parse.ts";
 import { tidyTitle } from "../_shared/outside-tidy.ts";
@@ -204,6 +205,10 @@ export function refsCounts(v: unknown): Record<string, number> | null {
   return out;
 }
 export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publisher,published_at,state,fetched_at,summary,body,body_kind,title_ko,body_ko,translated_at,source_key";
+// NEWS-운영자만(S63-03, _shared/news-access.ts): News 몫 일은 기능 키 'outside' 작업공간(정확히 한 곳)만. 못 읽으면 null = 아무 곳도 안 함.
+async function newsWs(db: Db): Promise<string | null> {
+  try { return newsWorkspaceOf(await db.rpcValue("app_operator_feature_workspace", { p_feature: NEWS_FEATURE })); } catch { return null; }
+}
 async function operatorWs(db: Db): Promise<string | null> {
   try {
     const v = await db.rpcValue("app_operator_feature_workspace", { p_feature: "telegram" });
@@ -570,10 +575,14 @@ async function enabledMedia(db: Db): Promise<Map<string, string[]>> {
 async function mediaPlan(db: Db): Promise<{ on: Map<string, string[]>; missing: Map<string, string[]> }> {
   const rows = await db.get(`app_outside_sources?source_key=like.news-*&enabled=is.true&select=workspace_id,source_key&limit=5000`);
   const on = new Map<string, string[]>(), missing = new Map<string, string[]>();
+  // NEWS-운영자만(S63-03): 'outside' 키가 없는 작업공간은 켠 매체·키워드가 남아 있어도 수집 대상이 아니다(줄은 지우지 않음 — 다시 열 때 그대로).
+  const allowedWs = await newsWs(db);
+  if (!allowedWs) return { on, missing };
   const add = (m: Map<string, string[]>, k: string, w: string) => m.set(k, [...(m.get(k) ?? []), w]);
   for (const r of rows) {
     const k = String(r.source_key);
     if (!newsSourceByKey(k)) continue; // 카탈로그 밖 키는 건너뜀
+    if (!newsAllowed(r.workspace_id, allowedWs)) continue;
     add(on, k, String(r.workspace_id));
   }
   const defaults = NEWS_CATALOG.filter((s) => s.on === true);
@@ -582,12 +591,12 @@ async function mediaPlan(db: Db): Promise<{ on: Map<string, string[]>; missing: 
     const has = new Set<string>(), users = new Set<string>();
     for (const r of await db.get(`app_outside_sources?source_key=like.news-*&select=workspace_id,source_key&limit=5000`)) {
       const w = String(r.workspace_id);
-      if (!UUID.test(w)) continue;
+      if (!UUID.test(w) || !newsAllowed(w, allowedWs)) continue;
       users.add(w); has.add(`${w}|${String(r.source_key)}`);
     }
     for (const r of await db.get(`app_news_keywords?enabled=is.true&select=workspace_id&limit=5000`)) {
       const w = String(r.workspace_id);
-      if (UUID.test(w)) users.add(w);
+      if (UUID.test(w) && newsAllowed(w, allowedWs)) users.add(w);
     }
     for (const s of defaults) for (const w of users) if (!has.has(`${w}|${s.key}`)) { add(on, s.key, w); add(missing, s.key, w); }
   }
@@ -796,10 +805,13 @@ const sameWords = (a: unknown, b: string[]) => Array.isArray(a) && a.length === 
 // 같은 결과끼리 묶어 한 번에 고친다(id 40개씩). 시간 예산을 넘으면 남은 작업공간은 다음 실행에.
 async function runKeywords(db: Db, nowMs: number, startMs: number, clock: () => number, log: FeedLog) {
   const words = keywordsByWorkspace(await db.get(`app_news_keywords?enabled=is.true&select=workspace_id,word&order=created_at.asc&limit=5000`));
+  // NEWS-운영자만(S63-03): 'outside' 키가 없는 작업공간은 키워드 표시도 하지 않는다.
+  const allowedWs = await newsWs(db);
+  for (const w of [...words.keys()]) if (!newsAllowed(w, allowedWs)) words.delete(w);
   const all = new Set<string>(words.keys());
   for (const r of await db.get(`app_outside_sources?source_key=like.news-*&select=workspace_id&limit=5000`)) {
     const w = String(r.workspace_id);
-    if (UUID.test(w)) all.add(w);
+    if (UUID.test(w) && newsAllowed(w, allowedWs)) all.add(w);
   }
   const since = encodeURIComponent(new Date(nowMs - KEYWORD_SCAN_DAYS * 86400000).toISOString());
   const nowIso = new Date(nowMs).toISOString();
@@ -999,7 +1011,9 @@ async function runTitles(db: Db, ai: AiDeps, nowMs: number, startMs: number, clo
   const foreignSum = (r: Row) => typeof r.summary === "string" && !!r.summary.trim() && !HANGUL.test(r.summary);
   const titleRows = await db.get(`app_news_items?title_ko=is.null&${base}`);
   const sumRows = (await db.get(`app_news_items?title_ko=not.is.null&summary=not.is.null&${base}`)).filter(foreignSum);
-  const olds = [...titleRows, ...sumRows].filter((r) => typeof r.title === "string" && r.title.trim());
+  // NEWS-운영자만(S63-03): 'outside' 키가 없는 작업공간의 옛 줄은 제목 번역(AI)을 하지 않는다.
+  const allowedWs = await newsWs(db);
+  const olds = [...titleRows, ...sumRows].filter((r) => typeof r.title === "string" && r.title.trim() && newsAllowed(r.workspace_id, allowedWs));
   const nowIso = new Date(nowMs).toISOString();
   const shared = await articlesByKey(db, olds.map((r) => r.url_key), log);
   // 공용 기사에 이미 있는 한국어 제목·소개 → 옛 줄에 옮겨 적기(AI 없음).
@@ -1316,6 +1330,8 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       }
 
       const who = await authorizeUser(sb, key, auth!.slice("Bearer ".length), doFetch, db);
+      // NEWS-운영자만(S63-03): 화면 입구(목록·바로 채우기·열기·번역·공유 보관)는 'outside' 키 작업공간만. 그 밖은 읽기·AI·저장 없이 403.
+      if (!newsAllowed(who.workspaceId, await newsWs(db))) throw new Fail(403, "FEATURE_OFF");
       if (action === "catalog") {
         if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
         // ai.month_capped: 이번 달 AI 한도(MONTHLY_LIMIT_KRW)에 닿았는지(예/아니오만 — 금액은 싣지 않음). 닿으면 수집 때 요약·외국어 제목 번역이 조용히 멈추므로 화면이 알린다(NEWS-다받기 ④).

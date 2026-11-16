@@ -2,13 +2,12 @@ import {test,expect} from '@playwright/test';
 import {openHome, OPERATOR_MENU_FEATURES} from './helpers/home-entry.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
 // MULTI-처음쓰는사람 ④(docs/design/new-user-start.md 2-1): 메뉴는 서버 운영자 기능 답(app_my_features)에 따라 목록에서 뺀다(숨김이 아니라 빼기).
-// - 새 계정(기능 없음): 통화·텔레그램 소식·아스날이 PC 왼쪽 메뉴·폰 [메뉴] 창·메뉴 편집 어디에도 없다.
+// - 새 계정(기능 없음): 통화·텔레그램 소식·아스날·News가 PC 왼쪽 메뉴·폰 [메뉴] 창·메뉴 편집 어디에도 없다.
 // - S62-11 MULTI-구글드라이브사진모두(명진 결정): [파일]은 모두에게 — 새 계정에도 자료실 바로 아래에 있다(각자 자기 드라이브만, 서버가 막음).
 // - 운영자 계정(명진): 지금 메뉴 그대로(원장만 빠짐).
 // - 원장은 모든 계정 메뉴에서 빠지지만, 화면은 그대로 열린다(다른 화면에서 여는 길).
 // - 답을 못 받으면(서버 오류) 아무것도 빼지 않는다(운영자 메뉴가 잠깐 사라지지 않게).
-// - S62-12g NEWS-모두에게열기: News는 모두에게(새 계정 [메뉴] 창 사진 다음).
-const OP=['calls','telegram','arsenal'];
+const OP=['calls','telegram','arsenal','outside'];
 const placed=page=>page.evaluate(()=>{
   const view=el=>el.dataset.view||el.dataset.basketKindNav||'';
   const sheet=document.querySelector('#mobileMenu nav[aria-label="더 보기"]'),nav=document.querySelector('#appNav'),tabs=document.querySelector('#appView .mobile-tabs');
@@ -28,7 +27,7 @@ for(const width of [1280,760,412]){
     await openHome(page,{features:[],menuLayout:null});await settle(page);
     await expect.poll(async()=>{const p=await placed(page);return [...p.sheet,...p.pc].filter(v=>OP.includes(v)||v==='ledger')}).toEqual([]);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['basket','library','files','brief','hwp','pages','photos','outside']);
+    expect(p.sheet).toEqual(['basket','library','files','brief','hwp','pages','photos']);
     expect(p.bar).toEqual(['home','note','calendar','team','meetings']);
     expect(page.locator('#mobileMenu [data-menu-tail-line]')).toHaveCount(0);
     // 메뉴 편집 창: 뺀 메뉴는 칸에도 미리보기에도 없다.

@@ -239,9 +239,12 @@
   let result={ok:false,view:requested};
   try{
     result=await viewLoader.load(requested);
-    if(!staticShellViews.has(requested)){
+    // NEWS-운영자만(S63-03): 기능 키가 없어 막힌 화면(?view=news 등)으로 시작하면 홈을 열고 주소도 홈으로 바꾼다.
+    const denied=result?.denied===true;
+    if(denied)result=await viewLoader.load('home');
+    if(denied||!staticShellViews.has(requested)){
       app?.classList.add('kptu-shell-ready');
-      window.KPTURouter?.go?.(requested,{scroll:false,source:'startup',updateUrl:false});
+      window.KPTURouter?.go?.(denied?'home':requested,{scroll:false,source:'startup',updateUrl:denied,replaceUrl:denied});
     }
     startup?.mark('requestedViewReady',{view:requested});
   }catch(err){

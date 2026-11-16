@@ -461,7 +461,7 @@ async function myAiMonth(ctx: Ctx): Promise<unknown> {
   }
   return await readBoundedJson(r, { maxBytes: 8192 });
 }
-async function hasFeature(ctx: Ctx, feature: "calls" | "telegram"): Promise<boolean> {
+async function hasFeature(ctx: Ctx, feature: "calls" | "telegram" | "outside"): Promise<boolean> {
   const f = await myFeatures(ctx);
   return f instanceof Set && f.has(feature);
 }
@@ -3842,7 +3842,8 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
   const slot = daySlot(started);
   let news: Record<string, unknown>[] = [];
   let readsNeed = false, newest: string | null = null;
-  if (!state?.reads_slot || (state.reads_slot !== slot && state.reads_slot !== "pm")) {
+  // NEWS-운영자만(S63-03): '읽을 만한 글'은 News 기사에서 고른다 — 운영자 기능 키 'outside'가 없는 작업공간은 뉴스를 읽지도 고르지도 않는다(AI 없음).
+  if ((!state?.reads_slot || (state.reads_slot !== slot && state.reads_slot !== "pm")) && await hasFeature(ctx, "outside")) {
     const from = new Date(Date.parse(`${day}T00:00:00+09:00`) - (DAY_NEWS_BACK_DAYS - 1) * 86400000).toISOString();
     news = await readRows(`app_news_items?workspace_id=eq.${ws}&hidden_at=is.null&created_at=gte.${encodeURIComponent(from)}&select=id,workspace_id,title,title_ko,publisher,summary,url,published_at,created_at,hidden_at&order=created_at.desc&limit=${DAY_NEWS_MAX}`);
     newest = typeof news[0]?.created_at === "string" ? news[0].created_at as string : null;
