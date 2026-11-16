@@ -31,7 +31,9 @@ export const MOVE_MAX = 50;
 export const STAR_IDS_MAX = 500;
 export const GRAPH_BATCH_MAX = 20;
 // Web2 휴지통(명진 결정 1, 2026-10-28 22:43): 지운 사진은 고른 맨 위 폴더 안 이 폴더로 옮기고, 30일 지나면 원드라이브 휴지통으로 보낸다.
-export const TRASH_NAME = ".Web2 휴지통";
+export const TRASH_NAME = ".노조+ 휴지통";
+// BRAND-웹2흔적지우기: 예전 이름. 색인·찾기에서 같은 휴지통으로 보고, 쓸 때 이름만 새 이름으로 바꾼다(사진은 그대로).
+export const OLD_TRASH_NAME = ".Web2 휴지통";
 export const TRASH_DAYS = 30;
 export const TRASH_PURGE_STEP = 20;
 export const TRASH_LIST_MAX = 2000;
@@ -45,7 +47,7 @@ export function cleanFolderName(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const name = v.normalize("NFC").trim();
   if (!name || [...name].length > FOLDER_NAME_MAX || /["*:<>?/\\|\u0000-\u001f\u007f]/.test(name) || name.endsWith(".")) return null;
-  if (name === TRASH_NAME || name === "." || name === "..") return null;
+  if (name === TRASH_NAME || name === OLD_TRASH_NAME || name === "." || name === "..") return null;
   return name;
 }
 

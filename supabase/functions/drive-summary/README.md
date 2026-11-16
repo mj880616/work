@@ -19,7 +19,7 @@
 - 프로젝트는 `app/project-catalog.js`와 같은 v2/management_version=2 및 하위 프로젝트 규칙으로 분류한다. 메타데이터는 분류용 두 scalar 키만 조회한다. 진행 기록은 summary/status_label/next_step, 단계는 workstream의 phase다. 미완료 할 일 수는 Google에 재조회하지 않은 `app_record_links`의 confirmed/미완료 상태 사본 기준이다. 자료는 개수만 제공한다.
 - 회의는 이름·일시·회차·연결 프로젝트 이름만 포함한다. transcript_text·notes·decisions는 조회하지 않는다. 할 일 본문·자료 원문·메모·연혁도 조회하지 않는다.
 - 기존 `public_policy_drive_config`의 Google 갱신 토큰을 쓴다. 새 OAuth 권한·scope 요청·토큰 저장을 추가하지 않는다. 기존 연결의 `drive.file`로 이 앱이 만든 파일만 다룬다.
-- 내 Drive 최상위의 “Web2 읽기용 사본” 폴더와 Google 문서 2개는 `appProperties.kptu_summary=folder/org/project`, `kptu_workspace=kptu-work`로 찾는다. 문서는 그 폴더 안으로 제한한다. 중복 표시는 자동 선택하지 않고 실패한다. ID는 DB에 저장하지 않는다. HTML multipart를 Google 문서 MIME으로 생성하거나 같은 ID에 PATCH해 전체 내용을 교체한다.
+- 내 Drive 최상위의 “노조+ 읽기용 사본” 폴더(옛 이름 “Web2 읽기용 사본”, 갱신 때 이름만 바꿈)와 Google 문서 2개는 `appProperties.kptu_summary=folder/org/project`, `kptu_workspace=kptu-work`로 찾는다. 문서는 그 폴더 안으로 제한한다. 중복 표시는 자동 선택하지 않고 실패한다. ID는 DB에 저장하지 않는다. HTML multipart를 Google 문서 MIME으로 생성하거나 같은 ID에 PATCH해 전체 내용을 교체한다.
 - `permissions.create` 등 공유 생성·변경 호출은 없다. 폴더·기존 문서의 permissions를 읽고 anyone/domain이 있으면 내용 갱신을 거절한다. 업로드 직후와 완료 전에도 검사한다. 사용자의 개별 직접 공유를 변경하지 않는다. Drive UI의 “공유 → 일반 액세스: 제한됨”으로 폴더·두 문서를 확인하고, 로컬 사후 확인 시 permissions 목록에 anyone/domain이 없는지 재확인한다.
 - 폴더 appProperties의 `last_success_at`은 두 문서 갱신·공유 검사 후에만 기록한다. 실패는 `last_failure_at`, `last_failure_summary`(안전한 단계 코드)에 기록하며 이전 성공/실패와 다른 속성은 보존한다. Drive 인증·발견 실패나 Drive 장애로 폴더 기록도 불가능하면 `failure_recorded=false`다. 두 문서 교체는 원자적이지 않아 부분 성공이 가능하지만 Web2 원본에는 영향이 없다.
 
@@ -79,7 +79,7 @@
 ## OPS-수집점검 (소유자 전용 상태 읽기)
 
 - `GET /functions/v1/drive-summary?action=status`. 소유자 JWT 경로만 받는다. 예약 비밀값 헤더가 있으면(값과 무관) 401이고, 비로그인 401·비소유자 403이다. 다른 GET은 지금처럼 405이며 I/O가 없다.
-- 하는 일: 기존 `drive.file` 토큰으로 "Web2 읽기용 사본" 폴더를 `appProperties`로 찾아 공유 검사(anyone/domain 거절) 뒤 폴더 속성 세 값만 돌려준다. 폴더가 없으면 만들지 않고 `state:'none'`이다. 문서 재생성·업로드·상태 기록·DB 쓰기는 없다. Web2 기록 표는 읽지 않는다(인증용 `app_workspaces`·`app_workspace_members`와 Drive 설정만).
+- 하는 일: 기존 `drive.file` 토큰으로 "노조+ 읽기용 사본" 폴더를 `appProperties`로 찾아 공유 검사(anyone/domain 거절) 뒤 폴더 속성 세 값만 돌려준다. 폴더가 없으면 만들지 않고 `state:'none'`이다. 문서 재생성·업로드·상태 기록·DB 쓰기는 없다. Web2 기록 표는 읽지 않는다(인증용 `app_workspaces`·`app_workspace_members`와 Drive 설정만).
 - 응답: `{ok, checked_at, copy:{state, last_success_at, last_failure_at, last_failure_code}}`. 시각은 ISO 형식 검사, 코드는 `^[A-Z][A-Z0-9_]{0,63}$`(실패 시각이 있을 때만)를 통과한 값만 낸다. 폴더 이름·ID·문서 링크·다른 속성은 내지 않는다. 실패는 단계 코드만(`DRIVE_TOKEN_FAILED` 등), 실패 기록을 남기지 않는다.
 - CORS `Access-Control-Allow-Methods`에 GET을 더했다. 배포 전 앱이 먼저 나가도 옛 함수는 preflight에서 GET을 허락하지 않거나 405를 주므로 홈 칸은 조용히 숨는다(옛 POST 재생성으로 잘못 가지 않게 POST가 아닌 GET을 골랐다).
 - 화면: `app/collection-status.js`(홈 "마지막 수집 시각"). 텔레그램 수집·통화 전사는 바깥 프로그램이 만든 Drive 파일이라 `drive.file`로 못 읽으므로 "확인 불가"로만 표시한다. 권한을 넓히지 않는다.
@@ -89,7 +89,7 @@
 - `POST /functions/v1/drive-summary?action=heartbeat`. 통화 전사용 Google 앱 스크립트(사용자 계정, Drive 전체 접근)가 1시간마다 부른다. Web2는 `drive.file`로 바깥 프로그램 파일을 못 읽으므로 **반대 방향 신호**를 받는다. 권한은 넓히지 않는다.
 - 인증: `x-collector-heartbeat-secret` 헤더를 새 비밀값 `COLLECTOR_HEARTBEAT_SECRET`과 기존 방식(SHA-256 고정 길이 전체 비교)으로 비교한다. 미설정·빈값·틀린 값 401. 예약 비밀값 헤더가 같이 오면 401, 사용자 JWT는 이 경로에서 받지 않는다. 반대로 이 헤더는 사본 재생성 POST·상태 읽기 GET에서 401이다(자격 섞임 방지). CORS 허용 헤더에 넣지 않는다(브라우저용 아님).
 - 본문: 정확히 `{source:'telegram'|'transcript', last_at:ISO 시각, count?:0~100000 정수}`, 1 KiB 이하. 다른 키(파일 이름·ID·내용 등)가 있으면 400 `INVALID_BODY`. 시각은 2020년 이후·서버 시각보다 10분 넘게 미래면 거절.
-- 하는 일은 하나: 기존 "Web2 읽기용 사본" 폴더(공유 검사 통과)의 `appProperties`에 그 출처 키 3개(`collector_<source>_at`·`_count`·`_reported_at`)만 PATCH한다(Drive는 appProperties를 키별로 합친다 → 사본 상태 키는 건드리지 않음). 폴더가 없으면 만들지 않고 409 `COPY_FOLDER_MISSING`. DB 쓰기·문서 재생성·Web2 기록 읽기 없음(DB는 기존과 같은 Drive 연결 설정 읽기만). **새 표·migration 없음.**
+- 하는 일은 하나: 기존 "노조+ 읽기용 사본" 폴더(공유 검사 통과)의 `appProperties`에 그 출처 키 3개(`collector_<source>_at`·`_count`·`_reported_at`)만 PATCH한다(Drive는 appProperties를 키별로 합친다 → 사본 상태 키는 건드리지 않음). 폴더가 없으면 만들지 않고 409 `COPY_FOLDER_MISSING`. DB 쓰기·문서 재생성·Web2 기록 읽기 없음(DB는 기존과 같은 Drive 연결 설정 읽기만). **새 표·migration 없음.**
 - 상태 읽기 `GET ?action=status` 응답에 `collectors:{telegram, transcript}`(각 `{last_at, count, reported_at}` 또는 `null`)를 더했다. 저장값도 같은 형식 검사를 통과한 것만 낸다.
 - 화면 기준: 텔레그램 26시간(업무방 매일 07:30 1회 수집)·통화 전사 72시간(통화 없는 날·주말) 넘으면 '조용함'(경고 아님, 2026-10-22 사용자 결정), 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
 - 앱 스크립트 코드·설정 안내: `docs/ops/collector-heartbeat.gs`, `docs/ops/collector-heartbeat.md`.

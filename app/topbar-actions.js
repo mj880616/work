@@ -5,7 +5,8 @@ import {pcSplit,itemOf,isDefaultLayout,pcMoveFor,hideItem,BAR_MAX} from './menu-
 import {mountReorder,dropIndex,dropIndexGrid} from './reorder-drag.js'; // MENU-왼쪽메뉴바로끌기: 메뉴 편집 창과 같은 끌기 부품
 import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클릭: 공용 줄 메뉴(UI-PC우클릭과 같은 모양)
 import './menu-layout.js';
-import {downloadPlan,loadPhoneAppInfo,pcPlan,loadPcAppInfo} from './app-download.mjs'; // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'(윈도우 PC는 PC 프로그램)
+import {downloadPlan,loadPhoneAppInfo,pcPlan,loadPcAppInfo,PC_HELPER_NAME} from './app-download.mjs';
+import {installPlan,isStandalone,runInstall} from './pwa-install.mjs'; // S63-09 PC도우미구분: PC 브라우저 계정 메뉴 [PC에 앱 설치] // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'(윈도우 PC는 보조 프로그램)
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
 import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 (()=>{
@@ -43,23 +44,26 @@ const accounts=logoutButtons.map(logout=>{
   // APP-앱내려받기버튼(명진 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
   // 폰 앱 안에서는 줄이 없다(앱이 스스로 업데이트한다).
   const appDl=appDownloadRow();
+  const appInstall=appInstallRow();
   const menuEdit=document.createElement('button');menuEdit.type='button';menuEdit.className='account-action';menuEdit.dataset.menuEditOpen='';menuEdit.textContent='메뉴 수정';menuEdit.setAttribute('aria-haspopup','dialog');menuEdit.setAttribute('aria-controls','menuEditModal');
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(...[profile,updates,whatsnew,appDl,menuEdit,theme,signups,inbox,feedback,logout].filter(Boolean));document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(...[profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,signups,inbox,feedback,logout].filter(Boolean));document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,profile,updates,whatsnew,appDl,menuEdit,theme,signups,inbox,feedback,nativePopover};
+  return {host,trigger,panel,profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,signups,inbox,feedback,nativePopover};
 });
 // APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
-// BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 윈도우 PC 프로그램(노조+ 업로드) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
+// BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 PC 보조 프로그램(노조+ 파일 올리기) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
 function appDownloadRow(){
   const plan=downloadPlan({ua:navigator.userAgent||''});
   if(plan.kind==='app')return null;
   const name='<span class="account-action-name">앱 내려받기</span><span class="account-ver" data-app-download-ver></span>';
   const pc=pcPlan({ua:navigator.userAgent||''});
   if(pc.kind==='pc'){
-    const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='pc';row.href=pc.url;row.rel='noopener';row.innerHTML=name;
-    row.addEventListener('click',()=>kptuNotify(`${pc.hint}. ${pc.warn}`,{record:false,ms:7000}));
+    // S63-09 PC도우미구분: 윈도우 PC에서는 '앱 내려받기'가 아니라 보조 프로그램 이름으로(노조+ 자체로 오해하지 않게), 누르면 브라우저 안내·설명·경고.
+    const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='pc';row.href=pc.url;row.rel='noopener';
+    row.innerHTML=`<span class="account-action-name">${PC_HELPER_NAME} 도우미 내려받기</span><span class="account-ver" data-app-download-ver></span>`;
+    row.addEventListener('click',()=>kptuNotify(`${pc.browser} ${pc.hint}. ${pc.warn}`,{record:false,ms:9000}));
     return row;
   }
   if(plan.kind==='other'){
@@ -69,6 +73,14 @@ function appDownloadRow(){
   }
   const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='android';row.href=plan.url;row.rel='noopener';row.innerHTML=name;
   row.addEventListener('click',()=>kptuNotify(plan.hint,{record:false,ms:6000}));
+  return row;
+}
+// S63-09 PC도우미구분: PC 브라우저(설치한 창 안이 아닐 때)만 [PC에 앱 설치]. 브라우저가 설치 창을 붙잡아 두었으면 열고, 아니면 주소창 설치 아이콘 안내 한 줄.
+function appInstallRow(){
+  const plan=installPlan({ua:navigator.userAgent||'',standalone:isStandalone()});
+  if(plan.kind!=='pc')return null;
+  const row=document.createElement('button');row.type='button';row.className='account-action';row.dataset.appInstall='';row.textContent=plan.label;
+  row.addEventListener('click',async()=>{if(await runInstall()==='fallback')kptuNotify(plan.fallback,{record:false,ms:7000})});
   return row;
 }
 if(pcPlan({ua:navigator.userAgent||''}).kind==='pc')void loadPcAppInfo().then(info=>{
@@ -166,7 +178,7 @@ function syncMobile(){
   const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
-    target.append(...[mobileAccount.profile,mobileAccount.updates,mobileAccount.whatsnew,mobileAccount.appDl,mobileAccount.menuEdit,mobileAccount.theme,mobileAccount.signups,mobileAccount.inbox,mobileAccount.feedback,logoutButtons[0]].filter(Boolean));
+    target.append(...[mobileAccount.profile,mobileAccount.updates,mobileAccount.whatsnew,mobileAccount.appInstall,mobileAccount.appDl,mobileAccount.menuEdit,mobileAccount.theme,mobileAccount.signups,mobileAccount.inbox,mobileAccount.feedback,logoutButtons[0]].filter(Boolean));
   }
   syncKeyboard();
 }

@@ -36,6 +36,29 @@ public class SourceRulesTests
         Assert.DoesNotContain("--token", program);
         Assert.DoesNotContain("args", program);
         Assert.DoesNotContain("NamedPipe", program);
+        // S63-09: the command line is read in one place only (LaunchArgs), and only for the one fixed word.
+        foreach (var file in Sources().Where(f => Path.GetFileName(f) != "LaunchArgs.cs"))
+            Assert.DoesNotContain("GetCommandLineArgs", File.ReadAllText(file));
+        var launch = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop.Core", "LaunchArgs.cs"));
+        Assert.Contains("public const string Background = \"--background\";", launch);
+    }
+
+    [Fact]
+    public void A_start_by_the_user_shows_the_helper_window_with_open_nojoplus()
+    {
+        // S63-09 PC도우미구분(명진 11/16): the tray program is not 노조+ itself; double-click explains that and opens the web app.
+        var program = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "Program.cs"));
+        Assert.Contains("if (LaunchArgs.StartedByUser()) HelperSignal.Ring();", program);
+        var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
+        Assert.Contains("ToolStripMenuItem _openNojoPlusItem = new(\"노조+ 열기\")", tray);
+        Assert.Contains("if (LaunchArgs.StartedByUser()) HelperForm.ShowOrFocus();", tray);
+        Assert.Contains("RegisterWaitForSingleObject(_helperSignal", tray);
+        var helper = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "HelperForm.cs"));
+        Assert.Contains("이 프로그램은 PC 파일을 노조+로 올리는 도우미예요.", helper);
+        Assert.Contains("Text = \"노조+ 열기\"", helper);
+        Assert.Contains("new ProcessStartInfo(NojoPlusWeb.AppUrl) { UseShellExecute = true }", helper);
+        var update = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "UpdateService.cs"));
+        Assert.Contains("ApplyUpdatesAndRestart(_pending, [LaunchArgs.Background])", update);
     }
 
     [Fact]

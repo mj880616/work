@@ -23,12 +23,16 @@ export const AUTO_FOLDER_RULES = Object.freeze([
   Object.freeze({key: 'call_analysis', seq: Object.freeze(['검토대기']), adjacent: true}),
   Object.freeze({key: 'call_analysis', seq: Object.freeze(['검토완료']), adjacent: true}),
   // Claude용 읽기 사본·원장 백업(drive-summary 정기 갱신) — drive-summary/core.mjs
+  // BRAND-웹2흔적지우기: 새 이름과 옛 이름('Web2 …') 둘 다 — 서버가 이름을 바꾸기 전 색인에는 옛 이름이 남아 있을 수 있다.
+  Object.freeze({key: 'drive_summary', seq: Object.freeze(['노조+ 읽기용 사본']), adjacent: true}),
   Object.freeze({key: 'drive_summary', seq: Object.freeze(['Web2 읽기용 사본']), adjacent: true}),
   // 한글 문서 고칠 때마다 남는 편집 전 백업 — _shared/hwp-edit.ts BACKUP_FOLDER
+  Object.freeze({key: 'edit_backup', seq: Object.freeze(['노조+ 편집 백업']), adjacent: true}),
   Object.freeze({key: 'edit_backup', seq: Object.freeze(['Web2 편집 백업']), adjacent: true}),
   // 회의 녹음을 나눠 올린 조각(전사용) — meeting-transcribe/index.ts RECORDING_FOLDER, recording.mjs PIECE_FOLDER
   Object.freeze({key: 'recording_pieces', seq: Object.freeze(['회의 녹음', '녹음 조각']), adjacent: true}),
-  // 사진·파일에서 지운 것을 옮겨 두는 Web2 휴지통 — photos-model.mjs TRASH_FOLDER_NAME
+  // 사진·파일에서 지운 것을 옮겨 두는 휴지통 — photos-model.mjs TRASH_FOLDER_NAME(옛 이름 OLD_TRASH_FOLDER_NAME)
+  Object.freeze({key: 'trash', seq: Object.freeze(['.노조+ 휴지통']), adjacent: true}),
   Object.freeze({key: 'trash', seq: Object.freeze(['.Web2 휴지통']), adjacent: true}),
 ]);
 

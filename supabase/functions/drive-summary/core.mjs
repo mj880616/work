@@ -14,7 +14,10 @@ const DAY = 86400000, KST = 9 * 3600000, PAGE = 500;
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const DOC_MIME = 'application/vnd.google-apps.document';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
-const NOTICE = '이 문서는 Web2가 자동으로 만드는 읽기용 사본입니다. 직접 고쳐도 다음 갱신 때 덮어써집니다. 원본은 Web2입니다.';
+const NOTICE = '이 문서는 노동조합+가 자동으로 만드는 읽기용 사본입니다. 직접 고쳐도 다음 갱신 때 덮어써집니다. 원본은 노동조합+입니다.';
+// BRAND-웹2흔적지우기: 읽기용 사본 폴더 이름. 폴더는 이름이 아니라 appProperties로 찾으므로, 옛 이름('Web2 읽기용 사본') 폴더는
+// 갱신 때 이름만 새 이름으로 바꾼다(새 폴더를 만들지 않고, 안의 문서는 그대로).
+const COPY_FOLDER = '노조+ 읽기용 사본';
 const OTHERS = '그 외';
 const TITLES = { org: '조직 업데이트 (읽기용 사본)', project: '프로젝트 현황 (읽기용 사본)', ledger: LEDGER_TITLE };
 const LEDGER_BACKUP_FOLDER = '원장 백업';
@@ -338,7 +341,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
     const q = `trashed = false and 'me' in owners and mimeType = '${mimeOf(kind)}' and appProperties has { key='kptu_summary' and value='${kind}' } and appProperties has { key='kptu_workspace' and value='${WORKSPACE}' } and '${driveQuote(parent || 'root')}' in parents`;
     const files = []; let pageToken = '';
     do {
-      const params = new URLSearchParams({ q, spaces: 'drive', pageSize: '100', fields: 'files(id,appProperties),nextPageToken,incompleteSearch' });
+      const params = new URLSearchParams({ q, spaces: 'drive', pageSize: '100', fields: 'files(id,name,appProperties),nextPageToken,incompleteSearch' });
       if (pageToken) params.set('pageToken', pageToken);
       const data = await checked(`${DRIVE}?${params}`, { headers: { Authorization: `Bearer ${token}` } }, 'DRIVE_DISCOVERY_FAILED');
       if (data.incompleteSearch || !Array.isArray(data.files)) throw new SummaryError('DRIVE_DISCOVERY_FAILED');
@@ -364,10 +367,20 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
   }
   async function folderFor(token) {
     const found = await findFile(token, 'folder');
-    if (found) return found;
+    if (found) {
+      if (typeof found.name === 'string' && found.name !== COPY_FOLDER) {
+        // 이름 바꾸기는 덤이다. 실패해도 사본 갱신은 그대로 한다.
+        try {
+          await fetcher(`${DRIVE}/${encodeURIComponent(found.id)}?fields=id`, {
+            method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: COPY_FOLDER }), signal: AbortSignal.timeout(30000),
+          });
+        } catch { /* 이름은 다음 갱신 때 다시 바꾼다 */ }
+      }
+      return found;
+    }
     const folder = await checked(`${DRIVE}?fields=id,appProperties`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Web2 읽기용 사본', mimeType: FOLDER_MIME, appProperties: { kptu_summary: 'folder', kptu_workspace: WORKSPACE } }),
+      body: JSON.stringify({ name: COPY_FOLDER, mimeType: FOLDER_MIME, appProperties: { kptu_summary: 'folder', kptu_workspace: WORKSPACE } }),
     }, 'DRIVE_FOLDER_CREATE_FAILED');
     if (!folder.id) throw new SummaryError('DRIVE_FOLDER_CREATE_FAILED');
     return folder;

@@ -20,6 +20,10 @@ internal sealed class TrayApp : ApplicationContext
     private readonly SemaphoreSlim _wake = new(0);
     // Hidden control whose handle lives on the UI thread; background threads hop onto the UI through it.
     private readonly Control _ui = new();
+    // S63-09 PC도우미구분: [노조+ 열기] (노조+ itself is the web app in the browser) and the helper window.
+    private readonly ToolStripMenuItem _openNojoPlusItem = new("노조+ 열기");
+    private readonly EventWaitHandle _helperSignal = HelperSignal.Create();
+    private RegisteredWaitHandle? _helperWait;
     private readonly ToolStripMenuItem _loginStatusItem = new("로그인 상태") { Enabled = false };
     private readonly ToolStripMenuItem _signInItem = new("구글로 로그인");
     private readonly ToolStripMenuItem _signOutItem = new("로그아웃");
@@ -63,6 +67,8 @@ internal sealed class TrayApp : ApplicationContext
 
         _tray = new NotifyIcon { Icon = AppIcon.ForTray(), Visible = true, Text = TrayStatus.Name };
         _tray.ContextMenuStrip = BuildMenu();
+        _tray.DoubleClick += (_, _) => HelperForm.ShowOrFocus();
+        _helperWait = ThreadPool.RegisterWaitForSingleObject(_helperSignal, (_, _) => Ui(HelperForm.ShowOrFocus), null, Timeout.Infinite, false);
 
         _autoStart = new AutoStartManager(new RegistryStartup(), _settings, UpdateService.IsInstalled ? Environment.ProcessPath : null);
         SyncAutoStart();
@@ -75,6 +81,7 @@ internal sealed class TrayApp : ApplicationContext
         _ = Task.Run(PumpAsync);
         _wake.Release();
         RefreshTray();
+        if (LaunchArgs.StartedByUser()) HelperForm.ShowOrFocus();
         var left = _store.List().Count;
         var stale = _store.Stale(DateTimeOffset.Now).Count;
         if (stale > 0) Balloon($"7일 넘게 못 보낸 항목이 {stale}건 있어요. 트레이 메뉴의 [예전에 담아 둔 항목 보기]에서 보내거나 버려 주세요.", ToolTipIcon.Info);
@@ -86,6 +93,9 @@ internal sealed class TrayApp : ApplicationContext
     private ContextMenuStrip BuildMenu()
     {
         var menu = new ContextMenuStrip();
+        _openNojoPlusItem.Click += (_, _) => HelperForm.OpenNojoPlus();
+        menu.Items.Add(_openNojoPlusItem);
+        menu.Items.Add(new ToolStripSeparator());
         // Shown only while something older versions left in the queue is still waiting.
         _statusItem.Visible = false;
         _statusItem.Click += (_, _) => ShowStatus();
@@ -440,6 +450,8 @@ internal sealed class TrayApp : ApplicationContext
         if (disposing)
         {
             _stop.Cancel();
+            _helperWait?.Unregister(null);
+            _helperSignal.Dispose();
             _tray.Dispose();
             _ui.Dispose();
             _api.Dispose();

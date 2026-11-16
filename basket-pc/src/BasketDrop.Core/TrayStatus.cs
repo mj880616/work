@@ -19,7 +19,8 @@ public enum TrayPicture
 /// </summary>
 public sealed record TrayStatus(TrayPicture Picture, int Waiting, int NeedsCheck, string Tooltip)
 {
-    public const string Name = "노조+ 업로드";
+    // S63-09 PC도우미구분(명진 결정 대기, 추천안): 노조+ 자체와 헷갈리지 않게 하는 일을 이름에 담는다. 옛 이름은 RenamedShortcuts.OldFileNames.
+    public const string Name = "노조+ 파일 올리기";
 
     /// <summary>Windows cuts the tray tooltip; keep it within the old, safe limit.</summary>
     public const int TooltipMax = 63;

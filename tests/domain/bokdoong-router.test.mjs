@@ -839,7 +839,7 @@ test('Web1 paths on work get the one-line closed notice with 410 and no-index, n
 test('the kept work paths still reach GitHub Pages after Web1 is closed', async () => {
   for (const path of [
     '/work/share/', '/work/share/share.css', '/work/share/frame.html', '/work/favicon.svg', '/work/about/',
-    '/work/about/privacy/', '/work/about/terms/', '/work/about/web2-logo-120.png', '/work/personal/portal/favicon.png'
+    '/work/about/privacy/', '/work/about/terms/', '/work/about/nojoplus-logo-120.png', '/work/personal/portal/favicon.png'
   ]) {
     const { response, calls } = await request(`https://work.bokdoong.com${path}`);
     assert.equal(response.status, 200, path);

@@ -7,7 +7,7 @@ import {shortDate,PAGE_SIZE,searchNotes,searchWords} from './release-notes-model
 import {highlightParts} from './global-search-model.mjs';
 import {readReleaseNotes,canReadReleaseNotes} from './release-notes-read.js';
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
-import {draftLines,linesFromText,draftProblem,sentVersions,cutIndex,shortDay} from './update-news-model.mjs';
+import {draftLines,linesFromText,draftProblem,sentVersions,cutIndex,shortDay,seoulToday,startGapText,sendStartHint} from './update-news-model.mjs';
 import {newsRow} from './update-news-ui.js';
 import {openFormModal} from './small-form-modal.js';
 import {askConfirm,notify} from './small-notice.js';
@@ -66,11 +66,19 @@ function refreshMarks(){
   paintNews();
 }
 const failLine=error=>/OPERATOR_FEATURE_REQUIRED|42501/.test(String(error?.message||error))?'운영자만 보낼 수 있어요':'보내지 못했어요. 잠시 뒤 다시 해 주세요';
+// UPDATE-소식안보임(요청함 11/16): 시작 날짜가 없거나 소식이 시작 날짜 앞이면 이용자에게 안 보인다(서버 규칙 그대로). 그 사실을 한 줄로.
+function startNotice(text){
+  const line=el('p','un-notice');line.setAttribute('role','status');line.dataset.unNotice='';
+  const fix=el('button','mini','시작 날짜 정하기');fix.type='button';fix.dataset.unStart='notice';
+  line.append(el('span',null,text),fix);
+  return line;
+}
 async function afterWrite(text){await loadAdmin();refreshMarks();notify(text,{record:false})}
 
 // 보내기 창: 기록 줄에서 열면 그 기록 글이 채워진다('폰에서 볼 것'은 기본으로 뺌). [+ 다른 기록 묶기]로 여러 기록을 한 소식으로. 보내기 전에 문구를 고친다.
 function openSend({versions=[],item=null,trigger}={}){
-  let picked=[...versions],edited=false,withChecks=false;
+  let picked=[...versions],edited=false,withChecks=false,startBox=null;
+  const today=seoulToday(),hint=item?null:sendStartHint(news.admin?.start_on||'',today);
   const notesOf=()=>picked.map(v=>news.notes.find(n=>n.v===v)).filter(Boolean);
   let title,area,chips,adder;
   const regen=()=>{if(!edited)area.value=draftLines(notesOf(),{withChecks}).map(line=>'· '+line).join('\n')};
@@ -94,6 +102,13 @@ function openSend({versions=[],item=null,trigger}={}){
       const bundle=el('div','un-bundle');bundle.append(chips,adder);
       if(!item)body.append(opt);
       body.append(bundle);
+      // 새로 보낼 때 이 소식이 이용자에게 안 보이면 안내 한 줄 + '시작 날짜도 정하기' 칸(없으면 기본 켬, 뒤로 정해져 있으면 기본 끔).
+      if(hint){
+        const note=el('p','un-notice');note.setAttribute('role','status');note.dataset.unNotice='send';note.textContent=hint.text;
+        const fix=el('label','sfm-opt');startBox=el('input');startBox.type='checkbox';startBox.checked=hint.checked;startBox.dataset.unSendStart='';
+        fix.append(startBox,document.createTextNode(hint.option));
+        body.append(note,fix);
+      }
       paintChips();regen();
       return item?'textarea':'textarea';
     },
@@ -101,19 +116,25 @@ function openSend({versions=[],item=null,trigger}={}){
       const lines=linesFromText(area.value),problem=draftProblem({title:title.value,lines});
       if(problem)return problem;
       try{await rpc('app_update_news_save',{p_id:item?.id??null,p_title:title.value.trim()||null,p_lines:lines,p_sources:picked.slice(0,30)})}catch(error){return failLine(error)}
-      void afterWrite(item?'수정했어요':'보냈어요');
+      let done=item?'수정했어요':'보냈어요';
+      if(startBox?.checked){
+        try{await rpc('app_update_news_set_start',{p_start:today});done='보냈어요. 시작 날짜도 오늘로 정했어요'}
+        catch{done='보냈지만 시작 날짜는 정하지 못했어요. [시작 날짜 정하기]로 다시 해 주세요'}
+      }
+      void afterWrite(done);
       return true;
     }});
 }
 function openStart(trigger){
   let input;
-  openFormModal({id:'updateNewsStart',title:'이용자에게 보이는 시작 날짜',okLabel:'바꾸기',trigger,
+  const has=!!news.admin?.start_on;
+  openFormModal({id:'updateNewsStart',title:'이용자에게 보이는 시작 날짜',okLabel:has?'바꾸기':'정하기',trigger,
     foot:'이 날짜(0시) 이후 보낸 소식만 이용자에게 보여요. 가입일과는 상관없어요.',
-    fill(body){input=el('input');input.type='date';input.setAttribute('aria-label','시작 날짜');input.value=news.admin?.start_on||'';body.append(input);return 'input'},
+    fill(body){input=el('input');input.type='date';input.setAttribute('aria-label','시작 날짜');input.value=news.admin?.start_on||seoulToday();body.append(input);return 'input'},
     async onSubmit(){
       if(!/^\d{4}-\d{2}-\d{2}$/.test(input.value))return '날짜를 정해 주세요';
       try{await rpc('app_update_news_set_start',{p_start:input.value})}catch(error){return failLine(error)}
-      void afterWrite('시작 날짜를 바꿨어요');
+      void afterWrite(has?'시작 날짜를 바꿨어요':'시작 날짜를 정했어요');
       return true;
     }});
 }
@@ -147,7 +168,8 @@ function paintNews(){
   });
   if(!items.length)list.append(el('p','un-date','아직 보낸 소식이 없어요'));
   sent.append(summary,list);
-  box.replaceChildren(bar,sent);
+  const gap=startGapText(items,admin.start_on);
+  box.replaceChildren(...[bar,gap?startNotice(gap):null,sent].filter(Boolean));
 }
 async function onNewsClick(event){
   const send=event.target.closest?.('[data-rn-send]');

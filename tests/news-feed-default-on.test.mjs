@@ -275,7 +275,8 @@ test('노동과세계(httpsLinks): 피드는 https, 글 링크 http는 같은 �
 
 test('머니투데이: 피드 호스트 robots.txt가 허용 호스트(https)의 없는 쪽(404)으로 넘기면 robots.txt 없음(전부 허용)으로 보고 읽는다, http로 넘기면 따라가지 않는다', async () => {
   const s = C.newsSourceByKey('news-mt');
-  const feed = rssOf([rItem('합성 경제 기사', 'https://www.mt.co.kr/economy/2026/11/08/2026110800001', '합성 소개')]);
+  // S63-10: 머니투데이는 섞인 피드(기본 경제)라 노동·공공 낱말이 없는 글은 받지 않는다(news-rank.ts) — 이 시험은 robots 길을 보므로 받는 글로 둔다.
+  const feed = rssOf([rItem('합성 임금 협상 기사', 'https://www.mt.co.kr/economy/2026/11/08/2026110800001', '합성 소개')]);
   const run = async robots => {
     const w = world({sources: [{workspace_id: WS1, source_key: 'news-mt', enabled: true}], keywords: [],
       sites: {'https://rss.mt.co.kr/robots.txt': {status: 301, headers: {location: robots}, body: ''}, 'https://www.mt.co.kr/robots.txt': {status: 404, body: ''},
@@ -422,4 +423,17 @@ test('남의 매체 링크 피드(LabourStart): 기사 줄(제목·날짜·링�
   assert.deepEqual(C.newsSourceByKey('news-labourstart').hosts, ['www.labourstart.org', 'labourstart.org']);
   assert.equal(O.allowedUrl(C.newsSourceByKey('news-labourstart'), 'https://other.example.org/news/1'), null);
   assert.equal(H.parseSource(C.newsSourceByKey('news-khan'), rss), C.newsSourceByKey('news-khan'), 'linkOut이 아닌 매체는 그대로');
+});
+
+// S63-10 NEWS-언론거르기: 수집 때 거르기(news-rank.ts) — 주식·날씨 글은 넣지 않고 dropped로만 센다, 노동 글은 넣는다(글은 모두 가짜).
+test('언론 거르기: 종합지 섹션 피드에서 주식·날씨·관련 없는 정치 글은 넣지 않고, 노동·사회 글만 넣는다', async () => {
+  const s = C.newsSourceByKey('news-khan');
+  const soc = rssOf([rItem('합성 철도 파업 기사', 'https://www.khan.co.kr/article/1'), rItem('[날씨] 합성 내일 비', 'https://www.khan.co.kr/article/2'), rItem('합성 동네 화재', 'https://www.khan.co.kr/article/3')]);
+  const eco = rssOf([rItem('[특징주] 합성전자 상한가', 'https://www.khan.co.kr/article/4')]);
+  const pol = rssOf([rItem('합성 여야 회동 결렬', 'https://www.khan.co.kr/article/5')]);
+  const w = world({sources: [{workspace_id: WS1, source_key: 'news-khan', enabled: true}], keywords: [],
+    sites: {'https://www.khan.co.kr/robots.txt': {status: 404, body: ''}, [s.lists[0]]: {body: soc, type: 'application/xml'}, [s.lists[1]]: {body: eco, type: 'application/xml'}, [s.lists[2]]: {body: pol, type: 'application/xml'}}});
+  const out = await w.cron({step: 'media', source: 'news-khan'});
+  assert.deepEqual([out.status, out.listed, out.dropped, out.inserted], ['ok', 5, 3, 2]);
+  assert.deepEqual(posted(w).map(r => r.title).sort(), ['합성 동네 화재', '합성 철도 파업 기사']);
 });

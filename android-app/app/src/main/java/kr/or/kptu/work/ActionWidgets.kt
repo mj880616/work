@@ -198,7 +198,7 @@ class OneWidgetConfigActivity : Activity() {
  * 위젯 [사진] 칸: 사진 고르기(여러 장) 또는 카메라 → 정리함에 넣는다.
  * 위젯 로그인이 있으면 창을 바로 닫고 뒤에서 올린다(QuickPhoto, APP-위젯빠른쓰기 남은 일 1). 없으면 공유 받기와 같은 길(ShareIntake, SHARE-바로넣기).
  * 내보내지 않아 이 앱 안에서만 열린다. 저장소 권한은 쓰지 않는다(고른 사진의 임시 읽기 권한만).
- * 카메라 사진은 카메라 앱이 사진첩(Pictures/웹2)에 저장한다. 찍지 않고 닫으면 미리 만든 빈 자리를 지운다.
+ * 카메라 사진은 카메라 앱이 사진첩(Pictures/노조+)에 저장한다. 찍지 않고 닫으면 미리 만든 빈 자리를 지운다.
  */
 class PhotoPickActivity : Activity() {
     private var shot: Uri? = null
@@ -294,7 +294,7 @@ class PhotoPickActivity : Activity() {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "web2-" + System.currentTimeMillis() + ".jpg")
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/웹2")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/노조+")
         }
         contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
     } catch (_: Exception) {

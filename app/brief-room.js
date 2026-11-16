@@ -4,9 +4,16 @@
 // - [브리핑 받기]만 AI를 부른다(명진 결정 1). 서버 document-actions brief-start, 진행·결과는 표 app_document_briefs를 owner RLS로 읽기만.
 // - [자료 넣기]·놓기: 자료실 등록 창을 '브리핑 요청함' 폴더로 연다(자료 원본은 자료실 한 곳, 폴더는 없으면 owner RLS로 하나 만든다).
 // - 서버 저장만(기기 저장 없음). 글자는 textContent로만 넣는다.
-import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,briefSections,fileBadge,isStalled,latestByDocument,listRows,sourceUrl,startError} from './brief-room-model.mjs';
+// - BRIEF-브리핑룸삭제(S63-08): 줄마다 ⋯(폰 길게 누르기, PC 우클릭은 공용 context-menu.js) [선택]·[브리핑만 삭제]·[자료까지 삭제].
+//   브리핑만 = 서버 함수 app_document_brief_delete(owner 검사, 만드는 중이면 서버 작업도 멈춤) + '브리핑 요청함' 폴더에 있었으면 폴더 밖으로(owner RLS).
+//   자료까지 = 자료실 삭제와 같은 길(document-delete.js → document-actions delete, Drive 휴지통). 여러 개는 공용 선택 부품(select-mode.js·library-select.js)으로 같은 두 가지.
+import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,briefSections,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,listRows,sourceUrl,startError} from './brief-room-model.mjs';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
-import {notify} from './small-notice.js';
+import {notify,askConfirm} from './small-notice.js';
+import {createAnchoredMenu} from './anchored-menu.js';
+import {createFeedHold} from './feed-hold.js';
+import {createSelectMode} from './select-mode.js';
+import {deleteSequentially} from './library-select.js';
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
@@ -20,7 +27,9 @@ function install(){
   document.getElementById('appView')?.insertAdjacentHTML('beforeend','<section id="briefView" class="view-panel hidden" aria-label="브리핑 룸"><div class="br-wrap"><div class="br-list" data-br-list></div><div class="br-detail" data-br-detail hidden></div></div></section>');
 }
 
-const state={folderId:null,docs:[],folderDocs:new Set(),briefs:new Map(),open:null,loading:false,failed:false,timer:null,asked:new Set()};
+const state={folderId:null,docs:[],folderDocs:new Set(),briefs:new Map(),open:null,loading:false,failed:false,timer:null,asked:new Set(),busy:false};
+const pick=createSelectMode({layer:'brief-select',onBack:()=>draw(),canLeave:()=>!state.busy});
+const docName=d=>String(d?.title||d?.file_name||'이름 없는 자료');
 const view=()=>document.getElementById('briefView');
 const wide=()=>window.matchMedia?.('(min-width: 761px)').matches;
 const here=()=>window.KPTURouter?.current==='brief'&&!document.hidden;
@@ -68,16 +77,21 @@ function drawList(){
   const box=view()?.querySelector('[data-br-list]');if(!box)return;
   const head=el('div','br-head');
   head.append(el('h2','br-title','브리핑 룸'),btn('br-add mini','자료 넣기',{brAdd:'1'}));
+  const rowsNow=listRows({docs:state.docs,folderIds:state.folderDocs,briefs:state.briefs});
+  if(pick.prune(rowsNow.map(r=>r.doc.id))&&!pick.size)pick.stop();
+  if(pick.active)head.replaceChildren(...pickBar(rowsNow));
   const drop=el('p','br-drop',`여기에 파일을 놓아도 돼요 · 자료실 '${BRIEF_FOLDER}' 폴더에 함께 저장돼요`);drop.dataset.brDrop='1';
   if(state.failed&&!state.docs.length){box.replaceChildren(head,drop);box.insertAdjacentHTML('beforeend',failHtml({retry:'data-br-retry'}));return}
-  const rows=listRows({docs:state.docs,folderIds:state.folderDocs,briefs:state.briefs});
-  const list=el('div','br-rows');
+  const rows=rowsNow;
+  const list=el('div','br-rows');if(pick.active)list.classList.add('br-picking');
   for(const row of rows){
     const r=el('div','br-row');r.dataset.brOpen=row.doc.id;r.tabIndex=row.state.kind==='done'?0:-1;r.setAttribute('role',row.state.kind==='done'?'button':'group');
     if(state.open===row.doc.id)r.classList.add('is-open');
     const badge=el('span','br-k',fileBadge(row.doc.file_name,row.doc.mime_type));badge.dataset.k=badge.textContent;
-    const name=el('span','br-nm',String(row.doc.title||row.doc.file_name||'이름 없는 자료'));
-    r.append(badge,name,stateNode(row));
+    const name=el('span','br-nm',docName(row.doc));
+    if(pick.active){const c=el('input','br-pick');c.type='checkbox';c.dataset.brPick=row.doc.id;c.checked=pick.has(row.doc.id);c.setAttribute('aria-label','선택: '+docName(row.doc));r.append(c)}
+    const more=btn('br-more icon-btn','⋯',{brMore:row.doc.id});more.setAttribute('aria-label','브리핑 관리: '+docName(row.doc));more.setAttribute('aria-expanded','false');
+    r.append(badge,name,stateNode(row),more);
     if(row.state.kind==='done')r.append(el('span','br-one',row.state.text));
     if(row.state.kind==='making')r.append(el('span','br-one br-muted','몇 분 걸려요, 다른 화면에 가도 돼요'));
     list.append(r);
@@ -169,6 +183,11 @@ function bind(){
   const v=view();if(!v||v.dataset.brBound)return;v.dataset.brBound='1';
   v.addEventListener('click',e=>{
     const t=e.target;
+    const m=t.closest?.('[data-br-more]');if(m){e.stopPropagation();menu.open(m);return}
+    if(t.closest?.('[data-br-pick-all]')){const ids=listRows({docs:state.docs,folderIds:state.folderDocs,briefs:state.briefs}).map(r=>r.doc.id);pick.toggle(ids,{anchor:false});drawList();return}
+    if(t.closest?.('[data-br-pick-stop]')){pick.stop();drawList();return}
+    const kill=t.closest?.('[data-br-del-many]');if(kill){void removeMany([...(pick.items||[])],kill.dataset.brDelMany,kill);return}
+    if(pick.active){const pr=t.closest?.('[data-br-open]');if(pr){if(!t.matches?.('[data-br-pick]'))e.preventDefault();pick.toggle([pr.dataset.brOpen]);drawList();return}}
     const s=t.closest?.('[data-br-start]');if(s){e.stopPropagation();void start(s.dataset.brStart,s);return}
     if(t.closest?.('[data-br-add]')){void add();return}
     if(t.closest?.('[data-br-retry]')){void refresh();return}
@@ -176,6 +195,8 @@ function bind(){
     const row=t.closest?.('[data-br-open]');if(row&&state.briefs.get(row.dataset.brOpen)?.status==='done'){state.open=row.dataset.brOpen;draw();v.querySelector('[data-br-detail]')?.scrollIntoView?.({block:'start'})}
   });
   v.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-br-open][role=button]')){e.preventDefault();e.target.click()}});
+  v.addEventListener('keydown',e=>{if(e.key==='Escape'&&pick.active&&!state.busy){e.preventDefault();pick.stop();drawList()}});
+  hold.bind(v);
   // 파일 놓기: 화면 아무 곳에나 놓으면 자료 등록 창(브리핑 요청함 폴더)에 담는다.
   v.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){e.preventDefault();v.classList.add('br-dropping')}});
   v.addEventListener('dragleave',e=>{if(e.target===v)v.classList.remove('br-dropping')});
@@ -184,6 +205,71 @@ function bind(){
   window.addEventListener('resize',()=>{if(window.KPTURouter?.current==='brief')drawDetail()});
   document.addEventListener('visibilitychange',()=>{if(here())void poll()});
 }
+
+// 선택 모드 위쪽 줄: [전체] n개 선택됨 [브리핑만 삭제] [자료까지 삭제] [취소].
+function pickBar(rows){
+  const ids=rows.map(r=>r.doc.id),n=pick.size,all=ids.length>0&&ids.every(id=>pick.has(id));
+  const allBtn=btn('br-all ds-chip','모두 선택',{brPickAll:'1'});allBtn.setAttribute('aria-pressed',String(all));
+  const count=el('span','br-count',`${n}개 선택됨`);count.setAttribute('aria-live','polite');
+  const one=btn('br-del danger',DELETE_KINDS.brief,{brDelMany:'brief'}),two=btn('br-del danger',DELETE_KINDS.doc,{brDelMany:'doc'});
+  one.disabled=two.disabled=!n||state.busy;
+  return [allBtn,count,one,two,btn('br-cancel secondary','취소',{brPickStop:'1'})];
+}
+
+const api=(path,options)=>rt().api(path,{refreshSession:false,singleFlight:false,...options});
+// 브리핑만: 브리핑 행 삭제(서버 함수, owner 검사) → '브리핑 요청함' 폴더에 있었으면 폴더 밖으로. 자료 행·Drive 파일은 그대로.
+async function removeBriefOnly(id){
+  await api('/rest/v1/rpc/app_document_brief_delete',{method:'POST',body:{p_document_id:id}});
+  if(state.folderId&&state.folderDocs.has(id))await api(`/rest/v1/app_library_folder_items?workspace_id=eq.${enc(ws())}&folder_id=eq.${enc(state.folderId)}&document_id=eq.${enc(id)}`,{method:'DELETE',prefer:'return=minimal'});
+}
+// 자료까지: 자료실 삭제와 같은 서버 길(확인은 위에서 한 번). 자료 행이 지워지면 브리핑 행도 같이 지워진다(표 on delete cascade).
+let deleteHelper=null;
+async function removeWithDocument(id){
+  const d=state.docs.find(x=>x.id===id);if(!d)return {ok:false};
+  deleteHelper??=await import('./document-delete.js');
+  const bulk={};
+  await deleteHelper.deleteDocument(Object.freeze({...d}),{api:(p,o)=>rt().api(p,o),bulk});
+  return bulk.ok?{ok:true}:{ok:false,stop:!!bulk.stop};
+}
+async function removeMany(ids,kind,anchor=null){
+  ids=ids.filter(id=>state.docs.some(d=>d.id===id));
+  if(!ids.length||state.busy||!DELETE_KINDS[kind])return;
+  const first=state.docs.find(d=>d.id===ids[0]);
+  if(!(await askConfirm(anchor,deleteConfirm(kind,ids.length,docName(first)))))return;
+  state.busy=true;drawList();
+  let result;
+  try{
+    result=await deleteSequentially(ids,async id=>{
+      if(kind==='doc')return removeWithDocument(id);
+      try{await removeBriefOnly(id);return {ok:true}}catch(e){return {ok:false,stop:e?.status===401||e?.status===403}}
+    },{isCurrent:()=>!!ws()});
+  }finally{state.busy=false}
+  for(const id of result.done){if(state.open===id)state.open=null;pick.remove(id)}
+  if(pick.active&&!result.failed.length&&!result.skipped.length)pick.stop();
+  const r=deleteResult(kind,{done:result.done.length,failed:result.failed.length,skipped:result.skipped.length});
+  toast(r.text,r.error);
+  if(result.done.length)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+  await load();draw();
+}
+
+// 줄 ⋯ 메뉴: [선택] · [브리핑만 삭제] · [자료까지 삭제]. 선택 모드에서 연 메뉴는 고른 것 모두에 대해(누른 줄이 안 골라졌으면 더한다).
+const menu=createAnchoredMenu({id:'brRowMenu',className:'feed-menu',label:'브리핑 메뉴',historyKey:'kptuBriefRowMenu',
+  key:t=>t.dataset.brMore||'',
+  row:t=>t.closest('.br-row'),
+  render:id=>{
+    if(!state.docs.some(d=>d.id===id))return '';
+    const n=pick.active?pick.size+(pick.has(id)?0:1):1,tail=n>1?` <span class="feed-faint">${n}개</span>`:'';
+    return `${pick.active?'':'<button type="button" class="row-act" data-br-act="select">선택</button>'}<button type="button" class="row-act feed-menu-danger" data-br-act="brief">${DELETE_KINDS.brief}${tail}</button><button type="button" class="row-act feed-menu-danger" data-br-act="doc">${DELETE_KINDS.doc}${tail}</button>`;
+  },
+  onAction:(button,active)=>{
+    const id=active.id,act=button.dataset.brAct;
+    if(act==='select'){pick.start([id],id);drawList();return}
+    if(act!=='brief'&&act!=='doc')return;
+    const ids=pick.active?[...new Set([...(pick.items||[]),id])]:[id];
+    void removeMany(ids,act,view()?.querySelector(`[data-br-more="${CSS.escape(id)}"]`)||null);
+  },
+  onClose:()=>hold.unpin()});
+const hold=createFeedHold({menu,itemSelector:'[data-br-open]',moreSelector:'[data-br-more]',skipSelector:'[data-br-start],[data-br-pick],[data-br-more]',busy:()=>state.busy||pick.active,isPhone:()=>!wide()});
 
 async function refresh(){
   const list=view()?.querySelector('[data-br-list]');

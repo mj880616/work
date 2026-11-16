@@ -94,7 +94,7 @@ const COMMITMENT = { waiting: '대기', fulfilled: '이행', broken: '불이행'
 const EVIDENCE = { law: '법령', statistics: '통계', budget: '예산', agreement: '합의문', precedent: '판례·선례', gov_position: '정부 입장', counterpart_statement: '상대측 발언', field_fact: '현장 사실', argument: '교섭 논거', other: '기타' };
 const INACTIVE = new Set(['superseded', 'retired']);
 export const LEDGER_TITLE = '원장 (읽기용 사본)';
-const NOTICE = '이 문서는 Web2가 자동으로 만드는 원장 읽기용 사본입니다. 직접 고쳐도 다음 내보내기 때 덮어써집니다. 원본은 Web2 원장, 되살리기용 전체 백업은 같은 폴더의 "원장 백업" JSON입니다.';
+const NOTICE = '이 문서는 노동조합+가 자동으로 만드는 원장 읽기용 사본입니다. 직접 고쳐도 다음 내보내기 때 덮어써집니다. 원본은 노동조합+ 원장, 되살리기용 전체 백업은 같은 폴더의 "원장 백업" JSON입니다.';
 
 export function dateText(r) {
   const s = r.date_start || '', e = r.date_end || '';

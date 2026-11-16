@@ -35,3 +35,22 @@ test('보냄 표시·시작 날짜 자르기(서울 0시)', () => {
   assert.equal(shortDay('2026-11-20'), '11/20');
   assert.equal(shortDay('2026-11-19T15:30:00Z'), '11/20');
 });
+
+test('UPDATE-소식안보임: 시작 날짜 안내 줄·보내기 창 시작 날짜 칸', async () => {
+  const {seoulToday, startGapText, sendStartHint} = await import('../app/update-news-model.mjs');
+  assert.equal(seoulToday(Date.parse('2026-11-16T15:00:00Z')), '2026-11-17');
+  assert.equal(seoulToday(Date.parse('2026-11-16T14:59:59Z')), '2026-11-16');
+  const items = [
+    {sent_at: '2026-11-16T01:00:00Z'},
+    {sent_at: '2026-11-10T01:00:00Z'},
+    {sent_at: '2026-11-09T01:00:00Z', withdrawn_at: '2026-11-11T00:00:00Z'}
+  ];
+  assert.equal(startGapText(items, null), '시작 날짜가 없어 이용자에게 아직 안 보여요');
+  assert.equal(startGapText([], ''), '시작 날짜가 없어 이용자에게 아직 안 보여요');
+  assert.equal(startGapText(items, '2026-11-16'), '보낸 소식 1개는 시작 날짜 앞이라 이용자에게 안 보여요');
+  assert.equal(startGapText(items, '2026-11-01'), '');
+  assert.deepEqual(sendStartHint(null, '2026-11-16'), {text: '시작 날짜가 없어 이용자에게 아직 안 보여요', option: '오늘(11/16)부터 보이게 시작 날짜도 정하기', checked: true});
+  assert.deepEqual(sendStartHint('2026-11-20', '2026-11-16'), {text: '시작 날짜(11/20) 앞이라 이 소식은 이용자에게 아직 안 보여요', option: '시작 날짜를 오늘(11/16)로 당기기', checked: false});
+  assert.equal(sendStartHint('2026-11-16', '2026-11-16'), null);
+  assert.equal(sendStartHint('2026-11-01', '2026-11-16'), null);
+});
