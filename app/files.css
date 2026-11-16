@@ -221,10 +221,10 @@
    칸 위 줄(위치 줄 + 정렬, 폴드는 ▾ 나무)은 밑선 2px, 지금 칸은 강조색 밑선(시안 pane-top.cur). 폴드 두 칸은 왼쪽 나무 대신 칸 위 ▾ 나무.
    미리보기는 두 칸이면 덮는 칸. 칸 사이로 끌면 받는 칸에 '여기에 놓으면 → 복사 · 옮기기' 점선 안내, 놓으면 작은 고르기(fx-drop-ask). */
 .fx-crumb[hidden], .fx-sort[hidden], .fx-ptop[hidden], .fx-ptree[hidden], .fx-drop-ask[hidden], .fx-two[hidden] { display:none; }
-/* S62-40 UI-파일검색줄(시안 #2691 B안): [두 칸 보기]는 공용 ⑥ 아이콘(button.icon-btn, 선·바탕 없음). 출처 단추와 같은 28px 정사각, 켜짐(aria-pressed)은 옅은 바탕.
+/* S62-40 UI-파일검색줄(시안 PR 2691 B안): [두 칸 보기]는 공용 ⑥ 아이콘(button.icon-btn, 선·바탕 없음). 출처 단추와 같은 28px 정사각, 켜짐(aria-pressed)은 옅은 바탕.
    그림은 폰(위·아래 두 칸) 가로 선, 600px~(왼쪽·오른쪽 두 칸)는 돌려서 세로 선. */
 .fx-two { flex:none; width:28px; height:28px; min-width:28px; min-height:28px; font-size:inherit; }
-.fx-two[aria-pressed="true"] { color:var(--kptu-primary); background:var(--kptu-primary-soft); }
+.fx-two[aria-pressed="true"] { color:var(--kptu-primary-text); background:var(--kptu-primary-soft); }
 @media (min-width:600px) { .fx-two-ic { transform:rotate(90deg); } }
 .fx-listcol { position:relative; }
 .fx[data-fx-two] .fx-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:stretch; }

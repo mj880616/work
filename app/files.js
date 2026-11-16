@@ -887,7 +887,7 @@ function paintTop() {
     const t = open ? '폴더 나무 닫기' : '폴더 나무 열기'; tt.title = t; tt.setAttribute('aria-label', t);
   }
   const tw = $('[data-fx-two]');
-  // S62-40 UI-파일검색줄(시안 #2691 B안, 명진 11/16 08:37): [두 칸 보기]는 두 칸 그림 아이콘 단추(이름 '두 칸 보기' 그대로), 켜짐은 aria-pressed와 옅은 바탕.
+  // S62-40 UI-파일검색줄(시안 PR 2691 B안, 명진 11/16 08:37): [두 칸 보기]는 두 칸 그림 아이콘 단추(이름 '두 칸 보기' 그대로), 켜짐은 aria-pressed와 옅은 바탕.
   //   폰 맨 위 줄 [찾기][출처][두 칸] 한 줄에 들어간다(전에는 글자 단추가 둘째 줄을 혼자 차지). S50-20 글자 바꾸기(한 칸이면 '두 칸 보기', 두 칸이면 반대 글자)는 이걸로 대신한다.
   if (tw) { tw.hidden = false; tw.setAttribute('aria-pressed', String(!!twoNow)); }
   paintSrcs();
