@@ -147,7 +147,7 @@ export function extractBlankTemplate(source) {
     if (n.name === 'opf:manifest') n.children = n.children.filter(i => !(i.attrs?.href ?? '').startsWith('BinData/') && !/^Contents\/section[1-9]\d*\.xml$/.test(i.attrs?.href ?? ''));
     if (n.name === 'opf:spine') n.children = n.children.filter(i => ['header', 'section0'].includes(i.attrs?.idref));
     if (n.name === 'opf:title') n.children = [];
-    if (n.name === 'opf:meta') n.children = n.attrs.name === 'creator' ? [{text: 'Web2'}] : [];
+    if (n.name === 'opf:meta') n.children = n.attrs.name === 'creator' ? [{text: '노동조합+'}] : [];
   }
   setXml(pkg, 'Contents/content.hpf', hpf);
   const settings = readXml(pkg, 'settings.xml');
