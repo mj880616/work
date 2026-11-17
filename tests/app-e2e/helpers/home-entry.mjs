@@ -3,6 +3,10 @@ import { expect } from '@playwright/test';
 import {DEFAULT_STAGES} from '../../../app/org-dispute-stage-model.mjs';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
+import { readFileSync } from 'node:fs';
+// WEEKLY-내양식자유변형 ⑤-3b: 바탕이 있는 기본 계정은 '내 양식'도 저장돼 있다(운영자처럼 — ⑤-2 자동 저장). 지어낸 고정 양식(⑤-3 전 기본 양식 글자 그대로).
+const OWN_FORM = JSON.parse(readFileSync(new URL('../../fixtures/weekly-own-form-legacy-shape.json', import.meta.url), 'utf8'));
+export const DEFAULT_OWN_FORM_ROW = Object.freeze({ id: 'home-own-form', name: '가상 주간 보고', source_name: null, source_file_id: null, updated_at: '2026-10-01T00:00:00Z', form: OWN_FORM });
 import { signInWithSession } from './session-login.mjs';
 import { installViewPrefsServer } from './view-prefs-server.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -151,6 +155,8 @@ export async function openHome(
       const team = /팀 확정본/.test(decodeURIComponent(u.searchParams.get("category") ?? ""));
       return ok(weeklyBase && team ? [{ id: "home-weekly-base", title: "가상 팀 확정본", file_name: "base.hwpx", document_date: "2026-10-05", created_at: "2026-10-05T00:00:00.000Z" }] : []);
     }
+    // ⑤-3b: 화면 절 제목은 '내 양식' 제목이다. 바탕이 있는 기본 계정은 저장된 내 양식이 있다. 양식을 따로 다루는 시험은 자기 경로로 다시 가로챈다.
+    if (p === "/rest/v1/app_weekly_forms" && req.method() === "GET") return ok(weeklyBase ? [DEFAULT_OWN_FORM_ROW] : []);
     const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
     const holdKey=p.endsWith('app_record_links')&&u.searchParams.get('note_id')==='not.is.null'?'basket-record-links':p.split('/').pop();
     await (holds[a] ?? holds[holdKey]);
