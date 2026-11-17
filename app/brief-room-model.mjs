@@ -116,3 +116,37 @@ export function deleteResult(kind, { done = 0, failed = 0, skipped = 0 } = {}) {
   if (!bad) return { text: done > 1 ? `${done}개 ${what} 삭제했어요` : `${what} 삭제했어요`, error: false };
   return { text: done ? `${done}개는 삭제했고 ${bad}개는 삭제하지 못했어요` : `${what} 삭제하지 못했어요`, error: true };
 }
+
+// BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31 "브리핑룸 이미 자료실에 있는 파일도 가능하게"):
+// 브리핑 룸 [자료실에서 고르기] 창(공용 고르기 창 library-move-picker.js, 여러 개 고르기)에 보일 줄.
+// 찾는 말이 없으면 최근 자료 PICK_RECENT개, 있으면 이름(제목·파일 이름)에 낱말이 모두 든 자료 PICK_FOUND개까지.
+// 이미 브리핑 룸 목록에 있는 자료는 흐리게 '이미 있음'(고를 수 없음).
+export const PICK_RECENT = 50, PICK_FOUND = 100;
+export const PICK_SECTIONS = Object.freeze({ all: '최근 자료', found: '찾은 자료' });
+export function libraryPickRows({ docs, inRoom = new Set(), query = '' }) {
+  const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  const name = d => String(d?.title || d?.file_name || '이름 없는 자료');
+  const all = [];
+  let total = 0;
+  for (const d of Array.isArray(docs) ? docs : []) {
+    if (!d || typeof d.id !== 'string') continue;
+    total++;
+    if (words.length) {
+      const hay = `${d.title || ''} ${d.file_name || ''}`.toLowerCase();
+      if (!words.every(w => hay.includes(w))) continue;
+    }
+    if (all.length >= (words.length ? PICK_FOUND : PICK_RECENT)) continue;
+    const here = inRoom.has(d.id), n = name(d);
+    all.push({ id: d.id, name: n, label: n, depth: 0, enabled: !here, current: here });
+  }
+  return { recent: [], all, total };
+}
+/** 넣은 뒤 한 줄. added = 폴더에 넣은 수, kept = 다른 폴더에 있어 그대로 두고 목록에만 보인 수, failed = 못 넣은 수. */
+export function pickResult({ added = 0, kept = 0, failed = 0 } = {}) {
+  const n = added + kept;
+  if (!n) return { text: '자료를 넣지 못했어요. 잠시 뒤 다시 해 주세요.', error: true };
+  const parts = [`${n}개 넣었어요`];
+  if (kept) parts.push(`${kept}개는 원래 폴더에 그대로 두었어요(브리핑을 받으면 계속 보여요)`);
+  if (failed) parts.push(`${failed}개는 넣지 못했어요`);
+  return { text: parts.join(' · '), error: failed > 0 };
+}

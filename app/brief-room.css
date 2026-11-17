@@ -2,7 +2,8 @@
 #briefView .br-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:0;min-width:0}
 #briefView .br-head{display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px)}
 #briefView .br-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#briefView .br-head .br-add,#briefView .br-head .br-src{margin-left:auto;flex:none}
+#briefView .br-head .br-pick-lib,#briefView .br-head .br-src{margin-left:auto;flex:none}
+#briefView .br-head .br-add{flex:none}
 #briefView .br-drop{margin:2px 0 4px;padding:4px 8px;border:1px dashed var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #briefView.br-dropping .br-drop{border-color:var(--kptu-primary-ink);color:var(--kptu-ink)}
 #briefView .br-rows{border-top:.5px solid var(--kptu-border)}
