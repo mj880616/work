@@ -648,10 +648,11 @@ function paintBlank(host, weekModel) {
     wrap.append(line, more); slot.replaceChildren(wrap);
   }
   // 번호 고르기 → [양식 수정] 화면을 그 모양으로(아직 저장 안 함). 직접 만들기는 빈 양식(예전 [빈 양식에서 만들기]와 같은 길).
-  function startWith(key) {
-    if (busy || !mods) return;
-    chosen = key;
-    const [, , model] = mods, {form, name} = model.startForm(key);
+  // 여러 개 고르면 항목을 번호 순서대로 이어 붙인 모양(startFormMany, 같은 이름 항목은 한 번).
+  function startWith(keys) {
+    if (busy || !mods || !keys?.length) return;
+    chosen = keys;
+    const [, , model] = mods, {form, name} = model.startFormMany(keys);
     // 파일에서 만든 '내 양식'을 번호 모양으로 바꾸면 원본 파일 연결(source_file_id)을 비운다. 처음 만드는 양식이면 보내지 않음(DB 기본 null).
     pendingFile = null; uploadedId = known?.id ? null : undefined;
     void openEditor(form, name, true, null);
