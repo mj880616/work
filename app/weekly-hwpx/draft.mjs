@@ -40,12 +40,13 @@ export const DRAFT_TEXT = Object.freeze({
 export async function openConfirmed(bytes, zlib = browserZlib) { return openHwpxAsync(bytes, zlib); }
 
 // WEEKLY-개인본대조 W-2: 내준 한글 파일(.hwpx 바이트)의 1~4절 글 줄을 draft.issued 모양으로(weekly-lines.mjs — 서버가 개인본을 읽는 것과 같은 함수).
-// 5절·'2) 주요 일정'·표 머리 칸 이름은 빠진다. 읽을 줄이 없거나 너무 길면 null.
-export async function issuedFrom(bytes, at, zlib = browserZlib) {
+// 5절·'2) 주요 일정'·표 머리 칸 이름은 빠진다. 읽을 줄이 없거나 너무 길면 null. profile = 그 파일을 만든 엔진 양식(⑤-3c, 꼭 받음).
+export async function issuedFrom(bytes, at, zlib = browserZlib, {profile} = {}) {
+  needProfile(profile);
   const pkg = await openHwpxAsync(bytes, zlib);
   const sections = pkg.order.map(name => ({name, n: Number(/^Contents\/section(\d{1,4})\.xml$/i.exec(name)?.[1])})).filter(x => Number.isInteger(x.n)).sort((a, b) => a.n - b.n);
   const dec = new TextDecoder();
-  return issuedFromSections(sections.map(x => dec.decode(pkg.files.get(x.name))), at);
+  return issuedFromSections(sections.map(x => dec.decode(pkg.files.get(x.name))), at, profile);
 }
 
 // WEEKLY-한글파일다듬기 ②(2026-10-23 사용자 지적 11:38): 바탕 파일이 .hwp면 칸막이 편집기 엔진(rhwp 0.8.7 WASM, hwp-frame.js)이 .hwpx로 바꾼다.

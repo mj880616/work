@@ -2,6 +2,9 @@
 // - 앱(받은 초안을 내줄 때 draft.issued 기록)과 Edge ai-assist(자료실 개인본을 읽어 비교)가 같은 함수로 줄을 나눈다. 두 곳이 어긋나면 같은 줄이 '새 줄'로 잡힌다.
 // - 이 파일은 supabase/functions/_shared/weekly-lines.mjs 와 바이트까지 같은 사본이다(org-name-match.mjs 와 같은 방식). 한쪽만 고치지 않는다(tests/weekly-issued-lines.test.mjs 가 지킨다).
 // - 화면·네트워크 없음. 글은 업무 글이므로 로그·오류 보고에 넣지 않는다.
+// - WEEKLY-내양식자유변형 ⑤-3c: 절 제목·표 머리 칸 이름·상자 칸 이름은 코드에 박지 않고 '내 양식' 엔진 profile
+//   (app/weekly-hwpx/form-profile.mjs profileOf 결과 {titles, formLabels, boxLabels})을 인자로 받는다. 빠지면 멈춘다(다른 양식으로 몰래 돌지 않음).
+//   코드가 아는 것은 자리(role) 이름뿐이다 — 큰 항목 자리 → 절 이름, 작은 항목 자리 가운데 'schedule'(주요 일정) 아래는 읽지 않음.
 
 export const WEEKLY_LINE_CHARS = 300;
 export const WEEKLY_MAX_LINES = 400;
@@ -10,54 +13,56 @@ export const ISSUED_MAX_BYTES = 65536;
 
 export const WEEKLY_SECTIONS = Object.freeze(['requests', 'work', 'struggle', 'orgs']);
 
-// 양식 글자(표 머리 칸 이름과 상자 칸 이름): 글이 아니라 틀이다. app/weekly-hwpx/template.mjs 의 목록과 같다.
-const FORM_LABELS = ['일', '시간/내용/장소', '참석 요청', '사업영역', '세부 과제', '진행 상황 및 이후 계획', '담당 팀원', '일시/장소', '집회/행사명', '참석현황',
-  '조직명', '현황', '사업장', '조직현황', '참석자', '제목', '회의제목', '회의 내용', '내용', '차기일정', '보고', '논의결과', '*차기회의'];
-
-const flat = s => String(s ?? '').normalize('NFKC').replace(/\s+/g, '');
 // 비교용 글: 소문자, 공백·문장부호·기호를 뺀 글자만.
 export const squashLine = s => String(s ?? '').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
-const FORM_KEYS = new Set(FORM_LABELS.map(squashLine));
 export const oneLine = s => [...String(s ?? '')
   .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]+/g, ' ')
   .replace(/\s+/g, ' ').trim()].slice(0, WEEKLY_LINE_CHARS).join('');
 
-const BIG = [
-  [/^1[.)]?요청사항$/, 'requests'],
-  [/^2[.)]?기본.{0,3}영역.{0,3}의제사업$/, 'work'],
-  [/^3[.)]?투쟁사업$/, 'struggle'],
-  [/^4[.)]?산하조직현황$/, 'orgs'],
-  [/^5[.)]?주요일정$/, null],
-];
-// 작은 제목 "1) 요약" 같은 줄. 주요 일정 작은 제목은 그 아래 표를 읽지 않는다.
-const SUB = /^\d\)(.{1,28})$/;
-const SUB_WORDS = ['요약', '세부내용', '집회', '농성', '투쟁사업장', '참고자료', '요청', '주요일정'];
-const bigHeading = h => { for (const [re, section] of BIG) if (re.test(h)) return {section}; return null; };
-// 한 줄이 절 제목인가: 큰 제목 {kind:'big', section}(5절은 section null) · 작은 제목 {kind:'sub', schedule} · 아니면 null.
-// weeklyLines 와 weekly-layout.mjs(고친 판 모양 읽기)가 같은 규칙으로 절을 나눈다.
-export function headingOf(line) {
-  const h = flat(oneLine(line));
-  const big = bigHeading(h);
-  if (big) return {kind: 'big', section: big.section};
-  const sub = SUB.exec(h);
-  if (sub && SUB_WORDS.some(w => sub[1].includes(w))) return {kind: 'sub', schedule: sub[1].includes('주요일정')};
-  return null;
+// 자리(role) → 절. 큰 항목 자리만 절을 연다(5. 주요 일정 자리 'calendar'는 절 null — 읽지 않음). 글자는 profile 에서.
+const BIG_SECTIONS = Object.freeze({requests: 'requests', work: 'work', struggle: 'struggle', orgs: 'orgs', calendar: null});
+// 그 아래 표를 읽지 않는 작은 항목 자리(1. 2) 주요 일정).
+const SKIP_SUBS = Object.freeze(['schedule']);
+// profile → 비교 규칙(같은 profile 이면 한 번만 만든다). 제목은 squashLine 으로 견준다(번호 뒤 '.'·')'·가운뎃점·띄어쓰기 차이는 같은 제목).
+const rulesMemo = new WeakMap();
+function rulesOf(profile) {
+  if (!profile || typeof profile !== 'object' || !profile.titles || !Array.isArray(profile.formLabels) || !Array.isArray(profile.boxLabels)) throw new Error('양식(profile)이 없음');
+  const known = rulesMemo.get(profile);
+  if (known) return known;
+  const heads = new Map();
+  for (const [role, title] of Object.entries(profile.titles)) {
+    const key = squashLine(title);
+    if (!key || heads.has(key)) continue;
+    heads.set(key, Object.hasOwn(BIG_SECTIONS, role) ? {kind: 'big', section: BIG_SECTIONS[role]} : {kind: 'sub', schedule: SKIP_SUBS.includes(role)});
+  }
+  const rules = {heads, formKeys: new Set([...profile.formLabels, ...profile.boxLabels].map(squashLine).filter(Boolean))};
+  rulesMemo.set(profile, rules);
+  return rules;
 }
-// 절 제목·양식 글자·너무 짧은 줄이 아닌 '글 줄'인가(비교용 글자 2자 이상, 표 머리 칸 이름 아님).
-export const isTextLine = line => { const key = squashLine(oneLine(line)); return [...key].length >= 2 && !FORM_KEYS.has(key); };
+// 양식(profile)이 엔진 모양인지 본다(빠지면 멈춤). 반환은 그 profile.
+export const needLineProfile = profile => (rulesOf(profile), profile);
+// 한 줄이 절 제목인가(profile 의 항목 제목과 같은 글): 큰 제목 {kind:'big', section}(5절은 section null) · 작은 제목 {kind:'sub', schedule} · 아니면 null.
+// weeklyLines 와 weekly-layout.mjs(고친 판 모양 읽기)가 같은 규칙으로 절을 나눈다.
+export function headingOf(line, profile) {
+  const {heads} = rulesOf(profile);
+  return heads.get(squashLine(oneLine(line))) ?? null;
+}
+// 절 제목·양식 글자·너무 짧은 줄이 아닌 '글 줄'인가(비교용 글자 2자 이상, 표 머리 칸·상자 칸 이름 아님).
+export const isTextLine = (line, profile) => { const key = squashLine(oneLine(line)); return [...key].length >= 2 && !rulesOf(profile).formKeys.has(key); };
 
 // 글(문단마다 한 줄) → 절 안의 글 줄 [{section, text}]. 절 제목·양식 글자·너무 짧은 줄은 뺀다. 첫 큰 제목 앞(문서 제목·날짜)과 5절은 읽지 않는다.
-export function weeklyLines(text) {
+export function weeklyLines(text, profile) {
+  rulesOf(profile);
   const out = [];
   let section = null, skipSub = false;
   for (const raw of String(text ?? '').split(/\r?\n/)) {
     const line = oneLine(raw);
     if (!line) continue;
-    const head = headingOf(line);
+    const head = headingOf(line, profile);
     if (head?.kind === 'big') { section = head.section; skipSub = false; continue; }
     if (head) { skipSub = head.schedule; continue; }
     if (!section || skipSub) continue;
-    if (!isTextLine(line)) continue;
+    if (!isTextLine(line, profile)) continue;
     out.push({section, text: line});
     if (out.length >= WEEKLY_MAX_LINES) break;
   }
@@ -91,9 +96,9 @@ export function sectionXmlText(xml) {
 export const ISSUED_FROM = 'generated';
 const issuedBytes = issued => new TextEncoder().encode(JSON.stringify(issued)).length;
 
-// 본문 XML 글들(쪽마다) → issued. 읽은 줄이 없거나 상한을 넘으면 null(기록하지 않음).
-export function issuedFromSections(xmls, at) {
-  const lines = weeklyLines(xmls.map(sectionXmlText).join('\n')).map(({section, text}) => ({section, text}));
+// 본문 XML 글들(쪽마다) → issued. 읽은 줄이 없거나 상한을 넘으면 null(기록하지 않음). profile = 그 파일을 만든 엔진 양식.
+export function issuedFromSections(xmls, at, profile) {
+  const lines = weeklyLines(xmls.map(sectionXmlText).join('\n'), profile).map(({section, text}) => ({section, text}));
   if (!lines.length) return null;
   const issued = {at: String(at ?? ''), from: ISSUED_FROM, lines};
   return issuedBytes(issued) > ISSUED_MAX_BYTES ? null : issued;

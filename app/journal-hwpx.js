@@ -1527,7 +1527,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const st = s?.store;
     if (!st || st.status === 'missing') return;
     let issued = null;
-    try { issued = await s.draft.issuedFrom(bytes, new Date().toISOString()); } catch { return; }
+    try { issued = await s.draft.issuedFrom(bytes, new Date().toISOString(), undefined, {profile:s.profile}); } catch { return; } // ⑤-3c: 파일을 만든 같은 양식으로 줄 나누기
     if (!issued || sameIssuedLines(st.issued, issued)) return;
     st.issued = issued;
     if (save) { st.dirty = true; void saveDraft(s); }

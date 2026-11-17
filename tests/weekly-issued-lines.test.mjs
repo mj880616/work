@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {FIXTURE_PROFILE} from './fixtures/weekly-engine-core.mjs'; // ⑤-3c: 줄 나누기는 '내 양식' profile 을 받는다
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
@@ -13,7 +14,7 @@ const p = t => `<hp:p><hp:run><hp:t>${t}</hp:t></hp:run></hp:p>`;
 const xmlOf = lines => `<hs:sec>${lines.map(p).join('')}</hs:sec>`;
 const FILE = [
   '주간 업무 보고', '2026.10.26.',
-  '1. 요청사항', '1) 집회/행사 참가 요청', '일', '시간/내용/장소', '참석 요청', '10/28 가상 결의대회 참석 요청',
+  '1. 요청사항', '1) 임원 배정 요청', '일', '시간/내용/장소', '참석 요청', '10/28 가상 결의대회 참석 요청',
   '2) 주요 일정', '일', '시간/내용/장소', '참석자', '10/29 일정 표 줄은 읽지 않음',
   '2. 기본․영역․의제 사업', '1) 요약', '사업영역', '세부 과제', '진행 상황 및 이후 계획', '담당 팀원', '가상 영역', '가상 과제', '가 지부 임금교섭 준비 중', '회의 일정 조율',
   '2) 세부 내용', '나 회의 결과 정리 완료',
@@ -23,25 +24,25 @@ const FILE = [
 ];
 
 test('줄 나누기: 큰 제목 앞·5절·2) 주요 일정·표 머리 칸 이름·절 제목은 빼고 칸 글(사업영역·세부 과제·요청 표 줄)은 전부 넣는다', () => {
-  const got = weeklyLines(sectionXmlText(xmlOf(FILE))).map(l => `${l.section}|${l.text}`);
+  const got = weeklyLines(sectionXmlText(xmlOf(FILE)), FIXTURE_PROFILE).map(l => `${l.section}|${l.text}`);
   assert.deepEqual(got, [
     'requests|10/28 가상 결의대회 참석 요청',
     'work|가상 영역', 'work|가상 과제', 'work|가 지부 임금교섭 준비 중', 'work|회의 일정 조율', 'work|나 회의 결과 정리 완료',
     'struggle|가 지부', 'struggle|3차 교섭 결렬, 다음 주 재교섭',
     'orgs|나 사업장', 'orgs|위원회 구성 논의 중',
   ]);
-  assert.deepEqual(weeklyLines(''), []);
-  assert.deepEqual(weeklyLines('절 제목이 없는 글\n둘째 줄'), []);
+  assert.deepEqual(weeklyLines('', FIXTURE_PROFILE), []);
+  assert.deepEqual(weeklyLines('절 제목이 없는 글\n둘째 줄', FIXTURE_PROFILE), []);
 });
 
 test('받은 초안 기록: 쪽(section) 순서대로 읽고, 줄이 없거나 상한을 넘으면 기록하지 않는다. 읽을 때는 모양대로만 받는다', () => {
-  const issued = issuedFromSections([xmlOf(FILE.slice(0, 20)), xmlOf(FILE.slice(20))], '2026-10-26T09:10:00+09:00');
+  const issued = issuedFromSections([xmlOf(FILE.slice(0, 20)), xmlOf(FILE.slice(20))], '2026-10-26T09:10:00+09:00', FIXTURE_PROFILE);
   assert.equal(issued.from, 'generated');
   assert.equal(issued.lines.length, 10);
   assert.deepEqual(issued.lines[0], {section: 'requests', text: '10/28 가상 결의대회 참석 요청'});
-  assert.equal(issuedFromSections([xmlOf(['제목만', '2026.10.26.'])], 'x'), null);
-  assert.equal(issuedFromSections([], 'x'), null);
-  const big = issuedFromSections([xmlOf(['3. 투쟁 사업', ...Array.from({length: 400}, (_, i) => `${i}번 ${'가'.repeat(290)}`)])], 'x');
+  assert.equal(issuedFromSections([xmlOf(['제목만', '2026.10.26.'])], 'x', FIXTURE_PROFILE), null);
+  assert.equal(issuedFromSections([], 'x', FIXTURE_PROFILE), null);
+  const big = issuedFromSections([xmlOf(['3. 투쟁 사업', ...Array.from({length: 400}, (_, i) => `${i}번 ${'가'.repeat(290)}`)])], 'x', FIXTURE_PROFILE);
   assert.equal(big, null); // 400줄 × 한글 290자는 64 KB 를 넘는다
   assert.ok(ISSUED_MAX_BYTES < DRAFT_MAX_BYTES);
   assert.deepEqual(readIssued({at: 'a', lines: [{section: 'work', text: '가나'}, {section: 'nope', text: 'x'}, {section: 'orgs'}, null], extra: 1}), {at: 'a', from: 'generated', lines: [{section: 'work', text: '가나'}]});
@@ -148,4 +149,23 @@ test('서버 왕복: 받은 초안을 적은 뒤 상자가 고쳐 저장해도, 
   const cleared = await writeWeekDraft({start: START, known: (await readWeekDraft(START, f.rt)).row, draft: keepDocsOnly((await readWeekDraft(START, f.rt)).row.draft), now: f.now}, f.rt);
   assert.deepEqual(cleared.row.draft.issued, ISSUED);
   assert.deepEqual(cleared.row.draft.rows, []);
+});
+
+// WEEKLY-내양식자유변형 ⑤-3c: 절 제목·칸 이름은 코드가 아니라 '내 양식' profile 에서. 제목을 바꾼 양식은 바꾼 글로 절을 나눈다.
+test('⑤-3c 줄 나누기는 profile 제목·칸 이름을 따른다(코드에 박힌 제목 없음), profile 이 없으면 멈춘다', async () => {
+  const {profileOf} = await import('../app/weekly-hwpx/form-profile.mjs');
+  const {FIXTURE_FORM} = await import('./fixtures/weekly-engine-core.mjs');
+  const form = structuredClone(FIXTURE_FORM);
+  const set = (role, title) => { form.sections.find(x => x.role === role).title = title; };
+  set('work', 'Ⅱ. 가상 사업 묶음'); set('summaryTable', '가) 가상 요약');
+  form.sections.find(x => x.role === 'summaryTable').columns[0] = '가상 칸';
+  const own = profileOf(form);
+  const text = ['1. 요청사항', '가상 요청 줄', 'Ⅱ. 가상 사업 묶음', '가) 가상 요약', '가상 칸', '가상 사업 줄', '5. 주요 일정', '읽지 않는 줄'].join('\n');
+  assert.deepEqual(weeklyLines(text, own).map(l => `${l.section}|${l.text}`), ['requests|가상 요청 줄', 'work|가상 사업 줄']);
+  // 같은 글을 고정 양식으로 읽으면 'Ⅱ. 가상 사업 묶음'은 절 제목이 아니라 요청 절의 글 줄이다.
+  assert.deepEqual(weeklyLines(text, FIXTURE_PROFILE).map(l => l.section), ['requests', 'requests', 'requests', 'requests', 'requests']);
+  assert.throws(() => weeklyLines(text), /profile/);
+  assert.throws(() => issuedFromSections([], 'x'), /profile/);
+  // 번호 뒤 문장부호·가운뎃점·띄어쓰기 차이는 같은 제목(옛 정규식과 같은 너그러움).
+  assert.deepEqual(weeklyLines('2 기본·영역·의제사업\n가상 줄', FIXTURE_PROFILE), [{section: 'work', text: '가상 줄'}]);
 });

@@ -9,3 +9,4 @@ export * from '../../app/weekly-hwpx/draft.mjs';
 const P = o => ({profile: FIXTURE_PROFILE, ...(o ?? {})});
 export const prepareConfirmed = (pkg, o) => D.prepareConfirmed(pkg, P(o));
 export const buildHwpx = (template, data, zlib, o) => D.buildHwpx(template, data, zlib, P(o));
+export const issuedFrom = (bytes, at, zlib, o) => D.issuedFrom(bytes, at, zlib, P(o));
