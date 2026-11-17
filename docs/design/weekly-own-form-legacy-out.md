@@ -38,3 +38,21 @@ S64-09 정리(2026-11-17). ⑤-1(#2720)·⑤-2(#2726) 뒤, `LEGACY_FORM`·`LEGAC
 1. **⑤-3a 엔진 기본값 삭제**: `template.mjs`·`report.mjs`·`draft.mjs`의 `profile = LEGACY_PROFILE` 기본값을 지우고 `profile`을 꼭 받게 한다. `form-profile.mjs`의 `LEGACY_FORM`·`LEGACY_PROFILE`, `weekly-engine-form.js`의 `adoptLegacyForm`·기본값 삭제, 고른 길(가/나) 넣기. `weekly-base.js`·`scripts/weekly-hwpx/cli.mjs`(양식 파일 인자)도 같이. 시험은 지어낸 양식 고정 파일(`tests/fixtures/`, 실제 조직·사람 이름 없음) 하나를 profile로 넘기고, ⑤-1·⑤-2 대조 시험(sha256 같음)은 그 고정 파일로 그대로 통과해야 한다. 엔진을 부르는 시험 약 30파일을 고친다.
 2. **⑤-3b 화면 절 제목**: `journal-weekly.js`([주간 정리] 절 제목·복사 글 `REQUEST_TITLES` 등)·`journal-hwpx.js`(상태 줄 글)·`weekly-flow-cells.js`·`weekly-discuss-table.js`·`weekly-draft-store.js`·`delta.mjs`의 고정 제목을 같은 profile 제목으로. 화면이 바뀌므로 업데이트 기록 1개.
 3. **⑤-3c Edge 사본**: `weekly-lines.mjs`·`weekly-layout.mjs`(바이트 같은 사본 `supabase/functions/_shared/`)의 `BIG` 정규식·`FORM_LABELS`·`SUB_WORDS`를 profile 인자로. 서버(`ai-assist`)는 본인 로그인으로 '내 양식'을 읽어 넘긴다. merge 뒤 **배포할 함수: `ai-assist`**(되돌리기 ref 기록). 앱의 `draft.issued` 줄 나누기와 서버가 같은 profile을 써야 하므로 a·b 뒤에 한다.
+
+## 4. 정한 길 — 명진 결정 11/17 10:13 '나' (S64-11, ⑤-3a)
+
+"나" = 바탕(확정본)이 있는데 쓸 '내 양식'이 없을 때 **바탕 파일에서 양식을 읽어 '내 양식'에 자동 저장**하고 그것으로 연다.
+
+| 때 (`engineForm` status) | ⑤-3a 뒤 |
+| --- | --- |
+| `own` | 저장된 '내 양식'으로 연다(그대로) |
+| `none` | 바탕 파일에서 읽은 양식으로 열고, 자료실 바탕이면 '내 양식'에 저장 |
+| `broken` | 같음. 저장은 그 행을 고친다(이름·원본 이름은 그대로, 읽은 판 조건) |
+| `missing` | 바탕 파일에서 읽은 양식으로 연다(저장 안 함) |
+| `readFailed` | 바탕을 열지 않고 한 줄 + [다시 시도](기본값으로 몰래 돌지 않음) |
+
+- 읽기(`app/hwpx-form-read.mjs` `readBaseForm`): 자리는 `form-profile.mjs`의 큰 항목 차례(`ROLE_GROUPS`)와 표 칸 수로만 붙이고, 제목·칸 이름 글자는 파일에 적힌 그대로. 큰 항목 수·작은 항목 수·표 칸 수가 하나라도 맞지 않으면 추측하지 않고 열지 않는다(한 줄 안내). 회의 결과 상자 아래 '(1) 회의 이름' 줄과 상자 본문 글은 양식으로 읽지 않는다.
+- 회의 결과 상자가 없는 주의 바탕은 상자 칸 이름을 알 수 없어 그 자리에서만 쓰고 저장하지 않는다(다음에 상자가 있는 바탕을 열 때 저장).
+- 열기 전에 읽은 양식으로 바탕을 실제로 열어 본다(`prepareConfirmed`) — 엔진이 표를 못 찾으면 열지 않는다.
+- 대조 시험: ⑤-3 전 기본 양식과 같은 모양의 지어낸 확정본 → 읽은 양식으로 만든 결과물(빈 서식·시연 파일·확정본 다시 만들기·내 초안 파일)이 ⑤-3 전 기본값으로 만든 것과 sha256까지 같다(`tests/weekly-own-form-profile.test.mjs`).
+- 남은 것: ⑤-3b(화면 절 제목) → ⑤-3c(서버 사본·`ai-assist`). 3절 순서 그대로.
