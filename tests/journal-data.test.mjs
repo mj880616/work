@@ -291,8 +291,9 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간 보고 재�
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
   // Without my list (unknown) nothing is dimmed.
-  // 목록을 못 읽어도 내부 정례 회의(본부 집행위)는 늘 '보고 안 함'(WEEKLY-주요일정기준 ④).
-  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, true]);
+  // WEEKLY-내부회의사람별: 고정 규칙 없음 — 목록을 못 읽으면 아무것도 흐리게 하지 않는다. 운영자 목록('*집행위*' 포함)이면 지금처럼 흐림.
+  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, false]);
+  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['*집행위*']}}).report[0].items.map(i => i.hidden), [false, false, true]);
   // 그날 일정 is its own part above 오늘 한 줄 (not in 그 밖의 기록): time + title, the calendar color, and where it opens (the calendar's edit window).
   assert.deepEqual(card.events.items.map(i => i.text), ['종일 종일', '00:30 새벽', '14:00 오후']);
   assert.deepEqual(card.events.items.map(i => [i.id, i.open]).slice(0, 1), [[card.events.items[0].id, {type:'event', id:card.events.items[0].id, calendarId:'primary'}]]);

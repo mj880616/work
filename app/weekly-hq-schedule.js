@@ -15,6 +15,7 @@ import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {majorRule} from './weekly-major-schedule.mjs'; // WEEKLY-주요일정기준: 넣을 일정의 기준(한 곳)
+import {wordsOf} from './journal-meeting-kinds.js'; // WEEKLY-내부회의사람별: 내 '빼기' 단어
 import {sortPicks, droppedOf, keptOf, hadTexts, HAVE_ACT} from './weekly-picks.mjs';
 import {lineIn} from './weekly-cell-names.mjs';
 import {learnFor} from './weekly-picks.js';
@@ -39,10 +40,11 @@ function fresh(start) { return {start, editing:null, draft:{}, picking:false, pi
 // WEEKLY-주요일정기준 ①: 2주 달력 일정 가운데 기준(weekly-major-schedule.mjs)에 맞고 아직 표에 없는 것 → 제안(명진이 [넣기]를 눌러야 들어감).
 // 제안 열쇠·학습은 [달력에서] 고르기와 같은 동작 기록(kind 'calendar', 칸 'requests:hq') — 뺀 제안은 다시 보이지 않고(목록 없음), 받은/뺀 셈이 다음 제안 순서·거르기에 쓰인다.
 // S52-24: 손으로 적은 줄·[이미 있음]으로 치운 일정과 부호·띄어쓰기만 다른 일정도 이미 있는 것으로 본다(weekly-cell-names.mjs lineIn).
-export function hqSuggestions(events, rows, titles, picks, learn) {
+// skipWords: 내가 정한 '이 말이 들어간 회의는 빼기' 단어(내 프로필 목록의 '*단어*', journal-meeting-kinds.js wordsOf). 기본 없음.
+export function hqSuggestions(events, rows, titles, picks, learn, skipWords = []) {
   const have = new Set((rows ?? []).map(r => r.event).filter(Boolean));
   const lines = [...(rows ?? []).map(r => lineOf(r)), ...(hadTexts(picks).get('requests:hq') ?? [])];
-  const list = (events ?? []).filter(item => !have.has(item.key)).map(item => ({item, f:eventFields(item, titles?.get?.(item.key))})).filter(x => majorRule(x.f.title) && !lineIn(lines, lineOf(x.f)));
+  const list = (events ?? []).filter(item => !have.has(item.key)).map(item => ({item, f:eventFields(item, titles?.get?.(item.key))})).filter(x => majorRule(x.f.title, skipWords) && !lineIn(lines, lineOf(x.f)));
   const opts = {dropped:droppedOf(picks), kept:keptOf(picks), ...(learn ? {learn} : {})};
   return sortPicks(list, x => ({kind:'calendar', from:'calendar', cell:'requests:hq', org:'', text:lineOf(x.f)}), opts).shown;
 }
@@ -102,7 +104,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   if (ui.picking) parts.push(picker());
   // 기준에 맞는 달력 일정 제안(흐린 줄, 줄 끝 ⋯ 하나 — [넣기]·[이미 있음]·[빼기]). 고치는 중·고르는 중에는 그리지 않는다.
   const picks = hq.row?.draft?.picks ?? null;
-  const suggested = !ui.editing && !ui.picking ? hqSuggestions(events, rows, hq.titles, picks, learnFor(start, picks, {rt, redraw}).learn) : [];
+  const suggested = !ui.editing && !ui.picking ? hqSuggestions(events, rows, hq.titles, picks, learnFor(start, picks, {rt, redraw}).learn, wordsOf(model?.remembered?.kinds)) : [];
   if (suggested.length) {
     const sg = el('ul', 'weekly-flow-lines weekly-flow-suggest journal-hq-suggest'); sg.dataset.journalHqSuggest = '';
     for (const x of suggested) {

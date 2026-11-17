@@ -6,7 +6,7 @@ import {paperSkeletonHtml,weekBodyHtml} from './biz-week-skeleton.mjs';
 // - 1) 사업요약표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당. '진행'·'담당' 칸을 누르면 글 칸(진행은 Ctrl+Enter, 담당은 Enter 저장, Esc 취소).
 //   진행 = 그 주 임시저장 summary 칸(홈 [주간 정리] 1) 요약과 같은 칸), 담당 = 그 주 임시저장 owners 칸(한글 파일 담당 칸) — 저장 자리 하나(weekly-draft-store.js).
 //   칸 아래 그 주 사업 보고 제목(사실 기록)은 누르면 그 보고가 열린다. AI 제안 없음(WEEKLY-요약표수기 S49-39). 예전에 저장된 AI 값은 보이지 않게만 두고 지우지 않는다.
-// - 2) 주요 사업·회의결과: 전환 주부터는 주요 사업 창(biz-detail-window.js, 홈 [주간 정리] 2. 2)와 같은 부품). 그 앞 주는 그 주 사업 보고 줄(날짜순). 내부 정례 회의와 내가 '늘 빼기'로 정한 종류는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
+// - 2) 주요 사업·회의결과: 전환 주부터는 주요 사업 창(biz-detail-window.js, 홈 [주간 정리] 2. 2)와 같은 부품). 그 앞 주는 그 주 사업 보고 줄(날짜순). 내가 '늘 빼기'로 정한 종류·단어(내 프로필 목록)는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
 //   한 줄 업데이트(칸 oneline)는 표 칸 맨 위, 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
 // - BIZ-주간표이번주 ⑥(11/09): 사업 보고가 전체 기간·정한 기간이면(fold) 이 칸은 접힌 한 줄 '이번 주 주간보고 11.9~11.15 ⌄'로 시작하고 누르면 펼친다.
 //   접힌 동안은 서버를 부르지 않고, 접힘은 기억하지 않는다(접는 보기로 들어올 때마다 접힘). 주 단위에서는 늘 펼침.
@@ -124,7 +124,7 @@ async function paint(){
     if(state.freshPlaces){state.freshPlaces=false;sheet.forgetReportPlaces()}
     // 사업 나무: 화면이 이미 읽은 나무를 넘겨주면 그것(홈 — 따로 읽지 않음), 아니면 사업 보고의 연결할 곳 읽기.
     const places=state.tree?{projects:state.treeSeen||null}:await sheet.loadReportPlaces().catch(()=>null);
-    // 늘 빼는 회의 종류: 내부 정례 회의는 목록을 못 읽어도 빠진다(reportsMeeting). 주간 정리와 같은 한 곳.
+    // 늘 빼는 회의 종류·'빼기' 단어(내 프로필 목록, 못 읽으면 아무것도 빼지 않음 — reportsMeeting). 주간 정리와 같은 한 곳.
     const read=await kinds.readKinds().catch(()=>({status:'unknown'}));
     const hidden=read?.status==='ok'?read.list:null;
     // BIZ-기록하나로 B-3: 전환 주(RECORD_ONE_FROM)부터 진행·담당 칸 = 사업 '지금 상황'(app_business_now, 이어 씀). 그 앞 주는 옛 임시저장 칸을 읽기만(옛 보고).
