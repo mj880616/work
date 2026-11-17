@@ -34,7 +34,7 @@ import {mountLibraryFolders} from './library-folders.js';
 import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './library-sort.js'; // LIB-받는폴더나누기(S60-18)·LIB-정돈제안(S61-13)
 import {readLibraryFolders} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
-import {announceUploaded} from './upload-done.js';
+import {announceUploaded,openInLibrary} from './upload-done.js';
 import {folderTrail,folderPathHtml} from './folder-path.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
 import {fillGestureArea,settleGestureAreas} from './gesture-fill.js';
@@ -583,7 +583,9 @@ async function luUploadRequest(fd,file,{job=null,gone=null,why=null}={}){
   if(requestEpoch===(runtime?.session?.epoch?.()??0)&&data?.ok!==false&&!data?.error){
     try{window.dispatchEvent(new CustomEvent('kptu:api-saved',{detail:{path,method:'POST',fields:[],action:'',projectLinked:!!(fd.get('project_id')||data?.document?.project_id),epoch:requestEpoch}}))}catch{}
   }
-  shown.done();
+  // UX-올림보기그자료(S64-12): 자료가 생기거나 바뀌었으면 하단 한 줄 [보기] = 자료실에서 그 자료(시작할 때 back을 정한 사업 보고 묶음은 그대로).
+  const savedId=typeof data?.document?.id==='string'?data.document.id:'';
+  shown.done(savedId?{back:()=>{void openInLibrary(savedId).catch(()=>{})}}:undefined);
   return data;
   }catch(e){
     if(e?.code!=='upload_cancelled')shown.fail((why||luUploadFailure)(e).message);

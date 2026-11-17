@@ -6,6 +6,7 @@
 import {weeklySaveCategory,weeklyCategoryOf,weeklyCategoryLabel,loadDocumentCategories,documentCategories,documentCategoriesLoaded,addDocumentCategory,categoryParent,WEEKLY_PERSONAL_CATEGORY} from './document-categories.js'; // S53-16: '개인 확정본' 역할 분류(이름이 바뀌어도 표식으로)로 저장
 import {sendUpload} from './upload-send.mjs';
 import {trackUpload} from './upload-progress.js';
+import {openInLibrary} from './upload-done.js'; // UX-올림보기그자료: 끝 알림 [보기] = 자료실에서 그 자료
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 자료실에 새로 등록된 파일 안 글자를 서버가 한 번 읽어 둠
 export const HWP_EDIT_MAX_BYTES=30*1024*1024;
 const OLD_SERVER=new Set(['document_id가 필요합니다.','Unknown action']);
@@ -95,7 +96,16 @@ async function session(rt){
 // UI-올리기진행표시 ②: 파일을 보내는 요청(FormData)은 공용 길(upload-send.mjs, 실제 보낸 양)로 보내고 공용 표시(upload-progress.js)를 붙인다.
 // 시간 한도·결과 불명 규칙은 그대로(한 번만 보내고, 한도가 지나면 결과 불명). ✕(취소)는 다 보내기 전만 — 그때는 아무것도 바뀌지 않는다.
 // fetcher를 넘긴 시험은 지금처럼 그 fetcher로 보낸다(보낸 양 없음).
-async function send(rt,path,body,{timeoutMs=120000,fetcher}={}){
+// UX-올림보기그자료(S64-12): 자료실에 자료를 만들거나 바꾼 올리기(library-files 답의 자료 id, 자료실 문서 덮어쓰기는 그 문서 id — doc)는
+// 하단 한 줄 [보기]가 시작한 화면(홈 › 주간 보고는 홈 하루로 돌아갔다) 대신 자료실에서 그 자료를 연다. 바구니 첨부는 지금처럼 시작한 화면.
+const LIBRARY_FILES='/functions/v1/library-files';
+const savedDocId=(path,text,doc)=>{
+  if(typeof doc==='string'&&doc)return doc;
+  if(path!==LIBRARY_FILES)return '';
+  try{const data=JSON.parse(text);return data?.ok===true&&typeof data.document?.id==='string'?data.document.id:''}catch{return ''}
+};
+const openSaved=id=>()=>{void openInLibrary(id).catch(()=>{/* 자료실을 열지 못하면 그대로 */})};
+async function send(rt,path,body,{timeoutMs=120000,fetcher,doc=''}={}){
   const s=await session(rt);
   let timer;
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(failure('unknown','timeout')),timeoutMs)});
@@ -105,7 +115,7 @@ async function send(rt,path,body,{timeoutMs=120000,fetcher}={}){
   try{
     if(job){
       const r=await Promise.race([sendUpload(rt.config.url+path,{headers,body,size:file.size||0,timeoutMs:0,signal:job.signal,onProgress:job.progress}),deadline]);
-      if(r.ok)job.done();else job.fail(HWP_TEXT.refused);
+      if(r.ok){const id=savedDocId(path,r.text,doc);job.done(id?{back:openSaved(id)}:undefined)}else job.fail(HWP_TEXT.refused);
       return {ok:r.ok,status:r.status,headers:new Headers(),json:async()=>JSON.parse(r.text)};
     }
     return await Promise.race([(fetcher||fetch)(rt.config.url+path,{method:'POST',cache:'no-store',headers,body:body instanceof FormData?body:JSON.stringify(body)}),deadline]);
@@ -290,7 +300,7 @@ export async function overwriteHwp(target,bytes,info,{confirmShared=false,rt=win
   if(confirmShared)form.append('confirm_shared','1');
   form.append('file',new File([bytes],'edited.hwp',{type:'application/x-hwp'}));
   let response;
-  try{response=await send(rt,'/functions/v1/document-actions',form,{fetcher})}
+  try{response=await send(rt,'/functions/v1/document-actions',form,{fetcher,doc:target.kind==='library'?target.document.id:''})}
   catch(err){return err.kind==='session'?{kind:'session',message:HWP_TEXT.session}:{kind:'unknown',message:HWP_TEXT.overwriteUnknown}}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&data.result==='overwritten'&&typeof data.revision==='string'&&typeof data.md5==='string'&&typeof data.backup?.name==='string')
