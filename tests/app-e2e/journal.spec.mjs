@@ -2555,7 +2555,10 @@ test('[주간 보고 기억] 칸이 아직 없으면(읽지 못함) 기억 없�
 // JOURNAL-회의종류표시: 회의 종류(series_name → title, 띄어쓰기 없음·소문자)가 내 프로필의 "주간보고에 올리지 않을 종류" 목록에 있으면
 // [주간 정리] 2) 회의·행사 결과와 초안 복사에서 빠진다. 목록에 없는 종류(새 종류)·행사는 올라간다. 줄 옆 ⋯ 로 종류별 빼기/다시 올리기 —
 // 저장은 내 프로필 행의 이 칸 하나만 PATCH. 목록을 못 읽으면(옛 응답) 전부 올린다.
-const KINDS_DEFAULT=['궤도집행국회의','본부집행위'];
+// WEEKLY-내부회의사람별: 내부 정례 회의를 빼는 단어('*상집*' 등)는 코드가 아니라 운영자 프로필 목록에만 있다(migration 20261117190000).
+// KINDS_DEFAULT = 운영자 목록(옛 기본 두 종류 + 단어 여섯). 새 사람은 빈 목록.
+const OPERATOR_WORDS=['*상집*','*중집*','*집행위*','*집행국*','*상무집행*','*중앙집행*'];
+const KINDS_DEFAULT=['궤도집행국회의','본부집행위',...OPERATOR_WORDS];
 async function kindsFixture(page,{width=390,list=KINDS_DEFAULT,readStatus=200,patchStatus=200,column=true}={}){
  const f=await weeklyFixture(page,{width});
  f.more.meetings.push(
@@ -2585,7 +2588,7 @@ const kindLines=page=>weekly(page,'meetings').locator('.journal-weekly-list > li
 // 줄 글(날짜+회의 이름)만: ⋯ 메뉴 안의 글자는 뺀다.
 const kindTexts=page=>kindLines(page).evaluateAll(list=>list.map(li=>{const c=li.cloneNode(true);c.querySelector('details')?.remove();return c.textContent;}));
 const expectKindTexts=async(page,expected)=>expect.poll(()=>kindTexts(page)).toEqual(expected);
-// WEEKLY-주요일정기준 ④·WEEKLY-뺀목록삭제: 내부 정례 회의(집행국·집행위·상집·중집)는 목록과 상관없이 늘 빠지고, 이 주에 빠진 종류 목록·[다시 올리기]는 없다.
+// WEEKLY-주요일정기준 ④·WEEKLY-뺀목록삭제: 운영자 목록이면 내부 정례 회의(집행국·집행위·상집·중집)는 빠지고, 이 주에 빠진 종류 목록·[다시 올리기]는 없다.
 // 줄 끝 ⋯ 의 [이 종류 늘 빼기]로 다른 종류를 서버 목록에 더한다(저장은 내 프로필 행의 이 칸 하나만 PATCH).
 for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례 회의는 빠지고 새 종류·행사는 남음, ⋯ [이 종류 늘 빼기]가 저장·반영됨, 뺀 목록 없음 ${width}`,async({page},info)=>{
  const f=await kindsFixture(page,{width});
@@ -2614,12 +2617,12 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례
  await toggle.click();
  await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 9일(금)10:00 새 회의 종류']);
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText("'운영위원회' 종류는 앞으로 주간 보고에서 빼요.");
- expect(f.profile.patches).toEqual([{user_id:'eq.home-test',body:{weekly_hidden_meeting_kinds:['궤도집행국회의','본부집행위','운영위원회']}}]);
+ expect(f.profile.patches).toEqual([{user_id:'eq.home-test',body:{weekly_hidden_meeting_kinds:[...KINDS_DEFAULT,'운영위원회']}}]);
  expect(f.profile.patches.every(p=>Object.keys(p.body).join()==='weekly_hidden_meeting_kinds')).toBe(true);
  await expect(weekly(page,'meetings').locator('[data-journal-kinds-off],[data-journal-kind-off]')).toHaveCount(0);
  // '주간보고 기억'에도 회의 종류 목록·[다시 올리기]는 없다.
  await expect(page.locator('#journalRoot [data-journal-memory-kind],#journalRoot [data-journal-memory-part="회의 종류 빼기"]')).toHaveCount(0);
- // 하루 카드에서는 빼지 않고 흐리게 '보고 안 함'(내부 정례 회의는 늘).
+ // 하루 카드에서는 빼지 않고 흐리게 '보고 안 함'(운영자 목록의 내부 정례 회의).
  await page.locator('#journalRoot [data-journal-mode="day"]').click();
  await page.locator('#journalRoot [data-journal-date="2026-10-05"]').click();
  await expect(itemTexts(page,'activities')).toHaveText(['10:00 궤도 집행국 회의 12차 보고 안 함']);
@@ -2656,16 +2659,35 @@ test('[주간 정리] 열어 둔 줄 끝 ⋯ 는 늦은 읽기로 다시 그려�
  expect(f.errors).toEqual([]);
 });
 
-test('[주간 정리] 회의 종류: 목록을 못 읽어도(옛 응답) 내부 정례 회의는 빠지고 나머지는 올라간다, ⋯ 종류 빼기는 없다',async({page})=>{
+// WEEKLY-내부회의사람별: 고정 규칙이 없어 목록을 못 읽으면(옛 응답) 추측해 빼지 않고 전부 올린다.
+test('[주간 정리] 회의 종류: 목록을 못 읽으면(옛 응답) 아무것도 빼지 않고 전부 올라간다, ⋯ 종류 빼기는 없다',async({page})=>{
  const f=await kindsFixture(page,{width:1280,column:false});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,1280);await openWeekly(page);
- await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류']);
+ await expect.poll(()=>kindTexts(page)).toEqual(expect.arrayContaining(['10월 6일(화)14:00 가상 기자회견','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류']));
+ await expect(kindLines(page)).toHaveCount(6);
  await expect(weekly(page,'meetings').locator('[data-journal-kind-toggle],[data-journal-kinds-off]')).toHaveCount(0);
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
- expect(text).toContain('새 회의 종류');expect(text).not.toContain('궤도 집행국 회의 12차');
+ expect(text).toContain('새 회의 종류');expect(text).toContain('궤도 집행국 회의 12차');
+ expect(f.profile.patches).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-내부회의사람별(11/17 명진 "이건 나에게만 해당되는"): 새 사람(빈 목록)·옛 기본 두 종류만 가진 사람에게는 운영자 전용 단어가 걸리지 않는다 —
+// 자기 '집행위' 회의가 주간 정리·복사 글에 들어간다. 정확히 같은 종류만 빠진다.
+for(const [label,list] of [['빈 목록',[]],['옛 기본 두 종류',['궤도집행국회의','본부집행위']]])test(`[주간 정리] 회의 종류: 다른 사람(${label})에게는 내부 정례 회의 단어가 걸리지 않음`,async({page})=>{
+ const f=await kindsFixture(page,{width:1280,list});
+ f.more.meetings.push({id:'mk5',workspace_id:'w',title:'가상노조 집행위원회',series_name:'가상노조 집행위원회',round_no:7,meeting_at:'2026-10-08T05:00:00Z'});
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,1280);await openWeekly(page);
+ await expect.poll(()=>kindTexts(page)).toContain('10월 8일(목)14:00 가상노조 집행위원회 7차');
+ await expect(kindLines(page)).toHaveCount(list.length?4:7);
+ await confirmMore(page,'[data-hwpx-copy]');
+ await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+ const text=await page.evaluate(()=>navigator.clipboard.readText());
+ expect(text).toContain('가상노조 집행위원회 7차');
+ if(list.length)expect(text).not.toContain('궤도 집행국 회의 12차');else expect(text).toContain('궤도 집행국 회의 12차');
  expect(f.profile.patches).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -2702,6 +2724,9 @@ for(const width of [412,1280])test(`[주간 정리] 옛 주 2) 세부 내용 줄
  // 그 주(옛 주)에 저장해 둔 2) 세부 내용 고침·뺌·손 줄.
  f.exec.rows.push({id:'xd',workspace_id:'w',week_start:'2026-10-05',carried_at:null,updated_at:'2026-10-06T01:00:00Z',items:[],draft_saved_at:'2026-10-06T03:00:00.000Z',
   draft:{v:1,base:null,me:'',me_from:'',date:'',rows:[],titles:[],hand:{details:[{id:'h1',text:'가상 손 줄'}],details_edits:[{ref:`meeting:${U1}`,text:'가상 정책 회의 2차 — 결과 요약'},{ref:`meeting:${U2}`,drop:true}]}}});
+ // 운영자 목록(내부 정례 회의 단어 포함)을 읽는다 — WEEKLY-내부회의사람별.
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>r.request().method()==='GET'&&new URL(r.request().url()).searchParams.get('select')==='weekly_hidden_meeting_kinds'
+  ?r.fulfill({json:[{weekly_hidden_meeting_kinds:KINDS_DEFAULT}]}):r.fallback());
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);await openWeekly(page);
  const meet=weekly(page,'meetings'),lines=meet.locator('[data-journal-detail-list] > li .weekly-flow-text');

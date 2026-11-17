@@ -289,7 +289,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // 꼬리표가 빈 옛 보고는 넣지 않는다(지난 주 보고서가 달라지지 않게). 옛 진행 기록·바구니 프로젝트 연결은 그대로(결정 ⑦).
     // 사업 보고 읽기는 ③의 재료라 ② 출처 목록(WEEKLY_SOURCES.summary)에는 넣지 않는다: 읽히면 함께 놓이고, 못 읽으면 ③이 실패를 알린다.
     // WEEKLY-요약표수기(S49-39 · 명진 11/04 16:45 "아예 지우자"): 사업영역 AI 한 줄(area_summaries)은 쓰지 않는다. 저장된 값은 두되 화면·요약에 쓰지 않는다.
-    // WEEKLY-주요일정기준 ④: 내부 정례 회의(노조 상집 등)와 늘 빼기로 정한 회의 종류의 사업 보고는 요약 재료에도 넣지 않는다(reportsMeeting 한 곳 — 미리보기와 같음).
+    // WEEKLY-주요일정기준 ④ → WEEKLY-내부회의사람별: 내 목록의 '빼기' 단어·늘 빼기로 정한 회의 종류의 사업 보고는 요약 재료에도 넣지 않는다(reportsMeeting 한 곳 — 미리보기와 같음).
     const hiddenKinds = kinds?.status === 'ok' ? kinds.list : null;
     const areaMeetings = ok(m, 'meetings') ? ok(m, 'meetings').filter(x => reportsMeeting(x, hiddenKinds)) : null;
     const areaRecords = areaMeetings ? days.flatMap(day => weeklyAreaRecords(areaMeetings, day, areaLine).map(r => ({...r, day}))) : [];
