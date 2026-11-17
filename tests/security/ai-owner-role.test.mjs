@@ -26,6 +26,8 @@ test('다섯 안내문은 고정 직책 없이 자리표를 쓰고, handler가 �
     assert.doesNotMatch(mod[name], /부팀장|공공기관사업팀|공공운수노조 공공기관/, name);
   }
   const handler = readFileSync(new URL('../../supabase/functions/ai-assist/handler.ts', import.meta.url), 'utf8');
-  for (const name of ['LEDGER_AUTO_INSTRUCTIONS', 'SHARE_DRAFT_INSTRUCTIONS', 'SCHEDULE_TITLES_INSTRUCTIONS', 'OVERLAP_INSTRUCTIONS']) assert.match(handler, new RegExp(`content: await ownerRoleIn\\(ctx, ${name}\\)`), name);
-  assert.match(handler, /input: \[\{ role: "developer", content: await ownerRoleIn\(ctx, instructions\) \}/);
+  // WEEKLY-내양식자유변형 ⑤-3d: 주간보고 안내문은 '내 양식' 제목 자리표(form-names.ts withFormNames)를 먼저 채운 뒤 직책 자리표를 채운다.
+  for (const name of ['LEDGER_AUTO_INSTRUCTIONS', 'SHARE_DRAFT_INSTRUCTIONS', 'OVERLAP_INSTRUCTIONS']) assert.match(handler, new RegExp(`content: await ownerRoleIn\\(ctx, ${name}\\)`), name);
+  assert.match(handler, /content: await ownerRoleIn\(ctx, withFormNames\(SCHEDULE_TITLES_INSTRUCTIONS, await formNamesOf\(ctx\)\)\)/);
+  assert.match(handler, /input: \[\{ role: "developer", content: await ownerRoleIn\(ctx, withFormNames\(instructions, await formNamesOf\(ctx\)\)\) \}/);
 });

@@ -40,7 +40,7 @@ import {docEdits, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-d
 import {discussLines} from './weekly-discuss.mjs';
 import {myReportOrgs} from './weekly-org-order-model.mjs';
 import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
-import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
+import {sortPicks, sigLabel} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {refOfOpen, meetingRef, planOverlaps, reasonOf} from './overlap-weekly.mjs';
 import {reportCalendarName, calendarKey, UNSET_TEXT as UNSET_CALENDAR_TEXT} from './report-calendar.mjs'; // MULTI ②-3: 보고 캘린더 이름(사람마다)
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
@@ -810,7 +810,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const shut = el('button', 'row-act', '닫기'); shut.type = 'button'; shut.dataset.journalLearnedClose = ''; shut.setAttribute('aria-label', '배운 것 닫기');
   shut.addEventListener('click', () => { if (memoryUi) memoryUi.shown = false; learned.hidden = true; });
   learnedHead.append(el('span', 'journal-heading', '배운 것'), shut);
-  learned.append(learnedHead, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks), learn);
+  learned.append(learnedHead, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks, model.titles?.groups), learn);
   host.replaceChildren(when, one, two, three, four, five, learned);
   fitAll(host); // UI-줄입력늘어나기: 자료 줄·요청 표 고치기 칸은 열자마자 글 전체가 보이게
 }
@@ -820,8 +820,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
 // memoryUi (journal.js keeps it): {open, busy, status, error, undo:{entry}}. 기억 칸을 읽지 못했으면 일정 기억 줄은 없다.
 export const MEMORY_TAG = '기억';
 const slash = day => { const [, m, d] = String(day ?? '').split('-'); return m ? `${Number(m)}/${Number(d)}` : ''; };
-function memoryBox(doc, el, r_, ui = {}, picks = null) {
-  const blocked = picks?.learn?.blocked ?? [];
+// groups: 묶음 이름(model.titles.groups — '내 양식' 제목, ⑤-3d). 안 내는 제안 이름은 그것으로 다시 붙인다(없으면 일반적인 말).
+function memoryBox(doc, el, r_, ui = {}, picks = null, groups = undefined) {
+  const blocked = (picks?.learn?.blocked ?? []).map(b => ({...b, label:sigLabel(b.sig, groups)}));
   if ((!r_ || !r_.ready) && !blocked.length) return [];
   const r = r_ && r_.ready ? r_ : {ready:false, entries:[]};
   const names = r.entries.filter(e => e.title), drops = r.entries.filter(e => e.drop);

@@ -595,7 +595,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
   // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
   paintFlow(host, weekModel);
-  W.paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js)
+  W.paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start, {names:weekModel.titles?.groups}); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js), ⑤-3d 묶음 이름 = '내 양식' 제목
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
   if (execFocus) root.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).

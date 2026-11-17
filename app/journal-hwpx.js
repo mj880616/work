@@ -63,7 +63,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
 import {engineForm, baseForm, saveBaseForm} from './weekly-engine-form.js';
-import {screenTitles} from './weekly-screen-titles.mjs'; // ⑤-3b: 화면 절 제목 = 같은 profile 제목 // WEEKLY-내양식자유변형 ⑤-2·⑤-3: 엔진 양식은 '내 양식'에서(없으면 바탕 파일에서 읽어 저장 — 명진 결정 11/17 '나')
+import {screenTitles} from './weekly-screen-titles.mjs'; import {groupNames} from './weekly-group-names.mjs'; // ⑤-3b: 화면 절 제목 = 같은 profile 제목 // WEEKLY-내양식자유변형 ⑤-2·⑤-3: 엔진 양식은 '내 양식'에서(없으면 바탕 파일에서 읽어 저장 — 명진 결정 11/17 '나')
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
@@ -121,7 +121,8 @@ const DRAFT_DELAY = 2000;
 // 담당 팀원 칸 이름이 어디서 왔나(맨 위 한 줄 이름에 title 로, 프로필 이름을 쓴 때만 바탕 아래 한 줄로도).
 const ME_FROM = Object.freeze({confirmed:'담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.', profile:'직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.', typed:'담당 팀원 칸 이름을 직접 수정했어요.'});
 const SECTION_NAME = Object.freeze({summary:'요약', orgs:'산하조직', sites:'투쟁 사업장'});
-const NO_TITLES = Object.freeze(Object.fromEntries(Object.keys(screenTitles({titles:{}})).map(k => [k, ''])));
+// 양식을 아직 모를 때: 절 제목은 비우고, 학습 묶음 이름(groups)은 일반적인 말(weekly-group-names.mjs, ⑤-3d).
+const NO_TITLES = Object.freeze({...Object.fromEntries(Object.keys(screenTitles({titles:{}})).map(k => [k, ''])), groups:groupNames(null)});
 const DRAFT_TEXT = Object.freeze({
   missing: '임시저장은 준비 중이에요. 상자를 닫으면 수정한 내용은 사라져요.',
   saving: '저장 중…',
@@ -1486,7 +1487,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (typing) v.value = typing.value; // 다시 그려도 쓰던 글(고치는 후보·이유·내 생각)은 그대로
     // 새 규칙 후보는 이 주 행 규칙 칸(환류 보고가 거기에 더함)에서 [넣기]·⋯[고쳐서 넣기]·[빼기]. 칸을 아직 못 읽었으면 글만.
     const rules = state.store?.extras?.rules ? {week:state.start, rules:state.store.extras.rules} : null;
-    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd, picks:state.store?.extras?.picks ?? null});
+    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd, picks:state.store?.extras?.picks ?? null, names:titles().groups});
     const parts = card ? [card] : [];
     if (v.status === 'running') { const p = el('p', 'journal-muted', '규칙 후보·개선 제안을 정리하는 중…'); p.dataset.hwpxReviewNote = 'running'; parts.push(p); }
     if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 수정 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }

@@ -129,7 +129,9 @@ test('칸 줄 밖 동작 기록(withLinePick): 1. 요청사항·5. 주요 일정
   const undone = readPicks(withLinePick(d, {cell:'requests:ask', kind:'carried', act:'none', text:'10.14.(수) 지난주 줄', at:'2026-10-06T02:00:00.000Z'}).picks).items;
   assert.equal(undone.find(x => x.kind === 'carried').act, 'none');
   // 학습 셈은 제안 답만(지난주 줄 빼기·달력 고르기), 칸 이름은 일상어로.
-  assert.deepEqual(sigLabel('carried||requests:ask'), '지난주 줄 · 1. 1) 임원 배정 요청');
-  assert.deepEqual(sigLabel('line|hand|notes'), '보고서 줄 · 손 · 참고');
+  // ⑤-3d: 칸 이름은 '내 양식' 제목(지어낸 고정 양식이면 ⑤-3d 전 글 그대로), 양식이 없으면 일반적인 말.
+  assert.deepEqual(sigLabel('carried||requests:ask', TITLES.groups), '지난주 줄 · 1. 1) 임원 배정 요청');
+  assert.deepEqual(sigLabel('carried||requests:ask'), '지난주 줄 · 요청 표');
+  assert.deepEqual(sigLabel('line|hand|notes', TITLES.groups), '보고서 줄 · 손 · 참고');
   assert.equal(typeof learnPicks, 'function');
 });

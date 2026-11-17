@@ -49,6 +49,7 @@
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { OWNER_ROLE, withOwnerRole } from "./owner-role.ts";
+import { genericNames, groupNames, titlesOfForm, withFormNames, type GroupNames } from "./form-names.ts"; // WEEKLY-내양식자유변형 ⑤-3d
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { DAILY_TOTAL_LIMIT } from "../_shared/ai-daily-usage.mjs";
 // AI-사람별한도: 작업공간마다 한 달 한도(기본 3,000원, 운영자 제외). 판정은 공용 함수 한 곳.
@@ -1446,6 +1447,26 @@ async function ownerRoleIn(ctx: Ctx, instructions: string): Promise<string> {
   let p = ownerProfiles.get(ctx);
   if (!p) { p = readRadarProfile(ctx); ownerProfiles.set(ctx, p); }
   return withOwnerRole(instructions, await p);
+}
+
+// WEEKLY-내양식자유변형 ⑤-3d: 주간보고 학습 묶음 이름·안내 글의 양식 제목 = 부른 사람의 '내 양식'(app_weekly_forms, migration 20261116003000).
+// 부른 사람 로그인(owner RLS)으로 자기 작업공간 행 하나만 읽는다(서비스 권한 없음, 남의 양식 안 읽음). 받은 행도 작업공간을 다시 확인한다.
+// 표가 없거나·행이 없거나·못 읽으면 일반적인 말(form-names.ts genericNames) — 주간보고 쓰임은 계속 돈다. 기록에는 양식 글자를 쓰지 않는다.
+const ownFormNames = new WeakMap<Ctx, Promise<GroupNames>>();
+async function readOwnFormNames(ctx: Ctx): Promise<GroupNames> {
+  try {
+    const rows = await rest(ctx, `app_weekly_forms?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=workspace_id,form&limit=1`);
+    const row = Array.isArray(rows) ? rows[0] as Record<string, unknown> | undefined : undefined;
+    if (!row || String(row.workspace_id).toLowerCase() !== ctx.workspaceId) return genericNames();
+    return groupNames(titlesOfForm(row.form)) as GroupNames;
+  } catch {
+    return genericNames();
+  }
+}
+function formNamesOf(ctx: Ctx): Promise<GroupNames> {
+  let p = ownFormNames.get(ctx);
+  if (!p) { p = readOwnFormNames(ctx); ownFormNames.set(ctx, p); }
+  return p;
 }
 
 // [내 일 아님] 예시(TODO-내일만, migration 20261029210000 app_todo_not_mine, 소유자 토큰으로 읽기). 표가 없거나 읽지 못하면 빈 목록(찾기는 계속).
@@ -3163,7 +3184,7 @@ async function runScheduleTitles(ctx: Ctx, input: ScheduleTitlesInput, deps: Rad
     store: false,
     max_output_tokens: SCHEDULE_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: await ownerRoleIn(ctx, SCHEDULE_TITLES_INSTRUCTIONS) },
+      { role: "developer", content: await ownerRoleIn(ctx, withFormNames(SCHEDULE_TITLES_INSTRUCTIONS, await formNamesOf(ctx))) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "schedule_titles", strict: true, schema: SCHEDULE_TITLES_SCHEMA } },
@@ -4575,7 +4596,7 @@ async function callWeeklyAi(ctx: Ctx, kind: "weekly_draft" | "weekly_review", de
   try { await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now()); } catch { throw new Fail(503, "usage_unavailable"); }
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
     model: config.model, store: false, max_output_tokens: maxTokens,
-    input: [{ role: "developer", content: await ownerRoleIn(ctx, instructions) }, { role: "user", content: material }],
+    input: [{ role: "developer", content: await ownerRoleIn(ctx, withFormNames(instructions, await formNamesOf(ctx))) }, { role: "user", content: material }],
     text: { format: { type: "json_schema", name: kind, strict: true, schema } },
   });
   const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: maxTokens } : { input: 0, output: 0 };
@@ -4593,7 +4614,7 @@ async function callWeeklyAi(ctx: Ctx, kind: "weekly_draft" | "weekly_review", de
 async function runWeeklyDraft(ctx: Ctx, input: WeeklyDraftInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now(), today = kstDay(started);
   if (input.week_start < addDays(today, -400) || input.week_start > addDays(today, 14)) throw new Fail(400, "invalid_request");
-  const learn = learnFromRows(await readLearnRows(ctx, input.week_start), input.week_start);
+  const learn = learnFromRows(await readLearnRows(ctx, input.week_start), input.week_start, await formNamesOf(ctx));
   const material = weeklyDraftMaterial(input, learn);
   const raw = await callWeeklyAi(ctx, "weekly_draft", deps, started, WEEKLY_DRAFT_INSTRUCTIONS, material, WEEKLY_DRAFT_SCHEMA, WL_DRAFT_OUTPUT_TOKENS);
   const parsed = parseWeeklyDraft(raw, input.cells);
@@ -4615,10 +4636,11 @@ async function runWeeklyReview(ctx: Ctx, input: WeeklyReviewInput, deps: RadarDe
   // WEEKLY-환류전칸 ⑤: 확정 전이라도 이 주 동작 기록(draft.picks)이 있으면 그것으로 정리한다. 둘 다 없으면 AI를 부르지 않는다.
   const actions = row?.exists ? readPicksCell(draft?.picks) : [];
   if (!row || (!current && !actions.length)) throw new Fail(404, "not_found");
-  const learn = learnFromRows(await readLearnRows(ctx, week), week);
+  const names = await formNamesOf(ctx);
+  const learn = learnFromRows(await readLearnRows(ctx, week), week, names);
   // 바탕 규칙 칸: 이 행이 새 모양(v2)이면 그것, 아니면 앞 주 칸에 이 행의 옛 줄(후보로 읽힘)을 합친 것.
   const baseOf = (raw: unknown) => { const own = readRuleBook(raw); return own?.v2 ? own : mergeRuleBooks(learn.book, own); };
-  const material = weeklyReviewMaterial(current, learn.feedback, baseOf(draft?.rules ?? null), week, actions);
+  const material = weeklyReviewMaterial(current, learn.feedback, baseOf(draft?.rules ?? null), week, actions, names);
   const raw = await callWeeklyAi(ctx, "weekly_review", deps, started, WEEKLY_REVIEW_INSTRUCTIONS, material, WEEKLY_REVIEW_SCHEMA, WL_REVIEW_OUTPUT_TOKENS);
   const parsed = parseWeeklyReview(raw);
   if (!parsed) { deps.log("ai_invalid_response"); throw new Fail(502, "ai_invalid_response"); }
