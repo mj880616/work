@@ -5,11 +5,14 @@
 // files: 이 알림이 맡는 파일(그 파일의 화면 안 '실패 [다시]'·'✓ 완료' 줄은 그리지 않는다). 못 올린 것이 있으면 누를 때까지 남는다.
 import {announceDock} from './upload-progress.js';
 import {uploadDoneLine,uploadDoneMs} from './upload-done-model.mjs';
+import {requestLibraryDocument} from './basket-library-send.js';
 
-async function openInLibrary(id){
+// 자료실에서 그 자료를 연다. 다른 화면에서 오면 자료실이 목록을 새로 읽은 뒤 그 줄을 보여 주도록 맡긴다(basket-library-send.js — 업무일지·바구니·
+// 파일 화면이 자료를 열 때와 같은 길). 이미 자료실이면 그 자리에서 보여 준다. UX-올림보기그자료(S64-12): [보기]·[열기] 모두 이것 하나.
+export async function openInLibrary(id){
+  if(typeof id!=='string'||!id)return;
   const router=window.KPTURouter;
-  if(router?.current!=='library')await router?.go?.('library');
-  const loader=window.KPTUViewLoader;if(loader?.load&&!loader.isLoaded?.('library'))await loader.load('library');
+  if(router?.current!=='library'){requestLibraryDocument(id);await router?.go?.('library',{source:'delegated'});return}
   window.KPTULibrary?.reveal?.(id);
 }
 export function announceUploaded({done=0,names=[],failed=0,where='',openId='',retry=null,note='',files=[]}={}){
