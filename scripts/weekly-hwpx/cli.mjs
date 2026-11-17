@@ -2,8 +2,9 @@
 // WEEKLY-한글초안 시제품 명령(사람이 PC에서 돌리는 도구, 운영 접속 없음). 설계: docs/design/weekly-hwpx-draft.md
 //
 //   node scripts/weekly-hwpx/cli.mjs fake <out.hwpx>                         가짜 주간보고(시험용) 만들기
-//   node scripts/weekly-hwpx/cli.mjs template <report.hwpx> <out.hwpx>        보고서에서 빈 서식 뽑기 + 빈 서식 검사
-//   node scripts/weekly-hwpx/cli.mjs build <template.hwpx> <data.json|demo> <out.hwpx>   빈 서식 + 보고 자료 → 보고서
+//   node scripts/weekly-hwpx/cli.mjs template <report.hwpx> <out.hwpx>        보고서에서 양식 읽기(<out>.form.json) + 빈 서식 뽑기 + 검사
+//   node scripts/weekly-hwpx/cli.mjs build <template.hwpx> <data.json|demo> <out.hwpx> [form.json]   빈 서식 + 보고 자료 → 보고서
+//                                                                              (양식: form.json, 없으면 <template>.form.json)
 //   node scripts/weekly-hwpx/cli.mjs validate <file.hwpx>                    OWPML 묶음·참조 검사
 //   node scripts/weekly-hwpx/cli.mjs convert <rhwp core 폴더> <in.hwp> <out.hwpx>    HWP 5 → .hwpx (rhwp 엔진, 내용 그대로)
 //   node scripts/weekly-hwpx/cli.mjs reread <rhwp core 폴더> <file.hwpx>      rhwp 엔진으로 다시 열어 쪽·스타일 수 확인
@@ -17,6 +18,8 @@ import {openHwpx, packHwpx, validateHwpx, readXml, headerStyles} from '../../app
 import {extractBlankTemplate, assertBlank} from '../../app/weekly-hwpx/template.mjs';
 import {buildReport, readReport, reportWords} from '../../app/weekly-hwpx/report.mjs';
 import {makeFakeReport, DEMO_DATA, FAKE_TEXTS} from './fixture.mjs';
+import {readBaseForm} from '../../app/hwpx-form-read.mjs';
+import {profileOf} from '../../app/weekly-hwpx/form-profile.mjs';
 
 export const zlib = {deflateRaw: b => deflateRawSync(b, {level: 9}), inflateRaw: b => inflateRawSync(b)};
 export const SAMPLE = fileURLToPath(new URL('../../tests/fixtures/hwp-lab/sample.hwpx', import.meta.url));
@@ -55,21 +58,29 @@ function report(label, bytes) {
 
 export async function main([cmd, ...args]) {
   if (cmd === 'fake') {
-    return report('가짜 보고서', save(args[0], makeFakeReport(load(SAMPLE))));
+    // 엔진 양식을 파일에서 읽을 수 있게 '3) 논의 요청' 줄이 있는 모양으로 만든다(WEEKLY-내양식자유변형 ⑤-3).
+    return report('가짜 보고서', save(args[0], makeFakeReport(load(SAMPLE), {titles: {discuss: '3) 가짜 논의 요청'}})));
   }
   if (cmd === 'template') {
     const source = load(args[0]);
+    // 엔진 양식(profile)은 코드에 없다(⑤-3a): 보고서 파일에서 읽어 <out>.form.json 으로 남기고 build 가 쓴다.
+    const read = readBaseForm(source);
+    if (!read.form) { console.log(`양식 읽기: 실패(${read.reason})`); return false; }
+    writeFileSync(`${args[1]}.form.json`, JSON.stringify(read.form));
+    const profile = profileOf(read.form, {allowNoBoxes: true});
     const forbidden = [];
-    try { forbidden.push(...reportWords(readReport(source))); } catch { /* 표가 없으면 아래 extract가 이유를 알려 줌 */ }
-    const blank = extractBlankTemplate(source);
-    const problems = assertBlank(blank, {forbidden: [...forbidden, ...FAKE_TEXTS]});
+    try { forbidden.push(...reportWords(readReport(source, {profile}), {profile})); } catch { /* 표가 없으면 아래 extract가 이유를 알려 줌 */ }
+    const blank = extractBlankTemplate(source, {profile});
+    const problems = assertBlank(blank, {forbidden: [...forbidden, ...FAKE_TEXTS], profile});
     const ok = report('빈 서식', save(args[1], blank));
     console.log(problems.length ? `빈 서식 검사: 실패\n${problems.map(p => `  - ${p}`).join('\n')}` : '빈 서식 검사: 통과(양식 글자 말고 남은 글 없음)');
     return ok && !problems.length;
   }
   if (cmd === 'build') {
     const data = args[1] === 'demo' ? DEMO_DATA : JSON.parse(readFileSync(args[1], 'utf8'));
-    const {pkg, changedCharPr} = buildReport(load(args[0]), data);
+    const profile = profileOf(JSON.parse(readFileSync(args[3] ?? `${args[0]}.form.json`, 'utf8')), {allowNoBoxes: true});
+    if (!profile) { console.log('양식 파일: 자리가 모자람'); return false; }
+    const {pkg, changedCharPr} = buildReport(load(args[0]), data, {profile});
     console.log(`바뀐 글 글자 모양: ${changedCharPr ?? '서식에 없음(표시 없이 씀)'}`);
     return report('보고서', save(args[2], pkg));
   }

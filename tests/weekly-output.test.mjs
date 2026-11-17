@@ -5,8 +5,8 @@ import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml, setXml, headerStyles} from '../app/weekly-hwpx/hwpx.mjs';
 import {walk, kid, kids, textOf} from '../app/weekly-hwpx/xml.mjs';
-import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
-import {buildReport, readReport, findTables, paraNumbering, CELL_STYLE, CHANGED_COLOR} from '../app/weekly-hwpx/report.mjs';
+import {extractBlankTemplate} from './fixtures/weekly-engine.mjs';
+import {buildReport, readReport, findTables, paraNumbering, CELL_STYLE, CHANGED_COLOR} from './fixtures/weekly-engine.mjs';
 import {personalReportFromTeam, reportOrgOrder} from '../app/weekly-hwpx/delta.mjs';
 import {reportOrgNames, orderForReport} from '../app/weekly-org-order-model.mjs';
 

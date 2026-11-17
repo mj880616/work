@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 // [주간 정리] 4. 산하 조직 현황 — WEEKLY-메뉴짝짓기 P6·P7: AI 요약 모듈(journal-org-summary.js)은 지웠고 저장된 요약은 읽지 않는다.
 // 화면 묶음·복사·한글 파일 후보만 본다. Fake names only.
 const weekly = import('../app/journal-weekly.js');
-const draft = import('../app/weekly-hwpx/draft.mjs');
+const draft = import('./fixtures/weekly-engine.mjs');
 const OA = '11111111-1111-4111-8111-111111111111', OB = '22222222-2222-4222-8222-222222222222';
 const ok = items => ({status:'ok', items});
 

@@ -3,12 +3,12 @@
 // 빈 서식 안의 글자는 양식 표 머리 칸 이름(profile.formLabels)뿐이어야 한다(assertBlank).
 import {el, clone, kid, kids, walk, textOf} from './xml.mjs';
 import {readXml, setXml, setText, removePart, clonePkg, headerStyles} from './hwpx.mjs';
-import {LEGACY_PROFILE} from './form-profile.mjs';
+import {needProfile} from './form-profile.mjs';
 
 // BRAND-웹2흔적지우기: 한글 파일 속성 '만든이'(원본 만든이 대신 넣는 이름).
 export const CREATOR = '노동조합+';
 // 양식 글자(표 머리 칸 이름·회의 결과 상자 칸 이름)는 코드에 두지 않는다 — '내 양식'에서 만든 profile(form-profile.mjs profileOf)이 준다.
-// profile 을 주지 않으면 옮기는 동안의 기본값(LEGACY_PROFILE, ⑤-3에서 지움). 빈 서식 안의 글자는 profile.formLabels(표 머리 칸 이름)뿐이어야 한다.
+// profile 은 꼭 받는다(기본값 없음 — ⑤-3a). 빈 서식 안의 글자는 profile.formLabels(표 머리 칸 이름)뿐이어야 한다.
 const headedTables = profile => profile.heads;
 // 빈 서식 본문 견본 순서. 앞 6개는 문단 견본, 뒤 7개는 표 견본(각각 원본에서 표를 담고 있던 문단 속성을 따른다).
 export const PROTO_ORDER = Object.freeze(['title', 'body', 'big', 'mid', 'small', 'note',
@@ -84,7 +84,7 @@ function protoBoxTable(tbl, {row = 0} = {}) {
   out.children.push(el('hp:tr', {}, [protoCell(label, 0, 0, 1, widths[0]), protoCell(body, 0, 1, 1, widths[1])]));
   return out;
 }
-export const isBoxTable = (tbl, profile = LEGACY_PROFILE) => tbl.attrs.colCnt === '2' && kids(tbl, 'hp:tr').length >= 3
+export const isBoxTable = (tbl, profile) => tbl.attrs.colCnt === '2' && kids(tbl, 'hp:tr').length >= 3
   && kids(tbl, 'hp:tr').every(tr => profile.boxLabels.includes(cellText(kids(tr, 'hp:tc')[0] ?? el('x'))));
 
 function anchorWith(p, tbl, make = protoTable) {
@@ -93,7 +93,8 @@ function anchorWith(p, tbl, make = protoTable) {
 }
 
 // 원본 보고서 .hwpx 묶음 → 빈 서식 묶음. 원본은 바꾸지 않는다.
-export function extractBlankTemplate(source, {profile = LEGACY_PROFILE} = {}) {
+export function extractBlankTemplate(source, {profile} = {}) {
+  needProfile(profile);
   const pkg = clonePkg(source);
   const header = readXml(pkg, 'Contents/header.xml');
   const names = new Map(headerStyles(header).map(s => [s.id, s.name]));
@@ -159,7 +160,8 @@ export function renumber(root) {
 }
 
 // 빈 서식 견본 읽기(빌더가 씀).
-export function readPrototypes(pkg, {profile = LEGACY_PROFILE} = {}) {
+export function readPrototypes(pkg, {profile} = {}) {
+  needProfile(profile);
   const sec = readXml(pkg, 'Contents/section0.xml');
   const top = kids(sec.root, 'hp:p');
   if (top.length !== PROTO_ORDER.length) throw new Error(`빈 서식 견본 수가 ${PROTO_ORDER.length}개가 아님(${top.length})`);
@@ -175,7 +177,8 @@ export function readPrototypes(pkg, {profile = LEGACY_PROFILE} = {}) {
 const HANGUL_OR_WORD = /[가-힣A-Za-z0-9]/;
 // 빈 서식 검사: 본문 글자는 양식 표 머리 칸 이름(profile.formLabels)만, 그림·미리보기 글 없음, 문서 정보 비움, 머리(header.xml)의 글자는 스타일·글꼴 이름 칸에만.
 // forbidden(선택): 원본에서 뽑은 글 조각 목록. 묶음 어디에든 2글자 이상 조각이 남으면 실패(양식 글자·스타일·글꼴 이름 안에 든 조각은 뺌). 결과에는 글 자체를 넣지 않고 개수만 낸다.
-export function assertBlank(pkg, {forbidden = [], profile = LEGACY_PROFILE} = {}) {
+export function assertBlank(pkg, {forbidden = [], profile} = {}) {
+  needProfile(profile);
   const problems = [];
   const sec = readXml(pkg, 'Contents/section0.xml');
   const allowed = new Set(profile.formLabels);

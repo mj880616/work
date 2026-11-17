@@ -6,9 +6,9 @@ import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx, readXml, setXml, validateHwpx} from '../app/weekly-hwpx/hwpx.mjs';
 import {writeZipAsync, readZipAsync, readZip, writeZip} from '../app/weekly-hwpx/zip.mjs';
 import {clone, kid, kids, walk, el} from '../app/weekly-hwpx/xml.mjs';
-import {readReport, findTables, lineText, isChanged, CHANGED_COLOR} from '../app/weekly-hwpx/report.mjs';
+import {readReport, findTables, lineText, isChanged, CHANGED_COLOR} from './fixtures/weekly-engine.mjs';
 import {browserZlib, prepareConfirmed, openConfirmed, startDraft, editableRows, editableOrgs, weekMaterial, assembleDraft,
-  buildHwpx, changedCount, reportDate, fileNameFor, orgNames, candidateLine, resolveMe} from '../app/weekly-hwpx/draft.mjs';
+  buildHwpx, changedCount, reportDate, fileNameFor, orgNames, candidateLine, resolveMe} from './fixtures/weekly-engine.mjs';
 import {ownerNotation} from '../app/weekly-hwpx/delta.mjs';
 import {selectMyOrganizations} from '../app/my-organizations.js';
 
@@ -139,7 +139,7 @@ test('산하조직 표 줄별 테두리: 확정본 줄 테두리를 따르고, �
 
 test('회의 결과 상자가 없는 주의 확정본도 빈 서식을 뽑는다(2열 표 칸으로 상자 견본, 머리 그대로)', async () => {
   const {template} = prepareConfirmed(await openConfirmed(fakeBytes()));
-  const {buildReport} = await import('../app/weekly-hwpx/report.mjs');
+  const {buildReport} = await import('./fixtures/weekly-engine.mjs');
   const team = buildReport(template, {title: '가짜팀', summary: [{area: ['가짜영역'], rows: [{task: ['가짜과제'], progress: ['- 가짜 줄'], owner: [ME]}]}]}).pkg;
   const bytes = packHwpx(team, zlib);
   const again = prepareConfirmed(await openConfirmed(bytes));
@@ -170,7 +170,7 @@ test('담당 팀원 칸 이름: 직전 확정본 표기를 그대로 가져오�
 
   // 실제 파일: 확정본 표기로 내 줄을 찾고, 담당 칸은 확정본 글 그대로(함께 맡은 줄 포함), 남의 줄은 비움.
   const {template} = prepareConfirmed(await openConfirmed(fakeBytes()));
-  const {buildReport} = await import('../app/weekly-hwpx/report.mjs');
+  const {buildReport} = await import('./fixtures/weekly-engine.mjs');
   const teamPkg = buildReport(template, {title: '가짜팀', summary: [{area: ['가짜영역'], rows: [
     {task: ['가짜과제 하나'], progress: ['- 가짜 줄 하나'], owner: ['담당갑']},
     {task: ['가짜과제 둘'], progress: ['- 가짜 줄 둘'], owner: ['가짜을/담당갑']},
@@ -189,7 +189,7 @@ test('담당 팀원 칸 이름: 직전 확정본 표기를 그대로 가져오�
 
 // WEEKLY-한흐름확정 ③: 내 사업영역(사업 목록)은 바탕 요약 표에 내 줄이 없어도 빈 내 줄로 들어가고, 그 칸에 쓴 줄이 한글 파일에 들어간다.
 test('빠진 내 사업영역: 같은 이름 묶음이 있으면 그 맨 아래, 없으면 표 맨 아래 새 묶음. 칸 이름은 사업 목록 이름', async () => {
-  const {missingAreas, withAreaRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const {missingAreas, withAreaRows} = await import('./fixtures/weekly-engine.mjs');
   const {team, template} = prepareConfirmed(await openConfirmed(fakeBytes()));
   const base = startDraft(team, {me: ME, date: ''});
   const rows = editableRows(base, ME);
@@ -217,7 +217,7 @@ test('빠진 내 사업영역: 같은 이름 묶음이 있으면 그 맨 아래,
 });
 
 test('빠진 내 사업영역: 남의 줄만 있던 같은 이름 묶음에는 그 맨 아래 내 줄(칸 이름 = 사업 목록 이름)', async () => {
-  const {missingAreas, withAreaRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const {missingAreas, withAreaRows} = await import('./fixtures/weekly-engine.mjs');
   const base = {summary: [{area: ['가짜 남·영역'], rows: [{task: ['가짜 남 과제'], progress: ['- 가짜 남 줄'], paras: [], owner: ['가짜을']}]}]};
   const more = withAreaRows(base, missingAreas(editableRows(base, ME), ['가짜 남 · 영역']), ME);
   assert.equal(more.summary.length, 1);

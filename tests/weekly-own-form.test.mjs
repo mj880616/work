@@ -6,6 +6,8 @@ import {deflateRawSync, inflateRawSync} from 'node:zlib';
 import {writeZip} from '../app/weekly-hwpx/zip.mjs';
 import {openHwpx} from '../app/weekly-hwpx/hwpx.mjs';
 import {readHwpxForm} from '../app/hwpx-form-read.mjs';
+import {readFileSync} from 'node:fs';
+import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {cleanForm, guessFill, formName, readSummary, formBytes, FILLS, FILL_LABEL, MAX_SECTIONS, FORM_MAX_BYTES} from '../app/weekly-own-form-model.mjs';
 import {readOwnForm, saveOwnForm, deleteOwnForm, OWN_FORM_TEXT} from '../app/weekly-own-form-store.js';
 
@@ -57,6 +59,18 @@ test('읽기: 2단계 항목·제목 스타일·항목 없는 표·한 항목 �
     ['□ 회의 결과', 1, ['회의', '결과']],
     ['참석자 현황', 2, ['이름', '직책']],
   ]);
+});
+
+test('읽기(⑤-3): 회의 결과 상자는 왼쪽 칸 이름만 칸 이름으로 — 첫 줄 오른쪽 본문 글을 칸 이름으로 읽지 않고, 이어진 상자는 칸 이름을 합친다', () => {
+  const zlib = {deflateRaw: b => deflateRawSync(b), inflateRaw: b => inflateRawSync(b)};
+  const sample = openHwpx(new Uint8Array(readFileSync(new URL('./fixtures/hwp-lab/sample.hwpx', import.meta.url))), zlib);
+  const {form} = readHwpxForm(makeFakeReport(sample));
+  const all = JSON.stringify(form);
+  for (const body of ['가짜 회의 갑', '가짜 회의 을', '1.4.(화) 10시', '가짜 미정', '가짜 참석자 갑']) assert.ok(!all.includes(`"${body}"`), body);
+  const box = form.sections.find(s => s.columns.includes('회의제목'));
+  assert.deepEqual(box.columns, ['회의제목', '일시/장소', '참석자', '내용', '차기일정']);
+  // 보통 표(머리 줄이 위에 있는 2열 표)는 그대로 머리 줄을 읽는다.
+  assert.ok(form.sections.some(s => s.columns.join('|') === '조직명|현황'));
 });
 
 test('읽기: 표 없이 긴 글만 있으면 항목 0개(손 편집으로), 본문 없는 묶음은 거절', () => {

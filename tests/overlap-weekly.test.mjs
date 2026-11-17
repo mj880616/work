@@ -4,7 +4,7 @@ import {
   planOverlaps, reviveEdges, weekCandidates, refOfOpen, cleanRows, batches, WEEK_MAX_PAIRS, PRIORITY,
 } from '../app/overlap-weekly.mjs';
 import {readOverlapRows, askPairs, reviveOverlaps} from '../app/overlap-weekly-data.js';
-import {weekMaterial} from '../app/weekly-hwpx/draft.mjs';
+import {weekMaterial} from './fixtures/weekly-engine.mjs';
 
 // MTG-기록겹침거르기 4단계: 주간 정리에서 겹침 거르기. 이름·글은 모두 지어낸 값.
 const mod = import('../app/journal-weekly.js');

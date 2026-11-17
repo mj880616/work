@@ -259,7 +259,7 @@ test('■ 일시 = 상집 보고일: the Monday after the shown week (tab, draft
   assert.equal(m.reportDateText('2026-10-05'), '2026년 10월 12일(월)');
   assert.equal(m.reportDateText('2026-12-28'), '2027년 1월 4일(월)');
   // The same text as the .hwpx form's date line.
-  const draft = await import('../app/weekly-hwpx/draft.mjs');
+  const draft = await import('./fixtures/weekly-engine.mjs');
   assert.equal(draft.reportDate(data.reportDay('2026-10-19')), m.reportDateText('2026-10-19'));
   // 5. 주요 일정 starts on the report day.
   assert.equal(m.upcomingSchedule([], '2026-10-19').days[0], data.reportDay('2026-10-19'));
@@ -269,7 +269,7 @@ test('■ 일시 = 상집 보고일: the Monday after the shown week (tab, draft
 
 // WEEKLY-자료요약 화면 ①: 자료 → 조직 칸(우선)·프로젝트 줄, 기록과 같으면 접음, '참고'에서는 뺌, 복사·한글 파일 후보는 "- 제목 — 요약".
 test('자료 요약: organization cell first, project row, folded when the same as a record, out of 참고, in the copy and the 한글 candidates', async () => {
-  const m = await mod, draft = await import('../app/weekly-hwpx/draft.mjs');
+  const m = await mod, draft = await import('./fixtures/weekly-engine.mjs');
   const H = c => 'b1:' + c.repeat(32);
   const updates = Object.assign([...orgUpdates, {id:'u3', organization_id:'o1', organization:{name:'가 조직'}, occurred_at:'2026-10-09T02:00:00Z', raw_text:'가 조직 10.30. 결의대회 개최 예정'}], {mine:new Set(['o1', 'o2']), orgs:[{id:'o1', name:'가 조직'}, {id:'o2', name:'나 조직'}, {id:'o9', name:'다른 조직'}]});
   const docs = [
@@ -314,7 +314,7 @@ test('자료 요약: without the documents read (loading or failed) the cells sh
 // WEEKLY-자료날짜(10/31 요청함): 조직 칸·사업영역 줄 후보는 자료 날짜(document_date)로, 비었을 때만 올린 날. 그 주 밖 날짜 자료는 후보에서 빠지고
 // '참고 › 자료실 새 자료'(올린 날 목록)에 자료 날짜를 붙여 남는다. 지난주에 올린 이번 주 날짜 자료는 이번 주 후보.
 test('자료 날짜: candidates go by the document\'s own date; last year\'s statement put in this week is not this week\'s news but stays in 참고 with its date', async () => {
-  const m = await mod, draft = await import('../app/weekly-hwpx/draft.mjs');
+  const m = await mod, draft = await import('./fixtures/weekly-engine.mjs');
   const updates = Object.assign([...orgUpdates], {mine:new Set(['o1', 'o2']), orgs:[{id:'o1', name:'가 조직'}, {id:'o2', name:'나 조직'}]});
   const docs = [
     {id:'y1', title:'작년 성명', category:'성명', organization_id:'o1', created_at:'2026-10-05T01:00:00Z', document_date:'2025-10-26'},

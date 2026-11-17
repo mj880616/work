@@ -97,8 +97,15 @@ export const FAKE_TEXTS = Object.freeze([
   ...FAKE.calendar.flatMap(([d, items]) => [d, ...items.flatMap(([w, who]) => [w, ...who])]), ...FAKE.calendarNotes,
 ]);
 
+// 가짜 보고서의 항목 제목(파일에 적힌 글). 기본은 팀 확정본처럼 '3) 논의 요청' 줄이 없는 모양(S46-27 전 양식).
+// titles 로 바꾸거나 discuss 를 주면 그 제목 줄이 2) 주요 일정 뒤에 생긴다(WEEKLY-내양식자유변형 ⑤-3: 바탕 파일에서 양식 읽기 시험).
+export const FAKE_TITLES = Object.freeze({requests: '1. 요청사항', requestTable: '1) 집회/행사 참가 요청', schedule: '2) 주요 일정', discuss: null,
+  work: '2. 기본․영역․의제 사업', summaryTable: '1) 요약', details: '2) 세부 내용', struggle: '3. 투쟁 사업', rallyTable: '1) 집회·농성 등',
+  siteTable: '2) 투쟁 사업장 현황', orgs: '4. 산하조직 현황', orgTable: '1) 요약', orgNotes: '2) 참고자료', calendar: '5. 주요 일정'});
+
 // sample.hwpx 묶음 → 가짜 주간보고 묶음
-export function makeFakeReport(sample) {
+export function makeFakeReport(sample, {titles = {}} = {}) {
+  const T = {...FAKE_TITLES, ...titles};
   const pkg = clonePkg(sample);
   const header = readXml(pkg, 'Contents/header.xml');
   const head = header.root;
@@ -189,22 +196,23 @@ export function makeFakeReport(sample) {
   sec.root.children = [
     para('안건제목', FAKE.title, [clone(secRun)]),
     para('바탕글', ''), para('바탕글', `■ 일시 : ${FAKE.date}`), para('바탕글', ''),
-    para('큰 제목', '1. 요청사항'), para('바탕글', ''), para('작은 제목', '1) 집회/행사 참가 요청'),
+    para('큰 제목', T.requests), para('바탕글', ''), para('작은 제목', T.requestTable),
     table(reqRows.length, 4, 48000, reqRows),
-    para('작은 제목', '2) 주요 일정'), para('바탕글', ''),
-    para('큰 제목', '2. 기본․영역․의제 사업'), para('바탕글', ''), para('작은 제목', '1) 요약'),
+    para('작은 제목', T.schedule), para('바탕글', ''),
+    ...(T.discuss ? [para('작은 제목', T.discuss), para('바탕글', '')] : []),
+    para('큰 제목', T.work), para('바탕글', ''), para('작은 제목', T.summaryTable),
     table(sumRows.length, 4, 48100, sumRows),
-    para('작은 제목', '2) 세부 내용'),
+    para('작은 제목', T.details),
     ...FAKE.boxes.flatMap(([heading, rows]) => [para('작은 제목', heading), box(rows), para('바탕글', '')]),
     para('작은 제목', FAKE.extra[0]), para('바탕글', FAKE.extra[1]),
-    para('큰 제목', '3. 투쟁 사업'), para('중간 제목', '1) 집회·농성 등'),
+    para('큰 제목', T.struggle), para('중간 제목', T.rallyTable),
     midTable(plain(['일시/장소', '집회/행사명', '참석현황'], [11100, 13400, 23500], FAKE.rallies)),
-    para('중간 제목', '2) 투쟁 사업장 현황'),
+    para('중간 제목', T.siteTable),
     midTable(plain(['조직명', '현황'], [13400, 34600], FAKE.sites)),
-    para('큰 제목', '4. 산하조직 현황'), para('중간 제목', '1) 요약'),
+    para('큰 제목', T.orgs), para('중간 제목', T.orgTable),
     midTable(plain(['사업장', '조직현황'], [13800, 34600], FAKE.orgs)),
-    para('중간 제목', '2) 참고자료'), para('바탕글', ''),
-    para('큰 제목', '5. 주요 일정'),
+    para('중간 제목', T.orgNotes), para('바탕글', ''),
+    para('큰 제목', T.calendar),
     table(calRows.length, 3, 47850, calRows),
     ...FAKE.calendarNotes.map(t => para('표내부', t)),
   ];

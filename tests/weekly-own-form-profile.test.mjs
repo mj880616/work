@@ -1,5 +1,6 @@
-// WEEKLY-내양식자유변형 ⑤-1: 한글 파일 엔진의 양식 글자를 '내 양식' 데이터(form-profile.mjs)에서 읽는다.
-// 대조 시험: 지금 경로(기본값)와 '내 양식'(서버에 저장했다 다시 읽은 모양)으로 만든 결과물이 바이트까지 같다.
+// WEEKLY-내양식자유변형 ⑤-1·⑤-3: 한글 파일 엔진의 양식 글자를 '내 양식' 데이터(form-profile.mjs)에서 읽는다. 코드에 기본 양식은 없다(⑤-3a).
+// 대조 시험(명진 조건 11/17 — 결과물이 지난주와 같아야 함): ⑤-3 전 기본 양식과 같은 모양의 지어낸 확정본에서 읽은 양식으로 만든 결과물이
+// 고정 양식(⑤-3 전 기본 양식을 그대로 옮겨 적은 tests/fixtures/weekly-own-form-legacy-shape.json)으로 만든 결과물과 바이트(sha256)까지 같다.
 // 자유 변형 시험: 제목·표 머리 칸 이름을 바꾼 지어낸 양식도 같은 엔진으로 읽고 만든다. 실제 조직·사람 이름은 쓰지 않는다(가짜 견본만).
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,11 +9,14 @@ import {createHash} from 'node:crypto';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {openHwpx, packHwpx, readXml, setXml} from '../app/weekly-hwpx/hwpx.mjs';
 import {kids, walk, el} from '../app/weekly-hwpx/xml.mjs';
-import {extractBlankTemplate, assertBlank, readPrototypes, PROTO_ORDER} from '../app/weekly-hwpx/template.mjs';
-import {buildReport, readReport, reportWords} from '../app/weekly-hwpx/report.mjs';
-import {prepareConfirmed, openConfirmed, buildHwpx, startDraft, assembleDraft} from '../app/weekly-hwpx/draft.mjs';
+import {extractBlankTemplate, assertBlank, readPrototypes, PROTO_ORDER, buildReport, readReport, reportWords, findTables,
+  prepareConfirmed, openConfirmed, buildHwpx, startDraft, assembleDraft, FIXTURE_FORM, FIXTURE_PROFILE, FIXTURE_TITLES, legacyShapeReport} from './fixtures/weekly-engine.mjs';
+import * as engineTemplate from '../app/weekly-hwpx/template.mjs';
+import * as engineReport from '../app/weekly-hwpx/report.mjs';
+import * as engineDraft from '../app/weekly-hwpx/draft.mjs';
 import {makeFakeReport, DEMO_DATA} from '../scripts/weekly-hwpx/fixture.mjs';
-import {ROLES, TABLE_ROLES, LEGACY_FORM, LEGACY_PROFILE, profileOf} from '../app/weekly-hwpx/form-profile.mjs';
+import {ROLES, TABLE_ROLES, profileOf} from '../app/weekly-hwpx/form-profile.mjs';
+import {readBaseForm} from '../app/hwpx-form-read.mjs';
 import {cleanForm, renameSection, renameColumn, setFill, moveSection, FORM_MAX_BYTES, formBytes} from '../app/weekly-own-form-model.mjs';
 
 const sample = () => openHwpx(new Uint8Array(readFileSync(SAMPLE)), zlib);
@@ -20,34 +24,109 @@ const fake = () => makeFakeReport(sample());
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 // 서버(app_weekly_forms.form)에 저장했다가 다시 읽은 모양: JSON 왕복 + 화면이 읽을 때 쓰는 cleanForm.
 const saved = form => cleanForm(JSON.parse(JSON.stringify(form)));
+const LEGACY_FORM = FIXTURE_FORM, LEGACY_PROFILE = FIXTURE_PROFILE; // 아래 자유 변형 시험이 쓰는 '⑤-3 전 기본 양식과 같은 고정 양식'
+// 결과물 네 가지(빈 서식·시연 자료 파일·확정본 다시 만들기·앱 흐름의 내 초안 파일) sha256.
+async function outputs(src, profile) {
+  const blank = extractBlankTemplate(src, {profile});
+  const out = {blank: hash(packHwpx(blank, zlib)), demo: hash(packHwpx(buildReport(blank, DEMO_DATA, {profile}).pkg, zlib)),
+    self: hash(packHwpx(buildReport(blank, readReport(src, {profile}), {profile}).pkg, zlib))};
+  const {team, template} = prepareConfirmed(await openConfirmed(packHwpx(src, zlib)), {profile});
+  out.draft = hash(await buildHwpx(template, assembleDraft(startDraft(team, {me: '가짜담당 갑', date: '2000-01-03'})), undefined, {profile}));
+  return out;
+}
+const bodyTexts = pkg => [...walk(readXml(pkg, 'Contents/section0.xml').root)].filter(n => n.name === 'hp:t').map(n => n.children.map(c => c.text ?? '').join(''));
 
-test('지금 양식(옮겨 적은 기본값)은 서버 표에 그대로 저장되는 \'내 양식\' 하나다 — 자리·칸이 왕복에서 빠지지 않는다', () => {
+test('엔진은 profile 을 꼭 받는다 — 빠지면 다른 양식으로 몰래 돌지 않고 멈춘다(⑤-3a 기본값 삭제)', async () => {
+  const src = fake();
+  assert.throws(() => engineTemplate.extractBlankTemplate(src), /profile/);
+  assert.throws(() => engineReport.readReport(src), /profile/);
+  assert.throws(() => engineReport.buildReport(extractBlankTemplate(src), DEMO_DATA), /profile/);
+  assert.throws(() => engineReport.reportWords({}), /profile/);
+  assert.throws(() => engineDraft.prepareConfirmed(src), /profile/);
+  await assert.rejects(engineDraft.buildHwpx(extractBlankTemplate(src), DEMO_DATA, zlib), /profile/);
+  for (const name of ['form-profile.mjs', 'template.mjs', 'report.mjs', 'draft.mjs']) {
+    assert.doesNotMatch(readFileSync(new URL(`../app/weekly-hwpx/${name}`, import.meta.url), 'utf8'), /LEGACY_(FORM|PROFILE)|임원 배정 요청|상집 논의 요청/, name);
+  }
+});
+
+test('고정 양식(⑤-3 전 기본 양식과 같은 모양)은 서버 표에 그대로 저장되는 \'내 양식\' 하나다 — 자리·칸이 왕복에서 빠지지 않는다', () => {
   const back = saved(LEGACY_FORM);
   assert.equal(back.sections.length, ROLES.length);
   assert.deepEqual(back.sections.map(s => s.role), ROLES);
   assert.ok(formBytes(back) < FORM_MAX_BYTES);
   assert.deepEqual(profileOf(back), LEGACY_PROFILE);
-  // 표 자리마다 칸 수는 엔진이 읽는 수와 같다.
   for (const [role, [key, n]] of Object.entries(TABLE_ROLES)) assert.equal(LEGACY_PROFILE.heads[key].length, n, role);
 });
 
-test('대조: 지금 경로와 \'내 양식\'으로 만든 빈 서식·한글 파일·읽은 내용이 바이트까지 같다', async () => {
-  const profile = profileOf(saved(LEGACY_FORM));
-  const src = fake();
-  const blankNow = extractBlankTemplate(src), blankOwn = extractBlankTemplate(src, {profile});
-  assert.equal(hash(packHwpx(blankOwn, zlib)), hash(packHwpx(blankNow, zlib)));
-  assert.deepEqual(readReport(src, {profile}), readReport(src));
-  for (const data of [DEMO_DATA, readReport(src), {}]) {
-    assert.equal(hash(packHwpx(buildReport(blankOwn, data, {profile}).pkg, zlib)), hash(packHwpx(buildReport(blankNow, data).pkg, zlib)));
-  }
-  // 앱이 쓰는 흐름(확정본 열기 → 내 초안 → 한글 파일)도 같다.
-  const bytes = packHwpx(src, zlib);
-  const now = prepareConfirmed(await openConfirmed(bytes)), own = prepareConfirmed(await openConfirmed(bytes), {profile});
-  const me = '가짜담당 갑';
-  const fileNow = await buildHwpx(now.template, assembleDraft(startDraft(now.team, {me, date: '2000-01-03'})));
-  const fileOwn = await buildHwpx(own.template, assembleDraft(startDraft(own.team, {me, date: '2000-01-03'})), undefined, {profile});
-  assert.equal(hash(fileOwn), hash(fileNow));
-  assert.deepEqual(reportWords(own.team, {profile}), reportWords(now.team));
+test('대조(명진 조건): 같은 모양의 지어낸 확정본에서 읽은 양식 → 결과물이 고정 양식(⑤-3 전 기본값)으로 만든 것과 sha256까지 같다', async () => {
+  const src = legacyShapeReport(sample());
+  const read = readBaseForm(src);
+  assert.ok(read.form, read.reason);
+  const form = saved(read.form); // 저장했다 다시 읽은 모양으로
+  const profile = profileOf(form);
+  assert.ok(profile);
+  // 제목·표 머리 칸 글자는 고정 양식과 같다. 상자 칸 이름은 이 파일에 나온 것만(고정 양식의 부분 집합) — 이 파일의 상자는 똑같이 찾는다.
+  assert.deepEqual(profile.titles, LEGACY_PROFILE.titles);
+  assert.deepEqual(profile.heads, LEGACY_PROFILE.heads);
+  assert.deepEqual(profile.formLabels, LEGACY_PROFILE.formLabels);
+  assert.ok(profile.boxLabels.every(l => LEGACY_PROFILE.boxLabels.includes(l)));
+  assert.equal(findTables(src, {profile}).boxes.length, findTables(src, {profile: LEGACY_PROFILE}).boxes.length);
+  assert.deepEqual(await outputs(src, profile), await outputs(src, LEGACY_PROFILE));
+  // 회의 결과 상자의 오른쪽 본문 글·'(1) 회의 이름' 줄은 양식으로 읽지 않는다(칸 이름·항목 이름에 본문 글이 들어가지 않음).
+  const all = JSON.stringify(form);
+  for (const body of ['가짜 회의 갑', '가짜 회의 을', '가짜 미정', '가짜 세부 내용 문단']) assert.ok(!all.includes(body), body);
+});
+
+test('대조: 파일 제목 글이 고정 양식과 다르면(S46-27로 바뀐 요청 절 제목 등) 결과물의 차이는 그 제목 줄이 파일에 적힌 글 그대로인 것뿐이다', async () => {
+  const fileTitle = '1) 가짜 참가 요청';
+  const src = makeFakeReport(sample(), {titles: {...FIXTURE_TITLES, requestTable: fileTitle}});
+  const profile = profileOf(readBaseForm(src).form);
+  assert.equal(profile.titles.requestTable, fileTitle);
+  const rest = {...profile.titles}; delete rest.requestTable;
+  const legacyRest = {...LEGACY_PROFILE.titles}; delete legacyRest.requestTable;
+  assert.deepEqual(rest, legacyRest);
+  const blank = extractBlankTemplate(src, {profile});
+  const mine = buildReport(blank, DEMO_DATA, {profile}).pkg, before = buildReport(blank, DEMO_DATA, {profile: LEGACY_PROFILE}).pkg;
+  const a = bodyTexts(mine), b = bodyTexts(before);
+  assert.equal(a.length, b.length);
+  const diff = a.map((t, i) => [t, b[i]]).filter(([x, y]) => x !== y);
+  assert.deepEqual(diff, [[fileTitle, LEGACY_PROFILE.titles.requestTable]]);
+  // 빈 서식은 제목 줄을 담지 않으므로 바이트까지 같다.
+  assert.equal(hash(packHwpx(blank, zlib)), hash(packHwpx(extractBlankTemplate(src, {profile: LEGACY_PROFILE}), zlib)));
+});
+
+test('바탕 파일에서 양식 읽기: 자리 추측이 확실하지 않으면 양식을 내지 않는다(저장하지 않고 한 줄 안내 — 몰래 틀리게 만들지 않음)', () => {
+  // 팀 확정본처럼 '3) 논의 요청' 줄이 없는 파일: 그 자리 제목을 알 수 없다.
+  assert.deepEqual(readBaseForm(fake()), {reason: 'items'});
+  // 큰 항목이 하나 빠진 파일.
+  const noBig = makeFakeReport(sample(), {titles: {...FIXTURE_TITLES, orgs: '산하조직 현황'}});
+  assert.equal(readBaseForm(noBig).reason, 'groups');
+  // 표 칸 수가 엔진과 다른 파일(요약 표 머리 칸 하나를 비움 → 칸 이름 없음).
+  const src = legacyShapeReport(sample());
+  const sec = readXml(src, 'Contents/section0.xml');
+  const sumHead = [...walk(sec.root)].filter(n => n.name === 'hp:tbl').map(t => kids(kids(t, 'hp:tr')[0], 'hp:tc')).find(tcs => tcs.length === 4);
+  for (const n of walk(sumHead[3])) if (n.name === 'hp:t') n.children = [];
+  setXml(src, 'Contents/section0.xml', sec);
+  assert.equal(readBaseForm(src).reason, 'table');
+  // 회의 결과 상자가 없는 주의 파일: 양식은 읽되 상자 칸 이름이 비어 있어 저장용 양식이 아니다(profileOf null — 그 자리에서만 씀).
+  const data = readReport(legacyShapeReport(sample()));
+  const noBox = openHwpx(packHwpx(buildReport(extractBlankTemplate(legacyShapeReport(sample())), {...data, details: []}).pkg, zlib), zlib);
+  const read = readBaseForm(noBox);
+  assert.ok(read.form, read.reason);
+  assert.deepEqual(read.form.sections.find(s => s.role === 'details').columns, []);
+  assert.equal(profileOf(read.form), null);
+  assert.ok(profileOf(read.form, {allowNoBoxes: true}));
+});
+
+test('엔진이 만든 파일(다음 주 바탕)에서도 같은 양식을 다시 읽는다', async () => {
+  const src = legacyShapeReport(sample());
+  const {team, template} = prepareConfirmed(await openConfirmed(packHwpx(src, zlib)), {profile: LEGACY_PROFILE});
+  const out = openHwpx(await buildHwpx(template, {...assembleDraft(startDraft(team, {me: '가짜담당 갑', date: '2000-01-03'})), details: DEMO_DATA.details}, undefined, {profile: LEGACY_PROFILE}), zlib);
+  const read = readBaseForm(out);
+  assert.ok(read.form, read.reason);
+  const profile = profileOf(read.form);
+  assert.deepEqual(profile.titles, LEGACY_PROFILE.titles);
+  assert.deepEqual(profile.heads, LEGACY_PROFILE.heads);
 });
 
 // 지어낸 양식: 제목·표 머리 칸·상자 칸 이름을 모두 바꾼 것(자리는 그대로). 양식 고치기는 ③ 화면과 같은 모델 함수로.

@@ -62,7 +62,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
-import {engineForm, adoptLegacyForm} from './weekly-engine-form.js'; // WEEKLY-내양식자유변형 ⑤-2: 엔진 양식은 '내 양식'에서(없으면 지금 양식을 한 번 옮겨 저장)
+import {engineForm, baseForm, saveBaseForm} from './weekly-engine-form.js'; // WEEKLY-내양식자유변형 ⑤-2·⑤-3: 엔진 양식은 '내 양식'에서(없으면 바탕 파일에서 읽어 저장 — 명진 결정 11/17 '나')
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
@@ -216,6 +216,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   let state = null, engine = null, lib = null, run = 0, confirmed = undefined, sourceRun = 0, weekDraft = null, flight = null;
   // [처음부터] 뒤 바탕을 다시 연 끝에 남길 상태 줄({week, text}). 다시 여는 동안의 '여는 중…' 줄이 지운 결과 안내를 연 뒤 되살린다(한 번만).
   let reopenNote = null;
+  let formRetry = null; // ⑤-3: '내 양식'을 읽지 못해 바탕을 열지 않았을 때 상태 줄 [다시 시도]가 부르는 열기(한 번)
   // WEEKLY-한흐름확정 ②(명진 결정 ①: 위 상자 없앰): 이 모듈은 [주간 정리] 안 두 자리를 그린다.
   //   topLine — 맨 위 한 줄 '■ 일시 · 이름 · 바탕 … 임시저장 HH:MM ⋯'(⋯ = 이름 고치기·일시 고치기·바탕 바꾸기(기기 파일)·처음부터)
   //   host    — 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼, .hwp) + ⋯(확정 없이 파일만 받기(.hwp)·.hwpx로 받기·글로 복사·학습 시험)
@@ -268,6 +269,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   let schedEdit = null, schedNote = null, schedAi = false, schedNoteTimer = 0;
   let topEdit = null; // 맨 위 한 줄에서 고치는 칸('me'|'date', 기기 메모리만)
   const say = (text, kind = '') => { status.textContent = text || ''; status.dataset.kind = kind; };
+  const sayRetry = (text, again) => { say(text, 'error'); formRetry = again; status.append(' ', button('다시 시도', 'hwpxFormRetry')); };
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));
 
   // 바탕을 닫는다(주가 바뀜·처음부터). 고치던 것은 닫기와 같이 저장. 맨 위 한 줄·확정 버튼 줄은 그대로(draft 로 다시 그림).
@@ -473,7 +475,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // Confirmed report bytes → team report + blank template → my base. Nothing is shown from the file but my own rows.
   async function load(bytes, name, format, source, mine, baseInfo, baseKind = baseInfo?.from === 'file' ? 'file' : 'confirmed') {
     const {draft} = await lazy();
-    // ⑤-2: 저장된 '내 양식'을 바탕 바꾸기와 함께 읽는다(던지지 않음 — 못 읽으면 기본 양식 + 한 줄 안내).
+    // ⑤-2: 저장된 '내 양식'을 바탕 바꾸기와 함께 읽는다(던지지 않음 — 못 읽으면 바탕을 열지 않고 [다시 시도]).
     const formRead = engineForm(rt);
     try {
       let hwpx = bytes;
@@ -499,7 +501,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const pkg = await draft.openConfirmed(hwpx);
       const form = await formRead;
       if (mine !== run) return;
-      const {team, template} = draft.prepareConfirmed(pkg, {profile:form.profile});
+      // ⑤-3(명진 결정 11/17 '나'): 쓸 '내 양식'이 없으면(none·broken·missing) 바탕 파일에서 양식을 읽어 그것으로 연다(글자는 파일 그대로).
+      // 읽기 실패는 기본값 대신 한 줄 + [다시 시도]. 바탕에서 양식을 읽지 못하면 추측해 열지 않고 한 줄.
+      if (form.status === 'readFailed') { sayRetry(form.note, () => load(bytes, name, format, source, ++run, baseInfo, baseKind)); return; }
+      const fromBase = form.profile ? null : baseForm(pkg, draft);
+      if (fromBase && !fromBase.profile) { say(fromBase.note, 'error'); return; }
+      const profile = form.profile ?? fromBase.profile;
+      const {team, template} = fromBase?.prepared ?? draft.prepareConfirmed(pkg, {profile});
       const week = getWeek();
       const [context, saved, carriedLayout, carriedPlaces] = await Promise.all([readContext(rt, week.start).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true})), readDraftFor(week.start), readCarriedLayout(week.start, rt), readCarriedPlaces(week.start, rt)]);
       if (mine !== run) return;
@@ -508,7 +516,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null, titles:new Map(), drops:new Map(), titleRun:0};
       state.defaultDate = state.date;
       state.baseKind = baseKind;
-      state.profile = form.profile; // 같은 양식으로 팀 확정본 참고·[확정] 파일 만들기까지(⑤-2)
+      state.profile = profile; // 같은 양식으로 팀 확정본 참고·[확정] 파일 만들기까지(⑤-2)
       // 3. 2) 투쟁 사업장 구성: 이 주 것 > 지난주에서 이어 쓴 것. 이 주에 구성이 생기면(바꾸면) layoutOwn.
       const ownLayout = draftSiteLayout(saved?.row?.draft);
       state.carriedLayout = carriedLayout; state.layout = ownLayout ?? carriedLayout; state.layoutOwn = !!ownLayout;
@@ -523,11 +531,11 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (mine !== run) return;
       carry(week);
       say(reopenNote?.week === week.start ? reopenNote.text : form.note); reopenNote = null;
-      // ⑤-2(명진 결정 11/16 "가"): 자료실 바탕을 지금 양식으로 연 사람이 저장된 '내 양식'이 없으면 지금 양식 그대로를 한 번 옮겨 저장한다.
-      // 바탕 없는 새 가입자·기기 파일로만 연 경우는 저장하지 않는다(11/15 결정). 실패해도 화면은 그대로, 상태 줄 한 줄.
-      if (form.status === 'none' && baseInfo?.from === 'library') {
+      // ⑤-3(명진 결정 11/17 '나'): 자료실 바탕에서 읽은 양식을 '내 양식'에 한 번 저장한다(깨진 양식이면 그 행을 고침).
+      // 기기 파일로만 연 경우·표 준비 전·상자 칸 이름을 알 수 없는 주(savable false)는 저장하지 않는다. 실패해도 화면은 그대로, 상태 줄 한 줄.
+      if (fromBase?.savable && baseInfo?.from === 'library' && (form.status === 'none' || form.status === 'broken')) {
         const s = state;
-        void adoptLegacyForm(rt).then(r => { if (r.note && state === s && !status.textContent) say(r.note); });
+        void saveBaseForm({form:fromBase.form, known:form.status === 'broken' ? form.row : null}, rt).then(r => { if (r.note && state === s && !status.textContent) say(r.note); });
       }
       // 환류학습 3: 그 주 처음 초안이 아직 없으면(처음 연 주) AI 초안을 한 번 쓴다(기록을 다 읽은 뒤 — renderMaterial). 있으면 그대로.
       state.ai = {status:state.store?.extras?.proposed ? (state.store.extras.proposed.ai ? 'done' : 'base') : 'wait', note:''};
@@ -1813,6 +1821,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-learn-show]')) { onLearn(); return; }
     if (b.matches('[data-hwpx-learn-test]')) { void ensure().then(s => { if (s) void learnTest(s, b); }); return; }
     if (b.matches('[data-hwpx-pick]')) { fileInput.click(); return; }
+    if (b.matches('[data-hwpx-form-retry]')) { const again = formRetry; formRetry = null; void again?.(); return; }
     if (b.matches('[data-hwpx-top-me]')) { void editTop('me'); return; }
     if (b.matches('[data-hwpx-top-date]')) { void editTop('date'); return; }
     if (b.matches('[data-hwpx-top-cancel]')) { topEdit = null; paintTop(); return; }
