@@ -252,3 +252,30 @@ test('④-2 고친 항목: 저장 모양 맞춤·고친 글 우선(노란 칸 �
   assert.equal(prevWeek('2026-03-02'), '2026-02-23');
   assert.equal(prevWeek('x'), '');
 });
+
+// WEEKLY-처음시작고르기(시안 #2732 ★A안, 명진 11/17): 번호 4개 — 이름·순서 시안 그대로, 양식은 cleanForm을 거쳐도 같고, 지금 초안 엔진이 표의 대로 채운다.
+test('처음 고르기 번호 4개: 이름·순서, 양식 모양, 초안 엔진이 채우는 칸', async () => {
+  const {START_CHOICES, START_DEFAULT, startForm} = await import('../app/weekly-own-form-model.mjs');
+  const {ownDraft} = await import('../app/weekly-own-draft-model.mjs');
+  assert.deepEqual(START_CHOICES.map(c => `${c.no}. ${c.name}`), ['1. 간단형', '2. 사업별 표', '3. 조직별', '4. 직접 만들기']);
+  assert.equal(START_DEFAULT, 'simple');
+  for (const c of START_CHOICES) assert.deepEqual(startForm(c.key).form, cleanForm(c.form), c.key);
+  assert.deepEqual(startForm('own'), {form: {v: 1, sections: []}, name: '내 주간 보고 양식'});
+  assert.equal(startForm('없는 번호').name, '간단형');
+  const simple = startForm('simple').form.sections;
+  assert.deepEqual(simple.map(s => [s.title, s.fill]), [['지난주 한 일', 'biz'], ['이번 주 할 일', 'blank'], ['주요 일정', 'schedule']]);
+  // 지어낸 그 주 기록 모델(weeklySummary 모양)로 초안을 만들어 칸마다 자동 채움/직접을 본다.
+  const model = {
+    summary: {areas: [{name: '가상 교육', rows: [{items: [{day: '2026-11-10', text: '가상 1차 교육'}]}]}], others: []},
+    orgs: {sections: [{name: '가상 지회', items: [{day: '2026-11-11', text: '가상 상황'}]}]},
+    calendar: {rows: [{day: '2026-11-18', items: [{title: '가상 회의'}]}]},
+  };
+  const one = ownDraft(startForm('simple').form, model).sections;
+  assert.deepEqual(one.map(s => s.lines.map(l => l.text)), [['- 11/10 가상 1차 교육'], [], ['- 11/18 가상 회의']]);
+  const biz = ownDraft(startForm('biz').form, model).sections[0].rows;
+  assert.deepEqual(biz, [[{text: '가상 교육', filled: true}, {text: '가상 1차 교육', filled: true}, {text: '', filled: false}]]); // 계획 = 직접
+  const org = ownDraft(startForm('org').form, model).sections[0].rows;
+  assert.deepEqual(org.map(r => r.map(c => c.text)), [['가상 지회', '11/11', '가상 상황']]);
+  // 미리보기 글은 화면 예시뿐 — 저장하는 양식에는 들어가지 않는다.
+  for (const c of START_CHOICES) assert.ok(!JSON.stringify(startForm(c.key)).includes('preview'));
+});

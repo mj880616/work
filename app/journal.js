@@ -602,21 +602,24 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (refreshBox) hwpx?.refresh();
   if (keep && (document.activeElement === document.body || !document.activeElement)) { const back = document.getElementById(keep.id); if (back && !back.disabled) { back.focus({preventScroll:true}); try { if (keep.at[0] != null) back.setSelectionRange(keep.at[0], keep.at[1]); } catch { /* 글 칸이 아님 */ } } }
 }
-// 바탕 없는 주의 [주간 보고]: 한 줄 + [파일 올리기](끌어 놓기도). 고른 한글 파일에서 '내 양식'을 읽어 서버에 저장한다(아래 open).
+// 바탕 없는 주의 [주간 보고]. 고른 한글 파일에서 '내 양식'을 읽어 서버에 저장한다(아래 open).
+// WEEKLY-처음시작고르기(시안 weekly-start-choice.html ★A안, 명진 11/17): '내 양식'도 없으면 첫 화면은 [파일 올리기] 한 줄 + 번호 4개 고르기
+// (weekly-start-choice.js). 번호를 고르면 [양식 수정] 화면을 그 모양으로 열고 [저장]해야 '내 양식'이 된다. 저장한 뒤에는 '내 양식' 줄 ⋯ [다른 모양 선택]으로 다시 연다.
 // weekModel: 그 주 기록 모델(weeklySummary). 백지 상자가 이미 있으면 그 주 초안 자리만 맞춘다(blankDraft — 바뀐 항목만 다시 그림).
 let blankDraft = null;
 function paintBlank(host, weekModel) {
   if (host.querySelector('[data-weekly-blank]')) { blankDraft?.(weekModel); return; }
   const box = document.createElement('section'); box.className = 'journal-weekly-blank'; box.dataset.weeklyBlank = '';
-  box.innerHTML = '<p class="journal-weekly-blank-line">내 주간 보고 한글 파일을 올리면 그 모양으로 만들어 드려요 <button type="button" class="secondary" data-weekly-blank-pick>파일 올리기</button> <button type="button" class="secondary" data-weekly-blank-new>빈 양식에서 만들기</button></p>'
-    + '<p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><div data-weekly-own-form-slot></div><div data-weekly-own-draft-slot></div><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
-  const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]'), pick = box.querySelector('[data-weekly-blank-pick]');
-  const fresh = box.querySelector('[data-weekly-blank-new]'), slot = box.querySelector('[data-weekly-own-form-slot]');
+  box.innerHTML = '<div data-weekly-own-form-slot></div><p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><div data-weekly-own-draft-slot></div><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
+  const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]');
+  const slot = box.querySelector('[data-weekly-own-form-slot]');
   // WEEKLY-내양식자유변형 ②·③: 올린 파일은 바탕으로 열지 않고(다른 팀 양식 규칙을 쓰지 않음) 항목·표 머리 칸만 규칙으로 읽어(hwpx-form-read.mjs)
   // 확인·짝짓기 화면(weekly-own-form-edit.js, 시안 ②)을 연다. [저장]하면 '내 양식'으로 서버에 둔다(weekly-own-form-store.js, app_weekly_forms).
-  // 저장된 양식이 있으면 한 줄 + [양식 수정], 그 아래 내 양식 그대로 그 주 초안(④-2, weekly-own-draft.js — 양식을 고치는 동안은 비움).
-  const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs'), import('./weekly-own-form-edit.js')]);
-  let known, editing = false, draftModel = weekModel, draft = null, pendingFile = null, uploadedId;
+  // 저장된 양식이 있으면 한 줄 + [양식 수정] + ⋯, 그 아래 내 양식 그대로 그 주 초안(④-2, weekly-own-draft.js — 양식을 고치는 동안은 비움).
+  // slot 한 자리의 renderer는 paintSaved 하나: 고르기 화면(내 양식 없음·다시 고르는 중) | '내 양식' 줄 | (editing 이면 편집 화면이 차지).
+  const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs'), import('./weekly-own-form-edit.js'), import('./weekly-start-choice.js')]);
+  // known: undefined(아직 읽는 중·못 읽음) | null(내 양식 없음) | row. choosing: 저장한 뒤 ⋯ [다른 모양 선택]으로 고르기 화면을 다시 연 동안.
+  let known, loaded = false, editing = false, choosing = false, busy = false, chosen, draftModel = weekModel, draft = null, pendingFile = null, uploadedId;
   const draftSlot = box.querySelector('[data-weekly-own-draft-slot]');
   const paintDraft = () => {
     const form = !editing && known?.form?.sections?.length ? known.form : null;
@@ -625,21 +628,38 @@ function paintBlank(host, weekModel) {
     void import('./weekly-own-draft.js').then(({mountOwnDraft}) => { draft ??= mountOwnDraft(draftSlot, {rt}); paintDraft(); }).catch(error => console.warn('own draft load', error?.message || error));
   };
   blankDraft = next => { draftModel = next; paintDraft(); };
-  const setBusy = on => { pick.disabled = on; fresh.disabled = on; };
-  function paintSaved(store, model) {
+  let mods = null;
+  function paintSaved() {
     paintDraft();
-    if (editing) return;
-    if (!known) { slot.replaceChildren(); return; }
+    if (editing || !mods || !loaded) return;
+    const [, , , , start_] = mods;
+    if (!known || choosing) {
+      slot.replaceChildren(start_.startChoiceEl(document, {selected:chosen, busy, onPick:() => { if (!busy) input.click(); }, onStart:startWith,
+        onCancel:known ? () => { choosing = false; paintSaved(); } : null}));
+      return;
+    }
+    const wrap = document.createElement('div'); wrap.className = 'journal-weekly-blank-saved';
     const line = document.createElement('p'); line.className = 'journal-weekly-blank-line'; line.dataset.weeklyOwnFormSaved = '';
     line.textContent = `내 양식 · ${known.name} · 항목 ${known.form.sections.length}개 `;
     const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'secondary'; edit.textContent = '양식 수정';
-    edit.addEventListener('click', () => openEditor(known.form, known.name, false));
-    line.append(edit); slot.replaceChildren(line);
+    edit.addEventListener('click', () => { pendingFile = null; uploadedId = undefined; void openEditor(known.form, known.name, false); });
+    line.append(edit);
+    const more = rowMore(document, {label:'내 양식 다른 모양 선택', data:{weeklyOwnFormMore:''}, items:[{text:'다른 모양 선택', data:{weeklyStartAgain:''}, onClick:() => { choosing = true; note.textContent = ''; paintSaved(); }}]});
+    wrap.append(line, more); slot.replaceChildren(wrap);
+  }
+  // 번호 고르기 → [양식 수정] 화면을 그 모양으로(아직 저장 안 함). 직접 만들기는 빈 양식(예전 [빈 양식에서 만들기]와 같은 길).
+  function startWith(key) {
+    if (busy || !mods) return;
+    chosen = key;
+    const [, , model] = mods, {form, name} = model.startForm(key);
+    // 파일에서 만든 '내 양식'을 번호 모양으로 바꾸면 원본 파일 연결(source_file_id)을 비운다. 처음 만드는 양식이면 보내지 않음(DB 기본 null).
+    pendingFile = null; uploadedId = known?.id ? null : undefined;
+    void openEditor(form, name, true, null);
   }
   async function openEditor(form, name, isNew, sourceName = known?.source_name ?? null, read = false) {
-    const [, store, model, edit] = await ownForm();
-    editing = true; note.textContent = ''; paintDraft();
-    edit.mountOwnFormEditor(slot, {form, name, fresh:isNew, read, onCancel:() => { editing = false; pendingFile = null; uploadedId = undefined; paintSaved(store, model); },
+    const [, store, , edit] = mods ?? await ownForm();
+    editing = true; choosing = false; note.textContent = ''; paintDraft();
+    edit.mountOwnFormEditor(slot, {form, name, fresh:isNew, read, onCancel:() => { editing = false; pendingFile = null; uploadedId = undefined; paintSaved(); },
       onSave:async next => {
         if (known === undefined) known = (await store.readOwnForm()).row;
         // HWP-노조서식분류: 파일에서 읽은 양식이면 그 원본 한글 파일을 자료실 '노조 서식'에 한 번 올리고(hwp-drive.js saveUnionForm, 기존 library-files),
@@ -657,21 +677,23 @@ function paintBlank(host, weekModel) {
         catch (error) { return {ok:false, text:error?.code === 'too_big' ? store.OWN_FORM_TEXT.tooBig : store.OWN_FORM_TEXT.failed}; }
         if (saved.missing) return {ok:false, text:store.OWN_FORM_TEXT.notReady};
         if (saved.conflict) { known = saved.row; return {ok:false, text:store.OWN_FORM_TEXT.conflict}; }
-        known = saved.row; editing = false; uploadedId = undefined; paintSaved(store, model);
+        known = saved.row; loaded = true; editing = false; uploadedId = undefined; paintSaved();
         note.textContent = store.OWN_FORM_TEXT.saved + (sourceFileId ? " 원본 파일은 자료실 '노조 서식'에 두었어요." : upNote);
         return {ok:true, text:''};
       }});
   }
-  void ownForm().then(async ([, store, model]) => {
-    const r = await store.readOwnForm();
-    if (known === undefined) known = r.row;
-    paintSaved(store, model);
+  // 내 양식을 읽은 뒤(못 읽어도) 첫 화면을 그린다 — 읽는 동안은 비워 둬서 '내 양식'이 있는 사람에게 고르기 화면이 잠깐 비치지 않게.
+  void ownForm().then(async loadedMods => {
+    mods = loadedMods;
+    try { const r = await mods[1].readOwnForm(); if (known === undefined) known = r.row; } catch { /* 못 읽으면 고르기 화면(저장 때 다시 읽음) */ }
+    loaded = true; paintSaved();
   }).catch(() => {});
+  const setBusy = on => { busy = on; for (const b of slot.querySelectorAll('[data-weekly-blank-pick],[data-weekly-start-go]')) b.disabled = on; };
   const open = async file => {
-    if (!file || pick.disabled) return;
+    if (!file || busy) return;
     setBusy(true); note.innerHTML = waitInlineHtml();
     try {
-      const [{readHwpxForm}, store, model] = await ownForm();
+      const [{readHwpxForm}, store, model] = mods ?? await ownForm();
       const r = await hwpx.hwpxPackage(file);
       if (r.error) { note.textContent = r.error; return; }
       let read;
@@ -682,8 +704,6 @@ function paintBlank(host, weekModel) {
     } catch { note.textContent = '파일을 열지 못했어요. 다시 선택해 주세요.'; }
     finally { setBusy(false); }
   };
-  pick.addEventListener('click', () => input.click());
-  fresh.addEventListener('click', () => { pendingFile = null; uploadedId = undefined; void ownForm().then(([, , model]) => openEditor({v:1, sections:[]}, model.formName(''), true, null)).catch(() => {}); });
   input.addEventListener('change', () => { const f = input.files?.[0]; input.value = ''; void open(f); });
   box.addEventListener('dragover', e => { if (!e.dataTransfer?.types?.includes?.('Files')) return; e.preventDefault(); box.classList.add('is-over'); });
   box.addEventListener('dragleave', () => box.classList.remove('is-over'));

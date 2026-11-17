@@ -108,3 +108,34 @@ export const renameColumn = (form, id, index, name) => withSections(form, form.s
 }));
 export const removeColumn = (form, id, index) => renameColumn(form, id, index, '');
 export const sameForm = (a, b) => JSON.stringify(cleanForm(a)) === JSON.stringify(cleanForm(b));
+
+// ---- WEEKLY-처음시작고르기(시안 docs/design/mockups/weekly-start-choice.html ★A안, 명진 11/17 "ㅇ"): 처음 여는 사람의 번호 4개 ----
+// 바탕(자료실 확정본)도 '내 양식'도 없는 사람의 첫 화면. 번호를 누르면 바로 저장하지 않고 [양식 수정] 화면(weekly-own-form-edit.js)을 그 모양으로 연다.
+// 채울 기록은 지금 초안 엔진(weekly-own-draft-model.mjs)이 실제로 채우는 것만: 표 칸은 columnKinds 규칙(사업명·조직 → 이름, 날짜 → 날짜, 진행·상황 → 내용,
+// 계획 → 빈칸)으로 맞춰진다. 미리보기 글은 모두 지어낸 예시(특정 노조·팀·사람 흔적 없음). filled: 그 주 기록에서 자동으로 채워지는 칸(노란 칸).
+// preview: [{title, lines:[{text, filled}]} | {columns, rows:[[{text, filled}]]}] — 글이 비면 '(직접)'.
+const pv = text => ({text, filled: true}), pvOwn = Object.freeze({text: '', filled: false});
+export const START_CHOICES = Object.freeze([
+  {key: 'simple', no: 1, name: '간단형', desc: '지난주 한 일 · 이번 주 할 일',
+    form: {v: FORM_VERSION, sections: [
+      {id: 's1', title: '지난주 한 일', level: 1, columns: [], fill: 'biz'},
+      {id: 's2', title: '이번 주 할 일', level: 1, columns: [], fill: 'blank'},
+      {id: 's3', title: '주요 일정', level: 1, columns: [], fill: 'schedule'},
+    ]},
+    preview: [{title: '1. 지난주 한 일', lines: [pv('- 11/10 새내기 교육 자료 정리'), pv('- 11/12 지역 순회 간담회')]}, {title: '2. 이번 주 할 일', lines: [pvOwn]}, {title: '3. 주요 일정', lines: [pv('- 11/18 운영위원회')]}]},
+  {key: 'biz', no: 2, name: '사업별 표', desc: '사업마다 진행 · 계획 칸',
+    form: {v: FORM_VERSION, sections: [{id: 's1', title: '사업별 진행', level: 1, columns: ['사업명', '진행', '계획'], fill: 'biz'}]},
+    preview: [{columns: ['사업명', '진행', '계획'], rows: [[pv('교육'), pv('1차 교육 마침'), pvOwn], [pv('소식지'), pv('이번 호 초안'), pvOwn]]}]},
+  {key: 'org', no: 3, name: '조직별', desc: '맡은 조직마다 상황 한 줄',
+    form: {v: FORM_VERSION, sections: [{id: 's1', title: '조직별 상황', level: 1, columns: ['조직', '날짜', '상황'], fill: 'org'}]},
+    preview: [{columns: ['조직', '날짜', '상황'], rows: [[pv('가 지회'), pv('11/11'), pv('새 대표 뽑음')], [pv('나 분회'), pv('11/13'), pv('모임 장소 바뀜')]]}]},
+  {key: 'own', no: 4, name: '직접 만들기', desc: '빈 양식에서 칸 이름을 내가 정함',
+    form: {v: FORM_VERSION, sections: []},
+    preview: [{title: '', lines: [{text: '항목 없음', filled: false}, {text: '+ 항목 추가', filled: false}]}]},
+]);
+export const START_DEFAULT = 'simple';
+// 번호 열쇠 → {form, name}. 직접 만들기는 빈 양식 + 기본 이름(지금까지의 [빈 양식에서 만들기]와 같음).
+export function startForm(key) {
+  const one = START_CHOICES.find(c => c.key === key) ?? START_CHOICES[0];
+  return {form: cleanForm(one.form), name: one.key === 'own' ? formName('') : formName(one.name)};
+}
