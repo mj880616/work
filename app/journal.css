@@ -142,6 +142,33 @@
 #appView #homeView .journal-weekly-blank.is-over{ border-color:var(--kptu-primary-ink); }
 #appView #homeView .journal-weekly-blank-line{ margin:0; font-size:var(--kptu-text-body); color:var(--kptu-ink); }
 #appView #homeView .journal-weekly-blank [data-weekly-blank-note]:empty{ display:none; }
+/* WEEKLY-처음시작고르기(시안 weekly-start-choice.html ★A안): 파일 한 줄 + 번호 4개(작은 미리보기) + [이 모양으로 시작]. 폰 1칸·폴드 2×2·PC 4칸 한 줄. */
+#appView #homeView .journal-weekly-start{ display:grid; gap:6px; }
+#appView #homeView .journal-weekly-start-file{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:6px 10px; border:1px dashed var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); }
+#appView #homeView .journal-weekly-start-file > .journal-muted{ font-size:var(--ds-compact-text,13px); }
+#appView #homeView .journal-weekly-start-file > button{ margin-left:auto; }
+#appView #homeView .journal-weekly-start-ask{ margin:6px 0 0; font-size:var(--kptu-text-body); font-weight:600; color:var(--kptu-ink); }
+#appView #homeView .journal-weekly-start-opts{ display:grid; grid-template-columns:minmax(0,1fr); gap:6px; }
+@media(min-width:600px){ #appView #homeView .journal-weekly-start-opts{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(min-width:1200px){ #appView #homeView .journal-weekly-start-opts{ grid-template-columns:repeat(4,minmax(0,1fr)); } }
+#appView #homeView .journal-weekly-start-opt{ display:block; min-width:0; margin:0; font-weight:400; color:var(--kptu-ink); padding:6px 8px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); cursor:pointer; }
+#appView #homeView .journal-weekly-start-opt.is-on{ border-color:var(--kptu-primary-ink); box-shadow:inset 0 0 0 1px var(--kptu-primary-ink); }
+#appView #homeView .journal-weekly-start-opt-head{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+#appView #homeView .journal-weekly-start-opt-head input{ margin:0; flex:none; }
+#appView #homeView .journal-weekly-start-opt-head small{ font-size:var(--ds-compact-text,12px); }
+#appView #homeView .journal-weekly-start-pv{ display:grid; gap:1px; margin-top:4px; padding:4px 6px; border:1px solid var(--kptu-border); border-radius:4px; background:var(--kptu-bg, var(--kptu-surface)); font-size:11px; line-height:1.45; color:var(--kptu-ink); overflow:hidden; }
+#appView #homeView .journal-weekly-start-pv > b{ margin-top:2px; font-size:11px; }
+#appView #homeView .journal-weekly-start-pv > b:first-child{ margin-top:0; }
+#appView #homeView .journal-weekly-start-pv table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:10.5px; }
+#appView #homeView .journal-weekly-start-pv th,#appView #homeView .journal-weekly-start-pv td{ border:1px solid var(--kptu-border); padding:1px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; }
+#appView #homeView .journal-weekly-start-pv th{ background:var(--kptu-surface-subtle); font-weight:600; }
+#appView #homeView .journal-weekly-start-pv .is-filled{ background:var(--kptu-warning-soft); }
+#appView #homeView .journal-weekly-start-pv .is-own{ color:var(--kptu-muted); }
+#appView #homeView .journal-weekly-start-foot{ display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px 8px; margin-top:2px; }
+#appView #homeView .journal-weekly-start-foot > .journal-muted{ flex:1 1 14em; }
+#appView #homeView .journal-weekly-blank-saved{ display:flex; align-items:center; gap:6px; }
+#appView #homeView .journal-weekly-blank-saved > .journal-weekly-blank-line{ flex:1; min-width:0; }
+#appView #homeView .journal-weekly-blank-saved > .row-more{ flex:none; }
 /* WEEKLY-내양식자유변형 ③: 내 양식 확인·짝짓기(weekly-own-form-edit.js). 자리(간격·줄)만 — 버튼·칩·고르기 상자 모양은 공용 부품. */
 #appView #homeView .journal-own-form{ margin-top:8px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); }
 #appView #homeView .journal-own-form-head{ margin:0; padding:8px 10px; display:flex; gap:8px; align-items:baseline; border-bottom:1px solid var(--kptu-border); font-size:var(--kptu-text-body); }
@@ -331,6 +358,8 @@
   #appView #homeView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
   /* S52-34 UI-전체정리(주간 정리): '■ 일시 … ⋯' 줄이 두 칸 중 왼쪽 칸에만 있어 ⋯이 화면 가운데에 떠 있던 것 → 두 칸 폭 전체, ⋯은 오른쪽 끝. */
   #appView #homeView .journal-weekly-body > .weekly-flow-top{ grid-column:1 / -1; }
+  /* WEEKLY-처음시작고르기: 바탕 없는 사람의 상자(처음 고르기·양식 수정·내 양식 초안)는 왼쪽 칸에만 붙어 오른쪽이 비던 것 → 두 칸 폭 전체. */
+  #appView #homeView .journal-weekly-body > .journal-weekly-blank{ grid-column:1 / -1; }
   #appView #homeView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
   #appView #homeView .journal-weekly-date{ grid-column:1/-1; }
 }
