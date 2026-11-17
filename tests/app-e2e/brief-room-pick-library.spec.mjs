@@ -58,7 +58,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-880', 880,
     const list = page.locator('#briefView [data-br-list]');
     await expect(list.locator('.br-row')).toHaveCount(1);
     const opener = list.locator('[data-br-pick-lib]');
-    await expect(opener).toHaveText('자료실에서 고르기');
+    await expect(opener).toHaveText('자료실에서 선택');
     await opener.click();
     const picker = page.locator('#brLibPicker');
     await expect(picker).toBeVisible();

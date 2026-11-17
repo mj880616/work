@@ -86,7 +86,7 @@ function drawList(){
   const box=view()?.querySelector('[data-br-list]');if(!box)return;
   const head=el('div','br-head');
   // 같은 단추 하나를 다시 붙인다: 진행 중 다시 그리기(4초마다)에도 고르기 창이 단추를 잃고 닫히지 않게.
-  const fromLib=libButton??=(()=>{const b=btn('br-pick-lib mini','자료실에서 고르기',{brPickLib:'1'});b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-expanded','false');return b})();
+  const fromLib=libButton??=(()=>{const b=btn('br-pick-lib mini','자료실에서 선택',{brPickLib:'1'});b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-expanded','false');return b})();
   head.append(el('h2','br-title','브리핑 룸'),fromLib,btn('br-add mini','자료 넣기',{brAdd:'1'}));
   const rowsNow=roomRows();
   if(pick.prune(rowsNow.map(r=>r.doc.id))&&!pick.size)pick.stop();
@@ -298,10 +298,10 @@ async function openLibraryPick(anchor){
   }catch{toast('자료실 자료를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',true);return}
   finally{anchor.disabled=false}
   if(!anchor.isConnected)return;
-  libPicker??=createMovePicker({esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),id:'brLibPicker',label:'자료실에서 고르기',findLabel:'자료 이름 찾기',foot:false,currentTag:'이미 있음',folderIcons:false});
+  libPicker??=createMovePicker({esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),id:'brLibPicker',label:'자료실에서 선택',findLabel:'자료 이름 찾기',foot:false,currentTag:'이미 있음',folderIcons:false});
   const inRoom=new Set(roomRows().map(r=>r.doc.id));
   anchor.setAttribute('aria-expanded','true');
-  libPicker.open({anchor,place:'below',history:!wide(),multi:true,sections:PICK_SECTIONS,doneLabel:n=>n?`넣기 ${n}개`:'넣을 자료를 골라 주세요',
+  libPicker.open({anchor,place:'below',history:!wide(),multi:true,sections:PICK_SECTIONS,doneLabel:n=>n?`넣기 ${n}개`:'넣을 자료를 선택해 주세요',
     rows:query=>libraryPickRows({docs:libDocs,inRoom,query}),
     onPickMany:ids=>putPicked(ids),
     onClosed:()=>{if(anchor.isConnected)anchor.setAttribute('aria-expanded','false')}});
