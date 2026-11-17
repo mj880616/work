@@ -122,7 +122,8 @@ test('폰 390: 상세 창(제목 줄, 입력칸 안 ⤢·[저장] 32px, 줄마�
  expect(await menu.evaluate(m=>!!m.closest('#wdModal'))).toBe(true);
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(modal).toBeVisible();
  const order=await modal.locator('.wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-body > .wd-sec')].map(sec=>sec.id||sec.querySelector('h3')?.textContent?.trim()));
- expect(order.slice(0,4)).toEqual(['wdTasks','wdDocs','wdReports','wdLog']);
+ // UI-상세기록맨위(S64-19): 폰 창도 PC 칸과 같은 순서 — 입력칸 바로 아래 기록.
+ expect(order.slice(0,4)).toEqual(['wdLog','wdTasks','wdDocs','wdReports']);
  await expect(modal.locator('#wdDocBody [data-wait-empty]')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
