@@ -10,7 +10,6 @@ import {newId} from './weekly-exec-requests.js';
 export const DISCUSS_MAX = 20;
 // WEEKLY-요청사항버튼정리(11/01 01:09 명진: 상집 논의 요청은 글이 많고 복붙이 많음): 안건·설명은 여러 줄 글(줄바꿈 그대로), 길이도 늘림.
 export const DISCUSS_LIMITS = Object.freeze({title:200, note:1000, org:120});
-export const DISCUSS_TITLE = '3) 상집 논의 요청';
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
 const one = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
 // 여러 줄: 줄마다 한 줄처럼 다듬고(앞뒤 빈칸·제어 문자), 빈 줄은 두 개 이상 잇지 않으며 맨 앞·끝 빈 줄은 뺀다.

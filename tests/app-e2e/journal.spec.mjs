@@ -677,15 +677,15 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  const lines=text.split('\n');
  expect(lines.slice(0,2)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)']);
- expect(lines.filter(l=>/^(\d\. |참고$)/.test(l))).toEqual(['1. 요청사항','2. 기본·영역·의제 사업','4. 산하 조직 현황','5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))','참고']);
+ expect(lines.filter(l=>/^(\d\. |참고$)/.test(l))).toEqual(['1. 요청사항','2. 기본․영역․의제 사업','4. 산하조직 현황','5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))','참고']);
  expect(lines.filter(l=>l.startsWith('■ '))).toEqual(['■ 일시 : 2026년 10월 12일(월)']);expect(lines.some(l=>l.startsWith('한 줄: '))).toBe(false);
  const part=title=>{const at=lines.indexOf(title);return lines.slice(at+1,lines.indexOf('',at));};
  expect(part('1. 요청사항')).toEqual(['1) 임원 배정 요청 (일 | 시간/내용/장소 | 참석 요청)','(요청 없음)','2) 주요 일정: (비워 둠)','3) 상집 논의 요청: (비워 둠)']);
  // 2. 사업: 프로젝트 기록(프로젝트 트리 — 이 fixture에서는 홈 모의 트리의 사업영역 한 개) → 회의·행사 결과.
- expect(part('2. 기본·영역·의제 사업')).toEqual(['1) 요약','◦ 테스트 프로젝트','- 10월 6일(화) 진행상황 업데이트','2) 세부 내용 — 회의·활동 결과','- 10월 6일(화) 14:00 가상 기자회견','- 10월 8일(목) 10:00 운영위원회 3차']);
+ expect(part('2. 기본․영역․의제 사업')).toEqual(['1) 요약','◦ 테스트 프로젝트','- 10월 6일(화) 진행상황 업데이트','2) 세부 내용 — 회의·활동 결과','- 10월 6일(화) 14:00 가상 기자회견','- 10월 8일(목) 10:00 운영위원회 3차']);
  expect(text).not.toContain('미분류: 가상 사업');
  // 4. 산하 조직 현황: 조직 이름별, 업데이트 하나는 한 줄.
- expect(part('4. 산하 조직 현황')).toEqual(['1) 요약','◦ 가상 노동조합','- 10월 6일(화) 안녕하세요 위원장님','◦ 나 지역 모임','- 10월 6일(화) 조직 화면에서 쓴 업데이트','- 10월 7일(수) 수요일 0시 기록','◦ 미분류','- 10월 6일(화) 현장 간담회 메모']);
+ expect(part('4. 산하조직 현황')).toEqual(['1) 요약','◦ 가상 노동조합','- 10월 6일(화) 안녕하세요 위원장님','◦ 나 지역 모임','- 10월 6일(화) 조직 화면에서 쓴 업데이트','- 10월 7일(수) 수요일 0시 기록','◦ 미분류','- 10월 6일(화) 현장 간담회 메모']);
  // 5. 주요 일정: 다음 주 월요일부터 2주, 양식 칸 모양, 휴가는 ※ 줄, 일기 표시 일정은 없다. 이번 주 일정(하루 카드의 일정)은 없다.
  expect(part('5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))')).toEqual(['- 10.13.(화) 10:30 / 가상 다음 주 회의 / 가상 회의실','- 10.14.(수) ~ 10.15.(목) 종일 / 가상 수련회','※ 휴가: 10/23(금) 연차']);
  expect(text).not.toContain('가상 개인 약속');expect(text).not.toContain('가상 아스날 경기');expect(text).not.toContain('일기 쓰는 날');expect(text).not.toContain('가상 셋째 주 집회');expect(text).not.toContain('오전 일정');expect(text).not.toContain('가상 생일 모임');
@@ -717,7 +717,7 @@ test('[업무일지] 내 담당 조직만 이름별, 담당 밖·쉬는 조직 �
  await copyDraft(page);
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간 보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
- const four=lines.indexOf('4. 산하 조직 현황'),orgLines=lines.slice(four+2,lines.indexOf('',four)).filter(l=>!l.includes('10월 7일'));
+ const four=lines.indexOf('4. 산하조직 현황'),orgLines=lines.slice(four+2,lines.indexOf('',four)).filter(l=>!l.includes('10월 7일'));
  expect(orgLines).toEqual(['◦ 가상 노동조합','- 10월 6일(화) 안녕하세요 위원장님','◦ 나 지역 모임','- 10월 6일(화) 조직 화면에서 쓴 업데이트',
   '◦ 그 외','- 10월 6일(화) 다 바깥 모임 · 바깥 모임 기록','- 10월 6일(화) 라 쉬는 모임 · 쉬는 모임 기록','◦ 미분류','- 10월 6일(화) 현장 간담회 메모']);
  expect(f.errors).toEqual([]);
@@ -1055,7 +1055,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 5일 월요일 ~ 10월 11일 일요일');
- await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','3. 투쟁 사업장 현황','4. 산하 조직 현황','5. 주요 일정']); // WEEKLY-한흐름확정 ②: 3절이 흐름 안으로
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본․영역․의제 사업','3. 투쟁 사업장 현황','4. 산하조직 현황','5. 주요 일정']); // WEEKLY-한흐름확정 ②: 3절이 흐름 안으로
  // WEEKLY-주간정리다듬기 ④: '참고 — 보고서 칸 밖 재료' 묶음은 없다. 배운 것(기억·규칙)은 ⋯ [배운 것 보기]를 눌러야 보인다.
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="notes"]')).toHaveCount(0);
  await expect(page.locator('#journalRoot [data-journal-weekly-learned]')).toBeHidden();
@@ -3080,7 +3080,7 @@ for(const width of [390,1280])test(`[주간 정리] 4. 조직보고(옛 주): �
  // 복사: 넣은 줄 그대로.
  await confirmMore(page,'[data-hwpx-copy]');
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
- const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('4. 산하 조직 현황');
+ const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('4. 산하조직 현황');
  expect(lines.slice(at+2,at+5)).toEqual(['◦ 가상 노동조합','- 10.6. 가상 교섭 상견례','- 10.7. 가상 찬반투표 간담회']);
  expect(f.db.posts).toEqual([]);expect(f.db.patches).toEqual([]);
  expect(f.ai.filter(x=>['org_summary','org_week_lines'].includes(x.kind))).toEqual([]);

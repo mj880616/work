@@ -1,5 +1,6 @@
 // WEEKLY-한흐름확정 ⑤ 남은 부분: 손으로 더한 줄(app/weekly-hand.mjs — draft.hand: 5. 주요 일정·참고)과 칸 줄 밖 동작 기록(weekly-draft-store.js withLinePick).
 // 이름·일정·글은 모두 가짜.
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readHand, handRows, withHandRow, withoutHandRow, withHandCalendar, handText, handId, HAND_CALENDAR_MAX, HAND_NOTE_MAX} from '../app/weekly-hand.mjs';
@@ -102,7 +103,7 @@ test('주간 정리 모델·복사 글: 손 줄은 5. 주요 일정 줄과 참�
   assert.deepEqual(model.hand.notes, [N1]);
   assert.deepEqual(model.hand.calendar.map(r => r.title), ['가상 손 일정']);
   assert.deepEqual(model.calendar.rows.map(r => [r.label, r.items.map(i => i.what)]), [['10.13.(화)', ['15:00 / 가상 손 일정']]]);
-  const text = weekly.weeklyReportText(model);
+  const text = reportText(model);
   assert.match(text, /5\. 주요 일정[^\n]*\n- 10\.13\.\(화\) 15:00 \/ 가상 손 일정/);
   assert.match(text, /◦ 내 메모\n- 가상 메모 한 줄/);
   assert.ok(text.indexOf('◦ 내 메모') > text.indexOf('\n참고'));

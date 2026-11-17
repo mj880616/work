@@ -124,7 +124,7 @@ for (const width of [390, 1280]) {
     const memo = lines.indexOf('◦ 기타 메모'), unsorted = lines.indexOf('◦ 미분류');
     expect(memo).toBeGreaterThan(lines.indexOf('참고'));
     expect(lines[memo + 1]).toBe('- 10월 6일(화) 합성 기타 메모 하나');
-    expect(unsorted).toBeGreaterThan(lines.indexOf('4. 산하 조직 현황'));
+    expect(unsorted).toBeGreaterThan(lines.indexOf('4. 산하조직 현황'));
     expect(lines[unsorted + 1]).toBe('- 10월 6일(화) 합성 미분류 업데이트');
     expect(lines.filter(l => l.includes('합성 기타 메모 하나'))).toHaveLength(1);
     // [업무일지에서 빼기] from the row ⋯ removes only the mark: back in 미분류, and the journal has no 기타 메모 box.
