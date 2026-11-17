@@ -1,0 +1,117 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 주간 보고 처음 시작 고르기 (WEEKLY-처음시작고르기)</title>
+<!-- 예시 조직·사업·일정 글은 모두 지어낸 것이다(실제 노조·사람·업무 내용 금지). 특정 팀 양식 흔적 없음(11/15 명진 결정). -->
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+*{box-sizing:border-box}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23;font-size:13px}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px;max-width:60em}
+.plan{margin:18px 0 6px;font-size:13px;font-weight:700}.plan small{font-weight:400;color:#6e6c60}
+.plan .star{color:#b8663a}
+.shots{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+/* 화면 하나 = 기기 폭 하나. 폭에 따라 안쪽 배치가 바뀐다(폰·폴드·PC). */
+.scr{container-type:inline-size;flex:1 1 360px;max-width:100%;background:#f7f5ef;border:1px solid #d8d2c2;border-radius:12px;overflow:hidden}
+.scr.wide{flex-basis:100%}
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #e2ddd0;background:#fffefa}
+.top b{font-size:14px}.top span{margin-left:auto;color:#6e6c60;font-size:12px}
+.body{padding:10px 12px 12px}
+.q{font-weight:700;font-size:13px;margin:2px 0 6px}
+.q i{font-style:normal;font-weight:400;color:#6e6c60;font-size:12px}
+.line{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;background:#fffefa;border:1px solid #e2ddd0;border-radius:8px;padding:7px 10px;color:#5b5a4e;font-size:12.5px}
+.line .tx{flex:1 1 14em}
+.drop{border-style:dashed}
+.btn{display:inline-flex;align-items:center;height:28px;white-space:nowrap;border:1px solid #cfc8b6;border-radius:6px;padding:0 10px;background:#fffefa;font-size:12.5px;color:#2a2a23}
+.btn.go{background:#4d5a2e;border-color:#4d5a2e;color:#fff;height:32px}
+.btn.txt{border:0;background:none;color:#6e6c60;padding:0 4px;font-size:11.5px}
+.small{font-size:11.5px;color:#6e6c60;line-height:1.5}
+.gap{height:10px}
+/* 번호 고르기 */
+.opts{display:grid;grid-template-columns:1fr;gap:6px}
+@container (min-width:600px){.opts{grid-template-columns:1fr 1fr}}
+@container (min-width:1000px){.opts{grid-template-columns:repeat(4,1fr)}.body{max-width:1180px;margin:0 auto}}
+.opt{background:#fffefa;border:1px solid #e2ddd0;border-radius:8px;padding:7px 9px}
+.opt.on{border-color:#9aa77a;background:#f4f5ec;box-shadow:inset 0 0 0 1px #9aa77a}
+.oh{display:flex;align-items:baseline;gap:6px}
+.oh .r{width:13px;height:13px;border:1.5px solid #9a9480;border-radius:50%;flex:none;align-self:center}
+.opt.on .oh .r{border-color:#4d5a2e;background:radial-gradient(#4d5a2e 45%,transparent 50%)}
+.oh b{font-size:13px}.oh small{color:#6e6c60;font-size:11.5px}
+/* 작은 미리보기(지어낸 글) */
+.pv{margin-top:5px;background:#fff;border:1px solid #e6e2d6;border-radius:5px;padding:5px 7px;font-family:"Noto Serif KR",serif;font-size:10.5px;line-height:1.45;color:#3a3a32}
+.pv h5{margin:3px 0 1px;font-size:10.5px}
+.pv h5:first-child{margin-top:0}
+.pv table{border-collapse:collapse;width:100%;font-size:10px}.pv td,.pv th{border:1px solid #aaa49a;padding:1px 4px;text-align:left;vertical-align:top}.pv th{background:#efede6;font-weight:600}
+.pv .f{background:#fff6cf}
+.pv .e{color:#a9a493}
+.pv.big{font-size:12px;padding:8px 10px}.pv.big h5{font-size:12px}.pv.big table{font-size:11.5px}
+.foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:10px}
+.foot .s{flex:1 1 16em}
+/* C안 칩 */
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.chip{border:1px solid #cfc8b6;border-radius:999px;padding:3px 10px;background:#fff;font-size:12px}
+.chip.on{background:#e7ead9;border-color:#9aa77a;font-weight:600}
+/* B안 두 단계 */
+.steps{display:grid;grid-template-columns:1fr;gap:10px}
+@container (min-width:600px){.steps{grid-template-columns:1fr 1fr}}
+.stepcap{font-size:11px;color:#8b8776;margin:0 0 4px}
+.yn{display:flex;gap:6px;margin-top:6px}
+.list .opt{display:block;margin-bottom:5px}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;margin-top:16px;max-width:62em}
+.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 주간 보고 — 처음 여는 사람의 첫 화면 고르기</h1>
+<p class="note">대상: 자료실 확정본(바탕)도, 저장한 '내 양식'도 없는 사람. 이미 '내 양식'이 있거나 바탕이 있는 사람(명진 포함)에게는 이 화면이 나오지 않는다. 미리보기 글은 모두 지어낸 예시. <span style="background:#fff6cf">노란 칸</span>은 그 주 기록에서 자동으로 채워지는 곳, 회색 '(직접)'은 빈칸으로 두고 사람이 쓰는 곳.</p>
+
+<div id="out"></div>
+
+<div class="legend">
+<b>공통 흐름</b> ① 예전 주간 보고 한글 파일(.hwp·.hwpx)이 있으면 올림 → 그 파일에서 항목·표 칸을 읽어 [양식 수정] 화면으로 열고, 저장하면 '내 양식'이 됨(지금 있는 길 그대로). ② 파일이 없으면 번호 1~4 중 하나를 고름 → 같은 [양식 수정] 화면이 그 모양으로 채워져 열림 → 칸 이름을 손본 뒤 [저장].<br>
+<b>읽을 수 있는 형식</b> 한글 .hwpx, 한글 .hwp(옛 형식은 .hwpx로 바꿔 읽음). 워드(.docx)·PDF·엑셀은 지금 못 읽음 → 화면에 적지 않음(나중).<br>
+<b>나중에 바꾸기</b> 저장한 뒤에는 주간 보고 맨 위 '내 양식 · 이름 · 항목 n개 [양식 수정]' 줄이 생긴다. 칸·항목은 [양식 수정]에서, 처음부터 다른 번호로 바꾸려면 그 줄 ⋯ → [다른 모양 고르기](이 화면을 다시 엶).<br>
+<b>번호별로 채워지는 것(지금 엔진)</b> 1 간단형: 지난주 한 일 = 사업 보고, 이번 주 할 일 = 직접, 주요 일정 = 일정. 2 사업별 표: 사업명·진행 = 사업 보고(기록 하나가 한 줄), 계획 = 직접. 3 조직별: 조직·날짜·상황 = 조직 보고(기록 하나가 한 줄). 4 직접 만들기: 빈 양식.
+</div>
+
+<script>
+const OPTS = [
+  {n:1, name:'간단형', desc:'지난주 한 일 · 이번 주 할 일', pv:`<h5>1. 지난주 한 일</h5><div class="f">- 11/10 새내기 교육 자료 정리<br>- 11/12 지역 순회 간담회</div><h5>2. 이번 주 할 일</h5><div class="e">(직접)</div><h5>3. 주요 일정</h5><div class="f">- 11/18 운영위원회</div>`},
+  {n:2, name:'사업별 표', desc:'사업마다 진행 · 계획 칸', pv:`<table><tr><th>사업명</th><th>진행</th><th>계획</th></tr><tr><td class="f">교육</td><td class="f">1차 교육 마침</td><td class="e">(직접)</td></tr><tr><td class="f">소식지</td><td class="f">11월호 초안</td><td class="e">(직접)</td></tr></table>`},
+  {n:3, name:'조직별', desc:'맡은 조직마다 상황 한 줄', pv:`<table><tr><th>조직</th><th>날짜</th><th>상황</th></tr><tr><td class="f">가 지회</td><td class="f">11/11</td><td class="f">새 대표 뽑음</td></tr><tr><td class="f">나 분회</td><td class="f">11/13</td><td class="f">모임 장소 바뀜</td></tr></table>`},
+  {n:4, name:'직접 만들기', desc:'빈 양식에서 칸 이름을 내가 정함', pv:`<div class="e">항목 없음</div><div style="color:#4d5a2e">+ 항목 더하기</div><div class="e">항목 이름·표 칸·채울 기록을 직접</div>`},
+];
+const head = '<div class="top"><b>주간 보고</b><span>11/16 – 11/22</span></div>';
+const fileLine = (extra='') => `<div class="line drop"><span class="tx">예전에 쓴 주간 보고 파일이 있나요? 올리면 그 모양 그대로 만들어요. <span class="small">한글(.hwpx·.hwp) · 끌어 놓아도 돼요</span></span><span class="btn">파일 올리기</span>${extra}</div>`;
+const opt = (o, on, pv=true) => `<div class="opt${on?' on':''}"><div class="oh"><span class="r"></span><b>${o.n}. ${o.name}</b><small>${o.desc}</small></div>${pv?`<div class="pv">${o.pv}</div>`:''}</div>`;
+const later = '<span class="s small">고른 모양은 나중에 [양식 수정]에서 고치거나 다른 번호로 바꿀 수 있어요.</span>';
+
+// A안 ★: 한 화면 — 위 파일 줄, 아래 번호 4개(각자 작은 미리보기), 아래 [이 모양으로 시작]
+const A = () => `${head}<div class="body">${fileLine()}<div class="gap"></div>
+<p class="q">파일이 없으면, 어떤 모양으로 만들까요?</p>
+<div class="opts">${OPTS.map((o,i)=>opt(o,i===0)).join('')}</div>
+<div class="foot">${later}<span class="btn go">이 모양으로 시작</span></div></div>`;
+
+// B안: 두 단계 — 먼저 묻고(있어요/없어요), 없으면 번호 목록(미리보기는 고른 것만)
+const B = () => `${head}<div class="body"><div class="steps">
+<div><p class="stepcap">첫 화면</p><p class="q">예전에 쓴 주간 보고 파일이 있나요?</p>
+<div class="line drop"><span class="tx small">있으면 올려 주세요. 그 모양 그대로 만들어요. 한글(.hwpx·.hwp) · 끌어 놓아도 돼요</span></div>
+<div class="yn"><span class="btn">파일 올리기</span><span class="btn">없어요</span></div></div>
+<div><p class="stepcap">[없어요]를 누른 뒤</p><p class="q">어떤 모양으로 만들까요? <span class="btn txt">‹ 뒤로</span></p>
+<div class="list">${OPTS.map((o,i)=>opt(o,i===1,i===1)).join('')}</div>
+<div class="foot">${later}<span class="btn go">이 모양으로 시작</span></div></div>
+</div></div>`;
+
+// C안: 가장 촘촘 — 파일 한 줄, 번호는 칩 한 줄, 아래 큰 미리보기 하나(고른 번호)
+const C = () => `${head}<div class="body">${fileLine()}<div class="gap"></div>
+<p class="q">없으면 모양 고르기 <i>— 눌러 보면 아래 미리보기가 바뀌어요</i></p>
+<div class="chips">${OPTS.map((o,i)=>`<span class="chip${i===2?' on':''}">${o.n} ${o.name}</span>`).join('')}</div>
+<div class="small" style="margin:0 0 4px">${OPTS[2].desc}</div>
+<div class="pv big"><h5>1. 조직별 상황</h5>${OPTS[2].pv}</div>
+<div class="foot">${later}<span class="btn go">이 모양으로 시작</span></div></div>`;
+
+const PLANS = [['A', '★A안 — 한 화면에 둘 다(추천)', '파일 줄 아래에 번호 4개와 작은 미리보기를 한꺼번에. 누르는 횟수 최소(고르기 1번 + 시작 1번).', A],
+               ['B', 'B안 — 차례로 묻기', '먼저 "파일 있나요?" → [없어요]를 누르면 번호 목록. 미리보기는 고른 번호만 펼침. 질문이 하나씩이라 헷갈림이 적지만 한 번 더 누름.', B],
+               ['C', 'C안 — 가장 촘촘', '번호는 칩 한 줄, 미리보기는 고른 것 하나만 크게. 화면이 가장 짧지만 다른 번호 모양은 눌러 봐야 보임.', C]];
+const only = new URLSearchParams(location.search).get('plan');
+document.getElementById('out').innerHTML = PLANS.filter(p => !only || p[0] === only).map(([k, t, d, f]) =>
+  `<p class="plan">${k==='A'?'<span class="star">'+t+'</span>':t} <small>${d}</small></p><div class="shots"><div class="scr wide" data-plan="${k}">${f()}</div></div>`).join('');
+</script>
+</body></html>
