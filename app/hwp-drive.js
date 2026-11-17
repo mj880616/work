@@ -3,7 +3,7 @@
 // - 새 파일로 저장(기본): 자료실은 library-files로 새 자료 등록, 바구니는 basket-files로 같은 메모에 첨부 추가.
 // 어떤 요청도 자동으로 다시 보내지 않는다. 400대 거절은 "바뀐 것 없음", 시간 초과·5xx·응답 이상은 "결과 불명"이다.
 // 서버가 아직 배포되지 않았으면 열기가 거절되어 편집기에 Drive 파일이 들어오지 않으므로 아무것도 바뀌지 않는다.
-import {weeklySaveCategory,weeklyCategoryLabel,loadDocumentCategories,documentCategories,addDocumentCategory} from './document-categories.js'; // S53-16: '개인 확정본' 역할 분류(이름이 바뀌어도 표식으로)로 저장
+import {weeklySaveCategory,weeklyCategoryOf,weeklyCategoryLabel,loadDocumentCategories,documentCategories,documentCategoriesLoaded,addDocumentCategory,categoryParent,WEEKLY_PERSONAL_CATEGORY} from './document-categories.js'; // S53-16: '개인 확정본' 역할 분류(이름이 바뀌어도 표식으로)로 저장
 import {sendUpload} from './upload-send.mjs';
 import {trackUpload} from './upload-progress.js';
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 자료실에 새로 등록된 파일 안 글자를 서버가 한 번 읽어 둠
@@ -224,8 +224,20 @@ export async function saveUnionForm(file,{title}={},{rt=window.KPTURuntime,fetch
 // the owner's Drive library folder under drive.file, one private app_documents row). Title, category and date are given, so
 // the server does not read the content to guess a title. One request, never repeated; an unknown outcome says to check first.
 // S53-16 WEEKLY-분류이름바뀜: 저장 분류는 이름 글자가 아니라 '개인 확정본' 역할(document-categories.js weeklySaveCategory). 내 분류 목록을 먼저 읽는다(한 번만, 못 읽으면 옛 이름).
+// LIB-기본분류흔적빼기(명진 11/17): 주간보고 분류는 기본 목록에 없다. 처음 [확정] 저장할 때 내 목록에 '개인 확정본' 역할 분류가 없으면
+// 그때 기존 분류 추가 함수(app_document_category_add)로 '주간보고'·'주간보고›개인 확정본'을 더한다(있는 것은 건너뜀).
+// 목록을 못 읽었거나 30개가 찼거나 추가가 실패해도 저장은 막지 않는다(옛 이름으로 저장되고 바탕 찾기는 옛 이름도 찾음).
+export async function ensureWeeklyPersonalCategory({rt=window.KPTURuntime}={}){
+  try{await loadDocumentCategories({rt});}catch{return false}
+  if(!documentCategoriesLoaded())return false; // 내 목록을 모르면 더하지 않는다(분류 고치기 창과 같은 규칙)
+  if(weeklyCategoryOf('personal'))return true;
+  const parent=categoryParent(WEEKLY_PERSONAL_CATEGORY),missing=[parent,WEEKLY_PERSONAL_CATEGORY].filter(name=>!documentCategories().includes(name));
+  if(documentCategories().length+missing.length>30)return false;
+  for(const name of missing){try{if((await addDocumentCategory(name,{rt})).ok!==true)return false;}catch{return false}}
+  return !!weeklyCategoryOf('personal');
+}
 export async function saveWeeklyReport(bytes,{fileName,title,documentDate},{rt=window.KPTURuntime,fetcher}={}){
-  try{await loadDocumentCategories({rt});}catch{/* 못 읽으면 옛 이름으로 저장하고 꼬리표는 지금 이름으로 보인다 */}
+  await ensureWeeklyPersonalCategory({rt});
   const category=weeklySaveCategory('personal');
   const form=new FormData();
   form.append('file',new File([bytes],fileName,{type:/\.hwpx$/i.test(fileName)?'application/hwp+zip':'application/x-hwp'}));
