@@ -4,6 +4,8 @@
 //  - 화면이 덧붙이는 설명('— 회의·활동 결과')·화면 묶음('3. 투쟁 사업장 현황' = 큰 항목 번호 + 작은 항목 글)은 profile 글로 조립한다.
 // 화면·서버 없는 순수 함수(node 시험이 부른다).
 
+import {groupNames} from './weekly-group-names.mjs';
+
 const text = s => String(s ?? '').trim();
 // '3. 투쟁 사업' → '3.' / '2) 투쟁 사업장 현황' → '2)'. 번호가 없으면 ''.
 export const headNumber = s => /^\s*(\(?\d+[.)])/.exec(text(s))?.[1] ?? '';
@@ -32,5 +34,7 @@ export function screenTitles(profile) {
     atDiscuss: join(big('requests'), t.discuss),
     atDetails: join(big('work'), t.details),
     atSites: join(big('struggle'), t.siteTable),
+    // ⑤-3d: 학습 묶음 이름(칸별 '그대로 쓴 비율'·안 내는 제안 이름) — 같은 profile 제목에서(weekly-group-names.mjs, 서버와 같은 사본).
+    groups: groupNames(t),
   });
 }

@@ -12,6 +12,7 @@
 // - 학습: 지난 주들 + 이번 주 picks 를 모아 '종류'(sig = 제안 종류|출처|칸)마다 거절·받음을 센다. 여러 주에 걸쳐 계속 거절한 종류는
 //   '거절해서 안 내는 것'이 되어 다음 제안에서 빠지고(접힌 '뺀 제안'에는 남음), 받은 종류는 앞에 놓인다. [풀기]는 그 종류의 지난 셈을 지운다.
 // - 브라우저 저장소에 아무것도 두지 않는다. 글은 로그에 쓰지 않는다.
+import {GROUP_KEYS, groupKeyOf, groupNameOf, groupNames} from './weekly-group-names.mjs';
 
 export const PICK_KIND = Object.freeze({material:'칸 후보', calendar:'캘린더 추천', unmatched:'줄 못 찾은 기록', mismatch:'본문·일정표 다름', ai_line:'AI 줄 제안', review:'환류 규칙 후보',
   doc:'자료 줄', org_ai:'조직 AI 요약', ai_draft:'AI 초안 줄', line:'보고서 줄', carried:'지난주 줄', work_line:'오늘 한 일 줄'});
@@ -50,9 +51,10 @@ const time = s => { const t = Date.parse(s ?? ''); return Number.isFinite(t) ? t
 export const pickKey = ({kind, cell = '', text = ''}) => `${kind}|${cut(cell, PICK_CELL)}|${squash(text).slice(0, 120)}`;
 // 제안 '종류' — 학습 단위. 같은 칸에 같은 출처의 같은 종류 제안.
 export const sigOf = ({kind, from = '', cell = ''}) => `${kind}|${from}|${cut(cell, PICK_CELL)}`;
-export function sigLabel(sig) {
+// names: 묶음 이름(weekly-group-names.mjs groupNames — '내 양식' 제목, 없으면 일반적인 말). 칸 안 이름(사업영역·조직)은 그대로.
+export function sigLabel(sig, names = groupNames(null)) {
   const [kind, from, ...rest] = String(sig).split('|'), cell = rest.join('|');
-  const where = cell.replace(/^(summary|orgs|sites):/, '').replace(/^requests:(ask|hq|discuss)$/, (_, k) => ({ask:'1. 1) 임원 배정 요청', hq:'1. 2) 주요 일정', discuss:'1. 3) 상집 논의 요청'})[k]).replace(/^calendar$/, '5. 주요 일정').replace(/^notes$/, '참고').replace(/^details$/, '2. 2) 세부 내용').replace('›', ' › ');
+  const where = cell.replace(/^(summary|orgs|sites):/, '').replace(/^requests:(ask|hq|discuss)$/, (_, k) => names[k]).replace(/^calendar$/, names.calendar).replace(/^notes$/, names.notes).replace(/^details$/, names.detailsAt).replace('›', ' › ');
   return [PICK_KIND[kind] ?? kind, PICK_FROM[from], where].filter(Boolean).join(' · ');
 }
 
@@ -127,19 +129,19 @@ export const keptOf = picks => new Set((readPicks(picks)?.items ?? []).filter(x 
 
 // ---- 칸별 '그대로 쓴 비율'(WEEKLY-환류전칸 3) ----
 // 서버 weekly-learn.ts actionDigest 와 같은 묶음·같은 셈: 묶음마다 넣음 / (넣음 + 고쳐서 넣음 + 뺌). 규칙 후보·개선 제안·기타는 칸이 아니라 뺀다.
-// 반환 [{group, percent(0~100 | null), answered(답한 제안 수)}] — 보고서 칸 순서(1→5, 참고).
-export const PICK_GROUPS = Object.freeze(['1. 요청사항', '2. 사업 요약', '2. 세부 내용', '3. 투쟁 사업장', '4. 산하 조직', '5. 주요 일정', '참고']);
-// 'details' = 2) 세부 내용 — 회의·활동 결과 줄(WEEKLY-환류전칸 S48-35, 서버 weekly-learn.ts groupOf 와 같은 이름).
-export const pickGroup = ({cell = ''}) => cell.startsWith('summary:') ? '2. 사업 요약' : cell === 'details' ? '2. 세부 내용' : cell.startsWith('orgs:') || cell.startsWith('orgref:') ? '4. 산하 조직' : cell.startsWith('sites:') ? '3. 투쟁 사업장'
-  : cell.startsWith('requests:') ? '1. 요청사항' : cell === 'calendar' ? '5. 주요 일정' : cell === 'notes' || cell.startsWith('notes:') ? '참고' : cell === '규칙 후보' ? '새 규칙 후보' : cell === '개선 제안' ? '개선 제안' : '기타';
-export function cellKeptRates(picks) {
+// WEEKLY-내양식자유변형 ⑤-3d: 묶음 이름은 '내 양식' 제목(weekly-group-names.mjs — 서버와 같은 사본). names 가 없으면 일반적인 말.
+// 반환 [{key, group(이름), percent(0~100 | null), answered(답한 제안 수)}] — 보고서 칸 순서(1→5, 참고).
+export const PICK_GROUP_KEYS = GROUP_KEYS;
+// 'details' = 2) 세부 내용 — 회의·활동 결과 줄(WEEKLY-환류전칸 S48-35, 서버 weekly-learn.ts groupOf 와 같은 묶음).
+export const pickGroup = ({cell = ''}, names = groupNames(null)) => groupNameOf(cell, names);
+export function cellKeptRates(picks, names = groupNames(null)) {
   const by = new Map();
   for (const x of readPicks(picks)?.items ?? []) {
-    const g = pickGroup(x);
-    if (!PICK_GROUPS.includes(g) || !ANSWER_ACTS.includes(x.act)) continue;
+    const g = groupKeyOf(x.cell);
+    if (!GROUP_KEYS.includes(g) || !ANSWER_ACTS.includes(x.act)) continue;
     const c = by.get(g) ?? {take:0, edit:0, drop:0}; c[x.act]++; by.set(g, c);
   }
-  return PICK_GROUPS.filter(g => by.has(g)).map(g => { const c = by.get(g), n = c.take + c.edit + c.drop; return {group:g, percent:n ? Math.round((c.take / n) * 100) : null, answered:n}; });
+  return GROUP_KEYS.filter(g => by.has(g)).map(g => { const c = by.get(g), n = c.take + c.edit + c.drop; return {key:g, group:names[g], percent:n ? Math.round((c.take / n) * 100) : null, answered:n}; });
 }
 
 // ---- 환류 정리 시점 ----
@@ -159,7 +161,8 @@ export function reviewDue(picks, {when = 'open', confirmed = false, now = new Da
 
 // rows: [{week_start, picks}] (이번 주 포함, 어떤 순서든). 반환:
 //   {sigs: Map sig → {drops, takes, weeks:Set, last}, blocked: [{sig, label, drops, takes, last}], score(item), blocks(item)}
-export function learnPicks(rows = [], {weeks = LEARN_PICK_WEEKS} = {}) {
+//   names: 안 내는 제안 이름(label)에 쓰는 묶음 이름(weekly-group-names.mjs groupNames, 없으면 일반적인 말).
+export function learnPicks(rows = [], {weeks = LEARN_PICK_WEEKS, names = groupNames(null)} = {}) {
   const list = rows.filter(r => r && /^\d{4}-\d{2}-\d{2}$/.test(String(r.week_start ?? ''))).sort((a, b) => (a.week_start < b.week_start ? 1 : -1)).slice(0, weeks);
   const picks = list.map(r => ({week:r.week_start, p:readPicks(r.picks)})).filter(r => r.p);
   const released = new Map();
@@ -174,7 +177,7 @@ export function learnPicks(rows = [], {weeks = LEARN_PICK_WEEKS} = {}) {
     if (x.at > s.last) s.last = x.at;
   }
   const isBlocked = s => !!s && s.drops >= BLOCK_DROPS && s.weeks.size >= BLOCK_WEEKS && s.drops > s.takes * 2;
-  const blocked = [...sigs].filter(([, s]) => isBlocked(s)).map(([sig, s]) => ({sig, label:sigLabel(sig), drops:s.drops, takes:s.takes, last:s.last}))
+  const blocked = [...sigs].filter(([, s]) => isBlocked(s)).map(([sig, s]) => ({sig, label:sigLabel(sig, names), drops:s.drops, takes:s.takes, last:s.last}))
     .sort((a, b) => b.drops - a.drops || (a.sig < b.sig ? -1 : 1));
   return {
     sigs, blocked,

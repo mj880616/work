@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 // S48-3b: 칸별 그대로 쓴 비율(서버 actionDigest 와 같은 셈), AI 재료 날짜·상태, 한 줄 [빼기] 메모리, 개선 제안 두 줄 읽기·쉬운 꼬리표.
 import {cellKeptRates, withPick, pickGroup} from '../app/weekly-picks.mjs';
+import {TITLES} from './fixtures/weekly-screen-titles.mjs';
 import {materialLine, materialState} from '../app/weekly-ai-material.mjs';
 import {keepLines, markUserDrop, clearUserDrops, workLinePick} from '../app/work-scope-model.mjs';
 import {readReview, SUGGESTION_AREA} from '../app/weekly-feedback.mjs';
@@ -16,7 +17,9 @@ test('cellKeptRates: 묶음마다 넣음/(넣음+고쳐서+뺌), 줄 동작·규
   p = withPick(p, {kind:'line', from:'hand', cell:'summary:1', text:'마'}, 'cut', AT(5));
   p = withPick(p, {kind:'review', from:'ai', cell:'개선 제안', text:'바'}, 'take', AT(6));
   p = withPick(p, workLinePick('2026-10-27', '가상 동호회'), 'drop', AT(7));
-  assert.deepEqual(cellKeptRates(p), [{group:'2. 사업 요약', percent:67, answered:3}, {group:'4. 산하 조직', percent:0, answered:1}, {group:'참고', percent:0, answered:1}]);
+  // ⑤-3d: 묶음 이름은 '내 양식' 제목(지어낸 고정 양식이면 그 양식 절 제목 글), 양식이 없으면 일반적인 말.
+  assert.deepEqual(cellKeptRates(p, TITLES.groups), [{key:'summary', group:'2. 요약', percent:67, answered:3}, {key:'orgs', group:'4. 산하조직 현황', percent:0, answered:1}, {key:'notes', group:'참고', percent:0, answered:1}]);
+  assert.deepEqual(cellKeptRates(p).map(r => r.group), ['요약', '조직 현황', '참고']);
   assert.equal(pickGroup({cell:'notes:lines:2026-10-27'}), '참고');
   assert.deepEqual(cellKeptRates(null), []);
 });

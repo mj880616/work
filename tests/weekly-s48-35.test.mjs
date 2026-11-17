@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 // S48-35(WEEKLY-환류전칸): 2) 세부 내용 — 원래 기록에서 끌어온 줄의 고치기·빼기는 제안 답(edit·drop), 확정 때 그대로 둔 줄은 take.
-// 칸 묶음 이름 '2. 세부 내용'은 앱(pickGroup)과 서버(weekly-learn.ts groupOf)가 같다. 가짜 글만.
+// 칸 묶음 'details'(세부 내용)는 앱(pickGroup)과 서버(weekly-learn.ts groupOf)가 같은 사본 규칙(weekly-group-names.mjs)으로 안다.
+// 묶음 이름은 '내 양식' 제목(⑤-3d) — 지어낸 고정 양식이면 '2. 세부 내용', 양식이 없으면 '세부 내용'. 가짜 글만.
 import {detailPick, withDetailTakes, withLinePick} from '../app/weekly-draft-store.js';
-import {cellKeptRates, pickGroup, readPicks, PICK_GROUPS} from '../app/weekly-picks.mjs';
+import {cellKeptRates, pickGroup, readPicks, PICK_GROUP_KEYS} from '../app/weekly-picks.mjs';
+import {groupNames, titlesOfForm} from '../app/weekly-group-names.mjs';
 import {readFileSync} from 'node:fs';
+const LEGACY = groupNames(titlesOfForm(JSON.parse(readFileSync(new URL('./fixtures/weekly-own-form-legacy-shape.json', import.meta.url), 'utf8'))));
 
 const AT = '2026-11-02T01:00:00.000Z';
 const A = {text:'10:00 가상 회의 1차', ref:'meeting:m1'}, B = {text:'가상 결의대회(고침)', original:'가상 결의대회', edited:true, ref:'meeting:m2'};
@@ -22,7 +25,8 @@ test('withLinePick + detailPick: 고침·뺌·되돌림이 한 열쇠에 모이�
   const items = readPicks(d.picks).items;
   assert.equal(items.length, 1);
   assert.equal(items[0].act, 'drop');
-  assert.equal(pickGroup(items[0]), '2. 세부 내용');
+  assert.equal(pickGroup(items[0], LEGACY), '2. 세부 내용');
+  assert.equal(pickGroup(items[0]), '세부 내용');
   d = withLinePick(d, {cell:'details', ...detailPick('none', B), at:'2026-11-02T03:00:00.000Z'});
   assert.equal(readPicks(d.picks).items[0].act, 'none');
 });
@@ -36,12 +40,11 @@ test('withDetailTakes: 고치지 않은 원래 기록 줄만 take, 손 줄·고�
   assert.equal(readPicks(withDetailTakes(picks, [A])).items.length, 2);
   assert.equal(withDetailTakes(null, []), null);
   // 그대로 쓴 비율: 2. 세부 내용 = take 1 / (take 1 + drop 1).
-  assert.deepEqual(cellKeptRates(picks).find(r => r.group === '2. 세부 내용'), {group:'2. 세부 내용', percent:50, answered:2});
+  assert.deepEqual(cellKeptRates(picks, LEGACY).find(r => r.key === 'details'), {key:'details', group:'2. 세부 내용', percent:50, answered:2});
 });
 
-test('묶음 이름: 앱 PICK_GROUPS 순서와 서버 groupOf 가 2. 세부 내용을 같이 안다', () => {
-  assert.deepEqual(PICK_GROUPS.slice(0, 3), ['1. 요청사항', '2. 사업 요약', '2. 세부 내용']);
+test('묶음 열쇠: 앱 PICK_GROUP_KEYS 순서와 서버 groupOf 가 같은 사본 규칙으로 details 를 안다', () => {
+  assert.deepEqual(PICK_GROUP_KEYS.slice(0, 3), ['requests', 'summary', 'details']);
   const src = readFileSync(new URL('../supabase/functions/ai-assist/weekly-learn.ts', import.meta.url), 'utf8');
-  assert.match(src, /p\.cell === "details" \? "2\. 세부 내용"/);
+  assert.match(src, /const groupOf = \(p: WlPick, names: GroupNames\) => groupOfCell\(p\.cell, names\)/);
 });
-
