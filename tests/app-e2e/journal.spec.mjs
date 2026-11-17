@@ -4477,3 +4477,24 @@ for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`[주간 �
  await note.scrollIntoViewIfNeeded();
  if(process.env.KPTU_SHOTS==='1'){await page.waitForTimeout(250);await page.screenshot({path:`docs/design/screens/s59-22/${label}-weekly-draft-again-button.png`})}
 });
+
+// UX-올림보기그자료(S64-12, 요청함 11/17 09:13·10:16): [확정하고 한글 파일 받기] 뒤 하단 한 줄 '1개 올림 [보기]'는 홈 하루가 아니라
+// 자료실에서 방금 저장한 그 자료를 연다(자료 id는 서버 답에서). 이름·조직은 모두 합성.
+test('[주간 정리] 확정 뒤 하단 한 줄 [보기] = 자료실에서 그 자료',async({page})=>{
+ const f=await hwpxFixture(page,{width:412});
+ const saved={id:'doc-new',workspace_id:'w',project_id:null,organization_id:null,meeting_id:null,title:'주간보고 20261012 가상담당',category:'주간보고 개인본',source:null,document_date:'2026-10-12',
+  description:null,tags:[],file_id:'drive-new',file_name:'주간보고_20261012_가상담당.hwp',mime_type:'application/x-hwp',file_size:2048,drive_url:'https://drive.google.com/file/d/drive-new/view',
+  created_at:'2026-10-12T01:00:00Z',updated_at:'2026-10-12T01:00:00Z',field_origin:{},classification_note:null,extracted_text:null,extraction_status:'ready',previous_files:[],reclassify_needed:false};
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET'||q.has('category'))return r.fallback();return r.fulfill({json:f.sent.library.length&&(!q.get('id')||q.get('id')==='eq.doc-new')?[saved]:[]});});
+ await openJournal(page,412);await openWeekly(page);
+ await openDraft(page);
+ await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
+ expect(f.sent.library).toHaveLength(1);
+ const dock=page.locator('#uploadDock:not([hidden])');
+ await expect(dock.locator('.up-dock-text')).toHaveText('1개 올림');
+ await dock.getByRole('button',{name:'올린 화면 보기'}).click();
+ await expect(page.locator('#libraryView')).toBeVisible();
+ await expect(page.locator('#homeView')).toBeHidden();
+ await expect(page.locator('#documentList [data-lu-document="doc-new"]')).toBeVisible();
+ expect(f.errors).toEqual([]);
+});

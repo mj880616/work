@@ -64,7 +64,8 @@ function tick() {
   if (moved) changed(); else paintDock();
 }
 
-// 올리기 하나를 목록에 올린다. file: 화면이 들고 있는 원래 파일(같은 파일을 찾는 열쇠). back(): [보기]가 돌아갈 곳(없으면 시작한 화면).
+// 올리기 하나를 목록에 올린다. file: 화면이 들고 있는 원래 파일(같은 파일을 찾는 열쇠). back(): [보기]가 돌아갈 곳(없으면 시작한 화면 — 끝에서
+// done({back})으로 그 자료를 여는 곳으로 바꿀 수 있다).
 // waiting: 뒤 줄에서 차례를 기다리는 파일('대기' — start()나 첫 progress()에서 보내는 중이 된다). group: 한 묶음이 함께 쓰는 물건({sent} — 다 올린 양).
 // ownEnd: 끝·실패를 부른 곳이 스스로 알린다(UX-알림하나로 — ③ 한 줄의 'n개 올림'을 그 위에 또 띄우지 않는다. 진행은 그대로 ③ 한 줄).
 export function trackUpload({file = null, name = '', size = 0, back = null, waiting = false, group = null, ownEnd = false} = {}) {
@@ -76,7 +77,7 @@ export function trackUpload({file = null, name = '', size = 0, back = null, wait
     loaded: 0, total: Number(size || file?.size) || 0, phase: waiting ? 'waiting' : 'sending', group, ownEnd: !!ownEnd, message: '', retry: null, slow: false,
     startAt: now(), lastMove: now(), finishAt: 0, waitSending: SLOW_SENDING_MS, waitFinish: SLOW_FINISH_MS,
     signal: controller.signal,
-    back: back || (from ? () => router.go(from.view, {sub: from.sub, source: 'upload'}) : null),
+    back: back || (from ? () => router.go(from.view, {sub: from.sub, source: 'upload'}) : null), ownBack: typeof back === 'function',
     start() {
       if (!jobs.has(job.id) || job.phase !== 'waiting') return;
       job.phase = 'sending'; job.startAt = job.lastMove = now(); changed();
@@ -89,8 +90,11 @@ export function trackUpload({file = null, name = '', size = 0, back = null, wait
       if (phase === 'finishing' && job.phase !== 'finishing') { job.phase = 'finishing'; job.finishAt = now(); job.slow = false; }
       changed();
     },
-    done() {
+    // UX-올림보기그자료(S64-12): 올린 뒤에야 [보기]가 갈 곳을 아는 올리기(자료실에 자료가 생기거나 바뀜 — 응답의 자료 id)는 끝에서 back을 준다.
+    // 시작할 때 부른 곳이 정한 back(예: 사업 보고 묶음)은 그대로 둔다. 이미 하단 한 줄이 이 올리기의 back을 잡고 있으면 그것도 바꾼다(같은 한 줄 하나).
+    done({back: after = null} = {}) {
       if (!jobs.has(job.id)) return;
+      if (typeof after === 'function' && !job.ownBack) { if (dock.back === job.back) dock.back = after; job.back = after; }
       job.phase = 'done'; job.loaded = job.total; job.slow = false; if (!job.ownEnd) dock.done++; if (job.group) job.group.sent = (job.group.sent || 0) + (job.total || 0); changed();
       setTimeout(() => { if (jobs.get(job.id) === job && job.phase === 'done') { jobs.delete(job.id); changed(); } }, DONE_SHOW_MS)?.unref?.();
     },
