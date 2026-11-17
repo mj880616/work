@@ -37,6 +37,8 @@ const WEEKLY_KNOWN=Object.freeze({
   confirmed:Object.freeze(['주간보고›팀 확정본','주간보고›확정본','주간보고 확정본']),
   personal:Object.freeze(['주간보고›개인 확정본','주간보고›개인본','주간보고 개인본']),
 });
+// 기본 목록(DEFAULT_DOCUMENT_CATEGORIES)에는 주간보고 분류가 없다(LIB-기본분류흔적빼기, 명진 11/17). 처음 [확정] 저장 때 만드는 이름(hwp-drive.js).
+export const WEEKLY_PERSONAL_CATEGORY=WEEKLY_KNOWN.personal[0];
 export const WEEKLY_ROLE_LABEL=Object.freeze({confirmed:'팀 확정본',personal:'개인 확정본'});
 // 지금 표식(서버 화면 기억). 시험·다른 화면은 marks를 직접 넘긴다.
 const liveMarks=()=>{try{const v=typeof window!=='undefined'?window.KPTUViewPrefs?.getCategoryRoles?.():null;return v&&typeof v==='object'?v:{};}catch{return {};}};
