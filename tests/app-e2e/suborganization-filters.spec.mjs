@@ -59,7 +59,8 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
   const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-body > .wd-sec')].map(sec=>(sec.querySelector('h3')||sec.querySelector('[role="tab"]'))?.firstChild?.textContent?.trim()));
-  expect(order).toEqual(['할 일','자료','사업 보고','기록','연도별 타임라인','주요 인물']);
+  // UI-상세기록맨위(S64-19): 폰 창도 입력칸 바로 아래가 기록이다.
+  expect(order).toEqual(['기록','할 일','자료','사업 보고','연도별 타임라인','주요 인물']);
   const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
     title:card.querySelector('#wdTitle').getBoundingClientRect().top,
     input:card.querySelector('#wdInboxText').getBoundingClientRect().top,
@@ -67,8 +68,8 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
     log:card.querySelector('#wdLog').getBoundingClientRect().top
   }));
   expect(pos.title).toBeLessThan(pos.input);
-  expect(pos.input).toBeLessThan(pos.tasks);
-  expect(pos.tasks).toBeLessThan(pos.log);
+  expect(pos.input).toBeLessThan(pos.log);
+  expect(pos.log).toBeLessThan(pos.tasks);
   // ORG-주요인물: 맨 아래는 작은 탭 [주요 인물][기본 정보][소속][이전 요약], 주요 인물이 첫 탭.
   await expect(page.locator('#wdMore [role="tab"]')).toHaveText(['주요 인물','기본 정보','소속','이전 요약']);
   await expect(page.locator('#wdMore [data-wd-tab="people"]')).toHaveAttribute('aria-selected','true');
