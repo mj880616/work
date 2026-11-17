@@ -1,5 +1,5 @@
 // WEEKLY-요약표수기(S49-39) → WEEKLY-메뉴짝짓기 P5: 사업 보고 위 접는 칸 '이번 주 주간보고'(팝업·[HWP로 내려받기] 없음, 맨 아래 [주간 정리에서 보기 ›])
-// ① 내부 정례 회의(상집·집행위·집행국 등)와 늘 빼기로 정한 종류는 표·세부 내용에 나오지 않는다(뺀 n건 안내 없음).
+// ① 내 목록의 내부 정례 회의 단어(상집·집행위·집행국 등)와 늘 빼기로 정한 종류는 표·세부 내용에 나오지 않는다(뺀 n건 안내 없음).
 // ② '진행 상황 및 이후 계획'·'담당' 칸을 누르면 글 칸, Ctrl+Enter 저장 — BIZ-기록하나로 B-3부터 사업 '지금 상황'(app_business_now)에, 보고 없는 줄도 쓸 수 있다.
 //    그 주 사업 보고 제목은 칸 아래 흐린 '이번 주 기록 n'을 펼치면 보인다(이어 쓰기·처음 채우기는 biz-summary-now.spec.mjs).
 // ③ AI 제안 없음(ai-assist 호출 0, [AI 초안]·(고침) 없음). 예전에 저장된 AI 값은 보이지 않고 데이터는 그대로.
@@ -28,7 +28,8 @@ function state(){
   s.meetings=[row('m-ok','합성 간담회',tue,'child-a1'),row('m-int1','합성 노조 상집 45차',tue,'child-a1'),row('m-int2','합성 본부 집행위 42차',wed,'child-a1'),row('m-int3','합성 궤도 집행국 회의 40차',wed,'top-a'),row('m-hid','합성 늘 빼는 종류',wed,'child-a1')];
   s.week=weekDay(0).monday;
   s.draftRow={id:'wk-1',workspace_id:s.workspace.id,week_start:s.week,items:[],draft:{v:1,base:null,me:'',me_from:'',date:'',rows:[],titles:[],area_summaries:{['11111111-1111-4111-8111-111111111111']:OLD_AI}},draft_saved_at:'2026-11-01T00:00:00.000Z',updated_at:'2026-11-01T00:00:00.000Z'};
-  s.hiddenKinds=['합성늘빼는종류'];
+  // WEEKLY-내부회의사람별: 내부 정례 회의 단어는 운영자 프로필 목록의 '*단어*' 항목(코드 고정 아님). 이 화면 주인 = 운영자 목록.
+  s.hiddenKinds=['합성늘빼는종류','*상집*','*중집*','*집행위*','*집행국*','*상무집행*','*중앙집행*'];
   return s;
 }
 async function open(page,s,width){
