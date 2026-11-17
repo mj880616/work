@@ -279,3 +279,49 @@ test('처음 고르기 번호 4개: 이름·순서, 양식 모양, 초안 엔진
   // 미리보기 글은 화면 예시뿐 — 저장하는 양식에는 들어가지 않는다.
   for (const c of START_CHOICES) assert.ok(!JSON.stringify(startForm(c.key)).includes('preview'));
 });
+
+// WEEKLY-처음시작여러개(명진 11/17 16:04 "복수선택 가능해야할 듯"): 1~3 여러 개를 번호 순서로 이어 붙이고, 같은 이름 항목은 한 번, 4는 혼자만.
+test('처음 고르기 여러 개: 합치기·겹침 제거·4 직접 만들기는 혼자만', async () => {
+  const {START_CHOICES, startForm, startFormMany, startPicks, togglePick} = await import('../app/weekly-own-form-model.mjs');
+  // 하나만 고르면 예전 startForm과 같다.
+  for (const c of START_CHOICES) assert.deepEqual(startFormMany([c.key]), startForm(c.key), c.key);
+  assert.deepEqual(startFormMany('biz'), startForm('biz'));
+  // 0개·없는 열쇠뿐이면 기본(1. 간단형).
+  assert.deepEqual(startFormMany([]), startForm('simple'));
+  assert.deepEqual(startFormMany(['없는 번호']), startForm('simple'));
+  // 고른 순서와 상관없이 번호 순서(1→2→3)로 이어 붙이고 id는 s1부터 다시.
+  const all = startFormMany(['org', 'simple', 'biz', 'org']);
+  assert.equal(all.name, '간단형 · 사업별 표 · 조직별');
+  assert.deepEqual(all.form.sections.map(s => [s.id, s.title, s.fill]), [
+    ['s1', '지난주 한 일', 'biz'], ['s2', '이번 주 할 일', 'blank'], ['s3', '주요 일정', 'schedule'],
+    ['s4', '사업별 진행', 'biz'], ['s5', '조직별 상황', 'org'],
+  ]);
+  assert.deepEqual(all.form.sections[3].columns, ['사업명', '진행', '계획']);
+  assert.deepEqual(all.form, cleanForm(all.form));
+  const two = startFormMany(['org', 'biz']);
+  assert.equal(two.name, '사업별 표 · 조직별');
+  assert.deepEqual(two.form.sections.map(s => s.title), ['사업별 진행', '조직별 상황']);
+  // 4는 다른 것과 섞이면 빠진다(빈 양식은 더할 것이 없음).
+  assert.deepEqual(startPicks(['own', 'biz']), ['biz']);
+  assert.deepEqual(startPicks(['own']), ['own']);
+  assert.deepEqual(startFormMany(['own', 'biz']), startForm('biz'));
+  assert.deepEqual(startFormMany(['own']), {form: {v: 1, sections: []}, name: '내 주간 보고 양식'});
+  // 체크 켜기·끄기: 4를 켜면 1~3이 풀리고, 1~3 중 하나를 켜면 4가 풀린다. 끄면 0개도 된다.
+  assert.deepEqual(togglePick(['simple'], 'org', true), ['simple', 'org']);
+  assert.deepEqual(togglePick(['org'], 'simple', true), ['simple', 'org']);
+  assert.deepEqual(togglePick(['simple', 'biz'], 'own', true), ['own']);
+  assert.deepEqual(togglePick(['own'], 'biz', true), ['biz']);
+  assert.deepEqual(togglePick(['simple', 'biz'], 'simple', false), ['biz']);
+  assert.deepEqual(togglePick(['biz'], 'biz', false), []);
+  assert.deepEqual(togglePick(['biz'], '없는 번호', true), ['biz']);
+});
+
+test('처음 고르기 여러 개: 같은 이름 항목은 처음 것 하나만(joinForms)', async () => {
+  const {joinForms} = await import('../app/weekly-own-form-model.mjs');
+  const a = {v: 1, sections: [{id: 's1', title: '지난주 한 일', columns: [], fill: 'biz'}, {id: 's2', title: '주요 일정', columns: [], fill: 'schedule'}]};
+  const b = {v: 1, sections: [{id: 's1', title: '주요 일정 ', columns: ['날짜'], fill: 'blank'}, {id: 's2', title: '건의 사항', columns: [], fill: 'blank'}]};
+  const out = joinForms([a, b]);
+  assert.deepEqual(out.sections.map(s => [s.id, s.title, s.fill]), [['s1', '지난주 한 일', 'biz'], ['s2', '주요 일정', 'schedule'], ['s3', '건의 사항', 'blank']]);
+  assert.deepEqual(out.sections[1].columns, []); // 겹치면 먼저 나온(번호가 앞선) 것을 둔다
+  assert.deepEqual(joinForms([]), {v: 1, sections: []});
+});

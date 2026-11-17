@@ -139,3 +139,38 @@ export function startForm(key) {
   const one = START_CHOICES.find(c => c.key === key) ?? START_CHOICES[0];
   return {form: cleanForm(one.form), name: one.key === 'own' ? formName('') : formName(one.name)};
 }
+// WEEKLY-처음시작여러개(명진 11/17 16:04 "복수선택 가능해야할 듯"): 1~3은 여러 개, 4 직접 만들기(빈 양식)는 혼자만.
+const START_OWN = 'own';
+// 고른 열쇠 목록 맞추기: 없는 열쇠·중복 빼고 번호 순서(1→2→3). 4가 다른 것과 섞여 있으면 4를 뺀다(빈 양식은 더할 것이 없음).
+export function startPicks(keys) {
+  const want = new Set((Array.isArray(keys) ? keys : [keys]).map(String));
+  const list = START_CHOICES.filter(c => want.has(c.key)).map(c => c.key);
+  return list.length > 1 ? list.filter(k => k !== START_OWN) : list;
+}
+// 체크 하나 켜기·끄기 → 새 목록. 4를 켜면 1~3이 풀리고, 1~3 중 하나를 켜면 4가 풀린다. 0개도 될 수 있다(그때는 시작 불가).
+export function togglePick(picks, key, on) {
+  if (!START_CHOICES.some(c => c.key === key)) return startPicks(picks);
+  const now = startPicks(picks).filter(k => k !== key);
+  if (!on) return now;
+  return key === START_OWN ? [START_OWN] : startPicks([...now.filter(k => k !== START_OWN), key]);
+}
+// 고른 번호들 → {form, name}. 항목을 번호 순서대로 이어 붙이고, 같은 이름 항목은 처음 것 하나만 둔다(id는 cleanForm이 겹치지 않게 맞춤).
+// 하나만 골랐으면 startForm과 같다. 0개(또는 없는 열쇠뿐)면 기본 번호.
+export function startFormMany(keys) {
+  const picks = startPicks(keys);
+  if (picks.length <= 1) return startForm(picks[0] ?? START_DEFAULT);
+  const names = picks.map(k => START_CHOICES.find(c => c.key === k).name);
+  return {form: joinForms(picks.map(k => startForm(k).form)), name: formName(names.join(' · '))};
+}
+// 양식 여러 개 → 항목을 차례대로 이어 붙인 양식 하나. 같은 이름(앞뒤 빈칸 무시) 항목은 처음 것만, id는 s1부터 다시.
+export function joinForms(forms) {
+  const seen = new Set(), sections = [];
+  for (const form of forms) {
+    for (const s of cleanForm(form).sections) {
+      const title = s.title.trim();
+      if (seen.has(title)) continue;
+      seen.add(title); sections.push({...s, id: `s${sections.length + 1}`});
+    }
+  }
+  return cleanForm({sections});
+}

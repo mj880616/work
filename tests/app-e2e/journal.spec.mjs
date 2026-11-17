@@ -1717,7 +1717,8 @@ test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 올�
  const startBox=weekly.locator('[data-weekly-start]');
  await expect(startBox.locator('.journal-weekly-start-file')).toContainText('예전에 쓴 주간 보고 파일이 있나요?');
  await expect(startBox.locator('.journal-weekly-start-opt-head b')).toHaveText(['1. 간단형','2. 사업별 표','3. 조직별','4. 직접 만들기']);
- await expect(startBox.getByRole('radio',{name:/1\. 간단형/})).toBeChecked();
+ await expect(startBox.getByRole('checkbox',{name:/1\. 간단형/})).toBeChecked();
+ await expect(startBox.locator('.journal-weekly-start-ask')).toHaveText('파일이 없으면, 어떤 모양으로 만들까요? (여러 개 선택해도 돼요)');
  await expect(weekly.getByRole('button',{name:'빈 양식에서 만들기'})).toHaveCount(0);
  // '주요 일정'은 이제 처음 고르기 1번(간단형)의 항목 이름(시안 #2732, 명진 결정)이라 고르기 화면 밖에서만 본다.
  for(const word of ['요청사항','임원 배정','상집','투쟁 사업장','산하','요약','기본·영역·의제'])await expect(weekly).not.toContainText(word);
@@ -1782,7 +1783,15 @@ test('[주간 보고] 처음 고르기 [4. 직접 만들기]: 빈 양식에서 �
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:[]});const body=r.request().postDataJSON();forms.push(body);return r.fulfill({status:201,json:[{id:'form-1',...body,updated_at:'2026-11-16T00:00:01Z'}]});});
  await openJournal(page,412);await openWeekly(page);
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
- await weekly.getByRole('radio',{name:/4\. 직접 만들기/}).check();await weekly.getByRole('button',{name:'이 모양으로 시작'}).click();
+ // WEEKLY-처음시작여러개: 4 직접 만들기는 혼자만 — 4를 고르면 1~3이 풀리고, 1~3 중 하나를 고르면 4가 풀린다.
+ await weekly.getByRole('checkbox',{name:/2\. 사업별 표/}).check();
+ await weekly.getByRole('checkbox',{name:/4\. 직접 만들기/}).check();
+ for(const n of [/1\. 간단형/,/2\. 사업별 표/,/3\. 조직별/])await expect(weekly.getByRole('checkbox',{name:n})).not.toBeChecked();
+ await weekly.getByRole('checkbox',{name:/3\. 조직별/}).check();
+ await expect(weekly.getByRole('checkbox',{name:/4\. 직접 만들기/})).not.toBeChecked();
+ await weekly.getByRole('checkbox',{name:/4\. 직접 만들기/}).check();
+ await expect(weekly.getByRole('checkbox',{name:/3\. 조직별/})).not.toBeChecked();
+ await weekly.getByRole('button',{name:'이 모양으로 시작'}).click();
  const ed=weekly.locator('[data-own-form]');
  await expect(ed.locator('.journal-own-form-intro')).toHaveText('[+ 항목 추가]로 항목을 만들어 주세요.');
  await expect(ed.getByRole('button',{name:'저장'})).toBeDisabled();
@@ -1804,7 +1813,8 @@ test('[주간 보고] 처음 고르기 [4. 직접 만들기]: 빈 양식에서 �
 });
 
 // WEEKLY-처음시작고르기(시안 #2732 ★A안, 명진 11/17 "ㅇ"): 처음 사람 → 2번 → [양식 수정] 한 번 거쳐 [저장] → '내 양식' 줄 + ⋯ [다른 모양 선택]으로 다시 열기.
-for(const width of [412,880,1440])test(`[주간 보고] 처음 고르기 2번 사업별 표 → 양식 수정 → 저장 → ⋯ 다른 모양 선택 ${width}`,async({page})=>{
+// WEEKLY-처음시작여러개(명진 11/17 16:04): 2·3번을 함께 고르면 항목을 번호 순서대로 이어 붙인 모양, 0개면 시작 못 함.
+for(const width of [412,880,1440])test(`[주간 보고] 처음 고르기 2·3번 함께 → 양식 수정 → 저장 → ⋯ 다른 모양 선택 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width,noConfirmed:true});
  const forms=[];let row=null;
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_forms',r=>{const m=r.request().method();if(m==='GET')return r.fulfill({json:row?[row]:[]});const body=r.request().postDataJSON();forms.push({method:m,body});row={id:'form-1',...(row??{}),...body,updated_at:'2026-11-17T00:00:0'+forms.length+'Z'};return r.fulfill({status:m==='POST'?201:200,json:[row]});});
@@ -1814,19 +1824,27 @@ for(const width of [412,880,1440])test(`[주간 보고] 처음 고르기 2번 �
  // 미리보기: 노란 칸(자동으로 채움)과 (직접) 칸이 함께 보인다.
  await expect(startBox.locator('[data-weekly-start-opt="biz"] th')).toHaveText(['사업명','진행','계획']);
  await expect(startBox.locator('[data-weekly-start-opt="biz"] td.is-own').first()).toHaveText('(직접)');
- await startBox.getByRole('radio',{name:/2\. 사업별 표/}).check();
- await expect(startBox.locator('[data-weekly-start-opt="biz"]')).toHaveClass(/is-on/);
+ const go=startBox.getByRole('button',{name:'이 모양으로 시작'});
+ // 아무것도 안 고르면 시작 못 함(기본 1번을 풀면).
+ await startBox.getByRole('checkbox',{name:/1\. 간단형/}).uncheck();
+ await expect(go).toBeDisabled();await expect(startBox.locator('.is-on')).toHaveCount(0);
+ await startBox.getByRole('checkbox',{name:/3\. 조직별/}).check();
+ await startBox.getByRole('checkbox',{name:/2\. 사업별 표/}).check();
+ await expect(go).toBeEnabled();
+ await expect(startBox.locator('[data-weekly-start-opt].is-on')).toHaveCount(2);
+ await expect(startBox.locator('[data-weekly-start-opt="biz"]')).toHaveClass(/is-on/);await expect(startBox.locator('[data-weekly-start-opt="org"]')).toHaveClass(/is-on/);
  if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/start-${width}.png`,fullPage:true});
- await startBox.getByRole('button',{name:'이 모양으로 시작'}).click();
- // 바로 저장하지 않고 [양식 수정] 화면을 그 모양으로 연다.
+ await go.click();
+ // 바로 저장하지 않고 [양식 수정] 화면을 그 모양으로 연다 — 고른 순서와 상관없이 번호 순서(2→3).
  const ed=weekly.locator('[data-own-form]');
- await expect(ed.locator('.journal-own-form-title')).toHaveText(['사업별 진행']);
- await expect(ed.locator('.ds-chip')).toHaveText(['사업명','진행','계획']);
- await expect(ed.locator('select')).toHaveValue('biz');
+ await expect(ed.locator('.journal-own-form-title')).toHaveText(['사업별 진행','조직별 상황']);
+ await expect(ed.locator('.ds-chip')).toHaveText(['사업명','진행','계획','조직','날짜','상황']);
+ await expect(ed.locator('select').first()).toHaveValue('biz');await expect(ed.locator('select').nth(1)).toHaveValue('org');
  await expect(startBox).toHaveCount(0);expect(forms).toEqual([]);
+ if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/editor-${width}.png`,fullPage:true});
  await ed.getByRole('button',{name:'저장'}).click();
- await expect(weekly.locator('[data-weekly-own-form-saved]')).toHaveText('내 양식 · 사업별 표 · 항목 1개 양식 수정');
- expect(forms).toEqual([{method:'POST',body:{workspace_id:'w',name:'사업별 표',source_name:null,form:{v:1,sections:[{id:'s1',title:'사업별 진행',level:1,columns:['사업명','진행','계획'],fill:'biz'}]}}}]);
+ await expect(weekly.locator('[data-weekly-own-form-saved]')).toHaveText('내 양식 · 사업별 표 · 조직별 · 항목 2개 양식 수정');
+ expect(forms).toEqual([{method:'POST',body:{workspace_id:'w',name:'사업별 표 · 조직별',source_name:null,form:{v:1,sections:[{id:'s1',title:'사업별 진행',level:1,columns:['사업명','진행','계획'],fill:'biz'},{id:'s2',title:'조직별 상황',level:1,columns:['조직','날짜','상황'],fill:'org'}]}}}]);
  await expect(startBox).toHaveCount(0);
  // 저장한 줄 ⋯ → [다른 모양 선택]: 고르기 화면을 다시 열고(취소 있음), 3번으로 바꾸면 [양식 수정] → [저장]은 읽은 판 조건 PATCH.
  await weekly.locator('[data-weekly-own-form-more] > summary').click();
@@ -1837,7 +1855,9 @@ for(const width of [412,880,1440])test(`[주간 보고] 처음 고르기 2번 �
  await expect(weekly.locator('[data-weekly-own-form-saved]')).toBeVisible();await expect(startBox).toHaveCount(0);
  await weekly.locator('[data-weekly-own-form-more] > summary').click();
  await weekly.getByRole('button',{name:'다른 모양 선택'}).click();
- await startBox.getByRole('radio',{name:/3\. 조직별/}).check();await startBox.getByRole('button',{name:'이 모양으로 시작'}).click();
+ // 다시 열면 지난번 고른 2·3번이 켜져 있다. 2번을 풀어 3번만.
+ await expect(startBox.getByRole('checkbox',{name:/2\. 사업별 표/})).toBeChecked();await expect(startBox.getByRole('checkbox',{name:/3\. 조직별/})).toBeChecked();
+ await startBox.getByRole('checkbox',{name:/2\. 사업별 표/}).uncheck();await startBox.getByRole('button',{name:'이 모양으로 시작'}).click();
  await expect(ed.locator('.ds-chip')).toHaveText(['조직','날짜','상황']);
  await ed.getByRole('button',{name:'저장'}).click();
  await expect(weekly.locator('[data-weekly-own-form-saved]')).toHaveText('내 양식 · 조직별 · 항목 1개 양식 수정');
