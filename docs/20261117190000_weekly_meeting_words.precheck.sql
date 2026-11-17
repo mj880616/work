@@ -1,7 +1,7 @@
 -- SELECT only. 20261117190000_weekly_meeting_words. Aggregates and hashes; no profile or meeting text. Run before dry-run/apply (also the dry-run before/after comparison).
 -- 적용 전 기대: prerequisite 예 / new migration absent 예 / old default 예 / word entries 0 / operator profiles 1 / operator list has room 예 /
 --   RLS 예 / anon 아니오 / authenticated can update profiles 예 / owner policies 예. 그 밖의 개수·해시는 사후 확인과 같은 값이어야 한다(기록만).
--- 'non-operator profiles with the old default list'는 명진 결정용 개수(다른 사람 행을 빈 목록으로 바꿀지)다. 행 값은 읽지 않고 개수만 센다.
+-- 'non-operator profiles with the old default list' = 이번에 빈 목록으로 비울 다른 사람 행 수(명진 결정 11/17 "비워"). 행 값은 읽지 않고 개수만 센다.
 -- 'operator list hash (without words)'는 운영자 행의 지금 목록(단어 항목 제외)의 md5 — 적용 뒤에도 같아야 한다(기존 항목 그대로).
 -- expect: word entries = 0
 -- expect: operator profiles = 1
@@ -11,6 +11,7 @@
 -- expect: non-operator profiles with the old default list = 기록
 -- expect: non-operator profiles with an empty list = 기록
 -- expect: non-operator profiles with another list = 기록
+-- expect: non-operator profiles with the old default or an empty list = 기록
 -- expect: operator list hash (without words) = 기록
 -- expect: policies hash = 기록
 -- expect: owner RLS grants hash = 기록
@@ -29,6 +30,7 @@ union all select 'operator list has room',case when (select count(*) from public
 union all select 'operator list hash (without words)',(select md5(coalesce(string_agg(array_to_string(array(select k from unnest(p.weekly_hidden_meeting_kinds) with ordinality u(k,n) where k not like '*%*' order by n),','),'|'),'')) from public.app_profiles p where p.user_id in (select m.user_id from public.app_workspace_members m where m.role='owner' and m.workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature='calls')))
 union all select 'non-operator profiles with the old default list',(select count(*) from public.app_profiles p where not (p.user_id in (select m.user_id from public.app_workspace_members m where m.role='owner' and m.workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature='calls'))) and p.weekly_hidden_meeting_kinds=array['궤도집행국회의','본부집행위']::text[])::text
 union all select 'non-operator profiles with an empty list',(select count(*) from public.app_profiles p where not (p.user_id in (select m.user_id from public.app_workspace_members m where m.role='owner' and m.workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature='calls'))) and cardinality(p.weekly_hidden_meeting_kinds)=0)::text
+union all select 'non-operator profiles with the old default or an empty list',(select count(*) from public.app_profiles p where not (p.user_id in (select m.user_id from public.app_workspace_members m where m.role='owner' and m.workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature='calls'))) and (cardinality(p.weekly_hidden_meeting_kinds)=0 or p.weekly_hidden_meeting_kinds=array['궤도집행국회의','본부집행위']::text[]))::text
 union all select 'non-operator profiles with another list',(select count(*) from public.app_profiles p where not (p.user_id in (select m.user_id from public.app_workspace_members m where m.role='owner' and m.workspace_id in (select f.workspace_id from public.app_operator_features f where f.feature='calls'))) and cardinality(p.weekly_hidden_meeting_kinds)>0 and p.weekly_hidden_meeting_kinds<>array['궤도집행국회의','본부집행위']::text[])::text
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_profiles') and relrowsecurity) then '예' else '아니오' end
 union all select 'anon or public table privilege',case when has_table_privilege('anon','public.app_profiles','select,insert,update,delete')

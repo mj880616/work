@@ -1,6 +1,6 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials.
 // WEEKLY-내부회의사람별: app_profiles.weekly_hidden_meeting_kinds 기본값 → 빈 목록, 운영자(calls 작업공간 owner) 한 행에만 '*단어*' 여섯을 더함.
-// 다른 사람의 행·권한·정책은 그대로, 다른 계정은 남의 목록을 읽지도 쓰지도 못한다. 지어낸 계정만.
+// 운영자 아닌 행 중 옛 기본값 그대로인 행은 빈 목록으로(명진 11/17 "비워"), 직접 바꾼 행·권한·정책은 그대로, 다른 계정은 남의 목록을 읽지도 쓰지도 못한다. 지어낸 계정만.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -17,7 +17,7 @@ import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
 const version='20261117190000',name='weekly_meeting_words',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
-const OUTSIDER='20000000-0000-4000-8000-000000000003';
+const OUTSIDER='20000000-0000-4000-8000-000000000003',CUSTOM='20000000-0000-4000-8000-000000000004';
 const WORDS=['*상집*','*중집*','*집행위*','*집행국*','*상무집행*','*중앙집행*'];
 const OLD=['궤도집행국회의','본부집행위'];
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
@@ -69,6 +69,10 @@ test('weekly meeting words: dry-run, apply, operator row only, new rows empty, g
   await pool.query(await read('supabase/migrations/20261022090000_weekly_report_meeting_kinds.sql'));
   // 운영자는 그 뒤 종류 하나를 더 뺐다(지금 값이 기본값과 달라도 그대로 남는지 본다).
   await pool.query("update public.app_profiles set weekly_hidden_meeting_kinds=array['궤도집행국회의','본부집행위','가상운영위']::text[] where user_id=$1",[OWNER]);
+  // 다른 작업공간 주인이 직접 바꾼 목록(옛 기본값과 다름) — 그대로 남아야 한다.
+  await pool.query("insert into public.app_workspaces values ('21000000-0000-4000-8000-000000000004')");
+  await pool.query("insert into public.app_workspace_members values ('21000000-0000-4000-8000-000000000004',$1,'owner')",[CUSTOM]);
+  await pool.query("insert into public.app_profiles(user_id,display_name,weekly_hidden_meeting_kinds) values ($1,'직접 바꾼 사람',array['본부집행위']::text[])",[CUSTOM]);
   const rollbackSQL=await read('docs/'+stem+'.rollback.sql'),snapshot=await read('docs/'+stem+'.snapshot.sql');
   const precheck=await read('docs/'+stem+'.precheck.sql'),postcheck=await read('docs/'+stem+'.postcheck.sql');
   const migration=await read('supabase/migrations/'+stem+'.sql');
@@ -83,8 +87,8 @@ test('weekly meeting words: dry-run, apply, operator row only, new rows empty, g
   await t.test('precheck values before apply (counts only)',()=>{
    assert.deepEqual([pre['prerequisite recorded'],pre['new migration absent'],pre['old default (two kinds)'],pre['word entries'],pre['operator profiles'],pre['operator list has room'],
     pre['RLS enabled'],pre['anon or public table privilege'],pre['authenticated can update profiles'],pre['owner policies only (current shape)'],pre['profiles rows'],
-    pre['non-operator profiles with the old default list'],pre['non-operator profiles with an empty list'],pre['non-operator profiles with another list']],
-    ['예','예','예','0','1','예','예','아니오','예','예','3','2','0','0']);
+    pre['non-operator profiles with the old default list'],pre['non-operator profiles with an empty list'],pre['non-operator profiles with another list'],pre['non-operator profiles with the old default or an empty list']],
+    ['예','예','예','0','1','예','예','아니오','예','예','4','2','0','1','2']);
   });
   await t.test('dry-run leaves schema, rows and history unchanged',async()=>{
    const dry=await run('dry-run','9901');assert.equal(dry.ok,true,dry.summary);
@@ -116,8 +120,9 @@ test('weekly meeting words: dry-run, apply, operator row only, new rows empty, g
    assert.ok(post.filter(r=>/^(예|아니오)$/.test(r.value)).every(r=>r.value==='예'),JSON.stringify(post));
    for(const r of post.filter(r=>!/^(예|아니오)$/.test(r.value)))assert.equal(r.value,pre[r.item],r.item);
    assert.deepEqual(await list(OWNER),[...OLD,'가상운영위',...WORDS]);
-   assert.deepEqual(await list(STRANGER),OLD,'다른 사람의 기존 목록은 그대로(명진 결정 전)');
-   assert.deepEqual(await list(OUTSIDER),OLD);
+   assert.deepEqual(await list(STRANGER),[],'옛 기본값 그대로인 다른 사람 행은 비운다(명진 결정 "비워")');
+   assert.deepEqual(await list(OUTSIDER),[]);
+   assert.deepEqual(await list(CUSTOM),['본부집행위'],'직접 바꾼 목록은 그대로');
    assert.equal((await pool.query("select count(*)::int n from supabase_migrations.schema_migrations where version=$1 and name=$2",[version,name])).rows[0].n,1);
    assert.equal((await pool.query("select relacl::text acl from pg_class where oid='public.app_profiles'::regclass")).rows[0].acl.match(/authenticated=[a-z]*/)[0],'authenticated=rw');
    assert.equal((await pool.query("select count(*)::int n from pg_policy where polrelid='public.app_profiles'::regclass")).rows[0].n,2);
@@ -142,7 +147,10 @@ test('weekly meeting words: dry-run, apply, operator row only, new rows empty, g
    await pool.query(rollbackSQL);
    assert.equal((await pool.query("select count(*)::int n from supabase_migrations.schema_migrations where version=$1",[version])).rows[0].n,0);
    assert.deepEqual(await list(OWNER),[...OLD,'가상운영위']);
-   assert.deepEqual((await pool.query(snapshot)).rows,before);assert.deepEqual((await pool.query(precheck)).rows,beforeCheck);
+   assert.deepEqual(await list(STRANGER),[],'비운 다른 사람 목록은 빈 채로 남는다(rollback 설명)');assert.deepEqual(await list(CUSTOM),['본부집행위']);
+   assert.deepEqual((await pool.query(snapshot)).rows,before);
+   const changed=new Set(['non-operator profiles with the old default list','non-operator profiles with an empty list']);
+   assert.deepEqual((await pool.query(precheck)).rows.filter(r=>!changed.has(r.item)),beforeCheck.filter(r=>!changed.has(r.item)));
    const post=(await pool.query(postcheck)).rows;assert.ok(post.filter(r=>/^(예|아니오)$/.test(r.value)).every(r=>r.value==='예'),JSON.stringify(post));
    const again=await run('apply','9905');assert.equal(again.ok,true,again.summary);
    assert.deepEqual(await list(OWNER),[...OLD,'가상운영위',...WORDS]);
