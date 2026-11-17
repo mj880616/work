@@ -1,3 +1,4 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // JOURNAL-회의종류표시: 회의 종류 키 맞추기·거르기·목록 바꾸기·내 프로필 칸 읽기/쓰기. Fake names only.
@@ -132,15 +133,15 @@ test('주간 정리: 목록이 비면 전부, 목록을 못 읽거나 주지 않
   }
   const loading = weeklySummary({...base, kinds:{status:'loading'}});
   assert.equal(loading.meetings.loading, true);
-  assert.match(weeklyReportText(loading), /회의·활동 결과\n\(불러오는 중\)/);
+  assert.match(reportText(loading), /회의·활동 결과\n\(불러오는 중\)/);
 });
 
 test('주간보고 초안 복사: 뺀 종류의 회의는 글에도 없다', async () => {
   const {weeklySummary, weeklyReportText} = await weekly;
-  const text = weeklyReportText(weeklySummary({...base, kinds:DEFAULT}));
+  const text = reportText(weeklySummary({...base, kinds:DEFAULT}));
   assert.match(text, /운영위원회 3차/); assert.match(text, /가상 기자회견/);
   assert.doesNotMatch(text, /집행국|집행위/);
-  assert.doesNotMatch(weeklyReportText(weeklySummary({...base, kinds:null})), /궤도 집행국 회의 12차/);
+  assert.doesNotMatch(reportText(weeklySummary({...base, kinds:null})), /궤도 집행국 회의 12차/);
   const none = weeklySummary({...base, materials:{...sources, meetings:ok([meetings[0], meetings[1]])}, kinds:DEFAULT});
   assert.deepEqual(none.meetings.items, []); assert.equal(none.meetings.hidden.length, 2);
 });

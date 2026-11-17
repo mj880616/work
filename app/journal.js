@@ -573,6 +573,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   const weekModel = W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory});
   weekModel.picks = picksModel(start);
   weekModel.orgLines = weekOrgLines();
+  weekModel.titles = hwpx?.formTitles?.() ?? null; // ⑤-3b: 절 제목 = '내 양식' 글(아직 모르면 null — 읽히면 onBase 로 다시 그림)
   lastWeekModel = weekModel;
   weekModel.scheduleView = hwpx?.scheduleView?.(start) ?? null; // S52-31: 5. 주요 일정 줄 제자리 고치기(열린 줄·표 아래 한 줄)
   W.renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi);
@@ -588,7 +589,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (isRecordWeek(start)) paintBizDetail(host);
   else W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // S52-31: 5. 주요 일정 제목 줄 [AI로 다듬기](달력 일정이 있을 때, + 추가 옆 작은 글자 버튼) — 아래로 따로 빠진 칸 고치기 덩어리에서 옮김.
-  const aiLead = weekModel.calendar?.rows?.length ? [{text:'제목 다듬기', data:'journalScheduleAi', aria:'5. 주요 일정 제목 다듬기', disabled:!!weekModel.scheduleView?.aiBusy}] : [];
+  const aiLead = weekModel.calendar?.rows?.length ? [{text:'제목 다듬기', data:'journalScheduleAi', aria:`${weekModel.titles?.calendar ?? ''} 제목 다듬기`.trim(), disabled:!!weekModel.scheduleView?.aiBusy}] : [];
   for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek), lead:part === 'calendar' ? aiLead : []});
   hwpx?.afterRender?.(); // 열린 일정 고치기 칸의 초점을 되돌린다
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
@@ -1376,7 +1377,10 @@ async function copyDraft() {
   await scopeSettled();
   // [주간 정리]를 막 열어 미룬 읽기(5. 주요 일정 등)가 오는 중이면 끝날 때까지(길어도 5초) 기다린 뒤 복사한다.
   await Promise.race([weekReadsFlight, new Promise(ok => setTimeout(ok, 5000))]);
-  const text = W.weeklyReportText({...W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}), orgLines:weekOrgLines()});
+  // ⑤-3b: 절 제목은 '내 양식' 글 — 읽을 때까지 기다리고, 끝내 못 읽으면 복사하지 않고 한 줄.
+  const titles = await hwpx?.readTitles?.();
+  if (!titles) { status.textContent = '양식(항목 제목)을 읽지 못해 복사하지 않았어요. 잠시 뒤 다시 눌러 주세요.'; return false; }
+  const text = W.weeklyReportText({...W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}), orgLines:weekOrgLines(), titles});
   const ok = await copyText(text);
   // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');

@@ -28,7 +28,7 @@ test('홈 보기 전환·주간 제목·사업 보고 아래 버튼·한글 파�
   assert.match(journal, /`주간 보고 · \$\{longDay\(list\[0\]\)\}/);
   assert.match(readFileSync('app/weekly-summary-table.js', 'utf8'), /data-bw-journal>주간 보고에서 보기 ›/);
   const hwpx = readFileSync('app/journal-hwpx.js', 'utf8');
-  assert.match(hwpx, /\[주간 보고\]의 5\. 주요 일정에서/);
+  assert.match(hwpx, /\[주간 보고\]의 \$\{titles\(\)\.calendar\}에서/); // ⑤-3b: 절 이름은 '내 양식' 제목
   assert.match(hwpx, /\(\[주간 보고\] 맨 아래 ‘주간 보고 기억’/);
   assert.equal(countFile('a.js', "x = '주간 정리';").length, 0, '기존 용어 검사기와는 따로 센다');
 });

@@ -1,4 +1,5 @@
 // S48-3 주간 정리 묶음(WEEKLY-주요일정기준·WEEKLY-뺀목록삭제·WEEKLY-줄끌기·지우기버그·WEEKLY-사업영역세부줄). 글·이름은 모두 가짜.
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -126,7 +127,7 @@ test('세부 내용 모델: 뺀 줄은 빠지고(목록 없음) 고친 줄은 �
   const model = weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', today:'2026-10-06', materials, kinds:{status:'ok', list:[]}});
   assert.deepEqual(model.meetings.items.map(i => [i.text, !!i.edited, i.hand ?? '']), [['운영위원회 3차(고침)', true, ''], ['가상 손 줄', false, 'h1']]);
   assert.equal(model.meetings.detailEditable, true);
-  const text = weeklyReportText(model);
+  const text = reportText(model);
   assert.match(text, /운영위원회 3차\(고침\)/); assert.match(text, /\n- 가상 손 줄\n/);
   assert.doesNotMatch(text, /가상 기자회견|노조 상집/);
 });

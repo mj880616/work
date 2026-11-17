@@ -1,3 +1,4 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import { readFileSync } from 'node:fs';
 // CAL-조직참고캘린더: 조직 참고 캘린더 규칙(순수)·서버 읽기(가짜 runtime)·주간 정리 모델. 가짜 캘린더·조직·일정만 쓴다.
 import test from 'node:test';
@@ -100,7 +101,7 @@ test('ORG-기록하나로 O-6: 주간 정리 모델에 캘린더 추천(orgRefs)
   const items = pickOrgRefs([ev('a', '가상 총력결의대회', '2026-10-21')], choice, orgRefRange('2026-10-19'));
   const withRefs = weeklySummary({ ...base, materials: { ...base.materials, orgRefs: { status: 'ok', items: { configured: true, org: ORG, items } } } });
   assert.ok(!('orgRefs' in withRefs));
-  assert.equal(weeklyReportText(withRefs), weeklyReportText(weeklySummary(base)));
+  assert.equal(reportText(withRefs), reportText(weeklySummary(base)));
   const rd = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8'), wk = readFileSync(new URL('../app/journal-weekly.js', import.meta.url), 'utf8');
   assert.doesNotMatch(rd + wk + readFileSync(new URL('../app/weekly-flow-cells.js', import.meta.url), 'utf8') + readFileSync(new URL('../app/journal-hwpx.js', import.meta.url), 'utf8'), /readOrgRefs|journalOrgRef|journal-org-ref|addOrgRef|orgRefIn|orgRefLine/);
   assert.match(readFileSync(new URL('../app/record-window-model.mjs', import.meta.url), 'utf8'), /import \{isOrgRefTitle, cleanTitle\} from '\.\/calendar-ref-model\.mjs'/);

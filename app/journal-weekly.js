@@ -37,7 +37,7 @@ import {scheduleItems, isWeekendLabel} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
 import {docEdits, draftHq, draftDiscuss, draftDrops, draftHand} from './weekly-draft-store.js';
-import {discussLines, DISCUSS_TITLE} from './weekly-discuss.mjs';
+import {discussLines} from './weekly-discuss.mjs';
 import {myReportOrgs} from './weekly-org-order-model.mjs';
 import {withHandCalendar, handRows, detailEdits, HAND_TAG} from './weekly-hand.mjs';
 import {sortPicks} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
@@ -455,35 +455,38 @@ function weekFiles(m, days) {
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
 // that is still loading or failed says so in its place, and the end names what could not be read.
 const LABELS = Object.freeze({requests:'임원 배정 요청', summary:'사업영역 기록', meetings:'회의·활동 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
+// model.titles = 화면 제목(weekly-screen-titles.mjs screenTitles — '내 양식' 글 그대로, ⑤-3b). 없으면 부르는 쪽이 복사하지 않는다.
 export function weeklyReportText(model) {
+  const T = model.titles;
+  if (!T) throw new Error('양식 제목(titles)이 없음');
   const {days} = model, out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, `■ 일시 : ${reportDateText(model.start)}`, ''];
   const item = (i, text = i.text) => `- ${shortDay(i.day)} ${requestPrefix(i.requests)}${text}`;
   const gap = (part, key) => part.loading ? '(불러오는 중)' : !part.failed?.length ? '' : part.failed.length < WEEKLY_SOURCES[key].length ? '(일부를 불러오지 못함)' : '(불러오지 못함)';
   const missing = [];
   const note = (key, part, label = LABELS[key]) => { const g = gap(part, key); if (g) { out.push(g); if (!part.loading) missing.push(label); } return !!part.loading || (part.failed?.length || 0) >= WEEKLY_SOURCES[key].length; };
-  out.push('1. 요청사항', `1) 임원 배정 요청 (${EXEC_HEAD.join(' | ')})`);
+  out.push(T.requests, `${T.ask} (${EXEC_HEAD.join(' | ')})`);
   // The saved rows in the form's order and cells; the carried mark is not copied.
   const r = model.requests;
   if (!note('requests', r)) { for (const i of r.items) out.push(requestLine(i)); if (!r.items.length) out.push(r.missing ? '(요청 표 저장 칸 준비 전)' : '(요청 없음)'); }
   // WEEKLY-주요일정칸: 2) 주요 일정은 [주간 정리] 수기 표 줄('- 11.6.(금) 13:00 / 내용 / 장소', 한글 파일과 같은 줄).
   const hqLinesNow = model.hq?.lines ?? [];
   // WEEKLY-주요일정기준 ③: 옛 안내 문구는 없앴다(기준은 weekly-major-schedule.mjs 한 곳 — 제안이 그 기준으로 뜬다).
-  if (hqLinesNow.length) out.push('2) 주요 일정', ...hqLinesNow, '');
-  else out.push('2) 주요 일정: (비워 둠)', '');
+  if (hqLinesNow.length) out.push(T.hq, ...hqLinesNow, '');
+  else out.push(`${T.hq}: (비워 둠)`, '');
   // S46-27: 3) 상집 논의 요청('- 안건 — 설명 (관련 조직)', 한글 파일과 같은 줄). 없으면 (비워 둠).
   const discussNow = model.discuss?.lines ?? [];
-  if (discussNow.length) out.splice(out.length - 1, 1, DISCUSS_TITLE, ...discussNow, '');
-  else out.splice(out.length - 1, 1, `${DISCUSS_TITLE}: (비워 둠)`, '');
-  out.push('2. 기본·영역·의제 사업', '1) 요약');
+  if (discussNow.length) out.splice(out.length - 1, 1, T.discuss, ...discussNow, '');
+  else out.splice(out.length - 1, 1, `${T.discuss}: (비워 둠)`, '');
+  out.push(T.work, T.summary);
   const s = model.summary;
   if (!note('summary', s)) {
     for (const area of s.areas) { out.push(`◦ ${area.name}`); for (const row of area.rows) for (const i of row.items) out.push(item(i, summaryLine(i))); }
     for (const other of s.others) { out.push(`◦ ${s.ordered ? '사업영역 밖 · ' : ''}${other.name}`); for (const i of other.items) out.push(item(i)); }
     if (!s.count && !s.failed.some(k => k !== 'catalog')) out.push('(이 주 사업영역 기록 없음)');
   }
-  out.push('2) 세부 내용 — 회의·활동 결과');
+  out.push(T.details);
   if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(i.day ? item(i) : `- ${i.text}`); if (!model.meetings.items.length) out.push('(이 주 회의·활동 없음)'); }
-  out.push('', '4. 산하 조직 현황', '1) 요약');
+  out.push('', T.orgs, T.orgSummary);
   // WEEKLY-메뉴짝짓기 P6: 주별 조직보고 표를 읽었으면 내 담당조직마다 넣은 줄(model.orgLines: 조직 id → '- 11.2. 글' 줄들), 아니면 예전처럼 이 주 기록.
   if (model.orgLines) {
     const mineIds = new Set((model.orgs?.mine ?? []).map(o => o.id));
@@ -504,7 +507,7 @@ export function weeklyReportText(model) {
     if (!model.orgs.sections.length) out.push('(이 주 조직 소식 없음)');
   }
   const c = model.calendarView ?? model.calendar;
-  out.push('', `5. 주요 일정 (${c.days?.length ? `${shortDay(c.days[0])} ~ ${shortDay(c.days.at(-1))}` : '다음 주 월요일부터 2주'})`);
+  out.push('', `${T.calendar} (${c.days?.length ? `${shortDay(c.days[0])} ~ ${shortDay(c.days.at(-1))}` : '다음 주 월요일부터 2주'})`);
   if (!note('calendar', c)) {
     for (const row of c.rows) for (const i of row.items) out.push(`- ${row.label} ${i.what}`);
     if (!c.rows.length) out.push('(이 2주 달력 일정 없음)');
@@ -623,8 +626,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (part.capped) box.append(muted(`이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.`));
     return false;
   };
-  const block = (key, title, level = 'h5', add = false) => { const box = el('section', add ? 'journal-weekly-part journal-part-has-add' : 'journal-weekly-part'); box.dataset.journalWeekly = key; box.append(el(level, 'journal-weekly-sub', title)); return box; };
-  const chapter = (key, title) => { const box = el('section', 'journal-weekly-chapter'); box.dataset.journalWeeklyChapter = key; box.append(el('h4', 'journal-heading', title)); return box; };
+  // 절 제목 = '내 양식' 글(model.titles, ⑤-3b). 양식을 아직 못 읽었으면 제목은 비고(aria-busy) 읽히면 다시 그려진다.
+  const T = model.titles ?? null, title = key => T?.[key] ?? '';
+  const heading = (level, cls, text) => { const h = el(level, cls, text); if (!text) h.setAttribute('aria-busy', 'true'); return h; };
+  const block = (key, title, level = 'h5', add = false) => { const box = el('section', add ? 'journal-weekly-part journal-part-has-add' : 'journal-weekly-part'); box.dataset.journalWeekly = key; box.append(heading(level, 'journal-weekly-sub', title)); return box; };
+  const chapter = (key, title) => { const box = el('section', 'journal-weekly-chapter'); box.dataset.journalWeeklyChapter = key; box.append(heading('h4', 'journal-heading', title)); return box; };
   const empty = (text = '없음') => emptyEl(text, {attrs: 'data-journal-weekly-empty'});
 
   // 묶음 안 원래 기록 마디를 접힌 한 줄로 옮긴다(실패 줄·제목 줄 오른쪽 버튼·그 결과 줄은 밖에 둔다).
@@ -649,22 +655,22 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   };
   // 1. 요청사항: 1) the week's request rows (일 | 시간/내용/장소 | 참석 요청), each with a small ⋯ at the line end ([고치기]·[지우기]);
   // a small [+ 추가] on the heading line opens the same edit row (WEEKLY-화면디자인정리 11/01). 2)·3) the same shape.
-  const one = chapter('requests', '1. 요청사항');
-  const ask = block('ask', REQUEST_TITLES.ask, 'h5', true);
+  const one = chapter('requests', title('requests'));
+  const ask = block('ask', title('ask'), 'h5', true);
   if (!status(ask, model.requests, '요청 표') && !model.requests.failed.length) ask.append(...execRequestsPart(doc, model, execUi, 'weekly'));
-  const hq = block('hq-schedule', REQUEST_TITLES.hq, 'h5', true);
+  const hq = block('hq-schedule', title('hq'), 'h5', true);
   // 수기 표 자리: 그리기는 weekly-hq-schedule.js 하나가 맡는다(journal.js가 이 자리에 붙임). node 시험에서는 빈 자리.
   const hqSlot = el('div', 'journal-hq-slot journal-part-slot'); hqSlot.dataset.journalWeeklyHqSlot = '';
   hq.append(hqSlot);
   // S46-27 3) 상집 논의 요청: 그리기는 weekly-discuss-table.js 하나(journal.js가 이 자리에 붙임).
-  const discuss = block('discuss', REQUEST_TITLES.discuss, 'h5', true);
+  const discuss = block('discuss', title('discuss'), 'h5', true);
   const discussSlot = el('div', 'journal-discuss-slot journal-part-slot'); discussSlot.dataset.journalWeeklyDiscussSlot = '';
   discuss.append(discussSlot);
   one.append(ask, hq, discuss);
 
   // 2. 기본·영역·의제 사업
-  const two = chapter('business', '2. 기본·영역·의제 사업');
-  const summary = block('summary', '1) 요약');
+  const two = chapter('business', title('work'));
+  const summary = block('summary', title('summary'));
   const s = model.summary;
   if (!status(summary, s, '사업영역 기록')) {
     // UI-기다림표시통일 2차: 겹친 기록을 확인하는 동안은 글자 없이 가는 줄(wait-state.js).
@@ -704,7 +710,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   // WEEKLY-사업영역세부줄(빠짐1, 명진 11/02 결정 '넣는다'): 줄마다 ⋯ [고치기]·[빼기](+ 이 종류 늘 빼기), 묶음 제목 줄 오른쪽 [+ 추가].
   // 목록·고치기 칸 그리기는 weekly-detail-lines.js 하나(journal.js가 이 자리에 붙임) — 여기서는 자리와 불러오기·실패 줄만. node 시험에서는 빈 자리.
   // WEEKLY-뺀목록삭제(빠짐2): 이 주에 빠진 회의 종류 목록과 되살리기 버튼은 화면·코드에서 없앴다(뺀 종류는 조용히 빠짐, 서버 목록은 그대로).
-  const meet = block('meetings', '2) 세부 내용 — 회의·활동 결과', 'h5', true);
+  const meet = block('meetings', title('details'), 'h5', true);
   if (!status(meet, model.meetings, '회의·활동 결과') && !model.meetings.failed.length) {
     const detailSlot = el('div', 'journal-detail-slot journal-part-slot'); detailSlot.dataset.journalWeeklyDetailSlot = '';
     meet.append(detailSlot);
@@ -712,8 +718,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   two.append(summary, meet);
 
   // 4. 산하 조직 현황 (the form has no 3절 for one person's report — 투쟁 사업 is the team's)
-  const four = chapter('orgs', '4. 산하 조직 현황');
-  const orgs = block('orgs', '1) 요약', 'h5', true);
+  const four = chapter('orgs', title('orgs'));
+  const orgs = block('orgs', title('orgSummary'), 'h5', true);
   if (!status(orgs, model.orgs, '조직 소식')) {
     const o = model.orgs, can = !o.failed.includes('orgUpdates');
     for (const section of o.sections || []) {
@@ -729,11 +735,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   foldRecords(orgs, 'orgs', '조직 소식', (model.orgs.sections ?? []).reduce((n, x) => n + (x.items?.length ?? 0), 0));
   four.append(orgs);
   // 3. 투쟁 사업장 현황(WEEKLY-한흐름확정 ②: 한글 파일 상자에서 옮김) — 칸 줄만, 구성은 칸 ⋯.
-  const three = chapter('sites', '3. 투쟁 사업장 현황');
+  const three = chapter('sites', title('sites'));
   three.append(flowSlot('sites'));
 
   // 5. 주요 일정: the two weeks from the next Monday in the form's cells; vacations as one line under the table.
-  const five = chapter('calendar', '5. 주요 일정');
+  const five = chapter('calendar', title('calendar'));
   const c = model.calendarView ?? model.calendar;
   const cal = block('calendar', c.days?.length ? rangeTitle(c) : '다음 주 월요일부터 2주', 'h5', true);
   // 손으로 더한 줄 자리([+ 추가]·고치기 칸 — weekly-hand-lines.js, journal.js가 붙임). node 시험에서는 빈 자리.
@@ -866,8 +872,6 @@ function memoryBox(doc, el, r_, ui = {}, picks = null) {
 }
 
 // 1. 요청사항 › 1) the request rows and their edit row. Returns the nodes for the box (table, edit row for a new line, tools, status).
-// S46-27: 1. 요청사항 세 칸 제목(화면 두 곳 — [주간 정리]·한글 파일 상자 — 같은 글).
-export const REQUEST_TITLES = Object.freeze({ask:'1) 임원 배정 요청', hq:'2) 주요 일정', discuss:DISCUSS_TITLE});
 // 1) 임원 배정 요청 칸 속(표·안내). place = 'weekly' | 'box'. 고치는 줄(execUi.editing)은 고치기를 연 자리(execUi.where)에만 그린다
 // (두 자리에 같은 입력칸이 생기지 않게). 다른 자리는 그동안 버튼을 잠근다. journal.js가 두 자리 모두 이 함수로 그린다.
 export function execRequestsPart(doc, model, execUi, place = 'weekly') {

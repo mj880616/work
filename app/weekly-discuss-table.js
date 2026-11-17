@@ -12,9 +12,11 @@ import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리:
 import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 
+// ⑤-3b: 절 이름은 '내 양식' 제목(model.titles.discuss, weekly-screen-titles.mjs) — 코드에 박지 않는다.
+const named = (title, rest) => `${title ? `${title} ` : ''}${rest}`;
 const TEXT = Object.freeze({
-  missing:'3) 상집 논의 요청 저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
-  failed:'3) 상집 논의 요청을 불러오지 못했어요.',
+  missing:title => named(title, '저장 칸이 아직 준비되지 않았어요(서버 적용 전).'),
+  failed:title => named(title, '줄을 불러오지 못했어요.'),
   saveFailed:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.',
   noTitle:'안건을 적어 주세요.',
   full:`줄은 ${DISCUSS_MAX}개까지예요.`,
@@ -53,10 +55,10 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   const doc = slot.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const btn = (text, data, cls = 'mini') => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = ''; return b; };
-  const d = model?.discuss;
+  const d = model?.discuss, title = model?.titles?.discuss ?? '';
   if (!d || d.loading) { slot.innerHTML = waitHtml({rows:1}); return; }
-  if (d.missing) { const p = el('p', 'journal-muted', TEXT.missing); p.dataset.journalDiscussMissing = ''; slot.replaceChildren(p); return; }
-  if (d.failed || !d.editable) { const p = el('p', 'wait-fail journal-failed', TEXT.failed); slot.replaceChildren(p); return; }
+  if (d.missing) { const p = el('p', 'journal-muted', TEXT.missing(title)); p.dataset.journalDiscussMissing = ''; slot.replaceChildren(p); return; }
+  if (d.failed || !d.editable) { const p = el('p', 'wait-fail journal-failed', TEXT.failed(title)); slot.replaceChildren(p); return; }
   const rows = d.rows, busy = ui.saving;
   // 다시 그려도(조직 이름을 다 읽은 뒤 등) 고치던 칸의 초점은 그대로.
   const was = doc.activeElement, keepField = slot.contains(was) ? was?.dataset?.journalDiscussField : '';
@@ -85,7 +87,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   const parts = [table];
   if (!rows.length && ui.editing !== 'new') parts.push(emptyEl('없음', {attrs:'data-journal-discuss-empty'}));
   if (!ui.editing) {
-    const add = btn('+ 추가', 'journalDiscussAdd', 'journal-part-add-button'); add.setAttribute('aria-label', '3) 상집 논의 요청 줄 추가'); add.disabled = busy || rows.length >= DISCUSS_MAX;
+    const add = btn('+ 추가', 'journalDiscussAdd', 'journal-part-add-button'); add.setAttribute('aria-label', named(title, '줄 추가')); add.disabled = busy || rows.length >= DISCUSS_MAX;
     parts.unshift(partAdd(doc, [add]));
   }
   const say = el('p', 'journal-line-status', ui.status || ''); say.dataset.journalDiscussStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
@@ -162,7 +164,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     ui.saving = true; ui.status = '저장하는 중…'; ui.error = false; redraw();
     try {
       const r = await changeWeekDocs({start, known:d.row, change:draft => { const next = change(draftDiscuss(draft)); if (!next) { full = true; return draft; } let out = withDiscuss(draft, next); for (const p of picks) out = withLinePick(out, {cell:'requests:discuss', ...p}); return out; }}, rt);
-      if (r.missing) { setUi({...fresh(start), status:TEXT.missing, error:true}); redraw(); return; }
+      if (r.missing) { setUi({...fresh(start), status:TEXT.missing(title), error:true}); redraw(); return; }
       setUi({...fresh(start), status:full ? TEXT.full : done, error:full});
       ui.focus = focus;
       onSaved(r.row);
