@@ -9,7 +9,7 @@ const d = await import('../app/weekly-draft-store.js');
 const m = await import('../app/business-area-model.mjs');
 const weekly = await import('../app/journal-weekly.js');
 const kinds = await import('../app/journal-meeting-kinds.js');
-const hwpx = await import('../app/weekly-hwpx/draft.mjs');
+const hwpx = await import('./fixtures/weekly-engine.mjs');
 const read = p => readFileSync(new URL(`../app/${p}`, import.meta.url), 'utf8');
 const A = '11111111-1111-4111-8111-111111111111', T1 = '33333333-3333-4333-8333-333333333333', T2 = '44444444-4444-4444-8444-444444444444';
 

@@ -10,7 +10,7 @@
 //   assembleDraft(base, edits) → 보고 자료(바뀐 줄 표시) → buildHwpx(template, data, zlib) → .hwpx 바이트(규격 검사 통과한 것만)
 import {openHwpxAsync, packHwpxAsync, validateHwpxAsync} from './hwpx.mjs';
 import {extractBlankTemplate, assertBlank} from './template.mjs';
-import {LEGACY_PROFILE} from './form-profile.mjs';
+import {needProfile} from './form-profile.mjs';
 import {readReport, buildReport, reportWords, lineText} from './report.mjs';
 import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.mjs';
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
@@ -123,8 +123,9 @@ export function hwp5Header(bytes) {
 }
 
 // 확정본 → {team(읽은 내용), template(빈 서식)}. 빈 서식 검사(template.mjs assertBlank)에 걸리면 Error(이유는 개수만, 글은 넣지 않음).
-// profile(선택): '내 양식'에서 만든 양식 글자(form-profile.mjs profileOf). 없으면 옮기는 동안의 기본값.
-export function prepareConfirmed(pkg, {profile = LEGACY_PROFILE} = {}) {
+// profile(꼭): '내 양식'(또는 바탕 파일에서 읽은 양식)으로 만든 양식 글자(form-profile.mjs profileOf). 기본값 없음(⑤-3a).
+export function prepareConfirmed(pkg, {profile} = {}) {
+  needProfile(profile);
   let team;
   try { team = readReport(pkg, {profile}); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
   let template;
@@ -515,7 +516,8 @@ export const changedCount = data => [...(data.summary ?? []).flatMap(a => a.rows
   .filter(l => typeof l === 'object' && l?.changed).length;
 
 // 빈 서식 + 보고 자료 → .hwpx 바이트. 규격 검사(hwpx.mjs)를 통과하지 못하면 Error(파일을 내주지 않음).
-export async function buildHwpx(template, data, zlib = browserZlib, {profile = LEGACY_PROFILE} = {}) {
+export async function buildHwpx(template, data, zlib = browserZlib, {profile} = {}) {
+  needProfile(profile);
   const {pkg} = buildReport(template, data, {profile});
   const bytes = await packHwpxAsync(pkg, zlib);
   const check = await validateHwpxAsync(bytes, zlib);

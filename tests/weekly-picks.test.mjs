@@ -7,7 +7,7 @@ const f = await import('../app/weekly-feedback.mjs');
 const store = await import('../app/weekly-draft-store.js');
 const s = await import('../app/weekly-hwpx/schedule.mjs');
 const w = await import('../app/journal-weekly.js');
-const d = await import('../app/weekly-hwpx/draft.mjs');
+const d = await import('./fixtures/weekly-engine.mjs');
 const panel = await import('../app/weekly-learn-panel.js');
 
 const T = n => `2026-10-${String(n).padStart(2, '0')}T09:00:00.000Z`;

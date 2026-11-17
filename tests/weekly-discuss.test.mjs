@@ -7,8 +7,8 @@ import {cleanDiscussRow, readDiscuss, withDiscussRow, withoutDiscussRow, movedDi
 import {makeDraft, readDraft, merge3, keepDocsOnly, draftDiscuss, withDiscuss, withHq, draftCells, hasContent} from '../app/weekly-draft-store.js';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml} from '../app/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
-import {buildReport} from '../app/weekly-hwpx/report.mjs';
+import {extractBlankTemplate} from './fixtures/weekly-engine.mjs';
+import {buildReport} from './fixtures/weekly-engine.mjs';
 import {textOf} from '../app/weekly-hwpx/xml.mjs';
 import {makeFakeReport, DEMO_DATA} from '../scripts/weekly-hwpx/fixture.mjs';
 import {weeklyLines} from '../app/weekly-lines.mjs';

@@ -635,7 +635,7 @@ test('S49-12: the day card has no 노트로 옮긴 것 part and no read for it',
 // report group — not 조직 소식 (not even '미분류'), not 사업 소식, not 기타 메모, not [주간 정리]·[복사]·한글 파일 후보.
 // JOURNAL-그밖의기록삭제: the day card no longer shows it (그 밖의 기록 › 참고 is gone); it stays in its bundle. Fake names only.
 test('REF-참고묶음: an update put only in a reference bundle stays out of every report group and off the day card', async () => {
-  const m = await mod, w = await weekly, d = await import('../app/weekly-hwpx/draft.mjs');
+  const m = await mod, w = await weekly, d = await import('./fixtures/weekly-engine.mjs');
   const B1 = 'e0000000-0000-4000-8000-000000000001', B2 = 'e0000000-0000-4000-8000-000000000002', OA = 'd0000000-0000-4000-8000-000000000001', PA = 'f0000000-0000-4000-8000-000000000001';
   const basket = {notes:[
     {id:'ref', raw_text:'가상 노조 전체 소식\n둘째', occurred_at:'2026-10-06T01:00:00Z'},

@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx} from '../app/weekly-hwpx/hwpx.mjs';
-import {prepareConfirmed, openConfirmed, startDraft, editableRows, assembleDraft, buildHwpx, issuedFrom} from '../app/weekly-hwpx/draft.mjs';
+import {prepareConfirmed, openConfirmed, startDraft, editableRows, assembleDraft, buildHwpx, issuedFrom} from './fixtures/weekly-engine.mjs';
 import {weeklyLines, sectionXmlText, issuedFromSections, readIssued, newerIssued, sameIssuedLines, squashLine, ISSUED_MAX_BYTES} from '../app/weekly-lines.mjs';
 import {makeDraft, readDraft, merge3, keepDocsOnly, withDocEdit, hasContent, putIssued, readWeekDraft, writeWeekDraft, changeWeekDocs, DRAFT_MAX_BYTES} from '../app/weekly-draft-store.js';
 

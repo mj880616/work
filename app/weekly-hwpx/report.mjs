@@ -5,7 +5,7 @@
 //   title: '○○팀 주간보고', date: '2026년 1월 5일(월)',
 //   requests: [{day: '1.7.(수)', items: [{what: '10:00 / 행사 A / 장소 A', who: ['참석자 A']}]}],
 //   schedule: ['- 일정 A'],                       // 1. 요청사항 › 2) 주요 일정 아래 바탕글 줄
-//   discuss: ['- 안건 A — 설명 A (조직 A)'],       // 1. 요청사항 › 3) 상집 논의 요청 아래 바탕글 줄(S46-27, 2)과 같은 모양, 없으면 빈 줄)
+//   discuss: ['- 안건 A — 설명 A (조직 A)'],       // 요청 절 논의 요청 자리(discuss) 제목 아래 바탕글 줄(S46-27, 2)과 같은 모양, 없으면 빈 줄)
 //   summary: [{area: ['사업영역 A'], rows: [      // 2. 기본·영역·의제 사업 › 1) 요약 표
 //     {task: ['세부 과제 A-1'], progress: ['- 진행 A', {text: '- 바뀐 줄', changed: true}], owner: ['담당 A']},
 //     {task: null, progress: [...], owner: null}, // null = 위 칸과 합친 칸(세로 병합)
@@ -25,7 +25,7 @@ import {el, clone, kid, kids, walk, textOf} from './xml.mjs';
 import {readXml, setXml, clonePkg, headerStyles} from './hwpx.mjs';
 import {readPrototypes, renumber, isBoxTable} from './template.mjs';
 // 양식 글자(항목 제목·표 머리 칸·상자 칸 이름)는 '내 양식'에서 만든 profile 이 준다(form-profile.mjs, WEEKLY-내양식자유변형 ⑤-1).
-import {LEGACY_PROFILE} from './form-profile.mjs';
+import {needProfile} from './form-profile.mjs';
 import {headerMetrics, layoutTable} from './layout.mjs';
 import {isWeekendLabel} from './schedule.mjs';
 
@@ -69,7 +69,8 @@ export function readTable(tbl) {
 
 // 읽은 표 열쇠 → profile.heads 열쇠
 const TABLE_KEYS = Object.freeze({request: 'requestTable', summary: 'summaryTable', rally: 'rallyTable', site: 'siteTable', org: 'orgTable', schedule: 'scheduleTable'});
-export function findTables(pkg, {profile = LEGACY_PROFILE} = {}) {
+export function findTables(pkg, {profile} = {}) {
+  needProfile(profile);
   const sec = readXml(pkg, 'Contents/section0.xml');
   const found = {boxes: []};
   for (const p of kids(sec.root, 'hp:p')) {
@@ -135,7 +136,7 @@ export function requestsFromTable(t) {
   return days.filter(d => d.day || d.items.length);
 }
 
-export function readReport(pkg, {profile = LEGACY_PROFILE} = {}) {
+export function readReport(pkg, {profile} = {}) {
   const found = findTables(pkg, {profile});
   if (!found.summary) throw new Error(`요약 표(${profile.heads.summaryTable.join(' | ')})를 찾지 못함`);
   const first = found.top.find(p => !kids(p, 'hp:run').some(r => r.children.some(c => c.name === 'hp:tbl')) && textOf(p).trim());
@@ -373,7 +374,8 @@ export function plainParagraphs(root, header) {
 // 빈 서식 + 보고 자료 → .hwpx 묶음. 글자 모양·문단 모양·표 테두리는 빈 서식의 것만 쓴다(새로 만들지 않음).
 // 차례·빈 줄은 상집보고 확정본과 사용자가 한글에서 고친 판(2026-10-21)을 따른다: 제목 다음 빈 줄 → 일시 → 빈 줄, 요청 표 다음 빈 줄.
 // 칸 높이·표 크기는 글 양으로 다시 계산한다(layout.mjs).
-export function buildReport(template, data, {profile = LEGACY_PROFILE} = {}) {
+export function buildReport(template, data, {profile} = {}) {
+  needProfile(profile);
   const pkg = clonePkg(template);
   const {sec, protos} = readPrototypes(pkg, {profile});
   const header = readXml(pkg, 'Contents/header.xml');
@@ -459,7 +461,8 @@ export function reportTexts(data) {
 }
 
 // 빈 서식 검사용 원본 글 조각: 문장 전체 + 한글 3글자 이상 낱말(양식 글자에 들어 있는 낱말은 뺌). 빈 서식에 하나라도 남으면 실패.
-export const reportWords = (report, {profile = LEGACY_PROFILE} = {}) => {
+export const reportWords = (report, {profile} = {}) => {
+  needProfile(profile);
   const LABEL_TEXT = [...profile.formLabels, ...profile.boxLabels].join(' ');
   const texts = reportTexts(report).filter(t => !profile.boxLabels.includes(t));
   const words = texts.flatMap(t => t.split(/[^가-힣A-Za-z0-9]+/)).filter(w => /[가-힣]/.test(w) && [...w].length >= 3 && !LABEL_TEXT.includes(w));
