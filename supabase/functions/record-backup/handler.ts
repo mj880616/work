@@ -12,6 +12,7 @@
 //       POST ?action=run   몸통 {kinds:[...]} → {date, count, folder_url}
 // 같은 날 다시 하면 그날 폴더를 휴지통으로 보내고 새로 만든다. 최근 4주(날짜 폴더 4개)만 남기고 오래된 폴더는 드라이브 휴지통으로(영구 삭제 안 함).
 // 로그·응답: 코드와 숫자만. 기록 내용·제목·파일 ID를 로그에 싣지 않는다.
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { BACKUP_FOLDER, CATEGORIES, DOC_BYTES, KEEP_WEEKS, ROWS_PER_TABLE, cleanRow, foldersToTrash, kstDate, parseKinds, readableHtml, tableQuery, toCsv } from "./model.mjs";
 
 export type Env = (name: string) => string | undefined;
@@ -73,6 +74,8 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     const user = await res.json().catch(() => null);
     const userId = typeof user?.id === "string" && UUID.test(user.id) ? user.id : null;
     if (!userId) throw new Fail(401, "UNAUTHORIZED");
+    // MCP-Claude읽기 M-2: Auth가 받은 같은 열쇠가 OAuth 위임 열쇠(client_id)면 거절한다.
+    if (isDelegatedToken(auth)) throw new Fail(401, "UNAUTHORIZED");
     const workspaceId = await deps.ownerWorkspace(userId).catch(() => null);
     if (!workspaceId || !UUID.test(workspaceId)) throw new Fail(403, "FORBIDDEN");
     return { userId, workspaceId, auth };

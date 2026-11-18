@@ -79,12 +79,12 @@ test('정적: 사용자 확인(/auth/v1/user·auth.getUser)을 하는 모든 Web
   const problems = rows.filter(r => r.problem);
   assert.deepEqual(problems, [], '빠진 함수: 사용자 확인 직후 isDelegatedToken(같은 열쇠)로 401을 돌려주게 하세요(_shared/delegated-token-guard.mjs)');
   const guarded = rows.filter(r => r.authSites > 0).map(r => r.name).sort();
-  // 2026-11-18 main 기준 27개(설계 4.3절 표와 같은 수). 새 함수가 늘면 이 목록과 PR 배포 표를 함께 고친다.
+  // 2026-11-18 main 기준 28개(설계 4.3절 27개 + record-backup). 새 함수가 늘면 이 목록과 PR 배포 표를 함께 고친다.
   assert.deepEqual(guarded, [
     'ai-assist', 'auth-handoff', 'basket-files', 'cloud-files', 'document-actions', 'document-ai-index', 'drive-summary',
     'event-media', 'gdrive-photos', 'google-calendar', 'google-tasks', 'library-files', 'meeting-ai-draft', 'meeting-ai-ingest',
     'meeting-files', 'meeting-transcribe', 'news-feed', 'note-import', 'onedrive-photos', 'outside-feed', 'page-ai-draft',
-    'pc0921-board', 'phone-push', 'public-page-edit', 'public-policy-drive', 'share-page-media', 'workspace-drive',
+    'pc0921-board', 'phone-push', 'public-page-edit', 'public-policy-drive', 'record-backup', 'share-page-media', 'workspace-drive',
   ]);
   // 사용자 확인이 없는 함수(서버 예약 키·공개 읽기·비밀번호 확인)는 검사를 부르지 않아도 된다. 다만 목록이 바뀌면 다시 보게 고정한다.
   assert.deepEqual(rows.filter(r => r.authSites === 0).map(r => r.name).sort(), ['collector-feed', 'pc0914-checklist', 'push-notifications', 'release-notes-sync', 'share-page-read']);
