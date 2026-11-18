@@ -35,6 +35,7 @@
 //   조각을 동시에. 조각 답이 또 잘리면 그 조각만 반으로. 나눌 수 없는 형식(mp3·wav 등)·64MB 넘는 파일은 지금처럼 통째로.
 // 열쇠(비밀값 GEMINI_API_KEY)가 없으면 config는 ready=false, 나머지는 503 not_ready('준비 중').
 // 실패하면 작업만 failed로 두고, Gemini에 올린 임시 파일은 지운다. 녹음 원본·회의 기록은 그대로다.
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { moveDriveFileToTrash } from '../_shared/drive-trash.ts';
 import {
@@ -107,6 +108,7 @@ async function userOf(req: Request) {
   if (!token) throw new AuthError(401);
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data?.user) throw new AuthError(401);
+  if (isDelegatedToken(token)) throw new AuthError(401);
   return data.user;
 }
 function userClient(req: Request) {

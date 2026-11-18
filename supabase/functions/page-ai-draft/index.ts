@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { AI_REASONING_TOKEN_HEADROOM, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
@@ -19,7 +20,7 @@ const upstreamFail=(stage:string,message:string,status:number,detail:unknown)=>{
 const cut=(v:any,n:number)=>{const s=typeof v==='string'?v:JSON.stringify(v);return s.length>n?s.slice(0,n)+'…':s};
 
 function userClient(req:Request){return createClient(SB,ANON,{auth:{persistSession:false},global:{headers:{Authorization:req.headers.get('Authorization')||''}}})}
-async function userOf(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
+async function userOf(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');if(isDelegatedToken(token))throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
 async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body))});const d=await r.json();if(!r.ok)throw upstreamFail('ai_request','AI 요청에 실패했습니다.',r.status,d?.error?.message||null);return d}
 async function member(workspaceId:string,userId:string){const {data}=await admin.from('app_workspace_members').select('role').eq('workspace_id',workspaceId).eq('user_id',userId).maybeSingle();return data}
 async function canViewProject(projectId:string,userId:string,workspaceId:string){const {data:p}=await admin.from('app_spaces').select('id,workspace_id').eq('id',projectId).eq('workspace_id',workspaceId).maybeSingle();if(!p)return false;const {data:wm}=await admin.from('app_workspace_members').select('role').eq('workspace_id',workspaceId).eq('user_id',userId).maybeSingle();return wm?.role==='owner'}

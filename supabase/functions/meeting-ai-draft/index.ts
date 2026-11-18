@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { parseMeetingDraft } from './parse.mjs';
 import { DRAFT_INPUT_CHARS, cut, draftStage, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, ownerRole } from '../_shared/meeting-draft-prompt.mjs';
@@ -18,7 +19,7 @@ const upstreamFail=(stage:string,message:string,status:number,detail:unknown)=>{
 // MTG-긴전사요약(S48-64): 긴 전사본은 화면이 조각(stage 'part', part_no/part_count)으로 나눠 보내고, 조각 요약들을 'merge'로 한 번 더 보낸다.
 // stage가 있으면 회의 행에 저장하지 않는다(조각·합치기는 중간 결과라서). 권한·한도·사용량 기록은 한 번에 보낼 때와 같다.
 function userClient(req:Request){return createClient(SB,ANON,{auth:{persistSession:false},global:{headers:{Authorization:req.headers.get('Authorization')||''}}})}
-async function userOf(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new MeetingAuthError(401,'AUTH_REQUIRED');const {data,error}=await admin.auth.getUser(token);if(error){if([400,401,403].includes(error.status))throw new MeetingAuthError(401,'AUTH_REQUIRED');throw error}if(!data.user)throw new MeetingAuthError(401,'AUTH_REQUIRED');return data.user}
+async function userOf(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new MeetingAuthError(401,'AUTH_REQUIRED');const {data,error}=await admin.auth.getUser(token);if(error){if([400,401,403].includes(error.status))throw new MeetingAuthError(401,'AUTH_REQUIRED');throw error}if(!data.user)throw new MeetingAuthError(401,'AUTH_REQUIRED');if(isDelegatedToken(token))throw new MeetingAuthError(401,'AUTH_REQUIRED');return data.user}
 async function canEditMeeting(meeting:any,userId:string,workspaceRole:string){if(meeting.created_by===userId)return true;if(!meeting.project_id)return ['owner','admin','editor'].includes(workspaceRole);const {data:space,error}=await admin.from('app_spaces').select('owner_id').eq('id',meeting.project_id).maybeSingle();if(error||!space)return false;if(space.owner_id===userId)return true;const {data:member}=await admin.from('app_space_members').select('role').eq('project_id',meeting.project_id).eq('user_id',userId).maybeSingle();return !!member&&['edit','manage'].includes(member.role)}
 async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body))});const d=await r.json();if(!r.ok)throw upstreamFail('ai_request','AI 요청에 실패했습니다.',r.status,d?.error?.message||null);return d}
 // 하루 요청 수는 ai-assist와 같은 서울 날짜·같은 합계 한도(_shared/ai-daily-usage.mjs) 한 곳으로 센다.

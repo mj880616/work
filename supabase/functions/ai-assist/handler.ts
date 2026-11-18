@@ -48,6 +48,7 @@
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { OWNER_ROLE, withOwnerRole } from "./owner-role.ts";
 import { genericNames, groupNames, titlesOfForm, withFormNames, type GroupNames } from "./form-names.ts"; // WEEKLY-내양식자유변형 ⑤-3d
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
@@ -794,6 +795,7 @@ async function authenticate(req: Request, sb: string, anon: string, doFetch: typ
   }
   const id = (user as { id?: unknown })?.id;
   if (typeof id !== "string" || !UUID.test(id)) throw new Fail(401, "session_required");
+  if (isDelegatedToken(match[1])) throw new Fail(401, "session_required");
   return { token: match[1], userId: id.toLowerCase() };
 }
 

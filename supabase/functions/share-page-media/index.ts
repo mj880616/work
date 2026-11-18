@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createShareMediaHandler, type MediaRow } from "./handler.ts";
 import { withWebCors } from "../_shared/web-cors.ts";
@@ -15,7 +16,7 @@ const asUser = (token: string) => createClient(URL, Deno.env.get("SUPABASE_ANON_
 Deno.serve(withWebCors(createShareMediaHandler({
   async userId(token) {
     const { data, error } = await admin.auth.getUser(token);
-    return error || !data.user ? null : data.user.id;
+    return error || !data.user || isDelegatedToken(token) ? null : data.user.id;
   },
   async pageWorkspace(token, pageId) {
     const { data, error } = await asUser(token).from("app_share_pages").select("workspace_id").eq("id", pageId).maybeSingle();
