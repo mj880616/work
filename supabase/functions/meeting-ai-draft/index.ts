@@ -1,4 +1,4 @@
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { parseMeetingDraft } from './parse.mjs';
 import { DRAFT_INPUT_CHARS, cut, draftStage, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, ownerRole } from '../_shared/meeting-draft-prompt.mjs';

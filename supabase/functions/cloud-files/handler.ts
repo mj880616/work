@@ -16,7 +16,7 @@
 // 1단계는 내 드라이브만(F6): 구글은 ownedByMe 파일만, 공유 드라이브·'공유 문서함'은 넣지 않는다. 원드라이브는 /me/drive만.
 // 함수에 없는 것(시험이 문자열로 막음): 영구 삭제, 휴지통 비우기, 공유 링크·권한 만들기, 소유자 바꾸기.
 // 토큰·임시 받기 주소는 service role로만 읽고 응답·로그에 싣지 않는다. 파일 본문은 저장하지 않는다(중계만).
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { GRAPH, normalizeScopes, safeDownloadUrl, SCOPE as OD_SCOPE, scopeAllowed, validItemId } from "../onedrive-photos/graph.ts";
 import { scopeHas } from "../gdrive-photos/handler.ts";
 import { checkFileBase, numberedName } from "../_shared/file-rename-name.mjs";

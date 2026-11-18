@@ -25,11 +25,11 @@ export class DelegatedTokenError extends Error {
   }
 }
 
-function bearerless(token: unknown): string {
+function bearerless(token) {
   return typeof token === "string" ? token.replace(/^Bearer\s+/i, "").trim() : "";
 }
 
-function decodePayload(token: string): Record<string, unknown> | null {
+function decodePayload(token) {
   const parts = token.split(".");
   if (parts.length !== 3 || !parts[1]) return null;
   try {
@@ -38,14 +38,14 @@ function decodePayload(token: string): Record<string, unknown> | null {
     const bin = atob(padded);
     const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
     const json = JSON.parse(new TextDecoder().decode(bytes));
-    return json && typeof json === "object" && !Array.isArray(json) ? json as Record<string, unknown> : null;
+    return json && typeof json === "object" && !Array.isArray(json) ? json : null;
   } catch {
     return null;
   }
 }
 
 // 열쇠(또는 "Bearer <열쇠>" 머리글 값)가 OAuth 위임 열쇠인지. true면 거절해야 한다.
-export function isDelegatedToken(token: unknown): boolean {
+export function isDelegatedToken(token) {
   const payload = decodePayload(bearerless(token));
   if (!payload || !Object.prototype.hasOwnProperty.call(payload, "client_id")) return false;
   const clientId = payload.client_id;
@@ -55,6 +55,6 @@ export function isDelegatedToken(token: unknown): boolean {
 }
 
 // 위임 열쇠면 DelegatedTokenError(401)를 던진다. 각 함수가 자기 401 응답 모양을 지켜야 하면 isDelegatedToken을 쓴다.
-export function rejectDelegatedToken(token: unknown): void {
+export function rejectDelegatedToken(token) {
   if (isDelegatedToken(token)) throw new DelegatedTokenError();
 }

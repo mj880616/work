@@ -1,4 +1,4 @@
-import { isDelegatedToken } from '../_shared/delegated-token-guard.ts';
+import { isDelegatedToken } from '../_shared/delegated-token-guard.mjs';
 import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
 import {createBasketReader} from './basket-read.mjs';

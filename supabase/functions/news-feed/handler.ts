@@ -32,7 +32,7 @@
 //   rpc app_news_refs_sync(지도·공용 본문·사람별 읽음·자세히·반응 보충, 서버 전용 — prune 단계 앞).
 //   본문 블록(NEWS-전면개편 P2b, 4.7절): media 단계가 피드를 읽은 뒤 새 기사마다 글 쪽 1번(같은 reader라 요청 사이 GAP_MS, 예산 RUN_BUDGET_MS,
 //   매체마다 한 번 MEDIA_BODY_PER_RUN건), 남은 것은 pending 단계가 읽는다. 누를 때 열기(open)도 같은 줄을 고친다. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { allowedUrl } from "../_shared/outside-catalog.ts";
 import { matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
 import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";

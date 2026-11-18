@@ -1,4 +1,4 @@
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { inspectBasketOriginal } from '../_shared/basket-file-origin.ts';
 import { readBoundedJson } from '../_shared/bounded-json.mjs';
 import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
