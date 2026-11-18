@@ -10,5 +10,5 @@ union all select 'collab table',c.relname::text,'present'
   from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname like 'app\_collab\_%'
 union all select 'collab function',p.oid::regprocedure::text,'present'
   from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','private') and p.proname like 'app\_collab\_%'
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261118100000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261118110000'
 order by 1,2;

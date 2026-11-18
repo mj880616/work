@@ -1,11 +1,11 @@
--- SELECT only. 20261118100000_collab_groups 적용 뒤. 카탈로그·migration 기록만 읽는다(행 값 없음).
+-- SELECT only. 20261118110000_collab_groups 적용 뒤. 카탈로그·migration 기록만 읽는다(행 값 없음).
 -- 예/아니오 항목은 모두 예, 해시는 precheck의 같은 이름 항목과 같은 값이어야 한다(기존 owner 경계 무변경).
 -- expect: history row present = 예
 -- expect: six tables RLS on no policies no API privileges = 예
 -- expect: ten public functions definer empty path authenticated only = 예
 -- expect: three private helpers invoker no execute = 예
 -- expect: existing owner boundary hash = 기록
-select 'history row present' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261118100000' and name='collab_groups')=1 then '예' else '아니오' end as ok
+select 'history row present' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261118110000' and name='collab_groups')=1 then '예' else '아니오' end as ok
 union all select 'six tables RLS on no policies no API privileges',case when (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'app\_collab\_%')=6
   and not exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname like 'app\_collab\_%' and (
     not c.relrowsecurity or exists(select 1 from pg_policy p where p.polrelid=c.oid)

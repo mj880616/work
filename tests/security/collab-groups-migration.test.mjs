@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { prepareMigration, toDryRun } from '../../scripts/ops/db-migration-plan.mjs';
 
-// COLLAB-묶인사람끼리공유 1단계 ①(20261118100000_collab_groups): 새 app_collab_* 표 6개는 API 역할에 닫히고,
+// COLLAB-묶인사람끼리공유 1단계 ①(20261118110000_collab_groups): 새 app_collab_* 표 6개는 API 역할에 닫히고,
 // 읽기·쓰기는 authenticated만 실행하는 SECURITY DEFINER 함수로만 한다(docs/design/collab-sharing.md 3절, AGENTS.md 3절).
 // 실제 동작·거절은 tests/auth-handoff/collab-groups-db.test.mjs(로컬 PostgreSQL)가 본다.
-const version = '20261118100000';
+const version = '20261118110000';
 const name = 'collab_groups';
 const tables = ['app_collab_groups', 'app_collab_members', 'app_collab_invites', 'app_collab_join_requests',
   'app_collab_join_attempts', 'app_collab_member_log'];

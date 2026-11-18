@@ -19,13 +19,13 @@ begin;
 --   - 멤버에게 보이는 이름·직책은 들어갈 때(만들기·초대 수락·요청) 동의(p_agree)한 프로필 값만 복사한다. 프로필 이름이 비어 있으면 거절.
 --   - 상한: 한 사람 묶음 10개, 묶음 멤버 100명, 같은 이름 요청은 한 번에 묶음 5곳, 묶음당 살아 있는 링크 20개, 요청은 14일 지나면 무효.
 -- 공유 항목(app_collab_shares 등)·댓글·알림은 2단계 이후(이 파일에 없음). 폰 알림 없음(앱 안 표시만, 6단계).
--- 짝: docs/20261118100000_collab_groups.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261118110000_collab_groups.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261118100000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261118110000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261115223000' and name = 'profile_union_department') <> 1
      or to_regclass('public.app_workspaces') is null
      or to_regclass('public.app_workspace_members') is null
@@ -702,5 +702,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261118100000', 'collab_groups', array['COLLAB stage 1 groups: 6 new tables app_collab_groups, app_collab_members, app_collab_invites, app_collab_join_requests, app_collab_join_attempts, app_collab_member_log (RLS on, no policies, no anon/authenticated/service_role privileges); 10 public SECURITY DEFINER RPCs with empty search_path, auth.uid() required, authenticated execute only (group_create, invite_create, invite_revoke_all, invite_peek, invite_accept, request_decide, my_groups, leave, member_remove, admin_move); 3 private invoker helpers with no execute grants; no existing table, policy, grant or row changed']);
+values ('20261118110000', 'collab_groups', array['COLLAB stage 1 groups: 6 new tables app_collab_groups, app_collab_members, app_collab_invites, app_collab_join_requests, app_collab_join_attempts, app_collab_member_log (RLS on, no policies, no anon/authenticated/service_role privileges); 10 public SECURITY DEFINER RPCs with empty search_path, auth.uid() required, authenticated execute only (group_create, invite_create, invite_revoke_all, invite_peek, invite_accept, request_decide, my_groups, leave, member_remove, admin_move); 3 private invoker helpers with no execute grants; no existing table, policy, grant or row changed']);
 commit;
