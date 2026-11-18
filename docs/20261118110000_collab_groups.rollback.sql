@@ -1,5 +1,5 @@
 begin;
--- 20261118100000_collab_groups의 짝 되돌리기. 새 표 6개(인덱스·제약 포함)·새 함수 13개와 이번 기록 1행만 지운다.
+-- 20261118110000_collab_groups의 짝 되돌리기. 새 표 6개(인덱스·제약 포함)·새 함수 13개와 이번 기록 1행만 지운다.
 -- 기존 표·정책·권한·owner 함수는 건드리지 않는다. 만들어진 묶음·멤버·초대 링크·요청·기록은 함께 사라진다(각자 작업공간 자료는 그대로).
 -- 지우기 전에 화면을 이 함수를 쓰지 않는 이전 판으로 되돌린다(화면 PR이 나간 뒤라면).
 -- SQL Editor(폰 경로 C) 전용이다(승인형 DB workflow는 표 삭제를 막는다).
@@ -9,7 +9,7 @@ set local statement_timeout = '60s';
 do $$
 begin
   if (select count(*) from supabase_migrations.schema_migrations
-      where version = '20261118100000' and name = 'collab_groups') <> 1 then
+      where version = '20261118110000' and name = 'collab_groups') <> 1 then
     raise exception 'COLLAB_GROUPS_ROLLBACK_BLOCKED: migration record differs';
   end if;
 end
@@ -37,5 +37,5 @@ drop table public.app_collab_members;
 drop table public.app_collab_groups;
 
 delete from supabase_migrations.schema_migrations
-  where version = '20261118100000' and name = 'collab_groups';
+  where version = '20261118110000' and name = 'collab_groups';
 commit;

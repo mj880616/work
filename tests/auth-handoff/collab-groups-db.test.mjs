@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google, OpenAI or production credentials. All data synthetic (made-up names).
-// COLLAB-묶인사람끼리공유 1단계 DB(20261118100000_collab_groups): 묶음·멤버·초대 링크·같은 이름 요청.
+// COLLAB-묶인사람끼리공유 1단계 DB(20261118110000_collab_groups): 묶음·멤버·초대 링크·같은 이름 요청.
 // 지키는 것: 표 직접 접근 0(RLS 켬·정책 0·API 권한 0), 함수는 authenticated만·auth.uid() 필수, 남의 묶음 읽기·쓰기 거절,
 // 관리자 아닌 사람의 초대 링크·요청 수락·내보내기·넘기기 거절(결정 ⑥⑦), 같은 이름 요청은 있든 없든 같은 응답·하루 3번,
 // 초대 링크 원문 저장 안 함·틀림/지남/다 씀/꺼짐 같은 거절, 기존 owner 경계 무변경, 되돌리기 뒤 카탈로그 원래대로.
@@ -16,7 +16,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261118100000',name='collab_groups',stem=version+'_'+name;
+const version='20261118110000',name='collab_groups',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
