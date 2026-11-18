@@ -101,6 +101,7 @@ async function load(){
   saved=next;
   renderWorkplaces();
   void loadReport();
+  void loadCollab();
   void loadPush();
   return true;
 }
@@ -113,6 +114,17 @@ async function loadReport(){
     if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
     (await reportSettings.ready).refresh();
   }catch(e){console.error('report settings',e?.name||'Error')}
+}
+// COLLAB-묶인사람끼리공유 1단계: '내 묶음' 칸(만들기·초대 링크·같은 이름 요청·멤버·나가기·관리자 넘기기)은 collab-groups.js가 그리고 서버 함수로 바로 저장한다.
+// 칸 자리는 주간 보고 일정 캘린더 칸 뒤('폰 알림' 칸 앞), 한 번만 붙인다. 만들기·들어가기에 쓰는 이름·노조명·부서명은 저장된 프로필 값(saved)이다.
+let collabGroups=null;
+async function loadCollab(){
+  try{
+    let host=$('#psCollabPanel');
+    if(!host){const after=$('#psReportPanel')||$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel ps-collab" id="psCollabPanel" aria-label="내 묶음"></article>');host=$('#psCollabPanel')}
+    if(!collabGroups||collabGroups.host!==host){const ready=import('./collab-groups.js').then(m=>m.mountCollabGroups(host,{rt,toast,profile:()=>({...saved})}));collabGroups={host,ready};ready.catch(()=>{if(collabGroups?.ready===ready)collabGroups=null})}
+    await (await collabGroups.ready).load();
+  }catch(e){console.error('collab groups',e?.name||'Error')}
 }
 // APP-폰알림 N4: '폰 알림' 칸(종류별 켜고 끄기·조용한 시간·시험 알림·등록된 폰)은 따로 바로 저장한다(phone-push-settings.js). 칸 자리는 '계정' 칸 앞, 한 번만 붙인다.
 let pushSettings=null;
