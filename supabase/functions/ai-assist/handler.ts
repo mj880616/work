@@ -129,6 +129,9 @@ import {
   LEDGER_AUTO_INSTRUCTIONS, LEDGER_AUTO_SCHEMA, packAuto, type PackedAuto, parseLedgerAuto, sendable, sourceKey, web2Location,
 } from "./ledger-auto.ts";
 import {
+  WEEKLY_FROM_ISO, WEEKLY_MAX_DOCS, compareWeekly, draftWeekOf, issuedBaseline, personalCategories, sectionNames, weeklyLines, weeklyMaterial, weeklyProfileOf, type WeeklyProfile,
+} from "./ledger-weekly.ts";
+import {
   BRIEF_HASH, briefHash, cleanBrief, RECORD_SUMMARY_RULE, LIBRARY_BRIEF_BACKFILL_UNTIL, type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
   LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type LinkOptions, type MaterialFile,
   NO_LINKS, openLinkFields, organizationOptions, type OriginField, parseLibraryFill, dropUnseenYears, projectOptions, proposalsFor, readOrigin, upgradeTextFields,
@@ -1874,9 +1877,10 @@ async function readAutoRuns(ctx: Ctx, nowMs: number): Promise<AutoRunInfo> {
 export const ORG_MOVED_KINDS = Object.freeze(["status_row", "weekly_line"] as const);
 // 옛 사업 진행 기록에서 옮긴 사업 기록 줄의 출처 종류(migration 20261109130000_record_one_biz_move). 원장 자동 기록 재료에서 뺀다.
 export const BIZ_MOVED_KIND = "progress";
-async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: number): Promise<{ sources: AutoSource[]; partial: boolean }> {
+async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: number): Promise<{ sources: AutoSource[]; stampOnly: AutoSource[]; partial: boolean }> {
   const ws = encodeURIComponent(ctx.workspaceId), since = encodeURIComponent(sinceIso);
   const sources: AutoSource[] = [];
+  const stampOnly: AutoSource[] = [];
   let partial = false;
   const full = (rows: unknown[], limit = AUTO_READ_LIMIT) => { if (rows.length >= limit) partial = true; };
 
@@ -1997,7 +2001,111 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
   }
   // 개인 공유 캘린더 일정(calendar_ref, CAL-승지명진참고 C-3)은 더 읽지 않는다(CAL-조직참고캘린더, 요청함 10/30 16:03 명진 결정: 그 캘린더는 한 조직 상집 캘린더라
   // 내 일정을 원장에 붙일 것이 없음). 쌓인 참고 일정 표 행과 이미 붙은 원장 근거는 그대로 둔다. 종류 이름(ledger-auto.ts)은 옛 처리 기록을 읽으려고 남긴다.
-  return { sources, partial };
+
+  // 주간보고 개인본(WEEKLY-개인본대조 W-3, 설계 4절). 통화처럼 실패해도 자동 기록 전체는 돈다(개인본만 건너뜀).
+  try {
+    const w = await loadWeeklySources(ctx, sinceIso, log);
+    sources.push(...w.sources);
+    stampOnly.push(...w.stampOnly);
+    if (w.partial) partial = true;
+  } catch {
+    log("ledger_auto_weekly_skipped");
+  }
+  return { sources, stampOnly, partial };
+}
+
+// 부른 사람의 '내 양식'(app_weekly_forms, 로그인 owner RLS로 자기 작업공간 행 하나) → 줄 나누기 profile. 없거나 모양이 틀리면 null.
+// 표가 아직 없거나(400·404) 행이 없으면 null, 그 밖의 읽기 오류는 던진다(이번 실행에서 개인본만 건너뜀).
+async function readWeeklyProfile(ctx: Ctx): Promise<WeeklyProfile | null> {
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `app_weekly_forms?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=workspace_id,form&limit=1`);
+  } catch (e) {
+    if (["rest_400", "rest_404"].includes((e as Error)?.message)) return null;
+    throw e;
+  }
+  const row = Array.isArray(rows) ? rows[0] as Record<string, unknown> | undefined : undefined;
+  if (!row || String(row.workspace_id).toLowerCase() !== ctx.workspaceId) return null;
+  return weeklyProfileOf(row.form);
+}
+
+// 개인 확정본 분류 이름들(표식 + 알려진 이름, ledger-weekly.ts personalCategories). 내 프로필(로그인 owner RLS, 내 행 하나)의 화면 기억만 읽는다.
+// 못 읽으면 알려진 이름만 쓴다(개인본 찾기는 계속).
+async function readPersonalCategories(ctx: Ctx): Promise<string[]> {
+  try {
+    const rows = await rest(ctx, `app_profiles?user_id=eq.${encodeURIComponent(ctx.userId)}&select=view_prefs&limit=1`);
+    return personalCategories(Array.isArray(rows) ? (rows[0] as Record<string, unknown> | undefined)?.view_prefs : null);
+  } catch {
+    return personalCategories(null);
+  }
+}
+
+// 자료실 개인 확정본 분류(역할로 찾음)의 글자를 읽은(extraction_status=ready) 자료 중 켠 날 이후·처리 표에 없거나 글자를 다시 읽은 것.
+// 비교 기준: 같은 보고일에 이미 올린 앞 개인본(있으면, 설계 2.3·4.4) → 없으면 받은 초안 기록(app_weekly_exec_requests.draft.issued, W-2 — 보고일 7일 전 주의 행).
+// 둘 다 없거나 비교가 믿을 수 없거나 바뀐 줄이 없으면 AI에 보내지 않고 처리 표에만 적는다(stampOnly).
+// '내 양식'이 없으면(줄을 나눌 수 없음) 처리 표에도 적지 않고 건너뛴다 — 양식이 생긴 뒤 다시 본다. 읽기 실패(5xx 등)는 던져서 이번 실행에서 개인본만 건너뛴다.
+// 로그에는 이유와 개수만 쓴다(개인본 글·양식 글자 없음).
+async function loadWeeklySources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ sources: AutoSource[]; stampOnly: AutoSource[]; partial: boolean }> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const from = encodeURIComponent(new Date(Math.max(Date.parse(sinceIso), Date.parse(WEEKLY_FROM_ISO))).toISOString());
+  const cat = `in.(${encodeURIComponent(quoteIn(await readPersonalCategories(ctx)))})`;
+  const docs = await rest(ctx, `app_documents?workspace_id=eq.${ws}&category=${cat}&extraction_status=eq.ready&extracted_at=gte.${from}&select=id,workspace_id,document_date,extracted_text,extracted_at,created_at&order=extracted_at.asc&limit=${WEEKLY_MAX_DOCS}`);
+  const out = { sources: [] as AutoSource[], stampOnly: [] as AutoSource[], partial: Array.isArray(docs) && docs.length >= WEEKLY_MAX_DOCS };
+  if (!Array.isArray(docs) || !docs.length || !await callKindReady(ctx)) return out;
+  const profile = await readWeeklyProfile(ctx);
+  if (!profile) { log("ledger_auto_weekly_compare", { reason: "no_form", total: docs.length, changed: 0 }); return out; }
+  const names = sectionNames(profile);
+  const issuedCache = new Map<string, string[] | null>();
+  const weekDocsCache = new Map<string, Record<string, unknown>[]>();
+  for (const d of docs as Record<string, unknown>[]) {
+    const extractedAt = timeOf(d.extracted_at);
+    if (!isUuid(d.id) || String(d.workspace_id).toLowerCase() !== ctx.workspaceId || typeof d.document_date !== "string" || !DAY_RE.test(d.document_date) || !Number.isFinite(extractedAt)) continue;
+    const day = d.document_date, id = d.id.toLowerCase();
+    const base: AutoSource = { kind: "weekly_personal", id, stamp: d.extracted_at as string, day, at: extractedAt, text: "" };
+    const lines = weeklyLines(typeof d.extracted_text === "string" ? d.extracted_text : "", profile);
+    // 기준 1: 같은 주 앞 개인본(만든 시각이 더 이른 것 중 가장 늦은 것, 읽을 수 있는 줄이 있는 것).
+    if (!weekDocsCache.has(day)) {
+      weekDocsCache.set(day, await readList(ctx, `app_documents?workspace_id=eq.${ws}&category=${cat}&document_date=eq.${day}&extraction_status=eq.ready&select=id,workspace_id,extracted_text,created_at&order=created_at.asc&limit=20`));
+    }
+    const myCreated = timeOf(d.created_at);
+    let prev: { id: string; lines: string[] } | null = null;
+    for (const p of weekDocsCache.get(day) ?? []) {
+      if (!isUuid(p.id) || String(p.workspace_id).toLowerCase() !== ctx.workspaceId || p.id.toLowerCase() === id) continue;
+      const pc = timeOf(p.created_at);
+      if (!(pc < myCreated || (pc === myCreated && p.id.toLowerCase() < id))) continue;
+      const pl = weeklyLines(typeof p.extracted_text === "string" ? p.extracted_text : "", profile).map((l) => l.text);
+      if (pl.length) prev = { id: p.id.toLowerCase(), lines: pl };
+    }
+    let baseline: string[] | null = prev?.lines ?? null;
+    // 기준 2: 받은 초안 기록(W-2). 개인본 자료 날짜는 보고일이고, 초안은 그 7일 전 주(week_start) 행에 있다. 보고일이 월요일이 아니면 기준 없음.
+    const draftWeek = draftWeekOf(day);
+    if (!baseline && draftWeek) {
+      if (!issuedCache.has(draftWeek)) {
+        let issued: string[] | null = null;
+        try {
+          const rows = await rest(ctx, `app_weekly_exec_requests?workspace_id=eq.${ws}&week_start=eq.${draftWeek}&select=workspace_id,draft&limit=1`);
+          const row = Array.isArray(rows) ? rows[0] as Record<string, unknown> | undefined : undefined;
+          issued = row && String(row.workspace_id).toLowerCase() === ctx.workspaceId ? issuedBaseline(row.draft) : null;
+        } catch (e) {
+          // 칸·표가 아직 없는 DB(400·404)는 기준 없음. 그 밖의 오류는 이번 실행에서 개인본을 건너뛴다.
+          if (!["rest_400", "rest_404"].includes((e as Error)?.message)) throw e;
+        }
+        issuedCache.set(draftWeek, issued);
+      }
+      baseline = issuedCache.get(draftWeek) ?? null;
+    }
+    const cmp = baseline ? compareWeekly(lines, baseline) : null;
+    if (!cmp || !cmp.ok) {
+      log("ledger_auto_weekly_compare", { reason: cmp ? cmp.reason : "no_baseline", total: cmp ? cmp.total : lines.length, changed: cmp ? cmp.changed : 0 });
+      out.stampOnly.push(base);
+      continue;
+    }
+    if (!cmp.diffs.length) { out.stampOnly.push(base); continue; }
+    const m = weeklyMaterial(cmp.diffs, names);
+    if (m.partial) out.partial = true;
+    out.sources.push({ ...base, text: m.text, struggle: m.struggle, prevId: prev?.id ?? null });
+  }
+  return out;
 }
 
 // CALL-손고치기: 사용자 값 모음 vals(키 title·points·organization_id만 재료로 쓴다. 상대 표기는 재료에 안 쓴다). 읽기 실패·표 없음은 빈 모음.
@@ -2125,6 +2233,12 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
       }
     } catch { /* 겹침 확인은 덤이다: 못 읽어도 자동 기록은 그대로 돈다 */ }
   }
+  // 같은 주 앞 개인본(설계 2.3·4.4): 앞 개인본에서 이미 뽑은 기록을 이번 개인본의 already로 함께 받는다.
+  for (const s of packed) {
+    if (s.kind !== "weekly_personal" || !s.prevId) continue;
+    const loc = `web2:weekly_personal:${s.prevId}`;
+    twinKeys.set(loc, [...(twinKeys.get(loc) ?? []), sourceKey(s)]);
+  }
   const locs = [...new Set([...packed.map((s) => web2Location(s)), ...twinKeys.keys()])];
   const srcByLoc = new Map<string, string>();
   for (let i = 0; i < locs.length; i += IN_CHUNK) {
@@ -2174,7 +2288,8 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${linkedIds.slice(i, i + IN_CHUNK).join(",")})&${recentFilter}&select=${RECORD_COLS}&order=updated_at.desc&limit=${IN_CHUNK}`)));
   }
   // 통화(조직이 없거나 틀릴 수 있음): 같은 묶음 통화 날짜 앞뒤 7일에 기준일이 있는 현재유효 기록(S0·S1)도 같은 상한 안에서 보낸다(설계 2.3-1). 조직이 맞는 기록이 먼저.
-  const callDays = packed.filter((s) => s.kind === "call" || s.kind === "calendar_ref").map((s) => s.day).sort();
+  // 주간보고 개인본도 조직 연결이 없어 보고 주 앞뒤 7일 기록을 함께 보낸다(같은 일을 same_as로 잇게).
+  const callDays = packed.filter((s) => s.kind === "call" || s.kind === "calendar_ref" || s.kind === "weekly_personal").map((s) => s.day).sort();
   if (callDays.length && related.length < AUTO_KNOWN_RECORDS) {
     const shift = (day: string, d: number) => new Date(Date.parse(day + "T00:00:00Z") + d * 86400000).toISOString().slice(0, 10);
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&validity=eq.current&kind=in.(event,decision,commitment)&scope=eq.work&sensitivity=in.(S0,S1)&date_start=gte.${shift(callDays[0], -CALL_KNOWN_DAYS)}&date_start=lte.${shift(callDays[callDays.length - 1], CALL_KNOWN_DAYS)}&select=${RECORD_COLS}&order=updated_at.desc&limit=${AUTO_KNOWN_RECORDS}`)));
@@ -2218,7 +2333,9 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   const runs = await readAutoRuns(ctx, started);
   if (runs.runsToday >= DAILY_LIMITS.ledger_auto) throw new Fail(429, "daily_limit");
   const loaded = await loadAutoSources(ctx, new Date(runs.floorMs).toISOString(), deps.log, started);
-  const fresh = await unseenSources(ctx, loaded.sources);
+  const fresh = await unseenSources(ctx, [...loaded.sources, ...loaded.stampOnly]);
+  // 글이 빈 주간보고 개인본은 AI에 보내지 않고(packAuto가 뺌) 실행이 일어날 때 처리 표에만 적는다(설계 4.5).
+  const stampOnly = fresh.filter((s) => s.kind === "weekly_personal" && !s.text);
   const packedResult = packAuto(fresh);
   const packed = packedResult.packed;
   const partial = loaded.partial || packedResult.partial;
@@ -2272,7 +2389,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
       deps.log("ai_invalid_response");
       throw new Fail(502, "ai_invalid_response");
     }
-    const batch = buildAutoBatch(parsed, packed, context.orgBySuborg, used);
+    const batch = buildAutoBatch(parsed, packed, context.orgBySuborg, used, stampOnly);
     let out: unknown;
     try {
       out = await ledgerRpc(ctx, "app_auto_ledger_record", { p_run_id: runId, p_batch: batch });
