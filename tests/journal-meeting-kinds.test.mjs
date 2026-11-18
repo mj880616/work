@@ -1,7 +1,9 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // JOURNAL-회의종류표시: 회의 종류 키 맞추기·거르기·목록 바꾸기·내 프로필 칸 읽기/쓰기. Fake names only.
 const mod = import('../app/journal-meeting-kinds.js');
+import {OPERATOR_LIST, OPERATOR_ENTRIES, OLD_FIXED} from './fixtures/operator-meeting-words.mjs';
 const weekly = import('../app/journal-weekly.js');
 
 test('종류 키: series_name(없으면 title)에서 띄어쓰기를 빼고 소문자로 — app/team.js meetingNameKey와 같은 규칙', async () => {
@@ -26,17 +28,46 @@ test('올림 판단: 목록에 든 종류만 빠지고, 새 종류·행사·이�
   const meeting = (series_name, title = '') => ({series_name, title});
   assert.equal(m.reportsMeeting(meeting('궤도 집행국 회의'), hidden), false);
   assert.equal(m.reportsMeeting(meeting(null, '본부 집행위'), hidden), false);
-  assert.equal(m.reportsMeeting(meeting('BON부집행위'), hidden), false); // '집행위'가 든 이름은 내부 정례 회의(WEEKLY-주요일정기준 ④)
+  assert.equal(m.reportsMeeting(meeting('BON부집행위'), hidden), true); // 정확히 같은 종류만(단어 항목이 없으면 '집행위'가 들어 있어도 올림)
   assert.equal(m.reportsMeeting(meeting('가상 기자회견'), hidden), true);
   assert.equal(m.reportsMeeting(meeting('새 회의 종류'), hidden), true);
   assert.equal(m.reportsMeeting(meeting('', ''), hidden), true);
-  // WEEKLY-주요일정기준 ④: 내부 정례 회의(노조 상집·중집, 본부 집행위, 궤도 집행국)는 목록을 못 읽어도·비어도 늘 빠진다. 다른 종류는 전부 올라간다.
+  // WEEKLY-내부회의사람별: 고정 규칙이 없다 — 목록을 못 읽거나 비면(새 사람) 내부 정례 회의 이름도 전부 올라간다.
   for (const none of [null, undefined, []]) {
-    assert.equal(m.reportsMeeting(meeting('궤도 집행국 회의'), none), false);
-    assert.equal(m.reportsMeeting(meeting('운영위원회'), none), true);
+    for (const name of ['궤도 집행국 회의', '노조 상집', '노조 중집', '본부 집행위', '운영위원회']) assert.equal(m.reportsMeeting(meeting(name), none), true, name);
   }
-  for (const name of ['노조 상집', '노조 중집', null]) assert.equal(m.reportsMeeting(meeting(name, name ? '' : '노조 상집 44차'), []), false, String(name));
-  assert.equal(m.reportsMeeting(meeting('궤도협의회 대표자회의'), []), true);
+});
+
+test("'*단어*' 항목: 이름에 그 말이 든 회의를 뺀다(띄어쓰기·대소문자 무시), 그 사람 목록에만 걸린다", async () => {
+  const m = await mod, meeting = (series_name, title = '') => ({series_name, title});
+  assert.equal(m.isWordEntry('*상집*'), true);
+  for (const no of ['상집', '*상집', '상집*', '**', '*', '*a*b*', null]) assert.equal(m.isWordEntry(no), false, String(no));
+  assert.deepEqual(m.wordsOf(['가', '*상집*', '*중 집*'.replace(' ', '')]), ['상집', '중집']);
+  assert.deepEqual(m.wordsOf(null), []);
+  const mine = ['*집행위*'];
+  assert.equal(m.reportsMeeting(meeting('가상 집행위 3차'), mine), false);
+  assert.equal(m.reportsMeeting(meeting(null, '가상 집 행 위'), mine), false);
+  assert.equal(m.reportsMeeting(meeting('가상 운영위'), mine), true);
+  // 다른 사람(빈 목록·옛 기본 두 종류만): 자기 '집행위' 회의가 주간 보고에 들어간다.
+  for (const other of [[], ['궤도집행국회의', '본부집행위']]) assert.equal(m.reportsMeeting(meeting('가상노조 집행위원회'), other), true);
+  // 단어 항목 모양은 ⋯ [이 종류 늘 빼기]로 쓰지 않는다(정확한 종류만 씀).
+  assert.equal(m.withKind([], '*상집*', true), null);
+  assert.deepEqual(m.withKind(['*상집*'], '운영위원회', true), ['*상집*', '운영위원회']);
+  assert.deepEqual(m.withKind(['*상집*', '운영위원회'], '운영위원회', false), ['*상집*']);
+  assert.deepEqual(m.parseKinds([...OPERATOR_LIST]), [...OPERATOR_LIST], '운영자 목록은 기존 CHECK 모양 그대로 읽힌다');
+});
+
+test('운영자 결과 불변: 적용 뒤 운영자 목록으로 거른 결과 = 옛 고정 규칙 + 옛 목록으로 거른 결과', async () => {
+  const m = await mod, before = ['궤도집행국회의', '본부집행위'], after = [...OPERATOR_LIST];
+  assert.deepEqual(OPERATOR_ENTRIES.map(e => e.slice(1, -1)), OLD_FIXED);
+  const old = meeting => { const name = m.meetingKindName(meeting), key = m.meetingKindKey(name);
+    if (OLD_FIXED.some(w => key.includes(w))) return false; return !key || !before.includes(key); };
+  const names = ['궤도 집행국 회의', '궤도집행국회의', '본부집행위', '본부 집행위 42차', '노조 상집 45차', '노조 중집', '상무집행위원회', '중앙 집행 위원회', '중앙집행위원회',
+    '가상 기자회견', '운영위원회', '궤도협의회 대표자회의', '가상 간담회', '집행', '상무', '', null];
+  for (const series_name of names) for (const title of ['', '노조 상집 44차', '가상 교섭']) {
+    const meeting = {series_name, title};
+    assert.equal(m.reportsMeeting(meeting, after), old(meeting), JSON.stringify(meeting));
+  }
 });
 
 test('목록 읽기 검사: 데이터베이스 CHECK와 같은 모양만 받고, 아니면 null(= 전부 올림)', async () => {
@@ -124,23 +155,24 @@ test('주간 정리: 두 정기 회의(띄어쓰기·표기 달라도)는 빠지
 
 test('주간 정리: 목록이 비면 전부, 목록을 못 읽거나 주지 않으면 전부 올리고 바꾸기 표시는 없다, 읽는 중이면 불러오는 중', async () => {
   const {weeklySummary, weeklyReportText} = await weekly;
-  // 내부 정례 회의(집행국·집행위)는 목록과 상관없이 빠지고 나머지 둘은 남는다(WEEKLY-주요일정기준 ④).
-  assert.equal(weeklySummary({...base, kinds:{status:'ok', list:[]}}).meetings.items.length, 2);
+  // WEEKLY-내부회의사람별: 고정 규칙 없음 — 빈 목록(새 사람)·못 읽음이면 다섯 다 올라간다. 운영자 목록이면 지금처럼 둘만 남는다.
+  assert.equal(weeklySummary({...base, kinds:{status:'ok', list:[]}}).meetings.items.length, 5);
+  assert.deepEqual(weeklySummary({...base, kinds:{status:'ok', list:[...OPERATOR_LIST]}}).meetings.items.map(i => i.text), ['10:00 운영위원회 3차', '14:00 가상 기자회견']);
   for (const kinds of [undefined, null, {status:'unknown'}]) {
     const w = weeklySummary({...base, kinds}).meetings;
-    assert.equal(w.items.length, 2); assert.equal(w.editable, false);
+    assert.equal(w.items.length, 5); assert.equal(w.editable, false);
   }
   const loading = weeklySummary({...base, kinds:{status:'loading'}});
   assert.equal(loading.meetings.loading, true);
-  assert.match(weeklyReportText(loading), /회의·활동 결과\n\(불러오는 중\)/);
+  assert.match(reportText(loading), /회의·활동 결과\n\(불러오는 중\)/);
 });
 
 test('주간보고 초안 복사: 뺀 종류의 회의는 글에도 없다', async () => {
   const {weeklySummary, weeklyReportText} = await weekly;
-  const text = weeklyReportText(weeklySummary({...base, kinds:DEFAULT}));
+  const text = reportText(weeklySummary({...base, kinds:DEFAULT}));
   assert.match(text, /운영위원회 3차/); assert.match(text, /가상 기자회견/);
   assert.doesNotMatch(text, /집행국|집행위/);
-  assert.doesNotMatch(weeklyReportText(weeklySummary({...base, kinds:null})), /궤도 집행국 회의 12차/);
+  assert.match(reportText(weeklySummary({...base, kinds:null})), /궤도 집행국 회의 12차/); // 목록을 못 읽으면 추측해 빼지 않는다(고정 규칙 없음)
   const none = weeklySummary({...base, materials:{...sources, meetings:ok([meetings[0], meetings[1]])}, kinds:DEFAULT});
   assert.deepEqual(none.meetings.items, []); assert.equal(none.meetings.hidden.length, 2);
 });

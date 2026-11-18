@@ -11,7 +11,7 @@
 import {myFeaturesOrNull, collectsFeeds} from './my-features.js';
 import {barHtml, failHtml} from './wait-state.js';
 import {goPlace} from './notice-place.js';
-import {KINDS, FAMILY_KIND, COLLECT_KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems, noticeClearMessage} from './phone-push-model.mjs';
+import {KINDS, FAMILY_KIND, SIGNUP_KIND, SIGNUP_FEATURE, COLLECT_KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems, noticeClearMessage} from './phone-push-model.mjs';
 
 const ENDPOINT = '/functions/v1/phone-push';
 const BRIDGE = 'KPTUAppShell';
@@ -118,7 +118,7 @@ export function startDeviceSync(win = window) {
 export function mountPhonePushSettings(host, {rt, win = window}) {
   phone.rt = phone.rt || rt;
   const inApp = !!bridgeOf(win);
-  let state = {phase: 'loading', prefs: parsePrefs(null), family: false, collector: true, devices: [], devicesOk: false, recent: [], recentOk: false, busy: false, note: '', result: ''};
+  let state = {phase: 'loading', prefs: parsePrefs(null), family: false, signup: false, collector: true, devices: [], devicesOk: false, recent: [], recentOk: false, busy: false, note: '', result: ''};
   let run = 0, saveChain = Promise.resolve(), savedPrefs = null;
   const userId = () => rt.context?.read?.()?.user?.id || '';
   const workspaceId = () => rt.context?.read?.()?.workspace?.id || '';
@@ -166,8 +166,10 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     const {prefs} = state;
     // 잊지 말기 칩은 운영자 기능 family가 있을 때만(서버 app_my_features). 화면 숨김은 보안이 아님(알림은 서버가 family 작업공간에만 보냄).
     // MULTI-처음쓰는사람 ⑤: '수집 멈춤·아침 묶음·저녁 묶음'은 통화·텔레그램 수집이 있는 운영자 계정에만(서버 app_my_features). 저장값은 그대로 둔다.
-    const kinds = [...KINDS.filter(([key]) => state.collector || !COLLECT_KINDS.has(key)), ...(state.family ? [FAMILY_KIND] : [])];
-    const chips = kinds.map(([key, label]) => `<button type="button" class="ps-push-kind" data-ps-push-kind="${key}" aria-pressed="${(key === FAMILY_KIND[0] ? prefs.family !== false : prefs.kinds[key]) ? 'true' : 'false'}"${busy}>${esc(label)}</button>`).join('');
+    // OPS-새가입알림: '새 가입' 칩은 운영자(dev_inbox)일 때만. 알림 자체는 서버가 운영자 작업공간에만 보낸다.
+    const kinds = [...KINDS.filter(([key]) => state.collector || !COLLECT_KINDS.has(key)), ...(state.family ? [FAMILY_KIND] : []), ...(state.signup ? [SIGNUP_KIND] : [])];
+    const on = key => key === FAMILY_KIND[0] ? prefs.family !== false : key === SIGNUP_KIND[0] ? prefs.signup !== false : prefs.kinds[key];
+    const chips = kinds.map(([key, label]) => `<button type="button" class="ps-push-kind" data-ps-push-kind="${key}" aria-pressed="${on(key) ? 'true' : 'false'}"${busy}>${esc(label)}</button>`).join('');
     const time = (end, label) => `<input type="time" class="ps-push-time" data-ps-push-quiet="${end}" value="${esc(prefs.quiet[end])}" aria-label="${label}" step="300"${busy}>`;
     const quiet = `<div class="ps-calref-row"><span class="ps-calref-label">조용한 시간</span>${time('from', '조용한 시간 시작')}<span class="ps-calref-line">~</span>${time('to', '조용한 시간 끝')}<button type="button" class="row-act" data-ps-push-test${state.busy ? ' disabled aria-busy="true"' : ''}>시험 알림</button></div>`;
     const result = state.result ? `<p class="ps-calref-line ps-todo-result" data-ps-push-result>${esc(state.result)}</p>` : '';
@@ -205,7 +207,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     if (mine !== run) return;
     const got = features.status === 'fulfilled' ? features.value : null;
     // 답을 못 받으면 잊지 말기 칩은 지금처럼 빼고, 운영자 알림 칩은 지금처럼 둔다(운영자 화면이 빠지지 않게).
-    state = {...state, family: Array.isArray(got) && got.includes(FAMILY_KIND[0]), collector: collectsFeeds(got)};
+    state = {...state, family: Array.isArray(got) && got.includes(FAMILY_KIND[0]), signup: Array.isArray(got) && got.includes(SIGNUP_FEATURE), collector: collectsFeeds(got)};
     if (prefs.status !== 'fulfilled') { state = {...state, phase: 'failed'}; render(); return; }
     savedPrefs = prefs.value;
     state = {...state, phase: 'ready', prefs: prefs.value, devices: devices.status === 'fulfilled' ? devices.value : [], devicesOk: devices.status === 'fulfilled',

@@ -25,8 +25,8 @@ export function parseShareList(json) {
     const size = Number(raw?.size);
     items.push({index, name:fileName(raw?.name, index), type:MIME.test(type) ? type : 'application/octet-stream', size:Number.isFinite(size) && size >= 0 ? Math.floor(size) : -1});
   }
-  // APP-공유노트할일: 공유 창에서 고른 칸(정리함·노트·할 일). 정해진 두 낱말 밖은 모두 정리함(이전과 같음).
-  const target = data.target === 'note' || data.target === 'task' ? data.target : 'basket';
+  // APP-공유노트할일: 공유 창에서 고른 칸(정리함·노트·할 일). S62-22 APP-공유로뉴스보관: 'News 보관'(news). 정해진 낱말 밖은 모두 정리함(이전과 같음).
+  const target = ['note', 'task', 'news'].includes(data.target) ? data.target : 'basket';
   return {id:data.id, subject:clean(data.subject, 1000).trim(), text:clean(data.text, 100000), items, target};
 }
 
@@ -97,4 +97,22 @@ export function withMemo(memo, existing = '') {
   if (!line) return null;
   const body = String(existing ?? '');
   return fitText(body.trim() ? `${line}\n${body}` : line);
+}
+
+// S62-22 APP-공유로뉴스보관: 공유된 글(본문 먼저, 그다음 제목)에서 기사 주소(http·https) 하나. 없으면 ''.
+// 브라우저 [공유]는 보통 '제목\n주소' 또는 주소 하나를 넘긴다. 끝에 붙은 문장부호·닫는 괄호는 뗀다. 서버(news-feed save_url)가 다시 검사한다.
+export const SHARE_URL_MAX = 2000;
+export function shareArticleUrl({subject = '', text = ''} = {}) {
+  for (const src of [text, subject]) {
+    for (const m of String(src ?? '').matchAll(/https?:\/\/[^\s<>"'`]+/gi)) {
+      let url = m[0];
+      while (/[.,;:!?…)\]}>'"”’」』）]$/.test(url)) {
+        if (url.endsWith(')') && (url.match(/\(/g) || []).length >= (url.match(/\)/g) || []).length) break;
+        url = url.slice(0, -1);
+      }
+      if (url.length > SHARE_URL_MAX) continue;
+      try { const u = new URL(url); if ((u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.includes('.')) return u.href; } catch { /* 다음 주소 */ }
+    }
+  }
+  return '';
 }

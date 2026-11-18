@@ -362,7 +362,7 @@ async function linkEventPhoto(userId: string, body: Record<string, unknown>) {
     throw e;
   }
   if (where === 'missing') throw fail('Drive 원본을 찾을 수 없습니다.', 'DRIVE_FILE_MISSING');
-  if (where !== 'event') throw fail('Web2 일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.', 'NOT_EVENT_FILE');
+  if (where !== 'event') throw fail('일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.', 'NOT_EVENT_FILE');
   const existing = await registeredDocument(own, fileId, meetingId);
   if (existing) return { ok: true, result: 'exists', document: existing };
   const projectId = typeof meeting.business_area_id === 'string' && meeting.business_area_id ? meeting.business_area_id : typeof meeting.project_id === 'string' && meeting.project_id ? meeting.project_id : null;

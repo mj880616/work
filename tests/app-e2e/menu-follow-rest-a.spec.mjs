@@ -106,6 +106,7 @@ for (const width of [412, 1280]) test(`원문 ⋯ 메뉴 ${width}: 연 채 상�
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   const root = page.locator('#outsideRoot');
   await root.getByRole('tab', { name: '사회운동' }).click();
+  await root.locator('[data-os-list] details[data-os-intl] > summary').click(); // S63-11: 국제 글은 접힌 '국제' 묶음 안
   await root.locator(`[data-os-list] [data-nw-key="outside:${EN}"] .now-open`).click();
   const d = root.locator('[data-now-detail] .nd');
   await expect(d.locator('[data-nd-prose] p').first()).toHaveText('First fake paragraph.');

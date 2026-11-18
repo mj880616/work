@@ -1,4 +1,4 @@
-import {waitHtml, emptyHtml, failHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -65,7 +65,7 @@ import {googleLinkState, startGoogleLink, linkText} from './google-link.js'; // 
 await import('./organization-order.js').catch(() => {});
 // [주간 정리] places project records in the project tree and its order (PRJ-3단): the shared project catalog.
 await import('./project-catalog.js').catch(() => {});
-// PERF-첫로딩 P2(docs/design/first-load.md 6절): [주간 정리]·한글 파일 상자·다음 주 준비 모듈(journal-weekly-kit.js)은 하루 화면에 쓰지 않아
+// PERF-첫로딩 P2(docs/design/first-load.md 6절): [주간 정리]·한글 파일 상자 모듈(journal-weekly-kit.js)은 하루 화면에 쓰지 않아
 // 맨 위 정적 import에서 뺐다. 하루 화면이면 앱 첫 화면이 보인 뒤에, [주간 정리]로 열거나 바꾸면 바로 부른다(한 번만, 실패하면 다음에 다시).
 // 다 오기 전 [주간 정리]는 기다림 표시만 그리고, 오면 그 자리를 다시 그린다(이 화면이 유일한 renderer — 그리는 곳은 그대로).
 let W = null, kitFlight = null;
@@ -91,7 +91,7 @@ const length = text => [...String(text ?? '')].length;
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
-root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 정리</button></div></div>
+root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 보고</button></div></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
@@ -106,7 +106,7 @@ root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-jo
 <div class="journal-materials" data-journal-materials></div>
 </div>
 </section>
-<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><section class="journal-next-week" data-journal-next-week aria-label="다음 주 준비"></section><div class="journal-weekly-body" data-journal-weekly></div></section>
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><div class="journal-weekly-body" data-journal-weekly></div></section>
 <section class="home-quiet" data-home-quiet aria-labelledby="home-quiet-title" hidden></section>`;
 const $ = selector => root.querySelector(selector);
 // HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
@@ -166,9 +166,6 @@ const freshFileUi = () => ({editing:null, value:'', saving:false, status:'', err
 let fileUi = freshFileUi();
 // MTG-기록겹침거르기 4단계: overlapFor = 겹침 확인을 이미 한 주 읽기(epoch). 겹쳐서 뺀 줄 접힘·[되살리기]는 S48-49 A·S61-27에서 코드째 없앴다(판정은 서버 표 그대로).
 let overlapFor = -1;
-// JOURNAL-다음주준비: [다음 주] 칸 상태(탭 메모리뿐 — 장은 서버 표에만). nextAsked = 이번 방문에 자동 만들기를 이미 부른 주(owner:week).
-let nextUi = {busy:false, message:'', error:false, open:new Set()};
-const nextAsked = new Set();
 let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
 // JOURNAL-오늘한줄초안: days this visit already asked the server for an AI draft (owner:day; memory only, the server keeps one a day).
@@ -540,7 +537,7 @@ const NO_MEETINGS = Object.freeze([]);
 function dayReportBlock(card) {
   const report = document.createElement('section');
   report.className = 'journal-report'; report.dataset.journalReport = '';
-  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
+  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간 보고 재료</h4>';
   const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
   if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
   else report.insertAdjacentHTML('beforeend', emptyHtml('없음', {attrs: 'data-journal-report-empty'}));
@@ -550,7 +547,7 @@ function dayReportBlock(card) {
 function renderWeekly_({refreshBox = true} = {}) {
   if (mode !== 'week') return;
   const list = weekDays(start);
-  $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
+  $('[data-journal-weekly-title]').textContent = `주간 보고 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   if (!W) {
     const host = $('[data-journal-weekly]');
     if (host && !host.querySelector('[data-journal-kit-wait]')) host.innerHTML = `<div data-journal-kit-wait>${waitHtml({rows:3})}</div>`;
@@ -559,6 +556,10 @@ function renderWeekly_({refreshBox = true} = {}) {
   }
   askScope();
   const host = $('[data-journal-weekly]');
+  // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 확정본)이 없고 그 주 초안도 없으면 다른 팀 양식 대신 백지 + 올리기 한 줄.
+  hwpx?.checkBase?.(start);
+  // ④-2: 내 양식이 있으면 그 아래 그 주 초안(weekly-own-draft.js) — 재료는 아래 바탕 있는 길과 같은 주 기록 모델에서.
+  if (hwpx?.baseState?.(start) === 'none' && !weekRow()?.draft) { paintBlank(host, W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory})); return; }
   // 다시 그려도 초점이 있던 칸(id 가 있는 입력칸)은 그 칸으로 돌아간다 — 바탕을 여는 동안·저장 뒤 다시 그릴 때 2)·3) 표 입력 초점이 빠지지 않게.
   const was = document.activeElement, keep = was && was.id && host.contains(was) && /^(INPUT|TEXTAREA|SELECT)$/.test(was.tagName) ? {id:was.id, at:[was.selectionStart, was.selectionEnd]} : null;
   // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
@@ -572,6 +573,7 @@ function renderWeekly_({refreshBox = true} = {}) {
   const weekModel = W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory});
   weekModel.picks = picksModel(start);
   weekModel.orgLines = weekOrgLines();
+  weekModel.titles = hwpx?.formTitles?.() ?? null; // ⑤-3b: 절 제목 = '내 양식' 글(아직 모르면 null — 읽히면 onBase 로 다시 그림)
   lastWeekModel = weekModel;
   weekModel.scheduleView = hwpx?.scheduleView?.(start) ?? null; // S52-31: 5. 주요 일정 줄 제자리 고치기(열린 줄·표 아래 한 줄)
   W.renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi);
@@ -587,19 +589,127 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (isRecordWeek(start)) paintBizDetail(host);
   else W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
   // S52-31: 5. 주요 일정 제목 줄 [AI로 다듬기](달력 일정이 있을 때, + 추가 옆 작은 글자 버튼) — 아래로 따로 빠진 칸 고치기 덩어리에서 옮김.
-  const aiLead = weekModel.calendar?.rows?.length ? [{text:'제목 다듬기', data:'journalScheduleAi', aria:'5. 주요 일정 제목 다듬기', disabled:!!weekModel.scheduleView?.aiBusy}] : [];
+  const aiLead = weekModel.calendar?.rows?.length ? [{text:'제목 다듬기', data:'journalScheduleAi', aria:`${weekModel.titles?.calendar ?? ''} 제목 다듬기`.trim(), disabled:!!weekModel.scheduleView?.aiBusy}] : [];
   for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek), lead:part === 'calendar' ? aiLead : []});
   hwpx?.afterRender?.(); // 열린 일정 고치기 칸의 초점을 되돌린다
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
   // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
   paintFlow(host, weekModel);
-  W.paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js)
+  W.paintWeeklyLearn(host.querySelector('[data-journal-weekly-learn-slot]'), start, {names:weekModel.titles?.groups}); // WEEKLY-환류학습: 규칙·환류 보고(weekly-learn-panel.js), ⑤-3d 묶음 이름 = '내 양식' 제목
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
-  renderNextWeek_();
   if (execFocus) root.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   // 상자가 임시저장한 뒤 다시 그릴 때(onDraft)는 상자를 건드리지 않는다(칸 옆 재료 버튼이 고치는 중에 바뀌지 않게).
   if (refreshBox) hwpx?.refresh();
   if (keep && (document.activeElement === document.body || !document.activeElement)) { const back = document.getElementById(keep.id); if (back && !back.disabled) { back.focus({preventScroll:true}); try { if (keep.at[0] != null) back.setSelectionRange(keep.at[0], keep.at[1]); } catch { /* 글 칸이 아님 */ } } }
+}
+// 바탕 없는 주의 [주간 보고]. 고른 한글 파일에서 '내 양식'을 읽어 서버에 저장한다(아래 open).
+// WEEKLY-처음시작고르기(시안 weekly-start-choice.html ★A안, 명진 11/17): '내 양식'도 없으면 첫 화면은 [파일 올리기] 한 줄 + 번호 4개 고르기
+// (weekly-start-choice.js). 번호를 고르면 [양식 수정] 화면을 그 모양으로 열고 [저장]해야 '내 양식'이 된다. 저장한 뒤에는 '내 양식' 줄 ⋯ [다른 모양 선택]으로 다시 연다.
+// weekModel: 그 주 기록 모델(weeklySummary). 백지 상자가 이미 있으면 그 주 초안 자리만 맞춘다(blankDraft — 바뀐 항목만 다시 그림).
+let blankDraft = null;
+function paintBlank(host, weekModel) {
+  if (host.querySelector('[data-weekly-blank]')) { blankDraft?.(weekModel); return; }
+  const box = document.createElement('section'); box.className = 'journal-weekly-blank'; box.dataset.weeklyBlank = '';
+  box.innerHTML = '<div data-weekly-own-form-slot></div><p class="journal-muted" data-weekly-blank-note role="status" aria-live="polite"></p><div data-weekly-own-draft-slot></div><input type="file" accept=".hwp,.hwpx" hidden data-weekly-blank-file>';
+  const input = box.querySelector('[data-weekly-blank-file]'), note = box.querySelector('[data-weekly-blank-note]');
+  const slot = box.querySelector('[data-weekly-own-form-slot]');
+  // WEEKLY-내양식자유변형 ②·③: 올린 파일은 바탕으로 열지 않고(다른 팀 양식 규칙을 쓰지 않음) 항목·표 머리 칸만 규칙으로 읽어(hwpx-form-read.mjs)
+  // 확인·짝짓기 화면(weekly-own-form-edit.js, 시안 ②)을 연다. [저장]하면 '내 양식'으로 서버에 둔다(weekly-own-form-store.js, app_weekly_forms).
+  // 저장된 양식이 있으면 한 줄 + [양식 수정] + ⋯, 그 아래 내 양식 그대로 그 주 초안(④-2, weekly-own-draft.js — 양식을 고치는 동안은 비움).
+  // slot 한 자리의 renderer는 paintSaved 하나: 고르기 화면(내 양식 없음·다시 고르는 중) | '내 양식' 줄 | (editing 이면 편집 화면이 차지).
+  const ownForm = () => Promise.all([import('./hwpx-form-read.mjs'), import('./weekly-own-form-store.js'), import('./weekly-own-form-model.mjs'), import('./weekly-own-form-edit.js'), import('./weekly-start-choice.js')]);
+  // known: undefined(아직 읽는 중·못 읽음) | null(내 양식 없음) | row. choosing: 저장한 뒤 ⋯ [다른 모양 선택]으로 고르기 화면을 다시 연 동안.
+  let known, loaded = false, editing = false, choosing = false, busy = false, chosen, draftModel = weekModel, draft = null, pendingFile = null, uploadedId;
+  const draftSlot = box.querySelector('[data-weekly-own-draft-slot]');
+  const paintDraft = () => {
+    const form = !editing && known?.form?.sections?.length ? known.form : null;
+    if (!form && !draft) return;
+    if (draft) { draft.update({start, form, model:draftModel}); return; }
+    void import('./weekly-own-draft.js').then(({mountOwnDraft}) => { draft ??= mountOwnDraft(draftSlot, {rt}); paintDraft(); }).catch(error => console.warn('own draft load', error?.message || error));
+  };
+  blankDraft = next => { draftModel = next; paintDraft(); };
+  let mods = null;
+  function paintSaved() {
+    paintDraft();
+    if (editing || !mods || !loaded) return;
+    const [, , , , start_] = mods;
+    if (!known || choosing) {
+      slot.replaceChildren(start_.startChoiceEl(document, {selected:chosen, busy, onPick:() => { if (!busy) input.click(); }, onStart:startWith,
+        onCancel:known ? () => { choosing = false; paintSaved(); } : null}));
+      return;
+    }
+    const wrap = document.createElement('div'); wrap.className = 'journal-weekly-blank-saved';
+    const line = document.createElement('p'); line.className = 'journal-weekly-blank-line'; line.dataset.weeklyOwnFormSaved = '';
+    line.textContent = `내 양식 · ${known.name} · 항목 ${known.form.sections.length}개 `;
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'secondary'; edit.textContent = '양식 수정';
+    edit.addEventListener('click', () => { pendingFile = null; uploadedId = undefined; void openEditor(known.form, known.name, false); });
+    line.append(edit);
+    const more = rowMore(document, {label:'내 양식 다른 모양 선택', data:{weeklyOwnFormMore:''}, items:[{text:'다른 모양 선택', data:{weeklyStartAgain:''}, onClick:() => { choosing = true; note.textContent = ''; paintSaved(); }}]});
+    wrap.append(line, more); slot.replaceChildren(wrap);
+  }
+  // 번호 고르기 → [양식 수정] 화면을 그 모양으로(아직 저장 안 함). 직접 만들기는 빈 양식(예전 [빈 양식에서 만들기]와 같은 길).
+  // 여러 개 고르면 항목을 번호 순서대로 이어 붙인 모양(startFormMany, 같은 이름 항목은 한 번).
+  function startWith(keys) {
+    if (busy || !mods || !keys?.length) return;
+    chosen = keys;
+    const [, , model] = mods, {form, name} = model.startFormMany(keys);
+    // 파일에서 만든 '내 양식'을 번호 모양으로 바꾸면 원본 파일 연결(source_file_id)을 비운다. 처음 만드는 양식이면 보내지 않음(DB 기본 null).
+    pendingFile = null; uploadedId = known?.id ? null : undefined;
+    void openEditor(form, name, true, null);
+  }
+  async function openEditor(form, name, isNew, sourceName = known?.source_name ?? null, read = false) {
+    const [, store, , edit] = mods ?? await ownForm();
+    editing = true; choosing = false; note.textContent = ''; paintDraft();
+    edit.mountOwnFormEditor(slot, {form, name, fresh:isNew, read, onCancel:() => { editing = false; pendingFile = null; uploadedId = undefined; paintSaved(); },
+      onSave:async next => {
+        if (known === undefined) known = (await store.readOwnForm()).row;
+        // HWP-노조서식분류: 파일에서 읽은 양식이면 그 원본 한글 파일을 자료실 '노조 서식'에 한 번 올리고(hwp-drive.js saveUnionForm, 기존 library-files),
+        // 그 자료 번호를 '내 양식'의 source_file_id로 둔다. 올리기가 안 돼도 양식 저장은 막지 않는다(한 번만 보내고 다시 보내지 않음).
+        let sourceFileId = uploadedId, upNote = '';
+        if (pendingFile) {
+          const file = pendingFile; pendingFile = null;
+          try {
+            const up = await (await import('./hwp-drive.js')).saveUnionForm(file, {}, {rt});
+            if (up.kind === 'created') sourceFileId = uploadedId = up.document.id; else { sourceFileId = null; upNote = ` 원본 파일은 자료실에 올리지 못했어요. ${up.message}`; }
+          } catch { sourceFileId = null; upNote = ' 원본 파일은 자료실에 올리지 못했어요.'; }
+        }
+        let saved;
+        try { saved = await store.saveOwnForm({known, name, sourceName, sourceFileId, form:next}); }
+        catch (error) { return {ok:false, text:error?.code === 'too_big' ? store.OWN_FORM_TEXT.tooBig : store.OWN_FORM_TEXT.failed}; }
+        if (saved.missing) return {ok:false, text:store.OWN_FORM_TEXT.notReady};
+        if (saved.conflict) { known = saved.row; return {ok:false, text:store.OWN_FORM_TEXT.conflict}; }
+        known = saved.row; loaded = true; editing = false; uploadedId = undefined; paintSaved();
+        note.textContent = store.OWN_FORM_TEXT.saved + (sourceFileId ? " 원본 파일은 자료실 '노조 서식'에 두었어요." : upNote);
+        return {ok:true, text:''};
+      }});
+  }
+  // 내 양식을 읽은 뒤(못 읽어도) 첫 화면을 그린다 — 읽는 동안은 비워 둬서 '내 양식'이 있는 사람에게 고르기 화면이 잠깐 비치지 않게.
+  void ownForm().then(async loadedMods => {
+    mods = loadedMods;
+    try { const r = await mods[1].readOwnForm(); if (known === undefined) known = r.row; } catch { /* 못 읽으면 고르기 화면(저장 때 다시 읽음) */ }
+    loaded = true; paintSaved();
+  }).catch(() => {});
+  const setBusy = on => { busy = on; for (const b of slot.querySelectorAll('[data-weekly-blank-pick],[data-weekly-start-go]')) b.disabled = on; };
+  const open = async file => {
+    if (!file || busy) return;
+    setBusy(true); note.innerHTML = waitInlineHtml();
+    try {
+      const [{readHwpxForm}, store, model] = mods ?? await ownForm();
+      const r = await hwpx.hwpxPackage(file);
+      if (r.error) { note.textContent = r.error; return; }
+      let read;
+      try { read = readHwpxForm(r.pkg); } catch { note.textContent = store.OWN_FORM_TEXT.unreadable; return; }
+      if (!read.form.sections.length) { note.textContent = store.OWN_FORM_TEXT.none; return; }
+      pendingFile = file; uploadedId = undefined;
+      await openEditor(read.form, model.formName(read.title || file.name), true, file.name, true);
+    } catch { note.textContent = '파일을 열지 못했어요. 다시 선택해 주세요.'; }
+    finally { setBusy(false); }
+  };
+  input.addEventListener('change', () => { const f = input.files?.[0]; input.value = ''; void open(f); });
+  box.addEventListener('dragover', e => { if (!e.dataTransfer?.types?.includes?.('Files')) return; e.preventDefault(); box.classList.add('is-over'); });
+  box.addEventListener('dragleave', () => box.classList.remove('is-over'));
+  box.addEventListener('drop', e => { box.classList.remove('is-over'); const f = e.dataTransfer?.files?.[0]; if (!f) return; e.preventDefault(); void open(f); });
+  host.replaceChildren(box);
 }
 // [주간 정리]·상자 어느 쪽이 그 주 임시저장(2)·3) 줄)을 쓴 뒤: 재료를 바꾸고 두 자리를 다시 그리고, 열린 상자도 서버 판과 맞춘다.
 // 그 주 처음(칸 줄 없음): 바탕을 한 번 열어 처음 초안을 만든다(상자 ensure). 못 열면 그 주에는 다시 묻지 않고 까닭 한 줄.
@@ -785,6 +895,8 @@ const mountHwpx = () => W.mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
   // S52-31: 5. 주요 일정 줄 제자리 고치기가 열리거나 닫혔다(저장됨·AI 한 줄 포함): 화면만 다시.
   onSchedule: () => renderWeekly_({refreshBox:false}),
+  // 그 주 바탕이 있는지 알게 됐다(없으면 백지, 있으면 지금 화면): 다시 그린다.
+  onBase: week => { if (week === start) renderWeekly_({refreshBox:false}); },
   // WEEKLY-주간정리다듬기 ④: ⋯ [배운 것 보기] — 맨 아래 '배운 것'(주간보고 기억·규칙·환류) 칸을 열고 그리로 옮긴다.
   onLearn: () => { memoryUi.shown = true; renderWeekly_({refreshBox:false}); $('[data-journal-weekly-learned]')?.scrollIntoView({block:'start'}); },
   // WEEKLY-주요일정칸: 상자가 임시저장을 쓴 뒤(일정 칸별 고침 등) [주간 정리] 2) 주요 일정·5. 주요 일정 화면도 같은 판으로.
@@ -801,7 +913,7 @@ function weeklyKit() {
     // 한꺼번에 받기 시작한다(view-loader 받기 도구, 빌드가 사슬을 채움). 그래야 홈 뒤 쉬는 틈 미리 받기·다른 메뉴 첫 전환과 겹치지 않는다.
     kitFlight = (mode === 'week' ? Promise.resolve() : appShown()).then(() => { window.KPTUViewLoader?.preload?.(/*static-chain*/['./journal-weekly-kit.js']); return import('./journal-weekly-kit.js'); }).then(kit => {
       W = kit; hwpx = mountHwpx();
-      if (mode === 'week') { renderWeekly_(); void checkOverlaps(); maybeNextWeek(); }
+      if (mode === 'week') { renderWeekly_(); void checkOverlaps(); }
       return kit;
     }, error => { kitFlight = null; throw error; });
   }
@@ -832,7 +944,7 @@ function setMode(next) {
   mode = next; editing = null;
   startWeekReads();
   writePlace(); renderMode();
-  if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); maybeNextWeek(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
+  if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
 }
 // NAV-새로고침제자리: the day shown (?day=, left out for today) and [주간 정리] (?mode=week) are written to the address (no history
 // entry of their own), so a reload opens the same day or the same weekly view; enter() reads them back.
@@ -846,11 +958,6 @@ const aiDraft = day => draftFor(materials.journalDrafts?.status === 'ok' ? mater
 // After 18:00 KST, on today with no line and no draft, ask the server once with the day's materials (일정·한 일·회의·소식·업무 통화).
 // Waits until those reads have landed (a failed one is just left out). The server checks the same rules again and never overwrites.
 const DRAFT_SOURCES = ['events', 'tasks', 'meetings', 'basket', 'orgUpdates', 'projectUpdates', 'calls', 'journalDrafts'];
-// FEAT-1029묶음 ②: 18시(서울) 뒤 업무일지를 열면 내일 교섭·회의 전 한 장을 한 번 만든다(규칙·만들기는 pre-meeting-sheet.js 하나, 서버가 다시 봄).
-function preMeetingAuto() {
-  if (new Date(Date.now() + 9 * 3600 * 1000).getUTCHours() < 18) return;
-  void import('./pre-meeting-sheet.js').then(m => m.autoMakeTomorrow(rt)).catch(() => {});
-}
 async function maybeDraft() {
   const day = todayKey(), key = `${ownerScope(rt)}:${day}`, read = materials.journalDrafts;
   if (mode !== 'day' || selected !== day || linesState !== 'ok' || read?.status !== 'ok') return;
@@ -865,45 +972,7 @@ async function maybeDraft() {
   if (selected === day && !saving && !editing) renderLine({keepStatus:true});
 }
 
-// JOURNAL-다음주준비: [주간 정리] 맨 위 [다음 주] 칸. 보이는 주의 다음 주 장(그 주 금요일에 만든 것)을 그린다.
-function renderNextWeek_() {
-  const box = $('[data-journal-next-week]');
-  if (!box || mode !== 'week' || !W) return;
-  for (const d of box.querySelectorAll('[data-journal-next-group]')) { if (d.open) nextUi.open.add(d.dataset.journalNextGroup); else nextUi.open.delete(d.dataset.journalNextGroup); }
-  const read = materials.nextWeek, week = shiftWeek(start, 1), now = new Date();
-  const state = !read || read.status === 'loading' ? 'loading' : read.status !== 'ok' ? 'failed' : read.items.missing ? 'missing' : 'ok';
-  const sheet = state === 'ok' ? read.items.sheet : null;
-  W.renderNextWeekSheet(box, {state, week, view:sheet ? W.sheetView(sheet, week) : null, canMake:start === W.seoulNow(now).thisMonday,
-    afterTime:W.isAutoTime(now), busy:nextUi.busy, message:nextUi.message, error:nextUi.error, open:nextUi.open});
-}
-// 금요일 15시 뒤(또는 토·일) 이번 주 [주간 정리]가 처음 열릴 때 다음 주 장이 없으면 한 번 만든다(mode=auto). 서버가 같은 규칙을 다시
-// 보고, 이미 있으면 덮지 않는다. [지금 만들기]·[다시 만들기]는 mode=user.
-async function makeNextWeek(kind) {
-  const run = epoch, scope = owner, week = shiftWeek(start, 1), thisMonday = start;
-  if (nextUi.busy) return;
-  nextUi.busy = true; nextUi.message = ''; nextUi.error = false; renderNextWeek_();
-  let result;
-  try { result = await W.makeNextWeekSheet({week, thisMonday, mode:kind}, rt); } catch { result = {ok:false, message:'만들지 못했어요. 잠시 뒤 다시 시도해 주세요.'}; }
-  if (!current(run, scope)) { nextUi.busy = false; return; }
-  nextUi.busy = false;
-  if (result.ok) {
-    if (result.sheet) materials.nextWeek = {status:'ok', items:{missing:false, sheet:result.sheet}};
-    nextUi.message = kind === 'user' && result.sheet ? '다음 주 준비를 만들었어요.' : '';
-  } else if (kind === 'user') { nextUi.message = result.message; nextUi.error = true; }
-  else if (result.code === 'not_ready' || result.code === 'next_week_sheet_not_ready') materials.nextWeek = {status:'ok', items:{missing:true, sheet:null}};
-  renderNextWeek_();
-}
-function maybeNextWeek() {
-  if (mode !== 'week' || !W) return;
-  const key = `${ownerScope(rt)}:${shiftWeek(start, 1)}`;
-  if (!W.shouldAutoMake({shownStart:start, read:materials.nextWeek, asked:nextAsked.has(key)})) return;
-  nextAsked.add(key);
-  void makeNextWeek('auto');
-}
-
 const readers = {
-  // JOURNAL-다음주준비: 보이는 주의 다음 주 장(표가 없으면 {missing:true}).
-  nextWeek: async () => { const week = shiftWeek(start, 1); return (await weeklyKit()).readNextWeekSheet(week, rt); },
   events: () => readWeekScheduleEvents(start, rt),
   // JOURNAL-오늘한줄초안: 업무 통화(업무 통화함만)와 그 주 AI 초안(표가 없으면 {missing:true}).
   calls: () => readWeekCalls(start, rt),
@@ -956,7 +1025,7 @@ async function loadTaskMeetings(run, scope) {
 const SHARED_KEYS = new Set(['tasks', 'basket', 'catalog', 'milestones']);
 const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
-const WEEK_ONLY_KEYS = new Set(['nextWeek', 'weekDraft', 'execRequests']);
+const WEEK_ONLY_KEYS = new Set(['weekDraft', 'execRequests']);
 const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
 async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
   if (!quiet) { materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_(); }
@@ -972,8 +1041,6 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   if (key === 'tasks' && materials.tasks?.status === 'ok') void loadTaskMeetings(run, scope);
   void checkOverlaps();
   void maybeDraft();
-  maybeNextWeek();
-  preMeetingAuto();
 }
 async function loadLines(run, scope, quiet = false) {
   if (!quiet) { linesState = 'loading'; renderLine(); }
@@ -1007,7 +1074,7 @@ async function loadMemory(run, scope, quiet = false) {
 // PERF-첫로딩 요청 합치기(S48-59, docs/design/first-load.md 14절): [주간 정리]에만 쓰는 읽기(다음 주 장·5. 주요 일정 두 주·조직 요약·
 // 임원 요청·임시저장·조직 참고 캘린더·주간보고 기억)는 하루 화면에서는 보내지 않고, 그 주 [주간 정리]를 처음 열 때 보낸다.
 // 묶음 프로그램은 전처럼 앱이 보인 뒤 미리 받아 두므로(맨 아래 weeklyKit), 열 때는 읽기만 기다린다(칸마다 기다림 표시 → 채움).
-const WEEK_READS = ['nextWeek', 'upcoming', 'execRequests', 'weekDraft'];
+const WEEK_READS = ['upcoming', 'execRequests', 'weekDraft'];
 let weekReads = null; // 미룬 읽기 {run, sharedRun, scope, quiet, memory}; 탭 메모리만
 let weekReadsFlight = Promise.resolve(); // 그 읽기들이 다 끝나면 풀림([주간보고 초안 복사]가 기다림)
 function startWeekReads() {
@@ -1027,11 +1094,10 @@ function loadWeek({shared = false, quiet = false} = {}) {
   const run = ++epoch, scope = owner = ownerScope(rt);
   const sharedRun = shared || changedOwner ? ++sharedEpoch : sharedEpoch;
   if (!quiet) {
-    nextUi = {busy:false, message:'', error:false, open:nextUi.open};
     lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   }
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'nextWeek', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises'];
+  const allKeys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'execRequests', 'weekDraft', 'ledgerPromises'];
   // 하루 화면: [주간 정리] 전용 읽기는 미뤄 둔다(startWeekReads). 주를 넘겨도 기억 읽기는 방문(sharedEpoch)에 묶여 있으므로 함께 넘긴다.
   const defer = mode !== 'week', memoryRead = shared || changedOwner || (!!weekReads?.memory && weekReads.sharedRun === sharedRun);
   const keys = defer ? allKeys.filter(key => !WEEK_READS.includes(key)) : allKeys;
@@ -1226,23 +1292,6 @@ const RECORD = {
   // MTG-프로젝트합치기 결정 ⑥: 사업영역 화면은 옛 진행 기록 줄을 그리지 않는다 → 그 기록은 사업영역 화면만 열고 강조할 줄은 없다.
   project:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id || kind === 'progress' ? '' : `#ps3Body [data-basket-link="${CSS.escape(id)}"]`; },
 };
-// JOURNAL-다음주준비: 장의 한 줄(저장된 줄 번호) → 원래 기록. 약속은 원장 화면에서 그 약속을 펼친 채로, 챙길 것은 정리함.
-async function openNextWeekLine(index, trigger) {
-  const sheet = materials.nextWeek?.status === 'ok' ? materials.nextWeek.items.sheet : null;
-  const target = W.nextOpenTarget(Array.isArray(sheet?.groups) ? sheet.groups[index] : null);
-  if (!target) return;
-  if (target.type === 'ledger') {
-    try {
-      await window.KPTUViewLoader?.load?.('ledger');
-      rememberReturn(trigger);
-      window.KPTULedgerBrowse?.show?.({openId:target.id});
-      if (!goView('ledger')) pendingReturn = null;
-    } catch { status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.'; }
-    return;
-  }
-  if (target.type === 'todos') { rememberReturn(trigger); if (!goView('basket')) pendingReturn = null; return; }
-  return openOriginal(target, trigger);
-}
 async function openOriginal(target, trigger) {
   const wide = !!WIDE?.matches, loader = window.KPTUViewLoader;
   status.textContent = '';
@@ -1349,11 +1398,14 @@ async function copyDraft() {
   await scopeSettled();
   // [주간 정리]를 막 열어 미룬 읽기(5. 주요 일정 등)가 오는 중이면 끝날 때까지(길어도 5초) 기다린 뒤 복사한다.
   await Promise.race([weekReadsFlight, new Promise(ok => setTimeout(ok, 5000))]);
-  const text = W.weeklyReportText({...W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}), orgLines:weekOrgLines()});
+  // ⑤-3b: 절 제목은 '내 양식' 글 — 읽을 때까지 기다리고, 끝내 못 읽으면 복사하지 않고 한 줄.
+  const titles = await hwpx?.readTitles?.();
+  if (!titles) { status.textContent = '양식(항목 제목)을 읽지 못해 복사하지 않았어요. 잠시 뒤 다시 눌러 주세요.'; return false; }
+  const text = W.weeklyReportText({...W.weeklySummary({start, ...reportLines(), materials, doneDays, kinds, memory}), orgLines:weekOrgLines(), titles});
   const ok = await copyText(text);
   // catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'nextWeek', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
-  status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
+  const missing = Object.entries(materials).some(([key, state]) => !['catalog', 'events', 'calls', 'journalDrafts', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
+  status.textContent = ok ? `주간 보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
 
@@ -1391,7 +1443,7 @@ async function toggleKind(key, hide, name) {
   try {
     const result = await changeKind(key, hide, rt);
     if (scope !== ownerScope(rt)) return;
-    if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간보고에서 빼요.` : `'${name}' 종류를 주간보고에 다시 올려요.`; }
+    if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간 보고에서 빼요.` : `'${name}' 종류를 주간 보고에 다시 올려요.`; }
     else status.textContent = '저장하지 못했어요. 다시 시도해 주세요.';
     renderDay(); renderWeekly_();
   } finally { kindsBusy = false; }
@@ -1666,16 +1718,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-sched-save]')) { hwpx?.schedule(button.dataset.journalSchedSave, 'save'); return; }
   if (button.matches('[data-journal-sched-cancel]')) { hwpx?.schedule(button.dataset.journalSchedCancel, 'cancel'); return; }
   if (button.matches('[data-journal-schedule-ai]')) { hwpx?.schedule('', 'ai'); return; }
-  // JOURNAL-다음주준비: [지금 만들기]·[다시 만들기], 줄 → 그 기록, '근거 ›' → 근거 묶음 하나만 열고 그 줄로(잠깐 옅게 칠함, 공용 jumpToPrepRef).
   // 브라우저는 한 번 받기에 실패한 모듈을 같은 페이지에서 다시 받지 않는다 → 앱의 다른 화면 받기 실패와 같이 다시 연다(주소에 [주간 정리]가 남아 그 화면으로).
   if (button.matches('[data-journal-kit-retry]')) { location.reload(); return; }
-  if (button.matches('[data-journal-next-make]')) { void makeNextWeek('user'); return; }
-  if (button.matches('[data-journal-next-open]')) { void openNextWeekLine(Number(button.dataset.journalNextOpen), button); return; }
-  if (button.matches('[data-journal-next-ref]')) {
-    const group = W.jumpToPrepRef(root.querySelector('[data-journal-next-week]'), button.dataset.journalNextRef, W.NEXT_WEEK_SKIN);
-    if (group) nextUi.open.add(group);
-    return;
-  }
   if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }
   if (button.matches('[data-journal-original]')) { const target = opens.get(button.dataset.journalOriginal); button.closest('details')?.removeAttribute('open'); if (target) void openOriginal(target, button.closest('li')?.querySelector('[data-journal-open]') || button); return; }
   if (button.matches('[data-journal-complete]')) return void taskLine.complete(button.dataset.journalComplete, button);

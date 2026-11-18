@@ -106,7 +106,7 @@ for (const width of [390, 344]) {
         sameLine: b.top < n.bottom && n.top < b.bottom, before: b.right <= n.left,
         ancBack: document.querySelectorAll('#filesRoot [data-fx-list] .ft-focus-anc [data-fx-up]').length,
         toolsRow: tools.every(t => Math.abs(t.top - tools[0].top) < 2), toolsRight: Math.round(r(top).right - tools[2].right),
-        afterTwo: tools[0].left > r(two).right, toolsH: Math.max(...tools.map(t => t.height)),
+        twoAbove: r(two).bottom <= tools[0].top, toolsH: Math.max(...tools.map(t => t.height)),
         overflow: document.documentElement.scrollWidth - innerWidth,
       };
     });
@@ -117,7 +117,7 @@ for (const width of [390, 344]) {
     expect(m.ancBack).toBe(0);
     expect(m.toolsRow).toBe(true);
     expect(m.toolsRight).toBeLessThanOrEqual(2);
-    expect(m.afterTwo).toBe(true);
+    expect(m.twoAbove).toBe(true); // S62-40: [두 칸 보기]는 맨 위 줄(찾기와 같은 줄)
     expect(m.toolsH).toBeLessThanOrEqual(28);
     expect(m.overflow).toBeLessThanOrEqual(0);
     expect(errors).toEqual([]);

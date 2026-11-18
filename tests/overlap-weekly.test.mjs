@@ -1,10 +1,11 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   planOverlaps, reviveEdges, weekCandidates, refOfOpen, cleanRows, batches, WEEK_MAX_PAIRS, PRIORITY,
 } from '../app/overlap-weekly.mjs';
 import {readOverlapRows, askPairs, reviveOverlaps} from '../app/overlap-weekly-data.js';
-import {weekMaterial} from '../app/weekly-hwpx/draft.mjs';
+import {weekMaterial} from './fixtures/weekly-engine.mjs';
 
 // MTG-기록겹침거르기 4단계: 주간 정리에서 겹침 거르기. 이름·글은 모두 지어낸 값.
 const mod = import('../app/journal-weekly.js');
@@ -131,7 +132,7 @@ test('weeklySummary: 보고 안 함 종류가 된 사업 보고는 남길 줄이
 test('화면 모델·초안 복사·한글 파일 재료가 같은 결과다 / 되살리면 줄이 돌아온다', async () => {
   const m = await mod;
   const withOv = m.weeklySummary({...base, materials: materials(ok({missing: false, rows}))});
-  const text = m.weeklyReportText(withOv);
+  const text = reportText(withOv);
   assert.equal(text.includes('출정 기자회견 진행') || text.includes('출정 기자회견 참석'), false);
   assert.ok(text.includes('별도 협의') && text.includes('철도 파업 출정 기자회견'));
   const material = weekMaterial(withOv, [{index: 0, area: '사업영역 A', task: ''}], [{index: 0, org: '가 조직', lines: []}]);
@@ -142,7 +143,7 @@ test('화면 모델·초안 복사·한글 파일 재료가 같은 결과다 / �
   const cut = reviveEdges(P1, shown, rows);
   const revived = rows.filter(r => !cut.some(p => p.a === r.a_ref && p.b === r.b_ref)).concat(cut.map(p => ({a_ref: p.a, b_ref: p.b, verdict: 'different', decided_by: 'user'})));
   const back = m.weeklySummary({...base, materials: materials(ok({missing: false, rows: revived}))});
-  assert.ok(m.weeklyReportText(back).includes('출정 기자회견 진행'));
+  assert.ok(reportText(back).includes('출정 기자회견 진행'));
   assert.equal(back.overlap.count, 1);
 });
 

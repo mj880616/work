@@ -5,9 +5,12 @@ const mod = import('../app/quick-links.js');
 const L = (group, name = group + '링크', url = 'https://a.org/' + name) => ({group, name, url});
 const G = (id, name = id) => ({id, name});
 
-test('분류 목록: 비어 있으면 기본 두 분류, 모양·id·이름·개수·겹침이 틀리면 null', async () => {
+test('분류 목록: 비어 있으면 기본 \'업무\' 하나(옛 저장 링크가 org를 쓰면 그 분류도), 모양·id·이름·개수·겹침이 틀리면 null', async () => {
   const {parseGroups} = await mod;
-  assert.deepEqual(parseGroups(null), [G('work', '업무'), G('org', '담당조직 홈페이지')]);
+  assert.deepEqual(parseGroups(null), [G('work', '업무')]);
+  // 옛 저장(분류 칸 비어 있음 + 링크가 org 분류)은 그 분류를 옛 이름으로 함께 — 저장된 링크가 사라지지 않게.
+  assert.deepEqual(parseGroups(null, [L('work'), L('org')]), [G('work', '업무'), G('org', '담당조직 홈페이지')]);
+  assert.deepEqual(parseGroups(null, [L('work')]), [G('work', '업무')]);
   const ok = [G('work', '업무'), G('g1ab2c', '새 분류'), G('etc', '기타')];
   assert.deepEqual(parseGroups(ok), ok);
   for (const bad of [[], {}, 'x', [null], [{id: 'a'}], [{name: '가'}], [{id: 'a', name: '가', extra: 1}], [{id: 'A', name: '가'}], [{id: 'a-b', name: '가'}], [{id: '', name: '가'}],
@@ -15,14 +18,15 @@ test('분류 목록: 비어 있으면 기본 두 분류, 모양·id·이름·개
     [G('a', '가'), G('a', '나')], Array.from({length: 13}, (_, i) => G('g' + i, 'n' + i))]) assert.equal(parseGroups(bad), null, JSON.stringify(bad).slice(0, 60));
 });
 
-test('링크는 분류 목록에 있는 분류만 가리킨다(기본은 work·org)', async () => {
+test('링크는 분류 목록에 있는 분류만 가리킨다(기본은 work)', async () => {
   const {parseLinks, DEFAULT_LINKS} = await mod;
   const groups = [G('work', '업무'), G('x1', '새')];
   assert.deepEqual(parseLinks([L('x1')], groups), [L('x1')]);
   assert.equal(parseLinks([L('org')], groups), null);
   assert.equal(parseLinks([L('x1')]), null);
   assert.equal(parseLinks([{...L('work'), group: 5}]), null);
-  assert.equal(parseLinks(null).length, DEFAULT_LINKS.length);
+  assert.equal(parseLinks([L('org')]), null, '기본 분류에는 org가 없다');
+  assert.deepEqual(parseLinks(null), []); assert.equal(DEFAULT_LINKS.length, 0);
 });
 
 test('편집 검사: 분류 이름·겹침·개수와 링크 분류', async () => {
@@ -113,17 +117,23 @@ test('읽기: 분류 칸이 있으면 둘 다, 링크 칸이 비어도 분류를
   assert.deepEqual([ok.status, ok.groups, ok.links], ['ok', groups, [L('g1')]]);
   const custom = await readLinks(rt(() => [{quick_links: null, quick_link_groups: groups}]));
   assert.deepEqual([custom.status, custom.links], ['ok', []]);
+  // SEC-자주가는링크기본값유출: 새 계정(두 칸 다 비어 있음)은 빈 목록 + 기본 분류 하나.
   const fresh = await readLinks(rt(() => [{quick_links: null, quick_link_groups: null}]));
-  assert.equal(fresh.links.length, 11); assert.equal(fresh.groups.length, 2);
+  assert.deepEqual([fresh.status, fresh.links, fresh.groups], ['ok', [], [G('work', '업무')]]);
+  // 옛 저장(분류 칸 비어 있음, 링크가 work·org): 저장된 링크 그대로, 분류는 업무 + 옛 org.
+  const old = await readLinks(rt(() => [{quick_links: [L('work', 'A'), L('org', 'B')], quick_link_groups: null}]));
+  assert.deepEqual([old.status, old.links, old.groups.map(g => g.id)], ['ok', [L('work', 'A'), L('org', 'B')], ['work', 'org']]);
   assert.equal((await readLinks(rt(() => [{quick_links: [L('zz')], quick_link_groups: groups}]))).status, 'error');
   assert.equal((await readLinks(rt(() => [{quick_links: null, quick_link_groups: [{id: 'A', name: 'x'}]}]))).status, 'error');
   const e400 = () => { const e = new Error('x'); e.status = 400; throw e; };
   calls.length = 0;
   const legacy = await readLinks(rt(path => path.includes('quick_link_groups') ? e400() : [{quick_links: [L('work', 'A')]}]));
-  assert.deepEqual([legacy.status, legacy.links, legacy.groups.map(g => g.id)], ['pending', [L('work', 'A')], ['work', 'org']]);
-  assert.equal(calls.length, 2);
+  assert.deepEqual([legacy.status, legacy.links, legacy.groups.map(g => g.id)], ['pending', [L('work', 'A')], ['work']]);
+  const legacyOrg = await readLinks(rt(path => path.includes('quick_link_groups') ? e400() : [{quick_links: [L('org', 'B')]}]));
+  assert.deepEqual([legacyOrg.status, legacyOrg.links, legacyOrg.groups.map(g => g.id)], ['pending', [L('org', 'B')], ['work', 'org']]);
+  assert.equal(calls.length, 4);
   const none = await readLinks(rt(e400));
-  assert.deepEqual([none.status, none.links.length], ['pending', 11]);
+  assert.deepEqual([none.status, none.links.length], ['pending', 0]);
   const down = await readLinks(rt(() => { const e = new Error('x'); e.status = 500; throw e; }));
   assert.equal(down.status, 'error');
 });

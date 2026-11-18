@@ -124,11 +124,21 @@ for(const width of [390,412]){
   });
 }
 
-test('390: 새 할 일 추가 창에는 빠른 기한 버튼 줄이 없다',async({page})=>{
-  await open(page,390,[task('a','2026-10-08')]);
-  await page.evaluate(()=>window.KPTUGoogleTasks.openEditor(null));
+// FIX-잊지말기할일기한(2026-11-18): 새 할 일 추가 창에도 빠른 기한 버튼 줄이 있고, 누르면 기한 칸만 바뀐다(바로 저장하지 않음).
+// 자세한 시험은 task-new-due-quick.spec.mjs.
+test('390: 새 할 일 추가 창의 빠른 기한 버튼은 기한 칸만 바꾸고 바로 저장하지 않는다',async({page})=>{
+  const calls=await open(page,390,[task('a','2026-10-08')]);
+  await page.evaluate(()=>window.KPTUGoogleTasks.openEditor(null,{title:'새 할 일'}));
   await expect(page.locator('#gtTaskModal')).toBeVisible();
-  await expect(page.locator('#gtTaskModal .gt-due-quick')).toBeHidden();
+  await expect(page.locator('#gtSaveBtn')).toBeEnabled();
+  const quick=page.locator('#gtTaskModal .gt-due-quick');
+  await expect(quick).toBeVisible();
+  await expect(quick.locator('button')).toHaveText(['오늘','내일','모레','다음주','기한 없음']);
+  await quick.getByRole('button',{name:'모레',exact:true}).click();
+  await expect(page.locator('#gtEditDue')).toHaveValue('2026-10-10');
+  await expect(quick.getByRole('button',{name:'모레',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  expect(calls.filter(c=>c.action==='create'||c.action==='update')).toHaveLength(0);
 });
 
 test('1280: 완료를 펼쳐도 위 칸이 줄지 않고, 칸 안쪽 스크롤바 없이 화면이 넘어간다',async({page})=>{

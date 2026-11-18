@@ -21,7 +21,7 @@ const look = (loc, num) => loc.evaluate((el, n) => { const x = el.querySelector(
   return {bg: c.backgroundColor, fg: c.color, w: Math.round(r.width), h: Math.round(r.height), cellH: Math.round(cr.height), cellBg: getComputedStyle(el).backgroundColor, frame: getComputedStyle(el, '::before').borderTopWidth}; }, num);
 
 for (const width of WIDTHS) {
-  test(`${width}: 일기 달력 — 다른 날을 누르면 숫자가 진한 채운 동그라미, 칸·숫자 크기 그대로, 오늘 네모 선 그대로`, async ({page}) => {
+  test(`${width}: 하루 기록 달력 — 다른 날을 누르면 숫자가 진한 채운 동그라미, 칸·숫자 크기 그대로, 오늘 네모 선 그대로`, async ({page}) => {
     await page.setViewportSize({width, height: 900});
     await openHome(page);
     const at = '2026-10-05T01:00:00Z';

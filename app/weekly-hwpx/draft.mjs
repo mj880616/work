@@ -10,6 +10,7 @@
 //   assembleDraft(base, edits) → 보고 자료(바뀐 줄 표시) → buildHwpx(template, data, zlib) → .hwpx 바이트(규격 검사 통과한 것만)
 import {openHwpxAsync, packHwpxAsync, validateHwpxAsync} from './hwpx.mjs';
 import {extractBlankTemplate, assertBlank} from './template.mjs';
+import {needProfile} from './form-profile.mjs';
 import {readReport, buildReport, reportWords, lineText} from './report.mjs';
 import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.mjs';
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
@@ -39,12 +40,13 @@ export const DRAFT_TEXT = Object.freeze({
 export async function openConfirmed(bytes, zlib = browserZlib) { return openHwpxAsync(bytes, zlib); }
 
 // WEEKLY-개인본대조 W-2: 내준 한글 파일(.hwpx 바이트)의 1~4절 글 줄을 draft.issued 모양으로(weekly-lines.mjs — 서버가 개인본을 읽는 것과 같은 함수).
-// 5절·'2) 주요 일정'·표 머리 칸 이름은 빠진다. 읽을 줄이 없거나 너무 길면 null.
-export async function issuedFrom(bytes, at, zlib = browserZlib) {
+// 5절·'2) 주요 일정'·표 머리 칸 이름은 빠진다. 읽을 줄이 없거나 너무 길면 null. profile = 그 파일을 만든 엔진 양식(⑤-3c, 꼭 받음).
+export async function issuedFrom(bytes, at, zlib = browserZlib, {profile} = {}) {
+  needProfile(profile);
   const pkg = await openHwpxAsync(bytes, zlib);
   const sections = pkg.order.map(name => ({name, n: Number(/^Contents\/section(\d{1,4})\.xml$/i.exec(name)?.[1])})).filter(x => Number.isInteger(x.n)).sort((a, b) => a.n - b.n);
   const dec = new TextDecoder();
-  return issuedFromSections(sections.map(x => dec.decode(pkg.files.get(x.name))), at);
+  return issuedFromSections(sections.map(x => dec.decode(pkg.files.get(x.name))), at, profile);
 }
 
 // WEEKLY-한글파일다듬기 ②(2026-10-23 사용자 지적 11:38): 바탕 파일이 .hwp면 칸막이 편집기 엔진(rhwp 0.8.7 WASM, hwp-frame.js)이 .hwpx로 바꾼다.
@@ -122,13 +124,15 @@ export function hwp5Header(bytes) {
 }
 
 // 확정본 → {team(읽은 내용), template(빈 서식)}. 빈 서식 검사(template.mjs assertBlank)에 걸리면 Error(이유는 개수만, 글은 넣지 않음).
-export function prepareConfirmed(pkg) {
+// profile(꼭): '내 양식'(또는 바탕 파일에서 읽은 양식)으로 만든 양식 글자(form-profile.mjs profileOf). 기본값 없음(⑤-3a).
+export function prepareConfirmed(pkg, {profile} = {}) {
+  needProfile(profile);
   let team;
-  try { team = readReport(pkg); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
+  try { team = readReport(pkg, {profile}); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
   let template;
   // 양식 표(머리 칸 이름)를 찾지 못하면 멈춘다. 이유에는 양식 글자(표 머리 칸 이름)만 들어 있다.
-  try { template = extractBlankTemplate(pkg); } catch (e) { throw Object.assign(new Error(`${DRAFT_TEXT.noForm} (${e.message})`), {code: 'no_form'}); }
-  const problems = assertBlank(template, {forbidden: reportWords(team)});
+  try { template = extractBlankTemplate(pkg, {profile}); } catch (e) { throw Object.assign(new Error(`${DRAFT_TEXT.noForm} (${e.message})`), {code: 'no_form'}); }
+  const problems = assertBlank(template, {forbidden: reportWords(team, {profile}), profile});
   if (problems.length) throw Object.assign(new Error(DRAFT_TEXT.notBlank), {code: 'not_blank', count: problems.length});
   return {team, template};
 }
@@ -513,8 +517,9 @@ export const changedCount = data => [...(data.summary ?? []).flatMap(a => a.rows
   .filter(l => typeof l === 'object' && l?.changed).length;
 
 // 빈 서식 + 보고 자료 → .hwpx 바이트. 규격 검사(hwpx.mjs)를 통과하지 못하면 Error(파일을 내주지 않음).
-export async function buildHwpx(template, data, zlib = browserZlib) {
-  const {pkg} = buildReport(template, data);
+export async function buildHwpx(template, data, zlib = browserZlib, {profile} = {}) {
+  needProfile(profile);
+  const {pkg} = buildReport(template, data, {profile});
   const bytes = await packHwpxAsync(pkg, zlib);
   const check = await validateHwpxAsync(bytes, zlib);
   if (check.errors.length) throw Object.assign(new Error(DRAFT_TEXT.invalid), {code: 'invalid', count: check.errors.length});

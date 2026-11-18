@@ -83,7 +83,7 @@ public class AutoStartTests : IDisposable
         var reg = new FakeRegistry();
         var state = new AutoStartManager(reg, Store, Exe).Sync();
         Assert.Equal(AutoStartState.On, state);
-        Assert.Equal("\"" + Exe + "\"", reg.Value);
+        Assert.Equal("\"" + Exe + "\" --background", reg.Value);
         Assert.True(Store.Load().AutoStartDecided);
     }
 
@@ -92,7 +92,7 @@ public class AutoStartTests : IDisposable
     {
         var reg = new FakeRegistry { Value = @"""C:\old\place\BasketDrop.exe""" };
         new AutoStartManager(reg, Store, Exe).Sync();
-        Assert.Equal("\"" + Exe + "\"", reg.Value);
+        Assert.Equal("\"" + Exe + "\" --background", reg.Value);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class AutoStartTests : IDisposable
         var m = new AutoStartManager(reg, Store, Exe);
         m.SetEnabled(false);
         Assert.Equal(AutoStartState.On, m.SetEnabled(true));
-        Assert.Equal("\"" + Exe + "\"", reg.Value);
+        Assert.Equal("\"" + Exe + "\" --background", reg.Value);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class AutoStartTests : IDisposable
         var reg = new FakeRegistry { DisabledByWindows = true };
         Assert.Equal(AutoStartState.DisabledInWindows, new AutoStartManager(reg, Store, Exe).Sync());
         // the entry itself is kept correct so that switching it back on in Windows works
-        Assert.Equal("\"" + Exe + "\"", reg.Value);
+        Assert.Equal("\"" + Exe + "\" --background", reg.Value);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -108,7 +109,7 @@ test('the journal day card: 기타 메모 holds the day\'s kept updates and they
   assert.deepEqual(dayCard(materials, '2026-10-06').report.find(g => g.key === 'orgs').sections.map(s => s.name), ['가상 지부']);
   assert.equal(dayCard({...materials, basket:{status:'failed'}}, '2026-10-06').memos.failed[0], 'basket');
   // [주간보고 초안 복사] (form order, journal-weekly.js): 기타 메모 under 참고, day by day.
-  const draft = weeklyReportText(weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', materials, today:'2026-10-06'})).split('\n');
+  const draft = reportText(weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', materials, today:'2026-10-06'})).split('\n');
   const memo = draft.indexOf('◦ 기타 메모');
   assert.ok(memo > draft.indexOf('참고'));
   assert.deepEqual(draft.slice(memo + 1, memo + 4), ['- 10월 6일(화) 가상 메모 앞', '- 10월 6일(화) 가상 메모 하나', '- 10월 7일(수) 다른 날']);

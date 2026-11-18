@@ -120,7 +120,8 @@ function safeLinks(state) {
 // MD-표시보완: two or more images in a row (only spaces or line breaks between them, across image-only paragraphs too)
 // fold into one "🖼 이미지 N개" chip. Nothing is fetched until the reader presses it (markdown-view.js).
 const imageAddress = href => /^https?:$/.test(new URL(href).protocol);
-const imageOnly = inline => inline?.children?.length && inline.children.every(t => t.type === 'image' || t.type === 'softbreak' || t.type === 'hardbreak' || (t.type === 'text' && !t.content.trim()));
+// ED-빈줄읽기: at least one image — a paragraph of only a space ("&nbsp;", a blank line kept from the editor) is not folded in.
+const imageOnly = inline => inline?.children?.some(t => t.type === 'image') && inline.children.every(t => t.type === 'image' || t.type === 'softbreak' || t.type === 'hardbreak' || (t.type === 'text' && !t.content.trim()));
 function mergeImageParagraphs(state) {
   const tokens = state.tokens;
   for (let i = 0; i + 5 < tokens.length; i++) {

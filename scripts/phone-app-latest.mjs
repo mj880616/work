@@ -5,7 +5,7 @@
 // - 이 저장소 공개 릴리스 중 초안·미리보기가 아닌 것, 태그가 정확히 phone-app-v<숫자.숫자.숫자>인 것만(바구니 PC basket-pc-v*와 섞이지 않음).
 // - 그 릴리스의 자산 web2-phone-<같은 버전>.apk가 있고 크기가 0보다 크고 64MB 이하인 것.
 // - 버전 숫자가 가장 큰 것. 주소는 받은 값을 믿지 않고 저장소·태그·파일 이름으로 다시 만든다.
-// BASKET-노조플러스업로드: 같은 목록에서 최신 윈도우 PC 프로그램(노조+ 업로드, 태그 basket-pc-v<숫자.숫자.숫자>의 BasketDropApp-win-Setup.exe)도
+// BASKET-노조플러스업로드: 같은 목록에서 최신 윈도우 PC 보조 프로그램(노조+ 파일 올리기, 옛 이름 노조+ 업로드, 태그 basket-pc-v<숫자.숫자.숫자>의 BasketDropApp-win-Setup.exe)도
 // 골라 app/pc-app.json에 둔다. 규칙은 PC 프로그램 안 업데이트(basket-pc/…/UpdatePolicy.cs)와 같은 뜻: 초안·미리보기 제외, 태그 모양 정확히, 가장 높은 판.
 // 설치 파일 이름은 판마다 같아서(BasketDropApp-win-Setup.exe) 판 번호가 든 태그 주소로 연다 — 폰 앱 파일과 섞이지 않는 고정 모양.
 // 쓰는 길: node scripts/phone-app-latest.mjs <releases.json> <out.json> [<pc-out.json>]  (releases.json = GitHub API repos/<저장소>/releases 답)

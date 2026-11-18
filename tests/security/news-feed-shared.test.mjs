@@ -17,7 +17,7 @@ const PAGE = `<html lang="en"><head><meta property="og:title" content="Synthetic
 // 아주 작은 PostgREST 흉내: eq·neq·is·in·gte·lt·not.is 거르기, select·order·limit·offset, POST(ignore/merge), PATCH.
 const ANON = 'synthetic-anon-key';
 // blocked: 누른 사람이 가입 차단 명단에 있음(공용 표 읽기 정책 private.app_news_reader_ok가 막음).
-function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요약.'}, members = [{user_id: USER, workspace_id: WS2}], blocked = false} = {}) {
+function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요약.'}, members = [{user_id: USER, workspace_id: WS2}], blocked = false, newsWs = WS2} = {}) {
   const db = {app_news_articles: [], app_news_items: [], app_news_marks: [], app_news_id_map: [], app_news_article_bodies: [], app_outside_sources: [], app_news_keywords: [], app_news_days: [], ...structuredClone(tables)};
   const calls = {ai: 0, site: [], rest: []};
   const res = (v, s = 200) => new Response(v === null ? null : JSON.stringify(v), {status: s, headers: {'content-type': 'application/json'}});
@@ -53,7 +53,8 @@ function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요�
       if (p === 'app_news_articles' && method === 'GET') return res(db.app_news_articles.filter(a => `eq.${a.id}` === u.searchParams.get('id') && can(a)));
       throw new Error('user login used for ' + method + ' ' + p);
     }
-    if (p === 'rpc/app_operator_feature_workspace') return res(OP);
+    // NEWS-운영자만(S63-03): 'outside' 키 작업공간은 정확히 한 곳(기본은 누르는 사람 WS2, 시험마다 newsWs로 바꿈). 'telegram'(운영자·AI 셈)은 OP.
+    if (p === 'rpc/app_operator_feature_workspace') return res(body?.p_feature === 'outside' ? newsWs : OP);
     if (p === 'rpc/app_workspace_ai_month') return res({month: '2026-11', exempt: true, cap_krw: 3000, openai_input_tokens: 0, openai_output_tokens: 0, gemini: []});
     if (p === 'app_workspace_members') return res(members.filter(m => `eq.${m.user_id}` === u.searchParams.get('user_id')).map(m => ({workspace_id: m.workspace_id})));
     if (p.startsWith('rpc/')) return res(0);
@@ -86,14 +87,14 @@ function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요�
 }
 const recent = new Date(NOW - 3600000).toISOString();
 
-test('매체 단계: 두 작업공간이 같은 매체를 켜도 공용 기사는 한 줄(작업공간·키워드 칸 없음), 키워드는 각자 표시로, 운영자 옛 줄은 같은 id', async () => {
+test('매체 단계: 공용 기사는 기사마다 한 줄(작업공간·키워드 칸 없음), 운영자 옛 줄은 같은 id. S63-03: \'outside\' 키 없는 WS2는 켠 매체·키워드가 있어도 줄·표시 없음', async () => {
   const s = C.newsSourceByKey('news-labortoday');
   const rss = `<rss><channel><item><title>합성 철도 파업 기사</title><link>https://www.labortoday.co.kr/news/articleView.html?idxno=1</link><description>합성 소개</description></item>
 <item><title>합성 버스 기사</title><link>https://www.labortoday.co.kr/news/articleView.html?idxno=2</link></item></channel></rss>`;
   const w = world({tables: {
     app_outside_sources: [{workspace_id: OP, source_key: 'news-labortoday', enabled: true}, {workspace_id: WS2, source_key: 'news-labortoday', enabled: true}],
     app_news_keywords: [{workspace_id: OP, word: '철도', enabled: true, created_at: '1'}, {workspace_id: WS2, word: '버스', enabled: true, created_at: '1'}],
-  }, sites: {[s.lists[0]]: rss, 'https://www.labortoday.co.kr/robots.txt': 'User-agent: *\nAllow: /\n'}});
+  }, sites: {[s.lists[0]]: rss, 'https://www.labortoday.co.kr/robots.txt': 'User-agent: *\nAllow: /\n'}, newsWs: OP});
   const out = await w.cron({step: 'media', source: 'news-labortoday'});
   assert.equal(out.ok, true);
   assert.equal(w.db.app_news_articles.length, 2, '기사마다 한 줄');
@@ -101,14 +102,14 @@ test('매체 단계: 두 작업공간이 같은 매체를 켜도 공용 기사�
     assert.equal(a.origin, 'site');
     for (const k of ['workspace_id', 'keywords', 'starred_at', 'hidden_at', 'folder_id']) assert.ok(!(k in a), `공용 기사에 ${k} 칸 없음`);
   }
-  assert.equal(w.db.app_news_items.length, 4, '옮기는 동안 옛 표에도 작업공간마다');
+  assert.equal(w.db.app_news_items.length, 2, '옮기는 동안 옛 표에도 — \'outside\' 키 작업공간(OP)만');
+  assert.ok(!w.db.app_news_items.some(r => r.workspace_id === WS2), 'WS2 몫 줄 없음');
   const rail = w.db.app_news_articles.find(a => a.title.includes('철도'));
   assert.equal(w.db.app_news_items.find(r => r.workspace_id === OP && r.url_key === rail.url_key).id, rail.id, '운영자 옛 줄 id = 공용 id');
-  assert.notEqual(w.db.app_news_items.find(r => r.workspace_id === WS2 && r.url_key === rail.url_key).id, rail.id);
   const marks = w.db.app_news_marks.map(m => [m.workspace_id, w.db.app_news_articles.find(a => a.id === m.article_id).title, m.keywords]).sort();
-  assert.deepEqual(marks, [[OP, '합성 철도 파업 기사', ['철도']], [WS2, '합성 버스 기사', ['버스']]], '자기 키워드만 자기 표시에');
+  assert.deepEqual(marks, [[OP, '합성 철도 파업 기사', ['철도']]], '자기 키워드만 자기 표시에(WS2 키워드는 표시 안 함)');
   // E2: 옛 표에 넣은 줄마다 같은 주소 공용 기사로 지도 1줄(작업공간 그대로).
-  assert.equal(w.db.app_news_id_map.length, 4);
+  assert.equal(w.db.app_news_id_map.length, 2);
   for (const m of w.db.app_news_id_map) {
     const old = w.db.app_news_items.find(r => r.id === m.old_id), art = w.db.app_news_articles.find(a => a.id === m.article_id);
     assert.ok(old && art, '옛 줄·기사 있음'); assert.equal(old.url_key, art.url_key); assert.equal(m.workspace_id, old.workspace_id);
@@ -117,7 +118,7 @@ test('매체 단계: 두 작업공간이 같은 매체를 켜도 공용 기사�
   // 두 번째 실행: 공용 기사·표시·지도는 늘지 않음.
   await w.cron({step: 'media', source: 'news-labortoday'});
   assert.equal(w.db.app_news_articles.length, 2);
-  assert.equal(w.db.app_news_id_map.length, 4);
+  assert.equal(w.db.app_news_id_map.length, 2);
   assert.equal(w.calls.ai, 0, '수집 때 AI 없음');
 });
 
@@ -190,33 +191,33 @@ test('재사용: 공용 기사가 이미 읽혔으면 옛 대기 줄은 원문·
   assert.deepEqual([r.state, r.title, r.summary, r.body], ['ok', '합성 제목', '합성 요약', '합성 본문']);
 });
 
-test('제목 번역: 같은 외국어 기사를 두 작업공간이 가져도 AI 1번, 이미 번역된 공용 기사는 옮겨 적기만(AI 0)', async () => {
+test('제목 번역: 같은 외국어 기사는 AI 1번(공용 기사에 저장). S63-03: \'outside\' 키 없는 WS2 옛 줄은 번역·옮겨 적기 없음', async () => {
   const mk = (n, ws, key) => ({id: id(n), workspace_id: ws, lane: 'media', url: `https://${key}`, url_key: key, lang: 'en', title: `Synthetic title ${key}`, summary: 'Synthetic lead.', created_at: recent});
   const w = world({ai: {titles: [{i: 1, ko: '합성 제목 번역', sum_ko: '합성 소개 번역'}]}, tables: {
     app_news_articles: [{id: id(10), origin: 'site', lane: 'media', url: 'https://x.example.org/1', url_key: 'x.example.org/1', lang: 'en', title: 'Synthetic title x.example.org/1', summary: 'Synthetic lead.', state: 'ok', created_at: recent},
       {id: id(11), origin: 'site', lane: 'media', url: 'https://x.example.org/2', url_key: 'x.example.org/2', lang: 'en', title: 'T2', title_ko: '이미 있는 번역', summary: '이미 한국어 소개', translated_at: recent, state: 'ok', created_at: recent}],
     app_news_items: [mk(12, OP, 'x.example.org/1'), mk(13, WS2, 'x.example.org/1'), mk(14, WS2, 'x.example.org/2')],
-  }});
+  }, newsWs: OP});
   await w.cron({step: 'titles'});
   assert.equal(w.calls.ai, 1, '기사마다 한 번');
   assert.equal(w.db.app_news_articles[0].title_ko, '합성 제목 번역');
-  for (const r of w.db.app_news_items.slice(0, 2)) assert.deepEqual([r.title_ko, r.summary], ['합성 제목 번역', '합성 소개 번역']);
-  assert.deepEqual([w.db.app_news_items[2].title_ko, w.db.app_news_items[2].summary], ['이미 있는 번역', '이미 한국어 소개'], '옮겨 적기');
+  assert.deepEqual([w.db.app_news_items[0].title_ko, w.db.app_news_items[0].summary], ['합성 제목 번역', '합성 소개 번역']);
+  for (const r of w.db.app_news_items.slice(1)) assert.deepEqual([r.title_ko, r.summary], [undefined, 'Synthetic lead.'], 'WS2 옛 줄은 그대로');
   assert.deepEqual(w.db.app_news_days.map(d => d.workspace_id), [OP], 'AI는 운영자 작업공간에 셈');
 });
 
-test('키워드 표시: 공용 기사 하나에 작업공간마다 자기 키워드만, 끈 키워드는 비움(별표는 그대로)', async () => {
+test('키워드 표시: 공용 기사 하나에 자기 키워드만. S63-03: \'outside\' 키 없는 작업공간은 표시를 만들지도 비우지도 않음(보존)', async () => {
   const w = world({tables: {
     app_news_articles: [{id: id(20), origin: 'site', lane: 'media', url: 'https://k.example.org/1', url_key: 'k.example.org/1', title: '합성 철도 버스 기사', state: 'ok', created_at: recent}],
     app_news_keywords: [{workspace_id: OP, word: '철도', enabled: true, created_at: '1'}, {workspace_id: WS2, word: '버스', enabled: true, created_at: '1'}],
     app_outside_sources: [{workspace_id: 'a0000000-0000-4000-8000-000000000003', source_key: 'news-khan', enabled: true}],
     app_news_marks: [{workspace_id: 'a0000000-0000-4000-8000-000000000003', article_id: id(20), keywords: ['옛말'], starred_at: recent}],
-  }});
+  }, newsWs: OP});
   const out = await w.cron({step: 'keywords'});
-  assert.equal(out.marks, 3);
+  assert.equal(out.marks, 1);
   const m = Object.fromEntries(w.db.app_news_marks.map(x => [x.workspace_id, x]));
-  assert.deepEqual(m[OP].keywords, ['철도']); assert.deepEqual(m[WS2].keywords, ['버스']);
-  assert.deepEqual(m['a0000000-0000-4000-8000-000000000003'].keywords, []); assert.equal(m['a0000000-0000-4000-8000-000000000003'].starred_at, recent);
+  assert.deepEqual(m[OP].keywords, ['철도']); assert.equal(m[WS2], undefined, 'WS2 키워드는 표시 안 함');
+  assert.deepEqual(m['a0000000-0000-4000-8000-000000000003'].keywords, ['옛말'], '이미 있는 표시는 지우지 않음'); assert.equal(m['a0000000-0000-4000-8000-000000000003'].starred_at, recent);
 });
 
 test('[번역] 재사용: 같은 본문의 공용 기사에 번역이 있으면 AI·하루 한도 없이 저장본, 처음 번역은 공용 기사에도 저장', async () => {
@@ -288,6 +289,26 @@ test('E3 open: 옛 줄 id는 지도로 공용 기사로 바꾸고, 내 옛 줄�
   assert.equal(w2.db.app_news_days.length, 0, '하루 한도 안 씀');
 });
 
+test('S63-11 open: 본문은 있는데 제목 없이 아직 읽기 전인 공용 기사는 내 옛 줄 제목·상태로 채운다(원문·AI·하루 한도 0)', async () => {
+  const key = 'e3.example.org/56', url = 'https://e3.example.org/56';
+  const w = world({tables: {
+    app_news_articles: [artRow(56, {title: null, state: 'pending', body: '합성 본문', body_kind: 'full'})],
+    app_news_items: [{id: id(57), workspace_id: WS2, lane: 'channel', url, url_key: key, state: 'ok', title: '합성 옛 줄 제목', body: '합성 본문', body_kind: 'full', created_at: recent}],
+  }});
+  const r = await w.user('open', {id: id(56)});
+  assert.equal(r.body.status, 'titled');
+  const a = w.db.app_news_articles[0];
+  assert.deepEqual([a.title, a.state], ['합성 옛 줄 제목', 'ok']);
+  assert.equal(w.calls.site.length + w.calls.ai, 0);
+  assert.equal(w.db.app_news_days.length, 0, '하루 한도 안 씀');
+  // 한 번 채운 뒤에는 저장본 그대로.
+  assert.equal((await w.user('open', {id: id(56)})).body.status, 'stored');
+  // 옛 줄에도 제목이 없으면 상태만 ok(제목은 그대로 비움).
+  const H2 = H.headPatch({title: 'https://e3.example.org/9', state: 'pending', body_kind: 'full'}, [{title: 'https://e3.example.org/9'}], '2026-11-16T00:00:00Z');
+  assert.deepEqual(Object.keys(H2).sort(), ['fetched_at', 'state', 'updated_at']);
+  assert.equal(H.headPatch({title: '있는 제목', state: 'ok', body_kind: 'full'}, [], 'x'), null);
+});
+
 test('E3 거절: 차단 명단 사람·채널 스크랩(운영자 전용) 줄·owner 아닌 사람·없는 id는 공용 기사를 못 읽음(원문·AI·쓰기 0)', async () => {
   const tables = {app_news_articles: [artRow(60), artRow(61, {origin: 'tg_scrap'})]};
   const quiet = w => { assert.equal(w.calls.site.length + w.calls.ai, 0); assert.ok(!w.calls.rest.some(c => ['POST', 'PATCH', 'DELETE'].includes(c.method) && !c.p.startsWith('rpc/'))); };
@@ -301,7 +322,7 @@ test('E3 거절: 차단 명단 사람·채널 스크랩(운영자 전용) 줄·o
   const stranger = world({tables, sites: e3Sites(60), members: []});
   assert.equal((await stranger.user('open', {id: id(60)})).status, 403); quiet(stranger);
   // 운영자는 채널 스크랩 줄을 읽는다(옮기는 동안 그대로).
-  const op = world({tables, sites: e3Sites(61), members: [{user_id: USER, workspace_id: OP}]});
+  const op = world({tables, sites: e3Sites(61), members: [{user_id: USER, workspace_id: OP}], newsWs: OP});
   assert.equal((await op.user('open', {id: id(61)})).body.status, 'ok');
 });
 
@@ -314,7 +335,7 @@ test('E3 translate: 공용 id로 번역하면 공용 기사에 1번 저장, 다�
   const patch = w.calls.rest.find(c => c.method === 'PATCH' && c.p === 'app_news_articles');
   assert.match(patch.q, /body_ko=is\.null/, '이미 있는 번역은 덮지 않음');
   const ai = w.calls.ai, days = JSON.stringify(w.db.app_news_days);
-  const second = world({tables: {app_news_articles: [structuredClone(a)]}, members: [{user_id: USER, workspace_id: OTHER_USER_WS}]});
+  const second = world({tables: {app_news_articles: [structuredClone(a)]}, members: [{user_id: USER, workspace_id: OTHER_USER_WS}], newsWs: OTHER_USER_WS});
   assert.equal((await second.user('translate', {id: id(70)})).body.status, 'stored');
   assert.equal(second.calls.ai, 0); assert.equal(second.db.app_news_days.length, 0);
   assert.equal(w.calls.ai, ai); assert.equal(JSON.stringify(w.db.app_news_days), days);
@@ -329,4 +350,19 @@ test('E3 소스: 화면 입구(open·translate)는 공용 기사를 새로 만�
   assert.doesNotMatch(screen, /app_feed_items|app_feed_rooms|app_family|app_tg_|app_call/, '텔레그램·가족·통화 표 없음');
   const shared = readFileSync(new URL('../../supabase/functions/_shared/shared-article.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(shared, /SERVICE_ROLE|Deno\.env|method: "(PATCH|DELETE|PUT)"/, '공용 글 찾기는 사용자 로그인 읽기만');
+});
+
+test('S62-22: 사람이 공유로 먼저 넣은 기사(origin user)를 매체 수집이 만나면 새 줄 없이 매체 기사로 넓힌다(모두의 목록에)', async () => {
+  const s = C.newsSourceByKey('news-labortoday');
+  const rss = `<rss><channel><item><title>합성 공유 먼저 기사</title><link>https://www.labortoday.co.kr/news/articleView.html?idxno=7</link></item></channel></rss>`;
+  const w = world({tables: {
+    app_outside_sources: [{workspace_id: OP, source_key: 'news-labortoday', enabled: true}],
+    app_news_articles: [{id: id(70), origin: 'user', lane: 'channel', url: 'https://www.labortoday.co.kr/news/articleView.html?idxno=7', url_key: 'labortoday.co.kr/news/articleView.html?idxno=7', title: '합성 공유 먼저 기사', state: 'ok'},
+      {id: id(71), origin: 'user', lane: 'channel', url: 'https://other.example.org/x', url_key: 'other.example.org/x', state: 'ok'}],
+  }, sites: {[s.lists[0]]: rss, 'https://www.labortoday.co.kr/robots.txt': 'User-agent: *\nAllow: /\n'}, newsWs: OP});
+  assert.equal((await w.cron({step: 'media', source: 'news-labortoday'})).ok, true);
+  assert.equal(w.db.app_news_articles.length, 2, '새 줄 없음');
+  const a = w.db.app_news_articles.find(x => x.id === id(70));
+  assert.deepEqual([a.origin, a.lane, a.source_key], ['site', 'media', 'news-labortoday']);
+  assert.equal(w.db.app_news_articles.find(x => x.id === id(71)).origin, 'user', '수집이 만나지 않은 공유 기사는 그대로(넣은 사람만)');
 });

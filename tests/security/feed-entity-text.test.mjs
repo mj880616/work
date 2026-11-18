@@ -85,7 +85,7 @@ test('사회운동 RSS 단체 전부(노동자연대·Socialist Worker 등): 같
 
 // 표본(tests/fixtures/outside-feed) 전부: 지금 표본에서 표기 글자가 남지 않고, 표본 제목 가운데에 표기를 끼워 넣어도 글자로 풀린다.
 const FX=name=>readFileSync(new URL(`../fixtures/outside-feed/${name}`,import.meta.url),'utf8');
-const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
+const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],edubonbu:['edubonbu.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
  jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html'],
  socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 const parse=(s,text,i)=>s.mode==='rss'?P.parseFeed(s,text,NOW):s.mode==='telegram'?P.parseTelegram(s,text,NOW):P.parseListHtml(s,text,s.lists[i],30,undefined,NOW);

@@ -25,7 +25,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   const state = {owner:'', loaded:false, loading:null, error:'', rows:[], done:null, truncated:false, filter:'all', query:'', search:false, opened:{}, swipe:null, busy:new Set(), note:'', epoch:0};
   const odCache = new Map(); // 'YYYY-MM' → Promise<odMonth|null>
   let observer = null, drag = null, swallow = false;
-  host.innerHTML = '<div class="diary-lv-search" data-diary-lv-search hidden><input type="search" data-diary-lv-q placeholder="일기 글에서 찾기" aria-label="일기 찾기" enterkeyhint="search" autocomplete="off"><button type="button" class="mini" data-diary-lv-search-close aria-label="찾기 닫기">×</button></div><p class="diary-lv-note" data-diary-lv-note role="status"></p><div class="diary-lv-body" data-diary-lv-body></div>';
+  host.innerHTML = '<div class="diary-lv-search" data-diary-lv-search hidden><input type="search" data-diary-lv-q placeholder="하루 기록 글에서 찾기" aria-label="하루 기록 찾기" enterkeyhint="search" autocomplete="off"><button type="button" class="mini" data-diary-lv-search-close aria-label="찾기 닫기">×</button></div><p class="diary-lv-note" data-diary-lv-note role="status"></p><div class="diary-lv-body" data-diary-lv-body></div>';
   const body = host.querySelector('[data-diary-lv-body]'), note = host.querySelector('[data-diary-lv-note]'), searchRow = host.querySelector('[data-diary-lv-search]'), input = host.querySelector('[data-diary-lv-q]');
   const rowOf = day => state.rows.find(row => row.journal_day === day) || null;
   const scopeNow = () => ownerScope(rt);
@@ -42,7 +42,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
       Object.assign(state, {owner, loaded:true, rows, done:doneDays, truncated, error:''});
     }, () => {
       if (run !== state.epoch || owner !== scopeNow()) return;
-      state.error = '일기 목록을 불러오지 못했어요.';
+      state.error = '하루 기록 목록을 불러오지 못했어요.';
     }).finally(() => { if (run === state.epoch) { state.loading = null; paint(); } });
     return state.loading;
   }
@@ -57,7 +57,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   };
   function doneRowHtml(row) {
     const day = row.journal_day, {line} = rowText(row);
-    return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}" data-diary-lv-done><div class="diary-lv-row"><button type="button" class="diary-lv-open" data-diary-lv-open="${esc(day)}" aria-label="${esc(`${dayLabel(day)}, 일기 없음, ${line}`)}"><span class="diary-lv-thumb" data-diary-lv-thumb="${esc(day)}" aria-hidden="true"></span><span class="diary-lv-text"><span class="diary-lv-top"><b>${esc(dayLabel(day))}</b></span><span class="diary-lv-line is-done">${esc(line)}</span></span></button></div></div>`;
+    return `<div class="diary-lv-swipe" data-diary-lv-swipe="${esc(day)}" data-diary-lv-done><div class="diary-lv-row"><button type="button" class="diary-lv-open" data-diary-lv-open="${esc(day)}" aria-label="${esc(`${dayLabel(day)}, 하루 기록 없음, ${line}`)}"><span class="diary-lv-thumb" data-diary-lv-thumb="${esc(day)}" aria-hidden="true"></span><span class="diary-lv-text"><span class="diary-lv-top"><b>${esc(dayLabel(day))}</b></span><span class="diary-lv-line is-done">${esc(line)}</span></span></button></div></div>`;
   }
   function rowHtml(row) {
     if (row.done_only) return doneRowHtml(row);
@@ -77,10 +77,10 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
     if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
     const list = buildDiaryList(withDoneDays(state.rows, state.done), {filter:state.filter, query:state.query, opened:state.opened});
-    const empty = !list.total ? (state.query ? '맞는 일기 없음' : state.filter === 'star' ? '별표 일기 없음' : '없음') : '';
-    note.textContent = state.note || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');
+    const empty = !list.total ? (state.query ? '맞는 하루 기록 없음' : state.filter === 'star' ? '별표 하루 기록 없음' : '없음') : '';
+    note.textContent = state.note || (state.truncated ? '최근 하루 기록 1,000편만 보여요.' : '');
     const parts = [];
-    if (list.pinned.length) parts.push(`<section class="diary-lv-group" aria-label="고정한 일기"><h4 class="diary-lv-head is-pin">${iconHtml('pin')} 고정 <span>· ${list.pinned.length}</span></h4><div class="diary-lv-rows">${list.pinned.map(rowHtml).join('')}</div></section>`);
+    if (list.pinned.length) parts.push(`<section class="diary-lv-group" aria-label="고정한 하루 기록"><h4 class="diary-lv-head is-pin">${iconHtml('pin')} 고정 <span>· ${list.pinned.length}</span></h4><div class="diary-lv-rows">${list.pinned.map(rowHtml).join('')}</div></section>`);
     for (const month of list.months) {
       parts.push(`<section class="diary-lv-group"><button type="button" class="diary-lv-head" data-diary-lv-month="${esc(month.key)}" aria-expanded="${month.open}">${esc(month.label)} <span>· ${month.count}</span>${chevHtml(month.open)}</button>${month.open ? `<div class="diary-lv-rows">${month.rows.map(rowHtml).join('')}</div>` : ''}</section>`);
     }
@@ -134,7 +134,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     }
   }
 
-  const menu = createAnchoredMenu({id:'diaryListMenu', className:'diary-lv-menu', label:'일기 메뉴', historyKey:'kptuDiaryListMenu', key:t => t.dataset.diaryLvMore,
+  const menu = createAnchoredMenu({id:'diaryListMenu', className:'diary-lv-menu', label:'하루 기록 메뉴', historyKey:'kptuDiaryListMenu', key:t => t.dataset.diaryLvMore,
     render:day => {
       const row = rowOf(day); if (!row) return '';
       return `<button type="button" data-diary-lv-menu="open">열기</button><button type="button" data-diary-lv-menu="pin">${iconHtml('pin')} ${diaryPinnedAt(row) ? '고정 풀기' : '고정'}</button><button type="button" data-diary-lv-menu="star">${diaryStarredAt(row) ? '★ 별표 풀기' : '☆ 별표'}</button>`;

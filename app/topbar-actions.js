@@ -5,7 +5,9 @@ import {pcSplit,itemOf,isDefaultLayout,pcMoveFor,hideItem,BAR_MAX} from './menu-
 import {mountReorder,dropIndex,dropIndexGrid} from './reorder-drag.js'; // MENU-왼쪽메뉴바로끌기: 메뉴 편집 창과 같은 끌기 부품
 import {openRowMenu,appMenuPoint} from './row-menu.js'; // 왼쪽 메뉴 우클릭: 공용 줄 메뉴(UI-PC우클릭과 같은 모양)
 import './menu-layout.js';
-import {downloadPlan,loadPhoneAppInfo,pcPlan,loadPcAppInfo} from './app-download.mjs'; // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'(윈도우 PC는 PC 프로그램)
+import {downloadPlan,loadPhoneAppInfo,pcPlan,loadPcAppInfo,PC_HELPER_NAME} from './app-download.mjs';
+import {openHelp} from './help-link.js'; // HELP-메뉴안쓰는법: 메뉴 맨 아래 '쓰는 법'
+import {installPlan,isStandalone,runInstall} from './pwa-install.mjs'; // S63-09 PC도우미구분: PC 브라우저 계정 메뉴 [PC에 앱 설치] // APP-앱내려받기버튼: 계정 메뉴 '앱 내려받기'(윈도우 PC는 보조 프로그램)
 import './keyboard-keys.js'; // UI-PC손맛묶음 ②: 전체 검색 단축키·본문으로 가기·목록 ↑↓·Enter
 import {isWide,placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 (()=>{
@@ -29,35 +31,68 @@ const accounts=logoutButtons.map(logout=>{
   // UI-업데이트기록입구: [내 프로필] 바로 아래 [업데이트 기록] 줄, 오른쪽에 지금 판 이름을 작게(메뉴를 처음 열 때 기록 파일에서 채움).
   const updates=document.createElement('button');updates.type='button';updates.className='account-action account-updates';updates.dataset.updatesOpen='';
   updates.innerHTML='<span class="account-action-name">업데이트 기록</span><span class="account-ver" data-account-ver></span>';
+  // UPDATE-운영자전용기록업데이트소식 PR1: 개발 기록은 운영자만 — 서버 허용 표(app_my_features)에 운영자 개발 키가 있을 때만 줄을 그린다.
+  // 읽기 자체는 서버 함수가 운영자만 허용한다(화면에서 줄을 그리는 것은 편의일 뿐 막는 장치가 아님).
+  updates.hidden=true;
+  // UPDATE-운영자전용기록업데이트소식 PR3: 모든 이용자에게 '업데이트 소식'(운영자가 보낸 소식만). 새 소식 점·숫자는 붙이지 않는다(명진 11/15 13:37).
+  const whatsnew=document.createElement('button');whatsnew.type='button';whatsnew.className='account-action';whatsnew.dataset.whatsnewOpen='';whatsnew.textContent='업데이트 소식';
+  // FEEDBACK-의견보내기 PR5: 맨 아래(로그아웃 위) '의견 보내기'는 모두에게, '받은 의견 n'은 운영자만(서버 허용 표 dev_inbox일 때만 줄을 그림 — 읽기는 서버가 막음).
+  const feedback=document.createElement('button');feedback.type='button';feedback.className='account-action';feedback.dataset.feedbackOpen='';feedback.textContent='의견 보내기';feedback.setAttribute('aria-haspopup','dialog');
+  const inbox=document.createElement('button');inbox.type='button';inbox.className='account-action';inbox.dataset.feedbackInbox='';inbox.hidden=true;
+  inbox.innerHTML='<span class="account-action-name">받은 의견</span><span class="account-count" data-feedback-count></span>';
+  // OPS-새가입알림 ③·OPS-가입자현황: '가입자 현황'도 운영자만(같은 서버 허용 표 dev_inbox일 때만 줄을 그림 — 읽기는 서버 app_signup_list가 막음).
+  const signups=document.createElement('button');signups.type='button';signups.className='account-action';signups.dataset.signupsOpen='';signups.hidden=true;signups.textContent='가입자 현황';
   // APP-앱내려받기버튼(명진 11/15): [업데이트 기록] 아래 '앱 내려받기'. 안드로이드 폰 브라우저는 최신 폰 앱 APK 주소(app-download.mjs), PC·아이폰은 누르면 한 줄 안내,
   // 폰 앱 안에서는 줄이 없다(앱이 스스로 업데이트한다).
   const appDl=appDownloadRow();
+  const appInstall=appInstallRow();
   const menuEdit=document.createElement('button');menuEdit.type='button';menuEdit.className='account-action';menuEdit.dataset.menuEditOpen='';menuEdit.textContent='메뉴 수정';menuEdit.setAttribute('aria-haspopup','dialog');menuEdit.setAttribute('aria-controls','menuEditModal');
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(...[profile,updates,appDl,menuEdit,theme,logout].filter(Boolean));document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(...[profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,signups,inbox,feedback,logout].filter(Boolean));document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,profile,updates,appDl,menuEdit,theme,nativePopover};
+  return {host,trigger,panel,profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,signups,inbox,feedback,nativePopover};
 });
 // APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
-// BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 윈도우 PC 프로그램(노조+ 업로드) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
+// BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 PC 보조 프로그램(노조+ 파일 올리기) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
 function appDownloadRow(){
   const plan=downloadPlan({ua:navigator.userAgent||''});
   if(plan.kind==='app')return null;
   const name='<span class="account-action-name">앱 내려받기</span><span class="account-ver" data-app-download-ver></span>';
   const pc=pcPlan({ua:navigator.userAgent||''});
   if(pc.kind==='pc'){
-    const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='pc';row.href=pc.url;row.rel='noopener';row.innerHTML=name;
-    row.addEventListener('click',()=>kptuNotify(`${pc.hint}. ${pc.warn}`,{record:false,ms:7000}));
+    // S63-09 PC도우미구분: 윈도우 PC에서는 '앱 내려받기'가 아니라 보조 프로그램 이름으로(노조+ 자체로 오해하지 않게), 누르면 브라우저 안내·설명·경고.
+    const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='pc';row.href=pc.url;row.rel='noopener';
+    row.innerHTML=`<span class="account-action-name">${PC_HELPER_NAME} 도우미 내려받기</span><span class="account-ver" data-app-download-ver></span>`;
+    row.addEventListener('click',()=>kptuNotify(`${pc.browser} ${pc.hint}. ${pc.warn}`,{record:false,ms:9000}));
     return row;
   }
   if(plan.kind==='other'){
-    const row=document.createElement('button');row.type='button';row.className='account-action';row.dataset.appDownload='other';row.innerHTML=name;
-    row.addEventListener('click',()=>kptuNotify(plan.hint,{record:false,ms:4000}));
+    // HELP-처음쓰는사람안내 ③: 아이폰·맥 등은 한 줄 알림 대신 기기별 안내 창([안드로이드|아이폰|윈도우|맥], 지금 기기 탭 먼저 — app-download-guide.js).
+    const row=document.createElement('button');row.type='button';row.className='account-action';row.dataset.appDownload='other';row.innerHTML=name;row.setAttribute('aria-haspopup','dialog');
+    row.addEventListener('click',()=>{
+      const trigger=menuQuery.matches?menuButton():(row.closest('.account-panel')&&accounts.find(a=>a.panel.contains(row))?.trigger)||row;
+      closeAccount(()=>{void guideStyles().then(()=>import('./app-download-guide.js')).then(m=>m.openAppGuide(trigger)).catch(()=>kptuNotify(plan.hint,{record:false,ms:4000}))});
+    });
     return row;
   }
   const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='android';row.href=plan.url;row.rel='noopener';row.innerHTML=name;
   row.addEventListener('click',()=>kptuNotify(plan.hint,{record:false,ms:6000}));
+  return row;
+}
+const GUIDE_CSS=['./small-form-modal.css','./first-use.css'];
+function guideStyles(){return Promise.all(GUIDE_CSS.map(path=>new Promise(resolve=>{
+  const href=new URL(path,location.href).href;
+  if([...document.querySelectorAll('link[rel="stylesheet"]')].some(link=>link.href===href)){resolve();return}
+  const link=document.createElement('link');link.rel='stylesheet';link.href=path;link.dataset.kptuViewStyle='1';
+  link.onload=link.onerror=()=>resolve();document.head.append(link);
+})))}
+// S63-09 PC도우미구분: PC 브라우저(설치한 창 안이 아닐 때)만 [PC에 앱 설치]. 브라우저가 설치 창을 붙잡아 두었으면 열고, 아니면 주소창 설치 아이콘 안내 한 줄.
+function appInstallRow(){
+  const plan=installPlan({ua:navigator.userAgent||'',standalone:isStandalone()});
+  if(plan.kind!=='pc')return null;
+  const row=document.createElement('button');row.type='button';row.className='account-action';row.dataset.appInstall='';row.textContent=plan.label;
+  row.addEventListener('click',async()=>{if(await runInstall()==='fallback')kptuNotify(plan.fallback,{record:false,ms:7000})});
   return row;
 }
 if(pcPlan({ua:navigator.userAgent||''}).kind==='pc')void loadPcAppInfo().then(info=>{
@@ -100,6 +135,8 @@ const NS='http://www.w3.org/2000/svg';
 const SUB_ICONS={tasks:'M4 6.5 5.5 8 8 5M11 7h9M4 12.5 5.5 14 8 11M11 13h9M11 19h9M4.5 19h3',diary:'M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 1h11v-3M9 7h5'};
 const iconRows=[...buttonByKey].map(([key,button])=>[button,itemOf(key)?.icon]);
 appNav?.querySelectorAll('.nav-sub-btn[data-view]').forEach(button=>iconRows.push([button,SUB_ICONS[button.dataset.view]]));
+// HELP-메뉴안쓰는법: 왼쪽 메뉴 맨 아래 '쓰는 법'(물음표 동그라미).
+const helpNav=appNav?.querySelector('.nav-help');if(helpNav)iconRows.push([helpNav,'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01']);
 iconRows.forEach(([button,d])=>{
   if(!d||button.querySelector('.nav-ico'))return;
   const svg=document.createElementNS(NS,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('class','nav-ico');
@@ -149,27 +186,45 @@ function closeMobile(then,fromBack=false){
   if(!fromBack&&history.state?.kptuMobileMenu){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();
 }
 window.KPTUMobileMenu={isOpen:()=>mobileOpen,close:closeMobile};
+// HELP-메뉴안쓰는법(시안 ①, 명진 확정 '메뉴 맨 아래 묶음'): 폰 [메뉴] 창 맨 아래 계정 줄의 [내 프로필] 바로 다음 '쓰는 법'.
+// PC·폴드(761px~)는 왼쪽 메뉴 맨 아래 '쓰는 법' 줄(index.html)이 같은 일을 하므로 계정 메뉴에는 넣지 않는다(같은 줄 두 곳 금지).
+const helpRow=document.createElement('button');helpRow.type='button';helpRow.className='account-action';helpRow.dataset.helpMenu='';helpRow.textContent='쓰는 법';
+helpRow.addEventListener('click',()=>closeAccount(()=>openHelp()));
 function syncMobile(){
   if(!mobileGroup||!mobileAccount)return;
   if(!menuQuery.matches&&mobileOpen)closeMobile();
   const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
-    target.append(...[mobileAccount.profile,mobileAccount.updates,mobileAccount.appDl,mobileAccount.menuEdit,mobileAccount.theme,logoutButtons[0]].filter(Boolean));
+    target.append(...[mobileAccount.profile,mobileAccount.updates,mobileAccount.whatsnew,mobileAccount.appInstall,mobileAccount.appDl,mobileAccount.menuEdit,mobileAccount.theme,mobileAccount.signups,mobileAccount.inbox,mobileAccount.feedback,logoutButtons[0]].filter(Boolean));
   }
+  if(menuQuery.matches){if(helpRow.previousElementSibling!==mobileAccount.profile)mobileAccount.profile.after(helpRow)}else helpRow.remove();
   syncKeyboard();
 }
-// UI-업데이트기록입구: 판 이름은 계정 메뉴(폰은 메뉴 판)를 처음 열 때 한 번 읽어 채운다. 못 읽으면 비운 채(다음 열 때 다시).
-// 기록 파일은 배포 빌드가 만들므로, 빌드한 화면(app.js에 ?v=가 붙은 화면, version-notice.js와 같은 기준)에서만 읽는다(개발·시험 화면에서 헛된 404 없음).
+// UI-업데이트기록입구 → UPDATE-운영자전용기록업데이트소식 PR1: 계정 메뉴(폰은 메뉴 판)를 처음 열 때 운영자인지 서버에 한 번 묻고,
+// 운영자면 [업데이트 기록] 줄을 보이고 판 이름을 서버 기록(app_release_notes_read)에서 채운다. 못 읽으면 다음 열 때 다시.
 let versionFilled=false;
-const builtShell=()=>[...document.scripts].some(script=>{try{const url=new URL(script.src,location.href);return /\/app\.js$/.test(url.pathname)&&url.searchParams.has('v')}catch{return false}});
 function fillVersion(){
-  if(versionFilled||!builtShell())return;versionFilled=true;
-  import('./release-notes-read.js').then(m=>m.readReleaseNotes()).then(list=>{
+  if(versionFilled)return;versionFilled=true;
+  import('./release-notes-read.js').then(async m=>{
+    if(!await m.canReadReleaseNotes()){versionFilled=false;return}
+    accounts.forEach(account=>{account.updates.hidden=false;account.inbox.hidden=false;account.signups.hidden=false});
+    void fillFeedbackCount();
+    const list=await m.readReleaseNotes();
     if(!list?.current){versionFilled=false;return}
     accounts.forEach(account=>{const ver=account.updates.querySelector('[data-account-ver]');if(ver)ver.textContent=`현재 ${list.current}`});
   }).catch(()=>{versionFilled=false});
 }
+window.addEventListener('kptu:session-changed',()=>{versionFilled=false;accounts.forEach(account=>{account.updates.hidden=true;account.inbox.hidden=true;account.signups.hidden=true})});
+// FEEDBACK-의견보내기 PR5: 운영자 '받은 의견' 옆 처리 전 숫자(운영자만 — 서버 app_feedback_open_count가 운영자 아니면 거절). 0이면 비움.
+async function fillFeedbackCount(){
+  if(accounts.every(account=>account.inbox.hidden))return;
+  let n=null;try{n=await window.KPTURuntime.api('/rest/v1/rpc/app_feedback_open_count',{method:'POST',body:{},singleFlight:false})}catch{n=null}
+  accounts.forEach(account=>{const c=account.inbox.querySelector('[data-feedback-count]');if(c)c.textContent=Number(n)>0?String(n):''});
+}
+window.addEventListener('kptu:feedback-changed',()=>{void fillFeedbackCount()});
+// 메뉴를 처음 열 때 줄이 늦게 생기지 않게, 작업공간이 준비되면 한 번 미리 묻는다(답은 my-features.js가 이 탭에 한 번만 기억).
+if(window.__KPTU_TEAM_READY_STATE__==='workspace')fillVersion();else window.addEventListener('kptu:team-ready',e=>{if(e.detail?.state==='workspace')fillVersion()});
 function openMobile(trigger){
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}
@@ -226,7 +281,7 @@ menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
   // APP-위여백: 홈은 본문 맨 위 날짜가 제목이라 폰 머리줄에 쓸 이름이 없다. 이름이 없으면 머리줄 전체가 자리를 비운다(빈 44px+12px 칸이 남지 않게).
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'일기',projects:'사업영역 관리',team:'조직 보고',meetings:'사업 보고',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',team:'조직 관리',meetings:'사업 관리',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',feedback:'받은 의견',signups:'가입자 현황',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -264,7 +319,7 @@ async function openWriter(kind='update'){
     openUpdateWindow({text:writeDraft,doc:writeDraftDoc,title:'쓰기',onClose:(text,{saved,value})=>{
       if(saved){writeDraft='';writeDraftDoc=null;return}
       writeDraft=text.trim()?text:'';writeDraftDoc=writeDraft?value:null;
-      if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [업데이트]로 다시 열면 이어서 쓸 수 있어요.');
+      if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [잊지 말기]로 다시 열면 이어서 쓸 수 있어요.');
     }});
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
   finally{writerOpening=false}
@@ -503,8 +558,8 @@ paintSteps();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
-const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'조직 보고',view:'team'},reports:{name:'사업 보고',view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'일기',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 보고',pages:'공유 페이지',team:'조직 보고',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
+const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'조직 관리',view:'team'},reports:{name:'사업 관리',view:'meetings'}};
+const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:'사업영역 관리',library:'자료실',files:'파일',meetings:'사업 관리',pages:'공유 페이지',team:'조직 관리',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',feedback:'받은 의견',signups:'가입자 현황',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
 const whereList=topline?.querySelector('[data-topline-where]');
 const APP_TITLE='노동조합+';
 let basketKind=null;
@@ -563,7 +618,7 @@ paintWhere();
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
 // 일기·공유 페이지 (MTG-사업보고 1단계) = the router opens the screen, then that screen's own [새 일기] / [새 공유 페이지] button is pressed (no new save path).
 const addButton=topline?.querySelector('[data-quick-add]');
-const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','일기'],['page','공유 페이지'],['report','사업 보고']];
+const ADD_ITEMS=[['update','잊지 말기'],['task','할 일'],['note','노트'],['event','일정'],['diary','하루 기록'],['page','공유 페이지'],['report','사업 보고']];
 async function openEventWindow(task){
   try{
     await window.KPTUDeferredFeatures?.loadView?.('calendar');
@@ -610,6 +665,21 @@ if(addButton){
 accounts.forEach(account=>account.profile.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('profile',{source:'delegated'}))));
 // [업데이트 기록]: 같은 길(메뉴 닫기 → 라우터가 화면을 연다, 폰 뒤로가기 = 이전 화면). 화면 모듈은 처음 열 때 불러온다.
 accounts.forEach(account=>account.updates.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('updates',{source:'delegated'}))));
+accounts.forEach(account=>account.whatsnew.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('whatsnew',{source:'delegated'}))));
+accounts.forEach(account=>account.inbox.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('feedback',{source:'delegated'}))));
+accounts.forEach(account=>account.signups.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('signups',{source:'delegated'}))));
+// 의견 보내기 창: 처음 열 때 모양 파일 둘(작은 입력 창·의견 칸)을 받고 모듈을 불러온다.
+const FEEDBACK_CSS=['./small-form-modal.css','./feedback.css'];
+const feedbackStyles=()=>Promise.all(FEEDBACK_CSS.map(path=>new Promise(resolve=>{
+  const href=new URL(path,location.href).href;
+  if([...document.querySelectorAll('link[rel="stylesheet"]')].some(link=>link.href===href)){resolve();return}
+  const link=document.createElement('link');link.rel='stylesheet';link.href=path;link.dataset.kptuViewStyle='1';
+  link.onload=link.onerror=()=>resolve();document.head.append(link);
+})));
+accounts.forEach(account=>account.feedback.addEventListener('click',()=>{
+  const trigger=menuQuery.matches?menuButton():account.trigger;
+  closeAccount(()=>{void feedbackStyles().then(()=>import('./feedback.js')).then(m=>m.openFeedback(trigger)).catch(()=>writeToast('의견 창을 열지 못했어요. 다시 시도해 주세요.'))});
+}));
 // [메뉴 편집]: 계정 메뉴를 닫은 뒤 편집 창(menu-edit.js)을 처음 쓸 때 불러 연다.
 accounts.forEach(account=>account.menuEdit.addEventListener('click',()=>closeAccount(()=>{
   const focusTrigger=menuQuery.matches?menuButton():account.trigger;

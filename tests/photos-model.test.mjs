@@ -185,7 +185,7 @@ test('사진 메뉴 ② 폴더 나무: 맨 위 폴더 늘 열림, 열린 폴더�
 
 test('폴더·앨범 이름 규칙(서버와 같음)과 옮기기 되돌리기 묶음', () => {
   assert.equal(cleanPhotoFolderName(' 여행 '), '여행');
-  for (const bad of ['', '  ', 'a/b', 'a:b', 'a|b', '끝.', '.Web2 휴지통', 'x'.repeat(201), 'a\u0001', 5]) assert.equal(cleanPhotoFolderName(bad), null, String(bad));
+  for (const bad of ['', '  ', 'a/b', 'a:b', 'a|b', '끝.', '.Web2 휴지통', '.노조+ 휴지통', 'x'.repeat(201), 'a\u0001', 5]) assert.equal(cleanPhotoFolderName(bad), null, String(bad));
   assert.equal(cleanTagName('#제주'), '제주');
   assert.equal(cleanTagName('  가족  '), '가족');
   for (const bad of ['', '#', '제주 여행', 'a#b', 'x'.repeat(41), null]) assert.equal(cleanTagName(bad), null, String(bad));

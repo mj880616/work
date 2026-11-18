@@ -30,7 +30,7 @@ function requestedUserScopes() {
 test('코드가 요청하는 Google 사용자 권한이 모두 처리방침 표에 있다', () => {
   const scopes = requestedUserScopes();
   assert.ok(scopes.length >= 4, `권한을 찾지 못함: ${scopes}`);
-  const table = page.slice(page.indexOf('<table>'), page.indexOf('</table>'));
+  const table = page.slice(page.indexOf('<table>'), page.indexOf('</table>', page.indexOf('<table>')));
   for (const scope of scopes) assert.ok(table.includes(`<code>${scope}</code>`), `처리방침 표에 없음: ${scope}`);
   const listed = [...table.matchAll(/<code>(https:\/\/www\.googleapis\.com\/auth\/[a-z.]+)<\/code>/g)].map(m => m[1]).sort();
   assert.deepEqual(listed, scopes, '코드가 요청하지 않는 권한이 표에 있음');

@@ -62,6 +62,8 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 // LIB-파일이름그대로(2026-10-30 사용자 결정 A): [확정] 자료명은 파일 이름 그대로(주간보고_YYYYMMDD_이름 → "주간보고 YYYYMMDD 이름"). 본문 ■ 일시 글자(손으로 고칠 수 있음)로 정하지 않는다.
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
+import {engineForm, baseForm, saveBaseForm} from './weekly-engine-form.js';
+import {screenTitles} from './weekly-screen-titles.mjs'; import {groupNames} from './weekly-group-names.mjs'; // ⑤-3b: 화면 절 제목 = 같은 profile 제목 // WEEKLY-내양식자유변형 ⑤-2·⑤-3: 엔진 양식은 '내 양식'에서(없으면 바탕 파일에서 읽어 저장 — 명진 결정 11/17 '나')
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
@@ -119,6 +121,8 @@ const DRAFT_DELAY = 2000;
 // 담당 팀원 칸 이름이 어디서 왔나(맨 위 한 줄 이름에 title 로, 프로필 이름을 쓴 때만 바탕 아래 한 줄로도).
 const ME_FROM = Object.freeze({confirmed:'담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.', profile:'직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.', typed:'담당 팀원 칸 이름을 직접 수정했어요.'});
 const SECTION_NAME = Object.freeze({summary:'요약', orgs:'산하조직', sites:'투쟁 사업장'});
+// 양식을 아직 모를 때: 절 제목은 비우고, 학습 묶음 이름(groups)은 일반적인 말(weekly-group-names.mjs, ⑤-3d).
+const NO_TITLES = Object.freeze({...Object.fromEntries(Object.keys(screenTitles({titles:{}})).map(k => [k, ''])), groups:groupNames(null)});
 const DRAFT_TEXT = Object.freeze({
   missing: '임시저장은 준비 중이에요. 상자를 닫으면 수정한 내용은 사라져요.',
   saving: '저장 중…',
@@ -207,7 +211,7 @@ const latestBase = findBase;
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
 // draftDelay: how long typing must pause before the draft is saved (tests may pass a shorter one).
 // onMemory(list): [기억하기]로 내 프로필의 주간보고 기억을 쓴 뒤 저장된 목록을 알린다(journal.js가 [주간 정리]를 다시 그림).
-export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onFlow = () => {}, onRequestsSlot = () => {}, onSchedule = () => {}, onLearn = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
+export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDraft, onFlow = () => {}, onBase = () => {}, onRequestsSlot = () => {}, onSchedule = () => {}, onLearn = () => {}, rt = window.KPTURuntime, draftDelay = DRAFT_DELAY}) {
   if (!host) return null;
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -215,6 +219,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   let state = null, engine = null, lib = null, run = 0, confirmed = undefined, sourceRun = 0, weekDraft = null, flight = null;
   // [처음부터] 뒤 바탕을 다시 연 끝에 남길 상태 줄({week, text}). 다시 여는 동안의 '여는 중…' 줄이 지운 결과 안내를 연 뒤 되살린다(한 번만).
   let reopenNote = null;
+  let formRetry = null; // ⑤-3: '내 양식'을 읽지 못해 바탕을 열지 않았을 때 상태 줄 [다시 시도]가 부르는 열기(한 번)
   // WEEKLY-한흐름확정 ②(명진 결정 ①: 위 상자 없앰): 이 모듈은 [주간 정리] 안 두 자리를 그린다.
   //   topLine — 맨 위 한 줄 '■ 일시 · 이름 · 바탕 … 임시저장 HH:MM ⋯'(⋯ = 이름 고치기·일시 고치기·바탕 바꾸기(기기 파일)·처음부터)
   //   host    — 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼, .hwp) + ⋯(확정 없이 파일만 받기(.hwp)·.hwpx로 받기·글로 복사·학습 시험)
@@ -229,7 +234,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const topMenu = rowMore(doc, {label:'일시·이름·바탕 수정', data:{hwpxTopMore:''}, items:[{text:'이름 수정', data:{hwpxTopMe:''}}, {text:'일시 수정', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}]});
   // 1. 요청사항 › 1) 위 한 줄: 바탕(지난주 확정본)에서 가져온 요청 줄 안내. [주간 정리]가 그 자리에 붙인다. 바탕을 연 판에서만 보인다.
   const reqNote = el('p', 'journal-muted journal-hwpx-requests-note'); reqNote.dataset.hwpxRequests = ''; reqNote.hidden = true;
-  const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-label', '주간보고 한글 파일');
+  const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-label', '주간 보고 한글 파일');
   const status = el('p', 'journal-hwpx-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.dataset.hwpxStatus = '';
   const body = el('div', 'journal-hwpx-body');
   const draftLine = el('span', 'journal-hwpx-draft'); draftLine.dataset.hwpxDraftStatus = ''; draftLine.setAttribute('aria-live', 'polite');
@@ -241,8 +246,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // WEEKLY-주간정리다듬기 ④(시안 docs/design/mockups/weekly-tidy.html ③): 버튼 아래에 늘어놓던 [초안 다시 쓰기]·주간보고 기억·규칙·환류는 ⋯ 안으로.
   // WEEKLY-기본HWP(명진 11/13 'a'): 받는 파일 기본은 .hwp — [확정 없이 파일만 받기]도 .hwp, .hwpx는 [.hwpx로 받기]로만.
   const more = rowMore(doc, {label:'확정 없이 파일만 받기·.hwpx로 받기·글로 복사·초안 다시 쓰기·배운 것 보기', data:{hwpxMore:''}, items:[
-    {text:'확정 없이 파일만 받기', data:{hwpxHwp:''}}, {text:'.hwpx로 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간보고 초안 글로 복사'},
-    {text:'초안 다시 쓰기', data:{hwpxAiAgain:''}, aria:'초안 다시 쓰기(손대지 않은 칸만)'}, {text:'배운 것 보기', data:{hwpxLearnShow:''}, aria:'주간보고 기억·규칙 보기'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
+    {text:'확정 없이 파일만 받기', data:{hwpxHwp:''}}, {text:'.hwpx로 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간 보고 초안 글로 복사'},
+    {text:'초안 다시 쓰기', data:{hwpxAiAgain:''}, aria:'초안 다시 쓰기(손대지 않은 칸만)'}, {text:'배운 것 보기', data:{hwpxLearnShow:''}, aria:'주간 보고 기억·규칙 보기'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
   const confirmRow = el('div', 'weekly-flow-confirm'); confirmRow.dataset.weeklyFlowConfirm = '';
   confirmRow.append(confirmBtn, more, confirmState);
   const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = '.hwp,.hwpx'; fileInput.hidden = true; fileInput.dataset.hwpxFile = '';
@@ -267,6 +272,46 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   let schedEdit = null, schedNote = null, schedAi = false, schedNoteTimer = 0;
   let topEdit = null; // 맨 위 한 줄에서 고치는 칸('me'|'date', 기기 메모리만)
   const say = (text, kind = '') => { status.textContent = text || ''; status.dataset.kind = kind; };
+  // WEEKLY-내양식자유변형 ⑤-3b: 화면 절 제목의 주인. 엔진과 같은 profile(저장된 '내 양식', 없으면 바탕 파일에서 읽은 양식)을 작업공간마다 하나 둔다.
+  // 처음 부르면 '내 양식'을 한 번 읽고(engineForm — 던지지 않음), 없으면 그 주 바탕을 열어(ensure → load 가 바탕에서 읽음) 알게 된다.
+  // 알게 되면 onBase 로 [주간 정리]를 다시 그린다. 코드에 박힌 제목은 없다 — 아직 모르면 null.
+  let known = {ws:'', profile:null, read:null};
+  const workspaceNow = () => rt?.context?.read?.()?.workspace?.id ?? '';
+  const knowProfile = (profile, redraw = true) => {
+    if (!profile) return;
+    const ws = workspaceNow(), was = known.ws === ws ? known.profile : null;
+    if (known.ws === ws) known.profile = profile; else known = {ws, profile, read:null};
+    if (redraw && was !== profile) onBase(getWeek().start);
+  };
+  function formTitles() {
+    const ws = workspaceNow();
+    if (known.ws !== ws) known = {ws, profile:null, read:null};
+    if (known.profile) return screenTitles(known.profile);
+    if (state?.profile) { known.profile = state.profile; return screenTitles(state.profile); }
+    if (!known.read) {
+      const mine = known;
+      mine.read = engineForm(rt).then(async form => {
+        if (known !== mine) return;
+        if (form.profile) { knowProfile(form.profile); return; }
+        if (form.status === 'readFailed') { mine.read = null; return; } // 다음에 그릴 때 다시
+        const week = getWeek().start;
+        if (baseState(week) === 'none') return; // 바탕이 없는 사람은 [주간 정리] 대신 백지(journal.js) — 제목이 필요 없다
+        const opened = await ensure(); // load 가 바탕에서 읽은 profile 을 알린다(knowProfile)
+        if (known === mine && opened?.profile) onBase(getWeek().start);
+      }).catch(() => { if (known === mine) mine.read = null; });
+    }
+    return null;
+  }
+  // 복사처럼 제목이 꼭 있어야 할 때: 읽기가 끝날 때까지 기다린다. 끝내 모르면 null(부르는 쪽은 하지 않고 한 줄).
+  async function readTitles() {
+    const now = formTitles();
+    if (now) return now;
+    await known.read?.catch?.(() => {});
+    return formTitles() ?? (await ensure().then(s => (s?.profile ? screenTitles(s.profile) : null), () => null));
+  }
+  // 상태 줄·알림 글에 쓰는 제목(바탕을 연 뒤라 profile 이 있다). 없으면 빈 글.
+  const titles = () => screenTitles(state?.profile ?? known.profile) ?? NO_TITLES;
+  const sayRetry = (text, again) => { say(text, 'error'); formRetry = again; status.append(' ', button('다시 시도', 'hwpxFormRetry')); };
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));
 
   // 바탕을 닫는다(주가 바뀜·처음부터). 고치던 것은 닫기와 같이 저장. 맨 위 한 줄·확정 버튼 줄은 그대로(draft 로 다시 그림).
@@ -278,6 +323,30 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true;
     schedEdit = null; schedNote = null; schedAi = false; clearTimeout(schedNoteTimer);
     panel.hidden = true; body.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote(); paintPlace();
+  }
+  // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 개인·팀 확정본) 있는지 주마다 한 번 본다. 없으면 [주간 보고]는 백지 + 올리기 한 줄
+  // (journal.js) — 바탕이 없는 새 가입자에게 코드에 박힌 다른 팀 양식(항목 이름·표 칸)을 보이지 않는다. 못 읽으면 'unknown'(지금처럼 그림).
+  const baseKnown = new Map(), baseFlight = new Set();
+  // 그 주 바탕 찾기 한 번을 바탕 열기(fromLibrary)와 나눠 쓴다 — 자료실 읽기가 늘지 않게. 열기가 한 번 쓰면 버린다(다음 열기는 새로 읽음).
+  const basePick = new Map();
+  function pickFor(week) {
+    if (basePick.has(week)) return basePick.get(week);
+    baseFlight.add(week);
+    const p = latestBase(rt, reportDay(week));
+    basePick.set(week, p);
+    const was = baseKnown.get(week);
+    p.then(pick => { baseKnown.set(week, pick?.doc ? 'some' : 'none'); }, () => { if (basePick.get(week) === p) basePick.delete(week); })
+      .finally(() => { baseFlight.delete(week); if (baseKnown.get(week) !== was && getWeek().start === week) onBase(week); });
+    return p;
+  }
+  const takePick = week => { const p = pickFor(week); basePick.delete(week); return p; };
+  function baseState(week) {
+    if (state && state.start === week) return 'some';
+    return baseKnown.get(week) ?? 'unknown';
+  }
+  function checkBase(week) {
+    if (!week || baseKnown.has(week) || baseFlight.has(week) || (state && state.start === week)) return;
+    void pickFor(week).catch(() => {});
   }
   // 그 주 바탕을 연다(이미 열려 있으면 그대로). 그 주 임시저장에 바탕 자료가 적혀 있으면 그것을, 없으면 자료실 최신 개인본(없으면 팀 확정본).
   // 반환: 열렸으면 state, 못 열었으면 null(까닭은 상태 줄).
@@ -398,7 +467,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     try {
       const day = reportDay(getWeek().start);
       // [이어서 고치기]는 그때 바탕을 다시 연다. 그것이 지금 고른 개인본이면 팀 확정본 참고 표시도 함께 본다.
-      const pick = pinned ? (confirmed !== undefined ? confirmed : await latestBase(rt, day).catch(() => null)) : (confirmed !== undefined ? confirmed : await latestBase(rt, day));
+      const week = getWeek().start, lookup = () => (reportDay(week) === day ? takePick(week) : latestBase(rt, day));
+      const pick = pinned ? (confirmed !== undefined ? confirmed : await lookup().catch(() => null)) : (confirmed !== undefined ? confirmed : await lookup());
       const chosen = pinned ? (pick?.doc?.id === pinned.id ? pick : {doc:pinned, from:pinned.from === 'personal' ? 'personal' : 'confirmed', team:null}) : pick;
       const found = chosen?.doc ?? null;
       if (mine !== run) return;
@@ -417,6 +487,25 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (mine === run) say(error?.kind ? error.message : TEXT.readFailed, 'error');
     }
   }
+  async function hwpxPackage(file) {
+    const {draft, drive} = await lazy();
+    if (!file || !drive.isHwpName(file.name)) return {error:TEXT.notHwp};
+    if (file.size > MAX_BYTES) return {error:TEXT.tooBig};
+    let bytes = new Uint8Array(await file.arrayBuffer());
+    const kind = draft.hwpKind(bytes);
+    if (!kind) return {error:TEXT.notHwp};
+    if (kind !== 'hwpx') {
+      if (draft.hwp5Header(bytes)?.password) return {error:TEXT.locked};
+      engine ||= createEngine();
+      try { bytes = await engine.toHwpx(bytes, file.name); }
+      catch (error) {
+        const why = draft.engineReason(error);
+        if (why !== '파일을 열지 못함') { engine?.close(); engine = null; }
+        return {error:TEXT.engineFailed};
+      }
+    }
+    return {pkg:await draft.openConfirmed(bytes)};
+  }
   async function fromFile(file) {
     const mine = ++run;
     const {drive} = await lazy();
@@ -428,6 +517,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // Confirmed report bytes → team report + blank template → my base. Nothing is shown from the file but my own rows.
   async function load(bytes, name, format, source, mine, baseInfo, baseKind = baseInfo?.from === 'file' ? 'file' : 'confirmed') {
     const {draft} = await lazy();
+    // ⑤-2: 저장된 '내 양식'을 바탕 바꾸기와 함께 읽는다(던지지 않음 — 못 읽으면 바탕을 열지 않고 [다시 시도]).
+    const formRead = engineForm(rt);
     try {
       let hwpx = bytes;
       // WEEKLY-한글파일다듬기 ②: 이름이 아니라 내용으로 고른다. 내용이 HWPX(ZIP)면 이름이 .hwp여도 엔진 없이 열고, 암호 걸린 HWP 5는 엔진에
@@ -450,7 +541,15 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         if (mine !== run) return;
       }
       const pkg = await draft.openConfirmed(hwpx);
-      const {team, template} = draft.prepareConfirmed(pkg);
+      const form = await formRead;
+      if (mine !== run) return;
+      // ⑤-3(명진 결정 11/17 '나'): 쓸 '내 양식'이 없으면(none·broken·missing) 바탕 파일에서 양식을 읽어 그것으로 연다(글자는 파일 그대로).
+      // 읽기 실패는 기본값 대신 한 줄 + [다시 시도]. 바탕에서 양식을 읽지 못하면 추측해 열지 않고 한 줄.
+      if (form.status === 'readFailed') { sayRetry(form.note, () => load(bytes, name, format, source, ++run, baseInfo, baseKind)); return; }
+      const fromBase = form.profile ? null : baseForm(pkg, draft);
+      if (fromBase && !fromBase.profile) { say(fromBase.note, 'error'); return; }
+      const profile = form.profile ?? fromBase.profile;
+      const {team, template} = fromBase?.prepared ?? draft.prepareConfirmed(pkg, {profile});
       const week = getWeek();
       const [context, saved, carriedLayout, carriedPlaces] = await Promise.all([readContext(rt, week.start).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true})), readDraftFor(week.start), readCarriedLayout(week.start, rt), readCarriedPlaces(week.start, rt)]);
       if (mine !== run) return;
@@ -459,6 +558,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null, titles:new Map(), drops:new Map(), titleRun:0};
       state.defaultDate = state.date;
       state.baseKind = baseKind;
+      state.profile = profile; knowProfile(profile, false); // ⑤-3b: 화면 절 제목도 같은 양식(다시 그리기는 여는 쪽이). 같은 양식으로 팀 확정본 참고·[확정] 파일 만들기까지(⑤-2)
       // 3. 2) 투쟁 사업장 구성: 이 주 것 > 지난주에서 이어 쓴 것. 이 주에 구성이 생기면(바꾸면) layoutOwn.
       const ownLayout = draftSiteLayout(saved?.row?.draft);
       state.carriedLayout = carriedLayout; state.layout = ownLayout ?? carriedLayout; state.layoutOwn = !!ownLayout;
@@ -472,7 +572,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       await attachDraft(state, baseInfo, saved);
       if (mine !== run) return;
       carry(week);
-      say(reopenNote?.week === week.start ? reopenNote.text : ''); reopenNote = null;
+      say(reopenNote?.week === week.start ? reopenNote.text : form.note); reopenNote = null;
+      // ⑤-3(명진 결정 11/17 '나'): 자료실 바탕에서 읽은 양식을 '내 양식'에 한 번 저장한다(깨진 양식이면 그 행을 고침).
+      // 기기 파일로만 연 경우·표 준비 전·상자 칸 이름을 알 수 없는 주(savable false)는 저장하지 않는다. 실패해도 화면은 그대로, 상태 줄 한 줄.
+      if (fromBase?.savable && baseInfo?.from === 'library' && (form.status === 'none' || form.status === 'broken')) {
+        const s = state;
+        void saveBaseForm({form:fromBase.form, known:form.status === 'broken' ? form.row : null}, rt).then(r => { if (r.note && state === s && !status.textContent) say(r.note); });
+      }
       // 환류학습 3: 그 주 처음 초안이 아직 없으면(처음 연 주) AI 초안을 한 번 쓴다(기록을 다 읽은 뒤 — renderMaterial). 있으면 그대로.
       state.ai = {status:state.store?.extras?.proposed ? (state.store.extras.proposed.ai ? 'done' : 'base') : 'wait', note:''};
       if (state.store?.status === 'missing' || state.store?.status === 'readFailed') state.ai.status = 'base';
@@ -514,7 +620,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const {drive} = await lazy();
       if (!drive.isHwpName(teamDoc.file_name)) return;
       const {bytes} = await drive.openHwpFromDrive({kind:'library', document:{id:teamDoc.id}}, {rt});
-      const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, teamDoc.file_name)));
+      const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, teamDoc.file_name)), {profile:s.profile});
       if (state !== s) return;
       s.teamDiff = teamChanges(rawCells(s, s.team), rawCells(s, team));
       s.teamTitle = String(teamDoc.title || teamDoc.file_name || '');
@@ -601,7 +707,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       : c.status === 'saving' ? '지난주 확정본에서 선택한 줄을 저장하는 중이에요.'
       : c.status === 'failed' ? '지난주에서 선택한 줄을 저장하지 못했어요. 파일에는 선택한 줄만 넣어요.'
       : `지난주 확정본에서 ${c.items.length}줄을 선택했어요${dropped ? `(뺀 줄: ${dropped})` : ''}. 저장 칸 준비 전이라 이 파일에만 넣어요.`;
-    note.textContent = `1) 임원 배정 요청 ${rows.items.length}줄(아래 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
+    note.textContent = `${titles().ask} ${rows.items.length}줄(아래 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
   }
   // 5. 주요 일정: 기억으로 뺀 일정까지 든 달력(allRows)과 이 주에 실제 들어가는 달력(이번 주 빼기·넣기 반영).
   const fullCalendar = () => { const c = getWeek().model?.calendar; return c && c.allRows ? {...c, rows:c.allRows} : c; };
@@ -716,11 +822,12 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     }
     const c = model?.calendar, cal = body.querySelector('[data-hwpx-calendar]');
     // UI-기다림표시통일 2차: 달력 일정을 받는 동안은 글자 대신 회색 칸(wait-state.js).
-    if (cal && (!c || c.loading)) cal.innerHTML = '5. 주요 일정 표: ' + waitInlineHtml();
-    else if (cal) cal.textContent = c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
-      : c.unsetCalendar ? '5. 주요 일정 표: 주간보고 일정 캘린더가 정해지지 않아 날짜만 넣어요(내 프로필 › 주간보고 일정 캘린더).'
-      : c.noCalendar ? `5. 주요 일정 표: '${c.calendar}' 달력을 찾지 못해 날짜만 넣어요.`
-      : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
+    const calHead = `${titles().calendar} 표: `;
+    if (cal && (!c || c.loading)) { cal.textContent = calHead; cal.insertAdjacentHTML('beforeend', waitInlineHtml()); }
+    else if (cal) cal.textContent = c.failed?.length ? `${calHead}달력 일정을 불러오지 못해 날짜만 넣어요. [주간 보고]의 ${titles().calendar}에서 [다시 시도]할 수 있어요.`
+      : c.unsetCalendar ? `${calHead}주간 보고 일정 캘린더가 정해지지 않아 날짜만 넣어요(내 프로필 › 주간 보고 일정 캘린더).`
+      : c.noCalendar ? `${calHead}'${c.calendar}' 달력을 찾지 못해 날짜만 넣어요.`
+      : `${calHead}${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
     syncTitles(fullCalendar());
     renderMismatches();
     const loading = model && ['summary', 'orgs'].some(k => model[k]?.loading);
@@ -981,7 +1088,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!p || !state) return;
     const n = hqFileLines().length;
     const k = discussFileLines().length;
-    p.textContent = `1. 요청사항: 2) 주요 일정 ${n ? `${n}줄` : '빈 칸'}, 3) 상집 논의 요청 ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 수정해요). ${isRecordWeek(state.start) ? '2. 2) 세부 내용은 주요 사업 그대로(상세 포함은 결과 본문까지) 넣고, 집회 표는 비워요.' : '세부 내용·집회 표는 비워요.'} 바탕과 다른 줄은 파란 글씨가 돼요.`;
+    const t = titles();
+    p.textContent = `${t.requests}: ${t.hq} ${n ? `${n}줄` : '빈 칸'}, ${t.discuss} ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 수정해요). ${isRecordWeek(state.start) ? `${t.atDetails}은 주요 사업 그대로(상세 포함은 결과 본문까지) 넣고, 집회 표는 비워요.` : '세부 내용·집회 표는 비워요.'} 바탕과 다른 줄은 파란 글씨가 돼요.`;
   }
   // ---- 3. 2) 투쟁 사업장 현황 구성 ----
   const siteRows = s => s.sites.map(r => ({index:r.index, org:r.org}));
@@ -1091,7 +1199,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     if (det) data.details = det.details;
-    const bytes = await draft.buildHwpx(state.template, data);
+    const bytes = await draft.buildHwpx(state.template, data, undefined, {profile:state.profile});
     // 파일 이름: 주간보고_보고일8자리_이름.hwpx — 이름은 로그인 사용자의 표시 이름(프로필 이름, 없으면 로그인 정보의 표시 이름; readContext).
     // 확정 사진(O-6): 이 파일을 만든 바로 그 창 결과. B-4 ④: 2. 1) 사업요약 창 결과(파일에 넣은 지금 상황·담당)도 같은 사진에(section 'biz_summary'), B-4 ④ 2. 2) 주요 사업 창 결과도(section 'biz_detail'). 3장에 들어가 4. 1)이 '참고' 한 줄인 조직도 사진에는 창 줄 그대로 둔다(화면 4. 칸은 3장 칸이 보여 줌).
     state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me), snapRows:win || bizRows || det ? [...(win ? win.snapshot() : []), ...(bizRows ? bizRows.map(r => draft.summarySnapshotRow(r)).filter(Boolean) : []), ...(det ? det.snapRows : [])] : null};
@@ -1209,7 +1317,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!box) return;
     box.hidden = !m || m.status === 'none';
     if (box.hidden) { box.replaceChildren(); return; }
-    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 정리] 맨 아래 ‘주간보고 기억’에서 삭제할 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
+    if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 보고] 맨 아래 ‘주간 보고 기억’에서 삭제할 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
     const fold = el('details', 'journal-hwpx-plans'); fold.open = true; fold.dataset.hwpxRememberAsk = '';
     fold.append(el('summary', '', `다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 ${m.candidates.length}개`));
     // UI-체크칸통일: 공용 체크 목록(.check-list, ui-standard.css) — 줄마다 작은 체크칸 + 한 줄 글자, 목록 점 없음, 줄 아무 곳이나 누르면 체크.
@@ -1315,7 +1423,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const [ai, mine] = await Promise.all([callLearn(s, 'test'), (async () => {
         const {drive} = await lazy();
         const {bytes} = await drive.openHwpFromDrive({kind:'library', document:{id:doc_.id}}, {rt});
-        const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, doc_.file_name)));
+        const {team} = s.draft.prepareConfirmed(await s.draft.openConfirmed(await hwpxBytes(bytes, doc_.file_name)), {profile:s.profile});
         return rawCells(s, team);
       })().catch(() => null)]);
       if (state !== s || s.learn !== t) return;
@@ -1379,7 +1487,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (typing) v.value = typing.value; // 다시 그려도 쓰던 글(고치는 후보·이유·내 생각)은 그대로
     // 새 규칙 후보는 이 주 행 규칙 칸(환류 보고가 거기에 더함)에서 [넣기]·⋯[고쳐서 넣기]·[빼기]. 칸을 아직 못 읽었으면 글만.
     const rules = state.store?.extras?.rules ? {week:state.start, rules:state.store.extras.rules} : null;
-    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd, picks:state.store?.extras?.picks ?? null});
+    const card = reviewCard(doc, v.feedback, v.previous, {answerable:v.status === 'done', busy:!!v.busy, rules, fixing:v.fixing ?? null, dropping:v.dropping ?? null, value:v.value ?? null, sfix:v.sfix ?? null, sdrop:v.sdrop ?? null, sadd:!!v.sadd, picks:state.store?.extras?.picks ?? null, names:titles().groups});
     const parts = card ? [card] : [];
     if (v.status === 'running') { const p = el('p', 'journal-muted', '규칙 후보·개선 제안을 정리하는 중…'); p.dataset.hwpxReviewNote = 'running'; parts.push(p); }
     if (v.status === 'failed') { const p = el('p', 'journal-muted', `규칙 후보·개선 제안은 만들지 못했어요(${v.note}). 수정 기록은 저장했어요.`); p.dataset.hwpxReviewNote = 'failed'; parts.push(p); }
@@ -1420,7 +1528,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const st = s?.store;
     if (!st || st.status === 'missing') return;
     let issued = null;
-    try { issued = await s.draft.issuedFrom(bytes, new Date().toISOString()); } catch { return; }
+    try { issued = await s.draft.issuedFrom(bytes, new Date().toISOString(), undefined, {profile:s.profile}); } catch { return; } // ⑤-3c: 파일을 만든 같은 양식으로 줄 나누기
     if (!issued || sameIssuedLines(st.issued, issued)) return;
     st.issued = issued;
     if (save) { st.dirty = true; void saveDraft(s); }
@@ -1645,11 +1753,12 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (cell === 'me') return '담당 팀원 칸의 내 이름';
     if (cell === 'date') return '■ 일시';
     if (cell.startsWith('area:')) return '사업요약표 사업영역 한 줄';
-    if (cell === 'hq') return '1. 2) 주요 일정 줄';
-    if (cell === 'discuss') return '1. 3) 상집 논의 요청 줄';
-    if (cell === 'hand') return '5. 주요 일정·참고 손으로 더한 줄';
-    if (cell === 'sites_layout') return '3. 2) 투쟁 사업장 넣고 뺀 구성';
-    if (cell.startsWith('title:') || cell.startsWith('drop:')) { const key = cell.slice(cell.indexOf(':') + 1), item = scheduleItems(fullCalendar()).find(i => i.key === key); return `5. 주요 일정 ${item ? `${item.label} ${item.time} ${item.title}` : ''}${cell.startsWith('drop:') ? ' 빼기' : ''}`.trim(); }
+    const t = titles();
+    if (cell === 'hq') return `${t.atHq} 줄`;
+    if (cell === 'discuss') return `${t.atDiscuss} 줄`;
+    if (cell === 'hand') return `${t.calendar}·참고 손으로 더한 줄`;
+    if (cell === 'sites_layout') return `${t.atSites} 넣고 뺀 구성`;
+    if (cell.startsWith('title:') || cell.startsWith('drop:')) { const key = cell.slice(cell.indexOf(':') + 1), item = scheduleItems(fullCalendar()).find(i => i.key === key); return `${t.calendar} ${item ? `${item.label} ${item.time} ${item.title}` : ''}${cell.startsWith('drop:') ? ' 빼기' : ''}`.trim(); }
     const {section, key, n} = parseCellId(cell.slice(4));
     return `${SECTION_NAME[section] ?? section} · ${key.replace('›', ' › ')}${n ? ` (${n + 1}번째)` : ''}`;
   };
@@ -1757,6 +1866,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-learn-show]')) { onLearn(); return; }
     if (b.matches('[data-hwpx-learn-test]')) { void ensure().then(s => { if (s) void learnTest(s, b); }); return; }
     if (b.matches('[data-hwpx-pick]')) { fileInput.click(); return; }
+    if (b.matches('[data-hwpx-form-retry]')) { const again = formRetry; formRetry = null; void again?.(); return; }
     if (b.matches('[data-hwpx-top-me]')) { void editTop('me'); return; }
     if (b.matches('[data-hwpx-top-date]')) { void editTop('date'); return; }
     if (b.matches('[data-hwpx-top-cancel]')) { topEdit = null; paintTop(); return; }
@@ -1783,6 +1893,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     paint() { if (!topEdit) paintTop(); paintConfirm(); },
     // 칸 줄이 아직 없을 때 [주간 정리]가 부른다: 바탕을 열어 처음 초안(proposed)을 만든다.
     prepare: () => ensure(),
+    // WEEKLY-내양식자유변형 ⑤-3b: 화면 절 제목(weekly-screen-titles.mjs). 아직 모르면 null — 알게 되면 onBase 로 다시 그린다.
+    formTitles, readTitles,
+    // 바탕이 있나: 'some'(열렸거나 자료실에 있음) | 'none'(자료실에 없음) | 'unknown'(아직 모름·못 읽음). checkBase(week)는 한 번 읽고 끝나면 onBase.
+    baseState, checkBase,
+    // WEEKLY-내양식자유변형 ②: 기기 한글 파일 → .hwpx 묶음(옛 .hwp는 같은 변환 엔진으로 바꿈). 바탕으로 열지 않는다(양식 읽기만).
+    // 반환 {pkg} | {error:'화면 글'}. 파일 내용은 기기 메모리에만.
+    hwpxPackage: file => hwpxPackage(file),
     // 그 주 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳(칸 id → 줄). 바탕을 연 판에서만.
     team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
     // WEEKLY-사업영역묶음 ②: 그 주 바탕(양식)을 연 판에서만 사업영역 이름 → 양식 첫 칸 이름(Map). 양식에 내 줄이 없거나 아직 안 열었으면 null.

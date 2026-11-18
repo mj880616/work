@@ -29,7 +29,7 @@ export function paintDetailLines(slot, {model}) {
     if (item.edited) li.dataset.journalDetailEdited = '';
     // 그 회의 종류를 앞으로 늘 빼기(서버 '빼는 회의 종류' 목록, journal.js toggleKind) — 목록을 읽었을 때만. 옛 주 줄 자체는 바꾸지 않는다.
     if (mt.editable && validKindKey(item.kind)) li.append(rowMore(doc, {label:`줄 메뉴: ${item.text}`, data:{journalDetailMore:item.kind},
-      items:[{text:'이 종류 늘 빼기', data:{journalKindToggle:item.kind, journalKindHide:'1', journalKindName:item.kindName}, aria:`${item.kindName} 종류를 주간보고에서 늘 빼기`}]}));
+      items:[{text:'이 종류 늘 빼기', data:{journalKindToggle:item.kind, journalKindHide:'1', journalKindName:item.kindName}, aria:`${item.kindName} 종류를 주간 보고에서 늘 빼기`}]}));
     ul.append(li);
   }
   slot.replaceChildren(ul.children.length ? ul : emptyEl('없음', {attrs:'data-journal-weekly-empty'}));

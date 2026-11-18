@@ -20,7 +20,7 @@ const JWT_OK='synthetic.user.jwt-owner-0001',JWT_STRANGER='synthetic.user.jwt-st
 const FN='https://synthetic.supabase.test/functions/v1/outside-feed';
 
 // 단체 키 → 목록 표본(카탈로그 lists 순서대로).
-const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
+const LISTS={kctu:['kctu.html'],kptu:['kptu.html'],kmwu:['kmwu.html'],kfsu:['kfsu.html'],hakbi:['hakbi.html'],edubonbu:['edubonbu.html'],laborparty:['laborparty.html'],kgreens:['kgreens-statement.html','kgreens-press.html'],
   jinboparty:['jinboparty-comment.html','jinboparty-press.html'],justice:['justice-telegram.html'],pssp:['pssp.html','pssp-focus.html','pssp-j2021.html','pssp-report.html','pssp-pamphlet.html','pssp-document.html'],ws:['ws.xml'],platformc:['platformc.html'],leftall:['leftall.html','leftall-newsletter.html'],
   socialism:['socialism.html'],socialist:['socialist-telegram.html'],jacobin:['jacobin.xml'],labornotes:['labornotes.xml'],redpepper:['redpepper.xml'],socialistworker:['socialistworker.xml']};
 // 단체별 기대: [정규화한 주소, 종류] 순서.
@@ -30,6 +30,7 @@ const EXPECT={
   kmwu:[['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8102','statement'],['https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=8101','press']],
   kfsu:[['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3302','press'],['https://kfsu.kr/%EC%84%B1%EB%AA%85-%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C/?mod=document&uid=3301','statement']],
   hakbi:[['https://www.hakbi.org/board/media_reports/read/1205','statement'],['https://www.hakbi.org/board/media_reports/read/1203','press']],
+  edubonbu:[['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=340','press'],['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=337','statement'],['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=333','comment'],['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=332','press']],
   laborparty:[['https://laborparty.kr/?mod=document&page_id=13642&uid=5001','comment'],['https://laborparty.kr/?mod=document&page_id=13642&uid=5000','comment']],
   kgreens:[['https://kgreens.org/statement/?bmode=view&idx=777','comment'],['https://kgreens.org/press/?bmode=view&idx=778','press']],
   jinboparty:[['https://jinboparty.com/pages/?p=15&b=b_1_2&bn=3001&m=read','comment'],['https://jinboparty.com/pages/?p=286&b=b_1_111&bn=4001&m=read','press']],
@@ -52,7 +53,7 @@ const itemsOf=s=>LISTS[s.key].flatMap((f,i)=>s.mode==='rss'?P.parseFeed(s,FX(f),
 // ---- 카탈로그 ------------------------------------------------------------------------------------------------------
 
 test('catalog = decided sources only (Q1·Q2·Q3·Q4·Q5): 정의당은 홈페이지 없이 텔레그램 채널만, no NLR, kptu·leftall·socialist·4 foreign', () => {
-  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','kmwu','kfsu','hakbi','laborparty','kgreens','jinboparty','justice','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
+  assert.deepEqual(OUTSIDE_SOURCE_KEYS,['kctu','kptu','kmwu','kfsu','hakbi','edubonbu','laborparty','kgreens','jinboparty','justice','pssp','ws','platformc','leftall','socialism','socialist','jacobin','labornotes','redpepper','socialistworker']);
   const all=JSON.stringify(OUTSIDE_CATALOG.map(s=>[s.lists,s.hosts]));
   assert.doesNotMatch(all,/justice21|newleftreview|inthesetimes|thenation|tribunemag|spectrejournal/);
   assert.deepEqual(sourceByKey('kptu').lists,['https://www.kptu.net/board/list.aspx?mid=F686C1F3']);
@@ -168,7 +169,7 @@ const respond=(body,status=200,headers={})=>new Response(typeof body==='string'?
 const html=(body,status=200,headers={})=>new Response(body,{status,headers:{'Content-Type':'text/html; charset=utf-8',...headers}});
 const KEY_CHECK=/^[a-z0-9][a-z0-9-]{1,39}$/;
 
-function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false,bodies=[],days=[],google,aiMonth={month:'2026-11',exempt:false,cap_krw:3000,openai_input_tokens:0,openai_output_tokens:0,gemini:[]},shared=null,blocked=false}={}){
+function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,workspace_id:WS,role:'owner'}],sites={},robots={},ai,env={},failSentences=false,bodies=[],days=[],google,aiMonth={month:'2026-11',exempt:false,cap_krw:3000,openai_input_tokens:0,openai_output_tokens:0,gemini:[]},shared=null,blocked=false,newsWs=WS}={}){
   const db={app_outside_sources:sources.map(r=>({enabled:true,last_ok_at:null,last_error:null,...r})),app_outside_posts:posts.map(p=>({...p})),app_outside_sentences:sentences.map(s=>({...s})),app_workspace_members:members,app_feed_bodies:bodies.map(b=>({...b})),app_news_days:days.map(d=>({...d}))};
   // NEWS-모두에게열기 E1b: shared를 주면 공용 표 넷(D1b)을 켠다. 안 주면 예전처럼 공용 표가 없는 저장소(공용 쓰기 실패 → 옛 표 흐름 그대로).
   if(shared){db.app_outside_articles=(shared.articles??[]).map(r=>({...r}));db.app_outside_article_sentences=(shared.sentences??[]).map(r=>({...r}));
@@ -209,6 +210,8 @@ function harness({sources=[],posts=[],sentences=[],members=[{user_id:USER,worksp
       throw new Error('user login used for '+method+' '+table);
     }
     assert.equal(init.headers.apikey,SERVICE);
+    // NEWS-운영자만(S63-03): 'outside' 키 작업공간(정확히 한 곳, 기본 WS). 읽기라 calls.rest에는 적지 않는다(newsRpc로 셈).
+    if(table==='rpc/app_operator_feature_workspace'){calls.newsRpc=(calls.newsRpc??0)+1;return respond(JSON.stringify(JSON.parse(init.body).p_feature==='outside'?newsWs:null));}
     calls.rest.push(`${method} ${table}?${decodeURIComponent(u.search.slice(1))}`);
     if(table==='rpc/app_workspace_ai_month')return new Response(JSON.stringify(aiMonth),{status:200,headers:{'content-type':'application/json'}}); // AI-사람별한도: 기본은 한도 아래
     const rows=db[table];if(!rows)throw new Error('table not allowed: '+table);
@@ -403,21 +406,22 @@ test('run_plan lists only enabled catalog sources and prunes 2-year-old bodies (
   assert.equal(h.calls.site.length,0);
 });
 
-test('run (domestic): reads list + new posts once, stores per enabled workspace, sentences only for ≤2y posts, skips known urls', async () => {
+// S63-03 NEWS-운영자만: 'outside' 키 작업공간(WS)만 넣는다. WS2는 같은 단체를 켜 두었어도 줄·본문·AI가 없다(켬 줄은 그대로).
+test('run (domestic): reads list + new posts once, stores only for the outside-key workspace, sentences only for ≤2y posts, skips known urls', async () => {
   const h=harness({sources:[{workspace_id:WS,source_key:'kctu'},{workspace_id:WS2,source_key:'kctu'}],
     posts:[{id:'c2000000-0000-4000-8000-000000000001',workspace_id:WS2,source_key:'kctu',kind:'press',lang:'ko',title:'이미 있음',url:'https://nodong.org/statement/310000',has_body:false,fetched_at:'2026-10-30T00:00:00Z'}],
     sites:kctuSites()});
   const r=await h.cron('run',{source:'kctu'});assert.equal(r.status,200);
   const out=await r.json();
-  assert.deepEqual(out,{ok:true,source:'kctu',status:'ok',workspaces:2,listed:2,fresh:2,inserted:3,skipped:0,deferred:0,refilled:0,redated:1});
-  assert.ok(h.db.app_outside_posts.find(p=>p.title==='이미 있음').published_at,'날짜 모름이던 기존 글이 목록 날짜로 채워짐(S50-1)');
+  assert.deepEqual(out,{ok:true,source:'kctu',status:'ok',workspaces:1,listed:2,fresh:2,inserted:2,skipped:0,deferred:0,refilled:0,redated:0});
+  assert.equal(h.db.app_outside_posts.find(p=>p.title==='이미 있음').published_at,undefined,'키 없는 WS2의 기존 글은 건드리지 않음(지우지도 고치지도 않음)');
   assert.doesNotMatch(JSON.stringify(out),/가상|nodong/,'response carries counts only');
   // 사이트 요청: robots 1번 + 목록 1번 + 글마다 1번(작업공간이 둘이어도 한 번).
   assert.deepEqual(h.calls.site,['https://nodong.org/robots.txt','https://nodong.org/statement','https://nodong.org/statement/310002','https://nodong.org/statement/310000']);
   assert.equal(h.calls.ai.length,2,'one AI call per post, not per workspace');
   const posts=h.db.app_outside_posts.filter(p=>p.title!=='이미 있음');
   assert.deepEqual(posts.map(p=>[p.workspace_id,p.url,p.kind,p.has_body]).sort(),[
-    [WS,'https://nodong.org/statement/310000','press',false],[WS,'https://nodong.org/statement/310002','statement',true],[WS2,'https://nodong.org/statement/310002','statement',true]].sort());
+    [WS,'https://nodong.org/statement/310000','press',false],[WS,'https://nodong.org/statement/310002','statement',true]].sort());
   const fresh=posts.find(p=>p.workspace_id===WS&&p.has_body);
   assert.equal(fresh.published_at,'2026-10-29T15:00:00.000Z');assert.equal(fresh.summary_ko,'가상 단체가 노동법 개악 규탄 입장 밝힘.');
   assert.deepEqual(h.db.app_outside_sentences.filter(s=>s.post_id===fresh.id).map(s=>s.text),['가상 정부가 노동법을 바꾸려 한다.','우리는 이를 규탄한다!','가상 구조조정은 인력 감축으로 이어진다.','정원 축소를 멈춰라.','모든 노동자는 함께 싸울 것이다.']);
@@ -425,11 +429,12 @@ test('run (domestic): reads list + new posts once, stores per enabled workspace,
   assert.equal(h.db.app_outside_sentences.filter(s=>s.post_id===old.id).length,0,'2-year-old post: title·summary only (Q7)');
   // 본문 블록(P2b): 새 글마다 작업공간마다 한 줄, 문장 표와 같은 추출 결과(블록 글자 = 문장 재료). 2년 지난 글은 블록도 없음.
   const bodies=h.db.app_feed_bodies;
-  assert.deepEqual(bodies.map(b=>[b.workspace_id,b.state,b.rule]).sort(),[[WS,'ok','kctu@1'],[WS2,'ok','kctu@1']].sort());
+  assert.deepEqual(bodies.map(b=>[b.workspace_id,b.state,b.rule]).sort(),[[WS,'ok','kctu@1']]);
   assert.ok(bodies.every(b=>posts.find(p=>p.id===b.outside_post_id).has_body));
   const text=bodies[0].blocks.filter(b=>b.t!=='img').map(b=>b.text).join(' ');
   for(const sent of h.db.app_outside_sentences.filter(s=>s.post_id===bodies[0].outside_post_id))assert.ok(text.includes(sent.text),sent.text);
-  assert.ok(h.db.app_outside_sources.every(s=>s.last_ok_at===new Date(NOW).toISOString()&&s.last_error===null));
+  assert.ok(h.db.app_outside_sources.filter(s=>s.workspace_id===WS).every(s=>s.last_ok_at===new Date(NOW).toISOString()&&s.last_error===null));
+  assert.ok(h.db.app_outside_sources.filter(s=>s.workspace_id===WS2).every(s=>s.last_ok_at===null),'키 없는 WS2 켬 줄은 읽은 표시도 없음');
   // 로그에는 제목·본문·주소가 없다.
   assert.doesNotMatch(JSON.stringify(h.calls.logs),/가상|https?:/);
   // 두 번째 실행: 새 글 없음 → 글 페이지·AI 요청 없음.
@@ -1059,7 +1064,7 @@ test('글 쪽 날짜: 메타(article:published_time) → 제목 뒤 날짜 → <
 });
 
 test('묶음: [노동](labor)은 민주노총·공공운수노조·금속노조·서비스연맹·학비노조(L1), 묶음은 노동·정당·사회운동·외국 넷뿐', () => {
-  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu','kmwu','kfsu','hakbi']);
+  assert.deepEqual(OUTSIDE_CATALOG.filter(s=>s.group==='labor').map(s=>s.key),['kctu','kptu','kmwu','kfsu','hakbi','edubonbu']);
   assert.deepEqual([...new Set(OUTSIDE_CATALOG.map(s=>s.group))].sort(),['foreign','labor','movement','party']);
   // 뉴스 클리핑도 같은 정돈 함수만 부른다(다른 동작은 그대로).
   const news=readFileSync('supabase/functions/news-feed/handler.ts','utf8');
@@ -1082,17 +1087,29 @@ test('[노동] 추가 단체 목록 표본: 고정 공지·다른 게시판·htt
   assert.deepEqual(rows('hakbi','hakbi.html'),[
     ['https://www.hakbi.org/board/media_reports/read/1205','statement','[성명] 가상 학교급식 노동자 산재 대책 촉구','2026-10-29T15:00:00.000Z'],
     ['https://www.hakbi.org/board/media_reports/read/1203','press','[보도자료] 가상 집단교섭 결렬 기자회견','2026-10-26T15:00:00.000Z']]);
+  // 교육공무직본부(S62-42): 한 게시판(브리핑룸)에 머리말로 섞임 — [취재요청서]·다른 게시판·쪽 번호·http 링크는 거르고, 한글 도메인 링크는 punycode 주소로.
+  assert.deepEqual(rows('edubonbu','edubonbu.html'),[
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=340','press','[보도자료] 가상 학교 청소노동자 선도파업','2026-10-29T15:00:00.000Z'],
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=337','statement','[성명] 가상 학교 돌봄 국가책임 촉구','2026-10-28T15:00:00.000Z'],
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=333','comment','[브리핑] 가상 교육감 취임 100일 평가','2026-10-07T15:00:00.000Z'],
+    ['https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php?boardid=briefing&mode=view&idx=332','press','[공동보도자료] 가상 교육재정 개편 반대 기자회견','2026-10-06T15:00:00.000Z']]);
+  const e=sourceByKey('edubonbu');
+  assert.equal(e.name,'교육공무직본부');assert.equal(e.group,'labor');
+  assert.equal(e.kindOf('[취재요청서] 가상 기자회견',''),null);assert.equal(e.kindOf('[공지] 가상',''),null);
+  assert.ok(allowedUrl(e,'https://교육공무직.com/sub/sub02_02.php'),'한글 도메인도 같은 호스트(punycode)');
+  for(const bad of ['http://xn--ob0btg349a4slcgd.com/sub/sub02_02.php','https://xn--ob0btg349a4slcgd.com.evil.example/','https://xn--ob0btg349a4slcgd.com:8443/'])assert.equal(allowedUrl(e,bad),null,bad);
 });
 
 test('[노동] 추가 단체 저장: 정돈 함수를 거쳐 제목 한 줄(꼬리표·단체명 꼬리 떼기), 목록 날짜 — robots.txt는 그대로 먼저 읽는다', async () => {
   for(const [key,file,want] of [['kmwu','kmwu.html',['가상 하청노동자 교섭 거부 규탄','가상 완성차 공동투쟁 결과']],
     ['kfsu','kfsu.html',['가상 돌봄노동자 처우개선 기자회견','가상 유통업 의무휴업 폐지 반대']],
-    ['hakbi','hakbi.html',['가상 학교급식 노동자 산재 대책 촉구','가상 집단교섭 결렬 기자회견']]]){
+    ['hakbi','hakbi.html',['가상 학교급식 노동자 산재 대책 촉구','가상 집단교섭 결렬 기자회견']],
+    ['edubonbu','edubonbu.html',['가상 학교 청소노동자 선도파업','가상 학교 돌봄 국가책임 촉구','가상 교육감 취임 100일 평가','가상 교육재정 개편 반대 기자회견']]]){
     const s=sourceByKey(key);
     const sites={[s.lists[0]]:FX(file)};for(const [u] of EXPECT[key])sites[u]=FX('article-ko.html');
     const h=harness({sources:[{workspace_id:WS,source_key:key}],sites});
     const out=await (await h.cron('run',{source:key})).json();
-    assert.equal(out.status,'ok',key);assert.equal(out.inserted,2,key);
+    assert.equal(out.status,'ok',key);assert.equal(out.inserted,EXPECT[key].length,key);
     assert.deepEqual(EXPECT[key].map(([u])=>h.db.app_outside_posts.find(p=>p.url===u).title),want,key);
     assert.ok(h.calls.site.some(u=>new URL(u).pathname==='/robots.txt'),`${key}: robots 예외 아님 — robots.txt를 읽는다`);
   }
@@ -1100,7 +1117,7 @@ test('[노동] 추가 단체 저장: 정돈 함수를 거쳐 제목 한 줄(꼬�
 
 test('[노동] 추가 단체도 robots.txt가 막으면(Disallow: /) 읽지 않는다 — robots 예외는 늘리지 않음(L1·L2)', async () => {
   assert.deepEqual(H.ROBOTS_EXEMPT_KEYS,['kptu','laborparty']);
-  for(const key of ['kmwu','kfsu','hakbi']){
+  for(const key of ['kmwu','kfsu','hakbi','edubonbu']){
     const s=sourceByKey(key);assert.equal(s.robotsException,undefined,key);
     const origin=new URL(s.lists[0]).origin;
     const h=harness({sources:[{workspace_id:WS,source_key:key}],sites:{[s.lists[0]]:FX(`${key}.html`)},robots:{[origin]:'User-agent: *\nDisallow: /\n'}});
@@ -1308,10 +1325,11 @@ test('translate 공용 엔진: news-feed·outside-feed가 같은 _shared 번역 
 // ---- NEWS-모두에게열기 E1b: 공용 글 한 벌(D1b 표) — 글마다 AI 1번, 옮기는 동안 옛 표에도, 옛 줄마다 지도 ---------------------
 
 const ART_A='e0000000-0000-4000-8000-000000000001';
-test('E1b run: 두 작업공간이 켜도 공용 글은 주소마다 1줄(작업공간 칸 없음)·AI 글마다 1번·공용 문장·본문, 옛 줄마다 같은 작업공간 지도', async () => {
+test('E1b run: 공용 글은 주소마다 1줄(작업공간 칸 없음)·AI 글마다 1번·공용 문장·본문, 옛 줄마다 같은 작업공간 지도. S63-03: 키 없는 WS2 몫 옛 줄·지도 없음', async () => {
   const h=harness({sources:[{workspace_id:WS,source_key:'kctu'},{workspace_id:WS2,source_key:'kctu'}],sites:kctuSites(),shared:{}});
   const out=await (await h.cron('run',{source:'kctu'})).json();
-  assert.equal(out.inserted,4);assert.equal(h.calls.ai.length,2,'글마다 AI 1번');
+  assert.equal(out.inserted,2);assert.equal(h.calls.ai.length,2,'글마다 AI 1번');
+  assert.ok(!h.db.app_outside_posts.some(p=>p.workspace_id===WS2),'WS2 옛 줄 없음');
   const arts=h.db.app_outside_articles;
   assert.equal(arts.length,2);
   for(const a of arts)assert.ok(!('workspace_id' in a));
@@ -1320,19 +1338,19 @@ test('E1b run: 두 작업공간이 켜도 공용 글은 주소마다 1줄(작업
   assert.deepEqual(h.db.app_outside_article_sentences.filter(s=>s.article_id===fresh.id).map(s=>s.text),
     h.db.app_outside_sentences.filter(s=>s.post_id===h.db.app_outside_posts.find(p=>p.workspace_id===WS&&p.url===fresh.url).id).map(s=>s.text));
   assert.deepEqual(h.db.app_outside_article_bodies.map(b=>[b.article_id,b.state,b.rule]),[[fresh.id,'ok','kctu@1']],'2년 지난 글은 본문 없음');
-  assert.equal(h.db.app_outside_id_map.length,4);
+  assert.equal(h.db.app_outside_id_map.length,2);
   for(const m of h.db.app_outside_id_map){
     const old=h.db.app_outside_posts.find(p=>p.id===m.old_id),art=arts.find(a=>a.id===m.article_id);
     assert.equal(old.url,art.url);assert.equal(m.workspace_id,old.workspace_id,'지도 작업공간 = 옛 줄 작업공간');}
   // 두 번째 실행: 공용 글·지도 늘지 않음.
   await h.cron('run',{source:'kctu'});
-  assert.equal(h.db.app_outside_articles.length,2);assert.equal(h.db.app_outside_id_map.length,4);
+  assert.equal(h.db.app_outside_articles.length,2);assert.equal(h.db.app_outside_id_map.length,2);
   assert.doesNotMatch(JSON.stringify(h.calls.logs),/가상|https?:/,'로그에 제목·주소 없음');
 });
 
 test('E1b run: 같은 주소 공용 글이 이미 있으면(다른 사람이 먼저) 글 쪽·AI 없이 옮겨 적기만 — 문장·본문 블록도 공용 것', async () => {
   const url='https://nodong.org/statement/310002';
-  const h=harness({sources:[{workspace_id:WS2,source_key:'kctu'}],sites:kctuSites(),shared:{
+  const h=harness({newsWs:WS2,sources:[{workspace_id:WS2,source_key:'kctu'}],sites:kctuSites(),shared:{
     articles:[{id:ART_A,source_key:'kctu',kind:'statement',lang:'ko',title:'공용 제목',url,published_at:'2026-10-29T15:00:00.000Z',summary_ko:'공용 요약',has_body:true,key_sentences:[]}],
     sentences:[{article_id:ART_A,idx:0,text:'공용 첫 문장.'},{article_id:ART_A,idx:1,text:'공용 둘째 문장.'}],
     bodies:[{article_id:ART_A,blocks:[{t:'p',text:'공용 본문'}],state:'ok',reason:null,rule:'kctu@1',chars:5,images:0,extracted_at:'2026-10-30T00:00:00Z'}]}});
@@ -1396,7 +1414,7 @@ test('E3 translate: 옛 글이 없는 사람도 공용 id로 번역, 공용 글�
   assert.ok(h.calls.rest.some(c=>/^PATCH app_outside_articles\?id=eq\.[^&]+&lang=eq\.en&body_ko=is\.null/.test(c)),'이미 있는 번역은 덮지 않음');
   assert.ok(!h.calls.rest.some(c=>/^POST app_outside_articles/.test(c)),'화면 입구는 공용 글을 만들지 않음');
   // 두 번째 사람(다른 작업공간): 저장본.
-  const h2=harness({members:[{user_id:USER,workspace_id:WS2,role:'owner'}],env:{GOOGLE_TRANSLATE_API_KEY:GKEY},ai:trAi,shared:{articles:[{...h.db.app_outside_articles[0]}],bodies:shared.bodies}});
+  const h2=harness({newsWs:WS2,members:[{user_id:USER,workspace_id:WS2,role:'owner'}],env:{GOOGLE_TRANSLATE_API_KEY:GKEY},ai:trAi,shared:{articles:[{...h.db.app_outside_articles[0]}],bodies:shared.bodies}});
   assert.equal((await (await h2.user('translate',{id:ART_A})).json()).status,'stored');
   assert.equal(h2.calls.google.length+h2.calls.ai.length,0);assert.equal(h2.db.app_news_days.length,0);
 });
@@ -1416,4 +1434,21 @@ test('E3 translate 거절: 차단 명단 사람·owner 아닌 사람·없는 id�
   assert.equal((await (await h.user('translate',{id:ART_A})).json()).status,'translated');
   assert.ok(h.calls.rest.filter(c=>c.startsWith('GET app_outside_posts')).every(c=>c.includes(`workspace_id=eq.${WS}`)));
   assert.equal(h.db.app_outside_posts[0].body_ko,null,'남의 옛 글은 그대로');
+});
+
+// NEWS-운영자만(S63-03, 명진 11/16): [사회운동] 수집·화면 입구도 운영자 기능 키 'outside' 작업공간만. 화면 숨김만으로 끝내지 않는다.
+test("NEWS-운영자만: 'outside' 키가 없는 작업공간의 화면 입구는 읽기·AI·저장 없이 403, 키가 아무 곳에도 없으면 예약 수집도 하지 않음", async () => {
+  for(const newsWs of [WS2,null]){
+    const h=harness({newsWs,sources:[{workspace_id:WS,source_key:'kctu'}],sites:kctuSites()});
+    for(const [action,body] of [['catalog',{}],['expand',{query:'인력 감축'}],['read_now',{source:'kctu'}],['translate',{id:'c1000000-0000-4000-8000-000000000009'}]]){
+      const r=await h.user(action,body);assert.equal(r.status,403,`${action} ${newsWs}`);assert.match(JSON.stringify(await r.json()),/FEATURE_OFF/);
+    }
+    assert.equal(h.calls.site.length+h.calls.ai.length+h.calls.google.length,0,'바깥 요청·AI 없음');
+    assert.ok(!h.calls.rest.some(c=>/^(POST|PATCH|DELETE) /.test(c)),'쓰기 없음');
+  }
+  const off=harness({newsWs:null,sources:[{workspace_id:WS,source_key:'kctu'}],sites:kctuSites()});
+  assert.deepEqual((await (await off.cron('run_plan')).json()).sources,[]);
+  const run=await (await off.cron('run',{source:'kctu'})).json();
+  assert.equal(run.status,'no_workspace');assert.equal(off.calls.site.length+off.calls.ai.length,0);
+  assert.equal(off.db.app_outside_sources.length,1,'켬 줄은 지우지 않음');
 });

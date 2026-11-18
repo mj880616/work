@@ -11,9 +11,13 @@
 // 받은 것은 내 정리함에만 들어간다. 밖으로 보내거나 공유하는 흐름은 없다.
 // APP-공유노트할일(요청함 11/02 00:22): 공유 창 '웹2 노트'·'웹2 할 일'로 온 공유(목록의 target)는 같은 받기 길로 받고,
 // 바로 넣지 않고 작은 창(share-target.js: 제목·폴더/기한·한 줄 더하기 → [저장])으로 노트·할 일에 넣는다.
-import {isShareId, parseShareList, pickShareItems, shareSummary, skippedText, shareRawText, withMemo, SHARE_MAX_BYTES, SHARE_MEMO_MAX} from './share-intake-model.mjs';
+// S62-22 APP-공유로뉴스보관: 공유 창 '노동조합+ News 보관'(target news)은 창 없이 글에서 기사 주소 하나를 골라 서버(news-feed ?action=save_url)에 보낸다.
+// 서버가 로그인·작업공간을 정하고 원문을 읽어(공개 본문만) 내 News에 넣고 바로 보관한다. 알림 한 줄 'News 보관에 넣었어요 [열기]'.
+// 주소가 없는 글·사진이면 '기사 주소가 없어요 [잊지 말기로 넣기]'(누를 때만 정리함 길로). 발송·공유·삭제로 이어지는 흐름은 없다.
+import {isShareId, shareArticleUrl, parseShareList, pickShareItems, shareSummary, skippedText, shareRawText, withMemo, SHARE_MAX_BYTES, SHARE_MEMO_MAX} from './share-intake-model.mjs';
 import {notify} from './small-notice.js';
 import {PHOTO_ACT_TEXT, SEND_NOTE} from './photo-menu-items.mjs';
+import {NEWS_NOTE} from './share-news-words.mjs';
 
 const BRIDGE = 'KPTUAppShell';
 export const SAVED_MS = 6000, FAILED_MS = 20000, WORKING_MS = 600000;
@@ -52,6 +56,14 @@ function start() {
   async function open(list) {
     const picked = pickShareItems(list.items);
     if (list.target === 'note' || list.target === 'task') { await openTarget(list, picked); return; }
+    // NEWS-운영자만(S63-03): 'News 보관' 공유는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 정리함 길(잊지 말기)로 받는다
+    // (앱의 공유 목록은 앱 판이 정해 웹에서 뺄 수 없다 — 서버도 같은 키로 막는다). 답을 모르면(null) 지금처럼 News로 보낸다.
+    if (list.target === 'news') {
+      const {myFeaturesOrNull} = await import('./my-features.js');
+      const features = await myFeaturesOrNull().catch(() => null);
+      if (!Array.isArray(features) || features.includes('outside')) { await openNews(list, picked); return; }
+      list = {...list, target:'basket'};
+    }
     share = {...list, keep:picked.keep, skipped:picked.skipped};
     files = null; batch = null; owner = scope();
     stripAddress();
@@ -78,6 +90,26 @@ function start() {
     }
   }
 
+  // News 보관: 주소만 서버로 보낸다(파일은 받지 않음). 같은 공유를 두 번 넣지 않게 done으로 남기고 앱에 바로 끝났다고 알린다.
+  // 주소가 없으면 [잊지 말기로 넣기]를 누를 때만 정리함 길(put)로 — 그때 파일도 받는다(앱이 아직 들고 있을 때까지).
+  async function openNews(list, picked) {
+    const url = shareArticleUrl({subject:list.subject, text:list.text});
+    owner = scope(); files = null; batch = null;
+    stripAddress();
+    if (!url) {
+      share = {...list, keep:picked.keep, skipped:picked.skipped, target:'basket'};
+      const one = share;
+      notify(NEWS_NOTE.noUrl, {error:true, ms:FAILED_MS, actions:[{label:NEWS_NOTE.toBasket, run:({close}) => { close(); if (share === one) void put(); }}]});
+      // 알림이 사라질 때까지 누르지 않으면 앱이 든 공유를 놓아 준다(폰에 따로 남기지 않음).
+      setTimeout(() => { if (share === one && !one.done && !busy && !files) { one.done = true; release(); } }, FAILED_MS + 1000);
+      return;
+    }
+    share = {...list, keep:[], skipped:{}, done:true};
+    send('share:done:' + list.id);
+    const who = owner;
+    try { const {saveSharedNews} = await import('./share-news.js'); await saveSharedNews(url, {isCurrent:() => scope() === who}); }
+    catch { notify(NEWS_NOTE.fail, {error:true, ms:FAILED_MS, note:'그 앱에서 다시 공유해 주세요.'}); }
+  }
   // 앱이 흘려주는 파일을 한 번씩 받는다. 받은 파일은 이 화면 메모리에만 있다. 다 받으면 앱에 끝났다고 알린다(앱이 번호·권한을 버림).
   async function receive(from = share) {
     const out = [];

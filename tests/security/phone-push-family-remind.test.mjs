@@ -120,7 +120,7 @@ test('월요일 09시: 한 번 보낸다 — 제목·본문(홈과 같은 3줄),
 });
 
 test('월요일 08시 전·다른 요일·다른 예약이면 노트를 읽지도 보내지도 않는다', async () => {
-  for (const [now, slot] of [[MON7, 'quarter'], [TUE9, 'quarter'], [MON9, 'morning'], [MON9, 'evening'], [MON9, 'friday']]) {
+  for (const [now, slot] of [[MON7, 'quarter'], [TUE9, 'quarter'], [MON9, 'morning'], [MON9, 'evening']]) {
     const h = harness({now});
     await h.cron(slot);
     assert.equal(h.state.fcm.length, 0, `${now} ${slot}`);

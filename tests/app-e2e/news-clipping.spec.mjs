@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
 // NEWS-클리핑 C1(docs/design/news-clipping.md) → S51-8 NEWS-전면개편 P4b: News [언론] 탭(?view=outside).
-// 제목 중심 줄(색 띠·매체 이름·국제 꼬리표·시각, 요약·접기·번역은 상세로) · 위 찾기 칸 제목 거르기 · [매체 ▾] 거르기
+// 제목 중심 줄(색 띠·매체 이름·국제 꼬리표·시각, 요약·접기·번역은 상세로) · 위 찾기 칸 서버 찾기(S63-11) · [매체 ▾] 거르기
 // · 껍데기 ⋯ [지금 채우기]·[키워드 고치기]·[언론 매체 켜고 끄기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 탭 이동.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 기사·매체·주소는 모두 가짜(example.org).
 const root = page => page.locator('#newsRoot');
@@ -43,9 +43,15 @@ for (const width of [412, 884, 1440]) {
     await expect(c1.locator('.nw-tag')).toHaveCount(0);
     // 대기 줄: 주소의 도메인.
     await expect(item(page, 'w1').locator('.nw-title')).toHaveText('제목 읽기 전 · example.org');
-    // 위 찾기 칸: 제목으로 바로 거름.
+    // 위 찾기 칸(S63-11): 서버 찾기 — 최근 30일 기사 + 별표 기사의 제목·한국어 제목·요약(지금 목록에 없는 기사도).
     await page.locator('#outsideRoot [data-nw-find]').fill('유료');
     await expect(items(page)).toHaveCount(1);
+    await expect(item(page, 'p1')).toBeVisible();
+    const findQ = server.calls.filter(c => c.what === 'app_news_articles' && c.query.includes('ilike')).at(-1).query;
+    expect(findQ).toContain('or=(title.ilike."*유료*",title_ko.ilike."*유료*",summary.ilike."*유료*")'); expect(findQ).toContain('created_at=gte.');
+    expect(server.calls.some(c => c.what === 'app_news_marks' && c.query.includes('app_news_articles!inner(') && c.query.includes('app_news_articles.or='))).toBe(true);
+    await page.locator('#outsideRoot [data-nw-find]').fill('없는낱말');
+    await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·보관한 글에서 찾은 글이 없어요');
     await page.locator('#outsideRoot [data-nw-find]').fill('');
     await expect(items(page)).toHaveCount(5);
 
@@ -94,7 +100,7 @@ for (const width of [412, 884, 1440]) {
     await expect(items(page)).toHaveCount(5);
     // [매체 ▾] → 'Fake Wire'만: 서버에 그 news- 키만 묻는다.
     await page.locator('#outsideRoot [data-nw-media]').click();
-    await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 외국', 'Fake Wire']);
+    await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 국제', 'Fake Wire']);
     await page.locator('#nwMediaPicker [data-lu-move-folder="n:news-fake-en"]').click();
     await expect(items(page)).toHaveCount(1);
     expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-en)');

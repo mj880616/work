@@ -18,6 +18,8 @@ const LEGACY=Object.freeze({
   보도자료:['성명·보도자료','선전'],취재요청:['성명·보도자료','선전'],'성명·논평':['성명·보도자료','선전'],'선전·언론자료':['선전'],
   국회자료:['정책'],정부자료:['정책'],'토론회·발제자료':['정책'],
   회의자료:['회의'],회의결과:['회의'],
+  // HWP-노조서식분류(11/16): HWP 편집 노조 서식 분류 이름이 '양식' → '노조 서식'. 옛 이름으로 등록된 자료도 같은 꼬리표(자료 값은 그대로).
+  양식:['노조 서식'],'노조 서식':['양식'],
   // LIB-소분류: '주간보고 확정본·개인본'은 '주간보고›확정본·개인본'(소분류)으로 합친다(DB 20261031000000). 합치기 전후 같은 꼬리표.
   // S53-16 WEEKLY-분류이름바뀜(명진 11/08): 소분류 이름을 '팀 확정본'·'개인 확정본'으로 바꿨다. 옛 이름의 자료도 지금 이름의 꼬리표로 보인다.
   '주간보고 확정본':['주간보고›팀 확정본','주간보고›확정본'],'주간보고›확정본':['주간보고›팀 확정본','주간보고 확정본'],'주간보고›팀 확정본':['주간보고›확정본','주간보고 확정본'],
@@ -35,6 +37,8 @@ const WEEKLY_KNOWN=Object.freeze({
   confirmed:Object.freeze(['주간보고›팀 확정본','주간보고›확정본','주간보고 확정본']),
   personal:Object.freeze(['주간보고›개인 확정본','주간보고›개인본','주간보고 개인본']),
 });
+// 기본 목록(DEFAULT_DOCUMENT_CATEGORIES)에는 주간보고 분류가 없다(LIB-기본분류흔적빼기, 명진 11/17). 처음 [확정] 저장 때 만드는 이름(hwp-drive.js).
+export const WEEKLY_PERSONAL_CATEGORY=WEEKLY_KNOWN.personal[0];
 export const WEEKLY_ROLE_LABEL=Object.freeze({confirmed:'팀 확정본',personal:'개인 확정본'});
 // 지금 표식(서버 화면 기억). 시험·다른 화면은 marks를 직접 넘긴다.
 const liveMarks=()=>{try{const v=typeof window!=='undefined'?window.KPTUViewPrefs?.getCategoryRoles?.():null;return v&&typeof v==='object'?v:{};}catch{return {};}};

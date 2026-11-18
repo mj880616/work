@@ -4,8 +4,9 @@
 //   (tests/weekly-layout.test.mjs 가 지킨다). 앱([올리기]·한글 파일 만들기)과 Edge(금요일 자동 초안)가 같은 규칙을 쓴다.
 // - 화면·네트워크 없음. 결과(layout)는 숫자와 짧은 표시만이다 — 글을 담지 않으므로 환류 기록(draft.feedback.layout)에 그대로 실어도 된다.
 // - 업무 글이 지나가므로 로그·오류 보고에 글을 넣지 않는다.
+// - WEEKLY-내양식자유변형 ⑤-3c: 절 나누기는 weekly-lines.mjs 와 같은 '내 양식' 엔진 profile 을 인자로 받는다(빠지면 멈춤).
 
-import {WEEKLY_SECTIONS, WEEKLY_MAX_LINES, headingOf, isTextLine, oneLine} from './weekly-lines.mjs';
+import {WEEKLY_SECTIONS, WEEKLY_MAX_LINES, headingOf, isTextLine, oneLine, needLineProfile} from './weekly-lines.mjs';
 
 export const LAYOUT_VERSION = 1;
 export const LAYOUT_MAX_PARAS = 2000;     // 한 판에서 읽는 문단 수 상한(빈 문단 포함)
@@ -56,14 +57,15 @@ const emptyStats = () => ({lines: 0, gaps: 0, blank_gaps: 0, headings: 0, headin
 //   lines: 글 줄 수 · gaps: 같은 절 안 이웃한 글 줄 사이 수 · blank_gaps: 그 사이에 빈 문단이 하나 이상 있었던 수
 //   headings: 절·작은 제목 수 · heading_blank: 제목 바로 뒤가 빈 문단인 수 · indented: 앞에 공백·탭이 있는 글 줄 수
 //   bullets: 줄머리 기호별 글 줄 수
-export function layoutStats(paras) {
+export function layoutStats(paras, profile) {
+  needLineProfile(profile);
   const out = {};
   let section = null, skipSub = false, prevText = false, blankSince = false, afterHeading = null, lines = 0;
   for (const raw of (Array.isArray(paras) ? paras : []).slice(0, LAYOUT_MAX_PARAS)) {
     const text = String(raw ?? '');
     const line = oneLine(text);
     if (!line) { blankSince = true; if (afterHeading) { afterHeading.heading_blank++; afterHeading = null; } continue; }
-    const head = headingOf(line);
+    const head = headingOf(line, profile);
     if (head) {
       if (head.kind === 'big') { section = head.section; skipSub = false; } else skipSub = head.schedule;
       afterHeading = null; prevText = false; blankSince = false;
@@ -71,7 +73,7 @@ export function layoutStats(paras) {
       continue;
     }
     afterHeading = null;
-    if (!section || skipSub || !isTextLine(line)) { blankSince = false; continue; }
+    if (!section || skipSub || !isTextLine(line, profile)) { blankSince = false; continue; }
     const st = (out[section] ??= emptyStats());
     st.lines++; lines++;
     if (prevText) { st.gaps++; if (blankSince) st.blank_gaps++; }
@@ -100,8 +102,8 @@ const indentStyle = st => (!st || !st.lines ? null : st.indented * 2 > st.lines 
 
 // Web2 판 문단 ↔ 고친 판 문단 → 환류 기록에 실을 layout(숫자·짧은 표시만). 견줄 절이 하나도 없으면 null.
 // sections[절] = {before:{gap, heading, bullet, indent}, after:{…}, changed:[바뀐 항목 이름]}
-export function layoutDiff(issuedParas, finalParas) {
-  const a = layoutStats(issuedParas), b = layoutStats(finalParas), sections = {};
+export function layoutDiff(issuedParas, finalParas, profile) {
+  const a = layoutStats(issuedParas, profile), b = layoutStats(finalParas, profile), sections = {};
   for (const section of WEEKLY_SECTIONS) {
     const x = a[section], y = b[section];
     if (!x?.lines || !y?.lines) continue;

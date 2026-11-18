@@ -114,7 +114,7 @@ test.describe('PC 1440', () => {
     await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
     const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
     await expect(noteEl).toContainText('구글 드라이브 연결 뒤 쓸 수 있어요');
-    await expect(noteEl.getByRole('button', { name: '연결', exact: true })).toBeVisible();
+    await expect(noteEl.getByRole('button', { name: '구글 드라이브 연결', exact: true })).toBeVisible();
     expect(state.gd.map(b => b.action)).toEqual(['status']);
     expect(state.errors).toEqual([]);
   });
@@ -163,7 +163,7 @@ test.describe('PC 1440', () => {
     await page.locator('#photosRoot [data-photos-id="gd:G1"]').click({ button: 'right' });
     const menu = page.locator('#photosPhotoMenu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('button')).toHaveText(['선택', '공유', '일기에 넣기', '업데이트로 보내기', '이름 바꾸기…', '폴더로 옮기기…', '정보수정', '삭제']);
+    await expect(menu.locator('button')).toHaveText(['선택', '공유', '하루 기록에 넣기', '업데이트로 보내기', '이름 바꾸기…', '폴더로 옮기기…', '정보수정', '삭제']);
     await menu.getByRole('button', { name: '삭제' }).click();
     const ask = page.locator('.kptu-ask');
     await expect(ask).toBeVisible();
@@ -232,7 +232,7 @@ test.describe('폰 412', () => {
     { name: '권한 없음(scope:false)', status: { ok: true, scope: false, folders_on: 0, synced_at: null }, statusCode: 200, code: 'scope_missing' },
     { name: '연결 풀림(424)', status: { ok: false, error: 'drive_auth_expired' }, statusCode: 424, code: 'drive_auth_expired' },
   ]) {
-    test(`구글 드라이브 ${c.name}: 칩 빨간 점 + '권한 없음 · [Drive 다시 연결]' + 이유 글, 사진 목록은 부르지 않음`, async ({ page }) => {
+    test(`구글 드라이브 ${c.name}: 칩 빨간 점 + '권한이 빠졌어요' + [구글 드라이브 다시 연결] + 이유 글, 사진 목록은 부르지 않음`, async ({ page }) => {
       const { state } = await fixture(page, { status: c.status, statusCode: c.statusCode, prefs: { photo_sources_pc: { onedrive: true, gdrive: true, phone: true } } });
       await openPhotos(page, 412);
       await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
@@ -241,15 +241,15 @@ test.describe('폰 412', () => {
       await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 권한 없음');
       await expectSmallDot(page);
       const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
-      await expect(noteEl).toContainText('권한 없음');
-      await expect(noteEl.getByRole('button', { name: 'Drive 다시 연결' })).toBeVisible();
-      await expect(noteEl.locator('.photos-gd-why')).toContainText(`(${c.code})`);
+      await expect(noteEl).toContainText('권한이 빠졌어요');
+      await expect(noteEl.getByRole('button', { name: '구글 드라이브 다시 연결' })).toBeVisible();
+      await expect(noteEl.locator('.connect-note-why')).toContainText(`(${c.code})`);
       // 칩을 누르면 이유 + [Drive 다시 연결] 작은 메뉴.
       await gdBtn(page).click();
       const menu = page.locator('#photosGdMenu');
       await expect(menu).toBeVisible();
       await expect(menu).toContainText(`(${c.code})`);
-      await expect(menu.getByRole('button', { name: 'Drive 다시 연결' })).toBeVisible();
+      await expect(menu.getByRole('button', { name: '구글 드라이브 다시 연결' })).toBeVisible();
       expect(state.gd.map(b => b.action)).toEqual(['status']);
       expect(state.errors).toEqual([]);
     });
@@ -305,7 +305,7 @@ for (const width of [412, 840, 1280]) {
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
     await expect(gdBtn(page)).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
     const noteEl = page.locator('#photosRoot [data-photos-gd-note]');
-    await expect(noteEl.getByRole('button', { name: '연결', exact: true })).toBeVisible();
+    await expect(noteEl.getByRole('button', { name: '구글 드라이브 연결', exact: true })).toBeVisible();
     if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/photos-new-${width}.png` });
     if (width <= 760) {
       await page.locator('#mobileMenuTab').click();
@@ -313,6 +313,34 @@ for (const width of [412, 840, 1280]) {
       if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/menu-new-${width}.png` });
     }
     expect(state.gd.map(b => b.action)).toEqual(['status']);
+    expect(state.errors).toEqual([]);
+  });
+}
+
+// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브 둘 다 연결 전이면 [파일]과 같은 한 칸
+// ('연결된 클라우드가 없어요.' + 아래 줄 [원드라이브 연결][구글 드라이브 연결]). 구글 드라이브 칩이 꺼져 있어도(PC 처음 기본값) 두 버튼,
+// [구글 드라이브 연결]을 누르면 칩을 먼저 켜고(서버 view_prefs) drive-start로 간다. 화면 사진은 SHOT_DIR을 줄 때만.
+for (const width of [412, 1280]) {
+  test(`${width}px: 둘 다 연결 전이면 '연결된 클라우드가 없어요.' + 두 연결 버튼(파일 화면과 같은 칸)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { state, server } = await fixture(page, { od: false, status: { ok: false, error: 'drive_not_connected' }, statusCode: 424 });
+    const starts = [];
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/public-policy-drive', r => { starts.push(r.request().postDataJSON()?.action); return r.fulfill({ status: 500, json: { error: 'test' } }); });
+    await openPhotos(page, width);
+    const body = page.locator('#photosRoot [data-photos-body]');
+    const box = body.locator('[data-connect-cloud-none]');
+    await expect(box).toHaveCount(1);
+    await expect(box.locator('.connect-note-line')).toHaveText('연결된 클라우드가 없어요.');
+    await expect(box.getByRole('button')).toHaveText(['원드라이브 연결', '구글 드라이브 연결']);
+    await expect(body.locator('[data-connect-note]')).toHaveCount(1);
+    await expect(body).not.toContainText('연결 뒤 쓸 수 있어요');
+    const [l, b1, b2] = await Promise.all([box.locator('.connect-note-line').boundingBox(), box.getByRole('button').nth(0).boundingBox(), box.getByRole('button').nth(1).boundingBox()]);
+    expect(b1.y).toBeGreaterThanOrEqual(l.y + l.height - 1);
+    expect(Math.abs(b1.y - b2.y)).toBeLessThan(2);
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/photos-none-${width}.png` });
+    await box.getByRole('button', { name: '구글 드라이브 연결', exact: true }).click();
+    await expect.poll(() => starts).toEqual(['drive-start']);
+    await expect.poll(() => server.value?.photo_sources_pc?.gdrive).toBe(true);
     expect(state.errors).toEqual([]);
   });
 }

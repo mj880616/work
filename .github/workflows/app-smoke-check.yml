@@ -23,6 +23,9 @@ on:
       - 'docs/design/outside-statements.md'
       - 'scripts/ops/db-*.mjs'
       - 'tests/security/db-workflow-annotations.test.mjs'
+      - 'tests/security/no-operator-defaults.test.mjs'
+      - 'tests/security/org-names-cross-workspace.test.mjs'
+      - 'supabase/migrations/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/home-day-picks.ts'
@@ -90,6 +93,8 @@ on:
       - 'tests/hwp-warm.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
+      - 'tests/hwp-union-forms.test.mjs'
+      - 'tests/library-default-categories.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
       - 'tests/hwp-studio-focus.test.mjs'
       - 'scripts/hwp-lab/**'
@@ -145,6 +150,7 @@ on:
       - 'scripts/markdown/**'
       - 'scripts/editor/**'
       - 'tests/ed-editor.test.mjs'
+      - 'tests/ed-now-text.test.mjs'
       - 'tests/ed-photo-row-file.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
@@ -156,8 +162,15 @@ on:
       - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/menu-model.test.mjs'
+      - 'tests/help-content.test.mjs'
       - 'tests/phone-app-download.test.mjs'
       - 'scripts/phone-app-latest.mjs'
+      - 'tests/phone-app-play-flavor.test.mjs'
+      - 'android-app/app/build.gradle'
+      - 'android-app/app/src/main/AndroidManifest.xml'
+      - 'android-app/app/src/play/**'
+      - '.github/workflows/play-bundle.yml'
+      - '.github/workflows/phone-app-release.yml'
       - 'tests/menu-home-prefs.test.mjs'
       - 'tests/org-order-setting.test.mjs'
       - 'tests/org-order-fixture.mjs'
@@ -202,6 +215,7 @@ on:
       - 'tests/ops-work-timing.test.mjs'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
+      - 'tests/files-search-row.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
@@ -211,12 +225,16 @@ on:
       - 'tests/news-feed-date-source.test.mjs'
       - 'tests/news-feed-text.test.mjs'
       - 'tests/news-feed-keyword-take.test.mjs'
+      - 'tests/news-rank.test.mjs'
+      - 'tests/news-rank-fill.test.mjs'
       - 'tests/news-feed-default-on.test.mjs'
       - 'tests/now-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/news-colors.test.mjs'
+      - 'tests/name-order.test.mjs'
       - 'tests/news-name.test.mjs'
       - 'tests/news-fold.test.mjs'
+      - 'tests/news-find-model.test.mjs'
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
@@ -233,6 +251,11 @@ on:
       - 'scripts/package-lock.json'
       - 'about/**'
       - 'tests/about-privacy-page.test.mjs'
+      - 'tests/about-privacy-public.test.mjs'
+      - 'android-app/app/src/main/AndroidManifest.xml'
+      - 'tests/about-contact-mail.test.mjs'
+      - 'scripts/personal-data-allowlist.json'
+      - 'scripts/check-personal-data.mjs'
       - 'supabase/functions/google-calendar/index.ts'
       - 'supabase/functions/google-tasks/index.ts'
       - 'supabase/functions/public-policy-drive/index.ts'
@@ -259,6 +282,9 @@ on:
       - 'docs/design/outside-statements.md'
       - 'scripts/ops/db-*.mjs'
       - 'tests/security/db-workflow-annotations.test.mjs'
+      - 'tests/security/no-operator-defaults.test.mjs'
+      - 'tests/security/org-names-cross-workspace.test.mjs'
+      - 'supabase/migrations/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'supabase/functions/ai-assist/note-title.ts'
       - 'supabase/functions/ai-assist/home-day-picks.ts'
@@ -326,6 +352,8 @@ on:
       - 'tests/hwp-warm.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
       - 'tests/hwp-convert.test.mjs'
+      - 'tests/hwp-union-forms.test.mjs'
+      - 'tests/library-default-categories.test.mjs'
       - 'tests/hwp-fill-screen.test.mjs'
       - 'tests/hwp-studio-focus.test.mjs'
       - 'scripts/hwp-lab/**'
@@ -381,6 +409,7 @@ on:
       - 'scripts/markdown/**'
       - 'scripts/editor/**'
       - 'tests/ed-editor.test.mjs'
+      - 'tests/ed-now-text.test.mjs'
       - 'tests/ed-photo-row-file.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
@@ -392,8 +421,15 @@ on:
       - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/menu-model.test.mjs'
+      - 'tests/help-content.test.mjs'
       - 'tests/phone-app-download.test.mjs'
       - 'scripts/phone-app-latest.mjs'
+      - 'tests/phone-app-play-flavor.test.mjs'
+      - 'android-app/app/build.gradle'
+      - 'android-app/app/src/main/AndroidManifest.xml'
+      - 'android-app/app/src/play/**'
+      - '.github/workflows/play-bundle.yml'
+      - '.github/workflows/phone-app-release.yml'
       - 'tests/menu-home-prefs.test.mjs'
       - 'tests/org-order-setting.test.mjs'
       - 'tests/org-order-fixture.mjs'
@@ -438,6 +474,7 @@ on:
       - 'tests/ops-work-timing.test.mjs'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
+      - 'tests/files-search-row.test.mjs'
       - 'tests/outside-statements-model.test.mjs'
       - 'tests/outside-search-model.test.mjs'
       - 'tests/notice-outside-model.test.mjs'
@@ -447,12 +484,16 @@ on:
       - 'tests/news-feed-date-source.test.mjs'
       - 'tests/news-feed-text.test.mjs'
       - 'tests/news-feed-keyword-take.test.mjs'
+      - 'tests/news-rank.test.mjs'
+      - 'tests/news-rank-fill.test.mjs'
       - 'tests/news-feed-default-on.test.mjs'
       - 'tests/now-model.test.mjs'
       - 'tests/text-highlights-model.test.mjs'
       - 'tests/news-colors.test.mjs'
+      - 'tests/name-order.test.mjs'
       - 'tests/news-name.test.mjs'
       - 'tests/news-fold.test.mjs'
+      - 'tests/news-find-model.test.mjs'
       - 'tests/files-model.test.mjs'
       - 'tests/files-sources-model.test.mjs'
       - 'tests/files-panes-model.test.mjs'
@@ -469,6 +510,11 @@ on:
       - 'scripts/package-lock.json'
       - 'about/**'
       - 'tests/about-privacy-page.test.mjs'
+      - 'tests/about-privacy-public.test.mjs'
+      - 'android-app/app/src/main/AndroidManifest.xml'
+      - 'tests/about-contact-mail.test.mjs'
+      - 'scripts/personal-data-allowlist.json'
+      - 'scripts/check-personal-data.mjs'
       - 'supabase/functions/google-calendar/index.ts'
       - 'supabase/functions/google-tasks/index.ts'
       - 'supabase/functions/public-policy-drive/index.ts'
@@ -497,6 +543,9 @@ jobs:
 
       - name: Check public privacy page matches requested Google scopes (MULTI D4)
         run: node --test tests/about-privacy-page.test.mjs
+
+      - name: Check public contact mail is the service mail and no personal mail is in the repository (ABOUT-문의메일안내문고침)
+        run: node --test tests/about-contact-mail.test.mjs
 
       - name: Check same-name same-size file notice (UX-이미있는파일알림)
         run: node --test tests/same-file.test.mjs
@@ -647,8 +696,10 @@ jobs:
         run: node --test tests/ops-work-timing.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
+      - name: Check files top row two-pane icon button (UI-파일검색줄)
+        run: node --test tests/files-search-row.test.mjs
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
-        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/text-highlights-model.test.mjs
+        run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/notice-outside-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
         run: node --test tests/files-model.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
@@ -676,15 +727,6 @@ jobs:
       - name: Check today-done work/personal split for the weekly report (drop personal lines, re-ask when lines change)
         run: node --test tests/work-scope-model.test.mjs
 
-      - name: Check next-week sheet rules (work calendar only, read-only materials, auto after Friday 15:00)
-        run: node --test tests/next-week-sheet-model.test.mjs
-
-      - name: Check pre-meeting sheet rules (linked organization and meeting words, after 18:00 tomorrow only, shared sheet renderer)
-        run: node --test tests/pre-meeting-sheet-model.test.mjs
-
-      - name: Check prep sheet line format (no mid-word cuts, lead sentence + folded detail, group numbers without gaps, small evidence tag)
-        run: node --test tests/prep-sheet-text.test.mjs
-
       - name: Check home is the work journal (summary line numbers, screen order, menu, due text)
         run: node --test tests/home-summary.test.mjs
 
@@ -707,10 +749,10 @@ jobs:
         run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs
 
       - name: Check phone bottom tab selection rule
-        run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs
+        run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs tests/help-content.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/upload-done-model.test.mjs tests/basket-upload.test.mjs tests/paste-files.test.mjs tests/record-attach.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/todo-feedback-model.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/google-link.test.mjs tests/connect-note.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/color-swatch.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/open-window.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-row-tag.test.mjs tests/org-write-in.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-mark-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/upload-done-model.test.mjs tests/upload-done-open.test.mjs tests/basket-upload.test.mjs tests/paste-files.test.mjs tests/record-attach.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/todo-feedback-model.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/google-link.test.mjs tests/connect-note.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/color-swatch.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/open-window.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-row-tag.test.mjs tests/org-write-in.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-mark-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
 
       - name: TG-방고정 텔레그램 방 고정 칸 규칙·고정 읽기쓰기·메뉴 문구
         run: node --test tests/tg-room-pin.test.mjs
@@ -774,6 +816,12 @@ jobs:
       - name: Check HWP union-form conversion (numbers, template pick, in-editor fill, engine line)
         run: node --test tests/hwp-convert.test.mjs
 
+      - name: Check HWP union-form category (노조 서식, old 양식 read), upload-first, weekly original link
+        run: node --test tests/hwp-union-forms.test.mjs
+
+      - name: Check library default categories (no weekly roles by default, created on first weekly confirm)
+        run: node --test tests/library-default-categories.test.mjs
+
       - name: Check HWP editor fills the screen (phone, PC fullscreen, page-width refit)
         run: node --test tests/hwp-fill-screen.test.mjs
 
@@ -814,7 +862,7 @@ jobs:
         run: node --test tests/markdown-view.test.mjs tests/md-telegram.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs tests/number-shape.test.mjs
 
       - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
-        run: node --test tests/ed-editor.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs
+        run: node --test tests/ed-editor.test.mjs tests/ed-now-text.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
@@ -959,6 +1007,9 @@ jobs:
       - name: Check task due quick row and next-week day list (S46-30, 다음주 월~일 목록 one shared part, synthetic)
         run: node --test tests/task-week-pick.test.mjs
 
+      - name: Check new-task window quick due buttons change the due field (FIX-잊지말기할일기한, synthetic)
+        run: node --test tests/task-new-due-quick.test.mjs
+
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
 
@@ -987,7 +1038,7 @@ jobs:
         run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
-        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs
+        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs
 
       - name: Check share goes straight into the basket (SHARE-바로넣기, 확인 줄 없음·메모 달기·되돌리기·다시)
         run: node --test tests/share-auto-put.test.mjs
@@ -1039,6 +1090,17 @@ jobs:
 
       - name: Check UI words standard ratchet (UI-용어통일)
         run: node --test tests/ui-words.test.mjs
+
+      - name: UPDATE-운영자전용기록업데이트소식 업데이트 소식 계산(묶기·폰에서 볼 것 빼기·시작 날짜)
+        run: node --test tests/update-news-model.test.mjs
+      - name: Check day record screen words (DIARY-이름하루기록)
+        run: node --test tests/ui-words-day-record.test.mjs
+
+      - name: Check quick input kind words (HOME-입력종류업데이트글자잊지말기)
+        run: node --test tests/ui-words-quick-kind.test.mjs
+
+      - name: FEEDBACK-의견보내기 자동 정보·보내기 전 검사
+        run: node --test tests/feedback-model.test.mjs
 
       - name: Check view tabs one look (UI-보기탭한모양)
         run: node --test tests/view-tabs-one-look.test.mjs
@@ -1103,17 +1165,26 @@ jobs:
       - name: APP-앱내려받기버튼 최신 폰 앱 APK 고르기·로그인/메뉴 내려받기 계획
         run: node --test tests/phone-app-download.test.mjs
 
+      - name: APP-플레이스토어비공개테스트 폰 앱 두 판(github·play) 앱 ID·권한·로그인 복귀·play-bundle 확인
+        run: node --test tests/phone-app-play-flavor.test.mjs
+
       - name: Check list reads skip body columns (APP-낭비줄이기 ①)
         run: node --test tests/report-list-read.test.mjs
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
 
+      - name: Check privacy page is built, reachable, and matches phone permissions and AI vendors (needs the locked parser) (PRODUCT-개인정보처리방침)
+        run: node --test tests/about-privacy-public.test.mjs
+
       - name: Check save keeps other active edit open (needs the locked parser) (STAB-단위시험등록)
         run: node --test tests/save-other-active.test.mjs
 
       - name: UI-업데이트안내 기록 파일 검사·버전명·배포물 생성(needs the locked parser)
         run: node --test tests/release-notes.test.mjs
+
+      - name: UPDATE-운영자전용기록업데이트소식 개발 기록 서버 입구(release-notes-sync, GitHub OIDC 확인)
+        run: node --test tests/release-notes-sync.test.mjs
 
       - name: Check telegram room view model (TG-방별보기)
         run: node --test tests/tg-room-view-model.test.mjs
@@ -1123,6 +1194,18 @@ jobs:
 
       - name: Check note News marks model (NOTE-News밑줄보관보기)
         run: node --test tests/note-news-marks-model.test.mjs
+
+      - name: Check weekly report screen words (HOME-주간정리이름주간보고)
+        run: node --test tests/ui-words-weekly-report.test.mjs
+
+      - name: Check signup notice chip, line and operator list (OPS-새가입알림)
+        run: node --test tests/signup-notify-model.test.mjs
+
+      - name: Check operator signup status counts and seven fields (OPS-가입자현황)
+        run: node --test tests/signup-status-model.test.mjs
+
+      - name: SEC-자주가는링크기본값유출·COLLAB-조직목록없음직접입력 운영자 기본값 없음·남의 작업공간 조직 이름 막힘
+        run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
 
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
@@ -1466,6 +1549,9 @@ jobs:
 
       - name: Check weekly detail line feedback and last-week area lines (S48-35)
         run: node --test tests/weekly-s48-35.test.mjs
+
+      - name: Check weekly learn group names follow the own form titles (WEEKLY-내양식자유변형 ⑤-3d)
+        run: node --test tests/weekly-group-names.test.mjs
 
       - name: Check weekly request carried takes and made PR mark (S48-43)
         run: node --test tests/weekly-s48-43.test.mjs

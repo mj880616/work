@@ -34,17 +34,32 @@ export function connectText(service, mode = 'none') {
 }
 
 // 안내 한 줄 + 아래 버튼 HTML. attrs: 버튼에 붙일 data-* 속성({'data-gt-connect':''}), boxAttrs: 바깥 칸 data-* 속성.
-// button이 비면 글 한 줄만(연결할 길이 없는 경우).
-export function connectNoteHtml({line, button = '', attrs = {}, boxAttrs = {}, role = ''} = {}) {
+// 버튼이 여럿이면 buttons: [{label, attrs}] — 아래 줄에 왼쪽부터 나란히. 버튼이 없으면 글 한 줄만(연결할 길이 없는 경우).
+// why: 이유 작은 글자(안내 줄 끝), cls: 바깥 칸에 더할 클래스(화면 자리 맞춤용, 모양은 바꾸지 않음).
+export function connectNoteHtml({line, button = '', attrs = {}, buttons = null, boxAttrs = {}, role = '', why = '', cls = ''} = {}) {
   const pairs = obj => Object.entries(obj || {}).filter(([k]) => ATTR_RE.test(k)).map(([k, v]) => ` ${k}="${esc(v)}"`).join('');
-  const btn = button ? `<button type="button" class="secondary connect-note-btn"${pairs(attrs)}>${esc(button)}</button>` : '';
+  const list = (Array.isArray(buttons) ? buttons : button ? [{label:button, attrs}] : []).filter(x => x?.label);
+  const one = x => `<button type="button" class="secondary connect-note-btn"${pairs(x.attrs)}>${esc(x.label)}</button>`;
+  const btn = list.length > 1 ? `<span class="connect-note-btns">${list.map(one).join('')}</span>` : list.map(one).join('');
   const r = role === 'status' || role === 'alert' ? ` role="${role}"` : '';
-  return `<div class="connect-note" data-connect-note${pairs(boxAttrs)}${r}><p class="connect-note-line">${esc(line)}</p>${btn}</div>`;
+  const c = /^[a-z0-9 -]{1,80}$/.test(cls) ? ` ${cls}` : '';
+  const w = why ? ` <small class="connect-note-why">${esc(why)}</small>` : '';
+  return `<div class="connect-note${c}" data-connect-note${pairs(boxAttrs)}${r}><p class="connect-note-line">${esc(line)}${w}</p>${btn}</div>`;
 }
 
 // 서비스·상태로 바로 그리기(글은 CONNECT_TEXT 그대로). line을 주면 안내 줄만 바꾼다(버튼 글은 규칙 그대로).
-export function connectNoteFor(service, mode = 'none', {line = '', attrs = {}, boxAttrs = {}, role = ''} = {}) {
+export function connectNoteFor(service, mode = 'none', {line = '', attrs = {}, boxAttrs = {}, role = '', why = '', cls = ''} = {}) {
   const t = connectText(service, mode);
   if (!t) return '';
-  return connectNoteHtml({line:line || t.line, button:t.button, attrs, boxAttrs:{'data-connect-service':service, 'data-connect-mode':mode === 'reconnect' ? 'reconnect' : 'none', ...boxAttrs}, role});
+  return connectNoteHtml({line:line || t.line, button:t.button, attrs, boxAttrs:{'data-connect-service':service, 'data-connect-mode':mode === 'reconnect' ? 'reconnect' : 'none', ...boxAttrs}, role, why, cls});
+}
+
+// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브를 둘 다 쓰는 화면에서 둘 다 연결 전이면
+// [파일] 화면과 같은 한 칸 — '연결된 클라우드가 없어요.' 한 줄 + 그 아래 연결 버튼들 한 줄([원드라이브 연결][구글 드라이브 연결]).
+// items: [{service:'onedrive'|'gdrive', attrs}] — 연결 안 된 것만 넘긴다(넘긴 순서대로 왼쪽부터). 버튼 글은 CONNECT_TEXT 그대로.
+export const CLOUD_NONE_LINE = '연결된 클라우드가 없어요.';
+export function cloudNoneHtml(items = [], {boxAttrs = {}, cls = ''} = {}) {
+  const buttons = (Array.isArray(items) ? items : []).map(x => ({label:connectText(x?.service, 'none')?.button || '', attrs:x?.attrs || {}})).filter(x => x.label);
+  if (!buttons.length) return '';
+  return connectNoteHtml({line:CLOUD_NONE_LINE, buttons, boxAttrs:{'data-connect-cloud-none':'', ...boxAttrs}, cls});
 }

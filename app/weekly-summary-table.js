@@ -6,7 +6,7 @@ import {paperSkeletonHtml,weekBodyHtml} from './biz-week-skeleton.mjs';
 // - 1) 사업요약표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당. '진행'·'담당' 칸을 누르면 글 칸(진행은 Ctrl+Enter, 담당은 Enter 저장, Esc 취소).
 //   진행 = 그 주 임시저장 summary 칸(홈 [주간 정리] 1) 요약과 같은 칸), 담당 = 그 주 임시저장 owners 칸(한글 파일 담당 칸) — 저장 자리 하나(weekly-draft-store.js).
 //   칸 아래 그 주 사업 보고 제목(사실 기록)은 누르면 그 보고가 열린다. AI 제안 없음(WEEKLY-요약표수기 S49-39). 예전에 저장된 AI 값은 보이지 않게만 두고 지우지 않는다.
-// - 2) 주요 사업·회의결과: 전환 주부터는 주요 사업 창(biz-detail-window.js, 홈 [주간 정리] 2. 2)와 같은 부품). 그 앞 주는 그 주 사업 보고 줄(날짜순). 내부 정례 회의와 내가 '늘 빼기'로 정한 종류는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
+// - 2) 주요 사업·회의결과: 전환 주부터는 주요 사업 창(biz-detail-window.js, 홈 [주간 정리] 2. 2)와 같은 부품). 그 앞 주는 그 주 사업 보고 줄(날짜순). 내가 '늘 빼기'로 정한 종류·단어(내 프로필 목록)는 journal-meeting-kinds.js reportsMeeting 한 곳으로 뺀다(주간 정리와 같음).
 //   한 줄 업데이트(칸 oneline)는 표 칸 맨 위, 세부 내용에는 넣지 않는다(MTG-한줄업데이트).
 // - BIZ-주간표이번주 ⑥(11/09): 사업 보고가 전체 기간·정한 기간이면(fold) 이 칸은 접힌 한 줄 '이번 주 주간보고 11.9~11.15 ⌄'로 시작하고 누르면 펼친다.
 //   접힌 동안은 서버를 부르지 않고, 접힘은 기억하지 않는다(접는 보기로 들어올 때마다 접힘). 주 단위에서는 늘 펼침.
@@ -39,15 +39,15 @@ const self={};
 // 큰 칸은 진짜 표와 같은 머리글·제목 글자·칸 폭의 표 모양(biz-week-skeleton.mjs, 사업 과제 4줄), 홈 작은 상자는 기다림 줄. 그리는 곳은 이 부품 하나(자리 → renderPaper가 같은 칸을 표로 바꿈).
 const skeletonHtml=()=>compact?waitHtml({rows:4,h:51}):paperSkeletonHtml();
 const $in=sel=>box?.querySelector(sel);
-const JOURNAL_FOOT='<button type="button" class="biz-week-go" data-bw-journal>주간 정리에서 보기 ›</button>';
+const JOURNAL_FOOT='<button type="button" class="biz-week-go" data-bw-journal>주간 보고에서 보기 ›</button>';
 
 function ensureBox(el){
   if(box===el)return box;
   box=el;box.dataset.bpMounted='';
   // 기억한 접힘은 서버 화면 기억(view_prefs)이 늦게 오면 그때 다시 맞춘다(손으로 고른 것이 없을 때만 바뀜). 펼쳐지면 그때 그린다.
   if(!compact)window.addEventListener('kptu:view-prefs-ready',()=>{if(!state||state.none)return;applyFold(state.from);if(isOpen()&&(state.dirty||!state.view)&&state.seen){state.dirty=false;void paint()}});
+  // 큰 칸(사업 보고)의 안은 mount가 사업영역 수를 보고 그린다(drawNone 또는 drawPaper) — 여기서 표 모양을 미리 그리지 않는다(BIZ-빈표잠깐보임다시).
   if(compact)box.innerHTML='<div class="biz-paper biz-week-paper biz-paper-compact" data-bp-paper>'+skeletonHtml()+'</div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p>';
-  else box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml(JOURNAL_FOOT);
   box.addEventListener('click',onClick);
   // WEEKLY-사업영역묶음 ②: 묶음 표의 [수정] 글 칸 위 '수정할 칸' 고르기(사업영역 자기 칸 · ◦ 세부 과제 칸).
   box.addEventListener('change',e=>{const t=e.target.closest?.('[data-bp-target]');if(!t||!state?.editing)return;const row=Number(t.value);if(!rowRefs()[row])return;state.editing={kind:'progress',row};renderPaper()});
@@ -66,7 +66,13 @@ function ensureBox(el){
 function drawNone(){
   const body=box.querySelector('[data-bw-body]');
   body.innerHTML='<p class="biz-week-none">사업(예: 임단협, 조직 확대)을 만들면 회의·결과가 사업별로 모여요 <button type="button" class="row-act biz-week-new" data-bw-area-new>+ 사업 만들기</button></p>';
-  box.dataset.bpReady='';
+  box.dataset.bpReady='';box.dataset.bpBody='none';
+}
+// 사업영역이 있다고 확인된 칸: 표 모양 자리(BIZ-주간칸밀림) → paint가 같은 자리를 표로 바꾼다. 이미 표 자리면 그대로.
+function drawPaper(){
+  if(box.dataset.bpBody==='paper')return;
+  box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml(JOURNAL_FOOT);box.dataset.bpBody='paper';delete box.dataset.bpReady;
+  if(state){if(state.none)state.freshPlaces=true;state.none=false;state.view=null;state.dirty=true} // 안내 → 표: 막 만든 사업영역이 표에 오게 연결할 곳 기억을 한 번 새로 읽는다
 }
 function say(text){const el=$in('[data-bp-status]');if(el)el.textContent=text||''}
 
@@ -97,7 +103,7 @@ const isOpen=()=>compact||!state?true:state.hand??(state.auto?false:bizWeekOpen(
 function applyFold(from){
   if(compact)return;
   const h=box?.querySelector('.biz-week-title'),body=box?.querySelector('[data-bw-body]');if(!h||!body)return;
-  const now=weekOf(seoulDateKey(Date.now())).from,name=from===now?'이번 주 주간보고':`${weekLabel(from)} 주간보고`;
+  const now=weekOf(seoulDateKey(Date.now())).from,name=from===now?'이번 주 주간 보고':`${weekLabel(from)} 주간 보고`;
   // MULTI-사업보고빈화면 ①: 사업영역이 없는 계정은 제목 줄·표 없이 안내 한 줄만(아래 drawNone). 접고 펴기도 없다.
   h.hidden=!!state.none;
   if(state.none){box.setAttribute('aria-label','사업 만들기 안내');body.hidden=false;h.innerHTML='';return}
@@ -118,7 +124,7 @@ async function paint(){
     if(state.freshPlaces){state.freshPlaces=false;sheet.forgetReportPlaces()}
     // 사업 나무: 화면이 이미 읽은 나무를 넘겨주면 그것(홈 — 따로 읽지 않음), 아니면 사업 보고의 연결할 곳 읽기.
     const places=state.tree?{projects:state.treeSeen||null}:await sheet.loadReportPlaces().catch(()=>null);
-    // 늘 빼는 회의 종류: 내부 정례 회의는 목록을 못 읽어도 빠진다(reportsMeeting). 주간 정리와 같은 한 곳.
+    // 늘 빼는 회의 종류·'빼기' 단어(내 프로필 목록, 못 읽으면 아무것도 빼지 않음 — reportsMeeting). 주간 정리와 같은 한 곳.
     const read=await kinds.readKinds().catch(()=>({status:'unknown'}));
     const hidden=read?.status==='ok'?read.list:null;
     // BIZ-기록하나로 B-3: 전환 주(RECORD_ONE_FROM)부터 진행·담당 칸 = 사업 '지금 상황'(app_business_now, 이어 씀). 그 앞 주는 옛 임시저장 칸을 읽기만(옛 보고).
@@ -391,10 +397,12 @@ self.fileRows=week=>{
 // fold = 사업 보고가 여러 주(전체 기간·정한 기간)를 보는 중 → 접힌 한 줄로 시작(BIZ-주간표이번주 ⑥). 홈 작은 상자는 늘 펼침.
 // auto = 사업 보고 하나를 직접 열어 보는 중 → 접힘(BIZ-주간보고접기). visit = 화면에 들어온 횟수(바뀌면 손으로 고른 접힘을 잊음).
 self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=0,onFold=null,areas=null})=>{
+  // BIZ-빈표잠깐보임다시: 사업영역 수를 모르면(null) 아무것도 그리지 않는다 — 표 모양은 사업영역이 있다고 확인된 뒤에만(화면도 그동안 칸을 보이지 않음).
+  if(!compact&&typeof areas==='function'&&areas()==null)return;
   ensureBox(el);
   const from=weekOf(week||seoulDateKey(Date.now())).from,first=!state;
   // MULTI-사업보고빈화면(설계 docs/design/new-user-start.md 2-4): 사업영역이 0개로 읽힌 계정(areas() === 0)은 표·자리 잡기 표를 그리지 않고
-  // 안내 한 줄 + [+ 사업 만들기]만 그린다(서버를 부르지 않음). 모르면(null) 지금처럼 표. 사업영역이 생기면 다음 mount에서 표로 돌아간다.
+  // 안내 한 줄 + [+ 사업 만들기]만 그린다(서버를 부르지 않음). 모르면(null) 위에서 그리지 않고 돌아간다. 사업영역이 생기면 다음 mount에서 표로 돌아간다.
   const none=!compact&&typeof areas==='function'&&areas()===0;
   if(none){
     if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,hand:null,auto:false,visit,told:null,dirty:true};
@@ -402,7 +410,7 @@ self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=
     if(!state.none){state.none=true;drawNone()}
     applyFold(from);return;
   }
-  if(state?.none){state.none=false;box.querySelector('[data-bw-body]').innerHTML=weekBodyHtml(JOURNAL_FOOT);delete box.dataset.bpReady;state.view=null;state.dirty=true;state.freshPlaces=true} // 막 만든 사업영역이 표에 오게 연결할 곳 기억을 한 번 새로 읽는다
+  if(!compact)drawPaper();
   if(first)state={meetings,tree,from,to:shiftDays(from,6),run:0,view:null,draft:null,editable:false,store:null,editing:null,rowRefs:[],fold:false,hand:null,auto:false,visit,told:null,dirty:false};
   const foldNow=!compact&&!!fold;
   // 보고를 연 동안 손으로 고른 것(hand)은 화면을 떠났다 오거나(visit) 보고를 닫거나 새로 열면(auto가 바뀜) 잊는다 — 그다음은 기억한 값(BIZ-주간보고접힘기억).

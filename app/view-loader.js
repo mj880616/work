@@ -27,9 +27,9 @@ const routeStyles={
   diary:['./diary.css','./od-link.css','./ed-doc.css','./folder-look.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./ui-standard.css'],
   library:['./filter-chips.css','./choice-sheet.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./list-edit.css','./ui-standard.css'],
-  meetings:['./filter-chips.css','./weekly-org-lines.css','./biz-summary.css','./choice-sheet.css','./od-link.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./ui-standard.css'],
+  meetings:['./first-use.css','./filter-chips.css','./weekly-org-lines.css','./biz-summary.css','./choice-sheet.css','./od-link.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./ui-standard.css'],
   pages:['./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
-  team:['./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
+  team:['./first-use.css','./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
   ledger:['./ledger-import.css','./ui-standard.css'],
@@ -42,8 +42,13 @@ const routeStyles={
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
   outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./news-mark-rows.css','./folder-look.css','./ui-standard.css'],
   files:['./od-link.css','./folder-tree.css','./source-chips.css','./files.css','./folder-look.css','./ui-standard.css'],
-  updates:['./release-notes.css','./ui-standard.css'],
-  brief:['./brief-room.css','./ui-standard.css']
+  updates:['./release-notes.css','./update-news.css','./small-form-modal.css','./ui-standard.css'],
+  whatsnew:['./update-news.css','./ui-standard.css'],
+  feedback:['./feedback.css','./ui-standard.css'],
+  signups:['./signups.css','./ui-standard.css'],
+  brief:['./feed.css','./brief-room.css','./first-use.css','./ui-standard.css'],
+  // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
+  help:['./help.css','./first-use.css','./ui-standard.css']
 };
 // PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를
 // 받기만 먼저 걸어 둔다(실행 순서는 아래 loaders 그대로). 사슬은 Pages 빌드가 채운다(/*static-chain*/, scripts/build-pages.mjs).
@@ -179,14 +184,32 @@ async function photos(){ await module('./photos.js'); return {ok:true} }
 async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
 // OUTSIDE-바깥성명 ④: [바깥 성명](?view=outside, 위 메뉴 사진 다음). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #outsideView를 만든다).
 // OUTSIDE-글상세·관심환류 ③: Now 껍데기(outside-statements.js)가 #outsideView와 [뉴스] 탭 자리를 만든 뒤 뉴스 클리핑(news-clipping.js)이 그 자리에 들어간다.
-async function outside(){ await module('./outside-statements.js'); await module('./news-clipping.js'); return {ok:true} }
+// NEWS-운영자만(S63-03, 명진 11/16): News는 서버 운영자 기능 키 'outside'가 있는 작업공간만. 키가 없다는 답이면 화면 모듈을 불러오지 않고
+// 홈으로 보낸다(주소 ?view=news·옛 ?view=outside·now를 직접 열어도). 답을 못 읽었으면(null) 막지 않는다 — 운영자 화면이 잠깐 못 읽었다고 닫히지 않게
+// (메뉴 myFeaturesOrNull 규칙과 같음). 화면 판정은 보안이 아니다: 수집·AI는 Edge가 같은 키로 막는다.
+async function outsideAllowed(){
+  try{const {myFeaturesOrNull}=await import('./my-features.js');const got=await myFeaturesOrNull();return !Array.isArray(got)||got.includes('outside')}
+  catch{return true}
+}
+async function outside(){
+  if(!await outsideAllowed()){window.KPTURouter?.go?.('home',{replaceUrl:true});return {ok:false,denied:true}}
+  await module('./outside-statements.js'); await module('./news-clipping.js'); return {ok:true}
+}
 // FILES-클라우드탐색기 ④: [파일](?view=files, 위 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #filesView를 만든다).
 async function files(){ await module('./files.js'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
+// UPDATE-운영자전용기록업데이트소식 PR3: [업데이트 소식](?view=whatsnew, 계정 메뉴 — 모든 이용자). 열 때만 불러온다(모듈이 #whatsnewView를 만든다).
+async function whatsnew(){ await module('./update-news-ui.js'); return {ok:true} }
+// FEEDBACK-의견보내기 PR5: 운영자 '받은 의견'(?view=feedback, 운영자 계정 메뉴). 열 때만 불러온다(모듈이 #feedbackView를 만든다, 읽기는 서버가 운영자만).
+async function feedback(){ await module('./feedback-inbox.js'); return {ok:true} }
+// OPS-새가입알림 ③·OPS-가입자현황: 운영자 '가입자 현황'(?view=signups, 운영자 계정 메뉴·새 가입 알림). 열 때만 불러온다(모듈이 #signupsView를 만든다, 읽기는 서버가 운영자만).
+async function signups(){ await module('./signups-view.js'); return {ok:true} }
 // BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
 async function brief(){ await module('./brief-room.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,brief};
+// HELP-메뉴안쓰는법: [쓰는 법](?view=help, 메뉴 맨 아래·각 화면 ⋯ 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #helpView를 만든다).
+async function help(){ await module('./help.js'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,help};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home'};
 function normalize(view){
@@ -198,6 +221,8 @@ function load(view){
   if(loaded.has(key))return Promise.resolve({ok:true,view:key,cached:true});
   if(flights.has(key))return flights.get(key);
   const flight=Promise.resolve().then(()=>prepare(key)).then(()=>loaders[key]()).then(result=>{
+    // 막힌 화면(ok:false, 예: 기능 키 없는 News)은 불러온 것으로 치지 않는다 — 다음에 다시 판정.
+    if(result&&result.ok===false)return {...result,view:key};
     loaded.add(key);
     window.dispatchEvent(new CustomEvent('kptu:view-loader-ready',{detail:{view:key}}));
     return {...(result||{ok:true}),view:key}
@@ -235,7 +260,8 @@ const warmModules={
   photos:/*static-chain*/['./photos.js'],
   outside:/*static-chain*/['./outside-statements.js','./news-clipping.js'],
   files:/*static-chain*/['./files.js'],
-  brief:/*static-chain*/['./brief-room.js']
+  brief:/*static-chain*/['./brief-room.js'],
+  help:/*static-chain*/['./help.js']
 };
 const warmed=new Set();
 function hint(rel,path,as){

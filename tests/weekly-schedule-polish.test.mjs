@@ -10,8 +10,8 @@ import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx} from '../app/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
-import {buildReport, findTables} from '../app/weekly-hwpx/report.mjs';
+import {extractBlankTemplate} from './fixtures/weekly-engine.mjs';
+import {buildReport, findTables} from './fixtures/weekly-engine.mjs';
 
 const cal = Object.assign([
   {id:'a', calendarId:'k', calendarName:'공공운수노조', title:'가상에이', start:'2026-10-27T14:00:00+09:00', end:'2026-10-27T15:00:00+09:00'},

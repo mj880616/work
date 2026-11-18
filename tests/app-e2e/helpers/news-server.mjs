@@ -89,10 +89,17 @@ export async function newsServer(page) {
     const art = it => { const { _body, _body_ko, _marked, starred_at, folder_id, hidden_at, keywords, ...row } = it; return { ...row, body: _body ?? null, body_ko: _body_ko ?? null }; };
     const markOf = it => ({ starred_at: it.starred_at, folder_id: it.folder_id, hidden_at: it.hidden_at ?? null, keywords: it.keywords || [] });
     const inIds = v => /^in\.\((.*)\)$/.exec(v || '')?.[1]?.split(',') || [];
+    // S63-11 서버 찾기 흉내: or=(title.ilike."*낱말*낱말*",…) — 제목·한국어 제목·요약에서 낱말을 순서대로(대소문자 무시).
+    const likeOk = (it, orParam) => {
+      const pat = /\.ilike\."([^"]*)"/.exec(orParam || '')?.[1];
+      if (pat === undefined) return true;
+      const re = new RegExp(pat.split('*').filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*'), 'i');
+      return ['title', 'title_ko', 'summary'].some(k => re.test(String(it[k] ?? '')));
+    };
     if (p === '/rest/v1/app_news_articles') {
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      const rows = server.items.filter(i => (!id || i.id === id) && (!inKeys || inKeys.includes(i.source_key)));
+      const rows = server.items.filter(i => (!id || i.id === id) && (!inKeys || inKeys.includes(i.source_key)) && likeOk(i, u.searchParams.get('or')));
       return ok(rows.map(i => ({ ...art(i), app_news_marks: marked(i) ? [markOf(i)] : [] })));
     }
     if (p === '/rest/v1/app_news_marks') {
@@ -102,7 +109,7 @@ export async function newsServer(page) {
       if (method === 'POST') { const it = server.items.find(i => i.id === body.article_id); Object.assign(it, body, { _marked: true }); delete it.article_id; delete it.workspace_id; return ok([{ article_id: it.id, ...markOf(it) }], 201); }
       const star = u.searchParams.get('starred_at'), hidden = u.searchParams.get('hidden_at');
       const cs = /^cs\.\{"((?:[^"\\]|\\.)*)"\}$/.exec(u.searchParams.get('keywords') || '')?.[1]?.replace(/\\(.)/g, '$1');
-      const rows = server.items.filter(i => marked(i) && (!aid || i.id === aid) && (!star || !!i.starred_at) && (hidden !== 'is.null' || !i.hidden_at) && (cs === undefined || (i.keywords || []).includes(cs)));
+      const rows = server.items.filter(i => marked(i) && (!aid || i.id === aid) && (!star || !!i.starred_at) && (hidden !== 'is.null' || !i.hidden_at) && (cs === undefined || (i.keywords || []).includes(cs)) && likeOk(i, u.searchParams.get('app_news_articles.or')));
       return ok(rows.map(view));
     }
     if (p === '/rest/v1/app_news_reads') {

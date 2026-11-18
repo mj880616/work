@@ -41,3 +41,25 @@ test('할 일 화면은 공용 부품으로 그리고 옛 "권한 다시 연결"
   assert.match(src, /connectNoteFor\('tasks',mode==='none'\?'none':'reconnect'/);
   assert.doesNotMatch(src, /Google 할 일 권한 다시 연결|Google 권한 다시 연결|함께 관리할 수 있습니다/);
 });
+
+test('버튼 여럿: 아래 줄에 나란히(한 줄 묶음), 각자 속성', () => {
+  const h = connectNoteHtml({line:'연결된 클라우드가 없어요.', buttons:[{label:'원드라이브 연결', attrs:{'data-c':'od'}}, {label:'구글 드라이브 연결', attrs:{'data-c':'gd'}}]});
+  assert.match(h, /<\/p><span class="connect-note-btns"><button[^>]*data-c="od">원드라이브 연결<\/button><button[^>]*data-c="gd">구글 드라이브 연결<\/button><\/span><\/div>$/);
+});
+
+// S62-36 UI-클라우드연결안내통일: [파일]·[사진]이 같은 한 칸(공용 cloudNoneHtml)을 쓴다.
+test('클라우드 둘 다 연결 전: 한 문구 + 연결 안 된 것마다 버튼(파일·사진 같은 부품)', async () => {
+  const {cloudNoneHtml, CLOUD_NONE_LINE} = await import('../app/connect-note.mjs');
+  assert.equal(CLOUD_NONE_LINE, '연결된 클라우드가 없어요.');
+  const h = cloudNoneHtml([{service:'onedrive', attrs:{'data-c':'od'}}, {service:'gdrive', attrs:{'data-c':'gd'}}]);
+  assert.match(h, /data-connect-cloud-none=""/);
+  assert.match(h, /<p class="connect-note-line">연결된 클라우드가 없어요\.<\/p><span class="connect-note-btns"><button[^>]*data-c="od">원드라이브 연결<\/button><button[^>]*data-c="gd">구글 드라이브 연결<\/button><\/span>/);
+  assert.match(cloudNoneHtml([{service:'gdrive'}]), /<\/p><button[^>]*>구글 드라이브 연결<\/button><\/div>$/);
+  assert.equal(cloudNoneHtml([]), '');
+  assert.equal(cloudNoneHtml([{service:'nope'}]), '');
+  for (const f of ['files.js', 'photos.js']) {
+    const src = readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8');
+    assert.match(src, /cloudNoneHtml\(/, f);
+    assert.doesNotMatch(src, /'연결된 클라우드가 없어요\.'/, `${f}: 문구는 connect-note.mjs 한 곳`);
+  }
+});

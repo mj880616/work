@@ -33,14 +33,14 @@ const screen = [
   {area: '사업영역 G', task: 'G-1', lines: ['G-1 글'], owner: ''},
 ];
 const grid = async (w) => {
-  const {assembleDraft} = await import('../app/weekly-hwpx/draft.mjs');
-  const {lineText} = await import('../app/weekly-hwpx/report.mjs');
+  const {assembleDraft} = await import('./fixtures/weekly-engine.mjs');
+  const {lineText} = await import('./fixtures/weekly-engine.mjs');
   const data = assembleDraft(w.base, {summary: w.summary, owners: w.owners});
   return data.summary.map(a => [a.area.join(' '), a.rows.map(r => [(r.task ?? []).join(' '), r.progress.map(lineText), (r.owner ?? []).join('')])]);
 };
 
 test('① 양식 둘째 칸 = 내 사업영역이면 그 줄을 채우고, 세부 과제는 그 칸 안 "◦ 이름" + 줄, 표 끝 새 줄 없음', async () => {
-  const {applyBizWindow} = await import('../app/weekly-hwpx/draft.mjs');
+  const {applyBizWindow} = await import('./fixtures/weekly-engine.mjs');
   const base = team();
   const w = applyBizWindow(base, ME, screen);
   assert.equal(JSON.stringify(base), JSON.stringify(team()), '원본 바탕은 그대로');
@@ -58,7 +58,7 @@ test('① 양식 둘째 칸 = 내 사업영역이면 그 줄을 채우고, 세�
 });
 
 test('① 남의 줄만 같은 이름이면 그 줄을 쓰지 않는다(내 줄 한정)', async () => {
-  const {applyBizWindow} = await import('../app/weekly-hwpx/draft.mjs');
+  const {applyBizWindow} = await import('./fixtures/weekly-engine.mjs');
   const w = applyBizWindow(team(), ME, [{area: '사업영역 남', task: '', lines: ['내 글'], owner: ''}]);
   const g = await grid(w);
   assert.deepEqual(g[1][1][1], ['사업영역 남', ['- 남의 글'], '예시병'], '남의 줄 그대로');
@@ -66,7 +66,7 @@ test('① 남의 줄만 같은 이름이면 그 줄을 쓰지 않는다(내 줄 
 });
 
 test('① 양식에 없는 사업영역은 고른 자리(places)에 들어가고, 고른 자리가 없으면 예전처럼 새 줄', async () => {
-  const {applyBizWindow, placeOf} = await import('../app/weekly-hwpx/draft.mjs');
+  const {applyBizWindow, placeOf} = await import('./fixtures/weekly-engine.mjs');
   const rows = [{area: '사업영역 F', task: '', lines: ['F 글'], owner: ''}, {area: '사업영역 F', task: 'F-1', lines: ['F-1 글'], owner: ''}];
   const off = await grid(applyBizWindow(team(), ME, rows));
   assert.deepEqual(off.at(-1), ['사업영역 F', [['', ['F 글'], ME], ['F-1', ['F-1 글'], ME]]]);
@@ -81,8 +81,8 @@ test('① 양식에 없는 사업영역은 고른 자리(places)에 들어가고
 });
 
 test('① 실제 서식 파일로 만들어 다시 읽어도 자리 칸에 "◦ 세부 과제" 줄이 그대로 남고 줄 수가 늘지 않는다', async () => {
-  const {applyBizWindow, assembleDraft, editableRows, buildHwpx, prepareConfirmed, openConfirmed, startDraft} = await import('../app/weekly-hwpx/draft.mjs');
-  const {readReport} = await import('../app/weekly-hwpx/report.mjs');
+  const {applyBizWindow, assembleDraft, editableRows, buildHwpx, prepareConfirmed, openConfirmed, startDraft} = await import('./fixtures/weekly-engine.mjs');
+  const {readReport} = await import('./fixtures/weekly-engine.mjs');
   const {openHwpx, packHwpx} = await import('../app/weekly-hwpx/hwpx.mjs');
   const {zlib, SAMPLE} = await import('../scripts/weekly-hwpx/cli.mjs');
   const {makeFakeReport} = await import('../scripts/weekly-hwpx/fixture.mjs');
@@ -104,7 +104,7 @@ test('① 실제 서식 파일로 만들어 다시 읽어도 자리 칸에 "◦ 
 });
 
 test('① 고른 자리가 있는 사업영역은 빈 내 줄을 표 끝에 더하지 않는다(missingAreas)', async () => {
-  const {missingAreas, editableRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const {missingAreas, editableRows} = await import('./fixtures/weekly-engine.mjs');
   const rows = editableRows(team(), ME);
   assert.deepEqual(missingAreas(rows, ['사업영역 A', '사업영역 C', '사업영역 F']), ['사업영역 F'], '둘째 칸 이름으로 찾은 사업영역은 이미 있음');
   assert.deepEqual(missingAreas(rows, ['사업영역 F'], {places: {'사업영역 F': {area: '의제', task: '빈 자리 H'}}}), []);
@@ -112,7 +112,7 @@ test('① 고른 자리가 있는 사업영역은 빈 내 줄을 표 끝에 더�
 });
 
 test('①-b 새 줄로 넣은 사업영역(added)·고르기 목록(placeChoices)', async () => {
-  const {applyBizWindow, placeChoices, withAreaRows, missingAreas, editableRows} = await import('../app/weekly-hwpx/draft.mjs');
+  const {applyBizWindow, placeChoices, withAreaRows, missingAreas, editableRows} = await import('./fixtures/weekly-engine.mjs');
   const rows = [{area: '사업영역 F', task: '', lines: ['F 글'], owner: ''}, {area: '사업영역 A', task: '', lines: ['A 글'], owner: ''}];
   assert.deepEqual(applyBizWindow(team(), ME, rows).added, ['사업영역 F']);
   // 앱이 더한 빈 줄(withAreaRows)에 들어가도 양식에 없던 자리라 added.
@@ -139,7 +139,7 @@ test('①-b places 저장 모양(readPlaces·withPlace) — draft 칸, 칸마다
 });
 
 test('② 화면 첫 칸: 사업영역 → 양식 첫 칸 이름(한글 파일과 같은 자리), 양식에 내 줄이 없으면 null', async () => {
-  const {areaGroups} = await import('../app/weekly-hwpx/draft.mjs');
+  const {areaGroups} = await import('./fixtures/weekly-engine.mjs');
   const g = areaGroups(team(), ME, ['사업영역 A', '사업영역 C', '사업영역 D', '사업영역G', '사업영역 F', '사업영역 남']);
   assert.equal(g.get('사업영역 A'), '영역');
   assert.equal(g.get('사업영역 C'), '의제');

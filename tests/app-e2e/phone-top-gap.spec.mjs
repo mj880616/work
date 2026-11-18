@@ -9,13 +9,15 @@ const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const ANDROID='Mozilla/5.0 (Linux; Android 15; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.4.3';
 test.use({viewport:{width:412,height:915},userAgent:ANDROID,hasTouch:true,isMobile:true});
-async function open(page,view){
+async function open(page,view,{features=[]}={}){
   const user={id:'gap-qa',email:'gap-qa@example.org'};
   await page.route(`${SB}/**`,route=>{
     const p=new URL(route.request().url()).pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
     if(p==='/auth/v1/token')return ok({access_token:'gap-access',refresh_token:'gap-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user});
     if(p==='/auth/v1/user')return ok(user);
+    // S63-03 NEWS-운영자만: News(outside)는 운영자 기능 키가 있는 계정만 열린다.
+    if(p==='/rest/v1/rpc/app_my_features')return ok(features);
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'gap-ws',role:'owner',workspace:{id:'gap-ws',name:'QA',slug:'kptu-work'}}]);
     if(p.startsWith('/rest/v1/'))return ok([]);
     return ok({});
@@ -48,7 +50,7 @@ test('home top has no empty header gap, and the header comes back on other tabs'
   expect((await page.locator('#homeView [data-journal-title]').boundingBox()).y).toBeLessThan(24);
 });
 for(const view of ['basket','calendar','meetings','team','photos','diary','library','profile','search','outside'])test(`${view} starts right under the top at 412px phone app`,async({page})=>{
-  await open(page,'home');
+  await open(page,'home',{features:view==='outside'?['outside']:[]});
   await go(page,view);
   await expect(page.locator(`#${view}View`)).toBeVisible();
   await expect.poll(()=>firstTop(page)).toBeLessThan(40);

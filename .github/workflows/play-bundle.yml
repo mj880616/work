@@ -1,0 +1,178 @@
+name: Play bundle
+
+# S62-34 APP-플레이스토어비공개테스트: 플레이 스토어 판(com.nojoplus.app, 앱 이름 '노동조합+')의 release AAB를 만든다.
+# - 커맨드센터(또는 사람)가 main에서 손으로 실행하고 version(예: 0.5.11)을 넣는다. version은 android-app/app/build.gradle의 versionName과 같아야 한다.
+# - 서명은 phone-app-release.yml과 같은 승인형 environment `phone-app-release`의 비밀값(같은 열쇠)으로 한다. 이 열쇠가 플레이의 '업로드 열쇠'다.
+#   플레이 앱 서명 열쇠는 플레이 콘솔에서 구글이 만든다(Play App Signing). 새 비밀값은 쓰지 않는다.
+# - 결과는 이 실행의 workflow artifact(7일 보관)로만 올린다. GitHub 공개 릴리스·태그는 만들지 않는다(앱 안 업데이트·Obtainium이 보는 phone-app-v* 릴리스와 섞이지 않게).
+# - 열쇠·비밀번호는 로그에 출력하지 않는다. 업로드 인증서 SHA-256(공개값)만 요약에 남긴다.
+# DB·Edge·웹 배포·그 밖의 운영 서비스는 건드리지 않는다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'versionName without a prefix, for example 0.5.11 (must equal versionName in android-app/app/build.gradle)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-bundle
+  cancel-in-progress: false
+
+jobs:
+  # 읽기 권한만으로 먼저 확인한다. main·버전 모양·versionName이 틀리면 승인 요청 전에 실패한다.
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the branch and the version
+        id: check
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Run this workflow on main only"
+            exit 1
+          fi
+          if ! [[ "$INPUT_VERSION" =~ ^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$ ]]; then
+            echo "Version must look like 1.2.3"
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "The commit is not on main"
+            exit 1
+          fi
+          NAME="$(git show "$GITHUB_SHA:android-app/app/build.gradle" | sed -n "s/^ *versionName '\([0-9.]*\)'.*/\1/p")"
+          if [ "$NAME" != "$INPUT_VERSION" ]; then
+            echo "versionName in android-app/app/build.gradle ($NAME) differs from $INPUT_VERSION"
+            exit 1
+          fi
+          {
+            echo "version=$INPUT_VERSION"
+            echo "sha=$GITHUB_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+  bundle:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: phone-app-release
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      BUILD_TOOLS: '36.0.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: platform-tools
+          cmdline-tools-version: '12266719'
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;$BUILD_TOOLS"
+
+      - name: Install icon renderer
+        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin fonts-noto-cjk
+
+      - name: Render Android launcher icon
+        run: |
+          mkdir -p android-app/app/src/main/res/drawable-nodpi
+          rsvg-convert -w 512 -h 512 app/app-icon.svg -o android-app/app/src/main/res/drawable-nodpi/app_icon.png
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: '9.6.0'
+          # 서명하는 실행은 다른 실행이 만든 캐시를 쓰지 않는다
+          cache-disabled: true
+
+      - name: Unit tests (play)
+        run: gradle -p android-app :app:testPlayReleaseUnitTest --stacktrace
+
+      # build.gradle에는 서명 설정이 없다. 서명 없는 AAB(플레이에 올릴 것)와 같은 판 APK(매니페스트 확인용, 올리지 않음)를 만든다.
+      - name: Build play release bundle (unsigned)
+        # 알림(FCM): Firebase 앱 ID는 패키지마다 다르다. 플레이 판 앱 ID는 변수 WEB2_FCM_PLAY_APP_ID(비밀값 아님)로 받는다.
+        # 아직 없으면 빈 값 → 알림 기능만 꺼진 채로 빌드된다. 값은 출력하지 않는다.
+        env:
+          WEB2_FCM_PROJECT_ID: ${{ vars.WEB2_FCM_PROJECT_ID }}
+          WEB2_FCM_APP_ID: ${{ vars.WEB2_FCM_PLAY_APP_ID }}
+          WEB2_FCM_SENDER_ID: ${{ vars.WEB2_FCM_SENDER_ID }}
+          WEB2_FCM_API_KEY: ${{ vars.WEB2_FCM_API_KEY }}
+        run: gradle -p android-app :app:bundlePlayRelease :app:assemblePlayRelease --stacktrace
+
+      - name: Check the play manifest
+        run: |
+          python3 android-app/scripts/check-flavor-manifests.py "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt2" \
+            --play android-app/app/build/outputs/apk/play/release/app-play-release-unsigned.apk
+
+      - name: Sign the bundle with the upload key
+        shell: bash
+        env:
+          PHONE_APP_KEYSTORE_B64: ${{ secrets.PHONE_APP_KEYSTORE_B64 }}
+          PHONE_APP_KEYSTORE_PASSWORD: ${{ secrets.PHONE_APP_KEYSTORE_PASSWORD }}
+          PHONE_APP_KEY_ALIAS: ${{ secrets.PHONE_APP_KEY_ALIAS }}
+          PHONE_APP_KEY_PASSWORD: ${{ secrets.PHONE_APP_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in PHONE_APP_KEYSTORE_B64 PHONE_APP_KEYSTORE_PASSWORD PHONE_APP_KEY_ALIAS PHONE_APP_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "The phone-app-release environment secret $name is missing"
+              exit 1
+            fi
+          done
+          ks="$RUNNER_TEMP/phone-app.keystore"
+          trap 'rm -f "$ks"' EXIT
+          umask 077
+          printf '%s' "$PHONE_APP_KEYSTORE_B64" | base64 -d > "$ks"
+          mkdir -p out
+          out="out/nojoplus-play-$VERSION.aab"
+          # AAB는 jarsigner로 서명한다(apksigner는 APK 전용). 비밀번호는 환경 변수 이름으로만 넘긴다(명령 인자·로그에 값이 나오지 않음).
+          jarsigner -keystore "$ks" -storepass:env PHONE_APP_KEYSTORE_PASSWORD -keypass:env PHONE_APP_KEY_PASSWORD \
+            -signedjar "$out" android-app/app/build/outputs/bundle/playRelease/app-play-release.aab "$PHONE_APP_KEY_ALIAS" > /dev/null
+          jarsigner -verify "$out" > /dev/null
+          # 업로드 인증서 지문(공개값)만 요약에 남긴다. 플레이 콘솔 '업로드 키 인증서'와 비교할 때 쓴다.
+          digest="$(keytool -printcert -jarfile "$out" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1)"
+          if [ -z "$digest" ]; then
+            echo "Could not read the upload certificate fingerprint"
+            exit 1
+          fi
+          {
+            echo "### 플레이 판 AAB $VERSION"
+            echo "- 앱 ID: com.nojoplus.app"
+            echo "- 파일: nojoplus-play-$VERSION.aab (이 실행의 Artifacts, 7일 보관)"
+            echo "- Upload certificate SHA-256: $digest"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the bundle (workflow artifact only, 7 days)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nojoplus-play-${{ env.VERSION }}
+          path: out/nojoplus-play-*.aab
+          if-no-files-found: error
+          retention-days: 7

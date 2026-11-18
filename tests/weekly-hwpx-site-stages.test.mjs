@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applySiteStages, assembleDraft} from '../app/weekly-hwpx/draft.mjs';
+import {applySiteStages, assembleDraft} from './fixtures/weekly-engine.mjs';
 import {seedRows} from '../app/org-dispute-stage-model.mjs';
 
 // ORG-쟁의단계 ② → 명진 11/13 17:14 "한글 파일에서도 빼": 3. 2) 투쟁 사업장 칸에 쟁의 단계 줄을 넣지 않는다. 조직·현황 글은 모두 가짜 값.

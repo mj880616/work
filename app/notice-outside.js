@@ -4,10 +4,12 @@
 //   재료는 이미 있는 두 표를 owner RLS로 읽기만 한다(새 서버 함수·새 표 없음). 폰 알림 한 줄(phone-push evening 묶음)은 phone-push N5 뒤 몫.
 // - [보기]: News [사회운동] 탭으로(news-request.mjs requestNewsTab — 화면이 아직 안 불러와졌어도. 들어가면 화면이 본 시각을 지금으로 바꿔 줄이 저절로 사라진다).
 // - ✕: '확인함' — 본 시각을 지금으로 서버에 둔다(폰·PC 같게, 이 기기에는 아무것도 저장하지 않음). 그 뒤 새 글이 들어오면 다시 뜬다.
+// - NEWS-운영자만(S63-03): 운영자 기능 키 'outside'가 없는 계정에는 띄우지 않는다(News 메뉴와 같은 판정).
 // - 다시 묻기: 시작할 때, 화면이 다시 보일 때·화면을 옮길 때 10분에 한 번까지. 로그인한 사람이 바뀌면 멈춘다. 로그에 글 제목을 남기지 않는다.
 import {putNotice, removeNotice} from './notice-bar.js';
 import {eveningOpen, outsideNoticeText, COUNT_CAP} from './notice-outside-model.mjs';
 import {requestNewsTab} from './news-request.mjs';
+import {myFeaturesOrNull} from './my-features.js';
 
 const ICON = '<svg class="kptu-notice-line-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h8"/></svg>';
 const KEY = 'outside-new';
@@ -48,6 +50,10 @@ export function startOutsideNotice({rt = window.KPTURuntime, win = window, now =
     if (!w) return;
     lastAsk = Date.now();
     try {
+      // NEWS-운영자만(S63-03): News는 운영자 기능 키 'outside'가 있는 계정만. 키가 없거나 답을 아직 모르면(null) 띄우지 않는다(다음 묻기에 다시).
+      const features = await myFeaturesOrNull(rt);
+      if (mine !== run || stopped) return;
+      if (!Array.isArray(features) || !features.includes('outside')) { if (!Array.isArray(features)) lastAsk = 0; drop(); return; }
       const seen = await rt.api(`/rest/v1/app_outside_seen?workspace_id=eq.${q(w)}&select=seen_at&limit=1`, {singleFlight: false});
       const at = Array.isArray(seen) ? seen[0]?.seen_at : null;
       if (mine !== run || stopped) return;

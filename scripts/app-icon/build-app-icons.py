@@ -93,14 +93,19 @@ def svg(label=NAME):
 
 
 def basket_svg():
-    """바구니 PC: 같은 그림 + 보낼 것이 있을 때만 켜는 주황 점(badge). 작은 크기(≤24px)는 굵은 글자."""
+    """바구니 PC(노조+ 파일 올리기 도우미): 같은 그림 + 아래 가운데 위로 올리는 화살표(노조+ 본체 아이콘과 구분, S63-09 추천안)
+    + 보낼 것이 있을 때만 켜는 주황 점(badge). 작은 크기(≤24px)는 굵은 글자·굵은 화살표."""
     g = glyphs()
     badge = f'<g class="badge"><circle cx="54" cy="54" r="8" fill="#C9673D" stroke="{OLIVE}" stroke-width="3"/></g>'
-    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="바구니 PC드롭">'
+
+    def arrow(width):
+        return (f'<polyline points="32,57 32,46" fill="none" stroke="{YELLOW}" stroke-width="{width}"/>'
+                f'<polyline points="26.5,51 32,45.5 37.5,51" fill="none" stroke="{YELLOW}" stroke-width="{width}"/>')
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="노조+ 파일 올리기">'
             '<style>.small,.badge{display:none}@media (max-width:24px){.full{display:none}.small{display:inline}}</style>'
             f'<rect width="64" height="64" rx="{RADIUS}" fill="{OLIVE}"/>'
-            f'<g class="full"><path d="{g["full"]}" fill="{WHITE}"/>{plus_svg()}{badge}</g>'
-            f'<g class="small"><path d="{g["tab"]}" fill="{WHITE}"/>{plus_svg()}{badge}</g></svg>\n')
+            f'<g class="full"><path d="{g["full"]}" fill="{WHITE}"/>{plus_svg()}{arrow(3.2)}{badge}</g>'
+            f'<g class="small"><path d="{g["tab"]}" fill="{WHITE}"/>{plus_svg()}{arrow(4.4)}{badge}</g></svg>\n')
 
 
 def android_xml():

@@ -136,3 +136,68 @@ export function openConvertDialog({onMake,docType='report'}){
   window.KPTUA11y?.dialog.activate(root,{trigger:document.activeElement,initialFocus:'#hwpConvertText',onRequestClose:close});
   return {close};
 }
+
+// ---- HWP-노조서식분류: 서식 파일 먼저 올리기 ----
+// [노조 서식으로 만들기]를 눌렀을 때 자료실 '노조 서식'(옛 '양식')에 한글 서식 파일이 하나도 없으면 글 입력 창 대신 이 작은 창이 먼저 뜬다.
+// 끌어 놓기·[파일 선택]으로 .hwp 하나를 받아 onUpload(file)에 넘긴다(자료실 '노조 서식'으로 등록 — hwp-drive.js saveUnionForm, 기존 library-files).
+// 올리기가 끝나면 창을 닫고 onDone()으로 글 입력 창을 연다. 파일은 이 창 안(메모리)에서만 다루고 기기 저장소에 두지 않는다.
+const UPLOAD_ID='hwpFormUploadModal';
+export const FORM_UPLOAD_TEXT=Object.freeze({
+  lead:"서식 파일을 먼저 올려 주세요. 올린 한글 파일은 자료실 '노조 서식'에 들어가고, 그 서식 모양으로 문서를 만들어요.",
+  drop:'한글(.hwp) 서식 파일을 여기에 끌어 놓거나',
+  pick:'파일 선택',
+  sending:'자료실에 올리는 중…',
+});
+let uploadModal=null,uploadRun=0;
+function uploadMarkup(){
+  return `<div id="${UPLOAD_ID}" data-kptu-history-all="1" class="modal hidden hwp-convert hwp-form-upload" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="hwpFormUploadTitle"><div class="modal-card small-card hwp-convert-card">
+<div class="modal-head"><h2 id="hwpFormUploadTitle">노조 서식으로 만들기</h2><button type="button" class="icon-btn" data-close="${UPLOAD_ID}" aria-label="닫기">×</button></div>
+<p class="hwp-form-upload-lead">${esc(FORM_UPLOAD_TEXT.lead)}</p>
+<div class="hwp-form-upload-drop" data-hwp-form-drop><span>${esc(FORM_UPLOAD_TEXT.drop)}</span> <button type="button" class="secondary" data-hwp-form-pick>${esc(FORM_UPLOAD_TEXT.pick)}</button><input type="file" accept=".hwp" hidden data-hwp-form-file></div>
+<p id="hwpFormUploadStatus" class="hwp-convert-status" role="status" aria-live="polite"></p>
+<div class="hwp-convert-foot"><button type="button" class="secondary" data-hwp-form-cancel>취소</button></div>
+</div></div>`;
+}
+export function closeFormUploadDialog(){
+  if(!uploadModal)return;
+  uploadRun++;
+  uploadModal.classList.add('hidden');uploadModal.setAttribute('aria-hidden','true');
+  window.KPTUA11y?.dialog.deactivate(uploadModal,{restoreFocus:true});
+}
+// onUpload(file) → Promise<{ok:true}|{ok:false,message}>. check(file) → 안내 글(문제 없으면 ''). 성공하면 창을 닫고 onDone().
+export function openFormUploadDialog({onUpload,onDone,check=()=>''}){
+  if(!uploadModal?.isConnected){document.body.insertAdjacentHTML('beforeend',uploadMarkup());uploadModal=document.getElementById(UPLOAD_ID);}
+  const root=uploadModal;
+  const drop=root.querySelector('[data-hwp-form-drop]'),pick=root.querySelector('[data-hwp-form-pick]'),input=root.querySelector('[data-hwp-form-file]');
+  const note=root.querySelector('#hwpFormUploadStatus'),cancel=root.querySelector('[data-hwp-form-cancel]');
+  const say=(text,state='info')=>{note.textContent=text;note.dataset.state=state};
+  root.__abort?.abort();
+  const abort=new AbortController();root.__abort=abort;const opts={signal:abort.signal};
+  let busy=false;
+  const mine=++uploadRun;
+  const close=()=>{if(uploadRun===mine)closeFormUploadDialog()};
+  const setBusy=on=>{busy=on;pick.disabled=on;drop.dataset.busy=on?'1':''};
+  async function take(file){
+    if(busy||!file)return;
+    const problem=check(file);
+    if(problem){say(problem,'error');return}
+    setBusy(true);say(FORM_UPLOAD_TEXT.sending);
+    let result;
+    try{result=await onUpload(file)}catch{result={ok:false,message:'올리지 못했어요. 아무것도 바뀌지 않았어요.'}}
+    if(uploadRun!==mine)return;
+    setBusy(false);
+    if(result?.ok){close();onDone?.();return}
+    say(result?.message||'올리지 못했어요. 아무것도 바뀌지 않았어요.','error');
+  }
+  say('');setBusy(false);
+  pick.addEventListener('click',()=>{if(!busy)input.click()},opts);
+  input.addEventListener('change',()=>{const f=input.files?.[0];input.value='';void take(f)},opts);
+  drop.addEventListener('dragover',event=>{if(busy||![...(event.dataTransfer?.types||[])].includes('Files'))return;event.preventDefault();drop.dataset.drop='1'},opts);
+  drop.addEventListener('dragleave',()=>{delete drop.dataset.drop},opts);
+  drop.addEventListener('drop',event=>{delete drop.dataset.drop;const f=event.dataTransfer?.files?.[0];if(!f)return;event.preventDefault();void take(f)},opts);
+  cancel.addEventListener('click',close,opts);
+  root.querySelector('[data-close]').addEventListener('click',close,opts);
+  root.classList.remove('hidden');root.setAttribute('aria-hidden','false');
+  window.KPTUA11y?.dialog.activate(root,{trigger:document.activeElement,initialFocus:'[data-hwp-form-pick]',onRequestClose:close});
+  return {close};
+}

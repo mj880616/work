@@ -135,8 +135,9 @@ export function suggestionText(doc, s) {
   return box;
 }
 // 칸(묶음)별 '그대로 쓴 비율'(WEEKLY-환류전칸 3, 서버 actionDigest kept_percent 와 같은 셈) 한 줄. 동작이 없으면 null.
-export function cellRatesLine(doc, picks) {
-  const rates = cellKeptRates(picks).filter(r => r.percent != null);
+// names: 묶음 이름('내 양식' 제목 — weekly-screen-titles.mjs screenTitles(…).groups, ⑤-3d). 없으면 일반적인 말.
+export function cellRatesLine(doc, picks, names = undefined) {
+  const rates = cellKeptRates(picks, names).filter(r => r.percent != null);
   if (!rates.length) return null;
   const p = doc.createElement('p'); p.className = 'journal-muted journal-learn-cell-rates'; p.dataset.learnCellRates = String(rates.length);
   p.textContent = `칸별 그대로 쓴 비율: ${rates.map(r => `${r.group} ${r.percent}%(${r.answered})`).join(' · ')}`;
@@ -146,7 +147,7 @@ export function cellRatesLine(doc, picks) {
 // feedback: 그 주 고침 기록(review 가 있으면 개선 제안까지), previous: 지난 주 고침 기록들. answerable: [승인]/[아니] 단추를 그릴지.
 // rules: {week, rules} — 규칙 칸이 든 행의 주와 그 칸. 있으면 '새 규칙 후보'를 그 칸 후보로 [ㅇ][×][고쳐서 확정]과 함께 그린다.
 //   없으면(칸을 아직 못 읽음) 이번 보고의 후보 글만 단추 없이 보인다. fixing·value: 고치는 후보.
-export function reviewCard(doc, feedback, previous = [], {answerable = true, busy = false, rules = null, fixing = null, dropping = null, value = null, sfix = null, sdrop = null, sadd = false, picks = null} = {}) {
+export function reviewCard(doc, feedback, previous = [], {answerable = true, busy = false, rules = null, fixing = null, dropping = null, value = null, sfix = null, sdrop = null, sadd = false, picks = null, names = undefined} = {}) {
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const f = readFeedback(feedback);
   if (!f) return null;
@@ -158,7 +159,7 @@ export function reviewCard(doc, feedback, previous = [], {answerable = true, bus
   // S53-16: 고친 꼴 숫자에 순서 바꿈·표현 다듬기(있을 때만), 자료실 개인 확정본(한글에서 더 다듬은 판)과 견준 기록이면 그렇다고.
   const shape = `${c.moved ? ` · 순서 ${c.moved}` : ''}${c.reworded ? ` · 그중 표현 다듬기 ${c.reworded}` : ''}`;
   const nums = el('p', 'journal-muted', `① 남김 ${c.kept} · 수정됨 ${c.changed} · 뺌 ${c.dropped} · 더함 ${c.added}${shape}${f.from === 'library' ? ' (자료실 개인 확정본과 견줌)' : ''}`); nums.dataset.learnReviewCounts = ''; box.append(nums);
-  const rates = cellRatesLine(doc, picks); if (rates) box.append(rates);
+  const rates = cellRatesLine(doc, picks, names); if (rates) box.append(rates);
   const r = f.review;
   const cands = rules ? candidateList(doc, rules.week, rules.rules, {busy:busy || !answerable, fixing, dropping, value}) : null;
   if (!r) { const p = el('p', 'journal-muted', '규칙 후보·개선 제안은 아직이에요(정리 중이거나 준비 중).'); p.dataset.learnReviewPending = ''; box.append(p); if (cands) box.append(cands); return box; }
@@ -258,9 +259,10 @@ export function learnKeys(event) {
 }
 
 // ---- [주간 정리] 맨 아래 '주간보고 규칙·환류' ----
-export function paintWeeklyLearn(slot, start, {rt = window.KPTURuntime} = {}) {
+// names: 학습 묶음 이름(screenTitles(…).groups — '내 양식' 제목, ⑤-3d). 없으면 일반적인 말.
+export function paintWeeklyLearn(slot, start, {rt = window.KPTURuntime, names = undefined} = {}) {
   if (!slot) return;
-  last = {slot, start, rt};
+  last = {slot, start, rt, names};
   let s = states.get(start);
   if (!s) { s = {status:'loading', rows:[], ui:{open:false, editing:-1, adding:false, fixing:null, busy:false, msg:'', error:false}}; states.set(start, s); void load(start, rt); }
   draw(slot, start, s, rt);
@@ -332,18 +334,18 @@ function draw(slot, start, s, rt) {
   if (s.status === 'missing' || s.status === 'loading') { slot.replaceChildren(); return; }
   const box = el('details', 'journal-weekly-chapter journal-weekly-memory journal-weekly-fold'); box.dataset.journalWeeklyLearn = start; box.open = open;
   box.addEventListener('toggle', () => { s.ui.open = box.open; });
-  if (s.status === 'failed') { box.append(el('summary', null, '주간보고 규칙·환류'), el('p', 'journal-muted', '읽지 못했어요. 업무일지를 다시 열면 다시 읽어요.')); slot.replaceChildren(box); return; }
+  if (s.status === 'failed') { box.append(el('summary', null, '주간 보고 규칙·환류'), el('p', 'journal-muted', '읽지 못했어요. 업무일지를 다시 열면 다시 읽어요.')); slot.replaceChildren(box); return; }
   const rr = rulesRow(s.rows), rules = rr?.rules?.lines ?? [], cands = rr?.rules?.candidates ?? [];
   const mine = s.rows.find(r => r.week_start === start)?.feedback ?? null;
   const prev = s.rows.filter(r => r.week_start < start).map(r => r.feedback).filter(Boolean);
   const dev = [...s.rows.flatMap(r => (r.feedback?.review?.suggestions ?? []).filter(x => x.answer === 'yes').map(x => ({week:r.week_start, text:x.text, how:x.how, area:x.area, made:madeOf(x.made)}))), ...handIdeas(s.rows)];
   const minePicks = s.rows.find(r => r.week_start === start)?.picks ?? null;
   const sum = el('summary');
-  sum.append(el('span', 'journal-heading', '주간보고 규칙·환류'), ' ', el('small', 'journal-others-count', `확정 규칙 ${rules.length}줄${cands.length ? ` · 후보 ${cands.length}` : ''} · ${mine ? `이번 주 ${keptRate(mine.counts) ?? 0}% 그대로` : '이번 주 환류 없음'}${dev.length ? ` · 만들기로 보낸 것 ${dev.length}` : ''}`));
+  sum.append(el('span', 'journal-heading', '주간 보고 규칙·환류'), ' ', el('small', 'journal-others-count', `확정 규칙 ${rules.length}줄${cands.length ? ` · 후보 ${cands.length}` : ''} · ${mine ? `이번 주 ${keptRate(mine.counts) ?? 0}% 그대로` : '이번 주 환류 없음'}${dev.length ? ` · 만들기로 보낸 것 ${dev.length}` : ''}`));
   box.append(sum);
   // 규칙 목록
   const part = el('section', 'journal-weekly-part journal-part-has-add'); part.dataset.journalLearnRules = rr?.week_start ?? '';
-  part.append(el('h5', 'journal-weekly-sub', `주간보고 규칙(확정)${rr ? ` (${slash(rr.week_start)} 주 정리)` : ''}`));
+  part.append(el('h5', 'journal-weekly-sub', `주간 보고 규칙(확정)${rr ? ` (${slash(rr.week_start)} 주 정리)` : ''}`));
   if (!s.ui.adding && rules.length < RULES_MAX) { const add = el('button', 'journal-part-add-button', '+ 추가'); add.type = 'button'; add.dataset.journalLearnAdd = ''; add.disabled = s.ui.busy; add.setAttribute('aria-label', '규칙 더하기'); part.append(partAdd(doc, [add])); }
   if (!rules.length) part.append(emptyEl());
   const ul = el('ul', 'journal-kinds-off-list');
@@ -375,9 +377,10 @@ function draw(slot, start, s, rt) {
   box.append(part);
   // 이번 주 환류 보고(새 규칙 후보 포함) · 개발 후보. 이번 주 보고가 없으면 후보만 따로.
   const ruleOpt = rr ? {week:rr.week_start, rules:rr.rules} : null, fix = {fixing:s.ui.fixing, dropping:s.ui.dropping, value:s.ui.value, sfix:s.ui.sfix, sdrop:s.ui.sdrop, sadd:s.ui.sadd};
-  const card = mine ? reviewCard(doc, mine, prev, {busy:s.ui.busy, rules:ruleOpt, picks:minePicks, ...fix}) : null;
+  const names = last?.start === start ? last.names : undefined;
+  const card = mine ? reviewCard(doc, mine, prev, {busy:s.ui.busy, rules:ruleOpt, picks:minePicks, names, ...fix}) : null;
   if (card) box.append(card);
-  else { const rates = cellRatesLine(doc, minePicks); if (rates) box.append(rates); } // 확정 전에도 이번 주 동작으로 칸별 비율
+  else { const rates = cellRatesLine(doc, minePicks, names); if (rates) box.append(rates); } // 확정 전에도 이번 주 동작으로 칸별 비율
   if (!card && ruleOpt) {
     const list = candidateList(doc, ruleOpt.week, ruleOpt.rules, {busy:s.ui.busy, fixing:fix.fixing, dropping:fix.dropping, value:fix.value, title:'새 규칙 후보'});
     if (list) { const sec = el('section', 'journal-weekly-part'); sec.dataset.journalLearnCandidates = ''; sec.append(list); box.append(sec); }

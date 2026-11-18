@@ -1,3 +1,4 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -10,7 +11,7 @@ const {createNote, setNoteFolder, setNotePinned} = basketData;
 import {noteTaskGuard} from '../app/basket-note-tasks.js';
 import {orgNewsOn, projectNewsOn} from '../app/journal-data.js';
 import {weeklySummary, weeklyReportText} from '../app/journal-weekly.js';
-const weeklyDraft = ({materials, ...rest}) => weeklyReportText(weeklySummary({linesState:'ok', ...rest, materials:{catalog:{status:'ok', items:[]}, upcoming:{status:'ok', items:[]}, ...materials}}));
+const weeklyDraft = ({materials, ...rest}) => reportText(weeklySummary({linesState:'ok', ...rest, materials:{catalog:{status:'ok', items:[]}, upcoming:{status:'ok', items:[]}, ...materials}}));
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function runtime(fresh, {reply} = {}) {

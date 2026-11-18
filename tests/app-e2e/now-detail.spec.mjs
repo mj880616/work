@@ -103,7 +103,9 @@ for (const width of [412, 1280]) {
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     if (width > 760) await expect(detail(page).locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대'); // [전체]에서 맨 위 글을 한 번 연 뒤 탭을 옮긴다
     await root(page).getByRole('tab', { name: '사회운동' }).click();
-    await expect(root(page).locator('[data-os-list] [data-nw-key]')).toHaveCount(2);
+    // S63-11: 국내 단체 글 먼저, 국제(Jacobin) 글은 아래 접힌 '국제' 묶음(펼치기 전에는 줄을 그리지 않음).
+    await expect(root(page).locator('[data-os-list] [data-nw-key]')).toHaveCount(1);
+    await expect(root(page).locator('[data-os-list] details[data-os-intl] summary')).toHaveText(/^국제 · 1건/);
 
     // 관심 주제 후보가 있으면 목록 위 한 줄. 서버에 후보를 만들지 묻는다(규칙은 서버).
     await expect(root(page).locator('[data-now-cand]')).toContainText('관심 주제 후보 1');
@@ -197,7 +199,7 @@ for (const width of [412, 1280]) {
     // 더하기: 확정으로 바로(origin은 화면이 보내지 않음).
     await box.locator('[data-ni-add-input]').fill('공공 돌봄');
     await box.locator('[data-ni-add-input]').press('Enter');
-    await expect(box.locator('.ni-topic')).toHaveText(['철도 민영화', '공공 돌봄']);
+    await expect(box.locator('.ni-topic')).toHaveText(['공공 돌봄', '철도 민영화']); // 가나다(NEWS-출처목록가나다)
     expect(server.calls.filter(c => c.what === 'app_now_interests' && c.method === 'POST').at(-1).body).toMatchObject({ workspace_id: 'w', topic: '공공 돌봄', state: 'confirmed' });
     expect('origin' in server.calls.filter(c => c.what === 'app_now_interests' && c.method === 'POST').at(-1).body).toBe(false);
     await page.goBack();

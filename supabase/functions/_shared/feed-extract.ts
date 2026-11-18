@@ -167,6 +167,8 @@ class Builder {
   }
 }
 
+// 첨부 이름 뒤 크기 꼬리(' (214.5 KB)').
+const FILE_SIZE_TAIL = /\s*\(\s*[\d.,]+\s*[KMG]?B\s*\)\s*$/i;
 function finish(b: Builder, rule: string | null, minChars: number, files: string[]): Extracted {
   const text = b.textOnly();
   if (len(text) >= minChars && b.chars > 0) return { state: "ok", reason: null, rule, blocks: b.blocks, chars: b.chars, images: b.images, captions: b.captions, text };
@@ -240,6 +242,8 @@ function extractScope(input: ExtractInput, raw: string, scope: { html: string; o
     const text = key(line);
     if (!text) continue;
     if (kind === MARK_C) { b.caption(text); continue; }
+    // 규칙의 덧줄(S62-42, extract.skip): 그 사이트 첨부 칸 글자('첨부파일(1)'·'….hwp (214.5 KB)' 등). 파일 이름 줄이면 크기 꼬리를 떼고 첨부 이름으로 남긴다.
+    if (input.rule.skip && input.rule.skip.test(text)) { const f = text.replace(FILE_SIZE_TAIL, ""); if (isFileLine(f) && files.length < 20) files.push(f); continue; }
     if (isBodyNoise(text)) { if (isFileLine(text) && files.length < 20) files.push(text); continue; }
     b.text(kind === MARK_H ? "h" : kind === MARK_Q ? "quote" : "p", text);
   }

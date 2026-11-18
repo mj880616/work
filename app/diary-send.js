@@ -49,12 +49,12 @@ export const dayLabel = day => { const [, m, d] = String(day).split('-').map(Num
 export function diarySendProblem(row, diary) {
   const files = Array.isArray(row?.attachments) ? row.attachments : [];
   const others = files.filter(file => !isPhoto(file)).length;
-  if (others) return `사진 말고 다른 파일 ${others}개가 붙어 있어 일기로 보낼 수 없어요. 일기에는 사진만 들어가요.`;
+  if (others) return `사진 말고 다른 파일 ${others}개가 붙어 있어 하루 기록으로 보낼 수 없어요. 하루 기록에는 사진만 들어가요.`;
   const text = diaryTextFrom(row), photos = files.length;
   if (!text && !photos) return '보낼 글이나 사진이 없어요.';
   const have = Array.isArray(diary?.attachments) ? diary.attachments.length : 0;
-  if (have + photos > DIARY_MAX_PHOTOS) return `일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요. 그날 일기에 ${have}장이 있어 ${photos}장을 더 넣을 수 없어요.`;
-  if ([...joinDiaryText(diaryText(diary), text)].length > DIARY_TEXT_MAX) return '일기 글은 하루 20,000자까지라 이 글을 더 넣을 수 없어요.';
+  if (have + photos > DIARY_MAX_PHOTOS) return `하루 기록 사진은 ${DIARY_MAX_PHOTOS}장까지예요. 그날 하루 기록에 ${have}장이 있어 ${photos}장을 더 넣을 수 없어요.`;
+  if ([...joinDiaryText(diaryText(diary), text)].length > DIARY_TEXT_MAX) return '하루 기록 글은 20,000자까지라 이 글을 더 넣을 수 없어요.';
   return '';
 }
 
@@ -120,11 +120,11 @@ export async function sendRecordToDiary(id, {rt = window.KPTURuntime, day = '', 
   const text = diaryTextFrom(row);
   let result;
   try { result = await addToDiary(target, text, files, {rt, isCurrent, onProgress}); }
-  catch (error) { return {status:'partial', day:target, message:`${error?.message || '일기에 넣지 못했어요.'} 원래 기록은 그대로 두었어요.`}; }
+  catch (error) { return {status:'partial', day:target, message:`${error?.message || '하루 기록에 넣지 못했어요.'} 원래 기록은 그대로 두었어요.`}; }
   if (result.failed || result.done < files.length) {
-    return {status:'partial', day:target, message:`${dayLabel(target)} 일기에 ${text ? '글과 ' : ''}사진 ${result.done}장까지 넣었어요. '${result.failed || '남은 사진'}'부터 넣지 못해 원래 기록은 그대로 두었어요.`};
+    return {status:'partial', day:target, message:`${dayLabel(target)} 하루 기록에 ${text ? '글과 ' : ''}사진 ${result.done}장까지 넣었어요. '${result.failed || '남은 사진'}'부터 넣지 못해 원래 기록은 그대로 두었어요.`};
   }
-  const removed = await trash(row.id, `${dayLabel(target)} 일기로 보냈어요`).catch(() => ({status:'unknown'}));
+  const removed = await trash(row.id, `${dayLabel(target)} 하루 기록으로 보냈어요`).catch(() => ({status:'unknown'}));
   return {status:'sent', day:target, trash:removed?.status || 'unknown'};
 }
 
@@ -135,7 +135,7 @@ export async function putPhotosInDiary(files, {rt = window.KPTURuntime, day = to
   const list = kept.map(entry => entry.file);
   if (!list.length) return {ok:false, code:'none'};
   const have = (await readDiaryDay(day, rt))?.attachments?.length || 0;
-  if (have + list.length > DIARY_MAX_PHOTOS) return {ok:false, day, message:`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요. 오늘 일기에 ${have}장이 있어요.`};
+  if (have + list.length > DIARY_MAX_PHOTOS) return {ok:false, day, message:`하루 기록 사진은 ${DIARY_MAX_PHOTOS}장까지예요. 오늘 하루 기록에 ${have}장이 있어요.`};
   const result = await addToDiary(day, '', list, {rt, isCurrent, origins:kept.map(entry => entry.origin)});
   if (result.failed) return {ok:false, day, count:result.done, message:result.message};
   return {ok:true, day, count:result.done};
@@ -149,15 +149,15 @@ export async function askSendToDiary(anchor, id, {rt = window.KPTURuntime, kind 
   try { row = await readSendRecord(id, rt); } catch { notify('기록을 읽지 못했어요. 다시 눌러 주세요.', {error:true}); return {status:'failed'}; }
   if (!row) { notify('기록을 찾지 못했어요. 다시 불러와 주세요.', {error:true}); return {status:'missing'}; }
   const what = row.kind === 'note' ? '노트' : '업데이트';
-  const day = await askDate(anchor, {text:'어느 날 일기로 보낼까요?', value:recordDay(row), ok:'보내기',
-    note:`그날 일기 끝에 글·사진을 더하고, 이 ${what}는 휴지통으로 가요(30일 안에 되살리기).`});
+  const day = await askDate(anchor, {text:'어느 날 하루 기록으로 보낼까요?', value:recordDay(row), ok:'보내기',
+    note:`그날 하루 기록 끝에 글·사진을 더하고, 이 ${what}는 휴지통으로 가요(30일 안에 되살리기).`});
   if (!day || !isCurrent()) return {status:'cancelled'};
-  notify('일기로 보내는 중…', {ms:30000});
+  notify('하루 기록으로 보내는 중…', {ms:30000});
   let result;
   try { result = await sendRecordToDiary(id, {rt, day, isCurrent, onProgress:({done, total}) => total && notify(`사진 넣는 중… ${done}/${total}장`, {ms:30000})}); }
-  catch (error) { result = {status:'partial', message:error?.message || '일기로 보내지 못했어요.'}; }
-  if (result.status === 'sent') { if (result.trash !== 'deleted') notify(`${dayLabel(result.day)} 일기에 넣었어요. ${what}는 삭제하지 못해 그대로 있어요.`, {ms:6000}); }
-  else if (result.status !== 'stale') notify(result.message || '일기로 보내지 못했어요.', {error:true, ms:7000});
+  catch (error) { result = {status:'partial', message:error?.message || '하루 기록으로 보내지 못했어요.'}; }
+  if (result.status === 'sent') { if (result.trash !== 'deleted') notify(`${dayLabel(result.day)} 하루 기록에 넣었어요. ${what}는 삭제하지 못해 그대로 있어요.`, {ms:6000}); }
+  else if (result.status !== 'stale') notify(result.message || '하루 기록으로 보내지 못했어요.', {error:true, ms:7000});
   return result;
 }
 

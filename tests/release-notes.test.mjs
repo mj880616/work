@@ -80,17 +80,21 @@ test('새 버전 알림 문구: 이 화면이 알던 기록 뒤로 생긴 것만
   assert.equal(noticeText(newSince(null, '10/29-1')), '새 버전이 있어요');
 });
 
-test('Pages 빌드가 기록 파일을 모아 배포물에만 app/release-notes.json을 만든다', () => {
+test('Pages 빌드는 개발 기록 파일·묶음을 배포물에 싣지 않는다(UPDATE-운영자전용기록업데이트소식)', () => {
   const input = {
     'app/index.html': '<script src="./app.js"></script>',
     'app/app.js': 'export const x=1;',
-    'app/release-notes/20261029-0130-a.json': Buffer.from(note('2026-10-29', ['한 줄']))
+    'app/release-notes/20261029-0130-a.json': Buffer.from(note('2026-10-29', ['한 줄'])),
+    [OUTPUT_PATH]: '{"schema":1,"current":null,"notes":[]}'
   };
   const out = buildPages(input);
   assert.ok(isNoteFile('app/release-notes/20261029-0130-a.json'));
-  assert.equal(parseReleaseNotes(JSON.parse(out[OUTPUT_PATH])).current, '10/29-1');
-  const none = buildPages({ 'app/index.html': '<p>x</p>' });
-  assert.equal(Object.hasOwn(none, OUTPUT_PATH), false, '기록 파일이 없으면 만들지 않는다');
+  assert.equal(Object.hasOwn(out, OUTPUT_PATH), false);
+  assert.equal(Object.keys(out).some(f => f.startsWith('app/release-notes/')), false);
+  assert.equal(JSON.parse(out['app/asset-manifest.json']).assets['app/release-notes.json'], undefined);
+  // 서버로 보내는 묶음은 같은 규칙(버전명)으로 만든다.
+  const bundle = buildReleaseNotes([['app/release-notes/20261029-0130-a.json', note('2026-10-29', ['한 줄'])]]);
+  assert.equal(parseReleaseNotes(JSON.parse(bundle)).current, '10/29-1');
 });
 
 // UI-업데이트기록찾기(요청함 11/02): 검색 칸 거르기(화면 안에서만).

@@ -181,13 +181,16 @@ object ShellRules {
      */
     const val SHARE_TO_NOTE = "ShareToNote"
     const val SHARE_TO_TASK = "ShareToTask"
-    val SHARE_TARGETS = setOf("basket", "note", "task")
+    /** S62-22 APP-공유로뉴스보관: 네 번째 칸 '노동조합+ News 보관'(같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
+    const val SHARE_TO_NEWS = "ShareToNews"
+    val SHARE_TARGETS = setOf("basket", "note", "task", "news")
 
     fun shareTarget(className: String?): String {
         val simple = className?.substringAfterLast('.') ?: return "basket"
         return when (simple) {
             SHARE_TO_NOTE -> "note"
             SHARE_TO_TASK -> "task"
+            SHARE_TO_NEWS -> "news"
             else -> "basket"
         }
     }
@@ -262,7 +265,7 @@ object ShellRules {
             sb.append('}')
         }
         sb.append(']')
-        // 정리함은 이전과 같은 모양(칸 없음). 노트·할 일만 들어갈 곳을 적는다(정해진 두 낱말만).
+        // 정리함은 이전과 같은 모양(칸 없음). 노트·할 일·News 보관만 들어갈 곳을 적는다(정해진 낱말만).
         if (target != "basket" && target in SHARE_TARGETS) sb.append(",\"target\":").append(jsonString(target))
         sb.append('}')
         return sb.toString()

@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {sameName, foldTargetKey, areaInKeys, lineIn} from '../app/weekly-cell-names.mjs';
 import {flowCells, summaryCells} from '../app/weekly-flow-cells.js';
-import {weekMaterial, missingAreas, editableRows, withAreaRows} from '../app/weekly-hwpx/draft.mjs';
+import {weekMaterial, missingAreas, editableRows, withAreaRows} from './fixtures/weekly-engine.mjs';
 import {withCellLine, weekCells, placeDraft, cellId, summaryKeys} from '../app/weekly-draft-store.js';
 import {summaryCellKey} from '../app/weekly-summary-hand.mjs';
 import {droppedOf, keptOf, learnPicks, sortPicks, hadTexts, cellKeptRates} from '../app/weekly-picks.mjs';

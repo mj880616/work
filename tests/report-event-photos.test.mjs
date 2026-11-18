@@ -29,8 +29,8 @@ test('결과: 503은 넣었는지 모름(다시 보내지 않음), 그 밖의 �
   assert.equal(linkOutcome({status: 503}), 'unknown');
   assert.equal(linkOutcome({status: 400}), 'failed');
   assert.equal(linkFailNotice(0, 0), null);
-  assert.deepEqual(linkFailNotice(1, 0, 'Web2 일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.'),
-    {text: '일정 사진 1장 못 넣었어요', note: 'Web2 일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.', retry: true});
+  assert.deepEqual(linkFailNotice(1, 0, '일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.'),
+    {text: '일정 사진 1장 못 넣었어요', note: '일정 창에서 붙인 사진만 사업 보고로 넣을 수 있습니다.', retry: true});
   assert.deepEqual(linkFailNotice(2, 0, 'Unknown action'), {text: '일정 사진 2장 못 넣었어요', note: '잠시 뒤 다시 넣어 주세요.', retry: true});
   const unknown = linkFailNotice(1, 1, '');
   assert.equal(unknown.text, '일정 사진 2장 못 넣었어요');

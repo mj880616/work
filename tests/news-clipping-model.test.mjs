@@ -11,7 +11,7 @@ test('한 목록: 채널/자동 구분 없음 — 목록·별표 폴더 칸 걸�
   assert.equal(M.TABS, undefined); assert.equal(M.keepTab, undefined);
   assert.equal(M.laneFilter(M.STAR), '&starred_at=not.is.null');
   assert.equal(M.orderOf(M.STAR), 'starred_at.desc,id.desc');
-  assert.equal(M.orderOf(M.ALL), 'created_at.desc,id.desc');
+  assert.equal(M.orderOf(M.ALL), 'kst_day.desc.nullslast,news_rank.asc.nullslast,created_at.desc,id.desc');
   assert.equal(M.itemView({id: '1', lane: 'channel', lang: 'ko', title: 'T', url: 'https://example.org/a'}).tag, undefined);
 });
 
@@ -78,7 +78,10 @@ test('키워드·매체·한도', () => {
   assert.equal(M.normalizeLimits({limits: {keyword_items: 30}}).keyword_items, undefined);
   assert.equal(M.DEFAULT_LIMITS.keyword_items, undefined);
   assert.deepEqual(M.normalizeLimits(null), M.DEFAULT_LIMITS);
-  assert.equal(M.sourceNote({enabled: true, last_error: 'robots'}), '읽지 못함');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'robots'}), '못 읽음 · 사이트가 자동 읽기 막음');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'robots_denied'}), '못 읽음 · 사이트가 자동 읽기 막음');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'robots_unreachable'}), '못 읽음 · 사이트 연결 안 됨');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'http_500'}), '읽지 못함');
   assert.equal(M.sourceNote({enabled: false}), '');
 });
 
@@ -115,13 +118,13 @@ test('기본 켬(S53-6): 줄이 없으면 카탈로그 on, 줄이 있으면 줄 
 });
 
 // S59-1 NEWS-키워드살리기: 키워드 칸은 서버가 keywords 칸에 적어 둔 받은 글을 켠 키워드마다 모아 보인다.
-test('키워드 칸 묶음: 켠 키워드만·키워드 목록 순서·걸린 글이 있는 것만, 머리 글자는 건수(더 있으면 최근 N건)', () => {
+test('키워드 칸 묶음: 켠 키워드만·키워드 가나다순(NEWS-출처목록가나다)·걸린 글이 있는 것만, 머리 글자는 건수(더 있으면 최근 N건)', () => {
   const a = {id: 'a'}, b = {id: 'b'}, c = {id: 'c'};
   const hits = new Map([['철도', {items: [a, b], more: false}], ['파업', {items: [c], more: true}], ['버스', {items: [a]}], ['꺼짐', {items: [b]}]]);
   const kw = [{word: '파업', enabled: true}, {word: '없음', enabled: true}, {word: '꺼짐', enabled: false}, {word: '철도', enabled: true}, {word: 7, enabled: true}];
   const groups = M.keywordGroups(kw, hits);
-  assert.deepEqual(groups.map(g => [g.word, g.items.map(i => i.id), g.more]), [['파업', ['c'], true], ['철도', ['a', 'b'], false]]);
-  assert.deepEqual(groups.map(M.keywordGroupLabel), ['파업 · 최근 1건', '철도 · 2건']);
+  assert.deepEqual(groups.map(g => [g.word, g.items.map(i => i.id), g.more]), [['철도', ['a', 'b'], false], ['파업', ['c'], true]]);
+  assert.deepEqual(groups.map(M.keywordGroupLabel), ['철도 · 2건', '파업 · 최근 1건']);
   assert.deepEqual(M.keywordGroups([], hits), []);
   assert.deepEqual(M.keywordGroups(kw, new Map()), []);
   assert.equal(M.KW_GROUP_SIZE, 20);

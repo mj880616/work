@@ -190,7 +190,7 @@ test('텔레그램 1280: 목록 1/3 · 상세 2/3, 선택한 줄 표시, 소식 
  await expect(detail.locator('.feed-di')).toHaveCount(1);
  // 머리줄 ⋯ → 휴지통 1: 안내 문구는 "직접 비우기 전까지 남아요"(자동으로 비우지 않음).
  await list.locator('[data-tg-head-more]').click();
- await expect(page.locator('#tgMenu button')).toHaveText(['보낸 사람 이름','휴지통 1']);
+ await expect(page.locator('#tgMenu button')).toHaveText(['보낸 사람 이름','휴지통 1','쓰는 법']);
  await page.locator('#tgMenu').getByRole('button',{name:'휴지통 1'}).click();
  await expect(list.locator('.feed-head-title')).toHaveText('휴지통 1');
  await expect(list.locator('[data-tg-trash-note]')).toContainText('직접 비우기 전까지 남아요');

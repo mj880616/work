@@ -1,4 +1,5 @@
-import {parseReleaseNotes,newSince,noticeText} from './release-notes-model.mjs';
+import {newSince,noticeText} from './release-notes-model.mjs';
+import {readReleaseNotes,canReadReleaseNotes} from './release-notes-read.js';
 import {putNotice,removeNotice} from './notice-bar.js';
 import {askConfirm} from './small-notice.js';
 // Open tabs compare the deployed entry point with the app script they actually loaded.
@@ -9,15 +10,17 @@ export function startVersionNotice(scriptUrl){
   const version=raw=>/^[A-Za-z0-9._-]{1,64}$/.test(raw||'')?raw:null;
   const current=version(script.searchParams.get('v'));
   if(current===null)return;
-  // UI-업데이트안내: 이 화면이 열릴 때 배포물의 업데이트 기록에서 마지막 버전명(known)을 한 번 기억하고(메모리만),
-  // 새 버전이 뜨면 그 배포의 기록에서 known 뒤로 생긴 것만 세어 알림 한 줄 문구를 바꾼다. 못 읽으면 지금 문구 그대로.
-  const notesUrl=deploy=>{const url=new URL('./release-notes.json',script);url.searchParams.set('d',deploy);return url.href};
-  const readNotes=async deploy=>{try{const res=await fetch(notesUrl(deploy),{cache:'no-store'});return res.ok?parseReleaseNotes(await res.json()):null}catch{return null}};
+  // UI-업데이트안내 → UPDATE-운영자전용기록업데이트소식(명진 11/15 13:37): 새 판 안내 줄은 운영자에게만 띄운다(이용자에게는 창·줄 없음,
+  // 새 판은 다음에 열 때 조용히 반영). 운영자 판정은 서버 허용 표(app_my_features)이고, 바뀐 것 세기는 서버 기록(app_release_notes_read, 운영자만)에서 한다.
+  // 이 화면이 열릴 때 마지막 기록 버전명(known)을 한 번 기억하고(메모리만), 새 판이 뜨면 서버 기록에서 known 뒤로 생긴 것만 센다. 못 읽으면 지금 문구 그대로.
+  let operator=false,waiting=null;
+  void canReadReleaseNotes().then(yes=>{operator=yes;if(yes&&waiting)show(waiting)});
+  const readNotes=()=>readReleaseNotes({fresh:true});
   let known=null,described=null;
-  setTimeout(()=>{void readNotes(current).then(list=>{if(list&&known===null)known=list.current})},3000);
+  setTimeout(()=>{if(operator)void readNotes().then(list=>{if(list&&known===null)known=list.current})},3000);
   async function describe(deployed){
     if(described===deployed)return;described=deployed;
-    const list=await readNotes(deployed),text=noticeText(newSince(list,known));
+    const list=await readNotes(),text=noticeText(newSince(list,known));
     const status=box?.querySelector('[role="status"]');
     if(status&&latest===deployed&&status.textContent!==text)status.textContent=text;
   }
@@ -79,6 +82,7 @@ export function startVersionNotice(scriptUrl){
   }
   function show(deployed){
     if(deployed===current||dismissed.has(deployed)||stopped)return;
+    if(!operator){waiting=deployed;return}
     latest=deployed;
     if(box){void describe(deployed);return}
     // HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕). PC·폰 같은 모양.

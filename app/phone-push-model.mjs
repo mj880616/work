@@ -1,16 +1,16 @@
 // APP-폰알림 N4(설계 docs/design/phone-notifications.md 3절): 내 프로필 '폰 알림' 칸의 규칙. 화면·서버 호출 없이 node --test로 확인한다.
 // 설정 모양은 DB 검사 제약(app_profiles_notify_prefs_check, migration 20261101010000)과 같다:
-//   {"kinds":{"task_due":true,…7가지},"quiet":{"from":"22:00","to":"07:00"}}. 비어 있으면 기본(전부 켬, 22:00~07:00 서울).
+//   {"kinds":{"task_due":true,…},"quiet":{"from":"22:00","to":"07:00"}}. 비어 있으면 기본(전부 켬, 22:00~07:00 서울).
 // 폰 앱 다리 글(push:…)은 android-app PushRules.kt와 같다.
+// S62-27(JOURNAL-다음주준비삭제·PUSH-원장약속알림빼기): 'next_week'(다음 주 준비)·'commitment'(원장 약속) 종류는 없앴다. 저장된 설정에 옛 키가 남아 있어도
+// parsePrefs가 모르는 칸으로 버리고, 다음 저장에서 빠진다(DB 검사는 허용 키 목록만 보므로 빠져도 통과).
 
 export const KINDS = Object.freeze([
   ['task_due', '할 일 기한'],
-  ['commitment', '원장 약속'],
   ['meeting_done', '회의 요약'],
   ['collect_stall', '수집 멈춤'],
   ['morning', '아침 묶음'],
   ['evening', '저녁 묶음'],
-  ['next_week', '다음 주 준비'],
 ]);
 export const KIND_KEYS = Object.freeze(KINDS.map(([k]) => k));
 // MULTI-처음쓰는사람 ⑤: 통화·텔레그램 수집이 있는 운영자 계정에만 보이는 종류(고르기 칩만 빼고 저장 모양·서버 검사는 그대로).
@@ -18,6 +18,10 @@ export const COLLECT_KINDS = new Set(['collect_stall', 'morning', 'evening']);
 // FAMILY-잊지말기 4단계: 운영자 기능 family가 있는 사람에게만 보이는 종류(잠금 화면엔 "잊지 말기 n건"만). 기본 켬이라 저장 값에는 끌 때만 kinds.family=false로 들어간다
 // (DB 검사 20261105120000_family_push_kind가 이 키를 받는다. 켬일 때는 칸을 만들지 않아 기존 일곱 종류 모양 그대로).
 export const FAMILY_KIND = Object.freeze(['family', '잊지 말기']);
+// OPS-새가입알림(S62-25): 운영자(서버 허용 표 dev_inbox)에게만 보이는 종류 '새 가입'. family와 같은 방식 — 기본 켬, 끌 때만 kinds.signup=false
+// (DB 검사 20261115234500_signup_notify가 이 키를 받는다). 알림은 서버가 운영자 작업공간에만 보내므로 칩을 빼는 것은 보안이 아니다.
+export const SIGNUP_KIND = Object.freeze(['signup', '새 가입']);
+export const SIGNUP_FEATURE = 'dev_inbox';
 export const DEFAULT_QUIET = Object.freeze({from: '22:00', to: '07:00'});
 export const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 export const TOKEN = /^[A-Za-z0-9_:-]{20,4096}$/;
@@ -31,7 +35,7 @@ export function parsePrefs(raw) {
   for (const key of KIND_KEYS) kinds[key] = typeof given[key] === 'boolean' ? given[key] : true;
   const q = src.quiet && typeof src.quiet === 'object' ? src.quiet : {};
   const quiet = TIME.test(q.from) && TIME.test(q.to) ? {from: q.from, to: q.to} : {...DEFAULT_QUIET};
-  return {kinds, quiet, family: given.family !== false};
+  return {kinds, quiet, family: given.family !== false, signup: given.signup !== false};
 }
 
 /** 화면 값 → 저장 값(검사 제약에 맞는 모양만). 시간 모양이 틀리면 null(저장하지 않음). */
@@ -39,11 +43,13 @@ export function serializePrefs(prefs) {
   const p = parsePrefs({kinds: prefs?.kinds});
   const from = prefs?.quiet?.from, to = prefs?.quiet?.to;
   if (!TIME.test(from ?? '') || !TIME.test(to ?? '')) return null;
-  return {kinds: prefs?.family === false ? {...p.kinds, family: false} : p.kinds, quiet: {from, to}};
+  const kinds = {...p.kinds, ...(prefs?.family === false ? {family: false} : {}), ...(prefs?.signup === false ? {signup: false} : {})};
+  return {kinds, quiet: {from, to}};
 }
 
 export function toggleKind(prefs, key) {
   if (key === FAMILY_KIND[0]) return {...prefs, family: prefs.family === false};
+  if (key === SIGNUP_KIND[0]) return {...prefs, signup: prefs.signup === false};
   if (!KIND_KEYS.includes(key)) return prefs;
   return {...prefs, kinds: {...prefs.kinds, [key]: !prefs.kinds[key]}};
 }
@@ -114,13 +120,13 @@ export function deviceLabel(device) {
 // 서버(phone-push notices·recent)는 종류·기록 열쇠·시각·여는 주소만 준다. 보일 말은 종류에서 여기서 정한다(업무 내용 없음).
 /** 알림 줄 한 줄(뒤에서 끝난 일). */
 export const NOTICE_TEXT = Object.freeze({
-  next_week: '다음 주 준비 한 장을 볼 때예요',
   meeting_done: '회의 요약이 준비됐어요',
+  signup: '새 가입', // 서버가 '새 가입 n명 — 이름'(text)을 함께 준다(이름은 기록에 남기지 않으므로). 없으면 이 말.
 });
 /** 최근 알림 목록의 '무엇'. */
 export const RECENT_LABEL = Object.freeze({
-  task_due: '할 일 기한', commitment: '원장 약속', meeting_done: '회의 요약', collect_stall: '수집 멈춤',
-  morning: '아침 묶음', evening: '저녁 묶음', next_week: '다음 주 준비 한 장', quiet_digest: '조용한 시간 묶음', test: '시험 알림', family: '잊지 말기',
+  task_due: '할 일 기한', meeting_done: '회의 요약', collect_stall: '수집 멈춤',
+  morning: '아침 묶음', evening: '저녁 묶음', quiet_digest: '조용한 시간 묶음', test: '시험 알림', family: '잊지 말기', signup: '새 가입',
 });
 const NOTICE_KIND = /^[a-z_]{1,20}$/;
 const NOTICE_REF = /^[A-Za-z0-9_.:-]{1,80}$/;
@@ -143,12 +149,12 @@ export function noticeClearMessage(kind, refKey) {
   return `push:clear:${kind}.${encodeURIComponent(refKey)}`;
 }
 
-/** 서버가 준 여는 주소(/work/app/?view=…) → 화면 안 이동 {view, pane, mode} 또는 null. 웹2 앱 안 주소만. */
+/** 서버가 준 여는 주소(/work/app/?view=…) → 화면 안 이동 {view, pane} 또는 null. 웹2 앱 안 주소만. */
 export function noticePlace(open) {
   if (typeof open !== 'string' || !/^\/work\/app\/(\?[A-Za-z0-9_=&%.-]{0,200})?$/.test(open)) return null;
   const params = new URLSearchParams(open.slice(open.indexOf('?') + 1 || open.length));
   const name = v => (v && /^[a-z][a-z0-9-]{0,31}$/.test(v) ? v : null);
-  return {view: name(params.get('view')) || 'home', pane: name(params.get('pane')), mode: params.get('mode') === 'week' ? 'week' : null};
+  return {view: name(params.get('view')) || 'home', pane: name(params.get('pane'))};
 }
 
 /** 알림 줄에 올릴 수 있는 항목만(알아듣는 종류·모양). */
@@ -157,7 +163,14 @@ export function noticeItems(out) {
   return list.filter(i => Object.hasOwn(NOTICE_TEXT, i?.kind) && NOTICE_REF.test(String(i?.ref_key || '')) && noticePlace(i?.open)).slice(0, 5);
 }
 
-/** 최근 알림 한 줄: '11/06 16:00 · 다음 주 준비 한 장'. 모르는 종류는 뺀다. */
+/** 알림 줄 한 줄의 말. 서버 text는 signup만 받고(한 줄·100자), 그 밖에는 종류로 정한 말. */
+export function noticeText(item) {
+  const own = item?.kind === SIGNUP_KIND[0] && typeof item?.text === 'string'
+    ? item.text.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) : '';
+  return own || NOTICE_TEXT[item?.kind] || '';
+}
+
+/** 최근 알림 한 줄: '11/06 16:00 · 회의 요약'. 모르는 종류는 뺀다. */
 export function recentItems(out) {
   const list = Array.isArray(out?.items) ? out.items : [];
   return list.filter(i => Object.hasOwn(RECENT_LABEL, i?.kind) && shortWhen(i?.at) && noticePlace(i?.open))

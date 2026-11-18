@@ -16,7 +16,7 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const answer=items=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:500,output_tokens:60}});
 const UPDATE_COLS=['reads','reads_at','reads_slot','news_seen_at','suggests','suggests_at','suggests_done','run_at'];
 
-function harness({features=['calls'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],assignees=[],spaces=[],usage=[],now=MORNING,openai=null,env={}}={}){
+function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],assignees=[],spaces=[],usage=[],now=MORNING,openai=null,env={}}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'}],app_home_day_picks:structuredClone(picks),app_news_items:structuredClone(items),
     app_notes:structuredClone(notes),app_meetings:structuredClone(meetings),app_feed_items:structuredClone(feeds),app_suborganizations:structuredClone(orgs),
@@ -129,7 +129,7 @@ test('evening: reads not redone without new news; suggestions from ended events,
 
 test('evening with new news re-picks reads once; without calls feature the call table is not read at all',async()=>{
   const picks=[{workspace_id:WS,day:DAY,reads:[],reads_at:'2026-11-08T23:00:00.000Z',reads_slot:'am',news_seen_at:'2026-11-08T22:00:00.000Z',suggests:[],suggests_at:null,suggests_done:[],run_at:null}];
-  const {handler,calls,db}=harness({now:EVENING,picks,features:[],items:[news(N1,'가상지부 교섭 결렬','2026-11-08T22:00:00.000Z'),news(N2,'가상지부 새 소식','2026-11-09T09:00:00.000Z')],
+  const {handler,calls,db}=harness({now:EVENING,picks,features:['outside'],items:[news(N1,'가상지부 교섭 결렬','2026-11-08T22:00:00.000Z'),news(N2,'가상지부 새 소식','2026-11-09T09:00:00.000Z')],
     meetings:[{workspace_id:WS,title:'가상 교섭 준비',series_name:null,meeting_at:'2026-11-09T02:00:00.000Z'}],
     feeds:[{workspace_id:WS,source:'call',day:DAY,hidden_at:null,archived_at:null,title:'운영자 통화',summary:'',occurred_at:'2026-11-09T03:00:00.000Z'}]});
   const res=await post(handler,ask());
@@ -203,4 +203,14 @@ test('pure rules: slot, due, diary overlap, ended events',()=>{
   assert.deepEqual(hd.endedToday([{day:DAY,start:'09:00',end:'',title:'a'},{day:DAY,start:'09:00',end:'20:00',title:'b'},{day:'2026-11-10',start:'09:00',end:'10:00',title:'c'}],DAY,'19:30').map(e=>e.title),['a']);
   assert.equal(hd.familyName(' 가상이 '),'가상이');assert.equal(hd.familyName('상대'),null);assert.equal(hd.familyName('<x>'),null);
   assert.equal(hd.weekStart('2026-11-09'),'2026-11-09');assert.equal(hd.weekStart('2026-11-15'),'2026-11-09');
+});
+
+// NEWS-운영자만(S63-03, 명진 11/16): '읽을 만한 글'은 News 기사에서 고르므로 기능 키 'outside'가 없는 작업공간은 뉴스를 읽지 않고 고르지 않는다.
+test("NEWS-운영자만: 'outside' 키가 없으면 뉴스 표를 읽지 않고 '읽을 만한 글' AI를 부르지 않는다(지운 것 없음)",async()=>{
+  const {handler,calls,db}=harness({features:[],items:[news(N1,'가상지부 교섭 결렬','2026-11-08T22:00:00.000Z')]});
+  const res=await post(handler,ask());
+  assert.equal(res.status,200);
+  assert.ok(!calls.rest.some(r=>r.table==='app_news_items'),'뉴스 표 읽기 없음');
+  assert.ok(!calls.openai.some(o=>o.text.format.name==='home_day_reads'),'읽을 만한 글 AI 없음');
+  assert.equal(db.app_news_items.length,1,'모인 글은 그대로');
 });

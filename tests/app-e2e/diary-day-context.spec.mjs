@@ -76,7 +76,7 @@ for (const width of [390, 884, 1440]) {
 
     // 사진 없는 날(10/13): 그날 일정이 있어도 맥락 자리를 그리지 않는다(명진 결정 ③).
     await cell(page, '2026-10-13').click();
-    await expect(detail).toContainText('일기 없음');
+    await expect(detail).toContainText('하루 기록 없음');
     await expect(detail.locator('[data-diary-context-slot]')).toHaveCount(0);
     await expect(detail.locator('[data-diary-context]')).toHaveCount(0);
 
