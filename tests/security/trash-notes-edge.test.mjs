@@ -44,6 +44,8 @@ const CLASSIFIED = {
   // CAL-일정첨부: 일정 첨부 [삭제] 전 '같은 파일을 쓰는 다른 기록' 확인을 로그인 토큰으로 읽는다(서버 키 없음). 일정 첨부 파일은
   // '일정 첨부' 폴더에만 올라가 노트가 같은 파일을 쓰는 일은 없고, 휴지통으로는 그 폴더의 이 앱 파일만 보낸다.
   'google-calendar/event-files.ts': 'user-token',
+  // PRIVACY-백업안내: '내 기록 백업'은 노트를 로그인 토큰으로만 읽는다(서버 키 없음, 휴지통 숨김 정책이 그대로 거름). 표 이름은 목록(model.mjs)에만 있다.
+  'record-backup/model.mjs': 'user-token',
 };
 
 test('app_notes를 다루는 Edge 소스는 모두 분류돼 있다(새 읽는 곳은 여기서 걸린다)', () => {

@@ -81,3 +81,22 @@
 /* HOME-연결안내한줄아래(S62-03c): 보고 캘린더 연결 안내도 홈과 같은 모양 — 안내 한 줄, 그 아래 줄 왼쪽에 [구글 캘린더 연결] */
 #profileView [data-ps-report-cal="unconnected"] .ps-report-note{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 #profileView .ps-report-actions{display:flex;justify-content:flex-end;margin-top:6px}
+/* PRIVACY-백업안내(S66-01, 시안 backup-export.html): '내 기록 백업' 칸. 촘촘한 한 줄 목록, 톤다운 색. 버튼은 공용 6가지(primary·secondary), .rb-btn은 '드라이브에서 보기' 글 링크만. */
+#psBackupPanel .rb-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+#psBackupPanel .rb-head h3{margin:0}
+#psBackupPanel .rb-last{margin-left:auto;font-size:var(--ds-compact-text,12px);color:var(--kptu-muted)}
+#psBackupPanel .rb-note,#psBackupPanel .rb-s{font-size:var(--ds-compact-text,12px);color:var(--kptu-muted);line-height:1.5;margin:2px 0 4px}
+#psBackupPanel .rb-list{border-top:var(--ds-line-width,1px) solid var(--ds-line)}
+#profileView #psBackupPanel .rb-row{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height-sm,28px);margin:0;padding:3px 0;border-bottom:var(--ds-line-width,1px) solid var(--ds-line);font-size:13px;font-weight:var(--ds-weight-regular,400);color:var(--kptu-ink);cursor:pointer}
+#psBackupPanel .rb-r{font-weight:var(--ds-weight-regular,400);margin-left:auto;font-size:var(--ds-compact-text,12px);color:var(--kptu-muted)}
+#profileView #psBackupPanel input.rb-switch{margin:0 0 0 auto;padding:0;border:0;min-height:0;box-shadow:none;-webkit-appearance:none;appearance:none;width:30px;height:17px;border-radius:999px;background:var(--ds-line);position:relative;cursor:pointer;flex:none}
+#profileView #psBackupPanel input.rb-switch::after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:999px;background:var(--kptu-surface);transition:left .15s}
+#profileView #psBackupPanel input.rb-switch:checked{background:var(--ds-select-ink,var(--kptu-accent))}
+#profileView #psBackupPanel input.rb-switch:checked::after{left:15px}
+#profileView #psBackupPanel input.rb-switch:focus-visible{outline:2px solid var(--ds-select-line,var(--kptu-accent));outline-offset:2px}
+#psBackupPanel .rb-foot{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding-top:6px}
+#psBackupPanel .rb-foot .rb-s{margin:0 auto 0 0}
+#psBackupPanel .rb-btn{flex:none;white-space:nowrap;display:inline-flex;align-items:center;height:var(--ds-compact-height-sm,28px);padding:0 10px;font-size:var(--ds-compact-text,12px);border:var(--ds-line-width,1px) solid var(--ds-line);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);text-decoration:none;cursor:pointer}
+#psBackupPanel .rb-done{margin:4px 0;padding:6px 8px;border-radius:var(--kptu-radius-md);background:var(--ds-select-bg);font-size:12.5px;line-height:1.6}
+#psBackupPanel .rb-warn,#psBackupPanel .rb-error{font-size:var(--ds-compact-text,12px);color:var(--kptu-danger)}
+#psBackupPanel .rb-error{margin:4px 0}
