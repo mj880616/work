@@ -63,9 +63,12 @@ export async function findSameFiles(files, {rt = globalThis.window?.KPTURuntime,
 // 넣기 전에 한 번: 같은 것이 있으면 묻고, 올릴 파일만 돌려준다.
 // 돌려줌 {files: 올릴 파일, used: [{file, hit}](있는 것 쓰기), skipped: [File]}. 같은 것이 없거나 찾지 못하면 files = 받은 그대로.
 // useExisting: 그 자리가 있는 자료를 붙일 수 있을 때만 준다(없으면 [있는 것 쓰기] 버튼이 없다). 부른 곳이 used를 받아 붙인다.
-export async function screenSameFiles(files, {anchor = null, rt = globalThis.window?.KPTURuntime, useExisting = false, find = findSameFiles, ask = askActions} = {}) {
+// still(file): 뒤에서 찾는 곳(넣기를 먼저 하는 곳)만 준다. 찾는 사이 그 파일이 이미 저장·올림·빼기로 대기에서 나갔으면 false —
+//   찾기가 늦게 끝나 방금 올린 자기 파일을 '이미 있는 자료'로 묻지 않게, 묻기 직전에 아직 대기인 파일만 남긴다.
+export async function screenSameFiles(files, {anchor = null, rt = globalThis.window?.KPTURuntime, useExisting = false, find = findSameFiles, ask = askActions, still = null} = {}) {
   const list = Array.from(files || []);
   const found = list.length ? await find(list, {rt}) : new Map();
+  if (typeof still === 'function') for (const file of [...found.keys()]) if (!still(file)) found.delete(file);
   if (!found.size) return {files: list, used: [], skipped: []};
   const lines = askLines(found);
   const actions = [

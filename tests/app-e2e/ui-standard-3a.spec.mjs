@@ -112,8 +112,8 @@ for(const width of [390,1280])test(`담당조직: 이름 한 줄·마지막 기�
  await view(page,'team');
  const list=page.locator('#soOrganizationList');
  await expect(list.locator('.so-card')).toHaveCount(6);
- // 묶음이 있는 사람의 목록은 묶음 모듈(org-groups-drag.js)이 도착하면 손잡이 달린 칸으로 한 번 더 그려진다(suborganizations.js loadGroups).
- // 그 마지막 그림(.has-grip)을 기다린 뒤 모양을 잰다 — 앞 그림의 줄을 재는 사이 바뀌면 빈 값을 읽는다(STAB-바구니연결표시시험).
+ // 묶음이 있는 사람의 목록은 묶음 모듈(org-groups-drag.js)을 함께 받은 뒤 손잡이 달린 칸으로 그려진다(suborganizations.js load, S67-01).
+ // 손잡이(.has-grip)가 보인 뒤 모양을 잰다(STAB-바구니연결표시시험).
  await expect(list.locator('.so-row.has-grip').first()).toBeVisible();
  // 묶음 제목: 이름(테마 색 12px) + 오른쪽 "N곳".
  await expect(list.locator('.so-group-heading').first().locator('span')).toHaveText(['철도','1곳']);
