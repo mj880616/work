@@ -54,11 +54,13 @@ const sourceFiles = dir => readdirSync(dir).flatMap(name => {
 const functionDirs = () => readdirSync(FUNCTIONS).filter(name => !name.startsWith('_') && !name.startsWith('.') && statSync(join(FUNCTIONS, name)).isDirectory());
 // 읽생기(rtw_*) 함수는 Web2 작업에서 건드리지 않는다(AGENTS.md 5절). 이 저장소에 생기더라도 검사 대상에서 뺀다.
 const isRtw = name => /^rtw[-_]/i.test(name);
+// Claude 읽기 입구(mcp-read, 초안 PR #2524)는 반대로 위임 열쇠'만' 받는 함수라 이 검사 대상이 아니다(설계 4.4절: client_id 없는 열쇠를 거절).
+const DELEGATED_ENTRY = new Set(['mcp-read']);
 
 function audit() {
   const rows = [];
   for (const name of functionDirs()) {
-    if (isRtw(name)) continue;
+    if (isRtw(name) || DELEGATED_ENTRY.has(name)) continue;
     let authSites = 0, guardCalls = 0;
     for (const file of sourceFiles(join(FUNCTIONS, name))) {
       const code = stripComments(readFileSync(file, 'utf8'));
