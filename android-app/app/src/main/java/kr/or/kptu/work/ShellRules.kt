@@ -290,6 +290,16 @@ object ShellRules {
     /** APP-당겨서새로고침: 당기기를 받아도 되는지. 웹이 이 손가락에 pull:on을 보냈고, 웹 화면 자체가 맨 위이고, 웹2 화면일 때만. */
     fun pullReady(webSaidOn: Boolean, scrollY: Int, internal: Boolean): Boolean = webSaidOn && scrollY <= 0 && internal
 
+    /**
+     * NOTE-폴더고른뒤새로고침(11/18 21:25): SwipeRefreshLayout에 '웹 화면이 위로 더 올라갈 수 있다'(당기기 막음)고 답할지.
+     * 막는 것은 손가락이 움직이는 순간(MOVE)뿐이다. 손가락을 대는 순간(DOWN)·떼는 순간(UP·CANCEL)까지 막으면, 웹의 pull:on/off는
+     * 손가락을 댄 뒤에야 오므로 SwipeRefreshLayout이 이 손가락의 시작점을 못 적고(앞 손가락이 pull:off였을 때) 끝도 못 지운다(이 손가락이 pull:off일 때).
+     * 그러면 다음 손가락이 pull:on을 받는 순간 오래된 시작점(예: 폴더 고르기 창에서 누른 줄)에서 지금까지를 당긴 거리로 잡아,
+     * 입력칸·[크게]를 한 번 톡 누른 것이 '당겨서 새로고침'이 된다. 시작·끝은 늘 받게 해 손가락마다 새로 적게 한다.
+     */
+    fun pullBlocked(moving: Boolean, webSaidOn: Boolean, scrollY: Int, internal: Boolean): Boolean =
+        moving && !pullReady(webSaidOn, scrollY, internal)
+
     /** APP-다시열림: 화면 안 이동에 넘길 질의 글 모양(폰 알림 open과 같은 글자, 200자까지). */
     private val IN_PLACE_QUERY = Regex("^[A-Za-z0-9_=&%.-]{0,200}$")
 
