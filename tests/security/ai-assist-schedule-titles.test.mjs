@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // WEEKLY-일정다듬기 ④: the real ai-assist handler, kind=schedule_titles, with a synthetic Supabase (Auth + PostgREST with owner RLS) and a
@@ -73,8 +74,8 @@ function harness({openai=null,usage=[]}={}){
     if(method==='POST'&&table==='app_ai_daily_usage'){const b=JSON.parse(init.body);const i=rows.findIndex(r=>r.user_id===b.user_id&&r.day===b.day);if(i>=0)rows[i]={...rows[i],...b};else rows.push(b);return respond('',201);}
     throw new Error('unexpected write '+method+' '+table);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const events=[{ref:'e1',day:'2026-10-27',time:'14:00',title:'가상에이',place:''},{ref:'e2',day:'2026-10-28',time:'10:00',title:'공철 파업선포 기자회견 검암역(가안)',place:''}];

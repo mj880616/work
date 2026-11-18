@@ -1,3 +1,4 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // JOURNAL-주간보고허브 2단계: [주간 정리] groups one week of the journal's reads in the weekly report form's order
@@ -232,10 +233,10 @@ test('5. 주요 일정 in the .hwpx form: 14 day rows (empty days keep their dat
 
 test('[주간보고 초안 복사]: the tab as text in the form order (1 → 2 → 4 → 5 → 참고)', async () => {
   const m = await mod;
-  const text = m.weeklyReportText(m.weeklySummary({...base, materials:{...materials(), upcoming:ok(upcoming)}}));
+  const text = reportText(m.weeklySummary({...base, materials:{...materials(), upcoming:ok(upcoming)}}));
   const rows = text.split('\n');
   const heads = rows.filter(r => /^(\d\. |참고$)/.test(r));
-  assert.deepEqual(heads, ['1. 요청사항', '2. 기본·영역·의제 사업', '4. 산하 조직 현황', '5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))', '참고']);
+  assert.deepEqual(heads, ['1. 요청사항', '2. 기본․영역․의제 사업', '4. 산하조직 현황', '5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))', '참고']);
   assert.ok(rows.includes('2) 주요 일정: (비워 둠)'));
   assert.equal(m.HQ_SCHEDULE_GUIDE, undefined); // WEEKLY-주요일정기준 ③: 옛 안내 문구 없음(기준은 weekly-major-schedule.mjs 한 곳)
   // 요약 in the project tree order with the record's day.
@@ -247,7 +248,7 @@ test('[주간보고 초안 복사]: the tab as text in the form order (1 → 2 �
     '※ 휴가: 10/16(금) 오후 반차, 10/19(월)~10/21(수) 여름 휴가, 10/23(금) 연차', '']);
   assert.equal(/일기 쓰기|가상 약속/.test(text), false);
   // A failed calendar read is said in its place and at the end; the rest stays.
-  const off = m.weeklyReportText(m.weeklySummary({...base, materials:{...materials(), upcoming:{status:'failed'}}}));
+  const off = reportText(m.weeklySummary({...base, materials:{...materials(), upcoming:{status:'failed'}}}));
   assert.ok(off.includes('5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))\n(불러오지 못함)\n'));
   assert.ok(off.includes('※ 달력 일정은(는) 불러오지 못해 빠졌어요.'));
 });
@@ -259,17 +260,17 @@ test('■ 일시 = 상집 보고일: the Monday after the shown week (tab, draft
   assert.equal(m.reportDateText('2026-10-05'), '2026년 10월 12일(월)');
   assert.equal(m.reportDateText('2026-12-28'), '2027년 1월 4일(월)');
   // The same text as the .hwpx form's date line.
-  const draft = await import('../app/weekly-hwpx/draft.mjs');
+  const draft = await import('./fixtures/weekly-engine.mjs');
   assert.equal(draft.reportDate(data.reportDay('2026-10-19')), m.reportDateText('2026-10-19'));
   // 5. 주요 일정 starts on the report day.
   assert.equal(m.upcomingSchedule([], '2026-10-19').days[0], data.reportDay('2026-10-19'));
-  const text = m.weeklyReportText(m.weeklySummary({...base, materials:materials()}));
+  const text = reportText(m.weeklySummary({...base, materials:materials()}));
   assert.equal(text.split('\n')[1], '■ 일시 : 2026년 10월 12일(월)');
 });
 
 // WEEKLY-자료요약 화면 ①: 자료 → 조직 칸(우선)·프로젝트 줄, 기록과 같으면 접음, '참고'에서는 뺌, 복사·한글 파일 후보는 "- 제목 — 요약".
 test('자료 요약: organization cell first, project row, folded when the same as a record, out of 참고, in the copy and the 한글 candidates', async () => {
-  const m = await mod, draft = await import('../app/weekly-hwpx/draft.mjs');
+  const m = await mod, draft = await import('./fixtures/weekly-engine.mjs');
   const H = c => 'b1:' + c.repeat(32);
   const updates = Object.assign([...orgUpdates, {id:'u3', organization_id:'o1', organization:{name:'가 조직'}, occurred_at:'2026-10-09T02:00:00Z', raw_text:'가 조직 10.30. 결의대회 개최 예정'}], {mine:new Set(['o1', 'o2']), orgs:[{id:'o1', name:'가 조직'}, {id:'o2', name:'나 조직'}, {id:'o9', name:'다른 조직'}]});
   const docs = [
@@ -291,7 +292,7 @@ test('자료 요약: organization cell first, project row, folded when the same 
   assert.deepEqual(a2.items.map(i => i.text), ['A-2 기록', 'A-2 자료']);
   // 참고 keeps only the meeting file (and nothing that went to a cell, nor the merged re-upload f6)
   assert.deepEqual(w.notes.docs.items.map(i => i.text), ['[기타] 회의 자료 · 회의자료']);
-  const text = m.weeklyReportText(w);
+  const text = reportText(w);
   assert.ok(text.includes('- 10월 6일(화) 가 조직 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정\n'));
   assert.ok(text.includes('- 10월 7일(수) 세부 과제 A-2: A-2 자료\n'));
   assert.equal(text.includes('가 조직 기록 사본'), false); assert.equal(text.includes('(자료)'), false); assert.equal(text.includes('같은 파일 2번') || text.includes('비슷한 기록'), false);
@@ -314,7 +315,7 @@ test('자료 요약: without the documents read (loading or failed) the cells sh
 // WEEKLY-자료날짜(10/31 요청함): 조직 칸·사업영역 줄 후보는 자료 날짜(document_date)로, 비었을 때만 올린 날. 그 주 밖 날짜 자료는 후보에서 빠지고
 // '참고 › 자료실 새 자료'(올린 날 목록)에 자료 날짜를 붙여 남는다. 지난주에 올린 이번 주 날짜 자료는 이번 주 후보.
 test('자료 날짜: candidates go by the document\'s own date; last year\'s statement put in this week is not this week\'s news but stays in 참고 with its date', async () => {
-  const m = await mod, draft = await import('../app/weekly-hwpx/draft.mjs');
+  const m = await mod, draft = await import('./fixtures/weekly-engine.mjs');
   const updates = Object.assign([...orgUpdates], {mine:new Set(['o1', 'o2']), orgs:[{id:'o1', name:'가 조직'}, {id:'o2', name:'나 조직'}]});
   const docs = [
     {id:'y1', title:'작년 성명', category:'성명', organization_id:'o1', created_at:'2026-10-05T01:00:00Z', document_date:'2025-10-26'},
@@ -331,7 +332,7 @@ test('자료 날짜: candidates go by the document\'s own date; last year\'s sta
   // the old ones are kept (not deleted) in the upload-day list, with their own date; the one put in last week is not a new document of this week
   assert.deepEqual(w.notes.docs.items.map(i => [i.day, i.text]), [
     ['2026-10-05', '[기타] 작년 성명 · 자료 날짜 2025.10.26'], ['2026-10-05', '[기타] 작년 기자회견 · 자료 날짜 2025.10.27']]);
-  const text = m.weeklyReportText(w);
+  const text = reportText(w);
   assert.equal(text.includes('작년 성명') && !text.includes('자료 날짜 2025.10.26'), false);
   assert.ok(text.includes('- 10월 8일(목) 이번 주 성명\n'));
   const material = draft.weekMaterial(w, [], [{index:0, org:'가 조직', lines:[]}]);

@@ -22,6 +22,8 @@ export type ExtractRule = {
   // 단체 본문 칸(bodyClass)에서 본문을 못 뽑으면(no_body) 페이지 전체(메뉴·꼬리·옆 칸·폼 뺌)에서 start 줄을 찾아 한 번 더 뽑는다 — start 줄이 없으면 하지 않음.
   start?: RegExp;
   end?: RegExp;
+  // 덧줄(S62-42): 본문 줄로 넣지 않는 그 사이트의 짧은 덧줄(첨부 칸 글자 등 — 줄 하나 전체가 맞을 때). 파일 이름 줄이면 첨부 이름으로만 남는다(그림뿐인 글).
+  skip?: RegExp;
 };
 
 export type Kind = "statement" | "comment" | "press" | "article";
@@ -153,7 +155,8 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 명진이 소속된 노조의 공개 성명 게시판. 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
     // 다른 단체의 robots 규칙은 그대로 지킨다. 2026-11-01 확인: 글 본문은 `div.publishList_write` 안(ASP.NET form 안쪽).
     key: "kptu", name: "공공운수노조", group: "labor", lang: "ko", mode: "html",
-    extract: { version: 1 },
+    // 판 2(S61-44): 한글 문서 붙여넣기 글의 '&middot'·'13 일' 깨짐을 고친 글자 규칙(S61-37 #2538) — 옛 글을 다시 뽑기(refill)로 한 번 고친다.
+    extract: { version: 2 },
     robotsException: "명진 결정 11/01 16:49",
     lists: ["https://www.kptu.net/board/list.aspx?mid=F686C1F3"], hosts: ["www.kptu.net", "kptu.net"],
     bodyClass: /^publishList_write$/,
@@ -161,7 +164,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     canon: keepQuery(["mid", "idx"]),
     kindOf: byPrefix("statement"),
   },
-  // [노동] 2단계(명진 결정 11/02 16:26 L1, docs/design/outside-labor-catalog.md 3절): 금속노조·서비스연맹·학비노조.
+  // [노동] 2단계(명진 결정 11/02 16:26 L1, docs/design/outside-labor-catalog.md 3절): 금속노조·서비스연맹·학비노조. 교육공무직본부는 S62-42(명진 요청 11/16).
   // robots 예외 없음 — 다른 단체처럼 실행마다 robots.txt를 먼저 읽고 막힌 경로는 읽지 않는다(last_error='robots'·'robots_denied').
   // 전국공무원노조·전교조·건설노조(L2)는 robots 원문을 확인하지 못했고 앞 조사에서 읽기 도구가 robots에 막혀 넣지 않았다.
   {
@@ -198,6 +201,27 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     lists: ["https://www.hakbi.org/board/media_reports"], hosts: ["www.hakbi.org", "hakbi.org"],
     item: /^https:\/\/(www\.)?hakbi\.org\/board\/media_reports\/read\/\d+\/?$/, canon: plain,
     kindOf: (title) => (HAKBI_NOTICE.test(title) ? null : byPrefix("statement")(title)),
+  },
+  {
+    // 공공운수노조 전국교육공무직본부(S62-42, 명진 요청 11/16 08:53 'News에 학비노조만 있으면 안돼 교육공무직본부도 추가해줘').
+    // 누리집 주소는 한글 도메인 '교육공무직.com'(punycode xn--ob0btg349a4slcgd.com) [사실: 2026-11-16 공개 웹 읽기 도구로 첫 화면·목록·글 쪽 확인].
+    // 성명·보도자료·논평·브리핑·취재요청은 모두 '노동조합 소식 > 브리핑룸'(sub02_02.php, boardid=briefing) 한 게시판에 머리말로 섞여 있다 [사실].
+    // 글 주소 모양: sub02_02.php?boardid=briefing&mode=view&idx=번호&sk=&sw=&offset=&category= [사실] → boardid·mode·idx만 남긴다.
+    // '[취재요청서]'는 공용 머리말 거르기(취재요청)로 넣지 않는다. '[공동보도자료]'는 보도자료, '[브리핑]'은 논평 종류.
+    // robots 예외 없음 — 다른 단체처럼 실행마다 robots.txt를 먼저 읽는다(이 세션은 robots.txt 원문을 읽지 못함 — PR 본문 참고).
+    // 글 쪽 줄 차례 [사실]: 제목 → '전국교육공무직본부 날짜 조회수 N' → (있으면) '첨부파일(N)'·파일 이름 → 본문(사진만인 글이 많음) → '목록' → 다음글·이전글.
+    // 본문 칸 class는 실측하지 못해 [추정] 공용 추출기(본문 칸 고르기·본문 줄 자르기)에 맡긴다.
+    key: "edubonbu", name: "교육공무직본부", group: "labor", lang: "ko", mode: "html",
+    // start: 글 머리 '… 날짜 조회수 N' 줄 다음부터 본문. skip: 첨부 칸 '첨부파일(N)'·'파일이름.hwp (214.5 KB)' 줄(크기 꼬리가 붙어 공용 첨부 이름 줄로 안 잡힘).
+    extract: {
+      version: 1,
+      start: /(^|\s)조회\s*수?\s*[:：]?\s*[\d,]+$/,
+      skip: /^첨부\s*파일\s*\(\s*\d+\s*\)$|\.(hwpx?|pdf|docx?|xlsx?|pptx?|jpe?g|png|gif|zip)\s*\(\s*[\d.,]+\s*[KMG]?B\s*\)$/i,
+    },
+    lists: ["https://xn--ob0btg349a4slcgd.com/sub/sub02_02.php"], hosts: ["xn--ob0btg349a4slcgd.com", "www.xn--ob0btg349a4slcgd.com"],
+    item: /^https:\/\/(www\.)?xn--ob0btg349a4slcgd\.com\/sub\/sub02_02\.php\?(?=[^#]*\bboardid=briefing\b)(?=[^#]*\bmode=view\b)(?=[^#]*\bidx=\d+\b)/,
+    canon: keepQuery(["boardid", "mode", "idx"]),
+    kindOf: byPrefix("statement"),
   },
   {
     // robots.txt 요청을 사이트가 거절해(401·403 → robots_denied, 2026-11-01 20:3x 운영 실행) 명진 결정 11/01 21:08로 이 단체도 읽는다:

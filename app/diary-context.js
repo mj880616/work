@@ -2,10 +2,11 @@
 // 사진 없는 날은 그리지 않음). 일기 날짜 상세의 사진 격자 아래 접힌 한 줄 '그날 맥락 · 일정 2 · 회의 1'(네이티브 <details>).
 // 읽기는 업무일지가 날짜별로 모으는 것과 같은 함수(journal-data.js readWeekEvents·readWeekMeetings, 주 단위 한 번)를 그대로 부른다.
 // 새 표·새 저장·새 Edge 함수 없음. 읽은 것은 이 화면 메모리에만 둔다(브라우저 저장 없음). 줄을 누르면 그 일정의 달력 수정 창·그 회의 창을 연다.
-import {weekStart, readWeekEvents, readWeekMeetings, eventsOn, eventTime, meetingsOn, meetingName, ownerScope} from './journal-data.js';
+import {weekStart, readWeekEvents, readWeekMeetings, eventsOn, eventTime, meetingsOn, meetingName, activityTag, ownerScope} from './journal-data.js';
+import {reportKindOf, reportKindLabel} from './report-kinds.mjs';
 import {seoulClock} from './meeting-time.js';
 import {openGoogleEvent} from './event-open.js';
-import {MEETING_SPAN_MS, contextSummary, entryText} from './diary-context-model.mjs';
+import {MEETING_SPAN_MS, contextSummary, entryText, entryKind} from './diary-context-model.mjs';
 
 // 주 단위 읽기 기억(작업공간·주별, 최근 몇 주만). 일정이 달력에서 바뀌면 일정 쪽만 다시 읽는다(forgetEvents).
 const KEEP_WEEKS = 6;
@@ -33,7 +34,10 @@ const eventEntry = event => {
 };
 const meetingEntry = meeting => {
   const startMs = Date.parse(meeting.meeting_at), clock = seoulClock(meeting.meeting_at), timed = !!clock && clock !== '00:00';
-  return {kind:'meeting', id:String(meeting.id ?? ''), title:meetingName(meeting), time:timed ? clock : '', allDay:!timed, startMs, endMs:startMs + MEETING_SPAN_MS};
+  // 사업 보고 한 건: 꼬리표는 그 칸 이름(label), 줄 글자는 이름 앞 [칸]을 뺀 name. 크게 보기 캡션(title)은 지금처럼 전체 이름.
+  const title = meetingName(meeting);
+  return {kind:'meeting', id:String(meeting.id ?? ''), title, name:title.slice(activityTag(meeting).length).trim() || title,
+    label:reportKindLabel(reportKindOf(meeting)), time:timed ? clock : '', allDay:!timed, startMs, endMs:startMs + MEETING_SPAN_MS};
 };
 
 // 그날 일정·회의 → {entries:[일정…, 회의…], failed:['events'|'meetings']}. 한쪽이 실패해도 다른 쪽은 보인다.
@@ -61,9 +65,9 @@ export function contextSection(entries) {
     const li = document.createElement('li'), button = document.createElement('button');
     button.type = 'button'; button.className = 'row-act diary-ctx-line'; button.dataset.diaryContextOpen = String(i);
     const tag = document.createElement('span');
-    tag.className = 'diary-ctx-kind'; tag.textContent = entry.kind === 'meeting' ? '회의' : '일정';
+    tag.className = 'diary-ctx-kind'; tag.textContent = entryKind(entry);
     button.append(tag, ' ', entryText(entry));
-    button.setAttribute('aria-label', `${entry.kind === 'meeting' ? '회의' : '일정'} ${entryText(entry)} 열기`);
+    button.setAttribute('aria-label', `${entryKind(entry)} ${entryText(entry)} 열기`);
     li.append(button); list.append(li);
   });
   box.append(head, list);

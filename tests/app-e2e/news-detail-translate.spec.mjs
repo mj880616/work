@@ -19,8 +19,8 @@ async function extraServer(page, server) {
     const req = route.request(), u = new URL(req.url()), p = u.pathname;
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
     const body = req.postDataJSON?.() ?? null;
-    if (p === '/rest/v1/app_feed_bodies') {
-      const id = (u.searchParams.get('news_item_id') || '').replace(/^eq\./, '');
+    if (p === '/rest/v1/app_news_article_bodies') {
+      const id = (u.searchParams.get('article_id') || '').replace(/^eq\./, '');
       return ok(id === T1 || id === T2 ? [{ state: 'ok', reason: null, blocks: BLOCKS }] : []);
     }
     if (p === '/functions/v1/ai-assist' && body?.kind === 'now_detail') return ok({ ok: true, kind: 'now_detail', detail: DETAIL, stale: false });

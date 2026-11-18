@@ -15,7 +15,7 @@
 
 ### 쓰기 안전 규칙 (필수)
 
-- **운영자(명진) 작업공간만**: Edge `gdrive-photos`가 ① 로그인 확인 ② 그 사람이 작업공간 owner ③ 운영자 허용 표에 `gdrive_photos`(DB `app_my_features()`로 판정, 화면이 보낸 작업공간 값은 안 믿음) ④ 그 작업공간이 Drive 연결 작업공간(`app_workspaces.slug = 'kptu-work'`, 토큰 `public_policy_drive_config` id=1의 주인)일 때만 연다. 다른 작업공간은 403. 화면 숨김만으로 막지 않는다.
+- **각자 자기 작업공간·자기 Drive만**(2026-11-15 바뀜, S62-11 MULTI-구글드라이브사진모두, 설계 `docs/design/gdrive-photos-all.md`): Edge `gdrive-photos`가 ① 로그인 확인 ② 그 사람이 owner인 작업공간 정확히 1개(화면이 보낸 작업공간 값은 안 믿음) ③ 그 작업공간의 Drive 연결(`app_drive_connections` 그 행)로만 토큰을 받는다. 연결이 없으면 424 `drive_not_connected`, `drive` 권한이 없으면 `scope_missing`. 다른 작업공간 연결·id=1로 넘어가는 길 없음. (옛 규칙: 운영자 허용 표 `gdrive_photos` + slug `kptu-work` + id=1 토큰 — 운영자 작업공간만.)
 - **바꾸기·지우기는 사용자가 누를 때만, 확인 한 번**(요청에 `confirm: true`가 없으면 서버가 거절). 자동·일괄 삭제 없음. 한 번에 고르는 장수 상한을 둔다.
 - **지우기는 Drive 휴지통으로 옮기기만**(`files.update` `trashed=true`). 영구 삭제(`files.delete`)·휴지통 비우기는 쓰지 않는다. 화면에 "드라이브 휴지통에서 30일 안에 되살릴 수 있어요".
 - 폴더 지우기도 휴지통으로 옮기기만. 폴더 이름 바꾸기·만들기는 켠 폴더(또는 그 부모) 안에서만.

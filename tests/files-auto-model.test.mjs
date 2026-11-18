@@ -22,6 +22,10 @@ test('시스템 폴더 안 파일은 자동 생성으로 본다(더 깊은 폴�
     ['Web2 편집 백업', 'edit_backup'],
     ['웹2 › 회의자료 › 가짜 회의 1차 › 회의 녹음 › 녹음 조각', 'recording_pieces'],
     ['가짜 사진 › .Web2 휴지통', 'trash'],
+    ['노조+ 읽기용 사본', 'drive_summary'],
+    ['노조+ 읽기용 사본 › 원장 백업', 'drive_summary'],
+    ['노조+ 편집 백업', 'edit_backup'],
+    ['가짜 사진 › .노조+ 휴지통', 'trash'],
   ];
   for (const [path, key] of cases) assert.equal(autoMadeKind(row(path)), key, path);
 });
@@ -31,7 +35,7 @@ test('사람 파일은 그대로(이름이 숫자.json이어도, 비슷한 이�
     '', null, undefined, '가짜 문서함', '가짜 문서함 › 2026',
     '원문', '원문 › 가짜 보도자료', '가짜 › 원문 › 2026_가짜',  // '원문' 아래가 방 폴더 모양('숫자_')이 아니면 사람 폴더
     'messages › 2026-11', '통화 녹음', '전사', '가짜 › 전사', '회의 녹음', '녹음 조각',
-    'Web2 읽기용 사본 백업', '가짜 Web2 편집 백업',
+    'Web2 읽기용 사본 백업', '가짜 Web2 편집 백업', '노조+ 읽기용 사본 백업', '가짜 노조+ 편집 백업',
   ];
   for (const path of keep) assert.equal(isAutoMade(row(path, '12345.json')), false, String(path));
   // 이름 모양만으로는 거르지 않는다.
@@ -59,12 +63,14 @@ test('규칙의 폴더 이름 = 각 자동화 코드의 상수(바뀌면 함께 
   assert.match(gs, /var TG_FEED_RAW_FOLDER = '원문';/);
   assert.match(gs, /var CALL_FEED_TRANSCRIPT_FOLDER = '전사';/);
   assert.match(gs, /var CALL_FEED_ANALYSIS_FOLDERS = \['검토대기', '검토완료'\];/);
-  assert.match(read('supabase/functions/drive-summary/core.mjs'), /name: 'Web2 읽기용 사본'/);
-  assert.match(read('supabase/functions/_shared/hwp-edit.ts'), /export const BACKUP_FOLDER = "Web2 편집 백업";/);
+  assert.match(read('supabase/functions/drive-summary/core.mjs'), /const COPY_FOLDER = '노조\+ 읽기용 사본';/);
+  assert.match(read('supabase/functions/_shared/hwp-edit.ts'), /export const BACKUP_FOLDER = "노조\+ 편집 백업";/);
+  assert.match(read('supabase/functions/_shared/hwp-edit.ts'), /export const OLD_BACKUP_FOLDER = "Web2 편집 백업";/);
+  assert.match(read('supabase/functions/onedrive-photos/graph.ts'), /export const TRASH_NAME = "\.노조\+ 휴지통";/);
   assert.match(read('supabase/functions/meeting-transcribe/index.ts'), /const RECORDING_FOLDER = '회의 녹음';/);
   assert.match(read('supabase/functions/meeting-transcribe/recording.mjs'), /export const PIECE_FOLDER = '녹음 조각';/);
-  assert.equal(TRASH_FOLDER_NAME, '.Web2 휴지통');
-  for (const n of ['원문', '전사', '검토대기', '검토완료', 'Web2 읽기용 사본', 'Web2 편집 백업', '회의 녹음', '녹음 조각', '.Web2 휴지통']) assert.ok(names.includes(n), n);
+  assert.equal(TRASH_FOLDER_NAME, '.노조+ 휴지통');
+  for (const n of ['원문', '전사', '검토대기', '검토완료', '노조+ 읽기용 사본', 'Web2 읽기용 사본', '노조+ 편집 백업', 'Web2 편집 백업', '회의 녹음', '녹음 조각', '.노조+ 휴지통', '.Web2 휴지통']) assert.ok(names.includes(n), n);
 });
 
 test("'최근' 상태를 만드는 곳 한 곳에서만 거른다(그린 뒤 덮어쓰기 없음), 서버 한도까지 읽는다", () => {

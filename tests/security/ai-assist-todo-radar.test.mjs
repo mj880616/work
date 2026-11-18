@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
@@ -107,8 +108,8 @@ function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],can
     if(method==='DELETE'){const hit=rows.filter(r=>visible(table,r,uid)&&matches(r,url));for(const r of hit)rows.splice(rows.indexOf(r),1);return new Response(null,{status:204});}
     throw new Error('method '+method);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async ms=>{calls.sleeps.push(ms);},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async ms=>{calls.sleeps.push(ms);},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{...(token?{Authorization:`Bearer ${token}`}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)}));

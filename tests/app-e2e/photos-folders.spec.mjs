@@ -200,7 +200,7 @@ test('사진 메뉴 ② 폴더 PC 1440: 선택한 사진을 왼쪽 폴더로 끌
   await items(page).nth(2).click({ button: 'right' });
   const pm = page.locator('#photosPhotoMenu');
   await expect(pm).toBeVisible();
-  await expect(pm.locator('button')).toHaveText(['선택', '별표', '공유', '일기에 넣기', '업데이트로 보내기', '폴더로 옮기기…', '앨범에 넣기…', '정보수정', '삭제']);
+  await expect(pm.locator('button')).toHaveText(['선택', '별표', '공유', '하루 기록에 넣기', '업데이트로 보내기', '폴더로 옮기기…', '앨범에 넣기…', '정보수정', '삭제']);
   await pm.locator('button', { hasText: '선택' }).click();
   await expect(root(page).locator('[data-photos-sel-count]')).toHaveText('1개 선택됨');
   await items(page).nth(1).click();

@@ -15,7 +15,11 @@ export const ALL_KINDS='all';
 // 여덟 칸과 따로 둔다: 쓰기 창의 칸 고르기·[종류 바꾸기]에는 나오지 않고, [+] 메뉴 맨 위 [한 줄 업데이트]로만 만든다(report-oneline.js).
 export const ONELINE_KIND='oneline';
 export const isOnelineReport=row=>row?.activity_kind===ONELINE_KIND;
+// DEFAULT_KIND = [회의] 칸 값: 칸이 비어 있는 옛 행·쓰기 창의 기본 칸·회의 전용 규칙(회의 이름 거르기·PC 3단)의 판정에 쓴다.
 export const DEFAULT_KIND='meeting';
+// MTG-기본종류전체(11/15 명진): 사업 보고 화면 거르기의 처음 값은 [종류 전체]. 회의 칸 판정(DEFAULT_KIND)과 나눠 둔다 —
+// 이 값만 바꾸고 회의 전용 규칙은 '회의'를 고를 때 그대로 돈다.
+export const DEFAULT_CHIP=ALL_KINDS;
 const KNOWN=new Set(REPORT_KINDS.map(k=>k.value));
 export const isReportKind=value=>KNOWN.has(value);
 // 행의 칸. 열이 없거나 비어 있으면(옛 응답) '회의', 모르는 값이면 '기타'로 보이게 한다(화면이 깨지지 않게). 저장에는 쓰지 않는다.

@@ -195,5 +195,6 @@ test('liveSessions(S49-7): 열린 구간이 7분 안쪽이면 live로 따로 주
   assert.deepEqual(r.liveSessions([mk(1,{status:'failed'})],now),[]);
   assert.deepEqual(r.liveSessions(null,now),[]);
   const index=readFileSync(new URL('../supabase/functions/meeting-transcribe/index.ts',import.meta.url),'utf8');
-  assert.match(index,/sessions: pendingSessions\(rows \|\| \[\], jobs, now\), live: liveSessions\(rows \|\| \[\], now\)/);
+  // S61-36: 회의 연결(withMeetings)을 덧붙여도 목록 계산은 같은 두 함수.
+  assert.match(index,/sessions: withMeetings\(pendingSessions\(rows \|\| \[\], jobs, now\), links\), live: withMeetings\(liveSessions\(rows \|\| \[\], now\), links\)/);
 });

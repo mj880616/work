@@ -30,7 +30,8 @@ public sealed class AutoStartManager
         _installedExe = installedExe;
     }
 
-    public static string CommandFor(string exePath) => "\"" + exePath + "\"";
+    // S63-09: the Windows start passes --background so only a start by the user opens the helper window (LaunchArgs).
+    public static string CommandFor(string exePath) => "\"" + exePath + "\" " + LaunchArgs.Background;
 
     public AutoStartState Sync()
     {

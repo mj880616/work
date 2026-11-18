@@ -9,6 +9,7 @@ import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-l
 import {selectMyOrganizations} from './my-organizations.js';
 import {createChoiceSheet,orgRow} from './choice-sheet.js';
 // S52-01 ③a UI-사업영역조직고르기창: 담당조직·사업영역과 할 일 사업영역은 모든 화면과 같은 고르기 창(area-org-picker.js) 하나. 참고 묶음은 이 창의 자기 고르기 창.
+import {orgWriteInFor} from './feed-link.js';
 import {openAreaOrgPicker,dismissAreaOrgPicker,areaOrgPickerClosed,usedKeysNow,catalogAreas,orderedOrgGroups,areaTree,areaChipText} from './area-org-picker.js';
 import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
@@ -94,7 +95,8 @@ export async function readManualChoices(rt=window.KPTURuntime){
   const after=rt.context.read();
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   const order=window.KPTUOrganizationOrder,organizations=order.forPicker(selectMyOrganizations(rows,assignees).organizations);
-  return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active'),bundles};
+  // all: 활동 중인 조직 전체 — 담당조직 창 [직접 쓰기]가 새로 만들기 전에 비슷한 이름을 찾는 데만 쓴다(S61-52, 중복 방지).
+  return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),all:rows.filter(row=>row?.id&&row.active!==false),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active'),bundles};
 }
 
 // One link panel and one task form inside the basket read view. basket.js keeps
@@ -176,7 +178,10 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     for(const [key,state] of linked())if(key.startsWith(kind+':'))locked.set(prefix+key.slice(kind.length+1),state==='suggested'?'이미 제안됨':'이미 연결됨');
     const mine=link.targets.filter(t=>t.kind===kind).map(t=>prefix+t.id);
     pickTrigger=button;
-    await openAreaOrgPicker({kind:kind==='project'?'area':'org',trigger:button,used,locked,selected:mine,max:MANUAL_LINK_LIMIT-(link.targets.length-mine.length),
+    // S61-52(CALL-상대표시정리 ④): 담당조직 창 맨 아래 [직접 쓰기] — 모든 조직 고르기 창과 같은 부품·같은 만들기 경로(feed-link.js orgWriteInFor).
+    // 새 조직은 이 창의 내 조직 목록·이름표에 더하고 눌린 채로 둔다([넣기]로 반영).
+    const box=choices,create=kind==='organization'?orgWriteInFor({orgs:()=>box.all||(box.all=[]),onOrg:org=>{box.organizationNames?.set(org.id,org.name);if(!box.organizations.some(o=>o.id===org.id)){box.organizations.push(org);box.groups=window.KPTUOrganizationOrder?.groups?window.KPTUOrganizationOrder.groups(box.organizations):[box.organizations];}}}):null;
+    await openAreaOrgPicker({kind:kind==='project'?'area':'org',trigger:button,used,locked,selected:mine,max:MANUAL_LINK_LIMIT-(link.targets.length-mine.length),create,
       title:kind==='project'?'사업영역 꼬리표 달기':'담당조직 선택',
       areas:kind==='project'?catalogAreas(choices.projects):[],orgGroups:kind==='organization'?orderedOrgGroups(choices.groups):[],
       onCommit:keys=>{

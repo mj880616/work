@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // S54-28 FORGET-소식바로잡기 ④: the real ai-assist handler, kind=journal_memorable_recheck (쌓인 소식 한 번 다시 판정), with a synthetic Supabase
@@ -70,8 +71,8 @@ function harness({features=['calls','telegram'],memo=[],feeds=[],picks=[],cands=
     }
     throw new Error('unexpected write '+method+' '+table);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-key'})[n],
-    fetch:doFetch,now:()=>T0,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-key'})[n],
+    fetch:doFetch,now:()=>T0,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)}));

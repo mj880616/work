@@ -8,33 +8,34 @@ import {clickView} from './helpers/shell-navigation.mjs';
 // 바구니의 회의 연결은 FK 이름을 지정해 읽는다(연결 표에서 회의로 가는 길이 둘이 되어도 목록이 멈추지 않는다). 모든 이름은 합성 값.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
-test('PC 1280: sidebar shows 사업 보고 right under 노트 (no 프로젝트 row); screen title, no lead line, URL',async({page})=>{
+// MULTI-하단바기본노트: 새 계정(저장된 메뉴 순서 없음) PC 왼쪽 메뉴는 하단바 기본과 같은 순서 — 홈·노트·일정·조직 보고·사업 보고.
+test('PC 1280: new account sidebar shows 사업 보고 right under 조직 보고 (no 프로젝트 row); screen title, no lead line, URL',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await openHome(page);
+ await openHome(page,{menuLayout:null});
  const names=await page.locator('#appView>.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents();
- const i=names.indexOf('노트');
- expect(i).toBeGreaterThanOrEqual(0);expect(names[i+1]).toBe('사업 보고');expect(names).not.toContain('회의');expect(names).not.toContain('프로젝트');
+ const i=names.indexOf('조직 관리');
+ expect(i).toBeGreaterThanOrEqual(0);expect(names[i+1]).toBe('사업 관리');expect(names).not.toContain('회의');expect(names).not.toContain('프로젝트');
  await clickView(page,'meetings');
  await expect(page.locator('#meetingsView')).toBeVisible();
  await expect(page).toHaveURL(/[?&]view=reports(?:&|$)/);
  await expect(page.locator('#meetingsView [data-report-lead]')).toHaveCount(0);
- await expect(page.locator('#meetingsView .add-list-head h2')).toHaveText('사업 보고');
- await expect(page.locator('[data-topline-where]')).toContainText('사업 보고');
+ await expect(page.locator('#meetingsView .add-list-head h2')).toHaveText('사업 관리');
+ await expect(page.locator('[data-topline-where]')).toContainText('사업 관리');
  expect(errors).toEqual([]);
 });
 
 test('폰 390: 사업 보고 is the 4th bottom tab, not in the [메뉴] window; no sideways scroll',async({page})=>{
  await page.setViewportSize({width:390,height:800});
  await openHome(page);
- await expect(page.locator('.mobile-tabs > button').nth(3)).toHaveText('사업 보고');
+ await expect(page.locator('.mobile-tabs > button').nth(3)).toHaveText('사업 관리');
  await page.locator('#mobileMenuTab:visible').click();
  const items=await page.locator('#mobileMenu nav button:visible').allTextContents();
- expect(items[0]).toBe('노트');expect(items).not.toContain('사업 보고');expect(items).not.toContain('회의');
+ expect(items[0]).toBe('노트');expect(items).not.toContain('사업 관리');expect(items).not.toContain('회의');
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();
  await page.locator('.mobile-tabs [data-view="meetings"]').click();
  await expect(page.locator('#meetingsView')).toBeVisible();
- await expect(page.locator('[data-mobile-view-name]')).toHaveText('사업 보고');
+ await expect(page.locator('[data-mobile-view-name]')).toHaveText('사업 관리');
  await expect(page.locator('#meetingsView [data-report-lead]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

@@ -13,7 +13,7 @@ import {notify} from './small-notice.js';
 
 let dialog = null, state = null, seq = 0, layer = null;
 const $ = sel => dialog.querySelector(sel);
-const WORDS = {note:{title:'웹2 노트', saved:'노트에 넣었어요'}, task:{title:'웹2 할 일', saved:'할 일에 넣었어요'}};
+const WORDS = {note:{title:'노동조합+ 노트', saved:'노트에 넣었어요'}, task:{title:'노동조합+ 할 일', saved:'할 일에 넣었어요'}};
 
 function ensureDialog() {
   if (dialog) return dialog;

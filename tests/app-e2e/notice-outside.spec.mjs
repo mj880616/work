@@ -10,14 +10,14 @@ async function fixture(page,{width=1280,at='2026-10-06T10:00:00Z',seen='2026-10-
   const s={calls:[],seen};
   await openHome(page,{query:'?view=calendar',beforeLoad:async()=>{
     await page.clock.setFixedTime(new Date(at)); // 서울 19:00(기본) — 저녁 예약 수집 뒤
-    await page.route(u=>u.origin===SB&&/^\/rest\/v1\/app_outside_(seen|posts|sources)$/.test(u.pathname),route=>{
+    await page.route(u=>u.origin===SB&&/^\/rest\/v1\/app_outside_(seen|articles|sources)$/.test(u.pathname),route=>{
       const req=route.request(),u=new URL(req.url()),p=u.pathname.slice('/rest/v1/'.length),method=req.method(),body=req.postDataJSON?.()??null;
       s.calls.push({p,method,query:decodeURIComponent(u.search),body});
       if(p==='app_outside_seen'){
         if(method==='PATCH'){s.seen=body.seen_at;return route.fulfill({json:[{seen_at:s.seen}]});}
         return route.fulfill({json:s.seen?[{seen_at:s.seen}]:[]});
       }
-      if(p==='app_outside_posts'){
+      if(p==='app_outside_articles'){
         const gt=(u.searchParams.get('fetched_at')||'').replace(/^gt\./,'');
         const n=gt&&gt>=s.seen&&s.seen>'2026-10-06T05:00:00Z'?0:fresh;
         return route.fulfill({json:Array.from({length:n},(_,i)=>({id:`f0000000-0000-4000-8000-00000000000${i}`}))});
@@ -33,8 +33,9 @@ for(const width of [390,1280])test(`새 성명 줄 ${width}: 저녁에 본 시�
   const s=await fixture(page,{width});
   await expect(line(page)).toBeVisible({timeout:15000});
   await expect(line(page).getByRole('status')).toHaveText('새 성명 3건');
-  const q=s.calls.find(c=>c.p==='app_outside_posts').query;
-  expect(q).toContain('workspace_id=eq.w');expect(q).toContain('fetched_at=gt.2026-10-06T00:00:00Z');expect(q).toContain('limit=100');
+  // NEWS-모두에게열기 ③: 사회운동 글은 공용 한 벌(작업공간 칸 없음) — 내가 본 시각 뒤 공용 글 수.
+  const q=s.calls.find(c=>c.p==='app_outside_articles').query;
+  expect(q).not.toContain('workspace_id=');expect(q).toContain('fetched_at=gt.2026-10-06T00:00:00Z');expect(q).toContain('limit=100');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await line(page).getByRole('button',{name:'보기'}).click();
   await expect(page.locator('#outsideView')).toBeVisible();
@@ -59,12 +60,12 @@ test('새 성명 줄: 낮(18:10 전)에는 묻지도 띄우지도 않음',async(
   const s=await fixture(page,{at:'2026-10-06T08:00:00Z'}); // 서울 17:00
   await page.waitForTimeout(800);
   await expect(line(page)).toHaveCount(0);
-  expect(s.calls.filter(c=>c.p==='app_outside_posts')).toHaveLength(0);
+  expect(s.calls.filter(c=>c.p==='app_outside_articles')).toHaveLength(0);
 });
 test('새 성명 줄: 한 번도 본 적 없으면 띄우지 않음(옛 글이 새 글로 쏟아지지 않게)',async({page})=>{
   const s=await fixture(page,{seen:null});
   await expect.poll(()=>s.calls.filter(c=>c.p==='app_outside_seen').length).toBeGreaterThan(0);
   await page.waitForTimeout(500);
   await expect(line(page)).toHaveCount(0);
-  expect(s.calls.filter(c=>c.p==='app_outside_posts')).toHaveLength(0);
+  expect(s.calls.filter(c=>c.p==='app_outside_articles')).toHaveLength(0);
 });

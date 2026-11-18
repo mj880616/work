@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
@@ -132,10 +133,10 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
     const rows=db[table];assert.ok(rows,'unexpected table '+table);
     return respond(rows.filter(r=>visible(table,r,uid)&&matches(r,url)));
   };
-  const handler=createAiAssistHandler({
+  const handler=createAiAssistHandler(withAiMonth({
     env:name=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-key'})[name],
     fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail}),
-  });
+  }));
   return {handler,calls,db};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)}));

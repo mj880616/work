@@ -10,6 +10,8 @@ html.ed-window-open, html.ed-window-open body { overflow:hidden; }
   display:flex; flex-direction:column; place-items:stretch; gap:0; padding:0;
   background:var(--kptu-surface); color:var(--kptu-ink);
 }
+/* S61-46: 쓰기 창(1000) 안 [폴더 ▾] → [+ 새 폴더 만들어 넣기]의 이름 묻는 작은 창(.kptu-ask, 61)이 창 뒤로 숨지 않게 창 위로(diary.css 보기 창과 같은 방법). */
+html.ed-window-open body > .kptu-ask { z-index:1001; }
 .modal.ed-window.hidden { display:none; }
 .modal.ed-window[data-ed-nav="side"] { border-left:1px solid var(--kptu-border); }
 html .modal.ed-window { align-items:stretch !important; overflow:hidden !important; padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left) !important; }

@@ -17,6 +17,8 @@ async function open(page,url=app+'?view=home'){
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'fold-workspace',role:'owner',workspace:{id:'fold-workspace',name:'QA',slug:'kptu-work'}}]);
     if(p==='/functions/v1/google-calendar')return ok({connected:false,calendars:[],events:[]});
     if(p==='/functions/v1/google-tasks')return ok({connected:false,tasks:[]});
+    // MULTI-처음쓰는사람 ④: 운영자 계정 — 통화·텔레그램·파일·아스날·News 메뉴가 있다(모든 메뉴가 열리는지 보는 시험).
+    if(p==='/rest/v1/rpc/app_my_features')return ok(['arsenal','calls','files','outside','telegram']);
     if(p.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
@@ -38,15 +40,14 @@ const MENU=[
   ['잊지 말기','.nav-btn[data-view="basket"]','basket'],
   ['달력','.nav-btn[data-view="calendar"]','calendar'],
   ['할 일','.nav-sub-btn[data-view="tasks"]','tasks',false,true],
-  ['일기','.nav-sub-btn[data-view="diary"]','diary',false,true],
+  ['하루 기록','.nav-sub-btn[data-view="diary"]','diary',false,true],
   ['노트','.nav-btn[data-basket-kind-nav="note"]','basket',true],
-  ['사업 보고','.nav-btn[data-view="meetings"]','meetings'],
+  ['사업 관리','.nav-btn[data-view="meetings"]','meetings'],
   ['자료실','.nav-btn[data-view="library"]','library'],
   ['파일','.nav-btn[data-view="files"]','files'],
   ['공유 페이지','.nav-btn[data-view="pages"]','pages'],
-  ['조직 보고','.nav-btn[data-view="team"]','team'],
+  ['조직 관리','.nav-btn[data-view="team"]','team'],
   ['HWP 편집','.nav-btn[data-view="hwp"]','hwp'],
-  ['원장','.nav-btn[data-view="ledger"]','ledger'],
   ['사진','.nav-btn[data-view="photos"]','photos'],
   ['News','.nav-btn[data-view="outside"]','outside'],
   ['통화','.nav-btn[data-view="calls"]','calls'],
@@ -165,7 +166,7 @@ for(const width of [761,884,900,1023])test(`${width}px: 좁은 칸 메뉴 이름
     });
   });
   const names=rows.map(r=>r.name);
-  for(const want of ['일정','할 일','일기','공유 페이지','텔레그램 소식'])expect(names,want).toContain(want);
+  for(const want of ['일정','할 일','하루 기록','공유 페이지','텔레그램 소식'])expect(names,want).toContain(want);
   const bad=rows.filter(r=>!r.has||r.w<8||!r.below||!r.inside||r.clipped||r.lines>2);
   expect(bad,JSON.stringify(bad)).toEqual([]);
   expect(await overflow(page)).toBeNull();

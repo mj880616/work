@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pickBase, teamIsNewer, teamChanges, diffLines, diffCells, feedbackRecord, feedbackTrend, keptRate, compareTest, learnInput,
-  readExtras, mergeExtras, readRules, withRule, withRuleText, withoutRule, takeCandidate, dropCandidate, restoreRetired, CANDIDATES_MAX, withAnswer, readFeedback, cellIdOf, RULES_MAX, similarity} from '../app/weekly-feedback.mjs';
+  readExtras, mergeExtras, readRules, withRule, withRuleText, withoutRule, takeCandidate, dropCandidate, CANDIDATES_MAX, withAnswer, readFeedback, cellIdOf, RULES_MAX, similarity} from '../app/weekly-feedback.mjs';
 import {makeDraft, readDraft, merge3, keepDocsOnly, hasContent} from '../app/weekly-draft-store.js';
 
 const id = (key, section = 'summary', n = 0) => cellIdOf(section, key, n);
@@ -128,10 +128,8 @@ test('규칙 상태(WEEKLY-규칙합의): 옛 줄은 후보, [ㅇ]·[고쳐서 �
   assert.deepEqual(r.candidates, []);
   assert.deepEqual(r.retired, [{text:'후보 셋'}]);
   assert.equal(r.at, 'd');
-  r = restoreRetired(r, '후보 셋', 'e');
-  assert.deepEqual([r.candidates, r.retired], [[{text:'후보 셋'}], []]);
-  // 없는 후보는 그대로, 확정과 같은 후보·폐기는 읽을 때 빠짐.
-  assert.equal(takeCandidate(r, '없는 후보', 'f').at, 'e');
+  // 없는 후보는 그대로, 확정과 같은 후보·폐기는 읽을 때 빠짐. 폐기 줄을 다시 후보로 돌리는 길은 없다(명진 11/13 — 폐기 데이터는 그대로).
+  assert.equal(takeCandidate(r, '없는 후보', 'f').at, 'd');
   const mixed = readRules({v:2, at:'g', lines:[{text:'같은 줄', from:'added'}], candidates:[{text:'같은 줄'}, {text:'폐기 줄'}, {text:'새 후보'}], retired:[{text:'폐기 줄'}]});
   assert.deepEqual([mixed.lines.length, mixed.candidates.map(c => c.text), mixed.retired.map(c => c.text)], [1, ['새 후보'], ['폐기 줄']]);
   // 사람이 더한 줄과 같은 후보·폐기 줄은 확정으로 옮긴다.

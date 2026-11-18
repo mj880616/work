@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {pressName} from './helpers/area-org-picker.mjs';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
 // UI-PC팝업위치: on a PC (761px~) the shared choice sheet (choice-sheet.js) opens as a small list right by the button that was
 // pressed (anchored-popup.js), without dimming the screen; outside press and Esc close it, focus goes to the first choice and
 // back to the button. Phones keep the bottom sheet.
@@ -8,7 +8,7 @@ const quick=page=>page.locator('#homeView [data-home-quick]');
 const dialog=page=>page.getByRole('dialog');
 async function projectTrigger(page,width,height=844){
  await page.setViewportSize({width,height});await openHome(page);const q=quick(page);
- await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-input]').fill('QA');
+ await pickQuickMode(page,'task');await q.locator('[data-quick-input]').fill('QA');
  return q.locator('[data-quick-project]');
 }
 const near=async(trigger,sheet)=>{

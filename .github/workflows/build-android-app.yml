@@ -11,6 +11,7 @@ on:
       - 'app/app-icon.svg'
       - '.github/workflows/build-android-app.yml'
       - '.github/workflows/phone-app-release.yml'
+      - '.github/workflows/play-bundle.yml'
   pull_request:
     branches:
       - main
@@ -19,6 +20,7 @@ on:
       - 'app/app-icon.svg'
       - '.github/workflows/build-android-app.yml'
       - '.github/workflows/phone-app-release.yml'
+      - '.github/workflows/play-bundle.yml'
 
 # 같은 PR에 다시 push하면 옛 시험 실행을 취소한다(PR 밖 이벤트는 취소하지 않음).
 concurrency:
@@ -73,22 +75,27 @@ jobs:
           cache-provider: basic
 
       # 껍데기 규칙(내부 주소 판정, 로그인 복귀 값, 바 색, 새 버전 비교) 단위 시험을 먼저 돌린다.
+      # S62-34: 판(flavor)이 둘(github·play)이라 판마다 돈다. 하나가 실패해도 다른 판 결과까지 보고한다(--continue).
       - name: Unit tests
         id: debug_tests
-        run: gradle -p android-app :app:testDebugUnitTest --stacktrace
+        run: gradle -p android-app :app:testGithubDebugUnitTest :app:testPlayDebugUnitTest --continue --stacktrace
 
       - name: Report debug unit test failures
         if: failure() && steps.debug_tests.outcome == 'failure'
-        run: python3 android-app/scripts/report-unit-test-failures.py Debug
+        run: |
+          python3 android-app/scripts/report-unit-test-failures.py GithubDebug
+          python3 android-app/scripts/report-unit-test-failures.py PlayDebug
 
       # 릴리스 workflow(phone-app-release.yml)가 서명 전에 돌리는 시험과 같다. release에서만 깨지는 문제를 PR에서 미리 잡는다.
       - name: Unit tests (release)
         id: release_tests
-        run: gradle -p android-app :app:testReleaseUnitTest --stacktrace
+        run: gradle -p android-app :app:testGithubReleaseUnitTest :app:testPlayReleaseUnitTest --continue --stacktrace
 
       - name: Report release unit test failures
         if: failure() && steps.release_tests.outcome == 'failure'
-        run: python3 android-app/scripts/report-unit-test-failures.py Release
+        run: |
+          python3 android-app/scripts/report-unit-test-failures.py GithubRelease
+          python3 android-app/scripts/report-unit-test-failures.py PlayRelease
 
       - name: Build debug APK
         run: gradle -p android-app :app:assembleDebug --stacktrace
@@ -96,6 +103,18 @@ jobs:
       # 릴리스 workflow(phone-app-release.yml)가 서명하기 전 단계와 같은 빌드다. 서명·비밀값 없이 빌드만 확인한다.
       - name: Build release APK (unsigned, check only)
         run: gradle -p android-app :app:assembleRelease --stacktrace
+
+      # S62-34: 플레이 판 AAB(play-bundle.yml이 서명 전에 만드는 것과 같은 빌드)가 만들어지는지 본다. 서명·비밀값 없음.
+      - name: Build play release bundle (unsigned, check only)
+        run: gradle -p android-app :app:bundlePlayRelease --stacktrace
+
+      # S62-34: 병합된 매니페스트 확인. play 판은 스스로 업데이트·설치 요청·'모든 파일 접근' 권한이 없고 앱 ID가 com.nojoplus.app,
+      # github 판은 지금과 같다(kr.or.kptu.work, 권한 그대로).
+      - name: Check flavor manifests
+        run: |
+          python3 android-app/scripts/check-flavor-manifests.py "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
+            --github android-app/app/build/outputs/apk/github/release/app-github-release-unsigned.apk \
+            --play android-app/app/build/outputs/apk/play/release/app-play-release-unsigned.apk
 
       - name: Read app version
         id: version
@@ -108,5 +127,5 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web2-phone-${{ steps.version.outputs.name }}-debug
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          path: android-app/app/build/outputs/apk/github/debug/app-github-debug.apk
           if-no-files-found: error

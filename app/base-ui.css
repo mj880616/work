@@ -278,6 +278,8 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-select-opt[aria-selected="true"]{font-weight:700;color:var(--kptu-primary-ink,var(--kptu-ink))}
 .kptu-select-opt[aria-selected="true"]::after{content:"✓";flex:0 0 auto;font-weight:700}
 .kptu-select-opt[aria-disabled="true"]{color:var(--kptu-muted);cursor:default}
+/* ORG-자료칩드롭다운: 줄 오른쪽 끝 작은 건수(option data-count). 닫힌 상자에는 이름만. */
+.kptu-select-count{margin-left:auto;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400;font-variant-numeric:tabular-nums}
 .kptu-select-group{padding:6px 8px 2px;font-size:12px;color:var(--kptu-muted)}
 /* UI-작은알림 (2026-10-28): 브라우저 기본 알림창 대신 쓰는 공용 작은 알림(small-notice.js notify)·작은 확인창(askConfirm). 하단바 위, 톤다운. */
 .kptu-notice{position:fixed;z-index:110;left:50%;transform:translateX(-50%);top:var(--kptu-notice-top);bottom:auto;box-sizing:border-box;width:max-content;max-width:min(calc(100vw - 32px),520px);display:flex;align-items:center;flex-wrap:nowrap;gap:4px 10px;padding:7px 8px 7px 12px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:1.4;box-shadow:var(--kptu-shadow-float)}
@@ -387,6 +389,12 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
 .wait-fail .wait-retry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .wait-empty{margin:4px 0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-muted)}
 .wait-empty[hidden]{display:none}
+/* S62-16 연결 안내 공용 부품(connect-note.mjs): 안내 한 줄 → 그 아래 줄 왼쪽에 버튼 하나. 폭과 상관없이 늘 두 줄(HOME-연결안내한줄아래와 같은 모양). */
+.connect-note{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:4px 0}
+.connect-note-line{margin:0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-muted)}
+.connect-note-why{margin-left:4px;font-size:11px;color:var(--kptu-muted)}
+.connect-note-btns{display:flex;flex-wrap:wrap;gap:6px}
+.connect-note .connect-note-btn{width:auto;min-width:0;min-height:28px;padding:0 10px;font-size:var(--kptu-text-meta,12px);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.top-wait-run{animation:none;width:100%;opacity:.25}}
 /* UI-창잘림·끌어옮기기: 넓은 화면(761px~)에서 버튼 옆에 뜬 작은 창(data-anchor-side, anchored-popup.js)은 제목 줄을 잡고 끌어 옮긴다.
    제목 왼쪽 작은 손잡이(∷)와 손 모양 커서. 폰 아래 창에는 data-anchor-side가 없어 보이지 않는다. 제목 없는 ⋯ 메뉴 판은 손잡이 없음. */
@@ -420,9 +428,11 @@ html .img-slot[data-img-preview="shown"]:not([data-img-state="shown"]){backgroun
    아래 여백 당김(감싼 칸들의 아래 여백이 아래 바 자리보다 많으면 그만큼, 화면이 더 길어지지 않게)은 gesture-fill.js가 잰다.
    늘어난 칸 안의 줄은 위에 붙는다(격자 칸이 줄 사이를 벌리지 않게). */
 .gesture-fill{align-content:start}
-/* S53-5 NEWS-밑줄모으기: 원문에서 글을 고르면 하단바 위에 뜨는 줄(app/text-select-bar.js). 버튼은 공용 고르기 줄(.kptu-actbar-text). 저장한 밑줄은 노란 바탕(.hl-mark). */
+/* S53-5 NEWS-밑줄모으기: 원문에서 글을 고르면 뜨는 줄(S61-38부터 고른 글 바로 아래·위, 자리가 없을 때만 하단바 위)(app/text-select-bar.js). 버튼은 공용 고르기 줄(.kptu-actbar-text). 저장한 밑줄은 노란 바탕(.hl-mark). */
 .hl-bar{position:fixed;left:50%;transform:translateX(-50%);z-index:60;box-sizing:border-box;width:min(calc(100vw - 16px),480px);bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 8px);display:flex;align-items:center;gap:4px;padding:3px 6px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong,var(--kptu-border));border-radius:var(--kptu-radius-md,10px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float,none);font-size:13px}
 .hl-bar[hidden]{display:none}
+/* S61-38 UI-선택줄글아래: 고른 글 바로 아래(자리가 없으면 위)에 둘 때는 text-select-bar.js가 placeAnchored로 left·top·width를 직접 준다(가운데 맞춤 끔). */
+.hl-bar[data-anchor-side]{transform:none}
 .hl-bar-label{flex:0 0 auto;font-size:12px;color:var(--kptu-muted)}
 .hl-bar-close{flex:0 0 auto;min-height:28px;padding:0 6px;border:0;background:transparent;color:inherit;font:inherit;opacity:.7;cursor:pointer}
 mark.hl-mark{background:var(--kptu-warning-soft);color:inherit;border-radius:2px;cursor:pointer;-webkit-box-decoration-break:clone;box-decoration-break:clone}

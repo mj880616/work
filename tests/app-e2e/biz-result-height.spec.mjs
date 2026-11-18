@@ -24,7 +24,7 @@ async function open(page,width=1280,height=900){
   await mockApp(page,state());
   await page.route(`${SB}/rest/v1/app_weekly_exec_requests**`,route=>route.fulfill({status:200,contentType:'application/json',body:'[]'}));
   await installBusinessNowServer(page,{});
-  await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  await signIn(page,testOrigin+'/app/?view=reports&chip=meeting');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   const box=page.locator('#meetingsView #bizWeekBox');
   await expect(box).toBeVisible();
   return box;

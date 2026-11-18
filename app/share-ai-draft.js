@@ -23,6 +23,7 @@ export const SHARE_AI_TEXT = Object.freeze({
   share_no_source:'선택한 기록에 초안에 쓸 글이 없어요.',
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요.',
   monthly_limit:'이번 달 AI 한도에 닿았어요.',
+  ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
 });
 let dialog = null, state = null;
 

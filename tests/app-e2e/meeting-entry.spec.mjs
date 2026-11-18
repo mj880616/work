@@ -13,6 +13,7 @@ import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {reportFilterSelect,reportFilterPicked,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -62,7 +63,7 @@ async function signIn(page){
   // BIZ-주간표이번주(11/09): 사업 보고 목록은 늘 이번 주로 열린다. 가짜 기본 회의(9.17)가 든 주를 '이번 주'로 둔다(시계만 고정, 타이머는 그대로).
   await page.clock.setFixedTime(new Date(PAGE_NOW));
   await mock(page);
-  const returnTo=`${BASE}/app/?view=meetings`;
+  const returnTo=`${BASE}/app/?view=meetings&chip=meeting`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
   await signInWithSession(page,'meeting@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
@@ -73,7 +74,7 @@ async function fillMeetingName(page,name){const select=page.locator('#meetingNam
 
 test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await signIn(page);
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   for(const id of ['meetingTitle','meetingRoundNo','meetingAt','meetingProject','meetingTranscript','meetingNotes','meetingFiles','meetingActionList'])await expect(page.locator('#'+id)).toBeAttached();
   await expect(page.locator('#meetingSeriesName')).toHaveCount(0);
@@ -122,7 +123,7 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:{id:'google-new'}})});
   });
 
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await fillMeetingName(page,'궤도협의회 집행위원회');
   await page.locator('#meetingRoundNo').fill('8');
   await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
@@ -195,7 +196,7 @@ test('repeated meeting save submits one meeting and one Google follow-up',async(
     if(new URL(route.request().url()).searchParams.get('action')==='create')taskCreates++;
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:{id:'google-once'}})});
   });
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await fillMeetingName(page,'중복 방지 회의');
   await fillDateTime(page,'#meetingAt','2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
@@ -224,7 +225,7 @@ test('meeting follow-ups without a picked day are due today, picked days stay',a
     if(new URL(route.request().url()).searchParams.get('action')==='create')creates.push(route.request().postDataJSON());
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:{id:'google-due-'+creates.length}})});
   });
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await fillMeetingName(page,'기한 회의');
   await fillDateTime(page,'#meetingAt','2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
@@ -251,7 +252,7 @@ test('failed meeting create restores its save button for a retry',async({page})=
     }
     return route.fulfill({status:200,contentType:'application/json',body:'[]'});
   });
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await fillMeetingName(page,'재시도 회의');
   await fillDateTime(page,'#meetingAt','2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
@@ -272,7 +273,7 @@ test('a Google follow-up failure leaves the saved meeting available without anot
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(stored?[stored]:[meeting])});
   });
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'Google 저장 실패'})}));
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await fillMeetingName(page,'새 회의');
   await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
   await page.locator('#meetingTranscript').fill('회의 결과');
@@ -301,7 +302,7 @@ test('meeting material upload attempts every selected file and reports partial f
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,document:{id:'00000000-0000-4000-8000-00000000000'+uploadCount,meeting_id:'meeting-files'}})});
   });
 
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await fillMeetingName(page,'자료 첨부 회의');
   await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
   await page.locator('#meetingTranscript').fill('회의 결과 원문');
@@ -414,7 +415,7 @@ test('meeting names keep colors after reload and after older meetings are added'
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(savedRows)});
   });
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await page.locator('#meetingNameSelect').selectOption({label:'궤도협의회'});
   await fillDateTime(page,'#meetingAt','2026-10-03T10:00');
   await page.locator('#meetingTranscript').fill('모의 결과');
@@ -450,8 +451,10 @@ test('new meeting suggests the next round from loaded names without extra reques
   // BIZ-위쪽정돈(11/09): '이번 주 주간보고' 칸이 늘 펼쳐져 화면을 열 때 읽기를 한다 — 그 읽기가 끝난 뒤부터 [+]가 요청을 안 하는지 센다.
   await expect(page.locator('#bizWeekBox [data-bp-paper]')).toContainText('1) 사업요약표');
   let requests=0;const seen=[];
-  page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url())){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
-  await page.locator('#newMeetingBtn').click();
+  // S62-02: [+]는 이제 종류 고르기 창을 거쳐 열리므로, 원드라이브 상태가 준비된 뒤에 열리면 '그 시각 사진' 줄이 그달 별표(app_diary_stars)를 읽는다.
+  // 이 시험은 회의명·차수 추천이 요청을 더 하지 않는지만 본다 — 사진 줄의 별표 읽기는 세지 않는다.
+  page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url())&&!request.url().includes('/rest/v1/app_diary_stars?')){requests++;seen.push(request.method()+' '+request.url().slice(SB.length,SB.length+80))}});
+  await addReport(page);
   expect(requests,seen.join(' | ')).toBe(0);
   const title=page.locator('#meetingTitle'),round=page.locator('#meetingRoundNo'),select=page.locator('#meetingNameSelect');
   await select.selectOption('Alpha  Team');
@@ -473,7 +476,7 @@ test('new meeting suggests the next round from loaded names without extra reques
   await title.fill('alpha team');
   await expect(round).toHaveValue('');
   await page.locator('#meetingModal [data-close]').click();
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await select.selectOption('Alpha  Team');
   await expect(round).toHaveValue('8');
   expect(requests,seen.join(" | ")).toBe(0);
@@ -490,7 +493,7 @@ test('name choices group whitespace variants by latest spelling and suggest thei
   await showMeetings(page,rows);
   expect(await stripe(page.locator('[data-mrd-meeting="recent"]'))).toBe(await stripe(page.locator('[data-mrd-meeting="old"]')));
   let requests=0;page.on('request',request=>{if(request.url().startsWith(SB)&&!startupRequest(request.url()))requests++});
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingNameSelect option')).toHaveText(['이름 선택','주간 회의','월간회의','기타(직접 입력)']);
   await page.locator('#meetingNameSelect').selectOption({label:'주간 회의'});
   await expect(page.locator('#meetingRoundNo')).toHaveValue('8');
@@ -501,7 +504,7 @@ test('name choices group whitespace variants by latest spelling and suggest thei
 test('custom name match offers the recent spelling and choosing it fills the round',async({page})=>{
   await signIn(page);
   await showMeetings(page,[{...meeting,series_name:'주간 회의',round_no:3}]);
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await page.locator('#meetingNameSelect').selectOption('__other__');
   await page.locator('#meetingTitle').fill(' 주간회의 ');
   await expect(page.locator('#meetingNameMatch')).toContainText('같은 이름이 있습니다: 주간 회의');
@@ -512,7 +515,7 @@ test('custom name match offers the recent spelling and choosing it fills the rou
 
 test('empty meeting list opens a visible custom name input',async({page})=>{
   await signIn(page);await showMeetings(page,[]);
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingTitle')).toBeVisible();
 });
 

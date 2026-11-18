@@ -173,7 +173,7 @@ export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리
 // 작은 확인창. anchor 근처에 뜨고(없으면 화면 가운데 아래), 하단바 위로 자리를 잡는다.
 let ask=null;
 // 확인창·고르기창 공용 틀: build(panel, finish)가 안을 채우고 처음 누를 곳을 돌려준다. 밖 누르기·Esc·뒤로가기 = finish(none).
-function askPanel(anchor,{doc,none,maxHeight=220,build}){
+function askPanel(anchor,{doc,none,maxHeight=220,build,history:own=true}){
   if(!doc)return Promise.resolve(none);
   ask?.finish(ask.none);
   return new Promise(resolve=>{
@@ -187,7 +187,7 @@ function askPanel(anchor,{doc,none,maxHeight=220,build}){
       if(back?.isConnected)back.focus({preventScroll:true});
       // 자기 기록 칸을 걷어 낼 때는 그 뒤로가기(popstate)가 끝난 뒤에 답을 돌려준다: [예] 바로 다음에 화면이 겹을 닫거나
       // 열어도(history.go·pushState) 뒤로가기가 두 번 겹치지 않게. popstate가 오지 않는 브라우저를 위해 0.4초 뒤에는 그냥 돌려준다.
-      if(!fromBack&&history.state?.kptuAsk===state.kptuAsk){
+      if(own&&!fromBack&&history.state?.kptuAsk===state.kptuAsk){
         let settled=false;const settle=()=>{if(settled)return;settled=true;globalThis.removeEventListener?.('popstate',settle);clearTimeout(timer);resolve(value)};
         const timer=setTimeout(settle,400);globalThis.addEventListener?.('popstate',settle);history.back();return;
       }
@@ -205,11 +205,12 @@ function askPanel(anchor,{doc,none,maxHeight=220,build}){
       if(r.bottom>limit)Object.assign(panel.style,{top:Math.max(8,limit-r.height)+'px',bottom:'auto'});
     };
     place();
-    state={kptuAsk:++askSeq};history.pushState({...(history.state||{}),...state},'',location.href);
+    // history:false = 기록 칸을 쓰지 않는다(라우터의 화면 떠나기 물음: 앞뒤 기록을 그대로 두어야 같은 칸으로 다시 갈 수 있다).
+    state={kptuAsk:++askSeq};if(own)history.pushState({...(history.state||{}),...state},'',location.href);
     onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();finish(none)}};
     onOutside=e=>{if(!panel.contains(e.target))finish(none)};
     onPop=e=>{if(e.state?.kptuAsk!==state.kptuAsk)finish(none,true)};
-    doc.addEventListener('keydown',onKey,true);doc.addEventListener('pointerdown',onOutside,true);globalThis.addEventListener?.('popstate',onPop);
+    doc.addEventListener('keydown',onKey,true);doc.addEventListener('pointerdown',onOutside,true);if(own)globalThis.addEventListener?.('popstate',onPop);
     ask={finish,none};
     first?.focus({preventScroll:true});
   });
@@ -222,8 +223,8 @@ function askCheckRow(doc,panel,check,sync){
   box.addEventListener('change',()=>{check.checked=box.checked;sync()});
 }
 // needCheck = 체크해야만 [ok]를 누를 수 있음(지울 것이 체크한 것뿐일 때).
-export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false,note='',check=null,needCheck=false,doc=globalThis.document}={}){
-  return askPanel(anchor,{doc,none:false,build:(panel,finish)=>{
+export function askConfirm(anchor,{text,ok='확인',cancel='취소',danger=false,note='',check=null,needCheck=false,history=true,doc=globalThis.document}={}){
+  return askPanel(anchor,{doc,none:false,history,build:(panel,finish)=>{
     const msg=doc.createElement('p');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);panel.append(msg);
     if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
     const row=doc.createElement('div');row.className='kptu-ask-actions';

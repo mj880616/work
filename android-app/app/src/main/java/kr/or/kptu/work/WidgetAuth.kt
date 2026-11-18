@@ -92,7 +92,7 @@ object WidgetRules {
     /** 단계 ①과 같은 로그인 주소(돌아올 주소가 같아 Supabase 허용 주소를 늘리지 않는다). */
     val LOGIN_URL: String =
         "$SUPABASE/auth/v1/authorize?provider=google&redirect_to=" +
-            URLEncoder.encode(ShellRules.HOME + "native-callback.html?native=android", "UTF-8")
+            URLEncoder.encode(ShellRules.HOME + "native-callback.html?native=" + BuildConfig.LOGIN_RETURN, "UTF-8")
 
     private val HANDOFF_VALUE = Regex("^[A-Za-z0-9_-]{16,32768}$")
     private val UUID = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)

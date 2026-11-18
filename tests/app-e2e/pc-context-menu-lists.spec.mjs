@@ -64,7 +64,7 @@ function meetingState(){
 }
 test('사업 보고 1280: 목록 줄 우클릭 → 그 보고를 고르고 그 보고의 ⋯ 메뉴(다른 보고 메뉴가 아님)',async({page})=>{
   await page.setViewportSize({width:1280,height:900});await mockApp(page,meetingState());
-  await signIn(page,testOrigin+'/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  await signIn(page,testOrigin+'/app/?view=meetings&chip=meeting');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await showAllReportWeeks(page);
   await page.locator('#meetingList [data-meeting-kind="궤도협의회"]').click();
   await page.locator('#meetingList [data-meeting-round="rail-2"]').click();

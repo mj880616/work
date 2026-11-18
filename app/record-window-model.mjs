@@ -8,7 +8,6 @@
 // - 확정 사진(app_report_snapshots)이 있는 주는 사진 줄 그대로 + 사진 뒤 새로 생긴 줄을 흐린 '확정 뒤 추가'로.
 // - 전환 주(RECORD_ONE_FROM) 이전 주는 옛 주별 조직보고 표를 읽기 전용으로 보인다(화면 쪽, record-window-view.js).
 import {dayText, validDay, shiftWeek, mondayOf} from './weekly-org-lines-model.mjs';
-import {linkedOrgs, titleOrg} from './pre-meeting-sheet-model.mjs';
 import {isOrgRefTitle, cleanTitle} from './calendar-ref-model.mjs';
 import {oneLine, recordOneLine, plainLines} from './record-oneline.mjs';
 
@@ -32,6 +31,26 @@ const seoulDay = value => { const t = Date.parse(String(value ?? '')); return Nu
 export const cleanBody = text => String(text ?? '').replace(/[\p{Cc}\u200b-\u200f\u202a-\u202e\u2060-\u2069]/gu, ' ').replace(/\s+/g, ' ').trim();
 const compact = text => String(text ?? '').normalize('NFC').replace(/[\s·‧․.,()[\]{}<>「」『』'"“”‘’\-–_/~]/g, '').toLowerCase();
 export const lineId = (kind, key) => `${kind}:${key}`;
+
+// 일정에 붙인 조직 연결(kptu_suborg_ids) 중 내 조직 목록에 있는 것 전부(연결 순서). S62-27: 교섭·회의 전 한 장을 지우며 그 모델에서 이 파일로 옮겼다.
+export function linkedOrgs(event, orgs) {
+  const list = Array.isArray(orgs) ? orgs : [];
+  const out = [];
+  for (const raw of Array.isArray(event?.organizationIds) ? event.organizationIds : []) {
+    const id = String(raw).toLowerCase(), hit = list.find(o => String(o?.id ?? '').toLowerCase() === id);
+    if (hit && !out.includes(hit)) out.push(hit);
+  }
+  return out;
+}
+const cleanName = s => String(s ?? '').replace(/[\s·.,()[\]]/g, '');
+// 제목에 조직 이름·다른 이름(2글자 이상, 띄어쓰기·문장부호 무시)이 정확히 한 조직만 맞으면 그 조직, 아니면 null.
+export function titleOrg(event, orgs) {
+  const list = Array.isArray(orgs) ? orgs : [];
+  const title = cleanName(event?.title);
+  if (!title) return null;
+  const hits = list.filter(o => [o?.name, ...(Array.isArray(o?.aliases) ? o.aliases : [])].some(n => cleanName(n).length >= 2 && title.includes(cleanName(n))));
+  return hits.length === 1 ? hits[0] : null;
+}
 
 export const isOldWeek = week => validDay(week) && week < RECORD_ONE_FROM;
 // 조직 창 [from, to)(to 제외).
@@ -189,14 +208,25 @@ export function checkReportBody(text) {
   if ([...v].length > BODY_MAX || /[\u0000-\u0009\u000b-\u001f\u007f]/.test(v)) return {ok: false, field: 'body'};
   return {ok: true, value: v};
 }
-// 새 기록 검사: 날짜(필수)·끝 날(선택, 시작일과 같거나 뒤)·글.
-export function checkRecord(d) {
-  const body = String(d?.body ?? '').trim();
+// ORG-기록입력날짜(11/14): 새 기록 날짜 칸 = 수정 칸과 같은 [하루|기간|없음]. d = {mode?, day, end_day}(mode가 없으면 끝 날이 있을 때 기간).
+// 없음 = 쓴 날(today)에 두고 none:true(서버에 day_none 칸이 있을 때만, noneOn). 돌려주는 값 {ok:false, field} | {ok:true, value:{day, end_day[, none]}}.
+export function checkNewDay(d, {noneOn = false, today = ''} = {}) {
+  const mode = DAY_MODES.includes(d?.mode) ? d.mode : d?.end_day ? 'range' : 'day';
+  if (mode === 'none') return noneOn && validDay(today) ? {ok: true, value: {day: today, end_day: null, none: true}} : {ok: false, field: 'mode'};
   if (!validDay(d?.day)) return {ok: false, field: 'day'};
-  if (d?.end_day && (!validDay(d.end_day) || d.end_day < d.day)) return {ok: false, field: 'end_day'};
-  if (!body || [...body].length > RECORD_MAX) return {ok: false, field: 'body'};
-  return {ok: true, value: {day: d.day, end_day: d.end_day && d.end_day > d.day ? d.end_day : null, body}};
+  if (mode === 'range' && (!validDay(d?.end_day) || d.end_day < d.day)) return {ok: false, field: 'end_day'};
+  return {ok: true, value: {day: d.day, end_day: mode === 'range' && d.end_day > d.day ? d.end_day : null}};
 }
+// 새 기록 검사: 날짜(checkNewDay)·글.
+export function checkRecord(d, opts = {}) {
+  const body = String(d?.body ?? '').trim();
+  const day = checkNewDay(d, opts);
+  if (!day.ok) return day;
+  if (!body || [...body].length > RECORD_MAX) return {ok: false, field: 'body'};
+  return {ok: true, value: {...day.value, body}};
+}
+// 새 기록의 서버 칸(occurred_at·end_day·day_none) — saveOrganizationUpdate에 그대로 넘긴다.
+export const newRecordFields = v => ({occurred_at: occurredAt(v.day), end_day: v.end_day || null, ...(v.none ? {day_none: true} : {})});
 // 기록 날짜 → 저장 시각(서울 정오, 날짜 경계 흔들림 없게 — 2-2).
 export const occurredAt = day => `${day}T12:00:00+09:00`;
 

@@ -21,7 +21,7 @@ test('text: count, capped at 99+, nothing for zero',()=>{
 
 test('notice line: owner RLS reads only, no Edge call, started from the loader without waiting',()=>{
   const src=readFileSync(new URL('../app/notice-outside.js',import.meta.url),'utf8');
-  assert.match(src,/app_outside_seen\?workspace_id=eq\./);assert.match(src,/app_outside_posts\?workspace_id=eq\./);
+  assert.match(src,/app_outside_seen\?workspace_id=eq\./);assert.match(src,/app_outside_articles\?fetched_at=gt\./,'NEWS-모두에게열기: shared posts (everyone sees the same list)');assert.doesNotMatch(src,/app_outside_posts/);
   assert.doesNotMatch(src,/functions\/v1\//,'no Edge call (phone-push is a later step)');
   const loader=readFileSync(new URL('../app/loader-v2.js',import.meta.url),'utf8');
   assert.match(loader,/import\('\.\/notice-outside\.js'\)\.then\(m=>m\.startOutsideNotice\(\)\)/);

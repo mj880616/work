@@ -54,6 +54,32 @@ export function zoomControl() {
   return {node, paint, destroy: () => globalThis.removeEventListener(NOTE_ZOOM_EVENT, paint)};
 }
 
+// NOTE-배율자리(S61-45, 시안 B): 노트 읽기 머리 줄용. 폰 폭(~599px)에서는 글 크기 아이콘(큰 '가'·작은 '가') 한 칸만 보이고,
+// 누르면 그 아래로 [−] 100% [+]가 펼쳐진다. 다시 누르기·바깥 누르기·Esc면 접힌다. 600px 이상(폴드 펼침·PC)은 아이콘 없이 묶음 그대로(CSS).
+// 펼침 상태는 이 단추 하나가 갖는다(aria-expanded + 감싼 칸의 nz-open). 배율 저장은 위와 같은 서버 화면 기억.
+export function zoomFoldControl() {
+  const wrap = document.createElement('span');
+  wrap.className = 'nz-fold'; wrap.dataset.noteZoomFold = '';
+  const zoom = zoomControl();
+  const id = 'nzPop' + Math.random().toString(36).slice(2, 8);
+  zoom.node.id = id;
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'basket-icon-button nz-fold-btn'; btn.dataset.noteZoomToggle = '';
+  btn.setAttribute('aria-label', '글 크기'); btn.title = '글 크기';
+  btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', id);
+  btn.innerHTML = '<span class="nz-fz" aria-hidden="true"><b>가</b><i>가</i></span>';
+  wrap.append(btn, zoom.node);
+  const set = open => { wrap.classList.toggle('nz-open', open); btn.setAttribute('aria-expanded', String(open)); };
+  const isOpen = () => wrap.classList.contains('nz-open');
+  btn.addEventListener('click', () => set(!isOpen()));
+  const outside = e => { if (isOpen() && !wrap.contains(e.target)) set(false); };
+  // 펼친 묶음만 접는다 — 같은 Esc가 노트 닫기(뒤로)까지 가지 않게 여기서 멈춘다.
+  const esc = e => { if (e.key === 'Escape' && isOpen()) { e.preventDefault(); e.stopPropagation(); set(false); btn.focus({preventScroll: true}); } };
+  document.addEventListener('pointerdown', outside, true);
+  wrap.addEventListener('keydown', esc);
+  return {node: wrap, paint: zoom.paint, close: () => set(false), destroy: () => { zoom.destroy(); document.removeEventListener('pointerdown', outside, true); }};
+}
+
 // PC: 노트 칸 위에서만 Ctrl(맥 ⌘)+휠·Ctrl+(+ − 0)이 이 배율을 바꾼다(앱 전체 확대 대신). 칸 밖에서는 브라우저 확대 그대로.
 // 칸막이(iframe) 위의 휠은 칸막이 문서로 가므로 여기서 받지 못한다(그 자리는 브라우저 확대).
 export function bindZoomKeys(el, {active = () => true} = {}) {

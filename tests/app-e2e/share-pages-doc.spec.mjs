@@ -128,6 +128,8 @@ test('[취소] puts the 글 block back as it was; a moved block keeps what was t
   const editor = page.locator('[data-sp-editor]');
   await editor.getByRole('button', {name:'1번째 블록 글 수정', exact:true}).click();
   const box = editor.getByRole('textbox', {name:'1번째 블록 글', exact:true});
+  await expect(box).toBeVisible();
+  await expect(editor.locator('kptu-wait')).toHaveCount(0); // S62-03b: 블록 글 칸도 편집기가 뜨면 기다림 막대 0개
   await expect(box).toBeFocused();
   await page.keyboard.press('End');
   await page.keyboard.type(' 더함');

@@ -34,8 +34,8 @@ test('C5 정리함 [다시 찾기]는 거르기 칩과 다른 글자 버튼(테�
 
 test('C6 홈 ⋯는 AI 사용량 제목 줄 끝 자리로(폰·중간 폭), 그 줄은 자리만 둔다', () => {
   assert.match(read('ai-usage-line.js'), /<div class="aiu-top" data-aiu-top>\$\{head\}<\/div>/);
-  // HOME-업무일지홈: 홈 ⋯(홈 편집)는 옛 홈 칸 화면과 함께 없앴고, AI 사용량 줄은 내 프로필 '수집·사용량' 칸에 있다.
-  assert.match(read('profile-status.js'), /mountAiUsageLine\(panel\.querySelector\('\[data-ps-ai-usage\]'\)\)/);
+  // HOME-업무일지홈: 홈 ⋯(홈 편집)는 옛 홈 칸 화면과 함께 없앴고, AI 사용량 줄은 내 프로필 '사용 현황' 칸에 있다(MULTI-다른담당자맞춤 ⑥).
+  assert.match(read('profile-status.js'), /mountAiUsageLine\(parts\[2\], \{onPaint: \(\) => sync\(\)\}\)/);
 });
 
 test('C9 → HOME-업무일지홈: 홈·업무일지 챙길 것 상자(✎ 고치기 칸)는 화면째 없앴다 — 후보 줄은 정리함 하나', () => {

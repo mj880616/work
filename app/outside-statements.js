@@ -3,12 +3,12 @@ import {createAnchoredMenu, anyMenuOpen, whenMenusClosed} from './anchored-menu.
 import {claimedSince} from './row-swipe.js';
 import {createOutsideSearch} from './outside-search.js';
 import {createMovePicker} from './library-move-picker.js';
-import {GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, ownSourceRows, groupPosts, postView, sourceState, feedWhen} from './outside-statements-model.mjs';
+import {GROUPS, PAGE_SIZE, normalizeCatalog, enabledKeys, ownSourceRows, groupPosts, postView, sourceState, feedWhen, intlSplitOn, splitIntl, INTL_LABEL} from './outside-statements-model.mjs';
 import {viewPrefs} from './view-prefs.js';
 import {mountSplitResize} from './split-resize.js';
-import {hasNewsItem, takeNewsTab} from './news-request.mjs';
+import {hasNewsItem, takeNewsTab, takeNewsOpen} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
-import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed} from './now-model.mjs';
+import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, tabForItem} from './now-model.mjs';
 import {outsideColor, outsideBar, newsColor, newsBar, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
 import {rowHtml, dayHtml, runsHtml} from './news-row.mjs';
 import {foldRuns, liftRelated, LIFT_LABEL} from './news-fold.mjs';
@@ -17,20 +17,30 @@ import {createNowDetail} from './now-detail.js';
 import {createNowSaved} from './now-saved.js';
 import {createNowHighlights} from './now-highlights.js';
 import {notify} from './small-notice.js';
+import {openTelegramItem} from './source-open.js';
 import {createNowInterests} from './now-interests.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {readOutsideMarks} from './now-marks.js';
+import {readOutsideArticles, readOutsideOne, readNewsArticles, readNewsOne, findNewsArticles, findOutsideArticles} from './feed-shared.js';
+import {createFind} from './news-find.js';
+import {FIND_LIMIT, FIND_EMPTY, FIND_SHORT, findTab, sinceIso, mergeFound} from './news-find-model.mjs';
+import {chevHtml} from './fold-chevron.mjs';
+import {newsPage} from './feed-shared-model.mjs';
 import {fillGestureArea} from './gesture-fill.js';
+import {sortByName} from './name-order.mjs';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
 // - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
 //   좌우 밀기 = 탭 이동(글 줄 위 밀기는 숨기기·보관이 갖는다). 고른 탭은 서버 view_prefs.news_tab. news_tab이 없으면 옛 now_tab을 바꿔 한 번 옮긴다(옛 값은 지우지 않음).
-// - 위 줄: 찾기 칸 하나 'News 찾기 — 제목·문장'(제목은 지금 보이는 목록에서 바로 거르고, Enter = 문장 찾기 app_outside_search·expand — 결과 칸은 outside-search.js)
+// - 위 줄: 찾기 칸 하나 'News 찾기 — 제목·문장'. 탭마다 한 길(S63-11): [전체]·[언론]은 서버 찾기(news-find.js — 최근 30일 + 보관한 글의 제목·한국어 제목·요약),
+//   [사회운동]·[보관]·[밑줄]은 지금 보이는 목록에서 제목 거르기 + Enter = 문장 찾기(app_outside_search·expand — 결과 칸은 outside-search.js)
 //   + [매체: 전체 ▾](자료실 분류 창과 같은 부품 library-move-picker.js, 묶음 → 매체, 화면 메모리만) + ⋯(지금 채우기·단체 켜고 끄기·매체 켜고 끄기·키워드·별표 폴더·관심 주제).
 // - 줄: 날짜 묶음 → 흰 상자 안 줄(news-row.mjs). 매체 색 띠·같은 색 이름·분류 꼬리표·시각·별표(news-colors.mjs). 안 읽은 글 굵게·읽은 글 흐리게(news-reads.js, 상세를 열면 읽음).
 // - 각 탭 칸 안: [전체]·[사회운동] 이 모듈, [언론] news-clipping.js, [보관] now-saved.js, [밑줄] now-highlights.js(S53-5 — 원문에서 고른 글 모아보기, 마지막 탭으로 기억하지 않음). 상세 칸은 now-detail.js 하나(요약 · 시사점 · 원문 전체, S51-14 P4c — 연 글은 주소 ?item=). 관심 주제 칸은 now-interests.js.
 // - 단체 켜고 끄기 칸: 카탈로그(서버 outside-feed ?action=catalog) 단체마다 켬/끔(서버 표 app_outside_sources) + 마지막으로 읽은 시각·실패 표시. 뒤로가기 한 번 = 목록(KPTURouter.layer).
 // - 들어오면 본 시각(app_outside_seen, 알림 줄 '새 성명 n건'의 기준)을 지금 시각으로 바꿔 둔다(서버 저장). 줄의 '새' 표시는 읽음 굵기(news-reads.js)로 바뀌었다.
+// - S63-11: [사회운동]은 국내 단체 글 먼저, 국제(외국 매체) 글은 아래 접힌 '국제' 묶음(펼침은 화면 메모리 — 새 서버 기억 칸은 DB 검사 변경이 필요해 이번엔 안 씀).
+//   PC 두 칸의 오른쪽은 지금 탭 목록에 있는 글만 — 탭을 옮겨 그 탭 목록에 없는 글이면 비우고 한 줄 안내(data-detail="empty"). 주소 ?item= 글은 그 글의 탭으로 맞춘다.
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 글 제목·본문을 남기지 않는다. 기기 저장 없음.
 
 (() => {
@@ -76,8 +86,8 @@ const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const fresh = () => ({scope: '', catalog: null, catalogFailed: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   posts: [], postsLoaded: false, postsFailed: false, end: true, more: false, seenRead: false, media: MEDIA_ALL,
-  news: [], newsLoaded: false, newsFailed: false, newsEnd: true, newsMeta: {catalog: [], enabled: []},
-  query: '', searching: false, saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map(), tab: '', tabSet: false, marks: new Map()});
+  news: [], newsRaw: 0, newsLoaded: false, newsFailed: false, newsEnd: true, newsMeta: {catalog: [], enabled: []},
+  query: '', searching: false, saving: new Set(), saveFailed: '', mode: 'list', reading: new Set(), readNote: new Map(), tab: '', tabSet: false, marks: new Map(), intlOpen: false});
 let state = fresh(), loadSeq = 0, newsSeq = 0, layer = null;
 
 // ---------- 서버 읽기·쓰기(모두 작업공간 소유자 RLS · Edge는 사용자 로그인 확인) ----------
@@ -88,16 +98,17 @@ async function readCatalog() {
 }
 // 뉴스 클리핑 매체(news- 키)는 같은 표에 있지만 이 화면 단체가 아니다 → 서버에서 빼고 읽는다(화면 계산도 ownSourceRows로 한 번 더).
 const readSources = w => rt().api(`/rest/v1/app_outside_sources?workspace_id=eq.${q(w)}&source_key=not.like.news-*&select=${SOURCE_COLS}`, {singleFlight: false});
+// NEWS-모두에게열기 ③: 사회운동 글·언론 기사는 공용 표(모두 같은 목록), 별표·보관·숨김·읽음은 내 표시(feed-shared.js 한 길).
 function readPosts(w, keys, offset) {
   if (keys && !keys.length) return Promise.resolve([]);
   const filter = keys ? `&source_key=in.(${keys.map(q).join(',')})` : '';
-  return rt().api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}${filter}&select=${POST_COLS}&order=published_at.desc.nullslast,fetched_at.desc,id.desc&limit=${PAGE_SIZE + 1}&offset=${offset}`, {singleFlight: false});
+  return readOutsideArticles({cols: POST_COLS, filter, order: 'published_at.desc.nullslast,fetched_at.desc,id.desc', limit: PAGE_SIZE + 1, offset});
 }
-// [전체] 탭의 언론 기사(지운 줄 hidden_at 빼고, 최신 먼저). 매체를 고르면 그 news- 키만.
-function readNews(w, keys, offset) {
-  if (keys && !keys.length) return Promise.resolve([]);
+// [전체] 탭의 언론 기사(내가 숨긴 것 빼고, 최신 먼저). 매체를 고르면 그 news- 키만. 돌려줌: {rows, raw, end}(newsPage).
+async function readNews(w, keys, offset) {
+  if (keys && !keys.length) return {rows: [], raw: 0, end: true};
   const filter = keys ? `&source_key=in.(${keys.map(q).join(',')})` : '';
-  return rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&hidden_at=is.null${filter}&select=${NEWS_COLS}&order=created_at.desc,id.desc&limit=${PAGE_SIZE + 1}&offset=${offset}`, {singleFlight: false});
+  return newsPage(await readNewsArticles({cols: NEWS_COLS, filter, order: 'created_at.desc,id.desc', limit: PAGE_SIZE + 1, offset}), PAGE_SIZE);
 }
 // 바로 읽기(OUTSIDE-이름·바로읽기): 켠 단체 하나를 서버가 지금 한 번 읽는다(사용자 로그인·owner·켬 확인·하루 횟수는 서버).
 const readNowApi = key => rt().api('/functions/v1/outside-feed?action=read_now', {method: 'POST', body: {source: key}, singleFlight: false, timeoutMs: 120000});
@@ -127,6 +138,24 @@ const outsideKeys = () => outsideKeysOf(state.media, state.catalog || [], enable
 const newsKeys = () => newsKeysOf(state.media, newsCatalog());
 const dotOf = (kind, id) => (kind === 's' ? outsideBar(id, state.catalog || []) : kind === 'n' ? newsBar({source_key: id}, newsCatalog()) : kind === 'g' ? colorVar(familyOfGroup(id), 0) : colorVar('press', id === 'foreign' ? 1 : 0));
 const search = createOutsideSearch({box: $('[data-os-search]'), nameOf, workspaceOf, keysOf: () => outsideKeys()});
+// S63-11 [전체] 서버 찾기(위 찾기 칸): 언론 기사 + 사회운동 글, 최근 30일 + 보관한 글(기간 없음)의 제목·한국어 제목·요약. 고른 매체가 있으면 그것만.
+const NO_FOUND = Object.freeze({recent: [], kept: []});
+const allFind = createFind({
+  run: async words => {
+    const since = sinceIso(Date.now()), nk = newsKeys(), ok = outsideKeys();
+    const [n, p] = await Promise.all([
+      nk && !nk.length ? NO_FOUND : findNewsArticles(words, NEWS_COLS, {since, limit: FIND_LIMIT, keys: nk}),
+      ok && !ok.length ? NO_FOUND : findOutsideArticles(words, POST_COLS, {since, limit: FIND_LIMIT, keys: ok}),
+    ]);
+    const news = mergeFound(n.recent, n.kept, r => Date.parse(r?.created_at || ''));
+    const posts = mergeFound(p.recent, p.kept, r => Date.parse(r?.published_at || r?.fetched_at || ''));
+    void ensureReads([...news.map(r => ({type: 'news', id: r.id})), ...posts.map(r => ({type: 'outside', id: r.id}))]);
+    return {news, posts};
+  },
+  changed: () => { if (state.mode === 'list' && state.tab === 'all') paintList(); },
+});
+const findNews = () => allFind.get().result?.news || [];
+const findPosts = () => allFind.get().result?.posts || [];
 let mediaPicker = null;
 const picker = () => (mediaPicker ||= createMovePicker({esc, id: 'nwMediaPicker', label: '매체 선택', findLabel: '매체 찾기', foot: false, currentTag: '선택됨', folderIcons: false}));
 function paintMediaButton() {
@@ -153,7 +182,8 @@ function setMedia(id) {
 function reloadLists() {
   if (state.tab === 'media') window.KPTUNews?.refresh?.();
   else if (state.tab === 'movement' || state.tab === 'all') { loadPosts(); if (state.tab === 'all') loadNews(); }
-  if (state.query && state.searching) search.run(state.query);
+  if (state.query && state.searching && !findTab(state.tab)) search.run(state.query);
+  if (state.tab === 'all' && allFind.active()) allFind.again();
 }
 
 // ---------- 상세·보관·관심 주제(공용 부품, 각 칸의 그리기 주인) ----------
@@ -194,6 +224,23 @@ const folds = new Set();
 function foldedHtml(entries, rowFn) {
   return runsHtml(foldRuns(entries), {rowOf: rowFn, keyOf: e => itemKey({type: e.type, id: e.row.id}), nameOf: e => (e.type === 'news' ? itemView(e.row).publisher : ''), isOpen: key => folds.has(key)}, esc);
 }
+// S63-11(명진 11/16 '3 고쳐'): 서버에서 새로 온 뉴스 줄 내용(열기·채우기 뒤 제목 등) → 이 화면의 같은 기사 줄([전체] 목록·찾은 글)과 열린 상세 머리를 고친다.
+// [언론] 칸 줄은 그 칸 주인(news-clipping.js fresh)이 고친다. from='news'는 그 칸이 보낸 것이라 되돌려 보내지 않는다.
+const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind'];
+function newsFresh(rows, {from = ''} = {}) {
+  const list = (rows || []).filter(r => r && typeof r.id === 'string');
+  if (!list.length) return;
+  let changed = false;
+  const lists = [state.news, findNews()];
+  for (const r of list) for (const rowsOf of lists) for (const it of rowsOf) {
+    if (it.id !== r.id || it === r) continue;
+    for (const k of FRESH_COLS) if (k in r && it[k] !== r[k]) { it[k] = r[k]; changed = true; }
+  }
+  const c = detail.current(), mine = c?.type === 'news' ? list.find(r => r.id === c.id) : null;
+  if (mine) { const head = describe('news', {...(state.news.find(x => x.id === c.id) || {}), ...mine}); if (head.title !== detail.head()?.title) detail.setHead(head); }
+  if (changed) paintList();
+  if (from !== 'news') window.KPTUNews?.fresh?.(list);
+}
 let detailLayer = null, interestsLayer = null, interestsAsk = 0;
 const detail = createNowDetail({box: detailBox, topics: () => interests.topics(),
   onClose: () => closeDetail(),
@@ -204,19 +251,25 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
     if (state.tab === 'archive') saved.load();
   },
   onSignal: () => askInterests(),
-  onRead: (item, row) => { const c = detail.current(); if (c && itemKey(c) === itemKey(item)) detail.setHead(describe('news', row)); window.KPTUNews?.refresh?.(); },
+  onRead: (item, row) => { newsFresh([{...row, id: item.id}]); if (state.tab === 'archive') saved.load(); },
   onRelated: r => openRelated(r)});
 const saved = createNowSaved({box: root?.querySelector('[data-now-panel-saved]'), describe, rowOf, query: () => state.query,
   onOpen: (item, head) => openDetail(item, head, {picked: true}), onListed: () => autoOpenTop(),
   onChanged: item => { if (item.type === 'news') window.KPTUNews?.refresh?.(); else loadMarks().then(() => { if (state.mode === 'list') paintList(); }); }});
-// [밑줄] 탭: 줄을 누르면 그 글을 읽어 상세를 열고 그 밑줄 자리로. 텔레그램 원문 밑줄은 텔레그램 소식 화면으로(그 소식은 거기서 연다).
+// [밑줄] 탭: 줄을 누르면 그 글을 읽어 상세를 열고 그 밑줄 자리로. 텔레그램 원문 밑줄은 텔레그램 화면에서 그 방·날·소식 원문을 열고 그 밑줄 자리로
+// (S61-51a, source-open.js openTelegramItem — 뒤로가기 한 번 = [밑줄] 탭).
 const marks = createNowHighlights({box: root?.querySelector('[data-now-panel-marks]'), query: () => state.query, onOpen: h => openHighlight(h)});
 async function openHighlight(h) {
-  if (h.source_type === 'telegram') { window.KPTURouter?.go?.('telegram', {source: 'delegated'}); return; }
+  if (h.source_type === 'telegram') {
+    let ok = false;
+    try { ok = await openTelegramItem(h.source_id, {highlight: h.id}); } catch { ok = false; }
+    if (!ok) notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false});
+    return;
+  }
   let row = null;
   try { row = await fetchItem(h.source_type, h.source_id); } catch { row = null; }
   if (!row) { notify('원래 글을 찾지 못했어요 · 밑줄은 그대로 있어요', {record: false}); return; }
-  openDetail({type: h.source_type, id: h.source_id}, describe(h.source_type, row), {highlight: h.id});
+  openDetail({type: h.source_type, id: row.id}, describe(h.source_type, row), {highlight: h.id});
 }
 const interests = createNowInterests({box: root?.querySelector('[data-now-interests-box]'), onChanged: () => { paintCand(); if (state.mode === 'list') { paintList(); paintNewsTab(); } detail.paint(); }});
 // 관심 주제가 바뀌면 [언론] 칸도 위 칸·표시를 다시(그 칸 주인 news-clipping.js가 그린다).
@@ -229,9 +282,12 @@ function askInterests() {
     .then(r => { if (r?.added) interests.load(); }).catch(() => {});
 }
 let autoOpening = false;
+// S63-11 PC 두 칸: 상세를 연 탭(detailFrom)과 다른 탭으로 옮기면 그 탭 목록이 다 그려진 뒤 한 번(fitWanted) 열린 글이 그 목록에 있는지 본다.
+let detailFrom = '', fitWanted = false;
 function openDetail(item, head, opts = {}) {
   if (!item || !head) return;
   const shown = !!detail.current();
+  detailFrom = state.tab; fitWanted = false;
   detail.open(item, head, opts);
   // 상세를 열면 읽음(app_feed_reads, 이미 있으면 서버가 그대로 둔다). PC에서 맨 위 글을 저절로 연 것은 읽은 것으로 치지 않는다.
   if (!autoOpening) markRead(item);
@@ -272,14 +328,8 @@ function markOpen() {
   const c = detail.current(), key = c ? itemKey(c) : '';
   root?.querySelectorAll('.now-row[data-nw-key]').forEach(el => el.classList.toggle('is-open', !!key && el.dataset.nwKey === key));
 }
-// 글 하나를 id로 읽는다(함께 볼 것·주소에 남은 글). 없으면 null.
-async function fetchItem(type, id) {
-  const w = workspaceOf();
-  const rows = type === 'news'
-    ? await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${NEWS_COLS}&limit=1`, {singleFlight: false})
-    : await rt().api(`/rest/v1/app_outside_posts?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${POST_COLS}&limit=1`, {singleFlight: false});
-  return Array.isArray(rows) ? rows[0] || null : null;
-}
+// 글 하나를 id로 읽는다(함께 볼 것·주소·밑줄에 남은 글 — 옛 id면 공용 id로 바꿔 읽음, 돌려준 줄의 id가 공용 id). 없으면 null.
+const fetchItem = (type, id) => (type === 'news' ? readNewsOne(id, NEWS_COLS) : readOutsideOne(id, POST_COLS));
 async function openRelated(r) {
   if (r.kind === 'outside' || r.kind === 'news') {
     try {
@@ -296,7 +346,7 @@ function mountSplit() {
   mountSplitResize({container: root, name: 'now', label: '목록과 상세 칸 폭 조절', columns: [
     {el: () => mainBox, varName: '--ds-split-list', minVar: '--ds-split-list-min', minFallback: 320, share: 3, id: 'nowMain'},
     {el: () => detailBox, varName: '--ds-split-detail', minVar: '--ds-split-detail-min', minFallback: 320, share: 2},
-  ], active: () => PC.matches && root.dataset.detail === 'open' && root.isConnected && !document.getElementById('outsideView')?.classList.contains('hidden')});
+  ], active: () => PC.matches && (root.dataset.detail === 'open' || root.dataset.detail === 'empty') && root.isConnected && !document.getElementById('outsideView')?.classList.contains('hidden')});
 }
 
 // ---------- 관심 주제 칸(같은 화면 안, 뒤로가기 한 번 = 목록) ----------
@@ -318,12 +368,12 @@ function backFromInterests() {
 
 // ---------- 목록 그리기 ----------
 // 날짜 묶음 → 흰 상자 안 줄. entries = [{type, row}] (그려 둘 순서대로). 묶음 머리에 안 읽은 글 수.
-function daysHtml(entries, now) {
+function daysHtml(entries, now, {lift = true} = {}) {
   const rowFn = e => rowOf(e.type, e.row, {openAttr: 'data-now-open', acts: hoverActsHtml({isSaved: e.type === 'news' ? !!e.row.starred_at : markOf(e.row.id).archived})});
   const unreadOf = list => list.filter(e => readState({type: e.type, id: e.row.id}) === false).length;
   // NEWS-도배막기 C: 관심 주제에 걸린 최근 글은 위 칸에 먼저(시간순 그대로), 나머지는 아래 날짜별.
   const atOf = e => (e.type === 'news' ? whenOf(e.row) : Date.parse(e.row.published_at || ''));
-  const {top, rest} = liftRelated(entries, e => !!hitOf(e.type, e.row), atOf, now);
+  const {top, rest} = lift ? liftRelated(entries, e => !!hitOf(e.type, e.row), atOf, now) : {top: [], rest: entries};
   const head = top.length ? dayHtml(LIFT_LABEL, foldedHtml(top, rowFn), unreadOf(top), esc) : '';
   const wrapped = rest.map(e => ({...e, published_at: e.type === 'news' ? (whenOf(e.row) ? new Date(whenOf(e.row)).toISOString() : '') : e.row.published_at}));
   return head + groupPosts(wrapped, now).map(g => dayHtml(g.label, foldedHtml(g.items, rowFn), unreadOf(g.items), esc)).join('');
@@ -341,10 +391,29 @@ function listHtml() {
   const shown = shownPosts();
   const more = state.end ? '' : moreBtn('data-os-more-posts', state.more);
   if (!shown.length) return `${emptyHtml(state.query ? '제목에서 찾은 글 없음' : '새 글 없음', {attrs: 'data-os-empty="posts"'})}${more}`;
-  return daysHtml(shown.map(row => ({type: 'outside', row})), Date.now()) + more;
+  const ts = Date.now(), entries = list => list.map(row => ({type: 'outside', row}));
+  if (!intlSplitOn(state.media, state.catalog || [])) return daysHtml(entries(shown), ts) + more;
+  // S63-11: 국내 단체 글 먼저, 국제 글은 아래 접힌 '국제' 묶음(펼쳤을 때만 줄을 그린다 — 접힌 글이 PC 맨 위 글로 저절로 열리지 않게).
+  const {home, intl} = splitIntl(shown, state.catalog || []);
+  const unread = intl.filter(p => readState({type: 'outside', id: p.id}) === false).length;
+  const fold = intl.length ? `<details class="os-intl" data-os-intl${state.intlOpen ? ' open' : ''}><summary class="os-intl-sum">${esc(INTL_LABEL)} · ${intl.length}건${unread ? ` · 새 글 ${unread}` : ''}${chevHtml(false)}</summary>${state.intlOpen ? daysHtml(entries(intl), ts, {lift: false}) : ''}</details>` : '';
+  return (home.length ? daysHtml(entries(home), ts) : '') + fold + more;
+}
+// [전체] 찾은 글(서버 찾기): 사회운동 글 + 언론 기사를 시각 최신 순으로, 날짜 묶음만(관심 주제 위 칸은 목록에서만).
+function allFindHtml() {
+  const f = allFind.get();
+  if (f.short) return emptyHtml(FIND_SHORT, {attrs: 'data-nw-empty'});
+  if (f.failed) return failHtml({retry: 'data-nw-find-retry'});
+  if (!f.done) return waitHtml({rows: 4, h: 44});
+  const posts = findPosts().filter(p => !markOf(p.id).dismissed).map(row => ({id: row.id, at: row.published_at || row.fetched_at || '', row}));
+  const news = findNews().map(row => ({id: row.id, at: whenOf(row) ? new Date(whenOf(row)).toISOString() : '', row}));
+  const merged = mergeFeed(posts, news);
+  if (!merged.length) return emptyHtml(FIND_EMPTY, {attrs: 'data-nw-empty'});
+  return daysHtml(merged, Date.now(), {lift: false});
 }
 // [전체]: 사회운동 글 + 언론 기사를 한 줄로(시각 최신 순).
 function allHtml() {
+  if (allFind.active()) return allFindHtml();
   if (!state.postsLoaded && !state.newsLoaded) return state.postsFailed && state.newsFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6, h: 44});
   const posts = shownPosts().map(row => ({id: row.id, at: row.published_at || '', row}));
   const news = shownNews().map(row => ({id: row.id, at: whenOf(row) ? new Date(whenOf(row)).toISOString() : '', row}));
@@ -359,7 +428,7 @@ function sourcesHtml() {
   if (!state.catalog) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6}));
   if (!state.sourcesLoaded) return head + (state.sourcesFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6}));
   const groups = GROUPS.map(g => {
-    const members = state.catalog.filter(s => s.group === g.key);
+    const members = sortByName(state.catalog.filter(s => s.group === g.key)); // 묶음 안은 가나다(NEWS-출처목록가나다), 묶음 순서는 GROUPS 그대로
     if (!members.length) return '';
     return `<section class="os-src-group" aria-label="${esc(g.label)}"><h3 class="os-src-group-head">${esc(g.label)}</h3>${members.map(s => {
       const row = state.sources.get(s.key), on = row?.enabled === true, busy = state.saving.has(s.key);
@@ -388,7 +457,7 @@ function paintTabs() {
   show('[data-now-panel-news]', list && tab === 'media');
   show('[data-now-panel-saved]', list && tab === 'archive');
   show('[data-now-panel-marks]', list && tab === 'marks');
-  show('[data-os-search]', list && state.searching && !!state.query);
+  show('[data-os-search]', list && state.searching && !!state.query && !findTab(tab));
   show('[data-now-interests]', state.mode === 'interests');
   paintMediaButton();
   paintCand();
@@ -408,6 +477,8 @@ function setTab(tab, {focus = false, save = true} = {}) {
   state.tab = tab; state.tabSet = true;
   const media = keepMedia(tab, state.media), mediaChanged = media !== state.media;
   state.media = media;
+  if (changed && detail.current() && detailFrom !== tab) fitWanted = true;
+  if (tab === 'all') allFind.set(state.query);
   paintTabs();
   if (changed || mediaChanged) {
     if (tab === 'media') window.KPTUNews?.enter?.();
@@ -459,7 +530,26 @@ onReads(() => { paintList(); if (state.tab === 'archive') saved.paint(); });
 const autoOpened = new Set();
 let autoOpenWaiting = false; // 열린 메뉴가 닫힌 뒤 맨 위 글 열기를 한 번만 걸어 둠
 let restoring = false; // 주소에 남은 글을 다시 열기(restorePlaced)
+// S63-11: 탭 목록이 다 그려졌으면(줄·빈 목록·실패 표시) 열린 글이 그 목록에 있는지 한 번 본다. 없으면 오른쪽을 비우고 한 줄 안내.
+const settled = panel => !!panel.querySelector('.now-row, details[data-os-intl], [data-wait-empty], [data-wait-fail]') && !panel.querySelector('kptu-wait:not(.wait-inline)');
+function fitDetail() {
+  if (!fitWanted || restoring) return;
+  const c = detail.current(), panel = $(`#${PANEL[state.tab] || ''}`);
+  if (!c || detailFrom === state.tab) { fitWanted = false; return; }
+  if (state.tab !== 'marks' && (!panel || !settled(panel))) return;
+  fitWanted = false;
+  if (state.tab !== 'marks' && panel.querySelector(`.now-row[data-nw-key="${CSS.escape(itemKey(c))}"]`)) { detailFrom = state.tab; return; }
+  clearDetail(panel);
+}
+function clearDetail(panel) {
+  detail.close();
+  if (root) root.dataset.detail = PC.matches && panel?.querySelector('.now-row') ? 'empty' : 'closed';
+  mountSplit();
+  window.KPTURouter?.setPlace?.('outside', {item: null});
+  markOpen();
+}
 function autoOpenTop() {
+  if (PC.matches && state.mode === 'list') fitDetail();
   if (!PC.matches || state.mode !== 'list' || detail.current() || autoOpened.has(state.tab) || restoring) return;
   // STAB-갈래4흔들림: 목록이 오기 전에 ⋯ 같은 메뉴를 열어 두었으면, 아래 btn.click()이 '바깥 누름'으로 그 메뉴를 닫아 버린다(고르려던 항목이 사라짐).
   // 열린 메뉴가 닫힌 뒤에 한 번 다시 본다.
@@ -478,8 +568,9 @@ function resetIfOwnerChanged() {
   if (state.scope === scope) return;
   closeLayer();
   state = fresh(); state.scope = scope;
-  search.reset();
+  search.reset(); allFind.reset();
   detail.reset(); saved.reset(); marks.reset(); interests.reset(); folds.clear();
+  detailFrom = ''; fitWanted = false;
   if (root) root.dataset.detail = 'closed';
   const f = $('[data-nw-find]'); if (f) f.value = '';
 }
@@ -523,12 +614,12 @@ async function loadNews({append = false, keep = false} = {}) {
   if (!append) { state.newsFailed = false; if (!keep || !state.newsLoaded) { state.newsLoaded = false; state.news = []; } }
   try {
     await newsMeta();
-    const rows = await readNews(w, newsKeys(), append ? state.news.length : 0);
+    const got = await readNews(w, newsKeys(), append ? state.newsRaw : 0);
     if (seq !== newsSeq) return;
-    const got = Array.isArray(rows) ? rows : [];
-    const page = got.slice(0, PAGE_SIZE);
+    const page = got.rows;
     state.news = append ? [...state.news, ...page.filter(p => !state.news.some(x => x.id === p.id))] : page;
-    state.newsEnd = got.length <= PAGE_SIZE;
+    state.newsRaw = (append ? state.newsRaw : 0) + got.raw;
+    state.newsEnd = got.end;
     state.newsLoaded = true;
     void ensureReads(page.map(p => ({type: 'news', id: p.id})));
   } catch {
@@ -581,17 +672,29 @@ function restorePlaced() {
   restoring = true;
   fetchItem(m[1], m[2]).then(row => {
     if (!row || detail.current() || window.KPTURouter?.current !== 'outside') return;
+    // S63-11: 그 글이 들어 있는 탭으로 맞춘다(기억한 마지막 탭은 그대로 — 저장하지 않음).
+    const want = tabForItem(m[1], state.tab || 'all');
+    if (want !== (state.tab || 'all')) setTab(want, {save: false});
     autoOpened.add(state.tab);
     openDetail({type: m[1], id: row.id}, describe(m[1], row));
   }).catch(() => {}).finally(() => { restoring = false; autoOpenTop(); });
+}
+async function openWanted(w) {
+  if (w.highlight) { void openHighlight({id: w.highlight, source_type: w.type, source_id: w.id}); return; }
+  let row = null;
+  try { row = await fetchItem(w.type, w.id); } catch { row = null; }
+  if (!row) { notify('원래 글을 찾지 못했어요', {record: false}); return; }
+  openDetail({type: w.type, id: row.id}, describe(w.type, row), {picked: true});
 }
 function enter() {
   resetIfOwnerChanged();
   restorePlaced();
   // 처음 들어올 때 탭: 노트 [기사로 가기]면 [언론], 아니면 서버에 기억한 마지막 탭(news_tab, 없으면 옛 now_tab을 옮김, 둘 다 없으면 전체).
   // 주소 ?view=news(옛 ?view=outside·?view=now 포함, S51-17 P5)는 탭을 정하지 않는다. 알림 줄 [보기]는 [사회운동](requestNewsTab).
-  const asked = takeNewsTab();
+  const asked = takeNewsTab(), wanted = takeNewsOpen();
   if (hasNewsItem()) { state.tab = ''; setTab('media', {save: false}); }
+  // NOTE-News밑줄보관보기: 노트 'News에서'의 밑줄 → [밑줄] 탭 + 그 글 그 자리로, 보관한 글 → [보관] 탭 + 그 글 상세.
+  else if (wanted) { setTab(wanted.highlight ? 'marks' : 'archive', {save: false}); void openWanted(wanted); }
   else if (asked) setTab(asked, {save: false});
   else if (!state.tabSet) {
     restoreTab();
@@ -700,19 +803,22 @@ function setQuery(raw, {submit = false} = {}) {
   const query = String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 100);
   const changed = query !== state.query;
   state.query = query;
+  const server = findTab(state.tab); // [전체]·[언론] = 서버 찾기(Enter는 바로), 그 밖 탭 = 제목 거르기 + Enter 문장 찾기
   if (!query) state.searching = false;
-  else if (submit) state.searching = true;
+  else if (submit && !server) state.searching = true;
+  if (state.tab === 'all') allFind.set(query, {now: submit});
   paintTabs();
-  if (changed) { paintList(); window.KPTUNews?.repaint?.(); if (state.tab === 'archive') saved.paint(); if (state.tab === 'marks') marks.paint(); }
-  if (submit && query) search.run(query);
+  if (changed || (submit && server)) { paintList(); if (state.tab === 'media') window.KPTUNews?.repaint?.({submit}); if (state.tab === 'archive') saved.paint(); if (state.tab === 'marks') marks.paint(); }
+  if (submit && query && !server) search.run(query);
   if (!query) search.clear();
 }
 
 // ---------- 누르기 ----------
 const menu = createAnchoredMenu({id: 'osMenu', className: 'topline-add-menu os-menu', label: 'News 메뉴', historyKey: 'kptuOutsideMenu', key: () => 'head',
-  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 수정</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button>`,
+  render: () => `<button type="button" data-os-act="fill"${filling ? ' disabled' : ''}>지금 채우기</button><button type="button" data-os-act="sources">단체 켜고 끄기</button><button type="button" data-os-act="news-sources">언론 매체 켜고 끄기</button><button type="button" data-os-act="keywords">키워드 수정</button><button type="button" data-os-act="folders">별표 폴더</button><button type="button" data-os-act="interests">관심 주제</button><button type="button" class="row-act" data-os-act="help">쓰는 법</button>`,
   onAction: button => {
     const a = button.dataset.osAct;
+    if (a === 'help') { void import('./help-link.js').then(m => m.openHelp('outside')); return; } // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
     if (a === 'sources') openSources(); else if (a === 'fill') fillNow(); else if (a === 'interests') openInterests();
     else if (a === 'news-sources') newsPanel('sources'); else if (a === 'keywords' || a === 'folders') newsPanel(a);
   }});
@@ -723,7 +829,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-os-tab]')) { setTab(b.dataset.osTab); return; }
   if (b.matches('[data-now-open]')) {
     const key = b.closest('[data-nw-key]')?.dataset.nwKey || '', [type, id] = key.split(':');
-    const row = type === 'news' ? state.news.find(x => x.id === id) : state.posts.find(x => x.id === id);
+    const row = type === 'news' ? state.news.find(x => x.id === id) || findNews().find(x => x.id === id) : state.posts.find(x => x.id === id) || findPosts().find(x => x.id === id);
     if (row) openDetail({type, id}, describe(type, row));
     return;
   }
@@ -736,6 +842,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-os-source]')) { toggleSource(b.dataset.osSource); return; }
   if (b.matches('[data-os-more-posts]')) { loadPosts({append: true}); return; }
   if (b.matches('[data-nw-all-more]')) { loadMore(); return; }
+  if (b.matches('[data-nw-find-retry]')) { allFind.again(); return; }
   if (b.matches('[data-os-retry]')) { load().catch(() => {}); paint(); }
 });
 // 매체 묶음 펼침·접힘을 기억. [언론] 칸(news-clipping.js)도 이 화면 안이라 같이 잡힌다.
@@ -749,6 +856,13 @@ root?.addEventListener('click', event => {
 root?.addEventListener('toggle', event => {
   const d = event.target;
   if (d?.matches?.('details[data-nw-fold]') && d.isConnected) keepFold(d, d.open);
+}, true);
+// S63-11 '국제' 묶음 펼침(화면 메모리). 펼치면 그 안 줄을 그린다.
+root?.addEventListener('toggle', event => {
+  const d = event.target;
+  if (!d?.matches?.('details[data-os-intl]') || !d.isConnected || d.open === state.intlOpen) return;
+  state.intlOpen = d.open;
+  paintList();
 }, true);
 root?.addEventListener('input', event => { if (event.target.matches?.('[data-nw-find]')) setQuery(event.target.value); });
 root?.addEventListener('submit', event => {
@@ -790,9 +904,11 @@ root?.addEventListener('touchcancel', () => { swipe = null; }, {passive: true});
 const itemOfRow = el => { const [type, id] = String(el.dataset.nwKey || '').split(':'); return (type === 'outside' || type === 'news') && id ? {type, id} : null; };
 function rowChanged(item, kind, on) {
   if (item.type === 'news') {
-    const it = state.news.find(x => x.id === item.id);
+    const it = state.news.find(x => x.id === item.id), hit = findNews().find(x => x.id === item.id);
     if (kind === 'hide') { if (on) state.news = state.news.filter(x => x.id !== item.id); else loadNews({keep: true}); }
     else if (it) it.starred_at = on ? new Date().toISOString() : null;
+    if (hit && kind === 'hide' && on) { const r = findNews(); r.splice(r.indexOf(hit), 1); }
+    else if (hit && kind !== 'hide') hit.starred_at = on ? new Date().toISOString() : null;
   } else {
     const m = {...markOf(item.id)};
     if (kind === 'hide') m.dismissed = on; else m.archived = on;
@@ -803,7 +919,7 @@ function rowChanged(item, kind, on) {
 }
 for (const sel of ['[data-os-list]', '[data-nw-all]']) {
   bindNowRows(root?.querySelector(sel), {row: '[data-nw-key]', itemOf: itemOfRow,
-    isSaved: item => (item.type === 'news' ? !!state.news.find(x => x.id === item.id)?.starred_at : markOf(item.id).archived), changed: rowChanged});
+    isSaved: item => (item.type === 'news' ? !!(state.news.find(x => x.id === item.id) || findNews().find(x => x.id === item.id))?.starred_at : markOf(item.id).archived), changed: rowChanged});
 }
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'outside') return;
@@ -819,11 +935,12 @@ window.addEventListener('kptu:view-prefs-ready', () => {
   if (state.tabSet || window.KPTURouter?.current !== 'outside') return;
   restoreTab();
 });
-window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
+// sourceName: 사회운동 글 매체 이름(목록을 읽은 뒤에만, 아니면 null — 노트 'News에서 › 보관한 글' 줄이 쓴다).
+window.KPTUOutside = {refresh: () => load(), showNew: () => { takeNewsTab(); setTab('movement'); }, sourceName: key => catalogOf(key)?.name || null}; // showNew: 알림 줄 '새 성명 n건' [보기](notice-outside.js, 이미 불러온 때)
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {
   open: (item, head) => openDetail(item, head), listed: () => autoOpenTop(), describe, rowOf, topics: () => interests.topics(), hitOf, foldedHtml, selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
-  signaled: () => askInterests(), tab: () => state.tab, openInterests: () => openInterests(), query: () => state.query, newsKeys: () => newsKeys(),
+  signaled: () => askInterests(), tab: () => state.tab, newsFresh: (rows, o) => newsFresh(rows, o), openInterests: () => openInterests(), query: () => state.query, newsKeys: () => newsKeys(),
   metaChanged: m => { if (m) state.newsMeta = {catalog: m.catalog || [], enabled: m.enabled || []}; state.media = keepMedia(state.tab || 'all', state.media); paintMediaButton(); },
 };
 if (window.KPTURouter?.current === 'outside') enter();

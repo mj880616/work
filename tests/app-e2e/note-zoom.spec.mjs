@@ -50,6 +50,8 @@ for (const width of [1280, 412]) test(`[+]·[−]·숫자: 노트 글과 HTML �
   const {server, errors} = await fixture(page, width, {note_zoom: 110});
   const d = await openNote(page, 'n-both', width);
   const z = head(d);
+  // NOTE-배율자리(S61-45): 폰 폭은 글 크기 아이콘을 눌러 펼친 뒤 묶음이 보인다.
+  if (width < 600) await press(page, d.locator('[data-note-zoom-toggle]'), width);
   await expect(z.locator('[data-note-zoom-reset]')).toHaveText('110%');
   expect(await textZoom(d)).toBe('1.1');
   await expect(frame(d)).toHaveCount(1);
@@ -158,4 +160,59 @@ test('DB 적용 전(서버가 note_zoom을 거절)에도 이번 접속은 고른
   expect(server.value?.note_zoom).toBeUndefined();
   await expect(page.locator('#toast')).not.toContainText('저장');
   expect(errors).toEqual([]);
+});
+
+// NOTE-배율자리(S61-45, 시안 B, 명진 선택 11/14): 폰 폭 머리 줄은 글 크기 아이콘 한 칸 — 제목이 줄 폭 대부분을 쓴다.
+// 누르면 아래로 [−] 100% [+]가 펼쳐지고, 다시 누르기·바깥 누르기면 접힌다. 폴드 펼침·PC는 묶음 그대로(아이콘 없음).
+test('폰 412: 아이콘 한 칸, 누르면 펼침·배율 저장, 다시 누르기·바깥 누르기로 접힘', async ({page}) => {
+  const {server, errors} = await fixture(page, 412);
+  const d = await openNote(page, 'n-both', 412);
+  const toggle = d.locator('[data-note-zoom-toggle]'), z = head(d);
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(z).toBeHidden();
+  const title = d.locator('[data-note-read-title]'), main = d.locator('[data-note-head-main]');
+  await expect(title).toBeVisible();
+  const tw = (await title.boundingBox()).width, mw = (await main.boundingBox()).width;
+  // 제목 옆에는 아이콘 세 칸(글 크기·복사·⋯)만 — 그 밖의 폭은 모두 제목 몫.
+  const icons = await main.locator(':scope > button:visible, :scope > .nz-fold > button:visible').evaluateAll(els => els.reduce((s, el) => s + el.getBoundingClientRect().width, 0));
+  expect(mw - tw - icons).toBeLessThan(16);
+  if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-zoom-phone-412-closed.png`});
+  await toggle.tap();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(z).toBeVisible();
+  // 세 단추 모두 펼친 칸 안에 온전히 보인다(좁은 아이콘 칸에 잘리지 않음).
+  const pb = await z.boundingBox();
+  for (const k of ['out', 'reset', 'in']) { const b = await z.locator(`[data-note-zoom-${k}]`).boundingBox(); expect(b.x).toBeGreaterThanOrEqual(pb.x - 0.5); expect(b.x + b.width).toBeLessThanOrEqual(pb.x + pb.width + 0.5); }
+  // 펼쳐도 제목 폭은 그대로(머리 줄 아래로 뜬다).
+  expect(Math.abs((await title.boundingBox()).width - tw)).toBeLessThan(1);
+  await z.locator('[data-note-zoom-in]').tap();
+  await expect(z.locator('[data-note-zoom-reset]')).toHaveText('110%');
+  expect(await textZoom(d)).toBe('1.1');
+  await expect.poll(() => server.value?.note_zoom).toBe(110);
+  await expect(z).toBeVisible();
+  if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-zoom-phone-412-open.png`});
+  await toggle.tap();
+  await expect(z).toBeHidden();
+  await toggle.tap();
+  await expect(z).toBeVisible();
+  await d.locator('[data-basket-read-text]').tap();
+  await expect(z).toBeHidden();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  // 키보드: Enter로 펼치고 Esc로 접으면 아이콘으로 돌아온다.
+  await toggle.focus(); await page.keyboard.press('Enter');
+  await expect(z).toBeVisible();
+  await z.locator('[data-note-zoom-out]').focus(); await page.keyboard.press('Escape');
+  await expect(z).toBeHidden();
+  await expect(toggle).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+for (const width of [700, 1280]) test(`폴드 펼침·PC ${width}: 아이콘 없이 묶음 그대로`, async ({page}) => {
+  await fixture(page, width);
+  const d = await openNote(page, 'n-both', width);
+  await expect(d.locator('[data-note-zoom-toggle]')).toBeHidden();
+  await expect(head(d)).toBeVisible();
+  await expect(head(d).locator('[data-note-zoom-reset]')).toHaveText('100%');
+  if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-zoom-${width < 1000 ? 'fold' : 'pc'}-${width}.png`});
 });

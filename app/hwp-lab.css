@@ -60,3 +60,8 @@ html:has(#hwpView:not(.hidden) .hwp-lab[data-focus]) :is(.mobile-tabs,.mobile-sh
 .hwp-convert .hwp-convert-status[data-state="error"]{color:var(--kptu-danger)}
 .hwp-convert .hwp-convert-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:var(--kptu-space-3)}
 .hwp-convert .hwp-convert-foot button{width:auto;min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px)}
+/* HWP-노조서식분류: 서식 파일 먼저 올리기(hwp-convert.js openFormUploadDialog). 끌어 놓는 칸 하나 + 작은 [파일 선택]. */
+.hwp-form-upload .hwp-form-upload-lead{margin:0 0 var(--kptu-space-3);font-size:var(--ds-compact-text,13px);color:var(--kptu-ink)}
+.hwp-form-upload .hwp-form-upload-drop{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;min-height:96px;padding:var(--kptu-space-3);border:1px dashed var(--kptu-border);border-radius:8px;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);text-align:center}
+.hwp-form-upload .hwp-form-upload-drop[data-drop="1"]{border-style:solid;border-color:var(--kptu-accent,var(--kptu-ink));background:var(--kptu-surface-soft,var(--kptu-surface))}
+.hwp-form-upload .hwp-form-upload-drop[data-busy="1"]{opacity:.6}

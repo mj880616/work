@@ -77,8 +77,9 @@ export function pickMeeting(column,selectedId){return column?.meetings.find(m=>S
 
 // S56-36 MTG-회의목록조직묶기: sections(meeting-name-sorts.mjs orgSections 결과 [{id,label,items: 이 columns}])가 오면 왼쪽 회의 종류 칸을
 // 회의명 고르기 창과 같은 조직 머리글(작은 글씨 한 줄, 고를 수 없음) 아래로 묶는다. 없으면(조직으로 묶지 않는 정리) 지금처럼 한 줄씩. 처음 고른 종류는 그대로 columns[0](가장 최근 결과).
-export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resultHtml=()=>'',sections=null}){
-  if(!columns.length)return emptyHtml();
+// empty: 빈 목록 대신 그릴 것(없으면 공용 '없음'). 사업영역이 없는 계정은 위 안내 한 줄이 빈 자리를 맡아 ''(MULTI-사업보고빈화면).
+export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resultHtml=()=>'',sections=null,empty=null}){
+  if(!columns.length)return empty??emptyHtml();
   const selected=columns.find(c=>c.key===selectedKey)||columns[0],current=pickMeeting(selected,selectedId);
   const kindHtml=c=>{
     const label=c.name||'회의명 미지정',on=c===selected;
@@ -102,8 +103,8 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
 
 // MTG-사업보고 4단계: [회의] 칩이 아닐 때(PC) 2단 = 왼쪽 '날짜·이름 목록'(최신 위) / 오른쪽 고른 건의 결과(3단의 오른쪽과 같은 resultHtml).
 // 왼쪽 줄은 3단 가운데 줄과 같은 단추(data-meeting-round)라 고르기·화살표·⋯ 메뉴를 그대로 쓴다. [전체]에서는 줄에 칸 글자(kindOf)도 보인다.
-export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whenOf,resultHtml=()=>''}){
-  if(!rows.length)return emptyHtml();
+export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whenOf,resultHtml=()=>'',empty=null}){
+  if(!rows.length)return empty??emptyHtml();
   const current=rows.find(m=>String(m.id)===String(selectedId))||rows[0];
   const items=rows.map(m=>{
     const name=nameOf(m),when=whenOf(m),kind=kindOf(m),round=hasRound(m)||meetingShortName(m)?roundLabel(m):'',on=m===current;

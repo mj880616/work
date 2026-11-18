@@ -5,7 +5,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~01:22, 시안 docs/design/mockups/biz-report-top.html 확정안 01:22):
-// 사업 보고 위쪽은 세 줄 — ① 제목 '사업 보고' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
+// 사업 보고 위쪽은 세 줄 — ① 제목 '사업 관리' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
 // BIZ-위쪽정돈PC(명진 11/09 10:52 A안, 시안 biz-report-top-pc.html): PC(761px~)는 같은 요소가 한 줄 — ② ③ ……… [녹음][+][⋯](작은 아이콘, 폰과 같은 버튼·순서).
 // 주 고르기는 이 화면에 하나, '이번 주 주간보고'는 늘 펼친 채 같은 주를 따르고, 떠 있는 동그란 [+]는 없다. [목록|달력|사진]은 앞 자리 규칙 그대로(위로 올리지 않음).
 // (가짜 서버·가짜 보고는 report-period.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
@@ -27,6 +27,8 @@ function makeState() {
   docs.push(doc(21, M2), doc(31, M5));
   return {
     year: y, month: mo - 1, photoCalls: [], meetingOpens: [], docs,
+    // MULTI-사업보고빈화면: 이 시험은 사업영역이 있는 계정(명진)의 위쪽 줄·주간보고 표를 본다. 사업영역 0개(새 계정)는 biz-week-none.spec.mjs.
+    spaces: [{id: 'area-1', workspace_id: 'workspace-1', name: '합성 사업', description: null, parent_id: null, status: 'active', visibility: 'private', owner_id: 'user-1', sort_order: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', metadata: {project_system: 'v2', management_version: 2}}],
     user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
     workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
     meetings: [meeting(M1, '○○ 대표자 회의', 'meeting', today), meeting(M2, '□□ 실무 회의', 'meeting', today), meeting(M3, '△△ 점검 회의', 'meeting', today),
@@ -51,6 +53,7 @@ async function mock(page, state) {
     if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: 'workspace-1', user_id: state.user.id, role: 'owner', workspace: state.workspace, created_at: now()}]);
     if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
     if (path === '/rest/v1/app_documents' && req.method() === 'GET') return ok(state.docs);
+    if (path === '/rest/v1/app_spaces' && req.method() === 'GET') return ok(state.spaces);
     if (path === '/rest/v1/app_meetings' && req.method() === 'GET') {
       const id = url.searchParams.get('id') || '';
       if (!id || id.startsWith('in.(')) return ok(state.meetings);
@@ -76,13 +79,13 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 }
 
 const mids = async (page, sel) => (await page.locator(sel).evaluateAll(els => els.filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map(e => { const r = e.getBoundingClientRect(); return {mid: Math.round(r.top + r.height / 2), top: r.top, bottom: r.bottom, right: r.right, h: r.height}; })));
-for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC 한 줄) · 주 고르기 하나 · 이번 주 주간보고 늘 펼침 · 떠 있는 버튼 없음`, async ({page}) => {
+for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC 한 줄) · 주 고르기 하나 · 이번 주 주간 보고 늘 펼침 · 떠 있는 버튼 없음`, async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const state = makeState();
   await open(page, state, width);
   const vp = page.viewportSize();
   const pc = width >= 761;
-  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰은 제목 '사업 보고'가 왼쪽에 보인다.
+  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰은 제목 '사업 관리'가 왼쪽에 보인다.
   const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])' + (width < 761 ? ', #meetingsView .report-top-title' : ''));
   expect(line1.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
@@ -119,7 +122,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await expect(week).toBeVisible();
   expect(await week.evaluate(el => el.tagName.toLowerCase())).not.toBe('details');
   await expect(week.locator(':scope > summary')).toHaveCount(0);
-  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   await expect(week.locator('[data-bp-paper]')).toContainText('1) 사업요약표');
   // 위 주 고르기를 넘기면 이 칸도 같은 주를 보여 준다(이름이 그 주로 바뀐다).
   const label = page.locator('#reportWeekFilter .report-week-label');
@@ -130,7 +133,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   const dayOf = t => t.match(/(\d+)\.(\d+)/).slice(1).map(Number).join('.');
   await expect(week.locator('.biz-week-title')).toContainText(dayOf(after));
   await page.locator('#reportWeekFilter [data-report-week="next"]').click();
-  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간보고');
+  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   // 떠 있는 버튼은 없다(보기는 위 줄 고르기 상자, 동그란 [+]도 없음: [+]는 첫 줄 안).
   const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
@@ -157,14 +160,16 @@ test('390: 달력·사진 보기에서는 기간 줄만 빠지고, 보기를 바
   await expect(page.locator('#reportPeriodPick select')).toBeVisible();
 });
 
-test('390: 추가 +를 누르면 사업 보고 등록 창이 열리고, 작은 아이콘(글자 없음)이다', async ({page}) => {
+test('390: 추가 +를 누르면 종류를 고른 뒤 사업 보고 등록 창이 열리고, 작은 아이콘(글자 없음)이다', async ({page}) => {
   const state = makeState();
   await open(page, state, 390);
   const add = page.locator('#newMeetingBtn');
   const box = await add.boundingBox();
   expect(box.width).toBeLessThanOrEqual(34); expect(box.height).toBeLessThanOrEqual(34);
   await expect(add).toHaveAttribute('aria-label', '사업 보고 등록');
+  // MTG-더하기늘고르기: [+]는 늘 종류 고르기 창부터.
   await add.click();
+  await page.locator('#reportKindSheet [data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
 });
 

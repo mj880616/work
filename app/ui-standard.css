@@ -249,7 +249,7 @@
 
 /* 버튼: 높이 하나·모서리 8px·13px/500·흰 바탕 + 0.5px 테두리(기본). 목록 행·⋯ 아이콘은 버튼 모양이 아니므로 뺀다.
    목록 필터(프로젝트·자료 종류·회의명)는 홈 빠른 입력 탭과 같은 버튼 모양. */
-#appView :is(#teamView,#libraryView,#meetingsView) :is(button.primary,button.secondary,button.mini,a.mini,.filter-chips button):not(.icon-btn,.lu-more-panel *,.doc-kind-chips *):where(:not([hidden])){
+#appView :is(#teamView,#libraryView,#meetingsView) :is(button.primary,button.secondary,button.mini,a.mini,.filter-chips button):not(.icon-btn,.lu-more-panel *):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none; white-space:nowrap;
@@ -258,8 +258,7 @@
 }
 /* ① 채운 버튼(화면당 1개): [+ 자료]·[+ 회의 결과]. */
 #appView :is(#teamView,#libraryView,#meetingsView) button.primary:not(.icon-btn,.lu-more-panel *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); min-height:var(--kptu-control-height); }
-/* UI-버튼전수조사(2026-10-24): 위 기본은 작은 버튼 32px, 채운 버튼(주 동작)은 36px. 담당조직·프로젝트 상세 [자료] 위 종류 칩(.doc-kind-chips)은
-   이 규칙에서 빼서 자료실 종류 칩과 같은 알약 32px(아래 LIB-조직프로젝트자료종류)을 받는다. */
+/* UI-버튼전수조사(2026-10-24): 위 기본은 작은 버튼 32px, 채운 버튼(주 동작)은 36px. */
 /* ② 고른 필터는 회색(종류 색 '그 밖', UI-선택표시통일). 필터 묶음은 회색 알약 판 대신 버튼을 나란히(UI-칩줄두줄: 두 줄 + [더보기]). */
 #appView :is(#libraryView,#meetingsView) .filter-chips{ gap:var(--ds-chip-row-gap); padding:0; background:transparent; border-radius:0; min-height:0; }
 #appView :is(#libraryView,#meetingsView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
@@ -370,6 +369,26 @@
   #appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-entry{ order:2; }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick > *{ grid-row:auto; margin-top:0; }
   #appView #homeView.view-panel:has(.home-quick[data-home-quick]),#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
+  /* HOME-입력칸두모양(S61-44, 명진 11/14 '한 줄·두 줄·세 줄 왔다 갔다' → 'ㄱ'): 폰 홈 빠른 입력은 모양이 둘뿐이다(home-quick.js paint 한 곳이
+     data-quick-shape 하나에 적는다). 평소 한 줄 [종류 ▾][입력칸][잊지 말기 n] — [업데이트 | 할 일] 단추 줄은 폰 홈에 없다.
+     [할 일]에서 글이 있거나 칸에 포커스가 있을 때만(dates) 날짜 줄 한 줄이 입력칸 위에 붙는다. 글(또는 파일)이 있으면(typing)
+     오른쪽 [잊지 말기] 자리에 [추가]가 온다. 옛 접힘(한 줄 → 두 줄 → 세 줄)은 없앴다. 바구니·노트·할 일 화면과 PC 홈은 이 속성이 없다. */
+  #appView #homeView .home-quick[data-home-quick][data-quick-shape]{ flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; padding-top:4px; padding-bottom:4px; }
+  #appView #homeView .home-quick[data-quick-shape] > [data-quick-options]{ order:0; flex:1 0 100%; min-width:0; }
+  #appView #homeView .home-quick[data-quick-shape] > .home-quick-entry{ order:1; flex:1 1 0; min-width:0; gap:6px; }
+  #appView #homeView .home-quick[data-quick-shape] > .home-quick-head{ order:2; flex:0 0 auto; display:flex; align-items:center; margin:0; }
+  #appView #homeView .home-quick[data-quick-shape] > :is(.home-quick-hint,[data-quick-basket-options],[data-quick-status]){ order:3; flex:1 0 100%; min-width:0; }
+  #appView #homeView .home-quick[data-quick-shape] .home-quick-modes{ display:none; }
+  #appView #homeView .home-quick[data-quick-shape~="typing"] > .home-quick-head{ display:none; }
+  #appView #homeView .home-quick[data-quick-shape]:not([data-quick-shape~="typing"]) .home-quick-save{ display:none; }
+  #appView #homeView .home-quick[data-home-quick] .home-quick-kind:not([hidden]){ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; height:var(--kptu-control-height); min-height:0; margin:0; padding:0 2px; border:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium); white-space:nowrap; cursor:pointer; }
+  #appView #homeView .home-quick[data-home-quick] .home-quick-kind::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+  #appView #homeView .home-quick[data-quick-shape] .home-quick-save{ height:var(--kptu-control-height); min-height:0; }
+  /* 날짜 줄은 한 줄: 폴드 덮개 화면(344px)까지 접히지 않게 단추 안쪽 여백·사이를 좁힌다(누르는 범위는 각 단추의 ::after 44px 그대로). */
+  #appView #homeView .home-quick[data-quick-shape] [data-quick-task-options]:not([hidden]){ flex-wrap:nowrap; gap:4px; }
+  #appView #homeView .home-quick[data-quick-shape] [data-quick-task-options] > button{ flex:0 0 auto; padding-left:6px; padding-right:6px; }
+  /* 한 줄 칸이 좁아 안내 글이 두 줄로 접히면 칸이 그만큼 늘어난다(높이 셈이 안내 글도 잼) — 안내 글은 한 줄, 넘치면 '…'. */
+  #appView #homeView .home-quick[data-quick-shape] [data-quick-input]::placeholder{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
   /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */
@@ -596,8 +615,8 @@
   #appView #mobileMenu .mobile-menu-panel nav button:hover{ background:var(--kptu-surface-subtle); }
   /* 계정: 맨 아래 한 줄(선 위). 작은 글자 단추(보이는 32px, 줄 사이 12px라 누르는 범위 44px가 위아래로 겹치지 않음), 넘치면 다음 줄. */
   #appView .mobile-menu-panel #mobileAccountGroup{ display:flex; flex-wrap:wrap; align-items:center; gap:12px 4px; margin-top:10px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
-  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; }
-  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button.account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action{ position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:32px; min-height:32px; padding:0 6px; border:0; border-radius:var(--ds-radius-control); background:transparent; white-space:nowrap; }
+  #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup :is(button,a).account-action::after{ content:""; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
   /* S49-8 UI-로그아웃자리(2026-11-03 명진): [로그아웃]은 계정 줄 맨 오른쪽 끝(하단바 [메뉴] 칸 바로 위). 줄이 넘치면 다음 줄 오른쪽에 혼자 선다. */
   #appView #mobileMenu .mobile-menu-panel #mobileAccountGroup button[data-kptu-logout]{ margin-left:auto; }
 }
@@ -1124,7 +1143,6 @@ html :is(
   #appView #homeView .home-quick [data-quick-task-options] button[aria-pressed="true"],
   #appView #basketView button[data-manual-task-day][aria-pressed="true"],
   #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
-  .doc-kind-chips button[data-cc-fill],
   #appView #ledgerView .lb-chip:has(input:checked),
   #appView #pagesView .sp-seg button[aria-pressed="true"],
   .modal .event-create-modes button[data-event-mode][aria-pressed="true"]
@@ -1273,28 +1291,11 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .task-week-menu .task-week-end{ color:var(--kptu-muted); }
 .task-week-menu button[aria-current="date"]{ font-weight:700; }
 
-/* ───────── LIB-조직프로젝트자료종류(2026-10-23 사용자 요청): 담당조직·프로젝트 상세 [자료] 위의 종류 칩 ─────────
-   옛 자료실 분류 칩과 같은 모양·같은 코드(category-chips.js, 자료실은 LIB-위쪽한줄로 [분류 ▾] 하나가 됨). UI-칩줄두줄: 두 줄 + [더보기], 보이는 높이 --ds-chip-row-height, 누르는 범위 칩 둘레 2px.
-   고른 칩 = 회색 '그 밖' 색, 일부만 켜진 [전체] = 반쯤 찬 칩, 꺼진 칩 = 흐리게(자료실과 같은 값). 새 색·새 크기는 만들지 않는다. */
-html .doc-kind-chips:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap); width:auto; max-width:100%; min-width:0; min-height:0; margin:0; padding:2px; background:transparent; border-radius:0; box-sizing:border-box; }
-html .doc-kind-chips button:not(.chip-rows-more){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:auto; min-width:0; height:var(--ds-chip-row-height); min-height:var(--ds-chip-row-height); margin:0; padding:0 var(--ds-chip-row-pad-x); font-family:inherit; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); box-shadow:none; -webkit-tap-highlight-color:transparent; }
-html .doc-kind-chips button:not(.chip-rows-more)::after{ content:""; position:absolute; left:-2px; right:-2px; top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); }
-html .doc-kind-chips button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
-/* LIB-맨위다듬기(S53-18, 시안 docs/design/mockups/library-top-bar.html): 고른 칩만 채운다(category-chips.js filledChips → data-cc-fill, 색은 위 '선택 표시 규칙' 묶음).
-   켜져 있어도 고르지 않은 칩·일부만 켜진 [전체]는 흰 바탕·옅은 선(공용 칩 그대로), 꺼진 칩은 흐린 글자. */
-html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); border-color:color-mix(in srgb,var(--ds-line) 50%,transparent); }
-/* 칩 옆 작은 자료 수(0도 보임). 칩 이름 글자는 그대로 두고 숫자는 그림으로만(data-cc-count). */
-html .doc-kind-chips button[data-cc-count]{ gap:3px; }
-html .doc-kind-chips button[data-cc-count]::before{ content:attr(data-cc-count); order:1; font-size:.9em; font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
-html .doc-kind-chips button[data-cc-count][data-cc-fill]::before{ color:inherit; opacity:.75; }
-/* LIB-소분류(2026-10-30 명진 시안): 큰 분류 하나만 켜면 칩 줄 바로 아래 소분류 줄 '(큰 분류) 전체 · 소분류 · + 소분류'(category-chips.js, 자료실·담당조직·프로젝트 상세 공통).
-   왼쪽 세로선 + 큰 분류 칩보다 작고 흐린 글자, 고른 것만 진하게. 테두리·바탕 없음. 보이는 높이 26px, 누르는 범위 칩 둘레 2px(UI-칩줄두줄: 두 줄 + [더보기]). */
-html .cc-sub-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap) 2px; max-width:100%; min-width:0; margin:0 0 4px 4px; padding:0 0 0 6px; border-left:2px solid var(--kptu-border); box-sizing:border-box; }
-html .cc-sub-row button:not(.chip-rows-more){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; flex:0 0 auto; width:auto; min-width:0; height:26px; min-height:26px; margin:0; padding:0 7px; border:0; border-radius:var(--kptu-radius-sm,4px); background:transparent; box-shadow:none; color:var(--kptu-muted); font-family:inherit; font-size:var(--kptu-text-meta,12px); font-weight:var(--ds-weight-regular,400); line-height:1; white-space:nowrap; }
-html .cc-sub-row button:not(.chip-rows-more)::after{ content:""; position:absolute; left:-1px; right:-1px; top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); }
-html .cc-sub-row button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
-html .cc-sub-row button[aria-pressed="true"]{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium,600); }
-html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-primary)); }
+/* ───────── LIB-조직프로젝트자료종류 → ORG-자료칩드롭다운(요청함 11/14): 담당조직·프로젝트 상세 [자료] 위 [종류 전체 ▾] 고르기 상자 하나 ─────────
+   상자 모양·▾는 공용 고르기 상자(③), 열리는 목록·건수는 select-menu.js. 여기는 칸 자리·높이(작은 버튼 32px)·글자만큼 폭만 정한다. */
+html .doc-kind-pick:not([hidden]){ display:flex; align-items:center; min-width:0; margin:0 0 4px; }
+html .doc-kind-pick > select.cc-kind-select{ box-sizing:border-box; field-sizing:content; width:auto; min-width:0; max-width:100%; height:var(--ds-compact-height); min-height:var(--ds-compact-height); font-size:var(--ds-compact-text,13px); text-overflow:ellipsis; white-space:nowrap; }
+html .doc-kind-pick > select.cc-kind-select.is-on{ color:var(--kptu-ink); font-weight:var(--ds-weight-strong,600); border-color:var(--ds-select-line,var(--kptu-border-strong)); }
 
 /* ACT-사진: 사업 보고 사진 작은 그림 3장 + '외 n장'(report-photos.js). 담당조직·프로젝트 상세 줄과 자료실 묶음 줄이 같이 쓴다. 줄 안 자리(grid)는 각 화면 CSS가 정한다. */
 .report-photo-strip{display:inline-flex;align-items:center;gap:3px}
@@ -1320,8 +1321,13 @@ html .cc-sub-row button.cc-sub-add{ color:var(--kptu-primary-ink,var(--kptu-prim
 .tp[hidden],.tp-pick[hidden],.tp [hidden]{display:none}
 .tp-line{display:flex;align-items:center;gap:6px;min-height:28px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .tp-pick{margin:2px 0 4px}
-.tp-strip{display:flex;gap:4px;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0;scrollbar-width:thin}
-.tp-item{position:relative;display:block;flex:none;width:56px;height:56px;margin:0;padding:0;overflow:hidden;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);cursor:pointer}
+/* MTG-그시각사진크기(S62-03a, 시안 #2594 가): 한 줄 가로 넘김 → 여러 줄 격자. 폰 한 줄 4장(약 90px), 폭 560px 넘으면(폴드 펼침·PC) 8장.
+   두 줄 반을 넘으면 이 칸 안에서만 위아래로 밀린다. 칸 너비 기준은 .tp(부품 바깥 칸)의 폭(cqi). */
+.tp{container-type:inline-size}
+.tp-strip{--tp-cols:4;--tp-gap:4px;display:grid;grid-template-columns:repeat(var(--tp-cols),minmax(0,1fr));gap:var(--tp-gap);max-height:calc((100cqi - (var(--tp-cols) - 1) * var(--tp-gap)) / var(--tp-cols) * 2.5 + 2 * var(--tp-gap) + 4px);overflow-y:auto;overscroll-behavior-y:contain;padding:2px 0;scrollbar-width:thin}
+@container (min-width:560px){.tp-strip{--tp-cols:8}}
+.tp-strip>:not(.tp-item){grid-column:1/-1}
+.tp-item{position:relative;display:block;width:100%;height:auto;aspect-ratio:1;margin:0;padding:0;overflow:hidden;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);cursor:pointer}
 .tp-item .diary-photo{position:absolute;inset:0;display:block}
 /* CAL-일정첨부 6번(S59-23): 사업 보고 쓰기 창 '일정에 붙인 사진' 줄도 같은 칸(.tp-item) — 그림 칸(img-slot)이 칸을 채운다 */
 .tp-item .ev-pick-img{position:absolute;inset:0;display:block}
@@ -1587,14 +1593,14 @@ select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick{ padding-
 /* 가상 요소 꺾쇠를 쓰는 접는 칸: 기본 표시(브라우저 ▶)를 지운다. */
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
-    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,#appView #homeView details.journal-fill-more)>summary{list-style:none}
+    .biz-next-plan,.biz-untagged,.pd-quotes,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,#appView #homeView details.journal-fill-more)>summary{list-style:none}
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
-    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,#appView #homeView details.journal-fill-more)>summary::-webkit-details-marker{display:none}
+    .biz-next-plan,.biz-untagged,.pd-quotes,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,#appView #homeView details.journal-fill-more)>summary::-webkit-details-marker{display:none}
 /* 이름 앞 꺾쇠(::before) */
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
-    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,
+    .biz-next-plan,.biz-untagged,.pd-quotes,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,
     #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold,#appView #homeView details.journal-fill-more)>summary::before,
 .ps3-fold>.ps3-fold-summary::before,#appView #arsenalView .ars-sec summary::before,#appView #pagesView .sp-box-summary::before,
 .tl-status-group>summary span::before,.mrd-special-fold>summary h3::before,
@@ -1606,7 +1612,7 @@ select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick{ padding-
 .ps3-fold>summary:not(.ps3-fold-summary)::after,#appView #photosView .photos-tidy-row>summary .photos-tidy-see::after{ margin:0 0 0 4px; }
 :is(#appView #homeView details.journal-calref,#appView #homeView details.journal-overdue,
     #appView #ledgerView details.lm-group,#appView #ledgerView details.lb-hist-row,details.okp-brief,.wd-sec>details#wdTime,
-    .biz-next-plan,.biz-untagged,.pd-quotes,.pms-past,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,
+    .biz-next-plan,.biz-untagged,.pd-quotes,#appView #outsideView .nd-fold,#basketView .inbox-todo-week,.gs-ask-src,.wd-stage-hist,
     #appView #homeView .journal-org-raw,#appView #homeView .journal-weekly-fold,#appView #homeView details.journal-fill-more)[open]>summary::before,
 .ps3-fold[open]>.ps3-fold-summary::before,#appView #arsenalView .ars-sec[open] summary::before,#appView #pagesView .sp-box[open]>.sp-box-summary::before,
 .tl-status-group[open]>summary span::before,.mrd-special-fold[open]>summary h3::before,
@@ -1864,7 +1870,7 @@ button.ds-chip[data-dot-toggle][aria-pressed="false"] > .ui-color-dot{ backgroun
    ⑤ 보기 바꾸기 .ds-seg 안의 button.ds-seg-btn — 연한 알약 바탕 안 칸들, --ds-compact-height, 고른 칸만 흰 알약 + 굵게, 선·밑줄 없음(UI-보기탭한모양). 보기 탭은 이 부품만(tests/view-tabs-one-look.test.mjs)
    ⑥ 아이콘 button.icon-btn — ⋯ ✕ ‹ › ⤢, 선·바탕 없음(마우스를 올리면 옅은 바탕)
    모두: 모서리는 --ds-radius-control(칩만 알약), 색은 주 색 하나 + 회색 선 하나 + 빨강은 지우기만, 누르는 범위 44px(::after),
-   눌림은 UI-누름움직임(위 공용 규칙), 꺼짐은 흐리게만. 값은 --ds-*·--kptu-* 토큰만 쓰고 숫자를 새로 정하지 않는다.
+   눌림은 UI-누름움직임(위 공용 규칙), 꺼짐은 흐리게만(① 채운 버튼만 아래 '채운 버튼 꺼짐' — 흐리게 하지 않고 옅은 바탕 + 읽히는 글자). 값은 --ds-*·--kptu-* 토큰만 쓰고 숫자를 새로 정하지 않는다.
    재발 방지: tests/button-six-kinds.test.mjs(6가지 밖 버튼·화면별 버튼 모양 선언이 기준표보다 늘면 실패). */
 button.ds-chip{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:var(--ds-chip-row-gap); flex:none;
   height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); margin:0; padding:0 var(--ds-chip-row-pad-x);
@@ -1901,6 +1907,11 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 :is(button.ds-chip,button.icon-btn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:var(--ds-line-width); }
 .ds-seg button.ds-seg-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:calc(var(--ds-line-width) * -4); }
 :is(button.ds-chip,.ds-seg button.ds-seg-btn,button.icon-btn):disabled{ opacity:.5; cursor:default; }
+/* WEEKLY-주간정리다듬기 ③(요청함 11/13 16:57 '확정 버튼 글자가 검정색이라 안 보여'): 채운 버튼(주 동작)의 누를 수 없음 모양은 여기 한 곳.
+   예전에는 버튼 전체를 흐리게(opacity) 해서 어두운 화면(다크 모드)에서 진한 글자 + 흐린 연한 바탕이 어두운 배경에 묻혀 글자가 안 보였다.
+   이제 흐리게 하지 않고 옅은 주 색 바탕 + 읽히는 주 색 글자(모든 테마·밝은/어두운 화면에서 읽힘). 화면마다 따로 둔 disabled 규칙(base-ui.css·journal.css·HWP·원장)보다
+   앞서도록 !important(꺼짐 모양 하나만, 고르는 범위는 채운 버튼뿐). */
+:is(button.primary,button.quick-pill-primary,button[data-basket-save],button.home-quick-save,button.fx-pri,button.ql-primary):disabled:not(.icon-btn){ opacity:1 !important; color:var(--kptu-primary-ink) !important; background:var(--kptu-primary-soft) !important; border-color:var(--kptu-primary-soft) !important; background-image:none !important; cursor:not-allowed; }
 
 /* ===== UI-창아래버튼통일(2026-11-07 명진 요청 10:55 '삭제 완료 저장 … 같은 디자인에서의 배리에이션으로 안느껴짐', 시안 docs/design/mockups/sheet-footer-buttons.html 'A') =====
    창 아래 버튼 줄은 공용 부품 하나다: 팝업·아래에서 올라오는 창의 .modal-action-footer(base-ui.css)와 화면 안 창·칸의 .save-row(위 UI-저장자리). ②(S54-08)에서 이름이 다른 같은 종류의 줄 .home-choice-foot(고르기 창)·.record-sheet-foot(노트 기록 창)·.diary-od-foot(원드라이브 설정 창)도 같은 부품으로 넣었다.
@@ -1916,7 +1927,8 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
   padding:0 var(--ds-control-pad-x) !important; border:0 !important; border-radius:var(--ds-radius-control) !important;
   font-size:var(--ds-text-button) !important; font-weight:var(--ds-weight-medium) !important;
 }
-:is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button.primary:not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary) !important; color:var(--kptu-on-primary) !important; }
+/* PROFILE-바뀜것없음글자빼기(S62-24): 진한 채움은 누를 수 있을 때만. 누를 수 없는 저장(:disabled)은 위 'WEEKLY-주간정리다듬기 ③' 꺼짐 모양 하나(옅은 주 색 바탕)를 그대로 쓴다 — 전에는 이 줄이 이겨 꺼진 [저장]도 진하게 보였다. */
+:is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button.primary:not(:disabled,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary) !important; color:var(--kptu-on-primary) !important; }
 :is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button:is(.secondary,.ghost):not(.primary,.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:var(--kptu-primary-soft) !important; color:var(--kptu-ink) !important; }
 :is(.modal-action-footer,.save-row,.home-choice-foot,.record-sheet-foot,.diary-od-foot) button:is(.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete):not(.primary,.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini){ background:transparent !important; color:var(--kptu-danger) !important; margin-right:auto !important; margin-left:0 !important; }
 /* 마우스를 올리면 삭제만 옅은 빨강 바탕(저장·보조는 창 안 기존대로 바탕 그대로, 누름은 공용 눌림). */

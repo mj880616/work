@@ -265,7 +265,9 @@ class WidgetAuthTest {
     fun loginUrlIsTheSameAsStepOne() {
         assertEquals(
             "https://xmlkxfjeagycwttklxjw.supabase.co/auth/v1/authorize?provider=google&redirect_to=" +
-                "https%3A%2F%2Fbokdoong.com%2Fwork%2Fapp%2Fnative-callback.html%3Fnative%3Dandroid",
+                "https%3A%2F%2Fbokdoong.com%2Fwork%2Fapp%2Fnative-callback.html%3Fnative%3D" +
+                // S62-34: github 판은 android(지금과 같음), 플레이 판은 android-play(FlavorTest가 판별 값을 고정한다).
+                (if (BuildConfig.APPLICATION_ID == "com.nojoplus.app") "android-play" else "android"),
             WidgetRules.LOGIN_URL,
         )
     }

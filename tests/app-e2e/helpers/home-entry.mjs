@@ -1,22 +1,52 @@
-import { OPERATOR_ORG_ORDER, OPERATOR_REPORT_CALENDAR } from '../../org-order-fixture.mjs';
+import { OPERATOR_ORG_ORDER, OPERATOR_REPORT_CALENDAR, OPERATOR_MENU_LAYOUT } from '../../org-order-fixture.mjs';
 import { expect } from '@playwright/test';
 import {DEFAULT_STAGES} from '../../../app/org-dispute-stage-model.mjs';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
+import { readFileSync } from 'node:fs';
+// WEEKLY-내양식자유변형 ⑤-3b: 바탕이 있는 기본 계정은 '내 양식'도 저장돼 있다(운영자처럼 — ⑤-2 자동 저장). 지어낸 고정 양식(⑤-3 전 기본 양식 글자 그대로).
+const OWN_FORM = JSON.parse(readFileSync(new URL('../../fixtures/weekly-own-form-legacy-shape.json', import.meta.url), 'utf8'));
+export const DEFAULT_OWN_FORM_ROW = Object.freeze({ id: 'home-own-form', name: '가상 주간 보고', source_name: null, source_file_id: null, updated_at: '2026-10-01T00:00:00Z', form: OWN_FORM });
 import { signInWithSession } from './session-login.mjs';
 import { installViewPrefsServer } from './view-prefs-server.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Normalized Google Tasks create representation, matching the existing Edge contract.
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
 export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
+// UI-폰하단고정: 접혀 있는 폰 홈 빠른 입력을 칸을 눌러 펼친다(접힌 것이 없으면 아무것도 안 함 — PC·다른 화면).
+// 다시 불러온 뒤(page.reload)나 폭을 폰으로 바꾼 뒤에도 같은 뜻으로 부른다.
+// HOME-입력칸두모양(S61-44): 폰 홈 빠른 입력은 접힘이 없다(늘 한 줄, 펼칠 것 없음). 화면 준비만 기다린다.
+export async function openQuickBox(page){
+  if((page.viewportSize()?.width||0)>760)return;
+  await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+}
+// 폰 홈은 [업데이트 | 할 일] 단추 줄이 없고 왼쪽 [종류 ▾]의 작은 목록에서 고른다(mode: 'update'|'task'|'org' = 기록할 곳 선택).
+// 넓은 화면은 단추 줄 그대로([업데이트]·[할 일]·▾). 어느 폭이든 같은 시험 줄로 쓴다.
+export const quickKindButton=(page,root='#homeView [data-home-quick]')=>page.locator(root).locator('[data-quick-kind]');
+export async function pickQuickMode(page,mode,root='#homeView [data-home-quick]'){
+  const q=page.locator(root),kind=q.locator('[data-quick-kind]');
+  if(await kind.isVisible()){
+    await kind.click();
+    await page.locator('#rowMenu').getByRole('button',{name:mode==='task'?'할 일':mode==='org'?'기록할 곳 선택…':'잊지 말기',exact:true}).click();
+  }else await q.locator(mode==='org'?'[data-quick-org]':`[data-quick-mode="${mode}"]`).click();
+}
+// 기록할 곳 고르기 창을 여는 단추(폰: [종류 ▾], 넓은 화면: [업데이트] 옆 ▾) — 창 자리를 재는 시험용.
+export async function placeTrigger(page,root='#homeView [data-home-quick]'){
+  const kind=page.locator(root).locator('[data-quick-kind]');
+  return (await kind.isVisible())?kind:page.locator(root).locator('[data-quick-org]');
+}
+// 운영자 계정(명진)의 메뉴 기능: 통화·텔레그램·파일·아스날·News(MULTI-처음쓰는사람 ④ — 서버 허용 표의 키).
+export const OPERATOR_MENU_FEATURES = Object.freeze(['arsenal', 'calls', 'files', 'outside', 'telegram']);
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z" } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z", quickRest = false, features = OPERATOR_MENU_FEATURES, menuLayout = OPERATOR_MENU_LAYOUT, weeklyBase = true } = {},
 ) {
   await page.clock.setFixedTime(new Date(now)); // now: HOME-하루채우기 ③처럼 저녁 시각이 필요한 시험만 바꾼다(기본 10:00 KST 그대로)
   // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
   // MULTI ②-3: 담당조직 묶음·순서와 보고 캘린더 이름(view_prefs)은 기본으로 운영자 값을 가진 사람(tests/org-order-fixture.mjs). 시험이 보는 prefs.value에는 섞이지 않는다.
-  const prefs = await installViewPrefsServer(page, null, { base: { org_order: OPERATOR_ORG_ORDER, report_calendar: OPERATOR_REPORT_CALENDAR } });
+  // MULTI-하단바기본노트: 메뉴 순서도 운영자가 저장해 둔 값(OPERATOR_MENU_LAYOUT). menuLayout: null이면 저장값 없는 새 계정(기본 하단바)이다.
+  // 메뉴 순서를 옮기는 시험은 menuLayout: null로 열어 저장·처음대로가 이 기본 칸에 섞이지 않게 한다.
+  const prefs = await installViewPrefsServer(page, null, { base: { org_order: OPERATOR_ORG_ORDER, report_calendar: OPERATOR_REPORT_CALENDAR, ...(menuLayout ? { menu_layout: menuLayout } : {}) } });
   const requests = [],
     user = { id: "home-test", email: "home@example.org" },
     tasks = [
@@ -105,6 +135,9 @@ export async function openHome(
         user,
       });
     if (p === "/auth/v1/user") return ok(user);
+    // MULTI-처음쓰는사람 ④: 운영자 기능 답(app_my_features). 기본은 운영자 계정의 메뉴 기능(OPERATOR_MENU_FEATURES — 통화·텔레그램·파일·
+    // 아스날·News, 메뉴가 지금 그대로). 새 계정은 features: [] 로 연다. null이면 가로채지 않는다(아래 기본 []). 시험이 이 경로를 따로 가로채면 그쪽이 이긴다.
+    if (features && p === "/rest/v1/rpc/app_my_features") return ok(features);
     if (p === "/rest/v1/app_workspace_members")
       return ok([
         {
@@ -116,6 +149,14 @@ export async function openHome(
     // ORG-쟁의단계: 기본 단계가 이미 채워진 빈 이력(조직 상세 줄이 처음 열 때 쓰기를 하지 않게). 단계 시험은 자기 경로로 다시 가로챈다.
     if (p === "/rest/v1/app_dispute_stages" && req.method() === "GET") return ok(defaultStageRows());
     if (p === "/rest/v1/app_suborganization_dispute_stages" && req.method() === "GET") return ok([]);
+    // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 기본은 운영자처럼 자료실에 주간 보고 바탕(팀 확정본)이 있는 사람 — [주간 보고]가 지금 화면 그대로다.
+    // 바탕이 없는 새 계정(백지 + [파일 올리기])은 weeklyBase: false. 바탕 파일을 실제로 여는 시험은 자기 경로로 다시 가로챈다(journal.spec hwpxFixture).
+    if (p === "/rest/v1/app_documents" && req.method() === "GET" && /주간보고/.test(decodeURIComponent(u.searchParams.get("category") ?? ""))) {
+      const team = /팀 확정본/.test(decodeURIComponent(u.searchParams.get("category") ?? ""));
+      return ok(weeklyBase && team ? [{ id: "home-weekly-base", title: "가상 팀 확정본", file_name: "base.hwpx", document_date: "2026-10-05", created_at: "2026-10-05T00:00:00.000Z" }] : []);
+    }
+    // ⑤-3b: 화면 절 제목은 '내 양식' 제목이다. 바탕이 있는 기본 계정은 저장된 내 양식이 있다. 양식을 따로 다루는 시험은 자기 경로로 다시 가로챈다.
+    if (p === "/rest/v1/app_weekly_forms" && req.method() === "GET") return ok(weeklyBase ? [DEFAULT_OWN_FORM_ROW] : []);
     const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
     const holdKey=p.endsWith('app_record_links')&&u.searchParams.get('note_id')==='not.is.null'?'basket-record-links':p.split('/').pop();
     await (holds[a] ?? holds[holdKey]);
@@ -217,6 +258,8 @@ export async function openHome(
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/, {
     timeout: 20000,
   });
+  // HOME-입력칸두모양: 폰 홈 빠른 입력은 접힘이 없다. quickRest는 옛 시험 호환용 이름만 남는다(뜻 없음).
+  if (!quickRest) await openQuickBox(page);
   return {
     prefs,
     requests,

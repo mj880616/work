@@ -175,13 +175,6 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
-  import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
-  // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
-  import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
-  // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
-  import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
-
   const showFeatureError=(err,retry=null)=>{
     console.error('view feature load failed',err);
     // UI-기다림표시통일: 실패는 공용 부품(wait-state.js) — 빨간 작은 글자 '불러오지 못했습니다' + 작은 [다시](민트 상자 쓰지 않음).
@@ -246,9 +239,12 @@
   let result={ok:false,view:requested};
   try{
     result=await viewLoader.load(requested);
-    if(!staticShellViews.has(requested)){
+    // NEWS-운영자만(S63-03): 기능 키가 없어 막힌 화면(?view=news 등)으로 시작하면 홈을 열고 주소도 홈으로 바꾼다.
+    const denied=result?.denied===true;
+    if(denied)result=await viewLoader.load('home');
+    if(denied||!staticShellViews.has(requested)){
       app?.classList.add('kptu-shell-ready');
-      window.KPTURouter?.go?.(requested,{scroll:false,source:'startup',updateUrl:false});
+      window.KPTURouter?.go?.(denied?'home':requested,{scroll:false,source:'startup',updateUrl:denied,replaceUrl:denied});
     }
     startup?.mark('requestedViewReady',{view:requested});
   }catch(err){
@@ -265,7 +261,7 @@
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   // UI-앱안알림 2단계: 맨 위 알림 줄의 연결 끊김·수집 멈춤(notice-lines.js). 기다리지 않는다.
   import('./notice-lines.js').then(m=>m.startNoticeLines()).catch(err=>console.warn('notice lines load failed',err?.name||'Error'));
-  // UI-앱안알림 4단계: 뒤에서 끝난 일(다음 주 준비 한 장 등)도 같은 알림 줄에(notice-done.js, 폰 알림과 같은 서버 목록). 기다리지 않는다.
+  // UI-앱안알림 4단계: 뒤에서 끝난 일(회의 요약 등)도 같은 알림 줄에(notice-done.js, 폰 알림과 같은 서버 목록). 기다리지 않는다.
   import('./notice-done.js').then(m=>m.startDoneNotices()).catch(err=>console.warn('done notices load failed',err?.name||'Error'));
   // S48-18: 저녁 '새 성명 n건'(사회운동 Now 본 시각 뒤 들어온 글, notice-outside.js). 기다리지 않는다.
   import('./notice-outside.js').then(m=>m.startOutsideNotice()).catch(err=>console.warn('outside notice load failed',err?.name||'Error'));
@@ -278,6 +274,14 @@
     catch(err){console.warn('area window open failed',err?.name||'Error')}
   }
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
+  // PERF-첫로딩 ③(S61-32): 원장 사본 갱신·자동 기록·겹침 알림은 화면 없는 뒤 기능이라 첫 화면을 드러낸 뒤에 부른다(전에는 첫 화면 프로그램보다
+  // 먼저 받기 시작해 느린 폰에서 첫 화면 파일과 같은 연결을 다퉜다). 하는 일·서로의 순서는 그대로다.
+  // 원장 Drive 사본 자동 갱신(원장이 바뀌면 10분 묶어 한 번, 열 때 하루 넘었으면 한 번, LEDGER-자동기록). 기다리지 않는다.
+  import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
+  // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
+  import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
+  // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
+  import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
   import('./mobile-modal-history.js').catch(()=>{});
   // APP-폰앱새로 ②: 폰 앱(KPTUAndroid)의 [공유]로 받은 것을 정리함 확인 줄로 넣는다. 앱이 아니면 아무것도 하지 않는다. 첫 화면이 뜬 뒤 붙인다(시작 화면 이동과 겹치지 않게). 기다리지 않는다.
   import('./basket-share.js').catch(err=>console.warn('share intake load failed',err?.name||'Error'));

@@ -24,6 +24,8 @@ object PushRules {
         // FAMILY-잊지말기 4단계: "잊지 말기 n건"(제목만, 잠금 화면은 PUBLIC_TITLE). 묶음처럼 보통(급하지 않음).
         // FAMILY-기억알림 ②: 월요일 '가족 · 이번 주 기억할 것 n'(본문 있음 → 잠금 화면에도 그대로, BODY_KINDS).
         "family" to "잊지 말기",
+        // OPS-새가입알림(S62-25): 운영자에게만 "새 가입 n명 — 이름"(제목만, 잠금 화면은 PUBLIC_TITLE — 이름 숨김). 보통(급하지 않음).
+        "signup" to "새 가입",
     )
 
     /** 바로 알리는 종류(설계 8절: 우선순위 높음은 즉시 알림 4종 + 시험). 묶음은 보통. */
@@ -33,7 +35,7 @@ object PushRules {
     const val ACTION_OPEN = "kr.or.kptu.work.PUSH_OPEN"
     const val EXTRA_OPEN = "open"
     /** 잠금 화면에 보이는 글(설계 N-D4: 내용 숨김). */
-    const val PUBLIC_TITLE = "웹2 · 새 알림"
+    const val PUBLIC_TITLE = "노동조합+ · 새 알림"
     const val MAX_TITLE = 80
     /** 본문을 그리는 종류(서버 fcm-send.ts BODY_KINDS와 같음). 명진 결정 11/12 "보이기": 이 종류는 본문이 있으면 잠금 화면에도 그대로 보인다. */
     val BODY_KINDS: Set<String> = setOf("family")

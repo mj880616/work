@@ -3,12 +3,12 @@
 import {kstDay, addDays, dayLabel, hhmm} from './feed-model.mjs';
 
 // 단체 묶음(카탈로그 group 값과 같은 이름). 단체 이름·묶음은 서버 카탈로그(outside-feed ?action=catalog)에서만 받는다.
-// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안.
+// 11/02 00:19 명진 요청: [노동] [정당] [사회운동] [외국→11/15 국제]. 민주노총·공공운수노조는 [노동] 안.
 export const GROUPS = Object.freeze([
   {key: 'labor', label: '노동'},
   {key: 'party', label: '정당'},
   {key: 'movement', label: '사회운동'},
-  {key: 'foreign', label: '외국'},
+  {key: 'foreign', label: '국제'}, // 11/15 명진 "외국은 국제"(NEWS-출처목록가나다) — 내부 이름 foreign·DB는 그대로
 ]);
 const GROUP_KEYS = new Set(GROUPS.map(g => g.key));
 // 옛 서버 카탈로그(묶음 kctu·kptu)가 아직 배포돼 있을 때도 [노동]으로 묶는다(Edge 재배포 전후 어느 쪽이든 같은 화면).
@@ -200,4 +200,25 @@ export function feedWhen(rows, now = Date.now()) {
   const nextDay = kstDay(next) === kstDay(now) ? '' : '내일 ';
   const nextText = late ? `다음 곧(${hhmm(new Date(prev).toISOString())} 예정분)` : `다음 ${nextDay}${hhmm(new Date(next).toISOString())}쯤`;
   return `${lastText} · ${nextText}`;
+}
+
+// S63-11(명진 11/16 '6 고쳐'): [사회운동] 탭은 국내 단체 글 먼저, 국제(카탈로그 묶음 foreign — 외국 매체) 글은 아래 접힌 '국제' 묶음으로.
+// 위 [매체 ▾]에서 국제 묶음이나 국제 단체 하나를 고르면 나누지 않는다(고른 것이 곧 국제 글). 다른 묶음·단체를 고르면 국제 글이 없어 묶음도 없다.
+export const INTL_GROUP = 'foreign';
+export const INTL_LABEL = GROUPS.find(g => g.key === INTL_GROUP).label;
+export function intlKeys(catalog) {
+  return new Set((catalog || []).filter(s => s?.group === INTL_GROUP && typeof s.key === 'string').map(s => s.key));
+}
+// pick = 위 [매체 ▾] 고른 값(now-model.mjs MEDIA_ALL·'g:묶음'·'s:단체'). 나눌 때만 true.
+export function intlSplitOn(pick, catalog) {
+  if (!pick || pick === 'all') return true;
+  if (pick === 'g:' + INTL_GROUP) return false;
+  if (pick.startsWith('s:')) return !intlKeys(catalog).has(pick.slice(2));
+  return true;
+}
+// 글 목록 → {home: 국내 글, intl: 국제 글}(각각 받은 순서 그대로).
+export function splitIntl(posts, catalog) {
+  const keys = intlKeys(catalog), home = [], intl = [];
+  for (const p of posts || []) (keys.has(p?.source_key) ? intl : home).push(p);
+  return {home, intl};
 }

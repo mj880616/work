@@ -3,6 +3,8 @@ import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '..
 import { outputText } from '../_shared/openai-responses.ts';
 // S48-15: 제목 찾기에 부른 AI 토큰을 홈 'AI 사용량' 줄의 기존 표(app_ai_daily_usage)에 더한다. 기록 실패는 올리기를 막지 않는다.
 import { createAiUsageMeter, recordAiDailyUsage } from '../_shared/ai-daily-usage.mjs';
+// AI-사람별한도: 작업공간 이번 달 AI 한도에 닿으면 제목·한 줄 AI를 건너뛴다(올리기는 그대로, 파일 이름으로).
+import { assertAiUserCap } from '../_shared/ai-user-cap.mjs';
 type AiMeter={add:(raw:unknown)=>void};
 // S48-15: 요청마다 미터 하나(AI를 부르는 갈래에서만 만든다) — 제목 찾기·기록 한 줄 공용.
 const aiMeter=()=>createAiUsageMeter();
@@ -209,7 +211,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
     if(String(form.get('mode')||'')==='record_line'){
       const meter=aiMeter();
       let line:string|null=null;
-      try{line=await inferRecordLine(file,await workspaceModel(wm.workspace_id),meter)}catch(e){console.warn('record line skipped',safeErrorLog(e))}
+      try{await assertAiUserCap(admin,wm.workspace_id);line=await inferRecordLine(file,await workspaceModel(wm.workspace_id),meter)}catch(e){console.warn('record line skipped',safeErrorLog(e))}
       await recordAiDailyUsage(admin,{workspaceId:wm.workspace_id,userId:user.id,meter});
       return json({ok:true,line});
     }
@@ -236,6 +238,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
     if(!userTitle&&!meaningfulName){
       const meter=aiMeter();
       try{
+        await assertAiUserCap(admin,wm.workspace_id);
         const model=await workspaceModel(wm.workspace_id);
         const inferred=await inferTitleFromFile(file,model,meter);
         if(inferred){title=tidyFileTitle(inferred);titleSource='content'}

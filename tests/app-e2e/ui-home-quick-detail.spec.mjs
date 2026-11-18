@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {pressName} from './helpers/area-org-picker.mjs';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
 // UI-홈빠른입력상세: 홈 빠른 입력 [할 일] 모드에서만 입력 칸 안 오른쪽 끝 [+](상세 설정으로 추가)가 보이고, 누르면 새 창 없이
 // 기존 [할 일 등록] 창(UI-할일빠른추가상세 #728과 같은 창)을 연다. 입력 글은 제목, 위 칩(프로젝트·오늘·내일·날짜)은 창의 같은 칸에 채운다.
 // 창에서 바꾼 값이 저장되고, 저장되면 입력 칸은 비고 프로젝트 칩은 풀린다. [업데이트] 모드와 바구니 화면에는 [+]가 없다. 시계는 2026-10-06 KST(openHome).
@@ -18,15 +18,17 @@ for(const width of [390,1440]){
   await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{creates.push(r.request().postDataJSON());return r.fallback();});
   const q=quick(page),input=q.locator('[data-quick-input]'),plus=q.locator('[data-quick-detail]'),big=q.locator('[data-quick-big]');
   // [업데이트] 모드: [+]는 숨고 [크게]만 보인다.
-  await q.locator('[data-quick-mode="update"]').click();
+  await pickQuickMode(page,'update');
   await expect(plus).toBeHidden();await expect(big).toBeVisible();
   // [할 일] 모드: [+]가 입력 칸 안 오른쪽 끝(누르는 범위 44px 이상), [크게]는 숨는다.
-  await q.locator('[data-quick-mode="task"]').click();
+  await pickQuickMode(page,'task');
   await expect(plus).toBeVisible();await expect(big).toBeHidden();
   await expect(plus).toHaveAttribute('aria-label','상세 설정으로 추가');
   // [할 일] 모드의 [📎 첨부]는 할 일 파일 사용 가능 확인(비동기, checkTaskFiles)이 끝나야 나타나며 입력 칸을 그만큼 좁힌다.
   // 그 뒤의 최종 배치에서 잰다(확인이 늦게 오면 넓은 칸을 재던 간헐 실패).
   await expect(q.locator('[data-quick-file-picker]')).toBeVisible();
+  // HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 보인다.
+  if(width<761)await input.fill('분기 보고서 작성');
   const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox();
   expect(pb.width).toBeGreaterThanOrEqual(44);
   expect(await plus.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);// UI-버튼줄이기: 폰도 보이는 32px, 누르는 범위 44px

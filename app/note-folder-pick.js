@@ -5,7 +5,10 @@
 import {createMovePicker} from './library-move-picker.js';
 import {pickerRows} from './library-move.mjs';
 import {viewPrefs} from './view-prefs.js';
-import {readNoteFolders} from './note-folders-data.js';
+import {readNoteFolders, createNoteFolder} from './note-folders-data.js';
+import {folderSiblings, nextSortOrder, cleanFolderName} from './library-tree.js';
+import {noteFolderErrorText} from './note-tree.mjs';
+import {askText, notify} from './small-notice.js';
 import {setNoteFolderRef} from './basket-data.js';
 import {folderFromView, folderIdFromName, noteFolderPlace} from './note-folder-pick.mjs';
 
@@ -20,11 +23,28 @@ export async function loadNoteFolders(rt = window.KPTURuntime) {
   return {ready: !!result.ready, folders: result.ready ? result.folders : []};
 }
 
+// S61-46 UI-새폴더넣기안됨: [+ 새 폴더 만들어 넣기] — 이름을 공용 작은 글 입력창으로 받아 맨 위에 노트 폴더 하나를 만든다
+// (노트 화면 newFolder와 같은 서버 길 createNoteFolder, 기존 owner-RLS). 만든 폴더는 folders 배열 끝에 더한다. 취소·실패 = null(실패는 한 줄 알림).
+export async function makeNoteFolder(folders, {rt = window.KPTURuntime, anchor = null} = {}) {
+  const typed = await askText(anchor?.isConnected && anchor.getClientRects().length ? anchor : document.activeElement, {text: '새 폴더 이름 (40자까지)', ok: '만들기', max: 40});
+  if (typed === null) return null;
+  const name = cleanFolderName(typed);
+  if (!name) { notify('폴더 이름은 1~40자로 써 주세요.', {error: true}); return null; }
+  try {
+    const row = await createNoteFolder({name, parent_id: null, sort_order: nextSortOrder(folderSiblings(folders, {free: true, parentId: null}))}, rt);
+    folders.push(row);
+    window.dispatchEvent(new CustomEvent('kptu:basket-notes-restored'));
+    return row;
+  } catch (error) { notify(noteFolderErrorText(error), {error: true}); return null; }
+}
+
 // 고르기 창 하나 열기(노트 화면 밖 공용). onPick(folder|null): null = 폴더 밖.
-export function openNoteFolderPicker({anchor, folders, onPick, onClosed = null}) {
-  sharedPicker().open({anchor, place: 'below', history: !wide(), canNew: false, canOut: true,
+// newFolder:true면 [+ 새 폴더 만들어 넣기]로 새 폴더를 만들어 곧바로 onPick(새 폴더) — 없으면 그 단추를 그리지 않는다.
+export function openNoteFolderPicker({anchor, folders, onPick, onClosed = null, newFolder = true, rt = window.KPTURuntime}) {
+  sharedPicker().open({anchor, place: 'below', history: !wide(), canNew: !!newFolder, canOut: true,
     rows: q => pickerRows({folders, free: true, query: q}),
-    onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onClosed});
+    onPick: id => onPick(folders.find(f => f.id === id) || null), onOut: () => onPick(null), onClosed,
+    onNew: newFolder ? async () => { const made = await makeNoteFolder(folders, {rt, anchor}); if (made) await onPick(made); } : null});
 }
 
 // 노트들이 지금 든 폴더(되돌리기용): 기존 owner-RLS 읽기 길로 metadata만 읽어 폴더 표의 폴더(없으면 null = 폴더 밖)로 바꾼다.
@@ -86,7 +106,7 @@ export function createNoteFolderPick({rt = window.KPTURuntime, initial = null, t
     async open(trigger) {
       await load();
       if (!alive()) return;
-      openNoteFolderPicker({anchor: trigger, folders, onPick: folder => { value = folder?.id || null; tell(); }});
+      openNoteFolderPicker({anchor: trigger, folders, rt, onPick: folder => { value = folder?.id || null; tell(); }});
     },
     // 새 노트를 저장한 뒤 고른 폴더에 넣는다(폴더 밖이면 쓰지 않음). 반환: 넣은 폴더 이름 또는 null.
     async put(note) {

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안 3차: 함께쓰기 — 묶음 만들기·초대 링크·같은 이름 요청</title>
+<style>
+:root{--bg:#f3f0e8;--card:#fffdf8;--line:#e3ded2;--ink:#2b2a26;--sub:#7a766c;--olive:#5b6b33;--sel:#edf0e2;--warn:#fff4e5}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd8cf;font:14px/1.45 "Noto Sans KR",system-ui,sans-serif;color:var(--ink);padding:16px;width:1740px}
+h1{font-size:18px;margin:0 0 4px}
+h2{font-size:15px;margin:18px 0 6px}
+.lead{color:#555;margin:0 0 10px;font-size:13px;max-width:1440px}
+.row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px}
+.cap{font-size:12px;color:#444;margin:0 0 6px;font-weight:600;max-width:412px}
+.frame{background:var(--bg);border:1px solid #bbb;border-radius:14px;overflow:hidden;position:relative}
+.ph{width:412px;height:760px}.fold{width:880px;height:520px}.pc{width:1440px;height:640px}
+.top{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--card);font-weight:700;font-size:15px}
+.top .bk{color:var(--sub);font-weight:400}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 10px;padding:9px 11px}
+.sec{font-weight:700;font-size:13.5px;margin:0 0 4px;display:flex;align-items:center;gap:6px}
+.sec .n{font-weight:400;color:var(--sub);font-size:12px}
+.muted{color:var(--sub);font-size:12px}
+.kv{display:flex;gap:8px;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
+.kv:first-of-type{border-top:0}.kv b{font-weight:400;color:var(--sub);width:56px;flex:none}
+.btn{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:7px;padding:4px 10px;font-size:12.5px;white-space:nowrap}
+.btn.p{background:var(--olive);color:#fff;border-color:var(--olive)}
+.btn.dis{opacity:.45}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ln{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.ln:first-of-type{border-top:0}
+.ln .nm{font-weight:600}.ln .t{color:var(--sub);font-size:12px;flex:1}
+.tag{font-size:10.5px;border-radius:4px;padding:0 5px;background:#eef0e6;color:#4d5a2a;border:1px solid #d5dcc0}
+.tag.w{background:#fff4e5;color:#8a5a00;border-color:#f0d58a}
+.more{color:var(--sub);padding:0 4px}
+.nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;border-top:1px solid var(--line);padding:7px 0 9px;font-size:11px;color:var(--sub);background:var(--card)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.sheet{position:absolute;left:0;right:0;bottom:44px;background:#fff;border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.12);padding:12px 14px 12px}
+.sheet h3{margin:0 0 6px;font-size:14.5px}
+.field{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 9px;font-size:13px;margin:3px 0 7px}
+.lab{font-size:11.5px;color:var(--sub)}
+.consent{background:#f6f8f0;border:1px solid #d5dcc0;border-radius:8px;padding:7px 9px;font-size:12px;margin:6px 0}
+.consent div{margin:1px 0}
+.hint{background:var(--warn);border-radius:7px;padding:6px 9px;font-size:12px;color:#5c4a1f;margin:6px 0}
+.same{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;margin:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.radio{width:14px;height:14px;border:2px solid var(--olive);border-radius:50%;display:inline-block;position:relative;flex:none}
+.radio.on:after{content:"";position:absolute;inset:2px;background:var(--olive);border-radius:50%}
+.pick{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.pick:first-of-type{border-top:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;font-size:12.5px}
+.seg span{padding:4px 10px;background:#fff}.seg .on{background:var(--sel);font-weight:600}
+.link{font-family:ui-monospace,monospace;font-size:12px;background:#f7f4ec;border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0}
+.split{display:flex;height:100%}
+.side{width:170px;background:var(--card);border-right:1px solid var(--line);padding:10px 8px;font-size:13px;color:#555;flex:none}
+.side div{padding:5px 8px;border-radius:6px}.side .on{background:var(--sel);color:var(--ink);font-weight:600}
+.side hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.panes{display:flex;flex:1;min-height:0}
+.lst{width:300px;border-right:1px solid var(--line);padding:6px 0;flex:none;background:var(--bg)}
+.lst .it{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.lst .it.on{background:var(--sel)}
+.lst .it .s{font-size:11.5px;color:var(--sub)}
+.det{flex:1;min-width:0;overflow:hidden}
+.col3{width:340px;border-left:1px solid var(--line);flex:none}
+.note{background:#fffbe8;border:1px dashed #d9b93a;border-radius:10px;padding:10px 12px;font-size:12.5px;max-width:1440px;margin-bottom:14px}
+.note li{margin:2px 0}
+.ask{background:#fff;border:2px solid var(--olive);border-radius:10px;padding:10px 14px;font-size:13px;max-width:1440px}
+.ask li{margin:4px 0}
+</style>
+</head>
+<body>
+<h1>시안 3차 — 함께쓰기: 묶음 만들기 · 초대 링크 · 같은 이름 들어오기 요청</h1>
+<p class="lead">2차에서 바뀐 점: 운영자가 미리 만든 조직 목록·찾기·명함 승인은 <b>없앴어요</b>(11/15 핫픽스). 노조명·부서명은 각자 프로필에 <b>직접 입력</b>한 글 그대로 쓰고, 묶이는 길은 <b>① 초대 링크</b>와 <b>② 노조명+부서명이 똑같을 때 들어오기 요청</b> 두 가지뿐이에요. 묶음은 <b>부서 묶음</b>(노조명+부서명)과 <b>노조 묶음</b>(노조명) 두 단계예요. 예시 이름은 모두 지어낸 것이에요. 자리: 프로필 › <b>내 묶음</b>.</p>
+
+<div class="note"><ul style="margin:0;padding-left:18px">
+<li><b>새는 길 막기:</b> 같은 이름 묶음이 있든 없든 만든 사람에게는 <b>같은 한 줄</b>만 보여요(③). 하루에 3번까지만 만들 수 있고, 요청한 사람은 요청이 어떻게 됐는지 볼 수 없어요(거절해도 알리지 않음).</li>
+<li><b>관리자가 보는 것:</b> 멤버 이름·직책, 들어오기 요청뿐이에요. 다른 멤버의 개인 기록은 볼 수 없고, 본인이 켠 공유만 보여요. 운영자도 묶음 이름·내용을 보지 않아요(개수만 봄).</li>
+<li><b>공유 켜기</b>(⑦)는 다음 단계 화면이지만 08:29 결정(담당조직은 조직 관리 기록까지 · 보기만/쓰기까지 고르기)을 같이 그려 뒀어요.</li>
+</ul></div>
+
+<h2>폰 412</h2>
+<div class="row">
+ <div><p class="cap">① 프로필 › 내 묶음 — 아직 묶음 없음</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>내 프로필</div>
+   <div class="card"><div class="sec">소속</div>
+    <div class="kv"><b>노조명</b>가상노조</div><div class="kv"><b>부서명</b>정책실</div><div class="kv"><b>이름</b>김가람</div><div class="kv"><b>직책</b>부장</div>
+   </div>
+   <div class="card"><div class="sec">내 묶음 <span class="n">0</span></div>
+    <div class="muted">같은 부서·같은 노조 사람과 일정·자료·조직·사업을 골라서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.</div>
+    <div class="acts"><span class="btn">+ 부서 묶음 만들기</span><span class="btn">+ 노조 묶음 만들기</span></div>
+    <div class="muted" style="margin-top:6px">초대 링크를 받았으면 그 링크를 누르면 돼요.</div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">② 부서 묶음 만들기 — 이름은 프로필 글 그대로(고칠 수 있음)</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>내 프로필</div>
+   <div class="card" style="opacity:.5"><div class="sec">내 묶음 <span class="n">0</span></div></div>
+   <div class="dim"></div>
+   <div class="sheet"><h3>부서 묶음 만들기</h3>
+    <div class="lab">노조명</div><div class="field">가상노조</div>
+    <div class="lab">부서명</div><div class="field">정책실</div>
+    <div class="consent"><b>묶음 사람에게 보이는 것</b>
+     <div>· 내 이름·직책</div><div>· 캘린더·폴더를 나누면 내 구글 메일(구글 화면에 보여요)</div>
+     <div>· 내가 켠 공유만 — 개인 기록은 안 보여요</div></div>
+    <div class="acts" style="justify-content:flex-end"><span class="btn">취소</span><span class="btn p">만들기</span></div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">③ 만든 뒤 — 같은 이름 묶음이 있든 없든 이 한 줄만</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>내 프로필</div>
+   <div class="same">부서 묶음을 만들었어요. 같은 이름 묶음이 이미 있으면 그 묶음에서 수락할 때 하나로 합쳐져요.</div>
+   <div class="card"><div class="sec">내 묶음 <span class="n">1</span></div>
+    <div class="ln"><span class="nm">가상노조 정책실</span><span class="tag">부서</span><span class="t">관리자 · 1명</span><span class="more">›</span></div>
+    <div class="acts"><span class="btn">+ 부서 묶음 만들기</span><span class="btn">+ 노조 묶음 만들기</span></div>
+   </div>
+   <div class="hint">하루에 3번까지 만들 수 있어요. 넘으면 같은 안내 뒤에 아무 일도 일어나지 않아요.</div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+</div>
+
+<div class="row">
+ <div><p class="cap">④ 묶음 상세(관리자) — 들어오기 요청·멤버·초대 링크</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>가상노조 정책실 <span class="tag">부서</span><span style="flex:1"></span><span class="more">⋯</span></div>
+   <div class="card"><div class="sec">들어오기 요청 <span class="n">1</span></div>
+    <div class="ln"><span class="nm">이도윤</span><span class="t">차장 · 같은 노조명·부서명으로 요청</span></div>
+    <div class="acts"><span class="btn p">수락</span><span class="btn">거절</span></div>
+   </div>
+   <div class="card"><div class="sec">멤버 <span class="n">3</span><span style="flex:1"></span><span class="btn">초대 링크 만들기</span></div>
+    <div class="ln"><span class="nm">김가람</span><span class="t">부장</span><span class="tag">관리자</span></div>
+    <div class="ln"><span class="nm">박하늘</span><span class="t">국장</span><span class="more">⋯</span></div>
+    <div class="ln"><span class="nm">정보람</span><span class="t">간사</span><span class="more">⋯</span></div>
+   </div>
+   <div class="card"><div class="sec">이 묶음에 나눈 것 <span class="n">4</span></div>
+    <div class="ln"><span class="nm">바다지회</span><span class="tag">조직</span><span class="t">김가람 · 쓰기까지</span></div>
+    <div class="ln"><span class="nm">정책실 일정</span><span class="tag">캘린더</span><span class="t">김가람 · 보기만</span></div>
+    <div class="ln"><span class="nm">임금 교섭</span><span class="tag">사업</span><span class="t">박하늘 · 보기만</span></div>
+    <div class="ln"><span class="nm">교섭 자료</span><span class="tag">폴더</span><span class="t">정보람 · 쓰기까지</span></div>
+   </div>
+   <div class="muted" style="margin:0 12px">⋯ 메뉴: 관리자 넘기기 · 묶음 나가기. 멤버 ⋯: 내보내기.</div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">⑤ 초대 링크 — 한 번만 보여 줌, 7일·1명</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>가상노조 정책실 <span class="tag">부서</span></div>
+   <div class="card" style="opacity:.5"><div class="sec">멤버 <span class="n">3</span></div></div>
+   <div class="dim"></div>
+   <div class="sheet"><h3>초대 링크</h3>
+    <div class="link">https://nojoplus.com/j/Qx7…(긴 글자)</div>
+    <div class="acts"><span class="btn p">복사</span><span class="btn">공유</span></div>
+    <div class="muted" style="margin-top:6px">7일 동안 한 사람이 쓸 수 있어요. 이 창을 닫으면 다시 볼 수 없어요(필요하면 새로 만들기).</div>
+    <div class="ln" style="margin-top:8px"><span class="t">만든 링크 2개 · 1개 남음</span><span class="btn">링크 모두 끄기</span></div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+
+ <div><p class="cap">⑥ 초대받은 사람 — 링크를 누르고 로그인한 뒤</p>
+  <div class="frame ph">
+   <div class="top">노조+</div>
+   <div class="card"><div class="sec">묶음에 초대받았어요</div>
+    <div class="ln"><span class="nm">가상노조 정책실</span><span class="tag">부서</span><span class="t">김가람 부장 외 2명</span></div>
+    <div class="consent"><b>들어가면 묶음 사람에게 보이는 것</b>
+     <div>· 내 이름·직책(프로필 글)</div><div>· 캘린더·폴더를 나누면 내 구글 메일</div><div>· 내가 켠 공유만 — 개인 기록은 안 보여요</div></div>
+    <div class="acts" style="justify-content:flex-end"><span class="btn">안 들어가기</span><span class="btn p">들어가기</span></div>
+   </div>
+   <div class="card"><div class="sec" style="color:var(--sub)">링크가 틀렸거나 지났을 때</div>
+    <div class="muted">쓸 수 없는 링크예요. 묶음 사람에게 새 링크를 받아 주세요.</div>
+    <div class="muted" style="margin-top:4px">(틀림·지남·이미 씀 모두 같은 한 줄)</div>
+   </div>
+   <div class="hint">프로필에 이름·직책이 비어 있으면 [들어가기] 전에 먼저 채우게 해요.</div>
+  </div></div>
+
+ <div><p class="cap">⑦ (다음 단계) 담당조직 ⋯ › 공유 — 묶음·권한 고르기</p>
+  <div class="frame ph">
+   <div class="top"><span class="bk">‹</span>바다지회</div>
+   <div class="card" style="opacity:.5"><div class="sec">조직 관리 기록</div></div>
+   <div class="dim"></div>
+   <div class="sheet"><h3>바다지회 공유</h3>
+    <div class="lab">어느 묶음에</div>
+    <div class="pick"><span class="radio on"></span>가상노조 정책실 <span class="tag">부서</span><span class="t muted" style="flex:1;text-align:right">3명</span></div>
+    <div class="pick"><span class="radio"></span>가상노조 <span class="tag">노조</span><span class="t muted" style="flex:1;text-align:right">12명</span></div>
+    <div class="lab" style="margin-top:6px">묶음 사람이 할 수 있는 것</div>
+    <div class="seg"><span>보기만</span><span class="on">쓰기까지</span></div>
+    <div class="muted" style="margin-top:6px">조직 이름·조직 관리 기록까지 보여요. 텔레그램·통화에서 온 기록과 담당자 연락처는 빠져요. 언제든 끌 수 있어요.</div>
+    <div class="acts" style="justify-content:flex-end"><span class="btn">취소</span><span class="btn p">공유 켜기</span></div>
+   </div>
+   <div class="nav"><span>홈</span><span>잊지 말기</span><span>일정</span><span>노트</span><span>메뉴</span></div>
+  </div></div>
+</div>
+
+<h2>폴드 펼침 880 — 묶음 목록 | 상세</h2>
+<div class="row">
+ <div class="frame fold">
+  <div class="top"><span class="bk">‹</span>내 프로필 › 내 묶음</div>
+  <div class="panes">
+   <div class="lst">
+    <div class="it on"><b>가상노조 정책실</b> <span class="tag">부서</span> <span class="tag w">요청 1</span><div class="s">관리자 · 3명 · 나눈 것 4</div></div>
+    <div class="it"><b>가상노조</b> <span class="tag">노조</span><div class="s">멤버 · 12명 · 나눈 것 7</div></div>
+    <div style="padding:10px 12px"><span class="btn">+ 부서 묶음</span> <span class="btn">+ 노조 묶음</span></div>
+   </div>
+   <div class="det">
+    <div class="card"><div class="sec">들어오기 요청 <span class="n">1</span></div>
+     <div class="ln"><span class="nm">이도윤</span><span class="t">차장 · 같은 노조명·부서명으로 요청</span><span class="btn p">수락</span><span class="btn">거절</span></div></div>
+    <div class="card"><div class="sec">멤버 <span class="n">3</span><span style="flex:1"></span><span class="btn">초대 링크 만들기</span><span class="more">⋯</span></div>
+     <div class="ln"><span class="nm">김가람</span><span class="t">부장</span><span class="tag">관리자</span></div>
+     <div class="ln"><span class="nm">박하늘</span><span class="t">국장</span><span class="more">⋯</span></div>
+     <div class="ln"><span class="nm">정보람</span><span class="t">간사</span><span class="more">⋯</span></div></div>
+    <div class="card"><div class="sec">이 묶음에 나눈 것 <span class="n">4</span></div>
+     <div class="ln"><span class="nm">바다지회</span><span class="tag">조직</span><span class="t">김가람 · 쓰기까지 · 댓글 2</span></div>
+     <div class="ln"><span class="nm">정책실 일정</span><span class="tag">캘린더</span><span class="t">김가람 · 보기만</span></div>
+     <div class="ln"><span class="nm">임금 교섭</span><span class="tag">사업</span><span class="t">박하늘 · 보기만</span></div>
+     <div class="ln"><span class="nm">교섭 자료</span><span class="tag">폴더</span><span class="t">정보람 · 쓰기까지</span></div></div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<h2>PC 1440 — 왼쪽 메뉴 · 묶음 목록 | 상세 | 나눈 것</h2>
+<div class="row">
+ <div class="frame pc">
+  <div class="split">
+   <div class="side"><div>홈</div><div>잊지 말기</div><div>일정</div><div>노트</div><div>사업 관리</div><div>조직 관리</div><div>자료실</div><div>News</div><hr><div class="on">내 프로필</div><div>쓰는 법</div></div>
+   <div class="main">
+    <div class="top">내 프로필 <span class="muted" style="font-weight:400">· 소속 · 폰 알림 · <b style="color:var(--ink)">내 묶음</b> · 연결</span></div>
+    <div class="panes">
+     <div class="lst">
+      <div class="it on"><b>가상노조 정책실</b> <span class="tag">부서</span> <span class="tag w">요청 1</span><div class="s">관리자 · 3명 · 나눈 것 4</div></div>
+      <div class="it"><b>가상노조</b> <span class="tag">노조</span><div class="s">멤버 · 12명 · 나눈 것 7</div></div>
+      <div style="padding:10px 12px"><span class="btn">+ 부서 묶음</span> <span class="btn">+ 노조 묶음</span></div>
+     </div>
+     <div class="det">
+      <div class="card"><div class="sec">들어오기 요청 <span class="n">1</span></div>
+       <div class="ln"><span class="nm">이도윤</span><span class="t">차장 · 같은 노조명·부서명으로 요청 · 오늘 08:40</span><span class="btn p">수락</span><span class="btn">거절</span></div></div>
+      <div class="card"><div class="sec">멤버 <span class="n">3</span><span style="flex:1"></span><span class="btn">초대 링크 만들기</span><span class="more">⋯</span></div>
+       <div class="ln"><span class="nm">김가람</span><span class="t">부장</span><span class="tag">관리자</span></div>
+       <div class="ln"><span class="nm">박하늘</span><span class="t">국장</span><span class="more">⋯</span></div>
+       <div class="ln"><span class="nm">정보람</span><span class="t">간사</span><span class="more">⋯</span></div></div>
+      <div class="muted" style="margin:4px 12px">⋯: 관리자 넘기기 · 묶음 나가기 · 멤버 내보내기. 관리자가 나가려면 먼저 넘겨요.</div>
+     </div>
+     <div class="col3">
+      <div class="card"><div class="sec">이 묶음에 나눈 것 <span class="n">4</span></div>
+       <div class="ln"><span class="nm">바다지회</span><span class="tag">조직</span><span class="t">김가람 · 쓰기까지</span></div>
+       <div class="ln"><span class="nm">정책실 일정</span><span class="tag">캘린더</span><span class="t">김가람 · 보기만</span></div>
+       <div class="ln"><span class="nm">임금 교섭</span><span class="tag">사업</span><span class="t">박하늘 · 보기만</span></div>
+       <div class="ln"><span class="nm">교섭 자료</span><span class="tag">폴더</span><span class="t">정보람 · 쓰기까지</span></div></div>
+      <div class="card"><div class="sec">내가 켠 공유</div>
+       <div class="ln"><span class="nm">바다지회</span><span class="t">쓰기까지</span><span class="btn">끄기</span></div>
+       <div class="ln"><span class="nm">정책실 일정</span><span class="t">보기만</span><span class="btn">끄기</span></div></div>
+     </div>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<div class="ask"><b>명진 결정 (번호는 PR #2696 결정 번호와 같아요)</b>
+<ol style="margin:4px 0 0;padding-left:20px">
+<li><b>⑥ 같은 이름 들어오기 요청은 누가 수락하나요?</b> — 가. 관리자만(추천) / 나. 멤버 누구나. 11/15 21:13엔 '멤버에게', 23:14엔 '관리자가 수락'이라 달라서 여쭤요.</li>
+<li><b>⑦ 초대 링크는 누가 만드나요?</b> — 가. 관리자만(추천) / 나. 멤버 누구나</li>
+<li><b>① 캘린더·폴더를 나누면 묶음 사람끼리 구글 메일이 보여요.</b> — 가. 들어갈 때 ②·⑥처럼 알리고 동의받기(추천) / 나. 캘린더·폴더 공유는 빼기</li>
+</ol>
+<div class="muted" style="margin-top:6px">#2696의 나머지 결정 ②③④⑤⑧~⑭도 추천대로라면 "추천대로" 한마디면 돼요.</div>
+</div>
+</body>
+</html>

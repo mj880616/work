@@ -106,12 +106,14 @@ test('화면: org-quiet.js가 줄의 유일한 renderer, 기기 저장·AI 없�
   assert.match(src, /selectMyOrganizations/);
   assert.match(src, /if \(mine\.fallback\) throw new Hide\(\)/);
   assert.doesNotMatch(src, /method:\s*'(POST|PATCH|DELETE)'/);
-  // HOME-업무일지홈: 줄 자리는 홈(journal.js) 맨 아래 하나, 기준 단추는 내 프로필(profile-status.js) 하나.
+  // HOME-업무일지홈: 줄 자리는 홈(journal.js) 맨 아래 하나. MULTI-다른담당자맞춤 ⑥: 기준 단추는 조직 보고 ⋯(suborganizations.js) 하나.
   const home = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
   assert.equal((home.match(/data-home-quiet/g) || []).length, 2);
   assert.match(home, /mountOrgQuiet\(root\.querySelector\('\[data-home-quiet\]'\)\)/);
   const prof = readFileSync(new URL('../app/profile-status.js', import.meta.url), 'utf8');
-  assert.match(prof, /viewPrefs\.set\('quiet_weeks', w, \{rejectable: true\}\)/);
+  assert.doesNotMatch(prof, /data-ps-quiet|viewPrefs/);
+  const team = readFileSync(new URL('../app/suborganizations.js', import.meta.url), 'utf8');
+  assert.match(team, /prefs\.set\('quiet_weeks',w,\{rejectable:true\}\)/);
 });
 
 // ORG-연락없음1대1수집(11/13 명진 결정): 1:1 방은 상대(주요 인물)가 그 날 직접 쓴 글이 있으면 연락. 단체방은 묻고 → 답 그대로.

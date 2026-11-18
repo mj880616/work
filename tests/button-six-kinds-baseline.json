@@ -24,7 +24,6 @@
   "notice-bar.css": 10,
   "od-link.css": 7,
   "photos.css": 29,
-  "pre-meeting-sheet.css": 7,
   "project-system-v3.css": 23,
   "quick-controls.css": 1,
   "reference-bundles.css": 9,
@@ -34,7 +33,7 @@
   "topbar-actions.css": 14,
   "ui-standard.css": 201,
   "weekly-org-lines.css": 15,
-  "workplace-detail.css": 38
+  "workplace-detail.css": 31
  },
  "html": {
   "ai-usage-line.js": 1,
@@ -70,7 +69,7 @@
   "hwp-convert.js": 1,
   "hwp-lab.js": 1,
   "inbox-todos.js": 18,
-  "index.html": 48,
+  "index.html": 49,
   "journal-memorable.js": 2,
   "journal.js": 9,
   "ledger-browse.js": 17,

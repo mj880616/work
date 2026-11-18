@@ -3,7 +3,7 @@
 // 이 파일이 그 줄의 유일한 상태 소유자이자 렌더러다. 값은 홈 수집 칸과 같은 drive-summary GET ?action=status 한 번(collection-status.js
 // readDriveStatus, 탭 메모리 10분)에서 받는다. ✕는 서버(POST ?action=text_backfill_dismiss, 소유자 JWT)에 닫은 시각을 남긴다 —
 // 브라우저 저장소를 쓰지 않으므로 다른 기기에서도 다시 나오지 않는다. 함수가 아직 배포 전이거나 실패하면 줄은 조용히 숨는다.
-import {isOwner, readDriveStatus, updateDriveStatus} from './collection-status.js';
+import {isOperator, readDriveStatus, updateDriveStatus} from './collection-status.js';
 
 export const DISMISS_PATH = '/functions/v1/drive-summary?action=text_backfill_dismiss';
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
@@ -29,8 +29,9 @@ export function mountTextBackfillNotice(host, {rt = window.KPTURuntime} = {}) {
     host.hidden = false;
   }
   async function refresh() {
-    if (!isOwner(rt)) { clear(); return; }
-    const mine = ++run, data = await readDriveStatus(rt);
+    const mine = ++run;
+    if (!(await isOperator(rt))) { if (alive && mine === run) clear(); return; }
+    const data = await readDriveStatus(rt);
     if (!alive || mine !== run) return;
     paint(noticeFromStatus(data));
   }

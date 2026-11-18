@@ -15,7 +15,7 @@
 import {callAiAssist} from './basket-ai-summary.js';
 import {seoulDateKey} from './meeting-time.js';
 import {myFeatures} from './my-features.js';
-import {openCallSource, openTelegramSource} from './source-open.js';
+import {openCallSource, openTelegramItem} from './source-open.js';
 
 export const NEWS_DAYS = 14; // 처리 전 소식은 최근 2주 것만 목록에 둔다(그 전 줄은 표에 그대로 남음).
 export const NEWS_REFRESH_MS = 60 * 60 * 1000;
@@ -132,8 +132,5 @@ export async function openNewsSource(row, rt = window.KPTURuntime) {
   if (!row?.feedItemId) return false;
   const id = row.feedItemId;
   if (row.source === 'call') return openCallSource(id);
-  const found = await rt.api(`/rest/v1/app_feed_items?id=eq.${enc(id)}&select=room_key,day&limit=1`);
-  const item = Array.isArray(found) ? found[0] : null;
-  if (!item) return false;
-  return openTelegramSource(item.room_key, item.day, id);
+  return openTelegramItem(id, {rt});
 }

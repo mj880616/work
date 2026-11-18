@@ -24,6 +24,8 @@ async function fixture(page,{width=1280,status=stalled,google='ok',prefs=null,wa
     const req=route.request();if(req.method()==='OPTIONS')return route.fulfill({status:204});
     return route.fulfill({json:{connected:true,authorized:false,needs_reconnect:true,tasks:[]}});
   });
+  // MULTI-다른담당자맞춤 ④: 수집·사용량 줄은 서버 운영자 기능(app_my_features)이 있는 작업공간에서만 그린다.
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',route=>route.fulfill({json:['calls']}));
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   // 새 서버 호출 없음: 앱을 열기만 해서는 수집 상태를 읽지 않는다. 내 프로필 수집 칸이 읽은 값만 줄이 쓴다.
@@ -91,7 +93,7 @@ for(const width of [390,900,1280])test(`Google needs reconnect: link line first,
   await fixture(page,{width,google:'broken'});
   await page.evaluate(()=>window.KPTURouter.go('tasks'));
   await expect(line(page,'link')).toBeVisible();
-  await expect(line(page,'link').getByRole('status')).toHaveText('Google 연결이 끊겨 일정·할 일 저장이 안 돼요');
+  await expect(line(page,'link').getByRole('status')).toHaveText('구글 연결이 끊겨 일정·할 일 저장이 안 돼요');
   await expect(line(page,'link').getByRole('button',{name:'다시 연결'})).toBeVisible();
   await expect(line(page,'collect')).toBeHidden();
   const count=page.locator('#noticeBar .kptu-notice-bar-count');

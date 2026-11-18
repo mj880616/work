@@ -9,6 +9,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const ANDROID='Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.5.7';
@@ -176,7 +177,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
 
   test('새 사업 보고 [저장]: 사진 2장 + 자료 1개를 앱에 넘기고 창은 바로 닫힌다 → 앱이 끝내면 그 보고에 모두 붙어 있다 412px',async({page})=>{
     const state=await boot(page,412,{app:{know:true,on:true}});
-    await page.locator('#newMeetingBtn').click();
+    await addReport(page);
     await expect(page.locator('#meetingModal')).toBeVisible();
     const select=page.locator('#meetingNameSelect');if(await select.isVisible())await select.selectOption('__other__');
     await page.locator('#meetingTitle').fill('가짜 새 회의');

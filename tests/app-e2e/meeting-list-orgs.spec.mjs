@@ -29,7 +29,7 @@ async function open(page,s,{width=1280,height=900}={}){
   await mockApp(page,s);
   await page.route(`${SB}/rest/v1/app_weekly_exec_requests**`,route=>route.fulfill({status:200,contentType:'application/json',body:'[]'}));
   await installBusinessNowServer(page,{});
-  await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  await signIn(page,testOrigin+'/app/?view=reports&chip=meeting');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
 }
 // 왼쪽 칸 차례: 머리글은 '# 이름', 회의명 줄은 '이름 건수'.
 const kindsOrder=page=>page.locator('#meetingList .mcol-kinds li').evaluateAll(list=>list.map(li=>li.classList.contains('mcol-org')?`# ${li.textContent.trim()}`:`${li.querySelector('.mcol-name')?.textContent} ${li.querySelector('.mcol-count')?.textContent}`));

@@ -10,7 +10,7 @@ const P=await import('../../supabase/functions/news-feed/page.ts');
 const H=await import('../../supabase/functions/news-feed/handler.ts');
 
 const NOW=Date.parse('2026-11-01T03:00:00Z');
-const SB='https://synthetic.supabase.test',SERVICE='synthetic-service-role-key';
+const SB='https://synthetic.supabase.test',SERVICE='synthetic-service-role-key',ANON='synthetic-anon-key';
 const SECRET='synthetic-news-feed-cron-secret-0123456789abc';
 const WS='a0000000-0000-4000-8000-000000000001',USER='b0000000-0000-4000-8000-000000000001';
 const JWT='synthetic.user.jwt-owner-0001';
@@ -34,9 +34,21 @@ function fakeWorld(opts={}){
   if(u.origin===SB){
    if(u.pathname==='/auth/v1/user')return init.headers.Authorization===`Bearer ${JWT}`?res({id:USER}):res({},401);
    const p=u.pathname.replace('/rest/v1/','');
+   // NEWS-모두에게열기 E3: 공용 기사는 사용자 로그인(anon 열쇠 + 그 사람 로그인)으로만 읽는다. 여기서는 옛 줄 = 공용 기사(운영자 줄 id = 공용 id).
+   if(init.headers.apikey===ANON){
+    assert.equal(init.headers.Authorization,`Bearer ${JWT}`,'user reads carry the caller login');
+    if(p==='rpc/app_news_article_of')return res([]);
+    if(p==='app_news_articles'&&method==='GET')return res(items.filter(i=>`eq.${i.id}`===u.searchParams.get('id')).map(({workspace_id,...a})=>({...a,url_key:a.url_key??a.url,origin:'site'})));
+    throw new Error('user login used for '+method+' '+p);
+   }
+   assert.equal(init.headers.apikey,SERVICE);
+   if(p==='rpc/app_workspace_ai_month')return res(opts?.aiMonth??{month:'2026-11',exempt:false,cap_krw:3000,openai_input_tokens:0,openai_output_tokens:0,gemini:[]}); // AI-사람별한도: 기본은 한도 아래
+   // NEWS-운영자만(S63-03): 'outside' 키 작업공간(기본은 이 시험의 WS, opts.newsWs로 바꿈 — null이면 아무 곳도 아님).
+   if(p==='rpc/app_operator_feature_workspace'&&body?.p_feature==='outside')return res(opts.newsWs===undefined?WS:opts.newsWs);
    if(p==='app_workspace_members')return res([{workspace_id:WS}]);
    if(p==='app_news_items'&&method==='GET'){
-    const id=u.searchParams.get('id'),state=u.searchParams.get('state');
+    const id=u.searchParams.get('id'),state=u.searchParams.get('state'),key=u.searchParams.get('url_key');
+    if(key)return res(items.filter(i=>`eq.${i.url_key??i.url}`===key&&`eq.${i.workspace_id}`===u.searchParams.get('workspace_id')));
     if(id)return res(items.filter(i=>`eq.${i.id}`===id));
     if(u.searchParams.get('title_ko')==='is.null')return res((opts.untitled??[]).filter(i=>!u.searchParams.get('workspace_id')||`eq.${i.workspace_id}`===u.searchParams.get('workspace_id')));
     if(u.searchParams.get('translated_at'))return res(opts.todayTitles??[]);
@@ -62,10 +74,10 @@ function fakeWorld(opts={}){
   if(typeof site==='function')return site(u);
   return new Response(site.body??'',{status:site.status??200,headers:site.headers??{'content-type':'text/html; charset=utf-8'}});
  };
- const env=n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,NEWS_FEED_CRON_SECRET:SECRET,WEB2_OPENAI_API_KEY:'synthetic-openai-key-000000000000',GOOGLE_TRANSLATE_API_KEY:opts.googleKey}[n]);
+ const env=n=>({SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:SERVICE,SUPABASE_ANON_KEY:ANON,NEWS_FEED_CRON_SECRET:SECRET,WEB2_OPENAI_API_KEY:'synthetic-openai-key-000000000000',GOOGLE_TRANSLATE_API_KEY:opts.googleKey}[n]);
  const logs=[];
  const handler=H.createNewsFeedHandler({env,fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>logs.push(JSON.stringify({code,...(detail??{})}))});
- const writes=()=>calls.filter(c=>c.url.startsWith(SB+'/rest/')&&c.method!=='GET');
+ const writes=()=>calls.filter(c=>c.url.startsWith(SB+'/rest/')&&c.method!=='GET'&&!c.url.includes('/rest/v1/rpc/app_news_article_of')&&!c.url.includes('/rest/v1/rpc/app_operator_feature_workspace')); // 지도 함수·기능 키 판정은 읽기(POST rpc)
  const outbound=()=>calls.filter(c=>!c.url.startsWith(SB)&&!c.url.startsWith('https://api.openai.com'));
  return {handler,calls,writes,outbound,logs};
 }
@@ -412,4 +424,33 @@ test('S54-16 titles step: lines the AI answered without a translation get title_
  assert.equal(inList,`in.(${ids[1]},${ids[2]})`);
  const filled=w.writes().filter(c=>c.method==='PATCH'&&c.url.includes('/app_news_items?id=eq.'));
  assert.equal(filled.length,1);assert.deepEqual(Object.keys(filled[0].body).sort(),['title_ko','translated_at','updated_at'],'fully translated line is not marked tried');
+});
+
+// NEWS-운영자만(S63-03, 명진 11/16): News 몫 서버 일은 운영자 기능 키 'outside' 작업공간만. 화면 숨김만으로 끝내지 않는다.
+test("NEWS-운영자만: 'outside' 키가 없는 작업공간의 화면 입구는 읽기·AI·저장 없이 403 FEATURE_OFF",async()=>{
+ const OTHER='a0000000-0000-4000-8000-0000000000ff';
+ const items=[{id:ITEM,workspace_id:WS,lane:'channel',state:'pending',url:'https://news.example.org/a/1'}];
+ for(const newsWs of [OTHER,null]){
+  const w=fakeWorld({newsWs,items,sites:{'https://news.example.org/robots.txt':{body:''},'https://news.example.org/a/1':{body:ARTICLE}}});
+  for(const [action,body] of [['catalog',{}],['fill_now',{}],['open',{id:ITEM}],['translate',{id:ITEM}],['save_url',{url:'https://news.example.org/a/1'}]]){
+   const r=await call(w,userReq(action,body));
+   assert.equal(r.status,403,`${action} ${newsWs}`);assert.match(JSON.stringify(r.body),/FEATURE_OFF/);
+  }
+  assert.equal(w.outbound().length,0,'바깥 주소를 읽지 않음');
+  assert.ok(!w.calls.some(c=>c.url.startsWith('https://api.openai.com')),'AI를 부르지 않음');
+  assert.equal(w.writes().length,0,'저장하지 않음');
+ }
+});
+test("NEWS-운영자만: 예약 수집(키워드·제목)은 'outside' 키가 없는 작업공간 몫을 하지 않는다",async()=>{
+ const OTHER='a0000000-0000-4000-8000-0000000000ff';
+ const w=fakeWorld({newsWs:OTHER,keywords:[{workspace_id:WS,word:'합성어'}],sources:[{workspace_id:WS,source_key:'news-khan'}],
+  untitled:[{id:ITEM_EN,workspace_id:WS,url_key:'k1',title:'Synthetic headline',summary:null,lang:'en'}]});
+ const k=await call(w,cronReq('run',{step:'keywords'}));
+ assert.equal(k.status,200);assert.equal(k.body.workspaces,0);
+ const t=await call(w,cronReq('run',{step:'titles'}));
+ assert.equal(t.status,200);
+ assert.ok(!w.calls.some(c=>c.url.startsWith('https://api.openai.com')),'제목 번역 AI를 부르지 않음');
+ assert.equal(w.writes().length,0);
+ const plan=await call(fakeWorld({newsWs:null,sources:[{workspace_id:WS,source_key:'news-khan'}]}),cronReq('run_plan'));
+ assert.equal(plan.status,200);assert.deepEqual(plan.body.media??[],[]);
 });

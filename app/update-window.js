@@ -14,7 +14,7 @@ import {createChoiceSheet} from './choice-sheet.js';
 import {validateNoteText} from './basket-data.js';
 import {createUploadBatch} from './basket-upload.js';
 import {attachRow} from './note-window.js';
-import {readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateFilesBehind, rememberPlace, linkFailText, textLimitFor} from './update-places.js';
+import {readPlaces, placeSources, placeSheetHtml, placeWriteIn, bindPlaceWriteIn, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateFilesBehind, rememberPlace, linkFailText, textLimitFor} from './update-places.js';
 
 export const UPDATE_TEXT_MAX = 20000;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -31,10 +31,12 @@ function placeSheet() {
   sheet ||= createChoiceSheet({id:'edwPlaceSheet', titleId:'edwPlaceSheetTitle', historyKey:'kptuEdwPlace',
     canOpen:() => !!active && !active.closed(), choices:() => active.load(),
     // UPD-여러곳고르기: a press only marks (pending); [저장] keeps the marks, every other close drops them.
-    render:() => { if (active) active.pending = [...active.chosen]; return {title:'기록할 곳 선택', search:'조직·사업영역 이름 검색', searchAlways:true, split:true, html:placeSheetHtml(active?.places, active?.pending, esc)}; },
+    render:() => { if (active) { active.pending = [...active.chosen]; active.writeIn = placeWriteIn(active.places); } return {title:'기록할 곳 선택', search:'조직·사업영역 이름 검색', searchAlways:true, split:true, html:placeSheetHtml(active?.places, active?.pending, esc, {writeIn:active?.writeIn})}; },
     multi:() => active ? {pressed:value => value === 'basket' ? !active.pending.length : active.pending.some(p => placeValue(p) === value), label:choiceCountText(active.pending)} : null,
     onSelect:(kind, value) => active?.toggle(value), onCommit:() => active?.choose(),
     onError:error => active?.say(error?.message || '기록할 곳을 불러오지 못했어요.')});
+  // S61-52: 담당조직 맨 아래 [직접 쓰기](update-places.js, 모든 조직 고르기 창과 같은 부품).
+  bindPlaceWriteIn(sheet, 'edwPlaceSheet', () => active && {places:active.places, writeIn:active.writeIn, toggle:value => active.toggle(value)});
   return sheet;
 }
 function placeRow() {
@@ -126,7 +128,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     return {ok:true};
   }
   handle = openEdWindow({title, doc, text, draft, saveUnchanged:true, limit:() => files.pending() ? UPDATE_TEXT_MAX : textLimitFor(state.chosen), head:head.row, foot:files.node, onFiles:list => files.picker.add(list),
-    dirty:() => files.pending() > 0, placeholder:'업데이트 입력(잊지 말기에 저장)', save:{aria:'업데이트로 저장', run},
+    dirty:() => files.pending() > 0, placeholder:'남길 것을 입력하세요', save:{aria:'업데이트로 저장', run},
     onClose:({text: letters, value}) => { closed = true; if (active === state) active = null; sheet?.dismiss(); onClose(letters, {saved, places:[...state.chosen], value}); }});
   if (!handle) return null;
   active = state;
@@ -140,7 +142,7 @@ export function openUpdateEditWindow({doc = null, text = '', save, attach = null
   let handle = null;
   const files = attach ? attachRow({id:'edwUpdateEditAttach', getBatch:attach.getBatch, isBusy:attach.isBusy, say:message => handle?.say(message)}) : null;
   handle = openEdWindow({title:'큰 창에서 수정', doc, text, limit:UPDATE_TEXT_MAX, foot:files?.node || null, onFiles:files ? list => files.picker.add(list) : null,
-    dirty:() => (files?.pending() || 0) > 0, placeholder:'업데이트를 쓰세요',
+    dirty:() => (files?.pending() || 0) > 0, placeholder:'잊지 말기에 남길 것',
     save:{aria:'업데이트 저장', run:({value, text: letters}) => save({value, text:letters})}, onClose});
   if (handle && files) handle.renderFiles = () => files.picker.render();
   return handle;

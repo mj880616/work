@@ -16,9 +16,10 @@ const AUTO_TIMEOUT_MS = 120000;
 function install(win) {
   const rt = win.KPTURuntime;
   if (!rt || win.KPTULedgerAuto) return;
+  // MULTI-다른담당자맞춤 ④: 작업공간 이름이 아니라 '내 작업공간 owner'면 켠다(각자 자기 원장, 10/29 D3). 서버·DB가 owner를 다시 본다.
   const owner = () => {
     const c = rt.context?.read?.(), s = rt.session?.read?.();
-    return !!s?.access_token && c?.user?.id === s?.user?.id && c?.workspace?.slug === 'kptu-work' && c?.membership?.role === 'owner';
+    return !!s?.access_token && c?.user?.id === s?.user?.id && c?.membership?.role === 'owner';
   };
   const call = async ({ leaving }) => {
     if (!leaving) return callAiAssist({ kind: 'ledger_auto' }, { rt, timeoutMs: AUTO_TIMEOUT_MS });

@@ -467,7 +467,7 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       try { value = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { value = null; }
       if (!r.ok) {
         if (r.status === 404) return { ok: false, code: "FN_MISSING" };
-        const code = /TG_SENDER_[A-Z_]+|TGDG_[A-Z_]+|TODO_TG_[A-Z_]+|TODO_MINE_[A-Z_]+/.exec(JSON.stringify(value ?? ""))?.[0];
+        const code = /TG_SENDER_[A-Z_]+|TGDG_[A-Z_]+|TODO_TG_[A-Z_]+|TODO_MINE_[A-Z_]+|NEWSROOM_[A-Z_]+/.exec(JSON.stringify(value ?? ""))?.[0];
         return { ok: false, code: code ?? `DB_STATUS_${r.status}` };
       }
       if (!value || typeof value !== "object" || Array.isArray(value)) return { ok: false, code: "DB_BAD_RESPONSE" };
@@ -787,6 +787,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   // 같은 묶음이 다시 오면 AI를 다시 부르지 않는다(저장 전에 먼저 확인).
   const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&source_ref=like.${encodeURIComponent(prefix)}*&select=source_ref&limit=1`);
   if (dup.length) return callResult({ duplicate: true });
+  // 뉴스방(명진이 정한 방)이면 글 속 기사 주소만 공용 기사로. 실패해도 소식 처리는 그대로(던지지 않음).
+  try { await takeNewsRoom(db, ws, input, deps.log); } catch { deps.log("news_room_failed", { stage: "INTERNAL" }); }
   // 글 있는 메시지가 없으면 AI에 보내지 않고 개수만 더한다(설계 3.2절).
   if (!input.messages.length) {
     await addDay(db, ws, input.day, "telegram", counts(0), nowMs);
@@ -1075,20 +1077,117 @@ export function scrapAt(value: unknown, nowMs: number): string | null {
   return new Date(t).toISOString();
 }
 
+// NEWS-모두에게열기 ②(설계 news-for-all.md 2-3·4절 E1): 옮기는 동안 채널 스크랩은 공용 기사(app_news_articles, origin 'tg_scrap' —
+// 공용 읽기 정책에서 빠져 운영자만 봄)와 운영자 옛 표(app_news_items) 둘 다에 넣는다. 옛 줄 id는 공용 기사 id와 같게(D2 '옛 id = 새 id').
+// 공용 기사에 같은 주소가 이미 있으면(사이트·뉴스방 수집분 포함) 공용 쪽은 그대로 두고 그 id로 옛 줄만 넣는다.
 async function runScrap(db: Db, ws: string, items: ScrapItem[], nowMs: number, log: Log) {
-  let inserted = 0, duplicate = 0, rejected = 0;
+  let inserted = 0, duplicate = 0, rejected = 0, shared = 0, sharedFailed = 0;
   const seen = new Set<string>();
   for (const it of items) {
     const u = scrapUrl(it.url), at = scrapAt(it.at, nowMs);
     if (!u || !at) { rejected++; continue; }
     if (seen.has(u.url_key)) { duplicate++; continue; }
     seen.add(u.url_key);
-    // 넣는 칸은 대기 줄 칸뿐(제목·본문·요약·번역·별표 없음). 같은 작업공간·같은 url_key는 유일 제약이 409로 막는다.
-    const r = await db.insert("app_news_items", { workspace_id: ws, lane: "channel", url: u.url, url_key: u.url_key, scrapped_at: at, state: "pending" });
+    // 넣는 칸은 대기 줄 칸뿐(제목·본문·요약·번역·별표 없음).
+    const id = await sharedArticleId(db, { origin: "tg_scrap", url: u.url, url_key: u.url_key, scrapped_at: at }, log);
+    if (id === null) sharedFailed++; else if (id.fresh) shared++;
+    // 같은 작업공간·같은 url_key는 유일 제약이 409로 막는다.
+    const r = await mirrorOldItem(db, ws, id?.id ?? null, u.url, u.url_key, at, log);
     if (r === "ok") inserted++; else duplicate++;
   }
-  log("scrap_saved", { received: items.length, inserted, duplicate, rejected });
+  log("scrap_saved", { received: items.length, inserted, duplicate, rejected, shared, shared_failed: sharedFailed });
   return { ok: true, received: items.length, inserted, duplicate, rejected };
+}
+
+// 공용 기사 한 줄 넣기(service_role, 대기 줄 칸만). 이미 있으면(url_key 전체 유일) 그 id. 공용 표를 못 쓰면 null(옛 표 쓰기는 그대로 — 화면 유지).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+async function sharedArticleId(db: Db, row: { origin: "tg_scrap"; url: string; url_key: string; scrapped_at: string }, log: Log):
+  Promise<{ id: string; fresh: boolean } | null> {
+  try {
+    const id = crypto.randomUUID();
+    const r = await db.insert("app_news_articles", { id, origin: row.origin, lane: "channel", url: row.url, url_key: row.url_key, scrapped_at: row.scrapped_at, state: "pending" });
+    if (r === "ok") return { id, fresh: true };
+    const have = (await db.get(`app_news_articles?url_key=eq.${encodeURIComponent(row.url_key)}&select=id&limit=1`))[0];
+    return typeof have?.id === "string" && UUID_RE.test(have.id) ? { id: have.id, fresh: false } : null;
+  } catch { log("news_shared_failed"); return null; }
+}
+
+// 운영자 옛 표 대기 줄(옮기는 동안 화면 유지). id가 있으면 공용 기사 id 그대로 넣고, 그 id가 이미 다른 줄에 쓰였으면(D1이 다른 작업공간 줄 id를 고른 기사)
+// 이 작업공간에 같은 주소 줄이 없을 때만 새 id로 넣는다.
+// 옛 줄을 넣으면 같은 주소 공용 기사로 지도 1줄(app_news_id_map, NEWS-모두에게열기 E2 — 있으면 무시). 공용 기사가 없으면(공용 표 일시 장애) 지도 없이 넣고
+// 뉴스 수집기의 보충 함수(app_news_refs_sync)가 나중에 채운다.
+async function mirrorOldItem(db: Db, ws: string, id: string | null, url: string, key: string, at: string, log?: Log): Promise<"ok" | "conflict"> {
+  const row = { workspace_id: ws, lane: "channel", url, url_key: key, scrapped_at: at, state: "pending" };
+  if (!id) return await db.insert("app_news_items", row);
+  let r = await db.insert("app_news_items", { id, ...row });
+  let oldId = id;
+  if (r !== "ok") {
+    const mine = await db.get(`app_news_items?workspace_id=eq.${ws}&url_key=eq.${encodeURIComponent(key)}&select=id&limit=1`);
+    if (mine.length) return "conflict";
+    oldId = crypto.randomUUID();
+    r = await db.insert("app_news_items", { id: oldId, ...row });
+    if (r !== "ok") return r;
+  }
+  await mapOld(db, oldId, ws, id, log);
+  return "ok";
+}
+export async function mapOld(db: Db, oldId: string, ws: string, articleId: string, log?: Log) {
+  try { await db.insert("app_news_id_map", { old_id: oldId, workspace_id: ws, article_id: articleId }); }
+  catch { log?.("news_map_failed"); }
+}
+
+// ---- 뉴스방(NEWS-모두에게열기 ②, 설계 news-for-all.md 2-3·2-4절) ------------------------------------------------------
+// 명진이 [뉴스방으로] 정한 그룹·채널 방의 메시지 글에서 기사 주소만 뽑아 서버 전용 DB 함수 app_news_room_take로 보낸다.
+// 그 방이 지금 뉴스방인지·1:1·가족 방이 아닌지는 DB 함수가 서버 표(app_feed_rooms.news_at·chat_kind, 잊지 말기 방 표)로 다시 판정한다
+// (몸통의 chat_kind는 '그룹·채널이 아니면 부르지도 않음'으로 좁히는 데만 쓴다). 공용 표에는 주소(url·url_key)만 간다 —
+// 메시지 글·방 이름·방 키·보낸 사람·시각은 함수 인자에도 넣지 않는다(방 키는 판정용 인자일 뿐 저장 칸이 없다).
+// 업무 문서·대화방 초대·단축 주소·내부 주소는 함수가 버린다(여기서도 열린 주소 규칙 openArticleUrl을 먼저 지난 것만 보낸다).
+// 실패해도 텔레그램 소식 처리는 그대로 이어 간다(로그에는 단계 코드·개수만).
+export const NEWS_ROOM_FN = "app_news_room_take";
+export const NEWS_ROOM_CHUNK = 50;
+export const NEWS_ROOM_MAX = 200;
+const URL_IN_TEXT = /https?:\/\/[^\s<>"'`()[\]{}]+/gi;
+// 글 속 주소 → 기사 주소 목록(정리·겹침 제거). 끝에 붙은 문장 부호는 뗀다. http 주소는 https로 바꿔 보지 않는다(열린 주소 규칙이 https만).
+export function newsRoomItems(messages: { text: string }[]): { url: string; url_key: string }[] {
+  const out: { url: string; url_key: string }[] = [];
+  const seen = new Set<string>();
+  for (const m of messages) {
+    for (const hit of m.text.matchAll(URL_IN_TEXT)) {
+      if (out.length >= NEWS_ROOM_MAX) return out;
+      const raw = hit[0].replace(/[.,;:!?…。、]+$/u, "");
+      const u = scrapUrl(raw);
+      if (!u || seen.has(u.url_key)) continue;
+      seen.add(u.url_key);
+      out.push(u);
+    }
+  }
+  return out;
+}
+async function takeNewsRoom(db: Db, ws: string, input: TelegramInput, log: Log) {
+  if (input.chat_kind !== "group" && input.chat_kind !== "channel") return;
+  const items = newsRoomItems(input.messages);
+  if (!items.length) return;
+  let taken = 0, dup = 0, widened = 0, refused = 0, mirrored = 0;
+  for (let i = 0; i < items.length; i += NEWS_ROOM_CHUNK) {
+    const part = items.slice(i, i + NEWS_ROOM_CHUNK);
+    const r = await db.rpcObject(NEWS_ROOM_FN, { p_workspace: ws, p_room_key: input.room_key, p_items: part });
+    if (!r.ok) { log("news_room_failed", { stage: r.code }); return; }
+    if (r.value.news !== true) return; // 뉴스방이 아님 — 아무것도 넣지 않았다(로그도 남기지 않음: 대부분의 방)
+    taken += num(r.value.taken); dup += num(r.value.dup); widened += num(r.value.widened); refused += num(r.value.refused);
+    // 옮기는 동안 운영자 옛 표에도(화면 유지). 이번에 뉴스방 길로 들어온 줄(origin tg_room)만, 공용 id 그대로.
+    if (num(r.value.taken) + num(r.value.widened) > 0) {
+      try {
+        const keys = part.map((p) => `"${p.url_key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",");
+        const rows = await db.get(`app_news_articles?origin=eq.tg_room&url_key=in.(${encodeURIComponent(keys)})&select=id,url,url_key,scrapped_at&limit=${NEWS_ROOM_CHUNK}`);
+        for (const a of rows) {
+          if (typeof a.id !== "string" || !UUID_RE.test(a.id) || typeof a.url !== "string" || typeof a.url_key !== "string") continue;
+          const at = typeof a.scrapped_at === "string" ? a.scrapped_at : new Date().toISOString();
+          if (await mirrorOldItem(db, ws, a.id, a.url, a.url_key, at, log) === "ok") mirrored++;
+        }
+      } catch { log("news_room_mirror_failed"); }
+    }
+  }
+  log("news_room_taken", { found: items.length, taken, dup, widened, refused, mirrored });
 }
 
 // ---- 입구 ----------------------------------------------------------------------------------------------------------

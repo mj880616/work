@@ -3,7 +3,7 @@ import { pinch } from './helpers/pinch.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // PHOTO-출처 ①(요청함 10/30 17:30): 사진 메뉴 위 줄 오른쪽 출처 아이콘 + 폰 사진 섞어 보기.
-// - PC(1440, 웹 브라우저): 원드라이브 아이콘만(구글 드라이브는 운영자 기능이 있을 때만 — photos-gdrive.spec.mjs), 폰 사진 아이콘 없음, 출처 표시 없음.
+// - PC(1440, 웹 브라우저): 원드라이브 아이콘 + 구글 드라이브 칩(S62-11부터 모두에게, Drive 연결 전이면 '연결 전'·꺼짐 — 자세한 것은 photos-gdrive.spec.mjs), 폰 사진 아이콘 없음, 출처 표시 없음.
 // - 폰 앱(412, 앱 다리 흉내 + __phone 가로채기 흉내): 폰 사진이 원드라이브 사진과 찍은 날 순서로 섞이고 칸 오른쪽 아래 출처 표시,
 //   같은 사진(이름·크기 같음)은 한 장만. 폰 아이콘을 누르면 꺼지고(서버 view_prefs.photo_sources_phone) 원드라이브 사진만 남는다.
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림.
@@ -27,7 +27,7 @@ const PHONE = [
 ].map(m => ({ ...m, approx: false, kind: 'photo', width: 10, height: 10, duration_ms: null, screenshot: false, uploaded_at: m.taken_at }));
 
 async function fixture(page, { app = false } = {}) {
-  const state = { errors: [], phoneReads: [], sent: [], edge: [] };
+  const state = { errors: [], phoneReads: [], sent: [], edge: [], gd: [] };
   page.on('pageerror', e => state.errors.push(e.message));
   await page.addInitScript(() => { window.KPTUOdWarm = { run: () => null }; });
   if (app) {
@@ -64,6 +64,12 @@ async function fixture(page, { app = false } = {}) {
       if (body.action === 'trash-list') return r.fulfill({ json: { items: [], purged: 0, truncated: false } });
       return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
     });
+    // S62-11: 구글 드라이브 칩은 모두에게. 이 지어낸 작업공간은 Drive 연결 전(서버 424 drive_not_connected).
+    await page.route(u => u.origin === SB && u.pathname === '/functions/v1/gdrive-photos', async r => {
+      const body = r.request().postDataJSON();
+      state.gd.push(body.action);
+      return r.fulfill({ status: 424, json: { ok: false, error: 'drive_not_connected' } });
+    });
     // 앱이 WebView 안에서 답하는 폰 사진(서버로 나가지 않음).
     await page.route('**/__phone/**', r => {
       const u = new URL(r.request().url());
@@ -99,13 +105,16 @@ const src = page => page.locator('#photosRoot [data-photos-src]');
 
 test.describe('PC 1440', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
-  test('사진 출처: PC는 원드라이브만(기능 없는 작업공간은 구글 드라이브 칩 없음), 폰 사진 아이콘·출처 표시 없음', async ({ page }) => {
+  test('사진 출처: PC는 원드라이브 + 구글 드라이브 칩(연결 전·꺼짐), 폰 사진 아이콘·출처 표시 없음', async ({ page }) => {
     const { state } = await fixture(page);
     await openPhotos(page, 1440);
     await expect.poll(() => ids(page)).toEqual(['O1', 'O2', 'O3']);
-    await expect(src(page).locator('visible=true')).toHaveCount(1);
+    await expect(src(page).locator('visible=true')).toHaveCount(2);
     await expect(page.locator('#photosRoot [data-photos-src="onedrive"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#photosRoot [data-photos-src="gdrive"]')).toBeHidden();
+    // S62-11: 칩은 모두에게. 처음엔 꺼져 있고(SOURCE_DEFAULT gdrive:false) Drive 연결 전이라 '연결 전' — 사진 목록은 부르지 않는다.
+    await expect(page.locator('#photosRoot [data-photos-src="gdrive"]')).toBeVisible();
+    await expect(page.locator('#photosRoot [data-photos-src="gdrive"]')).toHaveAttribute('aria-label', '구글 드라이브 · 연결 전');
+    expect(state.gd).toEqual(['status']);
     await expect(page.locator('#photosRoot [data-photos-src="phone"]')).toBeHidden();
     await expect(page.locator('#photosRoot .photos-src-mark')).toHaveCount(0);
     expect(state.phoneReads).toEqual([]);

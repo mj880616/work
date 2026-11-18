@@ -41,7 +41,7 @@ export function affectsLedger(saved, baseUrl) {
 //   retry: 잠깐 실패 → 한 번만 다시
 //   off: 이 탭에서는 더 부르지 않음(서버·DB 배포 전, 한도, 로그인 없음). 저장 흐름은 막지 않는다.
 //   drop: 이번 묶음만 버림(다음 저장이 다시 부름)
-const OFF = new Set(['not_ready', 'unsupported_kind', 'ledger_not_ready', 'ai_not_configured', 'daily_limit', 'monthly_limit', 'forbidden', 'session_required']);
+const OFF = new Set(['not_ready', 'unsupported_kind', 'ledger_not_ready', 'ai_not_configured', 'daily_limit', 'monthly_limit', 'ai_monthly_cap', 'forbidden', 'session_required']);
 const RETRY = new Set(['ai_busy', 'ai_timeout', 'ledger_busy', 'ledger_unavailable', 'usage_unavailable', 'read_unavailable', 'offline']);
 const COUNTS = ['records_new', 'changes_linked', 'sources_added', 'needs_check'];
 export function autoOutcome(r) {

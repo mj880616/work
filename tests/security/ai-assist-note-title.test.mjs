@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth, AI_MONTH_UNDER} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // NOTE-탐색기 ③: the real ai-assist handler, kind=note_title, with a synthetic Supabase (Auth + PostgREST with owner RLS) and a mocked
@@ -17,7 +18,7 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const answer=title=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({title})}]}],usage:{input_tokens:400,output_tokens:20}});
 const note=(n,extra={})=>({id:id(n),workspace_id:WS,kind:'note',title:'임단투 교섭 준비 메모 정리',raw_text:'임단투 교섭 준비 메모 정리\n3차 교섭 일정과 요구안 초안, 위원 구성 연락처 010-1234-5678',updated_at:AT,metadata:{folder_id:'f1',folder:'회의'},archived_at:null,ai_export_allowed:true,...extra});
 
-function harness({openai=null,usage=[],notes=null}={}){
+function harness({openai=null,usage=[],notes=null,aiMonth=AI_MONTH_UNDER}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -43,8 +44,8 @@ function harness({openai=null,usage=[],notes=null}={}){
     if(method==='PATCH'&&table==='app_notes'){const b=JSON.parse(init.body);assert.deepEqual(Object.keys(b),['metadata'],'only metadata is written');const hit=rows.filter(r=>visible(table,r,uid)&&matches(r,url));hit.forEach(r=>Object.assign(r,b));return new Response(null,{status:204});}
     throw new Error('unexpected write '+method+' '+table);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})},aiMonth));
   return {handler,calls,db};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)}));
@@ -136,4 +137,55 @@ for(const [name,raw,secret] of [
   assert.equal(db.app_notes[0].raw_text,raw,'저장된 본문은 그대로');
   assert.equal(db.app_notes[0].metadata.ai_off,true,'옛 표시는 지우지 않음');
   assert.ok(!JSON.stringify(calls.logs).includes(secret),'기록에 글 없음');
+});
+
+// AI-사람별한도: 작업공간 이번 달 합계가 한도 이상이면 AI를 부르지 않고 429 ai_monthly_cap + 한 줄. 운영자(exempt)는 빠진다.
+test('AI-사람별한도: over the monthly per-workspace cap → 429 ai_monthly_cap, no AI call, nothing written; operator exempt; server-decided workspace',async()=>{
+  const seen=[];
+  const over=(b)=>{seen.push(b);return {...AI_MONTH_UNDER,openai_input_tokens:20_000_000,openai_output_tokens:500_000};}; // 20M×140 + 0.5M×700 = 3,150원
+  {
+    const {handler,calls,db}=harness({aiMonth:over});
+    const res=await post(handler,{kind:'note_title',id:id(1)});
+    assert.equal(res.status,429);
+    assert.deepEqual(await res.json(),{ok:false,error:'ai_monthly_cap',message:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.'});
+    assert.equal(calls.openai.length,0);
+    assert.equal(db.app_ai_daily_usage.length,0,'no usage row written');
+    assert.equal(db.app_notes[0].metadata?.ai_title,undefined);
+    assert.deepEqual(seen,[{p_workspace:WS}],'the workspace comes from the server, not the request');
+  }
+  {
+    const {handler,calls}=harness({aiMonth:{...over({}),cap_krw:5000}});
+    assert.equal((await post(handler,{kind:'note_title',id:id(1)})).status,200,'a higher cap set by SQL lets it run');
+    assert.equal(calls.openai.length,1);
+  }
+  {
+    const {handler,calls}=harness({aiMonth:{...over({}),exempt:true}});
+    assert.equal((await post(handler,{kind:'note_title',id:id(1)})).status,200,'operator workspace is not capped');
+    assert.equal(calls.openai.length,1);
+  }
+  {
+    const {handler,calls}=harness({aiMonth:()=>new Response('{"code":"PGRST202"}',{status:404})});
+    assert.equal((await post(handler,{kind:'note_title',id:id(1)})).status,200,'DB function not applied yet → only the old monthly limit');
+    assert.equal(calls.openai.length,1);
+  }
+  for(const bad of [()=>new Response('{}',{status:500}),()=>new Response('{"code":"42501"}',{status:403}),{month:'bad'},null]){
+    const {handler,calls}=harness({aiMonth:bad});
+    const res=await post(handler,{kind:'note_title',id:id(1)});
+    assert.equal(res.status,503);assert.equal((await res.json()).error,'usage_unavailable');
+    assert.equal(calls.openai.length,0,'unknown usage stays closed');
+  }
+});
+
+test('AI-사람별한도: kind=ai_month gives only my own month line (no AI call, nothing written); extra keys refused',async()=>{
+  const seen=[];
+  const {handler,calls,db}=harness({aiMonth:b=>{seen.push(b);return {...AI_MONTH_UNDER,openai_input_tokens:10_000_000};}});
+  const res=await post(handler,{kind:'ai_month'});
+  assert.equal(res.status,200);
+  assert.deepEqual(await res.json(),{ok:true,kind:'ai_month',month:'2026-11',used_krw:1400,cap_krw:3000,exempt:false,capped:false});
+  assert.deepEqual(seen,[{p_workspace:WS}]);
+  assert.equal(calls.openai.length,0);assert.equal(db.app_ai_daily_usage.length,0);
+  assert.equal((await post(handler,{kind:'ai_month',workspace_id:OTHER_WS})).status,400,'the screen cannot choose a workspace');
+  const s=harness({aiMonth:b=>{seen.push(b);return AI_MONTH_UNDER;}});
+  await post(s.handler,{kind:'ai_month'},'stranger-token');
+  assert.deepEqual(seen.at(-1),{p_workspace:OTHER_WS},'the stranger reads only the stranger workspace');
 });

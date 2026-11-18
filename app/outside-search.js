@@ -28,7 +28,8 @@ export function createOutsideSearch({box, nameOf, keysOf, workspaceOf}) {
   function searchApi(offset) {
     const r = rangeOf(state.period, Date.now(), state.pickFrom, state.pickTo);
     const keys = keysOf();
-    return rt().api('/rest/v1/rpc/app_outside_search', {method: 'POST', singleFlight: false, body: {
+    // NEWS-모두에게열기 ③: 공용 문장 찾기(INVOKER — 공용 표 정책을 그대로 거침, 인자·결과 칸은 옛 함수와 같고 post_id 자리에 공용 글 id).
+    return rt().api('/rest/v1/rpc/app_outside_search_shared', {method: 'POST', singleFlight: false, body: {
       p_query: state.query, p_terms: state.similar.length ? state.similar : null, p_sources: keys && keys.length ? keys : null,
       p_from: r.from, p_to: r.to, p_limit: SEARCH_PAGE + 1, p_offset: offset}});
   }

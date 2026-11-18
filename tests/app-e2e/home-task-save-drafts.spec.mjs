@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {pressName} from './helpers/area-org-picker.mjs';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',quick=page=>page.locator('#homeView [data-home-quick]');
 async function setup(page,width=390){
   await page.setViewportSize({width,height:900});const base=await openHome(page),state={calls:[],rules:[],tasks:[],links:[],serial:0};
@@ -14,7 +14,7 @@ async function setup(page,width=390){
     else if(action==='link'){if(!rule||rule.apply)state.links.push(...body.links.map(link=>({...link,google_task_id:body.task_id,status:'confirmed'})));result={ok:true,links:state.links.filter(l=>l.google_task_id===body.task_id),meeting_links:[]};}
     else{const task=state.tasks.find(t=>t.id===body.task_id);if(!task)throw new Error('Wrong frozen task identity');if(!rule||rule.apply)Object.assign(task,{title:body.title,notes:body.notes||'',due:body.due||null});result={ok:true,task};}
     await route.fulfill({status:rule?.status||200,json:rule?.response===undefined?result:rule.response});if(rule)rule.done=true;
-  });await quick(page).locator('[data-quick-mode="task"]').click();return{...base,state};
+  });await pickQuickMode(page,'task');return{...base,state};
 }
 async function selectProject(page){const q=quick(page);await q.locator('[data-quick-project]').click();await pressName(page,'자식 프로젝트');}
 for(const width of [390,1280])test(`known quick task link partial preserves input and options ${width}`,async({page})=>{
@@ -37,5 +37,5 @@ test('known partial task confirms only missing links and never repeats a success
   const {state}=await setup(page),q=quick(page),task={id:'known-task',taskListId:'@default',title:'연결할 초안',notes:'',due:'2026-10-06T00:00:00.000Z',status:'needsAction'};await page.clock.setFixedTime(new Date('2026-10-06T03:00:00Z'));state.tasks.push(task);await q.locator('[data-quick-input]').fill(task.title);await selectProject(page);state.next('create',{apply:false,response:{ok:true,task,links:[],meeting_links:[],link_error:'initial link unknown'}});await q.locator('[data-quick-save]').click();await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();await q.getByRole('button',{name:'연결 확인',exact:true}).click();await expect(q.locator('[data-quick-status]')).toContainText('선택한 기존');state.next('link',{status:503,apply:true,response:{message:'link reply lost'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('link reply lost');await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='link')).toHaveLength(1);await q.getByRole('button',{name:'연결 확인',exact:true}).click();await expect(q.locator('[data-quick-status]')).toContainText('선택한 기존');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);expect(state.calls.filter(c=>c.action==='link')).toHaveLength(1);expect(state.calls.filter(c=>c.action==='update')).toHaveLength(0);expect(state.calls.filter(c=>c.action==='links').every(c=>c.method==='GET'&&c.query.task_id==='known-task')).toBe(true);
 });
 test('task mode round trip keeps unknown ownership and its next read action',async({page})=>{
-  const {state}=await setup(page),q=quick(page);await q.locator('[data-quick-input]').fill('왕복 초안');state.next('create',{status:503,apply:false,response:{message:'unknown'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('unknown');await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-mode="task"]').click();await expect(q.getByRole('button',{name:'할 일 목록에서 확인',exact:true})).toBeVisible();await q.locator('[data-quick-input]').fill('새 왕복 제목');await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);
+  const {state}=await setup(page),q=quick(page);await q.locator('[data-quick-input]').fill('왕복 초안');state.next('create',{status:503,apply:false,response:{message:'unknown'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('unknown');await pickQuickMode(page,'update');await pickQuickMode(page,'task');await expect(q.getByRole('button',{name:'할 일 목록에서 확인',exact:true})).toBeVisible();await q.locator('[data-quick-input]').fill('새 왕복 제목');await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);
 });

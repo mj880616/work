@@ -1,8 +1,11 @@
 // S48-3 주간 정리 묶음(WEEKLY-주요일정기준·WEEKLY-뺀목록삭제·WEEKLY-줄끌기·지우기버그·WEEKLY-사업영역세부줄). 글·이름은 모두 가짜.
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {majorRule, isInternalMeeting, MAJOR_SCHEDULE_RULE, MAJOR_RULES, INTERNAL_MEETINGS} from '../app/weekly-major-schedule.mjs';
+import {majorRule, hasSkipWord, MAJOR_SCHEDULE_RULE, MAJOR_RULES} from '../app/weekly-major-schedule.mjs';
+import * as majorModule from '../app/weekly-major-schedule.mjs';
+import {OPERATOR_WORDS, OLD_FIXED, OPERATOR_LIST} from './fixtures/operator-meeting-words.mjs';
 import {withCellLine, withLineMove, cellLinesOf, cellVisibleLines, visibleLines, cellId} from '../app/weekly-draft-store.js';
 import {flowCells} from '../app/weekly-flow-cells.js';
 import {readHand, handRows, withHandRow, withoutHandRow, detailEdits} from '../app/weekly-hand.mjs';
@@ -24,9 +27,25 @@ test('주요 일정 기준: 연대를 조직할 투쟁(파업·선전전·결의
     assert.ok(majorRule(t), t);
   for (const t of ['궤도협의회 대표자회의', '가상 대의원대회', '가상 파업 대책 회의', '본부 집행위', '궤도 집행국 회의', '노조 상집 44차', '노조 중집', '가상 사업장 방문', '파업 사업장 방문', '교섭 실무 회의', '', null])
     assert.equal(majorRule(t), null, String(t));
-  assert.ok(isInternalMeeting('노조 상집 44차') && isInternalMeeting('본부집행위') && !isInternalMeeting('궤도협의회 대표자회의'));
+  assert.ok(hasSkipWord('노조 상집 44차', OPERATOR_WORDS) && hasSkipWord('본부집행위', OPERATOR_WORDS) && !hasSkipWord('궤도협의회 대표자회의', OPERATOR_WORDS));
   assert.match(MAJOR_SCHEDULE_RULE, /회의는 넣지 않는다/);
-  assert.ok(MAJOR_RULES.length >= 5 && INTERNAL_MEETINGS.includes('상집') && INTERNAL_MEETINGS.includes('중집'));
+  assert.ok(MAJOR_RULES.length >= 5);
+});
+
+// WEEKLY-내부회의사람별(11/17 명진 "이건 나에게만 해당되는"): 빼는 단어는 코드에 없고 사람마다 넘긴다.
+test('빼는 단어는 코드에 고정돼 있지 않다: 단어가 없으면 아무 일정도 빼지 않고, 넘긴 사람에게만 걸린다', () => {
+  assert.equal(majorModule.INTERNAL_MEETINGS, undefined);
+  assert.deepEqual([...OPERATOR_WORDS], OLD_FIXED, '운영자 행에 넣는 단어 = 옛 고정 단어 그대로');
+  for (const none of [undefined, null, []]) assert.equal(hasSkipWord('노조 상집 44차', none), false);
+  // 다른 사람: '집행위' 파업 결의대회도 기준에 맞으면 제안된다. 운영자: 지금처럼 빠진다.
+  for (const t of ['가상 집행위 파업 결의대회', '중집 공동투쟁 선포']) {
+    assert.ok(majorRule(t), t);
+    assert.equal(majorRule(t, OPERATOR_WORDS), null, t);
+  }
+  // 운영자 결과 불변: 옛 고정 단어로 거른 결과와 같다.
+  const old = t => { const sq = String(t ?? '').replace(/\s+/g, '').toLowerCase(); return OLD_FIXED.some(w => sq.includes(w)) ? null : majorRule(t); };
+  for (const t of ['가상 기자회견', '노조 상집 파업 집회', '상무집행 선전전', '공동 집회', '가상 결의대회', '중앙 집행 총력투쟁', '', null])
+    assert.deepEqual(majorRule(t, OPERATOR_WORDS), old(t), String(t));
 });
 
 test('2) 주요 일정 제안: 기준에 맞고 표에 없는 달력 일정만, 뺀 제안은 다시 안 뜸(목록 없이), 넣은 일정도 안 뜸', () => {
@@ -37,6 +56,10 @@ test('2) 주요 일정 제안: 기준에 맞고 표에 없는 달력 일정만, 
   const text = shown[0].text;
   const picks = withPick(null, {kind:'calendar', from:'calendar', cell:'requests:hq', org:'', text}, 'drop', AT);
   assert.deepEqual(hqSuggestions(events, [], new Map(), picks).map(x => x.raw.item.key), ['e4', 'e5']);
+  // 내가 정한 빼기 단어(운영자 목록)를 넘기면 그 말이 든 일정은 제안하지 않는다. 넘기지 않으면(다른 사람) 제안한다.
+  const strike = [ev('s1', '가상 집행위 파업 결의대회'), ev('s2', '가상 결의대회')];
+  assert.deepEqual(hqSuggestions(strike, [], new Map(), null).map(x => x.raw.item.key), ['s1', 's2']);
+  assert.deepEqual(hqSuggestions(strike, [], new Map(), null, undefined, OPERATOR_WORDS).map(x => x.raw.item.key), ['s2']);
 });
 
 test('옛 안내 문구·뺀 목록 코드가 화면 파일에 남지 않는다(코드째 삭제)', async () => {
@@ -123,10 +146,10 @@ test('세부 내용 모델: 뺀 줄은 빠지고(목록 없음) 고친 줄은 �
   const draft = {v:1, base:null, me:'', me_from:'', date:'', rows:[], titles:[], hand};
   const materials = {events:ok([]), upcoming:ok([]), tasks:ok([]), basket:ok({notes:[], links:[], docs:[]}), orgUpdates:Object.assign([], {mine:new Set()}), projectUpdates:ok([]), catalog:ok([]),
     meetings:ok(meetings), documents:ok([]), sharePages:ok([]), weekDraft:ok({missing:false, row:{exists:true, draft, saved_at:AT}})};
-  const model = weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', today:'2026-10-06', materials, kinds:{status:'ok', list:[]}});
+  const model = weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', today:'2026-10-06', materials, kinds:{status:'ok', list:[...OPERATOR_LIST]}}); // 운영자 목록('*상집*' 포함)
   assert.deepEqual(model.meetings.items.map(i => [i.text, !!i.edited, i.hand ?? '']), [['운영위원회 3차(고침)', true, ''], ['가상 손 줄', false, 'h1']]);
   assert.equal(model.meetings.detailEditable, true);
-  const text = weeklyReportText(model);
+  const text = reportText(model);
   assert.match(text, /운영위원회 3차\(고침\)/); assert.match(text, /\n- 가상 손 줄\n/);
   assert.doesNotMatch(text, /가상 기자회견|노조 상집/);
 });

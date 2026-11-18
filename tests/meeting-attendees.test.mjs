@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {attendeesLine,ATTENDEES_MAX} from '../app/meeting-transcript-model.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const html=read('app/index.html'),team=read('app/team.js'),mrd=read('app/meeting-round-detail.js'),links=read('app/report-links.js'),draft=read('app/meeting-transcript-draft.js'),list=read('app/report-list-read.js');
+const html=read('app/index.html'),team=read('app/team.js'),mrd=read('app/meeting-round-detail.js'),links=read('app/report-links.js'),list=read('app/report-list-read.js');
 const migration=read('supabase/migrations/20261110231000_bizreport_meeting_attendees.sql');
 
 test('AI 초안 참석 목록 → 한 줄: 이름이면 사람 수, 숫자가 섞이면 그대로, 200자 이하',()=>{
@@ -51,9 +51,4 @@ test('보고 고치기·상세: 같은 칸, [회의] 칸만, 바뀐 때만 보�
  assert.match(mrd,/if\(mrdAttendeesOn\(mrdCurrent\)&&whoNow!==whoStart\)body\.attendees=whoNow\|\|null;/);
  assert.match(mrd,/const mrdEditFieldKeys=\[[^\]]*'Attendees'\]/,'고친 내용 확인에 포함');
  assert.match(mrd,/m\.attendees&&String\(m\.attendees\)\.trim\(\)\?`참석 \$\{String\(m\.attendees\)\.trim\(\)\}`:null/);
-});
-
-test('AI 초안(녹음 요약·서버 정리 결과 공용 applyDraft)은 참석인원 칸이 비어 있을 때만 채운다',()=>{
- const body=draft.slice(draft.indexOf('function applyDraft('),draft.indexOf('async function run('));
- assert.match(body,/const who=\$\('#meetingAttendees'\),line=attendeesLine\(draft\);\n  if\(who&&line&&!who\.value\.trim\(\)\)\{who\.value=line;/);
 });

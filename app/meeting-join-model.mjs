@@ -4,7 +4,7 @@
 // - AI 요약의 할 일은 후보로만(MTG-할일자동생성금지와 같은 규칙): 그 보고에 이미 붙은 할 일과 제목이 같은 것은 뺀다.
 // - 이름·시각은 화면이 자기 보고 목록(로그인으로 읽은 행)에서 붙인다. 서버는 보고 id와 녹음 길이만 준다.
 // - PR-4(보고 ⋯ [다른 보고에 합치기]): 합치기 줄은 시각을 붙인 이름(labelWhen)과 휴지통으로 옮긴 보고(doneText from)를 쓴다.
-// - PR-5(나머지 두 길): (라) 입력 창의 전사 글은 같은 날(seoulDayRange) '회의록 전문이 있는 보고'를 묻는다(askText what).
+// - PR-5 (라) 입력 창의 전사 글 물음은 S61-24(REC-요약단추삭제)에서 화면과 함께 뺐다.
 import {normalizeDraft,actionRows} from './meeting-transcript-model.mjs';
 
 const KST=9*3600000;
@@ -22,8 +22,6 @@ export function atMs(v){
 function seoul(ms){const d=new Date(ms+KST);return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),h:d.getUTCHours(),min:d.getUTCMinutes()}}
 export const seoulDayKey=ms=>{if(!Number.isFinite(ms))return '';const s=seoul(ms);return `${s.y}-${two(s.m)}-${two(s.d)}`};
 export const seoulHm=ms=>{if(!Number.isFinite(ms))return '';const s=seoul(ms);return `${two(s.h)}:${two(s.min)}`};
-// 그 시각이 든 서울 하루의 [시작, 끝) ISO(Edge join-job.mjs seoulDayRange와 같은 계산 — 같은 날 보고를 읽는 범위).
-export function seoulDayRange(ms){const start=Math.floor((ms+KST)/86400000)*86400000-KST;return [new Date(start).toISOString(),new Date(start+86400000).toISOString()]}
 // 다른 날이면 '11.4. 10:00', 같은 날이면 '10:02'.
 export function whenText(ms,dayMs=NaN){
   if(!Number.isFinite(ms))return '';
@@ -45,19 +43,6 @@ export function reportName(m){
 }
 export function minutesText(seconds){const s=Number(seconds)||0;return s>0?`녹음 ${Math.max(1,Math.round(s/60))}분`:''}
 
-// 물음 한 줄: '오늘 녹음으로 쓴 보고가 있어요. 같은 회의인가요?'(녹음한 날이 오늘이 아니면 그날 날짜).
-// what = 무엇으로 쓴 보고인가(PR-5 (라) 입력 창의 전사 글은 '회의록 전문이 있는 보고').
-export function askText(dayMs,nowMs=Date.now(),what='녹음으로 쓴 보고'){
-  const day=Number.isFinite(dayMs)?dayMs:nowMs;
-  if(seoulDayKey(day)===seoulDayKey(nowMs))return `오늘 ${what}가 있어요. 같은 회의인가요?`;
-  const s=seoul(day);return `${s.m}월 ${s.d}일 ${what}가 있어요. 같은 회의인가요?`;
-}
-// 물음 아래 작은 줄: '10:02 예시 집행위 · 녹음 38분'(시안 ①).
-export function whoText(c,dayMs=NaN){
-  const at=atMs(c?.meeting?.meeting_at);
-  return [[whenText(at,dayMs),reportName(c?.meeting)].filter(Boolean).join(' '),minutesText(c?.seconds)].filter(Boolean).join(' · ');
-}
-
 // 서버 후보([{meeting_id, seconds}]) + 화면이 로그인으로 읽은 보고 행 → 보이는 후보(읽은 [회의] 보고만, 서버가 준 순서).
 export function mergeCandidates(list,rows){
   const byId=new Map((Array.isArray(rows)?rows:[]).filter(r=>r?.id).map(r=>[String(r.id),r]));
@@ -68,17 +53,6 @@ export function mergeCandidates(list,rows){
     seen.add(id);out.push({id,seconds:Number(c.seconds)||0,meeting:m});
   }
   return out;
-}
-// 물음에 먼저 보일 한 건: 녹음 시작 전에 시작한 보고 가운데 가장 늦은 것(같은 회의의 앞 녹음), 없으면 가장 이른 것.
-export function nearest(cands,startMs){
-  const list=Array.isArray(cands)?cands:[];
-  if(!list.length)return null;
-  const timed=list.map(c=>({c,at:atMs(c.meeting?.meeting_at)}));
-  if(!Number.isFinite(startMs))return timed.reduce((a,b)=>(b.at>a.at?b:a)).c;
-  const before=timed.filter(x=>Number.isFinite(x.at)&&x.at<=startMs);
-  if(before.length)return before.reduce((a,b)=>(b.at>a.at?b:a)).c;
-  const after=timed.filter(x=>Number.isFinite(x.at));
-  return (after.length?after.reduce((a,b)=>(b.at<a.at?b:a)):timed[0]).c;
 }
 // [다른 보고 선택] 줄: 같은 날 녹음으로 쓴 보고(서버 후보, 녹음 시작에 가까운 순)부터, 그다음 내 목록의 다른 [회의] 보고(최근 순, limit까지).
 export const PICK_OTHERS=8;

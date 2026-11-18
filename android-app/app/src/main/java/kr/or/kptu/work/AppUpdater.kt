@@ -70,6 +70,8 @@ object AppUpdater {
     // ── 시작: 새 판 찾음 ──
 
     fun found(context: Context, r: UpdateRules.Release) {
+        // S62-34: 플레이 판은 스스로 업데이트하지 않는다(설치 요청 권한도 없음).
+        if (!BuildConfig.SELF_UPDATE) return
         val app = context.applicationContext
         synchronized(this) {
             if (release?.version == r.version && phase != UpdateRules.Phase.IDLE) return
@@ -295,7 +297,7 @@ object AppUpdater {
         val open = PendingIntent.getActivity(app, 0, Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val note = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("웹2 ${BuildConfig.VERSION_NAME}로 업데이트했어요")
+            .setContentTitle("노동조합+ ${BuildConfig.VERSION_NAME}로 업데이트했어요")
             .setContentIntent(open)
             .setAutoCancel(true)
             .setSilent(true)

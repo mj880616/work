@@ -33,7 +33,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item']};
+  const PLACE_PARAMS={meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -264,14 +264,28 @@
     const alive=layerAlive(layer);
     return alive===null?!chain.includes(layer.name):!alive;
   }
+  // UI-알림창정리(S61-31) 겹 닫기 묻기: 쓰던 것이 있는 겹은 close({fromBack,ask})에서 ask('물음')를 부른다(화면 이동의 detail.ask와 같은
+  // 규칙). 처음엔 false → 그 겹 칸으로 되돌린 뒤 공용 작은 확인창으로 묻고, [닫기]면 같은 뒤로가기를 다시 한다(그때 ask()는 true).
+  let layerConfirmed=null;
   function closeLeftLayers(){
     const chain=chainOf(history.state);
+    const confirmedLayer=layerConfirmed;layerConfirmed=null;
     let count=0;
     while(layers.length&&layerLeft(layers.at(-1),chain)){
       const layer=layers.at(-1);
-      let closed=true;
-      try{closed=layer.close({fromBack:true})!==false}catch(err){console.error('layer close',layer.name,err)}
-      if(!closed){returnToLayer(layer);return 'declined'}
+      let closed=true;const asks=[];
+      const ask=text=>{if(confirmedLayer===layer.name)return true;asks.push(String(text||''));return false};
+      try{closed=layer.close({fromBack:true,ask})!==false}catch(err){console.error('layer close',layer.name,err)}
+      if(!closed){
+        const backTo=window.navigation?.currentEntry?.key;
+        returnToLayer(layer);
+        if(asks.length)askLeave(asks[0],()=>{
+          layerConfirmed=layer.name;
+          if(backTo&&backTo!==window.navigation?.currentEntry?.key&&window.navigation?.entries?.().some(e=>e.key===backTo)){try{window.navigation.traverseTo(backTo).committed?.catch(()=>{layerConfirmed=null})}catch{layerConfirmed=null}return}
+          history.back();
+        },{ok:'닫기'});
+        return 'declined';
+      }
       const now=layers.indexOf(layer);
       if(now>=0)layers.splice(now,1);
       count++;
@@ -446,17 +460,61 @@
     history.replaceState({...(history.state||{}),kptuOverlay:id},'',location.href);
     return true;
   }
-  async function openFrom(view,open=null,{sub=null}={}){
+  // S61-53 ORG-주요인물기록열기: a line inside a window (.modal of mobile-modal-history.js, e.g. the phone organization detail) that
+  // opens a source on another screen. The window stands on its own history entry (kptuOverlay); stepping to the other screen copied that
+  // mark and the window, closed by its owner on kptu:view-changed, then took Back for itself — the new screen was undone at once and
+  // only the list under the window was left. So the window is first closed the way Back closes it (its owner's popstate: the same
+  // unsaved-input question), and openFrom goes on only once it is closed. back() (the caller's reopener) opens it again when one Back
+  // returns to the entry the line was on (or at once when the step could not be taken), so one Back = that window, at that place.
+  const returns=new Map();
+  function windowHere(){
+    const id=history.state?.kptuOverlay,w=id&&document.getElementById(id);
+    return w&&!w.classList.contains('hidden')&&w.dataset.kptuHistoryOpen==='1'?w:null;
+  }
+  async function leaveWindow(){
+    const w=windowHere();
+    if(!w)return true;
+    const from=here()?.key;
+    if(!from)return false;
+    history.back();
+    // Counted in frames, not a timer: the step back has arrived (the entry changed) and the owners' popstate listeners have run.
+    for(let n=0;n<60&&here()?.key===from;n++)await new Promise(done=>requestAnimationFrame(done));
+    await new Promise(done=>requestAnimationFrame(done));
+    return here()?.key!==from&&(w.classList.contains('hidden')||getComputedStyle(w).display==='none');
+  }
+  function keepReturn(key,view,back){
+    if(!key||typeof back!=='function')return;
+    returns.delete(key);returns.set(key,{view,back});
+    while(returns.size>50)returns.delete(returns.keys().next().value);
+  }
+  function returnHere(){
+    const key=here()?.key,kept=key&&returns.get(key);
+    if(!kept||api.current!==kept.view)return;
+    returns.delete(key);
+    // After every popstate listener (a window opened inside the dispatch would be taken by a later listener for one Back closes).
+    requestAnimationFrame(()=>{if(here()?.key!==key||api.current!==kept.view)return;try{kept.back()}catch(err){console.error('return reopen',err)}});
+  }
+  async function openFrom(view,open=null,{sub=null,back=null}={}){
     view=viewName(view);
     if(!view||!authenticatedShellReady())return false;
-    const lazy=window.KPTUViewLoader,token=askGo();
+    const lazy=window.KPTUViewLoader;let token=askGo();
     if(lazy?.isLoaded&&!lazy.isLoaded(view))await lazy.load(view);
     if(!stillLatest(token))return false;
+    const hadWindow=!!windowHere(),from=api.current;
+    if(hadWindow){
+      // Closing the window is a traversal of its own (the screens may step on it): the line stays asked while the screen is the same.
+      if(!(await leaveWindow())||api.current!==from)return false;
+      token=askGo();
+    }
     const before=here()?.key;
     sourceEntry=null;
-    if(!go(view,{source:'delegated',sub})&&api.current!==view)return false;
+    if(!go(view,{source:'delegated',sub})&&api.current!==view){
+      if(hadWindow&&typeof back==='function')queueMicrotask(()=>{try{back()}catch(err){console.error('return reopen',err)}});
+      return false;
+    }
     const entry=here();
     if(entry&&entry.key!==before&&!sourceEntry)sourceEntry={key:entry.key,view};
+    if(entry&&entry.key!==before)keepReturn(before,from,back);
     return typeof open==='function'?await open():true;
   }
   // Scroll position per history entry, only for a step between screens (a layer's own list scroll stays with its owner, e.g.
@@ -593,6 +651,17 @@
     });
   }
 
+  // 떠나기 물음(위 go 안 detail.ask). 누른 단추(초점) 아래, 없으면 가운데. 한 번에 하나만.
+  let leaveConfirmed=null,leaveAsking=false;
+  function askLeave(text,onLeave,{ok='나가기'}={}){
+    if(leaveAsking)return;leaveAsking=true;
+    const at=document.activeElement,anchor=at&&at!==document.body&&at.getClientRects?.().length?at:null;
+    // 뒤로가기를 되돌리는 중(restoreRoutePosition)이면 끝난 뒤에 묻는다: 물음창도 기록 칸을 하나 쓰므로 겹치지 않게.
+    const settled=()=>new Promise(done=>{let n=0;const tick=()=>{if(!returningTo||++n>60)done();else requestAnimationFrame(tick)};tick()});
+    settled().then(()=>import('./small-notice.js')).then(({askConfirm})=>askConfirm(anchor,{text,ok,cancel:'머물기',danger:true,history:false}))
+      .then(ok=>{leaveAsking=false;if(ok)onLeave()},err=>{leaveAsking=false;console.error('leave ask',err)});
+  }
+
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false}={}){
     if(view==='projects')areas=true;
     view=viewName(view);sub=subName(view,sub);
@@ -614,9 +683,25 @@
     if(!target)return false;
     const entry=window.navigation?.currentEntry;
     const canRestoreHistory=!!(routeEntry&&entry&&Number.isInteger(entry.index)&&routeEntry.index!==entry.index);
-    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory}});
+    // UI-알림창정리(S61-31) 화면 떠나기 묻기: 쓰던 내용이 있는 화면은 detail.ask('물음')를 부른다. 이미 [나가기]로 답한 이동이면
+    // true(그대로 떠남), 아니면 물음을 적어 두고 false — 라우터가 이동을 멈추고 공용 작은 확인창으로 묻는다. [나가기]면 같은 이동을
+    // 다시 하고(뒤로가기는 같은 기록 칸으로) 그때 ask()는 true다. 저장 중처럼 묻지 않고 막을 때는 지금처럼 preventDefault().
+    const confirmed=leaveConfirmed===view;leaveConfirmed=null;
+    const asks=[];
+    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory,confirmed,ask:text=>{if(confirmed)return true;asks.push(String(text||''));return false}}});
     window.dispatchEvent(before);
-    if(before.defaultPrevented){if(source==='popstate')restoreRoutePosition();return false;}
+    if(before.defaultPrevented||asks.length){
+      const backTo=source==='popstate'?window.navigation?.currentEntry?.key:null;
+      if(source==='popstate')restoreRoutePosition();
+      if(!before.defaultPrevented)askLeave(asks[0],()=>{
+        leaveConfirmed=view;
+        const again=()=>{leaveConfirmed=view;go(view,{scroll,source:source==='popstate'?'api':source,updateUrl,replaceUrl,allowUnloaded,sub,areas})};
+        // 뒤로·앞으로 간 이동은 그 기록 칸으로 다시 간다. 칸이 없어졌으면(앞으로 가기 뒤 물음창 기록) 같은 화면을 새로 연다.
+        if(backTo&&backTo!==window.navigation?.currentEntry?.key&&window.navigation?.entries?.().some(e=>e.key===backTo)){try{window.navigation.traverseTo(backTo).committed?.catch(again)}catch{again()}return}
+        again();
+      });
+      return false;
+    }
     const changing=!!api.current&&api.current!==view;
     if(changing){
       // The screen left keeps its scroll position on its own entry: the entry shown now (a step), or the one just left (Back/Forward).
@@ -772,10 +857,11 @@
     if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;traverseDelta=0;rememberRoute();return;}
     onTraversal();
     traverseDelta=0;
+    returnHere();
     movedSoon();
   });
   window.addEventListener('kptu:session-changed',e=>{
-    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();reopeners.clear();movedSoon();return}
+    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();reopeners.clear();returns.clear();movedSoon();return}
     if(appReady())restoreFromUrl('session');
   });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});

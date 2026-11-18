@@ -3,16 +3,16 @@
 //   [자료실에 올리기](기존 자료실 [+ 자료 등록] 창에 고친 HWP를 채워 넘김, library-upload-request.js)를 한다.
 // - Drive 편집(2단계): 자료실·바구니의 [편집]이 hwp-drive.js 1회용 요청으로 넘긴 파일을 서버에서 열고,
 //   [새 파일로 저장](기본)·[원본에 덮어쓰기](HWP 원본만)로 Drive에 저장한다. 저장 형식은 HWP 하나다.
-// - 노조 서식으로 만들기(HWP-서식변환): 붙여 넣은 글을 AI(ai-assist hwp_convert)가 노조 문서 규칙 문단으로 나누고, 자료실 "양식"의 빈 양식에 칸막이 안
+// - 노조 서식으로 만들기(HWP-서식변환): 붙여 넣은 글을 AI(ai-assist hwp_convert)가 노조 문서 규칙 문단으로 나누고, 자료실 "노조 서식"(옛 "양식")의 빈 양식에 칸막이 안
 //   보조 스크립트(studio-convert.js)가 채워 HWP 편집에 연다. 위 줄의 [내려받기]·[자료실에 저장]으로 마친다(기기 저장소는 쓰지 않는다).
 // 편집기는 hwp-frame.js의 sandbox iframe(allow-same-origin 없음)에서 돈다. Web2 창·저장소·API에 닿지 못한다.
 // HWP-화면가득: 폰·폴드(760px 이하)와 PC [전체 화면]에서는 카드가 화면을 가득 채우고(data-focus), 위 얇은 한 줄(#hwpLabBar:
 // [✕]·파일 이름·[파일 ▾]·[저장 ▾])과 편집기만 보인다. 두 메뉴는 공용 anchored-menu로 열고, 항목은 아래 기존 버튼을 그대로 누른다
 // (버튼의 켜짐·꺼짐·숨김은 sync()가 정하고 메뉴는 열 때 그 상태를 읽어 그린다).
 import {createSandboxedEditor} from './hwp-frame.js';
-import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,findConvertTemplate,saveConvertedCopy} from './hwp-drive.js';
+import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,findConvertTemplate,saveConvertedCopy,saveUnionForm,unionFormFileProblem} from './hwp-drive.js';
 import {callAiAssist} from './basket-ai-summary.js';
-import {openConvertDialog,requestEngineBuild,CONVERT_TEXT,ENGINE_TEXT,convertRetryable} from './hwp-convert.js';
+import {openConvertDialog,openFormUploadDialog,requestEngineBuild,CONVERT_TEXT,ENGINE_TEXT,convertRetryable} from './hwp-convert.js';
 import {DOC_TYPES,convertAnswer,buildPlan,convertedFileName} from './hwp-convert-model.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {requestBasketNote} from './basket-note-tasks.js';
@@ -330,7 +330,7 @@ async function openDrive(target){
   }finally{stopElapsed();if(drive===shown){busy=false;sync()}}
 }
 
-// HWP-노조양식: 자료실 분류 "양식"에 등록된 노조 문서 양식 HWP를 새 문서의 시작으로 연다. 양식이 없으면 등록 방법을 안내한다.
+// HWP-노조양식: 자료실 분류 "노조 서식"(옛 "양식")에 등록된 노조 문서 양식 HWP를 새 문서의 시작으로 연다. 양식이 없으면 등록 방법을 안내한다.
 async function openTemplate(){
   if(busy||drive)return;
   await refreshDirty();
@@ -341,7 +341,7 @@ async function openTemplate(){
     status('자료실에서 노조 양식을 찾는 중…');
     const found=await findUnionTemplate({rt});
     if(!found.chosen){
-      status(`자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 등록된 HWP가 없어요. 노조 문서 양식 HWP를 자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 한 번 등록해 주세요.`,'error');
+      status(`자료실 '${UNION_TEMPLATE_CATEGORY}'에 한글(.hwp) 서식 파일이 없어요. [노조 서식으로 만들기]에서 서식 파일을 먼저 올려 주세요.`,'error');
       return;
     }
     const row=found.chosen;
@@ -359,14 +359,28 @@ function requestTemplate(row){
   return requestHwpEdit({kind:'library',template:true,document:{id:row.id,title:row.title,file_name:row.file_name,category:row.category}},rt);
 }
 
-// HWP-서식변환: [노조 서식으로 만들기]. 순서는 ① 자료실 "양식"에서 이 종류의 빈 양식 찾기·받기 ② AI가 글을 노조 문서 규칙 문단으로 나누기 ③ 칸막이 안 보조
+// HWP-서식변환: [노조 서식으로 만들기]. 순서는 ① 자료실 "노조 서식"(옛 "양식")에서 이 종류의 빈 양식 찾기·받기 ② AI가 글을 노조 문서 규칙 문단으로 나누기 ③ 칸막이 안 보조
 // 스크립트가 양식에 채우기 ④ HWP 편집에 열기. AI가 실패하면 편집기의 지금 문서는 그대로 둔다(양식을 HWP 편집에 여는 것은 ③ 직전).
 async function startConvert(){
   if(busy)return;
   await refreshDirty();
   if(busy)return;
   if(dirty()&&(!(await askDiscard(anchorFor('hwpLabConvert'),'저장하지 않은 수정 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?','계속'))||busy))return;
+  // HWP-노조서식분류: 자료실 '노조 서식'(옛 '양식')에 한글 서식 파일이 하나도 없으면 글 입력 창을 열기 전에 서식 파일부터 올리게 한다.
+  // 찾기가 실패하면(네트워크 등) 지금처럼 글 입력 창을 열고, [만들기] 때 다시 찾아 안내한다(막지 않음).
+  let found=null;
+  try{found=await findUnionTemplate({rt})}catch(err){console.warn('hwp-lab form check',err?.kind||'error')}
+  if(busy)return;
+  if(found&&!found.total){
+    openFormUploadDialog({check:file=>unionFormFileProblem(file,{hwpOnly:true}),onUpload:uploadUnionForm,onDone:()=>openConvertDialog({onMake:runConvert})});
+    return;
+  }
   openConvertDialog({onMake:runConvert});
+}
+async function uploadUnionForm(file){
+  const saved=await saveUnionForm(file,{},{rt});
+  if(saved.kind==='created'){status(`${saved.message} 이제 글을 넣어 만들어요.`,'ok');return {ok:true}}
+  return {ok:false,message:saved.message};
 }
 async function runConvert({docType,text,progress,cancelled}){
   if(busy)return {ok:false,message:'다른 작업이 진행 중이에요. 잠시 뒤 다시 눌러 주세요.'};
@@ -377,7 +391,7 @@ async function runConvert({docType,text,progress,cancelled}){
     let found;
     try{found=await findConvertTemplate(docType,{rt})}
     catch(err){return {ok:false,message:err?.kind==='session'?err.message:'노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.'}}
-    if(!found.chosen)return {ok:false,message:`자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 등록된 ${label} 빈 양식 HWP가 없어요. 자료명에 "${label}"이 들어간 노조 양식 HWP를 자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 한 번 등록해 주세요.`};
+    if(!found.chosen)return {ok:false,message:`자료실 '${UNION_TEMPLATE_CATEGORY}'에 ${label} 빈 서식(.hwp)이 없어요. 자료명에 "${label}"이 들어간 서식 파일을 자료실 '${UNION_TEMPLATE_CATEGORY}'에 올려 주세요.`};
     let file;
     try{file=await openHwpFromDrive({kind:'library',document:{id:found.chosen.id}},{rt})}
     catch(err){return {ok:false,message:err?.kind?err.message:'양식을 열지 못했어요. 아무것도 바뀌지 않았어요.'}}
@@ -539,7 +553,7 @@ async function saveNew(){
 async function overwrite(){
   const shown=drive;
   if(!shown?.info?.can_overwrite||busy||shown.lockOverwrite)return;
-  const notes=['바꾸기 전 원본 사본을 Drive "Web2 편집 백업" 폴더에 보관해요.'];
+  const notes=['바꾸기 전 원본 사본을 Drive "노조+ 편집 백업" 폴더에 보관해요.'];
   if(shown.info.shared)notes.push('잊지 말기와 자료실 양쪽에 반영돼요.');
   if(!(await askConfirm(anchorFor('hwpDriveOverwrite'),{text:`원본 "${shown.info.file_name}"을 지금 수정한 내용으로 바꿔요. 덮어쓸까요?`,note:notes.join(' '),ok:'덮어쓰기',danger:true})))return;
   if(drive!==shown||busy||shown.lockOverwrite)return;
@@ -563,10 +577,6 @@ async function overwrite(){
 }
 
 const LEAVE_TEXT='저장하지 않은 수정 내용이 있어요. 나가면 사라져요. 나갈까요?';
-// 화면 이동(kptu:before-view-change)은 라우터가 그 자리에서 막을지 정하므로 브라우저 기본 확인창으로 묻는다(작은 확인창은 기다려야 해서 쓸 수 없음).
-function leaveOk(){
-  return !dirty()||window.confirm(LEAVE_TEXT);
-}
 // 이 화면 안의 [돌아가기]·[자료실에서 보기]는 작은 확인창으로 묻는다.
 async function askLeave(anchor){
   return !dirty()||askDiscard(anchor,LEAVE_TEXT,'나가기');
@@ -592,7 +602,9 @@ async function back(){
 window.addEventListener('kptu:before-view-change',event=>{
   if(!(drive||current)||!here()||event.detail?.view===VIEW)return;
   if(leaving){leaving=false;return}
-  if((drive&&busy)||!leaveOk())event.preventDefault();
+  // UI-알림창정리(S61-31): 화면 이동은 라우터의 공용 작은 확인창으로 묻는다(event.detail.ask). 드라이브 저장 중이면 묻지 않고 막는다.
+  if(drive&&busy){event.preventDefault();return}
+  if(dirty())event.detail.ask(LEAVE_TEXT);
 });
 window.addEventListener('kptu:before-reload',event=>{if(here()&&((drive&&busy)||dirty()))event.detail.otherDraft=true});
 window.addEventListener('beforeunload',event=>{if(here()&&((drive&&busy)||dirty())){event.preventDefault();event.returnValue=''}});

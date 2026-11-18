@@ -5,6 +5,7 @@
 // - 답은 공유 페이지 칸(한 줄 현황 · 진행 단계 · 일정 · 쟁점·요구 · 업데이트 기록) 후보와 '확인할 것'. 줄마다 근거(s1…)가 있어야 남는다(evidence.ts 공용 검사).
 // - 서버는 사용량 숫자 말고 아무것도 저장하지 않는다. 화면이 미리보기를 보여 주고, 명진이 [넣기]를 누를 때만 편집 중인 본문 끝에 들어간다
 //   (그 뒤에도 [저장]을 눌러야 페이지가 바뀐다). 공유 페이지는 링크를 받은 바깥 사람이 읽으므로 내부 메모·연락처·평가는 빼라고 지시한다.
+import { OWNER_ROLE } from "./owner-role.ts"; // MULTI-다른담당자맞춤 ⑤: 고정 직책 대신 부른 사람 프로필 직책(보낼 때 바꿈)
 import { EVIDENCE_RULE, evidenceLines, maskEvidenceText, EMAIL, PHONE, CONTROL, chars, type EvidenceLine } from "./evidence.ts";
 import { looksSecret } from "./note-title.ts";
 import { maskSecret } from "./note-secret.ts";
@@ -82,7 +83,7 @@ export function shareSources(rows: ShareRow[]): { sources: ShareSource[]; partia
 }
 
 export const SHARE_DRAFT_INSTRUCTIONS = [
-  "너는 공공운수노조 공공기관사업팀 부팀장의 '공유 페이지' 초안 도우미다. 공유 페이지는 링크를 받은 현장 조합원·간부가 로그인 없이 읽는 읽기 전용 페이지다.",
+  "너는 " + OWNER_ROLE + "의 '공유 페이지' 초안 도우미다. 공유 페이지는 링크를 받은 현장 조합원·간부가 로그인 없이 읽는 읽기 전용 페이지다.",
   "초안은 명진이 칸마다 확인하고 고친 뒤에만 페이지에 들어간다. 너는 칸 후보 글만 만든다.",
   "입력은 한 줄 초점(없을 수 있음)과 근거 목록(sources: s1, s2 …마다 종류·날짜·제목·원문)이다.",
   EVIDENCE_RULE,

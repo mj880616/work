@@ -166,7 +166,14 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀 '+width
  // HWP-화면가득: 폰은 화면 가득(모서리 0)이고 위 얇은 줄의 [파일 ▾]·[저장 ▾]만 버튼(채운 버튼 없음). 겹친 제목·안내문은 없다.
  await view(page,'hwp');
  const hwp=page.locator('#hwpView');
- expect(await sameButtons(page,hwp)).toEqual(width<761?[]:['내 기기에 저장']);
+ // WEEKLY-주간정리다듬기 ③: 문서를 열기 전 [내 기기에 저장]은 누를 수 없는 채운 버튼 — 흐리게 하지 않고 옅은 주 색 바탕 + 주 색 글자(공용 규칙)라 채운 버튼으로 세지 않는다.
+ expect(await sameButtons(page,hwp)).toEqual([]);
+ if(width>=761){
+  const save=hwp.getByRole('button',{name:'내 기기에 저장'});
+  await expect(save).toBeDisabled();
+  const [bg,soft]=await save.evaluate(e=>{const p=document.createElement('i');p.style.background='var(--kptu-primary-soft)';e.after(p);const out=[getComputedStyle(e).backgroundColor,getComputedStyle(p).backgroundColor];p.remove();return out;});
+  expect(bg).toBe(soft);
+ }
  const card=await look(hwp.locator('.hwp-lab'));expect(card.radius).toBe(width<761?'0px':'12px');expect(card.shadow).toBe('none');
  await expect(hwp.locator('h2,.hwp-lab-note')).toHaveCount(0);
  expect((await look(hwp.locator('#hwpLabEditor'))).radius).toBe(width<761?'0px':'8px');

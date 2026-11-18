@@ -205,3 +205,25 @@ test('가족 줄: 고르기 창은 가족 노트만(서버 조건), 새 노트�
   expect(f.notePosts[0].metadata.family_list).toBeUndefined();
   await expect.poll(()=>f.famPatches.length).toBe(1);
 });
+
+// S61-46 UI-새폴더넣기안됨: 노트 화면 밖 쓰기 창(업무 줄 [노트]·PC 위 [새 노트]가 같은 note-folder-pick.js)의 [폴더 ▾]에서도
+// [+ 새 폴더 만들어 넣기]가 동작한다 — 이름을 받아 맨 위에 새 폴더(노트 폴더 표 POST 한 번)를 만들고 고른 상태로, [저장]이면 그 폴더에.
+for(const width of [390,1440])test(`쓰기 창 [폴더 ▾] → [+ 새 폴더 만들어 넣기] → 새 폴더에 저장 ${width}`,async({page})=>{
+  const f=await fixture(page,{width});
+  await pressRowAct(page,box(page).locator(`[data-nbx-row="c:${cid(1)}"]`),'note');
+  await page.locator("[data-nq-big]").click();
+  const folderBtn=win(page).locator('[data-edw-folder]');
+  await expect(folderBtn).toHaveText('01. 업무메모 ▾');
+  await folderBtn.click();
+  const make=page.locator('#luMovePicker [data-lu-move-new]');
+  await expect(make).toHaveText('+ 새 폴더 만들어 넣기');
+  await expect(make).not.toHaveAttribute('aria-disabled','true');
+  await make.click();
+  await page.locator('.kptu-ask-field').fill('새 업무 폴더');
+  await page.locator('.kptu-ask-actions .primary').click();
+  await expect(folderBtn).toHaveText('새 업무 폴더 ▾');
+  expect(f.folders.at(-1)).toMatchObject({name:'새 업무 폴더',parent_id:null});
+  await win(page).locator('[data-edw-save]').click();
+  await expect(win(page)).toHaveCount(0);
+  await expect.poll(()=>f.rows.find(r=>r.id===N(90))?.metadata?.folder_id).toBe('a0000000-0000-4000-8000-000000000009');
+});

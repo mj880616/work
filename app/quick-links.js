@@ -2,33 +2,30 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 // UI-자주가는링크 (2026-10-22 사용자 승인): PC 사이드바 [쓰기] 아래 '자주 가는 링크 ›' 한 줄이 여는 작은 창.
 // - 창은 그 줄 오른쪽에서 위쪽으로 열린다(창 아래끝 = 줄 아래끝, 화면 밖으로 나가지 않음; anchored-popup.js beside:'up').
 // - 바깥 누르기·Esc로 닫힌다. 링크는 새 탭(rel="noopener noreferrer").
-// - 분류(처음엔 '업무'·'담당조직 홈페이지') 아래 링크가 2열. 창 오른쪽 위 [편집]으로 편집 상태.
+// - 분류(처음엔 '업무' 하나, 새 계정은 빈 목록) 아래 링크가 2열. 창 오른쪽 위 [편집]으로 편집 상태.
 // UI-자주가는링크편집 (2026-10-27 사용자 승인 시안): 편집 상태에서 오른쪽 위 작은 [+ 추가](링크·분류), 분류 줄 '⠿ 이름 … ✎ ⋯'(11/08 손잡이 왼쪽)
 //   (✎ 이름 바꾸기, ⋯ 위로·아래로·지우기, ⠿ 끌어서 분류 순서), 링크 줄마다 ⠿(끌어서 순서·다른 분류로 옮기기, 키보드는 ↑↓).
 //   링크가 든 분류를 지우면 '같이 지울까요 / 기타로 옮길까요'를 묻고 기본은 '기타'로 옮기기. 모든 고침은 [저장]을 눌러야 서버에 저장되고 [취소]로 버린다.
 // 저장: 내 프로필 행의 quick_links(링크)·quick_link_groups(분류 목록·순서) 두 칸을 한 번의 PATCH로 같이 저장한다
-//   (app_profiles, migration 20261022163000·20261027170000, 기존 owner RLS로 내 행만 PATCH). 분류 칸이 비어 있으면 '업무'·'담당조직 홈페이지' 두 분류,
-//   링크 칸이 비어 있으면 아래 초기 링크를 보여 준다. 분류 칸이 아직 없으면(적용 전) 기존 링크 칸만 읽어 보여 주고 편집은 '저장 준비 중' 안내만 한다.
+//   (app_profiles, migration 20261022163000·20261027170000, 기존 owner RLS로 내 행만 PATCH). 분류 칸이 비어 있으면 '업무' 분류,
+//   링크 칸이 비어 있으면 빈 목록 + 한 줄 안내를 보여 준다. 분류 칸이 아직 없으면(적용 전) 기존 링크 칸만 읽어 보여 주고 편집은 '저장 준비 중' 안내만 한다.
 // 브라우저 기기 저장소는 쓰지 않는다 — 목록은 기기마다 같아야 한다.
 import {placeAnchored,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 
-// 분류 id는 영문 소문자·숫자 1~12자(표의 CHECK와 같은 규칙). 처음 두 분류는 옛 저장 모양 그대로 work·org.
-export const DEFAULT_GROUPS = Object.freeze([['work', '업무'], ['org', '담당조직 홈페이지']].map(([id, name]) => Object.freeze({id, name})));
-// 업무용 공개 주소(계정·비밀번호 없음).
-export const DEFAULT_LINKS = Object.freeze([
-  ['work', '조직관리시스템', 'https://www.kptu.net:8000/main'],
-  ['work', '노조 NAS', 'https://kptu00.quickconnect.to/'],
-  ['work', '궤도 NAS', 'https://data.railone.kr/'],
-  ['work', '전자결재시스템', 'https://npasoneq.co.kr/npasoneq/index.html'],
-  ['work', '문자·팩스 발송 시스템', 'https://letter.dlive.kr/'],
-  ['work', '망고보드', 'https://www.mangoboard.net/'],
-  ['work', '구글 시트', 'https://docs.google.com/spreadsheets/'],
-  ['org', '공공운수노조', 'https://www.kptu.net'],
-  ['org', '궤도협의회', 'https://railone.kr/'],
-  ['org', '서울교통공사노조', 'http://www.stlu.kr/'],
-  ['org', '전국철도노동조합', 'https://krwu.nodong.net'],
-].map(([group, name, url]) => Object.freeze({group, name, url})));
+// 분류 id는 영문 소문자·숫자 1~12자(표의 CHECK와 같은 규칙).
+// SEC-자주가는링크기본값유출(11/15 ★급★): 새 계정은 빈 목록에서 시작한다. 코드에 특정 단체·내부 시스템 주소를 기본값으로 두지 않는다
+//   (tests/quick-links-no-default.test.mjs가 막는다). 기본 분류는 '업무' 하나.
+export const DEFAULT_GROUPS = Object.freeze([Object.freeze({id: 'work', name: '업무'})]);
+// 옛 저장 모양 호환: 분류 칸이 비어 있고(옛 저장) 링크 칸이 org 분류를 쓰면 그 분류를 옛 이름으로 함께 보여 준다(저장된 링크가 사라지지 않게).
+const LEGACY_ORG_GROUP = Object.freeze({id: 'org', name: '담당조직 홈페이지'});
+export const DEFAULT_LINKS = Object.freeze([]);
+// 분류 칸이 비어 있을 때 쓸 분류: 기본 '업무' + (저장된 링크가 org를 쓰면) 옛 분류.
+export function fallbackGroups(rawLinks) {
+  const groups = copyGroups(DEFAULT_GROUPS);
+  if (Array.isArray(rawLinks) && rawLinks.some(link => link && link.group === LEGACY_ORG_GROUP.id)) groups.push({...LEGACY_ORG_GROUP});
+  return groups;
+}
 export const LINK_MAX = 60, GROUP_MAX = 12, NAME_MAX = 40, GROUP_NAME_MAX = 20, URL_MAX = 2000;
 // 링크가 든 분류를 지울 때 옮겨 갈 분류(없으면 이 이름으로 새로 만든다).
 export const ETC_ID = 'etc', ETC_NAME = '기타';
@@ -58,9 +55,9 @@ export function cleanUrl(value) {
   } catch { return null; }
   return raw.length <= URL_MAX ? raw : null;
 }
-// 저장된 분류 목록을 화면용으로: 비어 있으면(null) 기본 두 분류, 올바른 목록이면 복사본, 모양이 틀리거나 id가 겹치면 null(아무것도 믿지 않음).
-export function parseGroups(value) {
-  if (value === null || value === undefined) return copyGroups(DEFAULT_GROUPS);
+// 저장된 분류 목록을 화면용으로: 비어 있으면(null) 기본 분류(+저장된 링크가 쓰는 옛 분류), 올바른 목록이면 복사본, 모양이 틀리거나 id가 겹치면 null(아무것도 믿지 않음).
+export function parseGroups(value, rawLinks) {
+  if (value === null || value === undefined) return fallbackGroups(rawLinks);
   if (!Array.isArray(value) || !value.length || value.length > GROUP_MAX) return null;
   const out = [], seen = new Set();
   for (const item of value) {
@@ -73,8 +70,8 @@ export function parseGroups(value) {
   }
   return out;
 }
-// 저장된 값을 화면용으로: 올바른 목록이면 복사본, 비어 있으면(null) 초기 링크, 모양이 틀리면 null(아무것도 믿지 않음).
-// groups는 그 링크들이 쓸 수 있는 분류(기본 두 분류) — 목록에 없는 분류를 가리키는 링크는 모양이 틀린 것으로 본다.
+// 저장된 값을 화면용으로: 올바른 목록이면 복사본, 비어 있으면(null) 빈 목록, 모양이 틀리면 null(아무것도 믿지 않음).
+// groups는 그 링크들이 쓸 수 있는 분류(기본 분류) — 목록에 없는 분류를 가리키는 링크는 모양이 틀린 것으로 본다.
 export function parseLinks(value, groups = DEFAULT_GROUPS) {
   if (value === null || value === undefined) return DEFAULT_LINKS.map(link => ({...link}));
   if (!Array.isArray(value) || value.length > LINK_MAX) return null;
@@ -223,19 +220,19 @@ export async function readLinks(rt = globalThis.window?.KPTURuntime) {
   try {
     const rows = await rt.api(`${url}&select=quick_links,quick_link_groups&limit=1`);
     if (!Array.isArray(rows) || rows.length !== 1) return defaultState('error');
-    const groups = parseGroups(rows[0]?.quick_link_groups);
-    if (!groups) return defaultState('error');
-    // 링크 칸이 비어 있어도 분류를 고친 적이 있으면 초기 링크(옛 두 분류용)는 맞지 않으니 빈 목록으로 둔다.
     const raw = rows[0]?.quick_links;
-    const links = (raw === null || raw === undefined) && rows[0]?.quick_link_groups != null ? [] : parseLinks(raw, groups);
+    const groups = parseGroups(rows[0]?.quick_link_groups, raw);
+    if (!groups) return defaultState('error');
+    const links = parseLinks(raw, groups);
     return links ? {status: 'ok', links, groups} : defaultState('error');
   } catch (error) {
     // PostgREST: 없는 칸을 고르면 400(42703). 분류 칸이 아직 없는 적용 전 상태인지 링크 칸만 다시 읽어 본다.
     if (error?.status !== 400) return defaultState('error');
     try {
       const rows = await rt.api(`${url}&select=quick_links&limit=1`);
-      const links = Array.isArray(rows) && rows.length === 1 ? parseLinks(rows[0]?.quick_links) : null;
-      return links ? {status: 'pending', links, groups: copyGroups(DEFAULT_GROUPS)} : defaultState('pending');
+      const raw = Array.isArray(rows) && rows.length === 1 ? rows[0]?.quick_links : undefined, groups = fallbackGroups(raw);
+      const links = Array.isArray(rows) && rows.length === 1 ? parseLinks(raw, groups) : null;
+      return links ? {status: 'pending', links, groups} : defaultState('pending');
     } catch { return defaultState('pending'); }
   }
 }
@@ -246,7 +243,7 @@ export async function saveLinks(links, groups, rt = globalThis.window?.KPTURunti
   try {
     const saved = await rt.api(url, {method: 'PATCH', prefer: 'return=representation', body: {quick_links: links, quick_link_groups: groups}});
     const row = Array.isArray(saved) && saved.length === 1 ? saved[0] : null;
-    const backGroups = row ? parseGroups(row.quick_link_groups) : null;
+    const backGroups = row ? parseGroups(row.quick_link_groups, row.quick_links) : null;
     const backLinks = backGroups ? parseLinks(row.quick_links, backGroups) : null;
     return backLinks ? {ok: true, links: backLinks, groups: backGroups} : {ok: false};
   } catch (error) { return {ok: false, pending: error?.status === 400}; }
@@ -301,8 +298,11 @@ function viewHtml() {
     return `<section class="ql-group" aria-label="${esc(name)}"><h3>${esc(name)}</h3>${list}</section>`;
   }).join('');
   const loading = state.status === 'loading' && !state.links;
+  // 새 계정(링크 0개): 빈 분류 대신 한 줄 안내 — [+ 추가]는 수정 상태로 들어가 첫 링크 줄을 연다.
+  const empty = !loading && state.links && !links.length
+    ? '<p class="ql-first">자주 가는 주소를 <button type="button" class="ghost" data-ql-first>+ 추가</button>로 넣어 보세요</p>' : '';
   return `<div class="ql-head anchored-drag-title"><h2>자주 가는 링크</h2><button type="button" class="ql-btn" data-ql-edit ${loading ? 'disabled' : ''}>수정</button></div>`
-    + (loading ? waitHtml({rows:3}) : sections)
+    + (loading ? waitHtml({rows:3}) : empty || sections)
     + `<p class="ql-note" role="status" aria-live="polite">${esc(state.note)}</p>`;
 }
 
@@ -545,6 +545,7 @@ function onClick(event) {
   const target = event.target.closest('button');
   if (!target) return;
   if (target.matches('[data-ql-edit]')) enterEdit();
+  else if (target.matches('[data-ql-first]')) { enterEdit(); if (state.editing) addLink(); }
   else if (target.matches('[data-ql-cancel]')) leaveEdit();
   else if (target.matches('[data-ql-save]')) void save();
   else if (target.matches('[data-ql-menu]')) menu?.open(target);

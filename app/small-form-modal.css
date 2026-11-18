@@ -1,0 +1,10 @@
+/* 작은 입력 창(small-form-modal.js) — 업데이트 소식 보내기·의견 보내기가 같이 쓴다. 기존 작은 창 모양 위에 칸 간격만. */
+.sfm .sfm-card{display:flex;flex-direction:column;gap:6px;max-width:520px}
+.sfm .sfm-body{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sfm .sfm-body input[type=text],.sfm .sfm-body input[type=date],.sfm .sfm-body textarea{box-sizing:border-box;width:100%;min-width:0;padding:6px 8px;border:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px)}
+.sfm .sfm-body textarea{min-height:120px;resize:vertical;line-height:1.5}
+.sfm .sfm-opt{display:flex;align-items:center;gap:6px;font-size:var(--ds-text-row,13px);min-height:32px}
+.sfm .sfm-note,.sfm .sfm-status{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+.sfm .sfm-status:empty{display:none}
+.sfm .sfm-foot{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:760px){.sfm .sfm-body input[type=text],.sfm .sfm-body textarea{font-size:16px}}

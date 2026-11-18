@@ -23,7 +23,7 @@ async function quietRoutes(page){
 for(const width of [412,1280]){
   test(`${width}: 홈 '연락 없는 조직' 이름 → 조직 상세, 뒤로가기 한 번 → 홈 같은 자리`,async({page})=>{
     await page.setViewportSize({width,height:700});
-    await openHome(page,{beforeLoad:()=>quietRoutes(page)});
+    await openHome(page,{beforeLoad:()=>quietRoutes(page),quickRest:true}); // 폰 빠른 입력은 처음 모습(한 줄로 접힘) 그대로 — 이 시험은 스크롤 자리만 본다
     const name=page.locator('#homeView [data-home-quiet] .oq-text [data-oq-org="o1"]');
     await expect(name).toBeVisible();
     await name.scrollIntoViewIfNeeded();
@@ -99,7 +99,7 @@ for(const width of [412,1280]){
 
 test('412: 다른 화면에서 연 조직 창의 ×도 한 번에 원래 화면으로',async({page})=>{
   await page.setViewportSize({width:412,height:700});
-  await openHome(page,{beforeLoad:()=>quietRoutes(page)});
+  await openHome(page,{beforeLoad:()=>quietRoutes(page),quickRest:true}); // 폰 빠른 입력은 처음 모습(한 줄로 접힘) 그대로 — 이 시험은 스크롤 자리만 본다
   const name=page.locator('#homeView [data-home-quiet] .oq-text [data-oq-org="o2"]');
   await expect(name).toBeVisible();
   const at=await index(page);

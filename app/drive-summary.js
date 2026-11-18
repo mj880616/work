@@ -84,14 +84,21 @@ export function createRefresher({call,isOwner,now=()=>Date.now(),setTimer=setTim
 function install(win){
   const rt=win.KPTURuntime;
   if(!rt||win.KPTUDriveSummary)return;
+  // MULTI-다른담당자맞춤 ④: 작업공간 이름 대신 '내 작업공간 owner'로 켠다. 사본 Drive가 있는 작업공간인지는 서버가 정한다:
+  // drive-summary가 403(허용 안 됨. Drive 실패는 502)이면 이 로그인·작업공간 동안 끈다(저장마다 거절될 요청을 보내지 않음). 로그인이 바뀌면 다시 묻는다.
+  let denied=null;
+  const scopeOf=()=>{const c=rt.context?.read?.();return `${c?.user?.id||''}:${c?.workspace?.id||''}`};
   const owner=()=>{
     const c=rt.context?.read?.(),s=rt.session?.read?.();
-    return !!s?.access_token&&c?.user?.id===s?.user?.id&&c?.workspace?.slug==='kptu-work'&&c?.membership?.role==='owner';
+    return !!s?.access_token&&c?.user?.id===s?.user?.id&&c?.membership?.role==='owner'&&denied!==scopeOf();
   };
   // 본문 없이 부른다. 서버가 작업공간·소유자를 정한다. 세션 갱신·로그아웃 같은 부작용은 없다.
   // 화면을 떠나는 순간에는 탭이 닫혀도 요청이 나가도록 같은 주소·키·현재 토큰으로 keepalive 요청을 보낸다.
   const call=async({leaving})=>{
-    if(!leaving)return rt.api('/functions/v1/drive-summary',{method:'POST',refreshSession:false,timeoutMs:120000});
+    if(!leaving){
+      try{return await rt.api('/functions/v1/drive-summary',{method:'POST',refreshSession:false,timeoutMs:120000})}
+      catch(error){if(Number(error?.status)===403)denied=scopeOf();throw error}
+    }
     const token=rt.session.read()?.access_token;
     if(!token)return;
     await fetch(rt.config.url+'/functions/v1/drive-summary',{method:'POST',headers:{apikey:rt.config.key,Authorization:'Bearer '+token},cache:'no-store',keepalive:true});

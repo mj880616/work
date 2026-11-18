@@ -48,9 +48,10 @@ test('readFeedRooms reads pinned_at; before the DB step it falls back without th
   });
   const old = await feed.readFeedRooms(before);
   assert.equal(old.pinReady, false);
-  assert.deepEqual(old.rooms.get('room-a'), {room_label: '방', folder_id: 'f1', archived_at: null, pinned_at: null});
-  assert.equal(seen.length, 2);
+  assert.deepEqual(old.rooms.get('room-a'), {room_label: '방', folder_id: 'f1', archived_at: null, pinned_at: null, chat_kind: null, news_at: null});
+  assert.equal(seen.length, 3);
   assert.doesNotMatch(seen[1], /pinned_at/);
+  assert.match(seen[2], /select=room_key,chat_kind,news_at&/, 'NEWS-모두에게열기: room kind and news mark are read separately');
 });
 
 test('setRoomPin: one DB function call; archived, limit and missing function map to their own errors', async () => {

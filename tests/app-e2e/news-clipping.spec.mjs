@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
 // NEWS-클리핑 C1(docs/design/news-clipping.md) → S51-8 NEWS-전면개편 P4b: News [언론] 탭(?view=outside).
-// 제목 중심 줄(색 띠·매체 이름·국제 꼬리표·시각, 요약·접기·번역은 상세로) · 위 찾기 칸 제목 거르기 · [매체 ▾] 거르기
+// 제목 중심 줄(색 띠·매체 이름·국제 꼬리표·시각, 요약·접기·번역은 상세로) · 위 찾기 칸 서버 찾기(S63-11) · [매체 ▾] 거르기
 // · 껍데기 ⋯ [지금 채우기]·[키워드 고치기]·[언론 매체 켜고 끄기](서버 저장, 뒤로가기 한 번 = 목록) · 폰 좌우 밀기로 탭 이동.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 기사·매체·주소는 모두 가짜(example.org).
 const root = page => page.locator('#newsRoot');
@@ -16,10 +16,12 @@ for (const width of [412, 884, 1440]) {
     await openNews(page, width);
     await expect(items(page)).toHaveCount(5);
     expect(await noWideScroll(page)).toBe(true);
-    // 카탈로그는 사용자 로그인으로 Edge에서, 목록은 자기 작업공간·지우지 않은 줄만.
+    // 카탈로그는 사용자 로그인으로 Edge에서. NEWS-모두에게열기 ③: 목록은 공용 기사(작업공간 칸 없음) + 내 표시만 붙여(내 작업공간), 내가 숨긴 줄은 화면에서 뺀다.
     expect(server.calls.find(c => c.what === 'edge')).toMatchObject({ action: 'catalog', method: 'POST', auth: expect.stringMatching(/^Bearer /) });
-    const listQuery = server.calls.find(c => c.what === 'app_news_items').query;
-    expect(listQuery).toContain('workspace_id=eq.w'); expect(listQuery).toContain('hidden_at=is.null'); expect(listQuery).not.toMatch(/[,=]body(,|&|$)/);
+    const listQuery = server.calls.find(c => c.what === 'app_news_articles').query;
+    expect(listQuery).toContain('app_news_marks(starred_at,folder_id,hidden_at,keywords)'); expect(listQuery).toContain('app_news_marks.workspace_id=eq.w');
+    expect(listQuery).not.toMatch(/[?&]workspace_id=/); expect(listQuery).not.toMatch(/[,=]body(,|&|$)/);
+    expect(server.calls.some(c => c.what === 'app_news_items' && c.method === 'GET')).toBe(false);
     // 날짜 묶음(새 글 수) → 흰 상자 안 줄. 칩 줄([전체]·[별표])·이 칸의 ⋯는 없다(S51-8: 위 [매체 ▾]·껍데기 ⋯로).
     await expect(root(page).locator('.nw-day-head')).toHaveText(['오늘 · 새 글 2', '어제 · 새 글 2', '10. 4. (일) · 새 글 1']);
     await expect(root(page).locator('[data-nc-tab], [data-nc-more], .nc-chips')).toHaveCount(0);
@@ -41,9 +43,15 @@ for (const width of [412, 884, 1440]) {
     await expect(c1.locator('.nw-tag')).toHaveCount(0);
     // 대기 줄: 주소의 도메인.
     await expect(item(page, 'w1').locator('.nw-title')).toHaveText('제목 읽기 전 · example.org');
-    // 위 찾기 칸: 제목으로 바로 거름.
+    // 위 찾기 칸(S63-11): 서버 찾기 — 최근 30일 기사 + 별표 기사의 제목·한국어 제목·요약(지금 목록에 없는 기사도).
     await page.locator('#outsideRoot [data-nw-find]').fill('유료');
     await expect(items(page)).toHaveCount(1);
+    await expect(item(page, 'p1')).toBeVisible();
+    const findQ = server.calls.filter(c => c.what === 'app_news_articles' && c.query.includes('ilike')).at(-1).query;
+    expect(findQ).toContain('or=(title.ilike."*유료*",title_ko.ilike."*유료*",summary.ilike."*유료*")'); expect(findQ).toContain('created_at=gte.');
+    expect(server.calls.some(c => c.what === 'app_news_marks' && c.query.includes('app_news_articles!inner(') && c.query.includes('app_news_articles.or='))).toBe(true);
+    await page.locator('#outsideRoot [data-nw-find]').fill('없는낱말');
+    await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·보관한 글에서 찾은 글이 없어요');
     await page.locator('#outsideRoot [data-nw-find]').fill('');
     await expect(items(page)).toHaveCount(5);
 
@@ -92,10 +100,10 @@ for (const width of [412, 884, 1440]) {
     await expect(items(page)).toHaveCount(5);
     // [매체 ▾] → 'Fake Wire'만: 서버에 그 news- 키만 묻는다.
     await page.locator('#outsideRoot [data-nw-media]').click();
-    await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 외국', 'Fake Wire']);
+    await expect(page.locator('#nwMediaPicker .lu-move-item')).toHaveText([/^전체/, '언론 국내', '가짜노동신문', '언론 국제', 'Fake Wire']);
     await page.locator('#nwMediaPicker [data-lu-move-folder="n:news-fake-en"]').click();
     await expect(items(page)).toHaveCount(1);
-    expect(server.calls.filter(c => c.what === 'app_news_items').at(-1).query).toContain('source_key=in.(news-fake-en)');
+    expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-en)');
     expect(await noWideScroll(page)).toBe(true);
     expect(errors).toEqual([]);
   });
@@ -171,7 +179,7 @@ test('PC News: 목록이 오기 전에 연 ⋯ 메뉴는 목록이 와도 닫히
   test.setTimeout(60000);
   const { errors } = await start(page, 1440);
   let release; const held = new Promise(r => { release = r; });
-  await page.route(u => /\/rest\/v1\/(app_news_items|app_outside_posts)$/.test(u.pathname), async r => { await held; return r.fallback(); });
+  await page.route(u => /\/rest\/v1\/(app_news_articles|app_outside_articles)$/.test(u.pathname), async r => { await held; return r.fallback(); });
   await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot [data-os-more]').click();

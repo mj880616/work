@@ -3,6 +3,7 @@ import {test,expect} from '@playwright/test';
 import {openSeoulApp} from './helpers/seoul-time-fixture.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 // FORM-시간입력: one 4-digit time cell for every form, event end follows the start, events keep a place.
 // Fixture time is 2026-10-01 00:10 in Korea; every request is answered by the synthetic fixture.
 for(const width of [390,1280])test.describe(`${width}px`,()=>{
@@ -66,7 +67,7 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
 
   test('회의 일시: 날짜 고르기 + 4자리 시간, 잘못된 시각은 저장 안 함',async({page})=>{
     const s=baseState();s.meetingWrites=[];s.meetings=[];await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=meetings`);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-    await page.locator('#newMeetingBtn').click();
+    await addReport(page);
     const date=page.locator('#meetingAtDate'),time=page.locator('#meetingAtTime');
     await expect(date).toHaveAttribute('type','date');await expect(time).toHaveAttribute('inputmode','numeric');
     await expect(page.getByRole('textbox',{name:'일시 시간'})).toBeVisible();
@@ -79,7 +80,7 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
   // MTG-보고창기본일시 + MTG-보고창칸정리: 새 입력 창을 열면 일시는 오늘(한국)·10:00, 칸 높이는 모두 같고 날짜는 한 가지 글자로 보인다.
   test('사업 보고 새 입력 창: 일시 기본값(오늘 10:00)과 칸 배치',async({page})=>{
     const s=baseState();s.meetings=[];await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=meetings`);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-    await page.locator('#newMeetingBtn').click();
+    await addReport(page);
     const today=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date()));
     await expect(page.locator('#meetingAt')).toHaveValue(`${today}T10:00`);
     await expect(page.locator('#meetingAtDate')).toHaveValue(today);await expect(page.locator('#meetingAtTime')).toHaveValue('10:00');
@@ -94,7 +95,7 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
     expect(caret.text).toBe('"▾"');expect(caret.right).toBe('10px');expect(caret.align).toBe('left');
     expect(caret.hit[0]).toBe('""');expect(caret.hit[1]).toBeGreaterThanOrEqual(44);
     // 다시 열면 이전에 고른 날짜가 남지 않고 다시 오늘 10:00.
-    await page.locator('#meetingModal [data-close="meetingModal"]').click();await page.locator('#newMeetingBtn').click();
+    await page.locator('#meetingModal [data-close="meetingModal"]').click();await addReport(page);
     await expect(page.locator('#meetingAt')).toHaveValue(`${today}T10:00`);
   });
 });

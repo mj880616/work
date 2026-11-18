@@ -1,5 +1,6 @@
 // WEEKLY-한흐름확정 ⑤ 남은 부분: 손으로 더한 줄(app/weekly-hand.mjs — draft.hand: 5. 주요 일정·참고)과 칸 줄 밖 동작 기록(weekly-draft-store.js withLinePick).
 // 이름·일정·글은 모두 가짜.
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readHand, handRows, withHandRow, withoutHandRow, withHandCalendar, handText, handId, HAND_CALENDAR_MAX, HAND_NOTE_MAX} from '../app/weekly-hand.mjs';
@@ -102,7 +103,7 @@ test('주간 정리 모델·복사 글: 손 줄은 5. 주요 일정 줄과 참�
   assert.deepEqual(model.hand.notes, [N1]);
   assert.deepEqual(model.hand.calendar.map(r => r.title), ['가상 손 일정']);
   assert.deepEqual(model.calendar.rows.map(r => [r.label, r.items.map(i => i.what)]), [['10.13.(화)', ['15:00 / 가상 손 일정']]]);
-  const text = weekly.weeklyReportText(model);
+  const text = reportText(model);
   assert.match(text, /5\. 주요 일정[^\n]*\n- 10\.13\.\(화\) 15:00 \/ 가상 손 일정/);
   assert.match(text, /◦ 내 메모\n- 가상 메모 한 줄/);
   assert.ok(text.indexOf('◦ 내 메모') > text.indexOf('\n참고'));
@@ -128,7 +129,9 @@ test('칸 줄 밖 동작 기록(withLinePick): 1. 요청사항·5. 주요 일정
   const undone = readPicks(withLinePick(d, {cell:'requests:ask', kind:'carried', act:'none', text:'10.14.(수) 지난주 줄', at:'2026-10-06T02:00:00.000Z'}).picks).items;
   assert.equal(undone.find(x => x.kind === 'carried').act, 'none');
   // 학습 셈은 제안 답만(지난주 줄 빼기·달력 고르기), 칸 이름은 일상어로.
-  assert.deepEqual(sigLabel('carried||requests:ask'), '지난주 줄 · 1. 1) 임원 배정 요청');
-  assert.deepEqual(sigLabel('line|hand|notes'), '보고서 줄 · 손 · 참고');
+  // ⑤-3d: 칸 이름은 '내 양식' 제목(지어낸 고정 양식이면 ⑤-3d 전 글 그대로), 양식이 없으면 일반적인 말.
+  assert.deepEqual(sigLabel('carried||requests:ask', TITLES.groups), '지난주 줄 · 1. 1) 임원 배정 요청');
+  assert.deepEqual(sigLabel('carried||requests:ask'), '지난주 줄 · 요청 표');
+  assert.deepEqual(sigLabel('line|hand|notes', TITLES.groups), '보고서 줄 · 손 · 참고');
   assert.equal(typeof learnPicks, 'function');
 });

@@ -105,24 +105,52 @@ function render(kind){
   return {title:c.title||t.title,search:'찾기',searchAlways:true,
     html:`${recent.length?`<div class="aop-recent" data-sheet-hide-on-search><p class="home-choice-label">자주 쓴 것</p><div class="home-choice-group home-choice-group-plain">${recent.join('')}</div></div>`:''}<div class="aop-list">${none}${body||(none?'':emptyHtml(`${t.label} 없음`,{attrs:'data-aop-empty'}))}</div>${createHtml(c)}`};
 }
-// CALL-상대표시정리 ④: 하나만 고르는 조직 창 맨 아래 [직접 쓰기] 칸(부르는 쪽이 create를 줄 때만). [만들기]를 누르면 비슷한 이름의 조직이 있으면
-// 먼저 그 줄들을 보여 주고(누르면 그 조직을 고름), [그래도 새로 만들기]로만 새로 만든다. 만들기·저장은 부르는 쪽(create.make)이 한다.
-// create = {make:async name → {key,name}, similar:name → [{key,name}]}.
-function createHtml(c){
-  const k=c?.create;if(!k||c.multi||c.kind!=='org')return '';
+// CALL-상대표시정리 ④: 조직 고르기 창 맨 아래 [직접 쓰기] 칸 — 모든 고르기 창이 같이 쓰는 한 부품(S61-52: 여러 개 고르는 창·업데이트
+// '기록할 곳'·자료실 일괄 바꾸기도). [만들기]를 누르면 비슷한 이름의 조직이 있으면 먼저 그 줄들을 보여 주고(누르면 그 조직을 고름),
+// [그래도 새로 만들기]로만 새로 만든다. 만들기·저장은 부르는 쪽(make)이 한다(feed-link.js orgWriteInFor: 담당조직 추가와 같은 서버 경로).
+// orgWriteIn({make:async name → {key,name,org?}, similar:name → [{key,name,org?}]}) = 창 하나가 열린 동안의 칸 상태.
+export function orgWriteIn(create){
+  if(!create||typeof create.make!=='function')return null;
+  return {make:create.make,find:typeof create.similar==='function'?create.similar:null,text:'',status:'',similar:null,busy:false};
+}
+// pressed(key): 비슷한 조직 줄이 눌린 채인지(여러 개 고르는 창). 줄의 값(data-sheet-value)은 부르는 창의 값 그대로라 누르면 그 창의 고르기와 같다.
+export function orgWriteInHtml(k,pressed=()=>false){
+  if(!k)return '';
   const busy=k.busy?' disabled':'',ph='직접 쓰기 — 조직 이름';
-  const similar=k.similar?.length?`<p class="aop-create-note">비슷한 조직이 있어요. 맞으면 눌러 선택하세요.</p>${k.similar.map(x=>rowHtml(x.key,x.name,0,{pressed:false})).join('')}<button type="button" class="row-act aop-create-force" data-aop-create-force${busy}>'${esc(k.text)}' 새로 만들기</button>`:'';
+  const similar=k.similar?.length?`<p class="aop-create-note">비슷한 조직이 있어요. 맞으면 눌러 선택하세요.</p>${k.similar.map(x=>rowHtml(x.key,x.name,0,{pressed:!!pressed(x.key)}).replace('<button ','<button data-aop-similar ')).join('')}<button type="button" class="row-act aop-create-force" data-aop-create-force${busy}>'${esc(k.text)}' 새로 만들기</button>`:'';
   return `<div class="aop-create" data-aop-create-box><div class="aop-create-row"><input type="text" class="aop-create-input" data-aop-create-input maxlength="120" autocomplete="off" placeholder="${ph}" aria-label="${ph}" value="${esc(k.text||'')}"${busy}><button type="button" class="row-act aop-create-go" data-aop-create${busy}>만들기</button></div>${similar}<p class="aop-create-note" data-aop-create-status role="status">${esc(k.status||'')}</p></div>`;
 }
-async function runCreate(force){
-  const c=current,k=c?.create,box=sheet&&document.getElementById('areaOrgPickSheet');if(!k||k.busy||!box)return;
+// 고르기 창(dialog) 하나에 한 번 붙인다. get() → 지금 열린 창의 {writeIn, repaint(focusSelector), made({key,name,org}), picked?(similarRow)}
+// (없으면 null). made: 새 조직이 만들어진 뒤 그 창이 고른 것으로 한다. picked: 비슷한 줄을 누른 뒤(창의 고르기는 이미 됨) 목록에 없던 조직을 더한다.
+export function bindOrgWriteIn(box,get){
+  if(!box||box.dataset.aopWriteIn)return;box.dataset.aopWriteIn='1';
+  box.addEventListener('click',e=>{
+    const b=e.target.closest('[data-aop-create],[data-aop-create-force]');
+    if(b&&box.contains(b)){e.stopPropagation();void runWriteIn(box,get,b.hasAttribute('data-aop-create-force'));return}
+    const s=e.target.closest('[data-aop-similar]'),g=get();
+    if(s&&box.contains(s)&&g?.writeIn){const x=g.writeIn.similar?.find(r=>r.key===s.dataset.sheetValue);if(x)g.picked?.(x)}
+  });
+  box.addEventListener('input',e=>{const g=get();if(e.target.matches?.('[data-aop-create-input]')&&g?.writeIn){g.writeIn.text=e.target.value;g.writeIn.similar=null}});
+  box.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches?.('[data-aop-create-input]')&&!e.isComposing){e.preventDefault();void runWriteIn(box,get,false)}});
+}
+async function runWriteIn(box,get,force){
+  const g=get(),k=g?.writeIn;if(!k||k.busy)return;
+  const live=()=>get()?.writeIn===k;
   const input=box.querySelector('[data-aop-create-input]'),name=String(input?.value??k.text??'').replace(/\s+/g,' ').trim();k.text=name;
-  const paintKeep=focus=>{if(current!==c)return;sheet.render();box.querySelector(focus)?.focus({preventScroll:true})};
+  const paintKeep=focus=>{if(live())g.repaint(focus)};
   if(!name){k.status='조직 이름을 써 주세요.';k.similar=null;paintKeep('[data-aop-create-input]');return}
   if(!force){const like=(k.find?.(name)||[]).filter(x=>x?.key);if(like.length){k.similar=like;k.status='';paintKeep('[data-aop-create-box] [data-sheet-value]');return}}
   k.busy=true;k.similar=null;k.status='만드는 중…';paintKeep('[data-aop-create-status]');
-  try{const made=await k.make(name);if(current!==c)return;k.busy=false;c.pending=new Set([made.key]);c.commit(c.pending);void sheet.close()}
-  catch(error){if(current!==c)return;k.busy=false;k.status=error?.message||'조직을 만들지 못했어요. 다시 눌러 주세요.';paintKeep('[data-aop-create-input]')}
+  try{const made=await k.make(name);if(!live())return;k.busy=false;k.text='';k.status=`'${made.name}'을(를) 만들었어요.`;g.made(made)}
+  catch(error){if(!live())return;k.busy=false;k.status=error?.message||'조직을 만들지 못했어요. 다시 눌러 주세요.';paintKeep('[data-aop-create-input]')}
+}
+const createHtml=c=>c?.create&&c.kind==='org'?orgWriteInHtml(c.create,k=>c.multi&&c.pending.has(k)):'';
+// 여러 개 고르는 창에서 새로 만들거나 비슷한 줄로 고른 조직이 목록에 없으면 맨 끝에 더한다(넣기·이름표가 그 조직을 알게).
+function offerOrg(c,x){
+  if(!x?.key||c.orgKnown.has(x.key))return;
+  c.orgKnown.set(x.key,x.name);
+  const last=c.orgGroups.at(-1);if(last&&!last[0]?.group)last.push({key:x.key,name:x.name,group:''});else c.orgGroups.push([{key:x.key,name:x.name,group:''}]);
+  c.onOffer?.(x);
 }
 
 function ensureSheet(){
@@ -138,9 +166,14 @@ function ensureSheet(){
     multi:kind=>current?.multi?{pressed:v=>current.pending.has(v),label:current.full?`한 번에 ${current.max}곳까지`:current.pending.size?`${current.pending.size}개 선택됨`:''}:null,
     onCommit:kind=>{const c=current;if(c?.multi)c.commit(c.pending)}});
   const box=document.getElementById('areaOrgPickSheet');
-  box?.addEventListener('click',e=>{const b=e.target.closest('[data-aop-create],[data-aop-create-force]');if(!b||!box.contains(b))return;e.stopPropagation();void runCreate(b.hasAttribute('data-aop-create-force'))});
-  box?.addEventListener('input',e=>{if(e.target.matches?.('[data-aop-create-input]')&&current?.create){current.create.text=e.target.value;current.create.similar=null}});
-  box?.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches?.('[data-aop-create-input]')&&!e.isComposing){e.preventDefault();void runCreate(false)}});
+  bindOrgWriteIn(box,()=>{const c=current;if(!c?.create||c.kind!=='org')return null;
+    return {writeIn:c.create,repaint:focus=>{if(current!==c)return;sheet.render();box.querySelector(focus)?.focus({preventScroll:true})},
+      made:made=>{if(current!==c)return;
+        // 하나만 고르는 창은 만든 조직을 고르고 닫는다. 여러 개 고르는 창은 목록에 더해 눌린 채로 두고 창은 열어 둔다([넣기]로 반영).
+        if(!c.multi){c.pending=new Set([made.key]);c.commit(c.pending);void sheet.close();return}
+        offerOrg(c,made);c.full=false;if(c.max&&c.pending.size>=c.max)c.full=true;else c.pending.add(made.key);
+        sheet.render();box.querySelector('[data-aop-create-input]')?.focus({preventScroll:true})},
+      picked:x=>{if(current===c&&c.multi)offerOrg(c,x)}}});
   return sheet;
 }
 function choiceState({areas=[],orgGroups=[],used=[]}){
@@ -155,11 +188,12 @@ function choiceState({areas=[],orgGroups=[],used=[]}){
 // locked: Map key → short text ('이미 연결됨') for places shown but not choosable. max: the most keys kept at once (multi only).
 // title: the sheet's title when the screen names it otherwise (default '사업영역 고르기' / '조직 고르기').
 // top: one-choice rows above the list ([{key,name,attrs}]); none: true or a label for the one '… 없음' row (top wins when given).
-// create: (조직·하나만 고르기만) 맨 아래 [직접 쓰기] 칸 {make:async name → {key,name}, similar:name → [{key,name}]} (createHtml).
-export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',top=null,locked=null,max=0,title='',create=null,onCommit=()=>{}}={}){
+// create: (조직만) 맨 아래 [직접 쓰기] 칸 {make:async name → {key,name}, similar:name → [{key,name}]} (orgWriteInHtml). 하나만 고르는 창은
+// 만든 조직을 고르고 닫고, 여러 개 고르는 창은 목록 끝에 더해 눌린 채로 둔다. onOffer({key,name,org}): 목록에 없던 조직을 더했을 때.
+export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgGroups=[],selected=[],used=[],multi=true,none='',top=null,locked=null,max=0,title='',create=null,onOffer=null,onCommit=()=>{}}={}){
   if(!trigger)return;ensureStyles();
   const st=choiceState({areas,orgGroups,used}),known=kind==='area'?st.areaKnown:st.orgKnown,topKeys=new Set((top||[]).map(x=>String(x.key)).filter(Boolean));
-  current={...st,kind,multi:!!multi,none,top:Array.isArray(top)?top.map(x=>({key:String(x.key||''),name:String(x.name||''),attrs:x.attrs||''})):null,locked:locked instanceof Map?locked:null,max:Math.max(0,Number(max)||0),title,full:false,host:trigger,create:create&&typeof create.make==='function'?{make:create.make,find:typeof create.similar==='function'?create.similar:null,text:'',status:'',similar:null,busy:false}:null,pending:new Set([...selected].map(String).filter(k=>known.has(k)||(!multi&&topKeys.has(k)))),commit:keys=>onCommit(new Set(keys))};
+  current={...st,kind,multi:!!multi,none,top:Array.isArray(top)?top.map(x=>({key:String(x.key||''),name:String(x.name||''),attrs:x.attrs||''})):null,locked:locked instanceof Map?locked:null,max:Math.max(0,Number(max)||0),title,full:false,host:trigger,create:kind==='org'?orgWriteIn(create):null,onOffer,pending:new Set([...selected].map(String).filter(k=>known.has(k)||(!multi&&topKeys.has(k)))),commit:keys=>onCommit(new Set(keys))};
   return ensureSheet().open(kind,trigger,anchor);
 }
 
@@ -180,7 +214,8 @@ export const catalogAreas=rows=>(rows||[]).map(x=>({key:'p:'+x.project.id,name:x
 // kinds: which lines to show (default both, e.g. ['area'] for a screen that only takes a 사업영역). multi:false keeps one choice
 // per line (the sheet picks and closes on a press, as openAreaOrgPicker).
 // labels: a line's own name when the screen calls it otherwise (e.g. {org:'관련 담당조직'}).
-export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],multi=true,labels={}}={}){
+// create: 조직 줄 창의 [직접 쓰기](openAreaOrgPicker create와 같음, 열 때마다 부르는 함수여도 된다).
+export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],multi=true,labels={},create=null}={}){
   if(!host)return null;
   ensureStyles();host.classList.add('aop-lines');
   const shown=Object.entries(KINDS).filter(([k])=>kinds.includes(k));
@@ -200,7 +235,7 @@ export function mountAreaOrgLines(host,{onChange=()=>{},kinds=['area','org'],mul
     if(rm&&!rm.disabled){const k=rm.dataset.aopRemove,row=rm.closest('[data-aop-line]');state.selected.delete(k);paint();onChange();(row?.querySelector('[data-aop-remove]')||row?.querySelector('[data-aop-add]'))?.focus({preventScroll:true});return}
     const add=e.target.closest('[data-aop-add]');
     if(add&&!add.disabled){const kind=add.dataset.aopAdd,known=kind==='area'?state.areaKnown:state.orgKnown;
-      current={...state,kind,multi,none:'',host,pending:new Set([...state.selected].filter(k=>known.has(k))),commit:keys=>commit(kind,keys)};
+      current={...state,kind,multi,none:'',host,create:kind==='org'?orgWriteIn(typeof create==='function'?create():create):null,pending:new Set([...state.selected].filter(k=>known.has(k))),commit:keys=>commit(kind,keys)};
       void ensureSheet().open(kind,add,add.closest('[data-aop-line]'))}
   });
   paint();

@@ -53,7 +53,7 @@ for(const width of [390,884,1280]){
   await page.setViewportSize({width,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await openHome(page);
-  const open=async(view,btn,modal,name,save)=>{await go(page,view);await page.locator(btn).click();await expect(page.locator(modal)).toBeVisible();
+  const open=async(view,btn,modal,name,save)=>{await go(page,view);await page.locator(btn).click();if(btn==='#newMeetingBtn')await page.locator('#reportKindSheet [data-sheet-value="meeting"]').click();/* MTG-더하기늘고르기: [+]는 늘 종류 고르기 창부터 */await expect(page.locator(modal)).toBeVisible();
    family(name+' '+width,await readFoot(page,`${modal} .modal-action-footer:has(${save})`));await page.keyboard.press('Escape');await expect(page.locator(modal)).toBeHidden();};
   await open('calendar','#newEventBtn','#eventModal','일정 등록','#saveEventBtn');
   await open('library','#newDocumentBtn','#documentModal','자료 등록','#saveDocumentBtn');

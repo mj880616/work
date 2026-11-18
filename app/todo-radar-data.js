@@ -30,6 +30,7 @@ export const RADAR_TEXT = Object.freeze({
   not_ready: '챙길 것 찾기는 아직 준비 중이에요.',
   daily_limit: '오늘 챙길 것을 찾을 수 있는 횟수를 다 썼어요. 내일 다시 찾아요.',
   monthly_limit: '이번 달 AI 한도에 닿았어요. 챙길 것 찾기는 다음 달에 다시 돼요.',
+  ai_monthly_cap: '이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
   in_progress: '챙길 것을 찾는 중이에요. 잠시 뒤 다시 확인해 주세요.',
   radar_unavailable: '챙길 것 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
 });
@@ -337,7 +338,7 @@ export function notPlanned(rows, taskTitles = []) {
 // 결정 6: a counterpart promise goes to the ledger by the user's own paste ("쓰기요청" text), never stored here.
 export function ledgerRequestText(p) {
   return ['쓰기요청', '- 종류: 약속(상대·제3자)', `- 내용: ${p.summary}`, `- 기한: ${p.due || '없음'}`,
-    `- 근거: ${p.evidence || '없음'}`, `- 출처: Web2 ${RADAR_SOURCE_LABEL[p.source_kind] || '기록'} ${p.source_day}`].join('\n');
+    `- 근거: ${p.evidence || '없음'}`, `- 출처: 노동조합+ ${RADAR_SOURCE_LABEL[p.source_kind] || '기록'} ${p.source_day}`].join('\n');
 }
 
 // ---- TODO-내일만: [내 일 아님]·예외 방·쌓인 후보 다시 거르기 (migration 20261029210000, 소유자 RLS) ----------------------

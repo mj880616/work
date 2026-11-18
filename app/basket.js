@@ -145,7 +145,7 @@ function openRowMenu(trigger){
   rowMenuEl.querySelector('button')?.focus({preventScroll:true});
 }
 // S48-56: [일기로 보내기]는 [노트로 옮기기] 바로 아래(위 목록 줄은 다른 작업과 겹치지 않게 그대로 두고 여기서 끼운다).
-const withDiaryItem=items=>items.flatMap(item=>item[0]==='to-note'?[item,['to-diary','일기로 보내기']]:[item]);
+const withDiaryItem=items=>items.flatMap(item=>item[0]==='to-note'?[item,['to-diary','하루 기록으로 보내기']]:[item]);
 const rowMenuHtml=(note,acts)=>withDiaryItem(rowMenuItems(note,acts)).map(([act,label,cls])=>`<button type="button" data-basket-row-act="${act}"${cls?` class="${cls}"`:''}>${label}</button>`).join('');
 // Shows the menu under this ⋯ and follows it. The items are rewritten only when they differ, so a press already on an item is not lost.
 function attachRowMenu(note,trigger){
@@ -736,10 +736,11 @@ function paintSplit() {
   if (on) followDetail(false); else unfollowDetail();
 }
 SPLIT?.addEventListener?.('change', paintSplit);
-// 뒤로가기(겹 닫기)·화면 들어오기는 라우터가 그 자리에서 답을 받아야 해서 브라우저 기본 확인창을 그대로 쓴다(S48-28 예외).
+// 뒤로가기(겹 닫기)는 라우터가 준 ask로 묻는다(UI-알림창정리 S61-31: 라우터가 겹으로 되돌린 뒤 공용 작은 확인창, [닫기]면 다시 뒤로).
+// ask가 없는 길(force 아님)은 물을 글이 있으면 닫지 않는다.
 // keepLayer(FOLD-넓은화면 ④): 폴드 펼침에서 다른 줄로 바꿀 때 — 뒤로가기 한 걸음(겹)은 그대로 두고 칸 안만 비운다(바로 다음 openDetail이 같은 겹을 쓴다).
-function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false, keepLayer = false} = {}) {
-  if (!force) { const text = closeDetailText(); if (text && !window.confirm(text)) return false; }
+function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false, keepLayer = false, ask = null} = {}) {
+  if (!force) { const text = closeDetailText(); if (text && !ask?.(text)) return false; }
   
   bigWriter?.close({silent:true}); closePhoto({restore:false});
   const wasSplit = isSplit();
@@ -756,7 +757,7 @@ function openNoteLayer({adoptOnly = false} = {}) {
   if (noteLayer || !selected) return;
   // NAV-PC앞뒤통일: › (or the browser's forward) over this update's entry opens the same update again (reopen).
   layerNoteId = selected.id;
-  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true}), reopen: () => openDetail(layerNoteId)}) || null;
+  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: ({ask} = {}) => !busy && closeDetail({fromBack:true, ask}), reopen: () => openDetail(layerNoteId)}) || null;
 }
 function paintStateLine() {
   const state = noteState(selected, links, docs), box = detail.querySelector('[data-basket-state]');
@@ -936,7 +937,7 @@ function openDetail(id, {edit = false} = {}) {
   // The ⋯ keeps 수정·보관·삭제 (BASKET-일지로남기기: and [업무일지에 남기기]/[업무일지에서 빼기] before 삭제, so the row stays three buttons).
   // UI-엔터저장: the edit box saves with Ctrl+Enter on PC (shared rule, enter-save.js); [연결하기]·[할 일 만들기] forms are their own roots.
   detail.dataset.enterSave = '[data-basket-save]';
-  detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected.id, BASKET_BACK, rt)}<div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more data-ctx="area" aria-label="이 업데이트 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span class="more-dots" aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 업데이트" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-archive>보류로</button><button type="button" data-basket-to-diary>일기로 보내기</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><article class="basket-card" data-basket-card aria-label="업데이트"><div class="basket-read" data-basket-read><div class="basket-card-tools"><button type="button" class="basket-icon-button" data-basket-read-raw aria-pressed="false" aria-label="원문 그대로 보기" title="원문 그대로 보기">원문</button><button type="button" class="basket-icon-button" data-basket-copy aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="업데이트 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">업데이트 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-files"><div data-basket-file-selection></div><button type="button" data-basket-upload>첨부 저장</button></div></div><div data-basket-sent></div><div data-basket-attachments class="basket-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>업데이트 최신화</button><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" data-basket-link-open>연결하기</button><button type="button" data-basket-task-open>할 일 만들기</button><button type="button" data-basket-to-note>노트로 옮기기</button></div><div data-basket-manual hidden></div><div class="basket-actions basket-edit-actions save-row save-row-sticky" data-basket-edit-actions hidden><div class="save-row-start" data-basket-file-picker></div><button type="button" class="secondary save-row-start" data-basket-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-basket-cancel>취소</button><button type="button" class="primary" data-basket-save>수정 저장</button></div><p data-basket-status role="status"></p></article>`;
+  detail.innerHTML = `<div class="basket-detail-head">${basketBackHtml(selected.id, BASKET_BACK, rt)}<div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more data-ctx="area" aria-label="이 업데이트 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span class="more-dots" aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 업데이트" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-archive>보류로</button><button type="button" data-basket-to-diary>하루 기록으로 보내기</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><article class="basket-card" data-basket-card aria-label="업데이트"><div class="basket-read" data-basket-read><div class="basket-card-tools"><button type="button" class="basket-icon-button" data-basket-read-raw aria-pressed="false" aria-label="원문 그대로 보기" title="원문 그대로 보기">원문</button><button type="button" class="basket-icon-button" data-basket-copy aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="업데이트 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">업데이트 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-files"><div data-basket-file-selection></div><button type="button" data-basket-upload>첨부 저장</button></div></div><div data-basket-sent></div><div data-basket-attachments class="basket-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>업데이트 최신화</button><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" data-basket-link-open>연결하기</button><button type="button" data-basket-task-open>할 일 만들기</button><button type="button" data-basket-to-note>노트로 옮기기</button></div><div data-basket-manual hidden></div><div class="basket-actions basket-edit-actions save-row save-row-sticky" data-basket-edit-actions hidden><div class="save-row-start" data-basket-file-picker></div><button type="button" class="secondary save-row-start" data-basket-big-write>큰 창에서 수정</button><button type="button" class="secondary" data-basket-cancel>취소</button><button type="button" class="primary" data-basket-save>수정 저장</button></div><p data-basket-status role="status"></p></article>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   manual.attach(detail.querySelector('[data-basket-manual]'));
   sentRows?.destroy();{const sentId=selected.id;sentRows=mountUploadRows(detail.querySelector('[data-basket-sent]'),{has:job=>attachQueue.has(sentId,job.file)});}
@@ -1036,7 +1037,8 @@ async function refresh() {
     listStatus.textContent = '업데이트를 불러오지 못했어요. 다시 시도해 주세요.';
     root.querySelector('[data-basket-retry]').hidden = false;
   } finally {
-    if (loadingRun === run) loadingRun = 0;
+    // S62-03b(기다림 막대 전수): 읽는 사이 줄을 열어(epoch) 이 읽기가 버려지면 위에서 그리지 않고 끝난다 — 이 읽기의 기다림 표시는 여기서 거둔다.
+    if (loadingRun === run) { loadingRun = 0; listStatus.querySelector('[data-wait]')?.remove(); }
   }
 }
 // Resolves true when the change was saved, false when it was not (busy, no note, or the save failed).
@@ -1368,9 +1370,10 @@ window.addEventListener('kptu:before-view-change',e=>{
     e.detail.retainBasketDraft=true;return;
   }
   const blockedBusy=quick?.isBusy()||noteDocs.isBusy()||busy;
-  if(blockedBusy||(noteDocs.hasDraft()&&!window.confirm('수정하던 노트를 저장하지 않고 다른 화면으로 갈까요?'))||(quick?.hasDraft()&&!window.confirm('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!window.confirm('수정 중인 글을 저장하지 않고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!window.confirm('작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?'))){
-    e.preventDefault();
-  }
+  // UI-알림창정리(S61-31): 쓰던 것이 있으면 라우터의 공용 작은 확인창으로 묻는다(e.detail.ask, app-router.js). 저장 중이면 묻지 않고 막는다.
+  if(blockedBusy){e.preventDefault();return}
+  const ask=text=>e.detail.ask(text);
+  void((noteDocs.hasDraft()&&!ask('수정하던 노트를 저장하지 않고 다른 화면으로 갈까요?'))||(quick?.hasDraft()&&!ask('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!ask('수정 중인 글을 저장하지 않고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!ask('작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?')));
 });
 // FORGET-원문열기·뒤로가기: whether this step enters the 정리함 from another screen (a step inside it, e.g. a source opened on it, is not).
 let basketShown=false,basketEntered=false;

@@ -42,10 +42,10 @@ export const COLUMNS = {
   change: { id: ['ID', '업데이트ID', '변화기록ID', '변화ID'], event: ['사건ID', '소속사건', '관련사건', '사건'], ...RECORD_COLUMNS,
     title: ['제목', '새로 확인된 것', '건명'], date: ['기준일', '확인시각', '날짜', '일자', '시점'], prev_state: ['이전 상태'], new_state: ['새 상태'],
     source_type: ['출처유형'], source_name: ['출처명'], source_url: ['출처URL'], drop: ['신문반영일'] },
-  // 결정 = 결정ID·결정일·회의명·결정주체·결정내용·관련업무·관련조직·후속조치 요지·Web2연결ID·출처ID·근거위치·유효상태·최종업데이트일·태그·대체기록ID·대체사유.
+  // 결정 = 결정ID·결정일·회의명·결정주체·결정내용·관련업무·관련조직·후속조치 요지·노조+연결ID(옛 이름 Web2연결ID도 읽음)·출처ID·근거위치·유효상태·최종업데이트일·태그·대체기록ID·대체사유.
   decision: { id: ['ID', '결정ID'], ...RECORD_COLUMNS, title: ['제목', '결정내용', '결정사항', '건명'], date: ['기준일', '결정일', '날짜', '일자'],
     decision_type: ['결정유형', '유형'], decision_reason: ['결정이유', '이유'], meeting: ['회의명'], actor: ['결정주체'], related_org: ['관련조직'],
-    follow: ['후속조치 요지', '후속조치'], web2: ['Web2연결ID'], tags: ['태그'], locator: ['근거위치'], drop: ['최종업데이트일'] },
+    follow: ['후속조치 요지', '후속조치'], web2: ['노조+연결ID', 'Web2연결ID'], tags: ['태그'], locator: ['근거위치'], drop: ['최종업데이트일'] },
   // 근거 = 근거ID·제목·유형·기준일·핵심내용·활용가능업무·관련조직·출처ID·근거위치·확신도·유효상태·최종업데이트일·태그·대체기록ID·대체사유.
   evidence: { id: ['ID', '근거ID'], ...RECORD_COLUMNS, summary: ['요지', '핵심내용', '요약', '내용'], evidence_type: ['유형', '근거유형'], locator: ['근거위치', '위치'], drop: ['최종업데이트일'] },
   // 약속 = 약속ID·주체·주체유형·약속내용·원문표현·기준일·기한·조건·후속확인일·중요도·이행상태·대표관련기록ID·출처ID·근거위치·GoogleTaskID·상태변경일·상태근거ID.
@@ -60,8 +60,8 @@ export const COLUMNS = {
     date: ['날짜', '문서일자', '일자', '출처날짜', '작성일', '기준일'], coverage: ['처리범위'], processing_status: ['처리상태'],
     sensitivity: ['민감도'], note: ['비고', '메모']
   },
-  // 조직 = 조직ID·조직명·조직유형·상위조직/협의체·업무영역·사용자담당여부·검색별칭·주요상대기관·Web2연결ID·Drive폴더ID·Drive폴더URL·최초등록일·최종업데이트일·활성여부·비고.
-  organization: { id: ['ID', '조직ID'], name: ['조직명', '이름', '명칭'], aliases: ['별칭', '검색별칭', '약칭'], web2: ['Web2연결ID', 'Web2ID', '웹2연결ID'],
+  // 조직 = 조직ID·조직명·조직유형·상위조직/협의체·업무영역·사용자담당여부·검색별칭·주요상대기관·노조+연결ID(옛 이름 Web2연결ID·Web2ID·웹2연결ID도 읽음)·Drive폴더ID·Drive폴더URL·최초등록일·최종업데이트일·활성여부·비고.
+  organization: { id: ['ID', '조직ID'], name: ['조직명', '이름', '명칭'], aliases: ['별칭', '검색별칭', '약칭'], web2: ['노조+연결ID', 'Web2연결ID', 'Web2ID', '웹2연결ID'],
     active: ['활성여부'], note: ['비고', '메모'], drop: ['최종업데이트일'] },
   // 조직연결 = 연결ID·조직ID·기록유형·기록ID·관계유형·기준일·활성여부·출처ID·최종업데이트일·비고.
   org_link: { link_id: ['ID', '연결ID'], record: ['기록ID', '원장ID', '대상ID', '사건ID', '기록'], organization: ['조직ID', '조직'], relation: ['관계유형', '관계'],
@@ -143,10 +143,10 @@ export const REASONS = {
   prefix_conflict: '원장 번호표의 접두어와 다름', prefix_shared: '다른 탭과 접두어가 같음', duplicate_id: '같은 ID가 두 번',
   existing_id: '이미 원장에 있는 ID', empty_title: '제목·이름 빈칸', too_long: '글자 수 초과', bad_date: '날짜를 읽을 수 없음',
   bad_value: '고정 목록 밖 값', broken_ref: '없는 ID를 가리킴(깨진 참조)', excluded_ref: '민감으로 제외한 행을 가리킴',
-  supersede_mismatch: '유효상태 "대체"와 대체기록이 맞지 않음', missing_counterparty: '약속의 상대측 빈칸', duplicate_web2: '같은 Web2 담당조직에 원장 조직 둘',
+  supersede_mismatch: '유효상태 "대체"와 대체기록이 맞지 않음', missing_counterparty: '약속의 상대측 빈칸', duplicate_web2: '같은 노조+ 담당조직에 원장 조직 둘',
   self_link: '자기 자신을 가리킴', duplicate_link: '같은 연결이 두 번', too_many: '행이 너무 많음', bad_file: '파일 모양이 다름',
   s3: '민감도 S3', personal: '개인정보 모양(주민번호·휴대전화)', excluded_link: '민감 제외 행에 걸린 연결(빠짐)',
-  id_padded: 'ID 숫자를 4자리로 맞춤', date_unknown: '날짜를 읽지 못해 "모름"으로 두고 원래 표기를 남김', web2_missing: 'Web2 담당조직을 찾지 못해 연결 없이 넣음',
+  id_padded: 'ID 숫자를 4자리로 맞춤', date_unknown: '날짜를 읽지 못해 "모름"으로 두고 원래 표기를 남김', web2_missing: '노조+ 담당조직을 찾지 못해 연결 없이 넣음',
   date_month_start: '날짜가 일 단위가 아니라 그 달·해 첫날로 넣음',
   title_cut: '제목이 길어 앞 300자만 제목으로(전체는 요지에)', source_text_kept: '출처가 ID가 아니라 글자라 비고에 남김',
   source_title_prefix: '출처명이 출처 제목 앞부분과 같아(뒤 괄호만 다름) 그 출처에 연결',
@@ -512,7 +512,7 @@ export function sheetToCanonical(input, mapping) {
           if (prev || next) extra.push(`상태 변화: ${prev || '-'} → ${next || '-'}`);
           keep('출처유형', 'source_type'); keep('출처URL', 'source_url');
         }
-        if (kind === 'decision') { keep('회의명', 'meeting'); keep('결정주체', 'actor'); keep('후속조치 요지', 'follow'); keep('관련조직', 'related_org'); keep('Web2연결ID', 'web2'); keep('태그', 'tags'); }
+        if (kind === 'decision') { keep('회의명', 'meeting'); keep('결정주체', 'actor'); keep('후속조치 요지', 'follow'); keep('관련조직', 'related_org'); keep('노조+연결ID', 'web2'); keep('태그', 'tags'); }
         if (kind === 'commitment') { keep('주체유형', 'actor_type'); keep('기한·조건', 'condition'); keep('GoogleTaskID', 'google'); keep('상태근거ID', 'status_basis'); }
         const rec = { ...meta, kind, ledger_id: id, title, summary: summary.slice(0, 4000), scope: pick('scope', oneLine(get('scope'))),
           topic: pick('topic', oneLine(get('topic'))) || null, sensitivity: pick('sensitivity', oneLine(get('sensitivity'))),

@@ -1,10 +1,12 @@
 import {test,expect} from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { segBox } from './helpers/seg-box.mjs';
+import { openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 // UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·사업 보고·담당조직·메뉴; MTG-프로젝트합치기 3단계 전에는 프로젝트),
 // [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
 // [분류 요청] → 조용히 복사 + 한 줄 알림 + [분류 결과 입력] 창(#577). PC(1280)는 그대로.
@@ -55,24 +57,25 @@ const loaded=(page,view)=>expect.poll(()=>page.evaluate(v=>window.KPTUViewLoader
 const box=locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height};});
 const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
 
-test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
+test('폰 하단 탭 6칸: 탭 아이콘 색, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
- // MTG-프로젝트합치기 3단계: 4번째 칸이 [프로젝트] → [사업 보고].
- await expect(tabs).toHaveText(['홈','잊지 말기','일정','사업 보고','조직 보고','메뉴']);
+ // MULTI-하단바기본노트(명진 11/13 15:24): 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·조직 보고·사업 보고.
+ await expect(tabs).toHaveText(['홈','노트','일정','조직 관리','사업 관리','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
- const tabColor=view=>page.locator(`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
- expect(await tabColor('basket')).toBe(await tabColor('meetings'));expect(await tabColor('basket')).toBe(await token(page,'--kptu-muted'));
- expect(await tabColor('basket')).not.toBe(await token(page,'--ds-kind-basket-ink'));
+ const tabColor=view=>page.locator(view==='note'?'.mobile-tabs [data-basket-kind-nav="note"] svg':`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
+ expect(await tabColor('note')).toBe(await tabColor('meetings'));expect(await tabColor('note')).toBe(await token(page,'--kptu-muted'));
+ expect(await tabColor('note')).not.toBe(await token(page,'--ds-kind-basket-ink'));
  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
- // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·게시판.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','News','통화','텔레그램 소식','아스날']);
+ // MULTI-하단바기본노트: 잊지 말기는 [메뉴] 창 맨 앞, 노트는 하단바로.
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
- await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');
+ await menuTab.click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [aria-current="page"]')).toHaveCount(0);
+ await page.locator('.mobile-tabs [data-basket-kind-nav="note"]').click();await expect(page.locator('.mobile-tabs [data-basket-kind-nav="note"]')).toHaveAttribute('aria-current','page');
  expect(errors).toEqual([]);
 });
 
@@ -105,7 +108,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
  // UI-밀기탭이동삭제: 탭 이동은 하단 탭 누르기로만 한다. 할 일 쪽에서도 [일정] 자리가 그대로 이어진다.
  const goTab=async view=>{await page.locator('.mobile-tabs [data-view="'+view+'"]').first().click();await loaded(page,view);};
- await goTab('meetings');await goTab('team');await goTab('basket');await goTab('home');
+ await goTab('team');await goTab('meetings');await goTab('home'); // MULTI-하단바기본노트: 하단바 화면 칸은 홈·일정·조직 보고·사업 보고(노트는 노트 쪽 열기)
  expect(errors).toEqual([]);
 });
 
@@ -121,7 +124,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
   const button=page.locator(id);await expect(button).toBeVisible();expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
   if(text!==null)await expect(button).toHaveText(text);
  }
- await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
+ await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
 
@@ -172,15 +175,17 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed'); // BIZ-위쪽정돈(11/09 01:22): 사업 보고 [+]는 맨 윗줄 작은 아이콘이라 떠 있지 않다
  // BIZ-위쪽정돈PC(11/09 10:52 A): 사업 보고 종류 칩 줄은 없앴다 — 종류는 모든 폭에서 [회의 ▾] 상자 하나이고, 고른 값이 있으면 상자 글자가 진하다(is-on).
  await expect(page.locator('#reportKindFilter')).toHaveCount(0);
- await expect(page.locator('#reportKindSelect')).toBeVisible();await expect(page.locator('#reportKindSelect')).toHaveClass(/is-on/);
+ // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체]라 진하지 않고, 종류를 고르면 진하다.
+ await expect(page.locator('#reportKindSelect')).toBeVisible();await expect(page.locator('#reportKindSelect')).not.toHaveClass(/is-on/);
+ await pickReportKind(page,'회의');await expect(page.locator('#reportKindSelect')).toHaveClass(/is-on/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
 
-test('담당조직: 폰에도 추가 버튼·글자 링크를 그리지 않음(UI-조직추가숨김)',async({page})=>{
+test('담당조직: 폰에도 맨 위 [+ 담당조직] 하나, 옛 글자 링크는 없음(MULTI-다른담당자맞춤 ①)',async({page})=>{
  const {errors}=await boot(page,390);
  await page.locator('.mobile-tabs [data-view="team"]').click();await loaded(page,'team');
- await expect(page.locator('#soAddOrg,#soAddOrgLink,.so-add-link')).toHaveCount(0);
+ await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);
  await expect(page.locator('#soOrganizationList')).toBeVisible();
  expect(errors).toEqual([]);
 });
@@ -190,9 +195,11 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
  const quick=page.locator('#homeView .home-quick'),tabs=page.locator('.mobile-tabs');
  await expect(page.locator('#homeView .home-basket-link')).toBeHidden();
  const q=await box(quick),t=await box(tabs);expect(Math.round(q.bottom)).toBe(Math.round(t.top));expect(q.left).toBe(0);expect(q.right).toBe(390);
- const entry=await box(quick.locator('.home-quick-entry')),modes=await box(quick.locator('.home-quick-modes'));expect(modes.bottom).toBeLessThanOrEqual(entry.top);
+ // HOME-입력칸두모양: 폰 홈은 늘 한 줄([종류 ▾][입력칸][잊지 말기]) — [업데이트 | 할 일] 단추 줄 없음. 칸을 눌러도 하단 탭 바로 위.
+ await expect(quick).toHaveAttribute('data-quick-shape','line');await openQuickBox(page);expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
+ await expect(quick.locator('.home-quick-modes')).toBeHidden();
  // [할 일]의 오늘·내일·날짜·프로젝트 버튼은 입력칸 위.
- await quick.locator('[data-quick-mode="task"]').click();await quick.locator('[data-quick-input]').click();
+ await pickQuickMode(page,'task');await quick.locator('[data-quick-input]').click();
  const options=await box(quick.locator('[data-quick-options]'));expect(options.bottom).toBeLessThanOrEqual((await box(quick.locator('.home-quick-entry'))).top);
  expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
  // 카드는 그 위에서 스크롤: 끝까지 내리면 마지막 카드가 입력칸 위.
@@ -210,7 +217,7 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
 
 test('정리함: 처리할 것이 없으면 회색 한 줄 "없음"(공용 없음 부품, S52-20 한 목록)',async({page})=>{
  const {errors}=await boot(page,390,{notes:[]});
- await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');
+ await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-view="basket"]').click();await loaded(page,'basket');
  const empty=page.locator('#basketView [data-forget-empty]');await expect(empty).toHaveText('없음');
  await expect(empty).toHaveCSS('text-align',/^(start|left)$/);
  await expect(page.locator('#basketView [data-forget-view-open]')).toHaveText('처리 전 ▾');

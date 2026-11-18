@@ -86,7 +86,7 @@ const photoZoomOk = v => PHOTO_LEVELS.includes(v);
 // MULTI-노조사용자 ②-3(D5, S50-13): 담당조직 묶음·순서와 보고 캘린더 이름은 사람마다 따로(migration 20261105131500, 명진 값은 그 migration이 옮김).
 // org_order = {groups: [{name: 묶음 이름 1~20자, orgs: [조직 이름 1~60자, 1~40개]}, 12개까지], hidden: [고르기에서 뺄 조직 이름, 40개까지]} — 둘 다 있어야 한다.
 // report_calendar = 주간보고 '주요 일정'을 가져올 Google 캘린더 이름(1~60자). 없으면 표가 비고 화면이 '보고 캘린더 미지정'을 알린다.
-// 뜻은 organization-order.js(묶음·순서)·report-calendar.mjs(캘린더). 고치는 곳은 내 프로필 › 보고 설정 하나. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
+// 뜻은 organization-order.js(묶음·순서)·report-calendar.mjs(캘린더). 묶음·순서는 조직 보고 화면, 캘린더는 내 프로필 › 주간보고 일정 캘린더. 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
 export const ORG_GROUPS_MAX = 12, ORG_GROUP_ORGS_MAX = 40, ORG_HIDDEN_MAX = 40;
 const textOk = (v, max) => typeof v === 'string' && v.length > 0 && [...v].length <= max && !/[\p{Cc}]/u.test(v);
 export const orgNameOk = v => textOk(v, 60), orgGroupNameOk = v => textOk(v, 20), reportCalendarOk = v => textOk(v, 60);

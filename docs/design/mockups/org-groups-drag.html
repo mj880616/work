@@ -1,0 +1,72 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 조직 보고 — 묶음을 화면에서 만들고 조직을 끌어 넣기 (MULTI-다른담당자맞춤 1)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:16px 0 6px}.cap small{font-weight:400;color:#6e6c60}
+.ph{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.scr{box-sizing:border-box;width:31.7em;position:relative}
+.top{display:flex;align-items:center;justify-content:space-between;margin:0 0 .5em}
+.top b{font-size:1.25em}
+.btn{border:1px solid #cfc8b6;border-radius:.45em;padding:.1em .6em;background:#fffefa;font-size:.9em}
+.grp{background:#fffefa;border:1px solid #e2ddd0;border-radius:1em;margin-bottom:.6em;overflow:hidden}
+.gh{display:flex;align-items:center;gap:.5em;padding:.55em 1em;color:#6e6c60;border-bottom:1px solid #e2ddd0}
+.gh .n{margin-left:auto}.gh .more{color:#6e6c60}
+.grip{color:#b9b29f;letter-spacing:-.15em;font-size:.95em}
+.r{display:flex;align-items:center;gap:.55em;padding:.58em 1em;border-top:1px solid #e2ddd0}
+.gh+.r{border-top:0}
+.dot{width:.55em;height:.55em;border-radius:50%;background:#3f8a55;flex:none}
+.nm{flex:1}
+.t{font-size:.88em;border-radius:1em;padding:.06em .6em;background:#ecebe5;color:#6e6c60}
+.new{outline:.14em solid #b8663a;outline-offset:.12em}
+.drag{box-shadow:0 .4em 1em rgba(0,0,0,.18);background:#fffefa;border:1px solid #cfc8b6;border-radius:.6em;position:absolute;left:2em;right:-.6em;top:15.3em;z-index:2;transform:rotate(-1deg)}
+.drop{height:.2em;background:#b8663a;margin:0 1em}
+.empty{padding:.7em 1em;color:#6e6c60;font-size:.9em;border-top:1px dashed #cfc8b6}
+.menu{position:absolute;right:.4em;top:2.5em;background:#fffefa;border:1px solid #cfc8b6;border-radius:.6em;box-shadow:0 .3em .8em rgba(0,0,0,.12);padding:.3em 0;z-index:3;font-size:.92em}
+.menu div{padding:.3em 1em}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.65;margin-top:14px;max-width:31.7em;box-sizing:border-box}
+.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 조직 보고 — 묶음을 화면에서 만들고 조직을 끌어 넣기</h1>
+<p class="note">폰 412 폭. 조직·묶음 이름은 예시(다른 담당자 화면을 가정). 주황 테두리가 새로 생기는 것.</p>
+<div class="ph">
+
+<div class="cap">① 처음 쓰는 사람 <small>묶음 없음 — 넣은 조직이 '그 외' 하나에 가나다순</small></div>
+<div class="scr">
+<div class="top"><b>조직 보고</b><span><span class="btn new">+ 묶음</span> <span class="btn">+ 담당조직</span></span></div>
+<div class="grp"><div class="gh"><span>그 외</span><span class="n">4곳</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 가지부</span><span class="t">교섭 시작 전</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 나지부</span><span class="t">교섭 시작 전</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 다지부</span><span class="t">교섭 중</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 라분회</span><span class="t">교섭 시작 전</span></div></div>
+</div>
+
+<div class="cap">② [+ 묶음]으로 '병원' 묶음을 만들고 조직을 끌어 넣는 중 <small>손잡이 ⋮⋮ 를 끌기(PC는 줄 아무 데나)</small></div>
+<div class="scr">
+<div class="top"><b>조직 보고</b><span><span class="btn">+ 묶음</span> <span class="btn">+ 담당조직</span></span></div>
+<div class="grp new"><div class="gh"><span class="grip">⋮⋮</span><span>병원</span><span class="n">1곳</span><span class="more">⋯</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 가지부</span><span class="t">교섭 시작 전</span></div>
+<div class="drop"></div>
+<div class="empty">여기로 끌어 넣기</div></div>
+<div class="grp"><div class="gh"><span>그 외</span><span class="n">2곳</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 다지부</span><span class="t">교섭 중</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 라분회</span><span class="t">교섭 시작 전</span></div></div>
+<div class="drag r" style="top:8.3em"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 나지부</span><span class="t">교섭 시작 전</span></div>
+</div>
+
+<div class="cap">③ 묶음 ⋯ 메뉴</div>
+<div class="scr">
+<div class="grp"><div class="gh"><span class="grip">⋮⋮</span><span>병원</span><span class="n">2곳</span><span class="more">⋯</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 가지부</span><span class="t">교섭 시작 전</span></div>
+<div class="r"><span class="grip">⋮⋮</span><span class="dot"></span><span class="nm">예시 나지부</span><span class="t">교섭 시작 전</span></div></div>
+<div class="menu new"><div>이름 바꾸기</div><div>묶음 풀기 (조직은 '그 외'로)</div></div>
+</div>
+</div>
+<div class="legend"><b>요청함 방 추천 — 명진 확정 아님</b><br>
+· [+ 묶음] → 이름 한 칸 → 빈 묶음이 생김. 조직 줄을 끌어 묶음에 넣고, 같은 묶음 안에서 끌면 순서가 바뀜. 묶음 머리를 끌면 묶음 순서.<br>
+· 묶음 ⋯: 이름 바꾸기 · 묶음 풀기(조직은 지우지 않고 '그 외'로).<br>
+· 정한 묶음·순서는 지금과 같은 내 프로필 설정(org_order)에 저장 — 주간보고 조직 순서·고르기 창 묶음이 그대로 따라옴. 내 프로필의 글자 칸은 없앰.<br>
+· 명진 화면: 지금 묶음(철도·지하철·민자철도·민간도시철도…)이 그대로 보이고, 끌기 손잡이만 생김.<br>
+· 폰은 손잡이를 꾹 눌러 끌기, PC는 줄을 끌기. 키보드는 Alt+↑↓(자료실 폴더 끌기와 같은 규칙).
+</div></body></html>

@@ -1,14 +1,15 @@
 // S46-27 주간보고 '1. 요청사항' 세 칸: 3) 상집 논의 요청 줄(app/weekly-discuss.mjs)·같은 임시저장 칸(weekly-draft-store.js draft.discuss)·한글 파일 차례.
 // 이름·안건·조직은 모두 가짜.
 import test from 'node:test';
+import {FIXTURE_PROFILE} from './fixtures/weekly-engine-core.mjs'; // ⑤-3c: 줄 나누기는 '내 양식' profile 을 받는다
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cleanDiscussRow, readDiscuss, withDiscussRow, withoutDiscussRow, movedDiscussRow, discussLines, DISCUSS_MAX, DISCUSS_LIMITS} from '../app/weekly-discuss.mjs';
 import {makeDraft, readDraft, merge3, keepDocsOnly, draftDiscuss, withDiscuss, withHq, draftCells, hasContent} from '../app/weekly-draft-store.js';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml} from '../app/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
-import {buildReport} from '../app/weekly-hwpx/report.mjs';
+import {extractBlankTemplate} from './fixtures/weekly-engine.mjs';
+import {buildReport} from './fixtures/weekly-engine.mjs';
 import {textOf} from '../app/weekly-hwpx/xml.mjs';
 import {makeFakeReport, DEMO_DATA} from '../scripts/weekly-hwpx/fixture.mjs';
 import {weeklyLines} from '../app/weekly-lines.mjs';
@@ -84,7 +85,7 @@ test('한글 파일: 1. 요청사항 아래 1) 임원 배정 요청 표 → 2) �
   assert.equal(e[ea + 2], '2. 기본․영역․의제 사업');
   assert.ok(!e.includes('없음'));
   // 개인본 대조(weekly-lines.mjs)는 3) 줄을 1절 글 줄로 읽는다(제목은 빠짐)
-  const read = weeklyLines(t.join('\n'));
+  const read = weeklyLines(t.join('\n'), FIXTURE_PROFILE);
   assert.ok(read.some(l => l.section === 'requests' && l.text === lines[0]));
   assert.ok(!read.some(l => l.text === '3) 상집 논의 요청'));
 });

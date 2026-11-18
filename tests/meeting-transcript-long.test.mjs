@@ -57,19 +57,6 @@ test('요약 실패 문구는 이유별(시간 초과·연결·로그인·서버
   assert.equal(draftFailText(new Error('invalid_meeting_draft')),DRAFT_FAIL.generic);
 });
 
-test('원인 고침: 요약 호출은 화면 기본 15초가 아니라 긴 기다림 + 나눠 요약 + 전문을 먼저 칸에',()=>{
-  const src=read('app/meeting-transcript-draft.js');
-  assert.ok(DRAFT_TIMEOUT_MS>=180000);
-  assert.match(src,/rt\.api\('\/functions\/v1\/meeting-ai-draft',\{method:'POST',singleFlight:false,timeoutMs:DRAFT_TIMEOUT_MS,/);
-  assert.match(src,/stage:'part'/);assert.match(src,/stage:'merge'/);
-  // 요약 호출보다 먼저 전문을 칸에 넣는다(실패해도 저장 때 남게).
-  const run=src.slice(src.indexOf('async function run('));
-  assert.ok(run.indexOf('keepFull(text)')>0&&run.indexOf('keepFull(text)')<run.indexOf('askDraft('));
-  assert.match(src,/\$\('#meetingNotes'\)/);
-  // 로그에는 글을 남기지 않는다(오류 코드만).
-  assert.doesNotMatch(src,/console\.error\('meeting transcript draft failed',e\)/);
-});
-
 test('서버(meeting-ai-draft): stage part·merge는 회의 행에 저장하지 않고, 앞 회의 맥락에 회의록 전문(notes)을 싣지 않는다',()=>{
   const src=read('supabase/functions/meeting-ai-draft/index.ts');
   assert.match(src,/const stage=draftStage\(b\)/);
@@ -95,9 +82,9 @@ test('AI 재료: 특이사항(=회의록 전문)은 맨 뒤 300자만',()=>{
   assert.match(read('app/report-area-tag.js'),/String\(body\.notes\|\|''\)\.slice\(0,300\)\]/);
 });
 
-test('[원문]/[서식]: <> 아이콘 대신 작은 글자 버튼(사업 보고·업데이트 같게)',()=>{
+test('[원문]/[서식]: 업데이트(정리함)는 <> 아이콘 대신 작은 글자 버튼, 사업 보고 상세에는 버튼이 없다(S62-02)',()=>{
   const v=read('app/record-text-view.js'),b=read('app/basket.js');
-  assert.match(v,/hidden>원문<\/button>`/);assert.match(v,/toggle\.textContent = state\.raw \? '서식' : '원문';/);
+  assert.doesNotMatch(v,/원문<\/button>|toggle/);
   assert.match(b,/title="원문 그대로 보기">원문<\/button>/);assert.match(b,/toggle\.textContent = rawView \? '서식' : '원문';/);
   assert.doesNotMatch(v+b,/M5\.5 4\.5 2 8l3\.5 3\.5/);
 });

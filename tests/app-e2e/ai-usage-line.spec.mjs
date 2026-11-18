@@ -21,6 +21,8 @@ async function fixture(page,{width,ai=usage()}){
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ai_cost_entries',route=>{writes.push(route.request().method());return route.fulfill({json:[]});});
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_radar_state',route=>route.fulfill({json:[{last_success_at:'2026-10-06T00:30:00Z'}]}));
+  // MULTI-다른담당자맞춤 ④: 수집·사용량 줄은 서버 운영자 기능(app_my_features)이 있는 작업공간에서만 그린다.
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',route=>route.fulfill({json:['calls']}));
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#profileView')).toBeVisible();
@@ -39,7 +41,7 @@ for(const width of [412,884,1440])test(`기간이 맨 위, 월말 예상, 입력
   const panel=line.locator('.aiu-panel');
   await expect(panel).toBeVisible();
   await expect(panel.locator('.aiu-row')).toHaveCount(3);
-  await expect(panel.locator('.aiu-row').nth(0)).toContainText('Web2 AI 기능');
+  await expect(panel.locator('.aiu-row').nth(0)).toContainText('노동조합+ AI 기능');
   await expect(panel.locator('.aiu-row').nth(0).locator('.aiu-value')).toHaveText('156원 / 한 달 상한 15,000원');
   await expect(panel.locator('.aiu-row').nth(1).locator('.aiu-value')).toHaveText('237원 / 한 달 상한 6,000원');
   await expect(panel.locator('.aiu-row').nth(2)).toContainText('전사·분석(Gemini)');
@@ -68,7 +70,7 @@ test('월 상한 80%는 노란 줄, 펼치면 기간·요약이 맨 위',async({
   const {line}=await fixture(page,{width:412,ai:usage({warn:['openai_balance','openai_limit'],openai:{...usage().openai,assist_krw:12500}})});
   const head=line.locator('[data-aiu-toggle]');
   await expect(head).toHaveAttribute('data-warn','');
-  await expect(head).toHaveText(/Web2 AI 이번 달 상한 80% 넘음 \(12,500원 \/ 15,000원\)/);
+  await expect(head).toHaveText(/노동조합\+ AI 이번 달 상한 80% 넘음 \(12,500원 \/ 15,000원\)/);
   await expect(head).not.toContainText('외 1건');
   await head.click();
   await expect(line.locator('.aiu-head-line')).toContainText('AI 사용량 · 10월 1일~6일 (이번 달, 추정)');
@@ -80,7 +82,7 @@ test('월 상한 80%는 노란 줄, 펼치면 기간·요약이 맨 위',async({
 for(const width of [412,884,1440])test(`AI 사용량은 내 프로필에만, 홈에는 없음 (${width})`,async({page})=>{
   const {line}=await fixture(page,{width});
   await expect(line).toBeVisible();
-  await expect(page.locator('#psStatusPanel > h3')).toHaveText('수집·사용량');
+  await expect(page.locator('#psStatusPanel > h3')).toHaveText('사용 현황');
   await page.evaluate(()=>window.KPTURouter.go('home'));
   await expect(page.locator('#homeView')).toBeVisible();
   await expect(page.locator('#homeView [data-aiu-toggle],#homeView .home-ai-usage,[data-he-more]')).toHaveCount(0);

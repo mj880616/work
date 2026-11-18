@@ -5,6 +5,8 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {reportFilterKeys,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
+import {pickReportKind} from './helpers/report-filter.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'placement-user',email:'placement@example.invalid',user_metadata:{display_name:'Placement QA'}};
@@ -121,9 +123,11 @@ for(const width of [390,1440]){
       // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
       // S52-22 TEAM-맨위한줄: 폰의 회의명은 [종류 ▾] 고르기 상자 안 '회의명' 묶음이다.
       await showReportsOf(page); // BIZ-주간표이번주: 지난 주 보고는 [전체 기간]으로
+      // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체] — 회의 화면(종류 목록·회의명 묶음)은 [회의]를 고른 뒤.
+      await pickReportKind(page,'회의');
       if(width>=761){expect(await reportFilterKeys(page)).not.toContain('name');await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
       else{expect(await reportFilterKeys(page)).toContain('name')}
-      await page.locator('#newMeetingBtn').click();
+      await addReport(page);
       await expect(page.locator('#meetingModal')).toBeVisible();
     });
     test('calendar card has the right label, 44px target and same form',async({page})=>{
@@ -187,7 +191,7 @@ for(const width of [390,1440]){
     });
     test('project list card keeps archive and add action after redraw',async({page})=>{
       // MTG-프로젝트합치기 ①(10/29 시안): 사업영역 관리는 사업 보고 위 창이다. [+ 사업영역]은 창 머리줄(제목 오른쪽, ✕ 왼쪽)에 작고 낮게(32px, 누르는 범위 44px),
-      // 폰은 머리 '‹ 사업 보고 · 사업영역 관리 · +'(둥근 [+] 떠 있는 버튼이 아님). [보관 n]은 지금처럼 목록 머리줄.
+      // 폰은 머리 '‹ 사업 관리 · 사업영역 관리 · +'(둥근 [+] 떠 있는 버튼이 아님). [보관 n]은 지금처럼 목록 머리줄.
       await openApp(page,'projects');
       const card='#projectGrid .ps3-plist',head='.add-list-head',title='[data-ps3-total]';
       const checkActions=async()=>{

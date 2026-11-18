@@ -10,9 +10,9 @@
 #profileView .ps-panel h3{margin:0 0 4px;font-size:var(--ds-text-section);line-height:1.4;font-weight:var(--ds-weight-medium,600)}
 #profileView .ps-panel-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 #profileView .ps-panel-head h3{flex:1;margin:0}
-#profileView .ps-fields{display:flex;gap:6px;max-width:420px}
-#profileView .ps-fields input{flex:1;min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text)}
-#profileView .ps-fields input:last-child{flex:.8}
+/* PROFILE-소속칸글로쓰기: 칸 4개를 2줄로 — 위 노조명·부서명, 아래 이름·직책(같은 너비 비율). */
+#profileView .ps-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:6px;max-width:520px}
+#profileView .ps-fields input{min-width:0;height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text)}
 .ps-org-row{display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height);break-inside:avoid}
 .ps-org-pick{display:flex;flex-direction:row;justify-content:flex-start;flex:1;align-items:center;text-align:left;font-weight:var(--ds-weight-regular);color:var(--kptu-ink);gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;cursor:pointer;font-size:var(--ds-text-row)}
 .ps-org-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -45,12 +45,15 @@
 #profileView .ps-todo-rooms{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 #profileView .ps-todo-room{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);font-size:var(--ds-text-row)}
 #profileView .ps-todo-room-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* HOME-업무일지홈: '수집·사용량' 칸(profile-status.js). 모양은 home-quick.css의 수집 칸·AI 사용량 줄 그대로, 칸 사이만 촘촘히. */
+/* HOME-업무일지홈: '사용 현황' 칸(profile-status.js). 모양은 home-quick.css의 수집 칸·AI 사용량 줄 그대로, 칸 사이만 촘촘히. */
 #profileView .ps-status{display:flex;flex-direction:column;gap:8px}
+#profileView .ps-status[hidden]{display:none}
 #profileView .ps-status h3{margin:0}
 #profileView .ps-status .home-collect h3{font-size:var(--ds-text-section,13px);margin:0 0 4px}
 #profileView .ps-status .home-ai-usage{margin:0}
 #profileView .ps-quiet-weeks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#profileView .ps-ai-cap{margin:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#profileView .ps-ai-cap[data-capped]{color:var(--kptu-warning)}
 #profileView .ps-quiet-note:empty{display:none}
 /* APP-폰알림 N4: '폰 알림' 칸(phone-push-settings.js). 종류 칩 한 줄(넘치면 다음 줄), 조용한 시간 두 칸 + [시험 알림], 등록된 폰 한 줄씩. */
 #profileView .ps-push-kinds{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0}
@@ -63,7 +66,7 @@
 #profileView .ps-push-recent{display:block;width:100%;min-height:var(--ds-compact-height-sm,28px);padding:2px 0;border:0;background:none;text-align:left;font-size:var(--ds-compact-text);color:var(--kptu-ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #profileView .ps-push-recent[data-opened]{color:var(--kptu-muted)}
 #profileView .ps-push-recent:hover,#profileView .ps-push-recent:focus-visible{text-decoration:underline}
-#profileView .ps-push-time{flex:none;width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}
+#profileView .ps-push-time{flex:none;width:auto;min-width:7.2em;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 6px;font-size:var(--ds-compact-text)}
 /* MULTI ②-3: 보고 설정 칸(접힌 한 줄 요약 + 펼치면 글 칸 셋) */
 #profileView .ps-report>summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;min-height:var(--ds-compact-height)}
 #profileView .ps-report>summary::-webkit-details-marker{display:none}
@@ -72,6 +75,9 @@
 #profileView .ps-report-field{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular)}
 #profileView .ps-report-field small{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #profileView .ps-report-field input{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-compact-text);max-width:420px}
+#profileView .ps-report-field select{max-width:420px}
 #profileView .ps-report-field textarea{padding:4px 8px;font-size:var(--ds-compact-text);line-height:1.5;resize:vertical}
 #profileView .ps-report-note{margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+/* HOME-연결안내한줄아래(S62-03c): 보고 캘린더 연결 안내도 홈과 같은 모양 — 안내 한 줄, 그 아래 줄 왼쪽에 [구글 캘린더 연결] */
+#profileView [data-ps-report-cal="unconnected"] .ps-report-note{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 #profileView .ps-report-actions{display:flex;justify-content:flex-end;margin-top:6px}

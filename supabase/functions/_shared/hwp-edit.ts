@@ -4,7 +4,7 @@
 // library-files / basket-files uploads; this module only reads and overwrites.
 // Overwrite rules (2026-10-15 사용자 결정): HWP originals only, only while Drive
 // still holds the revision the editor opened, after a verified copy of that
-// revision is kept in the "Web2 편집 백업" folder. Backups are never removed here,
+// revision is kept in the "노조+ 편집 백업" folder (옛 이름 "Web2 편집 백업"). Backups are never removed here,
 // and nothing is ever permanently deleted or retried after an unknown result.
 type DbRequest = (path: string) => Promise<unknown>;
 type Deps = {
@@ -38,7 +38,9 @@ export const HWP_MAX_BYTES = 30 * 1024 * 1024;
 // MD-표시보완: a pasted ChatGPT HTML page shown in the memo's sandboxed frame. Read only; nothing is written.
 export const HTML_VIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const isHtmlName = (name: string) => /\.html?$/i.test(String(name || ""));
-export const BACKUP_FOLDER = "Web2 편집 백업";
+export const BACKUP_FOLDER = "노조+ 편집 백업";
+// BRAND-웹2흔적지우기: 예전에 만든 폴더 이름. 찾을 때 함께 보고, 찾으면 이름만 새 이름으로 바꾼다(파일은 그대로).
+export const OLD_BACKUP_FOLDER = "Web2 편집 백업";
 
 // TRASH-다른삭제 5단계: 서버 키(service_role)는 RLS(휴지통 숨김 정책)를 건너뛰므로 노트 id로 직접 읽을 때는 휴지통 노트(deleted_at 있음)를 뺀다.
 // DB 적용 전에는 app_notes에 deleted_at 칸이 없어 PostgREST가 "column app_notes.deleted_at does not exist"(42703)로 거절한다.
@@ -343,11 +345,13 @@ export function createHwpEdit(deps: Deps) {
     };
   }
 
-  // One "Web2 편집 백업" folder in the owner's own My Drive root; the oldest wins.
+  // One "노조+ 편집 백업" folder in the owner's own My Drive root; the oldest wins.
+  // BRAND-웹2흔적지우기: 옛 이름("Web2 편집 백업") 폴더도 같은 폴더로 본다. 그것이 고른 폴더면 이름만 새 이름으로
+  // 바꾼다(실패해도 백업은 그 폴더에 그대로 한다). 새 폴더를 더 만들지 않고, 안의 파일은 옮기거나 지우지 않는다.
   async function backupFolder(token: string) {
     const params = new URLSearchParams({
-      q: `name = '${BACKUP_FOLDER}' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false`,
-      fields: "incompleteSearch,files(id,ownedByMe,trashed)",
+      q: `(name = '${BACKUP_FOLDER}' or name = '${OLD_BACKUP_FOLDER}') and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false`,
+      fields: "incompleteSearch,files(id,name,ownedByMe,trashed)",
       orderBy: "createdTime",
       pageSize: "10",
     });
@@ -360,7 +364,16 @@ export function createHwpEdit(deps: Deps) {
       DRIVE_ID.test(String(f?.id ?? "")) && f.ownedByMe === true &&
       f.trashed === false
     );
-    if (existing) return existing.id as string;
+    if (existing) {
+      if (existing.name === OLD_BACKUP_FOLDER) {
+        await drive(`${DRIVE}/${encodeURIComponent(existing.id)}?fields=id`, {
+          method: "PATCH",
+          headers: { ...auth(token), "Content-Type": "application/json" },
+          body: JSON.stringify({ name: BACKUP_FOLDER }),
+        }).catch(() => null);
+      }
+      return existing.id as string;
+    }
     const created = await drive(`${DRIVE}?fields=id`, {
       method: "POST",
       headers: { ...auth(token), "Content-Type": "application/json" },

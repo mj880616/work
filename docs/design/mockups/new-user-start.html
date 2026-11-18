@@ -1,0 +1,139 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 처음 쓰는 사람 — 연결 안내·담당 조직 추가·메뉴 정리 (MULTI-처음쓰는사람)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}.cap small{font-weight:400;color:#6e6c60}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.ph{font-size:13px;width:31.7em;box-sizing:border-box}
+.fold{font-size:13px;width:58em;max-width:100%;box-sizing:border-box}
+.scr{position:relative;background:#f3f1ea;border:1px solid #d8d2c2;border-radius:1em;padding:.7em;overflow:hidden}
+.top{display:flex;align-items:center;justify-content:space-between;margin:0 0 .5em}
+.top b{font-size:1.2em}
+.btn{display:inline-block;white-space:nowrap;border:1px solid #cfc8b6;border-radius:.45em;padding:.08em .6em;background:#fffefa;font-size:.88em;color:#2a2a23}
+.btn.go{background:#4d5a2e;border-color:#4d5a2e;color:#fff}
+.card{background:#fffefa;border:1px solid #e2ddd0;border-radius:.9em;padding:.65em .9em;margin-bottom:.55em}
+.h{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:.3em}
+.h small{font-weight:400;color:#6e6c60;font-size:.85em}
+.hint{color:#5b5a4e;font-size:.92em;line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:.6em}
+.err{color:#a3402f;font-size:.9em}
+.new{outline:.14em solid #b8663a;outline-offset:.15em;border-radius:.5em}
+.gone{text-decoration:line-through;color:#a9a493}
+.bar{display:flex;justify-content:space-around;border-top:1px solid #e2ddd0;margin:.6em -.7em -.7em;padding:.45em 0;background:#fffefa;font-size:.8em;color:#6e6c60}
+.bar span.on{color:#2a2a23;font-weight:700}
+.sheet{background:#fffefa;border:1px solid #e2ddd0;border-radius:1em 1em 0 0;padding:.7em .9em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:.25em .8em;font-size:.95em}
+.grid div{padding:.3em 0}
+.sep{border-top:1px solid #e2ddd0;margin:.4em 0}
+.f{display:block;margin:.35em 0;font-size:.9em;color:#6e6c60}
+.f i{display:block;font-style:normal;border:1px solid #cfc8b6;border-radius:.45em;padding:.3em .55em;background:#fff;color:#2a2a23;margin-top:.15em}
+.chips span{display:inline-block;border:1px solid #cfc8b6;border-radius:1em;padding:.05em .6em;margin:.15em .15em 0 0;font-size:.88em;background:#fff}
+.chips span.sel{background:#e7ead9;border-color:#9aa77a}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:.6em}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;margin-top:16px;max-width:58em;box-sizing:border-box}
+.legend b{color:#47532a}
+</style></head><body>
+<h1>시안: 처음 쓰는 사람 — 연결 안내 · 담당 조직 추가 · 메뉴 정리</h1>
+<p class="note">폰 412 폭 기준(폴드 펼침 760은 아래 ⑥). 조직 이름은 예시. <b style="color:#b8663a">주황 테두리</b>가 새로 생기는 것, <span class="gone">줄 그은 것</span>이 빠지는 것. 운영자(명진) 계정은 자료·연결이 있어 이 안내 칸이 그려지지 않고, 메뉴는 원장만 빠진다(명진 결정).</p>
+
+<div class="row">
+<div class="ph">
+<div class="cap">① 홈 — 연결 안 된 사람 <small>빨간 오류 대신 할 일 한 줄 + 버튼</small></div>
+<div class="scr">
+<div class="top"><b>11월 13일 금요일</b><span><span class="btn">하루</span> <span class="btn">주간 정리</span></span></div>
+<div class="card new"><div class="h">그날 일정<small>달력 ›</small></div>
+<div class="hint">구글 캘린더를 연결하면 그날 일정이 여기 보여요.<span class="btn go">구글 캘린더 연결</span></div></div>
+<div class="card new"><div class="h">할 일<small>할 일 ›</small></div>
+<div class="hint">구글 할 일을 연결하면 마감 있는 일이 여기 보여요.<span class="btn go">연결</span></div></div>
+<div class="card"><div class="h">오늘 한 일</div><div class="hint" style="color:#a9a493">오늘 한 일을 한 줄로 남겨 보세요</div></div>
+<div class="card" style="font-size:.85em;color:#6e6c60">지금: <span class="err gone">일정을 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요. [다시]</span> → 진짜 서버 오류일 때만 남김</div>
+<div class="bar"><span class="on">홈</span><span class="new">노트</span><span>일정</span><span>조직 보고</span><span>사업 보고</span><span>메뉴</span></div>
+</div>
+</div>
+
+<div class="ph">
+<div class="cap">② 조직 보고 — 아직 조직이 없을 때 <small>지금은 '없음'만, 넣을 길 없음</small></div>
+<div class="scr">
+<div class="top"><b>조직 보고</b><span><span class="btn new">+ 담당조직</span> <span style="color:#6e6c60">⋯</span></span></div>
+<div class="card new"><div class="hint" style="display:block">담당하는 조직(지부·지회·분회 등)을 넣으면 조직별 업데이트와 보고가 한곳에 모여요.<div style="margin-top:.5em"><span class="btn go">+ 담당 조직 추가</span></div></div></div>
+<div class="card"><div class="h" style="font-weight:400">참고 묶음<small>›</small></div></div>
+<div style="height:7.2em"></div>
+<div class="bar"><span>홈</span><span>노트</span><span>일정</span><span class="on">조직 보고</span><span>사업 보고</span><span>메뉴</span></div>
+</div>
+</div>
+
+<div class="ph">
+<div class="cap">③ [+ 담당 조직 추가] 창 <small>있는 창(조직 이름·줄임말·종류·메모) 그대로</small></div>
+<div class="scr">
+<div class="sheet">
+<div class="h">담당 조직 추가<small>✕</small></div>
+<label class="f">조직 이름<i>예시 가지부</i></label>
+<label class="f">줄임말 (쉼표로 여러 개)<i>가지부, 가지</i></label>
+<div class="f">종류 <span class="chips new"><span class="sel">지부</span><span>지회</span><span>분회</span><span>+ 직접 입력</span></span><br><small>처음엔 직접 입력, 다음부터 내가 쓴 종류를 고르기로</small></div>
+<label class="f">메모 (선택)<i style="color:#a9a493">교섭 대상, 위원장 연락 등</i></label>
+<div style="text-align:right;margin-top:.5em"><span class="btn go">저장</span></div>
+</div>
+<div class="card" style="margin-top:.6em;font-size:.88em"><b>조직 줄 ⋯</b> → [수정] [담당 조직에서 제외]<br><span style="color:#6e6c60">제외해도 지난 기록은 남고, 고르기 창·목록에서만 빠짐. 프로필 '담당 조직'에서 [담당 조직으로 추가]로 되돌림.</span></div>
+</div>
+</div>
+</div>
+
+<div class="row">
+<div class="ph">
+<div class="cap">④ 메뉴 판 — 운영자 기능이 없는 계정 <small>숨김이 아니라 목록에서 뺌</small></div>
+<div class="scr">
+<div class="sheet">
+<div class="btn" style="display:block;color:#a9a493;margin-bottom:.5em">⌕ 전체 검색</div>
+<div class="grid">
+<div class="new">잊지 말기</div><div>자료실</div>
+<div class="gone">파일</div><div>HWP 편집</div>
+<div>공유 페이지</div><div class="gone">원장</div>
+<div>사진</div><div class="gone">News</div>
+</div>
+<div class="sep"></div>
+<div class="grid"><div class="gone">통화</div><div class="gone">텔레그램 소식</div><div class="gone">아스날</div></div>
+<div class="sep"></div>
+<div style="font-size:.88em">내 프로필 · 업데이트 기록 · 메뉴 수정 · 화면 색 <span style="float:right;color:#a3402f">로그아웃</span></div>
+</div>
+<div class="bar"><span>홈</span><span class="new">노트</span><span>일정</span><span>조직 보고</span><span>사업 보고</span><span class="on">메뉴</span></div>
+</div>
+<p class="note" style="margin-top:6px">하단바 기본값만 바뀜: 홈·노트·일정·조직 보고·사업 보고(잊지 말기는 메뉴 판 맨 앞으로). 메뉴 순서를 저장해 둔 사람(명진)은 그대로.</p>
+</div>
+
+<div class="ph">
+<div class="cap">⑤ 내 프로필 — 보고 캘린더·수집 칸 <small>'보고 설정' 글 상자 → 고르기</small></div>
+<div class="scr">
+<div class="card new"><div class="h">보고 캘린더</div>
+<div class="hint" style="display:block">주간 정리·업무일지가 일정을 가져올 캘린더예요.
+<div class="chips" style="margin-top:.3em"><span class="sel">✓ 내 캘린더</span><span>팀 일정</span><span>+ 더 고르기</span></div></div></div>
+<div class="card"><div class="h">담당 조직</div><div class="hint">묶음·순서, 담당 조직에서 제외한 조직<span class="btn">열기</span></div></div>
+<div class="card"><div class="h">폰 알림</div><div class="chips"><span class="sel">할 일 기한</span><span>원장 약속</span><span>회의 요약</span><span class="gone">수집 멈춤</span><span class="gone">아침 묶음</span><span class="gone">저녁 묶음</span></div></div>
+<div class="card" style="color:#a9a493"><div class="h gone">수집·사용량</div><span style="font-size:.88em">운영자 계정에만(통화·텔레그램 수집 상태)</span></div>
+</div>
+</div>
+</div>
+
+<div class="fold">
+<div class="cap">⑥ 폴드 펼침 760 — 홈 두 칸 <small>배치는 지금 그대로, 안내 칸만 바뀜. PC는 같은 칸이 넓게, 왼쪽 메뉴에 ④와 같은 목록</small></div>
+<div class="scr">
+<div class="top"><b>11월 13일 금요일</b><span><span class="btn">하루</span> <span class="btn">주간 정리</span></span></div>
+<div class="cols">
+<div>
+<div class="card new"><div class="h">그날 일정<small>달력 ›</small></div><div class="hint">구글 캘린더를 연결하면 그날 일정이 여기 보여요.<span class="btn go">구글 캘린더 연결</span></div></div>
+<div class="card new"><div class="h">할 일<small>할 일 ›</small></div><div class="hint">구글 할 일을 연결하면 마감 있는 일이 여기 보여요.<span class="btn go">연결</span></div></div>
+</div>
+<div>
+<div class="card"><div class="h">오늘 한 일</div><div class="hint" style="color:#a9a493">오늘 한 일을 한 줄로 남겨 보세요</div></div>
+<div class="card new"><div class="h">주간 정리</div><div style="font-size:.9em;line-height:1.7">1. 요청사항 <span style="color:#a9a493">없음</span><br>2. 주요 일정 <span style="color:#a9a493">없음</span><br>3. 사업 <span style="color:#a9a493">없음</span></div><div class="hint" style="margin-top:.3em;font-size:.85em">내 주간보고 양식(한글 파일)을 올리면 그 모양으로 바뀌어요.<span class="btn">양식 올리기</span></div></div>
+</div>
+</div>
+<div class="bar"><span class="on">홈</span><span>노트</span><span>일정</span><span>조직 보고</span><span>사업 보고</span><span>메뉴</span></div>
+</div>
+</div>
+
+<div class="legend">
+<b>명진 결정(11/13 16:25)</b> 안내 말투 좋음 · 원장 메뉴는 모든 계정에서 뺌(명진 포함, 원장 화면·기록은 그대로 — 업무일지·검색에서 열림) · 주간 정리는 양식 전 기본 3칸<br>
+<b>순서</b> 조직 추가(②③) → 홈 연결 안내(①⑥) → 아스날·News 서버 허용 표 → 메뉴 정리(④) → 프로필(⑤) → 주간 정리·빈 화면 글. 설계: docs/design/new-user-start.md
+</div>
+</body></html>

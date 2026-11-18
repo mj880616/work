@@ -251,10 +251,11 @@ test('unsaved editor asks before leaving and Back closes it first', async ({page
   await page.locator('[data-sp-close]').click();
   await answerAsk(page, false);
   await expect(page.locator('[data-sp-editor]')).toBeVisible();
-  // 작은 확인창이 자기 기록 칸을 걷어 낸 뒤에 뒤로가기(뒤로가기는 화면이 그 자리에서 정해야 해서 기본 확인창으로 묻는다).
+  // 작은 확인창이 자기 기록 칸을 걷어 낸 뒤에 뒤로가기. UI-알림창정리(S61-31): 뒤로가기도 공용 작은 확인창으로 묻는다(기본 확인창 없음).
   await expect.poll(() => page.evaluate(() => !history.state?.kptuAsk)).toBe(true);
-  page.once('dialog', d => d.accept());
+  page.on('dialog', d => { throw Error('unexpected dialog ' + d.message()); });
   await page.goBack();
+  expect(await answerAsk(page, true)).toBe('저장하지 않은 내용이 있어요. 저장하지 않고 목록으로 돌아갈까요?');
   await expect(page.locator('[data-sp-editor]')).toBeHidden();
   await expect(page.locator('#pagesView')).toBeVisible();
   expect(state.pages).toEqual([]);

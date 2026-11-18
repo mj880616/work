@@ -11,12 +11,12 @@ async function open(page,width=1280){
 
 test('⑤ PC 1280: 브라우저 탭 제목은 지금 화면 이름',async({page})=>{
  const errors=await open(page);
- await expect(page).toHaveTitle('홈 · 웹2');
- await nav(page).getByRole('link',{name:'사업 보고',exact:true}).click();await expect(page.locator('#meetingsView')).toBeVisible();
- await expect(page).toHaveTitle('사업 보고 · 웹2');
+ await expect(page).toHaveTitle('홈 · 노동조합+');
+ await nav(page).getByRole('link',{name:'사업 관리',exact:true}).click();await expect(page.locator('#meetingsView')).toBeVisible();
+ await expect(page).toHaveTitle('사업 관리 · 노동조합+');
  await nav(page).getByRole('link',{name:'할 일',exact:true}).click();await expect(page.locator('#tasksView')).toBeVisible();
- await expect(page).toHaveTitle('할 일 · 웹2');
- await page.goBack();await expect(page.locator('#meetingsView')).toBeVisible();await expect(page).toHaveTitle('사업 보고 · 웹2');
+ await expect(page).toHaveTitle('할 일 · 노동조합+');
+ await page.goBack();await expect(page.locator('#meetingsView')).toBeVisible();await expect(page).toHaveTitle('사업 관리 · 노동조합+');
  expect(errors).toEqual([]);
 });
 
@@ -25,7 +25,7 @@ test('⑤ PC 1280: 왼쪽 메뉴 줄은 화면 주소 링크 — 그냥 누르�
  const hrefs=await nav(page).locator(':is(.nav-btn,.nav-sub-btn):not([data-quick-links])').evaluateAll(els=>els.map(el=>[el.tagName,el.getAttribute('href')]));
  expect(hrefs.length).toBeGreaterThan(10);
  for(const [tag,href] of hrefs){expect(tag).toBe('A');expect(href).toMatch(/^\.\/(\?view=[a-z]+(&pane=note)?)?$/);}
- await expect(nav(page).getByRole('link',{name:'사업 보고',exact:true})).toHaveAttribute('href','./?view=reports');
+ await expect(nav(page).getByRole('link',{name:'사업 관리',exact:true})).toHaveAttribute('href','./?view=reports');
  await expect(nav(page).getByRole('link',{name:'노트',exact:true})).toHaveAttribute('href','./?view=basket&pane=note');
  // 그냥 누르기: 같은 탭에서 화면만 바뀐다(페이지를 새로 읽지 않음).
  await page.evaluate(()=>{window.__samePage=1});
@@ -33,7 +33,7 @@ test('⑤ PC 1280: 왼쪽 메뉴 줄은 화면 주소 링크 — 그냥 누르�
  await expect(page.locator('#libraryView')).toBeVisible();await expect(page).toHaveURL(/view=library/);
  expect(await page.evaluate(()=>window.__samePage)).toBe(1);
  // Ctrl+누르기: 새 탭에 그 화면 주소, 이 탭은 자료실 그대로.
- const [tab]=await Promise.all([context.waitForEvent('page'),nav(page).getByRole('link',{name:'사업 보고',exact:true}).click({modifiers:['ControlOrMeta']})]);
+ const [tab]=await Promise.all([context.waitForEvent('page'),nav(page).getByRole('link',{name:'사업 관리',exact:true}).click({modifiers:['ControlOrMeta']})]);
  await expect.poll(()=>tab.url()).toMatch(/view=reports/);
  await tab.close();
  await expect(page.locator('#libraryView')).toBeVisible();await expect(page).toHaveURL(/view=library/);
@@ -106,7 +106,7 @@ test('② PC 1280: 목록 ↑↓는 위·아래 줄로, role="button" 줄의 Ent
 
 test('폰 412: 탭 제목만 바뀌고 하단 탭·메뉴 판은 단추 그대로',async({page})=>{
  const errors=await open(page,412);
- await expect(page).toHaveTitle('홈 · 웹2');
+ await expect(page).toHaveTitle('홈 · 노동조합+');
  await expect(page.locator('.mobile-tabs button[data-view="meetings"]')).toBeVisible();
  await expect(page.locator('[data-skip-main]')).not.toBeInViewport();
  expect(errors).toEqual([]);

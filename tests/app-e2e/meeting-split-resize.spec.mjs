@@ -27,7 +27,7 @@ async function open(page,width,options={}){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   prefs=await installViewPrefsServer(page,options.initial??null,options);
   await mockApp(page,columnState());
-  await signIn(page,testOrigin+'/app/?view=meetings');
+  await signIn(page,testOrigin+'/app/?view=meetings&chip=meeting');
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   // MTG-프로젝트합치기 3단계: 가짜 보고가 여러 주에 걸쳐 있어(종류 둘을 다 보려고) [전체]로 모든 주를 본다.
   await showAllReportWeeks(page);
@@ -148,7 +148,7 @@ test('서버 값을 읽거나 저장하지 못해도 기본으로 그리고 끌�
 // FOLD-넓은화면 2차(S59-19): 3단(종류 | 차수 | 결과)은 PC 1200px~, 펼친 폴드(600~1199px)는 '날짜·이름 목록 | 결과' 2단이라 경계선 하나.
 test('폰에는 3단 경계선이 없고, 폴드 펼침은 2단 경계선 하나, PC(1200px~)로 넓히면 3단 경계선 둘',async({page})=>{
  await page.setViewportSize({width:599,height:800});
- await mockApp(page,columnState());await signIn(page,testOrigin+'/app/?view=meetings');
+ await mockApp(page,columnState());await signIn(page,testOrigin+'/app/?view=meetings&chip=meeting');
  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
  await showReportsOf(page);
  await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();

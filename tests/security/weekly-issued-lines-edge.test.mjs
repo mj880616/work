@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../../scripts/weekly-hwpx/cli.mjs';
 import {makeFakeReport} from '../../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx} from '../../app/weekly-hwpx/hwpx.mjs';
-import {prepareConfirmed, openConfirmed, startDraft, editableRows, assembleDraft, buildHwpx, issuedFrom} from '../../app/weekly-hwpx/draft.mjs';
+import {prepareConfirmed, openConfirmed, startDraft, editableRows, assembleDraft, buildHwpx, issuedFrom, FIXTURE_PROFILE} from '../fixtures/weekly-engine.mjs';
 import {weeklyLines, sectionXmlText, squashLine} from '../../app/weekly-lines.mjs';
 import {hwpxSectionText, hwpxText} from '../../supabase/functions/_shared/document-text.ts';
 
@@ -33,7 +33,7 @@ test('앱이 내준 .hwpx 를 서버가 읽는 길(hwpxText → weeklyLines)로 
   const rows = editableRows(base, '가짜담당 갑');
   const bytes = await buildHwpx(template, assembleDraft(base, {summary: new Map([[rows[0].index, ['- 가짜 진행 하나 완료', '- 새로 쓴 가짜 줄']]])}));
   const issued = await issuedFrom(bytes, '2026-01-05T09:00:00+09:00');
-  const serverLines = weeklyLines(await hwpxText(bytes));
+  const serverLines = weeklyLines(await hwpxText(bytes), FIXTURE_PROFILE); // ⑤-3c: 서버 길도 같은 '내 양식' profile
   assert.ok(serverLines.length > 5);
   assert.deepEqual(serverLines.map(l => [l.section, squashLine(l.text)]), issued.lines.map(l => [l.section, squashLine(l.text)]));
 });

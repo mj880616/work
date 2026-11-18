@@ -12,12 +12,12 @@ const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000
 const RAW='10/20 합성 기자회견 준비 회의\n장소: 합성 본사 앞\n참석 30명';
 const AI_TEXT='합성 한빛지부는 10/20 합성 본사 앞 기자회견에 30명이 참석하기로 했다. 준비 회의에서 장소를 정했다.';
 // 홈 화면이 스스로 보내는 AI 부탁 종류(읽을 만한 글·챙길 것·업무 가르기). 이 파일의 시험 대상이 아니다.
-const HOME_BACKGROUND_ASKS=['home_day_picks','todo_radar','work_scope'];
+const HOME_BACKGROUND_ASKS=['home_day_picks','todo_radar','work_scope','journal_memorable']; // journal_memorable: 홈을 열 때 오늘 소식 고르기(forget-news-data.js pickTodayNews, PERF-첫로딩 ③ 뒤 첫 화면 뒤에 끝날 수 있음)
 // Errors the browser itself logs for a mocked 4xx/5xx or an aborted request are not page errors.
 const resourceNoise=text=>/Failed to load resource|net::ERR_FAILED/.test(text);
 
 async function fixture(page,{note:over={}}={}){
- await openHome(page);const errors=[],calls=[],ai=[],note={id:n,workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:RAW,ai_export_allowed:true,archived_at:null,attachments:[],...over};
+ await openHome(page,{features:[]}); /* MULTI-처음쓰는사람 ④: 운영자 기능 없는 계정(운영자 홈은 잊지 말기 소식 AI를 부른다) */const errors=[],calls=[],ai=[],note={id:n,workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:RAW,ai_export_allowed:true,archived_at:null,attachments:[],...over};
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!resourceNoise(e.text()))errors.push(e.text());});
  const links=[];
  const tables={app_notes:[note],app_suborganizations:[{id:o,workspace_id:'w',name:'합성 한빛지부',active:true}],app_suborganization_assignees:[{organization_id:o,user_id:'home-test'}],app_spaces:[{id:p,workspace_id:'w',owner_id:'home-test',name:'합성 기자회견 준비',status:'active',metadata:{project_system:'v2'}}],app_suborganization_updates:[]};

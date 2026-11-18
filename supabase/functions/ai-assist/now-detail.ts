@@ -26,8 +26,8 @@ import {
   aiRequestBody, basicMaterial, basicRow, cleanContext, cleanCore, confirmedTopics, contextMaterial, contextPatch, cut, detailBody,
   detailMaterial, detailUpsertBody, type DetailDeps, type DetailItem, fallbackRow, fullRow, interestsKey, isNoContentSummary,
   itemHasMaterial, len, loadItem, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_OUT, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS, NOW_CONTEXT_OUT,
-  NOW_CONTEXT_SCHEMA, NOW_DETAIL_FIELDS, NOW_DETAIL_INSTRUCTIONS, NOW_DETAIL_OUT, NOW_DETAIL_SCHEMA, oneLine, parseAnswer, readOptional,
-  readRows, relatedCandidates, squash, workNames, detailConflictColumn,
+  NOW_CONTEXT_SCHEMA, NOW_DETAIL_INSTRUCTIONS, NOW_DETAIL_OUT, NOW_DETAIL_SCHEMA, oneLine, parseAnswer, readOptional,
+  readRows, relatedCandidates, squash, workNames, detailConflictColumn, detailTable, NOW_SHARED_DETAIL_FIELDS, sharedDetailUpsertBody,
 } from "../_shared/now-detail-build.ts";
 
 // 예전 이 파일에서 내보내던 이름(시험·화면 모델이 씀) — 공용 모듈의 것을 그대로 다시 내보낸다(복사 아님).
@@ -52,6 +52,11 @@ const SERVICE_TABLES = Object.freeze({
   app_now_details: ["POST", "PATCH"],
   app_now_interests: ["POST", "PATCH"],
   app_now_signals: ["DELETE"],
+  // NEWS-모두에게열기 E3: 사람별 새 표(공용 글 id). 옛 표 셋은 옮기는 동안 함께 적고, C1에서 뺀다.
+  app_news_now_details: ["POST", "PATCH"],
+  app_outside_now_details: ["POST", "PATCH"],
+  app_news_now_signals: ["DELETE"],
+  app_outside_now_signals: ["DELETE"],
 } as Record<string, string[]>);
 
 export type NowInput =
@@ -147,9 +152,14 @@ function detailOut(row: Record<string, unknown>, stale = false) {
   };
 }
 
+// 오늘 만든 상세 수: 사람별 새 표 둘(뉴스·사회운동)을 더한다(옛 표는 옮기는 동안 같은 줄을 한 번 더 적을 뿐이라 세지 않음).
 async function todayCount(kit: NowKit, startIso: string): Promise<number> {
-  const rows = await readRows(kit, `app_now_details?workspace_id=eq.${kit.ctx.workspaceId}&or=${encodeURIComponent(`(generated_at.gte.${startIso},context_at.gte.${startIso})`)}&select=id&limit=${NOW_DETAIL_DAILY + 1}`);
-  return rows.length;
+  const when = encodeURIComponent(`(generated_at.gte.${startIso},context_at.gte.${startIso})`);
+  let n = 0;
+  for (const t of ["app_news_now_details", "app_outside_now_details"]) {
+    n += (await readRows(kit, `${t}?workspace_id=eq.${kit.ctx.workspaceId}&or=${when}&select=article_id&limit=${NOW_DETAIL_DAILY + 1}`)).length;
+  }
+  return n;
 }
 
 // AI 한 번(사용량을 부르기 전에 먼저 세고, 끝나면 토큰을 더한다 — 다른 쓰임과 같은 길). 한도에 걸리면 null.
@@ -161,7 +171,7 @@ async function askAi(kit: NowKit, kind: string, name: string, instructions: stri
     budget = await kit.budget(kind, config.price);
   } catch (e) {
     const code = kit.failCode(e);
-    if (code === "monthly_limit" || code === "daily_limit") return "limit";
+    if (code === "monthly_limit" || code === "daily_limit" || code === "ai_monthly_cap") return "limit";
     throw e;
   }
   try {
@@ -182,9 +192,16 @@ async function askAi(kit: NowKit, kind: string, name: string, instructions: stri
   return parseAnswer(result.raw);
 }
 
+// 저장: 사람별 새 표(이 작업공간 + 공용 글 id). 옮기는 동안 이 작업공간에 같은 글 옛 줄이 있으면 옛 표에도 같은 줄(실패는 로그만).
 async function saveDetail(kit: NowKit, item: DetailItem, row: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const saved = await svc(kit, "POST", "app_now_details", `on_conflict=${detailConflictColumn(item)}&select=${NOW_DETAIL_FIELDS}`,
-    detailUpsertBody(kit.ctx.workspaceId, item, row), "resolution=merge-duplicates,return=representation");
+  const saved = await svc(kit, "POST", detailTable(item), `on_conflict=workspace_id,article_id&select=${NOW_SHARED_DETAIL_FIELDS}`,
+    sharedDetailUpsertBody(kit.ctx.workspaceId, item, row), "resolution=merge-duplicates,return=representation");
+  if (item.oldId) {
+    try {
+      await svc(kit, "POST", "app_now_details", `on_conflict=${detailConflictColumn(item)}`,
+        detailUpsertBody(kit.ctx.workspaceId, { type: item.type, id: item.oldId }, row), "resolution=merge-duplicates,return=minimal");
+    } catch { kit.ctx.log("now_old_write_failed"); }
+  }
   return saved[0] ?? row;
 }
 
@@ -192,10 +209,10 @@ export async function runNowDetail(kit: NowKit, input: Extract<NowInput, { kind:
   const deps = nowDeps(kit);
   const ws = kit.ctx.workspaceId, nowMs = kit.now(), nowIso = new Date(nowMs).toISOString();
   const item = await loadItem(deps, input.item);
-  const col = detailConflictColumn(item);
+  const table = detailTable(item);
   let existing: Record<string, unknown> | null = null;
   try {
-    const rows = await readRows(kit, `app_now_details?workspace_id=eq.${ws}&${col}=eq.${item.id}&select=${NOW_DETAIL_FIELDS}&limit=1`);
+    const rows = await readRows(kit, `${table}?workspace_id=eq.${ws}&article_id=eq.${item.id}&select=${NOW_SHARED_DETAIL_FIELDS}&limit=1`);
     existing = rows[0] ?? null;
   } catch (e) {
     // 상세 표가 아직 없으면(DB 적용 전) 404 → now_not_ready.
@@ -225,8 +242,12 @@ export async function runNowDetail(kit: NowKit, input: Extract<NowInput, { kind:
     if (answer === "limit") return detailOut(existing, true);
     if (!answer) { kit.ctx.log("ai_invalid_response"); throw kit.fail(502, "ai_invalid_response"); }
     const ctx = cleanContext(answer, [...topics, ...work], candidates);
-    const saved = await svc(kit, "PATCH", "app_now_details", `workspace_id=eq.${ws}&id=eq.${existing.id}&select=${NOW_DETAIL_FIELDS}`,
-      contextPatch(ctx, key, nowIso));
+    const patch = contextPatch(ctx, key, nowIso);
+    const saved = await svc(kit, "PATCH", table, `workspace_id=eq.${ws}&article_id=eq.${item.id}&select=${NOW_SHARED_DETAIL_FIELDS}`, patch);
+    if (item.oldId) {
+      try { await svc(kit, "PATCH", "app_now_details", `workspace_id=eq.${ws}&${detailConflictColumn(item)}=eq.${item.oldId}`, patch, "return=minimal"); }
+      catch { kit.ctx.log("now_old_write_failed"); }
+    }
     kit.ctx.log("now_detail_context", { related: ctx.related.length });
     return detailOut(saved[0] ?? { ...existing, ...ctx });
   }
@@ -299,9 +320,14 @@ export function cleanCandidates(v: Record<string, unknown> | null, existing: str
 
 export async function runNowInterests(kit: NowKit) {
   const ws = kit.ctx.workspaceId, nowMs = kit.now(), nowIso = new Date(nowMs).toISOString();
+  // NEWS-모두에게열기 E3: 반응 기록은 사람별 새 표 둘(공용 글 id). 화면이 옛 표에 한 번 더 적는 줄은 세지 않는다.
   let signals: Record<string, unknown>[], interests: Record<string, unknown>[];
   try {
-    signals = await readRows(kit, `app_now_signals?workspace_id=eq.${ws}&created_at=gte.${encodeURIComponent(new Date(nowMs - NOW_SIGNAL_DAYS * DAY_MS).toISOString())}&select=outside_post_id,news_item_id,action,created_at&order=created_at.desc&limit=500`);
+    const since = encodeURIComponent(new Date(nowMs - NOW_SIGNAL_DAYS * DAY_MS).toISOString());
+    const read = async (table: string, tag: "o" | "n") => (await readRows(kit, `${table}?workspace_id=eq.${ws}&created_at=gte.${since}&select=article_id,action,created_at&order=created_at.desc&limit=500`))
+      .map((r): Record<string, unknown> => ({ ...r, tag }));
+    signals = [...await read("app_outside_now_signals", "o"), ...await read("app_news_now_signals", "n")]
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 500);
     interests = await readRows(kit, `app_now_interests?workspace_id=eq.${ws}&select=id,topic,state,origin,created_at,updated_at&limit=200`);
   } catch {
     throw kit.fail(503, "read_unavailable");
@@ -311,10 +337,10 @@ export async function runNowInterests(kit: NowKit) {
   const fresh = signals.filter((s) => !lastAi || Date.parse(String(s.created_at)) > Date.parse(lastAi)).length;
   if (!interestsDue(fresh, lastAi, nowMs)) return { ok: true, kind: "now_interests", ran: false, added: 0 };
 
-  // 기록이 붙은 글의 제목·종류·단체만(본문·메모 내용 없음).
+  // 기록이 붙은 글의 제목·종류·단체만(본문·메모 내용 없음). 글은 공용 표에서(읽기 정책 그대로).
   const acts = new Map<string, Record<string, number>>();
   for (const s of signals) {
-    const k = typeof s.outside_post_id === "string" ? `o:${s.outside_post_id}` : typeof s.news_item_id === "string" ? `n:${s.news_item_id}` : "";
+    const k = typeof s.article_id === "string" && UUID.test(s.article_id) ? `${s.tag}:${s.article_id.toLowerCase()}` : "";
     const a = String(s.action ?? "");
     if (!k || !ACTION_KO[a]) continue;
     const m = acts.get(k) ?? {};
@@ -322,17 +348,17 @@ export async function runNowInterests(kit: NowKit) {
     acts.set(k, m);
   }
   const keys = [...acts.keys()].slice(0, 60);
-  const postIds = keys.filter((k) => k.startsWith("o:")).map((k) => k.slice(2)).filter((v) => UUID.test(v));
-  const newsIds = keys.filter((k) => k.startsWith("n:")).map((k) => k.slice(2)).filter((v) => UUID.test(v));
+  const postIds = keys.filter((k) => k.startsWith("o:")).map((k) => k.slice(2));
+  const newsIds = keys.filter((k) => k.startsWith("n:")).map((k) => k.slice(2));
   const items: { title: string; kind: string; source: string; actions: string }[] = [];
   const describe = (m: Record<string, number>) => Object.entries(m).map(([a, n]) => `${ACTION_KO[a]} ${n}`).join("·");
   if (postIds.length) {
-    for (const p of await readOptional(nowDeps(kit), `app_outside_posts?workspace_id=eq.${ws}&id=in.(${postIds.join(",")})&select=id,title,title_ko,kind,source_key&limit=${postIds.length}`, "signal_posts")) {
+    for (const p of await readOptional(nowDeps(kit), `app_outside_articles?id=in.(${postIds.join(",")})&select=id,title,title_ko,kind,source_key&limit=${postIds.length}`, "signal_posts")) {
       items.push({ title: cut(oneLine(p.title_ko || p.title), 200), kind: String(p.kind ?? ""), source: sourceByKey(p.source_key)?.name ?? "", actions: describe(acts.get(`o:${String(p.id).toLowerCase()}`) ?? {}) });
     }
   }
   if (newsIds.length) {
-    for (const n of await readOptional(nowDeps(kit), `app_news_items?workspace_id=eq.${ws}&id=in.(${newsIds.join(",")})&select=id,title,title_ko,publisher&limit=${newsIds.length}`, "signal_news")) {
+    for (const n of await readOptional(nowDeps(kit), `app_news_articles?id=in.(${newsIds.join(",")})&select=id,title,title_ko,publisher&limit=${newsIds.length}`, "signal_news")) {
       items.push({ title: cut(oneLine(n.title_ko || n.title), 200), kind: "news", source: cut(oneLine(n.publisher), 40), actions: describe(acts.get(`n:${String(n.id).toLowerCase()}`) ?? {}) });
     }
   }
@@ -355,11 +381,14 @@ export async function runNowInterests(kit: NowKit) {
   if (!added && aiRows.some((r) => r.state === "candidate")) {
     await svc(kit, "PATCH", "app_now_interests", `workspace_id=eq.${ws}&origin=eq.ai&state=eq.candidate`, { updated_at: nowIso }, "return=minimal");
   }
-  // 180일 지난 환류 기록 정리(내 작업공간만).
-  try {
-    await svc(kit, "DELETE", "app_now_signals", `workspace_id=eq.${ws}&created_at=lt.${encodeURIComponent(new Date(nowMs - NOW_SIGNAL_KEEP_DAYS * DAY_MS).toISOString())}`, undefined, "return=minimal");
-  } catch {
-    kit.ctx.log("now_signal_prune_failed");
+  // 180일 지난 환류 기록 정리(내 작업공간만). 새 표 둘 + 옮기는 동안 옛 표.
+  const cutoff = encodeURIComponent(new Date(nowMs - NOW_SIGNAL_KEEP_DAYS * DAY_MS).toISOString());
+  for (const t of ["app_outside_now_signals", "app_news_now_signals", "app_now_signals"]) {
+    try {
+      await svc(kit, "DELETE", t, `workspace_id=eq.${ws}&created_at=lt.${cutoff}`, undefined, "return=minimal");
+    } catch {
+      kit.ctx.log("now_signal_prune_failed");
+    }
   }
   kit.ctx.log("now_interests_done", { signals: usable.length, added });
   return { ok: true, kind: "now_interests", ran: true, added };

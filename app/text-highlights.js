@@ -1,6 +1,7 @@
 import {createNoteDoc} from './basket-data.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
+import {articleOf, knownArticleId} from './feed-shared.js';
 import {notify, askText, askConfirm} from './small-notice.js';
 import {highlightBody, edgesOf, markRanges, noteOf, copyOf, cleanMemo, draftOf, MEMO_MAX} from './text-highlights-model.mjs';
 // S53-5 NEWS-밑줄모으기(시안 docs/design/mockups/news-highlights.html ②·③): 밑줄 저장·읽기·메모·지우기·노트로 + 글 칸 위 노란 밑줄 칠하기.
@@ -24,6 +25,20 @@ const emit = () => { for (const fn of listeners) { try { fn(); } catch { /* 그�
 export const onHighlights = fn => { listeners.add(fn); return () => listeners.delete(fn); };
 const scopeNow = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
+// NEWS-모두에게열기 ③: 뉴스·사회운동 밑줄의 source_id가 옛 글 id면(옮기기 전에 그은 밑줄) 읽을 때 공용 글 id로 바꿔 이 탭 메모리에만 둔다
+// (서버 줄은 그대로 — 고치기는 메모만). 그래서 News 상세·[밑줄] 탭·노트 'News에서'가 모두 같은 공용 id로 밑줄을 찾는다(feed-shared.js 지도).
+async function toArticleIds(list) {
+  const out = Array.isArray(list) ? list : [];
+  for (const type of ['news', 'outside']) {
+    const ids = out.filter(h => h?.source_type === type).map(h => h.source_id);
+    if (!ids.length) continue;
+    let map = null;
+    try { map = await articleOf(type, ids); } catch { map = null; }
+    if (map) for (const h of out) if (h?.source_type === type && map.has(h.source_id)) h.source_id = map.get(h.source_id);
+  }
+  return out;
+}
+const withArticleId = h => (h && (h.source_type === 'news' || h.source_type === 'outside') ? {...h, source_id: knownArticleId(h.source_type, h.source_id)} : h);
 // 내 작업공간 밑줄 전부(새 것이 위, 500개까지). force면 다시 읽는다. 못 읽으면 throw(목록 칸이 [다시]).
 export function loadHighlights({force = false} = {}) {
   if (scope !== scopeNow()) { rows = null; scope = scopeNow(); loading = null; }
@@ -32,7 +47,8 @@ export function loadHighlights({force = false} = {}) {
   const w = workspaceOf(), my = scope;
   if (!w) return Promise.resolve([]);
   const p = rt().api(`/rest/v1/app_news_highlights?workspace_id=eq.${q(w)}&select=${HL_COLS}&order=created_at.desc&limit=${LIMIT}`, {singleFlight: false})
-    .then(r => { if (my === scope) { rows = Array.isArray(r) ? r : []; emit(); } return rows || []; })
+    .then(toArticleIds)
+    .then(r => { if (my === scope) { rows = r; emit(); } return rows || []; })
     .finally(() => { if (loading === p) loading = null; });
   loading = p;
   return p;
@@ -54,7 +70,7 @@ export async function addHighlight(source, quote, edges, memo = null) {
 }
 export async function setMemo(id, memo) {
   const saved = await rt().api(`/rest/v1/app_news_highlights?id=eq.${q(id)}&workspace_id=eq.${q(workspaceOf())}`, {method: 'PATCH', prefer: 'return=representation', body: {memo: cleanMemo(memo), updated_at: new Date().toISOString()}, singleFlight: false});
-  const row = Array.isArray(saved) ? saved[0] : null;
+  const row = withArticleId(Array.isArray(saved) ? saved[0] : null);
   if (!row?.id) throw Object.assign(new Error('gone'), {code: 'gone'});
   rows = (rows || []).map(h => (h.id === id ? row : h));
   emit();
@@ -105,7 +121,8 @@ export async function saveFromSelection(info) {
   notify('밑줄 저장함', {ms: 8000, label: '밑줄 저장', undo: async () => { await removeHighlight(row.id); },
     actions: [
       {label: '메모', run: ({close}) => { close(); const h = highlightById(row.id); if (h) void editMemo(h, null); }},
-      {label: '노트로도 보내기', run: ({close}) => { close(); const h = highlightById(row.id); if (h) void noteWithNotice([h]); }},
+      // 노트에서 저장한 밑줄(S62-17)은 이미 노트 안이라 [노트로도 보내기]가 없다.
+      ...(row.source_type === 'note' ? [] : [{label: '노트로도 보내기', run: ({close}) => { close(); const h = highlightById(row.id); if (h) void noteWithNotice([h]); }}]),
     ]});
   return row;
 }
@@ -155,15 +172,17 @@ const markMenu = createAnchoredMenu({id: 'hlMarkMenu', className: 'topline-add-m
   render: id => {
     const h = highlightById(id);
     if (!h) return '<p class="hl-menu-memo">이미 삭제한 밑줄이에요</p>';
-    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button><button type="button" class="row-act" data-hl-menu="note">노트로</button><button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
+    return `${h.memo ? `<p class="hl-menu-memo"><span class="hl-menu-k">메모</span>${esc(h.memo)}</p>` : ''}<button type="button" class="row-act" data-hl-menu="memo">${h.memo ? '메모 수정' : '메모 달기'}</button>${menuSource ? '<button type="button" class="row-act" data-hl-menu="source">원문에서 보기</button>' : ''}${h.source_type === 'note' ? '' : '<button type="button" class="row-act" data-hl-menu="note">노트로</button>'}<button type="button" class="row-act" data-hl-menu="copy">복사</button><button type="button" class="row-act" data-hl-menu="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const h = highlightById(active.id);
     if (!h) return;
     const a = button.dataset.hlMenu, at = active.trigger?.isConnected ? active.trigger : null;
-    if (a === 'memo') void editMemo(h, at); else if (a === 'note') void noteWithNotice([h]); else if (a === 'copy') void copyHighlight(h); else if (a === 'delete') void deleteHighlight(h, at);
+    if (a === 'source') menuSource?.(h); else if (a === 'memo') void editMemo(h, at); else if (a === 'note') void noteWithNotice([h]); else if (a === 'copy') void copyHighlight(h); else if (a === 'delete') void deleteHighlight(h, at);
   }});
-export const openMarkMenu = (trigger, opts) => markMenu.open(trigger, opts);
+// onSource(h): 밑줄 목록이 글 상세 밖(노트 'News에서 › 밑줄')에 있을 때만 [원문에서 보기]를 더한다(그 글 그 자리로). 글 칸 안 밑줄 메뉴는 없음.
+let menuSource = null;
+export const openMarkMenu = (trigger, {onSource = null, ...opts} = {}) => { menuSource = typeof onSource === 'function' ? onSource : null; return markMenu.open(trigger, opts); };
 export function bindMarks(container) {
   if (!container || container.dataset.hlMarksBound) return;
   container.dataset.hlMarksBound = '1';
@@ -173,12 +192,14 @@ export function bindMarks(container) {
     if (!mark || !container.contains(mark)) return;
     const sel = window.getSelection?.();
     if (sel && !sel.isCollapsed) return; // 글을 고르는 중이면 메뉴를 열지 않는다
+    menuSource = null;
     markMenu.open(first(mark));
   });
   container.addEventListener('keydown', e => {
     const mark = e.target.closest?.('mark.hl-mark');
     if (!mark || (e.key !== 'Enter' && e.key !== ' ')) return;
     e.preventDefault();
+    menuSource = null;
     markMenu.open(first(mark));
   });
 }
@@ -188,5 +209,8 @@ export function revealMark(zoneEl, id) {
   if (!m) return false;
   m.scrollIntoView({block: 'center', behavior: 'smooth'});
   m.focus?.({preventScroll: true});
+  // 잠깐 밝히기: 다른 화면에서 연 기록과 같은 공용 표시(base-ui.css [data-journal-flash], record-flash.js). 끝나면 노란 밑줄 그대로.
+  m.removeAttribute('data-journal-flash'); void m.offsetWidth; m.setAttribute('data-journal-flash', '');
+  m.addEventListener('animationend', () => m.removeAttribute('data-journal-flash'), {once: true});
   return true;
 }

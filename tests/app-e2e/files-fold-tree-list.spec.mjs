@@ -87,7 +87,7 @@ test('파일 폰 412: 그대로 한 칸(나무 화면 · 경계선 없음, 두 �
   await openFiles(page, 412);
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'tree');
   await expect(root(page).locator('[data-fx-cols]>.split-resize-handle')).toBeHidden();
-  await expect(root(page).locator('[data-fx-two]')).toHaveText('두 칸 보기');
+  await expect(root(page).locator('[data-fx-two]')).toHaveAttribute('aria-pressed', 'false');
   await expect(root(page).locator('[data-fx-pane-i="1"]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

@@ -2,7 +2,7 @@
 // 할 일 창과 같은 고르기 창(#areaOrgPickSheet) 하나로 열린다. 큰 묶음만 보이고 꺾쇠로 하위, 찾기, '사업영역 없음',
 // 줄을 누르면 바로 고르고 닫힘([넣기] 없음). 저장 값(links:[{project_id}])은 전과 같다.
 import { test, expect } from '@playwright/test';
-import { openHome, createdTaskReply } from './helpers/home-entry.mjs';
+import { openHome, createdTaskReply, pickQuickMode } from './helpers/home-entry.mjs';
 import { SHEET, pressName } from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
@@ -10,7 +10,7 @@ test.use({timezoneId:'Asia/Seoul'});
 
 for(const width of [390,1280])test(`빠른 입력 [할 일] 사업영역 = 같은 선택 창, 하나만 선택됨 ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await openHome(page);const q=quick(page);
-  await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-input]').fill('QA 하나');
+  await pickQuickMode(page,'task');await q.locator('[data-quick-input]').fill('QA 하나');
   const trigger=q.locator('[data-quick-project]');await trigger.click();
   const sheet=page.locator(SHEET);await expect(sheet).toBeVisible();await expect(sheet.locator('h2')).toHaveText('사업영역 선택');
   await expect(sheet).toHaveClass(width>=761?/home-choice-anchored/:/home-choice-sheet/);

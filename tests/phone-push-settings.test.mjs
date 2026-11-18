@@ -7,16 +7,29 @@ import {KINDS, KIND_KEYS, parsePrefs, serializePrefs, toggleKind, onCount, bridg
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const TOKEN = 'fcm_token-abcdefghijklmnop:1234567890';
 
-test('종류는 DB 검사 제약의 일곱 가지와 같다', () => {
-  assert.deepEqual(KIND_KEYS, ['task_due', 'commitment', 'meeting_done', 'collect_stall', 'morning', 'evening', 'next_week']);
+test('종류는 DB 검사 제약이 받는 키 안의 다섯 가지(다음 주 준비·원장 약속은 S62-27에서 뺐다)', () => {
+  assert.deepEqual(KIND_KEYS, ['task_due', 'meeting_done', 'collect_stall', 'morning', 'evening']);
   const sql = read('supabase/migrations/20261101010000_phone_push.sql');
   for (const k of KIND_KEYS) assert.match(sql, new RegExp(`@\\.key == "${k}"`));
-  assert.equal(KINDS.length, 7);
+  assert.equal(KINDS.length, 5);
+  assert.ok(!KINDS.some(([, label]) => /다음 주 준비|원장 약속/.test(label)));
+});
+
+// S62-27: 저장된 설정에 옛 키(next_week·commitment)가 남아 있어도 오류 없이 버리고, 다음 저장 값에는 넣지 않는다.
+test('옛 키 next_week·commitment는 읽을 때 버리고 저장 값에서도 빠진다', () => {
+  const p = parsePrefs({kinds: {task_due: false, next_week: false, commitment: true}});
+  assert.equal(p.kinds.task_due, false);
+  assert.equal('next_week' in p.kinds, false);
+  assert.equal('commitment' in p.kinds, false);
+  assert.equal(toggleKind(p, 'next_week'), p);
+  assert.equal(toggleKind(p, 'commitment'), p);
+  const saved = serializePrefs(p);
+  assert.deepEqual(Object.keys(saved.kinds), KIND_KEYS);
 });
 
 test('비어 있으면 기본(전부 켬, 22:00~07:00), 모르는 칸은 버린다', () => {
   const p = parsePrefs(null);
-  assert.equal(onCount(p), 7);
+  assert.equal(onCount(p), 5);
   assert.deepEqual(p.quiet, {from: '22:00', to: '07:00'});
   const q = parsePrefs({kinds: {morning: false, nope: true, evening: 'x'}, quiet: {from: '23:30', to: '06:00'}, other: 1});
   assert.equal(q.kinds.morning, false);
@@ -26,7 +39,7 @@ test('비어 있으면 기본(전부 켬, 22:00~07:00), 모르는 칸은 버린�
   assert.deepEqual(parsePrefs({quiet: {from: '25:00', to: '06:00'}}).quiet, {from: '22:00', to: '07:00'});
 });
 
-test('저장 값은 검사 제약 모양(kinds 일곱 개 + quiet from·to)만, 시간이 틀리면 저장하지 않는다', () => {
+test('저장 값은 검사 제약 모양(kinds 다섯 개 + quiet from·to)만, 시간이 틀리면 저장하지 않는다', () => {
   const saved = serializePrefs(toggleKind(parsePrefs(null), 'collect_stall'));
   assert.deepEqual(Object.keys(saved), ['kinds', 'quiet']);
   assert.deepEqual(Object.keys(saved.kinds), KIND_KEYS);
@@ -129,7 +142,14 @@ test('FAMILY-잊지말기: 잊지 말기 종류는 기본 켬이라 저장 값�
   assert.deepEqual(Object.keys(serializePrefs(off).kinds), [...KIND_KEYS, 'family']);
   assert.equal(parsePrefs(serializePrefs(off)).family, false);
   assert.equal(toggleKind(off, 'family').family, true);
-  assert.equal(onCount(off), 7, '일곱 종류 수는 그대로');
+  assert.equal(onCount(off), 5, '기본 다섯 종류 수는 그대로');
   const sql = read('supabase/migrations/20261105120000_family_push_kind.sql');
   assert.match(sql, /@\.key == "family"/);
+});
+
+// MULTI-처음쓰는사람 ⑤: 운영자(통화·텔레그램 수집) 계정에만 보이는 종류 셋. 저장 모양(KIND_KEYS)은 그대로.
+test('운영자 알림 종류는 수집 멈춤·아침 묶음·저녁 묶음이고 모두 아는 종류다', async () => {
+  const {COLLECT_KINDS} = await import('../app/phone-push-model.mjs');
+  assert.deepEqual([...COLLECT_KINDS].sort(), ['collect_stall', 'evening', 'morning']);
+  for (const k of COLLECT_KINDS) assert.ok(KIND_KEYS.includes(k));
 });

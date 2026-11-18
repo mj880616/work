@@ -1,0 +1,130 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안: 브리핑 룸 — 긴 자료를 넣으면 담당자가 알아야 할 최소한만 (BRIEF-브리핑룸)</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;padding:12px;background:#f3f1ea;font-family:"Noto Sans KR",system-ui,sans-serif;color:#2a2a23}
+h1{font-size:15px;margin:0 0 4px}
+.note{font-size:12px;color:#6e6c60;line-height:1.55;margin:0 0 10px;max-width:58em}
+.cap{font-size:13px;font-weight:700;margin:18px 0 6px}
+.cap small{font-weight:400;color:#6e6c60}
+.ph{font-size:min(13px,calc((100vw - 24px) / 31.7))}
+.fd{font-size:min(13px,calc((100vw - 24px) / 58))}
+.scr{box-sizing:border-box;width:31.7em;background:#fffefa;border:1px solid #cfc8b6;border-radius:1em;line-height:1.45;padding:.7em .9em .8em;margin-bottom:.6em;position:relative}
+.wide{width:58em;display:grid;grid-template-columns:22em 1fr;gap:0;padding:0}
+.wide>div{padding:.7em .9em .8em}
+.wide>div+div{border-left:1px solid #e2ddd0}
+.bar{display:flex;align-items:center;gap:.4em;margin:0 0 .45em;font-size:.95em}
+.bar b{font-size:1.05em}
+.bar .sp{margin-left:auto}
+.btn{border:1px solid #cfc8b6;border-radius:.45em;padding:.1em .55em;font-size:.88em;color:#2a2a23;background:#fffefa;white-space:nowrap}
+.btn.pri{background:#47532a;border-color:#47532a;color:#fffefa}
+.new{outline:.14em solid #b8663a;outline-offset:.12em}
+.k{display:inline-block;min-width:2.3em;text-align:center;border-radius:.3em;padding:0 .3em;font-size:.78em;color:#fffefa;flex:none}
+.k.hwp{background:#4a74a8}.k.pdf{background:#b5523f}.k.doc{background:#3b5f8f}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:.1em .45em;padding:.4em 0;border-top:1px solid #e2ddd0;align-items:center}
+.row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .one{grid-column:2/4;font-size:.86em;color:#47532a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row small{color:#6e6c60;font-size:.8em}
+.row.sel{background:#f7f5ee;margin:0 -.5em;padding-left:.5em;padding-right:.5em}
+.st{font-size:.8em;color:#6e6c60;white-space:nowrap}
+.drop{border:1px dashed #cfc8b6;border-radius:.5em;padding:.35em .6em;color:#6e6c60;font-size:.85em;margin-bottom:.3em}
+.sec{margin:.55em 0 0;padding:.45em 0 0;border-top:1px solid #e2ddd0}
+.sec h4{margin:0 0 .2em;font-size:.9em;color:#47532a}
+.sec ul{margin:0;padding-left:1.1em;font-size:.92em}
+.sec li{margin:.1em 0}
+.lead{font-size:.98em;background:#f7f5ee;border-radius:.4em;padding:.35em .55em;margin-top:.3em}
+.q{border-left:.22em solid #cfc8b6;background:#f7f5ee;margin:.35em 0;padding:.3em .55em;font-size:.9em;line-height:1.55}
+.q .pg{display:block;font-size:.8em;color:#6e6c60;margin-bottom:.1em}
+.q .pg u{text-decoration:underline;color:#47532a}
+.why{font-size:.82em;color:#6e6c60;margin:.1em 0 .35em}
+.meta{font-size:.8em;color:#6e6c60;margin:.05em 0 .2em}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.35em;font-size:.9em}
+.grid div{border:1px solid #e2ddd0;border-radius:.45em;padding:.35em .2em;text-align:center}
+.fold{display:flex;align-items:center;gap:.4em;background:#f7f5ee;border-radius:.4em;padding:.35em .55em;font-size:.9em}
+.fold .sp{margin-left:auto}
+.legend{background:#fffefa;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;margin-top:14px;max-width:58em}
+.legend b{color:#47532a}
+.toast{display:inline-flex;gap:.6em;align-items:center;background:#2a2a23;color:#fffefa;border-radius:.5em;padding:.35em .7em;font-size:.88em}
+</style></head><body>
+<h1>시안: 브리핑 룸 — 긴 자료를 넣고 [브리핑 받기]를 누르면 담당자가 알아야 할 최소한만</h1>
+<p class="note">자료 이름·조직·문장은 모두 예시예요. 주황 테두리가 새로 생기는 부분이에요. 폰 412 폭(①~④), 폴드 펼침·PC(⑤).</p>
+
+<div class="ph">
+<div class="cap">① 메뉴 판 <small>— '브리핑 룸'이 하나 더 생김(하단바로 끌어 올릴 수도 있음)</small></div>
+<div class="scr">
+  <div class="grid">
+    <div>홈</div><div>노트</div><div>일정</div><div>조직 보고</div>
+    <div>사업 보고</div><div>자료실</div><div class="new">브리핑 룸</div><div>잊지 말기</div>
+  </div>
+</div>
+
+<div class="cap">② 브리핑 룸 <small>— 넣은 자료 목록. 새로 넣으면 [브리핑 받기]를 눌러야 만들어요(명진 1번 (나))</small></div>
+<div class="scr new">
+  <div class="bar"><b>브리핑 룸</b><span class="sp"></span><span class="btn">자료 넣기</span></div>
+  <div class="drop">여기에 파일을 놓아도 돼요 · 자료실 '브리핑 요청함' 폴더에 함께 저장돼요</div>
+  <div class="row"><span class="k pdf">PDF</span><span class="nm">공공기관 인력 운영 계획(예시)</span><span class="btn pri">브리핑 받기</span><small style="grid-column:2/4">120쪽 · 오늘 넣음</small></div>
+  <div class="row"><span class="k hwp">HWP</span><span class="nm">예시 연구 용역 최종 보고서</span><span class="st">만드는 중 7/12</span><small style="grid-column:2/4">84쪽 · 몇 분 걸려요, 다른 화면에 가도 돼요</small></div>
+  <div class="row"><span class="k pdf">PDF</span><span class="nm">예시 경영평가 편람 개정안</span><span class="st">11/12</span><div class="one">평가 지표 중 인건비 항목 배점이 늘어남. 예시 가지부 영향 큼.</div></div>
+  <div class="row"><span class="k doc">DOC</span><span class="nm">예시 협의회 회의 자료집</span><span class="st">11/10</span><div class="one">다음 회의까지 각 조직 의견 제출 요구(11/20 기한).</div></div>
+</div>
+
+<div class="cap">③ 브리핑 보기 <small>— 목록에서 누르면. ①~④는 짧게, ⑤는 원문을 그대로 옮겨 보여 줌(명진 2번)</small></div>
+<div class="scr new">
+  <div class="bar"><span>‹</span><b>예시 경영평가 편람 개정안</b><span class="sp"></span><span class="btn">원문 열기</span><span>⋯</span></div>
+  <div class="meta">PDF 96쪽 · 11/12 브리핑</div>
+  <div class="lead"><b>한 줄 요지</b> — 평가 지표 중 인건비 항목 배점이 늘고, 정원 관리 지표가 새로 생김.</div>
+  <div class="sec"><h4>내 담당 조직·사업에 닿는 것</h4><ul>
+    <li>예시 가지부: 정원 관리 지표 대상 기관에 들어감(12쪽).</li>
+    <li>사업영역 A(인력): 인건비 배점 확대가 교섭에 바로 영향(31쪽).</li></ul></div>
+  <div class="sec"><h4>해야 할 일·기한·숫자</h4><ul>
+    <li>의견 제출 11/28까지(3쪽).</li>
+    <li>인건비 배점 5점 → 8점(31쪽).</li></ul></div>
+  <div class="sec"><h4>우리 쪽 주장과 부딪히는 대목</h4><ul>
+    <li>총인건비 안에서 인력을 늘리라는 전제 — 인력 충원 요구와 정면으로 부딪힘(33쪽).</li></ul></div>
+  <div class="sec"><h4>꼭 직접 읽을 대목 <small style="font-weight:400;color:#6e6c60">원문 그대로</small></h4>
+    <div class="q"><span class="pg"><u>31쪽</u> · 3. 평가 지표 개편</span>“인건비 관리의 적정성 지표 배점을 현행 5점에서 8점으로 상향하고, 총인건비 인상률 준수 여부를 감점 요소로 반영한다.”</div>
+    <div class="why">왜: 배점이 오르면 기관이 교섭에서 더 버팀.</div>
+    <div class="q"><span class="pg"><u>33쪽</u> · 3-2. 정원 관리</span>“신규 인력 수요는 기존 총인건비 범위 내에서 재배치를 우선 검토한다.”</div>
+    <div class="why">왜: 충원 요구를 막는 근거로 쓰일 문장.</div>
+  </div>
+</div>
+
+<div class="cap">④ 자료실 '브리핑 요청함' 폴더 <small>— 자료실에서 봐도 같은 자료. 한 줄 요지가 이름 밑에, 자료를 열면 맨 위에 브리핑(접힘)</small></div>
+<div class="scr">
+  <div class="bar"><span>‹</span><b>브리핑 요청함</b><span class="sp"></span><span>⋯</span></div>
+  <div class="row"><span class="k pdf">PDF</span><span class="nm">공공기관 인력 운영 계획(예시)</span><span class="btn pri new">브리핑 받기</span></div>
+  <div class="row"><span class="k pdf">PDF</span><span class="nm">예시 경영평가 편람 개정안</span><span class="st">11/12</span><div class="one new">평가 지표 중 인건비 항목 배점이 늘어남. 예시 가지부 영향 큼.</div></div>
+  <div class="cap" style="font-size:.9em;margin:.8em 0 .3em">자료를 열면 →</div>
+  <div class="fold new"><b>브리핑</b><span style="color:#47532a">평가 지표 중 인건비 항목 배점이 늘고…</span><span class="sp"></span><span class="btn">펼치기</span></div>
+</div>
+</div>
+
+<div class="fd">
+<div class="cap">⑤ 폴드 펼침·PC <small>— 왼쪽 목록, 오른쪽 브리핑(같은 내용)</small></div>
+<div class="scr wide new">
+  <div>
+    <div class="bar"><b>브리핑 룸</b><span class="sp"></span><span class="btn">자료 넣기</span></div>
+    <div class="row"><span class="k pdf">PDF</span><span class="nm">공공기관 인력 운영 계획(예시)</span><span class="btn pri">브리핑 받기</span></div>
+    <div class="row"><span class="k hwp">HWP</span><span class="nm">예시 연구 용역 최종 보고서</span><span class="st">만드는 중 7/12</span></div>
+    <div class="row sel"><span class="k pdf">PDF</span><span class="nm">예시 경영평가 편람 개정안</span><span class="st">11/12</span><div class="one">평가 지표 중 인건비 항목 배점이 늘어남.</div></div>
+    <div class="row"><span class="k doc">DOC</span><span class="nm">예시 협의회 회의 자료집</span><span class="st">11/10</span><div class="one">각 조직 의견 제출 요구(11/20 기한).</div></div>
+  </div>
+  <div>
+    <div class="bar"><b>예시 경영평가 편람 개정안</b><span class="sp"></span><span class="btn">원문 열기</span><span>⋯</span></div>
+    <div class="lead"><b>한 줄 요지</b> — 평가 지표 중 인건비 항목 배점이 늘고, 정원 관리 지표가 새로 생김.</div>
+    <div class="sec"><h4>내 담당 조직·사업에 닿는 것</h4><ul><li>예시 가지부: 정원 관리 지표 대상 기관에 들어감(12쪽).</li></ul></div>
+    <div class="sec"><h4>해야 할 일·기한·숫자</h4><ul><li>의견 제출 11/28까지(3쪽). 인건비 배점 5점 → 8점(31쪽).</li></ul></div>
+    <div class="sec"><h4>우리 쪽 주장과 부딪히는 대목</h4><ul><li>총인건비 안에서 인력을 늘리라는 전제(33쪽).</li></ul></div>
+    <div class="sec"><h4>꼭 직접 읽을 대목 <small style="font-weight:400;color:#6e6c60">원문 그대로</small></h4>
+      <div class="q"><span class="pg"><u>31쪽</u> · 3. 평가 지표 개편</span>“인건비 관리의 적정성 지표 배점을 현행 5점에서 8점으로 상향하고, 총인건비 인상률 준수 여부를 감점 요소로 반영한다.”</div>
+    </div>
+  </div>
+</div>
+<div class="toast">브리핑이 다 됐어요 — 예시 연구 용역 최종 보고서</div> <span style="font-size:12px;color:#6e6c60">← 브리핑 룸 화면에 있을 때만 아래에 잠깐(폰 알림 없음)</span>
+</div>
+
+<div class="legend">
+<b>정한 것(명진 11/13 18:07)</b> 1 (나) 넣은 뒤 [브리핑 받기]를 눌러야 만든다 · 2 다섯 칸(한 줄 요지 / 내 담당 조직·사업 / 할 일·기한·숫자 / 부딪히는 대목 / 꼭 읽을 대목), 다섯째는 원문을 그대로 옮겨 쪽 번호와 함께 · 3 자료 맨 위와 폴더 목록 한 줄 + 메뉴에 '브리핑 룸'.<br>
+<b>요청함 방 추천 — 명진 확정 아님</b> 자료 원본은 자료실 '브리핑 요청함' 폴더(기능이 스스로 만드는 폴더) 한 곳, 브리핑 룸은 그 폴더를 보는 화면 · 쪽 번호를 누르면 원문 그 쪽으로 · 옮긴 원문 문장은 서버가 원문에 실제로 있는지 대조해서 없는 문장은 빼기(AI가 지어낸 인용 막기) · 만드는 중에는 다른 화면에 가도 이어서 만들어짐(서버가 조각씩) · 글자가 없는 스캔 PDF는 "글자를 읽을 수 없는 파일이에요" 한 줄.
+</div>
+</body></html>

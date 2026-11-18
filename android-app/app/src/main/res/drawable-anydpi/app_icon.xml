@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 노동조합+ 아이콘(J10). scripts/app-icon/build-app-icons.py가 만든다. 손으로 고치지 않는다. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt">
+    <background android:drawable="@color/app_icon_bg"/>
+    <foreground>
+        <aapt:attr name="android:drawable">
+    <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <group android:translateX="18" android:translateY="18" android:scaleX="1.125" android:scaleY="1.125">
+                <path android:fillColor="#FFFEFA" android:pathData="M11.71 31.09H25V33.42H11.71ZM9.87 37.47H26.75V39.83H9.87ZM16.83 32.47H19.77V38.12H16.83ZM11.71 24.56H14.66V32.1H11.71ZM27.27 37.37H44.15V39.75H27.27ZM34.24 33.35H37.17V38.01H34.24ZM34.13 25.64H36.62V26.19Q36.62 27.37 36.31 28.45Q36.01 29.53 35.4 30.47Q34.79 31.4 33.87 32.14Q32.96 32.88 31.75 33.41Q30.53 33.95 29.03 34.22L27.87 31.88Q29.2 31.67 30.23 31.27Q31.25 30.86 31.99 30.3Q32.73 29.74 33.2 29.06Q33.67 28.39 33.9 27.66Q34.13 26.94 34.13 26.19ZM34.75 25.64H37.23V26.19Q37.23 26.94 37.46 27.65Q37.69 28.37 38.17 29.04Q38.65 29.7 39.4 30.25Q40.15 30.8 41.2 31.2Q42.25 31.6 43.6 31.79L42.46 34.11Q40.92 33.84 39.69 33.32Q38.46 32.81 37.53 32.07Q36.61 31.34 35.99 30.43Q35.37 29.52 35.06 28.45Q34.75 27.37 34.75 26.19ZM28.66 24.53H42.7V26.86H28.66Z"/>
+                <path android:fillColor="#E7C25A" android:pathData="M47.8,26H50.2V38H47.8Z M43,30.8H55V33.2H43Z"/>
+            </group>
+        </vector>
+        </aapt:attr>
+    </foreground>
+    <monochrome>
+        <aapt:attr name="android:drawable">
+    <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <group android:translateX="18" android:translateY="18" android:scaleX="1.125" android:scaleY="1.125">
+                <path android:fillColor="#FFFFFF" android:pathData="M11.71 31.09H25V33.42H11.71ZM9.87 37.47H26.75V39.83H9.87ZM16.83 32.47H19.77V38.12H16.83ZM11.71 24.56H14.66V32.1H11.71ZM27.27 37.37H44.15V39.75H27.27ZM34.24 33.35H37.17V38.01H34.24ZM34.13 25.64H36.62V26.19Q36.62 27.37 36.31 28.45Q36.01 29.53 35.4 30.47Q34.79 31.4 33.87 32.14Q32.96 32.88 31.75 33.41Q30.53 33.95 29.03 34.22L27.87 31.88Q29.2 31.67 30.23 31.27Q31.25 30.86 31.99 30.3Q32.73 29.74 33.2 29.06Q33.67 28.39 33.9 27.66Q34.13 26.94 34.13 26.19ZM34.75 25.64H37.23V26.19Q37.23 26.94 37.46 27.65Q37.69 28.37 38.17 29.04Q38.65 29.7 39.4 30.25Q40.15 30.8 41.2 31.2Q42.25 31.6 43.6 31.79L42.46 34.11Q40.92 33.84 39.69 33.32Q38.46 32.81 37.53 32.07Q36.61 31.34 35.99 30.43Q35.37 29.52 35.06 28.45Q34.75 27.37 34.75 26.19ZM28.66 24.53H42.7V26.86H28.66Z"/>
+                <path android:fillColor="#FFFFFF" android:pathData="M47.8,26H50.2V38H47.8Z M43,30.8H55V33.2H43Z"/>
+            </group>
+        </vector>
+        </aapt:attr>
+    </monochrome>
+</adaptive-icon>

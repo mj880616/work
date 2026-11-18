@@ -1,15 +1,19 @@
 import {copyText} from './copy-text.js';
 import {notify} from './small-notice.js';
 import {copyOf, draftOf, cleanQuote, tooLong} from './text-highlights-model.mjs';
+import {placeAnchored, clearAnchored, followAnchor, bottomInset} from './anchored-popup.js';
 // S53-5 NEWS-밑줄모으기 ①(시안 docs/design/mockups/news-highlights.html ①): 원문에서 글을 고르면(손가락으로 끌기·[모두 선택] 모두)
 // 하단바 위에 뜨는 Web2 줄 [밑줄 저장][노트로][복사][공유] ✕. 폰 자체 선택 메뉴는 그대로 두고 덧붙인다.
 // - [모두 선택](프로그램이 고른 글)에는 폰 메뉴가 뜨지 않아 복사·공유를 못 하던 문제(11/08 09:56)를 이 줄이 메운다.
 // - 글 칸(zone)은 화면 주인이 bindSelectZone(container, {zone, source, onSave, onNote})로 알린다. 고른 글의 처음과 끝이 같은 글 칸 안일 때만 뜬다.
 // - 줄 버튼을 누르는 사이 폰이 고른 글을 풀어도, 줄이 뜰 때 받아 둔 글자·자리로 실행한다(이 탭 메모리만, 서버 저장은 onSave가 맡는다).
 // - 모양은 공용 고르기 줄(base-ui.css .kptu-actbar-text · .kptu-act, app/action-bar.mjs). 줄은 하나(문서에 한 번만 만든다).
+// S61-38 UI-선택줄글아래(11/13 명진 "드래그한 부분에 뜨게… 가리게는 말고 그 바로 밑에"): 줄은 고른 글의 마지막 줄 바로 아래, 오른쪽 끝을 고른 글 끝에 맞춰 뜬다.
+// 아래에 자리가 없으면 고른 글 첫 줄 바로 위. 자리 잡기는 공용 placeAnchored(anchored-popup.js), 스크롤·창 크기·선택 변경 때 다시 잰다(followAnchor).
+// 폰(손가락)은 선택 손잡이가 마지막 줄 아래로 늘어지므로 그만큼 더 띄운다. 고른 글이 화면 밖이거나 위·아래 어디에도 자리가 없으면 예전처럼 화면 아래 가운데.
 
 const zones = []; // {container, zone, source, onSave, onNote}
-let bar = null, picked = null, hideTimer = 0, pressAt = 0;
+let bar = null, picked = null, hideTimer = 0, pressAt = 0, stopFollow = null;
 const canShare = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
 function host() { return document.getElementById('appView') || document.body; }
@@ -36,8 +40,47 @@ function paint() {
   b.querySelector('[data-hl-bar="note"]').hidden = !z?.onNote;
   b.querySelector('[data-hl-bar="share"]').hidden = !canShare();
   b.hidden = !picked;
+  if (picked) place(); else unfollow();
 }
-function hide() { clearTimeout(hideTimer); picked = null; if (bar) bar.hidden = true; }
+// 고른 글의 줄 상자들(빈 상자 뺌). 폰이 고른 글을 풀어도 받아 둔 range로 잰다.
+function lineRects() {
+  const r = picked?.range;
+  if (!r || !r.startContainer?.isConnected) return [];
+  return [...r.getClientRects()].filter(x => x.width > 0 && x.height > 0);
+}
+const coarse = () => window.matchMedia?.('(pointer:coarse)').matches;
+// 가상 기준 상자: 위 = 첫 줄 위, 아래 = 마지막 줄 아래, 오른쪽 = 고른 글 끝(줄 오른쪽 끝을 거기에 맞추려 left = 끝 - 줄 폭).
+function anchorBox(width) {
+  const rs = lineRects();
+  if (!rs.length) return null;
+  const first = rs[0], last = rs[rs.length - 1], vh = window.innerHeight, vw = document.documentElement.clientWidth;
+  if (last.bottom < 0 || first.top > vh || last.right < 0 || first.left > vw) return null; // 고른 글이 화면 밖
+  const top = Math.min(...rs.map(x => x.top)), bottom = Math.max(...rs.map(x => x.bottom)), end = last.right;
+  return {top, bottom, left: end - width, right: end, width, height: bottom - top};
+}
+function fallback(b) { clearAnchored(b); }
+function place() {
+  const b = bar;
+  if (!b || b.hidden || !picked) return;
+  clearAnchored(b);
+  // 줄 폭 = 글자 + 보이는 버튼 수 × 버튼 칸(공용 고르기 줄 칸 64px) + ✕ + 안쪽 여백. 버튼 칸은 grid auto-fit이라 max-content로 재면 접히므로 센다.
+  const vw = document.documentElement.clientWidth, h = Math.ceil(b.offsetHeight) || 36;
+  const acts = [...b.querySelectorAll('.kptu-act')].filter(x => !x.hidden).length;
+  const label = b.querySelector('.hl-bar-label')?.offsetWidth || 0, close = b.querySelector('.hl-bar-close')?.offsetWidth || 0;
+  const w = Math.min(Math.ceil(label + close + acts * 64 + 24), 480, vw - 16);
+  const box = anchorBox(w);
+  if (!box) { fallback(b); return; }
+  // 폰은 선택 손잡이(마지막 줄 아래 약 24px)와 겹치지 않게 더 띄운다. 위로 갈 때도 같은 틈(폰 선택 메뉴는 대개 고른 글 위에 뜨므로 아래가 먼저).
+  const gap = coarse() ? 28 : 6, inset = bottomInset(), vh = window.innerHeight - inset;
+  const below = vh - box.bottom - gap - 8, above = box.top - gap - 8;
+  if (below < h && above < h) { fallback(b); return; } // 고른 글이 화면을 거의 다 덮음 — 화면 아래 가운데
+  const side = placeAnchored(b, {getBoundingClientRect: () => box}, {maxWidth: w, maxHeight: h + 4, minHeight: h, gap, bottomInset: inset});
+  if (!side || side === 'side') { fallback(b); return; }
+  delete b.dataset.scrollBelow; // 한 줄짜리 줄 — 안쪽 스크롤 '더 있음' 흐림(markScrollMore)은 쓰지 않는다(버튼 1px 넘침에 켜짐)
+  if (!stopFollow) stopFollow = followAnchor(b, {getBoundingClientRect: () => anchorBox(w) || {top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0}}, {place, lost: () => fallback(b)});
+}
+function unfollow() { stopFollow?.(); stopFollow = null; }
+function hide() { clearTimeout(hideTimer); picked = null; unfollow(); if (bar) { bar.hidden = true; clearAnchored(bar); } }
 function zoneOf(node) {
   const el = node?.nodeType === 1 ? node : node?.parentElement;
   for (const z of zones) {
@@ -59,7 +102,7 @@ function readSelection() {
   pre.selectNodeContents(a.zoneEl);
   pre.setEnd(range.startContainer, range.startOffset);
   const start = pre.toString().length, end = start + range.toString().length;
-  return {...a, text, start, end};
+  return {...a, text, start, end, range: range.cloneRange()};
 }
 function onSelection() {
   const now = readSelection();

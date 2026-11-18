@@ -23,7 +23,8 @@ test('real document-actions graph (CAL-일정첨부 6번: calendar token + event
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['_shared/basket-file-origin.ts','_shared/basket-ocr-text.mjs','_shared/bounded-json.mjs','_shared/document-text.ts','_shared/drive-ocr.ts','_shared/event-attach-file.ts','_shared/file-rename-name.mjs','_shared/google-calendar-token.ts','_shared/hwp-edit.ts','_shared/safe-error.ts','_shared/web-cors.ts','_shared/workspace-drive-token.ts','document-actions/dev-inbox.ts','document-actions/file-rename.ts','document-actions/file-trash.ts','document-actions/index.ts']);
+  // BRIEF-브리핑룸 ②: 브리핑 길(brief.ts·brief-run.mjs)이 공용 AI 호출·모델·사람별 한도·브리핑 순수 함수를 더 쓴다.
+  assert.deepEqual(local.sort(),['_shared/ai-model.ts','_shared/ai-prices.mjs','_shared/ai-user-cap.mjs','_shared/basket-file-origin.ts','_shared/basket-ocr-text.mjs','_shared/bounded-json.mjs','_shared/brief-room.mjs','_shared/document-text.ts','_shared/drive-ocr.ts','_shared/event-attach-file.ts','_shared/file-rename-name.mjs','_shared/google-calendar-token.ts','_shared/hwp-edit.ts','_shared/openai-responses.ts','_shared/safe-error.ts','_shared/web-cors.ts','_shared/workspace-drive-token.ts','document-actions/brief-run.mjs','document-actions/brief.ts','document-actions/dev-inbox.ts','document-actions/file-rename.ts','document-actions/file-trash.ts','document-actions/index.ts']);
   const bundle=join(isolated,'document-actions.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });

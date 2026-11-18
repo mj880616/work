@@ -23,7 +23,7 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
   expect(pwa).not.toContain('favicon');
   expect(pwa).not.toContain('apple-touch-icon');
   expect(pwa).not.toContain('createElement(\'link\')');
-  expect(manifest).toContain('20261027-memocheck');
+  expect(manifest).toContain('20261115-nojoplus');
   expect(sw).not.toContain("addEventListener('push'");
   expect(sw).not.toContain("addEventListener('notificationclick'");
   for(const source of [html,pwa,manifest,sw])expect(source).not.toContain('20260913-3');
@@ -100,7 +100,7 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
   // HOME-업무일지홈: 홈 = 업무일지(home 불러오기가 journal.js), 옛 journal 이름은 별칭.
-  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates}");
+  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,help}");
   expect(viewLoader).toContain("async function home(){ await module('./journal.js'); return {ok:true} }");
   expect(viewLoader).not.toContain("home-read.js");
 });

@@ -218,7 +218,7 @@ class MainActivity : ComponentActivity() {
         PhoneMedia.forget()
         postPhotos(PhotoEditRules.editedMessage(true, PhotoEditRules.changed(before, PhoneMedia.generation(this))))
     }
-    /** 폰에 없는 사진을 Pictures/웹2에 받는 중인 한 장(한 번에 하나). 쓰기는 한 줄 일꾼에서 차례대로. */
+    /** 폰에 없는 사진을 Pictures/노조+에 받는 중인 한 장(한 번에 하나). 쓰기는 한 줄 일꾼에서 차례대로. */
     private var photoSave: PhoneMedia.Save? = null
     private var savedPhoto: Pair<Long, PhoneMedia.Save>? = null
     private val saveWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
@@ -322,7 +322,8 @@ class MainActivity : ComponentActivity() {
             setSupportMultipleWindows(false)
             cacheMode = WebSettings.LOAD_DEFAULT
             // 웹은 이 표시로 앱인지 안다(native-google-return.js, native-back-guard.js, google-tasks.js).
-            userAgentString = "$userAgentString KPTUAndroid/${BuildConfig.VERSION_NAME}"
+            // S62-34: 플레이 판은 뒤에 " KPTUPlay"를 붙인다(native-google-return.js가 로그인 복귀를 플레이 판으로 돌린다). github 판은 그대로.
+            userAgentString = "$userAgentString KPTUAndroid/${BuildConfig.VERSION_NAME}${BuildConfig.UA_MARK}"
         }
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
@@ -1672,6 +1673,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkForUpdate() {
+        // S62-34: 플레이 판은 플레이가 업데이트한다. GitHub 릴리스를 보지도 받지도 않는다.
+        if (!BuildConfig.SELF_UPDATE) return
         val current = BuildConfig.VERSION_NAME
         Thread {
             val found = UpdateCheck.fetch(current) ?: return@Thread
@@ -1739,7 +1742,7 @@ class MainActivity : ComponentActivity() {
         pushReply = null
         outReply = null
         upReply = null
-        // 받다 만 사진(Pictures/웹2의 숨긴 칸)은 지운다. '이 폰'으로 받다 만 임시 파일도.
+        // 받다 만 사진(Pictures/노조+의 숨긴 칸)은 지운다. '이 폰'으로 받다 만 임시 파일도.
         saveCancel()
         PhoneFilesWrite.worker.execute { PhoneFilesWrite.drop() }
         saveWorker.shutdown()

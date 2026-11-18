@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // S48-3b: ① work_scope 가 사람이 [주간 정리] '한 줄'에서 뺀 줄(그 주 draft.picks work_line drop)을 AI 답과 상관없이 뺄 줄에 더하고,
@@ -32,8 +33,8 @@ function harness({weeks=[],weeksFail=false}={}){
     if(table==='app_weekly_exec_requests'){assert.equal(method,'GET');if(weeksFail)return respond({message:'x'},500);return respond(weeks);}
     throw new Error('unexpected '+table);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls};
 }
 const post=(handler,body)=>handler(new Request(FN,{method:'POST',headers:{Authorization:'Bearer owner-token','Content-Type':'application/json'},body:JSON.stringify(body)}));

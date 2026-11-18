@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync, readdirSync} from 'node:fs';
+import {readFileSync, readdirSync, existsSync} from 'node:fs';
 
 // MTG-할일자동생성금지(요청함 11/11 15:25): 회의 결과(녹음 요약·서버 정리)가 할 일을 저절로 만들지 않는다.
 // AI가 찾은 후속 할 일은 저장한 사업 보고의 챙길 것 후보(app_todo_candidates, 늘 open)로만 올리고, 할 일은 사람이 [할 일로]를 눌러야 생긴다.
@@ -59,12 +59,9 @@ test('addMeetingCandidates: 후보 표에 한 번 넣기(같은 열쇠는 건너
   assert.deepEqual(await mod.addMeetingCandidates(id(1), [{title:'합성'}], {day:'2026-11-10', rt:bad.rt}), {ok:false});
 });
 
-test('녹음 요약은 후속 할 일 입력 줄을 채우지 않고, 저장 뒤 후보로만 올린다', () => {
-  const draft = read('app/meeting-transcript-draft.js');
-  const code = draft.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
-  assert.doesNotMatch(code, /meetingAction(Title|Due|Add|List)|addMeetingAction/, 'AI 요약이 후속 할 일 입력 줄을 건드리지 않는다');
-  assert.doesNotMatch(code, /google-tasks|createGoogleTask/, '녹음 요약 모듈은 할 일을 만들지 않는다');
-  assert.match(code, /addEventListener\('kptu:record-saved'[\s\S]*?addMeetingCandidates\(id,rows/, '저장한 보고 id로만 후보를 올린다');
+// S61-24 REC-요약단추삭제: 입력 창의 [녹음 요약하기](meeting-transcript-draft.js)는 화면째 없다.
+test('후속 할 일 입력 줄을 읽는 곳은 손으로 쓰는 길과 저장뿐이고, 녹음 요약 화면 모듈은 없다', () => {
+  assert.ok(!existsSync(new URL('../../app/meeting-transcript-draft.js', import.meta.url)));
   // 입력 줄을 읽고 할 일로 만드는 곳은 손으로 쓰는 길(task-workflow.js)과 저장(team.js) 둘뿐이다.
   const users = readdirSync(new URL('../../app/', import.meta.url)).filter(f => /\.(m?js|html)$/.test(f))
     .filter(f => /meetingAction(Title|Due|Add|List)\b|addMeetingAction/.test(read(`app/${f}`).split('\n').filter(l => !l.trim().startsWith('//')).join('\n'))).sort();

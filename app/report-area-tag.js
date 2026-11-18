@@ -19,7 +19,7 @@ import {openAreaOrgPicker,dismissAreaOrgPicker,usedKeysNow,catalogAreas} from '.
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const AI_ROWS=8;                                             // 창 하나에서 AI에 묻는 줄 수(한도 아끼기)
-const AI_STOP=new Set(['monthly_limit','daily_limit','not_ready','offline','session_required','auth_unavailable']);
+const AI_STOP=new Set(['monthly_limit','daily_limit','ai_monthly_cap','not_ready','offline','session_required','auth_unavailable']);
 let sheet=null,active=null,run=0;
 const NONE_LABEL='없음';                                      // [없음] 고르기 줄(빈 화면 문구 아님)
 

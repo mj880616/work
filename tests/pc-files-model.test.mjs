@@ -60,7 +60,7 @@ test('상태 글·오류 글: 정해 둔 말만, errorText가 pc_ 앞머리를 �
   assert.equal(pcCode(403, 'other_user'), 'other_user');
   assert.equal(pcCode(403, '<script>'), 'blocked');
   assert.equal(pcCode(401), 'bad_token');
-  assert.match(pcStateText('off'), /웹2에서 이 PC 보기/);
+  assert.match(pcStateText('off'), /노조\+에서 이 PC 보기/);
   assert.match(pcStateText('other_user'), /다른 계정/);
   assert.match(pcStateText('ask'), /허용/);
   assert.equal(errorText('pc_blocked'), pcErrorText('blocked'));

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // LEDGER-자동기록 2단계: the real ai-assist handler, kind=ledger_auto, with a synthetic Supabase (Auth + PostgREST with owner RLS +
@@ -153,7 +154,7 @@ function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:i
     throw new Error('method '+method+' '+table);
   };
   const env={SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'};
-  const handler=createAiAssistHandler({env:n=>env[n],fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>env[n],fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{...(token?{Authorization:`Bearer ${token}`}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)}));
@@ -340,10 +341,11 @@ test('old ledger_candidates kind is unchanged and still accepted',async()=>{
   assert.ok(!/SERVICE_ROLE/.test(src),'handler never reads a service role key');
 });
 
-// LEDGER-첫화면정리: 원장 대상은 공공기관사업팀 업무의 약속·결정·사건뿐. 바깥 기사·해외 사례·외국 단체 소개 같은 참고 자료는 원장에 넣지 않는다.
+// LEDGER-첫화면정리: 원장 대상은 기록 주인 업무의 약속·결정·사건뿐(MULTI-다른담당자맞춤 ⑤: 직책은 부른 사람 프로필 값). 바깥 기사·해외 사례·외국 단체 소개 같은 참고 자료는 원장에 넣지 않는다.
 test('reference material (outside articles, overseas cases, foreign union bodies) is never recorded: instructions say so and the server drops reference=true items',async()=>{
   const ins=auto.LEDGER_AUTO_INSTRUCTIONS;
-  assert.match(ins,/공공기관사업팀 업무/);
+  assert.match(ins,/기록 주인\(\{\{기록 주인 직책\}\}\) 업무/);
+  assert.doesNotMatch(ins,/공공기관사업팀|부팀장/);
   assert.match(ins,/기사·보도자료·뉴스레터/);
   assert.match(ins,/해외 사례.*외국 노조·사용자 단체/);
   assert.match(ins,/참고·학습·벤치마킹용 자료/);

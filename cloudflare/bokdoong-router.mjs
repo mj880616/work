@@ -21,8 +21,26 @@ const WEB2_HOST = 'bokdoong.com';
 const WEB2_ORIGIN = `https://${WEB2_HOST}`;
 const WEB2_PREFIX = '/work/app/';
 
+// DOMAIN-nojoplus 1단계 (docs/design/domain-nojoplus.md): nojoplus.com is a second Web2 host that answers exactly like
+// bokdoong.com (same /work/app/ tree, same cache, CSP and security rules), and its root goes to its own /work/app/.
+// bokdoong.com stays the target of every old-address redirect (desk, work, arsenal) until 2단계. www.nojoplus.com
+// sends every address to nojoplus.com with 301. about/ is also served on nojoplus.com (/work/about/**, static).
+// Undo: deploy the previous Worker version (the bokdoong.com hosts are unchanged).
+const NEW_HOST = 'nojoplus.com';
+const NEW_WWW_HOST = 'www.nojoplus.com';
+const WEB2_HOSTS = Object.freeze(new Set([WEB2_HOST, NEW_HOST]));
+const NEW_HOST_KEPT = Object.freeze(['/work/about']);
+
+function web2Host(host) {
+  return WEB2_HOSTS.has(host);
+}
+
 function web2Path(host, path) {
-  return host === WEB2_HOST && path.startsWith(WEB2_PREFIX);
+  return web2Host(host) && path.startsWith(WEB2_PREFIX);
+}
+
+function newHostKept(host, path) {
+  return host === NEW_HOST && NEW_HOST_KEPT.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 function isWeb2Route(path) {
@@ -30,15 +48,16 @@ function isWeb2Route(path) {
 }
 
 function movesToWeb2(host, path) {
-  if (host === WEB2_HOST) return path === '/' || path === '/work/app';
+  if (web2Host(host)) return path === '/' || path === '/work/app';
   if (host === 'desk.bokdoong.com') return path === '/' || isWeb2Route(path);
   if (host === 'work.bokdoong.com') return isWeb2Route(path);
   return false;
 }
 
-// Same path (/ and /work/app become /work/app/) and the same ?query on bokdoong.com.
-function web2Redirect(incoming) {
-  const target = new URL(WEB2_ORIGIN);
+// Same path (/ and /work/app become /work/app/) and the same ?query on bokdoong.com, or on nojoplus.com when the
+// visitor is already there (DOMAIN-nojoplus 1단계: the new host never sends people back to bokdoong.com).
+function web2Redirect(incoming, host) {
+  const target = new URL(host === NEW_HOST ? `https://${NEW_HOST}` : WEB2_ORIGIN);
   target.pathname = incoming.pathname.startsWith(WEB2_PREFIX) ? incoming.pathname : WEB2_PREFIX;
   target.search = incoming.search;
   return Response.redirect(target.href, 302);
@@ -84,14 +103,14 @@ function web1ClosedResponse(method) {
 }
 
 function allowedPath(host, path) {
-  if (host === WEB2_HOST) {
-    return path === '/favicon.png' || path === '/favicon.ico' || path.startsWith(WEB2_PREFIX);
+  if (web2Host(host)) {
+    return path === '/favicon.png' || path === '/favicon.ico' || path.startsWith(WEB2_PREFIX) || newHostKept(host, path);
   }
   return Boolean(SERVICES[host] && path.startsWith(SERVICES[host].prefix));
 }
 
 function upstreamPath(host, path) {
-  if (host === WEB2_HOST && (path === '/favicon.png' || path === '/favicon.ico')) return `/work/personal/portal${path}`;
+  if (web2Host(host) && (path === '/favicon.png' || path === '/favicon.ico')) return `/work/personal/portal${path}`;
   return path;
 }
 
@@ -127,7 +146,7 @@ async function matchesManifest(pathname, version, bytes) {
 const EDITOR_HASHED_ASSET = /^\/work\/app\/hwp-lab\/rhwp-\d+\.\d+\.\d+\/studio\/assets\/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{8}\.(?:js|css|wasm)$/;
 
 export function editorHashedAsset(host, url) {
-  return host === WEB2_HOST && !url.search && EDITOR_HASHED_ASSET.test(url.pathname);
+  return web2Host(host) && !url.search && EDITOR_HASHED_ASSET.test(url.pathname);
 }
 
 // Browsers that already hold old bytes as immutable never ask again. Each browser gets one
@@ -270,9 +289,14 @@ export default {
   async fetch(request, env, context) {
     const incoming = new URL(request.url);
     const host = incoming.hostname.toLowerCase();
-    if (!SERVICES[host] && host !== WEB2_HOST) return new Response('Not found', { status: 404 });
+    if (!SERVICES[host] && !web2Host(host) && host !== NEW_WWW_HOST) return new Response('Not found', { status: 404 });
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
+    }
+    if (host === NEW_WWW_HOST) {
+      // Same path and ?query on nojoplus.com in one step (http is upgraded at the same time); the browser keeps #.
+      const target = new URL(incoming.pathname + incoming.search, `https://${NEW_HOST}`);
+      return Response.redirect(target.href, 301);
     }
     if (incoming.protocol !== 'https:') {
       incoming.protocol = 'https:';
@@ -285,17 +309,18 @@ export default {
       });
     }
     if (host === ARSENAL_HOST) return arsenalRedirect();
-    if (movesToWeb2(host, incoming.pathname)) return web2Redirect(incoming);
+    if (movesToWeb2(host, incoming.pathname)) return web2Redirect(incoming, host);
     if (incoming.pathname === '/' && SERVICES[host]) {
       incoming.pathname = SERVICES[host].root;
       return Response.redirect(incoming.href, 302);
     }
-    if ((host === WEB2_HOST || host === 'desk.bokdoong.com') && incoming.pathname.startsWith('/work/') && !isWeb2Route(incoming.pathname)) {
+    if ((web2Host(host) || host === 'desk.bokdoong.com') && incoming.pathname.startsWith('/work/') && !isWeb2Route(incoming.pathname)
+      && !newHostKept(host, incoming.pathname)) {
       incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
     // SHARE-보관함·HTML공유: bokdoong.com/s/<short address>. A malformed one is 404 (nothing is looked up).
-    if (host === WEB2_HOST && incoming.pathname.startsWith(SHORT_PREFIX)) {
+    if (web2Host(host) && incoming.pathname.startsWith(SHORT_PREFIX)) {
       const slug = shortSlugOf(incoming.pathname);
       if (!slug || incoming.search) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow, noarchive' } });
       if (request.method === 'GET' && previewBot(request)) {
@@ -361,7 +386,7 @@ export default {
       cache: 'no-store'
     }));
     const responseHeaders = new Headers(upstream.headers);
-    if (host === WEB2_HOST && upstream.ok) {
+    if (web2Host(host) && upstream.ok) {
       if (incoming.pathname === '/favicon.png') responseHeaders.set('Content-Type', 'image/png');
       if (incoming.pathname === '/favicon.ico') responseHeaders.set('Content-Type', 'image/x-icon');
     }

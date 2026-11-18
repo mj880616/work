@@ -82,9 +82,9 @@ async function outsideServer(page) {
       return ok({ ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가상 상세 요약.', key_sentences: [], relevance: null, implications: { kptu: '', labor: '' }, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false });
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
-    if (table === 'app_outside_posts') return ok([POST]);
-    if (table === 'app_feed_bodies') return ok([{ state: 'ok', reason: null, blocks: [{ t: 'p', text: 'First fake paragraph.' }, { t: 'p', text: 'Second fake paragraph.' }] }]);
-    if (table === 'app_feed_reads' || table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (table === 'app_outside_articles') return ok([POST]);
+    if (table === 'app_outside_article_bodies') return ok([{ state: 'ok', reason: null, blocks: [{ t: 'p', text: 'First fake paragraph.' }, { t: 'p', text: 'Second fake paragraph.' }] }]);
+    if (table === 'app_outside_reads' || table === 'app_outside_now_signals' || table === 'app_feed_reads' || table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (table === 'app_outside_sources') return ok(SOURCES.map(x => ({ source_key: x.key, enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null })));
     if (table === 'app_outside_seen') return ok([{ seen_at: '2026-10-06T00:00:00Z' }]);
     if (table.startsWith('app_now_') || table.startsWith('app_news_') || table.startsWith('app_outside_') || table === 'app_notes') return ok([]);
@@ -106,6 +106,7 @@ for (const width of [412, 1280]) test(`원문 ⋯ 메뉴 ${width}: 연 채 상�
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   const root = page.locator('#outsideRoot');
   await root.getByRole('tab', { name: '사회운동' }).click();
+  await root.locator('[data-os-list] details[data-os-intl] > summary').click(); // S63-11: 국제 글은 접힌 '국제' 묶음 안
   await root.locator(`[data-os-list] [data-nw-key="outside:${EN}"] .now-open`).click();
   const d = root.locator('[data-now-detail] .nd');
   await expect(d.locator('[data-nd-prose] p').first()).toHaveText('First fake paragraph.');

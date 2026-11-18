@@ -7,20 +7,20 @@
 //  - Closing without saving leaves the box as it was.
 // mountBigWrite(textarea, {title, placeholder, limit}) adds the button once, inside the box's label heading.
 import {hasMarkdownMarks} from './note-preview.mjs';
-import {guardDateLines} from './markdown-render.mjs';
 
 const BIG_SVG = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 async function openBig(box, {title, placeholder, limit, trigger}) {
-  const [{openEdWindow}, {loadMarkdownIt}, {markdownToDoc}, {docToMarkdown}, {bigWindowOpen}] = await Promise.all([
-    import('./ed-window.js'), import('./ed-editor.js'), import('./ed-markdown.mjs'), import('./ed-markdown-out.mjs'), import('./big-window-open.js'),
+  const [{openEdWindow}, {loadMarkdownIt}, {docToMarkdown, lettersToDoc}, {bigWindowOpen}] = await Promise.all([
+    import('./ed-window.js'), import('./ed-editor.js'), import('./ed-markdown-out.mjs'), import('./big-window-open.js'),
     window.KPTUViewLoader?.prepare?.('basket')]);
   if (!box.isConnected || box.disabled || bigWindowOpen()) return;
   const text = box.value;
   let md = null;
   if (hasMarkdownMarks(text)) { try { md = await loadMarkdownIt(); } catch { md = null; } }
   if (!box.isConnected) return;
-  openEdWindow({title, text, convert: md ? letters => markdownToDoc(md, guardDateLines(letters)) : null, limit, shortcuts: true,
+  // ED-빈줄읽기: blank lines in the letters open as empty paragraphs (the same count docToMarkdown writes back).
+  openEdWindow({title, text, convert: letters => lettersToDoc(letters, md), limit, shortcuts: true,
     placeholder: placeholder || box.placeholder || '', label: title,
     save: {aria: '칸에 넣기', run: async ({value}) => {
       if (!box.isConnected) return {ok: false, message: '입력 창이 닫혔어요. 글을 복사해 두세요.'};

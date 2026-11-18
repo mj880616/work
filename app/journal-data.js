@@ -584,7 +584,10 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
     const s = stateOf(materials, DAY_SOURCES[key]);
     if (s.loading) return {key, label, loading:true, items:[], sections:[]};
     // A failed read gives nothing (okItems → null), so build() shows what the other reads gave.
-    return {key, label, items:[], sections:[], ...build(), ...(s.failed.length ? {failed:s.failed} : {}), ...(s.capped ? {capped:true} : {})};
+    // MULTI-처음쓰는사람 ①: 실패한 읽기가 모두 같은 '구글 연결 없음(link)'이면 그 값을 칸에 넘긴다(journal.js가 연결 안내 한 줄을 그림).
+    const links = new Set(s.failed.map(source => materials[source]?.link || ''));
+    const link = links.size === 1 ? [...links][0] : '';
+    return {key, label, items:[], sections:[], ...build(), ...(s.failed.length ? {failed:s.failed} : {}), ...(link ? {link} : {}), ...(s.capped ? {capped:true} : {})};
   };
   const basket = okItems(materials, 'basket');
   // JOURNAL-하루일정다시: 그날 일정 sits above 오늘 한 줄 (it was a group of the day card before JOURNAL-하루개편, then only a count in

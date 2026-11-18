@@ -93,7 +93,7 @@
     // A tap on a button blurs the field during its mousedown, before the click: dropping the state there would
     // bring the tab bar back under the finger. Keep it until the viewport actually grows back.
     const keyboard=phone.matches&&(editing||keyboardOpen)&&(viewport?covered>120:editing);
-    const opened=!!keyboard&&!keyboardOpen;
+    const opened=!!keyboard&&!keyboardOpen,changed=!!keyboard!==keyboardOpen;
     keyboardOpen=!!keyboard;
     const field=keyboardOpen?(editing?focused:keyboardField):null,moved=field!==keyboardField;
     if(moved){keyboardField?.removeAttribute('data-keyboard-field');field?.setAttribute('data-keyboard-field','')}
@@ -110,6 +110,9 @@
     const height=viewport?viewport.height*scale:innerHeight;
     if(keyboardOpen&&editing&&(opened||(moved&&field)||height<shownHeight-1))revealField(field);
     shownHeight=keyboardOpen?height:0;
+    // HOME-자판내리면한줄: a screen that changes its own shape when the keyboard opens or closes listens to this one event
+    // (detail.open) instead of watching the viewport itself.
+    if(changed)document.dispatchEvent(new CustomEvent('kptu:keyboard',{detail:{open:keyboardOpen}}));
   }
   window.visualViewport?.addEventListener('resize',syncKeyboard);
   window.visualViewport?.addEventListener('scroll',syncKeyboard);

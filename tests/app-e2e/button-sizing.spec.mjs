@@ -48,6 +48,7 @@ async function signIn(page){
 
 import {execFileSync} from 'node:child_process';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {addReport} from './helpers/report-add.mjs';
 async function boot(page,tasks=[],calendarEvents=[]){
  await mockApp(page,{tasks,calendarEvents,spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
  await page.goto(`${appOrigin}/app/`);await signIn(page);
@@ -85,7 +86,7 @@ async function phoneFab(page,selector){const el=page.locator(selector);await exp
  // LIB-위쪽한줄(11/09): 자료실 [+]도 같은 위 줄 오른쪽 32px 작은 아이콘(폰·PC 모두).
  if(['#newMeetingBtn','#newDocumentBtn'].includes(selector)){const b=await el.boundingBox();expect([b.width,b.height],selector).toEqual([32,32]);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).not.toBe('fixed');expect(await el.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height)),selector).toBe(44);return}
 const b=await el.boundingBox(),want=selector==='#newEventBtn'?32:36;expect(b.width,selector).toBe(want);expect(b.height,selector).toBe(want);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).toBe('fixed');const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w,selector).toBe(44);expect(t.h,selector).toBe(44);}
-// MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이다(폰 '‹ 사업 보고 · 사업영역 관리 · +', 떠 있는 둥근 [+] 아님).
+// MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄 버튼이다(폰 '‹ 사업 관리 · 사업영역 관리 · +', 떠 있는 둥근 [+] 아님).
 const fabs=new Set(['#newEventBtn','#newDocumentBtn','#newMeetingBtn']);
 async function phoneHeadAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const b=await el.boundingBox(),head=await page.locator('#areaWindow .area-window-head').boundingBox();expect(b.height,selector).toBe(32);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).not.toBe('fixed');expect(b.y).toBeGreaterThanOrEqual(head.y-1);expect(b.y+b.height).toBeLessThanOrEqual(head.y+head.height+1);expect(await el.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBeGreaterThanOrEqual(44)}
 for(const width of [390,1440])test('D-button list sizes and compact exclusions '+width,async({page,browser})=>{
@@ -179,7 +180,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
  await closeProjectDetail(page);
  await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',32);/* ORG-PC상세정리 → UI-전수디자인점검 F08: 담당조직 상세 [저장]은 PC 칸·폰 창 모두 작은 버튼 32px */
  await closeOrganizationDetail(page);
- await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
+ await view(page,'meetings');await addReport(page);await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
 });
 
 for(const width of [390,1440])test('D-button undo painted size and real 44px target '+width,async({page})=>{

@@ -8,10 +8,10 @@ import {testOrigin} from './helpers/test-origin.mjs';
 // 옛 함수(배포 전)는 상태 읽기가 405 → 줄이 숨는다. drive-summary는 시험 응답으로 대신한다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ledger-e-user',email:'ledger-e@example.org',user_metadata:{display_name:'Ledger QA'}};
-const workspace={id:'ledger-e-workspace',slug:'kptu-work',name:'웹2'};
+const workspace={id:'ledger-e-workspace',slug:'any-name',name:'웹2'}; // MULTI-다른담당자맞춤 ④: 작업공간 이름과 상관없이 owner면 켠다.
 const DOC='https://docs.google.com/document/d/virtual-ledger-doc/edit';
 
-async function mockApp(page,{deployed=true,exportFail=false,stalled=false}={}){
+async function mockApp(page,{deployed=true,exportFail=false,stalled=false,forbidden=false}={}){
  const calls=[];
  let ledger={state:'found',last_success_at:'2026-10-20T00:00:00.000Z',last_failure_at:stalled?'2026-10-21T00:00:00.000Z':null,last_failure_code:stalled?'DRIVE_TOKEN_FAILED':null};
  await page.route(`${SB}/**`,async route=>{
@@ -21,10 +21,11 @@ async function mockApp(page,{deployed=true,exportFail=false,stalled=false}={}){
   if(path==='/auth/v1/user')return ok(user);
   if(path==='/functions/v1/drive-summary'){
    calls.push({method,action:url.searchParams.get('action'),body:request.postData()});
+   if(forbidden)return ok({ok:false,error:'FORBIDDEN',checked_at:new Date().toISOString()},403);
    if(!deployed)return method==='GET'?ok({ok:false,error:'METHOD_NOT_ALLOWED'},405):ok({ok:true,updated_at:'2026-10-21T00:00:00.000Z',documents:{}});
    if(method==='GET'&&url.searchParams.get('action')==='ledger_status')return ok({ok:true,checked_at:new Date().toISOString(),ledger});
    if(method==='POST'&&url.searchParams.get('action')==='ledger_export'){
-    if(exportFail){ledger={...ledger,last_failure_at:new Date().toISOString(),last_failure_code:'DRIVE_PUBLIC_SHARING_FOUND'};return ok({ok:false,error:'DRIVE_PUBLIC_SHARING_FOUND',exported_at:null,failure_recorded:true},403);}
+    if(exportFail){ledger={...ledger,last_failure_at:new Date().toISOString(),last_failure_code:'DRIVE_PUBLIC_SHARING_FOUND'};return ok({ok:false,error:'DRIVE_PUBLIC_SHARING_FOUND',exported_at:null,failure_recorded:true},502);}
     const at=new Date().toISOString();ledger={...ledger,last_success_at:at,last_failure_at:null,last_failure_code:null};
     return ok({ok:true,exported_at:at,counts:{app_ledger_records:4},keep:8,trim_failed:0,documents:{ledger:DOC}});
    }
@@ -94,4 +95,26 @@ test('원장 사본 상태 한 줄: 배포 전 함수면 줄을 숨기고 POST�
  await expect.poll(()=>calls.filter(c=>c.action==='ledger_status').length,{timeout:10000}).toBeGreaterThan(0);
  await expect(page.locator('#ledgerExportRoot')).toBeHidden();
  expect(calls.filter(c=>c.method==='POST')).toHaveLength(0);
+});
+
+// MULTI-다른담당자맞춤 ④: 사본 Drive가 있는 작업공간의 owner가 아니면 서버가 403 FORBIDDEN으로 막는다 →
+// 이 로그인 동안 줄을 그리지 않고 다시 묻지도, 내보내지도 않는다(원장 변경·다시 열기에도 요청 없음).
+test('원장 사본 상태 한 줄: 서버가 FORBIDDEN이면 줄 없음, 다시 열어도 다시 묻지 않음',async({page})=>{
+ test.setTimeout(60000);
+ const calls=await mockApp(page,{forbidden:true});
+ await signIn(page);
+ await expect.poll(()=>calls.filter(c=>c.action==='ledger_status').length,{timeout:10000}).toBeGreaterThan(0);
+ await page.waitForTimeout(800);
+ // 첫 열기의 상태 읽기와 점검 읽기가 함께 나갈 수 있다(그 뒤로는 없음).
+ const first=calls.filter(c=>c.action==='ledger_status').length;
+ expect(first).toBeLessThanOrEqual(2);
+ await expect(page.locator('#ledgerExportRoot')).toBeHidden();
+ await page.evaluate(()=>{window.KPTULedgerExport?.changed?.();window.KPTURouter.go('library',{source:'delegated'});});
+ await expect(page.locator('#libraryView')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('ledger',{source:'delegated'}));
+ await expect(page.locator('#ledgerView')).toBeVisible();
+ await page.waitForTimeout(500);
+ expect(calls.filter(c=>c.action==='ledger_status')).toHaveLength(first);
+ expect(calls.filter(c=>c.method==='POST')).toHaveLength(0);
+ await expect(page.locator('#ledgerExportRoot')).toBeHidden();
 });

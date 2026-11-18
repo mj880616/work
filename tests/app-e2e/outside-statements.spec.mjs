@@ -66,16 +66,26 @@ async function outsideServer(page) {
       if (action === 'fill_now') return ok({ ok: true, done: 0, status: 'nothing' });
       return ok({ ok: false }, 400);
     }
-    if (p === '/rest/v1/app_news_items') {
-      server.calls.push({ what: 'app_news_items', method, query: decodeURIComponent(u.search) });
+    // NEWS-모두에게열기 ③: 언론 기사는 공용 표(+ 내 표시 embed), 읽음은 사람별 표(app_news_reads·app_outside_reads, article_id).
+    if (p === '/rest/v1/app_news_marks') return ok([]); // S63-11 서버 찾기의 별표 기사(없음)
+    if (p === '/rest/v1/app_news_articles') {
+      server.calls.push({ what: 'app_news_articles', method, query: decodeURIComponent(u.search) });
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      return ok(NEWS.filter(r => !inKeys || inKeys.includes(r.source_key)));
+      return ok(NEWS.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: starred_at ? [{ starred_at, folder_id: null, hidden_at: null, keywords: [] }] : [] })));
     }
+    if (p === '/rest/v1/app_news_reads' || p === '/rest/v1/app_outside_reads') {
+      const body = req.postDataJSON?.() ?? null;
+      server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body, prefer: req.headers().prefer || '' });
+      if (method === 'POST') { server.reads.add(body.article_id); return route.fulfill({ status: 201 }); }
+      const ids = /^in\.\((.*)\)$/.exec(u.searchParams.get('article_id') || '')?.[1]?.split(',') || [];
+      return ok(ids.filter(id => server.reads.has(id)).map(id => ({ article_id: id })));
+    }
+    if (p === '/rest/v1/app_news_items') return ok([]);
     if (p === '/rest/v1/app_news_keywords' || p === '/rest/v1/app_news_folders' || p === '/rest/v1/app_notes') return ok([]);
     if (p === '/rest/v1/app_feed_reads') {
       const body = req.postDataJSON?.() ?? null;
       server.calls.push({ what: 'app_feed_reads', method, query: decodeURIComponent(u.search), body, prefer: req.headers().prefer || '' });
-      if (method === 'POST') { server.reads.add(body.outside_post_id || body.news_item_id); return route.fulfill({ status: 201 }); }
+      if (method === 'POST') return route.fulfill({ status: 201 }); // 옮기는 동안 같이 써 보는 옛 표 — 읽음 기준은 새 표
       const col = u.searchParams.has('outside_post_id') ? 'outside_post_id' : 'news_item_id';
       const ids = /^in\.\((.*)\)$/.exec(u.searchParams.get(col) || '')?.[1]?.split(',') || [];
       return ok(ids.filter(id => server.reads.has(id)).map(id => ({ [col]: id })));
@@ -86,13 +96,13 @@ async function outsideServer(page) {
     if (!p.startsWith('/rest/v1/app_outside_')) return route.fallback();
     const body = req.postDataJSON?.() ?? null;
     server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
-    if (p === '/rest/v1/app_outside_posts') {
+    if (p === '/rest/v1/app_outside_articles') {
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      const rows = [...server.extra, ...POSTS].filter(r => !inKeys || inKeys.includes(r.source_key));
+      const rows = [...server.extra, ...POSTS].filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('and'), 'summary_ko'));
       const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 100);
       return ok(rows.slice(offset, offset + limit));
     }
-    if (p === '/rest/v1/app_outside_sentences') return ok(SENTENCES[(u.searchParams.get('post_id') || '').replace(/^eq\./, '')] || []);
+    if (p === '/rest/v1/app_outside_article_sentences') return ok(SENTENCES[(u.searchParams.get('article_id') || '').replace(/^eq\./, '')] || []);
     if (p === '/rest/v1/app_outside_seen') {
       if (method === 'PATCH') { server.seen = [{ seen_at: body.seen_at }]; return ok(server.seen); }
       return ok(server.seen);
@@ -109,6 +119,13 @@ async function outsideServer(page) {
   return server;
 }
 
+// S63-11 서버 찾기 흉내: '.ilike."*낱말*…*"' 조건이 있으면 제목·한국어 제목·요약에서 낱말을 순서대로(대소문자 무시).
+function likeOk(row, param, sumCol) {
+  const pat = /\.ilike\."([^"]*)"/.exec(param || '')?.[1];
+  if (pat === undefined) return true;
+  const re = new RegExp(pat.split('*').filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*'), 'i');
+  return ['title', 'title_ko', sumCol].some(k => re.test(String(row[k] ?? '')));
+}
 async function start(page, width, initialPrefs = null) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
@@ -179,7 +196,7 @@ for (const width of [412, 884, 1280]) {
     await expect(row(page, 'outside:p2')).toHaveClass(/is-read/);
     await expect(p1).toHaveClass(/is-new/);
     expect(await p1.locator('.nw-title').evaluate(el => getComputedStyle(el).fontWeight)).toBe('700');
-    expect(server.calls.find(c => c.what === 'app_feed_reads' && c.method === 'GET').query).toContain('workspace_id=eq.w');
+    expect(server.calls.find(c => c.what === 'app_outside_reads' && c.method === 'GET').query).toContain('workspace_id=eq.w');
     expect(await noWideScroll(page)).toBe(true);
 
     // 탭 자리(명진 11/06): 폰 = 아래 가운데 떠 있음, 폴드 = 오른쪽 아래, PC = 위.
@@ -190,17 +207,21 @@ for (const width of [412, 884, 1280]) {
 
     // 상세를 열면 읽음 한 줄(on_conflict + ignore-duplicates = 이미 있으면 그대로), 줄은 흐리게.
     await p1.locator('.now-open').click();
-    await expect.poll(() => server.calls.filter(c => c.what === 'app_feed_reads' && c.method === 'POST').map(c => c.body)).toContainEqual({ workspace_id: 'w', outside_post_id: 'p1' });
-    const post = server.calls.find(c => c.what === 'app_feed_reads' && c.method === 'POST' && c.body.outside_post_id === 'p1');
-    expect(post.query).toBe('?on_conflict=outside_post_id');
+    await expect.poll(() => server.calls.filter(c => c.what === 'app_outside_reads' && c.method === 'POST').map(c => c.body)).toContainEqual({ workspace_id: 'w', article_id: 'p1' });
+    const post = server.calls.find(c => c.what === 'app_outside_reads' && c.method === 'POST' && c.body.article_id === 'p1');
+    expect(post.query).toBe('?on_conflict=workspace_id,article_id');
     expect(post.prefer).toContain('resolution=ignore-duplicates');
     if (width <= 760) await page.goBack();
     await expect(row(page, 'outside:p1')).toHaveClass(/is-read/);
 
-    // 위 찾기 칸: 글자를 넣으면 지금 목록에서 제목으로 바로 거른다(서버 안 부름).
+    // 위 찾기 칸(S63-11): [전체]는 서버 찾기 — 언론 기사 + 사회운동 글, 최근 30일 + 보관한 글의 제목·한국어 제목·요약. 문장 찾기 결과 칸은 열지 않는다.
     const find = root(page).locator('[data-nw-find]');
     await find.fill('외신');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+    await expect(row(page, 'news:e1')).toBeVisible();
+    expect(server.calls.filter(c => c.what === 'app_outside_articles').at(-1).query).toContain('summary_ko.ilike."*외신*"');
+    await find.press('Enter');
+    await expect(root(page).locator('[data-os-search]')).toBeHidden();
     await find.fill('');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
 
@@ -210,16 +231,17 @@ for (const width of [412, 884, 1280]) {
     await dd.click();
     const pick = page.locator('#nwMediaPicker');
     await expect(pick).toBeVisible();
-    await expect(pick.locator('.lu-move-item')).toHaveText([/^전체/, '노동', '민주노총', '정당', '노동당', '녹색당', '외국', 'Jacobin', '언론 국내', '가짜일보', '언론 외국', 'Fake Wire']);
+    await expect(pick.locator('.lu-move-item')).toHaveText([/^전체/, '노동', '민주노총', '정당', '노동당', '녹색당', '국제', 'Jacobin', '언론 국내', '가짜일보', '언론 국제', 'Fake Wire']);
     await expect(pick.locator('.lu-move-foot')).toBeHidden();
+    if (process.env.S62_SHOT) await page.screenshot({ path: `${process.env.S62_SHOT}/news-media-picker-${width}.png` });
     await pick.locator('[data-lu-move-folder="g:party"]').click();
     await expect(dd).toHaveText('매체: 정당 ▾');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(2);
-    expect(server.calls.filter(c => c.what === 'app_outside_posts').at(-1).query).toContain('source_key=in.(laborparty,kgreens)');
+    expect(server.calls.filter(c => c.what === 'app_outside_articles').at(-1).query).toContain('source_key=in.(laborparty,kgreens)');
     await dd.click();
     await pick.locator('[data-lu-move-folder="n:news-fake-en"]').click();
     await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
-    expect(server.calls.filter(c => c.what === 'app_news_items').at(-1).query).toContain('source_key=in.(news-fake-en)');
+    expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-en)');
     await dd.click();
     await pick.locator('[data-lu-move-folder="all"]').click();
     await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
@@ -230,11 +252,19 @@ for (const width of [412, 884, 1280]) {
     await expect(tab(page, 'movement')).toHaveAttribute('aria-selected', 'true');
     await expect.poll(() => server.prefs.value?.news_tab).toBe('movement');
     const mv = rows(page, '[data-os-list]');
+    // S63-11: 국내 단체 글 먼저, 국제(Jacobin) 글은 아래 접힌 '국제' 묶음 — 펼치면 그 안 줄이 보인다(화면 메모리).
+    const intl = root(page).locator('[data-os-list] details[data-os-intl]');
+    await expect(mv).toHaveCount(POSTS.length - 1);
+    await expect(intl.locator('summary')).toHaveText(/^국제 · 1건/);
+    await expect(intl.locator('[data-nw-key="outside:p3"]')).toHaveCount(0);
+    await intl.locator('summary').click();
     await expect(mv).toHaveCount(POSTS.length);
+    await expect(intl.locator('[data-nw-key="outside:p3"]')).toHaveCount(1);
+    expect(await root(page).locator('[data-os-list] [data-nw-key]').evaluateAll(els => els.at(-1).dataset.nwKey)).toBe('outside:p3');
     await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
     // [사회운동] 탭의 매체 창에는 언론이 없다.
     await dd.click();
-    await expect(pick.locator('.lu-move-item')).toHaveText([/^전체/, '노동', '민주노총', '정당', '노동당', '녹색당', '외국', 'Jacobin']);
+    await expect(pick.locator('.lu-move-item')).toHaveText([/^전체/, '노동', '민주노총', '정당', '노동당', '녹색당', '국제', 'Jacobin']);
     await page.keyboard.press('Escape');
     // 글 줄 위를 밀면 탭이 아니라 줄 밀기(숨기기·보관)의 몫 — 탭은 그대로.
     if (width < 1200) { await swipeOn(row(page, 'outside:p4'), -160); await expect(tab(page, 'movement')).toHaveAttribute('aria-selected', 'true'); }
@@ -248,6 +278,10 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator('[data-os-tabs]')).toBeHidden();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'false');
     await expect(root(page).locator('[data-os-on-count]')).toHaveText('켬 4');
+    // NEWS-출처목록가나다: 묶음 순서는 그대로(노동·정당·국제), 묶음 안은 가나다(카탈로그는 민주노총 → 공공운수노조 순서).
+    await expect(root(page).locator('.os-src-group-head')).toHaveText(['노동', '정당', '국제']);
+    await expect(root(page).locator('.os-src-name')).toHaveText(['공공운수노조', '민주노총', '노동당', '녹색당', 'Jacobin']);
+    if (process.env.S62_SHOT) await page.screenshot({ path: `${process.env.S62_SHOT}/news-sources-${width}.png` });
     await expect(root(page).locator('.os-src-note.is-bad')).toHaveText(['못 읽음 · 사이트 구조 바뀜', '못 읽음 · 사이트가 자동 읽기 막음']);
     await sw('kptu').click();
     await expect(sw('kptu')).toHaveAttribute('aria-checked', 'true');

@@ -38,20 +38,23 @@ async function nowServer(page) {
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
     if (/^app_(outside_|now_|news_)/.test(table)) s.calls.push({ what: table, method, query: decodeURIComponent(u.search), body });
-    if (table === 'app_outside_posts') {
+    if (table === 'app_outside_articles') {
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       return ok(id ? POSTS.filter(x => x.id === id) : POSTS);
     }
     if (table === 'app_outside_sources') return ok([{ source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }, { source_key: 'jacobin', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }]);
     if (table === 'app_outside_seen') return ok([{ seen_at: '2026-10-06T00:00:00Z' }]);
-    if (table === 'app_outside_marks') {
-      const post = (u.searchParams.get('post_id') || '').replace(/^eq\./, '');
-      if (method === 'PATCH') { const row = s.marks.find(m => m.post_id === post); if (!row) return ok([]); Object.assign(row, body); return ok([{ post_id: post }]); }
+    // NEWS-모두에게열기 ③: 사회운동 글 표시는 내 표시 표(app_outside_article_marks, article_id). 흉내 서버 안 줄은 옛 이름(post_id)으로 든다.
+    if (table === 'app_outside_article_marks') {
+      const post = (u.searchParams.get('article_id') || '').replace(/^eq\./, '');
+      const out = m => ({ article_id: m.post_id, starred_at: m.starred_at ?? null, archived_at: m.archived_at ?? null, dismissed_at: m.dismissed_at ?? null });
+      if (method === 'PATCH') { const row = s.marks.find(m => m.post_id === post); if (!row) return ok([]); Object.assign(row, body); return ok([out(row)]); }
+      if (method === 'POST') { const { article_id, ...rest } = body; const row = { post_id: article_id, ...rest }; s.marks.push(row); return ok([out(row)], 201); }
       if (method === 'POST') { s.marks.push({ ...body }); return route.fulfill({ status: 201 }); }
-      if (post) return ok(s.marks.filter(m => m.post_id === post));
-      return ok(s.marks.filter(m => m.starred_at || m.archived_at).map(m => ({ ...m, app_outside_posts: POSTS.find(x => x.id === m.post_id) })));
+      if (post) return ok(s.marks.filter(m => m.post_id === post).map(out));
+      return ok(s.marks.filter(m => m.starred_at || m.archived_at).map(m => ({ ...out(m), app_outside_articles: POSTS.find(x => x.id === m.post_id) })));
     }
-    if (table === 'app_now_signals') { if (method === 'POST') s.signals.push(body); return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]); }
+    if (table === 'app_outside_now_signals' || table === 'app_news_now_signals') { if (method === 'POST') s.signals.push(body); return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]); }
     if (table === 'app_now_interests') {
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       if (method === 'PATCH') { const row = s.interests.find(r => r.id === id); Object.assign(row, body); return ok([row]); }
@@ -100,7 +103,9 @@ for (const width of [412, 1280]) {
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     if (width > 760) await expect(detail(page).locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대'); // [전체]에서 맨 위 글을 한 번 연 뒤 탭을 옮긴다
     await root(page).getByRole('tab', { name: '사회운동' }).click();
-    await expect(root(page).locator('[data-os-list] [data-nw-key]')).toHaveCount(2);
+    // S63-11: 국내 단체 글 먼저, 국제(Jacobin) 글은 아래 접힌 '국제' 묶음(펼치기 전에는 줄을 그리지 않음).
+    await expect(root(page).locator('[data-os-list] [data-nw-key]')).toHaveCount(1);
+    await expect(root(page).locator('[data-os-list] details[data-os-intl] summary')).toHaveText(/^국제 · 1건/);
 
     // 관심 주제 후보가 있으면 목록 위 한 줄. 서버에 후보를 만들지 묻는다(규칙은 서버).
     await expect(root(page).locator('[data-now-cand]')).toContainText('관심 주제 후보 1');
@@ -144,13 +149,13 @@ for (const width of [412, 1280]) {
     } else await expect(root(page).locator('#nowMain')).toBeHidden();
     expect(await noWideScroll(page)).toBe(true);
 
-    // [☆ 별표]: 사회운동 글 표시 줄이 없으면 넣는다(post_id·workspace_id·starred_at만) + 환류 기록 한 줄(글 id·동작만).
+    // [☆ 별표]: 사회운동 글 내 표시 줄이 없으면 넣는다(article_id·workspace_id·starred_at만) + 환류 기록 한 줄(글 id·동작만).
     await nd.locator('[data-nd-act="star"]').click();
     await expect(nd.locator('[data-nd-act="star"]')).toHaveAttribute('aria-pressed', 'true');
-    const post = server.calls.filter(c => c.what === 'app_outside_marks' && c.method === 'POST').at(-1);
-    expect(Object.keys(post.body).sort()).toEqual(['post_id', 'starred_at', 'workspace_id']);
-    expect(post.body).toMatchObject({ post_id: P1, workspace_id: 'w' });
-    await expect.poll(() => server.signals).toEqual([{ workspace_id: 'w', outside_post_id: P1, action: 'star' }]);
+    const post = server.calls.filter(c => c.what === 'app_outside_article_marks' && c.method === 'POST').at(-1);
+    expect(Object.keys(post.body).sort()).toEqual(['article_id', 'starred_at', 'workspace_id']);
+    expect(post.body).toMatchObject({ article_id: P1, workspace_id: 'w' });
+    await expect.poll(() => server.signals).toEqual([{ workspace_id: 'w', article_id: P1, action: 'star' }]);
     // [원문 ↗] 열기도 기록(새 창은 막아 둔다).
     await page.evaluate(() => { window.open = () => null; document.querySelectorAll('[data-nd-link]').forEach(a => a.addEventListener('click', e => e.preventDefault(), { once: true })); });
     await link.click();
@@ -194,7 +199,7 @@ for (const width of [412, 1280]) {
     // 더하기: 확정으로 바로(origin은 화면이 보내지 않음).
     await box.locator('[data-ni-add-input]').fill('공공 돌봄');
     await box.locator('[data-ni-add-input]').press('Enter');
-    await expect(box.locator('.ni-topic')).toHaveText(['철도 민영화', '공공 돌봄']);
+    await expect(box.locator('.ni-topic')).toHaveText(['공공 돌봄', '철도 민영화']); // 가나다(NEWS-출처목록가나다)
     expect(server.calls.filter(c => c.what === 'app_now_interests' && c.method === 'POST').at(-1).body).toMatchObject({ workspace_id: 'w', topic: '공공 돌봄', state: 'confirmed' });
     expect('origin' in server.calls.filter(c => c.what === 'app_now_interests' && c.method === 'POST').at(-1).body).toBe(false);
     await page.goBack();

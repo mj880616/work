@@ -77,3 +77,21 @@ test('category counts count every top category from zero, subcategories under th
   assert.deepEqual([...categoryCounts(['교섭'],[])],[['교섭',0]]);
   dc.resetDocumentCategories();
 });
+// ORG-자료칩드롭다운(요청함 11/14): 상세 [자료] 종류는 [종류 전체 ▾] 상자 하나 — 목록 = 이름 + 건수, 0건은 흐리게 맨 뒤, 소분류는 큰 분류 아래, 사진 줄.
+test('kind pick: options carry counts, zero kinds go last and disabled, subcategory under its parent, photo line',async()=>{
+  const {kindPickOptions,kindPickState,hiddenCategories}=await import('../app/category-chips.js');
+  const dc=await import('../app/document-categories.js');
+  dc.setDocumentCategories(['교섭','선전','교육','기타','선전›투쟁속보']);
+  const names=dc.topDocumentCategories(),docs=[{category:'교섭'},{category:'선전›투쟁속보'},{category:'선전'},{category:'교섭'}];
+  assert.deepEqual(kindPickOptions(names,docs,{photos:3}).map(o=>[o.value,o.label,o.count,o.disabled]),[
+    ['all','종류 전체',4,false],['k:교섭','교섭',2,false],['k:선전','선전',2,false],['s:선전›투쟁속보','선전 › 투쟁속보',1,false],
+    ['photo','사진',3,false],['k:교육','교육',0,true],['k:기타','기타',0,true]]);
+  assert.equal(kindPickOptions(names,docs).some(o=>o.value==='photo'),false);
+  const pick=v=>{const p=kindPickState(names,v);return {hidden:[...hiddenCategories(names,p.off,p.sub)].sort(),photos:p.photos}};
+  assert.deepEqual(pick('all'),{hidden:[],photos:false});
+  assert.deepEqual(pick('k:교섭').hidden,['교육','기타','선전','선전›투쟁속보'].sort());
+  assert.deepEqual(pick('s:선전›투쟁속보').hidden,['교섭','교육','기타','선전'].sort());
+  assert.deepEqual(pick('photo'),{hidden:[],photos:true});
+  assert.deepEqual(pick('k:없는 종류'),{hidden:[],photos:false});
+  dc.resetDocumentCategories();
+});

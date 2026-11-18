@@ -9,9 +9,9 @@ package kr.or.kptu.work
  * - photos:edit:{"name":"a.jpg","size":1,"taken":ms} 원드라이브·구글 드라이브 사진: 같은 사진이 폰에 있으면 그것을 편집, 없으면 none
  *   → photos:edited:{"ok":bool,"changed":bool,"error":"none|old|busy|failed|noapp"}
  * - photos:save:begin:{"name","mime","size"} / photos:save:part:<base64> / photos:save:end / photos:save:cancel
- *   = 폰에 없는 사진의 원본(웹이 기존 '원본 받기' 길로 받은 바이트)을 Pictures/웹2에 한 장 저장 → photos:save:{"ok","step","got","id","error"}
+ *   = 폰에 없는 사진의 원본(웹이 기존 '원본 받기' 길로 받은 바이트)을 Pictures/노조+에 한 장 저장 → photos:save:{"ok","step","got","id","error"}
  * - S48-17 PHOTO-폰으로되돌리기(0.4.11): begin에 "dir"(원래 폰 폴더, MediaStore 상대 경로)·"taken"(원래 찍은 시각 ms)을 붙이면 되돌리기 저장이다.
- *   그 폴더에 원래 찍은 시각(DATE_TAKEN)으로 넣는다. 동영상도 받는다(Video 모음). 폴더가 사진첩이 받지 않는 곳이면 Pictures/웹2(동영상은 Movies/웹2).
+ *   그 폴더에 원래 찍은 시각(DATE_TAKEN)으로 넣는다. 동영상도 받는다(Video 모음). 폴더가 사진첩이 받지 않는 곳이면 Pictures/노조+(동영상은 Movies/노조+).
  * 넘기는 것은 content URI(+읽기·쓰기 허락 표시)뿐, 파일 경로는 앱 밖으로 내보내지 않는다. 사진 이름·내용은 로그에 쓰지 않는다.
  */
 object PhotoEditRules {
@@ -23,7 +23,7 @@ object PhotoEditRules {
     const val GRANT_WRITE = 0x00000002
     const val GRANT_FLAGS = GRANT_READ or GRANT_WRITE
 
-    const val SAVE_DIR = "Pictures/웹2/"
+    const val SAVE_DIR = "Pictures/노조+/"
     const val SAVE_MAX = 60L * 1024 * 1024
     /** 한 조각(base64 글자 수). 웹은 384KB 바이트씩 보낸다(base64 512KB). */
     const val PART_MAX = 700_000
@@ -99,7 +99,7 @@ object PhotoEditRules {
 
     /**
      * 되돌릴 폴더. 웹이 보낸 원래 상대 경로(예 'DCIM/Camera/')를 끝 '/'로 맞추고, 앞 '/'·'..'·제어 글자·255자 넘음은 거절(null).
-     * 사진첩이 그 종류를 받지 않는 맨 위 폴더(Android/media·Download 등)면 Pictures/웹2/(동영상 Movies/웹2/)로 넣는다.
+     * 사진첩이 그 종류를 받지 않는 맨 위 폴더(Android/media·Download 등)면 Pictures/노조+/(동영상 Movies/노조+/)로 넣는다.
      */
     fun restoreDir(raw: String?, video: Boolean): String? {
         if (raw == null) return null
@@ -107,7 +107,7 @@ object PhotoEditRules {
         if (t.isEmpty() || t.length > 255 || t.startsWith("/") || t.any { it.isISOControl() } || t.split('/').any { it == ".." || it == "." }) return null
         val dir = if (t.endsWith("/")) t else "$t/"
         val tops = if (video) VIDEO_TOPS else IMAGE_TOPS
-        return if (tops.any { dir.startsWith(it, ignoreCase = false) }) dir else if (video) "Movies/웹2/" else SAVE_DIR
+        return if (tops.any { dir.startsWith(it, ignoreCase = false) }) dir else if (video) "Movies/노조+/" else SAVE_DIR
     }
 
     /** 받는 그림 종류(편집기가 여는 사진만). 동영상은 받지 않는다. */

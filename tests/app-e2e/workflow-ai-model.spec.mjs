@@ -7,6 +7,7 @@ import { loginEntry } from './helpers/login-entry.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const now=()=>new Date().toISOString();
@@ -83,7 +84,7 @@ test('new meeting stores raw result exactly and creates linked Google follow-up 
   await mockApp(page,s);
   await signIn(page);
   await clickView(page,'meetings');
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
 
   await expect(page.locator('#meetingAutoClassify,#meetingDecisions,#wfMeetingLocation,#wfMeetingAttendees')).toHaveCount(0);

@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml, setXml} from '../app/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
-import {buildReport, isWeekendLabel, weekendFill, shadeWeekends, requestGrid, WEEKEND_FACE} from '../app/weekly-hwpx/report.mjs';
+import {extractBlankTemplate} from './fixtures/weekly-engine.mjs';
+import {buildReport, isWeekendLabel, weekendFill, shadeWeekends, requestGrid, WEEKEND_FACE} from './fixtures/weekly-engine.mjs';
 import {walk, kids, kid, textOf} from '../app/weekly-hwpx/xml.mjs';
 import {makeFakeReport, DEMO_DATA} from '../scripts/weekly-hwpx/fixture.mjs';
 

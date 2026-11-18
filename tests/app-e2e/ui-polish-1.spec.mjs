@@ -7,6 +7,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
+import {addReport} from './helpers/report-add.mjs';
 // UI-디자인손질(8-9e 후속): 메뉴 판(폰)·메뉴 [쓰기]·메모 [⋯]·상자 안쪽 여백·일정 하루 보기 할 일·담당조직 머리줄·
 // [AI 분류 요청]·앱 아이콘. Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
 test.use({locale:'ko-KR'});
@@ -79,16 +80,16 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const tops=await page.evaluate(()=>['.gs-menu-entry','nav[aria-label="더 보기"]','#mobileAccountGroup'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
  { const acct=await rect(page.locator('#mobileAccountGroup')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-acct.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-acct.bottom).toBeLessThanOrEqual(24); }
- // 메뉴 줄 2열: 노트·자료실 / 파일·HWP 편집 / 공유 페이지·원장 / 사진·News, 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 6줄(S48-27 뉴스 클리핑이 Now 탭으로).
+ // 메뉴 줄 2열(MULTI-하단바기본노트: 노트는 하단바, 잊지 말기가 맨 앞): 잊지 말기·자료실 / 파일·브리핑 룸 / HWP 편집·공유 페이지 / 사진·News(원장 메뉴 빠짐, MULTI-처음쓰는사람 ④), 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 6줄(BRIEF-브리핑룸 ③).
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','News','통화','텔레그램 소식','아스날']);
+ await expect(tiles).toHaveText(['잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {x:Math.round(r.left),y:Math.round(r.top),h:r.height,touch:r.height-parseFloat(a.top)-parseFloat(a.bottom)};}));
  expect(new Set(boxes.map(b=>b.y)).size).toBe(6);expect(new Set(boxes.map(b=>b.x)).size).toBe(2);
  // 보이는 줄 36px, 누르는 범위 44px(줄 사이 8px라 이웃 줄과 겹치지 않음).
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
  // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
- await expect(account.locator('button')).toHaveText(['내 프로필','업데이트 기록','메뉴 수정','화면 색','로그아웃']);
+ await expect(account.locator('button')).toHaveText(['내 프로필','쓰는 법','업데이트 기록','업데이트 소식','PC에 앱 설치','앱 내려받기','메뉴 수정','화면 색','가입자 현황','받은 의견','의견 보내기','로그아웃']);
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
  await expect(account).toHaveAttribute('aria-label','계정');await expect(page.locator('#mobileMenu h2')).toHaveCount(0);
@@ -96,8 +97,8 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
  await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
- // 닫으면 지금 보는 화면(조직 보고) 하나만 진하다.
- await expect(marks).toHaveCount(1);await expect(marks).toContainText('조직 보고');await expect(tab).not.toHaveAttribute('aria-current','page');
+ // 닫으면 지금 보는 화면(조직 관리) 하나만 진하다.
+ await expect(marks).toHaveCount(1);await expect(marks).toContainText('조직 관리');await expect(tab).not.toHaveAttribute('aria-current','page');
  // A tap on the grip closes.
  await open();await grip.click();await expect(menu).toBeHidden();
  // A tap outside (above the sheet) closes.
@@ -151,17 +152,17 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('[data-menu-write]')).toHaveCount(0);
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·일기는 [일정] 아래 하위 메뉴(달력·할 일·일기)로. HOME-업무일지홈: 업무일지는 홈이라 이 줄에 없다.
- await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','일기']);
- // BASKET-PC메뉴: [정리함] 아래 [업데이트]·[챙길 것], [노트]는 [일정] 다음.
+ await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','하루 기록']);
+ // BASKET-PC메뉴: [정리함] 아래 하위 줄 없음. MULTI-하단바기본노트: 새 계정 PC 왼쪽 메뉴는 하단바 기본(노트·일정·조직 보고·사업 보고) 뒤 잊지 말기.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['잊지 말기','일정','노트','사업 보고','자료실','파일','공유 페이지','조직 보고','HWP 편집','원장','사진','News','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['노트','일정','조직 관리','사업 관리','잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날',/^자주 가는 링크/,'쓰는 법']);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await expect(page.locator('#mobileMenuOpen')).toHaveCount(0);await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();
- await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','자료실','파일','HWP 편집','공유 페이지','원장','사진','News','통화','텔레그램 소식','아스날']);
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['잊지 말기','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 
@@ -187,7 +188,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  await editor.locator('[data-close="edWindow"]').click();
  // Unsaved text asks first; the answer is to close without saving.
  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(editor).toHaveCount(0);
- await expect(page.locator('#toast')).toContainText('빠른 추가의 [업데이트]로 다시 열면 이어서');
+ await expect(page.locator('#toast')).toContainText('빠른 추가의 [잊지 말기]로 다시 열면 이어서');
  await openWriteFromEntry(page,width);
  await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('쓰기에서 저장');
  await page.locator('#edWindow [data-edw-save]').click();
@@ -235,7 +236,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  // [⋯] = 수정·보관·삭제(같은 색), keyboard and Esc. 원문 보기 is the small toggle icon near the text.
  const more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(menu).toBeHidden();await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.locator('button')).toHaveText(['수정','보류로','일기로 보내기','삭제']);
+ await expect(menu.locator('button')).toHaveText(['수정','보류로','하루 기록으로 보내기','삭제']);
  await expect(menu.locator('[data-basket-edit]')).toBeFocused();
  const menuColor=sel=>menu.locator(sel).evaluate(el=>getComputedStyle(el).color);
  expect(await menuColor('[data-basket-delete]')).toBe(await menuColor('[data-basket-edit]'));expect(await menuColor('[data-basket-delete]')).not.toBe(await token('--kptu-danger'));
@@ -260,7 +261,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
 for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 결과 창, 담당조직 머리줄, 일정 하루 보기 할 일 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  // 1 회의 결과 창: 묶음 상자 안 입력칸이 테두리에서 12px 이상 떨어지고, "차수"에 "선택" 이름표가 없다.
- await view(page,'meetings');await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
+ await view(page,'meetings');await addReport(page);await expect(page.locator('#meetingModal')).toBeVisible();
  for(const box of await page.locator('#meetingModal fieldset.meeting-entry-section').all()){
   const gap=await box.evaluate(el=>{const r=el.getBoundingClientRect();return Math.min(...[...el.querySelectorAll('input:not([type=file]),select,textarea,legend')].filter(c=>c.getClientRects().length).map(c=>{const b=c.getBoundingClientRect();return Math.min(b.left-r.left,r.right-b.right);}));});
   expect(gap).toBeGreaterThanOrEqual(12);
@@ -290,7 +291,7 @@ for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 
 test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 있고 크기가 맞다',async({request})=>{
  const manifest=JSON.parse(readFileSync('app/windows-manifest.json','utf8'));
  // UI-하단바색: background_color·theme_color 모두 앱 바탕(밝은 --kptu-bg). 일부 폰이 background_color를 하단 내비게이션 바에 쓰므로 남색을 쓰지 않는다(아이콘 바탕 app-icon.svg만 남색).
- expect(manifest).toMatchObject({name:'웹2',short_name:'웹2',background_color:'#f3f1ea',theme_color:'#f3f1ea'});
+ expect(manifest).toMatchObject({name:'노동조합+',short_name:'노동조합+',background_color:'#f3f1ea',theme_color:'#f3f1ea'});
  const png=manifest.icons.filter(i=>i.type==='image/png');
  expect(png.map(i=>`${i.sizes} ${i.purpose}`).sort()).toEqual(['192x192 any','192x192 maskable','512x512 any','512x512 maskable']);
  const html=readFileSync('app/index.html','utf8');
@@ -301,7 +302,7 @@ test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 
   expect([body.readUInt32BE(16),body.readUInt32BE(20)],path).toEqual([size,size]);
  }
  const svg=readFileSync('app/app-icon.svg','utf8');
- expect(svg).toContain('fill="#F2EFE6"');expect(svg).toContain('#3B4A6B');expect(svg).toContain('#2F9E7A');expect(svg).toContain('@media (max-width:32px){.full{display:none}');
+ expect(svg).toContain('fill="#4D5A2E"');expect(svg).toContain('#FFFEFA');expect(svg).toContain('#E7C25A');expect(svg).toContain('@media (max-width:32px){.full{display:none}');
  expect(svg).not.toMatch(/<image|href=|data:/);
 });
 

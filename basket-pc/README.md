@@ -1,4 +1,8 @@
-# 바구니 PC드롭 (BASKET-PC드롭)
+# 노조+ 파일 올리기 (옛 이름 노조+ 업로드·바구니 PC드롭, BASKET-PC드롭)
+
+> S63-09 PC도우미구분(명진 11/16, 이름·아이콘은 명진 결정 대기 추천안): 이 프로그램을 노조+ 자체로 아는 사람이 있어, 보이는 이름을 **노조+ 파일 올리기**(설치 제목·시작 메뉴·바탕화면 바로가기·트레이·릴리스 이름 '노조+ 파일 올리기 도우미')로, 아이콘에 아래 가운데 노란 올리기 화살표를 더했다(`scripts/app-icon/build-app-icons.py` → `tools/make-icon.py`). 사용자가 바로가기를 눌러 켜면(이미 켜져 있어도) 도우미 안내 창이 뜨고 [노조+ 열기]가 기본 브라우저로 `https://nojoplus.com/work/app/`을 연다. 트레이 메뉴 맨 위에도 [노조+ 열기], 트레이 아이콘 더블클릭은 안내 창. 윈도우 시작 항목·업데이트 뒤 다시 시작은 `--background`(이 프로그램이 읽는 유일한 말, `LaunchArgs`)로 창 없이 트레이로만. 이미 켜진 프로그램에는 이름 붙은 이벤트(`HelperSignal`)로 "창 열기"만 알린다. 옛 바로가기 `BasketDrop.lnk`·`노조+ 업로드.lnk`는 새 이름 바로가기가 같은 폴더에 생긴 뒤에만 지운다(`RenamedShortcuts`).
+
+> BASKET-노조플러스업로드(명진 확정 11/15): 보이는 이름은 **노조+ 업로드**(트레이 이름·알림 제목·설치 제목·시작 메뉴·릴리스 이름), 트레이 메뉴는 **노조+에서 이 PC 보기**. 내부 ID(`BasketDropApp`)·실행 파일(`BasketDrop.exe`)·설치 파일 이름(`BasketDropApp-win-Setup.exe`)·데이터 폴더·자격 증명 이름은 그대로다(바꾸면 이미 깔린 PC의 자동 업데이트·로그인이 끊김). 이름이 바뀐 뒤 옛 시작 메뉴·바탕화면 바로가기 `BasketDrop.lnk`는 새 이름 바로가기가 같은 폴더에 생긴 것을 확인한 뒤에만 지운다(`RenamedShortcuts`, 제거 때는 옛 이름도 지움). 노조+ 로그인 화면과 메뉴 '앱 내려받기'(윈도우 PC 브라우저)가 최신 설치 파일을 연다(배포 때 `scripts/phone-app-latest.mjs`가 `app/pc-app.json`에 적음).
 
 윈도우 PC 트레이에서 로그인·자동 실행·자동 업데이트를 맡고, Web2 [파일] 화면이 이 PC를 볼 수 있게 하는 작은 프로그램(글·사진·파일을 바구니로 보내는 입구 4개 — 클립보드 단축키·붙여넣기 창, 우클릭 [보내기], 화면 구석 던지기 칸, 바탕화면 칸 — 는 S54-13에서 없앴다. 폰 앱의 공유 보내기는 그대로). 설계: [docs/design/basket-pc-drop.md](../docs/design/basket-pc-drop.md). 보관 상태인 `windows-app/`와 별개의 새 폴더다.
 
@@ -108,7 +112,7 @@ main 최신 커밋에서 `git tag basket-pc-v0.1.2` 후 `git push origin basket-
 - `src/BasketDrop.Core` — 화면과 무관한 논리(남은 대기열 보내기, 로그인, 이 PC 문, 상태 전이, 제한). 윈도우 없이 테스트된다.
 - `src/BasketDrop` — WinForms 트레이 프로그램(.NET 10).
 - `tests/BasketDrop.Tests` — 자동 테스트(가짜 서버 포함, 운영 호출 없음).
-- `icon/basket-icon.svg` — 아이콘 원본 그림 하나(종이색 바탕·남색 바구니·초록 ↓, Web2 아이콘 `app/app-icon.svg`와 같은 색). 16·20·24에서는 화살표와 바구니 몸통만 그린 작은 판을 쓴다. `python3 basket-pc/tools/make-icon.py`(Pillow만 필요)가 `src/BasketDrop/app.ico`(프로그램·설치 파일·시작 메뉴·창), 트레이 상태 아이콘 3개(`tray-pending.ico` 보낼 것 대기 중 = 오른쪽 아래 주황 점, `tray-signedout.ico` 로그인 필요 = 흐린 회색, `tray-signedout-pending.ico` 둘 다), `icon/png/` 크기별 PNG, `docs/design/basket-pc-icon-preview.png` 미리보기를 다시 만든다. 그림을 바꾸면 SVG만 고치고 스크립트를 돌려 결과 파일을 함께 커밋한다.
+- `icon/basket-icon.svg` — 아이콘 원본 그림 하나(노동조합+ 아이콘 J10: 올리브 바탕·흰 '노조'·노랑 '+', Web2 아이콘 `app/app-icon.svg`와 같은 그림). `scripts/app-icon/build-app-icons.py`가 만들며, 16·20·24에서는 글자만 굵은 작은 판을 쓴다. `python3 basket-pc/tools/make-icon.py`(Pillow만 필요)가 `src/BasketDrop/app.ico`(프로그램·설치 파일·시작 메뉴·창), 트레이 상태 아이콘 3개(`tray-pending.ico` 보낼 것 대기 중 = 오른쪽 아래 주황 점, `tray-signedout.ico` 로그인 필요 = 흐린 회색, `tray-signedout-pending.ico` 둘 다), `icon/png/` 크기별 PNG, `docs/design/basket-pc-icon-preview.png` 미리보기를 다시 만든다. 그림을 바꾸면 `scripts/app-icon/build-app-icons.py`를 고쳐 돌린 뒤 이 스크립트를 돌려 결과 파일을 함께 커밋한다.
 - 트레이 그림·툴팁은 `TrayStatus`(Core)가 대기열 상태와 로그인 상태에서 정하고 `TrayApp.RefreshTray` 한 곳에서만 바꾼다. 따로 저장하는 상태는 없다.
 
 남은 항목을 보내는 길은 기존 바구니 길 그대로다: 파일 → `functions/v1/basket-files`(파일 하나씩), 글만 → REST `app_notes`. 서버·DB·Edge·Supabase 설정은 바꾸지 않는다. 공개용 키만 쓰며 서버 전용 키는 없다.

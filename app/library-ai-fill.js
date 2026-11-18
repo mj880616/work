@@ -12,7 +12,7 @@ export const LIBRARY_LINK_FIELDS=Object.freeze(['project_id','organization_id'])
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // ai-assist 오류 코드 중 이 흐름이 아는 것(나머지는 internal_error). 문구는 화면에 쓰지 않는다.
 const CODES=Object.freeze(Object.fromEntries(['session_required','auth_unavailable','forbidden','invalid_request','unsupported_kind','not_found','ai_not_configured',
-  'monthly_limit','daily_limit','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','library_not_ready','library_unavailable','internal_error']
+  'monthly_limit','daily_limit','ai_monthly_cap','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','library_not_ready','library_unavailable','internal_error']
   .map(code=>[code,code])));
 
 // jsonb가 돌려주는 키 순서(짧은 것 먼저, 같으면 바이트 순). 저장 확인 비교가 같은 모양을 쓰도록.

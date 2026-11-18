@@ -36,6 +36,29 @@ public class SourceRulesTests
         Assert.DoesNotContain("--token", program);
         Assert.DoesNotContain("args", program);
         Assert.DoesNotContain("NamedPipe", program);
+        // S63-09: the command line is read in one place only (LaunchArgs), and only for the one fixed word.
+        foreach (var file in Sources().Where(f => Path.GetFileName(f) != "LaunchArgs.cs"))
+            Assert.DoesNotContain("GetCommandLineArgs", File.ReadAllText(file));
+        var launch = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop.Core", "LaunchArgs.cs"));
+        Assert.Contains("public const string Background = \"--background\";", launch);
+    }
+
+    [Fact]
+    public void A_start_by_the_user_shows_the_helper_window_with_open_nojoplus()
+    {
+        // S63-09 PC도우미구분(명진 11/16): the tray program is not 노조+ itself; double-click explains that and opens the web app.
+        var program = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "Program.cs"));
+        Assert.Contains("if (LaunchArgs.StartedByUser()) HelperSignal.Ring();", program);
+        var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
+        Assert.Contains("ToolStripMenuItem _openNojoPlusItem = new(\"노조+ 열기\")", tray);
+        Assert.Contains("if (LaunchArgs.StartedByUser()) HelperForm.ShowOrFocus();", tray);
+        Assert.Contains("RegisterWaitForSingleObject(_helperSignal", tray);
+        var helper = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "HelperForm.cs"));
+        Assert.Contains("이 프로그램은 PC 파일을 노조+로 올리는 도우미예요.", helper);
+        Assert.Contains("Text = \"노조+ 열기\"", helper);
+        Assert.Contains("new ProcessStartInfo(NojoPlusWeb.AppUrl) { UseShellExecute = true }", helper);
+        var update = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "UpdateService.cs"));
+        Assert.Contains("ApplyUpdatesAndRestart(_pending, [LaunchArgs.Background])", update);
     }
 
     [Fact]
@@ -147,6 +170,28 @@ public class SourceRulesTests
     }
 
     [Fact]
+    public void Program_name_is_the_same_everywhere_but_the_update_ids_stay()
+    {
+        // BASKET-노조플러스업로드: shown name changes; packId, exe name and setup file name do not (installed PCs keep updating).
+        var release = File.ReadAllText(Path.Combine(Root(), "..", ".github", "workflows", "basket-pc-release.yml"));
+        Assert.Contains($"--packTitle \"{TrayStatus.Name}\"", release);
+        Assert.Contains("PACK_ID: BasketDropApp", release);
+        Assert.Contains("--mainExe BasketDrop.exe", release);
+        Assert.Contains("${PACK_ID}-win-Setup.exe", release);
+        var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
+        Assert.Contains("BalloonTipTitle = TrayStatus.Name", tray);
+        Assert.Contains("노조+에서 이 PC 보기", tray);
+        Assert.Contains("LegacyEntries.RemoveRenamedShortcuts(", tray);
+        foreach (var file in Sources())
+        {
+            var text = File.ReadAllText(file);
+            if (Path.GetFileName(file) == "LegacyEntries.cs") continue; // keeps the old Send to file name on purpose
+            Assert.DoesNotContain("바구니 PC드롭", text);
+            Assert.DoesNotMatch("\"[^\"\\n]*(웹2|Web2)[^\"\\n]*\"", text); // shown words only, not comments
+        }
+    }
+
+    [Fact]
     public void Uninstall_removes_the_login_and_the_entries_but_not_the_queue()
     {
         var program = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "Program.cs"));
@@ -154,6 +199,7 @@ public class SourceRulesTests
         Assert.Contains("RemoveRunValue()", program);
         Assert.Contains("CredentialManagerTokenStore().Delete()", program);
         Assert.Contains("LegacyEntries.RemoveSendTo()", program);
+        Assert.Contains("RenamedShortcuts.RemoveOld(LegacyEntries.ShortcutFolders)", program);
         Assert.DoesNotContain("AppPaths.Root", program);
         Assert.DoesNotContain("AppPaths.Queue", program);
     }

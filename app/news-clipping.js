@@ -5,15 +5,19 @@ import {pickerRows} from './library-move.mjs';
 import {folderSiblings, nextSortOrder, cleanFolderName, folderErrorText} from './library-tree.js';
 import {treeRows, folderPath, OUTSIDE, OUTSIDE_NAME} from './note-tree.mjs';
 import {FOLDER_DEPTH_LIMIT} from './folder-limits.mjs';
-import {askConfirm} from './small-notice.js';
+import {askConfirm, askText} from './small-notice.js';
 import {treeIconHtml} from './tree-icons.js';
 import {takeNewsItem} from './news-request.mjs';
-import {signalBody} from './now-model.mjs';
+import {articleIdOf, readNewsArticles, readNewsOne, readNewsStarred, readNewsKeywordHits, writeNewsMark, writeSignal, findNewsArticles} from './feed-shared.js';
+import {createFind} from './news-find.js';
+import {FIND_LIMIT, FIND_EMPTY, FIND_SHORT, sinceIso, mergeFound} from './news-find-model.mjs';
+import {newsPage} from './feed-shared-model.mjs';
+import {sortByName} from './name-order.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
-import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, pgTextArray, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
+import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
 // - 칸(같은 화면 안, 뒤로가기 한 번 = 목록, KPTURouter.layer): [키워드 고치기](app_news_keywords + 키워드에 걸린 글 모아 보기, S59-1) · [언론 매체 켜고 끄기](app_outside_sources의 news- 키)
@@ -24,7 +28,9 @@ import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFi
 // 바깥에서 온 글은 모두 글자로만 그린다(esc). 로그에 기사 제목·본문·주소를 남기지 않는다. 별표는 환류 기록 한 줄을 남긴다.
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1절): 이 칸은 News [언론] 탭. 칩 줄([전체]·[별표])과 이 칸의 ⋯는 없앴다.
 //   - 줄은 다른 탭과 같은 제목 중심 모양(news-row.mjs, 껍데기 KPTUNow.rowOf) — 요약·본문 접기·번역·메모는 목록에서 빼고 상세에서 본다.
-//   - 매체 거르기는 껍데기 [매체: 전체 ▾](KPTUNow.newsKeys), 제목 거르기는 위 찾기 칸(KPTUNow.query). 안 읽은 글 굵게(news-reads.js).
+//   - 매체 거르기는 껍데기 [매체: 전체 ▾](KPTUNow.newsKeys). 위 찾기 칸(KPTUNow.query)은 서버 찾기(S63-11, news-find.js — 최근 30일 + 별표 기사의 제목·한국어 제목·요약).
+//     찾는 말이 있으면 목록 대신 찾은 기사를 같은 줄 모양으로. 안 읽은 글 굵게(news-reads.js).
+//   - 줄 내용(제목 등)이 서버에서 새로 오면(열기·채우기, S63-11) 이 칸 줄을 고쳐 그리고 껍데기에 알린다(KPTUNow.newsFresh — [전체] 줄·상세 머리).
 //   - 껍데기 ⋯가 act()로 부르는 칸: [지금 채우기]·[언론 매체 켜고 끄기]·[키워드 고치기]·[별표 폴더](옛 [별표] 칩의 폴더 트리, 같은 화면 안 한 칸).
 //   - 언론 카탈로그·켠 매체는 meta()로 껍데기에 준다(매체 고르기·색).
 
@@ -54,7 +60,7 @@ const $ = sel => root?.querySelector(sel);
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-const fresh = () => ({scope: '', tab: ALL, items: [], loaded: false, failed: false, end: true, more: false,
+const fresh = () => ({scope: '', tab: ALL, items: [], raw: 0, loaded: false, failed: false, end: true, more: false,
   busy: new Set(), notes: new Map(),
   limits: {...DEFAULT_LIMITS}, catalog: null, catalogFailed: false, aiCapped: false, sources: new Map(), sourcesLoaded: false, sourcesFailed: false,
   keywords: [], keywordsLoaded: false, keywordsFailed: false, kwHits: new Map(), kwHitsFailed: false, saving: new Set(), panelNote: '', draft: '',
@@ -66,30 +72,28 @@ let state = fresh(), loadSeq = 0, layer = null;
 const q = v => encodeURIComponent(v);
 const edge = (action, body = {}, timeoutMs = 60000) => rt().api(`/functions/v1/news-feed?action=${action}`, {method: 'POST', body, singleFlight: false, timeoutMs});
 // 목록 읽기. [언론] 목록은 껍데기가 고른 매체(news- 키)만, 별표 폴더 칸은 별표한 기사 전부.
-function readItems(w, tab, offset) {
-  const keys = tab === STAR ? null : now()?.newsKeys?.() ?? null;
-  if (keys && !keys.length) return Promise.resolve([]);
+// NEWS-모두에게열기 ③: 기사는 공용 표(모두 같은 목록), 별표·폴더·숨김·키워드는 내 표시(feed-shared.js). 돌려줌: {rows(숨김 뺀 줄), raw(읽은 줄 수 = 다음 쪽 자리), end}.
+async function readItems(w, tab, offset) {
+  if (tab === STAR) {
+    const got = await readNewsStarred(ITEM_COLS, PAGE_SIZE + 1, offset);
+    return {rows: got.slice(0, PAGE_SIZE), raw: Math.min(got.length, PAGE_SIZE), end: got.length <= PAGE_SIZE};
+  }
+  const keys = now()?.newsKeys?.() ?? null;
+  if (keys && !keys.length) return {rows: [], raw: 0, end: true};
   const filter = keys ? `&source_key=in.(${keys.map(q).join(',')})` : '';
-  return rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&hidden_at=is.null${laneFilter(tab)}${filter}&select=${ITEM_COLS}&order=${orderOf(tab)}&limit=${PAGE_SIZE + 1}&offset=${offset}`, {singleFlight: false});
+  return newsPage(await readNewsArticles({cols: ITEM_COLS, filter: laneFilter(tab) + filter, order: orderOf(tab), limit: PAGE_SIZE + 1, offset}), PAGE_SIZE);
 }
-const readOne = (w, id, cols) => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${cols}&limit=1`, {singleFlight: false}).then(r => (Array.isArray(r) ? r[0] || null : null));
+const readOne = (w, id, cols) => readNewsOne(id, cols);
 const readSources = w => rt().api(`/rest/v1/app_outside_sources?workspace_id=eq.${q(w)}&source_key=like.news-*&select=${SOURCE_COLS}`, {singleFlight: false});
 const readKeywords = w => rt().api(`/rest/v1/app_news_keywords?workspace_id=eq.${q(w)}&select=${KEYWORD_COLS}&order=created_at.asc&limit=100`, {singleFlight: false});
-// 키워드 하나에 걸린 글(S59-1): 서버 키워드 단계가 keywords 칸에 그 낱말을 적어 둔 글, 새 것부터 KW_GROUP_SIZE건(하나 더 읽어 '더 있음'을 안다). 지운 줄은 뺀다.
-const readKeywordHits = (w, word) => rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=${ITEM_COLS}&order=created_at.desc,id.desc&limit=${KW_GROUP_SIZE + 1}`, {singleFlight: false});
+// 키워드 하나에 걸린 글(S59-1): 서버 키워드 단계가 내 표시 keywords 칸에 그 낱말을 적어 둔 글, 새 것부터 KW_GROUP_SIZE건(하나 더 읽어 '더 있음'을 안다). 숨긴 것은 뺀다.
+const readKeywordHits = (w, word) => readNewsKeywordHits(word, ITEM_COLS, KW_GROUP_SIZE + 1);
 const readFolders = w => rt().api(`/rest/v1/app_news_folders?workspace_id=eq.${q(w)}&select=${FOLDER_COLS}&order=sort_order.asc&limit=1000`, {singleFlight: false});
-async function patchItem(w, id, body) {
-  const rows = await rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=id,starred_at,folder_id`, {method: 'PATCH', body: {...body, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
-  const row = Array.isArray(rows) ? rows[0] : null;
-  if (!row || row.id !== id) throw new Error('save');
-  return row;
-}
-// 환류 기록 한 줄(app_now_signals, 화면은 더하기만). 실패해도 누른 일은 그대로.
+const patchItem = (w, id, body) => writeNewsMark(id, body);
+// 환류 기록 한 줄(사람별 반응 표, 화면은 더하기만). 실패해도 누른 일은 그대로.
 function signal(id, action) {
-  const w = workspaceOf();
-  if (!w) return;
-  rt().api('/rest/v1/app_now_signals', {method: 'POST', body: signalBody(w, {type: 'news', id}, action), prefer: 'return=minimal', singleFlight: false})
-    .then(() => now()?.signaled?.()).catch(() => {});
+  if (!workspaceOf()) return;
+  writeSignal({type: 'news', id}, action).then(() => now()?.signaled?.()).catch(() => {});
 }
 // 매체 표는 읽기(열 때·처음)와 쓰기(켜고 끄기)가 겹칠 수 있다. 쓰기가 시작·끝난 뒤에 도착한 '그 전에 시작한 읽기'는
 // 옛 값이라 버린다(상태 주인 하나: 마지막에 서버가 확인해 준 쓰기 결과). 읽는 동안 쓰기가 있었는지는 이 번호로 안다.
@@ -105,7 +109,19 @@ async function writeSource(w, key, enabled) {
 }
 
 // ---------- 그리기(이 화면의 유일한 renderer) ----------
-const titleOk = it => { const t = now()?.query?.() || ''; return !t || String(now()?.describe?.('news', it)?.title || it.title || '').replace(/\s+/g, '').toLowerCase().includes(t.replace(/\s+/g, '').toLowerCase()); };
+// S63-11 서버 찾기(위 찾기 칸): 최근 30일 기사 + 내 별표 기사(기간 없음)에서 제목·한국어 제목·요약. 고른 매체가 있으면 그 매체만.
+const find = createFind({
+  run: async words => {
+    const keys = now()?.newsKeys?.() ?? null;
+    if (keys && !keys.length) return [];
+    const got = await findNewsArticles(words, ITEM_COLS, {since: sinceIso(Date.now()), limit: FIND_LIMIT, keys});
+    const list = mergeFound(got.recent, got.kept, it => Date.parse(it?.created_at || ''));
+    void ensureReads(list.map(it => ({type: 'news', id: it.id})));
+    return list;
+  },
+  changed: () => { if (state.mode === 'list') paint(); },
+});
+const found = () => (find.active() && Array.isArray(find.get().result) ? find.get().result : []);
 // 목록 줄: 제목 중심(껍데기 rowOf). 마우스 단추 [보관][숨기기]는 PC·중간 폭에서만(폰은 줄 밀기).
 const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: hoverActsHtml({isSaved: !!it.starred_at})}) || '';
 // 별표 폴더 칸의 줄: 같은 줄 + ☆(별표 빼기)·[폴더] 단추.
@@ -116,15 +132,27 @@ function treeItemHtml(it) {
   return now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: `<span class="nc-tree-acts">${folder}${star}${note ? `<span class="nc-faint">${esc(note)}</span>` : ''}</span>`}) || '';
 }
 
+const unreadOf = items => items.filter(it => readState({type: 'news', id: it.id}) === false).length;
+const rowsHtml = items => (now()?.foldedHtml ? now().foldedHtml(items.map(row => ({type: 'news', row})), e => itemHtml(e.row)) : items.map(itemHtml).join(''));
+// 찾은 기사: 날짜 묶음(받은 날)만 — 관심 주제 위 칸은 목록에서만.
+function findHtml() {
+  const f = find.get();
+  if (f.short) return emptyHtml(FIND_SHORT, {attrs: 'data-nc-empty'});
+  if (f.failed) return failHtml({retry: 'data-nc-find-retry'});
+  if (!f.done) return waitHtml({rows: 4, h: 44});
+  const list = found();
+  if (!list.length) return emptyHtml(FIND_EMPTY, {attrs: 'data-nc-empty'});
+  return groupItems(list, Date.now()).map(g => dayHtml(g.label, rowsHtml(g.items), unreadOf(g.items), esc)).join('');
+}
 function listHtml() {
+  if (find.active()) return findHtml();
   if (!state.loaded) return state.failed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6, h: 44});
-  const list = state.items.filter(titleOk);
+  const list = state.items;
   const more = state.end ? '' : `<button type="button" class="nc-text-btn nc-more-items" data-nc-more-items${state.more ? ' disabled aria-busy="true"' : ''}>더 보기</button>`;
-  if (!list.length) return `${emptyHtml(state.items.length ? '제목에서 찾은 글 없음' : '기사 없음', {attrs: 'data-nc-empty'})}${more}`;
+  if (!list.length) return `${emptyHtml('기사 없음', {attrs: 'data-nc-empty'})}${more}`;
   // NEWS-도배막기(A + C): 관심 주제에 걸린 최근 기사는 위 칸에 먼저, 같은 매체가 연달아 나오면 '○○ 외 N건'으로 묶는다.
   // 규칙·펼침 기억은 껍데기 하나(KPTUNow.hitOf·foldedHtml, news-fold.mjs) — [전체]·[사회운동]과 같은 길.
-  const ts = Date.now(), unreadOf = items => items.filter(it => readState({type: 'news', id: it.id}) === false).length;
-  const rows = items => (now()?.foldedHtml ? now().foldedHtml(items.map(row => ({type: 'news', row})), e => itemHtml(e.row)) : items.map(itemHtml).join(''));
+  const ts = Date.now(), rows = rowsHtml;
   const {top, rest} = liftRelated(list, it => !!now()?.hitOf?.('news', it), it => Date.parse(it?.created_at || ''), ts);
   const head = top.length ? dayHtml(LIFT_LABEL, rows(top), unreadOf(top), esc) : '';
   const days = groupItems(rest, ts).map(g => dayHtml(g.label, rows(g.items), unreadOf(g.items), esc)).join('');
@@ -159,7 +187,7 @@ function keywordsHtml() {
   if (!state.keywordsLoaded) return head + (state.keywordsFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4}));
   const full = state.keywords.length >= max;
   const add = `<form class="nc-kw-add" data-nc-kw-form><input type="text" data-nc-kw-input maxlength="${KEYWORD_MAX_CHARS}" placeholder="키워드" aria-label="새 키워드" value="${esc(state.draft)}"${full ? ' disabled' : ''}><button type="submit" class="secondary nc-kw-add-btn"${full ? ' disabled' : ''}>더하기</button></form>`;
-  const rows = state.keywords.map(k => `<div class="nc-row">${switchHtml('data-nc-kw', k.word, k.enabled === true, k.word, state.saving.has('kw:' + k.word))}<button type="button" class="nc-del" data-nc-kw-del="${esc(k.word)}" aria-label="${esc(k.word)} 삭제"${state.saving.has('kw:' + k.word) ? ' disabled' : ''}><span aria-hidden="true">×</span></button></div>`).join('');
+  const rows = sortByName(state.keywords, k => k.word).map(k => `<div class="nc-row">${switchHtml('data-nc-kw', k.word, k.enabled === true, k.word, state.saving.has('kw:' + k.word))}<button type="button" class="nc-del" data-nc-kw-del="${esc(k.word)}" aria-label="${esc(k.word)} 삭제"${state.saving.has('kw:' + k.word) ? ' disabled' : ''}><span aria-hidden="true">×</span></button></div>`).join('');
   return head + add + panelFail() + (rows || emptyHtml('키워드 없음')) + keywordHitsHtml();
 }
 // 키워드에 걸린 글(S59-1 NEWS-키워드살리기): 켠 키워드마다 묶음 머리 '철도 · 12건' + 목록과 같은 줄(같은 매체 연달아는 접기). 누르면 공용 상세.
@@ -184,7 +212,7 @@ function sourcesHtml() {
   const head = panelHead('매체 선택', state.catalog && state.sourcesLoaded ? `켬 ${on}` : '');
   if (!state.catalog || !state.sourcesLoaded) return head + (state.catalogFailed || state.sourcesFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 6}));
   const groups = REGIONS.map(g => {
-    const members = state.catalog.filter(s => s.region === g.key);
+    const members = sortByName(state.catalog.filter(s => s.region === g.key)); // 지역 안은 가나다(NEWS-출처목록가나다)
     if (!members.length) return '';
     return `<section class="nc-group" aria-label="${esc(g.label)}"><h3 class="nc-group-head">${esc(g.label)}</h3>${members.map(s => {
       const row = state.sources.get(s.key), note = sourceNote(row);
@@ -221,6 +249,7 @@ function resetIfOwnerChanged() {
   if (state.scope === scope) return;
   closeLayer();
   state = fresh(); state.scope = scope;
+  find.reset();
 }
 async function loadItems({append = false, keep = false} = {}) {
   const w = workspaceOf(), seq = ++loadSeq;
@@ -228,14 +257,15 @@ async function loadItems({append = false, keep = false} = {}) {
   if (append) { state.more = true; paint(); }
   else { state.failed = false; if (!keep || !state.loaded) { state.loaded = false; state.items = []; } paint(); }
   try {
-    const rows = await readItems(w, state.tab, append ? state.items.length : 0);
+    const got = await readItems(w, state.tab, append ? state.raw : 0);
     if (seq !== loadSeq) return;
-    const got = Array.isArray(rows) ? rows : [];
-    const page = got.slice(0, PAGE_SIZE);
+    const page = got.rows;
     state.items = append ? [...state.items, ...page.filter(p => !state.items.some(x => x.id === p.id))] : page;
-    state.end = got.length <= PAGE_SIZE;
+    state.raw = (append ? state.raw : 0) + got.raw;
+    state.end = got.end;
     state.loaded = true;
     void ensureReads(page.map(it => ({type: 'news', id: it.id})));
+    now()?.newsFresh?.(page, {from: 'news'});
     if (state.tab === STAR || page.some(it => it.starred_at)) ensureFolders().then(ok => { if (ok && state.mode === 'folders') paint(); });
     if (!append) maybeAutoFill();
   } catch {
@@ -286,6 +316,7 @@ async function load() {
 }
 function enter() {
   resetIfOwnerChanged();
+  find.set(now()?.query?.() || '');
   const want = takeNewsItem();
   if (want) { closeLayer(); state.mode = 'list'; state.tab = ALL; state.focus = want; }
   paint();
@@ -293,9 +324,14 @@ function enter() {
   return want ? entering.then(() => showFocus(want)) : entering;
 }
 // 노트의 [기사로 가기]: 그 기사를 목록 맨 위에 두고(첫 쪽에 없으면 한 줄 읽어 앞에), 상세를 연다(메모는 상세에 있다).
-async function showFocus(id) {
+// 노트에 남은 id가 옛 기사 id면 공용 기사 id로 바꿔 연다(feed-shared.js 지도).
+async function showFocus(want) {
   const w = workspaceOf(), scope = state.scope;
-  if (!w || state.focus !== id) return;
+  if (!w || state.focus !== want) return;
+  let id = want;
+  try { id = await articleIdOf('news', want); } catch { /* 그대로 */ }
+  if (scope !== state.scope || state.focus !== want) return;
+  state.focus = id;
   let it = state.items.find(x => x.id === id);
   if (!it) {
     try { const row = await readOne(w, id, ITEM_COLS); if (scope !== state.scope || !row) return; it = row; state.items = [row, ...state.items]; }
@@ -464,12 +500,14 @@ async function toggleStar(id, trigger) {
 // 글 줄 밀기·마우스 단추(NOW-줄밀기): 왼쪽 = 숨기기(hidden_at), 오른쪽 = 보관(= 별표, 다시 밀면 풀기). 사회운동·[보관] 탭과 같은 부품(now-row-acts.js).
 bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemOf: el => (el.dataset.ncItem ? {type: 'news', id: el.dataset.ncItem} : null),
   enabled: () => state.mode === 'list',
-  isSaved: item => !!state.items.find(x => x.id === item.id)?.starred_at,
+  isSaved: item => !!itemById(item.id)?.starred_at,
   changed: (item, kind, on) => {
-    const it = state.items.find(x => x.id === item.id);
+    const it = state.items.find(x => x.id === item.id), hit = found().find(x => x.id === item.id);
+    if (hit && kind !== 'hide') { hit.starred_at = on ? new Date().toISOString() : null; if (!on) hit.folder_id = null; }
+    if (hit && kind === 'hide' && on) { const r = find.get().result; r.splice(r.indexOf(hit), 1); }
     if (kind === 'hide') { if (on) state.items = state.items.filter(x => x.id !== item.id); else load().catch(() => {}); }
     else if (it) { it.starred_at = on ? new Date().toISOString() : null; if (!on) it.folder_id = null; if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== item.id); }
-    else load().catch(() => {});
+    else if (!hit) load().catch(() => {});
     paint();
   }});
 async function putInFolder(id, folderId) {
@@ -486,12 +524,13 @@ function pickFolder(id, anchor) {
     onPick: fid => putInFolder(id, fid), onOut: () => putInFolder(id, null),
     onNew: async () => { const made = await newFolder(null); if (made) await putInFolder(id, made.id); }});
 }
-const askName = (text, value = '') => { const typed = window.prompt(`${text} (40자까지)`, value); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { state.treeNote = '폴더 이름은 1~40자로 써 주세요'; paint(); return null; } return name; };
-async function newFolder(parentId) {
+// UI-알림창정리: 폴더 이름은 공용 작은 글 입력창(askText)으로 묻는다(브라우저 기본 prompt 없음).
+const askName = async (text, value = '', anchor = null) => { const typed = await askText(anchor, {text: `${text} (40자까지)`, value, ok: value ? '바꾸기' : '만들기', max: 40}); if (typed === null) return null; const name = cleanFolderName(typed); if (!name) { state.treeNote = '폴더 이름은 1~40자로 써 주세요'; paint(); return null; } return name; };
+async function newFolder(parentId, anchor = null) {
   const w = workspaceOf(), scope = state.scope;
   if (!w || !await ensureFolders()) return null;
   if (parentId && folderPath(state.folders, parentId).length >= FOLDER_DEPTH_LIMIT) { state.treeNote = `폴더는 ${FOLDER_DEPTH_LIMIT}단까지`; paint(); return null; }
-  const name = askName('새 폴더 이름'); if (!name) return null;
+  const name = await askName('새 폴더 이름', '', anchor); if (!name) return null;
   try {
     const rows = await rt().api(`/rest/v1/app_news_folders?select=${FOLDER_COLS}`, {method: 'POST', body: {workspace_id: w, parent_id: parentId || null, name, sort_order: nextSortOrder(folderSiblings(state.folders, {free: true, parentId: parentId || null}))}, prefer: 'return=representation', singleFlight: false});
     const row = Array.isArray(rows) ? rows[0] : null;
@@ -500,10 +539,10 @@ async function newFolder(parentId) {
     return row;
   } catch (e) { if (scope === state.scope) { state.treeNote = folderErrorText(e); paint(); } return null; }
 }
-async function renameFolder(id) {
+async function renameFolder(id, anchor = null) {
   const w = workspaceOf(), f = state.folders.find(x => x.id === id), scope = state.scope;
   if (!w || !f) return;
-  const name = askName('폴더 이름 바꾸기', f.name); if (!name || name === f.name) return;
+  const name = await askName('폴더 이름 바꾸기', f.name, anchor); if (!name || name === f.name) return;
   try {
     const rows = await rt().api(`/rest/v1/app_news_folders?workspace_id=eq.${q(w)}&id=eq.${q(id)}&select=${FOLDER_COLS}`, {method: 'PATCH', body: {name}, prefer: 'return=representation', singleFlight: false});
     const row = Array.isArray(rows) ? rows[0] : null; if (!row || scope !== state.scope) return;
@@ -526,11 +565,26 @@ async function deleteFolder(id, trigger) {
 }
 const folderMenu = createAnchoredMenu({id: 'ncFolderMenu', className: 'topline-add-menu nc-menu', label: '폴더 메뉴', historyKey: 'kptuNewsFolderMenu', key: b => b.dataset.ncFolderMore,
   render: () => '<button type="button" data-nc-fact="child">안에 폴더 만들기</button><button type="button" data-nc-fact="rename">이름 바꾸기</button><button type="button" data-nc-fact="delete">삭제</button>',
-  onAction: (button, active) => { const trigger = active?.trigger, id = trigger?.dataset?.ncFolderMore; if (!id) return; const a = button.dataset.ncFact; if (a === 'child') newFolder(id); else if (a === 'rename') renameFolder(id); else if (a === 'delete') deleteFolder(id, trigger); }});
+  onAction: (button, active) => { const trigger = active?.trigger, id = trigger?.dataset?.ncFolderMore; if (!id) return; const a = button.dataset.ncFact; if (a === 'child') newFolder(id, trigger); else if (a === 'rename') renameFolder(id, trigger); else if (a === 'delete') deleteFolder(id, trigger); }});
 ncMenus = [folderMenu];
 
 // 목록 줄 또는 키워드 칸 줄(같은 기사가 두 곳에 있을 수 있다 — 목록 것을 먼저).
-const itemById = id => state.items.find(x => x.id === id) || [...state.kwHits.values()].flatMap(h => h.items).find(x => x.id === id) || null;
+const itemById = id => state.items.find(x => x.id === id) || found().find(x => x.id === id) || [...state.kwHits.values()].flatMap(h => h.items).find(x => x.id === id) || null;
+// S63-11: 서버에서 새로 온 줄 내용(열기·채우기 뒤 제목 등)을 이 칸의 같은 기사 줄 모두(목록·찾은 기사·키워드 묶음)에 고쳐 넣는다. 바뀐 것이 있으면 다시 그린다.
+const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind'];
+function freshRows(rows) {
+  let changed = false;
+  const lists = [state.items, found(), ...[...state.kwHits.values()].map(h => h.items)];
+  for (const r of rows || []) {
+    if (!r || typeof r.id !== 'string') continue;
+    for (const list of lists) for (const it of list) {
+      if (it.id !== r.id || it === r) continue;
+      for (const k of FRESH_COLS) if (k in r && it[k] !== r[k]) { it[k] = r[k]; changed = true; }
+    }
+  }
+  if (!changed) return;
+  if (state.mode === 'list' || state.mode === 'folders') paint(); else if (state.mode === 'keywords') paintKeywordHits();
+}
 
 // ---------- 누르기·밀기 ----------
 root?.addEventListener('click', event => {
@@ -542,11 +596,12 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-nc-folder]')) { const id = b.dataset.ncFolder; ensureFolders().then(ok => { if (ok) pickFolder(id, b); }); return; }
   if (b.matches('[data-nc-folder-toggle]')) { const id = b.dataset.ncFolderToggle; if (state.openFolders.has(id)) state.openFolders.delete(id); else state.openFolders.add(id); paint(); root.querySelector(`[data-nc-folder-toggle="${CSS.escape(id)}"]`)?.focus({preventScroll: true}); return; }
   if (b.matches('[data-nc-folder-more]')) { folderMenu.open(b); return; }
-  if (b.matches('[data-nc-new-folder]')) { newFolder(null); return; }
+  if (b.matches('[data-nc-new-folder]')) { newFolder(null, b); return; }
   if (b.matches('[data-nc-source]')) { toggleSource(b.dataset.ncSource); return; }
   if (b.matches('[data-nc-kw]')) { toggleKeyword(b.dataset.ncKw); return; }
   if (b.matches('[data-nc-kw-del]')) { deleteKeyword(b.dataset.ncKwDel); return; }
   if (b.matches('[data-nc-more-items]')) { loadItems({append: true}); return; }
+  if (b.matches('[data-nc-find-retry]')) { find.again(); return; }
   if (b.matches('[data-nc-retry]')) { if (state.mode === 'list') load().catch(() => {}); else openPanel(state.mode); paint(); }
 });
 root?.addEventListener('submit', event => {
@@ -566,7 +621,9 @@ window.addEventListener('kptu:view-changed', event => {
 });
 // News 껍데기가 [언론] 탭을 보일 때 enter()를 부른다(라우터 화면 이름은 outside). 이 모듈이 늦게 불러와졌으면 지금 들어간다.
 // act(): 껍데기 ⋯의 언론 쪽 항목. meta(): 언론 매체 표. repaint(): 위 찾기 칸 글자가 바뀌면 제목 거르기만 다시.
-window.KPTUNews = {refresh: () => load(), enter: () => enter(), meta: () => meta(), repaint: () => { if (state.mode === 'list') paint(); },
+// repaint({submit}): 찾는 말이 바뀌면 서버 찾기(Enter는 바로). fresh(rows): 다른 칸(상세·[전체])에서 새로 읽은 줄 내용을 이 칸 줄에 반영.
+window.KPTUNews = {refresh: () => { if (find.active()) find.again(); return load(); }, enter: () => enter(), meta: () => meta(), fresh: rows => freshRows(rows),
+  repaint: ({submit = false} = {}) => { find.set(now()?.query?.() || '', {now: submit}); if (state.mode === 'list') paint(); },
   act: mode => { resetIfOwnerChanged(); if (mode === 'fill') fillNow(); else if (mode === 'sources' || mode === 'keywords' || mode === 'folders') openPanel(mode); }};
 if (window.KPTURouter?.current === 'outside' && now()?.tab?.() === 'media') enter();
 })();

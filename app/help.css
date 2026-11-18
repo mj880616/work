@@ -1,0 +1,45 @@
+/* HELP-메뉴안쓰는법: 쓰는 법 화면(?view=help, help.js). 시안 docs/design/mockups/help-howto.html. 촘촘한 줄, 새 색 없음(기존 토큰만), 큰 카드·굵은 버튼 없음. */
+#helpView .hp{min-width:0}
+#helpView .hp-top{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:2px 0 6px;border-bottom:.5px solid var(--kptu-border)}
+#helpView .hp-sum{flex:1 1 20em;margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:1.5}
+#helpView .hp-find{flex:0 1 16em;min-width:0;height:var(--ds-compact-height,32px);padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px)}
+#helpView .hp-gl{margin:8px 0 2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
+#helpView .hp-group{margin:0}
+#helpView .hp-item{border-bottom:.5px solid var(--kptu-border)}
+#helpView .hp-row{display:grid;grid-template-columns:6.5em minmax(0,1fr) auto;gap:6px;align-items:center;min-height:var(--ds-compact-height,32px);padding:4px 0;cursor:pointer;list-style:none;font-size:var(--ds-text-row,13px)}
+#helpView .hp-row::-webkit-details-marker{display:none}
+#helpView .hp-row::after{content:'›';color:var(--kptu-muted);transition:transform .15s}
+#helpView .hp-item[open]>.hp-row::after{transform:rotate(90deg)}
+#helpView .hp-row:focus-visible,#helpView .hp-toc-btn:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#helpView .hp-name{font-weight:var(--ds-weight-medium,600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#helpView .hp-short{min-width:0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#helpView .hp-body{padding:0 0 8px;font-size:var(--ds-text-row,13px);line-height:1.55}
+#helpView .hp-lead{margin:0 0 4px}
+#helpView .hp-sub{margin:6px 0 1px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+#helpView .hp-ls{margin:0;padding-left:20px}
+#helpView .hp-ls li{margin:1px 0}
+#helpView .hp-links{margin:0;padding:0;list-style:none}
+#helpView .hp-links li{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0}
+#helpView .hp-chip{padding:0 6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:var(--ds-text-meta,12px)}
+#helpView .hp-arrow{color:var(--kptu-muted)}
+#helpView .hp-open{margin-top:6px}
+#helpView .hp-ex{margin:8px 0 0;max-width:22em}
+#helpView .hp-ex-screen{border:1px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);overflow:hidden;font-size:var(--ds-text-meta,12px)}
+#helpView .hp-ex-bar{padding:4px 8px;border-bottom:.5px solid var(--kptu-border);font-weight:var(--ds-weight-medium,600)}
+#helpView .hp-ex-rows{margin:0;padding:0;list-style:none}
+#helpView .hp-ex-rows li{padding:3px 8px;border-bottom:.5px solid var(--kptu-border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#helpView .hp-ex-rows li:last-child{border-bottom:0}
+#helpView .hp-ex-cap{margin-top:2px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+#helpView .hp-privacy{padding:6px 8px;border:1px solid var(--kptu-border);border-radius:var(--ds-radius-control,8px)}
+#helpView .hp-privacy p{margin:0 0 2px}
+#helpView .hp-contact{margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+#helpView .hp-contact a{color:var(--kptu-link,var(--kptu-primary-ink))}
+/* 761px~(폴드 펼침·PC): 왼쪽 목차 | 오른쪽 내용. */
+#helpView .hp-split{display:grid;grid-template-columns:minmax(10em,13em) minmax(0,1fr);gap:0;min-width:0}
+#helpView .hp-toc{display:flex;flex-direction:column;padding:2px 8px 8px 0;border-right:.5px solid var(--kptu-border)}
+#helpView .hp-toc-btn{display:block;width:100%;min-height:28px;padding:2px 8px;border:0;border-radius:var(--kptu-radius-sm,4px);background:none;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px);text-align:left;cursor:pointer}
+#helpView .hp-toc-btn:hover{background:var(--kptu-surface-subtle,var(--kptu-primary-soft))}
+#helpView .hp-toc-btn[aria-current="true"]{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:var(--ds-weight-medium,600)}
+#helpView .hp-detail{min-width:0;padding:4px 0 8px 14px;font-size:var(--ds-text-row,13px);line-height:1.55}
+#helpView .hp-dt{margin:2px 0 2px;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600)}
+@media(max-width:760px){#helpView .hp-find{flex:1 1 100%}}

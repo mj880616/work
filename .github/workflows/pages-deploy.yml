@@ -57,12 +57,25 @@ jobs:
           destination: ./_site
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Add content-hash ?v= and build the asset manifest
         run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
+      # APP-앱내려받기버튼: 최신 폰 앱(태그 phone-app-v*, 파일 web2-phone-*.apk — 바구니 PC 릴리스와 섞이지 않음)을 공개 릴리스 목록에서 골라
+      # 빌드 결과($RUNNER_TEMP/pages-out)의 app/phone-app.json에 둔다(_site는 Jekyll이 root로 만들어 쓸 수 없다 — 2026-11-14 배포 실패 원인). 화면은 같은 주소의 이 파일만 읽는다. 목록을 못 읽으면 파일 없이 배포한다(화면은 릴리스 목록 주소로 연다).
+      # 배포(main push·손 실행) 때마다 다시 고른다. 폰 앱 릴리스 뒤 바로 맞추려면 이 workflow를 손으로 한 번 돌린다(받은 옛 판도 앱이 스스로 업데이트한다).
+      # BASKET-노조플러스업로드: 같은 목록에서 최신 윈도우 PC 프로그램(태그 basket-pc-v*, 파일 BasketDropApp-win-Setup.exe)도 골라 app/pc-app.json에 둔다(같은 규칙·같은 폴더, 못 고르면 파일 없이 배포).
+      - name: Pick the latest phone app APK and Windows PC setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"; then
+            node scripts/phone-app-latest.mjs "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/pages-out/app/phone-app.json" "$RUNNER_TEMP/pages-out/app/pc-app.json" || echo "고르기 실패: 파일 없이 배포"
+          else
+            echo "릴리스 목록을 읽지 못함: app/phone-app.json·app/pc-app.json 없이 배포"
+          fi
       - name: Check hashed references, manifest and Worker fingerprints
         run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
       - name: Check Worker deploy URL extraction on the output
@@ -100,3 +113,29 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+
+  # UPDATE-운영자전용기록업데이트소식 PR1: 개발 기록(app/release-notes/*.json)은 공개 배포물에 싣지 않고(build-pages.mjs),
+  # 배포가 끝난 뒤 묶어서 서버 표(app_release_notes, 운영자만 읽음)로 보낸다. 열쇠는 이 job의 GitHub OIDC 토큰(새 비밀값 없음) —
+  # Edge release-notes-sync가 저장소·main·이 workflow 파일을 확인한다. 실패해도 화면 배포는 그대로(이 job만 실패로 남음).
+  release-notes:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            app/release-notes
+            app/release-notes-model.mjs
+            scripts/ops/release-notes-sync.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Send release notes to the server
+        run: node scripts/ops/release-notes-sync.mjs .

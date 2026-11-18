@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {orgKey, orgKeys, sameOrgName, matchOrgs, matchOrg, orgAllNames} from '../app/org-name-match.mjs';
-import {nearestTarget, weekMaterial, rowNames} from '../app/weekly-hwpx/draft.mjs';
+import {nearestTarget, weekMaterial, rowNames} from './fixtures/weekly-engine.mjs';
 import {personalReportFromTeam, isMyOrg} from '../app/weekly-hwpx/delta.mjs';
 
 // ORG-별칭 (2026-10-23 사용자 요청 12:43 ③). 조직 이름은 저장소 app/organization-order.js 에 이미 있는 공개 조직 이름, 그 밖은 가짜.

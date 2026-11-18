@@ -10,6 +10,7 @@
 //   assembleDraft(base, edits) → 보고 자료(바뀐 줄 표시) → buildHwpx(template, data, zlib) → .hwpx 바이트(규격 검사 통과한 것만)
 import {openHwpxAsync, packHwpxAsync, validateHwpxAsync} from './hwpx.mjs';
 import {extractBlankTemplate, assertBlank} from './template.mjs';
+import {needProfile} from './form-profile.mjs';
 import {readReport, buildReport, reportWords, lineText} from './report.mjs';
 import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.mjs';
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
@@ -39,12 +40,13 @@ export const DRAFT_TEXT = Object.freeze({
 export async function openConfirmed(bytes, zlib = browserZlib) { return openHwpxAsync(bytes, zlib); }
 
 // WEEKLY-개인본대조 W-2: 내준 한글 파일(.hwpx 바이트)의 1~4절 글 줄을 draft.issued 모양으로(weekly-lines.mjs — 서버가 개인본을 읽는 것과 같은 함수).
-// 5절·'2) 주요 일정'·표 머리 칸 이름은 빠진다. 읽을 줄이 없거나 너무 길면 null.
-export async function issuedFrom(bytes, at, zlib = browserZlib) {
+// 5절·'2) 주요 일정'·표 머리 칸 이름은 빠진다. 읽을 줄이 없거나 너무 길면 null. profile = 그 파일을 만든 엔진 양식(⑤-3c, 꼭 받음).
+export async function issuedFrom(bytes, at, zlib = browserZlib, {profile} = {}) {
+  needProfile(profile);
   const pkg = await openHwpxAsync(bytes, zlib);
   const sections = pkg.order.map(name => ({name, n: Number(/^Contents\/section(\d{1,4})\.xml$/i.exec(name)?.[1])})).filter(x => Number.isInteger(x.n)).sort((a, b) => a.n - b.n);
   const dec = new TextDecoder();
-  return issuedFromSections(sections.map(x => dec.decode(pkg.files.get(x.name))), at);
+  return issuedFromSections(sections.map(x => dec.decode(pkg.files.get(x.name))), at, profile);
 }
 
 // WEEKLY-한글파일다듬기 ②(2026-10-23 사용자 지적 11:38): 바탕 파일이 .hwp면 칸막이 편집기 엔진(rhwp 0.8.7 WASM, hwp-frame.js)이 .hwpx로 바꾼다.
@@ -122,13 +124,15 @@ export function hwp5Header(bytes) {
 }
 
 // 확정본 → {team(읽은 내용), template(빈 서식)}. 빈 서식 검사(template.mjs assertBlank)에 걸리면 Error(이유는 개수만, 글은 넣지 않음).
-export function prepareConfirmed(pkg) {
+// profile(꼭): '내 양식'(또는 바탕 파일에서 읽은 양식)으로 만든 양식 글자(form-profile.mjs profileOf). 기본값 없음(⑤-3a).
+export function prepareConfirmed(pkg, {profile} = {}) {
+  needProfile(profile);
   let team;
-  try { team = readReport(pkg); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
+  try { team = readReport(pkg, {profile}); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
   let template;
   // 양식 표(머리 칸 이름)를 찾지 못하면 멈춘다. 이유에는 양식 글자(표 머리 칸 이름)만 들어 있다.
-  try { template = extractBlankTemplate(pkg); } catch (e) { throw Object.assign(new Error(`${DRAFT_TEXT.noForm} (${e.message})`), {code: 'no_form'}); }
-  const problems = assertBlank(template, {forbidden: reportWords(team)});
+  try { template = extractBlankTemplate(pkg, {profile}); } catch (e) { throw Object.assign(new Error(`${DRAFT_TEXT.noForm} (${e.message})`), {code: 'no_form'}); }
+  const problems = assertBlank(template, {forbidden: reportWords(team, {profile}), profile});
   if (problems.length) throw Object.assign(new Error(DRAFT_TEXT.notBlank), {code: 'not_blank', count: problems.length});
   return {team, template};
 }
@@ -141,7 +145,7 @@ export function reportDate(day) {
 }
 // WEEKLY-한글파일다듬기 ④(2026-10-23 사용자 요청 12:12): 파일 이름 = 주간보고_YYYYMMDD_이름.hwpx(날짜 = 상집 보고일, 이름 = 로그인 사용자의
 // 표시 이름 — 프로필 display_name, 없으면 로그인 정보의 표시 이름). 이름이 없으면 주간보고_YYYYMMDD.hwpx. 파일 이름에 쓸 수 없는 글자와
-// 띄어쓰기는 뺀다(PC·폰 내려받기와 Drive에서 같은 이름이 되게). [HWP로 받기]·[확정] 저장도 같은 이름(.hwp는 확장자만 다름).
+// 띄어쓰기는 뺀다(PC·폰 내려받기와 Drive에서 같은 이름이 되게). [확정하고 한글 파일 받기]·[확정 없이 파일만 받기](.hwp, WEEKLY-기본HWP)도 같은 이름(확장자만 다름).
 export const fileNamePart = name => String(name ?? '').normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '').replace(/\s+/g, '').replace(/^\.+|\.+$/g, '').slice(0, 40);
 export const fileNameFor = (day, name = '', ext = 'hwpx') => {
   const who = fileNamePart(name);
@@ -247,11 +251,10 @@ export function startDraft(team, {me, myOrgs = [], orgList = null, title, date})
   return personalReportFromTeam(team, me, {myOrgs, orgList, title: title ?? team.title ?? '', date});
 }
 
-// ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계에서 채운다. 판정은 org-dispute-stage-model.mjs 한 곳.
-//   - 투쟁 중인 내 담당 조직: 첫 줄 '- 쟁의발생 결의(10.20)'(단계(날짜), 파란 글씨) + 직전 확정본의 그 조직 현황 줄 그대로(앱이 이전에 채운 단계 줄만 새 줄로 바꿈).
-//     확정본에 줄이 없던 조직은 새 줄(조직명 + 첫 줄)을 표 끝에 더한다.
-//   - 이번 보고 주간에 끝난(끝남 표시 단계) 조직: 그 주 한 번만 '- 협약체결(10.24)' 한 줄. 다음 주부터는 단계가 지난 주라 빠진다.
-//   - 직전 확정본에 줄이 있었는데 더는 투쟁 중이 아니면 말없이 지우지 않고 fixes(고칠 목록 '지울까요?')로 알린다. 줄 자체는 그대로 둔다.
+// ORG-쟁의단계 ②(2026-10-24) → WEEKLY-주간정리다듬기(명진 11/13 17:14 "한글 파일에서도 빼"): 3. 2) 투쟁 사업장 칸에 쟁의 단계 줄('- 파업 찬반투표(11.5)')을 넣지 않는다.
+//   - 투쟁 중인 내 담당 조직은 칸이 있다(직전 확정본에 줄이 없던 조직은 빈 줄을 표 끝에 더함). 칸 글은 직전 확정본 줄 그대로.
+//   - 모든 칸에서 예전에 앱이 넣은 단계 줄(isStageLine)은 뺀다(starts = 뺀 뒤 줄). 손으로 쓴 다른 줄은 그대로.
+//   - 직전 확정본에 줄이 있었는데 더는 투쟁 중이 아니면(끝난 주 포함) 말없이 지우지 않고 fixes(고칠 목록 '지울까요?')로 알린다. 줄 자체는 그대로 둔다.
 // 단계를 읽지 못했으면(state.status !== 'ready') 아무것도 바꾸지 않는다(기존처럼 직전 확정본 줄 그대로).
 // 반환 {base(새 줄이 더해진 바탕), starts: Map(줄 번호 → 시작 줄들), fixes:[{index, org, stage}], plan}
 export function applySiteStages(base, {orgs = [], stages = [], histories = new Map(), weekStart} = {}) {
@@ -264,15 +267,16 @@ export function applySiteStages(base, {orgs = [], stages = [], histories = new M
   const starts = new Map(), claimed = new Set();
   const rowOf = org => rows.findIndex((r, i) => !claimed.has(i) && matchOrgs([].concat(r.org).join(''), [org]).length > 0);
   for (const item of plan) {
+    if (item.kind === 'ended') continue;
     let index = rowOf(item.org);
     if (index < 0) { rows.push({org: [String(item.org.name ?? '').trim()], status: [], paras: []}); index = rows.length - 1; }
     claimed.add(index);
-    const old = rows[index].status.map(lineText);
-    starts.set(index, item.kind === 'ended' ? [item.line] : [item.line, ...old.filter(t => !isStageLine(t, stages))]);
   }
+  const kept = rows.map(r => r.status.map(lineText).filter(t => !isStageLine(t, stages)));
+  rows.forEach((r, index) => { if (kept[index].length !== r.status.length) starts.set(index, kept[index]); });
   const fixes = [];
   rows.forEach((r, index) => {
-    if (claimed.has(index) || !r.status.map(lineText).some(t => String(t).trim())) return;
+    if (claimed.has(index) || !kept[index].some(t => String(t).trim())) return;
     const org = orgs.find(o => matchOrgs([].concat(r.org).join(''), [o]).length > 0);
     const cur = org ? stageOfOrg(org.id, histories, stages, {until: week.end}) : null;
     fixes.push({index, org: [].concat(r.org).join(' '), stage: cur?.name ?? ''});
@@ -289,10 +293,12 @@ export function editableRows(base, me) {
 // WEEKLY-한흐름확정 ③(확정 규칙 '내 담당 사업은 사업 요약표에 모두 들어간다', 요청함 11/01 01:12):
 // 내 사업영역(사업 목록 1단 이름, 순서대로) 가운데 바탕 요약 표에 내 줄이 하나도 없는 것. 이름은 띄어쓰기·가운뎃점 모양을 무시하고 견준다.
 // S52-24: 바탕 줄의 세부 과제 이름이 그 사업영역 이름과 같으면(예: '의제 › 주제/A' 줄) 이미 있는 칸이다 — 새 줄을 더하지 않는다.
-export function missingAreas(rows, names) {
+// WEEKLY-사업영역묶음 ①: 양식에 없는 사업영역이라도 고른 자리(places)가 내 줄에 있으면 그 자리가 그 칸이다(새 줄을 더하지 않음).
+export function missingAreas(rows, names, {places = null} = {}) {
   const have = new Set((rows ?? []).flatMap(r => [norm(r.area), norm(r.task)]).filter(Boolean));
+  const placed = n => { const p = placeOf(places, n); return !!p && (rows ?? []).some(r => sameName(r.area, p.area) && sameName(r.task, p.task)); };
   const seen = new Set();
-  return (names ?? []).map(n => String(n ?? '').trim()).filter(n => n && !have.has(norm(n)) && !seen.has(norm(n)) && seen.add(norm(n)));
+  return (names ?? []).map(n => String(n ?? '').trim()).filter(n => n && !have.has(norm(n)) && !placed(n) && !seen.has(norm(n)) && seen.add(norm(n)));
 }
 // 그 사업영역마다 내 줄 하나(세부 과제·진행 칸 빈칸, 담당 팀원 칸 = 내 이름)를 바탕에 더한다(원본은 그대로).
 // 같은 이름 사업영역 묶음이 표에 있으면(다른 사람 줄만 있던 곳) 그 묶음 맨 아래, 없으면 표 맨 아래에 새 사업영역 묶음.
@@ -311,25 +317,50 @@ export function withAreaRows(base, names, me) {
 }
 // BIZ-기록하나로 B-4 ①(설계 docs/design/record-one.md 4절 '한글 파일'): 전환 주부터 2. 1) 요약 표의 내 줄 = 화면 사업요약 창 결과(지금 상황 + 담당).
 // rows = [{area, task, lines, owner}] 화면 표 순서(weekly-summary-table.js fileRows). 표 틀·순서·병합·다른 사람 줄은 그대로 둔다(취합 담당이 표를 그대로 모음).
-// - 화면 줄 ↔ 내 줄: 사업영역·세부 과제 이름이 같은 줄(띄어쓰기·부호 무시, 더한 줄은 keyArea). 세부 과제 없는 화면 줄은 세부 과제 이름이 그 사업영역 이름인 줄(S52-24 주제 칸)도 같은 줄.
+// - 화면 줄 ↔ 내 줄: 사업영역·세부 과제 이름이 같은 줄(띄어쓰기·부호 무시, 더한 줄은 keyArea).
+// - 그 짝이 없으면 그 사업영역의 '자리'(slotOf: 세부 과제 칸 이름 = 사업영역 이름인 내 줄, 첫 칸은 무엇이든 — S52-24 주제 칸·양식 '영역 › 사업영역 A')에 모은다.
+//   표 끝에 새 줄을 만들지 않고 양식의 내 줄을 채운다(WEEKLY-사업영역묶음 ①).
 // - 짝이 없는 화면 줄은 지금 상황이 있을 때만 그 사업영역 묶음 맨 아래(없으면 표 맨 아래 새 묶음)에 내 줄로 더한다(담당 = 화면 담당, 비면 내 이름).
 // - 짝이 없는 내 줄(지난주 바탕에만 있는 줄)은 진행 칸을 비운다(지난 개인본 글을 깔지 않음 — 줄을 지우지는 않음).
 // - 진행 칸 = 지금 상황 줄 그대로, 담당 = 화면 담당(비면 바탕 담당 그대로 — assembleDraft owners 규칙).
-// 돌려주는 값: {base(줄을 더한 바탕), summary: Map(index → 줄), owners: Map(index → 담당)} — index는 assembleDraft와 같은 effectiveOwners 순서.
-export function applyBizWindow(base, me, rows) {
+// 돌려주는 값: {base(줄을 더한 바탕), summary: Map(index → 줄), owners: Map(index → 담당), added: [양식에 자리가 없어 새 줄로 넣은 사업영역 이름]} — index는 assembleDraft와 같은 effectiveOwners 순서.
+export function applyBizWindow(base, me, rows, {places = null} = {}) {
   const out = structuredClone(base);
   out.summary = out.summary ?? [];
   const name = String(me ?? '').trim();
   const areaOf = e => e.row.keyArea ?? e.area.join(' ');
   const mine = effectiveOwners(out.summary).filter(e => isMine(e.owner, name));
-  const used = new Set(), want = new Map();
+  const used = new Set(), want = new Map(), slots = new Map(), added = [];
+  // WEEKLY-사업영역묶음 ①(시안 docs/design/mockups/weekly-tidy.html ②, 명진 11/13 (나)): 양식(지난주 확정본)의 내 줄 가운데
+  // 세부 과제(둘째 칸) 이름이 이 사업영역 이름과 같은 줄 = 이 사업영역의 '자리'(첫 칸 이름은 따지지 않음, 띄어쓰기·부호 무시, 내 줄 한정).
+  // 자리가 없으면 고른 자리(places: 사업영역 이름 → {area, task}, 양식 줄 이름)를 쓴다. 둘 다 없으면 null(예전처럼 새 줄).
+  const slotOf = area => {
+    if (slots.has(norm(area))) return slots.get(norm(area));
+    const pick = placeOf(places, area);
+    const hit = mine.find(e => norm(areaOf(e)) === norm(area) && sameName(e.task.join(' '), area))
+      ?? mine.find(e => sameName(e.task.join(' '), area))
+      ?? (pick ? mine.find(e => sameName(areaOf(e), pick.area) && sameName(e.task.join(' '), pick.task)) : null);
+    const row = hit && !used.has(hit.row) && !want.has(hit.row) ? hit.row : null;
+    slots.set(norm(area), row);
+    if (row) want.set(row, {head: [], subs: [], owner: '', slot: true});
+    return row;
+  };
   for (const r of rows ?? []) {
     const area = String(r?.area ?? '').trim(), task = String(r?.task ?? '').trim();
     if (!area) continue;
     const lines = (r.lines ?? []).map(l => String(l ?? '').trim()).filter(Boolean), owner = String(r.owner ?? '').trim();
     const free = mine.filter(e => !used.has(e.row) && norm(areaOf(e)) === norm(area));
-    let row = (free.find(e => norm(e.task.join(' ')) === norm(task)) ?? (task ? null : free.find(e => sameName(e.task.join(' '), area))))?.row;
+    let row = free.find(e => norm(e.task.join(' ')) === norm(task))?.row ?? null;
     if (!row) {
+      const slot = slotOf(area);
+      if (slot) {
+        // 자리 한 칸에 그 사업영역을 모은다: 사업영역 자기 줄이 먼저, 세부 과제는 '◦ 이름' 소제목 + 줄(팀 완성본 모양). 기록 없는 세부 과제는 넣지 않는다.
+        const w = want.get(slot);
+        if (!task) { w.head.push(...lines); if (owner) w.owner = owner; }
+        else if (lines.length) w.subs.push([task, lines]);
+        used.add(slot);
+        continue;
+      }
       // 지금 상황이 빈 줄은 더하지 않는다(남이 맡은 같은 이름 줄 옆에 빈 내 줄이 생기지 않게 — 내 사업영역 빈 칸은 바탕이 이미 더함, withAreaRows).
       // 담당을 알 수 없어도 더하지 않는다(내 줄로 다시 찾을 수 없음).
       if (!lines.length || (!name && !owner)) continue;
@@ -337,15 +368,59 @@ export function applyBizWindow(base, me, rows) {
       const group = out.summary.find(a => norm(a.area.join('')) === norm(area));
       if (group) group.rows.push(row); else out.summary.push({area: [area], rows: [row]});
     }
+    if (row.keyArea !== undefined && !added.some(n => sameName(n, area))) added.push(area); // 앱이 더한 줄(양식에 없던 자리)
     used.add(row); want.set(row, {lines, owner});
   }
   const summary = new Map(), owners = new Map();
   effectiveOwners(out.summary).forEach((e, index) => {
     const w = want.get(e.row);
-    if (w) { summary.set(index, w.lines); if (w.owner) owners.set(index, w.owner); }
-    else if (mine.some(m => m.row === e.row)) summary.set(index, []);
+    if (w) {
+      summary.set(index, w.slot ? [...w.head, ...w.subs.flatMap(([t, l]) => [`◦ ${t}`, ...l])] : w.lines);
+      if (w.owner) owners.set(index, w.owner);
+    } else if (mine.some(m => m.row === e.row)) summary.set(index, []);
   });
-  return {base: out, summary, owners};
+  return {base: out, summary, owners, added};
+}
+// ①-b 고르기 목록: 양식의 내 줄 가운데 세부 과제 칸 이름이 있는 줄(앱이 더한 빈 줄 제외) {area, task} — 표 순서, 같은 이름은 한 번.
+export function placeChoices(base, me) {
+  const name = String(me ?? '').trim(), seen = new Set(), out = [];
+  for (const e of effectiveOwners(base?.summary ?? [])) {
+    if (!isMine(e.owner, name) || e.row.keyArea !== undefined) continue;
+    const area = e.area.join(' ').trim(), task = e.task.join(' ').trim(), k = `${norm(area)}›${norm(task)}`;
+    if (!area || !task || seen.has(k)) continue;
+    seen.add(k); out.push({area, task});
+  }
+  return out;
+}
+// WEEKLY-사업영역묶음 ②(시안 weekly-tidy.html ①): 화면 2. 1) 요약표 첫 칸 = 양식(지난주 확정본)에서 그 사업영역이 들어가는 줄의 첫 칸 이름.
+// 한글 파일(applyBizWindow slotOf)과 같은 자리 찾기: 내 줄 가운데 세부 과제 칸 이름 = 사업영역 이름(첫 칸까지 같으면 먼저) → 고른 자리(places).
+// 첫 칸 이름이 바로 사업영역 이름인 내 줄이 있으면 그 이름 그대로. 자리를 못 찾으면 넣지 않는다(화면은 사업영역 이름을 첫 칸에).
+// 양식에 내 줄이 하나도 없으면(양식이 없는 사람)·첫 칸이 모두 사업영역 이름 그대로면 null — 화면은 지금 모양 그대로. 앱이 더한 빈 줄(keyArea)은 양식 줄이 아니라 뺀다.
+export function areaGroups(base, me, names, {places = null} = {}) {
+  const name = String(me ?? '').trim();
+  const mine = effectiveOwners(base?.summary ?? []).filter(e => isMine(e.owner, name) && e.row.keyArea === undefined);
+  if (!mine.length) return null;
+  const first = e => e.area.join(' ').trim(), taskOf = e => e.task.join(' ');
+  const out = new Map();
+  for (const raw of names ?? []) {
+    const area = String(raw ?? '').trim();
+    if (!area || out.has(area)) continue;
+    const pick = placeOf(places, area);
+    const hit = mine.find(e => sameName(first(e), area) && sameName(taskOf(e), area))
+      ?? mine.find(e => sameName(taskOf(e), area))
+      ?? mine.find(e => sameName(first(e), area))
+      ?? (pick ? mine.find(e => sameName(first(e), pick.area) && sameName(taskOf(e), pick.task)) : null);
+    if (hit && first(hit)) out.set(area, first(hit));
+  }
+  // 양식 첫 칸이 모두 사업영역 이름 그대로면(양식 모양 = 화면 모양) 묶을 것이 없다 — 지금 모양 그대로(null).
+  return [...out].some(([area, group]) => !sameName(area, group)) ? out : null;
+}
+// 양식에 자리가 없는 사업영역의 고른 자리(places: Map 또는 객체, 열쇠 = 사업영역 이름) → {area, task} 또는 null.
+export function placeOf(places, area) {
+  if (!places) return null;
+  const list = places instanceof Map ? [...places] : Object.entries(places);
+  const hit = list.find(([k]) => sameName(k, area))?.[1];
+  return hit && String(hit.area ?? '').trim() && String(hit.task ?? '').trim() ? {area: String(hit.area).trim(), task: String(hit.task).trim()} : null;
 }
 export const editableOrgs = (base, section = 'orgs') => (base[section] ?? []).map((r, index) => ({index, org: r.org.join(' '), lines: r.status.map(lineText)}));
 
@@ -442,8 +517,9 @@ export const changedCount = data => [...(data.summary ?? []).flatMap(a => a.rows
   .filter(l => typeof l === 'object' && l?.changed).length;
 
 // 빈 서식 + 보고 자료 → .hwpx 바이트. 규격 검사(hwpx.mjs)를 통과하지 못하면 Error(파일을 내주지 않음).
-export async function buildHwpx(template, data, zlib = browserZlib) {
-  const {pkg} = buildReport(template, data);
+export async function buildHwpx(template, data, zlib = browserZlib, {profile} = {}) {
+  needProfile(profile);
+  const {pkg} = buildReport(template, data, {profile});
   const bytes = await packHwpxAsync(pkg, zlib);
   const check = await validateHwpxAsync(bytes, zlib);
   if (check.errors.length) throw Object.assign(new Error(DRAFT_TEXT.invalid), {code: 'invalid', count: check.errors.length});

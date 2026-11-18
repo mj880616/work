@@ -15,8 +15,11 @@ import { rowMore } from './row-more.js';
 import { takeAfterSameCheck } from './same-file.js'; // UX-이미있는파일알림: 넣기 전에 같은 이름·크기 파일이 있으면 묻는 공용 부품
 import { deleteAttachment } from './file-trash.js'; // FILE-첨부삭제 ②: [삭제] = 할 일에서 떼고 Drive 원본 휴지통(30일 안 되살림) + [되돌리기] // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
+// PERF-첫로딩 ③(S61-32): '할 일 파일 표가 답하나'(taskFilesAvailable·taskFilesKnown·onTaskFilesReady)와 MAX_TASK_FILES는 작은 task-files-ready.js가 주인이다.
+// 홈 빠른 입력이 첫 화면 전에 이 큰 사슬(파일 메뉴·올리기·이름 고치기 등)을 받지 않게 나눴다. 여기서는 그대로 다시 내보내 부르는 곳은 바뀌지 않는다(상태도 그 한 곳).
+import { MAX_TASK_FILES, TASK_FILE_COLS, ownerOf, tableAnswered, tableMissing } from './task-files-ready.js';
+export { MAX_TASK_FILES, taskFilesAvailable, taskFilesKnown, onTaskFilesReady } from './task-files-ready.js';
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
-export const MAX_TASK_FILES = 10;
 export const MAX_TASK_FILE_BYTES = 100 * 1024 * 1024;
 const LIST_CHUNK = 50;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -29,7 +32,7 @@ export { driveFileUrl };
 export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessionEpoch = null, fresh = false} = {}) {
   const list = [...new Set((ids || []).filter(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(id)))];
   const out = new Map(), options = {...(expectedSessionEpoch == null ? {} : {expectedSessionEpoch}), ...(fresh ? {singleFlight: false} : {})};
-  const cols = 'select=google_task_id,drive_file_id,file_name,size_bytes&order=created_at.asc';
+  const cols = TASK_FILE_COLS;
   // One request even with no tasks, so the answer still says whether the table exists.
   for (let i = 0; i === 0 || i < list.length; i += LIST_CHUNK) {
     const ids = list.slice(i, i + LIST_CHUNK);
@@ -275,43 +278,6 @@ async function remove(id, button) {
 // TASK-추가창파일: files chosen in a task's add window (the task editor, the [할 일] quick input, the calendar's 할 일 등록) go
 // up only after Google made the task: save → task id → one attach request per file, the same Edge action and Drive folder as
 // ⋯ → 파일 붙이기. A file that did not go up leaves the task as it is; the caller says so and points at ⋯ → 파일 붙이기.
-const available = new Map();
-const readyEvents = typeof window === 'undefined' ? new EventTarget() : window;
-function ownerOf(rt) { return rt?.context?.read?.()?.user?.id || rt?.session?.read?.()?.user?.id || ''; }
-// TEST-홈빠른입력안정화: windows that keep the file part's place while the answer is out hear a yes and a failed read alike.
-function tell(owner, yes) { try { readyEvents.dispatchEvent(new CustomEvent('kptu:task-files-ready', {detail: {owner, yes}})); } catch {} }
-// A read of the table answered for this owner (the task list's own read or the check below). Only a yes is kept in memory.
-function tableAnswered(owner) {
-  if (!owner || available.get(owner)?.yes) return;
-  const yes = Promise.resolve(true); yes.yes = true; available.set(owner, yes);
-  tell(owner, true);
-}
-// A read failed (no table yet, or a network error): a window still keeping the place stops waiting. Nothing is stored.
-function tableMissing(rt) {
-  const owner = ownerOf(rt);
-  if (!owner || available.get(owner)?.yes) return;
-  tell(owner, false);
-}
-// Whether the link table answers for this owner (the same check that shows ⋯ → 파일 붙이기). Only a yes is remembered.
-// ask:false only reports an answer already known (the [할 일] screen waits for its list's own read, see onTaskFilesReady).
-export function taskFilesAvailable({rt = window.KPTURuntime, ask = true} = {}) {
-  const owner = ownerOf(rt);
-  if (!owner) return Promise.resolve(false);
-  if (!available.has(owner)) {
-    if (!ask) return Promise.resolve(false);
-    available.set(owner, readTaskFiles([], {rt}).then(() => true, () => { if (!available.get(owner)?.yes) available.delete(owner); return false; }));
-  }
-  return available.get(owner);
-}
-// Whether a yes is already known for the signed-in owner (no request). Lets a window lay out its file row before it shows.
-export function taskFilesKnown({rt = window.KPTURuntime} = {}) { return !!available.get(ownerOf(rt))?.yes; }
-// Calls back once the table has answered for an owner (by any read; yes = true), and after a read failed (yes = false).
-// Returns a function that stops listening.
-export function onTaskFilesReady(callback) {
-  const listener = e => callback(e.detail?.owner || '', e.detail?.yes !== false);
-  readyEvents.addEventListener('kptu:task-files-ready', listener);
-  return () => readyEvents.removeEventListener('kptu:task-files-ready', listener);
-}
 // The problem with adding these files to a new task's selection, or ''.
 export function pickProblem(chosen, added) {
   let count = chosen.length;

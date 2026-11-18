@@ -8,7 +8,9 @@ const ORIGINS = new Set([
   'https://desk.bokdoong.com',
   'https://work.bokdoong.com',
   'https://mj880616.github.io',
-  'https://bokdoong.com'
+  'https://bokdoong.com',
+  // DOMAIN-nojoplus 1단계: 새 Web2 주소. 정확한 출처 하나만 더한다(www·하위 주소 없음).
+  'https://nojoplus.com'
 ]);
 const TTL = 5 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

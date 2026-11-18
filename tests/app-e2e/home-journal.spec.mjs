@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 업무일지 화면이 홈이다. PC 1440·폴드 884·폰 412에서
 // ① 앱을 열면 새 홈(오늘 업무일지) ② 입력줄로 업데이트 저장 ③ [일정] 아래·폰 전환 줄에 업무일지 없음 ④ 옛 주소(?view=journal·?view=home)
 // ⑤ 뒤로 가기·새로고침 제자리 ⑥ 마지막 수집 시각·AI 사용량은 내 프로필 ⑦ '사업 보고 후속' 칸 없음 ⑧ 할 일 줄 기한은 작은 진회색, 연결된 사업 보고 이름은 흐린 글씨.
@@ -76,18 +76,20 @@ for (const [width, height] of WIDTHS) {
     await expect(overdue.locator('li[data-journal-task="overdue"] [data-journal-task-due]')).toHaveText('지남 10.3');
     // ③ [일정] 아래(PC)·폰 전환 줄에 업무일지가 없다.
     await expect(page.locator('[data-view="journal"]')).toHaveCount(0);
-    if (width > 760) await expect(page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력', '할 일', '일기']);
+    if (width > 760) await expect(page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력', '할 일', '하루 기록']);
     else {
       await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
-      await expect(page.locator('#calendarView .schedule-switch').getByRole('button')).toHaveText(['달력', '할 일', '일기']);
+      await expect(page.locator('#calendarView .schedule-switch').getByRole('button')).toHaveText(['달력', '할 일', '하루 기록']);
       await page.locator('.mobile-tabs [data-view="home"]').click();
       await expect(page.locator('#homeView')).toBeVisible();
       await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current', 'page');
+      // UI-폰하단고정: 다른 화면에 다녀오면 폰 빠른 입력은 한 줄로 접혀 있다 — 칸을 눌러 펼친다.
+      await openQuickBox(page);
     }
     // ② 업데이트 입력줄([업데이트 ▾ | 할 일])로 저장 → 정리함 미분류(app_notes POST 한 번).
     const quick = page.locator('#homeView [data-home-quick]');
-    await expect(quick.locator('.home-quick-modes button[data-quick-mode]')).toHaveText(['업데이트', '할 일']);
-    await quick.locator('[data-quick-mode="update"]').click();
+    await expect(quick.locator('.home-quick-modes button[data-quick-mode]')).toHaveText(['잊지 말기', '할 일']);
+    await pickQuickMode(page,'update');
     await quick.locator('[data-quick-input]').fill('합성 홈 업데이트');
     await quick.locator('[data-quick-save]').click();
     await expect.poll(() => f.notes.length).toBe(1);
@@ -148,10 +150,11 @@ for (const [width, height] of WIDTHS) {
     await expect(page.locator('#profileView')).toBeVisible();
     const panel = page.locator('#psStatusPanel');
     await expect(panel).toBeAttached();
-    await expect(panel.locator('h3').first()).toHaveText('수집·사용량');
+    // MULTI-다른담당자맞춤 ⑥: 칸 이름 '사용 현황', '연락 없는 조직' 기준은 조직 보고 ⋯로 옮겼다.
+    await expect(panel.locator('h3').first()).toHaveText('사용 현황');
     await expect(panel.locator('[data-ps-collect]')).toBeAttached();
     await expect(panel.locator('[data-ps-ai-usage]')).toBeAttached();
-    await expect(panel.locator('[data-ps-quiet] button')).toHaveText(['2주', '3주', '4주', '6주', '끄기']);
+    await expect(panel.locator('[data-ps-quiet]')).toHaveCount(0);
     expect(f.errors).toEqual([]);
   });
 }

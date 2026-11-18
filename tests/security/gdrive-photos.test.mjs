@@ -10,7 +10,7 @@ const USER='u0000000-0000-4000-8000-000000000001',OTHER='u0000000-0000-4000-8000
 const JWT='synthetic-user-jwt',JWT2='synthetic-other-jwt',ACCESS='synthetic-access-token',FULL='https://www.googleapis.com/auth/drive';
 const ENV={SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:'synthetic-service-key',SUPABASE_ANON_KEY:'synthetic-anon-key'};
 
-function world({refresh={v:'synthetic-refresh'},tokenStatus=null,pagedDup=false,features=['calls','gdrive_photos'],allowed=WS,driveWs=WS,scope=`${FULL}.file ${FULL}`,members={[USER]:WS,[OTHER]:WS2}}={}){
+function world({refresh={v:'synthetic-refresh'},refresh2={v:'synthetic-refresh-other'},tokenStatus=null,pagedDup=false,scope=`${FULL}.file ${FULL}`,members={[USER]:WS,[OTHER]:WS2}}={}){
  const db={folders:[],photos:[],sync:[]};
  const drive={
   F1:{id:'F1',name:'가상 사진',mimeType:'application/vnd.google-apps.folder',parents:['root'],trashed:false},
@@ -39,13 +39,13 @@ function world({refresh={v:'synthetic-refresh'},tokenStatus=null,pagedDup=false,
   calls.push({method,host:u.host,path:u.pathname,search:u.search,body:init.body});
   if(u.host==='sb.example.test'){
    if(u.pathname==='/auth/v1/user'){const t=h.Authorization?.slice(7);return t===JWT?ok({id:USER}):t===JWT2?ok({id:OTHER}):ok({msg:'bad'},401);}
-   if(u.pathname==='/rest/v1/rpc/app_my_features'){assert.notEqual(h.Authorization,'Bearer '+ENV.SUPABASE_SERVICE_ROLE_KEY,'features use the user token');return ok(h.Authorization==='Bearer '+JWT?features:[]);}
    assert.equal(h.Authorization,'Bearer '+ENV.SUPABASE_SERVICE_ROLE_KEY);
-   if(u.pathname==='/rest/v1/rpc/app_operator_feature_workspace')return ok(allowed);
+   assert.ok(!u.pathname.startsWith('/rest/v1/rpc/'),'no feature or operator RPC: '+u.pathname);
    const name=u.pathname.replace('/rest/v1/',''),p=u.searchParams;
    if(name==='app_workspace_members'){const id=p.get('user_id').slice(3);return ok(members[id]?[{workspace_id:members[id]}]:[]);}
-   if(name==='app_workspaces')return ok(driveWs?[{id:driveWs}]:[]);
-   if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s',google_refresh_token:refresh.v}]);
+   // 앱 값만 id=1에서. 그 행의 갱신 토큰은 읽지 않는다(select에 없음). 갱신 토큰은 작업공간별 연결 행에서.
+   if(name==='public_policy_drive_config'){assert.ok(!/refresh/.test(p.get('select')),'id=1 refresh token is never read');return ok([{google_client_id:'c',google_client_secret:'s'}]);}
+   if(name==='app_drive_connections'){const ws=p.get('workspace_id').slice(3),v=ws===WS?refresh.v:ws===WS2?refresh2.v:null;return ok(v?[{google_refresh_token:v}]:[]);}
    const t=tableOf(name);assert.ok(t,name);const list=db[t];
    if(method==='GET'){let r=list.filter(x=>match(x,p));if(t==='photos')r=r.sort((a,b)=>a.taken_at<b.taken_at?1:-1);
     if(/count=exact/.test(h.Prefer||'')){const n=r.length,lim=Number(p.get('limit')||n);return ok(r.slice(0,lim),200,{'content-range':n?`0-${Math.min(n,lim)-1}/${n}`:'*/0'});}
@@ -95,20 +95,38 @@ test('pure helpers: EXIF time read as Seoul, created time approx, only image/vid
  assert.equal(scopeHas(`${FULL}.file`),false);assert.equal(scopeHas(`${FULL}.readonly`),false);assert.equal(scopeHas(`x ${FULL}`),true);
 });
 
-test('gate: login, owner, operator feature by user token, and Drive-connection owner — all server side',async()=>{
+test('gate: login, own owner workspace, that workspace Drive connection only — no operator feature key, all server side',async()=>{
  const w=world();
  assert.equal((await w.call({action:'status'},{jwt:''})).status,401);
  assert.equal((await w.call({action:'status'},{jwt:'nope'})).status,401);
- const other=await w.call({action:'status'},{jwt:JWT2});assert.equal(other.status,403);assert.equal(other.body.error,'feature_required');
- assert.equal((await world({features:['calls']}).call({action:'status'})).body.error,'feature_required');
- assert.equal((await world({allowed:WS2}).call({action:'status'})).body.error,'drive_owner_mismatch');
- assert.equal((await world({driveWs:WS2}).call({action:'status'})).body.error,'drive_owner_mismatch');
- assert.equal((await world({allowed:null}).call({action:'status'})).body.error,'drive_owner_mismatch');
  assert.equal((await world({members:{}}).call({action:'status'})).body.error,'forbidden');
- // 화면이 보낸 작업공간 값은 무시한다.
- const s=await w.call({action:'status',workspace_id:WS2});assert.equal(s.status,200);assert.equal(s.body.scope,true);
- assert.ok(!w.calls.some(c=>c.host==='www.googleapis.com'),'gate fails before any Drive call');
+ // 운영자 기능 키 없는 다른 작업공간 owner도 자기 연결로 200. 토큰 요청에는 자기 연결의 갱신 토큰만 실린다.
+ const other=await w.call({action:'status'},{jwt:JWT2});assert.equal(other.status,200);assert.equal(other.body.scope,true);
+ const mine=await w.call({action:'status'});assert.equal(mine.status,200);
+ const refreshes=w.calls.filter(c=>c.host==='oauth2.googleapis.com').map(c=>new URLSearchParams(c.body).get('refresh_token'));
+ assert.deepEqual(refreshes,['synthetic-refresh-other','synthetic-refresh'],'each workspace uses only its own connection');
+ assert.ok(w.calls.filter(c=>c.path==='/rest/v1/app_drive_connections').every(c=>[`?workspace_id=eq.${WS}`,`?workspace_id=eq.${WS2}`].some(x=>c.search.startsWith(x))));
+ // 화면이 보낸 작업공간·사용자 값은 무시한다(다른 작업공간 연결로 넘어가지 않음).
+ const w2=world();
+ const s=await w2.call({action:'status',workspace_id:WS2,user_id:OTHER});assert.equal(s.status,200);assert.equal(s.body.scope,true);
+ assert.deepEqual(w2.calls.filter(c=>c.path==='/rest/v1/app_drive_connections').map(c=>c.search.split('&')[0]),[`?workspace_id=eq.${WS}`]);
+ // 연결이 없으면 424 drive_not_connected — 다른 연결·id=1로 넘어가지 않는다.
+ const none=world({refresh2:{v:null}});const n=await none.call({action:'status'},{jwt:JWT2});
+ assert.equal(n.status,424);assert.equal(n.body.error,'drive_not_connected');
+ assert.ok(!none.calls.some(c=>c.host==='oauth2.googleapis.com'),'no token exchange without own connection');
+ assert.ok(!w.calls.some(c=>c.host==='www.googleapis.com'),'status needs no Drive file call');
  assert.equal((await w.call({action:'nope'})).body.error,'action_invalid');
+});
+
+test('other workspace: drive.file only connection answers scope_missing; folders and writes stay in own index rows',async()=>{
+ const w=world({scope:`${FULL}.file`});
+ const s=await w.call({action:'status'},{jwt:JWT2});assert.equal(s.status,200);assert.equal(s.body.scope,false);
+ const r=await w.call({action:'folders'},{jwt:JWT2});assert.equal(r.status,403);assert.equal(r.body.error,'scope_missing');
+ const full=world();
+ await full.call({action:'folder-toggle',id:'F1',enabled:true},{jwt:JWT2});
+ assert.ok(full.db.folders.length&&full.db.folders.every(f=>f.workspace_id===WS2));
+ assert.ok(full.db.photos.length&&full.db.photos.every(f=>f.workspace_id===WS2));
+ assert.equal((await full.call({action:'list'})).body.items.length,0,'operator sees none of the other workspace photos');
 });
 
 test('scope missing: status says scope:false, everything else answers scope_missing without touching Drive files',async()=>{
@@ -224,8 +242,9 @@ test('S54-16: access token kept per workspace+refresh fingerprint; gate and inde
  assert.equal(tokens(),t0,'cached token reused for thumbnails');
  assert.equal(gates(),g0+3,'login check every request');
  assert.equal(w.calls.filter(c=>c.path==='/rest/v1/app_gdrive_photos'&&/select=item_id%2Cparent_id%2Cname%2Cvideo|select=item_id,parent_id,name,video/.test(c.search)).length>=3,true,'index check every request');
- // 다른 작업공간 사람은 문에서 막히고 토큰을 받지 않는다.
- assert.equal((await w.call({action:'thumb',id:'P1'},{jwt:JWT2})).status,403);
+ // 다른 작업공간 사람은 내 색인의 사진을 못 보고(자기 작업공간 색인 확인에서 거절), 내 토큰을 쓰지 않는다.
+ const other=await w.call({action:'thumb',id:'P1'},{jwt:JWT2});
+ assert.equal(other.status,404);assert.equal(other.body.error,'photo_not_in_index');
  assert.equal(tokens(),t0);
  // 갱신 토큰이 바뀌면(다시 연결) 다른 키 → 새로 받는다.
  refresh.v='synthetic-refresh-2';

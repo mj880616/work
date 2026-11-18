@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, pickQuickMode } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 
 // UI-입력칸첨부간격(2026-10-30 요청): 폰 노트 입력칸에서 왼쪽 첨부(클립) 칸과 '노트를 입력하세요' 글자가 붙어 보였다.
@@ -44,7 +44,7 @@ for (const width of [412, 884, 1440]) test(`quick input text starts at least 8px
 
   const home = page.locator('#homeView [data-home-quick]');
   expectGap(await measure(home), width, '홈 업데이트');
-  await home.locator('[data-quick-mode="task"]').click();
+  await pickQuickMode(page,'task');
   expectGap(await measure(home), width, '홈 할 일');
 
   await page.evaluate(() => window.KPTURouter.go('basket'));

@@ -1,6 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {readFileSync} from 'node:fs';
 import {test,expect} from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import {openSeoulApp} from './helpers/seoul-time-fixture.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
@@ -55,6 +56,6 @@ for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(c
       const {formatMeetingTime}=await import('/app/meeting-time.js');
       return new Function('formatMeetingTime','esc','moduleTitle','empty','data',fmt+'\n'+renderer+';return decisions(data)')(formatMeetingTime,String,(_d,_k,title)=>title,()=>'',{decisions:[{title:'한국 결정',body:'내용',decided_at:'2026-09-30T15:30:00Z'}],meetings:[]});
     },{renderer,fmt});expect(html).toContain('10. 1. 00:30');
-    await closeProjectDetail(page);await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateStart')).toHaveValue('2026-10-01');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await clickView(page,'meetings');await expect(page.locator('#meetingList :is([data-mrd-meeting="seoul-meeting"],[data-meeting-round="seoul-meeting"])')).toContainText(width===1280?'10.1':'00:30');/* MTG-3칸정리: PC 3칸 가운데 줄은 날짜 '10.1'만 보이고(시간 뺌) 전체 한국 일시는 aria-label에 남는다. 폰 목록 줄은 전체 일시 그대로 */if(width===1280)await expect(page.locator('#meetingList [data-meeting-round="seoul-meeting"]')).toHaveAttribute('aria-label',/00:30/);await clickView(page,'home');await expect(page.locator('#homeView')).toContainText('00:30');expect(errors).toEqual([]);
+    await closeProjectDetail(page);await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateStart')).toHaveValue('2026-10-01');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await clickView(page,'meetings');await pickReportKind(page,'회의');/* MTG-기본종류전체: 메뉴로 들어오면 [종류 전체]부터 */await expect(page.locator('#meetingList :is([data-mrd-meeting="seoul-meeting"],[data-meeting-round="seoul-meeting"])')).toContainText(width===1280?'10.1':'00:30');/* MTG-3칸정리: PC 3칸 가운데 줄은 날짜 '10.1'만 보이고(시간 뺌) 전체 한국 일시는 aria-label에 남는다. 폰 목록 줄은 전체 일시 그대로 */if(width===1280)await expect(page.locator('#meetingList [data-meeting-round="seoul-meeting"]')).toHaveAttribute('aria-label',/00:30/);await clickView(page,'home');await expect(page.locator('#homeView')).toContainText('00:30');expect(errors).toEqual([]);
   });
 });

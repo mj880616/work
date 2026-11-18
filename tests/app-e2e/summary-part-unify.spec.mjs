@@ -13,7 +13,7 @@ const ocr=(text,state='done')=>({state,attempt_id:'90000000-0000-4000-8000-00000
 const photo=(i,o)=>({drive_file_id:'photo'+i,file_name:`사진${i}.jpg`,mime_type:'image/jpeg',size_bytes:10,ocr:{...o,original_file_id:'photo'+i}});
 
 async function fixture(page,{note:over={},docs=[],brief=[]}={}){
- await openHome(page);const errors=[],calls=[],ai=[];
+ await openHome(page,{features:[]});const errors=[],calls=[],ai=[]; // MULTI-처음쓰는사람 ④: 운영자 기능 없는 계정(운영자 자동 AI 읽기 없이)
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!resourceNoise(e.text()))errors.push(e.text());});
  const note={id:n,workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 소식 본문',ai_export_allowed:true,archived_at:null,attachments:[],...over};
  const tables={app_notes:[note],app_suborganizations:[{id:o,workspace_id:'w',name:'합성 한빛지부',active:true}],app_suborganization_assignees:[{organization_id:o,user_id:'home-test'}],

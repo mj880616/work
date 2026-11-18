@@ -185,6 +185,9 @@ test.describe('폰 412',()=>{
     await shot(page,'phone-412-dialog.png',info);
     // 새 폴더 놓을 자리: 맨 위.
     await press(page,modal(page).locator('[data-sort-place]'),412);
+    // S61-46: 놓을 자리 고르기는 폴더를 만드는 곳이 아니라 [+ 새 폴더 만들어 넣기]를 그리지 않는다(흐린 채 안 되는 단추 없음).
+    await expect(page.locator('#luSortPicker [data-lu-move-out]')).toBeVisible();
+    await expect(page.locator('#luSortPicker [data-lu-move-new]')).toHaveCount(0);
     await press(page,page.locator('#luSortPicker [data-lu-move-out]'),412);
     await expect(modal(page).locator('[data-sort-place]')).toHaveText('놓을 자리: 맨 위 ▾');
     await expect(row(page,R2).locator('.lu-sort-pick').first()).toContainText('산별전환');

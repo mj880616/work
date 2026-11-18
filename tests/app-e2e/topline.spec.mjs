@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // UI-상단줄(2026-10-22 요청함 07:53·07:54): PC(≥1024) 모든 화면 위 얇은 줄
@@ -61,7 +61,7 @@ test('PC: hiding the sidebar widens the body and is remembered on the server',as
  const after=await width(page,'#homeView');
  expect(after).toBeGreaterThan(before+140);
  await expect.poll(()=>prefs.value?.nav_collapsed).toBe(true);
- await page.reload();
+ await page.reload();await openQuickBox(page);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
  await expect(page.locator('#appView>.app-nav')).toBeHidden();
  await toggle(page).click();
@@ -158,13 +158,13 @@ test('PC: where shows group › screen and the group word opens the group',async
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText(/\d+월 \d+일 [일월화수목금토]요일/);
  await show(page,'diary');
  await expect(line(page).locator('[data-topline-date]')).toHaveCount(0);
- await expect(where(page).locator('[aria-current="page"]')).toHaveText('일기');
+ await expect(where(page).locator('[aria-current="page"]')).toHaveText('하루 기록');
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('달력');
  // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창이다. 위쪽 줄은 밑의 화면(사업 보고)을 가리키고, 창의 ✕로 사업 보고에 돌아온다.
  await show(page,'projects');
- await expect(page.locator('#areaWindow')).toBeVisible();await expect(where(page).locator('li').nth(0)).toHaveText('사업 보고');
+ await expect(page.locator('#areaWindow')).toBeVisible();await expect(where(page).locator('li').nth(0)).toHaveText('사업 관리');
  await page.locator('#areaWindow .area-window-close').click();await expect(page.locator('#areaWindow')).toBeHidden();
  await expect(page.locator('#meetingsView')).toBeVisible();
  await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').click();
@@ -178,13 +178,13 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  await openHome(page);
  const add=page.locator('[data-quick-add]'),menu=page.locator('#toplineAddMenu');
  await add.click();await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['업데이트','할 일','노트','일정','일기','공유 페이지','사업 보고']);
+ await expect(menu.locator('button')).toHaveText(['잊지 말기','할 일','노트','일정','하루 기록','공유 페이지','사업 보고']);
  await expect(menu.locator('button').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(add).toBeFocused();
  // 업데이트 (ED③ 업데이트): the update's new big window (기록할 곳 line with 바구니(미분류), new editor, no [업데이트|노트] switch).
  // 노트 (ED③ 노트): the note's new big window (title row, new editor, no [업데이트|노트] switch).
  {
-  await add.click();await menu.getByRole('button',{name:'업데이트'}).click();
+  await add.click();await menu.getByRole('button',{name:'잊지 말기'}).click();
   const editor=page.locator('#edWindow');await expect(editor).toBeVisible();
   await expect(editor.locator('[data-edw-place]')).toContainText('잊지 말기(미분류)');
   await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();

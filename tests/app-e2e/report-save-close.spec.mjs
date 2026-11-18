@@ -10,6 +10,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const NEW_ID='11111111-1111-4111-8111-111111111111';
@@ -61,6 +62,8 @@ async function boot(page,width,height=900){
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[]});
     if(path==='/functions/v1/google-tasks')return ok({tasks:[]});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
+    // MULTI-사업보고빈화면: 사업영역이 있는 계정(위 '이번 주 주간보고' 표 칸이 있는 화면 높이 그대로). 0개 계정은 biz-week-none.spec.mjs.
+    if(path==='/rest/v1/app_spaces')return ok([{id:'area-1',workspace_id:'ws',name:'합성 사업',parent_id:null,status:'active',visibility:'private',owner_id:'owner',sort_order:10,created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',metadata:{project_system:'v2',management_version:2}}]);
     return ok([]);
   });
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(BASE+'/app/?view=meetings')}`);
@@ -70,7 +73,7 @@ async function boot(page,width,height=900){
 }
 // 새 사업 보고 창을 열어 글을 채우고 사진 n장 + 자료를 고른다.
 async function fillReport(page,{photos=7,papers=['자료.hwp']}={}){
-  await page.locator('#newMeetingBtn').click();
+  await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();
   const select=page.locator('#meetingNameSelect');if(await select.isVisible())await select.selectOption('__other__');
   await page.locator('#meetingTitle').fill('가짜 회의');

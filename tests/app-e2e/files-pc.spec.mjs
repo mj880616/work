@@ -240,7 +240,7 @@ test.describe('윈도우 PC 1440', () => {
     await expect(chip(page)).toHaveAttribute('aria-pressed', 'false');
     await shot(page, 'files-pc-off-1440');
     await off.click();
-    await expect(root(page).locator('[data-fx-note]')).toContainText('[웹2에서 이 PC 보기]를 켜 주세요');
+    await expect(root(page).locator('[data-fx-note]')).toContainText('[노조+에서 이 PC 보기]를 켜 주세요');
     st.up = true;
     await off.click();
     await expect(list(page).locator(at('data-fx-row', 'pc:C:\\'))).toBeVisible();

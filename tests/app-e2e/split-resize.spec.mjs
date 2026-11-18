@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // UI-칸폭조절(2026-10-22 요청·승인): PC(≥1024) 할 일·프로젝트·담당조직 화면의 왼쪽 목록 칸과 오른쪽 상세 칸 사이 경계선을
@@ -78,7 +78,7 @@ for(const width of [1280,1440,1920]){
    await clickView(page,'home');await clickView(page,name);await s.ready(page);await settle(page);
    m=await measure(page,s);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
    const other=Object.keys(SCREENS).filter(n=>n!==name);for(const n of other)expect(await stored(page,n)).toBeNull();
-   await page.reload();await s.ready(page).catch(async()=>{await clickView(page,name);await s.ready(page)});await settle(page);
+   await page.reload();await openQuickBox(page);await s.ready(page).catch(async()=>{await clickView(page,name);await s.ready(page)});await settle(page);
    m=await measure(page,s);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
 
    // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 왼쪽 240·오른쪽 360 아래로 줄지 않는다.

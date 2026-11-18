@@ -2,7 +2,7 @@
 // ① pickReportPlaces: [연결할 곳] — 업데이트 '기록할 곳 선택' 창과 같은 모양(체크·여러 곳·오른쪽 아래 [저장]), 바구니(미분류)만 없다.
 // ② pickReport: 프로젝트·담당조직 화면의 [연결] — 사업 보고 전체(모든 종류)에서 하나를 고른다.
 import {createChoiceSheet} from './choice-sheet.js';
-import {readPlaces,placeSources,placeSheetHtml,placeValue,placeList,togglePlace,choiceCountText,placeName,PLACE_LIMIT} from './update-places.js';
+import {readPlaces,placeSources,placeSheetHtml,placeWriteIn,bindPlaceWriteIn,placeValue,placeList,togglePlace,choiceCountText,placeName,PLACE_LIMIT} from './update-places.js';
 import {pickerLine,pickableReports} from './report-links-model.mjs';
 import {seoulParts} from './meeting-time.js';
 import {reportRuntime} from './report-links.js';
@@ -28,11 +28,13 @@ export function targetName(places,target,fallbackNames=new Map()){
 function ensurePlacesSheet(){
   placesSheet||=createChoiceSheet({id:'reportPlacesSheet',titleId:'reportPlacesSheetTitle',historyKey:'kptuReportPlaces',
     canOpen:()=>!!placesActive,choices:()=>loadReportPlaces().then(p=>{if(placesActive)placesActive.places=p}),
-    render:()=>{if(placesActive)placesActive.pending=placeList(placesActive.chosen);return {title:'연결할 곳 선택',search:'조직·사업영역 이름 검색',searchAlways:true,split:true,html:placeSheetHtml(placesActive?.places,placesActive?.pending,esc,{basket:false,references:false})}},
+    render:()=>{if(placesActive){placesActive.pending=placeList(placesActive.chosen);placesActive.writeIn=placeWriteIn(placesActive.places)}return {title:'연결할 곳 선택',search:'조직·사업영역 이름 검색',searchAlways:true,split:true,html:placeSheetHtml(placesActive?.places,placesActive?.pending,esc,{basket:false,references:false,writeIn:placesActive?.writeIn})}},
     multi:()=>placesActive?{pressed:value=>placesActive.pending.some(p=>placeValue(p)===value),label:choiceCountText(placesActive.pending).replace('잊지 말기(미분류) 선택됨','연결 안 함')}:null,
     onSelect:(kind,value)=>{if(!placesActive)return;const next=togglePlace(placesActive.pending,value);if(next)placesActive.pending=next;else placesActive.onLimit?.(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`)},
     onCommit:()=>{if(placesActive)placesActive.onCommit(placeList(placesActive.pending))},
     onError:error=>placesActive?.onLimit?.(error?.message||'연결할 곳을 불러오지 못했어요.')});
+  // S61-52: 담당조직 맨 아래 [직접 쓰기](update-places.js, 모든 조직 고르기 창과 같은 부품). 새 조직은 기억한 목록(placesCache)에도 더해진다.
+  bindPlaceWriteIn(placesSheet,'reportPlacesSheet',()=>placesActive&&{places:placesActive.places,writeIn:placesActive.writeIn,toggle:value=>{const next=togglePlace(placesActive.pending,value);if(next)placesActive.pending=next;else placesActive.onLimit?.(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`)}});
   return placesSheet;
 }
 // chosen: [{kind,id}]. onCommit(list)는 [저장]을 눌렀을 때만 불린다(취소·Esc·뒤로가기는 그대로 둠).

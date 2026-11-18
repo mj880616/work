@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, pickQuickMode } from './helpers/home-entry.mjs';
 // UPD-그림붙여넣기: Ctrl+V of a picture and dropping a file take the same road as the clip in every input with attachments.
 // A paste/drop only fills the file list (preview rows with ×); nothing is saved until [추가].
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -64,7 +64,7 @@ for (const width of [412, 1440]) test(`paste and drop fill the attach list in ev
 
   while (await rows.count()) await rows.first().locator('[data-basket-remove]').click();
   // 8. the 할 일 mode of the same box (task-file table answered empty) takes it too.
-  await home.locator('[data-quick-mode="task"]').click();
+  await pickQuickMode(page,'task');
   await expect(home.locator('[data-quick-file-picker]')).toBeVisible();
   await pasteInto(input, {files: [shot]});
   await expect(home.locator('[data-basket-file]')).toHaveCount(1);

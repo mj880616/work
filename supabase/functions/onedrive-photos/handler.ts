@@ -2,7 +2,7 @@ import {
   AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, cleanFolderName, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_MAX, GRAPH_BATCH_PHOTOS, graphNextLink, insideFolder,
   isMediaMime, LIBRARY_DEFAULT, LIBRARY_MAX, LIBRARY_SCAN_PAGES, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, MEDIA_URL_TTL_S, mediaFields,
   MOVE_MAX, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, STAR_IDS_MAX,
-  SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, TAKEN_FIX_AT, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, TRASH_PURGE_STEP, validItemId,
+  SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, TAKEN_FIX_AT, takenOf, TRASH_DAYS, TRASH_LIST_MAX, TRASH_NAME, OLD_TRASH_NAME, TRASH_PURGE_STEP, validItemId,
   SORTS, VIDEO_MIME,
 } from "./graph.ts";
 import type { OneDriveItem, Sort } from "./graph.ts";
@@ -383,7 +383,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
           workspace_id: workspaceId, item_id: it.id, parent_id: it.id === topId ? null : (validItemId(parent) ? parent : null),
           name: it.name, updated_at: stamp,
         };
-        const isTrash = it.id !== topId && (trashId ? trashId === it.id : parent === topId && it.name.normalize("NFC") === TRASH_NAME);
+        const isTrash = it.id !== topId && (trashId ? trashId === it.id : parent === topId && [TRASH_NAME, OLD_TRASH_NAME].includes(it.name.normalize("NFC")));
         if (isTrash) {
           trashId = it.id;
           trashFolders.set(it.id, { ...row, enabled: false, role: "trash" });
@@ -1590,19 +1590,50 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     return done;
   }
 
-  // 'Web2 휴지통' 폴더(맨 위 폴더 바로 아래 .Web2 휴지통)를 찾거나 만든다. 색인에 있으면 원드라이브에 아직 있는지 확인하고,
+  // BRAND-웹2흔적지우기: 휴지통 폴더 이름이 옛 이름이면 새 이름으로만 바꾼다(덤 — 실패하거나 같은 이름이 이미 있으면 그대로 쓴다).
+  async function renameTrash(token: string, workspaceId: string, item: { id: string; name?: string }) {
+    if (typeof item.name !== "string" || item.name.normalize("NFC") === TRASH_NAME) return;
+    const r = await call("onedrive_trash_rename", `${GRAPH}/me/drive/items/${encodeURIComponent(item.id)}?@microsoft.graph.conflictBehavior=fail`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: TRASH_NAME }),
+    }).catch(() => null);
+    if (!r?.ok) return;
+    const { error } = await admin.from(FOLDERS).update({ name: TRASH_NAME }).eq("workspace_id", workspaceId).eq("item_id", item.id);
+    if (error) log("onedrive_trash_rename_save_failed");
+  }
+
+  // 휴지통 폴더(맨 위 폴더 바로 아래 .노조+ 휴지통, 옛 이름 .Web2 휴지통)를 찾거나 만든다. 색인에 있으면 원드라이브에 아직 있는지 확인하고,
   // 없으면(지워짐·밖으로 옮겨짐) 표시를 떼고 새로 만든다. 같은 이름이 이미 있으면(다른 기기에서 먼저 만듦) 그 폴더를 쓴다. 폴더는 꺼짐(일기·사진에 안 보임).
   async function ensureTrash(token: string, workspaceId: string, folder: { id: string }) {
     const known = await readTrashId(workspaceId);
     if (known) {
       try {
         const it = await getItem(token, known, "id,name,folder,parentReference");
-        if (it.folder && it.id === known && it.parentReference?.id === folder.id) return known;
+        if (it.folder && it.id === known && it.parentReference?.id === folder.id) {
+          await renameTrash(token, workspaceId, it);
+          return known;
+        }
       } catch (e) {
         if (!(e instanceof Fail) || e.code !== "onedrive_item_missing") throw e;
       }
       const { error } = await admin.from(FOLDERS).update({ role: null }).eq("workspace_id", workspaceId).eq("item_id", known);
       if (error) dbFail("onedrive_trash_save_failed:reset", error);
+    }
+    // 색인에 없어도 옛 이름 휴지통이 있으면 그것을 쓴다(새 이름 휴지통을 하나 더 만들지 않는다).
+    const old = await graph("onedrive_trash_find", token,
+      `/me/drive/items/${encodeURIComponent(folder.id)}:/${encodeURIComponent(OLD_TRASH_NAME)}:?$select=id,name,folder,parentReference`);
+    if (old.status !== 404) {
+      graphCheck("onedrive_trash_find", old, "onedrive_trash_missing");
+      const item = (await bodyJson(old)) as OneDriveItem;
+      if (item.folder && validItemId(item.id) && item.parentReference?.id === folder.id) {
+        const { error } = await admin.from(FOLDERS).upsert([{
+          workspace_id: workspaceId, item_id: item.id, parent_id: folder.id, name: item.name ?? OLD_TRASH_NAME, enabled: false, role: "trash", updated_at: new Date(now()).toISOString(),
+        }], { onConflict: "workspace_id,item_id" });
+        if (error) dbFail("onedrive_trash_save_failed", error);
+        await renameTrash(token, workspaceId, item);
+        return item.id;
+      }
     }
     const r = await call("onedrive_trash_create", `${GRAPH}/me/drive/items/${encodeURIComponent(folder.id)}/children`, {
       method: "POST",

@@ -56,3 +56,7 @@
 .bd-empty .wait-empty{display:inline;margin:0}
 .bd-box .wl-form select{box-sizing:border-box;height:var(--ds-compact-height-sm,26px);max-width:100%;font:inherit;font-size:var(--ds-text-meta,12px)}
 .bd-box .wl-status:empty{display:none}
+/* WEEKLY-사업영역묶음 ②: 묶음 표 — 세부 과제 소제목(◦)과 [수정] 글 칸 위 '고칠 칸' 고르기 */
+.biz-sub-head{margin:4px 0 1px;font-weight:600;overflow-wrap:anywhere}
+.biz-write-target{display:flex;align-items:center;gap:6px;margin:0 0 4px;font-size:.85em;color:var(--kptu-muted)}
+.biz-write-target select{min-height:30px;max-width:100%;font-size:inherit}

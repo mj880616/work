@@ -37,6 +37,7 @@ const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 export const MESSAGES = Object.freeze({
   not_ready: '녹음 전사는 준비 중이에요.',
   monthly_limit: '이번 달 녹음 전사 한도에 닿았어요.',
+  ai_monthly_cap: '이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
   busy: '다른 녹음을 전사하는 중이에요. 끝난 뒤 다시 눌러 주세요.',
   too_large: '녹음 파일은 100MB까지 전사할 수 있어요.',
   too_long: '녹음은 1시간까지 전사할 수 있어요.',
@@ -89,7 +90,7 @@ export const MESSAGES = Object.freeze({
   no_recording: '저장할 녹음 파일을 찾지 못했어요.',
 });
 export const STATUS = Object.freeze({
-  not_ready: 503, monthly_limit: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
+  not_ready: 503, monthly_limit: 429, ai_monthly_cap: 429, busy: 409, too_large: 413, too_long: 413, bad_type: 415, bad_request: 400,
   not_found: 404, not_done: 409, drive_failed: 502, drive_not_connected: 424, gemini_failed: 502,
   gemini_empty: 502, gemini_incomplete: 502, gemini_repeat: 502,
   gemini_upload: 502, gemini_timeout: 504, gemini_file_failed: 422, gemini_rejected: 422, bad_format: 422, empty_transcript: 422, usage_unavailable: 503, failed: 500,

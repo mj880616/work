@@ -58,9 +58,12 @@ test('썸네일 대기열: 한 번에 4장까지, 차례 전 거두기, 같은 �
   while (waits.length) waits.shift()();
 });
 
-test('사진 화면: 칩은 운영자 기능이 있을 때만, 지우기는 확인 창 한 번 + 30일 안내, 권한 없음 안내·다시 연결', () => {
+test('사진 화면: 칩은 모두에게(S62-11, 연결 상태는 서버 status), 지우기는 확인 창 한 번 + 30일 안내, 연결 전·권한 없음 안내·다시 연결', () => {
   const s = read('app/photos.js');
-  assert.match(s, /const allowed = gdriveAllowed\(await myFeatures\(rt\)\);/);
+  assert.doesNotMatch(s, /gdriveAllowed|myFeatures/);
+  assert.match(s, /try \{ next = \{allowed:true, \.\.\.gdriveState\(await gdStatus\(rt\)\), checked:true\}; \}/);
+  // S62-16: 연결 전·권한 빠짐 안내는 공용 부품(connect-note.mjs) — 처음 = [구글 드라이브 연결], 권한 빠짐 = [구글 드라이브 다시 연결].
+  assert.match(s, /if \(mode\) return connectNoteFor\('gdrive', mode, \{attrs:\{'data-photos-gd-reconnect':''\}/);
   assert.match(s, /data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>/);
   assert.match(s, /sourceButtons\(sources, \{phone:phone\.available\(\), gdrive:gd\.allowed, gdriveProblem:gd\.problem\}\)/);
   const trash = s.slice(s.indexOf('async function gdTrashPicked'), s.indexOf('const gdName'));
@@ -68,8 +71,8 @@ test('사진 화면: 칩은 운영자 기능이 있을 때만, 지우기는 확�
   assert.match(s, /const TRASH_NOTE_GD = '드라이브 휴지통에서 30일 안에 되살릴 수 있어요';/);
   const ftrash = s.slice(s.indexOf('async function gdTrashFolder'), s.indexOf('function gdFolderClick'));
   assert.ok(ftrash.indexOf('askConfirm') >= 0 && ftrash.indexOf('askConfirm') < ftrash.indexOf('gdFolderTrash(rt'), '폴더 지우기는 확인 뒤에만');
-  assert.match(s, /data-photos-gd-reconnect>Drive 다시 연결<\/button>/);
-  assert.match(s, /menuBtn\('data-gdm-reconnect', 'Drive 다시 연결'\)/);
+  assert.match(s, /menuBtn\('data-gdm-reconnect', connectText\('gdrive', gdriveLinkMode\(gd\.problem\)\)\.button\)/);
+  assert.doesNotMatch(s, /Drive 다시 연결/);
   // 크게 보기에서 묻지 않고 지우는 길은 구글 드라이브에 쓰지 않는다.
   // S49-23 PHOTO-크게보기메뉴통일: 크게 보기 [지우기]도 고르기 줄과 같은 규칙(권한 있으면 확인 한 번 뒤 드라이브 휴지통으로).
   assert.match(s, /item\?\.kind === 'gdrive' \? \{ok:gdUsable\(\) && !busy,/);

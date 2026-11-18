@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {linkAction} from './helpers/basket-link-menu.mjs';
 import {openHome} from './helpers/home-entry.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',n='10000000-0000-4000-8000-000000000001',other='10000000-0000-4000-8000-000000000002',p='20000000-0000-4000-8000-000000000001',o='20000000-0000-4000-8000-000000000002',l='30000000-0000-4000-8000-000000000001',stamp='2026-10-06T01:00:00.123456Z';
 const answer=()=>({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'project',target_id:p,reason:'새 요약'},{kind:'organization',target_id:o,reason:'조직 요약'},{kind:'google_task',reason:'아직 지원 안 됨'}]}]});
@@ -21,7 +22,7 @@ for(const width of [390,1280]){
   test(`direct input is independent from home and unknown save keeps content ${width}`,async({page})=>{
   const f=await fixture(page,width),q=page.locator('#basketView [data-basket-list] [data-home-quick]');await expect(q.locator('[data-quick-input]')).toBeVisible();await expect(page.locator('#basketView [data-goto="home"]')).toHaveCount(0);
   await q.locator('[data-quick-input]').fill('직접 입력');f.setUnknown(true);await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).not.toBeEmpty();await expect(q.locator('[data-quick-input]')).toHaveValue('직접 입력');f.setUnknown(false);await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(page.locator('[data-basket-row="new-note"]')).toBeVisible();
-  await page.evaluate(()=>window.KPTURouter.go('home'));await page.locator('#homeView [data-quick-input]').fill('홈 초안');await page.evaluate(()=>window.KPTURouter.go('basket'));await q.locator('[data-quick-input]').fill('정리함 초안');page.once('dialog',d=>d.dismiss());await page.evaluate(()=>window.KPTURouter.go('home'));await expect(q.locator('[data-quick-input]')).toHaveValue('정리함 초안');await expect(page.locator('#basketView')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('home'));await page.locator('#homeView [data-quick-input]').fill('홈 초안');await page.evaluate(()=>window.KPTURouter.go('basket'));await q.locator('[data-quick-input]').fill('정리함 초안');await page.evaluate(()=>window.KPTURouter.go('home'));await answerAsk(page,false);await expect(q.locator('[data-quick-input]')).toHaveValue('정리함 초안');await expect(page.locator('#basketView')).toBeVisible();
   expect(await page.evaluate(()=>{const detail={};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);expect(f.errors).toEqual([]);
  });
  }

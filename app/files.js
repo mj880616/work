@@ -54,6 +54,8 @@ import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js';
 import {recentSplit} from './photo-fold-model.mjs';
 import {openFolderAt, paintDropGroup} from './drop-open-folder.mjs'; // UI-펼친폴더안놓기전체: 놓일 묶음 표시(공용) // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
+import {cloudNoneHtml, connectNoteFor} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(글 한 줄 → 아래 버튼, 처음 = 연결 · 권한 빠짐 = 다시 연결)
+import {gdriveLinkMode} from './photo-sources-model.mjs'; // S62-16: 사진 칩과 같은 구글 드라이브 연결 규칙
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
 import {checkFileBase, splitFileName, numberedName, FILE_BASE_MAX} from './file-rename-name.mjs';
@@ -184,6 +186,8 @@ const pc = createPcFiles(window, {enabled: pcDeviceOk({ua: navigator.userAgent |
 }});
 let pcOff = false;
 const PC_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 14h4M8 11v3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
+// S62-40: [두 칸 보기] 아이콘(네모 하나를 가운데 선으로 나눈 그림). 폰은 위·아래 두 칸이라 가로 선, 600px~는 CSS가 돌려 세로 선(왼쪽·오른쪽 두 칸).
+const TWO_SVG = '<svg class="fx-two-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h12" stroke="currentColor" stroke-width="1.4"/></svg>';
 const PHONE_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
 
 // S52-07 칸 머리 출처 그림(위 줄 출처 아이콘과 같은 그림).
@@ -197,9 +201,9 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two title="두 칸으로 보기" hidden>두 칸 보기</button></div>
+<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="icon-btn fx-two" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기" hidden>${TWO_SVG}</button></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="선택한 것" hidden></div>
-<p class="fx-note" data-fx-note role="status" hidden></p>
+<p class="fx-note" data-fx-note role="status" hidden></p><div class="fx-connect" data-fx-connect-box role="status" hidden></div>
 <div class="fx-up" data-fx-uprows hidden></div>
 <div class="fx-cols" data-fx-cols><nav class="fx-tree nx-tree" data-fx-tree aria-label="폴더"></nav><div class="fx-main" data-fx-main>${paneHtml(0)}<aside class="fx-prev" data-fx-prev aria-label="미리보기" hidden></aside></div></div>
 <div class="fx-dim" data-fx-dim hidden></div><section class="fx-dest" data-fx-dest role="dialog" aria-modal="true" aria-labelledby="fxDestTitle" hidden></section>
@@ -218,6 +222,8 @@ const freshPane = () => ({where: null, rows: [], loaded: false, failed: '', fail
   // OPS-빠진일2차 1: 목록 칸 안에서 그 자리에 펼친 폴더(folderKey)와, 이번 그리기에서 펼친 폴더 안에 보인 줄(rowByKey가 찾는 곳). 화면 메모리만(위치를 옮기면 비움).
   xopen: new Set(), inline: new Map()});
 const fresh = () => ({scope: '', status: null, statusFailed: '', statusWhy: '', panes: [freshPane(), freshPane()], cur: 0,
+  // S62-16: 연결 안내를 띄운 출처('od'|'gd', 아이콘을 누름)와 이번 접속에서 구글 드라이브 읽기가 권한 문제로 실패한 코드(gd_scope_missing 등).
+  connectAsk: '', gdProblem: '',
   children: new Map(), open: new Set(), stars: null, syncedAt: null, syncing: false,
   // FOLDER-나무새기준 ②: 폴더 안 파일(폰 나무 그 자리 펼치기), 접은 저장소 상자, 'n개 더 보기'를 누른 폴더, '최근' 상자(서버 p_shelf 'recent'),
   // 두 손가락으로 그 폴더만 보기 전 나무 화면 위치. 모두 화면 메모리만(기기 저장 없음).
@@ -485,6 +491,7 @@ async function loadList(p, {quiet = false} = {}) {
     }
     if (seq !== p.seq || state.scope !== scope) return;
     p.rows = Array.isArray(rows) ? rows : []; p.trail = Array.isArray(trail) ? trail : []; p.loaded = true; p.failed = ''; p.failedWhy = '';
+    if (where.source === 'gd') state.gdProblem = '';
     // S52-44 ②: 기억한 마지막 폴더가 없어졌으면(위치를 못 찾음) 그 저장소 맨 위로 열고 기억을 지운다.
     if (p.lastTry && where.parent === p.lastTry && !where.shelf) {
       p.lastTry = '';
@@ -501,6 +508,7 @@ async function loadList(p, {quiet = false} = {}) {
   } catch (e) {
     if (seq !== p.seq || state.scope !== scope) return;
     if (!quiet || !p.loaded) { p.failed = codeOf(e); p.failedWhy = failReason(e); p.loaded = false; }
+    if (where.source === 'gd' && gdriveLinkMode(codeOf(e)) === 'reconnect') state.gdProblem = codeOf(e);
   }
   paint();
   if (where.source && !where.shelf) directRead(p, where, scope);
@@ -879,16 +887,43 @@ function paintTop() {
     const t = open ? '폴더 나무 닫기' : '폴더 나무 열기'; tt.title = t; tt.setAttribute('aria-label', t);
   }
   const tw = $('[data-fx-two]');
-  // S50-20 FILES-두칸버튼글자: 글자가 누르면 될 상태를 말한다(한 칸이면 '두 칸 보기', 두 칸이면 '한 칸 보기'). 색으로 켜짐을 따로 보이지 않는다.
-  if (tw) { tw.hidden = false; const t = twoNow ? '한 칸 보기' : '두 칸 보기'; if (tw.textContent !== t) tw.textContent = t; tw.title = twoNow ? '한 칸으로 보기' : '두 칸으로 보기'; tw.removeAttribute('aria-pressed'); }
+  // S62-40 UI-파일검색줄(시안 PR 2691 B안, 명진 11/16 08:37): [두 칸 보기]는 두 칸 그림 아이콘 단추(이름 '두 칸 보기' 그대로), 켜짐은 aria-pressed와 옅은 바탕.
+  //   폰 맨 위 줄 [찾기][출처][두 칸] 한 줄에 들어간다(전에는 글자 단추가 둘째 줄을 혼자 차지). S50-20 글자 바꾸기(한 칸이면 '두 칸 보기', 두 칸이면 반대 글자)는 이걸로 대신한다.
+  if (tw) { tw.hidden = false; tw.setAttribute('aria-pressed', String(!!twoNow)); }
   paintSrcs();
   const note = $('[data-fx-note]');
+  // S62-16 FILES-구글드라이브아이콘연결전: 연결 안내는 공용 부품(글 한 줄 → 아래 버튼). 둘 다 연결 전이면 두 연결 버튼, 아이콘을 누른 출처면 그 연결 버튼.
+  const ask = state.statusFailed ? '' : connectBoxHtml();
   if (note) {
-    const t = state.statusFailed ? errorText(state.statusFailed) : state.status && !anyLinked() ? '연결된 클라우드가 없어요' : state.hint;
+    const t = state.statusFailed ? errorText(state.statusFailed) : ask ? '' : state.hint;
     note.textContent = t; note.hidden = !t;
   }
+  const cbox = $('[data-fx-connect-box]');
+  if (cbox) { if (cbox.dataset.html !== ask) { cbox.innerHTML = ask; cbox.dataset.html = ask; } cbox.hidden = !ask; }
 }
-// 출처 아이콘(사진 화면과 같은 부품). 원드라이브는 연결 전에도 보이고(눌러 연결 안내), 구글 드라이브는 연결돼 있을 때만 보인다([파일]이 구글 드라이브를 보여 주는 조건 그대로).
+// 출처별 연결 상태: 'none' = 연결 전([○○ 연결]), 'reconnect' = 연결은 있는데 권한 빠짐·풀림([○○ 다시 연결]), '' = 쓸 수 있음.
+// 구글 드라이브 규칙은 사진 칩과 같은 gdriveLinkMode(photo-sources-model.mjs) 하나. 연결은 각자 자기 작업공간·자기 드라이브(서버가 본다).
+function linkMode(name) {
+  if (!state.status) return '';
+  if (!state.status[name]?.connected) return 'none';
+  if (name === 'gd') return gdriveLinkMode(state.gdProblem || state.status.gd?.error) === 'reconnect' ? 'reconnect' : '';
+  return '';
+}
+const CONNECT_SERVICE = {od: 'onedrive', gd: 'gdrive'};
+function connectBoxHtml() {
+  if (!state.status) return '';
+  if (!anyLinked()) return cloudNoneHtml(SOURCES.map(n => ({service: CONNECT_SERVICE[n], attrs: {'data-fx-connect': n}}))); // S62-36: 사진 화면과 같은 공용 칸
+  const n = state.connectAsk, mode = n ? linkMode(n) : '';
+  return mode ? connectNoteFor(CONNECT_SERVICE[n], mode, {attrs: {'data-fx-connect': n}}) : '';
+}
+// [○○ 연결]·[○○ 다시 연결]: 원드라이브는 사진 화면과 같은 마이크로소프트 로그인(돌아오면 사진 화면), 구글 드라이브는 사진·자료실과 같은 drive-start.
+async function connectGo(name) {
+  try {
+    if (name === 'od') { const m = await import('./diary-onedrive.js'); location.assign(m.odAuthUrlBack(await m.odAuthStart(rt()), 'photos')); return; }
+    if (name === 'gd') { const m = await import('./gdrive-photos.js'); await m.gdReconnect(rt()); }
+  } catch { notify(`${SOURCE_NAME[name] || ''} 연결을 시작하지 못했어요.`, {error: true}); }
+}
+// 출처 아이콘(사진 화면과 같은 부품). 원드라이브·구글 드라이브 모두 연결 전에도 흐리게 보이고, 누르면 연결 안내 한 줄 + [○○ 연결](S62-16, 사진 칩과 같은 규칙).
 function paintSrcs() {
   const box = $('[data-fx-srcs]');
   if (!box) return;
@@ -898,9 +933,10 @@ function paintSrcs() {
     const b = box.querySelector(`[data-fx-src="${name}"]`);
     if (!b) continue;
     const info = chipInfo(srcState(), link, name);
-    if (name === 'od') paintOdLink(b, {configured: !!state.status, connected: info.linked}); else b.hidden = !info.linked;
+    const mode = linkMode(name);
+    if (name === 'od') paintOdLink(b, {configured: !!state.status, connected: info.linked}); else { b.hidden = !state.status; b.classList.toggle('fx-src-off', !!mode); }
     b.setAttribute('aria-pressed', String(info.pressed));
-    const t = `${SOURCE_NAME[name]} ${info.linked ? (info.on ? '켜짐' : '꺼짐') : '연결 안 됨'}`;
+    const t = `${SOURCE_NAME[name]} ${mode === 'reconnect' ? '권한 없음' : info.linked ? (info.on ? '켜짐' : '꺼짐') : '연결 안 됨'}`;
     b.title = t; b.setAttribute('aria-label', t);
   }
   // [이 폰]: 폰 앱(0.5.0+)에서만 보인다. 허락 전에는 흐리게(누르면 설정 안내), 허락 뒤에는 켜기/끄기.
@@ -927,11 +963,13 @@ function srcClick(name) {
   if (name === PC) { if (pc.state.ok) { pcOff = !pcOff; sourcesChanged(); } else pcKnock(); return; }
   if (!FILES_SRC.includes(name)) return;
   const info = chipInfo(srcState(), connected(), name);
-  if (!info.linked) {
-    state.hint = name === 'od' ? '원드라이브가 연결돼 있지 않아요. 사진 화면 위 원드라이브 아이콘에서 연결할 수 있어요.' : '구글 드라이브가 연결돼 있지 않아요.';
+  // 연결 전·권한 빠짐: 켜지 않고 그 자리에 연결 안내(글 한 줄 → 아래 [○○ 연결]·[○○ 다시 연결]). 한 번 더 누르면 접는다.
+  if (!info.linked || linkMode(name) === 'reconnect') {
+    state.hint = ''; state.connectAsk = state.connectAsk === name ? '' : name;
     paintTop();
     return;
   }
+  state.connectAsk = '';
   viewPrefs.setFilesSources(DEVICE, filesSourcesValue(toggleFilesSource(srcState(), name)));
   sourcesChanged();
 }
@@ -3160,7 +3198,7 @@ const libStub = (r, owner) => {
 async function sendToLibrary(rows) {
   const list = (rows || []).filter(Boolean), scope = state.scope, owner = scopeOf();
   const pcOk = r => r.source !== PC || pc.canXfer;
-  if (!list.every(pcOk)) notify('바구니 PC 앱을 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요', {record: false});
+  if (!list.every(pcOk)) notify('노조+ 파일 올리기 도우미을 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요', {record: false});
   const files = list.filter(r => !r.is_folder && pcOk(r));
   for (const f of list.filter(r => r.is_folder && pcOk(r))) {
     const tree = await treeRead(f, scope);
@@ -3966,6 +4004,7 @@ root?.addEventListener('click', event => {
   if (b.matches('[data-fx-twist]')) { toggle(b.dataset.fxTwist, b.closest('.nx-tree')); return; }
   if (b.matches('[data-fx-up]')) { const q = P(); if (solo() && q === state.panes[0]) focusUp(); else goUp(); return; }
   if (b.matches('[data-fx-src]')) { srcClick(b.dataset.fxSrc); return; }
+  if (b.matches('[data-fx-connect]')) { void connectGo(b.dataset.fxConnect); return; }
   if (b.matches('[data-fx-pc-knock]')) { pcKnock(); return; }
   if (b.matches('[data-fx-sync]')) { sync({force: true}); return; }
   if (b.matches('[data-fx-close]')) { closePreview(); return; }

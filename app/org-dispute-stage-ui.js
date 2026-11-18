@@ -37,7 +37,7 @@ function paintLine() {
   const {host, orgId, canEdit} = line, state = peekDisputeState();
   if (!state) { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">' + waitInlineHtml() + '</span>'; return; }
   if (state.status === 'preparing') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" data-stage-preparing>준비 중</span>'; return; }
-  if (state.status === 'error') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="wd-stage-btn" data-stage-retry>다시 시도</button>'; return; }
+  if (state.status === 'error') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="secondary wd-stage-btn" data-stage-retry>다시 시도</button>'; return; }
   const stages = lineStages(state), cur = stageOfOrg(orgId, state.histories, stages);
   const draft = line.draft, stageId = draft?.stageId ?? cur.stage?.id ?? '', date = draft?.date ?? cur.date;
   const end = draft ? draft.end ?? '' : cur.end, endOpen = !!(draft?.endOpen || end);
@@ -45,9 +45,9 @@ function paintLine() {
   const options = (picked, list = stages) => list.map(s => `<option value="${esc(s.id)}"${s.id === picked ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
   const endControl = endOpen
     ? `<span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-end value="${esc(end)}" min="${esc(date)}" aria-label="끝 날짜(선택, 비우면 하루)">`
-    : '<button type="button" class="wd-stage-end-btn" data-stage-end-open aria-label="끝 날짜 넣기(선택)">~ 끝 날짜</button>';
+    : '<button type="button" class="row-act wd-stage-end-btn" data-stage-end-open aria-label="끝 날짜 넣기(선택)">~ 끝 날짜</button>';
   const controls = canEdit
-    ? `<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options(stageId)}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜">${endControl}<button type="button" class="wd-stage-btn" data-stage-save disabled hidden>저장</button>`
+    ? `<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options(stageId)}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜">${endControl}<button type="button" class="row-act wl-btn is-main wd-stage-save" data-stage-save disabled hidden>저장</button>`
     : `<span class="wd-stage-now">${esc(cur.name)}${cur.date ? ` · ${esc(cur.date)}${cur.end && cur.end !== cur.date ? ` ~ ${esc(cur.end)}` : ''}` : ''}</span>`;
   host.innerHTML = `<span class="wd-stage-k">쟁의 단계</span>${controls}<span class="wd-stage-msg${line.msg.error ? ' error' : ''}" data-stage-msg role="${line.msg.error ? 'alert' : 'status'}">${esc(line.msg.text)}</span>`
     + (hist.length ? `<details class="wd-stage-hist" data-stage-hist${line.histOpen ? ' open' : ''}><summary>단계 이력 ${hist.length}</summary>${hist.map(h => histRowHtml(h, stages, canEdit)).join('')}</details>` : '');
@@ -58,16 +58,16 @@ function paintLine() {
 function histRowHtml(h, stages, canEdit) {
   const ui = line.hist, mine = ui.id === h.id, busy = line.busy ? ' disabled' : '';
   const label = `${h.date} ${h.name}`;
-  const more = canEdit ? `<button type="button" class="wd-stage-hmore" data-stage-hmore aria-label="${esc(label)} 메뉴" aria-expanded="${mine && !!ui.mode}"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
+  const more = canEdit ? `<button type="button" class="icon-btn wd-stage-hmore" data-stage-hmore aria-label="${esc(label)} 메뉴" aria-expanded="${mine && !!ui.mode}"><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
   let extra = '';
   if (mine && ui.mode === 'menu') {
     extra = `<div class="wd-stage-hsub"><button type="button" class="stg-link" data-stage-hedit${busy}>수정</button><button type="button" class="stg-link danger" data-stage-hdel${busy}>삭제</button></div>`;
   } else if (mine && ui.mode === 'edit') {
     const d = ui.draft, list = stages.some(s => s.id === d.stageId) ? stages : [{id: d.stageId ?? '', name: h.name}, ...stages];
     const opts = list.map(s => `<option value="${esc(s.id)}"${s.id === d.stageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
-    extra = `<form class="wd-stage-hsub wd-stage-hform" data-stage-hform novalidate><select class="wd-stage-select" data-stage-hselect aria-label="수정할 단계">${opts}</select><input class="wd-stage-date" type="date" data-stage-hdate value="${esc(d.start)}" aria-label="수정할 날짜" required><span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-hend value="${esc(d.end)}" min="${esc(d.start)}" aria-label="수정할 끝 날짜(선택, 비우면 하루)"><button type="button" class="stg-link" data-stage-hcancel>취소</button><button type="submit" class="stg-link"${busy}>저장</button></form>`;
+    extra = `<form class="wd-stage-hsub wd-stage-hform" data-stage-hform novalidate><select class="wd-stage-select" data-stage-hselect aria-label="수정할 단계">${opts}</select><input class="wd-stage-date" type="date" data-stage-hdate value="${esc(d.start)}" aria-label="수정할 날짜" required><span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-hend value="${esc(d.end)}" min="${esc(d.start)}" aria-label="수정할 끝 날짜(선택, 비우면 하루)"><span class="wl-btns btn-row"><button type="button" class="row-act wl-btn" data-stage-hcancel>취소</button><button type="submit" class="row-act wl-btn is-main"${busy}>저장</button></span></form>`;
   } else if (mine && ui.mode === 'confirm') {
-    extra = `<div class="wd-stage-hsub stg-confirm" role="group" aria-label="이력 삭제 확인"><span>이 줄을 삭제할까요? 지금 단계는 남은 이력의 가장 나중 줄로 돌아가요.</span><button type="button" class="stg-link danger" data-stage-hdel-yes${busy}>삭제</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></div>`;
+    extra = `<div class="wd-stage-hsub stg-confirm" role="group" aria-label="이력 삭제 확인"><span>이 줄을 삭제할까요? 지금 단계는 남은 이력의 가장 나중 줄로 돌아가요.</span><span class="wl-btns btn-row"><button type="button" class="stg-link danger" data-stage-hdel-yes${busy}>삭제</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></span></div>`;
   }
   return `<div class="wd-stage-hrow" data-stage-hrow="${esc(h.id)}"><div class="wd-stage-hline"><span class="wd-stage-htext">${esc(label)}</span>${more}</div>${extra}</div>`;
 }

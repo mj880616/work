@@ -15,14 +15,14 @@ import {followPane} from './follow-pane.js';
 import {fitChipRows} from './chip-rows.js';
 import {hhmm, dayLabel, telegramLines, telegramToday, telegramHeadText, roomTone, roomInitial, pinnedOf, missingTable, kstDay} from './feed-model.mjs';
 import {readDays, readRaw, readOrganizations, setPinned, setFeedState, scopeOf, readRoomDayLines, readRoomDay, readTitleRows, readPinnedItems, readTrashedItems,
-  readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder, readSummaryEdits, editSummary, readLineMarks, readSeenDays, markRoomDaySeen, setRoomPin, readRoomLatestLine} from './feed-data.js';
+  readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder, readSummaryEdits, editSummary, readLineMarks, readSeenDays, markRoomDaySeen, setRoomPin, setRoomNews, readRoomLatestLine} from './feed-data.js';
 import {summaryCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {askConfirm} from './small-notice.js';
 import {bindSelectZone} from './text-select-bar.js';
-import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection} from './text-highlights.js';
+import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
@@ -74,7 +74,18 @@ bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource, onSav
 bindMarks($('#telegramView'));
 // 원문 칸마다 그 소식의 밑줄을 칠한다(칸은 paintDetail·paintRoomDetail이 그린 그대로, 글자 마디만 감쌈).
 function paintTgMarks(box) { for (const el of box?.querySelectorAll('[data-tg-di] [data-tg-raw]') || []) paintMarks(el, sourceHighlights('telegram', el.closest('[data-tg-di]').dataset.tgDi)); }
-onHighlights(() => { const box = $('#tgDetail'); if (box && !box.hidden) paintTgMarks(box); });
+onHighlights(() => { const box = $('#tgDetail'); if (box && !box.hidden) { paintTgMarks(box); revealTg(box); } });
+// S61-51a NEWS-밑줄모으기: News [밑줄] 탭에서 연 텔레그램 밑줄(reveal = 밑줄 id). 원문이 그려지고 밑줄이 칠해지면 그 자리로 한 번 옮기고 잠깐 밝힌다
+// (뉴스·사회운동 원문과 같은 revealMark). 그 밑줄이 6줄 접힘 안이면 그 줄을 펼친 뒤 옮긴다. 다른 방·날을 열면 잊는다.
+let reveal = '';
+function revealTg(box) {
+  if (!reveal || !box) return;
+  const m = box.querySelector(`[data-tg-raw] mark.hl-mark[data-hl-id="${CSS.escape(reveal)}"]`), t = m?.closest('.feed-rt');
+  if (!m) return;
+  const more = t?.classList.contains('is-fold') && !t.classList.contains('is-more') ? t.nextElementSibling?.dataset?.tgRtMore : '';
+  if (more) { state.more.add(more); paintDetail(); return; } // 다시 그리면 이 함수가 다시 불린다
+  if (revealMark(m.closest('[data-tg-raw]'), reveal)) reveal = '';
+}
 const view = () => $('#telegramView');
 const pull = createFeedPull({source:'telegram', rt, scope:() => scopeOf(rt), reload:() => load(), paint:() => paintList(), attr:'data-tg-pull'});
 const itemOf = id => { for (const d of state.dcache.values()) { const r = d.items?.find(x => x.id === id); if (r) return r; } return state.pins.find(r => r.id === id) || state.trashed.find(r => r.id === id) || null; };
@@ -104,9 +115,9 @@ async function load() {
       readFeedFolders(rt).catch(() => []), roomsP, readTrashedDays(rt).catch(() => []), readSummaryEdits(rt).then(editMap).catch(() => null)]);
     const [asks, markRows, seenRows, titles, pinLines] = await extra;
     if (me !== run || owner !== scopeOf(rt)) return;
-    const {rooms, pinReady} = roomState;
+    const {rooms, pinReady, newsReady = false} = roomState;
     if (titles) state.titles = titles;
-    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, pinLines:withRoomState(pinLines, rooms), lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
+    Object.assign(state, {owner, loaded:true, missing:false, error:'', pinReady, newsReady, pinLines:withRoomState(pinLines, rooms), lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, edits, se:null, dcache:new Map(), swipe:null, asks:asks?.ok ? askIndex(asks.rows) : null, markRows, marks:markIndex(markRows, orgs.mine), seen:seenRows ? seenIndex(seenRows) : null});
     setSenders(senders);
     if (state.folder && !folders.some(f => f.id === state.folder)) state.folder = '';
     if (state.mode === 'trash' && !trashed.length && !trashedDays.length) leaveShelf();
@@ -285,7 +296,7 @@ function headHtml() {
     return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">보관함 ${archivedRooms(state.rooms, state.lines).length}</span></div>`;
   }
   if (state.mode === 'trash') {
-    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">휴지통 ${trashCount()}</span></div><p class="feed-note" data-tg-trash-note>Web2 목록에서만 뺀 것이에요. 원문은 Drive에 그대로 있어요. 직접 비우기 전까지 남아요.</p>`;
+    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">휴지통 ${trashCount()}</span></div><p class="feed-note" data-tg-trash-note>노동조합+ 목록에서만 뺀 것이에요. 원문은 Drive에 그대로 있어요. 직접 비우기 전까지 남아요.</p>`;
   }
   const today = telegramToday(state.days, kstDay());
   const failed = today?.failed ? ` · 판정 실패 ${today.failed}` : '';
@@ -422,7 +433,7 @@ function paintDetail() {
   const note = state.note ? `<p class="feed-notice" role="status" data-tg-note>${esc(state.note)}</p>` : '';
   roomSeen?.disconnect();
   box.innerHTML = `${head}${nav}${note}<div class="feed-detail" data-tg-detail="${esc(selKey())}">${dayBodyHtml(sel.room, sel.day, d, sum, dedit)}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  paintTgMarks(box); fitRawFolds(box); fitAll(box); // UI-줄입력늘어나기: 목록 한 줄 고치기 칸은 글 전체가 보이게
+  paintTgMarks(box); fitRawFolds(box); revealTg(box); fitAll(box); // UI-줄입력늘어나기: 목록 한 줄 고치기 칸은 글 전체가 보이게
 }
 // 방·날 하나의 몸통: 요약 상자(고치기·복사) + 그날 소식 줄. 날짜별 상세와 방별 상세가 같이 쓴다. 단추의 값은 그 방·날 열쇠.
 function dayBodyHtml(room, day, d, sum, dedit) {
@@ -452,7 +463,7 @@ function paintRoomDetail(box) {
   const more = state.rbusy ? `<div class="feed-older">${waitInlineHtml()}</div>` : page.more ? '<div class="feed-older"><button type="button" class="feed-text-btn" data-tg-rolder>이전 날 더 보기</button></div>' : '';
   const body = page.days.length ? page.days.map(dayHtml).join('') : emptyHtml('불러온 기간에 소식이 없어요');
   box.innerHTML = `${head}${note}<div class="feed-detail feed-rdays" data-tg-roomdetail="${esc(room)}">${body}${more}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
-  paintTgMarks(box); fitRawFolds(box);
+  paintTgMarks(box); fitRawFolds(box); revealTg(box);
   roomSeen?.disconnect(); roomSeen = null;
   const tail = box.querySelector('[data-tg-rolder]');
   if (tail && !state.rstop && 'IntersectionObserver' in window) { roomSeen = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { roomSeen?.disconnect(); roomSeen = null; void moreRoomDays(); } }, {rootMargin:'0px 0px 200px 0px'}); roomSeen.observe(tail); }
@@ -599,6 +610,7 @@ function select(room, day, item = '', {picked = false} = {}) {
   if (state.link && !dropLink(() => select(room, day, item, {picked}))) return;
   if (state.sedit?.kind === 'raw') endEdit();
   const shown = !!state.rsel || !!state.sel;
+  reveal = '';
   state.rsel = ''; state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null; markSeen(room, day);
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {reopen:() => select(room, day), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   const rday = pickDay(room, day);
@@ -619,6 +631,7 @@ function openRoom(room, {picked = false} = {}) {
   if (state.link && !dropLink(() => openRoom(room, {picked}))) return;
   if (state.sedit?.kind === 'raw') endEdit();
   const shown = !!state.rsel || !!state.sel;
+  reveal = '';
   state.sel = null; state.rsel = room; state.rshown = ROOM_DAY_PAGE; state.rstop = false; state.status = ''; state.note = ''; state.open = new Set(); state.more = new Set(); undo = null;
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-room', {reopen:() => openRoom(room), close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   window.KPTURouter?.setPlace?.('telegram', {by:'room', room, rday:null});
@@ -768,6 +781,18 @@ async function pinCore(room, on, text, current, isUndo = false) {
   return true;
 }
 const pinRoom = (room, on) => guarded(current => pinCore(room, on, on ? '고정했어요' : '고정을 풀었어요', current));
+// NEWS-모두에게열기: [뉴스방으로]·[뉴스방에서 빼기]. 판정·거절은 서버(app_feed_room_news — 텔레그램 허용 작업공간 주인, 그룹·채널만, 가족 방 거절).
+// 화면은 서버가 받아 준 뒤에만 표시를 바꾼다. 1:1 방에는 단추를 두지 않는다(서버도 거절).
+const NEWS_FAIL = {...ROOM_FAIL, NEWS_KIND:'1:1 대화방은 뉴스방으로 정할 수 없어요.', NEWS_FAMILY:'가족 방은 뉴스방으로 정할 수 없어요.', UNAVAILABLE:'뉴스방은 아직 준비 중이에요.'};
+const isNewsRoom = room => !!roomRow(room).news_at;
+const newsRoomOk = room => state.newsReady && ['group', 'channel'].includes(roomRow(room).chat_kind);
+const newsRoom = (room, on) => guarded(async current => {
+  const prev = roomRow(room), saved = await setRoomNews(room, on, rt); if (!current()) return;
+  if (!saved.ok) { state.status = NEWS_FAIL[saved.error] || NEWS_FAIL.REFUSED; if (saved.error === 'UNAVAILABLE') state.newsReady = false; if (saved.error === 'GONE') void load(); return; }
+  const rooms = new Map(state.rooms); rooms.set(room, {...prev, news_at:on ? (saved.news_at || prev.news_at || new Date().toISOString()) : null});
+  applyRooms(rooms);
+  state.status = on ? '뉴스방으로 정했어요 · 이 방 글 속 기사 주소가 News에 들어가요' : '뉴스방에서 뺐어요 · 이미 들어간 기사는 남아요';
+});
 const moveRoom = (room, folder, archived, text) => guarded(current => roomCore(room, folder, archived, text, current));
 function trashDay(room, day) {
   return guarded(async current => {
@@ -934,7 +959,7 @@ const oneLineOf = v => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').re
 const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소식 메뉴', historyKey:'kptuTelegramMenu',
   key:t => (t.hasAttribute('data-tg-head-more') ? 'head:' : 'item:' + t.dataset.tgMore),
   render:id => {
-    if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${trashCount() ? `<button type="button" data-tg-act="trash-view">휴지통 ${trashCount()}</button>` : ''}`;
+    if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${trashCount() ? `<button type="button" data-tg-act="trash-view">휴지통 ${trashCount()}</button>` : ''}<button type="button" class="row-act" data-tg-act="help">쓰는 법</button>`;
     const r = itemOf(id.slice(id.indexOf(':') + 1)); if (!r) return '';
     const copy = `${tgText(r) ? '<button type="button" data-tg-act="copy">요약 복사</button>' : ''}${state.raw.get(r.id)?.error || (state.raw.has(r.id) && !state.raw.get(r.id).loading && !state.raw.get(r.id).raw_text) ? '' : '<button type="button" class="row-act" data-tg-act="rawcopy">원문 복사</button><button type="button" class="row-act" data-tg-act="rawselect">원문 모두 선택</button>'}`;
     const fix = editsOn() && r.id ? '<button type="button" data-tg-act="sumedit">요약 수정</button>' : '';
@@ -942,7 +967,7 @@ const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소�
   },
   onAction:(button, active) => {
     const act = button.dataset.tgAct;
-    if (active.id === 'head:') { if (act === 'senders') enterShelf('senders'); else if (act === 'trash-view') enterShelf('trash'); return; }
+    if (active.id === 'head:') { if (act === 'senders') enterShelf('senders'); else if (act === 'trash-view') enterShelf('trash'); else if (act === 'help') void import('./help-link.js').then(m => m.openHelp('telegram')); return; }
     const r = itemOf(active.id.slice(active.id.indexOf(':') + 1)); if (!r) return;
     if (act === 'pin') void pin(r); else if (act === 'trash') void trashItem(r); else if (act === 'copy') void copyTg(tgText(r)); else if (act === 'rawcopy') void copyRaw(r); else if (act === 'rawselect') void selectRaw(r); else if (act === 'link') startLink(r); else if (act === 'sumedit') startSumEdit('item', r);
   }});
@@ -970,11 +995,13 @@ const rmenu = createAnchoredMenu({id:'tgRowMenu', className:'feed-menu', label:'
     const pin = state.pinReady ? `<button type="button" data-tg-ract="pin">${isPinned(k.room) ? '고정 풀기' : '고정'}</button>` : '';
     // TG-방별보기: 방별의 방 한 줄은 방 전체라 '이 날 한 줄만 삭제'를 두지 않는다.
     const trash = roomMode() ? '' : '<button type="button" class="feed-menu-danger" data-tg-ract="trash">삭제 <span class="feed-faint">이 날 한 줄만</span></button>';
-    return `${pin}<button type="button" data-tg-ract="folder">폴더로</button><button type="button" data-tg-ract="archive">보관</button>${trash}`;
+    const news = newsRoomOk(k.room) ? `<button type="button" class="row-act" data-tg-ract="news">${isNewsRoom(k.room) ? '뉴스방에서 빼기' : '뉴스방으로'}</button>` : '';
+    return `${pin}<button type="button" data-tg-ract="folder">폴더로</button><button type="button" data-tg-ract="archive">보관</button>${news}${trash}`;
   },
   onAction:(button, active) => {
     const k = splitRdKey(active.id.slice(4)); if (!k) return; const act = button.dataset.tgRact;
     if (act === 'pin') void pinRoom(k.room, !isPinned(k.room));
+    else if (act === 'news') void newsRoom(k.room, !isNewsRoom(k.room));
     else if (act === 'folder') { wantPicker = true; fmenu.open(active.trigger); }
     else if (act === 'archive') void moveRoom(k.room, roomRow(k.room).folder_id, true, '보관했어요');
     else if (act === 'trash') void trashDay(k.room, k.day);
@@ -1135,9 +1162,12 @@ window.addEventListener('kptu:session-changed', () => { run++; layer = null; she
 pc.addEventListener?.('change', () => { if (view() && !view().classList.contains('hidden')) { if (pc.matches && layer) { const l = layer; layer = null; l.close(); } paint(); } });
 paint();
 // ORG-주요인물: 담당조직 [주요 인물] 탭의 텔레그램 줄이 부른다. 그 방·날 상세를 열고(item이 있으면 그 소식 원문을 펼침).
-async function showDay(room, day, item = '') {
+// highlight: News [밑줄] 탭에서 연 그 원문의 밑줄 id(S61-51a) — 원문·밑줄이 그려지면 그 자리로(revealTg).
+async function showDay(room, day, item = '', {highlight = ''} = {}) {
   if (!room || !day) return false;
   if (!state.loaded || state.owner !== scopeOf(rt)) await load();
-  select(room, day, item); return true;
+  select(room, day, item);
+  if (item && highlight) { reveal = highlight; void loadHighlights().catch(() => {}); revealTg($('#tgDetail')); }
+  return true;
 }
 window.KPTUTelegramFeed = {reload:() => load(), show:showDay};

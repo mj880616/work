@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // LEDGER-수정요청: the real ai-assist handler, kind=ledger_fix, with a synthetic Supabase (Auth + PostgREST with owner RLS +
@@ -77,7 +78,7 @@ function harness({openai=null,usage=[],dryReply=null,ledgerMissing=false}={}){
     throw new Error('unexpected method '+method);
   };
   const env=k=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'sk-synthetic'})[k];
-  const handler=createAiAssistHandler({env,fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env,fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const post=(handler,body,token='owner-token')=>handler(new Request(FN,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)}));

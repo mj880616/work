@@ -1,0 +1,151 @@
+{
+ "v": 1,
+ "sections": [
+  {
+   "id": "requests",
+   "role": "requests",
+   "level": 1,
+   "title": "1. 요청사항",
+   "columns": [],
+   "fill": "blank"
+  },
+  {
+   "id": "requestTable",
+   "role": "requestTable",
+   "level": 2,
+   "title": "1) 임원 배정 요청",
+   "columns": [
+    "일",
+    "시간/내용/장소",
+    "참석 요청"
+   ],
+   "fill": "schedule"
+  },
+  {
+   "id": "schedule",
+   "role": "schedule",
+   "level": 2,
+   "title": "2) 주요 일정",
+   "columns": [],
+   "fill": "schedule"
+  },
+  {
+   "id": "discuss",
+   "role": "discuss",
+   "level": 2,
+   "title": "3) 상집 논의 요청",
+   "columns": [],
+   "fill": "todo"
+  },
+  {
+   "id": "work",
+   "role": "work",
+   "level": 1,
+   "title": "2. 기본․영역․의제 사업",
+   "columns": [],
+   "fill": "blank"
+  },
+  {
+   "id": "summaryTable",
+   "role": "summaryTable",
+   "level": 2,
+   "title": "1) 요약",
+   "columns": [
+    "사업영역",
+    "세부 과제",
+    "진행 상황 및 이후 계획",
+    "담당 팀원"
+   ],
+   "fill": "biz"
+  },
+  {
+   "id": "details",
+   "role": "details",
+   "level": 2,
+   "title": "2) 세부 내용",
+   "columns": [
+    "제목",
+    "회의제목",
+    "일시/장소",
+    "참석자",
+    "회의 내용",
+    "내용",
+    "차기일정",
+    "보고",
+    "논의결과",
+    "*차기회의"
+   ],
+   "fill": "meeting"
+  },
+  {
+   "id": "struggle",
+   "role": "struggle",
+   "level": 1,
+   "title": "3. 투쟁 사업",
+   "columns": [],
+   "fill": "blank"
+  },
+  {
+   "id": "rallyTable",
+   "role": "rallyTable",
+   "level": 2,
+   "title": "1) 집회·농성 등",
+   "columns": [
+    "일시/장소",
+    "집회/행사명",
+    "참석현황"
+   ],
+   "fill": "org"
+  },
+  {
+   "id": "siteTable",
+   "role": "siteTable",
+   "level": 2,
+   "title": "2) 투쟁 사업장 현황",
+   "columns": [
+    "조직명",
+    "현황"
+   ],
+   "fill": "org"
+  },
+  {
+   "id": "orgs",
+   "role": "orgs",
+   "level": 1,
+   "title": "4. 산하조직 현황",
+   "columns": [],
+   "fill": "blank"
+  },
+  {
+   "id": "orgTable",
+   "role": "orgTable",
+   "level": 2,
+   "title": "1) 요약",
+   "columns": [
+    "사업장",
+    "조직현황"
+   ],
+   "fill": "org"
+  },
+  {
+   "id": "orgNotes",
+   "role": "orgNotes",
+   "level": 2,
+   "title": "2) 참고자료",
+   "columns": [],
+   "fill": "blank"
+  },
+  {
+   "id": "calendar",
+   "role": "calendar",
+   "level": 1,
+   "title": "5. 주요 일정",
+   "columns": [
+    "일",
+    "시간/내용/장소",
+    "참석자"
+   ],
+   "fill": "schedule"
+  }
+ ]
+}

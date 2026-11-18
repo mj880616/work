@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {servePagesCors,hwpPress,openHwpMenu,hwpMenuItem} from './helpers/hwp-editor.mjs';
+import {answerAsk} from './helpers/small-notice.mjs';
 // HWP-편집기 메뉴 입구: ☰ 메뉴(phone) and the sidebar (PC) open [HWP 편집]. The editor (about 20MB) loads only on this
 // screen. A device file is downloaded as HWP or handed to the library's own [+ 자료 등록] dialog, where the person
 // picks project and category; nothing else goes to the server. Leaving with unsaved edits asks first.
@@ -144,20 +145,20 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   await enterFromMenu(page,390);
   await openAndType(page,390);
   const asked=[];
-  page.once('dialog',dialog=>{asked.push(dialog.message());void dialog.dismiss()});
+  // UI-알림창정리(S61-31): 브라우저 기본 확인창이 아니라 공용 작은 확인창으로 묻는다.
+  page.on('dialog',dialog=>{throw Error('unexpected dialog '+dialog.message())});
   // HWP-화면가득: 폰은 [✕](= 뒤로가기)로 이전 화면. 저장 안 한 내용이 있으면 한 번 묻는다.
   await page.locator('#hwpLabClose').click();
-  await expect.poll(()=>asked.length).toBe(1);
+  asked.push(await answerAsk(page,false));
   expect(asked[0]).toContain('저장하지 않은 수정 내용');
   await expect(page.locator('#hwpView')).toBeVisible();
 
   const [file]=await Promise.all([page.waitForEvent('download'),hwpPress(page,'hwpLabSave')]);
   expect(file.suggestedFilename()).toBe('sample-수정.hwp');
   await expect(status(page)).toHaveText(/sample-수정\.hwp\(\d+KB\)을 내려받았습니다/);
-  page.on('dialog',dialog=>{asked.push(dialog.message());void dialog.dismiss()});
   await page.locator('#hwpLabClose').click();
   await expect(page.locator('#homeView')).toBeVisible();
-  expect(asked).toHaveLength(1);
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
 
   // Edits after the download ask again; accepting leaves.
   // The device file stays open on return.
@@ -166,10 +167,9 @@ test('leaving with unsaved edits asks first; a downloaded file leaves without as
   await page.frameLocator('#hwpLabEditor iframe').locator('#scroll-container').click({position:{x:60,y:60}});
   await page.keyboard.type('또');
   await page.waitForTimeout(2500);
-  page.removeAllListeners('dialog');
-  page.once('dialog',dialog=>{asked.push(dialog.message());void dialog.accept()});
-  // 폰 뒤로가기도 [✕]와 같이 이전 화면으로 간다(묻고 나서).
+  // 폰 뒤로가기도 [✕]와 같이 이전 화면으로 간다(묻고 나서 — [나가기]면 같은 뒤 기록 칸으로).
   await page.evaluate(()=>history.back());
+  asked.push(await answerAsk(page,true));
   await expect(page.locator('#homeView')).toBeVisible();
   expect(asked).toHaveLength(2);
   expect(seen.library).toEqual([]);

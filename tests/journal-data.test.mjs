@@ -1,3 +1,4 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // JOURNAL-일지 2단계: the only stored part is the day's lines (kind=work, one row a day); the materials are read and grouped on screen.
@@ -12,7 +13,7 @@ const params = call => new URL(call.path, 'https://x.invalid').searchParams;
 const weekly = import('../app/journal-weekly.js');
 const draftOf = async ({materials = {}, linesState = 'ok', ...rest}) => {
   const w = await weekly;
-  return w.weeklyReportText(w.weeklySummary({linesState, ...rest, materials:{catalog:{status:'ok', items:[]}, upcoming:{status:'ok', items:[]}, ...materials}}));
+  return reportText(w.weeklySummary({linesState, ...rest, materials:{catalog:{status:'ok', items:[]}, upcoming:{status:'ok', items:[]}, ...materials}}));
 };
 // The lines of one numbered part of the draft (from its title to the next blank line).
 const partOf = (text, title) => { const rows = text.split('\n'), at = rows.indexOf(title); assert.ok(at >= 0, title); const end = rows.indexOf('', at); return rows.slice(at + 1, end < 0 ? undefined : end); };
@@ -256,7 +257,7 @@ test('조직 소식: my organizations each by name, the others under one 그 외
   const empty = {status:'ok', items:[]};
   const text = await draftOf({start:'2026-10-05', lines:new Map(), today:day, materials:{events:empty, tasks:empty, basket:{status:'ok', items:basket},
     orgUpdates:{status:'ok', items:orgUpdates}, projectUpdates:empty, meetings:empty, documents:empty, sharePages:empty}});
-  assert.deepEqual(partOf(text, '4. 산하 조직 현황'), ['1) 요약',
+  assert.deepEqual(partOf(text, '4. 산하조직 현황'), ['1) 요약',
     '◦ 가상 담당 둘', '- 10월 6일(화) 담당 조직 기록',
     '◦ 가상 담당 하나', '- 10월 6일(화) 담당으로 보낸 메모',
     '◦ 그 외', '- 10월 6일(화) 가상 다른 조직 · 다른 조직으로 보낸 메모', '- 10월 6일(화) 가상 비활성 · 첨부: 가상 자료.pdf', '- 10월 6일(화) 가상 다른 조직 · 다른 조직 기록',
@@ -264,7 +265,7 @@ test('조직 소식: my organizations each by name, the others under one 그 외
   ]);
 });
 
-test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재료 in report order, no 그 밖의 기록; failed parts are marked, the rest stay', async () => {
+test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간 보고 재료 in report order, no 그 밖의 기록; failed parts are marked, the rest stay', async () => {
   const m = await mod;
   const materials = {
     events:{status:'ok', items:[
@@ -290,8 +291,9 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
   // Without my list (unknown) nothing is dimmed.
-  // 목록을 못 읽어도 내부 정례 회의(본부 집행위)는 늘 '보고 안 함'(WEEKLY-주요일정기준 ④).
-  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, true]);
+  // WEEKLY-내부회의사람별: 고정 규칙 없음 — 목록을 못 읽으면 아무것도 흐리게 하지 않는다. 운영자 목록('*집행위*' 포함)이면 지금처럼 흐림.
+  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, false]);
+  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['*집행위*']}}).report[0].items.map(i => i.hidden), [false, false, true]);
   // 그날 일정 is its own part above 오늘 한 줄 (not in 그 밖의 기록): time + title, the calendar color, and where it opens (the calendar's edit window).
   assert.deepEqual(card.events.items.map(i => i.text), ['종일 종일', '00:30 새벽', '14:00 오후']);
   assert.deepEqual(card.events.items.map(i => [i.id, i.open]).slice(0, 1), [[card.events.items[0].id, {type:'event', id:card.events.items[0].id, calendarId:'primary'}]]);
@@ -435,7 +437,7 @@ test('weekly draft: the form order (1 → 2 → 4 → 5 → 참고); lines in sa
   const rows = text.split('\n');
   assert.deepEqual(rows.slice(0, 2), ['주간 업무일지 10월 5일(월) ~ 10월 11일(일)', '■ 일시 : 2026년 10월 12일(월)']);
   // The form's order, not day by day.
-  const order = ['1. 요청사항', '2. 기본·영역·의제 사업', '4. 산하 조직 현황', '5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))', '참고'].map(t => rows.indexOf(t));
+  const order = ['1. 요청사항', '2. 기본․영역․의제 사업', '4. 산하조직 현황', '5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))', '참고'].map(t => rows.indexOf(t));
   assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), JSON.stringify(order));
   // No day-by-day '■ 날짜' headers: the only ■ line is the report day (■ 일시).
   assert.deepEqual(rows.filter(r => r.startsWith('■ ')), ['■ 일시 : 2026년 10월 12일(월)']);
@@ -446,7 +448,7 @@ test('weekly draft: the form order (1 → 2 → 4 → 5 → 참고); lines in sa
   assert.deepEqual(ref.slice(0, 5), ['◦ 한 줄', '- 10월 6일(화) 현장 회의 정리', '- 10월 7일(수) 첫 줄', '- 10월 7일(수) 둘째 줄', '- 10월 7일(수) 셋째 줄']);
   // This week's events are the day card's 일정, not draft material (5. 주요 일정 is the two weeks after).
   assert.equal(rows.some(r => r.includes('10:00 회의')), false);
-  assert.ok(partOf(text, '4. 산하 조직 현황').includes('- 10월 6일(화) 조직 소식 원문'));
+  assert.ok(partOf(text, '4. 산하조직 현황').includes('- 10월 6일(화) 조직 소식 원문'));
   assert.ok(rows.includes('- 10월 6일(화) 14:00 기자회견'));
   assert.equal(rows.some(r => r.includes('바구니 업데이트') || r.includes('고친 노트') || (r.startsWith('- ') && r.includes('둘째 ') && !r.includes('둘째 줄'))), false);
   // One Google Tasks read feeds both task groups, so both are named.
@@ -573,7 +575,7 @@ test('weekly draft with the hub groups: form order, project records in 요약, t
   const text = await draftOf({start:'2026-10-05', lines:new Map([['2026-10-06', {raw_text:'한 줄'}]]), materials:hubMaterials(), doneDays:8, today:'2026-10-06'});
   const rows = text.split('\n');
   // Project records go to 2. 1) 요약 (a project outside the tree under its name), the rest under 참고 in the tab's order.
-  assert.deepEqual(partOf(text, '2. 기본·영역·의제 사업'), ['1) 요약', '◦ 사업영역 밖 · 가상 사업', '- 10월 6일(화) 사업으로 보낸 메모', '- 10월 6일(화) 진행 기록',
+  assert.deepEqual(partOf(text, '2. 기본․영역․의제 사업'), ['1) 요약', '◦ 사업영역 밖 · 가상 사업', '- 10월 6일(화) 사업으로 보낸 메모', '- 10월 6일(화) 진행 기록',
     '2) 세부 내용 — 회의·활동 결과', '(이 주 회의·활동 없음)']);
   assert.deepEqual(partOf(text, '참고'), ['◦ 한 줄', '- 10월 6일(화) 한 줄', '◦ 끝낸 할 일', '- 10월 6일(화) 끝낸 일',
     '◦ 할 일 예정', '- 10월 6일(화) 가 예정', '- 10월 6일(화) 나 예정', '- 10월 7일(수) 다음 날 예정',
@@ -614,7 +616,7 @@ test('조직 소식 sections follow the shared organization order (organization-
     const empty = {status:'ok', items:[]};
     const text = await draftOf({start:'2026-10-05', lines:new Map(), today:day, materials:{events:empty, tasks:empty, basket:{status:'ok', items:{notes:[], links:[], docs:[]}},
       orgUpdates:{status:'ok', items:Object.assign(rows, {mine})}, projectUpdates:empty, meetings:empty, documents:empty, sharePages:empty}});
-    const lines = partOf(text, '4. 산하 조직 현황').filter(row => row.startsWith('◦ ')).map(row => row.slice(2));
+    const lines = partOf(text, '4. 산하조직 현황').filter(row => row.startsWith('◦ ')).map(row => row.slice(2));
     assert.deepEqual(lines, [first, mid, late, '가상 가나다 앞', '가상 모르는 조직']);
     // Not loaded: every organization stays in 가나다순, as before.
     delete globalThis.KPTUOrganizationOrder;
@@ -635,7 +637,7 @@ test('S49-12: the day card has no 노트로 옮긴 것 part and no read for it',
 // report group — not 조직 소식 (not even '미분류'), not 사업 소식, not 기타 메모, not [주간 정리]·[복사]·한글 파일 후보.
 // JOURNAL-그밖의기록삭제: the day card no longer shows it (그 밖의 기록 › 참고 is gone); it stays in its bundle. Fake names only.
 test('REF-참고묶음: an update put only in a reference bundle stays out of every report group and off the day card', async () => {
-  const m = await mod, w = await weekly, d = await import('../app/weekly-hwpx/draft.mjs');
+  const m = await mod, w = await weekly, d = await import('./fixtures/weekly-engine.mjs');
   const B1 = 'e0000000-0000-4000-8000-000000000001', B2 = 'e0000000-0000-4000-8000-000000000002', OA = 'd0000000-0000-4000-8000-000000000001', PA = 'f0000000-0000-4000-8000-000000000001';
   const basket = {notes:[
     {id:'ref', raw_text:'가상 노조 전체 소식\n둘째', occurred_at:'2026-10-06T01:00:00Z'},
@@ -677,7 +679,7 @@ test('REF-참고묶음: an update put only in a reference bundle stays out of ev
   assert.deepEqual(has(model, onlyRef), []);
   assert.deepEqual(model.orgs.sections.map(s => s.name), ['가상 지부', '미분류']);
   assert.deepEqual(model.notes.memos.items, []);
-  const text = w.weeklyReportText(model);
+  const text = reportText(model);
   assert.deepEqual(has(text, [...onlyRef, '가상 묶음']), []);
   assert.ok(text.includes('가상 조직과 참고 둘 다') && text.includes('가상 사업과 참고') && text.includes('가상 어디에도 안 보낸 것'));
   const got = d.weekMaterial(model, [], [{index:0, org:'가상 지부', lines:[]}]);

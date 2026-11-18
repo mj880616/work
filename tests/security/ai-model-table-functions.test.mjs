@@ -88,9 +88,9 @@ test('ai-assist: 모든 OpenAI 호출이 여유를 더하는 한 곳(자체 call
   assert.doesNotMatch(h,/fetch\(OPENAI_URL/);
   const calls=[...h.matchAll(/max_output_tokens: [A-Z_]+/g)].length;
   const viaWrapper=[...h.matchAll(/await callOpenAi\(/g)].length;
-  assert.equal(calls,26);assert.equal(viaWrapper,28);assert.match(h,/max_output_tokens: maxTokens,/); // ORG-기록하나로 O-6: org_week_lines(주별 조직보고 제안) 하나를 지워 하나씩 줄었다. WEEKLY-환류학습 weekly_draft·weekly_review는 한 래퍼(callWeeklyAi, 상한은 WL_*_OUTPUT_TOKENS 인자)로 하나 더, TODO-내일만 todo_recheck, ORG-주요인물 org_people_brief, JOURNAL-다음주준비 next_week_sheet, FEAT-1029묶음 ① ask_web2, FEAT-1029② pre_meeting_sheet, (FEAT-1029 ④ press_draft는 11/09 삭제), 빠짐32 share_draft, DESK-현황표 org_status_rows, ATT-이름고치기 file_name, TODO-이미함·환류 todo_rules_review, JOURNAL-오늘한일업무개인 work_scope, S49-13 journal_memorable, S54-28 journal_memorable_recheck, WEEKLY-메뉴짝짓기 org_week_lines 하나씩 더(WEEKLY-메뉴짝짓기 P7: org_summary·org_status_rows 둘 빠짐), HOME-하루채우기 home_day_picks 한 래퍼(callDayAi, 상한은 DAY_*_OUTPUT_TOKENS 인자) 하나 더, RECORD-한줄AI요약 record_one_line 하나 더, LIB-받는폴더나누기 library_sort 하나 더
+  assert.equal(calls,24);assert.equal(viaWrapper,26);assert.match(h,/max_output_tokens: maxTokens,/); // S62-27: next_week_sheet·pre_meeting_sheet 두 호출을 지워 둘씩 줄었다. ORG-기록하나로 O-6: org_week_lines(주별 조직보고 제안) 하나를 지워 하나씩 줄었다. WEEKLY-환류학습 weekly_draft·weekly_review는 한 래퍼(callWeeklyAi, 상한은 WL_*_OUTPUT_TOKENS 인자)로 하나 더, TODO-내일만 todo_recheck, ORG-주요인물 org_people_brief, JOURNAL-다음주준비 next_week_sheet, FEAT-1029묶음 ① ask_web2, FEAT-1029② pre_meeting_sheet, (FEAT-1029 ④ press_draft는 11/09 삭제), 빠짐32 share_draft, DESK-현황표 org_status_rows, ATT-이름고치기 file_name, TODO-이미함·환류 todo_rules_review, JOURNAL-오늘한일업무개인 work_scope, S49-13 journal_memorable, S54-28 journal_memorable_recheck, WEEKLY-메뉴짝짓기 org_week_lines 하나씩 더(WEEKLY-메뉴짝짓기 P7: org_summary·org_status_rows 둘 빠짐), HOME-하루채우기 home_day_picks 한 래퍼(callDayAi, 상한은 DAY_*_OUTPUT_TOKENS 인자) 하나 더, RECORD-한줄AI요약 record_one_line 하나 더, LIB-받는폴더나누기 library_sort 하나 더
   // ai-assist 폴더의 다른 파일이 OpenAI를 직접 부르지 않는다.
-  for(const f of ['call-refill','ledger-auto','ledger-candidates','ledger-fix','library-fill','org-summary','overlap','schedule-titles','todo-radar','note-title','business-area','journal-draft','org-people-brief','next-week-sheet','share-draft','evidence','web2-ask','pre-meeting-sheet','weekly-learn','org-status-rows','file-name','todo-rules','work-scope','home-day-picks','record-one-line','library-sort']){
+  for(const f of ['call-refill','ledger-auto','ledger-candidates','ledger-fix','library-fill','org-summary','overlap','schedule-titles','todo-radar','note-title','business-area','journal-draft','org-people-brief','share-draft','evidence','web2-ask','weekly-learn','org-status-rows','file-name','todo-rules','work-scope','home-day-picks','record-one-line','library-sort']){
     assert.doesNotMatch(read(AI_ASSIST_DIR+f+'.ts'),/api\.openai\.com|max_output_tokens:/,f);
   }
 });
@@ -107,7 +107,7 @@ test('collector-feed: 텔레그램 호출 상한에 생각 여유가 더해져 �
 
 test('새 Edge 함수가 OpenAI를 부르면서 여유·공용 길을 빠뜨리지 못한다(전체 함수 폴더 검사)',async()=>{
   const {readdirSync,statSync,existsSync}=await import('node:fs');
-  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed','news-feed','meeting-transcribe']);  // meeting-transcribe: 위 '여유' 시험에서 따로 본다(S49-2)
+  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed','outside-feed','news-feed','meeting-transcribe','document-actions']);  // document-actions: 아래 브리핑 길 시험(BRIEF-브리핑룸)  // meeting-transcribe: 위 '여유' 시험에서 따로 본다(S49-2)
   const missing=[];
   for(const d of readdirSync(ROOT)){
     if(d.startsWith('_')||!statSync(ROOT+d).isDirectory()||known.has(d))continue;
@@ -137,4 +137,14 @@ test('outside-feed: 공용 callOpenAi(생각 수준)만 쓰고 모든 출력 상
   for(const c of at)assert.match(c,/maxOut \+ AI_REASONING_TOKEN_HEADROOM/,c);
   assert.doesNotMatch(t,/fetch\(OPENAI_URL/);
   for(const f of ['parse.ts','index.ts'])assert.doesNotMatch(read(ROOT+'outside-feed/'+f),/api\.openai\.com|max_output_tokens:/,f);
+});
+
+test('document-actions 브리핑 길(BRIEF-브리핑룸): 공용 callOpenAi(생각 수준)·공용 outputText만 쓰고 출력 상한에 생각 여유가 더해져 있다',()=>{
+  const t=read(ROOT+'document-actions/brief.ts');
+  assert.match(t,/import \{ aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount \} from "\.\.\/_shared\/openai-responses\.ts"/);
+  assert.doesNotMatch(t,/function outputText|JSON\.stringify\(body\)/);
+  const at=[...t.matchAll(/max_output_tokens:/g)].map(m=>t.slice(m.index,m.index+80));
+  assert.equal(at.length,1);
+  for(const c of at)assert.match(c,/\+ AI_REASONING_TOKEN_HEADROOM/,c);
+  for(const f of ['index.ts','brief-run.mjs','dev-inbox.ts','file-rename.ts','file-trash.ts'])assert.doesNotMatch(read(ROOT+'document-actions/'+f),/api\.openai\.com|max_output_tokens:/,f);
 });

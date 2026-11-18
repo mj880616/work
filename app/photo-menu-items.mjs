@@ -9,7 +9,7 @@ export const PHOTO_ACT_TEXT = Object.freeze({
   share: '공유',
   more: '메뉴',
   copy: '사진 복사',
-  diary: '일기에 넣기',
+  diary: '하루 기록에 넣기',
   basket: '업데이트로 보내기',
   download: '받기',
   native: '다른 앱으로 공유…',
@@ -37,9 +37,9 @@ export const SEND_NOTE = Object.freeze({
   basketBusy: '업데이트로 보내는 중…',
   basketDone: '업데이트로 보냈어요',
   basketFail: '업데이트로 보내지 못했어요.',
-  diaryBusy: '일기에 넣는 중…',
-  diaryDone: '일기에 넣었어요',
-  diaryOpen: '일기 보기',
+  diaryBusy: '하루 기록에 넣는 중…',
+  diaryDone: '하루 기록에 넣었어요',
+  diaryOpen: '하루 기록 보기',
   retry: '다시',
   basketOpen: '잊지 말기 보기',
 });
@@ -47,7 +47,7 @@ export const SEND_NOTE = Object.freeze({
 // '11.3' 꼴 짧은 날짜(알림 한 줄용). YYYY-MM-DD가 아니면 그대로.
 export const shortDay = day => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(String(day || '')); return m ? `${Number(m[1])}.${Number(m[2])}` : String(day || ''); };
 // 일기에 넣은 뒤 알림 한 줄: 한 날이면 '11.3 일기에 넣었어요', 여러 날이면 '11.3 · 11.4 일기에 넣었어요'.
-export const diaryDoneText = days => `${(days || []).map(shortDay).join(' · ')} 일기에 넣었어요`.trim();
+export const diaryDoneText = days => `${(days || []).map(shortDay).join(' · ')} 하루 기록에 넣었어요`.trim();
 // 업데이트로 보낸 뒤 알림 한 줄(받지 못한 장이 있으면 함께).
 export const basketDoneText = (sent, total = sent) => (sent < total ? `${SEND_NOTE.basketDone}(${sent}장, ${total - sent}장은 받지 못함)` : sent > 1 ? `${SEND_NOTE.basketDone}(${sent}장)` : SEND_NOTE.basketDone);
 
@@ -91,7 +91,7 @@ export const barItemText = id => PHOTO_BAR_TEXT[id] || PHOTO_ACT_TEXT[id] || id;
 export const FOLDER_DELETE_OFF = Object.freeze({
   odTop: '맨 위 폴더는 삭제할 수 없어요. 안의 폴더를 삭제해 주세요',
   odLink: '삭제하려면 원드라이브를 다시 연결해 주세요',
-  phoneOld: '폰 폴더를 삭제하려면 웹2 앱을 새 판으로 올려 주세요',
+  phoneOld: '폰 폴더를 삭제하려면 노동조합+ 앱을 새 판으로 올려 주세요',
   phoneTop: 'DCIM·Pictures 같은 맨 위 폴더는 삭제할 수 없어요. 안의 폴더를 삭제해 주세요',
   gdLink: '삭제하려면 구글 드라이브를 다시 연결해 주세요(위 구글 드라이브 아이콘)'
 });
@@ -108,7 +108,7 @@ export function folderDeleteOff(kind, {top = false, can = true, ops = true, tras
 // 실제로 막는 것은 지금처럼 폰 앱·서버다(화면에서 권한을 넓히지 않음).
 export const PHOTO_OFF_TEXT = Object.freeze({
   delete: Object.freeze({phone: '이 폰은 여기서 삭제하지 못해요. 갤러리 앱에서 삭제해 주세요.', gdrive: '구글 드라이브 권한이 없어 삭제하지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '삭제하려면 원드라이브를 다시 연결해 주세요.'}),
-  move: Object.freeze({phone: '폰 사진을 옮기려면 웹2 앱을 새 판으로 올려 주세요.', gdrive: '구글 드라이브 권한이 없어 옮기지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '옮기려면 원드라이브를 다시 연결해 주세요.'}),
+  move: Object.freeze({phone: '폰 사진을 옮기려면 노동조합+ 앱을 새 판으로 올려 주세요.', gdrive: '구글 드라이브 권한이 없어 옮기지 못해요. 사진 › 출처에서 다시 연결해 주세요.', od: '옮기려면 원드라이브를 다시 연결해 주세요.'}),
   rename: Object.freeze({gdrive: '구글 드라이브 권한이 없어 이름을 바꾸지 못해요. 사진 › 출처에서 다시 연결해 주세요.'}),
 });
 export function photoOffWhy(act, kind) {

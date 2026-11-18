@@ -114,6 +114,12 @@ test('REC-발언자구분: 요약 지시문은 화자 번호를 쓰라고 하지
     assert.doesNotMatch(dev,/화자|speaker/i);
     assert.match(dev,/담당자·기한이 명확하지 않으면 반드시 \[확인 필요\]로 표시한다/);
   }
+  // MULTI-다른담당자맞춤 ⑤: 고정 소속·직책 없이 맡긴 사람 프로필 직책(비면 중립), 한 줄·40자.
+  assert.match(prompt.meetingDraftDeveloper(''),/^당신은 웹2에서 노동조합 활동가의 업무를 지원하는 회의결과 정리 AI다/);
+  assert.match(prompt.meetingDraftDeveloper('',prompt.ownerRole('가상팀 가상직책')),/^당신은 웹2에서 노동조합 가상팀 가상직책의 업무를/);
+  assert.doesNotMatch(prompt.meetingDraftDeveloper(''),/공공기관사업팀|공공운수노조/);
+  assert.equal(prompt.ownerRole('  '),'노동조합 활동가');assert.equal(prompt.ownerRole(null),'노동조합 활동가');
+  assert.ok(!prompt.ownerRole('가\n나'+'다'.repeat(80)).includes('\n'));assert.equal([...prompt.ownerRole('다'.repeat(80))].length,'노동조합 '.length+40);
   // 조각 요약을 합칠 때 쓰는 글도 화자 번호를 만들어 넣지 않는다(요약에 없으면 없다).
   const draft=prompt.normalizeDraft({decisions:'일정 확정',information:'자료 공유',actions:[{task:'자료 돌리기',assignee:'[확인 필요]',due:''}],meeting_date:'',attendees:['김가상']});
   assert.doesNotMatch(prompt.partsText([draft,draft]),/화자/);
@@ -211,7 +217,7 @@ test('요약 지시문은 한 곳: meeting-ai-draft와 서버 정리가 같은 �
   const draft=read('supabase/functions/meeting-ai-draft/index.ts'),server=read('supabase/functions/meeting-transcribe/index.ts');
   for(const src of [draft,server]){
     assert.match(src,/from '\.\.\/_shared\/meeting-draft-prompt\.mjs'/);
-    assert.match(src,/meetingDraftDeveloper\(AI_TONE_RULE\)/);
+    assert.match(src,/meetingDraftDeveloper\(AI_TONE_RULE, ?(role\)|ownerRole\()/); // MULTI-다른담당자맞춤 ⑤: 맡긴 사람 직책
     assert.match(src,/meetingDraftPrompt\(\{/);assert.match(src,/meetingDraftRequest\(\{/);
     assert.doesNotMatch(src,/회의결과 정리 AI다/,'지시문 원문은 공용 모듈에만');
   }

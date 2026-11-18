@@ -28,7 +28,7 @@ test('② 새로고침 제자리: 사업 보고 칸·고른 보고, 할 일 상�
   assert.match(router, /tasks:\['task'\]/);
   const team = read('app/team.js');
   assert.match(team, /function restoreReportPlace\(\)/);
-  assert.match(team, /setPlace\?\.\('meetings',\{chip:reportChip===DEFAULT_KIND\?null:reportChip,report:/);
+  assert.match(team, /setPlace\?\.\('meetings',\{chip:reportChip===DEFAULT_CHIP\?null:reportChip,report:/);
   assert.match(team, /restoreReportPlace\(\);renderMeetings\(\);/);
   for (const fn of ['selectReportChip', 'selectMeetingKind', 'selectMeetingRound']) assert.match(team.match(new RegExp(`function ${fn}\\([^\\n]*`))[0], /renderMeetings\([^)]*\);writeReportPlace\(\)/, fn + '는 고른 뒤 적는다');
   assert.doesNotMatch(team.match(/function renderMeetings\([^\n]*/)[0], /writeReportPlace/, '그릴 때마다 적지 않는다');
@@ -48,7 +48,8 @@ test('③ 잘림: 노트 큰 창·입력칸의 [폴더 ▾]는 줄어들지 않�
   assert.equal(short('회의'), '회의');
   assert.equal(short('여덟글자폴더이름'), '여덟글자폴더이름');
   assert.equal(short('아홉글자인폴더이름'), '아홉글자인폴더이…');
-  assert.match(read('app/home-quick.js'), /\.length>8\?\[\.\.\.label\]\.slice\(0,8\)\.join\(''\)\+'…':label\)\+' ▾'/);
+  // NOTE-큰창잘림(S61-30): 이름(8글자 넘으면 '…')은 안쪽 칸, ▾는 그 뒤에 늘 남는다(버튼이 flex라 버튼 자체 '…'는 듣지 않음).
+  assert.match(read('app/home-quick.js'), /name\.textContent=\[\.\.\.label\]\.length>8\?\[\.\.\.label\]\.slice\(0,8\)\.join\(''\)\+'…':label;f\.replaceChildren\(name,' ▾'\)/);
 });
 
 test('① ▾: 고를 거리를 여는 버튼은 이름 뒤 작은 ▾(읽어 주는 이름은 그대로), [화면 색]은 PC에서 누른 자리 아래', () => {

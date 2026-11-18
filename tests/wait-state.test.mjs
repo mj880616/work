@@ -210,7 +210,7 @@ test('따로 쓴 빈 화면 문구가 새로 생기지 않는다(기준표보다
 
 // S59-20: 사업 보고 상세(meeting-round-detail.js)는 후속 할 일·회의자료가 비면 칸 제목만 두고 '없음'을 붙이지 않는다(사진 칸과 같은 규칙) — 이 목록에서 뺐다.
 test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
-  for (const rel of ['journal.js', 'journal-weekly.js', 'prep-sheet-view.js', 'project-system-v3.js',
+  for (const rel of ['journal.js', 'journal-weekly.js', 'project-system-v3.js',
     'telegram-feed.js', 'call-feed.js', 'ledger-browse.js', 'org-key-people.js', 'report-views.js', 'diary.js', 'diary-list.js', 'photos.js',
     'workplace-detail.js', 'google-tasks.js', 'team.js', 'meeting-columns.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js',
     'library-folders.js', 'library-move-picker.js', 'calendar-day-overflow.js', 'calendar-tasks.js', 'calendar-day-items.js', 'choice-sheet.js',
@@ -219,7 +219,8 @@ test('3차로 옮긴 화면은 공용 없음 부품을 쓴다', () => {
     assert.match(read(rel), /import \{[^}]*\bempty(Html|El)\b[^}]*\} from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
-  for (const rel of ['library-upload.js', 'profile-settings.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
+  // S62-16 PROFILE-없음칸제목: 프로필 담당조직 칸은 제목 없는 '없음' 대신 제목 + 안내 + [조직 관리로](connect-note.mjs)라 빠졌다.
+  for (const rel of ['library-upload.js', 'suborganizations.js', 'task-layout.js', 'workplace-report.js']) {
     assert.match(read(rel), /globalThis\.KPTUWait\?\.emptyHtml\?\.\(/, rel);
   }
 });

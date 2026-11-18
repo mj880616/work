@@ -7,14 +7,16 @@ import {REPORT_KINDS} from '../app/report-kinds.mjs';
 import {normalizeUploadMeeting,uploadMeetingLabel} from '../app/library-upload-meeting.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('회의 칸만 회의 말을 쓴다(회의명·회의 결과·회의 결과 원문·회의자료), 다른 모든 칸은 제목·내용·원문·자료',()=>{
+test('회의 칸만 회의 말을 쓴다(회의명·회의 결과·회의자료), 다른 모든 칸은 제목·내용·자료 — 원문이라는 말은 쓰지 않는다(S62-02)',()=>{
   const m=reportWords('meeting');
-  assert.deepEqual([m.nameLabel,m.resultLegend,m.textLabel,m.materials],['회의명','회의 결과','회의 결과 원문','회의자료']);
+  assert.deepEqual([m.nameLabel,m.resultLegend,m.textLabel,m.materials],['회의명','회의 결과','회의 결과','회의자료']);
+  for(const text of Object.values(m))if(typeof text==='string')assert.doesNotMatch(text,/원문/,'meeting:'+text);
   for(const k of REPORT_KINDS.filter(k=>k.value!=='meeting')){
     const w=reportWords(k.value);
     assert.equal(isMeetingKind(k.value),false,k.value);
-    assert.deepEqual([w.nameLabel,w.resultLegend,w.textLabel,w.materials],['제목','내용','원문','자료'],k.value);
-    for(const text of Object.values(w))if(typeof text==='string')assert.doesNotMatch(text,/회의/,k.value+':'+text);
+    assert.deepEqual([w.nameLabel,w.resultLegend,w.textLabel,w.materials],['제목','내용','내용','자료'],k.value);
+    assert.equal(w.textPlaceholder,'내용을 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.');
+    for(const text of Object.values(w))if(typeof text==='string'){assert.doesNotMatch(text,/회의/,k.value+':'+text);assert.doesNotMatch(text,/원문/,k.value+':'+text)}
   }
 });
 test('칸이 없거나 모르는 값이면 옛 행처럼 회의 말',()=>{
@@ -47,7 +49,7 @@ test('team.js: 새 사업 보고의 자료도 자료실 올리기 요청, 입력
   assert.match(s,/uploadFileForMeeting/);assert.doesNotMatch(s,/functions\/v1\/meeting-files/);
   assert.match(s,/reportWords\(entryKind\(\)\)\.nameMissing/);
   const html=read('app/index.html');
-  assert.match(html,/id="meetingTitleLabel">회의명</);assert.match(html,/data-rw="meetingResultLegend">회의 결과</);assert.match(html,/id="meetingTextLabel">회의 결과 원문</);
+  assert.match(html,/id="meetingTitleLabel">회의명</);assert.match(html,/data-rw="meetingResultLegend">회의 결과</);assert.match(html,/id="meetingTextLabel">회의 결과</);
 });
 test('meeting-from-files.js는 회의를 만드는 길이라 meeting-files를 그대로 쓰고, 회의 칸이 아니면 닫힌다',()=>{
   const s=read('app/meeting-from-files.js');

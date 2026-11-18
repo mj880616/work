@@ -1,3 +1,5 @@
+import {AI_CAP_TEXT, isAiCap} from './ai-cap.mjs';
+import {sortByName} from './name-order.mjs';
 // NEWS-클리핑 화면 계산(설계 docs/design/news-clipping.md, 명진 11/01 22:34): 그리기 없는 순수 함수만. app/news-clipping.js가 쓴다.
 // - 한 목록: 채널 기사(lane=channel) + 서버가 찾은 기사(lane=keyword·media) = 하나의 스크랩. 어디서 왔는지(채널/자동) 칩·꼬리표는 화면에 없다(11/04 명진: 굳이 구분 안 해도 됨). lane 값·수집 방식은 그대로.
 // - 한 문장 요약은 늘 보이고 본문은 접는다. 외국어 기사 제목은 서버가 수집 때 한국어로 미리 번역해 두고(한국어 제목 + 원제 작게),
@@ -16,7 +18,11 @@ export function laneFilter(tab) {
   if (tab === STAR) return '&starred_at=not.is.null';
   return '';
 }
-export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : 'created_at.desc,id.desc');
+// [언론] 정렬(S63-12 NEWS-언론등급정렬, 명진 11/16 12:22 "노동 우선 / 사회 그 다음 정치 경제는 관련도 높은 것"):
+//   받은 날(서울, kst_day) 최신 → 같은 날 안에서 등급 1 노동·2 사회·3 정치·경제 → 등급 없는 줄(채널 기사·옛 줄) → 받은 시각 최신.
+//   등급·날짜는 서버가 기사 표에 적은 칸 그대로다(규칙은 supabase/functions/_shared/news-rank.ts 한 곳 — 화면에 복제하지 않음). 날짜 묶음(groupItems)도 받은 날이라 순서와 맞는다.
+export const NEWS_ORDER = 'kst_day.desc.nullslast,news_rank.asc.nullslast,created_at.desc,id.desc';
+export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : NEWS_ORDER);
 
 export function domainOf(url) {
   try { return new URL(String(url)).hostname.replace(/^www\./, ''); } catch { return ''; }
@@ -117,6 +123,7 @@ export function itemView(item, {showKo = false} = {}) {
 // 서버 [본문 열기] 응답 → 화면 글. 'stored'·'ok'는 줄을 다시 읽어 본문을 보인다.
 export function errorNote(e, what) {
   const code = `${e?.code || ''} ${e?.message || ''}`;
+  if (code.toUpperCase().includes('AI_MONTHLY_CAP') || isAiCap(e?.message)) return AI_CAP_TEXT;
   if (code.includes('MONTHLY_LIMIT')) return '이번 달 AI 한도에 닿음';
   if (e?.status === 429 || code.includes('DAILY_LIMIT')) return `오늘 ${what} 횟수를 다 씀`;
   if (e?.status === 404) return '기사가 없음';
@@ -147,13 +154,13 @@ export function cleanWord(raw, have = []) {
 }
 
 // 키워드 칸(S59-1 NEWS-키워드살리기, 11/11 명진 결정): 밖에서 새로 찾지 않고, 받은 매체 글 가운데 서버(news-feed 키워드 단계)가
-// keywords 칸에 키워드를 적어 둔 글을 키워드마다 모아 보인다. 켠 키워드만, 키워드 목록 순서, 키워드마다 새 글부터 KW_GROUP_SIZE건.
+// keywords 칸에 키워드를 적어 둔 글을 키워드마다 모아 보인다. 켠 키워드만, 키워드 가나다순(name-order.mjs, NEWS-출처목록가나다), 키워드마다 새 글부터 KW_GROUP_SIZE건.
 export const KW_GROUP_SIZE = 20;
 // PostgREST 배열 값(cs.{…})의 글자: 낱말마다 큰따옴표로 감싸고, 안의 \ 와 " 는 앞에 \ 를 붙인다(PostgreSQL 배열 글자 규칙). 주소에 넣을 때는 따로 encodeURIComponent.
 export const pgTextArray = words => `{${(words || []).map(w => `"${String(w).replace(/[\\"]/g, c => `\\${c}`)}"`).join(',')}}`;
 // 켠 키워드 → 모아 볼 묶음. hits: Map(낱말 → {items, more}). 걸린 글이 없는 키워드는 묶음을 만들지 않는다.
 export function keywordGroups(keywords, hits) {
-  return (keywords || []).filter(k => k?.enabled === true && typeof k.word === 'string')
+  return sortByName((keywords || []).filter(k => k?.enabled === true && typeof k.word === 'string'), k => k.word)
     .map(k => ({word: k.word, items: hits?.get?.(k.word)?.items || [], more: !!hits?.get?.(k.word)?.more}))
     .filter(g => g.items.length);
 }
@@ -184,6 +191,9 @@ export const aiCapped = data => data?.ai?.month_capped === true;
 export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'foreign', label: '해외'}]);
 export function sourceNote(row) {
   if (!row?.enabled) return '';
+  // S63-10: 사이트 robots.txt가 막은 매체는 켜도 소용없다고 알린다(서버 수집 결과 코드만 보고 글자를 고른다 — 거르기 규칙은 서버 한 곳).
+  if (row.last_error === 'robots' || row.last_error === 'robots_denied') return '못 읽음 · 사이트가 자동 읽기 막음';
+  if (row.last_error === 'robots_unreachable') return '못 읽음 · 사이트 연결 안 됨';
   if (row.last_error) return '읽지 못함';
   const t = Date.parse(row.last_ok_at || '');
   if (!Number.isFinite(t)) return '아직 읽지 않음';

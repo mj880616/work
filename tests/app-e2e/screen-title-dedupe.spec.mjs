@@ -10,7 +10,7 @@ import { showAllReportWeeks } from './helpers/report-week.mjs';
 // title line (390 phone), and crossing 760/761px with the screen open switches it without a reload. Synthetic data only.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const at = '2026-10-05T01:00:00Z';
-const diaryRow = { id: 'd3', workspace_id: 'w', kind: 'diary', title: null, journal_day: '2026-10-03', raw_text: '합성 일기 본문', occurred_at: at, created_at: at, updated_at: at, archived_at: null, ai_export_allowed: false, attachments: [], metadata: {} };
+const diaryRow = { id: 'd3', workspace_id: 'w', kind: 'diary', title: null, journal_day: '2026-10-03', raw_text: '합성 하루 기록 본문', occurred_at: at, created_at: at, updated_at: at, archived_at: null, ai_export_allowed: false, attachments: [], metadata: {} };
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
@@ -28,7 +28,7 @@ const go = (page, view) => page.evaluate(v => window.KPTURouter.go(v), view);
 const openDiaryDay = async page => { await go(page, 'diary'); await page.locator('[data-diary-day="2026-10-03"]').click(); await expect(page.locator('[data-diary-detail]')).toBeVisible(); };
 
 for (const width of [1280, 1440]) {
-  test(`PC ${width}: 업무일지·일기·프로젝트·사업 보고 본문에 상단 줄과 같은 제목 줄이 없다`, async ({ page }) => {
+  test(`PC ${width}: 업무일지·하루 기록·프로젝트·사업 보고 본문에 상단 줄과 같은 제목 줄이 없다`, async ({ page }) => {
     const errors = await fixture(page, width);
     // 업무일지 = 홈(HOME-업무일지홈): the chosen day is the body head's title (no second title line), the top line says only '홈'.
     await go(page, 'home');
@@ -44,7 +44,7 @@ for (const width of [1280, 1440]) {
     await expect(toplineItem(page)).toHaveText('10월 3일 토요일');
     await expect(detail.locator('h3')).toHaveCount(0);
     await expect(detail).toHaveAttribute('aria-label', '10월 3일 토요일');
-    await expect(detail.locator('[data-diary-text-view]')).toHaveText('합성 일기 본문');
+    await expect(detail.locator('[data-diary-text-view]')).toHaveText('합성 하루 기록 본문');
     const close = await detail.locator('[data-diary-detail-close]').boundingBox(), box = await detail.boundingBox();
     expect(close.x + close.width).toBeGreaterThan(box.x + box.width - 24);
     // 프로젝트: docked on the right - the top line names it; the head keeps the summary line with the colour dot, no title.
@@ -58,7 +58,7 @@ for (const width of [1280, 1440]) {
     await expect(page.locator('#ps3Summary')).toContainText('할 일');
     await expect(page.locator('#ps3Summary > .ps3-color-dot')).toHaveCount(1);
     await expect(page.locator('#ps3Menu details.ps3-more')).toBeVisible();
-    // 사업 보고: the result column's head has no name/round line; the meta line (칸) and ⋯ stay.
+    // 사업 보고: the result column's head has no name/round line; the meta line (종류) and ⋯ stay.
     await go(page, 'meetings');
     // MTG-프로젝트합치기 3단계: [목록]은 한 주씩이고, 홈 공용 가짜 보고(home-entry.mjs)는 일시가 없어 어느 주에도 들지 않는다. [전체]로 모든 주를 본다.
     await showAllReportWeeks(page);
@@ -66,7 +66,7 @@ for (const width of [1280, 1440]) {
     await expect(result).toHaveAttribute('data-meeting-result', /.+/);
     await expect(toplineItem(page)).toHaveText('테스트 회의 회차');
     await expect(result.locator('#mrdTitle')).toBeHidden();
-    await expect(result.locator('#mrdMeta')).toContainText('칸');
+    await expect(result.locator('#mrdMeta')).toHaveText(/^회의( · |$)/);
     await expect(result.locator('#mrdMore')).toBeVisible();
     await expect(result).toHaveAttribute('aria-label', '사업 보고 결과');
     expect(errors).toEqual([]);
@@ -97,7 +97,7 @@ for (const width of [390]) {
   });
 }
 
-test('760/761px를 넘나들면 열려 있는 화면의 제목 줄이 새로고침 없이 바뀐다 (업무일지·일기)', async ({ page }) => {
+test('760/761px를 넘나들면 열려 있는 화면의 제목 줄이 새로고침 없이 바뀐다 (업무일지·하루 기록)', async ({ page }) => {
   const errors = await fixture(page, 1280);
   await go(page, 'home');
   await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveCount(0);
@@ -115,7 +115,7 @@ test('760/761px를 넘나들면 열려 있는 화면의 제목 줄이 새로고�
   await expect(page.locator('[data-diary-detail] h3')).toHaveText('10월 3일 토요일');
   await page.setViewportSize({ width: 900, height: 900 });
   await expect(page.locator('[data-diary-detail] h3')).toHaveCount(0);
-  await expect(page.locator('[data-diary-detail] [data-diary-text-view]')).toHaveText('합성 일기 본문');
+  await expect(page.locator('[data-diary-detail] [data-diary-text-view]')).toHaveText('합성 하루 기록 본문');
   expect(errors).toEqual([]);
 });
 

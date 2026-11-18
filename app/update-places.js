@@ -12,7 +12,8 @@ import { basketOcrFor } from './basket-ocr-runtime.js';
 import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate } from './quick-save.js';
 import { projectRows } from './choice-sheet.js';
-import { areaTree, areaListHtml, orgListHtml, openKeysFor, ensureStyles } from './area-org-picker.js';
+import { areaTree, areaListHtml, orgListHtml, openKeysFor, ensureStyles, orgWriteIn, orgWriteInHtml, bindOrgWriteIn } from './area-org-picker.js';
+import { orgWriteInFor } from './feed-link.js';
 import { confirmLinks, LINK_ORIGIN } from './basket-classification.js';
 import { announceRecordSaved, basketDetail } from './record-saved.js';
 import { readReferenceBundles } from './reference-bundles-data.js';
@@ -76,7 +77,10 @@ export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = 
   if (!isCurrent()) return null;
   // PRJ-3단: each row also carries its parents' names ("1단 › 2단"), shown on third-level rows while searching (choice-sheet.js).
   const trail = [], projects = window.KPTUProjectCatalog.tree(ps).map(x => { trail.length = x.depth; const path = trail.join(' › '); trail.push(x.project.name || '이름 없는 사업영역'); return {...x, path}; });
-  return {projects: projects.filter(x => x.project.status === 'active'), orgs: order.withRecent(eligible, recent.map(r => r.organization_id), 3), bundles: Array.isArray(bs) ? bs : []};
+  // S61-52: orgs.all = 이 작업공간의 활동 중인 조직 전체 — [직접 쓰기]가 새로 만들기 전에 비슷한 이름을 찾는 데만 쓴다(중복 방지).
+  const orgs = order.withRecent(eligible, recent.map(r => r.organization_id), 3);
+  orgs.all = (Array.isArray(os) ? os : []).filter(o => o?.id && o.active !== false);
+  return {projects: projects.filter(x => x.project.status === 'active'), orgs, bundles: Array.isArray(bs) ? bs : []};
 }
 // A place that is no longer offered (organization unassigned, project archived) falls back to the basket.
 export function keepPlace(places, place) {
@@ -116,7 +120,7 @@ function usedPlaces(places) {
 // sets them side by side under the 최근 line (choice-sheet.js wide, choice-sheet.css). Phones and middle widths keep them stacked.
 // REF-참고묶음 (docs/design/ref-bundle.md 6절): the reference bundles are one more block at the very bottom (references:false leaves it
 // out, as the 사업 보고 [연결할 곳] does). On a wide PC it sits under the projects in the projects column.
-export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, references = true} = {}) {
+export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, references = true, writeIn = null} = {}) {
   const list = placeList(chosen), picked = value => value === 'basket' ? !list.length : list.some(p => placeValue(p) === value);
   const chip = (value, name) => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${picked(value)}">${esc(name)}</button>`;
   const basket = `<span data-sheet-basket class="home-choice-inline">${chip('basket', '잊지 말기(미분류)')}</span>`;
@@ -136,7 +140,50 @@ export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, 
   const groups = (orgs.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || '이름 없는 조직', group:order?.groupName?.(o) || ''})));
   const open = openKeysFor(tree, groups, [...list.map(placeValue)]), pressed = picked;
   const projectCol = projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div class="aop-list" data-sheet-projects data-sheet-part="projects">${areaListHtml(tree, {open, pressed})}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
-  return `${recentBlock}<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div class="aop-list" data-sheet-all data-sheet-part="all">${orgListHtml(groups, {open, pressed})}</div></div>${projectCol}`;
+  return `${recentBlock}${orgColumnHtml(places, open, pressed, writeIn)}${projectCol}`;
+}
+// 담당조직 칸: 접는 조직 목록 + (writeIn이 있으면) 맨 아래 [직접 쓰기](S61-52, 다른 조직 고르기 창과 같은 부품).
+function orgColumnHtml(places, open, pressed, writeIn) {
+  const order = window.KPTUOrganizationOrder;
+  const groups = (places?.orgs?.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || '이름 없는 조직', group:order?.groupName?.(o) || ''})));
+  return `<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div class="aop-list" data-sheet-all data-sheet-part="all">${orgListHtml(groups, {open, pressed})}</div>${orgWriteInHtml(writeIn, pressed)}</div>`;
+}
+// S61-52(CALL-상대표시정리 ④): '기록할 곳'·[연결할 곳] 창의 [직접 쓰기] 칸 상태. 창을 그릴 때(render)마다 새로 만든다. 고를 담당조직이
+// 하나도 없는 사람(담당을 정하지 않아 이 창이 조직을 내놓지 않는 경우)에게는 없다 — 만든 조직이 다음에 이 창에 보이지 않기 때문이다.
+// 값은 이 창의 값 모양(조직 id 그대로), 만들기는 feed-link.js orgWriteInFor(담당조직 추가와 같은 서버 경로) 한 곳.
+export function placeWriteIn(places) {
+  if (!places?.orgs?.groups?.flat().length) return null;
+  return orgWriteIn(orgWriteInFor({orgs:() => places.orgs.all || (places.orgs.all = []), key:id => id}));
+}
+// 새로 만들었거나 비슷한 이름 줄로 고른 조직이 이 창 목록에 없으면 더한다(같은 묶음 순서로). places.orgs를 그 자리에서 바꿔
+// 같은 목록을 쓰는 화면(홈 입력칸 등)도 이름표를 그릴 수 있게 한다.
+export function addPlaceOrg(places, org) {
+  const orgs = places?.orgs;
+  if (!orgs || !org?.id || orgs.groups.flat().some(o => o.id === org.id)) return;
+  const order = window.KPTUOrganizationOrder, flat = [...orgs.groups.flat(), {...org, active:true}];
+  const next = order?.withRecent ? order.withRecent(order.forPicker ? order.forPicker(flat, [org.id]) : flat, orgs.recent.map(o => o.id), 3) : {recent:orgs.recent, groups:[...orgs.groups, [org]]};
+  orgs.groups = next.groups; orgs.recent = next.recent;
+}
+// 고르기 창(choice-sheet.js 하나)에 [직접 쓰기]를 한 번 붙인다. get() → 지금 열린 창의 {places, writeIn, toggle(value)} | null.
+// 새 조직은 목록에 더하고 고른 것(눌림)으로 한다. 창 전체를 다시 그리지 않고 담당조직 칸만 바꾼 뒤 눌림 표시(sheet.sync)와
+// 찾기·자리(찾기 칸 input)를 다시 맞춘다 — 다시 그리면 창이 그동안 고른 것을 처음 값으로 되돌리기 때문이다.
+export function bindPlaceWriteIn(sheet, sheetId, get) {
+  const box = document.getElementById(sheetId);
+  if (!box) return;
+  const repaint = (g, focus) => {
+    const col = box.querySelector('[data-sheet-col="orgs"]'); if (!col) return;
+    const open = new Set([...col.querySelectorAll('.aop-group.is-open')].map(n => n.dataset.aopGroup));
+    const tmp = document.createElement('div'); tmp.innerHTML = orgColumnHtml(g.places, open, () => false, g.writeIn);
+    col.replaceWith(tmp.firstElementChild);
+    sheet.sync(); box.querySelector('[data-sheet-search]')?.dispatchEvent(new Event('input'));
+    box.querySelector(focus)?.focus({preventScroll:true});
+  };
+  bindOrgWriteIn(box, () => {
+    const g = get(); if (!g?.writeIn) return null;
+    return {writeIn:g.writeIn, repaint:focus => repaint(g, focus),
+      made:made => { addPlaceOrg(g.places, made.org); g.toggle(made.key); repaint(g, '[data-aop-create-input]'); },
+      picked:x => { addPlaceOrg(g.places, x.org); repaint(g, `[data-sheet-col="orgs"] [data-sheet-value="${CSS.escape(x.key)}"]`); }};
+  });
 }
 // One reference bundle: the same row as an organization (check box, one per line), valued 'reference:<id>'.
 export function referenceRow(b, pressed, esc) {

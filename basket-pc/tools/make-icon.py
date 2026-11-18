@@ -2,13 +2,15 @@
 
 Run from anywhere:  python3 basket-pc/tools/make-icon.py      (needs only Pillow)
 
-The SVG is the source. It has two drawings, like app/app-icon.svg:
-  class="full"  for 32 px and up (basket with handle and 3 paper stripes, arrow with a paper outline)
-  class="small" for 16, 20 and 24 px (the arrow line and the basket body only, so it stays sharp)
+The SVG is the source. It is the same 노동조합+ picture as app/app-icon.svg (olive square, white "노조", yellow "+")
+and is written by scripts/app-icon/build-app-icons.py. It has two drawings:
+  class="full"  for 32 px and up (letters at weight 800)
+  class="small" for 16, 20 and 24 px (same place and colours, letters at weight 900 so they stay readable)
 and a hidden class="badge" (the small orange dot) inside each drawing for "something is waiting to be sent".
 
-This script reads that SVG (only rect, circle, polygon, polyline and a half-ellipse arc path are used, on purpose)
+This script reads that SVG (rect, circle, polygon, polyline, filled glyph paths and the butt-capped "+" path)
 and draws each size directly with Pillow (8x supersampled, then reduced), so no SVG library is needed.
+Paths are flattened by scripts/app-icon/svgpath.py, shared with the web app icon builder.
 
 Writes (commit all of them):
   src/BasketDrop/app.ico                     program: exe, installer, Start menu, title bars, tray when all is well
@@ -23,9 +25,13 @@ import math
 import pathlib
 import re
 import struct
+import sys
 import xml.etree.ElementTree as ET
 
 from PIL import Image, ImageDraw
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent / "scripts" / "app-icon"))
+import svgpath  # noqa: E402  shared with the web app icon builder
 
 BASE = pathlib.Path(__file__).resolve().parent.parent  # basket-pc/
 SVG = BASE / "icon" / "basket-icon.svg"
@@ -35,7 +41,7 @@ SMALL_MAX = 24  # same rule as the SVG media query
 SS = 8  # supersampling factor
 
 # "login needed": the whole picture turns dim grey; the orange dot keeps its colour.
-DIM = {"#F2EFE6": "#E2E0DB", "#3B4A6B": "#A3A5AA", "#2F9E7A": "#BDBFBC"}
+DIM = {"#4D5A2E": "#7A7C80", "#FFFEFA": "#E8E7E3", "#E7C25A": "#C4C5C1"}
 
 NS = "{http://www.w3.org/2000/svg}"
 
@@ -115,18 +121,15 @@ def draw(px, badge=False, dim=False):
             elif stroke and sw:
                 round_line(pts, stroke, sw)
         elif tag == "path":
-            # only "M x0 y0 A rx ry 0 0 1 x1 y1" with y0 == y1: the upper half of an ellipse (the basket handle)
-            m = re.fullmatch(r"\s*M\s*([\d.\s-]+)A([\d.\s-]+)", el.get("d"))
-            if not m:
-                raise ValueError("unsupported path: " + el.get("d"))
-            x0, y0 = nums(m.group(1))
-            rx, ry, _, _, sweep, x1, y1 = nums(m.group(2))
-            if y0 != y1 or sweep != 1 or abs((x1 - x0) / 2 - rx) > 1e-6:
-                raise ValueError("only an upper half-ellipse arc is supported")
-            cx = (x0 + x1) / 2
-            steps = 48
-            pts = [(cx - rx * math.cos(math.pi * i / steps), y0 - ry * math.sin(math.pi * i / steps)) for i in range(steps + 1)]
-            round_line(pts, stroke, sw)
+            # glyph outlines (filled, M/L/H/V/Q/C/Z) and the butt-capped "+" (stroke, horizontal/vertical lines only)
+            if fill:
+                for c in svgpath.contours(el.get("d")):
+                    d.polygon([(x * k, y * k) for x, y in c], fill=fill)
+            if stroke and sw:
+                if st.get("stroke-linecap", el.get("stroke-linecap")) != "butt":
+                    raise ValueError("only butt-capped stroked paths are supported")
+                for c in svgpath.stroke_rects(el.get("d"), sw):
+                    d.polygon([(x * k, y * k) for x, y in c], fill=stroke)
         elif tag in ("style",):
             return
         else:

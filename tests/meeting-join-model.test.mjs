@@ -1,7 +1,7 @@
 // REC-한회의로잇기 PR-3(설계 docs/design/rec-join.md 3-3·3-4·3-5절): 화면의 순수 규칙(app/meeting-join-model.mjs)·잇기 문구 표(app/meeting-server-job.mjs)와
 // 화면 연결(물음 자리·띠·보고 상세·두 글 칸 저장 조건)을 글자로 고정한다. 화면 동작은 tests/app-e2e/rec-join-ask.spec.mjs.
 // PR-4(보고 ⋯ [다른 보고에 합치기]·[두 보고로 되돌리기]): 합치기 글·메뉴 한 곳·고른 뒤에만 시작. 화면 동작은 tests/app-e2e/rec-join-merge.spec.mjs.
-// PR-5(나머지 두 길 (다)(라)): 같은 물음·서버가 모르면 지금 길·join_text는 글 + id만. 화면 동작은 tests/app-e2e/rec-join-paths.spec.mjs.
+// PR-5(나머지 두 길 (다)(라)): S61-5·S61-24에서 두 길 모두 화면과 함께 뺐다(지금은 없음 검사만).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -32,28 +32,19 @@ test('이은 줄 알아보기: Edge가 만드는 줄(시각 있음·없음)만, 
   assert.equal(jm.hasJoinMark(null),false);
 });
 
-test('보고 이름·물음 글: 회의명(+차수), 오늘이면 "오늘", 녹음 길이', ()=>{
+test('보고 이름: 회의명(+차수), 녹음 길이', ()=>{
   assert.equal(jm.reportName({series_name:'예시 집행위',round_no:8}),'예시 집행위 8차');
   assert.equal(jm.reportName({title:'간담회'}),'간담회');
   assert.equal(jm.reportName({}),'사업 보고');
   assert.equal(jm.minutesText(2280),'녹음 38분');assert.equal(jm.minutesText(0),'');assert.equal(jm.minutesText(20),'녹음 1분');
-  const now=Date.parse('2026-11-11T05:00:00Z');
-  assert.equal(jm.askText(Date.parse('2026-11-11T02:00:00Z'),now),'오늘 녹음으로 쓴 보고가 있어요. 같은 회의인가요?');
-  assert.equal(jm.askText(Date.parse('2026-11-10T02:00:00Z'),now),'11월 10일 녹음으로 쓴 보고가 있어요. 같은 회의인가요?');
-  const c={id:M(1),seconds:2280,meeting:{id:M(1),series_name:'예시 집행위',meeting_at:'2026-11-11T01:02:00Z'}};
-  assert.equal(jm.whoText(c,Date.parse('2026-11-11T02:05:00Z')),'10:02 예시 집행위 · 녹음 38분','시안 ①');
 });
 
-test('후보: 로그인으로 읽은 [회의] 보고만(남의 것·다른 칸·없는 것은 빠짐), 가장 가까운 앞 보고를 먼저', ()=>{
+test('후보: 로그인으로 읽은 [회의] 보고만(남의 것·다른 칸·없는 것은 빠짐)', ()=>{
   const list=[{meeting_id:M(1),seconds:600},{meeting_id:M(2),seconds:0},{meeting_id:M(3),seconds:300},{meeting_id:M(4),seconds:1}];
   const rows=[{id:M(1),series_name:'아침',meeting_at:'2026-11-11T00:00:00Z'},{id:M(2),series_name:'점심',meeting_at:'2026-11-11T03:00:00Z',activity_kind:'meeting'},
     {id:M(3),series_name:'행사',meeting_at:'2026-11-11T01:00:00Z',activity_kind:'event'}];
   const c=jm.mergeCandidates(list,rows);
   assert.deepEqual(c.map(x=>x.id),[M(1),M(2)]);
-  assert.equal(jm.nearest(c,Date.parse('2026-11-11T04:00:00Z')).id,M(2),'녹음 시작 전 가장 늦은 보고');
-  assert.equal(jm.nearest(c,Date.parse('2026-11-11T01:00:00Z')).id,M(1));
-  assert.equal(jm.nearest(c,Date.parse('2026-11-10T23:00:00Z')).id,M(1),'모두 뒤면 가장 이른 것');
-  assert.equal(jm.nearest([],0),null);
 });
 
 test('[다른 보고 선택] 줄: 같은 날 후보(가까운 순) 다음에 내 목록의 다른 [회의] 보고(최근 순, 한도까지)', ()=>{
@@ -217,35 +208,10 @@ test('PR-4 화면 연결: 메뉴 항목은 보고 ⋯ 한 곳, 서버가 모르�
   assert.match(join,/row\.mode==='report'&&row\.status==='done'&&row\.applied_at&&!row\.undone_at/);
 });
 
-test('PR-5 물음 글·같은 날 범위: (라)는 "회의록 전문이 있는 보고", 하루 범위는 Edge와 같은 계산', ()=>{
-  const now=Date.parse('2026-11-11T05:00:00Z');
-  assert.equal(jm.askText(Date.parse('2026-11-11T02:00:00Z'),now,'회의록 전문이 있는 보고'),'오늘 회의록 전문이 있는 보고가 있어요. 같은 회의인가요?');
-  assert.equal(jm.askText(Date.parse('2026-11-10T02:00:00Z'),now,'회의록 전문이 있는 보고'),'11월 10일 회의록 전문이 있는 보고가 있어요. 같은 회의인가요?');
-  for(const at of ['2026-11-11T02:20:00Z','2026-11-10T15:00:00Z','2026-11-11T14:59:59Z','2026-11-10T14:59:59Z'])
-    assert.deepEqual(jm.seoulDayRange(Date.parse(at)),edge.seoulDayRange(Date.parse(at)),at);
-  assert.deepEqual(jm.seoulDayRange(Date.parse('2026-11-11T02:20:00Z')),['2026-11-10T15:00:00.000Z','2026-11-11T15:00:00.000Z']);
-});
-
-test('PR-5 화면 연결: (다) 회의자료 그 자리 전사는 지금은 없음, (라)는 [녹음 요약하기] 전 물음과 join_text(글만), 서버가 모르면 지금 길', ()=>{
-  const join=read('app/meeting-join.js'),draft=read('app/meeting-transcript-draft.js'),detail=read('app/meeting-round-detail.js');
-  // (다) S61-5 REC-전사삭제: 지금은 없음.
+test('PR-5 지금은 없음: (다) 회의자료 그 자리 전사·(라) 입력 창 전사 글 물음(join_text) 모두 화면에 없다', ()=>{
+  const join=read('app/meeting-join.js'),detail=read('app/meeting-round-detail.js');
   assert.ok(!join.includes('askAttached'));assert.ok(!detail.includes('data-mrd-transcribe'));
-  // (라) 같은 날 회의록 전문이 있는 [회의] 보고(내 로그인), 서버가 알 때만, 사람이 고른 뒤에만 join_text.
-  const txt=join.slice(join.indexOf('async function askTranscript('),join.indexOf('// ---- 진행 줄·끝 줄'));
-  assert.match(txt,/meeting_at=gte\.\$\{enc\(from\)\}&meeting_at=lt\.\$\{enc\(to\)\}&notes=not\.is\.null&notes=neq\.&select=\$\{MEETING_FIELDS\}/);
-  assert.ok(txt.indexOf('await joinReady()')<txt.indexOf('await askActions('));
-  assert.ok(txt.indexOf('await askActions(')<txt.indexOf('startText(target'),'고른 뒤에만');
-  assert.match(txt,/action=join_text`,\{method:'POST',body:new Blob\(\[text\],\{type:'text\/plain;charset=utf-8'\}\)/,'몸통 = 글 그대로(JSON 아님)');
+  for(const gone of ['askTranscript','transcriptReports','startText','action=join_text','askActions'])assert.ok(!join.includes(gone),gone);
   assert.doesNotMatch(join,/workspace_id:|x-workspace-id/,'작업공간 값은 싣지 않는다');
-  assert.equal((join.match(/action=join_text/g)||[]).length,1);
-  // 입력 창: 사람이 누른 [녹음 요약하기]에서만 묻고, [새로 만들기] 뒤 같은 창은 다시 묻지 않으며, 잇기면 창을 닫는다.
-  assert.match(draft,/\$\('#mtdRun'\)\.onclick=\(\)=>void run\(\{ask:true\}\);/);
-  const run=draft.slice(draft.indexOf('async function run('),draft.indexOf('// REC-한회의로잇기 PR-5 (라): 묻는 동안'));
-  assert.ok(run.indexOf('askJoin(text)')<run.indexOf('keepFull(text)'),'묻고 나서 전문 칸에 넣는다(잇기면 입력 창 칸을 건드리지 않음)');
-  assert.match(run,/if\(how==='joined'\)\{joined\(\);return false\}/);
-  assert.match(draft,/function joined\(\)\{\n  reset\(\);\n  document\.querySelector\('#meetingModal \[data-close="meetingModal"\]'\)\?\.click\(\);\n\}/);
-  assert.match(draft,/records:\[\]/,'붙일 녹음 없음(녹음 붙이기는 지금은 없음)');
-  // '자동 저장 없음' 주석 예외(설계 1-4)
-  assert.match(draft,/예외\(REC-한회의로잇기 PR-5/);
   assert.doesNotMatch(join,/google-tasks\?action=create|createGoogleTask|candidateToTask/);
 });

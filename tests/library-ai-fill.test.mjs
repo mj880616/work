@@ -308,7 +308,7 @@ test('Edge file name rule is a byte-for-byte deployment copy of the screen modul
   assert.ok(calls.length>=4);
   for(const c of calls)assert.ok(c==='luAiFill(id,fd,fileName)'||/,file\.name\)$/.test(c),c);
   // 주간보고 [확정]도 자료명을 파일 이름으로 정한다(본문 ■ 일시 글자가 아님).
-  assert.match(read('../app/journal-hwpx.js'),/saveWeeklyReport\(b\.bytes, \{fileName:b\.name, title:fileNameTitle\(b\.name\)/);
+  assert.match(read('../app/journal-hwpx.js'),/saveWeeklyReport\((\w+)\.bytes, \{fileName:\1\.name, title:fileNameTitle\(\1\.name\)/);
 });
 
 test('fillLibraryDocument: with the uploaded file name, a meaningful name keeps title and its date keeps document_date',async()=>{

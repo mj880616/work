@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>profile workplaces fixture</title><link rel="stylesheet" href="../../app/theme-tokens.css"><link rel="stylesheet" href="../../app/profile-settings.css?fixture=3"><link rel="stylesheet" href="../../app/ui-standard.css?fixture=1"><style>.hidden{display:none}.app-nav{display:flex;gap:6px}.panel{padding:12px}.toast{position:fixed;bottom:5px}</style></head><body>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>profile workplaces fixture</title><link rel="stylesheet" href="../../app/theme-tokens.css"><style>/* S62-16: 연결 안내 공용 부품 모양(app/base-ui.css .connect-note와 같은 값, 원본 검사는 tests/connect-note.test.mjs) */.connect-note{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:4px 0}.connect-note-line{margin:0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-muted)}.connect-note-why{margin-left:4px;font-size:11px;color:var(--kptu-muted)}.connect-note-btns{display:flex;flex-wrap:wrap;gap:6px}.connect-note .connect-note-btn{width:auto;min-width:0;min-height:28px;padding:0 10px;font-size:var(--kptu-text-meta,12px);white-space:nowrap}</style><link rel="stylesheet" href="../../app/profile-settings.css?fixture=3"><link rel="stylesheet" href="../../app/ui-standard.css?fixture=1"><style>.hidden{display:none}.app-nav{display:flex;gap:6px}.panel{padding:12px}.toast{position:fixed;bottom:5px}</style></head><body>
 <nav class="app-nav"><button data-view="team">팀</button></nav>
 <div id="appView"></div><button id="userBadge" type="button">테스터</button><div id="toast" class="toast hidden"></div>
 <script>
@@ -19,6 +19,8 @@ const state=window.__state={
  ],
  refs:[],calendarEvents:null,fail:[],calls:[],events:0,reloads:0,memberReloads:0
 };
+// S62-16 PROFILE-없음칸제목: ?empty=1 이면 담당조직이 하나도 없는 새 계정.
+if(new URLSearchParams(location.search).has('empty')){state.organizations=[];state.assignments=[];state.workplaces=[]}
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function orgFromPath(path){const m=path.match(/organization_id=eq\.([^&]+)/);return m?decodeURIComponent(m[1]):null}
 const routerHooks=new Map();
@@ -40,6 +42,8 @@ window.KPTURuntime={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})},se
  state.calls.push({path,method,body:clone(opts.body??null)});
  const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);
+ // MULTI-다른담당자맞춤 ③: state.calendarDisconnected면 구글 캘린더 연결 전 답.
+ if(path.startsWith('/functions/v1/google-calendar?action=status')&&state.calendarDisconnected)return {connected:false,calendars:[]};
  if(path.startsWith('/functions/v1/google-calendar?action=status'))return {connected:true,calendars:[{id:'cal-a',summary:'가상 공유 캘린더'},{id:'cal-b',summary:'다른 캘린더'}],eventColors:{'1':{background:'#a4bdfc',foreground:'#1d1d1d'},'2':{background:'#7ae7bf',foreground:'#1d1d1d'},'3':{background:'#dbadff',foreground:'#1d1d1d'},'4':{background:'#ff887c',foreground:'#1d1d1d'},'5':{background:'#fbd75b',foreground:'#1d1d1d'},'6':{background:'#ffb878',foreground:'#1d1d1d'},'7':{background:'#46d6db',foreground:'#1d1d1d'},'8':{background:'#e1e1e1',foreground:'#1d1d1d'},'9':{background:'#5484ed',foreground:'#1d1d1d'},'10':{background:'#51b749',foreground:'#1d1d1d'},'11':{background:'#dc2127',foreground:'#1d1d1d'}}};
  if(path.startsWith('/functions/v1/google-calendar?action=events'))return {events:clone(state.calendarEvents||defaultEvents())};
  if(path.includes('/app_calendar_work_refs')){

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox } from './helpers/home-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 // 묶음C-2: Google Tasks loads with one combined request, shows this device's last result first while a fresh copy
@@ -89,7 +89,7 @@ test('reopening shows the last result first, marks the refresh, then replaces it
   await login(page);await openTasks(page);
   await expect(page.locator('#gtTaskSection')).toContainText('직전 결과');
   version=2;
-  await page.reload();await ready(page);await openTasks(page);
+  await page.reload();await openQuickBox(page);await ready(page);await openTasks(page);
   await expect.poll(()=>holding).toBeTruthy();
   await expect(page.locator('#gtTaskSection')).toContainText('직전 결과');
   // CAL-저장본먼저: the shared freshness line (data-freshness.js) marks the refresh.
@@ -214,8 +214,8 @@ test('older Edge reconnect states still show the reconnect action',async({page})
   await mockBase(page);
   await mockTasks(page,action=>action==='overview'?{status:400,body:{error:'Unknown action'}}:action==='status'?{body:{connected:true,authorized:false,needs_reconnect:true}}:{body:{tasks:[],needs_reconnect:true}});
   await login(page);await openTasks(page);
-  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없어요');
-  await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
+  await expect(page.locator('#gtTaskSection')).toContainText('구글 할 일 권한이 빠졌어요');
+  await expect(page.locator('[data-gt-connect]')).toHaveText('구글 할 일 다시 연결');
   expect(await cached(page)).toBeNull();
 });
 

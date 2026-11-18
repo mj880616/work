@@ -8,14 +8,15 @@
 //   feedbackTrend(이번 주, 지난 주들)    → 환류 보고 ① 숫자(지난 주들과 비교)
 //   readExtras / mergeExtras             → 그 주 draft 의 proposed·feedback·rules 칸 모양 검사·합치기(weekly-draft-store.js 가 씀)
 //   withRule* / readRules                → '주간보고 규칙' 확정 목록 고치기·지우기·더하기(20줄까지)
-//   takeCandidate / dropCandidate / restoreRetired → 규칙 후보 [ㅇ]·[고쳐서 확정]·[×], 폐기 줄 다시 후보로(WEEKLY-규칙합의)
+//   takeCandidate / dropCandidate      → 규칙 후보 [ㅇ]·[고쳐서 확정]·[×](WEEKLY-규칙합의). 폐기 줄을 다시 후보로 돌리는 길은 없다(명진 11/13)
 //   규칙 칸 모양(v2): {v:2, at, week, lines:[확정 {text, from}], candidates:[후보 {text}], retired:[폐기 {text}]}.
 //   AI 초안이 보는 것은 확정(lines)뿐. 옛 모양(v 없음)의 줄은 모두 후보로 읽는다(명진이 확인하지 않은 자동 정리 규칙).
 //   learnInput(행들, 보고 주)            → 학습 재료: 보고 주 '앞' 주들의 고침 기록·규칙만(이번 주 개인본·이번 주 기록은 넣지 않음)
 import {squashLine} from './weekly-lines.mjs';
 import {readPicks, mergePicks} from './weekly-picks.mjs';
+import {readLayout, layoutHabit} from './weekly-layout.mjs';
 
-export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks']); // picks: S46-22 제안 [×]·받음 기록(weekly-picks.mjs)
+export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks', 'places']); // picks: S46-22 제안 [×]·받음 기록(weekly-picks.mjs), places: 아래 readPlaces
 export const FEEDBACK_LINE_CHARS = 300;
 export const FEEDBACK_LIST_MAX = 60;      // 고침·뺌·더함 목록마다(넘으면 숫자만 맞고 줄은 앞 60개)
 export const PROPOSED_CELLS_MAX = 200;
@@ -128,20 +129,20 @@ export function diffCells(proposed, final) {
 }
 // [확정] 때 서버(그 주 행의 draft.feedback)에 남길 기록. 사람이 확정한 최종 글만 '배울 값'이다.
 // from: 'confirm'(앱 [확정]) | 'library'(자료실에 올린 개인 확정본 — 앱 밖에서 손으로 다듬은 판, doc = 그 자료 id) | 'test'.
-export function feedbackRecord({week, at, proposed, final, from = 'confirm', doc = ''}) {
+export function feedbackRecord({week, at, proposed, final, from = 'confirm', doc = '', layout = null}) {
   const d = diffCells(proposed, final);
   const counts = {kept:d.kept, changed:d.changed.length, dropped:d.dropped.length, added:d.added.length, proposed:d.proposed, final:d.final, moved:d.moved, reworded:d.reworded};
   const trim = list => list.slice(0, FEEDBACK_LIST_MAX);
-  return readFeedback({at, week, from, ...(doc ? {doc} : {}), counts, cells:d.cells.slice(0, CELL_STATS_MAX), changed:trim(d.changed), dropped:trim(d.dropped), added:trim(d.added)});
+  return readFeedback({at, week, from, ...(doc ? {doc} : {}), ...(layout ? {layout} : {}), counts, cells:d.cells.slice(0, CELL_STATS_MAX), changed:trim(d.changed), dropped:trim(d.dropped), added:trim(d.added)});
 }
 // S53-16 WEEKLY-환류정교화: 자료실의 개인 확정본(그 주 최종)이 앱 [확정] 뒤에 한글에서 더 다듬어 올린 판이면, 그 판을 '최종'으로 고침 기록을 다시 만든다.
 // 같은 주 처음 초안(proposed)이 있어야 하고, 이미 그 자료로 만든 기록이면 그대로(null). 글은 그 주 행(owner 전용)에만, 로그 없음.
 // extras: 그 주 draft 의 readExtras, final: 그 개인 확정본에서 뽑은 칸 글(Map). 새 기록 또는 null.
-export function libraryFeedback({extras, week, at, final, doc}) {
+export function libraryFeedback({extras, week, at, final, doc, layout = null}) {
   const proposed = extras?.proposed, had = extras?.feedback;
   if (!proposed?.cells?.length || !doc || !(final instanceof Map ? final.size : Array.isArray(final) && final.length)) return null;
   if (had?.from === 'library' && had.doc === String(doc)) return null;
-  const next = feedbackRecord({week, at, proposed:proposed.cells, final, from:'library', doc:String(doc)});
+  const next = feedbackRecord({week, at, proposed:proposed.cells, final, from:'library', doc:String(doc), layout});
   if (!next) return null;
   // 앞 기록의 환류 보고(review — 규칙 후보·개선 제안과 그 답)는 잃지 않는다(정리는 다음 보고 때 새 숫자로).
   return had?.review ? {...next, review:had.review} : next;
@@ -220,8 +221,13 @@ export function readFeedback(raw) {
   if (stats.length) out.cells = stats;
   const review = readReview(raw.review);
   if (review) out.review = review;
+  // WEEKLY-자동화 ②(명진 결정 3): Web2 판 ↔ 고친 판 모양(빈 줄·줄머리·들여쓰기) 숫자. 글 없음, weekly-layout.mjs 모양 검사.
+  const layout = readLayout(raw.layout);
+  if (layout) out.layout = layout;
   return bytes(out) > EXTRA_MAX_BYTES ? null : out;
 }
+// 따를 한글 파일 모양: 보고 주 '앞' 주들의 고침 기록(최근 LEARN_WEEKS개, learnInput 과 같은 범위)의 layout 에서 되풀이된 것만(weekly-layout.mjs layoutHabit).
+export const layoutInput = (rows, week) => layoutHabit(learnInput(rows, week).feedback.map(f => f.layout));
 // 규칙 칸 읽기(항상 v2 모양으로 돌려줌). 같은 줄은 확정 → 폐기 → 후보 순으로 하나만.
 export function readRules(raw) {
   if (!isObj(raw) || !at40(raw.at)) return null;
@@ -244,7 +250,33 @@ export function readExtras(draft) {
   if (r) out.rules = r;
   const k = readPicks(draft.picks);
   if (k) out.picks = k;
+  const pl = readPlaces(draft.places);
+  if (pl) out.places = pl;
   return out;
+}
+// WEEKLY-사업영역묶음 ①-b(시안 docs/design/mockups/weekly-tidy.html ②): 양식(지난주 확정본)에 자리가 없는 내 사업영역을 한 번 고른 자리.
+//   places = {at, map:{'<사업영역 이름>': {area:'양식 첫 칸 이름', task:'양식 둘째 칸 이름'} | {area:'', task:''}(= 새 줄로 둠)}}.
+//   그 주 draft 칸(서버) — 다음 주는 가장 가까운 지난주 값을 이어 쓴다(weekly-draft-store.js readCarriedPlaces). 칸마다 더 나중(at)의 것.
+export const PLACES_MAX = 40, PLACE_NAME_CHARS = 60;
+const placeName = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+export function readPlaces(raw) {
+  if (!isObj(raw) || !isObj(raw.map)) return null;
+  const map = {};
+  for (const [k, v] of Object.entries(raw.map).slice(0, PLACES_MAX)) {
+    const key = placeName(k), area = placeName(v?.area), task = placeName(v?.task);
+    if (!key || [...key].length > PLACE_NAME_CHARS || [...area].length > PLACE_NAME_CHARS || [...task].length > PLACE_NAME_CHARS || !isObj(v)) continue;
+    if (!!area !== !!task) continue; // 자리는 두 이름 모두, '새 줄로 둠'은 둘 다 빈칸
+    map[key] = {area, task};
+  }
+  if (!Object.keys(map).length) return null;
+  return {at:typeof raw.at === 'string' ? raw.at : '', map};
+}
+// 고른 자리 하나를 바꾼 places(at = 지금).
+export function withPlace(places, name, place, at) {
+  const map = {...(readPlaces(places)?.map ?? {})}, key = placeName(name);
+  if (!key) return readPlaces(places);
+  map[key] = {area:placeName(place?.area), task:placeName(place?.task)};
+  return readPlaces({at, map});
 }
 // 칸마다 더 나중(at)의 것(같으면 앞). 없는 쪽은 무시.
 export function mergeExtras(a = {}, b = {}) {
@@ -303,12 +335,7 @@ export function dropCandidate(rules, key, at) {
   if (!found) return r;
   return readRules({...r, at:stamp(r.at, at), candidates:r.candidates.filter(notKey(k)), retired:[{text:found.text}, ...r.retired]});
 }
-// 폐기 줄 [다시 후보로].
-export function restoreRetired(rules, key, at) {
-  const r = ruleBase(rules), k = squashLine(line(key)), found = r.retired.find(x => squashLine(x.text) === k);
-  if (!found) return r;
-  return readRules({...r, at:stamp(r.at, at), retired:r.retired.filter(notKey(k)), candidates:[...r.candidates, {text:found.text}]});
-}
+// 폐기 줄 [다시 후보로]는 없앴다(명진 11/13 19:03 — 뺀 규칙 접힘·처리 코드째 삭제). 폐기 줄(retired) 데이터는 서버에 그대로 둔다.
 // WEEKLY-개발후보연결(S48-49): sent = 서버(document-actions dev-inbox)가 그 제안을 'Web2 요청함' 문서에 더한 시각. 서버만 쓰고 화면은 읽은 그대로 다시 실어 보낸다
 //   (같은 제안은 한 번만 — 답을 바꿔도 지우지 않음).
 // WEEKLY-개발후보CC(S48-43): [만들기]로 보낸 제안이 실제로 만들어지면 그 PR 번호(made, 양의 정수)를 그 제안에 둔다. 글은 없고 번호만.

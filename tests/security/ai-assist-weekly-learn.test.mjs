@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
 // WEEKLY-환류학습: the real ai-assist handler, kind=weekly_draft / weekly_review, with a synthetic Supabase (Auth + PostgREST with owner RLS)
@@ -18,7 +19,13 @@ const fb=(week,extra={})=>({at:`${week}T09:00:00Z`,week,from:'confirm',counts:{k
 const answer=obj=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(obj)}]}],usage:{input_tokens:3000,output_tokens:400}});
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({openai=null,rows=null,patchMiss=0}={}){
+// WEEKLY-내양식자유변형 ⑤-3d: '내 양식'(app_weekly_forms) — 지어낸 고정 양식(tests/fixtures/weekly-own-form-legacy-shape.json)과
+// 남의 작업공간 양식(FOREIGN_* 제목, owner RLS 로 보이지 않아야 함). forms:null 이면 양식 없음(일반적인 말).
+const {readFileSync}=await import('node:fs');
+const LEGACY_FORM=JSON.parse(readFileSync(new URL('../fixtures/weekly-own-form-legacy-shape.json',import.meta.url),'utf8'));
+const FOREIGN_FORM={v:1,sections:LEGACY_FORM.sections.map(x=>({...x,title:`FOREIGN_${x.role}`}))};
+const defaultForms=()=>[{id:'f1',workspace_id:WS,form:LEGACY_FORM},{id:'f2',workspace_id:OTHER_WS,form:FOREIGN_FORM}];
+function harness({openai=null,rows=null,patchMiss=0,forms=defaultForms()}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -30,6 +37,7 @@ function harness({openai=null,rows=null,patchMiss=0}={}){
       {id:'r4',workspace_id:OTHER_WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,feedback:fb('2026-10-19',{added:[{where:'x',text:'FOREIGN_TEXT'}]}),rules:{at:'z',lines:['FOREIGN_RULE']}}},
     ],
     app_ai_daily_usage:[],
+    app_weekly_forms:forms??[{id:'f2',workspace_id:OTHER_WS,form:FOREIGN_FORM}],
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
   const wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
@@ -74,8 +82,8 @@ function harness({openai=null,rows=null,patchMiss=0}={}){
     }
     throw new Error('unexpected write '+method+' '+table);
   };
-  const handler=createAiAssistHandler({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
-    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})});
+  const handler=createAiAssistHandler(withAiMonth({env:n=>({SUPABASE_URL:SB,SUPABASE_ANON_KEY:'synthetic-anon-key',WEB2_OPENAI_API_KEY:'synthetic-web2-openai-key'})[n],
+    fetch:doFetch,now:()=>NOW,sleep:async()=>{},log:(code,detail)=>calls.logs.push({code,detail})}));
   return {handler,calls,db};
 }
 const cells=[{ref:'c1',where:'요약 · 가 › 가-1',lines:['- 가상 교섭 3차 진행'],material:['가상 교섭 3차 결렬(10/28)']},{ref:'c2',where:'산하조직 · A 지부',lines:['- 가상 소식'],material:[]}];
@@ -226,7 +234,7 @@ test('weekly_review: no feedback yet but this week\'s actions → reviews the ac
   const sent=JSON.parse(calls.openai[0].input[1].content);
   assert.equal(sent.this_week,null);
   assert.equal(sent.this_week_actions.total,6,'none·broken items are not counted');
-  assert.deepEqual(sent.this_week_actions.counts.find(c=>c.group==='2. 사업 요약'&&c.kind==='material'),{group:'2. 사업 요약',kind:'material',take:2,edit:1,drop:1,fix:0,cut:0,add:0,have:0,kept_percent:50});
+  assert.deepEqual(sent.this_week_actions.counts.find(c=>c.group==='2. 요약'&&c.kind==='material'),{group:'2. 요약',kind:'material',take:2,edit:1,drop:1,fix:0,cut:0,add:0,have:0,kept_percent:50});
   assert.ok(sent.this_week_actions.counts.some(c=>c.group==='5. 주요 일정'&&c.cut===1));
   assert.ok(sent.this_week_actions.examples.some(e=>e.how==='뺌'&&e.why==='가상 지난주에 쓴 일'&&e.before==='가상 뺀 제안'));
   assert.ok(sent.this_week_actions.examples.some(e=>e.how==='고쳐서 넣음'&&e.before==='가상 원래 제안'&&e.after==='가상 고친 글'));
@@ -249,7 +257,7 @@ test('weekly_draft: earlier weeks\' drop reasons go as rejected_with_reason (thi
   const {handler,calls}=harness({rows});
   assert.equal((await post(handler,draftBody())).status,200);
   const material=calls.openai[0].input[1].content,sent=JSON.parse(material);
-  assert.deepEqual(sent.rejected_with_reason,[{where:'4. 산하 조직',text:'가상 뺀 조직 소식',why:'가상 이미 끝난 일'}]);
+  assert.deepEqual(sent.rejected_with_reason,[{where:'4. 산하조직 현황',text:'가상 뺀 조직 소식',why:'가상 이미 끝난 일'}]);
   for(const hidden of ['THIS_WEEK_WHY','THIS_WEEK_DROP','FOREIGN_WHY'])assert.ok(!material.includes(hidden),hidden);
   assert.match(calls.openai[0].input[0].content,/rejected_with_reason/);
   assert.match(calls.rest.find(c=>c.table==='app_weekly_exec_requests').query,/picks:draft->picks/);
@@ -258,7 +266,9 @@ test('weekly_draft: earlier weeks\' drop reasons go as rejected_with_reason (thi
 });
 
 // WEEKLY-한흐름확정 ⑤ 남은 부분(S47-59): 칸 줄 밖 동작(1. 요청사항 1)2)3)·참고 내 메모)도 묶음 이름으로 센다(전에는 '기타').
-test('환류 정리 동작 요약: requests:*·notes 칸은 1. 요청사항·참고 묶음', () => {
+const {groupNames,titlesOfForm}=await import('../../supabase/functions/ai-assist/form-names.ts');
+const legacyNames=groupNames(titlesOfForm(LEGACY_FORM));
+test('환류 정리 동작 요약: requests:*·notes 칸은 1. 요청사항·참고 묶음(지어낸 고정 양식 제목)', () => {
   const at = '2026-10-06T01:00:00.000Z';
   const picks = wl.readPicksCell({items:[
     {kind:'line', from:'hand', cell:'requests:ask', act:'add', text:'가상 요청 줄', at},
@@ -266,7 +276,7 @@ test('환류 정리 동작 요약: requests:*·notes 칸은 1. 요청사항·참
     {kind:'calendar', from:'calendar', cell:'requests:hq', act:'take', text:'가상 일정', at},
     {kind:'line', from:'hand', cell:'notes', act:'add', text:'가상 메모', at},
     {kind:'line', from:'hand', cell:'calendar', act:'add', text:'가상 손 일정', at}]});
-  const d = wl.actionDigest(picks);
+  const d = wl.actionDigest(picks, legacyNames);
   const group = (g, kind) => d.counts.find(c => c.group === g && c.kind === kind);
   assert.equal(group('1. 요청사항', 'line').add, 1);
   assert.equal(group('1. 요청사항', 'carried').drop, 1);
@@ -274,4 +284,43 @@ test('환류 정리 동작 요약: requests:*·notes 칸은 1. 요청사항·참
   assert.equal(group('참고', 'line').add, 1);
   assert.equal(group('5. 주요 일정', 'line').add, 1);
   assert.equal(d.counts.some(c => c.group === '기타'), false);
+});
+
+// WEEKLY-내양식자유변형 ⑤-3d: 묶음 이름·안내 글의 양식 제목은 부른 사람의 '내 양식'에서(본인 로그인·owner RLS). 남의 양식은 읽지 않고,
+// 양식이 없으면 번호 없는 일반적인 말. 지어낸 고정 양식이면 안내 글이 ⑤-3d 전과 같은 꼴(주요 일정 표 제목 그대로).
+test('내 양식 제목: 본인 양식만 읽어 안내 글·묶음 이름에 쓰고, 없으면 일반적인 말', async () => {
+  const at='2026-10-06T01:00:00.000Z';
+  const rows=[{id:'r1',workspace_id:WS,week_start:WEEK,items:[],draft_saved_at:'x',draft:{v:1,picks:picks([pk({cell:'calendar',kind:'line',from:'calendar',act:'cut',at})])}},
+    {id:'r2',workspace_id:WS,week_start:'2026-10-19',items:[],draft_saved_at:'x',draft:{v:1,picks:picks([pk({act:'drop',cell:'sites:가상 사업장',text:'가상 뺀 줄',why:'가상 이유'})])}}];
+  {
+    const {handler,calls}=harness({rows});
+    assert.equal((await post(handler,draftBody())).status,200);
+    const dev=calls.openai[0].input[0].content,sent=JSON.parse(calls.openai[0].input[1].content);
+    assert.match(dev,/주간보고 본문 칸\(요약·투쟁 사업장 현황·산하조직 현황\)을/);
+    assert.deepEqual(sent.rejected_with_reason.map(r=>r.where),['3. 투쟁 사업장 현황']);
+    const read=calls.rest.filter(c=>c.table==='app_weekly_forms');
+    assert.equal(read.length,1,'one read per request');
+    assert.equal(read[0].method,'GET');assert.match(read[0].query,new RegExp(`workspace_id=eq\\.${WS}`));
+    assert.ok(!JSON.stringify(calls.openai).includes('FOREIGN_'),'never another workspace form');
+    assert.ok(!/요약|사업장|FOREIGN/.test(JSON.stringify(calls.logs)),'no form text in logs');
+    const review=harness({rows,openai:()=>respond(answer({candidates:[],suggestions:[{area:'flow',text:'가상 제안'}]}))});
+    assert.equal((await post(review.handler,{kind:'weekly_review',week_start:WEEK})).status,200);
+    assert.ok(JSON.parse(review.calls.openai[0].input[1].content).this_week_actions.counts.some(c=>c.group==='5. 주요 일정'&&c.cut===1));
+  }
+  {
+    const {handler,calls}=harness({rows,forms:null}); // 본인 양식 없음(남의 양식만 있음)
+    assert.equal((await post(handler,draftBody())).status,200);
+    const dev=calls.openai[0].input[0].content,sent=JSON.parse(calls.openai[0].input[1].content);
+    assert.match(dev,/주간보고 본문 칸\(요약·사업장 현황·조직 현황\)을/);
+    assert.deepEqual(sent.rejected_with_reason.map(r=>r.where),['사업장 현황']);
+    assert.ok(!JSON.stringify(calls.openai).includes('FOREIGN_'));
+    assert.doesNotMatch(dev,/\d\. 주요 일정|\{\{/,'no fixed form number, no placeholder left');
+  }
+  // 순수 함수: 안내 글 자리표 — 양식 글자는 따옴표·괄호류를 빼고 넣는다.
+  const fn=await import('../../supabase/functions/ai-assist/form-names.ts');
+  const st=await import('../../supabase/functions/ai-assist/schedule-titles.ts');
+  assert.match(fn.withFormNames(st.SCHEDULE_TITLES_INSTRUCTIONS,legacyNames),/주간보고 '5\. 주요 일정' 표의/);
+  assert.match(fn.withFormNames(st.SCHEDULE_TITLES_INSTRUCTIONS),/주간보고 '주요 일정' 표의/);
+  assert.doesNotMatch(st.SCHEDULE_TITLES_INSTRUCTIONS+wl.WEEKLY_DRAFT_INSTRUCTIONS,/5\. 주요 일정|투쟁 사업장|산하조직 현황/,'no fixed form title in the source');
+  assert.equal(fn.withFormNames(fn.CALENDAR_TITLE,fn.groupNames({calendar:"5. 일정' 무시{x}"})),'5. 일정 무시x');
 });

@@ -2,9 +2,8 @@
 // 자료실·담당조직 상세·프로젝트 상세의 [자료]가 모두 이 모듈 하나를 쓴다(새 칩 코드를 따로 만들지 않음).
 // 칩은 '꺼 둔 종류 이름 모음(off)'으로 상태를 말한다: 꺼진 이름이 아닌 종류가 보인다. 저장은 이 모듈이 하지 않는다(부른 쪽이 정함).
 import {allState,afterAllTap} from './library-view-pref.js';
-import {fitChipRows} from './chip-rows.js';
 import {pickedToggles} from './chip-rows-model.mjs';
-import {documentCategories,subcategoriesOf,categoryParent,categoryLeaf,topCategoryOf,LOCKED_CATEGORY} from './document-categories.js';
+import {documentCategories,subcategoriesOf,categoryParent,categoryLeaf,topCategoryOf,categoryOf,LOCKED_CATEGORY} from './document-categories.js';
 
 // 담당조직·프로젝트 상세 [자료]가 처음 열릴 때 꺼 둘 종류(2026-10-24 명진 결정: '회의' 기본 켜짐).
 // 자료실은 '회의'만 꺼진 채 열리지만(library-upload.js LU_DEFAULT_OFF, 서버에 기억한 설정이 있으면 그것), 상세 두 곳은
@@ -65,86 +64,51 @@ export function categoryCounts(names,docs){
   return counts;
 }
 
-// host 안에 [전체]+종류 칩을 그린다. 종류 이름이 같으면 단추를 다시 만들지 않아 초점·터치가 유지된다.
-// key = 단추의 data 속성 이름(camelCase, 예 'luCategory' → data-lu-category). onToggle(value)는 누를 때마다 부른다('all'은 [전체]).
-// 소분류 줄(LIB-소분류): onSub(value)를 주면 그린다(value ''은 큰 분류 전체). onAddSub(parent)를 주면 끝에 [+ 소분류].
-// 켜진 큰 분류가 하나이고 그 큰 분류에 소분류가 있을 때만 보인다.
-// subAfter: 소분류 줄을 붙일 자리(이 요소 바로 뒤, 기본 host). 줄은 host와 같은 렌더러가 그리고 지운다.
-// counts(LIB-맨위다듬기): 큰 분류 이름 → 자료 수 Map. 주면 칩마다 작은 숫자(0도)를 붙인다(data-cc-count, 글자는 CSS가 그림 — 칩 이름은 그대로).
-// LIB-사진숨김(S60-10): tail = 칩 줄 맨 끝 '사진 n' 칩 하나({count, pressed, onPress}). 종류 칩과 따로 켜고 끄며, 상태 주인은 부른 화면이다.
-export function renderCategoryChips(host,{names,off,label,controls,key,onToggle,extraClass='',sub='',onSub=null,onAddSub=null,subAfter=null,counts=null,tail=null}={}){
-  if(!host)return;
-  names=chipOrder(names);
-  renderSubRow(host,{names,off,sub,onSub,onAddSub,subAfter,controls,key});
-  const state=allState(names,off);
-  host.classList.add('filter-chips','quick-mode-group','filter-chips-small');
-  if(extraClass)host.classList.add(extraClass);
-  host.setAttribute('role','group');host.setAttribute('aria-label',label);
-  if(controls)host.setAttribute('aria-controls',controls);
-  host._ccToggle=onToggle;
-  const signature=JSON.stringify([names,!!tail]);
-  if(host._ccSignature!==signature){
-    const focused=host.contains(document.activeElement)?(document.activeElement?.dataset.ccTail!==undefined?'\u0000tail':document.activeElement?.dataset[key]):null;
-    const chips=['all',...names].map(value=>{const b=document.createElement('button');b.type='button';b.className='quick-pill-button';b.dataset[key]=value;b.textContent=value==='all'?'전체':value;return b});
-    if(tail){const b=document.createElement('button');b.type='button';b.className='quick-pill-button cc-tail-photo';b.dataset.ccTail='';b.textContent='사진';chips.push(b)}
-    host.replaceChildren(...chips);
-    host._ccSignature=signature;
-    if(focused)[...host.children].find(b=>focused==='\u0000tail'?b.dataset.ccTail!==undefined:b.dataset[key]===focused)?.focus({preventScroll:true});
-  }
-  host._ccTail=tail?.onPress||null;
-  const fill=filledChips(names,off);
-  for(const b of host.children){
-    if(b.dataset.ccTail!==undefined){b.setAttribute('aria-pressed',String(!!tail?.pressed));b.dataset.ccCount=String(tail?.count||0);continue}
-    const value=b.dataset[key];
-    if(value===undefined)continue;
-    b.setAttribute('aria-pressed',value==='all'?(state==='all'?'true':state==='none'?'false':'mixed'):String(!off.has(value)));
-    b.toggleAttribute('data-cc-fill',fill.has(value));
-    const count=value!=='all'&&counts?.get?counts.get(value):undefined;
-    if(count===undefined)delete b.dataset.ccCount;else b.dataset.ccCount=String(count||0);
-  }
-  if(!host._ccBound){
-    host._ccBound=true;
-    host.addEventListener('click',e=>{const b=e.target.closest('button');if(b?.parentElement!==host)return;if(b.dataset.ccTail!==undefined){host._ccTail?.();return}if(b.dataset[host._ccKey]!==undefined)host._ccToggle?.(b.dataset[host._ccKey])});
-  }
-  host._ccKey=key;
-  // UI-칩줄두줄: 두 줄 + [더보기 ▾](공용 chip-rows.js). 접혀도 [전체]와 고른 칩(켠 것·끈 것 중 적은 쪽)은 보인다.
-  const picked=pickedToggles(names,off);
-  fitChipRows(host,{keep:b=>b.dataset[key]==='all'||b.dataset.ccTail!==undefined||picked.has(b.dataset[key])});
+// ---- ORG-자료칩드롭다운(요청함 11/14 "조직 자료 버튼 드롭다운 화"): 상세 [자료]의 종류는 [종류 전체 ▾] 고르기 상자 하나 ----
+// 담당조직·프로젝트 상세가 같이 쓴다(전에는 칩 13개가 폰에서 두 줄). 상자는 사업 보고 [종류 전체 ▾]와 같은 공용 <select>이고, 열리는 작은 목록은
+// select-menu.js(UI-모바일고르기칸)가 그린다: 줄마다 종류 이름 + 오른쪽 작은 건수(option data-count), 0건 종류는 흐리게(고를 수 없음) 맨 뒤.
+// 고른 종류는 상자 글자에 그대로('교섭·합의 ▾'). 하나만 고른다. 고른 값은 상세를 열어 둔 동안만(저장 안 함, 부른 화면이 상태 주인).
+// 값: 'all'(종류 전체) | 'k:큰 분류' | 's:소분류 전체 이름'(그 큰 분류 바로 아래 줄) | 'photo'(사진 n — LIB-사진숨김).
+export const KIND_ALL='all',KIND_PHOTO='photo';
+// 고른 값 → 거르기 상태 {off(꺼 둔 큰 분류), sub, photos}. 모르는 값(목록이 바뀜)은 전체.
+export function kindPickState(names,value){
+  const list=[...(names||[])],v=String(value||KIND_ALL);
+  if(v===KIND_PHOTO)return {off:new Set(),sub:'',photos:true};
+  if(v.startsWith('k:')){const n=v.slice(2);if(list.includes(n))return {off:new Set(list.filter(x=>x!==n)),sub:'',photos:false}}
+  if(v.startsWith('s:')){const sub=v.slice(2),parent=categoryParent(sub);if(list.includes(parent)&&subcategoriesOf(parent).includes(sub))return {off:new Set(list.filter(x=>x!==parent)),sub,photos:false}}
+  return {off:new Set(),sub:'',photos:false};
 }
-
-// 칩 줄을 그리지 않고 숨길 때(자료 없음 등) 그 아래 소분류 줄을 걷는다.
-export function clearCategorySubRow(host){if(host?._ccSubRow){host._ccSubRow.remove();host._ccSubRow=null;}}
-
-function renderSubRow(host,{names,off,sub,onSub,onAddSub,subAfter,controls,key}){
-  const parent=onSub?soleParent(names,off):'',subs=parent?subcategoriesOf(parent):[];
-  let row=host._ccSubRow;
-  // 소분류가 있는 큰 분류일 때만 줄을 그린다(첫 소분류는 [편집] 창의 큰 분류 줄 [+ 소분류]로 만든다).
-  if(!parent||!subs.length){if(row){row.remove();host._ccSubRow=null;}return;}
-  if(!row){
-    row=document.createElement('div');row.className='cc-sub-row';row.setAttribute('role','group');
-    row.addEventListener('click',e=>{
-      const b=e.target.closest('button');if(!b||b.parentElement!==row)return;
-      if(b.dataset.ccAddSub!==undefined)row._add?.(b.dataset.ccAddSub);
-      else if(b.dataset.ccSub!==undefined)row._pick?.(b.dataset.ccSub);
-    });
-    host._ccSubRow=row;
+// 목록 줄: [{value,label,count,disabled}]. docs = 줄로 보이는 자료(사진 뺌), photos = 사진 수(0이면 줄 없음).
+export function kindPickOptions(names,docs,{photos=0}={}){
+  const order=chipOrder(names),top=categoryCounts(order,docs),each=new Map(),live=[],dead=[];
+  for(const d of docs||[]){const c=categoryOf(d?.category);each.set(c,(each.get(c)||0)+1)}
+  for(const name of order){
+    const n=top.get(name)||0;
+    if(!n){dead.push({value:'k:'+name,label:name,count:0,disabled:true});continue}
+    live.push({value:'k:'+name,label:name,count:n,disabled:false});
+    for(const sub of subcategoriesOf(name)){const k=each.get(sub)||0;if(k)live.push({value:'s:'+sub,label:`${name} › ${categoryLeaf(sub)}`,count:k,disabled:false})}
   }
-  const anchor=subAfter||host;
-  if(row.previousElementSibling!==anchor)anchor.insertAdjacentElement('afterend',row);
-  row._pick=onSub;row._add=onAddSub;row.hidden=host.hidden;
-  row.setAttribute('aria-label',`${parent} 소분류`);
-  if(controls)row.setAttribute('aria-controls',controls);
-  const active=activeSubcategory(names,off,sub),signature=JSON.stringify([parent,subs,!!onAddSub]);
-  if(row._ccSignature!==signature){
-    const focused=row.contains(document.activeElement)?document.activeElement?.dataset.ccSub:null;
-    const make=(value,text)=>{const b=document.createElement('button');b.type='button';b.className='cc-sub-chip';b.dataset.ccSub=value;b.textContent=text;return b};
-    const items=[make('',`${parent} 전체`),...subs.map(name=>make(name,categoryLeaf(name)))];
-    if(onAddSub){const b=document.createElement('button');b.type='button';b.className='cc-sub-add';b.dataset.ccAddSub=parent;b.textContent='+ 소분류';b.setAttribute('aria-label',`${parent}에 소분류 만들기`);items.push(b);}
-    row.replaceChildren(...items);row._ccSignature=signature;
-    if(focused!=null)[...row.children].find(b=>b.dataset.ccSub===focused)?.focus({preventScroll:true});
+  return [{value:KIND_ALL,label:'종류 전체',count:(docs||[]).length,disabled:false},...live,...(photos?[{value:KIND_PHOTO,label:'사진',count:photos,disabled:false}]:[]),...dead];
+}
+const escHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// host 안에 고르기 상자 하나를 그린다(목록이 같으면 option을 다시 만들지 않아 초점 유지). onPick(value)는 고를 때마다.
+// 돌려주는 값 = 실제로 고른 값(목록에 없는 값이면 'all').
+export function renderKindPick(host,{names,docs,photos=0,value=KIND_ALL,label='자료 종류',controls='',onPick}={}){
+  if(!host)return KIND_ALL;
+  const options=kindPickOptions(names,docs,{photos});
+  if(!options.some(o=>o.value===value))value=KIND_ALL;
+  let sel=host.querySelector(':scope > select[data-kind-pick]');
+  if(!sel){
+    host.innerHTML='<select class="cc-kind-select" data-kind-pick></select>';
+    sel=host.firstElementChild;
+    sel.addEventListener('change',()=>host._kindPick?.(sel.value));
   }
-  for(const b of row.children)if(b.dataset.ccSub!==undefined)b.setAttribute('aria-pressed',String(b.dataset.ccSub===active));
-  row.dataset.ccSubFor=key||'';
-  // UI-칩줄두줄: 소분류 줄도 같은 두 줄 + [더보기]. '(큰 분류) 전체'·고른 소분류·[+ 소분류]는 접혀도 보인다.
-  fitChipRows(row,{keep:b=>b.dataset.ccSub===''||b.getAttribute('aria-pressed')==='true'||b.dataset.ccAddSub!==undefined});
+  host._kindPick=onPick;
+  sel.setAttribute('aria-label',label);
+  if(controls)sel.setAttribute('aria-controls',controls);
+  const sig=JSON.stringify(options);
+  if(sel._kindSig!==sig){sel.innerHTML=options.map(o=>`<option value="${escHtml(o.value)}" data-count="${o.count}"${o.disabled?' disabled':''}>${escHtml(o.label)}</option>`).join('');sel._kindSig=sig}
+  sel.value=value;
+  sel.classList.toggle('is-on',value!==KIND_ALL);
+  return value;
 }

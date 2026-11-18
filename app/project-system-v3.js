@@ -21,7 +21,7 @@ import {isPictureDoc,splitPictures} from './photo-fold-model.mjs'; // LIB-사진
 import {docKindHtml,photoTilesHtml,bindPhotoTileMenus} from './photo-fold.js';
 import {hydrateLibraryThumbs} from './library-photo.js';
 import {categoryTag,categoryOf,topDocumentCategories,loadDocumentCategories} from './document-categories.js';
-import {renderCategoryChips,toggleCategoryOff,detailDefaultOff,hiddenCategories,categoryCounts} from './category-chips.js';
+import {renderKindPick,kindPickState,hiddenCategories,KIND_ALL} from './category-chips.js';
 import {disconnectWithUndo,offerUndoNotice,deleteRecordNote} from './basket-record-delete.js';
 import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets} from './report-links.js';
 import {readReportPhotos,reportPhotosHtml,mountReportPhotos} from './report-photos.js';
@@ -279,7 +279,7 @@ async function reloadMilestoneCalendars(isCurrent=()=>true){
 }
 function rollbackMessage(stage,error,link={}){
   console.error('project milestone rollback failed',{stage,calendarId:link.calendarId||null,eventId:link.eventId||null,error});
-  return stage+' 되돌리기에도 실패해 Google Calendar와 Web2가 불일치할 수 있습니다. 일정을 직접 확인해 주세요.'
+  return stage+' 되돌리기에도 실패해 Google Calendar와 노동조합+가 불일치할 수 있습니다. 일정을 직접 확인해 주세요.'
 }
 function openModal(id,{trigger=document.activeElement,initialFocus=null}={}){const m=$('#'+id);if(!m)return;const wasHidden=m.classList.contains('hidden');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');if(wasHidden)window.KPTUA11y?.dialog.activate(m,{trigger,initialFocus:initialFocus||MODAL_FOCUS[id]||null,onRequestClose:()=>m.querySelector(`[data-ps3-close="${id}"]`)?.click()})}
 function closeModal(id){const m=$('#'+id);if(!m)return;closeSaveEditor(id);m.classList.add('hidden');m.setAttribute('aria-hidden','true');if(id==='ps3DetailModal'&&docked()){$('#ps3DetailPane')?.classList.remove('has-project');paintSelection();return}window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:true,fallbackFocus:id==='ps3DetailModal'?'#newProjectBtn':null})}
@@ -527,26 +527,20 @@ function docMenu(x,fa,rn){return `<details class="ps3-more ps3-line-more"><summa
 // LIB-사진숨김: [사진 n]을 켠 동안 사진 자료만 작은 그림 칸으로(누르면 크게 보기, ⋯·우클릭·꾹 누르기 = 자료 줄과 같은 메뉴).
 function docPhotoTiles(list){return photoTilesHtml(list,x=>{const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''};return {attrs:fileAttrs(fa,{press:true}),menu:docMenu(x,fa,null)}},{id:'ps3DocPhotoTiles',label:'이 프로젝트 사진'})}
 // UI-바구니첨부메모 ⑨⑩: 최근 5개 + "전체 N개 보기 ›"(자료실을 이 프로젝트로 걸러 연다).
-// LIB-조직프로젝트자료종류: [자료] 위의 종류 칩은 자료실과 같은 칩 코드(category-chips.js). 꺼 둔 종류는 이 프로젝트를 열어 두는 동안만 기억하고(저장 안 함),
-// 처음엔 모두 켜져 있어('회의' 포함, category-chips.js DETAIL_DEFAULT_OFF) 자료가 숨지 않는다. 거르는 건 줄 보이기뿐이라 위의 자료 수와 [전체 N개 보기]는 프로젝트 전체 자료 기준 그대로다.
-// LIB-소분류: 큰 분류 하나만 켜면 칩 아래 소분류 줄(category-chips.js). 고른 소분류(docSub)도 이 프로젝트를 열어 둔 동안만 기억한다.
-// LIB-사진숨김(S60-10): 사진 자료는 줄에서 빼고 칩 줄 끝 [사진 n]. 켠 것(docPhotos)은 이 프로젝트를 열어 둔 동안만, 열 때마다 꺼진 채(저장 안 함).
-let docOff=detailDefaultOff(),docOffFor='',docSub='',docPhotos=false;
-function docOffSet(d){if(docOffFor!==d.p.id){docOffFor=d.p.id;docOff=detailDefaultOff();docSub='';docPhotos=false}return docOff}
-// 숨길 분류(전체 이름) 모음: 꺼 둔 큰 분류 + 소분류를 골랐으면 그 밖의 것.
-function docHidden(d){const off=docOffSet(d);return hiddenCategories(topDocumentCategories(),off,docSub)}
-function docListHtml(d){const off=docHidden(d),{rest,pictures}=splitPictures(d.docs,isPictureDoc);if(!pictures.length)docPhotos=false;if(docPhotos)return docPhotoTiles(pictures);const rows=rest.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:rest.length?emptyHtml('선택한 종류 없음',{attrs:'data-ps3-doc-nokind'}):''):''}
-function docsHtml(d){return `<section class="ps3-section" id="ps3-documents"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'documents','자료'))} ${count(d.docs.length)}</h3><div class="ps3-section-actions">${addPlus('자료 올리기','data-ps3-global="document"')}</div></div><div id="ps3DocKinds" class="doc-kind-chips"${d.docs.length?'':' hidden'}></div><div data-ps3-doc-list>${docListHtml(d)}</div>${d.docs.length?`<button type="button" class="ps3-text-btn ps3-docs-all" data-ps3-library>전체 ${d.docs.length}개 보기 <span aria-hidden="true">›</span></button>`:''}</section>`}
-// 종류 칩을 그리고 누르면 줄 목록만 다시 그린다(칩 단추는 그대로라 초점·터치가 유지됨).
+// LIB-조직프로젝트자료종류 → ORG-자료칩드롭다운(요청함 11/14): [자료] 위 종류는 [종류 전체 ▾] 고르기 상자 하나(category-chips.js renderKindPick, 조직 상세와 같은 부품).
+// 고른 값(docKind: 'all'·'k:종류'·'s:소분류'·'photo'=LIB-사진숨김 작은 그림)은 이 프로젝트를 열어 둔 동안만(저장 안 함), 다른 프로젝트를 열면 '종류 전체'.
+let docKind=KIND_ALL,docKindFor='';
+function docKindOf(d){if(docKindFor!==d.p.id){docKindFor=d.p.id;docKind=KIND_ALL}return docKind}
+function docPick(d){return kindPickState(topDocumentCategories(),docKindOf(d))}
+function docListHtml(d){const pick=docPick(d),off=hiddenCategories(topDocumentCategories(),pick.off,pick.sub),{rest,pictures}=splitPictures(d.docs,isPictureDoc);if(pick.photos&&pictures.length)return docPhotoTiles(pictures);const rows=rest.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:rest.length?emptyHtml('선택한 종류 없음',{attrs:'data-ps3-doc-nokind'}):''):''}
+function docsHtml(d){return `<section class="ps3-section" id="ps3-documents"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'documents','자료'))} ${count(d.docs.length)}</h3><div class="ps3-section-actions">${addPlus('자료 올리기','data-ps3-global="document"')}</div></div><div id="ps3DocKinds" class="doc-kind-pick"${d.docs.length?'':' hidden'}></div><div data-ps3-doc-list>${docListHtml(d)}</div>${d.docs.length?`<button type="button" class="ps3-text-btn ps3-docs-all" data-ps3-library>전체 ${d.docs.length}개 보기 <span aria-hidden="true">›</span></button>`:''}</section>`}
+// 종류 상자를 그리고 고르면 줄 목록만 다시 그린다(상자는 그대로라 초점이 유지됨).
 function mountDocKinds(d){
   const host=$('#ps3-documents #ps3DocKinds');if(!host||d!==detail||!d.docs.length)return;
   const redraw=()=>{const list=$('#ps3-documents [data-ps3-doc-list]');if(list)list.innerHTML=docListHtml(d);mountDocKinds(d)};
   const {rest,pictures}=splitPictures(d.docs,isPictureDoc);
-  renderCategoryChips(host,{names:topDocumentCategories(),off:docOffSet(d),sub:docSub,label:'자료 종류 (여러 개 선택)',controls:'ps3-documents',key:'docKind',counts:categoryCounts(topDocumentCategories(),rest),onToggle:value=>{
-    if(d!==detail)return;docOff=toggleCategoryOff(topDocumentCategories(),docOffSet(d),value);docPhotos=false;redraw()},
-    onSub:value=>{if(d!==detail)return;docOffSet(d);docSub=value;docPhotos=false;redraw()},
-    tail:pictures.length?{count:pictures.length,pressed:docPhotos,onPress:()=>{if(d!==detail)return;docOffSet(d);docPhotos=!docPhotos;redraw()}}:null});
-  const list=$('#ps3-documents [data-ps3-doc-list]');if(docPhotos&&list){hydrateLibraryThumbs(list);bindPhotoTileMenus(list)}
+  docKind=renderKindPick(host,{names:topDocumentCategories(),docs:rest,photos:pictures.length,value:docKindOf(d),controls:'ps3-documents',onPick:value=>{if(d!==detail)return;docKindOf(d);docKind=value;redraw()}});
+  const list=$('#ps3-documents [data-ps3-doc-list]');if(docPick(d).photos&&pictures.length&&list){hydrateLibraryThumbs(list);bindPhotoTileMenus(list)}
 }
 // PRJ-회의표시 → MTG-사업보고 6단계: 이 프로젝트에 연결된 사업 보고(회의·정책·교섭 …, 모든 종류)를 최근 순으로. 연결은 연결 표의 '출처 회의' 줄(report-links.js)이라
 // 사업 보고 쪽에서 연결해도, 여기서 [연결]로 골라도 같은 줄이다. 이미 연결돼 있던 회의는 그대로 '회의' 종류로 나온다. 하위 프로젝트 것은 넣지 않는다.
@@ -801,7 +795,7 @@ async function compensateMilestone(r,error){
     if(!sameSaveSession(r.editor))return true;
     if(result?.ok!==true||(!r.createdGoogle&&(!validGoogleAddress(result.event,a.address)||!googleMatchesPayload(result.event,body))))throw new Error('되돌린 결과를 확인하지 못했어요.');
     a.compensation='confirmed';a.googleState=r.createdGoogle?'compensated':'idle';a.googleCurrent=r.createdGoogle?null:r.googleBefore;a.needsReview=r.createdGoogle;
-    saveNotice(r.editor,'Web2 저장이 거절되어 '+(r.createdGoogle?'생성한 Google 일정을':'Google Calendar 변경을')+' 되돌렸습니다. 입력은 유지했습니다.',{confirm:r.createdGoogle});
+    saveNotice(r.editor,'노동조합+ 저장이 거절되어 '+(r.createdGoogle?'생성한 Google 일정을':'Google Calendar 변경을')+' 되돌렸습니다. 입력은 유지했습니다.',{confirm:r.createdGoogle});
   }catch(rollbackError){if(sameSaveSession(r.editor)){a.compensation='unknown';a.googleState='unknown';a.needsReview=true;saveNotice(r.editor,'되돌린 결과를 확인하지 못했어요. Google 일정과 사업영역 기록을 확인해 주세요. '+rollbackMessage('Google Calendar',rollbackError,{calendarId:a.address.calendarId,eventId:a.address.eventId}),{confirm:true})}}
   return true;
 }
@@ -865,8 +859,8 @@ async function delMilestone(){
       }catch(localError){
         let restored=null;
         try{restored=await createGoogleMilestone(calendarId,body)}catch(e){throw new Error((localError.message||localError)+' '+rollbackMessage('Google Calendar',e,{calendarId,eventId:googleEventId}))}
-        try{await restoreMilestoneSnapshot(snapshot,restored.id)}catch(e){throw new Error((localError.message||localError)+' '+rollbackMessage('Web2 주요 일정',e,{calendarId,eventId:restored.id}))}
-        throw new Error('Web2 삭제에 실패해 Google Calendar 일정을 복원했습니다: '+(localError.message||localError))
+        try{await restoreMilestoneSnapshot(snapshot,restored.id)}catch(e){throw new Error((localError.message||localError)+' '+rollbackMessage('노동조합+ 주요 일정',e,{calendarId,eventId:restored.id}))}
+        throw new Error('노동조합+ 삭제에 실패해 Google Calendar 일정을 복원했습니다: '+(localError.message||localError))
       }
     }catch(e){st.textContent=e.message||String(e);button.disabled=false;return}
   }else{

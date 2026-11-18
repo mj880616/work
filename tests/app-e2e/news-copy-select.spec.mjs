@@ -40,9 +40,9 @@ async function server(page) {
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
     if (table) s.calls.push(table + decodeURIComponent(u.search));
-    if (table === 'app_outside_posts') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
-    if (table === 'app_feed_bodies') { const id = (u.searchParams.get('outside_post_id') || '').replace(/^eq\./, ''); return ok(id === EN || id === KO ? [{ state: 'ok', reason: null, blocks: id === EN ? BLOCKS : [{ t: 'p', text: '가상 한글 문단.' }] }] : []); }
-    if (table === 'app_feed_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
+    if (table === 'app_outside_articles') { const id = (u.searchParams.get('id') || '').replace(/^eq\./, ''); return ok(id ? POSTS.filter(x => x.id === id) : POSTS); }
+    if (table === 'app_outside_article_bodies') { const id = (u.searchParams.get('article_id') || '').replace(/^eq\./, ''); return ok(id === EN || id === KO ? [{ state: 'ok', reason: null, blocks: id === EN ? BLOCKS : [{ t: 'p', text: '가상 한글 문단.' }] }] : []); }
+    if (table === 'app_outside_reads' || table === 'app_news_reads') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
     if (table === 'app_outside_sources') return ok(SOURCES.map(x => ({ source_key: x.key, enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null })));
     if (table === 'app_outside_seen') return ok([{ seen_at: '2026-10-06T00:00:00Z' }]);
     if (table === 'app_now_signals') return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]);
@@ -70,6 +70,8 @@ async function start(page, width) {
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot').getByRole('tab', { name: '사회운동' }).click();
+  // S63-11: 국제(Jacobin) 글은 아래 접힌 '국제' 묶음 — 펼쳐서 두 줄 모두.
+  await page.locator('#outsideRoot [data-os-list] details[data-os-intl] > summary').click();
   await expect(page.locator('#outsideRoot [data-os-list] [data-nw-key]')).toHaveCount(2);
   return { errors, s };
 }
@@ -119,8 +121,8 @@ for (const width of [412, 884, 1440]) {
     expect(await copied(page)).not.toContain('First fake paragraph.');
     await d.locator('[data-nd-translate]').click();
     await expect(d.locator('[data-nd-translated]')).toHaveCount(0);
-    const extra = s.calls.slice(before).filter(c => !c.startsWith('app_outside_posts?') || !c.includes('select=body_ko'));
-    expect(extra.filter(c => !/^(app_now_signals|app_feed_reads|app_news_highlights)/.test(c))).toEqual([]);
+    const extra = s.calls.slice(before).filter(c => !c.startsWith('app_outside_articles?') || !c.includes('select=body_ko'));
+    expect(extra.filter(c => !/^(app_now_signals|app_feed_reads|app_news_highlights|app_outside_now_signals|app_outside_reads|app_outside_article_marks|app_outside_marks|rpc\/app_outside_article_of)/.test(c))).toEqual([]);
 
     // ⋯ 작은 메뉴: [모두 선택][복사][공유] 차례.
     await d.locator('[data-nd-ob-more]').click();

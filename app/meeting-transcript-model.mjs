@@ -1,6 +1,8 @@
 // MTG-녹음초안(2026-10-29 사용자 결정): 사업 보고 › 회의 입력 창의 [녹음·전사 넣기]가 쓰는 순수 함수.
 // 전사 글(붙여 넣기·txt 등 파일)을 읽고, 서버(meeting-ai-draft) 답을 회의 기록 초안(일시·참석·결정·공유·후속 할 일)으로 바꾼다.
-// 화면·네트워크는 meeting-transcript-draft.js가 맡는다. 여기서는 DOM·네트워크를 쓰지 않는다(단위 검사 대상).
+// 여기서는 DOM·네트워크를 쓰지 않는다(단위 검사 대상).
+// S61-24 REC-요약단추삭제(명진 11/13): [녹음·전사 넣기] 화면(meeting-transcript-draft.js)은 뺐다. 이 파일은 잇기 요약 후보(meeting-join-model.mjs
+//   normalizeDraft·actionRows)와 Edge 같은 규칙 시험(splitTranscript·partsText·draftText)의 기준으로 남긴다.
 import {parseDate} from './meeting-file-parse.mjs';
 
 const pad=n=>String(n).padStart(2,'0');
@@ -153,7 +155,7 @@ export function sizeText(bytes){const n=Number(bytes)||0;return n>=1024*1024?`${
 // 전사 실패는 원인별로 나눈다(MTG-폰녹음전사): 전사 서비스(Gemini) 실패 · 파일 형식 · 연결 끊김(화면이 받은 시간 초과·네트워크 오류·서버 강제 종료).
 // 문구는 서버 model.mjs MESSAGES와 같다(시험이 맞춰 봄).
 const TRANSCRIBE_FAIL=Object.freeze({
-  not_ready:'녹음 전사는 준비 중이에요.',monthly_limit:'이번 달 녹음 전사 한도에 닿았어요.',busy:'다른 녹음을 전사하는 중이에요. 끝난 뒤 다시 눌러 주세요.',
+  not_ready:'녹음 전사는 준비 중이에요.',monthly_limit:'이번 달 녹음 전사 한도에 닿았어요.',ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',busy:'다른 녹음을 전사하는 중이에요. 끝난 뒤 다시 눌러 주세요.',
   too_large:'녹음 파일은 100MB까지 전사할 수 있어요.',too_long:'녹음은 1시간까지 전사할 수 있어요.',bad_type:'녹음 파일(m4a·mp3·wav 등)만 전사할 수 있어요.',
   empty_transcript:'녹음에서 글을 찾지 못했어요.',
   gemini_empty:'전사 서비스(Gemini)가 글 없이 답했어요. 녹음은 그대로 있어요. 잠시 뒤 다시 눌러 주세요.',

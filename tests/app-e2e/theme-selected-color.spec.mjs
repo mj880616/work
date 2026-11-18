@@ -59,14 +59,14 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
  await expect(nav(page).locator('[aria-current]')).toHaveCount(1);
  // 일정 → 사업 보고: [일정] 머리와 [달력]이 둘 다 채워지지 않는다(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다).
  await nav(page).locator('.nav-btn[data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();await seen('달력');
- await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();await seen('사업 보고');
+ await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();await seen('사업 관리');
  await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
  // 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이라 [사업 보고] 줄 하나가 채워진다.
- await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();await seen('사업 보고');
+ await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();await seen('사업 관리');
  await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
  // 바구니 [노트] → 다른 화면.
  await nav(page).locator('.nav-btn[data-basket-kind-nav="note"]').click();await expect(page.locator('#basketView')).toBeVisible();await seen('노트');
- await nav(page).locator('.nav-btn[data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();await seen('조직 보고');
+ await nav(page).locator('.nav-btn[data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();await seen('조직 관리');
  expect(errors).toEqual([]);
 });
 
@@ -89,7 +89,7 @@ for(const theme of ['olive','sky','lemon']){
   // 사업 보고와 그 아래 사업영역 관리(라우터 이름 projects)는 하단바 [사업 보고] 칸.
   for(const view of ['meetings','projects']){
    await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
-   await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('사업 보고');
+   await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('사업 관리');
   }
   expect(errors).toEqual([]);
  });
@@ -98,7 +98,7 @@ for(const theme of ['olive','sky','lemon']){
 test('폰 390: 메뉴 판 타일 열이 같은 모양이고 낮다(FILES-클라우드탐색기 ④: 파일 추가, OUTSIDE-바깥성명 ④: 바깥 성명 추가, CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(11); // S48-27: 뉴스 클리핑은 Now 탭으로(한 칸 줄어 11)
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(11); // S48-27: 뉴스 클리핑은 Now 탭으로(한 칸 줄어 11), BRIEF-브리핑룸 ③: 브리핑 룸 추가(12), MULTI-처음쓰는사람 ④: 원장 메뉴 빠짐(11)
  // S48-6b(#1708 질문 4): 메뉴 줄은 보이는 36px, 누르는 범위(::after) 44px.
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e),a=getComputedStyle(e,'::after'),h=e.getBoundingClientRect().height;return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(h),touch:Math.round(h-parseFloat(a.top)-parseFloat(a.bottom))}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBe(36);expect(t.touch).toBe(44)}

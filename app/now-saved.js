@@ -1,33 +1,41 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {ensureReads} from './news-reads.js';
+import {readOutsideMarks, readNewsStarred, workspaceOf} from './feed-shared.js';
 import {SAVED_CHIPS, keepSavedChip, savedRows, filterSaved, itemKey, titleHit} from './now-model.mjs';
 // OUTSIDE-글상세·관심환류 ④(설계 docs/design/outside-statements.md 12.1절): Now [보관] 탭.
-// 두 쪽의 별표·보관을 한곳에: 사회운동 글(app_outside_marks의 starred_at·archived_at) + 뉴스 기사(app_news_items.starred_at, 보관 = 별표 폴더).
+// 두 쪽의 별표·보관을 한곳에: 사회운동 글(내 표시 app_outside_article_marks의 starred_at·archived_at) + 뉴스 기사(내 표시 app_news_marks.starred_at, 보관 = 별표 폴더).
+// NEWS-모두에게열기 ③: 글 내용은 공용 표, 표시는 사람별 — 읽는 길은 feed-shared.js.
 // 칩 [전체] [별표] [보관] [사회운동] [언론]. 줄 전체를 누르면 같은 상세(now-detail.js)가 열린다. 언론 별표 폴더 정리는 ⋯ [별표 폴더](news-clipping.js).
 // S51-8 NEWS P4b: 줄 모양은 다른 탭과 같은 news-row.mjs(껍데기가 준 rowOf), 위 찾기 칸 글자로 제목을 거른다(query).
 // 읽기만 한다(서버, 작업공간 소유자 RLS). 이 칸(box)의 유일한 그리기 주인.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const q = v => encodeURIComponent(v);
-const rt = () => window.KPTURuntime;
-const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body';
 const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id,state,body_kind';
 
 // describe(type, row) → {meta, title, ...} 상세 머리, rowOf(type, row, opts) → 줄 글자(News 껍데기가 준다). onOpen(item, head).
+// 보관한 글 읽기(서버, 작업공간 소유자 RLS) — News [보관] 탭과 노트 'News에서 › 보관한 글'(note-news-marks.js)이 같은 길을 쓴다.
+// 두 쪽 다 못 읽으면 null, 하나라도 읽으면 savedRows 결과. 작업공간이 아직 없으면 undefined.
+export async function readSavedRows() {
+  const w = workspaceOf();
+  if (!w) return undefined;
+  const [marks, news] = await Promise.allSettled([
+    readOutsideMarks('(starred_at.not.is.null,archived_at.not.is.null)', {embed: POST_COLS, limit: 300}),
+    readNewsStarred(NEWS_COLS, 300),
+  ]);
+  if (marks.status === 'rejected' && news.status === 'rejected') return null;
+  return savedRows(marks.status === 'fulfilled' ? marks.value : [], news.status === 'fulfilled' ? news.value : []);
+}
+
 export function createNowSaved({box, describe, rowOf, query = () => '', onOpen, onChanged, onListed} = {}) {
   let rows = [], loaded = false, failed = false, chip = 'all', seq = 0;
   async function load() {
-    const w = workspaceOf(), my = ++seq;
-    if (!w) return;
-    const [marks, news] = await Promise.allSettled([
-      rt().api(`/rest/v1/app_outside_marks?workspace_id=eq.${q(w)}&or=(starred_at.not.is.null,archived_at.not.is.null)&select=post_id,starred_at,archived_at,app_outside_posts(${POST_COLS})&limit=300`, {singleFlight: false}),
-      rt().api(`/rest/v1/app_news_items?workspace_id=eq.${q(w)}&starred_at=not.is.null&select=${NEWS_COLS}&order=starred_at.desc&limit=300`, {singleFlight: false}),
-    ]);
-    if (my !== seq) return;
-    if (marks.status === 'rejected' && news.status === 'rejected') { if (!loaded) failed = true; paint(); return; }
-    rows = savedRows(marks.status === 'fulfilled' ? marks.value : [], news.status === 'fulfilled' ? news.value : []);
+    const my = ++seq;
+    const got = await readSavedRows();
+    if (my !== seq || got === undefined) return;
+    if (got === null) { if (!loaded) failed = true; paint(); return; }
+    rows = got;
     loaded = true; failed = false;
     void ensureReads(rows.map(r => ({type: r.type, id: r.id})));
     paint();

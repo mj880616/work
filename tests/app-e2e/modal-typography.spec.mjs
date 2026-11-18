@@ -1,6 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
+import {pickReportKind} from './helpers/report-filter.mjs';
 import { enterLogin } from './helpers/login-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -51,6 +52,7 @@ async function signIn(page){
 import {execFileSync} from 'node:child_process';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { closeProjectDetail } from './helpers/project-detail.mjs';
+import {addReport} from './helpers/report-add.mjs';
 // Compare retained styles on the same calendar day in both the historical device-time app and KST app.
 const fixtureNow=new Date('2026-10-05T03:00:00Z');
 const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(fixtureNow);
@@ -180,6 +182,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   if(name==='meetings'&&width>=761){
     await expect(page.locator('#meetingTypeFilter')).toHaveCount(0);
     await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
+    await pickReportKind(page,'회의'); // MTG-기본종류전체: 처음은 [종류 전체], 회의 세 칸은 [회의]에서
     const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
     await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
@@ -215,7 +218,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
 
  }
  await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expectProjectTitle(page,'Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await closeProjectDetail(page);
- await view(page,'meetings');await page.locator('#newMeetingBtn').click();await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
+ await view(page,'meetings');await addReport(page);await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
  await view(page,'team');// UI-조직추가숨김: no add button on screen, so open the same dialog through the edit delegate.
  await page.evaluate(()=>{const b=document.createElement('button');b.id='soTestOpenEdit';b.setAttribute('data-so-edit','');document.body.append(b)});await page.locator('#soTestOpenEdit').dispatchEvent('click');await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
  await view(page,'library');await page.locator('#newDocumentBtn').click();await audit(page,'documentModal');await page.locator('#documentModal').evaluate(el=>el.classList.add('hidden'));
@@ -357,6 +360,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // Main's header line under the title keeps its size; then the same current markup is compared under main's and current styles.
   const mainHeaderSize=await original.locator('#ps3Objective').evaluate(el=>getComputedStyle(el).fontSize);
   for(const id of ['ps3DetailModal','ps3WorkstreamModal']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}
+  // MULTI-다른담당자맞춤 ①: 담당조직 창은 이름·종류 두 칸이 되었다 — 지금 마크업을 main 스타일 아래에서도 같은 값으로 비교한다.
+  {const html=await page.locator('#soEditModal').evaluate(el=>el.outerHTML);await original.locator('#soEditModal').evaluate((el,html)=>{el.outerHTML=html},html)}
   await original.locator('#ps3ProgressModal').evaluate(el=>el.remove());await expect(page.locator('#ps3ProgressModal')).toHaveCount(0);
   // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
   const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
@@ -377,8 +382,6 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
   // MTG-보고창정리: 입력·수정 창의 원문 칸 이름 줄에 작은 [선택] 표시가 생겼다(원문은 필수가 아님). 같은 모양을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   await original.evaluate(()=>{for(const id of ['meetingTranscript','mrdEditTranscript'])document.getElementById(id)?.closest('label')?.insertAdjacentHTML('afterbegin','<span class="optional">안 써도 됨</span>')});
-  // MTG-녹음초안: [회의] 입력 창의 원문 칸 위에 [녹음·전사 넣기] 줄과 접힌 패널(파일 칸·전사 글 칸)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
-  {const html=await page.locator('#mtdBar').evaluate(el=>el.outerHTML+el.nextElementSibling.outerHTML);await original.locator('#meetingTranscript').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html)}
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
   const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
   await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);

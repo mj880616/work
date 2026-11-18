@@ -74,15 +74,15 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   assert.match(html, /<div class="report-head-actions"><button id="reportRecordBtn"[^>]*hidden>녹음<\/button><button id="newMeetingBtn"[^>]*>\+ 사업 보고<\/button><button id="reportMore"[^>]*aria-haspopup="true"/);
   assert.doesNotMatch(html, /id="reportPreviewBtn"/);
   // WEEKLY-메뉴짝짓기 P5: 미리보기 팝업 → 사업 보고 위 접는 칸 '이번 주 주간보고'. ⋯ 메뉴에는 사업영역 관리만.
-  assert.match(team, /render:\(\)=>'<button type="button" data-report-areas>사업영역 관리<\/button>'/);
+  assert.match(team, /render:\(\)=>'<button type="button" data-report-areas>사업영역 관리<\/button>/);
   assert.doesNotMatch(team, /data-report-preview/);
   // BIZ-위쪽정돈(B안, 11/09): 접는 칸(details·summary)이 아니라 늘 펼친 칸. 바뀐 동작이라 기대를 새로 쓴다(지우지 않음).
   // BIZ-주간보고접기: 제목 줄은 처음부터 접고 펴는 버튼(부품이 붙을 때 높이가 바뀌어 아래 목록이 밀리지 않게 — biz-week-no-shift).
-  assert.match(html, /<section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간보고" hidden><h3 class="biz-week-title"><button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="true">이번 주 주간보고 <i class="kptu-chev is-open" aria-hidden="true"><\/i><\/button><\/h3>/);
+  assert.match(html, /<section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간 보고" hidden><h3 class="biz-week-title"><button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="true">이번 주 주간 보고 <i class="kptu-chev is-open" aria-hidden="true"><\/i><\/button><\/h3>/);
   assert.doesNotMatch(html, /<details id="bizWeekBox"/);
   assert.match(team, /createAnchoredMenu\(\{id:'reportMoreMenu',className:'topline-add-menu report-more-menu'/);
   assert.match(team, /activity_kind:entryKind\(\),project_id:projectId,\.\.\.areaBody,/);
-  assert.match(team, /m\.mountWeekSummary\(el,\{meetings:\(\)=>meetings,week,fold:many,auto:weekAuto,visit:weekVisit,onFold:weekBoxFolded\}\)/); // BIZ-주간보고접기: 보고를 열면 자동 접힘·화면 떠나면 잊음·위 띠도 같이
+  assert.match(team, /weekBoxKit\.mountWeekSummary\(el,\{meetings:\(\)=>meetings,week,fold:many,auto:weekAuto,visit:weekVisit,onFold:weekBoxFolded,areas:areaCount\}\)/); // BIZ-빈표잠깐보임다시: 부품을 미리 받아 같은 순간에 그림. BIZ-주간보고접기: 보고를 열면 자동 접힘·화면 떠나면 잊음·위 띠도 같이. MULTI-사업보고빈화면: 사업영역 수(0이면 안내 한 줄)
   assert.match(mrd, /id="mrdEditArea"/); assert.match(mrd, /id="mrdAreaView"/);
   assert.match(mrd, /Object\.assign\(body,await \(mrdAreaFields\?\.body\(\{only:true\}\)/);
   // [할 일로]는 기존 할 일 만들기 길(google-tasks create)만 쓴다(기기 저장 금지는 audit 검사가 본다).
@@ -105,5 +105,5 @@ test('사업영역 선택: 보고가 있는 1단만(트리 순서), 옛 보고�
   // MTG-프로젝트합치기 3단계: [목록] 보기의 주 거르기(weekMatch)가 사업영역 거르기 바깥에 한 겹 더 걸린다(같은 두 곳).
   assert.match(team, /function reportRows\(\)\{return weekMatch\(areaMatch\(filterByReportKind\(meetings,reportChip\)\)\)\}/);
   assert.match(team, /meetingColumns\(weekMatch\(areaMatch\(filterByReportKind\(meetings,DEFAULT_KIND\)\)\)/);
-  assert.match(team, /resetPrivateState\(\)\{reportChip=DEFAULT_KIND;areaChip='all';reportWeek=null;reportWeekIn='';reportPeriod='week';reportRange=null;reportPeriodChosen=false;periodPanel='';periodDraft=null;isoDraft=null;weekNumbered=false;areaTree=null;/);
+  assert.match(team, /resetPrivateState\(\)\{reportChip=DEFAULT_CHIP;areaChip='all';reportWeek=null;reportWeekIn='';reportPeriod='week';reportRange=null;reportPeriodChosen=false;periodPanel='';periodDraft=null;isoDraft=null;weekNumbered=false;areaTree=null;/);
 });

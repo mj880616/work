@@ -98,7 +98,7 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
     }
     if(me!==run)return;
     if(rows.some(x=>x.wait)){rows=settleRows(rows);paint()}
-    if(failed)say2(failed==='daily_limit'||failed==='monthly_limit'?'오늘 AI 사용량을 다 써서 규칙으로 찾은 것만 보여요.':'AI 제안을 받지 못해 규칙으로 찾은 것만 보여요. 나머지는 폴더를 직접 선택해 주세요.');
+    if(failed)say2(failed==='ai_monthly_cap'?'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요. 규칙으로 찾은 것만 보여요.':failed==='daily_limit'||failed==='monthly_limit'?'오늘 AI 사용량을 다 써서 규칙으로 찾은 것만 보여요.':'AI 제안을 받지 못해 규칙으로 찾은 것만 보여요. 나머지는 폴더를 직접 선택해 주세요.');
   }
 
   // ---- 고치기 ----

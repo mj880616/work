@@ -1,5 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {cleanTopic, confirmedTopics, candidateRows} from './now-model.mjs';
+import {sortByName} from './name-order.mjs';
 // OUTSIDE-글상세·관심환류 ④(설계 docs/design/outside-statements.md 12.6절): '관심 주제' 칸(Now ⋯ → 관심 주제, 또는 목록 위 '관심 주제 후보 n [보기]').
 // 후보(AI가 서버에서 만듦, state='candidate', origin='ai')마다 [ㅇ 확정] [고치기] [빼기], 확정한 주제마다 [고치기] [빼기], 끝에 [+ 더하기].
 // 주간보고 규칙과 같은 후보 → 확정(수용·수정·삭제·추가). 뺀 것은 지우지 않고 'dropped'로 남겨 서버가 같은 후보를 다시 만들지 않게 한다.
@@ -78,7 +79,7 @@ export function createNowInterests({box, onChanged} = {}) {
   function paint() {
     if (!box) return;
     if (!loaded) { box.innerHTML = failed ? failHtml({retry: 'data-ni-retry'}) : waitHtml({rows: 4}); return; }
-    const cand = candidateRows(rows), conf = rows.filter(r => r.state === 'confirmed');
+    const cand = sortByName(candidateRows(rows), r => r.topic), conf = sortByName(rows.filter(r => r.state === 'confirmed'), r => r.topic); // 가나다(NEWS-출처목록가나다)
     const head = '';
     const candHtml = cand.length ? `<section class="ni-sec" aria-label="관심 주제 후보"><h3 class="ni-h">후보 ${cand.length}</h3>${cand.map(r => rowHtml(r, 'candidate')).join('')}</section>` : '';
     const confHtml = `<section class="ni-sec" aria-label="확정한 관심 주제"><h3 class="ni-h">확정</h3>${conf.length ? conf.map(r => rowHtml(r, 'confirmed')).join('') : emptyHtml('확정한 주제 없음')}</section>`;

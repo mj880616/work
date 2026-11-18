@@ -232,12 +232,15 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     return `<div class="wl-form" data-rw-form="${esc(l.id)}"><textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="보고용 글" maxlength="${M.BODY_MAX}" autocomplete="off"${ctl.invalid === 'body' ? ' aria-invalid="true"' : ''}${dis}>${esc(d.body ?? M.editBase(l))}</textarea>`
       + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>`;
   };
+  // ORG-기록입력날짜(11/14): 날짜는 글 아래 버튼 줄 왼쪽 작은 [오늘 ▾] 칩 — 누르면 수정 칸과 같은 [하루|기간|없음] + 달력 칸(record-day-edit.js)이 그 아래에.
+  const newDay = () => ({mode: 'day', ...(ctl.draft || {})});
   const recordForm = orgId => {
-    const d = ctl.draft || {}, dis = ctl.busy ? ' disabled' : '', inv = f => (ctl.invalid === f ? ' aria-invalid="true"' : '');
+    const d = newDay(), dis = ctl.busy ? ' disabled' : '', inv = f => (ctl.invalid === f ? ' aria-invalid="true"' : '');
+    const pick = ctl.dayPick ? DE.dayFormHtml(d, {prefix: 'rw', id: 'new-day', noneOn: ctl.cols.day_none === true, busy: ctl.busy, invalid: ['day', 'end_day'].includes(ctl.invalid) ? ctl.invalid : '', pick: true}) : '';
     return `<div class="wl-form" data-rw-form="new" data-rw-org="${esc(orgId)}">`
-      + `<span class="wl-f-days"><input type="date" data-rw-field="day" aria-label="날짜" value="${esc(d.day || '')}"${inv('day')}${dis}><span aria-hidden="true">~</span><input type="date" data-rw-field="end_day" aria-label="끝나는 날(선택)" value="${esc(d.end_day || '')}"${d.day ? ` min="${esc(d.day)}"` : ''}${inv('end_day')}${dis}></span>`
       + `<textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="조직 기록" maxlength="${M.RECORD_MAX}" autocomplete="off"${inv('body')}${dis}>${esc(d.body || '')}</textarea>`
-      + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>`;
+      + DE.dayChipHtml(d, {prefix: 'rw', open: !!ctl.dayPick, today: seoulDateKey(Date.now()), busy: ctl.busy})
+      + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>${pick}`;
   };
   const fold = (orgId, kind, list, label) => {
     if (!list.length) return {btn: '', box: ''};
@@ -334,12 +337,16 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   ctl.save = async () => {
     const e = ctl.editing; if (!e || ctl.busy) return;
     if (e.id === 'new') {
-      const v = M.checkRecord(ctl.draft);
-      if (!v.ok) { ctl.invalid = v.field; say(v.field === 'body' ? TEXT.noBody : v.field === 'end_day' ? TEXT.badEnd : TEXT.badDay, true); ctl.focus = `[data-rw-field="${v.field}"]`; redraw(); return; }
+      const v = M.checkRecord(newDay(), {noneOn: ctl.cols.day_none === true, today: seoulDateKey(Date.now())});
+      if (!v.ok) {
+        const field = v.field === 'mode' ? 'day' : v.field;
+        if (field !== 'body') ctl.dayPick = true;
+        ctl.invalid = field; say(field === 'body' ? TEXT.noBody : field === 'end_day' ? TEXT.badEnd : TEXT.badDay, true); ctl.focus = field === 'body' ? '[data-rw-field="body"]' : `[data-rw-form="new-day"] [data-rw-field="${field}"]`; redraw(); return;
+      }
       const user = userOf(ctl.rt);
       await work(async () => {
         const {saveOrganizationUpdate} = await import('./quick-save.js');
-        const rows = await saveOrganizationUpdate({organization_id: e.orgId, raw_text: v.value.body, created_by: user, occurred_at: M.occurredAt(v.value.day), end_day: v.value.end_day, source_kind: 'user'}, ctl.rt);
+        const rows = await saveOrganizationUpdate({organization_id: e.orgId, raw_text: v.value.body, created_by: user, ...M.newRecordFields(v.value), source_kind: 'user'}, ctl.rt);
         const item = Array.isArray(rows) ? M.recordItem({created_at: new Date().toISOString(), ...rows[0]}) : null;
         if (item) ctl.records = [...ctl.records, item];
       }, TEXT.added);
@@ -379,7 +386,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   ctl.cancel = () => { const e = ctl.editing; ctl.editing = null; ctl.draft = null; ctl.invalid = ''; ctl.focus = e ? (e.id === 'new' ? `[data-rw-add="${e.orgId}"]` : e.day ? `[data-rw-day="${CSS.escape(e.id)}"]` : '') : ''; say(''); redraw(); };
   const openAdd = (orgId, d = null) => {
     const today = seoulDateKey(Date.now());
-    ctl.editing = {orgId, id: 'new'}; ctl.draft = d || {day: today, end_day: '', body: ''}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw();
+    ctl.editing = {orgId, id: 'new'}; ctl.draft = d || {...DE.newDayDraft(today), body: ''}; ctl.dayPick = false; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw();
   };
 
   // ---- 입력 받기(화면 상자 하나에 한 번) ----
@@ -387,10 +394,13 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     if (ctl.host === host) return;
     ctl.host = host;
     host.addEventListener('input', e => { const t = e.target; if (!t.matches?.('[data-rw-field]')) return; ctl.draft = {...(ctl.draft || {}), [t.dataset.rwField]: t.value}; if (ctl.invalid === t.dataset.rwField) { ctl.invalid = ''; t.removeAttribute('aria-invalid'); } });
-    host.addEventListener('change', e => { const t = e.target; if (!t.matches?.('[data-rw-field]')) return; ctl.draft = {...(ctl.draft || {}), [t.dataset.rwField]: t.value}; if (t.dataset.rwField === 'day') t.closest('.wl-form')?.querySelector('[data-rw-field="end_day"]')?.setAttribute('min', t.value); });
+    host.addEventListener('change', e => { const t = e.target; if (!t.matches?.('[data-rw-field]')) return; ctl.draft = {...(ctl.draft || {}), [t.dataset.rwField]: t.value}; if (t.dataset.rwField === 'day') t.closest('.wl-form')?.querySelector('[data-rw-field="end_day"]')?.setAttribute('min', t.value);
+      // 새 기록 날짜 칸: 칩 글자만 바로 바꾼다(칸을 다시 그리지 않아 달력 초점이 그대로).
+      if (ctl.editing?.id === 'new' && t.dataset.rwField !== 'body') { const chip = host.querySelector('[data-rw-day-chip]'); if (chip) chip.outerHTML = DE.dayChipHtml(newDay(), {prefix: 'rw', open: !!ctl.dayPick, today: seoulDateKey(Date.now()), busy: ctl.busy}); } });
     host.addEventListener('keydown', e => {
       if (!e.target.matches?.('[data-rw-field]')) return;
       if (e.key === 'Enter' && !e.isComposing && (e.ctrlKey || e.metaKey || e.target.dataset.rwField === 'body')) { e.preventDefault(); void ctl.save(); }
+      else if (e.key === 'Escape' && ctl.editing?.id === 'new' && e.target.closest('[data-rw-form="new-day"]')) { e.preventDefault(); ctl.dayPick = false; ctl.focus = '[data-rw-day-chip]'; redraw(); }
       else if (e.key === 'Escape' && ctl.editing) { e.preventDefault(); ctl.cancel(); }
     });
     host.addEventListener('click', e => {
@@ -400,6 +410,9 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       if (d.rwAdd) { if (!ctl.disabled() && !ctl.readOnly()) openAdd(d.rwAdd); return; }
       if ('rwCancel' in d) { ctl.cancel(); return; }
       if ('rwSave' in d) { void ctl.save(); return; }
+      if ('rwDayChip' in d && ctl.editing?.id === 'new') { ctl.dayPick = !ctl.dayPick; ctl.focus = ctl.dayPick ? '[data-rw-form="new-day"] [aria-pressed="true"]' : '[data-rw-day-chip]'; redraw(); return; }
+      if ('rwDayClose' in d && ctl.editing?.id === 'new') { ctl.dayPick = false; if (['day', 'end_day'].includes(ctl.invalid)) ctl.invalid = ''; ctl.focus = '[data-rw-day-chip]'; redraw(); return; }
+      if (d.rwMode && ctl.editing?.id === 'new') { ctl.draft = DE.withMode(newDay(), d.rwMode); ctl.invalid = ''; ctl.focus = `[data-rw-form="new-day"] [data-rw-mode="${d.rwMode}"]`; redraw(); return; }
       if (d.rwMode && ctl.editing?.day) { const hit = findLine(ctl.editing.id); ctl.draft = DE.withMode(ctl.draft || (hit ? M.dayDraft(hit.line) : {}), d.rwMode); ctl.invalid = ''; ctl.focus = `[data-rw-mode="${d.rwMode}"]`; redraw(); return; }
       if (d.rwFold) { const set = d.rwFold === 'out' ? ctl.outOpen : ctl.foldOpen, org = d.rwOrg; if (set.has(org)) set.delete(org); else set.add(org); ctl.focus = `[data-rw-fold="${d.rwFold}"][data-rw-org="${CSS.escape(org)}"]`; redraw(); return; }
       const id = d.rwEdit || d.rwOrig || d.rwOut || d.rwIn || d.rwBack || d.rwOpen || d.rwKeep || d.rwEvent || d.rwRaw || d.rwDay || d.rwDel;
@@ -419,7 +432,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       if (d.rwEvent) { void import('./event-open.js').then(m => m.openGoogleEvent(l.key, l.cal)).catch(() => say('일정을 열지 못했어요.', true)); return; }
       if (ctl.readOnly()) return;
       if (d.rwDel) { if (l.kind === 'org_update') void deleteLine(hit, box?.querySelector('summary') || b); return; }
-      if (d.rwKeep) { openAdd(hit.org, {day: l.day, end_day: l.end_day || '', body: l.full || l.orig || l.text}); return; }
+      if (d.rwKeep) { openAdd(hit.org, {mode: l.end_day ? 'range' : 'day', day: l.day, end_day: l.end_day || '', body: l.full || l.orig || l.text}); return; }
       if (d.rwDay) { if (l.kind === 'org_update') openDay(hit.org, l); return; }
       if (d.rwEdit) { ctl.editing = {orgId: hit.org, id}; ctl.draft = {body: M.editBase(l)}; ctl.invalid = ''; ctl.focus = '[data-rw-field="body"]'; say(''); redraw(); return; }
       if (d.rwOrig) void mark(l, {report_body: null}, TEXT.orig);

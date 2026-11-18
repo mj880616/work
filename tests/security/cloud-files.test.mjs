@@ -18,7 +18,7 @@ const ENV={SUPABASE_URL:SB,SUPABASE_SERVICE_ROLE_KEY:'synthetic-service-key',SUP
  CLOUD_FILES_CRON_SECRET:'synthetic-cron-secret-0123456789abcdef'};
 const DL='https://dl.example-1drv.test/x';
 
-function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS,gdScope=FULL,odScope='Files.ReadWrite offline_access User.Read',odConn=true,env=ENV}={}){
+function world({gdConn={[WS]:'synthetic-gd-refresh'},gdScope=FULL,odScope='Files.ReadWrite offline_access User.Read',odConn=true,env=ENV}={}){
  let clock=Date.parse('2026-11-02T08:00:00Z');
  const db={items:[],sync:[],stars:[],jobs:[],jobup:[],conn:odConn?[{workspace_id:WS,refresh_token:'synthetic-refresh',scope:odScope}]:[]};
  const gd={root:'ROOTG',start:'100',pages:[
@@ -66,13 +66,13 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
    if(u.pathname==='/functions/v1/cloud-files'){assert.equal(h.Authorization,'Bearer '+ENV.SUPABASE_ANON_KEY,'tick passes the gate with the anon key only');
     ticks.push({sig:h[TICK_HEADER],body:JSON.parse(init.body)});return ok({ok:true},202);}
    if(u.pathname==='/auth/v1/user'){const t=h.Authorization?.slice(7);return t===JWT?ok({id:USER}):t===JWT2?ok({id:OTHER}):ok({msg:'bad'},401);}
-   if(u.pathname==='/rest/v1/rpc/app_my_features'){assert.notEqual(h.Authorization,'Bearer '+ENV.SUPABASE_SERVICE_ROLE_KEY,'features use the user token');return ok(h.Authorization==='Bearer '+JWT?features:[]);}
    assert.equal(h.Authorization,'Bearer '+ENV.SUPABASE_SERVICE_ROLE_KEY);
-   if(u.pathname==='/rest/v1/rpc/app_operator_feature_workspace'){assert.equal(JSON.parse(init.body).p_feature,'files');return ok(allowed);}
+   assert.ok(!u.pathname.startsWith('/rest/v1/rpc/'),'no feature or operator RPC: '+u.pathname);
    const name=u.pathname.replace('/rest/v1/',''),p=u.searchParams;
    if(name==='app_workspace_members'){const id=p.get('user_id').slice(3);return ok(id===USER?[{workspace_id:WS}]:id===OTHER?[{workspace_id:WS2}]:[]);}
-   if(name==='app_workspaces')return ok(driveWs?[{id:driveWs}]:[]);
-   if(name==='public_policy_drive_config')return ok([{google_client_id:'c',google_client_secret:'s',google_refresh_token:'synthetic-gd-refresh'}]);
+   // 앱 값만 id=1에서(갱신 토큰 칸은 읽지 않음). 구글 갱신 토큰은 작업공간별 연결 행에서.
+   if(name==='public_policy_drive_config'){assert.ok(!/refresh/.test(p.get('select')),'id=1 refresh token is never read');return ok([{google_client_id:'c',google_client_secret:'s'}]);}
+   if(name==='app_drive_connections'){const ws=p.get('workspace_id').slice(3);return ok(gdConn[ws]?[{google_refresh_token:gdConn[ws]}]:[]);}
    const t=T[name];assert.ok(t,name);
    const rep=/representation/.test(h.Prefer||'');
    if(method==='GET'){const r=db[t].filter(x=>match(x,p));if(/count=exact/.test(h.Prefer||'')){const n=r.length,lim=Number(p.get('limit')||n);return ok(r.slice(0,lim),200,{'content-range':n?`0-${Math.min(n,lim)-1}/${n}`:'*/0'});}return ok(r);}
@@ -216,19 +216,28 @@ function world({features=['calls','files','gdrive_photos'],allowed=WS,driveWs=WS
 }
 const j=async r=>({status:r.status,body:await r.json()});
 
-test('gate: OPTIONS, login, owner, files feature; Drive owner mismatch blocks only Google',async()=>{
+test('gate: OPTIONS, login, owner — no operator feature key; each workspace uses only its own connections (S62-11)',async()=>{
  const w=world();
  assert.equal((await w.handler(new Request('https://fn.example.test',{method:'OPTIONS'}))).status,200);
  assert.equal((await w.handler(new Request('https://fn.example.test',{method:'POST',body:'{}'}))).status,401);
  assert.equal((await j(await w.post({action:'status'},'nope'))).status,401);
- assert.deepEqual(await j(await w.post({action:'status'},JWT2)),{status:403,body:{ok:false,error:'feature_required'}});
- const nf=world({features:['calls','gdrive_photos']});
- assert.deepEqual(await j(await nf.post({action:'status'})),{status:403,body:{ok:false,error:'feature_required'}});
  assert.equal((await w.post({action:'nope'})).status,400);
  assert.equal((await w.post({action:'status'},JWT,{'content-type':'text/plain'})).status,415);
- const mis=world({driveWs:WS2});
- const s=await j(await mis.post({action:'sync'}));
- assert.equal(s.status,403,'Drive owner mismatch is a hard stop');
+ // 다른 작업공간 owner(운영자 기능 키 없음): 문은 지나고 자기 작업공간 상태만. 구글 연결이 없으면 구글은 '연결 안 됨'.
+ const o=await j(await w.post({action:'status'},JWT2));
+ assert.equal(o.status,200);assert.equal(o.body.gd.connected,false);assert.equal(o.body.od.connected,false);
+ const gs=await j(await w.post({action:'sync',source:'gd'},JWT2));
+ assert.ok(!w.calls.some(c=>c.host==='oauth2.googleapis.com'),'no token exchange without own Google connection: '+JSON.stringify(gs));
+ // 자기 구글 연결이 있으면 그 연결 토큰으로만(화면이 보낸 작업공간 값은 무시).
+ const both=world({gdConn:{[WS]:'synthetic-gd-refresh',[WS2]:'synthetic-gd-refresh-other'}});
+ const r2=await j(await both.post({action:'sync',source:'gd',workspace_id:WS},JWT2));assert.equal(r2.status,200);
+ const sent=both.calls.filter(c=>c.host==='oauth2.googleapis.com').length;assert.equal(sent,1);
+ assert.ok(both.calls.filter(c=>c.path==='/rest/v1/app_drive_connections').every(c=>c.search.startsWith(`?workspace_id=eq.${WS2}`)),'only the caller workspace connection row');
+ assert.ok(both.db.items.length&&both.db.items.every(x=>x.workspace_id===WS2||x.source==='od'),'index rows written for the caller workspace');
+ assert.ok(both.db.items.filter(x=>x.source==='gd').every(x=>x.workspace_id===WS2));
+ const mis=world({gdConn:{}});
+ const s=await j(await mis.post({action:'sync',source:'gd'}));
+ assert.equal(s.body.gd?.error??s.body.error,'gd_not_connected','no own Google connection: never the project-wide one');
  const st=await j(await mis.post({action:'status'}));
  assert.equal(st.body.gd.connected,false);assert.equal(st.body.od.connected,true);
 });
@@ -323,7 +332,7 @@ test('thumb, media, preview, open-url: only indexed items; risky types become do
  assert.deepEqual((await j(await w.post({action:'open-url',source:'gd',id:'GF1'}))).body,{ok:true,url:'https://drive.google.com/file/d/GF1/view'});
  assert.deepEqual((await j(await w.post({action:'open-url',source:'od',id:'OX!3'}))).body,{ok:true,url:'https://onedrive.live.com/?id=x'});
  // 다른 작업공간 사람은 같은 id여도 못 받는다(문에서 막힘).
- assert.equal((await w.post({action:'media',source:'gd',id:'GA'},JWT2)).status,403);
+ assert.deepEqual(await j(await w.post({action:'media',source:'gd',id:'GA'},JWT2)),{status:404,body:{ok:false,error:'not_in_index'}},'other workspace: only its own index — this workspace item is not there');
 });
 
 test('helpers: rows, open url hosts, served types',()=>{
@@ -353,8 +362,10 @@ test('static: no permanent delete, trash emptying, sharing links, permission or 
  assert.match(code,/gd_trash", token, `\$\{DRIVE\}\/files\/[^`]+`, "PATCH", \{ trashed: true \}\)/);
  // 모든 쓰기 action은 confirm:true를 먼저 본다.
  for(const a of ['rename','mkdir','move','trash','across','copy','job_add','job_pause','job_resume'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
- assert.match(code,/FEATURE = "files"/);
- assert.match(code,/includes\(FEATURE\)/);
+ // S62-11: 운영자 기능 키·단 하나 작업공간 판정 없음. 구글 갱신 토큰은 작업공간별 연결 행에서만.
+ assert.doesNotMatch(code,/app_my_features|app_operator_feature_workspace|DRIVE_WORKSPACE_SLUG|kptu-work|feature_required"\)/);
+ assert.doesNotMatch(code,/public_policy_drive_config[^"`]*google_refresh_token/);
+ assert.match(code,/app_drive_connections\?workspace_id=eq\.\$\{workspaceId\}/);
  assert.match(read('supabase/functions/cloud-files/index.ts'),/verify_jwt=true/);
  assert.doesNotMatch(code,/console\.log/);
 });
@@ -365,7 +376,7 @@ test('write gate: confirm:true required, other workspace blocked, only indexed i
  const n=w.writes.length;
  assert.deepEqual(await j(await w.post({action:'rename',source:'od',id:'OX!3',name:'새 이름.docx'})),{status:400,body:{ok:false,error:'confirm_required'}});
  assert.equal((await w.post({action:'trash',source:'od',ids:['OX!3'],confirm:'yes'})).status,400);
- assert.equal((await w.post({action:'rename',source:'od',id:'OX!3',name:'x.docx',confirm:true},JWT2)).status,403,'other workspace');
+ assert.deepEqual(await j(await w.post({action:'rename',source:'od',id:'OX!3',name:'x.docx',confirm:true},JWT2)),{status:404,body:{ok:false,error:'not_in_index'}},'other workspace: only its own index — this workspace item is not there');
  assert.equal((await w.post({action:'rename',source:'od',id:'OX!3',name:'x.docx',confirm:true},'nope')).status,401);
  assert.equal((await w.post({action:'rename',source:'od',id:'NOPE!1',name:'x',confirm:true})).status,404);
  assert.equal((await w.post({action:'trash',source:'gd',ids:['GA','NOPE'],confirm:true})).status,404,'one unknown id stops the whole batch');
@@ -589,16 +600,14 @@ test('folder: 폴더만 클라우드에서 바로 읽어 색인에 합침 — �
 });
 
 // FILES-통합 2-① 복사: 쓰기 문(confirm·주인·운영자 기능·색인 안)은 다른 쓰기와 같다. 원본은 그대로, 같은 이름은 번호를 붙여 둘 다 둔다(H-3).
-test('copy gate: confirm:true required, other workspace and missing files feature refused, only indexed items; nothing written',async()=>{
+test('copy gate: confirm:true required, other workspace only sees its own index, only indexed items; nothing written',async()=>{
  const w=world();
  await w.post({action:'sync'});
  const n=w.writes.length;
  assert.deepEqual(await j(await w.post({action:'copy',source:'od',id:'OX!3',to:null})),{status:400,body:{ok:false,error:'confirm_required'}});
  assert.equal((await w.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:'yes'})).status,400);
- assert.deepEqual(await j(await w.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:true},JWT2)),{status:403,body:{ok:false,error:'feature_required'}},'not the owner of this workspace');
+ assert.deepEqual(await j(await w.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:true},JWT2)),{status:404,body:{ok:false,error:'not_in_index'}},'other workspace: only its own index');
  assert.equal((await w.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:true},'nope')).status,401);
- const nf=world({features:['calls','gdrive_photos']});
- assert.deepEqual(await j(await nf.post({action:'copy',source:'od',id:'OX!3',to:null,confirm:true})),{status:403,body:{ok:false,error:'feature_required'}},'operator feature files required');
  assert.equal((await w.post({action:'copy',source:'od',id:'NOPE!1',to:null,confirm:true})).status,404);
  assert.equal((await w.post({action:'copy',source:'od',id:'OX!3',to:'OH!4',confirm:true})).status,400,'destination must be a folder');
  assert.equal((await j(await w.post({action:'copy',source:'od',id:'OX!3',to_source:'zz',to:null,confirm:true}))).body.error,'dest_invalid');
@@ -690,15 +699,13 @@ test('move numbered:true: same name in the destination gets a number instead of 
 // ---- FILES-통합 2-② 전송 작업표(app_cloud_jobs) ----
 const bigFile=(n,seed=1)=>{const b=Buffer.allocUnsafe(n);for(let i=0;i<n;i+=4096)b.fill((i/4096+seed)&255,i,Math.min(n,i+4096));return b;};
 
-test('jobs gate: confirm:true, login, owner, files feature; malformed lists refused; same-cloud move is not a job; nothing written',async()=>{
+test('jobs gate: confirm:true, login, owner; malformed lists refused; same-cloud move is not a job; nothing written',async()=>{
  const w=world();
  await w.post({action:'sync'});
  const add=(b,jwt)=>w.post({action:'job_add',kind:'copy',to_source:'od',to:null,items:[{source:'gd',id:'GA'}],...b},jwt);
  assert.deepEqual(await j(await add({})),{status:400,body:{ok:false,error:'confirm_required'}});
  assert.equal((await add({confirm:true},'nope')).status,401);
- assert.equal((await add({confirm:true},JWT2)).status,403,'other workspace (no files feature)');
- const nf=world({features:['calls']});
- assert.equal((await nf.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',items:[{source:'gd',id:'GA'}]})).status,403);
+ assert.deepEqual(await j(await add({confirm:true},JWT2)),{status:404,body:{ok:false,error:'not_in_index'}},'other workspace: only its own index — this workspace item is not there');
  for(const bad of [{items:[]},{items:'x'},{kind:'delete'},{to_source:'ph'},{items:[{source:'gd',id:'GA'},{source:'gd',id:'GA'}]},
   {items:[{source:'gd',id:'GA',numbered:true,skip:true}]},{items:[{source:'gd',id:'GA',extra:1}]},{items:[{source:'gd',id:'GA',big:'yes'}]},
   {kind:'move',to_source:'gd',items:[{source:'gd',id:'GA'}]},{items:Array.from({length:201},(_,i)=>({source:'gd',id:'G'+i}))}])
@@ -709,7 +716,7 @@ test('jobs gate: confirm:true, login, owner, files feature; malformed lists refu
   assert.deepEqual(await j(await w.post({action:a,all:true})),{status:400,body:{ok:false,error:'confirm_required'}});
   assert.equal((await w.post({action:a,confirm:true,ids:['not-a-uuid']})).status,400);
  }
- assert.equal((await w.post({action:'job_list'},JWT2)).status,403);
+ assert.deepEqual(await j(await w.post({action:'job_list'},JWT2)),{status:200,body:{ok:true,jobs:[]}},'other workspace: only its own (empty) job list');
  assert.equal(w.db.jobs.length,0);assert.equal(w.writes.length,0);assert.equal(w.ticks.length,0);
 });
 
@@ -731,10 +738,10 @@ test('job tick: only with the server HMAC key; bad, expired or other-key ticks d
  assert.equal(p.body.jobs[0].status,'paused');
  assert.equal(await w.runTick(),202);
  assert.equal(w.db.jobs[0].status,'paused');assert.equal(w.writes.length,0,'paused job untouched');
- // 기능이 꺼진 작업공간은 이어 가지 않는다(사람 없는 실행도 매번 본다).
+ // 만든 사람이 지금 그 작업공간 owner가 아니면 이어 가지 않는다(사람 없는 실행도 줄마다 다시 본다).
  await w.post({action:'job_resume',confirm:true,all:true});
- const off=world({allowed:WS2});off.db.jobs.push({...w.db.jobs[0]});
- assert.equal(await off.runTick(),202);assert.equal(off.db.jobs[0].status,'queued');assert.equal(off.writes.length,0);
+ const off=world();off.db.jobs.push({...w.db.jobs[0],created_by:OTHER});
+ assert.equal(await off.runTick(),202);assert.equal(off.db.jobs[0].status,'failed');assert.equal(off.writes.length,0);
  // 사람이 만들지 않은(자리에 없는) 상태 값은 받지 않는다: 'done'·'failed'·'skipped' 줄도 잇지 않는다.
  for(const st of ['done','failed','skipped']){const z=world();z.db.jobs.push({...w.db.jobs[0],status:st});assert.equal(await z.runTick(),202);assert.equal(z.db.jobs[0].status,st);assert.equal(z.writes.length,0);}
 });
@@ -772,7 +779,7 @@ test('jobs: small copies and moves run in order on the server; same name numbere
  const text=JSON.stringify(l.body);
  for(const bad of ['upload','lease_until','created_by','workspace_id','hash_state','1drv.com','upload_id'])assert.ok(!text.includes(bad),bad);
  // 다른 작업공간 사람은 0줄(문에서 막힘).
- assert.equal((await w.post({action:'job_list'},JWT2)).status,403);
+ assert.deepEqual(await j(await w.post({action:'job_list'},JWT2)),{status:200,body:{ok:true,jobs:[]}},'other workspace sees only its own (empty) job list');
 });
 
 test('jobs: big file (over 200MB) goes in 10MB pieces over several server runs, resumes after a cut from the broken piece, hash checked',async()=>{
@@ -906,7 +913,7 @@ test('cron: a run that died with the screen closed is picked up by the schedule 
  assert.deepEqual(await w.runCron(),{status:200,body:{ok:true,active:0,kicked:false}});assert.equal(w.writes.length,n);
 });
 
-test('cron: leaves paused, finished, device, fresh, other-workspace and feature-off jobs alone',async()=>{
+test('cron: leaves paused, finished, device and fresh jobs alone; other workspaces only with their own owner and connection',async()=>{
  const w=world();
  await w.post({action:'sync'});
  await w.post({action:'job_add',confirm:true,kind:'copy',to_source:'od',to:null,items:[{source:'gd',id:'GA'}]});
@@ -921,12 +928,15 @@ test('cron: leaves paused, finished, device, fresh, other-workspace and feature-
   const before=JSON.stringify(z.db.jobs);
   assert.deepEqual((await z.runCron()).body,{ok:true,active:0,kicked:false},JSON.stringify(row));
   assert.equal(JSON.stringify(z.db.jobs),before);assert.equal(z.writes.length,0);}
- // 운영자(files) 작업공간이 아닌 곳의 줄은 보지 않는다.
- const other=world();other.db.jobs.push({...base,workspace_id:WS2,updated_at:old,created_at:old});
- assert.deepEqual((await other.runCron()).body,{ok:true,active:0,kicked:false});assert.equal(other.db.jobs[0].status,'queued');assert.equal(other.writes.length,0);
- // 기능이 꺼졌으면(서버 허용 표에 없음) 아무것도 하지 않는다.
- const off=world({allowed:null});off.db.jobs.push({...base,updated_at:old,created_at:old});
- assert.deepEqual((await off.runCron()).body,{ok:true,active:0,kicked:false});assert.equal(off.db.jobs[0].status,'queued');assert.equal(off.writes.length,0);
+ // S62-11: 다른 작업공간의 멈춘 줄도 예약이 깨운다(작업공간은 서버가 표에서 찾음). 그 작업공간 연결로만 — 구글 연결이 없으면 실패로 끝나고
+ // 다른 작업공간 토큰은 쓰지 않는다. 그 작업공간 owner가 아닌 사람이 만든 줄은 이어 가지 않는다.
+ const other=world();other.db.jobs.push({...base,workspace_id:WS2,created_by:OTHER,updated_at:old,created_at:old});
+ assert.deepEqual((await other.runCron()).body,{ok:true,active:1,kicked:true});
+ assert.equal(other.db.jobs[0].status,'failed');assert.equal(other.writes.length,0);
+ assert.ok(!other.calls.some(c=>c.host==='oauth2.googleapis.com'),'no token exchange with another workspace connection');
+ const stray=world();stray.db.jobs.push({...base,workspace_id:WS2,updated_at:old,created_at:old});
+ assert.deepEqual((await stray.runCron()).body,{ok:true,active:1,kicked:true});
+ assert.equal(stray.db.jobs[0].status,'failed');assert.equal(stray.writes.length,0);
  // 같은 줄을 둘이 동시에 잡지 않는다: 예약 둘이 겹쳐도 lease를 먼저 잡은 쪽만 일한다.
  const two=world();addSmall(two);await two.post({action:'sync'});
  two.db.jobs.push({...base,src_id:'GB',name:'회의.docx',size_bytes:smallBytes.length,src_hash:'md5:'+createHash('md5').update(smallBytes).digest('hex'),updated_at:old,created_at:old});
@@ -940,14 +950,12 @@ const upOpen=(w,b={},jwt=JWT,headers={Origin:WEB})=>w.post({action:'upload_open'
 // 브라우저가 자리에 조각을 다 보낸 것처럼(이 시험은 Edge만 본다 — 파일은 Edge를 거치지 않는다).
 const browserSends=(w,url,bytes)=>{w.uploads[url].bytes=Buffer.from(bytes);};
 
-test('upload gate: confirm, login, owner, files feature, Web2 origin only, size rules, indexed folder; nothing opened or written',async()=>{
+test('upload gate: confirm, login, owner, Web2 origin only, size rules, indexed folder; nothing opened or written',async()=>{
  const w=world();
  await w.post({action:'sync'});
  assert.deepEqual(await j(await w.post({action:'upload_open',to_source:'gd',to:'GF1',name:'a.pdf',size:1})),{status:400,body:{ok:false,error:'confirm_required'}});
  assert.equal((await upOpen(w,{},'nope')).status,401);
- assert.equal((await upOpen(w,{},JWT2)).status,403,'other workspace (no files feature)');
- const nf=world({features:['calls']});
- assert.equal((await upOpen(nf)).status,403,'files feature required');
+ assert.deepEqual(await j(await upOpen(w,{},JWT2)),{status:404,body:{ok:false,error:'not_in_index'}},'other workspace: only its own index — this workspace item is not there');
  assert.deepEqual(await j(await upOpen(w,{},JWT,{Origin:'https://evil.example'})),{status:403,body:{ok:false,error:'origin_invalid'}});
  assert.deepEqual(await j(await upOpen(w,{size:2*1024*1024*1024+1,big:true})),{status:413,body:{ok:false,error:'too_large'}});
  assert.deepEqual(await j(await upOpen(w,{size:BIG_BYTES+1})),{status:400,body:{ok:false,error:'big_not_confirmed'}},'over 200MB needs the H-4 answer');
@@ -989,7 +997,7 @@ test('upload to Google: one slot per job, opened with the Web2 origin; slot addr
  assert.equal((await w.post({action:'upload_progress',confirm:true,id:job.id,sent:bytes.length+1})).status,400);
  assert.equal((await j(await w.post({action:'upload_progress',confirm:true,id:job.id,sent:5}))).body.job.sent_bytes,5);
  // 다른 작업공간 사람은 이 줄을 못 건드린다.
- assert.equal((await w.post({action:'upload_done',confirm:true,id:job.id},JWT2)).status,403);
+ assert.deepEqual(await j(await w.post({action:'upload_done',confirm:true,id:job.id},JWT2)),{status:404,body:{ok:false,error:'job_not_found'}},'other workspace: only its own index — this workspace item is not there');
  browserSends(w,url,bytes);
  const d=await j(await w.post({action:'upload_done',confirm:true,id:job.id}));
  assert.equal(d.status,200);assert.equal(d.body.job.status,'done');assert.equal(d.body.job.result_item_id,'GUP');
@@ -1087,13 +1095,11 @@ test('upload: zero-byte file is made by the server right away (no slot to the br
  assert.equal(w.db.jobup.length,0);
 });
 
-test('star: confirm, owner, files feature, indexed items only; on/off are idempotent and only touch this workspace',async()=>{
+test('star: confirm, owner, indexed items only; on/off are idempotent and only touch this workspace',async()=>{
  const w=world();
  await w.post({action:'sync'});
  assert.deepEqual(await j(await w.post({action:'star',source:'gd',ids:['GA'],on:true})),{status:400,body:{ok:false,error:'confirm_required'}});
- assert.equal((await w.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:true},JWT2)).status,403);
- const nf=world({features:['calls']});
- assert.equal((await nf.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:true})).status,403);
+ assert.deepEqual(await j(await w.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:true},JWT2)),{status:404,body:{ok:false,error:'not_in_index'}},'other workspace: only its own index — this workspace item is not there');
  for(const bad of [{ids:[]},{ids:['GA','GA']},{on:'yes'},{source:'dev'},{ids:['a/b']},{ids:Array.from({length:201},(_,i)=>'G'+i)}])
   assert.equal((await w.post({action:'star',confirm:true,source:'gd',ids:['GA'],on:true,...bad})).status,400,JSON.stringify(bad).slice(0,40));
  assert.equal((await w.post({action:'star',confirm:true,source:'gd',ids:['NOPE'],on:true})).status,404,'only indexed items');
@@ -1125,12 +1131,12 @@ test('status: while the first scan runs, received counts rows seen in this scan 
  assert.equal(w.db.items.filter(x=>x.source==='gd').length,40-[0,7,14,21,28,35].filter(n=>n%5!==0).length,'남이 준 파일은 색인에 없음');
 });
 
-test('S54-16: access tokens kept per source+workspace+refresh fingerprint; gate, gdOwner and connection read still run every request',async()=>{
+test('S54-16: access tokens kept per source+workspace+refresh fingerprint; gate and connection reads still run every request',async()=>{
  const w=world();
  await w.post({action:'sync'});
  const gdT=()=>w.calls.filter(c=>c.host==='oauth2.googleapis.com').length;
  const odT=()=>w.calls.filter(c=>c.host==='login.microsoftonline.com').length;
- const owner=()=>w.calls.filter(c=>/app_operator_feature_workspace/.test(c.path||'')).length;
+ const owner=()=>w.calls.filter(c=>/app_drive_connections/.test(c.path||'')).length;
  const conn=()=>w.calls.filter(c=>/app_onedrive_connections/.test(c.path||'')&&(c.method||'GET')==='GET').length;
  const g0=gdT(),o0=odT(),ow0=owner(),c0=conn();
  for(let i=0;i<3;i++){
@@ -1138,10 +1144,10 @@ test('S54-16: access tokens kept per source+workspace+refresh fingerprint; gate,
   assert.equal((await w.post({action:'media',source:'od',id:'OH!4'},JWT,{range:'bytes=0-1'})).status,206);
  }
  assert.equal(gdT(),g0,'google token reused');assert.equal(odT(),o0,'onedrive token reused');
- assert.equal(owner(),ow0+3,'drive owner checked every google request');
+ assert.equal(owner(),ow0+3,'own Google connection row read every google request');
  assert.ok(conn()>=c0+3,'onedrive connection row read every request');
- // 다른 작업공간은 문에서 막히고 토큰을 받지 않는다.
- assert.equal((await w.post({action:'media',source:'gd',id:'GA'},JWT2)).status,403);
+ // 다른 작업공간은 자기 색인에 없는 항목이라 거절되고 내 토큰을 받지 않는다.
+ assert.equal((await w.post({action:'media',source:'gd',id:'GA'},JWT2)).status,404);
  assert.equal(gdT(),g0);
  // 50분이 지나면 새로 받는다.
  w.tick(51*60*1000);

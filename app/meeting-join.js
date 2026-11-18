@@ -19,15 +19,12 @@
 // - PR-5(설계 3-3절 (다)(라)): 나머지 두 길에도 같은 물음. 어느 길이든 고르는 것은 사람이고, 서버가 잇기를 모르면 묻지 않고 지금 길.
 //   (다) 회의자료 그 자리 전사(녹음 띠 kind attached): 어느 보고인지 이미 정해진 길 — 그 회의에 회의록 전문이 이미 있을 때만 [수정 창에 넣기] /
 //        [그 보고에 잇기](join_start + 그 전사 작업 id). 안 고르면 지금처럼 그 회의 [수정] 창에 넣고 저장은 사람이.
-//   (라) [회의] 입력 창의 [녹음·전사 넣기]: [녹음 요약하기] 전에, 같은 날 회의록 전문이 있는 [회의] 보고가 있으면 PR-3과 같은 세 버튼 물음.
-//        [그 보고에 잇기] = join_text(화면이 가진 전사 글 + 붙이기로 한 녹음 작업 id) — 입력 창은 부른 쪽이 닫는다. [새로 만들기]는 지금처럼 화면 요약.
-//        이 길에는 녹음 결과 id도 보고 id도 없어 서버 join_candidates를 부를 수 없다(Edge는 {job_id}|{meeting_id}만 받음). 그래서 같은 날
-//        '회의록 전문이 있는' [회의] 보고를 내 로그인으로 읽어 묻는다 — 잇기 서버가 앞 글로 쓰는 칸이고, 받을지는 서버가 다시 확인한다.
+//   (라) [회의] 입력 창의 전사 글 물음은 S61-24(REC-요약단추삭제)에서 화면과 함께 뺐다.
 // 글 내용은 서버로 다시 보내지 않고(잇기는 id만), 기기에 저장하지 않는다. 바깥 행동(할 일·일정·공유·삭제)을 저절로 하지 않는다(3-6절).
-import {askActions,askChoice,askConfirm,notify} from './small-notice.js';
+import {askChoice,askConfirm,notify} from './small-notice.js';
 import {putNotice,removeNotice} from './notice-bar.js';
 import {joinFailText,joinCanRetry,joinErrorCode,joinUnknown,undoFailText} from './meeting-server-job.mjs';
-import {atMs,seoulDayKey,seoulDayRange,whenText,askText,whoText,mergeCandidates,nearest,pickRows,lineState,progressText,doneText,stopText,labelWhen,reportName,undoChoice,UNDO_LABEL,candidateItems,hasJoinMark,isMeetingReport,watchJoin} from './meeting-join-model.mjs';
+import {atMs,seoulDayKey,whenText,mergeCandidates,pickRows,lineState,progressText,doneText,stopText,labelWhen,reportName,undoChoice,UNDO_LABEL,candidateItems,hasJoinMark,isMeetingReport,watchJoin} from './meeting-join-model.mjs';
 
 (()=>{
 'use strict';
@@ -73,64 +70,8 @@ function fromName(sourceId,targetId){const s=rowOf(sourceId);if(!s)return '';ret
 
 // ---- 물음(3-3절) ----
 // S61-5 REC-전사삭제(명진 11/13): 녹음 정리 결과를 열기 전에 묻던 길(ask·회의자료 그 자리 전사·join_start {job_id})은 뺐다.
-//   녹음은 전사하지 않으므로 새 녹음 결과가 없다. 지난 잇기 줄·되돌리기, 보고 합치기, 전사 글 [녹음 요약하기] 물음(askTranscript)은 그대로다.
-// 서버가 잇기를 아는가. 앱을 연 뒤 join_list 답을 아직 못 받았으면(잠깐 끊김 포함) 지금 한 번 묻는다. 모르면 false(지금 길).
-async function joinReady(){
-  if(known===null&&rt()?.api){try{const r=await call('join_list',{});known=r?.ok===true&&Array.isArray(r.jobs)}catch(e){if(joinUnknown(e))known=false}}
-  return known===true;
-}
-// ---- PR-5 (라) [회의] 입력 창의 [녹음·전사 넣기] ----
-// 돌려줌: 'new'(지금처럼 화면 요약 — 같은 날 보고가 없거나 서버가 모르거나 [새로 만들기]) · 'joined'(join_text 시작, 부른 쪽이 입력 창을 닫음) ·
-// 'later'(물음을 닫았거나 시작하지 못함 — 글은 입력 창에 그대로).
-async function askTranscript({text='',at='',records=[],anchor:near=null}={}){
-  const body=String(text||'');
-  if(!body.trim()||!rt()?.api)return 'new';
-  const startMs=atMs(at),dayMs=Number.isFinite(startMs)?startMs:Date.now();
-  let cands=[];
-  try{cands=await transcriptReports(dayMs)}catch{return 'new'}
-  if(!cands.length)return 'new';
-  if(!(await joinReady()))return 'new';
-  const box=()=>near?.isConnected?near:null;
-  for(;;){
-    const first=nearest(cands,startMs);
-    const pick=await askActions(box(),{text:askText(dayMs,Date.now(),'회의록 전문이 있는 보고'),note:whoText(first,dayMs),className:'rec-join-ask',actions:[
-      {value:'pick',label:'다른 보고 선택',kind:'row-act'},{value:'new',label:'새로 만들기',kind:'secondary'},{value:'join',label:'그 보고에 잇기',kind:'primary'}]});
-    if(pick==null)return 'later';
-    if(pick==='new')return 'new';
-    let target=first.id;
-    if(pick==='pick'){
-      const others=listed();for(const m of others)if(m?.id&&!rows.has(String(m.id)))rows.set(String(m.id),m);
-      target=await askChoice(box(),{text:'어느 보고에 이을까요? · 같은 날 보고부터',choices:pickRows(cands,others,{startMs,dayMs})});
-      if(!target)continue;
-    }
-    return await startText(target,body,(Array.isArray(records)?records:[]).filter(id=>UUID.test(String(id||''))));
-  }
-}
-// 같은 날(서울) 회의록 전문이 있는 [회의] 보고(내 로그인 — owner RLS·휴지통 숨김). 글은 받지 않는다.
-async function transcriptReports(dayMs){
-  const [from,to]=seoulDayRange(dayMs),w=ws();
-  const got=await rt().api(`/rest/v1/app_meetings?${w?`workspace_id=eq.${enc(w)}&`:''}meeting_at=gte.${enc(from)}&meeting_at=lt.${enc(to)}&notes=not.is.null&notes=neq.&select=${MEETING_FIELDS}&order=meeting_at.asc&limit=50`,{singleFlight:false});
-  const list=(Array.isArray(got)?got:[]).filter(m=>m?.id&&UUID.test(String(m.id))&&!m.deleted_at&&isMeetingReport(m));
-  for(const m of list)rows.set(String(m.id),m);
-  return list.map(m=>({id:String(m.id),seconds:0,meeting:m}));
-}
-// join_text: 몸통 = 전사 글 그대로(JSON 아님), 머리글 = 고른 보고 id + 붙일 녹음 작업 id. 작업공간·소유 값은 싣지 않는다(서버가 로그인으로).
-async function startText(targetId,text,records){
-  let r;
-  try{
-    r=await rt().api(`${FN}?action=join_text`,{method:'POST',body:new Blob([text],{type:'text/plain;charset=utf-8'}),singleFlight:false,timeoutMs:120000,
-      headers:{'x-target-meeting-id':String(targetId),...(records.length?{'x-record-jobs':records.join(',')}:{})}});
-  }catch(e){
-    if(joinUnknown(e)){known=false;return 'new'}
-    console.warn('meeting join text failed',e?.status||'');
-    notify(joinFailText(joinErrorCode(e)),{error:true,note:'전사 글은 입력 창에 그대로 있어요.'});
-    return 'later';
-  }
-  if(!r?.job?.id)return 'new';
-  follow(r.job);
-  return 'joined';
-}
-
+//   녹음은 전사하지 않으므로 새 녹음 결과가 없다. 지난 잇기 줄·되돌리기, 보고 합치기는 그대로다.
+// S61-24 REC-요약단추삭제(명진 11/13 '빼자'): [회의] 입력 창의 전사 글 요약 전 물음((라), 글로 잇기)도 화면과 함께 뺐다.
 // ---- 진행 줄·끝 줄(맨 위 알림 줄 손님) ----
 const lineKey=id=>`join:${id}`;
 function dropLine(id){if(lines.has(id)){lines.delete(id);removeNotice(lineKey(id))}}
@@ -370,7 +311,7 @@ window.addEventListener('kptu:session-changed',e=>{
 function rewatch(){if(document.visibilityState==='hidden')return;for(const l of [...lines.values()])if(l?.job?.id&&lineState(l.job)==='running'&&!watching.has(l.job.id))watch(l.job)}
 document.addEventListener('visibilitychange',rewatch);
 window.addEventListener('online',rewatch);
-window.KPTUMeetingJoin={paintDetail,follow,joinedRecently:id=>joinedNow.has(String(id||'')),canMerge,merge,unmergeRow,unmerge,prepareMenu,askTranscript};
+window.KPTUMeetingJoin={paintDetail,follow,joinedRecently:id=>joinedNow.has(String(id||'')),canMerge,merge,unmergeRow,unmerge,prepareMenu};
 // 첫 화면 요청과 겹치지 않게 2.5초 뒤 한 번 묻는다.
 setTimeout(()=>void loadJoins(),2500);
 })();

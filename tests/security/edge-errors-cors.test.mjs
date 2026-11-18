@@ -33,8 +33,8 @@ test('safeErrorLog records only name, short code and numeric status', () => {
   assert.equal(JSON.stringify(safeErrorLog(Object.assign(new Error('token-abc'), { code: 'x' }))).includes('token-abc'), false);
 });
 
-test('web CORS echoes only the four owned origins and never sends a wildcard', async () => {
-  assert.deepEqual([...WEB2_ORIGINS].sort(), ['https://bokdoong.com', 'https://desk.bokdoong.com', 'https://mj880616.github.io', 'https://work.bokdoong.com']);
+test('web CORS echoes only the five owned origins and never sends a wildcard', async () => {
+  assert.deepEqual([...WEB2_ORIGINS].sort(), ['https://bokdoong.com', 'https://desk.bokdoong.com', 'https://mj880616.github.io', 'https://nojoplus.com', 'https://work.bokdoong.com']);
   const h = withWebCors(async req => new Response(req.method === 'OPTIONS' ? 'ok' : '{}', { status: req.method === 'OPTIONS' ? 200 : 401, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization', Vary: 'Accept-Encoding' } }));
   for (const origin of WEB2_ORIGINS) {
     for (const method of ['OPTIONS', 'POST']) {
@@ -45,7 +45,7 @@ test('web CORS echoes only the four owned origins and never sends a wildcard', a
       assert.equal(r.status, method === 'OPTIONS' ? 200 : 401);
     }
   }
-  for (const origin of ['https://evil.example', 'http://bokdoong.com', 'https://www.bokdoong.com', 'https://bokdoong.com.evil.example', 'https://bokdoong.com:8443', 'null']) {
+  for (const origin of ['https://www.nojoplus.com', 'http://nojoplus.com', 'https://nojoplus.com.evil.example', 'https://evilnojoplus.com', 'https://app.nojoplus.com', 'https://nojoplus.com:8443', 'https://evil.example', 'http://bokdoong.com', 'https://www.bokdoong.com', 'https://bokdoong.com.evil.example', 'https://bokdoong.com:8443', 'null']) {
     const r = await h(new Request('https://x.supabase.co/functions/v1/f', { method: 'OPTIONS', headers: { Origin: origin } }));
     assert.equal(r.status, 200, 'preflight still answers; the browser blocks the read');
     assert.equal(r.headers.get('Access-Control-Allow-Origin'), null, origin);
@@ -63,7 +63,7 @@ test('web CORS echoes only the four owned origins and never sends a wildcard', a
 const FN = new URL('../../supabase/functions/', import.meta.url);
 const WRAPPED = ['ai-assist', 'basket-files', 'cloud-files', 'collector-feed', 'document-actions', 'document-ai-index', 'drive-summary', 'event-media', 'gdrive-photos',
   'google-calendar', 'google-tasks', 'library-files', 'meeting-ai-draft', 'meeting-ai-ingest', 'meeting-files', 'meeting-transcribe', 'mcp-read', 'news-feed',
-  'note-import', 'onedrive-photos', 'outside-feed', 'page-ai-draft', 'phone-push', 'share-page-media', 'workspace-drive'];
+  'note-import', 'onedrive-photos', 'outside-feed', 'page-ai-draft', 'phone-push', 'release-notes-sync', 'share-page-media', 'workspace-drive'];
 // 자기 출처 목록을 따로 가진 공개·로그인 전달 함수, 그리고 410만 돌려주는 퇴역 함수.
 const OWN_ORIGINS = ['auth-handoff', 'pc0914-checklist', 'pc0921-board', 'public-page-edit', 'public-policy-drive', 'share-page-read', 'push-notifications'];
 

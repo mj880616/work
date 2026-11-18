@@ -351,13 +351,15 @@ function editNode(block, b, count) {
   const box = el('section', {class:`sp-block sp-block-${block.type} is-editing`, 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
     el('div', {class:'sp-block-head'}, el('h3', {text:label}), tools));
   if (block.type === 'doc') {
-    const host = el('div', {class:'sp-doc-host', dataset:{spDocHost:String(b)}}, waitEl({rows: 3}));
+    // SHARE-작성칸기다림안사라짐(S62-03b): 기다림 표시는 넣은 그 요소로 지운다(한 자리 한 주인 — 다른 선택자로 찾지 않는다).
+    const wait = waitEl({rows: 3});
+    const host = el('div', {class:'sp-doc-host', dataset:{spDocHost:String(b)}}, wait);
     box.append(host);
     const mount = ++docMount;
     createDocEditor({host, value:block.doc, label:`${n}번째 블록 글`, placeholder:'여기에 쓰세요', photos:photosFor(editing), onBox:onDocBox,
       onChange:value => { if (editing && editing.blocks[b] === block) block.doc = value; }}).then(ed => {
       if (mount !== docMount || !host.isConnected) { ed.destroy(); return; }
-      host.querySelector('.sp-hint')?.remove();
+      wait.remove();
       docEditor = ed;
       if (editing?.focusDoc) { editing.focusDoc = false; ed.focus(); }
     }).catch(() => { if (mount === docMount && host.isConnected) host.replaceChildren(el('p', {class:'sp-hint', role:'alert', text:'수정 화면을 열지 못했어요. [취소] 뒤 다시 눌러 주세요.'})); });
@@ -547,7 +549,7 @@ function renderEditor() {
   view.toggleAttribute('data-sp-full', full);
   if (full) { renderFull(); return; }
   // The title sits where the reader shows it, in the reader's title look (sr-title).
-  const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'제목 (예: ○○민자철도 교섭 현황)',
+  const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'제목 (예: ○○ 교섭 현황)',
     'aria-label':'제목', dataset:{spTitle:''}});
   editorView.replaceChildren(
     el('div', {class:'sp-editor-head'},
@@ -605,7 +607,9 @@ function renderFull() {
         el('button', {type:'button', class:'sp-tool', 'aria-label':'링크 창 닫기', dataset:{spLinksClose:''}, text:'닫기'})),
       el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
       el('div', {dataset:{spLinks:''}})));
-  const host = el('div', {class:'sp-full-doc', dataset:{spDocHost:'0'}}, waitEl({rows: 3}), title);
+  // SHARE-작성칸기다림안사라짐(S62-03b): 기다림 표시는 넣은 그 요소로 지우고, 못 열면 그 자리에 안내를 둔다.
+  const wait = waitEl({rows: 3});
+  const host = el('div', {class:'sp-full-doc', dataset:{spDocHost:'0'}}, wait, title);
   dropDocEditor();
   editorView.replaceChildren(top, host);
   paintStatusButtons(); renderLinks(); void paintProjects();
@@ -613,7 +617,7 @@ function renderFull() {
   createDocEditor({host, value:block.doc, label:'본문', placeholder:'여기에 쓰세요', head:title, photos:photosFor(page), onBox:onDocBox,
     onChange:value => { if (editing === page && page.blocks[0] === block) { block.doc = value; queueDirty(); } }}).then(ed => {
     if (mount !== docMount || !host.isConnected) { ed.destroy(); return; }
-    host.querySelector('.sp-hint')?.remove();
+    wait.remove();
     docEditor = ed;
     const focus = page.focusOnOpen; page.focusOnOpen = null;
     // Not when a control on the top line (e.g. the 링크 window) took the focus while the editor was loading.
@@ -622,7 +626,7 @@ function renderFull() {
     if (focus === 'title') title.focus(); else if (focus === 'doc') ed.focus();
   }).catch(() => {
     if (mount !== docMount || !host.isConnected) return;
-    host.querySelector('.sp-hint')?.replaceWith(el('p', {class:'sp-hint', role:'alert', text:'수정 화면을 열지 못했어요. 목록으로 나갔다가 다시 열어 주세요.'}));
+    wait.replaceWith(el('p', {class:'sp-hint', role:'alert', text:'수정 화면을 열지 못했어요. 목록으로 나갔다가 다시 열어 주세요.'}));
   });
 }
 // 빠짐32: AI 초안 창의 [넣기] — 받은 블록(ed1)을 지금 연 글 칸의 끝(마지막 빈 줄 앞)에 넣는다. 한 번의 ↶로 되돌릴 수 있고,
@@ -670,18 +674,18 @@ function showEditor(page) {
   editing.saved = snapshotOf(editing); sendWhere(editing.title.trim() || '제목 없음');
   if (editing.id) { photosFor(editing); photoApi.note(photoIdsIn(editing.blocks)); }
   listView.hidden = true; editorView.hidden = false; view.dataset.spEditing = '1';
-  layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
+  layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:({ask} = {}) => closeEditor({fromBack:true, ask})}) || null;
   const focusDoc = editing.focusDoc || editing.mode === 'full';
   renderEditor();
   if (!focusDoc) editorView.querySelector('[data-sp-title]')?.focus();
   if (editing.id) void loadLinks();
 }
 const CLOSE_TEXT = '저장하지 않은 내용이 있어요. 저장하지 않고 목록으로 돌아갈까요?';
-// 뒤로가기(fromBack)는 라우터가 그 자리에서 닫을지 정하므로 브라우저 기본 확인창으로 묻는다. [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻고 asked로 부른다.
-function closeEditor({fromBack = false, force = false, asked = false} = {}) {
+// 뒤로가기(fromBack)는 라우터가 준 ask로 묻는다(UI-알림창정리 S61-31: 공용 작은 확인창, [닫기]면 다시 뒤로). [닫기] 버튼은 askCloseEditor가 작은 확인창으로 묻고 asked로 다시 부른다.
+function closeEditor({fromBack = false, force = false, asked = false, ask = null} = {}) {
   if (!editing) return true;
   if (busy && !force) return false;
-  if (!force && !asked && dirty() && !window.confirm(CLOSE_TEXT)) return false;
+  if (!force && !asked && dirty() && !ask?.(CLOSE_TEXT)) return false;
   const closing = editing;
   dropDocEditor();
   // Changes are dropped here, so only the photos in the saved page stay (a photo put in and not saved is removed).
@@ -1021,7 +1025,7 @@ window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view !== 'pages') { layer = null; shareHtml.close(); return; }
   if (!editing) { void loadList(); return; }
   // Back in the menu with the editor still open: one history entry again so Back closes it first (not while traversing).
-  if (event.detail?.source !== 'popstate') layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
+  if (event.detail?.source !== 'popstate') layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:({ask} = {}) => closeEditor({fromBack:true, ask})}) || null;
 });
 window.addEventListener('kptu:session-changed', () => {
   const next = ownerScope();

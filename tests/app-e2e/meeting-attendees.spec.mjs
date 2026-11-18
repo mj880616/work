@@ -8,6 +8,7 @@ import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {mrdMenu,openMeetingResult} from './helpers/meeting-open.mjs';
 import {pickReportKind} from './helpers/report-filter.mjs';
 
+import {addReport} from './helpers/report-add.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 const SHOTS=process.env.KPTU_SHOTS==='1';
 const shot=async(target,name)=>{if(SHOTS)await target.screenshot({path:`docs/design/screens/s56-31/${name}.png`})};
@@ -35,7 +36,7 @@ const above=async(page,a,b)=>page.evaluate(([a,b])=>document.querySelector(a).ge
 for(const width of [412,1280])test(`${width}: 쓰기 창 [회의] 칸 — 회의 결과 맨 위 참석인원, 저장 본문에 attendees, 다른 칸은 숨김·안 보냄`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();await open(page,s,width);
-  await pickReportKind(page,'회의');await page.locator('#newMeetingBtn').click();
+  await pickReportKind(page,'회의');await addReport(page);
   const modal=page.locator('#meetingModal');await expect(modal).toBeVisible();
   const row=page.locator('#meetingAttendeesRow'),input=page.locator('#meetingAttendees');
   await expect(row).toBeVisible();await expect(row).toContainText('참석인원');await expect(row).toContainText('안 써도 됨');
@@ -56,7 +57,7 @@ for(const width of [412,1280])test(`${width}: 쓰기 창 [회의] 칸 — 회의
   expect(s.meetingWrites.at(-1)).toMatchObject({activity_kind:'meeting',transcript_text:'합성 결과 원문'});
   await expect(modal).toBeHidden();
   // 다른 칸 저장은 참석인원을 보내지 않는다. 창을 다시 열면 빈 칸.
-  await pickReportKind(page,'정책');await page.locator('#newMeetingBtn').click();await expect(modal).toBeVisible();
+  await pickReportKind(page,'정책');await addReport(page,'policy');await expect(modal).toBeVisible();
   await expect(row).toBeHidden();
   await page.locator('#meetingTitle').fill('합성 정책 토론');await fillDateTime(page,'#meetingAt','2026-10-23T10:00');
   await page.locator('#saveMeetingBtn').click();
@@ -100,7 +101,7 @@ test('1280: 다른 칸 기록 고치기에는 참석인원 줄이 없고 보내�
 test('412: 서버에 칸이 아직 없으면 쓰기 창·고치기 모두 참석인원 줄을 숨기고 보내지 않는다',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state({column:false});await open(page,s,412,{column:false});
-  await pickReportKind(page,'회의');await page.locator('#newMeetingBtn').click();
+  await pickReportKind(page,'회의');await addReport(page);
   await expect(page.locator('#meetingModal')).toBeVisible();await expect(page.locator('#meetingLocationRow')).toBeVisible();
   await expect(page.locator('#meetingAttendeesRow')).toBeHidden();
   await nameOther(page);await page.locator('#meetingTitle').fill('합성 운영위원회');await fillDateTime(page,'#meetingAt','2026-10-22T10:00');

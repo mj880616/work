@@ -15,7 +15,7 @@ export const URL_MAX_CHARS = 2000;
 export type ListStats = { candidates: number };
 // title은 목록 칸의 첫 줄(종류 판정용 머리말 포함 — 꼬리표 떼기는 저장 직전 _shared/outside-tidy.ts가 한다). subtitle은 목록 칸 둘째 줄(부제, 없으면 null).
 // contentHtml: 피드 본문 칸(content:encoded) 원래 HTML — 공용 추출기가 문단·사진 블록을 뽑는 재료(저장하지 않음). photos: 텔레그램 글 사진 주소(https만).
-export type ListItem = { url: string; title: string; subtitle?: string | null; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null; contentHtml?: string | null; photos?: string[] };
+export type ListItem = { url: string; title: string; subtitle?: string | null; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null; contentHtml?: string | null; photos?: string[]; category?: string | null };
 export const CONTENT_HTML_MAX = 400000;
 
 // ---- 글자 다듬기 ----------------------------------------------------------------------------------------------------
@@ -34,14 +34,23 @@ export function cut(s: string, max: number): string {
 }
 const len = (s: string) => [...s].length;
 
+// 글자 모양 태그(줄 안에서 글자만 꾸미는 태그)는 빈칸 없이 걷는다(S61-37 NEWS-원문표기깨짐2). 브라우저도 '<span>13</span><span>일</span>'을 '13일'로 그린다.
+// 한글 문서를 붙여 넣은 누리집(공공운수노조 보도자료 등)은 글자 덩어리마다 <span>·<font>로 쪼개 보내서, 예전처럼 모든 태그를 빈칸으로 바꾸면
+// '13 일'·'잠정합의했습니다 .'처럼 빈칸이 끼고, 태그로 쪼개진 '&middot'+';'도 풀리지 않았다. 칸을 나누는 나머지 태그(td·img·input 등)만 빈칸으로 둔다.
+// 'o:p' 같은 이름공간 태그(워드·한글 문서 붙여넣기)도 글자 모양 태그로 본다.
+const INLINE_TAG = /<\/?(?:span|font|b|strong|i|em|u|a|mark|sup|sub|s|strike|del|ins|small|big|abbr|acronym|cite|code|kbd|q|samp|var|tt|dfn|bdi|bdo|label|nobr|wbr|time|data|[a-z][a-z0-9]*:[a-z][a-z0-9-]*)(?=[\s/>])[^>]*>/gi;
+// 태그를 글자로: 글자 모양 태그는 빈칸 없이, 나머지 태그는 빈칸 하나로. 줄바꿈 태그는 부르는 쪽이 먼저 바꾼다(htmlToText).
+export function stripTags(html: string): string {
+  return String(html ?? "").replace(INLINE_TAG, "").replace(/<[^>]*>/g, " ");
+}
+
 // 태그를 걷고 글자만. 문단·줄바꿈 태그는 줄바꿈으로 남긴다.
 export function htmlToText(html: string): string {
-  const t = html
+  const t = stripTags(html
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<(script|style|noscript|template|svg|iframe|object|select|textarea)\b[\s\S]*?<\/\1\s*>/gi, " ")
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|table|section|article|blockquote|header|footer|nav|aside|dd|dt|figure|figcaption|pre|hr)\b[^>]*>/gi, "\n")
-    .replace(/<[^>]*>/g, " ");
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|table|section|article|blockquote|header|footer|nav|aside|dd|dt|figure|figcaption|pre|hr)\b[^>]*>/gi, "\n"));
   return decodeText(t)
     .split("\n")
     // deno-lint-ignore no-control-regex
@@ -145,7 +154,7 @@ export function usableTitle(t: string | null | undefined): boolean {
 }
 export function cleanTitle(raw: string): string | null {
   // RSS·Atom(type="html") 제목은 한 번 더 이스케이프돼 오기도 해서 풀고 → 태그 걷고 → 다시 푼다.
-  const t = cut(oneLine(decodeText(decodeEntitiesDeep(raw).replace(/<[^>]*>/g, " "))), TITLE_MAX_CHARS);
+  const t = cut(oneLine(decodeText(stripTags(decodeEntitiesDeep(raw)))), TITLE_MAX_CHARS);
   return t ? t : null;
 }
 
@@ -172,6 +181,12 @@ function atomLink(block: string): string | null {
   return null;
 }
 
+function feedCategory(block: string): { category?: string } {
+  const names = [...block.matchAll(/<category\b([^>]*?)(?:\/>|>([\s\S]*?)<\/category\s*>)/gi)]
+    .map((m) => cut(oneLine(decodeText(stripTags(cdata(m[2] ?? (/\bterm\s*=\s*["']([^"']+)["']/i.exec(m[1])?.[1] ?? ""))))), 40))
+    .filter(Boolean).slice(0, 5);
+  return names.length ? { category: names.join(" / ") } : {};
+}
 // 피드 글 목록(최대 limit). 카탈로그 밖 주소·종류 없음(null)·제목 없음은 뺀다.
 export function parseFeed(source: OutsideSource, xml: string, nowMs: number, limit = 30, stats?: ListStats): ListItem[] {
   const blocks = [...xml.matchAll(/<(item|entry)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)].map((m) => m[2]);
@@ -197,6 +212,8 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
       summary: summaryRaw ? cut(feedText(summaryRaw), 4000) || null : null,
       content: contentRaw ? cut(feedText(contentRaw), BODY_MAX_CHARS) || null : null,
       contentHtml: contentRaw ? contentRaw.slice(0, CONTENT_HTML_MAX) : null,
+      // 카테고리 칸(있을 때만, 여러 개는 ' / '로): 언론 거르기(news-rank.ts)가 섹션을 알아보는 데 쓴다.
+      ...feedCategory(b),
     });
   }
   return out;

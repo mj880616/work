@@ -15,9 +15,25 @@ class ShellRulesTest {
         assertTrue(ShellRules.isInternalApp(ShellRules.HOME))
         assertTrue("https://bokdoong.com" in ShellRules.ALLOWED_ORIGINS)
         assertEquals(
-            setOf("https://bokdoong.com", "https://desk.bokdoong.com", "https://work.bokdoong.com", "https://mj880616.github.io"),
+            setOf("https://bokdoong.com", "https://nojoplus.com", "https://desk.bokdoong.com", "https://work.bokdoong.com", "https://mj880616.github.io"),
             ShellRules.ALLOWED_ORIGINS,
         )
+    }
+
+    @Test
+    fun newAddressStaysInsideTheApp() {
+        // DOMAIN-nojoplus 1단계: 새 주소도 앱 안. 처음 여는 주소는 아직 bokdoong.com.
+        assertEquals("https://bokdoong.com/work/app/", ShellRules.HOME)
+        assertTrue(ShellRules.isInternalApp("https://nojoplus.com/work/app/"))
+        assertTrue(ShellRules.isInternalApp("https://nojoplus.com/work/app/?view=basket"))
+        assertTrue(ShellRules.isInternalApp("https://nojoplus.com/"))
+        assertTrue(ShellRules.isInternalApp("https://NOJOPLUS.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://nojoplus.com/s/abc123"))
+        assertFalse(ShellRules.isInternalApp("https://nojoplus.com/work/about/"))
+        assertFalse(ShellRules.isInternalApp("http://nojoplus.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://www.nojoplus.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://nojoplus.com.evil.example/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://app.nojoplus.com/work/app/"))
     }
 
     @Test
@@ -199,12 +215,14 @@ class ShellRulesTest {
     fun shareTargets() {
         assertEquals("note", ShellRules.shareTarget("kr.or.kptu.work.ShareToNote"))
         assertEquals("task", ShellRules.shareTarget("kr.or.kptu.work.ShareToTask"))
+        assertEquals("news", ShellRules.shareTarget("kr.or.kptu.work.ShareToNews"))
         assertEquals("basket", ShellRules.shareTarget("kr.or.kptu.work.MainActivity"))
         assertEquals("basket", ShellRules.shareTarget(null))
         assertEquals("basket", ShellRules.shareTarget("x.ShareToTrash"))
         val list = listOf(ShellRules.ShareMeta("a.png", "image/png", 3))
         assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "note").endsWith("],\"target\":\"note\"}"))
         assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "task").endsWith("],\"target\":\"task\"}"))
+        assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "news").endsWith("],\"target\":\"news\"}"))
         // 정리함·알 수 없는 값은 이전 모양 그대로(칸 없음).
         assertFalse(ShellRules.shareListJson(shareId, null, "t", list, "basket").contains("target"))
         assertFalse(ShellRules.shareListJson(shareId, null, "t", list, "\"evil").contains("target"))
@@ -213,9 +231,9 @@ class ShellRulesTest {
     @Test
     fun manifestShareAliases() {
         val manifest = java.io.File("src/main/AndroidManifest.xml").readText()
-        assertTrue(manifest.contains("android:label=\"웹2 업데이트로 보내기\""))
-        assertFalse(manifest.contains("웹2 바구니"))
-        for ((name, label) in listOf(ShellRules.SHARE_TO_NOTE to "웹2 노트", ShellRules.SHARE_TO_TASK to "웹2 할 일")) {
+        assertTrue(manifest.contains("android:label=\"노동조합+ 잊지 말기로 보내기\""))
+        assertFalse(manifest.contains("노동조합+ 바구니"))
+        for ((name, label) in listOf(ShellRules.SHARE_TO_NOTE to "노동조합+ 노트", ShellRules.SHARE_TO_TASK to "노동조합+ 할 일")) {
             val block = manifest.substringAfter("android:name=\".$name\"").substringBefore("</activity-alias>")
             assertTrue(name, block.contains("android:targetActivity=\".MainActivity\""))
             assertTrue(name, block.contains("android:label=\"$label\""))

@@ -10,12 +10,11 @@ test('scope request keeps drive.file and adds full drive; nothing else is reques
   assert.match(source,/const DRIVE_FILE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive\.file';/);
   assert.match(source,/const DRIVE_FULL_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive';/);
   assert.match(source,/const DRIVE_SCOPES = \[DRIVE_FILE_SCOPE, DRIVE_FULL_SCOPE\];/);
-  // MULTI ②-2: 전체 drive는 사진 출처·파일 탐색기 허용 작업공간에서만, 다른 사람은 drive.file만.
-  assert.match(source,/scope: \(full \? DRIVE_SCOPES : \[DRIVE_FILE_SCOPE\]\)\.join\(' '\),/);
-  // S50-8: 판정은 fullDriveAllowed 한 곳(서버 허용 표의 사진 출처·파일 탐색기). 시작·콜백 모두 같은 판정을 쓴다.
-  assert.match(source,/return await hasOperatorFeature\(workspaceId, 'gdrive_photos'\) \|\| await hasOperatorFeature\(workspaceId, 'files'\);/);
-  assert.match(source,/const full = await fullDriveAllowed\(workspaceId\);/);
-  assert.match(source,/const fullDrive = fullAllowed && grantedFullDrive\(tokens\.scope\);/);
+  // S62-11 MULTI-구글드라이브사진모두: 모든 작업공간이 drive.file + drive를 요청한다(운영자 기능 키 판정 없음).
+  assert.match(source,/scope: DRIVE_SCOPES\.join\(' '\),/);
+  assert.doesNotMatch(source,/fullDriveAllowed|hasOperatorFeature\(workspaceId, '(gdrive_photos|files)'\)/);
+  // full_drive는 구글이 실제로 준 경우만.
+  assert.match(source,/const fullDrive = grantedFullDrive\(tokens\.scope\);/);
   const scopes=[...source.matchAll(/'https:\/\/www\.googleapis\.com\/auth\/([a-z.]+)'/g)].map(m=>m[1]).sort();
   assert.deepEqual(scopes,['drive','drive.file']);
   assert.match(source,/include_granted_scopes: 'true'/);
@@ -37,8 +36,8 @@ test('granted-scope check: exact full drive scope only',()=>{
 });
 
 test('callback keeps saving the connection and only flags the photo source when full drive is missing',()=>{
-  // S50-8: 사진 안내는 전체 권한을 요청한 운영자 작업공간에서 그 칸이 빠졌을 때만.
-  assert.match(source,/return Response\.redirect\(driveRedirect\('connected', undefined, fullAllowed && !fullDrive \? 'scope_missing' : undefined\), 302\);/);
+  // S62-11: 사진 안내는 전체 권한 칸이 빠졌을 때 모두에게.
+  assert.match(source,/return Response\.redirect\(driveRedirect\('connected', undefined, !fullDrive \? 'scope_missing' : undefined, state\), 302\);/);
   assert.match(source,/if \(photos\) u\.searchParams\.set\('photos', photos\);/);
   // 기존 확인(about·폴더 접근)과 토큰 저장 순서는 그대로.
   const about=source.indexOf("drive/v3/about?fields=user(emailAddress)"),save=source.indexOf("servicePatch('public_policy_drive_config?id=eq.1'");
@@ -53,7 +52,7 @@ test('MULTI ②-2: Drive 연결은 부른 사람의 owner 작업공간에 저장
   assert.doesNotMatch(source,/slug=eq\./);
   assert.doesNotMatch(source,/assertDriveAdmin/);
   // 시작: 로그인 → 본인 owner 작업공간(정확히 1개). 콜백: state에 저장된 user_id로 다시 확인(화면 값 없음).
-  assert.match(source,/const workspaceId = await ownWorkspace\(user\.id\);/);
+  assert.match(source,/await ownWorkspace\(user\.id\);/);
   assert.match(source,/const workspaceId = await callerOwnerWorkspace\(\{ rest: serviceGet \}, row\.user_id\)/);
   // 작업공간별 표에 그 작업공간 행만 쓴다.
   assert.match(source,/servicePatch\(`app_drive_connections\?workspace_id=eq\.\$\{encodeURIComponent\(workspaceId\)\}`/);

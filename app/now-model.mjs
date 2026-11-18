@@ -1,3 +1,5 @@
+import {AI_CAP_TEXT, aiCapText, isAiCap} from './ai-cap.mjs';
+import {sortByName} from './name-order.mjs';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절, news-clipping.md 13절): Now 화면의 순수 계산.
 // DOM·네트워크 없음. 화면 쪽(outside-statements.js = Now 껍데기, now-detail.js, now-saved.js, now-interests.js)이 이 결과대로 그리기만 한다.
 
@@ -97,6 +99,8 @@ export const relatedTarget = r => (r.kind === 'outside' || r.kind === 'news' ? {
 const REASONS = {robots: '이 사이트가 읽기를 막아 둠', paywall: '유료 기사', bot_check: '사이트가 자동 읽기를 막음', original_only: '원문에서 보는 기사', daily_limit: '오늘 읽기 한도를 다 씀', error: '잠시 뒤 다시', unavailable: '기사를 열 수 없음'};
 export const hasMaterial = row => !!(row?.summary || row?.body_kind);
 export const needsRead = row => !hasMaterial(row) && row?.state !== 'paywall';
+// S63-11: 기사 줄이 아직 '읽기 전'(서버가 원문을 한 번도 읽지 않아 제목이 비었을 수 있음) — 본문이 따로 저장돼 있어도 열기를 한 번 부른다.
+export const titlePending = row => row?.state === 'pending';
 export const unreadReason = (status, state) => REASONS[status] || REASONS[state] || '본문을 찾지 못함';
 // ---- 상세 원문 전체(S51-14 NEWS-전면개편 P4c, 설계 docs/design/news-overhaul.md 4.1·4.3·6.2절) ----
 // 저장 원문(app_feed_bodies 한 줄) → 그릴 모양. 블록은 글자·주소로만 그린다(HTML 없음). 사진 주소는 https만, 모양이 틀린 블록은 버린다.
@@ -199,6 +203,7 @@ export function translatedBlocks(blocks, body, bodyKo) {
 // [번역] 실패 한 줄(서버 오류 코드 → 일상어).
 export function translateError(e) {
   const code = String(e?.message || '').toUpperCase();
+  if (code.includes('AI_MONTHLY_CAP')) return AI_CAP_TEXT;
   if (code.includes('MONTHLY_LIMIT')) return '이번 달 번역 한도를 다 씀';
   if (e?.status === 429 || code.includes('DAILY_LIMIT')) return '오늘 번역을 다 씀 · 내일 다시';
   if (code.includes('NOT_FOREIGN')) return '한글 글이라 번역하지 않아요';
@@ -209,6 +214,7 @@ export function translateError(e) {
 // 상세가 실패했을 때 한 줄.
 export function detailError(e) {
   const code = String(e?.message || '');
+  if (isAiCap(code)) return aiCapText(code);
   if (code.includes('monthly_limit')) return '이번 달 AI 한도를 다 씀';
   if (e?.status === 429 || code.includes('daily_limit')) return '오늘 상세 만들기를 다 씀 · 내일 다시';
   if (e?.status === 404) return '글을 찾지 못함';
@@ -262,8 +268,8 @@ export function dateText(iso) {
 // 고른 값: 'all' | 'g:<사회운동 묶음>' | 's:<단체 키>' | 'r:<언론 지역 domestic|foreign>' | 'n:<news- 매체 키>'. 화면 메모리만(저장하지 않음).
 // 입력: oc = 사회운동 카탈로그 [{key,name,group}], on = 켠 단체 키, nc = 뉴스 카탈로그 [{key,name,region}], non = 켠 news- 키.
 export const MEDIA_ALL = 'all';
-export const OUTSIDE_GROUP_LABEL = Object.freeze({labor: '노동', party: '정당', movement: '사회운동', foreign: '외국'});
-export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', foreign: '언론 외국'});
+export const OUTSIDE_GROUP_LABEL = Object.freeze({labor: '노동', party: '정당', movement: '사회운동', foreign: '국제'});
+export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
 const OUTSIDE_GROUPS = Object.freeze(['labor', 'party', 'movement', 'foreign']);
 const PRESS_REGIONS = Object.freeze(['domestic', 'foreign']);
 const side = pick => (pick === MEDIA_ALL ? 'all' : /^[gs]:/.test(pick || '') ? 'outside' : /^[rn]:/.test(pick || '') ? 'news' : '');
@@ -277,13 +283,13 @@ export function mediaFits(tab, pick) {
   return tab === 'all';
 }
 export const keepMedia = (tab, pick) => (mediaFits(tab, pick) ? pick : MEDIA_ALL);
-// 창에 넣을 줄: 전체 → 묶음(깊이 0) → 매체(깊이 1). 켠 매체만. 찾는 말이 있으면 이름에 든 것만 납작하게.
+// 창에 넣을 줄: 전체 → 묶음(깊이 0, 정한 순서) → 매체(깊이 1, 가나다 — name-order.mjs). 켠 매체만. 찾는 말이 있으면 이름에 든 것만 납작하게.
 export function mediaRows({tab, oc = [], on = [], nc = [], non = [], pick = MEDIA_ALL, query = '', dot = () => ''}) {
   const onSet = new Set(on || []), nonSet = new Set(non || []);
   const rows = [{id: MEDIA_ALL, name: '전체', label: '전체', depth: 0}];
   if (tab !== 'media') {
     for (const g of OUTSIDE_GROUPS) {
-      const members = (oc || []).filter(s => s?.group === g && onSet.has(s.key));
+      const members = sortByName((oc || []).filter(s => s?.group === g && onSet.has(s.key)));
       if (!members.length) continue;
       rows.push({id: 'g:' + g, name: OUTSIDE_GROUP_LABEL[g], label: OUTSIDE_GROUP_LABEL[g], depth: 0, dot: dot('g', g)});
       for (const s of members) rows.push({id: 's:' + s.key, name: s.name, label: `${OUTSIDE_GROUP_LABEL[g]} › ${s.name}`, depth: 1, dot: dot('s', s.key)});
@@ -291,7 +297,7 @@ export function mediaRows({tab, oc = [], on = [], nc = [], non = [], pick = MEDI
   }
   if (tab !== 'movement') {
     for (const r of PRESS_REGIONS) {
-      const members = (nc || []).filter(s => s?.region === r && nonSet.has(s.key));
+      const members = sortByName((nc || []).filter(s => s?.region === r && nonSet.has(s.key)));
       if (!members.length) continue;
       rows.push({id: 'r:' + r, name: PRESS_REGION_LABEL[r], label: PRESS_REGION_LABEL[r], depth: 0, dot: dot('r', r)});
       for (const s of members) rows.push({id: 'n:' + s.key, name: s.name, label: `${PRESS_REGION_LABEL[r]} › ${s.name}`, depth: 1, dot: dot('n', s.key)});
@@ -331,4 +337,13 @@ export function newsKeysOf(pick, nc = []) {
 export function mergeFeed(posts = [], news = []) {
   const list = [...(posts || []).map(row => ({type: 'outside', id: row.id, at: row.at, row: row.row})), ...(news || []).map(row => ({type: 'news', id: row.id, at: row.at, row: row.row}))];
   return list.sort((a, b) => (a.at && b.at ? String(b.at).localeCompare(String(a.at)) : a.at ? -1 : b.at ? 1 : 0) || String(a.id).localeCompare(String(b.id)));
+}
+// S63-11(명진 11/16 '5 고쳐'): 주소 ?item= 로 다시 연 글은 그 글이 들어 있는 탭으로 맞춘다. [전체]·[보관]·[밑줄]은 두 종류 모두 담으므로 그대로,
+// [사회운동]에서 뉴스 기사면 [언론], [언론]에서 사회운동 글이면 [사회운동].
+export function tabForItem(type, tab) {
+  const t = keepNowTab(tab);
+  if (t === 'all' || t === 'archive' || t === 'marks') return t;
+  if (type === 'news') return 'media';
+  if (type === 'outside') return 'movement';
+  return t;
 }

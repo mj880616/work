@@ -146,8 +146,8 @@ class UpdateRulesTest {
         assertEquals("허용하기", UpdateRules.barText(Phase.NEED_PERMISSION, "0.3.9")!!.second)
         assertEquals("업데이트", UpdateRules.barText(Phase.CONFIRM, "0.3.9")!!.second)
         assertNull(UpdateRules.barText(Phase.WAIT_RECORDING, "0.3.9")!!.second)
-        assertEquals("웹2 0.3.9 받는 중", UpdateRules.noteText(Phase.DOWNLOADING, "0.3.9"))
-        assertEquals("웹2 0.3.9 설치 중", UpdateRules.noteText(Phase.INSTALLING, "0.3.9"))
+        assertEquals("노동조합+ 0.3.9 받는 중", UpdateRules.noteText(Phase.DOWNLOADING, "0.3.9"))
+        assertEquals("노동조합+ 0.3.9 설치 중", UpdateRules.noteText(Phase.INSTALLING, "0.3.9"))
         assertNull(UpdateRules.noteText(Phase.FAILED, "0.3.9"))
         // 화면: [받기]·그 밖의 상태는 브라우저로 APK 주소를 연다(예전 길).
         val main = File("src/main/java/kr/or/kptu/work/MainActivity.kt").readText()

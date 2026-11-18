@@ -2,7 +2,7 @@ import {pickIconHtml} from './folder-look.js';
 import {emptyHtml} from './wait-state.js';
 import {placeAnchored,followAnchor,clearAnchored,bottomInset} from './anchored-popup.js';
 // LIB-폴더로옮기기 (2026-10-27 17:01 사용자 요청): [폴더로 옮기기 ›]를 누르면 뜨는 작은 폴더 목록(PC·폰 공통, 그리는 곳은 여기 하나).
-// 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기]·[폴더 밖으로].
+// 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기](canNew+onNew일 때만)·[폴더 밖으로](canOut+onOut일 때만).
 // 목록 줄은 library-move.mjs의 pickerRows()가 만든 것을 그대로 그리고, 옮기는 일은 부른 쪽(library-folders.js)이 한다(서버 길은 LIB-폴더탐색기와 같은 하나).
 // PC(761px~)는 누른 버튼 옆(자리가 없으면 반대쪽, 버튼이 모서리 도구줄이면 아래)에, 폰(760px 이하)은 아래에서 올라오는 작은 시트로 연다.
 // S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): 버튼으로 연 창(place 'below')은 폰·폴드·PC 모두 누른 버튼 바로 아래 작은 창(아래 자리가 모자라면 위)이다.
@@ -43,6 +43,9 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
       e.stopPropagation();
       if(b.getAttribute('aria-disabled')==='true'||b.disabled)return;
       const s=state;
+      // 여러 개 고르기(multi): 줄을 누르면 고름·풀기만 하고, 아래 [넣기 n개]로 한 번에 넘긴다.
+      if(s.multi&&b.dataset.luMoveFolder){const id=b.dataset.luMoveFolder;if(s.chosen.has(id))s.chosen.delete(id);else s.chosen.add(id);const top=list.scrollTop;paint();list.scrollTop=top;list.querySelector(`[data-lu-move-folder="${CSS.escape(id)}"]`)?.focus({preventScroll:true});return}
+      if(s.multi&&b.hasAttribute('data-lu-move-done')){const ids=[...s.chosen];if(ids.length)void finish(()=>s.onPickMany(ids));return}
       if(b.dataset.luMoveFolder)void finish(()=>s.onPick(b.dataset.luMoveFolder));
       // 값 없는 표시(data-lu-move-new·data-lu-move-out)는 dataset 값이 ''라 참/거짓으로 보면 안 된다: 있는지로 본다.
       else if(b.hasAttribute('data-lu-move-new'))void finish(()=>s.onNew());
@@ -62,20 +65,29 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     },true);
   }
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):''}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
+  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${state?.multi&&r.enabled?` aria-pressed="${state.chosen.has(r.id)}"`:''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):''}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
 
   function paint(){
     if(!state)return;
     const q=input.value.trim(),data=state.rows(q),searching=!!q;
     const parts=[];
-    if(data.recent.length)parts.push('<p class="lu-move-sec">최근 넣은 폴더</p>'+data.recent.map(r=>item(r,true)).join(''));
-    if(data.all.length)parts.push((data.recent.length||searching?`<p class="lu-move-sec">${searching?'찾은 폴더':'전체 폴더'}</p>`:'')+data.all.map(r=>item(r,searching)).join(''));
+    const sec={recent:'최근 넣은 폴더',all:'전체 폴더',found:'찾은 폴더',...state.sections};
+    if(data.recent.length)parts.push(`<p class="lu-move-sec">${esc(sec.recent)}</p>`+data.recent.map(r=>item(r,true)).join(''));
+    if(data.all.length)parts.push((data.recent.length||searching||state.sections?`<p class="lu-move-sec">${esc(searching?sec.found:sec.all)}</p>`:'')+data.all.map(r=>item(r,searching)).join(''));
     if(!parts.length)parts.push(emptyHtml());
     list.innerHTML=parts.join('');
     const reason=[...data.recent,...data.all].find(r=>r.reason)?.reason;
     note.hidden=!reason;note.textContent=reason?`흐린 폴더는 ${reason}. 묶기를 ‘폴더’로 바꾸면 선택할 수 있어요.`:'';
+    if(state.multi){
+      const n=state.chosen.size;
+      foot.innerHTML=`<button type="button" class="primary lu-move-done" data-lu-move-done${n?'':' disabled'}>${esc(state.doneLabel?.(n)||`넣기 ${n}개`)}</button>`;
+      foot.hidden=false;position();return;
+    }
     if(!withFoot){foot.replaceChildren();position();return}
-    foot.innerHTML=`<button type="button" class="lu-move-foot-btn" data-lu-move-new${state.canNew?'':' aria-disabled="true"'}>+ 새 폴더 만들어 넣기</button>${state.canOut?`<button type="button" class="lu-move-foot-btn" data-lu-move-out>${esc(state.outLabel||'폴더 밖으로')}</button>`:''}`;
+    // S61-46 UI-새폴더넣기안됨: [+ 새 폴더 만들어 넣기]는 만들 수 있는 곳(canNew + onNew)에만 그린다 — 흐린 채 눌러도 안 되는 단추는 두지 않는다.
+    const canNew=!!state.canNew&&typeof state.onNew==='function',canOut=!!state.canOut&&typeof state.onOut==='function';
+    foot.innerHTML=`${canNew?'<button type="button" class="lu-move-foot-btn" data-lu-move-new>+ 새 폴더 만들어 넣기</button>':''}${canOut?`<button type="button" class="lu-move-foot-btn" data-lu-move-out>${esc(state.outLabel||'폴더 밖으로')}</button>`:''}`;
+    foot.hidden=!canNew&&!canOut;
     position();
   }
 
@@ -105,12 +117,13 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     panel.style.left=Math.round(left)+'px';panel.style.top=Math.round(Math.max(EDGE,top))+'px';panel.style.right='auto';panel.style.bottom='auto';
   }
 
-  // opts: {anchor, place:'side'|'below', rows(query)->{recent,all,total}, canOut, outLabel(기본 '폴더 밖으로'), canNew, history, onPick(id), onNew(), onOut(), onClosed()}
+  // 여러 개 고르기: opts.multi=true면 줄은 고름 표시(aria-pressed)만 바꾸고 아래 [doneLabel(n)]이 onPickMany(ids)를 부른다. sections로 줄 묶음 이름을 바꾼다.
+  // opts: {anchor, place:'side'|'below', rows(query)->{recent,all,total}, multi, doneLabel(n), onPickMany(ids), sections:{recent,all,found}, canOut, outLabel(기본 '폴더 밖으로'), canNew, history, onPick(id), onNew(), onOut(), onClosed()}
   function open(opts){
     ensure();
     if(closing){closing.then(()=>open(opts));return}
     if(state)void close();
-    state={...opts,place:opts.place||'below'};
+    state={...opts,place:opts.place||'below',chosen:new Set()};
     input.value='';clearAnchored(panel);panel.style.removeProperty('right');panel.classList.remove('lu-move-sheet');panel.hidden=false;
     if(popover){try{panel.showPopover()}catch{popover=false;panel.removeAttribute('popover')}}
     paint();

@@ -352,6 +352,11 @@
 .lu-move-note[hidden]{display:none}
 .lu-move-foot{flex:none;margin-top:4px;padding-top:4px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 .lu-move-foot button{padding:0 8px;color:var(--kptu-primary-ink)}
+/* BRIEF-자료실에서고르기: 여러 개 고르기 창 — 고른 줄 앞 작은 네모(✓), 아래 [넣기 n개]는 가운데 글자. */
+.lu-move-item[aria-pressed]::before{content:"";flex:none;box-sizing:border-box;width:14px;height:14px;border:var(--ds-line-width,1px) solid var(--kptu-muted);border-radius:var(--kptu-radius-sm,4px)}
+.lu-move-item[aria-pressed="true"]::before{content:"✓";display:grid;place-items:center;border-color:var(--kptu-primary-ink);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);line-height:1}
+.lu-move-foot .lu-move-done{justify-content:center;font-weight:var(--ds-weight-medium,500)}
+.lu-move-foot .lu-move-done:disabled{opacity:.5;cursor:default}
 @media(max-width:760px){.lu-move-picker button{min-height:40px}.lu-move-find{height:40px}}
 
 /* LIB-폴더로옮기기 ③: 종류·담당조직·월별로 묶은 화면에서 파일을 끌기 시작하면 왼쪽에 뜨는 작은 폴더 목록(놓을 곳). */
@@ -572,3 +577,8 @@
 /* LIB-폴더끌어순서(S61-14): 왼쪽 나무·두 칸 칸의 폴더 줄 위·아래 끝에 놓을 때 가는 선(한 칸 목록 머리 lu-drop-before·after와 같은 선. 이 파일은 그림자 대신 선을 쓴다 — smoke 검사). */
 #libraryFolderNav .ft-row.lu-drop-before,#documentList [data-lu-pane-i] .ft-row.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
 #libraryFolderNav .ft-row.lu-drop-after,#documentList [data-lu-pane-i] .ft-row.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
+
+/* BRIEF-브리핑룸 ④: 다 된 브리핑의 한 줄 요지(이름 밑 한 줄, 넘치면 말줄임). 폰 줄 칸 배치에서도 맨 아래 한 줄. */
+.lu-row.lu-row-has-brief,#appView #libraryView #documentList .lu-row.lu-row-has-brief{flex-wrap:wrap;row-gap:0}
+.lu-row-brief{flex:1 0 100%;order:9;min-width:0;margin-top:-2px;padding-left:2px;line-height:1.35;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#appView #libraryView #documentList .lu-row .lu-row-brief{grid-column:1/-1}

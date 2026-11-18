@@ -24,6 +24,7 @@ export const CRON_HEADER = 'x-cloud-files-cron-secret';
 export const CRON_SECRET_NAME = 'CLOUD_FILES_CRON_SECRET';
 export const CRON_SECRET_MIN = 32;
 export const CRON_SCAN_MAX = 100;                  // 한 번에 살펴보는 줄 상한(이어 받는 것은 runJobs 한 번 = JOB_STEP_MS 안, 한 줄씩)
+export const CRON_WS_MAX = 20;                     // 예약 한 번에 깨워 보는 작업공간 상한(S62-11: 작업공간마다 lease·판정은 따로)
 // 다른 기능의 예약 열쇠가 섞여 오면 거절한다.
 export const FOREIGN_SECRET_HEADERS = Object.freeze(['x-drive-summary-cron-secret', 'x-collector-feed-secret', 'x-collector-heartbeat-secret',
   'x-outside-feed-cron-secret', 'x-news-feed-cron-secret', 'x-phone-push-cron-secret']);

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {personDraft, savedNamesDraft, needlesOf, whoIn, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, normName} from '../app/org-key-people-model.mjs';
+import {personDraft, savedNamesDraft, needlesOf, whoIn, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, normName, recordTag} from '../app/org-key-people-model.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const KIM = {id:'p1', name:'김하나', match_names:['김하나', '김 위원장']};
@@ -41,16 +41,27 @@ test('지난 기록: 업무·개인 통화(상대·제목), 텔레그램(이름�
     senders:{senders:[{id:'s1', name:null, auto_name:'김하나', is_self:false}, {id:'s2', name:'나', is_self:true}], links:[{room_key:'r1', day:'2026-10-23', label:'A', sender_id:'s1'}, {room_key:'r3', day:'2026-10-24', label:'A', sender_id:'s2'}]},
     meetings:[{id:'m1', title:'정책협의', round_no:3, meeting_at:'2026-10-18T05:00:00Z', notes:'참석: 김하나, 이셋'}, {id:'m2', title:'다른 회의', meeting_at:'2026-10-19', notes:'없음'}],
   });
-  assert.deepEqual(rows.map(r => r.key), ['personal:pc1', 'telegram:r2\u00002026-10-24', 'telegram:r1\u00002026-10-23', 'call:c1', 'meeting:m1']);
+  assert.deepEqual(rows.map(r => r.key), ['personal:pc1', 'telegram:r2|2026-10-24', 'telegram:r1|2026-10-23', 'call:c1', 'meeting:m1']);
   const tg = rows.find(r => r.key.startsWith('telegram:r1'));
   assert.deepEqual(tg.people, ['p1']);
   assert.equal(tg.text, '철도 지부장방 · 집회 공지 / 장소 변경');
   assert.deepEqual(tg.open, {view:'telegram', room:'r1', day:'2026-10-23', item:'t2'});
   assert.deepEqual(rows.find(r => r.key === 'personal:pc1').open, {view:'calls', id:'pc1'});
   assert.equal(rows.find(r => r.key === 'meeting:m1').text, '정책협의 3차');
-  assert.deepEqual(onlyPerson(rows, 'p2').map(r => r.key), ['personal:pc1', 'telegram:r2\u00002026-10-24']);
+  assert.deepEqual(onlyPerson(rows, 'p2').map(r => r.key), ['personal:pc1', 'telegram:r2|2026-10-24']);
   assert.equal(onlyPerson(rows, null).length, rows.length);
   assert.deepEqual(collectRecords({people:[], calls:[{id:'c1', counterpart:'김하나'}]}), []);
+});
+
+test('DIARY-맥락사업보고이름 전수: 사업 보고 줄 꼬리표는 그 칸 이름 그대로(칸 없는 옛 줄은 회의), 다른 기록은 그대로', () => {
+  const rows = collectRecords({people, meetings:[
+    {id:'m1', title:'김하나 결의대회', meeting_at:'2026-10-18T05:00:00Z', activity_kind:'struggle'},
+    {id:'m2', title:'김하나 면담', meeting_at:'2026-10-17T05:00:00Z', activity_kind:'policy'},
+    {id:'m3', title:'김하나 회의', meeting_at:'2026-10-16T05:00:00Z'}], calls:[{id:'c1', day:'2026-10-15', counterpart:'김하나'}]});
+  assert.deepEqual(rows.map(recordTag), ['투쟁', '정책', '회의', '통화']);
+  const view = read('app/org-key-people.js');
+  assert.match(view, /select=id,title,series_name,round_no,meeting_at,notes,activity_kind&/);
+  assert.doesNotMatch(view, /KIND_LABEL\[r\.kind\]/);
 });
 
 test('열린 것: 챙길 것(요약·근거)과 기다리는 약속(상대), 마감 가까운 순, 끝난 것은 뺌', () => {
@@ -89,8 +100,8 @@ test('화면 연결: 맨 아래 작은 탭 4개(주요 인물 첫 탭), renderer
   assert.match(ui, /missingTable\(e\) \? 'missing'/);
   assert.match(ui, /data-okp-preparing>준비 중이에요/);
   // S56-10 FORGET-원문열기·뒤로가기: 통화·텔레그램 줄은 원문 열기 한 곳(source-open.js)으로 — 그곳이 각 화면의 기존 show를 부른다.
-  assert.match(ui, /await openCallSource\(o\.id\)/);
-  assert.match(ui, /await openTelegramSource\(o\.room, o\.day, o\.item\)/);
+  assert.match(ui, /await openCallSource\(o\.id, \{back\}\)/);
+  assert.match(ui, /await openTelegramSource\(o\.room, o\.day, o\.item, \{back\}\)/);
   const so = read('app/source-open.js');
   assert.match(so, /const feed = window\.KPTUCallFeed;[\s\S]*feed\?\.show\?\.\(id\)/);
   assert.match(so, /KPTUTelegramFeed\?\.show\?\./);

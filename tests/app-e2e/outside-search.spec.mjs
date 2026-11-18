@@ -30,7 +30,7 @@ async function server(page) {
       if (action === 'expand') { s.expand++; return ok({ ok: true, terms: ['인력 감축', '구조조정', '정원 축소'] }); }
       return ok({ ok: false, error: 'UNKNOWN_ACTION' }, 400);
     }
-    if (p === '/rest/v1/rpc/app_outside_search') { s.calls.push({ what: 'search', body }); return ok(body.p_offset ? [] : HITS); }
+    if (p === '/rest/v1/rpc/app_outside_search_shared') { s.calls.push({ what: 'search', body }); return ok(body.p_offset ? [] : HITS); }
     if (p === '/rest/v1/rpc/app_search_records') {
       s.calls.push({ what: 'records', body });
       return ok({ groups: [{ kind: 'document', total: 2, items: [
@@ -43,7 +43,7 @@ async function server(page) {
     }
     if (p === '/rest/v1/app_outside_sources') return ok([{ source_key: 'kctu', enabled: true, last_ok_at: '2026-10-05T09:07:00Z', last_error: null }, { source_key: 'laborparty', enabled: true, last_ok_at: null, last_error: null }]);
     if (p === '/rest/v1/app_outside_seen') return ok(method === 'PATCH' ? [{ seen_at: body.seen_at }] : [{ seen_at: '2026-10-05T00:00:00Z' }]);
-    if (p === '/rest/v1/app_outside_posts') return ok([]);
+    if (p === '/rest/v1/app_outside_articles') return ok([]);
     return route.fallback();
   });
   return s;
@@ -66,7 +66,10 @@ for (const width of [412, 1280]) {
     await expect(root.getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     await expect(root.locator('[data-os-search]')).toBeHidden();
     // S51-8: [문장 찾기] 탭은 없어지고 위 찾기 칸 하나. 글자만 넣으면 제목 거르기만(서버 안 부름), Enter = 문장 찾기 결과 칸.
+    // S63-11: 탭마다 한 길 — 문장 찾기는 [사회운동] 탭(그리고 [보관]·[밑줄])에서. [전체]·[언론]은 서버 제목 찾기.
     await expect(root.getByRole('tab', { name: '문장 찾기' })).toHaveCount(0);
+    await root.getByRole('tab', { name: '사회운동' }).click();
+    await expect(root.getByRole('tab', { name: '사회운동' })).toHaveAttribute('aria-selected', 'true');
     const find = root.locator('[data-nw-find]');
     await expect(find).toHaveAttribute('placeholder', 'News 찾기 — 제목·문장');
     await find.fill('구조조정');

@@ -186,7 +186,7 @@ public sealed class LoopbackReceiver : IDisposable
     private static async Task RespondAsync(NetworkStream stream, int status, string message)
     {
         var body = Encoding.UTF8.GetBytes(
-            "<!doctype html><meta charset=\"utf-8\"><title>바구니 PC드롭</title>"
+            "<!doctype html><meta charset=\"utf-8\"><title>" + TrayStatus.Name + "</title>"
             + "<p style=\"font:16px sans-serif;margin:2em\">" + message + "</p>");
         var head = $"HTTP/1.1 {status} X\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {body.Length}\r\n"
             + "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\n"

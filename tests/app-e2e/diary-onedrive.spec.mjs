@@ -97,7 +97,7 @@ for (const width of [390, 1280]) {
     expect(f.edge.some(b => b.action === 'photos' && b.month === '2026-10')).toBe(true);
     await day.click();
     const detail = page.locator('#diaryRoot [data-diary-detail]'), grid = detail.locator('[data-diary-grid] .diary-grid-item');
-    await expect(detail).toContainText('일기 없음');
+    await expect(detail).toContainText('하루 기록 없음');
     await expect(grid).toHaveCount(6);
     await expect(grid.first().locator('img')).toBeVisible();
     // OD-사진크기: [－]는 칸을 늘리고 [＋]는 줄인다(폰 4→6, 넓은 화면 6→8). 끝 단계 버튼은 누를 수 없다. 격자를 다시 그리지 않는다.
@@ -249,13 +249,13 @@ test('연결 전: 한 줄 안내 → 연결 버튼은 마이크로소프트 로�
   expect(f.errors).toEqual([]);
 });
 
-test('원드라이브 준비가 안 된 서버에서는 연결 줄이 없고 일기는 그대로다', async ({ page }) => {
+test('원드라이브 준비가 안 된 서버에서는 연결 줄이 없고 하루 기록은 그대로다', async ({ page }) => {
   const f = await fixture(page, { status: { configured: false, connected: false, folder: null }, days: {} });
   await openDiary(page, 390);
   await expect(page.locator('#diaryRoot [data-diary-od]')).toBeHidden();
   await expect(odIcon(page)).toBeHidden();
   await cell(page, '2026-10-12').click();
-  await expect(page.locator('#diaryRoot [data-diary-detail]')).toContainText('일기 없음');
+  await expect(page.locator('#diaryRoot [data-diary-detail]')).toContainText('하루 기록 없음');
   await expect(page.locator('#diaryRoot [data-diary-detail] [data-diary-source]')).toHaveCount(0);
   // 원드라이브에는 연결 확인만 묻는다(OD-미리받기: 앱을 켤 때 한 번 + 일기를 열 때 한 번까지. '연결 안 됨'은 다시 쓰지 않는다).
   const actions = f.edge.map(b => b.action);
@@ -352,7 +352,7 @@ test('사진 목록 받기를 알 수 없는 오류가 막으면 알려진 문�
 });
 
 for (const width of [390, 1280]) {
-  test(`원드라이브 아이콘: [오늘] 오른쪽 작은 아이콘, 드롭다운 항목, '일기에서 사진 보이기'를 끄면 원드라이브 사진만 빠지고 다시 켜면 돌아온다 ${width}`, async ({ page }) => {
+  test(`원드라이브 아이콘: [오늘] 오른쪽 작은 아이콘, 드롭다운 항목, '하루 기록에서 사진 보이기'를 끄면 원드라이브 사진만 빠지고 다시 켜면 돌아온다 ${width}`, async ({ page }) => {
     const f = await fixture(page, { width });
     await openDiary(page, width);
     const icon = odIcon(page), today = page.locator('#diaryRoot [data-diary-today]');
@@ -366,11 +366,11 @@ for (const width of [390, 1280]) {
     await icon.click();
     const menu = odMenu(page);
     await expect(menu).toContainText('연결됨 · 카메라');
-    await expect(menu.locator('button')).toHaveText(['폴더 바꾸기', '하위 폴더 켜고 끄기', '✓일기에서 사진 보이기', '연결 끊기']);
+    await expect(menu.locator('button')).toHaveText(['폴더 바꾸기', '하위 폴더 켜고 끄기', '✓하루 기록에서 사진 보이기', '연결 끊기']);
     // 뒤로가기로 닫힌다.
     await page.goBack();
     await expect(menu).toBeHidden();
-    await odPick(page, '일기에서 사진 보이기');
+    await odPick(page, '하루 기록에서 사진 보이기');
     await expect(cell(page, '2026-10-12').locator('[data-diary-od-dot]')).toHaveCount(0);
     await icon.click();
     await expect(menu.locator('[data-od-act="show"]')).toHaveAttribute('aria-checked', 'false');
@@ -394,7 +394,7 @@ test('원드라이브 상태 확인이 실패하면 아이콘에 빨간 점, 드
 
 // DIARY-넣은사진표시: 그날 사진 모음에서 일기에 넣은 사진(일기 첨부)에만 왼쪽 위 '일기' 띠, 오른쪽 위 별표와 겹치지 않는다.
 for (const width of [390, 1280]) {
-  test(`일기에 넣은 사진에만 왼쪽 위 '일기' 띠가 보이고 별표와 겹치지 않는다 ${width}`, async ({ page }) => {
+  test(`하루 기록에 넣은 사진에만 왼쪽 위 '하루 기록' 띠가 보이고 별표와 겹치지 않는다 ${width}`, async ({ page }) => {
     const at = '2026-10-05T01:00:00Z';
     const att = id => ({ drive_file_id: id, file_name: id + '.jpg', mime_type: 'image/jpeg', size_bytes: 1200 });
     const diary = { id: 'd12', workspace_id: 'w', kind: 'diary', title: null, journal_day: '2026-10-12', raw_text: '', occurred_at: at, created_at: at, updated_at: at, archived_at: null, ai_export_allowed: false, attachments: [att('U1'), att('U2')], metadata: {} };
@@ -408,7 +408,7 @@ for (const width of [390, 1280]) {
     await expect(grid).toHaveCount(8);
     const marks = page.locator('#diaryRoot [data-diary-grid] .diary-in-mark');
     await expect(marks).toHaveCount(2);
-    await expect(marks.first()).toHaveText('일기');
+    await expect(marks.first()).toHaveText('하루 기록');
     for (let i = 0; i < 8; i++) await expect(grid.nth(i).locator('.diary-in-mark')).toHaveCount(i < 2 ? 1 : 0);
     // 세 칸 위치를 따로 읽으면 그 사이 화면이 밀릴 때(사진·덧글 줄 배치) 서로 다른 순간 값이 섞인다. 한 번에 같이 읽는다.
     const { m, s, g } = await grid.nth(0).evaluate(el => {
@@ -418,8 +418,8 @@ for (const width of [390, 1280]) {
     expect(m.x).toBeLessThan(g.x + g.width / 2); expect(m.y).toBeLessThan(g.y + 12);
     expect(m.x + m.width).toBeLessThanOrEqual(s.x + 1);
     expect(m.height).toBeGreaterThanOrEqual(16); expect(m.height).toBeLessThanOrEqual(18);
-    await expect(grid.nth(0)).toHaveAttribute('aria-label', /일기에 넣은 사진, 별표/);
-    await expect(grid.nth(2)).not.toHaveAttribute('aria-label', /일기에 넣은/);
+    await expect(grid.nth(0)).toHaveAttribute('aria-label', /하루 기록에 넣은 사진, 별표/);
+    await expect(grid.nth(2)).not.toHaveAttribute('aria-label', /하루 기록에 넣은/);
     expect(f.errors).toEqual([]);
   });
 }
@@ -485,7 +485,7 @@ test.describe('DIARY-넣은사진원본', () => {
     return { state, rows };
   };
 
-  test('원드라이브·폰 사진을 일기에 넣으면 원본 식별값이 일기 행에 저장되고, 두 원본 칸에 띠가 붙고 같은 날 다른 사진 칸에는 안 붙는다', async ({ page }) => {
+  test('원드라이브·폰 사진을 하루 기록에 넣으면 원본 식별값이 하루 기록 행에 저장되고, 두 원본 칸에 띠가 붙고 같은 날 다른 사진 칸에는 안 붙는다', async ({ page }) => {
     const { state, rows } = await frame(page, 390);
     const r = await putIn(page, ['onedrive:A1', 'phone:ms:5', '']);
     expect(r).toMatchObject({ ok: true, count: 3 });
@@ -499,8 +499,8 @@ test.describe('DIARY-넣은사진원본', () => {
     // 직접 올린 3장(U1~U3) 뒤에 원드라이브 6장(A1~A6), 폰 2장(P5·P6)
     const marked = await grid.evaluateAll(els => els.map(el => el.querySelectorAll('.diary-in-mark').length));
     expect(marked).toEqual([1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0]);
-    await expect(grid.nth(3)).toHaveAttribute('aria-label', /일기에 넣은 사진/);
-    await expect(grid.nth(9)).toHaveAttribute('aria-label', /일기에 넣은 사진/);
+    await expect(grid.nth(3)).toHaveAttribute('aria-label', /하루 기록에 넣은 사진/);
+    await expect(grid.nth(9)).toHaveAttribute('aria-label', /하루 기록에 넣은 사진/);
     // 띠와 별표 위치를 같은 순간에 한 번에 읽는다
     const { m, g } = await grid.nth(3).evaluate(el => { const r = n => { const b = n.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width }; }; return { m: r(el.querySelector('.diary-in-mark')), g: r(el) }; });
     expect(m.x).toBeLessThan(g.x + g.width / 2); expect(m.y).toBeLessThan(g.y + 12);

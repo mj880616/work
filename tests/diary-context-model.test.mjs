@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {MEETING_SPAN_MS, contextSummary, entryText, takenMs, photoContextLine} from '../app/diary-context-model.mjs';
+import {MEETING_SPAN_MS, contextSummary, entryText, entryKind, takenMs, photoContextLine} from '../app/diary-context-model.mjs';
 
 const at = iso => Date.parse(iso);
 const ev = (title, s, e, extra = {}) => ({kind:'event', id:title, title, time:'', allDay:false, startMs:at(s), endMs:at(e), ...extra});
@@ -62,4 +62,21 @@ test('화면 부품: 업무일지 읽기 재사용, 새 저장·브라우저 저
   const diary = readFileSync(new URL('../app/diary.js', import.meta.url), 'utf8');
   assert.match(diary, /hasPhotos \? '<div class="diary-ctx-slot" data-diary-context-slot><\/div>' : ''/);
   assert.match(diary, /if \(hasPhotos\) paintContext\(/);
+});
+
+test('DIARY-맥락사업보고이름: 사업 보고 줄 꼬리표·접힌 한 줄·줄 글자는 그 칸 이름 그대로, 이름 앞 [칸]은 뺀다', () => {
+  const fight = {...mt('[투쟁] 가상 결의대회', '2026-10-12T05:00:00Z'), time:'14:00', label:'투쟁', name:'가상 결의대회'};
+  const meet = {...mt('가상 회의', '2026-10-12T07:00:00Z'), label:'회의', name:'가상 회의'};
+  const policy = {...mt('[정책] 가상 토론', '2026-10-12T08:00:00Z'), label:'정책', name:'가상 토론'};
+  assert.equal(entryKind(fight), '투쟁');
+  assert.equal(entryKind(ev('가', '2026-10-12T01:00:00Z', '2026-10-12T02:00:00Z')), '일정');
+  assert.equal(entryKind(mt('옛 회의', '2026-10-12T05:00:00Z')), '회의', '칸 없는 옛 항목은 회의');
+  assert.equal(entryText(fight), '14:00 가상 결의대회');
+  assert.equal(contextSummary([fight]), '그날 맥락 · 투쟁 1');
+  assert.equal(contextSummary([fight, ev('가', '2026-10-12T01:00:00Z', '2026-10-12T02:00:00Z'), meet, policy, {...fight, id:'b'}]), '그날 맥락 · 일정 1 · 투쟁 2 · 회의 1 · 정책 1');
+  // 크게 보기 캡션은 지금처럼 전체 이름(title).
+  assert.equal(photoContextLine({taken_at:'2026-10-12T05:20:00Z'}, [fight]), '14:20 [투쟁] 가상 결의대회 중');
+  const view = readFileSync(new URL('../app/diary-context.js', import.meta.url), 'utf8');
+  assert.match(view, /label:reportKindLabel\(reportKindOf\(meeting\)\)/);
+  assert.doesNotMatch(view, /entry\.kind === 'meeting' \? '회의'/);
 });
