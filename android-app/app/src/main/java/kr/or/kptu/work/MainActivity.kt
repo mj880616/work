@@ -36,7 +36,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
@@ -56,7 +55,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var root: LinearLayout
     private lateinit var webView: WebView
     /** APP-당겨서새로고침: 웹 화면을 감싸는 당겨서 새로고침. 웹이 그 손가락에 'pull:on'을 보낸 때만 받는다. */
-    private lateinit var refresher: SwipeRefreshLayout
+    private lateinit var refresher: PullRefreshLayout
     @Volatile private var pullOn = false
     private lateinit var updateBar: LinearLayout
     private lateinit var updateText: TextView
@@ -279,7 +278,7 @@ class MainActivity : ComponentActivity() {
         buildUpdateBar()
         webView = WebView(this)
         root.addView(updateBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        refresher = SwipeRefreshLayout(this)
+        refresher = PullRefreshLayout(this)
         refresher.addView(webView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         root.addView(refresher, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         setUpPullRefresh()
@@ -855,7 +854,8 @@ class MainActivity : ComponentActivity() {
         refresher.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.widget_tile_bg))
         // APP-다시열림: 맨 위에서 목록을 위로 훑다가 저절로 새로고침되지 않게, 당겨야 하는 거리를 늘린다(기본 약 64dp → PULL_TRIGGER_DP).
         refresher.setDistanceToTriggerSync((PULL_TRIGGER_DP * resources.displayMetrics.density).toInt())
-        refresher.setOnChildScrollUpCallback { _, _ -> !ShellRules.pullReady(pullOn, webView.scrollY, ShellRules.isInternalApp(webView.url)) }
+        // NOTE-폴더고른뒤새로고침: 움직이는 순간만 웹 판정으로 막고, 대고 떼는 순간은 늘 받는다(ShellRules.pullBlocked).
+        refresher.setOnChildScrollUpCallback { _, _ -> ShellRules.pullBlocked(refresher.moving, pullOn, webView.scrollY, ShellRules.isInternalApp(webView.url)) }
         webView.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_DOWN) pullOn = false
             false

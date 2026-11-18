@@ -116,6 +116,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `app/src/main/java/kr/or/kptu/work/MainActivity.kt` | WebView 껍데기 |
+| `app/src/main/java/kr/or/kptu/work/PullRefreshLayout.kt` | 당겨서 새로고침(손가락 움직임만 웹 판정으로 막음, `ShellRules.pullBlocked`) |
 | `app/src/main/java/kr/or/kptu/work/ShellRules.kt` | 주소 판정·로그인 복귀 값·바 색·버전 비교·공유 번호·목록 JSON 규칙(단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ShareIntake.kt` | 공유 받기(메모리 보관·`__share` 가로채기) |
 | `app/src/main/java/kr/or/kptu/work/UpdateCheck.kt` | 공개 릴리스 `phone-app-v*` 최신 버전 확인 |
