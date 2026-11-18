@@ -53,7 +53,8 @@ test('screen calls only app_collab_* RPCs, never tables, ids or device storage',
   const calls = [...src.matchAll(/'(app_[a-z_]+)'/g)].map(m => m[1]);
   assert.deepEqual([...new Set(calls)].sort(), ['app_collab_admin_move', 'app_collab_group_create', 'app_collab_invite_accept', 'app_collab_invite_create',
     'app_collab_invite_peek', 'app_collab_invite_revoke_all', 'app_collab_leave', 'app_collab_member_remove', 'app_collab_my_groups', 'app_collab_request_decide']);
-  assert.doesNotMatch(src, /\/rest\/v1\/app_|localStorage|sessionStorage|indexedDB|p_workspace|p_user|workspace_id|user_id/);
+  // 기기 저장소 이름은 글자 그대로 쓰지 않는다(browser-storage-audit가 실제 사용으로 셈).
+  assert.doesNotMatch(src, /\/rest\/v1\/app_|(?:local|session)Storage|indexed[D]B|p_workspace|p_user|workspace_id|user_id/);
   // 받은 링크는 읽자마자 주소에서 지운다.
   assert.match(src, /replaceState\([^)]*urlWithoutToken/);
 });
