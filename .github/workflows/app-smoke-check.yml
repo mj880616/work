@@ -1204,6 +1204,9 @@ jobs:
       - name: Check operator signup status counts and seven fields (OPS-가입자현황)
         run: node --test tests/signup-status-model.test.mjs
 
+      - name: Check my groups panel model, invite link and server-only calls (COLLAB-묶인사람끼리공유 1단계)
+        run: node --test tests/collab-groups-model.test.mjs
+
       - name: SEC-자주가는링크기본값유출·COLLAB-조직목록없음직접입력 운영자 기본값 없음·남의 작업공간 조직 이름 막힘
         run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
 
