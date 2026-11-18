@@ -109,7 +109,7 @@ test('news hand fill: plan, dry-run, apply, empty old rows, author shape, read-o
    const post=(await pool.query(postcheck)).rows;assert.ok(post.filter(r=>/^(예|아니오)$/.test(r.value)).every(r=>r.value==='예'),JSON.stringify(post));
   });
   await t.test('signed-in users read the columns but cannot write them; anon cannot read',async()=>{
-   const rows=(await as('authenticated',STRANGER,c=>c.query('select author,manual_at from public.app_news_articles'))).rows;assert.equal(rows.length,2,'reader policy rows only');
+   const rows=(await as('authenticated',STRANGER,c=>c.query('select author,manual_at from public.app_news_articles'))).rows;assert.equal(rows.length,3,'site and tg_room rows by the reader policy');
    await assert.rejects(as('authenticated',OWNER,c=>c.query("update public.app_news_articles set author='가상'")),{code:'42501'});
    await assert.rejects(as('authenticated',OWNER,c=>c.query('update public.app_news_articles set manual_at=now()')),{code:'42501'});
    await assert.rejects(as('anon','',c=>c.query('select author from public.app_news_articles limit 1')),{code:'42501'});
