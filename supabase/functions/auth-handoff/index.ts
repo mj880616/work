@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -90,6 +91,7 @@ Deno.serve(async req=>{
       if(!ur.ok) return fail('authentication_failed',401);
       const user=await ur.json();
       if(typeof user?.id!=='string'||!UUID.test(user.id)) return fail('authentication_failed',401);
+      if(isDelegatedToken(access)) return fail('authentication_failed',401);
       const now=Date.now();
       const token=await seal({version:2,nonce:crypto.randomUUID(),sub:user.id,rt:body.refresh_token,iat:now,exp:now+TTL});
       return reply({token});
@@ -106,6 +108,7 @@ Deno.serve(async req=>{
       const user=await ur.json();
       if(typeof user?.id!=='string'||!UUID.test(user.id)||user?.is_anonymous===true||
          typeof user?.email!=='string'||!user.email||user.email.length>320) return fail('authentication_failed',401);
+      if(isDelegatedToken(access)) return fail('authentication_failed',401);
       const gl=await fetch(SB+'/auth/v1/admin/generate_link',{method:'POST',headers:{Authorization:'Bearer '+SERVICE,apikey:SERVICE,'Content-Type':'application/json'},body:JSON.stringify({type:'magiclink',email:user.email})});
       const g=await gl.json().catch(()=>({}));
       const hashed=typeof g?.hashed_token==='string'?g.hashed_token:g?.properties?.hashed_token;

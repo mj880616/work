@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { webcrypto } from 'node:crypto';
+// MCP-Claude읽기 M-2: 지운 import 대신 실제 위임 열쇠 거절 검사를 그대로 넘긴다.
+import { isDelegatedToken } from '../../../supabase/functions/_shared/delegated-token-guard.ts';
 export const SUBJECT = '00000000-0000-4000-8000-000000000001';
 export const OTHER = '00000000-0000-4000-8000-000000000002';
 export const ORIGIN = 'https://desk.bokdoong.com';
@@ -32,7 +34,7 @@ export function harness({ consume = async () => true, refreshUser = SUBJECT, ref
     if (refreshThrows) throw new Error('synthetic-private-network-detail');
     return refreshError ? json({ error_description: 'synthetic-private-upstream-detail' }, 400) : json({ access_token: 'synthetic-access', refresh_token: 'synthetic-refresh', expires_in: 3600, user: { id: refreshUser } });
   };
-  new Function('Deno', 'fetch', 'crypto', 'Date', source)(Deno, fetch, webcrypto, Clock);
+  new Function('Deno', 'fetch', 'crypto', 'Date', 'isDelegatedToken', source)(Deno, fetch, webcrypto, Clock, isDelegatedToken);
   const send = (body, { origin = ORIGIN, method = 'POST', auth = false } = {}) => handler(new Request('https://edge.example.invalid/auth-handoff', {
     method,
     headers: { ...(origin === null ? {} : { Origin: origin }), 'Content-Type': 'application/json', ...(auth ? { Authorization: 'Bearer synthetic-access' } : {}) },

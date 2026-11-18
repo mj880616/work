@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { webcrypto } from 'node:crypto';
+// MCP-Claude읽기 M-2: 지운 import 대신 실제 위임 열쇠 거절 검사를 그대로 넘긴다.
+import { isDelegatedToken } from '../../supabase/functions/_shared/delegated-token-guard.ts';
 
 const SUBJECT = '00000000-0000-4000-8000-000000000001';
 const OTHER = '00000000-0000-4000-8000-000000000002';
@@ -46,7 +48,7 @@ function harness({ user = { id: SUBJECT, email: 'owner@example.invalid' }, userS
     }
     throw new Error('unexpected ' + url);
   };
-  new Function('Deno', 'fetch', 'crypto', 'Date', source)(Deno, fetch, webcrypto, Date);
+  new Function('Deno', 'fetch', 'crypto', 'Date', 'isDelegatedToken', source)(Deno, fetch, webcrypto, Date, isDelegatedToken);
   const send = (body, { origin = 'https://bokdoong.com', auth = true } = {}) => handler(new Request('https://edge.example.invalid/auth-handoff', {
     method: 'POST',
     headers: { ...(origin === null ? {} : { Origin: origin }), 'Content-Type': 'application/json', ...(auth ? { Authorization: 'Bearer synthetic-access' } : {}) },

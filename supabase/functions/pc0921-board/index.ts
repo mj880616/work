@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -57,7 +58,7 @@ Deno.serve(async(req)=>{
   const url=new URL(req.url);
   const mode=url.searchParams.get("mode")||"board";
   const service=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const requireAdmin=async()=>{const token=(req.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");if(!token)return false;const {data:{user},error}=await service.auth.getUser(token);return !error&&user?.id===WEB1_ADMIN_USER_ID};
+  const requireAdmin=async()=>{const token=(req.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");if(!token)return false;const {data:{user},error}=await service.auth.getUser(token);return !error&&user?.id===WEB1_ADMIN_USER_ID&&!isDelegatedToken(token)};
 
   if(mode==="summary"){
     if(req.method==="GET"){
