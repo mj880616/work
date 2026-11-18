@@ -310,7 +310,7 @@ $$;
 revoke all on function public.app_collab_invite_create(uuid) from public, anon, authenticated, service_role;
 grant execute on function public.app_collab_invite_create(uuid) to authenticated;
 
--- 살아 있는 초대 링크 모두 끄기(관리자만).
+-- 살아 있는 초대 링크 모두 끄기(관리자만). 끈 링크 수를 돌려준다.
 create function public.app_collab_invite_revoke_all(p_group uuid)
 returns integer
 language plpgsql
@@ -329,7 +329,7 @@ begin
     raise exception using errcode = '42501', message = 'COLLAB_ADMIN_REQUIRED';
   end if;
   update public.app_collab_invites i set revoked_at = now()
-   where i.group_id = p_group and i.revoked_at is null;
+   where i.group_id = p_group and i.revoked_at is null and i.uses_left > 0 and i.expires_at > now();
   get diagnostics v_count = row_count;
   return v_count;
 end
