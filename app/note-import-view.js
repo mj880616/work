@@ -3,8 +3,8 @@
 // 글자는 모두 textContent로 넣는다(서버·바깥 글에서 온 사이트 이름·저자를 HTML로 넣지 않음). 링크는 https 주소만(note-import-model.mjs noteSource).
 import {iconNode} from './tree-icons.js';
 import {waitEl} from './wait-state.js';
-import {noteSource, failInfo, sourceLabel, sourceByline, fetchedText} from './note-import-model.mjs';
-import {isImporting, importFailReason, retryNoteImport, keepUrlOnly} from './note-import.js';
+import {noteSource, failInfo, sourceLabel, sourceByline, fetchedText, askLinkImport, linkOnlyUrl} from './note-import-model.mjs';
+import {isImporting, importFailReason, retryNoteImport, keepUrlOnly, importIntoNote, declineLinkImport} from './note-import.js';
 
 const el = (tag, cls, text) => { const node = document.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
 
@@ -24,6 +24,9 @@ export function noteImportState(note) {
 export function paintNoteSource(host, note, {rt = window.KPTURuntime, onChange = () => {}, say = () => {}} = {}) {
   const {source, busy, fail} = noteImportState(note);
   host.replaceChildren();
+  // NOTE-링크원문: 원문 정보가 없는 링크 노트(폰 공유·빠른 입력 등으로 만든 것)는 자동으로 가져오지 않고 맨 위 작은 한 줄로 묻는다.
+  // [가져오기] = 같은 가져오기 한 길(importIntoNote), [괜찮아요] = 그 노트에서는 다시 묻지 않음(서버에 남김).
+  if (!source && askLinkImport(note)) { host.hidden = false; host.append(askLine(note, {rt, onChange, say})); return {busy: false}; }
   host.hidden = !source;
   if (!source) return {busy: false};
   if (busy) {
@@ -57,6 +60,28 @@ export function paintNoteSource(host, note, {rt = window.KPTURuntime, onChange =
   host.append(src);
   const by = source.state === 'ok' ? sourceByline(source) : '';
   if (by) host.append(el('div', 'ni-by', by));
-  if (busy) host.append(waitEl({rows: 5}));
-  return {busy};
+  // 본문이 주소 하나뿐일 때만 그 자리를 회색 빈 줄로 잠시 감춘다. 사람이 쓴 글이 있는 노트(아래에 붙임)는 글을 그대로 보인다.
+  const hide = busy && (!String(note.raw_text ?? '').trim() || String(note.raw_text).trim() === source.url || linkOnlyUrl(note.raw_text) === source.url);
+  if (hide) host.append(waitEl({rows: 5}));
+  return {busy: hide};
+}
+
+function askLine(note, {rt, onChange, say}) {
+  const line = el('div', 'ni-ask'); line.dataset.niAsk = '';
+  line.append(el('span', 'ni-warn-text', '원문을 가져올까요?'));
+  const acts = el('span', 'ni-warn-acts');
+  const go = el('button', 'secondary', '가져오기'); go.type = 'button'; go.dataset.niAskGo = '';
+  const no = el('button', 'secondary', '괜찮아요'); no.type = 'button'; no.dataset.niAskNo = '';
+  go.addEventListener('click', async () => {
+    go.disabled = no.disabled = true;
+    try { const saved = await importIntoNote(note, {rt}); if (saved) { onChange(saved === true ? null : saved); return; } }
+    catch { /* 아래 안내 */ }
+    go.disabled = no.disabled = false; say('가져오지 못했어요. 다시 눌러 주세요.');
+  });
+  no.addEventListener('click', async () => {
+    go.disabled = no.disabled = true;
+    try { onChange(await declineLinkImport(note, {rt})); } catch { go.disabled = no.disabled = false; say('다시 눌러 주세요.'); }
+  });
+  acts.append(go, no); line.append(acts);
+  return line;
 }

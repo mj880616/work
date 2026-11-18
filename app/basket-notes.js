@@ -84,7 +84,8 @@ import { createNoteComments } from './note-comments-ui.js';
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
 import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑦: 노트 폴더 나무 | 목록은 펼친 폴드(600px~)부터 — 공용 판정 한 곳
 // NOTE-주소로 가져오기 2단계: 가져오는 중인 노트 줄('○○에서 가져오는 중…')과 열린 노트 맨 위 원문 칸(그리는 곳은 note-import-view.js 한 곳).
-import { NOTE_IMPORT_EVENT, isImporting } from './note-import.js';
+import { NOTE_IMPORT_EVENT, isImporting, importIntoNote } from './note-import.js';
+import { noteLinkUrl } from './note-import-model.mjs';
 import { paintNoteSource } from './note-import-view.js';
 import { busyTitle, noteSource } from './note-import-model.mjs';
 // NEWS-클리핑 C2: 기사 메모 노트(metadata.news_item_id) → 기사 id.
@@ -507,6 +508,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
+      // NOTE-링크원문: 본문(또는 원문 정보)에 https 링크가 있으면 [원문 가져오기] — 이미 쓴 글은 덮지 않고 아래에 붙인다(다시 가져오기도 이것 하나).
+      ...(from === 'detail' && noteLinkUrl(note) && !isImporting(note.id) ? [['data-note-import', '원문 가져오기']] : []),
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       // FAMILY-기억알림: 가족 '잊지 말기' 노트만 [줄 정리] — 줄을 고르면 홈 '가족 · 기억할 것' 줄 ⋯와 같은 메뉴(family-remind-menu.js, [과거 기록으로]).
       ...(from === 'detail' && note?.metadata?.family_list === true ? [['data-note-remind-lines', '줄 정리']] : []),
@@ -1002,6 +1005,17 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       report(error?.code === 'note_changed' ? error.message : pinned ? '고정하지 못했어요. 다시 시도해 주세요.' : '고정을 풀지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
+  // NOTE-링크원문: ⋯ [원문 가져오기] — 노트 위 [가져오기]와 같은 한 길(note-import.js importIntoNote). 끝·실패는 공용 작은 알림과 원문 칸.
+  async function importLink(note) {
+    const owner = scope(), id = note.id;
+    try {
+      const saved = await importIntoNote(note, {rt});
+      if (owner !== scope()) return;
+      if (!saved) { say('가져오지 못했어요. 다시 눌러 주세요.'); return; }
+      if (saved?.metadata) applySaved(id, saved);
+      if (selected?.id === id && !editing) paintRead();
+    } catch { if (owner === scope()) say('가져오지 못했어요. 다시 눌러 주세요.'); }
+  }
   // ---- NOTE-탐색기: 폴더 옮기기·새 폴더·이름·지우기·선택 모드·끌어 놓기 ----
   const applySaved = (id, saved) => {
     notes = notes.map(n => n.id === id ? {...n, metadata:saved.metadata, updated_at:saved.updated_at} : n);
@@ -1482,6 +1496,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
     else if (b.hasAttribute('data-basket-link-open')) { const id = selected?.id; void manual.open('link', b).then(message => { if (selected?.id === id) say(message || ''); }); }
     else if (b.hasAttribute('data-note-to-basket')) void toBasket();
+    else if (b.hasAttribute('data-note-import')) void importLink(note);
     else if (b.hasAttribute('data-note-remind-lines')) void import('./family-remind-menu.js').then(m => m.openRemindLines(from.trigger, {rt, note,
       onDone: () => { if (!editing && selected?.id === note.id) void reload(); }, onFail: text => say(text)})).catch(() => say('메뉴를 열지 못했어요.'));
     else if (b.hasAttribute('data-note-to-diary')) void toDiary(note.id, from.trigger);

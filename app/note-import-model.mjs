@@ -81,6 +81,64 @@ export function noteSource(note) {
 export function isUrlOnly(note, source = noteSource(note)) {
   return !!source && String(note?.raw_text ?? '').trim() === source.url;
 }
+// NOTE-링크원문: 다른 길(폰 공유·빠른 입력·새 노트 창 본문·위젯)로 만든 노트의 링크.
+// linkOnlyUrl: 본문이 사실상 https 링크 하나뿐이면 그 주소(꺾쇠·끝 문장부호는 뗌), 아니면 ''.
+const trimLink = v => v.replace(/^<(.*)>$/s, '$1').replace(/[).,;!?。、]+$/u, '');
+export function linkOnlyUrl(text) {
+  const value = trimLink(String(text ?? '').trim());
+  if (!value || /\s/.test(value) || !/^https:\/\//i.test(value)) return '';
+  return safeHttps(value);
+}
+// firstLink: 본문 속 첫 https 링크(없으면 '').
+export function firstLink(text) {
+  for (const m of String(text ?? '').matchAll(/\bhttps:\/\/[^\s<>"']+/gi)) {
+    const url = safeHttps(trimLink(m[0]));
+    if (url) return url;
+  }
+  return '';
+}
+// 저장 모양({v:'ed1', doc} 또는 {type:'doc'})의 맨 위 마디 목록. 모양이 다르면 null.
+const docContent = d => { const root = isObject(d) && isObject(d.doc) ? d.doc : d; return isObject(root) && root.type === 'doc' && Array.isArray(root.content) ? root.content : null; };
+const isFamily = note => note?.metadata?.family_list === true || note?.metadata?.family_past === true;
+// 원문을 가져올 주소: 원문 정보가 있으면 그 주소, 없으면 본문 속 첫 https 링크. 가족 노트는 빼고 ''.
+export function noteLinkUrl(note) {
+  if (!note || isFamily(note)) return '';
+  return noteSource(note)?.url || firstLink(note.raw_text);
+}
+// 노트 위 한 줄 '원문을 가져올까요?'를 보일까: 원문 정보가 없고, 본문이 링크 하나뿐이고, [괜찮아요]를 누른 적 없는 노트.
+export const LINK_ASK_KEY = 'link_import';
+export function askLinkImport(note) {
+  if (!note || isFamily(note) || noteSource(note)) return false;
+  if (isObject(note.metadata) && note.metadata[LINK_ASK_KEY] === 'no') return false;
+  return !!linkOnlyUrl(note.raw_text);
+}
+// 제목: 지금 제목이 비었거나 주소·사이트 이름 그대로면 가져온 제목으로, 사람이 붙인 제목(공유 제목·AI 제목·직접 쓴 제목)은 그대로.
+export function keepOrImportedTitle(current, url, imported) {
+  const now = oneLine(current, NOTE_TITLE_MAX);
+  if (!now || /^https?:\/\//i.test(now) || now === urlOnlyTitle(url) || now === hostOf(url) || now === shortAddress(url)) return imported;
+  return now;
+}
+// 가져온 글을 넣을 모양: 본문이 그 주소 하나뿐이면 바꿔 넣고(주소는 원문 줄에 남음), 사람이 쓴 글이 있으면 그 아래에 붙인다(덮어쓰지 않음).
+// row = 지금 서버 행 {title, raw_text, doc}. 반환 {title, raw_text, doc|undefined, mode:'replace'|'append'} 또는 null(노트 상한을 넘음).
+export function mergeImported(row, made, url) {
+  const raw = String(row?.raw_text ?? '');
+  // 저장 모양에 글 말고 다른 것(사진·표 등)이 있으면 바꿔 넣지 않고 아래에 붙인다(사진을 잃지 않기).
+  const plainOnly = !row?.doc || (docContent(row.doc) || []).every(n => n?.type === 'paragraph' && (n.content || []).every(c => c?.type === 'text' || c?.type === 'hard_break'));
+  if (plainOnly && (!raw.trim() || linkOnlyUrl(raw) === url || raw.trim() === url)) {
+    return {title: keepOrImportedTitle(row?.title, url, made.title), raw_text: made.text, doc: made.doc, mode: 'replace'};
+  }
+  const title = keepOrImportedTitle(row?.title, url, made.title);
+  const mine = docContent(row?.doc), theirs = docContent(made.doc);
+  if (mine && theirs) {
+    const doc = cleanDoc({type: 'doc', content: [...mine, ...theirs]});
+    // 저장 모양 상한(마디 수 등)에 걸려 앞의 글이 한 줄이라도 빠지면 붙이지 않는다(사람이 쓴 글을 잃지 않기).
+    if (!doc || docContent(doc).length !== mine.length + theirs.length) return null;
+    const text = toPlain(doc);
+    return [...text].length > NOTE_BODY_MAX ? null : {title, raw_text: text, doc, mode: 'append'};
+  }
+  const text = `${raw.replace(/\s+$/, '')}\n\n${made.text}`;
+  return [...text].length > NOTE_BODY_MAX ? null : {title, raw_text: text, doc: undefined, mode: 'append'};
+}
 // '주소만' 노트의 본문(저장 모양)과 제목.
 export function urlOnlyDoc(url) {
   return cleanDoc({type: 'doc', content: [{type: 'paragraph', attrs: {style: DEFAULT_BODY}, content: [{type: 'text', text: url}]}]});

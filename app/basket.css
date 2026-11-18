@@ -383,6 +383,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .ni-prog { margin:0; font-size:var(--ds-text-meta, 12px); color:var(--kptu-muted); }
 #basketView .ni-warn { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-height:var(--ds-compact-height, 32px); font-size:var(--ds-text-meta, 12px); line-height:1.45; color:var(--kptu-warning); }
 #basketView .ni-warn-text { flex:1 1 180px; min-width:0; }
+/* NOTE-링크원문: 링크 노트 위 '원문을 가져올까요? [가져오기] [괜찮아요]' — 실패 안내와 같은 자리·크기, 색만 흐린 글(경고 아님). */
+#basketView .ni-ask { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-height:var(--ds-compact-height, 32px); font-size:var(--ds-text-meta, 12px); line-height:1.45; color:var(--kptu-muted); }
 #basketView .ni-warn-acts { display:inline-flex; align-items:center; gap:8px; flex:none; }
 #basketView .ni .wait { margin-top:8px; }
 /* 가져오는 중인 노트 줄: 제목 자리 글('○○에서 가져오는 중…')은 흐리게. */
