@@ -900,7 +900,7 @@ function paintReadText() {
   // ED③ 업데이트: the saved form is drawn instead of the letters (the 원문 toggle still shows the letters).
   if (asDoc && paintDoc(text, selected, {rt, onOpen:(file, el) => openPhoto(file.drive_file_id, el)})) return;
   const owner = scope();
-  void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope()}).then(result => { if (!result.ok && readShown.get(text) === key) readShown.delete(text); });
+  void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope(), videos: true}).then(result => { if (!result.ok && readShown.get(text) === key) readShown.delete(text); });
 }
 function paintMode() {
   if (!selected) return;
