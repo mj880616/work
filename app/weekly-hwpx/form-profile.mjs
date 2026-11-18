@@ -6,6 +6,8 @@
 //  - ⑤-3(명진 결정 11/17 '나'): 코드에 박혀 있던 양식(옛 기본값)은 지웠다. 쓸 '내 양식'이 없으면 바탕 파일에서 읽는다
 //    (hwpx-form-read.mjs readBaseForm — 자리는 이 파일의 ROLES 차례·표 칸 수로만 붙이고 글자는 파일에 적힌 그대로).
 // 화면·서버 없는 순수 함수(node 시험이 부른다). 보고 본문 글은 다루지 않는다.
+// 이 파일은 supabase/functions/_shared/weekly-form-profile.mjs 와 바이트까지 같은 사본이다(weekly-lines.mjs 와 같은 방식). 한쪽만 고치지 않는다
+//   (tests/security/ledger-weekly.test.mjs 가 지킨다). Edge ai-assist 원장 자동 기록(WEEKLY-개인본대조 W-3)이 '내 양식' → 줄 나누기 profile 을 같은 규칙으로 만든다.
 
 // 엔진 자리(채우는 방법). 순서 = 엔진이 한글 파일에 쓰는 차례.
 export const ROLES = Object.freeze(['requests', 'requestTable', 'schedule', 'discuss', 'work', 'summaryTable', 'details',

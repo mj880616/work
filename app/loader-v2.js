@@ -280,6 +280,8 @@
   import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
   // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
   import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
+  // PRIVACY-백업안내(S66-01): 가입 뒤 한 번만 '내 기록 백업' 안내 줄, 매주 자동 백업이 켜져 있으면 2분 뒤 7일 지났는지 보고 한 번. 기다리지 않는다.
+  import('./record-backup.js').then(m=>m.startRecordBackup()).catch(err=>console.warn('record backup load failed',err?.name||'Error'));
   // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
   import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
   import('./mobile-modal-history.js').catch(()=>{});
