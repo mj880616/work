@@ -1336,6 +1336,107 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
   return await savedOut(db, saved);
 }
 
+// ---- 손으로 넣기(hand_fill, S67-02 NEWS-직접넣기) ------------------------------------------------------------------------
+// 원문을 못 읽은 기사(늦은 답·없는 글·막힘)나 잘못 읽은 기사에 사람이 제목·매체·기자·기사 시각·본문을 넣는다. 화면 [직접 넣기]·⋯ [수정].
+// - 몸통 {id, title, publisher, author, published_at, body?}. body가 없으면 본문은 그대로(제목 등만 고침). 값은 글자로만 저장(HTML 해석 없음).
+// - 운영자 기능 키(outside) 작업공간만(위 newsAllowed). 기사는 누른 사람 로그인으로 읽히는 공용 기사만(ownArticle, 못 읽으면 404).
+// - 바깥 사이트를 읽지 않고 AI도 부르지 않는다. 쓰기는 서비스 역할: 공용 기사 한 줄 + 본문 블록(rule manual@1) + 이 작업공간 같은 주소 옛 줄.
+// - 본문·제목이 바뀌면 옛 번역·수집 요약과 이 작업공간의 '자세히'(요약·시사점) 저장본을 지워 새 재료로 다시 만들게 한다.
+export const HAND_RULE = "manual@1";
+export const HAND_LIMITS = Object.freeze({ title: 300, publisher: 60, author: 80, body: 50000, blocks: 400 });
+const HAND_MAX_BYTES = 256 * 1024;
+const HAND_KEYS = ["id", "title", "publisher", "author", "published_at", "body"];
+export type HandInput = { id: string; title: string; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null };
+// deno-lint-ignore no-control-regex
+const HAND_CTRL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g;
+const handLine = (v: unknown) => (typeof v === "string" ? oneLine(v.replace(HAND_CTRL, " ")) : null);
+// 붙여 넣은 본문 → 문단 목록. 빈 줄이 있으면 빈 줄로, 없으면 줄마다 문단. 문단이 블록 상한을 넘으면 이웃 문단을 이어 붙인다.
+export function handParagraphs(raw: string): string[] {
+  const text = raw.replace(/\r\n?/g, "\n");
+  const lines = text.split("\n");
+  let paras: string[];
+  if (/\n[ \t　]*\n/.test(text)) paras = text.split(/\n[ \t　]*\n/).map((p) => oneLine(p.replace(HAND_CTRL, " ")));
+  else paras = lines.map((l) => oneLine(l.replace(HAND_CTRL, " ")));
+  paras = paras.filter(Boolean);
+  if (paras.length > HAND_LIMITS.blocks) {
+    const size = Math.ceil(paras.length / HAND_LIMITS.blocks), out: string[] = [];
+    for (let i = 0; i < paras.length; i += size) out.push(paras.slice(i, i + size).join(" "));
+    paras = out;
+  }
+  return paras;
+}
+export function parseHandFill(b: Row, nowMs: number): HandInput {
+  const keys = Object.keys(b);
+  if (keys.some((k) => !HAND_KEYS.includes(k)) || !["id", "title", "publisher", "author", "published_at"].every((k) => k in b)) throw new Fail(400, "INVALID_BODY");
+  if (typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
+  const title = handLine(b.title);
+  if (!title || [...title].length > HAND_LIMITS.title) throw new Fail(400, "INVALID_TITLE");
+  const opt = (v: unknown, max: number, code: string) => {
+    if (v === null) return null;
+    const s = handLine(v);
+    if (s === null || [...s].length > max) throw new Fail(400, code);
+    return s || null;
+  };
+  const publisher = opt(b.publisher, HAND_LIMITS.publisher, "INVALID_PUBLISHER");
+  const author = opt(b.author, HAND_LIMITS.author, "INVALID_AUTHOR");
+  let published: string | null = null;
+  if (b.published_at !== null) {
+    const t = typeof b.published_at === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(b.published_at) ? Date.parse(b.published_at) : NaN;
+    if (!Number.isFinite(t) || t < Date.parse("1990-01-01T00:00:00Z") || t > nowMs + 2 * 86400000) throw new Fail(400, "INVALID_DATE");
+    published = new Date(t).toISOString();
+  }
+  let body: string[] | null = null;
+  if ("body" in b) {
+    if (typeof b.body !== "string" || [...b.body].length > HAND_LIMITS.body) throw new Fail(400, "INVALID_TEXT");
+    body = handParagraphs(b.body);
+    if (!body.length) throw new Fail(400, "INVALID_TEXT");
+  }
+  return { id: b.id.toLowerCase(), title, publisher, author, published_at: published, body };
+}
+// 손으로 넣은 값 → 한 줄 고칠 칸(공용 기사·옛 줄 같은 규칙). shared면 기자 이름·'직접 넣음' 시각 칸도(공용 기사에만 있음).
+export function handPatch(row: Row, v: HandInput, nowIso: string, shared: boolean): Row {
+  const patch: Row = { title: v.title, title_key: titleKey(v.title), publisher: v.publisher, published_at: v.published_at, updated_at: nowIso };
+  if (shared) { patch.author = v.author; patch.manual_at = nowIso; }
+  if (v.body) {
+    Object.assign(patch, { body: v.body.join("\n"), body_kind: "full", state: "ok", fetched_at: row.fetched_at ?? nowIso, summary: null, title_ko: null, body_ko: null, translated_at: null });
+  } else if (v.title !== row.title && row.title_ko != null) {
+    // 제목 번역은 옛 제목 것이라 비운다(본문 번역이 남아 있으면 번역 시각은 그대로 — DB 검사: 시각 = 둘 중 하나라도 있음).
+    patch.title_ko = null;
+    if (row.body_ko == null) patch.translated_at = null;
+  }
+  return patch;
+}
+export function handBody(v: HandInput): Extracted {
+  const blocks = (v.body ?? []).map((text) => ({ t: "p" as const, text }));
+  const text = (v.body ?? []).join("\n");
+  return { state: "ok", reason: null, rule: HAND_RULE, blocks, chars: [...(v.body ?? []).join("")].length, images: 0, captions: 0, text };
+}
+async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: Row, nowMs: number) {
+  const v = parseHandFill(b, nowMs);
+  const art = await ownArticle(reads, v.id);
+  const olds = await ownOldRows(db, ws, art);
+  const nowIso = new Date(nowMs).toISOString();
+  // 공용 기사가 먼저(실패하면 503 — 화면은 '저장하지 못함'). 옛 줄·자세히 지우기는 따라 적기라 실패해도 로그만.
+  await db.send("PATCH", `app_news_articles?id=eq.${art.id}`, handPatch(art, v, nowIso, true), "return=minimal");
+  if (v.body) {
+    const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(handBody(v), { workspace_id: "" }, nowIso);
+    await db.send("POST", "app_news_article_bodies?on_conflict=article_id", { article_id: art.id, ...body, updated_at: nowIso }, "return=minimal,resolution=merge-duplicates");
+  }
+  for (const o of olds) {
+    try {
+      await db.send("PATCH", `app_news_items?id=eq.${o.id}&workspace_id=eq.${ws}`, handPatch(o, v, nowIso, false), "return=minimal");
+      if (v.body) await saveNewsBody(db, log, { ...o, workspace_id: ws }, handBody(v), nowIso);
+    } catch { log("old_write_failed"); }
+  }
+  try {
+    await db.send("DELETE", `app_news_now_details?workspace_id=eq.${ws}&article_id=eq.${art.id}`, undefined, "return=minimal");
+    const oldIds = olds.map((o) => String(o.id)).filter((id) => UUID.test(id));
+    if (oldIds.length) await db.send("DELETE", `app_now_details?workspace_id=eq.${ws}&news_item_id=in.(${oldIds.join(",")})`, undefined, "return=minimal");
+  } catch { log("detail_clear_failed"); }
+  log("hand_filled", { body: !!v.body, olds: olds.length });
+  return { ok: true, status: "filled", id: String(art.id) };
+}
+
 export function createNewsFeedHandler(deps: NewsFeedDeps) {
   const doFetch = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
@@ -1359,11 +1460,13 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate", "save_url"];
+      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate", "save_url", "hand_fill"];
       if (!(cron ? cronActions : userActions).includes(action ?? "")) throw new Fail(400, "UNKNOWN_ACTION");
-      if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
+      // 손으로 넣기(본문 붙여넣기)만 몸통이 크다. 그 밖은 지금 상한 그대로.
+      const maxBytes = action === "hand_fill" ? HAND_MAX_BYTES : MAX_BODY_BYTES;
+      if (Number(req.headers.get("content-length") || 0) > maxBytes) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
-      try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
+      try { body = await readBoundedJson(req, { maxBytes }); } catch { throw new Fail(400, "INVALID_BODY"); }
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "INVALID_BODY");
       const b = body as Row;
       const db = makeDb(sb, key, doFetch);
@@ -1442,6 +1545,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       }
       // NEWS-모두에게열기 E3: open·translate는 공용 기사 한 줄에 읽고 쓴다(기사마다 원문 읽기·번역 1번). 하루 한도·AI 사용량은 누른 사람 작업공간.
       const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", auth!.slice("Bearer ".length), doFetch);
+      if (action === "hand_fill") return json(await handFill(db, reads, log, who.workspaceId, b, nowMs));
       if (action === "open") {
         if (!exactKeys(b, ["id"])) throw new Fail(400, "INVALID_BODY");
         const art = await ownArticle(reads, b.id);
