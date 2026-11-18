@@ -19,6 +19,7 @@
 // 가져온 글은 돌려주기만 한다. AI에 넘기거나 발송·공유로 잇지 않는다.
 // 서비스 역할로 닿는 곳: app_workspace_members(owner 확인 읽기) · app_news_days(읽기·넣기·고치기) 둘뿐(makeDb가 다른 표를 거절).
 // 로그·응답: 코드와 숫자만. 주소·제목·본문·풀린 IP·오류 원문을 싣지 않는다.
+import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
 import { ACCEPT_HTML, makeFeedReader, type FeedLog } from "../_shared/feed-fetch.ts";
 import { OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE } from "../_shared/news-catalog.ts";
 import { textBlocks } from "../_shared/feed-extract.ts";
@@ -113,6 +114,7 @@ async function authorizeUser(sb: string, key: string, jwt: string, doFetch: type
   let user: Row | null = null;
   try { user = await readBoundedJson(r, { maxBytes: 256 * 1024 }) as Row; } catch { user = null; }
   if (!r.ok || typeof user?.id !== "string" || !UUID.test(user.id)) throw new Fail(401, "UNAUTHORIZED");
+  if (isDelegatedToken(jwt)) throw new Fail(401, "UNAUTHORIZED");
   const members = await db.get(`app_workspace_members?user_id=eq.${user.id}&role=eq.owner&select=workspace_id`);
   const ws = members.length === 1 ? members[0].workspace_id : null;
   if (typeof ws !== "string" || !UUID.test(ws)) throw new Fail(403, "FORBIDDEN");

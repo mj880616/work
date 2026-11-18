@@ -1,3 +1,4 @@
+import { isDelegatedToken } from '../_shared/delegated-token-guard.ts';
 import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
 import {createBasketReader} from './basket-read.mjs';
@@ -275,6 +276,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       if (!response.ok) throw new SummaryError('UNAUTHORIZED', 401);
       user = await response.json().catch(() => null);
       if (!user?.id) throw new SummaryError('UNAUTHORIZED', 401);
+      if (isDelegatedToken(authorization)) throw new SummaryError('UNAUTHORIZED', 401);
     }
     const workspaces = await dbRows('app_workspaces', { select: 'id', slug: `eq.${WORKSPACE}` });
     if (workspaces.length !== 1) throw new SummaryError('WORKSPACE_UNAVAILABLE');
