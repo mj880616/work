@@ -8,7 +8,7 @@
 // - 그 사람이 owner인 작업공간이 정확히 하나일 때만 받는다(_shared/workspace-drive-token.ts callerOwnerWorkspace). 작업공간은 서버가 정한다.
 // - 드라이브는 그 작업공간의 연결만 쓴다(workspaceDriveToken). 다른 작업공간 연결·id=1 열쇠는 읽지 않는다.
 // 무엇을 읽나: 기록 표는 사용자 토큰 + anon 키로만 읽는다(기존 owner RLS 그대로, 서비스 역할로 기록을 읽지 않음). 표·조건은 model.mjs 목록뿐.
-// 입구: POST ?action=status → {connected, last_at, last_count, kinds:[{key,label,note,count}]} (개수만)
+// 입구: GET  ?action=status → {connected, last_at, last_count, kinds:[{key,label,note,count}]} (개수만)
 //       POST ?action=run   몸통 {kinds:[...]} → {date, count, folder_url}
 // 같은 날 다시 하면 그날 폴더를 휴지통으로 보내고 새로 만든다. 최근 4주(날짜 폴더 4개)만 남기고 오래된 폴더는 드라이브 휴지통으로(영구 삭제 안 함).
 // 로그·응답: 코드와 숫자만. 기록 내용·제목·파일 ID를 로그에 싣지 않는다.
@@ -34,7 +34,7 @@ const DOC_MIME = "application/vnd.google-apps.document";
 const PAGE = 500;
 const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
@@ -233,9 +233,9 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     const action = new URL(req.url).searchParams.get("action") || "";
     try {
-      if (req.method !== "POST") throw new Fail(405, "METHOD_NOT_ALLOWED");
-      if (action === "status") return await status(req);
-      if (action === "run") return await run(req);
+      // 상태는 읽기만(GET), 백업은 POST. 다른 짝은 405.
+      if (action === "status") { if (req.method !== "GET") throw new Fail(405, "METHOD_NOT_ALLOWED"); return await status(req); }
+      if (action === "run") { if (req.method !== "POST") throw new Fail(405, "METHOD_NOT_ALLOWED"); return await run(req); }
       throw new Fail(400, "UNKNOWN_ACTION");
     } catch (e) {
       const f = e instanceof Fail ? e : new Fail(500, "INTERNAL_ERROR");

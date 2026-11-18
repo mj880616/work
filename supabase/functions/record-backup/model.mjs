@@ -7,7 +7,8 @@
 // - 남이 공유한 대상의 내용은 넣지 않는다: 모든 읽기에 '내 작업공간' 조건을 붙인다(공유 표가 생겨 RLS가 넓어져도 남의 행은 안 들어옴).
 // - 일정·할 일 원본은 Google(Calendar·Tasks)에 있다. 여기서는 노조+가 붙인 연결 기록만 담는다.
 // - 자료실 파일 원본은 이미 내 드라이브에 있다. 여기서는 목록(이름·분류·드라이브 주소)만 담는다.
-// - 텔레그램·통화·가족은 본인 것이라 담되(내 정리 기록만), 운영자 전용 판정은 서버 그대로다(권한이 없으면 행이 0이라 칸이 비어 있음).
+// - 텔레그램 하루 정리·통화 정리·가족 기록은 이번에 넣지 않는다: 그 표들은 '정해진 파일만 읽는다'는 격리 시험(family-notes·call-personal-box·tg-personal-days)이
+//   지키는 표라, 넣으려면 그 허용 목록을 바꾸는 결정이 먼저다(PR 본문 '사용자 결정').
 // - 비밀값·토큰이 든 표(드라이브·원드라이브 연결, 폰 기기 등)는 담지 않는다.
 
 export const BACKUP_FOLDER = '노조+ 백업';
@@ -59,11 +60,6 @@ export const CATEGORIES = Object.freeze([
     { name: 'app_ledger_links', label: '원장 연결', ...ws },
     { name: 'app_news_highlights', label: '뉴스 밑줄', ...ws },
     { name: 'app_profiles', label: '프로필', by: 'user' },
-  ] },
-  { key: 'personal', label: '텔레그램 · 통화 · 가족', tables: [
-    { name: 'app_tg_personal_days', label: '텔레그램 하루 정리', ...ws },
-    { name: 'app_call_personal', label: '통화 정리', ...ws },
-    { name: 'app_family_notes', label: '가족 기록', ...ws },
   ] },
 ].map(c => Object.freeze({ ...c, tables: Object.freeze(c.tables.map(t => Object.freeze(t))) })));
 export const KINDS = Object.freeze(CATEGORIES.map(c => c.key));

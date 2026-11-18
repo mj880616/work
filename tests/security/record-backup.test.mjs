@@ -56,7 +56,7 @@ function world({ connected = true, owner = WS, oldDays = [] } = {}) {
     driveToken: async w => { if (w !== WS) throw Object.assign(new Error('x'), { code: 'drive_failed' }); if (!connected) throw Object.assign(new Error('x'), { code: 'drive_not_connected' }); return 'drive-token-A'; },
     fetch, now: () => Date.parse('2026-11-18T01:00:00Z'), log: c => logs.push(c),
   });
-  const ask = (action, body, auth = 'Bearer good', method = 'POST') => handler(new Request(`${SB}/functions/v1/record-backup?action=${action}`, { method, headers: { Authorization: auth, 'Content-Type': 'application/json' }, body: method === 'POST' && body !== undefined ? JSON.stringify(body) : undefined }));
+  const ask = (action, body, auth = 'Bearer good', method = action === 'status' ? 'GET' : 'POST') => handler(new Request(`${SB}/functions/v1/record-backup?action=${action}`, { method, headers: { Authorization: auth, 'Content-Type': 'application/json' }, body: method === 'POST' && body !== undefined ? JSON.stringify(body) : undefined }));
   return { ask, calls, logs, drive };
 }
 
@@ -66,7 +66,8 @@ test('거절: 로그인 없음·틀린 로그인·owner 아님·모르는 입구
   assert.equal((await w.ask('status', undefined, 'Bearer bad')).status, 401);
   assert.equal((await world({ owner: null }).ask('status')).status, 403);
   assert.equal((await w.ask('delete')).status, 400);
-  assert.equal((await w.ask('status', undefined, 'Bearer good', 'GET')).status, 405);
+  assert.equal((await w.ask('status', undefined, 'Bearer good', 'POST')).status, 405);
+  assert.equal((await w.ask('run', undefined, 'Bearer good', 'GET')).status, 405);
   for (const body of [null, {}, { kinds: [] }, { kinds: ['nope'] }, { kinds: ['notes', 'notes'] }, { kinds: ['notes'], workspace_id: OTHER_WS }, { kinds: 'notes' }]) {
     const r = await w.ask('run', body); assert.equal(r.status, 400, JSON.stringify(body)); assert.equal((await r.json()).error, 'BAD_KINDS');
   }
