@@ -8,8 +8,14 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-async function fixture(page, width) {
+// S66-08: 폰 앱(KPTUAndroid) 흉내 = 앱 UA + 가짜 다리(앱 전용 모듈이 붙는다). 늦은 뒤로 = 고르기 창이 닫으며 부르는 history.back()의
+// popstate가 늦게(400ms 뒤) 오는 WebView 가설. 두 경우 모두 지금 코드에서 재현되지 않음을 지키는 시험으로 둔다.
+async function fixture(page, width, { app = false, lateBack = false } = {}) {
   await page.setViewportSize({ width, height: 900 });
+  if (app) await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (Linux; Android 14) KPTUAndroid/1' });
+    window.KPTUAppShell = { postMessage() {}, addEventListener() {} };
+  });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
@@ -23,6 +29,7 @@ async function fixture(page, width) {
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page, 'note');
   await expect(page.locator('[data-nx-count]')).toHaveText(`노트 · ${rows.length}`);
+  if (lateBack) await page.evaluate(() => { const real = history.back.bind(history); history.back = () => { setTimeout(real, 400); }; });
   return { errors };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
@@ -64,6 +71,33 @@ for (const width of [412, 1280]) for (const picked of [true, false]) {
     await expect(page.locator('[data-nx-note="n1"][data-s6606="kept"]')).toHaveCount(1);
     expect(await page.evaluate(() => window.__s6606)).toBe(0);
     await expect(q(page, '[data-quick-folder]')).toContainText(picked ? '00. 잊지' : '폴더 없음');
+    expect(f.errors).toEqual([]);
+  });
+}
+
+// S66-08 NOTE-폴더고른뒤크게(명진 11/18 20:28 "앱 맞음"): 폰 앱 흉내·늦은 뒤로에서도 같은 기대(폰 412·폴드 접은 화면 344).
+for (const width of [344, 412]) for (const [label, opts] of [['폰 앱 흉내', { app: true }], ['늦은 뒤로', { lateBack: true }], ['폰 앱 흉내 + 늦은 뒤로', { app: true, lateBack: true }]]) {
+  test(`${label}: 폴더를 고른 뒤 [⤢ 크게] → 노트 쓰기 창 ${width}`, async ({ page }) => {
+    const f = await fixture(page, width, opts);
+    await toList(page, width);
+    await pickFolder(page, width);
+    await press(page, q(page, '[data-quick-big]'), width);
+    await expect(page.locator('#edWindow')).toBeVisible();
+    await expect(page.locator('#edWindow [data-edw-folder]')).toHaveAttribute('title', '노트 폴더: 00. 잊지 말기');
+    expect(f.errors).toEqual([]);
+  });
+  test(`${label}: 폴더를 고른 뒤 입력칸 → [목록] 그대로 ${width}`, async ({ page }) => {
+    const f = await fixture(page, width, opts);
+    await toList(page, width);
+    await pickFolder(page, width);
+    await page.locator('[data-nx-note="n1"]').first().evaluate(el => { el.dataset.s6608 = 'kept'; });
+    await page.evaluate(() => { window.__s6608 = 0; addEventListener('kptu:view-changed', () => { window.__s6608++; }); });
+    await press(page, q(page, '[data-quick-input]'), width);
+    await expect(q(page, '[data-quick-input]')).toBeFocused();
+    await page.waitForTimeout(600); // 늦은 popstate(400ms)가 도착한 뒤를 본다(기다리는 대상이 있는 고정 시간)
+    await expect(page.locator('[data-nx-note="n1"][data-s6608="kept"]')).toHaveCount(1);
+    expect(await page.evaluate(() => window.__s6608)).toBe(0);
+    await expect(page.locator('#edWindow')).toBeHidden();
     expect(f.errors).toEqual([]);
   });
 }
