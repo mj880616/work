@@ -12,7 +12,7 @@ import {SAVED_CHIPS, keepSavedChip, savedRows, filterSaved, itemKey, titleHit} f
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body';
-const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id,state,body_kind';
+const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id,state,body_kind,author,manual_at';
 
 // describe(type, row) → {meta, title, ...} 상세 머리, rowOf(type, row, opts) → 줄 글자(News 껍데기가 준다). onOpen(item, head).
 // 보관한 글 읽기(서버, 작업공간 소유자 RLS) — News [보관] 탭과 노트 'News에서 › 보관한 글'(note-news-marks.js)이 같은 길을 쓴다.

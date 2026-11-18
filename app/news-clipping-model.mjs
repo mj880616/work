@@ -66,8 +66,9 @@ const KST = 9 * 3600000;
 const dayKey = ms => new Date(ms + KST).toISOString().slice(0, 10);
 const hhmm = ms => new Date(ms + KST).toISOString().slice(11, 16);
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+// 손으로 넣은 기사(S67-02, manual_at)는 사람이 넣은 기사 시각이 먼저(비우면 원래 순서 — 퍼 온 시각·받은 시각).
 export function whenOf(item) {
-  const t = Date.parse(item?.scrapped_at || item?.published_at || item?.created_at || '');
+  const t = Date.parse((item?.manual_at && item?.published_at) || item?.scrapped_at || item?.published_at || item?.created_at || '');
   return Number.isFinite(t) ? t : null;
 }
 export function dayLabel(key, now = Date.now()) {

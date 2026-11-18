@@ -10,7 +10,7 @@ import {notify} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS} from './now-model.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
@@ -36,17 +36,21 @@ import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit
 // - 원문에서 글을 고르면(끌기·⋯ [모두 선택]) 하단바 위 공용 줄 [밑줄 저장][노트로][복사][공유] ✕(S53-5 NEWS-밑줄모으기, text-select-bar.js).
 //   [모두 선택] 뒤에는 폰 기본 메뉴가 뜨지 않아 이 줄이 복사·공유를 맡는다. 저장한 밑줄은 원문 칸을 그린 뒤 노란 바탕으로 칠한다(text-highlights.js paintMarks,
 //   번역해서 보는 중에는 칠하지 않음). 밑줄을 누르면 작은 메뉴(메모·노트로·복사·지우기). [밑줄] 탭에서 열면 그 자리로(open의 highlight).
+// - 직접 넣기(S67-02 NEWS-직접넣기): 원문을 못 읽은 뉴스 기사는 원문 칸 까닭 줄 끝에 [직접 넣기], 읽은 기사는 원문 ⋯ [수정] — 같은 자리 같은 입력 칸
+//   (제목·매체·기자·기사 시각(달력+시각, 비우면 넣은 시각)·본문). 저장은 서버 news-feed hand_fill(운영자 기능 키 작업공간만, 서버가 길이·모양 검사)뿐.
+//   저장 뒤 기사 줄을 다시 읽어 줄 주인(onRead)이 목록·머리를 고치고, 원문·요약은 새 본문으로 다시 읽는다(요약 저장본은 서버가 지움). 넣은 값은 글자로만 그린다.
 // - 저장은 모두 서버. 기기 저장 없음. 상세·원문은 이 탭 메모리에만 다시 쓰려고 둔다. 바깥 글자는 모두 esc로 그린다. 로그에 제목·본문을 남기지 않는다.
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const rt = () => window.KPTURuntime;
 const MEMO_COLS = 'id,title,raw_text,metadata,updated_at,doc_type:doc->>type';
-const NEWS_ROW_COLS = 'state,body_kind,summary,title,title_ko,publisher,published_at,url,lang';
+const NEWS_ROW_COLS = 'state,body_kind,summary,title,title_ko,publisher,published_at,url,lang,author,manual_at';
+const HAND_ROW_COLS = 'title,publisher,author,published_at,url,state';
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
 export function createNowDetail({box, topics = () => [], onClose, onChanged, onSignal, onRelated, onRead} = {}) {
-  let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo, memoOpen, memoBusy, memoNote, busy, tr:{on, busy, note}}
+  let cur = null; // {item, head, body, detail, failed, unread, making, reading, note, marks, memo, memoOpen, memoBusy, memoNote, busy, tr:{on, busy, note}, hand:{open, busy, note, init, photos}}
   const details = new Map(); // itemKey → 서버 답(이 탭 메모리만)
   const bodies = new Map(); // itemKey → bodyView 모양(이 탭 메모리만)
   const translations = new Map(); // itemKey → translatedBlocks 답(이 탭 메모리만 — 원본 저장은 서버 body_ko)
@@ -125,12 +129,12 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
   // 원문 칸 머리 줄 [번역]: 외국어 뉴스 기사·사회운동 영어 소식에서 글자 블록이 있을 때만. 누른 상태는 aria-pressed.
   function trHtml(b) {
-    if (!canTranslate(cur.item, cur.head) || !b || b.failedLoad || !b.blocks.some(x => x.t !== 'img')) return '';
+    if (cur.hand.open || !canTranslate(cur.item, cur.head) || !b || b.failedLoad || !b.blocks.some(x => x.t !== 'img')) return '';
     const t = cur.tr;
     return `${t.note ? `<span class="nd-tr-note" data-nd-tr-note role="status">${esc(t.note)}</span>` : ''}<button type="button" class="ds-chip nd-tr" data-nd-translate aria-pressed="${!!t.on}"${t.busy ? ' disabled aria-busy="true"' : ''} aria-label="${t.on ? '원문으로 보기' : '한국어로 번역'}">번역</button>`;
   }
   // [복사]·⋯: 원문을 다 읽었을 때만(기다림·불러오기 실패·번역 중에는 없음).
-  const canCopy = b => !!b && !b.failedLoad && !cur.tr.busy;
+  const canCopy = b => !!b && !b.failedLoad && !cur.tr.busy && !cur.hand.open;
   const copyHtml = b => (canCopy(b) ? '<button type="button" class="ds-chip nd-copy" data-nd-copy aria-label="원문 복사 — 제목·본문·주소">복사</button>' : '');
   const moreHtmlOb = b => (canCopy(b) ? '<button type="button" class="icon-btn nd-ob-more" data-nd-ob-more aria-haspopup="true" aria-expanded="false" aria-label="원문 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>' : '');
   // 지금 화면에 보이는 블록(번역해서 보는 중이면 한국어).
@@ -146,7 +150,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const tr = trHtml(b);
     const head = `<div class="nd-ob"><b>원문 전체</b>${src ? `<span class="nd-ob-src">${esc(src)}</span>` : ''}<span class="nd-ob-r">${copyHtml(b)}${tr}${fontHtml()}${moreHtmlOb(b)}</span></div>`;
     let inner;
-    if (!b) inner = `<div aria-busy="true">${waitHtml({rows: 4})}</div>`;
+    if (cur.hand.open) inner = handHtml();
+    else if (!b) inner = `<div aria-busy="true">${waitHtml({rows: 4})}</div>`;
     else if (cur.tr.busy) inner = `<div class="nd-wait" data-nd-tr-wait aria-busy="true"><p class="nd-faint" role="status">번역하는 중</p>${waitHtml({rows: 4})}</div>`;
     else if (tv) {
       const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}</p>` : '';
@@ -155,11 +160,23 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     }
     else if (b.failedLoad) inner = failHtml({text: '원문을 불러오지 못함', retry: 'data-nd-body-retry'});
     else {
-      const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}</p>` : '';
+      const hand = canHandFill(cur.item, b) ? ' <button type="button" class="ds-chip nd-hand" data-nd-hand>직접 넣기</button>' : '';
+      const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}${hand}</p>` : '';
       const prose = b.blocks.length ? `<div class="nd-prose"${langAttr()} data-nd-prose>${b.blocks.map(blockHtml).join('')}</div>` : '';
       inner = b.state === 'failed' ? why : prose + why;
     }
     return head + `<div class="nd-ob-body" data-nd-body-inner>${inner}</div>`;
+  }
+  // 직접 넣기 입력 칸(원문 칸 안, 같은 자리). 처음 값을 읽는 동안은 기다림.
+  function handHtml() {
+    const h = cur.hand, v = h.shown || h.init;
+    if (!v) return `<div aria-busy="true">${waitHtml({rows: 3})}</div>`;
+    const dis = h.busy ? ' disabled' : '';
+    const field = (key, label, attrs = '') => `<label class="nd-hand-f"><span>${label}</span><input type="text" data-nd-hand-in="${key}" value="${esc(v[key])}" maxlength="${HAND_LIMITS[key]}" autocomplete="off"${attrs}${dis}></label>`;
+    return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
+<label class="nd-hand-f"><span>기사 시각</span><input type="datetime-local" data-nd-hand-in="at" value="${esc(v.at)}"${dis}></label>
+<label class="nd-hand-f nd-hand-body"><span>본문</span><textarea data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea></label>
+${h.photos ? '<p class="nd-faint">본문을 바꾸면 사진은 빠져요</p>' : ''}<div class="nd-memo-row">${h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
   }
   function actsHtml() {
     const m = cur.marks || {};
@@ -209,7 +226,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const hit = interestHit([h.title, h.origTitle], topics());
     const imp = impHtml();
     box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" data-font="${fontNow()}" aria-label="글 상세">
-<div class="nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p></div>
+<div class="nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${h.manual ? '<span class="nd-hand-mark" data-nd-manual>직접 넣음</span>' : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p></div>
 <h3 class="nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
 <section class="nd-box nd-orig-box" data-nd-body aria-label="원문 전체">${bodyHtml()}</section>
 <section class="nd-box" data-nd-summary aria-label="요약">${sumHtml()}</section>
@@ -314,7 +331,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function open(item, head, {highlight = null} = {}) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
-    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}};
+    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}, hand: {open: false, busy: false, note: '', init: null, shown: null, photos: false}};
     else cur.head = head;
     cur.reveal = highlight;
     paint();
@@ -375,6 +392,64 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     c.tr.busy = false;
     if (cur === c) { paintBody(); focusTr(); }
   }
+  // [직접 넣기]·⋯ [수정]: 기사 줄(서버)의 지금 값 + 지금 원문 글자로 입력 칸을 채운다. 번역해서 보던 중이면 원문으로 돌린다.
+  async function openHand() {
+    const c = cur;
+    if (!c || c.item.type !== 'news' || c.hand.open) return;
+    c.tr.on = false; c.tr.note = '';
+    c.hand = {open: true, busy: false, note: '', init: null, shown: null, photos: false};
+    paintBody();
+    let row = null;
+    try { row = await readArticleCols(c.item, HAND_ROW_COLS); } catch { row = null; }
+    if (cur !== c || !c.hand.open) return;
+    const b = bodies.get(itemKey(c.item));
+    const blocks = b && b.state !== 'failed' && !b.failedLoad ? b.blocks : [];
+    c.hand.init = handInitial(row || {url: c.head.url}, blocks);
+    c.hand.photos = blocks.some(x => x.t === 'img');
+    paintBody();
+    part('[data-nd-hand-in="title"]')?.focus({preventScroll: true});
+  }
+  function closeHand() {
+    if (!cur || !cur.hand.open || cur.hand.busy) return;
+    cur.hand = {open: false, busy: false, note: '', init: null, shown: null, photos: false};
+    paintBody();
+    part('[data-nd-hand]')?.focus({preventScroll: true});
+  }
+  async function saveHand(form) {
+    const c = cur;
+    if (!c || !c.hand.open || c.hand.busy || !c.hand.init) return;
+    const val = k => form.querySelector(`[data-nd-hand-in="${k}"]`)?.value ?? '';
+    const values = {title: val('title'), publisher: val('publisher'), author: val('author'), at: val('at'), body: val('body')};
+    const req = handRequest(c.item.id, values, c.hand.init);
+    c.hand.shown = values;
+    if (req.error) { c.hand.note = req.error; paintHand(); return; }
+    c.hand.busy = true; c.hand.note = ''; paintHand();
+    try {
+      await rt().api('/functions/v1/news-feed?action=hand_fill', {method: 'POST', body: req.body, singleFlight: false, timeoutMs: 30000});
+    } catch (e) {
+      c.hand.busy = false; c.hand.note = handError(e);
+      if (cur === c) paintHand();
+      return;
+    }
+    if (cur !== c) return;
+    // 새 값으로 다시: 원문·번역·요약은 이 탭 메모리에서 버리고(서버 요약 저장본은 서버가 지움) 기사 줄을 다시 읽어 줄 주인이 목록·머리를 고친다.
+    const key = itemKey(c.item);
+    bodies.delete(key); translations.delete(key); details.delete(key);
+    c.hand = {open: false, busy: false, note: '', init: null, shown: null, photos: false};
+    c.detail = null; c.failed = ''; c.unread = '';
+    let row = null;
+    try { row = await readNewsRow(c.item); } catch { row = null; }
+    if (cur !== c) return;
+    if (row) onRead?.(c.item, row);
+    paint();
+    notify('저장했어요', {record: false});
+    load(c.item);
+  }
+  // 입력 칸 다시 그리기(사람이 넣은 값 shown 그대로, 알림 줄·누름 막기만 바뀜). 알림이 있으면 저장 단추에 초점을 둔다(화면 읽기 프로그램은 role=status로 읽음).
+  function paintHand() {
+    paintBody();
+    if (cur?.hand.note) part('[data-nd-hand-form] button[type="submit"]')?.focus({preventScroll: true});
+  }
   // [복사]: 제목 / 매체·날짜 / 본문 / 주소. 누른 칩이 잠깐 ✓, 위쪽 작은 알림 '복사했어요'.
   async function copyArticle(button = null) {
     if (!cur) return;
@@ -401,11 +476,11 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   }
   const obMenu = createAnchoredMenu({id: 'ndObMenu', className: 'topline-add-menu os-menu nd-ob-menu', label: '원문 메뉴', historyKey: 'kptuNowDetailMenu', key: () => (cur ? itemKey(cur.item) : ''),
     canOpen: () => !!cur,
-    render: () => `${part('[data-nd-prose]') ? '<button type="button" class="row-act" data-nd-menu="select">모두 선택</button>' : ''}<button type="button" class="row-act" data-nd-menu="copy">복사</button>${canShare() && shareArticleData(cur?.head) ? '<button type="button" class="row-act" data-nd-menu="share">공유</button>' : ''}`,
+    render: () => `${part('[data-nd-prose]') ? '<button type="button" class="row-act" data-nd-menu="select">모두 선택</button>' : ''}<button type="button" class="row-act" data-nd-menu="copy">복사</button>${canShare() && shareArticleData(cur?.head) ? '<button type="button" class="row-act" data-nd-menu="share">공유</button>' : ''}${cur?.item.type === 'news' ? '<button type="button" class="row-act" data-nd-menu="hand">수정</button>' : ''}`,
     onAction: (button, active) => {
       if (!cur || active.id !== itemKey(cur.item)) return;
       const a = button.dataset.ndMenu;
-      if (a === 'select') selectAll(); else if (a === 'copy') void copyArticle(part('[data-nd-copy]')); else if (a === 'share') void shareArticle();
+      if (a === 'select') selectAll(); else if (a === 'copy') void copyArticle(part('[data-nd-copy]')); else if (a === 'share') void shareArticle(); else if (a === 'hand') void openHand();
     }});
   ndMenus = [obMenu];
   // 고른 글 줄(text-select-bar.js): 이 상세의 원문 칸([data-nd-prose])에서 고른 글만. 출처 = 지금 연 글.
@@ -433,6 +508,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-translate]')) { toggleTranslate(); return; }
     if (b.matches('[data-nd-copy]')) { void copyArticle(b); return; }
     if (b.matches('[data-nd-ob-more]')) { obMenu.open(b); return; }
+    if (b.matches('[data-nd-hand]')) { void openHand(); return; }
+    if (b.matches('[data-nd-hand-cancel]')) { closeHand(); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }
@@ -449,6 +526,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (link) link.hidden = false;
   }, true);
   box?.addEventListener('submit', event => {
+    if (event.target.matches('[data-nd-hand-form]')) { event.preventDefault(); void saveHand(event.target); return; }
     if (!event.target.matches('[data-nd-memo-form]')) return;
     event.preventDefault();
     saveMemo(event.target.querySelector('[data-nd-memo-input]')?.value);

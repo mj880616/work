@@ -48,7 +48,7 @@ if (window.KPTUOutside) return;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body,author';
-const NEWS_COLS = 'id,lane,url,title,lang,publisher,source_key,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,starred_at';
+const NEWS_COLS = 'id,lane,url,title,lang,publisher,source_key,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,starred_at,author,manual_at';
 const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 const PANEL = Object.freeze({all: 'nowPanelAll', movement: 'osPanelNew', media: 'nowPanelNews', archive: 'nowPanelSaved', marks: 'nowPanelMarks'});
 
@@ -195,7 +195,8 @@ const mainBox = root?.querySelector('#nowMain'), detailBox = root?.querySelector
 function describe(type, row) {
   if (type === 'news') {
     const v = itemView(row || {});
-    return {meta: [v.publisher, tagLabel(newsTag(row)) || '기사', dateText(row?.published_at || row?.created_at)], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url, at: row?.published_at || row?.created_at || null};
+    // 꼬리 줄 = 매체 · 분류 · 날짜 · 기자(손으로 넣은 기사만, S67-02). 손으로 넣은 기사는 머리 줄에 작은 '직접 넣음'(now-detail.js).
+    return {meta: [v.publisher, tagLabel(newsTag(row)) || '기사', dateText(row?.published_at || row?.created_at), typeof row?.author === 'string' ? row.author.trim().slice(0, 60) : ''], title: v.title, origTitle: v.origTitle, titleLang: v.titleLang, lang: row?.lang || 'ko', url: v.url, at: row?.published_at || row?.created_at || null, manual: !!row?.manual_at};
   }
   const v = postView(row || {}), tag = postTag(row || {});
   // 꼬리 줄 = 매체 · 분류(성명은 글 종류 그대로, 국제는 '국제 · 종류') · 날짜 · 글쓴이(있을 때만).
@@ -226,7 +227,7 @@ function foldedHtml(entries, rowFn) {
 }
 // S63-11(명진 11/16 '3 고쳐'): 서버에서 새로 온 뉴스 줄 내용(열기·채우기 뒤 제목 등) → 이 화면의 같은 기사 줄([전체] 목록·찾은 글)과 열린 상세 머리를 고친다.
 // [언론] 칸 줄은 그 칸 주인(news-clipping.js fresh)이 고친다. from='news'는 그 칸이 보낸 것이라 되돌려 보내지 않는다.
-const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind'];
+const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind', 'author', 'manual_at'];
 function newsFresh(rows, {from = ''} = {}) {
   const list = (rows || []).filter(r => r && typeof r.id === 'string');
   if (!list.length) return;
@@ -237,7 +238,7 @@ function newsFresh(rows, {from = ''} = {}) {
     for (const k of FRESH_COLS) if (k in r && it[k] !== r[k]) { it[k] = r[k]; changed = true; }
   }
   const c = detail.current(), mine = c?.type === 'news' ? list.find(r => r.id === c.id) : null;
-  if (mine) { const head = describe('news', {...(state.news.find(x => x.id === c.id) || {}), ...mine}); if (head.title !== detail.head()?.title) detail.setHead(head); }
+  if (mine) { const head = describe('news', {...(state.news.find(x => x.id === c.id) || {}), ...mine}); if (JSON.stringify(head) !== JSON.stringify(detail.head())) detail.setHead(head); }
   if (changed) paintList();
   if (from !== 'news') window.KPTUNews?.fresh?.(list);
 }
