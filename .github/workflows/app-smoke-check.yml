@@ -1007,6 +1007,9 @@ jobs:
       - name: Check task due quick row and next-week day list (S46-30, 다음주 월~일 목록 one shared part, synthetic)
         run: node --test tests/task-week-pick.test.mjs
 
+      - name: Check new-task window quick due buttons change the due field (FIX-잊지말기할일기한, synthetic)
+        run: node --test tests/task-new-due-quick.test.mjs
+
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
 
