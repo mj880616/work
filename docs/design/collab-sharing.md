@@ -74,7 +74,7 @@
 | 표 | 칸(주요) | 비고 |
 | --- | --- | --- |
 | `app_collab_groups` | id, kind(`dept`·`union`), union_name, dept_name(노조 묶음은 null), name_key(비교용: 앞뒤 공백 제거·연속 공백 하나로·띄어쓰기 무시), created_by, created_at | 이름은 사용자가 친 글 그대로. 목록·찾기·자동완성 API 없음 |
-| `app_collab_members` | group_id, user_id, workspace_id, role(`admin`·`member`), joined_at, display_name·title(멤버에게 보일 이름·직책 — 가입 때 동의한 값) | (group_id,user_id) 하나. workspace_id는 서버가 owner 행에서 채움 |
+| `app_collab_members` | group_id, user_id, workspace_id, role(`admin`·`member`), joined_at, display_name·title(멤버에게 보일 이름·직책 — 묶음에 들어갈 때(초대 수락·같은 이름 요청) 프로필의 이름·직책을 멤버에게 보여도 된다고 동의한 값. 가입 때는 받지 않음, PROFILE 11/15 확정) | (group_id,user_id) 하나. workspace_id는 서버가 owner 행에서 채움 |
 | `app_collab_invites` | id, group_id, token_hash, created_by, expires_at(기본 7일), uses_left(기본 1), revoked_at | 링크 원문은 한 번만 보여 주고 저장하지 않음(해시만). 추측 불가 길이(128비트 이상) |
 | `app_collab_join_requests` | id, group_id, requester_user_id, requester_display(이름·직책, 요청 전 동의), status(`pending`·`accepted`·`declined`·`expired`), decided_by, created_at, decided_at | 요청자는 이 표를 **읽지 못한다**(묶음이 있는지 새지 않게) |
 | `app_collab_join_attempts` | user_id, created_at | 하루 횟수 제한용. 이름은 저장하지 않음 |
@@ -181,6 +181,7 @@ public.app_collab_write(p_share uuid, p_op text, p_payload jsonb)  -- 종류별 
 
 - 대상 표 목록(조직: `app_suborganizations`·`app_suborganization_updates` 등, 사업: `app_spaces`·`app_meetings`·`app_business_records`·`app_business_now` 등)과 허용 칸은 4단계 첫 작업에서 운영 정의(구조만)를 확인해 고정한다. 일부 기본 표는 정의가 저장소에 없다(`multi-user-audit.md` 0절).
 - 담당자·핵심 인물·연락처처럼 사람 정보가 들어간 칸은 기본 제외(결정 ⑫).
+- 화면 이름: 메뉴는 #2697(11/16) 뒤 이름인 '조직 관리'·'사업 관리'를 따른다(공유 창·알림 문구·ui-words 모두). 기록 종류를 뜻할 때만 '조직 보고 기록'·'사업 보고'를 쓴다.
 - 멤버 화면: 조직 보고·사업 보고에 '공유받은 것' 묶음(공유한 사람 이름 표시)을 내 것과 섞지 않고 따로 보인다. 내 담당조직 목록(`app_suborganizations`)에 남의 조직을 복사해 넣지 않는다.
 
 ## 8. 댓글·@멘션·알림 (5·6단계)
@@ -251,7 +252,7 @@ public.app_collab_write(p_share uuid, p_op text, p_payload jsonb)  -- 종류별 
 | 단계 | 내용 | DB 정지 지점 | Edge 정지 지점 | 그 밖 |
 | --- | --- | --- | --- | --- |
 | 0 | 운영 정의 확인: 4·7절 대상 표의 칸·정책 구조(내용 아님), `app_push_log` 종류 제약 | 읽기 전용 확인만 | — | 결과는 문서 PR |
-| 1 묶기 | 3절 표·RPC, 프로필 노조명·부서명 칸(PROFILE 항목과 줄 세움), 묶음 화면(만들기·초대 링크·같은 이름 요청·멤버·나가기·관리자 넘기기), AGENTS.md 5절 개정(2절), ui-words '부서 묶음·노조 묶음' | 새 표 6개·함수(승인형 workflow, 시험 적용 먼저) | 들어오기 요청 폰 알림은 6단계로 미룸(1단계는 앱 안 알림만) | COLLAB-주간보고모으기의 '같은 조직 사람'도 이 묶음을 씀 |
+| 1 묶기 | 3절 표·RPC, 프로필 노조명·부서명 칸(PROFILE 항목과 줄 세움), 묶음 화면(만들기·초대 링크·같은 이름 요청·멤버·나가기·관리자 넘기기), AGENTS.md 5절 개정(2절), ui-words '부서 묶음·노조 묶음'(메뉴 이름은 '조직 관리'·'사업 관리' 기준) | 새 표 6개·함수(승인형 workflow, 시험 적용 먼저) | 들어오기 요청 폰 알림은 6단계로 미룸(1단계는 앱 안 알림만) | COLLAB-주간보고모으기의 '같은 조직 사람'도 이 묶음을 씀 |
 | 2 공유 표·규칙 | `app_collab_shares`·`app_collab_edits`·`app_collab_can`·share_on/off/permission·`shared_list`·read/write 뼈대(종류 분기는 빈 채), 제외·정적 보안 시험 | 새 표 2개·함수 | — | 화면: 항목 ⋯ [공유] 창(묶음 고르기·보기만/쓰기까지) |
 | 3 캘린더·자료실 | 5·6절, 공휴일 켜기 | — | `google-calendar`·자료실 Drive 함수 배포(하나씩, 되돌리기 ref 기록) | 구글 OAuth 범위 추가·앱 확인 갱신(명진 구글 콘솔 로그인) |
 | 4 조직·사업 | 7절, read/write의 `org`·`biz_area` 분기, 허용 칸 목록 | 함수 교체 | — | 0단계 결과 필요 |
@@ -263,6 +264,25 @@ public.app_collab_write(p_share uuid, p_op text, p_payload jsonb)  -- 종류별 
 - 새 정책·함수는 확장 규칙 기준으로 짝 파일(rollback·snapshot 등)을 갖춘다. anon·PUBLIC 권한, RLS 끄기, DEFINER + anon/PUBLIC 실행은 만들지 않는다.
 - 화면이 생기는 단계(1·2·3·5·7)는 요청함 방 시안(폰·폴드 펼침·PC)을 명진이 먼저 보고 정한다.
 
-## 13. 명진 결정이 더 필요한 것
+## 13. 명진 결정 — 확정(2026-11-16 09:28 "추천대로")
 
-PR 댓글에 일상어 선택지 표로 올린다(번호는 위 본문의 '결정 ①~⑭'와 같음). 추천안은 요청함 방·명진 확정이 아니며, 답이 오기 전 구현은 추천안으로 설계만 해 둔다.
+결정 ①~⑭는 모두 추천안(가)으로 확정했다. 시안은 함께쓰기 3차·쓰는 법 1차(#2702) 그대로 확정.
+
+| 번호 | 확정 |
+| --- | --- |
+| ① | 구글 메일이 서로 보임 — 묶음에 들어갈 때 알리고 동의받음 |
+| ② | 나간 사람의 기록·댓글은 '나간 멤버'로 남김 |
+| ③ | '보기만' 공유에도 댓글 가능 |
+| ④ | 공유를 끄면 댓글은 숨겨서 보존 |
+| ⑤ | 관리자는 남의 공유를 끌 수 없음 |
+| ⑥ | 같은 이름 들어오기 요청 수락은 **관리자만** |
+| ⑦ | 초대 링크는 **관리자만** |
+| ⑧ | '쓰기까지' = 더하기·고치기. 지우기·이름 바꾸기는 올린 사람만 |
+| ⑨ | 남의 공유물은 내 AI·원장 자동 기록·전체 검색에 넣지 않음 |
+| ⑩ | 캘린더는 앱이 만든 묶음 전용 새 캘린더만 공유 |
+| ⑪ | 공휴일은 각자 [대한민국 공휴일 켜기] |
+| ⑫ | 담당조직 공유에서 사람 정보(담당자·연락처) 빼기 |
+| ⑬ | 일정 초대는 묶음 사람만 |
+| ⑭ | 관리자가 탈퇴하면 가장 오래된 멤버에게 자동으로 넘김 |
+
+요청함 방(V31) 대조 차이 3건 반영: 3.1 이름·직책 동의 시점, 7·12절 화면 이름('조직 관리'·'사업 관리'), 결정 ⑥(관리자만).
