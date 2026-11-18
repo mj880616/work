@@ -154,7 +154,8 @@ for (const width of [390, 1280]) {
     // The connection state stays under the body.
     await expect(detail.locator('[data-note-meta]')).toContainText('연결 없음');
     await press(page, detail.locator('[data-note-more]'), width);
-    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '연결하기', '잊지 말기로 돌리기', '하루 기록으로 보내기', '삭제']);
+    // NOTE-링크원문: 이 노트 본문에는 https 링크가 있어 [원문 가져오기]도 보인다(링크 없는 노트에는 없음 — note-link-import.spec.mjs).
+    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '원문 가져오기', '연결하기', '잊지 말기로 돌리기', '하루 기록으로 보내기', '삭제']);
     const mm = await menu(page).boundingBox();
     expect(mm.y).toBeGreaterThanOrEqual(more.y + more.height - 1); expect(mm.x + mm.width).toBeLessThanOrEqual(width);
     await page.screenshot({ path: info.outputPath(`note-detail-menu-${width}.png`) });
