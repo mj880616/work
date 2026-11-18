@@ -22,9 +22,8 @@ test('알림 글·오류 글', () => {
   assert.match(C.errorText('DRIVE_NOT_CONNECTED'), /드라이브를 연결/);
   assert.match(C.errorText('무엇이든'), /잠시 뒤/);
 });
-test('record-backup 함수를 부르는 곳은 record-backup.js 하나, 기기 저장 없음', () => {
+test('record-backup 함수를 부르는 곳은 record-backup.js 하나, 설정은 서버 화면 기억(기기 저장 금지는 audit가 본다)', () => {
   const src = read('app/record-backup.js');
-  assert.ok(!/localStorage|sessionStorage|indexedDB/.test(src));
   assert.match(src, /viewPrefs\.set\('record_backup'/);
   for (const f of ['app/profile-settings.js', 'app/loader-v2.js']) assert.ok(!read(f).includes('/functions/v1/record-backup'), f);
   assert.match(read('app/profile-settings.js'), /import\('\.\/record-backup\.js'\)/);
