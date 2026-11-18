@@ -201,3 +201,24 @@ export function feedWhen(rows, now = Date.now()) {
   const nextText = late ? `다음 곧(${hhmm(new Date(prev).toISOString())} 예정분)` : `다음 ${nextDay}${hhmm(new Date(next).toISOString())}쯤`;
   return `${lastText} · ${nextText}`;
 }
+
+// S63-11(명진 11/16 '6 고쳐'): [사회운동] 탭은 국내 단체 글 먼저, 국제(카탈로그 묶음 foreign — 외국 매체) 글은 아래 접힌 '국제' 묶음으로.
+// 위 [매체 ▾]에서 국제 묶음이나 국제 단체 하나를 고르면 나누지 않는다(고른 것이 곧 국제 글). 다른 묶음·단체를 고르면 국제 글이 없어 묶음도 없다.
+export const INTL_GROUP = 'foreign';
+export const INTL_LABEL = GROUPS.find(g => g.key === INTL_GROUP).label;
+export function intlKeys(catalog) {
+  return new Set((catalog || []).filter(s => s?.group === INTL_GROUP && typeof s.key === 'string').map(s => s.key));
+}
+// pick = 위 [매체 ▾] 고른 값(now-model.mjs MEDIA_ALL·'g:묶음'·'s:단체'). 나눌 때만 true.
+export function intlSplitOn(pick, catalog) {
+  if (!pick || pick === 'all') return true;
+  if (pick === 'g:' + INTL_GROUP) return false;
+  if (pick.startsWith('s:')) return !intlKeys(catalog).has(pick.slice(2));
+  return true;
+}
+// 글 목록 → {home: 국내 글, intl: 국제 글}(각각 받은 순서 그대로).
+export function splitIntl(posts, catalog) {
+  const keys = intlKeys(catalog), home = [], intl = [];
+  for (const p of posts || []) (keys.has(p?.source_key) ? intl : home).push(p);
+  return {home, intl};
+}

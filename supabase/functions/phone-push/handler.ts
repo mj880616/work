@@ -4,8 +4,8 @@
 // - 사용자 입구(`register`·`unregister`·`devices`·`test`): Authorization 사용자 로그인을 Auth 서버로 확인하고,
 //   본인 app_workspace_members 행이 owner인 작업공간 하나만 쓴다(private.app_is_workspace_owner와 같은 기준). 화면이 보낸
 //   사용자·작업공간 id는 받지 않는다.
-// - 예약 입구(`run`, ?slot=quarter|morning|evening|friday): `x-phone-push-cron-secret` 헤더를 비밀값 PHONE_PUSH_CRON_SECRET(32자 이상)과
-//   SHA-256 고정 길이 비교. 누구에게 보낼지는 서버가 정한다(요청 몸통은 빈 {}만). 종류 판단(할 일 기한·원장 약속·묶음·수집 멈춤)은 N5에서
+// - 예약 입구(`run`, ?slot=quarter|morning|evening): `x-phone-push-cron-secret` 헤더를 비밀값 PHONE_PUSH_CRON_SECRET(32자 이상)과
+//   SHA-256 고정 길이 비교. 누구에게 보낼지는 서버가 정한다(요청 몸통은 빈 {}만). 종류 판단(할 일 기한·묶음·수집 멈춤)은 N5에서
 //   더한다. 지금(N3)은 30일 지난 기록 정리와 받을 작업공간 수 세기만 한다.
 // - 두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙거나, 열쇠가 하나도 없으면 401.
 // DB는 service role로 migration 20261101010000의 grant(app_push_devices·app_push_log select·insert·update·delete) 안에서만 쓰고,
@@ -16,7 +16,8 @@
 // - `opened` {kind, ref_key}: 폰 알림·알림 줄을 눌러 연 것 → 같은 종류·열쇠 기록에 opened_at(한 번 열면 끝).
 // - `recent`: 최근 알림 7일(폰으로 보낸 것·알림 줄에 뜬 것) — 내 프로필 '폰 알림' 아래 목록. 종류·열쇠·시각·여는 주소만.
 // 저녁 'Now' 한 줄(now-line.ts, OUTSIDE-글상세·관심환류): 사회운동 글·뉴스 기사·본 시각 표를 service_role select로 건수만 센다.
-// 재료 표 중 service_role 권한이 없는 것(다음 주 준비 한 장)은 그 사용자 로그인 그대로(owner RLS) 읽는다(SUPABASE_ANON_KEY).
+// 재료 표 중 service_role 권한이 없는 것(회의 녹음 전사 작업)은 그 사용자 로그인 그대로(owner RLS) 읽는다(SUPABASE_ANON_KEY).
+// S62-27(JOURNAL-다음주준비삭제·PUSH-원장약속알림빼기): 다음 주 준비(next_week)·원장 약속(commitment) 종류와 금요일 예약(slot=friday)을 지웠다.
 // FAMILY-잊지말기 4단계(설계 docs/design/tg-personal.md 5.2절, migration 20261105120000_family_push_kind): 15분 예약(quarter)마다
 //   잊지 말기 새 제안(app_family_notes status 'new', service_role 칸 읽기 id·workspace_id·status·created_at만)이 새로 생긴 작업공간에 한 번,
 //   제목 "잊지 말기 n건"만 보낸다(본문·내용 없음 — 잠금 화면에 대화 내용이 뜨지 않게). 줄은 운영자 기능 family 작업공간에만 있다(DB 트리거).
@@ -24,11 +25,19 @@
 //   기록 열쇠는 가장 새 제안의 시각(fam:<초>) — 새 제안이 생길 때마다 한 번. 기록에는 종류·열쇠·상태만(제목·본문 없음).
 // FAMILY-기억알림 ②(family-remind.ts): 같은 15분 예약이 서울 월요일 08시 이후 그날 첫 실행에서 '가족 · 이번 주 기억할 것 n'을 주 1회
 //   (열쇠 rem:<월요일>, 같은 끄기·조용한 시간). 이 알림만 본문(줄 앞부분)을 싣는다(명진 결정 11/12 "보이기"). 노트 읽기·쓰기는 family-remind.ts의 경로(가족 노트 하나)만 쓴다.
+// OPS-새가입알림 ②(S62-25, migration 20261115234500_signup_notify): 새로 가입(작업공간 생성)하면 운영자에게만 알린다.
+//   - 받는 사람: 운영자 기능 dev_inbox 작업공간 하나(rpc app_operator_feature_workspace, service_role — 서버 허용 표). 화면 값은 받지 않는다.
+//   - 15분 예약(quarter): 지난 알림 열쇠(su:<가장 새 가입 초>, 보냄·실패·끔·연 것) 뒤 새 가입을 rpc app_signup_since(service_role 전용 —
+//     수·이름 다섯·가장 새 가입 초만)로 세어 "새 가입 n명 — 이름" 한 번. 여럿이면 한 번에 묶는다. 같은 열쇠는 다시 보내지 않는다.
+//     끄기(kinds.signup=false → skipped_off)·조용한 시간(기본 22~07시 → 기록 없이 넘겼다가 끝난 뒤 첫 실행에서 그동안 가입을 묶어 보냄).
+//     기록에는 종류·열쇠·상태만(이름 없음). 메일·작업공간 id·기록 내용은 읽지 않는다.
+//   - 알림 줄(notices): 운영자에게만, 아직 열지 않은 새 가입(마지막으로 연 열쇠 뒤, 최근 7일)을 사용자 로그인으로 rpc app_signup_list
+//     (운영자만 — 서버가 다시 확인)에서 읽어 '새 가입 n명 — 이름' 한 줄. 이 종류만 보일 말(text)을 함께 준다(이름은 기록에 남기지 않으므로).
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
 import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
 import { remindNotePath, remindPatchPath, REMIND_OPEN, remindRef, remindWeek, weekPicks, withRemind } from "./family-remind.ts";
-import { doneItems, NOTICE_LOG_KINDS, RECENT_LIMIT, recentRows, recentSince, REF_KEY, type DoneItem } from "./done-items.ts";
+import { doneItems, NOTICE_LOG_KINDS, openPath, RECENT_DAYS, RECENT_LIMIT, recentRows, recentSince, REF_KEY, type DoneItem } from "./done-items.ts";
 
 type Env = (name: string) => string | undefined;
 type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -38,7 +47,7 @@ export const CRON_HEADER = "x-phone-push-cron-secret";
 export const SECRET_NAME = "PHONE_PUSH_CRON_SECRET";
 export const SECRET_MIN_CHARS = 32;
 const FOREIGN_SECRET_HEADERS = ["x-drive-summary-cron-secret", "x-collector-feed-secret", "x-collector-heartbeat-secret", "x-outside-feed-cron-secret"];
-export const SLOTS = ["quarter", "morning", "evening", "friday"] as const;
+export const SLOTS = ["quarter", "morning", "evening"] as const;
 export const USER_ACTIONS = ["register", "unregister", "devices", "test", "notices", "opened", "recent"] as const;
 export const MAX_DEVICES = 10;          // 작업공간마다 살아 있는 기기 수 상한
 export const TEST_DAILY_PER_USER = 20;  // 시험 알림 하루 상한(인스턴스 메모리)
@@ -92,12 +101,13 @@ export const kstDay = (ms: number) => new Date(ms + 9 * 3600000).toISOString().s
 type Db = {
   get: (path: string) => Promise<Record<string, unknown>[]>;
   send: (method: "POST" | "PATCH" | "DELETE", path: string, body?: unknown, prefer?: string) => Promise<Record<string, unknown>[]>;
+  rpc: (fn: string, body: unknown) => Promise<unknown>;
 };
 function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
   const headers = (prefer?: string) => ({
     apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json", ...(prefer ? { Prefer: prefer } : {}),
   });
-  async function call(method: string, path: string, body?: unknown, prefer?: string) {
+  async function call(method: string, path: string, body?: unknown, prefer?: string, raw = false) {
     let r: Response;
     try {
       r = await doFetch(`${sb}/rest/v1/${path}`, { method, headers: headers(prefer), body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15000) });
@@ -114,9 +124,13 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
     }
     let v: unknown;
     try { v = await readBoundedJson(r, { maxBytes: 1024 * 1024 }); } catch { throw new Fail(503, "STORE_UNAVAILABLE"); }
+    if (raw) return v as unknown as Record<string, unknown>[];
     return Array.isArray(v) ? v as Record<string, unknown>[] : [];
   }
-  return { get: (p) => call("GET", p), send: (m, p, b, pr) => call(m, p, b, pr) };
+  return {
+    get: (p) => call("GET", p), send: (m, p, b, pr) => call(m, p, b, pr),
+    rpc: (fn, b) => call("POST", `rpc/${fn}`, b, undefined, true) as Promise<unknown>,
+  };
 }
 
 // ---- 사용자 입구(로그인 + owner) ------------------------------------------------------------------------------------
@@ -228,7 +242,7 @@ async function notices(db: Db, items: DoneItem[], workspaceId: string, nowIso: s
         { shown_at: nowIso }, "return=minimal");
     }
   }
-  return { ok: true, items: open.map((i) => ({ kind: i.kind, ref_key: i.ref_key, open: i.open })) };
+  return { ok: true, items: open.map((i) => ({ kind: i.kind, ref_key: i.ref_key, open: i.open, ...(i.text ? { text: i.text } : {}) })) };
 }
 
 async function opened(db: Db, workspaceId: string, b: Record<string, unknown>, nowIso: string) {
@@ -253,11 +267,11 @@ async function recent(db: Db, workspaceId: string, nowMs: number) {
 export const FAMILY_TABLE = "app_family_notes";
 export const FAMILY_OPEN = "/work/app/?view=home&family=1";
 const HM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
-// 보낼지: 끈 사람 = skipped_off, 조용한 시간(기본 22:00~07:00 서울) = held_quiet, 그 밖 = send(meeting-transcribe pushDecision과 같은 규칙, 종류만 family).
-export function familyDecision(prefs: unknown, nowMs: number): "send" | "held_quiet" | "skipped_off" {
+// 보낼지: 끈 사람 = skipped_off, 조용한 시간(기본 22:00~07:00 서울) = held_quiet, 그 밖 = send(meeting-transcribe pushDecision과 같은 규칙, 종류만 다름).
+export function kindDecision(kind: "family" | "signup", prefs: unknown, nowMs: number): "send" | "held_quiet" | "skipped_off" {
   const p = prefs && typeof prefs === "object" && !Array.isArray(prefs) ? prefs as Record<string, unknown> : {};
   const kinds = p.kinds && typeof p.kinds === "object" ? p.kinds as Record<string, unknown> : {};
-  if (kinds.family === false) return "skipped_off";
+  if (kinds[kind] === false) return "skipped_off";
   const q0 = p.quiet && typeof p.quiet === "object" ? p.quiet as Record<string, unknown> : {};
   const q = typeof q0.from === "string" && typeof q0.to === "string" && HM.test(q0.from) && HM.test(q0.to) ? { from: q0.from, to: q0.to } : { from: "22:00", to: "07:00" };
   const kst = new Date(nowMs + 9 * 3600000), m = kst.getUTCHours() * 60 + kst.getUTCMinutes();
@@ -266,6 +280,7 @@ export function familyDecision(prefs: unknown, nowMs: number): "send" | "held_qu
   const quiet = from === to ? false : from < to ? m >= from && m < to : m >= from || m < to;
   return quiet ? "held_quiet" : "send";
 }
+export const familyDecision = (prefs: unknown, nowMs: number) => kindDecision("family", prefs, nowMs);
 export const familyTitle = (n: number) => `잊지 말기 ${n > 99 ? "99+" : n}건`;
 
 // 작업공간마다: 새 제안 수·가장 새 제안 시각 → 이미 같은 열쇠로 보냈거나(sent·failed·skipped_off) 보류 중이면서 아직 조용한 시간이면 넘김.
@@ -341,6 +356,92 @@ async function remindPush(db: Db, ids: string[], nowMs: number, sender: FcmSende
   return { sent, held, off };
 }
 
+// ---- 새 가입 알림(OPS-새가입알림 ②) ---------------------------------------------------------------------------------
+
+export const SIGNUP_FEATURE = "dev_inbox";
+export const SIGNUP_OPEN_VIEW = "signups";
+export const SIGNUP_FIRST_LOOKBACK_MS = DAY_MS; // 기록이 하나도 없을 때(처음·30일 정리 뒤) 되돌아볼 길이
+const SIGNUP_REF = /^su:([0-9]{9,11})$/;
+export const signupRef = (sec: number) => `su:${sec}`;
+const refSec = (ref: unknown) => { const m = typeof ref === "string" ? SIGNUP_REF.exec(ref) : null; return m ? Number(m[1]) : null; };
+const cleanNames = (v: unknown) => (Array.isArray(v) ? v : []).filter((n): n is string => typeof n === "string" && n.trim() !== "")
+  .map((n) => n.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, 40));
+// "새 가입 2명 — 가상 사람A, 가상 사람B", 넷 이상이면 이름 셋 + "외 n명".
+export function signupTitle(count: number, names: unknown) {
+  const list = cleanNames(names).slice(0, 3), n = Math.max(0, Math.floor(count));
+  const more = n > list.length ? ` 외 ${n - list.length}명` : "";
+  return list.length ? `새 가입 ${n}명 — ${list.join(", ")}${more}` : `새 가입 ${n}명`;
+}
+
+// 운영자 작업공간(서버 허용 표 dev_inbox가 정확히 한 작업공간일 때만). 아니면 null(아무에게도 보내지 않음).
+async function signupWorkspace(db: Db) {
+  const v = await db.rpc("app_operator_feature_workspace", { p_feature: SIGNUP_FEATURE });
+  return typeof v === "string" && UUID.test(v) ? v : null;
+}
+
+// 지금까지 알린 자리(초): 보냄·실패·끔·연 것 중 가장 새 열쇠. 없으면 하루 전.
+export function signupSince(rows: Record<string, unknown>[], nowMs: number) {
+  let w: number | null = null;
+  for (const r of rows) {
+    const sec = refSec(r.ref_key);
+    if (sec === null || !(["sent", "failed", "skipped_off"].includes(String(r.status)) || r.opened_at)) continue;
+    if (w === null || sec > w) w = sec;
+  }
+  return w ?? Math.floor((nowMs - SIGNUP_FIRST_LOOKBACK_MS) / 1000);
+}
+
+async function signupPush(db: Db, nowMs: number, sender: FcmSender | null, log: Log) {
+  const out = { sent: 0, held: 0, off: 0, found: 0 };
+  if (!sender) return out;
+  try {
+    const ws = await signupWorkspace(db);
+    if (!ws) return out;
+    const logged = await db.get(`app_push_log?workspace_id=eq.${ws}&kind=eq.signup&select=ref_key,status,day,opened_at&limit=500`);
+    const since = signupSince(logged, nowMs);
+    const r = await db.rpc("app_signup_since", { p_since: new Date(since * 1000).toISOString() }) as Record<string, unknown> | null;
+    const count = Number(r?.count ?? 0), newest = Number(r?.newest ?? NaN);
+    if (!(count > 0) || !Number.isInteger(newest) || newest <= since) return out;
+    out.found = count;
+    const ref = signupRef(newest), day = kstDay(newest * 1000);
+    if (logged.some((x) => x.ref_key === ref && (x.status !== "held_quiet" && x.status !== "shown" || x.opened_at))) return out;
+    const owners = (await db.get(`app_workspace_members?workspace_id=eq.${ws}&role=eq.owner&select=user_id&limit=2`)).map((x) => x.user_id).filter((v): v is string => typeof v === "string" && UUID.test(v));
+    if (owners.length !== 1) return out;
+    const prefs = (await db.get(`app_profiles?user_id=eq.${owners[0]}&select=notify_prefs&limit=1`))[0]?.notify_prefs ?? null;
+    const decision = kindDecision("signup", prefs, nowMs);
+    // 조용한 시간: 기록하지 않고 넘긴다 — 끝난 뒤 첫 실행이 같은 자리(since)부터 그동안 가입을 묶어 한 번 보낸다.
+    if (decision === "held_quiet") { out.held++; return out; }
+    if (decision === "skipped_off") { await logPush(db, ws, "signup", ref, day, "skipped_off"); out.off++; return out; }
+    const devices = (await activeDevices(db, ws)).slice(0, MAX_DEVICES);
+    if (!devices.length) { await logPush(db, ws, "signup", ref, day, "failed"); return out; } // 폰이 없으면 알림 줄만(늘 뜸)
+    const sent = await sendToDevices(db, sender, devices,
+      { kind: "signup", title: signupTitle(count, r?.names), open: openPath("signup", ref), urgent: false }, new Date(nowMs).toISOString());
+    await logPush(db, ws, "signup", ref, day, sent.sent ? "sent" : "failed");
+    if (sent.sent) out.sent++;
+  } catch (e) {
+    log("signup_push_failed", { stage: e instanceof Fail ? e.code : "INTERNAL" });
+  }
+  return out;
+}
+
+// 알림 줄: 운영자 작업공간이면 아직 열지 않은 새 가입 한 줄. 운영자 확인은 서버 허용 표(service_role rpc) + 목록 함수 자신(사용자 로그인).
+async function signupNotice(db: Db, asUserRpc: (fn: string) => Promise<Record<string, unknown>[]>, workspaceId: string, nowMs: number): Promise<DoneItem | null> {
+  try {
+    if (await signupWorkspace(db) !== workspaceId) return null;
+    const opened = await db.get(`app_push_log?workspace_id=eq.${workspaceId}&kind=eq.signup&opened_at=not.is.null&select=ref_key&limit=500`);
+    let floor = Math.floor((nowMs - RECENT_DAYS * DAY_MS) / 1000);
+    for (const o of opened) { const sec = refSec(o.ref_key); if (sec !== null && sec > floor) floor = sec; }
+    const people = (await asUserRpc("app_signup_list"))
+      .map((p) => ({ name: p.name, sec: Math.floor(Date.parse(String(p.signed_up_at ?? "")) / 1000) }))
+      .filter((p) => Number.isFinite(p.sec) && p.sec > floor && p.sec <= Math.floor(nowMs / 1000) + 300)
+      .sort((a, b) => b.sec - a.sec);
+    if (!people.length) return null;
+    const ref = signupRef(people[0].sec);
+    return { kind: "signup", ref_key: ref, day: kstDay(people[0].sec * 1000), open: openPath("signup", ref), text: signupTitle(people.length, people.map((p) => p.name)) };
+  } catch {
+    return null; // 못 읽으면 줄이 없을 뿐
+  }
+}
+
 async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | null = null, log: Log = () => {}) {
   // 30일 지난 기록 정리(설계 4.1). 기록에는 종류·열쇠·날짜·상태만 있다.
   const cutoff = new Date(nowMs - LOG_KEEP_DAYS * DAY_MS).toISOString();
@@ -352,7 +453,8 @@ async function runSlot(db: Db, slot: string, nowMs: number, sender: FcmSender | 
   if (slot === "quarter") {
     const fam = await familyPush(db, ids, nowMs, sender, log);
     const remind = await remindPush(db, ids, nowMs, sender, log);
-    return { ok: true, slot, workspaces: ids.length, sent: fam.sent + remind.sent, pruned: pruned.length, family: fam, remind };
+    const signup = await signupPush(db, nowMs, sender, log);
+    return { ok: true, slot, workspaces: ids.length, sent: fam.sent + remind.sent + signup.sent, pruned: pruned.length, family: fam, remind, signup };
   }
   if (slot !== "evening") return { ok: true, slot, workspaces: ids.length, sent: 0, pruned: pruned.length };
   // 저녁: Now 한 줄('새 성명 n · 새 기사 n', now-line.ts)이 생길 작업공간 수만 센다(줄 글은 응답·로그에 싣지 않음). 보내기는 N5 저녁 묶음.
@@ -414,7 +516,9 @@ export function createPhonePushHandler(deps: PhonePushDeps) {
       if (action === "recent") return json(await recent(db, who.workspaceId, nowMs));
       if (action === "notices") {
         const asUser = makeUserRead(sb, deps.env("SUPABASE_ANON_KEY"), auth!.slice("Bearer ".length), doFetch);
-        return json(await notices(db, await doneItems(asUser, who.workspaceId, nowMs), who.workspaceId, nowIso));
+        const items = await doneItems(asUser, who.workspaceId, nowMs);
+        const signup = await signupNotice(db, (fn) => asUser(`rpc/${fn}`), who.workspaceId, nowMs);
+        return json(await notices(db, signup ? [...items, signup] : items, who.workspaceId, nowIso));
       }
 
       // test: 내 살아 있는 기기에 시험 알림 1개씩.
@@ -428,7 +532,7 @@ export function createPhonePushHandler(deps: PhonePushDeps) {
       const devices = (await activeDevices(db, who.workspaceId)).slice(0, MAX_DEVICES);
       if (!devices.length) throw new Fail(409, "NO_DEVICE");
       const out = await sendToDevices(db, makeFcmSender(cfg, doFetch, now), devices,
-        { kind: "test", title: "웹2 · 시험 알림", open: "/work/app/", urgent: true }, nowIso);
+        { kind: "test", title: "노조+ · 시험 알림", open: "/work/app/", urgent: true }, nowIso);
       await logPush(db, who.workspaceId, "test", `t${nowMs}`, day, out.sent ? "sent" : "failed");
       return json({ ok: true, ...out });
     } catch (e) {

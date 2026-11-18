@@ -54,7 +54,7 @@ import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js';
 import {recentSplit} from './photo-fold-model.mjs';
 import {openFolderAt, paintDropGroup} from './drop-open-folder.mjs'; // UI-펼친폴더안놓기전체: 놓일 묶음 표시(공용) // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
-import {connectNoteHtml, connectNoteFor, connectText} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(글 한 줄 → 아래 버튼, 처음 = 연결 · 권한 빠짐 = 다시 연결)
+import {cloudNoneHtml, connectNoteFor} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(글 한 줄 → 아래 버튼, 처음 = 연결 · 권한 빠짐 = 다시 연결)
 import {gdriveLinkMode} from './photo-sources-model.mjs'; // S62-16: 사진 칩과 같은 구글 드라이브 연결 규칙
 import {FILES_SOURCES_KEY, FILES_SRC, filesSourcesValue, toggleFilesSource, visibleSources, chipInfo, filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
 import {SOURCES_OFF_TEXT} from './source-flags.mjs';
@@ -186,6 +186,8 @@ const pc = createPcFiles(window, {enabled: pcDeviceOk({ua: navigator.userAgent |
 }});
 let pcOff = false;
 const PC_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 14h4M8 11v3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
+// S62-40: [두 칸 보기] 아이콘(네모 하나를 가운데 선으로 나눈 그림). 폰은 위·아래 두 칸이라 가로 선, 600px~는 CSS가 돌려 세로 선(왼쪽·오른쪽 두 칸).
+const TWO_SVG = '<svg class="fx-two-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h12" stroke="currentColor" stroke-width="1.4"/></svg>';
 const PHONE_SVG = '<svg class="fx-src-ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/></svg>';
 
 // S52-07 칸 머리 출처 그림(위 줄 출처 아이콘과 같은 그림).
@@ -199,7 +201,7 @@ function install() {
   document.getElementById('appView')?.insertAdjacentHTML('beforeend', `<section id="filesView" class="view-panel hidden" aria-labelledby="fxTitle">
 <h2 id="fxTitle" class="screen-title">파일</h2>
 <div id="filesRoot" class="fx" data-fx-pane="list">
-<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="mini fx-two" data-fx-two title="두 칸으로 보기" hidden>두 칸 보기</button></div>
+<div class="fx-top"><button type="button" class="icon-btn fx-tree-tog" data-fx-tree-tog aria-pressed="false" aria-label="폴더 나무 열기" title="폴더 나무 열기" hidden>◫</button><nav class="fx-crumb" data-fx-crumb aria-label="위치"></nav><input type="search" class="fx-search" data-fx-search placeholder="이름·자료실 글자 찾기" aria-label="파일 찾기" maxlength="200" autocomplete="off" enterkeyhint="search"><select class="fx-sort" data-fx-sort aria-label="정렬">${SORTS.map(k => `<option value="${k}">${SORT_NAME[k]}</option>`).join('')}</select><button type="button" class="fx-btn fx-mkdir" data-fx-mkdir hidden>새 폴더</button><button type="button" class="fx-btn fx-upload" data-fx-upload hidden>올리기</button><input type="file" multiple hidden data-fx-file aria-hidden="true" tabindex="-1"><input type="file" hidden data-fx-refile aria-hidden="true" tabindex="-1"><button type="button" class="fx-sync" data-fx-sync title="지금 맞추기"></button><span class="fx-srcs src-chips" data-fx-srcs role="group" aria-label="파일 출처" hidden>${odLinkButtonHtml('data-fx-src="od" data-src-chip aria-pressed="true"')}<button type="button" class="mini fx-src-btn" data-fx-src="gd" data-src-chip aria-pressed="true" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="ph" data-src-chip aria-pressed="false" aria-label="이 폰" title="이 폰" hidden>${PHONE_SVG}</button><button type="button" class="mini fx-src-btn" data-fx-src="pc" data-src-chip aria-pressed="false" aria-label="내 PC" title="내 PC" hidden>${PC_SVG}</button></span><button type="button" class="icon-btn fx-two" data-fx-two aria-pressed="false" aria-label="두 칸 보기" title="두 칸 보기" hidden>${TWO_SVG}</button></div>
 <div class="fx-bar" data-fx-bar role="toolbar" aria-label="선택한 것" hidden></div>
 <p class="fx-note" data-fx-note role="status" hidden></p><div class="fx-connect" data-fx-connect-box role="status" hidden></div>
 <div class="fx-up" data-fx-uprows hidden></div>
@@ -885,8 +887,9 @@ function paintTop() {
     const t = open ? '폴더 나무 닫기' : '폴더 나무 열기'; tt.title = t; tt.setAttribute('aria-label', t);
   }
   const tw = $('[data-fx-two]');
-  // S50-20 FILES-두칸버튼글자: 글자가 누르면 될 상태를 말한다(한 칸이면 '두 칸 보기', 두 칸이면 '한 칸 보기'). 색으로 켜짐을 따로 보이지 않는다.
-  if (tw) { tw.hidden = false; const t = twoNow ? '한 칸 보기' : '두 칸 보기'; if (tw.textContent !== t) tw.textContent = t; tw.title = twoNow ? '한 칸으로 보기' : '두 칸으로 보기'; tw.removeAttribute('aria-pressed'); }
+  // S62-40 UI-파일검색줄(시안 PR 2691 B안, 명진 11/16 08:37): [두 칸 보기]는 두 칸 그림 아이콘 단추(이름 '두 칸 보기' 그대로), 켜짐은 aria-pressed와 옅은 바탕.
+  //   폰 맨 위 줄 [찾기][출처][두 칸] 한 줄에 들어간다(전에는 글자 단추가 둘째 줄을 혼자 차지). S50-20 글자 바꾸기(한 칸이면 '두 칸 보기', 두 칸이면 반대 글자)는 이걸로 대신한다.
+  if (tw) { tw.hidden = false; tw.setAttribute('aria-pressed', String(!!twoNow)); }
   paintSrcs();
   const note = $('[data-fx-note]');
   // S62-16 FILES-구글드라이브아이콘연결전: 연결 안내는 공용 부품(글 한 줄 → 아래 버튼). 둘 다 연결 전이면 두 연결 버튼, 아이콘을 누른 출처면 그 연결 버튼.
@@ -909,7 +912,7 @@ function linkMode(name) {
 const CONNECT_SERVICE = {od: 'onedrive', gd: 'gdrive'};
 function connectBoxHtml() {
   if (!state.status) return '';
-  if (!anyLinked()) return connectNoteHtml({line: '연결된 클라우드가 없어요.', buttons: SOURCES.map(n => ({label: connectText(CONNECT_SERVICE[n], 'none').button, attrs: {'data-fx-connect': n}}))});
+  if (!anyLinked()) return cloudNoneHtml(SOURCES.map(n => ({service: CONNECT_SERVICE[n], attrs: {'data-fx-connect': n}}))); // S62-36: 사진 화면과 같은 공용 칸
   const n = state.connectAsk, mode = n ? linkMode(n) : '';
   return mode ? connectNoteFor(CONNECT_SERVICE[n], mode, {attrs: {'data-fx-connect': n}}) : '';
 }
@@ -3195,7 +3198,7 @@ const libStub = (r, owner) => {
 async function sendToLibrary(rows) {
   const list = (rows || []).filter(Boolean), scope = state.scope, owner = scopeOf();
   const pcOk = r => r.source !== PC || pc.canXfer;
-  if (!list.every(pcOk)) notify('노조+ 업로드 프로그램을 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요', {record: false});
+  if (!list.every(pcOk)) notify('노조+ 파일 올리기 도우미을 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요', {record: false});
   const files = list.filter(r => !r.is_folder && pcOk(r));
   for (const f of list.filter(r => r.is_folder && pcOk(r))) {
     const tree = await treeRead(f, scope);

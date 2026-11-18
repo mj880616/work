@@ -5,7 +5,7 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 //   거르기·칸 수는 서버 view_prefs.photo_view(명진 결정 6, 일기 칸 수와 따로). 칸 수는 폰 3~6·PC 5~12.
 // - [사진]: 최신순 격자 120장씩(library cursor) + 날짜 머리줄. 오른쪽 끝 얇은 막대(months)를 끌면 달 말풍선 '2026.09', 놓으면 그 달로.
 // - [달력]: 날마다 대표 사진·장수(days). 칸을 누르면 [사진]의 그날부터.
-// - [휴지통](명진 결정 1): Web2에서 지운 사진('.Web2 휴지통' 폴더). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
+// - [휴지통](명진 결정 1): Web2에서 지운 사진('.노조+ 휴지통' 폴더, 옛 이름 '.Web2 휴지통'). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
 // - 크게 보기: 일기와 같은 공용 부품 photo-strip.js. 동영상은 ▶로 재생(media-url play, 주소는 메모리에만), [ⓘ] 판 [⤓ 원본 받기](media-url download).
 // - 여러 장 고르기: 길게 누르기(0.5초)로 시작, 고른 뒤 좌우로 끌면 여러 칸(화면 끝 자동 스크롤). 아래 [☆ 별표] [⇪ 공유] [⤓ 받기] [🗑 지우기].
 //   지우기는 묻지 않고 바로 빠지고 [되돌리기] 5초(명진 결정 7), 그 뒤 한 번에(ids ≤ 50) Web2 휴지통으로.
@@ -41,7 +41,7 @@ import {parsePhoneOff, phoneOffValue, remapPhoneOff, knownAfterOff, remapPhoneKn
 import {syncPhoneFolders, quickPhoneFolders, onPhoneFoldersLateAdded, savePhoneKnown, currentPhoneKnown} from './phone-folders-sync.js';
 import {parseSources, sourcesValue, toggleSource, sourceButtons, activeSources, activeCount, mergeSources, mergeDays, mergeMonths, daysFromItems, phoneIdOfKey, phoneErrorText, SOURCE_TEXT,
   gdriveToItem, gdriveBefore, gdriveFrom, gdriveKey, gdriveErrorText, gdriveCode, gdriveNeedsReconnect, gdriveState, GDRIVE_RECONNECT, gdriveLinkMode} from './photo-sources-model.mjs';
-import {connectNoteFor, connectText} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(처음 = 연결, 권한 빠짐 = 다시 연결)
+import {connectNoteFor, connectText, cloudNoneHtml} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(처음 = 연결, 권한 빠짐 = 다시 연결)
 // S46-24 ④ 구글 드라이브 칸(운영자 기능 gdrive_photos가 있는 작업공간만, 서버가 네 겹으로 다시 막음). 같은 사진 한 장 규칙·출처 표시는 원드라이브·폰과 같다.
 //   [사진]에 섞이고(거르기 '전체'·'동영상'만 — ★·스크린샷·달력·빠른 이동 막대·앨범은 아직 원드라이브·폰만), [폴더]는 '구글 드라이브' 묶음(맨 위부터 한 층씩, 스위치·⋯).
 //   사진 이름 바꾸기·옮기기·지우기(드라이브 휴지통)는 사진 ⋯(PC 우클릭)·고른 사진 아래 줄에서, 지우기는 확인 창 한 번. 권한이 없으면 칩·목록 위에 '권한 없음 · [구글 드라이브 다시 연결]'.
@@ -782,13 +782,22 @@ function gate() {
 }
 // [사진]·[달력]: 켜진 출처 중 하나라도 읽을 수 있으면 막지 않는다.
 const phoneAskHtml = () => '<p class="photos-muted">폰 사진을 보려면 처음 한 번 허용이 필요해요 <button type="button" class="mini" data-photos-phone-ask>사진 접근 허용</button></p>';
+// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브 둘 다 연결 전이면 [파일]과 같은 한 칸
+// (연결된 클라우드가 없어요 + 아래 줄 [원드라이브 연결][구글 드라이브 연결], 공용 cloudNoneHtml). 하나라도 연결됐으면 ''(그 출처 안내를 따로 보인다).
+// 원드라이브 연결 준비가 안 된 서버(configured:false)면 원드라이브 버튼은 빼고 구글 드라이브 버튼만.
+function cloudNone(cls = '') {
+  if (!odReady || od.failed || od.connected || !gd.checked || gdriveLinkMode(gd.problem) !== 'none') return '';
+  return cloudNoneHtml([od.configured && {service:'onedrive', attrs:{'data-photos-connect':''}}, {service:'gdrive', attrs:{'data-photos-gd-connect':''}}].filter(Boolean), {cls});
+}
 function listGate() {
   if (anyUse()) return '';
   if (noSource()) return NO_SOURCE_HTML;
   if (!odReady) return waitHtml({rows:4, h:72});
-  const gdLine = gdNoteHtml();
-  if (sources.phone && phone.available() && !phoneUsable() && (!sources.onedrive || !ready())) return gdLine + phoneAskHtml() + (sources.onedrive ? gate() : '');
-  if (sources.onedrive) return gdLine + gate();
+  const none = sources.onedrive || gdOn() ? cloudNone() : '';
+  const gdLine = none ? '' : gdNoteHtml();
+  const odLine = none || (sources.onedrive ? gate() : '');
+  if (sources.phone && phone.available() && !phoneUsable() && (!sources.onedrive || !ready())) return gdLine + phoneAskHtml() + odLine;
+  if (odLine) return gdLine + odLine;
   return gdLine || NO_SOURCE_HTML;
 }
 // 목록 위 짧은 안내(한 출처만 못 읽을 때).
@@ -796,8 +805,10 @@ function srcNotes() {
   const out = [];
   if (sources.phone && phone.available() && !phoneUsable() && ready() && sources.onedrive) out.push(phoneAskHtml());
   else if (sources.phone && phoneUsable() && phone.state().access === 'partial') out.push('<p class="photos-muted photos-top">폰 사진은 선택한 것만 보여요 <button type="button" class="mini" data-photos-phone-ask>더 선택</button></p>');
-  if (sources.onedrive && odReady && !ready() && (useSrc().phone || useSrc().gdrive)) out.push(gate());
-  out.push(gdNoteHtml());
+  const odNeed = sources.onedrive && odReady && !ready() && (useSrc().phone || useSrc().gdrive), gdLine = gdNoteHtml();
+  const none = odNeed || gdLine ? cloudNone('photos-top') : '';
+  if (none) out.push(none);
+  else { if (odNeed) out.push(gate()); out.push(gdLine); }
   return out.join('');
 }
 const cellLabel = (item, on) => `${dayHead(item.day)} ${item.video ? '동영상' : '사진'}${on ? ', 별표' : ''}${marks() && item.source !== 'onedrive' ? `, ${SOURCE_TEXT[item.source]}` : ''}`;
@@ -1392,7 +1403,7 @@ async function downloadOne(item) {
 }
 // PHOTO-갤러리편집(요청함 11/01 19:00, A안): 크게 보기 [✎ 편집] = 폰 앱이 삼성 편집기(공개 편집 입구가 있을 때) 또는 삼성 갤러리 보기(0.4.10+)로 넘긴다(웹2 자체 편집기 없음).
 // 원드라이브·구글 드라이브 사진은 같은 사진이 폰에 있으면 그것을 열고, 없으면 한 번 더 누를 때(한 줄 확인) 원본을
-// 기존 '원본 받기' 길로 받아 폰 사진첩 Pictures/웹2에 저장한 뒤 연다. 돌아와 사진첩이 바뀌었으면 사진 목록만 다시 읽는다(앱 화면은 다시 열지 않음).
+// 기존 '원본 받기' 길로 받아 폰 사진첩 Pictures/노조+에 저장한 뒤 연다. 돌아와 사진첩이 바뀌었으면 사진 목록만 다시 읽는다(앱 화면은 다시 열지 않음).
 const EDIT_ASK_MS = 8000;
 const EDIT_ERROR = {none:'폰에서 이 사진을 찾지 못했어요.', busy:'사진 수정 앱이 이미 열려 있어요.', noapp:'사진을 수정할 앱이 없어요.', old:'이 앱 판은 수정을 못 해요. 앱을 업데이트해 주세요.', big:'사진이 너무 커서(60MB 넘음) 폰에 받지 못했어요.', type:'이 사진 형식은 폰에 받아 수정하지 못해요.'};
 const editText = error => EDIT_ERROR[error] || '사진 수정 앱을 열지 못했어요.';
@@ -1426,7 +1437,7 @@ async function editOne(item) {
       res = await phone.edit(item);
       if (!res.ok && res.error === 'none' && item.kind !== 'phone') {
         editAsk = {id:item.id, at:Date.now()};
-        say('폰에 없는 사진이에요. [수정]을 한 번 더 누르면 원본을 폰(사진첩 웹2 폴더)에 받아 수정해요.');
+        say('폰에 없는 사진이에요. [수정]을 한 번 더 누르면 원본을 폰(사진첩 노조+ 폴더)에 받아 수정해요.');
         return;
       }
     }
@@ -1476,7 +1487,7 @@ function openViewer(index, own = null) {
     // 못 지우는 까닭 글은 고르기 줄·사진 ⋯와 같은 한 곳(photoOffWhy, S53-12).
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : photoOffWhy('delete', 'phone')}
       : item?.kind === 'gdrive' ? {ok:gdUsable() && !busy, title:!gdUsable() ? photoOffWhy('delete', 'gdrive') : busy ? '다른 일을 하는 중이에요. 잠시 뒤 다시 눌러 주세요.' : '구글 드라이브 휴지통으로(확인 한 번)'}
-      : {ok:od.canDelete, title:od.canDelete ? 'Web2 휴지통으로' : photoOffWhy('delete', 'od')}),
+      : {ok:od.canDelete, title:od.canDelete ? '노조+ 휴지통으로' : photoOffWhy('delete', 'od')}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
     choose:own ? (own.choose || null) : (item, anchor, plain) => {
@@ -1907,7 +1918,7 @@ async function restorePicked(from = pickedItems()) {
     notify('원본을 폰에 넣는 중…', {ms:300000, record:false});
     let blob;
     try { blob = await odOriginalBlob(item); } catch (error) { notify(`원본을 받지 못했어요: ${odErrorText(error)}`, {error:true}); return; }
-    const r = await phone.restore(blob, {name:item.name || '', dir:item.keptPath || 'Pictures/웹2/', taken:item.taken_at});
+    const r = await phone.restore(blob, {name:item.name || '', dir:item.keptPath || 'Pictures/노조+/', taken:item.taken_at});
     if (!r.ok) { notify(RESTORE_ERROR[r.error] || '폰에 넣지 못했어요.', {error:true}); return; }
     const dropped = await dropKept([item.keptId]);
     select.stop(); paintSelect();
@@ -3084,6 +3095,7 @@ function gdFolderClick(b) {
   if (b.matches('[data-photos-gf-retry]')) { gdLevelFailed.clear(); renderFolders(); return true; }
   if (b.matches('[data-photos-gf-again]')) { gdFFor = null; gdFFailed = ''; paintGdFolderGrid(); return true; }
   if (b.matches('[data-photos-gd-reconnect]')) { gdReconnectGo(); return true; }
+  if (b.matches('[data-photos-gd-connect]')) { connectFromNone('gdrive'); return true; }
   if (b.matches('[data-photos-gd-retry]')) { gdRetry(); return true; }
   return false;
 }
@@ -3651,7 +3663,7 @@ root.addEventListener('click', event => {
   if (b.matches('[data-photos-name-cancel]')) return nameDone(null);
   if (b.matches('[data-photos-newest]')) { resetList(); render(); return window.scrollTo?.(0, 0); }
   if (b.matches('[data-photos-more]')) { failed = ''; paintList(); return loadMore(); }
-  if (b.matches('[data-photos-connect]')) return settings.connect();
+  if (b.matches('[data-photos-connect]')) return connectFromNone('onedrive');
   if (b.matches('[data-photos-folder]')) return settings.run(settings.startBrowse);
   if (b.matches('[data-photos-retry]')) return ensureOd(true).then(render);
 });
@@ -3694,6 +3706,11 @@ function sourceClick(b) {
   // 원드라이브가 아직 연결 전이거나 문제가 있으면 지금처럼 연결 메뉴.
   if (name === 'onedrive' && (!ready() || odFault)) return linkMenu.open(b);
   toggleSourceName(name);
+}
+// S62-36: 연결 안내의 [○○ 연결]은 그 출처 칩이 꺼져 있으면 먼저 켠다(서버 view_prefs). 연결하고 돌아왔을 때 바로 그 사진이 보이게.
+function connectFromNone(name) {
+  if (!sources[name]) { sources = toggleSource(sources, name); viewPrefs.set(deviceSourcesPref(), sourcesValue(sources), {rejectable:true}); paintSources(); }
+  return name === 'gdrive' ? gdReconnectGo() : settings.connect();
 }
 function toggleSourceName(name) {
   sources = toggleSource(sources, name);

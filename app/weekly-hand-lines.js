@@ -25,7 +25,8 @@ const TEXT = Object.freeze({
   badTime:TIME_HINT,
   full:part => `줄은 ${part === 'calendar' ? HAND_CALENDAR_MAX : HAND_NOTES_MAX}개까지예요.`,
 });
-const LABEL = Object.freeze({calendar:'5. 주요 일정', notes:'참고 내 메모'});
+// ⑤-3b: 5번 절 이름은 '내 양식' 제목(model.titles.calendar). 참고는 화면 묶음(양식 항목 아님).
+const LABEL = Object.freeze({calendar:model => model?.titles?.calendar ?? '', notes:() => '참고 내 메모'});
 const states = new Map(); // part → ui
 const fresh = start => ({start, editing:null, draft:{}, saving:false, status:'', error:false, invalid:'', focus:''});
 
@@ -47,7 +48,7 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
   const days = model.calendar?.days ?? [];
   const parts = [];
   if (!ui.editing) {
-    const add = btn('+ 추가', 'journalHandAdd', 'journal-part-add-button'); add.setAttribute('aria-label', `${LABEL[part]} 줄 추가`);
+    const add = btn('+ 추가', 'journalHandAdd', 'journal-part-add-button'); add.setAttribute('aria-label', `${LABEL[part](model)} 줄 추가`.trim());
     add.disabled = busy || rows.length >= (part === 'calendar' ? HAND_CALENDAR_MAX : HAND_NOTES_MAX);
     const front = lead.map(x => { const b = el('button', 'journal-part-add-button', x.text); b.type = 'button'; b.dataset[x.data] = ''; if (x.aria) b.setAttribute('aria-label', x.aria); b.disabled = !!x.disabled; return b; });
     parts.push(partAdd(doc, [...front, add]));

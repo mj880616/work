@@ -35,7 +35,8 @@ object PhoneFiles {
     }
 
     /** 이 폰에서 '모든 파일 접근'을 켤 수 있나(안드로이드 11+). */
-    fun can(): Boolean = Build.VERSION.SDK_INT >= 30
+    // S62-34: 플레이 판은 '모든 파일 접근' 권한이 없다(BuildConfig.ALL_FILES=false) → 안드로이드 10처럼 '이 폰에서는 못 씀'으로 알린다.
+    fun can(): Boolean = BuildConfig.ALL_FILES && Build.VERSION.SDK_INT >= 30
 
     /** 지금 켜져 있나. */
     fun granted(): Boolean = try {

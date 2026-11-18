@@ -67,10 +67,11 @@ async function outsideServer(page) {
       return ok({ ok: false }, 400);
     }
     // NEWS-모두에게열기 ③: 언론 기사는 공용 표(+ 내 표시 embed), 읽음은 사람별 표(app_news_reads·app_outside_reads, article_id).
+    if (p === '/rest/v1/app_news_marks') return ok([]); // S63-11 서버 찾기의 별표 기사(없음)
     if (p === '/rest/v1/app_news_articles') {
       server.calls.push({ what: 'app_news_articles', method, query: decodeURIComponent(u.search) });
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      return ok(NEWS.filter(r => !inKeys || inKeys.includes(r.source_key)).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: starred_at ? [{ starred_at, folder_id: null, hidden_at: null, keywords: [] }] : [] })));
+      return ok(NEWS.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: starred_at ? [{ starred_at, folder_id: null, hidden_at: null, keywords: [] }] : [] })));
     }
     if (p === '/rest/v1/app_news_reads' || p === '/rest/v1/app_outside_reads') {
       const body = req.postDataJSON?.() ?? null;
@@ -97,7 +98,7 @@ async function outsideServer(page) {
     server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
     if (p === '/rest/v1/app_outside_articles') {
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      const rows = [...server.extra, ...POSTS].filter(r => !inKeys || inKeys.includes(r.source_key));
+      const rows = [...server.extra, ...POSTS].filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('and'), 'summary_ko'));
       const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 100);
       return ok(rows.slice(offset, offset + limit));
     }
@@ -118,6 +119,13 @@ async function outsideServer(page) {
   return server;
 }
 
+// S63-11 서버 찾기 흉내: '.ilike."*낱말*…*"' 조건이 있으면 제목·한국어 제목·요약에서 낱말을 순서대로(대소문자 무시).
+function likeOk(row, param, sumCol) {
+  const pat = /\.ilike\."([^"]*)"/.exec(param || '')?.[1];
+  if (pat === undefined) return true;
+  const re = new RegExp(pat.split('*').filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*'), 'i');
+  return ['title', 'title_ko', sumCol].some(k => re.test(String(row[k] ?? '')));
+}
 async function start(page, width, initialPrefs = null) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [];
@@ -206,10 +214,14 @@ for (const width of [412, 884, 1280]) {
     if (width <= 760) await page.goBack();
     await expect(row(page, 'outside:p1')).toHaveClass(/is-read/);
 
-    // 위 찾기 칸: 글자를 넣으면 지금 목록에서 제목으로 바로 거른다(서버 안 부름).
+    // 위 찾기 칸(S63-11): [전체]는 서버 찾기 — 언론 기사 + 사회운동 글, 최근 30일 + 보관한 글의 제목·한국어 제목·요약. 문장 찾기 결과 칸은 열지 않는다.
     const find = root(page).locator('[data-nw-find]');
     await find.fill('외신');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+    await expect(row(page, 'news:e1')).toBeVisible();
+    expect(server.calls.filter(c => c.what === 'app_outside_articles').at(-1).query).toContain('summary_ko.ilike."*외신*"');
+    await find.press('Enter');
+    await expect(root(page).locator('[data-os-search]')).toBeHidden();
     await find.fill('');
     await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
 
@@ -240,7 +252,15 @@ for (const width of [412, 884, 1280]) {
     await expect(tab(page, 'movement')).toHaveAttribute('aria-selected', 'true');
     await expect.poll(() => server.prefs.value?.news_tab).toBe('movement');
     const mv = rows(page, '[data-os-list]');
+    // S63-11: 국내 단체 글 먼저, 국제(Jacobin) 글은 아래 접힌 '국제' 묶음 — 펼치면 그 안 줄이 보인다(화면 메모리).
+    const intl = root(page).locator('[data-os-list] details[data-os-intl]');
+    await expect(mv).toHaveCount(POSTS.length - 1);
+    await expect(intl.locator('summary')).toHaveText(/^국제 · 1건/);
+    await expect(intl.locator('[data-nw-key="outside:p3"]')).toHaveCount(0);
+    await intl.locator('summary').click();
     await expect(mv).toHaveCount(POSTS.length);
+    await expect(intl.locator('[data-nw-key="outside:p3"]')).toHaveCount(1);
+    expect(await root(page).locator('[data-os-list] [data-nw-key]').evaluateAll(els => els.at(-1).dataset.nwKey)).toBe('outside:p3');
     await expect(root(page).locator('[data-os-when]')).toHaveText('마지막으로 읽음 어제 18:07 · 다음 곧(08:07 예정분)');
     // [사회운동] 탭의 매체 창에는 언론이 없다.
     await dd.click();

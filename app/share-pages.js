@@ -549,7 +549,7 @@ function renderEditor() {
   view.toggleAttribute('data-sp-full', full);
   if (full) { renderFull(); return; }
   // The title sits where the reader shows it, in the reader's title look (sr-title).
-  const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'제목 (예: ○○민자철도 교섭 현황)',
+  const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'제목 (예: ○○ 교섭 현황)',
     'aria-label':'제목', dataset:{spTitle:''}});
   editorView.replaceChildren(
     el('div', {class:'sp-editor-head'},

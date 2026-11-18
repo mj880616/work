@@ -36,14 +36,14 @@ test('PC 1280: 사업 보고 칸·고른 보고가 주소에 적히고 새로고
   // 두 번째 보고를 고르면 ?report=가 그 보고로 바뀐다.
   await page.locator('#meetingList [data-meeting-round="p-2"]').first().click();
   await expect(page).toHaveURL(/[?&]report=p-2(?:&|$)/);
-  // 위쪽 줄: 사업 보고 › 언론 › 합성 두번째 기자회견
+  // 위쪽 줄: 사업 관리 › 언론 › 합성 두번째 기자회견
   const where=page.locator('.app-topline [data-topline-where]');
-  await expect(where.locator('li')).toHaveText(['사업 보고','언론','합성 두번째 기자회견']);
+  await expect(where.locator('li')).toHaveText(['사업 관리','언론','합성 두번째 기자회견']);
   await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect.poll(()=>pickedReportKind(page)).toBe('언론');
   await expect(page).toHaveURL(/[?&]report=p-2(?:&|$)/);
   await expect(page.locator('#meetingList [data-meeting-round="p-2"]').first()).toHaveAttribute('aria-current',/true|page/);
-  await expect(where.locator('li')).toHaveText(['사업 보고','언론','합성 두번째 기자회견']);
+  await expect(where.locator('li')).toHaveText(['사업 관리','언론','합성 두번째 기자회견']);
   // 중간 단계 '언론'은 그 칸으로 가는 버튼이다(같은 칸이면 [종류 ▾] 상자에 초점).
   await where.getByRole('button',{name:'언론',exact:true}).click();
   // S52-22 → BIZ-위쪽정돈PC(11/09): 모든 폭에서 [종류 ▾] 상자에 초점(PC 칩 줄 없앰).
@@ -60,8 +60,8 @@ test('PC 1280: 사업 보고 칸·고른 보고가 주소에 적히고 새로고
 test('폰 390: 하단바에 칸이 없는 화면(자료실)에서는 아무 칸도 칠하지 않는다(UI-화면정리 C5)',async({page})=>{
   const errors=await open(page,390);
   const tabs=page.locator('#appView>.mobile-tabs');
-  // 사업 보고는 하단바 칸이 있어 그 칸 하나.
-  await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('사업 보고');
+  // 사업 관리는 하단바 칸이 있어 그 칸 하나.
+  await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('사업 관리');
   await page.evaluate(()=>window.KPTURouter.go('library'));await expect(page.locator('#libraryView')).toBeVisible();
   await expect(tabs.locator('[aria-current="page"]')).toHaveCount(0);
   await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');

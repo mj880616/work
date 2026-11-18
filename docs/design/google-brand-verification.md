@@ -2,7 +2,7 @@
 
 - 요청: Web2 요청함 [11/01 00:04]. 명진 결정 11/01 00:06 "a안 ㄱ"(구글 브랜드 인증 먼저, 맞춤 로그인 주소는 보류).
 - 상태: 설계. 구현(처리방침 페이지·콘솔 입력)은 커맨드센터가 한다.
-- 공개 페이지(S47-8): 소개 `https://work.bokdoong.com/work/about/`, 처리방침 `…/about/privacy/`, 약관 `…/about/terms/`, 로고 `about/web2-logo-120.png`(120×120). 저장소 `about/`. 로그인 화면 아래에 소개·처리방침 링크.
+- 공개 페이지(S47-8): 소개 `https://work.bokdoong.com/work/about/`, 처리방침 `…/about/privacy/`, 약관 `…/about/terms/`, 로고 `about/nojoplus-logo-120.png`(120×120). 저장소 `about/`. 로그인 화면 아래에 소개·처리방침 링크.
 
 ## 1. 지금 왜 주소가 보이나 (사실)
 
@@ -54,3 +54,13 @@
 
 - Supabase, Login with Google: https://supabase.com/docs/guides/auth/social-login/auth-google
 - 구글 포럼, Supabase 콜백 주소 때문의 이름 불일치 거절 사례: https://discuss.google.dev/t/oauth-branding-verification-stuck-name-mismatch-due-to-supabase-callback-domain-no-trust-safety-email-received/389007
+
+## 노조+ 전환 (BRAND-웹2흔적지우기, 2026-11-16)
+
+- 요청: 명진 11/16 09:23 "로그인할 때 나타나는 파비콘이 옛 웹2 파비콘" · "웹2의 흔적 이름, 파비콘 등 다 지우고 노조플러스로".
+- 저장소: 공개 페이지 로고를 `about/nojoplus-logo-120.png`(120×120, `app/app-icon.svg`에서 그림)로 바꿨다. 옛 `about/web2-logo-120.png`는 지웠다.
+- 구글 콘솔(명진 로그인 필요, 나머지는 CC): 구글 인증 플랫폼 → '브랜딩'
+  1. 앱 이름: `노동조합+` (소개 페이지 첫 줄과 글자까지 같게)
+  2. 앱 로고: 저장소 `about/nojoplus-logo-120.png` 파일을 올린다(또는 `https://nojoplus.com/work/about/nojoplus-logo-120.png`에서 받아 올림).
+  3. 홈페이지·처리방침·약관 주소는 그대로.
+  4. 저장 → 이름·로고가 바뀌면 브랜드 인증을 다시 받는다('인증 센터'). 결과가 나올 때까지 동의 화면에는 옛 이름·로고가 남을 수 있다.

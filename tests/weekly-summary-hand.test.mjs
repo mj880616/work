@@ -2,14 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// WEEKLY-요약표수기(S49-39): 사업요약표 미리보기·HWP·홈 주간 정리가 같은 값을 읽고, 내부 정례 회의는 어느 길에도 안 나오고, 진행/담당은 직접 쓴 값이 그대로 들어간다.
+// WEEKLY-요약표수기(S49-39): 사업요약표 미리보기·HWP·홈 주간 정리가 같은 값을 읽고, 내부 정례 회의는 (그 단어를 정한 사람에게는) 어느 길에도 안 나오고, 진행/담당은 직접 쓴 값이 그대로 들어간다.
 // 가상 이름만 쓴다(실제 조직·사람·보고 내용 없음).
 const h = await import('../app/weekly-summary-hand.mjs');
 const d = await import('../app/weekly-draft-store.js');
 const m = await import('../app/business-area-model.mjs');
 const weekly = await import('../app/journal-weekly.js');
 const kinds = await import('../app/journal-meeting-kinds.js');
-const hwpx = await import('../app/weekly-hwpx/draft.mjs');
+const {OPERATOR_LIST} = await import('./fixtures/operator-meeting-words.mjs');
+const hwpx = await import('./fixtures/weekly-engine.mjs');
 const read = p => readFileSync(new URL(`../app/${p}`, import.meta.url), 'utf8');
 const A = '11111111-1111-4111-8111-111111111111', T1 = '33333333-3333-4333-8333-333333333333', T2 = '44444444-4444-4444-8444-444444444444';
 
@@ -73,29 +74,37 @@ test('미리보기 표 줄: 보고가 없는 사업영역·세부 과제 줄도 
   assert.deepEqual(m.fullTable(placed, null), placed);
 });
 
-// ---- 내부 정례 회의: 길마다 같은 한 곳(reportsMeeting)을 읽는다 ----
+// ---- 내부 정례 회의: 길마다 같은 한 곳(reportsMeeting)을 읽는다. WEEKLY-내부회의사람별: 빼는 단어는 그 사람 목록에만 ----
 const INTERNAL = ['노조 상집 45차', '노조 중집', '본부 집행위 42차', '궤도 집행국 회의 40차'];
 const mk = (id, name, day, extra = {}) => ({id, series_name:name, title:name, meeting_at:`2026-11-0${day}T01:00:00Z`, business_area_id:A, project_id:null, next_plan:'후속', ...extra});
 const meetings = [...INTERNAL.map((n, i) => mk(`i${i}`, n, 2 + (i % 3))), mk('ok1', '가상 간담회', 3), mk('hid', '가상 늘 빼는 종류', 4)];
 const ok = items => ({status:'ok', items});
 
-test('내부 정례 회의는 목록을 못 읽어도 빠지고, 늘 빼기로 정한 종류도 같은 한 곳에서 빠진다', () => {
-  for (const name of INTERNAL) assert.equal(kinds.reportsMeeting({series_name:name}, null), false, name);
-  assert.equal(kinds.reportsMeeting({series_name:'가상 간담회'}, null), true);
+const HIDE = kinds.meetingKindKey('가상 늘 빼는 종류');
+test('내부 정례 회의는 운영자 목록의 단어로 빠지고(다른 사람·못 읽음은 그대로 올림), 늘 빼기로 정한 종류도 같은 한 곳에서 빠진다', () => {
+  for (const name of INTERNAL) assert.equal(kinds.reportsMeeting({series_name:name}, [...OPERATOR_LIST]), false, name);
+  for (const name of INTERNAL) for (const other of [null, [], [HIDE]]) assert.equal(kinds.reportsMeeting({series_name:name}, other), true, name);
+  assert.equal(kinds.reportsMeeting({series_name:'가상 간담회'}, [...OPERATOR_LIST]), true);
   assert.equal(kinds.reportsMeeting({series_name:'가상 늘 빼는 종류'}, [kinds.meetingKindKey('가상 늘 빼는 종류')]), false);
 });
 
-test('홈 주간 정리: 사업 요약 줄·회의·활동 결과 어디에도 내부 정례 회의와 늘 빼는 종류가 없다', () => {
+test('홈 주간 정리: 운영자에게는 사업 요약 줄·회의·활동 결과 어디에도 내부 정례 회의와 늘 빼는 종류가 없고, 다른 사람에게는 들어간다', () => {
   const tree = [{project:{id:A, name:'가 사업'}, depth:0}];
   const base = {start:'2026-11-02', lines:new Map(), linesState:'ok', today:'2026-11-05',
     materials:{basket:ok({notes:[], links:[], docs:[]}), projectUpdates:ok([]), catalog:ok(tree), meetings:ok(meetings), orgUpdates:ok(Object.assign([], {mine:new Set()}))}};
-  for (const kindsArg of [null, {status:'ok', list:[kinds.meetingKindKey('가상 늘 빼는 종류')]}]) {
-    const w = weekly.weeklySummary({...base, kinds:kindsArg});
-    const summaryText = w.summary.areas.flatMap(a => a.rows.flatMap(r => r.items.map(weekly.summaryLine))).join('\n');
-    const detailText = (w.meetings.items || []).map(i => i.text).join('\n');
-    for (const name of INTERNAL) { assert.ok(!summaryText.includes(name), `요약에 ${name}`); assert.ok(!detailText.includes(name), `세부에 ${name}`); }
+  const texts = kindsArg => { const w = weekly.weeklySummary({...base, kinds:kindsArg});
+    return [w.summary.areas.flatMap(a => a.rows.flatMap(r => r.items.map(weekly.summaryLine))).join('\n'), (w.meetings.items || []).map(i => i.text).join('\n')]; };
+  for (const kindsArg of [null, {status:'ok', list:[HIDE]}]) {
+    const [summaryText, detailText] = texts(kindsArg);
+    for (const name of INTERNAL) { assert.ok(summaryText.includes(name.replace(/ \d+차$/, '')), `다른 사람 요약에 ${name}`); assert.ok(detailText.includes(name.replace(/ \d+차$/, '')), `다른 사람 세부에 ${name}`); }
     assert.ok(summaryText.includes('가상 간담회') && detailText.includes('가상 간담회'));
     if (kindsArg) { assert.ok(!summaryText.includes('늘 빼는') && !detailText.includes('늘 빼는')); } else assert.ok(summaryText.includes('늘 빼는'));
+  }
+  for (const kindsArg of [{status:'ok', list:[...OPERATOR_LIST]}, {status:'ok', list:[...OPERATOR_LIST, HIDE]}]) {
+    const [summaryText, detailText] = texts(kindsArg);
+    for (const name of INTERNAL) { assert.ok(!summaryText.includes(name), `요약에 ${name}`); assert.ok(!detailText.includes(name), `세부에 ${name}`); }
+    assert.ok(summaryText.includes('가상 간담회') && detailText.includes('가상 간담회'));
+    if (kindsArg.list.includes(HIDE)) { assert.ok(!summaryText.includes('늘 빼는') && !detailText.includes('늘 빼는')); } else assert.ok(summaryText.includes('늘 빼는'));
   }
 });
 
@@ -105,7 +114,7 @@ test('사업요약표 미리보기: 같은 한 곳으로 거른 보고만 표·�
   assert.match(src, /state\.meetings\(\)\.filter\(m=>kinds\.reportsMeeting\(m,hidden\)\)/);
   assert.match(src, /readKinds\(\)/);
   assert.ok(!/뺀 회의|다시 올리기/.test(src), '뺀 n건 안내·다시 올리기 없음');
-  const shown = meetings.filter(x => kinds.reportsMeeting(x, [kinds.meetingKindKey('가상 늘 빼는 종류')]));
+  const shown = meetings.filter(x => kinds.reportsMeeting(x, [...OPERATOR_LIST, kinds.meetingKindKey('가상 늘 빼는 종류')]));
   const { records, all, untagged } = m.previewRecords(shown, {from:'2026-11-02', to:'2026-11-08'});
   assert.deepEqual(all.map(x => x.id), ['ok1']);
   assert.deepEqual(records.map(r => r.meeting), ['ok1']);

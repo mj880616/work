@@ -11,7 +11,7 @@ test('한 목록: 채널/자동 구분 없음 — 목록·별표 폴더 칸 걸�
   assert.equal(M.TABS, undefined); assert.equal(M.keepTab, undefined);
   assert.equal(M.laneFilter(M.STAR), '&starred_at=not.is.null');
   assert.equal(M.orderOf(M.STAR), 'starred_at.desc,id.desc');
-  assert.equal(M.orderOf(M.ALL), 'created_at.desc,id.desc');
+  assert.equal(M.orderOf(M.ALL), 'kst_day.desc.nullslast,news_rank.asc.nullslast,created_at.desc,id.desc');
   assert.equal(M.itemView({id: '1', lane: 'channel', lang: 'ko', title: 'T', url: 'https://example.org/a'}).tag, undefined);
 });
 
@@ -78,7 +78,10 @@ test('키워드·매체·한도', () => {
   assert.equal(M.normalizeLimits({limits: {keyword_items: 30}}).keyword_items, undefined);
   assert.equal(M.DEFAULT_LIMITS.keyword_items, undefined);
   assert.deepEqual(M.normalizeLimits(null), M.DEFAULT_LIMITS);
-  assert.equal(M.sourceNote({enabled: true, last_error: 'robots'}), '읽지 못함');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'robots'}), '못 읽음 · 사이트가 자동 읽기 막음');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'robots_denied'}), '못 읽음 · 사이트가 자동 읽기 막음');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'robots_unreachable'}), '못 읽음 · 사이트 연결 안 됨');
+  assert.equal(M.sourceNote({enabled: true, last_error: 'http_500'}), '읽지 못함');
   assert.equal(M.sourceNote({enabled: false}), '');
 });
 

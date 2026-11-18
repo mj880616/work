@@ -342,22 +342,20 @@ test('MULTI-처음쓰는사람 ④: 원장은 메뉴 목록에 없고, 저장된
   assert.ok(![...saved.bar, ...saved.rest, ...saved.tail, ...saved.hidden].includes('ledger'));
   assert.deepEqual(saved.rest.slice(0, 2), ['note', 'library']);
 });
-test('MULTI-처음쓰는사람 ④·S62-11: withFeatures — 답 전(null)은 그대로, 기능 없는 계정은 통화·텔레그램·아스날을 뺀다([파일]·News는 모두에게), 운영자는 그대로', () => {
+test('MULTI-처음쓰는사람 ④·S62-11: withFeatures — 답 전(null)은 그대로, 기능 없는 계정은 통화·텔레그램·아스날·News를 뺀다([파일]은 모두에게), 운영자는 그대로', () => {
   const d = defaultLayout();
   const before = withFeatures(d, null);
   assert.deepEqual(before.off, []); assert.deepEqual(before.rest, d.rest); assert.deepEqual(before.tail, d.tail);
   const none = withFeatures(d, []);
-  assert.deepEqual(none.off.sort(), ['arsenal', 'calls', 'telegram']);
+  assert.deepEqual(none.off.sort(), ['arsenal', 'calls', 'outside', 'telegram']);
   assert.deepEqual(none.bar, d.bar);
-  assert.deepEqual(none.rest, ['basket', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside'], 'S62-11: [파일]·S62-12g: News는 기능 키 없이도 보인다');
+  assert.deepEqual(none.rest, ['basket', 'library', 'files', 'brief', 'hwp', 'pages', 'photos'], 'S62-11: [파일]은 기능 키 없이도 보인다');
   assert.equal(ITEMS.find(i => i.id === 'files').feature, undefined);
-  assert.equal(ITEMS.find(i => i.id === 'outside').feature, undefined, 'S62-12g NEWS-모두에게열기');
-  for (const id of ['calls', 'telegram']) assert.equal(ITEMS.find(i => i.id === id).feature, id, '텔레그램 소식·통화는 운영자 그대로');
   assert.deepEqual(none.tail, []);
   const op = withFeatures(d, ['calls', 'telegram', 'files', 'gdrive_photos', 'arsenal', 'outside', 'family']);
   assert.deepEqual(op.off, []); assert.deepEqual({bar: op.bar, rest: op.rest, tail: op.tail, hidden: op.hidden}, d);
-  // 일부만(예: 아스날 키가 아직 없는 운영자): 그것만 빠진다.
-  assert.deepEqual(withFeatures(d, ['calls', 'telegram', 'files']).off.sort(), ['arsenal']);
+  // 일부만(예: 아스날·News 키가 아직 없는 운영자 — DB 적용 전): 그 둘만 빠진다. 그래서 DB 적용이 먼저다.
+  assert.deepEqual(withFeatures(d, ['calls', 'telegram', 'files']).off.sort(), ['arsenal', 'outside']);
   // 숨긴 메뉴·하단바에 둔 운영자 메뉴도 빠진다. 저장값(normalizeLayout 결과)은 건드리지 않는다.
   const custom = normalizeLayout({bar: ['home', 'calls', 'calendar'], rest: ['note', TAIL_MARK, 'telegram', HIDDEN_MARK, 'arsenal']});
   const v = withFeatures(custom, []);
@@ -380,7 +378,8 @@ test('MULTI-하단바기본노트: index.html 처음 모양 = 기본 구성(폰 
   assert.deepEqual(ids(top, /<button type="button" data-[^>]*>/g), d.rest);
   assert.deepEqual(ids(bottom, /<button type="button" data-[^>]*>/g), d.tail);
   const side = html.match(/<nav id="appNav"[\s\S]*?<\/nav>/)[0];
-  const [main, feed] = side.split('sidebar-spacer');
+  // HELP-메뉴안쓰는법: 맨 아래 '쓰는 법'(nav-help)은 메뉴 목록 항목이 아니라 늘 맨 끝에 붙는 줄(자주 가는 링크와 같은 자리)이다.
+  const [main, feed] = side.replace(/<a class="nav-btn nav-help"[^>]*>/, '').split('sidebar-spacer');
   assert.deepEqual(ids(main, /<a class="nav-btn[^"]*"[^>]*>/g), pcSplit(d).main);
   assert.deepEqual(ids(feed, /<a class="nav-btn[^"]*"[^>]*>/g), pcSplit(d).tail);
 });

@@ -37,7 +37,7 @@ for(const [label,width] of [['폰 412',412],['폰 884',884],['PC 1440',1440]]){
     await expect(view.locator('button.primary')).toHaveCount(1);
     await expect(view.locator('#psName')).toHaveValue('테스터');
     await expect(view.locator('#psTitle')).toHaveValue('국장');
-    await expect(view.locator('#psState')).toHaveText('바뀐 것 없음');
+    await expect(view.locator('#psState')).toHaveText('');
     await expect(view.locator('#psSave')).toBeDisabled();
     // ② 펼치면 내 담당만 체크된 채. 나머지는 접힌 '그 외 3'.
     await unfold(page);
@@ -75,10 +75,10 @@ for(const [label,width] of [['폰 412',412],['폰 884',884],['PC 1440',1440]]){
     await expect(list.locator('.pick-fold-head')).toHaveText(/담당조직 현황\s*2/);
     await expect(list.locator('.pick-others-head')).toHaveText(/그 외\s*2/);
     await expect(search).toHaveValue('ㄱㅅㄱ');
-    await expect(view.locator('#psState')).toHaveText('바뀐 것 1곳');
+    await expect(view.locator('#psState')).toHaveText('1곳 바뀜, 저장 안 됨');
     // 저장은 아래 [저장] 하나, 서버로.
     await view.locator('#psSave').click();
-    await expect(view.locator('#psState')).toHaveText('바뀐 것 없음');
+    await expect(view.locator('#psState')).toHaveText('저장됨');
     const state=await page.evaluate(()=>window.__state);
     expect(state.assignments.some(x=>x.organization_id==='org-b'&&x.user_id==='u1')).toBeTruthy();
     expect(state.workplaces.some(x=>x.organization_id==='org-b'&&x.user_id==='u1')).toBeTruthy();
@@ -97,10 +97,10 @@ test('담당 체크를 풀면 저장 전까지 흐리게 남고, 다시 체크�
   expect(Number(await a.evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(.8);
   await expect(page.locator('[data-ps-org-check="org-a"]')).not.toBeChecked();
   await expect(page.locator('#psWorkplaceList .pick-fold-head')).toHaveText(/담당조직 현황\s*0/);
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 1곳');
+  await expect(page.locator('#psState')).toHaveText('1곳 바뀜, 저장 안 됨');
   await page.locator('.ps-org-pick',{hasText:'철도노조'}).first().click();
   await expect(a).not.toHaveClass(/pick-off/);
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
+  await expect(page.locator('#psState')).toHaveText('');
   await showAll(page);
   await page.locator('.ps-org-pick',{hasText:'서울교통공사노동조합'}).click();
   // 고른 것도 묶음 순서 그대로(지하철 묶음이 묶음 밖보다 앞).
@@ -108,7 +108,7 @@ test('담당 체크를 풀면 저장 전까지 흐리게 남고, 다시 체크�
   await page.locator('.ps-org-pick',{hasText:'서울교통공사노동조합'}).click();
   await expect(pickedNames(page)).toHaveText(['철도노조']);
   await expect(page.locator('#psWorkplaceList .pick-others .ps-org-name',{hasText:'서울교통공사노동조합'})).toBeVisible();
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
+  await expect(page.locator('#psState')).toHaveText('');
 });
 
 test('찾기: 글자·초성·섞어 쓰기 모두 되고, 없으면 짧게 알린다. 찾기 칸 Enter는 저장하지 않는다',async({page})=>{
@@ -145,13 +145,13 @@ test('이름은 체크만, 줄 끝 ›는 조직 정보 열기 전용',async({pa
   await page.locator('[data-ps-workplace-org="org-a"]').click();
   await expect(page.locator('[data-ps-org-check="org-a"]')).toBeChecked();
   expect(await page.evaluate(()=>window.__opened)).toEqual(['org-a']);
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
+  await expect(page.locator('#psState')).toHaveText('');
   await page.locator('.ps-org-pick',{hasText:'한국가스공사노조'}).click();
   await expect(page.locator('[data-ps-org-check="org-b"]')).toBeChecked();
   expect(await page.evaluate(()=>window.__opened)).toEqual(['org-a']);
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 1곳');
+  await expect(page.locator('#psState')).toHaveText('1곳 바뀜, 저장 안 됨');
   await page.locator('.ps-org-pick',{hasText:'한국가스공사노조'}).click();
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
+  await expect(page.locator('#psState')).toHaveText('');
   await expect(page.locator('#psSave')).toBeDisabled();
 });
 
@@ -161,10 +161,11 @@ test('저장 하나로 프로필 → 사업장 추가 → 사업장 삭제 순�
   await page.fill('#psName','새이름');
   await page.locator('.ps-org-pick',{hasText:'철도노조'}).click();
   await page.locator('.ps-org-pick',{hasText:'한국가스공사노조'}).click();
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 3곳');
+  await expect(page.locator('#psState')).toHaveText('3곳 바뀜, 저장 안 됨');
   await page.click('#psSave');
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
-  await expect(page.locator('#toast')).toContainText('저장');
+  await expect(page.locator('#psState')).toHaveText('저장됨');
+  // PROFILE-바뀜것없음글자빼기: 저장 성공은 알림 대신 저장 줄의 '저장됨'(잠깐) → 사라짐.
+  await expect(page.locator('#psState')).toHaveText('',{timeout:5000});
   await expect(page.locator('#psSave')).toBeDisabled();
   const state=await page.evaluate(()=>window.__state);
   expect(state.profile[0].display_name).toBe('새이름');
@@ -197,12 +198,48 @@ test('이름만 바꿔도 저장되고 이름이 비면 저장하지 않는다',
   await page.fill('#psName','이름만');
   await page.fill('#psTitle','');
   await page.click('#psSave');
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
+  await expect(page.locator('#psState')).toHaveText('저장됨');
   const state=await page.evaluate(()=>window.__state);
   expect(state.profile[0].display_name).toBe('이름만');
   expect(state.profile[0].job_title).toBeNull();
   expect((await calls(page)).filter(c=>c.startsWith('POST')||c.startsWith('DELETE'))).toEqual([]);
 });
+
+// PROFILE-소속칸글로쓰기: 기본 정보 칸 4개(노조명·부서명·이름·직책). 노조명·부서명은 글로 직접, 이름·직책과 같은 [저장] 한 번으로 내 프로필 행에 저장된다.
+for(const [label,width] of [['폰 412',412],['폴드 880',880],['PC 1280',1280]]){
+  test(`${label}: 노조명·부서명 칸 — 처음엔 빈 칸, 쓰고 저장하면 같은 줄로 서버에 남고 다시 열어도 그대로, 비우면 null`,async({page})=>{
+    await page.setViewportSize({width,height:900});
+    await openProfile(page);
+    const union=page.locator('#psUnion'),dept=page.locator('#psDept');
+    await expect(union).toHaveValue('');await expect(dept).toHaveValue('');
+    await expect(union).toHaveAttribute('placeholder',/노조명/);await expect(dept).toHaveAttribute('placeholder',/부서명/);
+    await expect(union).toHaveAttribute('maxlength','60');await expect(dept).toHaveAttribute('maxlength','60');
+    // 목록·자동완성 없음(글 칸 그대로).
+    await expect(page.locator('#profileView .ps-fields datalist,#profileView .ps-fields [list]')).toHaveCount(0);
+    // 칸 순서: 노조명 · 부서명 · 이름 · 직책(위 두 칸, 아래 두 칸). 가로로 넘치지 않는다.
+    await expect(page.locator('#profileView .ps-fields input')).toHaveCount(4);
+    expect(await page.locator('#profileView .ps-fields input').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['psUnion','psDept','psName','psTitle']);
+    const [u,d,n]=[await union.boundingBox(),await dept.boundingBox(),await page.locator('#psName').boundingBox()];
+    expect(Math.abs(u.y-d.y)).toBeLessThan(2);expect(n.y).toBeGreaterThan(u.y+u.height-1);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await union.fill('  가상노동조합 샘플지부 ');await dept.fill('샘플사업팀');
+    await expect(page.locator('#psState')).toHaveText('1곳 바뀜, 저장 안 됨');
+    await page.click('#psSave');
+    await expect(page.locator('#psState')).toHaveText('저장됨');
+    let row=(await page.evaluate(()=>window.__state)).profile[0];
+    expect([row.union_name,row.department_name,row.display_name,row.job_title]).toEqual(['가상노동조합 샘플지부','샘플사업팀','테스터','국장']);
+    // 다시 열어도(서버 값 다시 읽기) 그대로.
+    await page.evaluate(()=>window.KPTURouter.go('team'));await page.evaluate(()=>window.KPTURouter.go('profile'));
+    await expect(union).toHaveValue('가상노동조합 샘플지부');await expect(dept).toHaveValue('샘플사업팀');
+    await expect(page.locator('#psState')).toHaveText('');
+    // 비우면 null로 저장(빈 글자 저장 없음 — DB 검사와 같음).
+    await union.fill('');await dept.fill('   ');
+    await page.click('#psSave');
+    await expect(page.locator('#psState')).toHaveText('저장됨');
+    row=(await page.evaluate(()=>window.__state)).profile[0];
+    expect([row.union_name,row.department_name]).toEqual([null,null]);
+  });
+}
 
 test('중간에 실패하면 거기서 멈추고, 저장된 것은 그대로, 실패한 체크는 남아 다시 저장할 수 있다',async({page})=>{
   await openProfile(page);
@@ -221,12 +258,12 @@ test('중간에 실패하면 거기서 멈추고, 저장된 것은 그대로, �
   await expect(page.locator('[data-ps-org-check="org-b"]')).toBeChecked();
   await expect(page.locator('[data-ps-org-check="org-a"]')).not.toBeChecked();
   await expect(page.locator('#psName')).toHaveValue('절반만');
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 2곳');
+  await expect(page.locator('#psState')).toHaveText('2곳 바뀜, 저장 안 됨');
   await expect(page.locator('#psSave')).toBeEnabled();
   // 다시 저장: 프로필은 다시 보내지 않고 사업장만 보낸다.
   await page.evaluate(()=>{window.__state.fail.length=0;window.__state.calls.length=0});
   await page.click('#psSave');
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
+  await expect(page.locator('#psState')).toHaveText('저장됨');
   const after=await page.evaluate(()=>window.__state);
   expect(after.assignments.some(x=>x.organization_id==='org-b')).toBeTruthy();
   expect(after.assignments.some(x=>x.organization_id==='org-a')).toBeFalsy();
@@ -244,7 +281,7 @@ test('프로필 저장이 실패하면 사업장은 건드리지 않고 입력�
   expect((await calls(page)).some(c=>c.startsWith('POST'))).toBeFalsy();
   await expect(page.locator('#psName')).toHaveValue('실패이름');
   await expect(page.locator('[data-ps-org-check="org-b"]')).toBeChecked();
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 2곳');
+  await expect(page.locator('#psState')).toHaveText('2곳 바뀜, 저장 안 됨');
 });
 
 test('저장하지 않고 떠나려 하면 라우터의 작은 확인창 물음을 한 번 남기고, [나가기] 뒤 다시 오면 떠나고 수정한 것은 버려진다',async({page})=>{
@@ -262,7 +299,7 @@ test('저장하지 않고 떠나려 하면 라우터의 작은 확인창 물음�
   await page.evaluate(()=>window.KPTURouter.go('team'));
   await page.evaluate(()=>window.KPTURouter.go('profile'));
   await expect(page.locator('#psName')).toHaveValue('테스터');
-  await expect(page.locator('#psState')).toHaveText('바뀐 것 없음');
+  await expect(page.locator('#psState')).toHaveText('');
 });
 
 test('연결 전 옛 담당 사업장은 목록 아래 작은 글자로만 보인다',async({page})=>{
@@ -276,17 +313,17 @@ test('연결 전 옛 담당 사업장은 목록 아래 작은 글자로만 보�
   expect(await legacy.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeLessThanOrEqual(12);
 });
 
-// S62-16 PROFILE-없음칸제목: 담당조직이 하나도 없는 새 계정도 칸 제목 '담당조직 현황' + 안내 한 줄 → 아래 [조직 보고로]. 제목 없는 '없음'은 없다.
+// S62-16 PROFILE-없음칸제목: 담당조직이 하나도 없는 새 계정도 칸 제목 '담당조직 현황' + 안내 한 줄 → 아래 [조직 관리로]. 제목 없는 '없음'은 없다.
 for(const [label,width] of [['폰 412',412],['폴드 880',880],['PC 1280',1280]]){
-  test(`${label}: 담당조직 0개면 제목 + 안내 + [조직 보고로](글 한 줄 아래 버튼)`,async({page})=>{
+  test(`${label}: 담당조직 0개면 제목 + 안내 + [조직 관리로](글 한 줄 아래 버튼)`,async({page})=>{
     await page.setViewportSize({width,height:900});
     await page.goto(url+'?empty=1');
     await page.click('#userBadge');
     const list=page.locator('#psWorkplaceList');
     await expect(list.locator('h3')).toHaveText('담당조직 현황');
     const note=list.locator('[data-ps-org-empty]');
-    await expect(note.locator('.connect-note-line')).toHaveText('조직 보고에서 담당조직을 더하면 여기서 선택할 수 있어요.');
-    const btn=note.getByRole('button',{name:'조직 보고로'});
+    await expect(note.locator('.connect-note-line')).toHaveText('조직 관리에서 담당조직을 더하면 여기서 선택할 수 있어요.');
+    const btn=note.getByRole('button',{name:'조직 관리로'});
     await expect(btn).toHaveAttribute('data-goto','team');
     const [l,b]=await Promise.all([note.locator('.connect-note-line').boundingBox(),btn.boundingBox()]);
     expect(b.y).toBeGreaterThanOrEqual(l.y+l.height-1);

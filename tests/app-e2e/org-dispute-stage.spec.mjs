@@ -308,7 +308,7 @@ for(const width of [390,412,900,1280])test(`화면 전체 ⋯(담당조직 메�
   expect(m.x).toBeGreaterThan(name.x+name.width);
   if(process.env.S61_39_SHOTS)await page.screenshot({path:`${process.env.S61_39_SHOTS}/groups-app-${width}.png`});
  }else{
-  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('조직 보고');
+  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('조직 관리');
   // UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄이 화면 이름을 맡아 본문 큰 제목은 읽기 프로그램용(잘라 숨김), 중간 폭은 제목 줄 그대로.
   if(width>=761){
    await expect(title).toHaveCSS('clip','rect(0px, 0px, 0px, 0px)');
@@ -405,7 +405,7 @@ test('조직 줄 우클릭: 고르지 않은 줄은 [열기]·[쟁의 단계 관
  // ⋯ 그냥 누르기는 [열기] 없이
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  await page.locator('#soTeamMore').click();
- await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['묶음 만들기','쟁의 단계 관리']); // MULTI-다른담당자맞춤 ②: 화면 ⋯ 첫 줄 [묶음 만들기]
+ await expect(menu).toBeVisible();expect(await menuLabels(page)).toEqual(['묶음 만들기','쟁의 단계 관리','쓰는 법']); // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래 '쓰는 법'. MULTI-다른담당자맞춤 ②: 화면 ⋯ 첫 줄 [묶음 만들기]
  await page.keyboard.press('Escape');
  // 우클릭 메뉴의 [쟁의 단계 관리]도 그대로 열린다
  await row(page,other).click({button:'right'});

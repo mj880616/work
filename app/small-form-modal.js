@@ -6,15 +6,16 @@ const open=new Map();
 
 /**
  * @param {{id:string,title:string,okLabel?:string,fill:(body:HTMLElement)=>(string|null|void),onSubmit:()=>Promise<string|true>,foot?:string,className?:string,trigger?:Element}} options
+ * cancel=false면 [취소] 없이 확인 버튼 하나(보기만 하는 안내 창 — 앱 내려받기 안내, HELP-처음쓰는사람안내).
  * fill은 몸통을 채우고 처음 초점 줄 선택자를 돌려줄 수 있다. onSubmit은 성공이면 true, 아니면 상태 줄에 쓸 한 줄.
  */
-export function openFormModal({id,title,okLabel='확인',fill,onSubmit,foot='',className='',trigger=document.activeElement}){
+export function openFormModal({id,title,okLabel='확인',fill,onSubmit,foot='',className='',trigger=document.activeElement,cancel=true}){
   closeFormModal(id,{restoreFocus:false});
   document.body.insertAdjacentHTML('beforeend',`<div id="${esc(id)}" data-kptu-history-all="1" class="modal hidden sfm ${esc(className)}" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="${esc(id)}Title"><div class="modal-card small-card sfm-card">
 <div class="modal-head"><h2 id="${esc(id)}Title">${esc(title)}</h2><button type="button" class="icon-btn" data-sfm-close aria-label="닫기">×</button></div>
 <div class="sfm-body" data-sfm-body></div>
 ${foot?`<p class="sfm-note">${esc(foot)}</p>`:''}<p class="sfm-status" data-sfm-status role="status" aria-live="polite"></p>
-<div class="sfm-foot"><button type="button" class="secondary" data-sfm-cancel>취소</button><button type="button" class="primary" data-sfm-ok>${esc(okLabel)}</button></div>
+<div class="sfm-foot">${cancel?'<button type="button" class="secondary" data-sfm-cancel>취소</button>':''}<button type="button" class="primary" data-sfm-ok>${esc(okLabel)}</button></div>
 </div></div>`);
   const modal=document.getElementById(id),body=modal.querySelector('[data-sfm-body]'),status=modal.querySelector('[data-sfm-status]'),ok=modal.querySelector('[data-sfm-ok]');
   const first=fill(body);

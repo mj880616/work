@@ -5,8 +5,9 @@ import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {writeZip, readZip, crc32} from '../app/weekly-hwpx/zip.mjs';
 import {parseXml, toXml, walk, textOf} from '../app/weekly-hwpx/xml.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml, setText, headerStyles, REQUIRED_PARTS} from '../app/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate, assertBlank, FORM_LABELS, readPrototypes, PROTO_ORDER} from '../app/weekly-hwpx/template.mjs';
-import {buildReport, readReport, reportTexts, lineText, isChanged} from '../app/weekly-hwpx/report.mjs';
+import {extractBlankTemplate, assertBlank, readPrototypes, PROTO_ORDER} from './fixtures/weekly-engine.mjs';
+import {FIXTURE_PROFILE} from './fixtures/weekly-engine.mjs';
+import {buildReport, readReport, reportTexts, lineText, isChanged} from './fixtures/weekly-engine.mjs';
 import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine} from '../app/weekly-hwpx/delta.mjs';
 import {estimateLines, layoutTable, headerMetrics} from '../app/weekly-hwpx/layout.mjs';
 import {kid, kids} from '../app/weekly-hwpx/xml.mjs';
@@ -69,7 +70,7 @@ test('빈 서식: 스타일·쪽 설정·표 틀만 남고 실제 글은 한 글
   // 본문에 남은 글은 표 머리 칸 이름뿐(회의 결과 상자의 왼쪽 칸 이름도 지운다)
   const sec = readXml(blank, 'Contents/section0.xml');
   const texts = [...walk(sec.root)].filter(n => n.name === 'hp:t').map(t => textOf({name: 'x', attrs: {}, children: [t]}).trim()).filter(Boolean);
-  assert.deepEqual([...new Set(texts)].sort(), [...FORM_LABELS].sort());
+  assert.deepEqual([...new Set(texts)].sort(), [...FIXTURE_PROFILE.formLabels].sort());
   assert.equal(kids(sec.root, 'hp:p').length, PROTO_ORDER.length);
   // 원본 스타일 표·글자 모양·쪽 설정은 그대로
   assert.equal(readXml(blank, 'Contents/header.xml').root.children.length, readXml(source, 'Contents/header.xml').root.children.length);
@@ -248,4 +249,17 @@ test('전체 구조 고칠 목록: 내 담당 조직 줄만 고치고, 일정·�
   assert.deepEqual(base.orgs[0].status, ['- 가짜 소식 갑']); // 바탕은 그대로
   const {pkg} = buildReport(extractBlankTemplate(fake()), report);
   assert.deepEqual(validateHwpx(packHwpx(pkg, zlib), zlib).errors, []);
+});
+
+test('BRAND-웹2흔적지우기: 만든이는 노동조합+이고, 보고서에 같은 낱말이 있어도 빈 양식 검사에 걸리지 않는다(다른 곳의 같은 글은 여전히 걸림)', () => {
+  const blank = extractBlankTemplate(makeFakeReport(openHwpx(new Uint8Array(readFileSync(SAMPLE)), zlib)));
+  const hpf = new TextDecoder().decode(blank.files.get('Contents/content.hpf'));
+  assert.match(hpf, /name="creator"[^>]*>노동조합\+</);
+  assert.doesNotMatch(hpf, /Web2/);
+  assert.deepEqual(assertBlank(blank, {forbidden: ['노동조합', '조합원 총회']}), []);
+  const leak = openHwpx(packHwpx(blank, zlib), zlib);
+  setText(leak, 'Preview/PrvText.txt', '');
+  const hdr = new TextDecoder().decode(leak.files.get('Contents/content.hpf')).replace('<opf:title/>', '<opf:title/><!--노동조합 가짜 조각-->');
+  setText(leak, 'Contents/content.hpf', hdr);
+  assert.ok(assertBlank(leak, {forbidden: ['노동조합']}).some(p => p.includes('원본 글 조각')));
 });

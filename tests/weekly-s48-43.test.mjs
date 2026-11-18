@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 //         WEEKLY-개발후보CC — [만들기]로 보낸 제안에 PR 번호(made)가 있으면 '만듦 #PR' 표시. 가짜 글만.
 import {withRequestTakes, requestPickText, withLinePick} from '../app/weekly-draft-store.js';
 import {cellKeptRates, readPicks, pickKey} from '../app/weekly-picks.mjs';
+import {TITLES} from './fixtures/weekly-screen-titles.mjs';
 import {requestLine} from '../app/weekly-exec-requests.js';
 import {readFeedback, withAnswer, answerState, madeOf} from '../app/weekly-feedback.mjs';
 
@@ -26,7 +27,7 @@ test('withRequestTakes: 지난주에서 남은 줄만 take, 내 줄·이미 뺀 
   // 다시 확정해도 열쇠 하나.
   assert.equal(readPicks(withRequestTakes(picks, [R1, R2])).items.length, 2);
   // 1. 요청사항 그대로 쓴 비율 = take 1 / (take 1 + drop 1).
-  assert.deepEqual(cellKeptRates(picks).find(r => r.group === '1. 요청사항'), {group:'1. 요청사항', percent:50, answered:2});
+  assert.deepEqual(cellKeptRates(picks, TITLES.groups).find(r => r.key === 'requests'), {key:'requests', group:'1. 요청사항', percent:50, answered:2});
   // 되돌림('none')은 take 로 덮어씀.
   const back = withLinePick({picks:d.picks}, {cell:'requests:ask', kind:'carried', act:'none', text:requestPickText(R2), at:'2026-11-02T03:00:00.000Z'});
   const again = readPicks(withRequestTakes(back.picks, [R2], '2026-11-02T04:00:00.000Z')).items;

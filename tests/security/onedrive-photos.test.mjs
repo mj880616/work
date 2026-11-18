@@ -56,7 +56,7 @@ function fakeAdmin({role='owner',row=null,saveError=false,index={}}={}){
 // 지어낸 Microsoft: 토큰 주소, Graph, 임시 사진 주소.
 // 사진 메뉴 ①: 옮기기(PATCH, $batch 하위 요청)·Web2 휴지통 폴더 만들기(POST children)·찾기(경로 주소)·재생 주소도 흉내 낸다.
 // moveReply(id)·deleteReply(id)가 상태 번호(또는 Response)를 주면 그것으로 답한다. trashExists면 만들기가 409(이미 있음)다.
-const TRASH='TRASH!1',TRASH_NAME='.Web2 휴지통';
+const TRASH='TRASH!1',TRASH_NAME='.노조+ 휴지통',OLD_TRASH_NAME='.Web2 휴지통';
 function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,moveReply,trashExists=false,deltaPages=[[]],deltaChanges=[],deltaReply,batchReply,subReply,patchReply}={}){
   const calls=[];
   const pathOf=id=>itemById[id]?.parentReference?.path&&itemById[id].name?itemById[id].parentReference.path+'/'+itemById[id].name:'/drive/root:/Pictures/Camera';
@@ -133,7 +133,7 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,moveRe
         return new Response(JSON.stringify(makeTrash(kidsPost[1])),{status:201});
       }
       const byPath=path.match(/^\/me\/drive\/items\/([^/:]+):\/(.+):$/);
-      if(byPath){return byPath[2]===TRASH_NAME&&itemById[TRASH]?new Response(JSON.stringify(itemById[TRASH])):new Response('{}',{status:404});}
+      if(byPath){return itemById[TRASH]&&byPath[2]===itemById[TRASH].name?new Response(JSON.stringify(itemById[TRASH])):new Response('{}',{status:404});}
       // PHOTO-폴더스위치: 원드라이브 루트(전체 보기).
       if(path==='/me/drive/root')return new Response(JSON.stringify({id:'ROOT!1',name:'root',folder:{}}));
       const one=path.match(/^\/me\/drive\/items\/([^/]+)$/);
@@ -865,6 +865,27 @@ test('Web2 trash: found again by name when the index lost it; a vanished trash f
   assert.equal((await post(t.handler,{action:'folder-toggle',folder_id:TRASH,enabled:true})).status,404);
   const tree=await read(await post(t.handler,{action:'folders-tree'}));
   assert.deepEqual(tree.folders.map(f=>f.id).sort(),['OFF','S1']);assert.equal(tree.top.total,10,'switched-off folders still count, the trash does not');
+});
+
+test('BRAND-웹2흔적지우기: 옛 이름(.Web2 휴지통) 휴지통은 새로 만들지 않고 이름만 .노조+ 휴지통으로 바꾼다',async()=>{
+  const A1=()=>({A1:{id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},parentReference:{id:'F1!100',path:'/drive/root:/Pictures/Camera'}}});
+  const oldTrash=()=>({id:TRASH,name:OLD_TRASH_NAME,folder:{},parentReference:{id:'F1!100',path:'/drive/root:/Pictures/Camera'}});
+  const renames=ms=>ms.calls.filter(c=>c.init.method==='PATCH'&&c.url.includes('/items/'+encodeURIComponent(TRASH)+'?'));
+  // ① 색인이 휴지통을 알고 있음(옛 이름) → 쓰면서 이름만 바꾼다.
+  const known=lib({ms:fakeMicrosoft({itemById:{...A1(),[TRASH]:oldTrash()}})});
+  assert.equal((await post(known.handler,{action:'photo-delete',id:'A1',confirm:true})).status,200);
+  assert.equal(trashCreates(known.ms).length,0);assert.equal(renames(known.ms).length,1);
+  assert.deepEqual(JSON.parse(renames(known.ms)[0].init.body),{name:TRASH_NAME});
+  assert.equal(known.ms.calls.length>0&&known.admin.state.mem.tables.app_onedrive_folders.find(f=>f.item_id===TRASH).name,TRASH_NAME);
+  // ② 색인이 휴지통을 잃음 + 원드라이브에 옛 이름 휴지통 → 옛 이름으로 찾아 쓰고 이름만 바꾼다(새 휴지통 안 만듦).
+  const index=library();index.app_onedrive_folders=index.app_onedrive_folders.filter(f=>f.item_id!==TRASH);index.app_onedrive_photos=index.app_onedrive_photos.filter(p=>p.item_id!=='X1');
+  const lost=make({admin:fakeAdmin({row:{...fresh},index}),ms:fakeMicrosoft({itemById:{...A1(),[TRASH]:oldTrash()}})});
+  assert.equal((await post(lost.handler,{action:'photo-delete',id:'A1',confirm:true})).status,200);
+  assert.equal(trashCreates(lost.ms).length,0);assert.ok(lost.ms.calls.some(c=>c.url.includes(':/'+encodeURIComponent(OLD_TRASH_NAME)+':')));
+  assert.equal(renames(lost.ms).length,1);
+  const row=lost.admin.state.mem.tables.app_onedrive_folders.find(f=>f.item_id===TRASH);assert.deepEqual([row.role,row.name],['trash',TRASH_NAME]);
+  // ③ 새 이름도 옛 이름도 만들 수 없다(휴지통과 헷갈림).
+  for(const name of [TRASH_NAME,OLD_TRASH_NAME])assert.equal((await import('../../supabase/functions/onedrive-photos/graph.ts')).cleanFolderName(name),null,name);
 });
 
 test('trash-list stamps photos moved in from the OneDrive app, sends ones over 30 days to the OneDrive recycle bin (20 per visit), lists the rest',async()=>{

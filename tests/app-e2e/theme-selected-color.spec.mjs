@@ -59,14 +59,14 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
  await expect(nav(page).locator('[aria-current]')).toHaveCount(1);
  // 일정 → 사업 보고: [일정] 머리와 [달력]이 둘 다 채워지지 않는다(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다).
  await nav(page).locator('.nav-btn[data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();await seen('달력');
- await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();await seen('사업 보고');
+ await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();await seen('사업 관리');
  await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
  // 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이라 [사업 보고] 줄 하나가 채워진다.
- await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();await seen('사업 보고');
+ await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();await seen('사업 관리');
  await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
  // 바구니 [노트] → 다른 화면.
  await nav(page).locator('.nav-btn[data-basket-kind-nav="note"]').click();await expect(page.locator('#basketView')).toBeVisible();await seen('노트');
- await nav(page).locator('.nav-btn[data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();await seen('조직 보고');
+ await nav(page).locator('.nav-btn[data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();await seen('조직 관리');
  expect(errors).toEqual([]);
 });
 
@@ -89,7 +89,7 @@ for(const theme of ['olive','sky','lemon']){
   // 사업 보고와 그 아래 사업영역 관리(라우터 이름 projects)는 하단바 [사업 보고] 칸.
   for(const view of ['meetings','projects']){
    await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
-   await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('사업 보고');
+   await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('사업 관리');
   }
   expect(errors).toEqual([]);
  });

@@ -4,8 +4,8 @@ import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx, validateHwpx} from '../app/weekly-hwpx/hwpx.mjs';
-import {readReport} from '../app/weekly-hwpx/report.mjs';
-import {prepareConfirmed, openConfirmed, startDraft, assembleDraft, buildHwpx} from '../app/weekly-hwpx/draft.mjs';
+import {readReport} from './fixtures/weekly-engine.mjs';
+import {prepareConfirmed, openConfirmed, startDraft, assembleDraft, buildHwpx} from './fixtures/weekly-engine.mjs';
 import {parseFormDay, splitWhat, carryOver, carryCutoff, cleanItem, readItems, sortItems, mergeCarried, formRequests, requestLine,
   relatedNames, readExecRequests, changeExecRequests, EXEC_MAX_ROWS, isExecRecord, requestedBy} from '../app/weekly-exec-requests.js';
 

@@ -1,10 +1,11 @@
 import test from 'node:test';
+import {FIXTURE_PROFILE} from './fixtures/weekly-engine-core.mjs'; // ⑤-3c: 줄 나누기는 '내 양식' profile 을 받는다
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx} from '../app/weekly-hwpx/hwpx.mjs';
-import {prepareConfirmed, openConfirmed, startDraft, editableRows, assembleDraft, buildHwpx} from '../app/weekly-hwpx/draft.mjs';
+import {prepareConfirmed, openConfirmed, startDraft, editableRows, assembleDraft, buildHwpx} from './fixtures/weekly-engine.mjs';
 import {sectionXmlText, weeklyLines} from '../app/weekly-lines.mjs';
 import {sectionXmlParas, layoutStats, layoutDiff, readLayout, layoutHabit, bulletOf, gapStyle, mainBullet, LAYOUT_MAX_PARAS, LAYOUT_MAX_BYTES} from '../app/weekly-layout.mjs';
 
@@ -63,7 +64,7 @@ test('줄머리 기호와 빈 줄 꼴', () => {
 
 test('절마다 모양 숫자: 큰 제목 앞·5절·표 머리 칸 이름은 세지 않는다. 글 줄 수는 weeklyLines 와 같다', () => {
   const paras = sectionXmlParas(xmlOf(FINAL));
-  const st = layoutStats(paras);
+  const st = layoutStats(paras, FIXTURE_PROFILE);
   assert.deepEqual(Object.keys(st), ['work', 'orgs']);
   assert.equal(st.work.lines, 3);
   assert.equal(st.work.gaps, 2);
@@ -73,11 +74,11 @@ test('절마다 모양 숫자: 큰 제목 앞·5절·표 머리 칸 이름은 �
   assert.equal(st.orgs.heading_blank, 2);
   assert.equal(st.orgs.blank_gaps, 1);
   const counted = Object.values(st).reduce((n, s) => n + s.lines, 0);
-  assert.equal(counted, weeklyLines(sectionXmlText(xmlOf(FINAL))).length);
+  assert.equal(counted, weeklyLines(sectionXmlText(xmlOf(FINAL)), FIXTURE_PROFILE).length);
 });
 
 test('Web2 판 ↔ 고친 판: 바뀐 모양만 changed 에, 글은 담지 않는다', () => {
-  const layout = layoutDiff(sectionXmlParas(xmlOf(ISSUED)), sectionXmlParas(xmlOf(FINAL)));
+  const layout = layoutDiff(sectionXmlParas(xmlOf(ISSUED)), sectionXmlParas(xmlOf(FINAL)), FIXTURE_PROFILE);
   assert.deepEqual(layout.sections.work.before, {gap: 'tight', heading: 'tight', bullet: 'dash', indent: 'flat'});
   assert.deepEqual(layout.sections.work.after, {gap: 'blank', heading: 'tight', bullet: 'circle', indent: 'flat'});
   assert.deepEqual(layout.sections.work.changed, ['gap', 'bullet']);
@@ -86,8 +87,8 @@ test('Web2 판 ↔ 고친 판: 바뀐 모양만 changed 에, 글은 담지 않�
   for (const word of ['가상', '지부', '사업장', '위원회', '교섭']) assert.ok(!json.includes(word), word);
   assert.ok(new TextEncoder().encode(json).length <= LAYOUT_MAX_BYTES);
   // 같은 판끼리는 바뀐 것 없음, 견줄 절이 없으면 null
-  assert.deepEqual(layoutDiff(sectionXmlParas(xmlOf(ISSUED)), sectionXmlParas(xmlOf(ISSUED))).sections.work.changed, []);
-  assert.equal(layoutDiff([], sectionXmlParas(xmlOf(FINAL))), null);
+  assert.deepEqual(layoutDiff(sectionXmlParas(xmlOf(ISSUED)), sectionXmlParas(xmlOf(ISSUED)), FIXTURE_PROFILE).sections.work.changed, []);
+  assert.equal(layoutDiff([], sectionXmlParas(xmlOf(FINAL)), FIXTURE_PROFILE), null);
 });
 
 test('저장 모양 검사: 모르는 절·값은 버리고 changed 는 다시 계산한다', () => {
@@ -119,9 +120,9 @@ test('앱이 만든 .hwpx 에서 문단을 읽어 모양을 센다', async () =>
   const xmls = pkg.order.filter(n => /^Contents\/section\d+\.xml$/i.test(n)).sort().map(n => dec.decode(pkg.files.get(n)));
   const paras = xmls.flatMap(sectionXmlParas);
   assert.ok(paras.length > 0);
-  const st = layoutStats(paras);
+  const st = layoutStats(paras, FIXTURE_PROFILE);
   assert.ok(st.work?.lines > 0);
-  const layout = layoutDiff(paras, paras);
+  const layout = layoutDiff(paras, paras, FIXTURE_PROFILE);
   for (const s of Object.values(layout.sections)) assert.deepEqual(s.changed, []);
 });
 
@@ -130,7 +131,7 @@ import {feedbackRecord, libraryFeedback, readFeedback, readExtras, layoutInput, 
 
 test('환류 기록: 고친 판(library) 기록에 layout 이 실리고, 모양이 틀리면 버린다', () => {
   const id = cellIdOf('summary', '가상영역›가상과제', 0);
-  const layout = layoutDiff(sectionXmlParas(xmlOf(ISSUED)), sectionXmlParas(xmlOf(FINAL)));
+  const layout = layoutDiff(sectionXmlParas(xmlOf(ISSUED)), sectionXmlParas(xmlOf(FINAL)), FIXTURE_PROFILE);
   const extras = {proposed: {at: '2026-11-13T06:00:00Z', cells: [{section: 'summary', key: '가상영역›가상과제', n: 0, lines: ['- 가상 과제 하나 진행']}]}};
   const fb = libraryFeedback({extras, week: '2026-11-09', at: '2026-11-15T01:00:00Z', final: new Map([[id, ['○ 가상 과제 하나 진행']]]), doc: 'doc-1', layout});
   assert.equal(fb.from, 'library');

@@ -53,12 +53,21 @@ function inline(parent, list) {
   }
   return parent;
 }
+// ED-빈줄읽기: the editor (ProseMirror) puts one line break in an empty paragraph or heading, and after a line break that ends
+// one, so that line keeps a line's height. The reading drawing does the same here (one place), so a blank line typed in the
+// editor stands at the same place when read. Nothing in the saved form changes.
+function textBlock(node, list) {
+  var last = (list || [])[(list || []).length - 1];
+  inline(node, list);
+  if (!last || last.type === 'hard_break') node.appendChild(make('br', 'ed-trail'));
+  return node;
+}
 
 function block(n) {
   var a = n.attrs || {};
   switch (n.type) {
-    case 'paragraph': return withAlign(inline(make('p', 'ed-p ed-' + (a.style || 'body2')), n.content), a);
-    case 'heading': return withAlign(inline(make('h' + (a.level + 1), 'ed-h ed-h' + a.level), n.content), a);
+    case 'paragraph': return withAlign(textBlock(make('p', 'ed-p ed-' + (a.style || 'body2')), n.content), a);
+    case 'heading': return withAlign(textBlock(make('h' + (a.level + 1), 'ed-h ed-h' + a.level), n.content), a);
     case 'blockquote': return blocks(make('blockquote', 'ed-quote'), n.content);
     case 'bullet_list': return blocks(make('ul', 'ed-ul ed-ul-' + (a.marker || 'auto')), n.content);
     case 'ordered_list': {

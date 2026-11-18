@@ -141,12 +141,13 @@ div.gt-main{cursor:default}
    상세 칸은 지금 수정 창(#gtTaskModal)을 그 자리에 옮겨 그대로 쓴다(같은 항목·같은 저장). 스크롤은 화면 전체 하나이고 상세 칸은 화면에 붙어 따라온다(UI-칸안스크롤하나로).
    시각 언어는 PC 회의 열(meeting-ui.css .mcol)과 같다: 열은 따로 상자(0.5px 선·모서리 12px), 카드는 옅은 바탕 칸, 머리는 이름 + 흐린 건수. */
 #gtDetailPane{display:none}
-.gt-due-quick{display:none}
-/* TASK-날짜칸겹침(2026-10-29): 이미 있는 할 일을 고칠 때는 폰 수정 창에도 기한 칸 아래 낮은 빠른 버튼 줄 [오늘][내일][모레][다음주][기한 없음].
-   새 할 일 추가 창에는 없다(누르면 바로 저장하는 버튼이라). PC 상세 칸 배치는 아래 규칙 그대로. */
-#gtTaskModal.gt-has-task .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1);align-items:center;min-width:0}
-#gtTaskModal.gt-has-task:not(.gt-docked) .gt-due-quick{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2)}
-#gtTaskModal.gt-has-task .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;font-size:var(--ds-text-meta);white-space:nowrap}
+/* TASK-날짜칸겹침(2026-10-29): 폰 수정 창에도 기한 칸 아래 낮은 빠른 버튼 줄 [오늘][내일][모레][다음주][기한 없음].
+   FIX-잊지말기할일기한(2026-11-18): 새 할 일 추가 창에도 같은 줄을 둔다. 새 할 일에서는 누르면 기한 칸만 그 날로 바뀌고 [저장]이 그 날로 만든다
+   (이미 있는 할 일은 예전처럼 누르면 바로 저장). 고른 버튼은 고른 표시. PC 상세 칸 배치는 아래 규칙 그대로. */
+#gtTaskModal .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1);align-items:center;min-width:0}
+#gtTaskModal:not(.gt-docked) .gt-due-quick{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2)}
+/* 창(폰 수정·새 할 일) 안 버튼은 공용 창 기준 글자(13px)를 따른다. 상세 칸 글자 크기는 아래 상세 칸 규칙. */
+#gtTaskModal .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;white-space:nowrap}
 /* PC 틀(761~)에서만: 입력 카드 자리(화면 아래 여백 12px은 desktop-ui.css main 공용 규칙, UI-PC스크롤묶음 ④). 폴드 펼침(600~760)은 폰 틀(아래 입력칸·탭·하단바가 떠 있음) 그대로다. */
 @media(min-width:761px){
   #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 24px - var(--kptu-topline-space,0px));min-height:calc(100dvh - 24px - var(--kptu-topline-space,0px))}
@@ -264,7 +265,8 @@ div.gt-main{cursor:default}
 #gtDetailPane #gtTaskModal.gt-docked #gtSaveBtn{display:none}
 #gtDetailPane #gtTaskModal.gt-docked .modal-action-footer{flex-wrap:wrap}
 #gtDetailPane #gtTaskModal.gt-docked .gt-modal-actions{display:flex;flex:1 1 100%;align-items:center;gap:var(--kptu-space-2)}
-#gtDetailPane #gtTaskModal.gt-docked .gt-due-quick>button[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--ds-select-ink)}
+/* 고른 빠른 기한 버튼: 상세 칸·폰 창·새 할 일 창 같은 표시(FIX-잊지말기할일기한). */
+#gtTaskModal .gt-due-quick>button[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--ds-select-ink)}
 #gtTaskModal .gt-field-error{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2);color:var(--kptu-danger);font-size:var(--ds-text-meta);line-height:1.4}
 /* 폴드 펼침(600~760px): 칸 최소 폭을 그 폭에 맞춘다(왼쪽 목록은 제목이 읽히게 조금 넓게, 오른쪽 상세는 좁게). 비율 저장·끌기는 split-resize.js 그대로. */
 @media(min-width:600px) and (max-width:760px){

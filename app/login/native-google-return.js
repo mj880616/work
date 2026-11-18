@@ -4,7 +4,8 @@
   if(!auth)return;
   const baseGoogleUrl=auth.googleUrl.bind(auth);
   const ua=navigator.userAgent||'';
-  const platform=/KPTUAndroid/i.test(ua)||/;\s*wv\)/i.test(ua)||/\bwv\b/i.test(ua)?'android':/KPTUWindows/i.test(ua)?'windows':'';
+  // S62-34: 플레이 스토어 판은 사용자 에이전트에 KPTUPlay를 붙인다 → 로그인 복귀를 플레이 판(com.nojoplus.app)으로.
+  const platform=/KPTUPlay/.test(ua)?'android-play':/KPTUAndroid/i.test(ua)||/;\s*wv\)/i.test(ua)||/\bwv\b/i.test(ua)?'android':/KPTUWindows/i.test(ua)?'windows':'';
   if(!platform)return;
   auth.googleUrl=()=>{
     const url=new URL(baseGoogleUrl(auth.APP_ROOT));

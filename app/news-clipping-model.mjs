@@ -18,7 +18,11 @@ export function laneFilter(tab) {
   if (tab === STAR) return '&starred_at=not.is.null';
   return '';
 }
-export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : 'created_at.desc,id.desc');
+// [언론] 정렬(S63-12 NEWS-언론등급정렬, 명진 11/16 12:22 "노동 우선 / 사회 그 다음 정치 경제는 관련도 높은 것"):
+//   받은 날(서울, kst_day) 최신 → 같은 날 안에서 등급 1 노동·2 사회·3 정치·경제 → 등급 없는 줄(채널 기사·옛 줄) → 받은 시각 최신.
+//   등급·날짜는 서버가 기사 표에 적은 칸 그대로다(규칙은 supabase/functions/_shared/news-rank.ts 한 곳 — 화면에 복제하지 않음). 날짜 묶음(groupItems)도 받은 날이라 순서와 맞는다.
+export const NEWS_ORDER = 'kst_day.desc.nullslast,news_rank.asc.nullslast,created_at.desc,id.desc';
+export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : NEWS_ORDER);
 
 export function domainOf(url) {
   try { return new URL(String(url)).hostname.replace(/^www\./, ''); } catch { return ''; }
@@ -187,6 +191,9 @@ export const aiCapped = data => data?.ai?.month_capped === true;
 export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'foreign', label: '해외'}]);
 export function sourceNote(row) {
   if (!row?.enabled) return '';
+  // S63-10: 사이트 robots.txt가 막은 매체는 켜도 소용없다고 알린다(서버 수집 결과 코드만 보고 글자를 고른다 — 거르기 규칙은 서버 한 곳).
+  if (row.last_error === 'robots' || row.last_error === 'robots_denied') return '못 읽음 · 사이트가 자동 읽기 막음';
+  if (row.last_error === 'robots_unreachable') return '못 읽음 · 사이트 연결 안 됨';
   if (row.last_error) return '읽지 못함';
   const t = Date.parse(row.last_ok_at || '');
   if (!Number.isFinite(t)) return '아직 읽지 않음';

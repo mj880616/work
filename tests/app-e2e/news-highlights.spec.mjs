@@ -78,6 +78,8 @@ async function start(page, width) {
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot').getByRole('tab', { name: '사회운동' }).click();
+  // S63-11: 국제(Jacobin) 글은 아래 접힌 '국제' 묶음 — 펼쳐서 두 줄 모두.
+  await page.locator('#outsideRoot [data-os-list] details[data-os-intl] > summary').click();
   await expect(page.locator('#outsideRoot [data-os-list] [data-nw-key]')).toHaveCount(2);
   return { errors, s };
 }

@@ -5,10 +5,10 @@ import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
 import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml, setXml} from '../app/weekly-hwpx/hwpx.mjs';
 import {walk, kid, kids} from '../app/weekly-hwpx/xml.mjs';
-import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
-import {buildReport, readReport, findTables, requestsFromTable} from '../app/weekly-hwpx/report.mjs';
+import {extractBlankTemplate} from './fixtures/weekly-engine.mjs';
+import {buildReport, readReport, findTables, requestsFromTable} from './fixtures/weekly-engine.mjs';
 import {fileNameFor, fileNamePart, nearestTarget, dropPastPlan, pastPlanLines, lineDays, hwpKind, hwp5Header, startDraft, editableRows, editableOrgs,
-  assembleDraft, buildHwpx, prepareConfirmed, openConfirmed, engineReason} from '../app/weekly-hwpx/draft.mjs';
+  assembleDraft, buildHwpx, prepareConfirmed, openConfirmed, engineReason} from './fixtures/weekly-engine.mjs';
 
 // WEEKLY-한글파일다듬기 (2026-10-23 사용자 요청 11:35·11:38·12:02·12:12·12:43, #1034 남은 위험). 이름·조직은 가짜 또는 저장소에 이미 있는 공개 조직 이름.
 const fake = () => makeFakeReport(openHwpx(new Uint8Array(readFileSync(SAMPLE)), zlib));

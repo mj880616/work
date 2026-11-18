@@ -3,6 +3,10 @@ import { expect } from '@playwright/test';
 import {DEFAULT_STAGES} from '../../../app/org-dispute-stage-model.mjs';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
+import { readFileSync } from 'node:fs';
+// WEEKLY-내양식자유변형 ⑤-3b: 바탕이 있는 기본 계정은 '내 양식'도 저장돼 있다(운영자처럼 — ⑤-2 자동 저장). 지어낸 고정 양식(⑤-3 전 기본 양식 글자 그대로).
+const OWN_FORM = JSON.parse(readFileSync(new URL('../../fixtures/weekly-own-form-legacy-shape.json', import.meta.url), 'utf8'));
+export const DEFAULT_OWN_FORM_ROW = Object.freeze({ id: 'home-own-form', name: '가상 주간 보고', source_name: null, source_file_id: null, updated_at: '2026-10-01T00:00:00Z', form: OWN_FORM });
 import { signInWithSession } from './session-login.mjs';
 import { installViewPrefsServer } from './view-prefs-server.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -35,7 +39,7 @@ export async function placeTrigger(page,root='#homeView [data-home-quick]'){
 export const OPERATOR_MENU_FEATURES = Object.freeze(['arsenal', 'calls', 'files', 'outside', 'telegram']);
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z", quickRest = false, features = OPERATOR_MENU_FEATURES, menuLayout = OPERATOR_MENU_LAYOUT } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null, now = "2026-10-06T01:00:00Z", quickRest = false, features = OPERATOR_MENU_FEATURES, menuLayout = OPERATOR_MENU_LAYOUT, weeklyBase = true } = {},
 ) {
   await page.clock.setFixedTime(new Date(now)); // now: HOME-하루채우기 ③처럼 저녁 시각이 필요한 시험만 바꾼다(기본 10:00 KST 그대로)
   // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
@@ -145,6 +149,14 @@ export async function openHome(
     // ORG-쟁의단계: 기본 단계가 이미 채워진 빈 이력(조직 상세 줄이 처음 열 때 쓰기를 하지 않게). 단계 시험은 자기 경로로 다시 가로챈다.
     if (p === "/rest/v1/app_dispute_stages" && req.method() === "GET") return ok(defaultStageRows());
     if (p === "/rest/v1/app_suborganization_dispute_stages" && req.method() === "GET") return ok([]);
+    // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 기본은 운영자처럼 자료실에 주간 보고 바탕(팀 확정본)이 있는 사람 — [주간 보고]가 지금 화면 그대로다.
+    // 바탕이 없는 새 계정(백지 + [파일 올리기])은 weeklyBase: false. 바탕 파일을 실제로 여는 시험은 자기 경로로 다시 가로챈다(journal.spec hwpxFixture).
+    if (p === "/rest/v1/app_documents" && req.method() === "GET" && /주간보고/.test(decodeURIComponent(u.searchParams.get("category") ?? ""))) {
+      const team = /팀 확정본/.test(decodeURIComponent(u.searchParams.get("category") ?? ""));
+      return ok(weeklyBase && team ? [{ id: "home-weekly-base", title: "가상 팀 확정본", file_name: "base.hwpx", document_date: "2026-10-05", created_at: "2026-10-05T00:00:00.000Z" }] : []);
+    }
+    // ⑤-3b: 화면 절 제목은 '내 양식' 제목이다. 바탕이 있는 기본 계정은 저장된 내 양식이 있다. 양식을 따로 다루는 시험은 자기 경로로 다시 가로챈다.
+    if (p === "/rest/v1/app_weekly_forms" && req.method() === "GET") return ok(weeklyBase ? [DEFAULT_OWN_FORM_ROW] : []);
     const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
     const holdKey=p.endsWith('app_record_links')&&u.searchParams.get('note_id')==='not.is.null'?'basket-record-links':p.split('/').pop();
     await (holds[a] ?? holds[holdKey]);

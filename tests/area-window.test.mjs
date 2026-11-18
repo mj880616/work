@@ -37,7 +37,7 @@ test('① 사업영역 관리는 화면이 아니라 사업 보고 위 공용 .m
   const win=html.slice(html.indexOf('id="areaWindow"'),html.indexOf('id="libraryView"'));
   for(const id of ['projectsView','projectGrid','newProjectBtn'])assert.ok(win.includes(`id="${id}"`),id);
   assert.equal((html.match(/id="projectGrid"/g)||[]).length,1);
-  assert.match(win,/data-close="areaWindow"[^>]*>.*사업 보고/);
+  assert.match(win,/data-close="areaWindow"[^>]*>.*사업 관리/);
 });
 
 test('① 옛 주소·go(projects)는 사업 보고 + 창(detail.areas), 화면 이름 projects는 없다',()=>{

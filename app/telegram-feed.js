@@ -959,7 +959,7 @@ const oneLineOf = v => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').re
 const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소식 메뉴', historyKey:'kptuTelegramMenu',
   key:t => (t.hasAttribute('data-tg-head-more') ? 'head:' : 'item:' + t.dataset.tgMore),
   render:id => {
-    if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${trashCount() ? `<button type="button" data-tg-act="trash-view">휴지통 ${trashCount()}</button>` : ''}`;
+    if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${trashCount() ? `<button type="button" data-tg-act="trash-view">휴지통 ${trashCount()}</button>` : ''}<button type="button" class="row-act" data-tg-act="help">쓰는 법</button>`;
     const r = itemOf(id.slice(id.indexOf(':') + 1)); if (!r) return '';
     const copy = `${tgText(r) ? '<button type="button" data-tg-act="copy">요약 복사</button>' : ''}${state.raw.get(r.id)?.error || (state.raw.has(r.id) && !state.raw.get(r.id).loading && !state.raw.get(r.id).raw_text) ? '' : '<button type="button" class="row-act" data-tg-act="rawcopy">원문 복사</button><button type="button" class="row-act" data-tg-act="rawselect">원문 모두 선택</button>'}`;
     const fix = editsOn() && r.id ? '<button type="button" data-tg-act="sumedit">요약 수정</button>' : '';
@@ -967,7 +967,7 @@ const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소�
   },
   onAction:(button, active) => {
     const act = button.dataset.tgAct;
-    if (active.id === 'head:') { if (act === 'senders') enterShelf('senders'); else if (act === 'trash-view') enterShelf('trash'); return; }
+    if (active.id === 'head:') { if (act === 'senders') enterShelf('senders'); else if (act === 'trash-view') enterShelf('trash'); else if (act === 'help') void import('./help-link.js').then(m => m.openHelp('telegram')); return; }
     const r = itemOf(active.id.slice(active.id.indexOf(':') + 1)); if (!r) return;
     if (act === 'pin') void pin(r); else if (act === 'trash') void trashItem(r); else if (act === 'copy') void copyTg(tgText(r)); else if (act === 'rawcopy') void copyRaw(r); else if (act === 'rawselect') void selectRaw(r); else if (act === 'link') startLink(r); else if (act === 'sumedit') startSumEdit('item', r);
   }});

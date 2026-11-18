@@ -108,7 +108,7 @@ test('[파일] 두 칸 884: 칸 안을 내려 폴더를 펼치고 접어도 그 
   manyFolders(server, 'OD!1');
   await openFiles(page, 884, { two: true });
   const b = page.locator('#filesRoot [data-fx-two]');
-  if ((await b.textContent()).trim() === '두 칸 보기') await b.click();
+  if ((await b.getAttribute('aria-pressed')) !== 'true') await b.click();
   const col = page.locator('#filesRoot [data-fx-pane-i="0"]');
   await col.locator('[data-fx-row="od:OD!1"]').click({ button: 'right' });
   await page.locator('#rowMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();

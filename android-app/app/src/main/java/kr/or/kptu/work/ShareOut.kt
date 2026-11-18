@@ -16,7 +16,8 @@ import java.io.FileOutputStream
  * 쓰기는 MainActivity의 saveWorker(한 줄)에서만 한다.
  */
 object ShareOut {
-    const val AUTHORITY = "kr.or.kptu.work.shareout"
+    // S62-34: 판마다 다른 앱 ID를 따른다(github 판은 지금과 같은 kr.or.kptu.work.shareout). 두 판을 한 폰에 같이 깔아도 부딪히지 않는다.
+    const val AUTHORITY = BuildConfig.APPLICATION_ID + ".shareout"
     private const val DIR = "share-out"
 
     class Item(val uri: Uri, val mime: String)

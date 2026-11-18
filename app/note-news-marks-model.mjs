@@ -10,7 +10,7 @@ import {postView} from './outside-statements-model.mjs';
 export const NEWS_HL = 'news-hl';
 export const NEWS_SAVED = 'news-saved';
 export const isNewsAt = v => v === NEWS_HL || v === NEWS_SAVED;
-export const NEWS_GROUP_NAME = 'News에서';
+// NOTE-News에서글자빼기(11/15 20:42 명진): 폴더 목록과 두 줄 사이는 글자 없는 얇은 줄만(밑줄이 노트·텔레그램에서도 오므로 'News에서' 이름표를 뺐다).
 export const NEWS_NAMES = Object.freeze({[NEWS_HL]: '밑줄', [NEWS_SAVED]: '보관한 글'});
 
 // [보관한 글] 거르기: 전체 | 뉴스 | 사회운동 글.

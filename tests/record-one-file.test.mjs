@@ -102,12 +102,12 @@ function require_fs() { return {existsSync: p => { try { readFileSync(p); return
 
 // BIZ-기록하나로 B-4 ①(설계 4절 '한글 파일'): 한글 파일 2. 1) 요약 표 내 줄 = 화면 사업요약 창(지금 상황 + 담당) 그대로. 이름·글은 합성 값.
 test('B-4 ①: 2. 1) 파일 내 줄 = 창 결과 — 같은 이름 줄은 그 칸, 없는 줄은 글이 있을 때 더하고, 바탕에만 있는 내 줄은 비움, 남의 줄·표 틀 그대로', async () => {
-  const {applyBizWindow, assembleDraft, editableRows, buildHwpx} = await import('../app/weekly-hwpx/draft.mjs');
-  const {readReport, lineText} = await import('../app/weekly-hwpx/report.mjs');
+  const {applyBizWindow, assembleDraft, editableRows, buildHwpx} = await import('./fixtures/weekly-engine.mjs');
+  const {readReport, lineText} = await import('./fixtures/weekly-engine.mjs');
   const {openHwpx, packHwpx} = await import('../app/weekly-hwpx/hwpx.mjs');
   const {zlib, SAMPLE} = await import('../scripts/weekly-hwpx/cli.mjs');
   const {makeFakeReport} = await import('../scripts/weekly-hwpx/fixture.mjs');
-  const {prepareConfirmed, openConfirmed, startDraft} = await import('../app/weekly-hwpx/draft.mjs');
+  const {prepareConfirmed, openConfirmed, startDraft} = await import('./fixtures/weekly-engine.mjs');
   const ME = '가짜담당 갑';
   const base = {summary: [
     {area: ['가짜 영역 가'], rows: [
@@ -165,7 +165,7 @@ test('B-4 ①: 한글 파일 2. 1)은 화면 사업요약 상자 결과 — 다 
 });
 
 test('B-4 ④: [확정] 사진 2. 1) 줄 = 파일에 넣은 지금 상황·담당(section biz_summary), 조직 사진과 한 배열', async () => {
-  const {summarySnapshotRow} = await import('../app/weekly-hwpx/draft.mjs');
+  const {summarySnapshotRow} = await import('./fixtures/weekly-engine.mjs');
   assert.deepEqual(summarySnapshotRow({space: 's1', area: ' 가짜 영역 ', task: '가짜 과제', lines: ['첫 줄', '  ', '둘째\t줄'], owner: '가짜 담당'}),
     {section: 'biz_summary', ref_kind: 'space', ref_key: 's1', label: '가짜 영역 › 가짜 과제', owner: '가짜 담당',
       lines: [{ref_kind: 'space', ref_key: 's1', day: null, end_day: null, text: '첫 줄'}, {ref_kind: 'space', ref_key: 's1', day: null, end_day: null, text: '둘째 줄'}]});

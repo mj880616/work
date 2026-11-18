@@ -202,7 +202,7 @@ test('test push: signed service-account JWT to the fixed Google token URL (not t
  const f=h.state.calls.fcm[0];
  assert.equal(f.url,'https://fcm.googleapis.com/v1/projects/web2-phone-test/messages:send');
  assert.equal(f.init.headers.Authorization,'Bearer ya29.synthetic-access-token');
- assert.deepEqual(f.body,{message:{token:TOKEN_A,data:{kind:'test',title:'웹2 · 시험 알림',open:'/work/app/'},android:{priority:'high',ttl:'86400s'}}});
+ assert.deepEqual(f.body,{message:{token:TOKEN_A,data:{kind:'test',title:'노조+ · 시험 알림',open:'/work/app/'},android:{priority:'high',ttl:'86400s'}}});
  assert.ok(!('notification' in f.body.message),'data message only (the app draws it)');
  assert.equal(h.state.log.length,1);assert.equal(h.state.log[0].workspace_id,WS);assert.equal(h.state.log[0].kind,'test');assert.equal(h.state.log[0].status,'sent');
  assert.equal(h.state.log[0].day,'2026-11-01');assert.match(h.state.log[0].ref_key,/^[A-Za-z0-9_.:-]{1,80}$/);
@@ -251,7 +251,7 @@ test('cron run: slot required, body must be {}, prunes 30-day log, counts worksp
  assert.equal((await h.cron('quarter','[]')).status,400);
  for(const slot of H.SLOTS){
   const r=await h.cron(slot);assert.equal(r.status,200);
-  assert.deepEqual(await r.json(),slot==='evening'?{ok:true,slot,workspaces:2,sent:0,pruned:2,now_lines:0}:slot==='quarter'?{ok:true,slot,workspaces:2,sent:0,pruned:2,family:{sent:0,held:0,off:0},remind:{sent:0,held:0,off:0}}:{ok:true,slot,workspaces:2,sent:0,pruned:2}); // FAMILY-잊지말기: FCM 비밀값이 없으면 잊지 말기도 보내지 않음
+  assert.deepEqual(await r.json(),slot==='evening'?{ok:true,slot,workspaces:2,sent:0,pruned:2,now_lines:0}:slot==='quarter'?{ok:true,slot,workspaces:2,sent:0,pruned:2,family:{sent:0,held:0,off:0},remind:{sent:0,held:0,off:0},signup:{sent:0,held:0,off:0,found:0}}:{ok:true,slot,workspaces:2,sent:0,pruned:2}); // FAMILY-잊지말기·OPS-새가입알림: FCM 비밀값이 없으면 잊지 말기·새 가입도 보내지 않음(읽지도 않음)
  }
  assert.equal(h.state.calls.auth,0,'cron entrance never reads user logins');
  assert.equal(h.state.calls.fcm.length+h.state.calls.oauth.length,0);

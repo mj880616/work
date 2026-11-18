@@ -70,6 +70,8 @@ object AppUpdater {
     // ── 시작: 새 판 찾음 ──
 
     fun found(context: Context, r: UpdateRules.Release) {
+        // S62-34: 플레이 판은 스스로 업데이트하지 않는다(설치 요청 권한도 없음).
+        if (!BuildConfig.SELF_UPDATE) return
         val app = context.applicationContext
         synchronized(this) {
             if (release?.version == r.version && phase != UpdateRules.Phase.IDLE) return

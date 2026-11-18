@@ -56,6 +56,9 @@ function harness(o = {}) {
         return Response.json({ files: state.folders });
       }
       if (u.pathname === '/drive/v3/files' && method === 'POST') { state.folders.push({ id: 'new-folder', ownedByMe: true, trashed: false }); return Response.json({ id: 'new-folder' }); }
+      // BRAND-웹2흔적지우기: 옛 이름 백업 폴더의 이름만 바꾸기.
+      const folderPatch = state.folders.find(f => method === 'PATCH' && u.pathname === `/drive/v3/files/${f.id}`);
+      if (folderPatch) { folderPatch.name = JSON.parse(init.body).name; return Response.json({ id: folderPatch.id }); }
       if (u.pathname === `/drive/v3/files/${FILE}/copy`) {
         if (state.copyStatus) return Response.json({}, { status: state.copyStatus });
         return Response.json({ id: 'backup-copy', name: JSON.parse(init.body).name, md5Checksum: state.copyMd5 ?? state.drive.md5Checksum });
@@ -169,7 +172,7 @@ test('overwrite keeps a dated backup copy of the opened revision first, then wri
   const copy = driveWrites(h)[0];
   assert.deepEqual(JSON.parse(copy.body).parents, ['backup-folder']);
   const search = drive(h).find(c => c.path === '/drive/v3/files' && c.method === 'GET');
-  assert.match(search.search.get('q'), /name = 'Web2 편집 백업'.*'root' in parents and 'me' in owners and trashed = false/);
+  assert.match(search.search.get('q'), /\(name = '노조\+ 편집 백업' or name = 'Web2 편집 백업'\).*'root' in parents and 'me' in owners and trashed = false/);
   // Drive revision checked before the copy and again right before the write.
   const order = drive(h).map(c => c.method + (c.path.endsWith('/copy') ? ' copy' : c.path.startsWith('/upload') ? ' upload' : c.path === '/drive/v3/files' ? ' folder' : ' meta'));
   assert.deepEqual(order, ['GET meta', 'GET folder', 'POST copy', 'GET meta', 'PATCH upload']);
@@ -181,8 +184,22 @@ test('the backup folder is created once in My Drive root when missing', async ()
   const r = await h.overwrite({ note_id: NOTE, drive_file_id: FILE, ...base });
   assert.equal(r.status, 200);
   const created = driveWrites(h).find(c => c.path === '/drive/v3/files');
-  assert.deepEqual(JSON.parse(created.body), { name: 'Web2 편집 백업', mimeType: 'application/vnd.google-apps.folder', parents: ['root'] });
+  assert.deepEqual(JSON.parse(created.body), { name: '노조+ 편집 백업', mimeType: 'application/vnd.google-apps.folder', parents: ['root'] });
   assert.deepEqual(JSON.parse(driveWrites(h).find(c => c.path.endsWith('/copy')).body).parents, ['new-folder']);
+});
+
+test('BRAND-웹2흔적지우기: 옛 이름(Web2 편집 백업) 폴더는 새로 만들지 않고 이름만 바꿔 그대로 쓴다', async () => {
+  const h = harness({ folders: [{ id: 'backup-folder', name: 'Web2 편집 백업', ownedByMe: true, trashed: false }] });
+  const r = await h.overwrite({ document_id: DOC, ...base });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(driveWrites(h).filter(c => c.path === '/drive/v3/files' && c.method === 'POST').length, 0);
+  const rename = driveWrites(h).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder');
+  assert.deepEqual(JSON.parse(rename.body), { name: '노조+ 편집 백업' });
+  assert.deepEqual(JSON.parse(driveWrites(h).find(c => c.path.endsWith('/copy')).body).parents, ['backup-folder']);
+  // 새 이름 폴더는 이름을 다시 바꾸지 않는다.
+  const again = harness({ folders: [{ id: 'backup-folder', name: '노조+ 편집 백업', ownedByMe: true, trashed: false }] });
+  assert.equal((await again.overwrite({ document_id: DOC, ...base })).status, 200);
+  assert.equal(driveWrites(again).some(c => c.path === '/drive/v3/files/backup-folder'), false);
 });
 
 test('a changed Drive original is never overwritten', async () => {

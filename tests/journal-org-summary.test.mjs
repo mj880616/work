@@ -1,9 +1,10 @@
+import {reportText, TITLES} from './fixtures/weekly-screen-titles.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // [주간 정리] 4. 산하 조직 현황 — WEEKLY-메뉴짝짓기 P6·P7: AI 요약 모듈(journal-org-summary.js)은 지웠고 저장된 요약은 읽지 않는다.
 // 화면 묶음·복사·한글 파일 후보만 본다. Fake names only.
 const weekly = import('../app/journal-weekly.js');
-const draft = import('../app/weekly-hwpx/draft.mjs');
+const draft = import('./fixtures/weekly-engine.mjs');
 const OA = '11111111-1111-4111-8111-111111111111', OB = '22222222-2222-4222-8222-222222222222';
 const ok = items => ({status:'ok', items});
 
@@ -22,10 +23,10 @@ test('weekly model: sections carry their id (no saved summary); copy text uses t
   const [a, b] = w.orgs.sections;
   assert.equal(a.id, OA); assert.equal(a.summary, undefined);
   assert.equal(b.id, OB); assert.equal(b.summary, undefined);
-  let text = m.weeklyReportText(w).split('\n'), at = text.indexOf('4. 산하 조직 현황');
+  let text = reportText(w).split('\n'), at = text.indexOf('4. 산하조직 현황');
   assert.equal(text[at + 2], '◦ 가 조직');
   assert.ok(!text.includes('- 가 조직 임금교섭 진행.'), '저장된 AI 요약은 쓰지 않는다');
-  text = m.weeklyReportText({...w, orgLines:new Map([[OA, ['- 10.6. 가상 교섭']]])}).split('\n'); at = text.indexOf('4. 산하 조직 현황');
+  text = reportText({...w, orgLines:new Map([[OA, ['- 10.6. 가상 교섭']]])}).split('\n'); at = text.indexOf('4. 산하조직 현황');
   assert.deepEqual(w.orgs.mine.map(o => o.id).sort(), [OA, OB].sort());
   assert.ok(text.includes('- 10.6. 가상 교섭'));
 });

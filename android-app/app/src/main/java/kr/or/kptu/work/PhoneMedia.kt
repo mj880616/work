@@ -336,11 +336,11 @@ object PhoneMedia {
         }
     }
 
-    /** 폰에 없는 사진 한 장 저장 시작: Pictures/웹2에 숨긴 칸(IS_PENDING)을 만들고 쓰기 통로를 연다. */
+    /** 폰에 없는 사진 한 장 저장 시작: Pictures/노조+에 숨긴 칸(IS_PENDING)을 만들고 쓰기 통로를 연다. */
     class Save(val uri: Uri, val out: java.io.OutputStream, val rules: PhotoEditRules.Saving, val mime: String, val takenMs: Long = 0L)
 
     fun saveBegin(context: Context, begin: PhotoEditRules.Message.Begin): Save {
-        // S48-17 되돌리기(dir 있음): 원래 폴더·찍은 시각, 동영상은 Video 모음. 아니면 예전처럼 Pictures/웹2 사진.
+        // S48-17 되돌리기(dir 있음): 원래 폴더·찍은 시각, 동영상은 Video 모음. 아니면 예전처럼 Pictures/노조+ 사진.
         val values = android.content.ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, begin.name)
             put(MediaStore.MediaColumns.MIME_TYPE, begin.mime)

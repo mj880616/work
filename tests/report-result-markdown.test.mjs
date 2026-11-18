@@ -72,3 +72,34 @@ test('사업 보고 screens use the shared reader and the one write window', () 
   assert.match(write, /openEdWindow\(/);
   assert.match(write, /docToMarkdown\(value\)/);
 });
+
+// ED-빈줄읽기: 편집기에서 넣은 빈 줄(빈 문단)이 글자 칸에 저장·읽기에서 그 수대로 남는다.
+const P = (text, marks) => ({type: 'paragraph', ...(text ? {content: [{type: 'text', text, ...(marks ? {marks} : {})}]} : {})});
+const ed = (...content) => ({v: 'ed1', doc: {type: 'doc', content}});
+const shape = value => cleanDoc(value).doc.content.map(n => (n.content || []).map(c => c.text || '').join(''));
+
+test('plain letters keep one more blank line per empty paragraph and open back the same', async () => {
+  const {lettersToDoc} = await import('../app/ed-markdown-out.mjs');
+  assert.equal(docToMarkdown(ed(P('가'), P('나'))), '가\n\n나');
+  assert.equal(docToMarkdown(ed(P('가'), P(''), P('나'))), '가\n\n\n나');
+  assert.equal(docToMarkdown(ed(P(''), P('가'), P(''), P(''), P('나'), P(''))), '가\n\n\n\n나');
+  for (const doc of [ed(P('가'), P(''), P('나')), ed(P('가'), P(''), P(''), P('나'))]) {
+    assert.deepEqual(shape(lettersToDoc(docToMarkdown(doc))), shape(doc));
+  }
+  for (const text of ['가\n\n\n나', '첫 줄\n둘째 줄\n\n\n\n다음', '원문 첫 줄\n원문 둘째 줄']) assert.equal(docToMarkdown(lettersToDoc(text)), text);
+  // 다른 곳(노트·일기 붙이기)은 그대로: 빈 줄 여러 개는 문단 사이 하나.
+  assert.equal(plainToDocKeep('가\n\n\n나').doc.content.length, 2);
+});
+
+test('formatted letters keep empty paragraphs as &nbsp; paragraphs, read one line each, and open back empty', async () => {
+  const {lettersToDoc} = await import('../app/ed-markdown-out.mjs');
+  const doc = ed(P('굵게', [{type: 'strong'}]), P(''), P(''), P('끝'));
+  const out = docToMarkdown(doc);
+  assert.equal(out, '**굵게**\n\n&nbsp;\n\n&nbsp;\n\n끝');
+  assert.ok(markdownSource(out));
+  const {html} = renderMarkdown(md, out);
+  assert.equal((html.match(/<p> <\/p>|<p>&nbsp;<\/p>/g) || []).length, 2);
+  assert.deepEqual(shape(lettersToDoc(out, md)), shape(doc));
+  assert.equal(docToMarkdown(lettersToDoc(out, md)), out);
+  assert.equal(docToMarkdown(ed(P(''), P('굵게', [{type: 'strong'}]), P(''))), '**굵게**');
+});

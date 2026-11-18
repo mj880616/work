@@ -15,7 +15,7 @@ export const URL_MAX_CHARS = 2000;
 export type ListStats = { candidates: number };
 // title은 목록 칸의 첫 줄(종류 판정용 머리말 포함 — 꼬리표 떼기는 저장 직전 _shared/outside-tidy.ts가 한다). subtitle은 목록 칸 둘째 줄(부제, 없으면 null).
 // contentHtml: 피드 본문 칸(content:encoded) 원래 HTML — 공용 추출기가 문단·사진 블록을 뽑는 재료(저장하지 않음). photos: 텔레그램 글 사진 주소(https만).
-export type ListItem = { url: string; title: string; subtitle?: string | null; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null; contentHtml?: string | null; photos?: string[] };
+export type ListItem = { url: string; title: string; subtitle?: string | null; kind: Kind; published_at: string | null; author: string | null; summary: string | null; content: string | null; contentHtml?: string | null; photos?: string[]; category?: string | null };
 export const CONTENT_HTML_MAX = 400000;
 
 // ---- 글자 다듬기 ----------------------------------------------------------------------------------------------------
@@ -181,6 +181,12 @@ function atomLink(block: string): string | null {
   return null;
 }
 
+function feedCategory(block: string): { category?: string } {
+  const names = [...block.matchAll(/<category\b([^>]*?)(?:\/>|>([\s\S]*?)<\/category\s*>)/gi)]
+    .map((m) => cut(oneLine(decodeText(stripTags(cdata(m[2] ?? (/\bterm\s*=\s*["']([^"']+)["']/i.exec(m[1])?.[1] ?? ""))))), 40))
+    .filter(Boolean).slice(0, 5);
+  return names.length ? { category: names.join(" / ") } : {};
+}
 // 피드 글 목록(최대 limit). 카탈로그 밖 주소·종류 없음(null)·제목 없음은 뺀다.
 export function parseFeed(source: OutsideSource, xml: string, nowMs: number, limit = 30, stats?: ListStats): ListItem[] {
   const blocks = [...xml.matchAll(/<(item|entry)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)].map((m) => m[2]);
@@ -206,6 +212,8 @@ export function parseFeed(source: OutsideSource, xml: string, nowMs: number, lim
       summary: summaryRaw ? cut(feedText(summaryRaw), 4000) || null : null,
       content: contentRaw ? cut(feedText(contentRaw), BODY_MAX_CHARS) || null : null,
       contentHtml: contentRaw ? contentRaw.slice(0, CONTENT_HTML_MAX) : null,
+      // 카테고리 칸(있을 때만, 여러 개는 ' / '로): 언론 거르기(news-rank.ts)가 섹션을 알아보는 데 쓴다.
+      ...feedCategory(b),
     });
   }
   return out;

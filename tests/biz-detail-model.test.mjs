@@ -105,8 +105,8 @@ test('B-4 ③·④: 한글 파일 2. 2) = 사업 묶음마다 (n) 이름 + 내�
   assert.deepEqual(snap[0].lines.map(l => [l.ref_kind, l.text, l.detail ?? '']), [['biz_record', '기록 하나', ''], ['meeting', '회의m1', 'full'], ['meeting', '보고용', '']]);
   assert.deepEqual(snap[0].lines[1].body, ['1) 요구안', '가) 임금']);
   // 실제 서식으로 만든 파일을 다시 읽으면 2. 2) 세부 내용 그대로.
-  const {assembleDraft, buildHwpx, prepareConfirmed, openConfirmed, startDraft} = await import('../app/weekly-hwpx/draft.mjs');
-  const {readReport} = await import('../app/weekly-hwpx/report.mjs');
+  const {assembleDraft, buildHwpx, prepareConfirmed, openConfirmed, startDraft} = await import('./fixtures/weekly-engine.mjs');
+  const {readReport} = await import('./fixtures/weekly-engine.mjs');
   const {openHwpx, packHwpx} = await import('../app/weekly-hwpx/hwpx.mjs');
   const {zlib, SAMPLE} = await import('../scripts/weekly-hwpx/cli.mjs');
   const {makeFakeReport} = await import('../scripts/weekly-hwpx/fixture.mjs');

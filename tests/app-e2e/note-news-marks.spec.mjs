@@ -10,6 +10,8 @@ test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const SHOTS = process.env.S62_SHOTS ? 'docs/design/screens/s62-13/' : '';
+// S62-24 NOTE-News에서글자빼기 화면 사진: S62_24_SHOTS=1이면 docs/design/screens/s62-24/에 찍는다(평소 CI에서는 찍지 않음).
+const SHOTS24 = process.env.S62_24_SHOTS ? 'docs/design/screens/s62-24/' : '';
 const NEWS1 = 'a6000000-0000-4000-8000-000000000001', NEWS2 = 'a6000000-0000-4000-8000-000000000002', POST1 = 'a6000000-0000-4000-8000-000000000003';
 const HL1 = 'b6000000-0000-4000-8000-000000000001', HL2 = 'b6000000-0000-4000-8000-000000000002', HL3 = 'b6000000-0000-4000-8000-000000000003', HL4 = 'b6000000-0000-4000-8000-000000000004';
 const NOTE4 = 'd6000000-0000-4000-8000-000000000004';
@@ -21,8 +23,8 @@ async function fixture(page, width, opts = {}) {
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
   const note = (id, title, updated_at, metadata = {}) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text: title + ' 본문', occurred_at: updated_at, created_at: updated_at, updated_at, archived_at: null, ai_export_allowed: true, attachments: [], metadata });
-  const notes = [...(opts.noteHl ? [note(NOTE4, '가상 메모 노트', '2026-10-06T01:00:00Z')] : []), note('n1', '가상 회의 — 철도 현장 간담회 정리', '2026-10-05T01:00:00Z', { folder_id: U(1), folder: '가상 회의' }), note('n2', '가상 성명 초안', '2026-10-04T01:00:00Z', { folder_id: U(2), folder: '가상 성명' }), note('n3', '폴더 밖 메모', '2026-10-03T01:00:00Z')];
-  const folders = [{ id: U(1), workspace_id: 'w', parent_id: null, name: '가상 회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }, { id: U(2), workspace_id: 'w', parent_id: null, name: '가상 성명', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' }];
+  const notes = opts.fresh ? [] : [...(opts.noteHl ? [note(NOTE4, '가상 메모 노트', '2026-10-06T01:00:00Z')] : []), note('n1', '가상 회의 — 철도 현장 간담회 정리', '2026-10-05T01:00:00Z', { folder_id: U(1), folder: '가상 회의' }), note('n2', '가상 성명 초안', '2026-10-04T01:00:00Z', { folder_id: U(2), folder: '가상 성명' }), note('n3', '폴더 밖 메모', '2026-10-03T01:00:00Z')];
+  const folders = opts.fresh ? [] : [{ id: U(1), workspace_id: 'w', parent_id: null, name: '가상 회의', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }, { id: U(2), workspace_id: 'w', parent_id: null, name: '가상 성명', sort_order: 2048, created_at: '2026-10-01T00:00:00Z' }];
   s.hl = [
     { id: HL1, source_type: 'news', source_id: NEWS1, quote: '가상공단은 내년 상반기까지 점검 인력을 늘리기로 했다', quote_prefix: '', quote_suffix: '', memo: '자료에 넣기', source_title: '철도 안전점검 인력 확대 가상 기사', source_media: '가상일보', source_date: '2026-10-04T00:00:00Z', source_url: 'https://example.org/a1', created_at: '2026-10-05T00:00:00Z', updated_at: '2026-10-05T00:00:00Z' },
     { id: HL2, source_type: 'news', source_id: NEWS2, quote: '총인건비 인상률은 지침 범위 안에서 정한다', quote_prefix: '', quote_suffix: '', memo: null, source_title: '내년 예산 편성 가상 지침', source_media: '가상뉴스', source_date: '2026-10-02T00:00:00Z', source_url: 'https://example.org/a2', created_at: '2026-10-03T00:00:00Z', updated_at: '2026-10-03T00:00:00Z' },
@@ -67,17 +69,23 @@ const navRow = (page, id, width) => page.locator(`${width < 600 ? '#noteRows' : 
 const box = page => page.locator('#basketView [data-nnm]');
 
 for (const width of [412, 880, 1280]) {
-  test(`${width}: 폴더 목록 맨 아래 'News에서' 두 줄 → 밑줄 목록(⋯ 메뉴에 원문에서 보기) · 내 작업공간 자료만 읽음`, async ({ page }) => {
+  test(`${width}: 폴더 목록 맨 아래 얇은 줄(글자 없음) + 두 줄 → 밑줄 목록(⋯ 메뉴에 원문에서 보기) · 내 작업공간 자료만 읽음`, async ({ page }) => {
     const { s, errors, ws } = await fixture(page, width);
     const list = width < 600 ? page.locator('#noteRows') : page.locator('[data-nx-tree]');
-    await expect(list.locator('.nnm-sep')).toHaveText('News에서');
+    // NOTE-News에서글자빼기: 구분 줄은 글자 없는 얇은 줄만. 노트 화면 어디에도 'News에서' 글자가 없다(줄마다 출처 꼬리표는 그대로).
+    await expect(list.locator('.nnm-sep')).toHaveCount(1);
+    await expect(list.locator('.nnm-sep')).toHaveText('');
+    expect(await list.locator('.nnm-sep').evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth) > 0 && el.getBoundingClientRect().height <= 2)).toBeTruthy();
+    await expect(page.locator('#basketView')).not.toContainText('News에서');
+    expect(await page.locator('#basketView [aria-label*="News"]').count()).toBe(0);
     await expect(navRow(page, 'news-hl', width)).toContainText('밑줄');
     await expect(navRow(page, 'news-hl', width).locator('.ft-num')).toHaveText('2');
     await expect(navRow(page, 'news-saved', width).locator('.ft-num')).toHaveText('3');
-    // 'News에서'는 '폴더 없음' 아래, [+ 새 폴더] 위.
+    // 구분 줄과 두 줄은 '폴더 없음' 아래, [+ 새 폴더] 위.
     const order = await list.evaluate(el => [...el.querySelectorAll('.nx-outside, .nnm-sep, .nx-news-item, .nx-new-folder')].map(x => x.className.includes('nx-outside') ? 'out' : x.className.includes('nnm-sep') ? 'sep' : x.className.includes('nx-new-folder') ? 'new' : x.dataset.nxNewsItem));
     expect(order.filter(x => x !== 'new')).toEqual(['out', 'sep', 'news-hl', 'news-saved']);
     if (SHOTS && width === 412) await page.screenshot({ path: SHOTS + '412-1-folder-list.png' });
+    if (SHOTS24) await page.screenshot({ path: SHOTS24 + `note-folder-list-${width}.png` });
     // 읽기는 내 작업공간 것만(서버 RLS 그대로 + 작업공간 조건): 밑줄·보관 읽기가 모두 workspace_id=eq.<내 것>.
     for (const c of s.calls.filter(x => / GET /.test(x))) expect(c).toContain(`workspace_id=eq.${ws}`);
     await press(page, navRow(page, 'news-hl', width), width);
@@ -236,5 +244,25 @@ for (const width of [412, 880, 1280]) {
     await expect(page.locator('[data-now-panel-marks] .nh-row')).toHaveCount(2);
     expect(s.deletes).toEqual([]);
     expect(errors).toEqual([]);
+  });
+}
+
+// NOTE-News에서글자빼기 ③: 폴더도 노트도 없는 새 계정. 폴더가 없으면 첫 화면은 폴더 목록이 아니라 노트 목록 그대로라 '최근'·'폴더 없음' 줄은 없다
+// (note-tree.mjs paneRows: 폴더가 하나도 없으면 바로 노트 · basket-notes.js showRecent: 폴더가 있을 때만 '최근' — 같은 노트를 두 번 보이지 않게, 의도).
+// 폴드 펼침·PC 왼쪽 나무에는 '폴더 없음' 줄이 하나 있다(오른쪽 칸이 그 노트를 보임). '최근'은 폭과 상관없이 없다.
+// 폰은 [밑줄]·[보관한 글] 두 줄 상자만, 폴드·PC는 '폴더 없음' 아래 글자 없는 얇은 줄 + 두 줄. 'News에서' 글자 없음.
+for (const width of [412, 880, 1280]) {
+  test(`${width}: 폴더 없는 새 계정 — '최근' 없음(폰은 '폴더 없음'·구분 줄도 없음) + 밑줄·보관한 글 두 줄, 'News에서' 글자 없음`, async ({ page }) => {
+    await fixture(page, width, { fresh: true });
+    const list = width < 600 ? page.locator('#noteRows') : page.locator('[data-nx-tree]');
+    // 폰: 두 줄은 따로 선 상자라 구분 줄 없음(상자 맨 위 줄 두 겹 없음). 폴드·PC 나무: '폴더 없음' 아래 글자 없는 얇은 줄.
+    await expect(list.locator('.nnm-sep')).toHaveCount(width < 600 ? 0 : 1);
+    if (width >= 600) await expect(list.locator('.nnm-sep')).toHaveText('');
+    await expect(list.locator('[data-nx-news-item]')).toHaveCount(2);
+    await expect(page.locator('#basketView')).not.toContainText('News에서');
+    // 폰(한 화면씩): 폴더가 없으면 노트 목록 그대로라 '폴더 없음' 줄 없음. 폴드 펼침·PC 나무: '폴더 없음' 줄 하나(오른쪽 칸에 그 노트).
+    await expect(list.locator('.nx-outside')).toHaveCount(width < 600 ? 0 : 1);
+    await expect(page.locator('#basketView [data-nx-recent]:visible')).toHaveCount(0);
+    if (SHOTS24) await page.screenshot({ path: SHOTS24 + `note-folder-list-new-account-${width}.png` });
   });
 }

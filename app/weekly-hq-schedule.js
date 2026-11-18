@@ -15,15 +15,18 @@ import {mountReorder} from './reorder-drag.js';
 import {emptyEl, waitHtml} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {majorRule} from './weekly-major-schedule.mjs'; // WEEKLY-주요일정기준: 넣을 일정의 기준(한 곳)
+import {wordsOf} from './journal-meeting-kinds.js'; // WEEKLY-내부회의사람별: 내 '빼기' 단어
 import {sortPicks, droppedOf, keptOf, hadTexts, HAVE_ACT} from './weekly-picks.mjs';
 import {lineIn} from './weekly-cell-names.mjs';
 import {learnFor} from './weekly-picks.js';
 import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
 import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
+// ⑤-3b: 절 이름은 '내 양식' 제목(model.titles.hq, weekly-screen-titles.mjs) — 코드에 박지 않는다.
+const named = (title, rest) => `${title ? `${title} ` : ''}${rest}`;
 const TEXT = Object.freeze({
-  missing:'2) 주요 일정 저장 칸이 아직 준비되지 않았어요(서버 적용 전).',
-  failed:'2) 주요 일정을 불러오지 못했어요.',
+  missing:title => named(title, '저장 칸이 아직 준비되지 않았어요(서버 적용 전).'),
+  failed:title => named(title, '줄을 불러오지 못했어요.'),
   saveFailed:'저장하지 못했어요. 잠시 뒤 다시 해 주세요.',
   noTitle:'내용을 적어 주세요.',
   badTime:TIME_HINT,
@@ -37,10 +40,11 @@ function fresh(start) { return {start, editing:null, draft:{}, picking:false, pi
 // WEEKLY-주요일정기준 ①: 2주 달력 일정 가운데 기준(weekly-major-schedule.mjs)에 맞고 아직 표에 없는 것 → 제안(명진이 [넣기]를 눌러야 들어감).
 // 제안 열쇠·학습은 [달력에서] 고르기와 같은 동작 기록(kind 'calendar', 칸 'requests:hq') — 뺀 제안은 다시 보이지 않고(목록 없음), 받은/뺀 셈이 다음 제안 순서·거르기에 쓰인다.
 // S52-24: 손으로 적은 줄·[이미 있음]으로 치운 일정과 부호·띄어쓰기만 다른 일정도 이미 있는 것으로 본다(weekly-cell-names.mjs lineIn).
-export function hqSuggestions(events, rows, titles, picks, learn) {
+// skipWords: 내가 정한 '이 말이 들어간 회의는 빼기' 단어(내 프로필 목록의 '*단어*', journal-meeting-kinds.js wordsOf). 기본 없음.
+export function hqSuggestions(events, rows, titles, picks, learn, skipWords = []) {
   const have = new Set((rows ?? []).map(r => r.event).filter(Boolean));
   const lines = [...(rows ?? []).map(r => lineOf(r)), ...(hadTexts(picks).get('requests:hq') ?? [])];
-  const list = (events ?? []).filter(item => !have.has(item.key)).map(item => ({item, f:eventFields(item, titles?.get?.(item.key))})).filter(x => majorRule(x.f.title) && !lineIn(lines, lineOf(x.f)));
+  const list = (events ?? []).filter(item => !have.has(item.key)).map(item => ({item, f:eventFields(item, titles?.get?.(item.key))})).filter(x => majorRule(x.f.title, skipWords) && !lineIn(lines, lineOf(x.f)));
   const opts = {dropped:droppedOf(picks), kept:keptOf(picks), ...(learn ? {learn} : {})};
   return sortPicks(list, x => ({kind:'calendar', from:'calendar', cell:'requests:hq', org:'', text:lineOf(x.f)}), opts).shown;
 }
@@ -57,10 +61,10 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   const doc = slot.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const btn = (text, data, cls = 'mini') => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = ''; return b; };
-  const hq = model?.hq;
+  const hq = model?.hq, title = model?.titles?.hq ?? '';
   if (!hq || hq.loading) { slot.innerHTML = waitHtml({rows:1}); return; }
-  if (hq.missing) { const p = el('p', 'journal-muted', TEXT.missing); p.dataset.journalHqMissing = ''; slot.replaceChildren(p); return; }
-  if (hq.failed || !hq.editable) { const p = el('p', 'wait-fail journal-failed', TEXT.failed); slot.replaceChildren(p); return; }
+  if (hq.missing) { const p = el('p', 'journal-muted', TEXT.missing(title)); p.dataset.journalHqMissing = ''; slot.replaceChildren(p); return; }
+  if (hq.failed || !hq.editable) { const p = el('p', 'wait-fail journal-failed', TEXT.failed(title)); slot.replaceChildren(p); return; }
   const rows = hq.rows, busy = ui.saving;
   const events = scheduleItems(model.calendar?.allRows ? {...model.calendar, rows:model.calendar.allRows} : model.calendar);
   const eventOf = key => hq.events.get(key);
@@ -76,7 +80,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     const dayText = row.day ? formDay(row.day) : '—';
     const th = el('th', `journal-weekly-area${isWeekendLabel(dayText) ? ' journal-weekend-day' : ''}`, dayText); th.scope = 'row';
     const what = el('td', 'journal-weekly-what', [row.time, row.title, row.place].filter(Boolean).join(' / '));
-    if (row.linked) { const tag = el('span', 'journal-exec-carried', '달력'); tag.title = '달력에서 넣은 줄 — 한글 파일 상자 5. 주요 일정과 같은 값'; tag.dataset.journalHqLinked = ''; what.append(' ', tag); }
+    if (row.linked) { const tag = el('span', 'journal-exec-carried', '달력'); tag.title = `달력에서 넣은 줄 — 한글 파일 상자 ${model?.titles?.calendar ?? ''}과 같은 값`; tag.dataset.journalHqLinked = ''; what.append(' ', tag); }
     const gripCell = el('td', 'journal-grip-cell'), tools = el('td', 'journal-exec-tools');
     const grip = el('button', 'mini journal-hwpx-grip', '⠿'); grip.type = 'button'; grip.dataset.reorderHandle = ''; grip.setAttribute('aria-label', `${row.title} 순서 옮기기(위·아래 화살표)`);
     // WEEKLY-손잡이왼쪽: 줄 맨 왼쪽 ⠿ · 줄 끝 작은 ⋯([고치기]·[빼기]). 고치는 중·저장 중에는 ⋯ 를 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
@@ -93,14 +97,14 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
   if (!rows.length && ui.editing !== 'new') parts.push(emptyEl('없음', {attrs:'data-journal-hq-empty'}));
   if (!ui.editing && !ui.picking) {
     // 묶음 제목 줄 오른쪽: 작은 [+ 추가] · [달력에서].
-    const add = btn('+ 추가', 'journalHqAdd', 'journal-part-add-button'); add.setAttribute('aria-label', '2) 주요 일정 줄 추가'); add.disabled = busy || rows.length >= HQ_MAX;
+    const add = btn('+ 추가', 'journalHqAdd', 'journal-part-add-button'); add.setAttribute('aria-label', named(title, '줄 추가')); add.disabled = busy || rows.length >= HQ_MAX;
     const pick = btn('달력에서', 'journalHqPick', 'journal-part-add-button'); pick.setAttribute('aria-label', '달력에서 선택해 넣기'); pick.disabled = busy || rows.length >= HQ_MAX || !events.length;
     parts.unshift(partAdd(doc, [pick, add]));
   }
   if (ui.picking) parts.push(picker());
   // 기준에 맞는 달력 일정 제안(흐린 줄, 줄 끝 ⋯ 하나 — [넣기]·[이미 있음]·[빼기]). 고치는 중·고르는 중에는 그리지 않는다.
   const picks = hq.row?.draft?.picks ?? null;
-  const suggested = !ui.editing && !ui.picking ? hqSuggestions(events, rows, hq.titles, picks, learnFor(start, picks, {rt, redraw}).learn) : [];
+  const suggested = !ui.editing && !ui.picking ? hqSuggestions(events, rows, hq.titles, picks, learnFor(start, picks, {rt, redraw}).learn, wordsOf(model?.remembered?.kinds)) : [];
   if (suggested.length) {
     const sg = el('ul', 'weekly-flow-lines weekly-flow-suggest journal-hq-suggest'); sg.dataset.journalHqSuggest = '';
     for (const x of suggested) {
@@ -109,7 +113,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
       li.append(el('span', 'weekly-flow-tag', '캘린더'), el('span', 'weekly-flow-text', f.day ? text : `${item.label} ${text}`)); // 줄 글에 날짜가 들어 있다(hqLine)
       // S52-25 공용 '제안 줄': 줄 끝 ⋯ 하나 → [넣기][이미 있음][빼기](달력 일정 제안은 [고쳐서 넣기]가 없다 — 넣은 뒤 표 줄 ⋯ [고치기]).
       li.append(rowMore(doc, {label:`제안: ${text}`, data:{journalHqSuggestMore:item.key}, items:[
-        {text:'넣기', data:{journalHqSuggestTake:item.key}, disabled:busy || rows.length >= HQ_MAX, aria:`2) 주요 일정에 넣기: ${text}`},
+        {text:'넣기', data:{journalHqSuggestTake:item.key}, disabled:busy || rows.length >= HQ_MAX, aria:`${title ? `${title}에 ` : ''}넣기: ${text}`},
         {text:'이미 있음', data:{journalHqSuggestHave:item.key}, disabled:busy, aria:`이미 있음(이미 적은 일정): ${text}`},
         {text:'빼기', data:{journalHqSuggestDrop:item.key}, disabled:busy, danger:true, aria:`제안 빼기: ${text}`}]}));
       sg.append(li);
@@ -223,7 +227,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     ui.saving = true; ui.status = '저장하는 중…'; ui.error = false; redraw();
     try {
       const r = await changeWeekDocs({start, known:hq.row, change:draft => { const next = change(draftHq(draft)); if (!next) { full = true; return draft; } let out = withHq(draft, next); if (extra) out = extra(out); for (const p of picks) out = withLinePick(out, {cell:'requests:hq', ...p}); return out; }}, rt);
-      if (r.missing) { setUi({...fresh(start), status:TEXT.missing, error:true}); redraw(); return; }
+      if (r.missing) { setUi({...fresh(start), status:TEXT.missing(title), error:true}); redraw(); return; }
       setUi({...fresh(start), status:full ? TEXT.full : done, error:full, undo:undo ? {text:undo} : null});
       ui.focus = focus;
       onSaved(r.row);

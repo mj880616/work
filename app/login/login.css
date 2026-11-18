@@ -7,3 +7,5 @@
 .login-app-hint{margin:6px 0 0;font-size:12px;color:var(--kptu-muted,#646a72)}
 /* BASKET-노조플러스업로드: 안드로이드 줄과 윈도우 PC 줄이 붙어 나올 때 사이를 좁게, 안내 둘째 줄은 붙여서 */
 .login-app+.login-app{margin-top:-4px}.login-app-hint+.login-app-hint{margin-top:2px}
+/* S63-09 PC도우미구분: 브라우저 안내 한 줄은 단추 바로 위 */
+.login-app-lead{margin:0 0 6px;color:inherit}

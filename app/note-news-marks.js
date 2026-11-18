@@ -4,10 +4,11 @@ import {treeIconHtml} from './tree-icons.js';
 import {loadHighlights, highlightsNow, onHighlights, openMarkMenu} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
 import {readSavedRows} from './now-saved.js';
+import {myFeaturesOrNull} from './my-features.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
 import {requestNewsOpen} from './news-request.mjs';
 import {sourceTag, quoteGone} from './text-highlights-model.mjs';
-import {NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_GROUP_NAME, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
+import {NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
 // NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
 // 노트 [폴더] 목록 맨 아래(폴더 없음 밑) 얇은 줄 'News에서' + [밑줄 n]·[보관한 글 n]. 노트가 아니라 News와 같은 서버 자료를 그대로 읽어 보인다 —
 // 밑줄은 text-highlights.js가 들고 있는 같은 목록(News에서 지우거나 메모를 고치면 이 칸도 바로 같게), 보관한 글은 News [보관] 탭과 같은 읽기(now-saved.js readSavedRows).
@@ -29,10 +30,18 @@ const nameOf = key => window.KPTUOutside?.sourceName?.(key) || null;
 // openNote(noteId, highlightId): 노트 밑줄을 그 노트 그 자리로 연다. noteText(noteId): 노트 글자(raw_text), 노트가 없으면 null, 아직 모르면 undefined.
 export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = null, noteText = () => undefined} = {}) {
   let saved = null, savedFailed = false, hlFailed = false, kind = 'all', seq = 0, off = false;
+  // NEWS-운영자만(S63-03): News는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 '보관한 글' 줄을 빼고(읽지도 않음) 밑줄은 노트 밑줄만 보인다
+  // (News·텔레그램 밑줄은 누르면 News로 가므로). 모인 밑줄·보관은 지우지 않는다. 답을 모르면(null) 지금처럼 다 보인다(메뉴 myFeaturesOrNull 규칙과 같음).
+  let newsOn = true;
+  const hlNow = () => { const all = highlightsNow(); return all && !newsOn ? all.filter(h => h?.source_type === 'note') : all; };
   async function load() {
     const my = ++seq;
     off = false;
-    const [hl, sv] = await Promise.allSettled([loadHighlights({force: true}), readSavedRows()]);
+    const features = await myFeaturesOrNull().catch(() => null);
+    if (my !== seq) return;
+    newsOn = !Array.isArray(features) || features.includes('outside');
+    if (!newsOn) { saved = []; savedFailed = false; }
+    const [hl, sv] = await Promise.allSettled([loadHighlights({force: true}), newsOn ? readSavedRows() : Promise.resolve([])]);
     if (my !== seq) return;
     hlFailed = hl.status === 'rejected' && !highlightsNow();
     if (sv.status === 'fulfilled' && sv.value) { saved = sv.value; savedFailed = false; }
@@ -41,20 +50,23 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   }
   async function reloadSaved() {
     const my = ++seq;
+    if (!newsOn) { if (my === seq) onChange(); return; }
     try { const got = await readSavedRows(); if (my === seq && got) { saved = got; savedFailed = false; } } catch { /* 그대로 */ }
     if (my === seq) onChange();
   }
   onHighlights(() => { if (!off) onChange(); });
-  const hlCount = () => highlightsNow()?.length ?? null;
+  const hlCount = () => hlNow()?.length ?? null;
   const svCount = () => saved?.length ?? null;
 
-  // 'News에서' 얇은 줄 + 두 줄(노트 폴더 줄과 같은 공용 줄 — 끌어 놓을 곳이 아니다). at: 지금 고른 곳(PC 나무에서 표시).
-  function navHtml({tree = false, at = null} = {}) {
+  // 글자 없는 얇은 구분 줄 + 두 줄(노트 폴더 줄과 같은 공용 줄 — 끌어 놓을 곳이 아니다). at: 지금 고른 곳(PC 나무에서 표시).
+  // NOTE-News에서글자빼기(11/15 명진): 구분 줄의 'News에서' 글자는 뺐다(밑줄이 노트·텔레그램에서도 옴). 줄마다 붙는 출처 꼬리표(노트·News·텔레그램)는 그대로.
+  // sep: 구분 줄을 넣을지(폰에서 두 줄이 따로 선 상자에 들 때는 상자 테두리가 이미 나누므로 껍데기가 false).
+  function navHtml({tree = false, at = null, sep = true} = {}) {
     const row = (id, icon, count) => ftFolderRowHtml({name: NEWS_NAMES[id], count: count ?? '', countLabel: count === null ? '' : `${NEWS_NAMES[id]} ${count}개`, depth: 0, hasContent: false,
       current: tree && at === id, tree, className: 'nx-news-item', icon, rowAttrs: {'data-nx-news-item': id}, mainAttrs: {'data-nx-open': id}});
-    return `<div class="nnm-sep" role="presentation">${esc(NEWS_GROUP_NAME)}</div>`
+    return (sep ? '<div class="nnm-sep" role="presentation" aria-hidden="true"></div>' : '')
       + row(NEWS_HL, HL_ICON, hlCount())
-      + row(NEWS_SAVED, treeIconHtml('starred', {className: 'ft-ico'}), svCount());
+      + (newsOn ? row(NEWS_SAVED, treeIconHtml('starred', {className: 'ft-ico'}), svCount()) : '');
   }
 
   const gone = h => { if (h?.source_type !== 'note') return false; const t = noteText(h.source_id); return t !== undefined && quoteGone(t, h.quote); };
@@ -66,11 +78,12 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   }
   function listHtml(at) {
     if (at === NEWS_HL) {
-      const all = highlightsNow();
+      const all = hlNow();
       if (!all) return hlFailed ? failHtml({retry: 'data-nnm-retry'}) : waitHtml({rows: 4, h: 56});
       return all.length ? `<div class="nh-list nw-card nnm-card">${hlRows(all)}</div>` : emptyHtml('저장한 밑줄 없음 · 원문에서 글을 선택해 [밑줄 저장]', {attrs: 'data-nnm-empty'});
     }
     const chips = `<div class="filter-chips nnm-chips" role="group" aria-label="보관한 글 거르기">${SAVED_KINDS.map(k => `<button type="button" class="ds-chip" data-nnm-kind="${k.id}" aria-pressed="${kind === k.id}">${esc(k.label)}</button>`).join('')}</div>`;
+    if (!newsOn) return emptyHtml('보관한 글 없음', {attrs: 'data-nnm-empty'});
     if (!saved) return chips + (savedFailed ? failHtml({retry: 'data-nnm-retry'}) : waitHtml({rows: 4, h: 40}));
     const list = filterSavedKind(saved, kind);
     return chips + (list.length ? `<div class="nw-card nnm-card">${list.map(r => savedRowHtml(r)).join('')}</div>` : emptyHtml('보관한 글 없음', {attrs: 'data-nnm-empty'}));
@@ -81,7 +94,7 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
     if (!head || !box) return;
     if (!folderView) { clear(); return; }
     if (query) {
-      const hit = newsSearch({highlights: highlightsNow() || [], saved: saved || [], query, nameOf});
+      const hit = newsSearch({highlights: hlNow() || [], saved: saved || [], query, nameOf});
       head.hidden = false;
       head.innerHTML = `<span class="nnm-q">'${esc(query)}' 찾은 것</span><span class="nnm-n">${esc(searchHead(notes, hit.highlights.length, hit.saved.length))}</span>`;
       const rows = hlRows(hit.highlights, '밑줄') + hit.saved.map(r => savedRowHtml(r, '보관')).join('');
@@ -103,7 +116,7 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   }
   function clear() { if (head) { head.hidden = true; head.replaceChildren(); } if (box) { box.hidden = true; box.replaceChildren(); } }
   // 노트 검색에 걸린 밑줄·보관 수(껍데기의 '맞는 노트 없음'을 가린다).
-  const hits = query => { if (!query) return 0; const h = newsSearch({highlights: highlightsNow() || [], saved: saved || [], query, nameOf}); return h.highlights.length + h.saved.length; };
+  const hits = query => { if (!query) return 0; const h = newsSearch({highlights: hlNow() || [], saved: saved || [], query, nameOf}); return h.highlights.length + h.saved.length; };
 
   const goNews = () => window.KPTURouter?.go?.('news', {source: 'delegated'});
   const openHighlight = h => {
@@ -116,13 +129,13 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
     if (!b || !box.contains(b)) return;
     if (b.matches('[data-nnm-retry]')) { hlFailed = false; savedFailed = false; onChange(); void load(); return; }
     if (b.matches('[data-nh-more]') && b.dataset.hlId) { openMarkMenu(b, {onSource: openHighlight}); return; }
-    if (b.matches('[data-nh-open]')) { openHighlight((highlightsNow() || []).find(x => x.id === b.dataset.nhOpen)); return; }
+    if (b.matches('[data-nh-open]')) { openHighlight((hlNow() || []).find(x => x.id === b.dataset.nhOpen)); return; }
     if (b.matches('[data-nnm-kind]')) { kind = keepSavedKind(b.dataset.nnmKind); onChange(); box.querySelector(`[data-nnm-kind="${kind}"]`)?.focus({preventScroll: true}); return; }
     if (b.matches('[data-nnm-saved]')) { const [type, id] = String(b.dataset.nnmSaved).split(':'); if (requestNewsOpen({type, id})) goNews(); return; }
   });
   bindNowRows(box, {row: '[data-nw-key]', saved: true, titleOf: el => el.querySelector('.nnm-t')?.textContent || '',
     itemOf: el => { const [type, id] = String(el.dataset.nwKey || '').split(':'); return (type === 'outside' || type === 'news') && id ? {type, id} : null; },
     changed: (item, k) => { if (k === 'release' && saved) saved = saved.filter(r => !(r.type === item.type && r.id === item.id)); onChange(); void reloadSaved(); }});
-  return {load, paint, navHtml, hits, clear, reset: () => { seq++; off = true; saved = null; savedFailed = false; hlFailed = false; kind = 'all'; clear(); }};
+  return {load, paint, navHtml, hits, clear, reset: () => { seq++; off = true; newsOn = true; saved = null; savedFailed = false; hlFailed = false; kind = 'all'; clear(); }};
 }
 export {NEWS_HL, NEWS_SAVED, isNewsAt};

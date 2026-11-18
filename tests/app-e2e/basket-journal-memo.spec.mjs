@@ -43,7 +43,8 @@ async function fixture(page, width) {
     return r.fulfill({ status: 500, json: {} });
   });
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; if (q.has('google_task_id')) return r.fulfill({ json: [] }); if (!q.has('note_id')) return r.fallback(); const ids = (q.get('note_id').match(/^in\.\((.*)\)$/)?.[1] || '').split(',').map(decodeURIComponent); return r.fulfill({ json: links.filter(l => ids.includes(l.note_id)) }); });
-  for (const t of ['app_documents', 'app_suborganization_updates', 'app_project_progress_updates', 'app_share_pages']) await page.route(SB + '/rest/v1/' + t + '?**', r => r.fulfill({ json: [] }));
+  // 주간 보고 바탕(자료실 '주간보고' 분류) 찾기는 기본 도우미(home-entry.mjs, 바탕 있는 계정)로 넘긴다 — 바탕 없는 새 계정은 [주간 보고]가 백지다(S62-23).
+  for (const t of ['app_documents', 'app_suborganization_updates', 'app_project_progress_updates', 'app_share_pages']) await page.route(SB + '/rest/v1/' + t + '?**', r => (t === 'app_documents' && /주간보고/.test(decodeURIComponent(new URL(r.request().url()).searchParams.get('category') ?? '')) ? r.fallback() : r.fulfill({ json: [] })));
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: testOrigin });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await expect(page.locator(`[data-basket-row="${A}"]`)).toBeVisible();
@@ -123,7 +124,7 @@ for (const width of [390, 1280]) {
     const memo = lines.indexOf('◦ 기타 메모'), unsorted = lines.indexOf('◦ 미분류');
     expect(memo).toBeGreaterThan(lines.indexOf('참고'));
     expect(lines[memo + 1]).toBe('- 10월 6일(화) 합성 기타 메모 하나');
-    expect(unsorted).toBeGreaterThan(lines.indexOf('4. 산하 조직 현황'));
+    expect(unsorted).toBeGreaterThan(lines.indexOf('4. 산하조직 현황'));
     expect(lines[unsorted + 1]).toBe('- 10월 6일(화) 합성 미분류 업데이트');
     expect(lines.filter(l => l.includes('합성 기타 메모 하나'))).toHaveLength(1);
     // [업무일지에서 빼기] from the row ⋯ removes only the mark: back in 미분류, and the journal has no 기타 메모 box.

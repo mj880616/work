@@ -1,7 +1,7 @@
 // BIZ-기록하나로 B-4 ②(설계 docs/design/record-one.md 2-5·2-6·2-7 '2. 2) 주요 사업·회의결과'·4절): 2. 2) 주요 사업 '창' 순수 규칙 한 곳 — 화면·네트워크 없음.
 // - 줄 = 그 주(월~일)에 걸친 사업 기록(app_business_records, 기간 기록 포함) + 그 주 사업 보고(app_meetings, 복사하지 않고 읽을 때 섞음).
 // - 사업별로 묶는다(사업 나무 줄 = 사업영역 또는 세부 과제, 3단 사안은 그 세부 과제 줄로 — business-now-model.mjs rowSpaceMap). 활동 없는 사업은 빠진다.
-// - 내부 정례·'늘 빼기' 종류와 한 줄 업데이트는 화면이 넘기기 전에 거른다(journal-meeting-kinds.js reportsMeeting, 한 줄 업데이트는 2. 1) 칸에만).
+// - 내가 정한 '늘 빼기' 종류·단어(내 프로필 목록)와 한 줄 업데이트는 화면이 넘기기 전에 거른다(journal-meeting-kinds.js reportsMeeting, 한 줄 업데이트는 2. 1) 칸에만).
 // - 보고용 표시(app_report_line_marks, section 'biz_detail')는 조직보고 창과 같은 이어짐 규칙(record-window-model.mjs markOf·nextMark)을 그대로 쓴다.
 //   report_body = 보고에만 쓰는 글, choice 'out' = 이번 보고에서 빼기(다음 주에도 빠짐), detail 'oneline'|'full' = 사업 보고의 한 줄만 ↔ 상세 포함.
 // - 상세 포함 기본값: 사업 보고에 결과 본문(전사 글, 없으면 예전 회의결과)이 있으면 'full', 없으면 한 줄. 사업 기록은 늘 한 줄.

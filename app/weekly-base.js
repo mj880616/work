@@ -9,6 +9,7 @@
 import {pickBase, cellList, readProposed} from './weekly-feedback.mjs';
 import {weeklyCategoryFilter, loadDocumentCategories} from './document-categories.js'; // S53-16: 분류는 역할(팀·개인 확정본)로 — 이름이 바뀌어도 찾음
 import {cellKeys, cellId, summaryKey, orgKey, readWeekDraft, writeWeekDraft, withProposed} from './weekly-draft-store.js';
+import {baseForm} from './weekly-engine-form.js'; // ⑤-3: profile 을 주지 않으면 바탕 파일에서 읽은 양식으로
 
 const encode = encodeURIComponent;
 
@@ -48,8 +49,10 @@ export function proposedOf({at = new Date().toISOString(), baseKind = 'confirmed
 // 바탕 찾아 열기(자료실만). mods = {draft, drive}(lazy import 한 weekly-hwpx/draft.mjs·hwp-drive.js). opts 는 baseCells 와 같음.
 // toHwpx(bytes, name): HWP 5 → .hwpx 바꾸개(상자의 숨은 엔진). 없으면 HWP 5 바탕은 {status:'needs_engine', doc}.
 // cellsOf(team): 칸 글을 다르게 셀 때(상자의 쟁의 단계·현황 표 적용 등). 없으면 baseCells.
-// 반환 {status:'ok', doc, from, team, cells, info:{from:'library', document_id, file_name, title}} | {status:'none'} | {status:'not_hwp'|'locked'|'needs_engine', doc}.
-export async function openWeekBase({rt = window.KPTURuntime, day, mods, opts = {}, toHwpx = null, cellsOf = null}) {
+// profile: 엔진 양식(weekly-engine-form.js engineForm 의 profile — WEEKLY-내양식자유변형 ⑤-2). 없으면 바탕 파일에서 읽은 양식(⑤-3 '나', 저장 안 함).
+// 반환 {status:'ok', doc, from, team, cells, info:{from:'library', document_id, file_name, title}} | {status:'none'}
+//      | {status:'not_hwp'|'locked'|'needs_engine'|'no_form', doc}(no_form = 바탕 파일에서 양식을 읽지 못함 — 추측해 열지 않음).
+export async function openWeekBase({rt = window.KPTURuntime, day, mods, opts = {}, toHwpx = null, cellsOf = null, profile}) {
   const found = await findBase(rt, day);
   if (!found?.doc) return {status:'none'};
   const doc = found.doc;
@@ -63,7 +66,14 @@ export async function openWeekBase({rt = window.KPTURuntime, day, mods, opts = {
     if (!toHwpx) return {status:'needs_engine', doc};
     hwpx = await toHwpx(bytes, doc.file_name);
   }
-  const {team} = mods.draft.prepareConfirmed(await mods.draft.openConfirmed(hwpx));
+  const pkg = await mods.draft.openConfirmed(hwpx);
+  let team;
+  if (profile) ({team} = mods.draft.prepareConfirmed(pkg, {profile}));
+  else {
+    const read = baseForm(pkg, mods.draft);
+    if (!read.profile) return {status:'no_form', doc};
+    ({team} = read.prepared);
+  }
   return {status:'ok', doc, from:found.from, teamDoc:found.team ?? null, team, cells:cellsOf ? cellsOf(team) : baseCells(mods.draft, team, opts),
     info:{from:'library', document_id:String(doc.id), file_name:String(doc.file_name || ''), title:String(doc.title || '')}};
 }
