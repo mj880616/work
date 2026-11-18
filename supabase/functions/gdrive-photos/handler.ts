@@ -12,7 +12,7 @@
 //   JPEG만, 한 장 30MB·한 번 10장까지. 권한(drive)·위 문은 그대로.
 // 원본·썸네일은 저장하지 않는다. DB에는 켠 폴더와 그 폴더 사진 목록 사본만 둔다(migration 20261031120000).
 
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { readJpegMeta, validLoc, writeJpegMeta } from "../_shared/jpeg-exif.ts";
 
 type Env = (name: string) => string | undefined;

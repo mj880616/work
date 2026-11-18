@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { isDelegatedToken, rejectDelegatedToken, DelegatedTokenError, DELEGATED_TOKEN_CODE } from '../../supabase/functions/_shared/delegated-token-guard.ts';
+import { isDelegatedToken, rejectDelegatedToken, DelegatedTokenError, DELEGATED_TOKEN_CODE } from '../../supabase/functions/_shared/delegated-token-guard.mjs';
 
 // MCP-Claude읽기 M-2 (설계 docs/design/mcp-claude-read.md 4.3절 L3).
 // Supabase OAuth 서버가 바깥 앱에 내주는 위임 열쇠(client_id가 붙은 열쇠)는 Web2 Edge 함수에서 거절하고,
@@ -43,7 +43,7 @@ test('guard: JWT 모양이 아닌 값은 Auth 판정에 맡긴다(시험용 가�
 // ---- 정적 시험: 사용자 확인을 하는 모든 Web2 Edge 함수가 이 검사를 부르는가 ----
 const FUNCTIONS = new URL('../../supabase/functions/', import.meta.url).pathname;
 const AUTH_SITE = /\/auth\/v1\/user|\.auth\.getUser\(/g;
-const GUARD_IMPORT = /^import \{[^}]*\bisDelegatedToken\b[^}]*\} from ['"]\.\.\/_shared\/delegated-token-guard\.ts['"];?$/m;
+const GUARD_IMPORT = /^import \{[^}]*\bisDelegatedToken\b[^}]*\} from ['"]\.\.\/_shared\/delegated-token-guard\.mjs['"];?$/m;
 const GUARD_CALL = /\bisDelegatedToken\(/g;
 const stripComments = source => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
 const sourceFiles = dir => readdirSync(dir).flatMap(name => {
@@ -77,7 +77,7 @@ function audit() {
 test('정적: 사용자 확인(/auth/v1/user·auth.getUser)을 하는 모든 Web2 Edge 함수 파일이 위임 열쇠 검사를 import하고 확인 수만큼 부른다', () => {
   const rows = audit();
   const problems = rows.filter(r => r.problem);
-  assert.deepEqual(problems, [], '빠진 함수: 사용자 확인 직후 isDelegatedToken(같은 열쇠)로 401을 돌려주게 하세요(_shared/delegated-token-guard.ts)');
+  assert.deepEqual(problems, [], '빠진 함수: 사용자 확인 직후 isDelegatedToken(같은 열쇠)로 401을 돌려주게 하세요(_shared/delegated-token-guard.mjs)');
   const guarded = rows.filter(r => r.authSites > 0).map(r => r.name).sort();
   // 2026-11-18 main 기준 27개(설계 4.3절 표와 같은 수). 새 함수가 늘면 이 목록과 PR 배포 표를 함께 고친다.
   assert.deepEqual(guarded, [
@@ -91,7 +91,7 @@ test('정적: 사용자 확인(/auth/v1/user·auth.getUser)을 하는 모든 Web
 });
 
 test('정적: 검사 공용 파일은 Deno 전역·서버 키·바깥 주소를 쓰지 않는 순수 함수다', () => {
-  const code = stripComments(readFileSync(join(FUNCTIONS, '_shared/delegated-token-guard.ts'), 'utf8'));
+  const code = stripComments(readFileSync(join(FUNCTIONS, '_shared/delegated-token-guard.mjs'), 'utf8'));
   assert.doesNotMatch(code, /Deno\.|SERVICE_ROLE|fetch\(|https?:\/\//);
   assert.doesNotMatch(code, /^import /m);
 });

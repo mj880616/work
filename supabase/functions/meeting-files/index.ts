@@ -1,4 +1,4 @@
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { MeetingAuthError, meetingAuthResponse } from '../_shared/meeting-auth.mjs';
 // Not req.formData(): Deno cuts quoted file names at ';' and '=' (see _shared/multipart.ts).

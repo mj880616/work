@@ -1,4 +1,4 @@
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 import { callerOwnerWorkspace } from "../_shared/workspace-drive-token.ts";
 const SB = Deno.env.get('SUPABASE_URL')!;

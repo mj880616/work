@@ -24,7 +24,7 @@
 //   app_workspace_members 읽기, 본문 블록 app_feed_bodies, [번역] 하루 사용량 app_news_days(읽기·넣기·고치기)뿐이다.
 //   NEWS-모두에게열기 E1b(설계 news-for-all.md 14절, D1b 20261115150000): 공용 글 app_outside_articles·공용 문장 app_outside_article_sentences·
 //   공용 본문 app_outside_article_bodies(넣기·고치기)와 옛 id 지도 app_outside_id_map(넣기만). 글마다 한 번 모으고, 옮기는 동안 옛 표에도 같이 쓴다. 로그·응답에는 단계 코드·건수·단체 키만(제목·본문·주소 없음).
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { allowedUrl, OUTSIDE_CATALOG, publicCatalog, sourceByKey, type OutsideSource } from "../_shared/outside-catalog.ts";
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env, type Log } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";

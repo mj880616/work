@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { webcrypto } from 'node:crypto';
 // MCP-Claude읽기 M-2: 지운 import 대신 실제 위임 열쇠 거절 검사를 그대로 넘긴다.
-import { isDelegatedToken } from '../../../supabase/functions/_shared/delegated-token-guard.ts';
+import { isDelegatedToken } from '../../../supabase/functions/_shared/delegated-token-guard.mjs';
 export const SUBJECT = '00000000-0000-4000-8000-000000000001';
 export const OTHER = '00000000-0000-4000-8000-000000000002';
 export const ORIGIN = 'https://desk.bokdoong.com';

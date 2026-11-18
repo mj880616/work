@@ -1,4 +1,4 @@
-import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const SB = Deno.env.get('SUPABASE_URL')!;
