@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
 import { inspectBasketOriginal } from '../_shared/basket-file-origin.ts';
 import { readBoundedJson } from '../_shared/bounded-json.mjs';
 import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
@@ -61,6 +62,7 @@ async function getUser(req: Request) {
   });
   const data = await r.json().catch(() => null);
   if (!r.ok || !data?.id) throw new Error('로그인 세션을 확인할 수 없습니다.');
+  if (isDelegatedToken(token)) throw new Error('로그인 세션을 확인할 수 없습니다.');
   return data;
 }
 

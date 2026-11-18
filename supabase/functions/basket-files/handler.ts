@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
 import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import {createOcrHandler} from "./ocr.ts";
@@ -87,6 +88,7 @@ export function createBasketHandler(
       if (error || !data.user) {
         throw new UploadError(401, "session_required", "auth");
       }
+      if (isDelegatedToken(match[1])) throw new UploadError(401, "session_required", "auth");
       if (!["GET","POST"].includes(req.method)) return json({ error: "GET/POST only" }, 405);
       stage = "authorize";
       const { data: member, error: memberError } = await admin.from(

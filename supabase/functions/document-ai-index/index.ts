@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { outputText } from '../_shared/openai-responses.ts';
@@ -23,7 +24,7 @@ const upstreamFail=(stage:string,message:string,status:number,detail:unknown)=>{
 const cut=(s:string,n=50000)=>s.length>n?s.slice(0,n)+'\n…[이하 생략]':s;
 
 function userClient(req:Request){return createClient(SB,ANON,{auth:{persistSession:false},global:{headers:{Authorization:req.headers.get('Authorization')||''}}})}
-async function currentUser(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
+async function currentUser(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');if(isDelegatedToken(token))throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
 // MULTI ②-2: Drive 토큰은 로그인한 본인의 owner 작업공간(정확히 1개)이 이 요청의 작업공간과 같을 때 그 작업공간 연결만(_shared/workspace-drive-token.ts). id=1의 갱신 열쇠는 읽지 않는다.
 async function driveToken(userId:string,workspaceId:string){const own=await callerOwnerWorkspace(admin,userId);if(!own||own!==workspaceId)throw new Error('워크스페이스 소유자 권한이 필요합니다.');try{return await workspaceDriveToken(admin,own,{fetch})}catch(e){if(e instanceof WorkspaceDriveError&&e.code==='drive_not_connected')throw new Error('Google Drive가 아직 연결되지 않았어요. 자료실에서 Drive를 연결해 주세요.');if(e instanceof WorkspaceDriveError&&e.code==='drive_auth_expired')throw new Error('Google Drive 연결이 만료됐어요. 자료실에서 Drive를 다시 연결해 주세요.');throw new Error('Google Drive 토큰 갱신에 실패했습니다.')}}
 async function downloadDrive(fileId:string,token:string){const r=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw upstreamFail('drive_read','Drive 파일을 읽지 못했습니다.',r.status,(await r.text().catch(()=>'')).slice(0,500));return new Uint8Array(await r.arrayBuffer())}
