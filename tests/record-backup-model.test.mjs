@@ -17,6 +17,13 @@ test('스위치·안내 기억은 참·거짓만, 기본은 꺼짐·안내 아�
   assert.deepEqual(C.backupPrefs({auto: 'yes', intro: 1}), {auto: false, intro: false});
   assert.deepEqual(C.backupPrefs({auto: true, intro: true}), {auto: true, intro: true});
 });
+test('첫 안내는 가입 직후(14일 안)에만', () => {
+  const now = Date.parse('2026-11-18T00:00:00Z');
+  assert.equal(C.justJoined('2026-11-17T00:00:00Z', now), true);
+  assert.equal(C.justJoined('2026-11-04T00:00:01Z', now), true);
+  assert.equal(C.justJoined('2026-11-04T00:00:00Z', now), false);
+  for (const v of [undefined, null, '', 'x', '2026-12-01T00:00:00Z']) assert.equal(C.justJoined(v, now), false, String(v));
+});
 test('알림 글·오류 글', () => {
   assert.equal(C.doneText({date: '2026-11-15', count: 741}), '내 드라이브 › 노조+ 백업 › 2026-11-15 에 741건을 받았어요.');
   assert.match(C.errorText('DRIVE_NOT_CONNECTED'), /드라이브를 연결/);
