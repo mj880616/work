@@ -146,7 +146,8 @@ div.gt-main{cursor:default}
    (이미 있는 할 일은 예전처럼 누르면 바로 저장). 고른 버튼은 고른 표시. PC 상세 칸 배치는 아래 규칙 그대로. */
 #gtTaskModal .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1);align-items:center;min-width:0}
 #gtTaskModal:not(.gt-docked) .gt-due-quick{margin:calc(-1 * var(--kptu-space-1)) 0 var(--kptu-space-2)}
-#gtTaskModal .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;font-size:var(--ds-text-meta);white-space:nowrap}
+/* 창(폰 수정·새 할 일) 안 버튼은 공용 창 기준 글자(13px)를 따른다. 상세 칸 글자 크기는 아래 상세 칸 규칙. */
+#gtTaskModal .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;white-space:nowrap}
 /* PC 틀(761~)에서만: 입력 카드 자리(화면 아래 여백 12px은 desktop-ui.css main 공용 규칙, UI-PC스크롤묶음 ④). 폴드 펼침(600~760)은 폰 틀(아래 입력칸·탭·하단바가 떠 있음) 그대로다. */
 @media(min-width:761px){
   #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 24px - var(--kptu-topline-space,0px));min-height:calc(100dvh - 24px - var(--kptu-topline-space,0px))}
