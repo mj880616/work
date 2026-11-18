@@ -39,6 +39,8 @@ window.KPTURuntime={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})},se
  const method=opts.method||'GET';
  // UI-앱안알림 4·5: 내 프로필 '폰 알림' 칸의 최근 알림 7일(phone-push recent)은 POST로 묻는 읽기라 calls(쓰기 검사 대상)에 넣지 않는다.
  if(/^\/functions\/v1\/phone-push\?action=(recent|notices)$/.test(path))return {ok:true,items:[]};
+ // COLLAB-묶인사람끼리공유 1단계: '내 묶음' 칸이 여는 내 묶음 목록(app_collab_my_groups)도 POST로 묻는 읽기라 calls에 넣지 않는다(묶음 없음).
+ if(path==='/rest/v1/rpc/app_collab_my_groups')return [];
  state.calls.push({path,method,body:clone(opts.body??null)});
  const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);
