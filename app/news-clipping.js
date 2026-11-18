@@ -38,7 +38,7 @@ import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFi
 if (window.KPTUNews) return;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
-const ITEM_COLS = 'id,lane,url,title,lang,publisher,source_key,keywords,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,translated_at,starred_at,folder_id';
+const ITEM_COLS = 'id,lane,url,title,lang,publisher,source_key,keywords,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,translated_at,starred_at,folder_id,author,manual_at';
 const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 const KEYWORD_COLS = 'word,enabled,created_at';
 const FOLDER_COLS = 'id,parent_id,name,sort_order';
@@ -571,7 +571,7 @@ ncMenus = [folderMenu];
 // 목록 줄 또는 키워드 칸 줄(같은 기사가 두 곳에 있을 수 있다 — 목록 것을 먼저).
 const itemById = id => state.items.find(x => x.id === id) || found().find(x => x.id === id) || [...state.kwHits.values()].flatMap(h => h.items).find(x => x.id === id) || null;
 // S63-11: 서버에서 새로 온 줄 내용(열기·채우기 뒤 제목 등)을 이 칸의 같은 기사 줄 모두(목록·찾은 기사·키워드 묶음)에 고쳐 넣는다. 바뀐 것이 있으면 다시 그린다.
-const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind'];
+const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind', 'author', 'manual_at'];
 function freshRows(rows) {
   let changed = false;
   const lists = [state.items, found(), ...[...state.kwHits.values()].map(h => h.items)];
