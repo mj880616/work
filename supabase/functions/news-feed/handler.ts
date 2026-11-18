@@ -1433,7 +1433,8 @@ async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: R
     const oldIds = olds.map((o) => String(o.id)).filter((id) => UUID.test(id));
     if (oldIds.length) await db.send("DELETE", `app_now_details?workspace_id=eq.${ws}&news_item_id=in.(${oldIds.join(",")})`, undefined, "return=minimal");
   } catch { log("detail_clear_failed"); }
-  log("hand_filled", { body: !!v.body, olds: olds.length });
+  const paras = v.body?.length ?? 0;
+  log("hand_filled", { paras, olds: olds.length });
   return { ok: true, status: "filled", id: String(art.id) };
 }
 
