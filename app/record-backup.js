@@ -109,7 +109,7 @@ export function startRecordBackup({rt = window.KPTURuntime, now = () => Date.now
     introShown = true;
     const el = document.createElement('aside');
     el.className = 'kptu-notice-line'; el.dataset.notice = INTRO_KEY; el.setAttribute('aria-label', '내 기록 백업 안내');
-    el.innerHTML = `<span role="status">노조+ 운영자는 누가 가입했는지만 보고, 기록한 내용은 보지 않아요. 그래서 되살려 드릴 수도 없으니 <b>내 기록 백업</b>을 켜 두세요.</span><button type="button" class="kptu-notice-line-action ghost" data-rb-on>자동 백업 켜기</button><button type="button" class="kptu-notice-line-action ghost" data-rb-later>나중에</button>`;
+    el.innerHTML = `<span role="status">내 기록은 나만 볼 수 있어요. 잃어버리지 않게 백업을 켜 두세요.</span><button type="button" class="kptu-notice-line-action ghost" data-rb-on>자동 백업 켜기</button><button type="button" class="kptu-notice-line-action ghost" data-rb-later>나중에</button>`;
     el.querySelector('[data-rb-on]').onclick = () => { savePrefs({auto: true, intro: true}); removeNotice(INTRO_KEY); };
     el.querySelector('[data-rb-later]').onclick = () => { savePrefs({...prefs(), intro: true}); removeNotice(INTRO_KEY); };
     putNotice(INTRO_KEY, {priority: 60, element: el});
