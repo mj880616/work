@@ -11,7 +11,8 @@
 .kptu-notice-line[data-tone="warn"] .kptu-notice-line-icon{stroke:var(--kptu-warning)}
 .kptu-notice-line[data-tone="warn"]>.kptu-notice-line-action{color:var(--kptu-warning)}
 .kptu-notice-line-icon{flex:0 0 auto;width:14px;height:14px;fill:none;stroke:var(--kptu-primary-ink);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.kptu-notice-line>span{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 11/18 명진 "잘리지 않고 다 보이게": 글이 길면 줄을 바꿔 전부 보인다(말줄임 없음). 줄 높이는 notice-bar.js가 재서 화면을 내린다. */
+.kptu-notice-line>span{flex:0 1 auto;min-width:0;white-space:normal;overflow-wrap:anywhere;padding:4px 0}
 .kptu-notice-line>button{position:relative;flex:0 0 auto;box-sizing:border-box;height:var(--ds-compact-height-sm,28px);min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
 .kptu-notice-line>button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .kptu-notice-line>.kptu-notice-line-action{color:var(--kptu-primary-ink);font-weight:700;text-decoration:underline;text-underline-offset:2px}

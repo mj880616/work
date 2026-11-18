@@ -72,7 +72,7 @@ export function mountRecordBackup(host, {rt = window.KPTURuntime} = {}) {
       : `<span class="rb-warn">구글 드라이브를 먼저 연결해 주세요</span><button type="button" class="secondary" data-rb-connect>드라이브 연결</button>`;
     const done = result ? `<div class="rb-done" role="status">${esc(doneText(result))} <a class="rb-btn" href="${esc(result.folder_url)}" target="_blank" rel="noopener">드라이브에서 보기</a></div>` : '';
     host.innerHTML = `<div class="rb-head"><h3>내 기록 백업</h3><span class="rb-last">${last}</span></div>
-<p class="rb-note">운영자는 기록을 보거나 되살려 드릴 수 없어요. 내 구글 드라이브 '노조+ 백업' 폴더에 받아 두세요.</p>${done}
+<p class="rb-note">내 기록은 나만 볼 수 있어요. 내 구글 드라이브 '노조+ 백업' 폴더에 받아 두세요.</p>${done}
 <div class="rb-list">${rows}<label class="rb-row rb-auto"><span>매주 자동으로 (앱을 열 때)</span><input type="checkbox" role="switch" class="rb-switch" data-rb-auto${p.auto ? ' checked' : ''} aria-label="매주 자동 백업"></label></div>
 ${error ? `<p class="rb-error" role="alert">${esc(error)}</p>` : ''}<div class="rb-foot"><span class="rb-s">자료실 파일은 이미 내 드라이브에 있어요 · 최근 ${esc(status.keep_weeks || 4)}주만 남겨요</span>${foot}</div>`;
   }
