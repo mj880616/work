@@ -220,7 +220,7 @@ test('저장하지 않고 닫으면 이 창에서 올린 사진을 다시 뺀다
  expect(f.errors).toEqual([]);
 });
 
-test('글 칸에 사진을 붙여 넣으면(폰 복사처럼 파일 이름 글자가 함께 와도) 이름 글자가 아니라 하루 기록 사진으로 들어간다',async({page})=>{
+test('글 칸에 사진을 붙여 넣으면(폰 복사처럼 파일 이름 글자가 함께 와도) 이름 글자가 아니라 글 안 사진으로 들어간다(S67-20, 그날 사진 칸에는 없음)',async({page})=>{
  const f=await fixture(page);
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=editorOf(page);
@@ -231,13 +231,18 @@ test('글 칸에 사진을 붙여 넣으면(폰 복사처럼 파일 이름 글�
   const dt=new DataTransfer();dt.items.add(new File([bytes],'20261107_161200.jpg',{type:'image/jpeg'}));dt.setData('text/plain','20261107_161200.jpg');
   el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));
  },file.buffer.toString('base64'));
- await expect(ed.locator('[data-diary-pending]')).toHaveCount(1);
- await expect(field(ed)).toHaveText('합성 글');
  await expect.poll(()=>f.uploads.length,{timeout:30000}).toBe(1);
+ // 그날 사진 칸(위 [사진 n/20] 아래)에는 생기지 않고, 글 칸 안에 사진이 들어간다.
+ await expect(field(ed).locator('img.ed-photo-img')).toHaveCount(1,{timeout:15000});
+ await expect(ed.locator('[data-diary-pending]')).toHaveCount(0);
+ await expect(ed.locator('[data-diary-count]')).toHaveText('0/20');
+ await expect(field(ed)).not.toContainText('.jpg');
  await ed.locator('[data-diary-save]').click();
  await expect(ed).toBeHidden();
  const row=f.rows.find(r=>r.kind==='diary');
- expect(row.raw_text).toBe('합성 글');expect(row.raw_text).not.toContain('.jpg');
+ expect(row.raw_text).toContain('합성 글');expect(row.raw_text).not.toContain('.jpg');
  expect(row.attachments).toHaveLength(1);
+ expect(row.metadata.body_photos).toEqual([row.attachments[0].drive_file_id]);
+ expect(JSON.stringify(row.doc)).toContain('drive:'+row.attachments[0].drive_file_id);
  expect(f.errors).toEqual([]);
 });
