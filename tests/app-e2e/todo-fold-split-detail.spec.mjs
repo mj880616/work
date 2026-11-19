@@ -141,6 +141,23 @@ test('412: 폰 수정 창도 빠른 기한이면 저장 뒤 닫히고 [되돌리
   await expect(page.locator('[data-undo-notice] [data-undo-text]')).toHaveText("'할 일 a' 기한을 10월 10일(토)로 바꿨어요.");
 });
 
+// S67-01: 빠른 기한 버튼은 연결 정보를 다 읽기 전에는 [완료]처럼 잠겨 있다. 전에는 눌리는 모양인데 그 사이 누르면 아무 일이 없어
+// (main CI 884 시험이 바쁜 러너에서 이 틈에 눌러 저장 0번으로 실패) 사람도 한 번 더 눌러야 했다.
+test('884: 연결 정보를 읽는 동안 빠른 기한 버튼은 잠기고, 다 읽으면 한 번 눌러 저장된다',async({page})=>{
+  const tasks=[task('a','2026-10-08')];
+  const calls=await open(page,884,tasks);
+  let release;const held=new Promise(r=>{release=r});
+  await page.route(u=>u.pathname.endsWith('/functions/v1/google-tasks')&&u.searchParams.get('action')==='links',async route=>{await held;await route.fallback()});
+  await page.locator('[data-gt-edit="a"]').click();
+  const pane=page.locator('#gtDetailPane'),quick=pane.locator('[data-gt-due-quick="1"]');
+  await expect(pane.locator('#gtTaskModal')).toBeVisible();
+  await expect(quick).toBeDisabled();await expect(page.locator('#gtToggleBtn')).toBeDisabled();
+  release();
+  await expect(quick).toBeEnabled();
+  await quick.click();
+  await expect.poll(()=>calls.filter(c=>c.action==='update').map(c=>c.body.due)).toEqual(['2026-10-09']);
+});
+
 test('690: 메모를 쓰다 다른 줄을 선택하면 쓰던 메모를 먼저 저장하고 넘어간다',async({page})=>{
   const tasks=[task('a','2026-10-08'),task('b','2026-10-08')];
   const calls=await open(page,690,tasks);

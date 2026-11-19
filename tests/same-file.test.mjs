@@ -146,3 +146,15 @@ test('모든 파일 넣는 곳이 같은 부품을 부른다(전수 표의 붙�
   const ev = readFileSync(new URL('../app/event-files.js', import.meta.url), 'utf8');
   assert.match(ev, /mountNewTaskFilePick\(/, '일정 첨부는 할 일과 같은 고르기 부품');
 });
+
+test('찾는 사이 이미 대기에서 나간 파일(still=false)은 묻지 않는다 — 늦은 찾기가 방금 올린 자기 파일을 찾아도', async () => {
+  const a = file('a.txt', 5), b = file('b.txt', 6);
+  const find = async files => new Map(files.map(f => [f, [{line: '업데이트 › ' + f.name}]]));
+  let asked = 0;
+  const gone = await screenSameFiles([a], {find, still: () => false, ask: async () => { asked++; return 'skip'; }});
+  assert.equal(asked, 0); assert.deepEqual(gone.files, [a]); assert.deepEqual(gone.skipped, []);
+  let seen = null;
+  const half = await screenSameFiles([a, b], {find, still: f => f === b, ask: async (anchor, o) => { seen = o; return 'skip'; }});
+  assert.deepEqual(seen.lines, ['업데이트 › b.txt']);
+  assert.deepEqual(half.skipped, [b]);
+});

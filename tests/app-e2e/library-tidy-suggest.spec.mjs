@@ -83,7 +83,8 @@ test.describe('PC 1280',()=>{
     await page.locator('#libraryFolderStatusLine .lu-undo').click();
     await expect.poll(()=>s.folders.some(f=>f.id===made.id)).toBe(false);
     expect(folderOf(s,H4)).toBe(PR);expect(folderOf(s,H5)).toBe(RECV);expect(folderOf(s,M1)).toBe(RECV);expect(folderOf(s,M2)).toBe(undefined);
-    expect(s.trash).toEqual([]);
+    // 만든 폴더는 휴지통에 넣은 뒤 비우기(app_trash_purge)까지 한다. 폴더가 목록에서 빠진 때는 아직 비우기 전일 수 있어 끝 상태를 기다린다.
+    await expect.poll(()=>s.trash).toEqual([]);
     expect(s.rpc.filter(r=>r.fn==='app_trash_purge').map(r=>r.id)).toEqual([made.id]);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('되돌렸어요 · 4개를 원래 자리로');
     expect(errors).toEqual([]);
