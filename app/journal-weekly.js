@@ -81,7 +81,7 @@ export function placeRecords(records, tree) {
   const ordered = records.map((record, index) => ({record, index, node:nodes.get(record.id)}))
     .sort((a, b) => (a.node?.order ?? 0) - (b.node?.order ?? 0) || (b.record.first ? 1 : 0) - (a.record.first ? 1 : 0) || String(a.record.day).localeCompare(String(b.record.day)) || Date.parse(a.record.at) - Date.parse(b.record.at) || a.index - b.index);
   for (const {record, node} of ordered) {
-    const item = {day:record.day, text:record.text, requests:record.requests || [], ...(record.file ? {file:record.file} : {})};
+    const item = {day:record.day, text:record.text, requests:record.requests || [], ...(record.file ? {file:record.file} : {}), ...(record.body ? {body:record.body} : {})};
     if (!node) {
       const name = record.name || UNSORTED;
       if (!others.has(name)) others.set(name, {items:[], folded:[], dropped:[]});
@@ -254,8 +254,8 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   // MTG-기록겹침거르기 4단계(docs/design/record-overlap.md 4.2절): 이 주에 보이는 줄에 겹침 참조를 달고, 저장된 same 판정(m.overlaps)으로
   // 겹친 줄을 한 곳에서 뺀다. 요약·조직 소식·화면·초안 복사·한글 파일이 모두 이 모델을 쓰므로 한 번에 같은 결과가 된다.
   const rawRecords = (ok(m, 'basket') || ok(m, 'projectUpdates')) ? days.flatMap(day => projectRecordsOn({basket:ok(m, 'basket'), projectUpdates:ok(m, 'projectUpdates')}, day).map(r => ({...r, day, ref:refOfOpen(r.open)}))) : [];
-  const rawOrg = days.flatMap(day => orgNewsOn({basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')}, day, {open:true}).flatMap(section =>
-    section.items.map((text, i) => ({day, name:section.name, text, requests:section.tags?.[i] || [], ref:refOfOpen(section.opens?.[i]), open:section.opens?.[i] || null}))));
+  const rawOrg = days.flatMap(day => orgNewsOn({basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')}, day, {open:true, body:true}).flatMap(section =>
+    section.items.map((text, i) => ({day, name:section.name, text, requests:section.tags?.[i] || [], ref:refOfOpen(section.opens?.[i]), open:section.opens?.[i] || null, ...(section.bodies?.[i] ? {body:section.bodies[i]} : {})}))));
   const rawMeetings = kinds?.status === 'loading' ? [] : (() => {
     const list = kinds?.status === 'ok' ? kinds.list : null, read = ok(m, 'meetings'), items = [], off = new Map();
     for (const day of days) for (const meeting of read ? meetingsOn(read, day) : []) {
@@ -331,7 +331,8 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     if (s.failed.length < WEEKLY_SOURCES.orgs.length) for (const entry of rawOrg) {
       if (!keep(entry, 'orgs')) continue;
       if (!sections.has(entry.name)) sections.set(entry.name, {name:entry.name, items:[], folded:[], dropped:[]});
-      sections.get(entry.name).items.push({day:entry.day, text:entry.text, requests:entry.requests});
+      // WEEKLY-재료전체 ①: body(기록 전체 글)는 AI 초안 재료에만 쓰인다 — 화면·복사·한글 파일은 text 그대로.
+      sections.get(entry.name).items.push({day:entry.day, text:entry.text, requests:entry.requests, ...(entry.body ? {body:entry.body} : {})});
     }
     // 자료 읽기는 이 묶음의 재료가 아니다(읽는 중·실패면 자료 줄 없이 기록만, 자료는 '참고 › 자료실 새 자료'가 상태를 보여 줌).
     // WEEKLY-자료요약: 담당조직에 연결된 자료 → 그 조직 칸에만(프로젝트에도 연결돼 있어도, Q3 ①). 내 담당이 아니면 '그 외'에 "조직 이름 · …".
