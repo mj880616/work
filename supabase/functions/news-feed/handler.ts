@@ -49,7 +49,7 @@ const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: fals
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
-import { bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
+import { BODY_LIMITS, bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
 import { addDay, aiMonthStop, dayRow, type DayField, kstDay, MONTHLY_LIMIT_KRW } from "../_shared/news-days.ts";
 
@@ -1346,24 +1346,77 @@ export const HAND_RULE = "manual@1";
 export const HAND_LIMITS = Object.freeze({ title: 300, publisher: 60, author: 80, body: 50000, blocks: 400 });
 const HAND_MAX_BYTES = 256 * 1024;
 const HAND_KEYS = ["id", "title", "publisher", "author", "published_at", "body"];
-export type HandInput = { id: string; title: string; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null };
+export type HandInput = { id: string; title: string; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null; blocks: HandBlock[] | null };
 // deno-lint-ignore no-control-regex
 const HAND_CTRL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g;
 const handLine = (v: unknown) => (typeof v === "string" ? oneLine(v.replace(HAND_CTRL, " ")) : null);
-// 붙여 넣은 본문 → 문단 목록. 빈 줄이 있으면 빈 줄로, 없으면 줄마다 문단. 문단이 블록 상한을 넘으면 이웃 문단을 이어 붙인다.
-export function handParagraphs(raw: string): string[] {
-  const text = raw.replace(/\r\n?/g, "\n");
-  const lines = text.split("\n");
-  let paras: string[];
-  if (/\n[ \t　]*\n/.test(text)) paras = text.split(/\n[ \t　]*\n/).map((p) => oneLine(p.replace(HAND_CTRL, " ")));
-  else paras = lines.map((l) => oneLine(l.replace(HAND_CTRL, " ")));
-  paras = paras.filter(Boolean);
-  if (paras.length > HAND_LIMITS.blocks) {
-    const size = Math.ceil(paras.length / HAND_LIMITS.blocks), out: string[] = [];
-    for (let i = 0; i < paras.length; i += size) out.push(paras.slice(i, i + size).join(" "));
-    paras = out;
+// 붙여 넣은 본문 → 블록 목록(문단 p · 사진 img, S67-05 NEWS-직접넣기 사진). 빈 줄이 있으면 빈 줄로, 없으면 줄마다 문단.
+// - 사진: 한 줄 전체가 https 주소 하나이고 주소 끝이 그림 파일(.jpg·.png·.webp·.gif 등)이거나 '#사진'으로 끝나면 그 자리에 사진 블록.
+//   주소는 https만, 사용자·비밀번호·따로 적은 포트 없음, 2000자까지(모양 검사만 — 서버가 받으러 가지 않는다). 못 쓰는 주소(http·javascript·data 등)는 글자 문단으로 남는다.
+// - 사진 바로 다음 (빈 줄이 아닌) 줄이 '사진:'·'ⓒ'·'▲'로 시작하면 그 사진 설명(cap, 300자까지). '사진:' 머리말은 떼고 저장한다(화면 [수정]이 다시 붙인다).
+// - 사진은 한 기사 20장까지(DB 검사와 같음). 넘으면 parseHandFill이 400 TOO_MANY_PHOTOS. 글자 문단이 블록 상한을 넘으면 이웃 문단을 이어 붙인다.
+export const HAND_PHOTO_MARK = "#사진";
+const HAND_IMG_EXT = /\.(jpe?g|png|webp|gif|avif|bmp)$/i;
+const HAND_CAP_HEAD = /^(사진\s*[:：]|ⓒ|▲)/;
+export function handPhotoSrc(line: string): string | null {
+  const s = line.trim();
+  if (!/^https:\/\/\S+$/i.test(s)) return null;
+  const marked = s.endsWith(HAND_PHOTO_MARK);
+  let u: URL;
+  try { u = new URL(marked ? s.slice(0, -HAND_PHOTO_MARK.length) : s); } catch { return null; }
+  if (u.protocol !== "https:" || u.username || u.password || u.port || !u.hostname.includes(".")) return null;
+  if (!marked && !HAND_IMG_EXT.test(u.pathname)) return null;
+  u.hash = "";
+  const href = u.href;
+  if (href.length > BODY_LIMITS.src || /[\s"<>\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(href)) return null;
+  return href;
+}
+type HandBlock = { t: "p"; text: string } | { t: "img"; src: string; cap: string | null; alt: null };
+export function handBlocks(raw: string): HandBlock[] {
+  const text = raw.replace(/\r\n?/g, "\n"), lines = text.split("\n");
+  const byBlank = /\n[ \t　]*\n/.test(text);
+  const out: HandBlock[] = [];
+  let buf: string[] = [];
+  const flush = () => {
+    const text = oneLine(buf.join(" ").replace(HAND_CTRL, " "));
+    if (text) out.push({ t: "p", text });
+    buf = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const src = handPhotoSrc(line);
+    if (src) {
+      flush();
+      let cap: string | null = null;
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j++;
+      if (j < lines.length && HAND_CAP_HEAD.test(lines[j].trim()) && !handPhotoSrc(lines[j])) {
+        const c = cut(oneLine(lines[j].replace(HAND_CTRL, " ").trim().replace(/^사진\s*[:：]\s*/, "")), BODY_LIMITS.cap).trim();
+        cap = c || null;
+        i = j;
+      }
+      out.push({ t: "img", src, cap, alt: null });
+      continue;
+    }
+    if (!line.replace(/[ \t　]/g, "")) { flush(); continue; }
+    buf.push(line);
+    if (!byBlank) flush();
   }
-  return paras;
+  flush();
+  const imgs = out.filter((b) => b.t === "img").length, texts = out.length - imgs;
+  const room = HAND_LIMITS.blocks - imgs - BODY_LIMITS.images - 1;
+  if (out.length <= HAND_LIMITS.blocks || texts <= room) return out;
+  // 글자 문단만 이어 붙인다(사진 사이 구간마다 size개씩) — 순서는 그대로.
+  const size = Math.ceil(texts / room), merged: HandBlock[] = [];
+  let run: string[] = [];
+  const put = () => { for (let k = 0; k < run.length; k += size) merged.push({ t: "p", text: run.slice(k, k + size).join(" ") }); run = []; };
+  for (const b of out) { if (b.t === "p") run.push(b.text); else { put(); merged.push(b); } }
+  put();
+  return merged;
+}
+// 옛 이름(글자 문단만) — 시험·다른 곳이 쓰던 모양 그대로.
+export function handParagraphs(raw: string): string[] {
+  return handBlocks(raw).flatMap((b) => (b.t === "p" ? [b.text] : []));
 }
 export function parseHandFill(b: Row, nowMs: number): HandInput {
   const keys = Object.keys(b);
@@ -1385,13 +1438,15 @@ export function parseHandFill(b: Row, nowMs: number): HandInput {
     if (!Number.isFinite(t) || t < Date.parse("1990-01-01T00:00:00Z") || t > nowMs + 2 * 86400000) throw new Fail(400, "INVALID_DATE");
     published = new Date(t).toISOString();
   }
-  let body: string[] | null = null;
+  let body: string[] | null = null, blocks: HandBlock[] | null = null;
   if ("body" in b) {
     if (typeof b.body !== "string" || [...b.body].length > HAND_LIMITS.body) throw new Fail(400, "INVALID_TEXT");
-    body = handParagraphs(b.body);
+    blocks = handBlocks(b.body);
+    body = blocks.flatMap((x) => (x.t === "p" ? [x.text] : []));
     if (!body.length) throw new Fail(400, "INVALID_TEXT");
+    if (blocks.length - body.length > BODY_LIMITS.images) throw new Fail(400, "TOO_MANY_PHOTOS");
   }
-  return { id: b.id.toLowerCase(), title, publisher, author, published_at: published, body };
+  return { id: b.id.toLowerCase(), title, publisher, author, published_at: published, body, blocks };
 }
 // 손으로 넣은 값 → 한 줄 고칠 칸(공용 기사·옛 줄 같은 규칙). shared면 기자 이름·'직접 넣음' 시각 칸도(공용 기사에만 있음).
 export function handPatch(row: Row, v: HandInput, nowIso: string, shared: boolean): Row {
@@ -1407,9 +1462,10 @@ export function handPatch(row: Row, v: HandInput, nowIso: string, shared: boolea
   return patch;
 }
 export function handBody(v: HandInput): Extracted {
-  const blocks = (v.body ?? []).map((text) => ({ t: "p" as const, text }));
+  const blocks = v.blocks ?? (v.body ?? []).map((text) => ({ t: "p" as const, text }));
   const text = (v.body ?? []).join("\n");
-  return { state: "ok", reason: null, rule: HAND_RULE, blocks, chars: [...(v.body ?? []).join("")].length, images: 0, captions: 0, text };
+  const images = blocks.filter((x) => x.t === "img").length, captions = blocks.filter((x) => x.t === "img" && x.cap).length;
+  return { state: "ok", reason: null, rule: HAND_RULE, blocks, chars: [...(v.body ?? []).join("")].length, images, captions, text };
 }
 async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: Row, nowMs: number) {
   const v = parseHandFill(b, nowMs);
