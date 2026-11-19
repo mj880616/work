@@ -17,6 +17,10 @@ export const ONEDRIVE_MEDIA = Object.freeze([
   'https://*.svc.ms'
 ]);
 
+// NOTE-유튜브보기(app/video-embed.mjs): 노트 속 유튜브 링크의 작은 그림과 ▶를 누른 뒤의 재생 칸. 이 두 주소만 좁게 연다.
+export const YOUTUBE_THUMB = 'https://i.ytimg.com';
+export const YOUTUBE_PLAYER = 'https://www.youtube-nocookie.com';
+
 // 바구니 PC 앱 문 번호(app/pc-files-model.mjs PC_PORTS와 같게, tests/pc-files-model.test.mjs가 맞춰 본다).
 export const PC_DOOR = Object.freeze(['http://127.0.0.1:47620', 'http://127.0.0.1:47621', 'http://127.0.0.1:47622']);
 
@@ -32,7 +36,7 @@ const DIRECTIVES = Object.freeze([
   ['script-src-attr', ["'none'"]],
   // 2단계 정리 대상: 화면 코드의 style="…" 약 50곳·JS가 만드는 <style> 7곳과 편집기·수식(KaTeX)·도표(mermaid)가 쓰는 인라인 스타일.
   ['style-src', ["'self'", "'unsafe-inline'"]],
-  ['img-src', ["'self'", 'data:', 'blob:', SUPABASE_ORIGIN, ...ONEDRIVE_MEDIA]],
+  ['img-src', ["'self'", 'data:', 'blob:', SUPABASE_ORIGIN, ...ONEDRIVE_MEDIA, YOUTUBE_THUMB]],
   ['media-src', ["'self'", 'blob:', ...ONEDRIVE_MEDIA]],
   ['font-src', ["'self'", 'data:']],
   // raw.githubusercontent.com: 공유 페이지(Web1 게시판) 원문 읽기(app/web1-board.js RAW). wss: Supabase 실시간(지금은 쓰지 않음, 여유분).
@@ -42,7 +46,8 @@ const DIRECTIVES = Object.freeze([
   // pdf.js worker(app/pdf-lib), 서비스워커(app/sw.js).
   ['worker-src', ["'self'", 'blob:']],
   // HWP 편집기(app/hwp-lab, 같은 주소)와 srcdoc 칸막이(HTML 보기·공유 페이지 상세). blob:은 HWP 미리보기 여유분.
-  ['frame-src', ["'self'", 'blob:']],
+  // youtube-nocookie: 노트 속 유튜브 영상 재생 칸(NOTE-유튜브보기, ▶를 누른 뒤에만 생김).
+  ['frame-src', ["'self'", 'blob:', YOUTUBE_PLAYER]],
   ['manifest-src', ["'self'"]],
   ['object-src', ["'none'"]],
   ['base-uri', ["'self'"]],

@@ -72,7 +72,8 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} =
 export function paintDoc(box, note, {rt, onOpen = null} = {}) {
   if (!hasDoc(note)) return false;
   ensureStyles();
-  const doc = renderDoc(note.doc);
+  // NOTE-유튜브보기: 노트·업데이트 읽기 화면은 유튜브 링크 아래 영상 칸(▶ 누를 때 재생).
+  const doc = renderDoc(note.doc, null, {videos: true});
   box.replaceChildren(doc);
   box.dataset.noteView = 'doc';
   fillPhotos(box, note, {rt, onOpen});
