@@ -567,7 +567,7 @@ async function saveBody(db: Db, log: Log, source: OutsideSource, ex: Extracted, 
 // 다시 뽑기(NEWS-전면개편 P2c, S51-15 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 글 가운데 블록 줄이 없거나,
 // 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을 새 것부터 주소 REFILL_PER_SOURCE개까지
 // 글 쪽을 다시 읽어 블록 줄만 고친다(merge, 지우지 않음). 2년 지난 글·텔레그램(목록 글이 본문)·extract=false 단체는 하지 않는다.
-// 문장 표(app_outside_sentences)·요약·제목은 건드리지 않는다(화면 '원문 전체'는 블록 줄을 읽음). 못 읽은 줄에도 규칙 이름을 적어 같은 판의 영구 실패를 매번 고르지 않는다.
+// 문장 표(app_outside_sentences)·요약은 건드리지 않는다(화면 '원문 전체'는 블록 줄을 읽음). 제목은 줄임표로 잘린 것만 글 쪽 제목으로 고친다(S67-19, refillTitle). 못 읽은 줄에도 규칙 이름을 적어 같은 판의 영구 실패를 매번 고르지 않는다.
 // S61-44(NEWS-원문표기깨짐2 옛 글): state=ok여도 적힌 판(키@판)이 지금 판과 다르면 다시 뽑는다 — 추출·글자 규칙을 고치고 카탈로그 판을 올리면 옛 글도 고쳐진다.
 //   판이 비어 있는(null) ok 줄은 고르지 않는다(판 칸 이전 줄을 한꺼번에 다시 읽지 않게). 옛 ok 줄은 새로 뽑은 것도 ok일 때만 덮는다(못 읽으면 그대로 둠).
 // robots 예외 단체(공공운수노조·노동당): 하루 3번 새 글만 읽는다는 결정(11/01, 부하 최소)은 그대로 두고, 명진 결정 11/13 17:59(A안)에 따라
@@ -587,6 +587,14 @@ export function needsRefill(body: Record<string, unknown> | null | undefined, cu
 // 적힌 판이 있고 지금 판과 다른가(판이 오른 글).
 export function ruleBumped(body: Record<string, unknown> | null | undefined, current: string | null): boolean {
   return !!body && typeof body.rule === "string" && body.rule !== "" && current !== null && body.rule !== current;
+}
+// 다시 뽑기의 제목 고치기(S67-19): 줄임표로 잘린 저장 제목 + 글 쪽 HTML → 고칠 제목(새로 넣을 때와 같은 정돈) 또는 null(고칠 것 없음).
+export function refillTitle(source: OutsideSource, stored: string, pageHtml: string): string | null {
+  if (!/(…|\.{3})\s*$/.test(stored)) return null;
+  const better = betterTitle(stored, pageTitleFrom(pageHtml), source.name);
+  if (!better) return null;
+  const t = tidyTitle(better, source.name, { split: source.lang === "ko" }).title;
+  return t && usableTitle(t) && t !== stored ? t : null;
 }
 const embedOne = (v: unknown): Record<string, unknown> | null =>
   Array.isArray(v) ? (v[0] as Record<string, unknown> | undefined) ?? null : v && typeof v === "object" ? v as Record<string, unknown> : null;
@@ -627,6 +635,20 @@ async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSou
     // 공용 본문: ok 결과만 새 것으로 고치고, 못 읽은 결과는 블록이 없을 때만(읽힌 본문을 덮지 않음).
     const art = (await sharedByUrl(db, log, [url])).get(url);
     if (art) await saveSharedBody(db, log, source, String(art.id), ex, nowIso, ex.state === "ok");
+    // 잘린 제목(S67-19): 저장된 제목이 줄임표로 끝나고 글 쪽 제목이 그 앞부분으로 시작하는 더 긴 제목이면 그것으로 고친다(제목만 — 요약·문장은 그대로).
+    const cutOne = list.find((p) => /(…|\.{3})\s*$/.test(p.title));
+    const fixTitle = page.ok && cutOne ? refillTitle(source, cutOne.title, page.text) : null;
+    if (fixTitle) {
+      let fixed = 0;
+      for (const p of list) {
+        if (p.title === fixTitle || !/(…|\.{3})\s*$/.test(p.title)) continue;
+        try { await db.send("PATCH", `app_outside_posts?id=eq.${p.id}`, { title: fixTitle }, "return=minimal"); fixed++; } catch { log("title_failed", { source: source.key }); }
+      }
+      if (fixed) {
+        try { await db.send("PATCH", `app_outside_articles?url=eq.${encodeURIComponent(url)}`, { title: fixTitle }, "return=minimal"); } catch { log("shared_write_failed"); }
+        log("refill_title", { source: source.key, rows: fixed });
+      }
+    }
     for (const p of list) {
       if (p.wasOk && ex.state !== "ok") { log("refill_kept", { source: source.key }); continue; } // 옛 ok 본문을 실패로 덮지 않음
       try {

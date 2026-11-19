@@ -522,6 +522,12 @@ export function bodyScopeHtml(html: string, bodyClass?: RegExp): { html: string;
 export type RangeOpts = { start?: RegExp; end?: RegExp; info?: { start?: string | null; end?: string | null } };
 const SHARE_LINE = /^(공유하기|SNS 공유|Share this)$/i;
 const SHARE_SKIP_MIN = 30;
+// 게시판 단추 줄(S67-19, 그누보드 글 쪽 머리 '목록·수정·삭제' 단추 칸 — 본문 칸보다 **앞**에 있다): 본문 글자·사진이 나오기 전이면 본문 끝이 아니다.
+// 예전에는 이 줄에서 끊겨 본문이 0줄(no_body)이었다. 본문이 나온 뒤의 '목록' 줄은 예전처럼 끝.
+const BUTTON_LINE = /^(목록|목록으로|수정|삭제|답변|답글|글쓰기|복사|이동|검색|인쇄|스크랩)(\s+(목록|수정|삭제|답변|답글|글쓰기|복사|이동|검색|인쇄|스크랩))*$/;
+// 본문 앞 글 머리 줄(S67-19, 그누보드 #bo_v_info·화면 낭독용 제목): '댓글 0건' 같은 댓글 수 줄(본문 끝 표시 '댓글'과 머리가 같다)과
+// '페이지 정보'·'본문' 칸 제목. 본문이 나오기 전에만 건너뛴다('댓글목록' 같은 댓글 칸 제목은 예전처럼 끝).
+const HEAD_LINE = /^((댓글|덧글|comments?)\s*[:：]?\s*\d+\s*(건|개)?|페이지\s?정보|본문)$/i;
 const IMG_LINE = /\ue000\d+\ue000/;
 function endCode(mark: string): string {
   if (/^(목록)/.test(mark)) return "list";
@@ -545,6 +551,7 @@ export function bodyRange(lines: string[], title: string, own: boolean, key: (l:
   for (let n = start; n < lines.length; n++) {
     const l = lines[n], k = keys[n].trim();
     if (opts.end && opts.end.test(k)) { if (opts.info) opts.info.end = "rule"; break; }
+    if (!started && (BUTTON_LINE.test(k) || HEAD_LINE.test(k))) continue;
     const m = END_MARK.exec(k);
     if (m) {
       if (!started && SHARE_LINE.test(k)) continue;
@@ -579,7 +586,8 @@ export function extractBody(html: string, title: string, bodyClass?: RegExp): st
 const DATE_ONLY = /^(?=.*\d)[\d\s.:/\-()년월일시분오전후AMPMampm]+$/;
 // 제목 줄 다음 줄 번호(제목을 못 찾으면 0). 머리말([성명] 등)은 빼고 앞 20자로 찾는다.
 function afterTitle(lines: string[], title: string): number {
-  const key = oneLine(title).replace(/^\s*[\[<(【〈「][^\]>)】〉」]{1,20}[\]>)】〉」]\s*/, "").slice(0, 20);
+  // 줄임표로 잘린 목록 제목('… 집…')이면 줄임표를 떼고 찾는다(S67-19 — 예전: 줄임표까지 찾아 제목 줄을 못 찾음).
+  const key = oneLine(title).replace(/^\s*[\[<(【〈「][^\]>)】〉」]{1,20}[\]>)】〉」]\s*/, "").replace(/\s*(…|\.{3})\s*$/, "").slice(0, 20);
   const i = key ? lines.findIndex((l) => l.includes(key)) : -1;
   return i < 0 ? 0 : i + 1;
 }
