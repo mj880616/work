@@ -70,3 +70,19 @@
 ## 6. 되돌리기
 
 - 화면 PR을 먼저 되돌린 뒤 짝 rollback(`docs/20261119200000_feature_pin_lock.rollback.sql`, SQL Editor 전용)으로 표·함수·기록 1행만 지운다. 정해 둔 PIN·설정만 사라지고 각자 기록은 그대로다.
+
+## 7. 노트 폴더 잠금 (S67-14)
+
+명진 11/19 20:37 "노트는 특정 폴더만 잠금 가능하게".
+
+- 서버(`20261119233000_note_folder_lock`, 앞 단계 파일은 고치지 않고 더하기만): 새 표 `public.app_note_folder_locks`(사람·노트 폴더 한 쌍마다 한 줄, 폴더가 지워지면 함께 지워짐, RLS 켬·정책 없음·API 역할 표 권한 없음)와 함수 2개.
+
+| 함수 | 하는 일 |
+|---|---|
+| `app_lock_note_folders()` | 내가 잠근 폴더 id 목록(지금도 내 작업공간 폴더만). 이름·내용 없음 |
+| `app_lock_note_folder_set(pin, folder, locked)` | 폴더 하나 잠그기·풀기. 폴더 주인은 서버가 폴더 줄의 작업공간으로 확인(남의 폴더·없는 폴더는 같은 `LOCK_FOLDER_FORBIDDEN`, 횟수도 쓰지 않음) → 같은 PIN 대조(`private.app_lock_try`, 같은 틀린 횟수·막힘) → 50개까지(`LOCK_FOLDER_LIMIT`) |
+
+- PIN이 아직 없으면 화면이 먼저 PIN 정하기(`app_lock_setup`, 잠근 기능 없이)를 한 뒤 잠근다.
+- 풀림·다시 잠그기는 기능 잠금과 하나다: PIN 한 번이면 잠근 기능·폴더가 함께 풀리고, 같은 '다시 잠그기' 규칙으로 함께 잠긴다(화면 메모리에만).
+- 잠긴 폴더와 그 안의 하위 폴더 노트는 어디서도 제목·내용 대신 '잠김'(화면 PR에서 처리할 곳을 전수 표로).
+- 되돌리기: 화면 PR을 먼저 되돌린 뒤 짝 rollback(`docs/20261119233000_note_folder_lock.rollback.sql`, SQL Editor 전용). 잠근 폴더 목록만 사라지고 노트·폴더·PIN은 그대로다.
