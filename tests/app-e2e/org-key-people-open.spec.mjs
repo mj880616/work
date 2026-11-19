@@ -17,7 +17,7 @@ const callRow={workspace_id:'w',source:'call',id:CALL,day:'2026-10-05',occurred_
 const senders={senders:[{id:'s1',workspace_id:'w',name:null,auto_name:'합성인물 하나',is_self:false,sender_key:'k'}],links:[{workspace_id:'w',room_key:'room-b',day:'2026-10-06',label:'A',sender_id:'s1'}]};
 const brief={organization_id:'ob',day:'2026-10-06',brief:'요즘 합성인물 하나와 교섭 일정·자료 준비를 자주 이야기했고, 다음 주 화요일 교섭을 앞두고 자료집 원고 마감을 챙기는 중이라는 아주 긴 한 문장입니다.',detail:null,people_ids:['k1'],updated_at:stamp};
 
-async function fixture(page,width){
+async function fixture(page,width,{locked=null}={}){
   await page.setViewportSize({width,height:860});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const items=[...telegramRows(),callRow];
@@ -31,6 +31,7 @@ async function fixture(page,width){
     await route('app_tg_senders',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:senders.senders}));
     await route('app_tg_day_senders',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:senders.links}));
     for(const t of ['app_call_personal','app_call_edits','app_meetings','app_suborganization_updates','app_documents'])await route(t,r=>r.fulfill({json:[]}));
+    if(locked)await page.route(SB+'/rest/v1/rpc/app_lock_read*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({has_pin:true,features:locked,relock:'5m',left:5,blocked_until:null})}));
   }});
   return {errors};
 }
@@ -108,5 +109,18 @@ for(const width of [412,720,1280])test(`${width}: 주요 인물 칸 — 가로 �
   expect(got.gap,'칩 줄 ↔ 요즘').toBe(8);
   if(width<761){expect(got.lines,"'요즘' 줄바꿈").toBeGreaterThan(1);expect(got.cut,'긴 지난 기록 글은 …').toBe(true)}
   for(const key of ['basic','aff','recent']){await m.locator(`[data-wd-tab="${key}"]`).click();expect(await wide(),key).toEqual({card:0,people:0,page:0})}
+  expect(errors).toEqual([]);
+});
+
+// SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 지난 기록의 그 줄들은 글 대신 '잠김' 한 줄(몇 줄인지만).
+test('412: 통화·텔레그램을 잠그면 주요 인물 지난 기록은 "잠김" 한 줄',async({page})=>{
+  const {errors}=await fixture(page,412,{locked:['calls','telegram']});
+  await page.evaluate(()=>window.KPTURouter.go('team',{source:'delegated'}));
+  await page.locator('#soOrganizationList [data-so-org="ob"]').click();
+  await expect(page.locator('#wdTitle')).toHaveText('합성 나 지부');
+  await page.locator('#wdModal [data-wd-tab="people"]').click();
+  await expect(page.locator('#wdPeople [data-okp-locked]')).toHaveText(/^통화·텔레그램 \d+줄 · 잠김$/);
+  await expect(page.locator('#wdPeople')).not.toContainText('다음 주 교섭 일정');
+  await expect(page.locator('#wdPeople .okp-tag.call')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

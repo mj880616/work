@@ -123,6 +123,13 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
   function paint() {
     const rows = data?.rows || [];
     if (!rows.length) { el.hidden = true; el.innerHTML = ''; return; }
+    // SEC-기능PIN잠금(S67-14): 마지막 연락 날짜는 통화·텔레그램에서 온다 — 둘 중 하나라도 잠겼고 아직 안 풀었으면 '잠김' 한 줄만.
+    const L = window.KPTUFeatureLock;
+    if (L?.settings?.() && (L.hides?.('calls') || L.hides?.('telegram'))) {
+      el.hidden = false; el.classList.remove('is-open');
+      el.innerHTML = '<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line" data-oq-locked><span class="oq-text">연락 없는 조직 · 잠김</span></div>';
+      return;
+    }
     const weeks = weeksOf(viewPrefs.get('quiet_weeks')), {shown, more} = headParts(rows), d = today();
     const name = r => `<button type="button" class="oq-org" data-oq-org="${esc(r.id)}">${esc(r.name)}</button>`;
     const head = open
@@ -151,5 +158,7 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
   const onPrefs = () => void refresh();
   const EVENTS = ['kptu:view-prefs-ready', 'kptu:quiet-weeks-changed'];
   EVENTS.forEach(name => window.addEventListener(name, onPrefs));
-  return {refresh, destroy() { alive = false; run++; EVENTS.forEach(name => window.removeEventListener(name, onPrefs)); }};
+  const onLock = () => { if (alive) paint(); };
+  window.addEventListener('kptu:feature-lock-changed', onLock);
+  return {refresh, destroy() { alive = false; run++; EVENTS.forEach(name => window.removeEventListener(name, onPrefs)); window.removeEventListener('kptu:feature-lock-changed', onLock); }};
 }

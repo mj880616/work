@@ -269,6 +269,8 @@ function answerBox(where) {
     det.append(sum);
     for (const src of answer.sources) {
       const row = srcButton(src, answer, 'gs-ask-src-row');
+      // SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 근거 줄은 제목·내용 대신 '잠김'(누르면 그 화면 문지기가 PIN을 묻는다).
+      if (srcLocked(src)) { row.dataset.gsLocked = ''; row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', '잠김')); det.append(row); continue; }
       row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', src.title));
       if (src.tag) row.append(el('span', 'gs-state', src.tag));
       if (src.snippet) row.append(el('span', 'gs-ask-src-snip', src.snippet));
@@ -279,6 +281,7 @@ function answerBox(where) {
   if (answer?.lines?.length) box.append(el('p', 'gs-ask-foot', ASK_TEXT.foot));
   return box;
 }
+const srcLocked = src => (src?.kind === 'call' || src?.kind === 'telegram') && !!lock.settings() && lock.hides(src.kind === 'call' ? 'calls' : 'telegram');
 function srcButton(src, answer, cls, text = '') {
   const b = el('button', cls, text || null); b.type = 'button';
   const key = `${src.ref}:${answer.id || 'new'}`; askSources.set(key, src); b.dataset.gsSrc = key;
@@ -369,7 +372,7 @@ function noteLocked(item) {
   if (!meta) { noteAsk.add(item.id); return true; }
   return lock.noteHidden({metadata: meta});
 }
-window.addEventListener('kptu:feature-lock-changed', () => { if (state.groups) paintAll(); });
+window.addEventListener('kptu:feature-lock-changed', () => { if (state.groups || state.ask) paintAll(); });
 window.addEventListener('kptu:basket-notes-restored', () => { noteMeta.clear(); noteSeq++; });
 window.addEventListener('kptu:session-changed', () => { resetFolders(); noteMeta.clear(); noteSeq++; });
 function rowNode(item, key, where) {
