@@ -77,7 +77,7 @@ test('outside archive to star: archive-only rows get a star, archived_at kept, s
    for(const mode of ['apply','dry-run']){const p=prepareMigration({mode,version,runId:'1',root});assert.equal(p.rules,'strict');assert.equal(p.flow,'full');assert.deepEqual(p.targets,['app_outside_article_marks']);assert.equal(p.review,undefined);}
    const summary=(await read('docs/'+stem+'.summary.md')).trim().split('\n');
    assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
-   const code=migration.replace(/--.*$/gm,'');
+   const code=migration.replace(/--.*$/gm,'').replace(/insert into supabase_migrations\.schema_migrations[\s\S]*?;\n/,''); // 기록 1행의 설명 글('no ... grant ...')은 빼고 본다
    assert.doesNotMatch(code,/security definer|disable row level|\bgrant\b|\brevoke\b|create policy|drop policy|create (or replace )?function|information_schema|rtw_|app_outside_marks\b|delete from public|archived_at\s*=\s*null/i);
    for(const sql of [precheck,postcheck,snapshot,rollbackSQL])assert.doesNotMatch(sql,/information_schema/i);
    for(const r of await readOnly(precheck))assert.match(r.value,/^(예|아니오|[0-9]+|[0-9a-f]{32})$/,r.item);
