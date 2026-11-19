@@ -5,7 +5,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
 import {previewText,markdownSource,writtenText} from './note-preview.mjs';
 import {attachmentsLabel} from './record-file-line.mjs';
-import {markLineRevert} from './record-line-briefs.js'; // ORG-기록첨부 옛줄바꾸기(S67-13): 사진 설명으로 바꾼 줄 표시
+import {markLineRevert,revertRecordLine} from './record-line-briefs.js'; // ORG-기록첨부 옛줄바꾸기(S67-13): 사진 설명으로 바꾼 줄 표시
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -124,6 +124,8 @@ export function linkRecordHtml(row,{extra=''}={}){
   return `<div class="basket-link-record" data-basket-link="${escape(row.id)}"${row.line_revert?' data-basket-link-revert':''} data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${isDirectRecord(row)?`<time>${escape(date)}</time>`:`${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'잊지 말기 연결'} · <time>${escape(date)}</time>`}</small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordShownText(row))}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="${recordMenuLabel(row)}" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span class="more-dots" aria-hidden="true">⋯</span></button></div>${extra}<p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
+// ORG-기록첨부 옛줄바꾸기(S67-13): 기록 줄 ⋯ [이전 줄로 되돌리기] 한 줄(조직 기록 메뉴·사업 진행 기록 메뉴가 같이 씀). attr = 그 메뉴의 동작 속성.
+export const lineRevertItem=attr=>`<button type="button" ${attr}="line-revert">이전 줄로 되돌리기</button>`;
 // One menu panel for every mounted record host (created on first use inside the open dialog).
 const mountedHosts=new Map();let linkMenu=null;
 const hostOf=trigger=>[...mountedHosts.keys()].find(host=>host.contains(trigger));
@@ -133,7 +135,7 @@ function recordMenu(host){
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
     // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정]. UI-연결요약수정: [요약 수정] changes only this link's summary.
     // ORG-연결노트삭제(2026-11-12 명진 지시): 노트 줄에도 업데이트와 같은 자리·이름의 [원문 삭제](맨 아래, 위험 색). 노트 화면 [삭제]와 같은 휴지통 길.
-    render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button>')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>'+([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.hasAttribute('data-basket-link-revert')?'<button type="button" data-basket-link-action="line-revert">이전 줄로 되돌리기</button>':'')+'<button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
+    render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button>')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>'+([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.hasAttribute('data-basket-link-revert')?lineRevertItem('data-basket-link-action'):'')+'<button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
     onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
   return linkMenu;
 }
@@ -275,7 +277,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const record=getRecord(id),key=`link:${id}`;if(!record||acting.has(key))return;
     if(formFor(id)){say(id,'요약 수정을 먼저 저장하거나 취소해 주세요.');return;}
     const run=epoch,owner=scope(rt),rows=rowsFor('basketLink',id);acting.add(key);setRowBusy(rows,true);say(id,'처리 중…');
-    let result;try{const {revertRecordLine}=await import('./record-line-backfill.js');result=await revertRecordLine(record,rt);}catch{result={ok:false,message:'결과를 확인하지 못했어요. 다시 시도해 주세요.'};}finally{acting.delete(key);}
+    let result;try{result=await revertRecordLine(record,rt,{update:updateLinkSummary});}catch{result={ok:false,message:'결과를 확인하지 못했어요. 다시 시도해 주세요.'};}finally{acting.delete(key);}
     if(run!==epoch||owner!==scope(rt)||!isCurrent()||result.stale)return;
     const live=rowsFor('basketLink',id);setRowBusy(live,false);say(id,result.ok?'':result.message);
   }

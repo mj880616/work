@@ -11,7 +11,7 @@ import { readRecordPages, updateLinkSummary } from './basket-link-records.js';
 import { readFileBriefs } from './record-line-briefs.js';
 import { requestPhotoBriefs, PHOTO_BRIEF_BATCH } from './photo-brief-request.js';
 import { recordBody } from './business-now-model.mjs';
-import { backfillTargets, backfilledLine, canRevertLine, fileNameLine, picturesWithoutBrief, progressText, finishText } from './record-line-backfill.mjs';
+import { backfillTargets, backfilledLine, picturesWithoutBrief, progressText, finishText } from './record-line-backfill.mjs';
 
 const enc = encodeURIComponent;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -37,7 +37,7 @@ export async function findBackfill(rt = globalThis.window?.KPTURuntime) {
     const noteIds = [...new Set(bizRows.map(r => r.source_id))], notes = new Map();
     for (let i = 0; i < noteIds.length; i += 50) {
       const part = noteIds.slice(i, i + 50);
-      const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&id=in.(${part.map(enc).join(',')})&select=id,workspace_id,attachments&limit=${part.length + 1}`);
+      const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.basket&id=in.(${part.map(enc).join(',')})&select=id,workspace_id,attachments&limit=${part.length + 1}`);
       if (!Array.isArray(rows)) throw new Error('read');
       for (const n of rows) if (n?.workspace_id === ws && part.includes(n.id)) notes.set(n.id, n.attachments);
     }
@@ -57,7 +57,7 @@ async function writeLine(item, next, rt) {
     return Array.isArray(rows) && rows.length === 1;
   } catch { return false; }
 }
-const announce = () => {
+export const announce = () => {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
   window.dispatchEvent(new CustomEvent('kptu:business-now-changed', { detail: { records: true } }));
@@ -101,27 +101,7 @@ export async function runBackfill(found, rt = globalThis.window?.KPTURuntime, { 
   return { done, total, left: total - done, capped: capped || queue.length > 0 };
 }
 
-// [이전 줄로 되돌리기] — 연결 줄 하나(row: readLinkRecords 줄, attachments 포함). 같은 업데이트의 사업 기록 줄도 같이 되돌린다.
-export async function revertRecordLine(row, rt = globalThis.window?.KPTURuntime, { read = readFileBriefs } = {}) {
-  const atts = Array.isArray(row?.attachments) ? row.attachments : [];
-  if (!row?.id || typeof row.summary !== 'string' || !atts.length) return { ok: false, message: '이 기록 줄을 확인하지 못했어요.' };
-  const owner = scopeOf(rt);
-  let briefs;
-  try { ({ briefs } = await read(atts.map(f => f?.drive_file_id), rt)); } catch { return { ok: false, message: '결과를 확인하지 못했어요. 다시 시도해 주세요.' }; }
-  if (owner !== scopeOf(rt)) return { ok: false, stale: true, message: '' };
-  if (!canRevertLine(row.summary, atts, briefs)) return { ok: false, message: '사진 설명으로 바꾼 줄이 아니라 되돌릴 이전 줄이 없어요.' };
-  const old = fileNameLine(atts);
-  const r = await updateLinkSummary(row.id, row.summary, old, rt).catch(() => null);
-  if (r?.ok !== true) return { ok: false, message: r?.error === 'SUMMARY_CHANGED' ? '다른 곳에서 줄이 바뀌었어요. 목록을 다시 확인해 주세요.' : '되돌리지 못했어요. 다시 시도해 주세요.' };
-  const ws = ctxOf(rt)?.workspace?.id;
-  if (ws && UUID.test(String(row.note_id || '')) && owner === scopeOf(rt)) {
-    try {
-      await rt.api(`${RECS}?workspace_id=eq.${enc(ws)}&source_kind=eq.update&source_id=eq.${enc(row.note_id)}&body=eq.${enc(recordBody(row.summary))}&select=id`, { method: 'PATCH', prefer: 'return=representation', singleFlight: false, body: { body: recordBody(old) } });
-    } catch { /* 사업 기록 줄은 덤 — 연결 줄은 이미 되돌림 */ }
-  }
-  announce();
-  return { ok: true, message: '이전 줄로 되돌렸어요.' };
-}
+// [이전 줄로 되돌리기]는 record-line-briefs.js revertRecordLine(기록 목록 쪽에서 부름 — 이 파일을 거꾸로 부르면 순환 참조).
 
 // 화면 한 번 누르기: 찾기 → 개수 묻기 → 뒤에서 차례로(진행 한 줄). 한 번에 하나만 돈다.
 let running = null;

@@ -3,12 +3,14 @@
 // - readFileBriefs(fileIds) → {briefs: Map 파일 id → 'b1:' 설명, docs: Map 파일 id → {id, mime_type, file_name, indexed(요약 행이 이미 있음)}}
 // - markLineRevert(rows): 기록 목록 읽기(readLinkRecords withFiles)가 부른다. 사진 설명으로 바꾼 줄에만 row.line_revert = true
 //   (⋯ [이전 줄로 되돌리기]). 읽기가 실패하면 표시 없이 그대로(목록은 깨지지 않음).
-import { DRIVE_ID, canRevertLine, isFileNameLine } from './record-line-backfill.mjs';
+import { DRIVE_ID, canRevertLine, fileNameLine, isFileNameLine } from './record-line-backfill.mjs';
+import { recordBody } from './business-now-model.mjs';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const BRIEF_HASH = /^b1:[0-9a-f]{32}$/;
 const PART = 50;
 const enc = encodeURIComponent;
+const scopeOf = rt => { const c = ctxOf(rt); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const ctxOf = rt => (typeof rt?.context?.read === 'function' ? rt.context.read() || {} : globalThis.window?.__KPTU_BOOT_CONTEXT__ || {});
 const parts = list => Array.from({ length: Math.ceil(list.length / PART) }, (_, i) => list.slice(i * PART, (i + 1) * PART));
 
@@ -53,4 +55,30 @@ export async function markLineRevert(rows, rt = globalThis.window?.KPTURuntime) 
     for (const r of list) if (canRevertLine(r.summary, r.attachments, briefs)) r.line_revert = true;
   } catch { /* 표시만 빠짐 */ }
   return rows;
+}
+
+// [이전 줄로 되돌리기] — 연결 줄 하나(row: readLinkRecords 줄, attachments 포함). 같은 업데이트의 사업 기록 줄도 같이 되돌린다.
+// update = basket-link-records.js updateLinkSummary(읽은 옛 줄과 같을 때만 씀 — 부르는 쪽이 넘김, 순환 참조 없게).
+export async function revertRecordLine(row, rt = globalThis.window?.KPTURuntime, { update, read = readFileBriefs } = {}) {
+  const atts = Array.isArray(row?.attachments) ? row.attachments : [];
+  if (typeof update !== 'function' || !row?.id || typeof row.summary !== 'string' || !atts.length) return { ok: false, message: '이 기록 줄을 확인하지 못했어요.' };
+  const owner = scopeOf(rt);
+  let briefs;
+  try { ({ briefs } = await read(atts.map(f => f?.drive_file_id), rt)); } catch { return { ok: false, message: '결과를 확인하지 못했어요. 다시 시도해 주세요.' }; }
+  if (owner !== scopeOf(rt)) return { ok: false, stale: true, message: '' };
+  if (!canRevertLine(row.summary, atts, briefs)) return { ok: false, message: '사진 설명으로 바꾼 줄이 아니라 되돌릴 이전 줄이 없어요.' };
+  const old = fileNameLine(atts);
+  const r = await update(row.id, row.summary, old, rt).catch(() => null);
+  if (r?.ok !== true) return { ok: false, message: r?.error === 'SUMMARY_CHANGED' ? '다른 곳에서 줄이 바뀌었어요. 목록을 다시 확인해 주세요.' : '되돌리지 못했어요. 다시 시도해 주세요.' };
+  const ws = ctxOf(rt)?.workspace?.id;
+  if (ws && UUID.test(String(row.note_id || '')) && owner === scopeOf(rt)) {
+    try {
+      await rt.api(`/rest/v1/app_business_records?workspace_id=eq.${enc(ws)}&source_kind=eq.update&source_id=eq.${enc(row.note_id)}&body=eq.${enc(recordBody(row.summary))}&select=id`, { method: 'PATCH', prefer: 'return=representation', singleFlight: false, body: { body: recordBody(old) } });
+    } catch { /* 사업 기록 줄은 덤 — 연결 줄은 이미 되돌림 */ }
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
+    window.dispatchEvent(new CustomEvent('kptu:business-now-changed', { detail: { records: true } }));
+  }
+  return { ok: true, message: '이전 줄로 되돌렸어요.' };
 }

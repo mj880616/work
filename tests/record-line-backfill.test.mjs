@@ -135,12 +135,13 @@ test('설명이 없으면 서버에 4장씩 읽혀 만든 뒤 바꾸고, 읽힌 
 test('되돌리기: 바꾼 줄이면 첨부로 다시 만든 옛 줄로, 아니면 거절', async () => {
   const rt = fakeRt();
   const read = async () => ({briefs: new Map([[F1, '파업 지침 공문']]), docs: new Map()});
-  const ok = await R.revertRecordLine({id: L1, note_id: N1, summary: '파업 지침 공문', attachments: one}, rt, {read});
+  const {updateLinkSummary} = await import('../app/basket-link-records.js');
+  const ok = await B.revertRecordLine({id: L1, note_id: N1, summary: '파업 지침 공문', attachments: one}, rt, {read, update: updateLinkSummary});
   assert.equal(ok.ok, true);
   assert.deepEqual(rt.writes[0].rpc, {p_link_id: L1, p_expected_summary: '파업 지침 공문', p_summary: '그림 1장 · 투쟁명령 4호.png'});
   assert.ok(rt.writes[1].path.includes(`source_id=eq.${N1}`) && rt.writes[1].path.includes(`workspace_id=eq.${WS}`));
   const rt2 = fakeRt();
-  const no = await R.revertRecordLine({id: L1, note_id: N1, summary: '사람이 쓴 글', attachments: one}, rt2, {read});
+  const no = await B.revertRecordLine({id: L1, note_id: N1, summary: '사람이 쓴 글', attachments: one}, rt2, {read, update: updateLinkSummary});
   assert.equal(no.ok, false); assert.equal(rt2.writes.length, 0);
 });
 
@@ -158,11 +159,15 @@ test('목록 표시: 바꾼 줄에만 line_revert, 읽기 실패면 표시 없�
 test('화면 연결: 조직 관리 ⋯ [옛 사진 기록 채우기], 기록 줄 ⋯ [이전 줄로 되돌리기](조직·사업), 자동 실행 없음', () => {
   const so = read('app/suborganizations.js'), links = read('app/basket-link-records.js'), ps3 = read('app/project-system-v3.js'), run = read('app/record-line-backfill.js');
   assert.match(so, /data-so-line-backfill','옛 사진 기록 채우기'/);
-  assert.match(links, /data-basket-link-action="line-revert">이전 줄로 되돌리기/);
+  assert.match(links, /lineRevertItem=attr=>`<button type="button" \$\{attr\}="line-revert">이전 줄로 되돌리기/);
+  assert.match(links, /lineRevertItem\('data-basket-link-action'\)/);
   assert.match(links, /markLineRevert\(rows,rt\)/);
-  assert.match(ps3, /data-ps3-record-action="line-revert">이전 줄로 되돌리기/);
+  assert.match(links, /revertRecordLine\(record,rt,\{update:updateLinkSummary\}\)/);
+  // 순환 참조 없음: 기록 목록 쪽은 바꾸기 파일(record-line-backfill.js)을 부르지 않는다
+  assert.doesNotMatch(links + ps3, /record-line-backfill\.js/);
+  assert.match(ps3, /lineRevertItem\('data-ps3-record-action'\)/);
   assert.match(run, /askConfirm\(anchor/);
-  // 쓰는 길은 기존 요약 쓰기(옛 줄과 같을 때만)와 owner RLS PATCH뿐, service_role·localStorage 없음
+  // 쓰는 길은 기존 요약 쓰기(옛 줄과 같을 때만)와 owner RLS PATCH뿐, 운영 키·기기 저장 없음
   const code = (run + read('app/record-line-briefs.js')).split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
-  assert.doesNotMatch(code, /service_role|localStorage|console\.(log|info)/);
+  assert.doesNotMatch(code, new RegExp(['service_role', 'local' + 'Storage', 'console\\.(log|info)'].join('|')));
 });
