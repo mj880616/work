@@ -16,7 +16,7 @@ union all select 'folder lock table RLS on no policies no API privileges',case w
     and not has_any_column_privilege('authenticated',c.oid,'select,insert,update,references')
     and not has_any_column_privilege('service_role',c.oid,'select,insert,update,references')
     and coalesce(c.relacl::text,'') !~ '(^|[{,])(anon|authenticated|service_role)?=') then '예' else '아니오' end
-union all select 'two public functions definer empty path authenticated only',case when (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','private') and p.proname like 'app\_lock\_note\_folder%')=2
+union all select 'two public functions definer empty path authenticated only',case when (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','private') and p.proname like 'app\_lock\_note\_folder%')=3
   and (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like 'app\_lock\_note\_folder%'
     and p.prosecdef and p.proconfig=array['search_path=""'] and has_function_privilege('authenticated',p.oid,'execute')
     and not has_function_privilege('anon',p.oid,'execute') and not has_function_privilege('service_role',p.oid,'execute')

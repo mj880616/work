@@ -58,6 +58,7 @@ test('note folder lock db: plan, dry-run, apply, closed table, same PIN and trie
   async function as(role,sub,sql,params=[]){const c=await pool.connect();try{await c.query('begin');await c.query("select set_config('request.jwt.claim.sub',$1,true), set_config('request.jwt.claims',$2,true)",[sub||'',JSON.stringify({sub:sub||undefined})]);await c.query('set local role '+role);const r=await c.query(sql,params);await c.query('commit');return r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}}
   const call=(sub,fn,args=[],types=[])=>as('authenticated',sub,`select public.${fn}(${args.map((_,i)=>'$'+(i+1)+(types[i]?'::'+types[i]:'')).join(',')}) as r`,args).then(r=>r[0].r);
   const set=(sub,pin,folder,locked)=>call(sub,'app_lock_note_folder_set',[pin,folder,locked],['text','uuid','boolean']);
+  const mine=sub=>call(sub,'app_lock_note_folders').then(r=>r.folders);
   const refuse=async(p,msg)=>{await assert.rejects(p,e=>{assert.equal(e.message,msg);return true;});};
   const failCount=async sub=>(await pool.query('select fail_count from public.app_feature_locks where user_id=$1',[sub])).rows[0]?.fail_count;
   const before=(await pool.query(snapshot)).rows,beforeCheck=await readOnly(precheck);
@@ -66,7 +67,7 @@ test('note folder lock db: plan, dry-run, apply, closed table, same PIN and trie
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
    const plan=prepareMigration({mode:'apply',version,runId:'1',root});
    assert.equal(plan.rules,'expanded');
-   assert.equal([...plan.functions].length,2);
+   assert.equal([...plan.functions].length,3);
    assert.match(toDryRun(migration),/rollback;\s*$/);
    const lines=summary.trim().split('\n');
    assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
@@ -101,24 +102,24 @@ test('note folder lock db: plan, dry-run, apply, closed table, same PIN and trie
    await refuse(set('','1234',F1,true),'LOCK_AUTH_REQUIRED');
   });
   await t.test('needs a PIN; locks and unlocks only with the right PIN; wrong PIN counted in the same tries',async()=>{
-   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[]});
+   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[],covered:[],top_names:[]});
    await refuse(set(OWNER,'1234',F1,true),'LOCK_PIN_MISSING');
    await call(OWNER,'app_lock_setup',['1234',[],'5m'],['text','text[]','text']);
    for(const bad of ['123','12a4','',null])await refuse(set(OWNER,bad,F1,true),'LOCK_PIN_FORMAT');
    await refuse(set(OWNER,'1234',null,true),'LOCK_SETTINGS_INVALID');
    await refuse(set(OWNER,'1234',F1,null),'LOCK_SETTINGS_INVALID');
    assert.deepEqual(await set(OWNER,'0000',F1,true),{ok:false,left:4,blocked_until:null});
-   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[]});
+   assert.deepEqual(await mine(OWNER),[]);
    // 같은 횟수: 기능 잠금 대조(app_lock_check)와 함께 센다.
    assert.equal(await failCount(OWNER),1);
    assert.deepEqual(await call(OWNER,'app_lock_check',['0000'],['text']),{ok:false,left:3,blocked_until:null});
-   assert.deepEqual(await set(OWNER,'1234',F1,true),{ok:true,left:5,blocked_until:null,folders:[F1]});
+   assert.deepEqual(await set(OWNER,'1234',F1,true),{ok:true,left:5,blocked_until:null,folders:[F1],covered:[F1,F_CHILD].sort(),top_names:['갑 폴더']});
    assert.equal(await failCount(OWNER),0);
    assert.deepEqual((await set(OWNER,'1234',F2,true)).folders,[F1,F2].sort());
    // 두 번 잠가도 한 줄.
    assert.deepEqual((await set(OWNER,'1234',F2,true)).folders,[F1,F2].sort());
    assert.deepEqual((await set(OWNER,'1234',F2,false)).folders,[F1]);
-   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[F1]});
+   assert.deepEqual(await mine(OWNER),[F1]);
    // 앞 단계 설정(잠근 기능)은 그대로.
    assert.deepEqual((await call(OWNER,'app_lock_read')).features,[]);
   });
@@ -130,12 +131,12 @@ test('note folder lock db: plan, dry-run, apply, closed table, same PIN and trie
    await call(STRANGER,'app_lock_setup',['5678',[],'5m'],['text','text[]','text']);
    await refuse(set(STRANGER,'5678',F1,true),'LOCK_FOLDER_FORBIDDEN');
    await refuse(set(STRANGER,'5678',F1,false),'LOCK_FOLDER_FORBIDDEN');
-   assert.deepEqual(await call(STRANGER,'app_lock_note_folders'),{folders:[]});
+   assert.deepEqual(await mine(STRANGER),[]);
    assert.deepEqual((await set(STRANGER,'5678',F_OTHER,true)).folders,[F_OTHER]);
-   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[F1]});
+   assert.deepEqual(await mine(OWNER),[F1]);
    // 남의 작업공간 폴더 줄이 (어떤 길로든) 남아 있어도 읽기에 나오지 않는다(owner 판정).
    await pool.query('insert into public.app_note_folder_locks(user_id,folder_id) values ($1,$2)',[OWNER,F_OTHER]);
-   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[F1]});
+   assert.deepEqual(await mine(OWNER),[F1]);
    await pool.query('delete from public.app_note_folder_locks where user_id=$1 and folder_id=$2',[OWNER,F_OTHER]);
   });
   await t.test('blocked after 5 wrong tries: folder lock refused even with the right PIN',async()=>{
@@ -143,19 +144,19 @@ test('note folder lock db: plan, dry-run, apply, closed table, same PIN and trie
    const blocked=await set(OWNER,'0000',F2,true);
    assert.equal(blocked.ok,false);assert.equal(blocked.left,0);assert.ok(blocked.blocked_until);
    assert.deepEqual(await set(OWNER,'1234',F1,false),{ok:false,left:0,blocked_until:blocked.blocked_until});
-   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[F1]});
+   assert.deepEqual(await mine(OWNER),[F1]);
    await pool.query("update public.app_feature_locks set blocked_until=now()-interval '1 second' where user_id=$1",[OWNER]);
   });
   await t.test('at most 50 folders; deleting a folder removes its lock row',async()=>{
    const ids=[];for(let i=0;i<50;i++)ids.push(`33000000-0000-4000-8000-${String(i).padStart(12,'0')}`);
    await pool.query(`insert into public.app_note_folders(id,workspace_id,name,sort_order) select x::uuid,'${WS_A}','많은 '||n,n from unnest($1::text[]) with ordinality as t(x,n)`,[ids]);
    for(const id of ids.slice(0,49))assert.equal((await set(OWNER,'1234',id,true)).ok,true);
-   assert.equal((await call(OWNER,'app_lock_note_folders')).folders.length,50);
+   assert.equal((await mine(OWNER)).length,50);
    await refuse(set(OWNER,'1234',ids[49],true),'LOCK_FOLDER_LIMIT');
    // 이미 잠근 폴더를 다시 잠그는 것은 상한에 걸리지 않는다.
    assert.equal((await set(OWNER,'1234',F1,true)).ok,true);
    await pool.query('delete from public.app_note_folders where id=any($1::uuid[])',[ids]);
-   assert.deepEqual(await call(OWNER,'app_lock_note_folders'),{folders:[F1]});
+   assert.deepEqual(await mine(OWNER),[F1]);
    await pool.query('delete from public.app_note_folders where id=$1',[F2]);
    assert.equal((await pool.query('select count(*)::int n from public.app_note_folder_locks where folder_id=$1',[F2])).rows[0].n,0);
   });

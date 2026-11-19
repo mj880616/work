@@ -3,7 +3,7 @@ begin;
 -- 앞 단계 20261119200000_feature_pin_lock(운영 적용됨)은 한 줄도 바꾸지 않고 더하기만 한다: 같은 PIN(app_feature_locks의 해시)·
 -- 같은 틀린 횟수 셈(private.app_lock_try)을 그대로 쓴다. 다시 잠그기는 화면이 기능 잠금과 같은 규칙으로 한다(풀림은 화면 메모리에만).
 --
--- 무엇: 새 표 1개(잠근 노트 폴더: 사람·폴더 한 쌍마다 한 줄)와 공개 함수 2개.
+-- 무엇: 새 표 1개(잠근 노트 폴더: 사람·폴더 한 쌍마다 한 줄)와 공개 함수 2개 + private 도우미 1개(목록 만들기).
 --   잠금은 화면 가림(편의 장치)이다. 노트·폴더 자체의 접근 권한(owner 경계·RLS)은 그대로이고 이 파일은 그것을 바꾸지 않는다.
 -- 보안(AGENTS.md 3절):
 --   - 새 표: RLS 켬, 정책 없음, anon·authenticated·service_role·PUBLIC 표 권한 없음. 읽기·쓰기는 아래 함수로만.
@@ -49,9 +49,39 @@ create index app_note_folder_locks_folder_idx on public.app_note_folder_locks(fo
 alter table public.app_note_folder_locks enable row level security;
 revoke all on table public.app_note_folder_locks from public, anon, authenticated, service_role;
 
+-- private 도우미(실행권 아무에게도 없음 — 아래 DEFINER 공개 함수 안에서만 쓰임) ------------------------------------
+
+-- 잠근 폴더 목록(지금도 내 작업공간 폴더만) + 그 아래 하위 폴더까지 덮인 폴더 id + 덮인 맨 위 폴더 이름
+-- (folder_id 없이 이름만 적힌 옛 노트는 이름이 같은 맨 위 폴더에 든 것으로 보므로, 화면이 그 노트도 가리도록).
+create function private.app_lock_note_folder_list(p_uid uuid)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  with recursive locked as (
+    select f.id, f.workspace_id
+      from public.app_note_folder_locks l
+      join public.app_note_folders f on f.id = l.folder_id
+     where l.user_id = p_uid and private.app_is_workspace_owner(f.workspace_id)
+  ), covered as (
+    select k.id, k.workspace_id from locked k
+    union
+    select c.id, c.workspace_id
+      from public.app_note_folders c join covered p on c.parent_id = p.id and c.workspace_id = p.workspace_id
+  )
+  select pg_catalog.jsonb_build_object(
+    'folders', coalesce((select pg_catalog.jsonb_agg(k.id order by k.id) from locked k), '[]'::jsonb),
+    'covered', coalesce((select pg_catalog.jsonb_agg(c.id order by c.id) from covered c), '[]'::jsonb),
+    'top_names', coalesce((select pg_catalog.jsonb_agg(distinct f.name order by f.name)
+                             from covered c join public.app_note_folders f on f.id = c.id where f.parent_id is null), '[]'::jsonb))
+$$;
+revoke all on function private.app_lock_note_folder_list(uuid) from public, anon, authenticated, service_role;
+
 -- 공개 함수 -------------------------------------------------------------------------------------------
 
--- 내가 잠근 노트 폴더 id 목록(지금도 내 작업공간에 있는 폴더만). 폴더 이름·노트 내용은 돌려주지 않는다.
+-- 내가 잠근 노트 폴더 id 목록(지금도 내 작업공간에 있는 폴더만)·덮인 하위 폴더·덮인 맨 위 폴더 이름. 노트 내용은 돌려주지 않는다.
 create function public.app_lock_note_folders()
 returns jsonb
 language plpgsql
@@ -65,11 +95,7 @@ begin
   if v_uid is null then
     raise exception using errcode = '42501', message = 'LOCK_AUTH_REQUIRED';
   end if;
-  return pg_catalog.jsonb_build_object('folders', coalesce((
-    select pg_catalog.jsonb_agg(l.folder_id order by l.folder_id)
-      from public.app_note_folder_locks l
-      join public.app_note_folders f on f.id = l.folder_id
-     where l.user_id = v_uid and private.app_is_workspace_owner(f.workspace_id)), '[]'::jsonb));
+  return private.app_lock_note_folder_list(v_uid);
 end
 $$;
 revoke all on function public.app_lock_note_folders() from public, anon, authenticated, service_role;
@@ -115,11 +141,7 @@ begin
   else
     delete from public.app_note_folder_locks where user_id = v_uid and folder_id = p_folder;
   end if;
-  return v_try || pg_catalog.jsonb_build_object('folders', coalesce((
-    select pg_catalog.jsonb_agg(l.folder_id order by l.folder_id)
-      from public.app_note_folder_locks l
-      join public.app_note_folders f on f.id = l.folder_id
-     where l.user_id = v_uid and private.app_is_workspace_owner(f.workspace_id)), '[]'::jsonb));
+  return v_try || private.app_lock_note_folder_list(v_uid);
 end
 $$;
 revoke all on function public.app_lock_note_folder_set(text, uuid, boolean) from public, anon, authenticated, service_role;
@@ -141,7 +163,13 @@ begin
             and has_function_privilege('authenticated', p.oid, 'execute')
             and not exists (select 1 from aclexplode(p.proacl) x where x.grantee = 0)) <> 2
      or (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-          where n.nspname in ('public', 'private') and p.proname like 'app\_lock\_note\_folder%') <> 2
+          where n.nspname in ('public', 'private') and p.proname like 'app\_lock\_note\_folder%') <> 3
+     or (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'private' and p.proname = 'app_lock_note_folder_list'
+            and not p.prosecdef and p.proconfig = array['search_path=""']
+            and not has_function_privilege('anon', p.oid, 'execute')
+            and not has_function_privilege('authenticated', p.oid, 'execute')
+            and not has_function_privilege('service_role', p.oid, 'execute')) <> 1
      or (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname = 'public' and p.proname like 'app\_lock\_%') <> 8
      or (select count(*) from public.app_note_folder_locks) <> 0 then
@@ -151,5 +179,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261119233000', 'note_folder_lock', array['SEC feature PIN lock, note folders: 1 new table app_note_folder_locks (user and note folder pairs, cascade with the folder; RLS on, no policies, no anon/authenticated/service_role privileges); 2 public SECURITY DEFINER RPCs with empty search_path, auth.uid() required, authenticated execute only (lock_note_folders read, lock_note_folder_set with the same PIN and server-side tries of feature_pin_lock, folder owner checked by the server, at most 50 folders); feature_pin_lock objects and every existing table, policy, grant or row unchanged']);
+values ('20261119233000', 'note_folder_lock', array['SEC feature PIN lock, note folders: 1 new table app_note_folder_locks (user and note folder pairs, cascade with the folder; RLS on, no policies, no anon/authenticated/service_role privileges); 2 public SECURITY DEFINER RPCs and 1 private invoker helper with no execute grants (folder list with covered subfolders) with empty search_path, auth.uid() required, authenticated execute only (lock_note_folders read, lock_note_folder_set with the same PIN and server-side tries of feature_pin_lock, folder owner checked by the server, at most 50 folders); feature_pin_lock objects and every existing table, policy, grant or row unchanged']);
 commit;

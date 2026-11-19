@@ -79,7 +79,7 @@
 
 | 함수 | 하는 일 |
 |---|---|
-| `app_lock_note_folders()` | 내가 잠근 폴더 id 목록(지금도 내 작업공간 폴더만). 이름·내용 없음 |
+| `app_lock_note_folders()` | `folders`(내가 잠근 폴더 id, 지금도 내 작업공간 폴더만) · `covered`(그 아래 하위 폴더까지) · `top_names`(덮인 맨 위 폴더 이름 — 폴더 id 없이 이름만 적힌 옛 노트도 가리도록). 노트 내용 없음. 목록은 private 도우미 `app_lock_note_folder_list` 하나가 만든다 |
 | `app_lock_note_folder_set(pin, folder, locked)` | 폴더 하나 잠그기·풀기. 폴더 주인은 서버가 폴더 줄의 작업공간으로 확인(남의 폴더·없는 폴더는 같은 `LOCK_FOLDER_FORBIDDEN`, 횟수도 쓰지 않음) → 같은 PIN 대조(`private.app_lock_try`, 같은 틀린 횟수·막힘) → 50개까지(`LOCK_FOLDER_LIMIT`) |
 
 - PIN이 아직 없으면 화면이 먼저 PIN 정하기(`app_lock_setup`, 잠근 기능 없이)를 한 뒤 잠근다.
