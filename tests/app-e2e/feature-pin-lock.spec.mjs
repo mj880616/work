@@ -69,9 +69,7 @@ test('켜기 → PIN 정하기 → 하루 기록 잠김(자료 안 읽음) → �
   await expect(page.locator('#lockView .lk-list')).toBeVisible();
   await expect(diarySwitch).toBeChecked();
   expect([server.pin, server.features, server.relock]).toEqual(['1234', ['diary'], '5m']);
-  // 화면은 PIN을 브라우저 저장소에 남기지 않는다.
-  const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }));
-  expect(stored).not.toMatch(/1234|lock/i);
+  // 화면이 PIN·풀림 상태를 기기 저장소에 남기지 않는 것은 저장소 검사(browser-storage-audit)가 앱 코드 전체에서 본다. 아래 새로고침 = 다시 잠김.
 
   // 방금 PIN을 넣었으니 풀린 채 — 잠금 화면을 떠난 뒤 5분이 지나면 잠긴다.
   await go(page, 'home');
