@@ -315,19 +315,34 @@ export function setNoteSource(note, change, rt = window.KPTURuntime) {
     return metadata;
   }, rt);
 }
+// NOTE-링크원문: 링크 노트 위 '원문을 가져올까요?'에서 [괜찮아요] — 그 노트에서는 다시 묻지 않는다(metadata.link_import='no', 새 칸·DB 변경 없음,
+// 고치기가 아니라 updated_at은 그대로).
+export function setNoteLinkAskOff(note, rt = window.KPTURuntime) {
+  return patchNoteMetadata(note, metadata => {
+    if (metadata.link_import === 'no') return null;
+    metadata.link_import = 'no';
+    return metadata;
+  }, rt);
+}
 // saveImportedNote: 가져온 글을 넣는다 — 제목·글자·저장 모양과 metadata.source를 한 번의 PATCH로(다른 metadata 칸은 그대로). 행을 다시 읽고,
 // check(읽은 행)이 false면 쓰지 않는다(그사이 사람이 본문을 수정함: code note_edited, 읽은 행은 error.row). PATCH는 읽은 판(updated_at)과
 // 다른 metadata 작성자가 지키는 칸이 그대로일 때만 적용한다(그사이 바뀐 노트는 거절, code note_changed — 아무것도 덮어쓰지 않음).
-export async function saveImportedNote(id, {title, raw_text, doc, source, check = null}, rt = window.KPTURuntime) {
-  const body = {title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)};
-  if (!doc || typeof doc !== 'object' || !plainObject(source)) throw new Error('노트 서식을 확인해 주세요.');
+// NOTE-링크원문: build(읽은 행 {title, raw_text, doc, metadata})를 주면 넣을 것({title, raw_text, doc?})을 그 행을 보고 정한다
+// (본문이 주소 하나뿐이면 바꿔 넣고, 사람이 쓴 글이 있으면 그 아래에 붙임 — note-import-model.mjs mergeImported). null이면 쓰지 않는다(code too_big).
+// doc이 없으면 저장 모양은 건드리지 않는다(글자만 든 노트는 글자 끝에 붙임). 가져온 글이 든 노트는 AI 재료에서 뺀다(ai_export_allowed=false).
+export async function saveImportedNote(id, {title, raw_text, doc, source, check = null, build = null}, rt = window.KPTURuntime) {
+  if ((!build && (!doc || typeof doc !== 'object')) || !plainObject(source)) throw new Error('노트 서식을 확인해 주세요.');
   const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
-  const rows = await rt.api(`${base}&select=id,updated_at,raw_text,metadata`, {singleFlight:false});
+  const rows = await rt.api(`${base}&select=id,updated_at,${build ? 'title,doc,' : ''}raw_text,metadata`, {singleFlight:false});
   if (!Array.isArray(rows) || rows.length !== 1 || !rows[0]?.updated_at) throw Object.assign(new Error('노트를 찾지 못했어요.'), {code:'note_missing'});
   const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
   if (check && !check(fresh)) throw Object.assign(new Error('노트가 그사이 바뀌었어요.'), {code:'note_edited', row:fresh});
+  const made = build ? build(fresh) : {title, raw_text, doc};
+  if (!made) throw Object.assign(new Error('글이 너무 길어요.'), {code:'too_big'});
+  if (made.doc !== undefined && (!made.doc || typeof made.doc !== 'object')) throw new Error('노트 서식을 확인해 주세요.');
+  const body = {title:validateNoteTitle(made.title), raw_text:validateNoteBody(made.raw_text), ...(made.doc ? {doc:made.doc} : {}), ...(build ? {ai_export_allowed:false} : {})};
   const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}${metaGuardValue('folder_id', old.folder_id)}${requestsGuard(old)}${journalGuard(old)}${taskGuard(firstTaskId(old))}`;
-  const saved = await rt.api(`${base}&${guard}&select=${NOTE_FIELDS}`, {method:'PATCH', prefer:'return=representation', body:{...body, doc, metadata:{...old, source}, updated_at:new Date().toISOString()}});
+  const saved = await rt.api(`${base}&${guard}&select=${NOTE_FIELDS}`, {method:'PATCH', prefer:'return=representation', body:{...body, metadata:{...old, source}, updated_at:new Date().toISOString()}});
   if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
   return saved[0];
 }

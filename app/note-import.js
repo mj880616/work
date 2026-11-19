@@ -6,10 +6,10 @@
 //      끝·실패는 공용 작은 알림(small-notice.js). 멈추는 것은 로그인이 바뀔 때뿐이다.
 // 지키는 것: 서버가 준 글은 글자로만 넣는다(note-import-model.mjs blocksToDoc — HTML로 넣지 않음). 가져온 글을 AI·공유·발송으로 잇지 않는다
 // (AI 요약 제목을 부르지 않고, 노트는 AI 재료에서 뺀 채 만든다 ai_export_allowed=false). 기기에 아무것도 저장하지 않는다(메모리뿐).
-import {createNoteDoc, saveImportedNote, setNoteSource} from './basket-data.js';
+import {createNoteDoc, saveImportedNote, setNoteSource, setNoteLinkAskOff} from './basket-data.js';
 import {notify} from './small-notice.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
-import {readImportUrl, safeHttps, makeSource, noteSource, isUrlOnly, urlOnlyDoc, urlOnlyTitle, importedNote, failInfo, requestFailReason, resultOutcome, doneText, createImportQueue} from './note-import-model.mjs';
+import {readImportUrl, safeHttps, makeSource, noteSource, isUrlOnly, urlOnlyDoc, urlOnlyTitle, importedNote, failInfo, requestFailReason, resultOutcome, doneText, createImportQueue, mergeImported, noteLinkUrl} from './note-import-model.mjs';
 
 const FN = '/functions/v1/note-import';
 // 서버의 가져오기 한 번 전체 상한이 25초라(설계 9절 '상한') 그보다 조금 길게 기다린다.
@@ -60,12 +60,15 @@ async function runJob(job) {
     fetched_at: new Date().toISOString(), state: 'ok', reason: outcome.reason});
   for (let i = 0; i < 2; i++) {
     try {
-      await saveImportedNote(job.id, {title: made.title, raw_text: made.text, doc: made.doc, source, check: row => isUrlOnly(row)}, job.rt);
+      // NOTE-링크원문(job.auto): 다른 길로 만든 노트·이미 있는 노트 — 그때의 서버 행을 보고 바꿔 넣거나(주소 하나뿐) 아래에 붙인다(사람이 쓴 글).
+      if (job.auto) await saveImportedNote(job.id, {source, build: row => mergeImported(row, made, job.url)}, job.rt);
+      else await saveImportedNote(job.id, {title: made.title, raw_text: made.text, doc: made.doc, source, check: row => isUrlOnly(row)}, job.rt);
       lastFail.delete(job.id);
       return {state: 'ok', reason: outcome.reason};
     } catch (error) {
       if (!sameUser(job)) return {state: 'skipped'};
       if (error?.code === 'note_missing') return {state: 'gone'}; // 그사이 노트를 삭제함: 알릴 것 없음
+      if (error?.code === 'too_big') return markFailed(job, 'too_big', result);
       // 본문이 이미 주소만이 아니다: 다른 기기·탭이 먼저 넣었으면 끝난 것이고, 사람이 수정했으면 덮지 않고 그렇게 알린다.
       if (error?.code === 'note_edited') return noteSource(error.row)?.state === 'ok' ? {state: 'ok', reason: null, quiet: true} : markFailed(job, 'changed', result);
       if (error?.code !== 'note_changed' || i) return markFailed(job, requestFailReason(error), result);
@@ -126,7 +129,7 @@ export async function retryNoteImport(note, {rt = globalThis.window?.KPTURuntime
   const owner = rt.session.read()?.user?.id;
   if (!owner) return false;
   lastFail.delete(note.id);
-  enqueue({id: note.id, url: source.url, rt, owner});
+  enqueue({id: note.id, url: source.url, rt, owner, auto: true});
   emit(note.id, 'queued');
   return true;
 }
@@ -141,6 +144,30 @@ export async function keepUrlOnly(note, {rt = globalThis.window?.KPTURuntime} = 
     return makeSource({...now, state: 'failed', reason: now.state === 'failed' && now.reason ? now.reason : reason, kept: true});
   }, rt);
   lastFail.delete(note.id);
+  emit(note.id, 'kept');
+  return saved;
+}
+
+// NOTE-링크원문: 이미 있는 노트(폰 공유·빠른 입력·새 노트 창 본문·위젯으로 만든 링크 노트)에 원문을 가져온다 — 노트 위 [가져오기]와 ⋯ [원문 가져오기].
+// 같은 한 길(줄 세우기 → 서버 note-import → 저장)을 쓴다. 먼저 원문 정보를 '가져오는 중'으로 남기고(앱을 닫아도 다음에 [다시 시도]가 보인다),
+// 끝나면 본문이 주소 하나뿐이면 바꿔 넣고 사람이 쓴 글이 있으면 그 아래에 붙인다(덮어쓰지 않음). 반환: 줄에 세웠으면 원문 정보를 남긴 행(또는 true), 못 세웠으면 false.
+export async function importIntoNote(note, {rt = globalThis.window?.KPTURuntime} = {}) {
+  const url = noteLinkUrl(note);
+  if (!note?.id || !url) return false;
+  if (isImporting(note.id)) return true;
+  const owner = rt.session.read()?.user?.id;
+  if (!owner) return false;
+  // 전에 가져온 원문 정보(사이트·저자·날짜)는 그대로 두고 상태만 '가져오는 중'으로.
+  const saved = await setNoteSource({id: note.id}, old => makeSource({...(old?.url === url ? old : {}), url, state: 'fetching', reason: undefined, kept: false}), rt);
+  lastFail.delete(note.id);
+  enqueue({id: note.id, url, rt, owner, auto: true});
+  emit(note.id, 'queued');
+  return saved || true;
+}
+// [괜찮아요]: 그 노트에서는 다시 묻지 않는다(서버에 남김 — 다른 기기에서 열어도 묻지 않음).
+export async function declineLinkImport(note, {rt = globalThis.window?.KPTURuntime} = {}) {
+  if (!note?.id) return null;
+  const saved = await setNoteLinkAskOff({id: note.id}, rt);
   emit(note.id, 'kept');
   return saved;
 }
