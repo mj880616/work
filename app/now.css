@@ -147,6 +147,8 @@
 #appView #outsideView .now-row{ position:relative; }
 #appView #outsideView .now-hov{ position:absolute; z-index:2; right:6px; bottom:4px; display:none; gap:2px; }
 #appView #outsideView .now-row:hover > .now-hov,#appView #outsideView .now-row:focus-within > .now-hov{ display:inline-flex; }
+/* S67-11: 별표한 줄은 ★(보관에서 빼기 단추) 자리를 비워 두고 그 왼쪽에(마우스를 올려도 ★을 가리지 않게). */
+#appView #outsideView .now-row:has(.nw-star) > .now-hov{ right:34px; }
 #appView #outsideView .now-hov-btn{ min-height:0; height:20px; padding:0 6px; font-size:11px; line-height:1; color:var(--kptu-muted); background:var(--kptu-surface); border:1px solid var(--kptu-line,currentColor); border-radius:var(--ds-radius-control,6px); cursor:pointer; }
 #appView #outsideView .now-hov-btn:hover{ color:var(--kptu-ink); }
 @media(max-width:760px){ #appView #outsideView .now-hov{ display:none !important; } }

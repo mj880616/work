@@ -247,7 +247,8 @@ const detail = createNowDetail({box: detailBox, topics: () => interests.topics()
   onClose: () => closeDetail(),
   onChanged: (item, act) => {
     // 뉴스 별표·관심 없음은 뉴스 목록 줄과 같은 칸이라 그 목록을 다시 읽는다. 보관 탭은 늘 다시.
-    if (item.type === 'news' && act !== 'memo') { window.KPTUNews?.refresh?.(); if (state.tab === 'all') loadNews({keep: true}); }
+    // S67-11: [삭제]는 다른 탭([보관])에서 해도 [전체] 목록에서 빠져야 하므로 늘 다시 읽는다.
+    if (item.type === 'news' && act !== 'memo') { window.KPTUNews?.refresh?.(); if (state.tab === 'all' || act === 'delete') loadNews({keep: true}); }
     if (item.type === 'outside' && act !== 'memo') loadMarks().then(() => { if (state.mode === 'list') paintList(); });
     if (state.tab === 'archive') saved.load();
   },
