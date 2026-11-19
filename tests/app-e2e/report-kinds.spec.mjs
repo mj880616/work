@@ -196,11 +196,11 @@ test('폰 390: 결과 창에 칸 표시·[종류 바꾸기] PATCH, 뒤로가기�
 
 
 // MTG-보고창정리: 원문은 필수가 아니다. 비어 있어도 저장되고(transcript_text ''), 상세에는 원문 칸이 나오지 않는다.
-test('입력 창: 원문 없이도 저장된다 / 안내는 [선택]',async({page})=>{
+test('입력 창: 원문 없이도 저장된다 / 칸 이름 옆 보조 글자 없음',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,1280);
   await pickReportKind(page,'교육');await addReport(page,'education');
-  await expect(page.locator('#meetingTextLabel').locator('xpath=..')).toContainText('안 써도 됨');
+  await expect(page.locator('#meetingTextLabel').locator('xpath=..')).not.toContainText('안 써도 됨');
   await page.locator('#meetingTitle').fill('합성 교육 행사');await fillDateTime(page,'#meetingAt','2026-10-22T10:00');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('education');

@@ -39,7 +39,7 @@ for(const width of [412,1280])test(`${width}: 쓰기 창 [회의] 칸 — 회의
   await pickReportKind(page,'회의');await addReport(page);
   const modal=page.locator('#meetingModal');await expect(modal).toBeVisible();
   const row=page.locator('#meetingAttendeesRow'),input=page.locator('#meetingAttendees');
-  await expect(row).toBeVisible();await expect(row).toContainText('참석인원');await expect(row).toContainText('안 써도 됨');
+  await expect(row).toBeVisible();await expect(row).toContainText('참석인원');await expect(row).not.toContainText('안 써도 됨');
   await expect(input).toHaveValue('');await expect(input).toHaveAttribute('maxlength','200');
   expect(await above(page,'#meetingAttendeesRow','#meetingTranscript')).toBe(true);
   // 장소 칸과 같은 부품·높이.

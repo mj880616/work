@@ -485,7 +485,7 @@ function renderLinks() {
   if (!host || !editing) return;
   if (!editing.id) { host.replaceChildren(el('p', {class:'sp-hint', text:'링크는 페이지를 한 번 저장한 뒤 만들 수 있어요.'})); return; }
   const form = el('div', {class:'sp-link-form'},
-    el('label', {class:'sp-field'}, el('span', {text:'받는 사람 이름표 (선택)'}),
+    el('label', {class:'sp-field'}, el('span', {text:'받는 사람 이름표'}),
       el('input', {type:'text', class:'sp-input', maxLength:LIMITS.label, placeholder:'비워도 돼요 · 링크를 가진 누구나 봐요', dataset:{spLinkLabel:''}})),
     el('label', {class:'sp-field'}, el('span', {text:'기한 (선택, 비우면 없음)'}),
       el('input', {type:'date', class:'sp-input', dataset:{spLinkExpiry:''}})),
@@ -560,7 +560,7 @@ function renderEditor() {
         el('div', {class:'sp-seg', role:'group', 'aria-labelledby':'spStatusLabel'},
           el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
           el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'}))),
-      el('label', {class:'sp-field'}, el('span', {text:'연결 사업영역 (선택)'}), el('button', {type:'button', class:'secondary sp-area-pick', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}}))),
+      el('label', {class:'sp-field'}, el('span', {text:'연결 사업영역'}), el('button', {type:'button', class:'secondary sp-area-pick', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}}))),
     el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
     el('section', {class:'sp-canvas', 'aria-labelledby':'spCanvasTitle'},
       el('p', {class:'sp-canvas-cap', id:'spCanvasTitle', text:'받는 사람에게 보이는 모양'}),
