@@ -4,8 +4,11 @@ const p=new URLSearchParams(location.hash.replace(/^#/,''));
 const isLoginCallback=location.pathname.endsWith('/native-callback.html')||
   ['access_token','refresh_token'].some(name=>p.has(name)||q.has(name));
 // S62-34: 'android-play' = 플레이 스토어 판(com.nojoplus.app). 돌아갈 앱 패키지는 아래 두 값만 쓴다(주소에서 패키지를 받지 않는다).
+// V67: 로그인 창은 폰 기본 브라우저(사용자마다 다름, 옛 판일 수 있음)에서 열린다. Object.hasOwn(크롬 93+)·?.는 옛 브라우저에서
+// 문법·실행 오류로 이 파일 전체를 멈춰 '돌아가는 중' 글만 남겼다 — 옛 브라우저도 읽는 문법만 쓴다.
 const androidPackage={android:'kr.or.kptu.work','android-play':'com.nojoplus.app'};
-if((Object.hasOwn(androidPackage,native)||native==='windows')&&isLoginCallback){
+const knownAndroid=typeof native==='string'&&Object.prototype.hasOwnProperty.call(androidPackage,native);
+if((knownAndroid||native==='windows')&&isLoginCallback){
   window.__KPTU_NATIVE_BRIDGE__=true;
   const access=p.get('access_token')||q.get('access_token');
   const refresh=p.get('refresh_token')||q.get('refresh_token');
@@ -17,7 +20,7 @@ if((Object.hasOwn(androidPackage,native)||native==='windows')&&isLoginCallback){
     const query=q.toString();
     history.replaceState({},'',location.pathname+(query?'?'+query:''));
     cleaned=true;
-  }catch{}
+  }catch(e){}
   const appTarget=params=>native==='windows'
     ?'kptuwork://auth?'+params
     :'intent://auth?'+params+'#Intent;scheme=kptuwork;package='+androidPackage[native]+';end';
@@ -29,12 +32,12 @@ if((Object.hasOwn(androidPackage,native)||native==='windows')&&isLoginCallback){
       if(!cleaned||!access||!refresh)throw new Error('invalid callback');
       const r=await fetch('https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/auth-handoff',{method:'POST',cache:'no-store',referrerPolicy:'no-referrer',headers:{Authorization:'Bearer '+access,'Content-Type':'application/json'},body:JSON.stringify({action:'seal',refresh_token:refresh})});
       const d=await r.json().catch(()=>({}));
-      if(!r.ok||typeof d?.token!=='string'||!d.token)throw new Error('seal failed');
+      if(!r.ok||!d||typeof d.token!=='string'||!d.token)throw new Error('seal failed');
       const target=appTarget('handoff='+encodeURIComponent(d.token));
       if(link){link.href=target;link.style.display='inline-block'}
       if(st)st.textContent='앱으로 돌아갑니다.';
       setTimeout(()=>{location.href=target},120);
-    }catch{
+    }catch(e){
       if(st)st.textContent='로그인 정보를 전달하지 못했어요. 앱에서 새 로그인을 시작해 주세요.';
       if(link){link.removeAttribute('href');link.style.display='none'}
     }
