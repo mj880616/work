@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createHandler, TOOLS, validateArguments, envelope, NOTICE } from '../supabase/functions/mcp-read/core.mjs';
+import { createHandler, TOOLS, validateArguments, envelope, NOTICE } from '../../supabase/functions/mcp-read/core.mjs';
 
 const env = { supabaseUrl: 'https://example.supabase.co', anonKey: 'public-anon', resourceUrl: 'https://example.supabase.co/functions/v1/mcp-read' };
 const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
@@ -93,11 +93,38 @@ test('응답 크기 상한을 넘으면 잘랐다고 표시', () => {
 });
 
 test('정적 검사: 서버 키·표 직접 접근·쓰기 방법·제외 자료 이름이 없다', () => {
-  const dir = new URL('../supabase/functions/mcp-read/', import.meta.url);
+  const dir = new URL('../../supabase/functions/mcp-read/', import.meta.url);
   const source = ['core.mjs', 'index.ts'].map((f) => readFileSync(new URL(f, dir), 'utf8')).join('\n');
   assert.doesNotMatch(source, /SERVICE_ROLE|service_role/);
   assert.doesNotMatch(source, /\/rest\/v1\/(?!rpc\/)/);
   assert.doesNotMatch(source, /method:\s*'(PATCH|PUT|DELETE)'/);
   assert.doesNotMatch(source, /rtw_|transcript_text|app_call_|app_tg_|kind\s*=\s*'diary'/);
   for (const tool of TOOLS) assert.match(tool.rpc, /^app_mcp_[a-z_]+$/);
+});
+
+test('도구 이름·DB 함수 이름은 설계 5.2·7.3과 같다', () => {
+  assert.deepEqual(TOOLS.map((t) => [t.name, t.rpc]), [
+    ['web2_org_status', 'app_mcp_org_status'],
+    ['web2_business_reports', 'app_mcp_business_reports'],
+    ['web2_project_status', 'app_mcp_project_status'],
+    ['ledger_search', 'app_mcp_ledger_search'],
+    ['ledger_get', 'app_mcp_ledger_get'],
+    ['web2_notes_search', 'app_mcp_notes_search'],
+    ['google_where', 'app_mcp_google_where'],
+  ]);
+  const design = readFileSync(new URL('../../docs/design/mcp-claude-read.md', import.meta.url), 'utf8');
+  for (const tool of TOOLS) {
+    assert.ok(design.includes(`\`${tool.name}\``), tool.name);
+    assert.ok(design.includes(`\`${tool.rpc}\``), tool.rpc);
+  }
+});
+
+test('원장 검색 종류는 원장 종류 다섯 가지만, p_kind로 넘긴다', async () => {
+  const byName = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
+  assert.equal(validateArguments(byName.ledger_search, { query: 'a', kind: 'decision' }), null);
+  assert.match(validateArguments(byName.ledger_search, { query: 'a', kind: 'diary' }), /value/);
+  const calls = [];
+  await createHandler({ env, fetchImpl: fakeFetch(calls) })(post({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'ledger_search', arguments: { query: '교섭', kind: 'decision' } } }));
+  const rpc = calls.find((c) => c.url.includes('/rest/v1/rpc/'));
+  assert.deepEqual(JSON.parse(rpc.init.body), { p_query: '교섭', p_kind: 'decision' });
 });

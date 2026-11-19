@@ -1,5 +1,5 @@
 // MCP-Claude읽기(설계 docs/design/mcp-claude-read.md 2판) — Claude 전용 Web2 읽기 연결의 MCP 입구.
-// 초안: 아직 배포하지 않는다(DB 읽기 함수 app_mcp_*·OAuth 설정이 운영에 없음, 설계 9절 순서).
+// 첫 배포 전: DB 읽기 함수 app_mcp_*(M-3) 적용 뒤 CC가 first_deploy로 배포한다. OAuth 설정(M-6)은 그 뒤(설계 9절 순서).
 // 원칙: 읽기 도구만. 서버 키를 쓰지 않는다. 표를 직접 부르지 않고 같은 열쇠로 /rest/v1/rpc/app_mcp_* 만 부른다.
 // 작업공간·사용자는 Claude가 보낸 값이 아니라 DB 문지기(private.app_mcp_gate)가 열쇠로 정한다.
 
@@ -36,7 +36,11 @@ export const TOOLS = Object.freeze([
     description: '원장 검색. 민감도 S2 기록은 ID·종류·날짜·제목만 보인다.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['query'],
-      properties: { query: str(100, '검색어'), organization: str(50, '조직'), topic: str(50, '주제'), from: day('시작일'), to: day('끝일'), limit },
+      properties: {
+        query: str(100, '검색어'),
+        kind: { type: 'string', enum: ['event', 'change', 'decision', 'evidence', 'commitment'], description: '원장 종류(사건·변화·결정·근거·약속)' },
+        organization: str(50, '조직'), topic: str(50, '주제'), from: day('시작일'), to: day('끝일'), limit,
+      },
     },
   },
   {
@@ -73,6 +77,7 @@ export function validateArguments(tool, args) {
     const rule = properties[key];
     if (rule.type === 'string') {
       if (typeof value !== 'string') return `${key} must be a string`;
+      if (rule.enum) { if (!rule.enum.includes(value)) return `${key} value`; continue; }
       const text = value.trim();
       if (text.length < (rule.minLength || 0) || text.length > rule.maxLength && rule.maxLength) return `${key} length`;
       if (/[\u0000-\u001f\u007f]/.test(value)) return `${key} has control characters`;
