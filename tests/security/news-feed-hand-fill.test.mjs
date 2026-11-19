@@ -165,3 +165,60 @@ test('hand_fill: large pasted bodies fit the block limit; paragraph splitting', 
   assert.ok(bd.blocks[0].text.startsWith('줄 1 줄 2'));
   assert.equal(H.handParagraphs('a\r\n\r\nb\u0007c\n\n\n').join('|'), 'a|b c');
 });
+
+// S67-05 NEWS-직접넣기 사진: 본문 안 사진 주소 한 줄 → 그 자리에 사진 블록, 바로 다음 '사진:'·'ⓒ'·'▲' 줄은 설명. 주소는 모양만 검사(받으러 가지 않음).
+test('hand_fill photos: a photo address line becomes an image block in place, with its caption line', async () => {
+  const w = world();
+  const body = '첫 문단.\n\nhttps://img.example.org/2026/11/a.jpg\n사진: 합성 현장 모습\n\n둘째 문단.\n\nhttps://cdn.example.org/view?id=7#사진\n\nⓒ 합성 매체\n\n셋째 문단.';
+  assert.equal((await w.call({...FULL, body})).status, 200);
+  const bd = w.db.app_news_article_bodies[0];
+  assert.deepEqual(bd.blocks, [
+    {t: 'p', text: '첫 문단.'},
+    {t: 'img', src: 'https://img.example.org/2026/11/a.jpg', cap: '합성 현장 모습', alt: null},
+    {t: 'p', text: '둘째 문단.'},
+    {t: 'img', src: 'https://cdn.example.org/view?id=7', cap: 'ⓒ 합성 매체', alt: null},
+    {t: 'p', text: '셋째 문단.'},
+  ]);
+  assert.equal(bd.images, 2);
+  assert.equal(bd.chars, [...'첫 문단.둘째 문단.셋째 문단.'].length, 'photo addresses and captions are not body text');
+  assert.equal(w.db.app_news_articles[0].body, '첫 문단.\n둘째 문단.\n셋째 문단.');
+  assert.equal(w.db.app_feed_bodies.length, 0);
+  assert.equal(w.calls.site, 0, 'the photo address is not fetched');
+});
+
+test('hand_fill photos: unsafe or non-photo addresses stay as text; caption only right after a photo', async () => {
+  const bad = ['http://img.example.org/a.jpg', 'javascript:alert(1)//a.jpg', 'data:image/png;base64,AAAA', 'https://user:pw@img.example.org/a.jpg',
+    'https://img.example.org:8443/a.jpg', 'https://img.example.org/page.html', 'https://img.example.org/a.jpg 설명', 'https://localhost/a.jpg',
+    'https://img.example.org/' + 'a'.repeat(2001) + '.jpg'];
+  for (const line of bad) {
+    assert.equal(H.handPhotoSrc(line), null, line.slice(0, 60));
+    assert.deepEqual(H.handBlocks(`앞.\n${line}\n사진: 설명`).map(b => b.t), ['p', 'p', 'p'], line.slice(0, 60));
+  }
+  assert.equal(H.handPhotoSrc('  https://img.example.org/a.PNG  '), 'https://img.example.org/a.PNG');
+  assert.equal(H.handPhotoSrc('https://img.example.org/한글.webp'), 'https://img.example.org/%ED%95%9C%EA%B8%80.webp');
+  // 사진 뒤가 아닌 설명 머리 줄은 글자 그대로.
+  assert.deepEqual(H.handBlocks('▲ 사진 없이 쓴 줄\n본문'), [{t: 'p', text: '▲ 사진 없이 쓴 줄'}, {t: 'p', text: '본문'}]);
+  // 사진 뒤 줄이 설명 머리말이 아니면 글자 문단.
+  assert.deepEqual(H.handBlocks('https://img.example.org/a.gif\n그냥 문단'), [{t: 'img', src: 'https://img.example.org/a.gif', cap: null, alt: null}, {t: 'p', text: '그냥 문단'}]);
+  // 설명은 300자까지.
+  assert.equal(H.handBlocks(`https://img.example.org/a.gif\n사진: ${'가'.repeat(400)}\n본문`)[0].cap.length, 300);
+  // 사진만 있고 글자가 없으면 거절(본문 상태 ok는 글자가 있어야 함).
+  const w = world();
+  assert.deepEqual(await out(await w.call({...FULL, body: 'https://img.example.org/a.jpg\n사진: 설명'})), {status: 400, body: {ok: false, error: 'INVALID_TEXT'}});
+  assert.equal(w.calls.writes.length, 0);
+});
+
+test('hand_fill photos: at most 20 photos per article', async () => {
+  const many = n => Array.from({length: n}, (_, i) => `문단 ${i}\nhttps://img.example.org/${i}.jpg`).join('\n');
+  const w = world();
+  assert.deepEqual(await out(await w.call({...FULL, body: many(21)})), {status: 400, body: {ok: false, error: 'TOO_MANY_PHOTOS'}});
+  assert.equal(w.calls.writes.length, 0);
+  assert.equal((await w.call({...FULL, body: many(20)})).status, 200);
+  assert.equal(w.db.app_news_article_bodies[0].images, 20);
+  // 글자가 많아도 블록 상한 안(사진은 그대로 순서 유지).
+  const big = Array.from({length: 900}, (_, i) => (i % 50 === 0 ? `https://img.example.org/b${i}.jpg` : `줄 ${i}`)).join('\n');
+  const bl = H.handBlocks(big);
+  assert.ok(bl.length <= 400, String(bl.length));
+  assert.equal(bl.filter(b => b.t === 'img').length, 18);
+  assert.equal(bl[0].t, 'img');
+});

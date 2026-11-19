@@ -251,3 +251,27 @@ test('⋯ [공유]는 제목·주소만(본문은 넘기지 않음)', () => {
   assert.deepEqual(shareArticleData({title: '제목', url: 'http://x.example.org/1'}), {title: '제목', text: '제목'});
   assert.equal(shareArticleData({}), null);
 });
+
+// S67-05 NEWS-직접넣기 사진: 본문 칸 사진 줄(서버 handPhotoSrc·handBlocks와 같은 모양)
+test('hand photos: photo lines in the body box, round trip from blocks, insert at caret, 20 photo limit', async () => {
+  const M = await import('../app/now-model.mjs');
+  assert.equal(M.handPhotoKind('https://img.example.org/a.jpg'), 'ext');
+  assert.equal(M.handPhotoKind('https://img.example.org/view?id=1'), 'plain');
+  assert.equal(M.handPhotoKind('https://img.example.org/view?id=1#사진'), 'marked');
+  for (const bad of ['http://img.example.org/a.jpg', 'javascript:alert(1)', 'data:image/png;base64,AA', 'https://u:p@img.example.org/a.jpg', 'https://img.example.org:8443/a.jpg', 'https://localhost/a.jpg', 'https://img.example.org/a.jpg 설명', ''])
+    assert.equal(M.handPhotoKind(bad), '', bad);
+  assert.equal(M.handPhotoLine('https://img.example.org/view?id=1'), 'https://img.example.org/view?id=1#사진');
+  assert.equal(M.handPhotoLine('https://img.example.org/a.png'), 'https://img.example.org/a.png');
+  const blocks = [{t: 'p', text: '첫 문단'}, {t: 'img', src: 'https://img.example.org/a.jpg', cap: '현장', alt: null}, {t: 'h', text: '소제목'},
+    {t: 'img', src: 'https://img.example.org/v?id=2', cap: 'ⓒ 매체', alt: 'x'}, {t: 'img', src: 'https://img.example.org/b.gif', cap: null, alt: null}, {t: 'quote', text: '인용'}];
+  assert.equal(M.handBodyOf(blocks), '첫 문단\nhttps://img.example.org/a.jpg\n사진: 현장\n소제목\nhttps://img.example.org/v?id=2#사진\nⓒ 매체\nhttps://img.example.org/b.gif\n인용');
+  assert.equal(M.handInitial({url: 'https://www.example.org/x'}, blocks).body, M.handBodyOf(blocks));
+  assert.deepEqual(M.insertPhotoLine('앞뒤', 1, 'P'), {value: '앞\nP\n뒤', caret: 4});
+  assert.deepEqual(M.insertPhotoLine('줄\n', 2, 'P'), {value: '줄\nP\n', caret: 4});
+  assert.deepEqual(M.insertPhotoLine('', 0, 'P'), {value: 'P\n', caret: 2});
+  const many = n => Array.from({length: n}, (_, i) => `문단 ${i}\nhttps://img.example.org/${i}.jpg`).join('\n');
+  assert.equal(M.handPhotoCount(many(21)), 21);
+  assert.deepEqual(M.handRequest('id', {title: 't', body: many(21)}, {body: ''}), {error: '사진은 20장까지'});
+  assert.ok(M.handRequest('id', {title: 't', body: many(20)}, {body: ''}).body.body);
+  assert.equal(M.handError({status: 400, message: 'TOO_MANY_PHOTOS'}), '사진은 20장까지');
+});

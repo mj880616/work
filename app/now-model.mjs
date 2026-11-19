@@ -381,8 +381,66 @@ export function handInitial(row, blocks) {
     publisher: oneLineText(row?.publisher) || hostOf(row?.url),
     author: oneLineText(row?.author),
     at: localInputOf(row?.published_at),
-    body: blocksBody(blocks),
+    body: handBodyOf(blocks),
   };
+}
+// ---- 직접 넣기 사진(S67-05) ----
+// 본문 칸 안 사진: 한 줄 전체가 https 주소 하나이고 끝이 그림 파일(.jpg 등)이거나 '#사진'으로 끝나면 서버가 그 자리에 사진 블록으로 저장한다.
+// 바로 다음 줄이 '사진:'·'ⓒ'·'▲'로 시작하면 사진 설명. 서버 규칙(news-feed handPhotoSrc·handBlocks)과 같게 — 판정은 서버가 다시 한다.
+export const HAND_PHOTO_MARK = '#사진';
+export const HAND_PHOTOS_MAX = 20;
+const HAND_IMG_EXT = /\.(jpe?g|png|webp|gif|avif|bmp)$/i;
+const HAND_CAP_HEAD = /^(사진\s*[:：]|ⓒ|▲)/;
+// 붙여 넣을 수 있는 사진 주소인가(https·사용자·비밀번호·포트 없음·2000자까지). 그림 파일 끝이면 'ext', 아니면 'plain', 못 쓰면 ''.
+export function handPhotoKind(raw) {
+  const s = String(raw ?? '').trim();
+  if (!/^https:\/\/\S+$/i.test(s)) return '';
+  const marked = s.endsWith(HAND_PHOTO_MARK);
+  let u;
+  try { u = new URL(marked ? s.slice(0, -HAND_PHOTO_MARK.length) : s); } catch { return ''; }
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || !u.hostname.includes('.')) return '';
+  u.hash = '';
+  if (u.href.length > 2000) return '';
+  return marked ? 'marked' : HAND_IMG_EXT.test(u.pathname) ? 'ext' : 'plain';
+}
+// 본문 칸에 넣을 사진 줄: 그림 파일 끝이 아니면 '#사진'을 붙여 사진임을 표시한다.
+export function handPhotoLine(src) {
+  const k = handPhotoKind(src), s = String(src ?? '').trim();
+  if (!k) return '';
+  return k === 'plain' ? s + HAND_PHOTO_MARK : s;
+}
+// 본문 칸 글자 안 사진 줄 수(서버 상한 20장과 같게 미리 막음).
+export function handPhotoCount(body) {
+  return String(body ?? '').split(/\r\n?|\n/).filter(l => { const k = handPhotoKind(l); return k === 'ext' || k === 'marked'; }).length;
+}
+// 원문 블록 → 본문 칸 글자. 글자 블록은 한 줄씩, 사진은 주소 줄(+ '사진:' 설명 줄) — [수정]으로 다시 열어도 사진이 빠지지 않는다.
+export function handBodyOf(blocks) {
+  const out = [];
+  for (const b of Array.isArray(blocks) ? blocks : []) {
+    if (!b) continue;
+    if (b.t === 'img') {
+      const line = handPhotoLine(b.src);
+      if (!line) continue;
+      out.push(line);
+      const cap = oneLineText(b.cap);
+      if (cap) out.push(HAND_CAP_HEAD.test(cap) ? cap : `사진: ${cap}`);
+      continue;
+    }
+    if ((b.t === 'p' || b.t === 'h' || b.t === 'quote') && typeof b.text === 'string') {
+      const t = b.text.replace(/\s+/g, ' ').trim();
+      if (t) out.push(t);
+    }
+  }
+  return out.join('\n');
+}
+// 커서 자리에 사진 줄 끼워 넣기 → {value, caret}. 줄 가운데면 앞뒤로 줄을 바꿔 사진 줄이 한 줄 전체가 되게 한다.
+export function insertPhotoLine(value, at, line) {
+  const v = String(value ?? ''), i = Math.max(0, Math.min(Number.isFinite(at) ? at : v.length, v.length));
+  const before = v.slice(0, i), after = v.slice(i);
+  const head = before && !before.endsWith('\n') ? '\n' : '';
+  const tail = after.startsWith('\n') ? '' : '\n';
+  const next = before + head + line + tail + after;
+  return {value: next, caret: (before + head + line + tail).length};
 }
 export function hostOf(url) {
   try { return new URL(String(url || '')).hostname.replace(/^www\./, ''); } catch { return ''; }
@@ -398,6 +456,7 @@ export function handRequest(id, values, initial) {
   if (at === undefined) return {error: '기사 시각을 다시 넣어 주세요'};
   const body = String(values.body ?? '');
   if ([...body].length > HAND_LIMITS.body) return {error: `본문은 ${HAND_LIMITS.body.toLocaleString('ko-KR')}자까지`};
+  if (handPhotoCount(body) > HAND_PHOTOS_MAX) return {error: `사진은 ${HAND_PHOTOS_MAX}장까지`};
   const out = {id, title, publisher: publisher || null, author: author || null, published_at: at};
   const changed = body.replace(/\s+/g, ' ').trim() !== String(initial?.body ?? '').replace(/\s+/g, ' ').trim();
   if (changed) {
@@ -412,6 +471,8 @@ export function handError(e) {
   if (e?.status === 403) return '이 작업공간에서는 쓸 수 없어요';
   if (e?.status === 404) return '기사를 찾지 못함';
   if (e?.status === 400 && /INVALID_DATE/.test(code)) return '기사 시각을 다시 넣어 주세요';
+  if (e?.status === 400 && /TOO_MANY_PHOTOS/.test(code)) return `사진은 ${HAND_PHOTOS_MAX}장까지`;
+  if (e?.status === 400 && /INVALID_TEXT/.test(code)) return '본문에 글자를 넣어 주세요';
   if (e?.status === 400 || e?.status === 413) return '넣은 값이 너무 길거나 모양이 달라요';
   return e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시';
 }
