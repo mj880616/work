@@ -10,7 +10,6 @@ const RELOCK_MS = { '5m': 5 * 60 * 1000, '30m': 30 * 60 * 1000 };
 
 const NONE = Object.freeze({ has_pin: false, features: [], relock: '5m', left: 5, blocked_until: null });
 const state = { settings: null, reading: null, failed: false, open: false, leftAt: null, pending: null };
-const rpc = (name, body = {}) => window.KPTURuntime.api('/rest/v1/rpc/' + name, { method: 'POST', body, singleFlight: false });
 const changed = () => window.dispatchEvent(new CustomEvent('kptu:feature-lock-changed'));
 const clean = value => value && typeof value === 'object' && typeof value.has_pin === 'boolean' && Array.isArray(value.features)
   ? { has_pin: value.has_pin, features: value.features.filter(f => LOCKABLE[f]), relock: RELOCK.some(([k]) => k === value.relock) ? value.relock : '5m',
@@ -20,7 +19,8 @@ const clean = value => value && typeof value === 'object' && typeof value.has_pi
 // 설정 읽기(서버). 연결 실패·서버 오류면 settings는 null로 남고 잠글 수 있는 화면은 닫힌 채(잠금 화면이 [다시]를 보인다).
 export function refresh() {
   if (state.reading) return state.reading;
-  state.reading = rpc('app_lock_read').then(value => {
+  // 읽기는 GET(stable 함수) — 쓰기 요청과 섞이지 않게(app_my_features와 같은 방식).
+  state.reading = window.KPTURuntime.api('/rest/v1/rpc/app_lock_read', { singleFlight: false }).then(value => {
     // 답 모양이 다르면(서버 함수가 아직 없거나 바뀜) 잠금 없음으로 본다 — 잠금은 화면 가림이고 자료 경계는 서버가 지킨다.
     state.settings = clean(value) || NONE; state.failed = false;
     return state.settings;
