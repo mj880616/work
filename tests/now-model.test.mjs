@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, SAVED_CHIPS, keepSavedChip, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
@@ -84,16 +84,22 @@ test('상세 답 모양: 틀린 칸은 버리고 basic은 연관·시사점 없�
   assert.equal(detailError({status: 503, message: 'monthly_limit'}), '이번 달 AI 한도를 다 씀');
 });
 
-test('[보관] 탭: 두 쪽을 최근 표시 순 한 목록, 칩으로 거르기', () => {
-  const marks = [{post_id: A, starred_at: '2026-11-01T00:00:00Z', archived_at: null, app_outside_posts: {id: A, title: '성명'}},
-    {post_id: '33333333-3333-4333-8333-333333333333', starred_at: null, archived_at: null, app_outside_posts: {id: 'x'}},
-    {post_id: '44444444-4444-4444-8444-444444444444', starred_at: null, archived_at: '2026-11-03T00:00:00Z', app_outside_posts: {id: 'y', title: '보관 글'}}];
+test('[보관] 탭: 두 쪽 별표를 최근 순 한 목록, 칩 [전체][사회운동][언론]으로 거르기(보관 = 별표, S67-09)', () => {
+  assert.deepEqual(SAVED_CHIPS.map(c => [c.id, c.label]), [['all', '전체'], ['outside', '사회운동'], ['news', '언론']]);
+  assert.equal(keepSavedChip('star'), 'all');
+  assert.equal(keepSavedChip('archive'), 'all');
+  const marks = [{post_id: A, starred_at: '2026-11-01T00:00:00Z', app_outside_posts: {id: A, title: '성명'}},
+    {post_id: '33333333-3333-4333-8333-333333333333', starred_at: null, app_outside_posts: {id: 'x'}},
+    // 옛 보관 칸만 있는 줄은 보지 않는다(DB가 별표로 채웠다).
+    {post_id: '44444444-4444-4444-8444-444444444444', starred_at: null, archived_at: '2026-11-03T00:00:00Z', app_outside_posts: {id: 'y', title: '보관 글'}},
+    {post_id: '55555555-5555-4555-8555-555555555555', starred_at: '2026-11-03T00:00:00Z', archived_at: '2026-11-03T00:00:00Z', app_outside_posts: {id: 'z', title: '옮긴 글'}}];
   const news = [{id: B, starred_at: '2026-11-02T00:00:00Z', folder_id: null}, {id: 'bad', starred_at: '2026-11-04T00:00:00Z'}];
   const rows = savedRows(marks, news);
-  assert.deepEqual(rows.map(r => [r.type, r.star, r.archive]), [['outside', false, true], ['news', true, false], ['outside', true, false]]);
-  assert.equal(filterSaved(rows, 'star').length, 2);
-  assert.equal(filterSaved(rows, 'archive').length, 1);
+  assert.deepEqual(rows.map(r => [r.type, r.id, r.star]), [['outside', '55555555-5555-4555-8555-555555555555', true], ['news', B, true], ['outside', A, true]]);
+  assert.ok(rows.every(r => !('archive' in r)));
+  assert.equal(filterSaved(rows, 'outside').length, 2);
   assert.equal(filterSaved(rows, 'news').length, 1);
+  assert.equal(filterSaved(rows, 'star').length, 3);
   assert.equal(filterSaved(rows, 'nope').length, 3);
 });
 

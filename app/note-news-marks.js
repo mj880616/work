@@ -73,7 +73,7 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   const hlRows = (list, tag = '') => list.map(h => highlightRowHtml(h, {tag, src: sourceTag(h), gone: gone(h)})).join('');
   function savedRowHtml(r, tag = '') {
     const l = savedLine(r, nameOf);
-    const mark = tag ? `<span class="nnm-tag">${esc(tag)}</span>` : l.star ? '<span class="nnm-star" aria-label="별표">★</span>' : '<span class="nnm-tag">보관</span>';
+    const mark = tag ? `<span class="nnm-tag">${esc(tag)}</span>` : '<span class="nnm-star" aria-label="별표">★</span>'; // 보관 = 별표(S67-09)
     return `<div class="nnm-sv now-row" data-nw-key="${esc(l.key)}"><button type="button" class="ghost nnm-open" data-nnm-saved="${esc(l.key)}">${mark}<span class="nnm-t">${esc(l.title)}</span><span class="nnm-m">${esc([l.media, l.day].filter(Boolean).join(' · '))}</span></button>${hoverActsHtml({saved: true})}<button type="button" class="icon-btn basket-row-more" data-now-more aria-haspopup="true" aria-expanded="false" aria-label="보관한 글 메뉴">${MORE}</button></div>`;
   }
   function listHtml(at) {

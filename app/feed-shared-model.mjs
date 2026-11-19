@@ -34,10 +34,10 @@ export function newsPage(rows, pageSize) {
   const raw = Math.min(got.length, pageSize);
   return {raw, end: got.length <= pageSize, rows: got.slice(0, pageSize).filter(it => !it.hidden_at)};
 }
-// 사회운동 내 표시 줄 → [보관] 탭이 쓰던 모양({post_id, starred_at, archived_at, app_outside_posts}).
+// 사회운동 내 표시 줄 → [보관] 탭이 쓰던 모양({post_id, starred_at, dismissed_at, app_outside_posts}). 옛 보관 칸(archived_at)은 읽지 않는다(S67-09, 보관 = 별표).
 export function savedOutsideMark(m) {
   if (!m || !hasId(m.article_id)) return null;
-  return {post_id: m.article_id, starred_at: m.starred_at ?? null, archived_at: m.archived_at ?? null, dismissed_at: m.dismissed_at ?? null, app_outside_posts: m.app_outside_articles || null};
+  return {post_id: m.article_id, starred_at: m.starred_at ?? null, dismissed_at: m.dismissed_at ?? null, app_outside_posts: m.app_outside_articles || null};
 }
 // 옛 id → 공용 id. 지도 함수 답(rows: [{old_id, article_id}])을 넣고, 지도에 없는 id는 그대로(공용 id이거나 옮기기 전 운영자 줄 = 같은 id).
 export {hasId};

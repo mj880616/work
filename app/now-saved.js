@@ -4,9 +4,9 @@ import {ensureReads} from './news-reads.js';
 import {readOutsideMarks, readNewsStarred, workspaceOf} from './feed-shared.js';
 import {SAVED_CHIPS, keepSavedChip, savedRows, filterSaved, itemKey, titleHit} from './now-model.mjs';
 // OUTSIDE-글상세·관심환류 ④(설계 docs/design/outside-statements.md 12.1절): Now [보관] 탭.
-// 두 쪽의 별표·보관을 한곳에: 사회운동 글(내 표시 app_outside_article_marks의 starred_at·archived_at) + 뉴스 기사(내 표시 app_news_marks.starred_at, 보관 = 별표 폴더).
+// 두 쪽의 별표를 한곳에: 사회운동 글(내 표시 app_outside_article_marks.starred_at) + 뉴스 기사(내 표시 app_news_marks.starred_at). S67-09: 보관 = 별표 하나(옛 archived_at은 읽지 않음).
 // NEWS-모두에게열기 ③: 글 내용은 공용 표, 표시는 사람별 — 읽는 길은 feed-shared.js.
-// 칩 [전체] [별표] [보관] [사회운동] [언론]. 줄 전체를 누르면 같은 상세(now-detail.js)가 열린다. 언론 별표 폴더 정리는 ⋯ [별표 폴더](news-clipping.js).
+// 칩 [전체] [사회운동] [언론]. 줄 전체를 누르면 같은 상세(now-detail.js)가 열린다. 언론 별표 폴더 정리는 ⋯ [별표 폴더](news-clipping.js).
 // S51-8 NEWS P4b: 줄 모양은 다른 탭과 같은 news-row.mjs(껍데기가 준 rowOf), 위 찾기 칸 글자로 제목을 거른다(query).
 // 읽기만 한다(서버, 작업공간 소유자 RLS). 이 칸(box)의 유일한 그리기 주인.
 
@@ -21,7 +21,7 @@ export async function readSavedRows() {
   const w = workspaceOf();
   if (!w) return undefined;
   const [marks, news] = await Promise.allSettled([
-    readOutsideMarks('(starred_at.not.is.null,archived_at.not.is.null)', {embed: POST_COLS, limit: 300}),
+    readOutsideMarks('(starred_at.not.is.null)', {embed: POST_COLS, limit: 300}),
     readNewsStarred(NEWS_COLS, 300),
   ]);
   if (marks.status === 'rejected' && news.status === 'rejected') return null;
@@ -46,7 +46,7 @@ export function createNowSaved({box, describe, rowOf, query = () => '', onOpen, 
     if (!loaded) { box.innerHTML = chips + (failed ? failHtml({retry: 'data-ns-retry'}) : waitHtml({rows: 5, h: 56})); return; }
     const list = filterSaved(rows, chip).filter(r => titleHit([describe(r.type, r.row).title, r.row?.title], query()));
     if (!list.length) { box.innerHTML = chips + emptyHtml(query() ? '제목에서 찾은 글 없음' : '보관한 글 없음', {attrs: 'data-ns-empty'}); return; }
-    box.innerHTML = chips + `<div class="now-saved-list nw-card">${list.map(r => rowOf(r.type, r.row, {openAttr: 'data-ns-open', rowAttr: 'data-ns-row', star: r.star, acts: `${r.archive ? '<span class="ns-mark">보관</span>' : ''}${hoverActsHtml({saved: true})}`})).join('')}</div>`;
+    box.innerHTML = chips + `<div class="now-saved-list nw-card">${list.map(r => rowOf(r.type, r.row, {openAttr: 'data-ns-open', rowAttr: 'data-ns-row', star: r.star, acts: hoverActsHtml({saved: true})})).join('')}</div>`;
     onListed?.();
   }
   box?.addEventListener('click', event => {
