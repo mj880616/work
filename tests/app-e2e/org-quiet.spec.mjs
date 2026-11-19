@@ -166,3 +166,16 @@ test('1:1 방은 상대가 쓴 글로 센다(나만 보낸 날·전달 글·단�
   await expect(q).not.toContainText('마분회');
   await expect(q.locator('.oq-row').nth(2)).toContainText('사지부마지막 · 통화 8.562일');
 });
+
+// SEC-기능PIN잠금(S67-14): 통화를 잠갔고 아직 안 풀었으면 마지막 연락 날짜(통화·텔레그램에서 옴) 대신 '잠김' 한 줄.
+test('통화를 잠그면 연락 없는 조직은 "잠김" 한 줄 412', async ({page}) => {
+  await page.setViewportSize({width: 412, height: 900});
+  await openHome(page, {beforeLoad: async () => {
+    await routes(page);
+    await page.route(SB + '/rest/v1/rpc/app_lock_read*', r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({has_pin: true, features: ['calls'], relock: '5m', left: 5, blocked_until: null})}));
+  }});
+  const q = line(page);
+  await expect(q.locator('[data-oq-locked]')).toHaveText('연락 없는 조직 · 잠김');
+  await expect(q).not.toContainText('가지부');
+  await expect(q).not.toContainText('25일');
+});

@@ -29,12 +29,13 @@ const nameOf = key => window.KPTUOutside?.sourceName?.(key) || null;
 
 // onChange(): 자료가 새로 왔다(껍데기가 목록을 다시 그린다 — 줄 수·찾은 수가 바뀜).
 // openNote(noteId, highlightId): 노트 밑줄을 그 노트 그 자리로 연다. noteText(noteId): 노트 글자(raw_text), 노트가 없으면 null, 아직 모르면 undefined.
-export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = null, noteText = () => undefined} = {}) {
+// noteHidden(noteId): 그 노트가 잠근 노트 폴더에 있어 가려졌나(SEC-기능PIN잠금 S67-14) — 그 노트 밑줄은 '밑줄' 목록에 두지 않는다.
+export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = null, noteText = () => undefined, noteHidden = () => false} = {}) {
   let saved = null, savedFailed = false, hlFailed = false, kind = 'all', seq = 0, off = false;
   // NEWS-운영자만(S63-03): News는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 '보관한 글' 줄을 빼고(읽지도 않음) 밑줄은 노트 밑줄만 보인다
   // (News·텔레그램 밑줄은 누르면 News로 가므로). 모인 밑줄·보관은 지우지 않는다. 답을 모르면(null) 지금처럼 다 보인다(메뉴 myFeaturesOrNull 규칙과 같음).
   let newsOn = true;
-  const hlNow = () => { const all = highlightsNow(); return all && !newsOn ? all.filter(h => h?.source_type === 'note') : all; };
+  const hlNow = () => { const raw = highlightsNow(); const all = raw && raw.filter(h => !(h?.source_type === 'note' && noteHidden(h.source_id))); return all && !newsOn ? all.filter(h => h?.source_type === 'note') : all; };
   async function load() {
     const my = ++seq;
     off = false;

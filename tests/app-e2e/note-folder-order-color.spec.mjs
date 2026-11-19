@@ -231,7 +231,7 @@ test.describe('PC 1440', () => {
   test('폴더 ⋯ 메뉴: 색 선택·위로·아래로(맨 앞은 위로 없음, 맨 끝은 아래로 없음)', async ({ page }) => {
     const f = await fixture(page, 1440);
     await more(page, U(1)).click();
-    await expect(rootMenu(page).locator('button')).toHaveText(['새 노트', '선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 선택…', '아래로', '옮기기…', '폴더 삭제']);
+    await expect(rootMenu(page).locator('button')).toHaveText(['새 노트', '선택', '이 폴더로 들어가기', '새 폴더', '이름 바꾸기', '색 선택…', '아래로', '옮기기…', '잠금', '폴더 삭제']);
     await page.keyboard.press('Escape');
     await more(page, U(3)).click();
     await expect(rootMenu(page).locator('[data-nx-folder-up]')).toHaveText('위로');

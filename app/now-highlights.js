@@ -35,17 +35,23 @@ export function createNowHighlights({box, query = () => '', onOpen} = {}) {
   const rowHtml = h => highlightRowHtml(h, {picking, picked: picked.has(h.id)});
   function paint() {
     if (!box) return;
-    const all = newsOnly(highlightsNow());
+    const raw = newsOnly(highlightsNow());
+    // SEC-기능PIN잠금(S67-14): 텔레그램 소식을 잠갔고 아직 안 풀었으면 텔레그램 밑줄은 그리지 않고 맨 아래 '잠김' 한 줄만(몇 줄인지만).
+    const tgLocked = !!window.KPTUFeatureLock?.hides?.('telegram') && !!window.KPTUFeatureLock?.settings?.();
+    const all = raw && (tgLocked ? raw.filter(h => h.source_type !== 'telegram') : raw);
+    const hidden = raw && tgLocked ? raw.length - all.length : 0;
+    const lockedLine = hidden ? `<p class="nbx-faint forget-locked" data-nh-locked>텔레그램 밑줄 ${hidden}줄 · 잠김</p>` : '';
     if (!all) { box.innerHTML = failed ? failHtml({retry: 'data-nh-retry'}) : waitHtml({rows: 4, h: 56}); return; }
     for (const id of [...picked]) if (!all.some(h => h.id === id)) picked.delete(id);
     const list = all.filter(h => hlHit(h, query()));
     const head = picking
       ? `<div class="nx-select-bar nh-select" role="toolbar" aria-label="선택한 밑줄"><span data-nh-count>${picked.size}개 선택됨</span><span class="kptu-actbar kptu-actbar-text nx-sel-acts"><button type="button" class="ghost kptu-act" data-nh-note${picked.size ? '' : ' disabled'}>노트로</button><button type="button" class="ghost kptu-act" data-nh-all>모두 선택</button></span><button type="button" class="icon-btn nx-sel-close" data-nh-pickend aria-label="선택 끝내기">✕</button></div>`
       : (all.length > 1 ? '<div class="nh-head"><button type="button" class="ghost os-text-btn" data-nh-pickstart>여러 개 선택</button></div>' : '');
-    if (!list.length) { box.innerHTML = head + emptyHtml(query() ? '찾은 밑줄 없음' : '저장한 밑줄 없음 · 원문에서 글을 선택해 [밑줄 저장]', {attrs: 'data-nh-empty'}); return; }
-    box.innerHTML = head + `<div class="nh-list nw-card">${list.map(rowHtml).join('')}</div>`;
+    if (!list.length) { box.innerHTML = head + (hidden && !query() ? '' : emptyHtml(query() ? '찾은 밑줄 없음' : '저장한 밑줄 없음 · 원문에서 글을 선택해 [밑줄 저장]', {attrs: 'data-nh-empty'})) + lockedLine; return; }
+    box.innerHTML = head + `<div class="nh-list nw-card">${list.map(rowHtml).join('')}</div>` + lockedLine;
   }
   onHighlights(() => paint());
+  window.addEventListener('kptu:feature-lock-changed', () => paint());
   box?.addEventListener('change', e => {
     const c = e.target.closest?.('[data-nh-pick]');
     if (!c) return;

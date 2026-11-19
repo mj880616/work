@@ -31,3 +31,4 @@
 #lockView .lk-cancel{margin-top:6px}
 #lockView .lk-acts{display:flex;gap:6px;margin-top:6px}
 #lockView .lk-forgot .lk-note{margin:0}
+#lockView .lk-folders{margin:8px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
