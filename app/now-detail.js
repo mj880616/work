@@ -1,5 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {sendSignal, setMark} from './now-marks.js';
+import {deleteMine, DELETE_LABEL} from './now-row-acts.js';
 import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences} from './feed-shared.js';
 import {createNoteDoc, saveNoteDoc} from './basket-data.js';
 import {plainText} from './news-clipping-model.mjs';
@@ -45,7 +46,7 @@ import {clipboardFiles} from './paste-files.mjs';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const rt = () => window.KPTURuntime;
 const MEMO_COLS = 'id,title,raw_text,metadata,updated_at,doc_type:doc->>type';
-const NEWS_ROW_COLS = 'state,body_kind,summary,title,title_ko,publisher,published_at,url,lang,author,manual_at';
+const NEWS_ROW_COLS = 'state,body_kind,summary,title,title_ko,publisher,published_at,url,lang,author,manual_at,origin';
 const HAND_ROW_COLS = 'title,publisher,author,published_at,url,state';
 // 직접 넣기 입력 칸 상태. pics: '[사진 n]' 번호 → {file(올리기 전 사진, 메모리만), view(미리보기 주소), src(저장된 사진 주소)}.
 const idleHand = () => ({open: false, busy: false, note: '', init: null, shown: null, pics: new Map(), next: 1, up: ''});
@@ -203,9 +204,12 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function actsHtml() {
     const m = cur.marks || {};
     const busy = cur.busy ? ' disabled' : '';
-    const btn = (act, on, label, onLabel) => `<button type="button" class="nd-act" data-nd-act="${act}" aria-pressed="${!!on}"${busy}>${esc(on ? onLabel : label)}</button>`;
-    const memo = cur.memoOpen ? '' : `<button type="button" class="nd-act" data-nd-act="memo"${busy}>${cur.memo ? '메모 수정' : '메모'}</button>`;
-    return `${btn('star', m.star, '☆ 별표', '★ 별표')}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
+    const one = (attrs, label) => `<button type="button" class="nd-act" ${attrs}${busy}>${esc(label)}</button>`;
+    const btn = (act, on, label, onLabel) => one(`data-nd-act="${act}" aria-pressed="${!!on}"`, on ? onLabel : label);
+    const memo = cur.memoOpen ? '' : one('data-nd-act="memo"', cur.memo ? '메모 수정' : '메모');
+    // S67-11 NEWS-보관빼기: 내가 넣은 기사(공유·손으로 넣은 것, head.mine)는 [삭제] — 내 목록 어디에도 안 보이게(공용 기사 행은 그대로), 5초 [되돌리기].
+    const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', DELETE_LABEL) : '';
+    return `${btn('star', m.star, '☆ 별표', '★ 별표')}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
   function memoHtml() {
     if (cur.memoOpen) {
@@ -376,6 +380,19 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     } catch (e) { c.note = saveFailNote(e); }
     c.busy = false;
     if (cur === c) { paintActs(); box?.querySelector(`[data-nd-act="${act}"]`)?.focus({preventScroll: true}); }
+  }
+  async function removeCur() {
+    if (!cur || cur.busy) return;
+    const c = cur;
+    c.busy = true; c.note = ''; paintActs();
+    try {
+      await deleteMine(c.item, {changed: (item, kind, on) => onChanged?.(item, 'delete', on)});
+      c.busy = false;
+      if (cur === c) onClose?.();
+      return;
+    } catch (e) { c.note = saveFailNote(e); }
+    c.busy = false;
+    if (cur === c) paintActs();
   }
   async function saveMemo(text) {
     const c = cur;
@@ -659,6 +676,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
     if (b.matches('[data-nd-act="memo"]')) { cur.memoOpen = true; cur.memoNote = ''; paintActs(); box.querySelector('[data-nd-memo-input],[data-nd-memo-cancel]')?.focus({preventScroll: true}); return; }
+    if (b.matches('[data-nd-delete]')) { removeCur(); return; }
     if (b.matches('[data-nd-act]')) { toggle(b.dataset.ndAct); return; }
     if (b.matches('[data-nd-memo-cancel]')) { cur.memoOpen = false; cur.memoNote = ''; paintActs(); return; }
     if (b.matches('[data-nd-related]')) { const r = detailView(cur.detail).related[Number(b.dataset.ndRelated)]; if (r) onRelated?.(r); }
