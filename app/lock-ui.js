@@ -52,7 +52,6 @@ function draw() {
 function list() {
   const s = lock.settings() || {has_pin: false, features: [], relock: '5m'};
   const box = el('div', 'lk-list');
-  box.append(el('p', 'lk-note', '켜 둔 기능은 열 때 PIN 4자리를 물어요. 폰·PC 같은 PIN이에요.'));
   const rows = el('div', 'lk-rows'); rows.setAttribute('role', 'group'); rows.setAttribute('aria-label', '잠글 기능');
   for (const f of ui.features || []) {
     const row = el('label', 'lk-row');
