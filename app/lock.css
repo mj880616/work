@@ -3,13 +3,13 @@
 #lockView .lk-note{margin:0 0 6px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #lockView .lk-rows{display:grid;border-top:var(--ds-line-width,.5px) solid var(--ds-line)}
 #lockView .lk-row,#lockView .lk-relock{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--ds-compact-height,32px);padding:2px 0;border-bottom:var(--ds-line-width,.5px) solid var(--ds-line);font-size:var(--ds-text-row)}
-#lockView .lk-row{cursor:pointer}
+#lockView .lk-row{cursor:pointer;flex-direction:row;margin:0;color:var(--kptu-ink);font-weight:var(--ds-weight-regular,400)}
 #lockView .lk-row input[role=switch]{appearance:none;flex:none;position:relative;width:34px;height:20px;margin:0;border-radius:10px;background:var(--ds-line);cursor:pointer;transition:background .15s}
 #lockView .lk-row input[role=switch]::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--kptu-surface);transition:transform .15s}
 #lockView .lk-row input[role=switch]:checked{background:var(--kptu-primary-soft)}
 #lockView .lk-row input[role=switch]:checked::after{transform:translateX(14px);background:var(--kptu-ink)}
 #lockView .lk-row input[role=switch]:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
-#lockView .lk-seg{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+#lockView .lk-seg{flex:none}
 #lockView .lk-change{margin-top:8px}
 #lockView .lk-msg{min-height:1.2em;margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta);text-align:inherit}
 #lockView .lk-pad{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:280px;margin:24px auto 0;text-align:center}

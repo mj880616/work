@@ -63,10 +63,10 @@ function list() {
   }
   const relock = el('div', 'lk-relock'); relock.setAttribute('role', 'group'); relock.setAttribute('aria-label', '다시 잠그기');
   relock.append(el('span', 'lk-row-name', '다시 잠그기'));
-  const seg = el('span', 'lk-seg');
+  const seg = el('span', 'lk-seg ds-seg');
   const current = s.has_pin ? s.relock : ui.relockDraft;
   for (const [key, name] of lock.RELOCK) {
-    const b = button('mini' + (key === current ? '' : ' secondary'), name, {lkRelock: key});
+    const b = button('ds-seg-btn', name, {lkRelock: key});
     b.setAttribute('aria-pressed', String(key === current)); b.disabled = ui.busy; seg.append(b);
   }
   relock.append(seg);
