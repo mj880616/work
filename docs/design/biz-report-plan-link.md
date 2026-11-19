@@ -247,7 +247,7 @@ union all select '이미 연결된 보고', count(*)::text from public.app_meeti
 - **판정 한 곳**: `app/report-plan-model.mjs` `askReason`(4-1 ④). `eventStatus`가 부르고, 사업 보고 달력(`report-calendar-plan.mjs` `planItems`)이 그 결과를 놓기만 한다. 결정 줄·같은 이름 기억·보고 씀(●)이 먼저인 순서는 그대로다(4-1 ①~③). 그래서 [빼기]한 이름은 주요 일정이어도 다시 묻지 않고, 그 이름으로 보고를 쓴 적이 있으면 □(저절로 켜짐)다.
 - **담당조직 연결**(그날 목록 둘째 줄 '담당조직 연결됨') — 조직 보고 창(`record-window-model.mjs` `eventItems`)과 같은 판정 ①·②:
   ① 일정에 붙인 조직(Google 일정 비공개 속성 `kptu_suborg_ids`, 일정 창에서 고른 담당조직) — 예전 판정 그대로.
-  ② 제목에 내 담당조직(쉬는 조직 제외) 이름·다른 이름이 **한 조직만** 맞음(`titleOrg`). 두 조직이 맞으면 묻지 않는다.
+  ② 제목에 내 담당조직(공용 규칙 `my-organizations.js` — 담당 사업장 × 쓰는 조직, 담당을 안 정했으면 쓰는 조직 전부) 이름·다른 이름이 **한 조직만** 맞음(`titleOrg`). 두 조직이 맞으면 묻지 않는다.
   조직 참고 캘린더 판정(조직 보고 창 ③)은 넣지 않았다 — 그 캘린더 설정을 사업 보고 화면이 따로 읽어야 해서다(필요하면 다음 PR).
 - **주요 일정**(둘째 줄 '주요 일정'):
   ③ 사업영역 주요 일정 행(`app_project_milestones`의 `google_event_id`)에 오른 일정 — 이 달(서울)에 시작하는 행의 일정 id만 읽는다.

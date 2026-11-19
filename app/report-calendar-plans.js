@@ -12,6 +12,7 @@ import {loadReportPlans, reportPlanData, setEventPlanState, addRulePlans, syncEv
 import {planItems, itemsByDay, overdueItems, matchesName, monthRange, itemEvent, itemWhen, planRowMenuItems} from './report-calendar-plan.mjs';
 import {reportsOfEvent} from './report-plan-model.mjs';
 import {openRowMenu} from './row-menu.js';
+import {pickMyOrganizations} from './my-organizations.js';
 
 const EVENTS_TTL = 5 * 60 * 1000;
 const rtOf = () => window.KPTURuntime;
@@ -38,12 +39,17 @@ async function readMonth(rt, month) {
     return events;
   } catch { return null; }
 }
-// 내 담당조직(쉬는 조직 제외). 어느 작업공간 것을 읽을지는 DB(소유자 RLS — 내 작업공간 하나)가 정한다(이 파일은 작업공간 값을 다루지 않는다).
+// 담당조직(쉬는 조직 제외). 어느 작업공간 것을 읽을지는 DB(소유자 RLS — 내 작업공간 하나)가 정한다(이 파일은 작업공간 값을 다루지 않는다).
 // 실패하면 null — 제목 판정만 빠진다.
+// 내 담당조직 = 공용 규칙(my-organizations.js — 내 프로필 › 담당 사업장 행 × 쓰는 조직, 담당을 안 정했으면 쓰는 조직 전부).
 async function readOrgs(rt) {
+  const c = rt?.context?.read?.() || window.__KPTU_BOOT_CONTEXT__ || null, user = String(c?.user?.id || '');
   try {
-    const rows = await rt.api(`/rest/v1/app_suborganizations?active=eq.true&select=id,name,aliases,active&order=id.asc&limit=${HINT_LIMIT}`);
-    return Array.isArray(rows) ? rows : null;
+    const [rows, assignees] = await Promise.all([
+      rt.api(`/rest/v1/app_suborganizations?active=eq.true&select=id,name,aliases,active&order=id.asc&limit=${HINT_LIMIT}`),
+      user ? rt.api(`/rest/v1/app_suborganization_assignees?user_id=eq.${enc(user)}&select=organization_id&order=organization_id.asc&limit=${HINT_LIMIT}`).catch(() => []) : Promise.resolve([])
+    ]);
+    return Array.isArray(rows) ? pickMyOrganizations(rows, Array.isArray(assignees) ? assignees : []) : null;
   } catch { return null; }
 }
 // 이 달(서울)에 시작하는 사업영역 주요 일정 행의 Google 일정 id. 실패하면 null — 사업영역 판정만 빠진다.
