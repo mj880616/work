@@ -83,13 +83,13 @@ export async function findNewsArticles(words, cols, {since, limit, keys = null})
   ]);
   return {recent: (Array.isArray(recent) ? recent : []).map(flatNews).filter(it => it && !it.hidden_at), kept: (Array.isArray(kept) ? kept : []).map(flatNewsMark).filter(Boolean)};
 }
-// 사회운동 글 찾기: 최근 글(올린 날, 없으면 받은 날이 since 뒤) + 내가 보관·별표한 글(기간 없음). keys: 고른 단체(null = 모두). 숨긴 글은 화면이 뺀다.
+// 사회운동 글 찾기: 최근 글(올린 날, 없으면 받은 날이 since 뒤) + 내가 별표(= 보관)한 글(기간 없음). keys: 고른 단체(null = 모두). 숨긴 글은 화면이 뺀다.
 export async function findOutsideArticles(words, cols, {since, limit, keys = null}) {
   const w = workspaceOf(), like = ilikeAny(POST_FIND_COLS, words);
   const inKeys = keys ? `in.(${keys.map(q).join(',')})` : '';
   const [recent, kept] = await Promise.all([
     rt().api(`/rest/v1/${T.outside.art}?select=${cols}&and=${q(`(or(published_at.gte.${since},and(published_at.is.null,fetched_at.gte.${since})),or${like})`)}${inKeys ? `&source_key=${inKeys}` : ''}&order=published_at.desc.nullslast,fetched_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
-    rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(w)}&dismissed_at=is.null&or=(archived_at.not.is.null,starred_at.not.is.null)&select=article_id,${T.outside.art}!inner(${cols})&${T.outside.art}.or=${q(like)}${inKeys ? `&${T.outside.art}.source_key=${inKeys}` : ''}&limit=${limit}`, {singleFlight: false}),
+    rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(w)}&dismissed_at=is.null&starred_at=not.is.null&select=article_id,${T.outside.art}!inner(${cols})&${T.outside.art}.or=${q(like)}${inKeys ? `&${T.outside.art}.source_key=${inKeys}` : ''}&limit=${limit}`, {singleFlight: false}),
   ]);
   return {recent: Array.isArray(recent) ? recent.filter(r => r && hasId(r.id)) : [], kept: (Array.isArray(kept) ? kept : []).map(m => m?.[T.outside.art]).filter(r => r && hasId(r.id))};
 }
@@ -124,9 +124,9 @@ export async function readOutsideOne(id, cols) {
   if (!hasId(aid)) return null;
   return first(await rt().api(`/rest/v1/${T.outside.art}?id=eq.${q(aid)}&select=${cols}&limit=1`, {singleFlight: false}));
 }
-// 내 표시 중 조건(or=…)에 맞는 것 → [{post_id(공용 id), starred_at, archived_at, dismissed_at, app_outside_posts?}].
+// 내 표시 중 조건(or=…)에 맞는 것 → [{post_id(공용 id), starred_at, dismissed_at, app_outside_posts?}].
 export async function readOutsideMarks(or, {embed = '', limit = 2000} = {}) {
-  const sel = `article_id,starred_at,archived_at,dismissed_at${embed ? `,${T.outside.art}(${embed})` : ''}`;
+  const sel = `article_id,starred_at,dismissed_at${embed ? `,${T.outside.art}(${embed})` : ''}`;
   const rows = await rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(workspaceOf())}&or=${or}&select=${sel}&limit=${limit}`, {singleFlight: false});
   return (Array.isArray(rows) ? rows : []).map(savedOutsideMark).filter(Boolean);
 }
@@ -141,15 +141,15 @@ export async function writeOutsideMark(id, fields) {
 }
 
 // ---------- 둘 다 ----------
-// 내 표시 하나: 뉴스 {star, archive(폴더), dismiss}, 사회운동 {star, archive, dismiss, has}.
+// 내 표시 하나: 뉴스 {star, dismiss}, 사회운동 {star, dismiss, has}. 보관 = 별표(S67-09).
 export async function readMarkOf(item) {
   const t = T[item?.type];
   if (!t) return null;
-  const cols = item.type === 'news' ? 'starred_at,folder_id,hidden_at' : 'starred_at,archived_at,dismissed_at';
+  const cols = item.type === 'news' ? 'starred_at,hidden_at' : 'starred_at,dismissed_at';
   const r = first(await rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(workspaceOf())}&article_id=eq.${q(item.id)}&select=${cols}&limit=1`, {singleFlight: false}));
   return item.type === 'news'
-    ? {star: !!r?.starred_at, archive: !!r?.folder_id, dismiss: !!r?.hidden_at}
-    : {star: !!r?.starred_at, archive: !!r?.archived_at, dismiss: !!r?.dismissed_at, has: !!r};
+    ? {star: !!r?.starred_at, dismiss: !!r?.hidden_at}
+    : {star: !!r?.starred_at, dismiss: !!r?.dismissed_at, has: !!r};
 }
 // 공용 본문 블록 한 줄(없으면 null).
 export const readBody = item => rt().api(`/rest/v1/${T[item.type].body}?article_id=eq.${q(item.id)}&select=blocks,state,reason&limit=1`, {singleFlight: false}).then(first);

@@ -221,34 +221,31 @@ export function detailError(e) {
   return e?.status ? `상세를 만들지 못함 · HTTP ${e.status}` : '상세를 만들지 못함 · 잠시 뒤 다시';
 }
 
-// ---- [보관] 탭(12.1): 사회운동 글 표시(app_outside_marks) + 뉴스 별표(app_news_items.starred_at)를 한 목록으로 ----
+// ---- [보관] 탭(12.1): 사회운동 글 별표(app_outside_article_marks.starred_at) + 뉴스 별표(app_news_marks.starred_at)를 한 목록으로 ----
+// S67-09 NEWS-보관별표하나로(명진 11/19): 보관 = 별표 하나. 칩은 [전체][사회운동][언론]만(옛 [별표][보관] 칩 삭제).
 export const SAVED_CHIPS = Object.freeze([
   {id: 'all', label: '전체'},
-  {id: 'star', label: '별표'},
-  {id: 'archive', label: '보관'},
   {id: 'outside', label: '사회운동'},
   {id: 'news', label: '언론'},
 ]);
 export const keepSavedChip = chip => (SAVED_CHIPS.some(c => c.id === chip) ? chip : 'all');
-// marks: [{post_id, starred_at, archived_at, app_outside_posts:{...}}], news: [{id, starred_at, folder_id, ...}]
-// → [{type, id, at, star, archive, row}] 최근 표시 순. 뉴스 '보관'은 별표 폴더에 넣은 것.
+// marks: [{post_id, starred_at, app_outside_posts:{...}}], news: [{id, starred_at, ...}]
+// → [{type, id, at, star, row}] 최근 별표 순. 별표 없는 줄은 뺀다(옛 archived_at은 보지 않음 — DB 20261119120000이 별표로 채움).
 export function savedRows(marks, news) {
   const out = [];
   for (const m of marks || []) {
     const post = m?.app_outside_posts;
-    if (!post || !isUuid(m.post_id) || (!m.starred_at && !m.archived_at)) continue;
-    out.push({type: 'outside', id: m.post_id, at: m.starred_at && m.archived_at ? (m.starred_at > m.archived_at ? m.starred_at : m.archived_at) : m.starred_at || m.archived_at, star: !!m.starred_at, archive: !!m.archived_at, row: post});
+    if (!post || !isUuid(m.post_id) || !m.starred_at) continue;
+    out.push({type: 'outside', id: m.post_id, at: m.starred_at, star: true, row: post});
   }
   for (const it of news || []) {
     if (!it || !isUuid(it.id) || !it.starred_at) continue;
-    out.push({type: 'news', id: it.id, at: it.starred_at, star: true, archive: isUuid(it.folder_id), row: it});
+    out.push({type: 'news', id: it.id, at: it.starred_at, star: true, row: it});
   }
   return out.sort((a, b) => String(b.at).localeCompare(String(a.at)) || a.id.localeCompare(b.id));
 }
 export function filterSaved(rows, chip) {
   switch (keepSavedChip(chip)) {
-    case 'star': return rows.filter(r => r.star);
-    case 'archive': return rows.filter(r => r.archive);
     case 'outside': return rows.filter(r => r.type === 'outside');
     case 'news': return rows.filter(r => r.type === 'news');
     default: return rows;

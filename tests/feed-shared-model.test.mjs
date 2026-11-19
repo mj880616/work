@@ -37,7 +37,7 @@ test('옛 id 지도: 지도 줄이 있으면 공용 id, 없으면 같은 id(옮�
 test('표시 쓰기 몸통: 화면 권한 칸만(작업공간·기사 id·키워드는 몸통으로 못 바꿈)', () => {
   assert.deepEqual(markFields('news', {starred_at: 's', folder_id: null, hidden_at: 'h', keywords: ['x'], workspace_id: 'w2', article_id: A}), {starred_at: 's', folder_id: null, hidden_at: 'h'});
   assert.deepEqual(markFields('outside', {starred_at: null, archived_at: 'a', dismissed_at: 'd', hidden_at: 'h'}), {starred_at: null, archived_at: 'a', dismissed_at: 'd'});
-  assert.deepEqual(savedOutsideMark({article_id: A, starred_at: 's', app_outside_articles: {id: A}}), {post_id: A, starred_at: 's', archived_at: null, dismissed_at: null, app_outside_posts: {id: A}});
+  assert.deepEqual(savedOutsideMark({article_id: A, starred_at: 's', app_outside_articles: {id: A}}), {post_id: A, starred_at: 's', dismissed_at: null, app_outside_posts: {id: A}});
 });
 
 test('읽기·쓰기 길: 공용 표는 읽기만, 사람별 표는 늘 내 작업공간으로', () => {

@@ -6,8 +6,8 @@ import {OUTSIDE, RECENT} from '../app/note-tree.mjs';
 // S62-13 NOTE-News밑줄보관보기: 노트 'News에서' 두 줄의 순수 계산 + 구조 약속(복사본·기기 저장·새 읽기 길 없음). 글은 모두 가상.
 const ID = n => `a7000000-0000-4000-8000-00000000000${n}`;
 const saved = [
-  {type: 'outside', id: ID(1), star: false, archive: true, row: {id: ID(1), source_key: 'x1', kind: 'statement', lang: 'ko', title: '가상 증언 모음', published_at: '2026-10-03T00:00:00Z'}},
-  {type: 'news', id: ID(2), star: true, archive: false, row: {id: ID(2), title: '가상 철도 기사', publisher: '가상일보', url: 'https://example.org/a', lang: 'ko', state: 'ok', published_at: '2026-10-04T00:00:00Z'}},
+  {type: 'outside', id: ID(1), star: true, row: {id: ID(1), source_key: 'x1', kind: 'statement', lang: 'ko', title: '가상 증언 모음', published_at: '2026-10-03T00:00:00Z'}},
+  {type: 'news', id: ID(2), star: true, row: {id: ID(2), title: '가상 철도 기사', publisher: '가상일보', url: 'https://example.org/a', lang: 'ko', state: 'ok', published_at: '2026-10-04T00:00:00Z'}},
 ];
 const hl = [{id: ID(3), quote: '가상 점검 인력', memo: '국감', source_title: '가상 철도 기사', source_media: '가상일보'}, {id: ID(4), quote: '다른 글', memo: null, source_title: '예산', source_media: '가상뉴스'}];
 
@@ -22,10 +22,10 @@ test('보관한 글 거르기 [전체|뉴스|사회운동 글]', () => {
   assert.equal(filterSavedKind(saved, 'outside')[0].id, ID(1));
   assert.equal(filterSavedKind(saved, 'all').length, 2);
 });
-test('보관한 글 줄 값: 뉴스는 별표·매체, 사회운동 글은 이름을 모르면 사회운동·보관 표시', () => {
+test('보관한 글 줄 값: 뉴스·사회운동 글 모두 별표(보관 = 별표), 사회운동 글은 이름을 모르면 사회운동', () => {
   const n = savedLine(saved[1]), o = savedLine(saved[0]), named = savedLine(saved[0], () => '가상 단체');
   assert.deepEqual([n.title, n.media, n.day, n.star, n.key], ['가상 철도 기사', '가상일보', '10/04', true, `news:${ID(2)}`]);
-  assert.deepEqual([o.media, o.star, o.day], ['사회운동', false, '10/03']);
+  assert.deepEqual([o.media, o.star, o.day], ['사회운동', true, '10/03']);
   assert.equal(named.media, '가상 단체');
 });
 test('노트 검색: 밑줄은 글·메모·제목·매체, 보관은 제목(띄어쓰기·대소문자 무시)', () => {
