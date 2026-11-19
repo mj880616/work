@@ -204,9 +204,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const m = cur.marks || {};
     const busy = cur.busy ? ' disabled' : '';
     const btn = (act, on, label, onLabel) => `<button type="button" class="nd-act" data-nd-act="${act}" aria-pressed="${!!on}"${busy}>${esc(on ? onLabel : label)}</button>`;
-    const archive = cur.item.type === 'outside' ? btn('archive', m.archive, '보관', '보관됨') : '';
     const memo = cur.memoOpen ? '' : `<button type="button" class="nd-act" data-nd-act="memo"${busy}>${cur.memo ? '메모 수정' : '메모'}</button>`;
-    return `${btn('star', m.star, '☆ 별표', '★ 별표')}${archive}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
+    return `${btn('star', m.star, '☆ 별표', '★ 별표')}${memo}${btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓')}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}${siteLink('원래 사이트 ↗', 'nd-link nd-site')}`;
   }
   function memoHtml() {
     if (cur.memoOpen) {
@@ -371,7 +370,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     c.busy = true; c.note = ''; paintActs();
     try {
       await setMark(item, act, on);
-      c.marks = {...m, [act]: on, ...(item.type === 'news' && act === 'star' && !on ? {archive: false} : {})};
+      c.marks = {...m, [act]: on};
       signal(item, on ? act : 'un' + act);
       onChanged?.(item, act, on);
     } catch (e) { c.note = saveFailNote(e); }

@@ -212,7 +212,7 @@ function rowOf(type, row, {openAttr, rowAttr, acts = '', star = false} = {}) {
     return rowHtml({...base, title: v.title, titleLang: v.titleLang, src: v.publisher, color: newsColor(row, newsCatalog()), bar: newsBar(row, newsCatalog()), tag: newsTag(row), time: v.time, star: !!row.starred_at, hit: hitOf(type, row)}, esc);
   }
   const v = postView(row);
-  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), bar: outsideBar(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, hit: hitOf(type, row)}, esc);
+  return rowHtml({...base, title: v.title, titleLang: row.lang === 'en' && !row.title_ko ? 'en' : '', src: nameOf(row.source_key), badge: v.tag, color: outsideColor(row.source_key, state.catalog || []), bar: outsideBar(row.source_key, state.catalog || []), tag: postTag(row), time: v.time, star: star || !!state.marks?.get(row.id)?.starred, hit: hitOf(type, row)}, esc);
 }
 // 확정 관심 주제에 걸린 주제 이름(줄 끝 작은 표시). NEWS-도배막기 C: 같은 값으로 위 칸 '관심 주제'에 올린다(news-fold.mjs liftRelated).
 function hitOf(type, row) {
@@ -370,7 +370,7 @@ function backFromInterests() {
 // ---------- 목록 그리기 ----------
 // 날짜 묶음 → 흰 상자 안 줄. entries = [{type, row}] (그려 둘 순서대로). 묶음 머리에 안 읽은 글 수.
 function daysHtml(entries, now, {lift = true} = {}) {
-  const rowFn = e => rowOf(e.type, e.row, {openAttr: 'data-now-open', acts: hoverActsHtml({isSaved: e.type === 'news' ? !!e.row.starred_at : markOf(e.row.id).archived})});
+  const rowFn = e => rowOf(e.type, e.row, {openAttr: 'data-now-open', acts: hoverActsHtml({isSaved: e.type === 'news' ? !!e.row.starred_at : markOf(e.row.id).starred})});
   const unreadOf = list => list.filter(e => readState({type: e.type, id: e.row.id}) === false).length;
   // NEWS-도배막기 C: 관심 주제에 걸린 최근 글은 위 칸에 먼저(시간순 그대로), 나머지는 아래 날짜별.
   const atOf = e => (e.type === 'news' ? whenOf(e.row) : Date.parse(e.row.published_at || ''));
@@ -576,16 +576,16 @@ function resetIfOwnerChanged() {
   const f = $('[data-nw-find]'); if (f) f.value = '';
 }
 
-// 숨기거나 보관한 사회운동 글 표시(줄 밀기·상세 단추가 같은 서버 표시를 쓴다). 숨긴 글은 목록에서 감추고, 보관한 글은 오른쪽 밀기가 '보관 풀기'가 된다.
+// 숨기거나 별표(= 보관)한 사회운동 글 표시(줄 밀기·상세 단추가 같은 서버 표시를 쓴다). 숨긴 글은 목록에서 감추고, 별표한 글은 ★와 오른쪽 밀기 '보관 풀기'.
 async function loadMarks() {
   const scope = state.scope;
   try {
     const rows = await readOutsideMarks();
     if (scope !== state.scope || !Array.isArray(rows)) return;
-    state.marks = new Map(rows.map(r => [r.post_id, {archived: !!r.archived_at, dismissed: !!r.dismissed_at}]));
+    state.marks = new Map(rows.map(r => [r.post_id, {starred: !!r.starred_at, dismissed: !!r.dismissed_at}]));
   } catch { /* 표시를 못 읽으면 목록은 그대로 */ }
 }
-const markOf = id => state.marks.get(id) || {archived: false, dismissed: false};
+const markOf = id => state.marks.get(id) || {starred: false, dismissed: false};
 async function loadPosts({append = false, keep = false} = {}) {
   const w = workspaceOf(), seq = ++loadSeq;
   if (!w) return;
@@ -912,7 +912,7 @@ function rowChanged(item, kind, on) {
     else if (hit && kind !== 'hide') hit.starred_at = on ? new Date().toISOString() : null;
   } else {
     const m = {...markOf(item.id)};
-    if (kind === 'hide') m.dismissed = on; else m.archived = on;
+    if (kind === 'hide') m.dismissed = on; else m.starred = on;
     state.marks.set(item.id, m);
   }
   if (state.tab === 'archive') saved.load();
@@ -920,7 +920,7 @@ function rowChanged(item, kind, on) {
 }
 for (const sel of ['[data-os-list]', '[data-nw-all]']) {
   bindNowRows(root?.querySelector(sel), {row: '[data-nw-key]', itemOf: itemOfRow,
-    isSaved: item => (item.type === 'news' ? !!(state.news.find(x => x.id === item.id) || findNews().find(x => x.id === item.id))?.starred_at : markOf(item.id).archived), changed: rowChanged});
+    isSaved: item => (item.type === 'news' ? !!(state.news.find(x => x.id === item.id) || findNews().find(x => x.id === item.id))?.starred_at : markOf(item.id).starred), changed: rowChanged});
 }
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'outside') return;
