@@ -10,12 +10,8 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-<<<<<<< HEAD
 import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
-=======
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine} from './now-model.mjs';
->>>>>>> origin/main
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
@@ -201,13 +197,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const field = (key, label, attrs = '') => `<label class="nd-hand-f"><span>${label}</span><input type="text" data-nd-hand-in="${key}" value="${esc(v[key])}" maxlength="${HAND_LIMITS[key]}" autocomplete="off"${attrs}${dis}></label>`;
     return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
 <label class="nd-hand-f"><span>기사 시각</span><input type="datetime-local" data-nd-hand-in="at" value="${esc(v.at)}"${dis}></label>
-<<<<<<< HEAD
 <div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><span class="nd-hand-tools"><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-pick title="폰·PC의 사진을 선택해 커서 자리에 넣어요(여러 장). 복사한 사진은 본문 칸에 붙여 넣어도 돼요."${dis}>사진</button><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></span><input type="file" data-nd-hand-file accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea>${picsHtml(v.body)}</div>
 <div class="nd-memo-row">${h.up ? `<span class="nd-faint" data-nd-hand-up role="status">${esc(h.up)}</span>` : h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
-=======
-<div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea></div>
-<div class="nd-memo-row">${h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
->>>>>>> origin/main
   }
   function actsHtml() {
     const m = cur.marks || {};
@@ -362,12 +353,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function open(item, head, {highlight = null} = {}) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
-<<<<<<< HEAD
     if (!same) dropPics(cur?.hand);
     if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}, hand: idleHand()};
-=======
-    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}, hand: {open: false, busy: false, note: '', init: null, shown: null}};
->>>>>>> origin/main
     else cur.head = head;
     cur.reveal = highlight;
     paint();
@@ -433,11 +420,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const c = cur;
     if (!c || c.item.type !== 'news' || c.hand.open) return;
     c.tr.on = false; c.tr.note = '';
-<<<<<<< HEAD
     dropPics(c.hand); c.hand = {...idleHand(), open: true};
-=======
-    c.hand = {open: true, busy: false, note: '', init: null, shown: null};
->>>>>>> origin/main
     paintBody();
     let row = null;
     try { row = await readArticleCols(c.item, HAND_ROW_COLS); } catch { row = null; }
@@ -445,21 +428,14 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const b = bodies.get(itemKey(c.item));
     const blocks = b && b.state !== 'failed' && !b.failedLoad ? b.blocks : [];
     c.hand.init = handInitial(row || {url: c.head.url}, blocks);
-<<<<<<< HEAD
     for (const p of c.hand.init.photos || []) c.hand.pics.set(p.n, {src: p.src});
     c.hand.next = (c.hand.init.photos?.length || 0) + 1;
-=======
->>>>>>> origin/main
     paintBody();
     part('[data-nd-hand-in="title"]')?.focus({preventScroll: true});
   }
   function closeHand() {
     if (!cur || !cur.hand.open || cur.hand.busy) return;
-<<<<<<< HEAD
     dropPics(cur.hand); cur.hand = idleHand();
-=======
-    cur.hand = {open: false, busy: false, note: '', init: null, shown: null};
->>>>>>> origin/main
     paintBody();
     part('[data-nd-hand]')?.focus({preventScroll: true});
   }
@@ -467,12 +443,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const c = cur;
     if (!c || !c.hand.open || c.hand.busy || !c.hand.init) return;
     const values = handValues(form);
-<<<<<<< HEAD
     const srcs = () => new Map([...c.hand.pics].filter(([n]) => tokensIn(values.body).includes(n)).map(([n, p]) => [n, p.src || '']));
     let req = handRequest(c.item.id, values, c.hand.init, srcs());
-=======
-    const req = handRequest(c.item.id, values, c.hand.init);
->>>>>>> origin/main
     c.hand.shown = values;
     if (req.error) { c.hand.note = req.error; paintHand(); return; }
     c.hand.busy = true; c.hand.note = ''; paintHand();
@@ -503,11 +475,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     // 새 값으로 다시: 원문·번역·요약은 이 탭 메모리에서 버리고(서버 요약 저장본은 서버가 지움) 기사 줄을 다시 읽어 줄 주인이 목록·머리를 고친다.
     const key = itemKey(c.item);
     bodies.delete(key); translations.delete(key); details.delete(key);
-<<<<<<< HEAD
     dropPics(c.hand); c.hand = idleHand();
-=======
-    c.hand = {open: false, busy: false, note: '', init: null, shown: null};
->>>>>>> origin/main
     c.detail = null; c.failed = ''; c.unread = '';
     let row = null;
     try { row = await readNewsRow(c.item); } catch { row = null; }
@@ -551,7 +519,6 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       img.src = src;
     });
   }
-<<<<<<< HEAD
   // ---- 내가 올린 사진(S67-06): 붙여넣기·고르기·끌어다 놓기 → '[사진 n]' 줄, 저장 때 서버로 ----
   function addPics(form, files) {
     const c = cur, area = form?.querySelector('[data-nd-hand-in="body"]');
@@ -619,8 +586,6 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       }, () => { if (img.isConnected && fig) fig.hidden = true; });
     }
   }
-=======
->>>>>>> origin/main
   function handValues(form) {
     const val = k => form.querySelector(`[data-nd-hand-in="${k}"]`)?.value ?? '';
     return {title: val('title'), publisher: val('publisher'), author: val('author'), at: val('at'), body: val('body')};
@@ -690,10 +655,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-ob-more]')) { obMenu.open(b); return; }
     if (b.matches('[data-nd-hand]')) { void openHand(); return; }
     if (b.matches('[data-nd-hand-cancel]')) { closeHand(); return; }
-<<<<<<< HEAD
     if (b.matches('[data-nd-hand-pick]')) { b.closest('[data-nd-hand-form]')?.querySelector('[data-nd-hand-file]')?.click(); return; }
-=======
->>>>>>> origin/main
     if (b.matches('[data-nd-hand-photo]')) { void addHandPhoto(b.closest('[data-nd-hand-form]')); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
