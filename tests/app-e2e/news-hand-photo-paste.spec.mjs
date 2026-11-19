@@ -124,7 +124,8 @@ for (const width of [412, 884, 1280]) {
     await area.evaluate(el => { el.setRangeText('사진: 가짜 붙여넣은 사진\n가짜 둘째 문단.', el.selectionStart, el.selectionEnd, 'end'); el.dispatchEvent(new Event('input', { bubbles: true })); });
     const pics = form.locator('[data-nd-hand-pics] figure:not([hidden])');
     await expect(pics).toHaveCount(1);
-    await expect(pics.first().locator('figcaption')).toHaveText('[사진 1] · 저장 때 올림');
+    await expect(pics.first().locator('figcaption')).toHaveText('[사진 1]');
+    await expect(pics.first()).toHaveAttribute('title', '저장할 때 올려요');
     await expect.poll(() => loaded(pics.first().locator('img'))).toBe(true);
     // (b) [사진]으로 폰 사진 고르기(여러 장).
     await caretEnd(area);
@@ -173,6 +174,7 @@ for (const width of [412, 884, 1280]) {
     await expect(pics).toHaveCount(3);
     await expect.poll(() => loaded(pics.nth(2).locator('img'))).toBe(true);
     await expect(pics.nth(0).locator('figcaption')).toHaveText('[사진 1]');
+    await expect(pics.nth(0)).not.toHaveAttribute('data-nd-hand-wait', '');
     await form.locator('button[type="submit"]').click();
     await expect(form).toHaveCount(0);
     expect('body' in seen.fills[1]).toBe(false);

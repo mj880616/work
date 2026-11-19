@@ -185,7 +185,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const one = ([n, p]) => {
       const own = p.src ? ownPhotoOf(p.src) : null;
       const img = p.view ? `<img src="${esc(p.view)}" alt="">` : own ? `<img data-nd-own="${esc(own.id)}" alt="" hidden>` : '';
-      return `<figure class="nd-hand-pic" data-nd-hand-pic="${n}"${on.has(n) ? '' : ' hidden'}>${img}<figcaption>${esc(photoToken(n))}${p.file ? ' · 저장 때 올림' : ''}</figcaption></figure>`;
+      return `<figure class="nd-hand-pic" data-nd-hand-pic="${n}"${p.file ? ' data-nd-hand-wait title="저장할 때 올려요"' : ''}${on.has(n) ? '' : ' hidden'}>${img}<figcaption>${esc(photoToken(n))}</figcaption></figure>`;
     };
     return `<div class="nd-hand-pics" data-nd-hand-pics aria-label="넣은 사진"${on.size ? '' : ' hidden'}>${[...pics].map(one).join('')}</div>`;
   }
