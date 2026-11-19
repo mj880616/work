@@ -89,11 +89,28 @@ export function pageTitleFrom(html: string): string | null {
   const t = one(decodeText(raw));
   return t || null;
 }
+// 목록 제목이 줄임표로 잘린 글(S67-19, 그누보드 목록 칸 '현대글로비스 하청 노동자 집…'): 글 쪽 제목이 잘린 앞부분으로 시작하고 더 길면
+// 글 쪽 제목 전체를 쓴다. 글 쪽 제목 꼬리 ' > 게시판 이름 | 사이트 이름'(그누보드 <title> 모양)은 뗀다.
+const CUT_END = /\s*(…|\.{3})\s*$/;
+// 글 쪽 <title>·og:title 꼬리: 맨 뒤 ' | 사이트 이름' 뒤 ' > 게시판 이름'(각각 40자 안쪽). 앞쪽 제목이 4자 미만이 되면 떼지 않는다.
+export function pageTitleHead(t: string): string {
+  let s = one(t);
+  const bar = /\s+[|｜]\s+[^|｜]{1,40}$/.exec(s);
+  if (bar && chars(s.slice(0, bar.index)) >= 4) s = s.slice(0, bar.index);
+  const gt = /\s+>\s+[^>]{1,40}$/.exec(s);
+  if (gt && chars(s.slice(0, gt.index)) >= 4) s = s.slice(0, gt.index);
+  return s;
+}
 export function betterTitle(listTitle: string, pageTitle: string | null, name = ""): string | null {
   if (!pageTitle) return null;
   const flat = (s: string) => s.replace(/\s+/g, "");
-  const p = tidyTitle(pageTitle, name, { split: false }).title.replace(/…$/, "");
   const l = tidyTitle(listTitle, name, { split: false }).title;
+  if (CUT_END.test(l)) {
+    const head = flat(l.replace(CUT_END, ""));
+    const full = tidyTitle(pageTitleHead(pageTitle), name, { split: false }).title.replace(CUT_END, "");
+    if (chars(head) >= 4 && flat(full).startsWith(head) && chars(flat(full)) > chars(head)) return full;
+  }
+  const p = tidyTitle(pageTitle, name, { split: false }).title.replace(/…$/, "");
   if (chars(flat(p)) < 4 || !flat(listTitle).includes(flat(p))) return null;
   return chars(p) < chars(l) || /…$/.test(l) ? p : null;
 }
