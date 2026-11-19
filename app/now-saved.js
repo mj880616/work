@@ -1,5 +1,6 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
+import {canDeleteNews} from './now-marks.js';
 import {ensureReads} from './news-reads.js';
 import {readOutsideMarks, readNewsStarred, workspaceOf} from './feed-shared.js';
 import {SAVED_CHIPS, keepSavedChip, savedRows, filterSaved, itemKey, titleHit} from './now-model.mjs';
@@ -12,7 +13,7 @@ import {SAVED_CHIPS, keepSavedChip, savedRows, filterSaved, itemKey, titleHit} f
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const POST_COLS = 'id,source_key,kind,lang,title,title_ko,url,published_at,fetched_at,summary_ko,key_sentences,has_body';
-const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id,state,body_kind,author,manual_at';
+const NEWS_COLS = 'id,lane,url,title,lang,publisher,published_at,created_at,summary,title_ko,starred_at,folder_id,state,body_kind,author,manual_at,origin';
 
 // describe(type, row) → {meta, title, ...} 상세 머리, rowOf(type, row, opts) → 줄 글자(News 껍데기가 준다). onOpen(item, head).
 // 보관한 글 읽기(서버, 작업공간 소유자 RLS) — News [보관] 탭과 노트 'News에서 › 보관한 글'(note-news-marks.js)이 같은 길을 쓴다.
@@ -46,7 +47,7 @@ export function createNowSaved({box, describe, rowOf, query = () => '', onOpen, 
     if (!loaded) { box.innerHTML = chips + (failed ? failHtml({retry: 'data-ns-retry'}) : waitHtml({rows: 5, h: 56})); return; }
     const list = filterSaved(rows, chip).filter(r => titleHit([describe(r.type, r.row).title, r.row?.title], query()));
     if (!list.length) { box.innerHTML = chips + emptyHtml(query() ? '제목에서 찾은 글 없음' : '보관한 글 없음', {attrs: 'data-ns-empty'}); return; }
-    box.innerHTML = chips + `<div class="now-saved-list nw-card">${list.map(r => rowOf(r.type, r.row, {openAttr: 'data-ns-open', rowAttr: 'data-ns-row', star: r.star, acts: hoverActsHtml({saved: true})})).join('')}</div>`;
+    box.innerHTML = chips + `<div class="now-saved-list nw-card">${list.map(r => rowOf(r.type, r.row, {openAttr: 'data-ns-open', rowAttr: 'data-ns-row', star: r.star, acts: hoverActsHtml({saved: true, canDelete: r.type === 'news' && canDeleteNews(r.row)})})).join('')}</div>`;
     onListed?.();
   }
   box?.addEventListener('click', event => {
@@ -59,10 +60,12 @@ export function createNowSaved({box, describe, rowOf, query = () => '', onOpen, 
       if (r) onOpen?.({type: r.type, id: r.id}, describe(r.type, r.row));
     }
   });
-  // 줄 밀기·마우스 단추: [보관] 탭의 오른쪽 밀기 = 보관 풀기(now-row-acts.js). 풀면 이 탭에서 빠지고, 되돌리면 다시 읽는다.
+  // 줄 밀기·마우스 단추·줄 ★: [보관] 탭의 오른쪽 밀기·★ = 보관 풀기(now-row-acts.js dropSaved). 풀면 이 탭에서 빠지고, 되돌리면 다시 읽는다(원래 별표 시각이라 원래 자리).
+  // S67-11: 내가 넣은 기사는 왼쪽 밀기·단추·우클릭 [삭제](deleteMine) — 빠지고, 되돌리면 다시 읽는다.
   bindNowRows(box, {row: '[data-nw-key]', saved: true, itemOf: el => { const [type, id] = String(el.dataset.nwKey || '').split(':'); return (type === 'outside' || type === 'news') && id ? {type, id} : null; },
+    canDelete: item => item.type === 'news' && canDeleteNews(rows.find(r => r.type === 'news' && r.id === item.id)?.row),
     changed: (item, kind, on) => {
-      if (kind === 'release') rows = rows.filter(r => !(r.type === item.type && r.id === item.id));
+      if (kind === 'release' || (kind === 'delete' && on)) rows = rows.filter(r => !(r.type === item.type && r.id === item.id));
       paint(); load(); onChanged?.(item, kind, on);
     }});
   return {load, paint, reset: () => { rows = []; loaded = false; failed = false; chip = 'all'; seq++; }};

@@ -11,7 +11,8 @@ export function rowHtml(r, esc) {
   const state = r.read === true ? ' is-read' : r.read === false ? ' is-new' : '';
   const row = r.rowAttr ? ` ${r.rowAttr}="${esc(r.rowId ?? r.openId)}"` : '';
   const tag = r.tag && tagLabel(r.tag) ? `<span class="nw-tag" style="${tagStyle(r.tag)}">${esc(tagLabel(r.tag))}</span>` : '';
-  const star = r.star ? '<span class="nw-star" aria-label="별표">★</span>' : '';
+  // S67-11 NEWS-보관빼기: 별표한 줄의 ★은 단추 — 누르면 보관에서 빼기(now-row-acts.js dropSaved, 5초 [되돌리기]). 줄 열기 단추와 따로(겹친 누르기 면 위, CSS).
+  const star = r.star ? '<button type="button" class="icon-btn nw-star" data-now-act="unstar" aria-label="보관에서 빼기" title="보관에서 빼기"><span aria-hidden="true">★</span></button>' : '';
   return `<article class="nw-row now-row${state}${r.open ? ' is-open' : ''}${r.cls ? ' ' + r.cls : ''}" data-nw-key="${esc(r.key)}"${row} style="--nw-c:${r.color}${r.bar && r.bar !== r.color ? `;--nw-bar:${r.bar}` : ''}">`
     + '<span class="nw-bar" aria-hidden="true"></span><div class="nw-main">'
     + `<h4 class="nw-title"${r.titleLang ? ` lang="${esc(r.titleLang)}"` : ''}><button type="button" class="now-open" ${r.openAttr}="${esc(r.openId)}"${r.read === false ? ' data-unread' : ''}>${esc(r.title)}</button></h4>`

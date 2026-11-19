@@ -31,7 +31,10 @@
 #appView #basketView .nnm-sv .nnm-open{ flex:1 1 auto; display:flex; align-items:baseline; justify-content:flex-start; gap:8px; min-width:0; height:auto; min-height:36px; margin:0; padding:8px 0; border:0; background:transparent; color:var(--kptu-ink); font:inherit; font-size:13.5px; text-align:left; cursor:pointer; }
 #basketView .nnm-t{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #basketView .nnm-m{ flex:0 0 auto; font-size:11.5px; color:var(--kptu-muted); white-space:nowrap; }
-#basketView .nnm-star{ flex:0 0 auto; color:var(--kptu-warning); }
+/* S67-11 NEWS-보관빼기: ★은 단추(누르면 보관에서 빼기, 5초 [되돌리기]). 보이는 크기는 작게, 누르는 면은 ::before로 44px(줄 높이는 그대로). */
+#appView #basketView .nnm-sv .nnm-star{ all:unset; box-sizing:border-box; position:relative; z-index:2; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:20px; min-height:36px; color:var(--kptu-warning); font-size:13px; cursor:pointer; }
+#appView #basketView .nnm-sv .nnm-star::before{ content:""; position:absolute; top:50%; left:50%; width:44px; height:44px; transform:translate(-50%,-50%); }
+#appView #basketView .nnm-sv .nnm-star:focus-visible{ outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:1px; border-radius:2px; }
 #basketView .nnm-tag{ flex:0 0 auto; align-self:flex-start; padding:0 4px; font-size:10.5px; line-height:16px; color:var(--kptu-muted); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:4px; }
 #basketView .nh-open .nnm-tag{ margin-bottom:1px; }
 /* 노트 칸의 ⋯는 노트 줄과 같은 오른쪽 위 ⋯(ui-standard.css .basket-row-more) — 글 자리를 비워 둔다. */

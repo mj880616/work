@@ -151,6 +151,15 @@ export async function readMarkOf(item) {
     ? {star: !!r?.starred_at, dismiss: !!r?.hidden_at}
     : {star: !!r?.starred_at, dismiss: !!r?.dismissed_at, has: !!r};
 }
+// S67-11 NEWS-보관빼기: 끄기 전 내 표시 그대로(되돌리기가 원래 별표 시각·폴더로 되살려 [보관] 탭 원래 자리에 오게). 줄이 없으면 null.
+// 뉴스 {starred_at, folder_id, hidden_at}, 사회운동 {starred_at, dismissed_at}. 옛 id로 오는 글도 공용 id로.
+export async function readMarkRaw(item) {
+  const t = T[item?.type];
+  if (!t || !hasId(item.id)) return null;
+  const id = await articleIdOf(item.type, item.id);
+  const cols = item.type === 'news' ? 'starred_at,folder_id,hidden_at' : 'starred_at,dismissed_at';
+  return first(await rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(workspaceOf())}&article_id=eq.${q(id)}&select=${cols}&limit=1`, {singleFlight: false})) || null;
+}
 // 공용 본문 블록 한 줄(없으면 null).
 export const readBody = item => rt().api(`/rest/v1/${T[item.type].body}?article_id=eq.${q(item.id)}&select=blocks,state,reason&limit=1`, {singleFlight: false}).then(first);
 // 공용 칸 몇 개(뉴스 기사·사회운동 글).
