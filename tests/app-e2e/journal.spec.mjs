@@ -356,7 +356,7 @@ for(const width of [390,1280]){
   expect(f.reads.find(q=>q.table==='app_meetings')).toMatchObject({workspace_id:'eq.w',meeting_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
   // 자료실·공유 페이지 읽기도 이 업무 공간·이번 주로 가리고, 칸을 줄이고(본문·블록 없음) 개수를 제한한다.
   // WEEKLY-자료날짜: 이번 주에 올린 자료 + 자료 날짜가 이번 주인 자료(한 번 읽기).
-  expect(f.reads.find(q=>q.table==='app_documents')).toMatchObject({workspace_id:'eq.w',or:'(and(created_at.gte.2026-10-04T15:00:00.000Z,created_at.lt.2026-10-11T15:00:00.000Z),and(document_date.gte.2026-10-05,document_date.lte.2026-10-11))',select:'id,title,file_name,category,meeting_id,created_at,document_date,organization_id,project_id,file_id',limit:'300'});
+  expect(f.reads.find(q=>q.table==='app_documents')).toMatchObject({workspace_id:'eq.w',or:'(and(created_at.gte.2026-10-04T15:00:00.000Z,created_at.lt.2026-10-11T15:00:00.000Z),and(document_date.gte.2026-10-05,document_date.lte.2026-10-11))',select:'id,title,file_name,mime_type,category,meeting_id,created_at,document_date,organization_id,project_id,file_id',limit:'300'});
   expect(f.reads.find(q=>q.table==='app_share_pages')).toMatchObject({workspace_id:'eq.w',updated_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z',select:'id,title,status,updated_at',limit:'300'});
   expect(f.reads.find(q=>q.table==='app_project_progress_updates')).toMatchObject({effective_on:'gte.2026-10-05&lte.2026-10-11'});
   expect(f.reads.find(q=>q.kind==='eq.work')).toMatchObject({journal_day:'gte.2026-10-05&lte.2026-10-11'});
