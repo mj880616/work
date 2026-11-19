@@ -121,7 +121,13 @@ document.addEventListener('visibilitychange', () => {
     else if (onLocked) state.leftAt = null;
   }
 });
+// 'kptu:session-changed'는 같은 사람의 로그인 이어 가기(토큰 새로 받기)에도 온다. 로그인한 사람이 바뀌거나 나갔을 때만 모두 지우고 잠근다.
+const ownerNow = () => window.KPTURuntime?.session?.read?.()?.user?.id || '';
+let owner = ownerNow();
 window.addEventListener('kptu:session-changed', () => {
+  const next = ownerNow();
+  if (next && next === owner) return;
+  owner = next;
   Object.assign(state, { settings: null, failed: false, open: false, leftAt: null, pending: null });
   changed();
 });
