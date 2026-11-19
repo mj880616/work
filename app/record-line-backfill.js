@@ -4,7 +4,7 @@
 //   사업 기록 한 줄(app_business_records source_kind 'update' — update-places.js addBusinessRecord). 그 밖에는 대신 줄을 쓰지 않는다.
 // - 바꾸기: 그 기록 사진의 설명('b1:')이 있으면 첫 줄로, 없으면 서버(library-files photo-brief — 한 번 4장·하루 30장·AI 한도)가 읽어
 //   만든 뒤 바꾼다. 쓰는 길은 이미 있는 것만: 연결 줄은 app_basket_update_link_summary(읽은 옛 줄과 같을 때만 씀), 사업 기록은
-//   owner RLS PATCH(body가 읽은 옛 줄과 같을 때만). 내 로그인으로 내 기록만 바꾼다(SQL·service_role 일괄 변경 없음).
+//   owner RLS PATCH(body가 읽은 옛 줄과 같을 때만). 내 로그인으로 내 기록만 바꾼다(SQL·운영 키로 한꺼번에 바꾸지 않음).
 // - 되돌리기: 옛 줄은 첨부만으로 똑같이 다시 만들어지므로 따로 보관하지 않는다(record-line-backfill.mjs).
 // - 자동으로 돌지 않는다: 누른 사람이 개수를 보고 [바꾸기]를 눌러야 시작. 진행은 작은 알림 한 줄. 기기 저장 없음, 로그에 글 없음.
 import { readRecordPages, updateLinkSummary } from './basket-link-records.js';
