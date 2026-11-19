@@ -358,7 +358,7 @@ async function loadNoteMeta() {
   const api = window.KPTURuntime?.api; if (!ids.length || typeof api !== 'function') return;
   const mine = noteSeq;
   try {
-    const rows = await api(`/rest/v1/app_notes?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,folder_id:metadata->>folder_id,folder:metadata->>folder`);
+    const rows = await api(`/rest/v1/app_notes?kind=eq.note&id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,folder_id:metadata->>folder_id,folder:metadata->>folder`);
     if (mine !== noteSeq) return;
     for (const id of ids) noteMeta.set(id, {});
     for (const r of Array.isArray(rows) ? rows : []) noteMeta.set(r.id, {...(r.folder_id ? {folder_id: r.folder_id} : {}), ...(r.folder ? {folder: r.folder} : {})});
