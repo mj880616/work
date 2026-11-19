@@ -92,13 +92,15 @@ window.addEventListener('kptu:view-prefs-rejected',e=>{if(!e.detail?.paths?.incl
 async function installStageMenu(trigger,org=null,from=org?'ctx':'screen'){
  await Promise.all([stageModules(),org?null:quietReady()]);const {createAnchoredMenu}=await import('./anchored-menu.js');
  if(!stageMenu)stageMenu=createAnchoredMenu({id:'soTeamMenu',className:'basket-link-menu so-team-menu',label:'조직 관리 메뉴',historyKey:'kptuSoTeamMenu',key:()=>'team',
-  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+(menuOrg?'':soMenuItem('data-so-add-group','묶음 만들기'))+soMenuItem('data-so-stage-manage','쟁의 단계 관리')+(menuOrg?'':quietItems()+'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-help-open="team"','쓰는 법'))},
+  render:()=>{if(menuOrg&&menuFrom==='row')return orgMenuItems(menuOrg);return (menuOrg?soMenuItem('data-so-open-org','열기')+'<hr class="so-menu-sep" role="separator">'+orgMenuItems(menuOrg)+'<hr class="so-menu-sep" role="separator">':'')+(menuOrg?'':soMenuItem('data-so-add-group','묶음 만들기'))+soMenuItem('data-so-stage-manage','쟁의 단계 관리')+(menuOrg?'':soMenuItem('data-so-line-backfill','옛 사진 기록 채우기'))+(menuOrg?'':quietItems()+'<hr class="so-menu-sep" role="separator">'+soMenuItem('data-help-open="team"','쓰는 법'))},
   onAction:(button,active)=>{const id=menuOrg;if(button.matches('[data-help-open]')){import('./help-link.js').then(m=>m.openHelp('team')).catch(()=>{});return}if(button.matches('[data-so-open-org]')){const row=id&&[...document.querySelectorAll('#soOrganizationList [data-so-org]')].find(r=>r.dataset.soOrg===id);row?.click();return}
    if(button.matches('[data-so-rename]')){openEdit(id,{trigger:active.trigger});return}
    if(button.matches('[data-so-exclude]')){void toggleExcluded(id);return}
    if(button.matches('[data-so-row-delete]')){void removeOrg(id);return}
    if(button.matches('[data-so-quiet]')){setQuiet(Number(button.dataset.soQuiet));return}
    if(button.matches('[data-so-add-group]')){openGroupEdit(null,active.trigger);return}
+   // ORG-기록첨부 옛줄바꾸기(S67-13, 명진 11/19 '나'): 파일 이름으로 남은 기록 줄을 사진 설명으로 — 개수를 묻고 뒤에서 차례로(record-line-backfill.js).
+   if(button.matches('[data-so-line-backfill]')){const at=active.trigger;import('./record-line-backfill.js').then(m=>m.openRecordBackfill(at,rt)).catch(()=>notify('기록을 확인하지 못했어요. 다시 시도해 주세요.',{error:true}));return}
    stageMod.openStageManager({workspaceId:soWorkspace,rt,trigger:active.trigger,orgNames:()=>new Map(soOrganizations.map(o=>[o.id,o.name]))})}});
  menuOrg=org;menuFrom=org?from:'screen';stageMenu.open(trigger);
 }
