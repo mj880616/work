@@ -1539,6 +1539,9 @@ jobs:
       - name: Check weekly AI draft whole-record material (WEEKLY-재료전체 ①)
         run: node --test tests/weekly-full-material.test.mjs
 
+      - name: Check weekly AI draft record photos (WEEKLY-재료전체 ②)
+        run: node --test tests/weekly-photo-material.test.mjs
+
       - name: Check weekly feedback on every suggestion (WEEKLY-한흐름확정 ⑤)
         run: node --test tests/weekly-feedback-all.test.mjs
 
