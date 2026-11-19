@@ -49,6 +49,7 @@ const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: fals
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
+import { createHandPhotos, HAND_PHOTO_REQ_MAX, HandPhotoFail, photoSizeOf } from "./hand-photo.ts";
 import { BODY_LIMITS, bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
 import { addDay, aiMonthStop, dayRow, type DayField, kstDay, MONTHLY_LIMIT_KRW } from "../_shared/news-days.ts";
@@ -1494,6 +1495,27 @@ async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: R
   return { ok: true, status: "filled", id: String(art.id) };
 }
 
+// 사진 한 장 올리기(S67-06 NEWS-직접넣기 사진 붙여넣기). 몸통: multipart {id: 기사 id, file: 그림 하나}. 답 {ok, file, src}.
+// 길이 머리글이 없거나 상한(한 장 10MB + 여유)을 넘으면 읽기 전에 413. 저장 위치·검사는 hand-photo.ts.
+async function handPhotoPut(req: Request, sb: string, key: string, jwt: string, doFetch: typeof fetch, log: FeedLog, anon: string, nowMs: number) {
+  const len = Number(req.headers.get("content-length") || "");
+  if (!Number.isFinite(len) || len <= 0 || len > HAND_PHOTO_REQ_MAX) throw new Fail(413, "BODY_TOO_LARGE");
+  if (!/^multipart\/form-data;/i.test(req.headers.get("content-type") || "")) throw new Fail(400, "INVALID_BODY");
+  const db = makeDb(sb, key, doFetch);
+  const who = await authorizeUser(sb, key, jwt, doFetch, db);
+  if (!newsAllowed(who.workspaceId, await newsWs(db))) throw new Fail(403, "FEATURE_OFF");
+  let form: FormData;
+  try { form = await req.formData(); } catch { throw new Fail(400, "INVALID_BODY"); }
+  const keys = [...new Set([...form.keys()])].sort();
+  if (keys.join(",") !== "file,id" || form.getAll("file").length !== 1 || form.getAll("id").length !== 1) throw new Fail(400, "INVALID_BODY");
+  const art = await ownArticle(makeUserReads(sb, anon, jwt, doFetch), form.get("id"));
+  try {
+    const out = await createHandPhotos((p) => db.get(p), { fetch: doFetch, log }).put(who.workspaceId, String(art.id), form.get("file"), nowMs);
+    log("hand_photo_put");
+    return json({ ok: true, file: out.id, src: out.src });
+  } catch (e) { if (e instanceof HandPhotoFail) throw new Fail(e.status, e.code); throw e; }
+}
+
 export function createNewsFeedHandler(deps: NewsFeedDeps) {
   const doFetch = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
@@ -1517,8 +1539,10 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate", "save_url", "hand_fill"];
+      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate", "save_url", "hand_fill", "hand_photo_put", "hand_photo"];
       if (!(cron ? cronActions : userActions).includes(action ?? "")) throw new Fail(400, "UNKNOWN_ACTION");
+      // 손으로 넣는 본문의 사진 올리기(S67-06): 몸통이 JSON이 아니라 파일 하나(multipart). 로그인·운영자 기능 키·읽을 수 있는 기사 확인 뒤에만 읽는다.
+      if (action === "hand_photo_put") return await handPhotoPut(req, sb, key, auth!.slice("Bearer ".length), doFetch, log, deps.env("SUPABASE_ANON_KEY") ?? "", now());
       // 손으로 넣기(본문 붙여넣기)만 몸통이 크다. 그 밖은 지금 상한 그대로.
       const maxBytes = action === "hand_fill" ? HAND_MAX_BYTES : MAX_BODY_BYTES;
       if (Number(req.headers.get("content-length") || 0) > maxBytes) throw new Fail(413, "BODY_TOO_LARGE");
@@ -1603,6 +1627,16 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       // NEWS-모두에게열기 E3: open·translate는 공용 기사 한 줄에 읽고 쓴다(기사마다 원문 읽기·번역 1번). 하루 한도·AI 사용량은 누른 사람 작업공간.
       const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", auth!.slice("Bearer ".length), doFetch);
       if (action === "hand_fill") return json(await handFill(db, reads, log, who.workspaceId, b, nowMs));
+      if (action === "hand_photo") {
+        // 내가 올린 사진 보기(S67-06): {id, file, size?}. 읽을 수 있는 기사 + 그 기사 본문에 있는 사진만, 부른 사람 Drive 연결로 줄인 그림.
+        if (!exactKeys(b, ["id", "file"]) && !exactKeys(b, ["id", "file", "size"])) throw new Fail(400, "INVALID_BODY");
+        const size = photoSizeOf(b.size);
+        if (!size) throw new Fail(400, "INVALID_BODY");
+        const art = await ownArticle(reads, b.id);
+        const rows = await db.get(`app_news_article_bodies?article_id=eq.${art.id}&select=blocks&limit=1`);
+        try { return await createHandPhotos((p) => db.get(p), { fetch: doFetch, log }).view(who.workspaceId, rows[0]?.blocks, b.file, size); }
+        catch (e) { if (e instanceof HandPhotoFail) throw new Fail(e.status, e.code); throw e; }
+      }
       if (action === "open") {
         if (!exactKeys(b, ["id"])) throw new Fail(400, "INVALID_BODY");
         const art = await ownArticle(reads, b.id);

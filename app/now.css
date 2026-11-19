@@ -168,6 +168,12 @@
 #appView #outsideView .nd-hand-f textarea{ min-height:9em; resize:vertical; line-height:1.5; }
 #appView #outsideView .nd-hand-bh{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
 #appView #outsideView .nd-hand-bh .nd-hand-photo{ flex:0 0 auto; }
+#appView #outsideView .nd-hand-tools{ display:inline-flex; gap:4px; flex:0 0 auto; }
+#appView #outsideView .nd-hand-pics{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+#appView #outsideView .nd-hand-pics[hidden],#appView #outsideView .nd-hand-pic[hidden]{ display:none; }
+#appView #outsideView .nd-hand-pic{ margin:0; display:flex; flex-direction:column; align-items:center; gap:2px; width:64px; }
+#appView #outsideView .nd-hand-pic img{ width:64px; height:48px; object-fit:cover; border-radius:4px; background:var(--kptu-line); }
+#appView #outsideView .nd-hand-pic figcaption{ font-size:11px; line-height:1.2; color:var(--kptu-muted); text-align:center; }
 #appView #outsideView .nd-fold{ margin-top:4px; font-size:13px; }
 #appView #outsideView .nd-fold > summary{ min-height:24px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); cursor:pointer; }
 #appView #outsideView .nd-sub{ margin:6px 0 2px; font-size:11px; color:var(--kptu-muted); }
@@ -197,6 +203,7 @@
 #appView #outsideView .nd-prose blockquote{ margin:0 0 .85em; padding-left:10px; color:var(--kptu-muted); border-left:2px solid var(--ds-line); }
 #appView #outsideView .nd-fig{ margin:0 0 .9em; }
 #appView #outsideView .nd-img{ display:block; max-width:100%; height:auto; border-radius:4px; }
+#appView #outsideView .nd-img[hidden],#appView #outsideView .nd-fig[hidden],#appView #outsideView .nd-hand-pic img[hidden]{ display:none; }
 #appView #outsideView .nd-img-link{ font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
 #appView #outsideView .nd-fig figcaption{ margin-top:3px; font-size:12px; line-height:1.45; color:var(--kptu-muted); }
 #appView #outsideView .nd-site{ margin-left:auto; }

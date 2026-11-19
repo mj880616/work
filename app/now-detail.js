@@ -10,7 +10,8 @@ import {notify, askText} from './small-notice.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, NEWS_FONT_STEPS, keepNewsFont, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount} from './now-model.mjs';
+import {clipboardFiles} from './paste-files.mjs';
 // 글 상세 공용 부품(사회운동 글·뉴스 기사 두 쪽이 이 부품 하나를 쓴다). 상세 칸(box)의 유일한 그리기 주인이다.
 // S51-14 NEWS-전면개편 P4c(설계 docs/design/news-overhaul.md 맨 앞 D2′ 메모·6.2절, 시안 docs/design/mockups/news-overhaul.html ②·③):
 // - 위에서 아래(S52-12 NEWS-원문먼저번역, 시안 docs/design/mockups/news-detail-translate.html): 꼬리 줄(매체·분류·날짜·글쓴이) → 제목 → [원문 전체]
@@ -46,6 +47,9 @@ const rt = () => window.KPTURuntime;
 const MEMO_COLS = 'id,title,raw_text,metadata,updated_at,doc_type:doc->>type';
 const NEWS_ROW_COLS = 'state,body_kind,summary,title,title_ko,publisher,published_at,url,lang,author,manual_at';
 const HAND_ROW_COLS = 'title,publisher,author,published_at,url,state';
+// 직접 넣기 입력 칸 상태. pics: '[사진 n]' 번호 → {file(올리기 전 사진, 메모리만), view(미리보기 주소), src(저장된 사진 주소)}.
+const idleHand = () => ({open: false, busy: false, note: '', init: null, shown: null, pics: new Map(), next: 1, up: ''});
+function dropPics(h) { for (const p of h?.pics?.values?.() || []) if (p.file && p.view) URL.revokeObjectURL(p.view); }
 const saveFailNote = e => (e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
 // head: {meta: [글자…], title, origTitle, titleLang, lang, url}. item: {type:'outside'|'news', id}.
@@ -115,6 +119,12 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return `<details class="nd-fold nd-relfold" data-nd-relatedbox><summary>함께 볼 것 ${v.related.length}</summary><ul class="nd-related">${v.related.map((r, i) => `<li><button type="button" class="nd-rel" data-nd-related="${i}"><span class="nd-rel-kind">${esc(RELATED_LABEL[r.kind])}</span>${esc(r.title)}</button></li>`).join('')}</ul></details>`;
   }
   function blockHtml(b) {
+    const own = b.t === 'img' ? ownPhotoOf(b.src) : null;
+    if (own) {
+      // 내가 올린 사진: 서버(hand_photo)에서 받아 그린다. 받기 전에는 자리만, 못 받으면 사진 칸을 감춘다.
+      const cap = b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : '';
+      return `<figure class="nd-fig" data-nd-own-fig><img class="nd-img" data-nd-own="${esc(own.id)}" alt="${esc(b.alt || b.cap || '')}" hidden>${cap}</figure>`;
+    }
     if (b.t === 'img') {
       const cap = b.cap ? `<figcaption>${esc(b.cap)}</figcaption>` : '';
       return `<figure class="nd-fig"><img class="nd-img" data-nd-img src="${esc(b.src)}" alt="${esc(b.alt || b.cap || '')}" loading="lazy" decoding="async" referrerpolicy="no-referrer"><a class="nd-img-link" data-nd-img-link href="${esc(b.src)}" target="_blank" rel="noopener noreferrer" hidden>사진 ↗</a>${cap}</figure>`;
@@ -167,6 +177,18 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     }
     return head + `<div class="nd-ob-body" data-nd-body-inner>${inner}</div>`;
   }
+  // 본문 칸 아래 작은 미리보기 줄: 본문 칸에 '[사진 n]' 줄이 있는 사진만(차례대로). 올리기 전 사진은 이 기기 메모리의 그림, 저장된 사진은 서버 그림.
+  function picsHtml(body) {
+    const pics = cur.hand.pics;
+    if (!pics.size) return '<div class="nd-hand-pics" data-nd-hand-pics hidden></div>';
+    const on = new Set(tokensIn(body));
+    const one = ([n, p]) => {
+      const own = p.src ? ownPhotoOf(p.src) : null;
+      const img = p.view ? `<img src="${esc(p.view)}" alt="">` : own ? `<img data-nd-own="${esc(own.id)}" alt="" hidden>` : '';
+      return `<figure class="nd-hand-pic" data-nd-hand-pic="${n}"${on.has(n) ? '' : ' hidden'}>${img}<figcaption>${esc(photoToken(n))}${p.file ? ' · 저장 때 올림' : ''}</figcaption></figure>`;
+    };
+    return `<div class="nd-hand-pics" data-nd-hand-pics aria-label="넣은 사진"${on.size ? '' : ' hidden'}>${[...pics].map(one).join('')}</div>`;
+  }
   // 직접 넣기 입력 칸(원문 칸 안, 같은 자리). 처음 값을 읽는 동안은 기다림.
   function handHtml() {
     const h = cur.hand, v = h.shown || h.init;
@@ -175,8 +197,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const field = (key, label, attrs = '') => `<label class="nd-hand-f"><span>${label}</span><input type="text" data-nd-hand-in="${key}" value="${esc(v[key])}" maxlength="${HAND_LIMITS[key]}" autocomplete="off"${attrs}${dis}></label>`;
     return `<form class="nd-hand-form" data-nd-hand-form aria-label="기사 직접 넣기">${field('title', '제목')}<div class="nd-hand-row">${field('publisher', '매체')}${field('author', '기자')}</div>
 <label class="nd-hand-f"><span>기사 시각</span><input type="datetime-local" data-nd-hand-in="at" value="${esc(v.at)}"${dis}></label>
-<div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea></div>
-<div class="nd-memo-row">${h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
+<div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><span class="nd-hand-tools"><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-pick title="폰·PC의 사진을 선택해 커서 자리에 넣어요(여러 장). 복사한 사진은 본문 칸에 붙여 넣어도 돼요."${dis}>사진</button><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></span><input type="file" data-nd-hand-file accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea>${picsHtml(v.body)}</div>
+<div class="nd-memo-row">${h.up ? `<span class="nd-faint" data-nd-hand-up role="status">${esc(h.up)}</span>` : h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
   }
   function actsHtml() {
     const m = cur.marks || {};
@@ -204,7 +226,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // MENU-자리나머지: 원문 ⋯ 메뉴를 연 채 원문 칸·상세가 다시 그려져도(원문 읽기 끝·번역·글자 크기) 열린 메뉴는 새 ⋯에 붙고, ⋯가 없어지면 닫힌다(공용 keepMenus).
   var ndMenus = []; // 메뉴는 아래에서 만든다
   const keepOb = paintNow => keepMenus(ndMenus, {attrs: ['data-nd-ob-more'], root: box || document}, paintNow);
-  function paintBody() { keepOb(() => { const el = cur && part('[data-nd-body]'); if (el) { el.innerHTML = bodyHtml(); marksNow(); } }); }
+  function paintBody() { keepOb(() => { const el = cur && part('[data-nd-body]'); if (el) { el.innerHTML = bodyHtml(); marksNow(); fillOwn(el); } }); }
   // 저장한 밑줄 칠하기(원문 그대로 볼 때만). [밑줄] 탭에서 연 밑줄이 칠해지면 그 자리로 한 번 옮긴다.
   function marksNow() {
     const z = cur && !cur.tr.on ? part('[data-nd-prose]') : null;
@@ -331,7 +353,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   function open(item, head, {highlight = null} = {}) {
     if (!item || !head) return;
     const same = cur && itemKey(cur.item) === itemKey(item);
-    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}, hand: {open: false, busy: false, note: '', init: null, shown: null}};
+    if (!same) dropPics(cur?.hand);
+    if (!same) cur = {item, head, detail: null, failed: '', unread: '', reading: false, note: '', marks: null, memo: null, memoOpen: false, memoBusy: false, memoNote: '', busy: false, tr: {on: false, busy: false, note: ''}, hand: idleHand()};
     else cur.head = head;
     cur.reveal = highlight;
     paint();
@@ -397,7 +420,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const c = cur;
     if (!c || c.item.type !== 'news' || c.hand.open) return;
     c.tr.on = false; c.tr.note = '';
-    c.hand = {open: true, busy: false, note: '', init: null, shown: null};
+    dropPics(c.hand); c.hand = {...idleHand(), open: true};
     paintBody();
     let row = null;
     try { row = await readArticleCols(c.item, HAND_ROW_COLS); } catch { row = null; }
@@ -405,12 +428,14 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const b = bodies.get(itemKey(c.item));
     const blocks = b && b.state !== 'failed' && !b.failedLoad ? b.blocks : [];
     c.hand.init = handInitial(row || {url: c.head.url}, blocks);
+    for (const p of c.hand.init.photos || []) c.hand.pics.set(p.n, {src: p.src});
+    c.hand.next = (c.hand.init.photos?.length || 0) + 1;
     paintBody();
     part('[data-nd-hand-in="title"]')?.focus({preventScroll: true});
   }
   function closeHand() {
     if (!cur || !cur.hand.open || cur.hand.busy) return;
-    cur.hand = {open: false, busy: false, note: '', init: null, shown: null};
+    dropPics(cur.hand); cur.hand = idleHand();
     paintBody();
     part('[data-nd-hand]')?.focus({preventScroll: true});
   }
@@ -418,10 +443,27 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const c = cur;
     if (!c || !c.hand.open || c.hand.busy || !c.hand.init) return;
     const values = handValues(form);
-    const req = handRequest(c.item.id, values, c.hand.init);
+    const srcs = () => new Map([...c.hand.pics].filter(([n]) => tokensIn(values.body).includes(n)).map(([n, p]) => [n, p.src || '']));
+    let req = handRequest(c.item.id, values, c.hand.init, srcs());
     c.hand.shown = values;
     if (req.error) { c.hand.note = req.error; paintHand(); return; }
     c.hand.busy = true; c.hand.note = ''; paintHand();
+    // 본문 칸에 남아 있는 '[사진 n]' 중 아직 안 올린 사진을 한 장씩 서버로(실패하면 멈추고 입력한 글은 그대로).
+    const waiting = tokensIn(values.body).filter(n => c.hand.pics.get(n)?.file && !c.hand.pics.get(n).src);
+    for (let i = 0; i < waiting.length; i++) {
+      const p = c.hand.pics.get(waiting[i]);
+      c.hand.up = `사진 올리는 중 ${i + 1}/${waiting.length}`; if (cur === c) paintHand();
+      try { p.src = await putPhoto(c.item.id, p.file); }
+      catch (e) {
+        c.hand.busy = false; c.hand.up = ''; c.hand.note = `${photoToken(waiting[i])} · ${handError(e)}`;
+        if (cur === c) paintHand();
+        return;
+      }
+      if (cur !== c || !c.hand.open) return;
+    }
+    c.hand.up = '';
+    if (waiting.length) req = handRequest(c.item.id, values, c.hand.init, srcs());
+    if (req.error) { c.hand.busy = false; c.hand.note = req.error; paintHand(); return; }
     try {
       await rt().api('/functions/v1/news-feed?action=hand_fill', {method: 'POST', body: req.body, singleFlight: false, timeoutMs: 30000});
     } catch (e) {
@@ -433,7 +475,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     // 새 값으로 다시: 원문·번역·요약은 이 탭 메모리에서 버리고(서버 요약 저장본은 서버가 지움) 기사 줄을 다시 읽어 줄 주인이 목록·머리를 고친다.
     const key = itemKey(c.item);
     bodies.delete(key); translations.delete(key); details.delete(key);
-    c.hand = {open: false, busy: false, note: '', init: null, shown: null};
+    dropPics(c.hand); c.hand = idleHand();
     c.detail = null; c.failed = ''; c.unread = '';
     let row = null;
     try { row = await readNewsRow(c.item); } catch { row = null; }
@@ -476,6 +518,73 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
       img.onerror = () => done(false);
       img.src = src;
     });
+  }
+  // ---- 내가 올린 사진(S67-06): 붙여넣기·고르기·끌어다 놓기 → '[사진 n]' 줄, 저장 때 서버로 ----
+  function addPics(form, files) {
+    const c = cur, area = form?.querySelector('[data-nd-hand-in="body"]');
+    if (!c || !c.hand.open || c.hand.busy || !c.hand.init || !area || !files.length) return;
+    const say = note => { c.hand.shown = handValues(form); c.hand.note = note; paintHand(); };
+    const bad = files.map(photoFileError).find(Boolean);
+    const good = files.filter(f => !photoFileError(f));
+    const body = area.value;
+    const have = handPhotoCount(body) + tokensIn(body).filter(n => c.hand.pics.has(n)).length;
+    if (have + good.length > HAND_PHOTOS_MAX) { say(`사진은 ${HAND_PHOTOS_MAX}장까지`); return; }
+    if (!good.length) { say(bad); return; }
+    const lines = good.map(file => { const n = c.hand.next++; c.hand.pics.set(n, {file, view: URL.createObjectURL(file), src: ''}); return photoToken(n); });
+    const at = area.selectionStart ?? area.value.length;
+    const next = insertPhotoLines(area.value, at, lines);
+    // 칸을 다시 그리지 않고 글자만 바꾼다(사진과 함께 붙여 넣은 글자는 브라우저가 이어서 커서 자리에 넣는다).
+    area.value = next.value;
+    area.focus({preventScroll: true});
+    area.setSelectionRange(next.caret, next.caret);
+    const strip = area.parentElement?.querySelector('[data-nd-hand-pics]');
+    if (strip) { strip.outerHTML = picsHtml(area.value); fillOwn(area.parentElement); }
+    if (bad || c.hand.note) say(bad || '');
+  }
+  async function putPhoto(id, file) {
+    const r = rt();
+    if (typeof r?.session?.ensure === 'function' && !(await r.session.ensure())) throw Object.assign(new Error('UNAUTHORIZED'), {status: 401});
+    const token = r?.session?.read?.()?.access_token;
+    if (!token || !r?.config?.url) throw Object.assign(new Error('UNAUTHORIZED'), {status: 401});
+    const fd = new FormData();
+    fd.append('id', id);
+    fd.append('file', file, file.name || 'photo');
+    let res;
+    try { res = await fetch(`${r.config.url}/functions/v1/news-feed?action=hand_photo_put`, {method: 'POST', cache: 'no-store', headers: {apikey: r.config.key, Authorization: 'Bearer ' + token}, body: fd, signal: AbortSignal.timeout(90000)}); }
+    catch { throw new Error('NETWORK'); }
+    const d = await res.json().catch(() => null);
+    if (!res.ok || !d?.ok || typeof d.src !== 'string' || !ownPhotoOf(d.src)) throw Object.assign(new Error(String(d?.error || 'UPLOAD_FAILED')), {status: res.ok ? 502 : res.status});
+    return d.src;
+  }
+  // 내가 올린 사진 받기: 서버 hand_photo(로그인·그 기사 본문에 있는 사진만) → 이 탭 메모리의 그림 주소.
+  const ownViews = new Map(); // `${기사 id}:${파일 id}` → Promise<그림 주소>
+  function ownView(articleId, fileId) {
+    const key = `${articleId}:${fileId}`;
+    if (ownViews.has(key)) return ownViews.get(key);
+    const flight = (async () => {
+      const r = rt();
+      if (typeof r?.session?.ensure === 'function' && !(await r.session.ensure())) throw new Error('session');
+      const token = r?.session?.read?.()?.access_token;
+      if (!token || !r?.config?.url) throw new Error('session');
+      const res = await fetch(`${r.config.url}/functions/v1/news-feed?action=hand_photo`, {method: 'POST', cache: 'no-store', headers: {apikey: r.config.key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'}, body: JSON.stringify({id: articleId, file: fileId, size: 'large'})});
+      if (!res.ok || !/^image\//.test(res.headers.get('content-type') || '')) throw new Error('photo');
+      return URL.createObjectURL(await res.blob());
+    })();
+    ownViews.set(key, flight);
+    flight.catch(() => { if (ownViews.get(key) === flight) ownViews.delete(key); });
+    return flight;
+  }
+  function fillOwn(root) {
+    const c = cur;
+    if (!c || c.item.type !== 'news') return;
+    for (const img of root.querySelectorAll('img[data-nd-own]')) {
+      const fig = img.closest('figure');
+      ownView(c.item.id, img.dataset.ndOwn).then(url => {
+        if (!img.isConnected) return;
+        img.onerror = () => { if (fig) fig.hidden = true; };
+        img.src = url; img.hidden = false;
+      }, () => { if (img.isConnected && fig) fig.hidden = true; });
+    }
   }
   function handValues(form) {
     const val = k => form.querySelector(`[data-nd-hand-in="${k}"]`)?.value ?? '';
@@ -546,6 +655,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-ob-more]')) { obMenu.open(b); return; }
     if (b.matches('[data-nd-hand]')) { void openHand(); return; }
     if (b.matches('[data-nd-hand-cancel]')) { closeHand(); return; }
+    if (b.matches('[data-nd-hand-pick]')) { b.closest('[data-nd-hand-form]')?.querySelector('[data-nd-hand-file]')?.click(); return; }
     if (b.matches('[data-nd-hand-photo]')) { void addHandPhoto(b.closest('[data-nd-hand-form]')); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
@@ -562,6 +672,40 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const link = img.parentElement?.querySelector('[data-nd-img-link]');
     if (link) link.hidden = false;
   }, true);
+  // 본문 칸: 복사한 사진 붙여넣기(글자와 함께면 글자도 그대로), 끌어다 놓기, [사진]으로 고른 파일, 고칠 때마다 미리보기 줄 맞추기.
+  box?.addEventListener('paste', event => {
+    const area = event.target;
+    if (!(area instanceof HTMLTextAreaElement) || !area.matches('[data-nd-hand-in="body"]') || !cur?.hand.open || cur.hand.busy) return;
+    const files = clipboardFiles(event.clipboardData);
+    if (!files.length) return;
+    if (!(event.clipboardData?.getData?.('text/plain') || '')) event.preventDefault();
+    addPics(area.closest('[data-nd-hand-form]'), files);
+  });
+  box?.addEventListener('dragover', event => {
+    if (event.target instanceof HTMLTextAreaElement && event.target.matches('[data-nd-hand-in="body"]') && [...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault();
+  });
+  box?.addEventListener('drop', event => {
+    const area = event.target;
+    if (!(area instanceof HTMLTextAreaElement) || !area.matches('[data-nd-hand-in="body"]')) return;
+    const files = [...(event.dataTransfer?.files || [])];
+    if (!files.length) return;
+    event.preventDefault();
+    addPics(area.closest('[data-nd-hand-form]'), files);
+  });
+  box?.addEventListener('change', event => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches('[data-nd-hand-file]')) return;
+    const files = [...(input.files || [])];
+    input.value = '';
+    addPics(input.closest('[data-nd-hand-form]'), files);
+  });
+  box?.addEventListener('input', event => {
+    const area = event.target;
+    if (!(area instanceof HTMLTextAreaElement) || !area.matches('[data-nd-hand-in="body"]') || !cur?.hand.pics.size) return;
+    const on = new Set(tokensIn(area.value)), strip = area.parentElement?.querySelector('[data-nd-hand-pics]');
+    for (const fig of strip?.querySelectorAll('[data-nd-hand-pic]') || []) fig.hidden = !on.has(Number(fig.dataset.ndHandPic));
+    if (strip) strip.hidden = !on.size;
+  });
   box?.addEventListener('submit', event => {
     if (event.target.matches('[data-nd-hand-form]')) { event.preventDefault(); void saveHand(event.target); return; }
     if (!event.target.matches('[data-nd-memo-form]')) return;
@@ -571,5 +715,5 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // 서버 기억 값이 늦게 오면(첫 로딩) 그 값으로.
   window.addEventListener('kptu:view-prefs-ready', () => { if (font === null && cur) { const art = box?.querySelector('.nd'); if (art) art.dataset.font = fontNow(); box?.querySelectorAll('[data-nd-font]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ndFont === fontNow()))); } });
   paint();
-  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, head: () => (cur ? cur.head : null), current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); translations.clear(); freshened.clear(); close(); }};
+  return {open, close, paint, setHead: head => { if (cur && head) { cur.head = head; paint(); } }, head: () => (cur ? cur.head : null), current: () => (cur ? cur.item : null), reset: () => { details.clear(); bodies.clear(); translations.clear(); freshened.clear(); for (const f of ownViews.values()) f.then(u => URL.revokeObjectURL(u), () => {}); ownViews.clear(); close(); }};
 }

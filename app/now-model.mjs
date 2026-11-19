@@ -373,6 +373,7 @@ export function isoOfLocalInput(v) {
 const oneLineText = v => String(v ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim();
 // 입력 칸 처음 값(기사 줄 + 지금 원문 블록). 이미 아는 값(주소에서 얻은 매체 등)은 미리 채운다.
 export function handInitial(row, blocks) {
+  const photos = [];
   const title = oneLineText(row?.title), host = hostOf(row?.url);
   // 주소·도메인뿐인 제목은 비운다(목록의 '제목 없음 · 도메인'과 같은 규칙).
   const ownTitle = title && !/^https?:\/\//i.test(title) && title.replace(/^www\./, '') !== host;
@@ -381,7 +382,8 @@ export function handInitial(row, blocks) {
     publisher: oneLineText(row?.publisher) || hostOf(row?.url),
     author: oneLineText(row?.author),
     at: localInputOf(row?.published_at),
-    body: handBodyOf(blocks),
+    body: handBodyOf(blocks, photos),
+    photos,
   };
 }
 // ---- 직접 넣기 사진(S67-05) ----
@@ -414,12 +416,14 @@ export function handPhotoCount(body) {
   return String(body ?? '').split(/\r\n?|\n/).filter(l => { const k = handPhotoKind(l); return k === 'ext' || k === 'marked'; }).length;
 }
 // 원문 블록 → 본문 칸 글자. 글자 블록은 한 줄씩, 사진은 주소 줄(+ '사진:' 설명 줄) — [수정]으로 다시 열어도 사진이 빠지지 않는다.
-export function handBodyOf(blocks) {
+// own: 받을 목록을 주면 내가 올린 사진(OWN_PHOTO_HOST)은 '[사진 n]' 줄로 쓰고 {n, src}를 own에 넣는다(주면 안 주면 주소 줄 그대로).
+export function handBodyOf(blocks, own = null) {
   const out = [];
   for (const b of Array.isArray(blocks) ? blocks : []) {
     if (!b) continue;
     if (b.t === 'img') {
-      const line = handPhotoLine(b.src);
+      let line = handPhotoLine(b.src);
+      if (own && ownPhotoOf(b.src)) { const n = own.length + 1; own.push({n, src: b.src}); line = photoToken(n); }
       if (!line) continue;
       out.push(line);
       const cap = oneLineText(b.cap);
@@ -432,6 +436,47 @@ export function handBodyOf(blocks) {
     }
   }
   return out.join('\n');
+}
+// ---- 내가 올린 사진(S67-06 NEWS-직접넣기 사진 붙여넣기) ----
+// 복사한 사진·폰 사진·끌어다 놓은 사진은 저장 때 서버(news-feed hand_photo_put)가 내 Drive '뉴스 사진' 폴더에 올리고, 본문 블록에는
+// 안쪽 표시 주소(https://photo.web2.invalid/<Drive 파일 id>.<확장자>)만 적는다(.invalid는 어디로도 이어지지 않는 예약 이름).
+// 본문 칸에는 '[사진 n]' 한 줄로 보이고, 저장할 때 그 줄을 안쪽 표시 주소 줄로 바꿔 보낸다. 그림은 서버 hand_photo로만 받아 그린다.
+export const OWN_PHOTO_HOST = 'photo.web2.invalid';
+export const HAND_PHOTO_TYPES = Object.freeze({'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif'});
+export const HAND_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+const OWN_SRC = /^https:\/\/photo\.web2\.invalid\/([A-Za-z0-9_-]{10,200})\.(jpg|png|webp|gif)$/;
+export function ownPhotoOf(src) {
+  const m = typeof src === 'string' ? OWN_SRC.exec(src) : null;
+  return m ? {id: m[1], ext: m[2]} : null;
+}
+export const photoToken = n => `[사진 ${n}]`;
+const TOKEN = /^\s*\[사진 (\d{1,3})\]\s*$/;
+export function tokenOf(line) {
+  const m = TOKEN.exec(String(line ?? ''));
+  return m ? Number(m[1]) : 0;
+}
+// 본문 칸 안 '[사진 n]' 줄 번호들(나온 차례, 겹침 없이).
+export function tokensIn(body) {
+  const seen = [];
+  for (const l of String(body ?? '').split(/\r\n?|\n/)) { const n = tokenOf(l); if (n && !seen.includes(n)) seen.push(n); }
+  return seen;
+}
+// '[사진 n]' 줄 → 그 사진 주소 줄(srcOf(n)이 주소를 줄 때만). 모르는 번호는 글자 그대로.
+export function expandPhotoTokens(body, srcOf) {
+  return String(body ?? '').split(/(\r\n?|\n)/).map(part => { const n = tokenOf(part), src = n ? srcOf(n) : ''; return src || part; }).join('');
+}
+// 붙여 넣거나 고른 파일 한 장을 받을 수 있나('' = 받음, 아니면 화면 한 줄).
+export function photoFileError(file) {
+  if (!HAND_PHOTO_TYPES[String(file?.type || '').toLowerCase()]) return 'jpg·png·webp·gif 사진만 넣을 수 있어요';
+  if (!(file.size > 0)) return '빈 파일이에요';
+  if (file.size > HAND_PHOTO_MAX_BYTES) return '사진은 한 장 10MB까지';
+  return '';
+}
+// 커서 자리에 여러 줄 끼워 넣기(사진 줄 여러 장).
+export function insertPhotoLines(value, at, lines) {
+  let v = String(value ?? ''), i = Number.isFinite(at) ? at : v.length;
+  for (const line of lines) { const next = insertPhotoLine(v, i, line); v = next.value; i = next.caret; }
+  return {value: v, caret: i};
 }
 // 커서 자리에 사진 줄 끼워 넣기 → {value, caret}. 줄 가운데면 앞뒤로 줄을 바꿔 사진 줄이 한 줄 전체가 되게 한다.
 export function insertPhotoLine(value, at, line) {
@@ -446,7 +491,8 @@ export function hostOf(url) {
   try { return new URL(String(url || '')).hostname.replace(/^www\./, ''); } catch { return ''; }
 }
 // 입력 값 → 서버 몸통 또는 {error: 화면 글자}. 본문은 처음 값에서 바뀌었을 때만 보낸다(바뀌지 않으면 서버가 읽어 둔 본문·사진을 그대로 둔다).
-export function handRequest(id, values, initial) {
+// photos: 본문 칸 '[사진 n]' 번호 → 저장된 사진 주소(올리기 전이면 ''). 그 줄은 주소 줄로 바꿔 보내고 사진 수에 센다.
+export function handRequest(id, values, initial, photos = new Map()) {
   const title = oneLineText(values.title), publisher = oneLineText(values.publisher), author = oneLineText(values.author);
   if (!title) return {error: '제목을 넣어 주세요'};
   if ([...title].length > HAND_LIMITS.title) return {error: `제목은 ${HAND_LIMITS.title}자까지`};
@@ -456,12 +502,14 @@ export function handRequest(id, values, initial) {
   if (at === undefined) return {error: '기사 시각을 다시 넣어 주세요'};
   const body = String(values.body ?? '');
   if ([...body].length > HAND_LIMITS.body) return {error: `본문은 ${HAND_LIMITS.body.toLocaleString('ko-KR')}자까지`};
-  if (handPhotoCount(body) > HAND_PHOTOS_MAX) return {error: `사진은 ${HAND_PHOTOS_MAX}장까지`};
+  const known = tokensIn(body).filter(n => photos.has(n));
+  if (handPhotoCount(body) + known.length > HAND_PHOTOS_MAX) return {error: `사진은 ${HAND_PHOTOS_MAX}장까지`};
   const out = {id, title, publisher: publisher || null, author: author || null, published_at: at};
   const changed = body.replace(/\s+/g, ' ').trim() !== String(initial?.body ?? '').replace(/\s+/g, ' ').trim();
   if (changed) {
     if (!body.trim()) return {error: '본문을 비울 수는 없어요'};
-    out.body = body;
+    out.body = expandPhotoTokens(body, n => photos.get(n) || '');
+    if ([...out.body].length > HAND_LIMITS.body) return {error: `본문은 ${HAND_LIMITS.body.toLocaleString('ko-KR')}자까지`};
   }
   return {body: out};
 }
@@ -473,6 +521,11 @@ export function handError(e) {
   if (e?.status === 400 && /INVALID_DATE/.test(code)) return '기사 시각을 다시 넣어 주세요';
   if (e?.status === 400 && /TOO_MANY_PHOTOS/.test(code)) return `사진은 ${HAND_PHOTOS_MAX}장까지`;
   if (e?.status === 400 && /INVALID_TEXT/.test(code)) return '본문에 글자를 넣어 주세요';
+  if (e?.status === 413 && /PHOTO_TOO_LARGE/.test(code)) return '사진은 한 장 10MB까지';
+  if (e?.status === 415) return 'jpg·png·webp·gif 사진만 넣을 수 있어요';
+  if (e?.status === 424) return '구글 드라이브 연결이 필요해요 · 자료실에서 연결';
+  if (e?.status === 409 && /DRIVE_FOLDER_SHARED/.test(code)) return "구글 드라이브 '뉴스 사진' 폴더가 공유돼 있어 올리지 않았어요";
+  if (e?.status === 409 && /DRIVE_FOLDER_MISSING/.test(code)) return '구글 드라이브 노트 첨부 폴더가 아직 없어요 · 노트에 파일을 한 번 붙인 뒤 다시';
   if (e?.status === 400 || e?.status === 413) return '넣은 값이 너무 길거나 모양이 달라요';
   return e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시';
 }
