@@ -18,13 +18,15 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '
 const enc = encodeURIComponent;
 export const LIST_PICK = '잊지 말기 노트에 더하기';
 
+import * as lock from './feature-lock.js';
 const wsOf = rt => rt.context?.read?.()?.workspace?.id || '';
 // 고르기 창에 보일 노트(고친 때 최근 순). 가족 줄은 AI가 읽지 않는 노트만 서버에서 읽는다.
 export async function readPickNotes(rt, {family = false} = {}) {
   const ws = wsOf(rt);
   if (!ws) return [];
-  const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note${family ? '&ai_export_allowed=is.false' : ''}&select=id,title,raw_text,updated_at,created_at,ai_export_allowed,metadata&order=updated_at.desc&limit=1000`, {singleFlight: false});
-  return Array.isArray(rows) ? rows : [];
+  const [rows] = await Promise.all([rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note${family ? '&ai_export_allowed=is.false' : ''}&select=id,title,raw_text,updated_at,created_at,ai_export_allowed,metadata&order=updated_at.desc&limit=1000`, {singleFlight: false}), lock.ready()]);
+  // SEC-기능PIN잠금 노트 폴더(S67-14): 잠겨 가려진 폴더의 노트는 고르기 창에 두지 않는다(넣을 곳으로 고르려면 노트 화면에서 PIN으로 연 뒤).
+  return Array.isArray(rows) ? rows.filter(n => !lock.noteHidden(n)) : [];
 }
 
 // 작은 고르기 창 하나. current: 지금 고른 것 {kind:'new'|'list'|'note', note?}. onPick(next) — next는 같은 모양({kind:'note', note, folderName}).

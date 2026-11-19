@@ -14,8 +14,10 @@ const code = error => String(error?.message || '').match(/LOCK_[A-Z_]+/)?.[0] ||
 const clock = iso => hhmm(iso);
 
 // 화면 상태(메모리만). mode: list | pad | forgot | wait | fail
-const ui = {mode: 'list', purpose: '', step: 0, digits: '', first: '', old: '', msg: '', busy: false, change: null, relockDraft: '5m', features: null, target: null};
+// task: 정리함 노트에서 온 일(S67-14) — {notes:true} 잠긴 노트 열기, {folder:{id,name,locked}} 폴더 잠그기·잠금 해제.
+const ui = {mode: 'list', purpose: '', step: 0, digits: '', first: '', old: '', msg: '', busy: false, change: null, relockDraft: '5m', features: null, target: null, task: null};
 const reset = patch => Object.assign(ui, {purpose: '', step: 0, digits: '', first: '', old: '', msg: '', busy: false, change: null}, patch);
+const folderWord = name => `'${[...String(name || '')].slice(0, 20).join('')}' 폴더`;
 
 function install() {
   if (document.getElementById('lockView')) return;
@@ -70,13 +72,17 @@ function list() {
   }
   relock.append(seg);
   box.append(rows, relock);
+  // 잠근 노트 폴더 수(잠그기·풀기는 노트 폴더 ⋯에서). 0개면 줄을 두지 않는다.
+  const folders = lock.noteFolderLocks()?.length || 0;
+  if (folders) { const line = el('p', 'lk-folders', `잠긴 노트 폴더 ${folders}개`); line.dataset.lkFolders = ''; box.append(line); }
   if (s.has_pin) box.append(button('secondary mini lk-change', 'PIN 바꾸기', {lkChange: ''}));
   if (ui.msg) box.append(el('p', 'lk-msg', ui.msg));
   return box;
 }
 
 const TITLES = {
-  gate: () => `${lock.FEATURE_NAMES[lock.featureOf(ui.target)] || ''} 잠김`,
+  gate: () => ui.task?.notes ? '노트 잠김' : `${lock.FEATURE_NAMES[lock.featureOf(ui.target)] || ''} 잠김`,
+  folder: () => ui.step ? '한 번 더 입력' : ui.task?.folder?.locked ? `${folderWord(ui.task.folder.name)} 잠그기` : `${folderWord(ui.task?.folder?.name)} 잠금 해제`,
   setup: () => ui.step ? '한 번 더 입력' : 'PIN 정하기',
   confirm: () => 'PIN 확인',
   change: () => ['지금 PIN', '새 PIN', '새 PIN 한 번 더'][ui.step],
@@ -92,14 +98,14 @@ function pad() {
   for (let i = 0; i < 4; i++) dots.append(el('span', 'lk-dot' + (i < ui.digits.length ? ' on' : '')));
   const msg = el('p', 'lk-msg', ui.msg); msg.setAttribute('aria-live', 'polite'); msg.dataset.lkMsg = '';
   const keys = el('div', 'lk-keys'); keys.setAttribute('role', 'group'); keys.setAttribute('aria-label', '숫자 판');
-  const canForget = ui.purpose === 'gate' || ui.purpose === 'confirm' || (ui.purpose === 'change' && ui.step === 0);
+  const canForget = ui.purpose === 'gate' || ui.purpose === 'confirm' || (ui.purpose === 'change' && ui.step === 0) || (ui.purpose === 'folder' && !ui.change?.setup);
   for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'forgot', '0', 'back']) {
     if (k === 'forgot') { const b = button('lk-key lk-word', '잊음', {lkForgot: ''}); b.disabled = ui.busy || !canForget; b.hidden = !canForget; keys.append(canForget ? b : el('span')); continue; }
     if (k === 'back') { const b = button('lk-key lk-word', '⌫', {lkBack: ''}); b.setAttribute('aria-label', '마지막 숫자 빼기'); b.disabled = ui.busy; keys.append(b); continue; }
     const b = button('lk-key', k, {lkKey: k}); b.disabled = ui.busy; keys.append(b);
   }
   box.append(icon, title, sub, dots, msg, keys);
-  if (ui.purpose !== 'gate') box.append(button('secondary mini lk-cancel', '취소', {lkCancel: ''}));
+  if (ui.purpose !== 'gate' || ui.task?.notes) box.append(button('secondary mini lk-cancel', '취소', {lkCancel: ''}));
   return box;
 }
 function forgot() {
@@ -131,16 +137,24 @@ async function entered() {
   const pin = ui.digits; ui.digits = '';
   const p = ui.purpose;
   // 두 번 입력하는 단계: 첫 번째는 메모리에만 두고 다음 단계로.
-  if ((p === 'setup' || p === 'renew') && ui.step === 0) { ui.first = pin; ui.step = 1; ui.msg = ''; draw(); return; }
+  if ((p === 'setup' || p === 'renew' || (p === 'folder' && ui.change?.setup)) && ui.step === 0) { ui.first = pin; ui.step = 1; ui.msg = ''; draw(); return; }
   if (p === 'change' && ui.step === 0) { ui.old = pin; ui.step = 1; ui.msg = ''; draw(); return; }
   if (p === 'change' && ui.step === 1) { ui.first = pin; ui.step = 2; ui.msg = ''; draw(); return; }
-  if ((p === 'setup' || p === 'renew' || p === 'change') && pin !== ui.first) {
+  if ((p === 'setup' || p === 'renew' || p === 'change' || (p === 'folder' && ui.change?.setup)) && pin !== ui.first) {
     ui.first = ''; ui.step = p === 'change' ? 1 : 0; ui.msg = '두 번 입력한 PIN이 달라요. 다시 입력해 주세요'; draw(); shake(); return;
   }
   try {
+    if (p === 'folder') {
+      const f = ui.task.folder;
+      // PIN이 아직 없으면 먼저 정한다(잠근 기능 없이, 다시 잠그기는 기본값) — 그 PIN으로 바로 폴더를 잠근다.
+      if (ui.change?.setup) { const res = await send('app_lock_setup', {p_pin: pin, p_features: [], p_relock: ui.relockDraft}); lock.applySaved(res); ui.change = null; }
+      const res = await send('app_lock_note_folder_set', {p_pin: pin, p_folder: f.id, p_locked: f.locked});
+      if (res?.ok) { lock.applyNoteFolders(res); reset({mode: 'list', task: null}); lock.markOpen(); return; }
+      ui.msg = resultMsg(res); draw(); shake(); return;
+    }
     if (p === 'gate') {
       const res = await send('app_lock_check', {p_pin: pin});
-      if (res?.ok) { reset({mode: 'list'}); lock.markOpen(); return; }
+      if (res?.ok) { reset({mode: 'list', task: null}); lock.markOpen(); return; }
       ui.msg = resultMsg(res); draw(); shake(); return;
     }
     if (p === 'confirm') {
@@ -170,7 +184,10 @@ async function entered() {
   } catch (error) {
     const why = code(error);
     if (why === 'LOCK_RECENT_LOGIN_REQUIRED') { reset({mode: 'forgot', target: ui.target, msg: '로그인한 지 오래됐어요. 구글 로그인을 다시 해 주세요'}); draw(); return; }
-    if (why === 'LOCK_PIN_EXISTS' || why === 'LOCK_PIN_MISSING') { await lock.refresh(); reset({mode: 'list', msg: '설정이 바뀌어 다시 읽었어요'}); draw(); return; }
+    if (why === 'LOCK_PIN_EXISTS' || why === 'LOCK_PIN_MISSING') { await lock.refresh(); reset({mode: 'list', task: null, msg: '설정이 바뀌어 다시 읽었어요'}); lock.clearPending(); draw(); return; }
+    if (why === 'LOCK_FOLDER_FORBIDDEN' || why === 'LOCK_FOLDER_LIMIT') {
+      ui.first = ''; ui.step = 0; ui.msg = why === 'LOCK_FOLDER_LIMIT' ? '잠글 수 있는 폴더는 50개까지예요' : '이 폴더는 잠글 수 없어요'; draw(); return;
+    }
     ui.first = ''; ui.old = ''; ui.step = 0;
     ui.msg = '확인하지 못했어요. 잠시 뒤 다시 해 주세요'; draw();
   }
@@ -196,13 +213,19 @@ function wantChange(next) {
 async function enter() {
   install();
   const place = window.KPTURouter?.place?.('lock') || {};
+  const task = lock.pending()?.notes || lock.pending()?.folder ? {notes: !!lock.pending().notes, folder: lock.pending().folder || null} : null;
   const target = lock.pending()?.view || (lock.isLockable(place.for) ? place.for : null);
-  reset({mode: 'wait', target});
+  reset({mode: 'wait', target, task});
   draw();
   await lock.ready();
   if (window.KPTURouter?.current !== 'lock') return;
   if (lock.readFailed()) { ui.mode = 'fail'; draw(); return; }
-  if (target) window.KPTURouter?.setPlace?.('lock', {for: target});
+  if (target && !task) window.KPTURouter?.setPlace?.('lock', {for: target});
+  if (task) {
+    if (!lock.pendingNeedsPin()) { lock.markOpen(); return; }
+    if (task.folder) { reset({mode: 'pad', purpose: 'folder', target, task, change: lock.settings()?.has_pin ? null : {setup: true}}); draw(); return; }
+    reset({mode: 'pad', purpose: 'gate', target, task}); draw(); return;
+  }
   if (place.renew === '1' && lock.settings()?.has_pin) {
     reset({mode: recentLogin() ? 'pad' : 'forgot', purpose: recentLogin() ? 'renew' : '', target}); draw(); return;
   }
@@ -232,6 +255,7 @@ document.querySelector('#lockView')?.addEventListener('click', event => {
     location.assign(url.href); return;
   }
   if (t.matches('[data-lk-cancel]')) {
+    if (ui.task && ui.purpose !== 'renew') { reset({mode: 'list', task: null}); lock.clearPending(); window.KPTURouter?.go?.('basket', {source: 'api', replaceUrl: true, sub: 'note'}); return; }
     if (ui.target) { reset({mode: 'pad', purpose: 'gate', target: ui.target}); draw(); return; }
     reset({mode: 'list'}); window.KPTURouter?.setPlace?.('lock', {renew: null}); draw(); return;
   }

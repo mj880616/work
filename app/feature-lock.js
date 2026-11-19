@@ -9,7 +9,14 @@ export const RELOCK = [['now', '바로'], ['5m', '5분'], ['30m', '30분'], ['cl
 const RELOCK_MS = { '5m': 5 * 60 * 1000, '30m': 30 * 60 * 1000 };
 
 const NONE = Object.freeze({ has_pin: false, features: [], relock: '5m', left: 5, blocked_until: null });
-const state = { settings: null, reading: null, failed: false, open: false, leftAt: null, pending: null };
+const state = { settings: null, reading: null, failed: false, open: false, leftAt: null, pending: null, notes: null };
+// 노트 폴더 잠금(S67-14, docs/design/feature-pin-lock.md 7절): 서버가 준 잠근 폴더·덮인 하위 폴더·덮인 맨 위 폴더 이름(메모리만).
+const NO_NOTES = Object.freeze({ folders: [], covered: new Set(), topNames: new Set() });
+const ids = v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+const cleanNotes = value => value && typeof value === 'object' && Array.isArray(value.folders)
+  ? { folders: ids(value.folders), covered: new Set([...ids(value.covered), ...ids(value.folders)]), topNames: new Set(ids(value.top_names)) }
+  : null;
+const quiet = status => status >= 400 && status < 500 && status !== 401;
 const changed = () => window.dispatchEvent(new CustomEvent('kptu:feature-lock-changed'));
 const clean = value => value && typeof value === 'object' && typeof value.has_pin === 'boolean' && Array.isArray(value.features)
   ? { has_pin: value.has_pin, features: value.features.filter(f => LOCKABLE[f]), relock: RELOCK.some(([k]) => k === value.relock) ? value.relock : '5m',
@@ -20,14 +27,19 @@ const clean = value => value && typeof value === 'object' && typeof value.has_pi
 export function refresh() {
   if (state.reading) return state.reading;
   // 읽기는 GET(stable 함수) — 쓰기 요청과 섞이지 않게(app_my_features와 같은 방식).
-  state.reading = window.KPTURuntime.api('/rest/v1/rpc/app_lock_read', { singleFlight: false }).then(value => {
+  // 노트 폴더 목록도 함께 읽는다(함수가 아직 없으면 404 → 잠근 폴더 없음). 연결 실패면 기능 설정과 같이 모른 채 둔다.
+  const notes = window.KPTURuntime.api('/rest/v1/rpc/app_lock_note_folders', { singleFlight: false })
+    .then(value => cleanNotes(value) || NO_NOTES)
+    .catch(error => { const status = Number(error?.status) || 0; if (quiet(status)) return NO_NOTES; console.warn('note folder lock read', status || error?.code || 'error'); return null; });
+  state.reading = Promise.all([window.KPTURuntime.api('/rest/v1/rpc/app_lock_read', { singleFlight: false }), notes]).then(([value, folders]) => {
+    state.notes = folders; // null = 이번에 못 읽음(아래 notesHidden이 PIN이 있으면 가린다)
     // 답 모양이 다르면(서버 함수가 아직 없거나 바뀜) 잠금 없음으로 본다 — 잠금은 화면 가림이고 자료 경계는 서버가 지킨다.
     state.settings = clean(value) || NONE; state.failed = false;
     return state.settings;
   }).catch(error => {
     const status = Number(error?.status) || 0;
     // 함수가 없다(404)·요청 모양 거절(4xx, 로그인 만료 401 제외)이면 잠금 없음. 연결 실패·서버 오류는 모른 채 두어 잠근 화면을 닫아 둔다([다시]).
-    if (status >= 400 && status < 500 && status !== 401) { state.settings = NONE; state.failed = false; }
+    if (quiet(status)) { state.settings = NONE; state.notes = NO_NOTES; state.failed = false; }
     else state.failed = true;
     console.warn('feature lock read', status || error?.code || 'error');
     return state.settings;
@@ -46,7 +58,8 @@ function expire() {
   const { relock } = state.settings;
   if (state.leftAt === null) return;
   if (relock === 'now' || (RELOCK_MS[relock] && Date.now() - state.leftAt >= RELOCK_MS[relock])) {
-    state.open = false; state.leftAt = null; changed();
+    // 알림은 다음 차례에(그리는 도중에 판정하다 잠기면 그 그리기가 끝난 뒤 다시 그리게).
+    state.open = false; state.leftAt = null; queueMicrotask(changed);
   }
 }
 // 이 기능이 지금 가려져야 하나. 설정을 아직 모르면(읽는 중·실패) 가린다.
@@ -60,6 +73,50 @@ export function hides(feature) {
 export const locked = view => isLockable(view) && hides(LOCKABLE[view]);
 // 잠금이 켜진 기능만(설정을 아직 모르면 null) — 다른 화면 미리보기가 '잠김' 한 줄을 쓸지 정할 때.
 export const anyHidden = (...features) => features.some(f => hides(f));
+
+// ── 노트 폴더 잠금 ─────────────────────────────────────────────────────────────────────────
+// 잠근 폴더가 있고 지금 풀려 있지 않으면 그 폴더(하위 폴더 포함)의 노트를 가린다. 설정을 아직 모르면(읽는 중·실패) 잠근 폴더도 모르므로,
+// 노트를 그리는 화면은 ready()를 기다린 뒤 그린다. PIN 하나라 기능 잠금과 함께 풀리고 같은 '다시 잠그기'로 함께 잠긴다.
+export const noteFolderLocks = () => state.notes ? state.notes.folders : null;
+export const hasNoteLocks = () => !!state.notes?.folders.length;
+export function notesHidden() {
+  if (!state.settings) return !state.reading && state.failed;
+  // 잠근 폴더 목록을 못 읽었으면: PIN이 없으면 잠근 폴더도 있을 수 없고, PIN이 있으면 모르니 가린다.
+  if (!state.notes) { if (!state.settings.has_pin) return false; expire(); return !state.open; }
+  if (!state.notes.folders.length) return false;
+  expire();
+  return !state.open;
+}
+export const folderCovered = id => !!id && !!state.notes?.covered.has(id);
+export const folderLocked = id => !!id && !!state.notes?.folders.includes(id);
+// 노트 하나가 지금 가려져야 하나(노트 metadata.folder_id, 없으면 옛 이름 metadata.folder가 맨 위 잠근 폴더 이름과 같은지).
+export function noteHidden(note) {
+  if (!note || !notesHidden()) return false;
+  if (!state.notes) return true;
+  const meta = note.metadata && typeof note.metadata === 'object' ? note.metadata : {};
+  if (meta.folder_id !== undefined && meta.folder_id !== null) return state.notes.covered.has(meta.folder_id);
+  return typeof meta.folder === 'string' && state.notes.topNames.has(meta.folder.trim());
+}
+// 서버가 잠그기·풀기를 받은 뒤(app_lock_note_folder_set 결과): 목록을 바꾸고, 방금 PIN을 넣었으니 풀린 채.
+export function applyNoteFolders(result) {
+  const next = cleanNotes(result); if (next) state.notes = next;
+  if (state.settings && !state.settings.has_pin) state.settings = { ...state.settings, has_pin: true };
+  state.open = true; state.leftAt = Date.now();
+  changed();
+}
+// 잠긴 노트·폴더를 열려 할 때: 잠금 화면 숫자 판으로 보내고, 맞으면 정리함(노트)으로 돌아온다.
+// what: { notes: true } = 잠긴 노트 열기, { folder: {id, name, locked} } = 폴더 잠그기(locked true)·잠금 해제(false).
+export function askNotes(what = { notes: true }) {
+  state.pending = { view: 'basket', sub: 'note', ...what };
+  window.KPTURouter?.go?.('lock', { source: 'api' });
+}
+// 잠금 화면이 받은 일이 아직 PIN을 물어야 하나.
+export function pendingNeedsPin() {
+  const p = state.pending; if (!p) return false;
+  if (p.folder) return true;
+  if (p.notes) return notesHidden();
+  return locked(p.view);
+}
 
 // 라우터 go()가 화면 프로그램을 받기 전에 부른다. 잠겼으면 잠금 화면으로 보내고 true(라우터는 그 이동을 멈춘다).
 export function guard(view, { source = 'api', sub = null } = {}) {
@@ -93,11 +150,14 @@ export function noteBlocked(result) {
     blocked_until: typeof result.blocked_until === 'string' ? result.blocked_until : null };
 }
 
+// 지금 화면이 잠근 것을 보여 주는 화면인가(잠근 기능 화면, 또는 잠근 노트 폴더가 있을 때 정리함).
+const onLockedView = view => !!state.settings && ((isLockable(view) && state.settings.features.includes(LOCKABLE[view])) || (view === 'basket' && hasNoteLocks()));
 // 잠근 화면을 떠난 시각을 적고, '바로'면 곧바로 잠근다.
 window.addEventListener('kptu:view-changed', event => {
   const view = event.detail?.view;
   if (!state.settings) return;
-  if (isLockable(view) && state.settings.features.includes(LOCKABLE[view]) && state.open) { state.leftAt = null; return; }
+  // 돌아온 화면이 잠근 것을 보여 주는 화면이면, 떠나 있던 시간이 다 됐는지 먼저 본 뒤(다 됐으면 잠김) 아니면 시계를 멈춘다.
+  if (onLockedView(view) && state.open) { expire(); if (state.open) state.leftAt = null; return; }
   if (view === 'lock') return;
   if (state.open && state.leftAt === null) { state.leftAt = Date.now(); expire(); }
 });
@@ -110,7 +170,7 @@ function relockCurrent() {
 document.addEventListener('visibilitychange', () => {
   if (!state.settings || !state.open) { if (document.visibilityState === 'hidden') relockCurrent(); return; }
   const view = window.KPTURouter?.current;
-  const onLocked = isLockable(view) && state.settings.features.includes(LOCKABLE[view]);
+  const onLocked = onLockedView(view);
   if (document.visibilityState === 'hidden') {
     if (state.settings.relock === 'close' || state.settings.relock === 'now') { state.open = false; state.leftAt = null; changed(); }
     else if (onLocked) state.leftAt = Date.now();
@@ -128,9 +188,10 @@ window.addEventListener('kptu:session-changed', () => {
   const next = ownerNow();
   if (next && next === owner) return;
   owner = next;
-  Object.assign(state, { settings: null, failed: false, open: false, leftAt: null, pending: null });
+  Object.assign(state, { settings: null, failed: false, open: false, leftAt: null, pending: null, notes: null });
   changed();
 });
 
 window.KPTUFeatureLock = { refresh, ready, settings, readFailed, featureOf, isLockable, hides, locked, anyHidden, guard, pending, clearPending,
-  markOpen, applySaved, noteBlocked, FEATURE_NAMES, RELOCK };
+  markOpen, applySaved, noteBlocked, FEATURE_NAMES, RELOCK,
+  noteFolderLocks, hasNoteLocks, notesHidden, folderCovered, folderLocked, noteHidden, applyNoteFolders, askNotes, pendingNeedsPin };
