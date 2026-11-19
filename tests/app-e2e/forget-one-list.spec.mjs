@@ -22,11 +22,13 @@ const notes=()=>[{...base,id:uid(1),raw_text:'지어낸 업데이트 하나\n둘
 // FORGET-소식합치기: AI가 고른 그날 업무 통화·텔레그램 소식(서버 표 app_journal_memorable) — 지어낸 글·지어낸 조직 이름.
 const nid=n=>`b0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const newsRow=(n,over={})=>({id:nid(n),day:'2026-10-06',source:'telegram',feed_item_id:fid(n),org_name:null,line:`가상 소식 ${n}`,status:'suggested',final_line:null,picked_at:`2026-10-06T0${n}:10:00Z`,decided_at:null,...over});
-async function fixture(page,{failReopen=false,width=390,features=['telegram','family'],news=[],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
+async function fixture(page,{failReopen=false,width=390,features=['telegram','family'],lockFeatures=null,news=[],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
   await page.setViewportSize({width,height:900});
   const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[],fixes=[],orgDeletes=[],bizPosts=[],bizDeletes=[];
   await openHome(page,{beforeLoad:async()=>{
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:features}));
+    // SEC-기능PIN잠금: 잠근 기능(서버 설정 흉내). 없으면 공용 기본값(잠금 없음).
+    if(lockFeatures)await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_lock_read',r=>r.fulfill({json:{has_pin:true,features:lockFeatures,relock:'5m',left:5,blocked_until:null}}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',async r=>{
       const req=r.request(),q=new URL(req.url()).searchParams;
       if(req.method()==='PATCH'){
@@ -197,6 +199,18 @@ test('가족 기능이 없는 작업공간은 가족 줄이 없고(서버 기능
   await expect(list(page).locator('[data-nbx-row]')).toHaveCount(3);
   await expect(list(page).locator('[data-forget-src="family"]')).toHaveCount(0);
   await expect(line(page,`c:${cid(1)}`)).toBeVisible();
+});
+
+// SEC-기능PIN잠금 ②: 통화·텔레그램을 잠갔으면 그 소식 줄·텔레그램 요청 줄은 그리지 않고 맨 아래 '잠김' 한 줄(몇 줄인지만). 다른 줄은 그대로.
+test('통화·텔레그램을 잠그면 소식·텔레그램 요청 줄 대신 잠김 한 줄, 챙길 것 줄은 그대로',async({page})=>{
+  const news=[newsRow(2,{org_name:'가상 지부'}),newsRow(4,{source:'call',line:'가상 통화 소식'})];
+  await fixture(page,{news,features:['telegram','calls','family'],lockFeatures:['calls','telegram']});
+  await expect(list(page).locator('[data-forget-locked]')).toBeVisible();
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(0);
+  await expect(list(page).locator('[data-forget-src="telegram"]')).toHaveCount(0);
+  await expect(list(page)).not.toContainText('가상 통화 소식');
+  await expect(list(page).locator('[data-forget-locked]')).toHaveText(/^통화·텔레그램 \d+줄 · 잠김$/);
+  await expect(list(page).locator('[data-forget-src="todo"]').first()).toBeVisible();
 });
 
 // FORGET-소식합치기(요청함 11/08 21:02~21:19, 시안 docs/design/mockups/forget-news-link.html): 업무일지 '기억할 통화·텔레그램' 줄이
