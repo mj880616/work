@@ -43,7 +43,7 @@ import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs
 import {createTaskInline, objectParticle} from './task-inline.js';
 import {applyCheckPop} from './check-motion.js';
 import {loadDocumentCategories} from './document-categories.js';
-import {formatSeoulTime, seoulParts} from './meeting-time.js';
+import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
@@ -60,6 +60,8 @@ import {sendEvents, sendDone} from './home-day-picks-model.mjs';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
 import {keepMenus} from './anchored-menu.js';
 import {googleLinkState, startGoogleLink, linkText} from './google-link.js'; // MULTI-처음쓰는사람 ①: 구글 연결 없음 안내
+import {photoBriefTargets} from './weekly-photo-material.mjs'; // WEEKLY-재료전체 ②: 설명이 없는 기록 사진
+import {requestPhotoBriefs, PHOTO_BRIEF_BATCH} from './photo-brief-request.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -1048,6 +1050,22 @@ async function loadGroupNow(key, run, scope, quiet) {
   if (key === 'tasks' && materials.tasks?.status === 'ok') void loadTaskMeetings(run, scope);
   void checkOverlaps();
   void maybeDraft();
+  void maybePhotoBriefs();
+}
+// WEEKLY-재료전체 ②: [주간 정리]를 열고 그 주 업데이트·자료를 다 읽으면, 기록에 붙은 사진 중 설명 없는 것을 서버에 한 번 읽힌다
+// (주마다 방문당 한 번, PHOTO_BRIEF_BATCH장). 하나라도 채워지면 자료만 조용히 다시 읽어(같은 주인 loadGroup) AI 재료에 '사진: … — 설명'이 붙는다.
+const photoAsked = new Set();
+async function maybePhotoBriefs() {
+  if (mode !== 'week' || ['basket', 'documents'].some(waiting)) return;
+  const key = `${ownerScope(rt)}:${start}`;
+  if (photoAsked.has(key)) return;
+  const days = new Set(weekDays(start)), memos = (ok_('basket')?.notes || []).filter(memo => memo?.occurred_at && days.has(seoulDateKey(memo.occurred_at)));
+  const ids = photoBriefTargets(memos, ok_('documents'), PHOTO_BRIEF_BATCH);
+  photoAsked.add(key);
+  if (!ids.length) return;
+  const run = epoch, scope = owner;
+  const {done} = await requestPhotoBriefs(ids, rt);
+  if (done && current(run, scope)) loadGroup('documents', run, scope, true);
 }
 function loadLines(run, scope, quiet = false) { return trackRead(loadLinesNow(run, scope, quiet)); }
 async function loadLinesNow(run, scope, quiet) {
