@@ -325,7 +325,7 @@ export const BRIEF_HASH_RE = /^b1:[0-9a-f]{32}$/;
 export async function readWeekDocuments(start, rt = window.KPTURuntime) {
   const days = weekDays(start), from = dayStartIso(days[0]), to = dayStartIso(shiftWeek(start, 1)), ws = encode(workspace(rt));
   const span = `(and(created_at.gte.${from},created_at.lt.${to}),and(document_date.gte.${days[0]},document_date.lte.${days[6]}))`;
-  const docs = capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&or=${encode(span)}&select=id,title,file_name,category,meeting_id,created_at,document_date,organization_id,project_id,file_id&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+  const docs = capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&or=${encode(span)}&select=id,title,file_name,mime_type,category,meeting_id,created_at,document_date,organization_id,project_id,file_id&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
   try { await attachBriefs(docs, {ws, from, rt}); } catch { for (const doc of docs) { delete doc.brief; delete doc.repeat; } }
   return docs;
 }
@@ -388,6 +388,18 @@ export function firstLine(text) {
   if (!first) return '';
   return [...first].length > SHORT ? [...first].slice(0, SHORT).join('') + '…' : first;
 }
+// WEEKLY-재료전체 ① (S67-07, 명진 11/19 "조직별 기록의 내용… 다 읽어서 주간보고에 제안"): 화면 줄은 첫 줄(firstLine) 그대로 두고,
+// 주간보고 AI 초안 재료에만 기록 전체 글(body)을 함께 보낸다. body = 여러 글의 모든 줄(같은 줄은 한 번, 기호 뺀 평문)을 '\n'으로 이은 것.
+// 첫 줄이 화면 줄과 같으면 그 줄은 빼고(머리 줄과 같은 말 두 번 없음), 남는 줄이 없으면 ''. 길이는 BODY_KEEP 자까지(보낼 때 다시 줄임 — weekly-draft-request.mjs).
+export const BODY_KEEP = 4000;
+export function fullText(shown, ...texts) {
+  const seen = new Set(), lines = [];
+  for (const text of texts) for (const line of plainLines(String(text ?? '').replace(/\u2028|\u2029/g, '\n'))) if (!seen.has(line)) { seen.add(line); lines.push(line); }
+  if (lines[0] === shown) lines.shift(); // 첫 줄이 화면 줄과 같으면 머리 줄이 이미 말함
+  if (!lines.length) return '';
+  const body = lines.join('\n');
+  return [...body].length > BODY_KEEP ? [...body].slice(0, BODY_KEEP).join('') + '…' : body;
+}
 export function memoLine(memo) {
   const first = firstLine(memo?.raw_text);
   if (first) return first;
@@ -413,15 +425,17 @@ const byName = (a, b) => a.localeCompare(b, 'ko');
 // The order of 조직 소식 sections (named organizations in the app's order, then '그 외', then '미분류'); [주간 정리] uses it too.
 export const compareOrgSections = (a, b) => tail(a.name) - tail(b.name) || orgCompare(a.name, b.name);
 // JOURNAL-하루개편: with {open:true} each section also has `opens`, one place per item where its original is shown (see OPEN below).
-const sectionsOf = (entries, compare = byName, {open = false} = {}) => {
+// WEEKLY-재료전체 ①: with {body:true} each section also has `bodies`, one full text per item ('' when the item line says it all).
+const sectionsOf = (entries, compare = byName, {open = false, body = false} = {}) => {
   const sections = new Map();
   for (const entry of entries.sort((a, b) => byTime(a.at, b.at) || 0)) {
-    if (!sections.has(entry.name)) sections.set(entry.name, {items:[], tags:[], opens:[]});
+    if (!sections.has(entry.name)) sections.set(entry.name, {items:[], tags:[], opens:[], bodies:[]});
     sections.get(entry.name).items.push(entry.text);
     sections.get(entry.name).tags.push(entry.requests || []);
     sections.get(entry.name).opens.push(entry.open || null);
+    sections.get(entry.name).bodies.push(entry.body || '');
   }
-  return [...sections].map(([name, {items, tags, opens}]) => ({name, items, ...(tags.some(list => list.length) ? {tags} : {}), ...(open ? {opens} : {})}))
+  return [...sections].map(([name, {items, tags, opens, bodies}]) => ({name, items, ...(tags.some(list => list.length) ? {tags} : {}), ...(open ? {opens} : {}), ...(body ? {bodies} : {})}))
     .sort((a, b) => tail(a.name) - tail(b.name) || compare(a.name, b.name));
 };
 // JOURNAL-하루개편 ⑥: where a day-card line opens. Every line of an update points at the place it was filed and the record there:
@@ -447,7 +461,7 @@ function basketPlaces(basket, day) {
     }
     for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {id:org.organization_id, name:org.name, summary:'', link:null});
     for (const project of filedProjects(memo, docs)) if (!projects.some(p => p.name === project.name)) projects.push({id:project.project_id, name:project.name, summary:'', link:null});
-    return {memo, orgs:[...orgs.values()], projects, refs, line:memoLine(memo), requests:noteRequests(memo), journal:!!noteJournalAt(memo)};
+    return {memo, orgs:[...orgs.values()], projects, refs, line:memoLine(memo), raw:memo.raw_text, requests:noteRequests(memo), journal:!!noteJournalAt(memo)};
   });
 }
 // 조직 소식 of one day: [{name, items:[text]}] — one section per organization (by name), '미분류' last.
@@ -460,32 +474,39 @@ function basketPlaces(basket, day) {
 // read (it failed) every organization keeps its own section as before.
 // JOURNAL-하루개편: the day card passes {open:true, unsorted:false} — its sections carry `opens`, and an update sent nowhere is
 // not a section here (JOURNAL-그밖의기록삭제: the day card no longer lists it; it stays in the basket). [주간 정리] keeps '미분류'.
-export function orgNewsOn({basket, orgUpdates} = {}, day, {open = false, unsorted = true} = {}) {
+// WEEKLY-재료전체 ①: with {body:true} sections also carry `bodies` (fullText — the record's whole text for the AI draft only).
+export function orgNewsOn({basket, orgUpdates} = {}, day, {open = false, unsorted = true, body = false} = {}) {
   const entries = [], mine = orgUpdates?.mine instanceof Set ? orgUpdates.mine : null;
-  const add = (id, name, at, text, requests, place = null) => {
+  const add = (id, name, at, text, requests, place = null, full = '') => {
     const label = String(name || '').trim();
-    if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || '조직'} · ${text}`, requests, open:place});
-    else entries.push({name: label || UNSORTED, at, text, requests, open:place});
+    if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || '조직'} · ${text}`, requests, open:place, body:full});
+    else entries.push({name: label || UNSORTED, at, text, requests, open:place, body:full});
   };
-  for (const {memo, orgs, projects, refs, line, requests, journal} of basketPlaces(basket, day)) {
-    if (orgs.length) for (const org of orgs) add(org.id, org.name, memo.occurred_at, org.summary || line, requests, orgOpen(org.id, org.link ? `link:${org.link}` : null, memo.id));
+  for (const {memo, orgs, projects, refs, line, raw, requests, journal} of basketPlaces(basket, day)) {
+    if (orgs.length) for (const org of orgs) { const text = org.summary || line; add(org.id, org.name, memo.occurred_at, text, requests, orgOpen(org.id, org.link ? `link:${org.link}` : null, memo.id), body ? fullText(text, raw) : ''); }
     // REF-참고묶음: an update put only in a reference bundle is not '미분류' (so not in [주간 정리]·[복사]·한글 파일 후보).
-    else if (unsorted && !projects.length && !refs.length && !journal) add(null, UNSORTED, memo.occurred_at, line, requests, {type:'note', note:memo.id});
+    else if (unsorted && !projects.length && !refs.length && !journal) add(null, UNSORTED, memo.occurred_at, line, requests, {type:'note', note:memo.id}, body ? fullText(line, raw) : '');
   }
-  for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization_id, row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)', undefined, orgOpen(row.organization_id, `up:${row.id}`));
-  return sectionsOf(entries, orgCompare, {open});
+  for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) {
+    const text = firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)';
+    add(row.organization_id, row.organization?.name, row.occurred_at, text, undefined, orgOpen(row.organization_id, `up:${row.id}`), body ? fullText(text, row.raw_text, row.detail_text) : '');
+  }
+  return sectionsOf(entries, orgCompare, {open, body});
 }
 // 프로젝트 소식 of one day: [{name, items:[text]}] — one section per project (by name). A project progress record goes under
 // its project on its day (effective_on); a basket update sent to a project and to no organization goes under each such
 // project (an update sent to an organization stays in 조직 소식 only, so nothing shows twice).
 // The same records one by one with their project id: [{id, name, at, text, requests}] ([주간 정리] places them in the project tree).
+// WEEKLY-재료전체 ①: an entry whose text is not the whole record also has `body` (fullText, for the AI draft only).
 export function projectRecordsOn({basket, projectUpdates} = {}, day) {
   const entries = [];
-  const add = (id, name, at, text, requests, open) => entries.push({id: id || null, name: String(name || '').trim() || UNSORTED, at, text, requests, open});
-  for (const {memo, orgs, projects, line, requests} of basketPlaces(basket, day))
-    if (!orgs.length) for (const project of projects) add(project.id, project.name, memo.occurred_at, project.summary || line, requests, projectOpen(project.id, project.link ? `link:${project.link}` : null, memo.id));
-  for (const row of projectUpdates || []) if (row?.effective_on === day)
-    add(row.project_id, row.project?.name, row.created_at || `${day}T23:59:59+09:00`, firstLine(row.summary) || '(빈 업데이트)', undefined, projectOpen(row.project_id, `progress:${row.id}`));
+  const add = (id, name, at, text, requests, open, full = '') => entries.push({id: id || null, name: String(name || '').trim() || UNSORTED, at, text, requests, open, ...(full ? {body:full} : {})});
+  for (const {memo, orgs, projects, line, raw, requests} of basketPlaces(basket, day))
+    if (!orgs.length) for (const project of projects) { const text = project.summary || line; add(project.id, project.name, memo.occurred_at, text, requests, projectOpen(project.id, project.link ? `link:${project.link}` : null, memo.id), fullText(text, raw)); }
+  for (const row of projectUpdates || []) if (row?.effective_on === day) {
+    const text = firstLine(row.summary) || '(빈 업데이트)';
+    add(row.project_id, row.project?.name, row.created_at || `${day}T23:59:59+09:00`, text, undefined, projectOpen(row.project_id, `progress:${row.id}`), fullText(text, row.summary));
+  }
   return entries;
 }
 // PRJ-순서바꾸기: with the project tree (project-catalog tree, [{project, depth}]) the sections follow the app's one project order

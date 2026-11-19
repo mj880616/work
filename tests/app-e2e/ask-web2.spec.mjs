@@ -124,3 +124,24 @@ test('Phone 884: a late search repaint keeps the opened evidence list open and i
   await expect(page.locator('#callsView')).toBeVisible();
   expect(asks.length).toBe(0);
 });
+
+// SEC-기능PIN잠금(S67-14): 통화를 잠갔고 아직 안 풀었으면 통화 근거 줄은 제목·내용 대신 '잠김'(누르면 통화 화면 문지기가 PIN을 묻는다).
+test('Phone 412: with calls locked the call evidence row says "잠김" and opens the PIN pad',async({page})=>{
+  await page.setViewportSize({width:412,height:900});
+  const asks=[];
+  await openHome(page,{beforeLoad:async()=>{
+    await routes(page,{asks,recent:[{...ANSWER,ai_status:'ok',status:undefined}]});
+    await page.route(SB+'/rest/v1/rpc/app_lock_read*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({has_pin:true,features:['calls'],relock:'5m',left:5,blocked_until:null})}));
+  }});
+  await page.evaluate(async()=>{await window.KPTUViewLoader.load('search');window.KPTURouter.go('search',{source:'delegated'});});
+  const view=page.locator('#searchView');
+  await view.locator('.gs-recent .gs-row').click();
+  await view.locator('.gs-ask-src summary').click();
+  const call=view.locator('.gs-ask-src-row[data-gs-locked]');
+  await expect(call).toHaveCount(1);
+  await expect(call.locator('.gs-ask-src-title')).toHaveText('잠김');
+  await expect(view.locator('.gs-ask-src')).not.toContainText('성과급 개인 평가 연동 거부');
+  await call.click();
+  await expect(page.locator('#lockView .lk-title')).toHaveText('통화 잠김');
+  expect(asks.length).toBe(0);
+});

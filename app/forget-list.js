@@ -138,9 +138,14 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   }
   function items() {
     const out = [];
+    // SEC-기능PIN잠금 ②: 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 줄들은 그리지 않고 맨 아래 '잠김' 한 줄만(몇 줄인지만). 잠금 화면으로 가는 길은 그 메뉴.
+    const lockOf = feature => !!win.KPTUFeatureLock?.hides?.(feature) && !!win.KPTUFeatureLock?.settings?.();
+    const locked = {telegram: lockOf('telegram'), call: lockOf('calls')};
+    let hidden = 0;
     if (src === 'all' || src === 'telegram' || src === 'todo') {
       for (const c of candidatesFor(view, rows, taskTitles())) {
         const s = candidateSource(c); if (src !== 'all' && src !== s) continue;
+        if (s === 'telegram' && locked.telegram) { hidden++; continue; }
         const open = c.status === 'open', isBusy = busy.has(c.id);
         out.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
           // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
@@ -154,6 +159,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     if (nOn && (src === 'all' || src === 'news')) {
       for (const r of newsFor(view, news, nPicks)) {
+        if (locked[r.source]) { hidden++; continue; }
         const open = r.status === 'suggested', label = newsText(r);
         out.push({at: open ? r.at : (r.decidedAt || r.at), html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: NEWS_SOURCE_TAG[r.source], busy: busy.has(`n:${r.id}`),
           open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
@@ -172,11 +178,13 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: `${SOURCE_TAG.promise} · ${SOURCE_TAG.todo}`,
       meta: [RADAR_SOURCE_LABEL[p.source_kind] || '', dueLabel(p.due) ? `기한 ${dueLabel(p.due)}` : ''].filter(Boolean).join(' · '), acts: [['ledger', '원장으로']], attrs: 'data-forget-src="promise" data-inbox-promise'})}));
     if (view === 'open' && nOn && (src === 'all' || src === 'news')) for (const r of promiseNews(news)) {
+      if (locked[r.source]) { hidden++; continue; }
       const label = newsText(r);
       sorted.push({html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: `${SOURCE_TAG.promise} · ${r.source === 'telegram' ? '텔레그램' : '통화'}`, busy: busy.has(`n:${r.id}`),
         open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
         why: r.reason, acts: PROMISE_NEWS_ACTS, attrs: 'data-forget-src="promise" data-forget-promise-news'})});
     }
+    if (hidden) sorted.push({html: `<p class="nbx-faint forget-locked" data-forget-locked>통화·텔레그램 ${hidden}줄 · 잠김</p>`});
     return sorted;
   }
   // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개(같은 ③ 글자 버튼). 고르면 그 할 일과 잇고 목록에서 뺀다. 새 할 일은 만들지 않는다.
@@ -659,6 +667,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (event.detail?.reload && !busy.size) void loadCandidates(); else paint();
   });
   win.addEventListener('kptu:google-tasks-changed', () => { if (cState === 'ok') paint(); });
+  win.addEventListener('kptu:feature-lock-changed', () => { if (cState === 'ok') paint(); });
   win.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
     run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; fix = null; fixedOnce = false; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);

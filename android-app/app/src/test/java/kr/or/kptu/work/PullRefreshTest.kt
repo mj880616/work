@@ -29,4 +29,27 @@ class PullRefreshTest {
         assertTrue(src.contains("ReopenBook.log.expect(\"pull\", System.currentTimeMillis())\n                    webView.reload()"))
         assertTrue(src.contains("refresher.setDistanceToTriggerSync((PULL_TRIGGER_DP * resources.displayMetrics.density).toInt())"))
     }
+
+    @Test
+    fun onlyMovesAreBlockedSoEachFingerStartsFresh() {
+        // NOTE-폴더고른뒤새로고침: 대는 순간·떼는 순간은 웹이 끈 손가락이어도 막지 않는다(시작점·끝을 늘 새로 적음).
+        assertFalse("대는 순간(앞 손가락 pull:off)", ShellRules.pullBlocked(false, false, 0, true))
+        assertFalse("떼는 순간(이 손가락 pull:off)", ShellRules.pullBlocked(false, false, 0, true))
+        assertFalse("웹2가 아닌 화면도 대고 떼는 순간은 받음", ShellRules.pullBlocked(false, true, 0, false))
+        // 움직이는 순간은 그대로 웹 판정(pullReady)을 따른다.
+        assertTrue("웹이 끈 손가락은 움직여도 당기기 없음", ShellRules.pullBlocked(true, false, 0, true))
+        assertTrue("웹 화면이 내려가 있음", ShellRules.pullBlocked(true, true, 12, true))
+        assertTrue("웹2 화면이 아님", ShellRules.pullBlocked(true, true, 0, false))
+        assertFalse("맨 위에서 웹이 켠 손가락은 당기기", ShellRules.pullBlocked(true, true, 0, true))
+    }
+
+    @Test
+    fun activityUsesMoveOnlyBlock() {
+        val src = File("src/main/java/kr/or/kptu/work/MainActivity.kt").readText()
+        assertTrue(src.contains("refresher = PullRefreshLayout(this)"))
+        assertTrue(src.contains("ShellRules.pullBlocked(refresher.moving, pullOn, webView.scrollY, ShellRules.isInternalApp(webView.url))"))
+        assertFalse("옛 방식(대는 순간까지 막음)이 남지 않음", src.contains("{ _, _ -> !ShellRules.pullReady("))
+        val layout = File("src/main/java/kr/or/kptu/work/PullRefreshLayout.kt").readText()
+        assertTrue(layout.contains("moving = ev.actionMasked == MotionEvent.ACTION_MOVE"))
+    }
 }

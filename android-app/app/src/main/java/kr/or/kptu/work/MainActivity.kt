@@ -36,7 +36,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var root: LinearLayout
     private lateinit var webView: WebView
     /** APP-당겨서새로고침: 웹 화면을 감싸는 당겨서 새로고침. 웹이 그 손가락에 'pull:on'을 보낸 때만 받는다. */
-    private lateinit var refresher: SwipeRefreshLayout
+    private lateinit var refresher: PullRefreshLayout
     @Volatile private var pullOn = false
     private lateinit var updateBar: LinearLayout
     private lateinit var updateText: TextView
@@ -65,6 +65,9 @@ class MainActivity : ComponentActivity() {
 
     private var barColor: Int = 0
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    /** NOTE-유튜브보기: 노트 안 영상(youtube-nocookie 작은 창)의 [전체 화면]이 띄운 화면과 그 닫기 알림. 없으면 null. */
+    private var fullView: View? = null
+    private var fullCallback: WebChromeClient.CustomViewCallback? = null
     private var backPending = false
     private var updateUrl: String? = null
     private var widgetReply: JavaScriptReplyProxy? = null
@@ -279,7 +282,7 @@ class MainActivity : ComponentActivity() {
         buildUpdateBar()
         webView = WebView(this)
         root.addView(updateBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        refresher = SwipeRefreshLayout(this)
+        refresher = PullRefreshLayout(this)
         refresher.addView(webView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         root.addView(refresher, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         setUpPullRefresh()
@@ -375,6 +378,22 @@ class MainActivity : ComponentActivity() {
                     true
                 }
             }
+
+            // NOTE-유튜브보기: 화면 안 영상 창의 [전체 화면]. WebView는 이 두 콜백이 없으면 전체 화면 단추가 아무 일도 안 한다.
+            // 받은 화면을 창 맨 위에 검은 바탕으로 덮고 상태·이동 바를 숨긴다. 뒤로가기·영상 쪽 [나가기]가 되돌린다.
+            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                if (fullView != null) { callback.onCustomViewHidden(); return }
+                fullView = view
+                fullCallback = callback
+                view.setBackgroundColor(Color.BLACK)
+                (window.decorView as ViewGroup).addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                WindowInsetsControllerCompat(window, window.decorView).apply {
+                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    hide(WindowInsetsCompat.Type.systemBars())
+                }
+            }
+
+            override fun onHideCustomView() = leaveFullScreen()
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -855,7 +874,8 @@ class MainActivity : ComponentActivity() {
         refresher.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.widget_tile_bg))
         // APP-다시열림: 맨 위에서 목록을 위로 훑다가 저절로 새로고침되지 않게, 당겨야 하는 거리를 늘린다(기본 약 64dp → PULL_TRIGGER_DP).
         refresher.setDistanceToTriggerSync((PULL_TRIGGER_DP * resources.displayMetrics.density).toInt())
-        refresher.setOnChildScrollUpCallback { _, _ -> !ShellRules.pullReady(pullOn, webView.scrollY, ShellRules.isInternalApp(webView.url)) }
+        // NOTE-폴더고른뒤새로고침: 움직이는 순간만 웹 판정으로 막고, 대고 떼는 순간은 늘 받는다(ShellRules.pullBlocked).
+        refresher.setOnChildScrollUpCallback { _, _ -> ShellRules.pullBlocked(refresher.moving, pullOn, webView.scrollY, ShellRules.isInternalApp(webView.url)) }
         webView.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_DOWN) pullOn = false
             false
@@ -1597,7 +1617,20 @@ class MainActivity : ComponentActivity() {
      * 뒤로가기: 웹의 window.KPTUNativeBack.handle()(native-back-guard.js)이 메뉴·창·탭을 차례로 닫는다.
      * 웹이 처리하지 못하면 WebView 기록으로 돌아가고, 그것도 없으면 앱을 끄지 않고 뒤로 보낸다.
      */
+    /** NOTE-유튜브보기: 영상 전체 화면을 닫고 바를 되돌린다(영상은 원래 자리 작은 창으로 돌아간다). */
+    private fun leaveFullScreen() {
+        val view = fullView ?: return
+        fullView = null
+        (window.decorView as ViewGroup).removeView(view)
+        WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+        val callback = fullCallback
+        fullCallback = null
+        callback?.onCustomViewHidden()
+    }
+
     private fun handleBack() {
+        // 영상 전체 화면이면 뒤로가기는 전체 화면만 닫는다(웹 화면 이동 없음).
+        if (fullView != null) { leaveFullScreen(); return }
         if (backPending) return
         backPending = true
         webView.evaluateJavascript(BACK_SCRIPT) { value ->

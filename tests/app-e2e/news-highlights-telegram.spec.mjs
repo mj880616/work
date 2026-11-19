@@ -17,7 +17,7 @@ const HLS = [
   hl(1, { source_id: T.a1, quote: QUOTE, quote_prefix: '09:40 A (전달): ', source_title: '가상지부 단톡', source_date: '2026-10-06T00:31:00Z' }),
 ];
 
-async function fixture(page, width) {
+async function fixture(page, width, { locked = false } = {}) {
   await page.setViewportSize({ width, height: 760 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -37,6 +37,7 @@ async function fixture(page, width) {
     });
     for (const t of ['app_tg_senders', 'app_tg_day_senders']) await page.route(u => u.origin === SB && u.pathname === '/rest/v1/' + t, r => r.fulfill({ json: [] }));
     await installTgServer(page, { items });
+    if (locked) await page.route(SB + '/rest/v1/rpc/app_lock_read*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ has_pin: true, features: ['telegram'], relock: '5m', left: 5, blocked_until: null }) }));
   } });
   if (width <= 760) {
     await page.locator('#mobileMenuTab').click();
@@ -44,7 +45,7 @@ async function fixture(page, width) {
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: 'News', exact: true }).click();
   await expect(page.locator('#outsideView')).toBeVisible();
   await page.locator('#outsideRoot').getByRole('tab', { name: '밑줄' }).click();
-  await expect(page.locator('#outsideRoot [data-nh-row]')).toHaveCount(2);
+  await expect(page.locator('#outsideRoot [data-nh-row]')).toHaveCount(locked ? 0 : 2);
   return errors;
 }
 const back = (page, width) => (width <= 760 ? page.evaluate(() => window.KPTURouter.back()) : page.goBack());
@@ -90,5 +91,14 @@ test('412: 원래 소식이 없어졌으면 알림만, 화면은 [밑줄] 탭 �
   await row(page, QUOTE).click();
   await expect.poll(() => noticeText(page)).toContain('원래 글을 찾지 못했어요');
   await expect(page.locator('#outsideView')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+// SEC-기능PIN잠금(S67-14): 텔레그램 소식을 잠갔고 아직 안 풀었으면 [밑줄] 탭의 텔레그램 밑줄은 글 대신 '잠김' 한 줄(몇 줄인지만).
+test('412: 텔레그램을 잠그면 [밑줄] 탭의 텔레그램 밑줄은 "잠김" 한 줄', async ({ page }) => {
+  const errors = await fixture(page, 412, { locked: true });
+  await expect(page.locator('#outsideRoot [data-nh-locked]')).toHaveText('텔레그램 밑줄 2줄 · 잠김');
+  await expect(page.locator('#outsideRoot')).not.toContainText(QUOTE);
+  await expect(page.locator('#outsideRoot [data-nh-empty]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

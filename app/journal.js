@@ -43,7 +43,7 @@ import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs
 import {createTaskInline, objectParticle} from './task-inline.js';
 import {applyCheckPop} from './check-motion.js';
 import {loadDocumentCategories} from './document-categories.js';
-import {formatSeoulTime, seoulParts} from './meeting-time.js';
+import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
@@ -60,6 +60,8 @@ import {sendEvents, sendDone} from './home-day-picks-model.mjs';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
 import {keepMenus} from './anchored-menu.js';
 import {googleLinkState, startGoogleLink, linkText} from './google-link.js'; // MULTI-처음쓰는사람 ①: 구글 연결 없음 안내
+import {photoBriefTargets} from './weekly-photo-material.mjs'; // WEEKLY-재료전체 ②: 설명이 없는 기록 사진
+import {requestPhotoBriefs, PHOTO_BRIEF_BATCH} from './photo-brief-request.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -1027,7 +1029,14 @@ const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch 
 // PERF-첫로딩 P2: [주간 정리]에만 쓰는 읽기(묶음을 받은 뒤에 끝남)는 하루 카드를 다시 그리지 않는다 — 늦게 끝나도 열어 둔 ⋯·고치던 줄이 닫히지 않게.
 const WEEK_ONLY_KEYS = new Set(['weekDraft', 'execRequests']);
 const renderDayFor = key => { if (!WEEK_ONLY_KEYS.has(key)) renderDay(); };
-async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
+// 지금 오는 중인 묶음·줄 읽기(연 화면 유지로 옛 자료를 그린 채 새로 읽는 것 포함). [주간보고 초안 복사]가 이것까지 기다려
+// 방금 바꾼 기록(예: 업무일지에 남긴 업데이트)이 다시 읽히기 전의 옛 자료로 초안을 만들지 않는다(S67-01).
+const readFlights = new Set();
+const trackRead = promise => { readFlights.add(promise); promise.finally(() => readFlights.delete(promise)).catch(() => {}); return promise; };
+function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner, quiet = false) {
+  return trackRead(loadGroupNow(key, run, scope, quiet));
+}
+async function loadGroupNow(key, run, scope, quiet) {
   if (!quiet) { materials[key] = {status:'loading'}; renderDayFor(key); renderWeekly_(); }
   let read;
   try { read = {status:'ok', items:await readers[key]()}; } catch {
@@ -1041,8 +1050,25 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   if (key === 'tasks' && materials.tasks?.status === 'ok') void loadTaskMeetings(run, scope);
   void checkOverlaps();
   void maybeDraft();
+  void maybePhotoBriefs();
 }
-async function loadLines(run, scope, quiet = false) {
+// WEEKLY-재료전체 ②: [주간 정리]를 열고 그 주 업데이트·자료를 다 읽으면, 기록에 붙은 사진 중 설명 없는 것을 서버에 한 번 읽힌다
+// (주마다 방문당 한 번, PHOTO_BRIEF_BATCH장). 하나라도 채워지면 자료만 조용히 다시 읽어(같은 주인 loadGroup) AI 재료에 '사진: … — 설명'이 붙는다.
+const photoAsked = new Set();
+async function maybePhotoBriefs() {
+  if (mode !== 'week' || ['basket', 'documents'].some(waiting)) return;
+  const key = `${ownerScope(rt)}:${start}`;
+  if (photoAsked.has(key)) return;
+  const days = new Set(weekDays(start)), memos = (ok_('basket')?.notes || []).filter(memo => memo?.occurred_at && days.has(seoulDateKey(memo.occurred_at)));
+  const ids = photoBriefTargets(memos, ok_('documents'), PHOTO_BRIEF_BATCH);
+  photoAsked.add(key);
+  if (!ids.length) return;
+  const run = epoch, scope = owner;
+  const {done} = await requestPhotoBriefs(ids, rt);
+  if (done && current(run, scope)) loadGroup('documents', run, scope, true);
+}
+function loadLines(run, scope, quiet = false) { return trackRead(loadLinesNow(run, scope, quiet)); }
+async function loadLinesNow(run, scope, quiet) {
   if (!quiet) { linesState = 'loading'; renderLine(); }
   try {
     const rows = await readWorkWeek(start, rt);
@@ -1397,7 +1423,8 @@ window.addEventListener('kptu:google-tasks-changed', () => { if (!selfBusy && wi
 async function copyDraft() {
   await scopeSettled();
   // [주간 정리]를 막 열어 미룬 읽기(5. 주요 일정 등)가 오는 중이면 끝날 때까지(길어도 5초) 기다린 뒤 복사한다.
-  await Promise.race([weekReadsFlight, new Promise(ok => setTimeout(ok, 5000))]);
+  // 연 화면 유지로 다시 읽는 중인 묶음·줄(readFlights)도 함께 기다린다 — 옛 자료로 초안을 만들지 않게.
+  await Promise.race([Promise.allSettled([weekReadsFlight, ...readFlights]), new Promise(ok => setTimeout(ok, 5000))]);
   // ⑤-3b: 절 제목은 '내 양식' 글 — 읽을 때까지 기다리고, 끝내 못 읽으면 복사하지 않고 한 줄.
   const titles = await hwpx?.readTitles?.();
   if (!titles) { status.textContent = '양식(항목 제목)을 읽지 못해 복사하지 않았어요. 잠시 뒤 다시 눌러 주세요.'; return false; }

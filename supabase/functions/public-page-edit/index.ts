@@ -1,3 +1,4 @@
+import { isDelegatedToken } from '../_shared/delegated-token-guard.mjs';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
@@ -44,6 +45,7 @@ Deno.serve(async(req:Request)=>{
   const db=userClient(req);
   const {data:{user},error:userError}=await db.auth.getUser();
   if(userError||!user)return reply({error:'authentication_required'},401);
+  if(isDelegatedToken(req.headers.get('Authorization')))return reply({error:'authentication_required'},401);
   if(user.id!==WEB1_ADMIN_USER_ID)return reply({error:'forbidden'},403);
 
   const {data:canEdit,error:canEditError}=await db.rpc('app_can_edit_page_rpc',{p_page:id});

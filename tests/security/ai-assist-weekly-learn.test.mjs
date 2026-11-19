@@ -123,8 +123,19 @@ test('weekly_draft: untrusted answer lines are cleaned per line; broken answers 
   {const {handler}=harness({openai:()=>respond({status:'completed',output:[]})});await expectError(await post(handler,draftBody()),502,'ai_invalid_response');}
   const bad=[draftBody({week_start:'2026-10-27'}),draftBody({mode:'other'}),draftBody({cells:[]}),draftBody({extra:1}),draftBody({cells:[{...cells[0],ref:'c81'}]}),
     draftBody({cells:[cells[0],{...cells[1],ref:'c1'}]}),draftBody({cells:[{...cells[0],lines:['<b>x</b>']}]}),draftBody({cells:[{...cells[0],lines:Array(21).fill('줄')}]}),
-    draftBody({cells:[{...cells[0],material:['x'.repeat(401)]}]}),draftBody({cells:[{...cells[0],note:'x'}]}),draftBody({unmatched:Array(41).fill('기록')}),draftBody({week_start:'2025-01-06'})];
+    draftBody({cells:[{...cells[0],material:['x'.repeat(1501)]}]}),draftBody({cells:[{...cells[0],material:['머리\r\n본문']}]}),draftBody({cells:[{...cells[0],material:['머리\n본문 <b>']}]}),
+    draftBody({cells:[{...cells[0],material:[Array(41).fill('줄').join('\n')]}]}),draftBody({unmatched:['머리\t본문']}),draftBody({cells:[{...cells[0],note:'x'}]}),draftBody({unmatched:Array(41).fill('기록')}),draftBody({week_start:'2025-01-06'})];
   for(const b of bad){const {handler,calls}=harness();await expectError(await post(handler,b),400,'invalid_request');assert.equal(calls.openai.length,0);}
+  // WEEKLY-재료전체 ①(S67-07): 재료 하나는 머리 줄 + '본문:' 여러 줄(줄바꿈만 받음). 빈 줄·겹친 공백은 정리하고, 연락처는 AI에 가기 전에 '(연락처)'.
+  {const body='- 10.27.(화) [끝남] 가상 조직 회의\n본문:\n가상 결과   한 줄\n\n연락 010-1234-5678 · someone@example.com\n다음 일정 가상';
+   const {handler,calls}=harness({openai:()=>respond(answer({cells:[{ref:'c1',lines:['가상 줄']}]}))});
+   const res=await post(handler,draftBody({cells:[{...cells[0],material:[body,'x'.repeat(1500)]}],unmatched:['가상 묶음: 머리\n본문:\n가상 본문']}));
+   assert.equal(res.status,200);
+   const sent=JSON.parse(calls.openai[0].input[1].content);
+   assert.equal(sent.cells[0].this_week[0],'- 10.27.(화) [끝남] 가상 조직 회의\n본문:\n가상 결과 한 줄\n연락 (연락처) · (연락처)\n다음 일정 가상');
+   assert.equal(sent.unmatched_records[0],'가상 묶음: 머리\n본문:\n가상 본문');
+   assert.match(calls.openai[0].input[0].content,/'본문:' 아래 줄들은 그 기록의 전체 글\(근거 자료\)/);
+   assert.match(calls.openai[0].input[0].content,/보고 줄은 지금처럼 짧게/);}
   // 다른 사람 토큰: 남의 작업공간 행은 읽히지 않는다(owner RLS) — 학습 재료 0주.
   {const {handler,calls}=harness();const res=await post(handler,draftBody(),'stranger-token');if(res.status===200){const sent=JSON.parse(calls.openai[0].input[1].content);assert.ok(!JSON.stringify(sent).includes('날짜는 10.28.(화) 꼴'));}}
 });

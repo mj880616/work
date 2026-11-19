@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 import { callerOwnerWorkspace } from "../_shared/workspace-drive-token.ts";
 const SB = Deno.env.get('SUPABASE_URL')!;
@@ -117,6 +118,7 @@ async function getUser(req: Request) {
   });
   const data = await r.json().catch(() => null);
   if (!r.ok || !data?.id) throw new Error('로그인 세션을 확인할 수 없습니다.');
+  if (isDelegatedToken(token)) throw new Error('로그인 세션을 확인할 수 없습니다.');
   return data;
 }
 

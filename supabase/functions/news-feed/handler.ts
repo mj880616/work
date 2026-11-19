@@ -32,9 +32,10 @@
 //   rpc app_news_refs_sync(지도·공용 본문·사람별 읽음·자세히·반응 보충, 서버 전용 — prune 단계 앞).
 //   본문 블록(NEWS-전면개편 P2b, 4.7절): media 단계가 피드를 읽은 뒤 새 기사마다 글 쪽 1번(같은 reader라 요청 사이 GAP_MS, 예산 RUN_BUDGET_MS,
 //   매체마다 한 번 MEDIA_BODY_PER_RUN건), 남은 것은 pending 단계가 읽는다. 누를 때 열기(open)도 같은 줄을 고친다. 로그·응답에는 건수·키·단계 코드만(제목·본문·주소·키워드 없음).
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { allowedUrl } from "../_shared/outside-catalog.ts";
 import { matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
-import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
+import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, PERSON_FETCH_TIMEOUT_MS, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
@@ -48,7 +49,8 @@ const newsTitle = (raw: string, name = "") => tidyTitle(raw, name, { split: fals
 import { secretMatches } from "../outside-feed/handler.ts";
 import { cronKeyMatches } from "../_shared/cron-key.ts";
 import { readArticlePage, titleKey, type PageRule } from "./page.ts";
-import { bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
+import { createHandPhotos, HAND_PHOTO_REQ_MAX, HandPhotoFail, photoSizeOf } from "./hand-photo.ts";
+import { BODY_LIMITS, bodyNumbers, bodyRow, failedBody, readFailReason, ruleId, type Extracted } from "../_shared/feed-extract.ts";
 import { googleKeyFrom, translateText, TRANSLATE_DAILY, TRANSLATE_INSTRUCTIONS, TRANSLATE_MAX_CHARS, TRANSLATE_SCHEMA } from "../_shared/feed-translate.ts";
 import { addDay, aiMonthStop, dayRow, type DayField, kstDay, MONTHLY_LIMIT_KRW } from "../_shared/news-days.ts";
 
@@ -345,12 +347,13 @@ async function summarize(db: Db, ai: AiDeps, ws: string, title: string, body: st
 }
 
 // ---- 읽기 ----------------------------------------------------------------------------------------------------------
-type Readers = { catalog: (s: NewsSource) => FeedReader; open: () => FeedReader };
+// person=true: 사람이 누른 읽기(공유 보관 save_url·[본문 열기] open)만 요청 하나 PERSON_FETCH_TIMEOUT_MS(S67-10). 수집·다시 뽑기는 기본 상한 그대로.
+type Readers = { catalog: (s: NewsSource, person?: boolean) => FeedReader; open: (person?: boolean) => FeedReader };
 function makeReaders(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: FeedLog, now: () => number): Readers {
   const base = { doFetch, sleep, log, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS, now };
   return {
-    catalog: (s) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw) }),
-    open: () => makeFeedReader({ ...base, allow: openArticleUrl }),
+    catalog: (s, person = false) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw), ...(person ? { timeoutMs: PERSON_FETCH_TIMEOUT_MS } : {}) }),
+    open: (person = false) => makeFeedReader({ ...base, allow: openArticleUrl, ...(person ? { timeoutMs: PERSON_FETCH_TIMEOUT_MS } : {}) }),
   };
 }
 const storedState = (code: string) => code === "robots" || code === "robots_denied" ? "robots" : code === "too_large" ? "too_big" : code === "url_outside" || code === "redirect_outside" ? "blocked" : "failed";
@@ -1233,6 +1236,7 @@ async function authorizeUser(sb: string, key: string, jwt: string, doFetch: type
   let user: Row | null = null;
   try { user = await readBoundedJson(r, { maxBytes: 256 * 1024 }) as Row; } catch { user = null; }
   if (!r.ok || typeof user?.id !== "string" || !UUID.test(user.id)) throw new Fail(401, "UNAUTHORIZED");
+  if (isDelegatedToken(jwt)) throw new Fail(401, "UNAUTHORIZED");
   const members = await db.get(`app_workspace_members?user_id=eq.${user.id}&role=eq.owner&select=workspace_id`);
   if (members.length !== 1 || typeof members[0].workspace_id !== "string") throw new Fail(403, "FORBIDDEN");
   return { userId: user.id, workspaceId: members[0].workspace_id };
@@ -1280,6 +1284,22 @@ export function saveTarget(raw: unknown): { url: string; key: string } | null {
   const clean = cleanArticleUrl(u.href);
   return clean && openArticleUrl(clean) ? { url: clean, key: urlKey(clean) } : null;
 }
+// 공유 창이 함께 넘긴 기사 제목(S67-10 NEWS-네이버공유읽기). 폰 [공유]는 보통 '제목 + 주소'를 넘긴다. 원문을 못 읽었거나(robots·늦은 답·없는 글)
+// 원문에 제목이 없을 때만 기사 제목으로 쓴다 — 원문에서 읽은 제목이 있으면 그것이 먼저. 사람이 넘긴 글자라 [직접 넣기]와 같게 글자로만(HTML 해석 없음),
+// 한 줄·SHARE_TITLE_MAX자, 주소가 든 글·빈 글은 버린다. 포털 꼬리(' : 네이버 뉴스' 등)는 뗀다. 이 입구는 운영자 기능 키 작업공간만(hand_fill과 같은 문).
+export const SHARE_TITLE_MAX = 300; // HAND_LIMITS.title과 같음
+export const SHARE_TITLE_IN_MAX = 1000;
+const PORTAL_TAIL = /\s*[:|\-–—]\s*(네이버\s*(뉴스|연예|엔터|스포츠)?|naver(\s*(news|entertain|sports))?|다음\s*(뉴스|연예|스포츠)?|daum(\s*news)?|네이트\s*(뉴스)?|nate(\s*news)?|msn|google\s*news|구글\s*뉴스)\s*$/i;
+const PORTAL_HEAD = /^\s*[\[(【]\s*(네이버\s*(뉴스|연예|엔터|스포츠)?|다음\s*(뉴스)?|네이트\s*(뉴스)?)\s*[\])】]\s*/i;
+export function shareTitle(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  // deno-lint-ignore no-control-regex
+  let t = oneLine(raw.slice(0, SHARE_TITLE_IN_MAX).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g, " "));
+  t = t.replace(PORTAL_HEAD, "").replace(PORTAL_TAIL, "").trim();
+  if (!t || /https?:\/\/|www\.|^[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(t)) return null;
+  const out = cut(newsTitle(t), SHARE_TITLE_MAX).trim();
+  return out || null;
+}
 type SaveOut = { ok: true; status: "saved" | "no_body"; id: string };
 async function userSave(db: Db, ws: string, url: string, key: string, page: Row | null): Promise<Row> {
   const v = await db.rpcValue("app_news_user_save", { p_workspace: ws, p_url: url, p_url_key: key, p_page: page });
@@ -1292,7 +1312,7 @@ async function savedOut(db: Db, r: Row): Promise<SaveOut> {
   const art = (await db.get(`app_news_articles?id=eq.${id}&select=body_kind&limit=1`))[0];
   return { ok: true, status: art?.body_kind ? "saved" : "no_body", id };
 }
-async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: unknown, nowMs: number): Promise<SaveOut> {
+async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: unknown, nowMs: number, sharedTitle: string | null = null): Promise<SaveOut> {
   const target = saveTarget(raw);
   if (!target) throw new Fail(400, "URL_REFUSED");
   await useDaily(db, ws, "save_n", SAVE_DAILY, nowMs);
@@ -1305,7 +1325,7 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
   const first = await call(target.url, target.key, null);
   if (first.found === true) return await savedOut(db, first);
   const nowIso = new Date(nowMs).toISOString();
-  const reader = readers.open();
+  const reader = readers.open(true);
   let url = target.url, key = target.key;
   let page: Row, blocks: Extracted;
   const vid = videoId(url);
@@ -1329,9 +1349,190 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
       blocks = info.blocks;
     }
   }
+  // 원문에서 제목을 못 얻었으면 공유 창이 넘긴 제목(위 shareTitle). 상태·본문은 그대로(못 읽은 기사는 [직접 넣기]가 그대로 보인다).
+  if (!page.title && sharedTitle) { page.title = sharedTitle; page.title_key = titleKey(sharedTitle); log("save_shared_title", { state: String(page.state) }); }
   const saved = await call(url, key, page);
   if (saved.created === true) await saveArticleBody(db, log, { id: saved.article_id, lane: "channel" }, blocks, nowIso);
   return await savedOut(db, saved);
+}
+
+// ---- 손으로 넣기(hand_fill, S67-02 NEWS-직접넣기) ------------------------------------------------------------------------
+// 원문을 못 읽은 기사(늦은 답·없는 글·막힘)나 잘못 읽은 기사에 사람이 제목·매체·기자·기사 시각·본문을 넣는다. 화면 [직접 넣기]·⋯ [수정].
+// - 몸통 {id, title, publisher, author, published_at, body?}. body가 없으면 본문은 그대로(제목 등만 고침). 값은 글자로만 저장(HTML 해석 없음).
+// - 운영자 기능 키(outside) 작업공간만(위 newsAllowed). 기사는 누른 사람 로그인으로 읽히는 공용 기사만(ownArticle, 못 읽으면 404).
+// - 바깥 사이트를 읽지 않고 AI도 부르지 않는다. 쓰기는 서비스 역할: 공용 기사 한 줄 + 본문 블록(rule manual@1) + 이 작업공간 같은 주소 옛 줄.
+// - 본문·제목이 바뀌면 옛 번역·수집 요약과 이 작업공간의 '자세히'(요약·시사점) 저장본을 지워 새 재료로 다시 만들게 한다.
+export const HAND_RULE = "manual@1";
+export const HAND_LIMITS = Object.freeze({ title: 300, publisher: 60, author: 80, body: 50000, blocks: 400 });
+const HAND_MAX_BYTES = 256 * 1024;
+const HAND_KEYS = ["id", "title", "publisher", "author", "published_at", "body"];
+export type HandInput = { id: string; title: string; publisher: string | null; author: string | null; published_at: string | null; body: string[] | null; blocks: HandBlock[] | null };
+// deno-lint-ignore no-control-regex
+const HAND_CTRL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g;
+const handLine = (v: unknown) => (typeof v === "string" ? oneLine(v.replace(HAND_CTRL, " ")) : null);
+// 붙여 넣은 본문 → 블록 목록(문단 p · 사진 img, S67-05 NEWS-직접넣기 사진). 빈 줄이 있으면 빈 줄로, 없으면 줄마다 문단.
+// - 사진: 한 줄 전체가 https 주소 하나이고 주소 끝이 그림 파일(.jpg·.png·.webp·.gif 등)이거나 '#사진'으로 끝나면 그 자리에 사진 블록.
+//   주소는 https만, 사용자·비밀번호·따로 적은 포트 없음, 2000자까지(모양 검사만 — 서버가 받으러 가지 않는다). 못 쓰는 주소(http·javascript·data 등)는 글자 문단으로 남는다.
+// - 사진 바로 다음 (빈 줄이 아닌) 줄이 '사진:'·'ⓒ'·'▲'로 시작하면 그 사진 설명(cap, 300자까지). '사진:' 머리말은 떼고 저장한다(화면 [수정]이 다시 붙인다).
+// - 사진은 한 기사 20장까지(DB 검사와 같음). 넘으면 parseHandFill이 400 TOO_MANY_PHOTOS. 글자 문단이 블록 상한을 넘으면 이웃 문단을 이어 붙인다.
+export const HAND_PHOTO_MARK = "#사진";
+const HAND_IMG_EXT = /\.(jpe?g|png|webp|gif|avif|bmp)$/i;
+const HAND_CAP_HEAD = /^(사진\s*[:：]|ⓒ|▲)/;
+export function handPhotoSrc(line: string): string | null {
+  const s = line.trim();
+  if (!/^https:\/\/\S+$/i.test(s)) return null;
+  const marked = s.endsWith(HAND_PHOTO_MARK);
+  let u: URL;
+  try { u = new URL(marked ? s.slice(0, -HAND_PHOTO_MARK.length) : s); } catch { return null; }
+  if (u.protocol !== "https:" || u.username || u.password || u.port || !u.hostname.includes(".")) return null;
+  if (!marked && !HAND_IMG_EXT.test(u.pathname)) return null;
+  u.hash = "";
+  const href = u.href;
+  if (href.length > BODY_LIMITS.src || /[\s"<>\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(href)) return null;
+  return href;
+}
+type HandBlock = { t: "p"; text: string } | { t: "img"; src: string; cap: string | null; alt: null };
+export function handBlocks(raw: string): HandBlock[] {
+  const text = raw.replace(/\r\n?/g, "\n"), lines = text.split("\n");
+  const byBlank = /\n[ \t　]*\n/.test(text);
+  const out: HandBlock[] = [];
+  let buf: string[] = [];
+  const flush = () => {
+    const text = oneLine(buf.join(" ").replace(HAND_CTRL, " "));
+    if (text) out.push({ t: "p", text });
+    buf = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const src = handPhotoSrc(line);
+    if (src) {
+      flush();
+      let cap: string | null = null;
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j++;
+      if (j < lines.length && HAND_CAP_HEAD.test(lines[j].trim()) && !handPhotoSrc(lines[j])) {
+        const c = cut(oneLine(lines[j].replace(HAND_CTRL, " ").trim().replace(/^사진\s*[:：]\s*/, "")), BODY_LIMITS.cap).trim();
+        cap = c || null;
+        i = j;
+      }
+      out.push({ t: "img", src, cap, alt: null });
+      continue;
+    }
+    if (!line.replace(/[ \t　]/g, "")) { flush(); continue; }
+    buf.push(line);
+    if (!byBlank) flush();
+  }
+  flush();
+  const imgs = out.filter((b) => b.t === "img").length, texts = out.length - imgs;
+  const room = HAND_LIMITS.blocks - imgs - BODY_LIMITS.images - 1;
+  if (out.length <= HAND_LIMITS.blocks || texts <= room) return out;
+  // 글자 문단만 이어 붙인다(사진 사이 구간마다 size개씩) — 순서는 그대로.
+  const size = Math.ceil(texts / room), merged: HandBlock[] = [];
+  let run: string[] = [];
+  const put = () => { for (let k = 0; k < run.length; k += size) merged.push({ t: "p", text: run.slice(k, k + size).join(" ") }); run = []; };
+  for (const b of out) { if (b.t === "p") run.push(b.text); else { put(); merged.push(b); } }
+  put();
+  return merged;
+}
+// 옛 이름(글자 문단만) — 시험·다른 곳이 쓰던 모양 그대로.
+export function handParagraphs(raw: string): string[] {
+  return handBlocks(raw).flatMap((b) => (b.t === "p" ? [b.text] : []));
+}
+export function parseHandFill(b: Row, nowMs: number): HandInput {
+  const keys = Object.keys(b);
+  if (keys.some((k) => !HAND_KEYS.includes(k)) || !["id", "title", "publisher", "author", "published_at"].every((k) => k in b)) throw new Fail(400, "INVALID_BODY");
+  if (typeof b.id !== "string" || !UUID.test(b.id)) throw new Fail(400, "INVALID_BODY");
+  const title = handLine(b.title);
+  if (!title || [...title].length > HAND_LIMITS.title) throw new Fail(400, "INVALID_TITLE");
+  const opt = (v: unknown, max: number, code: string) => {
+    if (v === null) return null;
+    const s = handLine(v);
+    if (s === null || [...s].length > max) throw new Fail(400, code);
+    return s || null;
+  };
+  const publisher = opt(b.publisher, HAND_LIMITS.publisher, "INVALID_PUBLISHER");
+  const author = opt(b.author, HAND_LIMITS.author, "INVALID_AUTHOR");
+  let published: string | null = null;
+  if (b.published_at !== null) {
+    const t = typeof b.published_at === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(b.published_at) ? Date.parse(b.published_at) : NaN;
+    if (!Number.isFinite(t) || t < Date.parse("1990-01-01T00:00:00Z") || t > nowMs + 2 * 86400000) throw new Fail(400, "INVALID_DATE");
+    published = new Date(t).toISOString();
+  }
+  let body: string[] | null = null, blocks: HandBlock[] | null = null;
+  if ("body" in b) {
+    if (typeof b.body !== "string" || [...b.body].length > HAND_LIMITS.body) throw new Fail(400, "INVALID_TEXT");
+    blocks = handBlocks(b.body);
+    body = blocks.flatMap((x) => (x.t === "p" ? [x.text] : []));
+    if (!body.length) throw new Fail(400, "INVALID_TEXT");
+    if (blocks.length - body.length > BODY_LIMITS.images) throw new Fail(400, "TOO_MANY_PHOTOS");
+  }
+  return { id: b.id.toLowerCase(), title, publisher, author, published_at: published, body, blocks };
+}
+// 손으로 넣은 값 → 한 줄 고칠 칸(공용 기사·옛 줄 같은 규칙). shared면 기자 이름·'직접 넣음' 시각 칸도(공용 기사에만 있음).
+export function handPatch(row: Row, v: HandInput, nowIso: string, shared: boolean): Row {
+  const patch: Row = { title: v.title, title_key: titleKey(v.title), publisher: v.publisher, published_at: v.published_at, updated_at: nowIso };
+  if (shared) { patch.author = v.author; patch.manual_at = nowIso; }
+  if (v.body) {
+    Object.assign(patch, { body: v.body.join("\n"), body_kind: "full", state: "ok", fetched_at: row.fetched_at ?? nowIso, summary: null, title_ko: null, body_ko: null, translated_at: null });
+  } else if (v.title !== row.title && row.title_ko != null) {
+    // 제목 번역은 옛 제목 것이라 비운다(본문 번역이 남아 있으면 번역 시각은 그대로 — DB 검사: 시각 = 둘 중 하나라도 있음).
+    patch.title_ko = null;
+    if (row.body_ko == null) patch.translated_at = null;
+  }
+  return patch;
+}
+export function handBody(v: HandInput): Extracted {
+  const blocks = v.blocks ?? (v.body ?? []).map((text) => ({ t: "p" as const, text }));
+  const text = (v.body ?? []).join("\n");
+  const images = blocks.filter((x) => x.t === "img").length, captions = blocks.filter((x) => x.t === "img" && x.cap).length;
+  return { state: "ok", reason: null, rule: HAND_RULE, blocks, chars: [...(v.body ?? []).join("")].length, images, captions, text };
+}
+async function handFill(db: Db, reads: UserReads, log: FeedLog, ws: string, b: Row, nowMs: number) {
+  const v = parseHandFill(b, nowMs);
+  const art = await ownArticle(reads, v.id);
+  const olds = await ownOldRows(db, ws, art);
+  const nowIso = new Date(nowMs).toISOString();
+  // 공용 기사가 먼저(실패하면 503 — 화면은 '저장하지 못함'). 옛 줄·자세히 지우기는 따라 적기라 실패해도 로그만.
+  await db.send("PATCH", `app_news_articles?id=eq.${art.id}`, handPatch(art, v, nowIso, true), "return=minimal");
+  if (v.body) {
+    const { workspace_id: _w, outside_post_id: _o, news_item_id: _n, ...body } = bodyRow(handBody(v), { workspace_id: "" }, nowIso);
+    await db.send("POST", "app_news_article_bodies?on_conflict=article_id", { article_id: art.id, ...body, updated_at: nowIso }, "return=minimal,resolution=merge-duplicates");
+  }
+  for (const o of olds) {
+    try {
+      await db.send("PATCH", `app_news_items?id=eq.${o.id}&workspace_id=eq.${ws}`, handPatch(o, v, nowIso, false), "return=minimal");
+      if (v.body) await saveNewsBody(db, log, { ...o, workspace_id: ws }, handBody(v), nowIso);
+    } catch { log("old_write_failed"); }
+  }
+  try {
+    await db.send("DELETE", `app_news_now_details?workspace_id=eq.${ws}&article_id=eq.${art.id}`, undefined, "return=minimal");
+    const oldIds = olds.map((o) => String(o.id)).filter((id) => UUID.test(id));
+    if (oldIds.length) await db.send("DELETE", `app_now_details?workspace_id=eq.${ws}&news_item_id=in.(${oldIds.join(",")})`, undefined, "return=minimal");
+  } catch { log("detail_clear_failed"); }
+  const paras = v.body?.length ?? 0;
+  log("hand_filled", { paras, olds: olds.length });
+  return { ok: true, status: "filled", id: String(art.id) };
+}
+
+// 사진 한 장 올리기(S67-06 NEWS-직접넣기 사진 붙여넣기). 몸통: multipart {id: 기사 id, file: 그림 하나}. 답 {ok, file, src}.
+// 길이 머리글이 없거나 상한(한 장 10MB + 여유)을 넘으면 읽기 전에 413. 저장 위치·검사는 hand-photo.ts.
+async function handPhotoPut(req: Request, sb: string, key: string, jwt: string, doFetch: typeof fetch, log: FeedLog, anon: string, nowMs: number) {
+  const len = Number(req.headers.get("content-length") || "");
+  if (!Number.isFinite(len) || len <= 0 || len > HAND_PHOTO_REQ_MAX) throw new Fail(413, "BODY_TOO_LARGE");
+  if (!/^multipart\/form-data;/i.test(req.headers.get("content-type") || "")) throw new Fail(400, "INVALID_BODY");
+  const db = makeDb(sb, key, doFetch);
+  const who = await authorizeUser(sb, key, jwt, doFetch, db);
+  if (!newsAllowed(who.workspaceId, await newsWs(db))) throw new Fail(403, "FEATURE_OFF");
+  let form: FormData;
+  try { form = await req.formData(); } catch { throw new Fail(400, "INVALID_BODY"); }
+  const keys = [...new Set([...form.keys()])].sort();
+  if (keys.join(",") !== "file,id" || form.getAll("file").length !== 1 || form.getAll("id").length !== 1) throw new Fail(400, "INVALID_BODY");
+  const art = await ownArticle(makeUserReads(sb, anon, jwt, doFetch), form.get("id"));
+  try {
+    const out = await createHandPhotos((p) => db.get(p), { fetch: doFetch, log }).put(who.workspaceId, String(art.id), form.get("file"), nowMs);
+    log("hand_photo_put");
+    return json({ ok: true, file: out.id, src: out.src });
+  } catch (e) { if (e instanceof HandPhotoFail) throw new Fail(e.status, e.code); throw e; }
 }
 
 export function createNewsFeedHandler(deps: NewsFeedDeps) {
@@ -1357,11 +1558,15 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate", "save_url"];
+      const cronActions = ["run_plan", "run", "probe", "refill"], userActions = ["catalog", "fill_now", "open", "translate", "save_url", "hand_fill", "hand_photo_put", "hand_photo"];
       if (!(cron ? cronActions : userActions).includes(action ?? "")) throw new Fail(400, "UNKNOWN_ACTION");
-      if (Number(req.headers.get("content-length") || 0) > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
+      // 손으로 넣는 본문의 사진 올리기(S67-06): 몸통이 JSON이 아니라 파일 하나(multipart). 로그인·운영자 기능 키·읽을 수 있는 기사 확인 뒤에만 읽는다.
+      if (action === "hand_photo_put") return await handPhotoPut(req, sb, key, auth!.slice("Bearer ".length), doFetch, log, deps.env("SUPABASE_ANON_KEY") ?? "", now());
+      // 손으로 넣기(본문 붙여넣기)만 몸통이 크다. 그 밖은 지금 상한 그대로.
+      const maxBytes = action === "hand_fill" ? HAND_MAX_BYTES : MAX_BODY_BYTES;
+      if (Number(req.headers.get("content-length") || 0) > maxBytes) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
-      try { body = await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES }); } catch { throw new Fail(400, "INVALID_BODY"); }
+      try { body = await readBoundedJson(req, { maxBytes }); } catch { throw new Fail(400, "INVALID_BODY"); }
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "INVALID_BODY");
       const b = body as Row;
       const db = makeDb(sb, key, doFetch);
@@ -1435,11 +1640,24 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         return json({ ok: true, done: out.done, deferred: out.deferred });
       }
       if (action === "save_url") {
-        if (!exactKeys(b, ["url"])) throw new Fail(400, "INVALID_BODY");
-        return json(await saveUrl(db, readers, log, who.workspaceId, b.url, nowMs));
+        // {url} 또는 {url, title}(S67-10: 공유 창이 넘긴 제목, 글자 SHARE_TITLE_IN_MAX자까지).
+        if (!exactKeys(b, ["url"]) && !exactKeys(b, ["url", "title"])) throw new Fail(400, "INVALID_BODY");
+        if ("title" in b && b.title !== null && (typeof b.title !== "string" || b.title.length > SHARE_TITLE_IN_MAX)) throw new Fail(400, "INVALID_BODY");
+        return json(await saveUrl(db, readers, log, who.workspaceId, b.url, nowMs, shareTitle(b.title)));
       }
       // NEWS-모두에게열기 E3: open·translate는 공용 기사 한 줄에 읽고 쓴다(기사마다 원문 읽기·번역 1번). 하루 한도·AI 사용량은 누른 사람 작업공간.
       const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", auth!.slice("Bearer ".length), doFetch);
+      if (action === "hand_fill") return json(await handFill(db, reads, log, who.workspaceId, b, nowMs));
+      if (action === "hand_photo") {
+        // 내가 올린 사진 보기(S67-06): {id, file, size?}. 읽을 수 있는 기사 + 그 기사 본문에 있는 사진만, 부른 사람 Drive 연결로 줄인 그림.
+        if (!exactKeys(b, ["id", "file"]) && !exactKeys(b, ["id", "file", "size"])) throw new Fail(400, "INVALID_BODY");
+        const size = photoSizeOf(b.size);
+        if (!size) throw new Fail(400, "INVALID_BODY");
+        const art = await ownArticle(reads, b.id);
+        const rows = await db.get(`app_news_article_bodies?article_id=eq.${art.id}&select=blocks&limit=1`);
+        try { return await createHandPhotos((p) => db.get(p), { fetch: doFetch, log }).view(who.workspaceId, rows[0]?.blocks, b.file, size); }
+        catch (e) { if (e instanceof HandPhotoFail) throw new Fail(e.status, e.code); throw e; }
+      }
       if (action === "open") {
         if (!exactKeys(b, ["id"])) throw new Fail(400, "INVALID_BODY");
         const art = await ownArticle(reads, b.id);
@@ -1455,13 +1673,13 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         }
         if (videoId(String(art.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
         let reader: FeedReader;
-        if (art.lane === "channel") reader = readers.open();
+        if (art.lane === "channel") reader = readers.open(true);
         else {
           const source = newsSourceByKey(art.source_key);
           // 카탈로그 밖 매체(옛 키워드 기사의 구글 중계 주소, 카탈로그에서 뺀 매체의 글): 읽지 않고 원문 링크로.
           // 남의 매체로 가는 링크(linkOut 피드의 기사)도 카탈로그 호스트 밖이라 읽지 않는다.
           if (!source || !allowedUrl(source, String(art.url))) return json({ ok: true, status: "original_only" });
-          reader = readers.catalog(source);
+          reader = readers.catalog(source, true);
         }
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
         // 원문은 공용 기사 주소로 한 번만 읽는다(같은 주소의 내 옛 줄에만 같은 결과를 함께 적음).

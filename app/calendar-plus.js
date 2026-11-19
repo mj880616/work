@@ -44,7 +44,7 @@ function cmGoogleCalendarChanged(){const id=document.querySelector('#eventGoogle
 function cmToggleAllDay(){const allDay=!!document.querySelector('#eventAllDay')?.checked;document.querySelectorAll('.event-time-row').forEach(x=>x.classList.toggle('hidden',allDay))}
 function cmPaintMode(){
   const task=cmMode==='task',modal=document.querySelector('#eventModal');modal.dataset.mode=cmMode;
-  document.querySelector('#eventModalTitle').textContent=task?'할 일 등록':'일정 등록';document.querySelector('#eventDateLabel').textContent=task?'날짜 (선택)':'시작 날짜';
+  document.querySelector('#eventModalTitle').textContent=task?'할 일 등록':'일정 등록';document.querySelector('#eventDateLabel').textContent=task?'날짜':'시작 날짜';
   modal.querySelectorAll('[data-event-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.eventMode===cmMode));b.disabled=cmSavePending;});
   modal.querySelectorAll('[data-event-only]').forEach(el=>el.hidden=task);document.querySelector('#eventGoogleOptions').hidden=task;
   // CAL-일정사업영역: [일정]은 사업영역을 '사업영역 / 관련 담당조직' 두 줄(suborganizations.js, 여러 개)로 고르고, 한 개 고르기 칸은 [할 일]만 쓴다.

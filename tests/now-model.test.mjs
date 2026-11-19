@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, SAVED_CHIPS, keepSavedChip, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
@@ -84,16 +84,22 @@ test('상세 답 모양: 틀린 칸은 버리고 basic은 연관·시사점 없�
   assert.equal(detailError({status: 503, message: 'monthly_limit'}), '이번 달 AI 한도를 다 씀');
 });
 
-test('[보관] 탭: 두 쪽을 최근 표시 순 한 목록, 칩으로 거르기', () => {
-  const marks = [{post_id: A, starred_at: '2026-11-01T00:00:00Z', archived_at: null, app_outside_posts: {id: A, title: '성명'}},
-    {post_id: '33333333-3333-4333-8333-333333333333', starred_at: null, archived_at: null, app_outside_posts: {id: 'x'}},
-    {post_id: '44444444-4444-4444-8444-444444444444', starred_at: null, archived_at: '2026-11-03T00:00:00Z', app_outside_posts: {id: 'y', title: '보관 글'}}];
+test('[보관] 탭: 두 쪽 별표를 최근 순 한 목록, 칩 [전체][사회운동][언론]으로 거르기(보관 = 별표, S67-09)', () => {
+  assert.deepEqual(SAVED_CHIPS.map(c => [c.id, c.label]), [['all', '전체'], ['outside', '사회운동'], ['news', '언론']]);
+  assert.equal(keepSavedChip('star'), 'all');
+  assert.equal(keepSavedChip('archive'), 'all');
+  const marks = [{post_id: A, starred_at: '2026-11-01T00:00:00Z', app_outside_posts: {id: A, title: '성명'}},
+    {post_id: '33333333-3333-4333-8333-333333333333', starred_at: null, app_outside_posts: {id: 'x'}},
+    // 옛 보관 칸만 있는 줄은 보지 않는다(DB가 별표로 채웠다).
+    {post_id: '44444444-4444-4444-8444-444444444444', starred_at: null, archived_at: '2026-11-03T00:00:00Z', app_outside_posts: {id: 'y', title: '보관 글'}},
+    {post_id: '55555555-5555-4555-8555-555555555555', starred_at: '2026-11-03T00:00:00Z', archived_at: '2026-11-03T00:00:00Z', app_outside_posts: {id: 'z', title: '옮긴 글'}}];
   const news = [{id: B, starred_at: '2026-11-02T00:00:00Z', folder_id: null}, {id: 'bad', starred_at: '2026-11-04T00:00:00Z'}];
   const rows = savedRows(marks, news);
-  assert.deepEqual(rows.map(r => [r.type, r.star, r.archive]), [['outside', false, true], ['news', true, false], ['outside', true, false]]);
-  assert.equal(filterSaved(rows, 'star').length, 2);
-  assert.equal(filterSaved(rows, 'archive').length, 1);
+  assert.deepEqual(rows.map(r => [r.type, r.id, r.star]), [['outside', '55555555-5555-4555-8555-555555555555', true], ['news', B, true], ['outside', A, true]]);
+  assert.ok(rows.every(r => !('archive' in r)));
+  assert.equal(filterSaved(rows, 'outside').length, 2);
   assert.equal(filterSaved(rows, 'news').length, 1);
+  assert.equal(filterSaved(rows, 'star').length, 3);
   assert.equal(filterSaved(rows, 'nope').length, 3);
 });
 
@@ -250,4 +256,61 @@ test('⋯ [공유]는 제목·주소만(본문은 넘기지 않음)', () => {
   assert.deepEqual(shareArticleData({title: '제목', url: 'https://x.example.org/1', meta: ['m']}), {title: '제목', url: 'https://x.example.org/1'});
   assert.deepEqual(shareArticleData({title: '제목', url: 'http://x.example.org/1'}), {title: '제목', text: '제목'});
   assert.equal(shareArticleData({}), null);
+});
+
+// S67-05 NEWS-직접넣기 사진: 본문 칸 사진 줄(서버 handPhotoSrc·handBlocks와 같은 모양)
+test('hand photos: photo lines in the body box, round trip from blocks, insert at caret, 20 photo limit', async () => {
+  const M = await import('../app/now-model.mjs');
+  assert.equal(M.handPhotoKind('https://img.example.org/a.jpg'), 'ext');
+  assert.equal(M.handPhotoKind('https://img.example.org/view?id=1'), 'plain');
+  assert.equal(M.handPhotoKind('https://img.example.org/view?id=1#사진'), 'marked');
+  for (const bad of ['http://img.example.org/a.jpg', 'javascript:alert(1)', 'data:image/png;base64,AA', 'https://u:p@img.example.org/a.jpg', 'https://img.example.org:8443/a.jpg', 'https://localhost/a.jpg', 'https://img.example.org/a.jpg 설명', ''])
+    assert.equal(M.handPhotoKind(bad), '', bad);
+  assert.equal(M.handPhotoLine('https://img.example.org/view?id=1'), 'https://img.example.org/view?id=1#사진');
+  assert.equal(M.handPhotoLine('https://img.example.org/a.png'), 'https://img.example.org/a.png');
+  const blocks = [{t: 'p', text: '첫 문단'}, {t: 'img', src: 'https://img.example.org/a.jpg', cap: '현장', alt: null}, {t: 'h', text: '소제목'},
+    {t: 'img', src: 'https://img.example.org/v?id=2', cap: 'ⓒ 매체', alt: 'x'}, {t: 'img', src: 'https://img.example.org/b.gif', cap: null, alt: null}, {t: 'quote', text: '인용'}];
+  assert.equal(M.handBodyOf(blocks), '첫 문단\nhttps://img.example.org/a.jpg\n사진: 현장\n소제목\nhttps://img.example.org/v?id=2#사진\nⓒ 매체\nhttps://img.example.org/b.gif\n인용');
+  assert.equal(M.handInitial({url: 'https://www.example.org/x'}, blocks).body, M.handBodyOf(blocks));
+  assert.deepEqual(M.insertPhotoLine('앞뒤', 1, 'P'), {value: '앞\nP\n뒤', caret: 4});
+  assert.deepEqual(M.insertPhotoLine('줄\n', 2, 'P'), {value: '줄\nP\n', caret: 4});
+  assert.deepEqual(M.insertPhotoLine('', 0, 'P'), {value: 'P\n', caret: 2});
+  const many = n => Array.from({length: n}, (_, i) => `문단 ${i}\nhttps://img.example.org/${i}.jpg`).join('\n');
+  assert.equal(M.handPhotoCount(many(21)), 21);
+  assert.deepEqual(M.handRequest('id', {title: 't', body: many(21)}, {body: ''}), {error: '사진은 20장까지'});
+  assert.ok(M.handRequest('id', {title: 't', body: many(20)}, {body: ''}).body.body);
+  assert.equal(M.handError({status: 400, message: 'TOO_MANY_PHOTOS'}), '사진은 20장까지');
+});
+
+// S67-06 NEWS-직접넣기 사진 붙여넣기: 내가 올린 사진 = '[사진 n]' 줄 ↔ 안쪽 표시 주소 줄.
+test('own photos: [사진 n] lines round-trip through the saved blocks and go out as inside addresses', async () => {
+  const M = await import('../app/now-model.mjs');
+  const own = 'https://photo.web2.invalid/driveFile0000000001.png';
+  const init = M.handInitial({title: '합성 제목', url: 'https://news.example.org/a/1'}, [{t: 'p', text: '첫 문단'}, {t: 'img', src: own, cap: '합성 설명'}, {t: 'img', src: 'https://news.example.org/b.jpg'}, {t: 'p', text: '끝'}]);
+  assert.equal(init.body, '첫 문단\n[사진 1]\n사진: 합성 설명\nhttps://news.example.org/b.jpg\n끝');
+  assert.deepEqual(init.photos, [{n: 1, src: own}]);
+  const photos = new Map([[1, own], [2, 'https://photo.web2.invalid/driveFile0000000002.jpg']]);
+  // 본문이 그대로면 본문을 보내지 않는다(사진도 서버에 그대로).
+  assert.equal('body' in M.handRequest('id1', {title: '합성 제목', body: init.body}, init, photos).body, false);
+  const req = M.handRequest('id1', {title: '합성 제목', body: init.body + '\n[사진 2]\n[사진 9]'}, init, photos);
+  assert.equal(req.body.body, '첫 문단\n' + own + '\n사진: 합성 설명\nhttps://news.example.org/b.jpg\n끝\nhttps://photo.web2.invalid/driveFile0000000002.jpg\n[사진 9]');
+  assert.deepEqual(M.tokensIn('가\n [사진 3] \n[사진 1]\n[사진 3]\n[사진 x]'), [3, 1]);
+  assert.deepEqual(M.ownPhotoOf(own), {id: 'driveFile0000000001', ext: 'png'});
+  assert.equal(M.ownPhotoOf('https://photo.web2.invalid.example.org/driveFile0000000001.png'), null);
+  // 20장 넘으면 화면에서 먼저 막는다(주소 줄 + 내 사진 줄).
+  const many = new Map(Array.from({length: 21}, (_, i) => [i + 1, `https://photo.web2.invalid/driveFile00000000${String(i).padStart(2, '0')}.png`]));
+  assert.deepEqual(M.handRequest('id1', {title: '제목', body: [...many.keys()].map(M.photoToken).join('\n') + '\n글'}, init, many), {error: '사진은 20장까지'});
+});
+
+test('own photos: kind and size are checked before anything goes up; lines go in at the cursor', async () => {
+  const M = await import('../app/now-model.mjs');
+  assert.equal(M.photoFileError({type: 'image/png', size: 10}), '');
+  assert.equal(M.photoFileError({type: 'image/heic', size: 10}), 'jpg·png·webp·gif 사진만 넣을 수 있어요');
+  assert.equal(M.photoFileError({type: 'image/svg+xml', size: 10}), 'jpg·png·webp·gif 사진만 넣을 수 있어요');
+  assert.equal(M.photoFileError({type: 'image/jpeg', size: 10 * 1024 * 1024 + 1}), '사진은 한 장 10MB까지');
+  assert.equal(M.photoFileError({type: 'image/jpeg', size: 0}), '빈 파일이에요');
+  assert.deepEqual(M.insertPhotoLines('앞글뒤글', 2, ['[사진 1]', '[사진 2]']), {value: '앞글\n[사진 1]\n[사진 2]\n뒤글', caret: '앞글\n[사진 1]\n[사진 2]\n'.length});
+  assert.match(M.handError({status: 415, message: 'PHOTO_TYPE'}), /jpg/);
+  assert.match(M.handError({status: 413, message: 'PHOTO_TOO_LARGE'}), /10MB/);
+  assert.match(M.handError({status: 424, message: 'DRIVE_NOT_CONNECTED'}), /구글 드라이브/);
 });

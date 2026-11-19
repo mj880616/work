@@ -16,6 +16,10 @@ const SHOTS=process.env.MENU_SHOTS||'';
 const shot=async(page,name,info)=>{if(SHOTS){mkdirSync(SHOTS,{recursive:true});await page.screenshot({path:`${SHOTS}/${name}`})}await page.screenshot({path:info.outputPath(name)})};
 const folderOf=(s,id)=>s.items.find(x=>x.document_id===id)?.folder_id||null;
 const recvOpen=page=>page.locator(`#documentList details[data-lu-node="f:${RECV}"]`).evaluate(d=>d.open);
+// 옮길 때마다 알림 줄 글자가 같으므로('옮겼어요 1개 → 잡동사니 폴더 ·'), 서버 기록(s.items)만 보고 [되돌리기]·Ctrl+Z를 누르면
+// 응답 뒤에 새 알림 줄·되돌리기 기록이 붙기 전의 옛 줄(앞 자료)을 되돌릴 수 있다. 누르기 전 옛 [되돌리기]에 표시를 달고, 새 [되돌리기]가 붙을 때까지 기다린다.
+const markOldUndo=page=>page.evaluate(()=>document.querySelector('#libraryFolderStatusLine .lu-undo')?.setAttribute('data-probe-old',''));
+const freshUndo=page=>expect(page.locator('#libraryFolderStatusLine .lu-undo:not([data-probe-old])')).toHaveCount(1);
 const looks=loc=>loc.evaluate(b=>{const c=getComputedStyle(b);return {size:c.fontSize,color:c.color,weight:c.fontWeight,lineHeight:c.lineHeight,padding:c.padding,bg:c.backgroundColor,width:Math.round(b.getBoundingClientRect().width),height:Math.round(b.getBoundingClientRect().height)}});
 
 for(const width of [1280,412])test.describe(`폴더 메뉴 [폴더로 나누기] 모양 ${width}`,()=>{
@@ -54,8 +58,10 @@ test.describe('점선 추천으로 넣기 PC 1280',()=>{
     for(const id of [O1,O2,O3]){
       const y=await page.evaluate(()=>scrollY);
       const top=await out.boundingBox();
+      await markOldUndo(page);
       await tip(id).click();
       await expect.poll(()=>folderOf(s,id)).toBe(RECV);
+      await freshUndo(page);
       await expect(page.locator(`#documentList details[data-lu-node="x:out"] [data-lu-document="${id}"]`)).toHaveCount(0);
       await expect(page.locator('#libraryFolderStatusLine')).toContainText('잡동사니');
       expect(await recvOpen(page)).toBe(false);
@@ -72,8 +78,10 @@ test.describe('점선 추천으로 넣기 PC 1280',()=>{
     await page.locator('#libraryFolderStatusLine .lu-undo').click();
     await expect.poll(()=>folderOf(s,O3)).toBe(null);
     // Ctrl+Z — 한 번 더 넣고 키로 되돌린다.
+    await markOldUndo(page);
     await tip(O3).click();
     await expect.poll(()=>folderOf(s,O3)).toBe(RECV);
+    await freshUndo(page);
     await page.locator('body').click({position:{x:2,y:2}});
     await page.keyboard.press('Control+z');
     await expect.poll(()=>folderOf(s,O3)).toBe(null);
@@ -99,7 +107,7 @@ test.describe('점선 추천으로 넣기 폰 412',()=>{
     const {s,errors}=await bootLibrary(page,412,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
     await revealLibraryRow(page,O1);
     const tip=id=>page.locator(`[data-lu-document="${id}"] [data-lu-suggest]`);
-    for(const id of [O1,O2]){await tip(id).tap();await expect.poll(()=>folderOf(s,id)).toBe(RECV);expect(await recvOpen(page)).toBe(false)}
+    for(const id of [O1,O2]){await markOldUndo(page);await tip(id).tap();await expect.poll(()=>folderOf(s,id)).toBe(RECV);await freshUndo(page);expect(await recvOpen(page)).toBe(false)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     await shot(page,'suggest-after-412.png',info);
     await page.locator('#libraryFolderStatusLine .lu-undo').tap();

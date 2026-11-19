@@ -4,11 +4,12 @@
 //   ● 쓴 보고         = 사업 보고 줄 그대로(이 화면이 이미 그리는 색 점).
 //   □ 보고할 일정      = 켜 둔 줄(state=on)인데 이어진 보고가 아직 없음. 줄의 제목·날짜 사본으로 그리므로 Google을 부르지 않아도 보인다(지난달도).
 //                        같은 이름 기억으로 저절로 켜진 일정(줄이 아직 없음)도 □이고, 화면이 처음 볼 때 줄을 넣는다(auto).
-//   점선 □ 보고할까요? = 줄도 기억도 없고 담당조직이 연결된 일정. 이 달의 Google 일정을 읽었을 때만 나온다.
+//   점선 □ 보고할까요? = 줄도 기억도 없고 담당조직이 연결되었거나 주요 일정인 일정(report-plan-model.mjs askReason — S67-16 넓힘).
+//                        이 달의 Google 일정을 읽었을 때만 나온다.
 // 칸 칩·사업영역 칩은 보고에만 걸린다(일정은 아직 칸·사업영역이 없다). 회의명 거르기만 같은 이름 열쇠로 건다(matchesName).
 import {seoulClock} from './meeting-time.js';
 import {PLAN_ICON} from './calendar-row-menu.mjs'; // S59-20: 일정 메뉴와 같은 깃발 아이콘 하나(예전에는 네모 선이 두 곳에 따로 있었다)
-import {eventStatus, planDecision, reportsOfEvent, eventCopy, nameKey, PLAN_ON, STATUS_TODO, STATUS_ASK} from './report-plan-model.mjs';
+import {eventStatus, planDecision, reportsOfEvent, eventCopy, nameKey, askReason, PLAN_ON, STATUS_TODO, STATUS_ASK, ASK_MAJOR} from './report-plan-model.mjs';
 
 export const ENTRY_REPORT = 'report', ENTRY_PLAN = 'plan';
 // 달력 칸의 점 수(폰 칸 — 지금 화면과 같은 3개).
@@ -26,16 +27,17 @@ function itemOfRow(row) {
   return {eventId, calendarId: String(row.google_calendar_id || 'primary'), status: STATUS_TODO, day, title: String(row.title ?? ''), startsAt: isoOf(row.starts_at), rowId: String(row.id ?? ''), auto: false};
 }
 // Google 일정 → 항목. 표에 넣을 수 없는 모양(id·날짜)이면 null — 그런 일정은 표시하지 않는다(일정 달력과 같은 규칙).
-function itemOfEvent(event, status, rowId = '', auto = false) {
+function itemOfEvent(event, status, rowId = '', auto = false, reason = '') {
   const copy = eventCopy(event);
-  return copy ? {eventId: copy.google_event_id, calendarId: copy.google_calendar_id, status, day: copy.event_day, title: copy.title, startsAt: copy.starts_at, rowId, auto} : null;
+  return copy ? {eventId: copy.google_event_id, calendarId: copy.google_calendar_id, status, day: copy.event_day, title: copy.title, startsAt: copy.starts_at, rowId, auto, ...(reason ? {reason} : {})} : null;
 }
 
-// 달력에 놓을 '보고할 일정' 항목. data = {plans, reports(일정에 이어진 보고)}, events = 읽어 둔 Google 일정(없으면 줄만으로 그린다).
-// 항목 = {eventId, calendarId, status:'todo'|'ask', day, title, startsAt(ISO|null=종일), rowId(줄이 있으면), auto(저절로 켜짐 — 줄을 아직 안 넣음)}
+// 달력에 놓을 '보고할 일정' 항목. data = {plans, reports(일정에 이어진 보고), orgs?·areaEventIds?(보고할까요? 힌트 — askReason)}, events = 읽어 둔 Google 일정(없으면 줄만으로 그린다).
+// 항목 = {eventId, calendarId, status:'todo'|'ask', day, title, startsAt(ISO|null=종일), rowId(줄이 있으면), auto(저절로 켜짐 — 줄을 아직 안 넣음), reason('ask'일 때 'org'|'major')}
 // 같은 일정은 한 번만 나온다. 읽어 둔 일정이 있으면 제목·날짜는 일정 쪽이 먼저다(줄 사본은 뒤에서 맞춘다 — 설계 4-5).
 export function planItems(data, events = []) {
   const plans = Array.isArray(data?.plans) ? data.plans : [], reports = Array.isArray(data?.reports) ? data.reports : [];
+  const hints = {orgs: data?.orgs ?? null, areaEventIds: data?.areaEventIds ?? null};
   const byId = new Map();
   for (const e of Array.isArray(events) ? events : []) { const id = String(e?.id ?? ''); if (id && !byId.has(id)) byId.set(id, e); }
   const items = new Map();
@@ -47,10 +49,10 @@ export function planItems(data, events = []) {
   }
   for (const [id, event] of byId) {
     if (items.has(id)) continue;
-    const status = eventStatus(event, {plans, reports});
+    const status = eventStatus(event, {plans, reports, ...hints});
     if (status !== STATUS_TODO && status !== STATUS_ASK) continue;
     // 여기까지 온 todo는 줄이 없는 일정이다(줄이 on이면 위에서 놓였다) — 같은 이름 기억으로 저절로 켜진 것.
-    const item = itemOfEvent(event, status, '', status === STATUS_TODO && !planDecision(event, {plans, reports}).row);
+    const item = itemOfEvent(event, status, '', status === STATUS_TODO && !planDecision(event, {plans, reports}).row, status === STATUS_ASK ? askReason(event, hints) : '');
     if (item) items.set(id, item);
   }
   return sortItems([...items.values()]);
@@ -95,8 +97,9 @@ export function cellDots(entries, max = CELL_DOTS) {
 
 // '10:00' 같은 시각 글자(24시간, 서울). 종일이면 '종일'.
 export const itemTime = item => (item?.startsAt ? seoulClock(item.startsAt) : '종일');
-// 그날 목록 둘째 줄(시안): '일정 · 10:00' / '일정 · 10:00 · 담당조직 연결됨'
-export const itemMeta = item => ['일정', itemTime(item), item?.status === STATUS_ASK ? '담당조직 연결됨' : ''].filter(Boolean).join(' · ');
+// 그날 목록 둘째 줄(시안): '일정 · 10:00' / '일정 · 10:00 · 담당조직 연결됨' / '일정 · 10:00 · 주요 일정'(S67-16)
+const askText = item => (item?.status !== STATUS_ASK ? '' : item.reason === ASK_MAJOR ? '주요 일정' : '담당조직 연결됨');
+export const itemMeta = item => ['일정', itemTime(item), askText(item)].filter(Boolean).join(' · ');
 // 항목 → 일정 모양(Edge google-calendar normEvent와 같은 칸). 저장(report-plan-data.js)과 보고 쓰기 창에 넘긴다.
 export const itemEvent = item => ({id: item.eventId, calendarId: item.calendarId, title: item.title, start: item.startsAt || item.day, allDay: !item.startsAt});
 // 보고 쓰기 창에 채울 날짜·시각: 시각 있는 일정은 {at:'YYYY-MM-DDTHH:MM'}(서울), 종일은 {date}. (일정 창 [결과 남기기]와 같은 모양)

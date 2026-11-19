@@ -124,7 +124,10 @@ for(const width of [1024,1280,1440])test(`week bands, timed order, tasks and dia
   await expect(page.locator('.cwv-day[data-date="2026-10-20"] .cmv-task-count')).toHaveText('1');
   const count=page.locator('.cwv-day[data-date="2026-10-21"] .cmv-task-count');
   await expect(count).toHaveText('17');await expect(count.locator('svg')).toHaveCount(1);
-  const rect=await count.boundingBox();expect(rect.width).toBeGreaterThanOrEqual(44);expect(rect.height).toBeGreaterThanOrEqual(44);
+  // STAB(S67-01): 주 이동 뒤 늦은 할 일·일정 읽기로 주간 칸을 다시 그리면(replaceChildren) 찾아 둔 칸이 떨어져 boundingBox가 null이 된다.
+  // 찾기와 크기 읽기를 한 번의 evaluate에서 한다.
+  const rect=await page.evaluate(()=>document.querySelector('.cwv-day[data-date="2026-10-21"] .cmv-task-count')?.getBoundingClientRect().toJSON());
+  expect(rect.width).toBeGreaterThanOrEqual(44);expect(rect.height).toBeGreaterThanOrEqual(44);
   await count.click();await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayTasks [data-calendar-task]')).toHaveCount(18);
 });
@@ -233,9 +236,9 @@ test('PC week event shows time above a 2-line title and a tooltip only when clip
     ev('long',long,'2026-10-15T12:00:00+09:00','2026-10-15T13:00:00+09:00')
   ]);
   const day=page.locator('.cwv-day[data-date="2026-10-15"]');
-  const g=await day.locator('[data-google-event="long"]').evaluate(el=>{const t=el.querySelector('.clv-time').getBoundingClientRect(),h=el.querySelector('.clv-title'),hr=h.getBoundingClientRect(),cs=getComputedStyle(h);return {timeBottom:t.bottom,titleTop:hr.top,lines:Math.round(hr.height/parseFloat(cs.lineHeight)),clip:el.classList.contains('cwv-clipped'),width:el.getBoundingClientRect().width}});
+  const g=await day.locator('[data-google-event="long"]').evaluate(el=>{const t=el.querySelector('.clv-time').getBoundingClientRect(),h=el.querySelector('.clv-title'),hr=h.getBoundingClientRect(),cs=getComputedStyle(h);return {timeBottom:t.bottom,titleTop:hr.top,lines:Math.round(hr.height/parseFloat(cs.lineHeight)),clip:el.classList.contains('cwv-clipped'),width:el.getBoundingClientRect().width,col:el.closest('.cwv-day').getBoundingClientRect().width}});
   expect(g.titleTop).toBeGreaterThanOrEqual(g.timeBottom-1);expect(g.lines).toBe(2);expect(g.clip).toBe(true);
-  const colWidth=(await day.boundingBox()).width;expect(g.width).toBeLessThanOrEqual(colWidth);
+  expect(g.width).toBeLessThanOrEqual(g.col);// 칸 너비도 같은 evaluate에서 읽는다(다시 그리기로 칸이 바뀌어도 null이 안 되게)
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(1280);
   const long1=day.locator('[data-google-event="long"]'),tip=long1.locator('.cwv-tip');
   await expect(tip).toBeHidden();

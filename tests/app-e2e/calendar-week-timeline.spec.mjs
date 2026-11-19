@@ -10,6 +10,10 @@ async function open(page,width,events,now){
   await page.setViewportSize({width,height:900});
   await openEmphasisFixture(page,{view:'week',events,...(now?{now}:{})});
   await expect(page.locator('#calendarWeek')).toBeVisible();
+  // STAB(S67-01): 일정 읽기가 끝나도 주간 칸은 한 박자 뒤에 그려진다. 그 전에 재면 카드·종일 띠가 아직 없거나(cards.zero undefined)
+  // 띠가 늦게 생겨 시간표 자리가 밀린다(7시 스크롤 시험의 tl 차이). 이번 주(10/12~18)에 드는 일정이 모두 그려진 뒤에 잰다.
+  const shown=events.filter(e=>e.start.slice(0,10)>='2026-10-12'&&e.start.slice(0,10)<='2026-10-18').map(e=>e.id);
+  await expect.poll(()=>page.evaluate(ids=>ids.every(id=>document.querySelector(`#calendarWeek [data-google-event="${id}"]`)),shown),{message:'이번 주 일정이 주간 칸에 모두 그려짐'}).toBe(true);
 }
 // 한 번의 페이지 작업에서 칸 위치를 모두 읽는다(늦게 온 할 일 목록으로 다시 그려져도 값이 섞이지 않게).
 const geometry=page=>page.evaluate(()=>{

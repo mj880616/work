@@ -16,7 +16,8 @@ import {sortByName} from './name-order.mjs';
 import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
-import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
+import {bindNowRows, hoverActsHtml, dropSaved} from './now-row-acts.js';
+import {canDeleteNews} from './now-marks.js';
 import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
@@ -38,7 +39,7 @@ import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFi
 if (window.KPTUNews) return;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
-const ITEM_COLS = 'id,lane,url,title,lang,publisher,source_key,keywords,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,translated_at,starred_at,folder_id';
+const ITEM_COLS = 'id,lane,url,title,lang,publisher,source_key,keywords,published_at,scrapped_at,created_at,state,summary,body_kind,title_ko,translated_at,starred_at,folder_id,author,manual_at,origin';
 const SOURCE_COLS = 'source_key,enabled,last_ok_at,last_error';
 const KEYWORD_COLS = 'word,enabled,created_at';
 const FOLDER_COLS = 'id,parent_id,name,sort_order';
@@ -123,7 +124,7 @@ const find = createFind({
 });
 const found = () => (find.active() && Array.isArray(find.get().result) ? find.get().result : []);
 // 목록 줄: 제목 중심(껍데기 rowOf). 마우스 단추 [보관][숨기기]는 PC·중간 폭에서만(폰은 줄 밀기).
-const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: hoverActsHtml({isSaved: !!it.starred_at})}) || '';
+const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: hoverActsHtml({isSaved: !!it.starred_at, canDelete: canDeleteNews(it)})}) || '';
 // 별표 폴더 칸의 줄: 같은 줄 + ☆(별표 빼기)·[폴더] 단추.
 function treeItemHtml(it) {
   const starred = !!it.starred_at, fid = itemFolderId(it, state.folders), note = state.notes.get(it.id);
@@ -481,6 +482,14 @@ async function toggleStar(id, trigger) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;
   if (!w || !it || state.busy.has('star:' + id)) return;
   const on = !it.starred_at;
+  // S67-11 NEWS-보관빼기: 별표 빼기는 줄 ★·밀기와 같은 길(5초 [되돌리기], 되돌리면 원래 폴더로).
+  if (!on) {
+    state.busy.add('star:' + id);
+    try { await dropSaved({type: 'news', id}, {changed: rowChanged}); }
+    catch (e) { if (scope === state.scope) { state.notes.set(id, saveFailNote(e)); paint(); } }
+    finally { state.busy.delete('star:' + id); }
+    return;
+  }
   state.busy.add('star:' + id);
   try {
     // 별표를 빼면 폴더도 비운다(DB 검사: 폴더는 별표한 기사만).
@@ -498,18 +507,22 @@ async function toggleStar(id, trigger) {
   else root?.querySelector(`[data-nc-star="${CSS.escape(id)}"]`)?.focus({preventScroll: true});
 }
 // 글 줄 밀기·마우스 단추(NOW-줄밀기): 왼쪽 = 숨기기(hidden_at), 오른쪽 = 보관(= 별표, 다시 밀면 풀기). 사회운동·[보관] 탭과 같은 부품(now-row-acts.js).
+// kind: 'hide'·'delete'(on = 목록에서 빠짐, false = 되돌림 → 다시 읽기) | 'save'(on = 별표 켜짐). 되돌린 별표는 원래 폴더로 서버가 되살리므로 다시 읽는다.
+function rowChanged(item, kind, on) {
+  const it = state.items.find(x => x.id === item.id), hit = found().find(x => x.id === item.id);
+  const gone = kind === 'hide' || kind === 'delete';
+  if (hit && !gone) { hit.starred_at = on ? new Date().toISOString() : null; if (!on) hit.folder_id = null; }
+  if (hit && gone && on) { const r = find.get().result; r.splice(r.indexOf(hit), 1); }
+  if (gone) { if (on) state.items = state.items.filter(x => x.id !== item.id); else load().catch(() => {}); }
+  else if (it) { it.starred_at = on ? new Date().toISOString() : null; if (!on) it.folder_id = null; if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== item.id); if (on && state.tab === STAR) load().catch(() => {}); }
+  else if (!hit) load().catch(() => {});
+  paint();
+}
 bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemOf: el => (el.dataset.ncItem ? {type: 'news', id: el.dataset.ncItem} : null),
   enabled: () => state.mode === 'list',
   isSaved: item => !!itemById(item.id)?.starred_at,
-  changed: (item, kind, on) => {
-    const it = state.items.find(x => x.id === item.id), hit = found().find(x => x.id === item.id);
-    if (hit && kind !== 'hide') { hit.starred_at = on ? new Date().toISOString() : null; if (!on) hit.folder_id = null; }
-    if (hit && kind === 'hide' && on) { const r = find.get().result; r.splice(r.indexOf(hit), 1); }
-    if (kind === 'hide') { if (on) state.items = state.items.filter(x => x.id !== item.id); else load().catch(() => {}); }
-    else if (it) { it.starred_at = on ? new Date().toISOString() : null; if (!on) it.folder_id = null; if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== item.id); }
-    else if (!hit) load().catch(() => {});
-    paint();
-  }});
+  canDelete: item => canDeleteNews(itemById(item.id)),
+  changed: rowChanged});
 async function putInFolder(id, folderId) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;
   if (!w || !it || !it.starred_at) return;
@@ -571,7 +584,7 @@ ncMenus = [folderMenu];
 // 목록 줄 또는 키워드 칸 줄(같은 기사가 두 곳에 있을 수 있다 — 목록 것을 먼저).
 const itemById = id => state.items.find(x => x.id === id) || found().find(x => x.id === id) || [...state.kwHits.values()].flatMap(h => h.items).find(x => x.id === id) || null;
 // S63-11: 서버에서 새로 온 줄 내용(열기·채우기 뒤 제목 등)을 이 칸의 같은 기사 줄 모두(목록·찾은 기사·키워드 묶음)에 고쳐 넣는다. 바뀐 것이 있으면 다시 그린다.
-const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind'];
+const FRESH_COLS = ['title', 'title_ko', 'state', 'publisher', 'published_at', 'summary', 'lang', 'body_kind', 'author', 'manual_at', 'origin'];
 function freshRows(rows) {
   let changed = false;
   const lists = [state.items, found(), ...[...state.kwHits.values()].map(h => h.items)];

@@ -116,3 +116,17 @@ export function shareArticleUrl({subject = '', text = ''} = {}) {
   }
   return '';
 }
+
+// S67-10 NEWS-네이버공유읽기: 공유된 글에서 기사 제목 한 줄(서버 news-feed save_url의 title). 원문을 못 읽었을 때만 서버가 기사 제목으로 쓴다.
+// 제목(subject)이 주소가 아니면 그것, 아니면 본문에서 주소를 뺀 첫 줄. 없으면 ''. 서버가 다시 다듬고 검사한다(글자로만, SHARE_TITLE_MAX자).
+export const SHARE_TITLE_SEND_MAX = 1000;
+export function shareArticleTitle({subject = '', text = ''} = {}) {
+  const line = v => String(v ?? '').replace(/https?:\/\/[^\s<>"'`]+/gi, ' ').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  const fromSubject = line(subject);
+  if (fromSubject) return [...fromSubject].slice(0, SHARE_TITLE_SEND_MAX).join('');
+  for (const raw of String(text ?? '').split(/\r?\n/)) {
+    const l = line(raw);
+    if (l) return [...l].slice(0, SHARE_TITLE_SEND_MAX).join('');
+  }
+  return '';
+}

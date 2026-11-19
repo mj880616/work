@@ -83,6 +83,7 @@ on:
       - 'tests/paste-files.test.mjs'
       - 'tests/record-attach.test.mjs'
       - 'tests/record-file-rename.test.mjs'
+      - 'tests/record-line-backfill.test.mjs'
       - 'tests/org-record-label.test.mjs'
       - 'tests/org-record-origin.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
@@ -154,6 +155,7 @@ on:
       - 'tests/ed-photo-row-file.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
+      - 'tests/note-link-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-paste-paragraphs.test.mjs'
       - 'tests/fixtures/ed-paste-sources.mjs'
@@ -172,6 +174,7 @@ on:
       - '.github/workflows/play-bundle.yml'
       - '.github/workflows/phone-app-release.yml'
       - 'tests/menu-home-prefs.test.mjs'
+      - 'tests/record-backup-model.test.mjs'
       - 'tests/org-order-setting.test.mjs'
       - 'tests/org-order-fixture.mjs'
       - 'tests/report-calendar-setup.mjs'
@@ -342,6 +345,7 @@ on:
       - 'tests/paste-files.test.mjs'
       - 'tests/record-attach.test.mjs'
       - 'tests/record-file-rename.test.mjs'
+      - 'tests/record-line-backfill.test.mjs'
       - 'tests/org-record-label.test.mjs'
       - 'tests/org-record-origin.test.mjs'
       - 'tests/basket-ocr-text.test.mjs'
@@ -413,6 +417,7 @@ on:
       - 'tests/ed-photo-row-file.test.mjs'
       - 'tests/note-pending-media.test.mjs'
       - 'tests/note-import-model.test.mjs'
+      - 'tests/note-link-import-model.test.mjs'
       - 'tests/ed-paste-markdown.test.mjs'
       - 'tests/ed-paste-paragraphs.test.mjs'
       - 'tests/fixtures/ed-paste-sources.mjs'
@@ -431,6 +436,7 @@ on:
       - '.github/workflows/play-bundle.yml'
       - '.github/workflows/phone-app-release.yml'
       - 'tests/menu-home-prefs.test.mjs'
+      - 'tests/record-backup-model.test.mjs'
       - 'tests/org-order-setting.test.mjs'
       - 'tests/org-order-fixture.mjs'
       - 'tests/report-calendar-setup.mjs'
@@ -561,6 +567,9 @@ jobs:
 
       - name: Check record file rename reaches record lines and strips (ORG-기록첨부이름반영)
         run: node --test tests/record-file-rename.test.mjs
+
+      - name: Check old file-name record lines become photo descriptions (ORG-기록첨부 옛줄바꾸기)
+        run: node --test tests/record-line-backfill.test.mjs
 
       - name: Check file-only record lines show photo and file counts (ORG-기록첨부표시이름)
         run: node --test tests/org-record-label.test.mjs
@@ -749,7 +758,7 @@ jobs:
         run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs
 
       - name: Check phone bottom tab selection rule
-        run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs tests/help-content.test.mjs
+        run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs tests/record-backup-model.test.mjs tests/help-content.test.mjs
 
       - name: Check basket data and sequential file uploads
         run: node --test tests/basket-data.test.mjs tests/upload-done-model.test.mjs tests/upload-done-open.test.mjs tests/basket-upload.test.mjs tests/paste-files.test.mjs tests/record-attach.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/todo-feedback-model.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/google-link.test.mjs tests/connect-note.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/color-swatch.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/open-window.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-row-tag.test.mjs tests/org-write-in.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-mark-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
@@ -862,7 +871,7 @@ jobs:
         run: node --test tests/markdown-view.test.mjs tests/md-telegram.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs tests/number-shape.test.mjs
 
       - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
-        run: node --test tests/ed-editor.test.mjs tests/ed-now-text.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs
+        run: node --test tests/ed-editor.test.mjs tests/ed-now-text.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs tests/ed-photo-row-file.test.mjs tests/note-pending-media.test.mjs tests/note-import-model.test.mjs tests/note-link-import-model.test.mjs
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
@@ -1035,7 +1044,7 @@ jobs:
         run: node --test tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
-        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
         run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs
@@ -1203,6 +1212,9 @@ jobs:
 
       - name: Check operator signup status counts and seven fields (OPS-가입자현황)
         run: node --test tests/signup-status-model.test.mjs
+
+      - name: Check my groups panel model, invite link and server-only calls (COLLAB-묶인사람끼리공유 1단계)
+        run: node --test tests/collab-groups-model.test.mjs
 
       - name: SEC-자주가는링크기본값유출·COLLAB-조직목록없음직접입력 운영자 기본값 없음·남의 작업공간 조직 이름 막힘
         run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
@@ -1528,6 +1540,12 @@ jobs:
 
       - name: Check weekly AI draft request shared rules (WEEKLY-자동화 ③)
         run: node --test tests/weekly-draft-request.test.mjs
+
+      - name: Check weekly AI draft whole-record material (WEEKLY-재료전체 ①)
+        run: node --test tests/weekly-full-material.test.mjs
+
+      - name: Check weekly AI draft record photos (WEEKLY-재료전체 ②)
+        run: node --test tests/weekly-photo-material.test.mjs
 
       - name: Check weekly feedback on every suggestion (WEEKLY-한흐름확정 ⑤)
         run: node --test tests/weekly-feedback-all.test.mjs

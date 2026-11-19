@@ -20,6 +20,8 @@ import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {notify} from './small-notice.js';
 import {canAsk, looksLikeQuestion, ASK_TEXT, askFailText, cleanAnswer, answerNote, tagLabel, sourcesSummary, sourceTarget, recentLabel} from './ask-web2-model.mjs';
 import {openCallSource, openTelegramSource} from './source-open.js';
+// SEC-기능PIN잠금 노트 폴더(S67-14): 잠근 노트 폴더(하위 포함)의 노트 결과는 제목·내용 대신 '잠김'. 판정은 feature-lock.js 한 곳.
+import * as lock from './feature-lock.js';
 
 (() => {
 'use strict';
@@ -192,6 +194,7 @@ function paint(host, where) {
   const again = prevActive && host.querySelector(`[role="option"][data-gs-key="${CSS.escape(prevActive)}"]`);
   if (again) setActive(host, again, {scroll: false});
   if (folderAsk.size) void loadFolders();
+  if (noteAsk.size) void loadNoteMeta();
 }
 function groupNode(g, where) {
   const sec = el('section', 'gs-group'); sec.setAttribute('role', 'group'); sec.dataset.gsGroup = g.key;
@@ -266,6 +269,8 @@ function answerBox(where) {
     det.append(sum);
     for (const src of answer.sources) {
       const row = srcButton(src, answer, 'gs-ask-src-row');
+      // SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 근거 줄은 제목·내용 대신 '잠김'(누르면 그 화면 문지기가 PIN을 묻는다).
+      if (srcLocked(src)) { row.dataset.gsLocked = ''; row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', '잠김')); det.append(row); continue; }
       row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', src.title));
       if (src.tag) row.append(el('span', 'gs-state', src.tag));
       if (src.snippet) row.append(el('span', 'gs-ask-src-snip', src.snippet));
@@ -276,6 +281,7 @@ function answerBox(where) {
   if (answer?.lines?.length) box.append(el('p', 'gs-ask-foot', ASK_TEXT.foot));
   return box;
 }
+const srcLocked = src => (src?.kind === 'call' || src?.kind === 'telegram') && !!lock.settings() && lock.hides(src.kind === 'call' ? 'calls' : 'telegram');
 function srcButton(src, answer, cls, text = '') {
   const b = el('button', cls, text || null); b.type = 'button';
   const key = `${src.ref}:${answer.id || 'new'}`; askSources.set(key, src); b.dataset.gsSrc = key;
@@ -345,13 +351,37 @@ async function loadFolders() {
   } catch { /* 폴더 표시는 덤이다. 못 읽으면 표시 없이 둔다. */ }
 }
 window.addEventListener('kptu:documents-changed', () => { if (docFolder.size) { resetFolders(); if (state.groups) paintAll(); } });
-window.addEventListener('kptu:session-changed', resetFolders);
+// 노트 결과의 폴더(노트 행 metadata의 folder_id·folder만, 자기 노트 owner 읽기 그대로). 잠근 노트 폴더가 있을 때만 읽는다. 메모리만.
+const noteMeta = new Map(); let noteAsk = new Set(), noteSeq = 0;
+async function loadNoteMeta() {
+  const ids = [...noteAsk].filter(id => !noteMeta.has(id) && UUID.test(id)); noteAsk = new Set();
+  const api = window.KPTURuntime?.api; if (!ids.length || typeof api !== 'function') return;
+  const mine = noteSeq;
+  try {
+    const rows = await api(`/rest/v1/app_notes?kind=eq.note&id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,folder_id:metadata->>folder_id,folder:metadata->>folder`);
+    if (mine !== noteSeq) return;
+    for (const id of ids) noteMeta.set(id, {});
+    for (const r of Array.isArray(rows) ? rows : []) noteMeta.set(r.id, {...(r.folder_id ? {folder_id: r.folder_id} : {}), ...(r.folder ? {folder: r.folder} : {})});
+    paintAll();
+  } catch { /* 못 읽으면 잠근 폴더가 있는 동안 노트 결과는 '잠김'으로 둔다 */ }
+}
+// 노트 결과 하나를 가려야 하나: 잠근 폴더가 없거나 풀려 있으면 아니다. 폴더를 아직 모르면 가린다(읽은 뒤 다시 그림).
+function noteLocked(item) {
+  if (item.source !== 'note' || !lock.notesHidden()) return false;
+  const meta = noteMeta.get(item.id);
+  if (!meta) { noteAsk.add(item.id); return true; }
+  return lock.noteHidden({metadata: meta});
+}
+window.addEventListener('kptu:feature-lock-changed', () => { if (state.groups || state.ask) paintAll(); });
+window.addEventListener('kptu:basket-notes-restored', () => { noteMeta.clear(); noteSeq++; });
+window.addEventListener('kptu:session-changed', () => { resetFolders(); noteMeta.clear(); noteSeq++; });
 function rowNode(item, key, where) {
   const row = el('div', 'gs-row'); row.setAttribute('role', 'option'); row.id = `gsOpt-${where}-${++optionSeq}`;
   const k = `${item.source}:${item.id}`; row.dataset.gsKey = k; rowsByKey.set(k, item);
   row.append(icon(groupOf(groupKeyOfServer(item.kind) || key)?.icon || groupOf(key)?.icon));
   const main = el('span', 'gs-row-main');
   const head = el('span', 'gs-row-head');
+  if (noteLocked(item)) { row.dataset.gsLocked = ''; head.append(el('span', 'gs-row-title', '잠김')); main.append(head); row.append(main); return row; }
   head.append(marked(item.title, state.words, 'gs-row-title'));
   if (item.state && STATE_LABEL[item.state]) head.append(el('span', `gs-state gs-state-${item.state}`, STATE_LABEL[item.state]));
   if (item.source === 'document') { const f = docFolder.get(item.id); if (f) { const tail = el('span', 'row-tail gs-row-folder'); tail.append(iconNode('folder', {className: 'gs-folder-ico'}), ` ${f}`); head.append(tail); } else if (f === undefined) folderAsk.add(item.id); }

@@ -15,7 +15,7 @@ export const iso = (day, time) => new Date(`${day}T${time}:00+09:00`).toISOStrin
 export const DAY = n => `2026-11-${String(n).padStart(2, '0')}`;
 
 const meeting = (n, title, day, time, extra = {}) => ({id: ID(n), workspace_id: WS, title, series_name: title, round_no: null, meeting_at: iso(day, time), activity_kind: 'meeting', created_by: 'rc-user', notes: '', decisions: '', transcript_text: '가짜 원문', created_at: iso(day, '20:00'), google_event_id: null, google_calendar_id: null, ...extra});
-const event = (id, title, day, time, extra = {}) => ({id, calendarId: 'own', title, start: iso(day, time), end: new Date(Date.parse(iso(day, time)) + 3600e3).toISOString(), allDay: false, description: '', location: '', organizationIds: [], recurring: false, source: 'google', ...extra});
+export const event = (id, title, day, time, extra = {}) => ({id, calendarId: 'own', title, start: iso(day, time), end: new Date(Date.parse(iso(day, time)) + 3600e3).toISOString(), allDay: false, description: '', location: '', organizationIds: [], recurring: false, source: 'google', ...extra});
 const plan = (n, eventId, title, day, time, state, extra = {}) => ({id: 'plan-' + n, workspace_id: WS, google_event_id: eventId, google_calendar_id: 'own', state, decided_by: 'user', decided_at: '2026-11-01T00:00:00.000Z', title, event_day: day, starts_at: time ? iso(day, time) : null, created_at: '2026-11-01T00:00:00.000Z', ...extra});
 export const REPORT = {head: ID(901), weekly: ID(902), study: ID(903)};
 
@@ -47,7 +47,8 @@ export function makeState({store = true, busy = false, google = true} = {}) {
     plan(3, 'ev-late2', '예시 대표자 회의', DAY(5), '11:00', 'on'),
     plan(4, 'ev-off', '가짜 정리 모임', DAY(12), '18:00', 'off')
   ];
-  return {store, google, meetings, events, plans, seq: 100, planWrites: [], reportPosts: [], eventReads: [], planReads: 0,
+  // S67-16: '보고할까요?' 힌트 — 내 담당조직(제목의 조직 이름)·사업영역 주요 일정 행(일정 id). 기본은 비어 있다(예전 시험 그대로).
+  return {store, google, meetings, events, plans, orgs: [], milestones: [], hintReads: [], seq: 100, planWrites: [], reportPosts: [], eventReads: [], planReads: 0,
     user: {id: 'rc-user', email: 'qa@example.org', user_metadata: {display_name: 'QA'}}};
 }
 
@@ -64,6 +65,12 @@ export async function install(page, state) {
     if (path === '/rest/v1/app_workspace_members') return ok([{workspace_id: WS, user_id: state.user.id, role: 'owner', workspace: {id: WS, slug: 'qa', name: 'QA'}}]);
     if (path === '/rest/v1/app_workspaces') return ok([{id: WS, slug: 'qa', name: 'QA'}]);
     if (path === '/rest/v1/app_profiles') return ok([{user_id: state.user.id, display_name: 'QA'}]);
+    if (path === '/rest/v1/app_suborganizations' && method === 'GET') { state.hintReads.push(decodeURIComponent(path + url.search)); return ok(state.orgs.filter(o => url.searchParams.get('active') !== 'eq.true' || o.active !== false)); }
+    if (path === '/rest/v1/app_project_milestones' && method === 'GET') {
+      state.hintReads.push(decodeURIComponent(path + url.search));
+      const range = url.searchParams.getAll('start_at'), from = range.find(v => v.startsWith('gte.'))?.slice(4), to = range.find(v => v.startsWith('lt.'))?.slice(3);
+      return ok(state.milestones.filter(m => m.google_event_id && (!from || Date.parse(m.start_at) >= Date.parse(from)) && (!to || Date.parse(m.start_at) < Date.parse(to))).map(m => ({google_event_id: m.google_event_id})));
+    }
     if (path === '/rest/v1/app_calendar_report_plans') {
       if (!state.store) return ok({code: 'PGRST205', message: "Could not find the table 'public.app_calendar_report_plans' in the schema cache"}, 404);
       // 권한은 서버(RLS 소유자)가 정한다 — 흉내 서버도 내 작업공간 값이 아니면 아무것도 주지 않는다.

@@ -195,3 +195,24 @@ test('SQL Editor 부르기 파일(docs/ops/feed-refill-once.sql): 지금 판 목
  assert.doesNotMatch(body,/select\s+[^;]*decrypted_secret\s*,|select\s+k\.v|select\s+u\.v/i,'금고 값을 결과 칸으로 돌려주지 않음');
  assert.match(body,/\?action=refill/);
 });
+
+test('outside-feed refill(S67-19): 금속노조 판 오른 no_body 줄을 다시 읽어 본문을 채우고, 줄임표로 잘린 제목만 글 쪽 제목으로 고침',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const page=readFileSync(new URL('../fixtures/outside-feed/kmwu-article.html',import.meta.url),'utf8');
+ const K=n=>`https://kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=${n}`;
+ const cur=E.ruleId('kmwu',OC.sourceByKey('kmwu').extract);
+ assert.equal(cur,'kmwu@3');
+ const rows=[{id:id(1),workspace_id:WS,source_key:'kmwu',url:K(9001),title:'가상 하청 노동자 집…',published_at:null,app_feed_bodies:{state:'failed',reason:'no_body',rule:'kmwu@2'}},
+  {id:id(2),workspace_id:WS,source_key:'kmwu',url:K(9002),title:'가상 다른 성명',published_at:null,app_feed_bodies:{state:'failed',reason:'no_body',rule:'kmwu@2'}}];
+ const w=world({table:'app_outside_posts',rows,sites:{[K(9001)]:{body:page},[K(9002)]:{body:page}}});
+ const out=(await w.outside({source:'kmwu'})).json;
+ assert.deepEqual(out,{ok:true,source:'kmwu',status:'ok',done:2,deferred:0,remaining:0});
+ const by=Object.fromEntries(w.bodies.map(x=>[x.b.outside_post_id,x.b]));
+ assert.deepEqual([by[id(1)].state,by[id(1)].rule],['ok','kmwu@3']);
+ assert.match(by[id(1)].blocks.map(b=>b.text).join('\n'),/원청이 직접 교섭에 나서고/);
+ const patches=w.calls.filter(c=>c.method==='PATCH');
+ assert.deepEqual(patches.map(c=>[decodeURIComponent(new URL(c.url).pathname+new URL(c.url).search),c.body]),[
+  [`/rest/v1/app_outside_posts?id=eq.${id(1)}`,{title:'가상 하청 노동자 집단해고, 원청이 책임져라'}],
+  [`/rest/v1/app_outside_articles?url=eq.${K(9001)}`,{title:'가상 하청 노동자 집단해고, 원청이 책임져라'}]],'잘린 제목 줄만 고침(잘리지 않은 제목은 그대로)');
+ assert.ok(!w.calls.some(c=>c.url.includes('app_outside_sentences')),'문장 표는 건드리지 않음');
+});

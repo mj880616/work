@@ -19,8 +19,10 @@ export function installOdWarm(win = window, {load = () => import('./diary-onedri
   // HOME-오늘사진빨리(2026-11-10): 홈 '오늘 사진'이 홈을 그릴 때 run({soon:true})로 바로 시작한다(첫 화면 뒤 한가할 때를 기다리지 않음).
   // 이번 달 목록 단계가 끝나면(연결 안 됨·실패 포함) listed가 풀린다 — 홈은 그 목록을 그대로 쓴다(두 번 받지 않음).
   // 이번 달 별표도 이때 같이 받아 둔다(odWarmStars, 탭 메모리 10분). 이어지는 사진 미리 받기는 soon이어도 한가할 때 시작한다(다른 탭 읽기와 겹치지 않게).
+  // SEC-기능PIN잠금 ②: 하루 기록·사진을 잠갔고 아직 안 풀었으면 원드라이브 사진을 미리 받지 않는다(잠긴 동안 그 자료를 불러오지 않음). 풀린 뒤 홈·하루 기록이 다시 부른다.
+  const lockedNow = () => { const fl = win.KPTUFeatureLock; return !!(fl?.settings?.() && fl.anyHidden?.('diary', 'photos')); };
   function run({soon = false} = {}) {
-    if (running || doc?.visibilityState === 'hidden' || win.KPTURouter?.current === 'diary') return running;
+    if (running || doc?.visibilityState === 'hidden' || win.KPTURouter?.current === 'diary' || lockedNow()) return running;
     let markListed = () => {};
     win.KPTUOdWarm.listed = new Promise(resolve => { markListed = resolve; });
     running = (async () => {

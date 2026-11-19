@@ -101,7 +101,9 @@ async function load(){
   saved=next;
   renderWorkplaces();
   void loadReport();
+  void loadCollab();
   void loadPush();
+  void loadBackup();
   return true;
 }
 // MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
@@ -114,8 +116,29 @@ async function loadReport(){
     (await reportSettings.ready).refresh();
   }catch(e){console.error('report settings',e?.name||'Error')}
 }
+// COLLAB-묶인사람끼리공유 1단계: '내 묶음' 칸(만들기·초대 링크·같은 이름 요청·멤버·나가기·관리자 넘기기)은 collab-groups.js가 그리고 서버 함수로 바로 저장한다.
+// 칸 자리는 주간 보고 일정 캘린더 칸 뒤('폰 알림' 칸 앞), 한 번만 붙인다. 만들기·들어가기에 쓰는 이름·노조명·부서명은 저장된 프로필 값(saved)이다.
+let collabGroups=null;
+async function loadCollab(){
+  try{
+    let host=$('#psCollabPanel');
+    if(!host){const after=$('#psReportPanel')||$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel ps-collab" id="psCollabPanel" aria-label="내 묶음"></article>');host=$('#psCollabPanel')}
+    if(!collabGroups||collabGroups.host!==host){const ready=import('./collab-groups.js').then(m=>m.mountCollabGroups(host,{rt,toast,profile:()=>({...saved})}));collabGroups={host,ready};ready.catch(()=>{if(collabGroups?.ready===ready)collabGroups=null})}
+    await (await collabGroups.ready).load();
+  }catch(e){console.error('collab groups',e?.name||'Error')}
+}
 // APP-폰알림 N4: '폰 알림' 칸(종류별 켜고 끄기·조용한 시간·시험 알림·등록된 폰)은 따로 바로 저장한다(phone-push-settings.js). 칸 자리는 '계정' 칸 앞, 한 번만 붙인다.
 let pushSettings=null;
+// PRIVACY-백업안내(S66-01): '내 기록 백업' 칸(record-backup.js가 그린다). 자리는 '폰 알림' 칸 다음('계정' 칸 앞), 한 번만 붙인다.
+let backupPanel=null;
+async function loadBackup(){
+  try{
+    let host=$('#psBackupPanel');
+    if(!host){const before=$('#profileView .ps-account-panel');if(!before)return;before.insertAdjacentHTML('beforebegin','<article class="panel ps-panel" id="psBackupPanel" aria-label="내 기록 백업"></article>');host=$('#psBackupPanel')}
+    if(!backupPanel||backupPanel.host!==host){const ready=import('./record-backup.js').then(m=>m.mountRecordBackup(host,{rt}));backupPanel={host,ready};ready.catch(()=>{if(backupPanel?.ready===ready)backupPanel=null})}
+    await (await backupPanel.ready).load();
+  }catch(e){console.error('record backup',e?.name||'Error')}
+}
 async function loadPush(){
   try{
     let host=$('#psPushPanel');

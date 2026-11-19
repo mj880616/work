@@ -16,6 +16,7 @@ const SHOT_DIR = process.env.JOURNAL_MEMO_SHOTS || '';
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], writes = [];
+  let hold = null, release = () => {};
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await openHome(page);
@@ -38,7 +39,7 @@ async function fixture(page, width) {
   });
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
-    if (req.method() === 'GET') { if (q.get('metadata')) return r.fulfill({ json: [] }); return r.fulfill({ json: rows.filter(row => holds(row, q)).slice(Number(q.get('offset') || 0)) }); }
+    if (req.method() === 'GET') { if (writes.length && hold) await hold; if (q.get('metadata')) return r.fulfill({ json: [] }); return r.fulfill({ json: rows.filter(row => holds(row, q)).slice(Number(q.get('offset') || 0)) }); }
     if (req.method() === 'PATCH') { const body = req.postDataJSON(); writes.push({ query: Object.fromEntries(q), body }); const hit = rows.filter(row => holds(row, q)); hit.forEach(row => Object.assign(row, body)); return r.fulfill({ json: hit }); }
     return r.fulfill({ status: 500, json: {} });
   });
@@ -48,7 +49,8 @@ async function fixture(page, width) {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: testOrigin });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await expect(page.locator(`[data-basket-row="${A}"]`)).toBeVisible();
-  return { rows, writes, errors };
+  // holdRereads(): 표시를 바꾼 뒤의 읽기를 release()까지 붙잡는다(연 화면 유지로 옛 자료를 그린 채 다시 읽는 중인 상태).
+  return { rows, writes, errors, holdRereads: () => { hold = new Promise(ok => { release = () => { hold = null; ok(); }; }); }, release: () => release() };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
 // JOURNAL-주간정리다듬기 ①·WEEKLY-한흐름확정 ②: the draft is copied by [주간 정리]'s ⋯ → [글로 복사] beside [확정하고 한글 파일 받기]
@@ -147,6 +149,33 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 
+  // S67-01: 업무일지에 남긴 뒤 하루 화면이 옛 자료를 그린 채 정리함을 다시 읽는 중에 [글로 복사]를 눌러도, 다시 읽기를 기다려 기타 메모가 초안에 들어간다.
+  test(`[글로 복사] while the basket is being re-read after the mark waits for it ${width}`, async ({ page }) => {
+    const f = await fixture(page, width);
+    await openJournal(page, width);
+    await page.evaluate(() => window.KPTURouter.go('basket'));
+    await expect(row(page, A)).toBeVisible();
+    await press(page, rowMore(page, A), width);
+    await press(page, rowMenu(page).getByRole('button', { name: '업무일지에 남기기', exact: true }), width);
+    await expect(row(page, A)).toHaveCount(0);
+    await expect.poll(() => f.writes.length).toBe(1);
+    f.holdRereads();
+    await openJournal(page, width);
+    await press(page, page.locator('#journalRoot [data-journal-mode="week"]'), width);
+    await page.locator('#journalRoot [data-journal-status]').evaluate(e => { e.textContent = ''; });
+    await press(page, page.locator('#journalRoot [data-weekly-flow-confirm] details.row-more summary'), width);
+    await press(page, page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-copy]'), width);
+    // 다시 읽기가 끝나기 전에는 복사하지 않는다.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(page.locator('#journalRoot [data-journal-status]')).not.toContainText('복사');
+    f.release();
+    await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+    const lines = (await page.evaluate(() => navigator.clipboard.readText())).split('\n');
+    const memo = lines.indexOf('◦ 기타 메모');
+    expect(memo).toBeGreaterThan(lines.indexOf('참고'));
+    expect(lines[memo + 1]).toBe('- 10월 6일(화) 합성 기타 메모 하나');
+    expect(f.errors).toEqual([]);
+  });
   test(`[업무일지에 남기기] from the update detail ⋯, then [되돌리기] within 5 seconds ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await press(page, row(page, B), width);

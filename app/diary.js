@@ -330,7 +330,7 @@ function renderDetail() {
   fillDetailMenu(row, hasPhotos);
   paintDone(detail.querySelector('[data-diary-done]'), selected);
   const view = detail.querySelector('[data-diary-text-view]');
-  if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
+  if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc, null, {videos: true}));
   // NOTE-글폭(S61-21): 일기 읽기 글 줄도 노트와 같은 기본 폭(한 줄 약 40자)·같은 손잡이·같은 서버 값.
   diaryGrip?.destroy(); diaryGrip = view ? mountLineWidth({host:view, target:view}) : null;
   renderPhotos();

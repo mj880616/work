@@ -113,6 +113,10 @@ async function mockApp(page,{server=true,many=false}={}){
   if(path==='/rest/v1/rpc/app_undo_ledger_fix'){db.undo.push(request.postDataJSON());return ok({status:'undone'});}
   // MULTI-다른담당자맞춤 ④: 운영자 기능 목록(app_my_features)은 GET 읽기라 쓰기 검사에서 뺀다(수집 줄을 그릴지 정함).
   if(path==='/rest/v1/rpc/app_my_features'&&request.method()==='GET')return ok([]);
+  // SEC-기능PIN잠금: 잠금 설정 읽기(app_lock_read)도 GET 읽기라 쓰기 검사에서 뺀다(잠금 없음).
+  if(path==='/rest/v1/rpc/app_lock_read'&&request.method()==='GET')return ok(null);
+  // 노트 폴더 잠금(S67-14) 목록 읽기(app_lock_note_folders)도 GET 읽기(잠근 폴더 없음).
+  if(path==='/rest/v1/rpc/app_lock_note_folders'&&request.method()==='GET')return ok({folders:[],covered:[],top_names:[]});
   if(path.startsWith('/rest/v1/rpc/')){db.posts.push(path);return ok(null);}
   if(path==='/rest/v1/app_ledger_records'){
    const rows=filterRecords(url);

@@ -463,10 +463,11 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
     const topic = exact ? undefined : rows.find(r => sameName(r.task, area.name));
     const hit = exact ?? topic ?? (task ? rows.find(r => norm(r.area) === norm(area.name) && !norm(r.task)) : undefined);
     const plain = exact || !hit || (topic && !task);
-    const line = {day: item.day, text: plain ? candidateLine(item) : `- ${item.label || task}: ${item.text}`, from: [area.name, task].filter(Boolean).join(' › '), src: item.file ? 'doc' : 'record'};
+    // WEEKLY-재료전체 ①: body(기록 전체 글)는 AI 초안 재료로만 따라간다(줄 글·짝짓기·같은 줄 거르기는 text 로).
+    const line = {day: item.day, text: plain ? candidateLine(item) : `- ${item.label || task}: ${item.text}`, from: [area.name, task].filter(Boolean).join(' › '), src: item.file ? 'doc' : 'record', ...(item.body ? {body: item.body} : {})};
     if (hit) byRow.get(hit.index).push(line); else unmatched.push(line);
   }
-  for (const other of model?.summary?.others ?? []) for (const item of other.items) unmatched.push({day: item.day, text: `- ${item.text}`, from: other.name, src: item.file ? 'doc' : 'record'});
+  for (const other of model?.summary?.others ?? []) for (const item of other.items) unmatched.push({day: item.day, text: `- ${item.text}`, from: other.name, src: item.file ? 'doc' : 'record', ...(item.body ? {body: item.body} : {})});
   const byOrg = new Map(orgs.map(o => [o.index, []]));
   const orgUnmatched = [];
   const allSections = (model?.orgs?.sections ?? []).map(sec => ({name: sec.name, aliases: aliases.get(sec.name) ?? []}));
@@ -477,7 +478,7 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
     // JOURNAL-조직현황AI요약: an organization with a summary offers its summary lines (no day) instead of the raw records.
     const summary = String(section.summary?.text ?? '').split('\n').map(s => s.trim()).filter(Boolean);
     const lines = summary.length ? summary.map(text => ({day: '', text: `- ${text}`, from: section.name, summary: true, src: 'ai'}))
-      : section.items.map(item => ({day: item.day, text: `- ${item.text}`, from: section.name, src: item.file ? 'doc' : 'record'}));
+      : section.items.map(item => ({day: item.day, text: `- ${item.text}`, from: section.name, src: item.file ? 'doc' : 'record', ...(item.body ? {body: item.body} : {})}));
     for (const line of lines) if (hit) byOrg.get(hit.index).push(line); else orgUnmatched.push(line);
   }
   // S46-22 ④: 같은 날 같은 글 후보는 한 번만(같은 기록이 두 곳에서 모이거나 같은 조직 줄이 두 번 맞을 때). 사람이 뺀 후보 거르기는

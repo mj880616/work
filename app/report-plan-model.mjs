@@ -1,11 +1,14 @@
 // S57-20 BIZ-보고할일정 PR A(설계 docs/design/biz-report-plan-link.md 4절): '보고할 일정' 규칙 한 곳 — DOM·네트워크 없음.
 // 일정 달력·사업 보고 달력·홈이 같이 쓴다. 저장은 report-plan-data.js(서버 표 app_calendar_report_plans, 사업 보고 표의 일정 id 칸).
 //   4-1 일정 하나의 표시: 이어진 보고 있음 = 보고 씀(done) → 결정 줄 on = 보고할 일정(todo) · off·skip = 표시 없음 → 줄이 없으면 같은 이름 기억
-//       → 기억도 없고 담당조직이 연결된 일정 = 보고할까요?(ask) → 그 밖에는 그냥 일정('').
+//       → 기억도 없고 담당조직이 연결되었거나 주요 일정인 일정 = 보고할까요?(ask, askReason) → 그 밖에는 그냥 일정('').
 //   4-2 같은 이름 기억: 사람이 정한 on·skip 줄 가운데 가장 나중 값. off는 그 일정 하나만 끈다(기억에 들지 않음).
 //       그 이름으로 일정에 이어 쓴 보고가 있으면 on(더 나중에 정한 skip이 있으면 skip).
 //   4-3 누를 때 저장: 줄이 있으면 고치기(PATCH), 없으면 넣기(POST). 저절로 켜진 줄(rule)은 on만 되므로 끌 때 decided_by=user를 같이 보낸다.
 //   4-5 사본 맞추기: 줄의 제목·날짜·시각·캘린더 id가 일정과 다르면 그 칸만 고친다(decided_at은 그대로).
+import {majorRule} from './weekly-major-schedule.mjs';
+import {titleOrg} from './record-window-model.mjs';
+
 export const PLAN_ON = 'on', PLAN_OFF = 'off', PLAN_SKIP = 'skip';
 export const BY_USER = 'user', BY_RULE = 'rule';
 export const STATUS_DONE = 'done', STATUS_TODO = 'todo', STATUS_ASK = 'ask';
@@ -82,13 +85,31 @@ export function planDecision(event, {plans = [], reports = []} = {}) {
 // 메뉴·일정 창 [보고할 일정]이 켜져 보이는가.
 export const planIsOn = (event, data) => planDecision(event, data).state === PLAN_ON;
 
+// 4-1 ④ '보고할까요?'를 물을 일정인가(S67-16, 명진 11/20 03:23 "넓혀"). 'org' 담당조직 연결 · 'major' 주요 일정 · '' 묻지 않음.
+//   담당조직 연결 = 조직 보고 창(record-window-model.mjs eventItems)과 같은 판정 ①·②:
+//     ① 일정에 붙인 조직(Google 일정의 kptu_suborg_ids — 일정 창에서 고른 담당조직) ② 제목에 내 담당조직 이름·다른 이름이 한 조직만 맞음.
+//   주요 일정 = ③ 사업영역 주요 일정 행(app_project_milestones의 google_event_id)에 오른 일정
+//               ④ 주간보고 '주요 일정' 기준(weekly-major-schedule.mjs majorRule — 기자회견·토론회·공동 집회·파업 집회·결의대회·선전전, 회의는 빼기).
+// hints = {orgs: 내 담당조직 [{id, name, aliases}](못 읽었으면 없음 — ②만 빠진다), areaEventIds: 사업영역 주요 일정 행의 일정 id 목록(Set·배열)}.
+const hasId = (list, id) => !!list && (typeof list.has === 'function' ? list.has(id) : Array.isArray(list) && list.includes(id));
+export const ASK_ORG = 'org', ASK_MAJOR = 'major';
+export function askReason(event, {orgs = null, areaEventIds = null} = {}) {
+  if (Array.isArray(event?.organizationIds) && event.organizationIds.length) return ASK_ORG;
+  const active = Array.isArray(orgs) ? orgs.filter(o => o && o.active !== false) : [];
+  if (active.length && titleOrg(event, active)) return ASK_ORG;
+  const id = String(event?.id ?? '');
+  if (id && hasId(areaEventIds, id)) return ASK_MAJOR;
+  return majorRule(event?.title) ? ASK_MAJOR : '';
+}
+
 // 4-1 일정 하나의 표시: 'done' 보고 씀 · 'todo' 보고할 일정 · 'ask' 보고할까요? · '' 그냥 일정.
-export function eventStatus(event, {plans = [], reports = []} = {}) {
+// data = {plans, reports, orgs?, areaEventIds?} — 뒤의 둘은 askReason 힌트(없으면 일정에 붙인 조직·제목 기준만 본다).
+export function eventStatus(event, {plans = [], reports = [], ...hints} = {}) {
   if (reportsOfEvent(event?.id, reports).length) return STATUS_DONE;
   const decision = planDecision(event, {plans, reports});
   if (decision.state === PLAN_ON) return STATUS_TODO;
   if (decision.row || decision.state === PLAN_SKIP) return '';
-  return Array.isArray(event?.organizationIds) && event.organizationIds.length ? STATUS_ASK : '';
+  return askReason(event, hints) ? STATUS_ASK : '';
 }
 
 const sameInstant = (a, b) => (a == null || a === '') ? (b == null || b === '') : (b != null && b !== '' && stamp(a) === stamp(b) && stamp(a) !== 0);

@@ -4,6 +4,7 @@
 // 모든 결과는 DOMPurify로 정화한 DOM 조각으로 넣고(문자열 재해석 없음), 외부 주소를 부르는 요소·속성은 남기지 않는다.
 import {createMarkdown, renderMarkdown, renderMath, safeHref, MERMAID_CONFIG} from './markdown-render.mjs';
 import {chatgptShareLinks} from './chatgpt-html.mjs';
+import {addVideoBoxes} from './video-embed.mjs';
 
 const LIB = new URL('./markdown-lib/', import.meta.url);
 export const MARKDOWN_LIBS = Object.freeze({
@@ -194,7 +195,9 @@ export function showPlainText(el, text) {
 // Render markdown into el. Once the core libraries are loaded the text is replaced in the same task (no flash
 // of plain text, no layout jump); before that the caller's plain text stays until they arrive, and stays for good
 // if they fail to load. isCurrent lets the caller drop a result that arrives after the note or account changed.
-export async function renderMarkdownInto(el, text, {isCurrent = () => true} = {}) {
+// videos: NOTE-유튜브보기 — true adds a small video box under each YouTube link (video-embed.mjs, the same box as ed-render's doc
+// view; its look is in ed-doc.css). Only the note·update read views ask for it.
+export async function renderMarkdownInto(el, text, {isCurrent = () => true, videos = false} = {}) {
   const job = (jobs.get(el) || 0) + 1;
   jobs.set(el, job);
   const live = () => jobs.get(el) === job && el.isConnected && isCurrent();
@@ -206,6 +209,7 @@ export async function renderMarkdownInto(el, text, {isCurrent = () => true} = {}
   const {html, math, mermaid} = renderMarkdown(lib.md, text);
   el.replaceChildren(lib.purify.page(html));
   el.classList.add('md-body');
+  if (videos) addVideoBoxes(el);
   if (el.querySelector('.md-image-chip')) watchChips(el);
   const tasks = [];
   if (math && el.querySelector('.md-math')) tasks.push(enhanceMath(el, live, lib.purify));

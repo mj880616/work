@@ -316,7 +316,9 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, pasteTarget 
   async function sameCheck(added) {
     try {
       const {screenSameFiles} = await import('./same-file.js');
-      const r = await screenSameFiles(added.map(e => e.file), {anchor: clip});
+      // 찾는 사이 [추가]로 이미 저장·올린 파일(대기에서 나감)은 묻지 않는다 — 늦게 끝난 찾기가 방금 올린 자기 파일을 찾아내므로.
+      const still = file => !isBusy() && !getBatch().blocked && getBatch().entries.some(e => e.kind === 'pending' && e.file === file);
+      const r = await screenSameFiles(added.map(e => e.file), {anchor: clip, still});
       if (!r.skipped.length || isBusy()) return;
       const batch = getBatch(), drop = new Set(r.skipped), before = batch.entries.length;
       if (batch.blocked) return;

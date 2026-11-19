@@ -171,7 +171,11 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 그누보드 보도자료/성명 게시판(ce_B12). 맨 위 고정 공지도 같은 주소 모양이라 머리말(공지·안내 등)로 거른다.
     key: "kmwu", name: "금속노조", group: "labor", lang: "ko", mode: "html",
     // @2(S51-15): 공용 추출기 고침(닫는 꼬리표 없는 빼는 칸·본문 앞 공유 줄) — failed/no_body 1건을 다시 뽑기(P2c)로 다시 본다(첨부·그림뿐인 글이면 그대로일 수 있음 [추정]).
-    extract: { version: 2, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
+    // @3(S67-19, 11/20 명진 캡처 '본문 칸을 찾지 못함'): 단체 본문 칸이 없어 글 쪽 첫 <article>(그누보드 #bo_v — 제목·작성자·첨부·'목록' 단추·본문·댓글이 한 칸)을
+    //   본문 칸으로 골랐고, 본문 앞 '목록' 단추 줄에서 끊겨 0줄이었다 [추정: 그누보드 기본 글 쪽 모양 기준, 실측 못 함 — 세션 네트워크가 kmwu.kr에 막힘].
+    //   → 그누보드 본문 칸 `#bo_v_con`을 단체 본문 칸으로 고정 + 공용 본문 줄 자르기(parse.ts bodyRange)가 본문 앞 게시판 단추 줄을 건너뜀. 판을 올려 옛 글을 다시 뽑기로 한 번 다시 읽는다.
+    extract: { version: 3, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
+    bodyClass: /^bo_v_con$/,
     lists: ["https://kmwu.kr/bbs/board.php?bo_table=ce_B12"], hosts: ["kmwu.kr", "www.kmwu.kr"],
     item: /^https:\/\/(www\.)?kmwu\.kr\/bbs\/board\.php\?(?=[^#]*\bbo_table=ce_B12\b)(?=[^#]*\bwr_id=\d+\b)/,
     canon: keepQuery(["bo_table", "wr_id"]),
@@ -319,7 +323,9 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     // 성명 게시판이 없고 공지사항에 [입장] 머리말로 올라온다(Q3). 공지사항은 [입장]만 성명으로 넣는다(공지·토론회 안내는 거름).
     // S52-37: 소식지 게시판(전국결집통신·이슈페이퍼 등) 글도 읽는다 — 종류 칸 '기사'(머리말이 [입장]·[성명]이면 성명).
     key: "leftall", name: "전국결집", group: "movement", lang: "ko", mode: "html",
-    extract: { version: 1, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
+    // @2(S67-19, 같은 종류 전수 검사): 금속노조와 같은 그누보드 글 쪽 — 본문 칸 `#bo_v_con`을 단체 본문 칸으로(없으면 예전 순서 그대로).
+    extract: { version: 2, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
+    bodyClass: /^bo_v_con$/,
     lists: [`${LEFTALL_LIST}notice`, `${LEFTALL_LIST}newsletter`], hosts: ["leftall.com", "www.leftall.com"],
     older: LEFTALL_OLDER,
     item: /^https:\/\/(www\.)?leftall\.com\/((notice|newsletter)\/\d+\/?$|bbs\/board\.php\?(?=[^#]*\bbo_table=(notice|newsletter)(&|$))(?=[^#]*\bwr_id=\d+\b))/,

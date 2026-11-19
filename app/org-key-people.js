@@ -138,18 +138,24 @@ function paint() {
   const data = ui.data, today = kstDay();
   if (!data) { host.innerHTML = html + '<p class="okp-faint" role="status">기록을 모으는 중…</p>'; return; }
   const open = onlyPerson(collectOpen({people, todos:data.todos, promises:data.promises}), ui.pick);
-  const recs = onlyPerson(collectRecords({people, calls:data.calls, personal:data.personal, telegram:data.telegram, senders:data.senders, meetings:data.meetings, rooms:data.rooms, since:addDays(today, -LIST_DAYS)}), ui.pick);
+  // SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 지난 기록 줄은 그리지 않고 '잠김' 한 줄만(몇 줄인지만).
+  const lockOf = feature => !!window.KPTUFeatureLock?.hides?.(feature) && !!window.KPTUFeatureLock?.settings?.();
+  const locked = {call: lockOf('calls'), personal: lockOf('calls'), telegram: lockOf('telegram')};
+  const every = onlyPerson(collectRecords({people, calls:data.calls, personal:data.personal, telegram:data.telegram, senders:data.senders, meetings:data.meetings, rooms:data.rooms, since:addDays(today, -LIST_DAYS)}), ui.pick);
+  const recs = every.filter(r => !locked[r.kind]), hiddenRecs = every.length - recs.length;
   const many = people.length > 1 && !ui.pick;
   html += `<h4 class="okp-h">열린 것<small>${open.length || ''}</small></h4>`;
   html += open.length ? `<ul class="okp-list">${open.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}<span class="okp-due${dday(r.due, today).startsWith('D+') ? ' late' : ''}">${esc(dday(r.due, today))}</span></button></li>${failHtml(r.key)}`).join('')}</ul>`
     : emptyHtml('약속·챙길 것 없음');
   html += `<h4 class="okp-h">지난 기록<small>${recs.length || ''}</small></h4>`;
   html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>${failHtml(r.key)}`).join('')}</ul>`
-    : emptyHtml('최근 120일 기록 없음');
+    : hiddenRecs ? '' : emptyHtml('최근 120일 기록 없음');
+  if (hiddenRecs) html += `<p class="okp-faint" data-okp-locked>통화·텔레그램 ${hiddenRecs}줄 · 잠김</p>`;
   if (data.partial) html += '<p class="okp-faint">일부 기록을 불러오지 못했어요.</p>';
   host.innerHTML = html;
   ui.rows = new Map([...open, ...recs].map(r => [r.key, r]));
 }
+window.addEventListener('kptu:feature-lock-changed', () => { if (ui?.host?.isConnected) paint(); });
 const failHtml = key => failed && failed.orgId === ui.orgId && failed.key === key ? '<li class="okp-fail" role="alert">원문을 열지 못했어요.</li>' : '';
 // '요즘' 줄은 늘 보인다. 문장이 없으면 빈 상태 글자. 세부(detail)는 접기.
 function briefHtml() {

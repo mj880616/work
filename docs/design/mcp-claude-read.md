@@ -81,7 +81,7 @@ claude.ai ──(4) 도구 호출 Bearer <OAuth 열쇠>──▶ mcp-read ──
 | --- | --- | --- | --- |
 | L1 DB 문지기 | Supabase REST(PostgREST)로 가는 모든 표·RPC(Web2·읽생기 모두) | PostgREST **요청 전 함수**(`pgrst.db_pre_request`) 하나: 열쇠에 `client_id`가 있으면 요청 경로가 `/rpc/app_mcp_` 허용 목록일 때만 통과, 나머지는 403. `client_id`가 없으면(지금의 모든 Web2·읽생기 로그인) 아무것도 하지 않음 | 읽생기는 OAuth 열쇠를 쓰지 않으므로 동작 변화 없음. 단 **요청 전 함수는 프로젝트에 하나뿐**이라 읽생기가 이미 쓰고 있으면 멈춘다(M-1 확인) |
 | L2 저장소 | Storage(파일) | `storage.objects`에 제한(restrictive) 정책 1개: `client_id`가 있는 열쇠는 모두 거절 | 정책이 좁히기만 함. 일반 로그인 영향 없음 |
-| L3 Edge 공통 검사 | 로그인 사용자를 확인하는 Edge 함수 27개(사실: 저장소에서 `auth/v1/user`·`getUser`를 쓰는 함수 수) | `_shared/delegated-token-guard.ts` 하나: Auth로 확인한 같은 열쇠에 `client_id`가 있으면 401. CI 정적 시험이 "사용자 확인을 하는 모든 함수가 이 검사를 부르는지" 확인(새 함수에서 빠뜨리면 CI 실패) | 읽생기 Edge는 건드리지 않음(읽생기 Edge는 OAuth 열쇠를 받을 일이 없고, 받아도 L1이 표 접근을 막음. 다만 서버 키를 쓰는 읽생기 함수가 있다면 남는 위험 → M-1 목록 확인) |
+| L3 Edge 공통 검사 | 로그인 사용자를 확인하는 Edge 함수 27개(사실: 저장소에서 `auth/v1/user`·`getUser`를 쓰는 함수 수) | `_shared/delegated-token-guard.mjs` 하나: Auth로 확인한 같은 열쇠에 `client_id`가 있으면 401. CI 정적 시험이 "사용자 확인을 하는 모든 함수가 이 검사를 부르는지" 확인(새 함수에서 빠뜨리면 CI 실패) | 읽생기 Edge는 건드리지 않음(읽생기 Edge는 OAuth 열쇠를 받을 일이 없고, 받아도 L1이 표 접근을 막음. 다만 서버 키를 쓰는 읽생기 함수가 있다면 남는 위험 → M-1 목록 확인) |
 
 - L1이 있어도 L3가 필요한 이유: 여러 Edge 함수는 사용자 확인 뒤 **서버 키**로 표·Drive·Google을 다룬다(사실: 서버 키를 읽는 함수 30개). 이런 함수는 L1을 거치지 않으므로 OAuth 열쇠를 명진으로 믿고 쓰기까지 할 수 있다.
 - `verify_jwt=true` 함수도 마찬가지다. 관문은 서명만 보므로 OAuth 열쇠를 통과시킨다(추정, M-7 시험).
@@ -267,7 +267,7 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | --- | --- | --- | --- |
 | M-0 | 이 문서 2판 + 명진 결정 D1~D3 | 없음 | — |
 | M-1 | 읽기 전용 사전 확인(CC, select만): `authenticator`의 요청 전 함수 설정, Realtime publication 표, `storage.objects` 정책, `auth.sessions` 칸, 요금제에서 OAuth 서버 사용 가능 여부, Web2가 쓰는 supabase-js 판의 OAuth 승인 함수 유무, 읽생기 Edge 중 서버 키를 쓰는 함수 | 없음(조회) | — |
-| M-2 | L3: `_shared/delegated-token-guard.ts` + 27개 함수에 한 줄 + CI 정적 시험 | 코드 PR(merge = CC). 그 뒤 **Edge 재배포 27번**(한 번에 하나, 함수마다 되돌리기 ref 기록) | 함수마다 이전 ref 재배포 |
+| M-2 | L3: `_shared/delegated-token-guard.mjs` + 27개 함수에 한 줄 + CI 정적 시험 | 코드 PR(merge = CC). 그 뒤 **Edge 재배포 27번**(한 번에 하나, 함수마다 되돌리기 ref 기록) | 함수마다 이전 ref 재배포 |
 | M-3 | migration(7절): 표 2개·문지기·읽기 함수 7개·요청 전 함수·Storage 제한 정책 + 짝 4개 | **DB migration**(승인형 workflow, 시험 적용 먼저) | rollback SQL(7.6) |
 | M-4 | Edge `mcp-read` 코드·시험(모의 응답으로 401 헤더·정보 문서·도구 목록·봉투·입력 검사·서버 키 없음 정적 시험) → 첫 배포 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`, `docs/web2-env6b-edge-source.md` 5절 표에 행 추가 | **Edge 첫 배포** | 이전 버전 없음 → 클라이언트 등록 전이라 쓰는 곳 없음, 필요 시 대시보드 삭제 판단 |
 | M-5 | Web2 동의 화면 + 설정 화면 [Claude 읽기 연결](스위치·[모든 연결 끊기]·최근 읽은 기록·이번 달 호출 수) | Pages 배포(= merge) | PR revert |

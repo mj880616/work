@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {
   nameKey, planTitle, eventNameKey, eventCopy, validEventId, validCalendarId, reportsOfEvent, planRowOf, rememberedState,
-  planDecision, planIsOn, eventStatus, copyPatch, decisionWrite, ruleWrite, reportLink, isMissingStore, NO_TITLE, TITLE_MAX
+  planDecision, planIsOn, eventStatus, askReason, copyPatch, decisionWrite, ruleWrite, reportLink, isMissingStore, NO_TITLE, TITLE_MAX
 } from '../app/report-plan-model.mjs';
 
 // S57-20 BIZ-보고할일정 PR A: 설계 docs/design/biz-report-plan-link.md 4절 규칙(가짜 데이터만).
@@ -91,6 +91,38 @@ test("4-1 표시 순서: 보고 씀 → 결정 줄 → 같은 이름 기억 → 
   assert.equal(planDecision(ev('zz', '모르는 일정'), weekly).from, '');
 });
 
+test("S67-16 '보고할까요?' 넓힘: 담당조직 연결(붙인 조직·제목의 조직 이름) + 주요 일정(사업영역 주요 일정 행·주간보고 주요 일정 기준)", () => {
+  const orgs = [{id: 'o1', name: '가짜지부', aliases: ['가지'], active: true}, {id: 'o2', name: '예시본부', aliases: [], active: true}, {id: 'o3', name: '쉬는지회', aliases: [], active: false}];
+  // ① 붙인 조직(예전 그대로) ② 제목에 내 조직 이름·다른 이름이 한 조직만 맞으면 — 조직 보고 창과 같은 판정
+  assert.equal(askReason(ev('a1', '아무 일정', {organizationIds: ['o9']})), 'org');
+  assert.equal(askReason(ev('a2', '가짜 지부 현장 방문'), {orgs}), 'org');
+  assert.equal(askReason(ev('a3', '가지 간담회'), {orgs}), 'org');
+  assert.equal(askReason(ev('a4', '가짜지부·예시본부 합동 점검'), {orgs}), ''); // 두 조직이 맞으면 어느 쪽인지 모름 → 묻지 않음
+  assert.equal(askReason(ev('a5', '쉬는지회 방문'), {orgs}), ''); // 쉬는 조직은 빼고 본다
+  assert.equal(askReason(ev('a2', '가짜 지부 현장 방문')), ''); // 조직 목록을 못 읽으면 제목 판정만 빠진다
+  // ③ 사업영역 주요 일정 행에 오른 일정 ④ 주간보고 '주요 일정' 기준(회의는 빼기)
+  assert.equal(askReason(ev('m1', '점심 약속'), {areaEventIds: new Set(['m1'])}), 'major');
+  assert.equal(askReason(ev('m1', '점심 약속'), {areaEventIds: ['m1']}), 'major');
+  assert.equal(askReason(ev('m2', '예시 공동 기자회견')), 'major');
+  assert.equal(askReason(ev('m3', '총력투쟁 결의대회')), 'major');
+  assert.equal(askReason(ev('m4', '기자회견 준비 회의')), ''); // 회의는 주요 일정이 아니다
+  assert.equal(askReason(ev('m5', '점심 약속')), '');
+  // 판정은 eventStatus 한 곳: 결정 줄·같은 이름 기억·보고 씀이 먼저다(이미 보고를 쓴 일정은 ●, 뺀 이름은 다시 묻지 않음).
+  const data = {plans: [row('s1', '예시 공동 기자회견', 'skip')], reports: [report('r1', 'd1', '총력투쟁 결의대회')], orgs, areaEventIds: new Set(['m1'])};
+  assert.equal(eventStatus(ev('m1', '점심 약속'), data), 'ask');
+  assert.equal(eventStatus(ev('a2', '가짜 지부 현장 방문'), data), 'ask');
+  assert.equal(eventStatus(ev('m9', '예시 공동 기자회견'), data), ''); // [빼기]한 이름
+  assert.equal(eventStatus(ev('d1', '총력투쟁 결의대회'), data), 'done');
+  assert.equal(eventStatus(ev('d2', '총력투쟁 결의대회'), data), 'todo'); // 그 이름으로 일정에 이어 쓴 보고가 있음 → 저절로 □
+});
+
+test('S67-16 판정이 부르는 모듈도 DOM·네트워크를 쓰지 않는다', () => {
+  for (const p of ['app/weekly-major-schedule.mjs', 'app/record-window-model.mjs']) {
+    const src = read(p).replace(/^\s*\/\/.*$/gm, '').replace(/from '[^']*'/g, "from ''");
+    assert.doesNotMatch(src, /\b(document|window)\.|\bfetch\(/, p); // record-window-model.mjs의 'window'(창 규칙 이름) 글자는 거르지 않는다
+  }
+});
+
 test('이어진 보고는 가장 나중에 쓴 것이 앞, 줄 찾기는 일정 id만으로', () => {
   const reports = [report('r1', 'e1', '가', {created_at: '2026-11-01T00:00:00Z'}), report('r2', 'e1', '가', {created_at: '2026-11-03T00:00:00Z'}), report('r3', 'e2', '나')];
   assert.deepEqual(reportsOfEvent('e1', reports).map(r => r.id), ['r2', 'r1']);
@@ -156,7 +188,8 @@ test('새 표·새 칸이 없는 서버의 응답을 알아본다(그때 화면�
 });
 
 test('규칙 모듈은 DOM·네트워크·기기 저장을 쓰지 않는다', () => {
-  const src = read('app/report-plan-model.mjs').replace(/^\s*\/\/.*$/gm, '');
+  // 부르는 모듈 이름(record-window-model.mjs 등)의 글자는 빼고 본다 — 부르는 모듈도 순수 모듈인지는 아래 시험이 본다.
+  const src = read('app/report-plan-model.mjs').replace(/^\s*\/\/.*$/gm, '').replace(/from '[^']*'/g, "from ''");
   // 기기 저장 API 이름은 저장소 검사(browser-storage-audit)가 글자로 막으므로 조각으로 만든다.
   const device = ['local', 'session'].map(x => x + 'Storage').concat('indexed' + 'DB');
   assert.doesNotMatch(src, new RegExp('\\b(' + ['document', 'window', 'fetch', ...device].join('|') + ')\\b'));

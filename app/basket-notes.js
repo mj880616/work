@@ -1,6 +1,8 @@
 import {waitInlineHtml, emptyHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
+// SEC-기능PIN잠금 노트 폴더(S67-14): 잠근 폴더(하위 폴더 포함)의 노트는 줄·포스트잇·태그·댓글·검색 결과에서 제목·내용 대신 '잠김'. 판정은 feature-lock.js 한 곳.
+import * as pinLock from './feature-lock.js';
 import { followPane } from './follow-pane.js';
 import { mountSplitResize } from './split-resize.js';
 import { treeIconHtml, iconSvg } from './tree-icons.js';
@@ -44,6 +46,7 @@ import { paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, 
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
+import { addVideoBoxes } from './video-embed.mjs';
 import { copyText } from './copy-text.js';
 import { GOTO_FOLDER_LABEL, flashRow } from './goto-folder.mjs'; // LIB-최근폴더로가기(S61-12): '최근' 노트 줄 메뉴 맨 위 [폴더로 가기]
 import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
@@ -84,7 +87,8 @@ import { createNoteComments } from './note-comments-ui.js';
 import {fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기
 import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑦: 노트 폴더 나무 | 목록은 펼친 폴드(600px~)부터 — 공용 판정 한 곳
 // NOTE-주소로 가져오기 2단계: 가져오는 중인 노트 줄('○○에서 가져오는 중…')과 열린 노트 맨 위 원문 칸(그리는 곳은 note-import-view.js 한 곳).
-import { NOTE_IMPORT_EVENT, isImporting } from './note-import.js';
+import { NOTE_IMPORT_EVENT, isImporting, importIntoNote } from './note-import.js';
+import { noteLinkUrl } from './note-import-model.mjs';
 import { paintNoteSource } from './note-import-view.js';
 import { busyTitle, noteSource } from './note-import-model.mjs';
 // NEWS-클리핑 C2: 기사 메모 노트(metadata.news_item_id) → 기사 id.
@@ -95,6 +99,7 @@ const day = value => { const d = new Date(value); return Number.isNaN(d.getTime(
 // UI-바구니상세개편: [복사] on every note row and in the read view (same conversion as the write window's 텔레그램용 복사).
 const MORE_ICON = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const PIN_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 2.5h4M7 2.5v4l-2.5 3h7L9 6.5v-4M8 9.5v4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const LOCKED = '잠김';
 const COPY_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 function showToast(message) {
   const toast = document.querySelector('#toast'); if (!toast) return;
@@ -152,7 +157,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const newsMarks = createNoteNewsMarks({head:host.querySelector('[data-nnm-head]'), box:host.querySelector('[data-nnm]'), onChange:() => { if (loaded && !selected && !marksRun) renderList(); },
     // 노트 › 밑줄 줄의 노트 밑줄: 그 노트를 열고 그 자리로(없으면 알림). 노트 글자는 '원문이 바뀌었어요' 판단에만 쓴다.
     openNote:(id, hlId) => { if (!loaded) return; if (!notes.some(n => n.id === id)) { notify('원문 노트를 찾을 수 없어요', {error:true, record:false}); return; } hlReveal = hlId || null; open(id); },
-    noteText:id => { if (!loaded) return undefined; const n = notes.find(row => row.id === id); return n ? String(n.raw_text || '') : null; }});
+    noteText:id => { if (!loaded) return undefined; const n = notes.find(row => row.id === id); return n ? String(n.raw_text || '') : null; },
+    noteHidden:id => pinLock.noteHidden(notes.find(row => row.id === id))});
   // 노트 읽기 본문의 밑줄(S62-17): 본문을 그린 뒤 이 노트의 밑줄을 노란 띠로 칠한다(칸 글자는 그대로, <mark>만 — text-highlights.js paintMarks).
   // hlReveal: 노트 › 밑줄에서 연 밑줄 — 칠해지면 그 자리로 한 번 옮기고, 노트 글이 바뀌어 자리를 못 찾으면 작은 알림 한 번(밑줄은 지우지 않음).
   let hlReveal = null;
@@ -206,7 +212,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     return `<span class="basket-chip" data-chip-kind="${esc(kind)}"><span class="basket-chip-dot ui-color-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}</span>`;
   }).join('');
   // 검색은 제목·본문(해시태그 포함)과 그 노트 댓글까지.
-  const matches = note => !query || `${note.title || ''}\n${note.raw_text || ''}\n${commentText(comments, note.id)}`.toLowerCase().includes(query);
+  // 잠겨 가려진 노트는 찾기에 걸리지 않는다(내용으로 찾아지면 그 글자가 들어 있다는 것이 드러남).
+  const matches = note => !query || !pinLock.noteHidden(note) && `${note.title || ''}\n${note.raw_text || ''}\n${commentText(comments, note.id)}`.toLowerCase().includes(query);
   const folderOf = note => foldersReady ? noteFolderId(note, folders) : noteFolderIdLegacy(note, folders);
   const folderById = id => folders.find(f => f.id === id) || null;
   const folderName = id => folderById(id)?.name || null;
@@ -227,7 +234,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const pcTree = tree && !pick.active, kids = pcTree ? !!r.hasChildren : r.hasContent !== false;
     return ftFolderRowHtml({name:r.name, count:r.count, countLabel:`노트 ${r.count}개`, depth:r.depth || 0, open:pcTree ? !!r.open : r.open || current, hasContent:kids,
       toggle:pcTree ? {attrs:{'data-nx-tog':r.id}, label:`${r.name} ${r.open && kids ? '접기' : '펼치기'}`} : null,
-      color:r.color, current, picked:isPicked(key), lead:pick.active ? pickBox(key) : '', tree, className:'nx-folder',
+      color:r.color, current, picked:isPicked(key), lead:pick.active ? pickBox(key) : '', tree, className:'nx-folder', tag:pinLock.folderLocked(r.id) && pinLock.notesHidden() ? LOCKED : '',
       rowAttrs:{'data-nx-folder':r.id, 'data-reorder-id':key}, mainAttrs:{'data-nx-open':r.id},
       more:{attrs:{'data-nx-folder-more':r.id, 'aria-controls':'noteDocMenu'}, label:`${r.name} 폴더 메뉴`, className:'nx-more'}});
   }
@@ -247,8 +254,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // ② one line: title (own → AI title → first line) + 📎 when files + date. No preview, no link chips.
   function noteRowHtml(r) {
     // NOTE-주소로 가져오기: 가져오는 중인 노트 줄은 제목 자리에 '○○에서 가져오는 중…'(이번 접속에서 읽는 동안만. 저장된 제목은 그대로다).
-    const note = r.note, importing = isImporting(note.id), title = importing ? busyTitle(noteSource(note)) : noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
-    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${isPicked(key) ? ' nx-picked' : ''}"${importing ? ' data-ni-busy' : ''} data-nx-note="${esc(note.id)}" data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
+    const note = r.note, hidden = pinLock.noteHidden(note), importing = !hidden && isImporting(note.id), title = hidden ? LOCKED : importing ? busyTitle(noteSource(note)) : noteLineTitle(note), name = [...title].slice(0, 40).join(''), key = 'n:' + note.id;
+    return `<div class="basket-row-item note-row-item nx-row nx-note${r.tree ? ' ft-item' : ''}${isPicked(key) ? ' nx-picked' : ''}"${importing ? ' data-ni-busy' : ''} data-nx-note="${esc(note.id)}"${hidden ? ' data-nx-locked' : ''} data-reorder-id="n:${esc(note.id)}"${r.recent ? ' data-nx-recent-row' : ''}${r.tree && r.parent !== undefined ? ` data-ft-parent="${esc(r.parent ?? '')}"` : ''} style="--nx-indent:${r.indent};--ft-depth:${r.indent}"><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"${pick.active ? ` aria-pressed="${isPicked(key)}"` : ''}>${pick.active ? pickBox(key) : ''}<b class="basket-title">${notePinnedAt(note) && !hidden ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : ''}<span class="basket-title-text">${esc([...title].slice(0, 80).join(''))}</span></b>${r.path ? `<span class="row-tail nx-path"${r.fc ? ` data-fc="${r.fc}"` : r.tone ? ` data-tone="${r.tone}"` : ''}${r.recent ? ' data-nx-recent-folder' : ''}>${r.recent ? '<span class="a11y-only">폴더: </span>' : ''}${esc(r.path)}</span>` : ''}${note.attachments?.length && !hidden ? `<span class="nx-clip" aria-label="첨부 ${note.attachments.length}개">${iconSvg('clip', {size: 12})}</span>` : ''}<time datetime="${esc(note.updated_at || '')}" title="수정한 날 ${esc(day(note.updated_at))}">${esc(noteLineDate(note.updated_at))}</time></button></div>`;
   }
   const rowHtml = (r, opts) => r.type === 'folder' ? folderRowHtml(r, opts) : r.type === 'outside' ? outsideRowHtml(r, opts) : r.type === 'more' ? moreRowHtml(r) : noteRowHtml(r);
   function paintWhere() {
@@ -288,6 +295,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const listViewRows = m => notes.filter(n => !m || m(n)).sort(byChange).map(note => { const fid = folderOf(note), name = fid ? folderName(fid) : null; const fc = fid ? colorOf(folderById(fid)) : null; return {type:'note', note, indent:0, path:name || '', fc, tone:name && !fc ? folderTone(fid) : ''}; });
   // ④ 포스트잇 칸 글: 제목 + 앞 2~3줄 + 폴더 이름.
   function boardText(note, fid) {
+    if (pinLock.noteHidden(note)) return {title:LOCKED, text:'', folder:fid ? folderName(fid) || '' : ''};
     const title = [...noteLineTitle(note)].slice(0, 60).join('');
     const lines = plainLines(note.raw_text).filter((line, i) => !(i === 0 && line.trim() === title.trim())).slice(0, 3);
     return {title, text:[...lines.join('\n')].slice(0, 140).join(''), folder:fid ? folderName(fid) || '' : ''};
@@ -409,12 +417,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // NOTE-읽생기아이디어 ② [태그]: 위에 태그 칩(노트 수 많은 순), 아래 고른 태그의 노트(목록 보기와 같은 한 줄). 처음은 가장 많은 태그.
   function paintTagView(chipsBox, rowsBox, m) {
-    const groups = tagGroups(notes.filter(n => !m || m(n)));
+    const groups = tagGroups(notes.filter(n => (!m || m(n)) && !pinLock.noteHidden(n)));
     if (!groups.some(g => g.key === tagAt)) tagAt = groups[0]?.key || null;
     chipsBox.setAttribute('aria-label', '해시태그');
     chipsBox.innerHTML = groups.map(g => `<button type="button" class="nt-chip" data-nt-tag="${esc(g.key)}" aria-pressed="${g.key === tagAt}">#${esc(g.tag)}<span class="nt-num" aria-label="노트 ${g.count}개">${g.count}</span></button>`).join('');
     chipsBox.hidden = !groups.length;
-    rowsBox.innerHTML = groups.length ? listViewRows(note => (!m || m(note)) && noteHasTag(note, tagAt)).map(r => rowHtml(r)).join('') : emptyHtml(m ? '맞는 노트 없음' : '태그 없음');
+    rowsBox.innerHTML = groups.length ? listViewRows(note => (!m || m(note)) && !pinLock.noteHidden(note) && noteHasTag(note, tagAt)).map(r => rowHtml(r)).join('') : emptyHtml(m ? '맞는 노트 없음' : '태그 없음');
   }
   // NOTE-읽생기아이디어 ① [댓글] 모아 보기: 유형 칩(전체·생각·질문·인용)으로 거르고 최근 쓴 순. 줄을 누르면 그 노트를 연다.
   function paintCommentView(chipsBox, rowsBox) {
@@ -422,8 +430,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     chipsBox.hidden = false;
     chipsBox.innerHTML = [{key:'', name:'전체'}, ...COMMENT_KINDS].map(k => `<button type="button" class="nt-chip" data-nt-kind="${k.key}" aria-pressed="${(cmKind || '') === k.key}">${esc(k.name)}</button>`).join('');
     if (!commentsReady) { rowsBox.innerHTML = emptyHtml(commentsMissing ? '댓글은 준비 중이에요.' : '댓글을 읽지 못했어요.'); return; }
-    const byId = new Map(notes.map(n => [n.id, n]));
-    const rows = commentRows(comments, {kind:cmKind, query, noteById:id => byId.get(id)});
+    const byId = new Map(notes.filter(n => !pinLock.noteHidden(n)).map(n => [n.id, n]));
+    const rows = commentRows(comments.filter(c => byId.has(c.note_id)), {kind:cmKind, query, noteById:id => byId.get(id)});
     rowsBox.innerHTML = rows.length ? rows.map(c => { const note = byId.get(c.note_id), title = [...noteLineTitle(note)].slice(0, 60).join('');
       return `<div class="nx-row nt-cm-row" data-nt-cm="${esc(c.id)}"><button type="button" class="nt-cm-open" data-nt-cm-open="${esc(c.note_id)}"><span class="note-cm-kind" data-kind="${esc(c.kind)}">${esc(kindName(c.kind))}</span><span class="nt-cm-text">${c.quote ? `<q>${esc([...c.quote].slice(0, 80).join(''))}</q> ` : ''}${esc([...c.body].slice(0, 200).join(''))}</span><span class="row-tail nx-path"><span class="a11y-only">노트: </span>${esc(title)}</span><time class="row-tail" datetime="${esc(c.created_at || '')}">${esc(noteLineDate(c.created_at))}</time></button></div>`; }).join('') : emptyHtml(query ? '맞는 댓글 없음' : '댓글 없음');
   }
@@ -435,7 +443,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     status.innerHTML = waitInlineHtml(); host.querySelector('[data-note-retry]').hidden = true;
     marksRun = run;
     try {
-      const [result, fold, cm] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt), readNoteComments(rt), newsMarks.load()]);
+      const [result, fold, cm] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt), readNoteComments(rt), newsMarks.load(), pinLock.ready()]);
       if (marksRun === run) marksRun = 0;
       if (run !== epoch || owner !== scope()) return;
       notes = result.notes; links = result.links; loaded = true;
@@ -485,11 +493,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '삭제', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
     if (from === 'folder') {
+      // SEC-기능PIN잠금: 잠겨 가려진 폴더(하위 포함)는 [열기](PIN)·[잠금 해제]만. 잠그기·풀기는 표 폴더(id가 있는 폴더)만.
+      const lockable = canEditFolders() && !!folderById(folderId) && !String(folderId).startsWith('name:');
+      const lockItem = lockable ? [pinLock.folderLocked(folderId) ? ['data-nx-lock-folder', '잠금 해제'] : ['data-nx-lock-folder', '잠금']] : [];
+      if (pinLock.notesHidden() && pinLock.folderCovered(folderId)) return [['data-nx-lock-open', '열기'], ...(pinLock.folderLocked(folderId) ? lockItem : [])];
       const step = folderStepState(folderId);
       // NOTE-폴더메뉴새노트(11/07): 맨 위 [새 노트] — 기존 새 노트 창이 이 폴더가 골라진 채로 열린다(newNoteIn).
       return [['data-nx-new-note', '새 노트'], ['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-color', '색 선택…'],
         ...(step.up ? [['data-nx-folder-up', '위로']] : []), ...(step.down ? [['data-nx-folder-down', '아래로']] : []),
-        ['data-nx-move-folder', '옮기기…'], ['data-nx-delete-folder', '폴더 삭제', 'basket-menu-danger']] : [])];
+        ['data-nx-move-folder', '옮기기…'], ...lockItem, ['data-nx-delete-folder', '폴더 삭제', 'basket-menu-danger']] : [])];
     }
     // PRESS-성명초안삭제(11/09 명진 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
     if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
@@ -507,6 +519,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'list' && view === 'board' && boards.isNamed() && onBoard(note, boards.current()) ? [['data-nbb-detach', '보드에서 빼기']] : []),
       ...(from === 'list' && view === 'board' && boards.isNamed() && !onBoard(note, boards.current()) ? [['data-nbb-attach', '보드에 붙이기']] : []),
       ['data-note-pin', notePinnedAt(note) ? '고정 풀기' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
+      // NOTE-링크원문: 본문(또는 원문 정보)에 https 링크가 있으면 [원문 가져오기] — 이미 쓴 글은 덮지 않고 아래에 붙인다(다시 가져오기도 이것 하나).
+      ...(from === 'detail' && noteLinkUrl(note) && !isImporting(note.id) ? [['data-note-import', '원문 가져오기']] : []),
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       // FAMILY-기억알림: 가족 '잊지 말기' 노트만 [줄 정리] — 줄을 고르면 홈 '가족 · 기억할 것' 줄 ⋯와 같은 메뉴(family-remind-menu.js, [과거 기록으로]).
       ...(from === 'detail' && note?.metadata?.family_list === true ? [['data-note-remind-lines', '줄 정리']] : []),
@@ -539,6 +553,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   function openMenu(trigger, note, from, fileId = null, folderId = null) {
     if (!note && !['folder', 'head', 'picked', 'board'].includes(from)) return;
+    if (note && pinLock.noteHidden(note)) { pinLock.askNotes(); return; }
     if (menu?.trigger === trigger) { closeMenu({focus: true}); return; }
     closeMenu();
     const el = menuEl();
@@ -629,8 +644,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
     text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
-    if (!noteMarkdown(selected)) { noteMarksNow(); return; }
-    void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing}).then(() => { if (owner === scope() && selected?.id === id) noteMarksNow(); });
+    // NOTE-유튜브보기: 있는 그대로 보기에서도 글 속 유튜브 주소마다 영상 칸(글 끝에, ▶ 누를 때 재생). 글자는 그대로.
+    if (!noteMarkdown(selected)) { addVideoBoxes(text, {whole: true}); noteMarksNow(); return; }
+    void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing, videos: true}).then(() => { if (owner === scope() && selected?.id === id) noteMarksNow(); });
   }
   function paintMode() {
     if (!selected) return;
@@ -667,9 +683,16 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let zoomBox = null, lineGrip = null;
   const paintZoom = () => { detail.style.setProperty('--note-zoom', String(zoomScale())); lineGrip?.place(); };
   window.addEventListener(NOTE_ZOOM_EVENT, paintZoom);
+  // 잠금이 풀리거나 다시 잠기면 목록을 다시 그린다. 열린 노트가 다시 잠긴 폴더에 있으면 닫는다(그 자리에 자료를 남기지 않음).
+  window.addEventListener('kptu:feature-lock-changed', () => {
+    if (!loaded) return;
+    if (selected && pinLock.noteHidden(selected)) { close({focus:false, force:true}); return; }
+    if (!selected) renderList();
+  });
   // PC: 열린 노트 읽기 칸 위에서만 Ctrl+휠·Ctrl+(+ − 0)이 이 배율을 바꾼다(고치는 중에는 브라우저 그대로).
   bindZoomKeys(detail, {active:() => !!selected && !editing && !detail.hidden});
   function open(id, {focus = true} = {}) {
+    if (pinLock.noteHidden(notes.find(n => n.id === id))) { pinLock.askNotes(); return; }
     if (!selected) listScroll = window.scrollY;
     selected = notes.find(n => n.id === id); if (!selected) return;
     showDetail();
@@ -1001,6 +1024,17 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (run !== epoch || owner !== scope()) return;
       report(error?.code === 'note_changed' ? error.message : pinned ? '고정하지 못했어요. 다시 시도해 주세요.' : '고정을 풀지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch) lock(false); else busy = false; }
+  }
+  // NOTE-링크원문: ⋯ [원문 가져오기] — 노트 위 [가져오기]와 같은 한 길(note-import.js importIntoNote). 끝·실패는 공용 작은 알림과 원문 칸.
+  async function importLink(note) {
+    const owner = scope(), id = note.id;
+    try {
+      const saved = await importIntoNote(note, {rt});
+      if (owner !== scope()) return;
+      if (!saved) { say('가져오지 못했어요. 다시 눌러 주세요.'); return; }
+      if (saved?.metadata) applySaved(id, saved);
+      if (selected?.id === id && !editing) paintRead();
+    } catch { if (owner === scope()) say('가져오지 못했어요. 다시 눌러 주세요.'); }
   }
   // ---- NOTE-탐색기: 폴더 옮기기·새 폴더·이름·지우기·선택 모드·끌어 놓기 ----
   const applySaved = (id, saved) => {
@@ -1452,7 +1486,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (from.from === 'head' && b.hasAttribute('data-nx-help')) { void import('./help-link.js').then(m => m.openHelp('note')); return; }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
-      if (b.hasAttribute('data-nx-select')) startSelect(from.from === 'folder' ? 'f:' + id : null);
+      if (b.hasAttribute('data-nx-lock-open')) pinLock.askNotes();
+      else if (b.hasAttribute('data-nx-lock-folder')) { const f = folderById(id); if (f) pinLock.askNotes({folder:{id:f.id, name:f.name, locked:!pinLock.folderLocked(f.id)}}); }
+      else if (b.hasAttribute('data-nx-select')) startSelect(from.from === 'folder' ? 'f:' + id : null);
       else if (b.hasAttribute('data-nx-new-note')) newNoteIn(id);
       else if (b.hasAttribute('data-nx-enter')) enter(id);
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
@@ -1482,6 +1518,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
     else if (b.hasAttribute('data-basket-link-open')) { const id = selected?.id; void manual.open('link', b).then(message => { if (selected?.id === id) say(message || ''); }); }
     else if (b.hasAttribute('data-note-to-basket')) void toBasket();
+    else if (b.hasAttribute('data-note-import')) void importLink(note);
     else if (b.hasAttribute('data-note-remind-lines')) void import('./family-remind-menu.js').then(m => m.openRemindLines(from.trigger, {rt, note,
       onDone: () => { if (!editing && selected?.id === note.id) void reload(); }, onFail: text => say(text)})).catch(() => say('메뉴를 열지 못했어요.'));
     else if (b.hasAttribute('data-note-to-diary')) void toDiary(note.id, from.trigger);

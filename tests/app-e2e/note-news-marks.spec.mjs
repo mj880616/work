@@ -36,7 +36,8 @@ async function fixture(page, width, opts = {}) {
     { id: NEWS1, lane: 'keyword', url: 'https://example.org/a1', title: '철도 안전점검 인력 확대 가상 기사', lang: 'ko', publisher: '가상일보', published_at: '2026-10-04T00:00:00Z', created_at: '2026-10-04T00:00:00Z', summary: null, title_ko: null, starred_at: '2026-10-05T02:00:00Z', folder_id: null, state: 'ok', body_kind: null },
     { id: NEWS2, lane: 'keyword', url: 'https://example.org/a2', title: '내년 예산 편성 가상 지침', lang: 'ko', publisher: '가상뉴스', published_at: '2026-10-02T00:00:00Z', created_at: '2026-10-02T00:00:00Z', summary: null, title_ko: null, starred_at: '2026-10-04T02:00:00Z', folder_id: null, state: 'ok', body_kind: null },
   ];
-  const marks = [{ post_id: POST1, starred_at: null, archived_at: '2026-10-05T03:00:00Z', app_outside_posts: { id: POST1, source_key: 'kctu', kind: 'statement', lang: 'ko', title: '현장 노동자 안전 가상 증언 모음', title_ko: null, url: 'https://example.org/p1', published_at: '2026-10-03T00:00:00Z', fetched_at: '2026-10-03T00:10:00Z', summary_ko: null, key_sentences: [], has_body: false } }];
+  // S67-09: 옛 보관 표시는 DB(20261119120000)가 별표(같은 시각)로 채웠다 — 옮긴 뒤 모양(보관 = 별표).
+  const marks = [{ post_id: POST1, starred_at: '2026-10-05T03:00:00Z', archived_at: '2026-10-05T03:00:00Z', app_outside_posts: { id: POST1, source_key: 'kctu', kind: 'statement', lang: 'ko', title: '현장 노동자 안전 가상 증언 모음', title_ko: null, url: 'https://example.org/p1', published_at: '2026-10-03T00:00:00Z', fetched_at: '2026-10-03T00:10:00Z', summary_ko: null, key_sentences: [], has_body: false } }];
   await page.route(u => u.origin === SB && u.pathname.startsWith('/rest/v1/'), async r => {
     const req = r.request(), u = new URL(req.url()), table = u.pathname.slice('/rest/v1/'.length), method = req.method(), q = u.searchParams;
     const id = (q.get('id') || '').replace(/^eq\./, '');
@@ -139,7 +140,9 @@ test('880: 보관한 글 — [전체|뉴스|사회운동 글] 거르기, 줄 ⋯
   await expect(b.locator('[data-nnm-kind]')).toHaveText(['전체', '뉴스', '사회운동 글']);
   await expect(b.locator('.nnm-sv')).toHaveCount(3);
   await expect(b.locator('.nnm-sv').first().locator('.nnm-t')).toHaveText('현장 노동자 안전 가상 증언 모음');
-  await expect(b.locator('.nnm-sv').first().locator('.nnm-tag')).toHaveText('보관');
+  // 보관 = 별표(S67-09): 사회운동 글 줄도 ★, '보관' 글씨 없음.
+  await expect(b.locator('.nnm-sv').first().locator('.nnm-star')).toBeVisible();
+  await expect(b.locator('.nnm-sv').first().locator('.nnm-tag')).toHaveCount(0);
   await expect(b.locator('.nnm-sv').nth(1).locator('.nnm-star')).toBeVisible();
   if (SHOTS) await page.screenshot({ path: SHOTS + '880-3-saved.png' });
   await b.locator('[data-nnm-kind="news"]').click();

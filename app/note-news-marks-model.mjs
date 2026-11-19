@@ -25,7 +25,7 @@ export const filterSavedKind = (rows, kind) => {
   return (rows || []).filter(r => k === 'all' || r?.type === k);
 };
 
-// 보관한 글 줄 값: 제목 · 매체 · 날짜(MM/DD) · 표시(★ 별표 / '보관'). nameOf(source_key) → 사회운동 매체 이름(모르면 null).
+// 보관한 글 줄 값: 제목 · 매체 · 날짜(MM/DD) · ★(보관 = 별표, S67-09). nameOf(source_key) → 사회운동 매체 이름(모르면 null).
 export function savedLine(r, nameOf = () => null) {
   const row = r?.row || {};
   if (r?.type === 'news') {
@@ -33,7 +33,7 @@ export function savedLine(r, nameOf = () => null) {
     return {key: `news:${r.id}`, type: 'news', id: r.id, title: v.title, media: v.publisher || '', day: shortDay(row.published_at || row.created_at), star: true};
   }
   const v = postView(row);
-  return {key: `outside:${r?.id}`, type: 'outside', id: r?.id, title: v.title || '제목 없음', media: nameOf(row.source_key) || '사회운동', day: shortDay(row.published_at || row.fetched_at), star: !!r?.star && !r?.archive};
+  return {key: `outside:${r?.id}`, type: 'outside', id: r?.id, title: v.title || '제목 없음', media: nameOf(row.source_key) || '사회운동', day: shortDay(row.published_at || row.fetched_at), star: !!r?.star};
 }
 
 // 노트 검색 칸 글자로 찾기: 밑줄은 고른 글·메모·기사 제목·매체(News [밑줄] 탭과 같은 hlHit), 보관한 글은 제목(News [보관] 탭과 같은 titleHit).

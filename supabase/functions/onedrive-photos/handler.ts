@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import {
   AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, cleanFolderName, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_MAX, GRAPH_BATCH_PHOTOS, graphNextLink, insideFolder,
   isMediaMime, LIBRARY_DEFAULT, LIBRARY_MAX, LIBRARY_SCAN_PAGES, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, MEDIA_URL_TTL_S, mediaFields,
@@ -2010,6 +2011,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const { data, error } = await admin.auth.getUser(m[1]);
       if (error && ![400, 401, 403, 404].includes(Number(error.status))) throw new Fail(503, "auth_unavailable");
       if (error || !data.user) throw new Fail(401, "session_required");
+      if (isDelegatedToken(m[1])) throw new Fail(401, "session_required");
       if (req.method !== "POST") return json({ error: "POST only" }, 405);
       const { data: member, error: memberError } = await admin.from("app_workspace_members")
         .select("workspace_id,role").eq("user_id", data.user.id).maybeSingle();

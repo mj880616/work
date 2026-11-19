@@ -33,7 +33,7 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic']};
+  const PLACE_PARAMS={lock:['for','renew'],meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic']};
   const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
@@ -623,10 +623,9 @@
   }
 
   function syncNavigationState(view){
-    // Phone [일정] tab holds 달력(calendar), 할 일(tasks) and 일기(diary): it opens the side seen last
-    // in this tab, so the tab and current mark follow one attribute. (HOME-업무일지홈: 업무일지는 홈이라 이 묶음에 없다.)
-    const schedule=document.querySelector('.mobile-tabs [data-mobile-schedule-tab]');
-    if(schedule&&['calendar','tasks','diary'].includes(view))schedule.dataset.view=view;
+    // UI-일정탭달력기본(11/20 명진): 폰 [일정] 탭은 달력·할 일·하루 기록을 묶지만, 누르면 늘 달력(data-view="calendar" 고정)을 연다.
+    // 마지막으로 본 쪽을 기억해 열지 않는다 — 잠근 하루 기록을 보던 뒤 [일정]을 눌러도 잠금 화면이 아니라 달력. 하위 화면은 위 [달력|할 일|하루 기록]으로.
+    // 탭의 선택 표시는 mobile-tab-selection.mjs가 묶음(group)으로 칠한다(할 일·하루 기록에서도 [일정]이 켜짐).
     // UI-PC일정묶음: the PC sidebar [일정] heads a sub menu (달력·할 일·일기). The head (data-nav-group) keeps the
     // selected look for every screen of its group but is the current page only on its own screen (달력), like [바구니]
     // over its sub rows. [달력] repeats the head's screen (data-goto), so it is marked as the current item, not a second page.
@@ -666,6 +665,9 @@
     if(view==='projects')areas=true;
     view=viewName(view);sub=subName(view,sub);
     if(!view||!authenticatedShellReady()||returningTo)return false;
+    // SEC-기능PIN잠금 ②: 잠긴 기능은 화면 프로그램을 받기 전(아래 lazy 불러오기보다 앞)에 잠금 화면(?view=lock)으로 보낸다.
+    // 메뉴·주소·뒤로가기·원문 열기·시작 화면이 모두 여기를 지난다. 판정·보내기는 feature-lock.js 한 곳.
+    if(view!=='lock'&&window.KPTUFeatureLock?.guard?.(view,{source,sub}))return false;
     const lazy=window.KPTUViewLoader;
     // STAB-노트폴더시험: a view still loading switches only if nothing was opened after it was asked for. Otherwise a slow
     // module (calendar) took the screen and the address back from a view opened while it loaded.

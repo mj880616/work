@@ -33,6 +33,7 @@
 //     기록에는 종류·열쇠·상태만(이름 없음). 메일·작업공간 id·기록 내용은 읽지 않는다.
 //   - 알림 줄(notices): 운영자에게만, 아직 열지 않은 새 가입(마지막으로 연 열쇠 뒤, 최근 7일)을 사용자 로그인으로 rpc app_signup_list
 //     (운영자만 — 서버가 다시 확인)에서 읽어 '새 가입 n명 — 이름' 한 줄. 이 종류만 보일 말(text)을 함께 준다(이름은 기록에 남기지 않으므로).
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig, type FcmSender } from "../_shared/fcm-send.ts";
 import { nowEveningCounts, nowEveningLine } from "./now-line.ts";
@@ -143,6 +144,7 @@ async function authorizeUser(sb: string, key: string, jwt: string, doFetch: type
   let user: Record<string, unknown> | null = null;
   try { user = await readBoundedJson(r, { maxBytes: 256 * 1024 }) as Record<string, unknown>; } catch { user = null; }
   if (!r.ok || typeof user?.id !== "string" || !UUID.test(user.id)) throw new Fail(401, "UNAUTHORIZED");
+  if (isDelegatedToken(jwt)) throw new Fail(401, "UNAUTHORIZED");
   const members = await db.get(`app_workspace_members?user_id=eq.${user.id}&role=eq.owner&select=workspace_id`);
   if (members.length !== 1 || typeof members[0].workspace_id !== "string" || !UUID.test(members[0].workspace_id)) throw new Fail(403, "FORBIDDEN");
   return { userId: user.id, workspaceId: members[0].workspace_id };

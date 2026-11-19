@@ -46,6 +46,8 @@ const routeStyles={
   whatsnew:['./update-news.css','./ui-standard.css'],
   feedback:['./feedback.css','./ui-standard.css'],
   signups:['./signups.css','./ui-standard.css'],
+  // SEC-기능PIN잠금 ②: 잠금 화면(설정 목록·숫자 판).
+  lock:['./lock.css','./ui-standard.css'],
   brief:['./feed.css','./brief-room.css','./first-use.css','./ui-standard.css'],
   // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
   help:['./help.css','./first-use.css','./ui-standard.css']
@@ -208,8 +210,10 @@ async function signups(){ await module('./signups-view.js'); return {ok:true} }
 // BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
 async function brief(){ await module('./brief-room.js'); return {ok:true} }
 // HELP-메뉴안쓰는법: [쓰는 법](?view=help, 메뉴 맨 아래·각 화면 ⋯ 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #helpView를 만든다).
+// SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
+async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,help};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,help,lock};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home'};
 function normalize(view){
@@ -218,6 +222,9 @@ function normalize(view){
 }
 function load(view){
   const key=normalize(view);
+  // SEC-기능PIN잠금 ②: 잠긴 기능(하루 기록·사진·통화·텔레그램)은 화면 프로그램을 받기 전에 멈춘다 — 잠긴 동안 그 화면의 자료를 불러오지도 그리지도 않는다.
+  // 불러온 것으로 치지 않으므로 풀린 뒤 다시 부르면 그때 받는다. 판정은 feature-lock.js 한 곳(라우터 go()도 같은 판정으로 잠금 화면으로 보낸다).
+  if(window.KPTUFeatureLock?.locked?.(key))return Promise.resolve({ok:false,locked:true,view:key});
   if(loaded.has(key))return Promise.resolve({ok:true,view:key,cached:true});
   if(flights.has(key))return flights.get(key);
   const flight=Promise.resolve().then(()=>prepare(key)).then(()=>loaders[key]()).then(result=>{

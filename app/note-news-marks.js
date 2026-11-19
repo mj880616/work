@@ -6,6 +6,7 @@ import {highlightRowHtml} from './now-highlights.js';
 import {readSavedRows} from './now-saved.js';
 import {myFeaturesOrNull} from './my-features.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js';
+import {canDeleteNews} from './now-marks.js';
 import {requestNewsOpen} from './news-request.mjs';
 import {sourceTag, quoteGone} from './text-highlights-model.mjs';
 import {NEWS_HL, NEWS_SAVED, isNewsAt, NEWS_NAMES, SAVED_KINDS, keepSavedKind, filterSavedKind, savedLine, newsSearch, searchHead} from './note-news-marks-model.mjs';
@@ -28,12 +29,13 @@ const nameOf = key => window.KPTUOutside?.sourceName?.(key) || null;
 
 // onChange(): 자료가 새로 왔다(껍데기가 목록을 다시 그린다 — 줄 수·찾은 수가 바뀜).
 // openNote(noteId, highlightId): 노트 밑줄을 그 노트 그 자리로 연다. noteText(noteId): 노트 글자(raw_text), 노트가 없으면 null, 아직 모르면 undefined.
-export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = null, noteText = () => undefined} = {}) {
+// noteHidden(noteId): 그 노트가 잠근 노트 폴더에 있어 가려졌나(SEC-기능PIN잠금 S67-14) — 그 노트 밑줄은 '밑줄' 목록에 두지 않는다.
+export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = null, noteText = () => undefined, noteHidden = () => false} = {}) {
   let saved = null, savedFailed = false, hlFailed = false, kind = 'all', seq = 0, off = false;
   // NEWS-운영자만(S63-03): News는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 '보관한 글' 줄을 빼고(읽지도 않음) 밑줄은 노트 밑줄만 보인다
   // (News·텔레그램 밑줄은 누르면 News로 가므로). 모인 밑줄·보관은 지우지 않는다. 답을 모르면(null) 지금처럼 다 보인다(메뉴 myFeaturesOrNull 규칙과 같음).
   let newsOn = true;
-  const hlNow = () => { const all = highlightsNow(); return all && !newsOn ? all.filter(h => h?.source_type === 'note') : all; };
+  const hlNow = () => { const raw = highlightsNow(); const all = raw && raw.filter(h => !(h?.source_type === 'note' && noteHidden(h.source_id))); return all && !newsOn ? all.filter(h => h?.source_type === 'note') : all; };
   async function load() {
     const my = ++seq;
     off = false;
@@ -73,8 +75,11 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   const hlRows = (list, tag = '') => list.map(h => highlightRowHtml(h, {tag, src: sourceTag(h), gone: gone(h)})).join('');
   function savedRowHtml(r, tag = '') {
     const l = savedLine(r, nameOf);
-    const mark = tag ? `<span class="nnm-tag">${esc(tag)}</span>` : l.star ? '<span class="nnm-star" aria-label="별표">★</span>' : '<span class="nnm-tag">보관</span>';
-    return `<div class="nnm-sv now-row" data-nw-key="${esc(l.key)}"><button type="button" class="ghost nnm-open" data-nnm-saved="${esc(l.key)}">${mark}<span class="nnm-t">${esc(l.title)}</span><span class="nnm-m">${esc([l.media, l.day].filter(Boolean).join(' · '))}</span></button>${hoverActsHtml({saved: true})}<button type="button" class="icon-btn basket-row-more" data-now-more aria-haspopup="true" aria-expanded="false" aria-label="보관한 글 메뉴">${MORE}</button></div>`;
+    // 보관 = 별표(S67-09). S67-11: ★은 단추 — 누르면 보관에서 빼기(News 줄 ★과 같은 dropSaved, 5초 [되돌리기]). 찾기 결과 꼬리표 줄은 그대로 글자.
+    const mark = tag ? `<span class="nnm-tag">${esc(tag)}</span>` : '';
+    const star = tag ? '' : '<button type="button" class="icon-btn nnm-star" data-now-act="unstar" aria-label="보관에서 빼기" title="보관에서 빼기"><span aria-hidden="true">★</span></button>';
+    const del = r.type === 'news' && canDeleteNews(r.row);
+    return `<div class="nnm-sv now-row" data-nw-key="${esc(l.key)}">${star}<button type="button" class="ghost nnm-open" data-nnm-saved="${esc(l.key)}">${mark}<span class="nnm-t">${esc(l.title)}</span><span class="nnm-m">${esc([l.media, l.day].filter(Boolean).join(' · '))}</span></button>${hoverActsHtml({saved: true, canDelete: del})}<button type="button" class="icon-btn basket-row-more" data-now-more aria-haspopup="true" aria-expanded="false" aria-label="보관한 글 메뉴">${MORE}</button></div>`;
   }
   function listHtml(at) {
     if (at === NEWS_HL) {
@@ -135,7 +140,8 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   });
   bindNowRows(box, {row: '[data-nw-key]', saved: true, titleOf: el => el.querySelector('.nnm-t')?.textContent || '',
     itemOf: el => { const [type, id] = String(el.dataset.nwKey || '').split(':'); return (type === 'outside' || type === 'news') && id ? {type, id} : null; },
-    changed: (item, k) => { if (k === 'release' && saved) saved = saved.filter(r => !(r.type === item.type && r.id === item.id)); onChange(); void reloadSaved(); }});
+    canDelete: item => item.type === 'news' && canDeleteNews((saved || []).find(r => r.type === 'news' && r.id === item.id)?.row),
+    changed: (item, k, on) => { if ((k === 'release' || (k === 'delete' && on)) && saved) saved = saved.filter(r => !(r.type === item.type && r.id === item.id)); onChange(); void reloadSaved(); }});
   return {load, paint, navHtml, hits, clear, reset: () => { seq++; off = true; newsOn = true; saved = null; savedFailed = false; hlFailed = false; kind = 'all'; clear(); }};
 }
 export {NEWS_HL, NEWS_SAVED, isNewsAt};

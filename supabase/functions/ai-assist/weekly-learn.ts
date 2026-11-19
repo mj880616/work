@@ -17,12 +17,15 @@ import { OWNER_ROLE } from "./owner-role.ts"; // MULTI-다른담당자맞춤 ⑤
 import { outputText } from "../_shared/openai-responses.ts";
 import { BODY_CELLS, genericNames, groupOfCell, type GroupNames } from "./form-names.ts"; // ⑤-3d: 양식 제목은 부른 사람 '내 양식'에서(보낼 때 바꿈)
 
-export const WEEKLY_LEARN_BODY_BYTES = 64 * 1024;
+// WEEKLY-재료전체 ① (S67-07): 재료 줄마다 기록 전체 글(본문)이 붙어 64KB → 96KB. 기록 하나 1,500자(한글 약 4.5KB)면
+// 한 주 조직·사업 기록 20개 안팎이 본문째 들어간다. 넘치면 화면(weekly-draft-request.mjs)이 긴 본문부터 줄여 보낸다.
+export const WEEKLY_LEARN_BODY_BYTES = 96 * 1024;
 export const WL_MAX_CELLS = 80;
 export const WL_LINES = 20;
 export const WL_LINE_CHARS = 300;
 export const WL_MATERIAL = 20;
-export const WL_MATERIAL_CHARS = 400;
+export const WL_MATERIAL_CHARS = 1500;  // 재료 하나(머리 줄 + '본문:' 여러 줄). 머리 줄은 화면이 400자까지만 보냄
+export const WL_MATERIAL_LINES = 40;    // 재료 하나 안의 줄 수(머리 줄 포함)
 export const WL_UNMATCHED = 40;
 export const WL_LEARN_WEEKS = 4;
 export const WL_RULES_MAX = 20;       // 확정 규칙
@@ -54,11 +57,23 @@ const plain = (v: unknown, max: number, allowEmpty = false) => {
   if ((!s && !allowEmpty) || chars(s) > max) return null;
   return s;
 };
-const lineList = (v: unknown, max: number, size: number) => {
+const lineList = (v: unknown, max: number, size: number, each: (x: unknown, size: number, allowEmpty: boolean) => string | null = plain) => {
   if (!Array.isArray(v) || v.length > max) return null;
   const out: string[] = [];
-  for (const x of v) { const s = plain(x, size, true); if (s === null) return null; if (s) out.push(s); }
+  for (const x of v) { const s = each(x, size, true); if (s === null) return null; if (s) out.push(s); }
   return out;
+};
+// WEEKLY-재료전체 ①: 재료 하나는 여러 줄일 수 있다(머리 줄 + '본문:' 아래 기록 전체 글). 줄바꿈(\n)만 받고 다른 제어 문자·꺾쇠는
+// 그대로 거절(요청 전체 거절)한다. 줄마다 공백을 하나로, 빈 줄은 뺀다. 연락처(전화·이메일)는 AI에 보내지 않게 '(연락처)'로 바꾼다.
+const BODY_CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069]/;
+const PHONE_ALL = new RegExp(PHONE.source, "g"), EMAIL_ALL = new RegExp(EMAIL.source, "g");
+export const plainMaterial = (v: unknown, max: number, allowEmpty = false) => {
+  if (typeof v !== "string" || BODY_CONTROL.test(v) || v.includes("<") || v.includes(">")) return null;
+  const lines = v.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (lines.length > WL_MATERIAL_LINES) return null;
+  const s = lines.join("\n").replace(EMAIL_ALL, "(연락처)").replace(PHONE_ALL, "(연락처)");
+  if ((!s && !allowEmpty) || chars(s) > max) return null;
+  return s;
 };
 
 export type WlCell = { ref: string; where: string; lines: string[]; material: string[] };
@@ -73,12 +88,12 @@ export function parseWeeklyDraftRequest(b: Record<string, unknown>): WeeklyDraft
   for (const raw of b.cells) {
     if (!isObj(raw) || Object.keys(raw).sort().join(",") !== "lines,material,ref,where") return null;
     if (typeof raw.ref !== "string" || !REF.test(raw.ref) || refs.has(raw.ref)) return null;
-    const where = plain(raw.where, 120), lines = lineList(raw.lines, WL_LINES, WL_LINE_CHARS), material = lineList(raw.material, WL_MATERIAL, WL_MATERIAL_CHARS);
+    const where = plain(raw.where, 120), lines = lineList(raw.lines, WL_LINES, WL_LINE_CHARS), material = lineList(raw.material, WL_MATERIAL, WL_MATERIAL_CHARS, plainMaterial);
     if (where === null || lines === null || material === null) return null;
     refs.add(raw.ref);
     cells.push({ ref: raw.ref, where, lines, material });
   }
-  const unmatched = lineList(b.unmatched, WL_UNMATCHED, WL_MATERIAL_CHARS);
+  const unmatched = lineList(b.unmatched, WL_UNMATCHED, WL_MATERIAL_CHARS, plainMaterial);
   if (unmatched === null) return null;
   return { week_start: b.week_start, mode: b.mode, cells, unmatched };
 }
@@ -306,6 +321,9 @@ export const WEEKLY_DRAFT_INSTRUCTIONS = [
   "this_week·unmatched_records 줄 앞의 '10.27.(화) [끝남]' 꼴 표시는 그 기록이 언제 일인지와 보고일 기준 상태다([예정] 아직 안 한 일, [오늘] 보고일, [끝남] 지난 일). 표시 자체는 줄에 옮기지 않는다.",
   "[끝남] 기록은 지금 의미나 후속 결과(결정·합의·다음 일정)가 있을 때만 요약에 넣고, 결과부터 쓴다. 지난 일을 같은 말로 또 쓰지 않는다. [예정] 기록은 '예정'으로 쓰고 끝난 일처럼 쓰지 않는다.",
   "재료(base·this_week·unmatched_records)에 없는 사실·숫자·날짜·이름·장소를 만들지 않는다. 확실하지 않으면 바탕 줄을 그대로 둔다.",
+  // WEEKLY-재료전체 ①(S67-07): 기록 전체 글을 근거로 받는다. 보고 줄은 여전히 짧게.
+  "this_week·unmatched_records 한 항목의 첫 줄은 그 기록의 한 줄이고, '본문:' 아래 줄들은 그 기록의 전체 글(근거 자료)이다. 본문 끝의 '…(잘림)'은 뒤가 잘렸다는 뜻이다.",
+  "본문은 결과·결정·숫자·다음 일정을 확인하는 근거로만 쓴다. 보고 줄은 지금처럼 짧게(한 줄에 일 하나) 쓰고, 본문을 길게 옮겨 적거나 여러 줄로 늘리지 않는다.",
   "줄 모양은 바탕 줄과 같게 한다(앞의 '- ' 같은 표시, 명사형 끝맺음, 주간보고 문체). 한 줄 300자 이하, 칸마다 20줄 이하.",
   "개인 연락처·이메일은 쓰지 않는다. HTML·링크·마크다운을 쓰지 않는다.",
   "ref는 cells의 ref 값을 그대로 쓰고 칸마다 한 항목이다. 바꿀 것이 없는 칸도 그 줄 그대로 돌려준다.",

@@ -1,3 +1,4 @@
+import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { withWebCors } from "../_shared/web-cors.ts";
 import { safeErrorMessage } from "../_shared/safe-error.ts";
@@ -8,7 +9,7 @@ const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
 const BUCKET='team-event-media';
 const cors={'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS'};
 const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json'}});
-async function currentUser(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
+async function currentUser(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new Error('로그인이 필요합니다.');const {data,error}=await admin.auth.getUser(token);if(error||!data.user)throw new Error('로그인 세션을 확인할 수 없습니다.');if(isDelegatedToken(token))throw new Error('로그인 세션을 확인할 수 없습니다.');return data.user}
 async function eventAccess(eventId:string,userId:string){
  const {data:e,error}=await admin.from('app_events').select('id,workspace_id,project_id,title,start_at,event_type').eq('id',eventId).maybeSingle();
  if(error||!e)throw new Error('일정을 찾을 수 없습니다.');
