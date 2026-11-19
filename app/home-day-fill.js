@@ -327,7 +327,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   });
   // SEC-기능PIN잠금 ②: 잠금 설정을 읽었거나 잠기고 풀리면 '오늘 사진' 칸만 다시 판정한다(풀렸으면 그때 읽는다).
   globalThis.window?.addEventListener?.('kptu:feature-lock-changed', () => {
-    if (!last || last.hidden) return;
+    if (!last || last.hidden || !onHome()) return; // 홈 밖이면 돌아올 때(kptu:view-changed) 다시 판정한다
     drawPhotos();
     if (photoGate() === 'open') ensurePhotos(last.day);
   });
