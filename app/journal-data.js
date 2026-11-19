@@ -325,7 +325,7 @@ export const BRIEF_HASH_RE = /^b1:[0-9a-f]{32}$/;
 export async function readWeekDocuments(start, rt = window.KPTURuntime) {
   const days = weekDays(start), from = dayStartIso(days[0]), to = dayStartIso(shiftWeek(start, 1)), ws = encode(workspace(rt));
   const span = `(and(created_at.gte.${from},created_at.lt.${to}),and(document_date.gte.${days[0]},document_date.lte.${days[6]}))`;
-  const docs = capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&or=${encode(span)}&select=id,title,file_name,category,meeting_id,created_at,document_date,organization_id,project_id,file_id&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+  const docs = capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&or=${encode(span)}&select=id,title,file_name,mime_type,category,meeting_id,created_at,document_date,organization_id,project_id,file_id&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
   try { await attachBriefs(docs, {ws, from, rt}); } catch { for (const doc of docs) { delete doc.brief; delete doc.repeat; } }
   return docs;
 }

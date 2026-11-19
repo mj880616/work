@@ -509,7 +509,7 @@ test('hub reads: new documents and changed share pages of the week, this workspa
   assert.deepEqual(doc.getAll('created_at'), []);
   assert.equal(doc.get('or'), '(and(created_at.gte.2026-10-04T15:00:00.000Z,created_at.lt.2026-10-11T15:00:00.000Z),and(document_date.gte.2026-10-05,document_date.lte.2026-10-11))');
   assert.deepEqual(share.getAll('updated_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
-  assert.equal(doc.get('select'), 'id,title,file_name,category,meeting_id,created_at,document_date,organization_id,project_id,file_id');
+  assert.equal(doc.get('select'), 'id,title,file_name,mime_type,category,meeting_id,created_at,document_date,organization_id,project_id,file_id');
   assert.equal(share.get('select'), 'id,title,status,updated_at');
   for (const q of [doc, share]) { assert.equal(q.get('limit'), String(m.WEEK_READ_CAP)); assert.equal(/blocks|content|text|\*/.test(q.get('select')), false); }
   assert.equal(docs.capped, false);

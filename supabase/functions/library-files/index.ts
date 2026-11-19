@@ -4,6 +4,8 @@ import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '..
 import { outputText } from '../_shared/openai-responses.ts';
 // S48-15: 제목 찾기에 부른 AI 토큰을 홈 'AI 사용량' 줄의 기존 표(app_ai_daily_usage)에 더한다. 기록 실패는 올리기를 막지 않는다.
 import { createAiUsageMeter, recordAiDailyUsage } from '../_shared/ai-daily-usage.mjs';
+// WEEKLY-재료전체 ②: 사진 설명은 사진 한 장마다 하루 AI 요청 수(80회 표)에도 1회씩 센다.
+import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
 // AI-사람별한도: 작업공간 이번 달 AI 한도에 닿으면 제목·한 줄 AI를 건너뛴다(올리기는 그대로, 파일 이름으로).
 import { assertAiUserCap } from '../_shared/ai-user-cap.mjs';
 type AiMeter={add:(raw:unknown)=>void};
@@ -12,6 +14,9 @@ const aiMeter=()=>createAiUsageMeter();
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
 import { createLibraryPhotoHandler } from './photo.ts';
+import { createDrivePhoto } from '../_shared/drive-photo.ts';
+// WEEKLY-재료전체 ②(S67-07): 기록 사진 설명(자료별 AI 요약 표 'b1:' 행). 규칙·검사는 photo-brief.ts.
+import { PHOTO_BRIEF_INSTRUCTIONS, PHOTO_BRIEF_SCHEMA, parsePhotoBriefRequest, runPhotoBriefs } from './photo-brief.ts';
 import { setKeep } from '../_shared/library-prev-model.mjs';
 import { fileNameTitle, isMeaninglessName } from '../_shared/library-file-name.mjs';
 import { RECORD_LINE_INSTRUCTIONS, RECORD_LINE_SCHEMA, RECORD_LINE_TEXT_CHARS, cleanRecordLine, recordLineKind } from './record-line.ts';
@@ -175,6 +180,32 @@ async function previousKeep(workspaceId:string,input:any){
   return json({ok:true,previous_files:rows[0].previous_files});
 }
 
+// WEEKLY-재료전체 ②: JSON {action:'photo-brief', document_ids:[uuid 1~4]} → {ok, asked, done, skipped, failed, capped}(숫자만).
+// 자료 행·요약 표는 부른 사람 로그인(owner RLS)으로 읽고 쓴다. 사진은 내 작업공간 Drive 연결로 작은 그림만 받아 AI에 보내고 저장하지 않는다.
+// 하루 AI 요청 80회(사진 한 장 = 1회)·이번 달 AI 한도에 닿았으면 AI를 부르지 않고 capped:true. AI 키가 없으면 done 0.
+async function photoBriefs(workspaceId:string,userId:string,authorization:string,ids:string[]){
+  const idle=(capped:boolean)=>json({ok:true,asked:ids.length,done:0,skipped:0,failed:0,capped});
+  if(!OPENAI)return idle(false);
+  if((await readTodayAiUsage(admin,{workspaceId,userId})).over)return idle(true);
+  try{await assertAiUserCap(admin,workspaceId)}catch{return idle(true)}
+  const key=Deno.env.get('SUPABASE_ANON_KEY');
+  if(!key)throw new UploadError('지금은 사진을 읽을 수 없습니다.',{status:503,code:'photo_brief_unavailable',stage:'config',retryable:true});
+  const db=createClient(SB,key,{auth:{persistSession:false},global:{headers:{Authorization:authorization}}});
+  const model=await workspaceModel(workspaceId),meter=aiMeter();
+  try{
+    const r=await runPhotoBriefs(workspaceId,ids,{db,model,photo:createDrivePhoto(admin) as any,
+      ask:async(content:unknown[])=>{const d=await openAI({model,store:false,max_output_tokens:300+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:PHOTO_BRIEF_INSTRUCTIONS},{role:'user',content}],text:{format:{type:'json_schema',name:'photo_brief',strict:true,schema:PHOTO_BRIEF_SCHEMA}}},meter);try{return String(JSON.parse(outputText(d)??'').brief??'')}catch{return null}},
+      count:async()=>{const t=await readTodayAiUsage(admin,{workspaceId,userId});await addAiRequest(admin,{workspaceId,userId,day:t.day,row:t.row})},
+      log:(code:string,detail?:Record<string,number>)=>console.log('library-files '+code,detail||{})});
+    await recordAiDailyUsage(admin,{workspaceId,userId,meter});
+    return json(r);
+  }catch(e){
+    await recordAiDailyUsage(admin,{workspaceId,userId,meter});
+    console.error('library-files photo brief failed',safeErrorLog(e));
+    throw new UploadError('지금은 사진을 읽을 수 없습니다.',{status:503,code:'photo_brief_unavailable',stage:'photo_brief',retryable:true});
+  }
+}
+
 // 요청이 올 때만 만든다(업로드 경로는 이 핸들러를 건드리지 않는다).
 const photoView=(req:Request,workspaceId:string,authorization:string)=>createLibraryPhotoHandler(admin,{userClient:auth=>{
   const key=Deno.env.get('SUPABASE_ANON_KEY');
@@ -195,6 +226,12 @@ Deno.serve(withWebCors(async(req:Request)=>{
     if((req.headers.get('content-type')||'').includes('application/json')){
       let input:any=null;
       try{input=await req.json()}catch{input=null}
+      if(input?.action==='photo-brief'){
+        const ids=parsePhotoBriefRequest(input);
+        if(!ids)throw new UploadError('요청을 확인할 수 없습니다.',{code:'invalid_request'});
+        const wmBrief=await workspaceFor(user.id);
+        return await photoBriefs(wmBrief.workspace_id,user.id,'Bearer '+(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,''),ids);
+      }
       if(input?.action!=='previous-keep')throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
       const wmKeep=await workspaceFor(user.id);
       return await previousKeep(wmKeep.workspace_id,input);
