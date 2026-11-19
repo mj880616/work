@@ -1,6 +1,6 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
 // S67-09 NEWS-보관별표하나로 DB(20261119120000_outside_archive_to_star): 사회운동 글의 '보관'만 있고 별표 없는 줄에 별표 = 보관 시각.
-// - 승인형 workflow 실행기(dry-run·apply)로 돌리고, dry-run은 아무것도 남기지 않는다. 두 번째 apply는 멈춘다.
+// - 승인형 workflow 실행기(dry-run·apply, 자료 UPDATE만이라 엄격 규칙 + 짝 파일 5개 = 승인 한 번 흐름)로 돌리고, dry-run은 아무것도 남기지 않는다. 두 번째 apply는 멈춘다.
 // - 보관만 있던 줄만 starred_at = archived_at, archived_at은 그대로. 이미 별표 있는 줄·표시 없는 줄·다른 칸·행 수는 그대로.
 // - 적용 전에 별표 시각 = 보관 시각인 줄이 있으면 멈춘다(되돌리기가 구분할 수 없으므로).
 // - 되돌리기는 이번에 채운 별표만 비운다(적용 뒤 새로 친 별표는 남김). 사전·사후 확인은 행 수·예/아니오·해시만.
@@ -72,9 +72,9 @@ test('outside archive to star: archive-only rows get a star, archived_at kept, s
   const moved=[onlyArchive,otherWs,archiveDismiss];
   const before=(await pool.query(snapshot)).rows;let pre;
 
-  await t.test('files: read-only checks, three-line summary, expanded workflow accepts the file and backs up the marks table',async()=>{
+  await t.test('files: read-only checks, three-line summary, strict-rule workflow (full flow) accepts the file and backs up the marks table',async()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
-   for(const mode of ['apply','dry-run']){const p=prepareMigration({mode,version,runId:'1',root});assert.equal(p.rules,'expanded');assert.equal(p.flow,'full');assert.deepEqual(p.targets,['app_outside_article_marks']);assert.deepEqual(p.review.definer,[]);}
+   for(const mode of ['apply','dry-run']){const p=prepareMigration({mode,version,runId:'1',root});assert.equal(p.rules,'strict');assert.equal(p.flow,'full');assert.deepEqual(p.targets,['app_outside_article_marks']);assert.equal(p.review,undefined);}
    const summary=(await read('docs/'+stem+'.summary.md')).trim().split('\n');
    assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
    const code=migration.replace(/--.*$/gm,'');
