@@ -79,7 +79,7 @@ test('폰 하단 탭 6칸: 탭 아이콘 색, [메뉴] 탭이 메뉴 창을 열�
  expect(errors).toEqual([]);
 });
 
-test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?view=tasks·홈 "할 일 ›"·밀기 순서',async({page})=>{
+test('[일정] 탭: [달력 | 할 일] 전환, 누르면 늘 달력, 옛 ?view=tasks·홈 "할 일 ›"·밀기 순서',async({page})=>{
  const {errors}=await boot(page,390,{url:'/app/?view=tasks'});
  const schedule=page.locator('.mobile-tabs [data-mobile-schedule-tab]'),name=page.locator('[data-mobile-view-name]');
  // 옛 할 일 주소는 [일정]의 [할 일] 쪽으로 열린다.
@@ -95,10 +95,11 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  // 고른 [달력]도 [할 일]과 같은 흰 알약, 안 고른 [할 일]은 바탕을 칠하지 않는다(연한 알약 바탕이 비침).
  expect(await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}))).toEqual(pressed);
  expect(await page.locator('#calendarView .schedule-switch [data-view="tasks"]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
- // 탭은 마지막으로 본 쪽을 연다(새 저장소 없이 라우터가 탭의 data-view를 맞춘다).
+ // UI-일정탭달력기본(11/20): 탭은 마지막으로 본 쪽이 아니라 늘 달력을 연다(할 일을 보다 나가도 [일정] = 달력).
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await schedule.click();await loaded(page,'calendar');
  await page.locator('#calendarView .schedule-switch [data-view="tasks"]').click();await loaded(page,'tasks');
- await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await schedule.click();await loaded(page,'tasks');
+ await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await schedule.click();await loaded(page,'calendar');
+ await expect(schedule).toHaveAttribute('data-view','calendar');
  // 홈 "할 일 ›"도 [일정]의 [할 일] 쪽.
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>el.click());await loaded(page,'calendar');
  await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('#homeView [data-journal-tasks-open]').click();await loaded(page,'tasks');await expect(schedule).toHaveAttribute('aria-current','page');

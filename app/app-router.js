@@ -623,10 +623,9 @@
   }
 
   function syncNavigationState(view){
-    // Phone [일정] tab holds 달력(calendar), 할 일(tasks) and 일기(diary): it opens the side seen last
-    // in this tab, so the tab and current mark follow one attribute. (HOME-업무일지홈: 업무일지는 홈이라 이 묶음에 없다.)
-    const schedule=document.querySelector('.mobile-tabs [data-mobile-schedule-tab]');
-    if(schedule&&['calendar','tasks','diary'].includes(view))schedule.dataset.view=view;
+    // UI-일정탭달력기본(11/20 명진): 폰 [일정] 탭은 달력·할 일·하루 기록을 묶지만, 누르면 늘 달력(data-view="calendar" 고정)을 연다.
+    // 마지막으로 본 쪽을 기억해 열지 않는다 — 잠근 하루 기록을 보던 뒤 [일정]을 눌러도 잠금 화면이 아니라 달력. 하위 화면은 위 [달력|할 일|하루 기록]으로.
+    // 탭의 선택 표시는 mobile-tab-selection.mjs가 묶음(group)으로 칠한다(할 일·하루 기록에서도 [일정]이 켜짐).
     // UI-PC일정묶음: the PC sidebar [일정] heads a sub menu (달력·할 일·일기). The head (data-nav-group) keeps the
     // selected look for every screen of its group but is the current page only on its own screen (달력), like [바구니]
     // over its sub rows. [달력] repeats the head's screen (data-goto), so it is marked as the current item, not a second page.

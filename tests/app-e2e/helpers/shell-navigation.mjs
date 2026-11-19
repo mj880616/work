@@ -46,7 +46,7 @@ export async function clickView(page,view){
     await page.locator('#reportMoreMenu [data-report-areas]:visible').click();
     return;
   }
-  // Phone (8-9e-2): the [일정] tab opens the side seen last; [달력 | 할 일] on top switches.
+  // Phone (8-9e-2): the [일정] tab always opens 달력 (UI-일정탭달력기본); [달력 | 할 일] on top switches.
   const schedule=page.locator('.mobile-tabs [data-mobile-schedule-tab]:visible');
   if(['calendar','tasks'].includes(view)&&await schedule.count()){
     await schedule.click();
