@@ -138,7 +138,7 @@ async function photoFiles(page,n,{w=3000,h=1500}={}){
 }
 
 // HOME-업무일지홈: 업무일지는 홈이라 [일정] 전환 줄은 [달력|할 일|일기] 셋이다.
-test('[일정] 머리줄 [달력|할 일|하루 기록]: 높이 32·선택한 쪽 테마색, [하루 기록] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
+test('[일정] 머리줄 [달력|할 일|하루 기록]: 높이 32·선택한 쪽 테마색, [하루 기록] 화면, 탭은 늘 달력',async({page})=>{
  const f=await fixture(page);
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  const sw=page.locator('#calendarView .schedule-switch');
@@ -153,7 +153,11 @@ test('[일정] 머리줄 [달력|할 일|하루 기록]: 높이 32·선택한 �
  expect(await pressed.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-seg-on)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
  await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();
  await expect(page.locator('#journalRoot [data-journal-input]')).toBeAttached();
+ // UI-일정탭달력기본(11/20): 하루 기록을 보다 나가도 [일정]은 달력을 연다. 하루 기록은 위 줄 [하루 기록]으로.
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
+ await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);await expect(page.locator('#diaryView')).toBeHidden();
+ await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveAttribute('aria-current','page');
+ await page.locator('#calendarView .schedule-switch [data-view="diary"]').click();
  await expect(page.locator('#diaryView')).toBeVisible();await expect(page).toHaveURL(/view=diary/);
  await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveAttribute('aria-current','page');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
@@ -873,8 +877,9 @@ test('[하루 기록] 연 화면 유지: 탭을 갔다 오면 보던 달 그대�
  let release;const held=new Promise(resolve=>{release=resolve;});
  const notes=u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',hold=async r=>{await held;await r.fallback();};
  await page.route(notes,hold);
- // [일정] 탭은 마지막에 본 쪽(일기)을 바로 연다.
- await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();await expect(page.locator('#diaryView')).toBeVisible();
+ // [일정] 탭은 달력을 연다(UI-일정탭달력기본) — 위 줄 [하루 기록]으로 돌아간다.
+ await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();await expect(page.locator('#calendarView')).toBeVisible();
+ await page.locator('#calendarView .schedule-switch [data-view="diary"]').click();await expect(page.locator('#diaryView')).toBeVisible();
  await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 10월');
  // 읽기가 붙잡혀 있는 동안에도 보던 목록 그대로, 기다림 표시 없음.
  await expect(items).toHaveCount(2);
