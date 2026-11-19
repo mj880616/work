@@ -3,10 +3,13 @@
 // Safety: the document is cleaned first (ed-schema.mjs cleanDoc, an allowlist); everything is drawn with createElement and
 // textContent; links open only http(s)·mailto in a new tab with noopener. A shared-page photo is drawn as an image only when
 // the reader passes a short-lived https address for that id (ED-② the Web1 reader gets them from the page-read function); without
-// one it stays a place with its description. Nothing else is ever fetched.
+// one it stays a place with its description. Nothing else is ever fetched, except NOTE-유튜브보기: when the caller asks for
+// {videos:true} (Web2 note·update·diary read views; never the Web1 reader or the editor), a YouTube link gets a small video box
+// under its line (video-embed.mjs: a thumbnail, and the youtube-nocookie player only after ▶ is pressed).
 // The Web1 reader imports this file, so it keeps to syntax older Samsung Internet parses: no ?. ?? replaceChildren
 // structuredClone .at( (BUG-공유페이지삼성). Class and id names never contain "share".
 import {cleanDoc, safeHref, widthsOfRow, tableLayout, pagePhotoId, fileHref, fileSizeText} from './ed-schema.mjs';
+import {addVideoBoxes} from './video-embed.mjs';
 
 function make(tag, className, text) {
   var node = document.createElement(tag);
@@ -165,10 +168,12 @@ function blocks(parent, list) {
 
 // The document as one <div class="ed-doc">. A value that is not a document draws an empty box.
 // media: {photo id: https address} for the photos of this page, or nothing.
-export function renderDoc(value, media) {
+// options.videos: true draws the YouTube video boxes (NOTE-유튜브보기). Off by default (the Web1 reader passes only media).
+export function renderDoc(value, media, options) {
   var box = make('div', 'ed-doc');
   var clean = cleanDoc(value);
   MEDIA = media && typeof media === 'object' ? media : null;
   try { if (clean) blocks(box, clean.doc.content); } finally { MEDIA = null; }
+  if (options && options.videos === true) addVideoBoxes(box);
   return box;
 }

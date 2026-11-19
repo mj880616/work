@@ -61,7 +61,8 @@ test('a strict save applies only to the version given; a changed diary is refuse
 test('the diary screen opens the new editor in its panel and reads the saved form; its day read carries doc and never ai_export_allowed', () => {
   const screen = readFileSync('app/diary.js', 'utf8'), data = readFileSync('app/diary-data.js', 'utf8');
   assert.match(screen, /import\('\.\/ed-editor\.js'\)/);
-  assert.match(screen, /renderDoc\(row\.doc\)/);
+  // NOTE-유튜브보기(S67-04): 일기 읽기도 유튜브 링크 아래 영상 칸(renderDoc options.videos).
+  assert.match(screen, /renderDoc\(row\.doc(?:, null, \{videos: true\})?\)/);
   assert.ok(!/<textarea data-diary-text/.test(screen));
   assert.match(data, /const FIELDS = 'id,journal_day,raw_text,doc,/);
   assert.ok(!/ai_export_allowed:true/.test(data));

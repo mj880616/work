@@ -347,3 +347,71 @@ export function tabForItem(type, tab) {
   if (type === 'outside') return 'movement';
   return t;
 }
+// ---- 직접 넣기(S67-02 NEWS-직접넣기) ----
+// 원문을 못 읽은 뉴스 기사(늦은 답·없는 글·막힘 등)에 사람이 제목·매체·기자·기사 시각·본문을 넣는다. 저장은 서버(news-feed hand_fill)뿐.
+// 서버 상한과 같게(supabase/functions/news-feed/handler.ts HAND_LIMITS). 값은 글자로만 보내고 글자로만 그린다.
+export const HAND_LIMITS = Object.freeze({title: 300, publisher: 60, author: 80, body: 50000});
+// 못 읽은 기사인가(원문 칸에 [직접 넣기]). 뉴스 기사만 — 사회운동 글은 다른 서버 함수라 이번에 없음.
+export const canHandFill = (item, b) => item?.type === 'news' && !!b && !b.failedLoad && b.state === 'failed';
+const pad2 = n => String(n).padStart(2, '0');
+// ISO 시각 → 달력+시각 칸 값(이 기기 시각, 'YYYY-MM-DDTHH:mm'). 모르면 ''.
+export function localInputOf(iso) {
+  const t = Date.parse(iso || '');
+  if (!Number.isFinite(t)) return '';
+  const d = new Date(t);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+// 달력+시각 칸 값 → ISO(Z). 비면 null(서버는 빈 값 = 넣은 시각으로 보임). 모양이 틀리면 undefined.
+export function isoOfLocalInput(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(s);
+  if (!m) return undefined;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+  return Number.isFinite(d.getTime()) ? d.toISOString() : undefined;
+}
+const oneLineText = v => String(v ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim();
+// 입력 칸 처음 값(기사 줄 + 지금 원문 블록). 이미 아는 값(주소에서 얻은 매체 등)은 미리 채운다.
+export function handInitial(row, blocks) {
+  const title = oneLineText(row?.title), host = hostOf(row?.url);
+  // 주소·도메인뿐인 제목은 비운다(목록의 '제목 없음 · 도메인'과 같은 규칙).
+  const ownTitle = title && !/^https?:\/\//i.test(title) && title.replace(/^www\./, '') !== host;
+  return {
+    title: ownTitle ? title : '',
+    publisher: oneLineText(row?.publisher) || hostOf(row?.url),
+    author: oneLineText(row?.author),
+    at: localInputOf(row?.published_at),
+    body: blocksBody(blocks),
+  };
+}
+export function hostOf(url) {
+  try { return new URL(String(url || '')).hostname.replace(/^www\./, ''); } catch { return ''; }
+}
+// 입력 값 → 서버 몸통 또는 {error: 화면 글자}. 본문은 처음 값에서 바뀌었을 때만 보낸다(바뀌지 않으면 서버가 읽어 둔 본문·사진을 그대로 둔다).
+export function handRequest(id, values, initial) {
+  const title = oneLineText(values.title), publisher = oneLineText(values.publisher), author = oneLineText(values.author);
+  if (!title) return {error: '제목을 넣어 주세요'};
+  if ([...title].length > HAND_LIMITS.title) return {error: `제목은 ${HAND_LIMITS.title}자까지`};
+  if ([...publisher].length > HAND_LIMITS.publisher) return {error: `매체는 ${HAND_LIMITS.publisher}자까지`};
+  if ([...author].length > HAND_LIMITS.author) return {error: `기자 이름은 ${HAND_LIMITS.author}자까지`};
+  const at = isoOfLocalInput(values.at);
+  if (at === undefined) return {error: '기사 시각을 다시 넣어 주세요'};
+  const body = String(values.body ?? '');
+  if ([...body].length > HAND_LIMITS.body) return {error: `본문은 ${HAND_LIMITS.body.toLocaleString('ko-KR')}자까지`};
+  const out = {id, title, publisher: publisher || null, author: author || null, published_at: at};
+  const changed = body.replace(/\s+/g, ' ').trim() !== String(initial?.body ?? '').replace(/\s+/g, ' ').trim();
+  if (changed) {
+    if (!body.trim()) return {error: '본문을 비울 수는 없어요'};
+    out.body = body;
+  }
+  return {body: out};
+}
+// 저장 실패 → 화면 한 줄.
+export function handError(e) {
+  const code = String(e?.message || '');
+  if (e?.status === 403) return '이 작업공간에서는 쓸 수 없어요';
+  if (e?.status === 404) return '기사를 찾지 못함';
+  if (e?.status === 400 && /INVALID_DATE/.test(code)) return '기사 시각을 다시 넣어 주세요';
+  if (e?.status === 400 || e?.status === 413) return '넣은 값이 너무 길거나 모양이 달라요';
+  return e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시';
+}

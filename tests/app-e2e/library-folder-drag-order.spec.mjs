@@ -51,6 +51,8 @@ test.describe('PC 1280 자료실 폴더 끌어 순서',()=>{
     await page.locator('body').click({position:{x:5,y:5}});await page.keyboard.press('Control+z');
     await expect.poll(()=>s.folders.find(f=>f.id==='sub').parent_id).toBe('pol');
     await expect.poll(()=>s.folders.find(f=>f.id==='sub').sort_order).toBe(1024);
+    // 끝 신호 = 상태 줄 '되돌렸어요'(저장 여러 개 → 다시 읽기까지 끝남). 서버 값만 보고 다음 끌기를 하면 아직 일하는 중(busy)이라 놓기가 무시된다.
+    await expect(line(page)).toContainText('되돌렸어요');
     // 가운데 = 그 안으로(지금 그대로).
     await expandLibraryTree(page);
     r=await dragTo(page,head('f:box'),head('f:pol'));expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-into');
@@ -78,7 +80,10 @@ test.describe('PC 1280 자료실 폴더 끌어 순서',()=>{
     await expect.poll(()=>topOrder(s)).toEqual(['pol','box']);
     // 끝 신호 = 상태 줄 글(저장 → 다시 읽기 → 초점 되돌림까지 끝난 뒤).
     await expect(line(page)).toContainText('순서를 바꿨어요');await expect(page.locator(navRow('box'))).toBeFocused();
+    // 같은 글('순서를 바꿨어요')이 이미 떠 있으므로 옛 줄에 표시를 달고, 저장 시작에 줄이 비워진 뒤 새 글이 붙을 때까지 기다린다.
+    await line(page).evaluate(el=>el.insertAdjacentHTML('beforeend','<i data-probe-old></i>'));
     await page.keyboard.press('Alt+ArrowUp');await expect.poll(()=>topOrder(s)).toEqual(['box','pol']);
+    await expect(line(page).locator('[data-probe-old]')).toHaveCount(0);await expect(line(page)).toContainText('순서를 바꿨어요');
     // 폴더 ⋯ 메뉴에 [위로]·[아래로]가 없다.
     await expandLibraryTree(page);
     await page.locator(`${head('f:pol')} [data-lu-node-menu]`).click();await expect(page.locator('#luFolderMenu')).toBeVisible();

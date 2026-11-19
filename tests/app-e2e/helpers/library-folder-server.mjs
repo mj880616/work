@@ -102,6 +102,9 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
   await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();
   if(group)await page.locator('#libraryGroupBy').selectOption({label:group});
+  // 받는 폴더 설정(내 프로필)은 목록과 따로 늦게 읽힌다. 다 읽기 전에 폴더 메뉴를 열면 [폴더로 나누기] 같은 받는 폴더 줄이 아직 없다.
+  // 받는 폴더가 맨 위 단에 있는 시험(접힌 하위 폴더면 표시가 그려지지 않음)은 그 표시(나무 머리 '받는 폴더' 또는 왼쪽 나무·두 칸 나무의 표)가 그려진 뒤 시작한다.
+  if(s.receiveFolder&&s.folders.some(f=>f.id===s.receiveFolder&&!f.parent_id))await expect(page.locator('.lu-receive-mark,#libraryFolderNav .ft-tag,#documentList [data-lu-two] .ft-tag').first()).toBeAttached();
   return {s,errors};
 }
 export const treeKeys=page=>page.locator('#documentList details[data-lu-node]').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));

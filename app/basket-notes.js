@@ -44,6 +44,7 @@ import { paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, 
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
+import { addVideoBoxes } from './video-embed.mjs';
 import { copyText } from './copy-text.js';
 import { GOTO_FOLDER_LABEL, flashRow } from './goto-folder.mjs'; // LIB-최근폴더로가기(S61-12): '최근' 노트 줄 메뉴 맨 위 [폴더로 가기]
 import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
@@ -632,8 +633,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
     text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
-    if (!noteMarkdown(selected)) { noteMarksNow(); return; }
-    void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing}).then(() => { if (owner === scope() && selected?.id === id) noteMarksNow(); });
+    // NOTE-유튜브보기: 있는 그대로 보기에서도 글 속 유튜브 주소마다 영상 칸(글 끝에, ▶ 누를 때 재생). 글자는 그대로.
+    if (!noteMarkdown(selected)) { addVideoBoxes(text, {whole: true}); noteMarksNow(); return; }
+    void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing, videos: true}).then(() => { if (owner === scope() && selected?.id === id) noteMarksNow(); });
   }
   function paintMode() {
     if (!selected) return;

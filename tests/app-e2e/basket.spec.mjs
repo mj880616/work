@@ -231,6 +231,19 @@ for(const width of [390,1280])test(`basket all-success reset starts a fresh memo
  }
  expect(u.calls).toHaveLength(2);expect(f.writes).toHaveLength(2);expect(f.errors).toEqual([]);
 });
+// S67-01: 같은 파일 찾기(뒤에서)가 [추가]·올림보다 늦게 끝나면 방금 올린 자기 업데이트 첨부를 찾아낸다. 그때 '이미 있는 자료예요'를 띄우면
+// 다음 입력을 가린다(CI에서 다음 [추가]를 막던 흔들림). 찾는 사이 대기에서 나간 파일은 묻지 않는다.
+test('basket same-file check that finishes after the save does not ask about the file just uploaded 390',async({page})=>{
+ await page.setViewportSize({width:390,height:1000});const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page);
+ await page.route(SB+'/rest/v1/app_notes?**',async r=>{if(!new URL(r.request().url()).search.includes('attachments=cs'))return r.fallback();await expect.poll(()=>f.notes.some(n=>n.attachments?.length)).toBe(true);return r.fallback();});
+ const late=page.waitForResponse(r=>r.url().includes('attachments=cs'));
+ await q.locator('[data-quick-input]').fill('첫 메모');await q.locator('input[type=file]').setInputFiles(uploadFiles(['첫 메모.txt']));await q.locator('[data-quick-save]').click();
+ await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
+ await late;await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ await expect(page.locator('.same-file-ask')).toHaveCount(0);
+ await q.locator('[data-quick-input]').fill('다음 메모');await q.locator('[data-quick-save]').click({timeout:5000});await expect(q.locator('[data-quick-input]')).toHaveValue('');
+ expect(f.writes).toHaveLength(2);expect(u.calls).toHaveLength(1);expect(f.errors).toEqual([]);
+});
 test('basket successful text save clears a native selection rejected by preflight',async({page})=>{
  const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page),file=q.locator('input[type=file]');
  await file.setInputFiles({name:'empty.txt',mimeType:'text/plain',buffer:Buffer.alloc(0)});await expect(q.locator('[data-quick-status]')).toContainText('빈 파일');await expect(q.locator('[data-basket-file]')).toHaveCount(0);

@@ -157,6 +157,15 @@
 #appView #outsideView .nd-bh b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
 #appView #outsideView .nd-bh-note{ margin-left:auto; font-size:11px; }
 #appView #outsideView .nd-why{ margin:4px 0 0; font-size:13px; line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
+/* S67-02 NEWS-직접넣기: 못 읽은 기사 원문 칸 [직접 넣기](작은 칩) → 같은 자리 입력 칸. 머리 줄 '직접 넣음'은 작은 회색 글자. */
+#appView #outsideView .nd-why .nd-hand{ margin-left:6px; vertical-align:baseline; }
+#appView #outsideView .nd-meta > span.nd-hand-mark{ color:var(--kptu-muted); opacity:.8; }
+#appView #outsideView .nd-hand-form{ display:flex; flex-direction:column; gap:6px; margin:4px 0 0; padding:0; }
+#appView #outsideView .nd-hand-row{ display:flex; gap:6px; }
+#appView #outsideView .nd-hand-row > .nd-hand-f{ flex:1 1 0; min-width:0; }
+#appView #outsideView .nd-hand-f{ display:flex; flex-direction:column; gap:2px; margin:0; padding:0; font-size:var(--ds-text-meta,12px); font-weight:400; color:var(--kptu-muted); }
+#appView #outsideView .nd-hand-f input,#appView #outsideView .nd-hand-f textarea{ width:100%; box-sizing:border-box; min-height:30px; height:auto; margin:0; padding:4px 6px; font:inherit; font-size:14px; font-weight:400; color:var(--kptu-ink); }
+#appView #outsideView .nd-hand-f textarea{ min-height:9em; resize:vertical; line-height:1.5; }
 #appView #outsideView .nd-fold{ margin-top:4px; font-size:13px; }
 #appView #outsideView .nd-fold > summary{ min-height:24px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); cursor:pointer; }
 #appView #outsideView .nd-sub{ margin:6px 0 2px; font-size:11px; color:var(--kptu-muted); }
