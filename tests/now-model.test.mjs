@@ -275,3 +275,36 @@ test('hand photos: photo lines in the body box, round trip from blocks, insert a
   assert.ok(M.handRequest('id', {title: 't', body: many(20)}, {body: ''}).body.body);
   assert.equal(M.handError({status: 400, message: 'TOO_MANY_PHOTOS'}), '사진은 20장까지');
 });
+
+// S67-06 NEWS-직접넣기 사진 붙여넣기: 내가 올린 사진 = '[사진 n]' 줄 ↔ 안쪽 표시 주소 줄.
+test('own photos: [사진 n] lines round-trip through the saved blocks and go out as inside addresses', async () => {
+  const M = await import('../app/now-model.mjs');
+  const own = 'https://photo.web2.invalid/driveFile0000000001.png';
+  const init = M.handInitial({title: '합성 제목', url: 'https://news.example.org/a/1'}, [{t: 'p', text: '첫 문단'}, {t: 'img', src: own, cap: '합성 설명'}, {t: 'img', src: 'https://news.example.org/b.jpg'}, {t: 'p', text: '끝'}]);
+  assert.equal(init.body, '첫 문단\n[사진 1]\n사진: 합성 설명\nhttps://news.example.org/b.jpg\n끝');
+  assert.deepEqual(init.photos, [{n: 1, src: own}]);
+  const photos = new Map([[1, own], [2, 'https://photo.web2.invalid/driveFile0000000002.jpg']]);
+  // 본문이 그대로면 본문을 보내지 않는다(사진도 서버에 그대로).
+  assert.equal('body' in M.handRequest('id1', {title: '합성 제목', body: init.body}, init, photos).body, false);
+  const req = M.handRequest('id1', {title: '합성 제목', body: init.body + '\n[사진 2]\n[사진 9]'}, init, photos);
+  assert.equal(req.body.body, '첫 문단\n' + own + '\n사진: 합성 설명\nhttps://news.example.org/b.jpg\n끝\nhttps://photo.web2.invalid/driveFile0000000002.jpg\n[사진 9]');
+  assert.deepEqual(M.tokensIn('가\n [사진 3] \n[사진 1]\n[사진 3]\n[사진 x]'), [3, 1]);
+  assert.deepEqual(M.ownPhotoOf(own), {id: 'driveFile0000000001', ext: 'png'});
+  assert.equal(M.ownPhotoOf('https://photo.web2.invalid.example.org/driveFile0000000001.png'), null);
+  // 20장 넘으면 화면에서 먼저 막는다(주소 줄 + 내 사진 줄).
+  const many = new Map(Array.from({length: 21}, (_, i) => [i + 1, `https://photo.web2.invalid/driveFile00000000${String(i).padStart(2, '0')}.png`]));
+  assert.deepEqual(M.handRequest('id1', {title: '제목', body: [...many.keys()].map(M.photoToken).join('\n') + '\n글'}, init, many), {error: '사진은 20장까지'});
+});
+
+test('own photos: kind and size are checked before anything goes up; lines go in at the cursor', async () => {
+  const M = await import('../app/now-model.mjs');
+  assert.equal(M.photoFileError({type: 'image/png', size: 10}), '');
+  assert.equal(M.photoFileError({type: 'image/heic', size: 10}), 'jpg·png·webp·gif 사진만 넣을 수 있어요');
+  assert.equal(M.photoFileError({type: 'image/svg+xml', size: 10}), 'jpg·png·webp·gif 사진만 넣을 수 있어요');
+  assert.equal(M.photoFileError({type: 'image/jpeg', size: 10 * 1024 * 1024 + 1}), '사진은 한 장 10MB까지');
+  assert.equal(M.photoFileError({type: 'image/jpeg', size: 0}), '빈 파일이에요');
+  assert.deepEqual(M.insertPhotoLines('앞글뒤글', 2, ['[사진 1]', '[사진 2]']), {value: '앞글\n[사진 1]\n[사진 2]\n뒤글', caret: '앞글\n[사진 1]\n[사진 2]\n'.length});
+  assert.match(M.handError({status: 415, message: 'PHOTO_TYPE'}), /jpg/);
+  assert.match(M.handError({status: 413, message: 'PHOTO_TOO_LARGE'}), /10MB/);
+  assert.match(M.handError({status: 424, message: 'DRIVE_NOT_CONNECTED'}), /구글 드라이브/);
+});
