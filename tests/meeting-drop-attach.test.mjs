@@ -48,7 +48,7 @@ test('놓은 자리: 가장 가까운 data-drop-zone',()=>{
 
 test('사업 보고 창: 결과·자료·사진 자리 표시, 보기·수정 면 모두 끌어 놓기 받음, 놓으면 묻고 뒤처리 줄에 넣음',()=>{
   assert.match(detail,/id="mrdResultSection" class="[^"]*" data-drop-zone="result"/);
-  assert.match(detail,/<label data-drop-zone="result"><span><span id="mrdEditTextLabel">/);
+  assert.match(detail,/<label data-drop-zone="result"><span id="mrdEditTextLabel">/);
   assert.match(detail,/class="mrd-material-section mtg-group" data-drop-zone="material"/);
   assert.match(detail,/id="mrdPhotoSection" data-drop-zone="photo"/);
   assert.match(detail,/bindDropTarget\(card,\(files,e\)=>void mrdDropFiles\(files,e\),\(\)=>!!mrdCurrent&&mrdCanEdit\(mrdCurrent\)\)/);
