@@ -6,6 +6,9 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
+// 화면 사진: KPTU_SHOTS=1 이면 docs/design/screens/s67-14/.
+const SHOTS = process.env.KPTU_SHOTS ? 'docs/design/screens/s67-14/' : '';
+const shot = (page, name) => SHOTS ? page.screenshot({ path: `${SHOTS}${name}.png` }) : null;
 const T0 = Date.parse('2026-10-06T01:00:00Z');
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const F1 = U(1), F2 = U(2), F3 = U(3);
@@ -88,6 +91,7 @@ test('폴더 ⋯ [잠금] → PIN 정하기 → 하위·옛 이름 노트까지 
   // 메뉴 › 잠금에는 '잠긴 노트 폴더 1개' 한 줄.
   await go(page, 'lock');
   await expect(page.locator('#lockView [data-lk-folders]')).toHaveText('잠긴 노트 폴더 1개');
+  await shot(page, 'lock-menu-1280');
   await expect(page.locator('#lockView .lk-note')).toHaveCount(0);
   // 정리함을 떠난 뒤 5분이 지나면 잠긴다.
   await go(page, 'home');
@@ -96,6 +100,7 @@ test('폴더 ⋯ [잠금] → PIN 정하기 → 하위·옛 이름 노트까지 
   for (const id of ['n2', 'n3', 'n4']) await expect(title(page, id)).toHaveText('잠김');
   await expect(title(page, 'n1')).toHaveText('열린 노트');
   await expect(page.locator('#noteRows [data-nx-locked]')).toHaveCount(3);
+  await shot(page, 'list-locked-1280');
   await expect(page.locator('#noteRows')).not.toContainText('감춘 노트');
   // 찾기: 잠긴 노트 글자로는 걸리지 않는다.
   await page.locator('[data-note-search]').fill('감춘');
@@ -105,6 +110,7 @@ test('폴더 ⋯ [잠금] → PIN 정하기 → 하위·옛 이름 노트까지 
   // 잠긴 노트를 누르면 숫자 판 → 틀림 → 맞음 → 정리함 노트로 돌아와 보인다.
   await page.locator('#noteRows [data-note-row="n3"]').click();
   await expect(pad(page).locator('.lk-title')).toHaveText('노트 잠김');
+  await shot(page, 'pad-1280');
   await keys(page, '0000');
   await expect(page.locator('#lockView [data-lk-msg]')).toHaveText('PIN이 맞지 않아요 · 4번 남았어요');
   await keys(page, '1234');
@@ -137,13 +143,16 @@ for (const width of [412, 884]) test(`잠긴 폴더는 처음부터 가려지고
   await expect(folder.locator('.ft-tag')).toHaveText('잠김');
   await folder.locator(`[data-nx-folder-more="${F1}"]`).click();
   await expect(page.locator('#noteDocMenu button')).toHaveText(['열기', '잠금 해제']);
+  await shot(page, `folder-menu-${width}`);
   await page.keyboard.press('Escape');
   await listView(page);
   for (const id of ['n2', 'n3', 'n4']) await expect(title(page, id)).toHaveText('잠김');
   await expect(title(page, 'n1')).toHaveText('열린 노트');
+  await shot(page, `list-locked-${width}`);
   // 잠긴 노트 줄 ⋯도 메뉴 대신 숫자 판. [취소]면 노트 목록으로 돌아온다(그대로 잠김).
   await page.locator('#noteRows [data-note-row-more="n2"]').click();
   await expect(pad(page).locator('.lk-title')).toHaveText('노트 잠김');
+  await shot(page, `pad-${width}`);
   await page.locator('#lockView [data-lk-cancel]').click();
   await expect(title(page, 'n2')).toBeVisible();
   await expect(title(page, 'n2')).toHaveText('잠김');
