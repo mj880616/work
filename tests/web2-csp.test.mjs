@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 import router from '../cloudflare/bokdoong-router.mjs';
 import {WEB2_CSP, WEB2_REFERRER_POLICY, THEME_BOOTSTRAP_HASH, web2CspPage} from '../cloudflare/web2-csp.mjs';
 
-const PAGES = ['app/index.html', 'app/login/index.html'];
+const PAGES = ['app/index.html', 'app/login/index.html', 'app/oauth-consent/index.html'];
 const directive = name => WEB2_CSP.split('; ').find(part => part.startsWith(name + ' '))?.split(' ').slice(1) || null;
 
 for (const path of PAGES) {

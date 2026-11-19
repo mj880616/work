@@ -104,6 +104,7 @@ async function load(){
   void loadCollab();
   void loadPush();
   void loadBackup();
+  void loadMcpRead();
   return true;
 }
 // MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
@@ -138,6 +139,16 @@ async function loadBackup(){
     if(!backupPanel||backupPanel.host!==host){const ready=import('./record-backup.js').then(m=>m.mountRecordBackup(host,{rt}));backupPanel={host,ready};ready.catch(()=>{if(backupPanel?.ready===ready)backupPanel=null})}
     await (await backupPanel.ready).load();
   }catch(e){console.error('record backup',e?.name||'Error')}
+}
+// MCP-Claude읽기 M-5: 'Claude 읽기 연결' 칸(mcp-read-settings.js가 그린다). 설정 행이 있는 작업공간에서만 보인다(행은 SQL로만, 설계 7.6). 자리는 '내 기록 백업' 칸 다음('계정' 칸 앞), 한 번만 붙인다.
+let mcpReadPanel=null;
+async function loadMcpRead(){
+  try{
+    let host=$('#psMcpReadPanel');
+    if(!host){const before=$('#profileView .ps-account-panel');if(!before)return;before.insertAdjacentHTML('beforebegin','<article class="panel ps-panel" id="psMcpReadPanel" aria-label="Claude 읽기 연결" hidden></article>');host=$('#psMcpReadPanel')}
+    if(!mcpReadPanel||mcpReadPanel.host!==host){const ready=import('./mcp-read-settings.js').then(m=>m.mountMcpReadSettings(host,{rt}));mcpReadPanel={host,ready};ready.catch(()=>{if(mcpReadPanel?.ready===ready)mcpReadPanel=null})}
+    await (await mcpReadPanel.ready).load();
+  }catch(e){console.error('mcp read settings',e?.name||'Error')}
 }
 async function loadPush(){
   try{
