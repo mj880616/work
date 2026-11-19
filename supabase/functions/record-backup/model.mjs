@@ -41,9 +41,9 @@ export const CATEGORIES = Object.freeze([
     { name: 'app_weekly_own_drafts', label: '주간 보고 초안', ...ws },
     { name: 'app_weekly_org_lines', label: '주간 보고 조직 줄', ...ws },
     { name: 'app_weekly_org_summaries', label: '주간 조직 요약', ...ws },
-    { name: 'app_journal_drafts', label: '업무일지 초안', ...ws },
-    { name: 'app_journal_next_week_sheets', label: '다음 주 계획', ...ws },
-    { name: 'app_pre_meeting_sheets', label: '회의 전 준비', ...ws },
+    { name: 'app_journal_drafts', label: '업무일지 초안', ...ws, order: 'journal_day' },
+    { name: 'app_journal_next_week_sheets', label: '다음 주 계획', ...ws, order: 'week_start' },
+    { name: 'app_pre_meeting_sheets', label: '회의 전 준비', ...ws, order: 'event_key' },
   ] },
   { key: 'projects', label: '프로젝트 · 자료 목록', note: '파일은 이미 내 드라이브에 있음', tables: [
     { name: 'app_spaces', label: '프로젝트', ...ws },
@@ -87,7 +87,9 @@ export function tableQuery(table, { workspaceId, userId }, { limit, offset, coun
     q.set('select', count ? 'workspace_id' : '*');
     q.set('workspace_id', `eq.${workspaceId}`);
   }
-  if (!count) q.set('order', table.by === 'user' ? 'user_id.asc' : 'id.asc');
+  // V67(11/19 '백업하지 못했어요'): id 칸이 없는 표(기본 키가 workspace_id+날짜 등)는 id로 줄 세우면 PostgREST가 400을 줘
+  // RECORD_READ_FAILED로 백업 전체가 실패했다. 그런 표는 목록의 order(기본 키의 나머지 칸)로 줄 세운다.
+  if (!count) q.set('order', table.by === 'user' ? 'user_id.asc' : `${table.order || 'id'}.asc`);
   if (limit != null) q.set('limit', String(limit));
   if (offset != null) q.set('offset', String(offset));
   return `${table.name}?${q}`;

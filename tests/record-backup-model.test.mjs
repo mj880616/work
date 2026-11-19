@@ -36,3 +36,23 @@ test('record-backup 함수를 부르는 곳은 record-backup.js 하나, 설정�
   assert.match(read('app/profile-settings.js'), /import\('\.\/record-backup\.js'\)/);
   assert.match(read('app/loader-v2.js'), /import\('\.\/record-backup\.js'\)\.then\(m=>m\.startRecordBackup\(\)\)/);
 });
+
+// V67(11/19): id 칸이 없는 표를 id로 줄 세워 백업 전체가 RECORD_READ_FAILED로 실패했다.
+// 백업 목록의 모든 표는 줄 세우는 칸(order, 없으면 id)이 그 표 정의에 있어야 한다(저장소 migration에서 정의를 찾을 수 있는 표만 본다).
+import {readdirSync} from 'node:fs';
+test('백업 표마다 줄 세우는 칸이 표 정의에 있다', () => {
+  const dir = new URL('../supabase/migrations/', import.meta.url);
+  const sql = readdirSync(dir).filter(f => f.endsWith('.sql')).sort().map(f => readFileSync(new URL(f, dir), 'utf8')).join('\n');
+  const checked = [];
+  for (const cat of M.CATEGORIES) for (const t of cat.tables) {
+    if (t.by === 'user') continue;
+    const m = new RegExp(`create table (?:if not exists )?public\\.${t.name}\\s*\\(([\\s\\S]*?)\\n\\);`, 'i').exec(sql);
+    if (!m) continue;
+    const col = t.order || 'id';
+    assert.match(m[1], new RegExp(`^\\s*${col}\\s`, 'm'), `${t.name}: 줄 세우는 칸 ${col} 없음`);
+    checked.push(t.name);
+  }
+  assert.ok(checked.includes('app_journal_drafts') && checked.includes('app_pre_meeting_sheets') && checked.includes('app_journal_next_week_sheets'));
+  const q = M.tableQuery(M.CATEGORIES.find(c => c.key === 'meetings').tables.find(t => t.name === 'app_journal_drafts'), {workspaceId: 'w', userId: 'u'}, {limit: 1, offset: 0});
+  assert.match(q, /order=journal_day\.asc/);
+});
