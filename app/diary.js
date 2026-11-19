@@ -1234,6 +1234,8 @@ root.addEventListener('change', event => {
 
 window.addEventListener('kptu:before-view-change', event => {
   if (window.KPTURouter?.current !== 'diary' || event.detail?.view === 'diary' || !edit) return;
+  // S67-23: 다시 잠겨 잠금 화면이 이 화면을 가릴 때(hold)는 쓰던 글·고른 사진을 버리지도 묻지도 않는다 — PIN을 풀면 그대로 돌아온다.
+  if (event.detail?.hold) return;
   // UI-알림창정리(S61-31): 라우터의 공용 작은 확인창으로 묻는다(event.detail.ask — [나가기]면 같은 이동을 다시 하고 그때 true).
   if (edit.busy) { event.preventDefault(); return; }
   if (dirty() && !event.detail.ask('쓰던 하루 기록을 저장하지 않고 나갈까요?')) return;
@@ -1241,6 +1243,8 @@ window.addEventListener('kptu:before-view-change', event => {
 });
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'diary') return;
+  // 잠금 화면 뒤로 숨는 동안 글 칸의 작은 상자(글자색·표 칸 메뉴)는 닫는다(화면 밖에 떠 있지 않게). 고치던 하루 기록은 그대로 둔다.
+  if (edit) { boxLayer = null; try { edit.field?.closeBoxes(); } catch { /* 편집기가 아직 없음 */ } }
   // The router forgets the left view's layers; drop ours with them.
   closeViewer({fromBack:true, restore:false});
   stopOdSync(); odSettings.drop(); renderOdPanel();
@@ -1259,6 +1263,11 @@ window.addEventListener('kptu:session-changed', () => {
   editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; doneMonth = {key:'', days:new Map()}; chosenView = null; lastListDay = null; listView.hide(); listView.reset(); renderMonth();
 });
 function enter() {
+  // S67-23: 잠금을 풀고 돌아왔다 — 붙들어 둔 수정 창을 그대로 보인다(뒤로가기가 다시 이 창을 닫게 겹만 새로 연다).
+  if (edit) {
+    editLayer ||= window.KPTURouter?.layer?.open('diary-edit', {close:({ask} = {}) => closeEditor({fromBack:true, ask})}) || null;
+    return;
+  }
   const back = takeOdReturn();
   if (back) ensureOdStatus().then(() => odSettings.finishReturn(back));
   const placed = window.KPTURouter?.place?.('diary')?.day || '';

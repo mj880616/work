@@ -684,10 +684,21 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const paintZoom = () => { detail.style.setProperty('--note-zoom', String(zoomScale())); lineGrip?.place(); };
   window.addEventListener(NOTE_ZOOM_EVENT, paintZoom);
   // 잠금이 풀리거나 다시 잠기면 목록을 다시 그린다. 열린 노트가 다시 잠긴 폴더에 있으면 닫는다(그 자리에 자료를 남기지 않음).
+  // S67-23: 고치던 중(저장 안 한 글이 있음)에 다시 잠기면 버리지 않고 정리함째 잠금 화면 뒤에 숨긴다 — PIN을 풀면 쓰던 그대로 돌아온다.
+  // 큰 쓰기 창(화면 위에 뜬 창)이 열려 있으면 숨길 수 없으니 지금처럼 닫는다.
+  const holdable = () => editing && !bigWriter && !busy && window.KPTURouter?.current === 'basket' && (textDirty() || manual.hasDraft() || noteComments.hasDraft());
   window.addEventListener('kptu:feature-lock-changed', () => {
     if (!loaded) return;
-    if (selected && pinLock.noteHidden(selected)) { close({focus:false, force:true}); return; }
+    if (selected && pinLock.noteHidden(selected)) {
+      if (pinLock.held() === 'basket') return;
+      if (holdable()) { closeMenu(); pinLock.askNotes({notes:true}, {hold:true}); return; }
+      close({focus:false, force:true}); return;
+    }
     if (!selected) renderList();
+  });
+  // 잠금 화면에서 PIN 없이 정리함으로 왔으면(붙들어 둔 노트를 놓음) 잠긴 노트는 닫는다 — 그 자리에 자료를 남기지 않는다.
+  window.addEventListener('kptu:view-changed', event => {
+    if (event.detail?.view === 'basket' && loaded && selected && pinLock.noteHidden(selected)) close({focus:false, force:true, fromBack:true});
   });
   // PC: 열린 노트 읽기 칸 위에서만 Ctrl+휠·Ctrl+(+ − 0)이 이 배율을 바꾼다(고치는 중에는 브라우저 그대로).
   bindZoomKeys(detail, {active:() => !!selected && !editing && !detail.hidden});

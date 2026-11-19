@@ -1712,6 +1712,7 @@ async function sharePicked() {
   const files = await pickedFiles(list);
   if (!files.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}); return; }
   if (!navigator.canShare?.({files})) { notify('이 기기는 여러 장 공유를 못 해요. [⤓ 받기]로 받아 주세요.'); return; }
+  window.KPTUFeatureLock?.stepOut?.(); // S67-23: 공유 창 동안은 '자리 비움'이 아니다
   try { await navigator.share({files}); shareReady = null; notify(`${files.length}장을 넘겼어요`); }
   catch (error) {
     if (error?.name === 'NotAllowedError') notify('사진을 다 받았어요. [⇪ 공유]를 한 번 더 눌러 주세요.');
