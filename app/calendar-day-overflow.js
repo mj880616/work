@@ -77,7 +77,9 @@ import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
     if(tasks.length){const section=document.createElement('section');section.id='calendarDayTasks';const heading=document.createElement('h3');heading.textContent='할 일';section.append(heading);tasks.forEach(e=>section.append(taskLine(e,eventRow(e))));list.append(section)}
     if(!events.length){const known=window.KPTUCalendarPersistence?.knows?.(new Date(seoulDateKey(date)+'T00:00:00+09:00'),new Date(Date.parse(seoulDateKey(date)+'T00:00:00+09:00')+86400000))??false;list.innerHTML=known?emptyHtml('일정 없음'):waitHtml({rows:2})}
     // JOURNAL-일기: that day's diary first photo, small, on top of the list (opens [일기] on that day).
-    Promise.all([import('./diary-data.js'),window.KPTUViewLoader?.prepare?.('diary')]).then(([diary])=>diary.diaryDayPreview(seoulDateKey(date))).then(preview=>{
+    // SEC-기능PIN잠금 ②: 하루 기록을 잠갔고 아직 안 풀었으면(잠금 설정을 모르면 그것도) 그날 사진을 읽지도 그리지도 않는다.
+    const diaryLock=window.KPTUFeatureLock;
+    if(!diaryLock||diaryLock.settings()&&!diaryLock.hides('diary'))Promise.all([import('./diary-data.js'),window.KPTUViewLoader?.prepare?.('diary')]).then(([diary])=>diary.diaryDayPreview(seoulDateKey(date))).then(preview=>{
       if(!preview||seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
       const section=document.createElement('section');section.id='calendarDayDiary';section.append(preview);list.prepend(section);
     }).catch(()=>{});

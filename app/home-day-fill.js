@@ -21,6 +21,14 @@ import {readReadMarks} from './home-day-picks-data.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js'; // HOME-읽을글밀기: News 글 줄과 같은 줄 밀기·마우스 단추·우클릭(공용 부품 그대로)
 
 const PHOTO_FRESH_MS = 10 * 60 * 1000;
+// SEC-기능PIN잠금 ②: 하루 기록이나 사진을 잠갔고 아직 안 풀었으면 '오늘 사진' 칸은 사진을 읽지도 그리지도 않고 '잠김' 한 줄(누르면 잠금 화면).
+// 잠금 설정을 아직 모르면 읽지 않고 자리만(잠깐 사진이 보였다 사라지지 않게). 판정은 feature-lock.js 한 곳.
+const photoGate = () => {
+  const fl = globalThis.window?.KPTUFeatureLock;
+  if (!fl) return 'open';
+  if (!fl.settings()) return 'wait';
+  return fl.anyHidden('diary', 'photos') ? 'locked' : 'open';
+};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 
 // 그날 사진 목록 읽기(일기 화면과 같은 함수들). 무거운 모듈은 처음 필요할 때 부른다(홈 첫 화면을 늦추지 않게).
@@ -136,6 +144,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     const key = `${owner()}:${day}`, read = photoReads.get(key);
     if (busy.has(key)) { if (force) busy.set(key, true); return; }
     if (!onHome()) return; // 홈이 아닐 때는 읽지 않는다(돌아와 그릴 때 읽음)
+    if (photoGate() !== 'open') return; // 잠겼거나 잠금 설정을 아직 모름 — 풀리면(kptu:feature-lock-changed) 읽는다
     if (!force && read && read.state !== 'part' && Date.now() - read.at < PHOTO_FRESH_MS) return;
     busy.set(key, false);
     const mine = gen, alive = () => mine === gen && onHome();
@@ -161,13 +170,14 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   const setText = (el, text) => { if (el && el.textContent !== text) el.textContent = text; };
   const setAttr = (el, name, value) => { if (el.getAttribute(name) !== value) el.setAttribute(name, value); };
   // 칸 상태: 읽는 중(건수 빈칸, 자리만) → 사진 n장 / 0장이면 '0' + '없음' / 못 읽으면 실패 한 줄 + [다시]. 자리 높이는 늘 사진 한 줄(journal.css).
-  function setBody(kind) { // kind: 'cells' | 'empty' | 'fail' | 'wait'
+  function setBody(kind) { // kind: 'cells' | 'empty' | 'fail' | 'wait' | 'locked'
     if (strip.dataset.state === kind) return;
     strip.dataset.state = kind;
     if (kind === 'cells') { strip.querySelector('.wait-empty,.wait-fail')?.remove(); return; }
     for (const button of cells.values()) button.remove();
     cells.clear(); strip.querySelector('[data-journal-photo-more]')?.remove(); drawnWidth = -1;
-    strip.innerHTML = kind === 'empty' ? emptyHtml('없음', {attrs:'data-journal-photos-empty'}) : kind === 'fail' ? failHtml({retry:'data-journal-photos-retry'}) : '';
+    strip.innerHTML = kind === 'empty' ? emptyHtml('없음', {attrs:'data-journal-photos-empty'}) : kind === 'locked' ? emptyHtml('잠김', {attrs:'data-journal-photos-locked'})
+      : kind === 'fail' ? failHtml({retry:'data-journal-photos-retry'}) : '';
   }
   function drawPhotos() {
     if (!last) return;
@@ -176,6 +186,8 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     const label = day === today ? '오늘 사진' : '그날 사진';
     setText(photosHost.querySelector('.journal-heading'), label);
     setAttr(photosHost.querySelector('[data-journal-photos-open]'), 'aria-label', `${label} 보기`);
+    const gate = photoGate();
+    if (gate !== 'open') { setText(photosHost.querySelector('[data-journal-photos-count]'), ''); setAttr(strip, 'aria-label', label); setBody(gate === 'locked' ? 'locked' : 'wait'); return; }
     const done = read?.state === 'ok', failed = read?.state === 'failed';
     setText(photosHost.querySelector('[data-journal-photos-count]'), list.length || done ? String(list.length) : '');
     setAttr(strip, 'aria-label', list.length ? `${label} ${list.length}장` : label);
@@ -312,6 +324,12 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     for (const read of photoReads.values()) if (read.odPending) read.at = 0;
     const read = last && !last.hidden && photoReads.get(`${owner()}:${last.day}`);
     if (read?.odPending) ensurePhotos(last.day, {force:true});
+  });
+  // SEC-기능PIN잠금 ②: 잠금 설정을 읽었거나 잠기고 풀리면 '오늘 사진' 칸만 다시 판정한다(풀렸으면 그때 읽는다).
+  globalThis.window?.addEventListener?.('kptu:feature-lock-changed', () => {
+    if (!last || last.hidden) return;
+    drawPhotos();
+    if (photoGate() === 'open') ensurePhotos(last.day);
   });
   // 홈을 떠나면 하던 사진 읽기를 멈추고, 돌아오면 이어서 읽는다.
   globalThis.window?.addEventListener?.('kptu:view-changed', event => {
