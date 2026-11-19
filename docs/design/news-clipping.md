@@ -475,3 +475,24 @@ labortoday.co.kr/rssIndex.html · laborplus.co.kr(하단 RSS 링크) · beminor.
 - **저녁 알림**: 한 줄로 합침 '새 성명 n · 새 기사 n'.
 - **목록 순서**: 시간순 그대로, 확정 관심 주제에 걸린 기사에만 작은 표시.
 - PR 순서·DB·보안은 outside-statements.md 12.5~12.8.
+
+## 14. 포털 기사 공유 읽기 (2026-11-19, S67-10 NEWS-네이버공유읽기)
+
+- 증상: 폰 공유로 넣은 네이버 기사(n.news.naver.com·m.entertain.naver.com) 3건이 목록에 '제목 없음 · 도메인'으로 남음.
+- 사실(시험): 네이버 뉴스·연예 모바일 화면 모양(본문 칸 `#dic_area`·`#articeBody`, `<br>` 문단, og:title)은 지금 부품(`news-feed/page.ts` readArticlePage → `_shared/feed-extract.ts`, note-import와 같은 부품)이 제목·본문을 읽는다(`tests/security/news-feed-naver.test.mjs`). 제목이 비는 것은 화면 모양이 아니라 읽기 자체가 안 된 경우뿐이다: robots.txt 막힘(state `robots`, 본문 까닭 `robots`), 늦은 답·연결 실패(`failed`/`timeout`), 4xx·5xx(`failed`/`http_*`), 봇 확인(`bot_check`).
+- 추정(운영 확인 전): 네이버는 2025년 6~7월 서비스 전반에 robots.txt로 자동 읽기를 막았다고 보도됐다. 이 함수의 읽기 이름(`Web2NewsFeed`)은 `User-agent: *` 묶음을 따르므로 막힘(robots)일 가능성이 가장 크다. 운영 확인은 개수만 보는 SQL(PR 본문)로 한다.
+- 정한 것: robots 막힘은 우회하지 않는다. 대신 ① 공유 창이 함께 넘긴 제목(폰 [공유]의 '제목 + 주소')을 원문 제목을 못 얻었을 때만 기사 제목으로(글자로만, 300자, 주소·빈 글 버림, 포털 꼬리 뗌), ② 제목을 못 읽은 줄은 '제목 없음' 대신 까닭 한마디('읽기 막힌 기사'·'못 읽은 기사'·'읽지 않는 주소'), ③ 상세 원문 칸의 까닭 한 줄 + [직접 넣기](S67-02)는 그대로.
+- 언론사 원문 주소로 다시 읽기: 하지 않는다. 네이버 기사 안 '기사원문' 링크는 네이버 쪽을 읽어야 보이는데, 막힌 경우에는 그 쪽을 읽지 않으므로 얻을 수 없다(읽힌 경우에는 이미 본문이 있다). 주소 숫자(언론사 번호·기사 번호)로 원문 주소를 짐작하지 않는다.
+- 읽기 시간: 사람이 누른 읽기(공유 보관 `save_url`·[본문 열기] `open`)만 요청 하나 20초(`PERSON_FETCH_TIMEOUT_MS`), 수집·다시 뽑기는 10초 그대로. 화면 기다림은 90초.
+
+| 주소 모양 | 쓰는 곳 | 읽기 판정 | 비고 |
+| --- | --- | --- | --- |
+| n.news.naver.com/mnews/article/… · /article/… | 네이버 뉴스 | robots.txt 따름(막히면 `robots`) | 화면 모양은 읽힘(시험) |
+| m.entertain.naver.com/article/… | 네이버 연예 | 같음 | 화면 모양은 읽힘(시험) |
+| m.sports.naver.com/…/article/… | 네이버 스포츠 | 같음 | 시험 없음(같은 부품) |
+| news.naver.com/main/read… | 네이버 PC 옛 주소 | 같음(리다이렉트 3번까지, 단계마다 robots) | |
+| naver.me/… | 네이버 줄인 주소 | 받지 않음(줄인 주소 거절 목록) | 공유 시 400 |
+| v.daum.net/v/… · m.daum.net | 다음 뉴스 | robots.txt 따름 | 시험 없음 |
+| news.nate.com/view/… · m.news.nate.com | 네이트 뉴스 | robots.txt 따름 | 시험 없음 |
+| news.google.com/… | 구글 뉴스 중계 | robots 금지(S58-9) | 원문 주소로 공유해야 읽힘 |
+| 언론사 원문 주소 | 각 매체 | robots.txt 따름 | 포털보다 잘 읽힘 |

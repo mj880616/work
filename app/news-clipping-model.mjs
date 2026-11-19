@@ -60,6 +60,8 @@ const STATE_NOTE = {
   blocked: '읽지 않는 주소 · 원문에서',
 };
 export const stateNote = state => STATE_NOTE[state] || '';
+// 제목을 못 읽은 줄의 제목 자리(S67-10 NEWS-네이버공유읽기): '제목 없음' 대신 까닭 한마디 · 도메인. 자세한 까닭과 [직접 넣기]는 상세 원문 칸(now-detail.js).
+const NO_TITLE = {pending: '제목 읽기 전', robots: '읽기 막힌 기사', bot_check: '읽기 막힌 기사', failed: '못 읽은 기사', too_big: '못 읽은 기사', blocked: '읽지 않는 주소'};
 
 // 시각: 24시간 HH:MM(UI-화면정리 B). 날짜 묶음 머리가 날짜를 보이므로 줄에는 시각만.
 const KST = 9 * 3600000;
@@ -99,11 +101,11 @@ export function itemView(item, {showKo = false} = {}) {
   const ko = foreign && showKo;
   const t = whenOf(item);
   const koTitle = foreign && typeof item.title_ko === 'string' && item.title_ko.trim() ? plainText(item.title_ko).replace(/\s+/g, ' ').trim() : '';
-  // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '제목 읽기 전 · 도메인' / '제목 없음 · 도메인'.
+  // 제목이 없거나 주소·도메인뿐이면 도메인을 제목으로 보이지 않는다(NEWS-채널밀림 ②, 11/02): '제목 읽기 전 · 도메인' / '못 읽은 기사 · 도메인'(S67-10, 위 NO_TITLE).
   const rawTitle = plainText(item.title).replace(/\s+/g, ' ').trim();
   const own = rawTitle && !isAddressTitle(rawTitle) ? rawTitle : '';
   const host = domainOf(item.url);
-  const title = koTitle || own || `${item.state === 'pending' ? '제목 읽기 전' : '제목 없음'}${host ? ` · ${host}` : ''}`;
+  const title = koTitle || own || `${NO_TITLE[item.state] || '제목 없음'}${host ? ` · ${host}` : ''}`;
   return {
     publisher: item.publisher || domainOf(item.url),
     time: t === null ? '' : hhmm(t),

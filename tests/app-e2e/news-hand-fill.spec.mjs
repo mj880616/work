@@ -49,7 +49,7 @@ for (const width of [412, 884, 1280]) {
   test(`직접 넣기 ${width}: 못 읽은 기사 → 다섯 칸 → 저장 → 머리·원문·목록·요약이 넣은 값`, async ({ page }, info) => {
     test.setTimeout(90000);
     const { errors, server, seen } = await setup(page, width);
-    await expect(row(page, 'x1').locator('.nw-title')).toHaveText('제목 없음 · example.org');
+    await expect(row(page, 'x1').locator('.nw-title')).toHaveText('못 읽은 기사 · example.org');
     await row(page, 'x1').locator('[data-nc-open="x1"]').click();
     const nd = detail(page);
     await expect(nd.locator('[data-nd-why]')).toContainText('사이트가 늦게 답해 읽지 못함');
@@ -147,6 +147,6 @@ test('서버 거절 412: 운영자 기능 키 밖이면 입력 칸은 그대로 
   await expect(form.locator('[data-nd-hand-in="title"]')).toHaveValue('가짜 제목');
   await expect(form.locator('[data-nd-hand-in="author"]')).toHaveValue('가짜 기자');
   expect(seen.fills).toHaveLength(1);
-  await expect(nd.locator('.nd-title')).toHaveText('제목 없음 · example.org');
+  await expect(nd.locator('.nd-title')).toHaveText('못 읽은 기사 · example.org');
   expect(errors.filter(e => !/403/.test(e))).toEqual([]);
 });
