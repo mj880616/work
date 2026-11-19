@@ -129,8 +129,10 @@ export async function openRecordBackfill(anchor, rt = globalThis.window?.KPTURun
   const { notify, askConfirm } = await import('./small-notice.js');
   if (running) { notify('옛 사진 기록을 채우고 있어요. 끝나면 알려 드려요.'); return; }
   let found;
-  try { notify('옛 사진 기록을 살펴보고 있어요.', { ms: 20000 }); found = await findBackfill(rt); }
+  const looking = notify('옛 사진 기록을 살펴보고 있어요.', { ms: 20000 });
+  try { found = await findBackfill(rt); }
   catch { notify('기록을 확인하지 못했어요. 다시 시도해 주세요.', { error: true }); return; }
+  looking.close(); // 확인창을 가리지 않게
   const n = found.links.length + found.biz.length;
   if (!n) { notify('파일 이름으로 남은 기록 줄이 없어요.'); return; }
   const ok = await askConfirm(anchor, { text: `파일 이름으로 남은 기록 줄 ${n}개를 사진 설명으로 바꿀까요?`, ok: '바꾸기',
