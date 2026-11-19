@@ -57,7 +57,7 @@ test('News 보관: 글에서 주소 하나만 서버로 보내고, 알림 한 �
   const {state, errors} = await fixture(page, {id:ID, subject:'합성 기사 제목', text:'합성 기사 제목\nhttps://news.example.org/a/1?utm_source=share', target:'news', items:[]});
   await expect(notice(page)).toContainText('News 보관에 넣었어요');
   await expect(notice(page).getByRole('button', {name:'열기'})).toBeVisible();
-  expect(state.saves).toEqual([{url:'https://news.example.org/a/1?utm_source=share'}]);
+  expect(state.saves).toEqual([{url:'https://news.example.org/a/1?utm_source=share', title:'합성 기사 제목'}]);
   expect(state.posts).toEqual([]);
   expect(await page.evaluate(() => window.__shareSent)).toContain(`share:done:${ID}`);
   // 알림은 위쪽(하단바에 가리지 않음), 가로 넘침 없음.

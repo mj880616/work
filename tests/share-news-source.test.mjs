@@ -1,5 +1,5 @@
 // S62-22 APP-공유로뉴스보관: 공유 'News 보관' 화면 길의 소스 경계.
-// - 서버로 보내는 것은 news-feed ?action=save_url의 주소 하나뿐(작업공간·출처·다른 칸 없음). 다른 서버 주소·기기 저장·밖으로 보내는 길 없음.
+// - 서버로 보내는 것은 news-feed ?action=save_url의 주소 하나 + 공유 창 제목 한 줄(S67-10)뿐(작업공간·출처·다른 칸 없음). 다른 서버 주소·기기 저장·밖으로 보내는 길 없음.
 // - 주소 없는 글은 누를 때만 정리함 길(put). 알림 글자는 요청 원문 그대로.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +11,7 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 test('share-news: only the save_url address goes to the server, no device storage, no outward path', () => {
   const src = read('../app/share-news.js');
   assert.deepEqual([...src.matchAll(/\/functions\/v1\/[a-z-]+\?action=[a-z_]+/g)].map(m => m[0]), ['/functions/v1/news-feed?action=save_url']);
-  assert.match(src, /body: \{url\}/);
+  assert.match(src, /body: title \? \{url, title\} : \{url\}/);
   assert.doesNotMatch(src, /\/rest\/v1\/|navigator\.share|share:send|workspace_id|origin:/);
   for (const word of ['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'cach' + 'es.']) assert.equal(src.includes(word), false, word);
   const basket = read('../app/basket-share.js');

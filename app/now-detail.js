@@ -289,7 +289,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (!row0 || !(needsRead(row0) || titlePending(row0))) return {ok: true};
     cur.reading = true; paintAi();
     let status = '';
-    try { status = (await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 60000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
+    try { status = (await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 90000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
     if (my !== seq) return {ok: true, stale: true};
     cur.reading = false;
     const row = (await readNewsRow(item)) || row0;
@@ -306,7 +306,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     let row0 = null;
     try { row0 = await readNewsRow(item); } catch { return; }
     if (!titlePending(row0)) return;
-    try { await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 60000}); } catch { return; }
+    try { await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 90000}); } catch { return; }
     let row = null;
     try { row = await readNewsRow(item); } catch { return; }
     if (row) onRead?.(item, row);

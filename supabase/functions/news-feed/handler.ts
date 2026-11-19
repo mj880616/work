@@ -35,7 +35,7 @@
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { allowedUrl } from "../_shared/outside-catalog.ts";
 import { matchedKeywords, NEWS_CATALOG, newsSourceByKey, OPEN_ARTICLE_KEY, OPEN_ARTICLE_RULE, publicNewsCatalog, type NewsSource } from "../_shared/news-catalog.ts";
-import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
+import { ACCEPT_FEED, ACCEPT_HTML, cleanArticleUrl, makeFeedReader, openArticleUrl, PERSON_FETCH_TIMEOUT_MS, urlKey, type FeedLog, type FeedReader } from "../_shared/feed-fetch.ts";
 import { aiConfigFrom, callOpenAi, outputText, tokenCount, type Env } from "../_shared/openai-responses.ts";
 import { AI_REASONING_TOKEN_HEADROOM, aiSaysNoMaterial, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
@@ -347,12 +347,13 @@ async function summarize(db: Db, ai: AiDeps, ws: string, title: string, body: st
 }
 
 // ---- 읽기 ----------------------------------------------------------------------------------------------------------
-type Readers = { catalog: (s: NewsSource) => FeedReader; open: () => FeedReader };
+// person=true: 사람이 누른 읽기(공유 보관 save_url·[본문 열기] open)만 요청 하나 PERSON_FETCH_TIMEOUT_MS(S67-10). 수집·다시 뽑기는 기본 상한 그대로.
+type Readers = { catalog: (s: NewsSource, person?: boolean) => FeedReader; open: (person?: boolean) => FeedReader };
 function makeReaders(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: FeedLog, now: () => number): Readers {
   const base = { doFetch, sleep, log, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS, now };
   return {
-    catalog: (s) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw) }),
-    open: () => makeFeedReader({ ...base, allow: openArticleUrl }),
+    catalog: (s, person = false) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw), ...(person ? { timeoutMs: PERSON_FETCH_TIMEOUT_MS } : {}) }),
+    open: (person = false) => makeFeedReader({ ...base, allow: openArticleUrl, ...(person ? { timeoutMs: PERSON_FETCH_TIMEOUT_MS } : {}) }),
   };
 }
 const storedState = (code: string) => code === "robots" || code === "robots_denied" ? "robots" : code === "too_large" ? "too_big" : code === "url_outside" || code === "redirect_outside" ? "blocked" : "failed";
@@ -1283,6 +1284,22 @@ export function saveTarget(raw: unknown): { url: string; key: string } | null {
   const clean = cleanArticleUrl(u.href);
   return clean && openArticleUrl(clean) ? { url: clean, key: urlKey(clean) } : null;
 }
+// 공유 창이 함께 넘긴 기사 제목(S67-10 NEWS-네이버공유읽기). 폰 [공유]는 보통 '제목 + 주소'를 넘긴다. 원문을 못 읽었거나(robots·늦은 답·없는 글)
+// 원문에 제목이 없을 때만 기사 제목으로 쓴다 — 원문에서 읽은 제목이 있으면 그것이 먼저. 사람이 넘긴 글자라 [직접 넣기]와 같게 글자로만(HTML 해석 없음),
+// 한 줄·SHARE_TITLE_MAX자, 주소가 든 글·빈 글은 버린다. 포털 꼬리(' : 네이버 뉴스' 등)는 뗀다. 이 입구는 운영자 기능 키 작업공간만(hand_fill과 같은 문).
+export const SHARE_TITLE_MAX = 300; // HAND_LIMITS.title과 같음
+export const SHARE_TITLE_IN_MAX = 1000;
+const PORTAL_TAIL = /\s*[:|\-–—]\s*(네이버\s*(뉴스|연예|엔터|스포츠)?|naver(\s*(news|entertain|sports))?|다음\s*(뉴스|연예|스포츠)?|daum(\s*news)?|네이트\s*(뉴스)?|nate(\s*news)?|msn|google\s*news|구글\s*뉴스)\s*$/i;
+const PORTAL_HEAD = /^\s*[\[(【]\s*(네이버\s*(뉴스|연예|엔터|스포츠)?|다음\s*(뉴스)?|네이트\s*(뉴스)?)\s*[\])】]\s*/i;
+export function shareTitle(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  // deno-lint-ignore no-control-regex
+  let t = oneLine(raw.slice(0, SHARE_TITLE_IN_MAX).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200b\ufeff]/g, " "));
+  t = t.replace(PORTAL_HEAD, "").replace(PORTAL_TAIL, "").trim();
+  if (!t || /https?:\/\/|www\.|^[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(t)) return null;
+  const out = cut(newsTitle(t), SHARE_TITLE_MAX).trim();
+  return out || null;
+}
 type SaveOut = { ok: true; status: "saved" | "no_body"; id: string };
 async function userSave(db: Db, ws: string, url: string, key: string, page: Row | null): Promise<Row> {
   const v = await db.rpcValue("app_news_user_save", { p_workspace: ws, p_url: url, p_url_key: key, p_page: page });
@@ -1295,7 +1312,7 @@ async function savedOut(db: Db, r: Row): Promise<SaveOut> {
   const art = (await db.get(`app_news_articles?id=eq.${id}&select=body_kind&limit=1`))[0];
   return { ok: true, status: art?.body_kind ? "saved" : "no_body", id };
 }
-async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: unknown, nowMs: number): Promise<SaveOut> {
+async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: unknown, nowMs: number, sharedTitle: string | null = null): Promise<SaveOut> {
   const target = saveTarget(raw);
   if (!target) throw new Fail(400, "URL_REFUSED");
   await useDaily(db, ws, "save_n", SAVE_DAILY, nowMs);
@@ -1308,7 +1325,7 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
   const first = await call(target.url, target.key, null);
   if (first.found === true) return await savedOut(db, first);
   const nowIso = new Date(nowMs).toISOString();
-  const reader = readers.open();
+  const reader = readers.open(true);
   let url = target.url, key = target.key;
   let page: Row, blocks: Extracted;
   const vid = videoId(url);
@@ -1332,6 +1349,8 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
       blocks = info.blocks;
     }
   }
+  // 원문에서 제목을 못 얻었으면 공유 창이 넘긴 제목(위 shareTitle). 상태·본문은 그대로(못 읽은 기사는 [직접 넣기]가 그대로 보인다).
+  if (!page.title && sharedTitle) { page.title = sharedTitle; page.title_key = titleKey(sharedTitle); log("save_shared_title", { state: String(page.state) }); }
   const saved = await call(url, key, page);
   if (saved.created === true) await saveArticleBody(db, log, { id: saved.article_id, lane: "channel" }, blocks, nowIso);
   return await savedOut(db, saved);
@@ -1621,8 +1640,10 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         return json({ ok: true, done: out.done, deferred: out.deferred });
       }
       if (action === "save_url") {
-        if (!exactKeys(b, ["url"])) throw new Fail(400, "INVALID_BODY");
-        return json(await saveUrl(db, readers, log, who.workspaceId, b.url, nowMs));
+        // {url} 또는 {url, title}(S67-10: 공유 창이 넘긴 제목, 글자 SHARE_TITLE_IN_MAX자까지).
+        if (!exactKeys(b, ["url"]) && !exactKeys(b, ["url", "title"])) throw new Fail(400, "INVALID_BODY");
+        if ("title" in b && b.title !== null && (typeof b.title !== "string" || b.title.length > SHARE_TITLE_IN_MAX)) throw new Fail(400, "INVALID_BODY");
+        return json(await saveUrl(db, readers, log, who.workspaceId, b.url, nowMs, shareTitle(b.title)));
       }
       // NEWS-모두에게열기 E3: open·translate는 공용 기사 한 줄에 읽고 쓴다(기사마다 원문 읽기·번역 1번). 하루 한도·AI 사용량은 누른 사람 작업공간.
       const reads = makeUserReads(sb, deps.env("SUPABASE_ANON_KEY") ?? "", auth!.slice("Bearer ".length), doFetch);
@@ -1652,13 +1673,13 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
         }
         if (videoId(String(art.url))) return json({ ok: true, status: "original_only" }); // 영상: 본문이 없다 — 원문(영상)에서 보기
         let reader: FeedReader;
-        if (art.lane === "channel") reader = readers.open();
+        if (art.lane === "channel") reader = readers.open(true);
         else {
           const source = newsSourceByKey(art.source_key);
           // 카탈로그 밖 매체(옛 키워드 기사의 구글 중계 주소, 카탈로그에서 뺀 매체의 글): 읽지 않고 원문 링크로.
           // 남의 매체로 가는 링크(linkOut 피드의 기사)도 카탈로그 호스트 밖이라 읽지 않는다.
           if (!source || !allowedUrl(source, String(art.url))) return json({ ok: true, status: "original_only" });
-          reader = readers.catalog(source);
+          reader = readers.catalog(source, true);
         }
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
         // 원문은 공용 기사 주소로 한 번만 읽는다(같은 주소의 내 옛 줄에만 같은 결과를 함께 적음).

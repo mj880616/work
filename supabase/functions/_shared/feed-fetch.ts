@@ -12,6 +12,10 @@ export { cleanArticleUrl, openArticleUrl, urlKey };
 
 export const FETCH_MAX_BYTES = 2 * 1024 * 1024;
 export const FETCH_TIMEOUT_MS = 10000;
+// 사람이 누른 읽기(폰 공유 보관 save_url·[본문 열기] open)만 요청 하나 20초(S67-10 NEWS-네이버공유읽기). 수집(cron)은 FETCH_TIMEOUT_MS 그대로.
+// 근거: 공유한 기사가 늦게 답하는 사이트(11/19 vop.co.kr 10초 초과)면 사람이 다시 눌러도 같은 10초에 걸린다. 한 번에 한 기사라 요청은 robots.txt + 글
+// 두 번뿐이고(20초×2 + 간격 2초 — 화면 기다림 90초 안), 수집처럼 여러 기사를 잇달아 읽지 않으므로 시간 예산(RUN_BUDGET_MS)을 밀지 않는다.
+export const PERSON_FETCH_TIMEOUT_MS = 20000;
 export const MAX_REDIRECTS = 3;
 
 export type FeedLog = (code: string, detail?: Record<string, unknown>) => void;
@@ -26,6 +30,7 @@ export type ReaderOptions = {
   gapMs: number;
   allow: (raw: string) => URL | null;
   now?: () => number;
+  timeoutMs?: number; // 요청 하나 상한(기본 FETCH_TIMEOUT_MS, 사람이 누른 읽기만 PERSON_FETCH_TIMEOUT_MS)
 };
 
 export const ACCEPT_FEED = "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9";
@@ -33,6 +38,7 @@ export const ACCEPT_HTML = "text/html, application/xhtml+xml;q=0.9";
 
 export function makeFeedReader(o: ReaderOptions): FeedReader {
   const now = o.now ?? Date.now;
+  const timeoutMs = o.timeoutMs === PERSON_FETCH_TIMEOUT_MS ? PERSON_FETCH_TIMEOUT_MS : FETCH_TIMEOUT_MS; // 두 값 밖은 받지 않음(상한을 넓히지 않게)
   const robots = new Map<string, Promise<{ text: string | null; code: string }>>();
   // 출처별 다음 요청을 보내도 되는 시각. 기다리기 전에 자기 차례를 잡아 둔다(동시 요청이 같은 간격을 함께 쓰지 않게).
   const nextAt = new Map<string, number>();
@@ -45,7 +51,7 @@ export function makeFeedReader(o: ReaderOptions): FeedReader {
       const res = await o.doFetch(url.href, {
         method: "GET", redirect: "manual", credentials: "omit",
         headers: { "User-Agent": o.userAgent, Accept: accept, "Accept-Language": "ko,en;q=0.8" },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       return { res };
     } catch (e) {

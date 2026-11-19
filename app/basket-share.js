@@ -14,7 +14,7 @@
 // S62-22 APP-공유로뉴스보관: 공유 창 '노동조합+ News 보관'(target news)은 창 없이 글에서 기사 주소 하나를 골라 서버(news-feed ?action=save_url)에 보낸다.
 // 서버가 로그인·작업공간을 정하고 원문을 읽어(공개 본문만) 내 News에 넣고 바로 보관한다. 알림 한 줄 'News 보관에 넣었어요 [열기]'.
 // 주소가 없는 글·사진이면 '기사 주소가 없어요 [잊지 말기로 넣기]'(누를 때만 정리함 길로). 발송·공유·삭제로 이어지는 흐름은 없다.
-import {isShareId, shareArticleUrl, parseShareList, pickShareItems, shareSummary, skippedText, shareRawText, withMemo, SHARE_MAX_BYTES, SHARE_MEMO_MAX} from './share-intake-model.mjs';
+import {isShareId, shareArticleUrl, shareArticleTitle, parseShareList, pickShareItems, shareSummary, skippedText, shareRawText, withMemo, SHARE_MAX_BYTES, SHARE_MEMO_MAX} from './share-intake-model.mjs';
 import {notify} from './small-notice.js';
 import {PHOTO_ACT_TEXT, SEND_NOTE} from './photo-menu-items.mjs';
 import {NEWS_NOTE} from './share-news-words.mjs';
@@ -90,7 +90,7 @@ function start() {
     }
   }
 
-  // News 보관: 주소만 서버로 보낸다(파일은 받지 않음). 같은 공유를 두 번 넣지 않게 done으로 남기고 앱에 바로 끝났다고 알린다.
+  // News 보관: 주소(+ 공유 창이 넘긴 제목 한 줄, S67-10)만 서버로 보낸다(파일은 받지 않음). 같은 공유를 두 번 넣지 않게 done으로 남기고 앱에 바로 끝났다고 알린다.
   // 주소가 없으면 [잊지 말기로 넣기]를 누를 때만 정리함 길(put)로 — 그때 파일도 받는다(앱이 아직 들고 있을 때까지).
   async function openNews(list, picked) {
     const url = shareArticleUrl({subject:list.subject, text:list.text});
@@ -107,7 +107,7 @@ function start() {
     share = {...list, keep:[], skipped:{}, done:true};
     send('share:done:' + list.id);
     const who = owner;
-    try { const {saveSharedNews} = await import('./share-news.js'); await saveSharedNews(url, {isCurrent:() => scope() === who}); }
+    try { const {saveSharedNews} = await import('./share-news.js'); await saveSharedNews(url, {title:shareArticleTitle({subject:list.subject, text:list.text}), isCurrent:() => scope() === who}); }
     catch { notify(NEWS_NOTE.fail, {error:true, ms:FAILED_MS, note:'그 앱에서 다시 공유해 주세요.'}); }
   }
   // 앱이 흘려주는 파일을 한 번씩 받는다. 받은 파일은 이 화면 메모리에만 있다. 다 받으면 앱에 끝났다고 알린다(앱이 번호·권한을 버림).

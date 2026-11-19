@@ -85,3 +85,15 @@ test('share target news and article url picking', async () => {
   for (const text of ['', '주소 없는 글', 'javascript:alert(1)', 'ftp://news.example.org/a', 'https://localhost', 'www.example.org/a', `https://news.example.org/${'a'.repeat(2100)}`])
     assert.equal(M.shareArticleUrl({text}), '', text.slice(0, 40));
 });
+
+// S67-10 NEWS-네이버공유읽기: 공유 창이 넘긴 기사 제목 한 줄(원문을 못 읽었을 때만 서버가 제목으로 씀).
+test('shareArticleTitle: 제목 칸이 먼저, 없으면 본문에서 주소를 뺀 첫 줄, 주소뿐이면 빈 값', async () => {
+  const M = await import('../app/share-intake-model.mjs');
+  assert.equal(M.shareArticleTitle({subject: '합성 기사 제목', text: '다른 줄\nhttps://n.news.naver.com/mnews/article/000/1'}), '합성 기사 제목');
+  assert.equal(M.shareArticleTitle({subject: '', text: '[네이버 뉴스] 합성 기사 제목\nhttps://n.news.naver.com/mnews/article/000/1'}), '[네이버 뉴스] 합성 기사 제목');
+  assert.equal(M.shareArticleTitle({subject: 'https://n.news.naver.com/a', text: 'https://n.news.naver.com/a\n\n  합성 둘째 줄 제목  '}), '합성 둘째 줄 제목');
+  assert.equal(M.shareArticleTitle({subject: '', text: 'https://n.news.naver.com/mnews/article/000/1'}), '');
+  assert.equal(M.shareArticleTitle({}), '');
+  assert.equal(M.shareArticleTitle({subject: '합성\u0000 제목\t끝'}), '합성 제목 끝');
+  assert.equal([...M.shareArticleTitle({subject: '가'.repeat(3000)})].length, M.SHARE_TITLE_SEND_MAX);
+});
