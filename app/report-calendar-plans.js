@@ -5,6 +5,8 @@
 // - 권한은 DB(소유자 RLS)와 Edge(google-calendar: 로그인한 사람의 캘린더만)가 정한다. 화면은 값을 고르지 않는다.
 // - 기기에 저장하지 않는다. 읽은 일정은 이 창이 떠 있는 동안만 메모리에 두고(달마다 EVENTS_TTL), 로그인·계정이 바뀌거나 일정이 바뀌면 비운다.
 // - 서버에 새 표가 없거나(적용 전·되돌린 뒤) 아직 못 읽었으면 planView가 null → 달력은 표시 없이 지금 그대로다.
+// - S67-16(명진 11/20 "넓혀"): 점선 □ '보고할까요?' 판정(report-plan-model.mjs askReason)에 쓸 힌트 두 가지도 여기서 읽는다 —
+//   내 담당조직 목록(이름·다른 이름, 로그인마다 한 번)과 이 달 사업영역 주요 일정 행의 일정 id(달마다, 일정과 같이). 못 읽으면 그 힌트만 빠진다.
 // - 사라진 일정의 줄을 저절로 지우지 않는다: 이 읽기는 캘린더마다 250건까지이고 고른 캘린더만 읽어, '안 보임'이 '삭제됨'이라는 보장이 없다(PR 본문 '범위 밖').
 import {loadReportPlans, reportPlanData, setEventPlanState, addRulePlans, syncEventCopies, REPORT_PLANS_CHANGED} from './report-plan-data.js';
 import {planItems, itemsByDay, overdueItems, matchesName, monthRange, itemEvent, itemWhen, planRowMenuItems} from './report-calendar-plan.mjs';
@@ -15,8 +17,10 @@ const EVENTS_TTL = 5 * 60 * 1000;
 const rtOf = () => window.KPTURuntime;
 const sessionKey = rt => { const c = rt?.context?.read?.() || window.__KPTU_BOOT_CONTEXT__ || null, ws = String(c?.workspace?.id || c?.workspaceId || ''), user = String(c?.user?.id || ''); return ws && user ? `${rt?.session?.epoch?.() ?? ''}|${user}|${ws}` : ''; };
 const monthId = m => `${m.year}-${String(m.month + 1).padStart(2, '0')}`;
+const enc = encodeURIComponent;
+const HINT_LIMIT = 1000;
 
-// months: 달 → {key(로그인), at(읽은 때), events(목록 | null = 읽지 못함·연결 안 됨), flight}
+// months: 달 → {key(로그인), at(읽은 때), events(목록 | null = 읽지 못함·연결 안 됨), areaIds(Set | null), flight}
 const months = new Map();
 // 이번 창에서 방금 보고를 쓴 일정 → 쓴 때. '일정에 이어진 보고' 목록을 다시 읽어 그 보고가 보일 때까지(길어야 WRITTEN_HOLD) 그 일정의 □를 감춘다 —
 // 새 보고의 ●와 옛 □가 같이 보이는 순간을 없앤다. 연결이 저장되지 않았으면 시간이 지나 □가 다시 보인다(사실 그대로).
@@ -34,8 +38,41 @@ async function readMonth(rt, month) {
     return events;
   } catch { return null; }
 }
+// 내 담당조직(쉬는 조직 제외). 어느 작업공간 것을 읽을지는 DB(소유자 RLS — 내 작업공간 하나)가 정한다(이 파일은 작업공간 값을 다루지 않는다).
+// 실패하면 null — 제목 판정만 빠진다.
+async function readOrgs(rt) {
+  try {
+    const rows = await rt.api(`/rest/v1/app_suborganizations?active=eq.true&select=id,name,aliases,active&order=id.asc&limit=${HINT_LIMIT}`);
+    return Array.isArray(rows) ? rows : null;
+  } catch { return null; }
+}
+// 이 달(서울)에 시작하는 사업영역 주요 일정 행의 Google 일정 id. 실패하면 null — 사업영역 판정만 빠진다.
+async function readAreaIds(rt, month) {
+  const {timeMin, timeMax} = monthRange(month);
+  try {
+    const rows = await rt.api(`/rest/v1/app_project_milestones?google_event_id=not.is.null&start_at=gte.${enc(timeMin)}&start_at=lt.${enc(timeMax)}&select=google_event_id&limit=${HINT_LIMIT}`);
+    return Array.isArray(rows) ? new Set(rows.map(r => String(r?.google_event_id ?? '')).filter(Boolean)) : null;
+  } catch { return null; }
+}
+// 로그인마다 한 번 읽고 EVENTS_TTL 동안 그대로 쓴다(조직 화면에서 이름을 고치면 다음 읽기부터). 읽지 못했으면 앞서 읽은 것을 둔다.
+let orgHint = {key: '', list: null, at: 0, flight: null};
+function wantOrgs(rt, key, onChange) {
+  if (orgHint.key === key && (orgHint.flight || Date.now() - orgHint.at < EVENTS_TTL)) return;
+  const job = {key, list: orgHint.key === key ? orgHint.list : null, at: Date.now(), flight: null};
+  job.flight = readOrgs(rt).then(list => {
+    if (orgHint !== job) return;
+    job.flight = null; job.at = Date.now();
+    if (!list) return;
+    const before = JSON.stringify(job.list); job.list = list;
+    if (before === JSON.stringify(list)) return;
+    if (sessionKey(rt) === key) onChange?.();
+  });
+  orgHint = job;
+}
 const fresh = (entry, key) => !!entry && entry.key === key && (entry.flight || Date.now() - entry.at < EVENTS_TTL);
 const eventsOf = (month, rt = rtOf()) => { const e = months.get(monthId(month)); return e && e.key === sessionKey(rt) && Array.isArray(e.events) ? e.events : null; };
+const areaIdsOf = (month, rt = rtOf()) => { const e = months.get(monthId(month)); return e && e.key === sessionKey(rt) ? e.areaIds || null : null; };
+const orgsOf = (rt = rtOf()) => (orgHint.key === sessionKey(rt) ? orgHint.list : null);
 
 // 달력을 그릴 때마다 부른다. 아직 안 읽은 것(줄·이 달 일정)만 읽기 시작하고, 읽기가 끝나 그림이 달라질 수 있으면 onChange()를 부른다.
 // 이미 읽어 둔 것은 다시 읽지 않으므로 onChange → 다시 그리기 → wantPlans가 맴돌지 않는다.
@@ -49,14 +86,17 @@ export function wantPlans(month, onChange, rt = rtOf()) {
   }
   // 줄을 읽을 수 있는 서버일 때만 Google 일정을 읽는다(표가 없으면 그릴 표시가 없다). 줄 읽기가 끝나면 알림 → 다시 그리기 → 여기로 다시 온다.
   if (!reportPlanData(rt)) return;
+  wantOrgs(rt, key, onChange);
   const id = monthId(month), entry = months.get(id);
   if (!fresh(entry, key)) {
-    const next = {key, at: Date.now(), events: entry?.key === key ? entry.events : null, flight: null};
-    next.flight = readMonth(rt, month).then(events => {
+    const same = entry?.key === key;
+    const next = {key, at: Date.now(), events: same ? entry.events : null, areaIds: same ? entry.areaIds : null, flight: null};
+    next.flight = Promise.all([readMonth(rt, month), readAreaIds(rt, month)]).then(([events, areaIds]) => {
       if (months.get(id) !== next) return;
       next.flight = null; next.at = Date.now();
       // 다시 읽기에 실패했으면 앞서 읽은 것을 그대로 둔다(표시가 깜박이며 사라지지 않게).
       if (events) next.events = events;
+      if (areaIds) next.areaIds = areaIds;
       if (sessionKey(rt) === key) { void tidy(month, rt); onChange?.(); }
     });
     months.set(id, next);
@@ -89,7 +129,7 @@ export function planView({month, todayKey, nameFilter = 'all'}, rt = rtOf()) {
   if (!data) return null;
   const now = Date.now();
   for (const [id, at] of written) if (now - at > WRITTEN_HOLD || reportsOfEvent(id, data.reports).length) written.delete(id);
-  const items = planItems(data, eventsOf(month, rt) || []).filter(item => !written.has(item.eventId) && matchesName(item, nameFilter));
+  const items = planItems({...data, orgs: orgsOf(rt), areaEventIds: areaIdsOf(month, rt)}, eventsOf(month, rt) || []).filter(item => !written.has(item.eventId) && matchesName(item, nameFilter));
   return {byDay: itemsByDay(items), overdue: overdueItems(data, todayKey).filter(item => !written.has(item.eventId))};
 }
 // [보고 쓰기]가 여는 쓰기 창에 채울 것(일정 창 [결과 남기기]와 같은 모양 — team.js KPTUReportEntry.open). 장소는 읽어 둔 일정에 있을 때만.
@@ -114,7 +154,7 @@ export function onPlansChanged(fn) {
   // 줄이 바뀌면 같은 이름 기억도 바뀔 수 있다([보고할까요?]를 누르면 같은 이름의 다른 일정이 저절로 켜진다) → 다음에 그릴 때 정리를 한 번 더 돈다.
   // 정리가 넣은 줄이 없으면 알림도 없으므로 맴돌지 않는다.
   window.addEventListener(REPORT_PLANS_CHANGED, () => { tidied = new WeakSet(); listener?.(); });
-  window.addEventListener('kptu:session-changed', () => { months.clear(); written.clear(); plansAsked = ''; });
+  window.addEventListener('kptu:session-changed', () => { months.clear(); written.clear(); plansAsked = ''; orgHint = {key: '', list: null, at: 0, flight: null}; });
   // 일정 화면에서 일정이 바뀌면 읽어 둔 달을 '오래됨'으로 둔다(다음에 그릴 때 다시 읽고, 그동안은 앞서 읽은 것으로 그린다).
   window.addEventListener('kptu:calendar-changed', () => { for (const entry of months.values()) entry.at = 0; });
 }

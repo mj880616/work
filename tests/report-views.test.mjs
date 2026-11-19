@@ -316,6 +316,8 @@ test('보고할 일정 항목: 하루 안에서는 종일 → 이른 시각 순,
   assert.deepEqual(itemWhen(items[1]), {at: '2026-11-11T08:30'});
   assert.equal(itemMeta(items[1]), '일정 · 08:30');
   assert.equal(itemMeta({...items[1], status: 'ask'}), '일정 · 08:30 · 담당조직 연결됨');
+  assert.equal(itemMeta({...items[1], status: 'ask', reason: 'org'}), '일정 · 08:30 · 담당조직 연결됨');
+  assert.equal(itemMeta({...items[1], status: 'ask', reason: 'major'}), '일정 · 08:30 · 주요 일정');
   assert.deepEqual([...itemsByDay(items).keys()], ['2026-11-11']);
 });
 
@@ -511,4 +513,15 @@ test('보고 메뉴 한 벌: 창 밖 메뉴(menuAt)는 창 ⋯와 같은 부품,
   assert.match(mrd, /saveReportKind\(m\.id,kind,\{reveal:!out\}\)/);
   assert.match(kindSheet, /export async function saveReportKind\(id,kind,\{reveal=true\}=\{\}\)/);
   assert.match(kindSheet, /if\(reveal\)window\.KPTUMeetingColumns\?\.select\?\.\(\{id:String\(id\)\}\)/);
+});
+
+test("S67-16 planItems: 주요 일정·제목의 조직 이름도 점선 □ '보고할까요?'(이유 함께), 힌트가 없으면 예전 판정", () => {
+  const data = {plans: [], reports: [], orgs: [{id: 'o1', name: '가짜지부', aliases: [], active: true}], areaEventIds: new Set(['area1'])};
+  const events = [gEvent('press', '예시 기자회견'), gEvent('title', '가짜지부 간담회'), gEvent('area1', '점심 약속'), gEvent('plain', '그냥 약속'), gEvent('meet', '시험 회의')];
+  const items = planItems(data, events);
+  assert.deepEqual(items.map(i => [i.eventId, i.status, i.reason]).sort(), [['area1', 'ask', 'major'], ['press', 'ask', 'major'], ['title', 'ask', 'org']]);
+  assert.equal(itemMeta(items.find(i => i.eventId === 'press')), '일정 · 10:00 · 주요 일정');
+  assert.equal(itemMeta(items.find(i => i.eventId === 'title')), '일정 · 10:00 · 담당조직 연결됨');
+  // 힌트(조직 목록·사업영역 행)를 못 읽었으면 붙인 조직·주요 일정 이름 기준만 남는다.
+  assert.deepEqual(planItems({plans: [], reports: []}, events).map(i => i.eventId), ['press']);
 });
