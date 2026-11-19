@@ -21,7 +21,9 @@ test('원문은 필수가 아니다: 입력·수정 창 모두 빈 원문 검사
   const team=read('app/team.js'),mrd=read('app/meeting-round-detail.js');
   assert.doesNotMatch(team,/transcript\.trim\(\)\)return/);assert.doesNotMatch(mrd,/transcript\.trim\(\)\)\{/);
   assert.doesNotMatch(team+mrd,/textMissing/);
-  assert.match(read('app/index.html'),/id="meetingTextLabel">회의 결과<\/span> <span class="optional">안 써도 됨</);
+  assert.match(read('app/index.html'),/<label><span id="meetingTextLabel">회의 결과<\/span><textarea id="meetingTranscript"/);
+  // UI-안써도됨삭제: 칸 이름 옆 '안 써도 됨'·'꼬리표 하나' 같은 보조 글자는 쓰지 않는다(칸 이름만).
+  for(const f of ['app/index.html','app/meeting-round-detail.js','app/report-link-summaries.js','app/report-oneline.js','app/business-area-fields.js','app/suborganizations.js'])assert.doesNotMatch(read(f).replace(/^\s*\/\/.*$/gm,''),/class="optional">(안 써도 됨|꼬리표 하나)/,f);
 });
 test('줄은 숨기지 않고 한 곳(report-entry-rows.js)이 창에서 뺀다',()=>{
   const team=read('app/team.js'),mrd=read('app/meeting-round-detail.js'),rows=read('app/report-entry-rows.js');

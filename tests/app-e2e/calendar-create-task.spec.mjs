@@ -68,7 +68,7 @@ test('pending event save locks mode changes',async({page})=>{
 });
 test('desktop task registration keeps fields and shared project sheet usable',async({page})=>{
  await page.setViewportSize({width:1280,height:900});await open(page);await page.locator('[data-event-mode="task"]').click();
- await expect(page.getByLabel('날짜 (선택)',{exact:true})).toHaveValue('2026-10-06');await page.locator('#eventTaskProject').click();
+ await expect(page.getByLabel('날짜',{exact:true})).toHaveValue('2026-10-06');await page.locator('#eventTaskProject').click();
  await pressName(page,'사업영역 없음');await expect(page.locator('#eventTaskProject')).toBeFocused();await expect(page.locator('#eventModal')).toBeVisible();
 });
 test('project button retains its transparent 44px target',async({page})=>{
@@ -80,7 +80,7 @@ test('project button retains its transparent 44px target',async({page})=>{
 });
 test('360px project label stays on one line like the optional date label',async({page})=>{
  await open(page);await page.locator('[data-event-mode="task"]').click();
- await expect(page.locator('#eventDateLabel')).toHaveText('날짜 (선택)');
+ await expect(page.locator('#eventDateLabel')).toHaveText('날짜');
  const label=await page.locator('#eventProjectField label').evaluate(el=>{
   const button=el.querySelector('button'),range=document.createRange();
   range.setStart(el,0);range.setEndBefore(button);
@@ -88,7 +88,7 @@ test('360px project label stays on one line like the optional date label',async(
   return {text,height:project.height,dateHeight:document.getElementById('eventDateLabel').getBoundingClientRect().height,bottom:project.bottom,buttonTop:button.getBoundingClientRect().top};
  });
  expect(label.height).toBeGreaterThan(0);expect(label.height).toBeLessThanOrEqual(label.dateHeight+1);
- expect(label.text).toBe('사업영역 (선택)');expect(label.buttonTop).toBeGreaterThanOrEqual(label.bottom);
+ expect(label.text).toBe('사업영역');expect(label.buttonTop).toBeGreaterThanOrEqual(label.bottom);
 });
 
 // CAL-일정사업영역: [일정]은 한 개 고르기 칸 대신 '사업영역 / 관련 담당조직' 두 줄(#soEventOrgChecks)로 고르고, 저장 뒤 주요 일정 행을 만든다.

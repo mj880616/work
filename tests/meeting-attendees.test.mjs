@@ -21,8 +21,8 @@ test('쓰기 창: 회의 결과 묶음 맨 위(원문 위), 장소 칸과 같은
  const fs=html.slice(html.indexOf('<legend data-rw="meetingResultLegend">'));
  const row=fs.indexOf('id="meetingAttendeesRow"'),text=fs.indexOf('id="meetingTranscript"');
  assert.ok(row>0&&row<text,'참석인원 줄이 원문 위');
- assert.match(html,/<label id="meetingAttendeesRow" hidden><span>참석인원 <span class="optional">안 써도 됨<\/span><\/span><input id="meetingAttendees" type="text" maxlength="200"/);
- assert.match(html,/<label id="meetingLocationRow" hidden><span>장소 <span class="optional">안 써도 됨<\/span><\/span><input id="meetingLocation" type="text" maxlength="200">/);
+ assert.match(html,/<label id="meetingAttendeesRow" hidden>참석인원<input id="meetingAttendees" type="text" maxlength="200"/);
+ assert.match(html,/<label id="meetingLocationRow" hidden>장소<input id="meetingLocation" type="text" maxlength="200">/);
 });
 
 test('쓰기 창: [회의] 칸이고 서버 칸이 있을 때만 보이고 보낸다',()=>{
@@ -42,7 +42,7 @@ test('서버 칸 확인은 장소와 같은 방식: 목록 열에 넣고 읽은 
 });
 
 test('보고 고치기·상세: 같은 칸, [회의] 칸만, 바뀐 때만 보내고 비우면 null; 상세 머리 줄에 참석',()=>{
- assert.match(mrd,/<legend data-rw="mrdEditLegend">회의 결과<\/legend><label id="mrdEditAttendeesRow" hidden><span>참석인원 <span class="optional">안 써도 됨<\/span><\/span><input id="mrdEditAttendees" type="text" maxlength="200"/);
+ assert.match(mrd,/<legend data-rw="mrdEditLegend">회의 결과<\/legend><label id="mrdEditAttendeesRow" hidden>참석인원<input id="mrdEditAttendees" type="text" maxlength="200"/);
  assert.match(mrd,/document\.querySelector\('#mrdEditAttendees'\)\.value=mrdCurrent\.attendees\|\|'';/);
  // 상세는 select=*로 읽은 행에 칸이 있는지로 정한다(서버에 따로 묻지 않음 — 열 때 사업 보고 읽기 요청이 늘지 않게).
  assert.match(mrd,/const mrdAttendeesOn=m=>!!m&&Object\.hasOwn\(m,'attendees'\)&&isMeetingKind\(reportKindOf\(m\)\);/);
