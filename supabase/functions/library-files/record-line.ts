@@ -33,13 +33,26 @@ export function recordLineKind(name: string, mime: string, size: number): 'image
   return null;
 }
 
-// AI 답은 믿지 않는 입력: 한 줄·글자 수·꺾쇠·제어 문자·연락처를 다시 본다. 넘으면 버린다(자르지 않음).
-export function cleanRecordLine(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const line = value.replace(/\s+/g, ' ').trim();
-  if (!line || [...line].length > RECORD_LINE_CHARS) return null;
-  if (CONTROL.test(line) || /[<>]/.test(line) || PHONE.test(line) || EMAIL.test(line) || RRN.test(line)) return null;
-  return line;
+// AI 답은 믿지 않는 입력: 한 줄·글자 수·꺾쇠·제어 문자·연락처를 다시 본다(S67-08 ORG-기록첨부 한줄실패에서 고침).
+// - 80자를 넘으면 버리지 않고 79자 + '…'로 자른다(화면 record-file-line.mjs cut 과 같은 방식). 공문 사진은 사실이 많아 AI가 한계를
+//   조금 넘기기 쉬운데, 그때 통째로 버리면 기록 줄이 파일 이름으로 남는다. 자른 한 줄은 나중에 [요약 수정]으로 고칠 수 있다.
+// - 전화번호·이메일 꼴은 버리지 않고 '(연락처)'로 가린다(photo-brief.ts cleanPhotoBrief 와 같은 규칙). 공문의 숫자(날짜·시각·호수)가
+//   전화번호 꼴로 보여 줄 전체가 버려지는 일을 막는다. 주민번호 꼴·제어 문자·꺾쇠(<>)는 그대로 버린다.
+// - code 는 결과 이유(숫자·코드만 log 에 남김): ok·cut·masked·masked_cut / not_text·empty·rejected_mark·rejected_id.
+const PHONE_G = new RegExp(PHONE.source, 'g');
+const EMAIL_G = new RegExp(EMAIL.source, 'g');
+const cutLine = (s: string) => { const a = [...s]; return a.length > RECORD_LINE_CHARS ? a.slice(0, RECORD_LINE_CHARS - 1).join('').trimEnd() + '…' : s; };
+export function checkRecordLine(value: unknown): { line: string | null; code: string } {
+  if (typeof value !== 'string' || (value as { isWellFormed?: () => boolean }).isWellFormed?.() === false) return { line: null, code: 'not_text' };
+  const raw = value.replace(/\s+/g, ' ').trim();
+  if (!raw) return { line: null, code: 'empty' };
+  if (CONTROL.test(raw) || /[<>]/.test(raw)) return { line: null, code: 'rejected_mark' };
+  if (RRN.test(raw)) return { line: null, code: 'rejected_id' };
+  const masked = raw.replace(PHONE_G, '(연락처)').replace(EMAIL_G, '(연락처)');
+  const line = cutLine(masked);
+  const code = masked !== raw ? (line !== masked ? 'masked_cut' : 'masked') : (line !== masked ? 'cut' : 'ok');
+  return { line, code };
 }
+export function cleanRecordLine(value: unknown): string | null { return checkRecordLine(value).line; }
 
 export const RECORD_LINE_SCHEMA = Object.freeze({ type: 'object', properties: { line: { type: 'string' } }, required: ['line'], additionalProperties: false });
