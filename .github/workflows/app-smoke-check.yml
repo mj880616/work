@@ -1226,6 +1226,9 @@ jobs:
       - name: Check telegram room view model (TG-방별보기)
         run: node --test tests/tg-room-view-model.test.mjs
 
+      - name: Check telegram room find model (S67-45 TG-방상세요약먼저)
+        run: node --test tests/tg-room-find-model.test.mjs
+
       - name: Check feed pull now model and part (FEED-최신화즉시수집)
         run: node --test tests/feed-pull-model.test.mjs
 
