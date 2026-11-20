@@ -30,7 +30,7 @@ export function weeklySummary(rows, now = new Date()) {
   const w = weekBounds(now);
   const last = countWeek(rows, w.last, w.current), prev = countWeek(rows, w.prev, w.last);
   if (!last.total && !prev.total) return null;
-  if (!last.total) return {text:'지난주 챙길 것 처리 0건', total:0, pct:percents(last), change:null};
+  if (!last.total) return {text:'지난주 잊지 말기 처리 0건', total:0, pct:percents(last), change:null};
   const pct = percents(last);
   const parts = OUTCOME_ORDER.filter(k => last.counts[k]).map(k => `${OUTCOME_LABEL[k]} ${pct[k]}%`);
   let change = null, tail = '';
@@ -40,7 +40,7 @@ export function weeklySummary(rows, now = new Date()) {
     change = best;
     tail = Math.abs(best.diff) < CHANGE_MIN ? ' · 그 전 주와 비슷' : ` · 그 전 주보다 ${OUTCOME_LABEL[best.outcome]} ${best.diff > 0 ? '+' : '−'}${Math.abs(best.diff)}%p`;
   }
-  return {text:`지난주 챙길 것 ${last.total}건 · ${parts.join(' · ')}${tail}`, total:last.total, pct, change};
+  return {text:`지난주 잊지 말기 ${last.total}건 · ${parts.join(' · ')}${tail}`, total:last.total, pct, change};
 }
 
 // 펼침 안: 지난주 결과별 최근 문장 n개(고친 문장이 있으면 '제안 → 고친 것').

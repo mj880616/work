@@ -113,7 +113,7 @@ for(const width of [390,1280])test(`정리함: the suggested due is in the small
  await openInbox(page);
  const row=line(page,1);
  await expect(row.locator('.nbx-body')).toHaveText('가상 의견 제출');
- await expect(row.locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6 · 기한 10.9 (금)›');
+ await expect(row.locator('.nbx-meta')).toHaveText('AI 제안업데이트에서 · 10/6 · 기한 10.9 (금)›');
  // No due → no due text.
  await expect(line(page,2).locator('.nbx-meta')).not.toContainText('기한');
  await tap(page,btn(row,'할 일로'),width);
@@ -161,7 +161,7 @@ for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이
   });
  }});
  await openInbox(page);
- await expect(page.locator('#basketView')).not.toContainText('지난주 챙길 것');
+ await expect(page.locator('#basketView')).not.toContainText('지난주 잊지 말기');
  const row=line(page,2);
  await expect(row.locator('.nbx-acts > button')).toHaveText(['할 일로','일정으로','노트로','조직','사업','이미 함','×','⋯']);
  expect(await noWideScroll(page)).toBe(true);
@@ -198,7 +198,7 @@ test('정리함 [다시 찾기]: new candidates appear; a limit is one plain not
  await expect(line(page,9)).toBeVisible();
  f.queue.push({status:429,json:{ok:false,error:'daily_limit',message:'서버 문구'}});
  await expect(find).toBeEnabled();await find.click();
- await expect(page.locator('#toast')).toHaveText('오늘 챙길 것을 찾을 수 있는 횟수를 다 썼어요. 내일 다시 찾아요.');
+ await expect(page.locator('#toast')).toHaveText('오늘 잊지 말기를 찾을 수 있는 횟수를 다 썼어요. 내일 다시 찾아요.');
  await expect(inbox(page).locator('[data-forget-src="todo"]')).toHaveCount(3);
  await page.waitForTimeout(300);
  expect(f.calls.ai.map(a=>a.mode)).toEqual(['auto','again','again']);
@@ -226,7 +226,7 @@ for(const width of [412,884,1440])test(`정리함 telegram candidate: room in th
  await openInbox(page);
  const row=line(page,1);
  await expect(row.locator('.nbx-meta')).toHaveText('텔레그램가상 간부방 · 10/6 · 기한 10.9 (금)›');
- await expect(line(page,2).locator('.nbx-meta')).toHaveText('챙길 것업데이트에서 · 10/6›');
+ await expect(line(page,2).locator('.nbx-meta')).toHaveText('AI 제안업데이트에서 · 10/6›');
  expect(feedReads.length).toBeGreaterThanOrEqual(1);
  expect(feedReads[0]).toMatchObject({source:'eq.telegram',id:`in.(${TG_FEED})`,select:'id,room_key,room_label'});
  expect(await noWideScroll(page)).toBe(true);
