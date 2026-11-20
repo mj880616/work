@@ -2,7 +2,10 @@
 // document-actions `document-text`가 부르고, 전체 검색 ②(docs/design/global-search.md 8절)도 이 함수가 저장한 글자를 찾는다.
 // - 글 파일(txt·md·csv): 내려받아 UTF-8로 읽는다.
 // - HWPX: 내려받아 zip 안 Contents/section*.xml의 글자만 모은다(외부 라이브러리 없음).
-// - PDF·HWP·DOC·DOCX·RTF·ODT: Drive가 Google 문서로 바꾼 임시 사본을 text/plain으로 내보낸 뒤 사본을 지운다(OpenAI 비용 없음).
+// - HWP(구형 한글, S67-28): 부르는 쪽이 HWP 글자 읽기(deps.hwpText — 자료 AI 색인·자료 올리기와 같은 npm:@ssabrojs/hwpxjs hwpToText)를
+//   넘기면 내려받아 그것으로 읽는다(Drive는 HWP를 Google 문서로 바꾸지 못해 브리핑이 '형식 아님'으로 끝났다).
+//   넘기지 않는 곳(drive-summary 야간 채우기)은 아래 Drive 변환 길 그대로다. 이 파일은 외부 라이브러리를 직접 불러오지 않는다.
+// - PDF·HWP(위 읽기가 없을 때)·DOC·DOCX·RTF·ODT: Drive가 Google 문서로 바꾼 임시 사본을 text/plain으로 내보낸 뒤 사본을 지운다(OpenAI 비용 없음).
 //   Drive가 바꾸지 못하는 형식이면 글자 없음으로 끝난다.
 //   LIB-스캔글자읽기: PDF만 변환 요청에 한국어 OCR 언어(ocrLanguage=ko)를 준다(스캔 PDF의 글자). HWP·DOC·DOCX 등은 그대로.
 // - PPT·PPTX·ODP(SEARCH ②): 같은 방법으로 Google 프레젠테이션 임시 사본 → text/plain.
@@ -24,6 +27,8 @@ export const DOCUMENT_TEXT_CHARS = 12000;
 export const TEXT_FILE_MAX_BYTES = 2 * 1024 * 1024;
 export const HWPX_MAX_BYTES = 30 * 1024 * 1024;
 export const HWPX_XML_MAX_BYTES = 20 * 1024 * 1024;
+// HWP(구형) 내려받아 읽는 상한. HWPX와 같은 값(서버 메모리 안에서 한 번에 푼다).
+export const HWP_MAX_BYTES = HWPX_MAX_BYTES;
 export const EXPORT_MAX_BYTES = 1024 * 1024;
 // BRIEF-브리핑룸(docs/design/brief-room.md 2절): 브리핑 길만 끝까지 읽는다(raw). 내보내기 상한 4MB, 정리·자르기는 부르는 쪽(_shared/brief-room.mjs)이 한다.
 // 저장 상한 DOCUMENT_TEXT_CHARS와 기존 document-text 동작은 그대로다(raw를 주지 않으면 지금과 같음).
@@ -37,7 +42,7 @@ const DRIVE = "https://www.googleapis.com/drive/v3/files";
 const DOC = "application/vnd.google-apps.document";
 const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
 
-export type TextKind = "text" | "hwpx" | "convert" | "slides" | "sheet" | "image" | "none";
+export type TextKind = "text" | "hwpx" | "hwp" | "convert" | "slides" | "sheet" | "image" | "none";
 // 임시 사본 형식과 내보낼 글 형식. 원본은 그대로 두고 사본만 만들었다 지운다.
 const CONVERT: Record<"convert" | "slides" | "sheet", { target: string; exportMime: string }> = {
   convert: { target: DOC, exportMime: "text/plain" },
@@ -53,14 +58,16 @@ export function textKindOf(name: string, mime: string): TextKind {
   const e = ext(name), m = String(mime || "").toLowerCase();
   if (["txt", "md", "markdown", "csv", "tsv", "log"].includes(e)) return "text";
   if (e === "hwpx") return "hwpx";
-  if (["pdf", "hwp", "doc", "docx", "rtf", "odt"].includes(e)) return "convert";
+  if (e === "hwp") return "hwp";
+  if (["pdf", "doc", "docx", "rtf", "odt"].includes(e)) return "convert";
   if (["ppt", "pptx", "odp"].includes(e)) return "slides";
   if (["xls", "xlsx", "ods"].includes(e)) return "sheet";
   if (["jpg", "jpeg", "png"].includes(e)) return "image";
   if (e) return "none";
   if (/^text\/(plain|markdown|csv|tab-separated-values)$/.test(m)) return "text";
   if (m === "application/hwp+zip" || m === "application/vnd.hancom.hwpx") return "hwpx";
-  if (m === "application/pdf" || /msword|wordprocessingml|hwp|haansoft|rtf|opendocument\.text/.test(m)) return "convert";
+  if (/hwp|haansoft|hancom/.test(m)) return "hwp";
+  if (m === "application/pdf" || /msword|wordprocessingml|rtf|opendocument\.text/.test(m)) return "convert";
   if (/ms-powerpoint|presentationml|opendocument\.presentation/.test(m)) return "slides";
   if (/ms-excel|spreadsheetml|opendocument\.spreadsheet/.test(m)) return "sheet";
   if (m === "image/jpeg" || m === "image/png") return "image";
@@ -131,7 +138,8 @@ async function inflateRaw(data: Uint8Array, max: number): Promise<Uint8Array> {
 }
 
 // HWPX(zip)의 Contents/section0.xml, section1.xml …을 차례로 읽는다. zip 모양이 이상하면 빈 글.
-export async function hwpxText(bytes: Uint8Array, { maxXmlBytes = HWPX_XML_MAX_BYTES } = {}): Promise<string> {
+// all: 브리핑 길(raw)은 끝까지 읽는다(XML 상한 maxXmlBytes는 그대로). 아니면 저장할 앞부분만큼 모이면 멈춘다.
+export async function hwpxText(bytes: Uint8Array, { maxXmlBytes = HWPX_XML_MAX_BYTES, all = false } = {}): Promise<string> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const len = bytes.byteLength;
   let eocd = -1;
@@ -167,7 +175,7 @@ export async function hwpxText(bytes: Uint8Array, { maxXmlBytes = HWPX_XML_MAX_B
     if (total > maxXmlBytes) throw new Error("HWPX_TOO_LARGE");
     out.push(hwpxSectionText(decoder.decode(xml)));
     // 앞부분만 쓰므로 충분히 모이면 멈춘다.
-    if (out.join("\n").length > DOCUMENT_TEXT_CHARS * 2) break;
+    if (!all && out.join("\n").length > DOCUMENT_TEXT_CHARS * 2) break;
   }
   return out.join("\n");
 }
@@ -199,7 +207,8 @@ async function readBounded(response: Response, max: number, { keep = false } = {
   return out;
 }
 
-type Deps = { fetch?: typeof fetch; driveToken: () => Promise<string>; log?: (code: string) => void };
+// hwpText: HWP(구형) 바이트 → 글자. 없으면 HWP도 Drive 변환 길로 간다(지금까지와 같음).
+type Deps = { fetch?: typeof fetch; driveToken: () => Promise<string>; log?: (code: string) => void; hwpText?: (bytes: Uint8Array) => Promise<string> };
 export type DocumentFile = { fileId: string; name: string; mime: string; size: number | null };
 
 export function createDocumentText(deps: Deps) {
@@ -296,20 +305,33 @@ export function createDocumentText(deps: Deps) {
     }
   }
 
+  // HWP 글자 읽기 실패(깨진 파일·암호 걸린 파일 등)는 읽기 실패로 돌려준다(Drive 변환은 HWP를 못 바꾸므로 다시 시도하지 않는다).
+  async function hwpRead(bytes: Uint8Array): Promise<string> {
+    try {
+      const text = await deps.hwpText!(bytes);
+      return typeof text === "string" ? text : String(text ?? "");
+    } catch {
+      log("document_text_hwp_read_failed");
+      throw new Error("READ_FAILED");
+    }
+  }
+
   // raw: 브리핑 길 전용. 정리(tidyText)·12,000자 자르기 없이 읽은 글 그대로(쪽 나눔 \f 포함)를 돌려준다. cut은 내보내기 상한에 걸렸는지 모르므로 false.
   async function extract(file: DocumentFile, opts: { raw?: boolean } = {}): Promise<TextResult> {
     const none = (reason: string): TextResult => ({ text: "", source: "none", reason, cut: false });
     if (!DRIVE_ID.test(file.fileId)) return none("no_file");
-    const kind = textKindOf(file.name, file.mime);
+    const found = textKindOf(file.name, file.mime);
+    const kind: TextKind = found === "hwp" && !deps.hwpText ? "convert" : found;
     if (kind === "none") return none("unsupported");
     const size = typeof file.size === "number" && Number.isSafeInteger(file.size) ? file.size : null;
-    const max = kind === "text" ? TEXT_FILE_MAX_BYTES : kind === "hwpx" ? HWPX_MAX_BYTES : kind === "image" ? PHOTO_MAX_BYTES : CONVERT_MAX_BYTES;
+    const max = kind === "text" ? TEXT_FILE_MAX_BYTES : kind === "hwpx" ? HWPX_MAX_BYTES : kind === "hwp" ? HWP_MAX_BYTES : kind === "image" ? PHOTO_MAX_BYTES : CONVERT_MAX_BYTES;
     if (size !== null && size > max) return none("too_large");
     let raw = "";
     try {
       const token = await deps.driveToken();
       if (kind === "text") raw = new TextDecoder("utf-8").decode(await download(file.fileId, token, max));
-      else if (kind === "hwpx") raw = await hwpxText(await download(file.fileId, token, max));
+      else if (kind === "hwpx") raw = await hwpxText(await download(file.fileId, token, max), { all: opts.raw === true });
+      else if (kind === "hwp") raw = await hwpRead(await download(file.fileId, token, max));
       else if (kind === "image") raw = await photo(file.fileId, token);
       else raw = await convert(file.fileId, token, kind, kind === "convert" && isPdf(file.name, file.mime), opts.raw ? RAW_EXPORT_MAX_BYTES : EXPORT_MAX_BYTES);
     } catch (e) {
