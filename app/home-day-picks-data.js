@@ -19,7 +19,7 @@ export async function readDayPicks(day, rt = window.KPTURuntime) {
   if (!ws) return {ok:false};
   try {
     const rows = await rt.api(`/rest/v1/app_home_day_picks?workspace_id=eq.${enc(ws)}&day=eq.${enc(day)}&select=${COLS}&limit=1`);
-    return {ok:true, state:picksState(Array.isArray(rows) ? rows[0] : null)};
+    return {ok:true, state:picksState(Array.isArray(rows) ? rows[0] : null, day)};
   } catch (error) {
     if (error?.status === 404) return {ok:true, missing:true, state:picksState(null)};
     return {ok:false};
@@ -56,7 +56,7 @@ export async function askDayPicks({day, slot, events, done}, rt = window.KPTURun
   asked.set(key, now);
   try {
     const r = await call({kind:'home_day_picks', day, events, done}, {rt, timeoutMs:DAY_PICKS_TIMEOUT_MS});
-    if (r?.ok && r.data?.picks) return {state:picksState(r.data.picks)};
+    if (r?.ok && r.data?.picks) return {state:picksState(r.data.picks, day)};
     if (r?.code === 'monthly_limit' || r?.code === 'daily_limit' || r?.code === 'ai_monthly_cap') return {limit:r.code};
     return null;
   } catch { return null; }

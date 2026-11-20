@@ -11,6 +11,9 @@
 import {createChoiceSheet} from './choice-sheet.js';
 import {emptyHtml} from './wait-state.js';
 import {word} from './brand/brand.mjs';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('area-org-picker');
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KINDS={area:{label:word('사업영역'),title:word('사업영역 선택')},org:{label:word('조직'),title:word('조직 선택')}};
@@ -18,14 +21,9 @@ const RECENT_MAX=4;
 // The first row of a one-choice sheet that picks nothing ('사업영역 없음' / '조직 없음').
 const noneLabel=kind=>`${KINDS[kind].label} 없음`;
 let sheet=null,current=null;
-// The sheet's look (choice-sheet.css) and this file's (area-org-picker.css) are put in once, whatever screen mounts the lines
-// (a screen's own list may have them already: matched by file name).
-const STYLES=['./choice-sheet.css','./area-org-picker.css'];
-export function ensureStyles(){
-  if(typeof document==='undefined')return;
-  const have=new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map(l=>(l.getAttribute('href')||'').split('?')[0].split('/').at(-1)));
-  for(const path of STYLES){if(have.has(path.split('/').at(-1)))continue;const link=document.createElement('link');link.rel='stylesheet';link.href=path;link.dataset.kptuViewStyle='1';document.head.append(link)}
-}
+// The sheet's look (choice-sheet.css) and this file's (area-org-picker.css) come from the shared part table (part-styles.js,
+// awaited at the top of this module, S67-41). ensureStyles stays for callers that mount the lines (update-places.js).
+export function ensureStyles(){return partStyles('area-org-picker')}
 
 // areas: [{key,name,depth}] in tree order → nodes with parent links and kids.
 export function areaTree(areas){
