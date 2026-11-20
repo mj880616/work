@@ -26,6 +26,8 @@ const startChain = new Set([...startRoots, ...chainOf(startRoots)]);
 // 화면 모양 목록(view-loader.js routeStyles).
 const routeStyles = Object.fromEntries([...read('view-loader.js').matchAll(/^\s+(\w+):\[([^\]]*\.css'[^\]]*)\],?$/gm)].map(m => [m[1], [...m[2].matchAll(/'\.\/([\w-]+\.css)'/g)].map(x => x[1])]));
 const OPEN_TIME = new Set(['row-menu']); // 첫 화면 준비 사슬 안 부품: 여는 함수가 기다림
+// 화면 목록에 넣지 않고 부품이 뒤늦게(ui-standard.css 뒤) 붙이는 것 — 같은 세기 규칙이 부딪혀 순서가 결과를 정하는 곳(범위 밖 발견, PR 본문).
+const LATE = {calendar: ['google-tasks.css']};
 
 test('표의 부품마다 모듈이 자기 이름으로 모양을 기다린다(사슬 밖은 맨 위, 사슬 안은 여는 함수)', () => {
   for (const name of Object.keys(PART_STYLES)) {
@@ -154,10 +156,11 @@ test('화면마다: 첫 프로그램 사슬에 든 공용 부품의 모양 파�
     const chain = new Set([...mods, ...chainOf(mods)]);
     for (const [name, list] of Object.entries(PART_STYLES)) {
       if (!chain.has(fileOf(name))) continue;
-      for (const path of list) if (!(routeStyles[route] || []).includes(path.slice(2))) missing.push(`${route}: ${path.slice(2)} (${name})`);
+      for (const path of list) if (!(routeStyles[route] || []).includes(path.slice(2)) && !LATE[route]?.includes(path.slice(2))) missing.push(`${route}: ${path.slice(2)} (${name})`);
     }
   }
-  assert.deepEqual(missing, [], 'view-loader.js routeStyles 끝(ui-standard.css 뒤)에 더한다');
+  assert.deepEqual(missing, [], 'view-loader.js routeStyles에 더한다(ui-standard.css 앞)');
+  for (const list of Object.values(routeStyles)) assert.equal(list.at(-1), 'ui-standard.css', 'ui-standard.css는 맨 끝');
 });
 
 test('브리핑 룸(첫 신고 화면): 고르기 창 부품의 모양이 화면 목록에 없어도 부품이 붙인다', () => {
