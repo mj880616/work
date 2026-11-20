@@ -133,8 +133,8 @@ export function linkLabel(link, names, dir) {
     const o = names.organizations.get(link.target_organization_id);
     return { relation: rel, kind: 'organization', ledgerId: o?.ledger_id || '', title: o?.name || word('(읽을 수 없는 조직)'), dir };
   }
-  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || word('(노동조합+ 사업영역)'), dir };
-  if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || word('(노동조합+ 사업 보고)'), dir };
+  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || word('(WORK ON 사업영역)'), dir };
+  if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || word('(WORK ON 사업 보고)'), dir };
   return { relation: rel, kind: 'other', ledgerId: '', title: '', dir };
 }
 
@@ -230,7 +230,7 @@ export function web2OpenTarget(src, row) {
 }
 // 근거 줄 글: "업데이트 · 10/22", "사업 보고 · 가 지부 3차 · 10/21".
 export function web2SourceLabel(src, source) {
-  const name = WEB2_SOURCE_NAME[src?.kind] || word('노동조합+ 기록');
+  const name = WEB2_SOURCE_NAME[src?.kind] || word('WORK ON 기록');
   const m = /\(([^()]{1,80})\)\s*$/.exec(String(source?.title ?? ''));
   const date = isDay(source?.source_date) ? `${Number(source.source_date.slice(5, 7))}/${Number(source.source_date.slice(8, 10))}` : '';
   return [name, m ? m[1].trim() : '', date].filter(Boolean).join(' · ');

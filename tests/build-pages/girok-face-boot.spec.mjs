@@ -4,7 +4,7 @@ import { chooseBasketKind } from '../app-e2e/helpers/basket-kind.mjs';
 import { FORBIDDEN } from '../../scripts/girok-words-allow.mjs';
 
 // APP-올인원다이어리 단계 2: `node scripts/build-pages.mjs <입력> <출력> --face=girok`로 만든 기록+ 빌드가 따로 뜨는지 본다.
-// 이름·manifest·아이콘·메뉴 이름은 기록+, 같은 흉내 서버로 켜진다. 메뉴·경로를 실제로 빼는 일은 단계 3 다음 PR이라 여기서는 글자만 본다.
+// 이름·manifest·아이콘은 WORK ON(S67-49), 메뉴 이름은 girok 기본 단어, 같은 흉내 서버로 켜진다. 메뉴·경로를 실제로 빼는 일은 단계 3 다음 PR이라 여기서는 글자만 본다.
 // S67-43: 홈·활동 기록·거래처·부서·직원·노트·일정·쓰는 법 화면 글자에 노조 색 글자(FORBIDDEN)가 없는지 PC·폰에서 본다.
 // Served at PAGES_GIROK_ORIGIN (pages-build-check.yml).
 const origin = process.env.PAGES_GIROK_ORIGIN || 'http://127.0.0.1:8126';
@@ -23,7 +23,7 @@ async function boot(page) {
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
   });
   await page.goto(origin + '/app/login/?return=' + encodeURIComponent(origin + '/app/?view=home'));
-  await expect(page).toHaveTitle('로그인 · 기록+');
+  await expect(page).toHaveTitle('로그인 · WORK ON');
   await signInWithSession(page, user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
 }
@@ -51,25 +51,25 @@ async function noUnionWords(page, where) {
   expect(bad, `${where}: 기록+ 화면에 노조 색 글자`).toEqual([]);
 }
 
-test('기록+ 빌드: 이름·manifest·아이콘·메뉴 이름이 기록+로 뜬다', async ({ page }) => {
+test('girok 빌드: 이름·manifest·아이콘은 WORK ON, 메뉴 이름은 기본 단어로 뜬다', async ({ page }) => {
   const errors = [], failed = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('response', r => { if (r.url().startsWith(origin) && r.status() >= 400) failed.push(`${r.status()} ${r.url()}`); });
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page);
-  await expect(page.locator('.topbar .brand span')).toHaveText('기록+');
-  await expect(page).toHaveTitle('홈 · 기록+');
+  await expect(page.locator('.topbar .brand span')).toHaveText('WORK ON');
+  await expect(page).toHaveTitle('홈 · WORK ON');
   await expect(page.locator('#appNav .nav-btn[data-view="meetings"]')).toContainText('활동 기록');
   await expect(page.locator('#appNav .nav-btn[data-view="team"]')).toContainText('거래처·직원');
   await page.evaluate(() => window.KPTURouter.go('meetings'));
-  await expect(page).toHaveTitle('활동 기록 · 기록+');
+  await expect(page).toHaveTitle('활동 기록 · WORK ON');
   await expect(page.locator('[data-topline-where] li').first()).toHaveText('활동 기록');
   await page.evaluate(() => window.KPTURouter.go('team'));
-  await expect(page).toHaveTitle('거래처·부서·직원 · 기록+');
+  await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON');
   const manifest = await (await page.request.get(origin + '/app/windows-manifest.json')).json();
-  expect(manifest).toMatchObject({ name: '기록+', short_name: '기록+' });
+  expect(manifest).toMatchObject({ name: 'WORK ON', short_name: 'WORK ON' });
   const icon = await (await page.request.get(origin + '/app/app-icon.svg')).text();
-  expect(icon).toContain('aria-label="기록+"');
+  expect(icon).toContain('aria-label="WORK ON"');
   const body = await page.locator('body').innerText();
   for (const word of ['노동조합+', '사업 관리', '조직 관리']) expect(body, word).not.toContain(word);
   for (const view of ['home', 'meetings', 'team', 'calendar', 'help']) {

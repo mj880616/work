@@ -2,7 +2,7 @@ import {test, expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 
-// S62-22 APP-공유로뉴스보관: 폰 공유 창 '노동조합+ News 보관'(앱이 목록에 target 'news'를 적음)으로 오면 창 없이 글에서 기사 주소 하나를 골라
+// S62-22 APP-공유로뉴스보관: 폰 공유 창 'WORK ON News 보관'(앱이 목록에 target 'news'를 적음)으로 오면 창 없이 글에서 기사 주소 하나를 골라
 // 서버(news-feed ?action=save_url)에 주소만 보내고, 위쪽 작은 알림 한 줄 'News 보관에 넣었어요 [열기]'. 주소가 없으면 '기사 주소가 없어요 [잊지 말기로 넣기]'.
 // 앱 다리·서버는 시험용 흉내(합성 주소). 화면 사진은 docs/design/screens/s62-22/(PR 첨부용, SHOTS=1일 때만 저장).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

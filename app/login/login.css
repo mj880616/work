@@ -9,3 +9,5 @@
 .login-app+.login-app{margin-top:-4px}.login-app-hint+.login-app-hint{margin-top:2px}
 /* S63-09 PC도우미구분: 브라우저 안내 한 줄은 단추 바로 위 */
 .login-app-lead{margin:0 0 6px;color:inherit}
+/* S67-49 WORK ON 로고: 표장 A + 'WORK ON'(굵게, 자간 약간) */
+.login-brand{display:flex;align-items:center;gap:8px}.login-mark{flex:none;border-radius:7px}.login-wordmark{font-weight:800;letter-spacing:.06em}

@@ -24,6 +24,6 @@ test("같은 곳으로 가는 글자: 큰 쓰기 창 안내·[+ 추가] 목록·
   assert.match(win, /placeholder:'잊지 말기에 남길 것'/);
   assert.match(readFileSync('app/topbar-actions.js', 'utf8'), /\['update','잊지 말기'\]/);
   const manifest = readFileSync('android-app/app/src/main/AndroidManifest.xml', 'utf8');
-  assert.equal((manifest.match(/android:label="노동조합\+ 잊지 말기로 보내기"/g) || []).length, 2);
+  assert.equal((manifest.match(/android:label="WORK ON 잊지 말기로 보내기"/g) || []).length, 2);
   assert.doesNotMatch(manifest, /android:label="노동조합\+ 업데이트로 보내기"/);
 });

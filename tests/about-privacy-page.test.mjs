@@ -80,7 +80,7 @@ test('Drive 권한 설명: drive.file·전체 drive 모두 모든 사용자, 각
   };
   assert.match(row('https://www.googleapis.com/auth/drive.file'), /모든 사용자/);
   assert.match(row('https://www.googleapis.com/auth/drive'), /Drive를 연결하는 모든 사용자에게 요청/);
-  assert.match(row('https://www.googleapis.com/auth/drive'), /본인의 노동조합\+ 사진·파일 화면에만/);
+  assert.match(row('https://www.googleapis.com/auth/drive'), /본인의 WORK ON 사진·파일 화면에만/);
   assert.match(row('https://www.googleapis.com/auth/drive'), /영구 삭제 없음/);
   assert.doesNotMatch(row('https://www.googleapis.com/auth/drive'), /운영자 한 사람/);
   const code = read('supabase/functions/public-policy-drive/index.ts');
