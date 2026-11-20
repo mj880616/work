@@ -201,6 +201,7 @@ on:
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
+      - 'tests/report-library-pick-model.test.mjs'
       - 'tests/helpers/hwp-synth.mjs'
       - 'supabase/functions/_shared/brief-room.mjs'
       - 'supabase/functions/_shared/hwp-text.mjs'
@@ -469,6 +470,7 @@ on:
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
+      - 'tests/report-library-pick-model.test.mjs'
       - 'tests/helpers/hwp-synth.mjs'
       - 'supabase/functions/_shared/brief-room.mjs'
       - 'supabase/functions/_shared/hwp-text.mjs'
@@ -774,6 +776,9 @@ jobs:
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
         run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-read-slices.test.mjs
+
+      - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
+        run: node --test tests/report-library-pick-model.test.mjs
 
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs tests/record-backup-model.test.mjs tests/mcp-read-model.test.mjs tests/help-content.test.mjs

@@ -19,7 +19,7 @@ async function fixture(page,width){
   app_documents:[],app_record_links:[],app_spaces:[],app_notes:[],app_suborganization_updates:[],
  };
  const state={tables,uploads:0,patches:[]};
- const matching=(rows,query)=>rows.filter(row=>[...query].every(([key,value])=>['select','order','limit','offset'].includes(key)||(value.startsWith('eq.')?String(row[key]??'')===value.slice(3):true)));
+ const matching=(rows,query)=>rows.filter(row=>[...query].every(([key,value])=>['select','order','limit','offset'].includes(key)||(value.startsWith('eq.')?String(row[key]??'')===value.slice(3):value==='is.null'?row[key]==null:value.startsWith('in.(')?value.slice(4,-1).split(',').includes(String(row[key]??'')):true)));
  await page.route(SB+'/rest/v1/**',async route=>{
   const req=route.request(),url=new URL(req.url()),table=url.pathname.split('/').pop(),method=req.method();
   if(!Object.hasOwn(tables,table))return route.fallback();
@@ -38,6 +38,8 @@ async function openOrg(page){
  await page.evaluate(async id=>{await window.KPTUViewLoader.load('team');await window.KPTUWorkplace.open(id);},O);
  await expect(page.locator('#wdModal')).toBeVisible();
 }
+// S67-39: 자료 [+] = 작은 메뉴 [기기에서 올리기]·[자료실에서 선택]. 올리기 시험은 [기기에서 올리기]를 고른다.
+async function device(page,tap){const b=page.locator('#reportAddMenu [data-report-add="device"]');await expect(b).toBeVisible();await (tap?b.tap():b.click())}
 // 등록 창의 한가운데 윗부분을 실제로 누를 수 있는가(= 다른 창에 덮이지 않았는가).
 const documentModalOnTop=page=>page.evaluate(()=>{const m=document.querySelector('#documentModal'),c=m.querySelector('.modal-card').getBoundingClientRect(),el=document.elementFromPoint(c.x+c.width/2,c.y+24);return !!el&&m.contains(el)});
 async function registerAndCheck(page,state){
@@ -53,7 +55,7 @@ for(const width of WIDTHS){
   const state=await fixture(page,width);
   await openOrg(page);
   const add=page.locator('#wdDocAdd');await expect(add).toBeVisible();
-  await (width<761?add.tap():add.click());
+  await (width<761?add.tap():add.click());await device(page,width<761);
   await expect(page.locator('#documentModal')).toBeVisible();
   expect(await documentModalOnTop(page)).toBe(true);
   await expect(page.locator('#libraryUploadOrg')).toContainText('합성 한빛지부');
@@ -85,7 +87,7 @@ test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 
  });
  await openOrg(page);
  const add=page.locator('#wdDocAdd');
- await add.tap();
+ await add.tap();await device(page,true);
  // 창이 다 열린 뒤(조직이 채워진 뒤)에 파일을 고른다 — 창은 열릴 때 고른 파일을 비우므로, 열리기 전에 넣은 파일은 사라진다(사람은 창이 뜬 뒤에만 고를 수 있다).
  await expect(page.locator('#documentModal')).toBeVisible();
  await expect(page.locator('#libraryUploadOrg')).toContainText('합성 한빛지부');
@@ -94,7 +96,7 @@ test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 
  await page.locator('#saveDocumentBtn').click();
  await expect(page.locator('#documentModal')).toBeHidden();
  await expect.poll(()=>state.uploads).toBe(1);
- await add.tap();
+ await add.tap();await device(page,true);
  await expect(page.locator('#documentModal')).toBeVisible();
  await expect(page.locator('#libraryUploadOrg')).toContainText('합성 한빛지부');
  await page.locator('#libraryFileInput').setInputFiles({name:'둘째.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 b')});
@@ -109,4 +111,27 @@ test('조직 상세 자료 [+]: 저장하면 창이 바로 닫히고, 올리는 
  await expect.poll(()=>state.uploads).toBe(2);
  await expect.poll(()=>state.patches.filter(p=>p.table==='app_documents'&&p.body.organization_id===O).length).toBe(2);
  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('올렸');
+});
+
+// S67-39(명진 11/20 "자료 + 자료실에서 추가도 가능하게", 같은 종류 맞춤): 조직 상세 자료 [+] [자료실에서 선택] — 이미 있는 자료의 담당조직 칸만 채운다(올리기 없음).
+// 다른 조직에 붙은 자료는 흐리게 '다른 조직에 있음'.
+for(const width of [412,1440])test(`조직 상세 자료 [+] [자료실에서 선택]: 다시 올리지 않고 이 조직에 붙인다 ${width}`,async({page})=>{
+ const state=await fixture(page,width);
+ state.tables.app_documents.push(
+  {id:'30000000-0000-4000-8000-0000000000a1',workspace_id:'w',title:'합성 안건',file_name:'안건.pdf',mime_type:'application/pdf',category:'기타',organization_id:null,meeting_id:null,created_at:stamp},
+  {id:'30000000-0000-4000-8000-0000000000a2',workspace_id:'w',title:'합성 다른 조직 자료',file_name:'다른.pdf',mime_type:'application/pdf',category:'기타',organization_id:'30000000-0000-4000-8000-000000000009',meeting_id:null,created_at:stamp});
+ await openOrg(page);
+ const add=page.locator('#wdDocAdd');await (width<761?add.tap():add.click());
+ const menu=page.locator('#reportAddMenu');await expect(menu.getByRole('button')).toHaveText(['기기에서 올리기','자료실에서 선택']);
+ await menu.locator('[data-report-add="library"]').click();
+ const picker=page.locator('#reportLibPicker');await expect(picker).toBeVisible();
+ await expect(picker.locator('.lu-move-item',{hasText:'다른 조직 자료'})).toHaveAttribute('aria-disabled','true');
+ await expect(picker.locator('.lu-move-item',{hasText:'다른 조직 자료'})).toContainText('다른 조직에 있음');
+ await picker.locator('.lu-move-item',{hasText:'합성 안건'}).click();
+ await picker.locator('[data-lu-move-done]').click();
+ await expect.poll(()=>state.patches.filter(p=>p.table==='app_documents'&&p.body.organization_id===O).length).toBe(1);
+ expect(state.tables.app_documents.find(d=>d.title==='합성 안건').organization_id).toBe(O);
+ expect(state.tables.app_documents.find(d=>d.title==='합성 다른 조직 자료').organization_id).toBe('30000000-0000-4000-8000-000000000009');
+ expect(state.uploads).toBe(0);
+ await expect(page.locator('#wdDocBody')).toContainText('안건');
 });
