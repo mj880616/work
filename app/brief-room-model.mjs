@@ -132,25 +132,77 @@ export function deleteResult(kind, { done = 0, failed = 0, skipped = 0 } = {}) {
 // 브리핑 룸 [자료실에서 고르기] 창(공용 고르기 창 library-move-picker.js, 여러 개 고르기)에 보일 줄.
 // 찾는 말이 없으면 최근 자료 PICK_RECENT개, 있으면 이름(제목·파일 이름)에 낱말이 모두 든 자료 PICK_FOUND개까지.
 // 이미 브리핑 룸 목록에 있는 자료는 흐리게 '이미 있음'(고를 수 없음).
-export const PICK_RECENT = 50, PICK_FOUND = 100;
+export const PICK_RECENT = 50, PICK_FOUND = 100, PICK_FOLDER = 200;
 export const PICK_SECTIONS = Object.freeze({ all: '최근 자료', found: '찾은 자료' });
-export function libraryPickRows({ docs, inRoom = new Set(), query = '' }) {
+// S67-41(명진 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 찾기 칸 아래 [최근]·[폴더] 두 보기.
+export const PICK_VIEWS = Object.freeze([{ id: 'recent', label: '최근' }, { id: 'folder', label: '폴더' }]);
+const IMAGE = /^(jpe?g|png|gif|webp|heic|heif|bmp)$/i;
+/** 줄 앞 형식 꼬리표: 사진은 '사진', 나머지는 fileBadge(PDF·HWP·DOC…). */
+export function pickKind(doc) {
+  const e = (String(doc?.file_name || '').match(EXT)?.[1] || '');
+  if (IMAGE.test(e) || /^image\//.test(String(doc?.mime_type || ''))) return '사진';
+  return fileBadge(doc?.file_name, doc?.mime_type);
+}
+/** 올린 날짜 'M/D'(올해가 아니면 'YY.M/D'). now는 시험용. */
+export function pickDate(iso, now = new Date()) {
+  const t = Date.parse(iso || '');
+  if (!Number.isFinite(t)) return '';
+  const d = new Date(t + 9 * 3600000), y = new Date(now.getTime() + 9 * 3600000).getUTCFullYear();
+  const md = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return d.getUTCFullYear() === y ? md : `${String(d.getUTCFullYear()).slice(2)}.${md}`;
+}
+// 숫자뿐인 사진 이름(카메라·메신저가 붙인 이름: 20261105_123456.jpg, IMG_1234.jpg, KakaoTalk_2026…)은 '사진 · 날짜'로 보인다.
+const CAMERA = /^(img|dsc|dscn|pxl|photo|screenshot|kakaotalk|mvimg)?[\s_\-.]*[\d\s_\-.()]+$/i;
+/** 줄 이름 한 줄: 제목 → 파일 이름(확장자 뺌). 숫자뿐인 사진 이름은 '사진 · 날짜'. */
+export function pickName(doc, now = new Date()) {
+  const clean = v => String(v || '').replace(/\s+/g, ' ').trim();
+  const file = clean(doc?.file_name), title = clean(doc?.title);
+  // 제목이 파일 이름 그대로면(올릴 때 붙은 이름) 확장자를 뺀다. 사람이 쓴 제목은 그대로(예: '보고서 v1.2').
+  const base = title && title !== file ? title : file.replace(EXT, '').trim();
+  if (pickKind(doc) === '사진' && (!base || CAMERA.test(base))) { const day = pickDate(doc?.created_at, now); return day ? `사진 · ${day}` : '사진'; }
+  return base || '이름 없는 자료';
+}
+const docRow = (d, inRoom, now) => {
+  const here = inRoom.has(d.id), n = pickName(d, now);
+  return { id: d.id, name: n, label: n, depth: 0, enabled: !here, current: here, kind: pickKind(d), meta: pickDate(d.created_at, now) };
+};
+const matcher = query => {
   const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
-  const name = d => String(d?.title || d?.file_name || '이름 없는 자료');
-  const all = [];
-  let total = 0;
-  for (const d of Array.isArray(docs) ? docs : []) {
-    if (!d || typeof d.id !== 'string') continue;
-    total++;
-    if (words.length) {
-      const hay = `${d.title || ''} ${d.file_name || ''}`.toLowerCase();
-      if (!words.every(w => hay.includes(w))) continue;
+  return words.length ? d => { const hay = `${d.title || ''} ${d.file_name || ''} ${pickName(d)}`.toLowerCase(); return words.every(w => hay.includes(w)); } : null;
+};
+/**
+ * 고르기 창 줄. view 'recent'(기본): 찾는 말 없으면 최근 자료 PICK_RECENT개, 있으면 낱말이 모두 든 자료 PICK_FOUND개.
+ * view 'folder': 찾는 말이 있으면 'recent'와 같은 찾기. 없으면 지금 폴더(folder, null = 맨 위)의 하위 폴더(들어가는 줄) → 그 폴더의 자료.
+ * 맨 위에서는 폴더 밖 자료도 보인다. 폴더 순서는 자료실 나무와 같은 규칙(folderSiblings).
+ * 이미 브리핑 룸 목록에 있는 자료는 흐리게 '이미 있음'(고를 수 없음).
+ */
+export function libraryPickRows({ docs, inRoom = new Set(), query = '', view = 'recent', folder = null, folders = [], itemFolder = new Map(), siblings = null, now = new Date() }) {
+  const list = (Array.isArray(docs) ? docs : []).filter(d => d && typeof d.id === 'string');
+  const match = matcher(query);
+  if (view !== 'folder' || match) {
+    const all = [];
+    for (const d of list) {
+      if (match && !match(d)) continue;
+      if (all.length >= (match ? PICK_FOUND : PICK_RECENT)) break;
+      all.push(docRow(d, inRoom, now));
     }
-    if (all.length >= (words.length ? PICK_FOUND : PICK_RECENT)) continue;
-    const here = inRoom.has(d.id), n = name(d);
-    all.push({ id: d.id, name: n, label: n, depth: 0, enabled: !here, current: here });
+    return { recent: [], all, total: list.length };
   }
-  return { recent: [], all, total };
+  const byId = new Map((folders || []).map(f => [f.id, f]));
+  const here = folder && byId.has(folder) ? byId.get(folder) : null;
+  const kids = typeof siblings === 'function' ? siblings(folders, here?.id || null) : (folders || []).filter(f => (f.parent_id || null) === (here?.id || null));
+  const count = new Map();
+  for (const [, f] of itemFolder) count.set(f, (count.get(f) || 0) + 1);
+  const rows = [];
+  if (here) { const up = here.parent_id && byId.has(here.parent_id) ? byId.get(here.parent_id) : null; rows.push({ nav: up?.id || '', back: true, name: up ? up.name : '자료실 맨 위', label: up ? up.name : '자료실 맨 위' }); }
+  for (const f of kids) rows.push({ nav: f.id, id: f.id, name: f.name || '이름 없는 폴더', label: f.name || '이름 없는 폴더', color: f.color, meta: count.get(f.id) ? `${count.get(f.id)}` : '' });
+  let shown = 0;
+  for (const d of list) {
+    if ((itemFolder.get(d.id) || null) !== (here?.id || null)) continue;
+    if (shown++ >= PICK_FOLDER) break;
+    rows.push(docRow(d, inRoom, now));
+  }
+  return { recent: [], all: rows, total: list.length, allLabel: here ? here.name || '이름 없는 폴더' : '자료실' };
 }
 /** 넣은 뒤 한 줄. added = 폴더에 넣은 수, kept = 다른 폴더에 있어 그대로 두고 목록에만 보인 수, failed = 못 넣은 수. */
 export function pickResult({ added = 0, kept = 0, failed = 0 } = {}) {
