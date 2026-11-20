@@ -103,6 +103,8 @@ Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 
 
 Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구성원 화면을 제거했다. 전용 `login/`은 로그인만 제공하며, 구성원 조회 결과가 비어 있으면 `team.js`가 `accessDeniedView`(접근 거부·로그아웃)를 표시한다. loader는 `denied` 상태에서 기능 모듈을 불러오지 않는다. 서버 권한은 기존 RLS·Edge가 계속 확인한다.
 
+Claude 읽기 연결 동의 화면(MCP-Claude읽기 M-5, `docs/design/mcp-claude-read.md` 4.6절): `oauth-consent/`는 Supabase Auth OAuth 서버가 보내는 동의 화면 하나다(`?authorization_id=`). 로그인 화면과 같은 런타임 세 파일(`runtime-client.js`·`auth-bootstrap.js`·`auth-service.js`)만 불러오고 그리는 곳은 `oauth-consent/consent.js` 하나, 판정은 `mcp-read-model.mjs`. 비로그인이면 로그인 화면을 거쳐 돌아온다. 다른 화면 안(iframe)·위임 열쇠·owner 아님·설정 행 없음·등록된 Claude 아님·되돌아갈 곳이 claude.ai 되돌아올 주소가 아님이면 버튼 없이 거절 글만 보이고, Supabase가 준 되돌아갈 주소도 claude.ai일 때만 따라간다. 화면 판정은 편의이고 실제 차단은 DB 문지기다. 내 프로필의 'Claude 읽기 연결' 칸은 `mcp-read-settings.js`가 그리며 설정 행(SQL로만 생김)이 있을 때만 보인다.
+
 MULTI-노조사용자 ②-4(S50-19, `docs/design/multi-user-audit.md` 8절): 접근 거부를 띄운 뒤 `team.js`가 `workspace-start.js`를 한 번 불러 서버에 가입 스위치 상태(`app_workspace_start_status`, 인자 없음)만 묻는다. 답이 '스위치 켜짐 + 내 owner 행 없음'일 때만 그 모듈이 카드 안에 [내 작업공간 만들기]를 만들고(버튼·안내 한 줄의 유일한 주인), 누르면 `app_workspace_start`를 인자 없이 한 번 부른 뒤 페이지를 다시 연다 — 다시 연 뒤에는 평소 시작 순서(세션 확인 → 구성원 행 → 화면 공개)를 그대로 탄다. 누가·어느 작업공간인지는 서버가 `auth.uid()`로만 정하고, 스위치(`app_workspace_signup`)는 SQL로만 켠다. 답이 없거나 실패·꺼짐이면 지금처럼 접근 거부·로그아웃만 보이고 기능 모듈은 여전히 불러오지 않는다. Auth 가입 트리거로는 만들지 않는다(RTW와 Auth 공유).
 
 ### 기본 셸

@@ -1,0 +1,76 @@
+// MCP-Claude읽기 M-5: 동의 화면·설정 칸 판정(app/mcp-read-model.mjs)과 화면 파일의 경계.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import * as M from '../app/mcp-read-model.mjs';
+
+const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
+const jwt = claims => `${b64({alg: 'HS256'})}.${b64(claims)}.sig`;
+
+test('되돌아갈 곳은 claude.ai만', () => {
+  assert.equal(M.safeClaudeRedirect('https://claude.ai/api/mcp/auth_callback?code=1'), 'https://claude.ai/api/mcp/auth_callback?code=1');
+  for (const bad of ['https://claude.ai.evil.example/x', 'http://claude.ai/x', 'javascript:alert(1)', 'https://evil.example/?https://claude.ai', 'https://u:p@claude.ai/x', '', null, '/relative'])
+    assert.equal(M.safeClaudeRedirect(bad), '', String(bad));
+});
+
+test('요청 번호 모양', () => {
+  assert.equal(M.validAuthorizationId('auth-0123456789abcdef'), true);
+  for (const bad of ['', 'short', 'a/b/../../c-123456', 'x'.repeat(201), null]) assert.equal(M.validAuthorizationId(bad), false);
+  assert.equal(M.consentPath('ab cd'), '/auth/v1/oauth/authorizations/ab%20cd/consent');
+});
+
+test('위임 열쇠(client_id 있음)는 동의 화면을 열 수 없다', () => {
+  assert.equal(M.isDelegatedToken(jwt({sub: 'u', client_id: 'c'})), true);
+  assert.equal(M.isDelegatedToken(jwt({sub: 'u'})), false);
+  assert.equal(M.isDelegatedToken(jwt({sub: 'u', client_id: ''})), false);
+  assert.equal(M.isDelegatedToken('not-a-jwt'), false);
+});
+
+test('동의 요청 정리: 이미 허락한 연결은 claude.ai 주소만', () => {
+  assert.deepEqual(M.readDetails({redirect_url: 'https://claude.ai/cb?code=1'}), {kind: 'redirect', url: 'https://claude.ai/cb?code=1'});
+  assert.deepEqual(M.readDetails({redirect_url: 'https://evil.example/cb'}), {kind: 'redirect', url: ''});
+  const d = M.readDetails({authorization_id: 'a', redirect_uri: M.CLAUDE_CALLBACK, client: {client_id: 'cid', name: 'Claude'}, scope: 'openid'});
+  assert.equal(d.kind, 'ask'); assert.equal(d.clientId, 'cid'); assert.equal(d.clientName, 'Claude');
+  assert.deepEqual(M.readDetails(null), {kind: 'bad'});
+});
+
+test('화면 거절 판정: owner·설정 행·되돌아갈 곳·클라이언트. 스위치 꺼짐은 거절하지 않는다(설계 9.1 순서)', () => {
+  const details = M.readDetails({authorization_id: 'a', redirect_uri: M.CLAUDE_CALLBACK, client: {client_id: 'cid', name: 'Claude'}});
+  const settings = M.settingsState([{workspace_id: 'w', enabled: false}]);
+  assert.equal(M.consentRefusal({details, owner: true, settings}), '');
+  assert.equal(M.consentRefusal({details, owner: false, settings}), 'not_owner');
+  assert.equal(M.consentRefusal({details, owner: true, settings: null}), 'not_ready');
+  assert.equal(M.consentRefusal({details: {...details, redirectUri: 'https://claude.ai/other'}, owner: true, settings}), 'redirect');
+  assert.equal(M.consentRefusal({details: {...details, clientName: 'Other'}, owner: true, settings}), 'client');
+  const pinned = M.settingsState([{workspace_id: 'w', enabled: true, allowed_client_id: 'cid'}]);
+  assert.equal(M.consentRefusal({details, owner: true, settings: pinned}), '');
+  assert.equal(M.consentRefusal({details: {...details, clientId: 'other'}, owner: true, settings: pinned}), 'client');
+  assert.equal(M.consentRefusal({details: {kind: 'redirect'}, owner: true, settings}), 'bad_request');
+});
+
+test('설정 행·이번 달 시작(서울)·호출 수 글', () => {
+  assert.equal(M.settingsState([]), null);
+  assert.equal(M.settingsState(null), null);
+  assert.equal(M.monthStartIso(new Date('2026-11-30T16:00:00Z')), '2026-11-30T15:00:00.000Z'); // 서울 12/1 01:00 → 12/1 0시
+  assert.equal(M.monthStartIso(new Date('2026-11-19T01:00:00Z')), '2026-10-31T15:00:00.000Z');
+  assert.equal(M.countText(42), '42번');
+  assert.equal(M.countText(M.COUNT_CAP), '10,000번 넘음');
+  assert.equal(M.toolLabel('ledger_search'), '원장 검색');
+  assert.equal(M.statusLabel('limited'), '잠깐 멈춤');
+});
+
+test('화면 파일 경계: 설정 칸은 enabled·revoked_before만 PATCH, 기록은 읽기만, 기기 저장 없음', () => {
+  const src = read('app/mcp-read-settings.js');
+  assert.match(src, /patch\(\{enabled: want\}\)/);
+  assert.match(src, /patch\(\{revoked_before: now\(\)\.toISOString\(\)\}\)/);
+  assert.equal((src.match(/method: 'PATCH'/g) || []).length, 1);
+  assert.doesNotMatch(src, /method: '(POST|DELETE|PUT)'/);
+  assert.doesNotMatch(src, /allowed_client_id\s*:/);
+  const consent = read('app/oauth-consent/consent.js');
+  for (const s of [src, consent]) assert.doesNotMatch(s, /local[S]torage|session[S]torage|indexed[D]B/);
+  assert.match(consent, /window\.top !== window\.self/);
+  assert.match(consent, /safeClaudeRedirect/);
+  assert.doesNotMatch(consent, /location\.(assign|replace|href\s*=)\((?!url\)|window\.KPTUAuth\.loginUrl)/);
+  assert.match(read('app/profile-settings.js'), /import\('\.\/mcp-read-settings\.js'\)\.then\(m=>m\.mountMcpReadSettings/);
+});

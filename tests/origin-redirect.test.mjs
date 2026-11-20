@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
 const SRC = readFileSync(new URL('../app/origin-redirect.js', import.meta.url), 'utf8');
-const PAGES = ['app/index.html', 'app/login/index.html', 'app/native-callback.html', 'app/onedrive-return.html', 'app/my-work.html'];
+const PAGES = ['app/index.html', 'app/login/index.html', 'app/oauth-consent/index.html', 'app/native-callback.html', 'app/onedrive-return.html', 'app/my-work.html'];
 const BROWSER_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36';
 
 function run(href, ua = BROWSER_UA) {
@@ -54,7 +54,7 @@ test('넘기지 않는 경우: bokdoong.com·다른 호스트·Web2 밖 경로·
 test('모든 Web2 HTML이 다른 스크립트·미리 불러오기보다 먼저 넘김 스크립트를 동기로 부른다', () => {
   for (const page of PAGES) {
     const html = readFileSync(new URL(`../${page}`, import.meta.url), 'utf8');
-    const rel = page === 'app/login/index.html' ? '../origin-redirect.js' : './origin-redirect.js';
+    const rel = page.split('/').length > 2 ? '../origin-redirect.js' : './origin-redirect.js';
     const tag = `<script src="${rel}"></script>`;
     const at = html.indexOf(tag);
     assert.ok(at > 0, `${page}: 넘김 스크립트`);

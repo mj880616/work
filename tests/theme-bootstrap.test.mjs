@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 // SET-보기선택서버저장: 화면 색은 서버(프로필 view_prefs)에서 읽는다. 로그인 전·첫 줄 스크립트는 기기 저장소를 읽지 않고 기본(올리브)만 건다.
 // 저장된 색은 loader-v2.js가 첫 화면을 공개하기 전에 적용한다.
-for(const path of ['app/index.html','app/login/index.html']){
+for(const path of ['app/index.html','app/login/index.html','app/oauth-consent/index.html']){
  const html=readFileSync(path,'utf8');
  const script=html.match(/<script data-kptu-theme-bootstrap>([\s\S]*?)<\/script>/)?.[1];
  test(path+' sets the default theme before CSS without touching browser storage',()=>{
