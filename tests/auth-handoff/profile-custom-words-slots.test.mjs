@@ -111,7 +111,9 @@ test('profile custom words slots: dry-run, apply, new slots, CHECK, operator SQL
    assert.match(await checkDef(),/affiliation/);
   });
   await t.test('the CHECK takes the two new slots with the same name rules and still refuses unknown slots',async()=>{
-   assert.equal((await write(STRANGER,STRANGER,{affiliation:'회사'})).rowCount,0,'non-owner of the row cannot write');
+   assert.equal((await write(OWNER,STRANGER,{affiliation:'회사'})).rowCount,0,'another profile row is not writable');
+   assert.equal((await write(OUTSIDER,OUTSIDER,{affiliation:'회사'})).rowCount,0,'a non-owner member cannot write even the own row');
+   assert.equal(await words(STRANGER),null);
    for(const value of [{affiliation:'회사'},{weekly:'한 주 돌아보기'},{area:'캠페인',affiliation:'단체',weekly:'주간'}])
     assert.equal((await write(OWNER,OWNER,value)).rowCount,1,JSON.stringify(value));
    for(const value of [{nope:'이름'},{affiliation:''},{affiliation:'<b>'},{weekly:'가'.repeat(21)},{weekly:1},{Affiliation:'회사'}])
