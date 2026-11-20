@@ -1938,3 +1938,6 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 
 /* S67-25 그 자리 풀기: '잠김' 줄(data-lock-here)은 줄 전체를 눌러도 그 자리 PIN 창(lock-pad.js). 줄 끝 [풀기]는 ③ 줄 버튼(row-act) 그대로. */
 [data-lock-here]{cursor:pointer}
+
+/* S67-25: '잠김' 한 줄(잊지 말기·밑줄 등 어디서든) — 테두리 칸 안에서 글자가 벽에 붙지 않게 안쪽 여백. */
+.forget-locked{margin:0;padding:6px 12px}
