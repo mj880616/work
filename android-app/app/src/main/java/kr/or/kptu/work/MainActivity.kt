@@ -75,6 +75,8 @@ class MainActivity : ComponentActivity() {
     private var readyReply: JavaScriptReplyProxy? = null
     /** 위젯 로그인: 웹 화면의 자동 로그인(widget:mint)을 기다리는 중. */
     private var widgetAuto = WidgetLoginFlow.Step.IDLE
+    /** S67-38: 지금 자동 로그인이 뒤에서 올리기(up:login)를 위한 것인가. 그러면 실패해도 구글 탭을 열지 않고 다리에 실패만 알린다. */
+    private var uploadLogin = false
     /** 위젯 로그인 대체 길: 화면이 앞에 나온 뒤(onResume) 구글 로그인 탭을 연다. */
     private var widgetTabWanted = false
     private var resumed = false
@@ -610,6 +612,12 @@ class MainActivity : ComponentActivity() {
             WidgetLoginFlow.Step.FALLBACK -> {
                 ui.removeCallbacks(widgetTimeout)
                 widgetAuto = WidgetLoginFlow.Step.IDLE
+                // S67-38: 뒤에서 올리기를 위한 자동 로그인은 구글 탭으로 넘어가지 않는다(표시를 지우고 웹이 지금 길로 올리게 실패만 알림).
+                if (uploadLogin) {
+                    WidgetHub.session(this).takeLogin()
+                    endUploadLogin(false)
+                    return true
+                }
                 openWidgetTab()
             }
             WidgetLoginFlow.Step.IDLE -> ui.removeCallbacks(widgetTimeout)
@@ -652,6 +660,51 @@ class MainActivity : ComponentActivity() {
         }.apply { isDaemon = true }.start()
     }
 
+    /**
+     * S67-38(명진 결정 11/14 ①: 위젯 로그인 없어도 앱 로그인으로 뒤에서 끝까지): 웹이 up:login을 보내면 위젯 자동 로그인(12절)과 같은 길로 세션을 만든다.
+     * 앱이 표시(10분·한 번)를 세우고 로그인된 웹 화면에 widget:mint → 웹이 자기 접근 토큰으로 widget_seal 봉인만 받아 widget:handoff → 앱이 consume.
+     * 다리에는 토큰을 싣지 않는다. 실패·시간 초과면 구글 탭을 열지 않고 up:ack login 실패만 알린다(웹은 지금 길, 화면 안 올리기).
+     * 이미 위젯 로그인이 있으면 바로 성공. 다른 위젯 로그인이 진행 중이면 기다리지 않고 실패(busy).
+     */
+    private fun startUploadLogin() {
+        val app = applicationContext
+        if (BackUpload.signedIn(app)) {
+            postUp(BackUploadRules.ackMessage(true, "login"))
+            return
+        }
+        if (widgetAuto != WidgetLoginFlow.Step.IDLE || ShellRules.isLoginPage(webView.url)) {
+            postUp(BackUploadRules.ackMessage(false, "login", if (uploadLogin || widgetAuto != WidgetLoginFlow.Step.IDLE) "busy" else "off"))
+            return
+        }
+        WidgetHub.session(this).beginLogin()
+        uploadLogin = true
+        ui.removeCallbacks(widgetTimeout)
+        widgetAuto = WidgetLoginFlow.Step.WAITING
+        val ready = readyReply
+        if (ready != null) askMint(ready)
+        if (widgetAuto == WidgetLoginFlow.Step.WAITING) ui.postDelayed(widgetTimeout, READY_WAIT_MS)
+    }
+
+    private fun endUploadLogin(ok: Boolean) {
+        uploadLogin = false
+        postUp(BackUploadRules.ackMessage(ok, "login", if (ok) "" else "failed"))
+    }
+
+    /** up:login이 받은 봉인을 consume한다(토스트 없음). 되면 멈춰 있던 묶음(로그인 풀림 등)을 다시 건다. */
+    private fun finishUploadLogin(handoff: String) {
+        val app = applicationContext
+        Thread {
+            val ok = WidgetHub.session(app).consume(handoff) is WidgetSession.Outcome.Ok
+            NowWidget.signedInChanged(app, WidgetHub.session(app).signedIn())
+            if (ok) WidgetGuard.run { BackUpload.resume(app) }
+            runOnUiThread {
+                if (!alive) return@runOnUiThread
+                endUploadLogin(ok)
+                notifyWidgetStatus()
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
     /** 웹 프로필의 [위젯 로그아웃] 줄(phone-widget-line.js)과 주고받는다. 허용 Origin 최상위 화면만 이 다리를 본다. */
     private fun onWidgetMessage(data: String, reply: JavaScriptReplyProxy) {
         if (data.startsWith("widget:handoff:")) {
@@ -659,7 +712,7 @@ class MainActivity : ComponentActivity() {
             val handoff = data.substring("widget:handoff:".length)
             if (widgetAuto == WidgetLoginFlow.Step.MINTING && WidgetRules.isHandoff(handoff) && WidgetHub.session(this).takeLogin()) {
                 onWidgetAuto(WidgetLoginFlow.Event.HANDOFF)
-                finishWidgetLogin(handoff, fallbackOnFail = true)
+                if (uploadLogin) finishUploadLogin(handoff) else finishWidgetLogin(handoff, fallbackOnFail = true)
             }
             return
         }
@@ -1360,6 +1413,7 @@ class MainActivity : ComponentActivity() {
                 answer(BackUploadRules.ackMessage(ok, "go", if (ok) "" else "failed", if (ok) b?.batch else null))
                 if (ok && b != null) WidgetGuard.get { BackUploadRules.jobMessage(BackUpload.store(app), b.batch) }?.let(::answer)
             }
+            BackUploadRules.Message.Login -> startUploadLogin()
             BackUploadRules.Message.Cancel -> saveWorker.execute { dropIntake() }
             is BackUploadRules.Message.Seen -> saveWorker.execute { WidgetGuard.run { BackUpload.store(app).seen(m.batch) } }
         }

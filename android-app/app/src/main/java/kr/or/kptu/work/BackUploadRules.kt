@@ -11,7 +11,9 @@ import java.io.IOException
  * 안드로이드 API를 쓰지 않아 JVM 시험 대상이다(BackUploadTest). 안드로이드 부분은 BackUpload.kt.
  *
  * 다리(KPTUAppShell, 허용 Origin 최상위 화면만):
- * - up:hello                                              → up:state:{"v":1,"on","kinds":["meeting"],"jobs":[job…]}
+ * - up:hello                                              → up:state:{"v":2,"on","login":true,"kinds":["meeting"],"jobs":[job…]}
+ * - up:login                                              → up:ack:{"ok","step":"login","error"}   (S67-38) 위젯 로그인이 없으면 앱 로그인으로 만든다
+ *   (설계 12절 자동 로그인 길 그대로: 웹이 자기 접근 토큰으로 widget_seal 봉인을 받아 넘기고 앱이 consume — 토큰은 다리에 싣지 않는다. 구글 탭은 열지 않는다)
  * - up:start:{"kind":"meeting","meeting","project","count"} → up:ack:{"ok","step":"start","error","id":"<묶음>"}
  * - up:begin:{"name","mime","size","title","category","date"} → up:ack step begin   파일 하나 시작
  *   up:part:<base64> → step part, up:end → step end                                   (앱 전용 폴더 back-upload/<묶음>/ 에 한 개씩)
@@ -49,6 +51,8 @@ object BackUploadRules {
 
     sealed class Message {
         object Hello : Message()
+        /** S67-38(명진 결정 11/14 ①): 위젯 로그인이 없을 때 앱 로그인으로 뒤에서 올리기 세션을 만든다. */
+        object Login : Message()
         data class Start(val target: Target, val count: Int) : Message()
         data class Begin(val name: String, val mime: String, val size: Long, val fields: Fields) : Message()
         data class Part(val base64: String) : Message()
@@ -62,6 +66,7 @@ object BackUploadRules {
         if (data == null || data.length > PART_MAX + 40) return null
         return when {
             data == "up:hello" -> Message.Hello
+            data == "up:login" -> Message.Login
             data.startsWith("up:start:") -> start(data.substring("up:start:".length))
             data.startsWith("up:begin:") -> begin(data.substring("up:begin:".length))
             data.startsWith("up:part:") -> data.substring("up:part:".length)
@@ -310,10 +315,13 @@ object BackUploadRules {
 
     fun jobMessage(store: BackUploadStore, batch: String): String? = jobJson(store, batch)?.let { "up:job:$it" }
 
-    /** up:hello 답. on = 위젯 로그인이 있어 뒤에서 올릴 수 있음. jobs = 닫은 묶음들(새 것부터 20개). */
-    fun stateMessage(on: Boolean, store: BackUploadStore?): String {
+    /**
+     * up:hello 답. on = 위젯 로그인이 있어 뒤에서 올릴 수 있음. login = on이 아니어도 up:login으로 앱 로그인에서 만들 수 있음(v2, S67-38).
+     * jobs = 닫은 묶음들(새 것부터 20개).
+     */
+    fun stateMessage(on: Boolean, store: BackUploadStore?, login: Boolean = true): String {
         val jobs = store?.batches()?.take(JOBS_MAX)?.mapNotNull { jobJson(store, it) }.orEmpty()
-        return "up:state:{\"v\":1,\"on\":$on,\"kinds\":[" + KINDS.joinToString(",") { ShellRules.jsonString(it) } + "],\"jobs\":[" + jobs.joinToString(",") + "]}"
+        return "up:state:{\"v\":2,\"on\":$on,\"login\":$login,\"kinds\":[" + KINDS.joinToString(",") { ShellRules.jsonString(it) } + "],\"jobs\":[" + jobs.joinToString(",") + "]}"
     }
 
     fun isCode(value: String?): Boolean = value != null && CODE.matches(value)
@@ -336,7 +344,7 @@ object BackUploadRules {
     fun reasonText(code: String?): String = when (code) {
         NETWORK -> "인터넷이 끊겨 있어요"
         SERVER -> "서버가 잠시 답하지 않아요"
-        SIGNED_OUT -> "위젯 로그인이 풀렸어요"
+        SIGNED_OUT -> "앱 로그인을 확인하지 못했어요"
         TOO_BIG -> "파일이 너무 커요(100MB까지)"
         FORBIDDEN -> "올릴 권한을 확인하지 못했어요"
         GONE -> "사업 보고를 찾지 못했어요"
@@ -357,9 +365,21 @@ object BackUploadRules {
         else -> "사업 보고에 ${counted(run.total, run.photos)} 중 ${run.failed}${if (run.photos) "장" else "개"}${obj(run.photos)} 올리지 못했어요 · " + reasonText(run.first)
     }
 
+    /**
+     * S67-38: 올리는 동안 알림(앞쪽 작업 알림, BackUploadNote). 파일 이름·내용은 싣지 않는다 — 몇 개 중 몇 개만.
+     * done = 끝난 개수(올림·다시 안 될 실패), total = 묶음 전체.
+     */
+    fun progressTitle(photos: Boolean, total: Int): String = "${counted(total.coerceAtLeast(1), photos)} 올리는 중"
+
+    fun progressText(done: Int, total: Int): String {
+        val t = total.coerceAtLeast(1)
+        return "${done.coerceIn(0, t)}/$t · 앱을 나가거나 화면을 꺼도 끝까지 올려요"
+    }
+
     /** 멈춤 한 줄. 남은 파일은 앱을 열면 이어 올린다(로그인 풀림은 위젯 로그인부터). */
     fun stoppedText(run: Run.Stopped): String {
-        val tail = if (run.reason == SIGNED_OUT) "위젯에서 로그인한 뒤 앱을 열면 이어 올려요" else "앱을 열면 남은 것부터 다시 올려요"
+        // S67-38: 위젯 로그인이 없어도 앱 화면이 열리면 앱 로그인으로 다시 이어 올린다(up:login).
+        val tail = if (run.reason == SIGNED_OUT) "앱을 열면 로그인을 확인하고 이어 올려요" else "앱을 열면 남은 것부터 다시 올려요"
         return "사업 보고 올리기가 멈췄어요(${run.left}개 남음) · " + reasonText(run.reason) + " · " + tail
     }
 }
