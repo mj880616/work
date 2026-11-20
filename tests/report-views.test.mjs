@@ -478,7 +478,7 @@ test('화면 연결(S58-10): 그리는 곳은 renderReportCalendar 하나, 저�
   const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
   // 달력 글은 한 곳에서만 만든다(다른 곳이 표시를 덧그리지 않는다).
   assert.equal((team.match(/calendarHtml\(/g) || []).length, 1);
-  assert.match(team, /planNow=reportPlans\?\.planView\(\{month:reportMonth,todayKey:seoulDateKey\(\),nameFilter:typeFilter\(\)\}\)\|\|null;box\.innerHTML=calendarHtml\(/);
+  assert.match(team, /planNow=reportPlans\?\.planView\(\{month:reportMonth,todayKey:seoulDateKey\(\),nameFilter:typeFilter\(\),reports:meetings\}\)\|\|null;box\.innerHTML=calendarHtml\(/);
   assert.match(team, /if\(planSig\(next\)===planSig\(planNow\)\)\{wantReportPlans\(\);return\}/);
   assert.match(team, /function reportViewClick\(e\)\{if\(planClick\(e\)\)return true;/);
   // 읽기·저장 모듈은 달력을 처음 그릴 때만 부른다(사업 보고 밖 화면의 첫 로딩에 싣지 않음).

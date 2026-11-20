@@ -10,6 +10,7 @@
 import {dayText, validDay, shiftWeek, mondayOf} from './weekly-org-lines-model.mjs';
 import {isOrgRefTitle, cleanTitle} from './calendar-ref-model.mjs';
 import {oneLine, recordOneLine, plainLines} from './record-oneline.mjs';
+import {titleMatch, MATCH_SAME} from './title-match.mjs';
 import {dropLineDay} from './same-day-lead.mjs';
 
 export const ORG_PAST_WEEKS = 3;
@@ -163,12 +164,15 @@ export function eventItems(events, orgs, ref = null) {
   return out;
 }
 // 같은 일: 같은 조직 칸에 같은 날(기간 기록이면 그 기간 안)이고 일정 제목이 기록 글에 들어 있으면 기록이 이긴다.
+// S67-40: 띄어 쓴 낱말이 떨어져 있어도(예 '안전운행 투쟁 기자회견' ↔ '안전운행 투쟁 돌입 기자회견 참석') 같은 일로 본다 —
+//   사업 보고 달력과 같은 제목 규칙(title-match.mjs titleMatch 'same').
 export function sameThing(event, record) {
   if (!event || !record || event.org !== record.org) return false;
   const end = record.end_day || record.day;
   if (!(event.day >= record.day && event.day <= end)) return false;
-  const t = compact(event.text);
-  return t.length >= 2 && compact(record.full || record.text).includes(t);
+  const t = compact(event.text), body = record.full || record.text;
+  if (t.length >= 2 && compact(body).includes(t)) return true;
+  return titleMatch(event.text, body) === MATCH_SAME;
 }
 
 // ---- 표시 이어짐 ----

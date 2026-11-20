@@ -232,7 +232,7 @@ function leaveReport(go){const guard=window.KPTUMeetingRoundDetail?.guardLeave;i
 function selectReportView(next){next=reportViewOf(next);if(next===reportView)return;if(!leaveReport(()=>{reportViewChosen=true;reportView=next;viewPrefs.set('report_view',next);renderMeetings({resetList:true})}))renderReportViewSelect()}
 function viewRows(){renderMeetingTypeOptions();const filter=typeFilter();return sortRecentFirst(reportRows().filter(m=>filter==='all'||(filter==='__none__'?!meetingName(m):meetingName(m)===filter)))}
 const viewName=m=>meetingName(m)||'이름 없음',viewColor=m=>meetingColor(meetingName(m)),viewMeta=m=>[reportKindLabel(reportKindOf(m)),areaNameOf(m),...meetingRowMeta(m)].filter(Boolean).join(' · ');
-function renderReportCalendar(box){meetingWhere(null);const active=box.contains(document.activeElement)?document.activeElement:null,keep=active?(active.dataset.rvNav?['data-rv-nav',active.dataset.rvNav]:active.dataset.rvDay?['data-rv-day',active.dataset.rvDay]:active.dataset.rvMore?['data-rv-more',active.dataset.rvMore]:null):null,keepPlan=keep?null:planFocusOf(active),dueOpen=!!box.querySelector('[data-rv-due]')?.open;planNow=reportPlans?.planView({month:reportMonth,todayKey:seoulDateKey(),nameFilter:typeFilter()})||null;box.innerHTML=calendarHtml({rows:viewRows(),month:reportMonth,selectedDay:reportDay,todayKey:seoulDateKey(),photos:photosByMeeting(documents),colorOf:viewColor,nameOf:viewName,metaOf:viewMeta,plan:planNow,planColorOf:planColor,dueOpen});mountStrips(box,()=>box.isConnected);mountReportDrag();if(keep)box.querySelector(`[${keep[0]}="${keep[1]}"]`)?.focus({preventScroll:true});else if(keepPlan)planFocusBack(box,keepPlan);wantReportPlans();showReportDay('',true)}
+function renderReportCalendar(box){meetingWhere(null);const active=box.contains(document.activeElement)?document.activeElement:null,keep=active?(active.dataset.rvNav?['data-rv-nav',active.dataset.rvNav]:active.dataset.rvDay?['data-rv-day',active.dataset.rvDay]:active.dataset.rvMore?['data-rv-more',active.dataset.rvMore]:null):null,keepPlan=keep?null:planFocusOf(active),dueOpen=!!box.querySelector('[data-rv-due]')?.open;planNow=reportPlans?.planView({month:reportMonth,todayKey:seoulDateKey(),nameFilter:typeFilter(),reports:meetings})||null;box.innerHTML=calendarHtml({rows:viewRows(),month:reportMonth,selectedDay:reportDay,todayKey:seoulDateKey(),photos:photosByMeeting(documents),colorOf:viewColor,nameOf:viewName,metaOf:viewMeta,plan:planNow,planColorOf:planColor,dueOpen});mountStrips(box,()=>box.isConnected);mountReportDrag();if(keep)box.querySelector(`[${keep[0]}="${keep[1]}"]`)?.focus({preventScroll:true});else if(keepPlan)planFocusBack(box,keepPlan);wantReportPlans();showReportDay('',true)}
 // S58-10 BIZ-보고할일정 PR C(설계 docs/design/biz-report-plan-link.md 4절): 달력에 □ 보고할 일정·점선 □ 보고할까요?·'안 쓴 보고 n'을 같이 그린다.
 // 읽기·저장은 report-calendar-plans.js(달력을 처음 그릴 때 한 번 부름), 규칙은 report-calendar-plan.mjs. 그리는 곳은 위 renderReportCalendar 하나이고
 // 여기는 지금 그린 값(planNow)과 단추 누름을 저장 길에 잇기만 한다. 서버에 새 표가 없으면 planNow=null → 표시 없이 지금 그대로.
@@ -243,7 +243,7 @@ const planColor=item=>meetingColor(item.title);
 const planSig=p=>{if(!p)return '';const items=[...p.byDay.values()].flat();return items.length||p.overdue.length?JSON.stringify([items.map(i=>[i.eventId,i.status,i.day,i.title,i.startsAt]),p.overdue.map(i=>[i.eventId,i.day,i.title])]):''};
 function redrawReportPlans(){if(!(workspace?.id&&reportKitLoaded&&reportView==='calendar'&&teamViewLoaded.has('meetings')))return;
   if(document.documentElement.classList.contains('cal-drag-on')){setTimeout(redrawReportPlans,400);return}
-  const next=reportPlans?.planView({month:reportMonth,todayKey:seoulDateKey(),nameFilter:typeFilter()})||null;
+  const next=reportPlans?.planView({month:reportMonth,todayKey:seoulDateKey(),nameFilter:typeFilter(),reports:meetings})||null;
   if(planSig(next)===planSig(planNow)){wantReportPlans();return}
   renderMeetings()}
 function wantReportPlans(){if(reportPlans){reportPlans.wantPlans(reportMonth,redrawReportPlans);return}
@@ -257,8 +257,8 @@ function planWrite(id,trigger){const item=planItemOf(id);if(!item||!reportPlans)
 // [보고할까요?](on)·⋯ [보고할 일정 ✓](off — 이 일정만 끔)·⋯ [빼기](skip — 같은 이름은 다시 묻지 않음). 저장되면 report-plan-data.js가 알려 다시 그린다.
 // 저장하는 동안 같은 일정을 또 누르면 받지 않는다(planBusy). 단추를 꺼 두지는 않는다 — 꺼진 단추는 초점을 잃어, 다시 그린 뒤 그 줄로 초점을 돌려줄 수 없다.
 async function planDecide(id,state){const item=planItemOf(id);if(!item||!reportPlans||planBusy.has(id))return;planBusy.add(id);
-  try{await reportPlans.decidePlan(item,state);toast(reportPlans.DECIDED_TEXT[state])}
-  catch(err){console.error('report plan decide',err);toast('저장하지 못했어요. 다시 눌러 주세요.')}
+  try{if(String(state).startsWith('link:')){await reportPlans.linkPlan(item,String(state).slice(5));toast(reportPlans.LINKED_TEXT)}else{await reportPlans.decidePlan(item,state);toast(reportPlans.DECIDED_TEXT[state])}}
+  catch(err){console.error('report plan decide',err);toast(String(state).startsWith('link:')&&err?.message?err.message:'저장하지 못했어요. 다시 눌러 주세요.')}
   finally{planBusy.delete(id)}}
 function planMenu(id,trigger,at=null){const item=planItemOf(id);if(!item||!reportPlans)return false;return reportPlans.openPlanMenu(trigger,item,at,state=>void planDecide(id,state))}
 // 칸 안 □ 줄(글자 단추 role=button)의 Enter·Space = 누름.

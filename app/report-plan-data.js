@@ -200,6 +200,20 @@ export async function dropEventPlan(eventId, rt = rtOf()) {
   return true;
 }
 
+// S67-40: 따로 쓴 보고를 이 일정과 잇는다(⋯ [이미 보고함]). 새 저장 구조 없이 보고 표의 일정 id 칸 둘(보고 쓰기 창이 저장할 때와 같은 칸)만 채운다.
+// 이미 다른 일정과 이어진 보고는 고치지 않는다(google_event_id=is.null 조건을 서버에도 건다). 권한은 DB(소유자 RLS·같은 작업공간)가 정한다.
+export async function linkReportToEvent(reportId, event, rt = rtOf()) {
+  const loaded = await loadReportPlans({}, rt);
+  const link = reportLink(event), id = String(reportId ?? '');
+  if (!loaded?.reports || !link.google_event_id || !id) throw new Error('이 보고는 일정과 이을 수 없어요.');
+  const key = loaded.key, epoch = rt.session?.epoch?.();
+  const saved = first(await rt.api(`/rest/v1/app_meetings?id=eq.${enc(id)}&workspace_id=eq.${enc(workspaceOf(rt))}&google_event_id=is.null&select=${REPORT_FIELDS}`, {method: 'PATCH', body: {...link, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false, expectedSessionEpoch: epoch}));
+  if (!saved) throw new Error('이 보고는 이미 다른 일정과 이어져 있어요.');
+  if (store?.key === key && store.reports) store.reports = [saved, ...store.reports.filter(r => String(r.id) !== String(saved.id))];
+  announce();
+  return saved;
+}
+
 // 보고 저장 때 보고 줄에 넣을 일정 연결 칸. 서버에 칸이 없거나 확인하지 못했으면 {}(연결 없이 지금처럼 저장).
 export async function reportLinkBody(event, rt = rtOf()) {
   const link = reportLink(event);
