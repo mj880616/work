@@ -5,6 +5,9 @@
 import {createAnchoredMenu} from './anchored-menu.js';
 import {mountReorder} from './reorder-drag.js';
 import {leMenuHtml} from './list-edit.mjs';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('list-edit');
 
 export function mountListEdit(host,{key,label,items,onAct,onMove=null,onStep=null,canDrag=()=>true}){
   if(!host||host._listEdit)return host?._listEdit;

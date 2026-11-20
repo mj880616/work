@@ -7,6 +7,9 @@
 // - 상태는 화면 메모리에만(열린 줄 하나). 기기에 저장하지 않는다.
 // 쓰는 법: bindRowSwipe(목록을 담은 고정 칸, {row:'줄 선택자', enabled:()=>bool, actions:row=>({start:{key,label,tone}|null, end:{…}|null}), run:(key,row)=>void})
 import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, SWIPE_BTN} from './row-swipe-model.mjs';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('row-swipe');
 
 const PHONE = '(max-width:760px)';
 const SKIP = 'input,textarea,select,[contenteditable],[data-row-swipe-act]';

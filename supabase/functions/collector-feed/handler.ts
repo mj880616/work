@@ -80,7 +80,7 @@ import {
   type FamilyMessage, type FamilyRecent, parseFamily,
 } from "./family.ts";
 import {
-  askEvidence, parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgAsk, type TgDay, type TgEarlier, type TgMessage,
+  askEvidence, parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, tgOrgEvidenced, TG_LIMITS, type TgAsk, type TgDay, type TgEarlier, type TgMessage,
 } from "./telegram.ts";
 
 export type Env = (name: string) => string | undefined;
@@ -807,7 +807,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   ] as const);
   const used = settledValue(settled[0]);
   if (estimateKrw(used.input, used.output, config.price) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "AI_MONTHLY_LIMIT");
-  const orgs = organizationOptions(settledValue(settled[1]));
+  const orgRows = settledValue(settled[1]);
+  const orgs = organizationOptions(orgRows);
   const projects = projectOptions(settledValue(settled[2]));
   // 한 방·하루가 여러 묶음이면(둘째 묶음부터, 또는 보낸 메시지가 하루 전체보다 적을 때) 요약을 그 묶음 몫으로 쓰게 한다(설계 3.2절).
   const { names, self } = settledValue(settled[3]);
@@ -846,6 +847,14 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const items = parsedAi.items;
   if (parsedAi.dropped || parsedAi.unlinked) deps.log("telegram_items_adjusted", { dropped: parsedAi.dropped, unlinked: parsedAi.unlinked });
   if (parsedAi.askDropped) deps.log("telegram_ask_dropped", { count: parsedAi.askDropped });
+  // S67-47 ORG-근거만: 근거 글에 이름·약칭이 없는 AI 조직 추천은 비운다(개수만 기록).
+  let orgDropped = 0;
+  for (const item of items) {
+    if (!item.organization_id) continue;
+    const evidence = [input.room_label, ...item.refs.map((i) => `${names.get(input.messages[i].sender) ?? ""} ${input.messages[i].text}`)].join("\n");
+    if (!tgOrgEvidenced(item.organization_id, orgRows, evidence)) { item.organization_id = null; orgDropped++; }
+  }
+  if (orgDropped) deps.log("telegram_org_unevidenced", { count: orgDropped });
   let kept = 0, groupAsksSkipped = 0;
   const asks: { source_ref: string; ask: TgAsk; evidence: string }[] = [];
   // 단체방 전체에게 한 부탁(to=all)은 기본으로 뺀다. 개인 대화방이거나 사용자가 설정한 예외 방이면 남긴다(TODO-내일만 결정 4).
