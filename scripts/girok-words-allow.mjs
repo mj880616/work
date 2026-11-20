@@ -2,12 +2,16 @@
 // 여기 있는 글자는 기록+ 화면에 나오지 않는다. 줄마다 왜 화면에 안 나오는지 적는다.
 //   file: app/ 아래 경로(끝이 /면 그 폴더 전체). text: 이 조각이 든 글자만(없으면 파일 전체).
 // 꺼진 화면(기록+ faces.mjs GIROK_OFF: News·브리핑 룸·아스날·통화·텔레그램)은 단계 3 다음 PR에서 메뉴·경로를 뺀다.
+// 기록+ 화면에 나오면 안 되는 노조 색 글자(scripts/check-girok-words.mjs·tests/build-pages/girok-face-boot.spec.mjs가 같이 쓴다).
+export const FORBIDDEN = /노동조합|노조|조합원|투쟁|교섭|상집|담당\s?조직|사업\s?영역|사업\s?보고|사업\s?관리|조직|국회|성명서|단협|위원장|지부|지회|쟁의|파업|사업장/;
+
 const OFF = '기록+에서 꺼진 화면(메뉴·경로 제거는 단계 3 다음 PR)';
 
 export const GIROK_ALLOW = Object.freeze([
   // ── 꺼진 화면 ──
   { file: 'app/arsenal/', reason: OFF },
   { file: 'app/brand/faces.mjs', text: '노동조합', reason: '노동조합+ 얼굴 정의(기록+는 GIROK 값만 씀)' },
+  { file: 'app/brand/girok-words.mjs', text: '<option value="', reason: '단어표 값: 저장되는 option 값(옛 값 그대로)만 남기고 보이는 글자는 기록+ 말' },
 
   // ── 묶음 A ──
   { file: 'app/call-feed.js', reason: OFF },

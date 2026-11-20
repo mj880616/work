@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { FACES, wordIn } from '../app/brand/faces.mjs';
-import { GIROK_ALLOW } from './girok-words-allow.mjs';
+import { FORBIDDEN, GIROK_ALLOW } from './girok-words-allow.mjs';
 
 // APP-올인원다이어리 단계 3(단어, S67-43): 기록+ 화면에 노조 색 글자가 나오지 않는지 전수 검사한다.
 //  1. app/의 JS 고정 글자(문자열·템플릿 조각) 중 금지어가 든 것은 word()·word`…`를 거쳐야 한다.
@@ -11,7 +11,7 @@ import { GIROK_ALLOW } from './girok-words-allow.mjs';
 //  2. 기록+ 빌드 HTML의 눈에 보이는 글자(태그 사이·aria-label·alt·title·placeholder)에 금지어가 없어야 한다.
 //  예외는 scripts/girok-words-allow.mjs 한 곳(화면에 안 나오는 글자: 데이터 값·사용자 글 읽기·서버로 보내는 글·꺼진 화면).
 // 주석·정규식·import 경로·객체 열쇠는 화면 글자가 아니라 보지 않는다.
-export const FORBIDDEN = /노동조합|노조|조합원|투쟁|교섭|상집|담당\s?조직|사업\s?영역|사업\s?보고|사업\s?관리|조직|국회|성명서|단협|위원장|지부|지회|쟁의|파업|사업장/;
+export { FORBIDDEN };
 
 const VENDOR = /(?:^|\/)(?:[^/]*-\d+\.\d+(?:\.\d+)?[^/]*|node_modules|hwp-lab\/rhwp[^/]*)\//;
 const girok = FACES.girok;
