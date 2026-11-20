@@ -95,3 +95,42 @@ test('S67-50 briefSections: 등록한 담당이 없으면 touches 칸에 "등록
   assert.equal(none[0].title, '내 담당 조직·사업에 닿는 것');
   assert.equal(none[2].title, '우리 쪽 주장과 부딪히는 대목');
 });
+
+// S67-41(명진 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 형식 꼬리표·이름 한 줄·올린 날짜·[최근]·[폴더].
+test('pickKind·pickDate·pickName: 사진 꼬리표, 숫자뿐인 사진 이름은 사진 · 날짜, 사람이 쓴 제목은 그대로', () => {
+  const now = new Date('2026-11-20T00:00:00Z');
+  assert.equal(m.pickKind({ file_name: 'a.JPG' }), '사진');
+  assert.equal(m.pickKind({ file_name: 'x', mime_type: 'image/png' }), '사진');
+  assert.equal(m.pickKind({ file_name: 'a.hwpx' }), 'HWP');
+  assert.equal(m.pickKind({ file_name: 'a.pdf' }), 'PDF');
+  assert.equal(m.pickDate('2026-11-05T16:00:00Z', now), '11/6'); // 한국 시각
+  assert.equal(m.pickDate('2025-03-02T01:00:00Z', now), '25.3/2');
+  assert.equal(m.pickDate('', now), '');
+  assert.equal(m.pickName({ title: '20261105_123456.jpg', file_name: '20261105_123456.jpg', created_at: '2026-11-05T01:00:00Z' }, now), '사진 · 11/5');
+  assert.equal(m.pickName({ file_name: 'IMG_1234.JPG', created_at: '2026-11-01T01:00:00Z' }, now), '사진 · 11/1');
+  assert.equal(m.pickName({ file_name: 'KakaoTalk_20261101_0912.png' }, now), '사진');
+  assert.equal(m.pickName({ title: '현장 사진', file_name: '1.jpg' }, now), '현장 사진');
+  assert.equal(m.pickName({ title: '보고서 v1.2', file_name: 'a.hwp' }, now), '보고서 v1.2');
+  assert.equal(m.pickName({ title: '예시 계획.pdf', file_name: '예시 계획.pdf' }, now), '예시 계획');
+});
+test('libraryPickRows [최근]: 줄마다 꼬리표·날짜', () => {
+  const r = m.libraryPickRows({ docs: [{ id: 'a', title: '예시', file_name: 'a.pdf', created_at: '2026-11-05T01:00:00Z' }], now: new Date('2026-11-20T00:00:00Z') });
+  assert.deepEqual([r.all[0].kind, r.all[0].meta, r.all[0].name], ['PDF', '11/5', '예시']);
+});
+test('libraryPickRows [폴더]: 맨 위는 폴더(들어가는 줄, 자료 수) → 폴더 밖 자료, 폴더 안은 위로 줄 → 하위 폴더 → 그 폴더 자료', () => {
+  const folders = [{ id: 'f1', name: '교섭', parent_id: null }, { id: 'f2', name: '임금', parent_id: 'f1' }, { id: 'f3', name: '보도', parent_id: null }];
+  const docs = [{ id: 'a', title: 'A', file_name: 'a.pdf' }, { id: 'b', title: 'B', file_name: 'b.hwp' }, { id: 'c', title: 'C', file_name: 'c.pdf' }];
+  const itemFolder = new Map([['a', 'f1'], ['b', 'f2']]);
+  const top = m.libraryPickRows({ docs, view: 'folder', folders, itemFolder, inRoom: new Set(['c']) });
+  assert.equal(top.allLabel, '자료실');
+  assert.deepEqual(top.all.map(r => r.nav ?? r.id), ['f1', 'f3', 'c']);
+  assert.equal(top.all[0].meta, '1');
+  assert.deepEqual([top.all[2].enabled, top.all[2].current], [false, true]);
+  const inF1 = m.libraryPickRows({ docs, view: 'folder', folder: 'f1', folders, itemFolder });
+  assert.equal(inF1.allLabel, '교섭');
+  assert.deepEqual(inF1.all.map(r => r.back ? `back:${r.nav}` : r.nav ?? r.id), ['back:', 'f2', 'a']);
+  const inF2 = m.libraryPickRows({ docs, view: 'folder', folder: 'f2', folders, itemFolder });
+  assert.deepEqual(inF2.all.map(r => r.back ? `back:${r.nav}` : r.nav ?? r.id), ['back:f1', 'b']);
+  // 찾는 말이 있으면 폴더와 상관없이 이름으로 찾는다.
+  assert.deepEqual(m.libraryPickRows({ docs, view: 'folder', folder: 'f2', folders, itemFolder, query: 'a' }).all.map(r => r.id), ['a']);
+});
