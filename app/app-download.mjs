@@ -39,14 +39,14 @@ export async function loadPhoneAppInfo(fetchImpl = globalThis.fetch, base = impo
 
 // BASKET-노조플러스업로드: 윈도우 PC 보조 프로그램(노조+ 파일 올리기). 받을 주소는 배포 때 같은 스크립트가 고른 최신 PC 설치 파일
 // (basket-pc-v<버전>의 BasketDropApp-win-Setup.exe)을 적은 같은 주소의 app/pc-app.json. 폰 앱 파일과 섞이지 않는다.
-// S63-09 PC도우미구분(명진 11/16): 이 프로그램을 노조+ 자체로 아는 사람이 있어, 이름을 '노조+ 파일 올리기'(도우미)로 하고
-// 받는 곳마다 "노조+는 브라우저에서 쓴다" 한 줄을 먼저 보인다(PC_BROWSER_LINE). PC에서 노조+를 바탕화면에 두는 길은 브라우저 '앱 설치'(pwa-install.mjs).
+// S63-09 PC도우미구분(명진 11/16): 이 프로그램을 WORK ON 자체로 아는 사람이 있어, 이름을 '노조+ 파일 올리기'(도우미)로 하고
+// 받는 곳마다 "WORK ON은 브라우저에서 쓴다" 한 줄을 먼저 보인다(PC_BROWSER_LINE). PC에서 WORK ON을 바탕화면에 두는 길은 브라우저 '앱 설치'(pwa-install.mjs).
 export const PC_RELEASES_PAGE = `https://github.com/${PHONE_REPO}/releases?q=basket-pc-v&expanded=true`;
 export const PC_SETUP_NAME = 'BasketDropApp-win-Setup.exe';
 export const PC_HELPER_NAME = word('노조+ 파일 올리기');
 export const PC_BUTTON = 'PC 파일 올리기 도우미 내려받기';
-export const PC_BROWSER_LINE = word("노조+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.");
-export const PC_DESC = word('도우미는 노조+ 자체가 아니에요. 노조+ [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮기게 돕는 작은 프로그램이에요');
+export const PC_BROWSER_LINE = word("WORK ON은 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.");
+export const PC_DESC = word('도우미는 WORK ON 자체가 아니에요. WORK ON [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮기게 돕는 작은 프로그램이에요');
 export const PC_WARN = "처음 실행 때 윈도우 경고가 뜨면 '추가 정보 → 실행'을 눌러 주세요";
 export const PC_OTHER_HINT = '윈도우 PC에서 열면 PC 파일 올리기 도우미를 받을 수 있어요';
 

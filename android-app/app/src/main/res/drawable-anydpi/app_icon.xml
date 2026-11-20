@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 노동조합+ 아이콘(J10). scripts/app-icon/build-app-icons.py가 만든다. 손으로 고치지 않는다. -->
+<!-- WORK ON 아이콘(표장 A). scripts/app-icon/build-app-icons.py가 만든다. 손으로 고치지 않는다. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt">
     <background android:drawable="@color/app_icon_bg"/>
     <foreground>
         <aapt:attr name="android:drawable">
     <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
             <group android:translateX="18" android:translateY="18" android:scaleX="1.125" android:scaleY="1.125">
-                <path android:fillColor="#FFFEFA" android:pathData="M11.71 31.09H25V33.42H11.71ZM9.87 37.47H26.75V39.83H9.87ZM16.83 32.47H19.77V38.12H16.83ZM11.71 24.56H14.66V32.1H11.71ZM27.27 37.37H44.15V39.75H27.27ZM34.24 33.35H37.17V38.01H34.24ZM34.13 25.64H36.62V26.19Q36.62 27.37 36.31 28.45Q36.01 29.53 35.4 30.47Q34.79 31.4 33.87 32.14Q32.96 32.88 31.75 33.41Q30.53 33.95 29.03 34.22L27.87 31.88Q29.2 31.67 30.23 31.27Q31.25 30.86 31.99 30.3Q32.73 29.74 33.2 29.06Q33.67 28.39 33.9 27.66Q34.13 26.94 34.13 26.19ZM34.75 25.64H37.23V26.19Q37.23 26.94 37.46 27.65Q37.69 28.37 38.17 29.04Q38.65 29.7 39.4 30.25Q40.15 30.8 41.2 31.2Q42.25 31.6 43.6 31.79L42.46 34.11Q40.92 33.84 39.69 33.32Q38.46 32.81 37.53 32.07Q36.61 31.34 35.99 30.43Q35.37 29.52 35.06 28.45Q34.75 27.37 34.75 26.19ZM28.66 24.53H42.7V26.86H28.66Z"/>
-                <path android:fillColor="#E7C25A" android:pathData="M47.8,26H50.2V38H47.8Z M43,30.8H55V33.2H43Z"/>
+                <path android:fillColor="#F3F1EA" android:pathData="M10,32 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z"/>
+                <path android:strokeColor="#22262B" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M19 25l6 15 7-12 7 12 6-15"/>
             </group>
         </vector>
         </aapt:attr>
@@ -16,8 +16,7 @@
         <aapt:attr name="android:drawable">
     <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
             <group android:translateX="18" android:translateY="18" android:scaleX="1.125" android:scaleY="1.125">
-                <path android:fillColor="#FFFFFF" android:pathData="M11.71 31.09H25V33.42H11.71ZM9.87 37.47H26.75V39.83H9.87ZM16.83 32.47H19.77V38.12H16.83ZM11.71 24.56H14.66V32.1H11.71ZM27.27 37.37H44.15V39.75H27.27ZM34.24 33.35H37.17V38.01H34.24ZM34.13 25.64H36.62V26.19Q36.62 27.37 36.31 28.45Q36.01 29.53 35.4 30.47Q34.79 31.4 33.87 32.14Q32.96 32.88 31.75 33.41Q30.53 33.95 29.03 34.22L27.87 31.88Q29.2 31.67 30.23 31.27Q31.25 30.86 31.99 30.3Q32.73 29.74 33.2 29.06Q33.67 28.39 33.9 27.66Q34.13 26.94 34.13 26.19ZM34.75 25.64H37.23V26.19Q37.23 26.94 37.46 27.65Q37.69 28.37 38.17 29.04Q38.65 29.7 39.4 30.25Q40.15 30.8 41.2 31.2Q42.25 31.6 43.6 31.79L42.46 34.11Q40.92 33.84 39.69 33.32Q38.46 32.81 37.53 32.07Q36.61 31.34 35.99 30.43Q35.37 29.52 35.06 28.45Q34.75 27.37 34.75 26.19ZM28.66 24.53H42.7V26.86H28.66Z"/>
-                <path android:fillColor="#FFFFFF" android:pathData="M47.8,26H50.2V38H47.8Z M43,30.8H55V33.2H43Z"/>
+                <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M10,32 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z M16.68,25.93 L22.68,40.93 L23.02,41.53 L23.52,42.02 L24.14,42.35 L24.82,42.49 L25.51,42.45 L26.16,42.21 L26.73,41.81 L27.16,41.26 L32.00,32.96 L36.84,41.26 L37.27,41.81 L37.84,42.21 L38.49,42.45 L39.18,42.49 L39.86,42.35 L40.48,42.02 L40.98,41.53 L41.32,40.93 L47.32,25.93 L47.46,25.46 L47.50,24.97 L47.45,24.48 L47.30,24.02 L47.06,23.59 L46.75,23.21 L46.36,22.90 L45.93,22.68 L45.46,22.54 L44.97,22.50 L44.48,22.55 L44.02,22.70 L43.59,22.94 L43.21,23.25 L42.90,23.64 L42.68,24.07 L38.58,34.32 L34.16,26.74 L33.76,26.23 L33.25,25.83 L32.64,25.58 L32.00,25.50 L31.36,25.58 L30.75,25.83 L30.24,26.23 L29.84,26.74 L25.42,34.32 L21.32,24.07 L21.10,23.64 L20.79,23.25 L20.41,22.94 L19.98,22.70 L19.52,22.55 L19.03,22.50 L18.54,22.54 L18.07,22.68 L17.64,22.90 L17.25,23.21 L16.94,23.59 L16.70,24.02 L16.55,24.48 L16.50,24.97 L16.54,25.46 Z"/>
             </group>
         </vector>
         </aapt:attr>

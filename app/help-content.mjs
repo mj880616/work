@@ -6,7 +6,7 @@
 import {ITEMS, labelOf} from './menu-model.mjs';
 import {word} from './brand/brand.mjs';
 
-export const SUMMARY = word('노조+는 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.');
+export const SUMMARY = word('WORK ON은 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.');
 export const CONTACT = 'nojoplus.com@gmail.com';
 export const PRIVACY_URL = 'https://work.bokdoong.com/work/about/privacy/';
 export const TERMS_URL = 'https://work.bokdoong.com/work/about/terms/';
@@ -111,7 +111,7 @@ const TOPICS = {
   },
   pages: {
     short: '바깥에 보여 줄 페이지를 링크로',
-    lead: word('노조+ 밖의 사람에게 보여 줄 페이지를 만들고 링크로 나누는 곳이에요.'),
+    lead: word('WORK ON 밖의 사람에게 보여 줄 페이지를 만들고 링크로 나누는 곳이에요.'),
     steps: ['[새 공유 페이지]로 새 페이지를 만들어요.', '요약·일정·링크 같은 칸을 더해 내용을 채워요.', '[링크 복사]로 보내요. [링크 끄기]를 하면 더는 열리지 않아요.'],
     ex: {title: '공유 페이지', rows: ['예시 교육 안내 · 링크 켜짐', '예시 설문 결과 · 링크 꺼짐']},
     open: 'pages',
@@ -226,20 +226,20 @@ export const DEVICES = Object.freeze([
 ]);
 export const APP_GUIDE = Object.freeze({
   android: {
-    steps: [['아래 [안드로이드 앱 내려받기]를 눌러 받아요', ''], ["받은 파일을 열어 설치해요", "처음 한 번 '알 수 없는 앱 설치 허용'을 켜야 해요"], [word('노조+ 앱을 열고 로그인해요. 업데이트는 앱이 스스로 해요'), '']],
+    steps: [['아래 [안드로이드 앱 내려받기]를 눌러 받아요', ''], ["받은 파일을 열어 설치해요", "처음 한 번 '알 수 없는 앱 설치 허용'을 켜야 해요"], [word('WORK ON 앱을 열고 로그인해요. 업데이트는 앱이 스스로 해요'), '']],
     action: 'android',
   },
   iphone: {
-    steps: [[word('사파리로 노조+에 로그인해요'), ''], ['아래 [공유] → 홈 화면에 추가', ''], [word('홈 화면의 노조+ 아이콘으로 열면 주소창 없이 앱처럼 열려요'), '']],
-    note: word("아이폰은 '공유로 보내기'(다른 앱에서 노조+로 보내기)는 아직 안 돼요."),
+    steps: [[word('사파리로 WORK ON에 로그인해요'), ''], ['아래 [공유] → 홈 화면에 추가', ''], [word('홈 화면의 WORK ON 아이콘으로 열면 주소창 없이 앱처럼 열려요'), '']],
+    note: word("아이폰은 '공유로 보내기'(다른 앱에서 WORK ON으로 보내기)는 아직 안 돼요."),
   },
   windows: {
-    steps: [['크롬·엣지 주소창 오른쪽 설치 아이콘 → [설치]', ''], [word('바탕화면·시작 메뉴에 노조+ 아이콘이 생기고, 주소창 없는 창 하나로 열려요'), ''], ['업데이트는 저절로 돼요. 따로 받을 것 없어요', '']],
-    note: word("'노조+ 파일 올리기' 도우미는 노조+ 자체가 아니에요. [파일]에서 이 PC 폴더를 볼 때만 받아요."),
+    steps: [['크롬·엣지 주소창 오른쪽 설치 아이콘 → [설치]', ''], [word('바탕화면·시작 메뉴에 WORK ON 아이콘이 생기고, 주소창 없는 창 하나로 열려요'), ''], ['업데이트는 저절로 돼요. 따로 받을 것 없어요', '']],
+    note: word("'노조+ 파일 올리기' 도우미는 WORK ON 자체가 아니에요. [파일]에서 이 PC 폴더를 볼 때만 받아요."),
     action: 'windows',
   },
   mac: {
-    steps: [['크롬: 주소창 오른쪽 설치 아이콘 → [설치]', '사파리(macOS 14 이상): 메뉴 막대 파일 › Dock에 추가'], [word('Dock·Launchpad에 노조+ 아이콘이 생기고, 주소창 없는 창 하나로 열려요'), ''], ['업데이트는 저절로 돼요. 따로 받을 것 없어요', '']],
+    steps: [['크롬: 주소창 오른쪽 설치 아이콘 → [설치]', '사파리(macOS 14 이상): 메뉴 막대 파일 › Dock에 추가'], [word('Dock·Launchpad에 WORK ON 아이콘이 생기고, 주소창 없는 창 하나로 열려요'), ''], ['업데이트는 저절로 돼요. 따로 받을 것 없어요', '']],
     note: word("윈도우용 '노조+ 파일 올리기'는 맥에 없어요. 맥에서는 구글 드라이브에 둔 파일을 [파일]에서 봐요."),
   },
 });

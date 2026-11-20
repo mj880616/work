@@ -181,7 +181,7 @@ object ShellRules {
      */
     const val SHARE_TO_NOTE = "ShareToNote"
     const val SHARE_TO_TASK = "ShareToTask"
-    /** S62-22 APP-공유로뉴스보관: 네 번째 칸 '노동조합+ News 보관'(같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
+    /** S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON News 보관'(같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
     const val SHARE_TO_NEWS = "ShareToNews"
     val SHARE_TARGETS = setOf("basket", "note", "task", "news")
 

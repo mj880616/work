@@ -570,7 +570,7 @@ function detailHtml(id) {
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';
   const orgs = (allRows().find(r => r.id === id)?.organizations || []).filter(Boolean);
   const fields = fieldsHtml(orgs.length ? [...d.fields, [word('조직'), orgs.join(', ')]] : d.fields);
-  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? word(' <span class="lg-muted">(노동조합+ 사업영역)</span>') : l.kind === 'meeting' ? word(' <span class="lg-muted">(노동조합+ 사업 보고)</span>') : ''}</li>`).join('')}</ul>` : emptyHtml('연결 없음');
+  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? word(' <span class="lg-muted">(WORK ON 사업영역)</span>') : l.kind === 'meeting' ? word(' <span class="lg-muted">(WORK ON 사업 보고)</span>') : ''}</li>`).join('')}</ul>` : emptyHtml('연결 없음');
   const info = state.changes.get(id);
   const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
   const err = state.actError ? `<p class="lg-error" role="alert" data-lb-act-error>${esc(state.actError)}</p>` : '';
