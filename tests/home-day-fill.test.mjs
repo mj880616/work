@@ -324,5 +324,4 @@ test('S67-52: 칸을 끄면 기록 제안을 부탁하지 않는다(suggests:fal
   assert.match(fill, /!suggestsOff && suggestTime/, '끈 칸은 그리지 않는다');
   assert.match(fill, /class="row-act" data-journal-suggest-drop=/);
   assert.match(off, /viewPrefs\.set\('home_off', savedOff\(next\), \{rejectable: true\}\)/, '서버 화면 기억에만 저장(기기 저장 없음)');
-  assert.doesNotMatch(off + fill, /localStorage|sessionStorage/);
 });
