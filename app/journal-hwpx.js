@@ -1582,7 +1582,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // S67-30: [주간 정리] 2. 1) 사업영역 줄 ⋯ [이 칸 빼기]·[다른 칸 안으로]·[다시 넣기]·[따로 두기] — 그 주 draft.places에 표시만(사업영역·지금 상황은 그대로).
   // 고른 자리와 같은 길: 바탕을 다시 만들고(빈 내 줄 더하기·빼기), 바로 한 번 저장한다. 바탕을 아직 안 연 주는 하지 않는다(false).
   // 바탕을 아직 안 연 주(그 주 다시 들어옴·새로고침 뒤)는 그 주 행의 draft.places(없으면 지난주에서 이어 쓴 값)를 바로 읽고 쓴다 — 상자를 열지 않아도 표가 같은 모양.
-  const carriedAreaPlaces = new Map(); // week → places | null(읽는 중·없음). 화면 세션 메모리만.
+  const carriedAreaPlaces = new Map(); // week → places | null(아직 모름·없음). 화면 세션 메모리만.
   function weekPlaces(week, row = undefined) {
     const w = row === undefined ? getWeek() : {start:week, row};
     const own = readExtras(w.start === week ? w.row?.draft : null).places;

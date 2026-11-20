@@ -62,7 +62,7 @@ test('화면 연결: 홈 2. 2)와 사업 보고 2)가 같은 부품, 옛 주는 
   const win = read('app/biz-detail-window.js'), journal = read('app/journal.js'), table = read('app/weekly-summary-table.js');
   assert.match(win, /section=eq\.\$\{D\.SECTION\}/);
   assert.match(win, /saveBusinessRecord\(\{space_id: space, day, body, source_kind: 'user'\}/);
-  assert.match(journal, /if \(isRecordWeek\(start\)\) paintBizDetail\(host\);\n\s+else W\.paintDetailLines/);
+  assert.match(journal, /if \(isRecordWeek\(start\)\) paintBizDetail\(host\);\n\s+else slotPaint\(W\.paintDetailLines/);
   assert.match(journal, /createBizDetailBox\(\{rt, kinds:true\}\)/);
   assert.match(table, /createBizDetailBox\(\{onReady:\(\)=>placeDetail\(\)\}\)/);
   assert.match(table, /<h3>2\) 주요 사업·회의결과<\/h3><ul class="biz-detail-list" data-bp-detail/);
