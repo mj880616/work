@@ -1,5 +1,5 @@
 // ORG-쟁의단계: 쟁의 단계 목록·조직별 이력의 읽기·저장(서버 저장만, 기기 저장 없음). 판정은 org-dispute-stage-model.mjs 한 곳.
-// 읽기는 쓰기를 하지 않는다(보기만 해서 운영 데이터가 바뀌지 않게). 기본 단계 11개는 명진이 단계를 저장하거나 관리 창을 처음 열 때 ensureSeeded가 채운다.
+// 읽기는 쓰기를 하지 않는다(보기만 해서 운영 데이터가 바뀌지 않게). 기본 단계(DEFAULT_STAGES)는 기본 단계가 없는 사람이 단계를 저장하거나 관리 창을 처음 열 때 ensureSeeded가 채운다.
 // 표는 app_dispute_stages(단계 목록)·app_suborganization_dispute_stages(이력)·함수 app_dispute_stage_delete(지우기).
 // 표가 아직 없는 운영(DB 적용 전)에서는 status:'preparing'으로 돌려주고 화면은 '준비 중' 한 줄만 보인다.
 // 단계 기간(끝 날짜)·이력 한 줄 고치기는 DB 20261024180000(이력 표 end_date 칸·고치기 권한)이 있어야 한다. 칸이 없으면 읽기는 끝 날짜 없이 하고
@@ -50,7 +50,7 @@ export function groupHistory(rows) {
   return map;
 }
 
-// 기본 단계가 없으면 기본 단계 줄을 맨 앞에 둔 11개를 한 번에(원자적) 넣고 다시 읽는다. 이미 있는 이름은 건너뛴다(두 화면이 동시에 해도 안전).
+// 기본 단계가 없으면 기본 단계 줄을 맨 앞에 둔 기본 목록(DEFAULT_STAGES)을 한 번에(원자적) 넣고 다시 읽는다. 이미 있는 이름은 건너뛴다(두 화면이 동시에 해도 안전).
 export async function ensureSeeded({rt = window.KPTURuntime, workspaceId} = {}) {
   let state = await loadDisputeState({rt, workspaceId});
   if (state.status !== 'ready') throw new Error('단계를 준비하지 못했어요.');
