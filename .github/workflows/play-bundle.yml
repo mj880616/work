@@ -1,6 +1,6 @@
 name: Play bundle
 
-# S62-34 APP-플레이스토어비공개테스트: 플레이 스토어 판(com.nojoplus.app, 앱 이름 'WORK ON', 옛 이름 '노동조합+')의 release AAB를 만든다.
+# S62-34 APP-플레이스토어비공개테스트: 플레이 스토어 판(com.nojoplus.app, 앱 이름 'WORK ON+', 옛 이름 '노동조합+')의 release AAB를 만든다.
 # - 커맨드센터(또는 사람)가 main에서 손으로 실행하고 version(예: 0.5.11)을 넣는다. version은 android-app/app/build.gradle의 versionName과 같아야 한다.
 # - 서명은 phone-app-release.yml과 같은 승인형 environment `phone-app-release`의 비밀값(같은 열쇠)으로 한다. 이 열쇠가 플레이의 '업로드 열쇠'다.
 #   플레이 앱 서명 열쇠는 플레이 콘솔에서 구글이 만든다(Play App Signing). 새 비밀값은 쓰지 않는다.

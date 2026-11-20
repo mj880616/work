@@ -251,10 +251,10 @@ test('전체 구조 고칠 목록: 내 담당 조직 줄만 고치고, 일정·�
   assert.deepEqual(validateHwpx(packHwpx(pkg, zlib), zlib).errors, []);
 });
 
-test('BRAND-웹2흔적지우기: 만든이는 WORK ON이고, 보고서에 같은 낱말이 있어도 빈 양식 검사에 걸리지 않는다(다른 곳의 같은 글은 여전히 걸림)', () => {
+test('BRAND-웹2흔적지우기: 만든이는 WORK ON+고, 보고서에 같은 낱말이 있어도 빈 양식 검사에 걸리지 않는다(다른 곳의 같은 글은 여전히 걸림)', () => {
   const blank = extractBlankTemplate(makeFakeReport(openHwpx(new Uint8Array(readFileSync(SAMPLE)), zlib)));
   const hpf = new TextDecoder().decode(blank.files.get('Contents/content.hpf'));
-  assert.match(hpf, /name="creator"[^>]*>WORK ON</);
+  assert.match(hpf, /name="creator"[^>]*>WORK ON\+</);
   assert.doesNotMatch(hpf, /Web2/);
   assert.deepEqual(assertBlank(blank, {forbidden: ['노동조합', '조합원 총회']}), []);
   const leak = openHwpx(packHwpx(blank, zlib), zlib);

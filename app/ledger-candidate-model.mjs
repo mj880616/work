@@ -8,7 +8,7 @@ import {word} from './brand/brand.mjs';
 
 export const ACTIONS = Object.freeze(['new', 'add_source', 'update', 'supersede']);
 export const ACTION_LABEL = Object.freeze({ new: '새 기록', add_source: '기존 기록에 출처 추가', update: '기존 기록 수정됨', supersede: '기존 기록 대체' });
-export const ORIGIN_LABEL = Object.freeze({ web2_ai: word('WORK ON AI'), claude_import: 'Claude 파일', user: '직접' });
+export const ORIGIN_LABEL = Object.freeze({ web2_ai: word('WORK ON+ AI'), claude_import: 'Claude 파일', user: '직접' });
 export const ORIGIN_SOURCE_LABEL = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지', meeting: word('사업 보고'), org_update: word('조직 기록'), project_update: word('사업영역 기록') });
 export const MAX_CANDIDATES = 500;
 const KINDS = Object.keys(KIND_LABEL);
