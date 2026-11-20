@@ -161,13 +161,14 @@ export function createBriefRunner(deps) {
   const READ_FAIL = { too_large: 'too_large', unsupported: 'unsupported', locked: 'locked', read_failed: 'read_failed' };
 
   // 읽기 끝: 정리 → 조각 나누기 → chunk 단계로.
-  async function finishRead(row, raw, reason) {
+  // partial='preview'(S67-37): HWP 본문을 못 읽어 미리보기 글자(앞부분만)로 만든다. 표시는 parts의 ctl에 두었다가 merge에서 brief.partial로 옮긴다.
+  async function finishRead(row, raw, reason, partial = null) {
     const { text } = tidyBriefText(raw);
     if (text.replace(/\s/g, '').length < BRIEF_MIN_TEXT) { await fail(row, READ_FAIL[reason] ?? 'no_text'); return 'stop'; }
     const starts = pageStarts(text);
     const chunks = splitChunks(text, BRIEF_CHUNK_CHARS);
     if (chunks.length > BRIEF_MAX_CHUNKS) { await fail(row, 'too_large'); return 'stop'; }
-    await save(row, { stage: 'chunk', source_text: text, page_count: pagesKnown(starts) ? starts.length : null, step_no: 0, step_total: stepTotal(chunks.length), parts: [] });
+    await save(row, { stage: 'chunk', source_text: text, page_count: partial ? null : (pagesKnown(starts) ? starts.length : null), step_no: 0, step_total: stepTotal(chunks.length), parts: partial ? withCtl([], { partial }) : [] });
     return 'next';
   }
 
@@ -187,6 +188,7 @@ export function createBriefRunner(deps) {
       await fail(row, at ? 'read_failed' : (READ_FAIL[got.reason] ?? 'no_text'));
       return 'stop';
     }
+    if (!at && got?.partial === 'preview' && got?.text) { log('brief_read_preview'); return finishRead(row, got.text, 'read_failed', 'preview'); }
     const piece = typeof got?.text === 'string' ? got.text : '';
     const text = sofar && piece ? `${sofar}\n${piece}` : (sofar || piece);
     const next = got?.next && Number.isInteger(got.next.sec) && Number.isInteger(got.next.para) ? got.next : null;
@@ -223,7 +225,9 @@ export function createBriefRunner(deps) {
     const note = parseChunkNote(r.text ?? '', { folded: foldForMatch(text), starts, chunk })
       ?? { lead: '', touches: [], todos: [], conflicts: [], quotes: [], skipped: true };
     if (note.skipped) log('brief_chunk_bad_answer');
-    const parts = [...notesOf(row.parts), note];
+    const notes = [...notesOf(row.parts), note];
+    const partial = ctlOf(row.parts).partial;
+    const parts = partial ? withCtl(notes, { partial }) : notes; // 미리보기로 만든 표시는 merge까지 남긴다
     await save(row, { parts, step_no: i + 1, model: r.model ?? row.model ?? null });
     return 'next';
   }
@@ -234,8 +238,9 @@ export function createBriefRunner(deps) {
     const candidates = quoteCandidates(notes);
     const r = await callAi('brief_merge', MERGE_INSTRUCTIONS, mergeInput({ title, scope, notes, candidates }), MERGE_SCHEMA, MERGE_MAX_TOKENS);
     if (!r.ok) { if (r.final) { await fail(row, r.code); return 'stop'; } log(`brief_${r.code}`); return 'pause'; }
-    const brief = verifyBrief(r.text ?? '', { candidates, pageCount: row.page_count ?? null });
-    if (!brief) { await fail(row, 'ai_bad_answer'); return 'stop'; }
+    const checked = verifyBrief(r.text ?? '', { candidates, pageCount: row.page_count ?? null });
+    if (!checked) { await fail(row, 'ai_bad_answer'); return 'stop'; }
+    const brief = ctlOf(row.parts).partial === 'preview' ? { ...checked, partial: 'preview' } : checked;
     await save(row, { status: 'done', stage: 'done', brief, step_no: row.step_total, model: r.model ?? row.model ?? null });
     return 'stop';
   }
