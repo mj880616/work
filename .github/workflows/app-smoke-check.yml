@@ -1253,6 +1253,9 @@ jobs:
       - name: Check the two faces and that 노동조합+ screen words stay the same (APP-올인원다이어리 단계 2)
         run: node --test tests/brand-faces.test.mjs
 
+      - name: Check per-person menu and kind names over the face defaults (APP-기록+이름바꾸기)
+        run: node --test tests/custom-words.test.mjs
+
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
 

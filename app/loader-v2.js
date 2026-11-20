@@ -73,7 +73,7 @@
   }
   // 로그인 확인 뒤: 다음 묶음(앱 바탕·사업 공간 확인 — 로그인한 누구나 받는 것)은 첫 묶음과 함께 받아만 둔다.
   // 화면 기능 모듈(view-loader·창 그릇 등)은 사업 공간 소유자로 확인된 뒤에만 받는다(비구성원은 거절 화면만, nonmember-access 시험).
-  preload(/*static-chain*/['./topbar-actions.js','./context-menu.js','./select-menu.js','./date-field.js','./team.js']);
+  preload(/*static-chain*/['./action-labels.js','./topbar-actions.js','./context-menu.js','./select-menu.js','./date-field.js','./team.js']);
 
   const bootSession=window.KPTURuntime.session.read();
   const bootOwner=sessionOwner(bootSession);
@@ -101,7 +101,6 @@
     location.reload();
   });
   await Promise.all([
-    import('./action-labels.js'),
     import('./app-router.js'),
     import('./accessibility-dialog.js'),
     import('./enter-save.js'),
@@ -134,7 +133,22 @@
       .then(rows=>{startup?.mark('workspacePrefetchComplete');startup?.mark('membershipCheckComplete');return {ok:true,rows}})
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
+  // APP-기록+이름바꾸기(S67-44): 내가 고친 메뉴·분류 이름(내 프로필 custom_words, owner RLS로 내 행만)을 업무공간 소유자로 확인된 뒤 한 번 읽는다
+  // (비구성원은 데이터 요청 없음). app/brand/custom-words.mjs가 이 약속을 기다리므로, 아래 첫 화면 모듈(word()를 쓰는 topbar-actions 등)은
+  // 첫 그리기 전에 고친 이름을 안다 — 그래서 이 줄은 그 import보다 먼저 있어야 한다(tests/custom-words.test.mjs).
+  // 칸이 아직 없는 서버(DB 적용 전)·실패·3.5초 넘게 걸림 → 고친 이름 없이(얼굴 기본값) 연다. 기기에는 남기지 않는다.
+  window.__KPTU_CUSTOM_WORDS__=bootUserId&&window.__KPTU_BOOT_MEMBERSHIP_PROMISE__?Promise.race([
+    window.__KPTU_BOOT_MEMBERSHIP_PROMISE__.then(member=>member?.ok&&Array.isArray(member.rows)&&member.rows.length===1&&member.rows[0]?.role==='owner'
+      ?window.KPTURuntime.api('/rest/v1/app_profiles?user_id=eq.'+encodeURIComponent(bootUserId)+'&select=custom_words&limit=1',{timeoutMs:3000})
+        .then(rows=>Array.isArray(rows)&&rows.length===1?rows[0]?.custom_words??null:null)
+      :null),
+    new Promise(resolve=>setTimeout(()=>resolve(null),3500))
+  ]).catch(()=>null):Promise.resolve(null);
+  // 고친 이름이 있으면, 화면 모듈을 부르기 전(앱 바탕에 index.html 글자뿐일 때) 한 번 입힌다. 없으면(대부분) 아무것도 하지 않는다.
+  // action-labels.js(+ 사업 보고 글자)도 word()를 써서, 고친 이름 약속(위)이 생긴 뒤인 이 묶음에서 부른다.
+  await import('./custom-words-boot.js').catch(err=>console.warn('custom words shell',err?.name||'Error'));
   await Promise.all([
+    import('./action-labels.js'),
     import('./topbar-actions.js'),
     import('./context-menu.js'),
     import('./select-menu.js'),
