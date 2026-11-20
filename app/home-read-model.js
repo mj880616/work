@@ -18,6 +18,19 @@ const dated = (v) =>
   /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""))
     ? Date.parse(v + "T00:00:00+09:00")
     : Date.parse(v);
+// S67-46: 같은 일정이 두 번 오면(같은 구글 일정이 두 사업영역에 이어짐, 또는 두 달력에서 온 같은 제목·같은 날) 앞의 것 하나만.
+// 제목 비교는 meeting-join-model.mjs titleKey와 같은 모양(대소문자·띄어쓰기·문장부호 무시).
+const sameTitleKey = (v) => String(v ?? "").toLowerCase().normalize("NFKC").replace(/[\s\p{P}\p{S}]+/gu, "").slice(0, 80);
+function firstOfSame() {
+  const seen = new Set();
+  return (m) => {
+    const title = sameTitleKey(m.title);
+    const keys = [m.google_event_id ? `e:${m.google_calendar_id || ""}:${m.google_event_id}` : "", title ? `t:${m.date}:${title}` : ""].filter(Boolean);
+    if (keys.some((k) => seen.has(k))) return false;
+    keys.forEach((k) => seen.add(k));
+    return true;
+  };
+}
 export function milestoneChips(projects, milestones, now = Date.now()) {
   const ids = new Set(
       projects.filter((p) => p.status === "active").map((p) => p.id),
@@ -37,6 +50,7 @@ export function milestoneChips(projects, milestones, now = Date.now()) {
       (a, b) =>
         a.date.localeCompare(b.date) || dated(a.start_at) - dated(b.start_at),
     )
+    .filter(firstOfSame())
     .slice(0, 3)
     .map((m) => ({
       ...m,

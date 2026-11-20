@@ -125,3 +125,17 @@ test('unknown active state is excluded even when an organization is assigned',()
  const rows=[{id:'unknown',organization_id:'unknown',occurred_at:'2026-10-06T01:00:00Z'},{id:'null',organization_id:'null',occurred_at:'2026-10-06T01:00:00Z'}];
  assert.deepEqual(weekUpdates(rows,[{id:'unknown'},{id:'null',active:null}],[{organization_id:'unknown'},{organization_id:'null'}],Date.parse('2026-10-06T01:00:00Z')),[]);
 });
+// S67-46: '다가오는 일'에 같은 일정이 두 번(같은 구글 일정이 두 사업영역에 이어짐 / 두 달력의 같은 제목·같은 날) 나오지 않는다.
+test("upcoming chips show the same event once (same google event, or same title on the same day)", () => {
+  const ps = [{ id: "a", status: "active" }, { id: "b", status: "active" }];
+  const ms = [
+    { id: "m1", project_id: "a", start_at: "2026-10-16T10:00:00+09:00", title: "가상 협의", google_calendar_id: "c1", google_event_id: "e1" },
+    { id: "m2", project_id: "b", start_at: "2026-10-16T10:00:00+09:00", title: "가상 협의 (사본)", google_calendar_id: "c1", google_event_id: "e1" },
+    { id: "m3", project_id: "b", start_at: "2026-10-16T14:00:00+09:00", title: "가상  협의", google_calendar_id: "c2", google_event_id: "e9" },
+    { id: "m4", project_id: "a", start_at: "2026-10-17", title: "가상 협의" },
+    { id: "m5", project_id: "a", start_at: "2026-10-18", title: "다른 일" },
+    { id: "m6", project_id: "a", start_at: "2026-10-19", title: "넷째" },
+  ];
+  const chips = milestoneChips(ps, ms, now);
+  assert.deepEqual(chips.map((m) => m.id), ["m1", "m4", "m5"], "같은 일정은 하나, 다른 날 같은 제목은 따로, 겹침 뺀 뒤 3개");
+});
