@@ -1,7 +1,7 @@
 // APP-뒤에서올리기 1단계(요청함 11/11 06:56, 설계 docs/design/phone-widget-auth.md 16절): 폰 앱 안에서 고른 사진·파일을 앱에 넘겨 뒤에서 올린다.
 // 폰 앱 화면(WebView)은 앱이 뒤로 가면 화면 안 올리기가 끊긴다. 그래서 앱 다리(KPTUAppShell, 허용 Origin 최상위 화면만)로 파일을 넘기고,
 // 앱이 앱 전용 임시 폴더 → WorkManager로 지금 서버 입구(library-files)에 올린다. 다른 앱으로 가도·앱을 닫아도·인터넷이 잠깐 끊겨도 이어진다.
-// 다리: up:hello → up:state:{"v":1,"on","kinds":["meeting"],"jobs":[…]} / up:start:{"kind","meeting","project","count"} → up:ack(id)
+// 다리: up:hello → up:state:{"v":2,"on","login","kinds":["meeting"],"jobs":[…]} / up:login → up:ack(login) (S67-38, 위젯 로그인이 없으면 앱 로그인으로 만든다) / up:start:{"kind","meeting","project","count"} → up:ack(id)
 //   · up:begin:{"name","mime","size","title","category","date"} · up:part:<base64> · up:end → 걸음마다 up:ack:{"ok","step","error"}
 //   · up:go → up:ack(id) / up:cancel / up:seen:<묶음> / (앱 → 웹) up:job:{"id","kind","target","total","left","state","reason","docs","errors"}
 //   규칙은 android-app BackUploadRules(JVM 시험).
@@ -10,7 +10,7 @@
 // 넘기는 것은 파일 바이트·대상 id·사진 칸(제목·종류·날짜)뿐이다. 로그인 정보·토큰은 이 모듈이 읽지도 넘기지도 않는다.
 // 바이트는 이 화면 메모리에만, 기기 저장소에 두지 않는다. 파일 이름·내용은 로그에 쓰지 않는다.
 const BRIDGE = 'KPTUAppShell';
-export const UP_HELLO_MS = 1500, UP_STEP_MS = 30000, UP_PART = 384 * 1024, UP_MAX = 20, UP_FILE_MAX = 100 * 1024 * 1024;
+export const UP_HELLO_MS = 1500, UP_LOGIN_MS = 30000, UP_STEP_MS = 30000, UP_PART = 384 * 1024, UP_MAX = 20, UP_FILE_MAX = 100 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BATCH = /^[A-Za-z0-9_-]{16,64}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -44,11 +44,11 @@ function beginText(file, fields) {
   return `up:begin:${JSON.stringify(o)}`;
 }
 
-export function createAppUpload(win = globalThis.window, {helloMs = UP_HELLO_MS, stepMs = UP_STEP_MS} = {}) {
+export function createAppUpload(win = globalThis.window, {helloMs = UP_HELLO_MS, stepMs = UP_STEP_MS, loginMs = UP_LOGIN_MS} = {}) {
   const ua = /KPTUAndroid/i.test(win?.navigator?.userAgent || '');
   const bridge = win?.[BRIDGE];
   const usable = ua && !!bridge && typeof bridge.postMessage === 'function' && typeof bridge.addEventListener === 'function';
-  let known = false, on = false, kinds = [], hello = null, wait = null, busy = false, watching = false;
+  let known = false, on = false, login = false, kinds = [], hello = null, wait = null, busy = false, watching = false, signing = null;
   const jobs = new Map(), listeners = new Set();
   const send = t => { try { bridge.postMessage(t); return true; } catch { return false; } };
   const parse = (d, head) => { try { return JSON.parse(d.slice(head.length)); } catch { return null; } };
@@ -60,10 +60,14 @@ export function createAppUpload(win = globalThis.window, {helloMs = UP_HELLO_MS,
       if (d.startsWith('up:state:')) {
         const v = parse(d, 'up:state:');
         known = v?.v >= 1; on = known && v?.on === true;
+        // S67-38: v2 앱은 위젯 로그인이 없어도(on:false) 앱 로그인으로 뒤에서 올리기 세션을 만들 수 있다(login:true → up:login).
+        login = known && v?.v >= 2 && v?.login === true;
         kinds = known && Array.isArray(v?.kinds) ? v.kinds.filter(k => typeof k === 'string').slice(0, 20) : [];
         // 앱이 아는 묶음이 곧 전부다(화면이 닫혀 있던 동안 끝난 것 포함). 앱에 없는 것은 지운다.
         if (known && Array.isArray(v?.jobs)) { jobs.clear(); v.jobs.slice(0, 50).forEach(keep); }
         const h = hello; hello = null; h?.ok(known && on);
+        // 앱이 로그인이 없어 멈춰 둔 묶음이 있으면 앱 로그인으로 다시 잇게 한다(되면 앱이 그 묶음을 다시 건다). 기다리지 않는다.
+        if (known && !on && login && [...jobs.values()].some(j => j.state === 'stopped' && j.reason === 'signed_out')) void api.login();
       } else if (d.startsWith('up:job:')) keep(parse(d, 'up:job:'));
       else if (d.startsWith('up:ack:')) {
         const v = parse(d, 'up:ack:');
@@ -74,11 +78,11 @@ export function createAppUpload(win = globalThis.window, {helloMs = UP_HELLO_MS,
     });
   }
   // 한 걸음 보내고 답을 기다린다(시간 제한). 답이 없으면 실패.
-  const step = (text, want) => new Promise(ok => {
+  const step = (text, want, ms = stepMs) => new Promise(ok => {
     let done = false;
     const finish = r => { if (done) return; done = true; clearTimeout(timer); ok(r); };
     const me = {want, finish};
-    const timer = setTimeout(() => { if (wait === me) wait = null; finish({ok: false, step: '', error: 'timeout', id: ''}); }, stepMs);
+    const timer = setTimeout(() => { if (wait === me) wait = null; finish({ok: false, step: '', error: 'timeout', id: ''}); }, ms);
     wait = me;
     if (!send(text)) { wait = null; finish({ok: false, step: '', error: 'failed', id: ''}); }
   });
@@ -105,6 +109,17 @@ export function createAppUpload(win = globalThis.window, {helloMs = UP_HELLO_MS,
     // 지금 뒤에서 올릴 수 있다(위젯 로그인 있음).
     on: () => usable && known && on,
     can: kind => api.on() && kinds.includes(kind),
+    // 위젯 로그인은 없지만 앱 로그인으로 만들 수 있다(S67-38, v2 앱).
+    canLogin: () => usable && known && !on && login,
+    // 앱에 앱 로그인으로 뒤에서 올리기 세션을 만들게 한다(설계 12절 자동 로그인 길 — 이 화면이 자기 접근 토큰으로 봉인만 받아 넘기고, 토큰은 다리에 싣지 않는다).
+    // 답: 이제 뒤에서 올릴 수 있는지. 이미 되면 바로 true, 못 하면 false(부른 곳은 지금 길). 한 번에 하나(겹치면 같은 답을 기다린다).
+    login() {
+      if (api.on()) return Promise.resolve(true);
+      if (!api.canLogin() || busy) return Promise.resolve(false);
+      if (signing) return signing;
+      signing = step('up:login', 'login', loginMs).then(r => { if (r.ok) on = true; return api.on(); }).finally(() => { signing = null; });
+      return signing;
+    },
     // 앱에 묻는다(옛 앱은 helloMs 뒤 false). 답: 이 앱이 지금 뒤에서 올릴 수 있는지. 부를 때마다 새로 묻는다(위젯 로그인이 그사이 바뀔 수 있음).
     ready() { watch(); return ask(); },
     // 앱이 알려 준 묶음들(올리는 중·끝남·멈춤). target을 주면 그 대상 것만.
@@ -126,7 +141,7 @@ export function createAppUpload(win = globalThis.window, {helloMs = UP_HELLO_MS,
       if (!list.length || list.some(e => !(e.file.size > 0))) return {ok: false, error: 'none'};
       if (list.length > UP_MAX) return {ok: false, error: 'too_many'};
       if (list.some(e => e.file.size > UP_FILE_MAX)) return {ok: false, error: 'too_big'};
-      if (busy) return {ok: false, error: 'busy'};
+      if (busy || signing) return {ok: false, error: 'busy'};
       busy = true;
       try {
         const fail = r => { send('up:cancel'); return {ok: false, error: r?.error && r.error !== 'bad' ? r.error : 'failed'}; };
@@ -169,7 +184,7 @@ export function uploadReasonText(code) {
   switch (String(code || '')) {
     case 'network': return '인터넷이 끊겨 있어요';
     case 'server': return '서버가 잠시 답하지 않아요';
-    case 'signed_out': return '위젯 로그인이 풀렸어요';
+    case 'signed_out': return '앱 로그인을 확인하지 못했어요';
     case 'too_big': return '파일이 너무 커요(100MB까지)';
     case 'forbidden': return '올릴 권한을 확인하지 못했어요';
     case 'gone': return '사업 보고를 찾지 못했어요';

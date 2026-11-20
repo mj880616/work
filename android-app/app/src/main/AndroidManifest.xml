@@ -25,6 +25,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- S67-38 APP-뒤에서올리기: 사진·자료를 뒤에서 올리는 동안 앞쪽 작업 알림('사진 2장 올리는 중')으로 돈다(앱을 나가도·화면을 꺼도 끝까지).
+         WorkManager의 뒤에서 올리기 작업만 쓰는 종류 dataSync. 사용자에게 묻지 않는 권한이다. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- PHOTO-갤러리편집(0.4.6): 크게 보기 [편집]이 삼성 갤러리 편집기가 있는지 묻는다(안드로이드 11+ 앱 보기 제한). 다른 앱에서 들어오는 의도는 받지 않는다. -->
     <queries>
         <intent>
@@ -151,6 +154,11 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <!-- S67-38: WorkManager가 앞쪽 작업(뒤에서 올리기)을 돌리는 서비스에 종류 dataSync를 붙인다(안드로이드 14+ 필수). 내보내지 않는다(라이브러리 기본값 그대로). -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
         <!-- MTG-폰녹음: 화면이 꺼져도 녹음을 잇는 앞쪽 서비스(마이크). 내보내지 않는다. -->
         <service
             android:name=".RecorderService"

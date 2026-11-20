@@ -536,7 +536,8 @@ const batchId = n => `batch_${String(n).padStart(4, '0')}_abcdefghij`;
 const blob = (name, type = 'image/jpeg', n = 5) => Object.assign(new Blob([new Uint8Array(n).fill(65)], {type}), {name});
 // 지어낸 앱: know=false 옛 앱(답 없음) · on=false 위젯 로그인 없음 · failAt = 그 번째 묶음의 up:go를 거절. 묶음마다 다른 이름을 준다.
 // quickDone = 맡자마자(다음 묶음을 받기 전에) 그 묶음의 끝을 알림 · muteGo = 그 번째 묶음은 맡고도 답을 못 보냄(넘긴 직후 화면이 멈춘 때).
-function fakeShell({know = true, on = true, failAt = 0, jobs = [], quickDone = false, muteGo = 0} = {}) {
+// login = v2 앱(앱 로그인으로 세션을 만들 수 있음, S67-38) · loginOk = up:login 결과.
+function fakeShell({know = true, on = true, failAt = 0, jobs = [], quickDone = false, muteGo = 0, login = null, loginOk = true} = {}) {
   const sent = [], listeners = [], started = [];
   jobs = [...jobs];
   const say = data => setTimeout(() => listeners.forEach(fn => fn({data})), 0);
@@ -545,7 +546,8 @@ function fakeShell({know = true, on = true, failAt = 0, jobs = [], quickDone = f
       m = String(m); sent.push(m.startsWith('up:part:') ? 'up:part' : m);
       if (!know) return;
       const step = m.slice(3).split(':')[0];
-      if (step === 'hello') return say(`up:state:${JSON.stringify({v: 1, on, kinds: ['meeting'], jobs})}`);
+      if (step === 'hello') return say(`up:state:${JSON.stringify(login === null ? {v: 1, on, kinds: ['meeting'], jobs} : {v: 2, on, login, kinds: ['meeting'], jobs})}`);
+      if (step === 'login') { if (loginOk) on = true; return say(`up:ack:{"ok":${loginOk},"step":"login","error":"${loginOk ? '' : 'failed'}"}`); }
       if (step === 'cancel' || step === 'seen') return;
       if (step === 'start') started.push(JSON.parse(m.slice('up:start:'.length)));
       const n = started.length, count = started.at(-1)?.count || 0;
@@ -635,7 +637,7 @@ test('폰 앱: 멈춤(up:job stopped) → 넘긴 줄은 멈춤으로 보이고 �
   assert.deepEqual(a.rows(files).map(j => [j.phase, j.stopped]), [['handed', true], ['handed', true]]);
   assert.equal(a.summaryText(a.rows(files)), '앱이 멈춤 2개');
   const stopped = a.events.at(-1);
-  assert.equal(stopped.type, 'handed-stopped'); assert.equal(a.uploadReasonText(stopped.job.reason), '위젯 로그인이 풀렸어요');
+  assert.equal(stopped.type, 'handed-stopped'); assert.equal(a.uploadReasonText(stopped.job.reason), '앱 로그인을 확인하지 못했어요');
   assert.equal(a.shell.sent.some(m => m.startsWith('up:seen:')), false);
   assert.deepEqual(a.screen, []);
   a.shell.job(appJob(1, {docs: [docId(1), docId(2)], errors: ['', '']}));
@@ -760,4 +762,25 @@ test('폰 앱: 넘긴 직후 답을 못 받았어도 앱이 그 묶음을 맡았
   bridge.postMessage = m => { if (String(m) === 'up:go') { shell.sent.push('up:go'); return; } post(m); };
   const up = createAppUpload(shell.win, {helloMs: 40, stepMs: 60});
   assert.deepEqual(await createAppHandoff(up, {ids: t => ({meeting: t.id, project: ''})})(appTarget, [{file: blob('p.jpg')}]), {ok: false, error: 'timeout'}, '앱이 답했고 새 묶음이 없다 = 받지 못함');
+});
+
+test('S67-38 폰 앱·위젯 로그인 없음: 앱 로그인으로 세션을 만들고 앱에 넘긴다(화면은 보내지 않음) · 못 만들면 화면 안에서 올린다', async () => {
+  const a = await withApp({on: false, login: true});
+  const batch = a.send.send(appTarget, [blob('p1.jpg'), blob('p2.jpg')]);
+  await wait(60);
+  assert.ok(a.shell.sent.includes('up:login'));
+  assert.equal(a.shell.started.length, 1);
+  assert.deepEqual(a.screen, []);
+  a.shell.job(appJob(1, {docs: [docId(1), docId(2)], errors: ['', '']}));
+  await batch.settled;
+  await wait();
+  assert.deepEqual(batch.entries.map(e => e.state), ['done', 'done']);
+  assert.deepEqual(a.screen, []);
+  a.stop();
+  const b = await withApp({on: false, login: true, loginOk: false});
+  const second = b.send.send(appTarget, [blob('q1.jpg')]);
+  await second.settled;
+  assert.deepEqual(b.screen, ['q1.jpg']);
+  assert.equal(b.shell.started.length, 0);
+  b.stop();
 });

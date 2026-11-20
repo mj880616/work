@@ -14,7 +14,8 @@ const target = {kind: 'meeting', meeting: MEETING, project: ''};
 const job = (over = {}) => ({id: BATCH, kind: 'meeting', target: MEETING, total: 2, left: 2, state: 'run', reason: '', docs: ['', ''], errors: ['', ''], ...over});
 
 // 지어낸 앱: know=false면 옛 앱(up:hello에 답하지 않음). on=false면 위젯 로그인 없음. fail = 그 걸음에서 거절. silent = 그 걸음에 답 없음.
-function fakeApp({know = true, on = true, ua = ANDROID, fail = '', error = 'failed', silent = '', jobs = [], kinds = ['meeting']} = {}) {
+// login = 이 앱이 앱 로그인으로 세션을 만들 수 있음(v2, S67-38). loginOk = up:login이 성공하는지.
+function fakeApp({know = true, on = true, ua = ANDROID, fail = '', error = 'failed', silent = '', jobs = [], kinds = ['meeting'], login = null, loginOk = true} = {}) {
   const sent = [], listeners = [];
   const say = data => setTimeout(() => listeners.forEach(fn => fn({data})), 0);
   const bridge = {
@@ -23,7 +24,8 @@ function fakeApp({know = true, on = true, ua = ANDROID, fail = '', error = 'fail
       if (!m.startsWith('up:') || !know) return;
       const step = m.slice(3).split(':')[0];
       if (step === silent) return;
-      if (step === 'hello') return say(`up:state:${JSON.stringify({v: 1, on, kinds, jobs})}`);
+      if (step === 'hello') return say(`up:state:${JSON.stringify(login === null ? {v: 1, on, kinds, jobs} : {v: 2, on, login, kinds, jobs})}`);
+      if (step === 'login') { if (loginOk) on = true; return say(`up:ack:{"ok":${loginOk},"step":"login","error":"${loginOk ? '' : 'failed'}"}`); }
       if (step === 'cancel' || step === 'seen') return;
       const ok = step !== fail, id = ok && (step === 'start' || step === 'go') ? `,"id":"${BATCH}"` : '';
       say(`up:ack:{"ok":${ok},"step":"${step}","error":"${ok ? '' : error}"${id}}`);
@@ -198,7 +200,7 @@ test('모듈은 로그인 정보를 만지지 않고 서버를 직접 부르지 
   assert.doesNotMatch(src, /\?v=/);
   const rules = read('android-app/app/src/main/java/kr/or/kptu/work/BackUploadRules.kt');
   // 웹이 보내는 글머리는 모두 앱 규칙이 읽는 것이다.
-  for (const head of ['up:hello', 'up:start:', 'up:begin:', 'up:part:', 'up:end', 'up:go', 'up:cancel', 'up:seen:']) {
+  for (const head of ['up:hello', 'up:login', 'up:start:', 'up:begin:', 'up:part:', 'up:end', 'up:go', 'up:cancel', 'up:seen:']) {
     assert.ok(code.includes(head.replace(/:$/, '')), head);
     assert.ok(rules.includes(`"${head}"`), head);
   }
@@ -211,4 +213,43 @@ test('모듈은 로그인 정보를 만지지 않고 서버를 직접 부르지 
     assert.ok(rules.includes(`= "${c}"`), c);
     assert.ok(code.includes(`'${c}'`), c);
   }
+});
+
+test('S67-38 위젯 로그인 없음 + v2 앱: 앱 로그인으로 세션을 만든 뒤 넘긴다 · 못 만들면 넘기지 않는다 · 옛 v1 앱에는 묻지 않는다', async () => {
+  const ok = make({on: false, login: true});
+  assert.equal(await ok.up.ready(), false);
+  assert.equal(ok.up.canLogin(), true);
+  assert.equal(await ok.up.login(), true);
+  assert.equal(ok.up.on(), true);
+  assert.equal((await ok.up.send(target, [{file: blob(5)}])).ok, true);
+  assert.deepEqual(ok.sent.slice(0, 3), ['up:hello', 'up:login', `up:start:${JSON.stringify({kind: 'meeting', meeting: MEETING, project: '', count: 1})}`]);
+  const no = make({on: false, login: true, loginOk: false});
+  await no.up.ready();
+  assert.equal(await no.up.login(), false);
+  assert.deepEqual(await no.up.send(target, [{file: blob(5)}]), {ok: false, error: 'off'});
+  assert.deepEqual(no.sent, ['up:hello', 'up:login']);
+  const quiet = make({on: false, login: true, silent: 'login'}, {helloMs: 50, stepMs: 200, loginMs: 60});
+  await quiet.up.ready();
+  assert.equal(await quiet.up.login(), false);
+  const v1 = make({on: false});
+  await v1.up.ready();
+  assert.equal(v1.up.canLogin(), false);
+  assert.equal(await v1.up.login(), false);
+  assert.deepEqual(v1.sent, ['up:hello']);
+  // 이미 위젯 로그인이 있으면 묻지 않는다.
+  const on = make({login: true});
+  await on.up.ready();
+  assert.equal(await on.up.login(), true);
+  assert.deepEqual(on.sent, ['up:hello']);
+});
+
+test('S67-38 로그인이 없어 멈춘 묶음이 있으면 앱을 열 때 앱 로그인으로 다시 잇게 한다(기다리지 않음)', async () => {
+  const app = make({on: false, login: true, jobs: [job({state: 'stopped', reason: 'signed_out'})]});
+  await app.up.ready();
+  await tick(20);
+  assert.ok(app.sent.includes('up:login'));
+  const other = make({on: false, login: true, jobs: [job({state: 'stopped', reason: 'network'})]});
+  await other.up.ready();
+  await tick(20);
+  assert.equal(other.sent.includes('up:login'), false);
 });

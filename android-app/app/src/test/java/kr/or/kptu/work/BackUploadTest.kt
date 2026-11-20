@@ -477,7 +477,7 @@ class BackUploadTest {
         assertEquals(BackUploadRules.Run.Stopped(BackUploadRules.SIGNED_OUT, false, 2, 2), run)
         assertFalse(BackUploadRules.autoRetry(run as BackUploadRules.Run.Stopped, 0))
         assertEquals(2, s.items(batch).size)
-        assertEquals("사업 보고 올리기가 멈췄어요(2개 남음) · 위젯 로그인이 풀렸어요 · 위젯에서 로그인한 뒤 앱을 열면 이어 올려요", BackUploadRules.stoppedText(run))
+        assertEquals("사업 보고 올리기가 멈췄어요(2개 남음) · 앱 로그인을 확인하지 못했어요 · 앱을 열면 로그인을 확인하고 이어 올려요", BackUploadRules.stoppedText(run))
     }
 
     @Test
@@ -515,11 +515,11 @@ class BackUploadTest {
     @Test
     fun stateMessageListsJobsWithoutNamesOrSecrets() {
         val s = store()
-        assertEquals("""up:state:{"v":1,"on":false,"kinds":["meeting"],"jobs":[]}""", BackUploadRules.stateMessage(false, s))
-        assertEquals("""up:state:{"v":1,"on":true,"kinds":["meeting"],"jobs":[]}""", BackUploadRules.stateMessage(true, null))
+        assertEquals("""up:state:{"v":2,"on":false,"login":true,"kinds":["meeting"],"jobs":[]}""", BackUploadRules.stateMessage(false, s))
+        assertEquals("""up:state:{"v":2,"on":true,"login":true,"kinds":["meeting"],"jobs":[]}""", BackUploadRules.stateMessage(true, null))
         val batch = sealed(s, "비밀 이름.jpg" to "image/jpeg", t = BackUploadRules.Target("meeting", meeting, project))
         val text = BackUploadRules.stateMessage(true, s)
-        assertTrue(text.startsWith("""up:state:{"v":1,"on":true,"kinds":["meeting"],"jobs":[{"id":"$batch","kind":"meeting","target":"$meeting","total":1,"left":1,"state":"run""""))
+        assertTrue(text.startsWith("""up:state:{"v":2,"on":true,"login":true,"kinds":["meeting"],"jobs":[{"id":"$batch","kind":"meeting","target":"$meeting","total":1,"left":1,"state":"run""""))
         // 파일 이름·사업영역·사진 칸은 다리 글에 싣지 않는다.
         assertFalse(text.contains("비밀"))
         assertFalse(text.contains(project))
@@ -576,17 +576,56 @@ class BackUploadTest {
         // 임시 파일은 앱 전용·백업 제외 폴더 한 곳에만.
         assertTrue(back.contains("File(context.noBackupFilesDir, DIR)"))
         for (bad in listOf("getExternalFilesDir", "Environment.", "MediaStore", "cacheDir", "FileProvider")) assertFalse(bad, back.contains(bad))
-        // 폰 알림줄 알림·새 권한·내보내는 부품을 더하지 않는다(위젯 [사진]과 같은 토스트 한 줄).
+        // 알림 권한·받는 곳·로그를 더하지 않는다. S67-38: 올리는 동안의 앞쪽 작업 알림 하나(BackUploadNote)만 BackUpload.kt에 둔다.
         for (name in listOf("BackUpload.kt", "BackUploadRules.kt")) {
             val text = File("src/main/java/kr/or/kptu/work/$name").readText()
-            for (bad in listOf("POST_NOTIFICATIONS", "NotificationCompat", "NotificationManager", "BroadcastReceiver", "Log.")) assertFalse("$name: $bad", text.contains(bad))
+            for (bad in listOf("POST_NOTIFICATIONS", "BroadcastReceiver", "Log.")) assertFalse("$name: $bad", text.contains(bad))
         }
+        assertFalse(File("src/main/java/kr/or/kptu/work/BackUploadRules.kt").readText().contains("NotificationCompat"))
+        assertTrue(back.contains("setForegroundAsync(BackUploadNote.info("))
+        assertTrue(back.contains("ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC"))
+        // 알림에는 파일 이름·대상을 싣지 않는다(몇 개 중 몇 개만).
+        val note = back.substringAfter("object BackUploadNote")
+        for (bad in listOf("item.", "target", "fields")) assertFalse(bad, note.contains(bad))
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertFalse(manifest.contains("BackUpload"))
-        assertFalse(manifest.contains("FOREGROUND_SERVICE_DATA_SYNC"))
-        assertEquals(14, Regex("<uses-permission ").findAll(manifest).count())
+        // S67-38: 앞쪽 작업 종류 dataSync 하나(사용자에게 묻지 않는 권한)와 WorkManager 앞쪽 서비스의 종류만 더한다(내보내지 않음).
+        assertTrue(manifest.contains("android.permission.FOREGROUND_SERVICE_DATA_SYNC"))
+        val fg = manifest.substringAfter("androidx.work.impl.foreground.SystemForegroundService").substringBefore("/>")
+        assertTrue(fg.contains("android:foregroundServiceType=\"dataSync\""))
+        assertTrue(fg.contains("tools:node=\"merge\""))
+        assertFalse(fg.contains("exported=\"true\""))
+        assertEquals(15, Regex("<uses-permission ").findAll(manifest).count())
         // 토큰·세션은 다리 쪽 코드에 나오지 않는다(올리기는 Worker가 위젯 세션으로).
         val bridge = main.substringAfter("private fun onUploadMessage(").substringBefore("private fun postUp(")
         for (bad in listOf("accessToken", "WidgetHub.session", "Authorization", "refresh")) assertFalse(bad, bridge.contains(bad))
+    }
+
+    @Test
+    fun loginMessageAndProgressNote() {
+        // S67-38(명진 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — 다리 글 up:login 하나(값 없음).
+        assertEquals(BackUploadRules.Message.Login, BackUploadRules.message("up:login"))
+        assertNull(BackUploadRules.message("up:login:x"))
+        assertEquals("""up:ack:{"ok":true,"step":"login","error":""}""", BackUploadRules.ackMessage(true, "login"))
+        // 올리는 동안 알림: 몇 개 중 몇 개만(파일 이름 없음).
+        assertEquals("사진 2장 올리는 중", BackUploadRules.progressTitle(true, 2))
+        assertEquals("자료 3개 올리는 중", BackUploadRules.progressTitle(false, 3))
+        assertEquals("1/2 · 앱을 나가거나 화면을 꺼도 끝까지 올려요", BackUploadRules.progressText(1, 2))
+        assertEquals("2/2 · 앱을 나가거나 화면을 꺼도 끝까지 올려요", BackUploadRules.progressText(5, 2))
+        assertEquals("0/1 · 앱을 나가거나 화면을 꺼도 끝까지 올려요", BackUploadRules.progressText(-1, 0))
+    }
+
+    @Test
+    fun silentLoginReusesWidgetSealWithoutGoogleTab() {
+        // up:login은 설계 12절 자동 로그인 길(widget:mint → 웹이 widget_seal → widget:handoff → consume)을 그대로 쓴다. 토큰은 다리 쪽 코드에 나오지 않는다.
+        val main = File("src/main/java/kr/or/kptu/work/MainActivity.kt").readText()
+        assertTrue(main.contains("BackUploadRules.Message.Login -> startUploadLogin()"))
+        val login = main.substringAfter("private fun startUploadLogin()").substringBefore("private fun endUploadLogin(")
+        assertTrue(login.contains("beginLogin()"))
+        assertTrue(login.contains("askMint(ready)"))
+        for (bad in listOf("accessToken", "Authorization", "openTab", "openWidgetTab")) assertFalse(bad, login.contains(bad))
+        // 실패해도 구글 로그인 탭(대체 길)을 열지 않는다: 표시를 지우고 실패만 알린다.
+        val fallback = main.substringAfter("WidgetLoginFlow.Step.FALLBACK -> {").substringBefore("WidgetLoginFlow.Step.IDLE ->")
+        assertTrue(fallback.indexOf("uploadLogin") in 0 until fallback.indexOf("openWidgetTab()"))
     }
 }
