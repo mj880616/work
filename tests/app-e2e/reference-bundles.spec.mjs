@@ -158,7 +158,7 @@ test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하
 
  // 묶음 더하기.
  await page.locator('#rbList [data-rb-list-more]').click();
- await expect(page.locator('#rbMenu button')).toHaveText(['묶음 더하기','순서 바꾸기']);
+ await expect(page.locator('#rbMenu button')).toHaveText(['묶음 더하기','순서 바꾸기','여러 개 선택해 삭제']); // S67-53: 빈 묶음이 있을 때만 셋째 줄
  await page.locator('#rbMenu [data-rb-act="add"]').click();
  const add=page.locator('#rbList [data-rb-add-input]');await expect(add).toBeFocused();
  await add.fill('  합성 새 묶음 ');await add.press('Enter');
@@ -203,6 +203,43 @@ test('참고 묶음 화면: 담당조직 목록 맨 아래 입구, 묶음 더하
  await page.locator('#rbDetail [data-rb-open]').click();
  await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('[data-basket-read-text]')).toContainText('합성 본부 토론회');
+ expect(f.errors).toEqual([]);
+});
+
+// S67-53 ORG-여러개삭제: 목록 ⋯ [여러 개 선택해 삭제] → 빈 묶음만 선택 가능(붙은 소식이 있는 묶음은 칸이 꺼짐) → 한 번 확인(되돌릴 수 없음) → 차례로 삭제.
+for(const width of [390,1280])test(`참고 묶음: 여러 개 선택해 삭제는 빈 묶음만, 확인 창 개수 ${width}`,async({page})=>{
+ const f=await fixture(page,{width});
+ f.links.push({id:'40000000-0000-4000-8000-000000000103',workspace_id:'w',note_id:n,status:'confirmed',summary:'합성 참고 요약',organization_id:null,project_id:null,bundle_id:b1,meeting_id:null,document_id:null});
+ await page.evaluate(()=>window.KPTURouter.go('team'));
+ await expect(page.locator(`#soOrganizationList [data-so-org="${o}"]`)).toBeVisible();
+ await page.locator('#soOrganizationList .so-reference-entry').click();
+ await expect(page.locator('#rbList [data-rb-bundle]')).toHaveCount(3);
+ await page.locator('#rbList [data-rb-list-more]').click();
+ await page.locator('#rbMenu [data-rb-act="pick"]').click();
+ await expect(page.locator('#rbList .rb-pick-count')).toHaveText('0개 선택됨');
+ await expect(page.locator(`#rbList [data-rb-pick="${b1}"]`)).toBeDisabled();
+ await expect(page.locator('#rbList [data-rb-pick-delete]')).toBeDisabled();
+ await page.locator('#rbList [data-rb-pick-all]').click();
+ await expect(page.locator('#rbList .rb-pick-count')).toHaveText('2개 선택됨');
+ await expect(page.locator(`#rbList [data-rb-pick="${b2}"]`)).toBeChecked();await expect(page.locator(`#rbList [data-rb-pick="${b1}"]`)).not.toBeChecked();
+ // 한 줄 풀고 다시 선택(줄 글자를 눌러도 칸이 바뀐다).
+ await page.locator(`#rbList .rb-pick-row:has([data-rb-pick="${b3}"]) .rb-name`).click();
+ await expect(page.locator('#rbList .rb-pick-count')).toHaveText('1개 선택됨');
+ await page.locator(`#rbList [data-rb-pick="${b3}"]`).click();
+ // 취소하면 요청 없음.
+ await page.locator('#rbList [data-rb-pick-delete]').click();
+ expect(await answerAsk(page,false)).toContain('빈 묶음 2개를 삭제할까요?');
+ expect(f.writes.filter(w=>w.method==='DELETE'&&w.table==='bundles')).toHaveLength(0);
+ await page.locator('#rbList [data-rb-pick-delete]').click();
+ const text=await answerAsk(page,true);
+ expect(text).toContain('빈 묶음 2개를 삭제할까요?');expect(text).toContain('되돌릴 수 없어요');
+ await expect(page.locator('#rbList [data-rb-status]')).toHaveText('묶음 2개를 삭제했어요.');
+ await expect(page.locator('#rbList .rb-pick-bar')).toHaveCount(0);
+ await expect(page.locator('#rbList [data-rb-bundle] .rb-name')).toHaveText(['합성 노조 전체']);
+ expect(f.writes.filter(w=>w.method==='DELETE'&&w.table==='bundles').map(w=>w.query.id).sort()).toEqual(['eq.'+b2,'eq.'+b3]);
+ // 빈 묶음이 없으면 메뉴에 없다.
+ await page.locator('#rbList [data-rb-list-more]').click();
+ await expect(page.locator('#rbMenu button')).toHaveText(['묶음 더하기','순서 바꾸기']);
  expect(f.errors).toEqual([]);
 });
 

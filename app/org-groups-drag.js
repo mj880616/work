@@ -145,7 +145,7 @@ function mark(x, y) {
 }
 function onDown(e) {
   const g = e.target.closest?.('#soOrganizationList [data-so-grip]');
-  if (!g || e.button > 0) return;
+  if (!g || e.button > 0 || g.closest('.so-picking')) return; // S67-53: 여러 개 선택 중에는 옮기지 않는다
   e.preventDefault();
   drag = {kind: g.dataset.soGrip, name: g.dataset.soName, x: e.clientX, y: e.clientY, id: e.pointerId, grip: g, moving: false, target: null};
   try { g.setPointerCapture(e.pointerId); } catch { /* 잡지 못해도 문서 이벤트로 따라간다 */ }
@@ -194,7 +194,7 @@ function onCancel() { if (!drag) return; drag = null; scrollStep = 0; lastPoint 
 // 키보드: 손잡이에서 Alt+↑↓. 조직은 화면 순서로 한 칸(묶음 경계를 넘으면 이웃 묶음 끝·앞으로, '그 외'는 가나다순이라 들어가기만).
 function onKey(e) {
   const g = e.target.closest?.('#soOrganizationList [data-so-grip]');
-  if (!g || !e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  if (!g || g.closest('.so-picking') || !e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
   e.preventDefault();
   const up = e.key === 'ArrowUp', name = g.dataset.soName, kind = g.dataset.soGrip;
   const focusBack = () => requestAnimationFrame(() => [...document.querySelectorAll(`#soOrganizationList [data-so-grip="${kind}"]`)].find(b => b.dataset.soName === name)?.focus({preventScroll: false}));
