@@ -6,11 +6,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
+import {posix} from 'node:path';
 
 const read = file => readFileSync(new URL('../app/' + file, import.meta.url), 'utf8');
 const loader = read('loader-v2.js');
 const views = read('view-loader.js');
-const staticImports = file => [...read(file).matchAll(/^\s*(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"](\.\/[^'"]+)['"]/gm)].map(m => m[1].slice(2));
+// 경로는 app/ 기준(하위 폴더 모듈 app/brand/brand.mjs → 'brand/brand.mjs'), 부르는 파일 자리에서 푼다.
+const staticImports = file => [...read(file).matchAll(/^\s*(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"](\.\.?\/[^'"]+)['"]/gm)].map(m => posix.normalize(posix.join(posix.dirname(file), m[1])));
 function closure(file, seen = new Set()) {
   for (const dep of staticImports(file)) if (!seen.has(dep)) { seen.add(dep); closure(dep, seen); }
   return seen;

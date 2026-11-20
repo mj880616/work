@@ -111,6 +111,8 @@
 - 올리기: `BackUploadWorker`(WorkManager, 인터넷 연결 조건, 안드로이드 12+는 급한 작업, 묶음마다 이름 하나)가 위젯 세션으로 `POST /functions/v1/library-files`(파일 하나 + `meeting_id` + 선택 `project_id`·`title`·`category`·`document_date`)만 부른다(`WidgetRules.allowedParts`). 웹↔앱 사이에 토큰·로그인 정보를 넘기지 않는다. 새 권한·내보내는 부품 없음.
 - 실패: 보내기 전·보내는 중 끊김과 서버가 다시 해도 된다고 답한 실패는 저절로 다시(최대 3번), 그래도 안 되면 토스트 한 줄 + 남은 파일은 앱 화면이 열릴 때 다시 건다. 다 보낸 뒤 답을 못 받은 파일은 겹쳐 올라가지 않게 다시 보내지 않는다(`WidgetSentException`). 권한 없음·사업 보고가 지워짐은 남은 파일도 보내지 않는다. 결과는 토스트 한 줄(폰 알림줄 알림 없음).
 
+- 0.5.14(S67-38, 설계 `docs/design/phone-widget-auth.md` 16.11절): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — `up:state` v2에 `"login":true`, 웹이 `up:login`을 보내면 앱이 12절 자동 로그인 길(`widget:mint` → 웹 `widget_seal` 봉인 → `consume`)로 세션을 만든다(구글 탭을 열지 않음, 다리에 토큰 없음). 올리는 동안 앞쪽 작업 알림 '사진 n장 올리는 중 · k/n'(`BackUploadNote`, 종류 `dataSync`, 권한 `FOREGROUND_SERVICE_DATA_SYNC` 하나 더함 — 사용자에게 묻지 않음).
+
 ## 파일
 
 | 파일 | 하는 일 |

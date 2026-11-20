@@ -28,6 +28,7 @@ const FIRST=15000;
 const shot=async(page,name)=>{if(SHOTS)await page.screenshot({path:`${SHOTS}/${name}.png`})};
 
 // app: null = 브라우저(다리 없음). {know, on} = 가짜 앱(know=false 옛 앱 — up:hello에 답 없음, on=false 위젯 로그인 없음).
+// S67-38: login=true면 v2 앱(위젯 로그인이 없어도 up:login으로 앱 로그인에서 세션을 만듦), loginOk=false면 그 로그인이 실패.
 async function boot(page,width,{app=null,height=900}={}){
   await page.setViewportSize({width,height});
   const state={meetings:[{id:OLD_ID,workspace_id:'ws',created_by:'owner',title:'가짜 회의',round_no:1,meeting_at:'2026-11-10T01:00:00Z',report_kind:'meeting',transcript:'가짜 결과',project_id:null}],
@@ -37,8 +38,8 @@ async function boot(page,width,{app=null,height=900}={}){
   // 앱이 올린 것처럼 서버에 자료를 붙인다(가짜).
   state.attach=(n,name,meeting=OLD_ID)=>{const isPhoto=/\.jpg$/.test(name);state.docs.push({id:docId(n),workspace_id:'ws',file_id:'drive-'+n,file_name:name,file_size:sizeOf(name),title:name,mime_type:isPhoto?'image/jpeg':'application/x-hwp',category:isPhoto?'사진':'회의자료',tags:[],meeting_id:meeting,created_at:new Date().toISOString()});return docId(n)};
   page.on('pageerror',e=>state.errors.push(e.message));
-  if(app)await page.addInitScript(({know,on})=>{
-    const listeners=[],shell=window.__app={sent:[],starts:[],begins:[],seq:0,know,on};
+  if(app)await page.addInitScript(({know,on,login=null,loginOk=true})=>{
+    const listeners=[],shell=window.__app={sent:[],starts:[],begins:[],seq:0,know,on,login,loginOk};
     const say=data=>setTimeout(()=>listeners.forEach(fn=>fn({data})),0);
     shell.job=value=>say('up:job:'+JSON.stringify(value));
     window.KPTUAppShell={
@@ -47,7 +48,8 @@ async function boot(page,width,{app=null,height=900}={}){
         shell.sent.push(m.startsWith('up:part:')?'up:part':m);
         if(!shell.know)return;
         const step=m.slice(3).split(':')[0];
-        if(step==='hello')return say('up:state:'+JSON.stringify({v:1,on:shell.on,kinds:['meeting'],jobs:[]}));
+        if(step==='hello')return say('up:state:'+JSON.stringify(shell.login===null?{v:1,on:shell.on,kinds:['meeting'],jobs:[]}:{v:2,on:shell.on,login:shell.login,kinds:['meeting'],jobs:[]}));
+        if(step==='login'){if(shell.loginOk)shell.on=true;return say(`up:ack:{"ok":${shell.loginOk},"step":"login","error":"${shell.loginOk?'':'failed'}"}`)}
         if(step==='cancel'||step==='seen')return;
         if(step==='start'){shell.seq++;shell.starts.push(JSON.parse(m.slice('up:start:'.length)))}
         if(step==='begin')shell.begins.push(JSON.parse(m.slice('up:begin:'.length)));
@@ -149,7 +151,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
     await appJob(page,1,{state:'stopped',reason:'signed_out',total:3,left:2,docs:[first,'',''],errors:['','','']});
     await expect(page.locator('#mrdPhotoRows .up-sum')).toHaveText('앱이 멈춤 2개');
     await expect(page.locator('#mrdPhotoRows .up-row .up-pc').first()).toHaveText('멈춤');
-    await expect(dock(page).locator('.up-dock-text')).toHaveText('멈춤 · 위젯 로그인이 풀렸어요 · 앱을 열면 이어 올려요');
+    await expect(dock(page).locator('.up-dock-text')).toHaveText('멈춤 · 앱 로그인을 확인하지 못했어요 · 앱을 열면 이어 올려요');
     await shot(page,'app-stopped-412');
     expect(state.uploads).toEqual([]);
     // 끝: 둘째는 올림, 셋째는 못 올림(까닭) → 아래 한 줄 하나에 [다시 올리기](UX-알림하나로 S59-21 — 사진 칸 줄은 그 실패를 따로 그리지 않는다).
@@ -204,7 +206,26 @@ test.describe('폰 앱(가짜 다리)',()=>{
     expect(state.errors).toEqual([]);
   });
 
-  for(const [label,app] of [['옛 앱(물음에 답 없음)',{know:false,on:true}],['위젯 로그인 없음',{know:true,on:false}]]){
+  // S67-38(명진 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 세션을 만들고 앱에 넘긴다 — 화면은 보내지 않는다(앱을 나가도·화면을 꺼도 앱이 끝까지).
+  test('위젯 로그인 없음 + 새 앱: 앱 로그인으로 세션을 만들고 앱에 넘긴다 → 앱이 끝내면 채워진다 412px',async({page})=>{
+    const state=await boot(page,412,{app:{know:true,on:false,login:true}});
+    await openReport(page,OLD_ID);
+    await pickPhotos(page,2);
+    await expect.poll(async()=>(await appState(page)).starts.length,{timeout:FIRST}).toBe(1);
+    const sent=await appState(page);
+    expect(sent.sent.indexOf('up:login')).toBeGreaterThan(-1);
+    expect(sent.sent.indexOf('up:login')).toBeLessThan(sent.sent.findIndex(m=>m.startsWith('up:start:')));
+    expect(sent.sent.join('\n')).not.toMatch(/token|Bearer|access/i); // 다리에 로그인 정보를 싣지 않는다
+    await expect(page.locator('#mrdPhotoRows .up-row')).toHaveCount(2);
+    await expect(page.locator('#mrdPhotoRows .up-row').first()).toContainText('앱이 올리는 중');
+    const a=state.attach(1,'사진1.jpg'),b=state.attach(2,'사진2.jpg');
+    await appJob(page,1,{total:2,docs:[a,b],errors:['','']});
+    await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
+    expect(state.uploads).toEqual([]); // 화면은 보내지 않았다
+    expect(state.errors).toEqual([]);
+  });
+
+  for(const [label,app] of [['옛 앱(물음에 답 없음)',{know:false,on:true}],['위젯 로그인 없음',{know:true,on:false}],['위젯 로그인 없음 + 앱 로그인도 실패',{know:true,on:false,login:true,loginOk:false}]]){
     test(`${label}: 넘기지 않고 지금 길 그대로 화면 안에서 올린다 412px`,async({page})=>{
       const state=await boot(page,412,{app});
       await openReport(page,OLD_ID);
@@ -213,7 +234,7 @@ test.describe('폰 앱(가짜 다리)',()=>{
       await expect(page.locator('#mrdPhotosHead')).toHaveText('사진 2');
       expect(state.uploads.map(u=>u.name)).toEqual(['사진1.jpg','사진2.jpg']);
       const sent=await appState(page);
-      expect(sent.sent.filter(m=>m!=='up:hello')).toEqual([]); // 파일은 넘기지 않는다
+      expect(sent.sent.filter(m=>m!=='up:hello'&&m!=='up:login')).toEqual([]); // 파일은 넘기지 않는다
       expect(state.errors).toEqual([]);
     });
   }

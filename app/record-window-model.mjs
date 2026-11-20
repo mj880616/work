@@ -11,6 +11,7 @@ import {dayText, validDay, shiftWeek, mondayOf} from './weekly-org-lines-model.m
 import {isOrgRefTitle, cleanTitle} from './calendar-ref-model.mjs';
 import {oneLine, recordOneLine, plainLines} from './record-oneline.mjs';
 import {titleMatch, MATCH_SAME} from './title-match.mjs';
+import {dropLineDay} from './same-day-lead.mjs';
 
 export const ORG_PAST_WEEKS = 3;
 export const ORG_AHEAD_WEEKS = 2;
@@ -23,7 +24,7 @@ export const BODY_MAX = 1000;     // 보고용 글(표시 표 DB 검사와 같�
 export const RECORD_MAX = 2000;   // 조직 기록 한 줄 글(화면 검사)
 // 전환 주: 이 주부터 창 규칙, 그 앞 주는 옛 표 읽기 전용(설계 3-1). 2026-11-09 운영 DB O-2 적용 주.
 export const RECORD_ONE_FROM = '2026-11-09';
-export {dayText, shiftWeek, mondayOf, oneLine, plainLines};
+export {dayText, shiftWeek, mondayOf, oneLine, plainLines, dropLineDay};
 
 const DAY_MS = 86400000;
 const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
@@ -258,7 +259,8 @@ export function reportText(item, report) {
 // 줄 하나에 그 주 표시를 입힌다. report = 저장된 보고용 글 원래 모양(줄바꿈 포함, [보고용으로 수정] 칸에 그대로 채움).
 export const lineOf = (item, mark) => {
   const report = mark?.report_body != null ? String(mark.report_body) : null;
-  return {...item, orig: item.text, text: reportText(item, report), report, edited: report != null, choice: mark?.choice ?? null, id: lineId(item.kind, item.key)};
+  // S67-36: 글 맨 앞에 줄 날짜와 같은 날짜가 또 있으면 떼고 보인다(same-day-lead.mjs — 원문·보고용 글은 그대로, orig는 비교용이라 그대로).
+  return {...item, orig: item.text, text: dropLineDay(reportText(item, report), item), report, edited: report != null, choice: mark?.choice ?? null, id: lineId(item.kind, item.key)};
 };
 // [보고용으로 수정] 칸에 채울 글: 저장된 보고용 글 전체 → 없으면 원문(표시 기호만 걷어낸 줄들, 자르지 않음) → 원문이 없는 줄(일정·사업 보고)은 줄 글.
 // '…'를 붙여 자른 한 줄은 칸에 넣지 않는다(그대로 저장하면 뒷부분이 사라지므로).
@@ -347,9 +349,10 @@ export function snapshotCell(snapshot, org, section = 'org', {marks = null, week
   };
   const lines = [], out = [];
   for (const l of (Array.isArray(row.lines) ? row.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim())) {
-    const m = markFor(l), rec = recOf(l), text = textOf(l, m, rec);
-    if (!text) continue; // 확정 사진에 원문이 통째로 들어간 줄도 표에는 한 줄로(사진 원본은 그대로) — 보고용 글은 예외(위)
-    const report = m?.report_body != null && (later(m) || text !== oneLine(l.text)) ? String(m.report_body) : null;
+    const m = markFor(l), rec = recOf(l), raw = textOf(l, m, rec);
+    if (!raw) continue; // 확정 사진에 원문이 통째로 들어간 줄도 표에는 한 줄로(사진 원본은 그대로) — 보고용 글은 예외(위)
+    const report = m?.report_body != null && (later(m) || raw !== oneLine(l.text)) ? String(m.report_body) : null;
+    const text = dropLineDay(raw, {day: l.day, end_day: l.end_day}); // S67-36: 글 맨 앞의 같은 날짜는 떼고 보인다(사진 원본은 그대로)
     const line = {kind: String(l.ref_kind || ''), key: String(l.ref_key || ''), day: validDay(l.day) ? l.day : '', end_day: validDay(l.end_day) ? l.end_day : null, text, full: String(rec?.full || l.text), orig: rec?.text || oneLine(l.text), report, edited: report != null, choice: later(m) ? m.choice ?? null : null, id: lineId(l.ref_kind, l.ref_key)};
     if (line.choice === 'out') out.push(line); else lines.push(line);
   }
@@ -376,7 +379,8 @@ export function shownIds({org, week, snapshot = null, records = [], events = [],
 }
 
 // 줄 글(복사·한글 파일): '- 11.2. 글' / '- 11.2.~12.5. 글'.
-export const lineText = l => `- ${[lineDay(l), cleanBody(l.text)].filter(Boolean).join(' ')}`;
+// S67-36: 글 맨 앞의 같은 날짜는 뗀다(화면 줄과 같은 글 — 두 번 떼어도 같다).
+export const lineText = l => `- ${[lineDay(l), cleanBody(dropLineDay(l.text, l))].filter(Boolean).join(' ')}`;
 
 // ---- 한글 파일·확정 사진(ORG-기록하나로 O-6, 설계 2-8) ----
 // 한글 파일 4. 1)·3. 2)와 확정 사진에 들어가는 줄 = 화면에 보이는 그대로, 날짜 오름차순.

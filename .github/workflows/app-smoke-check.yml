@@ -685,6 +685,9 @@ jobs:
       - name: Check weekly report file and confirm snapshot from the window (ORG-기록하나로 O-6)
         run: node --test tests/record-one-file.test.mjs
 
+      - name: Check same date shown once in date + text lines (S67-36)
+        run: node --test tests/same-day-lead.test.mjs
+
       - name: Check weekly file finds my rows by the form's second column (WEEKLY-사업영역묶음 ①)
         run: node --test tests/weekly-area-slot.test.mjs
 
@@ -1233,6 +1236,9 @@ jobs:
 
       - name: SEC-자주가는링크기본값유출·COLLAB-조직목록없음직접입력 운영자 기본값 없음·남의 작업공간 조직 이름 막힘
         run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
+
+      - name: Check the two faces and that 노동조합+ screen words stay the same (APP-올인원다이어리 단계 2)
+        run: node --test tests/brand-faces.test.mjs
 
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs

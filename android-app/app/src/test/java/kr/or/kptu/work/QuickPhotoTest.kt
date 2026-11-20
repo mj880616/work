@@ -369,9 +369,9 @@ class QuickPhotoTest {
         }
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertFalse(manifest.contains("QuickPhoto"))
-        assertFalse(manifest.contains("FOREGROUND_SERVICE_DATA_SYNC"))
         // S48-60(0.4.15): 사진 위치 정보(ACCESS_MEDIA_LOCATION) 하나가 더해져 13. S49-51(0.5.0): [파일] '이 폰' 모든 파일 접근 하나가 더해져 14.
-        assertEquals(14, Regex("<uses-permission ").findAll(manifest).count())
+        // S67-38: 뒤에서 올리기(BackUpload)의 앞쪽 작업 종류 dataSync 하나가 더해져 15. 위젯 [사진](QuickPhoto)은 그대로 알림 없이 토스트.
+        assertEquals(15, Regex("<uses-permission ").findAll(manifest).count())
     }
 
     @Test
