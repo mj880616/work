@@ -171,7 +171,7 @@ const EMPTY_PATTERNS = [
   new RegExp(`\\bel\\([^)]*?['"][\\w -]*(?:empty|muted|faint|note|hint)[\\w -]*['"]\\s*,\\s*['"\`][^'"\`]*${NONE_WORDS}`, 'g'),
   new RegExp(`class\\s*:\\s*['"][\\w -]*(?:empty|muted|faint|note|hint)[\\w -]*['"]\\s*,\\s*text\\s*:\\s*['"\`][^'"\`]*${NONE_WORDS}`, 'g'),
   // 설정 값으로 둔 빈 글자(empty:'…없음'). 부품 기본값과 같은 '없음' 하나는 센다지 않는다.
-  new RegExp(`\\b(?:empty|none|emptyText)\\s*:\\s*['"\`][^'"\`]+${NONE_WORDS}`, 'g'),
+  new RegExp(`\\b(?:empty|none|emptyText)\\s*:\\s*(?:word\\()?['"\`][^'"\`]+${NONE_WORDS}`, 'g'),
 ];
 export function countEmpty(source) {
   const code = source.split('\n').filter(line => !/^\s*(\/\/|\/\*|\*)/.test(line)).join('\n');

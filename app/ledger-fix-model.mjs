@@ -4,6 +4,7 @@
 //   [내용 업데이트…]의 대상 고정 검사, 반영 뒤 펼친 기록을 다시 읽을지 정하는 규칙도 이 파일(순수 함수)에 있다.
 // 미리보기는 DB 함수 해 보기(app_apply_ledger_fix p_dry_run=true)의 전·후를 일상어 한 줄씩으로 바꾼다(고정 ID·DB 낱말 없음). DOM·네트워크 없음.
 import { KIND_DISPLAY, EVENT_STATUS_LABEL, DECISION_TYPE_LABEL, EVIDENCE_TYPE_LABEL, COMMITMENT_STATUS_LABEL, SENSITIVITY_LABEL, IMPORTANCE_LABEL } from './ledger-browse-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const FIX_TEXT_MAX = 500;
 export const PASTE_MAX = 60000;
@@ -146,7 +147,7 @@ export function fixErrorText(e) {
   if (e?.status === 404 || /PGRST202|42883/.test(m)) return '원장 수정 준비 전이에요.';
   if (/NOT_OWNER|42501/.test(m) || e?.status === 401 || e?.status === 403) return '로그인한 소유자만 할 수 있어요.';
   if (/TARGET_INACTIVE/.test(m)) return '이미 대체됐거나 폐기된 기록이에요.';
-  if (/BROKEN_REF/.test(m)) return '가리킨 기록·조직·주제를 원장에서 찾지 못했어요.';
+  if (/BROKEN_REF/.test(m)) return word('가리킨 기록·조직·주제를 원장에서 찾지 못했어요.');
   if (/PERSONAL/.test(m)) return '전화번호·주민번호 같은 개인정보는 넣을 수 없어요.';
   if (/BAD_REQUEST|BAD_ITEM|BAD_RECORD/.test(m)) return '원장 형식에 맞지 않아요. 내용을 바꿔 다시 해 보세요.';
   return '저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
