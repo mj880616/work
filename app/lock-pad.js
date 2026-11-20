@@ -3,7 +3,8 @@
 // - unlockHere(): '잠김' 줄을 누르면(feature-lock.js가 부름) 그 화면 위에 작은 창으로 같은 판을 띄운다. 화면은 떠나지 않는다.
 //   PIN은 서버(app_lock_check)로만 보내 대조 결과만 받는다(틀린 횟수·막힘도 서버). 맞으면 feature-lock.js openHere()가 풀고
 //   'kptu:feature-lock-changed'를 보내 그 화면이 숨긴 줄을 스스로 다시 그린다. 입력 중 숫자는 이 모듈 메모리에만, 보낸 뒤 바로 비움.
-import * as lock from './feature-lock.js';
+// 문지기(feature-lock.js)는 이 모듈을 필요할 때 부르므로 여기서는 정적으로 부르지 않는다(Pages 빌드는 순환 참조를 받지 않음) — 늘 먼저 실린 window.KPTUFeatureLock을 쓴다.
+const lock = () => window.KPTUFeatureLock || {};
 import {hhmm} from './feed-model.mjs';
 
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
@@ -33,7 +34,7 @@ export function shake(host) {
 }
 // 서버가 '틀림'이라 답했을 때의 한 줄(남은 횟수·막힌 시각은 서버 값 그대로).
 export function wrongMsg(res) {
-  lock.noteBlocked(res);
+  lock().noteBlocked?.(res);
   if (res?.blocked_until) return `여러 번 틀려 막혔어요 · ${hhmm(res.blocked_until)}에 다시 할 수 있어요`;
   return `PIN이 맞지 않아요 · ${Number.isInteger(res?.left) ? res.left : ''}번 남았어요`;
 }
@@ -64,12 +65,12 @@ async function entered() {
   try {
     const res = await window.KPTURuntime.api('/rest/v1/rpc/app_lock_check', {method: 'POST', body: {p_pin: pin}, singleFlight: false});
     if (here !== h) return;
-    if (res?.ok) { finish({focus: false}); lock.openHere(); return; }
+    if (res?.ok) { finish({focus: false}); lock().openHere?.(); return; }
     h.busy = false; h.msg = wrongMsg(res); draw(); shake(h.dialog);
   } catch (error) {
     if (here !== h) return;
     h.busy = false;
-    if (/LOCK_PIN_MISSING/.test(String(error?.message || ''))) { finish(); void lock.refresh(); return; }
+    if (/LOCK_PIN_MISSING/.test(String(error?.message || ''))) { finish(); void lock().refresh?.(); return; }
     h.msg = '확인하지 못했어요. 잠시 뒤 다시 해 주세요'; draw();
   }
 }
@@ -89,7 +90,7 @@ export function unlockHere({title = '잠김', from = null} = {}) {
   dialog.className = 'lk-here'; dialog.setAttribute('aria-label', title);
   document.body.append(dialog);
   here = {dialog, title, from, digits: '', msg: '', busy: false, layer: null};
-  const blocked = lock.settings()?.blocked_until;
+  const blocked = lock().settings?.()?.blocked_until;
   if (blocked && Date.parse(blocked) > Date.now()) here.msg = `여러 번 틀려 막혔어요 · ${hhmm(blocked)}에 다시 할 수 있어요`;
   dialog.addEventListener('click', event => {
     if (event.target === dialog) { finish(); return; } // 바깥(어두운 곳) 누르기
