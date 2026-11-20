@@ -526,6 +526,10 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
     }
     await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));await expect(page.locator('[data-mrd-delete-document="doc-0"]')).toBeEnabled();
     await startConsumerDelete(page,view);
+    // S67-43: 두 번째 누름이 잠금(document-delete.js pendingDeletes)에 닿아 끝난 뒤에 첫 요청을 풀어 준다. 예전에는 누른 직후 바로 풀어,
+    // 두 번째 누름의 처리(모듈 불러오기 한 번)가 첫 요청 끝보다 늦으면 잠금이 이미 풀려 두 번 보내는 시험 순서 경합이 있었다.
+    // 두 번째가 잠금에 막히지 않으면 확인창·보내기(문 닫힘)에서 멈춰 끝나지 않으므로 여기서 실패한다.
+    await settleConsumer(page);expect(state.calls).toHaveLength(1);
     state.deleteGate.release();await expect.poll(()=>consumerNotices.get(page)).toContain(DELETE_LEGACY);await settleConsumer(page);
     expect(state.calls).toEqual([{action:'delete',document_id:'doc-0'}]);expect(seen.map(d=>d.type)).toEqual(['confirm']);
   });
