@@ -7,6 +7,7 @@ import {createChoiceSheet} from './choice-sheet.js';
 import {REPORT_KINDS,isReportKind,reportKindOf} from './report-kinds.mjs';
 import {photosToFollow} from './activity-photo-model.mjs';
 import {documentCategories,loadDocumentCategories} from './document-categories.js';
+import {word} from './brand/brand.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let sheet=null,active=null;
@@ -20,7 +21,7 @@ function ensureSheet(){
   document.getElementById('reportKindSheet')?.addEventListener('click',e=>{if(!e.target.closest('[data-report-oneline]'))return;const go=active?.onOneline;if(go)void sheet.close().then(()=>go())});
   return sheet;
 }
-const ONELINE_ROW=`<button type="button" class="home-choice-row home-choice-oneline" style="--home-choice-depth:0" data-depth="0" data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎</span><span class="home-choice-name">한 줄 업데이트</span></button>`;
+const ONELINE_ROW=word(`<button type="button" class="home-choice-row home-choice-oneline" style="--home-choice-depth:0" data-depth="0" data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎</span><span class="home-choice-name">한 줄 업데이트</span></button>`);
 // trigger: 누른 버튼(닫힌 뒤 초점이 돌아감). onPick(value)는 고른 뒤 창이 닫히고 불린다. 닫기·Esc·뒤로가기는 아무것도 하지 않는다.
 // onOneline: 있으면 맨 위에 [한 줄 업데이트] 줄을 두고, 누르면 창이 닫힌 뒤 불린다(사업 보고 [+] 메뉴만).
 export function pickReportKind(trigger,{title='종류 선택',current='',onPick,onOneline=null}={}){

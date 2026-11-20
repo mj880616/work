@@ -6,6 +6,7 @@
 // - Supabase가 준 되돌아갈 주소도 claude.ai일 때만 따라간다. 기기에 아무것도 남기지 않는다.
 import {waitInlineHtml} from '../wait-state.js';
 import {authorizationPath, consentPath, validAuthorizationId, safeClaudeRedirect, isDelegatedToken, settingsState, readDetails, consentRefusal, REFUSE} from '../mcp-read-model.mjs';
+import {word} from '../brand/brand.mjs';
 
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -26,8 +27,8 @@ async function readSettings(rt) {
 }
 
 function render(details, settings, id, rt) {
-  const off = settings.enabled ? '' : '<p class="mc-note">허락한 뒤 노조+ 내 프로필 › Claude 읽기 연결을 켜야 읽기가 시작돼요.</p>';
-  $('#mcCard').innerHTML = `<h1>Claude 읽기 연결</h1>
+  const off = settings.enabled ? '' : word('<p class="mc-note">허락한 뒤 노조+ 내 프로필 › Claude 읽기 연결을 켜야 읽기가 시작돼요.</p>');
+  $('#mcCard').innerHTML = word`<h1>Claude 읽기 연결</h1>
 <p class="mc-lead"><b>${esc(details.clientName || 'Claude')}</b>(claude.ai)가 내 노조+ 기록을 <b>읽기만</b> 해요. 쓰기·삭제·보내기는 할 수 없어요.</p>
 <div class="mc-list">
 <div class="mc-row"><span class="mc-k">볼 수 있는 것</span><span class="mc-v">담당조직 현황·조직 기록 요지, 사업 보고, 프로젝트 현황, 원장(민감한 기록은 제목만), 노트 제목과 앞부분, 구글 캘린더·할 일 목록 이름</span></div>

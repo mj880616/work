@@ -10,6 +10,7 @@
 import { readInput, serverBody, targetsOf, previewLines, appliedText, fixErrorText, anchoredViolation, UNDO_MS, FIX_TEXT_MAX } from './ledger-fix-model.mjs';
 import { callAiAssist, AI_SUMMARY_TEXT } from './basket-ai-summary.js';
 import { offerUndoNotice } from './basket-record-delete.js';
+import {word} from './brand/brand.mjs';
 
 const rt = window.KPTURuntime;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -17,7 +18,7 @@ const q = v => encodeURIComponent(v);
 const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 const LEDGER_ID = /^[A-Z]{2,6}-[0-9]{4,6}$/;
 // 일상어 고치기가 서버에 아직 없을 때(배포 전): 덩어리 붙여 넣기는 그대로 된다.
-const PLACEHOLDER_NEW = '예: 나 지부 2차 교섭은 11/4가 아니라 11/5였음 (Claude 수정안을 붙여 넣어도 돼요)';
+const PLACEHOLDER_NEW = word('예: 나 지부 2차 교섭은 11/4가 아니라 11/5였음 (Claude 수정안을 붙여 넣어도 돼요)');
 const NOT_READY = '일상어 수정은 아직 준비 중이에요. Claude 수정안 덩어리를 붙여 넣으면 바로 해 볼 수 있어요.';
 
 let state = fresh();

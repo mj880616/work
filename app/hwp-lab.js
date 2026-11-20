@@ -20,6 +20,7 @@ import {requestLibraryUpload} from './library-upload-request.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {askConfirm,askText} from './small-notice.js';
 import {openTimingText} from './hwp-open-timing.mjs';
+import {word} from './brand/brand.mjs';
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;
@@ -272,7 +273,7 @@ async function uploadToLibrary(){
     if(!requestLibraryUpload(file,rt)){status('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.','error');return}
     // The file now sits in the library dialog; the editor keeps this copy until another file is opened.
     if(current===shown)shown.savedSeq=seq;
-    status(`${file.name}을 자료실 등록 창으로 넘겼습니다. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.`,'ok');
+    status(word`${file.name}을 자료실 등록 창으로 넘겼습니다. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.`,'ok');
     handed=true;
   }catch(err){
     console.error('hwp-lab upload',err?.kind||err);
@@ -321,7 +322,7 @@ async function openDrive(target){
       file.info.shared?'이 파일은 잊지 말기와 자료실이 같은 원본을 써요.':'',
     ].filter(Boolean).join(' ');
     status(shown.target.template
-      ?`노조 양식 · ${result?.pageCount??'?'}쪽을 열었어요. 양식 원본은 그대로 두고, 수정한 뒤 [새 파일로 저장]에서 제목을 정해요. 스타일은 Ctrl+1~0(예비 Alt+1~0) 또는 위쪽 스타일 버튼으로 입혀요.`
+      ?word`노조 양식 · ${result?.pageCount??'?'}쪽을 열었어요. 양식 원본은 그대로 두고, 수정한 뒤 [새 파일로 저장]에서 제목을 정해요. 스타일은 Ctrl+1~0(예비 Alt+1~0) 또는 위쪽 스타일 버튼으로 입혀요.`
       :`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}수정한 뒤 [새 파일로 저장]을 누르세요.${timing}`,'ok');
   }catch(err){
     if(drive!==shown)return;
@@ -338,17 +339,17 @@ async function openTemplate(){
   if(dirty()&&(!(await askDiscard(anchorFor('hwpLabTemplate'),'저장하지 않은 수정 내용이 있어요. 양식을 열면 사라져요. 열까요?','열기'))||busy||drive))return;
   busy=true;sync();
   try{
-    status('자료실에서 노조 양식을 찾는 중…');
+    status(word('자료실에서 노조 양식을 찾는 중…'));
     const found=await findUnionTemplate({rt});
     if(!found.chosen){
-      status(`자료실 '${UNION_TEMPLATE_CATEGORY}'에 한글(.hwp) 서식 파일이 없어요. [노조 서식으로 만들기]에서 서식 파일을 먼저 올려 주세요.`,'error');
+      status(word`자료실 '${UNION_TEMPLATE_CATEGORY}'에 한글(.hwp) 서식 파일이 없어요. [노조 서식으로 만들기]에서 서식 파일을 먼저 올려 주세요.`,'error');
       return;
     }
     const row=found.chosen;
     if(!requestTemplate(row)){status('로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.','error');return}
   }catch(err){
     console.error('hwp-lab template',err?.kind||err);
-    status(err?.kind==='session'?err.message:'노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.','error');
+    status(err?.kind==='session'?err.message:word('노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.'),'error');
     return;
   }finally{busy=false;sync()}
   const target=takeHwpEditRequest(rt);
@@ -365,7 +366,7 @@ async function startConvert(){
   if(busy)return;
   await refreshDirty();
   if(busy)return;
-  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabConvert'),'저장하지 않은 수정 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?','계속'))||busy))return;
+  if(dirty()&&(!(await askDiscard(anchorFor('hwpLabConvert'),word('저장하지 않은 수정 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?'),'계속'))||busy))return;
   // HWP-노조서식분류: 자료실 '노조 서식'(옛 '양식')에 한글 서식 파일이 하나도 없으면 글 입력 창을 열기 전에 서식 파일부터 올리게 한다.
   // 찾기가 실패하면(네트워크 등) 지금처럼 글 입력 창을 열고, [만들기] 때 다시 찾아 안내한다(막지 않음).
   let found=null;
@@ -387,17 +388,17 @@ async function runConvert({docType,text,progress,cancelled}){
   const label=DOC_TYPES.find(row=>row.id===docType)?.label||'문서';
   busy=true;sync();
   try{
-    progress('자료실에서 노조 양식을 찾는 중…');
+    progress(word('자료실에서 노조 양식을 찾는 중…'));
     let found;
     try{found=await findConvertTemplate(docType,{rt})}
-    catch(err){return {ok:false,message:err?.kind==='session'?err.message:'노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.'}}
+    catch(err){return {ok:false,message:err?.kind==='session'?err.message:word('노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.')}}
     if(!found.chosen)return {ok:false,message:`자료실 '${UNION_TEMPLATE_CATEGORY}'에 ${label} 빈 서식(.hwp)이 없어요. 자료명에 "${label}"이 들어간 서식 파일을 자료실 '${UNION_TEMPLATE_CATEGORY}'에 올려 주세요.`};
     let file;
     try{file=await openHwpFromDrive({kind:'library',document:{id:found.chosen.id}},{rt})}
     catch(err){return {ok:false,message:err?.kind?err.message:'양식을 열지 못했어요. 아무것도 바뀌지 않았어요.'}}
     if(file.bytes.length>HWP_EDIT_MAX_BYTES)return {ok:false,message:'양식 파일이 30MB보다 커서 열지 않아요.'};
     if(cancelled())return {ok:false,message:''};
-    progress('AI가 노조 문서 규칙에 맞게 다시 짜는 중… 30초 안팎 걸려요.');
+    progress(word('AI가 노조 문서 규칙에 맞게 다시 짜는 중… 30초 안팎 걸려요.'));
     const reply=await callAiAssist({kind:'hwp_convert',doc_type:docType,text},{rt},CONVERT_TEXT);
     if(cancelled())return {ok:false,message:''};
     if(!reply.ok)return {ok:false,message:CONVERT_TEXT[reply.code]||CONVERT_TEXT.internal_error,retry:convertRetryable(reply.code)};
@@ -422,7 +423,7 @@ async function runConvert({docType,text,progress,cancelled}){
     current={name,format:'hwp',converted:true,title:answer.title,docType,savedSeq:seq==null?null:seq-1,latestSeq:seq};
     watchEdits();
     const notes=[
-      found.specific?'':`${label} 전용 빈 양식이 없어 일반 노조 양식에 넣었어요.`,
+      found.specific?'':word`${label} 전용 빈 양식이 없어 일반 노조 양식에 넣었어요.`,
       built.missing.length?`양식에 없는 스타일(${built.missing.join('·')})은 바탕글로 넣었어요.`:'',
       answer.dropped?`형식이 맞지 않은 문단 ${answer.dropped}개는 뺐어요. 원문과 대조해 주세요.`:'',
     ].filter(Boolean).join(' ');
@@ -430,7 +431,7 @@ async function runConvert({docType,text,progress,cancelled}){
     return {ok:true};
   }catch(err){
     console.error('hwp-lab convert',err?.kind||err?.code||'error');
-    return {ok:false,message:err?.kind?err.message:'노조 서식으로 만들지 못했어요. HWP 편집을 확인하고 다시 시도해 주세요.'};
+    return {ok:false,message:err?.kind?err.message:word('노조 서식으로 만들지 못했어요. HWP 편집을 확인하고 다시 시도해 주세요.')};
   }finally{busy=false;sync()}
 }
 // [자료실에 저장]: 만든 문서를 자료실에 새 자료로 등록한다(library-files). 결과를 모르면 다시 보내지 않고 자료실에서 먼저 확인하라고 안내한다.
@@ -593,7 +594,7 @@ async function back(){
   if(!drive||busy)return;
   await refreshDirty();
   if(!drive||busy||!(await askLeave(anchorFor('hwpDriveBack')))||!drive||busy)return;
-  if(drive.target.template){resetToDevice();showMode();status('HWP 편집이 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 열거나 [노조 양식으로 새 문서]를 누르세요.');editor().catch(()=>{});return}
+  if(drive.target.template){resetToDevice();showMode();status(word('HWP 편집이 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 열거나 [노조 양식으로 새 문서]를 누르세요.'));editor().catch(()=>{});return}
   leaving=true;
   if(drive.target.kind==='library'){requestLibraryDocument(drive.target.document.id,rt);window.KPTURouter.go('library',{source:'delegated'})}
   else{requestBasketNote(drive.target.noteId,rt);window.KPTURouter.go('basket',{source:'delegated'})}

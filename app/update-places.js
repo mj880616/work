@@ -20,6 +20,7 @@ import { readReferenceBundles } from './reference-bundles-data.js';
 import { pickMyOrganizations } from './my-organizations.js';
 import { fallbackFileLine } from './record-file-line.mjs';
 import { seoulDateKey } from './meeting-time.js';
+import {word} from './brand/brand.mjs';
 
 // place: null (basket) | {kind:'organization'|'project'|'reference', id}
 // REF-참고묶음: 'reference' is a reference bundle (app_reference_bundles). It has no record table of its own, so an update for it is
@@ -76,7 +77,7 @@ export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = 
   }
   if (!isCurrent()) return null;
   // PRJ-3단: each row also carries its parents' names ("1단 › 2단"), shown on third-level rows while searching (choice-sheet.js).
-  const trail = [], projects = window.KPTUProjectCatalog.tree(ps).map(x => { trail.length = x.depth; const path = trail.join(' › '); trail.push(x.project.name || '이름 없는 사업영역'); return {...x, path}; });
+  const trail = [], projects = window.KPTUProjectCatalog.tree(ps).map(x => { trail.length = x.depth; const path = trail.join(' › '); trail.push(x.project.name || word('이름 없는 사업영역')); return {...x, path}; });
   // S61-52: orgs.all = 이 작업공간의 활동 중인 조직 전체 — [직접 쓰기]가 새로 만들기 전에 비슷한 이름을 찾는 데만 쓴다(중복 방지).
   const orgs = order.withRecent(eligible, recent.map(r => r.organization_id), 3);
   orgs.all = (Array.isArray(os) ? os : []).filter(o => o?.id && o.active !== false);
@@ -137,16 +138,16 @@ export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, 
   // 꺾쇠로 하위를 펼친다(고른 것이 든 묶음은 처음부터 펼침, 찾는 동안은 맞는 하위가 모두 보임). 값('project:<id>'·'<조직 id>')은 그대로.
   ensureStyles();
   const order = window.KPTUOrganizationOrder, tree = areaTree(projects.map(x => ({key:'project:' + x.project.id, name:x.project.name, depth:x.depth})));
-  const groups = (orgs.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || '이름 없는 조직', group:order?.groupName?.(o) || ''})));
+  const groups = (orgs.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || word('이름 없는 조직'), group:order?.groupName?.(o) || ''})));
   const open = openKeysFor(tree, groups, [...list.map(placeValue)]), pressed = picked;
-  const projectCol = projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div class="aop-list" data-sheet-projects data-sheet-part="projects">${areaListHtml(tree, {open, pressed})}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
+  const projectCol = projects.length ? word`<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div class="aop-list" data-sheet-projects data-sheet-part="projects">${areaListHtml(tree, {open, pressed})}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
   return `${recentBlock}${orgColumnHtml(places, open, pressed, writeIn)}${projectCol}`;
 }
 // 담당조직 칸: 접는 조직 목록 + (writeIn이 있으면) 맨 아래 [직접 쓰기](S61-52, 다른 조직 고르기 창과 같은 부품).
 function orgColumnHtml(places, open, pressed, writeIn) {
   const order = window.KPTUOrganizationOrder;
-  const groups = (places?.orgs?.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || '이름 없는 조직', group:order?.groupName?.(o) || ''})));
-  return `<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div class="aop-list" data-sheet-all data-sheet-part="all">${orgListHtml(groups, {open, pressed})}</div>${orgWriteInHtml(writeIn, pressed)}</div>`;
+  const groups = (places?.orgs?.groups || []).map(g => g.map(o => ({key:o.id, name:o.name || word('이름 없는 조직'), group:order?.groupName?.(o) || ''})));
+  return word`<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div class="aop-list" data-sheet-all data-sheet-part="all">${orgListHtml(groups, {open, pressed})}</div>${orgWriteInHtml(writeIn, pressed)}</div>`;
 }
 // S61-52(CALL-상대표시정리 ④): '기록할 곳'·[연결할 곳] 창의 [직접 쓰기] 칸 상태. 창을 그릴 때(render)마다 새로 만든다. 고를 담당조직이
 // 하나도 없는 사람(담당을 정하지 않아 이 창이 조직을 내놓지 않는 경우)에게는 없다 — 만든 조직이 다음에 이 창에 보이지 않기 때문이다.

@@ -67,7 +67,7 @@ jobs:
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Test build scripts
         if: steps.scope.outputs.needed == 'true'
-        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs scripts/brand-face.test.mjs
+        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs scripts/brand-face.test.mjs scripts/check-girok-words.test.mjs
       - name: Build Jekyll output
         if: steps.scope.outputs.needed == 'true'
         run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
@@ -83,6 +83,8 @@ jobs:
         run: |
           node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-girok" --face=girok
           node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-girok"
+          # S67-43: 기록+ 화면 글자에 노조 색 글자가 없는지(JS 고정 글자는 word()를 거치고, HTML 보이는 글자는 바뀌었는지).
+          node scripts/check-girok-words.mjs "$RUNNER_TEMP/pages-girok"
       # Since 2단계 Pages serves the build output, so that is what production is compared with.
       - name: Compare build output with current GitHub Pages (report only)
         if: steps.scope.outputs.needed == 'true' && (github.event_name == 'workflow_dispatch' && inputs.compare_live)

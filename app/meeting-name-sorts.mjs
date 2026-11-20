@@ -12,6 +12,7 @@
 // 비정기·지움은 목록에서만 접히거나 빠진다. 지난 보고·검색·환류·연결은 그대로(회의 기록은 건드리지 않음).
 // 읽기·쓰기는 meeting-name-sorts.js, 고르는 창은 meeting-name-panel.js.
 
+import {word} from './brand/brand.mjs';
 export const ETC = 'etc', DEL = 'del', REGULAR = 'regular';
 export const PARENT_MAX = 30, NAME_MAX = 300, ORG_MAX = 300, PARENT_NAME_MAX = 30, BYTES_MAX = 32768;
 export const PRESET_MAX = 50, ORDER_MAX = 300, PRESET_NAME_MAX = 100;
@@ -358,12 +359,12 @@ export function toOrgEnd(entries, sorts, names, opts = {}) {
 }
 export function parentNameProblem(name, sorts, exceptId = '') {
   const v = String(name ?? '').trim();
-  if (!v) return '조직 이름을 써 주세요.';
-  if ([...v].length > PARENT_NAME_MAX) return `조직 이름은 ${PARENT_NAME_MAX}자까지예요.`;
+  if (!v) return word('조직 이름을 써 주세요.');
+  if ([...v].length > PARENT_NAME_MAX) return word`조직 이름은 ${PARENT_NAME_MAX}자까지예요.`;
   if (/\p{Cc}/u.test(v)) return '한 줄로 써 주세요.';
   if (nameKey(v) === nameKey('기타')) return '‘기타’는 이미 있어요.';
-  if (sorts.parents.some(p => p.id !== exceptId && nameKey(p.name) === nameKey(v))) return '같은 이름의 조직이 있어요.';
-  if (!exceptId && sorts.parents.length >= PARENT_MAX) return `조직은 ${PARENT_MAX}개까지예요.`;
+  if (sorts.parents.some(p => p.id !== exceptId && nameKey(p.name) === nameKey(v))) return word('같은 이름의 조직이 있어요.');
+  if (!exceptId && sorts.parents.length >= PARENT_MAX) return word`조직은 ${PARENT_MAX}개까지예요.`;
   return '';
 }
 export const newParentId = (rand = Math.random) => 'g' + Array.from({length: 8}, () => '0123456789abcdefghijklmnopqrstuvwxyz'[Math.floor(rand() * 36)]).join('');

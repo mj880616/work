@@ -9,6 +9,7 @@
 import {confirmLinks} from './basket-classification.js';
 import {TRASH_STATE,TRASH_TEXT,otherDeleteText,otherDeleteBlockedText} from './project-trash-model.mjs';
 import {readTrashKind,restoreFromTrashKind} from './trash-rpc.js';
+import {word} from './brand/brand.mjs';
 import {holdTimer,recordUndo,dropUndo,hideSmallNotices,noticeHost,NOTICE_UNDO_MS,askConfirm} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
 
 const PAGE_SIZE=100;
@@ -44,16 +45,16 @@ export const RECORD_DELETE_TEXT=Object.freeze({
 
 export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
   return ['업데이트 원문을 지웁니다.',
-    `연결된 조직·사업영역 ${places}곳에서도 사라집니다.`,
-    otherLinks?`사업 보고·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
+    word`연결된 조직·사업영역 ${places}곳에서도 사라집니다.`,
+    otherLinks?word`사업 보고·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
     attachments?`첨부 파일 ${attachments}개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).`:''].filter(Boolean).join(' ');
 }
 // NOTE-파일붙이기 (2026-10-22 사용자 결정): deleting a note (kind=note) removes the note and its links only; its files stay in
 // Drive as they are (no trash, no move), so the note path never calls the server's trash step.
 export function noteDocDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
   return ['노트 원문을 지웁니다.',
-    `연결된 조직·사업영역 ${places}곳에서도 사라집니다.`,
-    otherLinks?`사업 보고·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
+    word`연결된 조직·사업영역 ${places}곳에서도 사라집니다.`,
+    otherLinks?word`사업 보고·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
     attachments?`첨부 파일 ${attachments}개는 노트에서만 빠지고 Drive에는 그대로 남아요.`:''].filter(Boolean).join(' ');
 }
 export const NOTE_DOC_DELETED=Object.freeze({plain:'노트를 삭제했어요.',files:'노트를 삭제했어요. 첨부 파일은 Drive에 그대로 남아 있어요.'});

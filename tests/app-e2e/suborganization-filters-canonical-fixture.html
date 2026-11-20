@@ -132,5 +132,6 @@ if(fixtureParams.has('teamstats')){
 <script src="/app/accessibility-dialog.js"></script>
 <script src="/tests/app-e2e/helpers/org-order-prefs.js"></script>
 <script src="/app/organization-order.js"></script>
-<script src="/app/suborganizations.js"></script><script type="module" src="/app/workplace-detail.js"></script><script src="/app/workplace-report.js"></script>
+<!-- S67-43: suborganizations.js가 얼굴 단어표(./brand/brand.mjs)를 import하므로 앱(view-loader.js의 import())처럼 모듈로 불러온다. -->
+<script type="module" src="/app/suborganizations.js"></script><script type="module" src="/app/workplace-detail.js"></script><script type="module" src="/app/workplace-report.js"></script>
 </body></html>

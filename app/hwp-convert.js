@@ -4,6 +4,7 @@
 // 넣은 글은 이 창 안(메모리)에만 있다: 기기·서버 저장소에 남기지 않고, 닫으면 사라진다. 서버로는 [만들기] 때 AI 요청 한 번만 간다.
 import {AI_SUMMARY_TEXT,aiSummaryRetryable} from './basket-ai-summary.js';
 import {DOC_TYPES,CONVERT_MAX_CHARS,cleanPasted,textState,dropProblem} from './hwp-convert-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const CONVERT_TEXT=Object.freeze({
   ...AI_SUMMARY_TEXT,
@@ -11,7 +12,7 @@ export const CONVERT_TEXT=Object.freeze({
   unsupported_kind:'AI 서식 만들기는 아직 준비 중이에요. 잠시 뒤 다시 시도해 주세요. 아무것도 바뀌지 않았어요.',
   invalid_request:`글을 확인해 주세요. ${CONVERT_MAX_CHARS.toLocaleString('ko-KR')}자까지, 이상한 문자가 없어야 해요.`,
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 내일 다시 시도해 주세요.',
-  monthly_limit:'이번 달 AI 한도에 닿았어요. 글은 직접 [노조 양식으로 새 문서]에 옮겨 주세요.',
+  monthly_limit:word('이번 달 AI 한도에 닿았어요. 글은 직접 [노조 양식으로 새 문서]에 옮겨 주세요.'),
   ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',
   ai_invalid_response:'AI 답을 읽지 못했어요. 다시 [만들기]를 눌러 주세요. 아무것도 바뀌지 않았어요.',
 });
@@ -51,7 +52,7 @@ const ID='hwpConvertModal';
 let modal=null,run=0;
 const esc=text=>String(text).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 function markup(){
-  return `<div id="${ID}" data-kptu-history-all="1" class="modal hidden hwp-convert" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="hwpConvertTitle"><div class="modal-card small-card hwp-convert-card">
+  return word`<div id="${ID}" data-kptu-history-all="1" class="modal hidden hwp-convert" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="hwpConvertTitle"><div class="modal-card small-card hwp-convert-card">
 <div class="modal-head"><h2 id="hwpConvertTitle">노조 서식으로 만들기</h2><button type="button" class="icon-btn" data-close="${ID}" aria-label="닫기">×</button></div>
 <div class="hwp-convert-types" role="group" aria-label="문서 종류">${DOC_TYPES.map((row,i)=>`<button type="button" class="hwp-convert-chip" data-doc-type="${row.id}" aria-pressed="${i===0}">${esc(row.label)}</button>`).join('')}</div>
 <label class="hwp-convert-field"><span>글</span><textarea id="hwpConvertText" rows="11" spellcheck="false" placeholder="마크다운이나 일반 글을 붙여 넣거나, 글 파일(.md·.txt)을 여기에 끌어 놓으세요."></textarea></label>
@@ -143,14 +144,14 @@ export function openConvertDialog({onMake,docType='report'}){
 // 올리기가 끝나면 창을 닫고 onDone()으로 글 입력 창을 연다. 파일은 이 창 안(메모리)에서만 다루고 기기 저장소에 두지 않는다.
 const UPLOAD_ID='hwpFormUploadModal';
 export const FORM_UPLOAD_TEXT=Object.freeze({
-  lead:"서식 파일을 먼저 올려 주세요. 올린 한글 파일은 자료실 '노조 서식'에 들어가고, 그 서식 모양으로 문서를 만들어요.",
+  lead:word("서식 파일을 먼저 올려 주세요. 올린 한글 파일은 자료실 '노조 서식'에 들어가고, 그 서식 모양으로 문서를 만들어요."),
   drop:'한글(.hwp) 서식 파일을 여기에 끌어 놓거나',
   pick:'파일 선택',
   sending:'자료실에 올리는 중…',
 });
 let uploadModal=null,uploadRun=0;
 function uploadMarkup(){
-  return `<div id="${UPLOAD_ID}" data-kptu-history-all="1" class="modal hidden hwp-convert hwp-form-upload" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="hwpFormUploadTitle"><div class="modal-card small-card hwp-convert-card">
+  return word`<div id="${UPLOAD_ID}" data-kptu-history-all="1" class="modal hidden hwp-convert hwp-form-upload" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="hwpFormUploadTitle"><div class="modal-card small-card hwp-convert-card">
 <div class="modal-head"><h2 id="hwpFormUploadTitle">노조 서식으로 만들기</h2><button type="button" class="icon-btn" data-close="${UPLOAD_ID}" aria-label="닫기">×</button></div>
 <p class="hwp-form-upload-lead">${esc(FORM_UPLOAD_TEXT.lead)}</p>
 <div class="hwp-form-upload-drop" data-hwp-form-drop><span>${esc(FORM_UPLOAD_TEXT.drop)}</span> <button type="button" class="secondary" data-hwp-form-pick>${esc(FORM_UPLOAD_TEXT.pick)}</button><input type="file" accept=".hwp" hidden data-hwp-form-file></div>

@@ -9,6 +9,7 @@
 import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
 import {viewPrefs} from './view-prefs.js';
 import {myFeatures} from './my-features.js';
+import {word} from './brand/brand.mjs';
 
 const HOUR = 3600000;
 // telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각. 수집은 1시간마다(한국 7~23시, TG-1시간수집 10/28)지만
@@ -35,7 +36,7 @@ export const SOURCES = Object.freeze([
 ]);
 // 건수 칸을 채우는 줄(통화 전사·텔레그램). 값은 점검 신호의 최근 24시간 새 파일 수이고, 신호에 건수가 없으면 칸을 비운다.
 const COUNT_KEYS = new Set(['call', 'telegram']);
-export const UNCHECKABLE_NOTE = '노동조합+ 권한 밖이라 확인 불가';
+export const UNCHECKABLE_NOTE = word('노동조합+ 권한 밖이라 확인 불가');
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 

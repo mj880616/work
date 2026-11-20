@@ -83,6 +83,7 @@ import {isOldWeek} from './record-window-model.mjs'; // ORG-기록하나로 O-6:
 import {saveReportSnapshot} from './report-snapshot-save.js'; // ORG-기록하나로 O-6: [확정] 성공 직후 그 창 결과 사진
 import {sortPicks, droppedOf, keptOf, withPick, pickKey, reviewDue, withReview} from './weekly-picks.mjs'; // S46-22 제안 [×]·학습
 import {learnFor} from './weekly-picks.js';
+import {word} from './brand/brand.mjs';
 
 // WEEKLY-환류학습 1(docs/design/weekly-draft-feedback.md 10절): 다음 주 바탕은 내가 최종으로 올린 최신 개인 확정본(보고일 앞의 것). 없으면 지금처럼 팀 확정본.
 // S53-16: 두 분류는 이름 글자가 아니라 역할로 찾는다(document-categories.js weeklyCategoryOf). 안내 문구도 지금 분류 이름으로.
@@ -123,7 +124,7 @@ const MAX_BYTES = 30 * 1024 * 1024;
 const DRAFT_DELAY = 2000;
 // 담당 팀원 칸 이름이 어디서 왔나(맨 위 한 줄 이름에 title 로, 프로필 이름을 쓴 때만 바탕 아래 한 줄로도).
 const ME_FROM = Object.freeze({confirmed:'담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.', profile:'직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.', typed:'담당 팀원 칸 이름을 직접 수정했어요.'});
-const SECTION_NAME = Object.freeze({summary:'요약', orgs:'산하조직', sites:'투쟁 사업장'});
+const SECTION_NAME = Object.freeze({summary:'요약', orgs:word('산하조직'), sites:word('투쟁 사업장')});
 // 양식을 아직 모를 때: 절 제목은 비우고, 학습 묶음 이름(groups)은 일반적인 말(weekly-group-names.mjs, ⑤-3d).
 const NO_TITLES = Object.freeze({...Object.fromEntries(Object.keys(screenTitles({titles:{}})).map(k => [k, ''])), groups:groupNames(null)});
 const DRAFT_TEXT = Object.freeze({
@@ -409,7 +410,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     finalLine.hidden = !c?.document_id;
     if (finalLine.hidden) { finalLine.replaceChildren(); return; }
     const made = el('p', 'journal-hwpx-final-row');
-    made.append(el('b', '', '① 노동조합+가 만든 파일'), ` ${mdhm(c.at)}${c.final ? ' · 이전 판' : ''}`);
+    made.append(el('b', '', word('① 노동조합+가 만든 파일')), ` ${mdhm(c.at)}${c.final ? ' · 이전 판' : ''}`);
     const mine = el('p', 'journal-hwpx-final-row'); mine.dataset.hwpxFinalMine = '';
     const pick = button(c.final ? '다시 올리기' : '올리기', 'hwpxFinalPick', 'row-act'); pick.disabled = finalBusy;
     if (c.final) { mine.dataset.hwpxFinalDone = ''; mine.append(el('b', '', '② 내가 수정한 최종본'), ` ${c.final.file_name} · ${mdhm(c.final.at)} — 이번 주 확정본 `, pick); }
@@ -427,7 +428,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!kind) { say(TEXT.notHwp, 'error'); return; }
     if (kind !== 'hwpx' && draft.hwp5Header(bytes)?.password) { say(TEXT.locked, 'error'); return; }
     const anchor = finalLine.querySelector('[data-hwpx-final-pick]') ?? finalLine;
-    if (!await askConfirm(anchor, {text:`"${file.name}"을(를) 이번 주 개인 확정본으로 저장할까요?`, note:'노동조합+가 만든 판은 30일 동안 자료실 [이전 파일]에 남고, 다음 주 바탕은 이 파일이 돼요.', ok:'저장'})) return;
+    if (!await askConfirm(anchor, {text:`"${file.name}"을(를) 이번 주 개인 확정본으로 저장할까요?`, note:word('노동조합+가 만든 판은 30일 동안 자료실 [이전 파일]에 남고, 다음 주 바탕은 이 파일이 돼요.'), ok:'저장'})) return;
     if (getWeek().start !== week.start) return;
     finalBusy = true; paintConfirm(); say('수정한 최종본을 자료실에 저장하는 중…');
     try {
@@ -695,7 +696,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       : c.status === 'saving' ? '지난주 확정본에서 선택한 줄을 저장하는 중이에요.'
       : c.status === 'failed' ? '지난주에서 선택한 줄을 저장하지 못했어요. 파일에는 선택한 줄만 넣어요.'
       : `지난주 확정본에서 ${c.items.length}줄을 선택했어요${dropped ? `(뺀 줄: ${dropped})` : ''}. 저장 칸 준비 전이라 이 파일에만 넣어요.`;
-    note.textContent = `${titles().ask} ${rows.items.length}줄(아래 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
+    note.textContent = word`${titles().ask} ${rows.items.length}줄(아래 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
   }
   // 5. 주요 일정: 기억으로 뺀 일정까지 든 달력(allRows)과 이 주에 실제 들어가는 달력(이번 주 빼기·넣기 반영).
   const fullCalendar = () => { const c = getWeek().model?.calendar; return c && c.allRows ? {...c, rows:c.allRows} : c; };
@@ -855,15 +856,15 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (!s.me || !s.ownRows) { const p = el('p', 'journal-muted', TEXT.noMine); p.dataset.hwpxNoMine = ''; parts.push(p); }
     // 담당 팀원 칸 이름·담당 조직은 맨 위 한 줄에 보인다. 여기에는 확인이 필요한 때만 한 줄(직전 확정본에서 이름을 못 찾음·담당 사업장을 못 읽음·지정 안 됨).
     if (s.meFrom === 'profile') { const p = el('p', 'journal-muted', ME_FROM.profile); p.dataset.hwpxMeFrom = 'profile'; parts.push(p); }
-    const orgNote = s.context.orgFailed ? '담당 사업장을 읽지 못해 산하조직 표는 비워요.'
-      : s.context.orgFallback ? `담당 사업장이 지정되지 않아 모든 조직(${s.context.organizations.length}곳)을 내 조직으로 봤어요. 내 프로필 → 담당 사업장에서 정할 수 있어요.` : '';
+    const orgNote = s.context.orgFailed ? word('담당 사업장을 읽지 못해 산하조직 표는 비워요.')
+      : s.context.orgFallback ? word`담당 사업장이 지정되지 않아 모든 조직(${s.context.organizations.length}곳)을 내 조직으로 봤어요. 내 프로필 → 담당 사업장에서 정할 수 있어요.` : '';
     if (orgNote) { const p = el('p', 'journal-muted', orgNote); p.dataset.hwpxOrgs = ''; parts.push(p); }
     // ORG-쟁의단계 ②: 투쟁 사업장 표를 쟁의 단계로 채웠는지(못 읽었으면 직전 확정본 줄 그대로) + 더는 투쟁 중이 아닌데 확정본에 있던 줄('지울까요?').
     const stageState = s.context.stages?.status;
-    if (stageState && stageState !== 'ready') { const n = el('p', 'journal-muted', stageState === 'preparing' ? '쟁의 단계가 아직 준비 중이라 투쟁 사업장 칸은 직전 확정본 그대로예요.' : '단계를 불러오지 못했어요. 투쟁 사업장 칸은 직전 확정본 그대로예요.'); n.dataset.hwpxStageNote = stageState; parts.push(n); }
+    if (stageState && stageState !== 'ready') { const n = el('p', 'journal-muted', stageState === 'preparing' ? word('쟁의 단계가 아직 준비 중이라 투쟁 사업장 칸은 직전 확정본 그대로예요.') : word('단계를 불러오지 못했어요. 투쟁 사업장 칸은 직전 확정본 그대로예요.')); n.dataset.hwpxStageNote = stageState; parts.push(n); }
     if (s.stageFixes?.length) {
       const fix = el('details', 'journal-hwpx-plans'); fix.dataset.hwpxStageFix = ''; fix.open = true;
-      fix.append(el('summary', '', `수정할 목록: 직전 확정본에 있던 투쟁 사업장 줄 ${s.stageFixes.length}곳이 더는 투쟁 중이 아니에요. 삭제할까요?`));
+      fix.append(el('summary', '', word`수정할 목록: 직전 확정본에 있던 투쟁 사업장 줄 ${s.stageFixes.length}곳이 더는 투쟁 중이 아니에요. 삭제할까요?`));
       const list = el('ul', 'journal-hwpx-material');
       for (const f of s.stageFixes) {
         const li = el('li'); li.dataset.hwpxStageFixRow = String(f.index);
@@ -1170,7 +1171,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // ORG-기록하나로 O-6: 전환 주부터는 화면의 조직보고 창 결과(4. 1)·3. 2))를 그대로 쓴다 — 창을 아직 다 읽지 못했으면(일정 포함) 만들지 않는다(파일 ≠ 화면 방지).
     const s0 = state, orgs0 = s0.context.orgFailed || s0.context.orgFallback ? [] : s0.context.organizations, fresh = isRecordWeek(s0.start);
     const win = fresh && orgs0.length ? (getWeek().win?.() ?? null) : null;
-    if (fresh && orgs0.length && !win) throw Object.assign(new Error('조직보고 표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.'), {code:'wait'});
+    if (fresh && orgs0.length && !win) throw Object.assign(new Error(word('조직보고 표가 아직 다 나오지 않았어요. 잠시 뒤 다시 눌러 주세요.')), {code:'wait'});
     // BIZ-기록하나로 B-4 ①: 전환 주부터 2. 1) 요약 표 = 화면 사업요약 창 결과(지금 상황 + 담당). 창이 그 주를 다 그리기 전엔 만들지 않는다(파일 ≠ 화면 방지).
     // RECORD-한줄 B-5: 지금 상황 표가 없을 때(404) 그 주 임시저장 칸으로 가던 옛 길은 지웠다 — 그때도 만들지 않고 까닭 한 줄. 옛 주(전환 주 앞)만 그 주 임시저장 칸.
     const biz = fresh ? (getWeek().biz?.() ?? {status:'loading'}) : null;
@@ -1783,7 +1784,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const cellLabel = cell => {
     if (cell === 'me') return '담당 팀원 칸의 내 이름';
     if (cell === 'date') return '■ 일시';
-    if (cell.startsWith('area:')) return '사업요약표 사업영역 한 줄';
+    if (cell.startsWith('area:')) return word('사업요약표 사업영역 한 줄');
     const t = titles();
     if (cell === 'hq') return `${t.atHq} 줄`;
     if (cell === 'discuss') return `${t.atDiscuss} 줄`;

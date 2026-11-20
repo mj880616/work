@@ -17,6 +17,7 @@ import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './
 import {sitePlan, isStageLine, stageOfOrg, weekOf} from '../org-dispute-stage-model.mjs';
 import {issuedFromSections} from '../weekly-lines.mjs';
 import {nameKey as cellNameKey, sameName} from '../weekly-cell-names.mjs';
+import {word} from '../brand/brand.mjs';
 // B-4 ④: [확정] 사진의 2. 1) 줄 모양(한글 파일을 만들 때 같이 부름 — 화면 첫 묶음에 넣지 않으려고 이 늦게 부르는 묶음에서 내보냄).
 export {summarySnapshotRow} from '../business-now-model.mjs';
 
@@ -31,7 +32,7 @@ export const canCompress = () => typeof CompressionStream === 'function' && type
 // S52-24: 이름 비교는 띄어쓰기·부호('/'·'·' 등)를 무시(weekly-cell-names.mjs nameKey 한 곳).
 const norm = s => cellNameKey(s);
 export const DRAFT_TEXT = Object.freeze({
-  noSummary: '확정본에서 요약 표(사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원)를 찾지 못해 멈췄어요. 아무것도 만들지 않았어요.',
+  noSummary: word('확정본에서 요약 표(사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원)를 찾지 못해 멈췄어요. 아무것도 만들지 않았어요.'),
   notBlank: '확정본에서 빈 서식을 뽑았는데 원본 글이 남아 멈췄어요. 아무것도 만들지 않았어요.',
   noForm: '확정본에서 양식 표를 찾지 못해 멈췄어요. 아무것도 만들지 않았어요.',
   invalid: '만든 파일이 한글 파일 규격 검사를 통과하지 못해 내려받지 않았어요.',

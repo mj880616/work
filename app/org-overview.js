@@ -22,6 +22,7 @@ import {mountColResize, gripHtml} from './col-resize.js';
 import {SPLIT_QUERY} from './screen-width.mjs';
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {flashRecord, orgRecordSelector} from './record-flash.js';
+import {word} from './brand/brand.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const TEXT = {failed: '전체 표를 불러오지 못했어요.', copied: '복사했어요.', copyFail: '복사하지 못했어요.'};
@@ -48,9 +49,9 @@ function install() {
   const {section} = st;
   if (!section.querySelector('#soTeamTabs')) {
     section.querySelector('#soTeamHead')?.insertAdjacentHTML('afterend',
-      '<div id="soTeamTabs" class="so-team-tabs ds-seg" role="tablist" aria-label="조직 관리 보기"><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="list" aria-selected="true" tabindex="0">목록</button><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="table" aria-selected="false" tabindex="-1">전체 표</button></div>');
+      word('<div id="soTeamTabs" class="so-team-tabs ds-seg" role="tablist" aria-label="조직 관리 보기"><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="list" aria-selected="true" tabindex="0">목록</button><button type="button" role="tab" class="so-team-tab ds-seg-btn" data-so-view="table" aria-selected="false" tabindex="-1">전체 표</button></div>'));
   }
-  if (!section.querySelector('#soOverview')) section.insertAdjacentHTML('beforeend', '<section id="soOverview" class="oa wd-st" aria-label="조직 관리 이번 주 보고" hidden></section>');
+  if (!section.querySelector('#soOverview')) section.insertAdjacentHTML('beforeend', word('<section id="soOverview" class="oa wd-st" aria-label="조직 관리 이번 주 보고" hidden></section>'));
   // PC 좌우 격자에서 소탭 줄이 맨 위 한 줄을 갖고 목록·상세 칸은 그 아래 같은 줄에 머문다(suborganizations.css .so-has-tabs).
   section.classList.add('so-has-tabs');
   st.tabs = section.querySelector('#soTeamTabs');
@@ -122,12 +123,12 @@ function paint() {
   const dis = wl.disabled();
   const bar = `<div class="oa-bar btn-row">${weekPickHtml(wl.week, {disabled: dis})}<button type="button" class="wd-st-btn" data-oa-copy>복사</button><span class="wl-tools">${wl.orderMenuHtml()}</span></div>`;
   const table = windowTableHtml(wl, orderedOrgs(), {
-    msg: st.msg.text, error: st.msg.error, tableClass: 'oa-table', orderMenu: false, headRows: `${wl.week === thisWeek() ? '이번 주' : '그 주'} 조직보고`,
-    headOrg: `조직${gripHtml('org', '조직', 1)}`,
+    msg: st.msg.text, error: st.msg.error, tableClass: 'oa-table', orderMenu: false, headRows: word`${wl.week === thisWeek() ? '이번 주' : '그 주'} 조직보고`,
+    headOrg: word`조직${gripHtml('org', word('조직'), 1)}`,
     orgHtml: o => `<button type="button" class="oa-name" data-oa-open="${esc(o.id)}">${esc(o.name)}</button>`,
     stageOf: o => stageText(o.id)});
   put(`${bar}${table}`);
-  mountColResize({host: panel, name: 'orgall', vars: {org: '--oa-w-org'}, dir: 1, labels: {org: '조직'}, fit: () => nameWidth(panel)});
+  mountColResize({host: panel, name: 'orgall', vars: {org: '--oa-w-org'}, dir: 1, labels: {org: word('조직')}, fit: () => nameWidth(panel)});
   fitOrgColumn();
 }
 // ORG-폴드두열표: 줄바꿈 없이 늘어놓은 가장 긴 조직 이름의 글 폭(px). 이름을 잠깐 한 줄로 두고 잰다 — 지금 칸이 좁아 꺾여 있어도 본래 길이가 나오게.

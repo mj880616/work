@@ -317,7 +317,7 @@ async function d6bPrepare(page,source){
  await expect(page.locator('#gtPickModal')).toBeVisible();
  // Render the retained but unloaded workflow markup without loading or executing its module.
  const workflow=source('workflow-ai-v3.js');
- const ai=workflow.match(/function installMeetingAi\(\).*?insertAdjacentHTML\('beforeend',`([^`]+)`/s)[1];
+ const ai=workflow.match(/function installMeetingAi\(\).*?insertAdjacentHTML\('beforeend',(?:word\()?`([^`]+)`/s)[1]; // S67-43: 화면 글자는 word(`…`)를 거친다
  const rule=workflow.match(/<p id="wfTaskRule"[^>]+>[^<]+<\/p>/)[0];
  await page.evaluate(({ai,rule})=>{
   document.body.insertAdjacentHTML('beforeend',ai);document.querySelector('#taskModal').insertAdjacentHTML('beforeend',rule);

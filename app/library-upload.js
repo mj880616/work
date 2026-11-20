@@ -67,6 +67,7 @@ import {startAutoTextRead} from './document-text-read.js';
 import {fillLibraryDocument,keptFields,originAfterEdit,autoTidyLibrary,reclassifyLibraryDocument} from './library-ai-fill.js';
 import {openLibraryHtmlView} from './library-html-view.js';
 import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
+import {word} from './brand/brand.mjs';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luCategorySub='',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
@@ -82,12 +83,12 @@ function luEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 function luSize(n){n=Number(n)||0;if(!n)return'';if(n<1024)return n+'B';if(n<1048576)return(n/1024).toFixed(1)+'KB';return(n/1048576).toFixed(1)+'MB'}
 function luCatalog(){const s=window.KPTUProjectCatalog?.snapshot?.();return s?.loaded&&s.workspaceId===luWorkspace&&s.userId===luUser?.id?s:null}
 async function luLoadProjects(force=false){const c=window.KPTUProjectCatalog;if(!c||!luWorkspace||!luUser?.id)return null;try{return await c.load({workspaceId:luWorkspace,userId:luUser.id,force})}catch(e){console.error('library project catalog load failed',e);return null}}
-function luProjectRows(){const c=window.KPTUProjectCatalog;return (luCatalog()?.tree||[]).map(({project,depth})=>({value:project.id,label:c.label(project.name||'이름 없는 사업영역',depth),depth}))}
+function luProjectRows(){const c=window.KPTUProjectCatalog;return (luCatalog()?.tree||[]).map(({project,depth})=>({value:project.id,label:c.label(project.name||word('이름 없는 사업영역'),depth),depth}))}
 // PRJ-3단 (명진 결정 2, 추천안): a project chosen in the filter shows its own documents and those of every project under it
 // (a 1st level → its 2nd and 3rd levels; a 2nd level → its 3rd level). A stale id (not in the tree) matches itself only.
 function luProjectScope(pid){if(!pid||pid==='all')return null;const rows=luProjectRows(),i=rows.findIndex(r=>r.value===pid),out=new Set([pid]);if(i>=0)for(let j=i+1;j<rows.length&&rows[j].depth>rows[i].depth;j++)out.add(rows[j].value);return out}
 function luIsSelectableProject(id){return !id||luProjectRows().some(r=>r.value===id)}
-function luProjectName(id){if(!id)return'';if(!luCatalog())return'사업영역 연결';const d=window.KPTUProjectCatalog.describe(id);if(d.kind==='active')return d.name||'이름 없는 사업영역';if(d.kind==='archived')return '[보관됨] '+(d.name||'이름 없는 사업영역');if(d.kind==='legacy')return '[이전 공간] '+(d.name||'이름 없음');return '[확인할 수 없는 사업영역]'}
+function luProjectName(id){if(!id)return'';if(!luCatalog())return word('사업영역 연결');const d=window.KPTUProjectCatalog.describe(id);if(d.kind==='active')return d.name||word('이름 없는 사업영역');if(d.kind==='archived')return '[보관됨] '+(d.name||word('이름 없는 사업영역'));if(d.kind==='legacy')return '[이전 공간] '+(d.name||'이름 없음');return word('[확인할 수 없는 사업영역]')}
 function luOption(value,label,selected,attrs=''){return `<option value="${luEsc(value)}"${value===selected?' selected':''}${attrs}>${luEsc(label)}</option>`}
 function luIsDriveAuthError(e){return e?.status===424||/token has been expired or revoked|invalid_grant|Google Drive 토큰 갱신/i.test(String(e?.message||''))}
 async function luReconnectDrive(scope){const isCurrent=scope?.isCurrent||(()=>true);if(!isCurrent())return false;if(!['owner','admin'].includes(luRole)){notify('Google Drive 연결이 만료됐어요. 관리자에게 Drive 재연결을 요청해 주세요.',{error:true});return false}try{const d=await luApi('/functions/v1/public-policy-drive',{method:'POST',body:{action:'drive-start'},...(scope?{expectedSessionEpoch:scope.expectedSessionEpoch}:{})});if(!isCurrent())return false;const url=d?.url||d?.auth_url;if(!url)throw new Error('Google Drive 연결 주소를 받지 못했어요.');location.href=url;return true}catch(e){if(isCurrent())notify(e.message||String(e),{error:true});return false}}
@@ -95,13 +96,13 @@ async function luMaybeReconnectDrive(e,scope){const isCurrent=scope?.isCurrent||
 function luHandleDriveReturn(){const u=new URL(location.href),result=u.searchParams.get('drive');if(!result)return;const photos=u.searchParams.get('photos');if(result==='connected'&&photos==='scope_missing')setTimeout(()=>notify('Google Drive를 다시 연결했어요. 사진 권한 칸이 빠져 사진 메뉴 구글 드라이브만 권한 없음이에요(다시 연결 때 모두 체크).',{error:true}),0);else if(result==='connected')setTimeout(()=>notify('Google Drive를 다시 연결했어요. 올리기·삭제를 다시 해 주세요.'),0);else setTimeout(()=>notify('Google Drive를 다시 연결하지 못했어요. 다시 시도해 주세요.',{error:true}),0);u.searchParams.delete('drive');u.searchParams.delete('reason');u.searchParams.delete('photos');history.replaceState({},'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash)}
 
 async function luContext(){if(!(await luEnsure()))return false;const shared=window.KPTURuntime?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){luUser=shared.user;luWorkspace=shared.workspace.id;luRole=shared.membership?.role||null}else{luUser=await luApi('/auth/v1/user');if(!luUser?.id)return false;const ms=await luApi('/rest/v1/app_workspace_members?user_id=eq.'+luUser.id+'&select=workspace_id,role&limit=1');if(!ms?.length)return false;luWorkspace=ms[0].workspace_id;luRole=ms[0].role||null}await luLoadProjects();return true}
-function luProjectOptions(selected='',{keepStale=false}={}){const rows=luProjectRows(),stale=keepStale&&selected&&!rows.some(r=>r.value===selected);return luOption('','사업영역 없음',selected)+(stale?luOption(selected,luProjectName(selected),selected,' data-lu-stale-project="1"'):'')+rows.map(r=>luOption(r.value,r.label,selected,` data-depth="${r.depth}"`)).join('')}
+function luProjectOptions(selected='',{keepStale=false}={}){const rows=luProjectRows(),stale=keepStale&&selected&&!rows.some(r=>r.value===selected);return luOption('',word('사업영역 없음'),selected)+(stale?luOption(selected,luProjectName(selected),selected,' data-lu-stale-project="1"'):'')+rows.map(r=>luOption(r.value,r.label,selected,` data-depth="${r.depth}"`)).join('')}
 function luRenderUploadProject(selected){const s=document.querySelector('#docProject');if(!s)return;const current=selected??s.value??'';s.innerHTML=luProjectOptions(current);s.value=luIsSelectableProject(current)?current:'';luAreaButton(s)}
 // S52-01 ③c: 사업영역 칸(#docProject·#libraryEditProject)은 값을 가진 <select>가 그대로 주인이고(다른 화면이 option을 넣고 change를 보냄),
 // 화면에는 그 옆의 칸 모양 단추 하나만 보인다. 단추를 누르면 공용 고르기 창(하나만, 맨 위 '사업영역 없음')이 뜨고, 고르면 <select> 값을 바꾸고
 // change를 보낸다. 단추 글자는 고른 사업영역('상위 › 하위') 또는 '사업영역 없음'. 값을 바꾸는 곳은 모두 luAreaButton/luPaintAreaButton을 부른다.
 const luAreaPath=id=>{const rows=luCatalog()?.tree||[];return id&&rows.length?areaChipText(areaTree(catalogAreas(rows)),'p:'+id):''};
-function luPaintAreaButton(select){const b=select?._luAreaBtn;if(!b)return;const v=select.value||'',name=v?(luAreaPath(v)||select.selectedOptions?.[0]?.textContent||luProjectName(v)):'사업영역 없음';b.textContent=name;b.title=v?name:'';b.classList.toggle('is-empty',!v);b.setAttribute('aria-label','사업영역: '+name);b.disabled=!!select.disabled}
+function luPaintAreaButton(select){const b=select?._luAreaBtn;if(!b)return;const v=select.value||'',name=v?(luAreaPath(v)||select.selectedOptions?.[0]?.textContent||luProjectName(v)):word('사업영역 없음');b.textContent=name;b.title=v?name:'';b.classList.toggle('is-empty',!v);b.setAttribute('aria-label',word('사업영역: ')+name);b.disabled=!!select.disabled}
 function luAreaButton(select){
   if(!select)return;
   if(!select._luAreaBtn){const b=document.createElement('button');b.type='button';b.className='secondary field-btn lu-area-pick';b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-expanded','false');select.hidden=true;select.after(b);select._luAreaBtn=b;
@@ -121,13 +122,13 @@ async function luOpenAreaPick(select,button){
 // 프로젝트 하나로 걸러 열 때만 보이는 한 줄 [전체 | 그 프로젝트]이다(담당조직 거르기와 같은 모양). 값(host.value)은 그대로 프로젝트 id다.
 function luRenderProjectFilter(){
   const host=document.querySelector('#documentProject');if(!host)return;
-  if(!host._luChips){const s=document.createElement('span');s.className='lu-filter-label';s.setAttribute('aria-hidden','true');s.textContent='사업영역';host._luChips=document.createElement('div');host.replaceChildren(s,host._luChips)}
+  if(!host._luChips){const s=document.createElement('span');s.className='lu-filter-label';s.setAttribute('aria-hidden','true');s.textContent=word('사업영역');host._luChips=document.createElement('div');host.replaceChildren(s,host._luChips)}
   const pid=host.value&&host.value!=='all'?host.value:'';
   if(!pid){host.value='all';host.hidden=true;return}
   host.hidden=false;
   const d=window.KPTUProjectCatalog?.describe?.(pid),parent=d?.kind==='active'&&d.project?.parent_id?window.KPTUProjectCatalog.describe(d.project.parent_id):null;
-  const name=d?.kind==='active'?(parent?.name?parent.name+' › ':'')+(d.name||'이름 없는 사업영역'):luProjectName(pid);
-  renderFilterChips(host._luChips,{label:'사업영역 필터',controls:'documentList',small:true,value:pid,options:[{value:'all',label:'전체'},{value:pid,label:name}],onChange:value=>{host.value=value;luRenderLibrary()}});
+  const name=d?.kind==='active'?(parent?.name?parent.name+' › ':'')+(d.name||word('이름 없는 사업영역')):luProjectName(pid);
+  renderFilterChips(host._luChips,{label:word('사업영역 필터'),controls:'documentList',small:true,value:pid,options:[{value:'all',label:'전체'},{value:pid,label:name}],onChange:value=>{host.value=value;luRenderLibrary()}});
   host.value=pid;
 }
 // UI-바구니첨부메모 ⑪: 거르는 칩은 분류 7개(저장 값은 그대로, 화면에서 7개로 대응).
@@ -280,7 +281,7 @@ function luOpenCategorySheet(trigger){
 function luRenderOrganizationFilter(){
   const host=document.querySelector('#libraryOrganizationFilter');if(!host)return;
   host.hidden=!luOrganization;if(!luOrganization)return;
-  renderFilterChips(host,{label:'담당조직 필터',controls:'documentList',small:true,value:luOrganization.id,options:[{value:'all',label:'전체'},{value:luOrganization.id,label:luOrganization.name||'담당조직'}],onChange:value=>{if(value==='all')luOrganization=null;luRenderLibrary()}});
+  renderFilterChips(host,{label:word('담당조직 필터'),controls:'documentList',small:true,value:luOrganization.id,options:[{value:'all',label:'전체'},{value:luOrganization.id,label:luOrganization.name||word('담당조직')}],onChange:value=>{if(value==='all')luOrganization=null;luRenderLibrary()}});
 }
 // 다른 화면에서 자료실을 한 조직으로 걸러 연다. 검색·프로젝트·분류 거르기는 비우고 보여 준다.
 function luShowOrganization(id,name){
@@ -336,7 +337,7 @@ function luStartUploadForMeeting(meeting,files=[]){if(!normalizeUploadMeeting(me
 // 창 없이 올리기(새 사업 보고를 저장한 뒤 고른 파일, 사업 보고 사진 줄): 같은 library-files 요청 + 같은 AI 채우기. 실패하면 던진다(호출한 쪽이 개수를 센다).
 // ACT-사진 3단계: 사진은 AI에 보내지 않는다. 제목(파일 이름)·종류(사업 보고 칸을 따라감)·날짜(사업 보고 날짜)를 요청에 실어 AI 채우기를 건너뛴다. 서버(library-files)는 이미 이 값을 받는다.
 // opts(BIZ-저장먼저닫기): 뒤 줄 한 묶음이 미리 만든 올리는 중 표시(job)와 계정 바뀜 확인(gone)을 그대로 넘긴다. 없으면 예전과 같다.
-async function luUploadFileForMeeting(meeting,file,opts=null){const target=normalizeUploadMeeting(meeting);if(!target)throw new Error('사업 보고를 확인하지 못했어요.');const fd=new FormData();try{fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('meeting_id',target.id);if(target.projectId)fd.append('project_id',target.projectId);const photo=isPhotoFile(file);if(photo)for(const [key,value] of Object.entries(photoUploadFields(file,target,documentCategories())))fd.append(key,value);const d=await luUploadRequest(fd,file,{job:opts?.job||null,gone:opts?.gone||null,why:luMeetingFailure});if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');if(!photo)luAiFill(d.document.id,fd,file.name);return d.document}finally{fd.delete('file')}}
+async function luUploadFileForMeeting(meeting,file,opts=null){const target=normalizeUploadMeeting(meeting);if(!target)throw new Error(word('사업 보고를 확인하지 못했어요.'));const fd=new FormData();try{fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('meeting_id',target.id);if(target.projectId)fd.append('project_id',target.projectId);const photo=isPhotoFile(file);if(photo)for(const [key,value] of Object.entries(photoUploadFields(file,target,documentCategories())))fd.append(key,value);const d=await luUploadRequest(fd,file,{job:opts?.job||null,gone:opts?.gone||null,why:luMeetingFailure});if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했어요.');if(!photo)luAiFill(d.document.id,fd,file.name);return d.document}finally{fd.delete('file')}}
 // 담당조직 상세의 자료 [+]·끌어다 놓기: 프로젝트 상세의 [+]처럼 이 올리기 창을 열고, 올라온 자료를 그 조직에 붙인다. 파일이 있으면 미리 골라 둔다.
 function luStartUploadForOrganization(org,files=[]){if(!normalizeUploadOrganization(org)||!luOpenUploadWindow())return false;luSetUploadOrg(org);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
 // 프로젝트 상세의 자료 [+]: 같은 올리기 창을 열고 그 사업영역을 미리 고른다.
@@ -430,7 +431,7 @@ async function luUploadDropped(file,value=null){let fd=null;try{fd=new FormData(
 // S46-25: 묶음 머리 값 확인. 사업영역은 고를 수 있는 사업영역(보관·옛 공간·확인 불가 제외), 담당조직은 읽어 온 내 작업공간 조직, 분류는 내 분류 목록에 있는 이름만.
 function luDropValue(raw){
   if(luGroupBy==='project')return raw&&luCatalog()&&luIsSelectableProject(raw)?{name:luProjectName(raw)}:null;
-  if(luGroupBy==='organization'){const o=(luOrganizations||[]).find(x=>x.id===raw);return o?{name:String(o.name||'이름 없는 조직')}:null}
+  if(luGroupBy==='organization'){const o=(luOrganizations||[]).find(x=>x.id===raw);return o?{name:String(o.name||word('이름 없는 조직'))}:null}
   if(luGroupBy==='category')return documentCategories().includes(raw)?{name:categoryLabel(raw)}:null;
   return null;
 }
@@ -601,14 +602,14 @@ const LU_UPLOAD_FAILURES={
   too_large:{kind:'error',label:'100MB 초과',retry:false,message:'현재 자료실은 파일당 100MB까지 지원합니다.'},
   file_read:{kind:'error',label:'파일을 읽지 못했어요. 파일을 다시 선택해 주세요.',retry:false,message:'파일을 읽지 못했어요. 파일을 다시 선택해 주세요.'},
   empty:{kind:'error',label:'빈 파일',retry:false,message:'빈 파일은 업로드할 수 없어요.'},
-  project:{kind:'error',label:'실패 · 다시 시도',stop:true,message:'선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.'},
+  project:{kind:'error',label:'실패 · 다시 시도',stop:true,message:word('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.')},
   forbidden:{kind:'error',label:'실패 · 다시 시도',stop:true,message:'자료를 업로드할 권한이 없어요.'},
   invalid:{kind:'error',label:'실패 · 다시 시도',message:'파일을 업로드하지 못했어요. 파일과 입력값을 확인한 뒤 다시 시도해 주세요.'},
   server:{kind:'error',label:'실패 · 다시 시도',message:'파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.'},
   cancelled:{kind:'pending',label:'취소함',message:'올리기를 취소했어요.'}
 };
 // LIB-자료등록실패: library-files 실패 응답의 stage(서버 고정 글자)만 받아 사람이 읽는 짧은 이름으로 바꾼다. 모르는 값은 버린다.
-const LU_STAGE_LABELS={auth:'로그인 확인',authorize:'권한 확인',project:'사업영역 확인',validate:'파일 확인',request:'요청 읽기',drive_token:'Drive 연결 확인',drive_folder:'Drive 폴더',drive_upload_init:'Drive 저장 시작',drive_upload:'Drive 저장',db_insert:'자료 기록',db_update:'자료 기록',unknown:'서버'};
+const LU_STAGE_LABELS={auth:'로그인 확인',authorize:'권한 확인',project:word('사업영역 확인'),validate:'파일 확인',request:'요청 읽기',drive_token:'Drive 연결 확인',drive_folder:'Drive 폴더',drive_upload_init:'Drive 저장 시작',drive_upload:'Drive 저장',db_insert:'자료 기록',db_update:'자료 기록',unknown:'서버'};
 function luServerStage(data){const stage=typeof data?.stage==='string'&&Object.hasOwn(LU_STAGE_LABELS,data.stage)?data.stage:'';const serverCode=typeof data?.code==='string'&&/^[a-z_]{1,40}$/.test(data.code)?data.code:'';return {...(stage?{stage}:{}),...(serverCode?{serverCode}:{})}}
 const luStageNote=e=>{const label=Object.hasOwn(LU_STAGE_LABELS,e?.stage||'')?LU_STAGE_LABELS[e.stage]:'';return label?` (멈춘 곳: ${label})`:''};
 // timeout·네트워크 단절·gateway 중단(502/504/546)은 서버가 이미 저장했을 수 있으므로 실패가 아니라 결과 불명으로 둔다.
@@ -621,7 +622,7 @@ const luDropSending=new Set();
 // 올리기 창에서 사용자가 직접 넣은 칸(keep)은 AI가 쓰지 않는다. 채워지면 kptu:documents-changed로 목록을 새로 읽는다.
 // LIB-파일이름그대로: 올린 파일 이름도 넘긴다(뜻 있는 이름이면 제목, 이름에 날짜가 있으면 자료 날짜를 AI가 바꾸지 않음 — library-file-name.mjs 한 곳).
 function luAiFill(id,fd,fileName){const keep=keptFields({title:fd.get('title'),document_date:fd.get('document_date'),source:fd.get('source'),category:fd.get('category')});void fillLibraryDocument(id,{keep,fileName:String(fileName||'')}).catch(()=>{})}
-async function luUploadOrOriginal(original){const projectId=document.querySelector('#docProject')?.value||'';if(!luIsSelectableProject(projectId)){luSetStatus(document.querySelector('#documentStatus'),'선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.',true);luRenderUploadProject('');return}if(!luUploadEntries.length)return original?.();const st=document.querySelector('#documentStatus');
+async function luUploadOrOriginal(original){const projectId=document.querySelector('#docProject')?.value||'';if(!luIsSelectableProject(projectId)){luSetStatus(document.querySelector('#documentStatus'),word('선택한 사업영역을 더 이상 사용할 수 없어요. 사업영역을 다시 선택해 주세요.'),true);luRenderUploadProject('');return}if(!luUploadEntries.length)return original?.();const st=document.querySelector('#documentStatus');
 // 창에서 바로 알 수 있는 것(빈 파일·100MB 초과)은 닫기 전에 그 줄에 표시하고 아무것도 보내지 않는다(결정·입력 먼저 — 창이 닫힌 뒤에는 파일을 바꿀 수 없다).
 const bad=luUploadEntries.map(entry=>[entry,entry.file instanceof Blob?luPreflightFailure(entry.file):null]).filter(([,failure])=>failure);
 if(bad.length){for(const[entry,failure]of bad){entry.failure=failure;entry.retry=false;luSetFileStatus(entry,failure.kind,failure.label)}luSetStatus(st,`${bad[0][1].message} 그 파일을 빼고 다시 저장해 주세요.`,true);return}
@@ -659,7 +660,7 @@ const unknown=failures.some(f=>f.kind==='unknown');
 if(succeeded||unknown){try{await (folder?.receive?luLoadAll():luLoadDocuments());luRenderLibrary()}catch(e){console.error('library list refresh after upload failed',e)}if(filedId)luFolders().revealFolder(filedId)}
 if(succeeded)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:lastProjectId,...(org?{organization_id:org.id}:{}),...(meeting?{meeting_id:meeting.id}:{})}}));
 // 올라갔지만 폴더·담당조직에 못 넣은 것: 끝 알림이 이 한 줄을 덮지 않게 끝 알림 자리에 같이 싣는다(성공뿐이면 이 글이 끝 알림).
-const warn=[unfiled?`자료 ${unfiled}개는 올라갔지만 ‘${folder.name}’ 폴더에 넣지 못해 폴더 밖에 있어요. 그 자료를 폴더로 옮겨 주세요.`:'',linkFailed?`자료 ${linkFailed}개는 올라갔지만 담당조직에 붙이지 못했어요. 그 자료의 [정보 수정]에서 담당조직을 선택해 주세요.`:''].filter(Boolean).join(' ');
+const warn=[unfiled?`자료 ${unfiled}개는 올라갔지만 ‘${folder.name}’ 폴더에 넣지 못해 폴더 밖에 있어요. 그 자료를 폴더로 옮겨 주세요.`:'',linkFailed?word`자료 ${linkFailed}개는 올라갔지만 담당조직에 붙이지 못했어요. 그 자료의 [정보 수정]에서 담당조직을 선택해 주세요.`:''].filter(Boolean).join(' ');
 // 끝 알림(UX-알림하나로 S59-21: 하단바 위 한 줄 하나, upload-done.js). 다 올렸으면 '○○ 올렸어요 · [열기]'. 못 올린 것이 있으면
 // 'n개 완료 · m개 미완료' + 작은 둘째 줄에 까닭 + [다시 올리기](누를 때까지 남음). 자료실 목록 위 올리는 줄은 이 파일들의 실패를 따로 그리지 않는다(files).
 // [다시]는 그 단계부터: 못 올린 파일만(올라간 것은 다시 보내지 않는다) 같은 칸 값으로 뒤 줄에 다시 세운다. 결과를 확인하지 못한 파일(저장됐을 수 있음)은
@@ -700,7 +701,7 @@ const luAwayWord=()=>/KPTUAndroid/i.test(navigator.userAgent||'')?'앱을':'화�
 function luMeetingFailure(e){
   const f=luUploadFailure(e);
   if(!e?.away||(f.type!=='unknown_network'&&f.type!=='unknown_timeout'))return f;
-  const unsure=`${luAwayWord()} 벗어난 사이 올리기가 끊겨 올렸는지 확인하지 못했어요. 사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.`;
+  const unsure=word`${luAwayWord()} 벗어난 사이 올리기가 끊겨 올렸는지 확인하지 못했어요. 사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.`;
   if(e.unsent)return {...f,type:'away',kind:'error',label:'멈춤',away:true,stop:true,message:`${luAwayWord()} 벗어나 올리기가 멈췄어요.`,unsure};
   return {...f,type:'unknown_away',message:unsure};
 }
@@ -737,7 +738,7 @@ const luMeetingSend=createMeetingSend({
   handoff:luMeetingHandoff,
   handedText:uploadReasonText,back:luScreenBack,verify:luMeetingHas,
   fields:(file,target)=>photoUploadFields(file,normalizeUploadMeeting(target)||{},documentCategories()),
-  confirmUnknown:count=>askConfirm(null,{text:`올렸는지 확인하지 못한 파일이 ${count}개 있어요.`,note:'이미 사업 보고에 붙었다면 다시 올릴 때 같은 자료가 두 번 붙어요. 사업 보고를 열어 없는 것을 확인했다면 [다시 올리기]를 눌러 주세요.',ok:'다시 올리기'}),
+  confirmUnknown:count=>askConfirm(null,{text:`올렸는지 확인하지 못한 파일이 ${count}개 있어요.`,note:word('이미 사업 보고에 붙었다면 다시 올릴 때 같은 자료가 두 번 붙어요. 사업 보고를 열어 없는 것을 확인했다면 [다시 올리기]를 눌러 주세요.'),ok:'다시 올리기'}),
   report:luMeetingSendReport});
 function luMeetingSendReport(ev){
   const {batch}=ev,t=batch.target,back=()=>luShowReport(t.id),retry=()=>{void luMeetingSend.retry(batch)};
@@ -756,7 +757,7 @@ function luMeetingSendReport(ev){
   if(ev.type==='handed-stopped'){luMeetingNote(batch,{text:luStoppedLine(ev.job?.reason),error:true,back,ms:LU_BACK_FAIL_MS});return}
   // 화면을 벗어나 끊긴 파일을 돌아와 다시 보내는 중(까닭대로 — 인터넷 탓이 아니다).
   if(ev.type==='resumed'){luMeetingNote(batch,{text:`${luAwayWord()} 벗어나 멈췄어요 · 다시 올리는 중`,back});return}
-  if(ev.type==='kept'){luMeetingNote(batch,{text:'확인하지 못한 파일은 다시 올리지 않았어요',note:'사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.',error:true,back,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]});return}
+  if(ev.type==='kept'){luMeetingNote(batch,{text:'확인하지 못한 파일은 다시 올리지 않았어요',note:word('사업 보고를 열어 붙었는지 확인한 뒤 다시 올려 주세요.'),error:true,back,ms:0,actions:[{label:'다시 올리기',aria:'못 올린 파일 다시 올리기',run:retry}]});return}
   if(ev.type!=='done')return;
   if(ev.sent){if(t.project_id)window.KPTUDriveSummary?.saved?.();window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:t.project_id||null,meeting_id:t.id}}))}
   // 못 올린 줄의 [다시]도 같은 길(못 올린 것만). 다시 골라야 하는 파일·결과 불명에는 붙이지 않는다.
@@ -791,7 +792,7 @@ async function luSendOneForMeeting(meeting,file){
   luMeetingSend.forget(batch);
   throw Object.assign(new Error(entry?.state==='cancelled'?'올리기를 취소했어요.':entry?.state==='gone'?'로그인 계정이 바뀌어 올리지 않았어요.':entry?.message||'파일을 올리지 못했어요.'),{code:entry?.state==='cancelled'?'upload_cancelled':'upload_failed'});
 }
-function luEnsureManageUi(){if(document.querySelector('#libraryManageModal'))return;document.body.insertAdjacentHTML('beforeend',`<div id="libraryManageModal" class="modal le-modal hidden" aria-hidden="true"><div class="modal-card medium-card"><div class="modal-head"><div><h2>분류 수정<span class="le-count" data-le-count></span></h2></div><button id="libraryManageClose" class="icon-btn" type="button">×</button></div><div id="libraryCategoryEditor" class="library-category-editor"></div></div></div><div id="libraryEditModal" class="modal hidden" data-enter-save aria-hidden="true"><div class="modal-card small-card"><div class="modal-head"><div><h2>자료 수정</h2></div><button id="libraryEditClose" class="icon-btn" type="button">×</button></div><input id="libraryEditId" type="hidden"><div id="libraryEditFile" class="library-edit-file" hidden><div id="libraryEditFileLine" aria-live="polite"></div><details id="libraryEditPrev" class="library-edit-prev" hidden><summary>이전 파일${chevHtml(false)}</summary><div id="libraryEditPrevList"></div></details><input id="libraryEditReplaceInput" class="library-file-input" type="file" tabindex="-1" aria-label="교체할 파일"></div><label>자료명<input id="libraryEditTitle" type="text"></label><div class="library-edit-grid"><label>분류<select id="libraryEditCategory">${categoryOptions('')}</select></label><label>사업영역<select id="libraryEditProject"></select></label><label>사업 보고<select id="libraryEditMeeting"></select></label><label>출처<input id="libraryEditSource" type="text"></label><label>문서 날짜<input id="libraryEditDate" type="date"></label></div><label>태그<input id="libraryEditTags" type="text" placeholder="쉼표로 구분"></label><label>설명<textarea id="libraryEditDescription" rows="4"></textarea></label><div class="modal-action-footer"><div id="libraryEditStatus" class="status"></div><button id="libraryEditSave" data-enter-save-submit class="primary wide" type="button">수정 저장</button></div></div></div>`);document.querySelector('#libraryManageClose').onclick=()=>luClose('libraryManageModal');document.querySelector('#libraryEditClose').onclick=()=>luClose('libraryEditModal');document.querySelector('#libraryEditSave').onclick=luSaveEdit;luBindReplaceFile()}
+function luEnsureManageUi(){if(document.querySelector('#libraryManageModal'))return;document.body.insertAdjacentHTML('beforeend',word`<div id="libraryManageModal" class="modal le-modal hidden" aria-hidden="true"><div class="modal-card medium-card"><div class="modal-head"><div><h2>분류 수정<span class="le-count" data-le-count></span></h2></div><button id="libraryManageClose" class="icon-btn" type="button">×</button></div><div id="libraryCategoryEditor" class="library-category-editor"></div></div></div><div id="libraryEditModal" class="modal hidden" data-enter-save aria-hidden="true"><div class="modal-card small-card"><div class="modal-head"><div><h2>자료 수정</h2></div><button id="libraryEditClose" class="icon-btn" type="button">×</button></div><input id="libraryEditId" type="hidden"><div id="libraryEditFile" class="library-edit-file" hidden><div id="libraryEditFileLine" aria-live="polite"></div><details id="libraryEditPrev" class="library-edit-prev" hidden><summary>이전 파일${chevHtml(false)}</summary><div id="libraryEditPrevList"></div></details><input id="libraryEditReplaceInput" class="library-file-input" type="file" tabindex="-1" aria-label="교체할 파일"></div><label>자료명<input id="libraryEditTitle" type="text"></label><div class="library-edit-grid"><label>분류<select id="libraryEditCategory">${categoryOptions('')}</select></label><label>사업영역<select id="libraryEditProject"></select></label><label>사업 보고<select id="libraryEditMeeting"></select></label><label>출처<input id="libraryEditSource" type="text"></label><label>문서 날짜<input id="libraryEditDate" type="date"></label></div><label>태그<input id="libraryEditTags" type="text" placeholder="쉼표로 구분"></label><label>설명<textarea id="libraryEditDescription" rows="4"></textarea></label><div class="modal-action-footer"><div id="libraryEditStatus" class="status"></div><button id="libraryEditSave" data-enter-save-submit class="primary wide" type="button">수정 저장</button></div></div></div>`);document.querySelector('#libraryManageClose').onclick=()=>luClose('libraryManageModal');document.querySelector('#libraryEditClose').onclick=()=>luClose('libraryEditModal');document.querySelector('#libraryEditSave').onclick=luSaveEdit;luBindReplaceFile()}
 // UI-Esc로창닫기: 분류 수정·파일 고치기 창도 공용 창 규칙(accessibility-dialog.js)으로 연다 — Esc = 그 창의 ✕.
 // activate·deactivate가 kptu:dialog-opened·closed 알림도 보낸다(전에 여기서 직접 보내던 것과 같은 알림).
 const LU_CLOSE={libraryManageModal:'#libraryManageClose',libraryEditModal:'#libraryEditClose'};
@@ -823,7 +824,7 @@ const luPhotoSetMenu=()=>luGroupBy==='folder'&&luFoldersReady;
 const luPhotoSetKey=id=>typeof id==='string'&&id.startsWith('photoset:')?id.slice(9):null;
 // ACT-사진 6단계: 사진 묶음 줄을 누르면 사업 보고 화면의 [사진] 보기로 바로 가서 그 사업 보고 묶음 자리에 선다(도착점은 이 함수 하나).
 // 사업 보고 화면을 불러오지 못하면 예전처럼 그 사업 보고 결과 창을 연다.
-async function luOpenPhotoSet(meetingId){try{await window.KPTUViewLoader?.load?.('meetings');const cols=window.KPTUMeetingColumns;if(cols?.showPhotos&&window.KPTURouter?.go?.('meetings',{source:'delegated'})){cols.showPhotos(meetingId);return}const {openReport}=await import('./report-open.js');await openReport(meetingId)}catch(e){console.error('library photo set open',e);notify('사업 보고를 열지 못했어요.',{error:true})}}
+async function luOpenPhotoSet(meetingId){try{await window.KPTUViewLoader?.load?.('meetings');const cols=window.KPTUMeetingColumns;if(cols?.showPhotos&&window.KPTURouter?.go?.('meetings',{source:'delegated'})){cols.showPhotos(meetingId);return}const {openReport}=await import('./report-open.js');await openReport(meetingId)}catch(e){console.error('library photo set open',e);notify(word('사업 보고를 열지 못했어요.'),{error:true})}}
 // UI-디자인기준 3/3: the kind comes from the file extension; a name without a known extension uses the type Drive reported (mime_type).
 const luFileKind=fileKindOf;
 // UI-PC자료실: 줄 오른쪽의 짧은 날짜(월.일). 분류 꼬리표는 자료명 왼쪽으로 옮겼다.
@@ -1552,7 +1553,7 @@ async function luCheckEdit(editor){
   attempt.reading=true;const current=()=>luEditCurrent(editor)&&luEditAttempts.get(key)===attempt;
   try{const rows=await luApi(`/rest/v1/app_documents?id=eq.${encodeURIComponent(editor.id)}&workspace_id=eq.${encodeURIComponent(editor.scope.workspace)}&select=*`,{expectedSessionEpoch:editor.scope.epoch,singleFlight:false});if(!current())return;const row=luEditRow(editor,rows,attempt.body);editor.original=structuredClone(row);editor.baseline=structuredClone(attempt.values);luDocuments=luDocuments.map(old=>old.id===row.id?structuredClone(row):old);luEditAttempts.delete(key);luEditNotice(editor,'제출한 자료 정보는 확인했습니다. 현재 입력은 남겨두었습니다.')}catch{if(current())luEditNotice(editor,'저장 결과를 아직 확인하지 못했어요. 입력을 유지했으며 다시 저장하지 않았어요.',true)}finally{attempt.reading=false}
 }
-async function luEdit(d){const editor={id:d.id,original:structuredClone(d),scope:luEditScope(),sequence:++luEditSequence,view:luEditView};luEditor=editor;if(editor.scope)luEditObservedScope={...editor.scope};try{await window.__KPTU_START_TEAM_VIEW__?.('meetings');if(luEditor!==editor||editor.sequence!==luEditSequence||editor.view!==luEditView||(editor.scope&&!luEditSameScope(editor.scope)))return;const meetings=[...(window.KPTUTeamData?.meetings?.()||[])].sort((a,b)=>new Date(b.meeting_at)-new Date(a.meeting_at));if(d.meeting_id&&!meetings.some(m=>m.id===d.meeting_id))throw new Error('연결된 사업 보고를 확인하지 못했어요. 사업 보고 목록을 다시 연 뒤 수정해 주세요.');document.querySelector('#libraryEditMeeting').innerHTML=luOption('','연결 안 함',d.meeting_id||'')+meetings.map(m=>luOption(m.id,window.KPTUMeetingNames.label(m),d.meeting_id||'')).join('');document.querySelector('#libraryEditId').value=d.id;document.querySelector('#libraryEditTitle').value=d.title||'';document.querySelector('#libraryEditCategory').innerHTML=categoryOptions(d.category);document.querySelector('#libraryEditProject').innerHTML=luProjectOptions(d.project_id||'',{keepStale:true});luAreaButton(document.querySelector('#libraryEditProject'));document.querySelector('#libraryEditSource').value=d.source||'';document.querySelector('#libraryEditDate').value=d.document_date||'';document.querySelector('#libraryEditTags').value=(d.tags||[]).join(', ');document.querySelector('#libraryEditDescription').value=d.description||'';document.querySelector('#libraryEditStatus').textContent='';luEditOriginal={...d};luEditBaseline=luEditFields();editor.baseline??=structuredClone(luEditBaseline);editor.replaceFile=null;editor.replacing=false;luRenderEditFile();luOpen('libraryEditModal');const button=document.querySelector('#libraryEditSave'),attempt=editor.scope&&luEditAttempts.get(luEditKey(editor));button.disabled=!!attempt?.pending;if(attempt?.pending){if(luEditCurrent(editor))document.querySelector('#libraryEditStatus').innerHTML=globalThis.KPTUWait?.waitInlineHtml?.()||'';attempt.done.then(()=>{if(luEditCurrent(editor)){button.disabled=false;luEditNotice(editor,'앞선 요청이 끝났습니다. 현재 입력은 유지했습니다.',attempt.state==='unknown')}})}else if(attempt)luEditNotice(editor,'앞선 저장 결과를 먼저 확인해 주세요.',true)}catch(e){if(luEditor===editor)notify(e.message||'사업 보고 목록을 불러오지 못했어요. 다시 시도해 주세요.',{error:true})}}
+async function luEdit(d){const editor={id:d.id,original:structuredClone(d),scope:luEditScope(),sequence:++luEditSequence,view:luEditView};luEditor=editor;if(editor.scope)luEditObservedScope={...editor.scope};try{await window.__KPTU_START_TEAM_VIEW__?.('meetings');if(luEditor!==editor||editor.sequence!==luEditSequence||editor.view!==luEditView||(editor.scope&&!luEditSameScope(editor.scope)))return;const meetings=[...(window.KPTUTeamData?.meetings?.()||[])].sort((a,b)=>new Date(b.meeting_at)-new Date(a.meeting_at));if(d.meeting_id&&!meetings.some(m=>m.id===d.meeting_id))throw new Error(word('연결된 사업 보고를 확인하지 못했어요. 사업 보고 목록을 다시 연 뒤 수정해 주세요.'));document.querySelector('#libraryEditMeeting').innerHTML=luOption('','연결 안 함',d.meeting_id||'')+meetings.map(m=>luOption(m.id,window.KPTUMeetingNames.label(m),d.meeting_id||'')).join('');document.querySelector('#libraryEditId').value=d.id;document.querySelector('#libraryEditTitle').value=d.title||'';document.querySelector('#libraryEditCategory').innerHTML=categoryOptions(d.category);document.querySelector('#libraryEditProject').innerHTML=luProjectOptions(d.project_id||'',{keepStale:true});luAreaButton(document.querySelector('#libraryEditProject'));document.querySelector('#libraryEditSource').value=d.source||'';document.querySelector('#libraryEditDate').value=d.document_date||'';document.querySelector('#libraryEditTags').value=(d.tags||[]).join(', ');document.querySelector('#libraryEditDescription').value=d.description||'';document.querySelector('#libraryEditStatus').textContent='';luEditOriginal={...d};luEditBaseline=luEditFields();editor.baseline??=structuredClone(luEditBaseline);editor.replaceFile=null;editor.replacing=false;luRenderEditFile();luOpen('libraryEditModal');const button=document.querySelector('#libraryEditSave'),attempt=editor.scope&&luEditAttempts.get(luEditKey(editor));button.disabled=!!attempt?.pending;if(attempt?.pending){if(luEditCurrent(editor))document.querySelector('#libraryEditStatus').innerHTML=globalThis.KPTUWait?.waitInlineHtml?.()||'';attempt.done.then(()=>{if(luEditCurrent(editor)){button.disabled=false;luEditNotice(editor,'앞선 요청이 끝났습니다. 현재 입력은 유지했습니다.',attempt.state==='unknown')}})}else if(attempt)luEditNotice(editor,'앞선 저장 결과를 먼저 확인해 주세요.',true)}catch(e){if(luEditor===editor)notify(e.message||word('사업 보고 목록을 불러오지 못했어요. 다시 시도해 주세요.'),{error:true})}}
 const LU_EDIT_SOURCE='library-edit'; // 자료실 [정보 수정] 저장이 보낸 'kptu:documents-changed'(자료실 목록은 이미 그 줄로 그렸다)
 async function luSaveEdit(){
   const editor=luEditor,st=document.querySelector('#libraryEditStatus');
@@ -1858,7 +1859,7 @@ async function luOpenBulkMenu(button){
 async function luBulkApply(kind,value,only=null){
   const pool=only||(luPick.items?[...luPick.items]:[]);
   if(luSelBusy||!pool.length||!BULK_FIELDS[kind])return;
-  if(kind==='project'&&!luIsSelectableProject(value)){luFolderStatus('선택한 사업영역을 더 이상 사용할 수 없어요. 목록을 다시 열어 주세요.',true);return}
+  if(kind==='project'&&!luIsSelectableProject(value)){luFolderStatus(word('선택한 사업영역을 더 이상 사용할 수 없어요. 목록을 다시 열어 주세요.'),true);return}
   if(!luDeleteScope()){luFolderStatus('로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 시도해 주세요.',true);return}
   const ids=pool.filter(id=>luDocuments.some(d=>d.id===id)),label=BULK_FIELDS[kind].label;
   if(!ids.length)return;
@@ -1939,7 +1940,7 @@ function luManage(options){const addSubTo=typeof options?.addSubTo==='string'?op
 // A basket attachment's [자료실에서 보기] (BASKET-4b-1): once the list has loaded,
 // show that document's row. Filters are cleared only when they hide it.
 // HWP-편집기 메뉴 입구: [자료실에 올리기]로 넘어온 파일을 기존 [+ 자료 등록] 창에 채워 연다. 프로젝트·분류와 [등록]은 사용자가 한다.
-function luOpenRequestedUpload(){if(window.KPTURouter?.current!=='library')return;const file=takeLibraryUploadRequest();if(!file)return;if(!luOpenUploadWindow()){luSetStatus(document.querySelector('#documentStatus'),'자료 등록 창을 열지 못했어요. 잠시 후 다시 시도해 주세요.',true);return}luSetSelectedFiles([file]);luSetStatus(document.querySelector('#documentStatus'),'HWP 편집에서 수정한 파일을 넣었어요. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.')}
+function luOpenRequestedUpload(){if(window.KPTURouter?.current!=='library')return;const file=takeLibraryUploadRequest();if(!file)return;if(!luOpenUploadWindow()){luSetStatus(document.querySelector('#documentStatus'),'자료 등록 창을 열지 못했어요. 잠시 후 다시 시도해 주세요.',true);return}luSetSelectedFiles([file]);luSetStatus(document.querySelector('#documentStatus'),word('HWP 편집에서 수정한 파일을 넣었어요. 사업영역·분류를 선택한 뒤 [등록]을 누르세요.'))}
 // SEARCH-선택옮기기(1차): 전체 검색에서 넘겨받은 자료들을 고른 채로 선택 모드를 켠다. 가리는 거르기(검색·프로젝트·분류 칩·담당조직)는 풀고, 첫 자료로 간다.
 function luSelectRequested(){
   const ids=takeLibrarySelectionRequest();if(!ids||window.KPTURouter?.current!=='library'||luSelBusy)return false;
