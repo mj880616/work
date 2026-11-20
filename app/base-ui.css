@@ -458,3 +458,10 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
 :is(#ps3DetailModal,#wdModal,#documentList,#libraryRecent,#filesRoot) .photo-fold-tile>details>summary,:is(#ps3DetailModal,#wdModal,#documentList,#libraryRecent,#filesRoot) .photo-fold-tile>:is(.icon-btn:not(.photo-fold-thumb),.ft-dots){box-sizing:border-box;width:24px;height:24px;min-width:0;min-height:0;margin:0;border-radius:0 var(--kptu-radius-sm,6px) 0 var(--kptu-radius-sm,6px);background:color-mix(in srgb,var(--kptu-surface) 78%,transparent)}
 :is(#ps3DetailModal,#wdModal,#documentList,#libraryRecent,#filesRoot) .photo-fold-tile>:is(.icon-btn:not(.photo-fold-thumb),.ft-dots){position:absolute;top:0;right:0;padding:0}
 .doc-kind-badge{min-width:30px;height:18px;margin-right:4px;font-size:10.5px;vertical-align:1px}
+/* S67-39: 사업 보고·조직 보고 '자료 +' 작은 메뉴(report-library-pick.js). 어느 화면에서 열려도 같은 모양이도록 늘 불리는 이 파일에 둔다.
+   줄은 공용 글자 버튼(row-act)이지만 메뉴 안에서는 한 줄씩 44px 칸 — row-act의 누르는 자리 넓히기(::after)가 옆 줄을 덮지 않게 끈다. */
+.report-add-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
+.report-add-menu[hidden]{display:none}
+.report-add-menu[role="group"] button.row-act{display:block;width:100%;height:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,13px);font-weight:400}
+.report-add-menu[role="group"] button.row-act::after{content:none}
+.report-add-menu[role="group"] button.row-act:hover{background:var(--kptu-surface-subtle)}

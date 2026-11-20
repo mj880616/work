@@ -1042,6 +1042,8 @@
 #appView #basketView :is(.note-pop-menu,.basket-row-pop-menu){ position:fixed; z-index:40; min-width:0; overflow:auto; }
 /* 사진 크게 보기: 화면 전체(×·Esc·뒤로 닫힘). */
 .basket-photo-view{ position:fixed; inset:0; z-index:1000; display:flex; flex-direction:column; background:var(--ds-photo-stage); color:var(--ds-photo-ink); }
+/* S67-39: 크게 보기 ⋯ [빼기]·[삭제]가 묻는 작은 확인창·알림은 크게 보기 위에 뜬다(일기 보기 diary.css와 같은 규칙). 전에는 확인창이 크게 보기 밑에 깔려 누를 수 없었다. */
+body:has(.basket-photo-view) > :is(.kptu-ask,.kptu-notice,.kptu-undo-notice,.toast){ z-index:1001; }
 .basket-photo-view:focus{ outline:none; } /* 창 자신이 초점을 받을 때(tabindex -1, ←→·Esc용) 전체 화면 테두리는 그리지 않는다 */
 .basket-photo-bar{ display:flex; align-items:center; gap:8px; min-height:52px; padding:4px 8px 4px 16px; }
 .basket-photo-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-row); }

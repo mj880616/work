@@ -9,7 +9,8 @@
 // 칸 칩·사업영역 칩은 보고에만 걸린다(일정은 아직 칸·사업영역이 없다). 회의명 거르기만 같은 이름 열쇠로 건다(matchesName).
 import {seoulClock} from './meeting-time.js';
 import {PLAN_ICON} from './calendar-row-menu.mjs'; // S59-20: 일정 메뉴와 같은 깃발 아이콘 하나(예전에는 네모 선이 두 곳에 따로 있었다)
-import {eventStatus, planDecision, reportsOfEvent, eventCopy, nameKey, askReason, PLAN_ON, STATUS_TODO, STATUS_ASK, ASK_MAJOR} from './report-plan-model.mjs';
+import {eventStatus, planDecision, reportsOfEvent, eventCopy, nameKey, askReason, reportCover, coverCandidates, PLAN_ON, STATUS_TODO, STATUS_ASK, ASK_MAJOR} from './report-plan-model.mjs';
+import {MATCH_NEAR} from './title-match.mjs';
 import {word} from './brand/brand.mjs';
 
 export const ENTRY_REPORT = 'report', ENTRY_PLAN = 'plan';
@@ -36,15 +37,19 @@ function itemOfEvent(event, status, rowId = '', auto = false, reason = '') {
 // 달력에 놓을 '보고할 일정' 항목. data = {plans, reports(일정에 이어진 보고), orgs?·areaEventIds?(보고할까요? 힌트 — askReason)}, events = 읽어 둔 Google 일정(없으면 줄만으로 그린다).
 // 항목 = {eventId, calendarId, status:'todo'|'ask', day, title, startsAt(ISO|null=종일), rowId(줄이 있으면), auto(저절로 켜짐 — 줄을 아직 안 넣음), reason('ask'일 때 'org'|'major')}
 // 같은 일정은 한 번만 나온다. 읽어 둔 일정이 있으면 제목·날짜는 일정 쪽이 먼저다(줄 사본은 뒤에서 맞춘다 — 설계 4-5).
+// S67-40: data.allReports(사업 보고 목록 전체)가 있으면 따로 쓴 보고가 덮는 일정(report-plan-model.mjs reportCover)은 □·점선 □로 놓지 않는다.
+//   덮지는 않지만 낱말이 겹치는 보고가 같은 날 있으면 항목에 near=true(그날 목록 둘째 줄 '비슷한 보고 있음', ⋯ [이미 보고함] 후보 맨 앞).
 export function planItems(data, events = []) {
   const plans = Array.isArray(data?.plans) ? data.plans : [], reports = Array.isArray(data?.reports) ? data.reports : [];
-  const hints = {orgs: data?.orgs ?? null, areaEventIds: data?.areaEventIds ?? null};
+  const allReports = Array.isArray(data?.allReports) ? data.allReports : null, cover = {reports, allReports: allReports || []};
+  const hints = {orgs: data?.orgs ?? null, areaEventIds: data?.areaEventIds ?? null, allReports};
   const byId = new Map();
   for (const e of Array.isArray(events) ? events : []) { const id = String(e?.id ?? ''); if (id && !byId.has(id)) byId.set(id, e); }
   const items = new Map();
   for (const row of plans) {
     const id = String(row?.google_event_id ?? '');
     if (!id || items.has(id) || row.state !== PLAN_ON || reportsOfEvent(id, reports).length) continue;
+    if (allReports && reportCover(byId.get(id) || row, cover)) { items.set(id, null); continue; }
     const item = (byId.has(id) && itemOfEvent(byId.get(id), STATUS_TODO, String(row.id ?? ''))) || itemOfRow(row);
     if (item) items.set(id, item);
   }
@@ -56,7 +61,9 @@ export function planItems(data, events = []) {
     const item = itemOfEvent(event, status, '', status === STATUS_TODO && !planDecision(event, {plans, reports}).row, status === STATUS_ASK ? askReason(event, hints) : '');
     if (item) items.set(id, item);
   }
-  return sortItems([...items.values()]);
+  const list = [...items.values()].filter(Boolean);
+  if (allReports) for (const item of list) if (coverCandidates(itemEvent(item), cover)[0]?.level === MATCH_NEAR) item.near = true;
+  return sortItems(list);
 }
 // 하루 안의 순서: 종일(시각 없음) 먼저 → 시각 이른 순 → 보고할 일정이 보고할까요?보다 먼저 → 제목.
 const minuteOf = at => { if (!at) return -1; const t = stampOf(at); return t ? Math.floor(((t + 9 * 3600e3) % 86400e3) / 60000) : -1; };
@@ -100,7 +107,8 @@ export function cellDots(entries, max = CELL_DOTS) {
 export const itemTime = item => (item?.startsAt ? seoulClock(item.startsAt) : '종일');
 // 그날 목록 둘째 줄(시안): '일정 · 10:00' / '일정 · 10:00 · 담당조직 연결됨' / '일정 · 10:00 · 주요 일정'(S67-16)
 const askText = item => (item?.status !== STATUS_ASK ? '' : item.reason === ASK_MAJOR ? '주요 일정' : word('담당조직 연결됨'));
-export const itemMeta = item => ['일정', itemTime(item), askText(item)].filter(Boolean).join(' · ');
+// S67-40: 같은 날 낱말이 겹치는 보고가 있으면 끝에 '비슷한 보고 있음'(⋯ [이미 보고함]으로 이을 수 있다).
+export const itemMeta = item => ['일정', itemTime(item), askText(item), item?.near ? '비슷한 보고 있음' : ''].filter(Boolean).join(' · ');
 // 항목 → 일정 모양(Edge google-calendar normEvent와 같은 칸). 저장(report-plan-data.js)과 보고 쓰기 창에 넘긴다.
 export const itemEvent = item => ({id: item.eventId, calendarId: item.calendarId, title: item.title, start: item.startsAt || item.day, allDay: !item.startsAt});
 // 보고 쓰기 창에 채울 날짜·시각: 시각 있는 일정은 {at:'YYYY-MM-DDTHH:MM'}(서울), 종일은 {date}. (일정 창 [결과 남기기]와 같은 모양)
@@ -117,12 +125,13 @@ export function overdueItems(data, todayKey) {
   const y = new Date(Date.UTC(+todayKey.slice(0, 4), +todayKey.slice(5, 7) - 1, +todayKey.slice(8, 10) - 1));
   const yesterday = `${y.getUTCFullYear()}-${pad(y.getUTCMonth() + 1)}-${pad(y.getUTCDate())}`;
   const plans = Array.isArray(data?.plans) ? data.plans : [], reports = Array.isArray(data?.reports) ? data.reports : [], seen = new Set(), out = [];
+  const cover = Array.isArray(data?.allReports) ? {reports, allReports: data.allReports} : null; // S67-40: 따로 쓴 보고가 덮으면 '안 쓴 보고'가 아니다
   for (const row of plans) {
     const id = String(row?.google_event_id ?? '');
     if (!id || seen.has(id) || row.state !== PLAN_ON) continue;
     seen.add(id);
     const item = itemOfRow(row);
-    if (item && item.day < yesterday && !reportsOfEvent(id, reports).length) out.push(item);
+    if (item && item.day < yesterday && !reportsOfEvent(id, reports).length && !(cover && reportCover(row, cover))) out.push(item);
   }
   return out.sort((a, b) => b.day.localeCompare(a.day) || minuteOf(a.startsAt) - minuteOf(b.startsAt) || a.title.localeCompare(b.title, 'ko') || a.eventId.localeCompare(b.eventId));
 }
