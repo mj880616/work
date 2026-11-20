@@ -16,10 +16,10 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const answer=items=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:500,output_tokens:60}});
 const UPDATE_COLS=['reads','reads_at','reads_slot','news_seen_at','suggests','suggests_at','suggests_done','run_at'];
 
-function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],assignees=[],spaces=[],usage=[],now=MORNING,openai=null,env={}}={}){
+function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],edits=[],assignees=[],spaces=[],usage=[],now=MORNING,openai=null,env={}}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'}],app_home_day_picks:structuredClone(picks),app_news_items:structuredClone(items),
-    app_notes:structuredClone(notes),app_meetings:structuredClone(meetings),app_feed_items:structuredClone(feeds),app_suborganizations:structuredClone(orgs),
+    app_notes:structuredClone(notes),app_meetings:structuredClone(meetings),app_feed_items:structuredClone(feeds),app_suborganizations:structuredClone(orgs),app_call_edits:structuredClone(edits),
     app_suborganization_assignees:structuredClone(assignees),app_spaces:structuredClone(spaces),app_ai_daily_usage:structuredClone(usage)};
   const cmp=(v,op,val)=>{
     if(op==='eq')return String(v)===val;
@@ -125,6 +125,39 @@ test('evening: reads not redone without new news; suggestions from ended events,
   // 한 번만: 다시 열면 부르지 않는다.
   await post(handler,ask({events,done:[]}));
   assert.equal(calls.openai.length,1);
+});
+
+test('S67-47: call lines carry only the org attached to that call (user edit first); a suggestion naming another org is dropped',async()=>{
+  const O1='d0000000-0000-4000-8000-000000000001',O2='d0000000-0000-4000-8000-000000000002',C1='f0000000-0000-4000-8000-000000000001',C2='f0000000-0000-4000-8000-000000000002';
+  const orgs=[{id:O1,workspace_id:WS,name:'가상철도지부',aliases:['가철'],active:true,deleted_at:null},{id:O2,workspace_id:WS,name:'예시광역노조',aliases:[],active:true,deleted_at:null}];
+  const picks=[{workspace_id:WS,day:DAY,reads:[],reads_at:'2026-11-08T23:00:00.000Z',reads_slot:'pm',news_seen_at:null,suggests:[],suggests_at:null,suggests_done:[],run_at:null}];
+  const feeds=[
+    {id:C1,workspace_id:WS,source:'call',day:DAY,hidden_at:null,archived_at:null,title:'가상철도지부 위원장 · 파업 일정과 쟁의 준비 논의',summary:null,organization_id:null,occurred_at:'2026-11-09T03:00:00.000Z'},
+    {id:C2,workspace_id:WS,source:'call',day:DAY,hidden_at:null,archived_at:null,title:'가상철도지부 국장 · 교섭 자료 요청',summary:null,organization_id:O1,occurred_at:'2026-11-09T04:00:00.000Z'},
+  ];
+  // C2는 사람이 조직을 예시광역노조로 고쳤다(app_call_edits) — AI 값(가상철도지부)보다 앞선다.
+  const edits=[{call_id:C2,workspace_id:WS,vals:{organization_id:O2}}];
+  const {handler,calls,db}=harness({now:EVENING,picks,orgs,feeds,edits,notes:[{workspace_id:WS,kind:'diary',journal_day:DAY,archived_at:null,raw_text:''}],
+    openai:()=>respond(answer([{n:1,text:'오늘 가상철도지부와 파업 일정을 논의했다',basis:'가상철도지부 통화에서 파업 일정 논의'},{n:2,text:'오늘 예시광역노조 교섭 자료를 챙겼다',basis:'예시광역노조 통화'}]))});
+  const res=await post(handler,ask());
+  assert.equal(res.status,200);
+  const m=calls.openai[0].input[1].content;
+  assert.ok(m.includes('[통화] 파업 일정과 쟁의 준비 논의 (조직: 없음)'),m);
+  assert.ok(m.includes('[통화] 교섭 자료 요청 (조직: 예시광역노조)'),m);
+  assert.ok(!m.includes('가상철도지부'),'title head org (a guess) is not sent');
+  assert.ok(calls.openai[0].input[0].content.includes('다른 줄의 조직을 옮겨 붙이지 않는다'));
+  assert.deepEqual(db.app_home_day_picks[0].suggests,[{id:'s1',text:'오늘 예시광역노조 교섭 자료를 챙겼다',basis:'예시광역노조 통화'}],'the line without an org cannot gain one');
+});
+
+test('S67-47 pure: borrowsOrg / callDayLine',()=>{
+  const orgs=[{id:'a',name:'가상철도지부',aliases:['가철']},{id:'b',name:'예시광역노조',aliases:[]}];
+  assert.equal(hd.borrowsOrg('파업 일정 논의 ','가상철도지부 통화에서 파업 일정 논의',orgs),true);
+  assert.equal(hd.borrowsOrg('가상철도지부 정기회의 ','오늘 가철 정기회의를 했다',orgs),false,'same org by alias');
+  assert.equal(hd.borrowsOrg('교섭 예시광역노조','오늘 예시광역노조 교섭',orgs),false);
+  assert.equal(hd.borrowsOrg('교섭','오늘 교섭 준비',orgs),false);
+  assert.deepEqual(hd.callDayLine('가상철도지부 위원장 · 파업 논의',null,null,DAY),{kind:'통화',text:'파업 논의',day:DAY,org:''});
+  assert.deepEqual(hd.callDayLine('한 줄 제목','요약',null,''),{kind:'통화',text:'한 줄 제목 — 요약',day:'',org:''});
+  assert.deepEqual(hd.callDayLine('A · B','','예시광역노조',DAY),{kind:'통화',text:'B',day:DAY,org:'예시광역노조'});
 });
 
 test('evening with new news re-picks reads once; without calls feature the call table is not read at all',async()=>{
