@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {isQuestion, answeredBy, wroteBy, contactedBy, directRooms, talkDays, lastCallDays, mergeLast, quietList, daysText, lastText, headParts, weeksOf, addDays, daysBetween, WEEK_CHOICES} from '../app/org-quiet-model.mjs';
+import {quietAllowed, isQuestion, answeredBy, wroteBy, contactedBy, directRooms, talkDays, lastCallDays, mergeLast, quietList, daysText, lastText, headParts, weeksOf, addDays, daysBetween, WEEK_CHOICES} from '../app/org-quiet-model.mjs';
 import {telegramLines} from '../app/feed-model.mjs';
 import {validValue} from '../app/view-prefs.js';
 
@@ -148,4 +148,13 @@ test('1:1 방 고르기: 방 종류 user만, 1:1 방은 나 없이 상대만 있
     ]};
   assert.deepEqual([...talkDays(senders, people, '2026-05-01', direct).keys()], ['1001\u00002026-10-20']);
   assert.equal(talkDays(senders, people, '2026-05-01').size, 0); // 1:1 목록 없으면 지금과 같음
+});
+
+test('S67-51: 통화·텔레그램 수집이 있는 사람만 줄을 계산한다(못 읽으면 아니라고 본다)', () => {
+  assert.equal(quietAllowed(['calls']), true);
+  assert.equal(quietAllowed(['telegram', 'files']), true);
+  assert.equal(quietAllowed([]), false);
+  assert.equal(quietAllowed(['files', 'outside']), false);
+  assert.equal(quietAllowed(null), false);
+  assert.equal(quietAllowed(undefined), false);
 });

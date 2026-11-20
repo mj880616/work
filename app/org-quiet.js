@@ -5,15 +5,17 @@
 // - 내 담당조직만(my-organizations.js selectMyOrganizations). 담당 지정이 없어 전체로 물러난 경우(fallback)에는 줄을 그리지 않는다.
 // - 읽기는 모두 로그인 토큰 REST(소유자 RLS 그대로): 담당조직·담당 행, 주요 인물(app_org_key_people), 업무 통화(손 고침 반영. 개인 통화함은 설계 3.2대로 읽지 않음),
 //   텔레그램 보낸 사람 이름표(tg-sender-data.js), 그리고 '나'와 주요 인물이 함께 있는 방·날의 원문만. 새 표·새 함수·AI 없음(비용 0원).
+// - 통화·텔레그램 수집이 없는 작업공간(서버 운영자 기능)은 줄을 만들지 않는다(S67-51, 기준 칸도 그 사람에게만 보임).
 // - 한 곳이라도 읽지 못하면 줄을 숨긴다(틀린 '연락 없음'을 보이지 않기 위해). 조용한 조직이 없거나 기준이 '끄기'면 줄을 그리지 않는다.
 // - 기준 주 수는 서버 화면 기억(view_prefs.quiet_weeks, 조직 보고 화면 ⋯에서 선택 — MULTI-다른담당자맞춤 ⑥). 화면 사본은 두지 않는다(기기 저장 없음).
 import {viewPrefs} from './view-prefs.js';
 import {selectMyOrganizations} from './my-organizations.js';
+import {myFeaturesOrNull} from './my-features.js';
 import {readRecordPages} from './basket-link-records.js';
 import {readCallEdits} from './feed-data.js';
 import {readSenders} from './tg-sender-data.js';
 import {applyCallEdit, missingTable, kstDay, telegramLines} from './feed-model.mjs';
-import {weeksOf, addDays, LOOKBACK_DAYS, talkDays, splitKey, orgsOfPeople, lastCallDays, contactedBy, directRooms, mergeLast, quietList, daysText, lastText, headParts} from './org-quiet-model.mjs';
+import {quietAllowed, weeksOf, addDays, LOOKBACK_DAYS, talkDays, splitKey, orgsOfPeople, lastCallDays, contactedBy, directRooms, mergeLast, quietList, daysText, lastText, headParts} from './org-quiet-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const enc = encodeURIComponent;
@@ -70,6 +72,9 @@ export async function computeQuiet(rt = window.KPTURuntime, weeks = weeksOf(view
   if (!weeks) return null;
   const ws = ctxOf(rt).workspace?.id;
   if (!ws || !rt?.api) return null;
+  // S67-51 D1: '연락'은 통화·텔레그램으로만 센다. 그 수집이 없는 사람(서버 app_my_features)에게는 모든 조직이 '연락 없음'으로 보이므로 줄을 만들지 않는다.
+  // 기능 답을 못 읽어도(null) 그리지 않는다(틀린 '연락 없음'을 보이지 않기 위해). 기준 고르기 칸(suborganizations.js)과 같은 판정.
+  if (!quietAllowed(await myFeaturesOrNull(rt))) return null;
   const today = kstDay(), from = addDays(today, -LOOKBACK_DAYS), cutoff = addDays(today, -(weeks * 7 - 1));
   try {
     // 주요 인물부터(한 번 읽기): 하나도 없으면 다른 읽기를 하지 않는다(홈 첫 화면 요청 수를 늘리지 않게).
