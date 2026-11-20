@@ -137,10 +137,17 @@
   // (비구성원은 데이터 요청 없음). app/brand/custom-words.mjs가 이 약속을 기다리므로, 아래 첫 화면 모듈(word()를 쓰는 topbar-actions 등)은
   // 첫 그리기 전에 고친 이름을 안다 — 그래서 이 줄은 그 import보다 먼저 있어야 한다(tests/custom-words.test.mjs).
   // 칸이 아직 없는 서버(DB 적용 전)·실패·3.5초 넘게 걸림 → 고친 이름 없이(얼굴 기본값) 연다. 기기에는 남기지 않는다.
+  // S67-62: 같은 때 서버 기능 목록(app_my_features, GET 읽기)도 한 번 읽는다 — 바탕 낱말 묶음(운영자 허용 표 'nojo_words' 등,
+  // app/brand/custom-words-model.mjs)을 첫 그리기 전에 알기 위해. 둘은 따로 실패한다(못 읽으면 그쪽만 없음). 값: {custom_words, features}.
+  // 이 답은 my-features.js가 같은 사람의 첫 물음에 그대로 쓴다(window.__KPTU_BOOT_FEATURES__, 같은 주소를 두 번 묻지 않음).
   window.__KPTU_CUSTOM_WORDS__=bootUserId&&window.__KPTU_BOOT_MEMBERSHIP_PROMISE__?Promise.race([
     window.__KPTU_BOOT_MEMBERSHIP_PROMISE__.then(member=>member?.ok&&Array.isArray(member.rows)&&member.rows.length===1&&member.rows[0]?.role==='owner'
-      ?window.KPTURuntime.api('/rest/v1/app_profiles?user_id=eq.'+encodeURIComponent(bootUserId)+'&select=custom_words&limit=1',{timeoutMs:3000})
-        .then(rows=>Array.isArray(rows)&&rows.length===1?rows[0]?.custom_words??null:null)
+      ?Promise.all([
+        window.KPTURuntime.api('/rest/v1/app_profiles?user_id=eq.'+encodeURIComponent(bootUserId)+'&select=custom_words&limit=1',{timeoutMs:3000})
+          .then(rows=>Array.isArray(rows)&&rows.length===1?rows[0]?.custom_words??null:null).catch(()=>null),
+        (window.__KPTU_BOOT_FEATURES__={userId:bootUserId,promise:window.KPTURuntime.api('/rest/v1/rpc/app_my_features',{timeoutMs:3000,singleFlight:false})
+          .then(list=>Array.isArray(list)?list:null).catch(()=>null)}).promise
+      ]).then(([custom_words,features])=>({custom_words,features}))
       :null),
     new Promise(resolve=>setTimeout(()=>resolve(null),3500))
   ]).catch(()=>null):Promise.resolve(null);

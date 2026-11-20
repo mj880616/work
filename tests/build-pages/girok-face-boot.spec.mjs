@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signInWithSession } from '../app-e2e/helpers/session-login.mjs';
 import { chooseBasketKind } from '../app-e2e/helpers/basket-kind.mjs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { FORBIDDEN } from '../../scripts/girok-words-allow.mjs';
 
 // APP-올인원다이어리 단계 2: `node scripts/build-pages.mjs <입력> <출력> --face=girok`로 만든 기록+ 빌드가 따로 뜨는지 본다.
@@ -11,7 +11,9 @@ import { FORBIDDEN } from '../../scripts/girok-words-allow.mjs';
 const origin = process.env.PAGES_GIROK_ORIGIN || 'http://127.0.0.1:8126';
 
 // customWords: 내 프로필 custom_words(서버 값). 없으면 고친 이름 없음.
-async function boot(page, { customWords = null } = {}) {
+// features: 서버 app_my_features 답(S67-62 바탕 낱말 묶음 'nojo_words' 등). 없으면 빈 목록. at: 어느 빌드(기본 girok).
+async function boot(page, { customWords = null, features = [], at = origin, now = null } = {}) {
+  if (now) await page.clock.setFixedTime(new Date(now));
   const user = { id: 'girok-user', email: 'girok@example.org' }, workspace = { id: 'girok-workspace', name: 'QA', slug: 'qa' };
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**', route => {
     const url = new URL(route.request().url()), path = url.pathname;
@@ -22,10 +24,11 @@ async function boot(page, { customWords = null } = {}) {
     else if (path === '/rest/v1/app_workspaces') data = [workspace];
     else if (path === '/rest/v1/app_profiles' && (url.searchParams.get('select') || '').includes('custom_words')) data = [{ custom_words: customWords }];
     else if (path === '/rest/v1/app_profiles') data = [{ user_id: user.id, display_name: 'QA' }];
+    else if (path === '/rest/v1/rpc/app_my_features') data = features;
     else if (path.startsWith('/functions/')) data = { connected: false, enabled: false, tasks: [], events: [], calendars: [] };
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
   });
-  await page.goto(origin + '/app/login/?return=' + encodeURIComponent(origin + '/app/?view=home'));
+  await page.goto(at + '/app/login/?return=' + encodeURIComponent(at + '/app/?view=home'));
   await expect(page).toHaveTitle('로그인 · WORK ON');
   await signInWithSession(page, user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
@@ -150,4 +153,97 @@ test('girok 빌드 + 고친 이름 없음: 메뉴·화면 이름이 WORK ON 기�
   await settle(page, 'team');
   await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON');
   await noUnionWords(page, 'PC team (고친 이름 없음)');
+});
+
+// S67-62 바탕 낱말 묶음: 서버 허용 표 'nojo_words'인 사람(명진, docs/ops/nojo-words-operator.apply.sql)은 girok 운영 빌드에서도
+// 노동조합+ 낱말 전체가 바탕이고 그 위에 고친 이름 15칸이 얹힌다 → 화면 글자가 nojo 빌드(바뀌기 전 운영)와 한 글자도 다르지 않아야 한다.
+// 같은 흉내 서버·같은 시각으로 두 빌드를 띄워 화면마다 보이는 글자 전부와, JS word() 고정 글자 전부를 견준다.
+const nojoOrigin = process.env.PAGES_BUILD_ORIGIN || 'http://127.0.0.1:8125';
+const MINJIN = { customWords: OPERATOR, features: ['arsenal', 'calls', 'files', 'outside', 'telegram', 'nojo_words'], now: '2026-11-20T01:00:00Z' };
+// #2828 '남은 위험 1·2'의 예(칸 밖 낱말·운영자 기능 안 글자).
+const RISK_SAMPLES = [['조직 선택'], ['선택한 조직'], ['관련 조직'], ['조직 명칭'], ['+ 사업장 추가'], ['쟁의 단계'], ['+ 사업 만들기'], ['담당 조직'], ['투쟁 사업장'],
+  ['우리 쪽 주장과 부딪히는 대목', 'brief'], ['조합원을 찾기'], ['사업영역 관리'], ['조직 관리', 'title'], ['담당조직 선택']];
+// app/의 word('글자')·word('글자','자리') 고정 글자(정규식으로 모음 — 전수 AST 검사는 scripts/check-girok-words.mjs).
+function wordLiterals() {
+  const out = [];
+  const walk = dir => {
+    for (const entry of readdirSync(new URL(`../../${dir}/`, import.meta.url), { withFileTypes: true })) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) { if (!/rhwp|node_modules|-\d+\.\d+/.test(entry.name)) walk(path); continue; }
+      if (!/\.m?js$/.test(entry.name)) continue;
+      for (const m of readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8').matchAll(/\bword\('((?:[^'\\\n]|\\.)+)'(?:\s*,\s*'([a-z]+)')?\)/g)) out.push([m[1], m[2]]);
+    }
+  };
+  walk('app');
+  return out;
+}
+// 화면이 지금 쓰는 brand.mjs(같은 모듈 주소)로 word()를 불러 본다.
+async function wordsIn(page, list) {
+  return page.evaluate(async list => {
+    const src = [...document.querySelectorAll('link[rel="modulepreload"],script[type="module"]')].map(el => el.href || el.src).find(u => /\/brand\/brand\.mjs/.test(u))
+      || [...performance.getEntriesByType('resource')].map(e => e.name).find(u => /\/brand\/brand\.mjs/.test(u));
+    const { word, CUSTOMIZED } = await import(src);
+    return { customized: CUSTOMIZED, out: list.map(([text, slot]) => word(text.replace(/\\'/g, "'"), slot)) };
+  }, list);
+}
+const VIEWS = ['home', 'meetings', 'team', 'projects', 'calendar', 'diary', 'library', 'help', 'profile', 'calls', 'telegram', 'brief'];
+async function screenTexts(page) {
+  const seen = {};
+  await settle(page, 'home');
+  seen.shell = (await shownTexts(page)).join('\n');
+  seen.title = await page.title();
+  for (const view of VIEWS) {
+    await page.evaluate(v => window.KPTURouter.go(v), view);
+    await settle(page, view);
+    seen[view] = [await page.title(), ...(await shownTexts(page))].join('\n');
+  }
+  return seen;
+}
+
+test('girok 빌드 + 바탕 nojo + 명진 15칸 = nojo 빌드 화면 글자(앱 바탕·화면 12개·word() 고정 글자 전부)', async ({ browser }) => {
+  test.setTimeout(240000);
+  const literals = [...RISK_SAMPLES, ...wordLiterals()];
+  expect(literals.length).toBeGreaterThan(200);
+  const run = async at => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await boot(page, { ...MINJIN, at });
+    const words = await wordsIn(page, literals);
+    const shell = await page.evaluate(() => ({
+      faced: document.documentElement.hasAttribute('data-word-faced'),
+      marks: [...document.querySelectorAll('[data-word-aria-label],[data-word-title],[data-word-placeholder],[data-word-alt]')].length
+    }));
+    const texts = await screenTexts(page);
+    await context.close();
+    return { words, shell, texts, errors };
+  };
+  const nojo = await run(nojoOrigin), girok = await run(origin);
+  expect(girok.shell.faced, 'girok 빌드는 얼굴 단어가 구워진 바탕').toBe(true);
+  expect(nojo.shell.faced).toBe(false);
+  expect(girok.words.customized, '바탕 nojo → 앱 바탕을 원래 글자로 다시 입힘').toBe(true);
+  expect(nojo.words.customized, 'nojo 빌드에서 명진 값은 아무것도 바꾸지 않음').toBe(false);
+  for (let i = 0; i < literals.length; i += 1) expect(girok.words.out[i], literals[i].join('#')).toBe(nojo.words.out[i]);
+  for (const [text] of RISK_SAMPLES.filter(([, slot]) => !slot)) expect(girok.words.out[literals.findIndex(l => l[0] === text)], text).toBe(text);
+  for (const key of Object.keys(nojo.texts)) expect(girok.texts[key], `${key} 화면 글자`).toBe(nojo.texts[key]);
+  expect(girok.errors).toEqual(nojo.errors);
+});
+
+test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화면 11개(자료실 밖)에 노조 색 글자가 없다', async ({ page }) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await boot(page, { features: [], now: MINJIN.now });
+  const { customized } = await wordsIn(page, []);
+  expect(customized).toBe(false);
+  await noUnionWords(page, 'PC 앱 바탕');
+  const bad = {};
+  // 자료실은 뺀다: 자료 분류 선택 칸(<option> 교섭·투쟁)이 아직 word()를 거치지 않는다 — 바탕 낱말 묶음과 상관없는 앞선 문제(PR 본문 '범위 밖 발견').
+  for (const view of VIEWS.filter(v => v !== 'library')) {
+    await page.evaluate(v => window.KPTURouter.go(v), view);
+    await settle(page, view);
+    const found = (await shownTexts(page)).filter(t => FORBIDDEN.test(t));
+    if (found.length) bad[view] = found;
+  }
+  expect(bad).toEqual({});
 });
