@@ -350,11 +350,10 @@
 .lu-move-tag{flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-move-note{flex:none;margin:4px 8px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 .lu-move-note[hidden]{display:none}
-/* S67-41 보기 단추([최근]·[폴더])·형식 꼬리표·날짜·폴더 줄 — 작은 글자, 톤다운(고른 쪽은 공용 회색 규칙과 같은 옅은 바탕). */
-.lu-move-tabs{flex:none;display:flex;gap:4px;margin:0 0 4px}
+/* S67-41 보기 단추([최근]·[폴더], 공용 ⑤ 보기 바꾸기 ds-seg)·형식 꼬리표·날짜·폴더 줄 — 작은 글자, 톤다운. */
+.lu-move-tabs{flex:none;align-self:flex-start}
 .lu-move-tabs[hidden]{display:none}
-.lu-move-picker .lu-move-tab{flex:0 0 auto;width:auto;min-height:28px;padding:0 10px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:999px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
-.lu-move-picker .lu-move-tab[aria-pressed="true"]{background:var(--ds-kind-other,var(--kptu-primary-soft));color:var(--kptu-ink);border-color:transparent}
+.lu-move-picker .lu-move-tabs button.ds-seg-btn{width:auto;flex:0 0 auto}
 .lu-move-kind{flex:none;min-width:30px;padding:0 4px;border-radius:var(--kptu-radius-sm,4px);background:var(--kptu-primary-soft);color:var(--kptu-muted);font-size:11px;line-height:18px;text-align:center}
 .lu-move-meta{flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 .lu-move-tag+.lu-move-meta{margin-left:6px}
@@ -369,7 +368,7 @@
 .lu-move-item[aria-pressed="true"]::before{content:"✓";display:grid;place-items:center;border-color:var(--kptu-primary-ink);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);line-height:1}
 .lu-move-foot .lu-move-done{justify-content:center;font-weight:var(--ds-weight-medium,500)}
 .lu-move-foot .lu-move-done:disabled{opacity:.5;cursor:default}
-@media(max-width:760px){.lu-move-picker button{min-height:40px}.lu-move-find{height:40px}.lu-move-picker .lu-move-tab{min-height:32px}}
+@media(max-width:760px){.lu-move-picker button{min-height:40px}.lu-move-find{height:40px}}
 
 /* LIB-폴더로옮기기 ③: 종류·담당조직·월별로 묶은 화면에서 파일을 끌기 시작하면 왼쪽에 뜨는 작은 폴더 목록(놓을 곳). */
 .lu-drop-panel{position:fixed;left:8px;top:72px;z-index:90;box-sizing:border-box;display:flex;flex-direction:column;width:208px;max-height:calc(100vh - 96px);padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:hidden}

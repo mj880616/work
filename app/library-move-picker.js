@@ -31,7 +31,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
   function ensure(){
     if(panel)return;
     panel=document.createElement('div');panel.id=id;panel.className='lu-move-picker';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',label);panel.tabIndex=-1;
-    panel.innerHTML=`<input type="search" class="lu-move-find" placeholder="${esc(findLabel)}" aria-label="${esc(findLabel)}" autocomplete="off" enterkeyhint="search"><div class="lu-move-tabs" role="group" aria-label="보기" hidden></div><div class="lu-move-list" role="group" aria-label="${esc(label)} 목록"></div><p class="lu-move-note" role="status" hidden></p><div class="lu-move-foot"${withFoot?'':' hidden'}></div>`;
+    panel.innerHTML=`<input type="search" class="lu-move-find" placeholder="${esc(findLabel)}" aria-label="${esc(findLabel)}" autocomplete="off" enterkeyhint="search"><div class="lu-move-tabs ds-seg" role="group" aria-label="자료 보기" hidden></div><div class="lu-move-list" role="group" aria-label="${esc(label)} 목록"></div><p class="lu-move-note" role="status" hidden></p><div class="lu-move-foot"${withFoot?'':' hidden'}></div>`;
     input=panel.querySelector('.lu-move-find');tabs=panel.querySelector('.lu-move-tabs');list=panel.querySelector('.lu-move-list');note=panel.querySelector('.lu-move-note');foot=panel.querySelector('.lu-move-foot');
     popover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;if(popover)panel.setAttribute('popover','manual');
     document.body.append(panel);
@@ -73,9 +73,16 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
   const paintKeep=keep=>{const top=list.scrollTop;paint();list.scrollTop=keep?top:0};
   // S67-41: 줄 앞 형식 꼬리표(kind: PDF·HWP·사진), 뒤 날짜(meta), 폴더로 들어가는 줄(nav: id 또는 '' = 위로)은 고르기 없이 목록만 바꾼다.
-  const navItem=r=>`<button type="button" class="lu-move-item lu-move-nav${r.back?' lu-move-back':''}" data-lu-move-nav="${esc(r.nav)}" title="${esc(r.label||r.name)}" style="--lu-depth:0">${r.back?'<span class="lu-move-chev" aria-hidden="true">‹</span>':folderIcons?'':pickIconHtml(r)}<span class="lu-move-name">${esc(r.name)}</span>${r.meta?`<span class="lu-move-meta">${esc(r.meta)}</span>`:''}${r.back?'':'<span class="lu-move-chev" aria-hidden="true">›</span>'}</button>`;
   const extra=r=>`${r.kind?`<span class="lu-move-kind">${esc(r.kind)}</span>`:''}`;
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${state?.multi&&r.enabled?` aria-pressed="${state.chosen.has(r.id)}"`:''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):''}${extra(r)}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}${r.meta?`<span class="lu-move-meta">${esc(r.meta)}</span>`:''}</button>`;
+  // 줄 하나의 그리는 곳. nav 줄(폴더로 들어가기·위로)은 고르기 표시 없이 data-lu-move-nav만 단다.
+  const item=(r,labeled)=>{
+    const nav=r.nav!==undefined,chev=t=>`<span class="lu-move-chev" aria-hidden="true">${t}</span>`;
+    const attrs=nav?` class="lu-move-item lu-move-nav${r.back?' lu-move-back':''}" data-lu-move-nav="${esc(r.nav)}" title="${esc(r.label||r.name)}" style="--lu-depth:0"`
+      :` class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${state?.multi&&r.enabled?` aria-pressed="${state.chosen.has(r.id)}"`:''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}"`;
+    const lead=nav?(r.back?chev('‹'):pickIconHtml(r)):r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):'';
+    const name=nav?r.name:labeled?r.label:r.name;
+    return `<button type="button"${attrs}>${lead}${nav?'':extra(r)}<span class="lu-move-name">${esc(name)}</span>${!nav&&r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}${r.meta?`<span class="lu-move-meta">${esc(r.meta)}</span>`:''}${nav&&!r.back?chev('›'):''}</button>`;
+  };
 
   function paint(){
     if(!state)return;
@@ -84,7 +91,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     const parts=[];
     const sec={recent:'최근 넣은 폴더',all:'전체 폴더',found:'찾은 폴더',...state.sections};
     if(data.recent.length)parts.push(`<p class="lu-move-sec">${esc(sec.recent)}</p>`+data.recent.map(r=>item(r,true)).join(''));
-    const row=r=>r.nav!==undefined?navItem(r):item(r,searching);
+    const row=r=>item(r,searching);
     const allLabel=data.allLabel||(searching?sec.found:sec.all);
     if(data.all.length)parts.push((data.recent.length||searching||state.sections||data.allLabel?`<p class="lu-move-sec">${esc(allLabel)}</p>`:'')+data.all.map(row).join(''));
     if(!parts.length)parts.push(data.waiting?waitInlineHtml():emptyHtml());
@@ -107,7 +114,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
   function paintTabs(){
     const list=state?.views||[];
     tabs.hidden=!list.length;
-    tabs.innerHTML=list.map(v=>`<button type="button" class="lu-move-tab" data-lu-move-tab="${esc(v.id)}" aria-pressed="${v.id===state.view}">${esc(v.label)}</button>`).join('');
+    tabs.innerHTML=list.map(v=>`<button type="button" class="ds-seg-btn" data-lu-move-tab="${esc(v.id)}" aria-pressed="${v.id===state.view}">${esc(v.label)}</button>`).join('');
   }
 
   function position(){

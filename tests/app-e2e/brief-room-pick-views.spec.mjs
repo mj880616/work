@@ -70,7 +70,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['pc-1280', 1280,
       expect(box.y).toBeGreaterThanOrEqual(btn.y + btn.height - 1);
       expect(box.width).toBeLessThanOrEqual(341);
     }
-    const tabs = picker.locator('.lu-move-tab');
+    const tabs = picker.locator('.lu-move-tabs .ds-seg-btn');
     await expect(tabs).toHaveText(['최근', '폴더']);
     await expect(tabs.first()).toHaveAttribute('aria-pressed', 'true');
     const row = n => picker.locator(`[data-lu-move-folder="${D(n)}"]`);
