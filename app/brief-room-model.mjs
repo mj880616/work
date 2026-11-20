@@ -55,6 +55,13 @@ export function rowState(row) {
   return { kind: 'failed', text: errorLine(row.error_code), date: '' };
 }
 
+// S67-37: 본문을 못 읽어 미리보기 글자(파일 앞부분)만으로 만든 브리핑이면 결과 위에 한 줄.
+export const PARTIAL_LINE = '파일 앞부분만 읽고 만든 브리핑이에요';
+export const partialLine = brief => (brief && brief.partial === 'preview' ? PARTIAL_LINE : '');
+// 줄 ⋯ [다시 만들기]: 못 만든 줄만(같은 [브리핑 받기] 길 brief-start로 새 작업을 만든다).
+export const RETRY_LABEL = '다시 만들기';
+export const canRetry = row => !!row && row.status === 'failed';
+
 /** 자료마다 가장 최근 브리핑 행 하나. rows는 created_at 내림차순. */
 export function latestByDocument(rows) {
   const out = new Map();

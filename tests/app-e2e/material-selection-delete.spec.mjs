@@ -41,10 +41,13 @@ async function boot(page,width){
     if(path==='/rest/v1/app_workspaces')return ok([{id:'ws',name:'테스트'}]);
     if(path==='/rest/v1/app_meetings'){if(req.method()==='PATCH')state.meetingPatches.push(req.postDataJSON());return ok([{...meeting,...(['POST','PATCH'].includes(req.method())?req.postDataJSON():{})}]);}
     if(path==='/rest/v1/app_documents'){
-      const id=url.searchParams.get('id')?.replace(/^eq\./,''),mid=url.searchParams.get('meeting_id')?.replace(/^eq\./,'');
-      // FILE-첨부삭제 결정 3: [빼기] = 이 보고 줄만 PATCH meeting_id=null(내 작업공간·이 보고에 붙은 줄만).
-      if(req.method()==='PATCH'){const q=Object.fromEntries(url.searchParams),body=req.postDataJSON();(state.docPatches||=[]).push({q,body});const hit=state.docs.filter(d=>d.id===id&&d.meeting_id===mid&&'eq.'+d.workspace_id===q.workspace_id);hit.forEach(d=>Object.assign(d,body));return ok(hit.map(d=>({id:d.id,meeting_id:d.meeting_id})));}
-      return ok(state.docs.filter(d=>(!id||d.id===id)&&(!mid||d.meeting_id===mid)));
+      // PostgREST 거르기 흉내: id=eq.x|in.(a,b), meeting_id=eq.x|is.null, workspace_id=eq.x.
+      const q=Object.fromEntries(url.searchParams),idQ=q.id||'',midQ=q.meeting_id||'';
+      const ids=idQ.startsWith('in.(')?idQ.slice(4,-1).split(','):idQ?[idQ.replace(/^eq\./,'')]:null;
+      const match=d=>(!ids||ids.includes(d.id))&&(!midQ||(midQ==='is.null'?d.meeting_id==null:d.meeting_id===midQ.replace(/^eq\./,'')))&&(!q.workspace_id||'eq.'+d.workspace_id===q.workspace_id);
+      // FILE-첨부삭제 결정 3: [빼기] = 이 보고 줄만 PATCH meeting_id=null(내 작업공간·이 보고에 붙은 줄만). S67-39: 붙이기 = 안 붙은 줄만 meeting_id 채우기.
+      if(req.method()==='PATCH'){const body=req.postDataJSON();(state.docPatches||=[]).push({q,body});const hit=state.docs.filter(match);hit.forEach(d=>Object.assign(d,body));return ok(hit.map(d=>({id:d.id,meeting_id:d.meeting_id})));}
+      return ok(state.docs.filter(match));
     }
     if(path==='/functions/v1/document-actions'){
       state.deletes.push(req.postDataJSON());
@@ -230,7 +233,7 @@ for(const width of [390,1280]){
     await expect(attach).toBeVisible();
     await expect(attach.locator('#mrdPickFiles')).toBeVisible();await expect(attach.locator('#mrdPickPhotos')).toBeVisible();
     await expect(attach.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
-    await attach.locator('#mrdPickFiles').click();
+    await attach.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 올리기]·[자료실에서 선택]
     await expect(page.locator('#documentModal')).toBeVisible();
     await page.locator('#libraryFileInput').setInputFiles([file('edit-added.pdf')]);
     await page.locator('#saveDocumentBtn').click();
@@ -255,7 +258,7 @@ for(const width of [390,1280]){
     await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
     await expect(page.locator('#mrdFiles')).toHaveCount(0);
-    await page.locator('#mrdPickFiles').click();
+    await page.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 올리기]·[자료실에서 선택]
     await expect(page.locator('#documentModal')).toBeVisible();
     await expect(page.locator('#libraryUploadMeeting')).toContainText('사업 보고');
     await page.locator('#libraryFileInput').setInputFiles([file('detail-keep.pdf'),file('detail-remove.pdf')]);
@@ -321,7 +324,7 @@ async function openUploadScreen(page,screen){
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
   // MEET-파일AI분류: 사업 보고 상세의 [+]는 자료실 올리기 창을 연다(저장 버튼 [등록]).
-  await page.locator('#mrdPickFiles').click();
+  await page.locator('#mrdPickFiles').click();await page.locator('#reportAddMenu [data-report-add="device"]').click(); // S67-39: [+] = 작은 메뉴 [기기에서 올리기]·[자료실에서 선택]
   await expect(page.locator('#documentModal')).toBeVisible();
   return {input:'#libraryFileInput',save:'#saveDocumentBtn',rows:'[data-lu-upload-file]',status:'#documentStatus'};
 }
@@ -522,6 +525,14 @@ for(const width of [412,1280])test(`보고 자료 ⋯ [빼기]: 한 번 묻고 �
   expect(state.docPatches[0].q).toMatchObject({id:'eq.doc-0',workspace_id:'eq.ws',meeting_id:'eq.meeting-1'});
   expect(state.docPatches[0].body).toMatchObject({meeting_id:null});
   expect(state.deletes).toEqual([]);expect(state.docs.map(d=>d.id)).toEqual(['doc-0','doc-1']);
-  expect(await noticeText(page)).toBe('이 보고에서 뺐어요. 자료는 자료실에 그대로 있어요.');
+  // S67-39: 뺀 뒤 [되돌리기] 작은 알림(연결 해제와 같은 공용). 누르면 아직 어느 보고에도 안 붙은 그 줄만 다시 이 보고에.
+  const undo=page.locator('[data-undo-notice]');
+  await expect(undo.locator('[data-undo-text]')).toHaveText('이 보고에서 뺐어요. 자료는 자료실에 그대로 있어요.');
+  await undo.locator('[data-undo-action]').click();
+  await expect(rows).toHaveCount(2);
+  expect(state.docPatches).toHaveLength(2);
+  expect(state.docPatches[1].q).toMatchObject({id:'eq.doc-0',workspace_id:'eq.ws',meeting_id:'is.null'});
+  expect(state.docPatches[1].body).toMatchObject({meeting_id:'meeting-1'});
+  await expect(undo.locator('[data-undo-text]')).toHaveText('다시 붙였어요.');
   expect(state.errors).toEqual([]);
 });

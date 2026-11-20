@@ -5,7 +5,7 @@
 // - 보고용 표시(app_report_line_marks, section 'biz_detail')는 조직보고 창과 같은 이어짐 규칙(record-window-model.mjs markOf·nextMark)을 그대로 쓴다.
 //   report_body = 보고에만 쓰는 글, choice 'out' = 이번 보고에서 빼기(다음 주에도 빠짐), detail 'oneline'|'full' = 사업 보고의 한 줄만 ↔ 상세 포함.
 // - 상세 포함 기본값: 사업 보고에 결과 본문(전사 글, 없으면 예전 회의결과)이 있으면 'full', 없으면 한 줄. 사업 기록은 늘 한 줄.
-import {markOf, nextMark, checkReportBody, cleanBody, dayText, lineId, overlaps, reportText, editBase, reportChange} from './record-window-model.mjs';
+import {markOf, nextMark, checkReportBody, cleanBody, dayText, lineId, overlaps, reportText, editBase, reportChange, dropLineDay} from './record-window-model.mjs';
 import {rowSpaceMap, weekRange} from './business-now-model.mjs';
 import {areaIdOf, isOneline, nextPlanLines} from './business-area-model.mjs';
 
@@ -49,7 +49,8 @@ export function lineOf(item, mark) {
   const detail = canFull ? (mark?.detail === 'oneline' ? 'oneline' : mark?.detail === 'full' ? 'full' : base) : 'oneline';
   // RECORD-보고용글잘림: 보고용 글은 자르지 않는다(조직보고 창 lineOf와 같은 규칙 — record-window-model.mjs reportLine).
   const report = mark?.report_body != null ? String(mark.report_body) : null;
-  return {...item, id: lineId(item.kind, item.key), orig: item.text, text: reportText(item, report),
+  // S67-36: 글 맨 앞의 같은 날짜는 떼고 보인다(same-day-lead.mjs, 조직보고 창과 같은 규칙).
+  return {...item, id: lineId(item.kind, item.key), orig: item.text, text: dropLineDay(reportText(item, report), item),
     report, edited: report != null, choice: mark?.choice ?? null, canFull, detail, base};
 }
 // [한 줄만 ↔ 상세 포함]이 바꿀 detail 값(기본값과 같아지면 null = 표시 지움).
@@ -83,7 +84,7 @@ export function detailGroups({week, records = [], meetings = [], tree = null, ma
 // 보이는 줄 수(묶음 전체).
 export const shownCount = groups => (Array.isArray(groups) ? groups : []).reduce((n, g) => n + g.shown.length, 0);
 // 줄 글 '- 11.10. 글'(기간이면 '- 11.2.~12.5. 글').
-export const lineText = l => `- ${[dayText(l.day, l.end_day), cleanBody(l.text)].filter(Boolean).join(' ')}`;
+export const lineText = l => `- ${[dayText(l.day, l.end_day), cleanBody(dropLineDay(l.text, l))].filter(Boolean).join(' ')}`;
 
 // ---- 한글 파일 2. 2)·[확정] 사진(B-4 ③·④) ----
 // 본문 안 번호를 한 단계씩 내린다(docs/hwp-style-map.md 3절 차례: 1. → 1) → (1) → ①, 가. → 가) → (가)). 더 내릴 곳이 없으면 그대로.

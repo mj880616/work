@@ -1,7 +1,18 @@
 // S67-33 시험 도구: 합성 HWP(구형 한글 5.0, OLE 복합 문서) 만들기. 네트워크·외부 라이브러리 없음.
 // - FileHeader(압축·암호 플래그), DocInfo, BodyText/Section0…N(문단 레코드: PARA_HEADER·PARA_TEXT·CHAR_SHAPE), 큰 그림 자리(BinData)까지.
 // - 작은 스트림(< 4096바이트)은 미니 스트림에, 큰 스트림은 일반 섹터에 둔다. FAT 섹터가 109개를 넘으면 DIFAT 사슬을 만든다.
-import { deflateRawSync } from 'node:zlib';
+// - S67-37: 실제 한글 파일처럼 압축 스트림 끝에 8바이트 꼬리(CRC32 + 풀린 크기)를 붙인다(trailer, 기본 켬).
+//   운영 Deno의 DecompressionStream은 이 꼬리를 오류로 버려 실제 HWP를 모두 못 읽었다(공개 표본 58개로 확인, 표본 파일은 저장소에 넣지 않음).
+//   미리보기 글자(PrvText, UTF-16LE·압축 없음)·압축 세기(level 0 = 저장 블록)도 고를 수 있다.
+import { crc32, deflateRawSync } from 'node:zlib';
+
+/** 한글 프로그램 모양의 압축: raw deflate + CRC32(LE) + 풀린 크기(LE). */
+export function hwpDeflate(raw, { trailer = true, level = 6 } = {}) {
+  const data = deflateRawSync(raw, { level });
+  if (!trailer) return data;
+  const t = Buffer.alloc(8); t.writeUInt32LE(crc32(raw) >>> 0, 0); t.writeUInt32LE(raw.length >>> 0, 4);
+  return Buffer.concat([data, t]);
+}
 
 const SEC = 512, END = 0xfffffffe, FREE = 0xffffffff, FATSECT = 0xfffffffd, DIFSECT = 0xfffffffc, NOSTREAM = 0xffffffff;
 
@@ -49,16 +60,22 @@ function fileHeader({ compressed = true, password = false, distribution = false 
 
 /**
  * 합성 HWP 파일.
- * @param {{sections: (string|{text:string,ctrl?:string})[][], compressed?: boolean, password?: boolean, distribution?: boolean, binBytes?: number}} o
+ * @param {{sections: (string|{text:string,ctrl?:string})[][], compressed?: boolean, password?: boolean, distribution?: boolean, binBytes?: number,
+ *   trailer?: boolean, level?: number, prvText?: string|null, brokenSection?: boolean}} o
  */
-export function makeHwp({ sections, compressed = true, password = false, distribution = false, binBytes = 0 }) {
+export function makeHwp({ sections, compressed = true, password = false, distribution = false, binBytes = 0, trailer = true, level = 6, prvText = null, brokenSection = false }) {
+  const z = raw => hwpDeflate(raw, { trailer, level });
   const streams = [
     { name: 'FileHeader', data: fileHeader({ compressed, password, distribution }), parent: 'root' },
-    { name: 'DocInfo', data: compressed ? deflateRawSync(Buffer.alloc(64)) : Buffer.alloc(64), parent: 'root' },
+    { name: 'DocInfo', data: compressed ? z(Buffer.alloc(64)) : Buffer.alloc(64), parent: 'root' },
   ];
+  if (prvText !== null) streams.push({ name: 'PrvText', data: Buffer.from(prvText, 'utf16le'), parent: 'root' });
   sections.forEach((paras, i) => {
     const raw = sectionBytes(paras);
-    streams.push({ name: `Section${i}`, data: compressed ? deflateRawSync(raw) : raw, parent: 'BodyText' });
+    let data = compressed ? z(raw) : raw;
+    // 깨진 섹션: 압축 중간을 잘라 낸다(끝 블록 없음)
+    if (brokenSection && compressed) data = data.subarray(0, Math.max(4, Math.floor(data.length / 2)));
+    streams.push({ name: `Section${i}`, data, parent: 'BodyText' });
   });
   if (binBytes > 0) {
     // 그림 자리: 압축이 안 되는 바이트(파일만 크게 만든다, 글자 읽기는 건드리지 않아야 한다)

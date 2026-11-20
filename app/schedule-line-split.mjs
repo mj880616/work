@@ -6,6 +6,8 @@
 //   - 시간 칸: 비었거나 '종일'이면 제목 앞 시각으로. 다른 시각이 이미 있으면 그 시각을 둔다.
 //   - 제목 칸: 시각 뒤 부분. 셋 이상이면 마지막이 장소, 가운데가 제목.
 //   - 장소 칸: 비었으면 마지막 부분, 이미 다른 장소가 있으면 그대로(그때 마지막 부분은 제목에 남긴다).
+import {dropSameDay} from './same-day-lead.mjs';
+
 const ALL_DAY = '종일';
 const one = s => String(s ?? '').replace(/\s+/g, ' ').trim();
 const pad = n => String(n).padStart(2, '0');
@@ -25,7 +27,10 @@ export function parseScheduleLine(text) {
   return rest.length >= 2 ? {time, title:rest.slice(0, -1).join(' / '), place:rest.at(-1)} : {time, title:rest[0], place:''};
 }
 // 칸 값 {time, title, place, ...} → 나눠 읽은 칸 값(나눌 것이 없으면 같은 값). 다른 칸(day·who 등)은 그대로 둔다.
+// S67-36: 날짜 칸(f.day)이 있고 제목 맨 앞에 같은 날짜가 또 있으면('11/18 집회') 제목에서 그 날짜만 뗀다(저장된 값은 그대로).
 export function splitScheduleFields(f) {
+  const title = f?.day && typeof f?.title === 'string' ? dropSameDay(f.title, f.day) : f?.title;
+  if (f && title !== f.title) f = {...f, title};
   const line = parseScheduleLine(f?.title);
   if (!line) return f;
   const time = one(f.time), place = one(f.place);

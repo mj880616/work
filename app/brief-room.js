@@ -10,7 +10,7 @@
 // - BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31): [자료실에서 고르기] → 공용 고르기 창(library-move-picker.js, 여러 개)으로 내 자료실 자료를 고른다.
 //   파일을 다시 올리지 않고 '브리핑 요청함' 폴더에 연결 줄만 넣는다(app_library_folder_items, owner RLS, 이미 있으면 건너뜀). 받기는 줄의 [브리핑 받기]로만.
 //   자료 하나는 폴더 하나라(표 기본키), 다른 폴더에 든 자료는 옮기지 않고 그대로 두고 이 화면 목록에만 보인다(브리핑을 받으면 계속 남음).
-import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,briefSections,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,RETRY_LABEL,briefSections,canRetry,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
@@ -127,7 +127,9 @@ function drawDetail(){
   if(src){const a=el('a','br-src mini','원문 열기');a.href=src;a.target='_blank';a.rel='noopener';bar.append(a)}
   const meta=el('p','br-meta',[fileBadge(doc.file_name,doc.mime_type),b.page_count?`${b.page_count}쪽`:'',b.finished_at?`${new Date(b.finished_at).getMonth()+1}/${new Date(b.finished_at).getDate()} 브리핑`:''].filter(Boolean).join(' · '));
   const lead=el('p','br-lead');lead.append(el('b',null,'한 줄 요지'),document.createTextNode(' — '+b.brief.lead));
-  const parts=[bar,meta,lead];
+  const parts=[bar,meta];
+  const part=partialLine(b.brief);if(part)parts.push(el('p','br-meta br-partial',part));
+  parts.push(lead);
   for(const sec of briefSections(b.brief)){
     const s=el('section','br-sec');
     const h=el('h3',null,sec.title);if(sec.key==='quotes')h.append(el('small',null,' 원문 그대로'));
@@ -267,18 +269,20 @@ async function removeMany(ids,kind,anchor=null){
   await load();draw();
 }
 
-// 줄 ⋯ 메뉴: [선택] · [브리핑만 삭제] · [자료까지 삭제]. 선택 모드에서 연 메뉴는 고른 것 모두에 대해(누른 줄이 안 골라졌으면 더한다).
+// 줄 ⋯ 메뉴: ([다시 만들기] — 못 만든 줄만, S67-37) · [선택] · [브리핑만 삭제] · [자료까지 삭제]. 선택 모드에서 연 메뉴는 고른 것 모두에 대해(누른 줄이 안 골라졌으면 더한다).
 const menu=createAnchoredMenu({id:'brRowMenu',className:'feed-menu',label:'브리핑 메뉴',historyKey:'kptuBriefRowMenu',
   key:t=>t.dataset.brMore||'',
   row:t=>t.closest('.br-row'),
   render:id=>{
     if(!state.docs.some(d=>d.id===id))return '';
     const n=pick.active?pick.size+(pick.has(id)?0:1):1,tail=n>1?` <span class="feed-faint">${n}개</span>`:'';
-    return `${pick.active?'':'<button type="button" class="row-act" data-br-act="select">선택</button>'}<button type="button" class="row-act feed-menu-danger" data-br-act="brief">${DELETE_KINDS.brief}${tail}</button><button type="button" class="row-act feed-menu-danger" data-br-act="doc">${DELETE_KINDS.doc}${tail}</button>`;
+    const retry=!pick.active&&canRetry(state.briefs.get(id))?`<button type="button" class="row-act" data-br-act="retry">${RETRY_LABEL}</button>`:'';
+    return `${retry}${pick.active?'':'<button type="button" class="row-act" data-br-act="select">선택</button>'}<button type="button" class="row-act feed-menu-danger" data-br-act="brief">${DELETE_KINDS.brief}${tail}</button><button type="button" class="row-act feed-menu-danger" data-br-act="doc">${DELETE_KINDS.doc}${tail}</button>`;
   },
   onAction:(button,active)=>{
     const id=active.id,act=button.dataset.brAct;
     if(act==='select'){pick.start([id],id);drawList();return}
+    if(act==='retry'){void start(id,null);return}
     if(act!=='brief'&&act!=='doc')return;
     const ids=pick.active?[...new Set([...(pick.items||[]),id])]:[id];
     void removeMany(ids,act,view()?.querySelector(`[data-br-more="${CSS.escape(id)}"]`)||null);

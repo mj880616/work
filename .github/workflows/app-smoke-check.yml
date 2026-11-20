@@ -202,6 +202,7 @@ on:
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
+      - 'tests/report-library-pick-model.test.mjs'
       - 'tests/helpers/hwp-synth.mjs'
       - 'supabase/functions/_shared/brief-room.mjs'
       - 'supabase/functions/_shared/hwp-text.mjs'
@@ -471,6 +472,7 @@ on:
       - 'tests/brief-run.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-read-slices.test.mjs'
+      - 'tests/report-library-pick-model.test.mjs'
       - 'tests/helpers/hwp-synth.mjs'
       - 'supabase/functions/_shared/brief-room.mjs'
       - 'supabase/functions/_shared/hwp-text.mjs'
@@ -690,6 +692,9 @@ jobs:
       - name: Check weekly report file and confirm snapshot from the window (ORG-기록하나로 O-6)
         run: node --test tests/record-one-file.test.mjs
 
+      - name: Check same date shown once in date + text lines (S67-36)
+        run: node --test tests/same-day-lead.test.mjs
+
       - name: Check weekly file finds my rows by the form's second column (WEEKLY-사업영역묶음 ①)
         run: node --test tests/weekly-area-slot.test.mjs
 
@@ -777,6 +782,9 @@ jobs:
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
         run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-read-slices.test.mjs
 
+      - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
+        run: node --test tests/report-library-pick-model.test.mjs
+
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/menu-home-prefs.test.mjs tests/record-backup-model.test.mjs tests/mcp-read-model.test.mjs tests/help-content.test.mjs
 
@@ -810,7 +818,7 @@ jobs:
       - name: S51-27 PC 우클릭 달력 메뉴 항목·공용 줄 메뉴 시험
         run: node --test tests/calendar-row-menu.test.mjs
       - name: S57-20 BIZ-보고할일정 규칙 모듈·읽고 쓰는 길(서버 저장만) 시험
-        run: node --test tests/report-plan-model.test.mjs tests/report-plan-data.test.mjs tests/report-plan-mark.test.mjs
+        run: node --test tests/report-plan-model.test.mjs tests/report-plan-cover.test.mjs tests/report-plan-data.test.mjs tests/report-plan-mark.test.mjs
       - name: NOTE-탐색기 후속 선택 상태·위치 줄 공용 부품 시험
         run: node --test tests/select-mode-folder-path.test.mjs
       - name: S51-22 '최근' 상자 접기(서버 기억·머리 줄 ▴▾) 시험

@@ -8,9 +8,9 @@
 // - S67-16(명진 11/20 "넓혀"): 점선 □ '보고할까요?' 판정(report-plan-model.mjs askReason)에 쓸 힌트 두 가지도 여기서 읽는다 —
 //   내 담당조직 목록(이름·다른 이름, 로그인마다 한 번)과 이 달 사업영역 주요 일정 행의 일정 id(달마다, 일정과 같이). 못 읽으면 그 힌트만 빠진다.
 // - 사라진 일정의 줄을 저절로 지우지 않는다: 이 읽기는 캘린더마다 250건까지이고 고른 캘린더만 읽어, '안 보임'이 '삭제됨'이라는 보장이 없다(PR 본문 '범위 밖').
-import {loadReportPlans, reportPlanData, setEventPlanState, addRulePlans, syncEventCopies, REPORT_PLANS_CHANGED} from './report-plan-data.js';
+import {loadReportPlans, reportPlanData, setEventPlanState, addRulePlans, syncEventCopies, linkReportToEvent, REPORT_PLANS_CHANGED} from './report-plan-data.js';
 import {planItems, itemsByDay, overdueItems, matchesName, monthRange, itemEvent, itemWhen, planRowMenuItems} from './report-calendar-plan.mjs';
-import {reportsOfEvent} from './report-plan-model.mjs';
+import {reportsOfEvent, coverCandidates} from './report-plan-model.mjs';
 import {openRowMenu} from './row-menu.js';
 import {pickMyOrganizations} from './my-organizations.js';
 
@@ -130,14 +130,18 @@ async function tidy(month, rt = rtOf()) {
 
 // 달력이 그릴 것. null = 표시하지 않음(표 없는 서버·아직 못 읽음). nameFilter = 사업 보고 화면의 회의명 거르기 값('all'·이름·'__none__').
 // {byDay: Map(날짜 → 항목), overdue: 안 쓴 보고 항목(최근 위 — 알림이라 회의명 거르기는 걸지 않는다)}
-export function planView({month, todayKey, nameFilter = 'all'}, rt = rtOf()) {
-  const data = reportPlanData(rt);
-  if (!data) return null;
+// reports = 부르는 쪽(team.js)이 읽어 둔 사업 보고 목록 전체(S67-40 — 따로 쓴 보고가 덮는 일정은 묻지 않는다). 없으면 일정 id 연결만 본다.
+export function planView({month, todayKey, nameFilter = 'all', reports = null}, rt = rtOf()) {
+  const base = reportPlanData(rt);
+  if (!base) return null;
+  const data = Array.isArray(reports) ? {...base, allReports: reports} : base;
+  lastAll = data.allReports || null;
   const now = Date.now();
   for (const [id, at] of written) if (now - at > WRITTEN_HOLD || reportsOfEvent(id, data.reports).length) written.delete(id);
   const items = planItems({...data, orgs: orgsOf(rt), areaEventIds: areaIdsOf(month, rt)}, eventsOf(month, rt) || []).filter(item => !written.has(item.eventId) && matchesName(item, nameFilter));
   return {byDay: itemsByDay(items), overdue: overdueItems(data, todayKey).filter(item => !written.has(item.eventId))};
 }
+let lastAll = null;
 // [보고 쓰기]가 여는 쓰기 창에 채울 것(일정 창 [결과 남기기]와 같은 모양 — team.js KPTUReportEntry.open). 장소는 읽어 둔 일정에 있을 때만.
 export function writeOptions(item, month, rt = rtOf()) {
   const event = (eventsOf(month, rt) || []).find(e => String(e?.id ?? '') === item?.eventId) || null;
@@ -147,7 +151,18 @@ export function writeOptions(item, month, rt = rtOf()) {
 export const decidePlan = (item, state, rt = rtOf()) => setEventPlanState(itemEvent(item), state, rt);
 export const DECIDED_TEXT = Object.freeze({on: '보고할 일정으로 표시했어요.', off: '보고할 일정 표시를 껐어요.', skip: '뺐어요. 같은 이름 일정은 다시 묻지 않아요.'});
 // 줄 ⋯ 메뉴(공용 줄 메뉴 부품). at = PC 우클릭 자리(appMenuPoint), 없으면 ⋯ 바로 아래. run(state) = 'off' | 'skip'.
-export const openPlanMenu = (trigger, item, at, run) => openRowMenu(trigger, {key: 'rvplan:' + item.eventId, label: item.title, items: planRowMenuItems(item), at, run});
+// S67-40: 같은 날 따로 쓴 보고가 있으면 [이미 보고함: 보고 제목](LINK_MAX개까지, 비슷한 것 먼저). 누르면 run('link:보고 id') → linkPlan.
+const LINK_MAX = 3, LINK_ICON = 'M3 8.5l3 3 7-7';
+const cut = text => { const a = Array.from(String(text ?? '').trim()); return a.length > 22 ? a.slice(0, 21).join('') + '…' : a.join(''); };
+export function linkCandidates(item, rt = rtOf()) {
+  const data = reportPlanData(rt);
+  if (!data || !lastAll) return [];
+  return coverCandidates(itemEvent(item), {reports: data.reports, allReports: lastAll}).slice(0, LINK_MAX).map(c => c.report);
+}
+export const openPlanMenu = (trigger, item, at, run) => openRowMenu(trigger, {key: 'rvplan:' + item.eventId, label: item.title, at, run,
+  items: [...linkCandidates(item).map(r => ({id: 'link:' + r.id, label: `이미 보고함: ${cut(String(r.series_name || '').trim() || r.title)}`, icon: LINK_ICON})), ...planRowMenuItems(item)]});
+export const linkPlan = (item, reportId, rt = rtOf()) => linkReportToEvent(reportId, itemEvent(item), rt);
+export const LINKED_TEXT = '이 일정은 보고한 것으로 이었어요.';
 // [보고 쓰기]로 연 창이 저장됐을 때 부른다.
 export function noteWritten(eventId) { if (eventId) written.set(String(eventId), Date.now()); }
 

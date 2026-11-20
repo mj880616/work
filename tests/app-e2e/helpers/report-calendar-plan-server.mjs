@@ -112,6 +112,14 @@ export async function install(page, state) {
         const row = {id: ID(++state.seq), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), google_event_id: null, google_calendar_id: null, ...body};
         state.meetings.push(row); return ok([row], 201);
       }
+      // S67-40: ⋯ [이미 보고함] = 따로 쓴 보고의 일정 id 칸만 채운다(이미 이어진 보고는 google_event_id=is.null 조건으로 고치지 않음, 내 작업공간만).
+      if (method === 'PATCH') {
+        const body = req.postDataJSON(); state.reportPatches = [...(state.reportPatches || []), {query: decodeURIComponent(url.search), body}];
+        if (eq('workspace_id') !== WS) return ok([]);
+        const row = state.meetings.find(m => m.id === eq('id'));
+        if (!row || (url.searchParams.get('google_event_id') === 'is.null' && row.google_event_id)) return ok([]);
+        Object.assign(row, body); return ok([row]);
+      }
       return ok([]);
     }
     if (path === '/functions/v1/google-calendar') {

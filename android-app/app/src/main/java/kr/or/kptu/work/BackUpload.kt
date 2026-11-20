@@ -1,7 +1,15 @@
 package kr.or.kptu.work
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.work.ForegroundInfo
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -21,7 +29,10 @@ import java.io.File
  * 4) 묶음이 바뀔 때마다 화면이 살아 있으면 알린다(listener → up:job). 다 되면 토스트 한 줄.
  *    일시 오류는 저절로 다시(최대 3번), 그래도 안 되면 한 줄 알리고 남은 파일은 두었다가 앱 화면이 열리면(up:hello) 다시 건다.
  * 위젯 [사진](QuickPhoto)과 폴더·작업 이름·서버 입구가 다르고, 폰 녹음(RecordHub, rec/)과도 겹치지 않는다.
- * 서버·DB·Edge 변경 없음. 새 안드로이드 권한·내보내는 부품 없음. 파일 이름·토큰·응답은 로그에 남기지 않는다.
+ * 5) S67-38: 올리는 동안 앞쪽 작업 알림('사진 2장 올리는 중 · 1/2', BackUploadNote)을 띄워 앱을 나가도·화면을 꺼도 시스템이 작업을 멈추지 않게 한다
+ *    (WorkManager setForeground, 종류 dataSync). 알림을 띄우지 못하는 때(뒤에서 다시 걸린 작업 등)는 알림 없이 그대로 올린다.
+ * 서버·DB·Edge 변경 없음. 더한 안드로이드 권한은 앞쪽 작업 종류 FOREGROUND_SERVICE_DATA_SYNC 하나(사용자에게 묻지 않는 권한). 내보내는 부품 없음.
+ * 파일 이름·토큰·응답은 로그·알림에 남기지 않는다.
  */
 object BackUpload {
     private const val DIR = "back-upload"
@@ -78,6 +89,9 @@ object BackUpload {
 
 /** 묶음 하나를 올린다(BackUploadRules.run). 결과는 토스트 한 줄과 화면 알림(up:job)으로만 알린다. */
 class BackUploadWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+    /** 급한 작업이 안드로이드 11 이하에서 앞쪽 작업으로 돌 때 쓰는 알림(묶음을 읽기 전이라 숫자 없이). */
+    override fun getForegroundInfo(): ForegroundInfo = BackUploadNote.info(applicationContext, true, 0, 0)
+
     override fun doWork(): Result {
         val ctx = applicationContext
         val batch = inputData.getString(BackUpload.EXTRA_BATCH)
@@ -89,12 +103,19 @@ class BackUploadWorker(context: Context, params: WorkerParameters) : Worker(cont
         // 이미 끝난 묶음(같은 작업이 한 번 더 돈 경우)은 다시 알리지 않는다.
         if (left <= 0) return Result.success()
         val failed = { reason: String -> BackUploadRules.Run.Stopped(reason, true, left, total) }
+        // S67-38: 올리는 동안 알림을 띄워 앞쪽 작업으로 돈다(앱을 나가도·화면을 꺼도 끝까지). 못 띄우면(뒤에서 다시 걸림 등) 알림 없이 그대로.
+        val photos = WidgetGuard.get { store.photosOnly(batch) } ?: true
+        val front = { done: Int -> WidgetGuard.run { setForegroundAsync(BackUploadNote.info(ctx, photos, done, total)).get() } }
+        front(total - left)
         // 다시 도는 묶음은 '멈춤' 표시를 지운다(화면에는 '올리는 중').
         WidgetGuard.run { store.stop(batch, null) }
         val session = WidgetGuard.get { WidgetHub.session(ctx) }
         val run = if (session == null) failed(BackUploadRules.INTERNAL) else {
             WidgetGuard.get {
-                BackUploadRules.run(store, batch, after = { BackUpload.changed(batch) }) { item, target ->
+                BackUploadRules.run(store, batch, after = {
+                    BackUpload.changed(batch)
+                    front(total - (WidgetGuard.get { store.items(batch).size } ?: 0))
+                }) { item, target ->
                     // 시스템이 이 작업을 멈췄으면(시간 한도 등) 새 파일을 시작하지 않는다. WorkManager가 다시 걸면 남은 것부터 잇는다.
                     if (isStopped) BackUploadRules.One.Failed(BackUploadRules.INTERNAL, true)
                     else session.uploadLibrary(item.file, item.name, item.type, target, item.fields)
@@ -114,5 +135,45 @@ class BackUploadWorker(context: Context, params: WorkerParameters) : Worker(cont
         }
         BackUpload.changed(batch)
         return Result.success()
+    }
+}
+
+/**
+ * S67-38: 뒤에서 올리는 동안의 알림 하나('사진 2장 올리는 중 · 1/2 · 앱을 나가거나 화면을 꺼도 끝까지 올려요').
+ * 파일 이름·내용·대상은 싣지 않는다. 누르면 앱을 연다. 소리·진동 없음. 작업이 끝나면 WorkManager가 알림을 내린다.
+ */
+object BackUploadNote {
+    private const val CHANNEL = "back-upload"
+    const val NOTE_ID = 4410
+
+    fun info(context: Context, photos: Boolean, done: Int, total: Int): ForegroundInfo {
+        // 앱 최소 판(minSdk 29)부터 종류를 붙일 수 있다. 안드로이드 14+는 종류가 매니페스트(SystemForegroundService dataSync)와 같아야 한다.
+        return ForegroundInfo(NOTE_ID, build(context, photos, done, total), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    }
+
+    private fun build(context: Context, photos: Boolean, done: Int, total: Int): Notification {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        if (nm?.getNotificationChannel(CHANNEL) == null) {
+            nm?.createNotificationChannel(NotificationChannel(CHANNEL, "올리기", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "사진·자료를 뒤에서 올리는 동안"
+                setShowBadge(false)
+            })
+        }
+        val open = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+            ?.let { PendingIntent.getActivity(context, NOTE_ID, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) }
+        val b = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle(BackUploadRules.progressTitle(photos, total))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        if (open != null) b.setContentIntent(open)
+        if (total > 0) b.setContentText(BackUploadRules.progressText(done, total)).setProgress(total, done.coerceIn(0, total), false)
+        else b.setProgress(0, 0, true)
+        return b.build()
     }
 }

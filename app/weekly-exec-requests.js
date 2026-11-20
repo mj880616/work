@@ -11,6 +11,7 @@
 //   가져온 줄은 carried=true — 화면에만 '지난주에서' 표시, 한글 파일·복사에는 표시 없이 같은 모양으로 나간다.
 // - 표가 아직 없으면(REST 404) {missing:true} — 화면은 입력칸 없이 안내하고, 한글 파일 요청 표는 걸러 낸 줄만 쓴다(저장 없음).
 // 브라우저 저장소에 아무것도 두지 않는다.
+import {dropSameDay} from './same-day-lead.mjs';
 
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -76,7 +77,8 @@ export function splitWhat(text) {
   if (parts.length === 2) return timed ? {time:parts[0], what:parts[1], place:''} : {time:'', what:parts[0], place:parts[1]};
   return timed ? {time:parts[0], what:parts.slice(1, -1).join(' / '), place:parts.at(-1)} : {time:'', what:parts.slice(0, -1).join(' / '), place:parts.at(-1)};
 }
-export const whatCell = item => [item.time, item.what, item.place].map(one).filter(Boolean).join(' / ');
+// S67-36: 내용 맨 앞에 그 줄 날짜와 같은 날짜가 또 있으면 떼고 보인다(same-day-lead.mjs, 저장된 글은 그대로).
+export const whatCell = item => [item.time, dropSameDay(item.what, item.day, item.until), item.place].map(one).filter(Boolean).join(' / ');
 export const whoLines = who => String(who ?? '').split(/\s*[,，]\s*/).map(one).filter(Boolean);
 export const newId = () => (globalThis.crypto?.randomUUID?.() ?? `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`);
 

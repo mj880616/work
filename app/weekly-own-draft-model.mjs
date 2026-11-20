@@ -5,6 +5,8 @@
 //  - filled: 이번 주 기록에서 채운 칸 표시(화면 노란 칸). 기록 내용은 화면·한글 파일에만 쓰고 로그에 쓰지 않는다.
 // 다른 팀 양식 규칙(항목 이름·표 칸)은 쓰지 않는다 — 항목·칸은 모두 '내 양식'에서 온다.
 
+import {dropSameDay} from './same-day-lead.mjs';
+
 export const ROW_MAX = 60; // 항목 하나의 줄·행 상한(화면·한글 파일이 너무 길어지지 않게)
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export const dayText = day => (DAY.test(String(day ?? '')) ? `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}` : '');
@@ -58,7 +60,8 @@ export function ownDraft(form, model, last = null) {
       if (s.columns.length) return {...base, lines: null, rows: (prev?.rows ?? []).slice(0, ROW_MAX).map(r => s.columns.map((_, i) => ({text: clean(r[i]?.text ?? r[i] ?? ''), filled: false})))};
       return {...base, lines: (prev?.lines ?? []).slice(0, ROW_MAX).map(l => ({text: clean(l?.text ?? l), filled: false})), rows: null};
     }
-    const items = s.fill === 'blank' ? [] : fillItems(s.fill, model).filter(i => clean(i.text)).slice(0, ROW_MAX);
+    // S67-36: 글 맨 앞에 그 기록 날짜와 같은 날짜가 또 있으면 뗀다(날짜는 날짜 칸·줄 앞에 이미 있다).
+    const items = s.fill === 'blank' ? [] : fillItems(s.fill, model).map(i => ({...i, text: dropSameDay(i.text, i.day)})).filter(i => clean(i.text)).slice(0, ROW_MAX);
     if (s.columns.length) {
       const kinds = columnKinds(s.columns);
       return {...base, lines: null, rows: items.map(i => kinds.map(k => { const text = cellOf(i, k); return {text, filled: !!text}; }))};
