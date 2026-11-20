@@ -9,6 +9,7 @@ import {seoulClock} from './meeting-time.js';
 // S58-10 BIZ-보고할일정 PR C: 달력에 '보고할 일정'(□)·'보고할까요?'(점선 □)을 같이 놓는다. 규칙은 report-calendar-plan.mjs, 읽기·저장은 report-calendar-plans.js(부르는 쪽이 ctx.plan으로 넘김).
 import {dayEntries, cellDots, entryMark, itemTime, itemMeta, overdueSummary, shortDay, ENTRY_PLAN} from './report-calendar-plan.mjs';
 import {chevHtml} from './fold-chevron.mjs';
+import {word} from './brand/brand.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const dot = color => `<span class="rv-dot" aria-hidden="true"${color ? ` style="--meeting-color:${esc(color)}"` : ''}></span>`;
@@ -52,7 +53,7 @@ export function calendarHtml(ctx) {
     const list = c.inMonth ? byDay.get(c.key) || [] : [], items = c.inMonth ? planByDay.get(c.key) || [] : [];
     const entries = dayEntries(list, items), cell = cellPlan(entries);
     const todo = items.filter(i => i.status === 'todo').length, ask = items.length - todo;
-    const counts = [list.length ? `사업 보고 ${list.length}건` : '', todo ? `보고할 일정 ${todo}건` : '', ask ? `보고할까요? ${ask}건` : ''].filter(Boolean).join(' · ');
+    const counts = [list.length ? word`사업 보고 ${list.length}건` : '', todo ? `보고할 일정 ${todo}건` : '', ask ? `보고할까요? ${ask}건` : ''].filter(Boolean).join(' · ');
     const cls = ['rv-cell', c.inMonth ? '' : 'rv-out', c.key === todayKey ? (c.inMonth ? 'rv-now ds-today' : 'rv-now') : '', c.key === selected ? 'rv-sel ds-day-sel' : ''].filter(Boolean).join(' ');
     const label = `${dayHeading(c.key)}${counts ? ` ${counts}` : ''}`;
     const num = c.inMonth ? `<button type="button" class="rv-num ds-day-num${c.key === todayKey ? ' ds-today-num' : ''}" data-rv-day="${c.key}" aria-pressed="${c.key === selected}" aria-label="${esc(label)}">${c.day}</button>` : `<span class="rv-num rv-num-out" aria-hidden="true">${c.day}</span>`;
@@ -79,7 +80,7 @@ export function calendarHtml(ctx) {
   }).join('');
   const list = selected ? `<section class="rv-day-list" aria-label="${esc(dayHeading(selected))}"><h3 class="rv-day-title">${esc(dayHeading(selected))}</h3>${dayRows || emptyHtml()}</section>` : '';
   const monthHasPlan = [...planByDay.keys()].some(key => key.startsWith(prefix));
-  const none = !rows.length && !monthHasPlan ? emptyHtml('맞는 사업 보고 없음') : '';
+  const none = !rows.length && !monthHasPlan ? emptyHtml(word('맞는 사업 보고 없음')) : '';
   const due = plan ? overdueHtml(plan.overdue || [], planColorOf, !!ctx.dueOpen) : '';
   return `<div class="rv-cal" data-rv-month="${monthKeyOf(month)}">${due}${head}${monthHasPlan ? LEGEND : ''}<table class="rv-table">${weekdays}<tbody>${body}</tbody></table>${list}${none}</div>`;
 }
@@ -97,7 +98,7 @@ export function dayWindowHtml({day, list, colorOf, nameOf, plans = [], planColor
     const m = e.report, name = nameOf(m), time = m?.meeting_at ? seoulClock(m.meeting_at) : '';
     return `<li><div class="rv-pop-row" ${openAttrs(m.id)} data-rv-from="${esc(day)}" title="${esc(name)}" aria-label="${esc([time, name].filter(Boolean).join(' '))}">${dot(colorOf(m))}<span class="rv-pop-name">${esc(name)}</span>${time ? `<time class="rv-pop-time">${esc(time)}</time>` : ''}</div></li>`;
   }).join('');
-  return `<div class="rv-pop" data-rv-pop="${esc(day)}"><ul class="rv-pop-list">${rows}</ul><div class="rv-pop-foot"><button type="button" class="row-act rv-pop-add" data-rv-pop-add="${esc(day)}">+ 이날 사업 보고 추가</button></div></div>`;
+  return word`<div class="rv-pop" data-rv-pop="${esc(day)}"><ul class="rv-pop-list">${rows}</ul><div class="rv-pop-foot"><button type="button" class="row-act rv-pop-add" data-rv-pop-add="${esc(day)}">+ 이날 사업 보고 추가</button></div></div>`;
 }
 
 // 사진. ctx = {rows, photos(Map), colorOf, nameOf, kindOf(m)}
@@ -105,7 +106,7 @@ export function photoViewHtml(ctx) {
   const {rows, photos, colorOf, nameOf, kindOf} = ctx;
   const groups = photoGroups(rows, photos);
   if (!groups.length) return `<div class="rv-photos">${emptyHtml()}</div>`;
-  return `<div class="rv-photos">${groups.map(g => `<section class="rv-photo-day" data-rv-photo-day="${esc(g.day)}"><h3 class="rv-day-title">${esc(g.day ? dayHeading(g.day) : '날짜 없음')}</h3>${g.items.map(({meeting: m, photos: list}) => `<div class="rv-set" data-rv-set="${esc(m.id)}"><div class="rv-set-head" ${openAttrs(m.id)} aria-label="사업 보고 열기: ${esc(nameOf(m))}">${dot(colorOf(m))}<span class="rv-set-title">${esc(nameOf(m))}</span><span class="rv-set-meta">${esc([kindOf(m), `사진 ${list.length}`].filter(Boolean).join(' · '))}</span></div><div class="act-photo-grid rv-grid" data-rv-grid="${esc(m.id)}"></div></div>`).join('')}</section>`).join('')}</div>`;
+  return `<div class="rv-photos">${groups.map(g => `<section class="rv-photo-day" data-rv-photo-day="${esc(g.day)}"><h3 class="rv-day-title">${esc(g.day ? dayHeading(g.day) : '날짜 없음')}</h3>${g.items.map(({meeting: m, photos: list}) => word`<div class="rv-set" data-rv-set="${esc(m.id)}"><div class="rv-set-head" ${openAttrs(m.id)} aria-label="사업 보고 열기: ${esc(nameOf(m))}">${dot(colorOf(m))}<span class="rv-set-title">${esc(nameOf(m))}</span><span class="rv-set-meta">${esc([kindOf(m), `사진 ${list.length}`].filter(Boolean).join(' · '))}</span></div><div class="act-photo-grid rv-grid" data-rv-grid="${esc(m.id)}"></div></div>`).join('')}</section>`).join('')}</div>`;
 }
 
 // 사진 칸 채우기. 보이는 칸만 받는다(report-photos.js IntersectionObserver). 크게 보기 ⋯에 [사업 보고 열기].
@@ -113,7 +114,7 @@ export function mountPhotoView(box, {rows, photos, api, onError = () => {}, open
   const byId = new Map(rows.map(m => [m.id, m]));
   box.querySelectorAll('[data-rv-grid]').forEach(grid => {
     const id = grid.dataset.rvGrid;
-    mountPhotoGrid(grid, photos.get(id) || [], {api, onError, extraActions: () => (byId.has(id) ? [{label: '사업 보고 열기', run: () => { void openReport(id); return true; }}] : [])});
+    mountPhotoGrid(grid, photos.get(id) || [], {api, onError, extraActions: () => (byId.has(id) ? [{label: word('사업 보고 열기'), run: () => { void openReport(id); return true; }}] : [])});
   });
 }
 export const mountStrips = (box, isCurrent) => mountReportPhotos(box, {isCurrent});

@@ -13,9 +13,10 @@
 //   '거절해서 안 내는 것'이 되어 다음 제안에서 빠지고(접힌 '뺀 제안'에는 남음), 받은 종류는 앞에 놓인다. [풀기]는 그 종류의 지난 셈을 지운다.
 // - 브라우저 저장소에 아무것도 두지 않는다. 글은 로그에 쓰지 않는다.
 import {GROUP_KEYS, groupKeyOf, groupNameOf, groupNames} from './weekly-group-names.mjs';
+import {word} from './brand/brand.mjs';
 
 export const PICK_KIND = Object.freeze({material:'칸 후보', calendar:'캘린더 추천', unmatched:'줄 못 찾은 기록', mismatch:'본문·일정표 다름', ai_line:'AI 줄 제안', review:'환류 규칙 후보',
-  doc:'자료 줄', org_ai:'조직 AI 요약', ai_draft:'AI 초안 줄', line:'보고서 줄', carried:'지난주 줄', work_line:'오늘 한 일 줄'});
+  doc:'자료 줄', org_ai:word('조직 AI 요약'), ai_draft:'AI 초안 줄', line:'보고서 줄', carried:'지난주 줄', work_line:'오늘 한 일 줄'});
 export const PICK_FROM = Object.freeze({record:'기록', doc:'자료', calendar:'달력', ai:'AI', hand:'손'});
 export const PICK_ACTS = Object.freeze(['take', 'edit', 'drop', 'fix', 'cut', 'add', 'none', 'have']);
 export const ANSWER_ACTS = Object.freeze(['take', 'edit', 'drop']);     // 제안에 대한 답 — 학습 셈(learnPicks)에 들어감

@@ -6,6 +6,7 @@
 // - REC-한회의로잇기 PR-3(예외 하나): 정리 결과를 사람이 고른 보고에 [그 보고에 잇기]하면 서버가 뒤에서 그 보고에 저장한다(join_*, meeting-join.js).
 //   그 밖의 정리 결과는 지금처럼 입력 창에 채우기만 하고 저장은 사람이 누른다.
 
+import {word} from './brand/brand.mjs';
 export const POLL_MS=5000;
 export const POLL_HIDDEN_MS=30000;
 // 서버 단계 → 녹음 띠 단계 이름(stepParts: 올림 › 전사 › 요약 › 초안 열림).
@@ -252,7 +253,7 @@ export function discardDoneText(job){
 // REC-멈춤띠계속뜸(S60-26): 멈춤 띠 [닫기] → 서버 '닫음' 표시(job_discard, 녹음 소리·전사 글 그대로). 닫은 멈춤은 띠에 다시 뜨지 않고
 // 사업 보고 목록 위 녹음 줄에만 [다시]로 남는다(48시간, 서버 job_list). 줄 글: 언제·길이·멈춘 이유 짧게.
 const STOP_SHORT={daily_limit:'오늘 AI 한도',monthly_limit:'이달 AI 한도',ai_monthly_cap:'이달 AI 사용 한도',usage_unavailable:'AI 사용량 확인 못함'};
-export const STOP_CLOSED_TEXT='멈춘 녹음 정리를 닫았어요. 사업 보고 위 녹음 줄에서 [다시] 할 수 있어요';
+export const STOP_CLOSED_TEXT=word('멈춘 녹음 정리를 닫았어요. 사업 보고 위 녹음 줄에서 [다시] 할 수 있어요');
 export function stoppedLineText(job){
   const ms=Date.parse(String(job?.created_at||''));
   const at=Number.isFinite(ms)?new Date(ms+9*3600000).toISOString():'';

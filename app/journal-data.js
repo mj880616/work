@@ -28,6 +28,7 @@ import {dueDay, shortDay, tomorrowKey, moveTaskToDay} from './task-due.mjs';
 import {reportsMeeting, meetingKindKey, meetingKindName} from './journal-meeting-kinds.js';
 import {reportKindOf, reportKindLabel, DEFAULT_KIND} from './report-kinds.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
+import {word} from './brand/brand.mjs';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -454,7 +455,7 @@ function basketPlaces(basket, day) {
     const confirmed = links.filter(link => link.note_id === memo.id && link.status === 'confirmed');
     const orgs = new Map(), projects = [], refs = [];
     for (const link of confirmed) {
-      if (link.organization_id && !orgs.has(link.organization_id)) orgs.set(link.organization_id, {id:link.organization_id, name:link.organization?.name || '조직', summary:firstLine(link.summary), link:link.id || null});
+      if (link.organization_id && !orgs.has(link.organization_id)) orgs.set(link.organization_id, {id:link.organization_id, name:link.organization?.name || word('조직'), summary:firstLine(link.summary), link:link.id || null});
       else if (link.project_id && !link.organization_id && link.project?.name) projects.push({id:link.project_id, name:link.project.name, summary:firstLine(link.summary), link:link.id || null});
       else if (link.bundle_id && !link.organization_id && !link.project_id && !refs.some(ref => ref.id === link.bundle_id))
         refs.push({id:link.bundle_id, name:String(link.bundle?.name || '').trim() || '참고 묶음', summary:firstLine(link.summary), link:link.id || null});
@@ -479,7 +480,7 @@ export function orgNewsOn({basket, orgUpdates} = {}, day, {open = false, unsorte
   const entries = [], mine = orgUpdates?.mine instanceof Set ? orgUpdates.mine : null;
   const add = (id, name, at, text, requests, place = null, full = '') => {
     const label = String(name || '').trim();
-    if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || '조직'} · ${text}`, requests, open:place, body:full});
+    if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || word('조직')} · ${text}`, requests, open:place, body:full});
     else entries.push({name: label || UNSORTED, at, text, requests, open:place, body:full});
   };
   for (const {memo, orgs, projects, refs, line, raw, requests, journal} of basketPlaces(basket, day)) {
@@ -596,7 +597,7 @@ export const DAY_SOURCES = Object.freeze({
   tasks:['tasks'], activities:ACTIVITY_SOURCES, business:['basket', 'projectUpdates'], orgs:['basket', 'orgUpdates'],
   events:['events'], memos:['basket'], calls:['calls'],
 });
-export const REPORT_PARTS = Object.freeze([['activities', '회의·활동 결과'], ['business', '사업 소식'], ['orgs', '조직 소식']]);
+export const REPORT_PARTS = Object.freeze([['activities', '회의·활동 결과'], ['business', '사업 소식'], ['orgs', word('조직 소식')]]);
 // S49-12·JOURNAL-그밖의기록삭제: 하루 카드에 '그 밖의 기록' 묶음은 없다. 'calls' 읽기(DAY_SOURCES)는 오늘 한 줄 초안 재료로 그대로 쓴다.
 // The whole day card: {tasks:{todo, overdue, done, ...state}, events:part, report:[part], memos:part}; a part is {key, label, loading, failed,
 // capped, items:[{text, open, ...}], sections:[{name, items, opens, tags?}]}. kinds: journal-meeting-kinds readKinds() result.
@@ -623,7 +624,7 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
   const report = [
     part('activities', '회의·활동 결과', () => ({items:activityResultsOn(materials, day, hidden)})),
     part('business', '사업 소식', () => (basket || okItems(materials, 'projectUpdates')) ? sectioned(projectNewsOn({basket, projectUpdates:okItems(materials, 'projectUpdates')}, day, tree, {open:true})) : {}),
-    part('orgs', '조직 소식', () => (basket || okItems(materials, 'orgUpdates')) ? sectioned(orgNewsOn({basket, orgUpdates:okItems(materials, 'orgUpdates')}, day, {open:true, unsorted:false})) : {}),
+    part('orgs', word('조직 소식'), () => (basket || okItems(materials, 'orgUpdates')) ? sectioned(orgNewsOn({basket, orgUpdates:okItems(materials, 'orgUpdates')}, day, {open:true, unsorted:false})) : {}),
   ];
   // 기타 메모: 화면에는 그리지 않고 오늘 한 줄 AI 초안 재료(journal-draft-model.mjs draftMaterial)로만 쓴다.
   const memos = part('memos', '기타 메모', () => ({items:journalMemoItemsOn(basket, day)}));
@@ -647,7 +648,7 @@ export async function readTaskMeetingNames(taskIds, rt = window.KPTURuntime) {
   const meetingIds = [...new Set(links.map(l => l.meeting_id).filter(Boolean))], meetings = new Map();
   for (let i = 0; i < meetingIds.length; i += 50) {
     const query = meetingIds.slice(i, i + 50).map(encodeURIComponent).join(',');
-    for (const m of await rt.api(`/rest/v1/app_meetings?id=in.(${query})&select=id,title,series_name`)) meetings.set(m.id, String(m.series_name || m.title || '').trim() || '사업 보고');
+    for (const m of await rt.api(`/rest/v1/app_meetings?id=in.(${query})&select=id,title,series_name`)) meetings.set(m.id, String(m.series_name || m.title || '').trim() || word('사업 보고'));
   }
   const out = new Map();
   for (const l of links) { const name = meetings.get(l.meeting_id); if (!name) continue; const list = out.get(l.google_task_id) || []; if (!list.includes(name)) list.push(name); out.set(l.google_task_id, list); }

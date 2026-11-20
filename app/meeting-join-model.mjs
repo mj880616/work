@@ -6,6 +6,7 @@
 // - PR-4(보고 ⋯ [다른 보고에 합치기]): 합치기 줄은 시각을 붙인 이름(labelWhen)과 휴지통으로 옮긴 보고(doneText from)를 쓴다.
 // - PR-5 (라) 입력 창의 전사 글 물음은 S61-24(REC-요약단추삭제)에서 화면과 함께 뺐다.
 import {normalizeDraft,actionRows} from './meeting-transcript-model.mjs';
+import {word} from './brand/brand.mjs';
 
 const KST=9*3600000;
 const two=n=>String(n).padStart(2,'0');
@@ -37,7 +38,7 @@ export const hasJoinMark=notes=>/^― 이어서(?: · \d{2}:\d{2} 녹음)? ―$/
 export const isMeetingReport=m=>!!m&&(m.activity_kind==null||m.activity_kind==='meeting');
 // 보고 이름: 회의명(+ 차수). 비면 '사업 보고'.
 export function reportName(m){
-  const name=String(m?.series_name||m?.title||'').trim()||'사업 보고';
+  const name=String(m?.series_name||m?.title||'').trim()||word('사업 보고');
   const r=Number(m?.round_no);
   return Number.isInteger(r)&&r>0?`${name} ${r}차`:name;
 }

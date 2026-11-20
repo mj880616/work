@@ -10,6 +10,7 @@
 import {seoulClock} from './meeting-time.js';
 import {PLAN_ICON} from './calendar-row-menu.mjs'; // S59-20: 일정 메뉴와 같은 깃발 아이콘 하나(예전에는 네모 선이 두 곳에 따로 있었다)
 import {eventStatus, planDecision, reportsOfEvent, eventCopy, nameKey, askReason, PLAN_ON, STATUS_TODO, STATUS_ASK, ASK_MAJOR} from './report-plan-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const ENTRY_REPORT = 'report', ENTRY_PLAN = 'plan';
 // 달력 칸의 점 수(폰 칸 — 지금 화면과 같은 3개).
@@ -98,7 +99,7 @@ export function cellDots(entries, max = CELL_DOTS) {
 // '10:00' 같은 시각 글자(24시간, 서울). 종일이면 '종일'.
 export const itemTime = item => (item?.startsAt ? seoulClock(item.startsAt) : '종일');
 // 그날 목록 둘째 줄(시안): '일정 · 10:00' / '일정 · 10:00 · 담당조직 연결됨' / '일정 · 10:00 · 주요 일정'(S67-16)
-const askText = item => (item?.status !== STATUS_ASK ? '' : item.reason === ASK_MAJOR ? '주요 일정' : '담당조직 연결됨');
+const askText = item => (item?.status !== STATUS_ASK ? '' : item.reason === ASK_MAJOR ? '주요 일정' : word('담당조직 연결됨'));
 export const itemMeta = item => ['일정', itemTime(item), askText(item)].filter(Boolean).join(' · ');
 // 항목 → 일정 모양(Edge google-calendar normEvent와 같은 칸). 저장(report-plan-data.js)과 보고 쓰기 창에 넘긴다.
 export const itemEvent = item => ({id: item.eventId, calendarId: item.calendarId, title: item.title, start: item.startsAt || item.day, allDay: !item.startsAt});

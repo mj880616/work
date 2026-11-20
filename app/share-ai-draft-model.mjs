@@ -2,6 +2,7 @@
 // [넣기]로 본문에 들어갈 편집기 문서 조각(ed1 블록)을 만든다. 네트워크·저장 없음.
 // 근거 번호·'확인할 것'은 미리보기에만 보이고 본문에는 들어가지 않는다(공유 페이지는 바깥 사람이 읽는다).
 import {cleanDoc} from './ed-schema.mjs';
+import {word} from './brand/brand.mjs';
 
 export const SHARE_AI_MAX_PICK = 6;
 export const SHARE_AI_FOCUS_MAX = 80;
@@ -40,7 +41,7 @@ export function parseShareDraftAnswer(data) {
   if (!data || typeof data !== 'object' || data.kind !== 'share_draft' || !data.sections || typeof data.sections !== 'object') return null;
   const sources = (Array.isArray(data.sources) ? data.sources : []).filter(s => s && Number.isSafeInteger(s.ref) && s.ref >= 1 && s.ref <= SHARE_AI_MAX_PICK
     && TYPES.includes(s.type) && UUID.test(String(s.id)) && (s.day === '' || DAY.test(String(s.day))))
-    .map(s => ({ref:s.ref, type:s.type, id:String(s.id).toLowerCase(), label:str(s.label, 20) || (s.type === 'meeting' ? '사업 보고' : '노트'), title:str(s.title, 120) || '', day:s.day}));
+    .map(s => ({ref:s.ref, type:s.type, id:String(s.id).toLowerCase(), label:str(s.label, 20) || (s.type === 'meeting' ? word('사업 보고') : '노트'), title:str(s.title, 120) || '', day:s.day}));
   const known = new Set(sources.map(s => s.ref));
   const sections = {};
   let total = 0;
@@ -77,9 +78,9 @@ export function draftNodes(draft, keys) {
 
 // 고르기 목록 한 줄. 사업 보고: 제목(회차) · 칸 · 날짜. 노트·업데이트: 제목(없으면 본문 첫 줄) · 종류 · 날짜.
 export function meetingLine(m, kindLabel = () => '') {
-  const name = String((m?.series_name && String(m.series_name).trim()) || m?.title || '').trim() || '사업 보고';
+  const name = String((m?.series_name && String(m.series_name).trim()) || m?.title || '').trim() || word('사업 보고');
   const round = m?.round_no != null && Number.isFinite(Number(m.round_no)) ? ` ${Number(m.round_no)}차` : '';
-  return {key:pickKey('meeting', m?.id), name:name + round, meta:['사업 보고', kindLabel(m), shortDay(kstDay(m?.meeting_at))].filter(Boolean).join(' · ')};
+  return {key:pickKey('meeting', m?.id), name:name + round, meta:[word('사업 보고'), kindLabel(m), shortDay(kstDay(m?.meeting_at))].filter(Boolean).join(' · ')};
 }
 export function noteLine(n) {
   const first = String(n?.raw_text || '').split('\n').map(s => s.trim()).find(Boolean) || '';
