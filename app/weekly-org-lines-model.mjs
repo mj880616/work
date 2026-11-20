@@ -6,6 +6,7 @@
 // - '부실' = 넣은 줄 THIN_MAX(1)줄 이하 → 주간 정리에서 지난주 줄을 펼쳐 [가져오기](16:58·17:34 결정).
 import {cleanBody, similarBody} from './org-status-model.mjs';
 import {lineIn} from './weekly-cell-names.mjs';
+import {dropSameDay} from './same-day-lead.mjs';
 
 export const SHOWN = 3;
 export const THIN_MAX = 1;
@@ -62,7 +63,8 @@ export function cellParts(lines, limit = SHOWN) {
   };
 }
 // 주간보고 줄(넣은 줄 전부, 자르지 않음): '- 11.2. 글'.
-export const lineText = l => `- ${[dayText(l.day, l.end_day), cleanBody(l.body)].filter(Boolean).join(' ')}`;
+// S67-36: 글 맨 앞에 줄 날짜와 같은 날짜가 또 있으면 뗀다(same-day-lead.mjs).
+export const lineText = l => `- ${[dayText(l.day, l.end_day), cleanBody(dropSameDay(l.body, l.day, l.end_day))].filter(Boolean).join(' ')}`;
 export const reportLines = lines => cellParts(lines).placed.map(lineText);
 // 새 줄 순서 번호(제안·뺀 줄 포함 가장 큰 값 다음, DB 검사 0..1000).
 export const nextOrder = lines => Math.min(1000, (lines ?? []).reduce((m, l) => Math.max(m, Number.isFinite(l.sort_order) ? l.sort_order : 0), -1) + 1);
