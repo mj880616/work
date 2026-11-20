@@ -24,11 +24,13 @@ const nid=n=>`b0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const newsRow=(n,over={})=>({id:nid(n),day:'2026-10-06',source:'telegram',feed_item_id:fid(n),org_name:null,line:`가상 소식 ${n}`,status:'suggested',final_line:null,picked_at:`2026-10-06T0${n}:10:00Z`,decided_at:null,...over});
 async function fixture(page,{failReopen=false,width=390,features=['telegram','family'],lockFeatures=null,news=[],cands=[cand(1),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'}),cand(5,{status:'tasked',decided_at:'2026-10-06T06:00:00Z'})]}={}){
   await page.setViewportSize({width,height:900});
-  const patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[],fixes=[],orgDeletes=[],bizPosts=[],bizDeletes=[];
+  const lockChecks=[],patches=[],feedback=[],famPatches=[],notePatches=[],rows=notes(),newsPatches=[],orgPosts=[],asked=[],fixes=[],orgDeletes=[],bizPosts=[],bizDeletes=[];
   await openHome(page,{beforeLoad:async()=>{
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:features}));
     // SEC-기능PIN잠금: 잠근 기능(서버 설정 흉내). 없으면 공용 기본값(잠금 없음).
     if(lockFeatures)await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_lock_read',r=>r.fulfill({json:{has_pin:true,features:lockFeatures,relock:'5m',left:5,blocked_until:null}}));
+    // S67-25 그 자리 풀기: PIN 대조·남은 횟수는 서버(흉내) — 화면은 결과만 받는다. 맞는 PIN은 합성 값 '1234'.
+    if(lockFeatures){let fail=0;await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_lock_check',r=>{lockChecks.push(1);const ok=r.request().postDataJSON()?.p_pin==='1234';if(ok)fail=0;else fail++;return r.fulfill({json:ok?{ok:true,left:5,blocked_until:null}:{ok:false,left:5-fail,blocked_until:null}});});}
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',async r=>{
       const req=r.request(),q=new URL(req.url()).searchParams;
       if(req.method()==='PATCH'){
@@ -97,7 +99,7 @@ async function fixture(page,{failReopen=false,width=390,features=['telegram','fa
   }});
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
-  return {patches,feedback,famPatches,notePatches,cands,newsPatches,orgPosts,asked,fixes,orgDeletes,bizPosts,bizDeletes};
+  return {lockChecks,patches,feedback,famPatches,notePatches,cands,newsPatches,orgPosts,asked,fixes,orgDeletes,bizPosts,bizDeletes};
 }
 const list=page=>page.locator('#basketView [data-forget-section] .nbx-list');
 const line=(page,key)=>page.locator(`#basketView [data-nbx-row="${key}"]`);
@@ -209,8 +211,61 @@ test('통화·텔레그램을 잠그면 소식·텔레그램 요청 줄 대신 �
   await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(0);
   await expect(list(page).locator('[data-forget-src="telegram"]')).toHaveCount(0);
   await expect(list(page)).not.toContainText('가상 통화 소식');
-  await expect(list(page).locator('[data-forget-locked]')).toHaveText(/^통화·텔레그램 \d+줄 · 잠김$/);
+  await expect(list(page).locator('[data-forget-locked]')).toHaveText(/^통화·텔레그램 \d+줄 · 잠김 풀기$/);
   await expect(list(page).locator('[data-forget-src="todo"]').first()).toBeVisible();
+});
+
+// S67-25 그 자리 풀기(명진 11/20 "풀 수 있는 방법도 여기에 줘야지"): '잠김' 줄 끝 [풀기] → 화면을 떠나지 않고 작은 PIN 창(잠금 화면과 같은 숫자 판)
+// → 틀리면 남은 횟수(서버 값) → 맞으면 창이 닫히고 같은 자리에 숨긴 줄들이 보인다. 풀기 전에는 소식 글자가 화면에 없다.
+const SHOTS25=process.env.KPTU_SHOTS?'docs/design/screens/s67-25/':'';
+test('412: 잊지 말기 잠김 줄 [풀기] → 그 자리 PIN → 틀리면 남은 횟수 → 맞으면 같은 화면에 줄들이 보임',async({page})=>{
+  const news=[newsRow(2,{org_name:'가상 지부'}),newsRow(4,{source:'call',line:'가상 통화 소식'})];
+  const {lockChecks}=await fixture(page,{width:412,news,features:['telegram','calls','family'],lockFeatures:['calls','telegram']});
+  const locked=list(page).locator('[data-forget-locked]');
+  await expect(locked).toHaveText(/^통화·텔레그램 \d+줄 · 잠김 풀기$/);
+  await expect(list(page)).not.toContainText('가상 통화 소식');
+  if(SHOTS25)await page.screenshot({path:`${SHOTS25}forget-locked-412.png`});
+  await locked.locator('button.lk-open').click();
+  const here=page.locator('dialog.lk-here');
+  await expect(here.locator('.lk-title')).toHaveText('통화·텔레그램 잠김');
+  await expect(page.locator('#lockView')).toBeHidden();
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+  // 작은 창은 폰 화면 안(하단바에 가리지 않게 가운데), 숫자 칸은 잠금 화면과 같은 부품.
+  const box=await here.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(412);expect(box.y+box.height).toBeLessThanOrEqual(900);
+  await expect(here.locator('[data-lk-key]')).toHaveCount(10);
+  if(SHOTS25)await page.screenshot({path:`${SHOTS25}forget-pad-412.png`});
+  for(const d of '0000')await here.locator(`[data-lk-key="${d}"]`).click();
+  await expect(here.locator('[data-lk-msg]')).toHaveText('PIN이 맞지 않아요 · 4번 남았어요');
+  await expect(list(page)).not.toContainText('가상 통화 소식');
+  if(SHOTS25)await page.screenshot({path:`${SHOTS25}forget-wrong-412.png`});
+  for(const d of '1234')await here.locator(`[data-lk-key="${d}"]`).click();
+  await expect(here).toHaveCount(0);
+  await expect(locked).toHaveCount(0);
+  await expect(list(page).locator('[data-forget-src="news"]')).toHaveCount(2);
+  await expect(list(page)).toContainText('가상 통화 소식');
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+  expect(lockChecks.length).toBe(2);
+  if(SHOTS25)await page.screenshot({path:`${SHOTS25}forget-open-412.png`});
+});
+
+test('412: 그 자리 PIN 창은 [취소]·뒤로가기로 창만 닫히고 그대로 잠김',async({page})=>{
+  const news=[newsRow(4,{source:'call',line:'가상 통화 소식'})];
+  const {lockChecks}=await fixture(page,{width:412,news,features:['telegram','calls','family'],lockFeatures:['calls','telegram']});
+  const locked=list(page).locator('[data-forget-locked]');
+  await locked.click();
+  const here=page.locator('dialog.lk-here');
+  await expect(here.locator('.lk-title')).toHaveText('통화·텔레그램 잠김');
+  await here.locator('[data-lk-cancel]').click();
+  await expect(here).toHaveCount(0);
+  await expect(locked).toBeVisible();
+  await locked.locator('button.lk-open').click();
+  await expect(here).toBeVisible();
+  await page.goBack();
+  await expect(here).toHaveCount(0);
+  await expect(locked).toBeVisible();
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+  expect(lockChecks.length).toBe(0);
 });
 
 // FORGET-소식합치기(요청함 11/08 21:02~21:19, 시안 docs/design/mockups/forget-news-link.html): 업무일지 '기억할 통화·텔레그램' 줄이

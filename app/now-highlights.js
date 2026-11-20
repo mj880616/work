@@ -40,7 +40,7 @@ export function createNowHighlights({box, query = () => '', onOpen} = {}) {
     const tgLocked = !!window.KPTUFeatureLock?.hides?.('telegram') && !!window.KPTUFeatureLock?.settings?.();
     const all = raw && (tgLocked ? raw.filter(h => h.source_type !== 'telegram') : raw);
     const hidden = raw && tgLocked ? raw.length - all.length : 0;
-    const lockedLine = hidden ? `<p class="nbx-faint forget-locked" data-nh-locked>텔레그램 밑줄 ${hidden}줄 · 잠김</p>` : '';
+    const lockedLine = hidden ? `<p class="nbx-faint forget-locked" data-nh-locked data-lock-here="telegram">텔레그램 밑줄 ${hidden}줄 · 잠김 <button type="button" class="row-act lk-open">풀기</button></p>` : '';
     if (!all) { box.innerHTML = failed ? failHtml({retry: 'data-nh-retry'}) : waitHtml({rows: 4, h: 56}); return; }
     for (const id of [...picked]) if (!all.some(h => h.id === id)) picked.delete(id);
     const list = all.filter(h => hlHit(h, query()));

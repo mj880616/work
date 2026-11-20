@@ -97,7 +97,7 @@ test('412: 원래 소식이 없어졌으면 알림만, 화면은 [밑줄] 탭 �
 // SEC-기능PIN잠금(S67-14): 텔레그램 소식을 잠갔고 아직 안 풀었으면 [밑줄] 탭의 텔레그램 밑줄은 글 대신 '잠김' 한 줄(몇 줄인지만).
 test('412: 텔레그램을 잠그면 [밑줄] 탭의 텔레그램 밑줄은 "잠김" 한 줄', async ({ page }) => {
   const errors = await fixture(page, 412, { locked: true });
-  await expect(page.locator('#outsideRoot [data-nh-locked]')).toHaveText('텔레그램 밑줄 2줄 · 잠김');
+  await expect(page.locator('#outsideRoot [data-nh-locked]')).toHaveText('텔레그램 밑줄 2줄 · 잠김 풀기');
   await expect(page.locator('#outsideRoot')).not.toContainText(QUOTE);
   await expect(page.locator('#outsideRoot [data-nh-empty]')).toHaveCount(0);
   expect(errors).toEqual([]);

@@ -5,13 +5,12 @@
 import * as lock from './feature-lock.js';
 import {waitHtml, failHtml} from './wait-state.js';
 import {myFeaturesOrNull} from './my-features.js';
-import {hhmm} from './feed-model.mjs';
+import {padBox, shake as padShake, wrongMsg} from './lock-pad.js';
 
 const rpc = (name, body) => window.KPTURuntime.api('/rest/v1/rpc/' + name, {method: 'POST', body, singleFlight: false});
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
 const button = (className, text, data = {}) => { const b = el('button', className, text); b.type = 'button'; Object.assign(b.dataset, data); return b; };
 const code = error => String(error?.message || '').match(/LOCK_[A-Z_]+/)?.[0] || '';
-const clock = iso => hhmm(iso);
 
 // 화면 상태(메모리만). mode: list | pad | forgot | wait | fail
 // task: 정리함 노트에서 온 일(S67-14) — {notes:true} 잠긴 노트 열기, {folder:{id,name,locked}} 폴더 잠그기·잠금 해제.
@@ -88,25 +87,11 @@ const TITLES = {
   change: () => ['지금 PIN', '새 PIN', '새 PIN 한 번 더'][ui.step],
   renew: () => ui.step ? '한 번 더 입력' : '새 PIN 정하기',
 };
+// 숫자 판은 lock-pad.js 한 부품(그 자리 작은 PIN 창과 같은 판).
 function pad() {
-  const box = el('div', 'lk-pad');
-  const icon = el('div', 'lk-icon'); icon.setAttribute('aria-hidden', 'true');
-  icon.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7"/></svg>';
-  const title = el('p', 'lk-title', TITLES[ui.purpose]?.() || '');
-  const sub = el('p', 'lk-sub', 'PIN 4자리');
-  const dots = el('div', 'lk-dots'); dots.setAttribute('role', 'status'); dots.setAttribute('aria-label', `${ui.digits.length}자리 입력`); dots.dataset.lkDots = '';
-  for (let i = 0; i < 4; i++) dots.append(el('span', 'lk-dot' + (i < ui.digits.length ? ' on' : '')));
-  const msg = el('p', 'lk-msg', ui.msg); msg.setAttribute('aria-live', 'polite'); msg.dataset.lkMsg = '';
-  const keys = el('div', 'lk-keys'); keys.setAttribute('role', 'group'); keys.setAttribute('aria-label', '숫자 판');
   const canForget = ui.purpose === 'gate' || ui.purpose === 'confirm' || (ui.purpose === 'change' && ui.step === 0) || (ui.purpose === 'folder' && !ui.change?.setup);
-  for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'forgot', '0', 'back']) {
-    if (k === 'forgot') { const b = button('lk-key lk-word', '잊음', {lkForgot: ''}); b.disabled = ui.busy || !canForget; b.hidden = !canForget; keys.append(canForget ? b : el('span')); continue; }
-    if (k === 'back') { const b = button('lk-key lk-word', '⌫', {lkBack: ''}); b.setAttribute('aria-label', '마지막 숫자 빼기'); b.disabled = ui.busy; keys.append(b); continue; }
-    const b = button('lk-key', k, {lkKey: k}); b.disabled = ui.busy; keys.append(b);
-  }
-  box.append(icon, title, sub, dots, msg, keys);
-  if (ui.purpose !== 'gate' || ui.task?.notes) box.append(button('secondary mini lk-cancel', '취소', {lkCancel: ''}));
-  return box;
+  return padBox({title: TITLES[ui.purpose]?.() || '', digits: ui.digits.length, msg: ui.msg, busy: ui.busy, forgot: canForget,
+    cancel: ui.purpose !== 'gate' || !!ui.task?.notes});
 }
 function forgot() {
   const box = el('div', 'lk-pad lk-forgot');
@@ -117,17 +102,10 @@ function forgot() {
   box.append(acts);
   return box;
 }
-function shake() {
-  const dots = root()?.querySelector('[data-lk-dots]'); if (!dots) return;
-  dots.classList.remove('lk-shake'); void dots.offsetWidth; dots.classList.add('lk-shake');
-}
+const shake = () => padShake(root());
 
 // ── 흐름 ────────────────────────────────────────────────────────────────────────────────────
-function resultMsg(res) {
-  lock.noteBlocked(res);
-  if (res?.blocked_until) return `여러 번 틀려 막혔어요 · ${clock(res.blocked_until)}에 다시 할 수 있어요`;
-  return `PIN이 맞지 않아요 · ${Number.isInteger(res?.left) ? res.left : ''}번 남았어요`;
-}
+const resultMsg = wrongMsg;
 async function send(fn, body) {
   ui.busy = true; draw();
   try { return await rpc(fn, body); }

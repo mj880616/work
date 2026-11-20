@@ -269,8 +269,8 @@ function answerBox(where) {
     det.append(sum);
     for (const src of answer.sources) {
       const row = srcButton(src, answer, 'gs-ask-src-row');
-      // SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 근거 줄은 제목·내용 대신 '잠김'(누르면 그 화면 문지기가 PIN을 묻는다).
-      if (srcLocked(src)) { row.dataset.gsLocked = ''; row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', '잠김')); det.append(row); continue; }
+      // SEC-기능PIN잠금(S67-14): 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 근거 줄은 제목·내용 대신 '잠김'(누르면 그 자리 PIN 창, S67-25 — 풀리면 다시 그림).
+      if (srcLocked(src)) { row.dataset.gsLocked = ''; row.dataset.lockHere = src.kind === 'call' ? 'calls' : 'telegram'; row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', '잠김'), el('span', 'lk-open', '풀기')); det.append(row); continue; }
       row.replaceChildren(el('span', 'gs-ask-src-tag', tagLabel(src)), el('span', 'gs-ask-src-title', src.title));
       if (src.tag) row.append(el('span', 'gs-state', src.tag));
       if (src.snippet) row.append(el('span', 'gs-ask-src-snip', src.snippet));
@@ -381,7 +381,7 @@ function rowNode(item, key, where) {
   row.append(icon(groupOf(groupKeyOfServer(item.kind) || key)?.icon || groupOf(key)?.icon));
   const main = el('span', 'gs-row-main');
   const head = el('span', 'gs-row-head');
-  if (noteLocked(item)) { row.dataset.gsLocked = ''; head.append(el('span', 'gs-row-title', '잠김')); main.append(head); row.append(main); return row; }
+  if (noteLocked(item)) { row.dataset.gsLocked = ''; row.dataset.lockHere = 'notes'; head.append(el('span', 'gs-row-title', '잠김'), el('span', 'lk-open', '풀기')); main.append(head); row.append(main); return row; }
   head.append(marked(item.title, state.words, 'gs-row-title'));
   if (item.state && STATE_LABEL[item.state]) head.append(el('span', `gs-state gs-state-${item.state}`, STATE_LABEL[item.state]));
   if (item.source === 'document') { const f = docFolder.get(item.id); if (f) { const tail = el('span', 'row-tail gs-row-folder'); tail.append(iconNode('folder', {className: 'gs-folder-ico'}), ` ${f}`); head.append(tail); } else if (f === undefined) folderAsk.add(item.id); }
@@ -418,6 +418,7 @@ function activate(option) {
   if (option.dataset.gsRecent != null) { showRecent(Number(option.dataset.gsRecent)); return; }
   if (option.dataset.gsMore) { showAll(option.dataset.gsMore); return; }
   if (option.dataset.gsNext) { if (!state.kindBusy) void loadKind(option.dataset.gsNext); return; }
+  if (option.dataset.lockHere != null) { lock.askHereFrom(option); return; } // S67-25: 잠긴 줄은 그 자리 PIN 창
   const item = rowsByKey.get(option.dataset.gsKey);
   if (item) openItem(item);
 }
@@ -596,7 +597,7 @@ document.addEventListener('pointerdown', e => {
   if (panel.contains(e.target) || slotInput?.wrap.contains(e.target)) return;
   // 노트 [폴더로 옮기기 ›]의 폴더 고르기 창과, 그 창 [+ 새 폴더 만들어 넣기]의 이름 묻는 작은 창(S61-46) — 결과 창은 그대로 둔다
   // (작은 창은 자기 기록 칸을 따로 걷어 내므로, 여기서 결과 창까지 닫으면 뒤로가기가 두 번 겹친다).
-  if (e.target.closest?.('.lu-move-picker, .kptu-ask')) return;
+  if (e.target.closest?.('.lu-move-picker, .kptu-ask, .lk-here')) return; // S67-25: 그 자리 PIN 창도
   void closePanel();
 }, true);
 PC.addEventListener('change', () => { if (!PC.matches && panelOpen) void closePanel(); paintAll(); });

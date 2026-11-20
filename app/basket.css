@@ -437,3 +437,5 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* NOTE-글폭(S61-21): 노트 읽기 글 칸(.line-w, ed-doc.css)의 원래 좌우 여백 — 그냥 글(마크다운 아님)은 이 여백으로 줄을 묶는다. */
 #appView #basketView [data-note-read] [data-basket-read-text] { --line-pr:12px; }
 @media (min-width:600px){ #appView #basketView [data-note-read] [data-basket-read-text]:not(.md-body):not(:has(>.ed-doc)) { padding-right:max(12px, calc(100% - var(--line-w) - 12px)); } }
+/* S67-25: 잊지 말기 맨 아래 '잠김' 줄은 위 줄들과 같은 안쪽 여백(전에는 카드 가장자리에 붙었다). 끝 [풀기]는 ③ 줄 버튼. */
+#basketView .forget-locked{margin:0;padding:6px 12px}

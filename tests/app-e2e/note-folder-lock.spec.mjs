@@ -58,6 +58,9 @@ function lockServer({ pin = null, locked = [] } = {}) {
 const go = (page, view) => page.evaluate(v => window.KPTURouter.go(v, { source: 'delegated' }), view);
 const keys = async (page, digits) => { for (const d of digits) await page.locator('#lockView [data-lk-key="' + d + '"]').click(); };
 const pad = page => page.locator('#lockView .lk-pad');
+// S67-25: 잠긴 노트를 누르면 잠금 화면으로 가지 않고 그 자리 작은 PIN 창(같은 숫자 판).
+const here = page => page.locator('dialog.lk-here .lk-pad');
+const hereKeys = async (page, digits) => { for (const d of digits) await page.locator('dialog.lk-here [data-lk-key="' + d + '"]').click(); };
 const title = (page, id) => page.locator(`#noteRows [data-note-row="${id}"] .basket-title-text`);
 async function openNotes(page, server) {
   if (server && !server.notesOn) { server.notesOn = true; await server.installNotes(page); }
@@ -107,13 +110,14 @@ test('폴더 ⋯ [잠금] → PIN 정하기 → 하위·옛 이름 노트까지 
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(0);
   await page.locator('[data-note-search]').fill('');
   await expect(page.locator('#noteRows [data-note-row]')).toHaveCount(4);
-  // 잠긴 노트를 누르면 숫자 판 → 틀림 → 맞음 → 정리함 노트로 돌아와 보인다.
+  // 잠긴 노트를 누르면 그 자리 숫자 판(S67-25) → 틀림 → 맞음 → 화면을 떠나지 않고 노트가 보인다.
   await page.locator('#noteRows [data-note-row="n3"]').click();
-  await expect(pad(page).locator('.lk-title')).toHaveText('노트 잠김');
-  await shot(page, 'pad-1280');
-  await keys(page, '0000');
-  await expect(page.locator('#lockView [data-lk-msg]')).toHaveText('PIN이 맞지 않아요 · 4번 남았어요');
-  await keys(page, '1234');
+  await expect(here(page).locator('.lk-title')).toHaveText('노트 잠김');
+  await expect(page.locator('#lockView')).toBeHidden();
+  await hereKeys(page, '0000');
+  await expect(page.locator('dialog.lk-here [data-lk-msg]')).toHaveText('PIN이 맞지 않아요 · 4번 남았어요');
+  await hereKeys(page, '1234');
+  await expect(page.locator('dialog.lk-here')).toHaveCount(0);
   await expect(page.locator('#basketView')).toBeVisible();
   await expect(title(page, 'n3')).toHaveText('안쪽 노트');
   await expect(title(page, 'n2')).toHaveText('감춘 노트');
@@ -149,15 +153,15 @@ for (const width of [412, 884]) test(`잠긴 폴더는 처음부터 가려지고
   for (const id of ['n2', 'n3', 'n4']) await expect(title(page, id)).toHaveText('잠김');
   await expect(title(page, 'n1')).toHaveText('열린 노트');
   await shot(page, `list-locked-${width}`);
-  // 잠긴 노트 줄 ⋯도 메뉴 대신 숫자 판. [취소]면 노트 목록으로 돌아온다(그대로 잠김).
+  // 잠긴 노트 줄 ⋯도 메뉴 대신 그 자리 숫자 판(S67-25). [취소]면 창만 닫힌다(그대로 잠김).
   await page.locator('#noteRows [data-note-row-more="n2"]').click();
-  await expect(pad(page).locator('.lk-title')).toHaveText('노트 잠김');
-  await shot(page, `pad-${width}`);
-  await page.locator('#lockView [data-lk-cancel]').click();
+  await expect(here(page).locator('.lk-title')).toHaveText('노트 잠김');
+  await page.locator('dialog.lk-here [data-lk-cancel]').click();
+  await expect(page.locator('dialog.lk-here')).toHaveCount(0);
   await expect(title(page, 'n2')).toBeVisible();
   await expect(title(page, 'n2')).toHaveText('잠김');
   await page.locator('#noteRows [data-note-row="n2"]').click();
-  await keys(page, '1234');
+  await hereKeys(page, '1234');
   await expect(title(page, 'n2')).toBeVisible();
   await expect(title(page, 'n2')).toHaveText('감춘 노트');
   expect(server.calls.filter(c => c === 'app_lock_check').length).toBe(1);

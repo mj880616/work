@@ -127,7 +127,7 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
     const L = window.KPTUFeatureLock;
     if (L?.settings?.() && (L.hides?.('calls') || L.hides?.('telegram'))) {
       el.hidden = false; el.classList.remove('is-open');
-      el.innerHTML = '<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line" data-oq-locked><span class="oq-text">연락 없는 조직 · 잠김</span></div>';
+      el.innerHTML = '<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line" data-oq-locked data-lock-here="calls telegram"><span class="oq-text">연락 없는 조직 · 잠김 <button type="button" class="row-act lk-open">풀기</button></span></div>';
       return;
     }
     const weeks = weeksOf(viewPrefs.get('quiet_weeks')), {shown, more} = headParts(rows), d = today();

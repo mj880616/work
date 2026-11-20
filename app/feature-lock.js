@@ -9,7 +9,7 @@ export const RELOCK = [['now', '바로'], ['5m', '5분'], ['30m', '30분'], ['cl
 const RELOCK_MS = { '5m': 5 * 60 * 1000, '30m': 30 * 60 * 1000 };
 
 const NONE = Object.freeze({ has_pin: false, features: [], relock: '5m', left: 5, blocked_until: null });
-const state = { settings: null, reading: null, failed: false, open: false, leftAt: null, pending: null, notes: null, held: null };
+const state = { settings: null, reading: null, failed: false, open: false, leftAt: null, pending: null, notes: null, held: null, spot: null };
 // 노트 폴더 잠금(S67-14, docs/design/feature-pin-lock.md 7절): 서버가 준 잠근 폴더·덮인 하위 폴더·덮인 맨 위 폴더 이름(메모리만).
 const NO_NOTES = Object.freeze({ folders: [], covered: new Set(), topNames: new Set() });
 const ids = v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
@@ -107,7 +107,9 @@ export function applyNoteFolders(result) {
 // 잠긴 노트·폴더를 열려 할 때: 잠금 화면 숫자 판으로 보내고, 맞으면 정리함(노트)으로 돌아온다.
 // what: { notes: true } = 잠긴 노트 열기, { folder: {id, name, locked} } = 폴더 잠그기(locked true)·잠금 해제(false).
 // hold: 열어 둔 노트를 고치던 중 잠겼다 — 쓰던 것은 버리지 않고 정리함 화면째 잠금 화면 뒤에 숨겨 둔다(풀면 그대로 돌아옴).
+// 잠긴 노트 열기(hold 아님)는 S67-25부터 잠금 화면으로 가지 않고 그 자리 작은 PIN 창(askHere). 풀리면 목록이 다시 그려진다(같은 자리).
 export function askNotes(what = { notes: true }, { hold = false } = {}) {
+  if (!hold && what.notes && !what.folder) { askHere({ title: '노트 잠김', from: document.activeElement }); return; }
   state.pending = { view: 'basket', sub: 'note', ...what, ...(hold ? { hold: true } : {}) };
   if (hold) state.held = 'basket';
   window.KPTURouter?.go?.('lock', { source: 'api', ...(hold ? { hold: true } : {}) });
@@ -141,6 +143,33 @@ export function markOpen({ thenGo = true } = {}) {
   changed();
   if (thenGo && target) window.KPTURouter?.go?.(target.view, { source: 'api', replaceUrl: true, ...(target.sub ? { sub: target.sub } : {}), ...(target.hold ? { hold: true } : {}) });
 }
+// ── 그 자리 풀기(S67-25) ───────────────────────────────────────────────────────────────────
+// 다른 화면의 '잠김' 줄(data-lock-here="기능 이름 …" 또는 "notes")을 누르면 화면을 떠나지 않고 작은 PIN 창(lock-pad.js, 잠금 화면과 같은 숫자 판).
+// 서버가 맞다고 한 뒤 openHere()가 푼다 — 그 화면(spot)은 잠근 것을 보여 주는 화면으로 쳐서, 다시 잠그기 시간은 잠근 화면과 같은 규칙
+// (그 화면을 떠난 때부터 재고, '바로'는 떠나면 바로, '앱 닫을 때'는 앱을 닫으면).
+export function openHere() {
+  state.open = true; state.leftAt = null;
+  state.spot = window.KPTURouter?.current || null;
+  changed();
+}
+const hereTitle = value => value === 'notes' ? '노트 잠김'
+  : `${String(value || '').split(/\s+/).filter(f => LOCKABLE[f]).map(f => FEATURE_NAMES[f]).join('·').replace('통화·텔레그램 소식', '통화·텔레그램')} 잠김`.trim();
+export function askHere({ title = '잠김', from = null } = {}) {
+  void import('./lock-pad.js').then(m => m.unlockHere({ title, from })).catch(error => console.warn('lock pad load', error?.message || 'error'));
+}
+// 줄 하나(data-lock-here)에서 — 누르기·결과 창 Enter 공용.
+export function askHereFrom(node) {
+  if (!node) return false;
+  askHere({ title: hereTitle(node.dataset.lockHere), from: node.querySelector?.('button') || node });
+  return true;
+}
+// 먼저 듣는다(window capture — document에서 먼저 듣는 다른 화면 손잡이보다도 앞): 줄이 원래 하던 일(원문 열기 → 잠금 화면으로 가기)보다 앞서 그 자리 창을 띄운다.
+window.addEventListener('click', event => {
+  const node = event.target?.closest?.('[data-lock-here]'); if (!node) return;
+  event.preventDefault(); event.stopPropagation();
+  askHereFrom(node);
+}, true);
+
 // 잠금 설정 화면에서 PIN을 확인하고 바꾼 뒤: 서버가 돌려준 설정으로 바꾸고, 방금 PIN을 넣었으니 풀린 채(그 화면을 떠난 때부터 다시 잠그기 시간).
 export function applySaved(next) {
   if (next && Array.isArray(next.features)) {
@@ -157,10 +186,12 @@ export function noteBlocked(result) {
 }
 
 // 지금 화면이 잠근 것을 보여 주는 화면인가(잠근 기능 화면, 또는 잠근 노트 폴더가 있을 때 정리함).
-const onLockedView = view => !!state.settings && ((isLockable(view) && state.settings.features.includes(LOCKABLE[view])) || (view === 'basket' && hasNoteLocks()));
+const onLockedView = view => !!state.settings && ((!!state.spot && view === state.spot) || (isLockable(view) && state.settings.features.includes(LOCKABLE[view])) || (view === 'basket' && hasNoteLocks()));
 // 잠근 화면을 떠난 시각을 적고, '바로'면 곧바로 잠근다.
 window.addEventListener('kptu:view-changed', event => {
   const view = event.detail?.view;
+  // 그 자리에서 푼 화면(spot)을 떠나면 그 화면은 다시 보통 화면이다(아래에서 떠난 시각을 적는다).
+  if (state.spot && view !== state.spot && view !== 'lock') state.spot = null;
   if (!state.settings) return;
   // 돌아온 화면이 잠근 것을 보여 주는 화면이면, 떠나 있던 시간이 다 됐는지 먼저 본 뒤(다 됐으면 잠김) 아니면 시계를 멈춘다.
   if (onLockedView(view) && state.open) { expire(); if (state.open) state.leftAt = null; return; }
@@ -224,10 +255,10 @@ window.addEventListener('kptu:session-changed', () => {
   const next = ownerNow();
   if (next && next === owner) return;
   owner = next;
-  Object.assign(state, { settings: null, failed: false, open: false, leftAt: null, pending: null, notes: null, held: null }); steppedAt = 0; pickedAwayAt = null;
+  Object.assign(state, { settings: null, failed: false, open: false, leftAt: null, pending: null, notes: null, held: null, spot: null }); steppedAt = 0; pickedAwayAt = null;
   changed();
 });
 
 window.KPTUFeatureLock = { refresh, ready, settings, readFailed, featureOf, isLockable, hides, locked, anyHidden, guard, pending, clearPending,
   markOpen, applySaved, noteBlocked, FEATURE_NAMES, RELOCK,
-  noteFolderLocks, hasNoteLocks, notesHidden, folderCovered, folderLocked, noteHidden, applyNoteFolders, askNotes, pendingNeedsPin, held, stepOut };
+  noteFolderLocks, hasNoteLocks, notesHidden, folderCovered, folderLocked, noteHidden, applyNoteFolders, askNotes, pendingNeedsPin, held, stepOut, openHere, askHere, askHereFrom };

@@ -143,8 +143,10 @@ test('노트 폴더 잠금: 잠긴 폴더 노트를 고치다 고르기 창을 �
   await chooseBasketKind(page, 'note');
   await page.locator('[data-note-view="list"]').click();
   await page.locator('#noteRows [data-note-row="n2"]').click();
-  await expect(pad(page).locator('.lk-title')).toHaveText('노트 잠김');
-  await keys(page, '1234');
+  // S67-25: 잠긴 노트 열기는 그 자리 작은 PIN 창(잠금 화면과 같은 숫자 판). 고치던 노트를 붙드는 다시 잠김(아래)은 잠금 화면 그대로.
+  await expect(page.locator('dialog.lk-here .lk-title')).toHaveText('노트 잠김');
+  for (const d of '1234') await page.locator('dialog.lk-here [data-lk-key="' + d + '"]').click();
+  await expect(page.locator('dialog.lk-here')).toHaveCount(0);
   await expect(page.locator('#noteRows [data-note-row="n2"]')).toBeVisible();
   await page.locator('#noteRows [data-note-row="n2"]').click();
   await noteMenuAction(page, 'data-note-edit');
