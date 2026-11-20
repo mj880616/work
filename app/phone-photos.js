@@ -248,6 +248,8 @@ export function createPhonePhotos(win = globalThis.window) {
         const ok = v => { clearTimeout(timer); resolve(v); };
         editWait = ok;
         timer = setTimeout(() => { if (editWait === ok) { editWait = null; ok({ok:false, changed:false, error:'failed'}); } }, EDIT_MS);
+        // S67-23: 갤러리 편집기로 잠깐 넘어가는 동안은 '자리 비움'이 아니다(feature-lock.js stepOut — 오래 떠나 있으면 원래대로 잠김).
+        globalThis.window?.KPTUFeatureLock?.stepOut?.();
         if (!send('photos:edit:' + JSON.stringify(target))) { editWait = null; ok({ok:false, changed:false, error:'failed'}); }
       });
     },

@@ -1362,6 +1362,8 @@ window.addEventListener('kptu:session-changed', () => {
   currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; docs = []; closeDetail({focus:false,force:true,cleanAddress:false}); noteDocs.reset(); showKind('memo',{address:false}); renderList();
 });
 window.addEventListener('kptu:before-view-change',e=>{
+  // S67-23: 잠긴 노트 폴더가 다시 잠겨 잠금 화면이 이 화면을 가릴 때(hold)는 쓰던 것을 그대로 붙들어 둔다(PIN을 풀면 돌아옴).
+  if(e.detail?.hold&&window.KPTURouter.current==='basket'&&e.detail?.view==='lock'){e.detail.retainBasketDraft=true;return}
   if(retainedForTraversal&&(busy||quick?.isBusy()||quick?.hasDraft()||dirty()||manualDraft()))e.detail.retainBasketDraft=true;
   if(window.KPTURouter.current!=='basket'||e.detail?.view==='basket')return;
   // Without a native entry position, honor the traversal and retain the draft

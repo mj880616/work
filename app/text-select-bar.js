@@ -130,6 +130,7 @@ async function act(kind, button) {
   if (kind === 'share') {
     if (!canShare()) return;
     const text = copyOf({...draft, quote: cleanQuote(p.text) || p.text.trim()});
+    globalThis.window?.KPTUFeatureLock?.stepOut?.(); // S67-23: 공유 창 동안은 '자리 비움'이 아니다
     try { await navigator.share({title: draft.source_title || '선택한 글', text}); hide(); }
     catch (e) { if (e?.name !== 'AbortError') notify('공유 창을 열지 못했어요', {error: true, record: false}); }
     return;

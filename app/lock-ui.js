@@ -230,7 +230,7 @@ async function enter() {
     reset({mode: recentLogin() ? 'pad' : 'forgot', purpose: recentLogin() ? 'renew' : '', target}); draw(); return;
   }
   if (target) {
-    if (!lock.locked(target)) { lock.clearPending(); window.KPTURouter?.go?.(target, {source: 'api', replaceUrl: true}); return; }
+    if (!lock.locked(target)) { const hold = !!lock.pending()?.hold; lock.clearPending(); window.KPTURouter?.go?.(target, {source: 'api', replaceUrl: true, ...(hold ? {hold: true} : {})}); return; }
     reset({mode: 'pad', purpose: 'gate', target}); draw(); return;
   }
   ui.features = await shownFeatures();

@@ -661,7 +661,7 @@
       .then(ok=>{leaveAsking=false;if(ok)onLeave()},err=>{leaveAsking=false;console.error('leave ask',err)});
   }
 
-  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false}={}){
+  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null,areas=false,hold=false}={}){
     if(view==='projects')areas=true;
     view=viewName(view);sub=subName(view,sub);
     if(!view||!authenticatedShellReady()||returningTo)return false;
@@ -677,7 +677,7 @@
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
-        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas});
+        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub,areas,hold});
       }).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
@@ -690,9 +690,12 @@
     // 다시 하고(뒤로가기는 같은 기록 칸으로) 그때 ask()는 true다. 저장 중처럼 묻지 않고 막을 때는 지금처럼 preventDefault().
     const confirmed=leaveConfirmed===view;leaveConfirmed=null;
     const asks=[];
-    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory,confirmed,ask:text=>{if(confirmed)return true;asks.push(String(text||''));return false}}});
+    // S67-23 잠김 멈춤(hold): 잠금 문지기(feature-lock.js)가 보던 화면을 잠금 화면으로 가릴 때와, PIN을 풀고 그 화면으로 돌아올 때 true.
+    // 떠나는 화면은 쓰던 것을 버리지도 묻지도 않고 그대로 둔다(화면은 숨겨져 안 보임). 돌아오면 그대로 다시 보인다.
+    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory,confirmed,hold,ask:text=>{if(confirmed)return true;asks.push(String(text||''));return false}}});
     window.dispatchEvent(before);
-    if(before.defaultPrevented||asks.length){
+    // 잠금으로 가리는 이동(hold)은 쓰던 화면이 막거나 물을 수 없다(잠금이 늘 먼저).
+    if(!hold&&(before.defaultPrevented||asks.length)){
       const backTo=source==='popstate'?window.navigation?.currentEntry?.key:null;
       if(source==='popstate')restoreRoutePosition();
       if(!before.defaultPrevented)askLeave(asks[0],()=>{
@@ -719,7 +722,7 @@
     if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api',sub});
     rememberRoute();
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
-    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{}),...(areas?{areas:true}:{})};
+    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{}),...(areas?{areas:true}:{}),...(hold?{hold:true}:{})};
     window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));
     for(const fn of hooks.get(view)||[]){
       try{fn(detail)}catch(err){console.error('view hook',view,err)}

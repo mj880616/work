@@ -115,6 +115,8 @@ export function createAppShare(win = globalThis.window, {helloMs = OUT_HELLO_MS,
         }
         if (!alive()) { send('out:cancel'); return 'failed'; }
         // PHOTO-꾹누르기메뉴: clip이면 공유 창 대신 안드로이드 클립보드에 그림으로 넣는다(앱 0.4.17+, 옛 앱은 'bad'로 실패).
+        // S67-23: 공유 창이 이 화면을 잠깐 가려도 '자리 비움'으로 치지 않는다(feature-lock.js stepOut).
+        if (!clip) globalThis.window?.KPTUFeatureLock?.stepOut?.();
         r = await step(clip ? 'out:clip' : 'out:go', 'sent');
         return r.ok ? 'shared' : r.error === 'none' ? 'none' : 'failed';
       } finally { busy = false; }
