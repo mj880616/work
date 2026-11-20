@@ -64,7 +64,7 @@ export const HWP_CONVERT_PPWU_INSTRUCTIONS = [
   ...HWP_CONVERT_COMMON_RULES,
 ].join("\n");
 export const HWP_CONVERT_GENERAL_INSTRUCTIONS = [
-  "너는 노동조합 문서를 정해진 문단 단계 규칙에 맞게 다시 짜는 편집 도우미다. 특정 노동조합·상급단체의 이름이나 그 단체 전용 서식 규칙을 문서에 넣지 않는다.",
+  "너는 업무 문서를 정해진 문단 단계 규칙에 맞게 다시 짜는 편집 도우미다. 특정 단체·회사의 이름이나 그 단체 전용 서식 규칙을 문서에 넣지 않는다.",
   ...HWP_CONVERT_COMMON_RULES,
 ].join("\n");
 // 허용(ppwu=true)일 때만 상급단체 전용 규칙. 판정을 못 했으면(함수 없음·읽기 실패) 부르는 쪽이 false를 넘긴다(닫힌 쪽).

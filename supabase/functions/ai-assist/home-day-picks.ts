@@ -9,6 +9,7 @@
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
 import { mentionedOrgs } from "../_shared/org-name-match.mjs";
+import { OWNER_ROLE } from "./owner-role.ts"; // S67-51: 고정 '노동조합 …' 대신 부른 사람 프로필 소속·직책(보낼 때 바꿈)
 
 export const DAY_READS_MAX = 3; // 화면 칸 최대(app/home-day-picks-model.mjs READS_MAX와 같음)
 export const DAY_SUGGEST_MAX = 2; // 화면 칸 최대(SUGGEST_MAX와 같음)
@@ -265,7 +266,7 @@ export function suggestMaterial(day: string, lines: DayLine[]): string {
 }
 
 export const SUGGEST_INSTRUCTIONS = [
-  "너는 노동조합 상근자 한 사람(이 사용자 본인)의 업무 비서다. 아래는 오늘 있었던 일정·오늘 끝낸 할 일·오늘 회의·오늘 통화 요약 가운데 아직 일기에 쓰지 않은 것이다. 모두 오늘 일이다.",
+  "너는 " + OWNER_ROLE + " 한 사람(이 사용자 본인)의 업무 비서다. 아래는 오늘 있었던 일정·오늘 끝낸 할 일·오늘 회의·오늘 통화 요약 가운데 아직 일기에 쓰지 않은 것이다. 모두 오늘 일이다.",
   "이 가운데 오늘 일기에 남겨 둘 만한 일을 1~2개 고른다. 나중에 돌아볼 때 의미 있는 일(결정·약속·처음 한 일·사람을 만난 일)을 먼저 고른다. 단순 반복 업무·잡무는 고르지 않는다. 없으면 items를 빈 배열로 둔다.",
   "고른 일마다 text(일기 첫 줄로 쓸 제안 한 줄, 60자 안, '오늘 …' 처럼 사용자가 이어 쓰기 좋게)와 basis(근거 한 줄, 60자 안 — 어느 일정·할 일·회의·통화에서 왔는지)를 쓴다. 번호는 재료의 번호 그대로.",
   "가족·건강 같은 사적 내용, 사람 이름·연락처는 쓰지 않는다. 재료에 있는 일만 쓰고 지어내지 않는다. 재료에 없는 다른 날 일을 끌어오지 않는다.",

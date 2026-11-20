@@ -156,3 +156,7 @@ export const lastText = (row, today, lookback = LOOKBACK_DAYS) => row.unsure ? '
 export function headParts(rows, max = NAMES_MAX) {
   return {shown:(rows || []).slice(0, max), more:Math.max(0, (rows || []).length - max)};
 }
+
+// S67-51 D1: 홈 '연락 없는 조직'을 계산할 사람인가. '연락'은 통화·텔레그램으로만 세므로 그 수집 기능(서버 app_my_features)이 있을 때만.
+// 목록을 못 읽었으면(null 등) 아니라고 본다 — 틀린 '연락 없음'을 보이지 않기 위해.
+export const quietAllowed = features => Array.isArray(features) && (features.includes('calls') || features.includes('telegram'));

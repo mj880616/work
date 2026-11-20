@@ -29,12 +29,12 @@ export function stageRule(st) {
   return '';
 }
 
-// MULTI-다른담당자맞춤 ⑤(명진 11/13 결정 3): 고정 소속·직책 대신 회의를 정리하게 한 사람의 프로필 직책(app_profiles.job_title).
-// 비었거나 이상하면 '노동조합 활동가'. 한 줄·40자로 정리한 값만 넣는다(안내문을 늘이지 못하게). 이름은 넣지 않는다.
-export const NEUTRAL_ROLE = '노동조합 활동가';
-export function ownerRole(jobTitle) {
-  const t = typeof jobTitle === 'string' ? jobTitle.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
-  return t ? `노동조합 ${[...t].slice(0, 40).join('')}` : NEUTRAL_ROLE;
+// MULTI-다른담당자맞춤 ⑤(명진 11/13 결정 3)·S67-51: 고정 소속·직책 대신 회의를 정리하게 한 사람의 프로필 소속·직책(app_profiles.union_name·job_title).
+// 부르는 말의 규칙은 owner-role.mjs 한 곳(ai-assist와 같음). 둘 다 비었으면 업종 없는 '업무 담당자'. 이름은 넣지 않는다.
+import { NEUTRAL_ROLE, ownerRoleOf } from './owner-role.mjs';
+export { NEUTRAL_ROLE };
+export function ownerRole(jobTitle, unionName = '') {
+  return ownerRoleOf({ org: unionName, title: jobTitle });
 }
 
 export function meetingDraftDeveloper(toneRule, role = NEUTRAL_ROLE) {

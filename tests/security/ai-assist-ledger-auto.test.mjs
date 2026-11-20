@@ -353,7 +353,8 @@ test('reference material (outside articles, overseas cases, foreign union bodies
   assert.match(ins,/기록 주인\(\{\{기록 주인 직책\}\}\) 업무/);
   assert.doesNotMatch(ins,/공공기관사업팀|부팀장/);
   assert.match(ins,/기사·보도자료·뉴스레터/);
-  assert.match(ins,/해외 사례.*외국 노조·사용자 단체/);
+  assert.match(ins,/해외 사례.*외국 단체·기업/);
+  assert.doesNotMatch(ins,/조합원|지부|임금교섭|노조/); // S67-51: 업종 전제 없는 예시·정의
   assert.match(ins,/참고·학습·벤치마킹용 자료/);
   assert.match(ins,/reference는 .*true/);
   const props=auto.LEDGER_AUTO_SCHEMA.properties.items.items;

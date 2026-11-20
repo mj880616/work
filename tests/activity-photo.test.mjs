@@ -206,3 +206,15 @@ test('미리 골라 두기: 일정에서 연 쓰기 창만, [저장] 뒤 같은 
   assert.match(ui,/reset\.chosen = \(\) => \(pre && open \?/); // 펼쳐 보인 줄에서 고른 것만
   assert.doesNotMatch(ui,/rest\/v1|functions\/v1/); // 기기 저장 금지는 CI 저장 감사(audit)가 본다
 });
+
+test('S67-51: 자기 목록을 업종 없는 이름으로 쓰는 사람은 그 이름으로 간다(내 목록에 없는 이름은 고르지 않음)', () => {
+  const neutral = ['회의', '기획', '협의', '홍보', '행사', '교육', '기타'];
+  assert.equal(categoryForReportKind('negotiation', neutral), '협의');
+  assert.equal(categoryForReportKind('press', neutral), '홍보');
+  assert.equal(categoryForReportKind('struggle', neutral), '행사');
+  assert.equal(categoryForReportKind('policy', neutral), '기획');
+  assert.equal(categoryForReportKind('assembly', neutral), '기획');
+  assert.equal(categoryForReportKind('meeting', neutral), '회의');
+  for (const k of REPORT_KINDS) assert.ok(neutral.includes(categoryForReportKind(k.value, neutral)), k.value);
+  assert.equal(categoryForReportKind('press', ['회의', '기타']), '기타');
+});

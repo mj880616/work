@@ -3,19 +3,15 @@
 // 판정은 단계 이름이 아니라 단계 표시(투쟁 중으로 봄·끝남·기본 단계)로 한다. 이름은 명진이 바꿀 수 있는 글자일 뿐이다.
 export const STAGE_NAME_LIMIT = 20;
 
-// 기본 단계 11개(명진 결정 2026-10-24 07:35). 기본 단계 줄을 가장 먼저 넣는다(지우기 함수가 기본 단계를 찾기 때문).
-// 투쟁 중으로 봄: 쟁의발생 결의 ~ 임단협 찬반투표(7개). 끝남: 협약체결·종료. 교섭 시작 전·교섭 중은 표에 안 나옴.
+// 처음 쓰는 사람에게 넣는 기본 단계 5개(S67-51 WORK ON: 업종 없는 진행 단계, docs/design/workon-union-assumptions-audit.md C2).
+// 예전 기본 11개(교섭 시작 전~임단협 찬반투표·협약체결, 명진 결정 2026-10-24)는 이미 단계를 가진 작업공간에 그대로 남는다 — 넣기는 기본 단계가 없을 때 한 번뿐이다.
+// 기본 단계 줄을 가장 먼저 넣는다(지우기 함수가 기본 단계를 찾기 때문). '주의 필요'는 표시 '투쟁 중으로 봄'(is_struggle), 완료·종료는 '끝남'.
+// 판정은 이름이 아니라 표시로 하므로 이름은 각자 바꿔 쓴다(단계 관리).
 export const DEFAULT_STAGES = Object.freeze([
-  {name: '교섭 시작 전', is_struggle: false, is_ending: false, is_default: true},
-  {name: '교섭 중', is_struggle: false, is_ending: false, is_default: false},
-  {name: '쟁의발생 결의', is_struggle: true, is_ending: false, is_default: false},
-  {name: '조정 신청', is_struggle: true, is_ending: false, is_default: false},
-  {name: '조정 종료', is_struggle: true, is_ending: false, is_default: false},
-  {name: '파업 찬반투표', is_struggle: true, is_ending: false, is_default: false},
-  {name: '쟁의중', is_struggle: true, is_ending: false, is_default: false},
-  {name: '잠정합의', is_struggle: true, is_ending: false, is_default: false},
-  {name: '임단협 찬반투표', is_struggle: true, is_ending: false, is_default: false},
-  {name: '협약체결', is_struggle: false, is_ending: true, is_default: false},
+  {name: '시작 전', is_struggle: false, is_ending: false, is_default: true},
+  {name: '진행 중', is_struggle: false, is_ending: false, is_default: false},
+  {name: '주의 필요', is_struggle: true, is_ending: false, is_default: false},
+  {name: '완료', is_struggle: false, is_ending: true, is_default: false},
   {name: '종료', is_struggle: false, is_ending: true, is_default: false},
 ].map(row => Object.freeze(row)));
 

@@ -57,6 +57,7 @@ import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, withReason
 import { outputText } from '../_shared/openai-responses.ts';
 import { FCM_SECRET_NAME, makeFcmSender, readFcmConfig } from '../_shared/fcm-send.ts';
 import { DRAFT_INPUT_CHARS, cut, meetingDraftDeveloper, meetingDraftPrompt, meetingDraftRequest, normalizeDraft, ownerRole, partsText } from '../_shared/meeting-draft-prompt.mjs';
+import { readOwnerOrg } from '../_shared/owner-role.mjs'; // S67-51: AI가 부르는 말에 맡긴 사람 프로필 소속도
 import { parseMeetingDraft } from '../meeting-ai-draft/parse.mjs';
 import { addAiRequest, readTodayAiUsage } from '../_shared/ai-daily-usage.mjs';
 // AI-사람별한도: 작업공간 이번 달 AI 한도(기본 3,000원, 운영자 제외) 이상이면 전사를 시작하지 않는다(녹음 전사 월 상한과 별개).
@@ -1232,7 +1233,7 @@ async function serverDraft(job: Job, transcript: string, stage: { kind: '' | 'pa
     // MULTI-다른담당자맞춤 ⑤: 직책(job_title)도 같은 행에서 — 안내문의 소속·직책은 맡긴 사람 프로필 값.
     const { data: me } = await admin.from('app_profiles').select('display_name,job_title').eq('user_id', job.created_by).maybeSingle();
     names = typeof me?.display_name === 'string' ? me.display_name : '';
-    role = ownerRole(me?.job_title);
+    role = ownerRole(me?.job_title, await readOwnerOrg(admin, job.created_by));
   } catch { names = ''; }
   const meeting = { title: '회의', meeting_at: job.created_at, location: null, attendee_count: null };
   const prompt = meetingDraftPrompt({ meeting, names, projectContext: null, materialText: '', transcript: cut(transcript, DRAFT_INPUT_CHARS), stage });

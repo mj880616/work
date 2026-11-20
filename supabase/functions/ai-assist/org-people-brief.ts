@@ -11,6 +11,7 @@
 import { cleanOrgText } from "./org-summary.ts";
 import { outputText } from "../_shared/openai-responses.ts";
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
+import { OWNER_ROLE } from "./owner-role.ts"; // S67-51: 고정 '노동조합 …' 대신 부른 사람 프로필 소속·직책(보낼 때 바꿈)
 
 export const PEOPLE_BRIEF_DAYS = 30;
 export const PEOPLE_BRIEF_MAX_PEOPLE = 40;
@@ -74,8 +75,8 @@ export function peopleBriefMaterial(orgName: string, people: BriefPerson[], item
 }
 
 export const PEOPLE_BRIEF_INSTRUCTIONS = [
-  "너는 노동조합 담당자의 업무 비서다. 한 담당조직의 주요 인물들에 관한 최근 기록(통화·챙길 것·약속)을 받는다.",
-  "brief: 그 조직의 '요즘'을 한국어 한 문장(150자 이내, 줄바꿈 없음)으로 쓴다. 사람이 관련되면 문장 안에 사람 이름을 괄호로 붙인다. 예: 임금교섭 3차 일정 조율 중, 찬반투표 준비함(김OO).",
+  "너는 " + OWNER_ROLE + "의 업무 비서다. 한 담당조직의 주요 인물들에 관한 최근 기록(통화·챙길 것·약속)을 받는다.",
+  "brief: 그 조직의 '요즘'을 한국어 한 문장(150자 이내, 줄바꿈 없음)으로 쓴다. 사람이 관련되면 문장 안에 사람 이름을 괄호로 붙인다. 예: 3차 협의 일정 조율 중, 내부 검토 자료 준비함(김OO).",
   "detail: 사람별 최근 흐름을 '- 이름: 내용' 줄로 3~6줄(600자 이내). 기록에 없는 일은 쓰지 않는다. 기록이 거의 없으면 detail은 빈 글자.",
   "전화번호·이메일·주민번호 같은 개인 연락처·식별 정보는 쓰지 않는다. 추측·평가·감정 표현을 하지 않는다. 날짜는 '10.24' 꼴.",
   AI_TONE_RULE,
