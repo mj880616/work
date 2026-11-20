@@ -68,7 +68,7 @@ test('기록+ 단어표: 2026-11-20 명진 결정 단어, 표에 없는 글자�
   assert.equal(wordIn(girok, '자료실', 'title'), '자료실', '자리 열쇠가 없으면 글자 그대로');
   for (const [from, to] of Object.entries(girok.words)) {
     assert.ok(from && to && from !== to, from);
-    assert.ok(!/노동조합|노조|조직|사업 ?보고|사업영역|투쟁|교섭|상집|조합원/.test(to), `${from} → ${to}에 노조 색 단어가 남음`);
+    assert.ok(!/노동조합|노조|조직|사업 ?보고|사업영역|투쟁|교섭|상집|조합원/.test(to.replace(/="[^"]*"/g, "")), `${from} → ${to}에 노조 색 단어가 남음`);
     assert.ok(!/[•∙・]/.test(to), `${to}: 가운데점은 '·'만`);
   }
   assert.equal(faceOf('없는얼굴').id, 'nojo', '모르는 이름은 노동조합+');

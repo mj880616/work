@@ -20,6 +20,8 @@ export const GIROK_ALLOW = Object.freeze([
 
 
   // ── 묶음 C ──
+  { file: 'app/org-name-match.mjs', text: '노조', reason: '사용자가 쓴 조직 이름 맞추기(노동조합→노조 줄임 비교), 화면에 안 나옴' },
+  { file: 'app/org-dispute-stage-model.mjs', reason: '겸용: 처음 열 때 DB에 넣는 기본 단계 이름(이후 사용자 글). 노조 전용 구조라 기록+에서 끌지 명진 결정 필요' },
 
   // ── 묶음 C 끝 ──
 
