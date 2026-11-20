@@ -3,6 +3,7 @@
 // 같은 주소의 app/phone-app.json 한 파일에 적어 둔 것이다. 화면은 이 파일만 읽고 GitHub API를 부르지 않는다(바구니 PC 릴리스와 섞이지 않음).
 // 파일이 없거나 읽지 못하면 폰 앱 릴리스 목록 주소로 연다(거기서 맨 위 web2-phone-*.apk). 로그인·토큰·개인정보와 상관없다.
 import {isPhoneApp} from './phone-push-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const PHONE_REPO = 'mj880616/work';
 export const RELEASES_PAGE = `https://github.com/${PHONE_REPO}/releases?q=phone-app-v&expanded=true`;
@@ -42,10 +43,10 @@ export async function loadPhoneAppInfo(fetchImpl = globalThis.fetch, base = impo
 // 받는 곳마다 "노조+는 브라우저에서 쓴다" 한 줄을 먼저 보인다(PC_BROWSER_LINE). PC에서 노조+를 바탕화면에 두는 길은 브라우저 '앱 설치'(pwa-install.mjs).
 export const PC_RELEASES_PAGE = `https://github.com/${PHONE_REPO}/releases?q=basket-pc-v&expanded=true`;
 export const PC_SETUP_NAME = 'BasketDropApp-win-Setup.exe';
-export const PC_HELPER_NAME = '노조+ 파일 올리기';
+export const PC_HELPER_NAME = word('노조+ 파일 올리기');
 export const PC_BUTTON = 'PC 파일 올리기 도우미 내려받기';
-export const PC_BROWSER_LINE = "노조+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.";
-export const PC_DESC = '도우미는 노조+ 자체가 아니에요. 노조+ [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮기게 돕는 작은 프로그램이에요';
+export const PC_BROWSER_LINE = word("노조+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.");
+export const PC_DESC = word('도우미는 노조+ 자체가 아니에요. 노조+ [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮기게 돕는 작은 프로그램이에요');
 export const PC_WARN = "처음 실행 때 윈도우 경고가 뜨면 '추가 정보 → 실행'을 눌러 주세요";
 export const PC_OTHER_HINT = '윈도우 PC에서 열면 PC 파일 올리기 도우미를 받을 수 있어요';
 

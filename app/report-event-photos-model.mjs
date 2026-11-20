@@ -1,6 +1,7 @@
 // CAL-일정첨부 요청 6번 '사업 보고로 넘기기'(S59-23): 사업 보고 쓰기 창 '일정에 붙인 사진' 줄의 순수 규칙(DOM·네트워크 없음, 단위 시험 대상).
 // 화면은 report-event-photos.js, 서버는 document-actions `link-event-photo`(같은 Drive 원본을 가리키는 자료 행, 올리기·복사 없음).
 import {photoUploadFields} from './activity-photo-model.mjs';
+import {word} from './brand/brand.mjs';
 
 // 줄 머리: 시안 ③ '일정에 붙인 사진 2 · 넣으려면 누르기'. 고른 것이 있으면 '· n장 넣음'.
 export const eventPhotoHead = total => `일정에 붙인 사진 ${Math.max(0, Number(total) || 0)}`;
@@ -27,7 +28,7 @@ export function linkFailNotice(failed, unknown, message = '') {
   const n = failed + unknown;
   if (!n) return null;
   const text = `일정 사진 ${n}장 못 넣었어요`;
-  if (unknown) return {text, note: '넣었는지 확인하지 못했어요. 다시 넣기 전에 사업 보고를 열어 확인해 주세요.', retry: false};
+  if (unknown) return {text, note: word('넣었는지 확인하지 못했어요. 다시 넣기 전에 사업 보고를 열어 확인해 주세요.'), retry: false};
   const said = String(message || '').trim();
   return {text, note: /[가-힣]/.test(said) && said.length <= 120 ? said : '잠시 뒤 다시 넣어 주세요.', retry: true};
 }

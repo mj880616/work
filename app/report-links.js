@@ -3,6 +3,7 @@
 // DB-2(20261023023500)가 운영에 적용되기 전에도 화면이 깨지지 않게 한다: 칸·함수가 없으면 옛 방식(app_meetings.project_id 한 곳)으로
 // 읽고 쓰며, 담당조직 연결은 '서버 준비 전'이라고 알린다. 새 서버 경로·권한은 만들지 않는다.
 import {targetsFromLinkRows,rpcTargets,firstProjectId,targetList,isMissingFunction,isMissingColumn,linkedReportRows,setLinksErrorText,KIND_PROJECT} from './report-links-model.mjs';
+import {word} from './brand/brand.mjs';
 
 const enc=encodeURIComponent;
 // 공용 실행기(KPTURuntime)에 로그인 맥락이 아직 안 깔렸으면 화면이 정한 맥락(__KPTU_BOOT_CONTEXT__)을 쓴다(workplace-detail.js wdCtx와 같은 기준).
@@ -107,7 +108,7 @@ export async function saveReportTargets(meeting,targets,rt=rtOf(),summaries=null
     return {ok:true,legacy:true,skippedOrgs:skipped,updated_at:rows?.[0]?.updated_at||null};
   }catch{return {ok:false,error:'RESULT_UNKNOWN',message:setLinksErrorText('RESULT_UNKNOWN')}}
 }
-export const LEGACY_NOTE='담당조직과 둘째 사업영역 연결은 서버 준비가 끝난 뒤에 저장돼요. 첫 사업영역만 저장했어요.';
+export const LEGACY_NOTE=word('담당조직과 둘째 사업영역 연결은 서버 준비가 끝난 뒤에 저장돼요. 첫 사업영역만 저장했어요.');
 
 // 한 곳을 더하거나 빼기(프로젝트·조직 화면용): 지금 연결을 읽어 한 곳만 바꿔 다시 저장한다. 버전은 방금 읽은 것.
 export async function changeOneTarget(meetingId,target,mode,rt=rtOf(),summaries=null){

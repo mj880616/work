@@ -133,7 +133,7 @@ test('화면 문구: 입력·결과 창과 프로젝트·조직 화면은 사업
   assert.doesNotMatch(html,/회의 결과 저장|\+ 회의 결과|<label>회의명<input id="meetingTitle"/);
   const ps=read('app/project-system-v3.js');assert.match(ps,/<h3>사업 보고 \$\{count/);assert.doesNotMatch(ps,/<h3>회의 \$\{count/);
   const wd=read('app/workplace-detail.js');assert.match(wd,/id="wdReports"/);assert.match(wd,/<h3>사업 보고 </);
-  assert.match(read('app/report-kinds.mjs'),/\{value:'meeting',label:'회의'\}/);
+  assert.match(read('app/report-kinds.mjs'),/\{value:'meeting',label:(?:'회의'|word\('회의','kind'\))\}/);
   assert.match(read('app/journal-weekly.js'),/meetings:'회의·활동 결과'/);
   assert.doesNotMatch(read('app/journal-weekly.js'),/회의·행사 결과'/);
 });

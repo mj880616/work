@@ -2,6 +2,7 @@
 // 서버 함수 ai-assist(kind=link_summary)에 메모 ID·대상 종류·대상 ID만 보낸다. 글은 서버가 로그인 토큰(RLS)으로 읽는다.
 // 답은 후보일 뿐 저장하지 않는다. 칸이 비었을 때만 바로 넣고, 글이 있으면 제안을 따로 보여 주며
 // [이걸로 바꾸기]를 눌러야 칸이 바뀐다. 저장은 기존 [연결]·[저장] 버튼(기존 RPC)이 한다.
+import {word} from './brand/brand.mjs';
 export const AI_SUMMARY_PATH='/functions/v1/ai-assist';
 // 서버는 OpenAI를 30초 기다리고 1번 다시 시도할 수 있다. 화면은 그보다 조금 더 기다린다.
 export const AI_SUMMARY_TIMEOUT_MS=75000;
@@ -54,15 +55,15 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   journal_memorable_unavailable:'소식을 읽거나 저장하지 못했어요.',
   home_day_picks_not_ready:'읽을 만한 글·기록 제안 기능이 아직 준비되지 않았어요.',
   home_day_picks_unavailable:'읽을 만한 글·기록 제안을 읽거나 저장하지 못했어요.',
-  org_summary_not_ready:'조직 요약은 아직 준비 중이에요.',
-  org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+  org_summary_not_ready:word('조직 요약은 아직 준비 중이에요.'),
+  org_summary_unavailable:word('조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.'),
   org_people_not_ready:'주요 인물 기능이 아직 준비되지 않았어요.',
   org_people_unavailable:'주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
-  org_status_unavailable:'조직 기록을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+  org_status_unavailable:word('조직 기록을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.'),
   press_no_source:'선택한 기록에 초안에 쓸 글이 없어요.',
   library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
   library_unavailable:'자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
-  ask_not_ready:'노동조합+에 물어보기가 아직 준비되지 않았어요.',
+  ask_not_ready:word('노동조합+에 물어보기가 아직 준비되지 않았어요.'),
   ask_unavailable:'기록을 찾거나 답을 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   ask_secret:'비밀번호·키처럼 보이는 글은 물어볼 수 없어요.',
   text_pending:'글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.',

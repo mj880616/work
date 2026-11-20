@@ -8,6 +8,7 @@
 import {markOf, nextMark, checkReportBody, cleanBody, dayText, lineId, overlaps, reportText, editBase, reportChange, dropLineDay} from './record-window-model.mjs';
 import {rowSpaceMap, weekRange} from './business-now-model.mjs';
 import {areaIdOf, isOneline, nextPlanLines} from './business-area-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const SECTION = 'biz_detail';
 export const BODY_LINES_MAX = 60; // 화면에 펼치는 결과 본문 줄 수 상한(한글 파일은 상한 없음)
@@ -23,7 +24,7 @@ export const bodyLines = text => String(text ?? '').replace(/\r\n?/g, '\n').spli
 export function treeRows(tree) {
   const out = new Map();
   let area = null, rank = 0;
-  const nameOf = p => String(p?.name || '').trim() || '이름 없는 사업영역';
+  const nameOf = p => String(p?.name || '').trim() || word('이름 없는 사업영역');
   for (const n of Array.isArray(tree) ? tree : []) {
     const id = n?.project?.id;
     if (id == null) continue;
@@ -73,7 +74,7 @@ export function detailGroups({week, records = [], meetings = [], tree = null, ma
     const space = it.space ? (map.get(String(it.space)) ?? String(it.space)) : '';
     if (!groups.has(space)) {
       const row = rows.get(space);
-      groups.set(space, {space, label: row ? row.label : space ? '보관된 사업영역' : '사업영역 없음', known: !!row, rank: row ? row.rank : space ? 1e6 : 2e6, shown: [], out: []});
+      groups.set(space, {space, label: row ? row.label : space ? word('보관된 사업영역') : word('사업영역 없음'), known: !!row, rank: row ? row.rank : space ? 1e6 : 2e6, shown: [], out: []});
     }
     const line = lineOf(it, markOf(marks, SECTION, it.kind, it.key, week));
     groups.get(space)[line.choice === 'out' ? 'out' : 'shown'].push(line);

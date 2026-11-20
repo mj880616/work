@@ -9,6 +9,7 @@ import {askConfirm} from './small-notice.js';
 import {waitHtml} from './wait-state.js';
 import {readSorts, peekSorts, changeSorts, failText} from './meeting-name-sorts.js';
 import {addParent, renameParent, orderParents, removeParent, parentNameProblem, orgCount, PARENT_NAME_MAX} from './meeting-name-sorts.mjs';
+import {word} from './brand/brand.mjs';
 
 const MODAL = 'meetingParentsModal';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -17,9 +18,9 @@ const sortsNow = () => peekSorts()?.status === 'ok' ? peekSorts().sorts : null;
 
 function install() {
   if (document.querySelector('#' + MODAL)) return;
-  document.body.insertAdjacentHTML('beforeend', `<div id="${MODAL}" class="modal le-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="mtgParentsHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="mtgParentsHeading">조직 목록<span class="le-count" data-le-count></span></h2></div><button class="icon-btn" data-mtgp-close type="button" aria-label="닫기">×</button></div><div id="mtgParentsBody" class="mtgp"></div></div></div>`);
+  document.body.insertAdjacentHTML('beforeend', word`<div id="${MODAL}" class="modal le-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="mtgParentsHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="mtgParentsHeading">조직 목록<span class="le-count" data-le-count></span></h2></div><button class="icon-btn" data-mtgp-close type="button" aria-label="닫기">×</button></div><div id="mtgParentsBody" class="mtgp"></div></div></div>`);
   const body = document.querySelector('#mtgParentsBody');
-  mountListEdit(body, {key: 'mtgp', label: '조직 수정', items: () => [{key: 'rename', label: '이름 바꾸기'}, {key: 'delete', label: '삭제'}], onAct,
+  mountListEdit(body, {key: 'mtgp', label: word('조직 수정'), items: () => [{key: 'rename', label: '이름 바꾸기'}, {key: 'delete', label: '삭제'}], onAct,
     onMove: (id, index) => commitOrder(leMove(ids(), id, index), id),
     onStep: (id, dir) => { const list = ids(), i = list.indexOf(id); commitOrder(leMove(list, id, Math.max(0, Math.min(list.length - 1, i + dir))), id); },
     canDrag: () => !!mgr && !mgr.busy});
@@ -63,7 +64,7 @@ function paint() {
   const row = p => mgr.ui.id === p.id
     ? leInlineHtml({id: p.id, label: `‘${p.name}’의 새 이름`, value: mgr.ui.draft, limit: PARENT_NAME_MAX, disabled: mgr.busy, formAttrs: {'data-mtgp-rename-form': true}, inputAttrs: {'data-mtgp-rename-input': true}})
     : leRowHtml({id: p.id, label: p.name, drag: s.parents.length > 1, disabled: mgr.busy, meta: `회의 ${orgCount(s, p.id)}`, rowAttrs: {'data-mtgp-row': p.id}});
-  body.innerHTML = leAddHtml({name: '새 조직 이름', value: mgr.addDraft, limit: PARENT_NAME_MAX, disabled: mgr.busy, formAttrs: {'data-mtgp-add-form': true}, inputAttrs: {'data-mtgp-add-input': true}})
+  body.innerHTML = leAddHtml({name: word('새 조직 이름'), value: mgr.addDraft, limit: PARENT_NAME_MAX, disabled: mgr.busy, formAttrs: {'data-mtgp-add-form': true}, inputAttrs: {'data-mtgp-add-input': true}})
     + `<ul class="le-list" data-reorder-list="parents">${s.parents.map(row).join('')}</ul>`
     + `<ul class="le-list"><li class="le-row le-locked"><span class="le-handle le-handle-off" aria-hidden="true"></span><span class="le-name">기타</span></li></ul>`
     + `<p class="le-status${mgr.msg.error ? ' error' : ''}" role="${mgr.msg.error ? 'alert' : 'status'}">${esc(mgr.msg.text)}</p>`;

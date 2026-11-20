@@ -20,6 +20,7 @@ import {peekSorts} from './meeting-name-sorts.js';
 import {paintUploadLine,watchUploads,announceDock} from './upload-progress.js';
 import {sendFailLine} from './meeting-send.mjs'; // BIZ-저장먼저닫기 3차: 못 넘긴 묶음의 한 줄 글('자료 n개 못 올렸어요')
 import {sameVersionFilter} from './meeting-join-model.mjs'; // REC-한회의로잇기 PR-3: 회의 결과 칸은 읽은 판 그대로일 때만 쓴다
+import {word} from './brand/brand.mjs';
 
 (()=>{
 'use strict';
@@ -288,7 +289,7 @@ async function saveGroup(g,scope){
         if(next===String(current.transcript_text||'')){saved=true;break}
         const rows=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id${sameVersionFilter(current.updated_at)}`,{method:'PATCH',prefer:'return=representation',body:{transcript_text:next,updated_at:new Date().toISOString()}});
         if(Array.isArray(rows)&&!rows.length&&current.updated_at!==undefined)continue;
-        if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했어요.');
+        if(!Array.isArray(rows)||rows.length!==1)throw new Error(word('사업 보고 저장을 확인하지 못했어요.'));
         saved=true;
       }
       if(!saved)throw new Error('그 사이 회의가 계속 바뀌었어요. 잠시 뒤 다시 저장해 주세요.');

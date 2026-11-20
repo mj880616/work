@@ -6,6 +6,7 @@ import {openAreaOrgPicker, usedKeysNow, orderedOrgGroups} from './area-org-picke
 import {linkOrganization, createMyOrganization} from './feed-data.js';
 import {similarOrgs} from './org-similar.mjs';
 import {linkSummaryDefault} from './feed-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 export const NONE = '__none__';
@@ -17,8 +18,8 @@ export function orgName(orgs, id) { return (orgs || []).find(o => o.id === id)?.
 
 export function linkBoxHtml(box, orgs, prefix) {
   if (!box) return '';
-  const name = box.orgId ? orgName(orgs, box.orgId) || '선택한 조직' : '조직 선택';
-  return `<div class="feed-link" data-${prefix}-link data-enter-save="[data-${prefix}-link-save]">
+  const name = box.orgId ? orgName(orgs, box.orgId) || word('선택한 조직') : word('조직 선택');
+  return word`<div class="feed-link" data-${prefix}-link data-enter-save="[data-${prefix}-link-save]">
 <div class="feed-link-row"><span class="feed-link-label">조직</span><button type="button" class="feed-small" data-${prefix}-link-pick aria-haspopup="dialog" aria-expanded="false"${box.busy ? ' disabled' : ''}>${esc(name)} ▾</button></div>
 <label class="feed-link-label" for="${prefix}LinkSummary">조직 기록에 남길 요약 <span class="feed-faint">비우면 연결만</span></label>
 <textarea id="${prefix}LinkSummary" class="feed-link-text" data-${prefix}-link-text rows="4" maxlength="2000"${box.busy ? ' disabled' : ''}>${esc(box.summary)}</textarea>
@@ -33,7 +34,7 @@ export function linkBoxHtml(box, orgs, prefix) {
 // folded (a press opens one), search and the most used. onPick(id | '') as before.
 let pick = null;
 // top·title(FORGET-소식바로잡기, 잊지 말기 [조직]): 창 맨 위 한 번에 고르는 줄(예 '조직 › ○○에 넣기')과 창 이름. top이 있으면 '연결 안 함' 줄은 없다.
-export async function openOrgPicker(trigger, {orgs, mine, selected, onPick, top = null, title = '연결할 조직'}) {
+export async function openOrgPicker(trigger, {orgs, mine, selected, onPick, top = null, title = word('연결할 조직')}) {
   pick = {orgs, mine, selected, onPick};
   const order = window.KPTUOrganizationOrder, sel = selected || '';
   const offered = (orgs || []).filter(o => (o.active !== false && mine?.has(o.id)) || o.id === sel);
@@ -54,7 +55,7 @@ export async function openOrgPicker(trigger, {orgs, mine, selected, onPick, top 
 // key(id): 그 창의 값 모양(기본 'o:<id>', 업데이트 '기록할 곳'은 id 그대로). onOrg(org): 새로 만든 조직(창 밖 목록 갱신용).
 // 만들기는 feed-data.js createMyOrganization(담당조직 [담당조직 추가]와 같은 표·작업공간 주인 RLS) 한 곳.
 export function orgWriteInFor({orgs, mine = null, key = id => 'o:' + id, onOrg = () => {}} = {}) {
-  const row = o => ({key:key(o.id), name:o.name || '이름 없는 조직', org:o});
+  const row = o => ({key:key(o.id), name:o.name || word('이름 없는 조직'), org:o});
   return {
     similar:name => similarOrgs(name, (typeof orgs === 'function' ? orgs() : orgs || []).filter(o => o && o.active !== false)).map(row),
     make:async name => {
@@ -70,7 +71,7 @@ export async function saveLinkBox(row, box, rt = window.KPTURuntime) {
   const result = await linkOrganization(row, box.orgId || null, box.orgId ? box.summary : '', rt);
   if (!result.saved) return {saved:null, text:'이 항목이 그사이 사라졌어요. 목록을 다시 불러왔어요.'};
   const name = orgName(pick?.orgs, box.orgId);
-  if (!box.orgId) return {saved:result.saved, text:'조직 연결을 풀었어요.'};
-  if (result.recordFailed) return {saved:result.saved, text:`${name || '조직'}에 연결했지만 기록을 남기지 못했어요. 조직 화면에서 직접 남겨 주세요.`};
-  return {saved:result.saved, text:result.recorded ? `${name || '조직'}에 연결하고 기록을 남겼어요.` : `${name || '조직'}에 연결했어요.`};
+  if (!box.orgId) return {saved:result.saved, text:word('조직 연결을 풀었어요.')};
+  if (result.recordFailed) return {saved:result.saved, text:word`${name || word('조직')}에 연결했지만 기록을 남기지 못했어요. 조직 화면에서 직접 남겨 주세요.`};
+  return {saved:result.saved, text:result.recorded ? `${name || word('조직')}에 연결하고 기록을 남겼어요.` : `${name || word('조직')}에 연결했어요.`};
 }

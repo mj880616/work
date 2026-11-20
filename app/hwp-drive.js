@@ -8,6 +8,7 @@ import {sendUpload} from './upload-send.mjs';
 import {trackUpload} from './upload-progress.js';
 import {openInLibrary} from './upload-done.js'; // UX-올림보기그자료: 끝 알림 [보기] = 자료실에서 그 자료
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 자료실에 새로 등록된 파일 안 글자를 서버가 한 번 읽어 둠
+import {word} from './brand/brand.mjs';
 export const HWP_EDIT_MAX_BYTES=30*1024*1024;
 const OLD_SERVER=new Set(['document_id가 필요합니다.','Unknown action']);
 export const HWP_TEXT={
@@ -188,7 +189,7 @@ export async function saveConvertedCopy(bytes,{fileName,title},{rt=window.KPTURu
   let response;
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);
-  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 저장했어요. 분류·사업영역은 자료실에서 정해 주세요.'};}
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:word('자료실에 새 문서로 저장했어요. 분류·사업영역은 자료실에서 정해 주세요.')};}
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 

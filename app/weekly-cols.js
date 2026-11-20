@@ -3,6 +3,7 @@
 // 이 파일은 '어느 표의 어느 칸을 끄는지'와 '두 번 누르면 맞출 글 길이'만 정한다. 모양(손잡이 금·안내선)은 col-resize.js, 칸 기본 너비는 화면 CSS 변수 기본값.
 // 폰(~760px)은 표가 줄마다 쌓여 머리줄이 없으므로 끌기가 없다(폴드 펼침·PC만).
 import {gripHtml, mountColResize} from './col-resize.js';
+import {word} from './brand/brand.mjs';
 
 export const WEEKLY_COL_SCREEN = 'weekly';
 // 표 종류 → 끄는 칸들. col = 머리줄 몇째 칸(1부터), dir = 1 그 칸 오른쪽 금 · -1 왼쪽 금(오른쪽 끝 칸), cells = 그 칸 글(두 번 누르면 이 길이에 맞춤).
@@ -12,9 +13,9 @@ export const WEEKLY_COLS = Object.freeze({
     {key:'exec_who', col:3, label:'참석 요청', dir:-1, cells:'tbody tr[data-journal-exec-row] > td.journal-exec-who'}],
   hq: [{key:'hq_day', col:2, label:'일', cells:'tbody tr[data-journal-hq-row] > th'}],
   discuss: [{key:'disc_title', col:2, label:'안건', cells:'tbody tr[data-journal-discuss-row] > th'},
-    {key:'disc_org', col:4, label:'관련 조직', dir:-1, cells:'tbody tr[data-journal-discuss-row] > td.journal-discuss-org'}],
+    {key:'disc_org', col:4, label:word('관련 조직'), dir:-1, cells:'tbody tr[data-journal-discuss-row] > td.journal-discuss-org'}],
   cal: [{key:'cal_day', col:1, label:'일', cells:'tbody th.journal-weekly-area'}],
-  org: [{key:'org', col:1, label:'조직', cells:'tbody .wl-org-line'}],
+  org: [{key:'org', col:1, label:word('조직'), cells:'tbody .wl-org-line'}],
 });
 // 칸 이름 → CSS 변수(화면 CSS가 var(--wk-w-…, 기본값)으로 받는다).
 export const colVar = key => `--wk-w-${key.replace(/_/g, '-')}`;

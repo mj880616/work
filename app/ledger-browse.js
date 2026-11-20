@@ -38,6 +38,7 @@ import { askConfirm } from './small-notice.js';
 import { fitChipRows, foldChipRows } from './chip-rows.js';
 import { chevHtml, moreLabel } from './fold-chevron.mjs';
 import { openCallSource } from './source-open.js';
+import {word} from './brand/brand.mjs';
 
 const rt = window.KPTURuntime;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -457,11 +458,11 @@ const SEARCH_ICON = '<svg class="lb-icon" viewBox="0 0 16 16" width="14" height=
 const isPhone = () => !!window.matchMedia?.('(max-width:760px)').matches;
 function shellHtml() {
   const kindBoxes = KINDS.map(k => `<label class="lb-chip" title="${esc(KIND_HINT[k])}" data-hint="${esc(KIND_HINT[k])}"><input type="checkbox" name="lbKind" value="${k}"><span>${KIND_DISPLAY[k]}</span></label>`).join('');
-  return `<section class="lg-card lb-card" data-lb-shell aria-labelledby="lbTitle">
+  return word`<section class="lg-card lb-card" data-lb-shell aria-labelledby="lbTitle">
     <form id="lbForm" class="lb-form" role="search" novalidate>
       <div class="lb-bar">
         <h3 id="lbTitle" class="lb-h screen-title">원장</h3>
-        <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? '조직·주제·사람으로 찾기' : '조직·주제·사람·내용으로 찾기 (Enter)'}" autocomplete="off" enterkeyhint="search"></label>
+        <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? word('조직·주제·사람으로 찾기') : word('조직·주제·사람·내용으로 찾기 (Enter)')}" autocomplete="off" enterkeyhint="search"></label>
         <button type="button" class="lb-cond-btn" id="lbCondBtn" data-lb-action="cond" aria-expanded="false" aria-controls="lbCond">조건 <span aria-hidden="true">▾</span></button>
         <button type="button" class="lb-add${isPhone() ? ' icon-btn' : ''}" data-lb-action="add"${isPhone() ? ' aria-label="기록하기"' : ''}>${isPhone() ? '' : '+ 기록하기'}</button>
       </div>
@@ -529,7 +530,7 @@ function homeHtml() {
   const empty = !overdue.length && !tracking.length && !h.orgChips.length && !h.topicChips.length && !recent.length;
   if (empty) return emptyHtml('없음', {attrs: 'data-lb-empty'});
   return [
-    chipItems.length ? `<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}</div></section>` : '',
+    chipItems.length ? word`<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}</div></section>` : '',
     overdue.length ? section('overdue', '상대가 안 지킨 약속', list('overdue', overdue, r => overdueLabel(r)), overdue.length) : '',
     tracking.length ? section('tracking', '지금 추적 중인 일', list('tracking', tracking), tracking.length) : '',
     recent.length ? section('recent', '최근 자동으로 기록됨', list('recent', recent)) : ''
@@ -568,8 +569,8 @@ function detailHtml(id) {
   if (!d) return `<p class="lg-error" role="alert">${esc(state.detailError || '상세를 읽지 못했어요.')}</p>`;
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';
   const orgs = (allRows().find(r => r.id === id)?.organizations || []).filter(Boolean);
-  const fields = fieldsHtml(orgs.length ? [...d.fields, ['조직', orgs.join(', ')]] : d.fields);
-  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(노동조합+ 사업영역)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(노동조합+ 사업 보고)</span>' : ''}</li>`).join('')}</ul>` : emptyHtml('연결 없음');
+  const fields = fieldsHtml(orgs.length ? [...d.fields, [word('조직'), orgs.join(', ')]] : d.fields);
+  const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? word(' <span class="lg-muted">(노동조합+ 사업영역)</span>') : l.kind === 'meeting' ? word(' <span class="lg-muted">(노동조합+ 사업 보고)</span>') : ''}</li>`).join('')}</ul>` : emptyHtml('연결 없음');
   const info = state.changes.get(id);
   const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
   const err = state.actError ? `<p class="lg-error" role="alert" data-lb-act-error>${esc(state.actError)}</p>` : '';

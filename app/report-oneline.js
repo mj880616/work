@@ -8,6 +8,7 @@ import {NEXT_PLAN_MAX} from './business-area-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {holdToast} from './small-notice.js';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
+import {word} from './brand/brand.mjs';
 
 let dialog=null,state=null,seq=0,layer=null;
 // UI-뒤로가기겹규칙: 맨 <dialog>는 mobile-modal-history가 기록을 붙이지 않고 폰 앱 뒤로가기는 cancel을 거치지 않으므로,
@@ -17,7 +18,7 @@ const $=sel=>dialog.querySelector(sel);
 function ensureDialog(){
   if(dialog)return dialog;
   dialog=document.createElement('dialog');dialog.id='reportOnelineDialog';dialog.className='oneline-dialog';dialog.setAttribute('aria-labelledby','reportOnelineTitle');dialog.setAttribute('data-enter-save','');/* UI-빠른입력Ctrl엔터 전수: 한 줄 업데이트 창도 공용 엔터 저장(PC Ctrl+엔터 = 저장) */
-  dialog.innerHTML=`<header class="oneline-head"><h2 id="reportOnelineTitle">한 줄 업데이트</h2><button type="button" class="icon-btn" data-ol-close aria-label="닫기">×</button></header>
+  dialog.innerHTML=word`<header class="oneline-head"><h2 id="reportOnelineTitle">한 줄 업데이트</h2><button type="button" class="icon-btn" data-ol-close aria-label="닫기">×</button></header>
 <div class="oneline-body"><div class="oneline-row"><button type="button" class="secondary field-btn oneline-area" data-ol-area aria-haspopup="dialog" aria-label="사업영역 선택">사업영역 ▾</button><input type="date" class="oneline-day" data-ol-day aria-label="날짜" required></div>
 <textarea rows="2" maxlength="${ONELINE_MAX}" data-ol-text data-autogrow aria-label="한 줄" placeholder="진행 상황 한 줄 — 주간 보고 사업 요약 표 '진행' 칸에 그대로 들어가요"></textarea>
 <details class="biz-next-plan" data-ol-plan-box><summary>+ 다음 할 일</summary><textarea rows="2" maxlength="${NEXT_PLAN_MAX}" data-ol-plan data-autogrow aria-label="다음 할 일" placeholder="한 줄에 하나 — '이후 계획'에 들어가요"></textarea></details>
@@ -38,8 +39,8 @@ function ensureDialog(){
 const say=(text,error=false)=>{const el=$('[data-ol-status]');el.textContent=text||'';el.className='status'+(error?' error':'')};
 function close(){dropLayer();if(dialog?.open)dialog.close();const t=state?.trigger;state=null;if(t?.isConnected)t.focus({preventScroll:true})}
 async function paintArea(){
-  const b=$('[data-ol-area]'),id=state?.areaId;if(!id){b.textContent='사업영역 ▾';b.removeAttribute('title');return}
-  const run=state.run;let name='사업영역';
+  const b=$('[data-ol-area]'),id=state?.areaId;if(!id){b.textContent=word('사업영역 ▾');b.removeAttribute('title');return}
+  const run=state.run;let name=word('사업영역');
   try{const s=await import('./report-places-sheet.js'),places=await s.loadReportPlaces();name=s.areaNameIn(places,id)||name}catch{}
   if(state&&run===state.run&&state.areaId===id){b.textContent=name+' ▾';b.title=name}
 }
@@ -47,15 +48,15 @@ async function pickArea(){
   if(!state||state.saving)return;
   const b=$('[data-ol-area]');
   try{const s=await import('./report-places-sheet.js');await s.pickBusinessArea(b,{chosen:state.areaId,onMessage:m=>say(m,true),onPick:id=>{if(!state)return;state.areaId=String(id||'');say('');void paintArea()}})}
-  catch(e){say(e?.message||'사업영역을 불러오지 못했어요.',true)}
+  catch(e){say(e?.message||word('사업영역을 불러오지 못했어요.'),true)}
 }
 // 담당조직 연결(선택): 쓰기 창 [연결할 곳]과 같은 고르기 창. 담당조직만 남긴다(사업영역은 위 꼬리표가 연결된다) — 담당조직 상세의 사업 보고 목록에 보인다.
-function paintOrgs(){const b=$('[data-ol-orgs]'),n=state?.orgs?.length||0;b.innerHTML=n?`담당조직 ${n}곳 연결 <span class="optional">바꾸기</span>`:'+ 담당조직 연결'}
+function paintOrgs(){const b=$('[data-ol-orgs]'),n=state?.orgs?.length||0;b.innerHTML=n?word`담당조직 ${n}곳 연결 <span class="optional">바꾸기</span>`:word('+ 담당조직 연결')}
 async function pickOrgs(){
   if(!state||state.saving)return;
   const b=$('[data-ol-orgs]');
   try{const s=await import('./report-places-sheet.js');await s.pickReportPlaces(b,{chosen:state.orgs,onMessage:m=>say(m,true),onCommit:list=>{if(!state)return;state.orgs=(list||[]).filter(t=>t?.kind==='organization').map(t=>({kind:t.kind,id:t.id}));paintOrgs()}})}
-  catch(e){say(e?.message||'담당조직을 불러오지 못했어요.',true)}
+  catch(e){say(e?.message||word('담당조직을 불러오지 못했어요.'),true)}
 }
 async function save(){
   if(!state||state.saving)return;
@@ -71,7 +72,7 @@ async function save(){
     if(!row||row.workspace_id!==ws||row.activity_kind!=='oneline')throw new Error('저장한 한 줄을 확인하지 못했어요.');
     // 꼬리표 사업영역에 연결(사업영역 관리의 사업 보고 목록). 실패해도 한 줄은 저장된 것이다.
     let note='';
-    try{const {saveReportTargets}=await import('./report-links.js');const r=await saveReportTargets(row,[{kind:'project',id:body.business_area_id},...(state?.orgs||[])]);if(!r.ok)note=' 연결은 못 했어요.';else if(r.legacy&&r.skippedOrgs)note=' 담당조직 연결은 서버 준비가 끝난 뒤에 돼요.'}catch{note=' 연결은 못 했어요.'}
+    try{const {saveReportTargets}=await import('./report-links.js');const r=await saveReportTargets(row,[{kind:'project',id:body.business_area_id},...(state?.orgs||[])]);if(!r.ok)note=' 연결은 못 했어요.';else if(r.legacy&&r.skippedOrgs)note=word(' 담당조직 연결은 서버 준비가 끝난 뒤에 돼요.')}catch{note=' 연결은 못 했어요.'}
     const onSaved=state?.onSaved;
     if(state&&run===state.run){state.saving=false;close()}
     await window.__KPTU_RELOAD_MEETINGS__?.();

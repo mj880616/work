@@ -3,6 +3,7 @@
 // 화면 판정은 편의일 뿐이다. 실제 차단은 DB 문지기(private.app_mcp_gate)가 한다(설계 7.2).
 
 // 되돌아갈 곳: claude.ai 커넥터의 되돌아올 주소 하나만(설계 4.5 표). 그 밖의 주소로는 보내지 않는다.
+import {word} from './brand/brand.mjs';
 export const CLAUDE_ORIGIN = 'https://claude.ai';
 export const CLAUDE_CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
 
@@ -67,7 +68,7 @@ export function readDetails(data) {
 export const REFUSE = Object.freeze({
   framed: '다른 화면 안에서는 열 수 없어요. 주소를 브라우저에서 직접 열어 주세요.',
   bad_request: '연결 요청이 올바르지 않아요. claude.ai에서 다시 연결해 주세요.',
-  delegated: '이 로그인으로는 허락할 수 없어요. 노조+에 다시 로그인해 주세요.',
+  delegated: word('이 로그인으로는 허락할 수 없어요. 노조+에 다시 로그인해 주세요.'),
   not_owner: '내 작업공간이 있는 계정에서만 허락할 수 있어요.',
   not_ready: '이 계정은 Claude 읽기 연결을 쓰지 않아요.',
   client: '등록된 Claude 연결이 아니에요. 허락하지 마세요.',
@@ -87,7 +88,7 @@ export function consentRefusal({details, owner, settings}) {
 
 // 최근 읽은 기록 한 줄(도구 이름·결과만, 내용은 기록에 없다 — 설계 7.1).
 export const TOOL_LABELS = Object.freeze({
-  web2_org_status: '조직 현황', web2_business_reports: '사업 보고', web2_project_status: '프로젝트 현황',
+  web2_org_status: word('조직 현황'), web2_business_reports: word('사업 보고'), web2_project_status: '프로젝트 현황',
   ledger_search: '원장 검색', ledger_get: '원장 한 건', web2_notes_search: '노트 검색', google_where: '할 일·일정 찾는 길',
 });
 export const STATUS_LABELS = Object.freeze({ok: '읽음', limited: '잠깐 멈춤', denied: '막음', error: '오류'});

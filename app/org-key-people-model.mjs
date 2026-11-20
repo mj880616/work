@@ -8,6 +8,7 @@
 // DB 규칙(20261029014700_org_key_people)과 같은 숫자: 이름 1~40자, 찾을 이름 2~40자·20개·중복 없음.
 
 import {reportKindOf, reportKindLabel} from './report-kinds.mjs';
+import {word} from './brand/brand.mjs';
 
 export const NAME_MAX = 40, MATCH_MIN = 2, MATCH_MAX = 40, MATCHES_MAX = 20, PEOPLE_MAX = 40;
 export const RECORD_LIMIT = 80, OPEN_LIMIT = 30;
@@ -121,7 +122,7 @@ export function collectRecords({people = [], calls = [], personal = [], telegram
   for (const m of meetings || []) {
     if (!m?.id || m.deleted_at) continue;
     const ids = whoIn([m.title, m.series_name, m.notes], people); if (!ids.length) continue;
-    const title = clean(m.title || m.series_name) || '사업 보고';
+    const title = clean(m.title || m.series_name) || word('사업 보고');
     out.push({key:`meeting:${m.id}`, kind:'meeting', label:reportKindLabel(reportKindOf(m)), id:m.id, day:dayOf(m.meeting_at), at:m.meeting_at || '', text:m.round_no ? `${title} ${m.round_no}차` : title, people:ids, open:{view:'meetings', id:m.id}});
   }
   return out.sort(byNewest).slice(0, limit);

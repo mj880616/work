@@ -1,6 +1,7 @@
 // FEAT-1029묶음 ① Web2에 물어보기: 검색칸 답 상자의 순수 규칙(docs/design/ask-web2.md 1절). 그리는 곳은 global-search.js 하나.
 // 질문 판별, 서버 답 검사(믿지 않는 입력), 근거 꼬리표 글자, 근거를 누르면 여는 곳. 화면·네트워크·기기 저장 없음.
 import {openTarget} from './global-search-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const ASK_MIN = 4, ASK_MAX = 200;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -10,8 +11,8 @@ const ROOM = /^[A-Za-z0-9_.:-]{1,100}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const chars = s => [...String(s ?? '')].length;
 const KINDS = ['update', 'note', 'work', 'document', 'meeting', 'project', 'organization', 'milestone', 'call', 'telegram', 'ledger'];
-export const KIND_LABEL = Object.freeze({update: '업데이트', note: '노트', work: '업무일지', document: '자료', meeting: '회의', project: '사업영역',
-  organization: '조직', milestone: '주요 일정', call: '통화', telegram: '텔레그램', ledger: '원장'});
+export const KIND_LABEL = Object.freeze({update: '업데이트', note: '노트', work: '업무일지', document: '자료', meeting: '회의', project: word('사업영역'),
+  organization: word('조직'), milestone: '주요 일정', call: '통화', telegram: '텔레그램', ledger: '원장'});
 
 // 물을 수 있는 글(한 줄 4~200자).
 export function canAsk(text) {

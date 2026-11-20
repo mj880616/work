@@ -79,7 +79,7 @@ test('화면 연결(정적 확인): [+] 메뉴 맨 위 줄, [한 줄] 칩의 [+]
   const sheet = read('app/report-kind-sheet.js'), team = read('app/team.js'), ui = read('app/report-oneline.js'), preview = read('app/weekly-summary-table.js');
   assert.match(sheet, /html:\(active\?\.onOneline\?ONELINE_ROW:''\)\+REPORT_KINDS\.map/);
   assert.match(sheet, /data-report-oneline title="사업영역에 진행 상황 한 줄"><span class="home-choice-check" aria-hidden="true">✎<\/span><span class="home-choice-name">한 줄 업데이트<\/span>/);
-  assert.doesNotMatch(sheet.match(/const ONELINE_ROW=`[^`]*`/)[0], /data-sheet-value/);
+  assert.doesNotMatch(sheet.match(/const ONELINE_ROW=(?:word\()?`[^`]*`/)[0], /data-sheet-value/);
   // MTG-더하기늘고르기(11/14 명진): [+]는 거르기와 상관없이 늘 고르기 창([한 줄] 칩이어도 맨 위 [한 줄 업데이트] 줄로).
   assert.match(team, /function newReport\(trigger,date=''\)\{const chip=reportChip;pickReportKind\(trigger,\{title:'어느 칸에 남길까요\?',current:isReportKind\(chip\)\?chip:''/);
   assert.doesNotMatch(team, /if\(reportChip===ONELINE_KIND\)\{openOnelineEntry/);
