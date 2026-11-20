@@ -94,3 +94,19 @@ test('4. 산하조직 현황·내 담당 조직 줄: 확정본 줄이 약칭이�
   assert.equal(isMyOrg(['부산 지하철 노조'], ['부산지하철노동조합']), true);
   assert.equal(isMyOrg(['인천교통공사노조'], ['부산지하철노동조합']), false);
 });
+
+// S67-47 ORG-근거만: 글 안에 실제로 적힌 조직만(조직을 근거가 있을 때만 붙이는 곳의 공용 판단).
+import {mentionedOrgs} from '../app/org-name-match.mjs';
+import {readFileSync} from 'node:fs';
+test('mentionedOrgs: 이름·약칭이 글에 있을 때만, 짧은 약칭은 낱말로만, 긴 이름 안의 짧은 이름은 빼고, 서버 사본과 같은 파일',()=>{
+  const orgs=[{id:1,name:'가상철도지부',aliases:['가철']},{id:2,name:'철도노조'},{id:3,name:'공항가상철도노조'},{id:4,name:'예시광역노조'}];
+  const ids=t=>mentionedOrgs(t,orgs).map(o=>o.id).sort();
+  assert.deepEqual(ids('가철 김가상 위원장'),[1]);
+  assert.deepEqual(ids('가상철도 파업 소식'),[1],'끝의 지부 없이도');
+  assert.deepEqual(ids('가철도 이야기'),[],'두 글자 약칭은 낱말이 같을 때만');
+  assert.deepEqual(ids('공항가상철도노조 김가상'),[3],'긴 이름 안에 든 짧은 이름(철도노조·가상철도)은 빼고');
+  assert.deepEqual(ids('예시광역노조와 가상철도지부'),[1,4]);
+  assert.deepEqual(ids('김가상 위원장'),[]);
+  assert.deepEqual(ids(''),[]);
+  assert.equal(readFileSync(new URL('../app/org-name-match.mjs',import.meta.url),'utf8'),readFileSync(new URL('../supabase/functions/_shared/org-name-match.mjs',import.meta.url),'utf8'));
+});
