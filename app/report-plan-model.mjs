@@ -8,6 +8,8 @@
 //   4-5 사본 맞추기: 줄의 제목·날짜·시각·캘린더 id가 일정과 다르면 그 칸만 고친다(decided_at은 그대로).
 import {majorRule} from './weekly-major-schedule.mjs';
 import {titleOrg} from './record-window-model.mjs';
+import {titleMatch, MATCH_SAME, MATCH_NEAR} from './title-match.mjs';
+import {storedTimeIsSet} from './meeting-when.js';
 
 export const PLAN_ON = 'on', PLAN_OFF = 'off', PLAN_SKIP = 'skip';
 export const BY_USER = 'user', BY_RULE = 'rule';
@@ -102,10 +104,57 @@ export function askReason(event, {orgs = null, areaEventIds = null} = {}) {
   return majorRule(event?.title) ? ASK_MAJOR : '';
 }
 
+// S67-40(명진 11/20 20:22 "이미 보고를 했는데 중복된 일정 보고 제안"): 일정에서 시작하지 않고 따로 쓴 보고(일정 id 연결 없음)도 '보고함'으로 본다.
+//   같은 날(서울)이고 ① 시각: 일정·보고 둘 다 시각이 있으면 ±COVER_MINUTES 안(종일 일정·시각을 고르지 않은 보고는 날짜만)
+//   ② 제목: title-match.mjs titleMatch가 'same'(한쪽이 다른 쪽을 품거나 짧은 쪽 낱말이 모두 들어 있음)이면 그 보고가 이 일정을 덮는다(cover).
+//   'near'(낱말 일부만 겹침)는 덮지 않고 ⋯ 메뉴 '이미 보고함' 후보 맨 앞에 둔다(사람이 연결을 고른다 — 저장은 기존 보고의 일정 id 칸).
+// allReports = 사업 보고 목록 전체(제목·series_name·meeting_at·id). 다른 일정에 이미 이어진 보고는 linked(id 모음)로 빼고 본다.
+export const COVER_MINUTES = 60;
+const seoulDayOf = value => { const t = Date.parse(value ?? ''); return Number.isFinite(t) ? new Date(t + 9 * 3600e3).toISOString().slice(0, 10) : ''; };
+// 일정·줄(app_calendar_report_plans 줄의 event_day·starts_at 사본도 된다) → 비교할 모양 {day, at(ms|0=종일), title}
+export function coverTarget(event) {
+  const start = String(event?.start ?? event?.starts_at ?? ''), allDay = !!event?.allDay || DAY.test(start) || !start;
+  const day = allDay ? (DAY.test(start.slice(0, 10)) ? start.slice(0, 10) : String(event?.event_day ?? event?.day ?? '').slice(0, 10)) : seoulDay(start);
+  return {day, at: allDay ? 0 : stamp(start), title: String(event?.title ?? '')};
+}
+const linkedIds = reports => new Set((reports || []).filter(r => r && r.google_event_id).map(r => String(r.id ?? '')).filter(Boolean));
+// 보고 하나가 일정과 얼마나 맞나: 'same' | 'near' | ''. 날짜가 다르거나 시각이 멀면 ''.
+export function coverLevel(target, report) {
+  const t = target?.day ? target : coverTarget(target);
+  if (!t.day || !report || seoulDayOf(report.meeting_at) !== t.day) return '';
+  const rAt = storedTimeIsSet(report.meeting_at) ? stamp(report.meeting_at) : 0;
+  if (t.at && rAt && Math.abs(t.at - rAt) > COVER_MINUTES * 60e3) return '';
+  const names = [...new Set([String(report.series_name ?? '').trim(), String(report.title ?? '').trim()].filter(Boolean))];
+  let best = '';
+  for (const name of names) { const m = titleMatch(t.title, name); if (m === MATCH_SAME) return MATCH_SAME; if (m) best = m; }
+  return best;
+}
+// 같은 날 따로 쓴 보고 후보(다른 일정에 이어진 보고는 뺀다): 'same' 먼저, 그다음 'near', 그다음 시각이 가까운 순. 각 {report, level}.
+// level '' = 같은 날의 다른 보고(메뉴에서 직접 고를 수 있게만 둔다).
+export function coverCandidates(event, {reports = [], allReports = []} = {}) {
+  const t = coverTarget(event);
+  if (!t.day) return [];
+  const linked = linkedIds(reports), rank = {[MATCH_SAME]: 0, [MATCH_NEAR]: 1, '': 2};
+  const out = [];
+  for (const r of allReports || []) {
+    if (!r || !r.id || linked.has(String(r.id)) || r.google_event_id) continue;
+    if (seoulDayOf(r.meeting_at) !== t.day) continue;
+    out.push({report: r, level: coverLevel(t, r), gap: t.at ? Math.abs(t.at - stamp(r.meeting_at)) : 0});
+  }
+  return out.sort((a, b) => rank[a.level] - rank[b.level] || a.gap - b.gap).map(({report, level}) => ({report, level}));
+}
+// 이 일정을 덮는 따로 쓴 보고(가장 맞는 것). 없으면 null.
+export function reportCover(event, data = {}) {
+  const first = coverCandidates(event, data)[0];
+  return first && first.level === MATCH_SAME ? first.report : null;
+}
+
 // 4-1 일정 하나의 표시: 'done' 보고 씀 · 'todo' 보고할 일정 · 'ask' 보고할까요? · '' 그냥 일정.
-// data = {plans, reports, orgs?, areaEventIds?} — 뒤의 둘은 askReason 힌트(없으면 일정에 붙인 조직·제목 기준만 본다).
-export function eventStatus(event, {plans = [], reports = [], ...hints} = {}) {
+// data = {plans, reports, allReports?, orgs?, areaEventIds?} — allReports가 있으면 따로 쓴 보고가 덮는 일정도 'done'(reportCover),
+//   orgs·areaEventIds는 askReason 힌트(없으면 일정에 붙인 조직·제목 기준만 본다).
+export function eventStatus(event, {plans = [], reports = [], allReports = null, ...hints} = {}) {
   if (reportsOfEvent(event?.id, reports).length) return STATUS_DONE;
+  if (allReports && reportCover(event, {reports, allReports})) return STATUS_DONE;
   const decision = planDecision(event, {plans, reports});
   if (decision.state === PLAN_ON) return STATUS_TODO;
   if (decision.row || decision.state === PLAN_SKIP) return '';
