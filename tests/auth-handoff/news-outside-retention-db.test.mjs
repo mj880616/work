@@ -1,7 +1,7 @@
 // Fresh local PostgreSQL only. No Supabase, Edge or production credentials. All data synthetic.
 // S67-24 DB-보관기간정리 ①(20261120130000_news_outside_retention) + ②(docs/ops/retention-daily.*, SQL Editor).
 // - 승인형 workflow plan(확장 규칙)·dry-run·apply·사후 확인 통과, 적용 순간에는 한 줄도 안 지움(자동 사본 대상 표 없음).
-// - 언론 72시간 경계(받은 시각 created_at), 사회운동 6개월(받은 시각 fetched_at).
+// - 언론 72시간 경계(받은 시각 created_at), 사회운동 2개월(받은 시각 fetched_at).
 // - 사람이 남긴 것은 안 지움: 별표(공용·옛 표)·직접 넣은 기사·손으로 고친 기사·노트 메모(공용 id·옛 id·지도·휴지통 노트)·밑줄·사회운동 보관.
 // - 딸린 본문·문장·읽음·자세히·반응은 지운 기사 것만 같이 지워짐(외래 키), 남긴 기사의 딸린 줄은 그대로. 텔레그램 표는 그대로.
 // - 함수는 service_role만, p_limit 지킴. 되돌리기 뒤 이전 본문 그대로·다시 적용 가능.
@@ -127,18 +127,18 @@ test('news/outside retention: plan, dry-run, apply, 72h and 6-month rules, kept 
   const opost=async(ws,n,pub,fetched,id=null)=>(await pool.query(`insert into public.app_outside_posts(id,workspace_id,source_key,kind,lang,title,url,published_at,fetched_at)
     values (coalesce($5::uuid,gen_random_uuid()),$1,'kctu','statement','ko','합성 성명',$2,$3,$4) returning id`,[ws,'https://union.example.org/s/'+n,pub,fetched,id])).rows[0].id;
   const O={};
-  O.o1=await oart(1,month(7),month(7));O.o1A=await opost(WS_A,1,month(7),month(7),O.o1);
+  O.o1=await oart(1,month(3),month(3));O.o1A=await opost(WS_A,1,month(3),month(3),O.o1);
   await pool.query("insert into public.app_outside_article_sentences(article_id,idx,text) values ($1,0,'합성 문장')",[O.o1]);
   await pool.query("insert into public.app_outside_sentences(post_id,workspace_id,lang,idx,text) values ($1,$2,'ko',0,'합성 문장')",[O.o1A,WS_A]);
-  O.o2=await oart(2,month(7),month(7));await pool.query('insert into public.app_outside_article_marks(workspace_id,article_id,archived_at) values ($1,$2,$3)',[WS_B,O.o2,ago(5)]);
-  O.o3=await oart(3,month(7),month(7));O.o3A=await opost(WS_A,3,month(7),month(7),O.o3);
+  O.o2=await oart(2,month(3),month(3));await pool.query('insert into public.app_outside_article_marks(workspace_id,article_id,archived_at) values ($1,$2,$3)',[WS_B,O.o2,ago(5)]);
+  O.o3=await oart(3,month(3),month(3));O.o3A=await opost(WS_A,3,month(3),month(3),O.o3);
   await pool.query('insert into public.app_outside_marks(post_id,workspace_id,starred_at) values ($1,$2,$3)',[O.o3A,WS_A,ago(5)]);
-  O.o4=await oart(4,month(7),month(7));O.o4B=await opost(WS_B,4,month(7),month(7));await pool.query('insert into public.app_outside_id_map(old_id,workspace_id,article_id) values ($1,$2,$3)',[O.o4B,WS_B,O.o4]);
+  O.o4=await oart(4,month(3),month(3));O.o4B=await opost(WS_B,4,month(3),month(3));await pool.query('insert into public.app_outside_id_map(old_id,workspace_id,article_id) values ($1,$2,$3)',[O.o4B,WS_B,O.o4]);
   await note(WS_B,{outside_post_id:O.o4B});
-  O.o5=await oart(5,null,month(7));O.o6=await oart(6,month(5),month(5));
+  O.o5=await oart(5,null,month(3));O.o6=await oart(6,month(1),month(1));
   // 8: 2년 전 성명을 지난달에 처음 받음 → 받은 날 기준이라 남음(목록에 남은 옛 글을 지웠다 다시 넣는 헛돎 없음).
   O.o8=await oart(8,month(24),month(1));
-  O.o7=await oart(7,month(8),month(8));await hl(WS_A,'outside',O.o7);
+  O.o7=await oart(7,month(3),month(3));await hl(WS_A,'outside',O.o7);
 
   const migration=await read('supabase/migrations/'+stem+'.sql');
   const [precheck,postcheck,snapshot,rollbackSQL,summary]=await Promise.all(['precheck.sql','postcheck.sql','snapshot.sql','rollback.sql','summary.md'].map(k=>read('docs/'+stem+'.'+k)));
@@ -219,7 +219,7 @@ test('news/outside retention: plan, dry-run, apply, 72h and 6-month rules, kept 
    assert.equal(c.oarts,c0.oarts,'뉴스 정리는 사회운동 글을 건드리지 않음');
   });
 
-  await t.test('outside 6 months after received (fetched_at), star/archive/memo/highlight kept, sentences cascade',async()=>{
+  await t.test('outside 2 months after received (fetched_at), star/archive/memo/highlight kept, sentences cascade',async()=>{
    assert.equal(await prune('app_outside_prune'),3,'공용 o1·o5 + 옛 o1A');
    for(const k of ['o1','o5'])assert.equal(await has('app_outside_articles',O[k]),false,k+' 지움');
    for(const k of ['o2','o3','o4','o6','o7','o8'])assert.equal(await has('app_outside_articles',O[k]),true,k+' 남김');

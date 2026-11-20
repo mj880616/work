@@ -13,9 +13,9 @@ union all select 'news articles older than 72h', (select count(*) from public.ap
 union all select 'news articles total', (select count(*) from public.app_news_articles)::text
 union all select 'old news items older than 72h', (select count(*) from public.app_news_items where created_at < now() - interval '72 hours')::text
 union all select 'old news items total', (select count(*) from public.app_news_items)::text
-union all select 'outside articles older than 6 months', (select count(*) from public.app_outside_articles where fetched_at < now() - interval '6 months')::text
+union all select 'outside articles older than 2 months', (select count(*) from public.app_outside_articles where fetched_at < now() - interval '2 months')::text
 union all select 'outside articles total', (select count(*) from public.app_outside_articles)::text
-union all select 'old outside posts older than 6 months', (select count(*) from public.app_outside_posts where fetched_at < now() - interval '6 months')::text
+union all select 'old outside posts older than 2 months', (select count(*) from public.app_outside_posts where fetched_at < now() - interval '2 months')::text
 union all select 'old outside posts total', (select count(*) from public.app_outside_posts)::text
 union all select 'cron run rows older than 7 days', (select count(*) from cron.job_run_details where coalesce(end_time, start_time) < now() - interval '7 days')::text
 union all select 'cron run rows total', (select count(*) from cron.job_run_details)::text

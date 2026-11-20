@@ -1,5 +1,5 @@
 -- S67-24 DB-보관기간정리 ② 매일 정리 예약·한 번 정리·디스크 되돌려받기 — ★ SQL Editor(폰 경로 C) 전용 ★
--- 명진 결정 11/20 10:51·10:52: 언론 기사 3일, 사회운동 매체 6개월, 나머지 지워도 되는 것은 다 지움. 설계·근거: docs/design/db-retention.md.
+-- 명진 결정 11/20 10:51·10:52: 언론 기사 3일, 사회운동 매체 2개월, 나머지 지워도 되는 것은 다 지움. 설계·근거: docs/design/db-retention.md.
 --
 -- 왜 승인형 DB workflow가 아닌가(docs/ops-db-workflow.md 차단 목록·확장 규칙):
 --   · cron.schedule/cron.unschedule(cron 스키마 쓰기)과 cron.job_run_details 지우기 — workflow는 public·private 밖 스키마 쓰기를 받지 않는다.
@@ -53,7 +53,7 @@ insert into private.app_ops_backup_seen (name)
   on conflict do nothing;
 
 -- 매일 정리(예약이 부름, 실행 역할 = 예약 주인). 돌려주는 것은 지운 줄 수·표 수뿐.
---  1) 언론 기사 3일·사회운동 글 6개월(정리 함수 둘, 한 번에 5000줄씩 최대 20번 — 남길 것 규칙은 함수 안).
+--  1) 언론 기사 3일·사회운동 글 2개월(정리 함수 둘, 한 번에 5000줄씩 최대 20번 — 남길 것 규칙은 함수 안).
 --  2) 예약 실행 기록(cron.job_run_details) 7일치만 남김.
 --  3) 백업 사본: 그 migration 기록이 있고(적용 끝남) 처음 본 지 14일 지난 것만 지운다. 기록이 없는 백업(적용이 멈춘 것)은 사람이 본다 — 지우지 않음.
 create function private.app_retention_daily()

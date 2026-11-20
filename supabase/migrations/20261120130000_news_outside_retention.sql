@@ -1,5 +1,5 @@
 begin;
--- S67-24 DB-보관기간정리 ①(승인형 workflow). 명진 결정 11/20 10:51·10:52: "언론 기사는 3일", "사회운동 매체는 6개월까지 보관", 나머지 지워도 되는 것은 다 지움.
+-- S67-24 DB-보관기간정리 ①(승인형 workflow). 명진 결정 11/20 10:51·10:52: "언론 기사는 3일", "사회운동 매체는 2개월까지(11:07 2개월→2개월로 정정) 보관", 나머지 지워도 되는 것은 다 지움.
 -- 배경: Supabase 무료 한도 초과(DB 0.664GB / 0.5GB). 크기는 카탈로그로만 쟀다(내용 조회 없음).
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다(이 브랜치는 적용 직전 정지).
 --
@@ -8,7 +8,7 @@ begin;
 --     이전: 옛 표 app_news_items의 매체 글 30일·키워드 글 180일. 이후: 언론 기사(News [언론] 탭, 공용 app_news_articles + 옛 app_news_items, 모든 lane)를
 --     받은 지(created_at) 72시간 지나면 지운다. 이미 부르는 곳(Edge news-feed 'prune' 단계, 예약 수집마다) 그대로.
 --  2) public.app_outside_prune(timestamptz, integer) 새로(DEFINER·search_path ''·service_role만): 사회운동 글(공용 app_outside_articles + 옛 app_outside_posts)을
---     받은 지(fetched_at) 6개월 지나면 지운다. 언론과 같이 '받은 날' 기준이다: 게시일 기준이면 단체 목록에 아직 실린 옛 글을 수집기가 곧바로 다시 넣어
+--     받은 지(fetched_at) 2개월 지나면 지운다. 언론과 같이 '받은 날' 기준이다: 게시일 기준이면 단체 목록에 아직 실린 옛 글을 수집기가 곧바로 다시 넣어
 --     (다시 읽기·AI 요약) 넣고 지우기를 되풀이한다. 부르는 곳: 매일 정리 예약(docs/ops/retention-daily.apply.sql, SQL Editor).
 --  두 함수 모두 한 번에 p_limit(1~5000)줄까지(공용 표·옛 표 따로), 지운 줄 수를 돌려준다.
 --
@@ -121,7 +121,7 @@ revoke all on function public.app_news_prune(timestamptz, integer) from authenti
 revoke all on function public.app_news_prune(timestamptz, integer) from service_role;
 grant execute on function public.app_news_prune(timestamptz, integer) to service_role;
 
--- 2) 사회운동 글: 받은 지(fetched_at) 6개월. 같은 방식(주소 url 묶음).
+-- 2) 사회운동 글: 받은 지(fetched_at) 2개월. 같은 방식(주소 url 묶음).
 create function public.app_outside_prune(p_now timestamptz, p_limit integer)
 returns integer
 language plpgsql
@@ -129,7 +129,7 @@ security definer
 set search_path = ''
 as $oprune$
 declare
-  v_cut timestamptz := coalesce(p_now, pg_catalog.now()) - interval '6 months';
+  v_cut timestamptz := coalesce(p_now, pg_catalog.now()) - interval '2 months';
   v_limit integer := least(greatest(coalesce(p_limit, 500), 1), 5000);
   v_a integer;
   v_p integer;
@@ -216,5 +216,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261120130000', 'news_outside_retention', array['S67-24 DB retention: replace public.app_news_prune(timestamptz,integer) (same signature, SECURITY DEFINER, empty search_path, service_role only) so news articles (shared app_news_articles and old app_news_items, all lanes) are deleted 72 hours after created_at; add public.app_outside_prune(timestamptz,integer) (same shape) deleting social-movement posts (app_outside_articles and old app_outside_posts) 6 months after fetched_at; both keep every url group with a star, archive, manual entry, note memo (incl. trashed notes, old/shared/mapped ids) or highlight; no row deleted at apply time; no table, policy, grant or trigger change']);
+values ('20261120130000', 'news_outside_retention', array['S67-24 DB retention: replace public.app_news_prune(timestamptz,integer) (same signature, SECURITY DEFINER, empty search_path, service_role only) so news articles (shared app_news_articles and old app_news_items, all lanes) are deleted 72 hours after created_at; add public.app_outside_prune(timestamptz,integer) (same shape) deleting social-movement posts (app_outside_articles and old app_outside_posts) 2 months after fetched_at; both keep every url group with a star, archive, manual entry, note memo (incl. trashed notes, old/shared/mapped ids) or highlight; no row deleted at apply time; no table, policy, grant or trigger change']);
 commit;
