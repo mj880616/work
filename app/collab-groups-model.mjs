@@ -1,17 +1,18 @@
+import {word} from './brand/brand.mjs';
 // COLLAB-묶인사람끼리공유 1단계 '묶기' 화면 모델(설계 docs/design/collab-sharing.md 3절, 시안 docs/design/mockups/collab-groups-3.html).
 // 화면(collab-groups.js)이 쓰는 글자·모양을 계산만 한다. 서버 호출·저장 없음. 권한 판정은 서버 함수(app_collab_*)가 한다 — 여기 값은 표시용.
 
-export const KIND_NAME = {dept: '부서 묶음', union: '노조 묶음'};
+export const KIND_NAME = {dept: '부서 묶음', union: word('노조 묶음')};
 export const INVITE_PARAM = 'join';
 export const TOKEN_RE = /^[0-9a-f]{64}$/;
 
 // 같은 이름이 있든 없든 만든 사람에게는 이 한 줄만(설계 3.2, 시안 ③).
 export const CREATED_TEXT = {
   dept: '부서 묶음을 만들었어요. 같은 이름 묶음이 이미 있으면 그 묶음에서 수락할 때 하나로 합쳐져요.',
-  union: '노조 묶음을 만들었어요. 같은 이름 묶음이 이미 있으면 그 묶음에서 수락할 때 하나로 합쳐져요.',
+  union: word('노조 묶음을 만들었어요. 같은 이름 묶음이 이미 있으면 그 묶음에서 수락할 때 하나로 합쳐져요.'),
 };
 export const LIMIT_HINT = '하루에 3번까지 만들 수 있어요. 넘으면 같은 안내 뒤에 아무 일도 일어나지 않아요.';
-export const EMPTY_TEXT = '같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.';
+export const EMPTY_TEXT = word('같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.');
 export const INVITE_HINT = '초대 링크를 받았으면 그 링크를 누르면 돼요.';
 export const LINK_NOTE = '7일 동안 한 사람이 쓸 수 있어요. 이 창을 닫으면 다시 볼 수 없어요(필요하면 새로 만들기).';
 // 들어갈 때 알리고 동의받는 것(결정 ①, 시안 ②·⑥).
@@ -25,7 +26,7 @@ const ERRORS = {
   COLLAB_INVITE_UNUSABLE: '쓸 수 없는 링크예요. 묶음 사람에게 새 링크를 받아 주세요.',
   COLLAB_PROFILE_NAME_REQUIRED: '프로필에 이름을 먼저 채워 주세요.',
   COLLAB_CONSENT_REQUIRED: '보이는 것에 동의해야 들어갈 수 있어요.',
-  COLLAB_NAME_INVALID: '노조명·부서명을 60자 안으로 한 줄로 써 주세요.',
+  COLLAB_NAME_INVALID: word('노조명·부서명을 60자 안으로 한 줄로 써 주세요.'),
   COLLAB_LIMIT: '묶음 수나 멤버 수가 한도에 닿았어요.',
   COLLAB_ADMIN_MUST_MOVE: '관리자는 먼저 다른 멤버에게 관리자를 넘긴 뒤 나갈 수 있어요.',
   COLLAB_ADMIN_REQUIRED: '관리자만 할 수 있어요.',
@@ -49,7 +50,7 @@ export function cleanName(text) {
   return c.length >= 1 && c.length <= 60 ? c : '';
 }
 export function groupName(g) {
-  const parts = [g?.union_name, g?.kind === 'dept' ? g?.dept_name : '', g?.kind === 'dept' ? '부서' : '노조'].filter(Boolean);
+  const parts = [g?.union_name, g?.kind === 'dept' ? g?.dept_name : '', g?.kind === 'dept' ? '부서' : word('노조','group')].filter(Boolean);
   return parts.join(' ');
 }
 export const roleText = role => (role === 'admin' ? '관리자' : '멤버');

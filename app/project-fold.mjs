@@ -1,3 +1,4 @@
+import {word} from './brand/brand.mjs';
 // PRJ-목록접어두기: 잘 안 여는 프로젝트를 목록 맨 아래 한 줄로 접어 둔다. 접힘은 프로젝트 행의 metadata.folded(true)에 서버 저장한다
 // (기존 app_spaces.metadata, 새 칸·새 표·권한 변경 없음; metadata.color 검사와 서로 닿지 않는다). 접힌 프로젝트의 데이터는 그대로이고
 // 바뀌는 것은 프로젝트 탭 목록의 자리와 연결 고르기 목록의 순서(맨 아래·흐리게)뿐이다.
@@ -45,7 +46,7 @@ export function foldedMetadata(metadata, on) {
 
 // '▸ 접어 둔 것 n · 이름, 이름…' 한 줄의 글(머리 이름만; 길면 CSS가 말줄임으로 줄인다).
 export function foldSummary(headNames) {
-  const names = (Array.isArray(headNames) ? headNames : []).map(n => String(n || '').trim() || '이름 없는 사업영역');
+  const names = (Array.isArray(headNames) ? headNames : []).map(n => String(n || '').trim() || word('이름 없는 사업영역'));
   return { count: names.length, names: names.join(', ') };
 }
 

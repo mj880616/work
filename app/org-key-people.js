@@ -16,6 +16,7 @@ import {openReport} from './report-open.js';
 import {askConfirm, notify} from './small-notice.js';
 import {savedNamesDraft, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, recordTag, PEOPLE_MAX} from './org-key-people-model.mjs';
 import {openCallSource, openTelegramSource} from './source-open.js';
+import {word} from './brand/brand.mjs';
 
 const TABLE = '/rest/v1/app_org_key_people', BRIEFS = '/rest/v1/app_org_key_people_briefs';
 const FIELDS = 'id,workspace_id,organization_id,name,match_names,sort_order,created_at';
@@ -343,7 +344,7 @@ async function saveEditor() {
   const m = document.getElementById('okpModal'), status = m.querySelector('#okpStatus');
   const d = savedNamesDraft({name:m.querySelector('#okpName').value, keep:ed.person?.match_names || []});
   if (!d.ok) { status.textContent = d.error; return; }
-  if (ui.people.some(p => p.name === d.name && p.id !== ed.person?.id)) { status.textContent = '이 조직에 같은 이름이 이미 있어요.'; return; }
+  if (ui.people.some(p => p.name === d.name && p.id !== ed.person?.id)) { status.textContent = word('이 조직에 같은 이름이 이미 있어요.'); return; }
   const {rt, orgId} = ui, run = ui.run;
   if (ed.org !== orgId) { closeEditor(); return; }
   ed.busy = true; status.textContent = '저장하는 중…';
@@ -351,7 +352,7 @@ async function saveEditor() {
     if (ed.person) await rt.api(`${TABLE}?id=eq.${enc(ed.person.id)}&organization_id=eq.${enc(orgId)}`, {method:'PATCH', prefer:'return=minimal', body:{name:d.name, match_names:d.match_names, updated_at:new Date().toISOString()}});
     else await rt.api(TABLE, {method:'POST', prefer:'return=minimal', body:{workspace_id:ui.workspaceId, organization_id:orgId, name:d.name, match_names:d.match_names, sort_order:(ui.people.reduce((n, p) => Math.max(n, p.sort_order || 0), 0) + 1024)}});
   } catch (e) {
-    if (ed) { ed.busy = false; status.textContent = /23505|duplicate/i.test(String(e?.message || '') + (e?.code || '')) ? '이 조직에 같은 이름이 이미 있어요.' : '저장하지 못했어요. 다시 시도해 주세요.'; }
+    if (ed) { ed.busy = false; status.textContent = /23505|duplicate/i.test(String(e?.message || '') + (e?.code || '')) ? word('이 조직에 같은 이름이 이미 있어요.') : '저장하지 못했어요. 다시 시도해 주세요.'; }
     return;
   }
   closeEditor();

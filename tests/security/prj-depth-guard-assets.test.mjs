@@ -25,7 +25,7 @@ test('the project screen shows the database refusal in plain words and does not 
   assert.deepEqual(codes, ['PRJ_DEPTH_LIMIT', 'PRJ_PARENT_CYCLE']);
   const js = readFileSync('app/project-system-v3.js', 'utf8');
   assert.match(js, /\/\^PRJ_\(DEPTH_LIMIT\|PARENT_CYCLE\):\/\.exec/);
-  const text = js.match(/const PRJ_GUARD_TEXT=\{DEPTH_LIMIT:'([^']+)',PARENT_CYCLE:'([^']+)'\};/);
+  const text = js.match(/const PRJ_GUARD_TEXT=\{DEPTH_LIMIT:(?:word\()?'([^']+)'\)?,PARENT_CYCLE:(?:word\()?'([^']+)'\)?\};/);
   assert.ok(text);
   assert.match(text[1], /^사업영역은 3단까지만 둘 수 있어요\./);
   assert.match(text[2], /^자기 자신이나 그 아래 사업영역 밑으로는 옮길 수 없어요\./);

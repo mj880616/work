@@ -27,7 +27,7 @@ function walk(node, visit, parent = null) {
   }
 }
 
-const isWord = node => node?.type === 'Identifier' && node.name === 'word';
+const isWord = node => node?.type === 'Identifier' && (node.name === 'word' || node.name === 'brandWord');
 
 /** JS 한 파일: [{line, text, why}] 문제 목록. */
 export function scanScript(file, source, { sourceType } = {}) {
@@ -52,7 +52,8 @@ export function scanScript(file, source, { sourceType } = {}) {
       if (holder?.type === 'CallExpression' && isWord(holder.callee) && holder.arguments.includes(literal)) through = true;
     }
     if (through) {
-      const shown = wordIn(girok, text);
+      // HTML 조각의 속성 값(data-*·value 등)은 화면 글자가 아니다. 눈에 보이는 속성(aria-label·alt·title·placeholder)만 남긴다.
+      const shown = wordIn(girok, text).replace(/\s(?!(?:aria-label|alt|title|placeholder)=)[\w-]+="[^"]*"/g, '');
       if (FORBIDDEN.test(shown)) problems.push({ file, line: node.loc.start.line, text, why: `단어표를 거쳐도 남음: ${shown}` });
       return;
     }

@@ -214,7 +214,7 @@ test('ORG-폴드두열표 ③: org-overview.js는 가장 긴 이름을 한 줄�
   assert.match(src, /function fitOrgColumn\(\)/);
   assert.match(src, /--oa-w-org-fit/);
   assert.match(src, /tableWidth \* 0\.45/);
-  assert.match(src, /mountColResize\(\{host: panel, name: 'orgall', vars: \{org: '--oa-w-org'\}[^)]*fit: \(\) => nameWidth\(panel\)\}\)/, '칸 경계 두 번 누르기 맞춤도 같은 측정');
+  assert.match(src, /mountColResize\(\{host: panel, name: 'orgall', vars: \{org: '--oa-w-org'\}.*?fit: \(\) => nameWidth\(panel\)\}\)/, '칸 경계 두 번 누르기 맞춤도 같은 측정');
   // 그린 뒤·[전체 표] 탭을 열 때·화면 폭이 바뀔 때·글꼴이 온 뒤 다시 맞춘다.
   assert.ok((src.match(/fitOrgColumn\(\)/g) || []).length >= 5);
   assert.match(src, /addEventListener\('resize'/);
