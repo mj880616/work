@@ -74,7 +74,8 @@ jobs:
       - name: Build expected Actions deployment output
         run: |
           npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
-          node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
+          # S67-56: 운영 Pages와 같은 얼굴(girok, pages-deploy.yml)로 만들어야 운영 파일과 맞는다.
+          node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out" --face=girok
           node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
 
       - name: Wait for Web2 release on GitHub Pages

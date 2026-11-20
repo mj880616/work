@@ -61,8 +61,11 @@ jobs:
           package-manager-cache: false
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+      # S67-56(2026-11-20 명진 결정, AGENTS.md 5절): 운영 앱은 WORK ON 기본 단어 얼굴(girok)로 빌드한다. 고친 이름이 없는 사람은 노조 색 단어 없이,
+      # 고친 이름(내 프로필 custom_words)이 있는 사람은 그 이름으로 본다. cloudflare-worker-deploy.yml도 같은 얼굴로 만들어 운영과 맞춘다
+      # (scripts/production-face.test.mjs가 두 곳이 같은지 본다).
       - name: Add content-hash ?v= and build the asset manifest
-        run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
+        run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out" --face=girok
       # APP-앱내려받기버튼: 최신 폰 앱(태그 phone-app-v*, 파일 web2-phone-*.apk — 바구니 PC 릴리스와 섞이지 않음)을 공개 릴리스 목록에서 골라
       # 빌드 결과($RUNNER_TEMP/pages-out)의 app/phone-app.json에 둔다(_site는 Jekyll이 root로 만들어 쓸 수 없다 — 2026-11-14 배포 실패 원인). 화면은 같은 주소의 이 파일만 읽는다. 목록을 못 읽으면 파일 없이 배포한다(화면은 릴리스 목록 주소로 연다).
       # 배포(main push·손 실행) 때마다 다시 고른다. 폰 앱 릴리스 뒤 바로 맞추려면 이 workflow를 손으로 한 번 돌린다(받은 옛 판도 앱이 스스로 업데이트한다).
@@ -80,6 +83,9 @@ jobs:
         run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
       - name: Check Worker deploy URL extraction on the output
         run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
+      # S67-56: WORK ON 화면 글자에 노조 색 글자가 없는지(pages-build-check.yml과 같은 검사, 배포 전 한 번 더).
+      - name: Check WORK ON screen words
+        run: node scripts/check-girok-words.mjs "$RUNNER_TEMP/pages-out"
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
