@@ -519,10 +519,14 @@ export const changedCount = data => [...(data.summary ?? []).flatMap(a => a.rows
 
 // 빈 서식 + 보고 자료 → .hwpx 바이트. 규격 검사(hwpx.mjs)를 통과하지 못하면 Error(파일을 내주지 않음).
 export async function buildHwpx(template, data, zlib = browserZlib, {profile} = {}) {
+  return (await buildHwpxReport(template, data, zlib, {profile})).bytes;
+}
+// S67-29: 바이트와 함께 붙인 문서 넣은 결과(embedded = {count, lost:[빠진 것 이름]})도 돌려준다.
+export async function buildHwpxReport(template, data, zlib = browserZlib, {profile} = {}) {
   needProfile(profile);
-  const {pkg} = buildReport(template, data, {profile});
+  const {pkg, embedded} = buildReport(template, data, {profile});
   const bytes = await packHwpxAsync(pkg, zlib);
   const check = await validateHwpxAsync(bytes, zlib);
   if (check.errors.length) throw Object.assign(new Error(DRAFT_TEXT.invalid), {code: 'invalid', count: check.errors.length});
-  return bytes;
+  return {bytes, embedded};
 }

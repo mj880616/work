@@ -2,6 +2,8 @@
 // - 자료: 그 주 주간보고 행(app_weekly_exec_requests, 주마다 1행)의 임시저장 칸 draft.discuss [{id, title, note?, org?}] (순서 = 화면 순서).
 //   2) 주요 일정 줄(draft.hq)과 같은 자리·같은 쓰기(weekly-draft-store.js changeWeekDocs)라 DB 모양은 바뀌지 않는다(draft 안쪽 모양은 화면이 검사).
 //   title = 안건 한 줄(필수), note = 짧은 설명, org = 관련 조직 이름(고른 것, 없으면 비움).
+//   S67-29: file = 붙인 한글 문서 {id, name}(선택). id = 자료실 자료 id(원본은 자료실·Drive에, 줄에는 연결만), name = 파일 이름(.hwp·.hwpx).
+//   한글 파일을 만들 때 그 문서 본문을 이 안건 아래에 그대로 넣는다(weekly-hwpx/embed.mjs). 넣지 못하면 '첨부 문서: 파일 이름' 한 줄.
 // - [주간 정리]와 한글 파일 상자가 같은 줄을 읽고 쓴다(weekly-discuss-table.js 하나가 두 자리를 그림).
 // - 한글 파일·복사 줄: '- 안건 — 설명 (관련 조직)'(여러 줄이면 이어지는 줄은 두 칸 들여 다음 줄). 줄이 없으면 한글 파일에는 제목만 두고 내용은 빈 칸(10/31 21:15 결정, '없음' 글자 안 넣음).
 // 브라우저 저장소에 아무것도 두지 않는다. 내용은 업무 글이라 로그에 쓰지 않는다.
@@ -9,8 +11,10 @@ import {newId} from './weekly-exec-requests.js';
 
 export const DISCUSS_MAX = 20;
 // WEEKLY-요청사항버튼정리(11/01 01:09 명진: 상집 논의 요청은 글이 많고 복붙이 많음): 안건·설명은 여러 줄 글(줄바꿈 그대로), 길이도 늘림.
-export const DISCUSS_LIMITS = Object.freeze({title:200, note:1000, org:120});
+export const DISCUSS_LIMITS = Object.freeze({title:200, note:1000, org:120, fileName:120});
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
+const DOC_ID = /^[A-Za-z0-9-]{1,64}$/;
+export const isDiscussDocName = name => /\.hwpx?$/i.test(String(name ?? '').trim());
 const one = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
 // 여러 줄: 줄마다 한 줄처럼 다듬고(앞뒤 빈칸·제어 문자), 빈 줄은 두 개 이상 잇지 않으며 맨 앞·끝 빈 줄은 뺀다.
 const multi = s => String(s ?? '').replace(/\r\n?|[\u2028\u2029]/g, '\n').split('\n').map(one).join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -28,7 +32,17 @@ export function cleanDiscussRow(r) {
   const note = cutLines(r.note, DISCUSS_LIMITS.note), org = cut(r.org, DISCUSS_LIMITS.org);
   if (note) out.note = note;
   if (org) out.org = org;
+  const file = cleanDiscussFile(r.file);
+  if (file) out.file = file;
   return out;
+}
+// 붙인 문서 연결 하나를 모양대로. 틀리면 null(줄은 그대로 남음).
+export function cleanDiscussFile(f) {
+  if (!f || typeof f !== 'object' || Array.isArray(f)) return null;
+  if (typeof f.id !== 'string' || !DOC_ID.test(f.id)) return null;
+  const name = cut(String(f.name ?? '').replace(/[\\/]/g, ' '), DISCUSS_LIMITS.fileName);
+  if (!isDiscussDocName(name)) return null;
+  return {id:f.id, name};
 }
 export function readDiscuss(list) {
   const seen = new Set(), out = [];
@@ -36,7 +50,7 @@ export function readDiscuss(list) {
   return out;
 }
 const makeId = () => newId().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || `d${Date.now().toString(36)}`;
-// 줄 더하기·바꾸기(순수). 안건이 비면 null, 넘치면 null.
+// 줄 더하기·바꾸기(순수). 안건이 비면 null, 넘치면 null. row.file === null 이면 붙인 문서 연결을 뺀다(자료실 원본은 그대로).
 export function withDiscussRow(list, row) {
   const rows = readDiscuss(list), c = cleanDiscussRow({...row, id:row?.id || makeId()});
   if (!c) return null;
@@ -58,3 +72,17 @@ export const discussText = r => `${r.title}${r.note ? ` — ${r.note}` : ''}${r.
 export const discussLine = r => `- ${discussText(r)}`;
 // 한글 파일·복사: 줄 하나가 여러 줄이면 이어지는 줄은 두 칸 들여 같은 차례에 둔다(빈 줄은 빈 문단).
 export const discussLines = list => readDiscuss(list).flatMap(r => discussLine(r).split('\n').map((line, i) => (i && line ? `  ${line}` : line)));
+
+// S67-29 한글 파일: 줄 글 뒤에, 붙인 문서가 있는 줄은 그 문서({embed, name}) 또는 넣지 못한 까닭 줄('  첨부 문서: 파일 이름').
+// docs: Map(줄 id → {pkg}|{failed:true}) — 부르는 쪽이 자료실에서 읽어 한글 묶음(.hwpx)으로 열어 둔 것.
+export const attachedLine = name => `  첨부 문서: ${name}`;
+export function discussFileItems(list, docs = new Map()) {
+  const out = [];
+  for (const r of readDiscuss(list)) {
+    out.push(...discussLine(r).split('\n').map((line, i) => (i && line ? `  ${line}` : line)));
+    if (!r.file) continue;
+    const got = docs.get(r.id);
+    out.push(got?.pkg ? {embed:got.pkg, name:r.file.name} : attachedLine(r.file.name));
+  }
+  return out;
+}

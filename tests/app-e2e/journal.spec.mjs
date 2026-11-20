@@ -7,6 +7,7 @@ import { zlib, SAMPLE } from '../../scripts/weekly-hwpx/cli.mjs';
 import { makeFakeReport } from '../../scripts/weekly-hwpx/fixture.mjs';
 import { openHwpx, packHwpx, validateHwpx, readXml } from '../../app/weekly-hwpx/hwpx.mjs';
 import { extractBlankTemplate } from '../fixtures/weekly-engine-core.mjs';
+import { discussDocBytes, DOC as DISCUSS_DOC } from '../fixtures/discuss-doc.mjs';
 import { buildReport, readReport, CHANGED_COLOR } from '../fixtures/weekly-engine-core.mjs';
 import {expectJournalDay} from './helpers/screen-title.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
@@ -1286,7 +1287,8 @@ async function hwpxFixture(page,options={}){
   // S48-49: [만들기] 뒤 요청함 전달(dev-inbox)은 따로 모은다. 기본 답은 '요청함 문서 설정 전'(not_ready).
   if(body?.action==='dev-inbox'){sent.inbox.push(body);return r.fulfill({headers:cors,json:options.devInbox??{ok:true,result:'not_ready'}});}
   sent.open.push(body);
-  const file=files[body.document_id]??bytes,fileName=file===bytes?'team.hwpx':`${body.document_id}.hwpx`;
+  // S67-29: rawFiles = 자료 id → 바이트 그대로(상집 논의 요청에 붙인 합성 문서).
+  const file=options.rawFiles?.[body.document_id]??files[body.document_id]??bytes,fileName=file===bytes?'team.hwpx':`${body.document_id}.hwpx`;
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
  await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
@@ -3813,6 +3815,76 @@ for(const width of [412,1440])test(`S46-27 → 한흐름 ②: 1. 요청사항 �
  await expect(discussBox(page).locator('[data-journal-discuss-row] th')).toHaveText(['가상 안건 갑','가상 안건 을']);
  // WEEKLY-한흐름확정 ⑤: 3) 줄 동작도 동작 기록(칸 requests:discuss).
  expect((f.exec.rows.find(r=>r.week_start==='2026-10-05').draft.picks?.items??[]).filter(x=>x.cell==='requests:discuss').length).toBeGreaterThan(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+// S67-29(요청함 11/20 13:00·13:02): 3) 상집 논의 요청 줄에 한글 파일 올리기 → 안건·설명 미리 채움(빈 칸만) → 저장(줄에는 자료 연결만) →
+// 한글 파일 만들기에 그 문서 본문이 안건 아래 그대로. 엔진이 열지 못하는 .hwp는 '첨부 문서: 파일 이름'. 합성 문서만(tests/fixtures/discuss-doc.mjs).
+for(const width of [412,1280])test(`S67-29 상집 논의 요청 한글 파일: 올림 → 안건·설명 미리 채움 → 저장 → 한글 파일 안 안건 아래 그대로 ${width}`,async({page})=>{
+ const doc=Buffer.from(discussDocBytes()),oldHwp=Buffer.alloc(1024);oldHwp.set([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]);
+ const f=await hwpxFixture(page,{width,rawFiles:{'doc-new':doc}});
+ // 두 번째 올리기(구형 .hwp)는 다른 자료 id로 답한다.
+ await page.unroute(SB+'/functions/v1/library-files');
+ let n=0;await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());f.sent.library.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:n++?'doc-old':'doc-new',title:body.title,file_name:body.file?.file}}});});
+ await page.unroute(SB+'/functions/v1/document-actions');
+ await page.route(SB+'/functions/v1/document-actions',r=>{
+  const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
+  if(r.request().method()==='OPTIONS')return r.fulfill({status:200,headers:cors});
+  const body=r.request().postDataJSON();if(body?.action==='dev-inbox')return r.fulfill({headers:cors,json:{ok:true,result:'not_ready'}});
+  f.sent.open.push(body);
+  const file=body.document_id==='doc-new'?doc:body.document_id==='doc-old'?oldHwp:teamHwpx(),format=body.document_id==='doc-old'?'hwp':'hwpx';
+  return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:`x.${format}`,format,size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
+ });
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const d=discussBox(page),field=name=>d.locator(`[data-journal-discuss-field="${name}"]`),status=d.locator('[data-journal-discuss-status]');
+ await d.locator('[data-journal-discuss-add]').click();
+ // 작은 [한글 파일 올리기](큰 단추 아님) + 끌어 놓기 안내.
+ const pick=d.locator('[data-journal-discuss-file-pick]');
+ await expect(pick).toHaveText('한글 파일 올리기');
+ expect((await pick.boundingBox()).height).toBeLessThanOrEqual(32.5);
+ await expect(d.locator('.journal-discuss-dochint')).toHaveText('끌어 놓아도 돼요');
+ await d.locator('[data-journal-discuss-file-input]').setInputFiles({name:'가상 논의 요청.hwpx',mimeType:'application/hwp+zip',buffer:doc});
+ await expect(status).toHaveText('문서 제목·첫 문단으로 빈 칸을 채웠어요. 수정해서 저장해 주세요.');
+ await expect(field('title')).toHaveValue(DISCUSS_DOC.title);
+ await expect(field('note')).toHaveValue(DISCUSS_DOC.note);
+ await expect(d.locator('[data-journal-discuss-docline] .journal-discuss-doc')).toHaveText('한글 파일: 가상 논의 요청.hwpx');
+ // 원본은 자료실로(library-files, 분류 없이·자료명 = 파일 이름).
+ expect(f.sent.library.at(-1).file.file).toBe('가상 논의 요청.hwpx');
+ expect(f.sent.library.at(-1).title).toBe('가상 논의 요청');
+ expect(f.sent.library.at(-1).category).toBeUndefined();
+ await d.locator('[data-journal-discuss-docline]').evaluate(e=>e.scrollIntoView({block:'center'}));
+ await page.screenshot({path:`docs/design/screens/s67-29/discuss-file-form-${width}.png`});
+ await field('note').fill('가상 요지(사람이 수정)');
+ await d.locator('[data-journal-discuss-save]').click();
+ await expect(status).toHaveText('저장했어요.');
+ await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.discuss?.[0]).toEqual({id:expect.any(String),title:DISCUSS_DOC.title,note:'가상 요지(사람이 수정)',file:{id:'doc-new',name:'가상 논의 요청.hwpx'}});
+ await expect(d.locator('[data-journal-discuss-row] [data-journal-discuss-doc]')).toHaveText('한글 파일: 가상 논의 요청.hwpx');
+ // 두 번째 줄: 안건을 먼저 적고 구형 .hwp를 끌어 놓는다 → 적은 안건은 그대로, 엔진이 못 읽어 칸은 채우지 않음.
+ await d.locator('[data-journal-discuss-add]').click();
+ await field('title').fill('가상 안건 을');
+ await d.locator('[data-journal-discuss-form]').evaluate((form,bytes)=>{const dt=new DataTransfer();dt.items.add(new File([new Uint8Array(bytes)],'가상 옛 문서.hwp',{type:'application/x-hwp'}));for(const type of ['dragover','drop'])form.dispatchEvent(new DragEvent(type,{bubbles:true,cancelable:true,dataTransfer:dt}));},[...oldHwp]);
+ await expect(status).toHaveText('한글 파일을 붙였어요. 내용을 읽지 못해 칸은 채우지 않았어요.');
+ await expect(field('title')).toHaveValue('가상 안건 을');
+ await expect(field('note')).toHaveValue('');
+ await d.locator('[data-journal-discuss-save]').click();
+ await expect(status).toHaveText('저장했어요.');
+ await d.locator('[data-journal-discuss-table]').evaluate(e=>e.scrollIntoView({block:'center'}));
+ await page.screenshot({path:`docs/design/screens/s67-29/discuss-file-rows-${width}.png`});
+ // 한글 파일 만들기: 첫 안건 아래에 문서 본문(제목·요지·표·번호 문단) 그대로, 두 번째는 '첨부 문서: 파일 이름'.
+ const [download]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ const {pkg}=await savedReport(download);
+ const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml')),at=k=>sec.indexOf(k);
+ const line=`- ${DISCUSS_DOC.title} — 가상 요지(사람이 수정)`;
+ expect(at(line)).toBeGreaterThan(at('3) 상집 논의 요청'));
+ expect(at(`>${DISCUSS_DOC.title}<`)).toBeGreaterThan(at(line));
+ expect(at(DISCUSS_DOC.note)).toBeGreaterThan(at(`>${DISCUSS_DOC.title}<`));
+ for(const c of DISCUSS_DOC.cells)expect(at(c)).toBeGreaterThan(at(DISCUSS_DOC.note));
+ expect(at(DISCUSS_DOC.numbered)).toBeLessThan(at('- 가상 안건 을'));
+ expect(at('첨부 문서: 가상 옛 문서.hwp')).toBeGreaterThan(at('- 가상 안건 을'));
+ expect(new TextDecoder().decode(pkg.files.get('Contents/header.xml'))).toContain(DISCUSS_DOC.font);
+ await expect(page.locator('#journalRoot [data-hwpx-status]').first()).toContainText('논의 요청 문서 1개를 안건 아래에 넣었어요(그림은 빠짐).');
+ await expect(page.locator('#journalRoot [data-hwpx-status]').first()).toContainText("문서 1개는 열지 못해 '첨부 문서: 파일 이름'으로 적었어요.");
+ expect(f.sent.open.filter(b=>b.document_id==='doc-new').length).toBe(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });

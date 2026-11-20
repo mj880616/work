@@ -230,6 +230,24 @@ export async function saveUnionForm(file,{title}={},{rt=window.KPTURuntime,fetch
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 
+// S67-29 상집 논의 요청 문서: 줄에 붙인 한글 파일 원본을 자료실에 새 자료로 등록한다(기존 library-files — 내 Drive 자료실 폴더, owner 전용 자료 1행).
+// 분류는 비워 두고(자료실에서 정함), 자료명은 파일 이름에서 정해 보내므로 서버가 내용을 읽어 이름을 짐작하지 않는다. 한 번만 보내고 결과를 모르면 다시 보내지 않는다.
+export async function saveDiscussDoc(file,{rt=window.KPTURuntime,fetcher}={}){
+  const name=String(file?.name||'논의 요청.hwp');
+  const form=new FormData();
+  form.append('file',file instanceof File?file:new File([file],name,{type:/\.hwpx$/i.test(name)?'application/hwp+zip':'application/x-hwp'}));
+  form.append('title',name.replace(/\.hwpx?$/i,'').trim()||'논의 요청');
+  let response;
+  try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
+  const data=await readJson(response);
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){
+    readTextLater(data.document,{rt});
+    try{window.dispatchEvent(new CustomEvent('kptu:documents-changed'))}catch{/* 목록 새로 고침 알림만 */}
+    return {kind:'created',document:{id:data.document.id,file_name:String(data.document.file_name||name)},message:'자료실에 올렸어요.'};
+  }
+  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
+}
+
 // WEEKLY-한글초안 2단계 [확정]: the weekly report file made in the browser goes to the library like any upload (library-files:
 // the owner's Drive library folder under drive.file, one private app_documents row). Title, category and date are given, so
 // the server does not read the content to guess a title. One request, never repeated; an unknown outcome says to check first.

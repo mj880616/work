@@ -136,6 +136,6 @@ test('journal-hwpx.js: 쓸 양식이 없을 때만 바탕에서 읽고, 자료�
   // 같은 profile 이 엔진 호출 모두에 넘어간다(바탕 열기·팀 확정본 참고·개인 확정본 시험·한글 파일 만들기).
   assert.equal((src.match(/prepareConfirmed\([^\n]*\{profile/g) ?? []).length, 3);
   assert.equal((src.match(/prepareConfirmed\(/g) ?? []).length, 3);
-  assert.match(src, /buildHwpx\(state\.template, data, undefined, \{profile:state\.profile\}\)/);
+  assert.match(src, /buildHwpx(?:Report)?\(state\.template, data, undefined, \{profile:state\.profile\}\)/); // S67-29: 붙인 문서 결과도 받는 buildHwpxReport
   assert.match(src, /\[data-hwpx-form-retry\]/);
 });

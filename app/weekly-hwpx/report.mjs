@@ -6,6 +6,7 @@
 //   requests: [{day: '1.7.(수)', items: [{what: '10:00 / 행사 A / 장소 A', who: ['참석자 A']}]}],
 //   schedule: ['- 일정 A'],                       // 1. 요청사항 › 2) 주요 일정 아래 바탕글 줄
 //   discuss: ['- 안건 A — 설명 A (조직 A)'],       // 요청 절 논의 요청 자리(discuss) 제목 아래 바탕글 줄(S46-27, 2)과 같은 모양, 없으면 빈 줄)
+//            줄 대신 {embed: 붙인 문서 .hwpx 묶음, name} 이 오면 그 문서 본문을 그 자리에 그대로 넣는다(S67-29, embed.mjs).
 //   summary: [{area: ['사업영역 A'], rows: [      // 2. 기본·영역·의제 사업 › 1) 요약 표
 //     {task: ['세부 과제 A-1'], progress: ['- 진행 A', {text: '- 바뀐 줄', changed: true}], owner: ['담당 A']},
 //     {task: null, progress: [...], owner: null}, // null = 위 칸과 합친 칸(세로 병합)
@@ -28,6 +29,8 @@ import {readPrototypes, renumber, isBoxTable} from './template.mjs';
 import {needProfile} from './form-profile.mjs';
 import {headerMetrics, layoutTable} from './layout.mjs';
 import {isWeekendLabel} from './schedule.mjs';
+// S67-29: 논의 요청 자리(discuss) 줄에 붙인 한글 문서를 그 안건 아래에 그대로(embed.mjs).
+import {embedDoc, bodyWidthOf} from './embed.mjs';
 
 export const CHANGED_COLOR = '#0000FF';
 export const lineText = line => (typeof line === 'string' ? line : line.text);
@@ -165,6 +168,9 @@ export function findChangedCharPr(header, baseId) {
 
 // 확정본 줄의 문단 모양(line.para)을 그대로 쓴 문단. plainParagraphs가 표내부 스타일로 바꿀 때 이 모양(들여쓰기)은 남긴다(번호 달린 모양만 바꿈).
 const KEPT_PARA = new WeakSet();
+// 붙인 문서에서 그대로 옮긴 노드(문단·표): 표내부 스타일 바꾸기·칸 높이 다시 계산을 하지 않는다(그 문서 모양 그대로).
+const EMBEDDED = new WeakSet();
+export const isEmbedLine = line => !!line && typeof line === 'object' && 'embed' in line;
 function paragraph(proto, line, changedCharPr) {
   const p = el('hp:p', {...proto.attrs});
   const para = line && typeof line === 'object' ? line.para : null;
@@ -362,6 +368,7 @@ export function plainParagraphs(root, header) {
   const cellStyle = styles.find(st => st.name === CELL_STYLE), base = styles.find(st => st.id === '0') ?? styles[0];
   const clean = style => [style?.paraPr, base?.paraPr].find(id => id != null && !numbered(id));
   const visit = (node, inCell) => {
+    if (EMBEDDED.has(node)) return;
     if (node.name === 'hp:p' && inCell) {
       if (cellStyle && node.attrs.styleIDRef !== cellStyle.id) { node.attrs.styleIDRef = cellStyle.id; if (!numbered(cellStyle.paraPr) && !KEPT_PARA.has(node)) node.attrs.paraPrIDRef = cellStyle.paraPr; }
       if (numbered(node.attrs.paraPrIDRef)) { const id = clean(styles.find(st => st.id === node.attrs.styleIDRef)); if (id != null) node.attrs.paraPrIDRef = id; }
@@ -391,11 +398,24 @@ export function buildReport(template, data, {profile} = {}) {
     const baseId = tableProto(protos.scheduleTable).cells[0]?.attrs.borderFillIDRef;
     const before = kids([...walk(header.root)].find(n => n.name === 'hh:borderFills') ?? el('x'), 'hh:borderFill').length;
     const id = weekendFill(header, baseId);
-    headerChanged = kids([...walk(header.root)].find(n => n.name === 'hh:borderFills') ?? el('x'), 'hh:borderFill').length !== before;
+    headerChanged ||= kids([...walk(header.root)].find(n => n.name === 'hh:borderFills') ?? el('x'), 'hh:borderFill').length !== before;
     return id;
   };
   const blank = () => paragraph(protos.body, '');
   const lines = (proto, list) => (list?.length ? list.map(line => paragraph(proto, line, changed)) : [blank()]);
+  // S67-29: 논의 요청 줄 중 붙인 문서({embed})는 그 문서 문단을 그대로(모양은 머리에 더함 → 머리를 다시 씀).
+  const embedded = {lost: new Set(), count: 0};
+  const discussBody = list => {
+    if (!list?.length) return [blank()];
+    return list.flatMap(line => {
+      if (!isEmbedLine(line)) return [paragraph(protos.body, line, changed)];
+      const {nodes, lost} = embedDoc(header, line.embed, {bodyWidth: bodyWidthOf(sec.root)});
+      for (const n of nodes) for (const x of walk(n)) if (x.name === 'hp:p' || x.name === 'hp:tbl') EMBEDDED.add(x);
+      for (const l of lost) embedded.lost.add(l);
+      embedded.count++; headerChanged = true;
+      return nodes;
+    });
+  };
   const details = (data.details ?? []).flatMap(d => [paragraph(protos.small, d.heading ?? ''), fillBox(protos.boxTable, d.box ?? [], changed), blank()]);
   const body = [
     titleParagraph(protos.title, data.title ?? ''),
@@ -409,7 +429,7 @@ export function buildReport(template, data, {profile} = {}) {
     paragraph(protos.small, S.schedule),
     ...lines(protos.body, data.schedule),
     paragraph(protos.small, S.discuss),
-    ...lines(protos.body, data.discuss),
+    ...discussBody(data.discuss),
     paragraph(protos.big, S.work),
     paragraph(protos.small, S.summaryTable),
     fillTable(protos.summaryTable, summaryGrid(data.summary ?? []), changed),
@@ -440,10 +460,10 @@ export function buildReport(template, data, {profile} = {}) {
   plainParagraphs(sec.root, header);
   renumber(sec.root);
   const metrics = headerMetrics(header);
-  for (const tbl of [...walk(sec.root)].filter(n => n.name === 'hp:tbl')) layoutTable(tbl, metrics);
+  for (const tbl of [...walk(sec.root)].filter(n => n.name === 'hp:tbl' && !EMBEDDED.has(n))) layoutTable(tbl, metrics);
   setXml(pkg, 'Contents/section0.xml', sec);
   if (headerChanged) setXml(pkg, 'Contents/header.xml', header);
-  return {pkg, changedCharPr: changed};
+  return {pkg, changedCharPr: changed, embedded: {count: embedded.count, lost: [...embedded.lost]}};
 }
 
 // 항목 제목 글(번호 포함)은 profile.titles(자리 → 제목)가 준다. 자리 차례는 위 buildReport 본문 차례(form-profile.mjs ROLES).
@@ -451,7 +471,7 @@ export function buildReport(template, data, {profile} = {}) {
 
 // 보고 자료 안의 모든 글(검사용)
 export function reportTexts(data) {
-  const out = [data.title, data.date, ...(data.schedule ?? []), ...(data.discuss ?? []), ...(data.orgNotes ?? []), ...(data.calendarNotes ?? [])];
+  const out = [data.title, data.date, ...(data.schedule ?? []), ...(data.discuss ?? []).filter(l => !isEmbedLine(l)), ...(data.orgNotes ?? []), ...(data.calendarNotes ?? [])];
   for (const d of [...(data.requests ?? []), ...(data.calendar ?? [])]) { out.push(d.day); for (const i of d.items) out.push(i.what, ...i.who); }
   for (const a of data.summary ?? []) { out.push(...a.area); for (const r of a.rows) out.push(...(r.task ?? []), ...r.progress.map(lineText), ...(r.owner ?? [])); }
   for (const d of data.details ?? []) { out.push(d.heading); for (const b of d.box ?? []) out.push(b.label, ...b.lines.map(lineText)); }
