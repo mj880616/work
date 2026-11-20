@@ -165,12 +165,14 @@ test('workflow checks Web2 on bokdoong.com and the 302 moves from desk, work and
   ]) assert.ok(workflow.includes(`check_redirect '${from}' '${to}'`), from);
 });
 
-// DOMAIN-nojoplus 1단계: the deploy also checks the new address and its www 301.
-test('workflow checks nojoplus.com on its own host and www.nojoplus.com with 301', () => {
-  assert.ok(workflow.includes("check_redirect 'https://nojoplus.com/' 'https://nojoplus.com/work/app/'"));
+// DOMAIN-nojoplus: www 301 and about stay. DOMAIN-workonplus PR-B: the app addresses show the moved notice.
+test('workflow checks the nojoplus.com moved notice, www.nojoplus.com 301 and about', () => {
   assert.ok(workflow.includes("check_redirect 'https://www.nojoplus.com/work/app/?view=calendar' 'https://nojoplus.com/work/app/?view=calendar' 301"));
-  assert.ok(workflow.includes("check_200 'https://nojoplus.com/work/app/' 'text/html'"));
+  assert.ok(workflow.includes("check_moved_notice 'https://nojoplus.com/' 'https://workonplus.com/work/app/'"));
+  assert.ok(workflow.includes("check_moved_notice 'https://nojoplus.com/work/app/?view=calendar' 'https://workonplus.com/work/app/?view=calendar'"));
+  assert.ok(workflow.includes("grep -q 'WORK ON+로 옮겼어요'"));
   assert.ok(workflow.includes("check_200 'https://nojoplus.com/work/about/' 'text/html'"));
+  assert.ok(!workflow.includes("check_redirect 'https://nojoplus.com/' 'https://nojoplus.com/work/app/'"), 'the app is no longer served there');
 });
 
 // DOMAIN-workonplus 1단계: the deploy also checks the WORK ON+ address and its www 301.

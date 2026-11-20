@@ -49,7 +49,7 @@ Supabase Auth Site URL은 기존 github.io 주소로 유지함. 운영 Redirect 
 
 | 호스트 | 응답 |
 | --- | --- |
-| `nojoplus.com` | `bokdoong.com`과 같은 Web2(`/work/app/**`, favicon, `/s/` 짧은 주소). `/`·`/work/app` → 자기 `/work/app/` 302. `/work/about/**`는 Pages에서 가져옴. 그 밖 `/work/**`는 `work.bokdoong.com`으로 302, 나머지 404 |
+| `nojoplus.com` | (DOMAIN-workonplus PR-B부터) `/`·`/work/app/**`는 이전 안내 한 장(200, noindex, 링크 하나 → 같은 경로·쿼리의 `workonplus.com`). 그 전에는 `bokdoong.com`과 같은 Web2. favicon, `/s/` 짧은 주소는 그대로. `/work/about/**`는 Pages에서 가져옴. 그 밖 `/work/**`는 `work.bokdoong.com`으로 302, 나머지 404 |
 | `www.nojoplus.com` | 같은 경로·`?쿼리`로 `https://nojoplus.com`에 301 |
 
 Edge 허용 출처에는 `https://nojoplus.com` 정확히 하나만 더한다(www·하위 주소·http 없음). Supabase Auth Redirect URLs에는 `nojoplus.com/work/app/` 줄을 더하고 Site URL은 1단계에서 바꾸지 않는다.

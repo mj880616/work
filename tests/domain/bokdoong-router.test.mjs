@@ -997,33 +997,69 @@ test('every HWP editor build file has a hashed name the keep rule matches; fonts
   assert.equal(editorHashedAsset('bokdoong.com', at('index.html')), false);
 });
 
-// DOMAIN-nojoplus 1단계: nojoplus.com answers like bokdoong.com; www goes to nojoplus.com; old hosts are unchanged.
-test('nojoplus.com root and /work/app go to its own /work/app/ with 302, keeping ?query', async () => {
-  for (const [path, location] of [
-    ['/', 'https://nojoplus.com/work/app/'],
-    ['/?view=calendar', 'https://nojoplus.com/work/app/?view=calendar'],
-    ['/work/app?view=tasks', 'https://nojoplus.com/work/app/?view=tasks']
+// DOMAIN-nojoplus 1단계 → DOMAIN-workonplus PR-B: the app moved to workonplus.com. nojoplus.com / and /work/app/** answer one
+// notice page (no Pages fetch, no automatic move) whose button keeps the path and ?query on workonplus.com.
+test('nojoplus.com root and /work/app/** answer the moved notice with a link that keeps path and ?query', async () => {
+  for (const [path, href] of [
+    ['/', 'https://workonplus.com/work/app/'],
+    ['/?view=calendar', 'https://workonplus.com/work/app/?view=calendar'],
+    ['/work/app', 'https://workonplus.com/work/app/'],
+    ['/work/app?view=tasks', 'https://workonplus.com/work/app/?view=tasks'],
+    ['/work/app/', 'https://workonplus.com/work/app/'],
+    ['/work/app/?view=calendar&day=2026-11-01', 'https://workonplus.com/work/app/?view=calendar&amp;day=2026-11-01'],
+    ['/work/app/login/?return=x', 'https://workonplus.com/work/app/login/?return=x'],
+    ['/work/app/app.js?v=abc', 'https://workonplus.com/work/app/app.js?v=abc']
   ]) {
     const { response, calls } = await request(`https://nojoplus.com${path}`);
-    assert.equal(response.status, 302, path);
-    assert.equal(response.headers.get('Location'), location, path);
+    assert.equal(response.status, 200, path);
     assert.equal(calls.length, 0, path);
+    assert.equal(response.headers.get('Location'), null, path);
+    assert.match(response.headers.get('Content-Type'), /^text\/html/, path);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store', path);
+    assert.match(response.headers.get('X-Robots-Tag'), /noindex/, path);
+    assert.match(response.headers.get('Content-Security-Policy'), /default-src 'none'/, path);
+    assert.equal(response.headers.get('Set-Cookie'), null, path);
+    const html = await response.text();
+    assert.ok(html.includes('<title>WORK ON+로 옮겼어요</title>'), path);
+    assert.ok(html.includes('<meta name="robots" content="noindex, nofollow">'), path);
+    assert.ok(html.includes('노동조합+는 노조 집행부·조합원 공간 중심으로 바꾸어 다시 출시할 예정'), path);
+    assert.ok(html.includes(`<a class="go" href="${href}">workonplus.com으로 가기</a>`), path);
+    assert.equal((html.match(/<a /g) || []).length, 1, 'one link only');
+    assert.doesNotMatch(html, /<script|http-equiv="refresh"/i, 'no automatic move');
+  }
+  const head = await request('https://nojoplus.com/work/app/', { method: 'HEAD' });
+  assert.equal(head.response.status, 200);
+  assert.equal(head.calls.length, 0);
+  assert.equal(await head.response.text(), '');
+});
+
+test('the moved notice link is escaped and cannot leave workonplus.com', async () => {
+  const { response } = await request('https://nojoplus.com/work/app/?a="><script>x</script>&b=\'');
+  const html = await response.text();
+  assert.doesNotMatch(html, /<script/i);
+  const href = html.match(/<a class="go" href="([^"]*)"/)[1].replace(/&amp;/g, '&');
+  assert.equal(new URL(href).origin, 'https://workonplus.com');
+  assert.ok(new URL(href).pathname.startsWith('/work/app/'));
+  // Paths outside /work/app/ never get the notice (and so never a link): // and ../ are not app paths.
+  for (const path of ['//evil.example/work/app/', '/work/app/../../x']) {
+    const r = await request(`https://nojoplus.com${path}`);
+    assert.equal(r.response.status, 404, path);
+    assert.equal(r.calls.length, 0, path);
   }
 });
 
-test('nojoplus.com serves Web2 from the same Pages tree without credentials, with the Web2 headers', async () => {
-  const { response, calls } = await request('https://nojoplus.com/work/app/', {
-    upstream: new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-  });
-  assert.equal(response.status, 200);
-  assert.equal(calls.length, 1);
-  assert.ok(calls[0].url.startsWith('https://mj880616.github.io/work/app/?__fresh='));
-  assert.equal(calls[0].headers.get('Cookie'), null);
-  assert.equal(calls[0].headers.get('Authorization'), null);
-  assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
-  assert.ok(response.headers.get('Content-Security-Policy-Report-Only'));
-  assert.equal(response.headers.get('X-Frame-Options'), 'SAMEORIGIN');
-  assert.match(response.headers.get('Set-Cookie') || '', /kptu_cache_epoch=/);
+test('www.nojoplus.com still goes to nojoplus.com first (then the notice), and other hosts never get the notice', async () => {
+  const www = await request('https://www.nojoplus.com/work/app/?view=calendar');
+  assert.equal(www.response.status, 301);
+  assert.equal(www.response.headers.get('Location'), 'https://nojoplus.com/work/app/?view=calendar');
+  for (const url of ['https://bokdoong.com/work/app/', 'https://workonplus.com/work/app/']) {
+    const { response, calls } = await request(url, {
+      upstream: new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+    });
+    assert.equal(response.status, 200, url);
+    assert.equal(calls.length, 1, url);
+    assert.equal(await response.text(), '<!doctype html>', url);
+  }
 });
 
 test('nojoplus.com favicon, short share address and about pages', async () => {

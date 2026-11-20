@@ -1,5 +1,7 @@
 # 새 주소 nojoplus.com 연결 (DOMAIN-nojoplus)
 
+> 2026-11-21: 앱이 WORK ON+(`workonplus.com`)로 옮겨, `nojoplus.com`의 앱 자리(`/`·`/work/app/**`)는 이전 안내 한 장이 됐다. 짧은 주소·about·www 301은 그대로. [`domain-workonplus.md`](domain-workonplus.md) 4절.
+
 2026-11-14 명진 결정: 서비스 이름은 '노동조합+'(S61-55), 주소는 `bokdoong.com`('너무 개인적') 대신 `nojoplus.com`. 도메인은 명진이 가비아에서 사고, 같은 Cloudflare 계정에 존을 더하고 네임서버를 바꿨다(활성 대기). 이 문서는 주소 설계와 두 단계 순서·되돌리기다. 운영 반영(Worker 배포·Edge 배포·Supabase Auth 설정)은 커맨드센터가 한다.
 
 ## 1. 주소 설계
