@@ -70,7 +70,11 @@ export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=
    if(q.get('hidden_at')==='is.null')out=out.filter(x=>!x.hidden_at);
    if(q.get('hidden_at')==='not.is.null')out=out.filter(x=>!!x.hidden_at);
    if(q.get('pinned_at')==='not.is.null')out=out.filter(x=>!!x.pinned_at);
+   // S67-45 방 상세 찾기: or=(raw_text.ilike."*글자*",summary.ilike…,title.ilike…) — 따옴표 안 글자를 원문·요약·제목에서 찾는다(대소문자 무시).
+   const like=/ilike\."\*((?:[^"\\]|\\.)*)\*"/.exec(q.get('or')||'');if(like){const n=like[1].replace(/\\(.)/g,'$1').replace(/\\(.)/g,'$1').toLowerCase();out=out.filter(x=>['raw_text','summary','title'].some(k=>String(x[k]||'').toLowerCase().includes(n)));}
+   const dayGte=/^gte\.(.*)$/.exec(q.get('day')||'');if(dayGte)out=out.filter(x=>x.day>=dayGte[1]);
    out=sorted(out,q.get('order'));
+   if(q.get('or')&&Number(q.get('limit')))out=out.slice(0,Number(q.get('limit')));
    const fields=(q.get('select')||'').split(',');
    return r.fulfill({json:out.map(x=>Object.fromEntries(fields.map(f=>[f,x[f]])))});
   }
