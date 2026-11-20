@@ -50,12 +50,15 @@ export async function readReadMarks(ids, rt = window.KPTURuntime) {
 
 // 서버에 고르기를 부탁한다. 돌려줌: {state}(새로 받은 줄) | {limit:'monthly_limit'|'daily_limit'} | {skipped:true} | null(실패·건너뜀).
 const asked = new Map(); // `${scope}:${day}:${am|pm}` → 물은 시각
-export async function askDayPicks({day, slot, events, done}, rt = window.KPTURuntime, {now = Date.now(), call = callAiAssist} = {}) {
-  const key = `${scopeOf(rt)}:${day}:${slot}`;
+// suggests:false(S67-52 '이런 기록은 어때요?' 칸을 끔): 서버가 기록 제안을 고르지 않는다(AI를 부르지 않음). 끝낸 할 일은 기록 제안에만 쓰여 보내지 않는다.
+// 켠 칸(기본)이면 예전과 같은 모양 그대로 보낸다(suggests 칸 없음).
+export async function askDayPicks({day, slot, events, done, suggests = true}, rt = window.KPTURuntime, {now = Date.now(), call = callAiAssist} = {}) {
+  const key = `${scopeOf(rt)}:${day}:${slot}:${suggests ? 's' : 'r'}`;
   if (asked.has(key) && now - asked.get(key) < ASK_AGAIN_MS) return {skipped:true};
   asked.set(key, now);
   try {
-    const r = await call({kind:'home_day_picks', day, events, done}, {rt, timeoutMs:DAY_PICKS_TIMEOUT_MS});
+    const body = suggests ? {kind:'home_day_picks', day, events, done} : {kind:'home_day_picks', day, events, done:[], suggests:false};
+    const r = await call(body, {rt, timeoutMs:DAY_PICKS_TIMEOUT_MS});
     if (r?.ok && r.data?.picks) return {state:picksState(r.data.picks, day)};
     if (r?.code === 'monthly_limit' || r?.code === 'daily_limit' || r?.code === 'ai_monthly_cap') return {limit:r.code};
     return null;
@@ -64,14 +67,18 @@ export async function askDayPicks({day, slot, events, done}, rt = window.KPTURun
 export const forgetAsked = () => asked.clear();
 
 // 일기를 쓴 제안 id를 더한다(같은 id는 한 번). 실패해도 화면에서는 뺀다(다음 열기에 서버 값으로 다시 맞춤).
-export async function markSuggestDone(day, id, rt = window.KPTURuntime) {
+// S67-52 [빼기]도 같은 칸(suggests_done)을 쓴다 — 그 날 줄의 제안은 저녁에 한 번만 고르므로 뺀 제안이 같은 재료로 다시 나오지 않는다.
+// on=false는 [되돌리기]: 그 id를 다시 뺀다(다시 보인다). 다른 기기에서 더한 id는 그대로 둔다(보내기 직전에 서버 값을 다시 읽어 합침).
+export async function setSuggestDone(day, id, on = true, rt = window.KPTURuntime) {
   const ws = ctx(rt)?.workspace?.id;
   if (!ws || !/^s[1-9]$/.test(String(id))) return false;
   try {
     const rows = await rt.api(`/rest/v1/app_home_day_picks?workspace_id=eq.${enc(ws)}&day=eq.${enc(day)}&select=suggests_done&limit=1`);
     const now = Array.isArray(rows?.[0]?.suggests_done) ? rows[0].suggests_done.filter(x => /^s[1-9]$/.test(x)) : [];
-    if (now.includes(id)) return true;
-    await rt.api(`/rest/v1/app_home_day_picks?workspace_id=eq.${enc(ws)}&day=eq.${enc(day)}`, {method:'PATCH', prefer:'return=minimal', body:{suggests_done:[...now, id].slice(-10)}});
+    if (now.includes(id) === on) return true;
+    const next = on ? [...now, id].slice(-10) : now.filter(x => x !== id);
+    await rt.api(`/rest/v1/app_home_day_picks?workspace_id=eq.${enc(ws)}&day=eq.${enc(day)}`, {method:'PATCH', prefer:'return=minimal', body:{suggests_done:next}});
     return true;
   } catch { return false; }
 }
+export const markSuggestDone = (day, id, rt = window.KPTURuntime) => setSuggestDone(day, id, true, rt);

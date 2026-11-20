@@ -3997,7 +3997,8 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
     newest = typeof news[0]?.created_at === "string" ? news[0].created_at as string : null;
     readsNeed = readsDue(state, slot, newest);
   }
-  const suggestNeed = suggestsDue(state, day, started);
+  // S67-52: 홈 '이런 기록은 어때요?' 칸을 끈 사람(suggests:false)은 기록 제안을 고르지 않는다(AI를 부르지 않음 — 비용 없음).
+  const suggestNeed = input.suggests !== false && suggestsDue(state, day, started);
   if (!readsNeed && !suggestNeed) return skip("fresh", row);
   const config = aiConfig(deps.env);
   if (!config) {

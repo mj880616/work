@@ -106,6 +106,7 @@ async function load(){
   void loadPush();
   void loadBackup();
   void loadMcpRead();
+  void loadHomeOff();
   void loadCustomWords();
   return true;
 }
@@ -151,6 +152,16 @@ async function loadMcpRead(){
     if(!mcpReadPanel||mcpReadPanel.host!==host){const ready=import('./mcp-read-settings.js').then(m=>m.mountMcpReadSettings(host,{rt}));mcpReadPanel={host,ready};ready.catch(()=>{if(mcpReadPanel?.ready===ready)mcpReadPanel=null})}
     await (await mcpReadPanel.ready).load();
   }catch(e){console.error('mcp read settings',e?.name||'Error')}
+}
+// S67-52 HOME-칸끄기: '홈 칸'(끈 홈 칸 다시 켜기 — home-off.js가 그리고 서버 화면 기억 view_prefs.home_off에 바로 저장). 자리는 '폰 알림' 칸 앞('계정' 칸 앞), 한 번만 붙인다.
+let homeOffPanel=null;
+async function loadHomeOff(){
+  try{
+    let host=$('#psHomeOffPanel');
+    if(!host){const before=$('#psPushPanel')||$('#profileView .ps-account-panel');if(!before)return;before.insertAdjacentHTML('beforebegin','<article class="panel ps-panel" id="psHomeOffPanel" aria-label="홈 칸"></article>');host=$('#psHomeOffPanel')}
+    if(!homeOffPanel||homeOffPanel.host!==host){const ready=import('./home-off.js').then(m=>m.mountHomeOffSettings(host));homeOffPanel={host,ready};ready.catch(()=>{if(homeOffPanel?.ready===ready)homeOffPanel=null})}
+    (await homeOffPanel.ready).load();
+  }catch(e){console.error('home off settings',e?.name||'Error')}
 }
 // APP-기록+이름바꾸기(S67-44): '이름 바꾸기' 칸(custom-words-panel.js가 그린다, 내 프로필 custom_words에 바로 저장). 자리는 '기본 정보' 칸 바로 뒤(담당 사업장 칸 앞), 한 번만 붙인다.
 let customWordsPanel=null;

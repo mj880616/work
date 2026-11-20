@@ -737,7 +737,7 @@
 #appView #homeView .journal-fill-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #homeView .journal-suggest{ display:flex; align-items:center; gap:6px; }
 #appView #homeView .journal-suggest-text{ display:flex; flex-direction:column; flex:1; min-width:0; }
-#appView #homeView .journal-suggest > .secondary{ flex:none; }
+#appView #homeView .journal-suggest-acts{ flex:none; display:flex; align-items:center; gap:2px; } /* S67-52: [하루 기록 쓰기](secondary) + [빼기](row-act) 자리만 */
 
 /* FOLD-넓은화면 ④(S57-16, 시안 docs/design/mockups/home-fold-two-columns.html '안 1', 명진 선택 11/11 09:51): 폴드 펼침(600~1199px, 공용 판정 screen-width.mjs와 같은 값,
    PC는 1200~)에서 [하루] 카드를 5:5 두 단으로 — 왼쪽 [그날 일정 · 할 일], 오른쪽 [오늘 한 일 · 읽을 글·사진 · 소식], '다가오는 일' 줄은 두 단 폭 전체 한 줄.
