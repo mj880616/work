@@ -26,6 +26,10 @@ export const GIROK_WORDS = Object.freeze({
   '조직 관리': '거래처·직원',
   '조직 관리#title': '거래처·부서·직원',
 
+  // ── 브리핑 칸 이름(S67-50, app/brief-room-model.mjs) ──
+  '내 담당 조직·사업에 닿는 것#brief': '내 거래처·부서·직원·활동에 닿는 것',
+  '우리 쪽 주장과 부딪히는 대목#brief': '내 입장과 부딪히는 대목',
+
   // ── 활동 기록 기본 분류(app/report-kinds.mjs, DB 값은 그대로) ──
   '정책#kind': '기획',
   '교섭#kind': '협의',

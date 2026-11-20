@@ -59,7 +59,7 @@ const ctxOf = () => {
 };
 
 test('parseChunkNote: invented quote dropped, page reassigned by server, page refs outside range removed', () => {
-  const ctx = ctxOf();
+  const ctx = { ...ctxOf(), names: ['정원 관리'] };
   const raw = JSON.stringify({
     lead: '인건비 배점이 오른다(2쪽).',
     touches: ['정원 관리 지표 신설(3쪽)', '<script>', 7],
@@ -113,7 +113,7 @@ test('chunkWithPages marks pages; inputs carry no ids', () => {
   assert.match(body, /^〔1쪽〕/);
   assert.match(body, /〔3쪽〕\n3-2/);
   const scope = m.scopeText(['예시 가지부', '<x>'], ['사업영역 A']);
-  assert.equal(scope, '내 담당 조직: 예시 가지부\n내 사업영역: 사업영역 A');
+  assert.equal(scope, '내가 등록한 담당 대상: 예시 가지부\n내가 등록한 프로젝트: 사업영역 A');
   assert.match(m.chunkInput({ index: 0, total: 2, title: '예시', scope, body }), /조각 1\/2/);
   assert.equal(m.stepTotal(3), 4);
 });

@@ -139,3 +139,12 @@ test('노조 색 화면 이름은 단어표를 거쳐 나온다(글자를 곧바
   assert.match(menu, /label: word\('조직 관리'\)/);
   assert.match(read('app/basket-note-tasks.js'), /projects:word\('사업영역'\),team:word\('조직 관리'\)/);
 });
+
+test('S67-50 브리핑 칸 이름: 기록+ 얼굴은 노조 색 없는 글자, 노동조합+ 얼굴은 지금 글자', async () => {
+  const {faceOf, wordIn} = await import('../app/brand/faces.mjs');
+  const girok = faceOf('girok'), nojo = faceOf('nojo');
+  assert.equal(wordIn(girok, '내 담당 조직·사업에 닿는 것', 'brief'), '내 거래처·부서·직원·활동에 닿는 것');
+  assert.equal(wordIn(girok, '우리 쪽 주장과 부딪히는 대목', 'brief'), '내 입장과 부딪히는 대목');
+  assert.equal(wordIn(nojo, '내 담당 조직·사업에 닿는 것', 'brief'), '내 담당 조직·사업에 닿는 것');
+  assert.equal(wordIn(nojo, '우리 쪽 주장과 부딪히는 대목', 'brief'), '우리 쪽 주장과 부딪히는 대목');
+});

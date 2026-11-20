@@ -87,6 +87,15 @@ test('pickResult: 넣은 수·원래 폴더에 둔 수·못 넣은 수', () => {
   assert.equal(m.pickResult({ failed: 2 }).error, true);
 });
 
+test('S67-50 briefSections: 등록한 담당이 없으면 touches 칸에 "등록한 담당이 없어요", 칸 이름은 단어표를 거침(노동조합+ 얼굴은 그대로)', () => {
+  const none = m.briefSections({ lead: 'x', touches: [], todos: [], conflicts: [], quotes: [], scope: 'none' });
+  assert.equal(none[0].empty, '등록한 담당이 없어요');
+  assert.equal(m.briefSections({ lead: 'x', touches: [], quotes: [] })[0].empty, '');
+  assert.equal(m.briefSections({ lead: 'x', touches: ['가'], quotes: [], scope: 'none' })[0].empty, '');
+  assert.equal(none[0].title, '내 담당 조직·사업에 닿는 것');
+  assert.equal(none[2].title, '우리 쪽 주장과 부딪히는 대목');
+});
+
 // S67-41(명진 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 형식 꼬리표·이름 한 줄·올린 날짜·[최근]·[폴더].
 test('pickKind·pickDate·pickName: 사진 꼬리표, 숫자뿐인 사진 이름은 사진 · 날짜, 사람이 쓴 제목은 그대로', () => {
   const now = new Date('2026-11-20T00:00:00Z');

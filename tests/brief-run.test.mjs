@@ -138,3 +138,77 @@ test('isStalled', () => {
   assert.equal(r.isStalled({ status: 'running', lease_until: '2026-11-13T10:01:00Z', updated_at: '2026-11-13T09:59:00Z' }, now), false);
   assert.equal(r.isStalled({ status: 'done' }, now), false);
 });
+
+// S67-50(명진 11/20 22:33): 담당 범위는 그 사람이 등록한 값만. 특정 조직·업종(철도 등)·노동조합을 전제로 두지 않는다.
+const scoped = (scope, aiOver = {}) => {
+  const f = fakeDb(); const inputs = []; const instr = [];
+  const runner = r.createBriefRunner({
+    db: f.db, now: Date.now, extract: async () => ({ text: SOURCE }), capCheck: async () => ({ ok: true }), scope,
+    ai: async (name, instructions, input) => {
+      inputs.push(input); instr.push(instructions);
+      const touches = aiOver.touches ?? ['철도 사업장 조직에 닿음(12쪽)', '예시 거래처 단가 조정(12쪽)'];
+      if (name === 'brief_chunk') return { ok: true, model: 'm', text: JSON.stringify({ lead: '요지', touches, todos: [], conflicts: [], quotes: [{ text: QUOTE }] }) };
+      return { ok: true, model: 'm', text: JSON.stringify({ lead: '요지 한 줄.', touches, todos: [], conflicts: ['부담이 늘어남'], quotes: [{ id: 'q1' }] }) };
+    },
+  });
+  return { f, runner, inputs, instr };
+};
+
+test('S67-50 scope: 등록한 담당 대상·프로젝트 둘 다 AI 입력에, 목록 밖 조직 줄은 서버가 뺀다', async () => {
+  const { f, runner, inputs } = scoped(async () => ({ orgs: ['예시 거래처'], areas: ['예시 프로젝트'] }));
+  const { row } = await runner.start({ userId: USER, doc });
+  assert.equal(await runner.run(row.id, doc), 'done');
+  for (const input of inputs) {
+    assert.match(input, /내가 등록한 담당 대상: 예시 거래처/);
+    assert.match(input, /내가 등록한 프로젝트: 예시 프로젝트/);
+  }
+  assert.deepEqual(f.rows[0].brief.touches, ['예시 거래처 단가 조정(12쪽)'], '목록에 없는 철도 줄은 남지 않음');
+  assert.equal(f.rows[0].brief.scope, undefined);
+});
+
+test('S67-50 scope: 등록한 담당이 없으면 touches 비우고 scope:none, 입력에 없음이라고 적음', async () => {
+  const { f, runner, inputs } = scoped(async () => ({ orgs: [], areas: [] }));
+  const { row } = await runner.start({ userId: USER, doc });
+  assert.equal(await runner.run(row.id, doc), 'done');
+  assert.ok(inputs.every(i => i.includes('내가 등록한 담당: 없음')));
+  assert.deepEqual(f.rows[0].brief.touches, []);
+  assert.equal(f.rows[0].brief.scope, 'none');
+});
+
+test('S67-50 scope: 목록을 못 읽으면 touches는 비우되 "없어요" 표시는 하지 않음', async () => {
+  const { f, runner, inputs } = scoped(async () => { throw new Error('down'); });
+  const { row } = await runner.start({ userId: USER, doc });
+  assert.equal(await runner.run(row.id, doc), 'done');
+  assert.ok(inputs.every(i => i.includes('확인하지 못함')));
+  assert.deepEqual(f.rows[0].brief.touches, []);
+  assert.equal(f.rows[0].brief.scope, undefined);
+});
+
+test('S67-50 prompt: 노동조합·조합원·업종 고정 문구 없음, 목록 밖 전제 금지·빈 배열 규칙 있음', async () => {
+  const shared = await import('../supabase/functions/_shared/brief-room.mjs');
+  for (const text of [shared.CHUNK_INSTRUCTIONS, shared.MERGE_INSTRUCTIONS]) {
+    assert.doesNotMatch(text, /노동조합|노조|조합원|인력 충원|임금|노동조건/);
+    assert.match(text, /목록에 없는 조직·업종·사업장\(예: 철도·지하철\)을 이 사람의 담당으로 전제하지 않는다/);
+    assert.match(text, /닿는 것이 없거나 목록이 "없음"이면 빈 배열/);
+    assert.match(text, /내 입장·요구와 부딪히는|이 사람의 입장·요구와 부딪히는/);
+  }
+  assert.equal(shared.scopeText([], []), '내가 등록한 담당: 없음(담당 대상·프로젝트를 등록하지 않음)');
+  assert.deepEqual(shared.touchesInScope(['예시 거래처 영향', '철도 영향'], ['예시거래처']), ['예시 거래처 영향']);
+  assert.deepEqual(shared.touchesInScope(['아무 줄'], null), []);
+});
+
+test('S67-50 readBriefScope: 로그인 토큰 REST로 담당 대상·프로젝트 둘 다, 휴지통·보관·끝난 것 빼고, 작업공간은 서버 값', async () => {
+  const { readBriefScope } = await import('../supabase/functions/document-actions/brief.ts');
+  const paths = [];
+  const userDb = async (path) => {
+    paths.push(path);
+    if (path.startsWith('app_suborganizations?')) return [{ name: '예시 거래처', active: true }, { name: '쉬는 곳', active: false }, { name: 3 }];
+    if (path.startsWith('app_spaces?')) return [{ name: '예시 프로젝트', status: 'active' }];
+    throw new Error(path);
+  };
+  assert.deepEqual(await readBriefScope(userDb, WS), { orgs: ['예시 거래처'], areas: ['예시 프로젝트'] });
+  assert.equal(paths.length, 2);
+  for (const p of paths) { assert.match(p, new RegExp(`workspace_id=eq\\.${WS}&deleted_at=is\\.null`)); assert.doesNotMatch(p, /select=[^&]*\bid\b/); }
+  assert.match(paths[1], /status\.not\.in\.\(archived,done\)/);
+  await assert.rejects(readBriefScope(userDb, 'x'), e => e.status === 404);
+});
