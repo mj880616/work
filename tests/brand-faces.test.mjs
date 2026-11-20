@@ -69,10 +69,11 @@ test('기록+ 단어표: 노조 색 단어를 범용 단어로, 표에 없는 �
   assert.equal(faceOf('없는얼굴').id, 'nojo', '모르는 이름은 노동조합+');
 });
 
-test('얼굴은 빌드만 정한다: 주소·기기 저장소·전역 값으로 바꾸는 길이 없다', () => {
+test('얼굴은 빌드만 정한다: 주소·전역 값·네트워크로 바꾸는 길이 없다', () => {
   for (const file of ['app/brand/brand.mjs', 'app/brand/faces.mjs', 'app/brand/face.mjs']) {
     const source = read(file).replace(/^\s*\/\/.*$/gm, '');
-    assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|location|URLSearchParams|document|window|globalThis|fetch\(/, file);
+    // 기기 저장소는 browser-storage-audit.yml이 app/ 전체에서 막는다. 여기서는 주소·화면·전역 값·네트워크로 얼굴을 고르는 길이 없는지 본다.
+    assert.doesNotMatch(source, /location|URLSearchParams|document|window|globalThis|navigator|fetch\(/, file);
   }
   assert.doesNotMatch(read('app/brand/brand.mjs').replace(/^\s*\/\/.*$/gm, ''), /\bexport\s+(?:let|var|function\s+set)/, '바꾸는 함수·바뀌는 값 없음');
 });
