@@ -6,6 +6,9 @@
 import {brandIconSvg} from './brand-icons.js';
 import {folderIconHtml} from './folder-look.js';
 import {FOLDER_SHAPE} from './folder-look-model.mjs';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('tree-icons');
 
 const S = 'fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"';
 // 이름 → 16칸 viewBox 안 그림. 선 그림은 S, 채운 그림은 fill.

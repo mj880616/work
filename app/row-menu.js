@@ -6,6 +6,9 @@
 // off(S53-10 메뉴 모양 통일): 지금은 할 수 없는 항목 — 빼지 않고 흐리게(aria-disabled), 누르면 run이 불려 부르는 쪽이 이유·할 일 한 줄을 보인다.
 // S51-27 UI-PC우클릭(시안 docs/design/mockups/pc-rightclick-menu.html): PC 우클릭·Shift+F10·메뉴 키도 이 부품을 누른 자리에 연다(at).
 import {createAnchoredMenu} from './anchored-menu.js';
+// S67-41: 모양(od-link.css)은 공용 부품 표(part-styles.js). 이 모듈은 첫 화면 준비 사슬(topbar-actions.js)에 있어 맨 위에서 기다리지 않고,
+// 여는 함수가 아직 없을 때만 붙을 때까지 기다린 뒤 연다(홈처럼 화면 목록에 없는 곳에서도 꾸밈 있는 메뉴).
+import {partStyles, partStylesReady} from './part-styles.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 let ctx = null, menu = null, owner = null;
@@ -67,7 +70,12 @@ function ensure() {
 export function openRowMenu(trigger, {key = '', title = '', label = '', items = [], note = '', run, at = null, row = null} = {}) {
   const list = (items || []).filter(Boolean);
   if (!trigger || !list.length || typeof run !== 'function') return false;
-  ctx = {key: key || 'row', title, label, items: list, note, run, row: row || (at ? trigger : null)};
+  const next = {key: key || 'row', title, label, items: list, note, run, row: row || (at ? trigger : null)};
+  if (!partStylesReady('row-menu')) {
+    void partStyles('row-menu').then(() => { if (trigger.isConnected) { ctx = next; ensure().open(trigger, {at}); } });
+    return true;
+  }
+  ctx = next;
   ensure().open(trigger, {at});
   return true;
 }

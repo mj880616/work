@@ -1,6 +1,9 @@
 import {pickIconHtml} from './folder-look.js';
 import {emptyHtml} from './wait-state.js';
 import {placeAnchored,followAnchor,clearAnchored,bottomInset} from './anchored-popup.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('library-move-picker');
 // LIB-폴더로옮기기 (2026-10-27 17:01 사용자 요청): [폴더로 옮기기 ›]를 누르면 뜨는 작은 폴더 목록(PC·폰 공통, 그리는 곳은 여기 하나).
 // 맨 위 '폴더 찾기' 칸 → 최근 넣은 폴더 → 전체 폴더(하위는 들여쓰기) → 아래 [+ 새 폴더 만들어 넣기](canNew+onNew일 때만)·[폴더 밖으로](canOut+onOut일 때만).
 // 목록 줄은 library-move.mjs의 pickerRows()가 만든 것을 그대로 그리고, 옮기는 일은 부른 쪽(library-folders.js)이 한다(서버 길은 LIB-폴더탐색기와 같은 하나).

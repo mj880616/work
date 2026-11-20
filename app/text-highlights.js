@@ -4,6 +4,9 @@ import {copyText} from './copy-text.js';
 import {articleOf, knownArticleId} from './feed-shared.js';
 import {notify, askText, askConfirm} from './small-notice.js';
 import {highlightBody, edgesOf, markRanges, noteOf, copyOf, cleanMemo, draftOf, MEMO_MAX} from './text-highlights-model.mjs';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('text-highlights');
 // S53-5 NEWS-밑줄모으기(시안 docs/design/mockups/news-highlights.html ②·③): 밑줄 저장·읽기·메모·지우기·노트로 + 글 칸 위 노란 밑줄 칠하기.
 // - 서버 표 public.app_news_highlights(DB 20261108070000): 자기 작업공간 주인만(RLS), 고치기는 메모만. 기기 저장 없음 — 목록은 이 탭 메모리에만 다시 쓰려고 둔다.
 // - 글 칸 주인(now-detail.js·telegram-feed.js)이 자기 칸을 다 그린 뒤 paintMarks(zoneEl, 그 글의 밑줄)을 부른다(칸의 그리기 주인은 그대로 — 글자 마디만 <mark>로 감싼다).
