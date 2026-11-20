@@ -22,7 +22,7 @@ export const BODY_MAX = 1000;     // 보고용 글(표시 표 DB 검사와 같�
 export const RECORD_MAX = 2000;   // 조직 기록 한 줄 글(화면 검사)
 // 전환 주: 이 주부터 창 규칙, 그 앞 주는 옛 표 읽기 전용(설계 3-1). 2026-11-09 운영 DB O-2 적용 주.
 export const RECORD_ONE_FROM = '2026-11-09';
-export {dayText, shiftWeek, mondayOf, oneLine};
+export {dayText, shiftWeek, mondayOf, oneLine, plainLines};
 
 const DAY_MS = 86400000;
 const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
@@ -323,30 +323,46 @@ export function snapshotCell(snapshot, org, section = 'org', {marks = null, week
   const rows = Array.isArray(snapshot?.rows) ? snapshot.rows : [];
   const row = rows.find(r => r && r.section === section && String(r.ref_key) === String(org));
   if (!row) return null;
-  const textOf = l => {
-    const m = marks && week ? markOf(marks, section, String(l.ref_kind || ''), String(l.ref_key || ''), week) : null;
+  // S67-30 B(요청함 11/20 13:07 '투쟁사업장 현황 내용 수정이 안되네'): 확정한 주도 줄을 고칠 수 있다. 확정 뒤(confirmed_at보다 나중)에 바꾼 그 주 표시
+  // (보고용 글·빼기·원래 글로·되돌리기)는 사진 줄 위에 보인다 — 사진 원본은 그대로, 새 판으로 확정하면 그 모양이 새 사진이 된다(2-8 규칙 3과 같은 길).
+  const at = Date.parse(String(snapshot?.confirmed_at ?? ''));
+  const recOf = l => (Array.isArray(records) ? records : []).find(r => r && r.kind === String(l.ref_kind || '') && r.key === String(l.ref_key || ''));
+  const markFor = l => (marks && week ? markOf(marks, section, String(l.ref_kind || ''), String(l.ref_key || ''), week) : null);
+  const later = m => !!m && Number.isFinite(at) && Date.parse(String(m.updated_at ?? '')) > at;
+  const textOf = (l, m, rec) => {
     const short = oneLine(l.text);
+    if (later(m)) {
+      if (m.report_body != null) return reportText({text: short, full: rec?.full ?? l.text}, m.report_body);
+      return rec?.text ? rec.text : short; // 확정 뒤 [원래 글로] = 원래 기록 한 줄
+    }
     if (m?.report_body != null) {
       const full = reportLine(m.report_body), t = cleanBody(l.text);
-      const rec = (Array.isArray(records) ? records : []).find(r => r && r.kind === String(l.ref_kind || '') && r.key === String(l.ref_key || ''));
       if (full && (t === full || t === oneLine(m.report_body) || t === oneLine(full))) return reportText({text: short, full: rec?.full}, m.report_body);
     }
     return short;
   };
-  const lines = (Array.isArray(row.lines) ? row.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim())
-    .map(l => ({kind: String(l.ref_kind || ''), key: String(l.ref_key || ''), day: validDay(l.day) ? l.day : '', end_day: validDay(l.end_day) ? l.end_day : null, text: textOf(l), full: String(l.text), id: lineId(l.ref_kind, l.ref_key)}))
-    .filter(l => l.text); // 확정 사진에 원문이 통째로 들어간 줄도 표에는 한 줄로(사진 원본은 그대로) — 보고용 글은 예외(위)
-  return {lines, seen: new Set((Array.isArray(row.seen_events) ? row.seen_events : []).map(String))};
+  const lines = [], out = [];
+  for (const l of (Array.isArray(row.lines) ? row.lines : []).filter(l => l && typeof l.text === 'string' && l.text.trim())) {
+    const m = markFor(l), rec = recOf(l), text = textOf(l, m, rec);
+    if (!text) continue; // 확정 사진에 원문이 통째로 들어간 줄도 표에는 한 줄로(사진 원본은 그대로) — 보고용 글은 예외(위)
+    const report = m?.report_body != null && (later(m) || text !== oneLine(l.text)) ? String(m.report_body) : null;
+    const line = {kind: String(l.ref_kind || ''), key: String(l.ref_key || ''), day: validDay(l.day) ? l.day : '', end_day: validDay(l.end_day) ? l.end_day : null, text, full: String(rec?.full || l.text), orig: rec?.text || oneLine(l.text), report, edited: report != null, choice: later(m) ? m.choice ?? null : null, id: lineId(l.ref_kind, l.ref_key)};
+    if (line.choice === 'out') out.push(line); else lines.push(line);
+  }
+  return {lines, out, seen: new Set((Array.isArray(row.seen_events) ? row.seen_events : []).map(String))};
 }
-// 사진이 있는 주: 사진 줄 그대로 + '확정 뒤 추가' = 그 주 창 후보(뺀 줄 제외) 중 사진에 없는 것 가운데
-// 기록은 created_at > confirmed_at, 일정은 확정 때 후보가 아니었던 것(seen_events에 없음). 사진에 그 조직 칸이 없으면 lines 빈 목록.
-export function snapshotView({org, week, snapshot, records = [], events = [], marks = [], order = 'asc'}) {
-  const cell = snapshotCell(snapshot, org, 'org', {marks, week, records}) || {lines: [], seen: new Set()};
-  const have = new Set(cell.lines.map(l => l.id));
+// 확정한 주의 한 조직 칸: 사진 줄(확정 뒤 고친 것 반영) + '확정 뒤 추가'(사진에 없던 줄 가운데 확정 뒤 새로 쓴 기록, 4. 1)은 확정 때 보지 못한 일정도) + 확정 뒤 뺀 줄.
+// section 'site'(3. 2))는 일정 줄을 넣지 않는다(SITE_EVENTS). 돌려주는 값: {lines, after, out} — 모두 order를 따른다.
+export function snapshotView({org, week, snapshot, records = [], events = [], marks = [], order = 'asc', section = 'org'}) {
+  const site = section === 'site';
+  const cell = snapshotCell(snapshot, org, site ? 'site' : 'org', {marks, week, records}) || {lines: [], out: [], seen: new Set()};
+  const have = new Set([...cell.lines, ...cell.out].map(l => l.id));
   const at = Date.parse(String(snapshot?.confirmed_at ?? ''));
-  const cands = candidates({org, week, records, events}).map(item => lineOf(item, markOf(marks, 'org', item.kind, item.key, week))).filter(l => l.choice !== 'out' && !have.has(l.id));
-  const after = cands.filter(l => l.kind === 'event' ? !cell.seen.has(l.key) : Number.isFinite(at) && Date.parse(String(l.created_at ?? '')) > at);
-  return {lines: orderLines(cell.lines, order), after: sortBy(after, order)};
+  const cands = candidates({org, week, records, events, withEvents: site ? SITE_EVENTS : true}).map(item => lineOf(item, markOf(marks, site ? 'site' : 'org', item.kind, item.key, week))).filter(l => !have.has(l.id));
+  const fresh = l => (l.kind === 'event' ? !cell.seen.has(l.key) : Number.isFinite(at) && Date.parse(String(l.created_at ?? '')) > at);
+  const after = cands.filter(l => l.choice !== 'out' && fresh(l));
+  const outAfter = cands.filter(l => l.choice === 'out' && fresh(l));
+  return {lines: orderLines(cell.lines, order), after: sortBy(after, order), out: sortBy([...cell.out, ...outAfter], order)};
 }
 // 앞 주 표에 보인 줄 id들('지난주' 표시): 앞 주 사진이 있으면 그 줄, 없으면 앞 주 창 결과(보인 줄).
 export function shownIds({org, week, snapshot = null, records = [], events = [], marks = []}) {

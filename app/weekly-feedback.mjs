@@ -263,10 +263,11 @@ export function readPlaces(raw) {
   if (!isObj(raw) || !isObj(raw.map)) return null;
   const map = {};
   for (const [k, v] of Object.entries(raw.map).slice(0, PLACES_MAX)) {
-    const key = placeName(k), area = placeName(v?.area), task = placeName(v?.task);
-    if (!key || [...key].length > PLACE_NAME_CHARS || [...area].length > PLACE_NAME_CHARS || [...task].length > PLACE_NAME_CHARS || !isObj(v)) continue;
+    const key = placeName(k), area = placeName(v?.area), task = placeName(v?.task), into = placeName(v?.into);
+    if (!key || [...key].length > PLACE_NAME_CHARS || [...area].length > PLACE_NAME_CHARS || [...task].length > PLACE_NAME_CHARS || [...into].length > PLACE_NAME_CHARS || !isObj(v)) continue;
     if (!!area !== !!task) continue; // 자리는 두 이름 모두, '새 줄로 둠'은 둘 다 빈칸
-    map[key] = {area, task};
+    // S67-30(weekly-area-layout.mjs): hide = 주간보고에서 뺀 칸, into = 다른 사업영역 칸 안으로 넣음(둘 중 하나, 고른 자리는 그대로 둔다).
+    map[key] = {area, task, ...(v.hide === true ? {hide: true} : into && into !== key ? {into} : {})};
   }
   if (!Object.keys(map).length) return null;
   return {at:typeof raw.at === 'string' ? raw.at : '', map};
@@ -276,6 +277,14 @@ export function withPlace(places, name, place, at) {
   const map = {...(readPlaces(places)?.map ?? {})}, key = placeName(name);
   if (!key) return readPlaces(places);
   map[key] = {area:placeName(place?.area), task:placeName(place?.task)};
+  return readPlaces({at, map});
+}
+// S67-30: 한 사업영역의 주간보고 모양 바꾸기 — change = {hide:true} | {into:'이름'} | {}(다시 넣기·따로 두기 = 표시만 지움). 고른 자리(area·task)는 그대로.
+export function withAreaChange(places, name, change, at) {
+  const map = {...(readPlaces(places)?.map ?? {})}, key = placeName(name);
+  if (!key) return readPlaces(places);
+  const was = map[key] ?? {area: '', task: ''};
+  map[key] = {area: was.area, task: was.task, ...(change?.hide === true ? {hide: true} : placeName(change?.into) ? {into: placeName(change.into)} : {})};
   return readPlaces({at, map});
 }
 // 칸마다 더 나중(at)의 것(같으면 앞). 없는 쪽은 무시.

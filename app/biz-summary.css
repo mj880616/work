@@ -60,3 +60,8 @@
 .biz-sub-head{margin:4px 0 1px;font-weight:600;overflow-wrap:anywhere}
 .biz-write-target{display:flex;align-items:center;gap:6px;margin:0 0 4px;font-size:.85em;color:var(--kptu-muted)}
 .biz-write-target select{min-height:30px;max-width:100%;font-size:inherit}
+/* S67-30 주간보고 칸 빼기·다른 칸 안으로(자리만, 모양은 공용 글자 버튼·고르기 칸): 표 아래 '주간보고에서 뺀 칸' 한 줄, 넣을 칸 고르기. */
+.biz-hidden-line{margin:4px 0 0;font-size:var(--ds-text-meta);color:var(--kptu-muted);overflow-wrap:anywhere}
+.biz-hidden-item{white-space:nowrap}
+.biz-into-pick{display:block;margin-top:4px}
+.biz-into-pick .biz-write-target{display:inline-flex;margin:0}

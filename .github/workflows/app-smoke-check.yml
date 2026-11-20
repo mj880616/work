@@ -680,6 +680,9 @@ jobs:
       - name: Check weekly file finds my rows by the form's second column (WEEKLY-사업영역묶음 ①)
         run: node --test tests/weekly-area-slot.test.mjs
 
+      - name: Check weekly report hide and merge area rows (S67-30 WEEKLY-칸빼기합치기)
+        run: node --test tests/weekly-area-layout.test.mjs
+
       - name: Check business summary window model (BIZ-기록하나로 B-3)
         run: node --test tests/business-now-model.test.mjs
       - name: Check business detail window model (BIZ-기록하나로 B-4 ②)

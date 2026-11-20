@@ -319,6 +319,8 @@
 #appView #homeView .journal-exec-form{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:flex-end; }
 #appView #homeView .journal-exec-field{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 140px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #homeView .journal-exec-field :is(input, textarea){ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+/* S67-30: 줄 고치기 칸(1)·2)·3)·5. 같은 공용 줄)의 한 줄 칸(일·시간·장소·고르기)은 글 칸(내용·참석, 늘어나는 칸 한 줄)과 같은 높이 — 칸마다 높이가 들쭉날쭉하지 않게. */
+#appView #homeView .journal-exec-field :is(input:not([type="checkbox"],[type="radio"]), select){ height:var(--ds-compact-height); padding-block:0; padding-inline:6px; }
 #appView #homeView .journal-exec-time{ flex:0 1 128px; }
 #appView #homeView .journal-exec-field .time-cell > input{ width:auto; }
 #appView #homeView .journal-exec-what{ flex:2 1 220px; }

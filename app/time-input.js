@@ -108,7 +108,9 @@ function timeCellAttributes(input,label){
 
 // FORM-시간숫자: 화면이 직접 만드는 시간 칸 하나(주간보고 상자 5. 주요 일정, [주간 정리] 2) 주요 일정·1) 임원 배정 요청 표).
 // 숫자 자판 글 칸에 위 공용 맞춤(1030 → 10:30, 930 → 09:30, 9 → 09:00, 틀리면 칸 아래 '시간을 확인해 주세요')을 그대로 쓴다.
-// allDay면 칸 옆 작은 [종일] 버튼: 누르면 칸 값이 '종일'(칸은 읽기만), 다시 누르면 누르기 전 시간으로 돌아온다.
+// allDay면 칸 옆 작은 [종일] 칩(공용 ④ ds-chip, 켜짐 = 선택 표시): 누르면 칸 값이 '종일'(시간을 비움), 다시 누르면 누르기 전 시간으로 돌아온다.
+// S67-30: '종일'인 칸에 숫자를 치면 그 시간으로 바뀌고 [종일]이 꺼진다(전에는 칸이 읽기만이라 시간을 칠 수 없어 계속 종일로 남았다).
+//   켜짐 표시는 칸 값 하나로만 정한다(paint) — 칸이 바뀔 때마다(input·change) 다시 맞춘다.
 // 버튼은 칸에 input·change 이벤트를 보내므로, 화면은 지금처럼 칸의 input·change만 들으면 된다. 돌려주는 것: 화면에 붙일 노드.
 export function timeCell(input,{label='',allDay=false}={}){
   timeCellAttributes(input,label);
@@ -116,17 +118,20 @@ export function timeCell(input,{label='',allDay=false}={}){
   input.dataset.timeAllDay='';
   const doc=input.ownerDocument||document;
   const box=doc.createElement('span');box.className='time-cell';
-  const toggle=doc.createElement('button');toggle.type='button';toggle.className='mini time-all-day';toggle.textContent=ALL_DAY;toggle.dataset.timeAllDayToggle='';
+  const toggle=doc.createElement('button');toggle.type='button';toggle.className='ds-chip time-all-day';toggle.textContent=ALL_DAY;toggle.dataset.timeAllDayToggle='';
   toggle.setAttribute('aria-label',`${label||'시간'} ${ALL_DAY}`);
-  const paint=()=>{const on=input.value.trim()===ALL_DAY;toggle.setAttribute('aria-pressed',on?'true':'false');input.readOnly=on;toggle.disabled=input.disabled};
+  const paint=()=>{const on=input.value.trim()===ALL_DAY;toggle.setAttribute('aria-pressed',on?'true':'false');toggle.disabled=input.disabled};
   toggle.addEventListener('click',()=>{
     if(input.disabled)return;
     if(input.value.trim()===ALL_DAY){input.value=input.dataset.timeBefore||'';delete input.dataset.timeBefore}
     else{const before=normalizeTime(input.value);if(before)input.dataset.timeBefore=before;input.value=ALL_DAY}
     paintTimeHint(input,false);paint();
     input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
-    if(!input.readOnly)input.focus();
+    if(input.value.trim()!==ALL_DAY)input.focus();
   });
+  // 칸에 시간을 치면(공용 맞춤이 숫자만 남긴 뒤) 켜짐 표시를 칸 값대로. 시간을 치는 순간 [종일]은 꺼진다.
+  input.addEventListener('input',()=>{if(input.value.trim()!==ALL_DAY)delete input.dataset.timeBefore;paint()});
+  input.addEventListener('change',paint);
   paint();box.append(input,toggle);
   return box;
 }

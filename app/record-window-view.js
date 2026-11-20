@@ -76,13 +76,14 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   if (section !== 'org') { section = 'site'; withEvents = withEvents && M.SITE_EVENTS; }
   const ctl = {
     id: `rw${++seq}`, rt, workspaceId, week, openSource, section, status: 'idle', orgs: [], orgIds: [], records: [], marks: [], marksOn: true, snaps: new Map(), legacy: new Map(),
-    ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '', cols: {},
+    ev: {status: 'idle', items: [], partial: false, run: 0}, foldOpen: new Set(), outOpen: new Set(), expanded: new Set(), editing: null, draft: null, invalid: '', busy: false, run: 0, host: null, focus: '', cols: {},
   };
   const c = () => ({rt: ctl.rt, ws: ctl.workspaceId});
   const announce = () => window.dispatchEvent(new CustomEvent(EVENT, {detail: {source: ctl.id, week: ctl.week}}));
   const old = () => M.isOldWeek(ctl.week);
   const snap = () => ctl.snaps.get(ctl.week) || null;
-  ctl.readOnly = () => ctl.status !== 'ready' || old() || !!snap();
+  // S67-30 B: 확정한 주(사진 주)도 줄 고치기·더하기·빼기를 한다(확정 뒤 바꾼 것은 사진 위에 보이고, 새 판으로 확정하면 새 사진). 옛 주만 읽기 전용.
+  ctl.readOnly = () => ctl.status !== 'ready' || old();
   ctl.disabled = () => ctl.busy || !!ctl.editing;
 
   // ---- 읽기 ----
@@ -166,8 +167,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     if (old()) return {mode: 'old', lines: M.orderLines(ctl.legacy.get(orgId) || [], order)};
     const base = {org: orgId, week: ctl.week, records: ctl.records, events: events(), marks: ctl.marks, order};
     const s = snap();
-    if (s && ctl.section === 'site') return {mode: 'snapshot', lines: M.orderLines(M.snapshotCell(s, orgId, 'site', {marks: ctl.marks, week: ctl.week, records: ctl.records})?.lines || [], order), after: []};
-    if (s) { const v = M.snapshotView({...base, snapshot: s}); return {mode: 'snapshot', lines: v.lines, after: v.after}; }
+    if (s) { const v = M.snapshotView({...base, snapshot: s, section: ctl.section}); return {mode: 'snapshot', lines: v.lines, after: v.after, out: v.out}; }
     if (ctl.section === 'site') return {mode: 'window', ...M.siteCell(base)};
     const prevWeek = M.shiftWeek(ctl.week, -1);
     const prevIds = M.isOldWeek(prevWeek) ? new Set() : M.shownIds({...base, week: prevWeek, snapshot: ctl.snaps.get(prevWeek) || null});
@@ -180,7 +180,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
   ctl.fileReady = () => ctl.status === 'ready' && (old() || !withEvents || (['ready', 'error', 'off'].includes(ctl.ev.status) && ctl.ev.week === ctl.week));
   ctl.fileLines = orgId => M.fileLines(ctl.cell(orgId, 'asc'));
   ctl.snapshotRows = () => ctl.orgs.map(o => M.snapshotRow({section: ctl.section, org: o.id, label: o.name, lines: ctl.fileLines(o.id), seen: ctl.section === 'org' ? M.seenEvents({org: o.id, week: ctl.week, events: events()}) : []}));
-  const findLine = id => { for (const o of ctl.orgIds) { const x = ctl.cell(o); for (const l of [...(x.shown || []), ...(x.folded || []), ...(x.out || []), ...(x.lines || [])]) if (l.id === id) return {org: o, line: l}; } return null; };
+  const findLine = id => { for (const o of ctl.orgIds) { const x = ctl.cell(o); for (const l of [...(x.shown || []), ...(x.folded || []), ...(x.out || []), ...(x.lines || []), ...(x.after || [])]) if (l.id === id) return {org: o, line: l}; } return null; };
 
   // ---- 그리기 ----
   const moreSlot = spec => `<span class="wl-more-slot" data-wl-more="${esc(JSON.stringify(spec))}"></span>`;
@@ -211,6 +211,13 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     }
     return items.length ? moreSlot({label: `줄 메뉴: ${l.text}`, data: {rwMore: l.id}, items}) : '';
   };
+  // S67-30 B: 한 줄로 줄인 글('…')은 글을 누르면 그 자리에서 원문 전체로 펼친다(다시 누르면 접음, 화면 세션 메모리만).
+  const cut = l => !!l.full && /…$/.test(String(l.text)) && M.plainLines(l.full).join(' ') !== String(l.text);
+  const textHtml = l => {
+    if (!cut(l)) return `<span class="wl-text">${esc(l.text)}</span>`;
+    const open = ctl.expanded.has(l.id);
+    return `<button type="button" class="row-act wl-text rw-expand" data-rw-expand="${esc(l.id)}" aria-expanded="${open}" aria-label="${esc(`${open ? '접기' : '펼쳐 보기'}: ${l.text}`)}">${esc(open ? M.plainLines(l.full).join(' ') : l.text)}</button>`;
+  };
   const lineHtml = (orgId, l, where = 'shown') => {
     if (ctl.editing?.id === l.id && !ctl.editing.day) return reportForm(l);
     const faint = where !== 'shown' ? ' is-last' : '';
@@ -222,8 +229,8 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       ? `<button type="button" class="row-act wl-day rw-day-btn${dayOpen ? ' is-on' : ''}" data-rw-day="${esc(l.id)}" aria-label="날짜 수정: ${esc(M.lineDay(l) || '날짜 없음')}" aria-expanded="${dayOpen ? 'true' : 'false'}"${dayOpen ? ' disabled' : ''}>${esc(dayLabel)}</button>`
       : `<span class="wl-day">${esc(dayLabel)}</span>`;
     const act = where === 'shown' || where === 'folded' || where === 'out' ? (ro ? '' : lineMore(l, where))
-      : where === 'after' ? '<span class="rw-after-tag">확정 뒤 추가</span>' : '';
-    return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}">${dayHtml}<span class="wl-body"><span class="wl-text">${esc(l.text)}</span>${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}</span>${dayOpen ? '' : act}</div>${dayOpen ? dayForm(l) : ''}`;
+      : where === 'after' ? `<span class="rw-after-tag">확정 뒤 추가</span>${ro ? '' : lineMore(l, 'shown')}` : '';
+    return `<div class="wl-line rw-line${faint}${where === 'after' ? ' rw-after' : ''}" data-rw-line="${esc(l.id)}" data-rw-kind="${esc(l.kind)}">${dayHtml}<span class="wl-body">${textHtml(l)}${where === 'shown' || where === 'after' ? tags(l) : l.kind === 'event' ? '<span class="rw-tag">일정</span>' : ''}</span>${dayOpen ? '' : act}</div>${dayOpen ? dayForm(l) : ''}`;
   };
   // 날짜 수정 칸(시안 ②~④): 줄 바로 아래 [하루|기간|없음] + 달력 + [취소][저장] — 모양은 record-day-edit.js 하나. 없음은 서버에 칸이 있을 때만.
   const dayForm = l => DE.dayFormHtml(ctl.draft || M.dayDraft(l), {prefix: 'rw', id: l.id, noneOn: ctl.cols.day_none === true, busy: ctl.busy, invalid: ctl.invalid});
@@ -249,15 +256,16 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       box: open ? `<div class="rw-fold" data-rw-fold-box="${kind}">${list.map(l => lineHtml(orgId, l, kind)).join('')}</div>` : ''};
   };
   ctl.cellHtml = orgId => {
-    const x = ctl.cell(orgId), adding = ctl.editing?.id === 'new' && ctl.editing.orgId === orgId;
+    let x = ctl.cell(orgId); const adding = ctl.editing?.id === 'new' && ctl.editing.orgId === orgId;
     let html = '';
-    if (x.mode === 'old' || x.mode === 'snapshot') {
+    if (x.mode === 'old') {
       html += x.lines.map(l => `<div class="wl-line rw-line" data-rw-line="${esc(l.id)}"><span class="wl-day">${esc(`- ${M.lineDay(l)}`.trimEnd())}</span><span class="wl-body"><span class="wl-text">${esc(l.text)}</span></span></div>`).join('');
-      if (x.mode === 'snapshot') html += x.after.map(l => lineHtml(orgId, l, 'after')).join('');
       if (!html) html = '<span class="wl-empty">—</span>';
       return `<div class="wl-cell" data-wl-cell="${esc(orgId)}">${html}</div>`;
     }
-    html += x.shown.map(l => lineHtml(orgId, l)).join('');
+    // 확정한 주: 사진 줄(보이는 줄과 같은 ⋯·날짜 수정) + 흐린 '확정 뒤 추가' 줄, 아래 [뺀 줄 n]·[+ 쓰기]는 창과 같다(지난 기록 접힘은 사진 주에 없음).
+    if (x.mode === 'snapshot') x = {...x, shown: [...x.lines, ...x.after.map(l => ({...l, after: true}))], folded: [], out: x.out || []};
+    html += x.shown.map(l => lineHtml(orgId, l, l.after ? 'after' : 'shown')).join('');
     if (!x.shown.length && !adding) html += '<span class="wl-empty">—</span>';
     if (adding) html += recordForm(orgId);
     // 칸 아래 한 줄: [지난 기록 n] [뺀 줄 n] [+ 쓰기] — 펼친 줄은 그 아래.
@@ -407,6 +415,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
       const b = e.target.closest?.('button'); if (!b || b.disabled || !host.contains(b)) return;
       const d = b.dataset;
       if (d.rwOrder) { ctl.setOrder(d.rwOrder); return; }
+      if (d.rwExpand) { const id = d.rwExpand; if (ctl.expanded.has(id)) ctl.expanded.delete(id); else ctl.expanded.add(id); ctl.focus = `[data-rw-expand="${CSS.escape(id)}"]`; redraw(); return; }
       if (d.rwAdd) { if (!ctl.disabled() && !ctl.readOnly()) openAdd(d.rwAdd); return; }
       if ('rwCancel' in d) { ctl.cancel(); return; }
       if ('rwSave' in d) { void ctl.save(); return; }

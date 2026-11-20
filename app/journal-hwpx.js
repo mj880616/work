@@ -66,7 +66,8 @@ import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
 import {engineForm, baseForm, saveBaseForm} from './weekly-engine-form.js';
 import {screenTitles} from './weekly-screen-titles.mjs'; import {groupNames} from './weekly-group-names.mjs'; // ⑤-3b: 화면 절 제목 = 같은 profile 제목 // WEEKLY-내양식자유변형 ⑤-2·⑤-3: 엔진 양식은 '내 양식'에서(없으면 바탕 파일에서 읽어 저장 — 명진 결정 11/17 '나')
-import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace} from './weekly-feedback.mjs';
+import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace, withAreaChange} from './weekly-feedback.mjs';
+import {areaLayout, outOfReport} from './weekly-area-layout.mjs'; // S67-30: 주간보고 칸 빼기·다른 칸 안으로
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
 import {notify, askConfirm} from './small-notice.js'; // 환류 보고 답 뒤 성공 알림(사라지는 작은 알림)·확정·처음부터 확인창
 import {pickMaterial, draftRequest} from './weekly-draft-request.mjs'; // WEEKLY-자동화 ③: 재료 짝짓기·AI 초안 몸통(금요일 자동 초안과 같은 규칙)
@@ -622,9 +623,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const proposedNow = s => proposedOf({at:nowIso(), baseKind:s.baseKind, baseInfo:s.baseInfo, cells:cellsNow(s, 'initial')});
 
   // 내 사업영역 이름(사업 목록 1단, 순서대로). 사업 목록을 아직 못 읽었으면 빈 목록(바탕 그대로).
-  const areaNames = () => getWeek().model?.summary?.names ?? [];
+  // S67-30: 주간보고에서 뺀 사업영역·다른 칸 안으로 넣은 사업영역은 자기 줄이 없다(빈 내 줄을 더하지 않음, weekly-area-layout.mjs).
+  const areaNames = (s = state) => { const lay = areaLayout(placesOf(s)); return (getWeek().model?.summary?.names ?? []).filter(n => !outOfReport(lay, n)); };
   // 바탕을 연 뒤에 사업 목록이 읽혀 아직 줄이 없는 사업영역이 생겼는지.
-  const needAreas = s => !!s?.draft && s.draft.missingAreas(s.rows ?? [], areaNames()).length > 0;
+  const needAreas = s => !!s?.draft && s.draft.missingAreas(s.rows ?? [], areaNames(s)).length > 0;
   // (Re)build my base from the team report for the current name; edits start from the base lines.
   function rebase() {
     const {draft, team} = state;
@@ -823,7 +825,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 바탕을 연 뒤 확정 버튼 줄 아래에 보이는 것만 그린다(WEEKLY-한흐름확정 ②). 보고서 칸 줄·이름·일시·1. 요청사항은 [주간 정리] 흐름에 있다.
   // WEEKLY-사업영역묶음 ②: 화면 2. 1) 요약표 첫 칸(양식 자리). 바탕·이름·고른 자리가 바뀌어 묶음이 달라졌을 때만 화면에 다시 그리라고 알린다.
   let groupsKey = '';
-  const groupsOf = s => (s?.draft?.areaGroups ? s.draft.areaGroups(s.base, s.me, areaNames(), {places:placesOf(s)}) : null);
+  const groupsOf = s => (s?.draft?.areaGroups ? s.draft.areaGroups(s.base, s.me, areaNames(s), {places:placesOf(s)}) : null);
   function tellGroups() {
     const g = groupsOf(state), key = g ? JSON.stringify([state.start, ...g]) : '';
     if (key !== groupsKey) { groupsKey = key; onFlow(); }
@@ -1577,6 +1579,36 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     paintPlace(); renderEdit();
     say(value === 'new' ? `${name}은(는) 표 끝 새 줄로 둘게요. 다음 주에도 같아요.` : `${name}을(를) ${c.area} › ${c.task} 칸에 넣을게요. 다음 주에도 같아요.`, 'ok');
   }
+  // S67-30: [주간 정리] 2. 1) 사업영역 줄 ⋯ [이 칸 빼기]·[다른 칸 안으로]·[다시 넣기]·[따로 두기] — 그 주 draft.places에 표시만(사업영역·지금 상황은 그대로).
+  // 고른 자리와 같은 길: 바탕을 다시 만들고(빈 내 줄 더하기·빼기), 바로 한 번 저장한다. 바탕을 아직 안 연 주는 하지 않는다(false).
+  // 바탕을 아직 안 연 주(그 주 다시 들어옴·새로고침 뒤)는 그 주 행의 draft.places(없으면 지난주에서 이어 쓴 값)를 바로 읽고 쓴다 — 상자를 열지 않아도 표가 같은 모양.
+  const carriedAreaPlaces = new Map(); // week → places | null(아직 모름·없음). 화면 세션 메모리만.
+  function weekPlaces(week, row = undefined) {
+    const w = row === undefined ? getWeek() : {start:week, row};
+    const own = readExtras(w.start === week ? w.row?.draft : null).places;
+    if (own) return own;
+    if (!carriedAreaPlaces.has(week)) {
+      carriedAreaPlaces.set(week, null);
+      void readCarriedPlaces(week, rt).then(p => { carriedAreaPlaces.set(week, p ?? null); if (p && getWeek().start === week && !openFor(week)) onBase(week); }, () => {});
+    }
+    return carriedAreaPlaces.get(week) ?? null;
+  }
+  async function setAreaLayout(week, name, change) {
+    if (!name) return false;
+    const s = openFor(week);
+    if (!s) {
+      const at = new Date().toISOString(), carried = weekPlaces(week);
+      try { await writeDirect(week, d => { const ex = readExtras(d); return putExtras({...(d ?? {})}, {...ex, places:withAreaChange(ex.places ?? carried, name, change, at)}); }); return true; }
+      catch { return false; }
+    }
+    s.places = withAreaChange(s.places, name, change, new Date().toISOString());
+    if (s.store) { s.store.extras = {...(s.store.extras ?? {}), places:s.places}; s.store.dirty = true; }
+    s.placeAsk = (s.placeAsk ?? []).filter(n => !sameName(n, name));
+    const kept = currentDraft(s); rebase(); placeCells(s, kept); s.built = null;
+    if (s.store) { clearTimeout(s.store.timer); await saveDraft(s); }
+    paintPlace(); renderEdit();
+    return true;
+  }
   function currentDraft(s) {
     const cells = new Map([...s.cellAt].map(([id, at]) => [id, s.edits[at.section].get(at.index) ?? []]));
     const typedMe = s.meFrom === 'typed';
@@ -1894,6 +1926,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
     // WEEKLY-사업영역묶음 ②: 그 주 바탕(양식)을 연 판에서만 사업영역 이름 → 양식 첫 칸 이름(Map). 양식에 내 줄이 없거나 아직 안 열었으면 null.
     areaGroups: start => (state && state.start === start ? groupsOf(state) : null),
+    // S67-30: 그 주 주간보고 칸 모양({hide, into}, weekly-area-layout.mjs) — 바탕을 연 판이면 상자 값, 아니면 그 주 행(또는 지난주에서 이어 쓴 값).
+    areaLayout: (start, row = undefined) => areaLayout(openFor(start) ? placesOf(state) : weekPlaces(start, row)),
+    setAreaLayout,
     topLine,
     requestNote: reqNote,
     // The week's reads landed: refresh only the candidates beside the rows (what was typed stays).
