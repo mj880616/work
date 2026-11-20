@@ -30,6 +30,9 @@ import {bizWeekOpen,setBizWeekOpen} from './biz-week-fold.js';
 import {layoutAreas} from './weekly-area-layout.mjs'; // S67-30: 주간보고 칸 빼기·다른 칸 안으로(홈 [주간 정리] 2. 1)만)
 import {rowMore} from './row-more.js';
 import {askConfirm} from './small-notice.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('weekly-summary-table');
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shortDay=day=>{const [,m,d]=day.split('-');return `${Number(m)}.${Number(d)}`};

@@ -4,6 +4,9 @@ import {uploadTimeoutMs} from './upload-budget.mjs';
 // UI-올리기진행표시: 보낸 양을 아는 공용 보내기(upload-send.mjs)와 올리는 중 표시 공용 부품(upload-progress.js).
 import {sendUpload} from './upload-send.mjs';
 import {trackUpload, setUploadRetry, mountUploadRows, paintUploadLine, watchUploads, announceDock} from './upload-progress.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('basket-upload');
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했어요. 잊지 말기에서 확인 후 다시 시도하세요';
