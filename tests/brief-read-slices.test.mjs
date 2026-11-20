@@ -10,8 +10,9 @@ import { deflateRawSync } from 'node:zlib';
 import * as dt from '../supabase/functions/_shared/document-text.ts';
 import * as ht from '../supabase/functions/_shared/hwp-text.mjs';
 import * as r from '../supabase/functions/document-actions/brief-run.mjs';
-import { rowState, errorLine } from '../app/brief-room-model.mjs';
-import { makeHwp, pressParas } from './helpers/hwp-synth.mjs';
+import { rowState, errorLine, partialLine, canRetry, RETRY_LABEL } from '../app/brief-room-model.mjs';
+import { hwpDeflate, makeHwp, pressParas } from './helpers/hwp-synth.mjs';
+import { crc32, inflateRawSync } from 'node:zlib';
 
 const WS = 'a0000000-0000-4000-8000-000000000001', USER = 'b0000000-0000-4000-8000-000000000002', DOC = 'c0000000-0000-4000-8000-000000000003';
 const SAMPLE_HWP = new Uint8Array(readFileSync(new URL('./fixtures/hwp-lab/sample.hwp', import.meta.url)));
@@ -266,4 +267,103 @@ test('화면 모델: read 단계 진행은 "파일 읽기 n/t", 새 실패 한 �
   assert.equal(rowState({ status: 'running', stage: 'chunk', step_no: 1, step_total: 4 }).text, '만드는 중 1/4');
   assert.equal(errorLine('read_failed'), '파일을 끝까지 읽지 못했어요');
   assert.equal(errorLine('locked'), '암호가 걸린 파일이라 읽을 수 없어요');
+});
+
+// --- S67-37: 실제 한글 파일 구조(섹션 압축 끝 8바이트 꼬리) ---------------------------------------------
+// 공개 표본 58개(hwplib·hwp.js·pyhwp 저장소, 저장소에 넣지 않음)를 운영과 같은 Deno로 돌리니 52개가 '읽기 실패'였다:
+// 한글이 섹션 압축 뒤에 CRC32 + 풀린 크기 8바이트를 붙이는데 Deno DecompressionStream('deflate-raw')은 그 꼬리를 오류로 결과를 버린다.
+// 고친 뒤(자체 rawInflate) Deno·Node 모두 55개 읽음(나머지 3개는 배포용 2·암호 1 = locked), 10MB 표본(본문 33MB)도 끝까지.
+test('S67-37 rawInflate: 꼬리 8바이트를 무시하고 마지막 블록에서 멈춘다 — zlib과 같은 결과(고정·동적·저장 블록, 긴 거리, 조각 경계)', () => {
+  const join = parts => Buffer.concat([...parts]);
+  let x = 7;
+  const noise = Buffer.alloc(300_000); for (let i = 0; i < noise.length; i++) { x = (x * 1103515245 + 12345) >>> 0; noise[i] = (x >>> 24) % 23 + 0x41; }
+  const text = Buffer.from(pressParas(400).map(p => typeof p === 'string' ? p : p.text).join('\n'), 'utf8');
+  const cases = [Buffer.alloc(0), Buffer.from('a'), text, noise, Buffer.concat([noise.subarray(0, 40000), noise.subarray(0, 40000)])];
+  for (const raw of cases) for (const level of [0, 1, 6, 9]) {
+    const packed = hwpDeflate(raw, { level });
+    assert.equal(packed.subarray(packed.length - 4).readUInt32LE(0), raw.length, '꼬리 = 풀린 크기');
+    assert.equal(packed.subarray(packed.length - 8).readUInt32LE(0), crc32(raw) >>> 0, '꼬리 = CRC32');
+    // 조각 경계를 여러 가지로(1바이트·7바이트·통째)
+    for (const step of [1, 7, 4096, packed.length || 1]) {
+      if (step === 1 && packed.length > 5000) continue;
+      const parts = []; for (let i = 0; i < packed.length; i += step) parts.push(new Uint8Array(packed.subarray(i, i + step)));
+      assert.ok(join(ht.rawInflate(parts)).equals(raw), `level ${level}, 조각 ${step}`);
+    }
+    assert.ok(join(ht.rawInflate([new Uint8Array(packed.subarray(0, packed.length - 8))])).equals(raw), '꼬리 없는 압축도 그대로');
+    assert.ok(inflateRawSync(packed).equals(raw));
+  }
+  // 깨진 압축: 끝 블록 전에 끊김 → section_inflate 단계 코드
+  const cut = hwpDeflate(noise).subarray(0, 1000);
+  assert.throws(() => join(ht.rawInflate([new Uint8Array(cut)])), e => e.code === 'HWP_BAD' && e.stage === 'section_inflate');
+  assert.throws(() => join(ht.rawInflate([new Uint8Array([0xff, 0xff, 0xff])])), e => e.stage === 'section_inflate');
+});
+
+test('S67-37 hwp-text: 한글 모양 파일(꼬리 있음·저장 블록·큰 본문·DIFAT·여러 섹션)을 읽고, HWP 길은 런타임 압축 도구를 쓰지 않는다', async () => {
+  const want = ['첫 문단', '표 안 문단', '둘째 섹션', '끝 문단 😀'];
+  for (const level of [0, 6]) {
+    const file = makeHwp({ sections: [['첫 문단', { text: '표 안 문단', ctrl: 'table' }], ['둘째\t섹션', '끝 문단 😀']], level });
+    assert.equal((await ht.hwpRead(file)).text, want.join('\n'), `level ${level}`);
+  }
+  // 10MB 안팎 보도자료(그림 BinData 10MB + 본문 여러 섹션), 512바이트 섹터·DIFAT
+  const big = makeHwp({ sections: [pressParas(2500), pressParas(1200, 2501), pressParas(300, 3701)], binBytes: 10 * 1024 * 1024 });
+  assert.ok(big.byteLength > 10 * 1024 * 1024);
+  const whole = await ht.hwpRead(big, { sliceIn: Infinity, sliceOut: Infinity });
+  assert.equal(whole.next, null); assert.equal(whole.text.split('\n').length, 4000);
+  let from = { sec: 0, para: 0 }, parts = [], n = 0;
+  while (from) { const got = await ht.hwpRead(big, { from, sliceOut: 256 * 1024 }); if (got.text) parts.push(got.text); from = got.next; assert.ok(++n < 500); }
+  assert.ok(n > 3); assert.equal(parts.join('\n'), whole.text);
+  // 깨진 섹션은 단계 코드 section_inflate
+  await assert.rejects(ht.hwpRead(makeHwp({ sections: [pressParas(200)], brokenSection: true })), e => e.code === 'HWP_BAD' && e.stage === 'section_inflate');
+  await assert.rejects(ht.hwpRead(new Uint8Array(2048)), e => e.code === 'HWP_BAD' && e.stage === 'header');
+  // HWP 섹션 읽기(hwpSection)는 rawInflate만 쓴다(Deno DecompressionStream 꼬리 오류 재발 막기)
+  const src = readFileSync(new URL('../supabase/functions/_shared/hwp-text.mjs', import.meta.url), 'utf8');
+  const sectionFn = src.slice(src.indexOf('async function hwpSection'), src.indexOf('/** HWP 첫 확인'));
+  assert.match(sectionFn, /hwpParts\(/); assert.doesNotMatch(sectionFn, /inflateParts|DecompressionStream/);
+  const partsFn = src.slice(src.indexOf('function* hwpParts'), src.indexOf('// --- 흘려서 풀기(HWPX'));
+  assert.match(partsFn, /rawInflate\(/); assert.doesNotMatch(partsFn, /DecompressionStream/);
+});
+
+test('S67-37 hwpPreview: 미리보기 글자(PrvText) — 표 칸 꺾쇠 벗기기, 암호 문서는 안 줌, 배포용은 줌, 없으면 빈 글', () => {
+  const prv = '보도자료\r\n<기관명><노동조합>\r\n정원 확대를 요구한다.';
+  assert.equal(ht.hwpPreview(makeHwp({ sections: [['x']], prvText: prv })), '보도자료\n기관명 노동조합\n정원 확대를 요구한다.');
+  assert.equal(ht.hwpPreview(makeHwp({ sections: [['x']], prvText: prv, password: true })), '');
+  assert.match(ht.hwpPreview(makeHwp({ sections: [['x']], prvText: prv, distribution: true })), /정원 확대/);
+  assert.equal(ht.hwpPreview(makeHwp({ sections: [['x']] })), '');
+  assert.equal(ht.hwpPreview(new Uint8Array(4096)), '');
+});
+
+test('S67-37 브리핑: 본문을 못 읽으면 미리보기 글자로 만들고 결과에 "앞부분만" 한 줄, 미리보기도 없으면 read_failed', async () => {
+  const prv = ['보도자료 예시 기관 노동조합', '정원 확대 계획을 다시 제출하라. '.repeat(30)].join('\n');
+  { const media = makeHwp({ sections: [pressParas(200)], brokenSection: true, prvText: prv });
+    const x = runnerFor(media, { file_name: '261120 보도자료.hwp', mime_type: '' });
+    const { out, row } = await runAll(x);
+    assert.equal(out, 'done'); assert.equal(row.brief.partial, 'preview');
+    assert.equal(partialLine(row.brief), '파일 앞부분만 읽고 만든 브리핑이에요');
+    assert.equal(row.page_count ?? null, null, '미리보기는 쪽 번호를 모른다'); }
+  { const media = makeHwp({ sections: [['비밀']], distribution: true, prvText: prv });
+    const { out, row } = await runAll(runnerFor(media, { file_name: 'a.hwp', mime_type: '' }));
+    assert.equal(out, 'done', '배포용 문서도 미리보기로'); assert.equal(row.brief.partial, 'preview'); }
+  { const media = makeHwp({ sections: [pressParas(200)], brokenSection: true });
+    const { out, row } = await runAll(runnerFor(media, { file_name: 'a.hwp', mime_type: '' }));
+    assert.equal(out, 'failed'); assert.equal(row.error_code, 'read_failed'); }
+  { const media = makeHwp({ sections: [pressParas(40)], prvText: prv });
+    const { row } = await runAll(runnerFor(media, { file_name: 'a.hwp', mime_type: '' }));
+    assert.equal(row.brief.partial, undefined, '본문을 읽으면 미리보기를 쓰지 않는다'); assert.equal(partialLine(row.brief), ''); }
+});
+
+test('S67-37 화면 모델: 못 만든 줄만 ⋯ [다시 만들기](같은 brief-start 길), 다시 시작하면 새 작업으로 끝까지', async () => {
+  assert.equal(RETRY_LABEL, '다시 만들기');
+  assert.equal(canRetry({ status: 'failed' }), true);
+  for (const status of ['queued', 'running', 'done']) assert.equal(canRetry({ status }), false, status);
+  assert.equal(canRetry(null), false);
+  // 실패로 끝난 줄을 다시 시작하면(파일이 그대로여도 이번 읽기로) 새 작업이 생겨 끝까지 만든다
+  const media = makeHwp({ sections: [pressParas(40)] });
+  const x = runnerFor(media, { file_name: 'a.hwp', mime_type: '' });
+  x.f.rows.push({ id: 'd0000000-0000-4000-8000-0000000000f1', workspace_id: WS, document_id: DOC, status: 'failed', stage: 'read', error_code: 'read_failed', attempts: 3, parts: [], step_no: 0, step_total: 0 });
+  const again = await x.runner.start({ userId: USER, doc: x.doc });
+  assert.equal(again.created, true);
+  for (let i = 0; i < 20 && (await x.runner.run(again.row.id, x.doc)) === 'paused'; i++);
+  assert.equal(x.f.rows.find(r0 => r0.id === again.row.id).status, 'done');
+  const ui = readFileSync(new URL('../app/brief-room.js', import.meta.url), 'utf8');
+  assert.match(ui, /canRetry\(state\.briefs\.get\(id\)\)/); assert.match(ui, /act==='retry'\)\{void start\(id,null\)/);
 });

@@ -1,7 +1,8 @@
 // S67-33: HWP(구형 한글 5.0)·HWPX 본문 글자를 적은 메모리로 읽는 한 곳. 외부 라이브러리 없음(Node 시험·Deno 배포 양쪽에서 읽으므로 .mjs).
 // 왜: 브리핑 read 단계가 npm:@ssabrojs/hwpxjs hwpToText로 작은 보도자료 HWP를 읽다가 Edge 메모리 한도(256MB)를 넘겨 함수가 죽었다(2026-11-20 운영 로그).
 // 방식:
-// - HWP: 파일(OLE 복합 문서)의 목차·FAT만 읽고, BodyText/Section0, Section1 … 스트림을 하나씩 '흘려서' 푼다(DecompressionStream).
+// - HWP: 파일(OLE 복합 문서)의 목차·FAT만 읽고, BodyText/Section0, Section1 … 스트림을 하나씩 '흘려서' 푼다
+//   (S67-37부터 자체 rawInflate: 한글이 섹션 끝에 붙이는 8바이트 꼬리를 Deno DecompressionStream이 오류로 버려서).
 //   푼 바이트는 레코드 단위로 보고 문단 글자(HWPTAG_PARA_TEXT)만 남기고 바로 버린다. 그림(BinData)·다른 스트림은 건드리지 않는다.
 //   메모리는 내려받은 파일 바이트 + 작은 버퍼(레코드 하나 크기) + 뽑은 글자뿐이다.
 // - HWPX: zip 안 Contents/section*.xml을 하나씩 흘려서 풀고, </hp:p> 문단 단위로 글자만 남긴다(XML 전체를 한 번에 문자열로 만들지 않음).
@@ -16,25 +17,27 @@ const HWPX_PARA_BUFFER = 8 * 1024 * 1024;         // 문단 하나가 이보다 
 const FREE = 0xffffffff, END = 0xfffffffe;
 const TAG_PARA_TEXT = 67;                          // HWPTAG_BEGIN(16) + 51
 
+// stage(S67-37): 어느 단계에서 멈췄는지(로그에는 이 코드만 남긴다, 글 내용 없음).
+// header·difat·fat·dir·minifat·stream·fileheader·bodytext·section_inflate·record
 export class HwpTextError extends Error {
-  constructor(code) { super(code); this.name = 'HwpTextError'; this.code = code; }
+  constructor(code, stage = '') { super(code); this.name = 'HwpTextError'; this.code = code; this.stage = stage; }
 }
-const bad = () => new HwpTextError('HWP_BAD');
+const bad = (stage = '') => new HwpTextError('HWP_BAD', stage);
 
 // --- OLE 복합 문서(CFB) ---------------------------------------------------------
 /** 목차와 FAT만 읽는다. 스트림 내용은 stream()이 조각(subarray, 복사 없음)으로 흘려 준다. */
 export function openCfb(bytes) {
-  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 1024) throw bad();
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 1024) throw bad('header');
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (v.getUint32(0, true) !== 0xe011cfd0 || v.getUint32(4, true) !== 0xe11ab1a1) throw bad();
+  if (v.getUint32(0, true) !== 0xe011cfd0 || v.getUint32(4, true) !== 0xe11ab1a1) throw bad('header');
   const shift = v.getUint16(30, true), miniShift = v.getUint16(32, true);
-  if ((shift !== 9 && shift !== 12) || miniShift !== 6) throw bad();
+  if ((shift !== 9 && shift !== 12) || miniShift !== 6) throw bad('header');
   const size = 1 << shift, miniSize = 1 << miniShift;
   const sectors = Math.floor((bytes.byteLength - size) / size) + 1; // 마지막 조각 섹터도 센다
   const fatCount = v.getUint32(44, true), dirStart = v.getUint32(48, true), cutoff = v.getUint32(56, true);
   const miniFatStart = v.getUint32(60, true), miniFatCount = v.getUint32(64, true);
   let difat = v.getUint32(68, true); const difatCount = v.getUint32(72, true);
-  if (fatCount > sectors || miniFatCount > sectors || difatCount > sectors) throw bad();
+  if (fatCount > sectors || miniFatCount > sectors || difatCount > sectors) throw bad('header');
   const off = s => (s + 1) * size;
   const okSector = s => s < sectors && off(s) < bytes.byteLength;
 
@@ -42,31 +45,31 @@ export function openCfb(bytes) {
   const fatSecs = [];
   for (let i = 0; i < 109 && fatSecs.length < fatCount; i++) fatSecs.push(v.getUint32(76 + i * 4, true));
   for (let k = 0; k < difatCount && fatSecs.length < fatCount; k++) {
-    if (!okSector(difat)) throw bad();
+    if (!okSector(difat)) throw bad('difat');
     const per = size / 4 - 1;
     for (let i = 0; i < per && fatSecs.length < fatCount; i++) fatSecs.push(v.getUint32(off(difat) + i * 4, true));
     difat = v.getUint32(off(difat) + per * 4, true);
   }
   const fat = new Uint32Array(fatSecs.length * (size / 4));
   fatSecs.forEach((s, i) => {
-    if (!okSector(s)) throw bad();
+    if (!okSector(s)) throw bad('fat');
     for (let j = 0; j < size / 4; j++) fat[i * (size / 4) + j] = off(s) + j * 4 + 4 <= bytes.byteLength ? v.getUint32(off(s) + j * 4, true) : FREE;
   });
   /** 사슬 따라가기(고리·범위 밖이면 HWP_BAD). */
-  const chain = (start, table, limit) => {
+  const chain = (start, table, limit, stage) => {
     const out = [];
     for (let s = start; s !== END; s = table[s]) {
-      if (s === FREE || s >= table.length || out.length > limit) throw bad();
+      if (s === FREE || s >= table.length || out.length > limit) throw bad(stage);
       out.push(s);
     }
     return out;
   };
 
-  const dirChain = chain(dirStart, fat, sectors);
+  const dirChain = chain(dirStart, fat, sectors, 'dir');
   const entries = [];
   const dec = new TextDecoder('utf-16le');
   for (const s of dirChain) {
-    if (!okSector(s)) throw bad();
+    if (!okSector(s)) throw bad('dir');
     for (let j = 0; j < size / 128; j++) {
       const at = off(s) + j * 128;
       if (at + 128 > bytes.byteLength) break;
@@ -79,15 +82,15 @@ export function openCfb(bytes) {
     }
   }
   const root = entries[0];
-  if (!root || root.type !== 5) throw bad();
+  if (!root || root.type !== 5) throw bad('dir');
   const miniFat = (() => {
     if (!miniFatCount || miniFatStart === END) return new Uint32Array(0);
-    const secs = chain(miniFatStart, fat, sectors);
+    const secs = chain(miniFatStart, fat, sectors, 'minifat');
     const t = new Uint32Array(secs.length * (size / 4));
-    secs.forEach((s, i) => { if (!okSector(s)) throw bad(); for (let j = 0; j < size / 4; j++) t[i * (size / 4) + j] = off(s) + j * 4 + 4 <= bytes.byteLength ? v.getUint32(off(s) + j * 4, true) : FREE; });
+    secs.forEach((s, i) => { if (!okSector(s)) throw bad('minifat'); for (let j = 0; j < size / 4; j++) t[i * (size / 4) + j] = off(s) + j * 4 + 4 <= bytes.byteLength ? v.getUint32(off(s) + j * 4, true) : FREE; });
     return t;
   })();
-  const rootChain = root.start === END ? [] : chain(root.start, fat, sectors);
+  const rootChain = root.start === END ? [] : chain(root.start, fat, sectors, 'minifat');
 
   /** 한 저장소(storage)의 자식 항목들(이름 → 항목). */
   function children(entry) {
@@ -108,27 +111,27 @@ export function openCfb(bytes) {
     let left = entry.size;
     if (left === 0) return;
     if (left < cutoff) {
-      for (const m of chain(entry.start, miniFat, miniFat.length)) {
+      for (const m of chain(entry.start, miniFat, miniFat.length, 'stream')) {
         const pos = m * miniSize, big = rootChain[Math.floor(pos / size)];
-        if (big === undefined || !okSector(big)) throw bad();
+        if (big === undefined || !okSector(big)) throw bad('stream');
         const at = off(big) + (pos % size), n = Math.min(miniSize, left);
-        if (at + n > bytes.byteLength) throw bad();
+        if (at + n > bytes.byteLength) throw bad('stream');
         yield bytes.subarray(at, at + n);
         left -= n;
         if (left <= 0) return;
       }
-      if (left > 0) throw bad();
+      if (left > 0) throw bad('stream');
       return;
     }
     let runStart = -1, runLen = 0;
-    for (const s of chain(entry.start, fat, sectors)) {
-      if (!okSector(s)) throw bad();
+    for (const s of chain(entry.start, fat, sectors, 'stream')) {
+      if (!okSector(s)) throw bad('stream');
       if (runStart >= 0 && s === runStart + runLen && runLen < 256) { runLen++; continue; }
       if (runStart >= 0) { const n = Math.min(runLen * size, left); yield bytes.subarray(off(runStart), off(runStart) + n); left -= n; if (left <= 0) return; }
       runStart = s; runLen = 1;
     }
     if (runStart >= 0 && left > 0) { const n = Math.min(runLen * size, left, bytes.byteLength - off(runStart)); yield bytes.subarray(off(runStart), off(runStart) + n); left -= n; }
-    if (left > 0) throw bad();
+    if (left > 0) throw bad('stream');
   }
 
   return { root, children, stream };
@@ -136,13 +139,166 @@ export function openCfb(bytes) {
 
 /** 스트림 하나를 한 덩어리로(작은 스트림 전용: FileHeader 등). */
 function readSmall(cfb, entry, max) {
-  if (entry.size > max) throw bad();
+  if (entry.size > max) throw bad('stream');
   const out = new Uint8Array(entry.size); let at = 0;
   for (const p of cfb.stream(entry)) { out.set(p, at); at += p.byteLength; }
   return out;
 }
 
-// --- 흘려서 풀기 ----------------------------------------------------------------
+// --- 순수 JS raw deflate 풀기(HWP 본문 섹션 전용) -------------------------------------
+// 왜(S67-37): 한글 프로그램이 만든 HWP는 섹션 압축 끝에 8바이트(CRC32 + 원래 크기)를 덧붙인다.
+// Node의 DecompressionStream은 이 꼬리를 조용히 넘기지만, 운영(Supabase Edge = Deno)의 DecompressionStream('deflate-raw')은
+// "failed to write whole buffer" 오류로 결과 전체를 버린다 → 실제 HWP가 모두 '읽기 실패'였다(합성 시험은 꼬리가 없어 통과).
+// 그래서 런타임 도구에 기대지 않고 직접 푼다: 마지막 블록에서 멈추고 뒤 바이트는 보지 않는다. Node·Deno가 같은 코드로 같은 결과.
+// 메모리: 출력 창 32KB + 조각 OUT_CHUNK(풀린 조각은 복사본으로 내보낸다).
+const OUT_CHUNK = 64 * 1024, WINDOW = 32768;
+const LBASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+const LEXT = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+const DBASE = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+const DEXT = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+const CLORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+const inflateBad = () => new HwpTextError('HWP_BAD', 'section_inflate');
+
+/** 정규 허프만 표: 항목 = (기호 << 4) | 길이. 길이 0 = 없는 부호. */
+function huffTable(lengths) {
+  let max = 0;
+  for (const l of lengths) if (l > max) max = l;
+  if (!max) return { table: new Int32Array(1), bits: 0 };
+  const count = new Uint16Array(16);
+  for (const l of lengths) count[l]++;
+  count[0] = 0;
+  const next = new Uint16Array(16);
+  let code = 0, left = 1;
+  for (let b = 1; b <= 15; b++) {
+    left <<= 1; left -= count[b];
+    if (left < 0) throw inflateBad(); // 부호가 넘침(깨진 압축)
+    code = (code + count[b - 1]) << 1; next[b] = code;
+  }
+  const size = 1 << max, table = new Int32Array(size);
+  for (let sym = 0; sym < lengths.length; sym++) {
+    const len = lengths[sym];
+    if (!len) continue;
+    let c = next[len]++, r = 0;
+    for (let i = 0; i < len; i++) { r = (r << 1) | (c & 1); c >>= 1; }
+    for (let j = r; j < size; j += 1 << len) table[j] = (sym << 4) | len;
+  }
+  return { table, bits: max };
+}
+let FIXED = null;
+function fixedTables() {
+  if (FIXED) return FIXED;
+  const l = new Uint8Array(288);
+  l.fill(8, 0, 144); l.fill(9, 144, 256); l.fill(7, 256, 280); l.fill(8, 280, 288);
+  FIXED = { lit: huffTable(l), dist: huffTable(new Uint8Array(30).fill(5)) };
+  return FIXED;
+}
+
+/**
+ * 조각들(압축 바이트)을 풀어 조각(Uint8Array 복사본)으로 내보낸다. 마지막 블록이 끝나면 멈춘다(뒤 바이트 무시).
+ * onIn(n): 새로 꺼낸 입력 조각 크기. stop()이 참이면 다음 출력 조각을 내보낸 뒤 그만둔다.
+ */
+export function* rawInflate(parts, { onIn = () => {}, stop = () => false } = {}) {
+  const it = parts[Symbol.iterator]();
+  let cur = new Uint8Array(0), ci = 0, ended = false;
+  let bitbuf = 0, bitcnt = 0;
+  const fill = n => {
+    while (bitcnt < n) {
+      while (ci >= cur.byteLength) {
+        if (ended) return;
+        const r = it.next();
+        if (r.done) { ended = true; return; }
+        cur = r.value; ci = 0; onIn(cur.byteLength);
+      }
+      bitbuf |= cur[ci++] << bitcnt; bitcnt += 8;
+    }
+  };
+  const bits = n => {
+    if (!n) return 0;
+    fill(n);
+    if (bitcnt < n) throw inflateBad(); // 압축이 중간에 끊겼다
+    const v = bitbuf & ((1 << n) - 1);
+    bitbuf >>>= n; bitcnt -= n;
+    return v;
+  };
+  const sym = t => {
+    fill(t.bits);
+    const e = t.table[bitbuf & ((1 << t.bits) - 1)], len = e & 15;
+    if (!len || len > bitcnt) throw inflateBad();
+    bitbuf >>>= len; bitcnt -= len;
+    return e >>> 4;
+  };
+  const out = new Uint8Array(WINDOW + OUT_CHUNK);
+  let pos = 0, flushed = 0, total = 0;
+  // 출력 창이 차면 내보낼 조각을 돌려주고 최근 32KB만 앞으로 옮긴다.
+  const rotate = () => {
+    const piece = out.slice(flushed, pos);
+    out.copyWithin(0, pos - WINDOW, pos); pos = WINDOW; flushed = WINDOW;
+    return piece;
+  };
+  let last = 0;
+  while (!last) {
+    last = bits(1);
+    const type = bits(2);
+    if (type === 0) {
+      bitbuf >>>= bitcnt & 7; bitcnt -= bitcnt & 7;
+      const len = bits(16), nlen = bits(16);
+      if ((len ^ 0xffff) !== nlen) throw inflateBad();
+      for (let i = 0; i < len; i++) {
+        if (pos === out.byteLength) { yield rotate(); if (stop()) return; }
+        out[pos++] = bits(8); total++;
+      }
+      continue;
+    }
+    let lit, dist;
+    if (type === 1) ({ lit, dist } = fixedTables());
+    else if (type === 2) {
+      const hlit = bits(5) + 257, hdist = bits(5) + 1, hclen = bits(4) + 4;
+      const cl = new Uint8Array(19);
+      for (let i = 0; i < hclen; i++) cl[CLORDER[i]] = bits(3);
+      const clt = huffTable(cl);
+      const lens = new Uint8Array(hlit + hdist);
+      for (let i = 0; i < hlit + hdist;) {
+        const s = sym(clt);
+        if (s < 16) { lens[i++] = s; continue; }
+        let rep, val = 0;
+        if (s === 16) { if (!i) throw inflateBad(); val = lens[i - 1]; rep = 3 + bits(2); }
+        else if (s === 17) rep = 3 + bits(3);
+        else rep = 11 + bits(7);
+        if (i + rep > lens.length) throw inflateBad();
+        lens.fill(val, i, i + rep); i += rep;
+      }
+      if (!lens[256]) throw inflateBad(); // 블록 끝 부호가 없다
+      lit = huffTable(lens.subarray(0, hlit)); dist = huffTable(lens.subarray(hlit));
+    } else throw inflateBad();
+    for (;;) {
+      if (pos + 258 > out.byteLength) { yield rotate(); if (stop()) return; }
+      const s = sym(lit);
+      if (s < 256) { out[pos++] = s; total++; continue; }
+      if (s === 256) break;
+      const li = s - 257;
+      if (li >= 29) throw inflateBad();
+      const len = LBASE[li] + bits(LEXT[li]);
+      const di = sym(dist);
+      if (di >= 30) throw inflateBad();
+      const d = DBASE[di] + bits(DEXT[di]);
+      if (d > total || d > WINDOW) throw inflateBad();
+      for (let k = 0; k < len; k++) { out[pos] = out[pos - d]; pos++; }
+      total += len;
+    }
+  }
+  if (pos > flushed) yield out.slice(flushed, pos);
+}
+
+/** HWP 섹션 조각(압축이면 rawInflate로 푼 것). */
+function* hwpParts(parts, compressed, { onIn, stop }) {
+  if (!compressed) {
+    for (const p of parts) { if (stop()) return; onIn(p.byteLength); yield p; }
+    return;
+  }
+  yield* rawInflate(parts, { onIn, stop });
+}
+
+// --- 흘려서 풀기(HWPX zip 항목: 꼬리 바이트가 없는 표준 deflate라 런타임 도구를 쓴다) ----------------------
 /** 조각들을 압축 해제하며 흘려 보낸다. onIn(n): 넣은 압축 바이트. stop()이 참이면 그만 넣는다. */
 async function* inflateParts(parts, compressed, { onIn, stop }) {
   if (!compressed) {
@@ -175,13 +331,13 @@ async function* inflateParts(parts, compressed, { onIn, stop }) {
     }
   } catch (e) {
     // 그만 넣다가 닫으면 끝이 덜 된 압축이라 오류가 날 수 있다 — 멈춘 경우는 정상으로 본다.
-    if (!stop()) throw bad();
+    if (!stop()) throw bad('section_inflate');
   } finally {
     await reader.cancel().catch(() => {});
     await writer.abort().catch(() => {});
     await feeding;
   }
-  if (failed && !stop()) throw bad();
+  if (failed && !stop()) throw bad('section_inflate');
 }
 
 // --- HWP 레코드 ------------------------------------------------------------------
@@ -217,7 +373,7 @@ async function hwpSection(cfb, entry, compressed, { skip, budget }) {
     if (para >= skip) { const line = paraText(data); lines.push(line); budget.chars += line.length; }
     para++;
   };
-  for await (const piece of inflateParts(cfb.stream(entry), compressed, { onIn: n => { if (para >= skip) budget.in += n; }, stop })) {
+  for (const piece of hwpParts(cfb.stream(entry), compressed, { onIn: n => { if (para >= skip) budget.in += n; }, stop })) {
     if (para >= skip) budget.outBytes += piece.byteLength;
     let p = piece;
     if (skipBytes) { const k = Math.min(skipBytes, p.byteLength); skipBytes -= k; p = p.subarray(k); }
@@ -241,7 +397,7 @@ async function hwpSection(cfb, entry, compressed, { skip, budget }) {
       }
       at += head;
       if (tag === TAG_PARA_TEXT && para >= skip) {
-        if (size > 64 * 1024 * 1024) throw bad();
+        if (size > 64 * 1024 * 1024) throw bad('record');
         if (!size) { take(new Uint8Array(0)); if (stop()) break; continue; }
         want = size;
         continue;
@@ -253,7 +409,7 @@ async function hwpSection(cfb, entry, compressed, { skip, budget }) {
     buf = at < p.byteLength ? p.slice(at) : new Uint8Array(0);
     if (stop()) return { lines, para, done: false };
   }
-  if (want) throw bad(); // 레코드가 중간에 끊겼다
+  if (want) throw bad('record'); // 레코드가 중간에 끊겼다
   return { lines, para, done: !stop() };
 }
 
@@ -262,18 +418,18 @@ export function hwpInfo(bytes) {
   const cfb = openCfb(bytes);
   const top = cfb.children(cfb.root);
   const header = top.get('FileHeader');
-  if (!header) throw bad();
+  if (!header) throw bad('fileheader');
   const h = readSmall(cfb, header, 4096);
-  if (h.byteLength < 40 || new TextDecoder('latin1').decode(h.subarray(0, 17)) !== 'HWP Document File') throw bad();
+  if (h.byteLength < 40 || new TextDecoder('latin1').decode(h.subarray(0, 17)) !== 'HWP Document File') throw bad('fileheader');
   const flags = new DataView(h.buffer, h.byteOffset, h.byteLength).getUint32(36, true);
   if (flags & 0x2 || flags & 0x4) throw new HwpTextError('HWP_LOCKED');
   const body = top.get('BodyText');
-  if (!body || body.type !== 1) throw bad();
+  if (!body || body.type !== 1) throw bad('bodytext');
   const secs = [...cfb.children(body).entries()]
     .map(([name, e]) => ({ n: Number(name.match(/^Section(\d{1,4})$/)?.[1] ?? NaN), e }))
     .filter(s => Number.isInteger(s.n) && s.e.type === 2)
     .sort((a, b) => a.n - b.n);
-  if (!secs.length) throw bad();
+  if (!secs.length) throw bad('bodytext');
   return { cfb, compressed: (flags & 0x1) === 1, sections: secs.map(s => s.e) };
 }
 
@@ -298,6 +454,31 @@ export async function hwpRead(bytes, { from = { sec: 0, para: 0 }, sliceIn = HWP
     if (budget.out() && sec + 1 < sections.length) return { text: out.join('\n'), next: { sec: sec + 1, para: 0 }, sections: sections.length, sizes: sections.map(e => e.size) };
   }
   return { text: out.join('\n'), next: null, sections: sections.length, sizes: sections.map(e => e.size) };
+}
+
+/**
+ * 안전망(S67-37): 본문(BodyText)을 못 읽을 때 쓰는 미리보기 글자(PrvText 스트림, 압축 없는 UTF-16LE, 보통 첫 쪽 앞부분).
+ * 한글이 파일을 저장할 때 탐색기 미리보기용으로 넣는다. 표 칸은 <칸> 꺾쇠로 감싸 있어 꺾쇠만 벗긴다.
+ * 암호 걸린 문서는 돌려주지 않는다(''). 배포용 문서는 본문만 암호화되고 미리보기는 그대로라 돌려준다. 못 읽으면 ''(던지지 않음).
+ */
+export function hwpPreview(bytes) {
+  try {
+    const cfb = openCfb(bytes);
+    const top = cfb.children(cfb.root);
+    const header = top.get('FileHeader');
+    if (!header) return '';
+    const h = readSmall(cfb, header, 4096);
+    if (h.byteLength < 40 || new TextDecoder('latin1').decode(h.subarray(0, 17)) !== 'HWP Document File') return '';
+    if (new DataView(h.buffer, h.byteOffset, h.byteLength).getUint32(36, true) & 0x2) return '';
+    const e = top.get('PrvText');
+    if (!e || e.type !== 2 || !e.size) return '';
+    const data = readSmall(cfb, e, 1024 * 1024);
+    return new TextDecoder('utf-16le').decode(data.subarray(0, data.byteLength & ~1))
+      .replace(/\u0000/g, '').replace(/\r\n?/g, '\n')
+      .replace(/<([^<>\n]{0,400})>/g, '$1 ').replace(/[ \t]+\n/g, '\n').trim();
+  } catch {
+    return '';
+  }
 }
 
 // --- HWPX(zip) -----------------------------------------------------------------
