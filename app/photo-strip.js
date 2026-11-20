@@ -23,6 +23,9 @@ import {ACT_ICON} from './action-bar.mjs'; // UI-고르기줄(S48-54): 아래 �
 import {PHOTO_MENUS, PHOTO_BAR_MENUS} from './photo-menu-items.mjs';
 import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [편집 ▾]·[더보기] 글자 메뉴
 import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기는 고르기 줄과 같은 코드 하나
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('photo-strip');
 
 let viewer = null, pending = null;
 

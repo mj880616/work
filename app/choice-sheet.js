@@ -1,6 +1,9 @@
 import {emptyHtml} from './wait-state.js';
 // Shared native selection sheet, originally the home quick-input sheet (PR 428).
 import {WIDE_QUERY,placeAnchored,bottomInset,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('choice-sheet');
 // UI-고르기창개선 B: one project per line. A child is indented by its depth (no "↳"); on a PC list (anchored) it is also lighter and
 // every row has a small check box, green when chosen. Phones keep the plain rows. extra: more attributes for the button.
 // PRJ-3단: a third-level row given x.path (its parents, "1단 › 2단") shows that path in small gray text only while the search box
