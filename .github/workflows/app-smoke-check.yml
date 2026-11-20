@@ -55,6 +55,7 @@ on:
       - 'tests/chip-rows.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/loader-preload.test.mjs'
+      - 'tests/part-styles.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/schedule-line-split.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -324,6 +325,7 @@ on:
       - 'tests/chip-rows.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/loader-preload.test.mjs'
+      - 'tests/part-styles.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/schedule-line-split.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -659,6 +661,9 @@ jobs:
 
       - name: Check loader preload lists (PERF-첫로딩 P3)
         run: node --test tests/loader-preload.test.mjs
+
+      - name: 공용 부품이 자기 모양 파일을 스스로 붙임(S67-41 part-styles.js 표)
+        run: node --test tests/part-styles.test.mjs
 
       - name: Check Web2 app icon files (UI-앱아이콘 메모+체크)
         run: node --test tests/app-icon.test.mjs
@@ -1220,6 +1225,9 @@ jobs:
 
       - name: Check telegram room view model (TG-방별보기)
         run: node --test tests/tg-room-view-model.test.mjs
+
+      - name: Check telegram room find model (S67-45 TG-방상세요약먼저)
+        run: node --test tests/tg-room-find-model.test.mjs
 
       - name: Check feed pull now model and part (FEED-최신화즉시수집)
         run: node --test tests/feed-pull-model.test.mjs

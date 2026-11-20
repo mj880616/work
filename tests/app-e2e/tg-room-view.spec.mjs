@@ -4,7 +4,7 @@
 // 서버는 흉내(helpers/tg-room-day-server.mjs, view-prefs-server.mjs). 방·폴더 이름은 모두 지어낸 것. 시계는 2026-10-06 10:00(한국)으로 고정.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {installTgServer,telegramRows,F} from './helpers/tg-room-day-server.mjs';
+import {installTgServer,telegramRows,F,T} from './helpers/tg-room-day-server.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const A6='room-a|2026-10-06',A5='room-a|2026-10-05',A0='room-a|2026-09-20';
@@ -62,13 +62,35 @@ for(const width of [1440,884,412])test.describe(`방별 ${width}`,()=>{
   const d6=detail.locator(`[data-tg-rday="${A6}"]`);
   await expect(d6.locator('.feed-rday-head')).toHaveText('10. 6. (화)');
   await expect(d6.locator('[data-tg-daybox]')).toContainText('교섭이 다음 주 화요일로 미뤄졌다.');
-  await expect(d6.locator('[data-tg-di]')).toHaveCount(2);
-  await expect(detail.locator(`[data-tg-rday="${A0}"] [data-tg-di]`)).toHaveCount(1);
+  // S67-45: 날마다 요약만 이어서 보이고, 그날 소식 줄·원문은 접혀 있다(상자 오른쪽 위 작은 [소식 n]·[원문 n]).
+  await expect(detail.locator('[data-tg-di]')).toHaveCount(0);
   await expect(detail.locator('[data-tg-raw]')).toHaveCount(0);
+  await expect(d6.locator('[data-tg-rexp]')).toHaveText('소식 2');
+  await expect(d6.locator('[data-tg-rraw]')).toHaveText('원문 5');
+  await expect(d6.locator('[data-tg-rexp]')).toHaveAttribute('aria-expanded','false');
+  // 요약이 없는 옛 날(9/20)은 '요약 없음' 상자에 소식 제목만, 소식 줄은 접힘.
+  const d0=detail.locator(`[data-tg-rday="${A0}"]`);
+  await expect(d0.locator('[data-tg-daybox] .feed-k')).toHaveText('요약 없음');
+  await expect(d0.locator('[data-tg-daybox]')).toContainText('아주 옛 공지');
   await expect(page).toHaveURL(/[?&]room=room-a(?:&|$)/);
-  // 원문은 소식 줄을 눌러야 펼쳐진다.
+  // [소식 2] → 그날 소식 줄(원문은 아직 접힘) → 소식 줄을 누르면 원문.
+  await press(page,d6.locator('[data-tg-rexp]'),width);
+  await expect(d6.locator('[data-tg-di]')).toHaveCount(2);
+  await expect(d6.locator('[data-tg-rexp]')).toHaveAttribute('aria-expanded','true');
+  await expect(detail.locator('[data-tg-raw]')).toHaveCount(0);
+  await expect(detail.locator(`[data-tg-rday="${A5}"] [data-tg-di]`)).toHaveCount(0);
   await press(page,d6.locator('[data-tg-open]').first(),width);
   await expect(d6.locator('[data-tg-raw]')).toBeVisible();
+  // [원문 n] → 그날 소식 줄과 원문이 모두 펼쳐지고, 다시 누르면 원문만 접힌다. [소식 n]을 다시 누르면 그날이 접힌다.
+  const d5=detail.locator(`[data-tg-rday="${A5}"]`);
+  await press(page,d5.locator('[data-tg-rraw]'),width);
+  await expect(d5.locator('[data-tg-raw]')).toHaveCount(1);
+  await expect(d5.locator('[data-tg-raw]')).toContainText('기자회견 10. 8. 11시 확정');
+  await press(page,d5.locator('[data-tg-rraw]'),width);
+  await expect(d5.locator('[data-tg-raw]')).toHaveCount(0);
+  await expect(d5.locator('[data-tg-di]')).toHaveCount(1);
+  await press(page,d5.locator('[data-tg-rexp]'),width);
+  await expect(d5.locator('[data-tg-di]')).toHaveCount(0);
   if(width>=761){
    // PC·폴드 펼침: 왼쪽 방 목록과 오른쪽 칸이 나란히(칸 폭 끌기 경계 있음).
    await expect(view.locator('#tgList')).toBeVisible();
@@ -159,6 +181,56 @@ for(const width of [1440,884,412])test.describe(`보기 바꿈 높이 ${width}`,
   await expect(view.locator('[data-tg-day]').first()).toBeVisible();
   await expect(view.locator('[data-tg-roomhead]')).toHaveCount(0);
   expect(Math.abs((await rowBoxes(view))[0].y-day[0].y)).toBeLessThanOrEqual(1);
+  expect(f.errors).toEqual([]);
+ });
+});
+
+// S67-45 TG-방상세요약먼저(요청함 11/20 21:33): 방 상세 위 작은 찾기 — 그 방 소식의 원문·요약·제목을 서버(소유자 읽기 표)에서 찾고,
+// 찾은 줄을 누르면 그날을 펼쳐 그 소식 원문으로 옮긴다. 옛 날(불러온 14일 밖)이면 그날까지 이어 불러온다. 캡처는 KPTU_SHOTS가 있을 때만.
+const SHOTS45=process.env.KPTU_SHOTS?'docs/design/screens/s67-45/':'';
+for(const width of [1440,412])test.describe(`방 상세 찾기 ${width}`,()=>{
+ test.use({hasTouch:width<761});
+ test(`찾기 → 찾은 소식 → 그날 펼치고 원문으로, 옛 날도, 없으면 한 줄 ${width}`,async({page})=>{
+  const f=await fixture(page,{width,prefs:{tg_view:'room'}}),finds=[];
+  page.on('request',r=>{const u=new URL(r.url());if(u.pathname==='/rest/v1/app_feed_items'&&u.searchParams.get('or'))finds.push(Object.fromEntries(u.searchParams));});
+  await openTelegram(page,width);
+  const view=page.locator('#telegramView'),detail=view.locator('#tgDetail');
+  await press(page,view.locator('[data-tg-roomrow="room-a"] [data-tg-roomopen]'),width);
+  await expect(detail.locator(`[data-tg-rday="${A6}"] [data-tg-daybox]`)).toContainText('교섭이 다음 주 화요일로 미뤄졌다.');
+  if(SHOTS45)await page.screenshot({path:`${SHOTS45}room-days-${width}.png`});
+  const input=detail.locator('[data-tg-find-input]');
+  await expect(input).toHaveAttribute('placeholder','이 방에서 찾기');
+  // 원문에만 있는 글자.
+  await input.fill('두 시로');await input.press('Enter');
+  const found=detail.locator('[data-tg-found] [data-tg-found-go]');
+  await expect(found).toHaveCount(1);
+  await expect(found.first()).toContainText('10.06 (화) 09:31');
+  await expect(found.first()).toContainText('다음 주 화요일 두 시로 잡혔어요');
+  expect(finds.at(-1).room_key).toBe('eq.room-a');expect(finds.at(-1).source).toBe('eq.telegram');expect(finds.at(-1).hidden_at).toBe('is.null');
+  expect(finds.at(-1).or).toBe('(raw_text.ilike."*두 시로*",summary.ilike."*두 시로*",title.ilike."*두 시로*")');
+  await press(page,found.first(),width);
+  const hit=detail.locator(`[data-tg-di="${T.a1}"]`);
+  await expect(hit).toHaveClass(/is-found/);
+  await expect(hit.locator('[data-tg-raw]')).toContainText('다음 주 화요일 두 시로 잡혔어요');
+  await expect(detail.locator(`[data-tg-rday="${A6}"] [data-tg-rexp]`)).toHaveAttribute('aria-expanded','true');
+  await expect(hit.locator('[data-tg-open]')).toBeFocused();
+  await expect(hit).toBeInViewport();
+  if(SHOTS45)await page.screenshot({path:`${SHOTS45}room-find-${width}.png`});
+  // 옛 날(9/20)의 원문.
+  await input.fill('옛 공지');await input.press('Enter');
+  await expect(found).toHaveCount(1);
+  await press(page,found.first(),width);
+  const old=detail.locator(`[data-tg-di="${T.aOld}"]`);
+  await expect(old.locator('[data-tg-raw]')).toContainText('옛 공지',{timeout:15000});
+  await expect(old).toBeInViewport();
+  // 없는 글자는 한 줄, ✕로 닫는다.
+  await input.fill('없는 글자');await input.press('Enter');
+  await expect(detail.locator('[data-tg-find-status]')).toHaveText('찾은 소식 없음');
+  await press(page,detail.locator('[data-tg-find-close]'),width);
+  await expect(detail.locator('[data-tg-find-status]')).toHaveCount(0);
+  await expect(input).toHaveValue('');
+  if(width<761){await page.goBack();await expect(view.locator('#tgList')).toBeVisible();await expect(detail).toBeHidden();}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(f.errors).toEqual([]);
  });
 });

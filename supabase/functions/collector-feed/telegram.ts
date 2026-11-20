@@ -3,7 +3,8 @@
 // - 보내는 이는 A·B·C 같은 임시 이름으로 온다(앱 스크립트가 바꿈). 서버가 아는 표시 이름(손 이름 → "나" → 수집기 이름)이 있으면 재료에서만 그 이름으로 바꾼다(TG-발언자이름 결정 3, 10/27 변경). 번호·@아이디·key는 AI에 가지 않는다. 메시지는 m1, m2 … 참조로만 AI에 보인다.
 // - 조직·프로젝트는 내 목록의 짧은 참조(o1, p1 …)만 보내고, 답의 참조를 서버가 ID로 바꾼다. AI가 ID를 만들 수 없다.
 // - AI 답은 믿지 않는 입력: 글자 수·참조를 다시 검사한다. 응답이 깨졌으면 전체를 버리고(아무것도 저장하지 않음), 항목 하나가 틀리면 그 항목만 뺀다.
-import { cleanLine } from "./call-analysis.ts";
+import { cleanLine, type OrgRow } from "./call-analysis.ts";
+import { mentionedOrgs } from "../_shared/org-name-match.mjs";
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 
 export const TG_LIMITS = Object.freeze({
@@ -33,6 +34,12 @@ export const TG_LIMITS = Object.freeze({
 export type TgEarlier = { at: number; title: string | null; summary: string };
 export type TgMessage = { ref: string; at: number; sender: string; text: string; reply_to: string | null; forwarded: boolean };
 export type LinkOption = { ref: string; id: string; name: string };
+// S67-47 ORG-근거만: AI가 고른 담당조직은 그 소식의 근거 글(방 이름·근거 메시지·보낸 이의 표시 이름)에
+// 그 조직의 이름·약칭이 실제로 적혀 있을 때만 남긴다(근거가 없으면 비워 두고 명진이 고른다). 통화의 연락처 근거와 같은 공용 판단(mentionedOrgs).
+export function tgOrgEvidenced(orgId: string | null, orgs: OrgRow[], evidence: string): boolean {
+  if (!orgId) return false;
+  return (mentionedOrgs(evidence, orgs.filter((o) => o && o.active !== false)) as OrgRow[]).some((o) => o.id === orgId);
+}
 // 그날 이 방·이 묶음의 하루 요약(TG-방날짜묶기 설계 3.1절). DB 함수 app_feed_room_day_add의 headline·lines와 같은 한도.
 export type TgDay = { headline: string | null; lines: string[] };
 // 나한테 온 요청(ask_me). quote = 근거 메시지의 messages 배열 안 위치. due = 메시지에 나온 기한(없으면 null).

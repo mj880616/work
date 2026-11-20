@@ -21,6 +21,9 @@ import * as NM from './business-now-model.mjs';
 import * as ND from './business-now-data.js';
 import {meetingLine} from './journal-data.js';
 import {askConfirm} from './small-notice.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('biz-detail-window');
 
 const MARKS = '/rest/v1/app_report_line_marks';
 const MARK_COLS = 'id,week_start,section,ref_kind,ref_key,report_body,choice,detail,updated_at';

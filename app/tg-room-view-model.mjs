@@ -39,3 +39,29 @@ export function roomPage(days, shown, {end = true} = {}) {
   const n = Math.max(0, Math.min(days.length, Number(shown) || 0));
   return {days:days.slice(0, n), more:n < days.length || !end};
 }
+
+// S67-45 TG-방상세요약먼저(요청함 11/20 21:33 "방별로 볼 땐 날짜별 요약을 쭉 보고 / 필요할 때만 원문을 찾아서 클릭해서 보는 방향으로"):
+// 방 상세의 날마다 요약만 보이고, 그날 소식 줄·원문은 [소식 n]·[원문 n]으로 펼친다. 위쪽 작은 찾기는 그 방 소식(원문·요약·제목)에서 글자를 찾는다.
+export const ROOM_FIND_MAX = 40;
+export const ROOM_FIND_LIMIT = 20;
+// 찾을 글자 다듬기: 줄바꿈·제어 문자는 띄어쓰기로, '*'(서버 쪽 아무 글자 표시)는 뺀다. 남는 것이 없으면 ''.
+export function roomFindNeedle(q) {
+  return String(q ?? '').replace(/[\u0000-\u001f\u007f*]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, ROOM_FIND_MAX).trim();
+}
+// 서버 읽기 거르기(PostgREST or=): 원문·요약·제목 가운데 하나에 그 글자가 든 소식. %·_·\는 글자 그대로 찾도록 막고, 따옴표 안에 넣는다.
+export function roomFindFilter(needle) {
+  const n = roomFindNeedle(needle); if (!n) return '';
+  const like = n.replace(/[\\%_]/g, m => '\\' + m), v = `"*${like.replace(/["\\]/g, m => '\\' + m)}*"`;
+  return `(${['raw_text', 'summary', 'title'].map(c => `${c}.ilike.${v}`).join(',')})`;
+}
+// 찾은 소식 한 줄의 글: 원문에서 찾은 글자 앞뒤(줄 하나), 원문에 없으면 요약·제목. 길면 앞뒤를 '…'로 줄인다.
+export function roomFindSnippet(row, needle, max = 60) {
+  const n = roomFindNeedle(needle).toLowerCase(), pick = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const raw = String(row?.raw_text || '').split('\n').map(pick).find(l => n && l.toLowerCase().includes(n));
+  const text = raw || pick(row?.summary) || pick(row?.title);
+  if (text.length <= max) return text;
+  const at = n ? text.toLowerCase().indexOf(n) : -1;
+  if (at < 0) return text.slice(0, max - 1) + '…';
+  const start = Math.max(0, Math.min(at - Math.floor((max - n.length) / 2), text.length - max));
+  return (start > 0 ? '…' : '') + text.slice(start, start + max) + (start + max < text.length ? '…' : '');
+}

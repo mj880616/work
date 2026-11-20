@@ -287,6 +287,19 @@
 #telegramView .feed-vsw{margin-right:4px}
 #telegramView .feed-rday + .feed-rday{margin-top:6px;border-top:var(--ds-line-width) solid var(--kptu-border)}
 #telegramView .feed-rday-head{margin:0;font-weight:var(--ds-weight-medium,500)}
+/* S67-45 TG-방상세요약먼저: 방 상세는 날마다 요약만, 상자 오른쪽 위 작은 [소식 n]·[원문 n]으로 그날 소식 줄·원문을 펼친다. 위쪽 작은 찾기 칸과 찾은 소식 줄. */
+#telegramView .feed-rexp{color:var(--kptu-link);font-size:var(--ds-text-meta);white-space:nowrap}
+#telegramView .feed-rexp[aria-expanded="true"]{color:var(--kptu-ink);font-weight:var(--ds-weight-medium)}
+#telegramView .feed-find{display:flex;align-items:center;gap:6px;margin:2px 0 4px}
+#telegramView .feed-find-input{flex:1 1 auto;min-width:0;height:var(--ds-compact-height);margin:0;padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);box-sizing:border-box}
+#telegramView .feed-find-go,#telegramView .feed-find-x{flex:none}
+#telegramView .feed-found{margin:0 0 6px;padding-bottom:2px;box-shadow:inset 0 -1px 0 var(--kptu-border)}
+#telegramView .feed-found-n{margin:2px 0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+#telegramView .feed-found-row{display:flex;align-items:baseline;gap:8px;width:100%;padding:6px 4px;color:var(--kptu-ink);font-size:var(--ds-text-row);text-align:left;box-shadow:inset 0 1px 0 var(--kptu-border)}
+#telegramView .feed-found-row .feed-at{flex:none;width:auto;white-space:nowrap;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+#telegramView .feed-found-row .feed-tx{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#telegramView .feed-found-row.is-found{box-shadow:inset 0 1px 0 var(--kptu-border),inset 2px 0 0 var(--kptu-link)}
+#telegramView .feed-di.is-found{box-shadow:inset 2px 0 0 var(--kptu-link)}
 /* PC 목록 칸(1/3)은 좁아 [날짜별 | 방별]까지 한 줄에 다 들어가지 않을 수 있다: 칸 안 가로 스크롤 대신 다음 줄로 넘긴다(UI-칸안스크롤하나로). 폰은 지금처럼 옆으로 민다. */
 @media (min-width:761px){#telegramView .feed-chiprow{flex-wrap:wrap;overflow-x:visible;row-gap:4px}}
 /* TG-원문폰배치: 원문 메시지·시각별 요약·통화 전문 줄. PC(761px 이상)는 왼쪽 칸 그대로.
