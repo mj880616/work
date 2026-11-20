@@ -7,12 +7,13 @@
 // S59-20 일정 메뉴 빈 네모: 예전 아이콘은 네모 선 하나(달력 표시 기호 □ 그대로)라 그림 없이 빈 자리만 있는 것처럼 보였다.
 // 메뉴 아이콘은 그림이어야 하므로 '표시해 둠'을 뜻하는 깃발(막대 + 깃발)로 그린다. 켜짐·꺼짐은 글자 끝 ✓가 맡고, 달력 막대 앞 □·✓ 표시는 그대로다.
 // 사업 보고 달력 줄 ⋯의 [보고할 일정 ✓]도 이 아이콘 하나를 가져다 쓴다(report-calendar-plan.mjs).
+import {word} from './brand/brand.mjs';
 export const PLAN_ICON = 'M4.5 14V2.5M4.5 3.5h8l-2 2.75 2 2.75h-8'; // 깃발
 export const planMenuItem = plan => (plan ? {id: 'plan', label: plan.on ? '보고할 일정 ✓' : '보고할 일정', icon: PLAN_ICON} : null);
 export function eventMenuItems(writable, plan = null) {
   const item = planMenuItem(plan), mark = item ? [item] : [];
   if (!writable) return [{id: 'edit', label: '열기'}, ...mark];
-  return [{id: 'edit', label: '수정'}, ...mark, {id: 'orgs', label: '담당조직 연결'}, {id: 'report', label: '결과 남기기'}, {id: 'delete', label: '삭제', last: true}];
+  return [{id: 'edit', label: '수정'}, ...mark, {id: 'orgs', label: word('담당조직 연결')}, {id: 'report', label: '결과 남기기'}, {id: 'delete', label: '삭제', last: true}];
 }
 export const DAY_MENU_ITEMS = Object.freeze([{id: 'event', label: '이날 일정 등록'}, {id: 'task', label: '이날 할 일'}, {id: 'day', label: '이날 하루 보기'}]);
 // 'YYYY-MM-DD' → 메뉴 머리 '11월 10일 (화)'. 날짜가 아니면 ''.

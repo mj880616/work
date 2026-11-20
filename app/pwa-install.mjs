@@ -3,9 +3,10 @@
 // 붙잡은 것이 없으면(이미 설치됨·브라우저가 아직 안 보냄·지원 안 함) 단추를 누를 때 '주소창 오른쪽 설치 아이콘' 한 줄 안내.
 // 로그인 화면(app/login/app-download.js)과 계정 메뉴(app/topbar-actions.js)가 같이 쓴다. 저장하는 것은 없다(메모리에만).
 import {isPhoneApp} from './phone-push-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const INSTALL_BUTTON = 'PC에 앱 설치';
-export const INSTALL_FALLBACK = "크롬·엣지 주소창 오른쪽의 설치 아이콘을 눌러 주세요(이미 설치했으면 바탕화면·시작 메뉴의 노조+를 여세요)";
+export const INSTALL_FALLBACK = word("크롬·엣지 주소창 오른쪽의 설치 아이콘을 눌러 주세요(이미 설치했으면 바탕화면·시작 메뉴의 노조+를 여세요)");
 
 // 단추를 보일지: PC 브라우저에서만. 폰(안드로이드·아이폰)은 폰 앱이 따로 있고, 폰 앱 안·이미 설치한 창(standalone) 안에서는 없음.
 export function installPlan({ua = '', standalone = false} = {}) {
