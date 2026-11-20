@@ -12,7 +12,7 @@
 import {
   BRIEF_CHUNK_CHARS, BRIEF_MAX_CHUNKS, BRIEF_MIN_TEXT, BRIEF_TEXT_MAX, CHUNK_INSTRUCTIONS, MERGE_INSTRUCTIONS,
   chunkInput, chunkWithPages, foldForMatch, mergeInput, pageStarts, pagesKnown, parseChunkNote,
-  quoteCandidates, scopeText, splitChunks, stepTotal, tidyBriefText, verifyBrief,
+  quoteCandidates, SCOPE_UNKNOWN_TEXT, scopeNames, scopeText, splitChunks, stepTotal, tidyBriefText, verifyBrief,
 } from '../_shared/brief-room.mjs';
 
 export const BRIEF_TABLE = 'app_document_briefs';
@@ -220,9 +220,9 @@ export function createBriefRunner(deps) {
     if (i >= chunks.length) { await save(row, { stage: 'merge' }); return 'next'; }
     const chunk = chunks[i];
     const body = chunkWithPages(text, starts, chunk);
-    const r = await callAi('brief_chunk', CHUNK_INSTRUCTIONS, chunkInput({ index: i, total: chunks.length, title, scope, body }), CHUNK_SCHEMA, CHUNK_MAX_TOKENS);
+    const r = await callAi('brief_chunk', CHUNK_INSTRUCTIONS, chunkInput({ index: i, total: chunks.length, title, scope: scope.text, body }), CHUNK_SCHEMA, CHUNK_MAX_TOKENS);
     if (!r.ok) { if (r.final) { await fail(row, r.code); return 'stop'; } log(`brief_${r.code}`); return 'pause'; }
-    const note = parseChunkNote(r.text ?? '', { folded: foldForMatch(text), starts, chunk })
+    const note = parseChunkNote(r.text ?? '', { folded: foldForMatch(text), starts, chunk, names: scope.names })
       ?? { lead: '', touches: [], todos: [], conflicts: [], quotes: [], skipped: true };
     if (note.skipped) log('brief_chunk_bad_answer');
     const notes = [...notesOf(row.parts), note];
@@ -236,9 +236,9 @@ export function createBriefRunner(deps) {
     const notes = notesOf(row.parts).filter(n => !n.skipped);
     if (!notes.length) { await fail(row, 'ai_bad_answer'); return 'stop'; }
     const candidates = quoteCandidates(notes);
-    const r = await callAi('brief_merge', MERGE_INSTRUCTIONS, mergeInput({ title, scope, notes, candidates }), MERGE_SCHEMA, MERGE_MAX_TOKENS);
+    const r = await callAi('brief_merge', MERGE_INSTRUCTIONS, mergeInput({ title, scope: scope.text, notes, candidates }), MERGE_SCHEMA, MERGE_MAX_TOKENS);
     if (!r.ok) { if (r.final) { await fail(row, r.code); return 'stop'; } log(`brief_${r.code}`); return 'pause'; }
-    const checked = verifyBrief(r.text ?? '', { candidates, pageCount: row.page_count ?? null });
+    const checked = verifyBrief(r.text ?? '', { candidates, pageCount: row.page_count ?? null, names: scope.names });
     if (!checked) { await fail(row, 'ai_bad_answer'); return 'stop'; }
     const brief = ctlOf(row.parts).partial === 'preview' ? { ...checked, partial: 'preview' } : checked;
     await save(row, { status: 'done', stage: 'done', brief, step_no: row.step_total, model: r.model ?? row.model ?? null });
@@ -255,8 +255,12 @@ export function createBriefRunner(deps) {
     const row = await claim(id, started);
     if (!row) return 'busy';
     const title = String(doc.title || doc.file_name || '').trim();
+    // S67-50: 담당 범위 = 이 사람이 등록한 담당 대상·프로젝트 이름뿐(사람마다 다름). 못 읽으면 names=null(touches는 비우고, '등록한 담당이 없어요' 표시는 하지 않음).
     let scopeLine = null;
-    const scope = async () => scopeLine ??= (async () => { try { const s = await deps.scope(); return scopeText(s.orgs, s.areas); } catch { return scopeText(); } })();
+    const scope = async () => scopeLine ??= (async () => {
+      try { const s = await deps.scope(); return { text: scopeText(s.orgs, s.areas), names: scopeNames(s.orgs, s.areas) }; }
+      catch { log('brief_scope_unavailable'); return { text: SCOPE_UNKNOWN_TEXT, names: null }; }
+    })();
     try {
       while (deps.now() - started < (deps.budgetMs ?? BRIEF_BUDGET_MS)) {
         let step;

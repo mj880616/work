@@ -86,3 +86,12 @@ test('pickResult: 넣은 수·원래 폴더에 둔 수·못 넣은 수', () => {
   assert.deepEqual(m.pickResult({ added: 1, failed: 1 }), { text: '1개 넣었어요 · 1개는 넣지 못했어요', error: true });
   assert.equal(m.pickResult({ failed: 2 }).error, true);
 });
+
+test('S67-50 briefSections: 등록한 담당이 없으면 touches 칸에 "등록한 담당이 없어요", 칸 이름은 단어표를 거침(노동조합+ 얼굴은 그대로)', () => {
+  const none = m.briefSections({ lead: 'x', touches: [], todos: [], conflicts: [], quotes: [], scope: 'none' });
+  assert.equal(none[0].empty, '등록한 담당이 없어요');
+  assert.equal(m.briefSections({ lead: 'x', touches: [], quotes: [] })[0].empty, '');
+  assert.equal(m.briefSections({ lead: 'x', touches: ['가'], quotes: [], scope: 'none' })[0].empty, '');
+  assert.equal(none[0].title, '내 담당 조직·사업에 닿는 것');
+  assert.equal(none[2].title, '우리 쪽 주장과 부딪히는 대목');
+});

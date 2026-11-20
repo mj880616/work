@@ -1,5 +1,6 @@
 // BRIEF-브리핑룸 ③ 화면 모델(설계 docs/design/brief-room.md 6절, 시안 docs/design/mockups/brief-room.html). DOM·네트워크 없음.
 // 화면(brief-room.js)은 이 모듈이 돌려준 글자를 textContent로만 넣는다.
+import {word} from './brand/brand.mjs';
 export const BRIEF_FOLDER = '브리핑 요청함';
 export const BRIEF_POLL_MS = 4000;
 export const BRIEF_STALE_MS = 30 * 1000;   // 서버 brief-run.mjs BRIEF_STALE_MS와 같은 값
@@ -84,16 +85,19 @@ export function listRows({ docs, folderIds, briefs }) {
   return rows.sort((a, b) => b.at - a.at);
 }
 
-/** 브리핑 다섯 칸(빈 칸은 빼지 않고 빈 배열). */
+// S67-50: 칸 이름은 단어표(app/brand/girok-words.mjs '#brief' 자리)를 거친다. 노동조합+ 얼굴은 지금 글자 그대로.
+export const NO_SCOPE_LINE = '등록한 담당이 없어요';
+/** 브리핑 다섯 칸(빈 칸은 빼지 않고 빈 배열). touches는 등록한 담당이 없을 때(brief.scope==='none') empty 글자를 둔다. */
 export function briefSections(brief) {
   const arr = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s) : []);
   const quotes = (Array.isArray(brief?.quotes) ? brief.quotes : [])
     .filter(q => q && typeof q.text === 'string' && q.text)
     .map(q => ({ text: q.text, heading: typeof q.heading === 'string' ? q.heading : '', why: typeof q.why === 'string' ? q.why : '', page: Number.isInteger(q.page) && q.page > 0 ? q.page : null }));
+  const touches = arr(brief?.touches);
   return [
-    { key: 'touches', title: '내 담당 조직·사업에 닿는 것', lines: arr(brief?.touches) },
-    { key: 'todos', title: '해야 할 일·기한·숫자', lines: arr(brief?.todos) },
-    { key: 'conflicts', title: '우리 쪽 주장과 부딪히는 대목', lines: arr(brief?.conflicts) },
+    { key: 'touches', title: word('내 담당 조직·사업에 닿는 것', 'brief'), lines: touches, empty: !touches.length && brief?.scope === 'none' ? NO_SCOPE_LINE : '' },
+    { key: 'todos', title: '해야 할 일·기한·숫자', lines: arr(brief?.todos), empty: '' },
+    { key: 'conflicts', title: word('우리 쪽 주장과 부딪히는 대목', 'brief'), lines: arr(brief?.conflicts), empty: '' },
     { key: 'quotes', title: '꼭 직접 읽을 대목', quotes },
   ];
 }

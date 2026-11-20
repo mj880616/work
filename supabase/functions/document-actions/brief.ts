@@ -29,6 +29,20 @@ const OPENAI_URL = "https://api.openai.com/v1/responses";
 const SEOUL_MS = 9 * 60 * 60 * 1000;
 const seoulDay = (ms: number) => new Date(ms + SEOUL_MS).toISOString().slice(0, 10);
 
+// S67-50: 담당 범위 = 이 사람이 등록한 활성 담당 대상(app_suborganizations)과 프로젝트(app_spaces) 이름뿐(사람마다 다름).
+// 로그인 토큰(owner RLS) REST로, 서버가 자료 행에서 확인한 작업공간만 읽는다. 휴지통·보관·끝난 것은 뺀다. 이름만 쓰고 ID는 AI에 보내지 않는다.
+export async function readBriefScope(userDb: Db, workspaceId: string) {
+  if (!isUuid(workspaceId)) throw new BriefError(404, "not_found");
+  const ws = encodeURIComponent(workspaceId);
+  const [orgRows, areaRows] = await Promise.all([
+    userDb(`app_suborganizations?workspace_id=eq.${ws}&deleted_at=is.null&select=name,active&order=name.asc&limit=200`),
+    userDb(`app_spaces?workspace_id=eq.${ws}&deleted_at=is.null&or=(status.is.null,status.not.in.(archived,done))&select=name,status&order=sort_order.asc,created_at.asc&limit=200`),
+  ]);
+  const names = (rows: unknown) => (Array.isArray(rows) ? rows : [])
+    .filter((r) => r?.active !== false && typeof r?.name === "string").map((r) => r.name as string);
+  return { orgs: names(orgRows), areas: names(areaRows) };
+}
+
 export async function briefAction(action: "brief-start" | "brief-step", body: Record<string, unknown>, deps: BriefDeps) {
   const now = deps.now ?? Date.now;
   const log = deps.log ?? ((code: string) => console.error(JSON.stringify({ fn: "document-actions", code })));
@@ -75,11 +89,7 @@ export async function briefAction(action: "brief-start" | "brief-step", body: Re
     return { ok: true as const, text: outputText(result.raw), model: config.model, krw: estimateKrw(used.input, used.output, config.price) };
   };
 
-  const scope = async () => {
-    const rows = await deps.userDb(`app_suborganizations?workspace_id=eq.${workspaceId}&select=name,active&order=name.asc&limit=200`);
-    const orgs = (Array.isArray(rows) ? rows : []).filter((r) => r?.active !== false && typeof r?.name === "string").map((r) => r.name);
-    return { orgs, areas: [] as string[] };
-  };
+  const scope = () => readBriefScope(deps.userDb, workspaceId);
 
   const runnerFor = (doc: Record<string, any>) => createBriefRunner({
     db: deps.db,

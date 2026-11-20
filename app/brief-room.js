@@ -146,7 +146,7 @@ function drawDetail(){
         if(q.why)s.append(el('p','br-why','왜: '+q.why));
       }
     }else if(sec.lines.length){const ul=el('ul');for(const line of sec.lines)ul.append(el('li',null,line));s.append(ul)}
-    else s.append(el('p','br-muted','—'));
+    else s.append(el('p','br-muted',sec.empty||'—'));
     parts.push(s);
   }
   box.replaceChildren(...parts);box.hidden=false;
