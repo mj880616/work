@@ -38,7 +38,7 @@ test('phone app: fourth share entry is an activity-alias with the same receive p
   const xml = read('../android-app/app/src/main/AndroidManifest.xml');
   const alias = xml.match(/<activity-alias\s+android:name="\.ShareToNews"[\s\S]*?<\/activity-alias>/)?.[0] || '';
   assert.match(alias, /android:targetActivity="\.MainActivity"/);
-  assert.match(alias, /android:label="노동조합\+ News 보관"/);
+  assert.match(alias, /android:label="WORK ON News 보관"/);
   assert.match(alias, /android\.intent\.action\.SEND"/);
   assert.doesNotMatch(alias, /android:permission=|uses-permission/);
   const rules = read('../android-app/app/src/main/java/kr/or/kptu/work/ShellRules.kt');
