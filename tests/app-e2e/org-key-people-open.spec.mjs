@@ -119,7 +119,7 @@ test('412: 통화·텔레그램을 잠그면 주요 인물 지난 기록은 "잠
   await page.locator('#soOrganizationList [data-so-org="ob"]').click();
   await expect(page.locator('#wdTitle')).toHaveText('합성 나 지부');
   await page.locator('#wdModal [data-wd-tab="people"]').click();
-  await expect(page.locator('#wdPeople [data-okp-locked]')).toHaveText(/^통화·텔레그램 \d+줄 · 잠김$/);
+  await expect(page.locator('#wdPeople [data-okp-locked]')).toHaveText(/^통화·텔레그램 \d+줄 · 잠김 풀기$/);
   await expect(page.locator('#wdPeople')).not.toContainText('다음 주 교섭 일정');
   await expect(page.locator('#wdPeople .okp-tag.call')).toHaveCount(0);
   expect(errors).toEqual([]);

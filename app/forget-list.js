@@ -138,7 +138,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   }
   function items() {
     const out = [];
-    // SEC-기능PIN잠금 ②: 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 줄들은 그리지 않고 맨 아래 '잠김' 한 줄만(몇 줄인지만). 잠금 화면으로 가는 길은 그 메뉴.
+    // SEC-기능PIN잠금 ②: 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 줄들은 그리지 않고 맨 아래 '잠김' 한 줄만(몇 줄인지만). 누르면 그 자리 PIN 창(S67-25, feature-lock.js askHere).
     const lockOf = feature => !!win.KPTUFeatureLock?.hides?.(feature) && !!win.KPTUFeatureLock?.settings?.();
     const locked = {telegram: lockOf('telegram'), call: lockOf('calls')};
     let hidden = 0;
@@ -184,7 +184,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
         why: r.reason, acts: PROMISE_NEWS_ACTS, attrs: 'data-forget-src="promise" data-forget-promise-news'})});
     }
-    if (hidden) sorted.push({html: `<p class="nbx-faint forget-locked" data-forget-locked>통화·텔레그램 ${hidden}줄 · 잠김</p>`});
+    if (hidden) sorted.push({html: `<p class="nbx-faint forget-locked" data-forget-locked data-lock-here="calls telegram">통화·텔레그램 ${hidden}줄 · 잠김 <button type="button" class="row-act lk-open">풀기</button></p>`});
     return sorted;
   }
   // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개(같은 ③ 글자 버튼). 고르면 그 할 일과 잇고 목록에서 뺀다. 새 할 일은 만들지 않는다.
