@@ -18,6 +18,9 @@ export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-file
 // PERF-첫로딩 ③(S61-32): '할 일 파일 표가 답하나'(taskFilesAvailable·taskFilesKnown·onTaskFilesReady)와 MAX_TASK_FILES는 작은 task-files-ready.js가 주인이다.
 // 홈 빠른 입력이 첫 화면 전에 이 큰 사슬(파일 메뉴·올리기·이름 고치기 등)을 받지 않게 나눴다. 여기서는 그대로 다시 내보내 부르는 곳은 바뀌지 않는다(상태도 그 한 곳).
 import { MAX_TASK_FILES, TASK_FILE_COLS, ownerOf, tableAnswered, tableMissing } from './task-files-ready.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('task-files');
 export { MAX_TASK_FILES, taskFilesAvailable, taskFilesKnown, onTaskFilesReady } from './task-files-ready.js';
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
 export const MAX_TASK_FILE_BYTES = 100 * 1024 * 1024;
