@@ -192,3 +192,12 @@
   #soOrganizationList .so-group-more,#soOrganizationList .so-grip{opacity:.35}
   #soOrganizationList :is(.so-group-heading,.so-row):is(:hover,:focus-within) :is(.so-group-more,.so-grip),#soOrganizationList .so-group-more[aria-expanded="true"],#soOrganizationList.is-dragging .so-grip{opacity:1}
 }
+/* S67-53 ORG-여러개삭제: 선택 중 목록 맨 위 낮은 줄 [모두 선택] · n곳 선택됨 · [삭제] · [취소](자료실·브리핑 선택 줄과 같은 크기), 줄 앞 선택 칸.
+   선택 중에는 줄 ⋯가 없고(renderTeam), 묶음 손잡이는 쓰지 않는다(끌기는 org-groups-drag.js가 .so-picking에서 받지 않음). */
+#soOrganizationList .so-pick-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:var(--ds-compact-height);margin:0 0 var(--kptu-space-2);padding:2px 0}
+#soOrganizationList .so-pick-count{margin-right:auto;color:var(--kptu-muted);font-size:var(--ds-text-row)}
+#soOrganizationList.so-picking .so-row{display:flex;align-items:center}
+#soOrganizationList.so-picking .so-row>.kptu-list-row{flex:1 1 auto;min-width:0;padding-right:var(--kptu-space-4);cursor:pointer}
+#soOrganizationList.so-picking .so-pick{flex:none;width:16px;height:16px;margin:0 0 0 var(--kptu-space-3)}
+#soOrganizationList.so-picking .so-row.is-picked>.kptu-list-row{background:var(--kptu-surface-subtle)}
+#soOrganizationList.so-picking [data-so-grip]{visibility:hidden}

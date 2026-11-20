@@ -28,6 +28,7 @@ const ALLOWED = Object.freeze({
   'app/basket-data.js': '정리함 기록에 이미 연결된 조직 이름 표시',
   'app/basket-classification.js': '정리함 AI 분류의 조직 이름 대조(다른 작업이 정리함 쪽을 고침)',
   'app/drive-summary.js': 'Drive 요약 내보내기 표 목록(고르기 칸 아님)',
+  'app/org-bulk-delete.js': 'S67-53 여러 개 선택해 삭제: 선택은 suborganizations.js 내 담당조직 목록에서 하고, 이 파일은 그 id로 삭제 요청만 보냄(고르기 칸 없음)',
   'app/home-summary.js': '홈 빠른 입력 고르기 시트의 공용 읽기(조직·담당 행)만 한다. 기록할 곳 고르기는 update-places.js가 규칙을 적용한다',
 });
 

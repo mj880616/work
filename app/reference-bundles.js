@@ -16,6 +16,11 @@ import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
 import {requestBasketNote,requestNoteDocOpen} from './basket-note-tasks.js';
 import {readReferenceBundles,createReferenceBundle,renameReferenceBundle,deleteReferenceBundle,saveBundleOrder,bundleStats,bundleErrorText,BUNDLE_NAME_MAX,sortBundles} from './reference-bundles-data.js';
+// S67-53 ORG-여러개삭제(명진 11/20): 목록 ⋯ [여러 개 선택해 삭제] — 공용 선택 모드(select-mode.js, 폰 뒤로가기 = 선택 끝)로 빈 묶음 여러 개를
+// 한 번 확인하고 차례로 삭제(한 개 [묶음 삭제]와 같은 REST DELETE·같은 기준: 붙은 소식이 있는 묶음은 선택할 수 없고 DB도 거절). 휴지통이 없어 확인 창에 되돌릴 수 없다고 적는다.
+import {createSelectMode} from './select-mode.js';
+import {deleteSequentially} from './library-select.js';
+import {BUNDLE_PICK_TEXT,bundlePickCount,pickableBundles,bundleBulkConfirmText,bundleBulkResultText} from './org-bulk-delete-model.mjs';
 
 const rt=window.KPTURuntime;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,6 +31,8 @@ const md=value=>{const t=Date.parse(value);if(Number.isNaN(t))return '';const p=
 const MORE='<span class="more-dots" aria-hidden="true">⋯</span>';
 
 let state=freshState(),run=0,layer=null,pendingOpen=null,rbFollowed=null;
+const pick=createSelectMode({layer:'reference-select',onBack:()=>paint(),canLeave:()=>!state.busy});
+const pickable=()=>pickableBundles(state.bundles,bundleStats(state.links));
 function freshState(){return {owner:'',loaded:false,loading:false,error:'',bundles:[],links:[],selected:null,mode:'',draft:'',order:null,status:'',detailStatus:'',busy:false};}
 
 function install(){
@@ -76,6 +83,7 @@ function paintList(){
   const box=$('#rbList'),stats=bundleStats(state.links);
   const head=`<div class="rb-list-head"><span class="rb-label">묶음</span><button type="button" class="rb-more" data-rb-list-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="참고 묶음 메뉴"${state.order||state.busy?' disabled':''}>${MORE}</button></div>`;
   if(!state.loaded){box.innerHTML=head+(state.error?failHtml({retry:'data-rb-retry'}):waitHtml({rows:4}));return;}
+  if(pick.active){paintPick(box,stats);return;}
   const rows=(state.order||state.bundles).map((b,i,all)=>{
     const s=stats.get(b.id)||{count:0,last:''},meta=`${s.count}${s.last?' · '+md(s.last):''}`;
     if(state.order)return `<div class="rb-row rb-order-row" data-rb-order-row="${esc(b.id)}"><span class="rb-name">${esc(b.name)}</span><button type="button" class="rb-icon-btn" data-rb-up="${esc(b.id)}" aria-label="${esc(b.name)} 위로"${i===0?' disabled':''}>↑</button><button type="button" class="rb-icon-btn" data-rb-down="${esc(b.id)}" aria-label="${esc(b.name)} 아래로"${i===all.length-1?' disabled':''}>↓</button></div>`;
@@ -85,6 +93,29 @@ function paintList(){
   const order=state.order?`<div class="rb-actions"><button type="button" class="rb-small" data-rb-order-cancel>취소</button><button type="button" class="rb-small primary" data-rb-order-save data-enter-save-submit>저장</button></div>`:'';
   const add=state.mode==='add'?`<div class="rb-inline" data-rb-add-form data-enter-save><input type="text" class="rb-input" data-rb-add-input maxlength="${BUNDLE_NAME_MAX}" aria-label="새 묶음 이름" placeholder="새 묶음 이름" value="${esc(state.draft)}"><button type="button" class="rb-small" data-rb-add-cancel>취소</button><button type="button" class="rb-small primary" data-rb-add-save data-enter-save-submit>저장</button></div>`:'';
   box.innerHTML=head+`<div class="rb-rows"${state.order?' data-enter-save':''}>${rows||emptyHtml()}${order}</div>${add}<p class="rb-status" data-rb-status role="status">${esc(state.status)}</p>`;
+}
+function paintPick(box,stats){
+  const ids=pickable();pick.prune(ids);
+  const n=pick.size,all=ids.length>0&&ids.every(id=>pick.has(id)),busy=state.busy?' disabled':'';
+  const bar=`<div class="rb-pick-bar" role="group" aria-label="${esc(BUNDLE_PICK_TEXT.MENU)}"><button type="button" class="ds-chip" data-rb-pick-all aria-pressed="${all}"${busy||(!ids.length?' disabled':'')}>${esc(BUNDLE_PICK_TEXT.ALL)}</button><span class="rb-pick-count" role="status" aria-live="polite">${esc(bundlePickCount(n))}</span><button type="button" class="danger" data-rb-pick-delete${!n||state.busy?' disabled':''}>${esc(BUNDLE_PICK_TEXT.DELETE)}</button><button type="button" class="secondary" data-rb-pick-stop${busy}>${esc(BUNDLE_PICK_TEXT.CANCEL)}</button></div>`;
+  const rows=state.bundles.map(b=>{const s=stats.get(b.id)||{count:0},can=ids.includes(b.id),on=pick.has(b.id);
+    return `<label class="rb-row rb-pick-row${on?' is-selected':''}${can?'':' is-off'}"${can?'':` title="${esc(BUNDLE_PICK_TEXT.HAS_LINKS)}"`}><input type="checkbox" class="rb-pick" data-rb-pick="${esc(b.id)}"${on?' checked':''}${can&&!state.busy?'':' disabled'}><span class="rb-name">${esc(b.name)}</span><span class="rb-meta">${s.count}</span></label>`;}).join('');
+  box.innerHTML=bar+`<div class="rb-rows">${rows||emptyHtml()}</div><p class="rb-status" data-rb-status role="status">${esc(state.status)}</p>`;
+}
+function startPick(){if(state.mode||state.order)return;state.status='';pick.start();paint();$('#rbList [data-rb-pick-all]')?.focus();}
+function stopPick(){if(state.busy||!pick.stop())return;paint();$('#rbList [data-rb-list-more]')?.focus();}
+async function deletePicked(anchor){
+  const ids=[...(pick.items||[])].filter(id=>pickable().includes(id));if(!ids.length||state.busy)return;
+  if(!(await askConfirm(anchor,{text:bundleBulkConfirmText(ids.length),ok:BUNDLE_PICK_TEXT.DELETE,danger:true})))return;
+  return guarded(async current=>{
+    const r=await deleteSequentially(ids,async id=>{try{return {ok:await deleteReferenceBundle(id,rt)};}catch(error){return {ok:false,stop:error?.status===401||error?.status===403};}},{isCurrent:current});
+    if(!current())return;
+    if(r.done.includes(state.selected)){state.selected=null;const l=layer;layer=null;l?.close();}
+    state.bundles=state.bundles.filter(b=>!r.done.includes(b.id));
+    const left=r.failed.length+r.skipped.length;
+    if(left){pick.items=new Set([...r.failed,...r.skipped]);await load();}else pick.stop();
+    state.status=bundleBulkResultText(r.done.length,left);
+  }).then(()=>(pick.active?$('#rbList [data-rb-pick-delete]'):$('#rbList [data-rb-list-more]'))?.focus());
 }
 function paintDetail(){
   const box=$('#rbDetail'),b=bundleOf(state.selected);
@@ -190,13 +221,13 @@ async function disconnect(linkId){
 const menu=createAnchoredMenu({id:'rbMenu',className:'rb-menu',label:'참고 묶음 메뉴',historyKey:'kptuReferenceMenu',
   key:t=>t.dataset.rbItemMore?'item:'+t.dataset.rbItemMore:t.hasAttribute('data-rb-detail-more')?'detail':'list',
   render:id=>{
-    if(id==='list')return '<button type="button" data-rb-act="add">묶음 더하기</button><button type="button" data-rb-act="order">순서 바꾸기</button>';
+    if(id==='list')return [['add','묶음 더하기'],['order','순서 바꾸기'],...(pickable().length?[['pick',BUNDLE_PICK_TEXT.MENU]]:[])].map(([act,label])=>`<button type="button" data-rb-act="${act}">${esc(label)}</button>`).join('');
     if(id==='detail'){const b=bundleOf(state.selected);return '<button type="button" data-rb-act="rename">이름 바꾸기</button>'+(b&&!linksOf(b.id).length?'<button type="button" class="rb-menu-danger" data-rb-act="delete">묶음 삭제</button>':'');}
     return '<button type="button" data-rb-act="open">업데이트 열기</button><button type="button" class="rb-menu-danger" data-rb-act="disconnect">연결 해제</button>';
   },
   onAction:(button,active)=>{
     const act=button.dataset.rbAct,item=active.id.startsWith('item:')?active.id.slice(5):null;
-    if(act==='add')startAdd();else if(act==='order')startOrder();else if(act==='rename')startRename();else if(act==='delete')void removeBundle();
+    if(act==='pick')startPick();else if(act==='add')startAdd();else if(act==='order')startOrder();else if(act==='rename')startRename();else if(act==='delete')void removeBundle();
     else if(act==='open'&&item)openOriginal(item);else if(act==='disconnect'&&item)void disconnect(item);
   }});
 rbMenus=[menu];
@@ -206,7 +237,10 @@ function bind(){
   root.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b||b.disabled||!root.contains(b))return;
     const d=b.dataset;
-    if(d.rbBundle)void select(d.rbBundle);
+    if(b.hasAttribute('data-rb-pick-all')){pick.toggle(pickable(),{anchor:false});paint();$('#rbList [data-rb-pick-all]')?.focus();}
+    else if(b.hasAttribute('data-rb-pick-stop'))stopPick();
+    else if(b.hasAttribute('data-rb-pick-delete'))void deletePicked(b);
+    else if(d.rbBundle)void select(d.rbBundle);
     else if(b.hasAttribute('data-rb-back'))closeDetail();
     else if(b.hasAttribute('data-rb-retry'))void load();
     else if(b.hasAttribute('data-rb-list-more')||b.hasAttribute('data-rb-detail-more')||d.rbItemMore)menu.open(b);
@@ -219,8 +253,9 @@ function bind(){
     else if(b.hasAttribute('data-rb-order-save'))void saveOrder();
     else if(b.hasAttribute('data-rb-order-cancel')){state.order=null;paint();$('#rbList [data-rb-list-more]')?.focus();}
   });
+  root.addEventListener('change',e=>{const c=e.target.closest?.('[data-rb-pick]');if(!c||!pick.active||state.busy)return;pick.toggle([c.dataset.rbPick]);paint();$(`#rbList [data-rb-pick="${CSS.escape(c.dataset.rbPick)}"]`)?.focus();});
   root.addEventListener('input',e=>{if(e.target.matches('[data-rb-add-input],[data-rb-rename-input]'))state.draft=e.target.value;});
-  root.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(e.target.matches('[data-rb-add-input]')){e.preventDefault();state.mode='';state.draft='';paint();$('#rbList [data-rb-list-more]')?.focus();}else if(e.target.matches('[data-rb-rename-input]')){e.preventDefault();state.mode='';state.draft='';paint();$('#rbDetail [data-rb-detail-more]')?.focus();}});
+  root.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(pick.active&&e.target.closest?.('#rbList')){e.preventDefault();stopPick();return;}if(e.target.matches('[data-rb-add-input]')){e.preventDefault();state.mode='';state.draft='';paint();$('#rbList [data-rb-list-more]')?.focus();}else if(e.target.matches('[data-rb-rename-input]')){e.preventDefault();state.mode='';state.draft='';paint();$('#rbDetail [data-rb-detail-more]')?.focus();}});
 }
 bind();
 
@@ -228,11 +263,12 @@ bind();
 window.addEventListener('kptu:view-changed',e=>{
   if(e.detail?.view==='reference'){if(!state.loaded||state.owner!==scope())void load();else paint();return;}
   layer=null;if(state.mode||state.order){state.mode='';state.draft='';state.order=null;}
+  pick.stop({fromBack:true});
   menu.close?.(null,true);
   window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'reference',name:null}}));
 });
 window.addEventListener('kptu:basket-links-changed',()=>{if(state.loaded&&state.owner===scope()&&!view()?.classList.contains('hidden'))void load();else if(state.loaded)state.loaded=false;});
-window.addEventListener('kptu:session-changed',()=>{run++;layer=null;state=freshState();pendingOpen=null;if(view())paint();});
+window.addEventListener('kptu:session-changed',()=>{run++;layer=null;pick.stop({fromBack:true});state=freshState();pendingOpen=null;if(view())paint();});
 pc.addEventListener?.('change',()=>{if(view()&&!view().classList.contains('hidden')){if(pc.matches&&layer){const l=layer;layer=null;l.close();}paint();}});
 
 // open(id): the screen with that bundle chosen (entries: the basket's "참고: ○○" chip, the organization list's 참고 묶음 ›).

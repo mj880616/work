@@ -61,3 +61,9 @@
 @media(max-width:760px){
   html:has(#referenceView:not(.hidden) [data-rb-back]) #appView > .mobile-shell-header{ display:none; }
 }
+/* S67-53 ORG-여러개삭제: 선택 중 목록 맨 위 낮은 줄 [모두 선택] · n개 선택됨 · [삭제] · [취소], 줄 앞 선택 칸. 붙은 소식이 있는 묶음은 흐리게(선택 불가). */
+#referenceView .rb-pick-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:var(--ds-compact-height);margin:0 0 6px}
+#referenceView .rb-pick-count{margin-right:auto;color:var(--kptu-muted);font-size:var(--ds-text-row)}
+#referenceView .rb-pick-row{grid-template-columns:16px minmax(0,1fr) auto}
+#referenceView .rb-pick{width:16px;height:16px;margin:0}
+#referenceView .rb-pick-row.is-off{color:var(--kptu-muted);cursor:default}
