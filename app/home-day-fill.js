@@ -25,8 +25,9 @@ import {bindNowRows, hoverActsHtml} from './now-row-acts.js'; // HOME-읽을글�
 
 const PHOTO_FRESH_MS = 10 * 60 * 1000;
 // SEC-기능PIN잠금 ②: 사진을 잠갔고 아직 안 풀었으면 '오늘 사진' 칸은 사진을 읽지도 그리지도 않고 '잠김' 한 줄(누르면 그 자리 PIN 창, S67-25).
-// S67-59(2026-11-21 명진 "사진은 잠그지 않았는데 홈 화면에 사진이 잠겨있었음"): 칸 잠김은 '사진' 잠금만 따른다. 하루 기록만 잠갔으면
-// 사진 메뉴와 같은 사진(원드라이브·폰)은 보이고, 하루 기록에만 넣은 사진(upload)은 그 기록을 읽지 않으므로 빠진다(diaryGate).
+// S67-59(2026-11-21 명진 "사진은 잠그지 않았는데 홈 화면에 사진이 잠겨있었음"): 칸 잠김은 '사진' 잠금만 따른다.
+// 2026-11-21 08:32 명진 "홈 하루기록에 넣은 사진도 홈에서 잠글 이유 없어 … 사진을 안잠그면 홈에서 사진 보여주는거": 하루 기록만 잠갔어도
+// 하루 기록에 넣은 사진까지 모두 보인다(하루 기록 글은 홈에 그리지 않는다).
 // 잠금 설정을 아직 모르면 읽지 않고 자리만(잠깐 사진이 보였다 사라지지 않게). 판정은 feature-lock.js 한 곳.
 const photoGate = () => {
   const fl = globalThis.window?.KPTUFeatureLock;
@@ -34,7 +35,6 @@ const photoGate = () => {
   if (!fl.settings()) return 'wait';
   return fl.anyHidden('photos') ? 'locked' : 'open';
 };
-const diaryGate = () => { const fl = globalThis.window?.KPTUFeatureLock; return !fl || !fl.anyHidden('diary'); };
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 
 // 그날 사진 목록 읽기(일기 화면과 같은 함수들). 무거운 모듈은 처음 필요할 때 부른다(홈 첫 화면을 늦추지 않게).
@@ -107,7 +107,7 @@ export async function readDayPhotos(day, rt, {alive = onHome, onPart = () => {},
     starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key)))});
   let odDone = false;
   const local = Promise.all([
-    diary ? k.diary.readDiaryDay(day, rt).catch(() => null) : Promise.resolve(null), // 하루 기록이 잠겼으면 그 기록(넣은 사진)을 읽지 않는다
+    diary ? k.diary.readDiaryDay(day, rt).catch(() => null) : Promise.resolve(null), // 하루 기록에 넣은 사진(글은 쓰지 않음)
     phoneDay(k, day, alive).catch(() => []),
     k.od.odWarmStars(rt, year, month).catch(() => []),
   ]);
@@ -142,9 +142,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   function rankedFor(day, events) {
     const read = photoReads.get(`${owner()}:${day}`);
     if (read?.state !== 'ok' && read?.state !== 'part') return [];
-    // 읽은 뒤 하루 기록이 다시 잠기면 그 기록에 넣은 사진은 그리지 않는다(다음 읽기도 기록을 읽지 않음).
-    const items = diaryGate() ? read.items : read.items.filter(item => item.kind !== 'upload');
-    return rankDayPhotos(items, {starred:item => read.starred.has(`${item.source}:${item.key}`), windows:eventWindows(events)});
+    return rankDayPhotos(read.items, {starred:item => read.starred.has(`${item.source}:${item.key}`), windows:eventWindows(events)});
   }
   const busy = new Map(); // 지금 읽고 있는 날 → 그사이 다시 읽어야 할 일이 생겼는지
   const showing = key => last && !last.hidden && `${owner()}:${last.day}` === key;
@@ -153,21 +151,19 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (busy.has(key)) { if (force) busy.set(key, true); return; }
     if (!onHome()) return; // 홈이 아닐 때는 읽지 않는다(돌아와 그릴 때 읽음)
     if (photoGate() !== 'open') return; // 잠겼거나 잠금 설정을 아직 모름 — 풀리면(kptu:feature-lock-changed) 읽는다
-    const diary = diaryGate();
-    // 하루 기록 없이 읽은 날인데 이제 하루 기록이 풀렸으면 다시 읽는다(넣은 사진을 더함).
-    if (!force && read && read.state !== 'part' && Date.now() - read.at < PHOTO_FRESH_MS && (read.diary !== false || !diary)) return;
+    if (!force && read && read.state !== 'part' && Date.now() - read.at < PHOTO_FRESH_MS) return;
     busy.set(key, false);
     const mine = gen, alive = () => mine === gen && onHome();
     const onPart = out => kit().then(loaded => {
       k = loaded;
       if (!alive() || photoReads.get(key)?.state === 'ok') return;
-      photoReads.set(key, {state:'part', items:out.items, starred:out.starred, at:0, diary});
+      photoReads.set(key, {state:'part', items:out.items, starred:out.starred, at:0});
       if (showing(key)) drawPhotos();
     }, () => {});
-    Promise.all([readPhotos(day, rt, {alive, onPart, diary}), kit()]).then(([out, loaded]) => {
+    Promise.all([readPhotos(day, rt, {alive, onPart}), kit()]).then(([out, loaded]) => {
       k = loaded;
       if (!out) return; // 홈을 떠나 멈춤 — 돌아와 그릴 때 다시 읽는다(먼저 받은 것은 그대로 보인다)
-      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:Date.now(), odPending:!!out.odPending, diary});
+      photoReads.set(key, {state:'ok', items:out.items, starred:out.starred, at:Date.now(), odPending:!!out.odPending});
     }, () => { const now = photoReads.get(key); if (now?.state !== 'ok' && now?.state !== 'part') photoReads.set(key, {state:'failed', items:[], starred:new Set(), at:Date.now()}); })
       .then(() => {
         const again = busy.get(key); busy.delete(key);
