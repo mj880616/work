@@ -297,7 +297,7 @@ object AppUpdater {
         val open = PendingIntent.getActivity(app, 0, Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val note = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("WORK ON ${BuildConfig.VERSION_NAME}로 업데이트했어요")
+            .setContentTitle("WORK ON+ ${BuildConfig.VERSION_NAME}로 업데이트했어요")
             .setContentIntent(open)
             .setAutoCancel(true)
             .setSilent(true)

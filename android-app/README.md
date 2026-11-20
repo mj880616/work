@@ -113,6 +113,7 @@
 
 - 0.5.14(S67-38, 설계 `docs/design/phone-widget-auth.md` 16.11절): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — `up:state` v2에 `"login":true`, 웹이 `up:login`을 보내면 앱이 12절 자동 로그인 길(`widget:mint` → 웹 `widget_seal` 봉인 → `consume`)로 세션을 만든다(구글 탭을 열지 않음, 다리에 토큰 없음). 올리는 동안 앞쪽 작업 알림 '사진 n장 올리는 중 · k/n'(`BackUploadNote`, 종류 `dataSync`, 권한 `FOREGROUND_SERVICE_DATA_SYNC` 하나 더함 — 사용자에게 묻지 않음).
 - 0.5.15(S67-49): 앱 이름 'WORK ON'(2026-11-20 명진 확정), 런처 아이콘 표장 A 'W를 품은 원'(적응형 벡터: 바탕 #22262B, 앞 그림 밝은 원 + W, 테마 아이콘은 원에서 W 비움), 알림 작은 그림도 같은 표장(흰 원 + W 비움). 공유 칸·위젯 이름 앞말도 WORK ON. applicationId·서명은 그대로라 기존 설치 위에 업데이트된다. 그림은 `scripts/app-icon/build-app-icons.py`가 만든다.
+- 0.5.16(S67-60): 앱 이름 'WORK ON+'(2026-11-21 07:35 명진 확정), 런처 아이콘에 덧셈표(+ 가운데가 원 테두리 위, 원 밖은 밝게·원 안은 어둡게. 적응형 벡터는 원 clip-path, 테마 아이콘·알림 작은 그림은 원 밖 + 채움·원 안 + 비움), 앱 안 이름(업데이트 알림·공유 칸·위젯 이름)도 WORK ON+.
 
 ## 파일
 

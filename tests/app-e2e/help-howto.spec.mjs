@@ -33,7 +33,7 @@ for (const [label, width, height] of WIDTHS) {
     await openHome(page, {features: []});
     await openHelpFromMenu(page);
     await expect(page).toHaveURL(/view=help/);
-    await expect(help(page).locator('.hp-sum')).toHaveText('WORK ON은 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.');
+    await expect(help(page).locator('.hp-sum')).toHaveText('WORK ON+는 내 일정·할 일·조직·사업 기록을 한곳에 모으는 개인 업무 수첩이에요. 내 기록은 나만 봐요.');
     if (width <= 760) {
       await expect(help(page).locator('.hp-gl').first()).toHaveText('많이 쓰는 곳');
       const rows = help(page).locator('details.hp-item');

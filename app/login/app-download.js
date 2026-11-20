@@ -2,8 +2,8 @@
 // 배포 때 정한 ../phone-app.json을 읽음, 없으면 폰 앱 릴리스 목록). 로그인·토큰·개인정보와 상관없는 화면 부분이다.
 // BASKET-노조플러스업로드(명진 11/15 00:50): 같은 자리에 윈도우 PC 보조 프로그램 내려받기 + 설명·경고 안내. 받는 주소는 ../pc-app.json의
 // 최신 PC 설치 파일(없으면 PC 릴리스 목록). 윈도우 PC 브라우저에서는 PC 줄을 위로, 폰에서는 안드로이드 줄이 위.
-// S63-09 PC도우미구분(명진 11/16): PC 브라우저에서는 맨 위에 "WORK ON은 브라우저에서 씁니다" 한 줄 + [PC에 앱 설치](브라우저 앱 설치),
-// 그 아래 윈도우만 [PC 파일 올리기 도우미 내려받기](WORK ON 자체가 아닌 보조 프로그램이라는 설명·경고 포함).
+// S63-09 PC도우미구분(명진 11/16): PC 브라우저에서는 맨 위에 "WORK ON+는 브라우저에서 씁니다" 한 줄 + [PC에 앱 설치](브라우저 앱 설치),
+// 그 아래 윈도우만 [PC 파일 올리기 도우미 내려받기](WORK ON+ 자체가 아닌 보조 프로그램이라는 설명·경고 포함).
 import {downloadPlan, loadPhoneAppInfo, pcPlan, loadPcAppInfo, PC_BUTTON, PC_BROWSER_LINE} from '../app-download.mjs';
 import {installPlan, isStandalone, runInstall} from '../pwa-install.mjs';
 
