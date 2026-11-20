@@ -683,7 +683,7 @@ function saveSelf(id, self) {
     const res = await setSenderSelf(id, self, rt); if (!current()) return;
     if (!res.ok) { state.status = SENDER_FAIL_TEXT[res.error] || SENDER_FAIL_TEXT.REFUSED; if (res.error === 'GONE' || res.error === 'UNKNOWN') await reloadSenders(); return; }
     const ok = await reloadSenders(); if (!current()) return;
-    state.status = (self ? `나로 표시했어요. ${res.keyed ? '다음 소식부터 내가 한 부탁은 챙길 것에 오르지 않아요.' : '이 방 이 날 소식에만 적용돼요.'}` : '나 표시를 뺐어요.') + (ok ? '' : ' 목록은 다시 불러오지 못했어요.');
+    state.status = (self ? `나로 표시했어요. ${res.keyed ? '다음 소식부터 내가 한 부탁은 잊지 말기에 오르지 않아요.' : '이 방 이 날 소식에만 적용돼요.'}` : '나 표시를 뺐어요.') + (ok ? '' : ' 목록은 다시 불러오지 못했어요.');
   }).then(() => $(`#tgList [data-tg-person="${CSS.escape(id)}"] button`)?.focus({preventScroll:true}));
 }
 
@@ -1063,7 +1063,7 @@ const pmenu = createAnchoredMenu({id:'tgPersonMenu', className:'feed-menu', labe
   key:t => 'person:' + t.dataset.tgPersonMore,
   render:id => {
     const p = personOf(id.slice(id.indexOf(':') + 1)); if (!p) return '';
-    const self = personSelf(p.id) ? '<button type="button" data-tg-pact="unself">나 표시 빼기</button>' : '<button type="button" data-tg-pact="self">나로 표시 <span class="feed-faint">내가 한 부탁은 챙길 것에서 빠짐</span></button>';
+    const self = personSelf(p.id) ? '<button type="button" data-tg-pact="unself">나 표시 빼기</button>' : '<button type="button" data-tg-pact="self">나로 표시 <span class="feed-faint">내가 한 부탁은 잊지 말기에서 빠짐</span></button>';
     return `<button type="button" data-tg-pact="rename">${p.unnamed ? '이름 붙이기' : '이름 수정'}</button>${self}${peopleList().length > 1 ? '<button type="button" data-tg-pact="merge">다른 사람과 합치기</button>' : ''}<button type="button" class="feed-menu-danger" data-tg-pact="forget">삭제 <span class="feed-faint">소식 글은 그대로</span></button>`;
   },
   onAction:(button, active) => {

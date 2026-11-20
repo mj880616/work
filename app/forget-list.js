@@ -37,8 +37,8 @@ const CHANGED = 'kptu:todo-radar-changed';
 export const WORK_NOTE_FOLDER = '01. 업무메모';
 // 보기(처리 상태)와 출처. 이름은 시안 그대로.
 export const FORGET_VIEWS = Object.freeze([['open', '처리 전'], ['tasked', '보냄'], ['done', '이미 함'], ['dismissed', '무시'], ['linked', '연결 완료']]);
-export const FORGET_SOURCES = Object.freeze([['all', '모든 출처'], ['telegram', '텔레그램'], ['news', '소식'], ['family', '가족'], ['update', '업데이트'], ['todo', '챙길 것']]);
-export const SOURCE_TAG = Object.freeze({telegram: '텔레그램', news: '소식', family: '가족', update: '업데이트', todo: '챙길 것', promise: '상대 약속'});
+export const FORGET_SOURCES = Object.freeze([['all', '모든 출처'], ['telegram', '텔레그램'], ['news', '소식'], ['family', '가족'], ['update', '업데이트'], ['todo', 'AI 제안']]);
+export const SOURCE_TAG = Object.freeze({telegram: '텔레그램', news: '소식', family: '가족', update: '업데이트', todo: 'AI 제안', promise: '상대 약속'});
 // FORGET-소식합치기: 소식 줄이 그 보기에 드는가(처리 전 = suggested, 연결 완료 = 조직·사업에 넣음 kept, 무시 = dropped).
 export const NEWS_VIEW = Object.freeze({open: 'suggested', linked: 'kept', dismissed: 'dropped'});
 // 처리 전은 새 기준(AI가 종류를 정한) 줄만 — 빨간 숫자와 같은 기준(forget-news-data.js openNews). picks: 종류를 읽을 수 있었는가.
@@ -211,7 +211,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     else if (cState === 'loading') host.innerHTML = `<li>${waitHtml({rows: 2})}</li>`;
     else host.innerHTML = `<li>${emptyHtml('없음', {attrs: 'data-forget-empty'})}</li>`;
     if (statusEl) {
-      const fail = cState === 'failed' ? '챙길 것을 불러오지 못했어요. <button type="button" class="row-act" data-forget-retry>다시 시도</button>' : '';
+      const fail = cState === 'failed' ? 'AI 제안을 불러오지 못했어요. <button type="button" class="row-act" data-forget-retry>다시 시도</button>' : '';
       statusEl.innerHTML = [esc(status), fail, fixHtml()].filter(Boolean).join(' ');
     }
     if (focus?.row) host.querySelector(`[data-nbx-row="${CSS.escape(focus.row)}"] ${focus.act ? `[data-nbx-act="${CSS.escape(focus.act)}"]` : 'button'}`)?.focus({preventScroll: true});
