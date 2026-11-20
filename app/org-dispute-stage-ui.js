@@ -7,6 +7,7 @@ import {askConfirm} from './small-notice.js';
 import {seoulDateKey} from './meeting-time.js';
 import {loadDisputeState, ensureSeeded, peekDisputeState, saveOrgStage, editHistoryRow, deleteHistoryRow, PERIOD_PENDING, addStage, renameStage, setStageFlag, reorderStages, deleteStage} from './org-dispute-stage.js';
 import {stageOfOrg, sortStages, historyLines, reorderChanges, orgsAtStageText, stageNameProblem, periodProblem, STAGE_NAME_LIMIT, DEFAULT_STAGES} from './org-dispute-stage-model.mjs';
+import {word} from './brand/brand.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const today = () => seoulDateKey(Date.now());
@@ -35,9 +36,9 @@ const lineStages = state => state.stages.length ? sortStages(state.stages) : DEF
 function paintLine() {
   if (!line) return;
   const {host, orgId, canEdit} = line, state = peekDisputeState();
-  if (!state) { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">' + waitInlineHtml() + '</span>'; return; }
-  if (state.status === 'preparing') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" data-stage-preparing>준비 중</span>'; return; }
-  if (state.status === 'error') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="secondary wd-stage-btn" data-stage-retry>다시 시도</button>'; return; }
+  if (!state) { host.innerHTML = word('<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">') + waitInlineHtml() + '</span>'; return; }
+  if (state.status === 'preparing') { host.innerHTML = word('<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" data-stage-preparing>준비 중</span>'); return; }
+  if (state.status === 'error') { host.innerHTML = word('<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="secondary wd-stage-btn" data-stage-retry>다시 시도</button>'); return; }
   const stages = lineStages(state), cur = stageOfOrg(orgId, state.histories, stages);
   const draft = line.draft, stageId = draft?.stageId ?? cur.stage?.id ?? '', date = draft?.date ?? cur.date;
   const end = draft ? draft.end ?? '' : cur.end, endOpen = !!(draft?.endOpen || end);
@@ -47,9 +48,9 @@ function paintLine() {
     ? `<span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-end value="${esc(end)}" min="${esc(date)}" aria-label="끝 날짜(선택, 비우면 하루)">`
     : '<button type="button" class="row-act wd-stage-end-btn" data-stage-end-open aria-label="끝 날짜 넣기(선택)">~ 끝 날짜</button>';
   const controls = canEdit
-    ? `<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options(stageId)}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜">${endControl}<button type="button" class="row-act wl-btn is-main wd-stage-save" data-stage-save disabled hidden>저장</button>`
+    ? word`<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options(stageId)}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜">${endControl}<button type="button" class="row-act wl-btn is-main wd-stage-save" data-stage-save disabled hidden>저장</button>`
     : `<span class="wd-stage-now">${esc(cur.name)}${cur.date ? ` · ${esc(cur.date)}${cur.end && cur.end !== cur.date ? ` ~ ${esc(cur.end)}` : ''}` : ''}</span>`;
-  host.innerHTML = `<span class="wd-stage-k">쟁의 단계</span>${controls}<span class="wd-stage-msg${line.msg.error ? ' error' : ''}" data-stage-msg role="${line.msg.error ? 'alert' : 'status'}">${esc(line.msg.text)}</span>`
+  host.innerHTML = word`<span class="wd-stage-k">쟁의 단계</span>${controls}<span class="wd-stage-msg${line.msg.error ? ' error' : ''}" data-stage-msg role="${line.msg.error ? 'alert' : 'status'}">${esc(line.msg.text)}</span>`
     + (hist.length ? `<details class="wd-stage-hist" data-stage-hist${line.histOpen ? ' open' : ''}><summary>단계 이력 ${hist.length}</summary>${hist.map(h => histRowHtml(h, stages, canEdit)).join('')}</details>` : '');
   updateSave();
 }
@@ -195,9 +196,9 @@ let mgr = null; // {workspaceId, rt, orgNames, ui:{id,mode,draft}, addDraft, bus
 const MODAL = 'soStageModal';
 function installModal() {
   if (document.querySelector('#' + MODAL)) return;
-  document.body.insertAdjacentHTML('beforeend', `<div id="${MODAL}" class="modal le-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="soStageHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="soStageHeading">쟁의 단계 관리<span class="le-count" data-le-count></span></h2></div><button class="icon-btn" data-so-close="${MODAL}" type="button" aria-label="닫기">×</button></div><div id="soStageBody" class="stg"></div></div></div>`);
+  document.body.insertAdjacentHTML('beforeend', word`<div id="${MODAL}" class="modal le-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="soStageHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="soStageHeading">쟁의 단계 관리<span class="le-count" data-le-count></span></h2></div><button class="icon-btn" data-so-close="${MODAL}" type="button" aria-label="닫기">×</button></div><div id="soStageBody" class="stg"></div></div></div>`);
   const body = document.querySelector('#soStageBody');
-  mountListEdit(body, {key: 'stg', label: '쟁의 단계 수정', items: menuItems, onAct: onMenuAct,
+  mountListEdit(body, {key: 'stg', label: word('쟁의 단계 수정'), items: menuItems, onAct: onMenuAct,
     onMove: (id, index) => commitOrder(id, dragIndex(id, index)), onStep: (id, dir) => { const at = stagesNow().findIndex(x => x.id === id); commitOrder(id, Math.max(fixedCount(), at + dir)); },
     canDrag: id => !!mgr && !mgr.busy && !stagesNow().find(x => x.id === id)?.is_default});
 }
@@ -220,13 +221,13 @@ export function closeStageManager() {
 
 function orgsAt(stageId, state) {
   const names = mgr.orgNames(), out = [];
-  for (const orgId of state.histories.keys()) if (stageOfOrg(orgId, state.histories, state.stages).stage?.id === stageId) out.push(names.get(orgId) || '다른 조직');
+  for (const orgId of state.histories.keys()) if (stageOfOrg(orgId, state.histories, state.stages).stage?.id === stageId) out.push(names.get(orgId) || word('다른 조직'));
   return out.sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
 function stageTags(s) {
   if (s.is_default) return '<span class="le-tag">기본</span>';
-  return (s.is_struggle ? '<span class="le-tag" data-stg-tag="struggle">투쟁 중</span>' : '') + (s.is_ending ? '<span class="le-tag" data-stg-tag="ending">끝남</span>' : '');
+  return (s.is_struggle ? word('<span class="le-tag" data-stg-tag="struggle">투쟁 중</span>') : '') + (s.is_ending ? '<span class="le-tag" data-stg-tag="ending">끝남</span>' : '');
 }
 function rowHtml(s) {
   const ui = mgr.ui, busy = mgr.busy;
@@ -236,7 +237,7 @@ function rowHtml(s) {
 function menuItems(id) {
   const s = stagesNow().find(x => x.id === id); if (!s) return [];
   if (s.is_default) return [{key: 'rename', label: '이름 바꾸기'}];
-  return [{key: 'rename', label: '이름 바꾸기'}, {key: 'struggle', label: `투쟁 중 ${s.is_struggle ? '끄기' : '켜기'}`}, {key: 'ending', label: `끝남 ${s.is_ending ? '끄기' : '켜기'}`}, {key: 'delete', label: '삭제'}];
+  return [{key: 'rename', label: '이름 바꾸기'}, {key: 'struggle', label: word`투쟁 중 ${s.is_struggle ? '끄기' : '켜기'}`}, {key: 'ending', label: `끝남 ${s.is_ending ? '끄기' : '켜기'}`}, {key: 'delete', label: '삭제'}];
 }
 
 function paintManager() {
@@ -244,7 +245,7 @@ function paintManager() {
   const state = peekDisputeState(), count = document.querySelector(`#${MODAL} [data-le-count]`);
   if (count) count.textContent = state?.status === 'ready' ? `${state.stages.length}개` : '';
   if (!state) { body.innerHTML = waitHtml({rows:3}); return; }
-  if (state.status === 'preparing') { body.innerHTML = '<p class="stg-note" data-stage-preparing>쟁의 단계는 준비 중이에요.</p>'; return; }
+  if (state.status === 'preparing') { body.innerHTML = word('<p class="stg-note" data-stage-preparing>쟁의 단계는 준비 중이에요.</p>'); return; }
   if (state.status === 'error') { body.innerHTML = failHtml({retry: 'data-stg-reload'}); return; }
   const stages = sortStages(state.stages);
   body.innerHTML = leAddHtml({name: '새 단계 이름', value: mgr.addDraft, limit: STAGE_NAME_LIMIT, disabled: mgr.busy, formAttrs: {'data-stg-add-form': true}, inputAttrs: {'data-stg-add-input': true}})
@@ -268,7 +269,7 @@ async function confirmDelete(id, move) {
   const result = await deleteStage({rt, workspaceId, id, move});
   if (result?.ok) return result;
   // 그 사이 조직이 그 단계로 옮겨 왔다: 지우지 않고, 다시 [지우기]를 누르면 조직 이름과 함께 한 번 더 묻는다.
-  if (result?.error === 'ORGS_AT_STAGE') throw new Error('지금 이 단계에 조직이 있어요. 다시 삭제를 누르면 옮길 조직을 보여 드려요.');
+  if (result?.error === 'ORGS_AT_STAGE') throw new Error(word('지금 이 단계에 조직이 있어요. 다시 삭제를 누르면 옮길 조직을 보여 드려요.'));
   throw new Error(result?.error === 'DEFAULT_STAGE' ? '기본 단계는 삭제할 수 없어요.' : result?.error === 'NO_DEFAULT_STAGE' ? '기본 단계가 없어요.' : '삭제하지 못했어요.');
 }
 const moreSel = id => `[data-le-menu="${CSS.escape(id)}"]`;
@@ -278,7 +279,7 @@ async function askDelete(id) {
   const text = names.length ? `${orgsAtStageText(names)} 삭제하면 ‘${base}’ 단계로 옮겨요.` : `‘${stage.name}’ 단계를 삭제할까요?`;
   const yes = await askConfirm(document.querySelector(`#soStageBody ${moreSel(id)}`) || document.querySelector('#soStageBody'), {text, ok: '삭제'});
   if (!yes || !mgr) return;
-  void run(() => confirmDelete(id, names.length > 0), r => r.moved ? `삭제했어요. 조직 ${r.moved}곳은 기본 단계로 옮겼어요.` : '삭제했어요.', '[data-stg-add-input]');
+  void run(() => confirmDelete(id, names.length > 0), r => r.moved ? word`삭제했어요. 조직 ${r.moved}곳은 기본 단계로 옮겼어요.` : '삭제했어요.', '[data-stg-add-input]');
 }
 function onMenuAct(id, act) {
   if (!mgr || mgr.busy) return;

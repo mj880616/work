@@ -44,7 +44,7 @@ test('얼굴 두 벌은 같은 칸을 모두 갖고, 켜진 메뉴·화면은 �
   const menuIds = ITEMS.map(item => item.id);
   assert.deepEqual([...FACES.nojo.menu].sort(), [...menuIds].sort(), '노동조합+는 모든 메뉴가 켜져 있다');
   // 화면 이름 표(topbar-actions.js VIEW_NAMES) + 이름 없는 브리핑 룸 = 지금 있는 화면 전부.
-  const viewNames = read('app/topbar-actions.js').match(/const VIEW_NAMES=\{([^}]*)\}/)[1].split(',').map(pair => pair.split(':')[0]);
+  const viewNames = [...read('app/topbar-actions.js').match(/const VIEW_NAMES=\{([^}]*)\}/)[1].matchAll(/(?:^|,)(\w+):/g)].map(m => m[1]);
   assert.deepEqual([...FACES.nojo.views].sort(), [...viewNames, 'brief'].sort());
   for (const id of FACES.girok.menu) assert.ok(menuIds.includes(id), `기록+ 메뉴 ${id}`);
   for (const view of FACES.girok.views) assert.ok(FACES.nojo.views.includes(view), `기록+ 화면 ${view}`);
@@ -56,17 +56,68 @@ test('얼굴 두 벌은 같은 칸을 모두 갖고, 켜진 메뉴·화면은 �
   }
 });
 
-test('기록+ 단어표: 노조 색 단어를 범용 단어로, 표에 없는 글자는 그대로', () => {
+test('기록+ 단어표: 2026-11-20 명진 결정 단어, 표에 없는 글자는 그대로', () => {
   const girok = faceOf('girok');
   assert.equal(girok.name, '기록+');
-  assert.equal(wordIn(girok, '사업 관리'), '프로젝트·거래처');
   assert.equal(wordIn(girok, '노동조합+'), '기록+');
+  assert.equal(wordIn(girok, '사업 관리'), '활동 기록');
+  assert.equal(wordIn(girok, '사업영역 관리'), '프로젝트 관리');
+  assert.equal(wordIn(girok, '조직 관리'), '거래처·직원', '메뉴·아래 탭은 짧은 꼴');
+  assert.equal(wordIn(girok, '조직 관리', 'title'), '거래처·부서·직원', '화면 제목');
   assert.equal(wordIn(girok, '자료실'), '자료실');
+  assert.equal(wordIn(girok, '자료실', 'title'), '자료실', '자리 열쇠가 없으면 글자 그대로');
   for (const [from, to] of Object.entries(girok.words)) {
     assert.ok(from && to && from !== to, from);
-    assert.ok(!/노동조합|노조|조직|사업/.test(to), `${from} → ${to}에 노조 색 단어가 남음`);
+    assert.ok(!/노동조합|노조|조직|사업 ?보고|사업영역|투쟁|교섭|상집|조합원/.test(to.replace(/="[^"]*"/g, "")), `${from} → ${to}에 노조 색 단어가 남음`);
+    assert.ok(!/[•∙・]/.test(to), `${to}: 가운데점은 '·'만`);
   }
   assert.equal(faceOf('없는얼굴').id, 'nojo', '모르는 이름은 노동조합+');
+});
+
+test('기록+ 문장 안 낱말 바꾸기: 긴 말이 먼저, 조사는 새 말에 맞춘다', () => {
+  const girok = faceOf('girok');
+  const cases = {
+    '사업영역을 고르세요': '프로젝트를 고르세요',
+    '사업영역으로 옮기기': '프로젝트로 옮기기',
+    '사업영역이 없습니다': '프로젝트가 없습니다',
+    '담당조직이 없습니다': '관리 대상이 없습니다',
+    '투쟁사업장은 3곳': '주요 거래처는 3곳',
+    '투쟁사업장과 함께': '주요 거래처와 함께',
+    '사업 보고 쓰기': '활동 기록 쓰기',
+    '조합원을 찾기': '구성원을 찾기',
+    '사업영역이름': '프로젝트이름'
+  };
+  for (const [from, to] of Object.entries(cases)) assert.equal(wordIn(girok, from), to, from);
+  assert.equal(wordIn(girok, ''), '');
+  assert.equal(wordIn(girok, null), null);
+});
+
+test('기록+ 활동 기록 기본 분류(화면 글자만, DB 값은 그대로)', () => {
+  const girok = faceOf('girok');
+  const kinds = { 회의: '회의', 정책: '기획', 교섭: '협의', 언론: '홍보', 국회: '외근', 투쟁: '행사', 교육: '교육', 기타: '기타' };
+  for (const [from, to] of Object.entries(kinds)) {
+    assert.equal(wordIn(girok, from, 'kind'), to, from);
+    assert.equal(wordIn(FACES.nojo, from, 'kind'), from, `노동조합+ ${from}`);
+  }
+});
+
+test('노동조합+ 얼굴: word()는 어떤 글자·자리·태그 템플릿이든 그대로 돌려준다', () => {
+  for (const text of ['담당조직을 고르세요', '사업영역', '조직 관리', '투쟁사업장', '노동조합+']) {
+    assert.equal(word(text), text);
+    assert.equal(word(text, 'title'), text);
+    assert.equal(word(text, 'kind'), text);
+  }
+  const name = '○○ 노조 투쟁사업장', count = 3;
+  assert.equal(word`${name} 담당조직 ${count}곳`, `${name} 담당조직 ${count}곳`);
+  assert.equal(word`담당조직`, '담당조직');
+  assert.equal(word``, '');
+});
+
+test('기록+ 태그 템플릿: 사용자 글(${값})은 바꾸지 않고 고정 조각만 바꾼다', () => {
+  const girok = faceOf('girok');
+  const tag = (strings, ...values) => strings.reduce((out, part, i) => out + (i ? String(values[i - 1]) : '') + wordIn(girok, part), '');
+  const name = '○○ 노조 투쟁사업장';
+  assert.equal(tag`${name}의 담당조직 ${2}곳`, `${name}의 관리 대상 2곳`);
 });
 
 test('얼굴은 빌드만 정한다: 주소·전역 값·네트워크로 바꾸는 길이 없다', () => {
@@ -82,7 +133,7 @@ test('노조 색 화면 이름은 단어표를 거쳐 나온다(글자를 곧바
   const top = read('app/topbar-actions.js');
   assert.match(top, /import \{APP_NAME,word\} from '\.\/brand\/brand\.mjs';/);
   assert.match(top, /const APP_TITLE=APP_NAME;/);
-  for (const name of ['사업 관리', '조직 관리', '사업영역 관리']) assert.ok(!top.includes(`'${name}'`) || top.split(`'${name}'`).length - 1 === top.split(`word('${name}')`).length - 1, `topbar-actions.js의 '${name}'`);
+  for (const name of ['사업 관리', '조직 관리', '사업영역 관리']) assert.ok(!top.includes(`'${name}'`) || top.split(`'${name}'`).length - 1 === top.split(`word('${name}'`).length - 1, `topbar-actions.js의 '${name}'`);
   const menu = read('app/menu-model.mjs');
   assert.match(menu, /label: word\('사업 관리'\)/);
   assert.match(menu, /label: word\('조직 관리'\)/);

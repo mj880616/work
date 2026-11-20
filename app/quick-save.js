@@ -1,5 +1,6 @@
 import {seoulDateKey} from './meeting-time.js';
 import {announceRecordSaved, projectUpdateDetail, orgUpdateDetail} from './record-saved.js';
+import {word} from './brand/brand.mjs';
 // Existing authenticated runtime remains responsible for session, RLS and save events.
 export function createGoogleTask({title,due=null,links=[],notes='',expectedSessionEpoch=null}, rt=window.KPTURuntime) {
   return rt.api('/functions/v1/google-tasks?action=create', {method:'POST',...(expectedSessionEpoch==null?{}:{expectedSessionEpoch}),body:{action:'create',task_id:null,title,notes,due,links}});
@@ -25,7 +26,7 @@ export async function saveOrganizationUpdate({organization_id,raw_text,created_b
 // 일정 만들기에서 프로젝트를 고른 경우: 프로젝트 화면의 주요 일정과 같은 표·같은 행 모양으로 저장.
 // 같은 google_event_id가 이미 있으면 새로 만들지 않아 재시도·연타에도 한 번만 생긴다.
 export async function saveProjectMilestone({id,project_id,title,start_at,notes=null,google_calendar_id,google_event_id,created_by,expectedSessionEpoch=null}, rt=window.KPTURuntime) {
-  if(!project_id||!google_calendar_id||!google_event_id)throw new Error('사업영역 연결 정보가 부족합니다.');
+  if(!project_id||!google_calendar_id||!google_event_id)throw new Error(word('사업영역 연결 정보가 부족합니다.'));
   const epoch=expectedSessionEpoch==null?{}:{expectedSessionEpoch};
   const rows=await rt.api('/rest/v1/app_project_milestones?project_id=eq.'+encodeURIComponent(project_id)+'&select=id,google_event_id', {singleFlight:false,...epoch});
   if(!Array.isArray(rows))throw new Error('주요 일정 목록을 확인하지 못했어요.');
@@ -40,7 +41,7 @@ export async function saveProjectMilestone({id,project_id,title,start_at,notes=n
 export async function eventAreaRows(google_event_id, rt=window.KPTURuntime, {expectedSessionEpoch=null}={}) {
   if(!google_event_id)return [];
   const rows=await rt.api('/rest/v1/app_project_milestones?google_event_id=eq.'+encodeURIComponent(google_event_id)+'&select=id,project_id', {singleFlight:false,...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})});
-  if(!Array.isArray(rows))throw new Error('사업영역 연결을 확인하지 못했어요.');
+  if(!Array.isArray(rows))throw new Error(word('사업영역 연결을 확인하지 못했어요.'));
   return rows.filter(r=>r?.id&&r?.project_id).map(r=>({id:String(r.id),project_id:String(r.project_id)}));
 }
 // had: the rows read on open (kept up to date here, so a retry after a half-done save only does what is left).

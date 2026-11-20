@@ -1,5 +1,6 @@
 // AI-서버연동 S7-c: 원장 목록·검색 화면(app/ledger-browse.js)의 순수 함수. 설계: docs/design/ledger-web2.md 8·15절.
 // 검색 RPC(app_ledger_search, 20261021082000)에 보낼 인자 만들기, 날짜·고정 목록 표시, 상세 칸 정리만 한다(DOM·네트워크 없음).
+import {word} from './brand/brand.mjs';
 export const KIND_LABEL = Object.freeze({ event: '사건', change: '변화기록', decision: '결정', evidence: '근거', commitment: '약속' });
 export const KINDS = Object.freeze(Object.keys(KIND_LABEL));
 // 화면에 보이는 이름만 쉬운 말로(DB 값·필터 값·원장 안의 이름 KIND_LABEL은 그대로). 설명은 docs/design/ledger-web2.md 종류 정의를 짧게 줄인 것.
@@ -10,17 +11,17 @@ export const KIND_HINT = Object.freeze({
   commitment: '상대가 하기로 한 일, 후속확인일이 있음(원장의 약속)' });
 export const VALIDITY_LABEL = Object.freeze({ current: '현재유효', fulfilled: '이행완료', superseded: '대체', retired: '폐기', needs_check: '확인필요' });
 // 화면 글자만 쉬운 말로(값 S0~S2는 그대로, 설계 8.3절).
-export const SENSITIVITY_LABEL = Object.freeze({ S0: '공개 가능', S1: '내부', S2: '교섭·전략' });
+export const SENSITIVITY_LABEL = Object.freeze({ S0: '공개 가능', S1: '내부', S2: word('교섭·전략') });
 export const IMPORTANCE_LABEL = Object.freeze({ very_high: '매우높음', high: '높음', normal: '보통', low: '낮음' });
 export const EVENT_STATUS_LABEL = Object.freeze({ tracking: '추적중', watching: '관찰', closed: '종료', on_hold: '보류' });
 export const DECISION_TYPE_LABEL = Object.freeze({ adopted: '채택', rejected: '기각', on_hold: '보류', changed: '변경' });
 export const EVIDENCE_TYPE_LABEL = Object.freeze({ law: '법령', statistics: '통계', budget: '예산', agreement: '합의문', precedent: '판례·선례',
-  gov_position: '정부 입장', counterpart_statement: '상대측 발언', field_fact: '현장 사실', argument: '교섭 논거', other: '기타' });
+  gov_position: '정부 입장', counterpart_statement: '상대측 발언', field_fact: '현장 사실', argument: word('교섭 논거'), other: '기타' });
 export const COMMITMENT_STATUS_LABEL = Object.freeze({ waiting: '대기', fulfilled: '이행', broken: '불이행', cancelled: '취소' });
 export const CONFIDENCE_LABEL = Object.freeze({ high: '높음', medium: '중간', low: '낮음' });
 export const VERIFICATION_LABEL = Object.freeze({ verified: '확인', partial: '부분확인', unverified: '미확인' });
 export const DOC_TYPE_LABEL = Object.freeze({ meeting_material: '회의자료', minutes: '회의록', official_letter: '공문', news: '기사',
-  statement: '성명·보도자료', law: '법령', gov_report: '정부·기관 보고서', bargaining: '교섭자료', call_transcript: '통화 전사',
+  statement: '성명·보도자료', law: '법령', gov_report: '정부·기관 보고서', bargaining: word('교섭자료'), call_transcript: '통화 전사',
   telegram: '텔레그램', email: '메일', ai_chat: 'AI 대화', internal_doc: '내부 문서', other: '기타' });
 export const RELATION_LABEL = Object.freeze({ belongs_to: '소속', follow_up: '후속', supports: '뒷받침', contradicts: '반박', related: '관련',
   direct: '직접관련', joint: '공동사업', counterpart: '상대기관', reference: '참고', other: '기타' });
@@ -130,10 +131,10 @@ export function linkLabel(link, names, dir) {
   }
   if (link.target_organization_id) {
     const o = names.organizations.get(link.target_organization_id);
-    return { relation: rel, kind: 'organization', ledgerId: o?.ledger_id || '', title: o?.name || '(읽을 수 없는 조직)', dir };
+    return { relation: rel, kind: 'organization', ledgerId: o?.ledger_id || '', title: o?.name || word('(읽을 수 없는 조직)'), dir };
   }
-  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || '(노동조합+ 사업영역)', dir };
-  if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || '(노동조합+ 사업 보고)', dir };
+  if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || word('(노동조합+ 사업영역)'), dir };
+  if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || word('(노동조합+ 사업 보고)'), dir };
   return { relation: rel, kind: 'other', ledgerId: '', title: '', dir };
 }
 
@@ -186,7 +187,7 @@ export function activeConditions(filters, { organizations = [], topics = [] } = 
   const period = periodLabel(f.from, f.to, now);
   if (period) out.push({ key: 'period', label: period });
   const org = organizations.find(o => o.id === f.organization);
-  if (f.organization) out.push({ key: 'organization', label: org?.name || '조직' });
+  if (f.organization) out.push({ key: 'organization', label: org?.name || word('조직') });
   const topic = topics.find(o => o.id === f.topic);
   if (f.topic) out.push({ key: 'topic', label: topic?.name || '주제' });
   if (f.scope !== 'work') out.push({ key: 'scope', label: (SCOPE_CHOICES.find(([v]) => v === f.scope) || [])[1] || '범위' });
@@ -208,7 +209,7 @@ export const countLabel = (n, limit) => (n >= limit ? `최근 ${limit}건` : `${
 // ---------- LEDGER-자동기록 3단계(설계 docs/design/ledger-auto-record.md 3.3·8.1·9.2절) ----------
 // 출처 위치 web2:<종류>:<id> → {kind, id}. 종류는 자동 기록 재료 여섯 + 업무 통화(call, docs/design/ledger-sources.md 6.3). 개인본·캘린더는 해당 화면 PR에서 더한다.
 export const WEB2_SOURCE_KINDS = Object.freeze(['basket', 'note', 'work', 'meeting', 'org_update', 'project_update', 'call']);
-export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '사업영역 기록', call: '통화' });
+export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: word('사업 보고'), org_update: word('담당조직 기록'), project_update: word('사업영역 기록'), call: '통화' });
 export function web2Source(location) {
   const m = /^web2:([a-z_]+):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String(location ?? '').trim());
   if (!m || !WEB2_SOURCE_KINDS.includes(m[1])) return null;
@@ -229,7 +230,7 @@ export function web2OpenTarget(src, row) {
 }
 // 근거 줄 글: "업데이트 · 10/22", "사업 보고 · 가 지부 3차 · 10/21".
 export function web2SourceLabel(src, source) {
-  const name = WEB2_SOURCE_NAME[src?.kind] || '노동조합+ 기록';
+  const name = WEB2_SOURCE_NAME[src?.kind] || word('노동조합+ 기록');
   const m = /\(([^()]{1,80})\)\s*$/.exec(String(source?.title ?? ''));
   const date = isDay(source?.source_date) ? `${Number(source.source_date.slice(5, 7))}/${Number(source.source_date.slice(8, 10))}` : '';
   return [name, m ? m[1].trim() : '', date].filter(Boolean).join(' · ');

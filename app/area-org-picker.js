@@ -10,12 +10,13 @@
 // areaListHtml·orgListHtml·openKeysFor로 같은 모양·같은 찾기를 쓴다(꺾쇠 펼침은 모든 고르기 창이 한다: choice-sheet.js).
 import {createChoiceSheet} from './choice-sheet.js';
 import {emptyHtml} from './wait-state.js';
+import {word} from './brand/brand.mjs';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('area-org-picker');
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const KINDS={area:{label:'사업영역',title:'사업영역 선택'},org:{label:'조직',title:'조직 선택'}};
+const KINDS={area:{label:word('사업영역'),title:word('사업영역 선택')},org:{label:word('조직'),title:word('조직 선택')}};
 const RECENT_MAX=4;
 // The first row of a one-choice sheet that picks nothing ('사업영역 없음' / '조직 없음').
 const noneLabel=kind=>`${KINDS[kind].label} 없음`;
@@ -28,7 +29,7 @@ export function ensureStyles(){return partStyles('area-org-picker')}
 export function areaTree(areas){
   const roots=[],stack=[],byKey=new Map();
   for(const a of areas||[]){
-    const depth=Math.max(0,Number(a.depth)||0),node={key:String(a.key),name:String(a.name||'이름 없는 사업영역'),depth,kids:[],parent:null};
+    const depth=Math.max(0,Number(a.depth)||0),node={key:String(a.key),name:String(a.name||word('이름 없는 사업영역')),depth,kids:[],parent:null};
     while(stack.length&&stack.at(-1).depth>=depth)stack.pop();
     node.parent=stack.at(-1)||null;(node.parent?node.parent.kids:roots).push(node);stack.push(node);byKey.set(node.key,node);
   }
@@ -114,8 +115,8 @@ export function orgWriteIn(create){
 // pressed(key): 비슷한 조직 줄이 눌린 채인지(여러 개 고르는 창). 줄의 값(data-sheet-value)은 부르는 창의 값 그대로라 누르면 그 창의 고르기와 같다.
 export function orgWriteInHtml(k,pressed=()=>false){
   if(!k)return '';
-  const busy=k.busy?' disabled':'',ph='직접 쓰기 — 조직 이름';
-  const similar=k.similar?.length?`<p class="aop-create-note">비슷한 조직이 있어요. 맞으면 눌러 선택하세요.</p>${k.similar.map(x=>rowHtml(x.key,x.name,0,{pressed:!!pressed(x.key)}).replace('<button ','<button data-aop-similar ')).join('')}<button type="button" class="row-act aop-create-force" data-aop-create-force${busy}>'${esc(k.text)}' 새로 만들기</button>`:'';
+  const busy=k.busy?' disabled':'',ph=word('직접 쓰기 — 조직 이름');
+  const similar=k.similar?.length?word`<p class="aop-create-note">비슷한 조직이 있어요. 맞으면 눌러 선택하세요.</p>${k.similar.map(x=>rowHtml(x.key,x.name,0,{pressed:!!pressed(x.key)}).replace('<button ','<button data-aop-similar ')).join('')}<button type="button" class="row-act aop-create-force" data-aop-create-force${busy}>'${esc(k.text)}' 새로 만들기</button>`:'';
   return `<div class="aop-create" data-aop-create-box><div class="aop-create-row"><input type="text" class="aop-create-input" data-aop-create-input maxlength="120" autocomplete="off" placeholder="${ph}" aria-label="${ph}" value="${esc(k.text||'')}"${busy}><button type="button" class="row-act aop-create-go" data-aop-create${busy}>만들기</button></div>${similar}<p class="aop-create-note" data-aop-create-status role="status">${esc(k.status||'')}</p></div>`;
 }
 // 고르기 창(dialog) 하나에 한 번 붙인다. get() → 지금 열린 창의 {writeIn, repaint(focusSelector), made({key,name,org}), picked?(similarRow)}
@@ -136,11 +137,11 @@ async function runWriteIn(box,get,force){
   const live=()=>get()?.writeIn===k;
   const input=box.querySelector('[data-aop-create-input]'),name=String(input?.value??k.text??'').replace(/\s+/g,' ').trim();k.text=name;
   const paintKeep=focus=>{if(live())g.repaint(focus)};
-  if(!name){k.status='조직 이름을 써 주세요.';k.similar=null;paintKeep('[data-aop-create-input]');return}
+  if(!name){k.status=word('조직 이름을 써 주세요.');k.similar=null;paintKeep('[data-aop-create-input]');return}
   if(!force){const like=(k.find?.(name)||[]).filter(x=>x?.key);if(like.length){k.similar=like;k.status='';paintKeep('[data-aop-create-box] [data-sheet-value]');return}}
   k.busy=true;k.similar=null;k.status='만드는 중…';paintKeep('[data-aop-create-status]');
   try{const made=await k.make(name);if(!live())return;k.busy=false;k.text='';k.status=`'${made.name}'을(를) 만들었어요.`;g.made(made)}
-  catch(error){if(!live())return;k.busy=false;k.status=error?.message||'조직을 만들지 못했어요. 다시 눌러 주세요.';paintKeep('[data-aop-create-input]')}
+  catch(error){if(!live())return;k.busy=false;k.status=error?.message||word('조직을 만들지 못했어요. 다시 눌러 주세요.');paintKeep('[data-aop-create-input]')}
 }
 const createHtml=c=>c?.create&&c.kind==='org'?orgWriteInHtml(c.create,k=>c.multi&&c.pending.has(k)):'';
 // 여러 개 고르는 창에서 새로 만들거나 비슷한 줄로 고른 조직이 목록에 없으면 맨 끝에 더한다(넣기·이름표가 그 조직을 알게).
@@ -175,7 +176,7 @@ function ensureSheet(){
   return sheet;
 }
 function choiceState({areas=[],orgGroups=[],used=[]}){
-  const tree=areaTree(areas),groups=(orgGroups||[]).map(g=>(g||[]).map(o=>({key:String(o.key),name:String(o.name||o.label||'이름 없는 조직'),group:o.group||''})));
+  const tree=areaTree(areas),groups=(orgGroups||[]).map(g=>(g||[]).map(o=>({key:String(o.key),name:String(o.name||o.label||word('이름 없는 조직')),group:o.group||''})));
   return {tree,orgGroups:groups,areaKnown:new Map([...tree.byKey.values()].map(n=>[n.key,n.name])),orgKnown:new Map(groups.flat().map(o=>[o.key,o.name])),used:[...(used||[])]};
 }
 
@@ -198,13 +199,13 @@ export function openAreaOrgPicker({kind='area',trigger,anchor=null,areas=[],orgG
 // Settles once the sheet has closed and given focus back (a screen that moves focus elsewhere after [넣기] waits for it).
 export const areaOrgPickerClosed=()=>sheet?sheet.closed():Promise.resolve();
 // Organization groups (organization-order.js groups()) of {id,name} as the picker's orgGroups, keyed 'o:<id>'.
-export const orderedOrgGroups=(groups,order=typeof window!=='undefined'?window.KPTUOrganizationOrder:null)=>(groups||[]).map(g=>(g||[]).map(o=>({key:'o:'+o.id,name:o.name||'이름 없는 조직',group:order?.groupName?.(o)||''})));
+export const orderedOrgGroups=(groups,order=typeof window!=='undefined'?window.KPTUOrganizationOrder:null)=>(groups||[]).map(g=>(g||[]).map(o=>({key:'o:'+o.id,name:o.name||word('이름 없는 조직'),group:order?.groupName?.(o)||''})));
 // Closes the sheet (as a Back press would) when it was opened for this trigger (or any, with none given): a screen left behind.
 export function dismissAreaOrgPicker(trigger=null){if(sheet&&current&&(!trigger||current.host===trigger))sheet.dismiss()}
 // The keys of the saved links of the signed-in workspace (loadUsedKeys), for a screen that has no workspace id at hand.
 export function usedKeysNow(rt=window.KPTURuntime){const ctx=rt?.context?.read?.();return loadUsedKeys(rt,ctx?.workspace?.id||ctx?.workspaceId||'')}
 // Rows of the shared project catalog's tree ({project, depth}) as the picker's areas, keyed 'p:<id>'.
-export const catalogAreas=rows=>(rows||[]).map(x=>({key:'p:'+x.project.id,name:x.project.name||'이름 없는 사업영역',depth:x.depth||0}));
+export const catalogAreas=rows=>(rows||[]).map(x=>({key:'p:'+x.project.id,name:x.project.name||word('이름 없는 사업영역'),depth:x.depth||0}));
 
 // host: an empty box. onChange(): after [넣기] or a ✕ changed the choice. Returns {set, value, known, focus, disable(on, kind?)}.
 // set({areas:[{key,name,depth}], orgGroups:[[{key,name,group}]], selected:Set|keys, used:[keys newest first]}).

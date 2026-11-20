@@ -24,6 +24,7 @@ import {deleteOrgUpdate} from './org-row-delete.js';
 import {viewPrefs} from './view-prefs.js';
 import * as M from './record-window-model.mjs';
 import * as DE from './record-day-edit.js';
+import {word} from './brand/brand.mjs';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('record-window-view');
@@ -41,7 +42,7 @@ const enc = encodeURIComponent;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const dayIso = day => new Date(`${day}T00:00:00+09:00`).toISOString();
 export const TEXT = {
-  failed: '조직보고를 불러오지 못했어요.', saveFailed: '저장하지 못했어요. 다시 눌러 주세요.', noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 선택해 주세요.',
+  failed: word('조직보고를 불러오지 못했어요.'), saveFailed: '저장하지 못했어요. 다시 눌러 주세요.', noBody: '내용을 적어 주세요.', badDay: '날짜를 다시 선택해 주세요.',
   badEnd: '끝나는 날은 시작일과 같거나 뒤여야 해요.', saved: '저장했어요.', daySaved: '날짜를 바꿨어요.', added: '기록을 남겼어요.', out: '이번 주부터 보고에서 뺐어요.', back: '보고에 다시 넣었어요.',
   placed: '보고에 넣었어요.', orig: '원래 글로 되돌렸어요.', deleted: '기록을 삭제했어요.', delFailed: '기록을 삭제하지 못했어요. 다시 눌러 주세요.', delAsk: '이 기록을 삭제할까요?', evFailed: '일정을 못 읽었어요', evPartial: '일정 일부만',
 };
@@ -248,7 +249,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const d = newDay(), dis = ctl.busy ? ' disabled' : '', inv = f => (ctl.invalid === f ? ' aria-invalid="true"' : '');
     const pick = ctl.dayPick ? DE.dayFormHtml(d, {prefix: 'rw', id: 'new-day', noneOn: ctl.cols.day_none === true, busy: ctl.busy, invalid: ['day', 'end_day'].includes(ctl.invalid) ? ctl.invalid : '', pick: true}) : '';
     return `<div class="wl-form" data-rw-form="new" data-rw-org="${esc(orgId)}">`
-      + `<textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="조직 기록" maxlength="${M.RECORD_MAX}" autocomplete="off"${inv('body')}${dis}>${esc(d.body || '')}</textarea>`
+      + word`<textarea rows="1" class="wl-f-body" data-rw-field="body" data-autogrow data-enter-field="single" aria-label="조직 기록" maxlength="${M.RECORD_MAX}" autocomplete="off"${inv('body')}${dis}>${esc(d.body || '')}</textarea>`
       + DE.dayChipHtml(d, {prefix: 'rw', open: !!ctl.dayPick, today: seoulDateKey(Date.now()), busy: ctl.busy})
       + `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-rw-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-rw-save${dis}>저장</button></span></div>${pick}`;
   };
@@ -466,10 +467,10 @@ export const RECORD_WINDOW_EVENT = EVENT;
 // orgs = [{id, name}] 보고 순서. orgHtml(o) 조직 칸 안쪽, stageOf(o) 조직 이름 밑 작은 글(쟁의 단계).
 // orderMenu = 표 위 오른쪽 [⋯](줄 순서)를 이 함수가 그릴지(false면 화면이 ctl.orderMenuHtml()을 자기 위쪽 줄에 둔다).
 // cellHtml(o) = 그 조직 칸을 화면이 따로 그릴 때(예: 홈 [주간 정리] 4.의 '투쟁 사업장 보고 참고' 한 줄), null이면 창 칸.
-export function windowTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = '조직', headRows = '조직현황', tableClass = '', cellHtml = null, orderMenu = true} = {}) {
+export function windowTableHtml(ctl, orgs, {msg = '', error = false, orgHtml = null, stageOf = null, headOrg = word('조직'), headRows = word('조직현황'), tableClass = '', cellHtml = null, orderMenu = true} = {}) {
   if (ctl.status === 'error') return `<p class="wl-note" role="alert">${TEXT.failed}</p>`;
   if (ctl.status !== 'ready') return waitHtml({rows: 2});
-  if (!orgs.length) return emptyHtml('담당조직 없음');
+  if (!orgs.length) return emptyHtml(word('담당조직 없음'));
   const rows = orgs.map(o => { const stage = stageOf ? stageOf(o) : ''; return `<tr data-wl-org-row="${esc(o.id)}"><th scope="row" class="wl-c-org"><div class="wl-org-line">${orgHtml ? orgHtml(o) : `<span class="wl-org" title="${esc(o.name)}">${esc(o.name)}</span>`}</div>${stage ? `<span class="wl-stage">${esc(stage)}</span>` : ''}</th><td class="wl-c-rows">${(cellHtml && cellHtml(o)) || ctl.cellHtml(o.id)}</td></tr>`; }).join('');
   const tools = orderMenu ? `<div class="wl-tools">${ctl.orderMenuHtml()}</div>` : '';
   return `${tools}${ctl.noteHtml()}<table class="wl-table${tableClass ? ` ${tableClass}` : ''}" data-wl-table data-rw-table><thead><tr><th scope="col" class="wl-c-org">${headOrg}</th><th scope="col">${esc(headRows)}</th></tr></thead><tbody>${rows}</tbody></table>`

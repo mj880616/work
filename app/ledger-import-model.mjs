@@ -4,6 +4,7 @@
 // 입력 세 가지: 시트 탭별 CSV 여러 개 / 시트 전체 xlsx 한 개 / Claude가 만든 가져오기 파일(JSON, 이 파일의 FORMAT).
 // 결과: 탭별 행 수(시트 행 = 넣을 행 + 제외 + 거부), 거부 사유별 수, 고정 목록 대응표, 깨끗하면 RPC로 보낼 묶음(payload).
 // 깨진 참조·고정 목록 밖 값 등 거부가 하나라도 있으면 묶음 전체를 넣지 않는다(설계 7.2). 민감도 S3·개인정보 모양은 제외(L9).
+import {word} from './brand/brand.mjs';
 export const FORMAT = 'kptu-ledger-import';
 export const VERSION = 1;
 export const MAX_ROWS = 20000;
@@ -79,7 +80,7 @@ const REQUIRED = {
 
 // 고정 목록(20261021082000 CHECK와 같은 값). [값, 화면 이름]
 export const FIXED = {
-  sensitivity: [['S0', 'S0 공개 가능'], ['S1', 'S1 내부 업무'], ['S2', 'S2 교섭·전략'], ['S3', 'S3 민감 — 가져오지 않음']],
+  sensitivity: [['S0', 'S0 공개 가능'], ['S1', 'S1 내부 업무'], ['S2', word('S2 교섭·전략')], ['S3', 'S3 민감 — 가져오지 않음']],
   importance: [['very_high', '매우높음'], ['high', '높음'], ['normal', '보통'], ['low', '낮음']],
   validity: [['current', '현재유효'], ['fulfilled', '이행완료'], ['superseded', '대체'], ['retired', '폐기'], ['needs_check', '확인필요']],
   confidence: [['', '(비움)'], ['high', '높음'], ['medium', '중간'], ['low', '낮음']],
@@ -87,10 +88,10 @@ export const FIXED = {
   event_status: [['tracking', '추적중'], ['watching', '관찰'], ['closed', '종료'], ['on_hold', '보류']],
   decision_type: [['', '(비움)'], ['adopted', '채택'], ['rejected', '기각'], ['on_hold', '보류'], ['changed', '변경']],
   evidence_type: [['law', '법령'], ['statistics', '통계'], ['budget', '예산'], ['agreement', '합의문'], ['precedent', '판례·선례'],
-    ['gov_position', '정부 입장'], ['counterpart_statement', '상대측 발언'], ['field_fact', '현장 사실'], ['argument', '교섭 논거'], ['other', '기타']],
+    ['gov_position', '정부 입장'], ['counterpart_statement', '상대측 발언'], ['field_fact', '현장 사실'], ['argument', word('교섭 논거')], ['other', '기타']],
   commitment_status: [['waiting', '대기'], ['fulfilled', '이행'], ['broken', '불이행'], ['cancelled', '취소']],
   doc_type: [['meeting_material', '회의자료'], ['minutes', '회의록'], ['official_letter', '공문'], ['news', '기사'], ['statement', '성명·보도자료'],
-    ['law', '법령'], ['gov_report', '정부·기관 보고서'], ['bargaining', '교섭자료'], ['call_transcript', '통화 전사'], ['telegram', '텔레그램'],
+    ['law', '법령'], ['gov_report', '정부·기관 보고서'], ['bargaining', word('교섭자료')], ['call_transcript', '통화 전사'], ['telegram', '텔레그램'],
     ['email', '메일'], ['ai_chat', 'AI 대화'], ['internal_doc', '내부 문서'], ['other', '기타']],
   processing_status: [['unprocessed', '미처리'], ['partial', '부분처리'], ['done', '처리완료']],
   relation: [['direct', '직접관련'], ['joint', '공동사업'], ['counterpart', '상대기관'], ['reference', '참고'], ['other', '기타']],
@@ -143,10 +144,10 @@ export const REASONS = {
   prefix_conflict: '원장 번호표의 접두어와 다름', prefix_shared: '다른 탭과 접두어가 같음', duplicate_id: '같은 ID가 두 번',
   existing_id: '이미 원장에 있는 ID', empty_title: '제목·이름 빈칸', too_long: '글자 수 초과', bad_date: '날짜를 읽을 수 없음',
   bad_value: '고정 목록 밖 값', broken_ref: '없는 ID를 가리킴(깨진 참조)', excluded_ref: '민감으로 제외한 행을 가리킴',
-  supersede_mismatch: '유효상태 "대체"와 대체기록이 맞지 않음', missing_counterparty: '약속의 상대측 빈칸', duplicate_web2: '같은 노조+ 담당조직에 원장 조직 둘',
+  supersede_mismatch: '유효상태 "대체"와 대체기록이 맞지 않음', missing_counterparty: '약속의 상대측 빈칸', duplicate_web2: word('같은 노조+ 담당조직에 원장 조직 둘'),
   self_link: '자기 자신을 가리킴', duplicate_link: '같은 연결이 두 번', too_many: '행이 너무 많음', bad_file: '파일 모양이 다름',
   s3: '민감도 S3', personal: '개인정보 모양(주민번호·휴대전화)', excluded_link: '민감 제외 행에 걸린 연결(빠짐)',
-  id_padded: 'ID 숫자를 4자리로 맞춤', date_unknown: '날짜를 읽지 못해 "모름"으로 두고 원래 표기를 남김', web2_missing: '노조+ 담당조직을 찾지 못해 연결 없이 넣음',
+  id_padded: 'ID 숫자를 4자리로 맞춤', date_unknown: '날짜를 읽지 못해 "모름"으로 두고 원래 표기를 남김', web2_missing: word('노조+ 담당조직을 찾지 못해 연결 없이 넣음'),
   date_month_start: '날짜가 일 단위가 아니라 그 달·해 첫날로 넣음',
   title_cut: '제목이 길어 앞 300자만 제목으로(전체는 요지에)', source_text_kept: '출처가 ID가 아니라 글자라 비고에 남김',
   source_title_prefix: '출처명이 출처 제목 앞부분과 같아(뒤 괄호만 다름) 그 출처에 연결',
@@ -583,7 +584,7 @@ export function sheetToCanonical(input, mapping) {
         const rec = refsOf(recText, issues, key, recText), org = expandRefs(orgText);
         if (rec.bad || org.bad || !rec.ids.length || org.ids.length !== 1) {
           if (rec.idx && !rec.ids.length) { row.excludedIdx = true; issues.push({ level: 'excluded', reason: 'idx_ref_ignored', tab: key, id: recText.slice(0, 40), row: rowNo }); continue; }
-          const what = !rec.ids.length || rec.bad ? `기록ID "${recText.slice(0, 30)}"` : `조직ID "${orgText.slice(0, 30)}"`;
+          const what = !rec.ids.length || rec.bad ? `기록ID "${recText.slice(0, 30)}"` : word`조직ID "${orgText.slice(0, 30)}"`;
           issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${recText.slice(0, 20)} → ${orgText.slice(0, 20)} — ${what}를 ID로 읽을 수 없음`, row: rowNo });
           row.rejected = true; continue;
         }

@@ -5,6 +5,7 @@
 // - 남길 줄이 이 주에 보이지 않으면(다른 주이거나 '보고 안 함' 종류) 그 짝은 없는 것으로 본다: 주마다 보고서가 혼자 완결되게, 줄이 어디에도 안 남는 일을 막는다.
 // - AI에 물어볼 짝은 "그 주에 보이는 사업 보고 × 그 밖의 줄" 중 서로 이어질 만한 것(같은 프로젝트·조직이거나 낱말이 겹침)만, 점수 순으로 위 24쌍(8쌍씩 세 번)이다.
 import {makeRef, isRef, refKind, orderPair, pairKey, relatedness, dayGap, isDayKey} from './overlap-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const WEEK_MAX_PAIRS = 24; // 서버는 한 번에 8쌍까지 받는다(ai-assist overlap_check). 주 한 번 열 때 최대 세 번.
 export const WEEK_BATCH = 8;
@@ -118,7 +119,7 @@ export const batches = (pairs, size = WEEK_BATCH) => Array.from({length: Math.ce
 export const OVERLAP_WEEK_TEXT = Object.freeze({
   count: n => `겹쳐서 ${n}건 뺐어요`,
   show: '보기',
-  kept: '남긴 사업 보고',
+  kept: word('남긴 사업 보고'),
   revive: '되살리기',
   reviving: '되살리는 중…',
   revived: '되살렸어요.',

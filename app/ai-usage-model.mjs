@@ -2,6 +2,7 @@
 // 화면은 받은 원 금액을 보여 주기만 하고 단가·상한을 따로 갖지 않는다(단가·상한은 서버 _shared/ai-model.ts 한 곳).
 // 기간·월말 예상만 화면에서 셈한다(서울 날짜 기준, 매달 1일부터 다시 셈 — 서버도 같은 달만 더한다).
 // 충전 잔액·실제 청구 입력은 없앴다(10/28 요청함). 이미 넣은 값은 서버 표에 그대로 남는다.
+import {word} from './brand/brand.mjs';
 export const WARN_RATIO = 0.8;
 const KST = 9 * 3600000;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -42,7 +43,7 @@ export function monthEnd(s, now = Date.now()) {
 export function warnText(s) {
   const list = Array.isArray(s?.warn) ? s.warn : [];
   const texts = list.map(code => {
-    if (code === 'openai_limit') return `노동조합+ AI 이번 달 상한 ${Math.round(WARN_RATIO * 100)}% 넘음 (${krw(s.openai.assist_krw)} / ${krw(s.openai.limit_assist_krw)})`;
+    if (code === 'openai_limit') return word`노동조합+ AI 이번 달 상한 ${Math.round(WARN_RATIO * 100)}% 넘음 (${krw(s.openai.assist_krw)} / ${krw(s.openai.limit_assist_krw)})`;
     if (code === 'feed_limit') return `텔레그램·통화 판정 상한 ${Math.round(WARN_RATIO * 100)}% 넘음 (${krw(num(s.openai.telegram_krw) + num(s.openai.call_krw))} / ${krw(s.openai.limit_feed_krw)})`;
     return '';
   }).filter(Boolean);
@@ -68,7 +69,7 @@ const row = (label, value, note = '') => `<li class="aiu-row"><span class="aiu-n
 export function detailRows(s) {
   const o = s.openai, g = s.gemini, rows = [];
   const pct = Math.round(barRatio(s) * 100);
-  rows.push(`<li class="aiu-row"><span class="aiu-name">노동조합+ AI 기능</span><span class="aiu-value">${esc(`${krw(o.assist_krw)} / 한 달 상한 ${krw(o.limit_assist_krw)}`)}</span><span class="aiu-bar" role="img" aria-label="노동조합+ AI 기능 상한의 ${pct}%"><span style="width:${pct}%"${pct >= WARN_RATIO * 100 ? ' data-warn' : ''}></span></span></li>`);
+  rows.push(word`<li class="aiu-row"><span class="aiu-name">노동조합+ AI 기능</span><span class="aiu-value">${esc(`${krw(o.assist_krw)} / 한 달 상한 ${krw(o.limit_assist_krw)}`)}</span><span class="aiu-bar" role="img" aria-label="노동조합+ AI 기능 상한의 ${pct}%"><span style="width:${pct}%"${pct >= WARN_RATIO * 100 ? ' data-warn' : ''}></span></span></li>`);
   rows.push(row('텔레그램·통화 판정', `${krw(num(o.telegram_krw) + num(o.call_krw))} / 한 달 상한 ${krw(o.limit_feed_krw)}`, num(o.call_krw) ? `텔레그램 ${krw(o.telegram_krw)}` : ''));
   rows.push(row('전사·분석(Gemini)', krw(g.krw), Array.isArray(g.unknown_models) && g.unknown_models.length ? '단가 미확인 모델 있음' : ''));
   if (num(g.transcript_krw) || num(g.analysis_krw)) rows.push(row('· 전사 / 분석', `${krw(g.transcript_krw)} / ${krw(g.analysis_krw)}`));

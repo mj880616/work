@@ -1,3 +1,4 @@
+import {word} from './brand/brand.mjs';
 // MULTI-다른담당자맞춤 ①: 조직 보고 화면에서 담당조직 이름을 바꾸거나 [담당 조직에서 제외]/[담당 조직으로 추가]를 누를 때
 // 내 프로필 화면 기억 org_order({groups:[{name, orgs:[조직 이름…]}…], hidden:[조직 이름…]}, view-prefs.js)를 어떻게 고치는지 한 곳.
 // 값은 같은 org_order 하나에만 있고(새 저장소 없음), 조직은 이름으로 맞춘다(organization-order.js와 같음).
@@ -36,13 +37,13 @@ export function setExcluded(order, name, exclude) {
   if (!key) return {changed: false, value: out};
   const has = out.hidden.includes(key);
   if (exclude && has || !exclude && !has) return {changed: false, value: out};
-  if (exclude && out.hidden.length >= ORG_HIDDEN_MAX) return {changed: false, value: out, error: `제외한 조직은 ${ORG_HIDDEN_MAX}곳까지예요.`};
+  if (exclude && out.hidden.length >= ORG_HIDDEN_MAX) return {changed: false, value: out, error: word`제외한 조직은 ${ORG_HIDDEN_MAX}곳까지예요.`};
   out.hidden = exclude ? [...out.hidden, key] : out.hidden.filter(v => v !== key);
   return {changed: true, value: out};
 }
 
 // 조직 보고 목록: 제외한 조직은 원래 묶음에서 빼서 맨 아래 '제외한 조직' 묶음으로(흐리게). 나머지는 그대로.
-export const EXCLUDED_GROUP = '제외한 조직';
+export const EXCLUDED_GROUP = word('제외한 조직');
 export function splitExcluded(list, order) {
   const hidden = new Set(clean(order).hidden), shown = [], excluded = [];
   for (const o of list || []) (hidden.has(String(o?.name ?? '')) ? excluded : shown).push(o);
@@ -103,7 +104,7 @@ export function moveOrg(order, name, to = {}, groupAt = null) {
       gi = at;
     }
     const g = out.groups[gi];
-    if (g.orgs.length >= ORG_GROUP_ORGS_MAX) return {changed: false, value: clean(order), error: `한 묶음에 조직은 ${ORG_GROUP_ORGS_MAX}곳까지예요.`};
+    if (g.orgs.length >= ORG_GROUP_ORGS_MAX) return {changed: false, value: clean(order), error: word`한 묶음에 조직은 ${ORG_GROUP_ORGS_MAX}곳까지예요.`};
     const at = to.before == null ? -1 : g.orgs.indexOf(String(to.before));
     if (at < 0) g.orgs.push(key); else g.orgs.splice(at, 0, key);
   }

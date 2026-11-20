@@ -8,6 +8,7 @@
 //    그 주에 저장한 요청 줄로 채운다(WEEKLY-임원요청정리, app/weekly-exec-requests.js — 지난주 줄은 걸러서 가져옴).
 import {sameOrgName, matchOrgs} from '../org-name-match.mjs';
 import {lineText, isChanged} from './report.mjs';
+import {word} from '../brand/brand.mjs';
 
 const key = (area, row) => `${area.join('')}›${(row.task ?? []).join('')}`;
 const norm = s => String(s).replace(/\s+/g, '').replace(/[‧·․]/g, '·');
@@ -119,8 +120,8 @@ export function personalReportFromTeam(team, me, {myOrgs = [], orgList = null, t
 function applyOrgItem(report, item, myOrgs) {
   const list = report[item.at.section];
   const row = (list ?? []).find(r => sameName(r.org.join(''), item.at.org ?? ''));
-  if (!row) return '그런 조직 줄이 없음';
-  if (!isMyOrg(row.org, myOrgs)) return '내 담당 조직이 아님';
+  if (!row) return word('그런 조직 줄이 없음');
+  if (!isMyOrg(row.org, myOrgs)) return word('내 담당 조직이 아님');
   return applyLineOp(row.status, item);
 }
 function applyLineOp(lines, item) {
@@ -190,7 +191,7 @@ export function applyPatch(summary, patch, me) {
   const rejected = [];
   for (const item of patch) {
     const hit = locate(out, item.at ?? {});
-    if (!hit) { rejected.push({item, reason: '그런 사업영역·세부 과제 줄이 없음'}); continue; }
+    if (!hit) { rejected.push({item, reason: word('그런 사업영역·세부 과제 줄이 없음')}); continue; }
     if (!isMine(hit.owner, me)) { rejected.push({item, reason: '내 담당 줄이 아님'}); continue; }
     const lines = hit.row.progress;
     const index = item.old === undefined ? -1 : lines.findIndex(l => lineText(l) === item.old);

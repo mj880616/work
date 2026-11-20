@@ -16,6 +16,7 @@ import {readCallEdits} from './feed-data.js';
 import {readSenders} from './tg-sender-data.js';
 import {applyCallEdit, missingTable, kstDay, telegramLines} from './feed-model.mjs';
 import {quietAllowed, weeksOf, addDays, LOOKBACK_DAYS, talkDays, splitKey, orgsOfPeople, lastCallDays, contactedBy, directRooms, mergeLast, quietList, daysText, lastText, headParts} from './org-quiet-model.mjs';
+import {word} from './brand/brand.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const enc = encodeURIComponent;
@@ -132,7 +133,7 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
     const L = window.KPTUFeatureLock;
     if (L?.settings?.() && (L.hides?.('calls') || L.hides?.('telegram'))) {
       el.hidden = false; el.classList.remove('is-open');
-      el.innerHTML = '<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line" data-oq-locked data-lock-here="calls telegram"><span class="oq-text">연락 없는 조직 · 잠김 <button type="button" class="row-act lk-open">풀기</button></span></div>';
+      el.innerHTML = word('<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line" data-oq-locked data-lock-here="calls telegram"><span class="oq-text">연락 없는 조직 · 잠김 <button type="button" class="row-act lk-open">풀기</button></span></div>');
       return;
     }
     const weeks = weeksOf(viewPrefs.get('quiet_weeks')), {shown, more} = headParts(rows), d = today();
@@ -142,9 +143,9 @@ export function mountOrgQuiet(el, {rt = window.KPTURuntime} = {}) {
       : `<span class="oq-text">${weeks}주째 연락 없음: ${shown.map(r => `${name(r)} <span class="oq-d">${esc(daysText(r))}</span>`).join(' · ')}${more ? ` 외 ${more}곳` : ''}</span>`;
     el.hidden = false;
     el.classList.toggle('is-open', open);
-    el.innerHTML = `<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line">${head}<button type="button" class="oq-toggle" data-oq-toggle aria-expanded="${open}" aria-controls="homeQuietList" aria-label="${open ? '연락 없는 조직 접기' : '연락 없는 조직 펼치기'}">${open ? '⌄' : '›'}</button></div>`
+    el.innerHTML = word`<h3 id="home-quiet-title" class="a11y-only">연락 없는 조직</h3><div class="oq-line">${head}<button type="button" class="oq-toggle" data-oq-toggle aria-expanded="${open}" aria-controls="homeQuietList" aria-label="${open ? word('연락 없는 조직 접기') : word('연락 없는 조직 펼치기')}">${open ? '⌄' : '›'}</button></div>`
       + `<ul class="oq-list" id="homeQuietList"${open ? '' : ' hidden'}>${rows.map(r => `<li class="oq-row">${name(r)}<span class="oq-last">${esc(lastText(r, d))}</span><span class="oq-days">${esc(daysText(r))}</span></li>`).join('')}`
-      + `${data.skipped ? `<li class="oq-note">주요 인물이 없는 담당조직 ${data.skipped}곳은 세지 않음</li>` : ''}</ul>`;
+      + `${data.skipped ? word`<li class="oq-note">주요 인물이 없는 담당조직 ${data.skipped}곳은 세지 않음</li>` : ''}</ul>`;
   }
   async function refresh() {
     const mine = ++run;
