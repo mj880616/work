@@ -67,7 +67,7 @@ jobs:
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Test build scripts
         if: steps.scope.outputs.needed == 'true'
-        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs
+        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs scripts/brand-face.test.mjs
       - name: Build Jekyll output
         if: steps.scope.outputs.needed == 'true'
         run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
@@ -77,6 +77,12 @@ jobs:
       - name: Check Worker deploy URL extraction on the output
         if: steps.scope.outputs.needed == 'true'
         run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
+      # APP-올인원다이어리 단계 2: 같은 입력에서 기록+ 얼굴 빌드도 따로 만들어 같은 검사를 한다(배포하지 않음, 시험만).
+      - name: Build and check the 기록+ face output
+        if: steps.scope.outputs.needed == 'true'
+        run: |
+          node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-girok" --face=girok
+          node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-girok"
       # Since 2단계 Pages serves the build output, so that is what production is compared with.
       - name: Compare build output with current GitHub Pages (report only)
         if: steps.scope.outputs.needed == 'true' && (github.event_name == 'workflow_dispatch' && inputs.compare_live)
@@ -88,11 +94,12 @@ jobs:
         if: steps.scope.outputs.needed == 'true'
         run: |
           (cd "$RUNNER_TEMP/pages-out" && python3 -m http.server 8125 >"$RUNNER_TEMP/pages-http.log" 2>&1 &)
+          (cd "$RUNNER_TEMP/pages-girok" && python3 -m http.server 8126 >"$RUNNER_TEMP/pages-girok-http.log" 2>&1 &)
           for i in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8125/app/ >/dev/null; then exit 0; fi
+            if curl --fail --silent http://127.0.0.1:8125/app/ >/dev/null && curl --fail --silent http://127.0.0.1:8126/app/ >/dev/null; then exit 0; fi
             sleep 0.5
           done
-          cat "$RUNNER_TEMP/pages-http.log"
+          cat "$RUNNER_TEMP/pages-http.log" "$RUNNER_TEMP/pages-girok-http.log"
           exit 1
       - name: Boot built output in the browser
         if: steps.scope.outputs.needed == 'true'
