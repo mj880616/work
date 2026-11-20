@@ -4,6 +4,7 @@
 // 붙이기 = 이미 있는 자료 행의 사업 보고 칸(app_documents.meeting_id)만 채운다(파일 다시 올리기·복사 없음, 같은 표·같은 owner RLS).
 // 자료 행 하나는 사업 보고 하나에만 붙는다(칸이 하나). 그래서 다른 보고에 붙은 자료는 흐리게 '다른 보고에 있음'(옮기면 그 보고에서 빠지므로 고를 수 없음).
 // 조직 보고(담당조직 상세)의 자료 칸도 같은 길(organization_id 칸, 다른 조직에 붙은 자료는 '다른 조직에 있음').
+import { word } from './brand/brand.mjs';
 export const PICK_RECENT = 50, PICK_FOUND = 100;
 export const PICK_SECTIONS = Object.freeze({ all: '최근 자료', found: '찾은 자료' });
 export const PICK_LABEL = '자료실에서 선택';
@@ -11,7 +12,7 @@ export const DEVICE_LABEL = '기기에서 올리기';
 export const PICKED_NOTE = '저장하면 붙어요';
 export const HERE_TAG = '이미 있음';
 export const OTHER_TAG = '다른 보고에 있음';
-export const OTHER_ORG_TAG = '다른 조직에 있음';
+export const OTHER_ORG_TAG = word('다른 조직에 있음');
 // 붙이는 칸: 사업 보고(meeting_id) · 담당조직(organization_id, 조직 보고 자료 칸). 이 두 칸만 받는다.
 export const PICK_COLUMNS = Object.freeze(['meeting_id', 'organization_id']);
 
@@ -48,7 +49,7 @@ export function pickedChip(d) {
 
 // 붙인 뒤 한 줄. attached = 붙인 수, taken = 그사이 다른 보고에 붙어 건너뛴 수, failed = 못 붙인 수.
 export function attachResult({ attached = 0, taken = 0, failed = 0, column = 'meeting_id' } = {}) {
-  const where = column === 'organization_id' ? '다른 조직' : '다른 보고';
+  const where = column === 'organization_id' ? word('다른 조직') : '다른 보고';
   if (!attached && !taken && !failed) return null;
   if (!attached) return { text: taken && !failed ? `${where}에 붙은 자료라 붙이지 않았어요` : '자료를 붙이지 못했어요', error: true };
   const parts = [`자료 ${attached}개를 붙였어요`];
