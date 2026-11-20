@@ -66,6 +66,11 @@ export const GAP_MS = 2000;
 // 설계 3.1b [사실: 11/08 CC 확인])까지만 주므로, 30에서 끊으면 밤사이(18:22→08:22, 14시간) 30건 넘게 나온 섹션은 아침 실행에서 뒤쪽을 놓친다.
 // 피드 하나를 통째로 받도록 가장 큰 피드(120)보다 넉넉히 둔다. 수집 때 AI·글 쪽 읽기는 늘지 않는다(국내 종합지는 extract:false, 본문 읽기는 MEDIA_BODY_PER_RUN 그대로).
 export const MEDIA_LIST_LIMIT = 150;
+// S67-24 DB-보관기간정리: DB 정리(public.app_news_prune)는 받은 지 72시간 지난 기사를 지운다. 지운 기사가 피드에 아직 남아 있어도
+// 다시 넣지 않도록(다시 받기·제목 번역 헛돎 방지) 게시 시각이 KEEP_HOURS시간보다 오래된 피드 글은 넣지 않는다.
+export const KEEP_HOURS = 72;
+export const tooOldForNews = (published: string | null | undefined, nowMs: number) =>
+  typeof published === "string" && Number.isFinite(Date.parse(published)) && Date.parse(published) < nowMs - KEEP_HOURS * 3600000;
 // 기본값(명진이 바꿀 때 이 줄들만 고친다 — 화면은 catalog 응답의 limits로 같은 값을 보인다):
 // 키워드는 작업공간마다 KEYWORDS_PER_WORKSPACE개까지(먼저 넣은 것부터) 글자 맞추기에 쓴다.
 export const KEYWORDS_PER_WORKSPACE = 30;
@@ -758,6 +763,7 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
     for (const it of items) {
       const clean = cleanArticleUrl(it.url);
       if (!clean) continue;
+      if (tooOldForNews(it.published_at, nowMs)) { dropped++; continue; }
       const rank = newsRank({ source, list, title: it.title, summary: it.summary, url: clean, category: it.category, words: rankWords });
       if (rank === null) { dropped++; continue; }
       const full = it.content && chars(it.content) >= 200 ? it.content : null;
