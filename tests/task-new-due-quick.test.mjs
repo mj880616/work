@@ -22,9 +22,8 @@ test('고른 표시(aria-pressed)는 상세 칸만이 아니라 폰 창·새 할
   assert.doesNotMatch(fn,/removeAttribute\('aria-pressed'\)/);
 });
 
-test('할 일 창은 어느 화면에서 열어도 자기 모양(google-tasks.css)을 싣고, 없을 때만 기다린다',()=>{
-  assert.match(js,/const EDITOR_STYLE='\.\/google-tasks\.css'/);
-  assert.match(js,/async function openEditor\([^)]*\)\{\{const ready=ensureEditorStyle\(\);if\(!editorStyleOk\)await ready\}/);
+test('할 일 창은 어느 화면에서 열어도 자기 모양(google-tasks.css)을 싣는다(S67-41 공용 부품 표 part-styles.js, 모듈 맨 위에서 기다림)',()=>{
+  assert.match(js,/\nawait partStyles\('google-tasks'\);\n/);
   assert.doesNotMatch(js,/google-tasks\.css\?v=/);
 });
 

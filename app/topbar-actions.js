@@ -376,22 +376,14 @@ function runNavMenu(act,head){
   }
   if(act==='edit')import('./menu-edit.js').then(({openMenuEdit})=>openMenuEdit({trigger:head?.isConnected?head:navBrand()})).catch(error=>{console.error('menu edit',error);writeToast('메뉴 수정을 열지 못했어요. 다시 시도해 주세요.')});
 }
-// 공용 줄 메뉴(row-menu.js)의 모양 파일(od-link.css)은 그 메뉴를 쓰는 화면(달력·사진·파일 등)이 부를 때 같이 받는데, 홈 같은 화면에는 없어서 처음 열 때 한 번 받는다.
-const ROW_MENU_CSS='./od-link.css';
-let rowMenuStyle=null;
-const ensureRowMenuStyle=()=>rowMenuStyle||=new Promise(resolve=>{
-  const href=new URL(ROW_MENU_CSS,location.href).href;
-  if([...document.querySelectorAll('link[rel="stylesheet"]')].some(link=>link.href===href)){resolve();return}
-  const link=document.createElement('link');link.rel='stylesheet';link.href=ROW_MENU_CSS;link.dataset.kptuViewStyle='1';
-  link.onload=link.onerror=()=>resolve();document.head.append(link);
-});
+// 공용 줄 메뉴(row-menu.js)의 모양 파일(od-link.css)은 그 부품이 스스로 붙인다(S67-41 part-styles.js 표).
 // 메뉴를 연 줄만 연보라로 표시하는 공용 줄 메뉴: 빈 곳 메뉴는 표시할 줄이 없으니 화면 밖 빈 요소를 준다.
 const navNoRow=document.createElement('span');
 function openNavMenu(from,at){
   const head=from?.closest?.(NAV_HEAD),trigger=head||navBrand();
   if(!trigger)return false;
   const id=head?.dataset.reorderId;
-  void ensureRowMenuStyle().then(()=>openRowMenu(trigger,{key:id||'nav',label:id?itemOf(id)?.label:'왼쪽 메뉴',at,row:head||navNoRow,items:[...(id?[{id:'hide',label:'숨기기'}]:[]),{id:'edit',label:'메뉴 수정'}],run:act=>runNavMenu(act,head)}));
+  openRowMenu(trigger,{key:id||'nav',label:id?itemOf(id)?.label:'왼쪽 메뉴',at,row:head||navNoRow,items:[...(id?[{id:'hide',label:'숨기기'}]:[]),{id:'edit',label:'메뉴 수정'}],run:act=>runNavMenu(act,head)});
   return true;
 }
 if(appNav){

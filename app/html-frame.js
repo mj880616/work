@@ -10,6 +10,9 @@ import {frameDocument, isHtmlName, HTML_MAX_BYTES} from './chatgpt-html.mjs';
 // NOTE-내용확대축소: 칸막이 안 문서 배율 = 노트 내용 배율 하나(note-zoom.js). 바뀌면 칸막이를 새 배율 문서로 다시 그린다(sandbox·CSP 그대로).
 // [크게 보기] 안에서도 같은 [−] 100% [+]가 머리 줄에 보인다(작은 보기에서는 노트 머리 줄의 묶음을 쓴다 — 두 번 보이지 않게).
 import {noteZoom, zoomScale, zoomControl, bindZoomKeys, NOTE_ZOOM_EVENT} from './note-zoom.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('html-frame');
 
 export const HTML_FRAME_TEXT = Object.freeze({
   notReady: 'HTML 보기 서버가 아직 준비되지 않았어요. [Drive에서 열기]로 확인해 주세요.',

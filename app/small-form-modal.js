@@ -1,6 +1,9 @@
 // UPDATE-운영자전용기록업데이트소식 PR3·FEEDBACK-의견보내기 PR5: 작은 입력 창 한 곳(머리 제목·닫기 ×, 몸통은 부르는 쪽이 채움, 상태 한 줄, [취소]·[확인]).
 // 모양은 기존 작은 창(.modal + .modal-card.small-card, hwp-convert.js와 같은 틀)이고, 폰 뒤로가기는 data-kptu-history-all(mobile-modal-history.js)이 닫는다.
 // 키보드: 공용 KPTUA11y.dialog(초점 가두기·Esc 닫기). 저장은 onSubmit이 서버로 하고, 실패하면 문구를 돌려받아 상태 줄에 쓴다(창은 열린 채).
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('small-form-modal');
 const esc=text=>String(text??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const open=new Map();
 

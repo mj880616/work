@@ -16,10 +16,10 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const answer=items=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:500,output_tokens:60}});
 const UPDATE_COLS=['reads','reads_at','reads_slot','news_seen_at','suggests','suggests_at','suggests_done','run_at'];
 
-function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],assignees=[],spaces=[],usage=[],now=MORNING,openai=null,env={}}={}){
+function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],edits=[],assignees=[],spaces=[],usage=[],now=MORNING,openai=null,env={}}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'}],app_home_day_picks:structuredClone(picks),app_news_items:structuredClone(items),
-    app_notes:structuredClone(notes),app_meetings:structuredClone(meetings),app_feed_items:structuredClone(feeds),app_suborganizations:structuredClone(orgs),
+    app_notes:structuredClone(notes),app_meetings:structuredClone(meetings),app_feed_items:structuredClone(feeds),app_suborganizations:structuredClone(orgs),app_call_edits:structuredClone(edits),
     app_suborganization_assignees:structuredClone(assignees),app_spaces:structuredClone(spaces),app_ai_daily_usage:structuredClone(usage)};
   const cmp=(v,op,val)=>{
     if(op==='eq')return String(v)===val;
@@ -127,6 +127,39 @@ test('evening: reads not redone without new news; suggestions from ended events,
   assert.equal(calls.openai.length,1);
 });
 
+test('S67-47: call lines carry only the org attached to that call (user edit first); a suggestion naming another org is dropped',async()=>{
+  const O1='d0000000-0000-4000-8000-000000000001',O2='d0000000-0000-4000-8000-000000000002',C1='f0000000-0000-4000-8000-000000000001',C2='f0000000-0000-4000-8000-000000000002';
+  const orgs=[{id:O1,workspace_id:WS,name:'가상철도지부',aliases:['가철'],active:true,deleted_at:null},{id:O2,workspace_id:WS,name:'예시광역노조',aliases:[],active:true,deleted_at:null}];
+  const picks=[{workspace_id:WS,day:DAY,reads:[],reads_at:'2026-11-08T23:00:00.000Z',reads_slot:'pm',news_seen_at:null,suggests:[],suggests_at:null,suggests_done:[],run_at:null}];
+  const feeds=[
+    {id:C1,workspace_id:WS,source:'call',day:DAY,hidden_at:null,archived_at:null,title:'가상철도지부 위원장 · 파업 일정과 쟁의 준비 논의',summary:null,organization_id:null,occurred_at:'2026-11-09T03:00:00.000Z'},
+    {id:C2,workspace_id:WS,source:'call',day:DAY,hidden_at:null,archived_at:null,title:'가상철도지부 국장 · 교섭 자료 요청',summary:null,organization_id:O1,occurred_at:'2026-11-09T04:00:00.000Z'},
+  ];
+  // C2는 사람이 조직을 예시광역노조로 고쳤다(app_call_edits) — AI 값(가상철도지부)보다 앞선다.
+  const edits=[{call_id:C2,workspace_id:WS,vals:{organization_id:O2}}];
+  const {handler,calls,db}=harness({now:EVENING,picks,orgs,feeds,edits,notes:[{workspace_id:WS,kind:'diary',journal_day:DAY,archived_at:null,raw_text:''}],
+    openai:()=>respond(answer([{n:1,text:'오늘 가상철도지부와 파업 일정을 논의했다',basis:'가상철도지부 통화에서 파업 일정 논의'},{n:2,text:'오늘 예시광역노조 교섭 자료를 챙겼다',basis:'예시광역노조 통화'}]))});
+  const res=await post(handler,ask());
+  assert.equal(res.status,200);
+  const m=calls.openai[0].input[1].content;
+  assert.ok(m.includes('[통화] 파업 일정과 쟁의 준비 논의 (조직: 없음)'),m);
+  assert.ok(m.includes('[통화] 교섭 자료 요청 (조직: 예시광역노조)'),m);
+  assert.ok(!m.includes('가상철도지부'),'title head org (a guess) is not sent');
+  assert.ok(calls.openai[0].input[0].content.includes('다른 줄의 조직을 옮겨 붙이지 않는다'));
+  assert.deepEqual(db.app_home_day_picks[0].suggests,[{id:'s1',text:'오늘 예시광역노조 교섭 자료를 챙겼다',basis:'예시광역노조 통화'}],'the line without an org cannot gain one');
+});
+
+test('S67-47 pure: borrowsOrg / callDayLine',()=>{
+  const orgs=[{id:'a',name:'가상철도지부',aliases:['가철']},{id:'b',name:'예시광역노조',aliases:[]}];
+  assert.equal(hd.borrowsOrg('파업 일정 논의 ','가상철도지부 통화에서 파업 일정 논의',orgs),true);
+  assert.equal(hd.borrowsOrg('가상철도지부 정기회의 ','오늘 가철 정기회의를 했다',orgs),false,'same org by alias');
+  assert.equal(hd.borrowsOrg('교섭 예시광역노조','오늘 예시광역노조 교섭',orgs),false);
+  assert.equal(hd.borrowsOrg('교섭','오늘 교섭 준비',orgs),false);
+  assert.deepEqual(hd.callDayLine('가상철도지부 위원장 · 파업 논의',null,null,DAY),{kind:'통화',text:'파업 논의',day:DAY,org:''});
+  assert.deepEqual(hd.callDayLine('한 줄 제목','요약',null,''),{kind:'통화',text:'한 줄 제목 — 요약',day:'',org:''});
+  assert.deepEqual(hd.callDayLine('A · B','','예시광역노조',DAY),{kind:'통화',text:'B',day:DAY,org:'예시광역노조'});
+});
+
 test('evening with new news re-picks reads once; without calls feature the call table is not read at all',async()=>{
   const picks=[{workspace_id:WS,day:DAY,reads:[],reads_at:'2026-11-08T23:00:00.000Z',reads_slot:'am',news_seen_at:'2026-11-08T22:00:00.000Z',suggests:[],suggests_at:null,suggests_done:[],run_at:null}];
   const {handler,calls,db}=harness({now:EVENING,picks,features:['outside'],items:[news(N1,'가상지부 교섭 결렬','2026-11-08T22:00:00.000Z'),news(N2,'가상지부 새 소식','2026-11-09T09:00:00.000Z')],
@@ -196,11 +229,13 @@ test('pure rules: slot, due, diary overlap, ended events',()=>{
   assert.equal(hd.readsDue({reads_slot:'am',news_seen_at:'2026-11-08T22:00:00Z'},'pm','2026-11-08T22:00:00Z'),false,'evening: no new news');
   assert.equal(hd.readsDue({reads_slot:'am',news_seen_at:'2026-11-08T22:00:00Z'},'pm','2026-11-09T09:00:00Z'),true);
   assert.equal(hd.readsDue({reads_slot:'pm',news_seen_at:'x'},'pm','2026-11-09T11:00:00Z'),false);
-  assert.equal(hd.suggestsDue(null,DAY,MORNING),false);assert.equal(hd.suggestsDue(null,DAY,EVENING),true);assert.equal(hd.suggestsDue({suggests_at:'x'},DAY,EVENING),false);
+  assert.equal(hd.suggestsDue(null,DAY,MORNING),false);assert.equal(hd.suggestsDue(null,DAY,EVENING),true);assert.equal(hd.suggestsDue({suggests_at:'2026-11-09T09:00:00Z'},DAY,EVENING),false);
+  assert.equal(hd.suggestsDue({suggests_at:'2026-11-08T10:00:00Z'},DAY,EVENING),true,'S67-46: made another day -> pick again');
+  assert.equal(hd.suggestsDue({suggests_at:'x'},DAY,EVENING),true,'unknown made time -> pick again');
   assert.equal(hd.diaryCovers('가상 식당 회식','오늘 가상식당회식!'),true);
   assert.equal(hd.diaryCovers('가상지부 교섭 준비 회의','교섭 준비를 했다 가상지부'),true);
   assert.equal(hd.diaryCovers('가상 보도자료 보내기','오늘 회식'),false);assert.equal(hd.diaryCovers('회의','회의'),false,'too short to judge alone');
-  assert.deepEqual(hd.endedToday([{day:DAY,start:'09:00',end:'',title:'a'},{day:DAY,start:'09:00',end:'20:00',title:'b'},{day:'2026-11-10',start:'09:00',end:'10:00',title:'c'}],DAY,'19:30').map(e=>e.title),['a']);
+  assert.deepEqual(hd.startedToday([{day:DAY,start:'09:00',end:'',title:'a'},{day:DAY,start:'09:00',end:'20:00',title:'b'},{day:'2026-11-10',start:'09:00',end:'10:00',title:'c'},{day:DAY,start:'20:00',end:'21:00',title:'d'},{day:DAY,start:'',end:'',title:'e'}],DAY,'19:30').map(e=>e.title),['a','b'],'ended or in progress today; not later, not all-day, not another day');
   assert.equal(hd.familyName(' 가상이 '),'가상이');assert.equal(hd.familyName('상대'),null);assert.equal(hd.familyName('<x>'),null);
   assert.equal(hd.weekStart('2026-11-09'),'2026-11-09');assert.equal(hd.weekStart('2026-11-15'),'2026-11-09');
 });
@@ -213,4 +248,46 @@ test("NEWS-운영자만: 'outside' 키가 없으면 뉴스 표를 읽지 않고 
   assert.ok(!calls.rest.some(r=>r.table==='app_news_items'),'뉴스 표 읽기 없음');
   assert.ok(!calls.openai.some(o=>o.text.format.name==='home_day_reads'),'읽을 만한 글 AI 없음');
   assert.equal(db.app_news_items.length,1,'모인 글은 그대로');
+});
+
+// S67-46(명진 11/20 "11월 20일인데 오늘 / 옛 일정이 제안으로"): 기록 제안 재료는 오늘(한국 날짜) 일만. 다른 날 줄은 재료·AI 답 모두에서 빠지고,
+// 다른 날 만든 저장 제안은 돌려주지 않고 새로 고른다. 합성 자료만.
+const D20='2026-11-20',EVE20=Date.parse('2026-11-20T12:37:00Z'); // 21:37 KST
+test('S67-46: 어제·지난주 회의·통화는 재료에서 빠지고(한국 자정 경계), 지운 회의도 빠진다',async()=>{
+  const picks=[{workspace_id:WS,day:D20,reads:[],reads_at:null,reads_slot:'pm',news_seen_at:null,suggests:[],suggests_at:null,suggests_done:[],run_at:null}];
+  const {handler,calls}=harness({now:EVE20,picks,features:['calls'],
+    notes:[{workspace_id:WS,kind:'diary',journal_day:D20,archived_at:null,raw_text:''}],
+    meetings:[{workspace_id:WS,title:'오늘 가상 회의',series_name:null,meeting_at:'2026-11-19T15:00:00.000Z'},
+      {workspace_id:WS,title:'지운 가상 회의',series_name:null,meeting_at:'2026-11-20T02:00:00.000Z',deleted_at:'2026-11-20T03:00:00.000Z'}],
+    feeds:[{workspace_id:WS,source:'call',day:D20,hidden_at:null,archived_at:null,title:'오늘 가상 통화',summary:'',occurred_at:'2026-11-20T01:00:00.000Z'},
+      {workspace_id:WS,source:'call',day:D20,hidden_at:null,archived_at:null,title:'지난주 가상지부 통화',summary:'',occurred_at:'2026-11-13T01:00:00.000Z'}]});
+  const events=[{day:'2026-11-19',start:'23:00',end:'23:59',title:'어제 밤 가상 모임'},{day:'2026-11-17',start:'10:00',end:'12:00',title:'지난 가상 총회'},{day:D20,start:'21:00',end:'23:00',title:'지금 하는 가상 모임'}];
+  const res=await post(handler,{kind:'home_day_picks',day:D20,events,done:[]});
+  assert.equal(res.status,200);
+  const m=calls.openai.find(o=>o.text.format.name==='home_day_suggests').input[1].content;
+  assert.ok(m.includes('[회의] 오늘 가상 회의'),'한국 0시 회의는 오늘');
+  assert.ok(m.includes('[통화] 오늘 가상 통화')&&m.includes('[일정] 지금 하는 가상 모임'),'오늘 통화·진행 중 일정');
+  assert.ok(!m.includes('지난주 가상지부 통화'),'녹음 시각이 다른 날인 통화는 빠짐');
+  assert.ok(!m.includes('어제 밤')&&!m.includes('지난 가상 총회'),'다른 날 일정은 빠짐');
+  assert.ok(!m.includes('지운 가상 회의'),'지운 회의는 빠짐');
+  assert.ok(calls.rest.some(r=>r.table==='app_meetings'&&r.query.includes('deleted_at=is.null')));
+});
+test('S67-46: 다른 날 만든 저장 제안은 돌려주지 않고 새로 고른다; AI 답이 다른 날 줄에 기대면 버린다',async()=>{
+  const old=[{id:'s1',text:'오늘 옛 총회에 함께했다',basis:'옛 총회'}];
+  const picks=[{workspace_id:WS,day:D20,reads:[],reads_at:null,reads_slot:'pm',news_seen_at:null,suggests:old,suggests_at:'2026-11-13T12:00:00.000Z',suggests_done:[],run_at:null}];
+  const {handler,calls,db}=harness({now:EVE20,picks,features:[],notes:[{workspace_id:WS,kind:'diary',journal_day:D20,archived_at:null,raw_text:''}],
+    meetings:[{workspace_id:WS,title:'오늘 가상 회의',series_name:null,meeting_at:'2026-11-20T02:00:00.000Z'}]});
+  const res=await post(handler,{kind:'home_day_picks',day:D20,events:[],done:[]});
+  const body=await res.json();
+  assert.equal(calls.openai.length,1,'stale suggestions are picked again');
+  assert.deepEqual(body.picks.suggests,[{id:'s1',text:'오늘 가상 교섭 준비 회의를 했다',basis:'회의: 가상 교섭 준비'}]);
+  assert.equal(hd.seoulDayOf(db.app_home_day_picks[0].suggests_at),D20);
+  // 저장 줄의 제안이 다른 날 것이면 화면에 돌려주는 모양에서도 비운다.
+  assert.deepEqual(hd.dayPicksOut({suggests:old,suggests_at:'2026-11-13T12:00:00.000Z'},D20).suggests,[]);
+  assert.deepEqual(hd.dayPicksOut({suggests:old,suggests_at:'2026-11-19T15:00:00.000Z'},D20).suggests,old,'한국 0시에 만든 것은 그 날');
+  // AI 답 검사: 다른 날 줄(어떻게든 들어온 것)에 기댄 제안은 버린다.
+  const sent=[{kind:'회의',text:'오늘 일',day:D20},{kind:'통화',text:'옛 일',day:'2026-11-13'}];
+  const got=hd.parseSuggests(JSON.stringify({items:[{n:2,text:'오늘 옛 통화를 했다',basis:'옛 통화'},{n:1,text:'오늘 회의를 했다',basis:'회의'}]}),sent,null,D20);
+  assert.deepEqual(got,[{id:'s1',text:'오늘 회의를 했다',basis:'회의'}]);
+  assert.deepEqual(hd.dayLines(sent,'',null,D20).map(l=>l.text),['오늘 일']);
 });
