@@ -10,14 +10,14 @@ import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount } from ".
 import { AI_REASONING_TOKEN_HEADROOM, AI_TONE_RULE, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 import { checkAiUserCap } from "../_shared/ai-user-cap.mjs";
 import { BRIEF_PUBLIC, BriefError, createBriefRunner, isUuid } from "./brief-run.mjs";
-import type { DocumentFile, TextResult } from "../_shared/document-text.ts";
+import type { DocumentFile, ReadFrom, TextResult } from "../_shared/document-text.ts";
 
 type Db = (path: string, opts?: { method?: string; body?: unknown; prefer?: string }) => Promise<any>;
 export type BriefDeps = {
   userId: string;
   db: Db;                       // 서버 키 REST
   userDb: Db;                   // 로그인 토큰 REST(owner RLS)
-  extractFor: (workspaceId: string) => (file: DocumentFile, opts: { raw: boolean }) => Promise<TextResult>;
+  extractFor: (workspaceId: string) => (file: DocumentFile, opts: { raw: boolean; from?: ReadFrom | null; maxChars?: number }) => Promise<TextResult>;
   env: (name: string) => string | undefined;
   waitUntil: (p: Promise<unknown>) => void;
   continueLater: (briefId: string) => Promise<void>;   // 같은 함수에 brief-step 한 번(로그인 토큰)
@@ -36,8 +36,9 @@ export async function briefAction(action: "brief-start" | "brief-step", body: Re
   if (!config) throw new BriefError(503, "ai_not_configured");
 
   // 자료 행: 로그인 토큰으로(owner RLS). 브리핑 작업에서 오면 작업의 자료 id로 다시 읽는다.
+  // S67-33: 이미 읽어 둔 글자(extracted_text·extraction_status)도 함께 — 끝까지 읽은 글이면 Drive에서 다시 읽지 않는다(brief-run fullIndexText).
   async function readDoc(id: string) {
-    const rows = await deps.userDb(`app_documents?id=eq.${encodeURIComponent(id)}&select=id,workspace_id,title,file_id,file_name,mime_type,file_size&limit=1`);
+    const rows = await deps.userDb(`app_documents?id=eq.${encodeURIComponent(id)}&select=id,workspace_id,title,file_id,file_name,mime_type,file_size,extracted_text,extraction_status&limit=1`);
     const doc = Array.isArray(rows) ? rows[0] : null;
     if (!doc || String(doc.id).toLowerCase() !== id || !isUuid(String(doc.workspace_id).toLowerCase())) throw new BriefError(404, "not_found");
     doc.workspace_id = String(doc.workspace_id).toLowerCase();
@@ -82,10 +83,10 @@ export async function briefAction(action: "brief-start" | "brief-step", body: Re
 
   const runnerFor = (doc: Record<string, any>) => createBriefRunner({
     db: deps.db,
-    extract: (d: Record<string, any>) => deps.extractFor(doc.workspace_id)({
+    extract: (d: Record<string, any>, opts: { from?: ReadFrom | null; maxChars?: number } = {}) => deps.extractFor(doc.workspace_id)({
       fileId: typeof d.file_id === "string" ? d.file_id : "", name: String(d.file_name || ""), mime: String(d.mime_type || ""),
       size: Number.isSafeInteger(d.file_size) ? d.file_size : null,
-    }, { raw: true }),
+    }, { raw: true, from: opts.from ?? null, maxChars: opts.maxChars }),
     ai, capCheck, scope, now, log,
   });
 

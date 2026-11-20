@@ -1,11 +1,16 @@
 // BRIEF-브리핑룸 PR ②(설계 docs/design/brief-room.md 4절): 브리핑 작업 한 건을 단계별로 이어 가는 곳. 입출력은 deps로만 받는다(Node 시험 가능).
 // 단계: read(Drive 끝까지 읽기) → chunk(조각마다 AI 메모) → merge(합치기 AI + 서버 검사) → done.
+// - read(S67-33): 자료실 AI 색인이 이미 끝까지 읽어 둔 글자(잘리지 않은 HWP·HWPX·글 파일)가 있으면 그것을 먼저 쓴다.
+//   없으면 Drive에서 읽되, HWP·HWPX는 여러 번에 나눠 읽는다(부를 때마다 정한 양, 읽은 글은 source_text에 쌓고 위치는 parts의 ctl에).
+//   진행 표시 step_no/step_total이 read 단계에서도 움직인다.
+// - 함수가 메모리·시간 한도로 죽으면 정리 코드가 돌지 않아 lease가 남는다. 다음 잡기에서 남은 lease = 앞 실행이 죽음으로 보고,
+//   같은 단계·같은 위치에서 BRIEF_MAX_DEATHS번 죽으면 실패(read 단계는 read_failed)로 끝낸다(영원히 '만드는 중'으로 남지 않게).
 // - 한 번 부를 때 budgetMs 안에서만 돌고, 못 끝내면 lease를 풀고 다음 부름(스스로 잇기 또는 화면)이 잇는다.
 // - 작업 잡기는 lease + attempts 값 비교로 한 곳만(같은 작업을 두 실행이 동시에 돌리지 않음). 저장도 attempts가 내 값일 때만.
 // - AI를 부르기 전마다 사람별 월 한도 판정(deps.capCheck). 한도면 failed/ai_monthly_cap. 판정을 못 읽으면 멈춤(닫힌 쪽).
 // - 글 내용·AI 답은 로그에 남기지 않는다(고정 코드만). 끝나면 source_text를 비운다.
 import {
-  BRIEF_CHUNK_CHARS, BRIEF_MAX_CHUNKS, BRIEF_MIN_TEXT, CHUNK_INSTRUCTIONS, MERGE_INSTRUCTIONS,
+  BRIEF_CHUNK_CHARS, BRIEF_MAX_CHUNKS, BRIEF_MIN_TEXT, BRIEF_TEXT_MAX, CHUNK_INSTRUCTIONS, MERGE_INSTRUCTIONS,
   chunkInput, chunkWithPages, foldForMatch, mergeInput, pageStarts, pagesKnown, parseChunkNote,
   quoteCandidates, scopeText, splitChunks, stepTotal, tidyBriefText, verifyBrief,
 } from '../_shared/brief-room.mjs';
@@ -13,7 +18,9 @@ import {
 export const BRIEF_TABLE = 'app_document_briefs';
 export const BRIEF_LEASE_MS = 3 * 60 * 1000;
 export const BRIEF_BUDGET_MS = 140 * 1000;
-export const BRIEF_MAX_ATTEMPTS = 40;
+// S67-33: 40 → 80. read 단계를 나눠 읽으면 부름(잡기) 수가 늘어난다. 같은 자리 반복 사망은 BRIEF_MAX_DEATHS가 따로 막는다.
+export const BRIEF_MAX_ATTEMPTS = 80;
+export const BRIEF_MAX_DEATHS = 3;               // 같은 단계·같은 위치에서 함수가 죽은 횟수 상한
 export const BRIEF_STALE_MS = 30 * 1000;          // 화면이 '멈춘 작업'으로 보고 이어 달라고 하는 기준(lease가 지난 뒤)
 export const CHUNK_MAX_TOKENS = 1400;
 export const MERGE_MAX_TOKENS = 2000;
@@ -39,6 +46,26 @@ export const MERGE_SCHEMA = Object.freeze({
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export const isUuid = v => typeof v === 'string' && UUID.test(v);
+
+// parts 안의 진행 기록 한 칸({ctl:{mark, strikes, read}}). 조각 메모와 섞이지 않게 notesOf로 거른다.
+export const ctlOf = parts => (Array.isArray(parts) ? parts.find(p => p && typeof p === 'object' && p.ctl && typeof p.ctl === 'object')?.ctl : null) ?? {};
+export const notesOf = parts => (Array.isArray(parts) ? parts : []).filter(p => p && typeof p === 'object' && !p.ctl);
+export const withCtl = (parts, ctl) => [...notesOf(parts), { ctl }];
+
+// 자료실 AI 색인·자료 글자 읽기가 저장한 글자(app_documents.extracted_text)가 '끝까지 읽은 원문'인지.
+// - 색인(document-ai-index)은 50,000자에서 자르고 '…[이하 생략]'을 붙인다. 자료 글자 읽기(document-text)는 정확히 12,000자에서 자른다.
+// - PDF·DOC 등은 색인이 AI로 옮겨 적은 글일 수 있어(원문 대조가 흔들림) 쓰지 않는다. HWP·HWPX·글 파일만(파일 그대로 뽑은 글자).
+export const INDEX_TEXT_CUT_A = 12000, INDEX_TEXT_CUT_B = 50000;
+export function fullIndexText(doc) {
+  if (!doc || doc.extraction_status !== 'ready' || typeof doc.extracted_text !== 'string') return '';
+  const name = String(doc.file_name || doc.title || '').toLowerCase();
+  if (!/\.(hwp|hwpx|txt|md|markdown|csv|tsv|log)$/.test(name)) return '';
+  const text = doc.extracted_text;
+  if (/\[이하 생략\]\s*$/.test(text)) return '';
+  const n = [...text].length;
+  if (n === INDEX_TEXT_CUT_A || n >= INDEX_TEXT_CUT_B) return '';
+  return text;
+}
 
 export class BriefError extends Error {
   constructor(status, code) { super(code); this.name = 'BriefError'; this.status = status; this.code = code; }
@@ -90,6 +117,20 @@ export function createBriefRunner(deps) {
     if (!row || row.status === 'done' || row.status === 'failed') return null;
     if (row.lease_until && Date.parse(row.lease_until) > nowMs) return null;
     const attempts = Number(row.attempts) || 0;
+    // 남은 lease(지난 시각) = 앞 실행이 정리 없이 죽었다(메모리·시간 한도). 같은 자리에서 거듭 죽으면 실패로 끝낸다.
+    const ctl = ctlOf(row.parts);
+    const mark = `${row.stage}:${Number(row.step_no) || 0}:${ctl.read ? `${ctl.read.sec}.${ctl.read.para}` : '-'}`;
+    const died = !!row.lease_until;
+    const strikes = died ? (ctl.mark === mark ? (Number(ctl.strikes) || 0) + 1 : 1) : 0;
+    if (strikes >= BRIEF_MAX_DEATHS) {
+      log('brief_died_repeatedly');
+      await deps.db(`${BRIEF_TABLE}?id=eq.${enc(id)}&attempts=eq.${attempts}`, {
+        method: 'PATCH', prefer: 'return=minimal',
+        body: { status: 'failed', error_code: row.stage === 'read' ? 'read_failed' : 'step_failed', source_text: null, lease_until: null, finished_at: iso(nowMs), updated_at: iso(nowMs) },
+      });
+      return null;
+    }
+    if (died) log('brief_previous_run_died');
     if (attempts >= BRIEF_MAX_ATTEMPTS) {
       await deps.db(`${BRIEF_TABLE}?id=eq.${enc(id)}&attempts=eq.${attempts}`, {
         method: 'PATCH', prefer: 'return=minimal',
@@ -99,10 +140,11 @@ export function createBriefRunner(deps) {
     }
     const got = await deps.db(`${BRIEF_TABLE}?id=eq.${enc(id)}&attempts=eq.${attempts}&status=in.(queued,running)&select=id`, {
       method: 'PATCH', prefer: 'return=representation',
-      body: { status: 'running', attempts: attempts + 1, lease_until: iso(nowMs + BRIEF_LEASE_MS), started_at: row.started_at ?? iso(nowMs), updated_at: iso(nowMs) },
+      body: { status: 'running', attempts: attempts + 1, lease_until: iso(nowMs + BRIEF_LEASE_MS), started_at: row.started_at ?? iso(nowMs), updated_at: iso(nowMs),
+        parts: withCtl(row.parts, { ...ctl, mark, strikes }) },
     });
     if (!Array.isArray(got) || got.length !== 1) return null;
-    return { ...row, status: 'running', attempts: attempts + 1 };
+    return { ...row, status: 'running', attempts: attempts + 1, parts: withCtl(row.parts, { ...ctl, mark, strikes }) };
   }
 
   async function save(row, patch) {
@@ -116,18 +158,47 @@ export function createBriefRunner(deps) {
   }
   const fail = (row, code) => save(row, { status: 'failed', stage: row.stage, error_code: code });
 
-  async function stepRead(row, doc) {
-    const got = await deps.extract(doc);
-    const { text } = tidyBriefText(got?.text ?? '');
-    if (text.replace(/\s/g, '').length < BRIEF_MIN_TEXT) {
-      await fail(row, got?.reason === 'too_large' ? 'too_large' : got?.reason === 'unsupported' ? 'unsupported' : 'no_text');
-      return false;
-    }
+  const READ_FAIL = { too_large: 'too_large', unsupported: 'unsupported', locked: 'locked', read_failed: 'read_failed' };
+
+  // 읽기 끝: 정리 → 조각 나누기 → chunk 단계로.
+  async function finishRead(row, raw, reason) {
+    const { text } = tidyBriefText(raw);
+    if (text.replace(/\s/g, '').length < BRIEF_MIN_TEXT) { await fail(row, READ_FAIL[reason] ?? 'no_text'); return 'stop'; }
     const starts = pageStarts(text);
     const chunks = splitChunks(text, BRIEF_CHUNK_CHARS);
-    if (chunks.length > BRIEF_MAX_CHUNKS) { await fail(row, 'too_large'); return false; }
+    if (chunks.length > BRIEF_MAX_CHUNKS) { await fail(row, 'too_large'); return 'stop'; }
     await save(row, { stage: 'chunk', source_text: text, page_count: pagesKnown(starts) ? starts.length : null, step_no: 0, step_total: stepTotal(chunks.length), parts: [] });
-    return true;
+    return 'next';
+  }
+
+  // read 한 번(한 몫). 'next' = chunk로 넘어감, 'pause' = 더 읽을 것이 남음(다음 부름이 잇는다), 'stop' = 실패로 끝남.
+  async function stepRead(row, doc) {
+    const ctl = ctlOf(row.parts);
+    const at = ctl.read && Number.isInteger(ctl.read.sec) && Number.isInteger(ctl.read.para) ? { sec: ctl.read.sec, para: ctl.read.para } : null;
+    if (!at) {
+      const indexed = fullIndexText(doc);
+      if (indexed && indexed.replace(/\s/g, '').length >= BRIEF_MIN_TEXT) { log('brief_read_index_text'); return finishRead(row, indexed, 'ok'); }
+    }
+    const sofar = at && typeof row.source_text === 'string' ? row.source_text : '';
+    const room = Math.max(0, BRIEF_TEXT_MAX - sofar.length);
+    const got = await deps.extract(doc, { from: at, maxChars: room });
+    if (got?.reason && got.reason !== 'ok' && !got?.text) {
+      // 앞 몫까지 읽은 뒤의 실패는 읽기 실패(앞부분만으로 브리핑을 만들지 않는다)
+      await fail(row, at ? 'read_failed' : (READ_FAIL[got.reason] ?? 'no_text'));
+      return 'stop';
+    }
+    const piece = typeof got?.text === 'string' ? got.text : '';
+    const text = sofar && piece ? `${sofar}\n${piece}` : (sofar || piece);
+    const next = got?.next && Number.isInteger(got.next.sec) && Number.isInteger(got.next.para) ? got.next : null;
+    if (next && text.length < BRIEF_TEXT_MAX) {
+      // 다음 위치가 지금보다 앞이 아니어야 한다(같은 자리 맴돌기 막기)
+      if (at && (next.sec < at.sec || (next.sec === at.sec && next.para <= at.para))) { await fail(row, 'read_failed'); return 'stop'; }
+      const done = (Number(row.step_no) || 0) + 1;
+      const total = Math.max(Number(got.total) || 0, done + 1);
+      await save(row, { source_text: tidyBriefText(text).text, step_no: Math.min(done, 1000), step_total: Math.min(total, 1000), parts: withCtl(row.parts, { ...ctl, read: next }) });
+      return 'pause';
+    }
+    return finishRead(row, text, got?.reason ?? 'ok');
   }
 
   // AI 한 번. 한도·호출 실패는 코드로 돌려준다(던지지 않음).
@@ -152,13 +223,13 @@ export function createBriefRunner(deps) {
     const note = parseChunkNote(r.text ?? '', { folded: foldForMatch(text), starts, chunk })
       ?? { lead: '', touches: [], todos: [], conflicts: [], quotes: [], skipped: true };
     if (note.skipped) log('brief_chunk_bad_answer');
-    const parts = Array.isArray(row.parts) ? [...row.parts, note] : [note];
+    const parts = [...notesOf(row.parts), note];
     await save(row, { parts, step_no: i + 1, model: r.model ?? row.model ?? null });
     return 'next';
   }
 
   async function stepMerge(row, scope, title) {
-    const notes = (Array.isArray(row.parts) ? row.parts : []).filter(n => n && !n.skipped);
+    const notes = notesOf(row.parts).filter(n => !n.skipped);
     if (!notes.length) { await fail(row, 'ai_bad_answer'); return 'stop'; }
     const candidates = quoteCandidates(notes);
     const r = await callAi('brief_merge', MERGE_INSTRUCTIONS, mergeInput({ title, scope, notes, candidates }), MERGE_SCHEMA, MERGE_MAX_TOKENS);
@@ -184,7 +255,7 @@ export function createBriefRunner(deps) {
     try {
       while (deps.now() - started < (deps.budgetMs ?? BRIEF_BUDGET_MS)) {
         let step;
-        if (row.stage === 'read') step = (await stepRead(row, doc)) ? 'next' : 'stop';
+        if (row.stage === 'read') step = await stepRead(row, doc);
         else if (row.stage === 'chunk') step = await stepChunk(row, await scope(), title);
         else if (row.stage === 'merge') step = await stepMerge(row, await scope(), title);
         else step = 'stop';

@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { deflateRawSync } from 'node:zlib';
 import * as dt from '../../supabase/functions/_shared/document-text.ts';
 import * as run from '../../supabase/functions/document-actions/brief-run.mjs';
+import { makeHwp } from '../helpers/hwp-synth.mjs';
 
 const SAMPLE_HWP = new Uint8Array(readFileSync(new URL('../fixtures/hwp-lab/sample.hwp', import.meta.url)));
 const SAMPLE_HWPX = new Uint8Array(readFileSync(new URL('../fixtures/hwp-lab/sample.hwpx', import.meta.url)));
@@ -56,35 +57,38 @@ test('textKindOf: HWP(구형)는 따로 읽는다(확장자·Drive 형식); HWPX
   assert.equal(dt.HWP_MAX_BYTES, dt.HWPX_MAX_BYTES);
 });
 
-test('HWP: 내려받아 HWP 글자 읽기로 뽑는다 — 원본 바이트 그대로, Drive 사본 없음, 원본 쓰기 없음', async () => {
-  const d = drive(SAMPLE_HWP); const seen = [];
-  const reader = dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't', hwpText: async b => { seen.push(b); return RELEASE; } });
+test('HWP: 내려받아 자체 읽기(섹션을 흘려 풀기)로 뽑는다 — 실제 표본·합성 보도자료, Drive 사본 없음, 원본 쓰기 없음', async () => {
+  const d = drive(SAMPLE_HWP);
+  const reader = dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' });
   const raw = await reader.extract({ fileId: 'hwp-1', name: '261120 보도자료.hwp', mime: 'application/x-hwp', size: SAMPLE_HWP.byteLength }, { raw: true });
-  assert.deepEqual(raw, { text: RELEASE, source: 'content', reason: 'ok', cut: false });
-  assert.deepEqual([...seen[0].subarray(0, 4)], [0xd0, 0xcf, 0x11, 0xe0], 'HWP 원본(OLE) 바이트가 그대로 넘어간다');
-  assert.deepEqual(Buffer.from(seen[0]), Buffer.from(SAMPLE_HWP));
+  assert.equal(raw.source, 'content'); assert.equal(raw.reason, 'ok'); assert.equal(raw.next, null);
+  assert.equal(raw.text, 'HWP 편집기 시험 문서입니다. 이 문장을 고쳐 보세요.');
   assert.deepEqual(d.calls, ['GET /drive/v3/files/hwp-1?alt=media']);
-  // 자료실 글자 칸 길(raw 아님)도 같은 글자 읽기를 쓰고 정리·자르기를 한다.
-  const tidy = await reader.extract({ fileId: 'hwp-1', name: '261120 보도자료.hwp', mime: '', size: 10 });
+  const release = makeHwp({ sections: [RELEASE.split('\n')] });
+  const r2 = await dt.createDocumentText({ fetch: drive(release).fetch, driveToken: async () => 't' }).extract({ fileId: 'h', name: 'a.hwp', mime: '', size: release.byteLength }, { raw: true });
+  assert.equal(r2.text, RELEASE);
+  // 자료실 글자 칸 길(raw 아님)도 같은 읽기를 쓰고 정리·자르기를 한다.
+  const tidy = await dt.createDocumentText({ fetch: drive(release).fetch, driveToken: async () => 't' }).extract({ fileId: 'h', name: '261120 보도자료.hwp', mime: '', size: 10 });
   assert.equal(tidy.source, 'content'); assert.ok(tidy.text.startsWith('보도자료 예시 기관 노동조합'));
 });
 
-test('HWP: 크기 상한·읽기 실패·빈 글자; 글자 읽기를 넘기지 않으면 지금까지처럼 Drive 변환 길', async () => {
-  { const d = drive(SAMPLE_HWP); let n = 0;
-    const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't', hwpText: async () => { n++; return RELEASE; } })
-      .extract({ fileId: 'h', name: 'a.hwp', mime: '', size: dt.HWP_MAX_BYTES + 1 }, { raw: true });
-    assert.equal(r.reason, 'too_large'); assert.equal(d.calls.length, 0); assert.equal(n, 0); }
-  { const d = drive(SAMPLE_HWP); const logs = [];
-    const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't', log: c => logs.push(c), hwpText: async () => { throw new Error('암호 문서'); } })
-      .extract({ fileId: 'h', name: 'a.hwp', mime: '', size: 10 }, { raw: true });
+test('HWP: 크기 상한·깨진 파일·암호 문서·빈 글자; Drive 변환 길로 보내지 않는다', async () => {
+  { const d = drive(SAMPLE_HWP);
+    const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'h', name: 'a.hwp', mime: '', size: dt.HWP_MAX_BYTES + 1 }, { raw: true });
+    assert.equal(r.reason, 'too_large'); assert.equal(d.calls.length, 0); }
+  { const d = drive(new Uint8Array(4096).fill(7)); const logs = [];
+    const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't', log: c => logs.push(c) }).extract({ fileId: 'h', name: 'a.hwp', mime: '', size: 4096 }, { raw: true });
     assert.equal(r.reason, 'read_failed'); assert.equal(r.text, ''); assert.deepEqual(logs, ['document_text_hwp_read_failed']);
     assert.ok(!d.calls.some(c => c.includes('/copy')), '깨진 HWP는 Drive 사본을 만들지 않는다'); }
-  { const d = drive(SAMPLE_HWP);
-    const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't', hwpText: async () => '  \n ' }).extract({ fileId: 'h', name: 'a.hwp', mime: '', size: 10 }, { raw: true });
+  for (const lock of [{ password: true }, { distribution: true }]) {
+    const d = drive(makeHwp({ sections: [['비밀']], ...lock })); const logs = [];
+    const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't', log: c => logs.push(c) }).extract({ fileId: 'h', name: 'a.hwp', mime: '', size: 10 }, { raw: true });
+    assert.equal(r.reason, 'locked'); assert.deepEqual(logs, ['document_text_hwp_locked']); }
+  { const r = await dt.createDocumentText({ fetch: drive(makeHwp({ sections: [['  ', '']] })).fetch, driveToken: async () => 't' }).extract({ fileId: 'h', name: 'a.hwp', mime: '', size: 10 }, { raw: true });
     assert.equal(r.reason, 'empty'); }
   { const d = drive(SAMPLE_HWP);
     const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'h', name: 'a.hwp', mime: '', size: 10 });
-    assert.equal(r.reason, 'unsupported'); assert.deepEqual(d.calls.map(c => c.split('?')[0]), ['POST /drive/v3/files/h/copy']); }
+    assert.equal(r.source, 'content', '야간 채우기(drive-summary)도 자체 읽기로 읽는다'); assert.deepEqual(d.calls.map(c => c.split('?')[0]), ['GET /drive/v3/files/h']); }
 });
 
 test('HWPX 표본(실제 파일)에서 글자가 나오고, 브리핑 길(raw)은 긴 문서를 끝까지 읽는다', async () => {
@@ -117,12 +121,12 @@ function fakeDb() {
 const WS = 'a0000000-0000-4000-8000-000000000001', USER = 'b0000000-0000-4000-8000-000000000002';
 
 for (const [label, file, media] of [
-  ['HWP', { file_name: '261120 보도자료 국가철도공단.hwp', mime_type: 'application/x-hwp' }, SAMPLE_HWP],
+  ['HWP', { file_name: '261120 보도자료 국가철도공단.hwp', mime_type: 'application/x-hwp' }, makeHwp({ sections: [RELEASE.split('\n')] })],
   ['HWPX', { file_name: '261120 보도자료.hwpx', mime_type: '' }, zip([['Contents/section0.xml', section(RELEASE.split('\n'))]])],
 ]) {
   test(`브리핑: ${label} 자료가 글자 읽기 → 조각 나누기 단계로 간다(형식 아님으로 끝나지 않음)`, async () => {
     const f = fakeDb(); const d = drive(media); let t = 1_700_000_000_000; const stages = [];
-    const reader = dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't', hwpText: async () => RELEASE });
+    const reader = dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' });
     const doc = { id: 'c0000000-0000-4000-8000-000000000003', workspace_id: WS, file_id: 'FILE_abcdefghij', file_size: media.byteLength, title: '보도자료', ...file };
     const runner = run.createBriefRunner({
       db: async (path, opts) => { if (opts?.method === 'PATCH' && opts.body?.stage) stages.push(opts.body.stage); return f.db(path, opts); },
@@ -141,11 +145,10 @@ for (const [label, file, media] of [
   });
 }
 
-test('document-actions: 브리핑·자료 글자 길에 HWP 글자 읽기(hwpToText)를 넘기고, 라이브러리는 HWP를 읽을 때만 불러온다', () => {
+test('document-actions: HWP는 무거운 라이브러리(hwpxjs) 없이 공용 글자 읽기(자체 읽기)로 읽는다', () => {
   const src = readFileSync(new URL('../../supabase/functions/document-actions/index.ts', import.meta.url), 'utf8');
-  assert.match(src, /const hwpText = async \(bytes: Uint8Array\) => String\(await \(await import\('npm:@ssabrojs\/hwpxjs'\)\)\.hwpToText\(bytes\) \?\? ''\);/);
-  assert.match(src, /createDocumentText\(\{ driveToken: driveTokenFor\(userId, workspaceId\), fetch, hwpText, log:/);
-  assert.doesNotMatch(src, /^import .*hwpxjs/m, '함수가 뜰 때 HWP 라이브러리를 싣지 않는다');
+  assert.doesNotMatch(src, /import\('npm:@ssabrojs\/hwpxjs'\)|from 'npm:@ssabrojs/, 'S67-33: 메모리 한도로 죽던 hwpToText를 이 함수에서 쓰지 않는다');
+  assert.match(src, /createDocumentText\(\{ driveToken: driveTokenFor\(userId, workspaceId\), fetch, log:/);
   // 공용 글자 읽기 파일은 외부 라이브러리를 직접 부르지 않는다(drive-summary가 같이 묶는다).
-  assert.doesNotMatch(readFileSync(new URL('../../supabase/functions/_shared/document-text.ts', import.meta.url), 'utf8'), /hwpxjs['"]\)|from ['"]npm:/);
+  for (const f of ['document-text.ts', 'hwp-text.mjs']) assert.doesNotMatch(readFileSync(new URL(`../../supabase/functions/_shared/${f}`, import.meta.url), 'utf8'), /hwpxjs['"]\)|from ['"]npm:/, f);
 });

@@ -11,6 +11,8 @@ const ERRORS = Object.freeze({
   ai_monthly_cap: '이번 달 AI 사용 한도를 다 썼어요',
   usage_unavailable: 'AI 사용 기록을 확인하지 못했어요',
   ai_not_configured: 'AI 설정을 확인하지 못했어요',
+  locked: '암호가 걸린 파일이라 읽을 수 없어요',
+  read_failed: '파일을 끝까지 읽지 못했어요',
 });
 export const errorLine = code => ERRORS[code] || '브리핑을 만들지 못했어요';
 
@@ -45,7 +47,9 @@ export function rowState(row) {
   if (!row) return { kind: 'start', text: '', date: '' };
   if (row.status === 'queued' || row.status === 'running') {
     const n = Number(row.step_no) || 0, t = Number(row.step_total) || 0;
-    return { kind: 'making', text: t ? `만드는 중 ${Math.min(n, t)}/${t}` : '만드는 중', date: '' };
+    // read 단계(큰 파일 나눠 읽기)는 '파일 읽기 n/t', 그 뒤는 '만드는 중 n/t'.
+    const word = row.stage === 'read' ? '파일 읽기' : '만드는 중';
+    return { kind: 'making', text: t ? `${word} ${Math.min(n, t)}/${t}` : '만드는 중', date: '' };
   }
   if (row.status === 'done' && row.brief && typeof row.brief.lead === 'string') return { kind: 'done', text: row.brief.lead, date: md(row.finished_at || row.updated_at) };
   return { kind: 'failed', text: errorLine(row.error_code), date: '' };

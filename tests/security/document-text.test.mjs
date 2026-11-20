@@ -94,7 +94,7 @@ test('convert path (PDF/HWP): temporary Google Doc copy is exported then deleted
 });
 
 test('convert failures: unsupported type, export failure still deletes the temp copy; other media are not downloaded', async () => {
-  {const d = drive({ copyStatus: 400 }); const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'o', name: 'a.hwp', mime: '', size: 10 });
+  {const d = drive({ copyStatus: 400 }); const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'o', name: 'a.rtf', mime: '', size: 10 });
    assert.equal(r.reason, 'unsupported'); assert.equal(r.text, '');}
   {const d = drive({ copyMime: 'application/pdf' }); const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'o', name: 'a.pdf', mime: '', size: 10 });
    assert.equal(r.source, 'none'); assert.ok(d.calls.some(c => c.method === 'DELETE' && c.path.includes('temp-1')));}
@@ -192,9 +192,9 @@ test('SEARCH ②: a large export keeps only its first part instead of failing (s
 });
 
 // LIB-스캔글자읽기 (2026-10-24): scanned PDFs get the Korean OCR language; library photos reuse _shared/drive-ocr.ts.
-test('scanned PDF: only the PDF copy request carries ocrLanguage=ko; HWP·DOCX·PPTX·XLSX requests stay as before', async () => {
+test('scanned PDF: only the PDF copy request carries ocrLanguage=ko; DOCX·PPTX·XLSX requests stay as before (HWP is read directly since S67-33)', async () => {
   for (const [name, mime, ocr] of [['스캔.pdf', '', true], ['noext', 'application/pdf', true], ['a.PDF', '', true],
-    ['a.hwp', '', false], ['a.docx', '', false], ['a.doc', 'application/pdf', false], ['a.pptx', '', false], ['a.xlsx', '', false]]) {
+    ['a.docx', '', false], ['a.doc', 'application/pdf', false], ['a.pptx', '', false], ['a.xlsx', '', false]]) {
     const d = drive({ sameMime: true });
     const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'orig-1', name, mime, size: 10 });
     assert.equal(r.source, 'content', name);

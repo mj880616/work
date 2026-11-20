@@ -388,10 +388,9 @@ function hwpFailure(e: unknown) {
 // 자료·업무공간·Drive 파일 ID는 서버가 DB에서 읽는다(화면 값 믿지 않음). 원본 Drive 파일은 읽기만 한다(이름·위치 그대로).
 // 글자는 화면에 돌려주지 않는다(상태만). 이미 읽은 자료는 다시 읽지 않는다. AI는 부르지 않는다(ai-assist가 이 칸을 읽음).
 // MULTI ②-2: 자료 행의 작업공간(본인 owner 확인됨)의 Drive 연결로만 읽는다. 요청마다 만든다.
-// S67-28: HWP(구형)는 자료 AI 색인(document-ai-index)·자료 올리기(library-files)와 같은 hwpToText로 읽는다.
-// HWP를 읽을 때만 불러온다(함수가 뜰 때 싣지 않음, meeting-ai-ingest/hwp-parser.mjs와 같은 방식).
-const hwpText = async (bytes: Uint8Array) => String(await (await import('npm:@ssabrojs/hwpxjs')).hwpToText(bytes) ?? '');
-const textReader = (userId: string, workspaceId: string) => createDocumentText({ driveToken: driveTokenFor(userId, workspaceId), fetch, hwpText, log: code => console.error(JSON.stringify({ fn: 'document-actions', code })) });
+// S67-33: HWP(구형)는 document-text가 자체 읽기(_shared/hwp-text.mjs, 섹션을 흘려 풀기)로 읽는다.
+// S67-28의 npm:@ssabrojs/hwpxjs hwpToText는 작은 HWP에서도 Edge 메모리 한도를 넘겨 함수가 죽어 이 함수에서는 쓰지 않는다.
+const textReader = (userId: string, workspaceId: string) => createDocumentText({ driveToken: driveTokenFor(userId, workspaceId), fetch, log: code => console.error(JSON.stringify({ fn: 'document-actions', code })) });
 async function readDocumentText(userId: string, body: { document_id?: unknown }) {
   const id = String(body?.document_id || '').toLowerCase();
   if (!UUID.test(id)) throw fail('자료를 확인할 수 없습니다.', 'INVALID_REQUEST');
