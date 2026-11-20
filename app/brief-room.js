@@ -10,8 +10,9 @@
 // - BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31): [자료실에서 고르기] → 공용 고르기 창(library-move-picker.js, 여러 개)으로 내 자료실 자료를 고른다.
 //   파일을 다시 올리지 않고 '브리핑 요청함' 폴더에 연결 줄만 넣는다(app_library_folder_items, owner RLS, 이미 있으면 건너뜀). 받기는 줄의 [브리핑 받기]로만.
 //   자료 하나는 폴더 하나라(표 기본키), 다른 폴더에 든 자료는 옮기지 않고 그대로 두고 이 화면 목록에만 보인다(브리핑을 받으면 계속 남음).
-import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,RETRY_LABEL,briefSections,canRetry,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+import {BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,RETRY_LABEL,briefSections,canRetry,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
+import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js';
 import {firstUseEl} from './first-use.js'; // HELP-처음쓰는사람안내 ③: 넣은 자료가 없을 때 목록 자리 안내
@@ -290,23 +291,41 @@ const menu=createAnchoredMenu({id:'brRowMenu',className:'feed-menu',label:'브�
 const hold=createFeedHold({menu,itemSelector:'[data-br-open]',moreSelector:'[data-br-more]',skipSelector:'[data-br-start],[data-br-pick],[data-br-more]',busy:()=>state.busy||pick.active,isPhone:()=>!wide()});
 
 // [자료실에서 고르기]: 내 자료실 자료(최근 순, 이름 찾기)를 여러 개 고른다. 목록은 열 때마다 서버에서 owner RLS로 읽는다(기기 저장 없음).
-const LIB_PICK_CAP=2000;
-let libPicker=null,libDocs=[],libButton=null;
+// S67-41: 찾기 칸 아래 [최근]·[폴더] 두 보기. [폴더]는 처음 누를 때 자료실 폴더·폴더에 든 자료 줄을 읽고(같은 owner RLS 읽기),
+// 자료실 나무와 같은 순서(folderSiblings)로 폴더에 들어가며 고른다. 줄마다 형식 꼬리표·이름 한 줄·올린 날짜. 폰은 아래에서 올라오는 판, PC·폴드는 단추 아래 창.
+const LIB_PICK_CAP=2000,LIB_ITEM_CAP=5000;
+let siblingsOf=null,libPicker=null,libDocs=[],libButton=null,libFolders=null,libItems=new Map(),libFolder=null,libFolderLoad=null,libFolderFailed=false;
+function loadLibraryFolders(){
+  return libFolderLoad||=Promise.all([
+    readLibraryFolders(api,ws()),
+    // 폴더 순서는 자료실 나무와 같은 규칙(library-tree.js folderSiblings). 나무 묶음은 [폴더]를 누를 때만 받는다.
+    import('./library-tree.js').then(m=>{siblingsOf=m.folderSiblings}),
+    api(`/rest/v1/app_library_folder_items?workspace_id=eq.${enc(ws())}&select=document_id,folder_id&limit=${LIB_ITEM_CAP}`)
+  ]).then(([folders,,items])=>{
+    libFolders=Array.isArray(folders)?folders:[];
+    libItems=new Map((Array.isArray(items)?items:[]).map(r=>[r.document_id,r.folder_id]));
+  }).catch(()=>{libFolderLoad=null;libFolders=null;libFolderFailed=true;toast('자료실 폴더를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',true)});
+}
 async function openLibraryPick(anchor){
   if(state.busy||anchor.disabled)return;
   if(libPicker?.isOpen){void libPicker.close(false,true);return}
   anchor.disabled=true;
   try{
-    const rows=await api(`/rest/v1/app_documents?workspace_id=eq.${enc(ws())}&select=id,title,file_name,created_at&order=created_at.desc&limit=${LIB_PICK_CAP}`);
+    const rows=await api(`/rest/v1/app_documents?workspace_id=eq.${enc(ws())}&select=id,title,file_name,mime_type,created_at&order=created_at.desc&limit=${LIB_PICK_CAP}`);
     libDocs=Array.isArray(rows)?rows:[];
   }catch{toast('자료실 자료를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',true);return}
   finally{anchor.disabled=false}
   if(!anchor.isConnected)return;
   libPicker??=createMovePicker({esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),id:'brLibPicker',label:'자료실에서 선택',findLabel:'자료 이름 찾기',foot:false,currentTag:'이미 있음',folderIcons:false});
   const inRoom=new Set(roomRows().map(r=>r.doc.id));
+  libFolder=null;libFolderLoad=null;libFolders=null;libFolderFailed=false;
   anchor.setAttribute('aria-expanded','true');
-  libPicker.open({anchor,place:'below',history:!wide(),multi:true,sections:PICK_SECTIONS,doneLabel:n=>n?`넣기 ${n}개`:'넣을 자료를 선택해 주세요',
-    rows:query=>libraryPickRows({docs:libDocs,inRoom,query}),
+  libPicker.open({anchor,place:wide()?'below':'side',history:!wide(),multi:true,width:340,sections:PICK_SECTIONS,views:PICK_VIEWS,view:'recent',
+    doneLabel:n=>n?`넣기 ${n}개`:'넣을 자료를 선택해 주세요',
+    rows:(query,view)=>view==='folder'&&!libFolders&&!query.trim()?{recent:[],all:[],total:libDocs.length,waiting:!libFolderFailed}
+      :libraryPickRows({docs:libDocs,inRoom,query,view,folder:libFolder,folders:libFolders||[],itemFolder:libItems,siblings:siblingsOf?(all,parentId)=>siblingsOf(all,{free:true,parentId}):null}),
+    onView:view=>{if(view==='folder'&&!libFolders){libFolderFailed=false;void loadLibraryFolders().then(()=>libPicker?.refresh?.())}},
+    onNav:id=>{libFolder=id||null},
     onPickMany:ids=>putPicked(ids),
     onClosed:()=>{if(anchor.isConnected)anchor.setAttribute('aria-expanded','false')}});
 }

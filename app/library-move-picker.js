@@ -1,5 +1,5 @@
 import {pickIconHtml} from './folder-look.js';
-import {emptyHtml} from './wait-state.js';
+import {emptyHtml,waitInlineHtml} from './wait-state.js';
 import {placeAnchored,followAnchor,clearAnchored,bottomInset} from './anchored-popup.js';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
@@ -26,14 +26,14 @@ const coarse=()=>typeof matchMedia==='function'&&matchMedia('(pointer:coarse)').
 //   folderIcons:false면(매체 고르기) 점 없는 줄에 폴더 그림을 그리지 않는다.
 //   S67-39: 줄에 tag가 있으면 그 줄만 currentTag 대신 그 글자를 꼬리표로 단다(예: 사업 보고 자료 고르기의 '다른 보고에 있음').
 export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기기',findLabel='폴더 찾기',foot:withFoot=true,currentTag='지금 여기',folderIcons=true}){
-  let panel=null,input=null,list=null,note=null,foot=null,state=null,popover=false,closing=null,historyOwned=false,outside=null,keep=null,stopFollow=null;
+  let panel=null,input=null,tabs=null,list=null,note=null,foot=null,state=null,popover=false,closing=null,historyOwned=false,outside=null,keep=null,stopFollow=null;
   const HISTORY_KEY='kptuLibraryMovePicker';
 
   function ensure(){
     if(panel)return;
     panel=document.createElement('div');panel.id=id;panel.className='lu-move-picker';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',label);panel.tabIndex=-1;
-    panel.innerHTML=`<input type="search" class="lu-move-find" placeholder="${esc(findLabel)}" aria-label="${esc(findLabel)}" autocomplete="off" enterkeyhint="search"><div class="lu-move-list" role="group" aria-label="${esc(label)} 목록"></div><p class="lu-move-note" role="status" hidden></p><div class="lu-move-foot"${withFoot?'':' hidden'}></div>`;
-    input=panel.querySelector('.lu-move-find');list=panel.querySelector('.lu-move-list');note=panel.querySelector('.lu-move-note');foot=panel.querySelector('.lu-move-foot');
+    panel.innerHTML=`<input type="search" class="lu-move-find" placeholder="${esc(findLabel)}" aria-label="${esc(findLabel)}" autocomplete="off" enterkeyhint="search"><div class="lu-move-tabs ds-seg" role="group" aria-label="자료 보기" hidden></div><div class="lu-move-list" role="group" aria-label="${esc(label)} 목록"></div><p class="lu-move-note" role="status" hidden></p><div class="lu-move-foot"${withFoot?'':' hidden'}></div>`;
+    input=panel.querySelector('.lu-move-find');tabs=panel.querySelector('.lu-move-tabs');list=panel.querySelector('.lu-move-list');note=panel.querySelector('.lu-move-note');foot=panel.querySelector('.lu-move-foot');
     popover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;if(popover)panel.setAttribute('popover','manual');
     document.body.append(panel);
     input.addEventListener('input',()=>paint());
@@ -47,6 +47,9 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
       e.stopPropagation();
       if(b.getAttribute('aria-disabled')==='true'||b.disabled)return;
       const s=state;
+      // S67-41 보기 단추([최근]·[폴더])와 폴더 줄(nav): 고르기가 아니라 목록만 바꾼다(고른 것은 그대로).
+      if(b.dataset.luMoveTab){if(s.view!==b.dataset.luMoveTab){s.view=b.dataset.luMoveTab;s.onView?.(s.view);paintKeep(false)}return}
+      if(b.dataset.luMoveNav!==undefined){s.onNav?.(b.dataset.luMoveNav||null);paintKeep(false);list.querySelector('.lu-move-item')?.focus({preventScroll:true});return}
       // 여러 개 고르기(multi): 줄을 누르면 고름·풀기만 하고, 아래 [넣기 n개]로 한 번에 넘긴다.
       if(s.multi&&b.dataset.luMoveFolder){const id=b.dataset.luMoveFolder;if(s.chosen.has(id))s.chosen.delete(id);else s.chosen.add(id);const top=list.scrollTop;paint();list.scrollTop=top;list.querySelector(`[data-lu-move-folder="${CSS.escape(id)}"]`)?.focus({preventScroll:true});return}
       if(s.multi&&b.hasAttribute('data-lu-move-done')){const ids=[...s.chosen];if(ids.length)void finish(()=>s.onPickMany(ids));return}
@@ -69,16 +72,30 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     },true);
   }
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${state?.multi&&r.enabled?` aria-pressed="${state.chosen.has(r.id)}"`:''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):''}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current||r.tag?`<span class="lu-move-tag">${esc(r.tag||currentTag)}</span>`:''}</button>`;
+  const paintKeep=keep=>{const top=list.scrollTop;paint();list.scrollTop=keep?top:0};
+  // S67-41: 줄 앞 형식 꼬리표(kind: PDF·HWP·사진), 뒤 날짜(meta), 폴더로 들어가는 줄(nav: id 또는 '' = 위로)은 고르기 없이 목록만 바꾼다.
+  const extra=r=>`${r.kind?`<span class="lu-move-kind">${esc(r.kind)}</span>`:''}`;
+  // 줄 하나의 그리는 곳. nav 줄(폴더로 들어가기·위로)은 고르기 표시 없이 data-lu-move-nav만 단다.
+  const item=(r,labeled)=>{
+    const nav=r.nav!==undefined,chev=t=>`<span class="lu-move-chev" aria-hidden="true">${t}</span>`;
+    const attrs=nav?` class="lu-move-item lu-move-nav${r.back?' lu-move-back':''}" data-lu-move-nav="${esc(r.nav)}" title="${esc(r.label||r.name)}" style="--lu-depth:0"`
+      :` class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${state?.multi&&r.enabled?` aria-pressed="${state.chosen.has(r.id)}"`:''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}"`;
+    const lead=nav?(r.back?chev('‹'):pickIconHtml(r)):r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):'';
+    const name=nav?r.name:labeled?r.label:r.name;
+    return `<button type="button"${attrs}>${lead}${nav?'':extra(r)}<span class="lu-move-name">${esc(name)}</span>${!nav&&(r.current||r.tag)?`<span class="lu-move-tag">${esc(r.tag||currentTag)}</span>`:''}${r.meta?`<span class="lu-move-meta">${esc(r.meta)}</span>`:''}${nav&&!r.back?chev('›'):''}</button>`;
+  };
 
   function paint(){
     if(!state)return;
-    const q=input.value.trim(),data=state.rows(q),searching=!!q;
+    const q=input.value.trim(),data=state.rows(q,state.view),searching=!!q;
+    paintTabs();
     const parts=[];
     const sec={recent:'최근 넣은 폴더',all:'전체 폴더',found:'찾은 폴더',...state.sections};
     if(data.recent.length)parts.push(`<p class="lu-move-sec">${esc(sec.recent)}</p>`+data.recent.map(r=>item(r,true)).join(''));
-    if(data.all.length)parts.push((data.recent.length||searching||state.sections?`<p class="lu-move-sec">${esc(searching?sec.found:sec.all)}</p>`:'')+data.all.map(r=>item(r,searching)).join(''));
-    if(!parts.length)parts.push(emptyHtml());
+    const row=r=>item(r,searching);
+    const allLabel=data.allLabel||(searching?sec.found:sec.all);
+    if(data.all.length)parts.push((data.recent.length||searching||state.sections||data.allLabel?`<p class="lu-move-sec">${esc(allLabel)}</p>`:'')+data.all.map(row).join(''));
+    if(!parts.length)parts.push(data.waiting?waitInlineHtml():emptyHtml());
     list.innerHTML=parts.join('');
     const reason=[...data.recent,...data.all].find(r=>r.reason)?.reason;
     note.hidden=!reason;note.textContent=reason?`흐린 폴더는 ${reason}. 묶기를 ‘폴더’로 바꾸면 선택할 수 있어요.`:'';
@@ -95,13 +112,19 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     position();
   }
 
+  function paintTabs(){
+    const list=state?.views||[];
+    tabs.hidden=!list.length;
+    tabs.innerHTML=list.map(v=>`<button type="button" class="ds-seg-btn" data-lu-move-tab="${esc(v.id)}" aria-pressed="${v.id===state.view}">${esc(v.label)}</button>`).join('');
+  }
+
   function position(){
     if(!state||panel.hidden)return;
     const maxH=Math.max(160,Math.min(440,innerHeight-EDGE*2));
     if(state.place==='below'){
       // S54-04: 버튼 아래 창은 폰·PC 모두 공용 자리 함수 하나로(새 자리 계산 없음).
       panel.classList.remove('lu-move-sheet');
-      placeAnchored(panel,state.anchor,{maxWidth:WIDTH,maxHeight:440,gap:GAP,edge:EDGE,bottomInset:bottomInset()});
+      placeAnchored(panel,state.anchor,{maxWidth:state.width||WIDTH,maxHeight:440,gap:GAP,edge:EDGE,bottomInset:bottomInset()});
       return;
     }
     panel.classList.toggle('lu-move-sheet',!wide());
@@ -122,12 +145,15 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
   }
 
   // 여러 개 고르기: opts.multi=true면 줄은 고름 표시(aria-pressed)만 바꾸고 아래 [doneLabel(n)]이 onPickMany(ids)를 부른다. sections로 줄 묶음 이름을 바꾼다.
+  // S67-41: views:[{id,label}]·view·onView(id) = 찾기 칸 아래 보기 단추, rows(query, view)의 둘째 값. width = 창 폭 한도(기본 248). onNav(id|null) = nav 줄.
+  // 줄(rows): kind(형식 꼬리표)·meta(날짜)·nav(폴더로 들어가는 줄, back:true면 위로)·allLabel(아래 묶음 이름 바꾸기, data에).
   // opts: {anchor, place:'side'|'below', rows(query)->{recent,all,total}, multi, doneLabel(n), onPickMany(ids), sections:{recent,all,found}, canOut, outLabel(기본 '폴더 밖으로'), canNew, history, onPick(id), onNew(), onOut(), onClosed()}
   function open(opts){
     ensure();
     if(closing){closing.then(()=>open(opts));return}
     if(state)void close();
-    state={...opts,place:opts.place||'below',chosen:new Set()};
+    state={...opts,place:opts.place||'below',chosen:new Set(),view:opts.view||opts.views?.[0]?.id||null};
+    panel.style.setProperty('--lu-move-width',(opts.width||WIDTH)+'px');
     input.value='';clearAnchored(panel);panel.style.removeProperty('right');panel.classList.remove('lu-move-sheet');panel.hidden=false;
     if(popover){try{panel.showPopover()}catch{popover=false;panel.removeAttribute('popover')}}
     paint();
@@ -161,5 +187,5 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
   }
   // 고른 뒤: 목록을 닫고(기록 정리까지 기다림) 일을 한다.
   async function finish(work){await close(false,false);await work()}
-  return {open,close,reposition:position,get isOpen(){return !!state},contains:n=>!!panel&&panel.contains(n),get element(){return panel}};
+  return {open,close,reposition:position,refresh:()=>{if(state&&!panel.hidden)paintKeep(true)},get isOpen(){return !!state},contains:n=>!!panel&&panel.contains(n),get element(){return panel}};
 }
