@@ -137,7 +137,7 @@ test('줄 단추 줄이기: 접히는 버튼 표시·줄마다 ⋯ 하나·메�
   assert.match(fl, /rowAct\(key, button\.dataset\.nbxMenuAct, active\.trigger\)/, '메뉴 항목은 줄 버튼과 같은 길');
   // 업데이트 줄 ⋯(basket.js): 이름은 [할 일로]·[노트로], 처리 버튼이 있는 줄은 [일정으로][조직][사업]도.
   const bk = read('basket.js');
-  assert.match(bk, /\['task','할 일로'\],\.\.\.\(acts\?\[\['event','일정으로'\]\]:\[\]\),\['to-note','노트로'\],\.\.\.\(acts\?\[\['org','조직'\],\['area','사업'\]\]:\[\]\)/);
+  assert.match(bk, /\['task','할 일로'\],\.\.\.\(acts\?\[\['event','일정으로'\]\]:\[\]\),\['to-note','노트로'\],\.\.\.\(acts\?\[\['org',word\('조직'\)\],\['area','사업'\]\]:\[\]\)/);
   assert.doesNotMatch(bk, /'할 일 만들기'\]|'노트로 옮기기'\]/, '줄 ⋯ 메뉴에 옛 이름 없음');
   const ui = read('ui-standard.css');
   assert.match(ui, /@media \(max-width:760px\),\(hover:none\)\{ \.nbx-acts > \.nbx-fold\{ display:none; \} \}/);

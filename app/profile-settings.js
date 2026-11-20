@@ -1,3 +1,4 @@
+import {word} from './brand/brand.mjs';
 const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
 'use strict';
@@ -24,14 +25,14 @@ const $=sel=>document.querySelector(sel);
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function installView(){
   if($('#profileView'))return;
-  $('#appView')?.insertAdjacentHTML('beforeend',`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psUnion" type="text" placeholder="노조명 (예: ○○노동조합 ○○지부)" aria-label="노조명" autocomplete="off" maxlength="60"><input id="psDept" type="text" placeholder="부서명 (예: ○○사업팀)" aria-label="부서명" autocomplete="off" maxlength="60"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
+  $('#appView')?.insertAdjacentHTML('beforeend',word(`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psUnion" type="text" placeholder="노조명 (예: ○○노동조합 ○○지부)" aria-label="노조명" autocomplete="off" maxlength="60"><input id="psDept" type="text" placeholder="부서명 (예: ○○사업팀)" aria-label="부서명" autocomplete="off" maxlength="60"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`));
 }
 async function context(){if(!rt?.session||!(await rt.session.ensure()))return false;user=await api('/auth/v1/user');const rows=await api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id&limit=1`);workspaceId=rows?.[0]?.workspace_id||null;return !!workspaceId}
 function buildWorkplaces(){
   const orgById=new Map(organizations.map(x=>[x.id,x])),ids=new Set();
   assignments.forEach(x=>x.organization_id&&ids.add(x.organization_id));
   profileWorkplaces.filter(x=>x.organization_id).forEach(x=>ids.add(x.organization_id));
-  workplaces=[...ids].map(id=>{const org=orgById.get(id),mirror=profileWorkplaces.find(x=>x.organization_id===id);return {organization_id:id,full_name:org?.name||mirror?.full_name||'이름 없는 조직',aliases:org?.aliases||mirror?.aliases||[],active:org?.active!==false}});
+  workplaces=[...ids].map(id=>{const org=orgById.get(id),mirror=profileWorkplaces.find(x=>x.organization_id===id);return {organization_id:id,full_name:org?.name||mirror?.full_name||word('이름 없는 조직'),aliases:org?.aliases||mirror?.aliases||[],active:org?.active!==false}});
   legacyWorkplaces=profileWorkplaces.filter(x=>!x.organization_id).sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
   baseline=new Set(ids);
   for(const [id,v] of [...want])if(v===baseline.has(id))want.delete(id);
@@ -57,7 +58,7 @@ function listItems(){
   return order?order.sort(order.forPicker(list,[...baseline])):list.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
 }
 function orgRow(o){
-  const name=o.name||'이름 없는 조직',on=isChecked(o.id),off=!on&&baseline.has(o.id);
+  const name=o.name||word('이름 없는 조직'),on=isChecked(o.id),off=!on&&baseline.has(o.id);
   return `<div class="ps-org-row${off?' pick-off':''}"><label class="ps-org-pick"><input class="ps-org-box" type="checkbox" data-ps-org-check="${esc(o.id)}"${on?' checked':''}${saving?' disabled':''}><span class="ps-org-name">${esc(name)}${o.active?'':' · 비활성'}</span></label><button class="ps-org-go" type="button" data-ps-workplace-org="${esc(o.id)}" aria-label="${esc(name)} 정보와 현황 열기">›</button></div>`;
 }
 // 고른 것 = 서버에 담당인 조직(체크를 풀어도 저장 전까지 흐리게 남음) + 이번에 새로 체크한 조직. 나머지는 '그 외' 안, 묶음 순서 그대로.
@@ -72,8 +73,8 @@ function renderWorkplaces(){
   const box=$('#psWorkplaceList');if(!box||!fold||!note)return;
   const items=listItems(),picked=items.filter(inPicked),rest=items.filter(o=>!inPicked(o));
   const state=freshFold?null:fold.readPickState(box).ws;freshFold=false;
-  const legacy=legacyWorkplaces.length?`<div class="ps-legacy-wrap"><span class="ps-legacy-title">기존 담당사업장 정보</span>${legacyWorkplaces.map(x=>`<span class="ps-legacy-chip">${esc(x.full_name||'이름 없는 사업장')}<small>산하조직 연결 전</small></span>`).join('')}</div>`:'';
-  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:'담당조직 현황',count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:'담당 조직 없음',extra:legacy}):`<h3>담당조직 현황</h3>${note?note.connectNoteHtml({line:'조직 관리에서 담당조직을 더하면 여기서 선택할 수 있어요.',button:'조직 관리로',attrs:{'data-goto':'team'},boxAttrs:{'data-ps-org-empty':''}}):''}${legacy}`;
+  const legacy=legacyWorkplaces.length?word`<div class="ps-legacy-wrap"><span class="ps-legacy-title">기존 담당사업장 정보</span>${legacyWorkplaces.map(x=>word`<span class="ps-legacy-chip">${esc(x.full_name||word('이름 없는 사업장'))}<small>산하조직 연결 전</small></span>`).join('')}</div>`:'';
+  box.innerHTML=items.length?fold.pickFoldHtml({key:'ws',title:word('담당조직 현황'),count:picked.filter(o=>isChecked(o.id)).length,picked:picked.map(orgRow).join(''),others:othersGroups(rest),state,noneText:word('담당 조직 없음'),extra:legacy}):word`<h3>담당조직 현황</h3>${note?note.connectNoteHtml({line:word('조직 관리에서 담당조직을 더하면 여기서 선택할 수 있어요.'),button:word('조직 관리로'),attrs:{'data-goto':'team'},boxAttrs:{'data-ps-org-empty':''}}):''}${legacy}`;
   fold.bindPickFold(box);
   renderStatus();
 }
@@ -105,6 +106,7 @@ async function load(){
   void loadPush();
   void loadBackup();
   void loadMcpRead();
+  void loadCustomWords();
   return true;
 }
 // MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
@@ -150,6 +152,16 @@ async function loadMcpRead(){
     await (await mcpReadPanel.ready).load();
   }catch(e){console.error('mcp read settings',e?.name||'Error')}
 }
+// APP-기록+이름바꾸기(S67-44): '이름 바꾸기' 칸(custom-words-panel.js가 그린다, 내 프로필 custom_words에 바로 저장). 자리는 '기본 정보' 칸 바로 뒤(담당 사업장 칸 앞), 한 번만 붙인다.
+let customWordsPanel=null;
+async function loadCustomWords(){
+  try{
+    let host=$('#psCustomWordsPanel');
+    if(!host){const before=$('#psWorkplacePanel');if(!before)return;before.insertAdjacentHTML('beforebegin','<article class="panel ps-panel" id="psCustomWordsPanel" aria-label="이름 바꾸기"></article>');host=$('#psCustomWordsPanel')}
+    if(!customWordsPanel||customWordsPanel.host!==host){const ready=import('./custom-words-panel.js').then(m=>m.mountCustomWords(host,{rt}));customWordsPanel={host,ready};ready.catch(()=>{if(customWordsPanel?.ready===ready)customWordsPanel=null})}
+    await (await customWordsPanel.ready).load();
+  }catch(e){console.error('custom words',e?.name||'Error')}
+}
 async function loadPush(){
   try{
     let host=$('#psPushPanel');
@@ -193,8 +205,8 @@ async function save(){
   if(!failed){markSaved();return}
   const okParts=[],badParts=[],wpLeft=wpTotal-wpSaved;
   if(wasProfile)(profileSaved?okParts:badParts).push('프로필');
-  if(wpSaved)okParts.push(`담당 사업장 ${wpSaved}곳`);
-  if(wpLeft)badParts.push(`담당 사업장 ${wpLeft}곳`);
+  if(wpSaved)okParts.push(word`담당 사업장 ${wpSaved}곳`);
+  if(wpLeft)badParts.push(word`담당 사업장 ${wpLeft}곳`);
   toast(`${okParts.length?okParts.join('과 ')+'은 저장했고 ':''}${badParts.join('과 ')}은 저장하지 못했어요. 저장을 다시 눌러 주세요.`,6000);
 }
 // 저장 성공: 저장 줄에 '저장됨'을 잠깐 보였다가 지운다(알림 띄우기 대신 — 같은 말을 두 곳에 띄우지 않음).

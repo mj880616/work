@@ -1,14 +1,16 @@
 // MTG-사업보고 4단계: 사업 보고 '칸'(app_meetings.activity_kind)의 값·화면 글자를 정하는 유일한 곳(docs/design/business-report.md 3절).
 // DB 값은 영어(20261022182319_bizreport_activity_kind의 CHECK 8개), 화면 글자는 여기서만 바꾼다. [기타]는 결정 1(가)로 보인다.
+// APP-올인원다이어리(S67-43): 화면 글자는 얼굴별(기록+는 app/brand/girok-words.mjs '…#kind'). DB 값은 두 얼굴 같다.
+import {word} from './brand/brand.mjs';
 export const REPORT_KINDS=Object.freeze([
-  {value:'meeting',label:'회의'},
-  {value:'policy',label:'정책'},
-  {value:'negotiation',label:'교섭'},
-  {value:'press',label:'언론'},
-  {value:'assembly',label:'국회'},
-  {value:'struggle',label:'투쟁'},
-  {value:'education',label:'교육'},
-  {value:'other',label:'기타'}
+  {value:'meeting',label:word('회의','kind')},
+  {value:'policy',label:word('정책','kind')},
+  {value:'negotiation',label:word('교섭','kind')},
+  {value:'press',label:word('언론','kind')},
+  {value:'assembly',label:word('국회','kind')},
+  {value:'struggle',label:word('투쟁','kind')},
+  {value:'education',label:word('교육','kind')},
+  {value:'other',label:word('기타','kind')}
 ].map(Object.freeze));
 export const ALL_KINDS='all';
 // MTG-한줄업데이트(요청 10/29 08:59): '한 줄 업데이트' = 사업영역 꼬리표를 단 가벼운 사업 보고 한 건(DB 값 'oneline', 20261029160000).

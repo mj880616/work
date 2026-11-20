@@ -12,13 +12,14 @@ import {waitHtml, emptyHtml} from './wait-state.js';
 // 브라우저 기기 저장소는 쓰지 않는다 — 목록은 기기마다 같아야 한다.
 import {placeAnchored,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {word} from './brand/brand.mjs';
 
 // 분류 id는 영문 소문자·숫자 1~12자(표의 CHECK와 같은 규칙).
 // SEC-자주가는링크기본값유출(11/15 ★급★): 새 계정은 빈 목록에서 시작한다. 코드에 특정 단체·내부 시스템 주소를 기본값으로 두지 않는다
 //   (tests/quick-links-no-default.test.mjs가 막는다). 기본 분류는 '업무' 하나.
 export const DEFAULT_GROUPS = Object.freeze([Object.freeze({id: 'work', name: '업무'})]);
 // 옛 저장 모양 호환: 분류 칸이 비어 있고(옛 저장) 링크 칸이 org 분류를 쓰면 그 분류를 옛 이름으로 함께 보여 준다(저장된 링크가 사라지지 않게).
-const LEGACY_ORG_GROUP = Object.freeze({id: 'org', name: '담당조직 홈페이지'});
+const LEGACY_ORG_GROUP = Object.freeze({id: 'org', name: word('담당조직 홈페이지')});
 export const DEFAULT_LINKS = Object.freeze([]);
 // 분류 칸이 비어 있을 때 쓸 분류: 기본 '업무' + (저장된 링크가 org를 쓰면) 옛 분류.
 export function fallbackGroups(rawLinks) {

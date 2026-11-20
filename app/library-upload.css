@@ -332,7 +332,7 @@
 @media(prefers-reduced-motion:reduce){#appView #libraryView .photo-fold-tile.lu-flash{animation:none;outline-color:var(--kptu-primary)}}
 
 /* LIB-폴더로옮기기: [폴더로 옮기기 ›]로 여는 작은 폴더 목록. PC는 누른 버튼 옆, 폰은 아래 시트. */
-.lu-move-picker{position:fixed;inset:auto;margin:0;z-index:110;box-sizing:border-box;display:flex;flex-direction:column;width:248px;max-width:calc(100vw - 16px);padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:hidden}
+.lu-move-picker{position:fixed;inset:auto;margin:0;z-index:110;box-sizing:border-box;display:flex;flex-direction:column;width:var(--lu-move-width,248px);max-width:calc(100vw - 16px);padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:hidden}
 .lu-move-picker[hidden]{display:none}
 /* S52-27 UI-창스크롤: 폰 시트는 아래 바(하단바·전환 줄) 위에서 올라온다. 자판이 뜨면 하단바 높이는 0이 되고 자판 높이만큼 올라간다. */
 .lu-move-picker.lu-move-sheet{left:8px;right:8px;bottom:calc(8px + var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + var(--kptu-keyboard-inset,0px));top:auto;width:auto;max-width:none}
@@ -350,6 +350,17 @@
 .lu-move-tag{flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-move-note{flex:none;margin:4px 8px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 .lu-move-note[hidden]{display:none}
+/* S67-41 보기 단추([최근]·[폴더], 공용 ⑤ 보기 바꾸기 ds-seg)·형식 꼬리표·날짜·폴더 줄 — 작은 글자, 톤다운. */
+.lu-move-tabs{flex:none;align-self:flex-start}
+.lu-move-tabs[hidden]{display:none}
+.lu-move-picker .lu-move-tabs button.ds-seg-btn{width:auto;flex:0 0 auto}
+.lu-move-kind{flex:none;min-width:30px;padding:0 4px;border-radius:var(--kptu-radius-sm,4px);background:var(--kptu-primary-soft);color:var(--kptu-muted);font-size:11px;line-height:18px;text-align:center}
+.lu-move-meta{flex:none;margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+.lu-move-tag+.lu-move-meta{margin-left:6px}
+.lu-move-chev{flex:none;margin-left:auto;color:var(--kptu-muted)}
+.lu-move-meta+.lu-move-chev{margin-left:6px}
+.lu-move-back .lu-move-chev{margin-left:0}
+.lu-move-nav .lu-move-name{font-weight:var(--ds-weight-medium,500)}
 .lu-move-foot{flex:none;margin-top:4px;padding-top:4px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 .lu-move-foot button{padding:0 8px;color:var(--kptu-primary-ink)}
 /* BRIEF-자료실에서고르기: 여러 개 고르기 창 — 고른 줄 앞 작은 네모(✓), 아래 [넣기 n개]는 가운데 글자. */

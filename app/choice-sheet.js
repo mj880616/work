@@ -1,6 +1,7 @@
 import {emptyHtml} from './wait-state.js';
 // Shared native selection sheet, originally the home quick-input sheet (PR 428).
 import {WIDE_QUERY,placeAnchored,bottomInset,clearAnchored,followAnchor,dragByTitle} from './anchored-popup.js';
+import {word} from './brand/brand.mjs';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('choice-sheet');
@@ -10,17 +11,17 @@ await partStyles('choice-sheet');
 // filters the list, when the indentation no longer tells where it sits (the text is added while searching and removed after, so the
 // row's text stays its name otherwise). The search still matches the name only.
 export function projectRow(x,selected,esc,{value=x.project.id,extra=''}={}){
-  const name=x.project.name||'이름 없는 사업영역',path=x.depth>=2&&x.path?` data-sheet-path="${esc(x.path)}"`:'';
+  const name=x.project.name||word('이름 없는 사업영역'),path=x.depth>=2&&x.path?` data-sheet-path="${esc(x.path)}"`:'';
   return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${x.depth}" data-depth="${x.depth}" data-sheet-value="${esc(value)}"${path} aria-pressed="${value===selected}" title="${esc(name)}" ${extra}><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(name)}</span></button>`;
 }
 export function projectRows(rows,selected,esc){
-  return [{project:{id:'',name:'사업영역 없음'},depth:0},...rows].map(x=>projectRow(x,selected,esc)).join('');
+  return [{project:{id:'',name:word('사업영역 없음')},depth:0},...rows].map(x=>projectRow(x,selected,esc)).join('');
 }
 // UI-고르기창개선 A → UPD-여러곳고르기 ①: organizations by group (organization-order.js), the same look as the project list: the
 // group name is a small heading and its organizations follow one per line (a row with a check box, drawn by row(o)). When no
 // organization falls in a named group (only the "그 외" tail), the rows are one plain group with no heading.
 export function orgRow(o,pressed,esc,{extra=''}={}){
-  const name=o.name||'이름 없는 조직';
+  const name=o.name||word('이름 없는 조직');
   return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc(o.id)}" aria-pressed="${!!pressed}" title="${esc(name)}" ${extra}><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(name)}</span></button>`;
 }
 export function orgGroupRows(groups,row){

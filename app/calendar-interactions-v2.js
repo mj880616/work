@@ -7,6 +7,7 @@ import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 import {updateBody,same as ciSameTimes} from './calendar-drag-model.js';
 import {clickSlot,allDaySlot,dateSlot,minuteAtY} from './calendar-create-slot.js';
+import {word} from './brand/brand.mjs';
 import {eventAreaRows,syncEventAreas} from './quick-save.js'; // CAL-일정사업영역: 일정의 사업영역 = 사업영역 주요 일정 행
 import {loadReportPlans,eventPlan,eventPlanById,setEventPlan,syncEventCopy,dropEventPlan} from './report-plan-data.js'; // BIZ-보고할일정: '보고할 일정' 표시(서버 저장)
 import {mountEventFiles,sendEventFilesBehind} from './event-files.js'; // CAL-일정첨부: [메모] 아래 [사진·파일] 칸(원본 Drive + Google 캘린더 첨부)
@@ -156,7 +157,7 @@ async function ciSaveGoogle(){
     // normEvent always returns location; a different value means the server did not store the new place.
     if(typeof result.event.location==='string'&&result.event.location!==body.location){ciStatus('#ciGoogleStatus','일정은 저장했어요. 장소 저장은 확인하지 못했어요. 장소와 수정 입력은 유지했어요. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}
     // CAL-일정사업영역: 고른 사업영역과 주요 일정 행을 맞춘다(새로 고른 곳은 행 추가, 뺀 곳은 그 행만 삭제). 실패하면 창을 열어 둔 채 다시 저장하게 한다.
-    if(areas&&areaRows){try{await syncEventAreas({had:areaRows,next:areas,title,start_at:allDay?toSeoulISO(startDate+'T00:00'):body.start_iso,notes:body.memo.trim()||null,google_calendar_id:result.event.calendarId,google_event_id:current.id,created_by:r.owner,expectedSessionEpoch:r.epoch},ciRuntime())}catch(e){if(!ciSaveActive(r))return;ciStatus('#ciGoogleStatus','일정은 저장했어요. 사업영역 연결을 저장하지 못했어요. 다시 저장해 주세요. '+(e?.message||''),true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}if(!ciSaveActive(r))return}
+    if(areas&&areaRows){try{await syncEventAreas({had:areaRows,next:areas,title,start_at:allDay?toSeoulISO(startDate+'T00:00'):body.start_iso,notes:body.memo.trim()||null,google_calendar_id:result.event.calendarId,google_event_id:current.id,created_by:r.owner,expectedSessionEpoch:r.epoch},ciRuntime())}catch(e){if(!ciSaveActive(r))return;ciStatus('#ciGoogleStatus',word('일정은 저장했어요. 사업영역 연결을 저장하지 못했어요. 다시 저장해 주세요. ')+(e?.message||''),true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return}if(!ciSaveActive(r))return}
     // CAL-일정첨부: 일정이 저장됐으니 고른 파일은 창을 닫은 뒤 뒤에서 올린다(UX-먼저묻고뒤에처리). 파일은 탭 메모리만.
     {const w=ciFiles?.settled?.();if(w)await w} // STAB-갈래4흔들림: 고른 파일의 같은 파일 찾기가 끝난 뒤에 읽는다
     const picked=ciFiles?.chosen()||[];if(picked.length){ciFiles.clear();void sendEventFilesBehind({calendarId:result.event.calendarId,eventId:current.id,files:picked})}
@@ -183,7 +184,7 @@ async function ciLeaveReport(){
     if(!window.KPTUReportEntry)throw new Error('missing');
     ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal');
     await window.KPTUReportEntry.open({name:e.title||'',...when,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true,event:{id:e.id,calendarId:e.calendarId||'primary'}});
-  }catch(err){console.error('calendar report',err);ciStatus('#ciGoogleStatus','사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.',true)}
+  }catch(err){console.error('calendar report',err);ciStatus('#ciGoogleStatus',word('사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.'),true)}
 }
 // BIZ-보고할일정 PR A(설계 docs/design/biz-report-plan-link.md 4-2·4-3): 일정 창 '보고할 일정' 칸과 달력 메뉴 [보고할 일정]이 쓰는 길.
 // 누르면 바로 서버에 저장한다([변경사항 저장]과 따로 — Google 일정은 건드리지 않는다). 끔은 그 일정 하나만 끄고, 같은 이름의 다른 일정은 기억을 따른다.

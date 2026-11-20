@@ -5,6 +5,7 @@
 //   키보드: 손잡이에서 Alt+↑·Alt+↓(자료실 폴더 끌기와 같은 규칙). [위로]/[아래로] 단추는 없다.
 // - 이 파일은 목록 HTML의 묶음 칸·손잡이와 끌기 동작만 맡는다. 목록 전체 renderer는 suborganizations.js renderTeam 하나다.
 import {sectionsOf, moveOrg, moveGroup, renameGroup, ungroup, groupNameProblem, orderValue, TAIL_GROUP} from './org-order-edit.mjs';
+import {word} from './brand/brand.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'}[c]));
 const MOVE_PX = 6;
@@ -67,7 +68,7 @@ export function addGroup(name) {
   if (savedNames().length + pendingNow().length >= 12) return '묶음은 12개까지예요.';
   pending.push(v);
   deps.rerender();
-  deps.toast('묶음을 만들었어요. 조직을 끌어 넣으면 저장돼요.');
+  deps.toast(word('묶음을 만들었어요. 조직을 끌어 넣으면 저장돼요.'));
   return null;
 }
 export function renameGroupNamed(from, to) {
@@ -85,7 +86,7 @@ export function renameGroupNamed(from, to) {
 }
 function ungroupNamed(name) {
   if (pendingNow().includes(name)) { pending = pending.filter(n => n !== name); deps.rerender(); deps.toast('묶음을 풀었어요.'); return; }
-  void save(ungroup(prefsOrder(), savedNames().indexOf(name)), `묶음을 풀었어요. 조직은 '${TAIL_GROUP}'로 옮겼어요.`);
+  void save(ungroup(prefsOrder(), savedNames().indexOf(name)), word`묶음을 풀었어요. 조직은 '${TAIL_GROUP}'로 옮겼어요.`);
 }
 
 // ---- 끌기(포인터) ----
