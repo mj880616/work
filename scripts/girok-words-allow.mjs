@@ -12,6 +12,7 @@ export const GIROK_ALLOW = Object.freeze([
   { file: 'app/arsenal/', reason: OFF },
   { file: 'app/brand/faces.mjs', text: '노동조합', reason: '노동조합+ 얼굴 정의(기록+는 GIROK 값만 씀)' },
   { file: 'app/brand/girok-words.mjs', text: '<option value="', reason: '단어표 값: 저장되는 option 값(옛 값 그대로)만 남기고 보이는 글자는 기록+ 말' },
+  { file: 'app/brand/custom-words-model.mjs', reason: '사람별 이름 칸이 맡는 단어표 열쇠(노조 글자 → 칸 id 찾기용, 화면 글자 아님 — 화면에는 얼굴 기본 이름이나 사람이 쓴 이름이 나옴, S67-44)' },
 
   // ── 묶음 A ──
   { file: 'app/call-feed.js', reason: OFF },
