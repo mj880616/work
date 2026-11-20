@@ -49,7 +49,7 @@ test('library-upload.js: project upload path unchanged (link only when an organi
 
 test('workplace-detail.js: 자료 줄 [+] opens the shared upload; the empty hint and dashed box are gone',()=>{
   const s=readFileSync(new URL('../app/workplace-detail.js',import.meta.url),'utf8');
-  assert.match(s,/id="wdDocAdd" class="wd-add-plus" type="button" aria-label="자료 올리기" data-wd-doc-add/);
+  assert.match(s,/id="wdDocAdd" class="wd-add-plus" type="button" aria-label="자료 추가" data-wd-doc-add/);
   assert.match(s,/startUploadForOrganization\?\.\(\{id:org\.id,name:org\.name\},files\)/);
   assert.match(s,/bindDropTarget\(zone,/);
   assert.doesNotMatch(s,/붙은 자료가 없습니다|바구니에서 넣을 수 있어요|wd-doc-none/);
