@@ -3,6 +3,9 @@
 // 안 고른 폴더(color null)는 기본 노랑(--ds-folder-0-ico) 같은 폴더 그림을 쓴다(S51-25: 그림 문자 📁/📂는 PC에서 깨져 쓰지 않음). 이번 단계는 노트가, 다음 단계는 자료실·[파일]·사진이 같은 부품을 부른다.
 import {FOLDER_COLORS, colorOf, colorName, folderShapeHtml} from './folder-look-model.mjs';
 import {swatchHtml} from './color-swatch.mjs';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('folder-look');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 // 줄 앞 폴더 그림. row.color(1~8)이 있으면 칠한 그림, 없으면 지금의 노란 폴더. open: 열린 폴더·지금 폴더.
 export function folderIconHtml(row, {open = false, className = 'nx-ico'} = {}) {

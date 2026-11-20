@@ -12,7 +12,7 @@
 //   개인 통화함 표 재료(box)를 만든다. 개인은 조직·프로젝트 연결 재료를 만들지 않는다(상대 글만).
 //   요약이 없는 옛 개인 기록(3.2~3.4)·status '애매'가 아닌 구분 없음(옛 3.1·비어 있음)은 box가 null이라 개수만 센다. 모양이 다르면 failed.
 // 순수 함수만 둔다(네트워크·로그 없음). 바깥에서 온 글이므로 제어 문자를 지우고 길이를 자른다.
-import { matchOrg, orgAllNames, orgKey, orgKeys } from "../_shared/org-name-match.mjs";
+import { matchOrg, mentionedOrgs, orgAllNames, orgKey, orgKeys } from "../_shared/org-name-match.mjs";
 
 export const CALL_LIMITS = Object.freeze({
   analysisBytes: 64 * 1024,
@@ -348,16 +348,6 @@ export function relatedOrgNames(value: unknown): string[] {
   }
 }
 
-// 이름들이 Web2 담당조직 하나로만 모일 때 그 조직(없거나 둘 이상이면 null).
-function oneOrg(names: string[], orgs: OrgRow[]): OrgRow | null {
-  const hits = new Map<string, OrgRow>();
-  for (const n of names) {
-    const o = matchOrg(n, orgs);
-    if (o) hits.set(o.id, o);
-  }
-  return hits.size === 1 ? [...hits.values()][0] : null;
-}
-
 // v3.2 본문 머리의 `- 상대 이름: …`·`- 상대 직책: …`(제목 바로 아래, 첫 절 앞). '주체 확인필요: 예'이면 쓰지 않는다.
 export function headerCounterpart(body: string): { name: string; role: string } | null {
   const head: string[] = [];
@@ -392,6 +382,47 @@ export function titleCounterpart(title: string | null, orgs: OrgRow[]): { counte
   const person = cleanLine(words.filter((_, i) => i !== hits[0].i).join(" "), 60);
   if (!person || hasPhone(person) || EMPTY_ITEM.test(person)) return { counterpart: null, org };
   return { counterpart: cleanLine(`${org.name} ${person}`, CALL_LIMITS.counterpart), org };
+}
+
+// S67-47 ORG-근거만: 통화 상대 조직의 확실한 근거는 전사 파일 이름의 연락처 이름(명진 폰에 저장한 이름)뿐이다.
+// 연락처 이름에 담당조직 하나의 이름·약칭이 적혀 있을 때만 그 조직(없거나 둘 이상이면 null). 번호만 있는 연락처는 null.
+// 분석(AI)이 고른 related_organizations·counterparty_organization·제목·상대 절의 소속은 통화 내용에서 짐작한 것이라
+// (예: 다른 조직 사람과 통화하며 이 조직의 파업 이야기를 함) 조직 연결·상대 표기·제목의 조직으로 쓰지 않는다. 비워 두면 명진이 상세에서 고른다.
+export function contactOrg(contact: string | null, orgs: OrgRow[]): OrgRow | null {
+  if (!contact) return null;
+  const active = orgs.filter((o) => o && o.active !== false && typeof o.name === "string");
+  const hits = mentionedOrgs(contact, active) as OrgRow[];
+  return hits.length === 1 ? hits[0] : null;
+}
+
+// 글의 낱말 가운데 담당조직 이름·약칭인 낱말을 뺀다(근거 없는 조직 표기 지우기). 낱말 사이 띄어쓰기는 하나로.
+export function dropOrgWords(text: string, orgs: OrgRow[], extra: string | null = null): string {
+  const x = extra ? orgKey(extra) : "";
+  return text.split(/\s+/).filter((w) => w && !([...w].length >= 2 && matchOrg(w, orgs)) && !(x && orgKey(w) === x)).join(" ").trim();
+}
+
+// 상대 표기 다시 짓기: 근거 없는 조직 낱말을 빼고, 근거 있는 조직(confirmed)이 있으면 앞에 붙인다. 사람 글이 비면 null.
+export function counterpartWith(text: string | null, confirmed: OrgRow | null, orgs: OrgRow[], extra: string | null = null): string | null {
+  if (!text) return null;
+  const person = dropOrgWords(text, orgs, extra);
+  if (!person || EMPTY_ITEM.test(person) || hasPhone(person)) return null;
+  return cleanLine([confirmed?.name ?? "", person].filter(Boolean).join(" "), CALL_LIMITS.counterpart);
+}
+
+// 제목('조직 · 사람 직함 · 주제')의 앞 조각(주제 앞)에서 근거 없는 조직 낱말을 다룬다:
+// 근거 조직과 같은 낱말은 그대로, 다른 조직 낱말은 근거 조직 이름으로 바꾸고(한 번만), 근거가 없으면 뺀다. 빈 조각은 없앤다. 주제(끝 조각)·한 조각 제목은 그대로(내용이다).
+export function titleWith(title: string, confirmed: OrgRow | null, orgs: OrgRow[]): string {
+  const parts = title.split(/\s+·\s+/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return title;
+  let placed = false;
+  const head = parts.slice(0, -1).map((p) => p.split(/\s+/).flatMap((w) => {
+    const o = [...w].length >= 2 ? matchOrg(w, orgs) : null;
+    if (!o) return [w];
+    if (confirmed && o.id === confirmed.id && !placed) { placed = true; return [w]; }
+    if (confirmed && !placed) { placed = true; return [confirmed.name]; }
+    return [];
+  }).join(" ").trim()).filter(Boolean);
+  return cleanLine([...head, parts[parts.length - 1]].join(" · "), CALL_LIMITS.title) ?? title;
 }
 
 // 개인·애매 통화의 개인 통화함 재료. 저장 조건에 못 미치면 null(개수만 센다).
@@ -460,17 +491,23 @@ function parseCallAs(input: { ref: string; analysis_md: string; transcript: stri
   if (kind !== "business") return { kind, day, box: boxCallOf(kind, meta, fm.body, input.transcript, at, nowMs) };
   if (at === null || at > nowMs + 86400000) return { kind: "failed", day: null };
   const s = sections(fm.body);
-  const labels = speakerLabelsOf(meta.speaker_labels);
+  const active = orgs.filter((o) => o && o.active !== false && typeof o.name === "string");
+  // S67-47: 조직의 근거는 연락처 이름뿐. 화자 이름표('소속 이름 직책', 분석이 쓴 것)의 조직도 근거가 없으면 빼고 근거 조직으로 바꾼다.
+  const confirmed = contactOrg(named.contact, active);
+  const labels = Object.fromEntries(Object.entries(speakerLabelsOf(meta.speaker_labels)).flatMap(([k, v]) => {
+    if (v === "나") return [[k, v]];
+    const fixed = counterpartWith(v, confirmed, active);
+    return fixed ? [[k, fixed]] : [];
+  }));
   const points = pointsOf(s).map((p) => applySpeakerLabelsInText(p, labels));
   const summary = bullets(s.summary);
   const title0 = cleanLine(meta.call_title, CALL_LIMITS.title) ?? (summary[0] ? firstSentence(summary[0]) : null);
-  const title = title0 ? applySpeakerLabelsInText(title0, labels) : null;
-  if (!s.summary || !title) return { kind: "failed", day: day! };
-  const active = orgs.filter((o) => o && o.active !== false && typeof o.name === "string");
+  const title1 = title0 ? applySpeakerLabelsInText(title0, labels) : null;
+  if (!s.summary || !title1) return { kind: "failed", day: day! };
   // 상대: `## 상대 이름·직책` 절(있으면, 전사 파일 이름의 연락처 이름도 재료) → v3.2 본문 머리 줄 → call_title(확실할 때만) → 비움.
   // 머리 줄의 사람에 소속이 없을 때, 그 직책이 call_title 사람 조각에도 있으면 같은 사람으로 보고 제목의 담당조직을 붙인다.
-  const fromTitle = titleCounterpart(title, active);
-  let counterpart: string | null = fromTitle.counterpart, counterpartOrg: string | null = fromTitle.org?.id ?? null;
+  const fromTitle = titleCounterpart(title1, active);
+  let counterpart: string | null = fromTitle.counterpart;
   const head = s.counterpart ? null : headerCounterpart(fm.body);
   if (s.counterpart || head) {
     const lines = s.counterpart ?? [`- 이름: ${head!.name}`, ...(head!.role ? [`- 직책: ${head!.role}`] : [])];
@@ -481,11 +518,10 @@ function parseCallAs(input: { ref: string; analysis_md: string; transcript: stri
         counterpart = cleanLine(`${fromTitle.org.name} ${c.counterpart}`, CALL_LIMITS.counterpart);
       } else {
         counterpart = c.counterpart;
-        counterpartOrg = c.organization_id ?? counterpartOrg;
       }
     }
   }
-  // v3.3 상대 칸(counterparty_*): 있으면 위 추정보다 우선한다. 소속(counterparty_organization)은 담당조직과 딱 하나 맞을 때만 조직 연결 후보가 된다.
+  // v3.3 상대 칸(counterparty_*): 있으면 위 추정보다 우선한다. 소속(counterparty_organization)은 분석이 짐작한 것이라 아래에서 근거 조직으로 다시 짓는다.
   const cpName = cleanLine(meta.counterparty_name, 60), cpTitle = cleanLine(meta.counterparty_title, 60);
   const cpOrgText = cleanLine(meta.counterparty_organization, 80);
   const cpOrg = cpOrgText ? matchOrg(cpOrgText, active) : null;
@@ -493,10 +529,11 @@ function parseCallAs(input: { ref: string; analysis_md: string; transcript: stri
     const title2 = cpTitle && !hasPhone(cpTitle) && !EMPTY_ITEM.test(cpTitle) ? cpTitle : "";
     counterpart = cleanLine([cpOrg?.name ?? cpOrgText ?? "", cpName, title2].filter(Boolean).join(" "), CALL_LIMITS.counterpart);
   }
-  if (cpOrg) counterpartOrg = cpOrg.id;
-  // 조직: related_organizations가 담당조직 하나로만 모이면 그것, 아니면 상대 글에서 맞춘 조직.
-  const related = oneOrg(relatedOrgNames(meta.related_organizations), active);
-  const organization_id = related ? related.id : counterpartOrg;
+  // S67-47 ORG-근거만: 조직 연결은 연락처 이름이 가리키는 조직(confirmed)만. 분석이 고른 조직(related_organizations·소속 칸·제목·상대 절)은
+  // 연결·상대 표기·제목 앞 조각에 쓰지 않는다(근거 조직이 있으면 그 이름으로 바꾸고, 없으면 뺀다). 비워 두면 명진이 상세에서 고른다.
+  const organization_id = confirmed ? confirmed.id : null;
+  counterpart = counterpartWith(counterpart, confirmed, active, cpOrgText);
+  const title = titleWith(title1, confirmed, active);
   const transcript = input.transcript.normalize("NFC").replace(CONTROL, "").trim();
   const judged = parseKstDateTime(meta.analysis_at);
   return {
