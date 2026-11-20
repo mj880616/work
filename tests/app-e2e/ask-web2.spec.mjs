@@ -125,13 +125,15 @@ test('Phone 884: a late search repaint keeps the opened evidence list open and i
   expect(asks.length).toBe(0);
 });
 
-// SEC-기능PIN잠금(S67-14): 통화를 잠갔고 아직 안 풀었으면 통화 근거 줄은 제목·내용 대신 '잠김'(누르면 통화 화면 문지기가 PIN을 묻는다).
-test('Phone 412: with calls locked the call evidence row says "잠김" and opens the PIN pad',async({page})=>{
+// SEC-기능PIN잠금(S67-14): 통화를 잠갔고 아직 안 풀었으면 통화 근거 줄은 제목·내용 대신 '잠김'.
+// S67-25: 누르면 검색 화면을 떠나지 않고 그 자리 작은 PIN 창 — 맞으면 같은 자리에 근거 줄 제목이 보인다.
+test('Phone 412: with calls locked the call evidence row says "잠김" and unlocks in place',async({page})=>{
   await page.setViewportSize({width:412,height:900});
   const asks=[];
   await openHome(page,{beforeLoad:async()=>{
     await routes(page,{asks,recent:[{...ANSWER,ai_status:'ok',status:undefined}]});
     await page.route(SB+'/rest/v1/rpc/app_lock_read*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({has_pin:true,features:['calls'],relock:'5m',left:5,blocked_until:null})}));
+    await page.route(SB+'/rest/v1/rpc/app_lock_check*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(r.request().postDataJSON()?.p_pin==='1234'?{ok:true,left:5,blocked_until:null}:{ok:false,left:4,blocked_until:null})}));
   }});
   await page.evaluate(async()=>{await window.KPTUViewLoader.load('search');window.KPTURouter.go('search',{source:'delegated'});});
   const view=page.locator('#searchView');
@@ -141,7 +143,15 @@ test('Phone 412: with calls locked the call evidence row says "잠김" and opens
   await expect(call).toHaveCount(1);
   await expect(call.locator('.gs-ask-src-title')).toHaveText('잠김');
   await expect(view.locator('.gs-ask-src')).not.toContainText('성과급 개인 평가 연동 거부');
+  if(process.env.KPTU_SHOTS)await page.screenshot({path:'docs/design/screens/s67-25/search-locked-412.png'});
   await call.click();
-  await expect(page.locator('#lockView .lk-title')).toHaveText('통화 잠김');
+  await expect(page.locator('dialog.lk-here .lk-title')).toHaveText('통화 잠김');
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('search');
+  for(const d of '1234')await page.locator(`dialog.lk-here [data-lk-key="${d}"]`).click();
+  await expect(page.locator('dialog.lk-here')).toHaveCount(0);
+  await expect(view.locator('.gs-ask-src-row[data-gs-locked]')).toHaveCount(0);
+  await expect(view.locator('.gs-ask-src')).toContainText('성과급 개인 평가 연동 거부');
+  if(process.env.KPTU_SHOTS)await page.screenshot({path:'docs/design/screens/s67-25/search-open-412.png'});
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('search');
   expect(asks.length).toBe(0);
 });
