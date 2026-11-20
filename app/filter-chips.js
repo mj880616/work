@@ -1,4 +1,7 @@
 import {fitChipRows,refitChipRows} from './chip-rows.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('filter-chips');
 // One renderer for list filters. Keep nodes during selection so focus and touch survive refreshes.
 // UI-칩줄두줄: 줄은 줄바꿈으로 두 줄 + [더보기 ▾](공용 chip-rows.js). 고른 칩은 접혀 있어도 보인다. 옆으로 밀기는 없앴다.
 // UI-보기탭한모양(S52-17): 거르기가 아니라 보기를 바꾸는 줄(사업 보고 [목록|달력|사진]·자료실 묶기)은 seg:true — 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양,

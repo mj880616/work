@@ -8,6 +8,9 @@ import {emptyHtml} from './wait-state.js';
 import {formatSeoulTime} from './meeting-time.js';
 import {recordMark,recordText,isNoteRecord,isDirectRecord} from './basket-link-records.js';
 import {markdownSource} from './note-preview.mjs';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('record-sheet');
 
 const ID='kptuRecordSheet';
 const phone=()=>typeof window.matchMedia==='function'&&window.matchMedia('(max-width:760px)').matches;

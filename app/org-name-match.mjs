@@ -38,3 +38,18 @@ export function matchOrg(text, orgs) {
 }
 // 조직 하나의 모든 이름(정식 + 별칭, 중복 없이) — 이름 목록이 필요한 곳용.
 export const orgAllNames = org => [...new Set(namesOf(org))];
+
+// S67-47 ORG-근거만: 글 안에 이름(정식 이름·별칭, 위 자동 규칙 키)이 실제로 적힌 조직들. 조직을 '근거가 있을 때만' 붙이는 곳의 공용 판단.
+// 3자 이상 키는 글 안 어디든(띄어쓰기 무시), 2자 키(예: 약칭 두 글자)는 낱말 하나가 그 키와 같을 때만 본다(짧은 글자 오인 방지).
+// 한 조직이 맞은 키가 모두 다른 맞은 조직의 더 긴 키 안에 들어 있으면(예: '철도노조' ⊂ '공항철도노조') 짧은 쪽은 뺀다.
+export function mentionedOrgs(text, orgs) {
+  const hay = orgKey(text);
+  if (!hay) return [];
+  const words = new Set(String(text ?? '').normalize('NFC').split(/[\s·‧․.,()[\]{}<>「」『』'"“”‘’\-–_/:：]+/).map(orgKey).filter(Boolean));
+  const hits = [];
+  for (const o of (orgs ?? []).filter(Boolean)) {
+    const keys = [...new Set(namesOf(o).flatMap(orgKeys))].filter(k => ([...k].length >= 3 ? hay.includes(k) : [...k].length === 2 && words.has(k)));
+    if (keys.length) hits.push({o, keys});
+  }
+  return hits.filter(h => !hits.some(g => g !== h && h.keys.every(k => g.keys.some(gk => gk.length > k.length && gk.includes(k))))).map(h => h.o);
+}

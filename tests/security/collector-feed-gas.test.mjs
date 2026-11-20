@@ -90,9 +90,10 @@ test('업무 몸통: 서버 parseCallBody를 통과하고 parseCall이 업무로
   assert.equal(body.transcript,TRANSCRIPT);
   const parsed=parseCall(input,ORGS,NOW);
   assert.equal(parsed.kind,'business');
-  assert.equal(parsed.title,'가상노조 위원장 · 교섭 일정');
-  assert.equal(parsed.counterpart,'가상노조 홍길동 위원장');
-  assert.equal(parsed.organization_id,ORGS[0].id);
+  // S67-47 ORG-근거만: 연락처 이름(홍길동)에 조직 근거가 없어 분석이 고른 조직은 제목 앞·상대·연결에 쓰지 않는다.
+  assert.equal(parsed.title,'위원장 · 교섭 일정');
+  assert.equal(parsed.counterpart,'홍길동 위원장');
+  assert.equal(parsed.organization_id,null);
   assert.equal(parsed.speaker_split,true,'화자1/화자2 줄도 화자별 줄로 본다');
   assert.equal(parsed.day,'2026-10-24');
   assert.ok(parsed.points.includes('[확정] 요구안 유지'));
