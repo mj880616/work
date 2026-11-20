@@ -3983,7 +3983,8 @@ for(const width of [412,1280])test(`S67-29 상집 논의 요청 한글 파일: �
  // 작은 [한글 파일 올리기](큰 단추 아님) + 끌어 놓기 안내.
  const pick=d.locator('[data-journal-discuss-file-pick]');
  await expect(pick).toHaveText('한글 파일 올리기');
- expect((await pick.boundingBox()).height).toBeLessThanOrEqual(32.5);
+ // 칸은 조직 이름 목록을 늦게 읽으면 그 칸만 한 번 다시 그린다(S67-30) — 다시 그린 뒤의 단추를 재도록 기다려 잰다(boundingBox는 스스로 기다리지 않음).
+ await expect.poll(async()=>(await pick.boundingBox())?.height??99).toBeLessThanOrEqual(32.5);
  await expect(d.locator('.journal-discuss-dochint')).toHaveText('끌어 놓아도 돼요');
  await d.locator('[data-journal-discuss-file-input]').setInputFiles({name:'가상 논의 요청.hwpx',mimeType:'application/hwp+zip',buffer:doc});
  await expect(status).toHaveText('문서 제목·첫 문단으로 빈 칸을 채웠어요. 수정해서 저장해 주세요.');
