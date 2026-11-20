@@ -100,11 +100,15 @@ export function sendEvents(events, day) {
   return out;
 }
 // 그 날(한국 날짜) 끝낸 할 일 제목.
+// S67-46: 기한이 그 날보다 앞인 할 일(지난 일정·지난 할 일을 오늘 정리하며 끝낸 것)은 그 날 한 일로 보지 않는다 — 기록 제안 재료에서 뺀다.
+// 기한 없음·그 날·그 뒤 기한은 그대로. Google 기한은 그 날짜의 UTC 자정이라 날짜 부분을 그대로 쓴다(task-due.mjs dueDay와 같음).
 export function sendDone(tasks, day) {
   const out = [];
   for (const t of Array.isArray(tasks) ? tasks : []) {
     const ms = Date.parse(t?.completed || '');
     if (t?.status !== 'completed' || !Number.isFinite(ms) || seoulIso(ms).slice(0, 10) !== day) continue;
+    const due = String(t?.due || '').slice(0, 10);
+    if (DAY_RE.test(due) && due < day) continue;
     const title = sendTitle(t?.title);
     if (title) out.push(title);
     if (out.length >= SEND_DONE_MAX) break;
@@ -132,10 +136,14 @@ export function handledNewsIds(rows) {
 }
 export const visibleReads = (list, handled) => (Array.isArray(list) ? list : []).filter(item => !handled?.has?.(newsIdOf(item?.id)));
 
+// S67-46: 기록 제안을 만든 시각(suggests_at)의 한국 날짜가 그 날이면 참. 시각이 없거나 다른 날이면 거짓.
+export const suggestsMadeOn = (at, day) => { const ms = Date.parse(at || ''); return DAY_RE.test(day || '') && Number.isFinite(ms) && seoulIso(ms).slice(0, 10) === day; };
 // 서버 표 한 줄 → 칸 상태({reads:{items, picked_at}, suggests:{items, done}}). 모양이 틀린 칸은 빈 값.
-export function picksState(row) {
+// day(그 줄의 날)를 주면 그 날 만든 기록 제안만 남긴다(S67-46: 다른 날 만든 제안은 버림 — 서버가 다시 고른다).
+export function picksState(row, day = '') {
   const r = row && typeof row === 'object' ? row : {};
   const at = v => typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : null;
+  const keep = !day || suggestsMadeOn(r.suggests_at, day);
   return {reads:{items:Array.isArray(r.reads) ? r.reads : [], picked_at:at(r.reads_at)},
-    suggests:{items:Array.isArray(r.suggests) ? r.suggests : [], done:Array.isArray(r.suggests_done) ? r.suggests_done : []}};
+    suggests:{items:keep && Array.isArray(r.suggests) ? r.suggests : [], done:Array.isArray(r.suggests_done) ? r.suggests_done : []}};
 }

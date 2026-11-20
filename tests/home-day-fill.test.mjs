@@ -137,7 +137,7 @@ test('부탁은 같은 날·같은 때 10분 안 한 번, 받은 결과·한도�
   const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, calls:[], api:async (path, opt) => { rt.calls.push([path, opt]); return opt ? null : [{suggests_done:['s1']}]; }};
   forgetAsked();
   const sent = [];
-  const call = async body => { sent.push(body); return {ok:true, data:{ok:true, kind:'home_day_picks', picks:{reads:[], suggests:[{id:'s1', text:'a', basis:'b'}], suggests_done:[]}}}; };
+  const call = async body => { sent.push(body); return {ok:true, data:{ok:true, kind:'home_day_picks', picks:{reads:[], suggests:[{id:'s1', text:'a', basis:'b'}], suggests_at:'2026-11-09T10:00:00Z', suggests_done:[]}}}; };
   const first = await askDayPicks({day:'2026-11-09', slot:'am', events:[], done:['x']}, rt, {now:0, call});
   assert.deepEqual(sent, [{kind:'home_day_picks', day:'2026-11-09', events:[], done:['x']}]);
   assert.equal(first.state.suggests.items.length, 1);
@@ -226,4 +226,36 @@ test('화면 연결 HOME-읽을글밀기: 공용 줄 밀기(bindNowRows) 그대�
   assert.match(loader, /home:\[[^\]]*'\.\/row-swipe\.css'[^\]]*'\.\/od-link\.css'/, '홈에도 줄 밀기·공용 줄 메뉴(우클릭) 모양');
   // 뉴스 쪽 줄 밀기 사용은 그대로(titleOf 기본값이 .nw-title).
   assert.match(acts, /el\.querySelector\('\.nw-title'\)/);
+});
+
+// S67-46(명진 11/20 "11월 20일인데 오늘 / 옛 일정이 제안으로"): 기록 제안 재료는 그 날 일만, 다른 날 만든 제안은 버린다.
+test('S67-46: 지난 기한 할 일은 오늘 끝내도 재료에서 빠지고, 다른 날 만든 제안은 버린다(한국 자정 경계)', async () => {
+  const {sendDone, sendEvents, picksState, suggestsMadeOn} = await import('../app/home-day-picks-model.mjs');
+  const day = '2026-11-20';
+  const tasks = [
+    {title:'오늘 기한', status:'completed', completed:'2026-11-20T03:00:00Z', due:'2026-11-20T00:00:00.000Z'},
+    {title:'기한 없음', status:'completed', completed:'2026-11-20T03:00:00Z'},
+    {title:'다음 주 기한', status:'completed', completed:'2026-11-20T03:00:00Z', due:'2026-11-27T00:00:00.000Z'},
+    {title:'지난주 총회', status:'completed', completed:'2026-11-20T03:00:00Z', due:'2026-11-13T00:00:00.000Z'},
+    {title:'어제 기한', status:'completed', completed:'2026-11-20T03:00:00Z', due:'2026-11-19T00:00:00.000Z'},
+    {title:'어제 밤 끝냄', status:'completed', completed:'2026-11-19T14:59:00Z'},
+    {title:'자정 넘어 끝냄', status:'completed', completed:'2026-11-19T15:00:00Z'},
+  ];
+  assert.deepEqual(sendDone(tasks, day), ['오늘 기한', '기한 없음', '다음 주 기한', '자정 넘어 끝냄']);
+  // 일정: 어제·지난주 일정은 그 날(day)로 오지 않는다(서버가 오늘 줄만 재료로 쓴다).
+  const ev = sendEvents([
+    {title:'어제 통화', start:'2026-11-19T23:59:00+09:00', end:'2026-11-20T00:30:00+09:00'},
+    {title:'오늘 0시', start:'2026-11-20T00:00:00+09:00', end:'2026-11-20T01:00:00+09:00'},
+    {title:'지난주 총회', start:'2026-11-13T19:00:00+09:00', end:'2026-11-13T21:00:00+09:00'},
+  ], day);
+  assert.deepEqual(ev.filter(e => e.day === day).map(e => e.title), ['오늘 0시']);
+  assert.ok(!ev.some(e => e.title === '지난주 총회'), '지난주는 이번 주 밖');
+  // 만든 날: 한국 날짜로 본다(UTC 11/19 15:00 = 한국 11/20 0시).
+  assert.equal(suggestsMadeOn('2026-11-19T15:00:00Z', day), true);
+  assert.equal(suggestsMadeOn('2026-11-19T14:59:59Z', day), false);
+  assert.equal(suggestsMadeOn(null, day), false);
+  const items = [{id:'s1', text:'오늘 총회', basis:'총회'}];
+  assert.deepEqual(picksState({suggests:items, suggests_at:'2026-11-13T10:00:00Z', suggests_done:[]}, day).suggests.items, [], '지난 날 만든 제안은 버림');
+  assert.deepEqual(picksState({suggests:items, suggests_done:[]}, day).suggests.items, [], '만든 시각 모르면 버림');
+  assert.deepEqual(picksState({suggests:items, suggests_at:'2026-11-20T10:00:00Z', suggests_done:[]}, day).suggests.items, items, '오늘 만든 제안은 그대로');
 });
