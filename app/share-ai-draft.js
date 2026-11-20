@@ -10,6 +10,7 @@ import {pickFoldHtml, readPickState, bindPickFold} from './pick-fold.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {SHARE_AI_MAX_PICK, SHARE_AI_FOCUS_MAX, SHARE_AI_SECTIONS, shareDraftRequest, parseShareDraftAnswer, filledKeys, draftNodes,
   meetingLine, noteLine, shortDay, splitKey} from './share-ai-draft-model.mjs';
+import {word} from './brand/brand.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 const wide = () => typeof matchMedia === 'function' && matchMedia('(min-width:761px)').matches;
@@ -159,7 +160,7 @@ function pickHtml() {
     : s.failed ? `<p class="pd-muted">기록을 불러오지 못했어요. <button type="button" class="pd-link" data-sa-retry>다시</button></p>`
     : !all.length ? emptyHtml('선택할 기록 없음')
     : pickFoldHtml({key:'sa', picked:s.picked.map(k => all.find(r => r.key === k)).filter(Boolean).map(pickRow).join(''),
-      others:[{label:'사업 보고', items:s.records.meetings.filter(r => !s.picked.includes(r.key)).map(item)},
+      others:[{label:word('사업 보고'), items:s.records.meetings.filter(r => !s.picked.includes(r.key)).map(item)},
         {label:'노트·업데이트', items:s.records.notes.filter(r => !s.picked.includes(r.key)).map(item)}],
       state:s.pick, othersLabel:'최근 기록', noneText:'선택한 재료 없음'});
   return `<section class="pd-pane pd-pick-pane" aria-label="재료 선택">

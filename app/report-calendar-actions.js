@@ -11,6 +11,7 @@ import {openRowMenu} from './row-menu.js';
 import {keepMenus} from './anchored-menu.js';
 import {moveReportAt, dayKeyOf, dayHeading, REPORT_DAY_MENU_ITEMS, reportsByDay, dayWindowTitle} from './report-views-model.mjs';
 import {dayWindowHtml} from './report-views.js';
+import {word} from './brand/brand.mjs';
 
 const SLOP = 4;
 // 빈 칸 우클릭 메뉴(일정 달력 날짜 칸 메뉴와 같은 공용 줄 메뉴 부품 row-menu.js). add(day, cell) = 새 보고 창에 그 날짜, show(day) = 그날 고르기.
@@ -67,7 +68,7 @@ export async function showReportDayWindow({day, rows, colorOf, nameOf, anchor, t
   const active = again ? document.activeElement?.closest?.('#calendarDayList') && document.activeElement : null;
   const kept = active?.closest?.('[data-mrd-meeting]')?.dataset.mrdMeeting || '', keptPlan = active?.closest?.('[data-rv-plan]')?.dataset.rvPlan || '';
   // 머리 옆 작은 글자: 보고만 있으면 전과 같이 '사업 보고 n', 보고할 일정·보고할까요?가 있으면 뒤에 '일정 n'(작은 창 머리 한 줄에 들어가게 짧게 — 종류는 줄의 표시가 말한다).
-  const note = [list.length ? `사업 보고 ${list.length}` : '', items.length ? `일정 ${items.length}` : ''].filter(Boolean).join(' · ');
+  const note = [list.length ? word`사업 보고 ${list.length}` : '', items.length ? `일정 ${items.length}` : ''].filter(Boolean).join(' · ');
   dayDeps = {open, add, menu, plan};
   // MENU-자리나머지: 그날 창 줄에서 연 보고 메뉴(창 밖 메뉴)는 창을 다시 채운 뒤 같은 보고의 새 줄에 붙는다(공용 keepMenus).
   // 창 부품(show)이 채우기 전에 줄을 비우므로 자리는 show를 부르기 전에 적는다.

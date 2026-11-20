@@ -7,6 +7,7 @@ import {isRef, refKind, makeRef, orderPair, pairKey} from './overlap-model.mjs';
 import {PRIORITY} from './overlap-weekly.mjs';
 import {words} from './weekly-file-lines.mjs';
 import {KIND_DISPLAY} from './ledger-browse-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const MERGE_REASON = '겹쳐서 합침';
 export const MERGE_LIMIT = 30; // 한 번에 보이는 후보 수
@@ -25,7 +26,7 @@ export const MERGE_TEXT = Object.freeze({
   preview: (keep, drop) => `‘${keep}’에 ‘${drop}’의 근거를 더하고, ‘${drop}’은 합쳐서 폐기해요(삭제하지 않아요).`,
   previewSame: (keep, drop) => `‘${drop}’은 합쳐서 폐기해요(삭제하지 않아요). ‘${keep}’에 이미 같은 근거가 있어요.`,
 });
-export const SOURCE_LABEL = Object.freeze({meeting: '사업 보고', project_update: '사업영역 기록', org_update: '담당조직 기록', basket: '업데이트'});
+export const SOURCE_LABEL = Object.freeze({meeting: word('사업 보고'), project_update: word('사업영역 기록'), org_update: word('담당조직 기록'), basket: '업데이트'});
 const LIVE = new Set(['current', 'needs_check', 'fulfilled']);
 const LEDGER_ID = /^[A-Z]{2,6}-[0-9]{4,6}$/;
 const LOCATION = /^web2:(meeting|project_update|org_update|basket):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;

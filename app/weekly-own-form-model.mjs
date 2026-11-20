@@ -4,6 +4,7 @@
 // 기록 내용(주간 보고 본문 글)은 넣지 않는다 — 양식 글자(항목 이름·표 머리 칸 이름)만.
 // 화면·서버 없는 순수 함수(node 시험이 부른다).
 
+import {word} from './brand/brand.mjs';
 export const FORM_VERSION = 1;
 export const MAX_SECTIONS = 40;
 export const MAX_COLUMNS = 12;
@@ -14,7 +15,7 @@ export const FORM_MAX_BYTES = 30000; // 서버 CHECK와 같은 상한
 
 // 칸마다 채울 기록(시안 ② 고르기 목록, 요청 원문 순서). 값은 저장용 열쇠, 글은 화면 글.
 export const FILLS = Object.freeze(['biz', 'org', 'schedule', 'todo', 'meeting', 'last_week', 'blank']);
-export const FILL_LABEL = Object.freeze({biz: '사업 보고', org: '조직 보고', schedule: '일정', todo: '할 일', meeting: '회의', last_week: '지난주 글 그대로', blank: '빈칸'});
+export const FILL_LABEL = Object.freeze({biz: word('사업 보고'), org: word('조직 보고'), schedule: '일정', todo: '할 일', meeting: '회의', last_week: '지난주 글 그대로', blank: '빈칸'});
 
 const oneLine = (s, max) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max).trim();
 
@@ -126,9 +127,9 @@ export const START_CHOICES = Object.freeze([
   {key: 'biz', no: 2, name: '사업별 표', desc: '사업마다 진행 · 계획 칸',
     form: {v: FORM_VERSION, sections: [{id: 's1', title: '사업별 진행', level: 1, columns: ['사업명', '진행', '계획'], fill: 'biz'}]},
     preview: [{columns: ['사업명', '진행', '계획'], rows: [[pv('교육'), pv('1차 교육 마침'), pvOwn], [pv('소식지'), pv('이번 호 초안'), pvOwn]]}]},
-  {key: 'org', no: 3, name: '조직별', desc: '맡은 조직마다 상황 한 줄',
-    form: {v: FORM_VERSION, sections: [{id: 's1', title: '조직별 상황', level: 1, columns: ['조직', '날짜', '상황'], fill: 'org'}]},
-    preview: [{columns: ['조직', '날짜', '상황'], rows: [[pv('가 지회'), pv('11/11'), pv('새 대표 뽑음')], [pv('나 분회'), pv('11/13'), pv('모임 장소 바뀜')]]}]},
+  {key: 'org', no: 3, name: word('조직별'), desc: word('맡은 조직마다 상황 한 줄'),
+    form: {v: FORM_VERSION, sections: [{id: 's1', title: word('조직별 상황'), level: 1, columns: [word('조직'), '날짜', '상황'], fill: 'org'}]},
+    preview: [{columns: [word('조직'), '날짜', '상황'], rows: [[pv(word('가 지회')), pv('11/11'), pv('새 대표 뽑음')], [pv('나 분회'), pv('11/13'), pv('모임 장소 바뀜')]]}]},
   {key: 'own', no: 4, name: '직접 만들기', desc: '빈 양식에서 칸 이름을 내가 정함',
     form: {v: FORM_VERSION, sections: []},
     preview: [{title: '', lines: [{text: '항목 없음', filled: false}, {text: '+ 항목 추가', filled: false}]}]},

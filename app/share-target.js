@@ -10,10 +10,11 @@ import {noteDraft, noteBodyWithExtra, taskDraft, taskNotesWithExtra, folderOptio
 import {shareSummary, skippedText} from './share-intake-model.mjs';
 import {QUICK_DUES, quickDueDay, nextWeekDays, weekdayLabel, newTaskDue} from './task-due.mjs';
 import {notify} from './small-notice.js';
+import {word} from './brand/brand.mjs';
 
 let dialog = null, state = null, seq = 0, layer = null;
 const $ = sel => dialog.querySelector(sel);
-const WORDS = {note:{title:'노동조합+ 노트', saved:'노트에 넣었어요'}, task:{title:'노동조합+ 할 일', saved:'할 일에 넣었어요'}};
+const WORDS = {note:{title:word('노동조합+ 노트'), saved:'노트에 넣었어요'}, task:{title:word('노동조합+ 할 일'), saved:'할 일에 넣었어요'}};
 
 function ensureDialog() {
   if (dialog) return dialog;

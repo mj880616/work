@@ -81,7 +81,7 @@ test('항목마다 체크 칸을 그리는 목록은 공용 부품을 쓰거나 
 test('담당 사업장·협의회·사업단 소속은 공용 부품으로 그린다', () => {
   const profile = readFileSync(join(APP, 'profile-settings.js'), 'utf8');
   assert.match(profile, USES);
-  assert.match(profile, /pickFoldHtml\(\{key:'ws',title:'담당조직 현황'/);
+  assert.match(profile, /pickFoldHtml\(\{key:'ws',title:(?:word\()?'담당조직 현황'/);
   const wd = readFileSync(join(APP, 'workplace-detail.js'), 'utf8');
   assert.match(wd, USES);
   assert.match(wd, /function wdRenderAffChoices\([^\n]*pickFoldHtml\(/);

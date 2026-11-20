@@ -93,10 +93,11 @@ import { NOTE_IMPORT_EVENT, isImporting, importIntoNote } from './note-import.js
 import { noteLinkUrl } from './note-import-model.mjs';
 import { paintNoteSource } from './note-import-view.js';
 import { busyTitle, noteSource } from './note-import-model.mjs';
+import {word} from './brand/brand.mjs';
 // NEWS-클리핑 C2: 기사 메모 노트(metadata.news_item_id) → 기사 id.
 const newsItemOf = note => { const m = note?.metadata; const id = m && typeof m === 'object' && !Array.isArray(m) ? m.news_item_id : null; return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null; };
 
-const chipKinds = [['project','사업영역'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']];
+const chipKinds = [['project',word('사업영역')], ['organization',word('담당조직')], ['meeting',word('사업 보고')], ['document','자료실'], ['bundle','참고']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
 // UI-바구니상세개편: [복사] on every note row and in the read view (same conversion as the write window's 텔레그램용 복사).
 const MORE_ICON = '<span class="more-dots" aria-hidden="true">⋯</span>';

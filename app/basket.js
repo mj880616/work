@@ -43,6 +43,7 @@ import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js'
 import { bindRowSwipe } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs';
 import { followPane } from './follow-pane.js';
+import {word} from './brand/brand.mjs';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 // STAB-간헐3: the refresh run whose list read is still pending (0 = none). Until it answers, an empty list is "loading",
@@ -115,7 +116,7 @@ let rowMenu=null;
 // UI-잊지말기줄단추(11/10 명진 '추천대로'): 줄 버튼과 메뉴 이름을 하나로 — [할 일로]·[노트로](옛 '할 일 만들기'·'노트로 옮기기').
 // 줄에 처리 버튼이 있는 줄(처리 전, acts)은 폰에서 접힌 [일정으로]·[조직]·[사업]도 줄 버튼과 같은 이름·같은 길(updateAct)로 여기 둔다. ×는 [보류로].
 function rowMenuItems(note,acts=false){
-  return [...(String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일로'],...(acts?[['event','일정으로']]:[]),['to-note','노트로'],...(acts?[['org','조직'],['area','사업']]:[]),['to-report','사업 보고로 옮기기'],...journalItem(note),note.archived_at?['unhold','보류 해제']:['hold','보류로'],['delete','삭제','basket-menu-danger']];
+  return [...(String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일로'],...(acts?[['event','일정으로']]:[]),['to-note','노트로'],...(acts?[['org',word('조직')],['area','사업']]:[]),['to-report',word('사업 보고로 옮기기')],...journalItem(note),note.archived_at?['unhold','보류 해제']:['hold','보류로'],['delete','삭제','basket-menu-danger']];
 }
 // BASKET-일지로남기기: [업무일지에 남기기] for an update that went to no organization and no project; [업무일지에서 빼기] once kept.
 function journalItem(note){
@@ -221,8 +222,8 @@ async function putFiles({projectId=null,organizationId=null,projectName='',organ
     for(const [fileId,doc] of result.docs||[]){
       const before=docs.find(d=>d.file_id===fileId);
       docs=[...docs.filter(d=>d.file_id!==fileId),{id:doc.id,file_id:fileId,project_id:doc.project_id||null,organization_id:doc.organization_id||null,category:before?.category??doc.category??null,
-        project:{name:doc.project_id&&doc.project_id===projectId?projectName||'사업영역':before?.project?.name||''},
-        organization:{name:doc.organization_id&&doc.organization_id===organizationId?organizationName||'조직':before?.organization?.name||''}}];
+        project:{name:doc.project_id&&doc.project_id===projectId?projectName||word('사업영역'):before?.project?.name||''},
+        organization:{name:doc.organization_id&&doc.organization_id===organizationId?organizationName||word('조직'):before?.organization?.name||''}}];
     }
     renderList();
     if(selected?.id===note.id)paintStateLine();
@@ -508,7 +509,7 @@ async function moveToReport(note,trigger){
     const workspaceId=rt.context.read()?.workspace?.id;
     await window.KPTUReportEntry.open({text:String(note.raw_text||''),at:seoulInputValue(note.occurred_at||note.created_at),trigger,
       onSaved:async meeting=>{await rt.api('/rest/v1/app_record_links',{method:'POST',body:{workspace_id:workspaceId,note_id:note.id,meeting_id:meeting.id,status:'confirmed'}});window.dispatchEvent(new Event('kptu:basket-links-changed'));void refresh()}});
-  }catch(error){console.error('basket to report',error);listStatus.textContent='사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.'}
+  }catch(error){console.error('basket to report',error);listStatus.textContent=word('사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.')}
 }
 // UPD-보류이름통일: [보류로] / [보류 해제] from the list menu. Same stored field as the detail's button (archived_at); the row leaves this
 // list at once and the 미분류 number follows (renderList counts again).
@@ -580,7 +581,7 @@ const rowState=(note,state)=>state.status==='미분류'&&noteClassified(note,lin
 // Meeting and library chips stay plain: their links cannot be put back by the existing link path.
 // REF-참고묶음 화면 2: a reference chip ("참고: ○○") gets × too (restoreRecordLink takes kind 'reference'), and on the note screen
 // it opens that bundle on the 참고 묶음 screen.
-const chipKinds=[['project','사업영역'],['organization','담당조직'],['meeting','사업 보고'],['document','자료실'],['bundle','참고']];
+const chipKinds=[['project',word('사업영역')],['organization',word('담당조직')],['meeting',word('사업 보고')],['document','자료실'],['bundle','참고']];
 const confirmedLinks = noteId => links.filter(l => l.note_id === noteId && l.status === 'confirmed');
 function chipInfo(link) {
   const [kind, label] = chipKinds.find(([key]) => link[key + '_id']) || ['other', '연결'];
@@ -597,7 +598,7 @@ function linkChip(link, {open = false} = {}) {
 // Moving or removing the documents elsewhere changes it on the next read; there is nothing to undo here.
 function filedChips(note) {
   const chip = (kind, id, name, label) => `<span class="basket-chip" data-chip-kind="${kind}" data-basket-filed${kind === 'organization' ? '-org' : ''}="${esc(id)}"><span class="basket-chip-name"><span class="basket-chip-dot ui-color-dot" aria-hidden="true"></span><span class="a11y-only">${label} 자료: </span>${esc(name)} · 자료</span></span>`;
-  return [...filedOrganizations(note, docs).map(o => chip('organization', o.organization_id, o.name, '담당조직')), ...filedProjects(note, docs).map(p => chip('project', p.project_id, p.name, '사업영역'))];
+  return [...filedOrganizations(note, docs).map(o => chip('organization', o.organization_id, o.name, word('담당조직'))), ...filedProjects(note, docs).map(p => chip('project', p.project_id, p.name, word('사업영역')))];
 }
 // UI-바구니거르기: under [분류], one row of place chips (shared filter-chips.js) narrows by where the memo went.
 // The choice lives only in this module's memory; entering the basket starts again at [미분류]·[전체].
@@ -610,7 +611,7 @@ function paintPlaceFilter() {
 // UI-바구니거르기2: [담당조직]/[프로젝트] → one row of names ([모든 ○○ N] + places holding a memo, most first),
 // [자료실] → the 7 document categories. [전체]·[할 일] have none. Same shared chips, same memory-only choice.
 const subFilter = root.querySelector('[data-basket-sub-filter]');
-const SUB_LABELS = {organization:'조직', project:'사업영역', reference:'참고 묶음', library:'자료 분류'};
+const SUB_LABELS = {organization:word('조직'), project:word('사업영역'), reference:'참고 묶음', library:'자료 분류'};
 function paintSubFilter() {
   // REF-참고묶음 화면 2: [분류] › [참고] also offers the 참고 묶음 screen (a text link under the bundle names).
   root.querySelector('[data-basket-ref-open]').hidden = !(filter === 'classified' && place === 'reference');
@@ -1305,7 +1306,7 @@ async function openChipPlace(linkId) {
     // MTG-프로젝트합치기 ①: 사업영역은 사업영역 관리 창(area-window.js)으로 정리함 위에 연다.
     if (project) await window.KPTUAreaWindow.open({ id: link.project_id });
     else { await window.KPTUViewLoader.load('team'); await window.KPTUWorkplace.open(link.organization_id); }
-  } catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = project ? '사업영역을 열지 못했어요. 다시 시도해 주세요.' : '담당조직을 열지 못했어요. 다시 시도해 주세요.'; }
+  } catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = project ? word('사업영역을 열지 못했어요. 다시 시도해 주세요.') : word('담당조직을 열지 못했어요. 다시 시도해 주세요.'); }
 }
 // Another screen (or this one) changed links or documents: re-read them only, keeping any open note and its drafts.
 let linkReadRun = 0;

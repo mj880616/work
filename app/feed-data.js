@@ -11,6 +11,7 @@ import {readRecordPages} from './basket-link-records.js';
 import {myOrganizationIds} from './my-organizations.js';
 import {addDays, kstDay} from './feed-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
+import {word} from './brand/brand.mjs';
 
 const encode = encodeURIComponent;
 const ctx = rt => rt?.context?.read?.() || {};
@@ -243,12 +244,12 @@ export async function readOrganizations(rt = window.KPTURuntime) {
 // 더해(내 프로필 담당 사업장과 같은 app_suborganization_assignees 행) 다음 고르기에도 보이게 한다. 담당을 안 정했으면 모든 조직이 내 것이라 더하지 않는다.
 export async function createMyOrganization(name, rt = window.KPTURuntime) {
   const ws = workspaceOf(rt), user = ctx(rt).user?.id || '', text = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
-  if (!text) throw Error('조직 이름을 써 주세요.');
+  if (!text) throw Error(word('조직 이름을 써 주세요.'));
   if (!user) throw Error('로그인을 확인할 수 없어요.');
   const rows = await rt.api('/rest/v1/app_suborganizations?select=id,name,aliases,active', {method:'POST', prefer:'return=representation',
     body:{workspace_id:ws, name:text, aliases:[], organization_type:'미분류', description:null, created_by:user, active:true, updated_at:new Date().toISOString()}});
   const org = Array.isArray(rows) ? rows[0] : null;
-  if (!org?.id) throw Error('조직을 만들지 못했어요.');
+  if (!org?.id) throw Error(word('조직을 만들지 못했어요.'));
   let assigned = false;
   try {
     const had = await rt.api(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(user)}&select=organization_id&limit=1`);

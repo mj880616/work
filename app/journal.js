@@ -62,6 +62,7 @@ import {keepMenus} from './anchored-menu.js';
 import {googleLinkState, startGoogleLink, linkText} from './google-link.js'; // MULTI-처음쓰는사람 ①: 구글 연결 없음 안내
 import {photoBriefTargets} from './weekly-photo-material.mjs'; // WEEKLY-재료전체 ②: 설명이 없는 기록 사진
 import {requestPhotoBriefs, PHOTO_BRIEF_BATCH} from './photo-brief-request.js';
+import {word} from './brand/brand.mjs';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -838,7 +839,7 @@ function drawWindow() {
   // S52-25 WEEKLY-투쟁사업장참고: 3장에 들어간 조직은 4장 칸을 '참고' 한 줄로(기록은 3장 칸에 보임).
   const sites = W.shownSiteNames(slot, weekRow()), refIds = new Set(winOrgs.filter(o => W.inSites(sites, o.name)).map(o => o.id));
   const refCell = o => `<div class="wl-cell" data-wl-cell="${esc(o.id)}"><div class="wl-line rw-line" data-wl-site-ref><span class="wl-text">${esc(RW.cells.SITE_REF_LINE)}</span></div></div>`;
-  slot.innerHTML = RW.view.windowTableHtml(weekWin, winOrgs, {msg:winMsg.text, error:winMsg.error, tableClass:'wl-weekly', headOrg:`조직${W.colGripHtml('org', 1)}`, cellHtml:o => (refIds.has(o.id) ? refCell(o) : null)});
+  slot.innerHTML = RW.view.windowTableHtml(weekWin, winOrgs, {msg:winMsg.text, error:winMsg.error, tableClass:'wl-weekly', headOrg:word`조직${W.colGripHtml('org', 1)}`, cellHtml:o => (refIds.has(o.id) ? refCell(o) : null)});
   weekWin.afterPaint();
   const table = slot.querySelector('table.wl-weekly');
   if (table) { W.mountWeeklyCols(table, 'org'); W.fitOrgColumn(table); fitAll(slot); }

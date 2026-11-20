@@ -8,6 +8,7 @@ export const NONE_KEY='__none__';
 // UI-회의자료표시(2026-10-20): 회의에 붙은 자료가 있으면 개수 없이 이 문구만 보인다(폰 목록). 없으면 표시 없음. PC 3단 가운데 줄에는 보이지 않는다(MEET-결과3단).
 import {seoulParts} from './meeting-time.js';
 import {fileAttrs,menuItemsHtml} from './file-actions.js';
+import {word} from './brand/brand.mjs';
 export const MEETING_DOCS_LABEL='회의자료 있음';
 
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
@@ -97,7 +98,7 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
     +`<section id="mcolRounds" class="mcol-rounds" data-meeting-column="${esc(selected.key)}" style="--meeting-color:${esc(colorOf(selected.name))}" aria-label="${esc(label)} ${selected.meetings.length}건">`
     +`<ol class="mcol-cards">${rows}</ol>`
     +`</section>`
-    +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(selected.name))}" aria-label="사업 보고 결과"${current?` data-meeting-result="${esc(current.id)}"`:''}>${current?resultHtml(current,{kindName:label}):''}</section>`
+    +word`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(selected.name))}" aria-label="사업 보고 결과"${current?` data-meeting-result="${esc(current.id)}"`:''}>${current?resultHtml(current,{kindName:label}):''}</section>`
     +`</div>`;
 }
 
@@ -115,7 +116,7 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
     +`<section id="mcolRounds" class="mcol-rounds" aria-labelledby="mcolRoundsHead">`
     +`<h3 class="mcol-head" id="mcolRoundsHead"><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${rows.length}건">${rows.length}</span></h3>`
     +`<ol class="mcol-cards">${items}</ol></section>`
-    +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(current))}" aria-label="사업 보고 결과" data-meeting-result="${esc(current.id)}">${resultHtml(current)}</section>`
+    +word`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(current))}" aria-label="사업 보고 결과" data-meeting-result="${esc(current.id)}">${resultHtml(current)}</section>`
     +`</div>`;
 }
 

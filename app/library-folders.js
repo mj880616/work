@@ -16,6 +16,7 @@ import {paneDropAt} from './library-drop.js';
 import {openFolderAt} from './drop-open-folder.mjs';
 import {askConfirm} from './small-notice.js';
 import {RECEIVE_MENU} from './library-receive.js';
+import {word} from './brand/brand.mjs';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
@@ -30,7 +31,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   let busy=false,dialog=null;
   const s=()=>state();
   const folder=id=>s().folders.find(f=>f.id===id);
-  const frameName=pid=>pid?s().projectName(pid):'사업영역 없음';
+  const frameName=pid=>pid?s().projectName(pid):word('사업영역 없음');
   // 폴더 경로 이름(옮길 곳 고르기): "가 › 나 › 다".
   const pathName=id=>{const out=[];let f=folder(id),guard=0;while(f&&guard++<FOLDER_DEPTH+2){out.unshift(f.name);f=f.parent_id?folder(f.parent_id):null}return out.join(' › ')};
   // 자료의 폴더. 프로젝트 묶기에서는 자료의 프로젝트 틀과 맞는 연결만(설계 3.2, 어긋난 연결은 없는 것으로), 폴더 보기에서는 틀과 무관하게 연결 그대로(설계 12절).
@@ -154,7 +155,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     else if(action==='enter')enter?.(id,trigger); // LIB-두칸폴더펼치기: 두 칸이면 메뉴를 연 칸에서 들어간다
     else if(action==='rename')startRename(id,trigger);
     else if(action==='toggle')toggleNode('f:'+id);
-    else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 선택하세요.`:`${f.name}을(를) 옮길 곳을 선택하세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
+    else if(action==='move')askTarget({title:'폴더 옮기기',hint:s().free?`${f.name}을(를) 옮길 곳을 선택하세요.`:word`${f.name}을(를) 옮길 곳을 선택하세요. 같은 사업영역 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id,!!s().free).map(t=>t===null?{value:'__top__',label:s().free?'맨 위(폴더 밖)':frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
     else if(action==='paint'){colorFor='f:'+id;colorReopen=true;queueMicrotask(()=>{colorReopen=false;if(trigger?.isConnected)menu.open(trigger)})}
     else if(action==='receive')void toggleReceive(f,trigger);
     else if(action==='sort')void receive?.sort?.(trigger);
@@ -263,7 +264,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   // [+ 새 폴더 만들어 넣기]: 이름을 받아 맨 위 폴더 하나를 만들고(프로젝트 묶기 계열은 자료의 프로젝트 틀, 폴더 묶기는 폴더 밖) 곧바로 그 안에 넣는다.
   function newFolderAndPut(docs,trigger,opt={}){
     const free=!!s().free,frame=free?null:(docs[0]?.project_id||null);
-    askName({title:'새 폴더 만들어 넣기',hint:`${docs.length>1?`선택한 ${docs.length}개를`:'이 자료를'} 넣을 폴더예요. ${free?'폴더 밖(맨 위)에':frameName(frame)+' 안에'} 만들고, 자료의 사업영역은 바뀌지 않아요.`,trigger,then:async name=>{
+    askName({title:'새 폴더 만들어 넣기',hint:word`${docs.length>1?`선택한 ${docs.length}개를`:'이 자료를'} 넣을 폴더예요. ${free?'폴더 밖(맨 위)에':frameName(frame)+' 안에'} 만들고, 자료의 사업영역은 바뀌지 않아요.`,trigger,then:async name=>{
       let created=null;
       const ok=await run(async()=>{created=(await createLibraryFolder(api,{workspace:s().workspace,project_id:frame,parent_id:null,name,sort_order:nextSortOrder(sibs(frame,null))}))?.id||null});
       if(!ok)return false;

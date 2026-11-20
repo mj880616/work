@@ -36,6 +36,7 @@ import {createShareHtml} from './share-html.js';
 import {htmlState, HTML_STATE_TEXT} from './share-html-model.mjs';
 // S52-01 ③c UI-사업영역조직고르기창: 연결 사업영역은 모든 화면과 같은 고르기 창(하나만, 맨 위 '사업영역 없음').
 import {openAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText} from './area-org-picker.js';
+import {word} from './brand/brand.mjs';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -364,7 +365,7 @@ function editNode(block, b, count) {
       if (editing?.focusDoc) { editing.focusDoc = false; ed.focus(); }
     }).catch(() => { if (mount === docMount && host.isConnected) host.replaceChildren(el('p', {class:'sp-hint', role:'alert', text:'수정 화면을 열지 못했어요. [취소] 뒤 다시 눌러 주세요.'})); });
   } else if (block.type === 'summary') {
-    box.append(el('textarea', {class:'sp-input', rows:2, maxLength:LIMITS.summary, placeholder:'예: 3차 교섭 결렬, 10월 말 조정 신청 예정',
+    box.append(el('textarea', {class:'sp-input', rows:2, maxLength:LIMITS.summary, placeholder:word('예: 3차 교섭 결렬, 10월 말 조정 신청 예정'),
       'aria-label':`${n}번째 블록 한 줄 현황 글`, value:block.text || '', dataset:{spB:String(b), spF:'text'}}));
     box.querySelector('textarea').value = block.text || '';
   } else {
@@ -516,15 +517,15 @@ function paintStatusButtons() {
 // legacy) reads '[현재 연결·선택 불가] …' as before and stays until another is picked. editing.project_id is the only value.
 function projectText() {
   const id = editing?.project_id || '', catalog = window.KPTUProjectCatalog;
-  if (!id) return '사업영역 없음';
+  if (!id) return word('사업영역 없음');
   const d = catalog?.describe?.(id);
-  if (d?.kind === 'active') return areaChipText(areaTree(catalogAreas(catalog.snapshot().tree || [])), 'p:' + id) || d.name || '이름 없는 사업영역';
-  return d && d.kind !== 'missing' ? '[현재 연결·선택 불가] ' + (d.name || id) : '사업영역 연결';
+  if (d?.kind === 'active') return areaChipText(areaTree(catalogAreas(catalog.snapshot().tree || [])), 'p:' + id) || d.name || word('이름 없는 사업영역');
+  return d && d.kind !== 'missing' ? '[현재 연결·선택 불가] ' + (d.name || id) : word('사업영역 연결');
 }
 function paintProjectButtons() {
   if (!editing) return;
   const text = projectText();
-  for (const b of editorView.querySelectorAll('[data-sp-project]')) { b.textContent = text; b.title = editing.project_id ? text : ''; b.classList.toggle('is-empty', !editing.project_id); b.setAttribute('aria-label', '연결 사업영역: ' + text); }
+  for (const b of editorView.querySelectorAll('[data-sp-project]')) { b.textContent = text; b.title = editing.project_id ? text : ''; b.classList.toggle('is-empty', !editing.project_id); b.setAttribute('aria-label', word('연결 사업영역: ') + text); }
 }
 async function paintProjects() {
   if (!editing || !editorView.querySelector('[data-sp-project]')) return;
@@ -549,7 +550,7 @@ function renderEditor() {
   view.toggleAttribute('data-sp-full', full);
   if (full) { renderFull(); return; }
   // The title sits where the reader shows it, in the reader's title look (sr-title).
-  const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'제목 (예: ○○ 교섭 현황)',
+  const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:word('제목 (예: ○○ 교섭 현황)'),
     'aria-label':'제목', dataset:{spTitle:''}});
   editorView.replaceChildren(
     el('div', {class:'sp-editor-head'},
@@ -560,7 +561,7 @@ function renderEditor() {
         el('div', {class:'sp-seg', role:'group', 'aria-labelledby':'spStatusLabel'},
           el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
           el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'}))),
-      el('label', {class:'sp-field'}, el('span', {text:'연결 사업영역'}), el('button', {type:'button', class:'secondary sp-area-pick', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}}))),
+      el('label', {class:'sp-field'}, el('span', {text:word('연결 사업영역')}), el('button', {type:'button', class:'secondary sp-area-pick', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}}))),
     el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
     el('section', {class:'sp-canvas', 'aria-labelledby':'spCanvasTitle'},
       el('p', {class:'sp-canvas-cap', id:'spCanvasTitle', text:'받는 사람에게 보이는 모양'}),
@@ -592,10 +593,10 @@ function renderFull() {
     el('div', {class:'sp-seg', role:'group', 'aria-label':'상태'},
       el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
       el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'})),
-    el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'사업영역·링크·글 초안 만들기', 'data-ctx':'off', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
+    el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':word('사업영역·링크·글 초안 만들기'), 'data-ctx':'off', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
       el('span', {class:'more-dots', 'aria-hidden':'true', text:'⋯'})),
     el('div', {class:'sp-top-extra', id:'spTopExtra', dataset:{spTopExtra:''}},
-      el('label', {class:'sp-top-project'}, el('span', {text:'사업영역'}), el('button', {type:'button', class:'secondary sp-area-pick sp-top-area', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}})),
+      el('label', {class:'sp-top-project'}, el('span', {text:word('사업영역')}), el('button', {type:'button', class:'secondary sp-area-pick sp-top-area', 'aria-haspopup':'dialog', 'aria-expanded':'false', dataset:{spProject:''}})),
       el('button', {type:'button', class:'sp-tool', 'aria-expanded':'false', 'aria-controls':'spLinksPanel', dataset:{spLinksOpen:''}, text:'링크'}),
       el('button', {type:'button', class:'sp-tool', 'aria-haspopup':'dialog', dataset:{spAiDraft:''}, text:'글 초안 만들기'})),
     el('span', {class:'sp-top-gap', 'aria-hidden':'true'}),

@@ -15,6 +15,7 @@
 import {squashLine} from './weekly-lines.mjs';
 import {readPicks, mergePicks} from './weekly-picks.mjs';
 import {readLayout, layoutHabit} from './weekly-layout.mjs';
+import {word} from './brand/brand.mjs';
 
 export const EXTRA_KEYS = Object.freeze(['proposed', 'feedback', 'rules', 'picks', 'places']); // picks: S46-22 제안 [×]·받음 기록(weekly-picks.mjs), places: 아래 readPlaces
 export const FEEDBACK_LINE_CHARS = 300;
@@ -37,7 +38,7 @@ export const PAIR = 0.4;                  // 이 이상이면 같은 줄을 고�
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const SECTIONS = ['summary', 'orgs', 'sites'];
-export const SECTION_LABEL = Object.freeze({summary:'요약', orgs:'산하조직', sites:'투쟁 사업장'});
+export const SECTION_LABEL = Object.freeze({summary:'요약', orgs:word('산하조직'), sites:word('투쟁 사업장')});
 const bytes = v => new TextEncoder().encode(JSON.stringify(v)).length;
 const line = s => [...String(s ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, FEEDBACK_LINE_CHARS).join('');
 const at40 = v => (typeof v === 'string' && v.length <= 40 ? v : '');

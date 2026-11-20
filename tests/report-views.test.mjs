@@ -212,7 +212,7 @@ test('그날 창 연결: 일정 달력과 같은 창 부품, 줄 누름·우클�
   // 같은 창 부품: 일정 달력 그날 창(#calendarDayModal)의 show. 새 창을 만들지 않는다.
   assert.match(act, /await import\('\.\/calendar-day-overflow\.js'\)/); assert.match(act, /window\.KPTUCalendarDayOverflow/); assert.match(act, /win\.show\(\{title: dayWindowTitle\(day\), note, kind: 'report', anchor, trigger: from,/);
   // 머리 옆 글자: 보고만 있으면 전과 같이 '사업 보고 n'. S58-10: 그날 보고할 일정·보고할까요?가 있으면 뒤에 '일정 n'.
-  assert.match(act, /const note = \[list\.length \? `사업 보고 \$\{list\.length\}` : '', items\.length \? `일정 \$\{items\.length\}` : ''\]\.filter\(Boolean\)\.join\(' · '\);/);
+  assert.match(act, /const note = \[list\.length \? (?:word)?`사업 보고 \$\{list\.length\}` : '', items\.length \? `일정 \$\{items\.length\}` : ''\]\.filter\(Boolean\)\.join\(' · '\);/);
   assert.doesNotMatch(act, /insertAdjacentHTML|class="modal/);
   assert.match(shell, /window\.KPTUCalendarDayOverflow=\{apply,open\};\n  window\.KPTUCalendarDayOverflow\.show=show;/);
   // 일정 달력 쪽은 같은 여닫기(reveal)를 기본값으로 탄다: 가운데 창, 연 곳으로 초점, 첫 일정에 초점, Esc = ✕.
