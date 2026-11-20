@@ -191,6 +191,43 @@ for (const width of [390, 1280]) test(`new folder inside a folder, delete moves 
   expect(f.errors).toEqual([]);
 });
 
+// S67-34: 들어간 폴더의 위 ⋯에 [이 폴더 삭제] — 폴더 ⋯의 [폴더 삭제]와 같은 길(안의 노트는 한 단 위로, 삭제하지 않음), 삭제 뒤 위 폴더로.
+// 맨 위 '노트'(들어간 폴더 없음)에서는 이 항목이 메뉴에 없다.
+for (const width of [390, 1280]) test(`entered folder head ⋯ [이 폴더 삭제] → notes go up, lands on the parent; not at the top ${width}`, async ({ page }) => {
+  const sub = { id: U(2), workspace_id: 'w', parent_id: U(1), name: '하위', sort_order: 1024, created_at: '2026-10-02T00:00:00Z' };
+  const f = await fixture(page, width, { more: [sub] });
+  // 맨 위: 항목 없음(렌더 안 함).
+  await press(page, page.locator('[data-note-folder-more]'), width);
+  await expect(page.locator('#noteDocMenu [data-nx-select]')).toBeVisible();
+  await expect(page.locator('#noteDocMenu [data-nx-delete-folder]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#noteDocMenu')).toBeHidden();
+  // 나 노트를 하위로 옮겨 둔다(폴더 ⋯ 경로와 같은 picker).
+  await showFolder(page, width, U(1));
+  await press(page, page.locator('[data-note-row-more="n2"]'), width);
+  await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
+  await press(page, picker(page).locator('.lu-move-item', { hasText: '하위' }), width);
+  await expect.poll(() => f.rows.find(r => r.id === 'n2').metadata.folder_id).toBe(sub.id);
+  // 하위로 들어간다.
+  if (width >= 761) { await press(page, page.locator(`[data-nx-tree] [data-nx-folder-more="${sub.id}"]`), width); await page.locator('#noteDocMenu [data-nx-enter]').click(); }
+  else { await press(page, page.locator(`#noteRows [data-nx-folder-more="${sub.id}"]`).first(), width); await press(page, page.locator('#noteDocMenu [data-nx-enter]'), width); }
+  await expect(here(page)).toContainText('하위');
+  await press(page, page.locator('[data-note-folder-more]'), width);
+  const del = page.locator('#noteDocMenu [data-nx-delete-folder]');
+  await expect(del).toHaveText('이 폴더 삭제');
+  await press(page, del, width);
+  await expect(page.locator('.kptu-ask')).toContainText('노트 1개·폴더 0개');
+  await press(page, page.locator('.kptu-ask button', { hasText: '삭제' }), width);
+  await expect.poll(() => f.folders.map(x => x.name)).toEqual(['회의']);
+  expect(f.rows.find(r => r.id === 'n2').metadata).toEqual({ folder_id: U(1), folder: '회의' });
+  expect(f.rows.length).toBe(3);
+  // 위 폴더(회의)로 와 있고, 주소도 회의.
+  await expect(here(page)).toContainText('회의');
+  await expect.poll(() => new URL(page.url()).searchParams.get('folder')).toBe(U(1));
+  await expect(noteRow(page, 'n2')).toBeVisible();
+  expect(f.errors).toEqual([]);
+});
+
 for (const width of [390, 1280]) test(`before the folder table exists: folders by name, read only ${width}`, async ({ page }) => {
   const f = await fixture(page, width, { table: false });
   await expect(page.locator('[data-nx-folder="name:회의"]').first()).toContainText('회의');

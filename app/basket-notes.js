@@ -506,6 +506,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // PRESS-성명초안삭제(11/09 명진 결정): [성명·보도자료 초안] 메뉴는 기능째 삭제했다(저장해 둔 초안 노트·폴더는 그대로).
     if (from === 'head') return [...(folderAt() ? [['data-nx-new-note', '이 폴더에 새 노트']] : []), ...(canEditFolders() ? [['data-nx-new-in', folderAt() ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(folderAt() ? [['data-nx-up', '위 폴더로']] : []),
       ...(view === 'folder' && canEditFolders() ? [['data-nx-sort', noteSort === 'manual' ? `노트 정렬: ${NOTE_SORT_NAMES.changed} 순으로` : `노트 정렬: ${NOTE_SORT_NAMES.manual}로`]] : []),
+      // NOTE-이 폴더 삭제(S67-34): 들어간 폴더의 ⋯에도 폴더 ⋯의 [폴더 삭제]와 같은 길(deleteFolder: 안의 노트·폴더는 한 단 위로, [되돌리기]).
+      // 맨 위 '노트'·'폴더 없음'에서는 넣지 않는다(folderAt() 없음).
+      ...(folderAt() && canEditFolders() && !(pinLock.notesHidden() && pinLock.folderCovered(folderAt())) ? [['data-nx-delete-folder', '이 폴더 삭제', 'basket-menu-danger']] : []),
       ['data-nx-help', '쓰는 법']]; // HELP-메뉴안쓰는법: 화면 ⋯ 맨 아래
     return [
       // LIB-최근폴더로가기(S61-12): '최근' 노트 줄(폰 첫 화면 '최근' 상자·PC 처음 '최근' 목록)이면 맨 위 [폴더로 가기].
@@ -1194,7 +1197,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       for (const n of inside) { applySaved(n.id, await setNoteFolderRef(n, up, rt)); moved.push(n.id); }
       await deleteNoteFolder(id, rt);
       folders = folders.filter(x => x.id !== id).map(x => x.parent_id === id ? {...x, parent_id:f.parent_id || null} : x);
-      if (at === id) at = f.parent_id || null;
+      // 들어가 있던 폴더를 지웠으면 위 폴더로(enter: 주소 ?folder=도 함께 바뀌어 새로고침해도 없는 폴더를 찾지 않는다).
+      if (at === id) enter(f.parent_id || null, {focus:false});
       folderSay('');
       notify(`'${f.name}' 폴더를 삭제했어요.`, {label:'폴더 삭제', undo:async () => {
         const row = await createNoteFolder({id, name:f.name, parent_id:f.parent_id || null, sort_order:f.sort_order}, rt); folders = [...folders, row];
