@@ -105,6 +105,7 @@ async function load(){
   void loadPush();
   void loadBackup();
   void loadMcpRead();
+  void loadHomeOff();
   return true;
 }
 // MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
@@ -149,6 +150,16 @@ async function loadMcpRead(){
     if(!mcpReadPanel||mcpReadPanel.host!==host){const ready=import('./mcp-read-settings.js').then(m=>m.mountMcpReadSettings(host,{rt}));mcpReadPanel={host,ready};ready.catch(()=>{if(mcpReadPanel?.ready===ready)mcpReadPanel=null})}
     await (await mcpReadPanel.ready).load();
   }catch(e){console.error('mcp read settings',e?.name||'Error')}
+}
+// S67-52 HOME-칸끄기: '홈 칸'(끈 홈 칸 다시 켜기 — home-off.js가 그리고 서버 화면 기억 view_prefs.home_off에 바로 저장). 자리는 '폰 알림' 칸 앞('계정' 칸 앞), 한 번만 붙인다.
+let homeOffPanel=null;
+async function loadHomeOff(){
+  try{
+    let host=$('#psHomeOffPanel');
+    if(!host){const before=$('#psPushPanel')||$('#profileView .ps-account-panel');if(!before)return;before.insertAdjacentHTML('beforebegin','<article class="panel ps-panel" id="psHomeOffPanel" aria-label="홈 칸"></article>');host=$('#psHomeOffPanel')}
+    if(!homeOffPanel||homeOffPanel.host!==host){const ready=import('./home-off.js').then(m=>m.mountHomeOffSettings(host));homeOffPanel={host,ready};ready.catch(()=>{if(homeOffPanel?.ready===ready)homeOffPanel=null})}
+    (await homeOffPanel.ready).load();
+  }catch(e){console.error('home off settings',e?.name||'Error')}
 }
 async function loadPush(){
   try{

@@ -44,7 +44,8 @@ const short = (v: unknown, n: number) => typeof v === "string" ? [...v.replace(/
 const unContact = (s: string) => s.replace(new RegExp(EMAIL.source, "g"), "[이메일]").replace(new RegExp(PHONE.source, "g"), "[전화]");
 
 export type DayEvent = { day: string; start: string; end: string; title: string };
-export type HomeDayPicksRequest = { day: string; events: DayEvent[]; done: string[] };
+// suggests(S67-52): false면 홈 '이런 기록은 어때요?' 칸을 끈 사람 — 기록 제안을 고르지 않는다(AI 없음). 없으면 참(예전 요청 그대로).
+export type HomeDayPicksRequest = { day: string; events: DayEvent[]; done: string[]; suggests: boolean };
 
 const cleanTitle = (v: unknown): string | null => {
   if (typeof v !== "string") return null;
@@ -56,10 +57,11 @@ const addDays = (day: string, n: number) => new Date(Date.parse(day + "T00:00:00
 // 그 날이 든 주의 월요일.
 export const weekStart = (day: string) => addDays(day, -((new Date(day + "T00:00:00Z").getUTCDay() + 6) % 7));
 
-// 요청: {kind, day, events, done}만. events = 그 날이 든 주(월~일)의 구글 캘린더 일정 {day, start, end, title}(종일은 start·end 빈 문자열),
-// done = 그 날 끝낸 할 일 제목. 하나라도 틀리면 null(400). 빈 배열은 된다.
+// 요청: {kind, day, events, done}(+ 고르지 않을 때만 suggests:false). events = 그 날이 든 주(월~일)의 구글 캘린더 일정 {day, start, end, title}(종일은 start·end 빈 문자열),
+// done = 그 날 끝낸 할 일 제목. 하나라도 틀리면 null(400). 빈 배열은 된다. suggests는 false만 받는다(참은 칸을 빼고 보낸다).
 export function parseHomeDayPicksRequest(b: Record<string, unknown>): HomeDayPicksRequest | null {
-  if (Object.keys(b).sort().join(",") !== "day,done,events,kind") return null;
+  const keys = Object.keys(b).sort().join(",");
+  if (keys !== "day,done,events,kind" && !(keys === "day,done,events,kind,suggests" && b.suggests === false)) return null;
   if (typeof b.day !== "string" || !DAY.test(b.day) || Number.isNaN(Date.parse(`${b.day}T00:00:00Z`))) return null;
   if (!Array.isArray(b.events) || b.events.length > DAY_EVENTS_MAX || !Array.isArray(b.done) || b.done.length > DAY_DONE_MAX) return null;
   const from = weekStart(b.day), to = addDays(from, 6), events: DayEvent[] = [], done: string[] = [];
@@ -79,7 +81,7 @@ export function parseHomeDayPicksRequest(b: Record<string, unknown>): HomeDayPic
     if (!title) return null;
     done.push(title);
   }
-  return { day: b.day, events, done };
+  return { day: b.day, events, done, suggests: b.suggests !== false };
 }
 
 // 한국 시각의 날짜·시(0~23)·'HH:MM'.

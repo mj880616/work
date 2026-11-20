@@ -258,3 +258,21 @@ test('S67-46: 다른 날 만든 저장 제안은 돌려주지 않고 새로 고�
   assert.deepEqual(got,[{id:'s1',text:'오늘 회의를 했다',basis:'회의'}]);
   assert.deepEqual(hd.dayLines(sent,'',null,D20).map(l=>l.text),['오늘 일']);
 });
+
+// S67-52 HOME-칸끄기: '이런 기록은 어때요?'를 끈 사람(suggests:false)은 저녁에도 기록 제안 AI를 부르지 않는다. 읽을 만한 글은 그대로.
+test('suggests:false (card turned off): no suggestion AI in the evening; reads still picked; other values for suggests are 400',async()=>{
+  const picks=[{workspace_id:WS,day:DAY,reads:[],reads_at:'2026-11-08T23:00:00.000Z',reads_slot:'am',news_seen_at:'2026-11-08T22:00:00.000Z',suggests:[],suggests_at:null,suggests_done:[],run_at:null}];
+  const {handler,calls,db}=harness({now:EVENING,picks,items:[news(N1,'가상지부 교섭 결렬','2026-11-08T22:00:00.000Z'),news(N2,'가상지부 새 소식','2026-11-09T09:00:00.000Z')],
+    meetings:[{workspace_id:WS,title:'가상 교섭 준비',series_name:null,meeting_at:'2026-11-09T02:00:00.000Z'}]});
+  const res=await post(handler,ask({suggests:false}));
+  assert.equal(res.status,200);
+  assert.deepEqual(calls.openai.map(o=>o.text.format.name),['home_day_reads'],'only reads, no suggestions');
+  assert.deepEqual(db.app_home_day_picks[0].suggests,[]);assert.equal(db.app_home_day_picks[0].suggests_at,null);
+  assert.ok(!calls.rest.some(r=>r.table==='app_meetings'),'suggestion material not read');
+  // 새 뉴스도 없으면 AI를 전혀 부르지 않는다.
+  const again=await post(handler,ask({suggests:false}));
+  assert.equal((await again.json()).skipped,'fresh');assert.equal(calls.openai.length,1);
+  for(const v of [true,'false',0,null])assert.equal((await post(handler,ask({suggests:v}))).status,400,String(v));
+  assert.deepEqual(hd.parseHomeDayPicksRequest({kind:'home_day_picks',day:DAY,events:[],done:[]}).suggests,true);
+  assert.equal(hd.parseHomeDayPicksRequest({kind:'home_day_picks',day:DAY,events:[],done:[],suggests:false}).suggests,false);
+});

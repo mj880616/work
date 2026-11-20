@@ -38,3 +38,9 @@ owner 정책 하나(authenticated만). authenticated 읽기·넣기(`workspace_i
 - 홈 [하루]를 열 때 오늘이면 `home_day_picks`를 부르고(구글 일정·끝낸 할 일 제목을 함께), 응답 `picks`(또는 표 읽기)를 `cleanReads`·`cleanSuggests`로 걸러 그린다.
 - `suggests_done`에 든 제안은 그리지 않는다. 제안을 눌러 일기를 저장하면 그 id를 `suggests_done`에 더한다.
 - 429 `monthly_limit`·`daily_limit`는 기존 한도 알림 문구로 보인다.
+
+## 빼기·칸 끄기(S67-52 HOME-칸끄기, 요청함 11/20 22:36)
+
+- 기록 제안 줄마다 [빼기](`button.row-act`). 누르면 그 id를 `suggests_done`에 더한다(일기를 쓴 제안과 같은 칸 — 새 표·새 칸 없음). 그 날 줄의 제안은 저녁에 한 번만 고르므로 뺀 제안이 같은 재료로 다시 나오지 않는다. 위쪽 작은 알림 [되돌리기]는 그 id만 다시 뺀다.
+- 칸 머리 ⋯ → [이 칸 끄기]. 끈 칸 이름은 서버 화면 기억 `view_prefs.home_off`(사람별, migration `20261120230000_profile_view_prefs_home_off`)에 둔다. 끈 칸은 그리지 않고(숨김 아님), `home_day_picks`에 `suggests:false`를 보내 서버가 기록 제안 AI를 부르지 않는다. 읽을 만한 글 기능(서버 기능 `outside`)도 없는 계정은 요청 자체를 보내지 않는다.
+- 다시 켜는 곳은 내 프로필 '홈 칸'(스위치). 저장·읽기의 문은 `app/home-off.js` 하나이고, 끌 수 있는 칸 목록은 `app/home-off-model.mjs`가 정한다(다른 홈 칸도 같은 부품으로 더할 수 있음).

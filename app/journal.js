@@ -55,7 +55,10 @@ import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountHomeSummary} from './home-summary.js';
 import {readAutoPromises} from './journal-ledger.js';
 import {mountDayFill} from './home-day-fill.js'; // HOME-하루채우기: 오늘 사진·읽을 만한 글·이런 기록은 어때요?(세 칸의 renderer)
-import {readDayPicks, askDayPicks, markSuggestDone} from './home-day-picks-data.js'; // HOME-하루채우기 ②·③ 서버 결과(ai-assist·owner 표)
+import {readDayPicks, askDayPicks, markSuggestDone, setSuggestDone} from './home-day-picks-data.js'; // HOME-하루채우기 ②·③ 서버 결과(ai-assist·owner 표)
+import {homeCardOff, HOME_OFF_EVENT} from './home-off.js'; // S67-52 HOME-칸끄기: 끈 칸은 그리지도 AI에 묻지도 않는다(서버 화면 기억 view_prefs.home_off)
+import {myFeaturesOrNull} from './my-features.js';
+import {notify} from './small-notice.js';
 import {sendEvents, sendDone} from './home-day-picks-model.mjs';
 import {RECORD_ONE_FROM} from './record-window-model.mjs'; // ORG/BIZ-기록하나로: 전환 주부터 보고 표 = 창 부품(옛 주는 옛 화면 그대로)
 import {keepMenus} from './anchored-menu.js';
@@ -127,7 +130,22 @@ const writeDiary = (day, text, id) => import('./diary-data.js').then(diary => {
   });
   window.KPTURouter?.go?.('diary', {source:'delegated'});
 }).catch(() => {});
-const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openDiaryDay, onWrite:writeDiary});
+// S67-52 [빼기]: 그 제안을 서버 표의 suggests_done에 더해(일기를 쓴 제안과 같은 칸 — 다른 기기·새로고침에도 안 보임) 바로 빼고, 위쪽 작은 알림 [되돌리기]로 되살린다.
+const doneOf = day => (dayPicks.key === `${ownerScope(rt)}:${day}` ? dayPicks.state?.suggests : null);
+function dropSuggest(day, id) {
+  const sug = doneOf(day);
+  if (!sug || sug.done.includes(id)) return;
+  sug.done = [...sug.done, id]; renderFill();
+  void setSuggestDone(day, id, true, rt);
+  notify('기록 제안을 뺐어요.', {label:'기록 제안 빼기', undo: async () => {
+    const now = doneOf(day);
+    if (now) { now.done = now.done.filter(x => x !== id); renderFill(); }
+    return setSuggestDone(day, id, false, rt);
+  }});
+}
+const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openDiaryDay, onWrite:writeDiary, onDrop:dropSuggest});
+// 칸을 끄거나 다시 켜면 그 자리를 다시 그린다(켰으면 서버에 다시 묻는다 — 끈 동안은 기록 제안을 고르지 않았으므로).
+window.addEventListener(HOME_OFF_EVENT, () => { if (!fillReady) return; if (dayPicks.askedSlot && !homeCardOff('suggests')) dayPicks.askedSlot = ''; renderFill(); });
 
 let owner = ownerScope(rt), epoch = 0, sharedEpoch = 0;
 let start = weekStart(todayKey()), selected = todayKey();
@@ -489,7 +507,7 @@ void appShown().then(() => { fillReady = true; renderFill(); });
 function renderFill() {
   const today = todayKey(), picks = selected === today && dayPicks.key === `${ownerScope(rt)}:${today}` ? dayPicks : null;
   dayFill.render({day:selected, today, hour:seoulParts(new Date()).hour, events:materials.events?.status === 'ok' ? materials.events.items : [],
-    reads:picks?.state?.reads || null, suggests:picks?.state?.suggests || null, limit:picks?.limit || '', hidden:mode === 'week'});
+    reads:picks?.state?.reads || null, suggests:homeCardOff('suggests') ? null : picks?.state?.suggests || null, suggestsOff:homeCardOff('suggests'), limit:picks?.limit || '', hidden:mode === 'week'});
   if (fillReady) void syncDayPicks();
 }
 // ②·③ (오늘만): 서버 표를 읽어 그리고, 그 주 일정·할 일 읽기가 끝난 뒤 서버에 고르기를 부탁한다(서버가 아침·저녁 한 번만 AI를 부름).
@@ -516,8 +534,16 @@ async function syncDayPicks() {
   try {
     await picksSettle();
     if (dayPicks.key !== key || !onHomeView()) return;
+    // S67-52: '이런 기록은 어때요?'를 껐으면 기록 제안을 묻지 않는다(suggests:false — 서버가 AI를 부르지 않음).
+    // 읽을 만한 글도 없는 계정(서버 기능 'outside' 없음)은 물을 것이 없으므로 요청 자체를 보내지 않는다. 기능 목록을 못 읽으면(null) 묻는다(서버가 다시 거름).
+    const suggests = !homeCardOff('suggests');
+    if (!suggests) {
+      const features = await myFeaturesOrNull(rt);
+      if (dayPicks.key !== key) return;
+      if (Array.isArray(features) && !features.includes('outside')) { dayPicks.askedSlot = slot; return; }
+    }
     dayPicks.askedSlot = slot;
-    const out = await askDayPicks({day:today, slot,
+    const out = await askDayPicks({day:today, slot, suggests,
       events:sendEvents(materials.events?.status === 'ok' ? materials.events.items : [], today),
       done:sendDone(materials.tasks?.status === 'ok' ? materials.tasks.items : [], today)}, rt);
     if (dayPicks.key !== key) return;
