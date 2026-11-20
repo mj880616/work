@@ -22,7 +22,7 @@ const exempt=[
  ['.diary-viewer','전체 화면 보기'],['#appView :is(#diaryView,#photosView) .diary-viewer','전체 화면 보기'],
  ['#appView :is(#diaryView,#photosView) .diary-od-modal','팝업 창'],['.diary-lv-menu','메뉴'],
  ['.modal.ed-window','쓰기 창: 자판 위에서 끝남(--kptu-keyboard-inset), 아래 버튼 줄은 ed-window.css가 숨김'],
- ['.feed-menu','메뉴'],['.gs-row-menu','메뉴'],['.gt-task-menu','메뉴'],
+ ['.feed-menu','메뉴'],['.gs-row-menu','메뉴'],['.gt-task-menu','메뉴'],['.report-add-menu','메뉴(자료 + 두 갈래, S67-39)'],
  ['#appView #hwpView .hwp-lab[data-focus]','전체 화면 편집'],['.hwp-bar-panel','메뉴'],
  [':is(.lu-more-panel,.lu-folder-menu)','메뉴'],['.le-menu','메뉴(목록 고치기 줄 ⋯, S51-28)'],['.lu-drop-overlay','끌어 놓기 표시'],['.lu-move-picker','고르기 시트'],
  ['.html-frame-full','전체 화면 보기'],['.od-link-menu','메뉴'],['.ps3-record-menu','메뉴'],['.rb-menu','메뉴'],
