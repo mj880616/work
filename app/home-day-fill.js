@@ -21,7 +21,7 @@ import {readReadMarks} from './home-day-picks-data.js';
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js'; // HOME-읽을글밀기: News 글 줄과 같은 줄 밀기·마우스 단추·우클릭(공용 부품 그대로)
 
 const PHOTO_FRESH_MS = 10 * 60 * 1000;
-// SEC-기능PIN잠금 ②: 하루 기록이나 사진을 잠갔고 아직 안 풀었으면 '오늘 사진' 칸은 사진을 읽지도 그리지도 않고 '잠김' 한 줄(누르면 잠금 화면).
+// SEC-기능PIN잠금 ②: 하루 기록이나 사진을 잠갔고 아직 안 풀었으면 '오늘 사진' 칸은 사진을 읽지도 그리지도 않고 '잠김' 한 줄(누르면 그 자리 PIN 창, S67-25).
 // 잠금 설정을 아직 모르면 읽지 않고 자리만(잠깐 사진이 보였다 사라지지 않게). 판정은 feature-lock.js 한 곳.
 const photoGate = () => {
   const fl = globalThis.window?.KPTUFeatureLock;
@@ -176,7 +176,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (kind === 'cells') { strip.querySelector('.wait-empty,.wait-fail')?.remove(); return; }
     for (const button of cells.values()) button.remove();
     cells.clear(); strip.querySelector('[data-journal-photo-more]')?.remove(); drawnWidth = -1;
-    strip.innerHTML = kind === 'empty' ? emptyHtml('없음', {attrs:'data-journal-photos-empty'}) : kind === 'locked' ? emptyHtml('잠김', {attrs:'data-journal-photos-locked'})
+    strip.innerHTML = kind === 'empty' ? emptyHtml('없음', {attrs:'data-journal-photos-empty'}) : kind === 'locked' ? '<p class="wait-empty" data-wait-empty data-journal-photos-locked data-lock-here="diary photos">잠김 <button type="button" class="row-act lk-open">풀기</button></p>'
       : kind === 'fail' ? failHtml({retry:'data-journal-photos-retry'}) : '';
   }
   function drawPhotos() {

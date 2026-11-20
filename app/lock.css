@@ -11,24 +11,28 @@
 #lockView .lk-row input[role=switch]:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
 #lockView .lk-seg{flex:none}
 #lockView .lk-change{margin-top:8px}
-#lockView .lk-msg{min-height:1.2em;margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta);text-align:inherit}
-#lockView .lk-pad{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:280px;margin:24px auto 0;text-align:center}
-#lockView .lk-icon{color:var(--kptu-muted)}
-#lockView .lk-title{margin:0;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium,600);color:var(--kptu-ink)}
-#lockView .lk-sub{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#lockView .lk-dots{display:flex;gap:12px;margin:6px 0 2px}
-#lockView .lk-dot{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--kptu-muted)}
-#lockView .lk-dot.on{background:var(--kptu-ink);border-color:var(--kptu-ink)}
-#lockView .lk-shake{animation:lk-shake .32s}
+:is(#lockView,.lk-here) .lk-msg{min-height:1.2em;margin:6px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta);text-align:inherit}
+:is(#lockView,.lk-here) .lk-pad{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:280px;margin:24px auto 0;text-align:center}
+:is(#lockView,.lk-here).lk-here .lk-pad{margin:0 auto} /* 작은 창 안에서는 위 여백 없음(위 줄과 같은 무게로 덮음) */
+:is(#lockView,.lk-here) .lk-icon{color:var(--kptu-muted)}
+:is(#lockView,.lk-here) .lk-title{margin:0;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium,600);color:var(--kptu-ink)}
+:is(#lockView,.lk-here) .lk-sub{margin:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+:is(#lockView,.lk-here) .lk-dots{display:flex;gap:12px;margin:6px 0 2px}
+:is(#lockView,.lk-here) .lk-dot{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--kptu-muted)}
+:is(#lockView,.lk-here) .lk-dot.on{background:var(--kptu-ink);border-color:var(--kptu-ink)}
+:is(#lockView,.lk-here) .lk-shake{animation:lk-shake .32s}
 @keyframes lk-shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-@media(prefers-reduced-motion:reduce){#lockView .lk-shake{animation:none}}
-#lockView .lk-keys{display:grid;grid-template-columns:repeat(3,64px);gap:8px;margin-top:6px}
-#lockView .lk-key{height:48px;padding:0;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:18px;font-variant-numeric:tabular-nums}
-#lockView .lk-key.lk-word{font-size:var(--ds-text-meta);color:var(--kptu-muted)}
-#lockView .lk-key:active{background:var(--kptu-surface-subtle)}
-#lockView .lk-key:disabled{opacity:.5}
-#lockView .lk-key[hidden]{display:none}
-#lockView .lk-cancel{margin-top:6px}
+@media(prefers-reduced-motion:reduce){:is(#lockView,.lk-here) .lk-shake{animation:none}}
+:is(#lockView,.lk-here) .lk-keys{display:grid;grid-template-columns:repeat(3,64px);gap:8px;margin-top:6px}
+:is(#lockView,.lk-here) .lk-key{height:48px;padding:0;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:18px;font-variant-numeric:tabular-nums}
+:is(#lockView,.lk-here) .lk-key.lk-word{font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+:is(#lockView,.lk-here) .lk-key:active{background:var(--kptu-surface-subtle)}
+:is(#lockView,.lk-here) .lk-key:disabled{opacity:.5}
+:is(#lockView,.lk-here) .lk-key[hidden]{display:none}
+:is(#lockView,.lk-here) .lk-cancel{margin-top:6px}
 #lockView .lk-acts{display:flex;gap:6px;margin-top:6px}
 #lockView .lk-forgot .lk-note{margin:0}
 #lockView .lk-folders{margin:8px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+/* S67-25 그 자리 풀기: 다른 화면의 '잠김' 줄을 누르면 뜨는 작은 PIN 창(lock-pad.js). 숫자 판은 잠금 화면과 같은 부품·같은 규칙. */
+dialog.lk-here{width:fit-content;min-width:0;max-width:calc(100vw - 32px);margin:auto;padding:12px 16px 14px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-card,12px);background:var(--kptu-surface);color:var(--kptu-ink)}
+dialog.lk-here::backdrop{background:color-mix(in srgb,var(--kptu-ink) 46%,transparent)}

@@ -173,9 +173,20 @@ test('통화를 잠그면 연락 없는 조직은 "잠김" 한 줄 412', async (
   await openHome(page, {beforeLoad: async () => {
     await routes(page);
     await page.route(SB + '/rest/v1/rpc/app_lock_read*', r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({has_pin: true, features: ['calls'], relock: '5m', left: 5, blocked_until: null})}));
+    await page.route(SB + '/rest/v1/rpc/app_lock_check*', r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(r.request().postDataJSON()?.p_pin === '1234' ? {ok: true, left: 5, blocked_until: null} : {ok: false, left: 4, blocked_until: null})}));
   }});
   const q = line(page);
-  await expect(q.locator('[data-oq-locked]')).toHaveText('연락 없는 조직 · 잠김');
+  await expect(q.locator('[data-oq-locked]')).toHaveText('연락 없는 조직 · 잠김 풀기');
   await expect(q).not.toContainText('가지부');
   await expect(q).not.toContainText('25일');
+  // S67-25: [풀기] → 그 자리 PIN 창(홈을 떠나지 않음) → 맞으면 같은 자리에 조직 이름이 보인다.
+  if (process.env.KPTU_SHOTS) await page.screenshot({path: 'docs/design/screens/s67-25/home-quiet-locked-412.png'});
+  await q.locator('button.lk-open').click();
+  const here = page.locator('dialog.lk-here');
+  await expect(here.locator('.lk-title')).toHaveText('통화·텔레그램 잠김');
+  for (const d of '1234') await here.locator(`[data-lk-key="${d}"]`).click();
+  await expect(here).toHaveCount(0);
+  await expect(q.locator('[data-oq-locked]')).toHaveCount(0);
+  await expect(q).toContainText('가지부');
+  expect(await page.evaluate(() => window.KPTURouter.current)).toBe('home');
 });

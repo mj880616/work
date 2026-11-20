@@ -32,7 +32,7 @@ const section = paras => `<?xml version="1.0"?><hs:sec xmlns:hp="x">${paras.map(
 test('textKindOf: extension first, then Drive type; JPEG·PNG photos go to OCR, other media are not read', () => {
   assert.equal(dt.textKindOf('a.hwpx', ''), 'hwpx');
   assert.equal(dt.textKindOf('a.PDF', ''), 'convert');
-  assert.equal(dt.textKindOf('a.hwp', ''), 'convert');
+  assert.equal(dt.textKindOf('a.hwp', ''), 'hwp'); // S67-28: HWP(구형)는 넘겨받은 HWP 글자 읽기로(없으면 Drive 변환 길)
   assert.equal(dt.textKindOf('a.md', ''), 'text');
   for (const name of ['a.zip', 'a.mp3', 'a.mp4', 'a.gif', 'a.heic', 'a.webp']) assert.equal(dt.textKindOf(name, 'application/pdf'), 'none', name);
   // LIB-스캔글자읽기: JPEG·PNG photos are read through the basket's Drive Korean OCR.

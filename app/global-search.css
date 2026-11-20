@@ -114,3 +114,5 @@
 .gs-ask-src-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gs-ask-src-snip{flex:1 0 100%;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gs-recent .gs-row{padding-left:28px}
+/* S67-25 그 자리 풀기: 잠긴 결과 줄 끝 '풀기' 표시(줄 전체가 누름 — 그 자리 PIN 창). 작은 흐린 밑줄 글자. */
+.gs-row .lk-open,.gs-ask-src-row .lk-open{flex:none;margin-left:.4em;color:var(--kptu-primary-ink,var(--kptu-ink));font-size:var(--ds-text-meta);text-decoration:underline}
