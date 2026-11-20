@@ -546,7 +546,7 @@ function dayReportBlock(card) {
   return report;
 }
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
-function renderWeekly_({refreshBox = true} = {}) {
+function renderWeekly_({refreshBox = true, only = ''} = {}) {
   if (mode !== 'week') return;
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 보고 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
@@ -578,21 +578,27 @@ function renderWeekly_({refreshBox = true} = {}) {
   weekModel.titles = hwpx?.formTitles?.() ?? null; // ⑤-3b: 절 제목 = '내 양식' 글(아직 모르면 null — 읽히면 onBase 로 다시 그림)
   lastWeekModel = weekModel;
   weekModel.scheduleView = hwpx?.scheduleView?.(start) ?? null; // S52-31: 5. 주요 일정 줄 제자리 고치기(열린 줄·표 아래 한 줄)
-  W.renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi);
+  // S67-30: 5. 주요 일정 줄 [수정] 칸 열기·닫기·저장됨은 그 칸만 다시 그린다(위쪽 칸을 새로 끼우면 브라우저가 화면 자리를 다시 잡아 위로 튐).
+  if (W.renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, {only}) === true) {
+    const table = host.querySelector('[data-journal-weekly="calendar"] table[data-wk-cols]'); if (table) W.mountWeeklyCols(table, table.dataset.wkCols);
+    paintCalendarHand(host, weekModel);
+    hwpx?.afterRender?.();
+    return;
+  }
   // WEEKLY-주요일정칸 B: 1. 2) 주요 일정 수기 표(weekly-hq-schedule.js가 그 자리만 그림). 쓰면 그 주 임시저장 행을 바꾸고 열린 한글 파일 상자도 맞춘다.
   const hqWeek = start;
-  W.paintHqSchedule(host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  // S67-30: 칸 안 고치기 칸 열기·닫기·안내 줄(redraw)은 그 칸만 다시 그린다 — 주간 정리 전체를 새로 끼우면 화면이 위로 튄다. 저장(onSaved)은 지금처럼 전체.
+  slotPaint(W.paintHqSchedule, host.querySelector('[data-journal-weekly-hq-slot]'), {model:weekModel, start, rt, onSaved:draftSaved(hqWeek)});
   // S46-27 3) 상집 논의 요청(weekly-discuss-table.js가 그 자리만 그림) — 2) 주요 일정과 같은 저장·같은 맞춤.
-  W.paintDiscuss(host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  slotPaint(W.paintDiscuss, host.querySelector('[data-journal-weekly-discuss-slot]'), {model:weekModel, start, rt, onSaved:draftSaved(hqWeek)});
   // WEEKLY-조직이름한줄 덧붙임: 표 칸 폭 끌기(1) 임원 배정·2) 주요 일정·3) 상집 논의·5. 주요 일정) — 공용 col-resize.js, 서버 저장(화면 종류별).
   for (const table of host.querySelectorAll('table[data-wk-cols]')) W.mountWeeklyCols(table, table.dataset.wkCols);
   // WEEKLY-한흐름확정 ⑤ 남은 부분: 5. 주요 일정·참고 [+ 추가](손으로 더한 줄, weekly-hand-lines.js가 그 자리만 그림) — 같은 저장·같은 맞춤.
   // BIZ-기록하나로 B-4 ②: 전환 주부터 2. 2)는 주요 사업 창(사업 기록 + 사업 보고를 사업별로, biz-detail-window.js). 옛 주는 옛 줄(draft.hand) 그대로.
   if (isRecordWeek(start)) paintBizDetail(host);
-  else W.paintDetailLines(host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek)});
+  else slotPaint(W.paintDetailLines, host.querySelector('[data-journal-weekly-detail-slot]'), {model:weekModel, start, rt, onSaved:draftSaved(hqWeek)});
   // S52-31: 5. 주요 일정 제목 줄 [AI로 다듬기](달력 일정이 있을 때, + 추가 옆 작은 글자 버튼) — 아래로 따로 빠진 칸 고치기 덩어리에서 옮김.
-  const aiLead = weekModel.calendar?.rows?.length ? [{text:'제목 다듬기', data:'journalScheduleAi', aria:`${weekModel.titles?.calendar ?? ''} 제목 다듬기`.trim(), disabled:!!weekModel.scheduleView?.aiBusy}] : [];
-  for (const part of ['calendar', 'notes']) W.paintHandLines(host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, redraw:() => renderWeekly_(), onSaved:draftSaved(hqWeek), lead:part === 'calendar' ? aiLead : []});
+  for (const part of ['calendar', 'notes']) paintCalendarHand(host, weekModel, part);
   hwpx?.afterRender?.(); // 열린 일정 고치기 칸의 초점을 되돌린다
   // WEEKLY-한흐름확정 ②: 보고서 칸 줄(2. 1) 요약·3. 투쟁 사업장·4. 산하 조직)은 그 주 draft 한 벌에서(weekly-flow-cells.js),
   // 맨 위 한 줄과 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 줄은 journal-hwpx.js 가 그리는 그대로의 마디를 그 자리로 옮겨 붙인다.
@@ -604,6 +610,12 @@ function renderWeekly_({refreshBox = true} = {}) {
   if (refreshBox) hwpx?.refresh();
   if (keep && (document.activeElement === document.body || !document.activeElement)) { const back = document.getElementById(keep.id); if (back && !back.disabled) { back.focus({preventScroll:true}); try { if (keep.at[0] != null) back.setSelectionRange(keep.at[0], keep.at[1]); } catch { /* 글 칸이 아님 */ } } }
 }
+function paintCalendarHand(host, weekModel, part = 'calendar') {
+  const aiLead = part === 'calendar' && weekModel.calendar?.rows?.length ? [{text:'제목 다듬기', data:'journalScheduleAi', aria:`${weekModel.titles?.calendar ?? ''} 제목 다듬기`.trim(), disabled:!!weekModel.scheduleView?.aiBusy}] : [];
+  slotPaint(W.paintHandLines, host.querySelector(`[data-journal-hand-slot="${part}"]`), {part, model:weekModel, start, rt, onSaved:draftSaved(start), lead:aiLead});
+}
+// 칸 하나를 그리는 모듈에 '그 칸만 다시 그리기'를 redraw로 넘긴다(같은 자리·같은 재료로 다시 부름).
+function slotPaint(paint, slot, args) { const go = () => paint(slot, {...args, redraw:go}); go(); }
 // 바탕 없는 주의 [주간 보고]. 고른 한글 파일에서 '내 양식'을 읽어 서버에 저장한다(아래 open).
 // WEEKLY-처음시작고르기(시안 weekly-start-choice.html ★A안, 명진 11/17): '내 양식'도 없으면 첫 화면은 [파일 올리기] 한 줄 + 번호 4개 고르기
 // (weekly-start-choice.js). 번호를 고르면 [양식 수정] 화면을 그 모양으로 열고 [저장]해야 '내 양식'이 된다. 저장한 뒤에는 '내 양식' 줄 ⋯ [다른 모양 선택]으로 다시 연다.
@@ -849,7 +861,10 @@ function paintBizWeekly(host) {
   if (bizWeekly.el.parentNode !== slot) slot.replaceChildren(bizWeekly.el);
   const meetings = materials.meetings?.status === 'ok' && Array.isArray(materials.meetings.items) ? materials.meetings.items : NO_MEETINGS;
   // WEEKLY-사업영역묶음 ②: 첫 칸 = 양식(지난주 확정본)의 자리 — 한글 상자가 바탕을 연 뒤에만(그 전·양식 없는 사람은 지금 모양).
-  bizWeekly.update({meetings:() => meetings, week:start, tree:activeTree, groups:() => hwpx?.areaGroups?.(start) ?? null});
+  // S67-30: 사업영역 줄 ⋯ [이 칸 빼기]·[다른 칸 안으로] — 모양은 상자의 그 주 draft.places, 바꾸면 상자가 저장하고 화면을 다시 그린다.
+  const week = start;
+  bizWeekly.update({meetings:() => meetings, week:start, tree:activeTree, groups:() => hwpx?.areaGroups?.(start) ?? null, layout:() => hwpx?.areaLayout?.(start, weekRow()) ?? null,
+    onLayout:async (name, change) => { const ok = await hwpx?.setAreaLayout?.(week, name, change); if (week === start) renderWeekly_({refreshBox:false}); return !!ok; }});
 }
 // BIZ-기록하나로 B-4 ②: 2. 2) 주요 사업 창 — 부품 상자 하나를 그 자리에 옮겨 붙인다(사업 보고 '이번 주 주간보고' 2)와 같은 부품).
 // 이 화면이 읽은 그 주 사업 보고·늘 빼는 종류·활성 사업 나무를 넘긴다(따로 읽지 않음). 줄 ⋯ [이 종류 늘 빼기]는 이 화면 toggleKind가 받는다.
@@ -896,7 +911,7 @@ const mountHwpx = () => W.mountWeeklyHwpx(hwpxHost, {rt, onCopy: () => copyDraft
   // [확정] 뒤 [기억하기]: the box wrote my profile's memory; the screen follows the saved list.
   onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
   // S52-31: 5. 주요 일정 줄 제자리 고치기가 열리거나 닫혔다(저장됨·AI 한 줄 포함): 화면만 다시.
-  onSchedule: () => renderWeekly_({refreshBox:false}),
+  onSchedule: () => renderWeekly_({refreshBox:false, only:'calendar'}),
   // 그 주 바탕이 있는지 알게 됐다(없으면 백지, 있으면 지금 화면): 다시 그린다.
   onBase: week => { if (week === start) renderWeekly_({refreshBox:false}); },
   // WEEKLY-주간정리다듬기 ④: ⋯ [배운 것 보기] — 맨 아래 '배운 것'(주간보고 기억·규칙·환류) 칸을 열고 그리로 옮긴다.

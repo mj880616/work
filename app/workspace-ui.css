@@ -52,4 +52,3 @@ html,body{min-height:100%;scroll-padding-bottom:24px}
 .time-cell>input[aria-invalid="true"]{border-color:var(--kptu-danger)}
 .time-cell>input[readonly]{color:var(--kptu-muted)}
 .time-cell>.time-all-day{flex:0 0 auto;white-space:nowrap}
-.time-cell>.time-all-day[aria-pressed="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink);border-color:var(--kptu-primary-ink)}

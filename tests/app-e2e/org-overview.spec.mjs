@@ -210,10 +210,12 @@ test('[전체 표] 일정을 못 읽어도 기록 줄은 보임',async({page})=>
  expect(errors).toEqual([]);
 });
 
-test('[전체 표] 확정한 주 = 개인 확정본 사진 + 흐린 확정 뒤 추가(고칠 수 없음)',async({page})=>{
+// S67-30 B(요청함 11/20 13:07 '투쟁사업장 현황 내용 수정이 안되네'): 확정한 주도 줄 ⋯([보고용으로 수정]·[보고에서 빼기]·[원문 보기] 등)과 [+ 쓰기]가 있다.
+// 확정 뒤 바꾼 보고용 글·뺀 줄은 사진 줄 위에 보이고(사진 원본은 그대로), 확정 뒤 쓴 기록은 흐린 '확정 뒤 추가'. 옛 주만 읽기 전용(아래 시험).
+test('[전체 표] 확정한 주 = 개인 확정본 사진 + 흐린 확정 뒤 추가, 확정 뒤에도 고치기·더하기·빼기',async({page})=>{
  const a=U(OA,'2026-11-11','합성 확정 전 줄',{created_at:'2026-11-10T00:00:00Z'}),b=U(OA,'2026-11-12','합성 확정 뒤 줄',{created_at:'2026-11-14T00:00:00Z'});
  const snaps=[{week_start:'2026-11-09',confirmed_at:'2026-11-13T09:00:00Z',rows:[{section:'org',ref_kind:'org',ref_key:OA,lines:[{ref_kind:'org_update',ref_key:a.id,day:'2026-11-11',text:'합성 보고한 글'}],seen_events:[]}]}];
- const {errors}=await fixture(page,{width:884,records:[a,b],snaps});
+ const {errors,db}=await fixture(page,{width:884,records:[a,b],snaps});
  await openTable(page);
  await page.locator('#soOverview [data-week-step="-1"]').click();
  await expect(page.locator('#soOverview .week-pick-label')).toHaveText('11.9~11.15');
@@ -221,8 +223,17 @@ test('[전체 표] 확정한 주 = 개인 확정본 사진 + 흐린 확정 뒤 �
  await expect(oa(page).locator('.wl-cell > .rw-line:not(.rw-after)')).toHaveText([/합성 보고한 글/]);
  await expect(oa(page).locator('.rw-after')).toContainText('합성 확정 뒤 줄');
  await expect(oa(page).locator('.rw-after .rw-after-tag')).toHaveText('확정 뒤 추가');
- await expect(oa(page).locator('summary')).toHaveCount(0);
- await expect(page.locator('#soOverview [data-rw-add]')).toHaveCount(0);
+ await expect(page.locator('#soOverview [data-rw-add]')).toHaveCount(2); // 조직마다 [+ 쓰기]
+ // 사진 줄 ⋯ [보고용으로 수정] → 그 주 표시 한 행, 사진 줄 자리에 고친 글.
+ await menu(page,oa(page),'합성 보고한 글','보고용으로 수정');
+ await oa(page).locator('[data-rw-field="body"]').fill('합성 확정 뒤 고친 글');
+ await oa(page).locator('[data-rw-save]').click();
+ await expect(oa(page).locator('.wl-cell > .rw-line:not(.rw-after)')).toHaveText([/합성 확정 뒤 고친 글/]);
+ expect(db.markWrites.at(-1)).toMatchObject({m:'POST',section:'org',ref_key:a.id,report_body:'합성 확정 뒤 고친 글',week_start:'2026-11-09'});
+ // [보고에서 빼기] → 뺀 줄 1, [되돌리기]로 다시.
+ await menu(page,oa(page),'합성 확정 뒤 고친 글','보고에서 빼기');
+ await expect(oa(page).locator('.wl-cell > .rw-line:not(.rw-after)')).toHaveCount(0);
+ await expect(oa(page).locator('[data-rw-fold="out"]')).toContainText('뺀 줄 1');
  expect(errors).toEqual([]);
 });
 

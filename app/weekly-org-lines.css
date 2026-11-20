@@ -148,3 +148,6 @@ th .wl-btn{margin-left:6px;vertical-align:middle}
 .rw-day-hint{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 /* ORG-기록입력날짜: [+ 쓰기] 칸은 글이 한 줄 전체, 그 아래 줄 왼쪽 [오늘 ▾] 칩 · 오른쪽 [취소][저장]. */
 .wl-form:has(> .rde-chip) > .wl-f-body{flex-basis:100%}
+/* S67-30 B: '…'로 줄인 줄 글 = 누르면 그 자리에서 펼침(글 모양 그대로, 버튼 바탕·선 없음). */
+button.row-act.wl-text.rw-expand{all:unset;position:relative;display:inline-block;vertical-align:top;font:inherit;flex:0 1 auto;min-width:0;overflow-wrap:anywhere;color:var(--kptu-ink);cursor:pointer;text-align:left}
+button.row-act.wl-text.rw-expand:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}

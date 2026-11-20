@@ -552,7 +552,9 @@ export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝
 export const FILE_EDIT_MAX = 200;
 // 방금 [빼기]한 자료 줄 id(탭 메모리뿐) — 그 줄 자리에만 [되돌리기]를 보인다.
 let lastFileDrop = '';
-export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}) {
+// only = 'calendar': 5. 주요 일정 칸만 새로 그려 그 자리에 바꿔 끼운다(줄 [수정] 칸 열기·닫기·저장됨 — 위쪽 칸은 건드리지 않아 화면이 움직이지 않음, S67-30).
+// 그 칸이 아직 없으면 전체를 그린다. 돌려주는 값: 일부만 그렸으면 true.
+export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}, {only = ''} = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const muted = text => el('p', 'journal-muted', text);
@@ -650,9 +652,18 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   };
   // ■ 일시: the report day (상집 보고일), the same date the .hwpx and the draft write.
   // WEEKLY-한흐름확정 ②: 맨 위 한 줄(■ 일시 · 이름 · 바탕 · 임시저장 ⋯)은 journal-hwpx.js 가 그린 마디를 journal.js 가 이 자리에 붙인다.
-  const when = el('div', 'weekly-flow-top'); when.dataset.weeklyFlowTop = '';
+  // S67-30: 다른 모듈이 채우는 자리(보고서 칸·표 자리·맨 위 줄·확정 줄)는 다시 그릴 때 그 마디를 그대로 다시 쓴다. 빈 자리로 바꿨다가
+  // 다시 채우는 사이에 화면 높이가 줄면 브라우저가 스크롤을 끌어올려(5. 주요 일정 [수정] 뒤 화면이 위로 튐) 자리를 비우지 않는다. 채우기는 지금처럼 각 모듈 하나.
+  //   새 자리를 만들어 두고, 새 판을 붙인 바로 그 자리에서 옛 마디로 바꿔 끼운다(그 사이에 화면을 다시 재는 일이 없게).
+  const slots = [];
+  const slotEl = (cls, attr, value = '') => { const d = el('div', cls); d.setAttribute(attr, value); slots.push([d, attr, value]); return d; };
+  const keepSlots = (inside = null) => {
+    const pairs = slots.filter(([d]) => !inside || inside.contains(d)).map(([d, attr, value]) => [d, host.querySelector?.(`[${attr}="${value}"]`)]).filter(([d, old]) => old && old.tagName === 'DIV' && old !== d);
+    return () => { for (const [d, old] of pairs) d.replaceWith(old); };
+  };
+  const when = slotEl('weekly-flow-top', 'data-weekly-flow-top');
   // 보고서 칸 줄 자리(그리기는 weekly-flow-cells.js 하나, journal.js 가 부름). node 시험에서는 빈 자리.
-  const flowSlot = section => { const d = el('div', 'weekly-flow-cells'); d.dataset.weeklyFlowCells = section; return d; };
+  const flowSlot = section => slotEl('weekly-flow-cells', 'data-weekly-flow-cells', section);
   // 칸 밖 원래 기록(이번 주 기록·자료)은 칸 아래 접힌 한 줄 — 제안은 칸마다 보인다.
   const recordsFold = (key, label, count, nodes) => {
     const box = el('details', 'journal-org-raw weekly-flow-records'); box.dataset.journalWeeklyRecords = key;
@@ -666,11 +677,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   if (!status(ask, model.requests, '요청 표') && !model.requests.failed.length) ask.append(...execRequestsPart(doc, model, execUi, 'weekly'));
   const hq = block('hq-schedule', title('hq'), 'h5', true);
   // 수기 표 자리: 그리기는 weekly-hq-schedule.js 하나가 맡는다(journal.js가 이 자리에 붙임). node 시험에서는 빈 자리.
-  const hqSlot = el('div', 'journal-hq-slot journal-part-slot'); hqSlot.dataset.journalWeeklyHqSlot = '';
+  const hqSlot = slotEl('journal-hq-slot journal-part-slot', 'data-journal-weekly-hq-slot');
   hq.append(hqSlot);
   // S46-27 3) 상집 논의 요청: 그리기는 weekly-discuss-table.js 하나(journal.js가 이 자리에 붙임).
   const discuss = block('discuss', title('discuss'), 'h5', true);
-  const discussSlot = el('div', 'journal-discuss-slot journal-part-slot'); discussSlot.dataset.journalWeeklyDiscussSlot = '';
+  const discussSlot = slotEl('journal-discuss-slot journal-part-slot', 'data-journal-weekly-discuss-slot');
   discuss.append(discussSlot);
   one.append(ask, hq, discuss);
 
@@ -718,7 +729,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   // WEEKLY-뺀목록삭제(빠짐2): 이 주에 빠진 회의 종류 목록과 되살리기 버튼은 화면·코드에서 없앴다(뺀 종류는 조용히 빠짐, 서버 목록은 그대로).
   const meet = block('meetings', title('details'), 'h5', true);
   if (!status(meet, model.meetings, '회의·활동 결과') && !model.meetings.failed.length) {
-    const detailSlot = el('div', 'journal-detail-slot journal-part-slot'); detailSlot.dataset.journalWeeklyDetailSlot = '';
+    const detailSlot = slotEl('journal-detail-slot journal-part-slot', 'data-journal-weekly-detail-slot');
     meet.append(detailSlot);
   }
   two.append(summary, meet);
@@ -749,7 +760,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const c = model.calendarView ?? model.calendar;
   const cal = block('calendar', c.days?.length ? rangeTitle(c) : '다음 주 월요일부터 2주', 'h5', true);
   // 손으로 더한 줄 자리([+ 추가]·고치기 칸 — weekly-hand-lines.js, journal.js가 붙임). node 시험에서는 빈 자리.
-  const handSlot = el('div', 'journal-hand-slot journal-part-slot'); handSlot.dataset.journalHandSlot = 'calendar';
+  const handSlot = slotEl('journal-hand-slot journal-part-slot', 'data-journal-hand-slot', 'calendar');
   if (!status(cal, c, '달력 일정') && !c.failed.length) {
     if (c.rows.length) {
       const table = el('table', 'journal-weekly-table journal-weekly-schedule'); table.dataset.wkCols = 'cal';
@@ -803,13 +814,13 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     // S48-33(WEEKLY-화면디자인정리 2): 늘 보이던 안내 한 줄('참석자 칸은 한글 파일에서…')은 없앴다 — 당연한 안내 문구 삭제.
   }
   // [확정하고 한글 파일 받기] 줄 자리(journal-hwpx.js 마디를 journal.js 가 붙임).
-  const confirmSlot = el('div', 'weekly-flow-confirm-slot'); confirmSlot.dataset.weeklyFlowConfirm = '';
+  const confirmSlot = slotEl('weekly-flow-confirm-slot', 'data-weekly-flow-confirm');
   five.append(cal, confirmSlot);
 
   // WEEKLY-주간정리다듬기 ④(명진 11/13 16:57 '밑에 있는 내용은 필요 없을 것 같아, 지저분하기만', 시안 docs/design/mockups/weekly-tidy.html ③):
   //   '참고 — 보고서 칸 밖 재료' 묶음은 없앴다(재료 자료는 그대로, 화면에서만 뺌). 주간보고 기억·규칙·환류는 확정 버튼 옆 ⋯ [배운 것 보기]를 누르면 열리는 한 칸.
   // WEEKLY-환류학습: '주간보고 규칙·환류' 자리 — 그림은 weekly-learn-panel.js 가 채운다(journal.js 가 그린 뒤 부름).
-  const learn = el('div', 'journal-weekly-learn'); learn.dataset.journalWeeklyLearnSlot = '';
+  const learn = slotEl('journal-weekly-learn', 'data-journal-weekly-learn-slot');
   // 배운 것 칸: ⋯ [배운 것 보기]로 연다(memoryUi.shown). 닫혀 있어도 규칙·환류 부품은 그려 둔다(열 때 다시 읽지 않고, 주마다 한 번 도는 정리가 그대로 돈다).
   const learned = el('section', 'journal-weekly-learned'); learned.dataset.journalWeeklyLearned = ''; learned.hidden = !memoryUi?.shown;
   const learnedHead = el('div', 'journal-weekly-learned-head');
@@ -817,7 +828,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   shut.addEventListener('click', () => { if (memoryUi) memoryUi.shown = false; learned.hidden = true; });
   learnedHead.append(el('span', 'journal-heading', '배운 것'), shut);
   learned.append(learnedHead, ...memoryBox(doc, el, model.remembered, memoryUi, model.picks, model.titles?.groups), learn);
+  const oldFive = only === 'calendar' ? host.querySelector?.('[data-journal-weekly-chapter="calendar"]') : null;
+  const putBack = keepSlots(oldFive ? five : null);
+  if (oldFive) { oldFive.replaceWith(five); putBack(); fitAll(five); return true; }
   host.replaceChildren(when, one, two, three, four, five, learned);
+  putBack();
   fitAll(host); // UI-줄입력늘어나기: 자료 줄·요청 표 고치기 칸은 열자마자 글 전체가 보이게
 }
 

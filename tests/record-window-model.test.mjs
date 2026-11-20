@@ -230,3 +230,18 @@ test('줄 순서: 투쟁 사업장 칸·확정 사진·옛 보고 줄도 같은 
   assert.deepEqual(m.snapshotView({org: A, week: W, snapshot, order: 'desc'}).lines.map(l => l.text), ['뒤', '앞']);
   assert.deepEqual(m.orderLines(['a', 'b'], 'desc'), ['b', 'a']); assert.deepEqual(m.orderLines(['a', 'b'], 'asc'), ['a', 'b']);
 });
+
+// S67-30 B: 확정한 주도 고친다 — 확정 뒤(confirmed_at보다 나중)에 바꾼 그 주 표시는 사진 줄 위에(보고용 글·뺀 줄), 그 전 표시는 사진 그대로. 투쟁 사업장(site)도 같은 규칙.
+test('확정 뒤 고친 보고용 글·뺀 줄은 사진 줄 위에 보인다(site도)', () => {
+  const a = R('2026-11-17', '가상 찬반투표'), b = R('2026-11-18', '가상 선전전');
+  const snapshot = {confirmed_at: '2026-11-18T09:00:00Z', rows: [{section: 'site', ref_kind: 'organization', ref_key: A, lines: [{ref_kind: 'org_update', ref_key: a.key, day: a.day, text: '가상 찬반투표'}, {ref_kind: 'org_update', ref_key: b.key, day: b.day, text: '가상 선전전'}], seen_events: []}]};
+  const mk = (key, x, at) => ({id: `m-${key}`, week_start: W, section: 'site', ref_kind: 'org_update', ref_key: key, report_body: null, choice: null, detail: null, updated_at: at, ...x});
+  const marks = [mk(a.key, {report_body: '가상 찬반투표 가결'}, '2026-11-19T00:00:00Z'), mk(b.key, {choice: 'out'}, '2026-11-19T00:00:00Z')];
+  const v = m.snapshotView({org: A, week: W, snapshot, records: [a, b], marks, section: 'site'});
+  assert.deepEqual(v.lines.map(l => [l.text, l.edited]), [['가상 찬반투표 가결', true]]);
+  assert.deepEqual(v.out.map(l => l.text), ['가상 선전전']);
+  assert.deepEqual(m.fileLines({mode: 'snapshot', lines: v.lines, after: v.after}).map(m.lineText), ['- 11.17. 가상 찬반투표 가결']);
+  // 확정 전 표시(뺀 줄)는 사진이 이긴다 — 사진에 있는 줄은 그대로 보인다.
+  const before = [mk(b.key, {choice: 'out'}, '2026-11-17T00:00:00Z')];
+  assert.deepEqual(m.snapshotView({org: A, week: W, snapshot, records: [a, b], marks: before, section: 'site'}).lines.map(l => l.text), ['가상 찬반투표', '가상 선전전']);
+});

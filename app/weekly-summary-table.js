@@ -27,6 +27,9 @@ import {weekLabel} from './weekly-org-lines-model.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {chevHtml} from './fold-chevron.mjs';
 import {bizWeekOpen,setBizWeekOpen} from './biz-week-fold.js';
+import {layoutAreas} from './weekly-area-layout.mjs'; // S67-30: 주간보고 칸 빼기·다른 칸 안으로(홈 [주간 정리] 2. 1)만)
+import {rowMore} from './row-more.js';
+import {askConfirm} from './small-notice.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shortDay=day=>{const [,m,d]=day.split('-');return `${Number(m)}.${Number(d)}`};
@@ -50,6 +53,7 @@ function ensureBox(el){
   if(compact)box.innerHTML='<div class="biz-paper biz-week-paper biz-paper-compact" data-bp-paper>'+skeletonHtml()+'</div><p class="status biz-week-status" data-bp-status role="status" aria-live="polite"></p>';
   box.addEventListener('click',onClick);
   // WEEKLY-사업영역묶음 ②: 묶음 표의 [수정] 글 칸 위 '수정할 칸' 고르기(사업영역 자기 칸 · ◦ 세부 과제 칸).
+  box.addEventListener('change',e=>{const p=e.target.closest?.('[data-bp-into-pick]');if(p){if(p.value)void layoutAct(p.dataset.bpIntoPick,{into:p.value},p);return}});
   box.addEventListener('change',e=>{const t=e.target.closest?.('[data-bp-target]');if(!t||!state?.editing)return;const row=Number(t.value);if(!rowRefs()[row])return;state.editing={kind:'progress',row};renderPaper()});
   // 글 칸: 진행 = Ctrl+Enter(맥은 ⌘+Enter), 담당 한 줄 칸 = Enter 저장. Esc = 쓰던 칸만 닫기(저장 안 함).
   box.addEventListener('keydown',e=>{
@@ -83,6 +87,16 @@ async function onClick(e){
   if(e.target.closest('[data-bp-edit-cancel]')){state.editing=null;return renderPaper()}
   if(e.target.closest('[data-bp-edit-save]'))return saveEdit();
   const recs=e.target.closest('[data-bp-recs]');if(recs)return toggleRecs(recs.dataset.bpRecs);
+  // S67-30: 사업영역 줄 ⋯ — 다른 칸 안으로(고르기 칸 열기)·따로 두기·이 칸 빼기, 표 아래 [다시 넣기].
+  const lay=e.target.closest('[data-bp-into],[data-bp-apart],[data-bp-hide],[data-bp-show],[data-bp-into-cancel]');
+  if(lay){
+    const d=lay.dataset,anchor=lay.closest('details')?.querySelector('summary')||lay;
+    if('bpIntoCancel' in d){state.moving=null;renderPaper();return}
+    if(d.bpInto){state.moving=d.bpInto;renderPaper();$in(`[data-bp-into-pick="${CSS.escape(d.bpInto)}"]`)?.focus({preventScroll:true});return}
+    if(d.bpApart)return layoutAct(d.bpApart,{},anchor);
+    if(d.bpHide)return layoutAct(d.bpHide,{hide:true},anchor);
+    if(d.bpShow)return layoutAct(d.bpShow,{},anchor);
+  }
   // RECORD-한줄: 사업 기록은 한 줄만 보이고, 한 줄이 원문과 다르면 누르면 원문이 그대로(작은 창, 읽기만).
   const raw=e.target.closest('[data-bp-raw]');if(raw){const r=findRec(raw.dataset.bpRaw);if(!r)return;const mod=await import('./record-raw-view.js');return mod.openRawRecord({text:r.full,day:state.kit.NM.dayText(r.day,r.end_day),line:r.text,trigger:raw})}
   const open=e.target.closest('[data-bp-open]');if(open){const mod=await import('./report-open.js');return mod.openReport(open.dataset.bpOpen)}
@@ -162,7 +176,8 @@ async function paint(){
 function renderPaper(){
   if(!state?.view)return;
   const {placed,records,untagged,all,lineOf}=state.view;
-  $in('[data-bp-paper]').innerHTML=paperHtml(placed,records,untagged,all,lineOf);
+  $in('[data-bp-paper]').innerHTML=paperHtml(laidOut(placed),records,untagged,all,lineOf);
+  for(const slot of box.querySelectorAll('[data-bp-more]')){let spec=null;try{spec=JSON.parse(slot.dataset.bpMore)}catch{/* 깨진 자리표는 ⋯ 없이 */}if(spec)slot.replaceWith(rowMore(document,spec));else slot.remove()}
   placeDetail();
   box.dataset.bpReady=''; // 표가 처음 그려짐 — 이제부터 자리 잡기(CSS min-height)를 풀고 표 높이를 따른다
   const field=$in('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select()}
@@ -322,6 +337,52 @@ async function saveNowEdit(ed,field,ref){
 // 한 줄 = 사업영역 하나: 첫 칸 = 양식 자리(같은 자리는 세로로 합침, 자리를 못 찾은 사업영역은 자기 이름), 둘째 칸 = 사업영역 이름,
 // 셋째 칸 = 사업영역 자기 칸 지금 상황 + '◦ 세부 과제' 소제목과 그 칸 지금 상황(지금 상황·이번 주 기록이 없는 세부 과제는 줄을 만들지 않음 — 팀 완성본 모양),
 // 담당 = 사업영역 자기 칸. [수정]은 글 칸 위에서 수정할 칸(사업영역 자기 칸·세부 과제 칸)을 고른다. 저장 자리는 그대로(칸마다 app_business_now).
+// ---- S67-30 WEEKLY-칸빼기합치기: 홈 [주간 정리] 2. 1) 사업영역 줄 ⋯ [다른 칸 안으로]·[이 칸 빼기], 표 아래 '뺀 칸' 한 줄 [다시 넣기] ----
+// 모양은 그 주 바탕(한글 파일 상자)이 들고 있는 draft.places 표시(weekly-area-layout.mjs). 바탕을 아직 안 열었으면(layout() null) 지금 모양·⋯ 없음.
+// 바꾸기는 화면(journal.js onLayout)이 상자에 맡기고 다시 그린다 — 이 부품은 사업영역·지금 상황을 바꾸지 않는다.
+// 한 번 그리는 동안 같은 값(state.lay, laidOut이 읽어 둠) — 칸마다 다시 읽지 않는다.
+const readLayout=()=>(compact&&typeof state?.layout==='function'?state.layout()||null:null);
+const layoutNow=()=>state?.lay??null;
+function laidOut(placed){state.lay=readLayout();const r=layoutAreas(placed.areas,state.lay);return {...placed,areas:r.areas,hidden:r.hidden,moved:r.moved}}
+const canLayout=()=>!!(layoutNow()&&typeof state?.onLayout==='function'&&state.editable);
+function areaMoreHtml(area,placed){
+  if(!canLayout())return '';
+  const kids=(placed.moved||[]).filter(m=>m.into===area.name);
+  const spec={label:`${area.name} 칸 메뉴`,data:{bpAreaMore:area.name},items:[
+    {text:'다른 칸 안으로',data:{bpInto:area.name},aria:`${area.name}을(를) 다른 칸 안으로`},
+    ...kids.map(k=>({text:`${k.name} 따로 두기`,data:{bpApart:k.name},aria:`${k.name}을(를) ${area.name} 칸에서 따로 두기`})),
+    {text:'이 칸 빼기',data:{bpHide:area.name},danger:true,aria:`${area.name} 칸을 주간 보고에서 빼기`}]};
+  return `<span data-bp-more="${esc(JSON.stringify(spec))}"></span>`;
+}
+// [다른 칸 안으로]를 누른 줄: 둘째 칸에 '넣을 칸' 고르기(보이는 다른 사업영역) + [취소].
+function intoPickHtml(area,placed){
+  if(state.moving!==area.name)return '';
+  const others=placed.areas.filter(a=>a.name!==area.name);
+  return `<span class="biz-into-pick"><label class="biz-write-target">넣을 칸 <select data-bp-into-pick="${esc(area.name)}" aria-label="${esc(`${area.name}을(를) 넣을 칸`)}"><option value="">선택</option>${others.map(a=>`<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('')}</select></label> <button type="button" class="row-act" data-bp-into-cancel>취소</button></span>`;
+}
+function hiddenLineHtml(placed){
+  const list=placed.hidden||[];
+  if(!list.length||!layoutNow())return '';
+  const btn=h=>canLayout()?` <button type="button" class="row-act" data-bp-show="${esc(h.name)}" aria-label="${esc(`${h.name} 칸 다시 넣기`)}">다시 넣기</button>`:'';
+  return `<p class="biz-hidden-line" data-bp-hidden-line>주간 보고에서 뺀 칸: ${list.map(h=>`<span class="biz-hidden-item">${esc(h.name)}${btn(h)}</span>`).join(' · ')}</p>`;
+}
+// 이번 주에 그 사업영역(세부 과제 포함)에 지금 상황 글이나 이번 주 기록이 있으면 true — [이 칸 빼기] 전에 한 번 묻는다.
+function areaHasWeek(name){
+  const area=(state?.view?.placed?.areas||[]).find(a=>a.name===name);if(!area||!state.now)return false;
+  const {NM}=state.kit;
+  return area.rows.some(r=>{const sp=String(r.task?.id??area.id);return !!NM.nowView(state.now.rows,sp,state.from).body||(r.items||[]).length>0||(state.now.recs.get(sp)||[]).length>0});
+}
+async function layoutAct(name,change,anchor){
+  if(!canLayout()||state.layoutBusy)return;
+  if(change.hide&&areaHasWeek(name)&&!(await askConfirm(anchor,{text:`${name} 칸에 이번 주 글이 있어요. 주간 보고에서 뺄까요?`,ok:'빼기',note:'사업영역과 쓴 글은 그대로 남아요. 표 아래 [다시 넣기]로 되돌려요.'})))return;
+  state.layoutBusy=true;state.moving=null;say('저장 중…');
+  let ok=false;
+  try{ok=await state.onLayout(name,change)!==false}catch{ok=false}
+  if(!state)return;
+  state.layoutBusy=false;
+  say(ok?(change.hide?`${name} 칸을 주간 보고에서 뺐어요.`:change.into?`${name}을(를) ${change.into} 칸 안에 넣었어요.`:`${name} 칸을 다시 넣었어요.`):'저장하지 못했어요. 잠시 뒤 다시 해 주세요.');
+  renderPaper();
+}
 function groupsNow(){const g=state?.groups?.();return state?.now&&g instanceof Map&&g.size?g:null}
 const ownRow=area=>area.rows.find(r=>!r.task)||{task:null,items:[]};
 function groupedHtml(placed,records){
@@ -349,12 +410,12 @@ function groupedHtml(placed,records){
         const btn=state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="progress" data-bp-row="${ownAt}" aria-label="${esc(`${area.name} 지금 상황 쓰기`)}">${any?'수정':'쓰기'}</button>`:'';
         cell=`${ownBody}${subHtml}${any?'':'<span class="biz-now-empty">—</span>'}<div class="biz-now-foot">${ownRecs}${btn}</div>`;
       }
-      rows.push(`<tr>${i===0?`<th scope="rowgroup" rowspan="${list.length}">${esc(k)}</th>`:''}<td>${k===area.name&&list.length===1?'':esc(area.name)}</td><td data-bp-box="progress">${cell}</td><td data-bp-box="owner">${ownerCell(ownRef,ownAt)}</td></tr>`);
+      rows.push(`<tr data-bp-area="${esc(area.name)}">${i===0?`<th scope="rowgroup" rowspan="${list.length}">${esc(k)}</th>`:''}<td>${k===area.name&&list.length===1?'':esc(area.name)}${intoPickHtml(area,placed)}</td><td data-bp-box="progress">${cell}</td><td data-bp-box="owner">${ownerCell(ownRef,ownAt)}${areaMoreHtml(area,placed)}</td></tr>`);
     });
   }
   state.rowRefs=refs;
   for(const other of placed.others){const lines=factsHtml(other.items,records);rows.push(`<tr><th scope="row">${esc(other.name==='미분류'?'보관된 사업영역':other.name)}</th><td></td><td>${lines}</td><td></td></tr>`)}
-  return rows.length?`<table class="biz-sum-table biz-sum-grouped" data-bp-grouped><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음');
+  return (rows.length?`<table class="biz-sum-table biz-sum-grouped" data-bp-grouped><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음'))+hiddenLineHtml(placed);
 }
 function paperHtml(placed,records,untagged,all,lineOf){
   const rows=[],refs=[];
@@ -362,13 +423,13 @@ function paperHtml(placed,records,untagged,all,lineOf){
   if(compact&&groupsNow())return groupedHtml(placed,records);
   for(const area of placed.areas)area.rows.forEach((row,i)=>{
     const ref={area:area.name,task:row.task?.name||'',space:String(row.task?.id??area.id)},n=refs.push(ref)-1;
-    rows.push(`<tr>${i===0?`<th scope="rowgroup" rowspan="${area.rows.length}">${esc(area.name)}</th>`:''}<td>${esc(ref.task)}</td><td data-bp-box="progress">${progressCell(ref,n,row.items,records)}</td><td data-bp-box="owner">${ownerCell(ref,n)}</td></tr>`);
+    rows.push(`<tr${i===0?` data-bp-area="${esc(area.name)}"`:''}>${i===0?`<th scope="rowgroup" rowspan="${area.rows.length}">${esc(area.name)}${compact?intoPickHtml(area,placed):''}</th>`:''}<td>${esc(ref.task)}</td><td data-bp-box="progress">${progressCell(ref,n,row.items,records)}</td><td data-bp-box="owner">${ownerCell(ref,n)}${i===0&&compact?areaMoreHtml(area,placed):''}</td></tr>`);
   });
   state.rowRefs=refs;
   // 사업영역을 못 찾은 보고(보관된 사업영역 등)는 읽기만(칸 이름이 없어 직접 쓰기 없음).
   for(const other of placed.others){const lines=factsHtml(other.items,records);rows.push(`<tr><th scope="row">${esc(other.name==='미분류'?'보관된 사업영역':other.name)}</th><td></td><td>${lines}</td><td></td></tr>`)}
   const table=rows.length?`<table class="biz-sum-table"><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음');
-  if(compact)return table;
+  if(compact)return table+hiddenLineHtml(placed);
   const miss=untagged.length?`<details class="biz-untagged"><summary>사업영역 안 단 보고 ${untagged.length}건</summary>${untagged.map(m=>`<button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}">${esc(lineOf(m))}</button>`).join('')}</details>`:'';
   if(state.view?.detail)return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list" data-bp-detail aria-hidden="true"><li><p class="biz-skel-line"></p></li></ul>`;
   const details=all.length?all.map(m=>{const day=new Date(Date.parse(m.meeting_at)+9*3600e3).toISOString().slice(0,10),plan=nextPlanLines(m.next_plan);return `<li><button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}"><span class="biz-day">${shortDay(day)}</span> ${esc(lineOf(m))}</button>${plan.length?`<p class="biz-cell-plan">→ 이후: ${plan.map(esc).join(' / ')}</p>`:''}</li>`}).join(''):`<li>${emptyHtml('사업 보고 없음')}</li>`;
@@ -383,7 +444,7 @@ self.fileRows=week=>{
   if(!state||!d||d.run!==state.run||d.from!==week||state.from!==week||state.dirty||state.stale||!state.view)return {status:'loading'};
   if(d.now!=='ready'||!state.now)return {status:d.now==='missing'?'missing':d.now==='error'?'error':'loading'};
   const {NM}=state.kit,rows=[],grouped=compact&&!!groupsNow();
-  for(const area of state.view.placed.areas){
+  for(const area of laidOut(state.view.placed).areas){
     // 묶음 표(②)는 세부 과제가 있는 사업영역에도 자기 칸이 있다 — 그 칸 글도 한글 파일 그 자리 맨 위 줄로(applyBizWindow head).
     if(grouped&&!area.rows.some(r=>!r.task)){const v=NM.nowView(state.now.rows,String(area.id),week);rows.push({space:String(area.id),area:area.name,task:'',lines:v.body?v.body.split('\n').map(l=>l.trim()).filter(Boolean):[],owner:v.owner})}
     for(const row of area.rows){
@@ -396,7 +457,7 @@ self.fileRows=week=>{
 // el = 사업 보고 화면의 늘 펼친 칸 #bizWeekBox. week = 위 주 고르기의 주(월요일 날짜). 화면이 다시 그려질 때마다 불린다.
 // fold = 사업 보고가 여러 주(전체 기간·정한 기간)를 보는 중 → 접힌 한 줄로 시작(BIZ-주간표이번주 ⑥). 홈 작은 상자는 늘 펼침.
 // auto = 사업 보고 하나를 직접 열어 보는 중 → 접힘(BIZ-주간보고접기). visit = 화면에 들어온 횟수(바뀌면 손으로 고른 접힘을 잊음).
-self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=0,onFold=null,areas=null})=>{
+self.mount=(el,{meetings,week,tree=null,groups=null,layout=null,onLayout=null,fold=false,auto=false,visit=0,onFold=null,areas=null})=>{
   // BIZ-빈표잠깐보임다시: 사업영역 수를 모르면(null) 아무것도 그리지 않는다 — 표 모양은 사업영역이 있다고 확인된 뒤에만(화면도 그동안 칸을 보이지 않음).
   if(!compact&&typeof areas==='function'&&areas()==null)return;
   ensureBox(el);
@@ -418,7 +479,7 @@ self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=
   if(state.visit!==visit||state.auto!==autoNow){state.visit=visit;state.hand=null}
   state.fold=foldNow;state.auto=autoNow;state.onFold=onFold;
   // ② 묶음(양식 자리)이 바뀌면 다시 읽지 않고 표만 다시 그린다(쓰는 칸이 있으면 그대로).
-  state.groups=groups;const gk=groupKey(groups);const regroup=state.groupKey!==gk;state.groupKey=gk;
+  state.groups=groups;state.layout=compact?layout:null;state.onLayout=compact?onLayout:null;const gk=groupKey(groups)+layoutKey(state.layout);const regroup=state.groupKey!==gk;state.groupKey=gk;
   if(!first){
     // 같은 주이고 사업 보고 자료(화면이 읽어 둔 배열)도 그대로면 이미 그린 것을 다시 읽지 않는다(화면이 다시 그려질 때마다·[+] 창을 열 때마다 서버를 부르지 않게).
     const same=state.from===from&&state.seen===meetings()&&!!state.view&&!state.stale&&!state.dirty&&(!tree||state.treeSeen===tree());
@@ -435,6 +496,7 @@ self.mount=(el,{meetings,week,tree=null,groups=null,fold=false,auto=false,visit=
 return self;
 }
 const groupKey=groups=>{const g=groups?.();return g instanceof Map&&g.size?JSON.stringify([...g]):''};
+const layoutKey=layout=>{const l=layout?.();return l?JSON.stringify([l.hide,[...l.into]]):''};
 // 사업 보고 화면의 늘 펼친 칸(#bizWeekBox) — 상자마다 부품 하나.
 const boxes=new WeakMap();
 export function mountWeekSummary(el,{meetings,week,fold=false,auto=false,visit=0,onFold=null,areas=null}){
@@ -448,5 +510,5 @@ export function mountWeekSummary(el,{meetings,week,fold=false,auto=false,visit=0
 export function createBizSummaryBox(){
   const el=document.createElement('div');el.className='biz-week-box biz-week-compact';el.dataset.bizSummaryBox='';
   const inst=createBizSummary({compact:true});
-  return {el,update:({meetings,week,tree,groups=null})=>inst.mount(el,{meetings,week,tree,groups}),fileRows:week=>inst.fileRows(week)};
+  return {el,update:({meetings,week,tree,groups=null,layout=null,onLayout=null})=>inst.mount(el,{meetings,week,tree,groups,layout,onLayout}),fileRows:week=>inst.fileRows(week)};
 }
