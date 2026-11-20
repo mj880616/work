@@ -5,6 +5,7 @@
 // - 저장하지 않는다(제안만). 새 폴더도 화면에서 명진이 [옮기기]를 눌러야 만든다.
 // - 재료: 제목(없으면 파일 이름)·분류·이미 읽어 둔 본문 앞 300자(비밀 모양 가림, 연락처 지움). 새로 읽지 않는다.
 import { maskSecret } from "./note-secret.ts";
+import { OWNER_ROLE } from "./owner-role.ts"; // S67-51: 고정 '노동조합 …' 대신 부른 사람 프로필 소속·직책(보낼 때 바꿈)
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const LIBRARY_SORT_MAX_DOCS = 40;
@@ -55,7 +56,7 @@ export function librarySortMaterial(docs: SortDoc[], folders: SortFolder[], excl
 }
 
 export const LIBRARY_SORT_INSTRUCTIONS = [
-  "너는 노동조합 활동가의 자료실 정리를 돕는다. 사용자 메시지는 JSON 하나다: folders(ref, path = 폴더 경로 '가 › 나'), documents(ref, title, category, text = 본문 앞부분).",
+  "너는 " + OWNER_ROLE + "의 자료실 정리를 돕는다. 사용자 메시지는 JSON 하나다: folders(ref, path = 폴더 경로 '가 › 나'), documents(ref, title, category, text = 본문 앞부분).",
   "자료마다 가장 알맞은 기존 폴더 하나를 folder에 ref로 고른다. 제목·분류·본문이 폴더 경로의 주제와 분명히 맞을 때만 고른다.",
   "기존 폴더 어디에도 담기 어렵고 비슷한 주제가 분명하면 new_name에 새 폴더 이름(짧은 명사, 20자 안)을 쓰고, new_parent에 그 새 폴더를 놓을 기존 폴더 ref(맨 위면 빈 문자열)를 쓴다. 이때 folder는 빈 문자열이다.",
   "비슷한 자료 여러 개는 같은 새 폴더 이름·같은 new_parent로 묶는다. 기존 폴더와 같은 이름의 새 폴더는 만들지 않는다.",

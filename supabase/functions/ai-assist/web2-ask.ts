@@ -14,6 +14,7 @@ import { EVIDENCE_RULE, evidenceLines, evidenceSchema, maskEvidenceText, type Ev
 import { looksSecret } from "./note-title.ts";
 import { maskSecret } from "./note-secret.ts";
 import { TG_RAW_CHARS, tgRawForAi } from "./tg-raw.ts";
+import { OWNER_ROLE } from "./owner-role.ts"; // S67-51: 고정 '노동조합 …' 대신 부른 사람 프로필 소속·직책(보낼 때 바꿈)
 
 export const ASK_DAILY_LIMIT = 30;
 export const ASK_QUESTION_MIN = 4;
@@ -182,7 +183,7 @@ export function askMaterial(question: string, sources: AskSource[]): string {
 }
 
 export const ASK_INSTRUCTIONS = [
-  "너는 노동조합 상근자 개인 업무 시스템(Web2)의 '물어보기' 도우미다. 사용자의 질문에 근거 목록으로만 답한다.",
+  "너는 " + OWNER_ROLE + "의 개인 업무 시스템(Web2) '물어보기' 도우미다. 사용자의 질문에 근거 목록으로만 답한다.",
   "사용자 메시지는 JSON 하나다: question(질문)과 sources(찾은 기록 줄 목록, 각 ref·kind·date·title·text, 텔레그램 소식은 원문 줄 raw가 붙을 수 있음).",
   "raw는 '시각 보낸 사람: 말' 줄을 ' / '로 이은 텔레그램 원문 일부다. 누가 무슨 말을 했는지 답에 쓸 수 있다.",
   EVIDENCE_RULE,

@@ -1435,16 +1435,21 @@ async function loadMeetingSource(ctx: Ctx, meetingId: string): Promise<RadarSour
 }
 
 // 기록 주인의 이름·직책은 호출한 사람의 토큰으로 자기 프로필 행에서 읽는다(owner RLS). 못 읽어도 찾기는 계속한다(이름 없이 '기록 주인'으로).
+// S67-51: 소속(union_name, 내 프로필 칸)도 같은 행에서 읽어 AI가 부르는 말(owner-role)에 쓴다. 그 칸이 아직 없는 DB(400)면 이름·직책만 다시 읽는다.
 async function readRadarProfile(ctx: Ctx) {
-  try {
-    const rows = await rest(ctx, `app_profiles?user_id=eq.${encodeURIComponent(ctx.userId)}&select=display_name,job_title&limit=1`);
+  const read = async (cols: string) => {
+    const rows = await rest(ctx, `app_profiles?user_id=eq.${encodeURIComponent(ctx.userId)}&select=${cols}&limit=1`);
     return cleanProfile(Array.isArray(rows) ? (rows[0] as Record<string, unknown> | undefined) : null);
-  } catch {
-    return cleanProfile(null);
+  };
+  try {
+    return await read("display_name,job_title,union_name");
+  } catch (e) {
+    if ((e as Error)?.message !== "rest_400") return cleanProfile(null);
+    try { return await read("display_name,job_title"); } catch { return cleanProfile(null); }
   }
 }
 
-// MULTI-다른담당자맞춤 ⑤: 안내문의 직책 자리표(owner-role.ts OWNER_ROLE)를 부른 사람 프로필 직책으로. 자리표가 있을 때만 프로필을 한 번 읽는다
+// MULTI-다른담당자맞춤 ⑤·S67-51: 안내문의 직책 자리표(owner-role.ts OWNER_ROLE)를 부른 사람 프로필 소속·직책으로. 자리표가 있을 때만 프로필을 한 번 읽는다
 // (요청마다 한 번, 못 읽으면 중립 표현). 직책은 cleanProfile로 한 줄·40자로 정리된 값만 들어간다.
 const ownerProfiles = new WeakMap<Ctx, Promise<ReturnType<typeof cleanProfile>>>();
 async function ownerRoleIn(ctx: Ctx, instructions: string): Promise<string> {
@@ -3090,7 +3095,7 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
     store: false,
     max_output_tokens: PEOPLE_BRIEF_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: PEOPLE_BRIEF_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, PEOPLE_BRIEF_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "org_people_brief", strict: true, schema: PEOPLE_BRIEF_SCHEMA } },
@@ -3734,7 +3739,7 @@ async function runJournalDraft(ctx: Ctx, input: JournalDraftInput, deps: RadarDe
     store: false,
     max_output_tokens: JOURNAL_DRAFT_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: JOURNAL_DRAFT_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, JOURNAL_DRAFT_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "journal_draft", strict: true, schema: JOURNAL_DRAFT_SCHEMA } },
@@ -4083,7 +4088,7 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
         counts.lines = lines.length;
         const material = suggestMaterial(day, lines);
         if (material) {
-          const answer = await callDayAi(ctx, deps, started, "home_day_suggests", SUGGEST_INSTRUCTIONS, material, SUGGEST_SCHEMA, DAY_SUGGEST_MAX_OUTPUT_TOKENS);
+          const answer = await callDayAi(ctx, deps, started, "home_day_suggests", await ownerRoleIn(ctx, SUGGEST_INSTRUCTIONS), material, SUGGEST_SCHEMA, DAY_SUGGEST_MAX_OUTPUT_TOKENS);
           const picks = parseSuggests(outputText(answer, 16 * 1024) ?? "", lines, family, day, dayOrgs);
           if (picks) {
             counts.suggests = picks.length;
@@ -4331,7 +4336,7 @@ async function runWorkScope(ctx: Ctx, input: WorkScopeInput, deps: RadarDeps): P
     store: false,
     max_output_tokens: WORK_SCOPE_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: WORK_SCOPE_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, WORK_SCOPE_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "work_scope", strict: true, schema: WORK_SCOPE_SCHEMA } },
@@ -4389,7 +4394,7 @@ async function runRecordOneLine(ctx: Ctx, input: RecordOneLineInput, deps: Radar
     store: false,
     max_output_tokens: ONE_LINE_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: ONE_LINE_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, ONE_LINE_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "record_one_line", strict: true, schema: ONE_LINE_SCHEMA } },
@@ -4623,7 +4628,7 @@ async function runLibrarySort(ctx: Ctx, input: LibrarySortInput, deps: RadarDeps
     store: false,
     max_output_tokens: LIBRARY_SORT_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: LIBRARY_SORT_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, LIBRARY_SORT_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "library_sort", strict: true, schema: LIBRARY_SORT_SCHEMA } },
@@ -5029,7 +5034,7 @@ async function runAskWeb2(ctx: Ctx, input: AskWeb2Input, deps: RadarDeps): Promi
     store: false,
     max_output_tokens: ASK_MAX_OUTPUT_TOKENS,
     input: [
-      { role: "developer", content: ASK_INSTRUCTIONS },
+      { role: "developer", content: await ownerRoleIn(ctx, ASK_INSTRUCTIONS) },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "ask_web2", strict: true, schema: ASK_SCHEMA } },
