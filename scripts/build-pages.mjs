@@ -5,6 +5,7 @@ import { parse } from 'acorn';
 import { fileURLToPath } from 'node:url';
 import { graph, vendored } from './check-loader-cache.mjs';
 import { isNoteFile, OUTPUT_PATH as releaseNotesPath } from '../app/release-notes-model.mjs';
+import { applyFace, FACE_IDS } from './brand-face.mjs';
 
 // CI-버전자동화(docs/design/ci-version-automation.md 4장): the repository references files
 // without ?v=. A Pages build output (Jekyll _site or a repository copy) gets every static
@@ -162,9 +163,10 @@ export function fillStaticChains(input) {
   return files;
 }
 
-/** Full build on an in-memory tree: rewritten files plus the regenerated manifest. */
-export function buildPages(input) {
-  const { files } = rewriteVersions(fillStaticChains(input));
+/** Full build on an in-memory tree: rewritten files plus the regenerated manifest.
+ * face: 얼굴(APP-올인원다이어리 단계 2, scripts/brand-face.mjs). 기본 nojo(노동조합+)는 입력을 그대로 쓴다. */
+export function buildPages(input, { face } = {}) {
+  const { files } = rewriteVersions(fillStaticChains(applyFace(input, face)));
   // UPDATE-운영자전용기록업데이트소식 PR1(명진 11/15): 개발 기록(app/release-notes/*.json)과 묶음 app/release-notes.json은 공개 배포물에 싣지 않는다.
   // 운영자 화면은 서버 표(app_release_notes)에서 읽고, 묶음은 배포 뒤 workflow가 서버로 보낸다(scripts/ops/release-notes-sync.mjs).
   for (const file of Object.keys(files)) if (isNoteFile(file) || file === releaseNotesPath) delete files[file];
@@ -195,10 +197,10 @@ export function readTree(root) {
   }));
 }
 
-export function buildDirectory(inputDir, outputDir) {
+export function buildDirectory(inputDir, outputDir, { face } = {}) {
   if (existsSync(outputDir) && readdirSync(outputDir).length) throw new Error(`출력 폴더가 비어 있지 않습니다: ${outputDir}`);
   const input = readTree(inputDir);
-  const output = buildPages(input);
+  const output = buildPages(input, { face });
   for (const [file, value] of Object.entries(output)) {
     const target = join(outputDir, file);
     mkdirSync(dirname(target), { recursive: true });
@@ -210,11 +212,16 @@ export function buildDirectory(inputDir, outputDir) {
 }
 
 function main() {
-  const [inputDir, outputDir, ...rest] = process.argv.slice(2);
-  if (!inputDir || !outputDir || rest.length) throw new Error('사용법: node scripts/build-pages.mjs <입력 폴더> <출력 폴더>');
-  const output = buildDirectory(resolve(inputDir), resolve(outputDir));
+  const args = process.argv.slice(2);
+  const faceArgs = args.filter(arg => arg.startsWith('--face='));
+  const [inputDir, outputDir, ...rest] = args.filter(arg => !arg.startsWith('--face='));
+  const face = faceArgs.length ? faceArgs.at(-1).slice('--face='.length) : undefined;
+  if (!inputDir || !outputDir || rest.length || faceArgs.length > 1 || (face !== undefined && !FACE_IDS.includes(face))) {
+    throw new Error(`사용법: node scripts/build-pages.mjs <입력 폴더> <출력 폴더> [--face=${FACE_IDS.join('|')}]`);
+  }
+  const output = buildDirectory(resolve(inputDir), resolve(outputDir), { face });
   const assets = Object.keys(JSON.parse(output[manifestPath]).assets).length;
-  console.log(`Pages 빌드 완료: 파일 ${Object.keys(output).length}개, 자산 목록 ${assets}개 → ${outputDir}`);
+  console.log(`Pages 빌드 완료(얼굴 ${face || 'nojo'}): 파일 ${Object.keys(output).length}개, 자산 목록 ${assets}개 → ${outputDir}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
