@@ -1,4 +1,4 @@
-// S67-23 잠금과 고르기 창: 하루 기록 수정 창에서 [사진]·[파일 넣기]로 폰 고르기 창을 열었다 닫으면(화면이 잠깐 숨겨짐)
+// S67-23 잠금과 고르기 창: 하루 기록 수정 창에서 [사진]·글 칸 [넣기]›[사진]으로 폰 고르기 창을 열었다 닫으면(화면이 잠깐 숨겨짐)
 // 다시 잠그기 '바로'여도 잠금 화면이 뜨지 않고 쓰던 글이 그대로다. 고르기 창 없이 다른 앱으로 가면 그대로 잠기고,
 // 잠긴 동안 수정 창은 보이지 않으며, PIN을 풀면 쓰던 수정 창으로 돌아온다. 고르기 창을 연 채 오래(3분) 떠나 있었으면 원래대로 잠긴다.
 // 노트 폴더 잠금도 같다(고치던 노트는 잠금 화면 뒤에 숨었다가 PIN 뒤 그대로). 서버(app_lock_*)는 page.route 흉내, 값은 모두 합성.
@@ -75,11 +75,14 @@ test('다시 잠그기 "바로": [사진] 고르기 창을 열고 닫아도 잠�
   await expect(pad(page)).toBeHidden();
   await expect(diaryText(page)).toHaveText('쓰던 글 그대로');
   await shot(page, 'diary-after-picker-412');
-  // 글 칸 [넣기 ▾] › [파일 넣기]도 같은 길(편집기 공용 고르기 칸).
-  const tools = page.locator('#diaryRoot [data-diary-editor] .ed-tools');
-  const group = tools.locator('[data-ed-cmd="gInsert"]');
-  if (await group.isVisible()) await group.click();
-  await pickAndBack(page, page.getByRole('button', { name: '파일 넣기', exact: true }));
+  // 글 칸 [넣기 ▾] › [사진]도 같은 길(편집기 공용 고르기 칸). 하루 기록 글 칸에는 [파일 넣기]가 없다(S67-20 #2785: 본문 사진만).
+  // 폰 폭(412)은 늘 묶음 줄이라 [넣기 ▾]가 보일 때까지 기다렸다 누른다(누르기 전 한 번 보고 넘어가지 않게).
+  const editor = page.locator('#diaryRoot [data-diary-editor]');
+  const group = editor.locator('.ed-tools [data-ed-cmd="gInsert"]');
+  await expect(group).toBeVisible();
+  await group.click();
+  await expect(editor.getByRole('button', { name: '파일 넣기', exact: true })).toHaveCount(0);
+  await pickAndBack(page, editor.getByRole('button', { name: '사진 넣기', exact: true }));
   expect(await current(page)).toBe('diary');
   await expect(pad(page)).toBeHidden();
   await expect(diaryText(page)).toHaveText('쓰던 글 그대로');
@@ -155,8 +158,9 @@ test('노트 폴더 잠금: 잠긴 폴더 노트를 고치다 고르기 창을 �
   await field.click(); await page.keyboard.press('Control+End'); await page.keyboard.type(' 더 쓴 글');
   await expect(field).toContainText('더 쓴 글');
   const group = box.locator('[data-ed-cmd="gInsert"]');
-  if (await group.isVisible()) await group.click();
-  await pickAndBack(page, page.getByRole('button', { name: '파일 넣기', exact: true }));
+  await expect(group).toBeVisible();
+  await group.click();
+  await pickAndBack(page, box.getByRole('button', { name: '파일 넣기', exact: true }));
   expect(await current(page)).toBe('basket');
   await expect(field).toContainText('더 쓴 글');
   // 다른 앱으로 가면 다시 잠긴다 — 고치던 노트는 버리지 않고 잠금 화면 뒤로.
