@@ -76,21 +76,29 @@ test('owner: one call, full text sent without phone/ID numbers, topic·org·name
   const h=harness({openai:()=>respond(answer({...good,organization_ref:'o1'}))});
   const res=await post(h.handler,req(1));
   assert.equal(res.status,200);const body=await res.json();
-  assert.deepEqual(body,{ok:true,kind:'call_refill',id:id(1),title:'임금교섭 3차 일정 협의',counterpart:'가 지부 홍길동 지부장',organization_id:ORG_A});
+  // S67-47 ORG-근거만: 전문에서 AI가 조직을 골라도(o1) 붙이지 않는다 — 연결은 지금 값(없음) 그대로, 상대는 이름·직함만.
+  assert.deepEqual(body,{ok:true,kind:'call_refill',id:id(1),title:'임금교섭 3차 일정 협의',counterpart:'홍길동 지부장',organization_id:null});
   assert.equal(h.calls.openai.length,1);
   const o=h.calls.openai[0],material=o.input[1].content,sent=JSON.parse(material);
   assert.equal(o.store,false);assert.equal(o.tools,undefined);assert.equal(o.text.format.name,'call_refill');assert.equal(o.text.format.strict,true);
   assert.ok(sent.call.text.includes('홍길동 지부장입니다'),'full text, not only the summary');
   for(const hidden of ['010-1234-5678','900101-1234567','1234567',OWNER,WS,ORG_A,'남의 조직','쓰지 않는 조직'])assert.ok(!material.includes(hidden),hidden+' must not be sent');
-  assert.deepEqual(sent.organizations,[{ref:'o1',name:'가 지부'}]);
+  assert.deepEqual(sent.organizations,[],'조직 목록은 보내지 않는다(내용으로 상대 조직을 짐작하지 않음)');
   // Saved only through app_call_work_info (no direct PATCH); summary·points·raw_text stay.
-  assert.deepEqual(h.calls.rpc,[{p_id:id(1),p_title:'임금교섭 3차 일정 협의',p_counterpart:'가 지부 홍길동 지부장',p_organization_id:ORG_A}]);
+  assert.deepEqual(h.calls.rpc,[{p_id:id(1),p_title:'임금교섭 3차 일정 협의',p_counterpart:'홍길동 지부장',p_organization_id:null}]);
   assert.ok(h.calls.rest.every(c=>c.method==='GET'||c.table==='app_ai_daily_usage'||c.table==='rpc/app_call_work_info'));
   const row=h.db.app_feed_items[0];
   assert.equal(row.summary,'요약 문장');assert.deepEqual(row.points,['핵심 하나']);assert.ok(row.raw_text.includes('임금교섭'));assert.ok(row.refilled_at);
   assert.match(h.calls.rest.find(c=>c.table==='app_feed_items').query,/[?&]source=eq\.call&/);
   assert.equal(h.db.app_ai_daily_usage[0].requests,1);assert.equal(h.db.app_ai_daily_usage[0].input_tokens,3000);
   assert.ok(!/홍길동|임금교섭|가 지부/.test(JSON.stringify(h.calls.logs)),'no call text in logs');
+});
+
+test('S67-47: a call already linked (by a person or by the contact) keeps its org; the counterpart gets that org, not the AI pick',async()=>{
+  const h=harness({feed:[callRow(1,{organization_id:ORG_A})],openai:()=>respond(answer({...good,organization_ref:'o9'}))});
+  const b=await (await post(h.handler,req(1))).json();
+  assert.equal(b.organization_id,ORG_A);assert.equal(b.counterpart,'가 지부 홍길동 지부장');
+  assert.deepEqual(h.calls.rpc[0],{p_id:id(1),p_title:'임금교섭 3차 일정 협의',p_counterpart:'가 지부 홍길동 지부장',p_organization_id:ORG_A});
 });
 
 test('the AI answer is checked again: unknown org ref, non-names and personal numbers are dropped; a bad topic saves nothing; empty fields keep the old values',async()=>{

@@ -80,6 +80,14 @@ export async function readRoomDay(room, day, rt = window.KPTURuntime) {
   if (!Array.isArray(items)) throw Error('목록을 확인하지 못했어요.');
   return {items:items.filter(r => r?.id && r.workspace_id === ws && r.source === 'telegram'), parts:Array.isArray(days) ? (days[0]?.parts ?? []) : null};
 }
+// S67-45 방 상세 찾기: 그 방의 지우지 않은 소식 가운데 원문·요약·제목에 글자가 든 것(최근 먼저, limit개). filter는 tg-room-view-model.mjs roomFindFilter.
+// 읽기는 소유자 읽기 표(RLS) 그대로이고 새 서버 함수는 없다. from = 불러올 수 있는 가장 옛 날(그보다 옛 소식은 방 상세에 펼칠 수 없음).
+export async function readRoomFind(room, filter, from, limit = 20, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt);
+  const rows = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&room_key=eq.${encode(room)}&hidden_at=is.null&day=gte.${encode(from)}&or=${encode(filter)}&select=id,workspace_id,source,day,occurred_at,room_key,title,summary,raw_text&order=occurred_at.desc,id.desc&limit=${Number(limit) || 20}`);
+  if (!Array.isArray(rows)) throw Error('찾지 못했어요.');
+  return rows.filter(r => r?.id && r.workspace_id === ws && r.source === 'telegram' && r.room_key === room && r.day >= from);
+}
 // 요약이 없는 날의 소식 제목 재료(방·날 줄 글이 빈 날만). days: 날짜 배열(14개씩 나눠 부름).
 export async function readTitleRows(days, rt = window.KPTURuntime) {
   const ws = workspaceOf(rt), out = [];

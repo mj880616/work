@@ -229,8 +229,10 @@ test('크기·형식 상한: 너무 큰 몸통·전사본, 깨진 JSON, 잘못�
 
 // ---- 통화 ---------------------------------------------------------------------------------------------------------
 
+// S67-47 ORG-근거만: 조직 연결의 근거는 전사 파일 이름의 연락처 이름뿐이다(아래 시험들은 연락처에 조직 약칭을 넣은 통화로 연결을 본다).
+const ORG_TXT='통화 가상노조 홍길동_261024_093000.txt';
 test('통화 업무: AI 없이 분석 파일만 읽어 저장(제목·점·상대·조직·전문), 필요한 절만 가져온다',async()=>{
-  const h=harness();const r=await h.send('call',callBody());
+  const h=harness();const r=await h.send('call',callBody({txt:ORG_TXT}));
   assert.deepEqual(await r.json(),{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false,boxed:0});
   assert.equal(h.calls.openai.length,0,'통화는 AI를 부르지 않는다');
   const row=h.db.app_feed_items[0];
@@ -246,11 +248,11 @@ test('통화 업무: AI 없이 분석 파일만 읽어 저장(제목·점·상�
 });
 
 test('TRASH-Edge거르기2: 휴지통에 든 담당조직에는 통화 소식을 붙이지 않는다(서버 키는 RLS를 건너뛰므로 deleted_at을 직접 거른다)',async()=>{
-  const live=harness();await live.send('call',callBody());
+  const live=harness();await live.send('call',callBody({txt:ORG_TXT}));
   assert.equal(live.db.app_feed_items[0].organization_id,ORG,'휴지통이 아니면 그대로 붙는다');
   const h=harness();
   h.db.app_suborganizations.find(r=>r.id===ORG).deleted_at='2026-10-25T01:00:00Z';
-  const r=await h.send('call',callBody());
+  const r=await h.send('call',callBody({txt:ORG_TXT}));
   assert.equal((await r.json()).kept,1);
   const row=h.db.app_feed_items[0];
   assert.equal(row.organization_id,null,'휴지통 조직 id는 저장하지 않는다');
@@ -355,39 +357,69 @@ test('CALL-개인통화함 2단계: 개인 통화함 저장 경로는 개인 표
   assert.ok(!/(patch|delete)\([^)]*app_call_personal/.test(src),'개인 표를 고치거나 지우지 않는다');
 });
 
-test('v3.2 업무: 제목은 call_title, 조직은 related_organizations(담당조직 하나와 확실히 맞을 때만), 상대는 머리 줄·제목에서 확실할 때만',()=>{
+test('v3.2 업무(S67-47 ORG-근거만): 제목은 call_title, 조직 연결은 연락처 이름이 가리킬 때만, 분석이 고른 조직은 연결·상대·제목 앞에 쓰지 않는다',()=>{
   const orgs=[{id:ORG,name:'가상노동조합',aliases:['가상노조']},{id:ORG2,name:'예시지부',aliases:[]}];
   const p=(o,tr='')=>parseCall({ref:'SRCFAKE0001aa',analysis_md:analysis(o),transcript:tr},orgs,NOW);
+  // 연락처에 조직 근거가 없으면: related_organizations·제목·상대에 조직이 있어도 연결하지 않고, 상대·제목 앞의 조직 낱말을 뺀다
   const base=p({});
-  assert.equal(base.kind,'business');assert.equal(base.title,'가상노조 위원장 · 3차 교섭 일정 변경');
-  assert.equal(base.counterpart,'가상노동조합 홍길동 위원장');assert.equal(base.organization_id,ORG);
+  assert.equal(base.kind,'business');assert.equal(base.title,'위원장 · 3차 교섭 일정 변경');
+  assert.equal(base.counterpart,'홍길동 위원장');assert.equal(base.organization_id,null);
   assert.deepEqual(base.points,['3차 교섭을 10. 28.(화) 14:00로 미루기로 함.','사측 안은 서면으로 받기로 함.','[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지 (상대가 할 일)']);
   assert.equal(base.speaker_split,false);
-  // related_organizations가 다른 담당조직이면 그것이 조직 연결 후보
-  assert.equal(p({related:'["예시지부"]'}).organization_id,ORG2);
-  // 두 조직에 걸치면 상대 글에서 맞춘 조직(제목의 가상노조)
-  assert.equal(p({related:'["예시지부", "가상노동조합"]'}).organization_id,ORG);
-  // 모르는 조직·깨진 목록·빈 목록이면 제목·상대에서만
+  // 연락처 이름(전사 파일 이름)에 조직 약칭이 있으면 그 조직: 제목·상대가 같은 조직이면 그대로
+  const ok=p({txt:'통화 가상노조 홍길동_261024_093000.txt'});
+  assert.equal(ok.title,'가상노조 위원장 · 3차 교섭 일정 변경');assert.equal(ok.counterpart,'가상노동조합 홍길동 위원장');assert.equal(ok.organization_id,ORG);
+  // 분석이 다른 조직을 골라도(related·제목) 연락처가 가리키는 조직이 이긴다: 제목 앞 조직 낱말은 근거 조직으로 바뀐다
+  const other=p({txt:'통화 예시지부 홍길동_261024_093000.txt',related:'["가상노동조합"]'});
+  assert.equal(other.organization_id,ORG2);assert.equal(other.title,'예시지부 위원장 · 3차 교섭 일정 변경');assert.equal(other.counterpart,'예시지부 홍길동 위원장');
+  // 연락처가 두 조직을 다 가리키거나, 번호만 있으면 근거 없음
+  assert.equal(p({txt:'통화 가상노조 예시지부_261024_093000.txt'}).organization_id,null);
+  assert.equal(p({txt:'통화 010-0000-0000_261024_093000.txt'}).organization_id,null);
+  // 제목 주제(끝 조각)·한 조각 제목은 내용이라 건드리지 않는다
+  assert.equal(p({title:'예시지부 파업 소식 공유'}).title,'예시지부 파업 소식 공유');
+  assert.equal(p({title:'김가상 국장 · 예시지부 파업 소식'}).title,'김가상 국장 · 예시지부 파업 소식');
+  // 모르는 조직·깨진 목록이면 그대로 연결 없음
   assert.equal(p({related:'["모르는노조"]',title:'모르는노조 위원장 · 교섭',head:''}).organization_id,null);
   assert.equal(p({related:'[깨짐',title:'교섭 일정',head:''}).organization_id,null);
-  // 상대 머리 줄이 없으면 call_title에서 확실할 때만(담당조직 + 사람 글)
-  const t=p({head:''});assert.equal(t.counterpart,'가상노동조합 위원장');
+  // 상대 머리 줄이 없으면 call_title에서(사람 글만, 조직은 근거가 있을 때만)
+  assert.equal(p({head:''}).counterpart,'위원장');
+  assert.equal(p({head:'',txt:'통화 가상노조 홍길동_261024_093000.txt'}).counterpart,'가상노동조합 위원장');
   assert.equal(p({head:'',title:'교섭 일정 정리'}).counterpart,null,'조직 · 사람 · 주제 모양이 아니면 비운다');
   assert.equal(p({head:'',title:'모르는노조 위원장 · 교섭'}).counterpart,null,'담당조직과 맞지 않으면 비운다');
   assert.equal(p({head:'',title:'가상노조 · 교섭'}).counterpart,null,'사람 글이 없으면 비운다');
   // 머리 줄이 '확인필요'·주체 확인필요 예이면 쓰지 않고 제목으로
-  assert.equal(p({head:'- 상대 이름: 확인필요\n- 상대 직책: 확인필요'}).counterpart,'가상노동조합 위원장');
+  assert.equal(p({head:'- 상대 이름: 확인필요\n- 상대 직책: 확인필요'}).counterpart,'위원장');
   assert.equal(p({head:'- 상대 이름: 김가상\n- 상대 직책: 국장\n- 주체 확인필요: 예',title:'교섭 일정'}).counterpart,null);
-  // 직책이 제목과 다르면 제목 조직을 붙이지 않는다
   assert.equal(p({head:'- 상대 이름: 김가상\n- 상대 직책: 국장'}).counterpart,'김가상 국장');
-  // 옛 모양 `## 상대 이름·직책` 절이 있으면 그것(소속 칸 포함)
-  assert.equal(p({head:'',counterpart:'- 이름: 박가상\n- 직책: 지부장\n- 소속: 예시지부',related:'[]'}).counterpart,'예시지부 박가상 지부장');
+  // 옛 모양 `## 상대 이름·직책` 절의 소속도 분석이 쓴 것: 연결·표기에 쓰지 않는다(연락처가 같은 조직을 가리키면 붙는다)
+  const sec=p({head:'',counterpart:'- 이름: 박가상\n- 직책: 지부장\n- 소속: 예시지부',related:'[]'});
+  assert.equal(sec.counterpart,'박가상 지부장');assert.equal(sec.organization_id,null);
+  assert.equal(p({head:'',counterpart:'- 이름: 박가상\n- 직책: 지부장\n- 소속: 예시지부',related:'[]',txt:'통화 예시지부 박가상_261024_093000.txt'}).counterpart,'예시지부 박가상 지부장');
   // 핵심요약이 "없음" 문구면 점은 후보에서만, 제목은 call_title
   const empty=p({summary:'- 장기적으로 남길 핵심요약 없음'});assert.equal(empty.kind,'business');
   assert.deepEqual(empty.points,['[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지 (상대가 할 일)']);
-  // 화자 구분이 없는 전사는 한 문단 그대로
   assert.equal(p({},'네 위원장님 교섭 일정 건으로 전화드렸습니다').speaker_split,false);
   assert.equal(p({},'나: 교섭 건입니다\n가상노동조합 홍길동 위원장: 네').speaker_split,true);
+});
+
+test('S67-47: 다른 조직 사람과 통화하며 이 조직 파업 이야기를 해도(분석이 그 조직을 골라도) 연락처 근거 없이는 그 조직으로 확정하지 않는다',()=>{
+  const orgs=[{id:ORG,name:'가상철도지부',aliases:['가철']},{id:ORG2,name:'예시광역노조',aliases:[]}];
+  const p=(o)=>parseCall({ref:'SRCFAKE0001aa',analysis_md:analysis({version:'3.3',title:'가상철도지부 위원장 · 파업 일정과 쟁의 준비 논의',related:'["가상철도지부"]',head:'',
+    summary:'- 가상철도지부 파업 일정과 쟁의행위 준비 상황을 이야기함.',...o}),transcript:'화자1: 가철 파업 일정 들으셨어요\n화자2: 네'},orgs,NOW);
+  const r=p({extraFront:['speaker_labels: {"화자1": "나", "화자2": "가상철도지부 김가상 위원장"}','counterparty_name: "김가상"','counterparty_title: "위원장"','counterparty_organization: "가상철도지부"'].join('\n'),
+    txt:'통화 김가상 위원장_261024_093000.txt'});
+  assert.equal(r.organization_id,null,'연락처에 조직이 없으면 비워 두고 사람이 고른다');
+  assert.equal(r.title,'위원장 · 파업 일정과 쟁의 준비 논의','제목 앞의 짐작한 조직을 뺀다');
+  assert.equal(r.counterpart,'김가상 위원장');
+  assert.equal(r.raw_text.split('\n')[1],'김가상 위원장: 네','화자 이름표의 짐작한 조직도 뺀다');
+  assert.ok(r.points[0].includes('가상철도지부'),'요약 내용(다룬 조직)은 그대로 둔다');
+  // 연락처가 다른 조직(예시광역노조)을 가리키면 그 조직으로 연결하고 제목·상대·이름표도 그 조직으로
+  const g=p({extraFront:['speaker_labels: {"화자1": "나", "화자2": "가상철도지부 김가상 위원장"}','counterparty_name: "김가상"','counterparty_title: "위원장"','counterparty_organization: "가상철도지부"'].join('\n'),
+    txt:'통화 예시광역노조 김가상_261024_093000.txt'});
+  assert.equal(g.organization_id,ORG2);assert.equal(g.title,'예시광역노조 위원장 · 파업 일정과 쟁의 준비 논의');
+  assert.equal(g.counterpart,'예시광역노조 김가상 위원장');assert.equal(g.raw_text.split('\n')[1],'예시광역노조 김가상 위원장: 네');
+  // 연락처 약칭(두 글자)도 낱말로 맞으면 근거가 된다
+  assert.equal(p({txt:'통화 가철 김가상_261024_093000.txt'}).organization_id,ORG);
 });
 
 test('CALL-통화v3.3: 화자 이름표·상대 칸·애매 통화, 옛 3.1·3.2 파일 호환(지어낸 이름)',()=>{
@@ -397,15 +429,18 @@ test('CALL-통화v3.3: 화자 이름표·상대 칸·애매 통화, 옛 3.1·3.2
   // 3.3 표본: 이름표 적용, 상대 칸이 추정보다 우선, 소속이 담당조직 이름과 맞으면 조직 연결 후보
   const v33=p({version:'3.3',extraFront:['speaker_labels: {"화자1": "나", "화자2": "예시지부 김가상 지부장"}','counterparty_name: "김가상"','counterparty_title: "지부장"','counterparty_organization: "예시지부"'].join('\n'),related:null},TR);
   assert.equal(v33.kind,'business');
-  assert.equal(v33.raw_text,'나: 안녕하세요 교섭 건입니다\n예시지부 김가상 지부장: 네 말씀하세요\n나: 감사합니다');
+  assert.equal(v33.raw_text,'나: 안녕하세요 교섭 건입니다\n김가상 지부장: 네 말씀하세요\n나: 감사합니다','연락처 근거 없는 소속은 이름표에서 뺀다');
   assert.equal(v33.speaker_split,true);
-  assert.equal(v33.counterpart,'예시지부 김가상 지부장');assert.equal(v33.organization_id,ORG2);
-  // 소속이 담당조직과 맞지 않으면 글로만 표시하고 조직은 연결하지 않는다
+  assert.equal(v33.counterpart,'김가상 지부장');assert.equal(v33.organization_id,null);
+  // 연락처가 같은 조직을 가리키면 소속·연결이 붙는다
+  const v33c=p({version:'3.3',txt:'통화 예시지부 김가상_261024_093000.txt',extraFront:['speaker_labels: {"화자1": "나", "화자2": "예시지부 김가상 지부장"}','counterparty_name: "김가상"','counterparty_title: "지부장"','counterparty_organization: "예시지부"'].join('\n'),related:null},TR);
+  assert.equal(v33c.raw_text.split('\n')[1],'예시지부 김가상 지부장: 네 말씀하세요');assert.equal(v33c.counterpart,'예시지부 김가상 지부장');assert.equal(v33c.organization_id,ORG2);
+  // 분석이 쓴 소속(담당조직 밖 글 포함)은 연락처 근거가 없으면 표기·연결에 쓰지 않는다
   const noOrg=p({version:'3.3',extraFront:'counterparty_name: "이가상"\ncounterparty_title: "국장"\ncounterparty_organization: "모르는기관"',related:null,head:'',title:'교섭 일정'});
-  assert.equal(noOrg.counterpart,'모르는기관 이가상 국장');assert.equal(noOrg.organization_id,null);
-  // 소속만 있고 이름이 없으면 상대 글은 비우고 조직만(담당조직과 맞을 때)
+  assert.equal(noOrg.counterpart,'이가상 국장');assert.equal(noOrg.organization_id,null);
+  // 소속만 있고 이름이 없으면 상대 글은 비우고, 조직도 근거가 없으니 비운다
   const orgOnly=p({version:'3.3',extraFront:'counterparty_name: ""\ncounterparty_title: ""\ncounterparty_organization: "가상노조"',related:null,head:'',title:'교섭 일정'});
-  assert.equal(orgOnly.counterpart,null);assert.equal(orgOnly.organization_id,ORG);
+  assert.equal(orgOnly.counterpart,null);assert.equal(orgOnly.organization_id,null);
   // 이름표 값이 "상대"·""·칸 없음이면: "상대"는 그대로, 비었거나 없으면 화자N 그대로
   const partial=p({version:'3.3',extraFront:'speaker_labels: {"화자1": "나", "화자2": ""}'},TR);
   assert.equal(partial.raw_text,'나: 안녕하세요 교섭 건입니다\n화자2: 네 말씀하세요\n나: 감사합니다');
@@ -416,7 +451,7 @@ test('CALL-통화v3.3: 화자 이름표·상대 칸·애매 통화, 옛 3.1·3.2
   assert.equal(applySpeakerLabels('화자1: 가\n화자2: 나',speakerLabelsOf('{"화자1": "홍: 길동", "화자2": "예시 김가상"}')),'홍 길동: 가\n예시 김가상: 나');
   // 3.1·3.2 표본: 새 칸이 없어도 그대로(전사에 화자N이 있어도 바꾸지 않음), 상대는 기존 방식
   const v32=p({version:'3.2'},TR);
-  assert.equal(v32.kind,'business');assert.equal(v32.raw_text,TR);assert.equal(v32.counterpart,'가상노동조합 홍길동 위원장');assert.equal(v32.organization_id,ORG);
+  assert.equal(v32.kind,'business');assert.equal(v32.raw_text,TR);assert.equal(v32.counterpart,'홍길동 위원장');assert.equal(v32.organization_id,null);
   const v31=p({version:'3.1',work:null,related:null,title:null,head:''},TR);
   assert.equal(v31.kind,'unsure');
   // 애매 표본: is_work_related "" + status "애매" → 개수만(unsure). 업무로 읽지 않는다
@@ -482,6 +517,20 @@ test('제목 없음(call_title 칸 없는 파일)이면 핵심요약 첫 문장,
 
 // ---- 텔레그램 -----------------------------------------------------------------------------------------------------
 
+test('S67-47 텔레그램 담당조직: 방 이름·근거 메시지에 그 조직 이름·약칭이 있을 때만 남기고, 없으면 비운다(다른 조직 이름만 나와도 비움)',async()=>{
+  const room=harness();await room.send('telegram',tgBody({room_label:'가상노조 업무방'}));
+  assert.equal(room.db.app_feed_items[0].organization_id,ORG,'방 이름의 약칭이 근거');
+  const msg=harness({openai:[()=>respond(openaiOk([{title:'교섭 일정 변경',summary:'가상노동조합 교섭이 미뤄졌다.',refs:['m1','m2'],organization:'o1',project:''}]))]});
+  const body=tgBody();body.messages[0].text='가상노동조합 교섭이 다음 주로 미뤄졌습니다';
+  await msg.send('telegram',body);
+  assert.equal(msg.db.app_feed_items[0].organization_id,ORG,'근거 메시지의 정식 이름이 근거');
+  const other=harness({openai:[()=>respond(openaiOk([{title:'교섭',summary:'예시지부 교섭 소식.',refs:['m1'],organization:'o1',project:''}]))]});
+  const b2=tgBody();b2.messages[0].text='예시지부 교섭이 다음 주로 미뤄졌습니다';
+  await other.send('telegram',b2);
+  assert.equal(other.db.app_feed_items[0].organization_id,null,'다른 조직 이름만 있으면 AI가 고른 조직을 붙이지 않는다');
+  assert.ok(other.calls.logs.some(l=>l.includes('telegram_org_unevidenced')),'개수만 기록');
+});
+
 test('텔레그램: 묶음마다 AI 한 번, 고른 소식만 저장(요약·근거 원문·조직·추천 프로젝트), 하루 숫자·AI 사용량 기록',async()=>{
   const h=harness();const r=await h.send('telegram',tgBody());
   assert.deepEqual(await r.json(),{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false,boxed:0});
@@ -495,7 +544,8 @@ test('텔레그램: 묶음마다 AI 한 번, 고른 소식만 저장(요약·근
   assert.equal(row.source,'telegram');assert.equal(row.room_key,'room-fake-1');assert.equal(row.room_label,'가상 업무방');
   assert.equal(row.summary,'가상지부 교섭이 다음 주 화요일로 미뤄졌다.');assert.equal(row.title,'교섭 일정 변경');
   assert.equal(row.raw_count,2);assert.match(row.raw_text,/^09:10 A: 가상지부/);assert.doesNotMatch(row.raw_text,/넵 ㅎㅎ/,'버린 메시지는 저장하지 않는다');
-  assert.equal(row.organization_id,ORG);assert.equal(row.suggested_project_id,PROJECT);assert.match(row.source_ref,/^tg:[0-9a-f]{32}:1$/);
+  // S67-47 ORG-근거만: 근거 메시지·방 이름에 '가상노동조합'·'가상노조'가 없어(가상지부만 나옴) AI가 고른 조직은 비운다.
+  assert.equal(row.organization_id,null);assert.equal(row.suggested_project_id,PROJECT);assert.match(row.source_ref,/^tg:[0-9a-f]{32}:1$/);
   const d=h.day(TODAY,'telegram');
   assert.equal(d.total_count,5);assert.equal(d.kept_count,1);assert.equal(d.room_count,1);assert.equal(d.batch_count,1);
   assert.equal(d.ai_requests,1);assert.equal(d.ai_input_tokens,5000);assert.equal(d.ai_output_tokens,600);

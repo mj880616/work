@@ -1,0 +1,21 @@
+/* NOTE-달력보기(S67-42): 달 하나 달력 칸의 공용 모양 — 사업 관리 [달력](report-views.js, #meetingList)과 노트 [달력](note-calendar.mjs, #noteRows)이 같이 쓴다.
+   meeting-ui.css에서 옮겨 왔다(값은 그대로). 이 파일은 meeting-ui.css보다 먼저 불러, 사업 보고 PC 칸 높이 같은 덮어쓰기는 meeting-ui.css가 그대로 맡는다.
+   오늘 네모·고른 날 동그라미는 앱 공용 표시(ui-standard.css .ds-today·.ds-day-sel·.ds-day-num). */
+:is(#meetingList,#noteRows) .rv-day-title{margin:0;padding:6px 2px 4px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}
+:is(#meetingList,#noteRows) .rv-cal-head{display:flex;align-items:center;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}
+:is(#meetingList,#noteRows) .rv-cal-title{flex:1 1 auto;min-width:0;font-size:var(--ds-text-row,13px)}
+:is(#meetingList,#noteRows) .rv-nav{flex:none;min-width:32px;height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px)}
+:is(#meetingList,#noteRows) .rv-nav:hover{background:var(--kptu-surface-subtle)}
+:is(#meetingList,#noteRows) .rv-table{width:100%;table-layout:fixed;border-collapse:collapse}
+:is(#meetingList,#noteRows) .rv-table th{padding:2px 0;font-size:var(--kptu-text-meta);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted);text-align:center}
+:is(#meetingList,#noteRows) .rv-table .rv-sun{color:var(--kptu-danger)}
+:is(#meetingList,#noteRows) .rv-table .rv-sat{color:var(--kptu-primary-ink)}
+:is(#meetingList,#noteRows) .rv-cell{height:56px;padding:2px;vertical-align:top;border:var(--ds-line-width,.5px) solid var(--kptu-border);overflow:hidden}
+:is(#meetingList,#noteRows) .rv-out{background:var(--kptu-surface-subtle)}
+/* S57-8 BIZ-달력우클릭끌기 ④: 칸 전체가 눌린다(숫자·점·빈 곳·+n). 올려 보는 바탕은 고른 날(.ds-day-sel)이 아닐 때만. */
+:is(#meetingList .rv-cell[data-rv-cell],#noteRows .rv-cell[data-nt-cal-cell]){cursor:pointer}
+@media(hover:hover){:is(#meetingList .rv-cell[data-rv-cell],#noteRows .rv-cell[data-nt-cal-cell]):not(.ds-day-sel):hover{background:var(--kptu-surface-subtle)}}
+/* 날짜 숫자는 숫자만큼의 작은 동그라미 상자(22px): 고른 날 채운 동그라미(ui-standard.css .ds-day-num)가 칸 폭 전체로 번지지 않게 폭은 글자만큼. */
+:is(#meetingList,#noteRows) .rv-num{display:block;box-sizing:border-box;width:fit-content;min-width:22px;height:22px;margin:0;padding:0 4px;border:0;border-radius:var(--kptu-radius-pill);background:none;color:var(--kptu-ink);font-size:var(--kptu-text-meta);line-height:22px;text-align:center}
+:is(#meetingList,#noteRows) .rv-num-out{color:var(--kptu-faint)}
+:is(#meetingList,#noteRows) .rv-day-list{margin-top:var(--kptu-space-2)}

@@ -12,6 +12,9 @@ import { chevHtml } from './fold-chevron.mjs';
 import { renameHostAttrs, renameButtonHtml, renameMenuAttrs, applyRenamed } from './file-rename.js';
 import { menuItemsHtml, fileAttrs } from './file-actions.js';
 import { bindPhotoTileMenus } from './photo-fold.js';
+import {partStyles} from './part-styles.js';
+// S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
+await partStyles('record-files');
 
 const SHOWN = 6;
 const PHOTO = /^image\/(jpeg|png|webp|gif)$/i;
