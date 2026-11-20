@@ -38,17 +38,26 @@ export const PART_STYLES = Object.freeze({
 const browser = () => typeof window !== 'undefined' && typeof document !== 'undefined' && !!document.head
   && typeof HTMLLinkElement === 'function' && typeof location !== 'undefined';
 let loader = null;
+// 불러오기 도구(view-loader.js)는 앱 껍데기가 첫 화면 전에 붙인다. 여기서 그 파일을 import하지 않는다(빌드 해시 계산에 순환이 생김).
+// 아직 없으면 붙었다는 알림(kptu:view-loader-installed)을 기다린다(3초 한도). 앱 껍데기 밖(시험 틀 화면 등)에서는 기다리지 않는다.
 function viewLoader() {
   if (window.KPTUViewLoader?.style) return Promise.resolve(window.KPTUViewLoader);
-  return loader ||= import('./view-loader.js').then(() => window.KPTUViewLoader).catch(() => null);
+  if (!window.__KPTU_APP_SCRIPT_URL__) return Promise.resolve(null);
+  return loader ||= new Promise(resolve => {
+    const done = () => resolve(window.KPTUViewLoader?.style ? window.KPTUViewLoader : null);
+    window.addEventListener('kptu:view-loader-installed', done, {once: true});
+    setTimeout(done, 3000);
+  });
 }
+// 표의 경로는 이 파일 기준(앱 폴더)이다. 화면 주소가 다른 폴더여도 같은 파일을 가리키게 절대 주소로 넘긴다.
+const absolute = path => new URL(path, import.meta.url).href;
 const sameFile = (a, b) => { const x = new URL(a, location.href), y = new URL(b, location.href); return x.origin === y.origin && x.pathname === y.pathname; };
 
 /** 그 부품의 모양 파일이 모두 붙어 있으면 true(여는 함수가 기다릴지 고를 때). 시험 환경은 늘 true. */
 export function partStylesReady(name) {
   if (!browser()) return true;
   const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
-  return (PART_STYLES[name] || []).every(path => links.some(link => sameFile(link.href, path) && link.sheet));
+  return (PART_STYLES[name] || []).every(path => links.some(link => sameFile(link.href, absolute(path)) && link.sheet));
 }
 
 /** 그 부품의 모양 파일을 부르고, 다 붙으면(실패해도) 풀린다. 표에 없는 이름은 곧바로 풀린다. */
@@ -57,6 +66,6 @@ export async function partStyles(name) {
   if (!paths?.length || !browser()) return true;
   const L = await viewLoader();
   if (!L?.style) return false;
-  const done = await Promise.all(paths.map(path => L.style(path)));
+  const done = await Promise.all(paths.map(path => L.style(absolute(path))));
   return done.every(Boolean);
 }

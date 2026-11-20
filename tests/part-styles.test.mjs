@@ -137,7 +137,8 @@ function routeModules() {
   for (const part of parts) { const m = part.match(/^async function (\w+)\(\)/); if (m) bodies[m[1]] = part.split(/\n(?:const |function |\/\/)/)[0]; }
   const map = src.match(/const loaders=\{([^}]*)\}/)[1].split(',').map(x => x.split(':').map(y => y.trim()));
   for (const [route, fn = route] of map) {
-    const body = bodies[fn || route] || '';
+    // background(...) 줄은 첫 화면을 보인 뒤 받는 묶음이라 뺀다(그때 부품이 스스로 모양을 붙이고, 화면을 기다리게 하지 않음).
+    const body = (bodies[fn || route] || '').split('\n').filter(line => !/^\s*background\(/.test(line)).join('\n');
     const mods = [...body.matchAll(/module\('\.\/([\w.-]+\.m?js)'/g)].map(m => m[1]);
     if (body.includes('organizationOrder()')) mods.push('organization-order.js');
     if (body.includes('projectCatalog()')) mods.push('project-catalog.js');
@@ -147,7 +148,7 @@ function routeModules() {
 }
 test('화면마다: 첫 프로그램 사슬에 든 공용 부품의 모양 파일이 그 화면 모양 목록에 있다(첫 화면이 모양 받기를 따로 기다리지 않게)', () => {
   const routes = routeModules();
-  assert.ok(routes.brief.includes('brief-room.js') && routes.calendar.includes('google-tasks.js'), '화면 첫 프로그램 계산이 틀림');
+  assert.ok(routes.brief.includes('brief-room.js') && routes.tasks.includes('google-tasks.js') && !routes.calendar.includes('google-tasks.js'), '화면 첫 프로그램 계산이 틀림');
   const missing = [];
   for (const [route, mods] of Object.entries(routes)) {
     const chain = new Set([...mods, ...chainOf(mods)]);
@@ -156,8 +157,7 @@ test('화면마다: 첫 프로그램 사슬에 든 공용 부품의 모양 파�
       for (const path of list) if (!(routeStyles[route] || []).includes(path.slice(2))) missing.push(`${route}: ${path.slice(2)} (${name})`);
     }
   }
-  assert.deepEqual(missing, [], 'view-loader.js routeStyles에 더한다(ui-standard.css 앞)');
-  for (const list of Object.values(routeStyles)) assert.equal(list.at(-1), 'ui-standard.css', 'ui-standard.css는 맨 끝');
+  assert.deepEqual(missing, [], 'view-loader.js routeStyles 끝(ui-standard.css 뒤)에 더한다');
 });
 
 test('브리핑 룸(첫 신고 화면): 고르기 창 부품의 모양이 화면 목록에 없어도 부품이 붙인다', () => {
