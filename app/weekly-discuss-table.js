@@ -3,6 +3,8 @@
 // 같은 모양·같은 부품·같은 저장(그 주 주간보고 행 draft.discuss, weekly-draft-store.js changeWeekDocs: 다시 읽고 그 칸만 바꿔 조건부 쓰기).
 // 두 자리 — [주간 정리](place 'weekly')와 한글 파일 상자 1. 요청사항(place 'box') — 를 이 모듈 하나가 그린다. 고치기 상태는 자리마다, 자료는 하나.
 // 관련 조직은 내 담당조직(my-organizations.js 규칙)에서 고른다. 브라우저 저장소에 아무것도 두지 않는다(조직 이름 목록은 이 화면 메모리에만).
+// S67-29(요청함 11/20 13:00·13:02): 줄 입력 칸에 [한글 파일 올리기](끌어 놓기도). 원본은 자료실로(discuss-doc.js), 줄에는 연결만(file {id, name}).
+// 올린 문서의 제목·첫 문단은 안건·설명이 비어 있을 때만 채운다(사람이 수정). 한글 파일을 만들면 그 문서 본문이 이 안건 아래에 그대로 들어간다.
 import {changeWeekDocs, withDiscuss, draftDiscuss, withLinePick} from './weekly-draft-store.js';
 import {withDiscussRow, withoutDiscussRow, movedDiscussRow, discussText, cleanDiscussRow, DISCUSS_MAX, DISCUSS_LIMITS} from './weekly-discuss.mjs';
 import {pickMyOrganizations} from './my-organizations.js';
@@ -23,7 +25,9 @@ const TEXT = Object.freeze({
 });
 const encode = encodeURIComponent;
 const places = new Map(); // place → {ui, drag}
-function fresh(start) { return {start, editing:null, draft:{}, saving:false, status:'', error:false, invalid:'', focus:''}; }
+function fresh(start) { return {start, editing:null, draft:{}, saving:false, fileBusy:false, status:'', error:false, invalid:'', focus:''}; }
+const DOC_ACCEPT = '.hwp,.hwpx,application/x-hwp,application/haansofthwp,application/vnd.hancom.hwp,application/hwp+zip,application/vnd.hancom.hwpx';
+const fileDrag = e => Array.from(e.dataTransfer?.types || []).includes('Files');
 
 // 관련 조직 이름(내 담당조직, 가나다순). 작업공간마다 한 번 읽고 화면 메모리에만 둔다. 못 읽으면 빈 목록(고른 이름은 그대로 보임).
 let orgCache = {workspace:'', names:null, flight:null};
@@ -75,7 +79,9 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     const grip = el('button', 'mini journal-hwpx-grip', '⠿'); grip.type = 'button'; grip.dataset.reorderHandle = ''; grip.setAttribute('aria-label', `${row.title} 순서 옮기기(위·아래 화살표)`);
     // WEEKLY-손잡이왼쪽: 줄 맨 왼쪽 ⠿ · 줄 끝 작은 ⋯([고치기]·[빼기]). 고치는 중·저장 중에는 ⋯ 를 그리지 않는다(같은 버튼이 두 곳에 생기지 않게).
     gripCell.append(grip);
-    tr.append(gripCell, th, el('td', 'journal-discuss-note', row.note ?? ''), el('td', 'journal-discuss-org', row.org ?? ''));
+    const noteCell = el('td', 'journal-discuss-note', row.note ?? '');
+    if (row.file) { const f = el('span', 'journal-discuss-doc', `한글 파일: ${row.file.name}`); f.dataset.journalDiscussDoc = row.id; noteCell.append(f); }
+    tr.append(gripCell, th, noteCell, el('td', 'journal-discuss-org', row.org ?? ''));
     if (busy || ui.editing) grip.disabled = true;
     else tools.append(rowMore(doc, {label:`${row.title} 수정·빼기`, data:{journalDiscussMore:row.id}, items:[
       {text:'수정', data:{journalDiscussEdit:row.id}, aria:`${row.title} 수정`},
@@ -95,6 +101,11 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   parts.push(say);
   slot.replaceChildren(...parts);
   slot.onclick = onClick; slot.oninput = onInput; slot.onchange = onInput;
+  // S67-29: 고치는 줄 칸에 한글 파일을 끌어 놓으면 올린다(고치는 줄이 없으면 받지 않음).
+  const formEl = () => slot.querySelector('[data-journal-discuss-form]');
+  slot.ondragover = e => { const f = formEl(); if (!f || !fileDrag(e) || busy || ui.fileBusy) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; f.classList.add('journal-discuss-dropping'); };
+  slot.ondragleave = e => { if (!e.relatedTarget || !slot.contains(e.relatedTarget)) formEl()?.classList.remove('journal-discuss-dropping'); };
+  slot.ondrop = e => { const f = formEl(); if (!f || !fileDrag(e)) return; e.preventDefault(); f.classList.remove('journal-discuss-dropping'); if (busy || ui.fileBusy) return; void takeFiles([...(e.dataTransfer?.files || [])]); };
   if (!ui.editing && !busy) own.drag = mountReorder(slot, {listSelector:'[data-reorder-list="discuss"]', itemSelector:'tr[data-reorder-id]',
     onDrop:({id, index}) => save(list => movedDiscussRow(list, id, index), '순서를 바꿨어요.'),
     onStep:(id, dir) => { const at = rows.findIndex(r => r.id === id); if (at >= 0) save(list => movedDiscussRow(list, id, Math.max(0, at + dir)), '순서를 바꿨어요.', `tr[data-reorder-id="${id}"] [data-reorder-handle]`); }});
@@ -127,15 +138,30 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
     select.value = cur;
     if (busy) select.disabled = true;
     wrap.append(select); form.append(wrap, fields[1]);
+    // S67-29: 한글 파일 한 개(끌어 놓기도). 올리는 동안 [저장]은 기다린다.
+    const docLine = el('div', 'journal-discuss-docline'); docLine.dataset.journalDiscussDocline = '';
+    if (v.file) {
+      const name = el('span', 'journal-discuss-doc', `한글 파일: ${v.file.name}`);
+      const out = btn('빼기', 'journalDiscussFileOut'); out.setAttribute('aria-label', `${v.file.name} 연결 빼기`);
+      if (busy || ui.fileBusy) out.disabled = true;
+      docLine.append(name, out);
+    } else {
+      const pick = btn(ui.fileBusy ? '올리는 중…' : '한글 파일 올리기', 'journalDiscussFilePick'); pick.setAttribute('aria-label', '한글 파일 올리기(.hwp·.hwpx, 여기에 끌어 놓아도 돼요)');
+      if (busy || ui.fileBusy) pick.disabled = true;
+      const input = el('input'); input.type = 'file'; input.accept = DOC_ACCEPT; input.hidden = true; input.dataset.journalDiscussFileInput = ''; input.tabIndex = -1;
+      docLine.append(pick, input, el('span', 'journal-muted journal-discuss-dochint', '끌어 놓아도 돼요'));
+    }
+    form.append(docLine);
     const actions = el('div', 'journal-edit-actions save-row');
     const cancel = btn('취소', 'journalDiscussCancel'), ok = btn('저장', 'journalDiscussSave', 'mini primary');
     actions.append(cancel, ok);
-    if (busy) for (const b of actions.children) b.disabled = true;
+    if (busy || ui.fileBusy) for (const b of actions.children) b.disabled = true;
     form.append(actions); td.append(form); tr.append(td);
     return tr;
   }
   function onInput(event) {
     const t = event.target;
+    if (t.matches?.('[data-journal-discuss-file-input]')) { if (event.type === 'change') { const files = [...(t.files || [])]; t.value = ''; void takeFiles(files); } return; }
     if (!t.matches?.('[data-journal-discuss-field]')) return;
     ui.draft[t.dataset.journalDiscussField] = t.value;
     if (ui.invalid === t.dataset.journalDiscussField) { ui.invalid = ''; t.removeAttribute('aria-invalid'); }
@@ -143,16 +169,41 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
   function onClick(event) {
     const b = event.target.closest?.('button');
     if (!b || !slot.contains(b) || b.disabled) return;
-    if (b.matches('[data-journal-discuss-add]')) { setUi({...fresh(start), editing:'new', draft:{title:'', note:'', org:''}, focus:'[data-journal-discuss-field="title"]'}); redraw(); }
-    else if (b.matches('[data-journal-discuss-edit]')) { const row = rows.find(r => r.id === b.dataset.journalDiscussEdit); if (!row) return; setUi({...fresh(start), editing:row.id, draft:{title:row.title, note:row.note ?? '', org:row.org ?? ''}, focus:'[data-journal-discuss-field="title"]'}); redraw(); }
+    if (b.matches('[data-journal-discuss-add]')) { setUi({...fresh(start), editing:'new', draft:{title:'', note:'', org:'', file:null}, focus:'[data-journal-discuss-field="title"]'}); redraw(); }
+    else if (b.matches('[data-journal-discuss-edit]')) { const row = rows.find(r => r.id === b.dataset.journalDiscussEdit); if (!row) return; setUi({...fresh(start), editing:row.id, draft:{title:row.title, note:row.note ?? '', org:row.org ?? '', file:row.file ?? null}, focus:'[data-journal-discuss-field="title"]'}); redraw(); }
+    else if (b.matches('[data-journal-discuss-file-pick]')) slot.querySelector('[data-journal-discuss-file-input]')?.click();
+    else if (b.matches('[data-journal-discuss-file-out]')) { ui.draft.file = null; ui.status = '한글 파일 연결을 뺐어요. 저장하면 줄에서 빠져요(자료실 원본은 그대로).'; ui.error = false; ui.focus = '[data-journal-discuss-file-pick]'; redraw(); }
     else if (b.matches('[data-journal-discuss-cancel]')) { const id = ui.editing; setUi(fresh(start)); ui.focus = id && id !== 'new' ? `[data-journal-discuss-more="${id}"] > summary` : '[data-journal-discuss-add]'; redraw(); }
     else if (b.matches('[data-journal-discuss-save]')) void saveEdit();
     else if (b.matches('[data-journal-discuss-delete]')) { const id = b.dataset.journalDiscussDelete, row = rows.find(r => r.id === id); void save(list => withoutDiscussRow(list, id), '줄을 뺐어요.', '[data-journal-discuss-add]', row ? [{act:'cut', text:discussText(row)}] : []); }
   }
+  // 한글 파일 받기: 한 개만. 올린 뒤 안건·설명이 비어 있으면 문서 제목·첫 문단으로 채운다. 다른 줄·다른 주로 옮겼으면 결과를 버린다(자료실에는 남음).
+  async function takeFiles(files) {
+    if (!files.length || ui.fileBusy || busy) return;
+    const mine = ui, editing = ui.editing;
+    if (files.length > 1) { ui.status = '한글 파일은 한 개만 붙일 수 있어요.'; ui.error = true; redraw(); return; }
+    const {attachDiscussFile, discussFileProblem, DOC_TEXT} = await import('./discuss-doc.js');
+    const problem = await discussFileProblem(files[0]);
+    if (own.ui !== mine || mine.editing !== editing) return;
+    if (problem) { ui.status = problem; ui.error = true; redraw(); return; }
+    ui.fileBusy = true; ui.status = DOC_TEXT.uploading; ui.error = false; redraw();
+    let r;
+    try { r = await attachDiscussFile(files[0], {rt}); } catch { r = {file:null, message:DOC_TEXT.failed, error:true}; }
+    if (own.ui !== mine || mine.editing !== editing) return;
+    ui.fileBusy = false;
+    if (!r.file) { ui.status = r.message || DOC_TEXT.failed; ui.error = true; redraw(); return; }
+    ui.draft.file = r.file;
+    let filled = false;
+    if (r.preview?.title && !String(ui.draft.title ?? '').trim()) { ui.draft.title = r.preview.title; filled = true; }
+    if (r.preview?.note && !String(ui.draft.note ?? '').trim()) { ui.draft.note = r.preview.note; filled = true; }
+    ui.status = filled ? DOC_TEXT.filled : r.preview ? DOC_TEXT.attached : DOC_TEXT.unread; ui.error = false;
+    ui.focus = '[data-journal-discuss-field="title"]';
+    redraw();
+  }
   async function saveEdit() {
     const id = ui.editing, v = {...ui.draft};
     if (!String(v.title ?? '').trim()) { ui.status = TEXT.noTitle; ui.error = true; ui.invalid = 'title'; ui.focus = '[data-journal-discuss-field="title"]'; redraw(); return; }
-    const fields = {title:v.title, note:v.note, org:v.org};
+    const fields = {title:v.title, note:v.note, org:v.org, file:v.file ?? null};
     const row = id && id !== 'new' ? rows.find(r => r.id === id) : null, now = cleanDiscussRow({id:'x', ...fields});
     const picks = now ? [row ? {act:'fix', text:discussText(now), before:discussText(row)} : {act:'add', text:discussText(now)}] : [];
     await save(list => withDiscussRow(list, {...(id && id !== 'new' ? {id} : {}), ...fields}), '저장했어요.', id && id !== 'new' ? `[data-journal-discuss-more="${id}"] > summary` : '[data-journal-discuss-add]', picks);

@@ -55,7 +55,9 @@ import {dayRowForm} from './weekly-hq-schedule.js'; // S52-31: 5. 주요 일정 
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
 import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, putExtras, draftDocs, draftAreaSummaries, keepDocsOnly, draftExtras, draftHq, draftDiscuss, draftHand, draftOwners, draftSiteLayout, readCarriedLayout, readCarriedPlaces, changeWeekDocs, withTitleEdit, draftDrops, changeWeekCell, withDetailTakes, withRequestTakes} from './weekly-draft-store.js';
-import {discussLines} from './weekly-discuss.mjs';
+import {discussLines, discussFileItems} from './weekly-discuss.mjs';
+import {createEngine} from './hwp-engine.js';
+import {loadDiscussDocs, embedNote} from './discuss-doc.js'; // S67-29: 상집 논의 요청 줄에 붙인 한글 문서를 파일 안에 그대로
 import {rowMore} from './row-more.js';
 import {eventFields, editFrom, titleFields, hqLines, arrangeSites, missingSites, siteHidden, siteShown, siteMoved, layoutSiteData, readSiteLayout, siteKey} from './weekly-schedule-rows.mjs';
 import {sameIssuedLines} from './weekly-lines.mjs';
@@ -136,24 +138,7 @@ const seoulParts = iso => {
 const hm = iso => { const p = seoulParts(iso); return p ? `${p.hour}:${p.minute}` : ''; };
 const mdhm = iso => { const p = seoulParts(iso); return p ? `${p.month}/${p.day} ${p.hour}:${p.minute}` : ''; };
 
-// The hidden sandboxed editor (same engine and frame as the HWP editor), made on first need and removed with the panel.
-function createEngine() {
-  let host = null, flight = null;
-  const ready = () => flight || (flight = (async () => {
-    const {createSandboxedEditor} = await import('./hwp-frame.js');
-    host = document.createElement('div');
-    host.setAttribute('aria-hidden', 'true'); host.inert = true;
-    host.style.cssText = 'position:fixed;left:0;top:0;width:800px;height:600px;opacity:0;pointer-events:none;z-index:-1;overflow:hidden';
-    document.body.append(host);
-    return createSandboxedEditor(host);
-  })().catch(error => { flight = null; host?.remove(); host = null; throw error; }));
-  const run = async (bytes, name, out) => { const editor = await ready(); await editor.loadFile(bytes, name, {skipUnsavedGuard:true}); return out === 'hwp' ? editor.exportHwp() : editor.exportHwpx(); };
-  return {
-    toHwpx: (bytes, name) => run(bytes, name, 'hwpx'),
-    toHwp: bytes => run(bytes, 'draft.hwpx', 'hwp'),
-    close() { const pending = flight; flight = null; pending?.then(editor => { try { editor.destroy(); } catch { /* gone */ } }).catch(() => {}); host?.remove(); host = null; },
-  };
-}
+// The hidden sandboxed editor (same engine and frame as the HWP editor): hwp-engine.js createEngine (상집 논의 요청 문서와 같이 씀).
 
 const HWP_TYPE = 'application/x-hwp', HWPX_TYPE = 'application/hwp+zip';
 function download(bytes, name, type) {
@@ -1087,9 +1072,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const p = body.querySelector('[data-hwpx-hq]');
     if (!p || !state) return;
     const n = hqFileLines().length;
-    const k = discussFileLines().length;
+    const k = discussFileLines().length, docs = (state.discuss ?? []).filter(r => r.file).length;
     const t = titles();
-    p.textContent = `${t.requests}: ${t.hq} ${n ? `${n}줄` : '빈 칸'}, ${t.discuss} ${k ? `${k}줄` : '빈 칸'}을 넣어요(아래 표에서 수정해요). ${isRecordWeek(state.start) ? `${t.atDetails}은 주요 사업 그대로(상세 포함은 결과 본문까지) 넣고, 집회 표는 비워요.` : '세부 내용·집회 표는 비워요.'} 바탕과 다른 줄은 파란 글씨가 돼요.`;
+    p.textContent = `${t.requests}: ${t.hq} ${n ? `${n}줄` : '빈 칸'}, ${t.discuss} ${k ? `${k}줄` : '빈 칸'}${docs ? `(붙인 한글 파일 ${docs}개는 그 안건 아래에 그대로)` : ''}을 넣어요(아래 표에서 수정해요). ${isRecordWeek(state.start) ? `${t.atDetails}은 주요 사업 그대로(상세 포함은 결과 본문까지) 넣고, 집회 표는 비워요.` : '세부 내용·집회 표는 비워요.'} 바탕과 다른 줄은 파란 글씨가 돼요.`;
   }
   // ---- 3. 2) 투쟁 사업장 현황 구성 ----
   const siteRows = s => s.sites.map(r => ({index:r.index, org:r.org}));
@@ -1186,7 +1171,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     const weekRows = !fresh && orgs0.length ? await readWeekLines({rt, workspaceId:rt.context.read()?.workspace?.id, week:s0.start, orgIds:orgs0.map(o => o.id)}).then(r => r.missing ? null : r.rows).catch(() => s0.context.weekRows ?? null) : null;
     if (state !== s0) throw Object.assign(new Error('주가 바뀌었어요. 다시 눌러 주세요.'), {code:'stale'});
     const siteNames = arrangeSites(siteRows(state), state.layout).shown.map(r => r.org); // S52-25: 3장 구성이 바뀌면 다시 만든다
-    const weekKey = (win ? JSON.stringify([[...win.orgs], [...win.sites]]) : weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames) + (bizRows ? JSON.stringify(bizRows) : '') + (det ? JSON.stringify(det.details) : '') + JSON.stringify(placesOf(state) ?? null);
+    // S67-29: 상집 논의 요청 줄에 붙인 한글 문서(자료실 원본) — 줄이 바뀌면 다시 만든다.
+    const weekKey = JSON.stringify(state.discuss ?? []) + (win ? JSON.stringify([[...win.orgs], [...win.sites]]) : weekRows ? JSON.stringify([...weekRows].map(([id, rows]) => [id, weekReportLines(rows)])) : '') + JSON.stringify(siteNames) + (bizRows ? JSON.stringify(bizRows) : '') + (det ? JSON.stringify(det.details) : '') + JSON.stringify(placesOf(state) ?? null);
     if (state.built && state.weekKey === weekKey) return state.built;
     state.weekKey = weekKey;
     const week = win ? applyWindow(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, win) : applyWeekRows(state, {orgs:[...state.edits.orgs], sites:[...state.edits.sites]}, weekRows);
@@ -1195,19 +1181,23 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     for (const r of state.orgs) if (inSites(siteNames, r.org)) week.orgs.set(r.index, [SITE_REF_LINE]);
     const sum = bizRows ? draft.applyBizWindow(state.base, state.me, bizRows, {places:placesOf(state)}) : {base:state.base, summary:state.edits.summary, owners:ownerEdits(state), added:[]};
     state.placeAsk = (sum.added ?? []).filter(n => !Object.keys(placesOf(state) ?? {}).some(k => sameName(k, n))); paintPlace();
-    const data = draft.assembleDraft({...sum.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileLines(), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, summary:sum.summary, orgs:week.orgs, sites:week.sites, owners:sum.owners});
+    // S67-29: 붙인 문서는 자료실 원본을 받아 그 안건 아래에 그대로(열지 못하면 '첨부 문서: 파일 이름' 한 줄). 같은 자료는 이 상자에서 한 번만 받는다.
+    const docRows = (state.discuss ?? []).filter(r => r.file);
+    const docs = docRows.length ? await loadDiscussDocs(docRows, {rt, engine:(engine ||= createEngine()), cache:(state.discussDocs ||= new Map())}) : new Map();
+    if (state !== s0) throw Object.assign(new Error('주가 바뀌었어요. 다시 눌러 주세요.'), {code:'stale'});
+    const data = draft.assembleDraft({...sum.base, date:state.date, requests:formRequests(requestRows().items), schedule:hqFileLines(), discuss:discussFileItems(state.discuss ?? [], docs), ...scheduleForm(shownCalendar(), state.me, state.titles)}, {...state.edits, summary:sum.summary, orgs:week.orgs, sites:week.sites, owners:sum.owners});
     // 3. 2) 투쟁 사업장 현황: 들어간 사업장만, 구성 순서로(뺀 사업장의 글은 칸에 남아 있고 파일에만 없다).
     data.sites = layoutSiteData(data.sites ?? [], siteRows(state), state.layout);
     if (det) data.details = det.details;
-    const bytes = await draft.buildHwpx(state.template, data, undefined, {profile:state.profile});
+    const {bytes, embedded} = await draft.buildHwpxReport(state.template, data, undefined, {profile:state.profile});
     // 파일 이름: 주간보고_보고일8자리_이름.hwpx — 이름은 로그인 사용자의 표시 이름(프로필 이름, 없으면 로그인 정보의 표시 이름; readContext).
     // 확정 사진(O-6): 이 파일을 만든 바로 그 창 결과. B-4 ④: 2. 1) 사업요약 창 결과(파일에 넣은 지금 상황·담당)도 같은 사진에(section 'biz_summary'), B-4 ④ 2. 2) 주요 사업 창 결과도(section 'biz_detail'). 3장에 들어가 4. 1)이 '참고' 한 줄인 조직도 사진에는 창 줄 그대로 둔다(화면 4. 칸은 3장 칸이 보여 줌).
-    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me), snapRows:win || bizRows || det ? [...(win ? win.snapshot() : []), ...(bizRows ? bizRows.map(r => draft.summarySnapshotRow(r)).filter(Boolean) : []), ...(det ? det.snapRows : [])] : null};
+    state.built = {bytes, changed:draft.changedCount(data), docNote:embedNote(embedded, docs), name:draft.fileNameFor(reportDay(state.start), state.context.me), snapRows:win || bizRows || det ? [...(win ? win.snapshot() : []), ...(bizRows ? bizRows.map(r => draft.summarySnapshotRow(r)).filter(Boolean) : []), ...(det ? det.snapRows : [])] : null};
     return state.built;
   }
   async function doBuild() {
     if (!await ensure()) return;
-    try { const b = await build(); download(b.bytes, b.name, HWPX_TYPE); say(`"${b.name}"을(를) 내려받았어요(확정 안 함). 바뀐 줄 ${b.changed}개는 파란 글씨예요.`, 'ok'); void recordIssued(state, b.bytes); }
+    try { const b = await build(); download(b.bytes, b.name, HWPX_TYPE); say(`"${b.name}"을(를) 내려받았어요(확정 안 함). 바뀐 줄 ${b.changed}개는 파란 글씨예요.${b.docNote ? ` ${b.docNote}` : ''}`, 'ok'); void recordIssued(state, b.bytes); }
     catch (error) { say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); }
   }
   // WEEKLY-기본HWP ⑤: 만든 .hwpx → .hwp(숨은 칸막이 엔진, 이 기기 안). 바꾸지 못하면 .hwpx 그대로 돌려준다(파일은 꼭 받게) — fell = 까닭 짧은 말.
@@ -1236,7 +1226,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       say('한글(.hwp) 파일로 바꾸는 중…');
       const f = await asHwp(b);
       if (mine !== run) return;
-      download(f.bytes, f.name, f.type); say(`"${f.name}"을(를) 내려받았어요(확정 안 함).${fellNote(f)}`, f.fell ? 'error' : 'ok'); void recordIssued(state, b.bytes);
+      download(f.bytes, f.name, f.type); say(`"${f.name}"을(를) 내려받았어요(확정 안 함).${fellNote(f)}${b.docNote ? ` ${b.docNote}` : ''}`, f.fell ? 'error' : 'ok'); void recordIssued(state, b.bytes);
     } catch (error) { if (mine === run) say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); }
   }
   // WEEKLY-기본HWP: 받는 파일과 자료실 개인 확정본은 .hwp(주간보고_보고일_이름.hwp). 바꾸지 못하면 둘 다 .hwpx + 한 줄 알림.
@@ -1268,7 +1258,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const ok = result.kind === 'created' || result.kind === 'replaced';
       download(f.bytes, f.name, f.type);
       state.saved = result;
-      say(ok ? `${result.message} "${f.name}"을(를) 내려받았어요.${fellNote(f)}` : `자료실에 저장하지 못했어요 — ${result.message} 파일은 내려받았어요.${fellNote(f)}`, ok && !f.fell ? 'ok' : 'error');
+      say(ok ? `${result.message} "${f.name}"을(를) 내려받았어요.${fellNote(f)}${b.docNote ? ` ${b.docNote}` : ''}` : `자료실에 저장하지 못했어요 — ${result.message} 파일은 내려받았어요.${fellNote(f)}`, ok && !f.fell ? 'ok' : 'error');
       if (ok && s.store) {
         s.store.confirmed = {document_id:String(result.document?.id ?? prev), at:new Date().toISOString()};
         // ORG-기록하나로 O-6(설계 2-8): 개인 확정본 저장에 성공한 직후 한 번, 이 파일을 만든 창 결과를 사진으로. 실패해도 확정·파일은 그대로(그 주는 창 규칙으로 보임).
