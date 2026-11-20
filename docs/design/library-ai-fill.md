@@ -39,7 +39,7 @@
 | --- | --- | --- |
 | txt·md·csv | 내려받아 UTF-8 | 없음 |
 | HWPX | 내려받아 zip 안 `Contents/section*.xml`의 글자(외부 라이브러리 없음) | 없음 |
-| HWP(구형) | 내려받아 자료 AI 색인·자료 올리기와 같은 `npm:@ssabrojs/hwpxjs` `hwpToText`로 읽음(document-actions가 넘길 때, 상한 30MB, S67-28). Drive는 HWP를 Google 문서로 바꾸지 못한다. drive-summary 야간 채우기는 아직 아래 Drive 변환 길 | 없음 |
+| HWP(구형) | 내려받아 자체 읽기(`_shared/hwp-text.mjs`: OLE 목차·FAT만 보고 BodyText 섹션을 하나씩 흘려 풀어 문단 글자만 남김, 외부 라이브러리 없음, 상한 80MB, S67-33). S67-28의 `hwpToText`는 작은 HWP에서도 Edge 메모리 한도를 넘겨 바꿨다. 암호·배포용 문서는 읽지 않음(locked). 브리핑 길은 HWP·HWPX를 여러 번에 나눠 읽음. Drive는 HWP를 Google 문서로 바꾸지 못한다 | 없음 |
 | PDF·DOC·DOCX·RTF·ODT(·HWP, 야간 채우기만) | Drive가 Google 문서로 바꾼 **임시 사본**을 text/plain으로 내보낸 뒤 사본 삭제(성공·실패 모두). PDF만 한국어 OCR 언어(`ocrLanguage=ko`)를 준다(LIB-스캔글자읽기, 스캔 PDF) | 없음 |
 | 사진 JPEG·PNG | 바구니 사진과 같은 Drive 한국어 OCR(`_shared/drive-ocr.ts`: 원본 비공개 확인 → 임시 문서 → 글 → 임시 문서 삭제, 크기 상한 100MB 그대로). 실패하면 빈 글자 → 파일 이름으로 판단(LIB-스캔글자읽기, 2026-10-24) | 없음 |
 | 그 밖 | 읽지 않음 → 파일 이름으로만 판단 | 없음 |

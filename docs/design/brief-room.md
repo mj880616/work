@@ -60,6 +60,7 @@
 돌리기(한 번 부를 때 `EdgeRuntime.waitUntil`로 응답 뒤에도 이어 감, meeting-transcribe와 같은 방식. 한 번에 140초 안, 못 끝내면 lease를 풀고 같은 함수에 `brief-step`을 한 번 더 부탁한다. 같은 작업은 lease·attempts 값 비교로 한 실행만 잡는다. 40번 넘게 잡히면 `too_many_tries`로 끝):
 
 1. `read`: Drive 파일을 끝까지 읽는다(`createDocumentText`의 자르지 않는 모드, 상한 60만 자). 글자가 300자 미만이면 `failed`/`no_text`("글자를 읽을 수 없는 파일이에요"). AI 비용 없음.
+   - S67-33: 자료실 AI 색인이 잘리지 않게 읽어 둔 글자(HWP·HWPX·글 파일, `fullIndexText`)가 있으면 그것을 먼저 쓴다. 없으면 HWP·HWPX는 여러 번에 나눠 읽는다(`parts`의 `{ctl:{read:{sec,para}}}`에 위치, 읽은 글은 `source_text`에 쌓음, `step_no/step_total`로 '파일 읽기 n/t'). 함수가 같은 자리에서 3번 죽으면(정리 없이 남은 lease) `failed`/`read_failed`(read 밖은 `step_failed`). 암호·배포용 HWP는 `locked`.
 2. `chunk`: 글을 쪽 경계 우선으로 약 12,000자 조각으로 나눈다(`splitChunks`, 60조각 넘으면 `too_large`). 조각마다 AI 한 번 → 메모(다섯 칸 후보 + 원문 인용 후보). 조각마다 한도 판정·사용 기록(`app_ai_daily_usage` 기존 표, 로그인 토큰). AI가 잠깐 막히면 멈췄다가 다음 부름에서 다시.
 3. `merge`: 메모를 모아 AI 한 번 → 다섯 칸. 내 담당조직 이름 목록(이름만, ID 없음)을 함께 보낸다. [다음] 사업영역 이름은 저장 위치를 확인한 뒤 더한다(지금은 빈 목록).
 4. 서버 검사(`verifyBrief`): 칸마다 줄 수·글자 수·제어 문자·꺾쇠 검사, '꼭 읽을 대목'은 **원문 대조**(공백·줄바꿈만 무시하고 원문에 그대로 있는 문장만 남김, 쪽 번호는 서버가 찾은 위치로 다시 매김 — AI가 준 쪽 번호를 믿지 않는다). 남은 대목이 없으면 그 칸은 빈 칸.
