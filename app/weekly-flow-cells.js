@@ -18,6 +18,7 @@ import {rowMore} from './row-more.js';
 import {CARRIED_TAG} from './weekly-exec-requests.js';
 import {emptyEl, waitEl} from './wait-state.js';
 import {lineField, fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 긴 글 한 줄 칸 = 글만큼 늘어나는 공용 칸
+import {word} from './brand/brand.mjs';
 
 export const FLOW_SECTIONS = Object.freeze(['summary', 'sites', 'orgs']);
 const UNDO_MS = 5000;
@@ -136,14 +137,14 @@ export function paintFlowCells(slot, ctx) {
     const sitesNow = section === 'orgs' ? siteNamesOf(draft, draftSiteLayout(draft) ?? ui.carried.layout) : [];
     for (const c of cells) parts.push(section === 'orgs' && inSites(sitesNow, c.key) ? refBox(c) : cellBox(c));
   }
-  if (!cells.length) parts.push(emptyEl(section === 'sites' ? '넣은 사업장이 없어요' : '내 칸이 없어요'));
+  if (!cells.length) parts.push(emptyEl(section === 'sites' ? word('넣은 사업장이 없어요') : '내 칸이 없어요'));
   if (section === 'sites') {
     const bar = el('div', 'weekly-flow-site-add');
-    const add = btn('+ 사업장 추가', {flowSiteAdd:''}, 'journal-part-add-button'); add.disabled = !siteOptions.length || !!ui.busy; add.setAttribute('aria-expanded', String(!!ui.siteAdding));
+    const add = btn(word('+ 사업장 추가'), {flowSiteAdd:''}, 'journal-part-add-button'); add.disabled = !siteOptions.length || !!ui.busy; add.setAttribute('aria-expanded', String(!!ui.siteAdding));
     bar.append(add);
     if (ui.siteAdding && siteOptions.length) {
-      const pick = el('select', 'journal-hwpx-target'); pick.dataset.flowSitePick = ''; pick.setAttribute('aria-label', '넣을 사업장(내 담당 조직)');
-      const none = el('option', '', '사업장 선택'); none.value = ''; pick.append(none);
+      const pick = el('select', 'journal-hwpx-target'); pick.dataset.flowSitePick = ''; pick.setAttribute('aria-label', word('넣을 사업장(내 담당 조직)'));
+      const none = el('option', '', word('사업장 선택')); none.value = ''; pick.append(none);
       for (const n of siteOptions) { const o = el('option', '', n); o.value = n; pick.append(o); }
       bar.append(' ', pick);
     }
@@ -190,7 +191,7 @@ export function paintFlowCells(slot, ctx) {
       box.dataset.reorderId = c.key;
       const grip = btn('⠿', {reorderHandle:''}, 'mini journal-hwpx-grip'); grip.setAttribute('aria-label', `${c.key} 순서 옮기기(위·아래 화살표)`); grip.disabled = busy;
       head.prepend(grip);
-      head.append(rowMore(doc, {label:`${c.key} 사업장 칸 메뉴`, data:{flowSiteMore:c.key}, items:[{text:'이번 주 보고에서 빼기', data:{flowSiteHide:c.key}, disabled:busy}]}));
+      head.append(rowMore(doc, {label:word`${c.key} 사업장 칸 메뉴`, data:{flowSiteMore:c.key}, items:[{text:'이번 주 보고에서 빼기', data:{flowSiteHide:c.key}, disabled:busy}]}));
     }
     box.append(head);
     if (win) { box.append(win); return box; }
@@ -315,7 +316,7 @@ export function paintFlowCells(slot, ctx) {
     const next = how === 'hide' ? siteHidden(withName, layout, name, at) : how === 'show' ? siteShown(withName, layout, name, at, index) : siteMoved(withName, layout, name, index, at);
     const id = all.find(c => siteKey(c.key) === siteKey(name))?.id ?? cellId('sites', name, 0);
     ui.siteAdding = false;
-    ui.siteNote = how === 'show' ? `${name}${particle(name)} 넣었어요.` : how === 'hide' ? `${name}${particle(name)} 뺐어요. [+ 사업장 추가]에서 다시 넣을 수 있어요.` : '';
+    ui.siteNote = how === 'show' ? `${name}${particle(name)} 넣었어요.` : how === 'hide' ? word`${name}${particle(name)} 뺐어요. [+ 사업장 추가]에서 다시 넣을 수 있어요.` : '';
     void write(id, {site:dr => withSiteLayout(dr, next)});
   }
   function stepSite(name, dir) {

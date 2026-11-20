@@ -33,6 +33,13 @@ export const GIROK_ALLOW = Object.freeze([
 
 
   // ── 묶음 B ──
+  { file: 'app/activity-photo-model.mjs', text: '교섭', reason: '자료실 종류 이름 맞추기(데이터 값, 화면에는 자료실 종류로 보임)' },
+  { file: 'app/activity-photo-model.mjs', text: '투쟁', reason: '자료실 종류 이름 맞추기(데이터 값)' },
+  { file: 'app/ask-web2-model.mjs', text: '교섭·전략', reason: '서버 답의 꼬리표 값 비교(데이터 값)' },
+  { file: 'app/journal-draft-model.mjs', text: '조직 소식', reason: 'AI 초안 재료 줄 꼬리표(서버로 보내는 글, 화면에 안 보임)' },
+  { file: 'app/weekly-major-schedule.mjs', reason: '노조식 주간 보고 주요 일정 기준: AI 지시문·사용자 일정 이름 맞추기 단어(기록+에서 끌지 명진 결정 필요)' },
+  { file: 'app/weekly-group-names.mjs', text: '현황', reason: "서버 사본(supabase/functions/_shared/weekly-group-names.mjs)과 바이트까지 같아야 해 brand를 부를 수 없음. 양식 제목이 없을 때만 쓰는 기본 묶음 이름 '사업장 현황'·'조직 현황' — 주간 보고 학습 묶음(노조식 주간 보고와 함께 명진 결정)" },
+  { file: 'app/journal.js', text: "'노조 서식'", reason: "자료실 분류 이름 '노조 서식'(데이터 값 hwp-drive.js UNION_TEMPLATE_CATEGORY)을 가리키는 글 — 분류 이름과 함께 정할 겸용 값" },
 
   // ── 묶음 B 끝 ──
 

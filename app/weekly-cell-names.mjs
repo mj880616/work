@@ -7,6 +7,7 @@
 // 쓰는 곳: weekly-draft-store.js(weekCells·placeDraft), weekly-flow-cells.js, weekly-hwpx/draft.mjs(missingAreas·weekMaterial), weekly-summary-hand.mjs.
 // 글은 업무 글이므로 로그·오류 보고에 넣지 않는다.
 import {squashLine} from './weekly-lines.mjs';
+import {word} from './brand/brand.mjs';
 
 export const nameKey = s => squashLine(s);
 export const sameName = (a, b) => { const x = nameKey(a); return !!x && x === nameKey(b); };
@@ -74,5 +75,5 @@ export function foldCells(cells, parse, idOf) {
 
 // S52-25 WEEKLY-투쟁사업장참고(요청함 11/07 19:26): '3. 투쟁 사업장 현황'에 들어간 조직은 '4. 산하 조직 현황'의 그 조직 칸을 이 한 줄로(화면·한글 파일 같게).
 // 조직 이름 맞추기는 칸 이름과 같은 기준(부호·띄어쓰기만 다르면 같은 조직 — sameName). 4장 칸에 쓴 줄은 지우지 않고 그대로 둔다(화면에서 접어 보임).
-export const SITE_REF_LINE = '- 투쟁 사업장 보고 참고';
+export const SITE_REF_LINE = word('- 투쟁 사업장 보고 참고');
 export const inSites = (siteNames, name) => (siteNames ?? []).some(n => sameName(n, name));

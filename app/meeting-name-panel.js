@@ -20,6 +20,7 @@ import {seoulDateKey} from './meeting-time.js';
 import {listRows, findRows, shownNames, placeOf, orgOf, setPlace, setIrregular, setOrg, moveName, nameKey, parentLabel, ETC, DEL, REGULAR,
   hasMark, addPreset, removePreset, dropKnownPresets, presetNameProblem, orderSpot, stepOrder, toOrgEnd} from './meeting-name-sorts.mjs';
 import {readSorts, peekSorts, changeSorts, failText} from './meeting-name-sorts.js';
+import {word} from './brand/brand.mjs';
 
 const OTHER = '__other__', KEY = 'kptuNamePanel';
 // 이 창과 상위 목록 창의 모양은 어느 화면에서 열려도 한 번 넣는다(사업 보고 창은 일정·홈에서도 열림).
@@ -106,7 +107,7 @@ function presetHtml() {
   const s = sorts(), org = presetOrg(s), opts = [...(s?.parents || []).map(x => [x.id, x.name]), [ETC, '기타']];
   return `<div class="mnp-head"><button type="button" class="icon-btn mnp-back" data-mnp-back aria-label="목록으로">‹</button><span class="mnp-title">회의 미리 넣기</span></div>`
     + `<form class="mnp-rename" data-mnp-preset-form><input type="text" class="mnp-find" data-mnp-preset-name value="${esc(ui.draft ?? '')}" maxlength="100" placeholder="아직 보고가 없는 회의명" aria-label="미리 넣을 회의명" autocomplete="off"><button type="submit" class="mini primary">추가</button></form>`
-    + `<p class="mnp-note">어느 조직에 둘까요?</p><div class="mnp-rows" role="radiogroup" aria-label="조직">${opts.map(([id, label]) => `<div class="mnp-act${org === id ? ' is-on' : ''}" role="radio" tabindex="0" aria-checked="${org === id}" data-mnp-preset-org="${esc(id)}">${esc(label)}</div>`).join('')}</div>`;
+    + word`<p class="mnp-note">어느 조직에 둘까요?</p><div class="mnp-rows" role="radiogroup" aria-label="조직">${opts.map(([id, label]) => `<div class="mnp-act${org === id ? ' is-on' : ''}" role="radio" tabindex="0" aria-checked="${org === id}" data-mnp-preset-org="${esc(id)}">${esc(label)}</div>`).join('')}</div>`;
 }
 function menuHtml() {
   if (ui.mode === 'preset') return presetHtml();
@@ -114,16 +115,16 @@ function menuHtml() {
   const head = `<div class="mnp-head"><button type="button" class="icon-btn mnp-back" data-mnp-back aria-label="목록으로">‹</button><span class="mnp-title">${esc(b.name)}</span></div>`;
   if (ui.mode === 'org') {
     const opts = [...(s?.parents || []).map(x => [x.id, x.name]), [ETC, '기타']];
-    return head + `<p class="mnp-note">어느 조직에 둘까요?</p><div class="mnp-rows" role="menu" aria-label="조직">${opts.map(([id, label]) => `<div class="mnp-act${org === id ? ' is-on' : ''}" role="menuitemradio" tabindex="0" aria-checked="${org === id}" data-mnp-org-pick="${esc(id)}">${esc(label)}</div>`).join('')}</div>`
-      + `<div class="mnp-foot"><div class="mnp-link" role="button" tabindex="0" data-mnp-parents>조직 목록 수정</div></div>`;
+    return head + word`<p class="mnp-note">어느 조직에 둘까요?</p><div class="mnp-rows" role="menu" aria-label="조직">${opts.map(([id, label]) => `<div class="mnp-act${org === id ? ' is-on' : ''}" role="menuitemradio" tabindex="0" aria-checked="${org === id}" data-mnp-org-pick="${esc(id)}">${esc(label)}</div>`).join('')}</div>`
+      + word(`<div class="mnp-foot"><div class="mnp-link" role="button" tabindex="0" data-mnp-parents>조직 목록 수정</div></div>`);
   }
   if (ui.mode === 'rename') return head + `<form class="mnp-rename" data-mnp-rename-form><input type="text" class="mnp-find" data-mnp-rename value="${esc(ui.draft ?? b.name)}" maxlength="100" aria-label="새 회의명" autocomplete="off"><button type="submit" class="mini primary">바꾸기</button></form>`;
   // S57-14: 정기 줄은 같은 조직 안에서 [위로]·[아래로](끝에서는 그 항목이 없다). 미리 넣은 줄(보고 없음)은 [삭제] 대신 [목록에서 빼기], 비정기로 두기는 없다.
   const spot = s && p.kind === REGULAR ? orderSpot(entriesOf(ui.select), s, b.name, {keep: currentName(ui.select)}) : null;
   const moves = spot ? [...(spot.index > 0 ? [['up', '위로']] : []), ...(spot.index < spot.count - 1 ? [['down', '아래로']] : [])] : [];
   const acts = b.preset
-    ? [['org', `조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['unpreset', '목록에서 빼기']]
-    : [p.kind === REGULAR ? ['irregular', '비정기로 두기'] : ['regular', '정기 목록에 두기'], ['org', `조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['del', '삭제']];
+    ? [['org', word`조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['unpreset', '목록에서 빼기']]
+    : [p.kind === REGULAR ? ['irregular', '비정기로 두기'] : ['regular', '정기 목록에 두기'], ['org', word`조직 바꾸기 (${parentLabel(s, org)})`], ['rename', '이름 바꾸기'], ...moves, ['del', '삭제']];
   return head + `<div class="mnp-rows" role="menu" aria-label="${esc(b.name)}">${acts.map(([k, l]) => `<div class="mnp-act" role="menuitem" tabindex="0" data-mnp-act="${k}">${esc(l)}</div>`).join('')}</div>`;
 }
 function paint({focus = ''} = {}) {
@@ -134,7 +135,7 @@ function paint({focus = ''} = {}) {
     panel.querySelector('.mnp-msg-box').innerHTML = msgHtml();
   } else {
     panel.innerHTML = ui.mode === 'list'
-      ? `${findHtml()}<div class="mnp-rows" role="listbox" aria-label="회의명">${listHtml()}</div><div class="mnp-msg-box">${msgHtml()}</div><div class="mnp-foot"><div class="mnp-link" role="button" tabindex="0" data-mnp-parents>조직 목록 수정</div><div class="mnp-link" role="button" tabindex="0" data-mnp-preset>회의 미리 넣기</div></div>`
+      ? word`${findHtml()}<div class="mnp-rows" role="listbox" aria-label="회의명">${listHtml()}</div><div class="mnp-msg-box">${msgHtml()}</div><div class="mnp-foot"><div class="mnp-link" role="button" tabindex="0" data-mnp-parents>조직 목록 수정</div><div class="mnp-link" role="button" tabindex="0" data-mnp-preset>회의 미리 넣기</div></div>`
       : `${menuHtml()}<div class="mnp-msg-box">${msgHtml()}</div>`;
     panel.dataset.mode = ui.mode;
   }

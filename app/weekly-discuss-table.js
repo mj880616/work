@@ -13,6 +13,7 @@ import {emptyEl, waitHtml} from './wait-state.js';
 import {rowMore, partAdd} from './row-more.js'; // WEEKLY-화면디자인정리: 줄 끝 ⋯ · 제목 줄 오른쪽 [+ 추가]
 import {colGripHtml} from './weekly-cols.js'; // WEEKLY-조직이름한줄 덧붙임: 칸 폭 끌기 손잡이
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
+import {word} from './brand/brand.mjs';
 
 // ⑤-3b: 절 이름은 '내 양식' 제목(model.titles.discuss, weekly-screen-titles.mjs) — 코드에 박지 않는다.
 const named = (title, rest) => `${title ? `${title} ` : ''}${rest}`;
@@ -69,7 +70,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
 
   const table = el('table', 'journal-weekly-table journal-exec-table journal-discuss-table'); table.dataset.journalDiscussTable = ''; table.dataset.wkCols = 'discuss';
   // WEEKLY-손잡이왼쪽(요청함 11/08 00:18): ⠿는 줄 맨 왼쪽 칸, ⋯는 줄 맨 오른쪽 칸.
-  table.innerHTML = `<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">안건${colGripHtml('discuss', 2)}</th><th scope="col">설명</th><th scope="col">관련 조직${colGripHtml('discuss', 4)}</th><th scope="col" class="journal-exec-tools-head" aria-label="수정"></th></tr></thead>`;
+  table.innerHTML = word`<thead><tr><th scope="col" class="journal-grip-head" aria-label="순서"></th><th scope="col">안건${colGripHtml('discuss', 2)}</th><th scope="col">설명</th><th scope="col">관련 조직${colGripHtml('discuss', 4)}</th><th scope="col" class="journal-exec-tools-head" aria-label="수정"></th></tr></thead>`;
   const body = el('tbody'); body.dataset.reorderList = 'discuss';
   for (const row of rows) {
     if (ui.editing === row.id) { body.append(editRow(row)); continue; }
@@ -130,7 +131,7 @@ export function paintDiscuss(slot, {model, start, rt = window.KPTURuntime, onSav
       wrap.append(input); fields.push(wrap);
     }
     form.append(fields[0]);
-    const wrap = el('label', 'journal-exec-field journal-exec-org'); wrap.append(el('span', null, '관련 조직'));
+    const wrap = el('label', 'journal-exec-field journal-exec-org'); wrap.append(el('span', null, word('관련 조직')));
     const select = el('select'); select.dataset.journalDiscussField = 'org'; select.id = `journalDiscuss-${place}-${key}-org`;
     const names = orgNames(rt, redraw), cur = String(v.org ?? '');
     const none = el('option', null, '선택하지 않음'); none.value = ''; select.append(none);

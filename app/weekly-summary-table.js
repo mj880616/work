@@ -30,6 +30,7 @@ import {bizWeekOpen,setBizWeekOpen} from './biz-week-fold.js';
 import {layoutAreas} from './weekly-area-layout.mjs'; // S67-30: 주간보고 칸 빼기·다른 칸 안으로(홈 [주간 정리] 2. 1)만)
 import {rowMore} from './row-more.js';
 import {askConfirm} from './small-notice.js';
+import {word} from './brand/brand.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shortDay=day=>{const [,m,d]=day.split('-');return `${Number(m)}.${Number(d)}`};
@@ -69,7 +70,7 @@ function ensureBox(el){
 // 사업영역 없음 안내 한 줄(설계 2-4 글 그대로). [+ 사업 만들기]는 사업 보고 ⋯ [사업영역 관리]와 같은 창(area-window.js)을 연다.
 function drawNone(){
   const body=box.querySelector('[data-bw-body]');
-  body.innerHTML='<p class="biz-week-none">사업(예: 임단협, 조직 확대)을 만들면 회의·결과가 사업별로 모여요 <button type="button" class="row-act biz-week-new" data-bw-area-new>+ 사업 만들기</button></p>';
+  body.innerHTML=word('<p class="biz-week-none">사업(예: 임단협, 조직 확대)을 만들면 회의·결과가 사업별로 모여요 <button type="button" class="row-act biz-week-new" data-bw-area-new>+ 사업 만들기</button></p>');
   box.dataset.bpReady='';box.dataset.bpBody='none';
 }
 // 사업영역이 있다고 확인된 칸: 표 모양 자리(BIZ-주간칸밀림) → paint가 같은 자리를 표로 바꾼다. 이미 표 자리면 그대로.
@@ -374,7 +375,7 @@ function areaHasWeek(name){
 }
 async function layoutAct(name,change,anchor){
   if(!canLayout()||state.layoutBusy)return;
-  if(change.hide&&areaHasWeek(name)&&!(await askConfirm(anchor,{text:`${name} 칸에 이번 주 글이 있어요. 주간 보고에서 뺄까요?`,ok:'빼기',note:'사업영역과 쓴 글은 그대로 남아요. 표 아래 [다시 넣기]로 되돌려요.'})))return;
+  if(change.hide&&areaHasWeek(name)&&!(await askConfirm(anchor,{text:`${name} 칸에 이번 주 글이 있어요. 주간 보고에서 뺄까요?`,ok:'빼기',note:word('사업영역과 쓴 글은 그대로 남아요. 표 아래 [다시 넣기]로 되돌려요.')})))return;
   state.layoutBusy=true;state.moving=null;say('저장 중…');
   let ok=false;
   try{ok=await state.onLayout(name,change)!==false}catch{ok=false}
@@ -414,8 +415,8 @@ function groupedHtml(placed,records){
     });
   }
   state.rowRefs=refs;
-  for(const other of placed.others){const lines=factsHtml(other.items,records);rows.push(`<tr><th scope="row">${esc(other.name==='미분류'?'보관된 사업영역':other.name)}</th><td></td><td>${lines}</td><td></td></tr>`)}
-  return (rows.length?`<table class="biz-sum-table biz-sum-grouped" data-bp-grouped><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음'))+hiddenLineHtml(placed);
+  for(const other of placed.others){const lines=factsHtml(other.items,records);rows.push(`<tr><th scope="row">${esc(other.name==='미분류'?word('보관된 사업영역'):other.name)}</th><td></td><td>${lines}</td><td></td></tr>`)}
+  return (rows.length?word`<table class="biz-sum-table biz-sum-grouped" data-bp-grouped><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml(word('사업영역 없음')))+hiddenLineHtml(placed);
 }
 function paperHtml(placed,records,untagged,all,lineOf){
   const rows=[],refs=[];
@@ -427,12 +428,12 @@ function paperHtml(placed,records,untagged,all,lineOf){
   });
   state.rowRefs=refs;
   // 사업영역을 못 찾은 보고(보관된 사업영역 등)는 읽기만(칸 이름이 없어 직접 쓰기 없음).
-  for(const other of placed.others){const lines=factsHtml(other.items,records);rows.push(`<tr><th scope="row">${esc(other.name==='미분류'?'보관된 사업영역':other.name)}</th><td></td><td>${lines}</td><td></td></tr>`)}
-  const table=rows.length?`<table class="biz-sum-table"><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml('사업영역 없음');
+  for(const other of placed.others){const lines=factsHtml(other.items,records);rows.push(`<tr><th scope="row">${esc(other.name==='미분류'?word('보관된 사업영역'):other.name)}</th><td></td><td>${lines}</td><td></td></tr>`)}
+  const table=rows.length?word`<table class="biz-sum-table"><thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당</th></tr></thead><tbody>${rows.join('')}</tbody></table>`:emptyHtml(word('사업영역 없음'));
   if(compact)return table+hiddenLineHtml(placed);
-  const miss=untagged.length?`<details class="biz-untagged"><summary>사업영역 안 단 보고 ${untagged.length}건</summary>${untagged.map(m=>`<button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}">${esc(lineOf(m))}</button>`).join('')}</details>`:'';
+  const miss=untagged.length?word`<details class="biz-untagged"><summary>사업영역 안 단 보고 ${untagged.length}건</summary>${untagged.map(m=>`<button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}">${esc(lineOf(m))}</button>`).join('')}</details>`:'';
   if(state.view?.detail)return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list" data-bp-detail aria-hidden="true"><li><p class="biz-skel-line"></p></li></ul>`;
-  const details=all.length?all.map(m=>{const day=new Date(Date.parse(m.meeting_at)+9*3600e3).toISOString().slice(0,10),plan=nextPlanLines(m.next_plan);return `<li><button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}"><span class="biz-day">${shortDay(day)}</span> ${esc(lineOf(m))}</button>${plan.length?`<p class="biz-cell-plan">→ 이후: ${plan.map(esc).join(' / ')}</p>`:''}</li>`}).join(''):`<li>${emptyHtml('사업 보고 없음')}</li>`;
+  const details=all.length?all.map(m=>{const day=new Date(Date.parse(m.meeting_at)+9*3600e3).toISOString().slice(0,10),plan=nextPlanLines(m.next_plan);return `<li><button type="button" class="biz-cell-line" data-bp-open="${esc(m.id)}"><span class="biz-day">${shortDay(day)}</span> ${esc(lineOf(m))}</button>${plan.length?`<p class="biz-cell-plan">→ 이후: ${plan.map(esc).join(' / ')}</p>`:''}</li>`}).join(''):`<li>${emptyHtml(word('사업 보고 없음'))}</li>`;
   return `<h3>1) 사업요약표</h3>${table}${miss}<h3>2) 주요 사업·회의결과</h3><ul class="biz-detail-list">${details}</ul>`;
 }
 
