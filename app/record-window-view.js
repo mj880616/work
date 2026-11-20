@@ -120,7 +120,7 @@ export function createRecordWindow({rt, workspaceId, week = thisWeek(), repaint 
     const r = await readWeekLines({rt: ctl.rt, workspaceId: ctl.workspaceId, week: ctl.week, orgIds: ctl.orgIds});
     ctl.legacyMissing = !!r.missing; // 옛 표가 아직 없는(DB 적용 전) 곳: 화면이 그 주 임시저장 칸을 대신 그린다(journal.js)
     const out = new Map();
-    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.reportLine(l.body), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
+    for (const id of ctl.orgIds) out.set(id, (r.rows?.get(id) || []).filter(l => l.state === 'in').map(l => ({id: `old:${l.id}`, kind: 'old', key: l.id, day: l.day || '', end_day: l.end_day || null, text: M.dropLineDay(M.reportLine(l.body), {day: l.day, end_day: l.end_day}), full: String(l.body ?? '')})).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')));
     return out;
   }
   // orgs = [{id, name, aliases}] 화면 순서. quiet = 이미 보이는 표를 지우지 않고 다시 읽기.

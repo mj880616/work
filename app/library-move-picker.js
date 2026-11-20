@@ -24,6 +24,7 @@ const coarse=()=>typeof matchMedia==='function'&&matchMedia('(pointer:coarse)').
 // S51-8 NEWS-전면개편 P4b: News [매체: 전체 ▾]도 같은 창을 쓴다 — id·창 이름·찾기 칸 글자·아래 단추 줄(foot:false면 없음)만 바꿔 연다. 기본값은 지금 그대로(폴더로 옮기기).
 //   줄에 dot(색 토큰 var(...))이 있으면 폴더 그림 대신 작은 색 점, current 표시 글자는 currentTag로 바꾼다.
 //   folderIcons:false면(매체 고르기) 점 없는 줄에 폴더 그림을 그리지 않는다.
+//   S67-39: 줄에 tag가 있으면 그 줄만 currentTag 대신 그 글자를 꼬리표로 단다(예: 사업 보고 자료 고르기의 '다른 보고에 있음').
 export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기기',findLabel='폴더 찾기',foot:withFoot=true,currentTag='지금 여기',folderIcons=true}){
   let panel=null,input=null,list=null,note=null,foot=null,state=null,popover=false,closing=null,historyOwned=false,outside=null,keep=null,stopFollow=null;
   const HISTORY_KEY='kptuLibraryMovePicker';
@@ -68,7 +69,7 @@ export function createMovePicker({esc,id='luMovePicker',label='폴더로 옮기�
     },true);
   }
   const items=()=>[...(list?.querySelectorAll('.lu-move-item')||[])];
-  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${state?.multi&&r.enabled?` aria-pressed="${state.chosen.has(r.id)}"`:''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):''}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current?`<span class="lu-move-tag">${esc(currentTag)}</span>`:''}</button>`;
+  const item=(r,labeled)=>`<button type="button" class="lu-move-item" data-lu-move-folder="${esc(r.id)}"${r.enabled?'':' aria-disabled="true"'}${r.current?' aria-current="true"':''}${state?.multi&&r.enabled?` aria-pressed="${state.chosen.has(r.id)}"`:''}${r.reason?` title="${esc(r.reason)}"`:` title="${esc(r.label)}"`} style="--lu-depth:${labeled?0:r.depth}">${r.dot?`<span class="lu-move-dot ui-color-dot" style="--lu-dot:${esc(r.dot)}" aria-hidden="true"></span>`:folderIcons?pickIconHtml(r):''}<span class="lu-move-name">${esc(labeled?r.label:r.name)}</span>${r.current||r.tag?`<span class="lu-move-tag">${esc(r.tag||currentTag)}</span>`:''}</button>`;
 
   function paint(){
     if(!state)return;

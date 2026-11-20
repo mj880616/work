@@ -21,7 +21,7 @@
   <article class="card">
     <h1>개인정보 처리방침</h1>
     <p class="lead">노동조합+는 사용자 본인의 업무 정리에 필요한 범위에서만 개인정보와 Google 사용자 데이터를 처리합니다. 판매하거나 광고에 쓰지 않습니다.</p>
-    <p class="meta">시행일: 2026년 11월 16일 (이전 판: 2026년 11월 5일)</p>
+    <p class="meta">시행일: 2026년 11월 20일 (이전 판: 2026년 11월 16일)</p>
 
     <h2>1. 노동조합+는 어떤 서비스인가요</h2>
     <p>노동조합+는 노동조합 사람들이 각자 쓰는 개인 업무 도구입니다. 한 사람이 자기 작업공간 하나를 쓰고, 작업공간의 내용은 그 사람만 볼 수 있습니다. 다른 사람의 작업공간을 보거나 함께 쓰는 화면은 없습니다.</p>
@@ -58,7 +58,8 @@
         <tr><td><code>MANAGE_EXTERNAL_STORAGE</code></td><td>[파일] 화면의 '이 폰' 저장 공간을 보고 정리합니다. 사용자가 폰 설정에서 '모든 파일 접근'을 직접 켜야 하며, 시스템·다른 앱 전용 칸은 열지 않습니다. 파일 목록과 파일은 서버로 보내지 않습니다.</td></tr>
         <tr><td><code>REQUEST_INSTALL_PACKAGES</code>, <code>UPDATE_PACKAGES_WITHOUT_USER_ACTION</code></td><td>노동조합+ 앱 자신의 새 판(같은 서명)만 설치합니다. 다른 앱은 설치하지 않습니다.</td></tr>
         <tr><td><code>RECORD_AUDIO</code>, <code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_MICROPHONE</code></td><td>회의 [녹음]을 누를 때만 마이크를 씁니다. 화면을 꺼도 녹음이 이어지도록 알림을 띄운 채 동작합니다.</td></tr>
-        <tr><td><code>POST_NOTIFICATIONS</code></td><td>녹음 중 표시와, 사용자가 켠 노동조합+ 알림을 보여 줍니다.</td></tr>
+        <tr><td><code>POST_NOTIFICATIONS</code></td><td>녹음 중 표시와, 사진·자료를 올리는 중 표시, 사용자가 켠 노동조합+ 알림을 보여 줍니다.</td></tr>
+        <tr><td><code>FOREGROUND_SERVICE_DATA_SYNC</code></td><td>사용자가 고른 사진·자료를 앱을 나가거나 화면을 꺼도 끝까지 올리도록, '올리는 중' 알림을 띄운 채 동작합니다. 올리는 곳은 사용자 본인의 노동조합+ 자료실뿐입니다.</td></tr>
       </tbody>
     </table>
 

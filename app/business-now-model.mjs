@@ -4,7 +4,7 @@
 // - 처음 한 번 채우기: 지금 상황 행이 하나도 없는 사업만, 전환 주(RECORD_ONE_FROM) 행으로 한 번 넣는다(사람이 쓴 값은 덮지 않음).
 // - 칸 아래 '이번 주 기록 n' = 그 주(월~일)에 걸친 사업 기록(app_business_records) + 그 주 사업 보고 줄(읽기만).
 // 주 경계·전환 주·줄 날짜 모양은 조직보고 창 규칙(record-window-model.mjs)을 그대로 쓴다(새로 계산하지 않음).
-import {RECORD_ONE_FROM, isOldWeek, shiftWeek, mondayOf, dayText, overlaps, cleanBody} from './record-window-model.mjs';
+import {RECORD_ONE_FROM, isOldWeek, shiftWeek, mondayOf, dayText, overlaps, cleanBody, dropLineDay} from './record-window-model.mjs';
 import {oneLine, recordOneLine} from './record-oneline.mjs';
 
 export {RECORD_ONE_FROM, isOldWeek, shiftWeek, mondayOf, dayText, oneLine};
@@ -119,7 +119,8 @@ export function bizRecordItem(row) {
   const day = String(row?.day ?? ''), text = recordOneLine(row, 'body');
   if (!row?.id || !row?.space_id || !DAY.test(day) || !text) return null;
   const end = DAY.test(String(row.end_day ?? '')) && row.end_day > day ? row.end_day : null;
-  return {kind: 'biz_record', key: String(row.id), space: String(row.space_id), day, end_day: end, text, full: String(row.body ?? ''), source_kind: row.source_kind ?? null};
+  // S67-36: 한 줄 맨 앞에 그 기록 날짜와 같은 날짜가 또 있으면 떼고 보인다(원문 full은 그대로).
+  return {kind: 'biz_record', key: String(row.id), space: String(row.space_id), day, end_day: end, text: dropLineDay(text, {day, end_day: end}), full: String(row.body ?? ''), source_kind: row.source_kind ?? null};
 }
 // 그 주에 걸친 사업 기록을 표 줄(공간 id)별로. map = rowSpaceMap 결과(없는 공간은 그 공간 그대로). 날짜 오름차순.
 export function weekRecords(items, week, map = null) {
@@ -144,7 +145,7 @@ export function recordBody(text) {
 // 사업 기록 날짜(서울 날짜 'YYYY-MM-DD'). 틀리면 null.
 export const recordDay = day => (DAY.test(String(day ?? '')) ? String(day) : null);
 // 줄 글 '- 11.10. 글'(기간이면 '- 11.2.~12.5. 글').
-export const recordLine = it => `- ${[dayText(it.day, it.end_day), cleanBody(it.text)].filter(Boolean).join(' ')}`;
+export const recordLine = it => `- ${[dayText(it.day, it.end_day), cleanBody(dropLineDay(it.text, it))].filter(Boolean).join(' ')}`;
 
 // ---- [확정] 사진(설계 2-8, B-4 ④): 2. 1) 한 줄 = 한글 파일에 넣은 그대로(지금 상황 줄 + 담당) ----
 // row = weekly-summary-table.js fileRows 한 줄 {space, area, task, lines, owner}. 모양은 조직 사진(record-window-model.mjs snapshotRow)과 맞춘다:

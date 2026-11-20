@@ -135,6 +135,8 @@ class WidgetActionsTest {
                 "android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO", "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
                 "android.permission.READ_EXTERNAL_STORAGE", "android.permission.MANAGE_MEDIA", "android.permission.ACCESS_MEDIA_LOCATION",
                 "android.permission.MANAGE_EXTERNAL_STORAGE",
+                // S67-38: 뒤에서 올리기 앞쪽 작업 알림(종류 dataSync). 사용자에게 묻지 않는 권한.
+                "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
             ),
             perms,
         )

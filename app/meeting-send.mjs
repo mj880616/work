@@ -42,8 +42,10 @@ export function createAppHandoff(up, {max = 20, kind = 'meeting', ids = target =
   // took(job): 묶음 하나를 앱이 맡은 그 자리에서 알린다 — 다음 묶음을 넘기는 사이 앱이 앞 묶음의 끝을 알려 와도 그 파일 줄을 찾을 수 있게.
   return async (target, items, {alive = () => true, started = () => {}, took = () => {}} = {}) => {
     if (!up?.usable || !items?.length || silent) return {ok: false, error: 'off'};
-    const on = await up.ready();
+    let on = await up.ready();
     if (!up.known()) silent = true;
+    // S67-38(명진 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — 앱이 세션을 만들게 하고(up:login), 못 하면 지금 길.
+    if (!on && up.canLogin?.()) on = await up.login();
     if (!on || !up.can(kind)) return {ok: false, error: 'off'};
     try { started(); } catch { /* 알림뿐 */ }
     const to = {kind, ...ids(target)}, before = new Set(up.jobs().map(job => job.id)), jobs = [];

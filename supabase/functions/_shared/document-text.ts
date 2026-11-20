@@ -18,7 +18,7 @@
 // 원본 Drive 파일은 읽기만 한다(이름·위치·내용 변경 없음, ⑦). 실패는 던지지 않고 {text:'', reason}으로 돌려준다.
 
 import { createDriveOcr, OCR_MAX_BYTES, OcrError, ocrMarkers } from "./drive-ocr.ts";
-import { HWP_SLICE_IN, HWP_SLICE_OUT, HwpTextError, hwpRead, hwpxRead, sliceTotal } from "./hwp-text.mjs";
+import { HWP_SLICE_IN, HWP_SLICE_OUT, HwpTextError, hwpPreview, hwpRead, hwpxRead, sliceTotal } from "./hwp-text.mjs";
 
 // 사진 OCR 임시 문서 표시의 note·workspace 칸 값(바구니 기록 ID와 겹치지 않아 바구니 되찾기가 이 문서를 잡지 않는다).
 const OCR_MARK = "library-text";
@@ -58,7 +58,8 @@ const CONVERT: Record<"convert" | "slides" | "sheet", { target: string; exportMi
 };
 // next: 나눠 읽기에서 아직 남은 곳(다음 부름의 from). total: 진행 표시용 전체 조각 수 어림(브리핑 read 단계 n/t).
 export type ReadFrom = { sec: number; para: number };
-export type TextResult = { text: string; source: "content" | "none"; reason: string; cut: boolean; next?: ReadFrom | null; total?: number };
+// partial: "preview" = 본문을 못 읽어 HWP 미리보기 글자(앞부분만)를 돌려줌(S67-37, 브리핑 길만).
+export type TextResult = { text: string; source: "content" | "none"; reason: string; cut: boolean; next?: ReadFrom | null; total?: number; partial?: "preview" };
 
 const ext = (name: string) => String(name || "").toLowerCase().match(/\.([a-z0-9]{1,8})$/)?.[1] ?? "";
 
@@ -336,7 +337,10 @@ export function createDocumentText(deps: Deps) {
 
   // HWP·HWPX 나눠 읽기. raw가 아니면(자료실 저장 길) 저장할 앞부분만큼만 한 번에 읽는다.
   // 암호·배포용 문서는 locked, 모양이 깨진 파일은 read_failed(Drive 변환은 HWP를 못 바꾸므로 다시 시도하지 않는다).
-  async function hwpPart(kind: "hwp" | "hwpx", bytes: Uint8Array, opts: { raw?: boolean; from?: ReadFrom | null; maxChars?: number }) {
+  // S67-37: 실패 로그에 단계 코드를 붙인다(document_text_hwp_read_failed:stage=section_inflate 등, 글 내용 없음).
+  // 브리핑 길(raw)의 첫 몫에서 HWP 본문을 못 읽으면(깨짐·배포용) 미리보기 글자(PrvText)라도 돌려준다(partial=preview).
+  // 자료실 저장 길은 미리보기를 쓰지 않는다(앞부분만인 글이 '끝까지 읽은 글자'로 저장되면 브리핑이 그것을 원문으로 쓰게 된다).
+  async function hwpPart(kind: "hwp" | "hwpx", bytes: Uint8Array, opts: { raw?: boolean; from?: ReadFrom | null; maxChars?: number }): Promise<{ text: string; next: ReadFrom | null; sizes: number[]; partial?: "preview" }> {
     const raw = opts.raw === true;
     const o = {
       from: opts.from ?? { sec: 0, para: 0 },
@@ -347,7 +351,13 @@ export function createDocumentText(deps: Deps) {
       return kind === "hwp" ? await hwpRead(bytes, o) : await hwpxRead(bytes, { ...o, maxXmlBytes: HWPX_STREAM_XML_MAX_BYTES });
     } catch (e) {
       const code = e instanceof HwpTextError ? e.code : "";
-      log(code === "HWP_LOCKED" ? "document_text_hwp_locked" : "document_text_hwp_read_failed");
+      const stage = e instanceof HwpTextError ? (/^[a-z_]{1,20}$/.test(e.stage) ? e.stage : "unknown") : "other";
+      log(code === "HWP_LOCKED" ? "document_text_hwp_locked" : `document_text_hwp_read_failed:stage=${stage}`);
+      const first = !opts.from || (opts.from.sec === 0 && opts.from.para === 0);
+      if (raw && kind === "hwp" && first && code !== "HWPX_TOO_LARGE") {
+        const preview = hwpPreview(bytes);
+        if (preview.replace(/\s/g, "").length) { log("document_text_hwp_preview_used"); return { text: preview, next: null, sizes: [], partial: "preview" }; }
+      }
       throw new Error(code === "HWP_LOCKED" ? "LOCKED" : code === "HWPX_TOO_LARGE" ? "TOO_LARGE" : code === "HWPX_NOT_ZIP" ? "HWPX_NOT_ZIP" : "READ_FAILED");
     }
   }
@@ -370,6 +380,7 @@ export function createDocumentText(deps: Deps) {
       else if (kind === "hwp" || kind === "hwpx") {
         const part = await hwpPart(kind, await download(file.fileId, token, max), opts);
         raw = part.text; next = opts.raw ? part.next : null; total = sliceTotal(part.sizes, deps.slice?.in ?? HWP_SLICE_IN);
+        if (opts.raw && part.partial === "preview") return raw.trim() ? { text: raw, source: "content", reason: "ok", cut: false, next: null, total, partial: "preview" } : none("read_failed");
       }
       else if (kind === "image") raw = await photo(file.fileId, token);
       else raw = await convert(file.fileId, token, kind, kind === "convert" && isPdf(file.name, file.mime), opts.raw ? RAW_EXPORT_MAX_BYTES : EXPORT_MAX_BYTES);
