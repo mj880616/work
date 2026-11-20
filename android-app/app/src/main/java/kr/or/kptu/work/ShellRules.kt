@@ -71,7 +71,7 @@ object ShellRules {
     }
 
     /**
-     * DOMAIN-workonplus: nojoplus.com의 웹2 앱 주소(맨 앞 / 와 /work/app/**)를 같은 경로·질의·조각의 workonplus.com 주소로 바꾼다.
+     * DOMAIN-workonplus: nojoplus.com의 웹2 앱 주소(맨 앞 / 와 /work/app/ 아래)를 같은 경로·질의·조각의 workonplus.com 주소로 바꾼다.
      * nojoplus.com의 앱 자리는 이전 안내 한 장이 되므로(docs/design/domain-workonplus.md 4절) 앱은 안내 대신 새 주소를 바로 연다.
      * 그 밖(다른 호스트, 안쪽이 아닌 주소)은 null.
      */
