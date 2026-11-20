@@ -25,10 +25,14 @@
 | org_report | 대상 기록 | 조직 보고, 조직보고 | 기록 |
 | workplace | 중요 대상 | 투쟁사업장, 투쟁 사업장 | 주요 거래처 |
 | kind_* 8칸 | 분류 | 회의·정책·교섭·언론·국회·투쟁·교육·기타(`#kind` 자리만) | 회의·기획·협의·홍보·외근·행사·교육·기타 |
+| affiliation | 소속 | 노조(`#group` 자리만: 내 프로필 기본 정보 '소속명'·묶음 종류 '소속 묶음'·묶음 이름) | 소속 |
+| weekly | 주간 | 주간 보고(`#weekly` 자리만: 내 프로필 주간 캘린더 칸) | 주간 정리 |
 
 - 이름 규칙: 글자 1~20자, 앞뒤 공백·제어문자 없음, `< > & " ' \` \\` 없음(화면 HTML에 그대로 들어가므로). 전체 2000바이트.
 - 바꾼 칸의 열쇠는 내 이름이 된다. 그 열쇠를 품은 얼굴의 문장 열쇠는 빼서, 그 문장은 낱말 바꾸기로 다시 맞춰진다(문장 안에서도 내 이름, 조사는 `faces.mjs`가 새 말에 맞춤).
 - 분류 8칸은 `word(글자,'kind')` 자리에만 쓴다. 문장 안 '회의'·'교육' 같은 낱말은 건드리지 않는다.
+- S67-57 `original`: 칸 이름을 원래 글자(첫 열쇠의 노조 글자) 그대로 두면 함께 원래 글자로 돌아가는 열쇠(예시·긴 안내). affiliation 칸은 기본 정보 예시(`○○노동조합 ○○지부#example`·`○○사업팀#example`·`국장#example`)와 묶음 없음 안내 문장. 다른 이름으로 고치면 그 열쇠들은 WORK ON 기본 예시 그대로(남의 업종 글자가 섞이지 않게). 칸 이름 자리는 keys로 내 이름.
+- 칸 이름 글자는 `app/profile-words.mjs` 한 곳에서 만든다(`UNION_WORD`·`UNION_LABEL`·`WEEKLY_WORD`·`REPORT_CALENDAR_TITLE`). 서버 값(묶음 종류 `union`, `app_profiles.union_name`)은 바꾸지 않는다.
 - 대표 글자(첫 열쇠)의 기본 이름과 같은 값은 바꾸지 않은 것으로 본다. 그래서 노동조합+ 얼굴에서 명진 값은 화면 한 글자도 바꾸지 않는다.
 
 ## 3. 시작 순서 (설정 읽기 → 첫 그리기, 덮어 그리기 없음)
@@ -47,12 +51,15 @@
 
 코드에 계정·이름을 넣지 않는다(공개 저장소). `docs/ops/custom-words-operator.{precheck,apply,rollback}.sql`(SQL Editor, 실행은 CC)이 운영자 허용 표에 `calls`·`telegram`이 둘 다 켜진 작업공간 정확히 하나의 owner 한 명을 골라, 지금 노동조합+ 화면 이름 그대로(15칸)를 넣는다. 이미 값이 있으면 멈추고(덮어쓰지 않음), 되돌리기는 넣은 값과 같을 때만 비운다.
 
+S67-57: 새 두 칸(소속 `노조`, 주간 `주간 보고`)은 `docs/ops/custom-words-operator-slots.{precheck,apply,rollback}.sql`이 15칸 값 뒤에 더한다(15칸이 먼저 들어가 있어야 하고, 두 칸이 이미 있으면 멈춤, 되돌리기는 넣은 값과 같을 때만 두 칸만 뺌).
+
 ## 6. 적용 순서
 
 1. 이 PR merge(화면은 칸이 없으면 기본 이름으로 열고 칸만 '저장 준비 중').
 2. 승인형 DB workflow: `20261120210000_profile_custom_words` dry-run → apply.
 3. SQL Editor: `custom-words-operator.precheck.sql`(모두 예) → `custom-words-operator.apply.sql`.
 4. 빌드 얼굴을 기록+로 바꾸는 일은 따로(아래 7).
+5. (S67-57) 승인형 DB workflow: `20261121073000_profile_custom_words_slots` dry-run → apply → SQL Editor `custom-words-operator-slots.precheck.sql`(모두 예) → `custom-words-operator-slots.apply.sql`.
 
 ## 7. 남은 일 (기록+ 빌드로 바꾸기 전)
 

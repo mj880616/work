@@ -5,7 +5,9 @@ import {targets, countFile, jsStrings, htmlStrings} from './ui-words.mjs';
 // HOME-주간정리이름주간보고(S62-15, 명진 11/15 "홈화면 주간 정리를 주간 보고 로"): 화면 글자에 '주간 정리'를 쓰지 않는다.
 // 주석·코드 이름은 세지 않는다(검사기 tests/ui-words.mjs의 글자 꺼내기를 그대로 쓴다). 업데이트 기록(옛 공개 배포물)은 세지 않는다.
 // 남은 자리 없음: 자리 표 글자(biz-week-skeleton.mjs)도 S62-21에서 '주간 보고에서 보기 ›'로 맞췄다.
-const LEFT = {};
+// S67-57(2026-11-20 22:38 명진 "WORK ON 기본의 '주간 보고'는 다시 주간 정리로, 명진은 그대로 '주간 보고'"): WORK ON 얼굴 단어표의 값 한 곳만.
+// 노동조합+ 얼굴·명진 값(이름 바꾸기 weekly 칸)에서는 이 값이 쓰이지 않는다(tests/custom-words.test.mjs).
+const LEFT = {'app/brand/girok-words.mjs': 1};
 const WORD = /주간\s?정리/g;
 const strings = (f, src) => (/\.(html|xml)$/.test(f) ? htmlStrings(src) : jsStrings(src));
 const count = (f, src, word = WORD) => strings(f, src).reduce((n, {text}) => n + (text.match(word) || []).length, 0);
@@ -48,7 +50,8 @@ test("화면 글자에 붙여 쓴 '주간보고'가 0곳(한글 파일 이름·�
 test('주간 보고 띄어 쓴 대표 자리: 사업 보고 위 칸 제목·프로필 캘린더·담당조직 기록·자리 표', () => {
   assert.match(readFileSync('app/weekly-summary-table.js', 'utf8'), /'이번 주 주간 보고':`\$\{weekLabel\(from\)\} 주간 보고`/);
   assert.match(readFileSync('app/index.html', 'utf8'), /aria-label="이번 주 주간 보고"/);
-  assert.match(readFileSync('app/report-settings.js', 'utf8'), /<h3>주간 보고 일정 캘린더<\/h3>/);
+  assert.match(readFileSync('app/report-settings.js', 'utf8'), /<h3>\$\{REPORT_CALENDAR_TITLE\}<\/h3>/);
+  assert.match(readFileSync('app/profile-words.mjs', 'utf8'), /WEEKLY_WORD = word\('주간 보고', 'weekly'\)/, '프로필 캘린더 칸: 노동조합+·명진은 주간 보고');
   assert.match(readFileSync('app/workplace-report.js', 'utf8'), /<h4>주간 보고 기록<\/h4>/);
   assert.match(readFileSync('app/biz-week-skeleton.mjs', 'utf8'), />주간 보고에서 보기 ›<\/span>/);
 });

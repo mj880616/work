@@ -10,6 +10,8 @@ import {wordIn} from './faces.mjs';
 // keys: 이 칸이 맡는 노조 글자(단어표 열쇠). '#자리' 열쇠는 그 자리에만, 나머지는 문장 안에서도 바뀐다.
 // kind: true면 활동 분류 칸(word(글자,'kind') 자리에만 — 문장 안 '회의'·'교육' 같은 낱말은 건드리지 않는다).
 // hint: 화면에서 이 칸이 무엇인지 보여 주는 작은 글자(노조 색 없음).
+// original: 이 칸 이름을 원래 글자(첫 열쇠의 글자, 노동조합+ 화면 글자) 그대로 두면 함께 원래 글자로 돌아가는 열쇠(예시·긴 안내 문장).
+//   다른 이름으로 고치면 이 열쇠들은 얼굴 기본값 그대로다(예시에 남의 업종 글자가 섞이지 않게). 칸 이름 자체는 keys로 바뀐다.
 export const SLOTS = Object.freeze([
   {id: 'menu_biz', hint: '메뉴', keys: ['사업 관리', '사업 관리#title']},
   {id: 'report', hint: '기록 한 건', keys: ['사업 보고', '사업보고']},
@@ -25,8 +27,14 @@ export const SLOTS = Object.freeze([
   {id: 'kind_assembly', hint: '분류', keys: ['국회#kind'], kind: true},
   {id: 'kind_struggle', hint: '분류', keys: ['투쟁#kind'], kind: true},
   {id: 'kind_education', hint: '분류', keys: ['교육#kind'], kind: true},
-  {id: 'kind_other', hint: '분류', keys: ['기타#kind'], kind: true}
-].map(slot => Object.freeze({...slot, keys: Object.freeze([...slot.keys])})));
+  {id: 'kind_other', hint: '분류', keys: ['기타#kind'], kind: true},
+  // S67-57(내 프로필·묶음): 소속 칸 이름과 주간 칸 이름. 화면은 word('노조','group')·word('주간 보고','weekly') 자리에서만 쓴다.
+  {id: 'affiliation', hint: '소속', keys: ['노조#group'], original: [
+    '○○노동조합 ○○지부#example', '○○사업팀#example', '국장#example',
+    '같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.'
+  ]},
+  {id: 'weekly', hint: '주간', keys: ['주간 보고#weekly']}
+].map(slot => Object.freeze({...slot, keys: Object.freeze([...slot.keys]), original: Object.freeze([...(slot.original || [])])})));
 export const SLOT_IDS = Object.freeze(SLOTS.map(slot => slot.id));
 export const NAME_MAX = 20;
 export const TOTAL_MAX_BYTES = 2000;
@@ -88,7 +96,11 @@ export function applyCustomWords(face, custom) {
   if (!changed.length) return face;
   const words = {...face.words};
   const mine = {};
-  for (const slot of changed) for (const key of slot.keys) mine[key] = custom[slot.id];
+  for (const slot of changed) {
+    for (const key of slot.keys) mine[key] = custom[slot.id];
+    // 원래 글자 그대로 쓰는 칸이면(예: 소속 칸을 '노조'로) 딸린 예시·문장도 원래 글자로.
+    if (custom[slot.id] === split(slot.keys[0])[0]) for (const key of slot.original) mine[key] = split(key)[0];
+  }
   const inText = Object.keys(mine).filter(key => !key.includes('#'));
   for (const key of Object.keys(words)) {
     if (Object.hasOwn(mine, key)) continue;
