@@ -7,7 +7,7 @@ import {asPicture} from './picture-file.mjs';
 import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
 import {holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview, slotTiming} from './img-slot.js';
-import {diaryDocToStore, diaryDocError} from './diary-doc.mjs';
+import {diaryDocToStore, diaryDocError, docPhotoIds} from './diary-doc.mjs';
 import {withMark, withOrigins} from './diary-list-model.mjs';
 
 export const DIARY_MAX_PHOTOS = 20;
@@ -29,7 +29,27 @@ function workspace(rt) {
 }
 export const ownerScope = (rt = window.KPTURuntime) => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 export const diaryText = row => String(row?.raw_text ?? '').trim() ? String(row.raw_text) : '';
-export const diaryPhotos = row => (Array.isArray(row?.attachments) ? row.attachments : []).filter(file => /^image\//.test(file?.mime_type || ''));
+const imageFiles = row => (Array.isArray(row?.attachments) ? row.attachments : []).filter(file => /^image\//.test(file?.mime_type || ''));
+// The day's photos (the grid, calendar cell, preview, list, photo views). S67-20 본문 사진: a photo put in the text (row.doc drive:<id>) is a
+// copy on the same row (the same basket-files upload, Drive "노트 첨부", owner only) but not one of the day's photos: it is drawn only inside
+// the text. Which files are text photos is written with the text in the row's existing metadata (metadata.body_photos = [drive_file_id],
+// no new column), so the month list that reads no doc knows them too; the doc's own photos count as well (either one is enough).
+export const bodyPhotoIds = row => {
+  const ids = docPhotoIds(row?.doc), raw = row?.metadata?.body_photos;
+  if (Array.isArray(raw)) for (const id of raw) if (typeof id === 'string' && id) ids.add(id);
+  return ids;
+};
+export const diaryPhotos = row => { const body = bodyPhotoIds(row); return imageFiles(row).filter(file => !body.has(file.drive_file_id)); };
+export const diaryBodyPhotos = row => { const body = bodyPhotoIds(row); return imageFiles(row).filter(file => body.has(file.drive_file_id)); };
+// metadata with body_photos set to the text photos of doc that are on the row (other keys kept; removed when none).
+function withBody(metadata, doc, attachments) {
+  const on = new Set((attachments || []).map(file => file?.drive_file_id).filter(Boolean));
+  const ids = [...docPhotoIds(doc)].filter(id => on.has(id));
+  const next = {...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {})};
+  if (ids.length) next.body_photos = ids; else delete next.body_photos;
+  return next;
+}
+const sameList = (a, b) => JSON.stringify(Array.isArray(a) ? a : []) === JSON.stringify(Array.isArray(b) ? b : []);
 // Per-photo comments live in the row's existing metadata jsonb (no new column, no database change):
 // metadata.photo_comments = {<drive_file_id>: '짧은 코멘트'}. Only comments of photos still on the day are read.
 export function photoComments(row) {
@@ -161,8 +181,11 @@ export async function saveDiaryText(row, text, rt = window.KPTURuntime, {doc, st
   validateDiaryText(text);
   if (!text.trim() && !row.attachments?.length) throw new Error('사진이나 글을 넣어 주세요.');
   const body = {raw_text:text.trim() ? text : ''};
-  if (doc !== undefined) { const form = diaryDocToStore(doc, text); const bad = diaryDocError(form); if (bad) throw new Error(bad); body.doc = form; }
+  let form = null;
+  if (doc !== undefined) { form = diaryDocToStore(doc, text); const bad = diaryDocError(form); if (bad) throw new Error(bad); body.doc = form; }
   else if (row.doc) body.doc = null;
+  // S67-20: the text photos are written with the text (same PATCH), so the day's photos never count them.
+  if (doc !== undefined || row.doc) { const metadata = withBody(row.metadata, form, row.attachments); if (!sameList(metadata.body_photos, row.metadata?.body_photos)) body.metadata = metadata; }
   const rows = await patch(row, body, rt, {strict});
   if (strict && Array.isArray(rows) && !rows.length) throw Object.assign(new Error('하루 기록이 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
   return one(rows);
@@ -181,6 +204,8 @@ export async function removeDiaryPhotos(row, fileIds, rt = window.KPTURuntime) {
   let metadata = row.metadata;
   if (row.metadata?.photo_comments !== undefined) { const rest = {...photoComments(row)}; for (const id of gone) delete rest[id]; metadata = withComments(metadata, rest); }
   // DIARY-넣은사진원본: 빠진 사진의 원본 식별값도 같은 저장에서 뺀다.
+  // S67-20: a text photo taken out of the row leaves body_photos in the same write.
+  if (Array.isArray(row.metadata?.body_photos)) { const rest = row.metadata.body_photos.filter(id => !gone.has(id)); metadata = {...metadata}; if (rest.length) metadata.body_photos = rest; else delete metadata.body_photos; }
   if (row.metadata?.photo_origins !== undefined) { const rest = {...(metadata?.photo_origins || {})}; for (const id of gone) delete rest[id]; metadata = {...metadata}; if (Object.keys(rest).length) metadata.photo_origins = rest; else delete metadata.photo_origins; }
   if (metadata !== row.metadata) body.metadata = metadata;
   const rows = await patch(row, body, rt, {strict:true});

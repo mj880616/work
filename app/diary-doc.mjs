@@ -5,6 +5,9 @@
 //   joinDiaryDocs(a, b)     — b (a text typed before the day turned out to have a diary) put below a.
 //   diaryDocToStore(v, t)   — the form to write with the letters t: null when there are no letters (a photo-only day keeps letters only).
 //   diaryDocError(doc)      — a message when the form is too big for the database check (1 MiB as jsonb text; here a safer 900,000 bytes).
+//   docPhotoIds(doc)        — S67-20 본문 사진: the Drive file ids of the photos put in the text (drive:<id>, alone or side by side). Such a
+//                             photo is a copy uploaded onto the day's row like the day's photos, but it belongs to the text: it is drawn
+//                             only inside the text, never in the day's photo grid, calendar cell or preview (diary-data.js diaryPhotos).
 // The letters (raw_text) stay the copy every reader of the diary uses (calendar day preview, month list, search); only the diary screen reads doc.
 import {cleanDoc} from './ed-schema.mjs';
 import {plainToDocKeep} from './ed-markdown.mjs';
@@ -29,4 +32,17 @@ export function diaryDocError(doc) {
   let size = 0;
   try { size = new TextEncoder().encode(JSON.stringify(doc)).length; } catch { return '서식을 확인해 주세요.'; }
   return size > DIARY_DOC_BYTES_MAX ? '서식이 너무 커서 저장할 수 없어요. 표나 서식을 줄여 주세요.' : '';
+}
+
+// S67-20: the photo ids in the text (image nodes, also inside a photo row). Plain walk of the saved form; no DOM.
+const DRIVE_SRC = /^drive:([A-Za-z0-9_-]{1,200})$/;
+export function docPhotoIds(doc) {
+  const out = new Set();
+  const walk = (node, depth) => {
+    if (!node || typeof node !== 'object' || depth > 64) return;
+    if (node.type === 'image') { const m = DRIVE_SRC.exec(String(node.attrs?.src || '')); if (m) out.add(m[1]); }
+    if (Array.isArray(node.content)) for (const child of node.content) walk(child, depth + 1);
+  };
+  walk(doc && typeof doc === 'object' && doc.doc && typeof doc.doc === 'object' ? doc.doc : doc, 0); // the saved form {v, doc} or a bare doc
+  return out;
 }

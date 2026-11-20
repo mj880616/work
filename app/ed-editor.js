@@ -269,7 +269,8 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
 // onFiles: null, or (files) => void — the opener's own attachment row, used when photos/files are not given (UPD-그림붙여넣기).
-// photos: null, or {add(file) -> {src}, url(src) -> address|null, max} (share pages, ED-②).
+// photos: null, or {add(file) -> {src}, url(src) -> address|null, max, note?} (share pages, ED-②; notes; the diary S67-20). note: the words
+//   said after photos went in (default: share pages' '저장해야 받는 사람에게 보여요.' where there is no files option).
 // files: null, or {add(file) -> {src, name, size}, open(src)} (S48-21 [파일]; notes).
 // onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
 // opens or the last one closes, so a window can give the phone's back button to the box first. closeBoxes() closes them all and returns true when one was open.
@@ -1326,7 +1327,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
         made.push(N.image.create({src, alt: ''}));
         if (layout === 'single') insertBlock(made.at(-1));
       }
-      say(`사진 ${made.length}장을 넣었어요.${photos.url && !files ? ' 저장해야 받는 사람에게 보여요.' : ''}`);
+      say(`사진 ${made.length}장을 넣었어요.${typeof photos.note === 'string' ? photos.note : photos.url && !files ? ' 저장해야 받는 사람에게 보여요.' : ''}`);
     } catch (e) {
       say(''); tellUpFailed(failed, e, '사진', filesFrom);
     }

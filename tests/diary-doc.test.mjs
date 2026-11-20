@@ -67,3 +67,12 @@ test('the diary screen opens the new editor in its panel and reads the saved for
   assert.match(data, /const FIELDS = 'id,journal_day,raw_text,doc,/);
   assert.ok(!/ai_export_allowed:true/.test(data));
 });
+
+test('S67-20 docPhotoIds: drive photo ids of the text (alone or side by side), saved form or bare doc; share photos and places are not', async () => {
+  const {docPhotoIds} = await import('../app/diary-doc.mjs');
+  const image = src => ({type:'image', attrs:{src, alt:''}});
+  const bare = {type:'doc', content:[para('글'), image('drive:a'), {type:'photo_row', content:[image('drive:b'), image('share:x')]}, image(null), {type:'file', attrs:{src:'drive:f', name:'f'}}]};
+  assert.deepEqual([...docPhotoIds(bare)], ['a', 'b']);
+  assert.deepEqual([...docPhotoIds({v:'ed1', doc:bare})], ['a', 'b']);
+  assert.deepEqual([...docPhotoIds(null)], []);
+});

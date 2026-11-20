@@ -188,3 +188,30 @@ test('DIARY-넣은사진원본: 붙은 사진의 번호→첨부 id를 돌려주
   await m.removeDiaryPhotos(row({attachments:[photo('a')], raw_text:'글', metadata:{photo_origins:{a:'onedrive:1'}}}), ['a'], rt3);
   assert.deepEqual(rt3.calls[0].body.metadata, {});
 });
+
+// S67-20 본문 사진: a photo put in the text is a copy on the same row but not one of the day's photos (grid, calendar, preview, count).
+test('S67-20: text photos (doc drive:<id> or metadata.body_photos) are not day photos; saving the text writes body_photos in the same PATCH', async () => {
+  const m = await mod;
+  const image = id => ({type:'image', attrs:{src:'drive:' + id, alt:''}});
+  const form = {v:'ed1', doc:{type:'doc', content:[{type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text:'글'}]}, {type:'photo_row', content:[image('b')]}]}};
+  const r = row({attachments:[photo('a'), photo('b'), photo('c')], doc:form, metadata:{body_photos:['c']}});
+  assert.deepEqual(m.diaryPhotos(r).map(f => f.drive_file_id), ['a']);
+  assert.deepEqual(m.diaryBodyPhotos(r).map(f => f.drive_file_id), ['b', 'c']);
+  assert.deepEqual(m.photoComments({...r, metadata:{photo_comments:{a:'하나', b:'둘'}}}), {a:'하나'});
+  // The month list reads no doc: metadata alone is enough.
+  assert.deepEqual(m.diaryPhotos({attachments:[photo('a'), photo('c')], metadata:{body_photos:['c']}}).map(f => f.drive_file_id), ['a']);
+  const rt = runtime((path, o) => [{...r, ...o.body}]);
+  await m.saveDiaryText(row({attachments:[photo('a'), photo('b')], metadata:{photo_comments:{a:'x'}}}), '글\n\n[사진]', rt, {doc:form});
+  assert.deepEqual(rt.calls[0].body.metadata, {photo_comments:{a:'x'}, body_photos:['b']});
+  // A photo no longer in the text leaves body_photos; nothing changed → metadata not sent.
+  const rt2 = runtime((path, o) => [{...r, ...o.body}]);
+  await m.saveDiaryText(row({attachments:[photo('a'), photo('b')], metadata:{body_photos:['b']}}), '글', rt2, {doc:{v:'ed1', doc:{type:'doc', content:[{type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text:'글'}]}]}}});
+  assert.deepEqual(rt2.calls[0].body.metadata, {});
+  const rt3 = runtime((path, o) => [{...r, ...o.body}]);
+  await m.saveDiaryText(row({attachments:[photo('a'), photo('b')], metadata:{body_photos:['b']}}), '글\n\n[사진]', rt3, {doc:form});
+  assert.equal(rt3.calls[0].body.metadata, undefined);
+  // Taking a text photo off the row drops it from body_photos in the same write.
+  const rt4 = runtime((path, o) => [{...r, ...o.body}]);
+  await m.removeDiaryPhotos(row({attachments:[photo('a'), photo('b')], metadata:{body_photos:['b']}}), ['b'], rt4);
+  assert.deepEqual(rt4.calls[0].body.metadata, {});
+});
