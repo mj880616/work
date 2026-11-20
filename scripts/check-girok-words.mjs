@@ -27,7 +27,7 @@ function walk(node, visit, parent = null) {
   }
 }
 
-const isWord = node => node?.type === 'Identifier' && node.name === 'word';
+const isWord = node => node?.type === 'Identifier' && (node.name === 'word' || node.name === 'brandWord');
 
 /** JS 한 파일: [{line, text, why}] 문제 목록. */
 export function scanScript(file, source, { sourceType } = {}) {

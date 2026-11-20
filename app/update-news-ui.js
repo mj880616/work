@@ -4,6 +4,7 @@
 // 읽음만 남긴다(운영자 '읽음 n/m'). 기기 저장 없음. 글자는 textContent로만 넣는다.
 import {shortDay} from './update-news-model.mjs';
 import {waitHtml,failHtml,emptyHtml} from './wait-state.js';
+import {word} from './brand/brand.mjs';
 
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!=null)node.textContent=text;return node};
 const rt=()=>window.KPTURuntime;
@@ -12,9 +13,9 @@ const rt=()=>window.KPTURuntime;
 export function newsRow(item,extra=[]){
   const row=el('article','un-item');
   const head=el('div','un-head');
-  head.append(el('b','un-title',item.title||item.lines?.[0]||''),el('span','un-date',shortDay(item.sent_at)),...extra);
+  head.append(el('b','un-title',word(item.title)||word(item.lines?.[0])||''),el('span','un-date',shortDay(item.sent_at)),...extra);
   const list=el('ul','un-lines');
-  for(const line of (item.title?item.lines:item.lines?.slice(1))||[])list.append(el('li',null,line));
+  for(const line of (item.title?item.lines:item.lines?.slice(1))||[])list.append(el('li',null,word(line)));
   row.append(head);
   if(list.childElementCount)row.append(list);
   return row;

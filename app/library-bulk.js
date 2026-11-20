@@ -4,10 +4,11 @@
 // 폴더로 옮기기는 library-folders.js(bulkMove). 이 파일은 화면·네트워크 부품만 받아 쓰는 순수한 부분과 차례 실행만 맡는다.
 import {originAfterEdit} from './library-ai-fill.js';
 import {deleteSequentially} from './library-select.js';
+import {word} from './brand/brand.mjs';
 
 export const BULK_FIELDS=Object.freeze({
-  project:Object.freeze({field:'project_id',label:'사업영역',none:'사업영역 없음'}),
-  organization:Object.freeze({field:'organization_id',label:'담당조직',none:'담당조직 없음'}),
+  project:Object.freeze({field:'project_id',label:word('사업영역'),none:word('사업영역 없음')}),
+  organization:Object.freeze({field:'organization_id',label:word('담당조직'),none:word('담당조직 없음')}),
   category:Object.freeze({field:'category',label:'분류',none:''}),
 });
 const norm=v=>v===undefined||v===''?null:v;
@@ -34,7 +35,7 @@ export function bulkUndoBody(before,kind,now=new Date().toISOString()){
 export function bulkChoices(kind,{projects=[],organizations=[],categories=[]}={}){
   const spec=BULK_FIELDS[kind];
   if(kind==='project')return [{value:'',label:spec.none},...projects.map(p=>({value:p.value,label:p.label,depth:p.depth||0}))];
-  if(kind==='organization')return [{value:'',label:spec.none},...organizations.map(o=>({value:o.id,label:String(o.name||'이름 없는 조직')}))];
+  if(kind==='organization')return [{value:'',label:spec.none},...organizations.map(o=>({value:o.id,label:String(o.name||word('이름 없는 조직'))}))];
   // LIB-소분류: 소분류('선전›투쟁속보')는 큰 분류 바로 아래에 한 칸 들여 소분류 이름만(목록 순서는 부른 쪽이 묶어 넘긴다).
   return categories.map(name=>{const i=name.indexOf('›');return i<0?{value:name,label:name}:{value:name,label:name.slice(i+1),depth:1}});
 }

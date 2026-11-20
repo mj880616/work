@@ -4,11 +4,12 @@
 // 후보 파일 모양을 만들 때만 쓴다. 후보 표·데이터·확정 함수는 그대로다(남은 후보 정리는 roadmap PR-7).
 import { looksPersonal } from './ledger-import-model.mjs';
 import { KIND_LABEL, KIND_DISPLAY, KIND_HINT, dateLabel } from './ledger-browse-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const ACTIONS = Object.freeze(['new', 'add_source', 'update', 'supersede']);
 export const ACTION_LABEL = Object.freeze({ new: '새 기록', add_source: '기존 기록에 출처 추가', update: '기존 기록 수정됨', supersede: '기존 기록 대체' });
-export const ORIGIN_LABEL = Object.freeze({ web2_ai: '노동조합+ AI', claude_import: 'Claude 파일', user: '직접' });
-export const ORIGIN_SOURCE_LABEL = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지', meeting: '사업 보고', org_update: '조직 기록', project_update: '사업영역 기록' });
+export const ORIGIN_LABEL = Object.freeze({ web2_ai: word('노동조합+ AI'), claude_import: 'Claude 파일', user: '직접' });
+export const ORIGIN_SOURCE_LABEL = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지', meeting: word('사업 보고'), org_update: word('조직 기록'), project_update: word('사업영역 기록') });
 export const MAX_CANDIDATES = 500;
 const KINDS = Object.keys(KIND_LABEL);
 const ENTRY_KEYS = ['action', 'kind', 'title', 'sensitivity', 'target', 'dedup_key', 'payload'];

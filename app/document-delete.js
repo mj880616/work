@@ -1,7 +1,8 @@
 // 자료실과 회의 상세는 같은 확인·요청·오류 안내를 사용한다.
 // 확인은 공용 작은 확인창(askConfirm), 결과·오류 안내는 공용 작은 알림(notify)으로 한다(S48-28). 부르는 쪽이 ask·tell을 넘기면 그것을 쓴다.
 import {askConfirm,notify} from './small-notice.js';
-const unknownDeleteMessage='삭제 결과를 확인하지 못했어요. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+import {word} from './brand/brand.mjs';
+const unknownDeleteMessage=word('삭제 결과를 확인하지 못했어요. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.');
 const pendingDeletes=new Map();
 const modernFields=['drive_result','drive_preserved','reason'];
 const deletePhases=['token_delete_result','document_delete_result'];
