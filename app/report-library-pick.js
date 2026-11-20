@@ -23,7 +23,7 @@ const jobs = new WeakMap();
 let menu = null;
 function ensureMenu() {
   menu ??= createAnchoredMenu({
-    id: 'reportAddMenu', className: 'gt-task-menu report-add-menu', label: '자료 추가', historyKey: 'kptuReportAddMenu', boxWidth: 180,
+    id: 'reportAddMenu', className: 'report-add-menu', label: '자료 추가', historyKey: 'kptuReportAddMenu', boxWidth: 180,
     parent: t => t.closest('.modal,[role="dialog"]') || document.body,
     key: t => t.id || 'report-add',
     render: () => `<button type="button" class="row-act" data-report-add="device">${esc(DEVICE_LABEL)}</button><button type="button" class="row-act" data-report-add="library">${esc(PICK_LABEL)}</button>`,

@@ -71,6 +71,8 @@ for(const width of [412,1280]){
     await page.locator('#meetingPickFiles').click();
     await expect(menu(page)).toBeVisible();
     await expect(menu(page).getByRole('button')).toHaveText(['기기에서 올리기','자료실에서 선택']);
+    // 두 줄은 서로 덮지 않는다(공용 글자 버튼의 넓힌 누르는 자리가 옆 줄을 가리던 것 — CI에서 [기기에서 올리기]를 못 누름).
+    expect(await menu(page).evaluate(m=>[...m.querySelectorAll('button')].every(b=>{const r=b.getBoundingClientRect();return r.height>=40&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===b}))).toBe(true);
     // [기기에서 올리기] = 지금까지처럼 파일 고르기
     const chooser=page.waitForEvent('filechooser');
     await menu(page).locator('[data-report-add="device"]').click();
