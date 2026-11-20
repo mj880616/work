@@ -115,9 +115,10 @@ test('화면 연결: 칸 누름은 칸 전체가 그날 고르기, 제목·목�
   // BIZ-달력그날창: '+n'은 칸 누름보다 먼저 받아 그날을 고르고(달력 아래로 내리지 않음) 그 칸 자리에 그날 창을 연다.
   assert.match(fn, /const more=e\.target\.closest\('\[data-rv-more\]'\);if\(more\)\{const day=more\.dataset\.rvMore;pickReportDay\(day,false\);showReportDay\(day\);return true\}/);
   assert.ok(fn.indexOf("closest('[data-rv-more]')") < fn.indexOf("closest('[data-rv-cell]')"));
-  const css = readFileSync(new URL('../app/meeting-ui.css', import.meta.url), 'utf8');
-  assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]\{cursor:pointer\}/);
-  assert.match(css, /#meetingList \.rv-cell\[data-rv-cell\]:not\(\.ds-day-sel\):hover/);
+  // NOTE-달력보기(S67-42): 달 칸 공용 모양은 month-cal.css(노트 [달력]과 같이 씀)로 옮겼다.
+  const css = readFileSync(new URL('../app/month-cal.css', import.meta.url), 'utf8');
+  assert.match(css, /:is\(#meetingList \.rv-cell\[data-rv-cell\],#noteRows \.rv-cell\[data-nt-cal-cell\]\)\{cursor:pointer\}/);
+  assert.match(css, /:is\(#meetingList \.rv-cell\[data-rv-cell\],#noteRows \.rv-cell\[data-nt-cal-cell\]\):not\(\.ds-day-sel\):hover/);
 });
 // S57-8 BIZ-달력우클릭끌기 PR-2: 우클릭 메뉴·끌어 옮기기의 규칙과 연결.
 test('끌어 옮기기 규칙: 날짜만 바뀌고 시각은 그대로, 같은 날·읽을 수 없는 값은 옮기지 않음', () => {

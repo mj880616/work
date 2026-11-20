@@ -34,8 +34,9 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
   // UI-보기탭한모양(S52-17): 공용 ⑤ 칸(.ds-seg-btn)도 뺀다.
   // UI-올리기진행표시(S52-15): 공용 올리는 줄(.up-rows)의 ✕·[다시]도 이 넓은 규칙에서 뺀다(모양은 ui-standard.css 공용 버튼).
   // ORG-기록첨부이름반영(S60-14): 첨부 이름 끝 ✎(.fr-edit)도 뺀다(모양은 file-rename.css 한 곳).
+  // NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head)·날짜 숫자(.rv-table)도 뺀다(모양은 공용 6가지·month-cal.css).
   // NOTE-유튜브보기(S67-04): 글 속 영상 칸(.ed-video)의 ▶도 뺀다(모양은 ed-doc.css 한 곳).
-  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.ed-video \*)?(?:, \.fr-edit)?\) \{/);
+  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.ed-video \*)?(?:, \.rv-cal-head \*, \.rv-table \*)?(?:, \.fr-edit)?\) \{/);
 });
 
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {
