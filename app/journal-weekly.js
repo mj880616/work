@@ -553,6 +553,7 @@ export const FILE_EDIT_MAX = 200;
 // 방금 [빼기]한 자료 줄 id(탭 메모리뿐) — 그 줄 자리에만 [되돌리기]를 보인다.
 let lastFileDrop = '';
 // only = 'calendar': 5. 주요 일정 칸만 새로 그려 그 자리에 바꿔 끼운다(줄 [수정] 칸 열기·닫기·저장됨 — 위쪽 칸은 건드리지 않아 화면이 움직이지 않음, S67-30).
+// only = 'ask': 1. 1) 임원 배정 요청 칸만 같은 방식으로(S67-31).
 // 그 칸이 아직 없으면 전체를 그린다. 돌려주는 값: 일부만 그렸으면 true.
 export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}, {only = ''} = {}) {
   const doc = host.ownerDocument;
@@ -831,6 +832,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const oldFive = only === 'calendar' ? host.querySelector?.('[data-journal-weekly-chapter="calendar"]') : null;
   const putBack = keepSlots(oldFive ? five : null);
   if (oldFive) { oldFive.replaceWith(five); putBack(); fitAll(five); return true; }
+  // S67-31: only = 'ask' — 1) 임원 배정 요청 칸만(줄 [수정]·[+ 추가] 칸 열기·닫기·저장 중·저장됨). 그 칸 안에는 다른 모듈이 채우는 자리가 없다.
+  const oldAsk = only === 'ask' ? host.querySelector?.('[data-journal-weekly="ask"]') : null;
+  if (oldAsk) { oldAsk.replaceWith(ask); fitAll(ask); return true; }
   host.replaceChildren(when, one, two, three, four, five, learned);
   putBack();
   fitAll(host); // UI-줄입력늘어나기: 자료 줄·요청 표 고치기 칸은 열자마자 글 전체가 보이게

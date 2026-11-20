@@ -579,8 +579,10 @@ function renderWeekly_({refreshBox = true, only = ''} = {}) {
   lastWeekModel = weekModel;
   weekModel.scheduleView = hwpx?.scheduleView?.(start) ?? null; // S52-31: 5. 주요 일정 줄 제자리 고치기(열린 줄·표 아래 한 줄)
   // S67-30: 5. 주요 일정 줄 [수정] 칸 열기·닫기·저장됨은 그 칸만 다시 그린다(위쪽 칸을 새로 끼우면 브라우저가 화면 자리를 다시 잡아 위로 튐).
+  // S67-31: 1. 1) 임원 배정 요청 줄 [수정]·[+ 추가] 칸 열기·닫기·저장도 같은 방식으로 그 칸만(only 'ask').
   if (W.renderWeekly(host, weekModel, esc, orgUi, execUi, memoryUi, fileUi, {only}) === true) {
-    const table = host.querySelector('[data-journal-weekly="calendar"] table[data-wk-cols]'); if (table) W.mountWeeklyCols(table, table.dataset.wkCols);
+    const table = host.querySelector(`[data-journal-weekly="${only === 'ask' ? 'ask' : 'calendar'}"] table[data-wk-cols]`); if (table) W.mountWeeklyCols(table, table.dataset.wkCols);
+    if (only === 'ask') { placeRequestNote(host); if (execFocus) root.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus({preventScroll:true}); if (refreshBox) hwpx?.refresh(); return; }
     paintCalendarHand(host, weekModel);
     hwpx?.afterRender?.();
     return;
@@ -774,10 +776,12 @@ function paintFlow(host, model) {
     paintFlowSection(host, model, section, {row, status, team});
   }
   host.querySelector('[data-weekly-flow-top]')?.replaceWith(hwpx.topLine);
-  host.querySelector('[data-journal-weekly="ask"] > .journal-weekly-sub')?.after(hwpx.requestNote);
+  placeRequestNote(host);
   host.querySelector('[data-weekly-flow-confirm]')?.append(hwpxHost);
   hwpx.paint();
 }
+// 1) 임원 배정 요청 제목 아래 '지난주 확정본에서 n줄을 가져왔어요' 한 줄(journal-hwpx.js 가 그리는 마디)을 그 칸에 붙인다 — 전체·그 칸만 다시 그릴 때 모두.
+function placeRequestNote(host) { if (hwpx?.requestNote) host.querySelector('[data-journal-weekly="ask"] > .journal-weekly-sub')?.after(hwpx.requestNote); }
 // 4. 조직보고 줄(조직 id → '- 11.2. 글' 줄들) — 복사 글이 읽는다. 창을 아직 못 읽었으면 null(예전처럼 기록).
 // ORG-기록하나로 O-6: 옛 주도 같은 창(옛 표 읽기 전용)이라 주와 상관없이 창 하나.
 function weekOrgLines() {
@@ -1598,17 +1602,20 @@ function execDraftFromScreen(host) {
 }
 const execRead = () => (materials.execRequests?.status === 'ok' && !materials.execRequests.items?.missing ? materials.execRequests.items : null);
 const execRows = () => execRead()?.row?.items ?? [];
+// 1) 요청 줄 고치기 칸 열기·닫기·저장 중 안내는 그 칸만 다시 그린다(S67-31). 저장이 끝나 줄이 바뀐 때는 한글 파일 상자 재료도 맞춘다(refreshBox).
+const EXEC_ONLY = {refreshBox:false, only:'ask'};
 function openExecEdit(id, where = 'weekly') {
   if (execUi.saving || !execRead()) return;
   const item = id === 'new' ? null : execRows().find(row => row.id === id);
   if (id !== 'new' && !item) return;
   execUi = {...freshExec(), editing:id, draft:item ? {day:item.day, until:item.until || '', time:item.time, what:item.what, place:item.place, who:item.who} : {day:'', until:'', time:'', what:'', place:'', who:''}, where};
-  renderWeekly_();
+  renderWeekly_(EXEC_ONLY);
   execPlace().querySelector('[data-journal-exec-field="day"]')?.focus();
 }
-function closeExecEdit(message = '') {
+// changed = 줄이 저장·삭제되어 바뀜(한글 파일 상자 재료도 맞춘다).
+function closeExecEdit(message = '', changed = false) {
   const id = execUi.editing, where = execUi.where; execUi = {...freshExec(), status:message, where};
-  renderWeekly_();
+  renderWeekly_(changed ? {only:'ask'} : EXEC_ONLY);
   const place = execPlace(where);
   (place.querySelector(`[data-journal-exec-more="${id}"] > summary`) || place.querySelector('[data-journal-exec-add]'))?.focus();
 }
@@ -1633,17 +1640,17 @@ async function saveExecEdit() {
     if (time === null && raw !== (before?.time ?? '')) throw Object.assign(new Error(W.TIME_HINT), {code:'invalid', field:'time'});
     item = W.cleanItem({...execUi.draft, time:time ?? raw}, {id:id === 'new' ? undefined : id});
   }
-  catch (error) { execUi.status = error.message; execUi.error = true; execUi.invalid = error.field || ''; renderWeekly_(); execPlace().querySelector(`[data-journal-exec-field="${execUi.invalid || 'day'}"]`)?.focus(); return; }
-  execUi.saving = true; execUi.status = '저장하는 중…'; execUi.error = false; renderWeekly_();
+  catch (error) { execUi.status = error.message; execUi.error = true; execUi.invalid = error.field || ''; renderWeekly_(EXEC_ONLY); execPlace().querySelector(`[data-journal-exec-field="${execUi.invalid || 'day'}"]`)?.focus(); return; }
+  execUi.saving = true; execUi.status = '저장하는 중…'; execUi.error = false; renderWeekly_(EXEC_ONLY);
   try {
     // An edited row is the owner's own now: the '지난주에서' mark goes.
     const result = await writeExec(list => (id === 'new' ? [...list, item] : list.some(row => row.id === id) ? list.map(row => (row.id === id ? item : row)) : [...list, item]));
     if (result.stale) return;
-    closeExecEdit(id === 'new' ? '요청 줄을 더했어요.' : '요청 줄을 수정했어요.');
+    closeExecEdit(id === 'new' ? '요청 줄을 더했어요.' : '요청 줄을 수정했어요.', true);
     // 지난주에서 가져온 줄을 고치면 그 제안을 '고쳐서 넣음'(kind carried edit), 내 줄이면 줄 고침(fix), 새 줄은 손으로 더함(add).
     void recordExecPick(before?.carried ? {kind:'carried', act:'edit', text:execLine(item), before:execLine(before)} : before ? {act:'fix', text:execLine(item), before:execLine(before)} : {act:'add', text:execLine(item)});
   } catch (error) {
-    execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_();
+    execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_(EXEC_ONLY);
     execPlace().querySelector('[data-journal-exec-field="what"]')?.focus();
   }
 }
@@ -1664,12 +1671,12 @@ async function deleteExecRow(id) {
   if (execUi.saving) return;
   const removed = execRows().find(row => row.id === id);
   if (!removed) return;
-  execUi.saving = true; execUi.status = '삭제하는 중…'; renderWeekly_();
+  execUi.saving = true; execUi.status = '삭제하는 중…'; renderWeekly_(EXEC_ONLY);
   try {
     const result = await writeExec(list => list.filter(row => row.id !== id));
     if (result.stale) return;
-  } catch (error) { execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_(); return; }
-  closeExecEdit('');
+  } catch (error) { execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_(EXEC_ONLY); return; }
+  closeExecEdit('', true);
   void recordExecPick(removed.carried ? {kind:'carried', act:'drop', text:execLine(removed)} : {act:'cut', text:execLine(removed)});
   const scope = owner, week = start;
   offerUndoNotice({text:'요청 줄을 삭제했어요.', onUndo:async () => {
@@ -1678,7 +1685,7 @@ async function deleteExecRow(id) {
       const back = await writeExec(list => (list.some(row => row.id === removed.id) ? null : [...list, removed]));
       if (back.stale) return {status:'stale'};
       void recordExecPick({kind:removed.carried ? 'carried' : 'line', act:'none', text:execLine(removed)});
-      renderWeekly_();
+      renderWeekly_({only:'ask'});
       return {status:'restored', message:'삭제한 요청 줄을 되돌렸어요.'};
     } catch (error) { return {status:'failed', message:execError(error)}; }
   }});
