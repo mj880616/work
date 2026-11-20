@@ -3390,6 +3390,48 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
+// S67-31(S67-30 범위 밖 발견): 2. 1) 첫 칸 묶음(양식 자리)은 다른 주에 갔다 오거나 새로고침해도 그대로. 그 주 칸 줄이 이미 있어 [주간 정리]가
+// 바탕을 다시 열지 않던 때는 묶음이 사라졌다 — 이제 묶음의 원본(그 주 바탕)을 한글 파일 상자가 한 번 다시 연다. 이름·글은 합성 값.
+for(const width of [412,1280])test(`[주간 정리] 2. 1) 첫 칸 묶음: 주 이동 왕복·새로고침 뒤에도 그대로 ${width}`,async({page})=>{
+ test.setTimeout(90000);
+ const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
+ const f=await weekLinesFixture(page,{width,hwpx:true,team});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text:'',updated_at:'2026-11-10T00:00:00Z'});
+ await installBusinessNowServer(page,{now:[now('n1','wa1','2026-11-09','가상 가-1 상황'),now('n3','wb1','2026-11-16','가상 나-1 상황')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const box=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box]');
+ const heads=box.locator('table[data-bp-grouped] tbody th');
+ await expect(heads).toHaveText(['가상 묶음','사업영역 나']);
+ // 그 주 칸 줄이 서버에 저장될 때까지(다시 들어오면 [주간 정리]가 바탕을 열지 않는 상태).
+ await expect.poll(()=>!!f.exec.rows.find(r=>r.week_start==='2026-11-16')?.draft?.proposed,{timeout:15000}).toBe(true);
+ // 같은 종류 전수: 주간 정리 절마다 모양(제목·표 줄 수·첫 칸 이름)이 왕복·새로고침 뒤에도 같은지 함께 본다.
+ const shape=()=>page.evaluate(()=>[...document.querySelectorAll('#journalRoot [data-journal-weekly-chapter]')].map(c=>[c.dataset.journalWeeklyChapter,c.querySelector('h4')?.textContent??'',
+  [...c.querySelectorAll('table')].map(t=>[t.className,t.querySelectorAll('tbody tr').length,[...t.querySelectorAll('tbody th')].map(h=>h.textContent.trim()).join('/')].join(':')).join(' | ')]));
+ await page.waitForTimeout(500);
+ const shape0=await shape();
+ // ① 지난주로 갔다가 다시 이 주로.
+ await page.locator('#journalRoot [data-journal-prev]').click();
+ await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toContainText('11월 9일');
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(heads).toHaveText(['가상 묶음','사업영역 나'],{timeout:15000});
+ await expect(box.locator('tbody tr[data-bp-area="사업영역 가"] .biz-sub-head')).toHaveText(['◦ 세부 과제 가-1']);
+ await expect.poll(shape,{timeout:15000}).toEqual(shape0);
+ // ② 새로고침 뒤에도.
+ await page.reload();
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(heads).toHaveText(['가상 묶음','사업영역 나'],{timeout:15000});
+ // 묶음이 한 번 늦게 들어온 뒤에는 더 바뀌지 않는다(같은 모양으로 머묾).
+ await page.waitForTimeout(800);
+ await expect(heads).toHaveText(['가상 묶음','사업영역 나']);
+ await expect.poll(shape,{timeout:15000}).toEqual(shape0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
 // S67-30 WEEKLY-칸빼기합치기(요청함 11/20 13:06): 2. 1) 사업영역 줄 ⋯ [다른 칸 안으로](받는 칸 안 '◦ 이름'으로, 한글 파일도 그 자리) · [따로 두기] ·
 // [이 칸 빼기](이번 주 글이 있으면 한 번 묻기, 표 아래 '주간보고에서 뺀 칸 [다시 넣기]'). 사업영역·지금 상황은 그대로, 그 주 draft.places(서버)에만 표시. 이름·글은 합성 값.
 for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣기·다른 칸 안으로·따로 두기 ${width}`,async({page})=>{
@@ -3450,9 +3492,10 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣
  await page.reload();
  await openJournal(page,width);await openWeekly(page);
  for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
- // (새로 들어오면 한글 파일 상자가 바탕을 열기 전이라 첫 칸 묶음 없이 사업영역 줄 그대로 — 뺀 칸·넣은 칸 모양은 같다.)
+ // (새로 들어와도 첫 칸 묶음 그대로 — S67-31: 그 주 바탕을 다시 연다. 뺀 칸·넣은 칸 모양도 같다.)
  const areaRows=box.locator('table.biz-sum-table tbody tr[data-bp-area]');
  await expect.poll(()=>areaRows.evaluateAll(t=>t.map(r=>r.dataset.bpArea)),{timeout:15000}).toEqual(['사업영역 가']);
+ await expect(table.locator('tbody th')).toHaveText(['가상 묶음'],{timeout:15000});
  await expect(hiddenLine).toContainText('사업영역 나');
  expect(db.writes.every(w=>w.body!=='')).toBe(true);
  // ④ 다시 넣기.
@@ -4375,6 +4418,49 @@ for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 [수정]: �
  // 새로고침 뒤에도 고친 시간.
  await page.reload();await openJournal(page,width);await openWeekly(page);
  await expect(calRow('가상 수련회')).toContainText('10:00 / 가상 수련회',{timeout:15000});
+ expect(f.errors).toEqual([]);
+});
+
+// S67-31(S67-30 범위 밖 발견): 1) 임원 배정 요청 줄 [수정]·[+ 추가]도 그 칸만 다시 그린다 — 연 칸 자리·화면 위치 그대로, 다른 절은 그대로(같은 마디).
+for(const width of [412,1280])test(`[주간 정리] 1) 임원 배정 요청 [수정]: 그 자리에서 열림(화면 그대로), 다른 절은 다시 그리지 않음 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ await expect(page.locator('#journalRoot [data-hwpx-requests]')).toContainText('지난주 확정본에서 1줄을 가져왔어요');
+ const ask=weekly(page,'ask'),row=ask.locator('tbody tr[data-journal-exec-row]').first();
+ // 줄이 화면 위쪽 가까이 오게 내려 둔다(전체를 다시 끼우면 이 자리에서 화면이 위로 튀었다).
+ await row.evaluate(e=>window.scrollBy(0,e.getBoundingClientRect().top-140));
+ expect(await page.evaluate(()=>scrollY)).toBeGreaterThan(0);
+ // 다른 절 마디에 표시를 달아 둔다 — 그 칸만 다시 그리면 표시가 남는다.
+ await page.evaluate(()=>{for(const k of ['business','calendar'])document.querySelector(`#journalRoot [data-journal-weekly-chapter="${k}"]`).__keep=k;});
+ const top0=await row.evaluate(e=>e.getBoundingClientRect().top),y0=await page.evaluate(()=>scrollY);
+ await pressMore(row,'[data-journal-exec-edit]');
+ await expect(ask.locator('[data-journal-exec-form]')).toBeVisible();
+ await page.waitForTimeout(400);
+ const top1=await ask.locator('[data-journal-exec-edit-row]').evaluate(e=>e.getBoundingClientRect().top);
+ expect(Math.abs(top1-top0)).toBeLessThan(2);
+ expect(await page.evaluate(()=>scrollY)).toBe(y0);
+ const kept=()=>page.evaluate(()=>['business','calendar'].map(k=>document.querySelector(`#journalRoot [data-journal-weekly-chapter="${k}"]`)?.__keep??''));
+ expect(await kept()).toEqual(['business','calendar']);
+ await page.screenshot({path:`docs/design/screens/s67-31/exec-edit-${width}.png`});
+ // [취소]도 그 칸만: 화면 위치 그대로, 줄 ⋯ 로 초점이 돌아간다.
+ await ask.locator('[data-journal-exec-cancel]').click();
+ await expect(ask.locator('[data-journal-exec-form]')).toHaveCount(0);
+ expect(await page.evaluate(()=>scrollY)).toBe(y0);
+ await expect(row.locator('details.row-more > summary')).toBeFocused();
+ expect(await kept()).toEqual(['business','calendar']);
+ // [저장]: 고친 줄이 서버에 저장되고 그 칸만 다시(화면 위치 그대로).
+ await pressMore(row,'[data-journal-exec-edit]');
+ await ask.locator('[data-journal-exec-field="place"]').fill('가상 광장');
+ await ask.locator('[data-journal-exec-save]').click();
+ await expect(ask.locator('[data-journal-exec-status]')).toHaveText('요청 줄을 수정했어요.');
+ await expect(ask.locator('tbody tr[data-journal-exec-row]').first()).toContainText('가상 광장');
+ expect(await page.evaluate(()=>scrollY)).toBe(y0);
+ expect(await kept()).toEqual(['business','calendar']);
+ // [+ 추가] 칸도 그 칸만.
+ await ask.locator('[data-journal-exec-add]').click();
+ await expect(ask.locator('[data-journal-exec-field="day"]')).toBeFocused();
+ expect(await kept()).toEqual(['business','calendar']);
+ await ask.locator('[data-journal-exec-cancel]').click();
  expect(f.errors).toEqual([]);
 });
 

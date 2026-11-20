@@ -307,6 +307,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (state?.store?.dirty) void saveDraft(state);
     if (state?.store) clearTimeout(state.store.timer);
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true;
+    groupsKey = ''; groupsAsked = ''; // S67-31: 다시 연 판의 2. 1) 묶음이 옛 판과 같아도 다시 그리게 알린다
     schedEdit = null; schedNote = null; schedAi = false; clearTimeout(schedNoteTimer);
     panel.hidden = true; body.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote(); paintPlace();
   }
@@ -824,8 +825,16 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   }
   // 바탕을 연 뒤 확정 버튼 줄 아래에 보이는 것만 그린다(WEEKLY-한흐름확정 ②). 보고서 칸 줄·이름·일시·1. 요청사항은 [주간 정리] 흐름에 있다.
   // WEEKLY-사업영역묶음 ②: 화면 2. 1) 요약표 첫 칸(양식 자리). 바탕·이름·고른 자리가 바뀌어 묶음이 달라졌을 때만 화면에 다시 그리라고 알린다.
-  let groupsKey = '';
+  let groupsKey = '', groupsAsked = '';
   const groupsOf = s => (s?.draft?.areaGroups ? s.draft.areaGroups(s.base, s.me, areaNames(s), {places:placesOf(s)}) : null);
+  // S67-31: 묶음의 원본은 그 주 바탕(양식) 하나. 바탕을 아직 안 연 주는 같은 바탕 열기(ensure)로 한 번 연다 — 열리면 renderEdit → tellGroups 가
+  // 2. 1)을 다시 그리라고 알린다(그리기는 weekly-summary-table.js 하나). 주가 바뀌면(close) 다시 열 수 있게 잊는다. 바탕이 없는 주('none')·
+  // 아직 모르는 주('unknown' — 알게 되면 onBase 로 다시 그려 여기 다시 옴)는 열지 않는다. 열기가 실패해도 같은 주에 되풀이하지 않는다.
+  function areaGroups(week) {
+    if (state && state.start === week) return groupsOf(state);
+    if (week && week === getWeek().start && groupsAsked !== week && baseState(week) === 'some') { groupsAsked = week; void ensure().catch(() => {}); }
+    return null;
+  }
   function tellGroups() {
     const g = groupsOf(state), key = g ? JSON.stringify([state.start, ...g]) : '';
     if (key !== groupsKey) { groupsKey = key; onFlow(); }
@@ -1924,8 +1933,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     hwpxPackage: file => hwpxPackage(file),
     // 그 주 바탕이 내 개인본이고 그보다 나중 팀 확정본에서 내 칸이 바뀐 곳(칸 id → 줄). 바탕을 연 판에서만.
     team: start => (state && state.start === start && state.teamDiff ? {diff:state.teamDiff, title:state.teamTitle ?? ''} : null),
-    // WEEKLY-사업영역묶음 ②: 그 주 바탕(양식)을 연 판에서만 사업영역 이름 → 양식 첫 칸 이름(Map). 양식에 내 줄이 없거나 아직 안 열었으면 null.
-    areaGroups: start => (state && state.start === start ? groupsOf(state) : null),
+    // WEEKLY-사업영역묶음 ②: 그 주 바탕(양식)을 연 판에서 사업영역 이름 → 양식 첫 칸 이름(Map). 양식에 내 줄이 없으면 null.
+    // S67-31: 아직 안 열었으면(그 주 다시 들어옴·새로고침 — 칸 줄이 이미 있어 [주간 정리]가 prepare 를 부르지 않음) null 을 돌려주고 바탕을 한 번 연다.
+    areaGroups,
     // S67-30: 그 주 주간보고 칸 모양({hide, into}, weekly-area-layout.mjs) — 바탕을 연 판이면 상자 값, 아니면 그 주 행(또는 지난주에서 이어 쓴 값).
     areaLayout: (start, row = undefined) => areaLayout(openFor(start) ? placesOf(state) : weekPlaces(start, row)),
     setAreaLayout,

@@ -605,7 +605,8 @@
    값은 토큰만(UI-버튼기준: ⋯ 28px·작은 버튼 32px, 누르는 범위 44px은 ::after). */
 /* 묶음 제목 줄 오른쪽: 묶음(section.journal-part-has-add)은 두 칸 격자, 제목은 왼쪽 위, 작은 버튼 묶음은 오른쪽 위. 그리기 자리(.journal-part-slot)는
    자기 상자를 만들지 않아(display:contents) 그 안의 버튼 묶음도 제목 줄에 선다. 나머지는 모두 한 줄 전체 폭. */
-#appView #homeView .journal-part-has-add{ display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:8px; row-gap:4px; align-items:center; }
+/* S67-31: 제목 줄 높이 = 작은 버튼 높이. 줄을 고치는 동안 [+ 추가]가 빠져도 제목 줄이 줄지 않아 아래 표가 위로 당겨지지 않는다(1)·2)·3) 모두). */
+#appView #homeView .journal-part-has-add{ display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:minmax(var(--ds-compact-height),auto); column-gap:8px; row-gap:4px; align-items:center; }
 #appView #homeView .journal-part-has-add > *,
 #appView #homeView .journal-part-has-add > .journal-part-slot > *{ grid-column:1 / -1; min-width:0; }
 #appView #homeView .journal-part-has-add > .journal-part-slot{ display:contents; }
