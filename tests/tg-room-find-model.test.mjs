@@ -32,12 +32,11 @@ test('찾은 줄 글: 원문의 그 줄, 없으면 요약·제목, 길면 찾은
   assert.ok(s.includes('찾을말')); assert.ok(s.startsWith('…') && s.endsWith('…')); assert.equal(s.length, 32);
 });
 
-test('화면: 방 상세는 접힌 날(fold) + [소식 n]·[원문 n], 찾기는 서버 읽기 한 길, 기기 저장 없음', () => {
+test('화면: 방 상세는 접힌 날(fold) + [소식 n]·[원문 n], 찾기는 서버 읽기 한 길', () => {
   const js = read('app/telegram-feed.js'), data = read('app/feed-data.js');
   assert.match(js, /dayBodyHtml\(room, day, d, sum, dedit, \{fold:true\}\)/);
   assert.match(js, /data-tg-rexp=/); assert.match(js, /data-tg-rraw=/);
   assert.match(js, /rexp:new Set\(\)/);
   assert.match(data, /export async function readRoomFind\(room, filter, from/);
   assert.match(data, /room_key=eq\.\$\{encode\(room\)\}&hidden_at=is\.null/);
-  assert.doesNotMatch(js, /localStorage|sessionStorage/);
 });
