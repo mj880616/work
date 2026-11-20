@@ -20,6 +20,7 @@ import {openWeekPick} from './task-week-pick.js'; // S46-30 [다음주] 요일 �
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,readDocumentBrief,requestLinkSummary} from './basket-ai-summary.js';
+import {word} from './brand/brand.mjs';
 
 // BASKET-수동연결: the user picks destinations and writes each summary in the
 // basket read view. Writes reuse app_basket_confirm_links (owner RLS, INVOKER).
@@ -28,7 +29,7 @@ export const MANUAL_LINK_LIMIT=20;
 export const TASK_LIMITS=Object.freeze({title:1024,notes:8192});
 // REF-참고묶음: 'reference' = a reference bundle (app_reference_bundles, link column bundle_id). It is never report material.
 // MTG-프로젝트합치기 2단계: 바구니에서 프로젝트 고르기 버튼·창 이름은 '사업영역 꼬리표 달기'(저장은 같은 연결 줄, 주간보고 ②에 그대로 — 결정 ⑦). 나머지 글자는 3단계에서.
-const KIND_NAME={organization:'담당조직',project:'사업영역',reference:'참고'};
+const KIND_NAME={organization:word('담당조직'),project:word('사업영역'),reference:'참고'};
 const MANUAL_ERROR_TEXT=Object.freeze({
   NOTE_CHANGED:'업데이트가 그사이 바뀌었어요. 최신 업데이트를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.',
   NOTE_ARCHIVED:'보류한 업데이트는 연결할 수 없어요. 보류를 해제한 뒤 연결해 주세요.',
@@ -47,7 +48,7 @@ export function manualLinkTargets(selections){
 }
 // Returns the first selection whose summary the database would refuse, with a plain message.
 export function invalidManualSelection(selections){
-  if(!selections.length)return {index:-1,message:'연결할 담당조직이나 사업영역을 선택해 주세요.'};
+  if(!selections.length)return {index:-1,message:word('연결할 담당조직이나 사업영역을 선택해 주세요.')};
   if(selections.length>MANUAL_LINK_LIMIT)return {index:-1,message:`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`};
   for(let i=0;i<selections.length;i++){
     if(isBlankLinkSummary(selections[i].summary))continue;
@@ -121,10 +122,10 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   const filesOnly=n=>!!n&&!String(n.raw_text||'').trim()&&fileState().files.length>0;
   // The first chosen project and the first chosen organization take the files (a document belongs to one project and one organization).
   const fileTargets=()=>{const has=fileState().files.length>0;return {project:has?link.targets.find(t=>t.kind==='project')||null:null,organization:has?link.targets.find(t=>t.kind==='organization')||null:null};};
-  const projectName=id=>choices?.projects.find(x=>x.project.id===id)?.project.name||window.KPTUProjectCatalog?.describe?.(id)?.name||'다른 사업영역';
+  const projectName=id=>choices?.projects.find(x=>x.project.id===id)?.project.name||window.KPTUProjectCatalog?.describe?.(id)?.name||word('다른 사업영역');
   // S52-01 ③a: a chosen child area reads '상위 › 하위' (the shared picker's tag text).
   const projectPath=id=>(choices?.projects?areaChipText(areaTree(catalogAreas(choices.projects)),'p:'+id):'')||projectName(id);
-  const organizationName=id=>choices?.organizationNames?.get(id)||choices?.organizations.find(o=>o.id===id)?.name||'다른 조직';
+  const organizationName=id=>choices?.organizationNames?.get(id)||choices?.organizations.find(o=>o.id===id)?.name||word('다른 조직');
   const bundleName=id=>choices?.bundles?.find(b=>b.id===id)?.name||'참고 묶음';
   const placeName={project:projectName,organization:organizationName,reference:bundleName};
   async function loadChoices(){
@@ -182,7 +183,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     // 새 조직은 이 창의 내 조직 목록·이름표에 더하고 눌린 채로 둔다([넣기]로 반영).
     const box=choices,create=kind==='organization'?orgWriteInFor({orgs:()=>box.all||(box.all=[]),onOrg:org=>{box.organizationNames?.set(org.id,org.name);if(!box.organizations.some(o=>o.id===org.id)){box.organizations.push(org);box.groups=window.KPTUOrganizationOrder?.groups?window.KPTUOrganizationOrder.groups(box.organizations):[box.organizations];}}}):null;
     await openAreaOrgPicker({kind:kind==='project'?'area':'org',trigger:button,used,locked,selected:mine,max:MANUAL_LINK_LIMIT-(link.targets.length-mine.length),create,
-      title:kind==='project'?'사업영역 꼬리표 달기':'담당조직 선택',
+      title:kind==='project'?word('사업영역 꼬리표 달기'):word('담당조직 선택'),
       areas:kind==='project'?catalogAreas(choices.projects):[],orgGroups:kind==='organization'?orderedOrgGroups(choices.groups):[],
       onCommit:keys=>{
         if(draft!==link||mode!=='link'||noteId!==id||isBusy())return;
@@ -272,19 +273,19 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   function confirmLabel(n){return filesOnly(n)&&link.targets.every(t=>!t.record)?'자료로 넣기':'연결';}
   function linkMarkup(n){
     const done=[...linked().keys()].length,only=filesOnly(n);
-    return `<section class="basket-manual" data-manual-link data-enter-save aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?'조직·사업영역 자료로 넣기':'조직·사업영역에 연결'}</h3>
+    return word`<section class="basket-manual" data-manual-link data-enter-save aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?word('조직·사업영역 자료로 넣기'):word('조직·사업영역에 연결')}</h3>
 ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
 <div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 선택 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">사업영역 꼬리표 달기 ▾</button><button type="button" data-manual-pick="reference" aria-haspopup="dialog" aria-expanded="false">참고 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택할 수 없어요.</p>`:''}
-<p class="basket-manual-hint">${only?'담당조직이나 사업영역을 선택하면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'선택한 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
+<p class="basket-manual-hint">${only?word('담당조직이나 사업영역을 선택하면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.'):'선택한 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
 <div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" class="row-act" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind!=='reference'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">${t.kind==='reference'?'요약 (선택 · 비우면 업데이트 본문이 보여요)':'기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)'}<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}${filesMarkup(n,t,key)}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${statusHtml(link.status)}</p>
 <div class="basket-actions save-row"><button type="button" class="secondary" data-manual-cancel>취소</button><button type="button" class="primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button></div></section>`;
   }
-  const taskProjectName=()=>task?.project&&choices?.projects.some(x=>x.project.id===task.project)?projectPath(task.project):'사업영역';
+  const taskProjectName=()=>task?.project&&choices?.projects.some(x=>x.project.id===task.project)?projectPath(task.project):word('사업영역');
   function paintTaskProject(){
     const button=host?.querySelector('[data-manual-task-project]');if(!button)return;
-    const project=taskProjectName();button.textContent=project+' ▾';button.setAttribute('aria-label',task.project?'사업영역: '+project:'사업영역');
+    const project=taskProjectName();button.textContent=project+' ▾';button.setAttribute('aria-label',task.project?word('사업영역: ')+project:word('사업영역'));
   }
   function taskMarkup(){
     const project=taskProjectName();
@@ -293,7 +294,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
 <label class="basket-text-label">할 일 제목<textarea rows="1" data-manual-task-title data-autogrow data-enter-field="single" maxlength="${TASK_LIMITS.title}">${esc(task.title)}</textarea></label>
 <label class="basket-text-label">할 일 메모<textarea data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
 <div data-manual-task-files-slot></div>
-<div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('사업영역: '+project):'사업영역'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="after" aria-pressed="${task.dateKind==='after'}">모레</button><button type="button" data-manual-task-day="week" aria-haspopup="true" aria-pressed="${task.dateKind==='week'}">${esc(task.dateKind==='week'&&task.due?weekdayLabel(task.due):'다음주')}</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
+<div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc(word('사업영역: ')+project):word('사업영역')}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="after" aria-pressed="${task.dateKind==='after'}">모레</button><button type="button" data-manual-task-day="week" aria-haspopup="true" aria-pressed="${task.dateKind==='week'}">${esc(task.dateKind==='week'&&task.due?weekdayLabel(task.due):'다음주')}</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
 <p data-manual-task-status role="status">${statusHtml(task.status)}</p><div data-manual-task-recover></div>
 <div class="basket-actions save-row"><button type="button" class="secondary" data-manual-task-cancel>취소</button><button type="button" class="primary" data-manual-task-save data-enter-save-submit>할 일 만들기</button></div></section>`;
   }
@@ -479,7 +480,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
       if(!current())return;
       if(recorded?.ok)onTaskRecorded?.(recorded.note);
       reset();paint();
-      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 업데이트에 기록했어요.':'할 일은 만들었지만 업데이트에 기록하지 못했어요.',linkMissing?'사업영역 연결은 할 일 화면에서 확인해 주세요.':''].filter(Boolean).join(' ');
+      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 업데이트에 기록했어요.':'할 일은 만들었지만 업데이트에 기록하지 못했어요.',linkMissing?word('사업영역 연결은 할 일 화면에서 확인해 주세요.'):''].filter(Boolean).join(' ');
       document.querySelector('[data-basket-status]')?.replaceChildren(message);if(!handed)showToast('Google 할 일을 만들었어요.');
       window.KPTUGoogleTasks?.invalidateAfterCreate?.();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
       document.querySelector('[data-basket-task-open]')?.focus();return;

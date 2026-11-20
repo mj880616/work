@@ -4,6 +4,7 @@
 // ③ 회의·활동 결과에는 넣지 않는다(겹침 방지). 그 꼬리표 사업영역에 '연결'도 하나 만들어 사업영역 관리(프로젝트 상세)의 사업 보고 목록에 보인다.
 import {ONELINE_KIND} from './report-kinds.mjs';
 import {nextPlanValue} from './business-area-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const ONELINE_MAX = 500;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -22,7 +23,7 @@ export function onelineAt(day) {
 }
 // 저장 확인: 빠진 칸이 있으면 화면 글자, 없으면 ''.
 export function onelineMissing({areaId, day, text}) {
-  if (!areaId) return '사업영역을 선택해 주세요.';
+  if (!areaId) return word('사업영역을 선택해 주세요.');
   if (!onelineAt(day)) return '날짜를 선택해 주세요.';
   if (!onelineText(text)) return '한 줄을 써 주세요.';
   return '';

@@ -54,8 +54,8 @@ test('기록+ 빌드: 얼굴 한 줄·manifest·아이콘·제목이 기록+이�
   assert.match(girok['app/login/index.html'], /<title>로그인 · 기록\+<\/title>/);
   assert.doesNotMatch(index, /icons\/app-icon-/, '노동조합+ PNG 아이콘 줄 없음');
   const seen = Object.keys(girok).filter(file => file.startsWith('app/') && file.endsWith('.html')).flatMap(file => visible(girok[file]));
-  for (const word of Object.keys(face.words)) assert.ok(!seen.includes(word), `기록+ 화면 글자에 '${word}'가 남음`);
-  for (const word of ['프로젝트·거래처', '사람 수첩', '기록+']) assert.ok(seen.includes(word), `기록+ 화면 글자에 '${word}'`);
+  for (const word of Object.keys(face.words).filter(key => !key.includes('#'))) assert.ok(!seen.some(text => text.includes(word)), `기록+ 화면 글자에 '${word}'가 남음`);
+  for (const word of ['활동 기록', '거래처·직원', '기록+']) assert.ok(seen.includes(word), `기록+ 화면 글자에 '${word}'`);
   const result = await checkBuild(girok);
   assert.deepEqual(result.errors, []);
   // 저장소 입력은 그대로(빌드 출력에서만 고침).
@@ -72,7 +72,8 @@ test('기록+ 빌드는 얼굴이 닿는 파일 말고는 노동조합+ 빌드�
   }
 });
 
-test('HTML 얼굴 입히기는 글자 칸 전체가 같은 단어일 때만 바꾼다', () => {
-  const html = '<title>노동조합+</title><a data-view="team">조직 관리</a><span>조직 관리 화면</span><div aria-label="사업 관리"></div><script>const a="사업 관리"</script>';
-  assert.equal(faceHtml(html, FACES.girok), '<title>기록+</title><a data-view="team">사람 수첩</a><span>조직 관리 화면</span><div aria-label="프로젝트·거래처"></div><script>const a="사업 관리"</script>');
+test('HTML 얼굴 입히기는 눈에 보이는 글자만 바꾼다(script·style·주석·속성 이름은 그대로)', () => {
+  const html = '<title>노동조합+</title><a data-view="team" data-kind="담당조직">조직 관리</a><span>담당조직을 고르세요</span><div aria-label="사업 관리"></div><input placeholder="사업영역 이름"><!-- 담당조직 --><style>.x{}</style><script>const a="사업 관리"</script>';
+  assert.equal(faceHtml(html, FACES.girok), '<title>기록+</title><a data-view="team" data-kind="담당조직">거래처·직원</a><span>관리 대상을 고르세요</span><div aria-label="활동 기록"></div><input placeholder="프로젝트 이름"><!-- 담당조직 --><style>.x{}</style><script>const a="사업 관리"</script>');
+  assert.equal(faceHtml(html, FACES.nojo).replace(/<title>[^<]*<\/title>/, ''), html.replace(/<title>[^<]*<\/title>/, ''), '노동조합+ 단어표는 비어 있다');
 });

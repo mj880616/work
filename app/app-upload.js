@@ -9,6 +9,7 @@
 // PC·폰 브라우저에는 다리가 없고, 옛 앱은 up:hello에 답하지 않으며, 위젯 로그인이 없는 앱은 on:false로 답한다 → 모두 지금 길.
 // 넘기는 것은 파일 바이트·대상 id·사진 칸(제목·종류·날짜)뿐이다. 로그인 정보·토큰은 이 모듈이 읽지도 넘기지도 않는다.
 // 바이트는 이 화면 메모리에만, 기기 저장소에 두지 않는다. 파일 이름·내용은 로그에 쓰지 않는다.
+import {word} from './brand/brand.mjs';
 const BRIDGE = 'KPTUAppShell';
 export const UP_HELLO_MS = 1500, UP_LOGIN_MS = 30000, UP_STEP_MS = 30000, UP_PART = 384 * 1024, UP_MAX = 20, UP_FILE_MAX = 100 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -187,7 +188,7 @@ export function uploadReasonText(code) {
     case 'signed_out': return '앱 로그인을 확인하지 못했어요';
     case 'too_big': return '파일이 너무 커요(100MB까지)';
     case 'forbidden': return '올릴 권한을 확인하지 못했어요';
-    case 'gone': return '사업 보고를 찾지 못했어요';
+    case 'gone': return word('사업 보고를 찾지 못했어요');
     case 'unknown': return '올렸는지 확인하지 못했어요';
     case 'missing': return '임시 파일이 사라졌어요';
     case 'internal': return '앱이 올리기를 잇지 못했어요';

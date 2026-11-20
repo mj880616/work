@@ -5,6 +5,7 @@
 // - 저장 흐름(rec_finish → rec_save: 자료실 '회의 녹음' 폴더)은 노트북 녹음(meeting-recorder.js)과 같은 규칙(meeting-recorder-model.mjs saveRecording)을 쓴다.
 //   S61-5 REC-전사삭제(명진 11/13): 전사·요약·회의 기록 초안은 하지 않는다. 띠에는 저장한 파일 이름 · [내려받기] · [Drive에서 열기].
 import {retryDelay,pieceOutcome,pendingOthers,saveRecording,saveFailText} from './meeting-recorder-model.mjs';
+import {word} from './brand/brand.mjs';
 
 export const MIME='audio/ogg';
 export const DISCARD_DRAIN_MS=20000;
@@ -96,7 +97,7 @@ export function createPhoneRecorder(deps){
     if(!ws){fail('로그인 상태를 확인하지 못했어요.',false);return}
     view.state='starting';view.step='';view.note='';view.error='';view.files=[];paint();
     const ok=await ask('rec:prepare',['ready','denied'],120000);
-    if(ok?.kind!=='ready'){fail(ok?'마이크를 쓸 수 없어요. 폰 설정 › 애플리케이션 › 노동조합+ › 권한에서 마이크를 허용해 주세요.':'앱이 답하지 않아요. 앱을 다시 열어 주세요.',false);return}
+    if(ok?.kind!=='ready'){fail(ok?word('마이크를 쓸 수 없어요. 폰 설정 › 애플리케이션 › 노동조합+ › 권한에서 마이크를 허용해 주세요.'):'앱이 답하지 않아요. 앱을 다시 열어 주세요.',false);return}
     let r;
     try{
       r=await deps.call('rec_start',{workspace_id:ws,mime:MIME});

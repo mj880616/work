@@ -7,8 +7,10 @@
 //
 // menu: 켜진 메뉴 id(app/menu-model.mjs ITEMS의 id). views: 켜진 화면(라우터 이름).
 //   단계 2에서는 목록만 둔다. 실제로 메뉴·경로를 빼고 서버가 거절하는 일은 단계 3(화면 숨김이 아니라 제거 + 서버 거절, AGENTS.md 5절).
-// words: 노조 색 단어 → 이 얼굴의 단어. 화면 이름·메뉴 글자는 app/brand/brand.mjs의 word()를 거쳐 나온다.
-//   기록+ 단어는 임시안이다(명진 확인 전). 바꿀 때는 이 표만 고친다.
+// words: 노조 색 글자 → 이 얼굴의 글자. 화면 글자는 app/brand/brand.mjs의 word()를 거쳐 나온다.
+//   기록+ 표는 app/brand/girok-words.mjs 한 곳(2026-11-20 명진 결정 단어, S67-43). 바꿀 때는 그 표만 고친다.
+
+import {GIROK_WORDS} from './girok-words.mjs';
 
 const ALL_MENU = Object.freeze(['home', 'basket', 'calendar', 'note', 'meetings', 'library', 'files', 'brief', 'pages', 'team', 'hwp', 'photos', 'outside', 'calls', 'telegram', 'arsenal']);
 const ALL_VIEWS = Object.freeze(['home', 'basket', 'calendar', 'tasks', 'diary', 'projects', 'library', 'files', 'meetings', 'pages', 'team', 'hwp', 'profile', 'updates', 'whatsnew', 'help', 'lock', 'feedback', 'signups', 'ledger', 'search', 'reference', 'photos', 'brief', 'calls', 'telegram', 'arsenal', 'outside']);
@@ -41,18 +43,59 @@ export const FACES = Object.freeze({
     backgroundColor: '#eef0f1',
     menu: Object.freeze(ALL_MENU.filter(id => !GIROK_OFF.includes(id))),
     views: Object.freeze(ALL_VIEWS.filter(id => !GIROK_OFF.includes(id))),
-    words: Object.freeze({
-      '노동조합+': '기록+',
-      '사업 관리': '프로젝트·거래처',
-      '사업영역 관리': '프로젝트 관리',
-      '사업영역': '프로젝트',
-      '조직 관리': '사람 수첩',
-      '담당조직': '사람 수첩'
-    })
+    words: GIROK_WORDS
   })
 });
 
 export const faceOf = id => FACES[Object.hasOwn(FACES, id) ? id : DEFAULT_FACE];
 
-/** 이 얼굴에서 노조 색 단어 하나가 어떻게 보이나. 표에 없는 글자는 그대로. */
-export const wordIn = (face, text) => Object.hasOwn(face.words, text) ? face.words[text] : text;
+// 받침: 없음 0, ㄹ 8. 한글 음절이 아니면 -1.
+const finalOf = ch => { const code = (ch || '').charCodeAt(0) - 0xac00; return code >= 0 && code < 11172 ? code % 28 : -1; };
+const isSyllable = ch => finalOf(ch) >= 0;
+const PARTICLES = [['을', '를'], ['은', '는'], ['과', '와'], ['이', '가']];
+/** 바꾼 말(to) 바로 뒤 조사를 새 말 받침에 맞춘다. [바뀐 조사, 원래 조사 길이]. 조사가 아니면 null. */
+function particleAfter(to, rest) {
+  const f = finalOf(to.at(-1));
+  if (f < 0) return null;
+  const batchim = f > 0, rieul = f === 8;
+  if (rest.startsWith('으로')) return [batchim && !rieul ? '으로' : '로', 2];
+  if (rest[0] === '로' && !isSyllable(rest[1])) return [batchim && !rieul ? '으로' : '로', 1];
+  for (const [withFinal, noFinal] of PARTICLES) {
+    if ((rest[0] === withFinal || rest[0] === noFinal) && !isSyllable(rest[1])) return [batchim ? withFinal : noFinal, 1];
+  }
+  return null;
+}
+const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const finders = new WeakMap();
+function finderOf(words) {
+  if (!finders.has(words)) {
+    const keys = Object.keys(words).filter(key => key && !key.includes('#')).sort((a, b) => b.length - a.length);
+    finders.set(words, keys.length ? new RegExp(keys.map(escape).join('|'), 'g') : null);
+  }
+  return finders.get(words);
+}
+/** 글자 안의 표 열쇠를 긴 것부터 바꾼다. 표가 비면 글자 그대로. */
+function replaceIn(words, text) {
+  const finder = finderOf(words);
+  if (!finder || !text) return text;
+  let out = '', at = 0;
+  finder.lastIndex = 0;
+  for (let match = finder.exec(text); match; match = finder.exec(text)) {
+    const to = words[match[0]];
+    out += text.slice(at, match.index) + to;
+    at = match.index + match[0].length;
+    const particle = particleAfter(to, text.slice(at));
+    if (particle) { out += particle[0]; at += particle[1]; }
+    finder.lastIndex = at;
+  }
+  return out + text.slice(at);
+}
+
+/** 이 얼굴에서 노조 색 글자가 어떻게 보이나. slot: 같은 글자를 자리마다 다르게('title' 등). 표가 빈 얼굴은 글자 그대로. */
+export function wordIn(face, text, slot) {
+  if (typeof text !== 'string' || !text) return text;
+  const words = face.words;
+  if (slot && Object.hasOwn(words, `${text}#${slot}`)) return words[`${text}#${slot}`];
+  if (Object.hasOwn(words, text)) return words[text];
+  return replaceIn(words, text);
+}

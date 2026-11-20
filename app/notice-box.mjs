@@ -5,6 +5,7 @@
 // - 줄 아래 흐린 한 줄(foot, 상자마다 있을 때만), 맨 아래 상태 줄(5초 되돌리기 포함).
 // 순수 HTML 조각만 만든다(DOM·네트워크 없음). 글은 모두 esc()로 글자로만. 상자를 그리는 쪽(잊지 말기 상자·asks-box.js)이 이 조각만 쓴다.
 import {telegramInline} from './md-telegram.mjs';
+import {word} from './brand/brand.mjs';
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 // S59-20 잊지 말기 `**` 표시: 줄에 보이는 글(내용·이유)에서 굵게(`**글**`)·기울임·코드 같은 마크다운 기호를 뺀 글자만 보인다.
 // 새 파서 없이 기존 공용 함수(md-telegram.mjs telegramInline = 앱의 [텔레그램용 복사]가 쓰는 같은 규칙)를 그대로 쓴다. 글자 굵기는 목록 줄 규칙(400·500)이 정하므로
@@ -15,7 +16,7 @@ export const NB_ACTS = Object.freeze([['task', '할 일로'], ['event', '일정�
 // FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html, 명진 'ㅇ'): 잊지 말기 줄은 원래 다섯(위 넷 + ×) 그대로에
 // [조직][사업] 두 개만 더한 일곱 — [할 일로][일정으로][노트로][조직][사업][이미 함] ×. 출처(텔레그램 요청·챙길 것·업데이트·소식)와 상관없이 같은 순서.
 // 가족 줄은 보고 길을 막아 두므로 위 NB_ACTS(다섯) 그대로다.
-export const NB_REPORT_ACTS = Object.freeze([['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['org', '조직'], ['area', '사업'], ['done', '이미 함']]);
+export const NB_REPORT_ACTS = Object.freeze([['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['org', word('조직')], ['area', '사업'], ['done', '이미 함']]);
 // list = 상자 바탕·테두리 없이 화면 목록으로 쓰는 같은 줄(S52-20 '잊지 말기' 한 목록, 정리함 화면 안).
 export const NB_TONES = Object.freeze(['ask', 'forget', 'list']);
 export const NB_UNDO_MS = 5000;

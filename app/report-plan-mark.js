@@ -12,6 +12,7 @@ import {reportsOfEvent, STATUS_DONE, STATUS_TODO} from './report-plan-model.mjs'
 import {openReport} from './report-open.js';
 import {leaveEventReport} from './event-open.js';
 import {notify} from './small-notice.js';
+import {word} from './brand/brand.mjs';
 
 export const MARK_LABEL = {[STATUS_DONE]: '보고 씀', [STATUS_TODO]: '보고할 일정'};
 
@@ -75,7 +76,7 @@ async function act(el) {
     else await leaveEventReport(el.dataset.reportEvent, el.dataset.reportCalendar);
   } catch (error) {
     console.warn('report plan mark', error?.message || error);
-    notify(done ? '사업 보고를 열지 못했어요. 다시 시도해 주세요.' : '사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.', {error: true, record: false});
+    notify(done ? word('사업 보고를 열지 못했어요. 다시 시도해 주세요.') : word('사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.'), {error: true, record: false});
   } finally { busy = false; }
 }
 

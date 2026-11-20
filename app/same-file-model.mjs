@@ -1,5 +1,6 @@
 // UX-이미있는파일알림(요청함 11/12 09:39): 같은 이름·같은 크기 파일이 내 작업공간 어디에 이미 있는지 보는 순수 규칙(DOM·네트워크 없음, 단위 시험 대상).
 // 찾는 일(서버 읽기)과 묻는 창은 same-file.js가 한다. 여기서는 열쇠·서버 읽기 주소 조각·위치 한 줄·답에 따른 나누기만 정한다.
+import {word} from './brand/brand.mjs';
 export const SAME_MAX = 20;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})/;
 
@@ -49,8 +50,8 @@ const NOTE_AREA = {basket: '정리함', note: '노트'};
 export function docHit(d, names = {}) {
   const name = d.file_name || d.title || '';
   let area = '자료실', where = names.folders?.get(d.id) || '';
-  if (d.meeting_id) { area = '사업 보고'; where = names.meetings?.get(d.meeting_id) || ''; }
-  else if (d.organization_id && !where) { area = '담당조직'; where = names.orgs?.get(d.organization_id) || ''; }
+  if (d.meeting_id) { area = word('사업 보고'); where = names.meetings?.get(d.meeting_id) || ''; }
+  else if (d.organization_id && !where) { area = word('담당조직'); where = names.orgs?.get(d.organization_id) || ''; }
   return {key: sameKey(d.file_name, d.file_size), kind: 'document', ref: d, line: placeLine({area, where, name, at: d.created_at})};
 }
 export function noteHits(n, t) {

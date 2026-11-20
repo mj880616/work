@@ -1,6 +1,7 @@
 // SEARCH-전체검색 S-2: 전체 검색의 순수 규칙(DOM·네트워크 없음). 설계 docs/design/global-search.md 4·7절.
 // 검색어 나누기·검사(서버 app_search_records와 같은 규칙), 형광 구간, Google 일정·할 일 거르기, 묶음 합치기·정렬,
 // 오류 코드 → 안내 글. 화면(global-search.js)과 자료(global-search-data.js)가 함께 쓴다.
+import {word} from './brand/brand.mjs';
 
 export const MIN_WORD = 2, MAX_WORDS = 6, MAX_WORD = 100, MAX_QUERY = 200, CAP = 200, PREVIEW = 3, PAGE = 20, SNIPPET_RADIUS = 40;
 // 서버 종류(설계 7절). 일기는 어디에도 없다(서버 허용 목록이 최종 경계).
@@ -11,12 +12,12 @@ export const GROUPS = Object.freeze([
   {key: 'note', label: '노트', icon: 'note', chip: true},
   {key: 'task', label: '할 일', icon: 'task', chip: true},
   {key: 'document', label: '자료실', icon: 'document', chip: true},
-  {key: 'meeting', label: '사업 보고', icon: 'meeting', chip: true},
+  {key: 'meeting', label: word('사업 보고'), icon: 'meeting', chip: true},
   {key: 'schedule', label: '일정', icon: 'schedule', chip: true},
   // 칩 없이 '전체'에만(결정 1: 업무일지 한 줄. 프로젝트·담당조직도 요청 칩에 없어 같은 규칙).
   {key: 'work', label: '업무일지', icon: 'work', chip: false},
-  {key: 'project', label: '사업영역', icon: 'project', chip: false},
-  {key: 'organization', label: '담당조직', icon: 'organization', chip: false}
+  {key: 'project', label: word('사업영역'), icon: 'project', chip: false},
+  {key: 'organization', label: word('담당조직'), icon: 'organization', chip: false}
 ]);
 export const GROUP_KEYS = Object.freeze(GROUPS.map(g => g.key));
 export const groupOf = key => GROUPS.find(g => g.key === key) || null;

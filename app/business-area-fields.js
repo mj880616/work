@@ -9,12 +9,13 @@ import {areaAvailable,areaNoneAvailable} from './report-links.js';
 import {newTaskDue} from './task-due.mjs'; // S50-36: 여기서 만드는 후속 할 일도 기한은 오늘(한 곳 규칙)
 import {waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 누른 뒤 기다리는 동안 상태 줄은 글자 없는 회색 칸(wait-state.js)
 import {shownArea,hasAreaNone,areaBody,AREA_NONE,nextPlanLines,nextPlanValue,NEXT_PLAN_MAX} from './business-area-model.mjs';
+import {word} from './brand/brand.mjs';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sheetMod=()=>import('./report-places-sheet.js');
 async function areaName(id){
   if(!id)return '';
-  try{const s=await sheetMod(),places=await s.loadReportPlaces();return s.areaNameIn(places,id)||'보관된 사업영역'}catch{return '사업영역'}
+  try{const s=await sheetMod(),places=await s.loadReportPlaces();return s.areaNameIn(places,id)||word('보관된 사업영역')}catch{return word('사업영역')}
 }
 
 // host: 빈 칸(div). 돌려주는 것: start({meeting|areaId, plan}), suggest(id), body(), draft(), changed().
@@ -22,18 +23,18 @@ async function areaName(id){
 export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
   if(!host)return null;
   host.classList.add('biz-area-fields');host.hidden=true;
-  host.innerHTML=`<label>사업영역<button type="button" class="secondary field-btn" data-biz-area-pick aria-haspopup="dialog">꼬리표 없음</button></label>${material?`<div class="biz-area-suggest"><button type="button" class="secondary" data-biz-area-ai>사업영역 추천</button><span class="biz-area-sugs" data-biz-area-sugs role="status" aria-live="polite"></span></div>`:''}
+  host.innerHTML=word`<label>사업영역<button type="button" class="secondary field-btn" data-biz-area-pick aria-haspopup="dialog">꼬리표 없음</button></label>${material?word(`<div class="biz-area-suggest"><button type="button" class="secondary" data-biz-area-ai>사업영역 추천</button><span class="biz-area-sugs" data-biz-area-sugs role="status" aria-live="polite"></span></div>`):''}
 <details class="biz-next-plan" data-biz-plan-box><summary>다음 할 일 <span class="optional" data-biz-plan-count></span></summary><textarea rows="3" maxlength="${NEXT_PLAN_MAX}" data-biz-plan aria-label="다음 할 일" placeholder="한 줄에 하나 — 주간 보고 '이후 계획'에 들어가요"></textarea></details>`;
   const button=host.querySelector('[data-biz-area-pick]'),box=host.querySelector('[data-biz-plan-box]'),plan=host.querySelector('[data-biz-plan]'),count=host.querySelector('[data-biz-plan-count]');
   let area='',none=false,legacy=false,touched=false,base='',ready=false,noneReady=false,editing=false,run=0;
   const paintCount=()=>{const n=nextPlanLines(plan.value).length;count.textContent=n?`${n}줄`:''};
-  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):none?'없음':'꼬리표 없음';button.classList.toggle('is-none',!area&&none);button.title=legacy?'옛 보고라 첫 연결 사업영역을 꼬리표처럼 보여 줘요. 선택하면 꼬리표로 저장돼요.':!area&&none?'사업영역이 없는 보고예요.':''}
+  async function paint(){const mine=++run,name=await areaName(area);if(mine!==run)return;button.textContent=area?(legacy?`${name} (연결에서)`:name):none?'없음':'꼬리표 없음';button.classList.toggle('is-none',!area&&none);button.title=legacy?word('옛 보고라 첫 연결 사업영역을 꼬리표처럼 보여 줘요. 선택하면 꼬리표로 저장돼요.'):!area&&none?word('사업영역이 없는 보고예요.'):''}
   const pickArea=id=>{const v=String(id||'');none=noneReady&&v===AREA_NONE;area=v===AREA_NONE?'':v;legacy=false;touched=true;void paint()};
-  button.addEventListener('click',async()=>{try{const s=await sheetMod();await s.pickBusinessArea(button,{chosen:none?AREA_NONE:legacy?'':area,allowNone:noneReady,onMessage,onPick:pickArea})}catch(e){onMessage(e?.message||'사업영역을 불러오지 못했어요.')}});
+  button.addEventListener('click',async()=>{try{const s=await sheetMod();await s.pickBusinessArea(button,{chosen:none?AREA_NONE:legacy?'':area,allowNone:noneReady,onMessage,onPick:pickArea})}catch(e){onMessage(e?.message||word('사업영역을 불러오지 못했어요.'))}});
   plan.addEventListener('input',paintCount);
   // ---- AI 추천 ----
   const aiBtn=host.querySelector('[data-biz-area-ai]'),sugs=host.querySelector('[data-biz-area-sugs]');let aiRun=0;
-  const SUGGEST_NOTE={short:'내용을 조금 더 쓰면 추천할 수 있어요.',secret:'비밀번호·키 같은 글이 있어 AI에 보내지 않았어요.',no_areas:'사업영역이 아직 없어요.',monthly_limit:'이번 달 AI 한도에 닿았어요.',ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',daily_limit:'오늘 AI 횟수를 다 썼어요.',not_ready:'사업영역 추천은 준비 중이에요.',offline:'인터넷 연결이 없어요.'};
+  const SUGGEST_NOTE={short:'내용을 조금 더 쓰면 추천할 수 있어요.',secret:'비밀번호·키 같은 글이 있어 AI에 보내지 않았어요.',no_areas:word('사업영역이 아직 없어요.'),monthly_limit:'이번 달 AI 한도에 닿았어요.',ai_monthly_cap:'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요.',daily_limit:'오늘 AI 횟수를 다 썼어요.',not_ready:word('사업영역 추천은 준비 중이에요.'),offline:'인터넷 연결이 없어요.'};
   const clearSugs=()=>{aiRun++;if(sugs)sugs.replaceChildren();if(aiBtn){aiBtn.disabled=false;aiBtn.removeAttribute('aria-busy')}};
   aiBtn?.addEventListener('click',async()=>{
     const mine=++aiRun,m=material?.()||{},title=String(m.title||'').replace(/\s+/g,' ').trim().slice(0,200);
@@ -45,8 +46,8 @@ export function mountAreaFields(host,{onMessage=()=>{},material=null}={}){
     aiBtn.disabled=false;aiBtn.removeAttribute('aria-busy');
     if(!r.ok){sugs.textContent=SUGGEST_NOTE[r.code]||'추천을 만들지 못했어요.';return}
     const list=(Array.isArray(r.data?.suggestions)?r.data.suggestions:[]).filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string').slice(0,3);
-    if(!list.length){sugs.textContent=SUGGEST_NOTE[r.data?.skipped]||'맞는 사업영역을 찾지 못했어요.';return}
-    sugs.replaceChildren(...list.map(x=>Object.assign(document.createElement('button'),{type:'button',className:'mini secondary biz-area-chip',textContent:x.name,title:'이 사업영역으로 선택',onclick:()=>{clearSugs();pickArea(x.id)}})));
+    if(!list.length){sugs.textContent=SUGGEST_NOTE[r.data?.skipped]||word('맞는 사업영역을 찾지 못했어요.');return}
+    sugs.replaceChildren(...list.map(x=>Object.assign(document.createElement('button'),{type:'button',className:'mini secondary biz-area-chip',textContent:x.name,title:word('이 사업영역으로 선택'),onclick:()=>{clearSugs();pickArea(x.id)}})));
   });
   const api={
     // 창을 열 때: meeting(고치기) 또는 areaId(새로 쓰기 미리 고름).
@@ -82,7 +83,7 @@ export function paintAreaView(host,meeting,{tasks=[],onMessage=()=>{},onTaskMade
   host.hidden=!has||(!shown.id&&!shown.none&&!lines.length);if(host.hidden){host.replaceChildren();return}
   // S48-30 줄 누르기(요청함 10/28 19:16 ⑦, 사업 보고 화면): '사업영역 ○○'은 그 사업영역 상세로, '할 일에 있음'은 그 할 일 수정 창으로 간다(새 창 없음, 공용 여는 길).
   const byTitle=new Map((tasks||[]).filter(t=>t?.id).map(t=>[String(t.title||'').trim(),t])),titles=new Set(byTitle.keys());
-  host.innerHTML=`<p class="biz-area-line${shown.none?' is-none':''}" data-biz-area-line>${shown.id?`<button type="button" class="biz-area-open" data-biz-area-open title="사업영역 상세 열기">사업영역 <span data-biz-area-name>…</span></button>`:shown.none?'사업영역 없음':''}</p>${lines.length?`<details class="biz-next-plan" open><summary>다음 할 일 <span class="optional">${lines.length}줄</span></summary><ul class="biz-plan-list">${lines.map((line,i)=>`<li><span>${esc(line)}</span>${titles.has(line)?`<button type="button" class="biz-plan-open optional" data-biz-plan-open="${i}" title="할 일 수정 창 열기">할 일에 있음</button>`:`<button type="button" class="mini" data-biz-plan-task="${i}">할 일로</button>`}</li>`).join('')}</ul></details>`:''}`;
+  host.innerHTML=`<p class="biz-area-line${shown.none?' is-none':''}" data-biz-area-line>${shown.id?word(`<button type="button" class="biz-area-open" data-biz-area-open title="사업영역 상세 열기">사업영역 <span data-biz-area-name>…</span></button>`):shown.none?word('사업영역 없음'):''}</p>${lines.length?`<details class="biz-next-plan" open><summary>다음 할 일 <span class="optional">${lines.length}줄</span></summary><ul class="biz-plan-list">${lines.map((line,i)=>`<li><span>${esc(line)}</span>${titles.has(line)?`<button type="button" class="biz-plan-open optional" data-biz-plan-open="${i}" title="할 일 수정 창 열기">할 일에 있음</button>`:`<button type="button" class="mini" data-biz-plan-task="${i}">할 일로</button>`}</li>`).join('')}</ul></details>`:''}`;
   if(shown.id)void areaName(shown.id).then(name=>{const el=host.querySelector('[data-biz-area-name]');if(el)el.textContent=name+(shown.legacy?' (연결에서)':'')});
   host.onclick=async e=>{
     const area=e.target.closest('[data-biz-area-open]');

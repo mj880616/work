@@ -95,6 +95,7 @@ import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
   takeItems, putItems, DEFAULT_SORT, SORT_TEXT, SORT_SHORT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
+import {word} from './brand/brand.mjs';
 
 (() => {
 if (window.KPTUPhotos) return;
@@ -2614,7 +2615,7 @@ async function phoneOpGo(anchor, op, done, after = null) {
   if (busy || !phoneOps()) return null;
   if (!phone.state().manage && !manageAsked) {
     manageAsked = true;
-    if (await askConfirm(anchor, {text:"폰 폴더를 바꿀 때 매번 묻지 않게 '미디어 관리 허용'을 켤까요?", note:'설정에서 노동조합+의 미디어 관리 허용을 켜고 돌아와 다시 눌러 주세요. 안 켜면 바꿀 때마다 폰이 확인 창을 띄워요.', ok:'설정 열기'})) { phone.manage(); return null; }
+    if (await askConfirm(anchor, {text:"폰 폴더를 바꿀 때 매번 묻지 않게 '미디어 관리 허용'을 켤까요?", note:word('설정에서 노동조합+의 미디어 관리 허용을 켜고 돌아와 다시 눌러 주세요. 안 켜면 바꿀 때마다 폰이 확인 창을 띄워요.'), ok:'설정 열기'})) { phone.manage(); return null; }
   }
   busy = true; paintSelect();
   let res;

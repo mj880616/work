@@ -1,3 +1,4 @@
+import {word} from './brand/brand.mjs';
 // MTG-프로젝트합치기 2단계(docs/design/project-into-report.md): 사업 보고의 사업영역 꼬리표·다음 할 일 — 화면이 쓰는 순수 함수 한 곳.
 // 꼬리표 = app_meetings.business_area_id(보고 하나에 하나, 명진 결정 ①). 사업영역 = 지금 프로젝트 표(app_spaces) 트리 그대로.
 // 옛 보고(꼬리표 빈 것)는 첫 연결 프로젝트(project_id)를 화면에서만 꼬리표처럼 보여 준다(결정 ②, 저장하지 않음).
@@ -47,7 +48,7 @@ export function areaTrail(tree, id) {
   const trail = [];
   for (const {project, depth} of tree) {
     trail.length = Math.min(trail.length, depth);
-    trail[depth] = String(project?.name || '').trim() || '이름 없는 사업영역';
+    trail[depth] = String(project?.name || '').trim() || word('이름 없는 사업영역');
     if (String(project?.id) === String(id)) return trail.slice(0, depth + 1);
   }
   return [];
@@ -103,7 +104,7 @@ export function fullTable(placed, tree) {
   if (!Array.isArray(tree)) return placed || [];
   const byId = new Map((placed || []).map(a => [String(a.id), a])), used = new Set(), out = [], order = new Map();
   let area = null, rank = 0;
-  const nameOf = project => String(project?.name || '').trim() || '이름 없는 사업영역';
+  const nameOf = project => String(project?.name || '').trim() || word('이름 없는 사업영역');
   for (const {project, depth} of tree) {
     if (depth === 0) {
       const got = byId.get(String(project.id)); used.add(String(project.id));
@@ -133,8 +134,8 @@ export function areaRoots(tree) {
 export function areaChipOptions(meetings, tree) {
   const roots = areaRoots(tree), count = new Map(); let chosenNone = 0;
   for (const m of meetings || []) { const shown = shownArea(m), id = shown.id; if (!id) { if (shown.none) chosenNone++; continue; } const root = roots.get(id); if (root) count.set(root, (count.get(root) || 0) + 1); }
-  const areas = (tree || []).filter(x => x.depth === 0 && count.has(String(x.project.id))).map(x => ({value:String(x.project.id), label:String(x.project.name || '이름 없는 사업영역')}));
-  return [{value:'all', label:'전체'}, ...areas, ...(chosenNone ? [{value:AREA_NONE, label:`사업영역 없음 ${chosenNone}`}] : [])];
+  const areas = (tree || []).filter(x => x.depth === 0 && count.has(String(x.project.id))).map(x => ({value:String(x.project.id), label:String(x.project.name || word('이름 없는 사업영역'))}));
+  return [{value:'all', label:'전체'}, ...areas, ...(chosenNone ? [{value:AREA_NONE, label:word`사업영역 없음 ${chosenNone}`}] : [])];
 }
 export function matchesAreaChip(meeting, chip, roots) {
   if (!chip || chip === 'all') return true;

@@ -12,6 +12,7 @@ import {myFeaturesOrNull, collectsFeeds} from './my-features.js';
 import {barHtml, failHtml} from './wait-state.js';
 import {goPlace} from './notice-place.js';
 import {KINDS, FAMILY_KIND, SIGNUP_KIND, SIGNUP_FEATURE, COLLECT_KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems, noticeClearMessage} from './phone-push-model.mjs';
+import {word} from './brand/brand.mjs';
 
 const ENDPOINT = '/functions/v1/phone-push';
 const BRIDGE = 'KPTUAppShell';
@@ -130,7 +131,7 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
     switch (phone.state) {
       case 'on': text = phone.error ? `등록 못 함 · ${errorText(phone.error)}` : '켜짐'; button = `<button type="button" class="row-act" data-ps-push-forget${busy}>이 폰 끊기</button>`; break;
       case 'off': text = '꺼짐'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>이 폰에서 받기</button>`; break;
-      case 'denied': text = '알림 허용 꺼짐 · 폰 설정 › 애플리케이션 › 노동조합+ › 알림'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>다시 묻기</button>`; break;
+      case 'denied': text = word('알림 허용 꺼짐 · 폰 설정 › 애플리케이션 › 노동조합+ › 알림'); button = `<button type="button" class="row-act" data-ps-push-enable${busy}>다시 묻기</button>`; break;
       case 'fail': text = '폰 주소를 받지 못했어요'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>다시 받기</button>`; break;
       case 'none': text = '이 앱 판은 알림을 받지 못해요 · 새 판으로 업데이트해 주세요'; break;
       default: return '';

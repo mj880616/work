@@ -22,6 +22,7 @@ import {canAsk, looksLikeQuestion, ASK_TEXT, askFailText, cleanAnswer, answerNot
 import {openCallSource, openTelegramSource} from './source-open.js';
 // SEC-기능PIN잠금 노트 폴더(S67-14): 잠근 노트 폴더(하위 포함)의 노트 결과는 제목·내용 대신 '잠김'. 판정은 feature-lock.js 한 곳.
 import * as lock from './feature-lock.js';
+import {word} from './brand/brand.mjs';
 
 (() => {
 'use strict';
@@ -149,7 +150,7 @@ function paint(host, where) {
   box.dataset.gsWhere = where;
   const statusLine = el('div', 'gs-status'); statusLine.setAttribute('role', 'status'); statusLine.setAttribute('aria-live', 'polite');
   if (state.phase === 'idle') {
-    statusLine.textContent = '두 글자 이상 입력하면 업데이트·노트·할 일·자료실·사업 보고·일정을 함께 찾아요.';
+    statusLine.textContent = word('두 글자 이상 입력하면 업데이트·노트·할 일·자료실·사업 보고·일정을 함께 찾아요.');
     box.append(statusLine);
     const recent = recentNode(where); if (recent) box.append(recent);
     host.append(box); return;
@@ -224,7 +225,7 @@ function askNodes(where) {
   const q = state.text.trim();
   if (state.ask.phase === 'idle' && looksLikeQuestion(q)) {
     const line = el('div', 'gs-ask-line'); line.setAttribute('role', 'option'); line.id = `gsOpt-${where}-${++optionSeq}`; line.dataset.gsKey = 'ask'; line.dataset.gsAsk = '1';
-    line.append(icon('ask'), el('b', 'gs-ask-name', '노동조합+에 물어보기 ↵'), el('span', 'gs-ask-hint', 'AI · 근거 기록과 함께'));
+    line.append(icon('ask'), el('b', 'gs-ask-name', word('노동조합+에 물어보기 ↵')), el('span', 'gs-ask-hint', 'AI · 근거 기록과 함께'));
     out.push(line);
   }
   if (state.ask.phase !== 'idle') out.push(answerBox(where));
@@ -234,14 +235,14 @@ function askNodes(where) {
 function appendAskMore(box) {
   const q = state.text.trim();
   if (state.ask.phase !== 'idle' || !canAsk(q) || looksLikeQuestion(q)) return;
-  const b = el('button', 'gs-ask-more', '이 내용으로 노동조합+에 물어보기'); b.type = 'button'; b.dataset.gsAskMore = '1';
+  const b = el('button', 'gs-ask-more', word('이 내용으로 노동조합+에 물어보기')); b.type = 'button'; b.dataset.gsAskMore = '1';
   box.append(b);
 }
 function answerBox(where) {
   const a = state.ask, answer = a.answer;
-  const box = el('section', 'gs-ask-box'); box.setAttribute('aria-label', '노동조합+에 물어보기 답');
+  const box = el('section', 'gs-ask-box'); box.setAttribute('aria-label', word('노동조합+에 물어보기 답'));
   const head = el('div', 'gs-ask-head');
-  head.append(icon('ask'), el('b', 'gs-ask-name', '노동조합+에 물어보기'));
+  head.append(icon('ask'), el('b', 'gs-ask-name', word('노동조합+에 물어보기')));
   if (answer?.at) { const t = new Date(Date.parse(answer.at) + 9 * 3600 * 1000); if (Number.isFinite(t.getTime())) head.append(el('span', 'gs-ask-time', `${t.getUTCMonth() + 1}/${t.getUTCDate()} ${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`)); }
   if (a.phase !== 'busy') { const again = el('button', 'gs-ask-again', '다시 묻기'); again.type = 'button'; again.dataset.gsAskAgain = '1'; head.append(again); }
   box.append(head, el('p', 'gs-ask-q', a.q));

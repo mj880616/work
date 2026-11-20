@@ -41,6 +41,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-tags-comments.test.mjs'
+      - 'tests/note-tags-edit.test.mjs'
       - 'tests/note-secret-server.test.mjs'
       - 'tests/origin-redirect.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
@@ -311,6 +312,7 @@ on:
       - 'supabase/functions/ai-assist/note-secret.ts'
       - 'tests/note-secret.test.mjs'
       - 'tests/note-tags-comments.test.mjs'
+      - 'tests/note-tags-edit.test.mjs'
       - 'tests/note-secret-server.test.mjs'
       - 'tests/origin-redirect.test.mjs'
       - 'tests/meeting-draft-parser.test.mjs'
@@ -717,6 +719,8 @@ jobs:
         run: node --test tests/note-boards-model.test.mjs
       - name: Check note hashtags and comments (NOTE-읽생기아이디어)
         run: node --test tests/note-tags-comments.test.mjs
+      - name: Check note tag field add/remove on the text (S67-48)
+        run: node --test tests/note-tags-edit.test.mjs
       - name: Check small popup width and title drag (UI-창잘림·끌어옮기기)
         run: node --test tests/popup-fit-drag.test.mjs
 
@@ -1252,6 +1256,9 @@ jobs:
 
       - name: Check the two faces and that 노동조합+ screen words stay the same (APP-올인원다이어리 단계 2)
         run: node --test tests/brand-faces.test.mjs
+
+      - name: Check per-person menu and kind names over the face defaults (APP-기록+이름바꾸기)
+        run: node --test tests/custom-words.test.mjs
 
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs

@@ -30,6 +30,7 @@ import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
 import {newsOn, readNews, pickTodayNews, decideNews, openNews, oldNews, promiseNews, suspectNews, recheckNews, newsText, matchOrg, openNewsSource, NEWS_SOURCE_TAG} from './forget-news-data.js';
+import {word} from './brand/brand.mjs';
 
 const CHANGED = 'kptu:todo-radar-changed';
 // FORGET-노트고르기: 업무 줄 [노트]의 처음 폴더(맨 위 폴더 이름, 없으면 폴더 없음).
@@ -288,17 +289,17 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   const myOrgs = () => { if (!orgRead) orgRead = import('./feed-data.js').then(m => m.readOrganizations(rt)).catch(error => { orgRead = null; throw error; }); return orgRead; };
   const user = () => rt.context?.read?.()?.user?.id || null;
   // FORGET-넣기되돌리기: 알림은 '○○ 기록에 넣었어요 · [되돌리기]'(2초, 공용 되돌리기 알림). 잘못 고른 조직·사업이면 바로 뺀다.
-  const orgDone = org => `${org.name || '조직'} 기록에 넣었어요.`;
+  const orgDone = org => `${org.name || word('조직')} 기록에 넣었어요.`;
   const areaDone = project => `${project.name || '사업'} 기록에 넣었어요.`;
   // [조직]: 담당조직 고르기 창. guess(read)가 내 담당조직 하나를 돌려주면(소식: AI가 쓴 조직 이름, 텔레그램 요청·챙길 것: 후보에 붙은 조직)
   // 창 맨 위에 '조직 › ○○에 넣기'(한 번 누르면 그 조직). 옛 소식 줄 ⋯의 같은 항목을 여기로 옮겼다.
   async function pickOrg(trigger, {guess = () => null, onPick}) {
     let read;
-    try { read = await myOrgs(); } catch { say('담당조직 목록을 읽지 못했어요. 다시 눌러 주세요'); return; }
+    try { read = await myOrgs(); } catch { say(word('담당조직 목록을 읽지 못했어요. 다시 눌러 주세요')); return; }
     const match = guess(read), {openOrgPicker} = await import('./feed-link.js');
     if (!trigger?.isConnected) return;
-    await openOrgPicker(trigger, {orgs: read.orgs, mine: read.mine, selected: '', title: '넣을 조직',
-      top: match ? [{key: `o:${match.id}`, name: `조직 › ${match.name}에 넣기`, attrs: 'data-forget-org-match'}] : null,
+    await openOrgPicker(trigger, {orgs: read.orgs, mine: read.mine, selected: '', title: word('넣을 조직'),
+      top: match ? [{key: `o:${match.id}`, name: word`조직 › ${match.name}에 넣기`, attrs: 'data-forget-org-match'}] : null,
       onPick: id => { const org = id && read.orgs.find(o => o.id === id); if (org) onPick(org); }});
   }
   async function pickArea(trigger, onPick) {
