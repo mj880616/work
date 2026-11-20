@@ -24,7 +24,7 @@ export const orgPickCount = n => `${n}곳 선택됨`;
 
 // 확인 창: 조직 n곳, 연결된 조직 보고 m건(기존 한 개 삭제 규칙대로 남고, 휴지통에서 되돌릴 수 있음).
 export function orgBulkConfirmText(n, records) {
-  const kept = records > 0 ? `연결된 조직 보고 ${records}건과 담당자는 그대로 남고` : '연결된 조직 보고는 없고';
+  const kept = records > 0 ? word(`연결된 조직 보고 ${records}건과 담당자는 그대로 남고`) : word('연결된 조직 보고는 없고');
   return word(`담당조직 ${n}곳을 휴지통으로 옮길까요?\n${kept}, 휴지통에서 되돌릴 수 있어요.`);
 }
 // 결과 줄: 옮긴 수(휴지통 목록으로 확인한 것만) + 옮기지 못한 수.
