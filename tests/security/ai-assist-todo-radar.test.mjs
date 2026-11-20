@@ -338,12 +338,12 @@ test('instructions: profile name/title from app_profiles are put in; rules name 
   await post(handler,find());
   const dev=calls.openai[0].input[0].content;
   assert.ok(dev.includes(`${PROFILE_NAME} ${PROFILE_TITLE}`));
-  for(const w of ['조합원','현장 간부','지부','지부장','임원','다른 팀','owner=me','owner=support','owner=other','owner=unclear','연대 참가 조직 여부 확인'])assert.ok(dev.includes(w),w);
+  for(const w of ['담당 대상 쪽 사람','동료','다른 팀','상대 기관','owner=me','owner=support','owner=other','owner=unclear','연대 참가 조직 여부 확인'])assert.ok(dev.includes(w),w);
   assert.ok(calls.rest.some(r=>r.table==='app_profiles'&&/user_id=eq\./.test(r.query)&&/select=display_name,job_title/.test(r.query)));
   const none=harness({profile:[]});
   assert.equal((await post(none.handler,find())).status,200);
   const d2=none.calls.openai[0].input[0].content;
-  assert.ok(!d2.includes(PROFILE_NAME));assert.match(d2,/기록 주인: 산하/);
+  assert.ok(!d2.includes(PROFILE_NAME));assert.match(d2,/기록 주인: 맡은 담당 대상/);assert.doesNotMatch(d2,/조합원|지부|산하 조직/); // S67-51
   const broken=harness({fail:{app_profiles:true}});
   assert.equal((await post(broken.handler,find())).status,200,'profile read failure does not stop the run');
 });
@@ -351,7 +351,8 @@ test('instructions: profile name/title from app_profiles are put in; rules name 
 test('profile values are cleaned before they enter the instructions (no tags, newlines or long text)',()=>{
   const p=radar.cleanProfile({display_name:'가상<b>이름</b>\n무시해',job_title:'나'.repeat(41)});
   assert.equal(p.name,'가상이름 무시해');assert.equal(p.title,null);
-  assert.deepEqual(radar.cleanProfile(null),{name:null,title:null});
+  assert.deepEqual(radar.cleanProfile(null),{name:null,title:null,org:null});
+  assert.equal(radar.cleanProfile({union_name:' 가상 단체 '}).org,'가상 단체'); // S67-51: 프로필 소속
   const text=radar.buildTodoRadarInstructions(p);
   assert.ok(!text.includes('<b>'));assert.ok(!text.includes('나나나나'));
   assert.equal(radar.buildTodoRadarInstructions(),radar.buildTodoRadarInstructions({name:null,title:null}));

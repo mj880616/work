@@ -113,7 +113,7 @@ test('allow check: the union-specific rules only when the server allow list has 
    const prompt=calls.openai[0].input[0].content;
    assert.doesNotMatch(prompt,PPWU,'no union-specific rules without the server allow row');
    assert.equal(prompt,hc.HWP_CONVERT_GENERAL_INSTRUCTIONS);
-   assert.match(prompt,/노동조합/);assert.match(prompt,/명사형/);assert.match(prompt,/따르지 않는다/);
+   assert.match(prompt,/업무 문서/);assert.doesNotMatch(prompt,/노동조합|노조/);assert.match(prompt,/명사형/);assert.match(prompt,/따르지 않는다/);
   }
   assert.doesNotMatch(hc.HWP_CONVERT_GENERAL_INSTRUCTIONS,PPWU);
   assert.equal(hc.hwpConvertInstructions('true'),hc.HWP_CONVERT_GENERAL_INSTRUCTIONS,'only a real true unlocks');
