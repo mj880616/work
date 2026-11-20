@@ -87,7 +87,7 @@ import {
 import type { FeedRow } from "./journal-memorable.ts";
 import {
   DAY_NEWS_BACK_DAYS, DAY_NEWS_MAX, DAY_READS_MAX_OUTPUT_TOKENS, DAY_SUGGEST_MAX_OUTPUT_TOKENS, READS_INSTRUCTIONS, READS_SCHEMA, SUGGEST_INSTRUCTIONS, SUGGEST_SCHEMA,
-  callDayLine, dayLines, dayPicksOut, daySlot, familyName, endedToday, parseHomeDayPicksRequest, parseReads, parseSuggests, readsDue, readsMaterial, runHeld, seoulClock as daySeoulClock, suggestMaterial,
+  callDayLine, dayLines, dayPicksOut, daySlot, familyName, startedToday, seoulDayOf, parseHomeDayPicksRequest, parseReads, parseSuggests, readsDue, readsMaterial, runHeld, seoulClock as daySeoulClock, suggestMaterial,
   suggestsDue, toNewsRow, type DayLine, type DayOrg, type DayRow, type HomeDayPicksRequest,
 } from "./home-day-picks.ts";
 import { parseWorkScope, parseWorkScopeRequest, WORK_SCOPE_INSTRUCTIONS, WORK_SCOPE_MAX_OUTPUT_TOKENS, WORK_SCOPE_SCHEMA, weekDayKeys, userLineDrops, withUserDrops, workScopeLines, workScopeMaterial } from "./work-scope.ts";
@@ -3951,7 +3951,7 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
   const ws = encodeURIComponent(ctx.workspaceId), day = input.day;
   const COLS = "workspace_id,day,reads,reads_at,reads_slot,news_seen_at,suggests,suggests_at,suggests_done,run_at";
   const done = (row: Record<string, unknown> | null, extra: Record<string, unknown> = {}) =>
-    json({ ok: true, kind: "home_day_picks", day, ...extra, picks: dayPicksOut(row) });
+    json({ ok: true, kind: "home_day_picks", day, ...extra, picks: dayPicksOut(row, day) });
   const readRows = async (path: string): Promise<Record<string, unknown>[]> => {
     let rows: unknown;
     try {
@@ -4044,7 +4044,8 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
       } else deps.log("home_day_reads_bad_answer");
     }
     if (suggestNeed) {
-      // 재료: 오늘 지난 일정·끝낸 할 일(화면이 보냄) + 오늘 회의(서버) + 오늘 업무 통화 요약(운영자 기능 calls일 때만, 서버).
+      // 재료: 오늘 시작한 일정·오늘 끝낸 할 일(화면이 보냄) + 오늘 회의(서버, 지운 회의 제외) + 오늘 업무 통화 요약(운영자 기능 calls일 때만, 서버).
+      // S67-46: 줄마다 그 일의 한국 날짜를 붙여 오늘 일이 아니면 재료에서 빼고(dayLines), AI 답도 다시 본다(parseSuggests).
       // 오늘 일기는 겹침 거르기에만 서버에서 쓰고 AI에 보내지 않는다. 일기를 못 읽으면 이번에는 고르지 않는다(다음 열기에 다시).
       const dayStart = new Date(Date.parse(`${day}T00:00:00+09:00`)).toISOString(), dayEnd = new Date(Date.parse(`${day}T00:00:00+09:00`) + 86400000).toISOString();
       const features = await myFeatures(ctx);
@@ -4052,8 +4053,8 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
       // S67-47 ORG-근거만: 통화 줄은 그 통화에 붙은 조직(사람이 고친 값 우선)만 재료에 적고, 제목은 주제만 쓴다. 담당조직 목록은 AI 답이 다른 조직을 빌려 왔는지 검사하는 데만 쓴다.
       const [diary, meetings, callRows, orgRows] = await Promise.all([
         soft(`app_notes?workspace_id=eq.${ws}&kind=eq.diary&journal_day=eq.${day}&archived_at=is.null&select=workspace_id,kind,raw_text&limit=5`),
-        soft(`app_meetings?workspace_id=eq.${ws}&meeting_at=gte.${encodeURIComponent(dayStart)}&meeting_at=lt.${encodeURIComponent(dayEnd)}&select=workspace_id,title,series_name&order=meeting_at.asc&limit=20`),
-        calls ? soft(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&day=eq.${day}&hidden_at=is.null&archived_at=is.null&select=id,workspace_id,source,title,summary,organization_id&order=occurred_at.asc&limit=30`) : Promise.resolve([]),
+        soft(`app_meetings?workspace_id=eq.${ws}&meeting_at=gte.${encodeURIComponent(dayStart)}&meeting_at=lt.${encodeURIComponent(dayEnd)}&deleted_at=is.null&select=workspace_id,title,series_name,meeting_at&order=meeting_at.asc&limit=20`),
+        calls ? soft(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&day=eq.${day}&hidden_at=is.null&archived_at=is.null&select=id,workspace_id,source,title,summary,day,occurred_at,organization_id&order=occurred_at.asc&limit=30`) : Promise.resolve([]),
         soft(`app_suborganizations?workspace_id=eq.${ws}&deleted_at=is.null&select=id,workspace_id,name,aliases,active&order=name.asc&limit=500`),
       ]);
       const dayOrgs: DayOrg[] = (orgRows || []).filter((o) => isUuid(o?.id) && String(o?.workspace_id).toLowerCase() === ctx.workspaceId && typeof o?.name === "string")
@@ -4065,22 +4066,25 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
         const diaryText = diary.filter((n) => String(n?.workspace_id).toLowerCase() === ctx.workspaceId && n?.kind === "diary")
           .map((n) => typeof n.raw_text === "string" ? n.raw_text : "").join("\n");
         const raw: DayLine[] = [
-          ...endedToday(input.events, day, clock.hm).map((e) => ({ kind: "일정" as const, text: e.title })),
-          ...input.done.map((t) => ({ kind: "할 일" as const, text: t })),
+          ...startedToday(input.events, day, clock.hm).map((e) => ({ kind: "일정" as const, text: e.title, day: e.day })),
+          ...input.done.map((t) => ({ kind: "할 일" as const, text: t, day })), // 화면이 오늘 끝낸 할 일만 보낸다(sendDone)
           ...(meetings || []).filter((m) => String(m?.workspace_id).toLowerCase() === ctx.workspaceId)
-            .map((m) => ({ kind: "회의" as const, text: String(m?.series_name || m?.title || "") })),
+            .map((m) => ({ kind: "회의" as const, text: String(m?.series_name || m?.title || ""), day: seoulDayOf(m?.meeting_at) })),
+          // 통화: 줄의 날짜(day)와 녹음 시각(occurred_at)의 한국 날짜가 모두 오늘이어야 한다(녹음 시각이 없으면 day만).
+          // S67-47: 사람이 고친 값(제목·조직) 먼저, 조직은 그 통화에 붙은 것만, 제목은 주제만(callDayLine).
           ...myCalls.map((c0) => {
             const c = applyCallEdits(c0, isUuid(c0.id) ? callEdits.get(String(c0.id).toLowerCase()) : undefined);
             const org = isUuid(c.organization_id) ? orgNameOf.get(String(c.organization_id).toLowerCase()) ?? null : null;
-            return callDayLine(c.title, c.summary, org);
+            const lineDay = String(c?.day ?? "") === day && (c?.occurred_at == null || seoulDayOf(c.occurred_at) === day) ? day : "";
+            return callDayLine(c.title, c.summary, org, lineDay);
           }),
         ];
-        const lines = dayLines(raw, diaryText, family);
+        const lines = dayLines(raw, diaryText, family, day);
         counts.lines = lines.length;
         const material = suggestMaterial(day, lines);
         if (material) {
           const answer = await callDayAi(ctx, deps, started, "home_day_suggests", SUGGEST_INSTRUCTIONS, material, SUGGEST_SCHEMA, DAY_SUGGEST_MAX_OUTPUT_TOKENS);
-          const picks = parseSuggests(outputText(answer, 16 * 1024) ?? "", lines, family, dayOrgs);
+          const picks = parseSuggests(outputText(answer, 16 * 1024) ?? "", lines, family, day, dayOrgs);
           if (picks) {
             counts.suggests = picks.length;
             await save({ suggests: picks, suggests_at: mine });
