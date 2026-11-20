@@ -349,6 +349,28 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #basketView .basket-note-meta .note-meta-tags { display:inline-flex; flex-wrap:wrap; gap:4px; }
 #appView #basketView .basket-note-meta .note-meta-tag { position:relative; min-height:0; height:auto; margin:0; padding:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:12px; color:var(--kptu-primary-ink,var(--kptu-primary)); cursor:pointer; }
 #appView #basketView .basket-note-meta .note-meta-tag::after { content:""; position:absolute; inset:-14px -3px; }
+/* S67-48 태그 칸: 칩(#이름 + ×)·[+ 태그]·바로 아래 고르기 칸(찾기 + 많이 쓴 순 목록). 읽기 머리 줄과 고치기 아래 줄이 같은 모양. */
+#basketView .note-meta-tags { display:inline-flex; flex-wrap:wrap; align-items:center; gap:2px 6px; }
+#basketView .ntf-chip { display:inline-flex; align-items:center; gap:1px; }
+#basketView .note-edit-tags .note-meta-tag { font-size:12px; color:var(--kptu-primary-ink,var(--kptu-primary)); }
+#appView #basketView .note-meta-tags :is(.ntf-x,.ntf-add,.note-meta-tag), #appView #basketView .ntf-panel :is(.ntf-close,.ntf-item) { position:relative; min-height:0; height:auto; margin:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:12px; cursor:pointer; }
+#appView #basketView .note-meta-tags .ntf-x { padding:0 2px; color:var(--kptu-muted); line-height:1; }
+#appView #basketView .note-meta-tags .ntf-x::after { content:""; position:absolute; inset:-12px -4px; }
+#appView #basketView .note-meta-tags .ntf-add { padding:0 2px; color:var(--kptu-muted); }
+#appView #basketView .note-meta-tags .ntf-add::after { content:""; position:absolute; inset:-12px -4px; }
+#appView #basketView .note-meta-tags .ntf-add[aria-expanded="true"] { color:var(--kptu-primary-ink,var(--kptu-primary)); }
+#basketView .note-edit-tags { display:flex; flex-direction:column; gap:4px; margin:6px 0 0; font-size:12px; }
+#basketView .ntf-panel:not([hidden]) { display:flex; flex-direction:column; gap:4px; margin:4px 0 6px; padding:6px; border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-radius-sm,6px); max-width:420px; }
+#basketView .ntf-panel-head { display:flex; align-items:center; gap:6px; }
+#basketView .ntf-find { flex:1 1 auto; min-width:0; }
+#appView #basketView .ntf-panel .ntf-find input { width:100%; box-sizing:border-box; height:28px; min-height:0; padding:0 6px; font-size:13px; }
+#appView #basketView .ntf-panel .ntf-close { flex:none; padding:0 4px; color:var(--kptu-muted); }
+#basketView .ntf-list { display:flex; flex-wrap:wrap; gap:4px; max-height:160px; overflow:auto; }
+#appView #basketView .ntf-panel .ntf-item { display:inline-flex; align-items:center; gap:4px; height:26px; padding:0 8px; border:var(--ds-line-width,1px) solid var(--ds-line); border-radius:var(--ds-chip-radius,999px); color:var(--kptu-ink); }
+#appView #basketView .ntf-panel .ntf-new { color:var(--kptu-primary-ink,var(--kptu-primary)); }
+#basketView .ntf-none, #basketView .ntf-msg { font-size:12px; color:var(--kptu-muted); margin:0; }
+#basketView .ntf-msg:empty { display:none; }
+#basketView .nx-tags { flex:0 1 auto; min-width:0; max-width:38%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:var(--kptu-muted); }
 #basketView .note-cm { margin:10px 0 0; padding:8px 0 0; border-top:var(--ds-line-width,1px) solid var(--ds-line); }
 #basketView .note-cm-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 4px; font-size:12px; color:var(--kptu-muted); }
 #basketView .note-cm-wait { margin:0; font-size:12px; color:var(--kptu-muted); }
