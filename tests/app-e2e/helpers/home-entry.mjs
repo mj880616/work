@@ -1,6 +1,6 @@
 import { OPERATOR_ORG_ORDER, OPERATOR_REPORT_CALENDAR, OPERATOR_MENU_LAYOUT } from '../../org-order-fixture.mjs';
 import { expect } from '@playwright/test';
-import {DEFAULT_STAGES} from '../../../app/org-dispute-stage-model.mjs';
+import {EXISTING_STAGES} from '../../dispute-stage-fixture.mjs';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,8 @@ import { installViewPrefsServer } from './view-prefs-server.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Normalized Google Tasks create representation, matching the existing Edge contract.
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
-export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
+// S67-51: 이미 단계를 쓰는 작업공간(예전 기본 11개 모양, 합성 값). 새 기본값은 app DEFAULT_STAGES(업종 없는 5개).
+export const defaultStageRows=()=>EXISTING_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
 // UI-폰하단고정: 접혀 있는 폰 홈 빠른 입력을 칸을 눌러 펼친다(접힌 것이 없으면 아무것도 안 함 — PC·다른 화면).
 // 다시 불러온 뒤(page.reload)나 폭을 폰으로 바꾼 뒤에도 같은 뜻으로 부른다.
 // HOME-입력칸두모양(S61-44): 폰 홈 빠른 입력은 접힘이 없다(늘 한 줄, 펼칠 것 없음). 화면 준비만 기다린다.
