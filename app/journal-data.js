@@ -661,6 +661,6 @@ export async function readUpcomingMilestones(rt = window.KPTURuntime) {
   const projects = (await catalog.load({workspaceId:ctx.workspace.id, userId:ctx.user?.id}))?.projects || [];
   const ids = projects.filter(p => p.status === 'active').map(p => p.id);
   if (!ids.length) return [];
-  const rows = await rt.api(`/rest/v1/app_project_milestones?project_id=in.(${ids.map(encodeURIComponent).join(',')})&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at,google_calendar_id,google_event_id&order=start_at.asc&limit=3`);
+  const rows = await rt.api(`/rest/v1/app_project_milestones?project_id=in.(${ids.map(encodeURIComponent).join(',')})&start_at=gte.${encodeURIComponent(new Date(ranges().start).toISOString())}&or=(status.is.null,status.not.in.(done,completed,cancelled,canceled))&select=id,project_id,title,status,start_at,google_calendar_id,google_event_id&order=start_at.asc&limit=12`); // S67-46: 같은 일정 겹침을 뺀 뒤 3개(milestoneChips)
   return milestoneChips(projects, Array.isArray(rows) ? rows : []);
 }
