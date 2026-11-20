@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // HOME-하루채우기 ②·③ 화면 연결(PR-C, 2026-11-09 시안 ④): 홈 [하루] '읽을 만한 글'·'이런 기록은 어때요?'. 폰 390·폴드 884·PC 1440.
 // 가짜 서버만 쓴다: ai-assist(kind=home_day_picks), 표 app_home_day_picks(읽기·suggests_done 고치기), 일기 app_notes(kind=diary).
 // 시계: 2026-10-06 19:30 KST(저녁 — 기록 제안이 보이는 때). 그 주 일정 '오전 일정' 10:00~11:00(home-entry.mjs).
@@ -17,12 +18,13 @@ const SUGGESTS = [
 ];
 const rowOf = (extra = {}) => ({ day: '2026-10-06', reads: READS, reads_at: '2026-10-06T10:00:00Z', suggests: SUGGESTS, suggests_at: '2026-10-06T10:00:00Z', suggests_done: [], ...extra });
 
-async function boot(page, width, height, { now = EVENING, row = rowOf(), ai = null } = {}) {
+async function boot(page, width, height, { now = EVENING, row = rowOf(), ai = null, features, prefs = null } = {}) {
   await page.setViewportSize({ width, height });
   const errors = [], asks = [], patches = [], notes = [];
   page.on('pageerror', e => errors.push(e.message));
   const state = { row: row ? structuredClone(row) : null };
   const beforeLoad = async () => {
+    if (prefs) await installViewPrefsServer(page, prefs); // S67-52: 이미 저장된 화면 기억(끈 칸)
     await page.route(u => u.origin === SB && u.pathname === '/functions/v1/ai-assist', async r => {
       let body = null; try { body = r.request().postDataJSON(); } catch { body = null; }
       if (body?.kind !== 'home_day_picks') return r.fallback();
@@ -52,8 +54,8 @@ async function boot(page, width, height, { now = EVENING, row = rowOf(), ai = nu
       return r.fallback();
     });
   };
-  await openHome(page, { beforeLoad, now });
-  return { errors, asks, patches, notes, state };
+  const home = await openHome(page, { beforeLoad, now, ...(features ? { features } : {}) });
+  return { errors, asks, patches, notes, state, prefs: home.prefs };
 }
 const fill = page => page.locator('#journalRoot [data-journal-fill]');
 
@@ -139,5 +141,74 @@ test('고른 것이 없으면 두 칸 모두 안 보인다(빈 안내문 없음)
   await expect(fill(page).locator('[data-journal-reads]')).toBeHidden();
   await expect(fill(page).locator('[data-journal-suggests]')).toBeHidden();
   await expect(fill(page).locator('text=읽을 만한 글')).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
+// ---- S67-52 HOME-칸끄기(요청함 11/20 22:36 "이런 기록은 어때요 / 안쓸 거면 없앨 수 있게") ----
+const ready = page => expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
+test('[빼기]: 그 제안만 사라지고 서버 표에 남아 새로고침해도 안 나온다, [되돌리기]로 되살린다', async ({ page }) => {
+  const f = await boot(page, 390, 844);
+  const suggests = fill(page).locator('[data-journal-suggests]');
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveCount(2);
+  await expect(suggests.locator('button.row-act[data-journal-suggest-drop]')).toHaveCount(2);
+  await suggests.locator('[data-journal-suggest-drop="s1"]').click();
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveCount(1);
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveAttribute('data-journal-suggest', 's2');
+  await expect.poll(() => f.patches.length).toBe(1);
+  expect(f.patches[0]).toEqual({ suggests_done: ['s1'] });
+  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('기록 제안을 뺐어요.');
+  // 새로고침: 서버 표(suggests_done)를 읽어 뺀 제안은 다시 안 나온다.
+  await page.reload();
+  await ready(page);
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveCount(1);
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveAttribute('data-journal-suggest', 's2');
+  // 마지막 하나를 빼면 칸째 없다(빈 상자 없음). [되돌리기]를 누르면 다시 보인다.
+  await suggests.locator('[data-journal-suggest-drop="s2"]').click();
+  await expect(suggests).toBeHidden();
+  await page.locator('#kptuNotice .kptu-notice-undo').click();
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveCount(1);
+  await expect.poll(() => f.state.row.suggests_done).toEqual(['s1']);
+  expect(f.errors).toEqual([]);
+});
+
+test('이 칸 끄기: 칸을 그리지 않고 기록 제안을 부탁하지 않는다(suggests:false), 내 프로필 홈 칸에서 다시 켠다', async ({ page }) => {
+  const f = await boot(page, 390, 844);
+  const suggests = fill(page).locator('[data-journal-suggests]');
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveCount(2);
+  await expect.poll(() => f.asks.length).toBe(1);
+  await suggests.locator('[data-home-off-more="suggests"]').click();
+  await page.locator('#rowMenu [data-row-item="hide"]').click();
+  await expect(suggests).toBeHidden();
+  await expect(suggests.locator('*')).toHaveCount(0); // 숨김이 아니라 안 그림
+  await expect.poll(() => f.prefs.value?.home_off).toEqual(['suggests']);
+  // 새로고침 뒤에도 꺼져 있고, 서버에 기록 제안을 부탁하지 않는다.
+  const before = f.asks.length;
+  await page.reload();
+  await ready(page);
+  await expect.poll(() => f.asks.length).toBe(before + 1);
+  const last = f.asks.at(-1);
+  expect(last.suggests).toBe(false);
+  expect(last.done).toEqual([]);
+  await expect(fill(page).locator('[data-journal-reads]')).toBeVisible();
+  await expect(suggests).toBeHidden();
+  // 내 프로필 '홈 칸'에서 다시 켠다.
+  await page.evaluate(() => window.KPTURouter.go('profile'));
+  const sw = page.locator('#psHomeOffPanel [data-home-off-switch="suggests"]');
+  await expect(sw).toBeVisible({ timeout: 15000 });
+  await expect(sw).not.toBeChecked();
+  await sw.click();
+  await expect(sw).toBeChecked();
+  await expect.poll(() => f.prefs.value?.home_off ?? null).toBe(null);
+  await page.evaluate(() => window.KPTURouter.go('home'));
+  await expect(suggests.locator('[data-journal-suggest]')).toHaveCount(2);
+  expect(f.errors).toEqual([]);
+});
+
+test('칸을 끈 계정에 읽을 만한 글 기능도 없으면 홈은 하루 고르기 요청을 아예 보내지 않는다', async ({ page }) => {
+  const f = await boot(page, 390, 844, { features: [], prefs: { home_off: ['suggests'] }, row: rowOf({ reads: [] }) });
+  await expect(page.locator('#journalRoot')).toBeVisible();
+  await page.waitForTimeout(3000); // 첫 부탁은 홈에 2초 머문 뒤
+  expect(f.asks.length).toBe(0);
+  await expect(fill(page).locator('[data-journal-suggests]')).toBeHidden();
   expect(f.errors).toEqual([]);
 });

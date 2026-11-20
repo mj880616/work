@@ -114,12 +114,14 @@ test('REC-발언자구분: 요약 지시문은 화자 번호를 쓰라고 하지
     assert.doesNotMatch(dev,/화자|speaker/i);
     assert.match(dev,/담당자·기한이 명확하지 않으면 반드시 \[확인 필요\]로 표시한다/);
   }
-  // MULTI-다른담당자맞춤 ⑤: 고정 소속·직책 없이 맡긴 사람 프로필 직책(비면 중립), 한 줄·40자.
-  assert.match(prompt.meetingDraftDeveloper(''),/^당신은 웹2에서 노동조합 활동가의 업무를 지원하는 회의결과 정리 AI다/);
-  assert.match(prompt.meetingDraftDeveloper('',prompt.ownerRole('가상팀 가상직책')),/^당신은 웹2에서 노동조합 가상팀 가상직책의 업무를/);
-  assert.doesNotMatch(prompt.meetingDraftDeveloper(''),/공공기관사업팀|공공운수노조/);
-  assert.equal(prompt.ownerRole('  '),'노동조합 활동가');assert.equal(prompt.ownerRole(null),'노동조합 활동가');
-  assert.ok(!prompt.ownerRole('가\n나'+'다'.repeat(80)).includes('\n'));assert.equal([...prompt.ownerRole('다'.repeat(80))].length,'노동조합 '.length+40);
+  // MULTI-다른담당자맞춤 ⑤·S67-51: 고정 소속·직책 없이 맡긴 사람 프로필 소속·직책(비면 업종 없는 '업무 담당자'), 칸마다 한 줄·40자.
+  assert.match(prompt.meetingDraftDeveloper(''),/^당신은 웹2에서 업무 담당자의 업무를 지원하는 회의결과 정리 AI다/);
+  assert.match(prompt.meetingDraftDeveloper('',prompt.ownerRole('가상팀 가상직책')),/^당신은 웹2에서 가상팀 가상직책의 업무를/);
+  assert.match(prompt.meetingDraftDeveloper('',prompt.ownerRole('가상직책','가상 단체')),/^당신은 웹2에서 가상 단체 가상직책의 업무를/);
+  assert.equal(prompt.ownerRole('','가상 단체'),'가상 단체 업무 담당자');
+  assert.equal(prompt.ownerRole('  '),'업무 담당자');assert.equal(prompt.ownerRole(null),'업무 담당자');assert.equal(prompt.ownerRole(null,42),'업무 담당자');
+  assert.ok(!prompt.ownerRole('가\n나'+'다'.repeat(80),'라\n마').includes('\n'));assert.equal([...prompt.ownerRole('다'.repeat(80))].length,40);
+  assert.doesNotMatch(prompt.meetingDraftDeveloper(''),/노동조합|노조/);
   // 조각 요약을 합칠 때 쓰는 글도 화자 번호를 만들어 넣지 않는다(요약에 없으면 없다).
   const draft=prompt.normalizeDraft({decisions:'일정 확정',information:'자료 공유',actions:[{task:'자료 돌리기',assignee:'[확인 필요]',due:''}],meeting_date:'',attendees:['김가상']});
   assert.doesNotMatch(prompt.partsText([draft,draft]),/화자/);

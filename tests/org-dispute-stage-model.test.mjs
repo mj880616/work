@@ -2,19 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULT_STAGES, seedRows, stageOfOrg, reportKind, listTag, weekOf, monthDay, stageLabel, reorderChanges, stageNameProblem, orgsAtStageText, historyLines, listTagShownAt, LIST_TAG_FOLD_QUERY} from '../app/org-dispute-stage-model.mjs';
 import {SPLIT_MIN_WIDTH} from '../app/screen-width.mjs';
+import {existingStageRows} from './dispute-stage-fixture.mjs';
 
 // ORG-쟁의단계: 단계 판정·꼬리표·순서 바꾸기. 조직·단계는 모두 가짜 값.
-const stages = seedRows('w').map((row, i) => ({id: 's' + (i + 1), ...row, created_at: '2026-10-01T00:00:00Z'}));
+// S67-51: 판정 시험은 이미 단계를 쓰는 작업공간(예전 기본 11개 모양, 합성)으로 — 판정은 이름이 아니라 표시로 한다.
+const stages = existingStageRows('w').map((row, i) => ({id: 's' + (i + 1), ...row, created_at: '2026-10-01T00:00:00Z'}));
 const id = name => stages.find(s => s.name === name).id;
 const row = (n, org, name, date, at = '2026-10-20T00:00:00Z') => ({id: 'h' + n, organization_id: org, stage_id: name ? id(name) : null, stage_name: name ?? '지워진 단계', stage_date: date, created_at: at});
 
-test('기본 단계 11개: 순서·표시', () => {
-  assert.deepEqual(DEFAULT_STAGES.map(s => s.name), ['교섭 시작 전', '교섭 중', '쟁의발생 결의', '조정 신청', '조정 종료', '파업 찬반투표', '쟁의중', '잠정합의', '임단협 찬반투표', '협약체결', '종료']);
+test('기본 단계(처음 쓰는 사람): 업종 없는 5개, 순서·표시(S67-51)', () => {
+  assert.deepEqual(DEFAULT_STAGES.map(s => s.name), ['시작 전', '진행 중', '주의 필요', '완료', '종료']);
   assert.equal(seedRows('w')[0].is_default, true);
   assert.equal(seedRows('w').filter(s => s.is_default).length, 1);
-  assert.deepEqual(DEFAULT_STAGES.filter(s => s.is_struggle).map(s => s.name), ['쟁의발생 결의', '조정 신청', '조정 종료', '파업 찬반투표', '쟁의중', '잠정합의', '임단협 찬반투표']);
-  assert.deepEqual(DEFAULT_STAGES.filter(s => s.is_ending).map(s => s.name), ['협약체결', '종료']);
+  assert.deepEqual(seedRows('w').map(s => s.sort_order), [1, 2, 3, 4, 5]);
+  assert.ok(seedRows('w').every(s => s.workspace_id === 'w'));
+  assert.deepEqual(DEFAULT_STAGES.filter(s => s.is_struggle).map(s => s.name), ['주의 필요']);
+  assert.deepEqual(DEFAULT_STAGES.filter(s => s.is_ending).map(s => s.name), ['완료', '종료']);
   assert.ok(DEFAULT_STAGES.every(s => !(s.is_struggle && s.is_ending)));
+  assert.ok(!DEFAULT_STAGES.some(s => /교섭|쟁의|파업|임단협|협약|조정|투표/.test(s.name)), '노조 업무 낱말 없음');
+  // 새 기본 단계도 같은 판정: 이력 없음 → 시작 전(평시), 주의 필요 → 투쟁 중으로 봄, 완료 → 끝남.
+  const fresh = seedRows('w').map((row, i) => ({id: 'n' + (i + 1), ...row, created_at: '2026-10-01T00:00:00Z'}));
+  assert.equal(stageOfOrg('a', new Map(), fresh).name, '시작 전');
+  const h = n => new Map([['a', [{id: 'x', organization_id: 'a', stage_id: fresh.find(s => s.name === n).id, stage_name: n, stage_date: '2026-10-20', created_at: '2026-10-20T00:00:00Z'}]]]);
+  assert.equal(stageOfOrg('a', h('주의 필요'), fresh).kind, 'struggle');
+  assert.equal(stageOfOrg('a', h('완료'), fresh).kind, 'ended');
 });
 
 test('현재 단계: 이력 없음은 기본 단계, 가장 나중 줄이 현재', () => {

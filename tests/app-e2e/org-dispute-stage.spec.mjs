@@ -182,25 +182,27 @@ for(const width of [390,1280])test(`표가 아직 없을 때는 '준비 중' 한
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`기본 단계가 아직 없을 때: 보기만 해서는 쓰지 않고, 저장할 때 11개가 채워진다 ${width}px`,async({page})=>{
+for(const width of [390,1280])test(`기본 단계가 아직 없을 때: 보기만 해서는 쓰지 않고, 저장할 때 업종 없는 기본 5개가 채워진다(S67-51) ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width,seeded:false});
  await openOrg(page,'oa',width);
- await expect(page.locator('#wdStage [data-stage-select] option')).toHaveCount(11);
- await expect(stageSelect(page)).toHaveValue('seed:교섭 시작 전');
+ await expect(page.locator('#wdStage [data-stage-select] option')).toHaveCount(5);
+ await expect(page.locator('#wdStage [data-stage-select] option')).toHaveText(['시작 전','진행 중','주의 필요','완료','종료']);
+ await expect(stageSelect(page)).toHaveValue('seed:시작 전');
  expect(db.stages).toEqual([]);
- await stageSelect(page).selectOption({label:'쟁의발생 결의'});
+ await stageSelect(page).selectOption({label:'주의 필요'});
  await page.locator('#wdStage [data-stage-save]').click();
  await expect(page.locator('#wdStage [data-stage-msg]')).toHaveText('저장했어요.');
- expect(db.stages).toHaveLength(11);expect(db.stages[0]).toMatchObject({name:'교섭 시작 전',is_default:true});
- expect(db.history).toHaveLength(1);expect(db.history[0]).toMatchObject({stage_name:'쟁의발생 결의',stage_id:db.stages[2].id});
- await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('쟁의발생 결의');
+ expect(db.stages).toHaveLength(5);expect(db.stages[0]).toMatchObject({name:'시작 전',is_default:true});
+ expect(db.stages.map(s=>s.name).join(' ')).not.toMatch(/교섭|쟁의|파업|임단협|협약/);
+ expect(db.history).toHaveLength(1);expect(db.history[0]).toMatchObject({stage_name:'주의 필요',stage_id:db.stages[2].id});
+ await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('주의 필요');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveAttribute('data-so-stage','struggle');
  expect(errors).toEqual([]);
 });
-test('기본 단계가 없을 때 관리 창을 처음 열면 11개를 채운다',async({page})=>{
+test('기본 단계가 없을 때 관리 창을 처음 열면 기본 5개를 채운다(S67-51)',async({page})=>{
  const {db}=await fixture(page,{width:390,seeded:false});
  await clickView(page,'team');expect(db.stages).toEqual([]);
  await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
- await expect(page.locator('#soStageModal .le-list > .le-row')).toHaveCount(11);expect(db.stages[0]).toMatchObject({is_default:true});
+ await expect(page.locator('#soStageModal .le-list > .le-row')).toHaveCount(5);expect(db.stages[0]).toMatchObject({name:'시작 전',is_default:true});
 });
 
 // ORG-쟁의단계 다듬기(2026-10-24 11:05~11:08): ① 단계 기간(끝 날짜) ② 이력 한 줄 수정·삭제 ③ 화면 전체 ⋯는 제목 '담당조직' 줄 오른쪽.

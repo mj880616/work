@@ -9,6 +9,8 @@
 // ②·③: 서버(ai-assist)가 고른 결과를 받아 그리기만 한다(home-day-picks-model.mjs로 거름). 결과가 없으면 칸째 없다.
 //    AI 한도에 닿았으면(limit) ② 칸 머리에 기존 한도 알림 한 줄을 보인다(고른 것이 없어도 칸째 숨기지 않음). 일기를 쓴 제안(done)은 그리지 않는다.
 //    [일기 쓰기]는 공용 ② 작은 버튼(button.secondary). 누르면 부르는 화면이 일기 쓰기를 연다(onWrite).
+// S67-52 HOME-칸끄기(요청함 11/20 22:36): ③ 줄마다 공용 ③ 글자 버튼 [빼기](button.row-act) — 누르면 부르는 화면이 그 제안을 서버 표에서 뺀다(onDrop).
+//    칸 머리 ⋯ → [이 칸 끄기](home-off.js). 끈 칸(suggestsOff)은 그리지 않는다(숨김 아님 — 칸 안을 비우고 hidden). 다시 켜는 곳은 내 프로필 '홈 칸'.
 // HOME-읽을글밀기(2026-11-11 명진 요청): ② 글 줄은 News 글 줄과 같은 줄 밀기다(now-row-acts.js bindNowRows). 왼쪽 = 숨기기(그 뉴스 글 hidden_at),
 //    오른쪽 = 보관(그 뉴스 글 별표 → News [보관] 탭), PC는 마우스를 올리면 [보관][숨기기]·우클릭 같은 두 항목. 어느 쪽이든 홈 목록에서 빠진다.
 //    처리 표시는 홈에 따로 저장하지 않고 뉴스 줄의 표시(숨김·별표)를 서버에서 읽어 거른다(readReadMarks) — 새로고침·다른 기기·News에서 숨겨도 같다.
@@ -18,6 +20,7 @@ import {rankDayPhotos, stripFit, eventWindows, CELL_PX, GAP_PX} from './home-day
 import {emptyHtml, failHtml} from './wait-state.js';
 import {cleanReads, openSuggests, suggestTime, readAtLabel, pickedNote, limitNote, READS_OPEN, READS_DONE_NOTE, newsIdOf, visibleReads} from './home-day-picks-model.mjs';
 import {readReadMarks} from './home-day-picks-data.js';
+import {homeOffMoreHtml, openHomeOffMenu} from './home-off.js'; // S67-52 HOME-칸끄기: 칸 머리 ⋯ [이 칸 끄기](공용 부품)
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js'; // HOME-읽을글밀기: News 글 줄과 같은 줄 밀기·마우스 단추·우클릭(공용 부품 그대로)
 
 const PHOTO_FRESH_MS = 10 * 60 * 1000;
@@ -119,7 +122,7 @@ function thumbOf(k, item, rt) {
 }
 
 // host: 세 칸이 들어갈 자리. onOpenDay(day): 그날 사진 보기(일기). onWrite(day, text, id): 일기 쓰기 열기.
-export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', onOpenDay = () => {}, onWrite = () => {}, readPhotos = readDayPhotos, readMarks = readReadMarks} = {}) {
+export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', onOpenDay = () => {}, onWrite = () => {}, onDrop = () => {}, readPhotos = readDayPhotos, readMarks = readReadMarks} = {}) {
   // HOME-오늘사진빨리 ③: '오늘 사진' 칸은 [하루]를 그릴 때 처음부터 자리(제목 + 사진 한 줄 높이)를 차지하고, 사진은 받는 대로 그 자리에 채운다.
   host.innerHTML = '<section class="journal-group journal-photos" data-journal-photos>'
     + '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading"></h4><small class="journal-head-count" data-journal-photos-count></small></span><button type="button" class="row-act" data-journal-photos-open>사진 보기 ›</button></div>'
@@ -296,12 +299,12 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
       m.rev++; drawReads();
     }});
   function drawSuggests() {
-    const {day, today, hour, suggests} = last, list = suggestTime({day, today, hour}) ? openSuggests(suggests?.items, suggests?.done) : [];
+    const {day, today, hour, suggests, suggestsOff} = last, list = !suggestsOff && suggestTime({day, today, hour}) ? openSuggests(suggests?.items, suggests?.done) : [];
     if (!list.length) { suggestHost.hidden = true; suggestHost.replaceChildren(); painted.delete(suggestHost); return; }
     suggestHost.hidden = false;
-    paint(suggestHost, '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">이런 기록은 어때요?</h4></span></div>'
+    paint(suggestHost, `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">이런 기록은 어때요?</h4></span>${homeOffMoreHtml('suggests')}</div>`
       + `<ul class="journal-suggest-list">${list.map(item => `<li class="journal-suggest" data-journal-suggest="${esc(item.id)}"><span class="journal-suggest-text"><span>${esc(item.text)}</span>${item.basis ? `<small class="journal-suggest-basis">${esc(item.basis)}</small>` : ''}</span>`
-        + `<button type="button" class="secondary" data-journal-suggest-write="${esc(item.id)}">하루 기록 쓰기</button></li>`).join('')}</ul>`);
+        + `<span class="journal-suggest-acts"><button type="button" class="secondary" data-journal-suggest-write="${esc(item.id)}">하루 기록 쓰기</button><button type="button" class="row-act" data-journal-suggest-drop="${esc(item.id)}" aria-label="이 제안 빼기">빼기</button></span></li>`).join('')}</ul>`);
   }
   function draw() {
     if (!last) return;
@@ -313,6 +316,14 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (!last) return;
     if (event.target.closest('[data-journal-photos-retry]')) { ensurePhotos(last.day, {force:true}); return; }
     if (event.target.closest('[data-journal-photos-open],[data-journal-photo],[data-journal-photo-more]')) { onOpenDay(last.day); return; }
+    const offMore = event.target.closest('[data-home-off-more]');
+    if (offMore) { openHomeOffMenu(offMore, offMore.dataset.homeOffMore); return; }
+    const drop = event.target.closest('[data-journal-suggest-drop]');
+    if (drop) {
+      const item = openSuggests(last.suggests?.items, last.suggests?.done).find(x => x.id === drop.dataset.journalSuggestDrop);
+      if (item) onDrop(last.day, item.id);
+      return;
+    }
     const write = event.target.closest('[data-journal-suggest-write]');
     if (write) {
       const item = openSuggests(last.suggests?.items, last.suggests?.done).find(x => x.id === write.dataset.journalSuggestWrite);
@@ -345,7 +356,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (strip.dataset.state === 'cells' && strip.clientWidth !== drawnWidth) drawPhotos();
   }).observe(host);
   return {
-    // state: {day, today, hour, events, reads:{items, picked_at}|null, suggests:{items, done}|null, limit:''|'monthly_limit'|'daily_limit', hidden}
+    // state: {day, today, hour, events, reads:{items, picked_at}|null, suggests:{items, done}|null, suggestsOff(S67-52 칸 끔), limit:''|'monthly_limit'|'daily_limit', hidden}
     render(state) {
       last = {...state};
       if (!state.hidden) ensurePhotos(state.day);

@@ -31,7 +31,7 @@ export function paintStageLine(opts) {
 }
 export function clearStageLine() { if (line) line.host.replaceChildren(); line = null; }
 
-// 기본 단계가 아직 DB에 없으면(처음 쓰기 전) 선택지는 기본 11개 그대로 보여 주고(값 'seed:이름'), 저장할 때 ensureSeeded가 채운다.
+// 기본 단계가 아직 DB에 없으면(처음 쓰기 전) 선택지는 기본 목록(DEFAULT_STAGES) 그대로 보여 주고(값 'seed:이름'), 저장할 때 ensureSeeded가 채운다.
 const lineStages = state => state.stages.length ? sortStages(state.stages) : DEFAULT_STAGES.map(s => ({...s, id: 'seed:' + s.name}));
 function paintLine() {
   if (!line) return;

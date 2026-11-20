@@ -143,6 +143,21 @@ test('통화·텔레그램 수집이 없는 작업공간은 조직 보고 ⋯에
   await expect(menu.locator('.so-quiet-seg, .so-menu-label')).toHaveCount(0);
 });
 
+test('S67-51: 통화·텔레그램 수집이 없는 사람은 주요 인물이 있어도 홈에 연락 없는 조직 줄이 없고 통화를 읽지 않는다', async ({page}) => {
+  await page.setViewportSize({width: 412, height: 900});
+  let feedReads = 0;
+  await openHome(page, {beforeLoad: async () => {
+    await routes(page);
+    await page.route(u => u.origin === SBQ && u.pathname === '/rest/v1/rpc/app_my_features', r => r.fulfill({json: ['files']}));
+    await page.route(SB + '/rest/v1/app_feed_items?**', r => (/source=eq\.call.*counterpart,organization_id,points/.test(r.request().url()) && (feedReads += 1), r.fulfill({status: 200, contentType: 'application/json', body: '[]'})));
+  }});
+  await expect(page.locator('#homeView [data-journal-schedule]')).toBeVisible();
+  await page.waitForTimeout(800);
+  await expect(line(page)).toBeHidden();
+  await expect(line(page)).toBeEmpty();
+  expect(feedReads).toBe(0);
+});
+
 test('하나라도 읽기에 실패하면 줄을 그리지 않는다', async ({page}) => {
   await page.setViewportSize({width: 412, height: 900});
   let failed = false;

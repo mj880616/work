@@ -259,3 +259,69 @@ test('S67-46: 지난 기한 할 일은 오늘 끝내도 재료에서 빠지고, 
   assert.deepEqual(picksState({suggests:items, suggests_done:[]}, day).suggests.items, [], '만든 시각 모르면 버림');
   assert.deepEqual(picksState({suggests:items, suggests_at:'2026-11-20T10:00:00Z', suggests_done:[]}, day).suggests.items, items, '오늘 만든 제안은 그대로');
 });
+
+// ---- S67-52 HOME-칸끄기(요청함 11/20 22:36): 기록 제안 [빼기]·'이 칸 끄기' ----
+test('S67-52: 끌 수 있는 칸 목록·끈 칸 계산(모르는 칸·틀린 모양은 버림, 빈 목록은 null로 저장)', async () => {
+  const {HOME_OFF_CARDS, offList, toggledOff, savedOff, homeOffCard, HOME_OFF_ID, HOME_OFF_MAX} = await import('../app/home-off-model.mjs');
+  assert.deepEqual(HOME_OFF_CARDS.map(c => c.id), ['suggests']);
+  assert.equal(homeOffCard('suggests').name, '이런 기록은 어때요?');
+  assert.equal(homeOffCard('nope'), null);
+  assert.deepEqual(offList(null), []);
+  assert.deepEqual(offList('suggests'), []);
+  assert.deepEqual(offList(['suggests', 'suggests', 'nope', 1, 'Suggests']), ['suggests']);
+  assert.deepEqual(toggledOff([], 'suggests', true), ['suggests']);
+  assert.deepEqual(toggledOff(['suggests'], 'suggests', true), ['suggests']);
+  assert.deepEqual(toggledOff(['suggests'], 'suggests', false), []);
+  assert.deepEqual(toggledOff([], 'nope', true), []);
+  assert.equal(savedOff([]), null);
+  assert.deepEqual(savedOff(['suggests']), ['suggests']);
+  // DB 검사·화면 기억 검사와 같은 이름 규칙·상한
+  const {validValue} = await import('../app/view-prefs.js');
+  for (const c of HOME_OFF_CARDS) assert.match(c.id, HOME_OFF_ID);
+  assert.equal(validValue('home_off', Array.from({length:HOME_OFF_MAX}, (_, i) => 'c' + i)), true);
+  assert.equal(validValue('home_off', Array.from({length:HOME_OFF_MAX + 1}, (_, i) => 'c' + i)), false);
+  const sql = readFileSync(new URL('../supabase/migrations/20261120230000_profile_view_prefs_home_off.sql', import.meta.url), 'utf8');
+  assert.match(sql, new RegExp(`jsonb_array_length\\(view_prefs -> 'home_off'\\) <= ${HOME_OFF_MAX}`));
+  assert.ok(sql.includes('strict $.home_off[*] ? (@.type() != "string" || !(@ like_regex "^[a-z][a-z0-9_-]{0,29}$"))'));
+});
+
+test('S67-52: [빼기]는 서버 표 suggests_done에 더하고, [되돌리기]는 그 id만 빼며 다른 기기에서 더한 id는 남긴다', async () => {
+  const {setSuggestDone, markSuggestDone} = await import('../app/home-day-picks-data.js');
+  let row = {suggests_done:['s2']};
+  const calls = [];
+  const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, api:async (path, opt) => {
+    calls.push([path, opt]);
+    if (opt?.method === 'PATCH') { row = {...row, ...opt.body}; return null; }
+    return [row];
+  }};
+  assert.equal(await setSuggestDone('2026-11-20', 's1', true, rt), true);
+  assert.deepEqual(row.suggests_done, ['s2', 's1']);
+  assert.equal(await setSuggestDone('2026-11-20', 's1', true, rt), true);
+  assert.equal(calls.filter(([, o]) => o?.method === 'PATCH').length, 1, '이미 있으면 다시 쓰지 않는다');
+  assert.equal(await setSuggestDone('2026-11-20', 's1', false, rt), true);
+  assert.deepEqual(row.suggests_done, ['s2']);
+  assert.equal(await markSuggestDone('2026-11-20', 's1', rt), true);
+  assert.deepEqual(row.suggests_done, ['s2', 's1']);
+  assert.equal(await setSuggestDone('2026-11-20', "s1') or (1", true, rt), false, 'id 모양이 아니면 보내지 않는다');
+  for (const [path] of calls) assert.match(path, /^\/rest\/v1\/app_home_day_picks\?workspace_id=eq\.w&day=eq\.2026-11-20/);
+});
+
+test('S67-52: 칸을 끄면 기록 제안을 부탁하지 않는다(suggests:false, 끝낸 할 일 안 보냄), 켠 칸은 예전 모양 그대로', async () => {
+  const {askDayPicks, forgetAsked} = await import('../app/home-day-picks-data.js');
+  forgetAsked();
+  const sent = [], call = async body => { sent.push(body); return {ok:true, data:{picks:{}}}; };
+  const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}};
+  await askDayPicks({day:'2026-11-20', slot:'pm', events:[], done:['보도자료']}, rt, {call});
+  await askDayPicks({day:'2026-11-20', slot:'pm', events:[], done:['보도자료'], suggests:false}, rt, {call});
+  assert.deepEqual(sent[0], {kind:'home_day_picks', day:'2026-11-20', events:[], done:['보도자료']});
+  assert.deepEqual(sent[1], {kind:'home_day_picks', day:'2026-11-20', events:[], done:[], suggests:false});
+  const journal = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
+  const fill = readFileSync(new URL('../app/home-day-fill.js', import.meta.url), 'utf8');
+  const off = readFileSync(new URL('../app/home-off.js', import.meta.url), 'utf8');
+  assert.match(journal, /const suggests = !homeCardOff\('suggests'\);/);
+  assert.match(journal, /if \(Array\.isArray\(features\) && !features\.includes\('outside'\)\) \{ dayPicks\.askedSlot = slot; return; \}/, '읽을 글도 없는 계정은 요청 자체를 보내지 않는다');
+  assert.match(journal, /suggestsOff:homeCardOff\('suggests'\)/);
+  assert.match(fill, /!suggestsOff && suggestTime/, '끈 칸은 그리지 않는다');
+  assert.match(fill, /class="row-act" data-journal-suggest-drop=/);
+  assert.match(off, /viewPrefs\.set\('home_off', savedOff\(next\), \{rejectable: true\}\)/, '서버 화면 기억에만 저장(기기 저장 없음)');
+});

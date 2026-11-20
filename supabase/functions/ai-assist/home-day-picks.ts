@@ -9,6 +9,7 @@
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 import { looksSecret } from "./note-title.ts";
 import { mentionedOrgs } from "../_shared/org-name-match.mjs";
+import { OWNER_ROLE } from "./owner-role.ts"; // S67-51: 고정 '노동조합 …' 대신 부른 사람 프로필 소속·직책(보낼 때 바꿈)
 
 export const DAY_READS_MAX = 3; // 화면 칸 최대(app/home-day-picks-model.mjs READS_MAX와 같음)
 export const DAY_SUGGEST_MAX = 2; // 화면 칸 최대(SUGGEST_MAX와 같음)
@@ -45,7 +46,8 @@ const short = (v: unknown, n: number) => typeof v === "string" ? [...v.replace(/
 const unContact = (s: string) => s.replace(new RegExp(EMAIL.source, "g"), "[이메일]").replace(new RegExp(PHONE.source, "g"), "[전화]");
 
 export type DayEvent = { day: string; start: string; end: string; title: string };
-export type HomeDayPicksRequest = { day: string; events: DayEvent[]; done: string[] };
+// suggests(S67-52): false면 홈 '이런 기록은 어때요?' 칸을 끈 사람 — 기록 제안을 고르지 않는다(AI 없음). 없으면 참(예전 요청 그대로).
+export type HomeDayPicksRequest = { day: string; events: DayEvent[]; done: string[]; suggests: boolean };
 
 const cleanTitle = (v: unknown): string | null => {
   if (typeof v !== "string") return null;
@@ -57,10 +59,11 @@ const addDays = (day: string, n: number) => new Date(Date.parse(day + "T00:00:00
 // 그 날이 든 주의 월요일.
 export const weekStart = (day: string) => addDays(day, -((new Date(day + "T00:00:00Z").getUTCDay() + 6) % 7));
 
-// 요청: {kind, day, events, done}만. events = 그 날이 든 주(월~일)의 구글 캘린더 일정 {day, start, end, title}(종일은 start·end 빈 문자열),
-// done = 그 날 끝낸 할 일 제목. 하나라도 틀리면 null(400). 빈 배열은 된다.
+// 요청: {kind, day, events, done}(+ 고르지 않을 때만 suggests:false). events = 그 날이 든 주(월~일)의 구글 캘린더 일정 {day, start, end, title}(종일은 start·end 빈 문자열),
+// done = 그 날 끝낸 할 일 제목. 하나라도 틀리면 null(400). 빈 배열은 된다. suggests는 false만 받는다(참은 칸을 빼고 보낸다).
 export function parseHomeDayPicksRequest(b: Record<string, unknown>): HomeDayPicksRequest | null {
-  if (Object.keys(b).sort().join(",") !== "day,done,events,kind") return null;
+  const keys = Object.keys(b).sort().join(",");
+  if (keys !== "day,done,events,kind" && !(keys === "day,done,events,kind,suggests" && b.suggests === false)) return null;
   if (typeof b.day !== "string" || !DAY.test(b.day) || Number.isNaN(Date.parse(`${b.day}T00:00:00Z`))) return null;
   if (!Array.isArray(b.events) || b.events.length > DAY_EVENTS_MAX || !Array.isArray(b.done) || b.done.length > DAY_DONE_MAX) return null;
   const from = weekStart(b.day), to = addDays(from, 6), events: DayEvent[] = [], done: string[] = [];
@@ -80,7 +83,7 @@ export function parseHomeDayPicksRequest(b: Record<string, unknown>): HomeDayPic
     if (!title) return null;
     done.push(title);
   }
-  return { day: b.day, events, done };
+  return { day: b.day, events, done, suggests: b.suggests !== false };
 }
 
 // 한국 시각의 날짜·시(0~23)·'HH:MM'.
@@ -265,7 +268,7 @@ export function suggestMaterial(day: string, lines: DayLine[]): string {
 }
 
 export const SUGGEST_INSTRUCTIONS = [
-  "너는 노동조합 상근자 한 사람(이 사용자 본인)의 업무 비서다. 아래는 오늘 있었던 일정·오늘 끝낸 할 일·오늘 회의·오늘 통화 요약 가운데 아직 일기에 쓰지 않은 것이다. 모두 오늘 일이다.",
+  "너는 " + OWNER_ROLE + " 한 사람(이 사용자 본인)의 업무 비서다. 아래는 오늘 있었던 일정·오늘 끝낸 할 일·오늘 회의·오늘 통화 요약 가운데 아직 일기에 쓰지 않은 것이다. 모두 오늘 일이다.",
   "이 가운데 오늘 일기에 남겨 둘 만한 일을 1~2개 고른다. 나중에 돌아볼 때 의미 있는 일(결정·약속·처음 한 일·사람을 만난 일)을 먼저 고른다. 단순 반복 업무·잡무는 고르지 않는다. 없으면 items를 빈 배열로 둔다.",
   "고른 일마다 text(일기 첫 줄로 쓸 제안 한 줄, 60자 안, '오늘 …' 처럼 사용자가 이어 쓰기 좋게)와 basis(근거 한 줄, 60자 안 — 어느 일정·할 일·회의·통화에서 왔는지)를 쓴다. 번호는 재료의 번호 그대로.",
   "가족·건강 같은 사적 내용, 사람 이름·연락처는 쓰지 않는다. 재료에 있는 일만 쓰고 지어내지 않는다. 재료에 없는 다른 날 일을 끌어오지 않는다.",
