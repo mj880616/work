@@ -17,12 +17,26 @@ export function safeBottom(){
   if(!root.style.getPropertyValue('--kptu-safe-bottom'))root.style.setProperty('--kptu-safe-bottom','env(safe-area-inset-bottom, 0px)');
   return Math.max(0,parseFloat(getComputedStyle(root).getPropertyValue('--kptu-safe-bottom'))||0);
 }
+// S67-54 UI-자판이름칸가림: 자판이 창 아래를 덮는 높이만(px). 화면 높이가 자판만큼 줄어드는 곳(폰 앱 adjustResize·interactive-widget=resizes-content)에서는 0,
+// 화면 위만 덮는 곳(보이는 화면 visualViewport만 줄어듦)에서는 그 높이. 화면 확대 중에는 0(손가락 확대를 자판으로 보지 않는다).
+export function keyboardCover(){
+  const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-keyboard-inset'))||0;
+  const vv=window.visualViewport,cover=vv&&Math.abs((vv.scale||1)-1)<0.01?Math.max(0,window.innerHeight-(vv.offsetTop+vv.height)):0;
+  return Math.max(0,v,cover);
+}
 export function bottomInset(){
   const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0,vh=window.innerHeight;
   const tabs=document.querySelector('nav.mobile-tabs'),tr=tabs&&getComputedStyle(tabs).display!=='none'&&getComputedStyle(tabs).position==='fixed'?tabs.getBoundingClientRect():null;
   const bar=Math.max(v('--kptu-mobile-tab-height')+safeBottom(),tr&&tr.height&&tr.top<vh?vh-tr.top:0);
-  const vv=window.visualViewport,cover=vv&&Math.abs((vv.scale||1)-1)<0.01?Math.max(0,vh-(vv.offsetTop+vv.height)):0;
-  return bar+v('--kptu-switch-dock')+Math.max(v('--kptu-keyboard-inset'),cover);
+  return bar+v('--kptu-switch-dock')+keyboardCover();
+}
+// S67-54: 보이는 화면이 바뀔 때(창 크기·자판이 열리고 닫힘·보이는 화면 이동) 다음 그림 차례에 한 번 fn()을 부른다. 자판은 칸에 초점이 간 뒤에
+// 올라오므로, 칸이 든 떠 있는 창은 이것으로 자리를 다시 잡는다(시간 맞춘 덧그리기 없이). 반환: 그만 듣기 stop().
+export function onViewportChange(fn){
+  let frame=0;const vv=window.visualViewport;
+  const queue=()=>{if(!frame)frame=requestAnimationFrame(()=>{frame=0;fn();});};
+  window.addEventListener('resize',queue);vv?.addEventListener('resize',queue);vv?.addEventListener('scroll',queue);
+  return ()=>{if(frame)cancelAnimationFrame(frame);frame=0;window.removeEventListener('resize',queue);vv?.removeEventListener('resize',queue);vv?.removeEventListener('scroll',queue);};
 }
 const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 
@@ -38,7 +52,9 @@ const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 // kept inside the window (a resize, a new width or height), never moved back to the anchor until it closes (clearAnchored).
 export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edge=8,minHeight=160,beside='',bottomInset=0}={}){
   if(!anchorable(anchor))return '';
-  const inset=Math.max(0,bottomInset||0),vw=document.documentElement.clientWidth,vh=window.innerHeight-inset,width=Math.min(maxWidth,vw-edge*2);
+  // S67-54: 폰에서는 부른 쪽이 아래 여백을 주지 않았어도 자판이 덮는 높이만큼은 늘 비운다(자판 위에서 창이 끝난다). PC는 그대로.
+  bottomInset=Math.max(0,bottomInset||0,isWide()?0:keyboardCover());
+  const inset=bottomInset,vw=document.documentElement.clientWidth,vh=window.innerHeight-inset,width=Math.min(maxWidth,vw-edge*2);
   if(panel.dataset.anchorMoved&&panel.dataset.anchorSide){
     Object.assign(panel.style,{width:width+'px',maxHeight:Math.max(0,Math.min(maxHeight,vh-edge*2))+'px'});
     keepInside(panel,edge,bottomInset);
@@ -147,6 +163,8 @@ export function followAnchor(panel,anchor,{place,lost}){
     place();
   };
   const queue=e=>{if(e?.type==='scroll'&&(panel.dataset.anchorMoved||e.target instanceof Node&&panel.contains(e.target)))return;if(!frame)frame=requestAnimationFrame(check);};
-  window.addEventListener('resize',queue);window.addEventListener('scroll',queue,{capture:true,passive:true});
-  return ()=>{if(frame)cancelAnimationFrame(frame);frame=0;window.removeEventListener('resize',queue);window.removeEventListener('scroll',queue,{capture:true});};
+  // S67-54: 화면 위만 덮는 자판은 창 크기(resize)를 바꾸지 않는다 — 보이는 화면(visualViewport)이 바뀔 때도 다시 잡는다.
+  const stopView=onViewportChange(()=>{if(!frame)check();});
+  window.addEventListener('scroll',queue,{capture:true,passive:true});
+  return ()=>{if(frame)cancelAnimationFrame(frame);frame=0;stopView();window.removeEventListener('scroll',queue,{capture:true});};
 }
