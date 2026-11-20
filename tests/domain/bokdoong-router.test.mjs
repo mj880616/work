@@ -325,7 +325,7 @@ test('read is neither routed to the shared Worker nor proxied by it', async () =
   const routes = [...config.matchAll(/^pattern = "([^"]+)"$/gm)].map((match) => match[1]);
   assert.deepEqual(routes, [
     'bokdoong.com', 'work.bokdoong.com', 'desk.bokdoong.com', 'arsenal.bokdoong.com',
-    'nojoplus.com', 'www.nojoplus.com'
+    'nojoplus.com', 'www.nojoplus.com', 'workonplus.com', 'www.workonplus.com'
   ]);
   for (const path of ['/', '/favicon.ico', '/read-think-write/records/?tab=recent']) {
     const { response, calls } = await request(`https://read.bokdoong.com${path}`);
@@ -1089,6 +1089,97 @@ test('old hosts still send Web2 visitors to bokdoong.com (not nojoplus.com) in 1
     assert.equal(response.headers.get('Location'), location, url);
   }
   for (const url of ['https://nojoplus.com.evil.example/work/app/', 'https://xnojoplus.com/work/app/', 'https://app.nojoplus.com/work/app/']) {
+    const { response, calls } = await request(url);
+    assert.equal(response.status, 404, url);
+    assert.equal(calls.length, 0, url);
+  }
+});
+
+// DOMAIN-workonplus 1단계: workonplus.com (WORK ON+) answers like nojoplus.com; www goes to workonplus.com; old hosts unchanged.
+test('workonplus.com root and /work/app go to its own /work/app/ with 302, keeping ?query', async () => {
+  for (const [path, location] of [
+    ['/', 'https://workonplus.com/work/app/'],
+    ['/?view=calendar', 'https://workonplus.com/work/app/?view=calendar'],
+    ['/work/app?view=tasks', 'https://workonplus.com/work/app/?view=tasks']
+  ]) {
+    const { response, calls } = await request(`https://workonplus.com${path}`);
+    assert.equal(response.status, 302, path);
+    assert.equal(response.headers.get('Location'), location, path);
+    assert.equal(calls.length, 0, path);
+  }
+});
+
+test('workonplus.com serves Web2 from the same Pages tree without credentials, with the Web2 headers', async () => {
+  const { response, calls } = await request('https://workonplus.com/work/app/?view=calendar', {
+    upstream: new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  });
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].url.startsWith('https://mj880616.github.io/work/app/?view=calendar&__fresh='));
+  assert.equal(calls[0].headers.get('Cookie'), null);
+  assert.equal(calls[0].headers.get('Authorization'), null);
+  assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+  assert.ok(response.headers.get('Content-Security-Policy-Report-Only'));
+  assert.equal(response.headers.get('X-Frame-Options'), 'SAMEORIGIN');
+  assert.match(response.headers.get('Set-Cookie') || '', /kptu_cache_epoch=/);
+});
+
+test('workonplus.com favicon, short share address and about pages', async () => {
+  const icon = await request('https://workonplus.com/favicon.png', { upstream: new Response('png') });
+  assert.equal(icon.calls[0].url, 'https://mj880616.github.io/work/personal/portal/favicon.png');
+  const slug = 'meeting-notes-abcdefgh';
+  const short = await request(`https://workonplus.com/s/${slug}`);
+  assert.equal(short.response.status, 302);
+  assert.equal(short.response.headers.get('Location'), `https://work.bokdoong.com/work/share/?s=${slug}`);
+  assert.equal(short.calls.length, 0);
+  const bad = await request('https://workonplus.com/s/x');
+  assert.equal(bad.response.status, 404);
+  for (const path of ['/work/about/', '/work/about/privacy/', '/work/about/terms/']) {
+    const { response, calls } = await request(`https://workonplus.com${path}`);
+    assert.equal(response.status, 200, path);
+    assert.equal(calls[0].url, `https://mj880616.github.io${path}`, path);
+  }
+  const noSlash = await request('https://workonplus.com/work/about', {
+    upstream: new Response(null, { status: 301, headers: { Location: 'https://mj880616.github.io/work/about/' } })
+  });
+  assert.equal(noSlash.response.headers.get('Location'), 'https://workonplus.com/work/about/');
+});
+
+test('workonplus.com sends other /work/ paths to work.bokdoong.com, 404s the rest, refuses POST', async () => {
+  for (const path of ['/work/share/', '/work/press/', '/work/']) {
+    const { response, calls } = await request(`https://workonplus.com${path}`);
+    assert.equal(response.status, 302, path);
+    assert.equal(response.headers.get('Location'), `https://work.bokdoong.com${path}`, path);
+    assert.equal(calls.length, 0, path);
+  }
+  for (const path of ['/robots.txt', '/about/']) {
+    const { response, calls } = await request(`https://workonplus.com${path}`);
+    assert.equal(response.status, 404, path);
+    assert.equal(calls.length, 0, path);
+  }
+  const post = await request('https://workonplus.com/work/app/', { method: 'POST' });
+  assert.equal(post.response.status, 405);
+});
+
+test('www.workonplus.com goes to the same path and ?query on workonplus.com with 301 (http too)', async () => {
+  for (const [url, location] of [
+    ['https://www.workonplus.com/', 'https://workonplus.com/'],
+    ['http://www.workonplus.com/work/app/?view=calendar', 'https://workonplus.com/work/app/?view=calendar'],
+    ['https://WWW.workonplus.com/work/about/', 'https://workonplus.com/work/about/']
+  ]) {
+    const { response, calls } = await request(url);
+    assert.equal(response.status, 301, url);
+    assert.equal(response.headers.get('Location'), location, url);
+    assert.equal(calls.length, 0, url);
+  }
+  const http = await request('http://workonplus.com/work/app/?view=tasks');
+  assert.equal(http.response.status, 301);
+  assert.equal(http.response.headers.get('Location'), 'https://workonplus.com/work/app/?view=tasks');
+});
+
+test('workonplus.com look-alike hosts are not served', async () => {
+  for (const url of ['https://workonplus.com.evil.example/work/app/', 'https://xworkonplus.com/work/app/',
+    'https://app.workonplus.com/work/app/', 'https://www.www.workonplus.com/work/app/']) {
     const { response, calls } = await request(url);
     assert.equal(response.status, 404, url);
     assert.equal(calls.length, 0, url);

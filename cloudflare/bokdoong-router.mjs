@@ -26,9 +26,15 @@ const WEB2_PREFIX = '/work/app/';
 // bokdoong.com stays the target of every old-address redirect (desk, work, arsenal) until 2단계. www.nojoplus.com
 // sends every address to nojoplus.com with 301. about/ is also served on nojoplus.com (/work/about/**, static).
 // Undo: deploy the previous Worker version (the bokdoong.com hosts are unchanged).
+// DOMAIN-workonplus 1단계 (docs/design/domain-workonplus.md): workonplus.com (WORK ON+) is a third Web2 host with exactly
+// the same answers as nojoplus.com (own /work/app/, about/, /s/ short addresses), and www.workonplus.com goes there with 301.
 const NEW_HOST = 'nojoplus.com';
-const NEW_WWW_HOST = 'www.nojoplus.com';
-const WEB2_HOSTS = Object.freeze(new Set([WEB2_HOST, NEW_HOST]));
+const WORKON_HOST = 'workonplus.com';
+// www host → its bare host (301, same path and ?query).
+const WWW_HOSTS = Object.freeze({ 'www.nojoplus.com': NEW_HOST, 'www.workonplus.com': WORKON_HOST });
+// Hosts that send their own visitors to their own /work/app/ (never back to bokdoong.com) and also serve about/.
+const OWN_HOSTS = Object.freeze(new Set([NEW_HOST, WORKON_HOST]));
+const WEB2_HOSTS = Object.freeze(new Set([WEB2_HOST, NEW_HOST, WORKON_HOST]));
 const NEW_HOST_KEPT = Object.freeze(['/work/about']);
 
 function web2Host(host) {
@@ -40,7 +46,7 @@ function web2Path(host, path) {
 }
 
 function newHostKept(host, path) {
-  return host === NEW_HOST && NEW_HOST_KEPT.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
+  return OWN_HOSTS.has(host) && NEW_HOST_KEPT.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 function isWeb2Route(path) {
@@ -57,7 +63,7 @@ function movesToWeb2(host, path) {
 // Same path (/ and /work/app become /work/app/) and the same ?query on bokdoong.com, or on nojoplus.com when the
 // visitor is already there (DOMAIN-nojoplus 1단계: the new host never sends people back to bokdoong.com).
 function web2Redirect(incoming, host) {
-  const target = new URL(host === NEW_HOST ? `https://${NEW_HOST}` : WEB2_ORIGIN);
+  const target = new URL(OWN_HOSTS.has(host) ? `https://${host}` : WEB2_ORIGIN);
   target.pathname = incoming.pathname.startsWith(WEB2_PREFIX) ? incoming.pathname : WEB2_PREFIX;
   target.search = incoming.search;
   return Response.redirect(target.href, 302);
@@ -289,13 +295,14 @@ export default {
   async fetch(request, env, context) {
     const incoming = new URL(request.url);
     const host = incoming.hostname.toLowerCase();
-    if (!SERVICES[host] && !web2Host(host) && host !== NEW_WWW_HOST) return new Response('Not found', { status: 404 });
+    const wwwTarget = Object.hasOwn(WWW_HOSTS, host) ? WWW_HOSTS[host] : null;
+    if (!SERVICES[host] && !web2Host(host) && !wwwTarget) return new Response('Not found', { status: 404 });
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
     }
-    if (host === NEW_WWW_HOST) {
-      // Same path and ?query on nojoplus.com in one step (http is upgraded at the same time); the browser keeps #.
-      const target = new URL(incoming.pathname + incoming.search, `https://${NEW_HOST}`);
+    if (wwwTarget) {
+      // Same path and ?query on the bare host in one step (http is upgraded at the same time); the browser keeps #.
+      const target = new URL(incoming.pathname + incoming.search, `https://${wwwTarget}`);
       return Response.redirect(target.href, 301);
     }
     if (incoming.protocol !== 'https:') {

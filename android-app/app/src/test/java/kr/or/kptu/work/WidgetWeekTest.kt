@@ -197,7 +197,7 @@ class WidgetWeekTest {
     @Test
     fun dayAddressAndMessage() {
         val d = LocalDate.of(2026, 11, 1)
-        assertEquals("https://bokdoong.com/work/app/?view=calendar&day=2026-11-01", WidgetWeek.dayUrl(d))
+        assertEquals("https://workonplus.com/work/app/?view=calendar&day=2026-11-01", WidgetWeek.dayUrl(d))
         assertTrue(ShellRules.isInternalApp(WidgetWeek.dayUrl(d)))
         assertEquals("day:open:2026-11-01", WidgetWeek.dayMessage(d))
         assertEquals(d, WidgetWeek.parseDay("2026-11-01"))

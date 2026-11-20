@@ -20,5 +20,6 @@ public static class LaunchArgs
 /// <summary>S63-09: where [노조+ 열기] goes. 노조+ itself is the web app in the browser (DOMAIN-nojoplus address); nothing is put in the address.</summary>
 public static class NojoPlusWeb
 {
-    public const string AppUrl = "https://nojoplus.com/work/app/";
+    // DOMAIN-workonplus: nojoplus.com의 앱 자리는 이전 안내가 되므로 새 주소(WORK ON+)를 연다. 다음 판에 포함.
+    public const string AppUrl = "https://workonplus.com/work/app/";
 }

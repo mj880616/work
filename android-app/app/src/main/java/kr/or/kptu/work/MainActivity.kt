@@ -46,7 +46,7 @@ import org.json.JSONArray
 
 /**
  * 웹2 폰 앱 껍데기(설계 docs/design/phone-app-v2.md 단계 ①).
- * 화면은 모두 bokdoong.com/work/app/ 웹이다. 앱은 시스템 바 색, 뒤로가기, 로그인 복귀, 바깥 링크, 파일 선택만 맡는다.
+ * 화면은 모두 workonplus.com/work/app/ 웹이다(0.5.15까지 bokdoong.com, DOMAIN-workonplus). 앱은 시스템 바 색, 뒤로가기, 로그인 복귀, 바깥 링크, 파일 선택만 맡는다.
  * 단계 ②: 다른 앱의 [공유]로 받은 것을 메모리에 들고 웹 바구니 확인 줄로 넘긴다(ShareIntake, 폰에 저장하지 않음).
  * 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다. 로그인은 브라우저 탭에서 하고 기존 handoff로 돌아온다.
  * 단계 ③: 홈 화면 위젯은 따로 로그인한 위젯 세션(WidgetSession)을 쓴다. 위젯 로그인 표시가 있을 때만 앱이 handoff를 직접 받고,
@@ -420,6 +420,8 @@ class MainActivity : ComponentActivity() {
                 // 화면 안 작은 창(iframe)은 그 자리에서 연다. 최상위 이동만 판정한다.
                 if (!request.isForMainFrame) return false
                 val url = request.url.toString()
+                // DOMAIN-workonplus: nojoplus.com 앱 주소는 안내 화면 대신 같은 경로의 새 주소로 연다.
+                ShellRules.movedToHome(url)?.let { view.loadUrl(it); return true }
                 if (!ShellRules.opensOutside(url)) return false
                 openOutside(request.url)
                 return true
@@ -499,7 +501,7 @@ class MainActivity : ComponentActivity() {
     /** APP-다시열림: 웹2를 통째로 연다. 그 전에 까닭(종류)만 표시해 둔다. */
     private fun load(url: String, kind: String) {
         ReopenBook.log.expect(kind, System.currentTimeMillis())
-        webView.loadUrl(url)
+        webView.loadUrl(ShellRules.movedToHome(url) ?: url)
     }
 
     /**
@@ -639,7 +641,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 위젯용 handoff를 앱이 직접 consume한다(Origin: bokdoong.com). 결과만 짧게 알리고 토큰은 보이지 않는다.
+     * 위젯용 handoff를 앱이 직접 consume한다(Origin: 웹2 주소 ShellRules.WEB2_HOST). 결과만 짧게 알리고 토큰은 보이지 않는다.
      * fallbackOnFail: 자동 로그인(웹 화면이 만든 봉인)이 실패하면 표시를 다시 세우고 구글 로그인 탭(대체 길)으로 간다.
      */
     private fun finishWidgetLogin(handoff: String, fallbackOnFail: Boolean = false) {

@@ -11,23 +11,29 @@ import java.net.URLEncoder
  * - 시스템 바 색, 새 버전 비교
  */
 object ShellRules {
-    /** 웹2 주소(주소 이전 ①-D1 뒤 정식 주소, 설계 docs/design/domain-move.md 1.1절). */
-    const val WEB2_HOST = "bokdoong.com"
+    /**
+     * 웹2 주소: 처음 여는 주소(HOME)·위젯 Origin·알림이 여는 주소의 호스트.
+     * DOMAIN-workonplus 1단계(docs/design/domain-workonplus.md, 0.5.16부터): WORK ON+ 주소 workonplus.com.
+     * 로그인 정보는 주소마다 따로라, 옛 판(bokdoong.com)에서 올라온 사람은 새 판에서 한 번 다시 로그인한다(자료는 서버에 그대로).
+     */
+    const val WEB2_HOST = "workonplus.com"
     const val HOME = "https://$WEB2_HOST/work/app/"
 
-    /** 새 웹2 주소(DOMAIN-nojoplus, docs/design/domain-nojoplus.md). 1단계에서는 허용만 하고 처음 여는 주소(HOME)는 그대로다. */
+    /** 옛 웹2 주소(주소 이전 ①-D1 뒤 0.5.15까지 처음 여는 주소). 옛 링크가 앱 안에 머물도록 안쪽으로 둔다. */
+    const val OLD_WEB2_HOST = "bokdoong.com"
+
+    /** 지난 새 주소(DOMAIN-nojoplus, docs/design/domain-nojoplus.md). 옛 링크가 앱 안에 머물도록 안쪽으로 둔다. */
     const val NEW_WEB2_HOST = "nojoplus.com"
 
     /**
      * 웹2를 앱 안에 띄우는 호스트. auth-handoff 허용 Origin과 같다.
      * desk·work는 넘김(302) 기간 동안 안쪽으로 둔다(옛 링크가 bokdoong.com으로 넘어올 때 앱 안에 머물게).
-     * nojoplus.com: 새 주소(DOMAIN-nojoplus 1단계). 앱은 아직 bokdoong.com을 열지만, 새 주소 링크도 앱 안에 두고
-     * 2단계(옛 주소 → 새 주소 301)에서 넘어와도 다리·로그인 복귀가 그대로 되게 미리 허용한다. www는 Worker가 넘기므로 넣지 않는다.
+     * www는 Worker가 넘기므로 넣지 않는다.
      */
-    val INTERNAL_HOSTS: Set<String> = setOf(WEB2_HOST, NEW_WEB2_HOST, "desk.bokdoong.com", "work.bokdoong.com", "mj880616.github.io")
+    val INTERNAL_HOSTS: Set<String> = setOf(WEB2_HOST, OLD_WEB2_HOST, NEW_WEB2_HOST, "desk.bokdoong.com", "work.bokdoong.com", "mj880616.github.io")
 
     /** 맨 앞(/)이 웹2로 넘어가는 호스트(Worker movesToWeb2). work의 / 는 Web1이라 넣지 않는다. */
-    private val ROOT_TO_WEB2_HOSTS: Set<String> = setOf(WEB2_HOST, NEW_WEB2_HOST, "desk.bokdoong.com")
+    private val ROOT_TO_WEB2_HOSTS: Set<String> = setOf(WEB2_HOST, OLD_WEB2_HOST, NEW_WEB2_HOST, "desk.bokdoong.com")
     val ALLOWED_ORIGINS: Set<String> = INTERNAL_HOSTS.map { "https://$it" }.toSet()
     private const val APP_PATH = "/work/app/"
 
@@ -49,7 +55,7 @@ object ShellRules {
         }
 
     /**
-     * https + 허용 호스트 + /work/app/ 아래. bokdoong.com·desk는 맨 앞 / 도(Worker가 bokdoong.com/work/app/으로 보냄).
+     * https + 허용 호스트 + /work/app/ 아래. 웹2 호스트·desk는 맨 앞 / 도(Worker가 /work/app/으로 보냄).
      * 그 밖(bokdoong.com/p/·/s/ 짧은 주소, /work/share/ 공유 페이지, work의 Web1)은 바깥(설계 4.3절).
      */
     fun isInternalApp(url: String?): Boolean {
@@ -62,6 +68,20 @@ object ShellRules {
         val path = u.rawPath ?: ""
         if (path == "/work/app" || path.startsWith(APP_PATH)) return true
         return host in ROOT_TO_WEB2_HOSTS && (path.isEmpty() || path == "/")
+    }
+
+    /**
+     * DOMAIN-workonplus: nojoplus.com의 웹2 앱 주소(맨 앞 / 와 /work/app/**)를 같은 경로·질의·조각의 workonplus.com 주소로 바꾼다.
+     * nojoplus.com의 앱 자리는 이전 안내 한 장이 되므로(docs/design/domain-workonplus.md 4절) 앱은 안내 대신 새 주소를 바로 연다.
+     * 그 밖(다른 호스트, 안쪽이 아닌 주소)은 null.
+     */
+    fun movedToHome(url: String?): String? {
+        if (!isInternalApp(url)) return null
+        val u = parse(url) ?: return null
+        if (u.host?.lowercase() != NEW_WEB2_HOST) return null
+        val raw = u.rawPath ?: ""
+        val path = if (raw.isEmpty() || raw == "/" || raw == "/work/app") APP_PATH else raw
+        return "https://$WEB2_HOST" + path + (u.rawQuery?.let { "?$it" } ?: "") + (u.rawFragment?.let { "#$it" } ?: "")
     }
 
     /** 웹2 로그인 화면(/work/app/login/)인지. 웹 화면이 로그아웃 상태라 이리로 보낸 것으로 본다(위젯 로그인 대체 길). */

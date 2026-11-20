@@ -29,6 +29,15 @@ custom_domain = true
 pattern = "www.nojoplus.com"
 custom_domain = true
 
+# DOMAIN-workonplus 1단계: WORK ON+ address (same answers as nojoplus.com) and its www (301 to workonplus.com).
+[[routes]]
+pattern = "workonplus.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.workonplus.com"
+custom_domain = true
+
 # SHARE-미리보기제목: share links (/work/share/?t=<link value>) reach this Worker, and Workers Logs would store each
 # request URL. Keep invocation logs off so link values are not kept in Cloudflare's log store.
 [observability]
