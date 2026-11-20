@@ -245,6 +245,14 @@ create policy app_mcp_no_delegated_storage on storage.objects
 - rollback: 요청 전 설정 해제(`alter role authenticator reset pgrst.db_pre_request` + reload) → Storage 정책 삭제 → 함수 삭제 → 표 삭제(기록 행이 있으면 표 삭제 전 멈춤). 해제 순서는 OAuth 서버를 먼저 끈 뒤.
 - 설정 행(명진 작업공간 1행, `enabled=false`, `allowed_client_id`)은 migration에 넣지 않는다(공개 저장소). M-6 뒤 CC가 별도 SQL로 넣는다.
 
+### 7.7 M-3에서 정한 것 (S67-21, `20261120090000_mcp_claude_read`)
+
+- 승인형 workflow 규칙이 받지 않는 L1(`alter role authenticator`·anon 실행권)과 L2(`storage` 스키마 정책)는 규칙을 넓히지 않고 SQL Editor 파일 `docs/ops/mcp-claude-read-guard.{precheck,apply,rollback}.sql`로 나눴다. 요청 전 함수는 anon이 `private` 스키마를 못 쓰므로 `public.app_mcp_pre_request()`(INVOKER, 데이터 안 읽음, anon·authenticated·service_role 실행)로 두고, 위임 열쇠는 `POST /rpc/app_mcp_<도구 7개>`만 통과시킨다. Storage는 `objects`·`buckets` 둘 다 막는다.
+- 거절은 예외라 그 호출의 `limited`·`denied` 기록 행도 함께 취소된다(PostgreSQL에 따로 남기는 트랜잭션이 없음). 상한은 통과한 `ok` 행만 세고, 거절 기록 칸 값은 나중 쓰임을 위해 남겨 둔다. 결과 건수는 도우미 `private.app_mcp_gate_done`이 같은 호출의 행에 채운다.
+- 입력 검사 거절(`BAD_INPUT`)은 문지기보다 먼저라 횟수에 세지 않는다. 문지기를 지난 뒤에는 "없음"도 예외 대신 빈 `records`로 돌려줘 호출이 반드시 셈에 들어간다.
+- 노트는 잠근 노트 폴더(하위·이름만 적힌 옛 노트 포함)도 뺀다(`app_lock_note_folder_list` 재사용). 원장은 업무 범위(`work`)만, `ledger_get`도 같다.
+- 같은 작업공간 동시 호출은 설정 행 잠금(`for update`)으로 한 줄로 세워 상한이 겹치지 않는다.
+
 ## 8. 위협 모델 (1판 8절에서 바뀐 것)
 
 | # | 위협 | 막는 것 | 남는 위험 |
