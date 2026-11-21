@@ -64,7 +64,7 @@ function appDownloadRow(){
   const name='<span class="account-action-name">앱 내려받기</span><span class="account-ver" data-app-download-ver></span>';
   const pc=pcPlan({ua:navigator.userAgent||''});
   if(pc.kind==='pc'){
-    // S63-09 PC도우미구분: 윈도우 PC에서는 '앱 내려받기'가 아니라 보조 프로그램 이름으로(WORK ON 자체로 오해하지 않게), 누르면 브라우저 안내·설명·경고.
+    // S63-09 PC도우미구분: 윈도우 PC에서는 '앱 내려받기'가 아니라 보조 프로그램 이름으로(WORK ON+ 자체로 오해하지 않게), 누르면 브라우저 안내·설명·경고.
     const row=document.createElement('a');row.className='account-action';row.dataset.appDownload='pc';row.href=pc.url;row.rel='noopener';
     row.innerHTML=`<span class="account-action-name">${PC_HELPER_NAME} 도우미 내려받기</span><span class="account-ver" data-app-download-ver></span>`;
     row.addEventListener('click',()=>kptuNotify(`${pc.browser} ${pc.hint}. ${pc.warn}`,{record:false,ms:9000}));
@@ -556,7 +556,7 @@ const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'t
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:word('조직 관리'),view:'team'},reports:{name:word('사업 관리'),view:'meetings'}};
 const VIEW_NAMES={home:'홈',basket:'잊지 말기',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),library:'자료실',files:'파일',meetings:word('사업 관리','title'),pages:'공유 페이지',team:word('조직 관리','title'),hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'News'};
 const whereList=topline?.querySelector('[data-topline-where]');
-// APP-올인원다이어리 단계 2: 앱 이름·노조 색 화면 이름은 얼굴(app/brand/brand.mjs)에서. WORK ON 얼굴은 글자 그대로.
+// APP-올인원다이어리 단계 2: 앱 이름·노조 색 화면 이름은 얼굴(app/brand/brand.mjs)에서. WORK ON+ 얼굴은 글자 그대로.
 const APP_TITLE=APP_NAME;
 let basketKind=null;
 const whereItems=new Map();

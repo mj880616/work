@@ -38,7 +38,7 @@ const menuLists = new Map();
 let rowMenu = null;
 const listOf = trigger => [...menuLists.keys()].find(h => h.isConnected && h.contains(trigger));
 function inboxRowMenu() {
-  rowMenu ||= createAnchoredMenu({id:'inboxTodoRowMenu', className:'radar-row-menu', label:'챙길 것 줄 메뉴', historyKey:'kptuInboxTodoRowMenu',
+  rowMenu ||= createAnchoredMenu({id:'inboxTodoRowMenu', className:'radar-row-menu', label:'잊지 말기 줄 메뉴', historyKey:'kptuInboxTodoRowMenu',
     parent:trigger => trigger.closest('dialog,.modal') || document.body,
     key:trigger => trigger.dataset.inboxTodoMore, canOpen:trigger => !trigger.disabled && !!listOf(trigger),
     render:() => '<button type="button" data-inbox-todo-menu="edit">수정해서 할 일로</button><button type="button" data-inbox-todo-menu="already">이미 할 일에 있음</button><button type="button" data-inbox-todo-menu="not-mine">내 일 아님</button>',
@@ -119,11 +119,11 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     const list = shownRows();
     let body;
     if (quietEmpty && state !== 'ok') body = '';
-    else if (state === 'missing') body = `<p class="inbox-todo-empty">챙길 것 기능이 아직 준비 중이에요.</p>`;
-    else if (state === 'failed') body = `<p class="inbox-todo-empty">챙길 것을 불러오지 못했어요. <button type="button" class="inbox-todo-link" data-inbox-todo-retry>다시 시도</button></p>`;
+    else if (state === 'missing') body = `<p class="inbox-todo-empty">잊지 말기 기능이 아직 준비 중이에요.</p>`;
+    else if (state === 'failed') body = `<p class="inbox-todo-empty">잊지 말기를 불러오지 못했어요. <button type="button" class="inbox-todo-link" data-inbox-todo-retry>다시 시도</button></p>`;
     else if (state === 'loading') body = waitHtml({rows:2});
     else if (!list.length && !promises().length) body = quietEmpty ? '' : emptyHtml('없음', {attrs: 'data-inbox-todo-empty'});
-    else body = `<ul class="inbox-todo-list" aria-label="챙길 것">${list.map(rowHtml).join('')}${promises().map(promiseHtml).join('')}</ul>`;
+    else body = `<ul class="inbox-todo-list" aria-label="잊지 말기">${list.map(rowHtml).join('')}${promises().map(promiseHtml).join('')}</ul>`;
     host.innerHTML = `${weekHtml()}${body}<p class="inbox-todo-status" role="status" aria-live="polite" data-inbox-todo-line>${esc(status)}</p>`;
     fitAll(host); // UI-줄입력늘어나기: 할 일 제목 고치기 칸은 글 전체가 보이게
     if (focusAttr) host.querySelector(`[${focusAttr.name}="${CSS.escape(focusAttr.value)}"]`)?.focus({preventScroll: true});
@@ -177,7 +177,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     busy.delete(c.id);
     if (!r.ok) { rowStatus.set(c.id, '빼지 못했어요. 다시 눌러 주세요.'); paint(); return; }
     rowStatus.delete(c.id); c.status = 'dismissed'; c.outcome = 'not_mine'; c.decided_at = new Date().toISOString(); paint(); changed();
-    offerUndoNotice({text: r.saved ? '내 일 아님으로 뺐어요. 다음 찾기부터 비슷한 것을 걸러요.' : '챙길 것에서 뺐어요.', onUndo: async () => {
+    offerUndoNotice({text: r.saved ? '내 일 아님으로 뺐어요. 다음 찾기부터 비슷한 것을 걸러요.' : '잊지 말기에서 뺐어요.', onUndo: async () => {
       let back = false;
       try { back = await undoNotMine(c.id, r.exampleId, rt, r.feedbackId); } catch { back = false; }
       if (back) { c.status = 'open'; c.decided_at = null; delete c.outcome; paint(); changed(); return {status: 'done', message: '다시 보이게 했어요.'}; }
@@ -274,7 +274,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (result.status === 'unknown') { unknown.set(c.id, true); rowStatus.set(c.id, '결과를 확인하지 못했어요. 새로 만들지 않았어요. 할 일 화면에서 확인해 주세요.'); paint(); return; }
     if (result.status === 'failed') { rowStatus.set(c.id, result.code === 'session_required' ? '로그인이 필요해요. 다시 로그인한 뒤 눌러 주세요.' : '할 일로 넣지 못했어요. 다시 눌러 주세요.'); paint(); return; }
     window.KPTUGoogleTasks?.invalidateAfterCreate?.(); window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
-    if (result.status === 'marked_failed') { dues.set(c.id, draft.due || null); unmarked.set(c.id, result.task.id); rowStatus.set(c.id, '할 일은 만들었어요. 챙길 것에서 빼지 못했어요.'); paint(); return; }
+    if (result.status === 'marked_failed') { dues.set(c.id, draft.due || null); unmarked.set(c.id, result.task.id); rowStatus.set(c.id, '할 일은 만들었어요. 잊지 말기에서 빼지 못했어요.'); paint(); return; }
     editing.delete(c.id);
     rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = result.task.id; c.decided_at = new Date().toISOString(); c.task_due = draft.due || null;
     status = '할 일로 보냈어요.'; paint(); changed();

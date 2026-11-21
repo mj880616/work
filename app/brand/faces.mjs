@@ -2,11 +2,12 @@
 // DOM·네트워크·기기 저장소 없음. 어떤 얼굴인지는 빌드가 정한다(app/brand/face.mjs 한 줄, scripts/brand-face.mjs가 고쳐 씀).
 // 실행 중 사용자 조작·주소·로컬 저장으로 바뀌지 않는다.
 //
-// 앱 이름은 WORK ON(2026-11-20 22:22 명진 확정, 옛 가칭 기록+), 아이콘은 표장 A 'W를 품은 원'(22:25 확정, app/app-icon.svg,
+// 앱 이름은 WORK ON+(2026-11-21 07:35 명진 확정, 그 전 WORK ON 11-20 22:22, 옛 가칭 기록+), 아이콘은 표장 A 'W를 품은 원'에 + 를 단 판
+// (11-21 07:35 확정, + 가운데가 원 테두리 위, app/app-icon.svg,
 // scripts/app-icon/build-app-icons.py). 앱 이름·아이콘은 사람별 이름 바꾸기 대상이 아니다(app/brand/custom-words-model.mjs 칸 밖).
-// nojo  = 지금 운영 빌드(WORK ON + 지금 화면 단어 그대로). 단어표가 비어 있어 모든 글자가 지금 그대로다(tests/brand-faces.test.mjs).
+// nojo  = 지금 운영 빌드(이름 WORK ON+, 지금 화면 단어 그대로). 단어표가 비어 있어 모든 글자가 지금 그대로다(tests/brand-faces.test.mjs).
 //         얼굴 id 'nojo'는 빌드·시험이 부르는 이름이라 그대로 둔다.
-// girok = WORK ON 기본 단어 빌드(노조 색 단어를 뺀 얼굴, app/brand/girok-words.mjs). 이름·아이콘은 nojo와 같다.
+// girok = WORK ON+ 기본 단어 빌드(노조 색 단어를 뺀 얼굴, app/brand/girok-words.mjs). 이름·아이콘은 nojo와 같다.
 // 노조 공간 앱 노조+(공지·투표 등)는 나중에 얼굴을 따로 더한다. 그때 쓸 옛 아이콘(J10)은 scripts/app-icon/nojoplus-j10.svg.
 //
 // menu: 켜진 메뉴 id(app/menu-model.mjs ITEMS의 id). views: 켜진 화면(라우터 이름).
@@ -26,9 +27,9 @@ export const DEFAULT_FACE = 'nojo';
 export const FACES = Object.freeze({
   nojo: Object.freeze({
     id: 'nojo',
-    name: 'WORK ON',
-    shortName: 'WORK ON',
-    description: 'WORK ON — 일정·할 일·노트·자료를 한곳에',
+    name: 'WORK ON+',
+    shortName: 'WORK ON+',
+    description: 'WORK ON+ — 일정·할 일·노트·자료를 한곳에',
     icon: 'app/app-icon.svg',
     themeColor: '#f3f1ea',
     backgroundColor: '#f3f1ea',
@@ -38,9 +39,9 @@ export const FACES = Object.freeze({
   }),
   girok: Object.freeze({
     id: 'girok',
-    name: 'WORK ON',
-    shortName: 'WORK ON',
-    description: 'WORK ON — 일정·할 일·노트·자료를 한곳에',
+    name: 'WORK ON+',
+    shortName: 'WORK ON+',
+    description: 'WORK ON+ — 일정·할 일·노트·자료를 한곳에',
     icon: 'app/app-icon.svg',
     themeColor: '#eef0f1',
     backgroundColor: '#eef0f1',

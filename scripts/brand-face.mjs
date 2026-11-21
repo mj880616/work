@@ -6,7 +6,7 @@ import { SLOTS } from '../app/brand/custom-words-model.mjs';
 // 다른 얼굴은 빌드 입력에서만 아래를 고쳐 쓴다(저장소 파일은 그대로):
 //   app/brand/face.mjs        얼굴 이름 한 줄 → 화면 JS가 app/brand/brand.mjs로 읽는다(실행 중에는 바뀌지 않음)
 //   app/windows-manifest.json 앱 이름·짧은 이름·설명·색(아이콘이 app/app-icon.svg와 같으면 PNG 아이콘 목록은 그대로)
-//   app/app-icon.svg          얼굴 아이콘(지금 두 얼굴 모두 WORK ON 표장 A라 같은 파일)
+//   app/app-icon.svg          얼굴 아이콘(지금 두 얼굴 모두 WORK ON+ 표장 A라 같은 파일)
 //   app/**.html               눈에 보이는 글자(태그 사이·aria-label·alt·title·placeholder)의 단어표 단어, 밝은 theme-color,
 //                             얼굴 아이콘이 다르면 PNG 아이콘 줄(PNG는 app/app-icon.svg 그림이므로)
 //   app/index.html(앱 바탕)    S67-56: 사람별 '내가 고친 이름' 칸(custom-words-model.mjs SLOTS) 열쇠가 든 글자는 바꾼 글자 앞에
