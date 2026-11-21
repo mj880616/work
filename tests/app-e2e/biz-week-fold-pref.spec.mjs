@@ -11,6 +11,7 @@ import {installBusinessNowServer} from './helpers/business-now-server.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {reportPeriodSelect} from './helpers/report-week.mjs';
 import {selectMeetingRound} from './helpers/meeting-open.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
 
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',NOW='2026-11-10T00:30:00Z';
@@ -42,8 +43,8 @@ test('PC 1280: 접으면 기억 — 다른 기간·다시 들어와도·새로 �
   await fold(box).click();await expectOpen(box,false);
   await expect.poll(()=>server.value?.biz_week_open).toEqual({pc:false});
   // 다른 기간(전체 기간)·다시 주 단위로 와도 접힌 채.
-  await reportPeriodSelect(page).selectOption('all');await expectOpen(box,false);
-  await reportPeriodSelect(page).selectOption('week');await expectOpen(box,false);
+  await openReportBoxes(page);await reportPeriodSelect(page).selectOption('all');await expectOpen(box,false);
+  await openReportBoxes(page);await reportPeriodSelect(page).selectOption('week');await expectOpen(box,false);
   // 다른 화면에 갔다 와도 접힌 채.
   await page.evaluate(()=>window.KPTURouter.go('home',{source:'delegated'}));await expect(page.locator('#meetingsView')).toBeHidden();
   await page.evaluate(()=>window.KPTURouter.go('meetings',{source:'delegated'}));await expectOpen(box,false);
@@ -77,7 +78,7 @@ test('폰 390: PC에서 접어 둔 것(pc 칸)과 따로 — 폰은 기본 펼�
 test('PC 1280: DB 적용 전(서버가 거절)이면 이번 접속 동안만 기억',async({page})=>{
   const {box,server}=await open(page,1280,{deny:true});
   await fold(box).click();await expectOpen(box,false);
-  await reportPeriodSelect(page).selectOption('all');await expectOpen(box,false);
-  await reportPeriodSelect(page).selectOption('week');await expectOpen(box,false);
+  await openReportBoxes(page);await reportPeriodSelect(page).selectOption('all');await expectOpen(box,false);
+  await openReportBoxes(page);await reportPeriodSelect(page).selectOption('week');await expectOpen(box,false);
   expect(server.value?.biz_week_open).toBeUndefined();
 });
