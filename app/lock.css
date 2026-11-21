@@ -26,9 +26,8 @@
 :is(#lockView,.lk-here) .lk-keys{display:grid;grid-template-columns:repeat(3,64px);gap:8px;margin-top:6px}
 :is(#lockView,.lk-here) .lk-key{height:48px;padding:0;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:18px;font-variant-numeric:tabular-nums}
 :is(#lockView,.lk-here) .lk-key.lk-word{font-size:var(--ds-text-meta);color:var(--kptu-muted)}
-:is(#lockView,.lk-here) .lk-key{touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background-color .12s,transform .08s}
-/* S67-72: 누르는 동안 칸이 진해지고 살짝 작아진다(판은 다시 그리지 않으므로 눌림 표시가 그대로 보인다). */
-:is(#lockView,.lk-here) .lk-key:active:not(:disabled){background:var(--ds-line);transform:scale(.94);transition:none}
+/* S67-72: 두 번 눌러 확대 막기. 눌림 모양(작아짐·진해짐)은 공통 규칙(ui-standard.css UI-눌림느낌) — 판을 다시 그리지 않아 그 표시가 남는다. */
+:is(#lockView,.lk-here) .lk-key{touch-action:manipulation}
 :is(#lockView,.lk-here) .lk-key:disabled{opacity:.5}
 :is(#lockView,.lk-here) .lk-key[hidden]{display:none}
 :is(#lockView,.lk-here) .lk-cancel{margin-top:6px}
