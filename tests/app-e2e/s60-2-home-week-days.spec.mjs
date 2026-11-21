@@ -26,7 +26,8 @@ for (const [width, height] of WIDTHS) {
     await date(page, other).click();
     await expect(date(page, other)).toHaveAttribute('aria-pressed', 'true');
     expect(await css(num(page, other), 'backgroundColor')).toBe(filled);
-    expect(await css(num(page, other), 'color')).toBe('rgb(255, 255, 255)');
+    // S67-64: 기본 색 먹 — 채운 동그라미 위 숫자는 강조 위 글자색(--kptu-on-primary #f3f1ea).
+    expect(await css(num(page, other), 'color')).toBe('rgb(243, 241, 234)');
     expect(await css(num(page, today), 'backgroundColor')).toBe('rgba(0, 0, 0, 0)');
     expect(await css(num(page, today), 'borderTopColor')).not.toBe('rgba(0, 0, 0, 0)');
     // 칸 높이: 두 줄이어도 한 줄 때 32px 그대로.

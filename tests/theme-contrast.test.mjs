@@ -96,6 +96,8 @@ test('colors are distinct from each other (light page color and button color)',(
   const seen=new Map();
   for(const name of THEMES){
     for(const key of ['--kptu-bg','--kptu-primary']){
+      // S67-64: 기본(먹)은 옛 기본(올리브)과 같은 오트밀 바탕을 쓴다(명진 11/21 '기본 색상을 먹으로' — 강조만 먹). 강조색은 모두 달라야 한다.
+      if(key==='--kptu-bg'&&name==='olive')continue;
       const value=light(name)[key].toLowerCase();
       assert.ok(!seen.has(key+value),`${name} repeats ${seen.get(key+value)} for ${key}`);seen.set(key+value,name);
     }

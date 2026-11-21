@@ -1,18 +1,18 @@
 /* S67-64(2026-11-21 명진 08:15 "기본 색상을 먹으로"): 기본 색은 먹 — 바탕·글자 계열은 오트밀(옛 기본 올리브와 같은 바탕),
-   강조(주 버튼 채움·고른 아래 탭·고른 칩·링크·고른 날 동그라미)는 먹 #22262b 위 글자 #f3f1ea, 연한 고른 바탕은 #e7e5df.
+   바탕·글자·선 값은 옛 기본 올리브와 똑같고, 강조(주 버튼 채움·고른 아래 탭·고른 칩·링크·고른 날 동그라미)만 먹 #22262b 위 글자 #f3f1ea, 연한 고른 바탕은 #e7e5df.
    옛 먹(#4a4a46 회색)을 고른 사람도 이 먹으로 보인다. 올리브는 고르는 색 하나로 남는다. */
 :root,[data-theme="ink"]{
   --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
-  --kptu-ink:#22262b;--kptu-muted:#6b6a62;--kptu-faint:#8f8c7f;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#22262b;--kptu-primary-hover:#343a42;--kptu-primary-ink:#22262b;
   --kptu-primary-soft:#e7e5df;--kptu-on-primary:#f3f1ea;--kptu-link:#22262b;
   /* 글자로 쓰는 강조색(탭 글자·오늘 표시·마우스를 올린 메뉴 글자 등). 보통은 주 버튼 색과 같고, 산뜻한 다섯 색은 읽히는 글자색(--kptu-primary-ink)이다. */
   --kptu-primary-text:var(--kptu-primary);
 }
-/* 올리브(옛 기본): 바탕은 기본(먹)과 구별되게 조금 더 노란 오트밀. */
+/* 올리브(옛 기본): 바탕·글자는 기본(먹)과 같은 오트밀, 강조만 올리브. */
 [data-theme="olive"]{
-  --kptu-bg:#f2efe5;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
   --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#5c6a35;--kptu-primary-hover:#4d5a2c;--kptu-primary-ink:#47532a;
