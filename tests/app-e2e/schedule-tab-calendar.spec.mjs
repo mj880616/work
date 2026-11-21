@@ -47,9 +47,11 @@ test.describe('폰 412', () => {
     await sub(page, 'calendar', 'diary');
     await expect(pad(page).locator('.lk-title')).toHaveText('하루 기록 잠김');
     expect(await current(page)).toBe('lock');
+    // S67-76: 숫자 판은 하단바까지 덮는다(하단바는 눌리지 않음) — 왼쪽 위 [✕]로 이전 화면(달력).
+    await page.locator('#lockView [data-lk-close]').click(); await shown(page, 'calendar');
+    await expect(page.locator('#lockView')).toBeHidden();
     await home(page);
     await tab(page).click(); await shown(page, 'calendar');
-    await expect(page.locator('#lockView')).toBeHidden();
     // 풀고 하루 기록을 본 뒤 나갔다 와도 [일정]은 달력.
     await sub(page, 'calendar', 'diary');
     for (const d of '1234') await page.locator(`#lockView [data-lk-key="${d}"]`).click();
@@ -81,6 +83,8 @@ test.describe('PC 1280', () => {
     await expect(page.locator('#lockView')).toBeHidden();
     await subBtn(page, 'diary').click();
     await expect(pad(page).locator('.lk-title')).toHaveText('하루 기록 잠김');
+    // S67-76: 숫자 판은 왼쪽 메뉴까지 덮는다 — 왼쪽 위 [✕]로 이전 화면(달력).
+    await page.locator('#lockView [data-lk-close]').click(); await shown(page, 'calendar');
     await home(page);
     await head(page).click(); await shown(page, 'calendar');
     await expect(page.locator('#lockView')).toBeHidden();
