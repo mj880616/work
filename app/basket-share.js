@@ -11,7 +11,7 @@
 // 받은 것은 내 정리함에만 들어간다. 밖으로 보내거나 공유하는 흐름은 없다.
 // APP-공유노트할일(요청함 11/02 00:22): 공유 창 '웹2 노트'·'웹2 할 일'로 온 공유(목록의 target)는 같은 받기 길로 받고,
 // 바로 넣지 않고 작은 창(share-target.js: 제목·폴더/기한·한 줄 더하기 → [저장])으로 노트·할 일에 넣는다.
-// S62-22 APP-공유로뉴스보관: 공유 창 'WORK ON News 보관'(target news)은 창 없이 글에서 기사 주소 하나를 골라 서버(news-feed ?action=save_url)에 보낸다.
+// S62-22 APP-공유로뉴스보관: 공유 창 'WORK ON+ News 보관'(target news)은 창 없이 글에서 기사 주소 하나를 골라 서버(news-feed ?action=save_url)에 보낸다.
 // 서버가 로그인·작업공간을 정하고 원문을 읽어(공개 본문만) 내 News에 넣고 바로 보관한다. 알림 한 줄 'News 보관에 넣었어요 [열기]'.
 // 주소가 없는 글·사진이면 '기사 주소가 없어요 [잊지 말기로 넣기]'(누를 때만 정리함 길로). 발송·공유·삭제로 이어지는 흐름은 없다.
 import {isShareId, shareArticleUrl, shareArticleTitle, parseShareList, pickShareItems, shareSummary, skippedText, shareRawText, withMemo, SHARE_MAX_BYTES, SHARE_MEMO_MAX} from './share-intake-model.mjs';

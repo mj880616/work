@@ -33,7 +33,8 @@ export const SLOTS = Object.freeze([
     '○○노동조합 ○○지부#example', '○○사업팀#example', '국장#example',
     '같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.'
   ]},
-  {id: 'weekly', hint: '주간', keys: ['주간 보고#weekly']}
+  // weekly는 S67-63의 앱 전체 '주간 보고' 열쇠도 맡는다(명진 값 '주간 보고'면 앱 어디서나 지금 글자 그대로).
+  {id: 'weekly', hint: '주간', keys: ['주간 보고#weekly', '주간 보고']}
 ].map(slot => Object.freeze({...slot, keys: Object.freeze([...slot.keys]), original: Object.freeze([...(slot.original || [])])})));
 export const SLOT_IDS = Object.freeze(SLOTS.map(slot => slot.id));
 export const NAME_MAX = 20;

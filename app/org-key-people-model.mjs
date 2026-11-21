@@ -12,7 +12,7 @@ import {word} from './brand/brand.mjs';
 
 export const NAME_MAX = 40, MATCH_MIN = 2, MATCH_MAX = 40, MATCHES_MAX = 20, PEOPLE_MAX = 40;
 export const RECORD_LIMIT = 80, OPEN_LIMIT = 30;
-export const KIND_LABEL = Object.freeze({call:'통화', personal:'통화', telegram:'텔레그램', meeting:'회의', todo:'챙길 것', promise:'약속'});
+export const KIND_LABEL = Object.freeze({call:'통화', personal:'통화', telegram:'텔레그램', meeting:'회의', todo:'잊지 말기', promise:'약속'});
 
 // 줄 꼬리표 글자. 사업 보고 줄은 '회의'로 고정하지 않고 그 줄의 칸 이름(label: 회의·투쟁·정책 …, DIARY-맥락사업보고이름 전수).
 export const recordTag = r => r?.label || KIND_LABEL[r?.kind] || '';

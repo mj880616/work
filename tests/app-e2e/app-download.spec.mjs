@@ -5,7 +5,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 // APP-앱내려받기버튼(명진 11/15 00:11): 로그인 화면 [안드로이드 앱 내려받기], 로그인 뒤 계정 메뉴 '앱 내려받기'.
 // 받는 주소는 배포 때 만든 같은 주소 app/phone-app.json(여기서는 흉내)에서 읽은 최신 폰 앱 APK. 없으면 폰 앱 릴리스 목록.
 // BASKET-노조플러스업로드: 윈도우 PC 보조 프로그램(노조+ 파일 올리기)은 app/pc-app.json의 최신 Setup.exe — PC 브라우저에서 로그인 화면 맨 위·계정 메뉴.
-// S63-09 PC도우미구분(명진 11/16): PC 브라우저는 그 위에 "WORK ON은 브라우저에서 씁니다" 한 줄 + [PC에 앱 설치](브라우저 앱 설치, 설치 창이 없으면 안내 한 줄).
+// S63-09 PC도우미구분(명진 11/16): PC 브라우저는 그 위에 "WORK ON+는 브라우저에서 씁니다" 한 줄 + [PC에 앱 설치](브라우저 앱 설치, 설치 창이 없으면 안내 한 줄).
 // 사진: SHOT_DIR=docs/design/screens/s63-09 로 돌릴 때만.
 // 화면 사진: SHOT_DIR=docs/design/screens/s62-09 로 돌릴 때만. 합성 값만 쓴다.
 const ANDROID='Mozilla/5.0 (Linux; Android 14; SM-F956N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36';
@@ -15,9 +15,9 @@ const APK='https://github.com/mj880616/work/releases/download/phone-app-v0.5.10/
 const LIST='https://github.com/mj880616/work/releases?q=phone-app-v&expanded=true';
 const SETUP='https://github.com/mj880616/work/releases/download/basket-pc-v0.6.0/BasketDropApp-win-Setup.exe';
 const PC_LIST='https://github.com/mj880616/work/releases?q=basket-pc-v&expanded=true';
-const PC_DESC='도우미는 WORK ON 자체가 아니에요. WORK ON [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮기게 돕는 작은 프로그램이에요';
-const PC_BROWSER="WORK ON은 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.";
-const INSTALL_FALLBACK='크롬·엣지 주소창 오른쪽의 설치 아이콘을 눌러 주세요(이미 설치했으면 바탕화면·시작 메뉴의 WORK ON을 여세요)';
+const PC_DESC='도우미는 WORK ON+ 자체가 아니에요. WORK ON+ [파일]에서 이 PC 폴더를 보고, 클라우드와 파일을 복사·옮기게 돕는 작은 프로그램이에요';
+const PC_BROWSER="WORK ON+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.";
+const INSTALL_FALLBACK='크롬·엣지 주소창 오른쪽의 설치 아이콘을 눌러 주세요(이미 설치했으면 바탕화면·시작 메뉴의 WORK ON+를 여세요)';
 // 브라우저가 진짜 설치 창을 보내더라도 시험이 흔들리지 않게 막는다(설치 창이 있는 경우는 가짜 이벤트로 따로 본다).
 const noRealPrompt=page=>page.addInitScript(()=>window.addEventListener('beforeinstallprompt',e=>e.stopImmediatePropagation(),true));
 const PC_WARN="처음 실행 때 윈도우 경고가 뜨면 '추가 정보 → 실행'을 눌러 주세요";

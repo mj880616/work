@@ -235,3 +235,15 @@ test('내 프로필·묶음·주간 캘린더 칸 글자는 소속·주간 칸 �
     assert.doesNotMatch(code, /'노조명|"노조명|>노조명|노조 묶음 만들기|주간 보고 일정 캘린더/, file);
   }
 });
+
+test("weekly 칸은 앱 전체 '주간 보고'도 맡는다: WORK ON 기본 '주간 정리', 명진 값이면 문장 안에서도 그대로", () => {
+  const mine = applyCustomWords(girok, OPERATOR);
+  for (const text of ['주간 보고', '주간 보고 쓰기 전에 조직별 이번 주를 훑을 때', "주간 보고 '사업' 칸"]) {
+    assert.match(say(girok, text), /주간 정리/, text);
+    assert.match(say(mine, text), /^주간 보고/, text);
+  }
+  assert.equal(say(mine, "주간 보고 '사업' 칸"), "주간 보고 '사업' 칸");
+  const other = applyCustomWords(girok, {weekly: '한 주 돌아보기'});
+  assert.equal(say(other, '주간 보고'), '한 주 돌아보기');
+  assert.equal(say(other, '주간 보고', 'weekly'), '한 주 돌아보기');
+});
