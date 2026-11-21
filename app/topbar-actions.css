@@ -94,6 +94,12 @@
 .me-handle:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .me-name{flex:1;min-width:0;font-size:var(--ds-text-row,13px)}
 .me-tag{color:var(--kptu-muted);font-size:11px}
+/* S67-71: 이름을 바꿀 수 있는 메뉴는 이름 글자가 ⑥ 아이콘 버튼(선·바탕 없음, 마우스를 올리면 옅은 바탕 — ui-standard.css 공용). 누르면 그 자리 입력칸.
+   여기서는 줄 높이에 맞게 크기·글자만 맞춘다(32px 네모 대신 글자 길이, 글자는 줄 글자색). 연필만 작게 흐리게. */
+.me-row .me-rename{display:flex;align-items:center;justify-content:flex-start;gap:4px;width:auto;height:auto;padding:0 4px;margin-left:-4px;color:var(--kptu-ink);font-size:var(--ds-text-row,13px);line-height:1.6;text-align:left;cursor:text}
+.me-name-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me-pen{flex:0 0 auto;color:var(--kptu-muted);font-size:11px;opacity:.7}
+.me-name-in{box-sizing:border-box;width:100%;min-height:26px;padding:0 6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px)}
 .me-cols{display:flex;flex-direction:column;gap:8px}
 .me-lists{flex:1 1 auto;min-width:0}
 /* MENU-세칸: PC 왼쪽 메뉴 미리보기. 위 메뉴 … 빈 공간 … 선 … 아래 붙는 메뉴. 작고 흐리게. */

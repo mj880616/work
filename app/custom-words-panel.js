@@ -1,11 +1,12 @@
 // APP-기록+이름바꾸기(S67-44, docs/design/girok-custom-words.md): 내 프로필 '이름 바꾸기' 칸의 화면 주인 하나.
 // - 칸마다 기본 이름(얼굴 기본값) 옆에 내 이름 입력, [기본으로]로 그 칸만 비움. [저장]은 칸 아래 하나.
-// - 저장: 내 프로필 행 custom_words 한 칸을 PATCH(owner RLS로 내 행만). 바꾼 칸이 없으면 null(= 모두 기본). 기기에는 남기지 않는다.
+// - 저장: 내 프로필 행 custom_words 한 칸을 PATCH(owner RLS로 내 행만, custom-words-store.js — 메뉴 수정 창과 같은 길). 바꾼 칸이 없으면 null(= 모두 기본). 기기에는 남기지 않는다.
 // - 칸이 아직 없는 서버(DB 적용 전)는 읽기가 400 → '저장 준비 중' 안내만 보이고 저장은 막힌다(다른 칸·화면은 그대로).
 // - 바뀐 이름은 다음에 열 때부터 모든 화면에 보인다(시작할 때 한 번 읽어 첫 그리기에 쓰는 구조, app/brand/custom-words.mjs). 저장 뒤 [지금 다시 열기].
 // S67-62: 기본 이름은 이 사람의 바탕 낱말 묶음을 얹은 얼굴(BASE_FACE)로 보인다.
 import {BASE_FACE as FACE} from './brand/brand.mjs';
-import {SLOTS, NAME_MAX, defaultName, parseCustomWords, buildSaveValue} from './brand/custom-words-model.mjs';
+import {SLOTS, NAME_MAX, defaultName, buildSaveValue} from './brand/custom-words-model.mjs';
+import {readCustomWords, writeCustomWords} from './custom-words-store.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const GROUPS = [
@@ -79,9 +80,7 @@ export function mountCustomWords(host, {rt = window.KPTURuntime, reload = () => 
     }
     busy = true; error = ''; render();
     try {
-      const rows = await rt.api(`/rest/v1/app_profiles?user_id=eq.${encodeURIComponent(userId)}`, {method: 'PATCH', prefer: 'return=representation', body: {custom_words: next.value}, singleFlight: false});
-      if (!Array.isArray(rows) || rows.length !== 1) throw new Error('not_saved');
-      saved = parseCustomWords(rows[0]?.custom_words);
+      saved = await writeCustomWords(rt, userId, next.value);
       fill(); justSaved = true;
     } catch { error = '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'; }
     busy = false; render();
@@ -91,11 +90,7 @@ export function mountCustomWords(host, {rt = window.KPTURuntime, reload = () => 
   async function load() {
     state = 'loading'; render();
     try {
-      userId = rt?.context?.read?.()?.user?.id || rt?.session?.read?.()?.user?.id || '';
-      if (!userId) throw new Error('no_user');
-      const rows = await rt.api(`/rest/v1/app_profiles?user_id=eq.${encodeURIComponent(userId)}&select=custom_words&limit=1`, {singleFlight: false});
-      if (!Array.isArray(rows) || rows.length !== 1) throw new Error('no_row');
-      saved = parseCustomWords(rows[0]?.custom_words); fill(); state = 'ok';
+      ({userId, saved} = await readCustomWords(rt)); fill(); state = 'ok';
     } catch (err) { state = err?.status === 400 ? 'pending' : 'error'; }
     render();
   }

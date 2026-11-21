@@ -15,11 +15,12 @@ export const WORD_BASE_FEATURES = Object.freeze({nojo_words: 'nojo'});
 // keys: 이 칸이 맡는 노조 글자(단어표 열쇠). '#자리' 열쇠는 그 자리에만, 나머지는 문장 안에서도 바뀐다.
 // kind: true면 활동 분류 칸(word(글자,'kind') 자리에만 — 문장 안 '회의'·'교육' 같은 낱말은 건드리지 않는다).
 // hint: 화면에서 이 칸이 무엇인지 보여 주는 작은 글자(노조 색 없음).
+// menu: 이 칸이 이름을 맡는 메뉴 항목 id(app/menu-model.mjs ITEMS). '메뉴 수정' 창이 그 줄에서 이름을 바로 바꾼다(S67-71, 같은 칸·같은 저장).
 export const SLOTS = Object.freeze([
-  {id: 'menu_biz', hint: '메뉴', keys: ['사업 관리', '사업 관리#title']},
+  {id: 'menu_biz', hint: '메뉴', menu: 'meetings', keys: ['사업 관리', '사업 관리#title']},
   {id: 'report', hint: '기록 한 건', keys: ['사업 보고', '사업보고']},
   {id: 'area', hint: '큰 묶음', keys: ['사업영역', '사업 영역']},
-  {id: 'menu_org', hint: '메뉴', keys: ['조직 관리', '조직 관리#title']},
+  {id: 'menu_org', hint: '메뉴', menu: 'team', keys: ['조직 관리', '조직 관리#title']},
   {id: 'org_one', hint: '대상 한 곳', keys: ['담당조직', '담당 조직']},
   {id: 'org_report', hint: '대상 기록', keys: ['조직 보고', '조직보고']},
   {id: 'workplace', hint: '중요 대상', keys: ['투쟁사업장', '투쟁 사업장']},
@@ -33,6 +34,8 @@ export const SLOTS = Object.freeze([
   {id: 'kind_other', hint: '분류', keys: ['기타#kind'], kind: true}
 ].map(slot => Object.freeze({...slot, keys: Object.freeze([...slot.keys])})));
 export const SLOT_IDS = Object.freeze(SLOTS.map(slot => slot.id));
+/** 메뉴 항목 id → 그 메뉴 이름을 맡는 칸(없으면 null = 이름을 바꿀 수 없는 메뉴). */
+export const slotOfMenu = id => SLOTS.find(slot => slot.menu && slot.menu === id) || null;
 export const NAME_MAX = 20;
 export const TOTAL_MAX_BYTES = 2000;
 
