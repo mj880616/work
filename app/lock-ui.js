@@ -41,13 +41,33 @@ async function shownFeatures() {
 }
 
 // ── 그리기 ────────────────────────────────────────────────────────────────────────────────────
+// S67-76(명진 11/21 "이 화면 전체화면으로"): 숫자 판·PIN 잊음 화면(잠긴 기능에서 온 대기·오류 포함)은 폰 잠금 화면처럼
+// 윗줄·하단바까지 덮는다. 덮을지는 여기 한 곳(data-lk-full)에서 정하고 모양은 lock.css가 맡는다. 덮는 동안 나가는 길은 왼쪽 위 [✕]
+// (라우터 back = 폰 뒤로 가기와 같은 길: 이전 화면, 없으면 홈).
+const fullMode = () => ui.mode === 'pad' || ui.mode === 'forgot' || ((ui.mode === 'wait' || ui.mode === 'fail') && !!(ui.target || ui.task));
+function closeButton() {
+  const b = button('lk-close', '✕', {lkClose: ''}); b.setAttribute('aria-label', '나가기');
+  return b;
+}
+// [✕]: 하려던 일(잠긴 기능 열기·폴더 잠그기)을 그만두고 이전 화면으로(라우터 back — 폰 뒤로 가기와 같은 길, 첫 화면이면 홈).
+// 바로 아래 화면이 아직 잠긴 그 화면이면(새로 연 ?view=diary, 다시 잠겨 화면째 숨긴 때) 돌아가도 다시 이 판이 뜨므로 홈으로 간다.
+function leave() {
+  const target = ui.target || lock.pending()?.view || null;
+  lock.clearPending(); reset({mode: 'list', task: null, target: null});
+  const nav = window.navigation, entry = nav?.currentEntry;
+  let below = null;
+  try { const prev = Number.isInteger(entry?.index) && entry.index > 0 ? nav.entries()[entry.index - 1] : null; below = prev?.url ? new URL(prev.url).searchParams.get('view') : null; } catch { below = null; }
+  if (below && (below === target || lock.locked(below))) { window.KPTURouter?.go?.('home', {source: 'api', replaceUrl: true}); return; }
+  window.KPTURouter?.back?.();
+}
 function draw() {
   const host = root(); if (!host) return;
-  if (ui.mode === 'wait') { host.innerHTML = waitHtml({rows: 2}); return; }
-  if (ui.mode === 'fail') { host.innerHTML = failHtml({retry: 'data-lk-retry', text: '잠금 설정을 읽지 못했어요'}); return; }
-  if (ui.mode === 'pad') { host.replaceChildren(pad()); return; }
-  if (ui.mode === 'forgot') { host.replaceChildren(forgot()); return; }
-  host.replaceChildren(list());
+  const full = fullMode();
+  host.closest('#lockView')?.toggleAttribute('data-lk-full', full);
+  if (ui.mode === 'wait') host.innerHTML = waitHtml({rows: 2});
+  else if (ui.mode === 'fail') host.innerHTML = failHtml({retry: 'data-lk-retry', text: '잠금 설정을 읽지 못했어요'});
+  else host.replaceChildren(ui.mode === 'pad' ? pad() : ui.mode === 'forgot' ? forgot() : list());
+  if (full) host.prepend(closeButton());
 }
 
 function list() {
@@ -220,6 +240,7 @@ install();
 document.querySelector('#lockView')?.addEventListener('click', event => {
   const t = event.target.closest?.('button,[data-lk-retry]'); if (!t) return;
   if (t.matches('[data-lk-retry]')) { void lock.refresh().then(enter); return; }
+  if (t.matches('[data-lk-close]')) { leave(); return; }
   if (t.dataset.lkKey) { press(t.dataset.lkKey); return; }
   if (t.matches('[data-lk-back]')) { press('back'); return; }
   if (t.matches('[data-lk-forgot]')) {
