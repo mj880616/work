@@ -41,10 +41,10 @@ async function settle(page, view) {
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(300);
 }
-async function shownTexts(page) {
-  return page.evaluate(() => {
+async function shownTexts(page, scope = 'body') {
+  return page.evaluate(scope => {
     const seen = [];
-    for (const el of document.querySelectorAll('body *')) {
+    for (const el of document.querySelectorAll(scope === 'body' ? 'body *' : scope.split(',').map(s => `${s.trim()}, ${s.trim()} *`).join(','))) {
       if (el.closest('script,style,template,[hidden]')) continue;
       const style = getComputedStyle(el);
       if (style.display === 'none' || style.visibility === 'hidden') continue;
@@ -52,7 +52,7 @@ async function shownTexts(page) {
       for (const name of ['aria-label', 'title', 'placeholder']) if (el.getAttribute(name)) seen.push(el.getAttribute(name));
     }
     return seen;
-  });
+  }, scope);
 }
 async function noUnionWords(page, where) {
   const text = await shownTexts(page);
@@ -250,4 +250,62 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
     if (found.length) bad[view] = found;
   }
   expect(bad).toEqual({});
+});
+
+// S67-57: 내 프로필의 기본 정보·담당 칸·주간 캘린더 칸·내 묶음(명진 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다.
+const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psReportPanel, #psCollabPanel';
+async function openProfile(page) {
+  await page.evaluate(() => window.KPTURouter.go('profile'));
+  await expect(page.locator('#profileView')).toBeVisible();
+  await expect(page.locator('#psReportPanel h3')).toBeVisible();
+  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toBeVisible();
+  await expect(page.locator('#psWorkplacePanel h3')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+}
+
+test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·담당 칸·주간 캘린더·내 묶음에 노조 색 글자가 없다', async ({ page }, testInfo) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.setViewportSize({ width: 412, height: 915 });
+  await boot(page);
+  await openProfile(page);
+  await expect(page.locator('#psUnion')).toHaveAttribute('placeholder', '소속명 (예: ○○회사·○○단체)');
+  await expect(page.locator('#psDept')).toHaveAttribute('placeholder', '부서명 (예: ○○팀)');
+  await expect(page.locator('#psTitle')).toHaveAttribute('placeholder', '직책 (예: 팀장)');
+  await expect(page.locator('#psReportPanel h3')).toHaveText('주간 정리 일정 캘린더');
+  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toHaveText('+ 소속 묶음 만들기');
+  const bad = (await shownTexts(page, PROFILE_PANELS)).filter(t => FORBIDDEN.test(t));
+  expect(bad, '내 프로필: 기록+ 화면에 노조 색 글자').toEqual([]);
+  await page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]').click();
+  await expect(page.locator('#psCollabPanel .cg-form-title')).toHaveText('소속 묶음 만들기');
+  await expect(page.locator('#psCollabPanel .cg-field span').first()).toHaveText('소속명');
+  const badForm = (await shownTexts(page, '#psCollabPanel')).filter(t => FORBIDDEN.test(t));
+  expect(badForm, '묶음 만들기 창').toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath('girok-phone-profile.png'), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+// 명진(바탕 nojo + 15칸): 소속·주간 칸 이름은 이름 바꾸기 칸이 아니라 바탕 낱말 묶음으로 지금 글자 그대로다(DB 변경 없음).
+test('girok 빌드 + 명진(바탕 nojo + 15칸): 내 프로필 글자가 지금 화면 그대로다', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await boot(page, MINJIN);
+  await openProfile(page);
+  await expect(page.locator('#psUnion')).toHaveAttribute('placeholder', '노조명 (예: ○○노동조합 ○○지부)');
+  await expect(page.locator('#psUnion')).toHaveAttribute('aria-label', '노조명');
+  await expect(page.locator('#psDept')).toHaveAttribute('placeholder', '부서명 (예: ○○사업팀)');
+  await expect(page.locator('#psTitle')).toHaveAttribute('placeholder', '직책 (예: 국장)');
+  await expect(page.locator('#psReportPanel')).toHaveAttribute('aria-label', '주간 보고 일정 캘린더');
+  await expect(page.locator('#psReportPanel h3')).toHaveText('주간 보고 일정 캘린더');
+  await expect(page.locator('#psReportPanel small')).toHaveText("주간 보고 '주요 일정'에 넣을 일정이 있는 구글 캘린더");
+  await expect(page.locator('#psWorkplacePanel h3')).toHaveText('담당조직 현황');
+  await expect(page.locator('#psCollabPanel .cg-muted').first()).toHaveText('같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.');
+  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="dept"]')).toHaveText('+ 부서 묶음 만들기');
+  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toHaveText('+ 노조 묶음 만들기');
+  await page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]').click();
+  await expect(page.locator('#psCollabPanel .cg-form-title')).toHaveText('노조 묶음 만들기');
+  await expect(page.locator('#psCollabPanel .cg-field span').first()).toHaveText('노조명');
+  await expect(page.locator('#psCollabPanel [data-cg-in="union"]')).toHaveAttribute('placeholder', '노조명');
+  expect(errors).toEqual([]);
 });

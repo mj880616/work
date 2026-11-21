@@ -192,6 +192,70 @@ test('운영자 이름 SQL: 코드에 계정을 넣지 않고 운영자 허용 �
   assert.match(read('docs/ops/custom-words-operator.rollback.sql'), /and custom_words = '\{[^']*\}'::jsonb/);
 });
 
+// S67-57: 내 프로필·묶음·주간 캘린더 칸의 소속·주간 이름.
+// 소속·주간은 이름 바꾸기 칸이 아니다(DB 변경 없음): 명진(서버 허용 표 nojo_words)은 바탕 낱말 묶음으로 지금 글자 그대로다.
+test('소속·주간 자리: WORK ON 기본은 노조 색 없음, 명진(바탕 nojo + 15칸)은 예시·안내까지 지금 글자 그대로', () => {
+  const EXAMPLES = ['○○노동조합 ○○지부', '○○사업팀', '국장'];
+  const EMPTY = '같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.';
+  // WORK ON 기본(고친 이름 없음)
+  assert.equal(say(girok, '노조', 'group'), '소속');
+  assert.equal(say(girok, '주간 보고', 'weekly'), '주간 정리');
+  for (const text of EXAMPLES) assert.doesNotMatch(say(girok, text, 'example'), UNION_WORDS, text);
+  assert.deepEqual(EXAMPLES.map(text => say(girok, text, 'example')), ['○○회사·○○단체', '○○팀', '팀장']);
+  assert.doesNotMatch(say(girok, EMPTY), UNION_WORDS);
+  // 노동조합+ 얼굴: 모두 글자 그대로
+  assert.equal(say(nojo, '노조', 'group'), '노조');
+  assert.equal(say(nojo, '주간 보고', 'weekly'), '주간 보고');
+  for (const text of EXAMPLES) assert.equal(say(nojo, text, 'example'), text);
+  // WORK ON + 명진(바탕 nojo + 15칸)
+  const mine = applyCustomWords(withWordBaseSync(girok, 'nojo'), OPERATOR);
+  assert.equal(say(mine, '노조', 'group'), '노조');
+  assert.equal(say(mine, '주간 보고', 'weekly'), '주간 보고');
+  for (const text of EXAMPLES) assert.equal(say(mine, text, 'example'), text, text);
+  assert.equal(say(mine, EMPTY), EMPTY);
+  // 프로필 화면 '담당조직 현황'·'조직 관리로'·없음 안내(기존 칸이 맡음)
+  assert.equal(say(mine, '담당조직 현황'), '담당조직 현황');
+  assert.equal(say(mine, '조직 관리로'), '조직 관리로');
+  assert.equal(say(mine, '조직 관리에서 담당조직을 더하면 여기서 선택할 수 있어요.'), '조직 관리에서 담당조직을 더하면 여기서 선택할 수 있어요.');
+  assert.doesNotMatch(say(girok, '담당조직 현황') + say(girok, '조직 관리로') + say(girok, '조직 관리에서 담당조직을 더하면 여기서 선택할 수 있어요.'), UNION_WORDS);
+  // 바탕 없이 15칸만 고친 사람(테스터 등)은 소속·주간·예시가 WORK ON 기본(칸이 없어 고칠 수 없음).
+  const only15 = applyCustomWords(girok, OPERATOR);
+  assert.equal(say(only15, '노조', 'group'), '소속');
+  assert.equal(say(only15, '주간 보고', 'weekly'), '주간 정리');
+  assert.deepEqual(EXAMPLES.map(text => say(only15, text, 'example')), ['○○회사·○○단체', '○○팀', '팀장']);
+  assert.ok(!SLOT_IDS.includes('affiliation') && !SLOT_IDS.includes('weekly'), '이름 칸은 15칸 그대로');
+});
+
+test('내 프로필·묶음·주간 캘린더 칸 글자는 소속·주간 칸 자리로만 부른다', () => {
+  const words = read('app/profile-words.mjs');
+  assert.match(words, /UNION_WORD = word\('노조', 'group'\)/);
+  assert.match(words, /UNION_LABEL = `\$\{UNION_WORD\}명`/);
+  assert.match(words, /REPORT_CALENDAR_TITLE = `\$\{WEEKLY_WORD\} 일정 캘린더`/);
+  const profile = read('app/profile-settings.js');
+  assert.match(profile, /placeholder="\$\{UNION_LABEL\} \(예: \$\{word\('○○노동조합 ○○지부','example'\)\}\)" aria-label="\$\{UNION_LABEL\}"/);
+  assert.match(profile, /placeholder="부서명 \(예: \$\{word\('○○사업팀','example'\)\}\)"/);
+  assert.match(profile, /placeholder="직책 \(예: \$\{word\('국장','example'\)\}\)"/);
+  assert.match(profile, /aria-label="\$\{REPORT_CALENDAR_TITLE\}"/);
+  const groups = read('app/collab-groups.js');
+  assert.match(groups, /\+ \$\{KIND_NAME\.union\} 만들기/);
+  assert.match(groups, /<span>\$\{UNION_LABEL\}<\/span>/);
+  assert.match(read('app/collab-groups-model.mjs'), /union: `\$\{UNION_WORD\} 묶음`/);
+  // 고정 글자에 노조 낱말이 남지 않는다(주석 빼고).
+  for (const file of ['app/profile-settings.js', 'app/collab-groups.js', 'app/collab-groups-model.mjs', 'app/report-settings.js', 'app/report-settings-model.mjs', 'app/report-calendar.mjs']) {
+    const code = read(file).replace(/^\s*\/\/.*$/gm, '').replace(/\/\/ [^'"`\n]*$/gm, '');
+    assert.doesNotMatch(code, /'노조명|"노조명|>노조명|노조 묶음 만들기|주간 보고 일정 캘린더/, file);
+  }
+});
+
+test("앱 전체 '주간 보고': WORK ON 기본 '주간 정리', 명진(바탕 nojo)은 문장 안에서도 그대로", () => {
+  const mine = applyCustomWords(withWordBaseSync(girok, 'nojo'), OPERATOR);
+  for (const text of ['주간 보고', '주간 보고 쓰기 전에 조직별 이번 주를 훑을 때', "주간 보고 '사업' 칸"]) {
+    assert.match(say(girok, text), /주간 정리/, text);
+    assert.equal(say(mine, text), text, text);
+  }
+  assert.equal(say(mine, '주간 보고', 'weekly'), '주간 보고');
+});
+
 // S67-62: 바탕 낱말 묶음 — 기본은 빌드 얼굴(WORK ON) 낱말, 서버 허용 표 'nojo_words'인 사람은 노동조합+ 낱말 전체가 바탕(그 위에 고친 이름).
 test('바탕 낱말 묶음: 서버 기능 목록에서만 정하고, 단어표만 바꾼다', async () => {
   const { WORD_BASE_FEATURES, wordBaseOf, withWordBase } = await import('../app/brand/custom-words-model.mjs');

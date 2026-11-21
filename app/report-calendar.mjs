@@ -2,6 +2,7 @@
 // (app_profiles.view_prefs.report_calendar, view-prefs.js)에 있다. 이 파일이 그 이름을 읽는 한 곳이고, 주간 정리 표(journal-weekly.js)·
 // .hwpx 초안(journal-hwpx.js)·일정 만들기 기본 캘린더(calendar-plus.js·project-system-v3.js는 같은 값을 window.KPTUViewPrefs로 읽는다)가 같은 값을 쓴다.
 // 이름이 없으면 ''(미지정): 표는 비고 화면이 '내 프로필 › 주간보고 일정 캘린더에서 선택해 주세요'를 알린다. 이름 비교는 대소문자·띄어쓰기 차이를 무시한다.
+import {REPORT_CALENDAR_TITLE} from './profile-words.mjs';
 export const calendarKey = name => String(name ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 export function reportCalendarName() {
   try {
@@ -9,4 +10,4 @@ export function reportCalendarName() {
     return typeof v === 'string' ? v : '';
   } catch { return ''; }
 }
-export const UNSET_TEXT = '주간 보고 일정 캘린더가 정해지지 않았어요. 내 프로필 › 주간 보고 일정 캘린더에서 선택해 주세요.';
+export const UNSET_TEXT = `${REPORT_CALENDAR_TITLE}가 정해지지 않았어요. 내 프로필 › ${REPORT_CALENDAR_TITLE}에서 선택해 주세요.`;

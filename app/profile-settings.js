@@ -1,4 +1,5 @@
 import {word} from './brand/brand.mjs';
+import {UNION_LABEL,REPORT_CALENDAR_TITLE} from './profile-words.mjs';
 const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
 'use strict';
@@ -25,7 +26,7 @@ const $=sel=>document.querySelector(sel);
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function installView(){
   if($('#profileView'))return;
-  $('#appView')?.insertAdjacentHTML('beforeend',word(`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psUnion" type="text" placeholder="노조명 (예: ○○노동조합 ○○지부)" aria-label="노조명" autocomplete="off" maxlength="60"><input id="psDept" type="text" placeholder="부서명 (예: ○○사업팀)" aria-label="부서명" autocomplete="off" maxlength="60"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`));
+  $('#appView')?.insertAdjacentHTML('beforeend',word`<section id="profileView" class="view-panel hidden" aria-label="내 프로필"><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psUnion" type="text" placeholder="${UNION_LABEL} (예: ${word('○○노동조합 ○○지부','example')})" aria-label="${UNION_LABEL}" autocomplete="off" maxlength="60"><input id="psDept" type="text" placeholder="부서명 (예: ${word('○○사업팀','example')})" aria-label="부서명" autocomplete="off" maxlength="60"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: ${word('국장','example')})" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel" aria-label="담당 사업장"><div id="psWorkplaceList"></div></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);
 }
 async function context(){if(!rt?.session||!(await rt.session.ensure()))return false;user=await api('/auth/v1/user');const rows=await api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id&limit=1`);workspaceId=rows?.[0]?.workspace_id||null;return !!workspaceId}
 function buildWorkplaces(){
@@ -115,7 +116,7 @@ let reportSettings=null;
 async function loadReport(){
   try{
     let host=$('#psReportPanel');
-    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend','<article class="panel ps-panel" id="psReportPanel" aria-label="주간 보고 일정 캘린더"></article>');host=$('#psReportPanel')}
+    if(!host){const after=$('#psWorkplacePanel');if(!after)return;after.insertAdjacentHTML('afterend',`<article class="panel ps-panel" id="psReportPanel" aria-label="${REPORT_CALENDAR_TITLE}"></article>`);host=$('#psReportPanel')}
     if(!reportSettings||reportSettings.host!==host){const ready=import('./report-settings.js').then(m=>m.mountReportSettings(host,{toast}));reportSettings={host,ready};ready.catch(()=>{if(reportSettings?.ready===ready)reportSettings=null})}
     (await reportSettings.ready).refresh();
   }catch(e){console.error('report settings',e?.name||'Error')}

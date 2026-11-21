@@ -12,6 +12,7 @@ import {
   inviteUrl, tokenFromUrl, urlWithoutToken, inviteSummary,
 } from './collab-groups-model.mjs';
 import {word} from './brand/brand.mjs';
+import {UNION_LABEL} from './profile-words.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
@@ -36,7 +37,7 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
     if (!f) return '';
     const noName = !profile().name;
     return word`<form class="cg-card cg-form" data-cg-form><div class="cg-form-title">${esc(KIND_NAME[f.kind])} 만들기</div>
-      <label class="cg-field"><span>노조명</span><input type="text" maxlength="60" autocomplete="off" data-cg-in="union" value="${esc(f.union)}" placeholder="노조명"></label>
+      <label class="cg-field"><span>${UNION_LABEL}</span><input type="text" maxlength="60" autocomplete="off" data-cg-in="union" value="${esc(f.union)}" placeholder="${UNION_LABEL}"></label>
       ${f.kind === 'dept' ? `<label class="cg-field"><span>부서명</span><input type="text" maxlength="60" autocomplete="off" data-cg-in="dept" value="${esc(f.dept)}" placeholder="부서명"></label>` : ''}
       ${consentHtml()}${noName ? '<div class="cg-hint">프로필에 이름·직책을 먼저 채우고 저장한 뒤 만들 수 있어요.</div>' : ''}
       <div class="cg-acts"><button class="secondary" type="button" data-cg="form-cancel">취소</button><button class="primary" type="submit" data-cg="form-ok"${createReady(f) && !noName && !state.busy ? '' : ' disabled'}>만들기</button></div>
@@ -49,7 +50,7 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
   }
   function groupHtml(g) {
     const admin = g.my_role === 'admin', requests = admin ? g.requests || [] : [], members = g.members || [];
-    const reqRows = requests.map(r => word`<div class="cg-ln"><span class="cg-nm">${esc(memberLine(r))}</span><span class="cg-t">같은 노조명·부서명으로 요청</span><button class="secondary" type="button" data-cg="req-yes" data-id="${esc(r.id)}">수락</button><button class="ghost" type="button" data-cg="req-no" data-id="${esc(r.id)}">거절</button></div>`).join('');
+    const reqRows = requests.map(r => word`<div class="cg-ln"><span class="cg-nm">${esc(memberLine(r))}</span><span class="cg-t">같은 ${UNION_LABEL}·부서명으로 요청</span><button class="secondary" type="button" data-cg="req-yes" data-id="${esc(r.id)}">수락</button><button class="ghost" type="button" data-cg="req-no" data-id="${esc(r.id)}">거절</button></div>`).join('');
     const memRows = members.map(m => {
       const menu = admin && !m.me ? `<details class="cg-more"><summary data-ctx="off" aria-label="${esc(memberLine(m))} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="cg-more-menu"><button type="button" class="ghost" data-cg="admin-move" data-id="${esc(m.id)}">관리자 넘기기</button><button type="button" class="ghost" data-cg="remove" data-id="${esc(m.id)}">내보내기</button></div></details>` : '';
       return `<div class="cg-ln"><span class="cg-nm">${esc(m.name)}</span><span class="cg-t">${esc(m.title || '')}</span>${m.role === 'admin' ? `<span class="cg-tag">${roleText('admin')}</span>` : ''}${menu}</div>`;
@@ -67,7 +68,7 @@ export function mountCollabGroups(host, {rt, toast = () => {}, profile = () => (
     if (state.failed) body = failHtml({retry: 'data-cg-retry', text: '내 묶음을 불러오지 못했어요.'});
     else if (!gs) body = waitHtml({rows: 2});
     else body = `${state.created ? `<div class="cg-card cg-done" role="status">${esc(state.created)}</div>` : ''}${gs.length ? gs.map(groupHtml).join('') : `<div class="cg-muted">${esc(EMPTY_TEXT)}</div>`}
-      ${formHtml()}${state.form ? '' : word(`<div class="cg-acts"><button class="secondary" type="button" data-cg="new" data-kind="dept">+ 부서 묶음 만들기</button><button class="secondary" type="button" data-cg="new" data-kind="union">+ 노조 묶음 만들기</button></div>`)}
+      ${formHtml()}${state.form ? '' : `<div class="cg-acts"><button class="secondary" type="button" data-cg="new" data-kind="dept">+ ${KIND_NAME.dept} 만들기</button><button class="secondary" type="button" data-cg="new" data-kind="union">+ ${KIND_NAME.union} 만들기</button></div>`}
       ${gs.length ? '' : `<div class="cg-muted">${esc(INVITE_HINT)}</div>`}`;
     host.innerHTML = head + joinHtml() + body;
   }
