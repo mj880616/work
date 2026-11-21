@@ -19,7 +19,7 @@ import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
     const b=document.createElement('button');b.type='button';b.className='cal-event cmv-day-event '+(ev.source==='google'?'google cp-event':'cm-app');
     if(ev.source==='google'){b.dataset.googleEvent=ev.id;b.dataset.googleCalendar=ev.calendarId||'primary'}else b.dataset.appEvent=ev.id;
     b.style.background=ev.color||'#7656a8';b.style.color=ev.text||'#fff';
-    if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
+    if(ev.source==='google'){b.style.setProperty('--cmv-google-source',ev.color);b.style.setProperty('--cmv-google-ink',ev.text)}
     const time=ev.allDay?'종일':seoulClock(ev.start);
     b.innerHTML=`<span class="cmv-day-time">${esc(time)}</span><span class="cmv-day-title">${esc(ev.title)}</span>`;
     const plan=ev.source==='google'?planMarkOf(ev.raw||ev):null;if(plan)b.querySelector('.cmv-day-title').prepend(planMarkEl(plan));

@@ -206,26 +206,22 @@
   .ci-card{padding:var(--kptu-space-4)}
 }
 
-/* CAL-cell-polish: A in narrow month cells, C in PC cells and day lists. */
-.cal-event.google.cp-event{
-  background:color-mix(in srgb,var(--cmv-google-source) 15%,white)!important;
-  color:color-mix(in srgb,var(--cmv-google-source) 45%,black)!important;
+/* S67-65 CAL-꽉찬색(명진 11/21 시안 E1): 구글 일정은 월·주·하루 목록 모두 꽉 찬 색 바탕 + 대비 글자.
+   색(--cmv-google-source)은 톤 낮춘 구글 색, 글자(--cmv-google-ink)는 대비 4.5:1로 고른 흰색·진한 글자(event-color.mjs). 다크 모드도 같은 칠. */
+.cal-event.google.cp-event,
+#calendarWeek .cwv-items .cp-event{
+  background:var(--cmv-google-source)!important;
+  color:var(--cmv-google-ink)!important;
+  border-left:0;
   font-weight:400;
-}
-.kptu-day-list .google.cp-event{
-  background:color-mix(in srgb,var(--cmv-google-source) 8%,white)!important;
-  border-left:4px solid var(--cmv-google-source);
 }
 .kptu-day-list .google.cp-event .cmv-day-title,
 .kptu-day-list .google.cp-event .cmv-day-time{font-weight:400}
-@media(min-width:761px){
-  /* BUG-일정색표시: PC week timed rows share the band's left stripe and tint. */
-  #calendarView .google.cp-event,
-  #calendarWeek .cwv-items .cp-event{
-    background:color-mix(in srgb,var(--cmv-google-source) 8%,white)!important;
-    border-left:4px solid var(--cmv-google-source);
-  }
-}
+/* 꽉 찬 색 위 시각 글자는 흐리게 하지 않는다(흐리면 대비 4.5:1 아래로 떨어지는 색이 있다). */
+#calendarWeek .cwv-items .cp-event .clv-time{color:inherit;opacity:1}
+.cal-event.google.cp-event .cmv-day-time,
+#calendarView .calendar-grid .cal-event.google.cp-event .cmv-event-time,
+.cal-event.google.cp-event .cmv-event-time{opacity:1}
 
 /* D-4b list and shared day sections. Month cells keep their existing rules. */
 #calendarList{width:100%}

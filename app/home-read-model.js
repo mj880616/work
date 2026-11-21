@@ -1,4 +1,5 @@
 import {seoulDateKey,seoulParts} from './meeting-time.js';
+import {toneColor} from './event-color.mjs';
 const DAY = 86400000;
 export const dayKey = (now = Date.now()) => seoulDateKey(now);
 export function ranges(now = Date.now()) {
@@ -57,8 +58,10 @@ export function milestoneChips(projects, milestones, now = Date.now()) {
       days: Math.round((Date.parse(m.date) - Date.parse(today)) / DAY),
     }));
 }
-// 일정 한 건의 색: 그 일정 자신의 색 → 내가 정한 캘린더 색 → 캘린더 기본 색. 달력·홈(업무일지) [하루]가 같은 규칙을 쓴다(없으면 '').
-export const eventColor = (e, status) => e?.color || status?.colors?.[e?.calendarId] || status?.calendars?.find((c) => c.id === e?.calendarId)?.backgroundColor || '';
+// 일정 한 건의 원래 구글 색: 그 일정 자신의 색 → 내가 정한 캘린더 색 → 캘린더 기본 색(없으면 '').
+export const eventSourceColor = (e, status) => e?.color || status?.colors?.[e?.calendarId] || status?.calendars?.find((c) => c.id === e?.calendarId)?.backgroundColor || '';
+// 화면에 칠하는 일정 색(S67-65 E1): 원래 구글 색을 톤 낮춘 값(event-color.mjs 표). 달력·홈(업무일지) [하루]가 같은 함수를 쓴다(없으면 '').
+export const eventColor = (e, status) => { const raw = eventSourceColor(e, status); return raw ? toneColor(raw) : ''; };
 export function todayEvents(events, now = Date.now()) {
   const { start, end } = ranges(now);
   return events
