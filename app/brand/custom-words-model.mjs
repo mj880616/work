@@ -5,7 +5,12 @@
 //   1. 내가 고친 이름(custom_words, 칸 id → 글자)
 //   2. 빌드 얼굴의 기본값(app/brand/faces.mjs → 기록+는 girok-words.mjs, 노동조합+는 글자 그대로)
 // 고칠 수 있는 칸은 아래 SLOTS뿐이다(문장 전체 고치기 아님). 칸 id 목록과 글자 규칙은 DB 검사(app_profiles_custom_words_check)와 같아야 한다.
-import {wordIn} from './faces.mjs';
+import {FACES, wordIn} from './faces.mjs';
+
+// S67-62 바탕 낱말 묶음: 사람마다 얼굴 단어표 대신 다른 얼굴의 단어표 하나를 바탕으로 쓴다(그 위에 고친 이름 15칸).
+// 고르는 길은 서버 운영자 허용 표(public.app_operator_features, SQL로만 넣음, 화면·API로 못 씀)뿐이고, 화면은 app_my_features 답으로 읽는다.
+// 화면에서 고르는 메뉴는 없다(미리 만든 묶음을 다른 사람에게 보이지 않는다, 2026-11-20 결정). 기능 키 → 얼굴 id.
+export const WORD_BASE_FEATURES = Object.freeze({nojo_words: 'nojo'});
 
 // keys: 이 칸이 맡는 노조 글자(단어표 열쇠). '#자리' 열쇠는 그 자리에만, 나머지는 문장 안에서도 바뀐다.
 // kind: true면 활동 분류 칸(word(글자,'kind') 자리에만 — 문장 안 '회의'·'교육' 같은 낱말은 건드리지 않는다).
@@ -97,4 +102,17 @@ export function applyCustomWords(face, custom) {
   }
   Object.assign(words, mine);
   return Object.freeze({...face, words: Object.freeze(words)});
+}
+
+/** 서버 기능 목록(app_my_features 답) → 바탕 낱말 묶음 얼굴 id. 없거나 목록이 아니면 null(= 빌드 얼굴 단어 그대로). */
+export function wordBaseOf(features) {
+  if (!Array.isArray(features)) return null;
+  for (const [feature, base] of Object.entries(WORD_BASE_FEATURES)) if (features.includes(feature)) return base;
+  return null;
+}
+
+/** 빌드 얼굴 + 바탕 낱말 묶음 → 단어표만 그 묶음 것으로 바꾼 얼굴(이름·아이콘·메뉴는 빌드 얼굴 그대로). 묶음이 없거나 같으면 얼굴 그대로. */
+export function withWordBase(face, base) {
+  if (!base || !Object.hasOwn(FACES, base) || FACES[base].words === face.words) return face;
+  return Object.freeze({...face, words: FACES[base].words});
 }

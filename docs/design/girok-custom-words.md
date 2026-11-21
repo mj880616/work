@@ -7,7 +7,8 @@
 위가 이긴다.
 
 1. **내가 바꾼 이름**: 내 프로필 행 `app_profiles.custom_words`(서버, 기존 owner RLS로 내 행만 읽고 씀). 기기 저장소에는 두지 않는다.
-2. **빌드 얼굴의 기본값**: `app/brand/faces.mjs`(기록+는 `girok-words.mjs`, 노동조합+는 글자 그대로). S67-43이 화면 글자를 모두 `word()`로 모았다.
+2. **바탕 낱말 묶음**(S67-62, 8절): 서버 운영자 허용 표에 `nojo_words`가 있는 사람만, 빌드 얼굴 단어표 대신 노동조합+ 낱말(단어표 비어 있음 = 글자 그대로) 전체.
+3. **빌드 얼굴의 기본값**: `app/brand/faces.mjs`(기록+는 `girok-words.mjs`, 노동조합+는 글자 그대로). S67-43이 화면 글자를 모두 `word()`로 모았다.
 
 `brand.mjs`의 `word()`만 1을 얹은 단어표를 쓴다. `FACE`(얼굴 그 자체, 기본 이름)·`APP_NAME`은 바꾸지 않는다. 얼굴은 여전히 빌드만 정한다.
 
@@ -58,4 +59,16 @@
 
 - (S67-56에서 해결) 기록+ 빌드는 HTML 글자를 빌드 때 기록+ 단어로 굽는다(`scripts/brand-face.mjs`). 앱 바탕(`app/index.html`)에서 칸 열쇠가 든 글자는 바꾼 자리마다 원래 글자를 남기고(글자 앞 주석 `<!--word:원래 글자-->`, 속성은 `data-word-속성 이름`, `<html data-word-faced>`), 고친 이름이 있는 사람은 3-4단계 앱 바탕 입히기(`app/brand/custom-words-shell.mjs`, 화면 공개 전 한 번)가 그 원래 글자에서 다시 맞춘다. 고친 이름이 없는 사람은 구운 글자 그대로(실행 중 바꾸기 없음). 시험: `scripts/brand-face.test.mjs`, `tests/build-pages/girok-face-boot.spec.mjs`.
 - (S67-56) 운영 배포가 기록+(WORK ON 기본 단어) 얼굴이다: `pages-deploy.yml`·`cloudflare-worker-deploy.yml`이 `--face=girok`으로 만든다(`scripts/production-face.test.mjs`).
-- 칸 밖 낱말(조직→대상, 사업장→거래처, 조합원→구성원 등)은 바꿀 수 없다. 기록+ 빌드에서 명진 화면이 칸 밖 낱말까지 지금과 같아야 하면 칸을 더할지 정해야 한다(칸 id는 DB 검사 `app_profiles_custom_words_check`와 같아야 해 DB 변경이 따른다). S67-56 셈: JS `word()` 고정 글자 중 명진 값(15칸)으로도 지금과 달라지는 글자 약 250개(대부분 '조직'→'대상', '사업장'→'거래처', 주간 보고 '관련 조직'→'관련 대상' 등, '담당 조직'·'투쟁 사업장'처럼 띄어 쓴 꼴은 칸 하나의 이름으로 붙여 보임).
+- 칸 밖 낱말(조직→대상, 사업장→거래처, 조합원→구성원 등)은 칸으로 바꿀 수 없다. 명진 화면은 칸을 늘리지 않고 '바탕 낱말 묶음'(8절, S67-62)으로 노동조합+ 낱말 전체를 바탕으로 써서 지금과 같게 한다.
+
+## 8. 바탕 낱말 묶음 (S67-62)
+
+2026-11-21 07:55 명진 결정: 운영 빌드를 WORK ON 얼굴(girok)로 내보내되, 명진 화면은 바뀌기 전과 한 글자도 다르지 않아야 한다. 15칸 밖 낱말(조직→대상, 사업장→거래처, 쟁의 단계→진행 단계, 운영자 기능 안 글자 등 약 250개)까지 지키려고 칸을 늘리는 대신, 사람마다 **바탕 낱말 묶음** 하나를 고른다.
+
+- 고르는 길: 서버 운영자 허용 표 `public.app_operator_features`의 키 `nojo_words`(migration `20261121090000_nojo_words_feature`, 값은 `docs/ops/nojo-words-operator.*.sql`로만). 화면에서 고르는 메뉴는 없다(미리 만든 묶음을 다른 사람에게 보이지 않는다, 11/20 결정). 표는 RLS 켬·정책 없음·API 역할 권한 없음이라 본인도 못 바꾼다.
+  - 다른 길을 고르지 않은 이유: `app_profiles` 칸이나 `custom_words` 안 예약 키는 owner RLS로 본인이 API로 바꿀 수 있어 'SQL로만'이 깨지고, 둘 다 DB 검사 변경이 따로 필요하다. 허용 표는 이미 '서버만 정하는 사람별 켜기'의 자리이고 화면이 읽는 길(`app_my_features`)도 있다. 키 목록이 검사(`app_operator_features_feature_check`)라 그 한 줄만 바꾼다.
+- 뜻: `app/brand/custom-words-model.mjs` `WORD_BASE_FEATURES`·`wordBaseOf`·`withWordBase`. 단어표만 바꾸고 이름·아이콘·메뉴 목록은 빌드 얼굴 그대로.
+- 시작 순서: `loader-v2.js`가 소유자 확인 뒤 `custom_words`와 함께 `app_my_features`를 한 번 읽는다(같은 약속, 3.5초·실패면 그쪽만 없음). 그 답은 `my-features.js`의 첫 물음이 그대로 쓴다(`window.__KPTU_BOOT_FEATURES__`, 두 번 묻지 않음). `brand.mjs` `BASE_FACE` = 빌드 얼굴 + 바탕 묶음, 그 위에 고친 이름. 이름 바꾸기 칸의 '기본 이름'도 `BASE_FACE`.
+- 앱 바탕: 빌드가 `app/index.html`에서 바꾼 글자는 **모두** 원래 글자를 남긴다(S67-56은 칸 열쇠가 든 글자만이었다). 바탕이 nojo면 `custom-words-shell.mjs`가 화면 공개 전 한 번 원래 글자로 되돌린다 → 앱 바탕이 nojo 빌드와 같다(`scripts/brand-face.test.mjs`가 되돌린 HTML = nojo 빌드 HTML을 본다).
+- 시험: `tests/custom-words.test.mjs`(app/의 `word()` 고정 글자 전부 = nojo), `tests/build-pages/girok-face-boot.spec.mjs`(두 빌드를 같은 흉내 서버로 띄워 화면 12개 글자·`word()` 고정 글자 전부가 같음, 바탕 없는 사람은 노조 색 글자 0), `tests/auth-handoff/nojo-words-feature-db.test.mjs`(PostgreSQL).
+- 적용 순서: 이 PR merge → 승인형 DB workflow `20261121090000` dry-run → apply → SQL Editor `nojo-words-operator.precheck.sql`(모두 예) → `nojo-words-operator.apply.sql`. 적용 전에는 명진 화면도 WORK ON 낱말 + 15칸(#2828 그대로)이다.
