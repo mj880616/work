@@ -30,11 +30,11 @@ function noteRow(item,current,words){
   head.append(marked('span','rn-ver',note.v,words),marked('span','rn-date',shortDate(note.date),words));
   if(note.v===current)head.append(el('span','rn-now','지금'));
   else head.append(marked('span','rn-one',item.changes[0]??item.checks[0],words));
-  // UPDATE-운영자전용기록업데이트소식 PR3: 줄마다 [보내기](이용자에게 업데이트 소식으로), 이미 보낸 기록은 '보냄'. 소식 서버를 못 읽으면 둘 다 없다.
+  // UPDATE-운영자전용기록업데이트소식 PR3: 줄마다 [보내기](이용자에게 업데이트 소식으로). 소식 서버를 못 읽으면 없다.
+  // S67-73(명진 11/21 "보내기 버튼이 보냄으로 바뀌어야지"): 이미 보낸 기록은 따로 '보냄' 꼬리표를 달지 않고 같은 버튼이 [보냄](못 누름)으로 바뀐다.
   if(news.admin){
-    const sent=el('span','rn-sent','보냄');sent.hidden=!news.sent.has(note.v);sent.dataset.rnSent=note.v;
-    const send=el('button','rn-send mini','보내기');send.type='button';send.dataset.rnSend=note.v;send.setAttribute('aria-label',`${note.v} 이용자에게 보내기`);
-    head.append(sent,send);
+    const send=el('button','rn-send mini');send.type='button';send.dataset.rnSend=note.v;paintSend(send);
+    head.append(send);
   }
   const body=el('div','rn-body');
   if(item.changes.length){
@@ -61,8 +61,14 @@ async function loadAdmin(){
   news.sent=sentVersions(news.admin?.items);
   return news.admin;
 }
+// 기록 줄 버튼 하나의 모양: 보낸 기록이면 [보냄](못 누름), 아니면 [보내기]. 처음 그릴 때와 보낸 뒤 모두 이 함수만 쓴다.
+function paintSend(btn){
+  const v=btn.dataset.rnSend,done=news.sent.has(v);
+  btn.textContent=done?'보냄':'보내기';btn.disabled=done;btn.classList.toggle('rn-sent',done);
+  btn.setAttribute('aria-label',done?`${v} 이용자에게 보냄`:`${v} 이용자에게 보내기`);
+}
 function refreshMarks(){
-  news.root?.querySelectorAll('[data-rn-sent]').forEach(tag=>{tag.hidden=!news.sent.has(tag.dataset.rnSent)});
+  news.root?.querySelectorAll('[data-rn-send]').forEach(paintSend);
   paintNews();
 }
 const failLine=error=>/OPERATOR_FEATURE_REQUIRED|42501/.test(String(error?.message||error))?'운영자만 보낼 수 있어요':'보내지 못했어요. 잠시 뒤 다시 해 주세요';

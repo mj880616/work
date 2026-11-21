@@ -18,8 +18,7 @@
 #updatesView .un-sent .un-list{border-top:0}
 #updatesView .un-cutline{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #updatesView .un-cutline::before,#updatesView .un-cutline::after{content:"";flex:1;border-top:1px dashed var(--kptu-border)}
-#updatesView .rn-sent{flex:none;padding:0 5px;border-radius:var(--kptu-radius-sm);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta)}
-#updatesView .rn-sent[hidden]{display:none}
+#updatesView .rn-send.rn-sent:disabled{opacity:1;background:transparent;border-color:transparent;color:var(--kptu-muted);cursor:default}
 #updatesView .rn-send{flex:none;margin-left:auto}
 .sfm .un-bundle{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
 .sfm .un-chips{display:contents}
