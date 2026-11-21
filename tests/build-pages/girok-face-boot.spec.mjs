@@ -121,7 +121,7 @@ test('girok 빌드 + 고친 이름(지금 화면 이름 15칸): 앱 바탕·메�
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page, { customWords: OPERATOR });
-  await expect(page.locator('.topbar .brand span')).toHaveText('WORK ON');
+  await expect(page.locator('.topbar .brand span')).toHaveText('WORK ON+');
   // 앱 바탕(index.html, 빌드가 girok 글자로 바꾼 자리): 메뉴·아래 막대·사업영역 창·자료실 걸러보기.
   await expect(page.locator('#appNav .nav-btn[data-view="meetings"]')).toHaveText('사업 관리');
   await expect(page.locator('#appNav .nav-btn[data-view="team"]')).toHaveText('조직 관리');
@@ -132,11 +132,11 @@ test('girok 빌드 + 고친 이름(지금 화면 이름 15칸): 앱 바탕·메�
   const shell = await page.evaluate(() => [...document.querySelectorAll('[data-word-aria-label]')].map(el => [el.getAttribute('data-word-aria-label'), el.getAttribute('aria-label')]));
   expect(shell.length).toBeGreaterThan(0);
   for (const [from, shown] of shell) expect(shown, from).toBe(from);
-  await expect(page).toHaveTitle('홈 · WORK ON');
+  await expect(page).toHaveTitle('홈 · WORK ON+');
   for (const [view, title] of [['home', '홈'], ['meetings', '사업 관리'], ['team', '조직 관리']]) {
     await page.evaluate(v => window.KPTURouter.go(v), view);
     await settle(page, view);
-    await expect(page).toHaveTitle(`${title} · WORK ON`);
+    await expect(page).toHaveTitle(`${title} · WORK ON+`);
     const bad = (await shownTexts(page)).filter(t => SLOT_DEFAULTS.has(t));
     expect(bad, `${view}: 고친 이름 대신 기본 이름`).toEqual([]);
   }
@@ -152,7 +152,7 @@ test('girok 빌드 + 고친 이름 없음: 메뉴·화면 이름이 WORK ON 기�
   await expect(page.locator('#areaWindowTitle')).toHaveText('프로젝트 관리');
   await page.evaluate(() => window.KPTURouter.go('team'));
   await settle(page, 'team');
-  await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON');
+  await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON+');
   await noUnionWords(page, 'PC team (고친 이름 없음)');
 });
 
