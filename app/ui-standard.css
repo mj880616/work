@@ -1500,7 +1500,7 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
 /* ▾ 그림은 base-ui.css 칸 기본(select{background:…} 줄임 표기)보다 한 단계 강하게 둔다(S52-22에서 발견: :where 강도 0이라 ▾가 어디서도 그려지지 않았다).
    화면이 #id로 바탕을 따로 정한 상자는 그 규칙이 그대로 이긴다. 오른쪽 여백 26px은 아래 ③ 규칙.
    S56-11: 고르기 창을 여는 단추라도 '고르기 상자' 자리에 놓이면 같은 ▾ 그림을 쓴다(자료실 [분류 ▾] — 옆 [폴더 ▾]와 한 모양). 쉼표 목록이라 select 쪽 강도는 그대로다. */
-select:not([multiple],[size]),#libraryView button.lu-cat-pick{
+select:not([multiple],[size]),#libraryView button.lu-cat-pick,#meetingsView button.report-filter-chip{
   background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%);
   background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat;
 }
@@ -1537,7 +1537,10 @@ li:where(:has(> label > input:is([type="checkbox"],[type="radio"]))){ list-style
 button.icon-btn:is([aria-label$="닫기"],[data-close]){ border-color:transparent; background:transparent; color:var(--kptu-muted); }
 button.icon-btn:is([aria-label$="닫기"],[data-close]):hover{ color:var(--kptu-ink); }
 /* ③ 고르기 상자 ▾ 자리: 화면 규칙이 padding을 정해도 글자가 ▾ 밑으로 들어가지 않게 오른쪽 여백만 한 곳에서 고정한다. */
-select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick{ padding-right:26px !important; } /* S56-11: ▾ 그림을 쓰는 고르기 단추도 같은 여백 */
+select:not([multiple],[size],[hidden]),#libraryView button.lu-cat-pick,#meetingsView button.report-filter-chip{ padding-right:26px !important; }
+/* S67-75: 고르기 상자 자리에 놓인 '여러 상자를 여는 칩'(사업 관리 폰 윗줄 걸러보기 칩)은 고르기 상자와 같은 높이·테두리·모서리·바탕, 고른 게 있으면 진한 선. */
+button.report-filter-chip{ height:var(--ds-compact-height); min-height:var(--ds-compact-height); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background-color:var(--ds-select-bg,var(--kptu-surface)); }
+button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-border-strong)); } /* S56-11: ▾ 그림을 쓰는 고르기 단추도 같은 여백 */
 /* ===== UI-화면정리 B(2026-10-28 명진 요청 20:03): 공용 부품 통일 — A 묶음의 부품을 그대로 쓰고, 화면마다 따로 있던 모양을 여기 한 곳으로 =====
    기록: docs/design-decisions.md "UI-화면정리 B". 값은 --ds-*·--kptu-* 토큰만 쓴다. 재발 방지 시험: tests/ui-cleanup-b.test.mjs.
    ① 화면 큰 제목(.screen-title): 폰(~760px)은 위 머리줄, PC(761px~, UI-폴드PC틀)는 위쪽 경로 줄이 화면 이름을 보이므로 본문의 큰 제목은 모든 폭에서
@@ -1791,12 +1794,8 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 .wl-line:has(> .row-more){ padding-right:calc(var(--ds-compact-height-sm) + 2px); }
 #appView .wl-line > .row-more{ position:absolute; top:2px; right:0; margin:0; }
 
-/* S67-74: 칩 줄 끝 흐림 폭(아래 폰 묶음). 넘치지 않으면 타임라인이 없어 기본값 0 = 흐림 없음. */
-@property --rk-fade-l{ syntax:'<length>'; inherits:false; initial-value:0px; }
-@property --rk-fade-r{ syntax:'<length>'; inherits:false; initial-value:0px; }
-@keyframes rk-chip-fade{ 0%{ --rk-fade-l:0px; --rk-fade-r:18px; } 8%{ --rk-fade-l:18px; } 92%{ --rk-fade-r:18px; } 100%{ --rk-fade-l:18px; --rk-fade-r:0px; } }
 /* ===== S67-64 UI-윗줄한줄(2026-11-21 명진 08:12·08:25, 시안 D3 + D2 제목 글씨): 폰(~760px) 화면 윗줄은 한 줄 =
-   [WORK ON 아이콘 20px(누르면 홈)] [화면 이름 15px·500, 테두리·칩 없는 글자] [그 화면의 걸러보기 칩(있을 때만, 넘치면 그 줄 안에서 가로로 밀기)] … [+]·[⋯].
+   [WORK ON 아이콘 20px(누르면 홈)] [화면 이름 15px·500, 테두리·칩 없는 글자] [그 화면의 걸러보기 칩(있을 때만. 사업 관리는 다 안 들어가면 칩 하나로 묶음 — 아래 S67-75)] … [+]·[⋯].
    아이콘 글자는 head-mark.mjs 하나(앱 머리줄·사업 관리 첫 줄은 index.html, 홈은 journal.js). 줄을 그리는 주인은 그대로다:
    앱 머리줄 = topbar-actions.js(일정·노트·조직 관리 등), 사업 관리 첫 줄 = index.html의 .report-top(같은 요소를 PC처럼 한 줄로 놓음), 홈 = journal.js 머리줄.
    PC 틀(761px~)은 사이드바 맨 위 아이콘·위쪽 경로 줄이 같은 일을 하므로 아이콘을 두지 않는다(부품 자신의 보이는 폭 규칙). */
@@ -1817,22 +1816,19 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   #appView #meetingsView .report-top-line > .head-mark{ order:0; }
   /* 이름은 줄지 않는다. 사람마다 바꾼 이름(custom_words)이 아주 길 때만 9글자 폭에서 …(기본 이름은 닿지 않음) — 칩 자리·[+]·[⋯]가 줄 밖으로 밀리지 않게. */
   #appView #meetingsView .report-top-line > .report-top-title{ order:1; flex:0 0 auto; max-width:9em; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-head); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
-  /* S67-74 UI-윗줄칩잘림(명진 11/21 16:18 '사업영역 전체 박스 짤림'): 칩 묶음은 남은 폭을 다 쓰고, 칩이 다 안 들어가면 줄 안에서 가로로 밀되
-     밀리는 쪽 끝(밀어 둔 앞쪽도)은 18px 동안 흐리게 사라진다 — 칩 테두리가 칼로 자른 듯 끊겨 보이지 않고, 더 있다는 표시가 된다. 끝까지 밀면 그쪽 흐림은 없어진다.
-     흐림 폭은 칩 줄 자신의 가로 밀기 위치를 따르는 CSS 하나(scroll() 타임라인, 위 @keyframes rk-chip-fade) — 스크립트·덮어쓰기 없음. 안 넘치면 흐림 없음.
-     칩 글자는 줄이지 않는다(…로 줄여 네 칩을 412px에 넣으면 칩마다 글자 한 개 + ▾만 남아 읽을 수 없었음). ▾는 칩 오른쪽 바탕 그림이라 칩이 보이면 늘 보인다. */
-  #appView #meetingsView .report-top > .report-kind-bar{ order:2; flex:1 1 0; min-width:0; margin:0; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; overscroll-behavior-x:contain; }
-  #appView #meetingsView .report-top > .report-kind-bar::-webkit-scrollbar{ display:none; }
-  /* 칩은 줄어들지 않는다(meeting-ui.css의 줄어드는 규칙보다 강하게). */
+  /* S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안, PR 2847 끝 흐림은 걷어냄): 고르기 상자 네 개(종류·사업영역·기간·보기)가 이 줄에 다 들어가면
+     지금처럼 네 개(남은 폭을 다 씀), 다 안 들어가면 칩 하나 [전체 ▾]·[고른 값 · 고른 값 ▾]로 묶는다. 어느 쪽인지는 report-filter-chip.js가
+     실제 폭으로 재서 .report-top에 .is-filter-one을 붙인다. 칩 글자는 길면 끝 말줄임, ▾는 칩 오른쪽 바탕 그림이라 늘 보인다(칩이 잘리는 일 없음).
+     칩을 누르면 상자 줄(.report-kind-bar) 자체가 칩 바로 아래 작은 창(.is-filter-panel, 맨 위 층 popover)이 된다 — 값·동작은 그 상자 그대로. */
+  #appView #meetingsView .report-top > .report-kind-bar{ order:2; flex:1 1 0; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; }
+  /* 칩은 줄어들지 않는다(meeting-ui.css의 줄어드는 규칙보다 강하게) — 다 안 들어가면 줄이는 대신 칩 하나로 묶는다. */
   #appView #meetingsView .report-top > .report-kind-bar > :is(select.report-top-select,.report-period-host){ flex:none; }
+  /* 칩 자리(.report-filter-slot)는 남은 폭을 다 쓰고, 칩은 글자만큼 — 자리보다 길면 칩 안 글자 끝이 …(줄이 넘어가지 않음). */
+  #appView #meetingsView .report-top-line > .report-filter-slot{ order:2; flex:1 1 0; min-width:0; display:flex; }
+  #appView #meetingsView .report-filter-slot > .report-filter-chip{ flex:0 1 auto; min-width:0; max-width:100%; }
+  #appView #meetingsView .report-top.is-filter-one > .report-kind-bar:not(.is-filter-panel){ display:none; }
   #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:0; }
   #appView #meetingsView .report-top > .report-week-bar{ order:4; flex:1 1 100%; margin:0; }
-  @supports (animation-timeline:scroll()){
-    #appView #meetingsView .report-top > .report-kind-bar{
-      -webkit-mask-image:linear-gradient(to right,transparent 0,black var(--rk-fade-l),black calc(100% - var(--rk-fade-r)),transparent 100%);
-      mask-image:linear-gradient(to right,transparent 0,black var(--rk-fade-l),black calc(100% - var(--rk-fade-r)),transparent 100%);
-      animation:rk-chip-fade linear both; animation-timeline:scroll(self inline); }
-  }
   /* 홈: 날짜 머리줄 첫 줄 = [아이콘] [날짜 글자(화면 이름 자리)] … [하루|주간 보고]. 날짜 7칸 줄은 그 아래 그대로. */
   #appView #homeView .journal-head > .head-mark{ order:-3; }
   #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }

@@ -10,6 +10,7 @@ import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {paintUploadLine,paintUploadOverlay,watchUploads,announceDock} from './upload-progress.js'; // UI-올리기진행표시 ②
 import {sendFailLine} from './meeting-send.mjs'; // BIZ-저장먼저닫기
 import {viewPrefs} from './view-prefs.js';
+import {paintReportFilterChip} from './report-filter-chip.js'; // S67-75 UI-걸러보기칩하나: 폰 윗줄 칩 하나(상자 네 개를 그린 뒤 칩 글자·칩/네 개를 맞춤)
 import {keepMenus} from './anchored-menu.js'; // MENU-자리나머지: 창 밖 보고 메뉴를 다시 그린 줄에 붙임
 import {PERIOD_CHOICES,periodFromPref,prefFromPeriod,inRange,rangeLabel,quickRanges,validRange} from './report-period-model.mjs';import {rangePanelHtml,weekNumberPanelHtml,isoYearChanged,weekNumberName} from './report-period-panel.mjs';import {isoWeekOf,isoWeekStart} from './business-area-model.mjs'; // REPORT-기간고르기 // ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기 선택은 서버(report_view)에 기억
 import {ALL_KINDS,DEFAULT_KIND,DEFAULT_CHIP,REPORT_KINDS,ONELINE_KIND,isReportKind,isReportChip,reportKindOf,reportKindLabel,reportKindChips,filterByReportKind} from './report-kinds.mjs';
@@ -228,7 +229,7 @@ let reportPlaceReady=false;
 // 서버에서 읽은 기억은 사용자가 이번에 직접 고르기 전까지 그릴 때마다 따른다(팀 모듈이 기억을 읽기 전에 불러와질 수 있어 처음 값은 그릴 때 읽는다).
 let reportView='list',reportViewChosen=false,reportMonth=(()=>{const p=seoulParts();return {year:p.year,month:p.month}})(),reportDay='',photoFocusId=null;
 // UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기 [목록|달력|사진] 탭 줄 대신 위 줄 기간 [주 단위 ▾] 옆 같은 고르기 상자 [목록 ▾] 하나(fillSelect, 열리는 작은 목록은 select-menu.js).
-function renderReportViewSelect(){fillSelect($('#reportViewSelect'),{groups:[{options:REPORT_VIEW_OPTIONS.map(o=>({value:o.value,label:o.label}))}],value:reportView,on:false})}
+function renderReportViewSelect(){fillSelect($('#reportViewSelect'),{groups:[{options:REPORT_VIEW_OPTIONS.map(o=>({value:o.value,label:o.label}))}],value:reportView,on:false});paintReportFilterChip()}
 // MTG-고치기바로: 세 번째 칸에서 고치던 내용이 있으면, 다른 줄·종류·칸·보기를 누를 때 그 자리에서 [저장] [버리기]를 묻고 고른 뒤에 간다(meeting-round-detail.js 문지기). 없으면 바로 간다.
 // 물어서 멈췄으면(false) 눌린 칩은 원래 상태로 되돌려 그린다.
 function leaveReport(go){const guard=window.KPTUMeetingRoundDetail?.guardLeave;if(!guard){go();return true}return guard(go)}
@@ -299,9 +300,9 @@ window.addEventListener('kptu:meeting-name-sorts',()=>{if(workspace?.id&&teamVie
 // [회의 ▾] 상자의 회의명: 조직으로 묶이면 조직마다 머리글 묶음(조직 순서, 묶음 안은 가나다), 아니면 지금처럼 '회의명' 묶음 하나.
 function nameGroups(names){const opt=o=>({value:NAME_PICK+o.value,label:o.label});if(!names.length)return [];const sections=nameSections(names,o=>o.value==='__none__'?'':o.value);return sections?sections.map(g=>({title:g.label,options:g.items.map(opt)})):[{title:'회의명',options:names.map(opt)}]}
 function renderReportSelects(){renderMeetingTypeOptions();const nameOn=nameFilterOn(),names=nameOn?nameChoices():[];
-  const kinds=firstLabel(reportKindChips(meetings),'종류 전체').map(o=>({value:KIND_PICK+o.value,label:o.label}));
+  const kinds=firstLabel(reportKindChips(meetings),'종류').map(o=>({value:KIND_PICK+o.value,label:o.label}));
   fillSelect($('#reportKindSelect'),{groups:[{options:kinds},...nameGroups(names)],value:nameOn&&meetingType!=='all'?NAME_PICK+meetingType:KIND_PICK+reportChip,on:reportChip!==ALL_KINDS});
-  fillSelect($('#reportAreaSelect'),{groups:[{options:firstLabel(areaOptions,word('사업영역 전체'))}],value:areaChip,on:areaChip!=='all',show:areaOptions.length>0})}
+  fillSelect($('#reportAreaSelect'),{groups:[{options:firstLabel(areaOptions,word('사업영역'))}],value:areaChip,on:areaChip!=='all',show:areaOptions.length>0});paintReportFilterChip()}
 function reportSelectChange(e){const sel=e.target;if(sel.id==='reportViewSelect'){selectReportView(sel.value);return}if(sel.id==='reportAreaSelect'){selectAreaChip(sel.value);return}if(sel.id!=='reportKindSelect')return;const v=sel.value;
   if(v.startsWith(NAME_PICK)){selectMeetingType(v.slice(NAME_PICK.length));return}const kind=v.slice(KIND_PICK.length);
   if(kind===reportChip&&meetingType!=='all'){selectMeetingType('all');return}selectReportChip(kind)}
@@ -322,7 +323,7 @@ function pickWeek(from){reportWeek=from||null;reportWeekIn=todayWeek()}
 function weekMatch(list){return weekOn()?inReportWeek(list,currentWeek()):rangeOn()?inRange(list,reportRange.from,reportRange.to):list}
 function applyPeriodPref(){if(reportPeriodChosen)return;const p=periodFromPref(viewPrefs.get('report_period'));reportPeriod=p.mode;if(p.mode==='range')reportRange={from:p.from,to:p.to}}
 function setPeriod(mode,range=null){reportPeriodChosen=true;reportPeriod=mode;if(range)reportRange=range;periodPanel='';periodDraft=null;isoDraft=null;meetingSelectedId=null;viewPrefs.set('report_period',prefFromPeriod({mode,...(mode==='range'?reportRange:{})}),{rejectable:true});renderMeetings({resetList:true})}
-function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentElement,pickHost=$('#reportPeriodPick');if(!host)return;const show=reportView==='list'&&meetings.length>0;if(bar)bar.hidden=!show;if(pickHost)pickHost.hidden=!show;if(!show){host.innerHTML='';if(pickHost)pickHost.innerHTML='';return}
+function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentElement,pickHost=$('#reportPeriodPick');if(!host)return;const show=reportView==='list'&&meetings.length>0;if(bar)bar.hidden=!show;if(pickHost)pickHost.hidden=!show;if(!show){host.innerHTML='';if(pickHost)pickHost.innerHTML='';paintReportFilterChip();return}
   const mode=rangeOn()||reportPeriod!=='range'?reportPeriod:'all',list=filterByReportKind(meetings,reportChip),inList=mode==='week'?inReportWeek(list,currentWeek()):mode==='range'?inRange(list,reportRange.from,reportRange.to):list,none=undatedCount(inList),n=inList.length-none,count=`<small class="report-week-count">· ${n}건${none?` · ${NO_WHEN} ${none}`:''}</small>`;
   const thisWeek=weekOf(seoulDateKey()).from,numbered=mode==='week'&&weekNumbered,away=mode==='week'&&(currentWeek()!==thisWeek||numbered),held=mode==='range'&&!periodPanel,value=periodPanel||(away||held?'':mode);
   // BIZ-위쪽정돈(B안, 11/09): 기간 고르기 상자는 둘째 줄(회의·사업영역 옆), 주 넘기기 ‹ ›는 셋째 줄. 주를 고르는 곳은 이 한 곳이고 '이번 주 주간보고' 칸도 이 주를 따른다.
@@ -337,6 +338,7 @@ function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentEl
   // 작은 창은 기간 고르기 상자(둘째 줄) 바로 아래, 주 줄 위.
   host.innerHTML=`${panel}<div class="report-week-nav">${nav}</div>`;
   if(pickHost){pickHost.innerHTML=pick;const sel=pickHost.querySelector('[data-report-period]');sel.value=value;sel.classList.toggle('is-on',mode!=='week'||away)}
+  paintReportFilterChip();
 }
 const isoPick=from=>{const w=isoWeekOf(from);return {year:w.year,week:w.week}};
 function firstReportDay(){let first='';for(const m of meetings){const d=reportDayOf(m);if(d&&(!first||d<first))first=d}return first}

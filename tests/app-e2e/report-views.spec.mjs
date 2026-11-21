@@ -4,6 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { answerAsk, noticeText } from './helpers/small-notice.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs';
 
 // ACT-사진 6단계: 사업 보고 화면의 [목록|달력|사진] 보기. 달력은 사업 보고 화면 안에서만, 사진은 날짜 묶음 격자(크게 보기 재사용),
 // 고른 보기는 서버(프로필 view_prefs.report_view)에 기억하고 칸이 아직 없는 서버(적용 전)면 기억만 건너뛴다. 모든 이름·번호는 합성 값.
@@ -92,7 +93,8 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 }
 // UI-보기탭드롭다운(11/10): 보기는 위 줄 고르기 상자 [목록 ▾](#reportViewSelect). view(page,'달력') = 그 보기를 고르기.
 const viewSelect = page => page.locator('#reportViewSelect');
-const view = (page, label) => viewSelect(page).selectOption({label});
+// S67-75 UI-걸러보기칩하나: 폰 폭이면 상자는 칩이 여는 창 안 — 칩을 눌러 창을 연 뒤 고른다(고르면 창은 닫힘).
+const view = async (page, label) => { await openReportBoxes(page); await viewSelect(page).selectOption({label}); };
 const noOverflow = page => page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1);
 
 for (const width of [390, 1440]) {

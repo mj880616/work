@@ -103,20 +103,20 @@ for (const width of [390, 700]) {
   }
 }
 
-test('narrow phone: the 사업 관리 chips scroll sideways inside the line, the line does not grow', async ({ page }) => {
+// S67-75 UI-걸러보기칩하나(명진 11/21 18:33 A안): 좁은 폰에서 고르기 상자 네 개가 줄에 다 안 들어가면 가로로 밀지 않고 칩 하나로 묶는다(PR 2847의 밀기·끝 흐림은 걷어냄).
+test('narrow phone: the 사업 관리 boxes fold into one chip on the line, the line does not grow', async ({ page }) => {
   await open(page, 'view=meetings', { width: 320 });
-  const bar = page.locator('#meetingsView .report-kind-bar');
-  await expect(bar).toBeVisible();
+  const chip = page.locator('#reportFilterChip');
+  await expect(chip).toBeVisible();
+  await expect(page.locator('#meetingsView .report-kind-bar')).toBeHidden();
   const title = await box(page.locator('#meetingsView .report-top-title'));
-  const b = await box(bar);
-  expect(Math.abs(b.mid - title.mid)).toBeLessThanOrEqual(4);
-  expect(Math.round(b.height)).toBeLessThanOrEqual(34);
-  const scroll = await bar.evaluate(el => ({ wrap: getComputedStyle(el).flexWrap, x: getComputedStyle(el).overflowX, sw: el.scrollWidth, cw: el.clientWidth }));
-  expect(scroll.wrap).toBe('nowrap');
-  expect(scroll.x).toBe('auto');
-  expect(scroll.sw).toBeGreaterThan(scroll.cw);
-  // [+]·[⋯]는 넘친 칩에 밀려 줄 밖으로 나가지 않는다.
-  const more = await box(page.locator('#reportMore'));
+  const c = await box(chip);
+  expect(Math.abs(c.mid - title.mid)).toBeLessThanOrEqual(4);
+  expect(Math.round(c.height)).toBeLessThanOrEqual(34);
+  expect(await chip.evaluate(el => { const t = el.querySelector('.report-filter-chip-text'); return t.scrollWidth <= t.clientWidth + 1; })).toBe(true);
+  // [+]·[⋯]는 줄 밖으로 나가지 않는다.
+  const more = await box(page.locator('#reportMore')), add = await box(page.locator('#newMeetingBtn'));
+  expect(c.right).toBeLessThanOrEqual(add.left + 0.5);
   expect(more.right).toBeLessThanOrEqual(320);
   expect(Math.abs(more.mid - title.mid)).toBeLessThanOrEqual(4);
   expect(await noPageScroll(page)).toBe(true);

@@ -11,6 +11,7 @@ import {showAllReportWeeks,reportWeekButton,reportPeriodSelect} from './helpers/
 import {reportFilterKeys,pickReportFilter} from './helpers/report-filter.mjs';
 
 import {addReport} from './helpers/report-add.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
 test.use({timezoneId:'Asia/Seoul'});
 
 // 궤도협의회 6건, 노사협의회 2건(가장 최근), 안전위원회 1건(가장 오래됨), 회의명 미지정 1건. 모두 가짜 회의 이름.
@@ -435,7 +436,7 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   await expect(bar).toBeVisible();await expect(page.locator('#reportWeekFilter')).toHaveAttribute('role','group');
   await expect(prev).toHaveAttribute('aria-label','이전 주');await expect(next).toHaveAttribute('aria-label','다음 주');
   await expect(pick.locator('option:not([hidden])')).toHaveText(['이번 주','주차 선택','전체 기간','기간 정하기']);await expect(pick.locator('option:checked')).toHaveText('이번 주'); // 처음은 이번 주(BIZ-주간표이번주)
-  const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();/* BIZ-위쪽정돈PC(11/09 10:52 A): PC는 주 줄이 종류 줄 오른쪽 같은 줄, 폰은 아래 줄 */if(pc){expect(Math.abs((weekBar.y+weekBar.height/2)-(kindBar.y+kindBar.height/2))).toBeLessThanOrEqual(3);expect(weekBar.x).toBeGreaterThanOrEqual(kindBar.x+kindBar.width-1)}else expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);const pickBox=await pick.boundingBox();expect(pickBox.y).toBeGreaterThanOrEqual(kindBar.y-1);expect(pickBox.y+pickBox.height).toBeLessThanOrEqual(kindBar.y+kindBar.height+1);
+  const inChip=!pc&&await page.locator('#reportFilterChip').isVisible();/* S67-75 UI-걸러보기칩하나: 폰은 고르기 상자들이 칩 하나 — 칩이 그 줄 자리, 기간 상자는 칩이 여는 창 안 */const kindBar=await page.locator(inChip?'#reportFilterChip':'#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();/* BIZ-위쪽정돈PC(11/09 10:52 A): PC는 주 줄이 종류 줄 오른쪽 같은 줄, 폰은 아래 줄 */if(pc){expect(Math.abs((weekBar.y+weekBar.height/2)-(kindBar.y+kindBar.height/2))).toBeLessThanOrEqual(3);expect(weekBar.x).toBeGreaterThanOrEqual(kindBar.x+kindBar.width-1)}else expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);if(!inChip){const pickBox=await pick.boundingBox();expect(pickBox.y).toBeGreaterThanOrEqual(kindBar.y-1);expect(pickBox.y+pickBox.height).toBeLessThanOrEqual(kindBar.y+kindBar.height+1)}
   // BIZ-위쪽정돈: 주 넘기기(‹ 라벨 › · n건)는 폰에서도 한 줄, [이번 주 ▾]는 둘째 줄(종류·사업영역 옆)이라 이 줄에서 뺀다.
   for(const sel of ['#reportWeekFilter .report-week-nav > *']){const tops=await page.locator(sel).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
     expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2)}
@@ -455,13 +456,13 @@ for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단�
   await expect(label).toHaveText('10.19(월)~10.25(일)');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 1건');await expect.poll(shown).toEqual(['week-new']);
   await prev.click();await expect.poll(shown).toEqual(['week-old']);
   // 전체 기간: 모든 주(최신 위). ‹ ›는 없어지고 라벨은 '전체 · n건'.
-  await pick.selectOption('all');
+  await openReportBoxes(page);await pick.selectOption('all');
   await expect(pick).toHaveValue('all');await expect(label).toHaveText('전체');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 2건');
   await expect(prev).toHaveCount(0);await expect(next).toHaveCount(0);
   await expect.poll(shown).toEqual(['week-new','week-old']);
   if(pc)await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('2');
   // '이번 주'를 고르면 주 단위로, 이번 주(10.19~10.25)로 간다(BIZ-주간표이번주: 보던 주가 아니라 늘 이번 주).
-  await pick.selectOption('week');
+  await openReportBoxes(page);await pick.selectOption('week');
   await expect(pick).not.toHaveValue('all');await expect(label).toHaveText('10.19(월)~10.25(일)');await expect(page.locator('#reportWeekFilter .report-week-count')).toHaveText('· 1건');
   await expect.poll(shown).toEqual(['week-new']);
   // 다른 곳에서 고른 보고(KPTUMeetingColumns.select)가 지금 주에 없으면 그 보고의 주로 옮긴다.

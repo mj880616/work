@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
 
 // REPORT-기간고르기(S49-11) → S52-22 TEAM-맨위한줄: 사업 보고 기간 한 줄 '‹ 날짜 · n건 ›' + [이번 주 ▾](이번 주·전체 기간·기간 정하기) — 고른 기간을 서버(view_prefs.report_period)에 기억하고 다시 열어도 유지.
 // (가짜 서버·가짜 보고는 report-views.spec.mjs와 같은 틀.)
@@ -75,7 +76,7 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
 }
 // UI-보기탭드롭다운(11/10): 보기는 위 줄 고르기 상자 [목록 ▾](#reportViewSelect). view(page,'달력') = 그 보기를 고르기.
 const viewSelect = page => page.locator('#reportViewSelect');
-const view = (page, label) => viewSelect(page).selectOption({label});
+const view = async (page, label) => { await openReportBoxes(page); await viewSelect(page).selectOption({label}); };
 const chip = (page, v) => page.locator(`#reportWeekFilter [data-report-week="${v}"]`);
 const period = page => page.locator('#reportPeriodPick [data-report-period]');
 // BIZ-위쪽정돈(11/09): 건수는 › 뒤로 나가 label 옆 .report-week-count로 갔으므로 이 시험의 '라벨'은 주 줄 전체(‹ 날짜 › · n건)다.
@@ -91,12 +92,12 @@ for (const width of [1440, 390]) test(`${width}: 기간 한 줄 — 기본은 �
   await expect(chip(page, 'prev')).toBeVisible();
   const tops = await page.locator('#reportWeekFilter .report-week-nav > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
-  await period(page).selectOption('all');
+  await openReportBoxes(page);await period(page).selectOption('all');
   await expect(period(page)).toHaveValue('all');
   await expect(label(page)).toContainText('전체');
   await expect(chip(page, 'prev')).toHaveCount(0);
   await expect(chip(page, 'next')).toHaveCount(0);
-  await period(page).selectOption('week');
+  await openReportBoxes(page);await period(page).selectOption('week');
   await expect(chip(page, 'prev')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
 });
@@ -105,7 +106,7 @@ test('기간 설정: 달력으로 시작·끝 날을 선택하면 그 기간 보
   const state = makeState();
   const prefs = await open(page, state, 1440);
   const from = daysAgo(41), to = daysAgo(39);
-  await period(page).selectOption('range');
+  await openReportBoxes(page);await period(page).selectOption('range');
   const panel = page.locator('[data-report-period-panel]');
   await expect(panel).toBeVisible();
   await expect(panel.locator('input[type="date"]')).toHaveCount(2);
@@ -144,7 +145,7 @@ test('기간 설정: 달력으로 시작·끝 날을 선택하면 그 기간 보
 test('빠른 칩 [최근 3달]은 날짜를 채우고 [적용]으로 정한다', async ({page}) => {
   const state = makeState();
   const prefs = await open(page, state, 1440);
-  await period(page).selectOption('range');
+  await openReportBoxes(page);await period(page).selectOption('range');
   await page.locator('[data-report-quick="last-3"]').click();
   await expect(page.locator('[data-report-period-panel]')).toBeVisible();
   await expect(page.locator('[data-report-quick="last-3"]')).toHaveAttribute('aria-pressed', 'true');

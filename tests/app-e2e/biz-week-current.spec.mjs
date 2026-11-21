@@ -10,6 +10,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
 import {reportPeriodSelect} from './helpers/report-week.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
 
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',NOW='2026-11-09T00:30:00Z';
@@ -59,7 +60,7 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await expect(box.locator('[data-bp-cell]')).toHaveCount(0);
   // ⑤⑥ [전체 기간]: 주간보고 칸은 이번 주, 접힌 한 줄. 누르면 펼침.
   const pick=reportPeriodSelect(page);
-  await pick.selectOption('all');
+  await openReportBoxes(page);await pick.selectOption('all');
   const fold=box.locator('.biz-week-title [data-bw-fold]');
   await expect(fold).toHaveAttribute('aria-expanded','false');
   await expect(fold).toHaveText(/이번 주 주간 보고\s*11\.9~11\.15/);
@@ -74,7 +75,7 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await fold.click();
   await expect(box.locator('[data-bw-body]')).toBeHidden();
   // S56-13 BIZ-주간보고접힘기억(요청함 11/10, 앞 규칙 '기간 보기를 바꾸면 잊음'을 바꿈): 손으로 접은 것은 기억해 주 단위로 돌아와도 접힌 채.
-  await pick.selectOption('week');
+  await openReportBoxes(page);await pick.selectOption('week');
   await expect(label(page)).toHaveText('11.9(월)~11.15(일)');
   await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','false');
   await expect(box.locator('[data-bw-body]')).toBeHidden();
@@ -82,8 +83,8 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await fold.click();await expect(fold).toHaveAttribute('aria-expanded','true');
   await expect(box.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
   await expect(box.locator('.biz-sum-table')).toBeVisible();
-  await pick.selectOption('all');await expect(fold).toHaveAttribute('aria-expanded','true');
-  await pick.selectOption('week');await pick.selectOption('all');
+  await openReportBoxes(page);await pick.selectOption('all');await expect(fold).toHaveAttribute('aria-expanded','true');
+  await openReportBoxes(page);await pick.selectOption('week');await openReportBoxes(page);await pick.selectOption('all');
   await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','true');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1)).toBe(true);
   expect(errors).toEqual([]);

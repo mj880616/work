@@ -115,8 +115,8 @@ for(const width of [390,1280])test(`${width}: '사업영역 안 단 보고 n건 
   // 0건인 주(9.28~10.4)는 줄이 없다. [전체] 보기도 줄이 없다(보고 있는 주가 아님).
   await reportWeekButton(page,'prev').click();await expect(weekLabel(page)).toContainText(WEEK_B);await expect(line).toBeHidden();
   await reportWeekButton(page,'next').click();await expect(weekLabel(page)).toContainText(WEEK_A);await expect(line).toBeVisible();
-  await reportPeriodSelect(page).selectOption('all');await expect(line).toBeHidden();
-  await reportPeriodSelect(page).selectOption('week');await expect(line).toBeVisible();
+  await openReportBoxes(page);await reportPeriodSelect(page).selectOption('all');await expect(line).toBeHidden();
+  await openReportBoxes(page);await reportPeriodSelect(page).selectOption('week');await expect(line).toBeVisible();
   // 줄은 얇고 버튼은 작다.
   const btn=line.locator('[data-area-untagged]');
   expect((await line.boundingBox()).height).toBeLessThanOrEqual(36);expect((await btn.boundingBox()).height).toBeLessThanOrEqual(28);
@@ -210,6 +210,7 @@ for(const width of [1440,1024,884])test(`${width}: [달기] 창은 화면 안, �
 // S52-01 ③b UI-사업영역조직고르기창: 사업 보고 고치기 창 [사업영역]도 모든 화면과 같은 고르기 창(하나만 고르기).
 // 맨 위 '고르지 않음'·회색 '없음', 큰 묶음만 + 꺾쇠로 하위, 찾기(폰도). 고르면 칸은 '상위 › 하위', 저장 값은 그대로(business_area_id).
 import {mrdMenu} from './helpers/meeting-open.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
 for(const width of [390,1280])test(`${width}: S52-01 ③b 사업 보고 [사업영역]은 공용 선택 창 — 하위를 선택하면 '상위 › 하위', 저장 값 그대로`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=state();for(const m of s.meetings)m.business_area_none=false;await open(page,s,width);
