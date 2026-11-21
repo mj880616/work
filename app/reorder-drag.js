@@ -172,8 +172,8 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     if (!moved) onHold?.(held);
   });
   root.addEventListener('touchcancel', () => { if (touch?.grabbed) { cancelTouch(); finish(false); } else cancelTouch(); });
-  // 잡은 직후 따라오는 기본 길게누르기 메뉴는 막는다.
-  root.addEventListener('contextmenu', event => { if (touch || drag || (!whole && event.target.closest?.(itemSelector))) event.preventDefault(); });
+  // 잡은 직후 따라오는 기본 길게누르기 메뉴는 막는다. 줄 안 입력칸(메뉴 수정 창 이름 칸 등)은 끌기를 시작하지 않으므로 붙여넣기 메뉴를 그대로 둔다.
+  root.addEventListener('contextmenu', event => { if (touch || drag || (!whole && event.target.closest?.(itemSelector) && !event.target.closest('input,textarea,select'))) event.preventDefault(); });
   // links 모드: 줄이 링크라서 브라우저가 주소 끌어가기(HTML5 끌기)를 시작하면 포인터 이벤트가 끊긴다. 줄 위에서는 그 기본 끌기를 막는다.
   if (links) root.addEventListener('dragstart', event => { if (event.target.closest?.(itemSelector)) event.preventDefault(); });
 
