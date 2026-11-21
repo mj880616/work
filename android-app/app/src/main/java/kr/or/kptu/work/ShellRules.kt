@@ -13,13 +13,13 @@ import java.net.URLEncoder
 object ShellRules {
     /**
      * 웹2 주소: 처음 여는 주소(HOME)·위젯 Origin·알림이 여는 주소의 호스트.
-     * DOMAIN-workonplus 1단계(docs/design/domain-workonplus.md, 0.5.16부터): WORK ON+ 주소 workonplus.com.
+     * DOMAIN-workonplus 1단계(docs/design/domain-workonplus.md, 0.5.17부터): WORK ON+ 주소 workonplus.com.
      * 로그인 정보는 주소마다 따로라, 옛 판(bokdoong.com)에서 올라온 사람은 새 판에서 한 번 다시 로그인한다(자료는 서버에 그대로).
      */
     const val WEB2_HOST = "workonplus.com"
     const val HOME = "https://$WEB2_HOST/work/app/"
 
-    /** 옛 웹2 주소(주소 이전 ①-D1 뒤 0.5.15까지 처음 여는 주소). 옛 링크가 앱 안에 머물도록 안쪽으로 둔다. */
+    /** 옛 웹2 주소(주소 이전 ①-D1 뒤 0.5.16까지 처음 여는 주소). 옛 링크가 앱 안에 머물도록 안쪽으로 둔다. */
     const val OLD_WEB2_HOST = "bokdoong.com"
 
     /** 지난 새 주소(DOMAIN-nojoplus, docs/design/domain-nojoplus.md). 옛 링크가 앱 안에 머물도록 안쪽으로 둔다. */
@@ -201,7 +201,7 @@ object ShellRules {
      */
     const val SHARE_TO_NOTE = "ShareToNote"
     const val SHARE_TO_TASK = "ShareToTask"
-    /** S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON News 보관'(같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
+    /** S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON+ News 보관'(같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
     const val SHARE_TO_NEWS = "ShareToNews"
     val SHARE_TARGETS = setOf("basket", "note", "task", "news")
 

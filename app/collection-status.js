@@ -32,11 +32,11 @@ export const SOURCES = Object.freeze([
   {key:'telegramSend', label:'텔레그램 보내기', collector:'telegram_send', send:true},
   {key:'callSend', label:'통화 보내기', collector:'call_send', send:true},
   {key:'copy', label:'Claude용 Drive 사본'},
-  {key:'radar', label:'챙길 것 찾기'},
+  {key:'radar', label:'잊지 말기 찾기'},
 ]);
 // 건수 칸을 채우는 줄(통화 전사·텔레그램). 값은 점검 신호의 최근 24시간 새 파일 수이고, 신호에 건수가 없으면 칸을 비운다.
 const COUNT_KEYS = new Set(['call', 'telegram']);
-export const UNCHECKABLE_NOTE = word('WORK ON 권한 밖이라 확인 불가');
+export const UNCHECKABLE_NOTE = word('WORK ON+ 권한 밖이라 확인 불가');
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 
@@ -176,7 +176,7 @@ export function summarize(raw, now = Date.now()) {
   const attention = SOURCES.filter(({key}) => ATTENTION.has(judged[key]?.state)).map(({key, label}) => ({key, label, ...judged[key]}));
   return {empty:false, attention, ok:SOURCES.some(({key}) => ['ok', 'quiet'].includes(judged[key]?.state))};
 }
-// 받침이 있는 이름은 '이', 없으면 '가'(텔레그램 수집이 · 통화 녹음 전사가 · Claude용 Drive 사본이 · 챙길 것 찾기(AI)가).
+// 받침이 있는 이름은 '이', 없으면 '가'(텔레그램 수집이 · 통화 녹음 전사가 · Claude용 Drive 사본이 · 잊지 말기 찾기(AI)가).
 const SUBJECT = {telegram:'이', call:'가', telegramSend:'가', callSend:'가', copy:'이', radar:'가'};
 const SEND_ALERT = {
   stopped:label => `${label}가 멈췄어요`, broken:label => `${label}에 오류가 났어요`, failing:label => `${label} 실패가 이어져요`,

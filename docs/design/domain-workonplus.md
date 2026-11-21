@@ -4,7 +4,7 @@
 
 작업은 PR 둘로 줄 세운다.
 
-- **PR-A(이 문서와 함께)**: `workonplus.com`을 Web2 주소로 더한다. 옛 주소(`bokdoong.com`·`nojoplus.com`·desk·work·arsenal)의 동작은 그대로다. 폰 앱 새 판(0.5.16)은 처음부터 `workonplus.com`을 연다.
+- **PR-A(이 문서와 함께)**: `workonplus.com`을 Web2 주소로 더한다. 옛 주소(`bokdoong.com`·`nojoplus.com`·desk·work·arsenal)의 동작은 그대로다. 폰 앱 새 판(0.5.17)은 처음부터 `workonplus.com`을 연다.
 - **PR-B(PR-A 브랜치 위)**: `nojoplus.com/`·`/work/app/**`을 안내 한 장으로 바꾼다. PR-A merge와 운영 확인(새 주소에서 구글 로그인 성공) 뒤에만 merge한다.
 
 ## 1. 주소 설계
@@ -42,7 +42,7 @@
 | 공유 링크(`app/share-pages-model.mjs` `SHARE_ORIGIN`) | `work.bokdoong.com` | 그대로 |
 | github.io 넘기기(`app/origin-redirect.js`) | `bokdoong.com`으로 | 그대로(나중 정리) |
 | 원드라이브 돌아올 주소(Edge 비밀값·Azure 등록) | `bokdoong.com/...` | 그대로 — 원드라이브 연결은 당분간 `bokdoong.com`에서 |
-| 폰 앱(`android-app` `ShellRules`) | 처음 여는 주소 `bokdoong.com`, 안쪽 호스트 5개 | **처음 여는 주소·위젯 Origin·알림 주소를 `workonplus.com`으로**, 안쪽 호스트에 더함(옛 주소들도 안쪽 그대로). `nojoplus.com` 앱 주소로 가는 앱 안 이동은 같은 경로·쿼리의 `workonplus.com`으로 바꿔 연다(`movedToHome`, PR-B 안내 대비). 0.5.16(73) |
+| 폰 앱(`android-app` `ShellRules`) | 처음 여는 주소 `bokdoong.com`, 안쪽 호스트 5개 | **처음 여는 주소·위젯 Origin·알림 주소를 `workonplus.com`으로**, 안쪽 호스트에 더함(옛 주소들도 안쪽 그대로). `nojoplus.com` 앱 주소로 가는 앱 안 이동은 같은 경로·쿼리의 `workonplus.com`으로 바꿔 연다(`movedToHome`, PR-B 안내 대비). 0.5.17(74) |
 | 폰 앱 OAuth 복귀 | `kptuwork://auth` | 바꿀 것 없음(앱 로그인 복귀 화면 `workonplus.com/work/app/native-callback.html`이 Redirect URLs에 있어야 함) |
 | 바구니 PC(`basket-pc` `PcDoor.AllowedOrigins`) | bokdoong 3개 + nojoplus | `https://workonplus.com` 더함(다음 판에 포함, 판 번호는 릴리스 때) |
 | 바구니 PC [열기] 주소(`LaunchArgs.AppUrl`) | `nojoplus.com/work/app/` | `workonplus.com/work/app/`으로(PR-B 뒤 nojoplus는 안내만 보여 주므로 미리. 다음 판에 포함) |
@@ -58,7 +58,7 @@
 | ④ | Supabase Auth → URL Configuration → Redirect URLs에 `https://workonplus.com/**` 줄 추가(Site URL 그대로) | 추가한 줄 삭제 |
 | ⑤ | Google Cloud OAuth 동의 화면 → 승인된 도메인에 `workonplus.com` 추가(로그인 자체는 Supabase 콜백이라 새 리디렉션 URI는 필요 없음) | 추가한 도메인 삭제 |
 | ⑥ | 확인 + 명진 실기기: `workonplus.com`에서 구글 로그인·캘린더 연결이 `workonplus.com`으로 돌아오는지 | 위 각각 |
-| ⑦ | 폰 앱 0.5.16 릴리스(④ 다음에만 — 앱 로그인 복귀 화면이 새 주소). 올린 뒤 앱에서 한 번 다시 로그인 | 옛 판 APK 다시 설치 |
+| ⑦ | 폰 앱 0.5.17 릴리스(④ 다음에만 — 앱 로그인 복귀 화면이 새 주소). 올린 뒤 앱에서 한 번 다시 로그인 | 옛 판 APK 다시 설치 |
 | ⑧ | PR-B merge(⑥ 확인 뒤) = Worker 배포. `nojoplus.com` 앱 자리가 안내 한 장이 됨 | 이전 Worker 버전 |
 
 주의: 로그인 정보는 주소마다 따로 저장된다. `nojoplus.com`·`bokdoong.com`에서 로그인해 둔 사람은 `workonplus.com`에서 **한 번 다시 로그인**한다(자료는 서버에 있어 그대로).
@@ -69,4 +69,4 @@
 - 제목 'WORK ON+로 옮겼어요'. 본문: 개인 업무 관리 앱 WORK ON+로 바뀌어 새 주소에서 계속 쓸 수 있다(기록은 그대로, 새 주소에서 한 번 다시 로그인) / 노동조합+는 노조 집행부·조합원 공간 중심으로 바꾸어 다시 출시할 예정.
 - 버튼 하나 [workonplus.com으로 가기] → 같은 경로·`?쿼리`를 유지해 `https://workonplus.com/work/app/…`(맨 앞 `/`는 `/work/app/`). 자동 이동은 하지 않는다(명진 요청은 '안내 + 링크').
 - 그대로: `nojoplus.com/s/<짧은 주소>`, `/work/about/**`, 그 밖 `/work/**` → `work.bokdoong.com` 302, `www` 301.
-- 폰 앱 0.5.16(PR-A에 포함)은 `nojoplus.com/work/app/**`로 가려는 앱 안 이동을 같은 경로·쿼리의 `workonplus.com`으로 바꿔 연다(안내 대신 새 주소). 옛 판 사용자는 안내 화면의 버튼으로 옮긴다.
+- 폰 앱 0.5.17(PR-A에 포함)은 `nojoplus.com/work/app/**`로 가려는 앱 안 이동을 같은 경로·쿼리의 `workonplus.com`으로 바꿔 연다(안내 대신 새 주소). 옛 판 사용자는 안내 화면의 버튼으로 옮긴다.

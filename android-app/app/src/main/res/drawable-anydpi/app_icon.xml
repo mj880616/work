@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WORK ON 아이콘(표장 A). scripts/app-icon/build-app-icons.py가 만든다. 손으로 고치지 않는다. -->
+<!-- WORK ON+ 아이콘(표장 A + 덧셈표). scripts/app-icon/build-app-icons.py가 만든다. 손으로 고치지 않는다. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt">
     <background android:drawable="@color/app_icon_bg"/>
     <foreground>
@@ -7,7 +7,12 @@
     <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
             <group android:translateX="18" android:translateY="18" android:scaleX="1.125" android:scaleY="1.125">
                 <path android:fillColor="#F3F1EA" android:pathData="M10,32 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z"/>
-                <path android:strokeColor="#22262B" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M19 25l6 15 7-12 7 12 6-15"/>
+                <path android:strokeColor="#22262B" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M19 27l6 15 7-12 7 12 6-15"/>
+                <path android:strokeColor="#F3F1EA" android:strokeWidth="3.1" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M47.6 11.1v10.6M42.3 16.4h10.6"/>
+                <group>
+                    <clip-path android:pathData="M10,32 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z"/>
+                    <path android:strokeColor="#22262B" android:strokeWidth="3.1" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M47.6 11.1v10.6M42.3 16.4h10.6"/>
+                </group>
             </group>
         </vector>
         </aapt:attr>
@@ -16,7 +21,7 @@
         <aapt:attr name="android:drawable">
     <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
             <group android:translateX="18" android:translateY="18" android:scaleX="1.125" android:scaleY="1.125">
-                <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M10,32 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z M16.68,25.93 L22.68,40.93 L23.02,41.53 L23.52,42.02 L24.14,42.35 L24.82,42.49 L25.51,42.45 L26.16,42.21 L26.73,41.81 L27.16,41.26 L32.00,32.96 L36.84,41.26 L37.27,41.81 L37.84,42.21 L38.49,42.45 L39.18,42.49 L39.86,42.35 L40.48,42.02 L40.98,41.53 L41.32,40.93 L47.32,25.93 L47.46,25.46 L47.50,24.97 L47.45,24.48 L47.30,24.02 L47.06,23.59 L46.75,23.21 L46.36,22.90 L45.93,22.68 L45.46,22.54 L44.97,22.50 L44.48,22.55 L44.02,22.70 L43.59,22.94 L43.21,23.25 L42.90,23.64 L42.68,24.07 L38.58,34.32 L34.16,26.74 L33.76,26.23 L33.25,25.83 L32.64,25.58 L32.00,25.50 L31.36,25.58 L30.75,25.83 L30.24,26.23 L29.84,26.74 L25.42,34.32 L21.32,24.07 L21.10,23.64 L20.79,23.25 L20.41,22.94 L19.98,22.70 L19.52,22.55 L19.03,22.50 L18.54,22.54 L18.07,22.68 L17.64,22.90 L17.25,23.21 L16.94,23.59 L16.70,24.02 L16.55,24.48 L16.50,24.97 L16.54,25.46 Z"/>
+                <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M10,32 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z M16.68,27.93 L22.68,42.93 L23.02,43.53 L23.52,44.02 L24.14,44.35 L24.82,44.49 L25.51,44.45 L26.16,44.21 L26.73,43.81 L27.16,43.26 L32.00,34.96 L36.84,43.26 L37.27,43.81 L37.84,44.21 L38.49,44.45 L39.18,44.49 L39.86,44.35 L40.48,44.02 L40.98,43.53 L41.32,42.93 L47.32,27.93 L47.46,27.46 L47.50,26.97 L47.45,26.48 L47.30,26.02 L47.06,25.59 L46.75,25.21 L46.36,24.90 L45.93,24.68 L45.46,24.54 L44.97,24.50 L44.48,24.55 L44.02,24.70 L43.59,24.94 L43.21,25.25 L42.90,25.64 L42.68,26.07 L38.58,36.32 L34.16,28.74 L33.76,28.23 L33.25,27.83 L32.64,27.58 L32.00,27.50 L31.36,27.58 L30.75,27.83 L30.24,28.23 L29.84,28.74 L25.42,36.32 L21.32,26.07 L21.10,25.64 L20.79,25.25 L20.41,24.94 L19.98,24.70 L19.52,24.55 L19.03,24.50 L18.54,24.54 L18.07,24.68 L17.64,24.90 L17.25,25.21 L16.94,25.59 L16.70,26.02 L16.55,26.48 L16.50,26.97 L16.54,27.46 Z M46.05,11.10 L46.08,10.80 L46.17,10.51 L46.31,10.24 L46.50,10.00 L46.74,9.81 L47.01,9.67 L47.30,9.58 L47.60,9.55 L47.90,9.58 L48.19,9.67 L48.46,9.81 L48.70,10.00 L48.89,10.24 L49.03,10.51 L49.12,10.80 L49.15,11.10 L49.15,14.85 L52.90,14.85 L53.20,14.88 L53.49,14.97 L53.76,15.11 L54.00,15.30 L54.19,15.54 L54.33,15.81 L54.42,16.10 L54.45,16.40 L54.42,16.70 L54.33,16.99 L54.19,17.26 L54.00,17.50 L53.76,17.69 L53.49,17.83 L53.20,17.92 L52.90,17.95 L49.15,17.95 L49.15,21.70 L49.12,22.00 L49.03,22.29 L48.89,22.56 L48.70,22.80 L48.46,22.99 L48.19,23.13 L47.90,23.22 L47.60,23.25 L47.30,23.22 L47.01,23.13 L46.74,22.99 L46.50,22.80 L46.31,22.56 L46.17,22.29 L46.08,22.00 L46.05,21.70 L46.05,17.95 L42.30,17.95 L42.00,17.92 L41.71,17.83 L41.44,17.69 L41.20,17.50 L41.01,17.26 L40.87,16.99 L40.78,16.70 L40.75,16.40 L40.78,16.10 L40.87,15.81 L41.01,15.54 L41.20,15.30 L41.44,15.11 L41.71,14.97 L42.00,14.88 L42.30,14.85 L46.05,14.85 Z"/>
             </group>
         </vector>
         </aapt:attr>

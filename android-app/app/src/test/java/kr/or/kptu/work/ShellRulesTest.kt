@@ -9,7 +9,7 @@ import org.junit.Test
 class ShellRulesTest {
     @Test
     fun homeIsTheNewWeb2Address() {
-        // DOMAIN-workonplus 1단계(0.5.16부터): 처음 여는 주소·위젯 Origin은 WORK ON+ 주소 workonplus.com.
+        // DOMAIN-workonplus 1단계(0.5.17부터): 처음 여는 주소·위젯 Origin은 WORK ON+ 주소 workonplus.com.
         assertEquals("https://workonplus.com/work/app/", ShellRules.HOME)
         assertEquals("https://workonplus.com", WidgetRules.ORIGIN)
         assertTrue(ShellRules.isInternalApp(ShellRules.HOME))
@@ -266,9 +266,9 @@ class ShellRulesTest {
     @Test
     fun manifestShareAliases() {
         val manifest = java.io.File("src/main/AndroidManifest.xml").readText()
-        assertTrue(manifest.contains("android:label=\"WORK ON 잊지 말기로 보내기\""))
+        assertTrue(manifest.contains("android:label=\"WORK ON+ 잊지 말기로 보내기\""))
         assertFalse(manifest.contains("노동조합+ 바구니"))
-        for ((name, label) in listOf(ShellRules.SHARE_TO_NOTE to "WORK ON 노트", ShellRules.SHARE_TO_TASK to "WORK ON 할 일")) {
+        for ((name, label) in listOf(ShellRules.SHARE_TO_NOTE to "WORK ON+ 노트", ShellRules.SHARE_TO_TASK to "WORK ON+ 할 일")) {
             val block = manifest.substringAfter("android:name=\".$name\"").substringBefore("</activity-alias>")
             assertTrue(name, block.contains("android:targetActivity=\".MainActivity\""))
             assertTrue(name, block.contains("android:label=\"$label\""))

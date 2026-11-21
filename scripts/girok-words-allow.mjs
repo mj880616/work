@@ -5,6 +5,11 @@
 // 기록+ 화면에 나오면 안 되는 노조 색 글자(scripts/check-girok-words.mjs·tests/build-pages/girok-face-boot.spec.mjs가 같이 쓴다).
 export const FORBIDDEN = /노동조합|노조|조합원|투쟁|교섭|상집|담당\s?조직|사업\s?영역|사업\s?보고|사업\s?관리|조직|국회|성명서|단협|위원장|지부|지회|쟁의|파업|사업장/;
 
+// S67-63: 사용 안내 글(쓰는 법·빈 화면 안내·앱 내려받기 안내) 파일은 더 엄하게 본다. 위 금지어에 더해, 노조 업무를 전제한
+// 예시 낱말과 '주간 보고'(WORK ON 기본은 '주간 정리')도 기록+ 글자에 남으면 안 된다. 예외(GIROK_ALLOW)는 이 파일들에 쓰지 않는다.
+export const GUIDE_FILES = Object.freeze(['app/help-content.mjs', 'app/first-use.js', 'app/help.js', 'app/help-link.js', 'app/app-download-guide.js']);
+export const GUIDE_FORBIDDEN = new RegExp(`${FORBIDDEN.source}|주간\\s?보고|집회|사측|분회|임금|사무장|단체협약|조직\\s?확대|운영위원회|사업별|이번 주 사업|사업\\s?만들기`);
+
 const OFF = '기록+에서 꺼진 화면(메뉴·경로 제거는 단계 3 다음 PR)';
 
 export const GIROK_ALLOW = Object.freeze([

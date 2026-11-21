@@ -46,7 +46,7 @@ import org.json.JSONArray
 
 /**
  * 웹2 폰 앱 껍데기(설계 docs/design/phone-app-v2.md 단계 ①).
- * 화면은 모두 workonplus.com/work/app/ 웹이다(0.5.15까지 bokdoong.com, DOMAIN-workonplus). 앱은 시스템 바 색, 뒤로가기, 로그인 복귀, 바깥 링크, 파일 선택만 맡는다.
+ * 화면은 모두 workonplus.com/work/app/ 웹이다(0.5.16까지 bokdoong.com, DOMAIN-workonplus). 앱은 시스템 바 색, 뒤로가기, 로그인 복귀, 바깥 링크, 파일 선택만 맡는다.
  * 단계 ②: 다른 앱의 [공유]로 받은 것을 메모리에 들고 웹 바구니 확인 줄로 넘긴다(ShareIntake, 폰에 저장하지 않음).
  * 앱은 웹 화면의 토큰·업무 데이터를 따로 저장하지 않는다. 로그인은 브라우저 탭에서 하고 기존 handoff로 돌아온다.
  * 단계 ③: 홈 화면 위젯은 따로 로그인한 위젯 세션(WidgetSession)을 쓴다. 위젯 로그인 표시가 있을 때만 앱이 handoff를 직접 받고,

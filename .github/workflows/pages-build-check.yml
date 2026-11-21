@@ -67,7 +67,7 @@ jobs:
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Test build scripts
         if: steps.scope.outputs.needed == 'true'
-        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs scripts/brand-face.test.mjs scripts/check-girok-words.test.mjs
+        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs scripts/brand-face.test.mjs scripts/check-girok-words.test.mjs scripts/production-face.test.mjs
       - name: Build Jekyll output
         if: steps.scope.outputs.needed == 'true'
         run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
@@ -77,7 +77,8 @@ jobs:
       - name: Check Worker deploy URL extraction on the output
         if: steps.scope.outputs.needed == 'true'
         run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
-      # APP-올인원다이어리 단계 2: 같은 입력에서 기록+ 얼굴 빌드도 따로 만들어 같은 검사를 한다(배포하지 않음, 시험만).
+      # APP-올인원다이어리 단계 2: 같은 입력에서 기록+ 얼굴 빌드도 따로 만들어 같은 검사를 한다.
+      # S67-56부터 이 girok 빌드가 운영 배포(pages-deploy.yml)와 같은 얼굴이다. 위 nojo 빌드는 저장소 그대로의 얼굴(시험용).
       - name: Build and check the 기록+ face output
         if: steps.scope.outputs.needed == 'true'
         run: |
@@ -88,7 +89,7 @@ jobs:
       # Since 2단계 Pages serves the build output, so that is what production is compared with.
       - name: Compare build output with current GitHub Pages (report only)
         if: steps.scope.outputs.needed == 'true' && (github.event_name == 'workflow_dispatch' && inputs.compare_live)
-        run: node scripts/compare-pages.mjs --live "$RUNNER_TEMP/pages-out"
+        run: node scripts/compare-pages.mjs --live "$RUNNER_TEMP/pages-girok"
       - name: Install Playwright
         if: steps.scope.outputs.needed == 'true'
         uses: ./.github/actions/setup-playwright

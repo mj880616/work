@@ -184,9 +184,9 @@ object UpdateRules {
 
     /** 알림줄 한 줄(받는 중·설치 중만). */
     fun noteText(phase: Phase, version: String): String? = when (phase) {
-        Phase.FOUND, Phase.DOWNLOADING -> "WORK ON $version 받는 중"
-        Phase.INSTALLING -> "WORK ON $version 설치 중"
-        Phase.CONFIRM -> "WORK ON $version 업데이트 준비됨 · 눌러서 설치"
+        Phase.FOUND, Phase.DOWNLOADING -> "WORK ON+ $version 받는 중"
+        Phase.INSTALLING -> "WORK ON+ $version 설치 중"
+        Phase.CONFIRM -> "WORK ON+ $version 업데이트 준비됨 · 눌러서 설치"
         else -> null
     }
 
