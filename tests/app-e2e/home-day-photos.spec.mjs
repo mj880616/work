@@ -86,6 +86,9 @@ test("HOME-오늘사진빨리: 사진 없는 날은 '그날 사진 0 · 없음',
   await expect(home(page).locator('[data-journal-title]')).toHaveText('10월 5일 월요일');
   await expect(box).toBeVisible();
   await expect(box.locator('.journal-heading')).toHaveText('그날 사진');
+  // S67-70: 다른 날은 '그날 일정'·'할 일', 오늘은 '오늘 일정'·'오늘 할 일'.
+  await expect(home(page).locator('[data-journal-schedule] .journal-heading')).toHaveText('그날 일정');
+  await expect(home(page).locator('[data-journal-tasks] .journal-heading')).toHaveText('할 일');
   await expect(box.locator('[data-journal-photos-count]')).toHaveText('0');
   await expect(box.locator('[data-journal-photos-empty]')).toHaveText('없음');
   await expect(box.locator('[data-journal-photo]')).toHaveCount(0);

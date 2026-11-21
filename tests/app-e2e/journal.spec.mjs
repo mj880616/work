@@ -324,7 +324,7 @@ for(const width of [390,1280]){
   await expectNoOthers(page);
   await expect(page.locator('#journalRoot')).not.toContainText('그 밖의 기록');
   // 그날 일정은 오늘 한 줄 위 칸에 있고, 줄마다 시각 + 제목.
-  await expect(schedule(page).locator('h4')).toHaveText('그날 일정');
+  await expect(schedule(page).locator('h4')).toHaveText('오늘 일정');
   await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
   await expect(group(page,'events')).toHaveCount(0);
   await expect(page.locator('#journalRoot')).not.toContainText('현장 간담회 메모');
@@ -815,7 +815,7 @@ test('PC 하루 카드 모양: 큰 제목(그날 일정·할 일·오늘 한 일
  await openJournal(page,1280);
  await expect(items(page)).toHaveCount(2);await expect(itemTexts(page,'activities')).toHaveCount(1);
  const look=await journalLook(page);
- expect(look.heads.map(h=>h.text)).toEqual(['그날 일정','할 일','오늘 한 일','오늘 사진','주간 보고 재료']);
+ expect(look.heads.map(h=>h.text)).toEqual(['오늘 일정','오늘 할 일','오늘 한 일','오늘 사진','주간 보고 재료']);
  // '오늘 한 줄' 이름은 입력칸의 읽기 이름으로만 남는다(화면에 두 번째 제목 줄 없음).
  await expect(page.locator('#journalRoot [data-journal-line] label')).toHaveText('오늘 한 줄');await expect(page.locator('#journalRoot [data-journal-line] label')).toHaveClass(/a11y-only/);
  expect(new Set(look.heads.map(h=>h.size))).toEqual(new Set(['15px']));
