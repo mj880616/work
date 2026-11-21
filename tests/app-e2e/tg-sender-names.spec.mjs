@@ -189,7 +189,7 @@ test('텔레그램 1280: 머리줄 ⋯ → 보낸 사람 이름: 목록, 이름 
  await row(P1).locator('[data-tg-person-more]').click();
  await page.locator('#tgPersonMenu').getByRole('button',{name:/^나로 표시/}).click();
  await expect.poll(()=>f.calls.at(-1)).toEqual({fn:'set_self',p_id:P1,p_self:true});
- await expect(view).toContainText('나로 표시했어요. 다음 소식부터 내가 한 부탁은 챙길 것에 오르지 않아요.');
+ await expect(view).toContainText('나로 표시했어요. 다음 소식부터 내가 한 부탁은 잊지 말기에 오르지 않아요.');
  await row(P1).locator('[data-tg-person-more]').click();
  await page.locator('#tgPersonMenu').getByRole('button',{name:'나 표시 빼기',exact:true}).click();
  await expect.poll(()=>f.calls.at(-1)).toEqual({fn:'set_self',p_id:P1,p_self:false});

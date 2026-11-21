@@ -139,7 +139,7 @@ test('끄기는 PIN 확인 뒤 · 계정 메뉴 [잠금] · 홈 오늘 사진은
   expect(server.diaryReads).toBe(0);
   // S67-25: '잠김' 줄 [풀기]는 그 자리 PIN 창(홈을 떠나지 않음). Esc면 창만 닫히고 그대로 잠김(자료 안 읽음).
   await page.locator('#homeView [data-journal-photos-locked] button.lk-open').click();
-  await expect(page.locator('dialog.lk-here .lk-title')).toHaveText('하루 기록·사진 잠김');
+  await expect(page.locator('dialog.lk-here .lk-title')).toHaveText('사진 잠김');
   expect(await current(page)).toBe('home');
   await page.keyboard.press('Escape');
   await expect(page.locator('dialog.lk-here')).toHaveCount(0);

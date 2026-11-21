@@ -5,7 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { FORBIDDEN } from '../../scripts/girok-words-allow.mjs';
 
 // APP-올인원다이어리 단계 2: `node scripts/build-pages.mjs <입력> <출력> --face=girok`로 만든 기록+ 빌드가 따로 뜨는지 본다.
-// 이름·manifest·아이콘은 WORK ON(S67-49), 메뉴 이름은 girok 기본 단어, 같은 흉내 서버로 켜진다. 메뉴·경로를 실제로 빼는 일은 단계 3 다음 PR이라 여기서는 글자만 본다.
+// 이름·manifest·아이콘은 WORK ON+(S67-49), 메뉴 이름은 girok 기본 단어, 같은 흉내 서버로 켜진다. 메뉴·경로를 실제로 빼는 일은 단계 3 다음 PR이라 여기서는 글자만 본다.
 // S67-43: 홈·활동 기록·거래처·부서·직원·노트·일정·쓰는 법 화면 글자에 노조 색 글자(FORBIDDEN)가 없는지 PC·폰에서 본다.
 // Served at PAGES_GIROK_ORIGIN (pages-build-check.yml).
 const origin = process.env.PAGES_GIROK_ORIGIN || 'http://127.0.0.1:8126';
@@ -29,7 +29,7 @@ async function boot(page, { customWords = null, features = [], at = origin, now 
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
   });
   await page.goto(at + '/app/login/?return=' + encodeURIComponent(at + '/app/?view=home'));
-  await expect(page).toHaveTitle('로그인 · WORK ON');
+  await expect(page).toHaveTitle('로그인 · WORK ON+');
   await signInWithSession(page, user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
 }
@@ -60,25 +60,25 @@ async function noUnionWords(page, where) {
   expect(bad, `${where}: 기록+ 화면에 노조 색 글자`).toEqual([]);
 }
 
-test('girok 빌드: 이름·manifest·아이콘은 WORK ON, 메뉴 이름은 기본 단어로 뜬다', async ({ page }) => {
+test('girok 빌드: 이름·manifest·아이콘은 WORK ON+, 메뉴 이름은 기본 단어로 뜬다', async ({ page }) => {
   const errors = [], failed = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('response', r => { if (r.url().startsWith(origin) && r.status() >= 400) failed.push(`${r.status()} ${r.url()}`); });
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page);
-  await expect(page.locator('.topbar .brand span')).toHaveText('WORK ON');
-  await expect(page).toHaveTitle('홈 · WORK ON');
+  await expect(page.locator('.topbar .brand span')).toHaveText('WORK ON+');
+  await expect(page).toHaveTitle('홈 · WORK ON+');
   await expect(page.locator('#appNav .nav-btn[data-view="meetings"]')).toContainText('활동 기록');
   await expect(page.locator('#appNav .nav-btn[data-view="team"]')).toContainText('거래처·직원');
   await page.evaluate(() => window.KPTURouter.go('meetings'));
-  await expect(page).toHaveTitle('활동 기록 · WORK ON');
+  await expect(page).toHaveTitle('활동 기록 · WORK ON+');
   await expect(page.locator('[data-topline-where] li').first()).toHaveText('활동 기록');
   await page.evaluate(() => window.KPTURouter.go('team'));
-  await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON');
+  await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON+');
   const manifest = await (await page.request.get(origin + '/app/windows-manifest.json')).json();
-  expect(manifest).toMatchObject({ name: 'WORK ON', short_name: 'WORK ON' });
+  expect(manifest).toMatchObject({ name: 'WORK ON+', short_name: 'WORK ON+' });
   const icon = await (await page.request.get(origin + '/app/app-icon.svg')).text();
-  expect(icon).toContain('aria-label="WORK ON"');
+  expect(icon).toContain('aria-label="WORK ON+"');
   const body = await page.locator('body').innerText();
   for (const word of ['노동조합+', '사업 관리', '조직 관리']) expect(body, word).not.toContain(word);
   for (const view of ['home', 'meetings', 'team', 'calendar', 'help']) {
@@ -120,7 +120,7 @@ test('girok 빌드 + 고친 이름(지금 화면 이름 15칸): 앱 바탕·메�
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page, { customWords: OPERATOR });
-  await expect(page.locator('.topbar .brand span')).toHaveText('WORK ON');
+  await expect(page.locator('.topbar .brand span')).toHaveText('WORK ON+');
   // 앱 바탕(index.html, 빌드가 girok 글자로 바꾼 자리): 메뉴·아래 막대·사업영역 창·자료실 걸러보기.
   await expect(page.locator('#appNav .nav-btn[data-view="meetings"]')).toHaveText('사업 관리');
   await expect(page.locator('#appNav .nav-btn[data-view="team"]')).toHaveText('조직 관리');
@@ -130,12 +130,16 @@ test('girok 빌드 + 고친 이름(지금 화면 이름 15칸): 앱 바탕·메�
   await expect(page.locator('.report-top-title')).toHaveText('사업 관리');
   const shell = await page.evaluate(() => [...document.querySelectorAll('[data-word-aria-label]')].map(el => [el.getAttribute('data-word-aria-label'), el.getAttribute('aria-label')]));
   expect(shell.length).toBeGreaterThan(0);
-  for (const [from, shown] of shell) expect(shown, from).toBe(from);
-  await expect(page).toHaveTitle('홈 · WORK ON');
+  // S67-62부터 앱 바탕은 빌드가 바꾼 글자를 모두 남기므로, 남긴 자리는 '이 사람의 word(원래 글자)'와 같아야 한다:
+  // 이름 칸 글자는 고친 이름(= 원래 글자), 칸 밖 낱말은 girok 기본(예: S67-63 '주간 보고' → '주간 정리', 이 사람은 바탕 nojo가 아님).
+  const { out: expected } = await wordsIn(page, shell.map(([from]) => [from]));
+  shell.forEach(([from, shown], i) => expect(shown, from).toBe(expected[i]));
+  expect(shell.filter(([from]) => from.includes('사업 관리')).every(([from, shown]) => shown === from), '이름 칸 글자는 고친 이름 그대로').toBe(true);
+  await expect(page).toHaveTitle('홈 · WORK ON+');
   for (const [view, title] of [['home', '홈'], ['meetings', '사업 관리'], ['team', '조직 관리']]) {
     await page.evaluate(v => window.KPTURouter.go(v), view);
     await settle(page, view);
-    await expect(page).toHaveTitle(`${title} · WORK ON`);
+    await expect(page).toHaveTitle(`${title} · WORK ON+`);
     const bad = (await shownTexts(page)).filter(t => SLOT_DEFAULTS.has(t));
     expect(bad, `${view}: 고친 이름 대신 기본 이름`).toEqual([]);
   }
@@ -143,7 +147,7 @@ test('girok 빌드 + 고친 이름(지금 화면 이름 15칸): 앱 바탕·메�
   expect(errors).toEqual([]);
 });
 
-test('girok 빌드 + 고친 이름 없음: 메뉴·화면 이름이 WORK ON 기본 단어다', async ({ page }) => {
+test('girok 빌드 + 고친 이름 없음: 메뉴·화면 이름이 WORK ON+ 기본 단어다', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await boot(page);
   await expect(page.locator('#appNav .nav-btn[data-view="meetings"]')).toHaveText('활동 기록');
@@ -151,7 +155,7 @@ test('girok 빌드 + 고친 이름 없음: 메뉴·화면 이름이 WORK ON 기�
   await expect(page.locator('#areaWindowTitle')).toHaveText('프로젝트 관리');
   await page.evaluate(() => window.KPTURouter.go('team'));
   await settle(page, 'team');
-  await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON');
+  await expect(page).toHaveTitle('거래처·부서·직원 · WORK ON+');
   await noUnionWords(page, 'PC team (고친 이름 없음)');
 });
 

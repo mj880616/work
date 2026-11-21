@@ -80,9 +80,9 @@ test('weeklySummary: last week ratios and the biggest change; nothing when both 
   const rows = [...at('2026-10-27', 'tasked', 4), ...at('2026-10-28', 'done', 2), ...at('2026-10-29', 'dismissed', 3), ...at('2026-10-30', 'not_mine', 1),
     ...at('2026-10-20', 'tasked', 3), ...at('2026-10-21', 'dismissed', 7)];
   const s = model.weeklySummary(rows, now);
-  assert.equal(s.text, '지난주 챙길 것 10건 · 할 일로 40% · 이미 함 20% · 무시 30% · 내 일 아님 10% · 그 전 주보다 무시 −40%p');
+  assert.equal(s.text, '지난주 잊지 말기 10건 · 할 일로 40% · 이미 함 20% · 무시 30% · 내 일 아님 10% · 그 전 주보다 무시 −40%p');
   assert.equal(model.weeklySummary([], now), null);
-  assert.equal(model.weeklySummary(at('2026-10-20', 'done', 2), now).text, '지난주 챙길 것 처리 0건');
+  assert.equal(model.weeklySummary(at('2026-10-20', 'done', 2), now).text, '지난주 잊지 말기 처리 0건');
   assert.match(model.weeklySummary([...at('2026-10-27', 'tasked', 10), ...at('2026-10-20', 'tasked', 10)], now).text, /그 전 주와 비슷$/);
   assert.doesNotMatch(model.weeklySummary(at('2026-10-27', 'done', 1), now).text, /그 전 주/);
 });

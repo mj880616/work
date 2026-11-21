@@ -3,15 +3,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { FACES, wordIn } from '../app/brand/faces.mjs';
-import { FORBIDDEN, GIROK_ALLOW } from './girok-words-allow.mjs';
+import { FORBIDDEN, GIROK_ALLOW, GUIDE_FILES, GUIDE_FORBIDDEN } from './girok-words-allow.mjs';
 
 // APP-올인원다이어리 단계 3(단어, S67-43): 기록+ 화면에 노조 색 글자가 나오지 않는지 전수 검사한다.
 //  1. app/의 JS 고정 글자(문자열·템플릿 조각) 중 금지어가 든 것은 word()·word`…`를 거쳐야 한다.
 //     거친 글자는 기록+ 단어표로 바꾼 뒤에도 금지어가 없어야 한다.
 //  2. 기록+ 빌드 HTML의 눈에 보이는 글자(태그 사이·aria-label·alt·title·placeholder)에 금지어가 없어야 한다.
+//  3. 사용 안내 글 파일(GUIDE_FILES)은 GUIDE_FORBIDDEN(금지어 + 노조 업무 예시 낱말·'주간 보고')으로, 예외 없이 본다(S67-63).
 //  예외는 scripts/girok-words-allow.mjs 한 곳(화면에 안 나오는 글자: 데이터 값·사용자 글 읽기·서버로 보내는 글·꺼진 화면).
 // 주석·정규식·import 경로·객체 열쇠는 화면 글자가 아니라 보지 않는다.
-export { FORBIDDEN };
+export { FORBIDDEN, GUIDE_FORBIDDEN };
 
 const VENDOR = /(?:^|\/)(?:[^/]*-\d+\.\d+(?:\.\d+)?[^/]*|node_modules|hwp-lab\/rhwp[^/]*)\//;
 const girok = FACES.girok;
@@ -36,10 +37,12 @@ export function scanScript(file, source, { sourceType } = {}) {
     try { ast = parse(source, { ecmaVersion: 'latest', sourceType: type, locations: true, allowHashBang: true }); break; } catch (error) { if (type === 'script' || sourceType) throw new Error(`${file}: ${error.message}`); }
   }
   const problems = [];
+  const guide = GUIDE_FILES.includes(file);
+  const bad = guide ? GUIDE_FORBIDDEN : FORBIDDEN;
   const parents = new Map();
   walk(ast, (node, parent) => parents.set(node, parent));
   const check = (node, text) => {
-    if (!FORBIDDEN.test(text)) return;
+    if (!bad.test(text)) return;
     const parent = parents.get(node);
     let through = false;
     if (node.type === 'Literal') {
@@ -54,10 +57,10 @@ export function scanScript(file, source, { sourceType } = {}) {
     if (through) {
       // HTML 조각의 속성 값(data-*·value 등)은 화면 글자가 아니다. 눈에 보이는 속성(aria-label·alt·title·placeholder)만 남긴다.
       const shown = wordIn(girok, text).replace(/\s(?!(?:aria-label|alt|title|placeholder)=)[\w-]+="[^"]*"/g, '');
-      if (FORBIDDEN.test(shown)) problems.push({ file, line: node.loc.start.line, text, why: `단어표를 거쳐도 남음: ${shown}` });
+      if (bad.test(shown)) problems.push({ file, line: node.loc.start.line, text, why: `단어표를 거쳐도 남음: ${shown}` });
       return;
     }
-    if (allowed(file, text)) return;
+    if (!guide && allowed(file, text)) return;
     problems.push({ file, line: node.loc.start.line, text, why: 'word()를 거치지 않음' });
   };
   walk(ast, node => {

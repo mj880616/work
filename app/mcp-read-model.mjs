@@ -68,7 +68,7 @@ export function readDetails(data) {
 export const REFUSE = Object.freeze({
   framed: '다른 화면 안에서는 열 수 없어요. 주소를 브라우저에서 직접 열어 주세요.',
   bad_request: '연결 요청이 올바르지 않아요. claude.ai에서 다시 연결해 주세요.',
-  delegated: word('이 로그인으로는 허락할 수 없어요. WORK ON에 다시 로그인해 주세요.'),
+  delegated: word('이 로그인으로는 허락할 수 없어요. WORK ON+에 다시 로그인해 주세요.'),
   not_owner: '내 작업공간이 있는 계정에서만 허락할 수 있어요.',
   not_ready: '이 계정은 Claude 읽기 연결을 쓰지 않아요.',
   client: '등록된 Claude 연결이 아니에요. 허락하지 마세요.',

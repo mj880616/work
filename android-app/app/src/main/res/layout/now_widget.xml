@@ -165,7 +165,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="챙길 것"
+            android:text="잊지 말기"
             android:singleLine="true"
             android:ellipsize="end"
             android:textColor="@color/widget_ink"
