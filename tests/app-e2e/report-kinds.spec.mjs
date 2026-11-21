@@ -8,6 +8,7 @@ import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {mrdMenu,openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {reportFilterKeys,reportFilterLabels,pickReportKind,pickedReportKind} from './helpers/report-filter.mjs';
 import {addReport} from './helpers/report-add.mjs';
+import {openReportBoxes,closeReportBoxes} from './helpers/report-boxes.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const CHIPS=['전체','회의','정책','교섭','언론','국회','투쟁','교육','기타'];
@@ -40,10 +41,12 @@ test('폰 390: 종류는 맨 위 [종류 ▾] 선택 상자 하나(칩 줄 없�
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s=kindState();await open(page,s,390);
   await expect(chips(page)).toHaveCount(0);
-  const kind=page.locator('#reportKindSelect');await expect(kind).toBeVisible();
+  // S67-75 UI-걸러보기칩하나: 390은 고르기 상자들이 칩 하나로 묶인다 — 칩을 눌러 창에서 상자를 본다.
+  const kind=page.locator('#reportKindSelect');await openReportBoxes(page);await expect(kind).toBeVisible();
   await expect(kind.locator(':scope > option')).toHaveText(['종류 전체',...CHIPS.slice(1)]);
   // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체] — 모든 칸이 보이고 회의명 묶음은 없다.
   await expect(kind).toHaveValue('kind:all');
+  await closeReportBoxes(page);
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(6);
   expect(await reportFilterKeys(page)).not.toContain('name');
   // [회의]를 고르면 지금의 회의 화면 그대로. 칸이 없는 옛 행도 회의다.

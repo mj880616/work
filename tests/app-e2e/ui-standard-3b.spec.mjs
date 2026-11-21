@@ -7,6 +7,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { segBox } from './helpers/seg-box.mjs';
 import { openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs';
 // UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·사업 보고·담당조직·메뉴; MTG-프로젝트합치기 3단계 전에는 프로젝트),
 // [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
 // [분류 요청] → 조용히 복사 + 한 줄 알림 + [분류 결과 입력] 창(#577). PC(1280)는 그대로.
@@ -177,7 +178,7 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  // BIZ-위쪽정돈PC(11/09 10:52 A): 사업 보고 종류 칩 줄은 없앴다 — 종류는 모든 폭에서 [회의 ▾] 상자 하나이고, 고른 값이 있으면 상자 글자가 진하다(is-on).
  await expect(page.locator('#reportKindFilter')).toHaveCount(0);
  // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체]라 진하지 않고, 종류를 고르면 진하다.
- await expect(page.locator('#reportKindSelect')).toBeVisible();await expect(page.locator('#reportKindSelect')).not.toHaveClass(/is-on/);
+ await openReportBoxes(page);await expect(page.locator('#reportKindSelect')).toBeVisible();await expect(page.locator('#reportKindSelect')).not.toHaveClass(/is-on/); // S67-75: 폰 폭이면 칩 창 안
  await pickReportKind(page,'회의');await expect(page.locator('#reportKindSelect')).toHaveClass(/is-on/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);

@@ -9,6 +9,7 @@ import {openMeetingResult,mrdMenu,closeMeetingResult,showReportsOf} from './help
 import {expandLibraryTree,focusLibraryProject,libraryNodeHead} from './helpers/library-tree.mjs';
 import {reportFilterSelect,reportFilterPicked,reportFilterLabels,pickReportFilter} from './helpers/report-filter.mjs';
 import {addReport} from './helpers/report-add.mjs';
+import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 // UI-PC회의: PC(≥1024) 회의는 유형별 열이고 위쪽 칩은 "보일 열 고르기"(meeting-columns.spec.mjs). 회의명 필터는 폰(≤760, UI-폴드PC틀)에서 본다.
 // FOLD-넓은화면 2차(S59-19): 760(펼친 폴드, 폰 틀)은 '날짜·이름 목록 | 결과' 두 칸이라 목록 줄은 [data-meeting-round], 접은 폰(390)은 한 줄 목록(.meeting-list-row). 회의명 거르기는 둘 다 같다.
@@ -27,8 +28,8 @@ for(const width of [390,760])test(`공용 알약 필터·2단 프로젝트·키�
   expect(await reportFilterPicked(page,'name')).toBe('회의');
   // S52-22 TEAM-맨위한줄: 폰·폴드는 종류도 공용 고르기 상자(칩 줄 없음). 고르면 그 칸만, [회의]로 돌아오면 모두.
   const kind=page.locator('#reportKindSelect');await expect(page.locator('#reportKindFilter')).toBeHidden();
-  await kind.selectOption('kind:policy');await expect(rows).toHaveCount(0);await expect(kind).toHaveClass(/is-on/);
-  await kind.selectOption('kind:meeting');await expect(rows).toHaveCount(s.meetings.length);
+  await openReportBoxes(page);await kind.selectOption('kind:policy');await expect(rows).toHaveCount(0);await expect(kind).toHaveClass(/is-on/);
+  await openReportBoxes(page);await kind.selectOption('kind:meeting');await expect(rows).toHaveCount(s.meetings.length);
   await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('library'));
   // UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents list with the rest.
   // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글이고, 들어올 때는 [회의]만 꺼져 있다(회의 자료 1건 숨김).

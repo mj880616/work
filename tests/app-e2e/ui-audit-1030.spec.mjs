@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
+import {reportBoxesInChip} from './helpers/report-boxes.mjs';
 // UI-점검1030손질(2026-10-30 사이트 점검 실측): 폰 412·PC 1440 수치 확인.
 // C2 사업 보고 칸 칩 줄은 [거르기 ▾] 앞에서 끝나고 넘치면 두 줄 + [더보기](UI-칩줄두줄), C4 달력 이전·다음 달 화살표 누르는 범위 44px.
 // 합성 자료만, 진짜 서버 호출 없음.
@@ -63,7 +64,9 @@ test.describe('폰 412',()=>{
 
   test('C2 사업 보고: 맨 위는 한 줄 [종류 ▾] … [⋯](S52-22 TEAM-맨위한줄, 칩 줄·[거르기] 없음)',async({page})=>{
     await openApp(page,'meetings');
-    const bar=page.locator('#meetingsView .report-kind-bar'),kind=page.locator('#reportKindSelect'),more=page.locator('#reportMore');
+    // S67-75 UI-걸러보기칩하나(명진 A안): 412는 고르기 상자들이 줄에 다 안 들어가 칩 하나 — 칩이 고르기 자리다.
+    const inChip=await reportBoxesInChip(page);
+    const bar=page.locator(inChip?'#reportFilterChip':'#meetingsView .report-kind-bar'),kind=page.locator(inChip?'#reportFilterChip':'#reportKindSelect'),more=page.locator('#reportMore');
     await expect(page.locator('#reportKindFilter')).toBeHidden();await expect(page.locator('#reportFilterBtn')).toHaveCount(0);await expect(kind).toBeVisible();
     const b=await bar.boundingBox(),k=await kind.boundingBox(),m=await more.boundingBox();
     // BIZ-위쪽정돈(11/09 01:22 확정안): [⋯]는 맨 윗줄(제목 줄) 오른쪽 끝으로 올라갔다 — 둘째 줄은 종류·사업영역·[주 ▾]뿐이고 그 위에 ⋯ 줄이 있다.

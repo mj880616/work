@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { openReportBoxes, closeReportBoxes, pickReportBox } from './helpers/report-boxes.mjs';
 
 // S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~01:22, 시안 docs/design/mockups/biz-report-top.html 확정안 01:22):
 // 사업 보고 위쪽은 세 줄 — ① 제목 '사업 관리' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
@@ -95,22 +96,26 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
   // ② 둘째 줄: [회의 ▾](모든 폭 상자, 칩 줄 없음)·[사업영역 ▾]·[주 ▾]가 한 줄이고 폰은 첫 줄 아래, PC는 첫 줄과 같은 줄(아이콘 왼쪽).
   await expect(page.locator('#reportKindFilter, #reportNameSelect')).toHaveCount(0);
-  const line2 = await mids(page, `#meetingsView .report-kind-bar > #reportKindSelect, #meetingsView .report-kind-bar > #reportAreaSelect, #meetingsView .report-kind-bar #reportPeriodPick select`);
-  expect(line2.length).toBeGreaterThanOrEqual(2);
+  // S67-75 UI-걸러보기칩하나(명진 A안): 폰은 고르기 상자들이 줄에 다 안 들어가면 칩 하나 — 그 칩이 둘째 줄 자리다.
+  const inChip = !pc && await page.locator('#reportFilterChip').isVisible();
+  const line2 = await mids(page, inChip ? '#reportFilterChip' : `#meetingsView .report-kind-bar > #reportKindSelect, #meetingsView .report-kind-bar > #reportAreaSelect, #meetingsView .report-kind-bar #reportPeriodPick select`);
+  expect(line2.length).toBeGreaterThanOrEqual(inChip ? 1 : 2);
   expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (pc) { expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line2.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)) - 32); }
   // S67-64 UI-윗줄한줄(명진 11/21 시안 D3): 폰도 한 줄 — [아이콘][사업 관리][고르기(넘치면 줄 안에서 가로 밀기)] … [+][⋯].
   else {
     expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3);
-    const [bar, add] = await Promise.all([page.locator('#meetingsView .report-kind-bar').boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
+    const [bar, add] = await Promise.all([page.locator(inChip ? '#reportFilterChip' : '#meetingsView .report-kind-bar').boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
     expect(bar.x).toBeGreaterThan((await page.locator('#meetingsView .report-top-title').boundingBox()).x);
     expect(bar.x + bar.width).toBeLessThanOrEqual(add.x);
   }
   // 녹음·추가는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).
   for (const b of await page.locator('#meetingsView .report-head-actions > :is(#newMeetingBtn,#reportRecordBtn,#phoneRecordBtn):not([hidden])').all()) { const r = await b.boundingBox(); expect(r.width).toBeLessThanOrEqual(34); expect(r.height).toBeLessThanOrEqual(34); }
   // 작은 버튼 상자 높이가 같다(고르기 상자끼리).
+  if (inChip) await openReportBoxes(page);
   const selH = (await mids(page, '#meetingsView .report-kind-bar select.report-top-select')).map(x => Math.round(x.h));
   expect(new Set(selH).size).toBe(1);
+  if (inChip) { expect(Math.round((await page.locator('#reportFilterChip').boundingBox()).height)).toBe(selH[0]); await closeReportBoxes(page); }
   // ③ 셋째 줄: ‹ 11.9(월)~11.15(일) › · n건 — 폰은 둘째 줄 아래, PC는 같은 한 줄(고르기와 아이콘 사이).
   const nav = page.locator('#reportWeekFilter .report-week-nav');
   await expect(nav.locator('.report-week-label')).toContainText(/\(월\)~.*\(일\)/);
@@ -146,7 +151,7 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   const add = await page.locator('#newMeetingBtn').boundingBox();
   expect(add.y).toBeLessThan(vp.height / 3);
   // UI-보기탭드롭다운(11/10): 보기 [목록 ▾]는 위 줄 고르기 상자(아래 떠 있는 탭 줄 없음).
-  { const sel = await page.locator('#reportViewSelect').boundingBox(); expect(sel.y).toBeLessThan(vp.height / 3); }
+  { const sel = await page.locator(inChip ? '#reportFilterChip' : '#reportViewSelect').boundingBox(); expect(sel.y).toBeLessThan(vp.height / 3); } // 폰 칩이면 보기도 칩 창 안
   // 옆으로 넘치지 않는다.
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
   expect(errors).toEqual([]);
@@ -156,13 +161,14 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
 test('390: 달력·사진 보기에서는 기간 줄만 빠지고, 보기를 바꿔도 떠 있는 동그란 [+]가 없다', async ({page}) => {
   const state = makeState();
   await open(page, state, 390);
-  await page.locator('#reportViewSelect').selectOption('calendar');
+  await pickReportBox(page, '#reportViewSelect', 'calendar');
   await expect(page.locator('#reportViewSelect')).toHaveValue('calendar');
   await expect(page.locator('#meetingsView .report-week-bar')).toBeHidden();
   await expect(page.locator('#meetingsView #reportPeriodPick select')).toHaveCount(0);
   const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
-  await page.locator('#reportViewSelect').selectOption('list');
+  await pickReportBox(page, '#reportViewSelect', 'list');
+  await openReportBoxes(page);
   await expect(page.locator('#reportPeriodPick select')).toBeVisible();
 });
 

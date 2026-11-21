@@ -4,10 +4,10 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S67-74 UI-윗줄칩잘림(2026-11-21 명진 16:18, 폰 '사업 관리' 캡처: "사업영역 전체 박스 짤림").
-// 폰 윗줄 [아이콘][사업 관리][종류 전체 ▾][사업영역 전체 ▾][이번 주 ▾][목록 ▾] … [+][⋯]에서 칩이 다 안 들어가면
-// 칩 줄 안에서 가로로 밀린다. 밀리는 쪽 끝은 흐리게 사라져(칩 줄의 mask, 흐림 폭 --rk-fade-l/-r) 칩 테두리가 칼로 자른 듯 보이지 않고,
-// 끝까지 밀면 그쪽 흐림이 없어져 마지막 칩(▾ 포함)이 다 보인다. 안 넘치는 폭(폴드 펼침 등)은 흐림이 없다.
+// S67-74 UI-윗줄칩잘림(2026-11-21 명진 16:18, 폰 '사업 관리' 캡처: "사업영역 전체 박스 짤림") → S67-75 UI-걸러보기칩하나(18:33 A안).
+// #2847의 끝 흐림(mask)은 18:27 "이게 의도된 거라고?"로 걷어냈다. 폰 윗줄은 [아이콘][사업 관리][걸러보기 칩 하나 ▾] … [+][⋯]:
+// 고르기 상자 네 개(종류·사업영역·기간·보기)가 그 줄에 다 안 들어가면 칩 하나로 묶고, 누르면 칩 아래 작은 창에서 같은 상자 네 개로 고른다(고르면 바로 반영).
+// 칩 글자는 아무것도 안 골랐으면 '전체', 고른 값만 ' · '로 잇고 길면 끝 말줄임(▾는 늘 보임). 다 들어가는 폭(폴드 펼침 700·880)은 네 개 그대로.
 // 사람마다 바꾼 이름(custom_words, 최대 20글자)이 길어도 [+]·[⋯]가 줄 밖으로 밀리거나 화면이 가로로 넘치지 않는다.
 // (가짜 서버·가짜 보고는 biz-top-tidy.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
 test.use({ timezoneId: 'Asia/Seoul' });
@@ -60,96 +60,161 @@ async function open(page, state, width, view = 'meetings') {
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 15000 });
 }
 
-const BAR = '#meetingsView .report-kind-bar';
-// 칩 줄과 보이는 칩들의 위치(칩 줄 안 가로 밀기 위치 포함), 흐림 폭.
-const barState = page => page.locator(BAR).evaluate(bar => {
-  const r = e => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom }; };
+const BAR = '#meetingsView .report-kind-bar', CHIP = '#reportFilterChip';
+const box = e => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width }; };
+// 칩·상자 줄의 자리, 칩 글자가 칩 안에 다 들어갔는지(말줄임 포함), ▾ 자리(오른쪽 여백).
+const chipState = page => page.evaluate(([barSel, chipSel]) => {
+  const r = e => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width }; };
+  const bar = document.querySelector(barSel), chip = document.querySelector(chipSel), text = chip.querySelector('.report-filter-chip-text');
+  const shown = e => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
   const cs = getComputedStyle(bar);
-  const chips = [...bar.children].filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden')
-    .map(e => ({ id: e.id, ...r(e), padRight: parseFloat(getComputedStyle(e.matches('select') ? e : e.querySelector('select')).paddingRight) }));
-  return { ...r(bar), sw: bar.scrollWidth, cw: bar.clientWidth, sl: bar.scrollLeft, fadeL: parseFloat(cs.getPropertyValue('--rk-fade-l')) || 0, fadeR: parseFloat(cs.getPropertyValue('--rk-fade-r')) || 0, mask: cs.maskImage || cs.webkitMaskImage, chips };
-});
-const scrollBar = (page, to) => page.locator(BAR).evaluate((el, x) => { el.scrollLeft = x === 'end' ? el.scrollWidth : x; }, to);
+  return { chip: shown(chip) ? r(chip) : null, chipText: text.textContent, textCut: text.scrollWidth > text.clientWidth + 1, textEllipsis: getComputedStyle(text).textOverflow,
+    padRight: parseFloat(getComputedStyle(chip).paddingRight), bar: shown(bar) ? { ...r(bar), sw: bar.scrollWidth, cw: bar.clientWidth } : null,
+    mask: cs.maskImage || cs.webkitMaskImage || 'none', open: bar.matches(':popover-open'), expanded: chip.getAttribute('aria-expanded'),
+    selects: [...bar.querySelectorAll('select')].filter(shown).map(e => ({ id: e.id || e.dataset.reportPeriod !== undefined && 'period', ...r(e) })) };
+}, [BAR, CHIP]);
 const noPageScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
 for (const width of [360, 412]) {
-  test(`phone ${width}: 사업 관리 top-line chips are never cut with a hard edge — they slide inside the line, the overflowing end fades, and the last chip (with ▾) shows whole at the end`, async ({ page }) => {
+  test(`phone ${width}: 사업 관리 top line shows one filter chip (never cut) instead of four boxes; the chip opens one small window with the same four boxes, and a pick there filters the list and renames the chip`, async ({ page }) => {
     await open(page, makeState(), width);
-    await expect(page.locator('#reportAreaSelect')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#reportAreaSelect')).toHaveText(/사업영역 전체/);
-    await page.waitForTimeout(150);
-    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox();
-    let s = await barState(page);
-    // 칩 묶음은 [+] 왼쪽에서 끝나고, [+]·[⋯]는 화면 안·같은 줄.
-    expect(s.right).toBeLessThanOrEqual(add.x + 0.5);
+    const chip = page.locator(CHIP);
+    await expect(chip).toBeVisible({ timeout: 10000 });
+    await expect(chip).toHaveText('전체');
+    await expect(page.locator('#reportAreaSelect')).toBeHidden();
+    await expect(page.locator('#meetingList')).toContainText('◇◇ 결의대회');
+    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox(), title = await page.locator('#meetingsView .report-top-title').boundingBox();
+    let s = await chipState(page);
+    // 한 줄: [사업 관리] 다음에 칩, 칩은 [+] 왼쪽에서 끝나고, [+]·[⋯]는 화면 안. 칩은 통째로 보인다(글자 잘림·말줄임 없음, ▾ 자리 있음).
+    expect(s.bar).toBeNull();
+    expect(s.chip.left).toBeGreaterThanOrEqual(title.x + title.width);
+    expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
-    // 네 칩이 이 폭에는 다 안 들어가 칩 줄 안에서 밀린다(한 줄, 줄 높이 그대로).
-    expect(s.chips.length).toBe(4);
-    expect(s.sw).toBeGreaterThan(s.cw);
-    for (const c of s.chips) expect(Math.abs((c.top + c.bottom) / 2 - (s.top + s.bottom) / 2)).toBeLessThanOrEqual(2);
-    // 처음 자리: 오른쪽 끝을 걸친 칩이 있으면 그 끝은 흐림 안에 있다(잘린 테두리가 보이지 않음). 왼쪽은 흐림 없음.
-    expect(s.mask).toContain('linear-gradient');
-    expect(s.fadeL).toBe(0);
-    expect(s.fadeR).toBeGreaterThanOrEqual(16);
-    for (const c of s.chips) {
-      expect(c.left, `${c.id} starts inside the line`).toBeGreaterThanOrEqual(s.left - 0.5);
-      if (c.left < s.right && c.right > s.right) expect(c.left, `${c.id} crosses the edge only inside the fade`).toBeGreaterThan(s.left);
+    expect(Math.abs((s.chip.top + s.chip.bottom) / 2 - (add.y + add.height / 2))).toBeLessThanOrEqual(2);
+    expect(s.textCut).toBe(false);
+    expect(s.padRight).toBeGreaterThanOrEqual(20);
+    expect(s.mask).toBe('none');
+    // 칩을 누르면 칩 바로 아래 작은 창: 상자 네 개가 한 줄에 하나씩, 하단바에 가리지 않음.
+    await chip.click();
+    await expect(chip).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#reportAreaSelect')).toBeVisible();
+    s = await chipState(page);
+    expect(s.open).toBe(true);
+    expect(s.selects.map(x => x.id)).toEqual(['reportKindSelect', 'reportAreaSelect', 'period', 'reportViewSelect']);
+    expect(s.bar.top).toBeGreaterThanOrEqual(s.chip.bottom);
+    expect(s.bar.left).toBeGreaterThanOrEqual(0);
+    expect(s.bar.right).toBeLessThanOrEqual(width);
+    const tabs = await page.locator('nav.mobile-tabs').boundingBox();
+    if (tabs) expect(s.bar.bottom).toBeLessThanOrEqual(tabs.y + 0.5);
+    for (const x of s.selects) { expect(x.left).toBeGreaterThanOrEqual(s.bar.left); expect(x.right).toBeLessThanOrEqual(s.bar.right + 0.5); }
+    // 사업영역을 사람처럼 고른다: 상자를 눌러 열린 작은 목록에서 한 줄. 목록은 바로 걸러지고 칩 글자가 바뀌며 창은 닫힌다(초점은 칩).
+    await page.locator('#reportAreaSelect').click();
+    await page.locator('#kptuSelectMenu .kptu-select-opt', { hasText: '합성 사업' }).click();
+    await expect(page.locator('#reportAreaSelect')).toHaveValue('area-1');
+    await expect(page.locator('#meetingList')).not.toContainText('◇◇ 결의대회');
+    await expect(page.locator('#meetingList')).toContainText('○○ 대표자 회의');
+    await expect(chip).toHaveText('합성 사업');
+    await expect(chip).toHaveAttribute('aria-expanded', 'false');
+    await expect(chip).toBeFocused();
+    await expect(page.locator('#reportAreaSelect')).toBeHidden();
+    // 고른 뒤 뒤로 가기 기록이 남지 않는다: 창을 다시 열고 뒤로 가기 한 번이면 창만 닫힌다(아래).
+    // 보기도 같은 창에서: 달력을 고르면 기간 상자는 빠지고 칩은 '합성 사업 · 달력'.
+    await chip.click();
+    await page.locator('#reportViewSelect').selectOption('calendar');
+    await expect(chip).toHaveText('합성 사업 · 달력');
+    await chip.click();
+    await expect(page.locator('#reportPeriodPick')).toBeHidden();
+    await page.locator('#reportViewSelect').selectOption('list');
+    await expect(chip).toHaveText('합성 사업');
+    // Esc로 닫으면 칩으로 초점이 돌아온다. 뒤로 가기로도 닫히고 화면은 그대로 사업 관리.
+    await chip.click();
+    await expect(page.locator('#reportAreaSelect')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(chip).toHaveAttribute('aria-expanded', 'false');
+    await expect(chip).toBeFocused();
+    await expect(page.locator('#reportAreaSelect')).toBeHidden();
+    await chip.click();
+    await expect(page.locator('#reportAreaSelect')).toBeVisible();
+    await page.goBack();
+    await expect(page.locator('#reportAreaSelect')).toBeHidden();
+    await expect(page.locator('#meetingsView')).toBeVisible();
+    // 바깥을 누르면 닫힌다.
+    await chip.click();
+    await expect(page.locator('#reportAreaSelect')).toBeVisible();
+    await page.mouse.click(width / 2, 400);
+    await expect(page.locator('#reportAreaSelect')).toBeHidden();
+    expect(await noPageScroll(page)).toBe(true);
+  });
+
+  test(`phone ${width}: a long chip label (several picks) ends with … inside the line and keeps ▾, [+] and [⋯] in place`, async ({ page }) => {
+    await open(page, makeState(), width);
+    const chip = page.locator(CHIP);
+    await expect(chip).toBeVisible({ timeout: 10000 });
+    for (const [sel, value] of [['#reportKindSelect', { index: 1 }], ['#reportAreaSelect', 'area-1'], ['#reportPeriodPick [data-report-period]', 'all']]) {
+      await chip.click();
+      await page.locator(sel).selectOption(value);
+      await expect(page.locator('#reportAreaSelect')).toBeHidden();
     }
-    // 처음 보이는 칩(종류)은 ▾까지 다 보이고 흐림 밖이다.
-    const first = s.chips[0];
-    expect(first.right).toBeLessThanOrEqual(s.right - s.fadeR);
-    // 끝까지 밀면: 오른쪽 흐림이 없어지고 마지막 칩이 ▾까지 칩 줄 안에 다 보인다. 밀어 둔 앞쪽(왼쪽)이 흐려진다.
-    await scrollBar(page, 'end');
-    await expect.poll(async () => (await barState(page)).fadeR).toBe(0);
-    s = await barState(page);
-    expect(s.fadeL).toBeGreaterThanOrEqual(16);
-    const last = s.chips.at(-1);
-    expect(last.right).toBeLessThanOrEqual(s.right + 1);
-    expect(last.left).toBeGreaterThanOrEqual(s.left);
-    // 칩 하나하나: 칩 줄 안으로 밀어 오면 칩 오른쪽 끝(▾ 자리 = 오른쪽 여백 26px 안)이 칩 줄 오른쪽 끝을 넘지 않는다.
-    for (const id of ['reportKindSelect', 'reportAreaSelect', 'reportViewSelect']) {
-      await page.locator('#' + id).evaluate(el => el.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
-      await page.waitForTimeout(50);
-      const now = await barState(page), c = now.chips.find(x => x.id === id);
-      expect(c.right, id).toBeLessThanOrEqual(now.right + 1);
-      expect(c.left, id).toBeGreaterThanOrEqual(now.left - 1);
-      expect(c.padRight, `${id} keeps room for ▾`).toBeGreaterThanOrEqual(20);
-    }
+    await expect(chip).toHaveText(/ · .* · 전체 기간$/);
+    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox();
+    const s = await chipState(page);
+    expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
+    expect(more.x + more.width).toBeLessThanOrEqual(width);
+    expect(s.textEllipsis).toBe('ellipsis');
+    expect(s.padRight).toBeGreaterThanOrEqual(20);
     expect(await noPageScroll(page)).toBe(true);
   });
 }
 
 for (const width of [700, 880]) {
-  test(`fold open ${width}: all four chips fit in the line, nothing slides and nothing fades`, async ({ page }) => {
+  test(`fold open ${width}: all four boxes fit in the line, so they stay four (no chip)`, async ({ page }) => {
     await open(page, makeState(), width);
     await expect(page.locator('#reportAreaSelect')).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(150);
-    const s = await barState(page);
-    expect(s.sw).toBeLessThanOrEqual(s.cw);
-    expect(s.fadeL).toBe(0);
-    expect(s.fadeR).toBe(0);
-    for (const c of s.chips) { expect(c.left).toBeGreaterThanOrEqual(s.left - 0.5); expect(c.right).toBeLessThanOrEqual(s.right + 1); }
+    const s = await chipState(page);
+    expect(s.chip).toBeNull();
+    expect(s.selects.length).toBe(4);
+    expect(s.bar.sw).toBeLessThanOrEqual(s.bar.cw + 1);
+    expect(s.mask).toBe('none');
+    for (const c of s.selects) { expect(c.left).toBeGreaterThanOrEqual(s.bar.left - 0.5); expect(c.right).toBeLessThanOrEqual(s.bar.right + 1); }
     expect(await noPageScroll(page)).toBe(true);
   });
 }
 
+test('phone → wide: folding the window open while the chip window is open closes it and shows the four boxes', async ({ page }) => {
+  await open(page, makeState(), 412);
+  const chip = page.locator(CHIP);
+  await expect(chip).toBeVisible({ timeout: 10000 });
+  await chip.click();
+  await expect(page.locator('#reportAreaSelect')).toBeVisible();
+  await page.setViewportSize({ width: 880, height: 800 });
+  await expect(chip).toBeHidden();
+  await expect.poll(async () => (await chipState(page)).open).toBe(false);
+  await expect(page.locator('#reportAreaSelect')).toBeVisible();
+  await page.setViewportSize({ width: 412, height: 800 });
+  await expect(chip).toBeVisible();
+  await expect(page.locator('#reportAreaSelect')).toBeHidden();
+});
+
 for (const width of [360, 412]) {
-  test(`phone ${width}: long names a person gave (custom_words, up to 20 letters) keep [+]·[⋯] on the line and the page from scrolling sideways`, async ({ page }) => {
+  test(`phone ${width}: long names a person gave (custom_words, up to 20 letters) keep the chip, [+]·[⋯] on the line and the page from scrolling sideways`, async ({ page }) => {
     const state = makeState(LONG_WORDS);
     await open(page, state, width);
     const title = page.locator('#meetingsView .report-top-title');
     await expect(title).toHaveText(LONG_WORDS.menu_biz);
-    await expect(page.locator('#reportAreaSelect')).toHaveText(new RegExp(LONG_WORDS.area), { timeout: 10000 });
+    await expect(page.locator(CHIP)).toBeVisible({ timeout: 10000 });
+    await page.locator(CHIP).click();
+    await expect(page.locator('#reportAreaSelect')).toHaveText(new RegExp(LONG_WORDS.area));
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(150);
     const t = await title.boundingBox(), add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox();
-    const s = await barState(page);
+    const s = await chipState(page);
     // 아주 긴 이름만 줄 끝에서 …(칩 자리·버튼 자리를 지킴). 버튼은 화면 안, 이름과 같은 줄.
-    expect(t.x + t.width).toBeLessThanOrEqual(s.left);
-    expect(s.right).toBeLessThanOrEqual(add.x + 0.5);
+    expect(t.x + t.width).toBeLessThanOrEqual(s.chip.left);
+    expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
+    expect(s.chip.width).toBeGreaterThan(40);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
     expect(Math.abs((more.y + more.height / 2) - (t.y + t.height / 2))).toBeLessThanOrEqual(4);
-    expect(s.cw).toBeGreaterThan(40);
-    expect(s.fadeR).toBeGreaterThanOrEqual(16);
     expect(await noPageScroll(page)).toBe(true);
     // 다른 화면의 윗줄(앱 머리줄: 아이콘 · 이름)도 긴 이름에 넘치지 않는다.
     for (const [view, word] of [['team', LONG_WORDS.menu_org], ['calendar', null], ['basket&pane=note', null], ['library', null]]) {

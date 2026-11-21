@@ -8,6 +8,7 @@ on:
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
       - 'tests/web2-csp.test.mjs'
+      - 'tests/report-filter-chip.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'tests/same-file.test.mjs'
@@ -282,6 +283,7 @@ on:
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
       - 'tests/web2-csp.test.mjs'
+      - 'tests/report-filter-chip.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'tests/app-icon.test.mjs'
       - 'supabase/functions/basket-files/photo-prune.ts'
@@ -977,6 +979,9 @@ jobs:
 
       - name: Check phone top-line icon (S67-64 UI-윗줄한줄, one shared mark, same text in index.html and journal.js, phone-only style block)
         run: node --test tests/head-mark.test.mjs
+
+      - name: Check phone 사업 관리 one filter chip (S67-75 UI-걸러보기칩하나, chip text rule, #2847 fade removed)
+        run: node --test tests/report-filter-chip.test.mjs
 
       - name: Check every load has an end (LOAD-끝있는불러오기)
         run: node --test tests/load-deadline.test.mjs
