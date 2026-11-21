@@ -27,9 +27,9 @@ async function readSettings(rt) {
 }
 
 function render(details, settings, id, rt) {
-  const off = settings.enabled ? '' : word('<p class="mc-note">허락한 뒤 WORK ON 내 프로필 › Claude 읽기 연결을 켜야 읽기가 시작돼요.</p>');
+  const off = settings.enabled ? '' : word('<p class="mc-note">허락한 뒤 WORK ON+ 내 프로필 › Claude 읽기 연결을 켜야 읽기가 시작돼요.</p>');
   $('#mcCard').innerHTML = word`<h1>Claude 읽기 연결</h1>
-<p class="mc-lead"><b>${esc(details.clientName || 'Claude')}</b>(claude.ai)가 내 WORK ON 기록을 <b>읽기만</b> 해요. 쓰기·삭제·보내기는 할 수 없어요.</p>
+<p class="mc-lead"><b>${esc(details.clientName || 'Claude')}</b>(claude.ai)가 내 WORK ON+ 기록을 <b>읽기만</b> 해요. 쓰기·삭제·보내기는 할 수 없어요.</p>
 <div class="mc-list">
 <div class="mc-row"><span class="mc-k">볼 수 있는 것</span><span class="mc-v">담당조직 현황·조직 기록 요지, 사업 보고, 프로젝트 현황, 원장(민감한 기록은 제목만), 노트 제목과 앞부분, 구글 캘린더·할 일 목록 이름</span></div>
 <div class="mc-row"><span class="mc-k">볼 수 없는 것</span><span class="mc-v">하루 기록, 업무일지, 정리함 원문, 통화·녹음·회의 녹취, 가족 방, 텔레그램·바깥 수집 원문, 첨부 파일</span></div>

@@ -5,10 +5,10 @@ import test from 'node:test';
 import { buildPages } from './build-pages.mjs';
 import { checkBuild } from './check-pages-build.mjs';
 import { applyFace, faceHtml, FACE_FILE, WEB_MANIFEST, APP_ICON } from './brand-face.mjs';
-import { FACES } from '../app/brand/faces.mjs';
+import { FACES, wordIn } from '../app/brand/faces.mjs';
 
-// APP-올인원다이어리 단계 2: 빌드가 얼굴을 정한다. 지금 운영(nojo) 빌드는 얼굴 기능 전과 같고, girok(WORK ON 기본 단어) 빌드는 따로 나온다.
-// 앱 이름·아이콘은 두 얼굴 모두 WORK ON 표장 A(S67-49).
+// APP-올인원다이어리 단계 2: 빌드가 얼굴을 정한다. 지금 운영(nojo) 빌드는 얼굴 기능 전과 같고, girok(WORK ON+ 기본 단어) 빌드는 따로 나온다.
+// 앱 이름·아이콘은 두 얼굴 모두 WORK ON+ 표장 A(S67-49).
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const source = /\.(?:html|js|mjs|css)$/i;
 const input = Object.fromEntries(execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
@@ -32,31 +32,31 @@ test('지금 운영 얼굴(nojo)은 빌드 입력을 그대로 쓴다: 얼굴을
     // 고쳐 쓰는 파일은 ?v= 말고는 저장소 글자 그대로.
     assert.equal(text(nojo[file]).replace(/\?v=[0-9a-f]{10}/g, ''), text(input[file]).replace(/\?v=[0-9a-f]{10}/g, ''), file);
   }
-  assert.match(text(nojo[WEB_MANIFEST]), /"name":"WORK ON"/);
-  assert.match(nojo['app/index.html'], /<title>WORK ON<\/title>/);
+  assert.match(text(nojo[WEB_MANIFEST]), /"name":"WORK ON\+"/);
+  assert.match(nojo['app/index.html'], /<title>WORK ON\+<\/title>/);
 });
 
 test('모르는 얼굴은 빌드하지 않는다', () => {
   assert.throws(() => buildPages(input, { face: 'other' }), /모르는 얼굴/);
 });
 
-test('girok 빌드: 얼굴 한 줄·manifest·아이콘·제목이 WORK ON이고 검사를 통과한다', async () => {
+test('girok 빌드: 얼굴 한 줄·manifest·아이콘·제목이 WORK ON+고 검사를 통과한다', async () => {
   const face = FACES.girok;
   assert.equal(girok[FACE_FILE], "export const FACE_ID = 'girok';\n");
   const manifest = JSON.parse(text(girok[WEB_MANIFEST]));
-  assert.equal(manifest.name, 'WORK ON');
-  assert.equal(manifest.short_name, 'WORK ON');
+  assert.equal(manifest.name, 'WORK ON+');
+  assert.equal(manifest.short_name, 'WORK ON+');
   assert.equal(manifest.theme_color, face.themeColor);
   assert.equal(face.icon, APP_ICON, '두 얼굴이 같은 표장 A');
   assert.deepEqual(manifest.icons, JSON.parse(text(input[WEB_MANIFEST])).icons, '같은 아이콘이라 PNG 아이콘 목록 그대로');
   assert.ok(Buffer.from(girok[APP_ICON]).equals(Buffer.from(nojo[APP_ICON])));
   const index = girok['app/index.html'];
-  assert.match(index, /<title>WORK ON<\/title>/);
-  assert.match(girok['app/login/index.html'], /<title>로그인 · WORK ON<\/title>/);
+  assert.match(index, /<title>WORK ON\+<\/title>/);
+  assert.match(girok['app/login/index.html'], /<title>로그인 · WORK ON\+<\/title>/);
   assert.match(index, /icons\/app-icon-180\.png/, '같은 아이콘이라 PNG 아이콘 줄 그대로');
   const seen = Object.keys(girok).filter(file => file.startsWith('app/') && file.endsWith('.html')).flatMap(file => visible(girok[file]));
   for (const word of Object.keys(face.words).filter(key => !key.includes('#'))) assert.ok(!seen.some(text => text.includes(word)), `기록+ 화면 글자에 '${word}'가 남음`);
-  for (const word of ['활동 기록', '거래처·직원', 'WORK ON']) assert.ok(seen.includes(word), `기록+ 화면 글자에 '${word}'`);
+  for (const word of ['활동 기록', '거래처·직원', 'WORK ON+']) assert.ok(seen.includes(word), `기록+ 화면 글자에 '${word}'`);
   const result = await checkBuild(girok);
   assert.deepEqual(result.errors, []);
   // 저장소 입력은 그대로(빌드 출력에서만 고침).
@@ -74,7 +74,30 @@ test('girok 빌드는 얼굴이 닿는 파일 말고는 nojo 빌드와 ?v= 번�
 });
 
 test('HTML 얼굴 입히기는 눈에 보이는 글자만 바꾼다(script·style·주석·속성 이름은 그대로)', () => {
-  const html = '<title>WORK ON</title><a data-view="team" data-kind="담당조직">조직 관리</a><span>담당조직을 고르세요</span><div aria-label="사업 관리"></div><input placeholder="사업영역 이름"><!-- 담당조직 --><style>.x{}</style><script>const a="사업 관리"</script>';
-  assert.equal(faceHtml(html, FACES.girok), '<title>WORK ON</title><a data-view="team" data-kind="담당조직">거래처·직원</a><span>관리 대상을 고르세요</span><div aria-label="활동 기록"></div><input placeholder="프로젝트 이름"><!-- 담당조직 --><style>.x{}</style><script>const a="사업 관리"</script>');
+  const html = '<title>WORK ON+</title><a data-view="team" data-kind="담당조직">조직 관리</a><span>담당조직을 고르세요</span><div aria-label="사업 관리"></div><input placeholder="사업영역 이름"><!-- 담당조직 --><style>.x{}</style><script>const a="사업 관리"</script>';
+  assert.equal(faceHtml(html, FACES.girok), '<title>WORK ON+</title><a data-view="team" data-kind="담당조직">거래처·직원</a><span>관리 대상을 고르세요</span><div aria-label="활동 기록"></div><input placeholder="프로젝트 이름"><!-- 담당조직 --><style>.x{}</style><script>const a="사업 관리"</script>');
   assert.equal(faceHtml(html, FACES.nojo).replace(/<title>[^<]*<\/title>/, ''), html.replace(/<title>[^<]*<\/title>/, ''), 'nojo 단어표는 비어 있다');
+});
+
+// S67-56: 운영이 girok 얼굴이 되면서, 고친 이름(custom_words)이 있는 사람도 앱 바탕 글자를 제 이름으로 봐야 한다.
+// 빌드가 지운 노조 글자 열쇠를 되찾도록 앱 바탕(app/index.html)의 이름 칸 글자만 원래 글자를 남긴다.
+test('girok 앱 바탕: 이름 칸 글자를 바꾼 자리마다 원래 글자를 남기고, 다른 HTML·다른 글자는 남기지 않는다', () => {
+  const index = girok['app/index.html'];
+  assert.match(index, /<html data-word-faced lang="ko">/);
+  assert.match(index, /data-view="team" href="\.\/\?view=team"><!--word:조직 관리-->거래처·직원<\/a>/);
+  assert.match(index, /<span><!--word:사업 관리-->활동 기록<\/span>/);
+  assert.match(index, /aria-label="활동 기록으로 돌아가기" data-word-aria-label="사업 관리로 돌아가기"/);
+  // 이름 칸과 상관없는 글자(서식·위원장 등)는 남기지 않는다.
+  assert.doesNotMatch(index, /<!--word:노조/);
+  assert.doesNotMatch(index, /data-word-placeholder=/);
+  for (const file of Object.keys(girok)) if (file !== 'app/index.html' && file.endsWith('.html')) assert.doesNotMatch(text(girok[file]), /<!--word:|data-word-/, file);
+  assert.doesNotMatch(nojo['app/index.html'], /<!--word:|data-word-/, 'nojo 빌드는 저장소 그대로');
+  // 남긴 원래 글자에 얼굴 단어를 다시 쓰면 지금 보이는 글자와 같다(빌드와 시작 때 글자 입히기가 같은 규칙).
+  for (const [, from, to] of index.matchAll(/<!--word:([^>]*)-->([^<]*)</g)) assert.equal(wordIn(FACES.girok, from), to, from);
+});
+
+test('앱 바탕에 원래 글자를 남길 수 없는 글자(주석을 깨는 --, 글자 참조 &)는 빌드를 멈춘다', () => {
+  assert.throws(() => faceHtml('<html><b>사업 관리--</b></html>', FACES.girok, { keepSlots: true }), /원래 글자를 남길 수 없음/);
+  assert.throws(() => faceHtml('<html><b>사업 관리 &amp; 기타</b></html>', FACES.girok, { keepSlots: true }), /원래 글자를 남길 수 없음/);
+  assert.equal(faceHtml('<html><b>사업 관리</b></html>', FACES.girok), '<html><b>활동 기록</b></html>', '앱 바탕이 아니면 남기지 않음');
 });

@@ -1,4 +1,4 @@
-/* AUTH-구글화면이름: WORK ON 공개 소개·처리방침·약관 공통 모양(로그인 없이 열림, 스크립트 없음). */
+/* AUTH-구글화면이름: WORK ON+ 공개 소개·처리방침·약관 공통 모양(로그인 없이 열림, 스크립트 없음). */
 :root{--bg:#f3f1ea;--card:#fbfaf6;--ink:#23262b;--muted:#646a72;--line:#dedad0;--accent:#3b4a6b;--ok:#2f7a62}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;font-size:14px;line-height:1.6}

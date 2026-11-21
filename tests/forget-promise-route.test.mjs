@@ -32,7 +32,7 @@ test('상대 약속 줄: 출처 꼬리표·버튼(원장으로·받음·무시)�
   assert.match(text, /^쓰기요청\n- 종류: 약속\(상대·제3자\)\n- 내용: 가상지부 · 가상지부 자료 보내기\n/);
   assert.match(text, /- 출처: 노동조합\+ 소식\(텔레그램\) 2026-11-08$/);
   const src = readFileSync('app/forget-list.js', 'utf8');
-  assert.match(src, /src: `\$\{SOURCE_TAG\.promise\} · \$\{SOURCE_TAG\.todo\}`/, 'radar promises tagged 상대 약속 · 챙길 것');
+  assert.match(src, /src: `\$\{SOURCE_TAG\.promise\} · \$\{SOURCE_TAG\.todo\}`/, 'radar promises tagged 상대 약속 · AI 제안');
   assert.match(src, /src: `\$\{SOURCE_TAG\.promise\} · \$\{r\.source === 'telegram' \? '텔레그램' : '통화'\}`/, 'news promises tagged 상대 약속 · 텔레그램/통화');
   // 다시 판정: 미리 보기 수를 먼저 보이고 [확인]을 눌러야 실행(기존 화면 재사용), 상대 약속으로 옮길 수도 보인다.
   assert.match(src, /개는 상대 약속으로/);
