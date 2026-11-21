@@ -1,5 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+import {toneColor} from '../../app/event-color.mjs';
+// S67-65 E1: 칠하는 색은 구글 색의 톤(event-color.mjs).
+const toned=hex=>`rgb(${toneColor(hex).slice(1).match(/../g).map(x=>parseInt(x,16)).join(', ')})`;
 
 test.use({timezoneId:'Asia/Seoul'});
 // SET-보기선택서버저장: 보기 선택은 서버(프로필 view_prefs)에 저장된다. 시험은 그 서버를 흉내 낸 prefs 상태를 읽는다.
@@ -197,7 +200,7 @@ test('overseas device keeps KST single-day events in columns and clips multi-day
     await expect(page.locator('.cwv-bands [data-google-event="multi"]')).toHaveCSS('grid-column','3 / span 2');
   }finally{await context.close()}
 });
-// BUG-일정색표시: 주간 시간 일정 칸도 종일 띠와 같은 일정별 색(왼쪽 색 띠·연한 배경)을 쓴다.
+// BUG-일정색표시 → S67-65 E1: 주간 시간 일정 칸도 종일 띠와 같은 일정별 꽉 찬 색을 쓴다.
 for(const width of [1024,1440])test(`week timed rows show their own event color like the bands at ${width}`,async({page})=>{
   const ev=(id,start,end,color,allDay=false)=>({id,title:'QA 색 '+id,calendarId:'qa-cal',start,end,allDay,color});
   await open(page,width,'week',[
@@ -212,18 +215,19 @@ for(const width of [1024,1440])test(`week timed rows show their own event color 
     const out={red:paint('#calendarWeek .cwv-items [data-google-event="red"]'),green:paint('#calendarWeek .cwv-items [data-google-event="green"]'),band:paint('#calendarWeek .cwv-bands [data-google-event="band"]')};
     return out.red&&out.green&&out.band?out:null});return paints!==null},{message:'주간 일정 세 줄이 그려짐'}).toBe(true);
   const {red,green,band}=paints;
-  expect(red.stripe).toBe('rgb(220, 33, 39)');expect(green.stripe).toBe('rgb(81, 183, 73)');expect(red.width).toBe('4px');
-  expect(red.stripe).toBe(band.stripe);expect(red.background).toBe(band.background);expect(red.background).not.toBe(green.background);expect(red.background).not.toBe('rgba(0, 0, 0, 0)');
+  // S67-65 E1: 시간표 칸·종일 띠 모두 꽉 찬 색(왼쪽 띠 없음), 같은 일정 색이면 같은 칠.
+  expect(red.background).toBe(toned('#dc2127'));expect(green.background).toBe(toned('#51b749'));expect(red.width).toBe('0px');
+  expect(red.background).toBe(band.background);expect(red.background).not.toBe(green.background);
   await expect(page.locator('#calendarWeek .cwv-items [data-google-event="red"] .clv-color')).toBeHidden();
   await page.getByRole('button',{name:'목록 보기',exact:true}).click();await expect(page.locator('#calendarList')).toBeVisible();
   // The list re-renders while its events reload; a web-first assertion re-finds the current row.
-  await expect(page.locator('#calendarList [data-google-event="red"] .clv-color')).toHaveCSS('background-color','rgb(220, 33, 39)');
+  await expect(page.locator('#calendarList [data-google-event="red"] .clv-color')).toHaveCSS('background-color',toned('#dc2127'));
 });
 test('phone list keeps the small color bar and no week stripe rule',async({page})=>{
   const ev={id:'red',title:'QA 색 red',calendarId:'qa-cal',start:'2026-10-15T09:00:00+09:00',end:'2026-10-15T10:00:00+09:00',allDay:false,color:'#dc2127'};
   await open(page,390,'list',[ev]);await expect(page.locator('#calendarList')).toBeVisible();
   const row=page.locator('#calendarList [data-google-event="red"]');
-  await expect(row.locator('.clv-color')).toHaveCSS('background-color','rgb(220, 33, 39)');
+  await expect(row.locator('.clv-color')).toHaveCSS('background-color',toned('#dc2127'));
   await expect(row).toHaveCSS('border-left-width','0px');
 });
 // CAL-주간제목: 주간 일정 칸은 시간을 윗줄, 제목을 아랫줄(최대 2줄)에 두고 넘치면 말풍선(시간+전체 제목)을 보인다.

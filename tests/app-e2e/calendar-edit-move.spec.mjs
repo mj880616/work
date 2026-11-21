@@ -2,6 +2,8 @@ import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import {toneColor} from '../../app/event-color.mjs';
+const rgbOf=hex=>`rgb(${hex.slice(1).match(/../g).map(x=>parseInt(x,16)).join(', ')})`;
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -63,7 +65,7 @@ for(const view of ['list','week','month'])test('move persists destination color 
   const root=view==='month'?'#calendarGrid':view==='week'?'#calendarWeek':'#calendarList';
   const moved=page.locator(root+' [data-google-event="move-event"]');await expect(moved.first()).toHaveAttribute('data-google-calendar','target');
   // The view owner re-renders after the save (event reload); find and read the current row in one page task, polling until it settles.
-  await expect.poll(()=>page.evaluate(sel=>{const el=document.querySelector(sel);if(!el)return null;const dot=el.querySelector('.clv-color');if(dot)return getComputedStyle(dot).backgroundColor;const probe=document.createElement('i');probe.style.backgroundColor=getComputedStyle(el).getPropertyValue('--cmv-google-source');el.append(probe);const color=getComputedStyle(probe).backgroundColor;probe.remove();return color},root+' [data-google-event="move-event"]')).toBe('rgb(170, 85, 51)');
+  await expect.poll(()=>page.evaluate(sel=>{const el=document.querySelector(sel);if(!el)return null;const dot=el.querySelector('.clv-color');if(dot)return getComputedStyle(dot).backgroundColor;const probe=document.createElement('i');probe.style.backgroundColor=getComputedStyle(el).getPropertyValue('--cmv-google-source');el.append(probe);const color=getComputedStyle(probe).backgroundColor;probe.remove();return color},root+' [data-google-event="move-event"]')).toBe(rgbOf(toneColor('#aa5533'))); // S67-65 E1: 칠하는 색은 새 캘린더 색의 톤
   await edit(page);await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');
 });
 test('date dialog uses same editor and selection',async({page})=>{
