@@ -242,7 +242,7 @@
 #appView #meetingsView button.report-filter-chip .report-filter-chip-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 #appView #meetingsView button.report-filter-chip::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #meetingsView button.report-filter-chip:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
-#appView #meetingsView .report-top>.report-kind-bar.is-filter-panel{position:fixed;display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:6px;box-sizing:border-box;margin:0;padding:8px;overflow:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float)}
+#appView #meetingsView .report-top>.report-kind-bar.is-filter-panel{position:fixed;display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:6px;box-sizing:border-box;margin:0;padding:8px;overflow:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float)}
 #appView #meetingsView .report-kind-bar.is-filter-panel>:is(select.report-top-select,.report-period-host){flex:none;width:100%;max-width:none}
 #appView #meetingsView .report-kind-bar.is-filter-panel>.report-period-host>select.report-period-select{width:100%;max-width:none}
 #appView #meetingsView .report-kind-bar.is-filter-panel>[hidden]{display:none}
