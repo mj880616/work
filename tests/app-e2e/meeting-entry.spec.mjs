@@ -568,7 +568,8 @@ for(const width of [320,360,390,760]){
     await page.setViewportSize({width,height:800});
     await signIn(page);
     // S52-22 TEAM-맨위한줄 → BIZ-위쪽정돈(11/09 01:22 확정안): 맨 윗줄(.report-top-line)은 제목 ……… [녹음][+][⋯], 둘째 줄(.report-kind-bar)은 [종류 ▾][사업영역 ▾][주 ▾]. 칩 줄·[거르기]는 없다. ⋯는 맨 윗줄 오른쪽 끝.
-    const top=page.locator('#meetingsView .report-top-line'),bar=page.locator('#meetingsView .report-kind-bar');
+    // S67-64 UI-윗줄한줄(명진 11/21 D3): 폰(~760px)은 첫 줄과 고르기 줄이 한 줄(.report-top) — [아이콘][사업 관리][고르기 …][+][⋯]. .report-top-line은 자리만 내준다.
+    const top=page.locator('#meetingsView .report-top'),bar=page.locator('#meetingsView .report-kind-bar');
     const select=page.locator('#reportKindSelect'),button=page.locator('#newMeetingBtn'),more=page.locator('#reportMore');
     await expect(page.locator('#meetingTypeFilter,#reportAreaFilter,#reportFilterBtn,#meetingsView .meeting-toolbar')).toHaveCount(0);
     await expect(page.locator('#reportKindFilter')).toBeHidden();
@@ -578,7 +579,8 @@ for(const width of [320,360,390,760]){
     expect(s.x).toBeCloseTo(b.x,0);
     expect(m.x+m.width).toBeCloseTo(t.x+t.width,0);
     expect(m.y+m.height/2).toBeCloseTo(btn.y+btn.height/2,0);
-    expect(s.y).toBeGreaterThanOrEqual(t.y+t.height-1);
+    expect(s.y+s.height/2).toBeCloseTo(btn.y+btn.height/2,0);
+    expect(b.x+b.width).toBeLessThanOrEqual(btn.x);
     expect(b.height).toBeLessThanOrEqual(48);
     if(width<=760){
       // 폰: [+]는 떠 있는 동그라미가 아니라 맨 윗줄 오른쪽 32px 작은 아이콘.

@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-// SET-보기선택서버저장: 화면 색은 서버(프로필 view_prefs)에서 읽는다. 로그인 전·첫 줄 스크립트는 기기 저장소를 읽지 않고 기본(올리브)만 건다.
+// SET-보기선택서버저장: 화면 색은 서버(프로필 view_prefs)에서 읽는다. 로그인 전·첫 줄 스크립트는 기기 저장소를 읽지 않고 기본(먹, S67-64)만 건다.
 // 저장된 색은 loader-v2.js가 첫 화면을 공개하기 전에 적용한다.
 for(const path of ['app/index.html','app/login/index.html','app/oauth-consent/index.html']){
  const html=readFileSync(path,'utf8');
@@ -15,7 +15,7 @@ for(const path of ['app/index.html','app/login/index.html','app/oauth-consent/in
   const context={document:{documentElement:{setAttribute:(key,value)=>theme=[key,value]}}};
   Object.defineProperty(context,'localStorage',{get(){throw Error('storage must not be read')}});
   assert.doesNotThrow(()=>vm.runInNewContext(script,context));
-  assert.deepEqual(theme,['data-theme','olive']);
+  assert.deepEqual(theme,['data-theme','ink']);
  });
 }
 test('loader applies the saved theme before the first screen is shown',()=>{

@@ -99,7 +99,13 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   expect(line2.length).toBeGreaterThanOrEqual(2);
   expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (pc) { expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line2.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)) - 32); }
-  else expect(Math.min(...line2.map(x => x.top))).toBeGreaterThanOrEqual(Math.max(...line1.map(x => x.bottom)) - 1);
+  // S67-64 UI-윗줄한줄(명진 11/21 시안 D3): 폰도 한 줄 — [아이콘][사업 관리][고르기(넘치면 줄 안에서 가로 밀기)] … [+][⋯].
+  else {
+    expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3);
+    const [bar, add] = await Promise.all([page.locator('#meetingsView .report-kind-bar').boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
+    expect(bar.x).toBeGreaterThan((await page.locator('#meetingsView .report-top-title').boundingBox()).x);
+    expect(bar.x + bar.width).toBeLessThanOrEqual(add.x);
+  }
   // 녹음·추가는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).
   for (const b of await page.locator('#meetingsView .report-head-actions > :is(#newMeetingBtn,#reportRecordBtn,#phoneRecordBtn):not([hidden])').all()) { const r = await b.boundingBox(); expect(r.width).toBeLessThanOrEqual(34); expect(r.height).toBeLessThanOrEqual(34); }
   // 작은 버튼 상자 높이가 같다(고르기 상자끼리).

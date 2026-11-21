@@ -187,8 +187,8 @@ test('horizontal swipes never change the tab; the bottom tabs do',async({page})=
   await expect(page.locator('[data-mobile-view-name]')).toBeHidden();
   await page.locator('.mobile-tabs [data-view="calendar"]').click();
   await expect(page.locator('[data-mobile-view-name]')).toHaveText('일정');
-  // UI-디자인기준 2/3(8-9d): 일정 화면 머리줄 이름은 화면 제목 18px·중간 굵기(500).
-  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','18px');
+  // S67-64 UI-윗줄한줄(명진 11/21 D2 제목 글씨, 옛 UI-디자인기준 18px): 머리줄 이름은 15px·중간 굵기(500).
+  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','15px');
   await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','500');
   await page.locator('#mobileMenuTab').click();
   // UI-디자인손질 4: on a phone the close control is the sheet's full-width grip (32px, 44px to touch with its ::after).
