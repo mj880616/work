@@ -401,7 +401,7 @@ function renderTasksNow(card) {
   box.className = 'journal-group journal-task-col'; box.dataset.journalGroup = 'todo';
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
   const count = part.loading ? '' : String((part.todo || []).length + (part.overdue || []).length);
-  head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">할 일</h4><small class="journal-head-count" data-journal-todo-count>${count}</small></span><button type="button" class="journal-schedule-cal" data-journal-tasks-open aria-label="할 일 화면 열기">할 일 ›</button>`;
+  head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">${selected === todayKey() ? '오늘 할 일' : '할 일'}</h4><small class="journal-head-count" data-journal-todo-count>${count}</small></span><button type="button" class="journal-schedule-cal" data-journal-tasks-open aria-label="할 일 화면 열기">할 일 ›</button>`;
   box.append(head);
   if (part.loading) box.insertAdjacentHTML('beforeend', waitHtml({rows:2}));
   else {
@@ -454,7 +454,7 @@ function renderSchedule(card) {
   // 폰·PC에서는 display:contents라 묶음이 없는 것과 같은 모양(journal.css).
   const body = document.createElement('div'); body.className = 'journal-schedule-body';
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
-  head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">그날 일정</h4><small class="journal-head-count" data-journal-events-count>${part.loading ? '' : part.items.length}</small></span><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>`;
+  head.innerHTML = `<span class="journal-head-name"><h4 class="journal-heading">${selected === todayKey() ? '오늘 일정' : '그날 일정'}</h4><small class="journal-head-count" data-journal-events-count>${part.loading ? '' : part.items.length}</small></span><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>`;
   body.append(head);
   host.replaceChildren(body);
   if (part.loading) { body.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
