@@ -238,6 +238,46 @@ jobs:
             return 1
           }
 
+          # DOMAIN-workonplus PR-B: nojoplus.com app addresses answer one notice page (200, noindex) whose link keeps the path.
+          check_moved_notice() {
+            local url="$1"
+            local href="$2"
+            local result=""
+            local body=""
+            local code=""
+
+            for attempt in {1..20}; do
+              body="$(mktemp)"
+              result="$(curl \
+                --silent \
+                --show-error \
+                --max-redirs 0 \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --header "User-Agent: $USER_AGENT" \
+                --dump-header - \
+                --output "$body" \
+                --write-out '%{http_code}' \
+                "$url" || true)"
+              code="${result##*$'\n'}"
+              if [[ "$code" == "200" ]] \
+                && grep -q 'WORK ON+로 옮겼어요' "$body" \
+                && grep -qF "href=\"$href\"" "$body" \
+                && printf '%s\n' "$result" | tr -d '\r' | grep -qi '^x-robots-tag: noindex'; then
+                rm -f "$body"
+                echo "OK  $url -> moved notice ($href)"
+                return 0
+              fi
+              rm -f "$body"
+
+              echo "WAIT ($attempt/20, HTTP $code)  $url"
+              sleep 5
+            done
+
+            echo "FAIL  $url (last HTTP $code, expected moved notice)"
+            return 1
+          }
+
           check_icon() {
             local url="$1"
             local expected_type="$2"
@@ -300,9 +340,11 @@ jobs:
           }
 
           check_redirect 'https://bokdoong.com/' 'https://bokdoong.com/work/app/'
-          # DOMAIN-nojoplus 1단계: the new Web2 address answers on its own host; www goes there with 301.
-          check_redirect 'https://nojoplus.com/' 'https://nojoplus.com/work/app/'
+          # DOMAIN-nojoplus: www still goes to nojoplus.com with 301. DOMAIN-workonplus PR-B: nojoplus.com app addresses show the
+          # moved notice (no automatic move); its link keeps the path and ?query on workonplus.com.
           check_redirect 'https://www.nojoplus.com/work/app/?view=calendar' 'https://nojoplus.com/work/app/?view=calendar' 301
+          check_moved_notice 'https://nojoplus.com/' 'https://workonplus.com/work/app/'
+          check_moved_notice 'https://nojoplus.com/work/app/?view=calendar' 'https://workonplus.com/work/app/?view=calendar'
           # DOMAIN-workonplus 1단계: WORK ON+ address answers on its own host; www goes there with 301.
           check_redirect 'https://workonplus.com/' 'https://workonplus.com/work/app/'
           check_redirect 'https://www.workonplus.com/work/app/?view=calendar' 'https://workonplus.com/work/app/?view=calendar' 301
@@ -351,7 +393,6 @@ jobs:
           check_200 'https://bokdoong.com/work/app/' 'text/html'
           check_200 'https://work.bokdoong.com/work/share/' 'text/html'
           check_200 'https://work.bokdoong.com/work/about/' 'text/html'
-          check_200 'https://nojoplus.com/work/app/' 'text/html'
           check_200 'https://nojoplus.com/work/about/' 'text/html'
           check_200 'https://workonplus.com/work/app/' 'text/html'
           check_200 'https://workonplus.com/work/about/' 'text/html'

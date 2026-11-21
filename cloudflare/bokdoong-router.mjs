@@ -21,6 +21,7 @@ const WEB2_HOST = 'bokdoong.com';
 const WEB2_ORIGIN = `https://${WEB2_HOST}`;
 const WEB2_PREFIX = '/work/app/';
 
+// (Since DOMAIN-workonplus PR-B, nojoplus.com / and /work/app/** answer the moved notice below instead; the rest stays.)
 // DOMAIN-nojoplus 1단계 (docs/design/domain-nojoplus.md): nojoplus.com is a second Web2 host that answers exactly like
 // bokdoong.com (same /work/app/ tree, same cache, CSP and security rules), and its root goes to its own /work/app/.
 // bokdoong.com stays the target of every old-address redirect (desk, work, arsenal) until 2단계. www.nojoplus.com
@@ -36,6 +37,60 @@ const WWW_HOSTS = Object.freeze({ 'www.nojoplus.com': NEW_HOST, 'www.workonplus.
 const OWN_HOSTS = Object.freeze(new Set([NEW_HOST, WORKON_HOST]));
 const WEB2_HOSTS = Object.freeze(new Set([WEB2_HOST, NEW_HOST, WORKON_HOST]));
 const NEW_HOST_KEPT = Object.freeze(['/work/about']);
+
+// DOMAIN-workonplus 2 (PR-B, docs/design/domain-workonplus.md 4절): the app moved to workonplus.com (WORK ON+). On nojoplus.com,
+// / and /work/app/** (pages and files) answer one notice page instead of the app: nothing is fetched from GitHub Pages and
+// nothing moves on its own (명진 요청: 안내 + 링크). Its one button keeps the same path and ?query on workonplus.com (/ and
+// /work/app become /work/app/). Kept on nojoplus.com: /s/<short address>, /work/about/**, other /work/** → work, www → 301.
+// Undo: deploy the previous Worker version (nojoplus.com serves the app again).
+export function movedNotice(host, path) {
+  return host === NEW_HOST && (path === '/' || isWeb2Route(path));
+}
+
+export function movedTarget(incoming) {
+  const target = new URL(`https://${WORKON_HOST}`);
+  target.pathname = incoming.pathname.startsWith(WEB2_PREFIX) ? incoming.pathname : WEB2_PREFIX;
+  target.search = incoming.search;
+  return target.href;
+}
+
+const MOVED_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+export function movedNoticeHtml(href) {
+  const link = escapeHtml(href);
+  return '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<meta name="robots" content="noindex, nofollow"><meta name="color-scheme" content="light dark">'
+    + '<title>WORK ON+로 옮겼어요</title><style>'
+    + ':root{--bg:#f4f4f2;--card:#fff;--ink:#2b2f33;--sub:#5d646b;--line:#dcdcd8;--btn:#3d4a57;--btn-ink:#fff}'
+    + '@media (prefers-color-scheme:dark){:root{--bg:#1d2024;--card:#262a2f;--ink:#e3e5e7;--sub:#a3a9af;--line:#3a3f45;--btn:#4f6072;--btn-ink:#f2f4f6}}'
+    + '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans KR",sans-serif}'
+    + 'main{max-width:420px;margin:0 auto;padding:40px 16px}'
+    + '.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px 16px}'
+    + 'h1{font-size:17px;margin:0 0 8px}p{margin:0 0 6px;color:var(--sub)}'
+    + 'a.go{display:inline-block;margin-top:10px;padding:7px 14px;border-radius:6px;background:var(--btn);color:var(--btn-ink);text-decoration:none;font-size:14px}'
+    + 'a.go:focus-visible{outline:2px solid var(--ink);outline-offset:2px}'
+    + '</style></head><body><main><div class="card">'
+    + '<h1>WORK ON+로 옮겼어요</h1>'
+    + '<p>이 앱은 개인 업무 관리 앱 WORK ON+로 바뀌어 workonplus.com에서 계속 쓸 수 있어요. 기록은 그대로이고, 새 주소에서 한 번만 다시 로그인하면 돼요.</p>'
+    + '<p>노동조합+는 노조 집행부·조합원 공간 중심으로 바꾸어 다시 출시할 예정이에요.</p>'
+    + `<a class="go" href="${link}">workonplus.com으로 가기</a>`
+    + '</div></main></body></html>';
+}
+
+function movedNoticeResponse(incoming, method) {
+  return new Response(method === 'HEAD' ? null : movedNoticeHtml(movedTarget(incoming)), {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex, nofollow, noarchive',
+      'Content-Security-Policy': MOVED_CSP,
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff'
+    }
+  });
+}
 
 function web2Host(host) {
   return WEB2_HOSTS.has(host);
@@ -316,6 +371,7 @@ export default {
       });
     }
     if (host === ARSENAL_HOST) return arsenalRedirect();
+    if (movedNotice(host, incoming.pathname)) return movedNoticeResponse(incoming, request.method);
     if (movesToWeb2(host, incoming.pathname)) return web2Redirect(incoming, host);
     if (incoming.pathname === '/' && SERVICES[host]) {
       incoming.pathname = SERVICES[host].root;
