@@ -121,10 +121,10 @@ const isOpen=()=>compact||!state?true:state.hand??(state.auto?false:bizWeekOpen(
 function applyFold(from){
   if(compact)return;
   const h=box?.querySelector('.biz-week-title'),body=box?.querySelector('[data-bw-body]');if(!h||!body)return;
-  const now=weekOf(seoulDateKey(Date.now())).from,name=from===now?'이번 주 주간 보고':`${weekLabel(from)} 주간 보고`;
+  const now=weekOf(seoulDateKey(Date.now())).from,name=from===now?`이번 주 ${word('주간 보고')}`:`${weekLabel(from)} ${word('주간 보고')}`;
   // MULTI-사업보고빈화면 ①: 사업영역이 없는 계정은 제목 줄·표 없이 안내 한 줄만(아래 drawNone). 접고 펴기도 없다.
   h.hidden=!!state.none;
-  if(state.none){box.setAttribute('aria-label','사업 만들기 안내');body.hidden=false;h.innerHTML='';return}
+  if(state.none){box.setAttribute('aria-label',word('사업 만들기 안내'));body.hidden=false;h.innerHTML='';return}
   box.setAttribute('aria-label',name);
   const open=isOpen();
   body.hidden=!open;
