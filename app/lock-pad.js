@@ -28,6 +28,16 @@ export function padBox({title = '', digits = 0, msg = '', busy = false, forgot =
   if (cancel) box.append(button('secondary mini lk-cancel', '취소', {lkCancel: ''}));
   return box;
 }
+// S67-72(명진 11/21 "숫자 누를 때 눌러지는 느낌이 잘 안 듦"): 숫자를 누를 때는 판을 다시 그리지 않고 점·안내 줄만 바꾼다.
+// 판 전체를 다시 그리면 누르고 있던 칸이 사라져 눌림 표시(:active)가 보이지 않았다. 짧은 진동도 함께(되는 기기만).
+export function padTyped(host, {digits = 0, msg = ''} = {}) {
+  const dots = host?.querySelector('[data-lk-dots]'); if (!dots) return false;
+  dots.setAttribute('aria-label', `${digits}자리 입력`);
+  [...dots.children].forEach((dot, i) => dot.classList.toggle('on', i < digits));
+  const note = host.querySelector('[data-lk-msg]'); if (note && note.textContent !== msg) note.textContent = msg;
+  return true;
+}
+export function tap() { try { navigator.vibrate?.(8); } catch {} }
 export function shake(host) {
   const dots = host?.querySelector('[data-lk-dots]'); if (!dots) return;
   dots.classList.remove('lk-shake'); void dots.offsetWidth; dots.classList.add('lk-shake');
@@ -76,10 +86,10 @@ async function entered() {
 }
 function press(key) {
   const h = here; if (!h || h.busy) return;
-  if (key === 'back') { h.digits = h.digits.slice(0, -1); draw(); return; }
+  if (key === 'back') { h.digits = h.digits.slice(0, -1); tap(); if (!padTyped(h.dialog, {digits: h.digits.length, msg: h.msg})) draw(); return; }
   if (!/^[0-9]$/.test(key) || h.digits.length >= 4) return;
   h.digits += key; if (h.digits.length === 1) h.msg = h.msg.startsWith('여러 번') ? h.msg : '';
-  draw();
+  tap(); if (!padTyped(h.dialog, {digits: h.digits.length, msg: h.msg})) draw();
   if (h.digits.length === 4) void entered();
 }
 // title: 판 맨 위 한 줄(예: '통화·텔레그램 잠김'). from: 누른 줄(취소로 닫을 때 초점을 돌려줌).
