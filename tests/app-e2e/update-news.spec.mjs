@@ -103,8 +103,12 @@ for(const width of [412,880,1280])test(`운영자: 기록 줄 [보내기] → �
   if(width<900)await sent.locator('summary').click();
   await expect(sent.locator('.un-item').first()).toContainText('읽음 7/9');
   await expect(sent.locator('.un-cutline')).toContainText('여기부터 위만 이용자에게 보임');
-  await expect(view.locator('.rn-note').first().locator('.rn-sent')).toBeVisible();
-  await expect(view.locator('.rn-note').nth(2).locator('.rn-sent')).toBeHidden();
+  // S67-73: 보낸 기록은 버튼 자체가 [보냄](못 누름), 안 보낸 기록은 [보내기]. 따로 붙는 '보냄' 꼬리표는 없다.
+  await expect(view.locator('.rn-note').first().locator('[data-rn-send]')).toHaveText('보냄');
+  await expect(view.locator('.rn-note').first().locator('[data-rn-send]')).toBeDisabled();
+  await expect(view.locator('.rn-note').nth(2).locator('[data-rn-send]')).toHaveText('보내기');
+  await expect(view.locator('.rn-note').nth(2).locator('[data-rn-send]')).toBeEnabled();
+  await expect(view.locator('span.rn-sent')).toHaveCount(0);
   await page.screenshot({path:`${SHOTS}operator-updates-${width}.png`});
   // [보내기]는 줄을 펼치지 않고 창을 연다.
   const third=view.locator('.rn-note').nth(2);
