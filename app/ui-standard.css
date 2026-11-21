@@ -1791,6 +1791,38 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 .wl-line:has(> .row-more){ padding-right:calc(var(--ds-compact-height-sm) + 2px); }
 #appView .wl-line > .row-more{ position:absolute; top:2px; right:0; margin:0; }
 
+/* ===== S67-64 UI-윗줄한줄(2026-11-21 명진 08:12·08:25, 시안 D3 + D2 제목 글씨): 폰(~760px) 화면 윗줄은 한 줄 =
+   [WORK ON 아이콘 20px(누르면 홈)] [화면 이름 15px·500, 테두리·칩 없는 글자] [그 화면의 걸러보기 칩(있을 때만, 넘치면 그 줄 안에서 가로로 밀기)] … [+]·[⋯].
+   아이콘 글자는 head-mark.mjs 하나(앱 머리줄·사업 관리 첫 줄은 index.html, 홈은 journal.js). 줄을 그리는 주인은 그대로다:
+   앱 머리줄 = topbar-actions.js(일정·노트·조직 관리 등), 사업 관리 첫 줄 = index.html의 .report-top(같은 요소를 PC처럼 한 줄로 놓음), 홈 = journal.js 머리줄.
+   PC 틀(761px~)은 사이드바 맨 위 아이콘·위쪽 경로 줄이 같은 일을 하므로 아이콘을 두지 않는다(부품 자신의 보이는 폭 규칙). */
+.head-mark{ display:none; }
+@media(max-width:760px){
+  .head-mark{ position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none; width:20px; height:20px; margin:0; padding:0; border-radius:var(--kptu-radius-sm,4px); }
+  .head-mark > img{ display:block; width:20px; height:20px; }
+  /* 보이는 크기는 20px, 누르는 범위는 44px(UI-버튼기준). */
+  .head-mark::after{ content:""; position:absolute; left:-12px; right:-12px; top:-12px; bottom:-12px; }
+  .head-mark:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+  /* 앱 머리줄: 아이콘·이름을 왼쪽에 붙인다(전에는 이름 하나라 양끝 맞춤). 폴드 펼침의 찾기 입구는 남은 폭을 그대로 쓴다. */
+  #appView > .mobile-shell-header{ justify-content:flex-start; gap:8px; }
+  #appView > .mobile-shell-header > [data-mobile-view-name]{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* 사업 관리: 첫 줄(아이콘·제목·[+]·[⋯])과 고르기 줄(종류 전체 ▾·목록 ▾ 등)을 PC(meeting-ui.css BIZ-위쪽정돈PC)처럼 한 줄로 놓는다.
+     .report-top-line은 자리만 내주고(display:contents) 그 안 요소가 .report-top 줄에 바로 선다. 기간 줄(.report-week-bar)이 보일 때만 아래 한 줄. */
+  #appView #meetingsView .report-top{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; margin-bottom:var(--kptu-space-1); }
+  #appView #meetingsView .report-top > .report-top-line{ display:contents; }
+  #appView #meetingsView .report-top-line > .head-mark{ order:0; }
+  #appView #meetingsView .report-top-line > .report-top-title{ order:1; flex:0 0 auto; font-size:var(--ds-text-head); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
+  #appView #meetingsView .report-top > .report-kind-bar{ order:2; flex:1 1 0; min-width:0; margin:0; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; overscroll-behavior-x:contain; }
+  #appView #meetingsView .report-top > .report-kind-bar::-webkit-scrollbar{ display:none; }
+  /* 칩은 줄어들지 않고(…로 잘리지 않고) 넘치면 줄 안에서 밀린다(meeting-ui.css의 줄어드는 규칙보다 강하게). */
+  #appView #meetingsView .report-top > .report-kind-bar > :is(select.report-top-select,.report-period-host){ flex:none; }
+  #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:0; }
+  #appView #meetingsView .report-top > .report-week-bar{ order:4; flex:1 1 100%; margin:0; }
+  /* 홈: 날짜 머리줄 첫 줄 = [아이콘] [날짜 글자(화면 이름 자리)] … [하루|주간 보고]. 날짜 7칸 줄은 그 아래 그대로. */
+  #appView #homeView .journal-head > .head-mark{ order:-3; }
+  #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
+}
+
 /* ===== UI-요청상자통일(S52-09, 요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html 명진 'ㅇ') =====
    홈 '나한테 온 요청'·'잊지 말기' 상자와 정리함 '나한테 온 요청' 상자가 함께 쓰는 공용 부품(app/notice-box.mjs) 한 곳의 모양.
    같은 둥근 상자·머리 줄·줄·버튼, 색만 tone(ask = 톤다운 파랑 --kptu-info, forget = 톤다운 노랑 --kptu-warning). 버튼 모양은 'UI-버튼6가지'
@@ -1862,38 +1894,6 @@ button.ds-chip[data-chip-tone="forget"][data-chip-empty]{ color:var(--kptu-faint
 button.ds-chip[data-dot-toggle]{ color:var(--kptu-ink); background:var(--kptu-surface); border-color:var(--ds-line); }
 button.ds-chip[data-dot-toggle][aria-pressed="false"]{ color:var(--kptu-faint); background:transparent; }
 button.ds-chip[data-dot-toggle][aria-pressed="false"] > .ui-color-dot{ background:transparent; box-shadow:inset 0 0 0 1.5px currentColor; }
-
-/* ===== S67-64 UI-윗줄한줄(2026-11-21 명진 08:12·08:25, 시안 D3 + D2 제목 글씨): 폰(~760px) 화면 윗줄은 한 줄 =
-   [WORK ON 아이콘 20px(누르면 홈)] [화면 이름 15px·500, 테두리·칩 없는 글자] [그 화면의 걸러보기 칩(있을 때만, 넘치면 그 줄 안에서 가로로 밀기)] … [+]·[⋯].
-   아이콘 글자는 head-mark.mjs 하나(앱 머리줄·사업 관리 첫 줄은 index.html, 홈은 journal.js). 줄을 그리는 주인은 그대로다:
-   앱 머리줄 = topbar-actions.js(일정·노트·조직 관리 등), 사업 관리 첫 줄 = index.html의 .report-top(같은 요소를 PC처럼 한 줄로 놓음), 홈 = journal.js 머리줄.
-   PC 틀(761px~)은 사이드바 맨 위 아이콘·위쪽 경로 줄이 같은 일을 하므로 아이콘을 두지 않는다(부품 자신의 보이는 폭 규칙). */
-.head-mark{ display:none; }
-@media(max-width:760px){
-  .head-mark{ position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none; width:20px; height:20px; margin:0; padding:0; border-radius:var(--kptu-radius-sm,4px); }
-  .head-mark > img{ display:block; width:20px; height:20px; }
-  /* 보이는 크기는 20px, 누르는 범위는 44px(UI-버튼기준). */
-  .head-mark::after{ content:""; position:absolute; left:-12px; right:-12px; top:-12px; bottom:-12px; }
-  .head-mark:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-  /* 앱 머리줄: 아이콘·이름을 왼쪽에 붙인다(전에는 이름 하나라 양끝 맞춤). 폴드 펼침의 찾기 입구는 남은 폭을 그대로 쓴다. */
-  #appView > .mobile-shell-header{ justify-content:flex-start; gap:8px; }
-  #appView > .mobile-shell-header > [data-mobile-view-name]{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  /* 사업 관리: 첫 줄(아이콘·제목·[+]·[⋯])과 고르기 줄(종류 전체 ▾·목록 ▾ 등)을 PC(meeting-ui.css BIZ-위쪽정돈PC)처럼 한 줄로 놓는다.
-     .report-top-line은 자리만 내주고(display:contents) 그 안 요소가 .report-top 줄에 바로 선다. 기간 줄(.report-week-bar)이 보일 때만 아래 한 줄. */
-  #appView #meetingsView .report-top{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; margin-bottom:var(--kptu-space-1); }
-  #appView #meetingsView .report-top > .report-top-line{ display:contents; }
-  #appView #meetingsView .report-top-line > .head-mark{ order:0; }
-  #appView #meetingsView .report-top-line > .report-top-title{ order:1; flex:0 0 auto; font-size:var(--ds-text-head); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
-  #appView #meetingsView .report-top > .report-kind-bar{ order:2; flex:1 1 0; min-width:0; margin:0; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; overscroll-behavior-x:contain; }
-  #appView #meetingsView .report-top > .report-kind-bar::-webkit-scrollbar{ display:none; }
-  /* 칩은 줄어들지 않고(…로 잘리지 않고) 넘치면 줄 안에서 밀린다(meeting-ui.css의 줄어드는 규칙보다 강하게). */
-  #appView #meetingsView .report-top > .report-kind-bar > :is(select.report-top-select,.report-period-host){ flex:none; }
-  #appView #meetingsView .report-top-line > .report-head-actions{ order:3; flex:none; margin-left:0; }
-  #appView #meetingsView .report-top > .report-week-bar{ order:4; flex:1 1 100%; margin:0; }
-  /* 홈: 날짜 머리줄 첫 줄 = [아이콘] [날짜 글자(화면 이름 자리)] … [하루|주간 보고]. 날짜 7칸 줄은 그 아래 그대로. */
-  #appView #homeView .journal-head > .head-mark{ order:-3; }
-  #appView #homeView .journal-head > .journal-day-title{ font-size:var(--ds-text-head); }
-}
 
 /* ===== UI-버튼6가지(2026-11-06 명진 요청 23:23 '버튼 모양 크기 색깔 테두리 등 전수조사 통일감', 시안 docs/design/mockups/button-six-kinds.html 승인 'ㅇ') =====
    사이트 버튼은 이 6가지뿐이고 모양(높이·모서리·바탕·테두리·글자)은 여기 한 곳이 정한다. 화면 CSS는 자리(간격·순서)만 정한다.

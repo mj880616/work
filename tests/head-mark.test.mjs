@@ -24,7 +24,7 @@ test('home head puts the shared mark first',()=>{
 });
 test('one style block: phone only, 20px picture, 44px press area, head name 15px/500',()=>{
   const at=ui.indexOf('===== S67-64 UI-윗줄한줄');assert.ok(at>0);
-  const block=ui.slice(at,ui.indexOf('/* ===== UI-버튼6가지',at));assert.ok(block.length>200);
+  const block=ui.slice(at,ui.indexOf('/* =====',at+10));assert.ok(block.length>200);
   assert.match(block,/\.head-mark\{ display:none; \}\n@media\(max-width:760px\)\{/);
   assert.match(block,/\.head-mark > img\{ display:block; width:20px; height:20px; \}/);
   assert.match(block,/\.head-mark::after\{ content:""; position:absolute; left:-12px; right:-12px; top:-12px; bottom:-12px; \}/);
