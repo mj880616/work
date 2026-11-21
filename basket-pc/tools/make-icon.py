@@ -2,8 +2,8 @@
 
 Run from anywhere:  python3 basket-pc/tools/make-icon.py      (needs only Pillow)
 
-The SVG is the source. It is the same 노동조합+ picture as app/app-icon.svg (olive square, white "노조", yellow "+")
-and is written by scripts/app-icon/build-app-icons.py. It has two drawings:
+The SVG is the source. It keeps the basket picture ("노조", "+" and the up arrow) in the same colours as the
+WORK ON+ icon app/app-icon.svg (ink square #22262B, cream drawing #F3F1EA); the only extra colour is the orange dot. It has two drawings:
   class="full"  for 32 px and up (letters at weight 800)
   class="small" for 16, 20 and 24 px (same place and colours, letters at weight 900 so they stay readable)
 and a hidden class="badge" (the small orange dot) inside each drawing for "something is waiting to be sent".
@@ -41,7 +41,7 @@ SMALL_MAX = 24  # same rule as the SVG media query
 SS = 8  # supersampling factor
 
 # "login needed": the whole picture turns dim grey; the orange dot keeps its colour.
-DIM = {"#4D5A2E": "#7A7C80", "#FFFEFA": "#E8E7E3", "#E7C25A": "#C4C5C1"}
+DIM = {"#22262B": "#7A7C80", "#F3F1EA": "#E8E7E3"}
 
 NS = "{http://www.w3.org/2000/svg}"
 

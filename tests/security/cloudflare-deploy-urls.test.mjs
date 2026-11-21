@@ -183,6 +183,14 @@ test('workflow checks workonplus.com on its own host and www.workonplus.com with
   assert.ok(workflow.includes("check_200 'https://workonplus.com/work/about/' 'text/html'"));
 });
 
+// DOMAIN-workonplus 1단계: the deploy also checks the WORK ON+ address and its www 301.
+test('workflow checks workonplus.com on its own host and www.workonplus.com with 301', () => {
+  assert.ok(workflow.includes("check_redirect 'https://workonplus.com/' 'https://workonplus.com/work/app/'"));
+  assert.ok(workflow.includes("check_redirect 'https://www.workonplus.com/work/app/?view=calendar' 'https://workonplus.com/work/app/?view=calendar' 301"));
+  assert.ok(workflow.includes("check_200 'https://workonplus.com/work/app/' 'text/html'"));
+  assert.ok(workflow.includes("check_200 'https://workonplus.com/work/about/' 'text/html'"));
+});
+
 // WEB1-페이지삭제 D1: work.bokdoong.com answers Web1 paths with the 410 one-line notice; share·about·favicon.svg stay 200.
 test('workflow checks the Web1 closed notice on work and keeps the share and about pages', () => {
   assert.ok(workflow.includes('check_https_upgrade work.bokdoong.com 410'));
