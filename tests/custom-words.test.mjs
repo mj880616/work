@@ -167,16 +167,23 @@ test('시작 순서: 고친 이름 약속은 소유자 확인에 묶이고, word
 });
 
 test('저장은 서버뿐: 주소·쿠키로 고친 이름을 정하는 길이 없다(기기 저장소는 browser-storage-audit.yml이 app/ 전체에서 막는다)', () => {
-  for (const file of ['app/brand/custom-words.mjs', 'app/brand/custom-words-model.mjs', 'app/brand/custom-words-shell.mjs', 'app/custom-words-boot.js', 'app/custom-words-panel.js']) {
+  for (const file of ['app/brand/custom-words.mjs', 'app/brand/custom-words-model.mjs', 'app/brand/custom-words-shell.mjs', 'app/custom-words-boot.js', 'app/custom-words-panel.js', 'app/custom-words-store.js', 'app/menu-edit.js']) {
     const source = read(file).replace(/^\s*\/\/.*$/gm, '');
     assert.doesNotMatch(source, /document\.cookie|URLSearchParams|location\.(search|hash)/, file);
   }
   const words = read('app/brand/custom-words.mjs').replace(/^\s*\/\/.*$/gm, '');
   assert.match(words, /globalThis\.__KPTU_CUSTOM_WORDS__/);
   assert.doesNotMatch(words, /fetch\(|api\(/, '읽기는 loader 한 곳');
-  const panel = read('app/custom-words-panel.js');
-  assert.match(panel, /\/rest\/v1\/app_profiles\?user_id=eq\.\$\{encodeURIComponent\(userId\)\}`, \{method: 'PATCH'/);
-  assert.match(panel, /body: \{custom_words: next\.value\}/);
+  // S67-71: 읽기·쓰기는 custom-words-store.js 한 곳. 내 프로필 '이름 바꾸기'와 '메뉴 수정' 창이 같이 쓴다(중복 구현 없음).
+  const store = read('app/custom-words-store.js');
+  assert.match(store, /\/rest\/v1\/app_profiles\?user_id=eq\.\$\{encodeURIComponent\(userId\)\}`/);
+  assert.match(store, /method: 'PATCH', prefer: 'return=representation', body: \{custom_words: value\}/);
+  assert.match(store, /buildSaveValue\(face, \{\.\.\.saved, \[slotId\]/, '칸 하나 저장도 같은 규칙(buildSaveValue)');
+  for (const file of ['app/custom-words-panel.js', 'app/menu-edit.js']) {
+    const source = read(file);
+    assert.match(source, /from '\.\/custom-words-store\.js'/, file);
+    assert.doesNotMatch(source, /app_profiles|method: 'PATCH'/, `${file}: 서버 길을 따로 쓰지 않는다`);
+  }
   assert.match(read('app/profile-settings.js'), /import\('\.\/custom-words-panel\.js'\)\.then\(m=>m\.mountCustomWords\(host,\{rt\}\)\)/);
 });
 
@@ -282,4 +289,17 @@ test('기록+ 빌드 + 바탕 nojo + 명진 15칸 = 노동조합+ 화면 글자(
   for (const [text, slot] of literals) assert.equal(say(based, text, slot), say(nojo, text, slot), text);
   // 바탕 없는 기록+(테스터)는 노조 단어가 바뀐다(대조).
   assert.notEqual(say(applyCustomWords(girok, OPERATOR), '조직 선택'), '조직 선택');
+});
+
+test('S67-71 메뉴 이름 칸: 메뉴 항목과 이어진 칸은 사업 관리·조직 관리 둘뿐이고, 그 메뉴 글자와 기본 이름이 같다', async () => {
+  const {slotOfMenu} = await import('../app/brand/custom-words-model.mjs');
+  const menuSlots = SLOTS.filter(slot => slot.menu);
+  assert.deepEqual(menuSlots.map(slot => [slot.menu, slot.id]), [['meetings', 'menu_biz'], ['team', 'menu_org']]);
+  assert.equal(slotOfMenu('meetings')?.id, 'menu_biz');
+  assert.equal(slotOfMenu('team')?.id, 'menu_org');
+  for (const id of ['home', 'note', 'calendar', 'library', '', undefined]) assert.equal(slotOfMenu(id), null, String(id));
+  const menu = read('app/menu-model.mjs');
+  assert.match(menu, /id: 'meetings', label: word\('사업 관리'\)/);
+  assert.match(menu, /id: 'team', label: word\('조직 관리'\)/);
+  for (const slot of menuSlots) assert.equal(slot.keys[0], slot.menu === 'meetings' ? '사업 관리' : '조직 관리');
 });
