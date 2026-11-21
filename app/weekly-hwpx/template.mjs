@@ -7,7 +7,7 @@ import {needProfile} from './form-profile.mjs';
 import {word} from '../brand/brand.mjs';
 
 // BRAND-웹2흔적지우기: 한글 파일 속성 '만든이'(원본 만든이 대신 넣는 이름).
-export const CREATOR = word('WORK ON');
+export const CREATOR = word('WORK ON+');
 // 양식 글자(표 머리 칸 이름·회의 결과 상자 칸 이름)는 코드에 두지 않는다 — '내 양식'에서 만든 profile(form-profile.mjs profileOf)이 준다.
 // profile 은 꼭 받는다(기본값 없음 — ⑤-3a). 빈 서식 안의 글자는 profile.formLabels(표 머리 칸 이름)뿐이어야 한다.
 const headedTables = profile => profile.heads;

@@ -1,5 +1,5 @@
 // S67-59: 홈 '오늘 사진' 칸 잠김은 '사진' 잠금만 따른다(2026-11-21 명진 "사진은 잠그지 않았는데 홈 화면에 사진이 잠겨있었음").
-// ① 하루 기록만 잠금 → 사진 메뉴와 같은 사진(원드라이브)은 보이고, 하루 기록 자료는 읽지 않는다(요청 0).
+// ① 하루 기록만 잠금 → 오늘 사진은 모두 보인다(하루 기록에 넣은 사진 포함, 2026-11-21 08:32 명진).
 // ② 사진 잠금 → '잠김' 한 줄(사진을 읽지 않음, 그 자리 창 제목 '사진 잠김'). ③ 잠금 설정을 아직 모름 → 자리만(사진도 '잠김'도 없음).
 // 가짜 서버만 쓴다(값은 모두 합성). 시계는 2026-10-06 10:00 KST(home-entry.mjs).
 import { test, expect } from '@playwright/test';
@@ -36,12 +36,12 @@ async function boot(page, { features = null } = {}) {
 }
 const box = page => page.locator('#journalRoot [data-journal-photos]');
 
-test('하루 기록만 잠금 → 오늘 사진은 보이고(잠김 아님) 하루 기록 자료는 읽지 않는다', async ({ page }) => {
+test('하루 기록만 잠금 → 오늘 사진은 보이고(잠김 아님) 하루 기록에 넣은 사진도 읽는다', async ({ page }) => {
   const seen = await boot(page, { features: ['diary'] });
   await expect(box(page).locator('[data-journal-photo]').first()).toBeVisible();
   await expect(box(page).locator('[data-journal-photos-count]')).toHaveText('3');
   await expect(box(page).locator('[data-journal-photos-locked]')).toHaveCount(0);
-  expect(seen.diaryReads).toBe(0);
+  await expect.poll(() => seen.diaryReads).toBeGreaterThan(0);
 });
 
 test('사진 잠금 → 오늘 사진 "잠김" 한 줄 · 사진을 읽지 않음 · [풀기] 창 제목 "사진 잠김"', async ({ page }) => {

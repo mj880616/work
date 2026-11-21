@@ -21,7 +21,7 @@ test('저장소의 얼굴은 nojo(지금 운영) 한 줄이고, 단어표가 비
   assert.equal(FACE_ID, 'nojo');
   assert.equal(DEFAULT_FACE, 'nojo');
   assert.equal(FACE.id, 'nojo');
-  assert.equal(APP_NAME, 'WORK ON', '앱 이름은 WORK ON(2026-11-20 명진 확정)');
+  assert.equal(APP_NAME, 'WORK ON+', '앱 이름은 WORK ON+(2026-11-21 명진 확정)');
   assert.deepEqual(FACE.words, {});
   for (const text of [...Object.keys(FACES.girok.words), '사업 보고', '홈', '']) assert.equal(word(text), text);
 });
@@ -58,11 +58,11 @@ test('얼굴 두 벌은 같은 칸을 모두 갖고, 켜진 메뉴·화면은 �
 
 test('기록+ 단어표: 2026-11-20 명진 결정 단어, 표에 없는 글자는 그대로', () => {
   const girok = faceOf('girok');
-  assert.equal(girok.name, 'WORK ON');
-  assert.equal(girok.shortName, 'WORK ON');
+  assert.equal(girok.name, 'WORK ON+');
+  assert.equal(girok.shortName, 'WORK ON+');
   assert.equal(girok.icon, FACES.nojo.icon, '두 얼굴이 같은 표장 A');
-  assert.equal(wordIn(girok, 'WORK ON'), 'WORK ON', '앱 이름은 단어표 밖');
-  assert.equal(wordIn(girok, '노조 플러스'), 'WORK ON');
+  assert.equal(wordIn(girok, 'WORK ON+'), 'WORK ON+', '앱 이름은 단어표 밖');
+  assert.equal(wordIn(girok, '노조 플러스'), 'WORK ON+');
   assert.equal(wordIn(girok, '사업 관리'), '활동 기록');
   assert.equal(wordIn(girok, '사업영역 관리'), '프로젝트 관리');
   assert.equal(wordIn(girok, '조직 관리'), '거래처·직원', '메뉴·아래 탭은 짧은 꼴');
