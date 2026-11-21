@@ -16,9 +16,9 @@
 // - 거절 알림(UI-화면색10): set(..., {rejectable:true})로 바꾼 칸을 서버 검사가 거절하면(읽기는 되는데 쓰기만 400 — 새 색 6가지를 DB가 아직 모를 때)
 //   그 칸만 따로 다시 보내 다른 칸이 같이 거절되지 않게 하고, 서버 값으로 되돌린 뒤 kptu:view-prefs-rejected 알림({paths})을 보낸다. 화면은 원래 값으로 돌아가고 안내한다.
 // 화면 색 허용 목록은 여기 한 곳이다(UI-화면색10, 2026-10-27 재정리로 열 가지: 수수한 다섯 → 산뜻한 다섯 차례). 고르는 창·저장 확인·시험이 이 목록을 읽는다. DB 검사(app_profiles_view_prefs_check)와 같은 값이어야 한다.
-// 빠진 색(terracotta·sand·mugwort·rose·mustard) 이름이 서버에 남아 있으면 parsePrefs가 그 칸만 버려 기본(olive)으로 보이고, 다른 칸을 저장할 때 다시 쓰지 않는다.
+// 빠진 색(terracotta·sand·mugwort·rose·mustard) 이름이 서버에 남아 있으면 parsePrefs가 그 칸만 버려 기본(ink, 먹)으로 보이고, 다른 칸을 저장할 때 다시 쓰지 않는다.
 export const THEMES = Object.freeze(['olive', 'navy', 'ink', 'lavender', 'teal', 'sky', 'mint', 'coral', 'lemon', 'red']);
-export const DEFAULT_THEME = 'olive';
+export const DEFAULT_THEME = 'ink'; // S67-64: 기본 색은 먹(명진 2026-11-21)
 export const CALENDAR_VIEWS = Object.freeze(['list', 'week', 'month']);
 export const QUICK_MODES = Object.freeze(['update', 'task']);
 // UI-작은결정묶음 ④(명진 10/27): 칸 폭은 화면마다 따로 — 텔레그램·통화·참고 묶음·사업 보고 3단이 다른 화면 값을 같이 쓰지 않는다

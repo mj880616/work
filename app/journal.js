@@ -1,4 +1,5 @@
 import {waitHtml, waitInlineHtml, emptyHtml, failHtml} from './wait-state.js';
+import {HEAD_MARK_HTML} from './head-mark.mjs'; // S67-64 UI-윗줄한줄: 폰 윗줄 맨 앞 WORK ON 아이콘(공용 글자)
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -97,7 +98,7 @@ const length = text => [...String(text ?? '')].length;
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
-root.innerHTML = `<div class="journal-head"><b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 보고</button></div></div>
+root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">주간 보고</button></div></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>

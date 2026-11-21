@@ -1,11 +1,22 @@
-:root,[data-theme="olive"]{
+/* S67-64(2026-11-21 명진 08:15 "기본 색상을 먹으로"): 기본 색은 먹 — 바탕·글자 계열은 오트밀(옛 기본 올리브와 같은 바탕),
+   강조(주 버튼 채움·고른 아래 탭·고른 칩·링크·고른 날 동그라미)는 먹 #22262b 위 글자 #f3f1ea, 연한 고른 바탕은 #e7e5df.
+   옛 먹(#4a4a46 회색)을 고른 사람도 이 먹으로 보인다. 올리브는 고르는 색 하나로 남는다. */
+:root,[data-theme="ink"]{
   --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#22262b;--kptu-muted:#6b6a62;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#22262b;--kptu-primary-hover:#343a42;--kptu-primary-ink:#22262b;
+  --kptu-primary-soft:#e7e5df;--kptu-on-primary:#f3f1ea;--kptu-link:#22262b;
+  /* 글자로 쓰는 강조색(탭 글자·오늘 표시·마우스를 올린 메뉴 글자 등). 보통은 주 버튼 색과 같고, 산뜻한 다섯 색은 읽히는 글자색(--kptu-primary-ink)이다. */
+  --kptu-primary-text:var(--kptu-primary);
+}
+/* 올리브(옛 기본): 바탕은 기본(먹)과 구별되게 조금 더 노란 오트밀. */
+[data-theme="olive"]{
+  --kptu-bg:#f2efe5;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
   --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#5c6a35;--kptu-primary-hover:#4d5a2c;--kptu-primary-ink:#47532a;
   --kptu-primary-soft:#eef0e1;--kptu-on-primary:#ffffff;--kptu-link:#47532a;
-  /* 글자로 쓰는 강조색(탭 글자·오늘 표시·마우스를 올린 메뉴 글자 등). 보통은 주 버튼 색과 같고, 산뜻한 다섯 색은 읽히는 글자색(--kptu-primary-ink)이다. */
-  --kptu-primary-text:var(--kptu-primary);
 }
 [data-theme="navy"]{
   --kptu-bg:#f5f6f7;--kptu-surface:#ffffff;--kptu-surface-subtle:#f8f9fa;
@@ -20,13 +31,6 @@
   --kptu-border:#e0dde7;--kptu-border-strong:#ccc6d6;
   --kptu-primary:#61537f;--kptu-primary-hover:#574b72;--kptu-primary-ink:#61537f;
   --kptu-primary-soft:#eceaf0;--kptu-on-primary:#ffffff;--kptu-link:#61537f;
-}
-[data-theme="ink"]{
-  --kptu-bg:#f4f4f2;--kptu-surface:#fdfdfd;--kptu-surface-subtle:#fafaf8;
-  --kptu-ink:#252523;--kptu-muted:#696963;--kptu-faint:#8d8d86;
-  --kptu-border:#dcdcda;--kptu-border-strong:#c4c4c2;
-  --kptu-primary:#4a4a46;--kptu-primary-hover:#43433f;--kptu-primary-ink:#4a4a46;
-  --kptu-primary-soft:#e9e9e9;--kptu-on-primary:#ffffff;--kptu-link:#4a4a46;
 }
 [data-theme="teal"]{
   --kptu-bg:#f1f6f7;--kptu-surface:#fdfefe;--kptu-surface-subtle:#f8fafb;
@@ -88,6 +92,8 @@
 /* UI-디자인기준(8-9c): 새 디자인 기준의 공통 값. 값은 여기 한 곳에만 둔다.
    새 기준 화면(ui-standard.css: 홈·바구니·일정·할 일·프로젝트·담당조직·자료실·회의)만 이 값을 쓴다. */
 :root{
+  /* S67-64 UI-윗줄한줄(명진 2026-11-21 시안 D2 제목 글씨): 폰 화면 윗줄의 화면 이름(앱 머리줄·사업 관리 첫 줄·홈 날짜)은 15px·500. */
+  --ds-text-head:15px;
   --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
   --ds-text-button:13px;--ds-text-read:15px;
   --ds-weight-regular:400;--ds-weight-medium:500;
@@ -261,15 +267,16 @@
     --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;
     --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
     --kptu-border:#34332d;--kptu-border-strong:#4a4840;
-    --kptu-on-primary:#161613;
+    --kptu-on-primary:#22262b;
     --ds-press-tint:rgb(255 255 255 / 18%);
     --kptu-danger:#f0918a;--kptu-danger-soft:#3b201d;
     --kptu-success:#86c79f;--kptu-success-soft:#1d3124;
     --kptu-warning:#e2b866;--kptu-warning-soft:#372c17;
     --kptu-info:#9dbbd8;--kptu-info-soft:#1d2a37;
     --kptu-accent:#c3b0e8;
-    --kptu-primary:#b4c385;--kptu-primary-hover:#c3d097;--kptu-primary-ink:#c2d095;
-    --kptu-primary-soft:#2c3120;--kptu-link:#c2d095;
+    /* 기본(먹) 어두운 값: 먹을 뒤집어 강조는 #f3f1ea. 강조 위 글자는 위 --kptu-on-primary #22262b(먹). */
+    --kptu-primary:#f3f1ea;--kptu-primary-hover:#e2dfd6;--kptu-primary-ink:#f3f1ea;
+    --kptu-primary-soft:#2e3035;--kptu-link:#f3f1ea;
     --ds-kind-basket-soft:#3a2816;--ds-kind-basket-ink:#f3b77e;
     --ds-kind-note-soft:#1b2a3d;--ds-kind-note-ink:#9fc4f0;
     --ds-kind-journal-soft:#1c3022;--ds-kind-journal-ink:#9fd2a9;
@@ -369,8 +376,8 @@
   :root[data-theme="lavender"]{
     --kptu-primary:#bbb2cd;--kptu-primary-hover:#c3bbd3;--kptu-primary-ink:#c2bad2;--kptu-primary-soft:#2c292f;--kptu-link:#c2bad2;
   }
-  :root[data-theme="ink"]{
-    --kptu-primary:#b5b5b1;--kptu-primary-hover:#bebeba;--kptu-primary-ink:#bcbcb9;--kptu-primary-soft:#282824;--kptu-link:#bcbcb9;
+  :root[data-theme="olive"]{
+    --kptu-primary:#b4c385;--kptu-primary-hover:#c3d097;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;--kptu-link:#c2d095;
   }
   :root[data-theme="teal"]{
     --kptu-primary:#88bdc5;--kptu-primary-hover:#96c5cc;--kptu-primary-ink:#94c4cb;--kptu-primary-soft:#242d2c;--kptu-link:#94c4cb;

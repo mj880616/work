@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<script data-kptu-theme-bootstrap>document.documentElement.setAttribute('data-theme','olive');</script><!-- SET-보기선택서버저장: 테마는 서버 프로필에서 읽어 loader가 첫 화면 공개 전에 바꾼다(기기 저장소 없음). -->
+<script data-kptu-theme-bootstrap>document.documentElement.setAttribute('data-theme','ink');</script><!-- SET-보기선택서버저장: 테마는 서버 프로필에서 읽어 loader가 첫 화면 공개 전에 바꾼다(기기 저장소 없음). -->
 <meta charset="utf-8">
 <script src="./origin-redirect.js"></script><!-- SEC-github.io넘기기: github.io로 열리면 bokdoong.com으로 넘김(가장 먼저) -->
 <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -47,7 +47,7 @@
   <button id="accessDeniedLogoutBtn" class="ghost" type="button">로그아웃</button>
 </section>
 <section id="appView" class="app-view hidden">
-  <header class="mobile-shell-header" hidden><span data-mobile-view-name></span><div class="mobile-shell-search" data-search-entry></div></header>
+  <header class="mobile-shell-header" hidden><a class="head-mark" href="./?view=home" data-goto="home" aria-label="홈"><img src="./app-icon.svg" width="20" height="20" alt=""></a><span data-mobile-view-name></span><div class="mobile-shell-search" data-search-entry></div></header>
   <nav id="appNav" class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="홈"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>홈</span></a>
     <a class="nav-btn nav-home-mid" data-view="home" href="./">홈</a>
@@ -161,7 +161,7 @@
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
-    <div class="report-top"><div class="toolbar report-top-line"><h2 class="report-top-title">사업 관리</h2><div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음</button><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="사업 관리 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div>
+    <div class="report-top"><div class="toolbar report-top-line"><a class="head-mark" href="./?view=home" data-goto="home" aria-label="홈"><img src="./app-icon.svg" width="20" height="20" alt=""></a><h2 class="report-top-title">사업 관리</h2><div class="report-head-actions"><button id="reportRecordBtn" class="secondary" type="button" hidden>녹음</button><button id="newMeetingBtn" class="primary" type="button" aria-label="사업 보고 등록">+ 사업 보고</button><button id="reportMore" class="icon-btn report-more" type="button" data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="사업 관리 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></button></div></div>
     <div class="toolbar report-kind-bar"><select id="reportKindSelect" class="report-top-select" aria-label="종류" aria-controls="meetingList"></select><select id="reportAreaSelect" class="report-top-select" aria-label="사업영역" aria-controls="meetingList" hidden></select><span id="reportPeriodPick" class="report-period-host"></span><select id="reportViewSelect" class="report-top-select" aria-label="보기" aria-controls="meetingList"></select></div><div class="toolbar report-week-bar" hidden><div id="reportWeekFilter" role="group" aria-label="기간" aria-controls="meetingList"></div></div></div>
     <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 관리</h2></div><div id="recPendingLine" class="rec-pending" hidden></div><div id="areaUntaggedLine" class="area-untagged" hidden></div><section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간 보고" hidden><h3 class="biz-week-title"><button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="true">이번 주 주간 보고 <i class="kptu-chev is-open" aria-hidden="true"></i></button></h3><div data-bw-body></div></section><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
@@ -198,9 +198,9 @@
 <div id="themeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="themeTitle" aria-hidden="true" data-kptu-history-all="1">
   <div class="modal-card theme-panel">
     <div class="modal-head"><h2 id="themeTitle">화면 색</h2><button class="ghost" data-close="themeModal" type="button" aria-label="화면 색 선택 창 닫기">닫기</button></div>
-    <div class="theme-choices"><button type="button" data-theme-choice="olive" aria-label="오트밀·올리브(기본)" aria-pressed="false"><span class="theme-swatch" data-theme="olive" aria-hidden="true"><i></i><i></i></span><span>오트밀·올리브(기본)</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
+    <div class="theme-choices"><button type="button" data-theme-choice="olive" aria-label="오트밀·올리브" aria-pressed="false"><span class="theme-swatch" data-theme="olive" aria-hidden="true"><i></i><i></i></span><span>오트밀·올리브(기본)</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
 <button type="button" data-theme-choice="navy" aria-label="남색" aria-pressed="false"><span class="theme-swatch" data-theme="navy" aria-hidden="true"><i></i><i></i></span><span>남색</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
-<button type="button" data-theme-choice="ink" aria-label="먹" aria-pressed="false"><span class="theme-swatch" data-theme="ink" aria-hidden="true"><i></i><i></i></span><span>먹</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
+<button type="button" data-theme-choice="ink" aria-label="먹(기본)" aria-pressed="false"><span class="theme-swatch" data-theme="ink" aria-hidden="true"><i></i><i></i></span><span>먹</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
 <button type="button" data-theme-choice="lavender" aria-label="라벤더" aria-pressed="false"><span class="theme-swatch" data-theme="lavender" aria-hidden="true"><i></i><i></i></span><span>라벤더</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
 <button type="button" data-theme-choice="teal" aria-label="청록" aria-pressed="false"><span class="theme-swatch" data-theme="teal" aria-hidden="true"><i></i><i></i></span><span>청록</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
 <button type="button" data-theme-choice="sky" aria-label="하늘" aria-pressed="false"><span class="theme-swatch" data-theme="sky" aria-hidden="true"><i></i><i></i></span><span>하늘</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>

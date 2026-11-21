@@ -26,7 +26,7 @@ export const PC_DOOR = Object.freeze(['http://127.0.0.1:47620', 'http://127.0.0.
 
 // 첫 줄 테마 스크립트(<script data-kptu-theme-bootstrap>) 내용의 SHA-256. 두 화면이 같은 내용이다.
 // 내용이 바뀌면 tests/web2-csp.test.mjs가 실패하므로 값을 함께 고친다.
-export const THEME_BOOTSTRAP_HASH = "'sha256-tiHcJld6PV1zbqmBaWmZFIOt80XTTF60ePV9OzZDpIg='";
+export const THEME_BOOTSTRAP_HASH = "'sha256-b7PNGgw4xbtYSKK7nSnLN9sA0vY8I0CPIiMV/REfMUs='";
 
 const DIRECTIVES = Object.freeze([
   ['default-src', ["'self'"]],
