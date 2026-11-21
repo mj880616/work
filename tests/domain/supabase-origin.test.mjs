@@ -19,9 +19,11 @@ const lookalikes = [
   'https://bokdoong.com.evil.example',
   'https://evilbokdoong.com',
   'https://bokdoong.com:8443',
-  // DOMAIN-nojoplus: 옛 Web1 함수(public-page-edit·pc0921-board)는 Web2가 부르지 않으므로 새 주소를 받지 않는다.
+  // DOMAIN-nojoplus: 옛 Web1 함수(public-page-edit·pc0921-board)는 Web2가 부르지 않으므로 새 주소(nojoplus.com·workonplus.com)를 받지 않는다.
   'https://nojoplus.com',
-  'https://www.nojoplus.com'
+  'https://www.nojoplus.com',
+  'https://workonplus.com',
+  'https://www.workonplus.com'
 ];
 
 function handlerFor(name) {

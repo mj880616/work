@@ -9,21 +9,21 @@ import org.junit.Test
 class ShellRulesTest {
     @Test
     fun homeIsTheNewWeb2Address() {
-        // 주소 이전 ①-D1 뒤 정식 주소. desk는 이 주소로 넘기므로(302) 앱도 처음부터 여기를 연다.
-        assertEquals("https://bokdoong.com/work/app/", ShellRules.HOME)
-        assertEquals("https://bokdoong.com", WidgetRules.ORIGIN)
+        // DOMAIN-workonplus 1단계(0.5.17부터): 처음 여는 주소·위젯 Origin은 WORK ON+ 주소 workonplus.com.
+        assertEquals("https://workonplus.com/work/app/", ShellRules.HOME)
+        assertEquals("https://workonplus.com", WidgetRules.ORIGIN)
         assertTrue(ShellRules.isInternalApp(ShellRules.HOME))
+        assertTrue("https://workonplus.com" in ShellRules.ALLOWED_ORIGINS)
         assertTrue("https://bokdoong.com" in ShellRules.ALLOWED_ORIGINS)
         assertEquals(
-            setOf("https://bokdoong.com", "https://nojoplus.com", "https://desk.bokdoong.com", "https://work.bokdoong.com", "https://mj880616.github.io"),
+            setOf("https://workonplus.com", "https://bokdoong.com", "https://nojoplus.com", "https://desk.bokdoong.com", "https://work.bokdoong.com", "https://mj880616.github.io"),
             ShellRules.ALLOWED_ORIGINS,
         )
     }
 
     @Test
     fun newAddressStaysInsideTheApp() {
-        // DOMAIN-nojoplus 1단계: 새 주소도 앱 안. 처음 여는 주소는 아직 bokdoong.com.
-        assertEquals("https://bokdoong.com/work/app/", ShellRules.HOME)
+        // DOMAIN-nojoplus 1단계: nojoplus.com도 앱 안(옛 링크).
         assertTrue(ShellRules.isInternalApp("https://nojoplus.com/work/app/"))
         assertTrue(ShellRules.isInternalApp("https://nojoplus.com/work/app/?view=basket"))
         assertTrue(ShellRules.isInternalApp("https://nojoplus.com/"))
@@ -34,6 +34,41 @@ class ShellRulesTest {
         assertFalse(ShellRules.isInternalApp("https://www.nojoplus.com/work/app/"))
         assertFalse(ShellRules.isInternalApp("https://nojoplus.com.evil.example/work/app/"))
         assertFalse(ShellRules.isInternalApp("https://app.nojoplus.com/work/app/"))
+    }
+
+    @Test
+    fun nojoplusAppAddressMovesToWorkon() {
+        // DOMAIN-workonplus: nojoplus.com 앱 자리는 안내 한 장이 되므로 앱은 같은 경로·질의의 새 주소를 연다.
+        assertEquals("https://workonplus.com/work/app/", ShellRules.movedToHome("https://nojoplus.com/"))
+        assertEquals("https://workonplus.com/work/app/", ShellRules.movedToHome("https://nojoplus.com"))
+        assertEquals("https://workonplus.com/work/app/?view=tasks", ShellRules.movedToHome("https://nojoplus.com/work/app?view=tasks"))
+        assertEquals("https://workonplus.com/work/app/?view=calendar&day=2026-11-01", ShellRules.movedToHome("https://nojoplus.com/work/app/?view=calendar&day=2026-11-01"))
+        assertEquals("https://workonplus.com/work/app/login/?return=x#a", ShellRules.movedToHome("https://NOJOPLUS.com/work/app/login/?return=x#a"))
+        // 그 밖은 그대로(null): 다른 호스트, 짧은 주소·about, http, 닮은 호스트.
+        assertNull(ShellRules.movedToHome("https://workonplus.com/work/app/"))
+        assertNull(ShellRules.movedToHome("https://bokdoong.com/work/app/"))
+        assertNull(ShellRules.movedToHome("https://nojoplus.com/s/abc123"))
+        assertNull(ShellRules.movedToHome("https://nojoplus.com/work/about/"))
+        assertNull(ShellRules.movedToHome("http://nojoplus.com/work/app/"))
+        assertNull(ShellRules.movedToHome("https://www.nojoplus.com/work/app/"))
+        assertNull(ShellRules.movedToHome("https://nojoplus.com.evil.example/work/app/"))
+        assertNull(ShellRules.movedToHome(null))
+    }
+
+    @Test
+    fun workonAddressIsHomeAndStaysInside() {
+        // DOMAIN-workonplus 1단계: WORK ON+ 주소. 짧은 주소·about은 바깥, www·http·닮은 호스트는 바깥.
+        assertTrue(ShellRules.isInternalApp("https://workonplus.com/work/app/"))
+        assertTrue(ShellRules.isInternalApp("https://workonplus.com/work/app/?view=calendar"))
+        assertTrue(ShellRules.isInternalApp("https://workonplus.com/"))
+        assertTrue(ShellRules.isInternalApp("https://WORKONPLUS.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://workonplus.com/s/abc123"))
+        assertFalse(ShellRules.isInternalApp("https://workonplus.com/work/about/"))
+        assertFalse(ShellRules.isInternalApp("http://workonplus.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://www.workonplus.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://workonplus.com.evil.example/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://app.workonplus.com/work/app/"))
+        assertFalse(ShellRules.isInternalApp("https://workonplus.com:8443/work/app/"))
     }
 
     @Test
@@ -99,15 +134,15 @@ class ShellRulesTest {
     @Test
     fun loginReturnPassesOnlyKnownValues() {
         assertEquals(
-            "https://bokdoong.com/work/app/?handoff=abc.DEF_12-3",
+            "https://workonplus.com/work/app/?handoff=abc.DEF_12-3",
             ShellRules.homeForReturn("kptuwork://auth?handoff=abc.DEF_12-3"),
         )
         assertEquals(
-            "https://bokdoong.com/work/app/?google=connected",
+            "https://workonplus.com/work/app/?google=connected",
             ShellRules.homeForReturn("kptuwork://auth?google=connected&access_token=x&refresh_token=y"),
         )
         assertEquals(
-            "https://bokdoong.com/work/app/?google=error&reason=a+b",
+            "https://workonplus.com/work/app/?google=error&reason=a+b",
             ShellRules.homeForReturn("kptuwork://auth?google=error&reason=a%20b"),
         )
         assertEquals(ShellRules.HOME, ShellRules.homeForReturn("kptuwork://auth?payload=secret"))
@@ -178,7 +213,7 @@ class ShellRulesTest {
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/../0"))
         assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/x/__share/$shareId/0"))
         assertNull(ShellRules.shareRequest(null))
-        assertEquals("https://bokdoong.com/work/app/?view=basket&share=$shareId", ShellRules.shareHome(shareId))
+        assertEquals("https://workonplus.com/work/app/?view=basket&share=$shareId", ShellRules.shareHome(shareId))
     }
 
     @Test

@@ -10,12 +10,19 @@ const CALLBACK_URL = `${SB}/functions/v1/public-policy-drive/callback`;
 // DOMAIN-nojoplus 1단계: 연결을 nojoplus.com 화면에서 시작했으면(요청 Origin이 정확히 이 값) state에 'nojo' 칸을 넣고,
 // 돌아갈 때 같은 주소로 보낸다(로그인 정보는 주소마다 따로라 다른 주소로 돌아가면 로그인 화면이 뜬다).
 // 돌아갈 곳은 이 두 고정 주소 중 하나뿐이다. state는 서버에 해시로 저장된 값과 맞아야 연결이 저장된다(바뀐 state는 'invalid_state').
+// DOMAIN-workonplus 1단계: workonplus.com에서 시작했으면 'won' 칸으로 같은 방식(정확한 Origin일 때만, 돌아갈 곳은 고정 주소).
 const NEW_APP_ORIGIN = 'https://nojoplus.com';
+const WORKON_APP_ORIGIN = 'https://workonplus.com';
 function startedOnNewHost(req: Request) {
   return req.headers.get('Origin') === NEW_APP_ORIGIN;
 }
+function startedOnWorkon(req: Request) {
+  return req.headers.get('Origin') === WORKON_APP_ORIGIN;
+}
 function returnOrigin(state?: string | null) {
-  return state?.split('.').includes('nojo') ? NEW_APP_ORIGIN : null;
+  const parts = state?.split('.') || [];
+  if (parts.includes('won')) return WORKON_APP_ORIGIN;
+  return parts.includes('nojo') ? NEW_APP_ORIGIN : null;
 }
 const ALLOWED_ORIGINS = new Set([
   'https://mj880616.github.io',
@@ -24,6 +31,8 @@ const ALLOWED_ORIGINS = new Set([
   'https://bokdoong.com',
   // DOMAIN-nojoplus 1단계: 새 Web2 주소(정확한 출처 하나).
   'https://nojoplus.com',
+  // DOMAIN-workonplus 1단계: WORK ON+ 주소(정확한 출처 하나).
+  'https://workonplus.com',
 ]);
 
 function corsHeaders(req: Request) {
@@ -165,7 +174,7 @@ async function startDriveAuth(req: Request) {
   const user = await getUser(req);
   await ownWorkspace(user.id);
   const cfg = await getOAuthConfig();
-  const raw = 'drive.' + (startedOnNewHost(req) ? 'nojo.' : '') + crypto.randomUUID() + crypto.randomUUID();
+  const raw = 'drive.' + (startedOnWorkon(req) ? 'won.' : startedOnNewHost(req) ? 'nojo.' : '') + crypto.randomUUID() + crypto.randomUUID();
   const stateHash = await sha256(raw);
   await servicePost('app_google_oauth_states', {
     state_hash: stateHash,
