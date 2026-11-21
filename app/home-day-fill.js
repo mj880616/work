@@ -27,7 +27,7 @@ const PHOTO_FRESH_MS = 10 * 60 * 1000;
 // SEC-기능PIN잠금 ②: 사진을 잠갔고 아직 안 풀었으면 '오늘 사진' 칸은 사진을 읽지도 그리지도 않고 '잠김' 한 줄(누르면 그 자리 PIN 창, S67-25).
 // S67-59(2026-11-21 명진 "사진은 잠그지 않았는데 홈 화면에 사진이 잠겨있었음"): 칸 잠김은 '사진' 잠금만 따른다.
 // 2026-11-21 08:32 명진 "홈 하루기록에 넣은 사진도 홈에서 잠글 이유 없어 … 사진을 안잠그면 홈에서 사진 보여주는거": 하루 기록만 잠갔어도
-// 하루 기록에 넣은 사진까지 모두 보인다(하루 기록 글은 홈에 그리지 않는다).
+// 하루 기록에 넣은 사진까지 모두 보인다. S67-69: 그때도 하루 기록 글은 읽지 않는다 — 사진 칸만 읽는 readDiaryDayPhotos(diary-data.js).
 // 잠금 설정을 아직 모르면 읽지 않고 자리만(잠깐 사진이 보였다 사라지지 않게). 판정은 feature-lock.js 한 곳.
 const photoGate = () => {
   const fl = globalThis.window?.KPTUFeatureLock;
@@ -107,7 +107,7 @@ export async function readDayPhotos(day, rt, {alive = onHome, onPart = () => {},
     starred:new Set(stars.map(s => k.od.starKey(s.source, s.item_key)))});
   let odDone = false;
   const local = Promise.all([
-    diary ? k.diary.readDiaryDay(day, rt).catch(() => null) : Promise.resolve(null), // 하루 기록에 넣은 사진(글은 쓰지 않음)
+    diary ? k.diary.readDiaryDayPhotos(day, rt).catch(() => null) : Promise.resolve(null), // 하루 기록에 넣은 사진 정보만(글 칸은 읽지 않음, S67-69)
     phoneDay(k, day, alive).catch(() => []),
     k.od.odWarmStars(rt, year, month).catch(() => []),
   ]);

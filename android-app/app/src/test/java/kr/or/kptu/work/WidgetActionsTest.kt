@@ -59,9 +59,9 @@ class WidgetActionsTest {
 
     @Test
     fun writeAddressAndBridgeMessageOnlyForWriteKinds() {
-        assertEquals("https://bokdoong.com/work/app/?write=update", WidgetActions.writeUrl(WidgetAction.UPDATE))
-        assertEquals("https://bokdoong.com/work/app/?write=task", WidgetActions.writeUrl(WidgetAction.TASK))
-        assertEquals("https://bokdoong.com/work/app/?write=note", WidgetActions.writeUrl(WidgetAction.NOTE))
+        assertEquals("https://workonplus.com/work/app/?write=update", WidgetActions.writeUrl(WidgetAction.UPDATE))
+        assertEquals("https://workonplus.com/work/app/?write=task", WidgetActions.writeUrl(WidgetAction.TASK))
+        assertEquals("https://workonplus.com/work/app/?write=note", WidgetActions.writeUrl(WidgetAction.NOTE))
         assertEquals("write:open:note", WidgetActions.writeMessage(WidgetAction.NOTE))
         assertTrue(ShellRules.isInternalApp(WidgetActions.writeUrl(WidgetAction.TASK)))
         // 밖에서 MainActivity로 보낸 값은 쓰기 종류만 받는다.

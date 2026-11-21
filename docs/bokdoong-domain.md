@@ -43,6 +43,8 @@ Supabase Auth Site URL은 기존 github.io 주소로 유지함. 운영 Redirect 
 - 2026-10-28 DOMAIN-주소이전: `bokdoong.com` = Web2(`/work/app/`), 포털 삭제, desk·work의 Web2 경로와 arsenal은 `bokdoong.com`으로 넘김, 공유 페이지는 `work.bokdoong.com/work/share/` 유지, 마지막에 Web1 삭제(④: 2026-11-10 D1 Worker 안내 한 줄 + C1-b 파일 삭제, 계획 [`design/web1-removal-plan.md`](design/web1-removal-plan.md)). 단계·되돌리기·명진 화면 단계는 [`design/domain-move.md`](design/domain-move.md). 운영에 반영되면 위 표를 그 상태로 고친다.
 - 2026-11-14 DOMAIN-nojoplus: 새 주소 `nojoplus.com`(서비스 이름 '노동조합+'). 1단계는 `nojoplus.com`이 `bokdoong.com`과 똑같이 Web2를 내주고(`/` → `nojoplus.com/work/app/`), `www.nojoplus.com`은 `nojoplus.com`으로 301, `about/`도 `nojoplus.com/work/about/`에서 열림. 옛 주소는 그대로 동작하고, 공유 화면은 출처 분리 때문에 `work.bokdoong.com/work/share/` 유지. 2단계(로그인·폰 앱이 옮긴 뒤) 옛 주소 → 새 주소 301. 주소 표·박아 둔 곳 표·두 단계 순서와 되돌리기는 [`design/domain-nojoplus.md`](design/domain-nojoplus.md).
 
+- 2026-11-21 DOMAIN-workonplus: 앱 이름 WORK ON+에 맞춘 새 주소 `workonplus.com`. 1단계는 `nojoplus.com`과 똑같이 Web2를 내주고 `www`는 301, 폰 앱은 새 판부터 이 주소를 처음 연다. 그다음 `nojoplus.com`의 앱 자리는 이전 안내 한 장으로 바꾼다(짧은 주소·about은 그대로). [`design/domain-workonplus.md`](design/domain-workonplus.md).
+
 ## nojoplus.com (DOMAIN-nojoplus 1단계)
 
 | 호스트 | 응답 |
@@ -51,3 +53,12 @@ Supabase Auth Site URL은 기존 github.io 주소로 유지함. 운영 Redirect 
 | `www.nojoplus.com` | 같은 경로·`?쿼리`로 `https://nojoplus.com`에 301 |
 
 Edge 허용 출처에는 `https://nojoplus.com` 정확히 하나만 더한다(www·하위 주소·http 없음). Supabase Auth Redirect URLs에는 `nojoplus.com/work/app/` 줄을 더하고 Site URL은 1단계에서 바꾸지 않는다.
+
+## workonplus.com (DOMAIN-workonplus 1단계)
+
+| 호스트 | 응답 |
+| --- | --- |
+| `workonplus.com` | `nojoplus.com`과 같은 Web2(`/work/app/**`, favicon, `/s/` 짧은 주소, `/work/about/**`). `/`·`/work/app` → 자기 `/work/app/` 302. 그 밖 `/work/**`는 `work.bokdoong.com`으로 302, 나머지 404 |
+| `www.workonplus.com` | 같은 경로·`?쿼리`로 `https://workonplus.com`에 301 |
+
+Edge 허용 출처에는 `https://workonplus.com` 정확히 하나만 더한다. Supabase Auth Redirect URLs에 `https://workonplus.com/**` 줄을 더한다(Site URL 그대로).

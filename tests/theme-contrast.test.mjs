@@ -19,7 +19,7 @@ const darkStart=css.indexOf('@media (prefers-color-scheme:dark)');
 assert.ok(darkStart>0,'dark section exists');
 const lightCss=css.slice(0,darkStart),darkCss=css.slice(darkStart);
 const light=name=>name===DEFAULT_THEME?block(lightCss,':root,[data-theme="'+name+'"]'):block(lightCss,'[data-theme="'+name+'"]');
-// 기본(올리브)의 어두운 강조 값은 어두운 공통 블록에 있어 색별 블록이 없다.
+// 기본(먹, S67-64 전에는 올리브)의 어두운 강조 값은 어두운 공통 블록에 있어 색별 블록이 없다.
 const dark=name=>({...block(darkCss,'  :root'),...block(darkCss,':root[data-theme="'+name+'"]',{optional:name===DEFAULT_THEME})});
 // 대비 비율(WCAG 2.x).
 const rgb=hex=>{assert.match(hex,/^#[0-9a-f]{6}$/i,'plain 6-digit hex: '+hex);return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)};
@@ -30,11 +30,13 @@ const need=(label,a,b,min)=>assert.ok(ratio(a,b)>=min,`${label}: ${a} on ${b} = 
 
 test('the allowed color list is one list of ten that the screen, the pick window and the CSS all follow',()=>{
   assert.equal(THEMES.length,10);
-  assert.equal(THEMES[0],DEFAULT_THEME,'the first one is the default');
+  // S67-64: 기본은 먹(ink). 목록 차례는 DB 검사(migration)와 같은 차례 그대로 두고, 고르는 창 이름에 '(기본)'을 붙인다.
+  assert.equal(DEFAULT_THEME,'ink');assert.ok(THEMES.includes(DEFAULT_THEME));
   for(const name of THEMES)assert.ok(validValue('theme',name),name);
   // 고르는 창: 같은 이름, 같은 차례, 칸마다 색 견본 점(2개)과 이름.
   const choices=[...indexHtml.matchAll(/<button type="button" data-theme-choice="([^"]+)"[^>]*aria-label="([^"]+)"[^>]*>([\s\S]*?)<\/button>/g)];
   assert.deepEqual(choices.map(m=>m[1]),[...THEMES]);
+  assert.deepEqual(choices.filter(m=>m[2].endsWith('(기본)')).map(m=>m[1]),[DEFAULT_THEME],'only the default is labelled (기본)');
   for(const [,name,label,inner] of choices){
     assert.ok(label.length>0);
     assert.match(inner,new RegExp(`<span class="theme-swatch" data-theme="${name}" aria-hidden="true"><i></i><i></i></span><span>[^<]+</span>`),name);
@@ -94,6 +96,8 @@ test('colors are distinct from each other (light page color and button color)',(
   const seen=new Map();
   for(const name of THEMES){
     for(const key of ['--kptu-bg','--kptu-primary']){
+      // S67-64: 기본(먹)은 옛 기본(올리브)과 같은 오트밀 바탕을 쓴다(명진 11/21 '기본 색상을 먹으로' — 강조만 먹). 강조색은 모두 달라야 한다.
+      if(key==='--kptu-bg'&&name==='olive')continue;
       const value=light(name)[key].toLowerCase();
       assert.ok(!seen.has(key+value),`${name} repeats ${seen.get(key+value)} for ${key}`);seen.set(key+value,name);
     }

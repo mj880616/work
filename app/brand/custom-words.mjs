@@ -4,7 +4,11 @@
 // 첫 그리기 전에 이미 고친 이름을 안다(시작 순서: 설정 읽기 → 화면 첫 그리기, 늦게 와서 다시 덮어 그리지 않음).
 // 주소·기기 저장소·화면 조작으로 바꾸는 길은 없다. 고친 이름을 저장하면 다음 열기부터 모든 화면에 보인다.
 // 약속이 없거나(로그인 전 화면·시험) 실패·지연이면 고친 이름 없이(얼굴 기본값) 연다.
-import {parseCustomWords} from './custom-words-model.mjs';
+// S67-62: 같은 약속이 바탕 낱말 묶음도 준다. 약속 값은 {custom_words, features}(features = 서버 app_my_features 답).
+import {parseCustomWords, wordBaseOf} from './custom-words-model.mjs';
 
 const pending = globalThis.__KPTU_CUSTOM_WORDS__;
-export const CUSTOM_WORDS = parseCustomWords(pending && typeof pending.then === 'function' ? await pending.catch(() => null) : null);
+const got = pending && typeof pending.then === 'function' ? await pending.catch(() => null) : null;
+export const CUSTOM_WORDS = parseCustomWords(got?.custom_words ?? null);
+/** 바탕 낱말 묶음 얼굴 id(app/brand/custom-words-model.mjs WORD_BASE_FEATURES). 없으면 null. */
+export const WORD_BASE = wordBaseOf(got?.features);

@@ -19,6 +19,21 @@ test('month and day reads are kind=diary in the signed-in workspace only', async
   await assert.rejects(m.readDiaryDay('2026-02-30', rt), /날짜/);
 });
 
+test('S67-69 day photos read: only photo columns (no raw_text/doc/title/comments), body photos still left out', async () => {
+  const m = await mod;
+  const rt = runtime(() => [{id:'d1', journal_day:'2026-10-03', attachments:[photo('a'), photo('b')], body_photos:['b']}]);
+  const out = await m.readDiaryDayPhotos('2026-10-03', rt);
+  const q = new URL(rt.calls[0].path, 'https://x.invalid').searchParams;
+  assert.equal(q.get('workspace_id'), 'eq.w'); assert.equal(q.get('kind'), 'eq.diary'); assert.equal(q.get('journal_day'), 'eq.2026-10-03');
+  const cols = q.get('select').split(',');
+  assert.deepEqual(cols, ['id', 'journal_day', 'attachments', 'body_photos:metadata->body_photos']);
+  for (const c of cols) assert.doesNotMatch(c.split(':').pop(), /^(raw_text|doc|title|metadata)$/);
+  assert.deepEqual(m.diaryPhotos(out).map(f => f.drive_file_id), ['a']);
+  assert.equal(out.raw_text, undefined);
+  assert.equal(await m.readDiaryDayPhotos('2026-10-03', runtime(() => [])), null);
+  await assert.rejects(m.readDiaryDayPhotos('2026-02-30', rt), /날짜/);
+});
+
 test('create sends kind diary, the day and ai_export_allowed=false; a photo-only day holds one space; 409 means the day exists', async () => {
   const m = await mod;
   let rt = runtime((path, o) => [{id:'d1', ...o.body}]);

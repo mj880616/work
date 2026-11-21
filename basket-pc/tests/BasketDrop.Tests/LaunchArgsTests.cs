@@ -24,6 +24,6 @@ public sealed class LaunchArgsTests
     [Fact]
     public void Open_nojoplus_goes_to_the_web_app_address()
     {
-        Assert.Equal("https://nojoplus.com/work/app/", NojoPlusWeb.AppUrl);
+        Assert.Equal("https://workonplus.com/work/app/", NojoPlusWeb.AppUrl);
     }
 }
