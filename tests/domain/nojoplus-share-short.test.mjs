@@ -7,13 +7,17 @@ test('short share links follow the Web2 address they were made on', () => {
   assert.equal(SHORT_BASE, 'https://bokdoong.com/s/');
   assert.equal(shortBase('https://nojoplus.com'), 'https://nojoplus.com/s/');
   assert.equal(shortBase('https://bokdoong.com'), 'https://bokdoong.com/s/');
+  // DOMAIN-workonplus 1단계
+  assert.equal(shortBase('https://workonplus.com'), 'https://workonplus.com/s/');
+  assert.equal(shortUrl('meeting-notes', 'abcdefgh', 'https://workonplus.com'), 'https://workonplus.com/s/meeting-notes-abcdefgh');
   assert.equal(shortUrl('meeting-notes', 'abcdefgh', 'https://nojoplus.com'), 'https://nojoplus.com/s/meeting-notes-abcdefgh');
   assert.equal(shortUrl('meeting-notes', 'abcdefgh', 'https://bokdoong.com'), 'https://bokdoong.com/s/meeting-notes-abcdefgh');
 });
 
 test('any other or missing origin keeps bokdoong.com (old hosts, github.io, lookalikes)', () => {
   for (const origin of [undefined, 'null', 'https://desk.bokdoong.com', 'https://mj880616.github.io', 'https://www.nojoplus.com',
-    'http://nojoplus.com', 'https://nojoplus.com.evil.example', 'https://nojoplus.com:8443']) {
+    'http://nojoplus.com', 'https://nojoplus.com.evil.example', 'https://nojoplus.com:8443',
+    'https://www.workonplus.com', 'http://workonplus.com', 'https://workonplus.com.evil.example', 'https://workonplus.com:8443']) {
     assert.equal(shortBase(origin), SHORT_BASE, String(origin));
   }
   assert.equal(shortUrl('meeting-notes', 'abcdefgh'), 'https://bokdoong.com/s/meeting-notes-abcdefgh');

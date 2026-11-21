@@ -3,7 +3,8 @@
 // - 저장: 내 프로필 행 custom_words 한 칸을 PATCH(owner RLS로 내 행만). 바꾼 칸이 없으면 null(= 모두 기본). 기기에는 남기지 않는다.
 // - 칸이 아직 없는 서버(DB 적용 전)는 읽기가 400 → '저장 준비 중' 안내만 보이고 저장은 막힌다(다른 칸·화면은 그대로).
 // - 바뀐 이름은 다음에 열 때부터 모든 화면에 보인다(시작할 때 한 번 읽어 첫 그리기에 쓰는 구조, app/brand/custom-words.mjs). 저장 뒤 [지금 다시 열기].
-import {FACE} from './brand/brand.mjs';
+// S67-62: 기본 이름은 이 사람의 바탕 낱말 묶음을 얹은 얼굴(BASE_FACE)로 보인다.
+import {BASE_FACE as FACE} from './brand/brand.mjs';
 import {SLOTS, NAME_MAX, defaultName, parseCustomWords, buildSaveValue} from './brand/custom-words-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -17,12 +18,14 @@ export function mountCustomWords(host, {rt = window.KPTURuntime, reload = () => 
   let saved = null, state = 'loading', busy = false, message = '', error = '', justSaved = false, userId = '';
   const inputs = {};
 
-  const count = () => Object.keys(saved || {}).length;
+  // 저장된 값 중 기본 이름과 다른 칸만 '바꿈'으로 센다(S67-62: 바탕 낱말 묶음이 있으면 저장 값이 기본 이름과 같을 수 있다).
+  const savedChanged = () => (saved ? buildSaveValue(FACE, saved).value : null) || {};
+  const count = () => Object.keys(savedChanged()).length;
   const dirty = () => {
     if (!saved) return false;
     const next = buildSaveValue(FACE, inputs);
     if (next.error) return true;
-    return JSON.stringify(next.value || {}) !== JSON.stringify(saved);
+    return JSON.stringify(next.value || {}) !== JSON.stringify(savedChanged());
   };
   function rowHtml(slot) {
     const def = defaultName(FACE, slot), value = inputs[slot.id] ?? '';

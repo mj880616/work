@@ -58,7 +58,7 @@ class PushRulesTest {
 
     @Test
     fun openUrlStaysInsideWeb2() {
-        assertEquals("https://bokdoong.com/work/app/?view=basket&pane=todo", PushRules.openUrl("/work/app/?view=basket&pane=todo"))
+        assertEquals("https://workonplus.com/work/app/?view=basket&pane=todo", PushRules.openUrl("/work/app/?view=basket&pane=todo"))
         assertEquals(ShellRules.HOME, PushRules.openUrl("/work/app/"))
         assertEquals(ShellRules.HOME, PushRules.openUrl(null))
         assertEquals(ShellRules.HOME, PushRules.openUrl("https://evil.example/"))

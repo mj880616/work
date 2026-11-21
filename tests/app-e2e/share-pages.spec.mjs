@@ -313,9 +313,10 @@ test('Web1 reader draws the page as text only, with noindex and no stored link v
   const summary = page.locator('.sr-summary');
   await expect(summary).toHaveText(samplePage.blocks[0].text);
   const tokens = await page.evaluate(() => { const s = getComputedStyle(document.documentElement); return {primary:s.getPropertyValue('--kptu-primary').trim(), soft:s.getPropertyValue('--kptu-primary-soft').trim()}; });
-  expect(tokens.primary).toBe('#5c6a35');expect(tokens.soft).toBe('#eef0e1');
-  await expect(summary).toHaveCSS('background-color', 'rgb(238, 240, 225)');
-  await expect(summary).toHaveCSS('box-shadow', 'rgb(92, 106, 53) 2px 0px 0px 0px inset');
+  // S67-64: 기본 색 먹(강조 #22262b, 연한 고른 바탕 #e7e5df).
+  expect(tokens.primary).toBe('#22262b');expect(tokens.soft).toBe('#e7e5df');
+  await expect(summary).toHaveCSS('background-color', 'rgb(231, 229, 223)');
+  await expect(summary).toHaveCSS('box-shadow', 'rgb(34, 38, 43) 2px 0px 0px 0px inset');
   await expect(page.locator('.sr-stage')).toHaveCount(3);
   await expect(page.locator('.sr-stage[aria-current="step"]')).toHaveText('교섭');
   await expect(page.locator('.sr-stage.is-done')).toHaveCount(1);

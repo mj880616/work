@@ -80,24 +80,33 @@ test('HTML 얼굴 입히기는 눈에 보이는 글자만 바꾼다(script·styl
 });
 
 // S67-56: 운영이 girok 얼굴이 되면서, 고친 이름(custom_words)이 있는 사람도 앱 바탕 글자를 제 이름으로 봐야 한다.
-// 빌드가 지운 노조 글자 열쇠를 되찾도록 앱 바탕(app/index.html)의 이름 칸 글자만 원래 글자를 남긴다.
-test('girok 앱 바탕: 이름 칸 글자를 바꾼 자리마다 원래 글자를 남기고, 다른 HTML·다른 글자는 남기지 않는다', () => {
+// S67-62: 바탕 낱말 묶음(노동조합+ 낱말)인 사람은 칸 밖 낱말까지 원래 글자여야 해서, 앱 바탕(app/index.html)에서 바꾼 글자는 모두 원래 글자를 남긴다.
+test('girok 앱 바탕: 바꾼 글자마다 원래 글자를 남기고, 다른 HTML은 남기지 않는다', () => {
   const index = girok['app/index.html'];
   assert.match(index, /<html data-word-faced lang="ko">/);
   assert.match(index, /data-view="team" href="\.\/\?view=team"><!--word:조직 관리-->거래처·직원<\/a>/);
   assert.match(index, /<span><!--word:사업 관리-->활동 기록<\/span>/);
   assert.match(index, /aria-label="활동 기록으로 돌아가기" data-word-aria-label="사업 관리로 돌아가기"/);
-  // 이름 칸과 상관없는 글자(서식·위원장 등)는 남기지 않는다.
-  assert.doesNotMatch(index, /<!--word:노조/);
-  assert.doesNotMatch(index, /data-word-placeholder=/);
+  // 이름 칸 밖 낱말(서식 등)도 남긴다(S67-62).
+  assert.match(index, /<!--word:노조 양식으로 새 문서-->서식으로 새 문서</);
   for (const file of Object.keys(girok)) if (file !== 'app/index.html' && file.endsWith('.html')) assert.doesNotMatch(text(girok[file]), /<!--word:|data-word-/, file);
   assert.doesNotMatch(nojo['app/index.html'], /<!--word:|data-word-/, 'nojo 빌드는 저장소 그대로');
   // 남긴 원래 글자에 얼굴 단어를 다시 쓰면 지금 보이는 글자와 같다(빌드와 시작 때 글자 입히기가 같은 규칙).
   for (const [, from, to] of index.matchAll(/<!--word:([^>]*)-->([^<]*)</g)) assert.equal(wordIn(FACES.girok, from), to, from);
+  // 원래 글자로 되돌리면(주석 자리 → 원래 글자, data-word-* → 그 속성) nojo 빌드 앱 바탕과 같다(남기지 않은 글자 = 바꾸지 않은 글자).
+  const back = index
+    .replace(/<!--word:([^>]*)-->[^<]*</g, (_, from) => `${from}<`)
+    .replace(/(\s(aria-label|alt|title|placeholder)=")[^"]*(")([^>]*?) data-word-\2="([^"]*)"/g, (_, a, name, b, rest, from) => `${a}${from}${b}${rest}`)
+    .replace('<html data-word-faced', '<html')
+    .replace(/(<meta name="theme-color" content=")[^"]*(" media="\(prefers-color-scheme: light\)">)/g, `$1${FACES.nojo.themeColor}$2`);
+  assert.doesNotMatch(back, /data-word-/);
+  const unhashed = html => html.replace(/\?v=[0-9a-f]+/g, '');  // 빌드 해시는 얼굴마다 다른 파일 내용이라 다르다
+  assert.equal(unhashed(back), unhashed(nojo['app/index.html']));
 });
 
 test('앱 바탕에 원래 글자를 남길 수 없는 글자(주석을 깨는 --, 글자 참조 &)는 빌드를 멈춘다', () => {
-  assert.throws(() => faceHtml('<html><b>사업 관리--</b></html>', FACES.girok, { keepSlots: true }), /원래 글자를 남길 수 없음/);
-  assert.throws(() => faceHtml('<html><b>사업 관리 &amp; 기타</b></html>', FACES.girok, { keepSlots: true }), /원래 글자를 남길 수 없음/);
+  assert.throws(() => faceHtml('<html><b>사업 관리--</b></html>', FACES.girok, { keepOriginals: true }), /원래 글자를 남길 수 없음/);
+  assert.throws(() => faceHtml('<html><b>사업 관리 &amp; 기타</b></html>', FACES.girok, { keepOriginals: true }), /원래 글자를 남길 수 없음/);
   assert.equal(faceHtml('<html><b>사업 관리</b></html>', FACES.girok), '<html><b>활동 기록</b></html>', '앱 바탕이 아니면 남기지 않음');
+  assert.equal(faceHtml('<html><b>회의</b></html>', FACES.girok, { keepOriginals: true }), '<html data-word-faced><b>회의</b></html>', '바꾸지 않은 글자는 남기지 않음');
 });

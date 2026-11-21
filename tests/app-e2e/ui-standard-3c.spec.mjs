@@ -181,10 +181,10 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀 '+width
  expect(errors).toEqual([]);
 });
 
-test('공용 셸(폰): 머리줄 18px/500, 하단 탭 0.5px 선, ☰ 메뉴 판은 메뉴 줄(44px·13px/400), 화면 색 창은 상자 안 줄',async({page})=>{
+test('공용 셸(폰): 머리줄 15px/500(S67-64), 하단 탭 0.5px 선, ☰ 메뉴 판은 메뉴 줄(44px·13px/400), 화면 색 창은 상자 안 줄',async({page})=>{
  const {errors}=await boot(page,390);
  await view(page,'projects');
- const header=await look(page.locator('[data-mobile-view-name]'));expect([header.fontSize,header.fontWeight]).toEqual(['18px','500']);
+ const header=await look(page.locator('[data-mobile-view-name]'));expect([header.fontSize,header.fontWeight]).toEqual(['15px','500']); // S67-64 UI-윗줄한줄: D2 제목 글씨
  const current=await look(page.locator('.mobile-tabs [aria-current="page"]'));expect(current.fontWeight).toBe('500');
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu')).toBeVisible();
  // Measure after the sheet's slide-up (ds-sheet-up): mid-slide the transformed boxes read 44±0.00006px.

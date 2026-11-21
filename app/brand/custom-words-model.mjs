@@ -5,13 +5,16 @@
 //   1. 내가 고친 이름(custom_words, 칸 id → 글자)
 //   2. 빌드 얼굴의 기본값(app/brand/faces.mjs → 기록+는 girok-words.mjs, 노동조합+는 글자 그대로)
 // 고칠 수 있는 칸은 아래 SLOTS뿐이다(문장 전체 고치기 아님). 칸 id 목록과 글자 규칙은 DB 검사(app_profiles_custom_words_check)와 같아야 한다.
-import {wordIn} from './faces.mjs';
+import {FACES, wordIn} from './faces.mjs';
+
+// S67-62 바탕 낱말 묶음: 사람마다 얼굴 단어표 대신 다른 얼굴의 단어표 하나를 바탕으로 쓴다(그 위에 고친 이름 15칸).
+// 고르는 길은 서버 운영자 허용 표(public.app_operator_features, SQL로만 넣음, 화면·API로 못 씀)뿐이고, 화면은 app_my_features 답으로 읽는다.
+// 화면에서 고르는 메뉴는 없다(미리 만든 묶음을 다른 사람에게 보이지 않는다, 2026-11-20 결정). 기능 키 → 얼굴 id.
+export const WORD_BASE_FEATURES = Object.freeze({nojo_words: 'nojo'});
 
 // keys: 이 칸이 맡는 노조 글자(단어표 열쇠). '#자리' 열쇠는 그 자리에만, 나머지는 문장 안에서도 바뀐다.
 // kind: true면 활동 분류 칸(word(글자,'kind') 자리에만 — 문장 안 '회의'·'교육' 같은 낱말은 건드리지 않는다).
 // hint: 화면에서 이 칸이 무엇인지 보여 주는 작은 글자(노조 색 없음).
-// original: 이 칸 이름을 원래 글자(첫 열쇠의 글자, 노동조합+ 화면 글자) 그대로 두면 함께 원래 글자로 돌아가는 열쇠(예시·긴 안내 문장).
-//   다른 이름으로 고치면 이 열쇠들은 얼굴 기본값 그대로다(예시에 남의 업종 글자가 섞이지 않게). 칸 이름 자체는 keys로 바뀐다.
 export const SLOTS = Object.freeze([
   {id: 'menu_biz', hint: '메뉴', keys: ['사업 관리', '사업 관리#title']},
   {id: 'report', hint: '기록 한 건', keys: ['사업 보고', '사업보고']},
@@ -27,15 +30,8 @@ export const SLOTS = Object.freeze([
   {id: 'kind_assembly', hint: '분류', keys: ['국회#kind'], kind: true},
   {id: 'kind_struggle', hint: '분류', keys: ['투쟁#kind'], kind: true},
   {id: 'kind_education', hint: '분류', keys: ['교육#kind'], kind: true},
-  {id: 'kind_other', hint: '분류', keys: ['기타#kind'], kind: true},
-  // S67-57(내 프로필·묶음): 소속 칸 이름과 주간 칸 이름. 화면은 word('노조','group')·word('주간 보고','weekly') 자리에서만 쓴다.
-  {id: 'affiliation', hint: '소속', keys: ['노조#group'], original: [
-    '○○노동조합 ○○지부#example', '○○사업팀#example', '국장#example',
-    '같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.'
-  ]},
-  // weekly는 S67-63의 앱 전체 '주간 보고' 열쇠도 맡는다(명진 값 '주간 보고'면 앱 어디서나 지금 글자 그대로).
-  {id: 'weekly', hint: '주간', keys: ['주간 보고#weekly', '주간 보고']}
-].map(slot => Object.freeze({...slot, keys: Object.freeze([...slot.keys]), original: Object.freeze([...(slot.original || [])])})));
+  {id: 'kind_other', hint: '분류', keys: ['기타#kind'], kind: true}
+].map(slot => Object.freeze({...slot, keys: Object.freeze([...slot.keys])})));
 export const SLOT_IDS = Object.freeze(SLOTS.map(slot => slot.id));
 export const NAME_MAX = 20;
 export const TOTAL_MAX_BYTES = 2000;
@@ -97,11 +93,7 @@ export function applyCustomWords(face, custom) {
   if (!changed.length) return face;
   const words = {...face.words};
   const mine = {};
-  for (const slot of changed) {
-    for (const key of slot.keys) mine[key] = custom[slot.id];
-    // 원래 글자 그대로 쓰는 칸이면(예: 소속 칸을 '노조'로) 딸린 예시·문장도 원래 글자로.
-    if (custom[slot.id] === split(slot.keys[0])[0]) for (const key of slot.original) mine[key] = split(key)[0];
-  }
+  for (const slot of changed) for (const key of slot.keys) mine[key] = custom[slot.id];
   const inText = Object.keys(mine).filter(key => !key.includes('#'));
   for (const key of Object.keys(words)) {
     if (Object.hasOwn(mine, key)) continue;
@@ -110,4 +102,17 @@ export function applyCustomWords(face, custom) {
   }
   Object.assign(words, mine);
   return Object.freeze({...face, words: Object.freeze(words)});
+}
+
+/** 서버 기능 목록(app_my_features 답) → 바탕 낱말 묶음 얼굴 id. 없거나 목록이 아니면 null(= 빌드 얼굴 단어 그대로). */
+export function wordBaseOf(features) {
+  if (!Array.isArray(features)) return null;
+  for (const [feature, base] of Object.entries(WORD_BASE_FEATURES)) if (features.includes(feature)) return base;
+  return null;
+}
+
+/** 빌드 얼굴 + 바탕 낱말 묶음 → 단어표만 그 묶음 것으로 바꾼 얼굴(이름·아이콘·메뉴는 빌드 얼굴 그대로). 묶음이 없거나 같으면 얼굴 그대로. */
+export function withWordBase(face, base) {
+  if (!base || !Object.hasOwn(FACES, base) || FACES[base].words === face.words) return face;
+  return Object.freeze({...face, words: FACES[base].words});
 }

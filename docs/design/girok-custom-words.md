@@ -7,7 +7,8 @@
 위가 이긴다.
 
 1. **내가 바꾼 이름**: 내 프로필 행 `app_profiles.custom_words`(서버, 기존 owner RLS로 내 행만 읽고 씀). 기기 저장소에는 두지 않는다.
-2. **빌드 얼굴의 기본값**: `app/brand/faces.mjs`(기록+는 `girok-words.mjs`, 노동조합+는 글자 그대로). S67-43이 화면 글자를 모두 `word()`로 모았다.
+2. **바탕 낱말 묶음**(S67-62, 8절): 서버 운영자 허용 표에 `nojo_words`가 있는 사람만, 빌드 얼굴 단어표 대신 노동조합+ 낱말(단어표 비어 있음 = 글자 그대로) 전체.
+3. **빌드 얼굴의 기본값**: `app/brand/faces.mjs`(기록+는 `girok-words.mjs`, 노동조합+는 글자 그대로). S67-43이 화면 글자를 모두 `word()`로 모았다.
 
 `brand.mjs`의 `word()`만 1을 얹은 단어표를 쓴다. `FACE`(얼굴 그 자체, 기본 이름)·`APP_NAME`은 바꾸지 않는다. 얼굴은 여전히 빌드만 정한다.
 
@@ -25,14 +26,11 @@
 | org_report | 대상 기록 | 조직 보고, 조직보고 | 기록 |
 | workplace | 중요 대상 | 투쟁사업장, 투쟁 사업장 | 주요 거래처 |
 | kind_* 8칸 | 분류 | 회의·정책·교섭·언론·국회·투쟁·교육·기타(`#kind` 자리만) | 회의·기획·협의·홍보·외근·행사·교육·기타 |
-| affiliation | 소속 | 노조(`#group` 자리만: 내 프로필 기본 정보 '소속명'·묶음 종류 '소속 묶음'·묶음 이름) | 소속 |
-| weekly | 주간 | 주간 보고(`#weekly` 자리만: 내 프로필 주간 캘린더 칸) | 주간 정리 |
 
 - 이름 규칙: 글자 1~20자, 앞뒤 공백·제어문자 없음, `< > & " ' \` \\` 없음(화면 HTML에 그대로 들어가므로). 전체 2000바이트.
 - 바꾼 칸의 열쇠는 내 이름이 된다. 그 열쇠를 품은 얼굴의 문장 열쇠는 빼서, 그 문장은 낱말 바꾸기로 다시 맞춰진다(문장 안에서도 내 이름, 조사는 `faces.mjs`가 새 말에 맞춤).
 - 분류 8칸은 `word(글자,'kind')` 자리에만 쓴다. 문장 안 '회의'·'교육' 같은 낱말은 건드리지 않는다.
-- S67-57 `original`: 칸 이름을 원래 글자(첫 열쇠의 노조 글자) 그대로 두면 함께 원래 글자로 돌아가는 열쇠(예시·긴 안내). affiliation 칸은 기본 정보 예시(`○○노동조합 ○○지부#example`·`○○사업팀#example`·`국장#example`)와 묶음 없음 안내 문장. 다른 이름으로 고치면 그 열쇠들은 WORK ON 기본 예시 그대로(남의 업종 글자가 섞이지 않게). 칸 이름 자리는 keys로 내 이름.
-- 칸 이름 글자는 `app/profile-words.mjs` 한 곳에서 만든다(`UNION_WORD`·`UNION_LABEL`·`WEEKLY_WORD`·`REPORT_CALENDAR_TITLE`). 서버 값(묶음 종류 `union`, `app_profiles.union_name`)은 바꾸지 않는다.
+- S67-57(내 프로필·묶음·주간 캘린더 칸): 소속(`노조#group`)·주간(`주간 보고#weekly`)·예시(`#example` 3개)는 이름 바꾸기 칸이 아니라 단어표 자리다(칸 추가·DB 변경 없음). 운영자(명진)는 S67-62 바탕 낱말 묶음(`nojo_words`)으로 지금 글자 그대로, 그 밖의 사람은 WORK ON+ 기본(소속명·주간 정리·○○회사·○○단체). 글자는 `app/profile-words.mjs` 한 곳에서 만든다(`UNION_WORD`·`UNION_LABEL`·`WEEKLY_WORD`·`REPORT_CALENDAR_TITLE`). 서버 값(묶음 종류 `union`, `app_profiles.union_name`)은 바꾸지 않는다. 다른 사람이 이 두 이름을 직접 고쳐 쓰는 칸은 요청이 오면 따로 더한다(그때 DB 칸 검사 변경).
 - 대표 글자(첫 열쇠)의 기본 이름과 같은 값은 바꾸지 않은 것으로 본다. 그래서 노동조합+ 얼굴에서 명진 값은 화면 한 글자도 바꾸지 않는다.
 
 ## 3. 시작 순서 (설정 읽기 → 첫 그리기, 덮어 그리기 없음)
@@ -51,18 +49,27 @@
 
 코드에 계정·이름을 넣지 않는다(공개 저장소). `docs/ops/custom-words-operator.{precheck,apply,rollback}.sql`(SQL Editor, 실행은 CC)이 운영자 허용 표에 `calls`·`telegram`이 둘 다 켜진 작업공간 정확히 하나의 owner 한 명을 골라, 지금 노동조합+ 화면 이름 그대로(15칸)를 넣는다. 이미 값이 있으면 멈추고(덮어쓰지 않음), 되돌리기는 넣은 값과 같을 때만 비운다.
 
-S67-57: 새 두 칸(소속 `노조`, 주간 `주간 보고`)은 `docs/ops/custom-words-operator-slots.{precheck,apply,rollback}.sql`이 15칸 값 뒤에 더한다(15칸이 먼저 들어가 있어야 하고, 두 칸이 이미 있으면 멈춤, 되돌리기는 넣은 값과 같을 때만 두 칸만 뺌).
-
 ## 6. 적용 순서
 
 1. 이 PR merge(화면은 칸이 없으면 기본 이름으로 열고 칸만 '저장 준비 중').
 2. 승인형 DB workflow: `20261120210000_profile_custom_words` dry-run → apply.
 3. SQL Editor: `custom-words-operator.precheck.sql`(모두 예) → `custom-words-operator.apply.sql`.
 4. 빌드 얼굴을 기록+로 바꾸는 일은 따로(아래 7).
-5. (S67-57) 승인형 DB workflow: `20261121073000_profile_custom_words_slots` dry-run → apply → SQL Editor `custom-words-operator-slots.precheck.sql`(모두 예) → `custom-words-operator-slots.apply.sql`.
 
 ## 7. 남은 일 (기록+ 빌드로 바꾸기 전)
 
 - (S67-56에서 해결) 기록+ 빌드는 HTML 글자를 빌드 때 기록+ 단어로 굽는다(`scripts/brand-face.mjs`). 앱 바탕(`app/index.html`)에서 칸 열쇠가 든 글자는 바꾼 자리마다 원래 글자를 남기고(글자 앞 주석 `<!--word:원래 글자-->`, 속성은 `data-word-속성 이름`, `<html data-word-faced>`), 고친 이름이 있는 사람은 3-4단계 앱 바탕 입히기(`app/brand/custom-words-shell.mjs`, 화면 공개 전 한 번)가 그 원래 글자에서 다시 맞춘다. 고친 이름이 없는 사람은 구운 글자 그대로(실행 중 바꾸기 없음). 시험: `scripts/brand-face.test.mjs`, `tests/build-pages/girok-face-boot.spec.mjs`.
 - (S67-56) 운영 배포가 기록+(WORK ON 기본 단어) 얼굴이다: `pages-deploy.yml`·`cloudflare-worker-deploy.yml`이 `--face=girok`으로 만든다(`scripts/production-face.test.mjs`).
-- 칸 밖 낱말(조직→대상, 사업장→거래처, 조합원→구성원 등)은 바꿀 수 없다. 기록+ 빌드에서 명진 화면이 칸 밖 낱말까지 지금과 같아야 하면 칸을 더할지 정해야 한다(칸 id는 DB 검사 `app_profiles_custom_words_check`와 같아야 해 DB 변경이 따른다). S67-56 셈: JS `word()` 고정 글자 중 명진 값(15칸)으로도 지금과 달라지는 글자 약 250개(대부분 '조직'→'대상', '사업장'→'거래처', 주간 보고 '관련 조직'→'관련 대상' 등, '담당 조직'·'투쟁 사업장'처럼 띄어 쓴 꼴은 칸 하나의 이름으로 붙여 보임).
+- 칸 밖 낱말(조직→대상, 사업장→거래처, 조합원→구성원 등)은 칸으로 바꿀 수 없다. 명진 화면은 칸을 늘리지 않고 '바탕 낱말 묶음'(8절, S67-62)으로 노동조합+ 낱말 전체를 바탕으로 써서 지금과 같게 한다.
+
+## 8. 바탕 낱말 묶음 (S67-62)
+
+2026-11-21 07:55 명진 결정: 운영 빌드를 WORK ON 얼굴(girok)로 내보내되, 명진 화면은 바뀌기 전과 한 글자도 다르지 않아야 한다. 15칸 밖 낱말(조직→대상, 사업장→거래처, 쟁의 단계→진행 단계, 운영자 기능 안 글자 등 약 250개)까지 지키려고 칸을 늘리는 대신, 사람마다 **바탕 낱말 묶음** 하나를 고른다.
+
+- 고르는 길: 서버 운영자 허용 표 `public.app_operator_features`의 키 `nojo_words`(migration `20261121090000_nojo_words_feature`, 값은 `docs/ops/nojo-words-operator.*.sql`로만). 화면에서 고르는 메뉴는 없다(미리 만든 묶음을 다른 사람에게 보이지 않는다, 11/20 결정). 표는 RLS 켬·정책 없음·API 역할 권한 없음이라 본인도 못 바꾼다.
+  - 다른 길을 고르지 않은 이유: `app_profiles` 칸이나 `custom_words` 안 예약 키는 owner RLS로 본인이 API로 바꿀 수 있어 'SQL로만'이 깨지고, 둘 다 DB 검사 변경이 따로 필요하다. 허용 표는 이미 '서버만 정하는 사람별 켜기'의 자리이고 화면이 읽는 길(`app_my_features`)도 있다. 키 목록이 검사(`app_operator_features_feature_check`)라 그 한 줄만 바꾼다.
+- 뜻: `app/brand/custom-words-model.mjs` `WORD_BASE_FEATURES`·`wordBaseOf`·`withWordBase`. 단어표만 바꾸고 이름·아이콘·메뉴 목록은 빌드 얼굴 그대로.
+- 시작 순서: `loader-v2.js`가 소유자 확인 뒤 `custom_words`와 함께 `app_my_features`를 한 번 읽는다(같은 약속, 3.5초·실패면 그쪽만 없음). 그 답은 `my-features.js`의 첫 물음이 그대로 쓴다(`window.__KPTU_BOOT_FEATURES__`, 두 번 묻지 않음). `brand.mjs` `BASE_FACE` = 빌드 얼굴 + 바탕 묶음, 그 위에 고친 이름. 이름 바꾸기 칸의 '기본 이름'도 `BASE_FACE`.
+- 앱 바탕: 빌드가 `app/index.html`에서 바꾼 글자는 **모두** 원래 글자를 남긴다(S67-56은 칸 열쇠가 든 글자만이었다). 바탕이 nojo면 `custom-words-shell.mjs`가 화면 공개 전 한 번 원래 글자로 되돌린다 → 앱 바탕이 nojo 빌드와 같다(`scripts/brand-face.test.mjs`가 되돌린 HTML = nojo 빌드 HTML을 본다).
+- 시험: `tests/custom-words.test.mjs`(app/의 `word()` 고정 글자 전부 = nojo), `tests/build-pages/girok-face-boot.spec.mjs`(두 빌드를 같은 흉내 서버로 띄워 화면 12개 글자·`word()` 고정 글자 전부가 같음, 바탕 없는 사람은 노조 색 글자 0), `tests/auth-handoff/nojo-words-feature-db.test.mjs`(PostgreSQL).
+- 적용 순서: 이 PR merge → 승인형 DB workflow `20261121090000` dry-run → apply → SQL Editor `nojo-words-operator.precheck.sql`(모두 예) → `nojo-words-operator.apply.sql`. 적용 전에는 명진 화면도 WORK ON 낱말 + 15칸(#2828 그대로)이다.

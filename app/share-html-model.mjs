@@ -8,7 +8,8 @@ export const SHORT_BASE = 'https://bokdoong.com/s/';
 // DOMAIN-nojoplus 1단계: 새 주소(nojoplus.com)에서 만든 링크는 nojoplus.com/s/로, 그 밖은 지금처럼 bokdoong.com/s/로 준다.
 // 두 주소 모두 Worker가 같은 공유 화면으로 보내므로 이미 보낸 bokdoong.com/s/ 링크는 계속 열린다.
 // 새 주소 화면이 열렸다는 것은 Worker가 그 주소를 받고 있다는 뜻이라, 아직 연결되지 않은 주소로 링크가 나가지 않는다.
-const SHORT_HOSTS = new Set(['https://bokdoong.com', 'https://nojoplus.com']);
+// DOMAIN-workonplus 1단계: workonplus.com(WORK ON+)에서 만든 링크도 그 주소의 /s/로.
+const SHORT_HOSTS = new Set(['https://bokdoong.com', 'https://nojoplus.com', 'https://workonplus.com']);
 export function shortBase(origin = globalThis.location?.origin) {
   return SHORT_HOSTS.has(origin) ? `${origin}/s/` : SHORT_BASE;
 }

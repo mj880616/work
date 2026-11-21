@@ -9,21 +9,19 @@ import { SLOTS } from '../app/brand/custom-words-model.mjs';
 //   app/app-icon.svg          얼굴 아이콘(지금 두 얼굴 모두 WORK ON+ 표장 A라 같은 파일)
 //   app/**.html               눈에 보이는 글자(태그 사이·aria-label·alt·title·placeholder)의 단어표 단어, 밝은 theme-color,
 //                             얼굴 아이콘이 다르면 PNG 아이콘 줄(PNG는 app/app-icon.svg 그림이므로)
-//   app/index.html(앱 바탕)    S67-56: 사람별 '내가 고친 이름' 칸(custom-words-model.mjs SLOTS) 열쇠가 든 글자는 바꾼 글자 앞에
-//                             원래 글자를 남긴다(태그 사이 글자는 바로 앞 주석 <!--word:원래 글자-->, 속성은 data-word-속성 이름="원래 글자").
-//                             <html>에는 data-word-faced(이 바탕 글자는 이미 얼굴 단어). 고친 이름이 있는 사람은 시작 때
-//                             app/brand/custom-words-shell.mjs가 원래 글자에서 다시 맞춘다(빌드가 지운 노조 글자 열쇠를 되찾는 길, 화면 한 번 그리기 전).
+//   app/index.html(앱 바탕)    S67-56·S67-62: 얼굴 단어로 바꾼 글자는 모두 바꾼 글자 앞에 원래 글자를 남긴다
+//                             (태그 사이 글자는 바로 앞 주석 <!--word:원래 글자-->, 속성은 data-word-속성 이름="원래 글자").
+//                             <html>에는 data-word-faced(이 바탕 글자는 이미 얼굴 단어). 고친 이름이나 바탕 낱말 묶음(S67-62, 예: 노동조합+ 낱말)이
+//                             있는 사람은 시작 때 app/brand/custom-words-shell.mjs가 원래 글자에서 다시 맞춘다(빌드가 지운 원래 글자를 되찾는 길, 화면 한 번 그리기 전).
+//                             S67-56은 이름 칸 열쇠가 든 글자만 남겼으나, 바탕 낱말 묶음은 칸 밖 낱말(노조 서식 등)도 되돌려야 해서 바꾼 글자 모두로 넓혔다.
 export const FACE_IDS = Object.freeze(Object.keys(FACES));
 export const FACE_FILE = 'app/brand/face.mjs';
 export const WEB_MANIFEST = 'app/windows-manifest.json';
 export const APP_ICON = 'app/app-icon.svg';
 
 const isAppHtml = file => file.startsWith('app/') && file.endsWith('.html');
-/** 고친 이름을 입히는 앱 바탕(app/brand/custom-words-shell.mjs가 document.body에 한 번 입힌다). */
+/** 고친 이름·바탕 낱말 묶음을 입히는 앱 바탕(app/brand/custom-words-shell.mjs가 document.body에 한 번 입힌다). */
 export const SHELL_HTML = 'app/index.html';
-/** 사람별 이름 칸이 맡는 글자 열쇠(문장 안에서도 바뀌는 것만. '#자리' 열쇠는 HTML 글자에 쓰이지 않는다). */
-const SLOT_TEXT = Object.freeze([...new Set(SLOTS.flatMap(slot => slot.keys).filter(key => !key.includes('#')))]);
-const holdsSlot = text => SLOT_TEXT.some(key => text.includes(key));
 
 const ownIcon = face => face.icon !== APP_ICON;
 
@@ -39,15 +37,15 @@ export function faceManifest(face, baseIcons = null) {
 
 /** HTML 한 장에 얼굴을 입힌다. 바꾸는 것은 사람 눈에 보이는 글자뿐이다: 태그 사이 글자(<script>·<style>·주석 밖)와
  * aria-label·alt·title·placeholder 값. 글자 안의 표 단어를 app/brand/faces.mjs wordIn으로 바꾼다(코드·속성 이름은 그대로). */
-export function faceHtml(html, face, { keepSlots = false } = {}) {
+export function faceHtml(html, face, { keepOriginals = false } = {}) {
   const base = faceOf(DEFAULT_FACE);
   const words = { [base.name]: face.name, ...face.words };
   const look = { ...face, words };
   const say = text => wordIn(look, text);
-  // keepSlots(앱 바탕): 이름 칸 열쇠가 든 글자는 원래 글자를 남긴다(위 머리말). 원래 글자는 주석·속성 안에 그대로 들어가므로
+  // keepOriginals(앱 바탕): 바꾼 글자는 모두 원래 글자를 남긴다(위 머리말). 원래 글자는 주석·속성 안에 그대로 들어가므로
   // 주석을 깨는 '--'·글자 참조 '&'가 든 글자는 빌드를 멈춘다(지금 앱 바탕에는 없음, scripts/brand-face.test.mjs).
   const keep = (text, changed) => {
-    if (!keepSlots || changed === text || !holdsSlot(text)) return false;
+    if (!keepOriginals || changed === text) return false;
     if (text.includes('--') || text.includes('&')) throw new Error(`앱 바탕 글자에 원래 글자를 남길 수 없음: ${JSON.stringify(text)}`);
     return true;
   };
@@ -57,7 +55,7 @@ export function faceHtml(html, face, { keepSlots = false } = {}) {
     .replace(/>([^<>]+)</g, (_, text) => textPart(text))
     .replace(/(\s(aria-label|alt|title|placeholder)=")([^"]*)(")/g, (m, a, name, text, b) => attrPart(m, a, name, text, b));
   let out = html.split(/(<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<!--[\s\S]*?-->)/).map((part, i) => i % 2 ? part : visible(part)).join('');
-  if (keepSlots) out = out.replace(/<html\b/, '<html data-word-faced');
+  if (keepOriginals) out = out.replace(/<html\b/, '<html data-word-faced');
   out = out.replace(/(<meta name="theme-color" content=")[^"]*(" media="\(prefers-color-scheme: light\)">)/g, `$1${face.themeColor}$2`);
   if (ownIcon(face)) out = out.replace(/<link rel="(?:icon|apple-touch-icon)" href="[^"]*icons\/app-icon-[^"]*"[^>]*>\n?/g, '');
   return out;
@@ -76,6 +74,6 @@ export function applyFace(files, faceId = DEFAULT_FACE) {
   try { baseIcons = JSON.parse(Buffer.from(files[WEB_MANIFEST] ?? '').toString('utf8')).icons ?? null; } catch { baseIcons = null; }
   out[WEB_MANIFEST] = Buffer.from(faceManifest(face, baseIcons), 'utf8');
   out[APP_ICON] = files[face.icon];
-  for (const file of Object.keys(out)) if (isAppHtml(file) && typeof out[file] === 'string') out[file] = faceHtml(out[file], face, { keepSlots: file === SHELL_HTML });
+  for (const file of Object.keys(out)) if (isAppHtml(file) && typeof out[file] === 'string') out[file] = faceHtml(out[file], face, { keepOriginals: file === SHELL_HTML });
   return out;
 }
