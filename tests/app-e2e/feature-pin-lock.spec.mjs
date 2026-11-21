@@ -60,6 +60,13 @@ test('켜기 → PIN 정하기 → 하루 기록 잠김(자료 안 읽음) → �
   // 처음 켜면 PIN 정하기(두 번 입력).
   await diarySwitch.click();
   await expect(pad(page).locator('.lk-title')).toHaveText('PIN 정하기');
+  // S67-72: 숫자를 눌러도 판(숫자 칸)은 다시 그리지 않고 점만 바뀐다 — 누른 칸의 눌림 표시가 보이게.
+  await page.locator('#lockView [data-lk-key="5"]').evaluate(el => { el.dataset.sameKey = '1'; });
+  await keys(page, '5');
+  await expect(page.locator('#lockView [data-lk-key="5"]')).toHaveAttribute('data-same-key', '1');
+  await expect(page.locator('#lockView .lk-dot.on')).toHaveCount(1);
+  await page.locator('#lockView [data-lk-back]').click();
+  await expect(page.locator('#lockView .lk-dot.on')).toHaveCount(0);
   await keys(page, '1234');
   await expect(pad(page).locator('.lk-title')).toHaveText('한 번 더 입력');
   await keys(page, '1243');

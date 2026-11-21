@@ -5,7 +5,7 @@
 import * as lock from './feature-lock.js';
 import {waitHtml, failHtml} from './wait-state.js';
 import {myFeaturesOrNull} from './my-features.js';
-import {padBox, shake as padShake, wrongMsg} from './lock-pad.js';
+import {padBox, padTyped, tap, shake as padShake, wrongMsg} from './lock-pad.js';
 
 const rpc = (name, body) => window.KPTURuntime.api('/rest/v1/rpc/' + name, {method: 'POST', body, singleFlight: false});
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
@@ -172,9 +172,10 @@ async function entered() {
 }
 function press(key) {
   if (ui.mode !== 'pad' || ui.busy) return;
-  if (key === 'back') { ui.digits = ui.digits.slice(0, -1); draw(); return; }
+  // S67-72: 판은 그대로 두고 점·안내 줄만 바꾼다(눌림 표시가 보이게, lock-pad.js padTyped).
+  if (key === 'back') { ui.digits = ui.digits.slice(0, -1); tap(); if (!padTyped(root(), {digits: ui.digits.length, msg: ui.msg})) draw(); return; }
   if (!/^[0-9]$/.test(key) || ui.digits.length >= 4) return;
-  ui.digits += key; ui.msg = ui.digits.length === 1 ? '' : ui.msg; draw();
+  ui.digits += key; ui.msg = ui.digits.length === 1 ? '' : ui.msg; tap(); if (!padTyped(root(), {digits: ui.digits.length, msg: ui.msg})) draw();
   if (ui.digits.length === 4) void entered();
 }
 function askPin(purpose, change = null) { reset({mode: 'pad', purpose, change, target: ui.target}); draw(); root()?.querySelector('.lk-key')?.focus(); }
