@@ -139,7 +139,7 @@ test('412: [종류 ▾]로 선택하면 그 칸만 보이고 글자가 진해지
   const state = makeState();
   await open(page, state, 412);
   const kind = page.locator('#reportKindSelect');
-  await expect(kind.locator('option').first()).toHaveText('종류 전체');
+  await expect(kind.locator('option').first()).toHaveText('종류');
   // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체](진하지 않음, 회의명 묶음 없음). [회의]를 고르면 회의명도 같은 상자에.
   await expect(kind).toHaveValue('kind:all');
   await expect(kind).not.toHaveClass(/is-on/);

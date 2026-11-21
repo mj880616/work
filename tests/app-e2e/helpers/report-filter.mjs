@@ -43,10 +43,10 @@ export async function reportFilterPicked(page,key){return reportFilterSelect(pag
 // 종류 고르기: 모든 폭에서 [종류 ▾] 상자. label은 종류 글자('전체'·'회의'·'언론' …).
 export async function pickReportKind(page,label){
   const sel=page.locator('#reportKindSelect');await openReportBoxes(page);await expect(sel).toBeVisible(); // S67-75: 폰 폭이면 칩을 눌러 상자 창부터
-  await sel.selectOption({label:label==='전체'?'종류 전체':label});
+  await sel.selectOption({label:label==='전체'?'종류':label});
 }
 // 지금 고른 종류 글자(고른 줄; 회의명 묶음이면 '회의', '종류 전체'는 '전체').
 export async function pickedReportKind(page){
   const t=await page.locator('#reportKindSelect').evaluate(s=>s.selectedOptions[0]?.closest('optgroup')?'회의':s.selectedOptions[0]?.textContent.trim()||'');
-  return t==='종류 전체'?'전체':t;
+  return t==='종류'?'전체':t;
 }

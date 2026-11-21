@@ -300,9 +300,9 @@ window.addEventListener('kptu:meeting-name-sorts',()=>{if(workspace?.id&&teamVie
 // [회의 ▾] 상자의 회의명: 조직으로 묶이면 조직마다 머리글 묶음(조직 순서, 묶음 안은 가나다), 아니면 지금처럼 '회의명' 묶음 하나.
 function nameGroups(names){const opt=o=>({value:NAME_PICK+o.value,label:o.label});if(!names.length)return [];const sections=nameSections(names,o=>o.value==='__none__'?'':o.value);return sections?sections.map(g=>({title:g.label,options:g.items.map(opt)})):[{title:'회의명',options:names.map(opt)}]}
 function renderReportSelects(){renderMeetingTypeOptions();const nameOn=nameFilterOn(),names=nameOn?nameChoices():[];
-  const kinds=firstLabel(reportKindChips(meetings),'종류 전체').map(o=>({value:KIND_PICK+o.value,label:o.label}));
+  const kinds=firstLabel(reportKindChips(meetings),'종류').map(o=>({value:KIND_PICK+o.value,label:o.label}));
   fillSelect($('#reportKindSelect'),{groups:[{options:kinds},...nameGroups(names)],value:nameOn&&meetingType!=='all'?NAME_PICK+meetingType:KIND_PICK+reportChip,on:reportChip!==ALL_KINDS});
-  fillSelect($('#reportAreaSelect'),{groups:[{options:firstLabel(areaOptions,word('사업영역 전체'))}],value:areaChip,on:areaChip!=='all',show:areaOptions.length>0});paintReportFilterChip()}
+  fillSelect($('#reportAreaSelect'),{groups:[{options:firstLabel(areaOptions,word('사업영역'))}],value:areaChip,on:areaChip!=='all',show:areaOptions.length>0});paintReportFilterChip()}
 function reportSelectChange(e){const sel=e.target;if(sel.id==='reportViewSelect'){selectReportView(sel.value);return}if(sel.id==='reportAreaSelect'){selectAreaChip(sel.value);return}if(sel.id!=='reportKindSelect')return;const v=sel.value;
   if(v.startsWith(NAME_PICK)){selectMeetingType(v.slice(NAME_PICK.length));return}const kind=v.slice(KIND_PICK.length);
   if(kind===reportChip&&meetingType!=='all'){selectMeetingType('all');return}selectReportChip(kind)}
