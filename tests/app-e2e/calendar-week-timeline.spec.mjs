@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+import {toneColor} from '../../app/event-color.mjs';
 
 // CAL-주간시간표 + CAL-주간고정: PC 주간 보기는 시간 일정 카드를 실제 시각 높이에 놓는 시간표다(1시간 48px, 0~24시 항상 펼침).
 // 날짜 줄·종일 띠는 시간표를 내려도 고정이고, 처음에는 7시부터 보이며 0~7시는 위로 올려서 본다.
@@ -219,11 +220,11 @@ for(const width of [1280,1440,1920])test(`overlapping events sit side by side at
   await page.locator('#calendarWeek [data-google-event="b"]').click();await expect(page.locator('#ciGoogleModal')).toBeVisible();
 });
 
-test('timetable keeps color stripe, 2-line title and tooltip, and widens with the hidden sidebar',async({page})=>{
+test('timetable keeps its event color (S67-65 E1 solid fill), 2-line title and tooltip, and widens with the hidden sidebar',async({page})=>{
   const long='아주 긴 일정 제목입니다 '.repeat(6).trim();
   await open(page,1440,[ev('long','2026-10-15T13:00:00+09:00','2026-10-15T14:00:00+09:00',{title:long,color:'#dc2127'})]);
   const card=page.locator('#calendarWeek .cwv-items [data-google-event="long"]');
-  await expect(card).toHaveCSS('border-left-color','rgb(220, 33, 39)');await expect(card).toHaveCSS('border-left-width','4px');
+  await expect(card).toHaveCSS('background-color',`rgb(${toneColor('#dc2127').slice(1).match(/../g).map(x=>parseInt(x,16)).join(', ')})`);await expect(card).toHaveCSS('border-left-width','0px');
   const lines=await card.evaluate(el=>{const t=el.querySelector('.clv-title'),tm=el.querySelector('.clv-time');return {lines:Math.round(t.getBoundingClientRect().height/parseFloat(getComputedStyle(t).lineHeight)),below:t.getBoundingClientRect().top>=tm.getBoundingClientRect().bottom-1}});
   expect(lines).toEqual({lines:2,below:true});
   await card.hover();await expect(card.locator('.cwv-tip')).toBeVisible();await expect(card.locator('.cwv-tip')).toHaveText('13:00 '+long);
