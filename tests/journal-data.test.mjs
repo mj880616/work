@@ -722,12 +722,14 @@ test('JOURNAL-하루일정다시: 그날 일정 = the calendar read with the cal
     {id:'x', title:'취소', start:'2026-10-06T14:00:00+09:00', end:'2026-10-06T15:00:00+09:00', calendarId:'c1', status:'cancelled'}];
   const status = {connected:true, colors:{c1:'#445566'}, calendars:[{id:'c1', summary:'달력', backgroundColor:'#778899'}]};
   const ok = await m.readWeekScheduleEvents('2026-10-05', runtime(path => path.includes('action=status') ? status : {events}));
-  assert.deepEqual(ok.map(e => [e.id, e.displayColor]), [['a', '#445566'], ['b', '#112233']]);
+  // S67-65 E1: 칠하는 색은 달력과 같은 톤 낮춘 색(event-color.mjs toneColor).
+  const {toneColor} = await import('../app/event-color.mjs');
+  assert.deepEqual(ok.map(e => [e.id, e.displayColor]), [['a', toneColor('#445566')], ['b', toneColor('#112233')]]);
   const noColors = await m.readWeekScheduleEvents('2026-10-05', runtime(path => path.includes('action=status') ? {} : {events}));
-  assert.deepEqual(noColors.map(e => [e.id, e.displayColor]), [['a', ''], ['b', '#112233']]);
+  assert.deepEqual(noColors.map(e => [e.id, e.displayColor]), [['a', ''], ['b', toneColor('#112233')]]);
   await assert.rejects(m.readWeekScheduleEvents('2026-10-05', runtime(() => ({events:[], warning:'Google Calendar 연결 실패'}))));
   const card = m.dayCard({events:{status:'ok', items:ok}}, '2026-10-06');
-  assert.deepEqual(card.events.items.map(i => [i.time, i.title, i.color]), [['10:00', '가', '#445566'], ['12:00', '나', '#112233']]);
+  assert.deepEqual(card.events.items.map(i => [i.time, i.title, i.color]), [['10:00', '가', toneColor('#445566')], ['12:00', '나', toneColor('#112233')]]);
 });
 
 // S49-12 JOURNAL-기억할통화텔레그램: migration 짝 파일 5개와 보호 장치(운영자 기능 restrictive 정책, 지우기·anon 권한 없음)가 있다.

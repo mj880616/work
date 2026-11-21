@@ -260,11 +260,11 @@ test.describe('폰 월 보기(폴드 접힘 412px)',()=>{
       await expect(ev(id).locator('.cmv-event-time')).toHaveText(tm);
       await expect(ev(id).locator(':scope > :first-child')).toHaveClass(/cmv-event-time/);
     }
-    // 시각은 제목보다 작고 흐리며, 제목은 잘리지 않는다.
+    // 시각은 제목보다 작고, 제목은 잘리지 않는다. S67-65 E1: 꽉 찬 색 위라 시각을 흐리게 하지 않는다(글자 대비 4.5:1 유지).
     const look=await ev('timed').evaluate(el=>{const t=el.querySelector('.cmv-event-title'),m=el.querySelector('.cmv-event-time'),tc=getComputedStyle(t),mc=getComputedStyle(m);
       return {title:parseFloat(tc.fontSize),time:parseFloat(mc.fontSize),opacity:Number(mc.opacity),clipped:t.scrollWidth>t.clientWidth+1||t.scrollHeight>t.clientHeight+1,before:m.getBoundingClientRect().left<t.getBoundingClientRect().left}});
     expect(look.time).toBeLessThan(look.title);
-    expect(look.opacity).toBeLessThan(1);
+    expect(look.opacity).toBe(1);
     expect(look.clipped).toBe(false);
     expect(look.before).toBe(true);
     // 종일·여러 날 띠와 할 일은 시각 없음.

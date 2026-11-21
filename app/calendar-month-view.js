@@ -1,6 +1,7 @@
 import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js';
 import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
 import {eventColor} from './home-read-model.js';
+import {eventInk,toneColor,DEFAULT_GOOGLE} from './event-color.mjs';
 import {pinchZoom,releaseZoom,focalScroll,ZOOM_BACK_MS} from './calendar-pinch-model.mjs';
 // BIZ-보고할일정 PR B: 일정 막대 앞 ✓(보고 씀)·□(보고할 일정) 표시 부품.
 import {planMarkOf,planMarkEl,planMarkSuffix} from './report-plan-mark.js';
@@ -39,11 +40,8 @@ import {keepMenus} from './anchored-menu.js';
     const end=addSeoulDays(start,weeks*7);
     return {start,end,weeks,days:weeks*7};
   }
-  function textColor(hex){
-    const h=String(hex||'').replace('#','');if(!/^[0-9a-f]{6}$/i.test(h))return '#fff';
-    const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
-    return r*299+g*587+b*114>155000?'#26323d':'#fff';
-  }
+  // S67-65 E1: 꽉 찬 색 위 글자는 event-color.mjs가 대비 4.5:1로 고른다(흰색 또는 아주 진한 글자).
+  const textColor=eventInk;
   function inclusiveEnd(start,end,allDay){
     if(!end)return new Date(start);
     const d=dateOnly(end);
@@ -54,7 +52,7 @@ import {keepMenus} from './anchored-menu.js';
     return d;
   }
   function googleColor(ev,state){
-    return eventColor(ev,state)||'#4285f4';
+    return eventColor(ev,state)||toneColor(DEFAULT_GOOGLE);
   }
   function normalizeGoogle(ev,state){
     const start=dateOnly(ev.start),allDay=!!ev.allDay||/^\d{4}-\d{2}-\d{2}$/.test(String(ev.start||'')),endRaw=ev.end?dateOnly(ev.end):new Date(start),color=googleColor(ev,state);
@@ -260,7 +258,7 @@ import {keepMenus} from './anchored-menu.js';
     b.style.gridColumn=`${seg.startCol+1} / span ${seg.span}`;
     b.style.gridRow=String(seg.lane+1);
     b.style.background=ev.color;b.style.color=ev.text;
-    if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
+    if(ev.source==='google'){b.style.setProperty('--cmv-google-source',ev.color);b.style.setProperty('--cmv-google-ink',ev.text)}
     // BIZ-보고할일정 PR B: 보고할 일정이면 막대 맨 앞에 ✓·□(report-plan-mark.js). 읽어 둔 값이 없으면 표시 없이 지금 그대로.
     const plan=ev.source==='google'?planMarkOf(ev.raw):null;
     const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title+planMarkSuffix(plan);

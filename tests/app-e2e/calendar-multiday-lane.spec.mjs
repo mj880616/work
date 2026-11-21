@@ -1,6 +1,8 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
+import {toneColor} from '../../app/event-color.mjs';
+const TONED_BLUE_RGB=`rgb(${toneColor('#4285f4').slice(1).match(/../g).map(x=>parseInt(x,16)).join(', ')})`;
 
 test.use({timezoneId:'Asia/Seoul'});
 const url=`${appOrigin}/tests/app-e2e/calendar-month-view-fixture.html`;
@@ -39,7 +41,7 @@ for(const width of [390,1280]){
       expect(await geometry(bar(page,'Sirmione'))).toEqual([{week:'2026-10-04',row:'1',column:'2 / span 2'}]);
       expect(await geometry(bar(page,'Como Alpina Dolomites'))).toEqual([{week:'2026-10-04',row:'2',column:'3 / span 3'}]);
       expect(await geometry(bar(page,'Dobiacco'))).toEqual([{week:'2026-10-04',row:'1',column:'5 / span 3'}]);
-      expect(await bar(page,'Como Alpina Dolomites').evaluate(el=>[el.style.background,el.style.getPropertyValue('--cmv-google-source')])).toEqual(['rgb(66, 133, 244)','#4285f4']);
+      expect(await bar(page,'Como Alpina Dolomites').evaluate(el=>[el.style.background,el.style.getPropertyValue('--cmv-google-source')])).toEqual([TONED_BLUE_RGB,toneColor('#4285f4')]); // S67-65 E1: 기본 파랑의 톤
     });
     test('each week clips a continuing timed event once',async({page})=>{
       await render(page,[...trip,event('timed','2026-10-09T09:00:00+09:00','2026-10-13T12:00:00+09:00',{allDay:false})]);

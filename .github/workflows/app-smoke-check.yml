@@ -166,6 +166,7 @@ on:
       - 'tests/update-window.test.mjs'
       - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
+      - 'tests/event-color.test.mjs'
       - 'tests/menu-model.test.mjs'
       - 'tests/help-content.test.mjs'
       - 'tests/phone-app-download.test.mjs'
@@ -438,6 +439,7 @@ on:
       - 'tests/update-window.test.mjs'
       - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
+      - 'tests/event-color.test.mjs'
       - 'tests/menu-model.test.mjs'
       - 'tests/help-content.test.mjs'
       - 'tests/phone-app-download.test.mjs'
@@ -753,7 +755,7 @@ jobs:
         run: node --test tests/document-delete.test.mjs
 
       - name: Check home KST day and week boundaries
-        run: node --test tests/home-read-model.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs tests/multi-owner-ledger.test.mjs tests/collection-cadence.test.mjs
+        run: node --test tests/home-read-model.test.mjs tests/event-color.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs tests/multi-owner-ledger.test.mjs tests/collection-cadence.test.mjs
 
       - name: Check telegram hourly send (new messages only, night rest, cumulative day summary)
         run: node --test tests/tg-feed-hourly.test.mjs

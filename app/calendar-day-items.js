@@ -1,6 +1,7 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {seoulDateKey,seoulClock} from './meeting-time.js';
 import {todayEvents} from './home-read-model.js';
+import {eventInk} from './event-color.mjs';
 // BIZ-보고할일정 PR B: 일정 줄 제목 앞 ✓(보고 씀)·□(보고할 일정) 표시 부품.
 import {planMarkOf,planMarkEl} from './report-plan-mark.js';
 // List and week share KST day calculation and event/task rows. Month owns normalized bar geometry.
@@ -9,7 +10,7 @@ export function dayItems(options,date,tasks){
   const events=todayEvents(options.googleEvents||[],Date.parse(calendarDateKey(date)+'T12:00:00+09:00')).map(ev=>{
     const color=window.KPTUCalendarMonthView.googleColor(ev,options.googleState);
     // raw = Google 일정 그대로(시작이 글자). '보고할 일정' 규칙(report-plan-model.mjs)이 일정 원본의 제목·시작을 본다.
-    return {...ev,source:'google',start:new Date(/^\d{4}-\d{2}-\d{2}$/.test(ev.start)?ev.start+'T00:00:00+09:00':ev.start),color,raw:ev};
+    return {...ev,source:'google',start:new Date(/^\d{4}-\d{2}-\d{2}$/.test(ev.start)?ev.start+'T00:00:00+09:00':ev.start),color,text:eventInk(color),raw:ev};
   });
   return [...events,...tasks.filter(t=>t.date===calendarDateKey(date)).map(t=>({...t,source:'task'}))];
 }
@@ -18,8 +19,8 @@ export function appendDayRows(container,date,items,known=true){
   const events=items.filter(e=>e.source==='google'),pending=items.filter(e=>e.source==='task'&&!e.done),count=pending.length;
   for(const ev of events){
     const row=document.createElement('button');row.type='button';row.className='clv-event cp-event';row.dataset.googleEvent=ev.id;row.dataset.googleCalendar=ev.calendarId||'primary';
-    // Same per-event color variable as month/week bands; the week CSS paints its stripe from it.
-    row.style.setProperty('--cmv-google-source',ev.color);
+    // Same per-event color variables as month/week bands: the week CSS fills the timed card from them (S67-65 E1), the list keeps the stripe.
+    row.style.setProperty('--cmv-google-source',ev.color);row.style.setProperty('--cmv-google-ink',ev.text);
     const time=document.createElement('span');time.className='clv-time';time.textContent=ev.allDay?'종일':seoulClock(ev.start);
     const stripe=document.createElement('span');stripe.className='clv-color';stripe.style.background=ev.color;stripe.setAttribute('aria-hidden','true');
     const title=document.createElement('span');title.className='clv-title';title.textContent=ev.title||'(제목 없음)';

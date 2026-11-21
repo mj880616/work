@@ -23,7 +23,7 @@ test('only approved exclusions skip colors',()=>{
 
 // D-3b 의도된 예외: 기존 var(--kptu-*, 색) 대체값은 그대로 센다.
 // Google 상표 #4285f4와 calendar-plus.js의 Google 일정 원래 색/foreground,
-// calendar-month-view.js의 일정 대비 글자, calendar-day-overflow.js의 일정 색은 유지한다.
+// calendar-day-overflow.js의 일정 색은 유지한다.
 // MEET-결과정리 ②: 회의 종류 색은 theme-tokens.css --ds-meeting-1~16으로 옮겼다(team.js에는 회의명 미지정 회색 하나만 남음).
 // base-ui.css의 rgba(18,26,35,.46)는 창 뒤 반투명 바탕이다.
 // PHOTO-실제아이콘(2026-11-03): brand-icons.js의 원드라이브·구글 드라이브 공식 아이콘 색 10개는 상표 원래 색이라 테마를 따르지 않는다.

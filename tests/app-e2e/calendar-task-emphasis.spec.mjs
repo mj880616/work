@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openEmphasisFixture, taskChip, openTaskDay, BLUE_COLORS } from './helpers/calendar-task-emphasis.mjs';
 
 import { expectGoogleDisplay } from './helpers/calendar-google-display.mjs';
+import { toneColor } from '../../app/event-color.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -52,10 +53,10 @@ for(const width of [390,1280]){
     await page.locator('[data-close="calendarDayModal"]').click();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
     for(const [i,color] of BLUE_COLORS.entries()){
-      const rgb=color.slice(1).match(/../g).map(x=>parseInt(x,16));
+      const rgb=toneColor(color).slice(1).match(/../g).map(x=>parseInt(x,16)); // S67-65 E1: 톤 낮춘 구글 색
       const chip=page.locator(`#calendarGrid [data-google-event="blue-${i}"]`);
       expect(await chip.evaluate(el=>el.style.backgroundColor)).toBe(`rgb(${rgb.join(', ')})`);
-      await expectGoogleDisplay(chip,{stripe:width>=761?4:0,tint:width>=761?.08:.15});
+      await expectGoogleDisplay(chip);
     }
     await openTaskDay(page);
     await taskChip(page,'pending').click();
