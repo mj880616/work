@@ -71,7 +71,8 @@ const noOverflow=page=>page.evaluate(()=>{
   const card=document.querySelector('#menuEditModal .menu-edit-card');
   return document.documentElement.scrollWidth<=innerWidth&&card.scrollWidth<=card.clientWidth+1;
 });
-const menuText=(page,view,width)=>page.locator(width<=760?`#appView .mobile-tabs [data-view="${view}"]`:`.app-nav [data-view="${view}"]`).first();
+// S68-37: 저장된 메뉴 순서가 없는 계정은 조직·사업 칸이 하단바가 아니라 [메뉴] 창에 있어 폰은 두 곳 중 있는 쪽을 본다.
+const menuText=(page,view,width)=>page.locator(width<=760?`#appView :is(.mobile-tabs, #mobileMenu nav) [data-view="${view}"]`:`.app-nav [data-view="${view}"]`).first();
 
 const ids=(page,list)=>modal(page).locator(`[data-reorder-list="${list}"] > [data-reorder-id]`).evaluateAll(els=>els.map(el=>el.dataset.reorderId));
 

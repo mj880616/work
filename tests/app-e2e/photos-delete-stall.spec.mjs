@@ -109,8 +109,8 @@ async function hold(page, locator) {
 }
 // 원드라이브 칩을 끈 폰 사진 보기에서 폰 사진 1번을 고른다(짝 = 원드라이브 O1, 읽어야 찾음).
 async function pickPhoneOne(page) {
-  await page.locator('#mobileMenuTab').click();
-  await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
+  // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸이다.
+  await page.locator('.mobile-tabs [data-view="photos"]').click();
   await expect(page.locator('#photosView')).toBeVisible();
   await expect(cellOf(page, 'O1')).toBeVisible({ timeout: 15000 });
   await root(page).locator('[data-photos-src="onedrive"]').click();
@@ -146,8 +146,8 @@ test.describe('폰 앱 412 · 사진 5000장 · 느린 원드라이브', () => {
     await expect(notice(page)).toContainText('폰 공간을 비웠어요');
     // ⑤ 다른 화면으로 옮기면 사진 화면의 알림은 닫힌다.
     await page.waitForTimeout(600);
-    await page.locator('#mobileMenuTab').click();
-    await page.locator('#mobileMenu nav').getByRole('button', { name: '자료실', exact: true }).click();
+    // S68-37: 저장된 메뉴 순서가 없는 계정은 [자료실]이 기본 하단바 칸이다.
+    await page.locator('.mobile-tabs [data-view="library"]').click();
     await expect(notice(page)).toBeHidden();
     expect(state.errors).toEqual([]);
   });

@@ -92,8 +92,8 @@ const SONY = Array.from({ length: 12 }, (_, i) => `ph:${12 - i}`);
 
 test("12장 '모두 −8시간' → 앱에 한 번, 순서 바뀜, 기록 12줄 → [되돌리기]로 원래대로", async ({ page }) => {
   const state = await fixture(page);
-  await page.locator('#mobileMenuTab').click();
-  await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click();
+  // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸이다.
+  await page.locator('.mobile-tabs [data-view="photos"]').click();
   await expect(page.locator('#photosView')).toBeVisible();
   await expect.poll(() => ids(page)).toEqual([...SONY, 'ph:99']);
   await hold(page, cellOf(page, 'ph:12'));
