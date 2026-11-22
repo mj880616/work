@@ -46,8 +46,9 @@ async function fixture(page, width) {
 }
 async function openAlbums(page, width) {
   if (width <= 760) {
-    // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸이다.
-    await page.locator('.mobile-tabs [data-view="photos"]').click();
+    // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸, 순서를 저장한 계정은 [메뉴] 창 칸이다.
+    if (await page.locator('.mobile-tabs [data-view="photos"]').isVisible()) await page.locator('.mobile-tabs [data-view="photos"]').click();
+    else { await page.locator('#mobileMenuTab').click(); await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click(); }
   } else await page.locator('#appView>.app-nav').getByRole('link', { name: '사진', exact: true }).click();
   await expect(page.locator('#photosView')).toBeVisible();
   await root(page).locator('[data-photos-view]').selectOption('albums');
@@ -195,8 +196,9 @@ test.describe('빈 곳 핀치 폰 412', () => {
 
   test('사진 탭: 격자 아래 빈 곳 핀치로 칸 수(격자 위와 같은 값)', async ({ page }) => {
     const f = await fixture(page, 412);
-    // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸이다.
-    await page.locator('.mobile-tabs [data-view="photos"]').click();
+    // S68-37: 저장된 메뉴 순서가 없는 계정은 [사진]이 기본 하단바 칸, 순서를 저장한 계정은 [메뉴] 창 칸이다.
+    if (await page.locator('.mobile-tabs [data-view="photos"]').isVisible()) await page.locator('.mobile-tabs [data-view="photos"]').click();
+    else { await page.locator('#mobileMenuTab').click(); await page.locator('#mobileMenu nav').getByRole('button', { name: '사진', exact: true }).click(); }
     const grid = root(page).locator('[data-photos-list] [data-diary-grid]').first();
     await expect(root(page).locator('[data-photos-list] [data-photos-open]')).toHaveCount(2);
     const cols = () => grid.evaluate(g => g.style.getPropertyValue('--photo-cols'));
