@@ -86,6 +86,12 @@ class WidgetRefreshTest {
         assertFalse(plan.urls.any { it.contains("feed") })
         assertEquals(1, plan.urls.count { it == WidgetRules.FEATURES })
         val r = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)))
+        // APP-위젯먹색 S68-06: 같은 기능 목록으로 아스날 허용 여부도 본다(새 주소 없음). 기본 목록에는 arsenal이 없다.
+        assertEquals(false, r.arsenal)
+        features = """["calls","nojo_words","arsenal"]"""
+        assertEquals(true, plan.result(WidgetSession.Outcome.Ok(serverReplies(plan))).arsenal)
+        features = """["calls","nojo_words"]"""
+        assertNull(plan.result(WidgetSession.Outcome.SignedOut).arsenal)
 
         val nw = (r.now as WidgetRefresh.Paint.Shown<WidgetNow.Content>).content
         assertEquals(WidgetNow.Next("20:30", "평가회의", "1시간 18분 뒤", java.time.LocalDate.of(2026, 10, 30)), nw.next)
@@ -194,8 +200,9 @@ class WidgetRefreshTest {
         // 위젯 로그인 직후에는 도는 작업을 새로 바꾼다.
         assertTrue(jobs.contains("WidgetJobs.refreshNow(context, replace = true)"))
         // 갱신 작업은 위젯마다 울타리 안에서, 아스날은 따로.
-        assertTrue(jobs.contains("WidgetGuard.run { refreshSigned(ctx, now, week, at) }"))
-        assertTrue(jobs.contains("WidgetGuard.run { ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), at) }"))
+        // APP-위젯먹색 S68-06: 로그인 위젯이 받은 기능 목록의 아스날 판정(arsenalOk)을 아스날 갱신에 넘긴다.
+        assertTrue(jobs.contains("WidgetGuard.run { arsenalOk = refreshSigned(ctx, now, week, at) }"))
+        assertTrue(jobs.contains("WidgetGuard.run { ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), at, arsenalOk) }"))
         val main = File(src, "MainActivity.kt").readText()
         assertTrue(main.contains("WidgetGuard.run { WidgetJobs.refreshOnOpen(applicationContext) }"))
         // 놓을 때(onUpdate)도 바로 한 번.

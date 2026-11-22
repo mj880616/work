@@ -1,18 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시 ②: 빠른 쓰기(4×1). 칸을 꽉 채운 큰 단추 넷(색 칠한 둥근 칸 + 26dp 그림 + 글자). 서버 요청 없음. -->
+<!-- APP-위젯다시 ②: 빠른 쓰기(4×1). 단추 넷.
+     APP-위젯먹색 S68-06(11/22): 단추는 한 칸 위젯과 같은 정사각 둥근 먹색 칸(widget_one_tile, 40dp) + 흰 그림 24dp, 이름은 칸 아래.
+     이 위젯은 종이색 바탕(widget_bg) 안에 그리므로 이름은 먹색 글자(widget_ink, 그림자 없음). 누를 때 물결은 칸 전체(widget_day_plain). 서버 요청 없음. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/quick_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="horizontal"
-    android:padding="6dp">
+    android:padding="4dp">
     <LinearLayout
         android:id="@+id/quick_cell0"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="@drawable/widget_btn"
+        android:background="@drawable/widget_day_plain"
         android:clickable="true"
         android:contentDescription="업데이트"
         android:focusable="true"
@@ -20,19 +22,27 @@
         android:minHeight="40dp"
         android:orientation="vertical">
 
-        <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:importantForAccessibility="no"
-            android:src="@drawable/ic_w_update" />
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_one_tile">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:tint="@color/widget_one_icon"
+                android:src="@drawable/ic_w_update" />
+        </FrameLayout>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="업데이트"
             android:singleLine="true"
             android:ellipsize="end"
-            android:textColor="@color/widget_btn_ink"
-            android:textSize="12sp"
+            android:textColor="@color/widget_ink"
+            android:textSize="11sp"
             android:paddingTop="2dp" />
     </LinearLayout>
     <TextView
@@ -43,7 +53,7 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="@drawable/widget_btn"
+        android:background="@drawable/widget_day_plain"
         android:clickable="true"
         android:contentDescription="할 일"
         android:focusable="true"
@@ -51,19 +61,27 @@
         android:minHeight="40dp"
         android:orientation="vertical">
 
-        <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:importantForAccessibility="no"
-            android:src="@drawable/ic_w_task" />
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_one_tile">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:tint="@color/widget_one_icon"
+                android:src="@drawable/ic_w_task" />
+        </FrameLayout>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="할 일"
             android:singleLine="true"
             android:ellipsize="end"
-            android:textColor="@color/widget_btn_ink"
-            android:textSize="12sp"
+            android:textColor="@color/widget_ink"
+            android:textSize="11sp"
             android:paddingTop="2dp" />
     </LinearLayout>
     <TextView
@@ -74,7 +92,7 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="@drawable/widget_btn"
+        android:background="@drawable/widget_day_plain"
         android:clickable="true"
         android:contentDescription="노트"
         android:focusable="true"
@@ -82,19 +100,27 @@
         android:minHeight="40dp"
         android:orientation="vertical">
 
-        <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:importantForAccessibility="no"
-            android:src="@drawable/ic_w_note" />
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_one_tile">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:tint="@color/widget_one_icon"
+                android:src="@drawable/ic_w_note" />
+        </FrameLayout>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="노트"
             android:singleLine="true"
             android:ellipsize="end"
-            android:textColor="@color/widget_btn_ink"
-            android:textSize="12sp"
+            android:textColor="@color/widget_ink"
+            android:textSize="11sp"
             android:paddingTop="2dp" />
     </LinearLayout>
     <TextView
@@ -105,7 +131,7 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:background="@drawable/widget_btn"
+        android:background="@drawable/widget_day_plain"
         android:clickable="true"
         android:contentDescription="사진"
         android:focusable="true"
@@ -113,19 +139,27 @@
         android:minHeight="40dp"
         android:orientation="vertical">
 
-        <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:importantForAccessibility="no"
-            android:src="@drawable/ic_w_photo" />
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_one_tile">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:tint="@color/widget_one_icon"
+                android:src="@drawable/ic_w_photo" />
+        </FrameLayout>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="사진"
             android:singleLine="true"
             android:ellipsize="end"
-            android:textColor="@color/widget_btn_ink"
-            android:textSize="12sp"
+            android:textColor="@color/widget_ink"
+            android:textSize="11sp"
             android:paddingTop="2dp" />
     </LinearLayout>
 </LinearLayout>

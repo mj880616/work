@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수) + 가장 큰 일·주간 보고일(명진 화면은 상집 보고일, S68-02)·일정 몰린 날. 토·일엔 다음 주. 놓자마자 '불러오는 중'. -->
+<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수 + S68-06 그날 첫 일정 제목 앞부분 한 줄, 오늘 칸은 먹색 바탕) + 가장 큰 일·주간 보고일(명진 화면은 상집 보고일, S68-02)·일정 몰린 날. 토·일엔 다음 주. 놓자마자 '불러오는 중'. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/week_root"
     android:layout_width="match_parent"
@@ -91,6 +91,18 @@
                 android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+            <TextView
+                android:id="@+id/week_f0"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_muted"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/week_d1"
@@ -131,6 +143,18 @@
                 android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+            <TextView
+                android:id="@+id/week_f1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_muted"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/week_d2"
@@ -171,6 +195,18 @@
                 android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+            <TextView
+                android:id="@+id/week_f2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_muted"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/week_d3"
@@ -211,6 +247,18 @@
                 android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+            <TextView
+                android:id="@+id/week_f3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_muted"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/week_d4"
@@ -251,6 +299,18 @@
                 android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+            <TextView
+                android:id="@+id/week_f4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_muted"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/week_d5"
@@ -291,6 +351,18 @@
                 android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+            <TextView
+                android:id="@+id/week_f5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_muted"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/week_d6"
@@ -331,6 +403,18 @@
                 android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+            <TextView
+                android:id="@+id/week_f6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:textColor="@color/widget_muted"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
     <LinearLayout

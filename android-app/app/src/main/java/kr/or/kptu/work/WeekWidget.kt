@@ -74,6 +74,8 @@ class WeekWidget : AppWidgetProvider() {
         private val WEEK = intArrayOf(R.id.week_w0, R.id.week_w1, R.id.week_w2, R.id.week_w3, R.id.week_w4, R.id.week_w5, R.id.week_w6)
         private val DATE = intArrayOf(R.id.week_n0, R.id.week_n1, R.id.week_n2, R.id.week_n3, R.id.week_n4, R.id.week_n5, R.id.week_n6)
         private val COUNT = intArrayOf(R.id.week_c0, R.id.week_c1, R.id.week_c2, R.id.week_c3, R.id.week_c4, R.id.week_c5, R.id.week_c6)
+        /** APP-위젯먹색 S68-06: 4×2 요일 칸 첫 일정 줄(4×1 화면 틀에는 없다). */
+        private val FIRST = intArrayOf(R.id.week_f0, R.id.week_f1, R.id.week_f2, R.id.week_f3, R.id.week_f4, R.id.week_f5, R.id.week_f6)
 
         private val ITEMS = intArrayOf(R.id.week_sel_i0, R.id.week_sel_i1, R.id.week_sel_i2)
 
@@ -180,7 +182,8 @@ class WeekWidget : AppWidgetProvider() {
         }
 
         /**
-         * 요일 칸 7개. 칸 숫자가 없으면 '·'. 모든 날 같은 바탕, 고른 날만 옅은 테마색. 바탕은 모두 누를 때 물결.
+         * 요일 칸 7개. 칸 숫자가 없으면 '·'. 모든 날 같은 바탕, 고른 날만 옅은 먹색 칸, 오늘은 먹색 바탕 + 밝은 글자(S68-06). 바탕은 모두 누를 때 물결.
+         * 4×2는 숫자 아래 그날 첫 일정 제목 앞부분 한 줄(WidgetWeek.firstLine), 4×1은 지금처럼 수만.
          * 4×2는 누르면 위젯 안에서 그 날을 펼치고(ACTION_PICK), 4×1은 아래 칸이 없으니 지금처럼 앱 그 날.
          */
         private fun cells(context: Context, views: RemoteViews, c: WidgetWeek.Content, small: Boolean, sel: LocalDate?) {
@@ -189,10 +192,24 @@ class WeekWidget : AppWidgetProvider() {
                 views.setTextViewText(WEEK[i], if (small) d.week + " " + d.date else d.week)
                 views.setTextViewText(DATE[i], d.date.toString())
                 views.setTextViewText(COUNT[i], if (d.count > 0) d.count.toString() else "·")
-                // 모든 날 같은 바탕·같은 건수 색. 고른 날만 표시, 오늘은 요일 글자만 조금 진하게.
-                views.setTextColor(COUNT[i], context.getColor(if (d.count > 0) R.color.widget_todo_ink else R.color.widget_muted))
-                views.setTextColor(WEEK[i], context.getColor(if (d.day == today) R.color.widget_ink else R.color.widget_muted))
-                val bg = if (d.day == sel) R.drawable.widget_day_pick else R.drawable.widget_day_plain
+                // 모든 날 같은 건수 색. 고른 날은 옅은 먹색 칸, 오늘은 먹색 바탕 + 밝은 글자(S68-06).
+                val kind = WidgetWeek.cell(d, today, sel)
+                val onInk = kind == WidgetWeek.Cell.TODAY
+                val ink = context.getColor(R.color.widget_today_ink)
+                views.setTextColor(COUNT[i], if (onInk) ink else context.getColor(if (d.count > 0) R.color.widget_todo_ink else R.color.widget_muted))
+                views.setTextColor(WEEK[i], if (onInk) ink else context.getColor(R.color.widget_muted))
+                views.setTextColor(DATE[i], if (onInk) ink else context.getColor(R.color.widget_ink))
+                if (!small) {
+                    val first = WidgetWeek.firstLine(d, small)
+                    views.setViewVisibility(FIRST[i], if (first == null) View.GONE else View.VISIBLE)
+                    views.setTextViewText(FIRST[i], first ?: "")
+                    views.setTextColor(FIRST[i], if (onInk) ink else context.getColor(R.color.widget_muted))
+                }
+                val bg = when (kind) {
+                    WidgetWeek.Cell.TODAY -> R.drawable.widget_day_today
+                    WidgetWeek.Cell.PICKED -> R.drawable.widget_day_pick
+                    WidgetWeek.Cell.PLAIN -> R.drawable.widget_day_plain
+                }
                 views.setInt(CELLS[i], "setBackgroundResource", bg)
                 views.setOnClickPendingIntent(CELLS[i], if (small) day(context, d.day, i + 1) else pickIntent(context, d.day, i))
             }

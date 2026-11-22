@@ -8,26 +8,30 @@
     <color name="widget_bg">#F7F5F0</color>
     <color name="widget_ink">#262624</color>
     <color name="widget_muted">#5F5E59</color>
-    <color name="widget_accent">#2F5E8E</color>
-    <!-- WIDGET-여러개 ①: 빠른 쓰기·한 칸 위젯(앱 아이콘 톤: 종이색 바탕·남색). -->
+    <color name="widget_accent">#22262B</color>
+    <!-- WIDGET-여러개 ①: 빠른 쓰기·한 칸 위젯. APP-위젯먹색 S68-06(11/22): 남색을 빼고 앱 테마 기본 먹(#22262b, 어두운 모드는 #f3f1ea). -->
     <color name="widget_tile_bg">#F7F5F0</color>
-    <color name="widget_icon">#23486D</color>
-    <color name="widget_tile_ink">#23486D</color>
-    <color name="widget_rec">#8C5A4E</color>
-    <!-- APP-위젯다시: 지금·이번 주·빠른 쓰기 시안 색(톤다운 크림 바탕, 앱 테마와 같은 남색·주황 계열). -->
+    <color name="widget_icon">#22262B</color>
+    <color name="widget_tile_ink">#22262B</color>
+    <color name="widget_rec">#22262B</color>
+    <!-- APP-위젯다시: 지금·이번 주·빠른 쓰기 색(톤다운 크림 바탕). S68-06: 강조는 먹(옅은 칸은 웹 kptu-primary-soft와 같은 값), 주황은 요청(widget_req_*)만. -->
     <color name="widget_line">#E2DFD7</color>
     <color name="widget_req_bg">#F6E4D6</color>
     <color name="widget_req_ink">#8A3F10</color>
-    <color name="widget_todo_bg">#E1E8F0</color>
-    <color name="widget_todo_ink">#23486D</color>
+    <color name="widget_todo_bg">#E7E5DF</color>
+    <color name="widget_todo_ink">#22262B</color>
     <color name="widget_zero_bg">#ECEAE4</color>
     <color name="widget_zero_ink">#4A4945</color>
-    <color name="widget_btn_bg">#E7ECF2</color>
-    <color name="widget_btn_ink">#23486D</color>
+    <color name="widget_btn_bg">#E7E5DF</color>
+    <color name="widget_btn_ink">#22262B</color>
     <!-- APP-위젯날짜고르기: 위젯 칸 누를 때 물결 색. -->
-    <color name="widget_press">#332F5E8E</color>
+    <color name="widget_press">#3322262B</color>
     <!-- APP-한칸위젯 A(11/22): 한 칸 위젯 먹색 칸(앱 테마 기본 먹 #22262b)·종이색 그림·흰 이름. -->
     <color name="widget_one_bg">#22262B</color>
     <color name="widget_one_icon">#F3F1EA</color>
     <color name="widget_one_label">#FFFFFF</color>
+    <!-- APP-위젯먹색 S68-06(11/22): 이번 주 위젯 오늘 칸(먹색 바탕 + 밝은 글자, 앱 테마 기본 먹). -->
+    <color name="widget_today_bg">#22262B</color>
+    <color name="widget_today_ink">#F3F1EA</color>
+    <color name="widget_today_press">#40F3F1EA</color>
 </resources>

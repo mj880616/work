@@ -54,6 +54,7 @@ class ArsenalWidget : AppWidgetProvider() {
         matches = null
         fetchedAt = 0L
         mine = WidgetArsenal.Mine.SignedOut
+        blocked = false
     }
 
     companion object {
@@ -72,6 +73,8 @@ class ArsenalWidget : AppWidgetProvider() {
         @Volatile private var fetchedAt = 0L
         @Volatile private var failed = false
         @Volatile private var mine: WidgetArsenal.Mine = WidgetArsenal.Mine.SignedOut
+        /** APP-위젯먹색 S68-06: 서버 기능 목록에 arsenal이 없다고 확인됨(메모리에만, 다음 갱신 때 다시 판정). */
+        @Volatile private var blocked = false
 
         fun hasWidgets(context: Context): Boolean =
             AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, ArsenalWidget::class.java)).isNotEmpty()
@@ -92,7 +95,16 @@ class ArsenalWidget : AppWidgetProvider() {
          * 같은 갱신 작업이 부른다. 경기 자료는 6시간 안에 받은 것이 있으면 다시 받지 않는다.
          * 내 일정: 다음 경기의 끝나는 시각이 있고 위젯 로그인이 있을 때만, 허용된 calendarUrl 모양으로 그 하루만 읽는다.
          */
-        fun refresh(context: Context, session: WidgetSession, nowMs: Long) {
+        fun refresh(context: Context, session: WidgetSession, nowMs: Long, allowed: Boolean? = null) {
+            // APP-위젯먹색 S68-06: 서버가 이 계정에 아스날을 열지 않았으면(false) 경기 파일·내 일정을 읽지 않고 한 줄만. 모르면(null) 지금처럼.
+            blocked = allowed == false
+            if (blocked) {
+                matches = null
+                fetchedAt = 0L
+                mine = WidgetArsenal.Mine.SignedOut
+                redraw(context)
+                return
+            }
             if (matches == null || nowMs - fetchedAt >= EVERY_MS) {
                 val r = session.readPublic(WidgetRules.ARSENAL)
                 val parsed = if (r is WidgetSession.Outcome.Ok && r.value.status == 200) WidgetArsenal.parse(r.value.body as? String) else null
@@ -140,6 +152,7 @@ class ArsenalWidget : AppWidgetProvider() {
             return WidgetGuard.get {
                 val now = java.time.LocalDateTime.now(WidgetNow.ZONE)
                 when {
+                    blocked -> WidgetArsenal.richPlaceholder(WidgetArsenal.NOT_ALLOWED_LINE)
                     list != null -> WidgetArsenal.rich(list, now, mine, hide)
                     failed -> WidgetArsenal.richPlaceholder("불러오지 못했어요")
                     else -> WidgetArsenal.richPlaceholder("불러오는 중")

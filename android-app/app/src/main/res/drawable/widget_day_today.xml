@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-위젯먹색 S68-06(11/22): 이번 주 오늘 칸(먹색 바탕 + 밝은 글자, 어두운 모드는 뒤집은 밝은 칸). 누를 때 물결. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/widget_today_press">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/widget_today_bg" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</ripple>

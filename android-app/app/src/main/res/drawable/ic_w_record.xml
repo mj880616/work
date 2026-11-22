@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WIDGET-여러개 ①: 녹음 칸 그림. 앱 아이콘 톤(종이색 바탕·남색 선), 어두운 모드는 values-night 색. -->
+<!-- WIDGET-여러개 ①: 녹음 칸 그림. 앱 테마 먹 선(S68-06), 어두운 모드는 values-night 색. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
