@@ -200,8 +200,9 @@ class WidgetRefreshTest {
         // 위젯 로그인 직후에는 도는 작업을 새로 바꾼다.
         assertTrue(jobs.contains("WidgetJobs.refreshNow(context, replace = true)"))
         // 갱신 작업은 위젯마다 울타리 안에서, 아스날은 따로.
-        assertTrue(jobs.contains("WidgetGuard.run { refreshSigned(ctx, now, week, at) }"))
-        assertTrue(jobs.contains("WidgetGuard.run { ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), at) }"))
+        // APP-위젯먹색 S68-06: 로그인 위젯이 받은 기능 목록의 아스날 판정(arsenalOk)을 아스날 갱신에 넘긴다.
+        assertTrue(jobs.contains("WidgetGuard.run { arsenalOk = refreshSigned(ctx, now, week, at) }"))
+        assertTrue(jobs.contains("WidgetGuard.run { ArsenalWidget.refresh(ctx, WidgetHub.session(ctx), at, arsenalOk) }"))
         val main = File(src, "MainActivity.kt").readText()
         assertTrue(main.contains("WidgetGuard.run { WidgetJobs.refreshOnOpen(applicationContext) }"))
         // 놓을 때(onUpdate)도 바로 한 번.
