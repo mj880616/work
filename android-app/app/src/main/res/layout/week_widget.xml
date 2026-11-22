@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수) + 가장 큰 일·상집 보고일·일정 몰린 날. 토·일엔 다음 주. 놓자마자 '불러오는 중'. -->
+<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수) + 가장 큰 일·주간 보고일(명진 화면은 상집 보고일, S68-02)·일정 몰린 날. 토·일엔 다음 주. 놓자마자 '불러오는 중'. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/week_root"
     android:layout_width="match_parent"

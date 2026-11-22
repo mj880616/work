@@ -198,7 +198,7 @@ class WeekWidget : AppWidgetProvider() {
             }
         }
 
-        /** 4×2 아래 세 줄(가장 큰 일·상집 보고일·몰린 날). 없으면 그 줄을 숨긴다. 4×1에는 이 칸이 없다(홈 화면이 건너뜀). */
+        /** 4×2 아래 세 줄(가장 큰 일·보고일·몰린 날). 없으면 그 줄을 숨긴다. 4×1에는 이 칸이 없다(홈 화면이 건너뜀). */
         private fun lines(context: Context, views: RemoteViews, c: WidgetWeek.Content?) {
             pickRow(context, views, R.id.week_big, R.id.week_big_tag, R.id.week_big_text, c?.big, 8)
             pickRow(context, views, R.id.week_rep, R.id.week_rep_tag, R.id.week_rep_text, c?.report, 9)

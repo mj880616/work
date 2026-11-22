@@ -23,6 +23,7 @@ object PhotoEditRules {
     const val GRANT_WRITE = 0x00000002
     const val GRANT_FLAGS = GRANT_READ or GRANT_WRITE
 
+    /** 앱 사진 폴더를 가리키는 기본값. 실제 저장 폴더는 PhoneMedia가 AppFolderRules.resolve로 이 사람의 앱 폴더('노조+' 또는 'WORK ON+')로 바꾼다(S68-02). */
     const val SAVE_DIR = "Pictures/노조+/"
     const val SAVE_MAX = 60L * 1024 * 1024
     /** 한 조각(base64 글자 수). 웹은 384KB 바이트씩 보낸다(base64 512KB). */

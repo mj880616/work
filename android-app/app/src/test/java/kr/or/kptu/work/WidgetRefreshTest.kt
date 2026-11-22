@@ -39,12 +39,16 @@ class WidgetRefreshTest {
       ]}"""
     private val candidates = """[{"source_kind":"telegram","summary":"자료 부탁"},{"source_kind":"meeting","summary":"보고서 보내기"},{"source_kind":"note","summary":"현수막 주문"}]"""
 
+    // S68-02: 서버 기능 목록(app_my_features). 기본은 명진 화면(nojo_words)처럼.
+    private var features = """["calls","nojo_words"]"""
+
     private fun serverReplies(plan: WidgetRefresh): List<WidgetSession.Reply> = plan.urls.map { url ->
         when (url) {
             plan.nowCal -> reply(200, today)
             plan.weekCal -> reply(200, week)
             WidgetRules.TASKS -> reply(200, tasks)
             WidgetRules.CANDIDATES -> reply(200, candidates)
+            WidgetRules.FEATURES -> reply(200, features)
             else -> throw AssertionError(url)
         }
     }
@@ -75,10 +79,12 @@ class WidgetRefreshTest {
     fun nowAndWeekFromServerShapes() {
         val plan = WidgetRefresh(now = true, week = true, nowMs = now)
         // 겹치는 주소(할 일·후보)는 한 번만, 모두 허용 주소. 텔레그램 읽기는 없다(위젯 지움).
+        // S68-02: 서버 기능 목록(app_my_features)은 보고일 이름·앱 사진 폴더 이름(nojo_words)에만 읽는다.
         assertEquals(plan.urls.toSet().size, plan.urls.size)
-        assertEquals(4, plan.urls.size)
+        assertEquals(5, plan.urls.size)
         plan.urls.forEach { assertTrue(it, WidgetRules.allowed("GET", it)) }
-        assertFalse(plan.urls.any { it.contains("feed") || it.contains("app_my_features") })
+        assertFalse(plan.urls.any { it.contains("feed") })
+        assertEquals(1, plan.urls.count { it == WidgetRules.FEATURES })
         val r = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)))
 
         val nw = (r.now as WidgetRefresh.Paint.Shown<WidgetNow.Content>).content
@@ -111,14 +117,14 @@ class WidgetRefreshTest {
 
     @Test
     fun weekAloneReadsOnlyCalendarAndExistingTasksAddress() {
-        // 이번 주 위젯만 있어도 새 주소는 없다: 일정 + '지금' 위젯과 같은 할 일 주소(허용 목록 그대로).
+        // 이번 주 위젯만 있으면: 일정 + '지금' 위젯과 같은 할 일 주소 + 서버 기능 목록(S68-02, 보고일 이름).
         val plan = WidgetRefresh(now = false, week = true, nowMs = now)
-        assertEquals(listOf(plan.weekCal, WidgetRules.TASKS), plan.urls)
+        assertEquals(listOf(plan.weekCal, WidgetRules.TASKS, WidgetRules.FEATURES), plan.urls)
         plan.urls.forEach { assertTrue(it, WidgetRules.allowed("GET", it)) }
         val wk = (plan.result(WidgetSession.Outcome.Ok(serverReplies(plan))).week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content
         assertEquals(1, wk.details.getValue(java.time.LocalDate.of(2026, 10, 30)).tasks)
         // 할 일을 읽지 못해도 일정은 그린다(그 날 머리 줄에 '할 일 읽지 못함').
-        val down = plan.result(WidgetSession.Outcome.Ok(listOf(reply(200, week), reply(500, null))))
+        val down = plan.result(WidgetSession.Outcome.Ok(listOf(reply(200, week), reply(500, null), reply(200, features))))
         val fri = (down.week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content.details.getValue(java.time.LocalDate.of(2026, 10, 30))
         assertNull(fri.tasks)
         assertEquals("10/30(금) 일정 3 · 할 일 읽지 못함", WidgetWeek.detailHead(fri))
@@ -135,7 +141,7 @@ class WidgetRefreshTest {
         assertEquals(WidgetRefresh.Paint.Failed, r.now)
         assertTrue(r.week is WidgetRefresh.Paint.Shown)
 
-        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _ -> throw NoClassDefFoundError("x") })
+        val r2 = plan.result(WidgetSession.Outcome.Ok(serverReplies(plan)), weekContent = { _, _, _, _ -> throw NoClassDefFoundError("x") })
         assertTrue(r2.now is WidgetRefresh.Paint.Shown)
         assertEquals(WidgetRefresh.Paint.Failed, r2.week)
 
@@ -232,5 +238,27 @@ class WidgetRefreshTest {
             assertTrue(name, text.contains("HomeWidgets.SIGNED_OUT_LINE"))
             assertTrue(name, text.contains("WidgetGuard.run { draw(context, state, manager, ids) }") || text.contains("WidgetGuard.run { paint(context, state, manager, ids) }"))
         }
+    }
+
+    @Test
+    fun reportDayLabelFollowsServerFeatures() {
+        // S68-02(11/22 명진 결정): 새 사용자 '주간 보고일', 명진(nojo_words) '상집 보고일', 기능 목록을 못 읽으면 지금 이름.
+        val plan = WidgetRefresh(now = false, week = true, nowMs = now)
+        fun label(featureReply: WidgetSession.Reply): Pair<String, Boolean?> {
+            val r = plan.result(WidgetSession.Outcome.Ok(listOf(reply(200, week), reply(200, tasks), featureReply)))
+            return (r.week as WidgetRefresh.Paint.Shown<WidgetWeek.Content>).content.report!!.text to r.nojoWords
+        }
+        assertEquals("11/2 주간 보고일" to false, label(reply(200, """["calls"]""")))
+        assertEquals("11/2 주간 보고일" to false, label(reply(200, "[]")))
+        assertEquals("11/2 상집 보고일" to true, label(reply(200, """["nojo_words"]""")))
+        assertEquals("11/2 상집 보고일" to null, label(reply(500, null)))
+        assertEquals("11/2 상집 보고일" to null, label(reply(200, """{"nojo_words":true}""")))
+        // 기능 목록이 실패해도 일정 칸은 그린다.
+        assertEquals("주간 보고일", WidgetWeek.reportLabel(false))
+        assertEquals("상집 보고일", WidgetWeek.reportLabel(null))
+        // 위젯은 기능 목록을 GET으로만, 다른 rpc 주소·POST는 허용 목록 밖.
+        assertTrue(WidgetRules.allowed("GET", WidgetRules.FEATURES))
+        assertFalse(WidgetRules.allowed("POST", WidgetRules.FEATURES))
+        assertFalse(WidgetRules.allowed("GET", WidgetRules.SUPABASE + "/rest/v1/rpc/app_operator_feature_workspace"))
     }
 }

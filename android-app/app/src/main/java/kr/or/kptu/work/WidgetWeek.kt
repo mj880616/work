@@ -12,7 +12,7 @@ import java.time.temporal.ChronoUnit
  * 범위: 보이는 주 월요일 0시 ~ 다음 월요일 0시(서울). 토·일에는 다음 주를 보인다.
  * 읽기는 '지금' 위젯과 같은 google-calendar action=events(허용 주소 그대로).
  * - 요일 칸 7개: 일정 수. 3개 이상 몰린 날·가장 큰 일이 있는 날은 옅은 색.
- * - 아래 줄(4×2만): '가장 큰 일 D-n'(고르는 기준은 docs/design/phone-widget-auth.md 14절), '월 상집 보고일', '일정 몰린 날'.
+ * - 아래 줄(4×2만): '가장 큰 일 D-n'(고르는 기준은 docs/design/phone-widget-auth.md 14절), '월 주간 보고일'(nojo_words는 '상집 보고일', reportLabel), '일정 몰린 날'.
  * 칸·줄을 누르면 앱 달력의 그 날(웹 ?view=calendar&day=). 만든 내용은 폰에 저장하지 않는다(결정 W-D2).
  * APP-위젯날짜고르기: 4×2에서 요일 칸을 누르면 앱을 열지 않고 아래 칸이 그 날 일정·기한 할 일로 바뀐다(dayDetail).
  * 할 일은 '지금' 위젯이 이미 읽는 google-tasks overview(허용 주소 그대로)를 함께 받는다. 새 주소·새 권한은 없다.
@@ -166,6 +166,12 @@ object WidgetWeek {
 
     private fun clock(e: WidgetNow.Ev, zone: ZoneId): String = if (e.allDay) "종일" else Instant.ofEpochMilli(e.startMs).atZone(zone).format(HHMM)
 
+    /**
+     * S68-02(11/22 명진 결정): 보고일 이름. 새 사용자 '주간 보고일', 명진 화면(서버 기능 nojo_words)은 지금 이름 '상집 보고일'.
+     * 기능 목록을 못 읽었으면(null) 지금 이름 그대로(명진 화면 유지가 원칙, 서버 폴더 이름과 같은 쪽).
+     */
+    fun reportLabel(nojoWords: Boolean?): String = if (nojoWords == false) "주간 보고일" else "상집 보고일"
+
     fun dTag(today: LocalDate, day: LocalDate): String {
         val n = ChronoUnit.DAYS.between(today, day)
         return if (n <= 0) "오늘" else "D-$n"
@@ -178,6 +184,7 @@ object WidgetWeek {
         zone: ZoneId = WidgetNow.ZONE,
         tasksStatus: Int = 0,
         tasks: Any? = null,
+        nojoWords: Boolean? = null,
     ): Content {
         val title = header(nowMs, zone)
         val monday = start(nowMs, zone)
@@ -192,9 +199,9 @@ object WidgetWeek {
             d.copy(count = n, busy = n >= BUSY)
         }
         val bigPick = big?.let { Pick(it.day, dTag(today, it.day), "${weekday(it.day)} ${clock(it, zone)} ${it.title}") }
-        // 상집 보고일: 주간보고 기준일 규칙(journal-data.js reportDay, 월요일). 오늘 이후의 가장 가까운 월요일(오늘이 월요일이면 오늘).
+        // 보고일: 주간보고 기준일 규칙(journal-data.js reportDay, 월요일). 오늘 이후의 가장 가까운 월요일(오늘이 월요일이면 오늘).
         val report = if (monday.isBefore(today)) monday.plusDays(7) else monday
-        val reportPick = Pick(report, "월", "${report.monthValue}/${report.dayOfMonth} 상집 보고일")
+        val reportPick = Pick(report, "월", "${report.monthValue}/${report.dayOfMonth} ${reportLabel(nojoWords)}")
         val busyDay = days.firstOrNull { it.busy && !it.day.isBefore(today) }
         val busyPick = busyDay?.let { d ->
             val first = evs.filter { it.day == d.day && !it.allDay }.minByOrNull { it.startMs }

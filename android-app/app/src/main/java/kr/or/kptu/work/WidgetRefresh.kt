@@ -48,6 +48,8 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
     data class Result(
         val now: Paint<WidgetNow.Content>?,
         val week: Paint<WidgetWeek.Content>?,
+        /** S68-02: 서버 기능 목록에 nojo_words가 있나(모르면 null). 앱 사진 폴더 이름 고르기에 쓰려고 기기 설정에 둔다(AppFolders). */
+        val nojoWords: Boolean? = null,
     )
 
     val nowCal: String
@@ -65,14 +67,16 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
         if (now) addAll(listOf(nowCal, WidgetRules.TASKS, WidgetRules.CANDIDATES))
         // APP-위젯날짜고르기: 이번 주 위젯은 고른 날 기한 할 일을 위해 '지금' 위젯과 같은 할 일 주소를 함께 읽는다(겹치면 한 번).
         if (week) addAll(listOf(weekCal, WidgetRules.TASKS))
+        // S68-02: 내 서버 기능 목록(바탕 낱말 nojo_words인지). 위젯이 하나라도 있을 때 한 번.
+        if (now || week) add(WidgetRules.FEATURES)
     }.toList()
 
     /** 받은 답(readList 결과) → 위젯마다 그릴 것. 내용 만들기는 시험에서 바꿔 끼울 수 있다. */
     fun result(
         outcome: WidgetSession.Outcome<List<WidgetSession.Reply>>,
         nowContent: (WidgetSession.Raw, Long) -> WidgetNow.Content = { raw, t -> WidgetNow.content(raw, t) },
-        weekContent: (WidgetSession.Reply, WidgetSession.Reply, Long) -> WidgetWeek.Content = { cal, tasks, t ->
-            WidgetWeek.content(cal.status, cal.body, t, tasksStatus = tasks.status, tasks = tasks.body)
+        weekContent: (WidgetSession.Reply, WidgetSession.Reply, Long, Boolean?) -> WidgetWeek.Content = { cal, tasks, t, nojo ->
+            WidgetWeek.content(cal.status, cal.body, t, tasksStatus = tasks.status, tasks = tasks.body, nojoWords = nojo)
         },
     ): Result {
         val replies = when (outcome) {
@@ -81,6 +85,7 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
             is WidgetSession.Outcome.Failed -> return everyone(Paint.Failed)
         }
         val got = if (replies.size == urls.size) urls.zip(replies).toMap() else emptyMap()
+        val nojo = got[WidgetRules.FEATURES]?.let { AppFolderRules.nojoWordsOf(it.status, it.body) }
         val nowPaint = if (!now) null else paint {
             val c = got.getValue(nowCal)
             val t = got.getValue(WidgetRules.TASKS)
@@ -88,9 +93,9 @@ class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long) {
             nowContent(WidgetSession.Raw(c.status, c.body, t.status, t.body, k.status, k.body), nowMs)
         }
         val weekPaint = if (!week) null else paint {
-            weekContent(got.getValue(weekCal), got.getValue(WidgetRules.TASKS), nowMs)
+            weekContent(got.getValue(weekCal), got.getValue(WidgetRules.TASKS), nowMs, nojo)
         }
-        return Result(nowPaint, weekPaint)
+        return Result(nowPaint, weekPaint, nojo)
     }
 
     private fun everyone(p: Paint<Nothing>): Result = Result(p.takeIf { now }, p.takeIf { week })

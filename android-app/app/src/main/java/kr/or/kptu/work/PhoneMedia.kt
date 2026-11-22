@@ -344,7 +344,8 @@ object PhoneMedia {
         val values = android.content.ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, begin.name)
             put(MediaStore.MediaColumns.MIME_TYPE, begin.mime)
-            put(MediaStore.MediaColumns.RELATIVE_PATH, begin.dir ?: PhotoEditRules.SAVE_DIR)
+            // S68-02: 앱 폴더(Pictures/노조+ 등)는 이 사람의 앱 폴더로(이미 있는 노조+ 폴더는 그대로), 원래 폴더는 그대로.
+            put(MediaStore.MediaColumns.RELATIVE_PATH, AppFolderRules.resolve(begin.dir, AppFolders.home(context)))
             put(MediaStore.MediaColumns.IS_PENDING, 1)
             if (begin.takenMs > 0) put(MediaStore.MediaColumns.DATE_TAKEN, begin.takenMs)
         }

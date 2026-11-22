@@ -97,6 +97,8 @@ class WidgetWeekTest {
         // 금요일에는 다음 월요일이 상집 보고일, 월요일에는 그날.
         assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), WidgetWeek.content(200, body(), now).report)
         assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 상집 보고일"), WidgetWeek.content(200, body(), at(2026, 11, 2, 8)).report)
+        // S68-02: 새 사용자(서버 기능에 nojo_words 없음)는 '주간 보고일'.
+        assertEquals(WidgetWeek.Pick(LocalDate.of(2026, 11, 2), "월", "11/2 주간 보고일"), WidgetWeek.content(200, body(), now, nojoWords = false).report)
         // 오늘 이후 3개 이상인 첫 날, 첫 시간 일정부터.
         val c = WidgetWeek.content(
             200,
@@ -216,8 +218,9 @@ class WidgetWeekTest {
         assertFalse(WidgetRules.allowed("GET", url.replace("status=eq.open", "status=eq.tasked")))
         assertFalse(WidgetRules.allowed("GET", url.replace("select=source_kind,summary", "select=*")))
         assertFalse(WidgetRules.allowed("GET", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/app_todo_candidates"))
-        // 텔레그램 읽기는 위젯과 함께 지웠다.
+        // 텔레그램 읽기는 위젯과 함께 지웠다. S68-02: 기능 목록은 보고일 이름·앱 폴더 이름(nojo_words)에만 GET 하나(POST 없음).
         assertFalse(WidgetRules.allowed("POST", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features"))
-        assertFalse(WidgetRules.allowed("GET", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features"))
+        assertTrue(WidgetRules.allowed("GET", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features"))
+        assertFalse(WidgetRules.allowed("GET", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features?select=*"))
     }
 }
