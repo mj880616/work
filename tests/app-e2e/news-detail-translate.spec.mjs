@@ -58,10 +58,10 @@ for (const width of [412, 884, 1440]) {
     const tr = head.locator('[data-nd-translate]');
     await expect(tr).toHaveText('번역');
     await expect(tr).toHaveAttribute('aria-pressed', 'false');
-    // 머리 줄 오른쪽 차례(S52-39 NEWS-원문복사선택): [복사] [번역] [가 가 가] ⋯.
-    const kids = await head.locator('.nd-ob-r').evaluate(el => [...el.children].map(c => c.matches('[data-nd-copy]') ? 'copy' : c.matches('[data-nd-translate]') ? 'tr' : c.matches('.nd-size') ? 'size' : c.matches('[data-nd-ob-more]') ? 'more' : c.tagName.toLowerCase()));
+    // 머리 줄 오른쪽 차례(S52-39 NEWS-원문복사선택): [복사] [번역] [−][+] ⋯.
+    const kids = await head.locator('.nd-ob-r').evaluate(el => [...el.children].map(c => c.matches('[data-nd-copy]') ? 'copy' : c.matches('[data-nd-translate]') ? 'tr' : c.matches('[data-text-size-ctl]') ? 'size' : c.matches('[data-nd-ob-more]') ? 'more' : c.tagName.toLowerCase()));
     expect(kids).toEqual(['copy', 'tr', 'size', 'more']);
-    const tb = await tr.boundingBox(), sb = await head.locator('.nd-size').boundingBox();
+    const tb = await tr.boundingBox(), sb = await head.locator('[data-text-size-ctl]').boundingBox();
     expect(tb.x + tb.width).toBeLessThanOrEqual(sb.x + 1);
     expect(Math.abs((tb.y + tb.height / 2) - (sb.y + sb.height / 2))).toBeLessThan(4);
     const prose = d.locator('[data-nd-prose]');
@@ -82,8 +82,8 @@ for (const width of [412, 884, 1440]) {
     expect(s.translate[0].body).toEqual({ id: T1 });
     expect(s.translate[0].auth).toMatch(/^Bearer /);
     // 글자 크기는 번역본에도 그대로.
-    await d.locator('[data-nd-font="l"]').click();
-    expect(await prose.evaluate(el => getComputedStyle(el).fontSize)).toBe('19px');
+    await d.getByRole('button', { name: '글자 크게' }).click();
+    await expect.poll(() => prose.evaluate(el => getComputedStyle(el).fontSize)).toBe('19px');
     expect(await noWideScroll(page)).toBe(true);
     // 다시 누르면 원문.
     await d.locator('[data-nd-translate]').click();
