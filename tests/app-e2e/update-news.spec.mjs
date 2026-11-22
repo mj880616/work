@@ -20,8 +20,8 @@ const ITEMS=[
   {id:'n2',title:'구글 드라이브 사진·파일',lines:['사진 화면에 내 구글 드라이브 칸이 생겼어요(각자 자기 드라이브만 보여요)','메뉴에 [파일]이 생겼어요. 내 구글 드라이브 파일을 볼 수 있어요'],sent_at:'2026-11-21T01:00:00Z',edited_at:null},
   {id:'n1',title:'PC 프로그램 새 이름',lines:['윈도우 PC 프로그램 이름이 바뀌었어요','로그인 화면에서 내려받을 수 있어요'],sent_at:'2026-11-20T02:00:00Z',edited_at:null}
 ];
-async function boot(page,{operator=false,view='calendar',items=ITEMS,startOn='2026-11-20'}={}){
-  const calls=[];
+async function boot(page,{operator=false,view='calendar',items=ITEMS,startOn='2026-11-20',sources=[['11/15-3'],['11/15-2']]}={}){
+  const calls=[],withdrawn=new Set();
   await serveBuiltShell(page,origin);
   const user={id:'un-user',email:'un@example.org'},workspace={id:'un-workspace',name:'QA',slug:'qa'};
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{
@@ -38,8 +38,9 @@ async function boot(page,{operator=false,view='calendar',items=ITEMS,startOn='20
     else if(path==='/rest/v1/rpc/app_release_notes_read'||path.startsWith('/rest/v1/rpc/app_update_news_')&&path!=='/rest/v1/rpc/app_update_news_list'&&path!=='/rest/v1/rpc/app_update_news_seen'){
       if(!operator)return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'42501',message:'OPERATOR_FEATURE_REQUIRED'})});
       if(path==='/rest/v1/rpc/app_release_notes_read')data=NOTES;
-      else if(path==='/rest/v1/rpc/app_update_news_admin')data={start_on:startOn,users:9,items:[{...items[0],sources:['11/15-3'],reads:7,withdrawn_at:null},{...items[1],sources:['11/15-2'],reads:9,withdrawn_at:null},{id:'n0',title:null,lines:['시작 날짜 전 소식'],sources:[],sent_at:'2026-11-10T01:00:00Z',reads:0,withdrawn_at:null}]};
+      else if(path==='/rest/v1/rpc/app_update_news_admin')data={start_on:startOn,users:9,items:[{...items[0],sources:sources[0],reads:7,withdrawn_at:null},{...items[1],sources:sources[1],reads:9,withdrawn_at:null},{id:'n0',title:null,lines:['시작 날짜 전 소식'],sources:[],sent_at:'2026-11-10T01:00:00Z',reads:0,withdrawn_at:null}].map(item=>withdrawn.has(item.id)?{...item,withdrawn_at:'2026-11-22T05:00:00Z'}:item)};
       else if(path==='/rest/v1/rpc/app_update_news_save')data='n3';
+      else if(path==='/rest/v1/rpc/app_update_news_withdraw'){withdrawn.add(req.postDataJSON()?.p_id);data=true}
       else data=true;
     }
     else if(path==='/functions/v1/push-notifications')data={enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'};
@@ -103,9 +104,11 @@ for(const width of [412,880,1280])test(`운영자: 기록 줄 [보내기] → �
   if(width<900)await sent.locator('summary').click();
   await expect(sent.locator('.un-item').first()).toContainText('읽음 7/9');
   await expect(sent.locator('.un-cutline')).toContainText('여기부터 위만 이용자에게 보임');
-  // S67-73: 보낸 기록은 버튼 자체가 [보냄](못 누름), 안 보낸 기록은 [보내기]. 따로 붙는 '보냄' 꼬리표는 없다.
+  // S67-73: 보낸 기록은 버튼 자체가 [보냄], 안 보낸 기록은 [보내기]. 따로 붙는 '보냄' 꼬리표는 없다.
+  // S68-14: [보냄]도 누를 수 있다(누르면 거두기).
   await expect(view.locator('.rn-note').first().locator('[data-rn-send]')).toHaveText('보냄');
-  await expect(view.locator('.rn-note').first().locator('[data-rn-send]')).toBeDisabled();
+  await expect(view.locator('.rn-note').first().locator('[data-rn-send]')).toBeEnabled();
+  await expect(view.locator('.rn-note').first().locator('[data-rn-send]')).toHaveAttribute('aria-label','11/15-3 이용자에게 보냄 · 눌러서 거두기');
   await expect(view.locator('.rn-note').nth(2).locator('[data-rn-send]')).toHaveText('보내기');
   await expect(view.locator('.rn-note').nth(2).locator('[data-rn-send]')).toBeEnabled();
   await expect(view.locator('span.rn-sent')).toHaveCount(0);
@@ -153,6 +156,48 @@ test('운영자: 보낸 소식 [수정]·[거두기]·시작 날짜 바꾸기',a
   await start.getByLabel('시작 날짜').fill('2026-11-25');
   await start.getByRole('button',{name:'바꾸기',exact:true}).click();
   await expect.poll(()=>calls.find(c=>c.path.endsWith('app_update_news_set_start'))?.body).toEqual({p_start:'2026-11-25'});
+});
+
+// S68-14(명진 11/22 "업데이트 기록 보낸 후 거둬들일 수가 없음"): 기록 줄 [보냄]을 누르면 확인 → 그 기록이 든 소식을 거두고 [보내기]로 돌아간다.
+for(const width of [412,1280])test(`운영자: 기록 줄 [보냄] → 확인 → 거두기, 취소하면 그대로 (${width}px)`,async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width,height:900});
+  const calls=await boot(page,{operator:true,view:'updates'});
+  const view=page.locator('#updatesView');
+  const btn=view.locator('.rn-note').nth(1).locator('[data-rn-send]');
+  await expect(btn).toHaveText('보냄',{timeout:15000});
+  // 취소하면 서버를 부르지 않고 그대로.
+  await btn.click();
+  const ask=page.locator('.kptu-ask-text');
+  await expect(ask).toHaveText('이 소식을 거둘까요? 이용자 화면에서 사라져요.');
+  await expect(page.locator('.kptu-ask-note')).toHaveCount(0);
+  await page.getByRole('button',{name:'취소',exact:true}).last().click();
+  await expect(ask).toHaveCount(0);
+  expect(calls.some(c=>c.path.endsWith('app_update_news_withdraw'))).toBe(false);
+  await expect(btn).toHaveText('보냄');
+  await expect(view.locator('.rn-note').nth(1)).not.toHaveAttribute('open','');
+  // 거두기 → 서버 함수 하나(n1) → [보내기]로.
+  await btn.click();
+  await page.getByRole('button',{name:'거두기',exact:true}).last().click();
+  await expect.poll(()=>calls.filter(c=>c.path.endsWith('app_update_news_withdraw')).map(c=>c.body.p_id)).toEqual(['n1']);
+  await expect(btn).toHaveText('보내기');
+  await expect(btn).toHaveAttribute('aria-label','11/15-2 이용자에게 보내기');
+  await expect(view.locator('.un-sent .un-item.is-withdrawn')).toHaveCount(1);
+});
+
+test('운영자: 여러 기록을 묶어 보낸 소식은 [보냄] 확인 창에 같이 거둬지는 기록 수',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:880,height:900});
+  const calls=await boot(page,{operator:true,view:'updates',sources:[['11/15-3','11/15-1','11/14-9'],['11/15-2']]});
+  const view=page.locator('#updatesView');
+  const btn=view.locator('.rn-note').nth(2).locator('[data-rn-send]');
+  await expect(btn).toHaveText('보냄',{timeout:15000});
+  await btn.click();
+  await expect(page.locator('.kptu-ask-note')).toHaveText('같이 보낸 기록 2개도 함께 거둬져요');
+  await page.getByRole('button',{name:'거두기',exact:true}).last().click();
+  await expect.poll(()=>calls.filter(c=>c.path.endsWith('app_update_news_withdraw')).map(c=>c.body.p_id)).toEqual(['n2']);
+  for(const i of [0,2,3])await expect(view.locator('.rn-note').nth(i).locator('[data-rn-send]')).toHaveText('보내기');
+  await expect(view.locator('.rn-note').nth(1).locator('[data-rn-send]')).toHaveText('보냄');
 });
 
 // UPDATE-소식안보임(요청함 11/16): 시작 날짜가 없으면 아무 소식도 이용자에게 안 보인다(서버 규칙). 운영자 화면이 한 줄로 알리고, 보낼 때 오늘로 같이 정한다.

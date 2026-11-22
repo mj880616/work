@@ -76,3 +76,18 @@ export function sendStartHint(startOn, today) {
   if (startOn > today) return {text: `시작 날짜(${shortDay(startOn)}) 앞이라 이 소식은 이용자에게 아직 안 보여요`, option: `시작 날짜를 오늘(${shortDay(today)})로 당기기`, checked: false};
   return null;
 }
+
+// ── S68-14(명진 11/22 "업데이트 기록 보낸 후 거둬들일 수가 없음"): 기록 줄의 [보냄]을 눌러 그 기록이 든 소식을 거둔다.
+/** 기록 버전 v가 들어 있는 보낸(거두지 않은) 소식 id들과, 그 소식들에 같이 묶인 다른 기록 개수. 없으면 ids는 빈 배열. */
+export function withdrawPlan(items, v) {
+  const hits = (items || []).filter(item => !item.withdrawn_at && (item.sources || []).includes(v));
+  const others = new Set();
+  for (const item of hits) for (const s of item.sources || []) if (s !== v) others.add(s);
+  return {ids: hits.map(item => item.id), others: others.size};
+}
+
+/** 거두기 확인 창 글(기존 [거두기]와 같은 문구)과, 같이 묶인 기록이 있으면 아래 한 줄. */
+export const WITHDRAW_TEXT = '이 소식을 거둘까요? 이용자 화면에서 사라져요.';
+export function withdrawNote(others) {
+  return others > 0 ? `같이 보낸 기록 ${others}개도 함께 거둬져요` : '';
+}
