@@ -39,6 +39,7 @@ async function nowServer(page) {
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
     if (/^app_(outside_|now_|news_)/.test(table)) s.calls.push({ what: table, method, query: decodeURIComponent(u.search), body });
+    if (table === 'app_reading_items') return ok([]); // S68-24: 보관한 글은 읽을 거리 [News]에서(읽을 거리 줄은 없음)
     if (table === 'app_outside_articles') {
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       return ok(id ? POSTS.filter(x => x.id === id) : POSTS);
@@ -93,14 +94,14 @@ const detail = page => root(page).locator('[data-now-detail]');
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
 for (const width of [412, 884, 1280]) {
-  test(`Now ${width}: 메뉴 하나·탭 넷·글 상세·별표·메모·관심 주제 확정`, async ({ page }) => {
+  test(`Now ${width}: 메뉴 하나·탭·글 상세·별표·메모·관심 주제 확정`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, server, prefs } = await start(page, width);
     await openNow(page, width);
-    // 메뉴 'News' 하나(뉴스 클리핑 칸 없음), 탭 넷, 처음은 [전체] → [사회운동]으로.
+    // 메뉴 'News' 하나(뉴스 클리핑 칸 없음), 탭 [전체][사회운동][언론][밑줄](S68-24 [보관] 탭 없앰), 처음은 [전체] → [사회운동]으로.
     await expect(page.locator('#osTitle')).toHaveText('News');
     await expect(page.locator('.nav-btn[data-view="news"], #mobileMenu [data-view="news"]')).toHaveCount(0);
-    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관', '밑줄']);
+    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
     await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     if (width > 760) await expect(detail(page).locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대'); // [전체]에서 맨 위 글을 한 번 연 뒤 탭을 옮긴다
     await root(page).getByRole('tab', { name: '사회운동' }).click();
@@ -210,29 +211,25 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-hit`)).toHaveText('철도 민영화');
     await expect(root(page).locator('[data-now-cand]')).toBeHidden();
 
-    // [보관] 탭: 별표한 사회운동 글 + 옛 보관을 별표로 옮긴 글(P2)이 보인다. 탭은 서버에 기억(view_prefs.news_tab).
-    await root(page).getByRole('tab', { name: '보관' }).click();
-    await expect(root(page).locator('[data-ns-row]')).toHaveCount(2);
-    await expect(root(page).locator(`[data-ns-row][data-nw-key="outside:${P1}"]`)).toContainText('[성명] 가상 철도 민영화 반대');
-    await expect(root(page).locator(`[data-ns-row][data-nw-key="outside:${P2}"]`)).toContainText('가상의 외국 글');
-    // S67-09: 칩은 [전체][사회운동][언론]만, 줄 오른쪽 '보관' 글씨 없음(★만).
-    await expect(root(page).locator('[data-ns-chip]')).toHaveText(['전체', '사회운동', '언론']);
-    await expect(root(page).locator('[data-ns-row] .ns-mark')).toHaveCount(0);
-    await expect(root(page).locator('[data-ns-row] .nw-star')).toHaveCount(2);
-    await root(page).locator('[data-ns-chip="outside"]').click();
-    await expect(root(page).locator('[data-ns-row]')).toHaveCount(2);
-    await root(page).locator('[data-ns-chip="news"]').click();
-    await expect(root(page).locator('[data-ns-row]')).toHaveCount(0);
-    await expect(root(page).locator('[data-ns-empty]')).toBeVisible();
-    await root(page).locator('[data-ns-chip="all"]').click();
-    await expect(root(page).locator('[data-ns-row]')).toHaveCount(2);
-    if (process.env.S67_09_SHOTS) await page.screenshot({ path: `${process.env.S67_09_SHOTS}/saved-${width}.png` });
-    await expect.poll(() => prefs.value?.news_tab).toBe('archive');
-    // 새로고침해도 마지막 탭.
+    // 보관한 글(S68-24): 탭 줄 끝 '보관 ↗' → 읽을 거리 [News]. 별표한 사회운동 글 + 옛 보관을 별표로 옮긴 글(P2)이 꼬리표 'News'로 보인다.
+    await root(page).locator('[data-now-go-saved]').click();
+    const rd = page.locator('#readingView');
+    await expect(rd).toBeVisible();
+    await expect(rd.locator('.rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(rd.locator('[data-rd-news]')).toHaveCount(2);
+    await expect(rd.locator(`[data-rd-news="outside:${P1}"]`)).toContainText('[성명] 가상 철도 민영화 반대');
+    await expect(rd.locator(`[data-rd-news="outside:${P2}"]`)).toContainText('가상의 외국 글');
+    await expect(rd.locator('[data-rd-news] .rd-src-tag')).toHaveText(['News', 'News']);
+    if (process.env.S68_24_SHOTS) await page.screenshot({ path: `${process.env.S68_24_SHOTS}/saved-${width}.png` });
+    // 뒤로 = News. 마지막 탭은 서버에 기억(view_prefs.news_tab), 새로고침해도 그 탭.
+    await page.goBack();
+    await expect(page.locator('#outsideView')).toBeVisible();
+    await root(page).getByRole('tab', { name: '전체' }).click();
+    await expect.poll(() => prefs.value?.news_tab).toBe('all');
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#outsideView')).toBeVisible();
-    await expect(root(page).getByRole('tab', { name: '보관' })).toHaveAttribute('aria-selected', 'true');
+    await expect(root(page).getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'true');
     expect(errors).toEqual([]);
   });
 }

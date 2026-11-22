@@ -1,7 +1,7 @@
 import {tagLabel, tagStyle} from './news-colors.mjs';
 import {chevHtml} from './fold-chevron.mjs';
 // S51-8 NEWS-전면개편 P4b(시안 news-overhaul.html ①): News 목록 줄 하나와 날짜 묶음의 글자(HTML)를 만드는 순수 함수. DOM·네트워크 없음.
-// 세 목록([전체]·[사회운동]은 outside-statements.js, [언론]은 news-clipping.js, [보관]은 now-saved.js)이 같은 줄 모양을 쓴다(그리기는 각 칸 주인).
+// 목록([전체]·[사회운동]은 outside-statements.js, [언론]은 news-clipping.js)이 같은 줄 모양을 쓴다(그리기는 각 칸 주인).
 // 줄: 왼쪽 매체 색 띠 · 제목(안 읽은 글 굵게, 읽은 글 흐리게) / 매체 이름(같은 색) · 분류 꼬리표 · 시각 · 별표. 요약 줄은 목록에 없다(상세에서).
 // 바깥 글자는 모두 esc로만 넣는다. 색은 var(--ds-news-*) 토큰 이름만(news-colors.mjs).
 

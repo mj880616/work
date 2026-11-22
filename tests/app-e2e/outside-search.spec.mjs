@@ -128,7 +128,7 @@ for (const width of [412, 1280]) {
     await find.press('Enter');
     await expect(box.locator('.osq-outside .osq-hit')).toHaveCount(2);
     // 탭을 옮겨도 결과 칸은 목록 위에 그대로(찾기 칸은 모든 탭 공통).
-    await root.getByRole('tab', { name: '보관' }).click();
+    await root.getByRole('tab', { name: '밑줄' }).click();
     await expect(box).toBeVisible();
     expect(errors).toEqual([]);
   });

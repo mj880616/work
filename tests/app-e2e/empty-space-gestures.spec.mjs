@@ -97,7 +97,7 @@ test('News 폰 412: 글 아래 빈 곳에서 좌우 밀기 = 탭 이동', async 
   const spot = await emptyIn(page, '#outsideRoot > *:not([hidden])', '#outsideRoot');
   expect(await page.evaluate(([x, y]) => !document.elementFromPoint(x, y)?.closest('[data-nc-item], .now-row'), [spot.x, spot.y])).toBe(true);
   await swipeAt(page, spot.x + 100, spot.y, -200);
-  await expect(page.locator('#outsideRoot [data-os-tab="archive"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#outsideRoot [data-os-tab="marks"]')).toHaveAttribute('aria-selected', 'true'); // S68-24 [보관] 탭 없앰 → 다음 탭은 [밑줄]
   expect(errors).toEqual([]);
 });
 

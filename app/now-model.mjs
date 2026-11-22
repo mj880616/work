@@ -1,25 +1,27 @@
 import {AI_CAP_TEXT, aiCapText, isAiCap} from './ai-cap.mjs';
 import {sortByName} from './name-order.mjs';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절, news-clipping.md 13절): Now 화면의 순수 계산.
-// DOM·네트워크 없음. 화면 쪽(outside-statements.js = Now 껍데기, now-detail.js, now-saved.js, now-interests.js)이 이 결과대로 그리기만 한다.
+// DOM·네트워크 없음. 화면 쪽(outside-statements.js = Now 껍데기, now-detail.js, now-interests.js)이 이 결과대로 그리기만 한다.
 
-// 탭 넷(S51-8 NEWS-전면개편 P4b, 시안 news-overhaul.html): [전체][사회운동][언론][보관]. 저장 값은 view_prefs.news_tab(DB 20261106080000) — 이름이 그대로 DB 검사 값이다.
+// 탭(S51-8 NEWS-전면개편 P4b, 시안 news-overhaul.html): [전체][사회운동][언론][밑줄]. 저장 값은 view_prefs.news_tab(DB 20261106080000) — 이름이 그대로 DB 검사 값이다.
 // 옛 [뉴스] 탭은 [언론]으로(메뉴 이름과 겹치지 않게), [문장 찾기] 탭은 위 찾기 칸으로 합쳐 없어졌다.
+// S68-24(명진 11/22 "2. A"): [보관] 탭은 없앴다 — 보관한 글은 '읽을 거리' 한 목록에서 본다(reading.js [News] 칩). 탭 줄 끝 '보관 ↗'은 그리로 가는 길.
+// DB 검사 값 'archive'는 그대로 두되(DB 바꾸지 않음) 그 값이 기억돼 있으면 [전체]로 연다(startTab).
 export const NOW_TABS = Object.freeze([
   {id: 'all', label: '전체'},
   {id: 'movement', label: '사회운동'},
   {id: 'media', label: '언론'},
-  {id: 'archive', label: '보관'},
   // S53-5 NEWS-밑줄모으기: [밑줄](app_news_highlights 모아보기). 마지막 탭 기억(news_tab)의 DB 검사 값에는 아직 없어 이 탭은 기억하지 않는다(SAVED_TAB_IDS).
   {id: 'marks', label: '밑줄'},
 ]);
 export const NOW_TAB_IDS = Object.freeze(NOW_TABS.map(t => t.id));
-export const SAVED_TAB_IDS = Object.freeze(['all', 'movement', 'media', 'archive']);
+export const SAVED_TAB_IDS = Object.freeze(['all', 'movement', 'media']);
 export const DEFAULT_NOW_TAB = 'all';
 export const keepNowTab = tab => (NOW_TAB_IDS.includes(tab) ? tab : DEFAULT_NOW_TAB);
 // 옛 now_tab(outside·news·saved·search) → 새 news_tab. news_tab이 없을 때 한 번만 쓴다(설계 7.3, 옛 값은 지우지 않음).
-const OLD_TAB = Object.freeze({outside: 'movement', news: 'media', saved: 'archive', search: 'all'});
+const OLD_TAB = Object.freeze({outside: 'movement', news: 'media', saved: 'all', search: 'all'});
 export function startTab(newsTab, oldTab) {
+  if (newsTab === 'archive') return {tab: DEFAULT_NOW_TAB, migrate: false}; // 없앤 [보관] 탭을 기억한 사람
   if (SAVED_TAB_IDS.includes(newsTab)) return {tab: newsTab, migrate: false};
   if (Object.hasOwn(OLD_TAB, oldTab)) return {tab: OLD_TAB[oldTab], migrate: true};
   return {tab: DEFAULT_NOW_TAB, migrate: false};
@@ -221,14 +223,8 @@ export function detailError(e) {
   return e?.status ? `상세를 만들지 못함 · HTTP ${e.status}` : '상세를 만들지 못함 · 잠시 뒤 다시';
 }
 
-// ---- [보관] 탭(12.1): 사회운동 글 별표(app_outside_article_marks.starred_at) + 뉴스 별표(app_news_marks.starred_at)를 한 목록으로 ----
-// S67-09 NEWS-보관별표하나로(명진 11/19): 보관 = 별표 하나. 칩은 [전체][사회운동][언론]만(옛 [별표][보관] 칩 삭제).
-export const SAVED_CHIPS = Object.freeze([
-  {id: 'all', label: '전체'},
-  {id: 'outside', label: '사회운동'},
-  {id: 'news', label: '언론'},
-]);
-export const keepSavedChip = chip => (SAVED_CHIPS.some(c => c.id === chip) ? chip : 'all');
+// ---- 보관한 글(12.1): 사회운동 글 별표(app_outside_article_marks.starred_at) + 뉴스 별표(app_news_marks.starred_at)를 한 목록으로 ----
+// S67-09 NEWS-보관별표하나로(명진 11/19): 보관 = 별표 하나. S68-24: 이 목록은 읽을 거리 [News](reading.js)와 노트 '보관한 글'(note-news-marks.js)이 읽는다(now-saved.js readSavedRows).
 // marks: [{post_id, starred_at, app_outside_posts:{...}}], news: [{id, starred_at, ...}]
 // → [{type, id, at, star, row}] 최근 별표 순. 별표 없는 줄은 뺀다(옛 archived_at은 보지 않음 — DB 20261119120000이 별표로 채움).
 export function savedRows(marks, news) {
@@ -244,13 +240,8 @@ export function savedRows(marks, news) {
   }
   return out.sort((a, b) => String(b.at).localeCompare(String(a.at)) || a.id.localeCompare(b.id));
 }
-export function filterSaved(rows, chip) {
-  switch (keepSavedChip(chip)) {
-    case 'outside': return rows.filter(r => r.type === 'outside');
-    case 'news': return rows.filter(r => r.type === 'news');
-    default: return rows;
-  }
-}
+// 다른 화면(읽을 거리·노트)에서 글 하나를 열 때의 탭: 밑줄이면 [밑줄], 언론 기사면 [언론], 사회운동 글이면 [사회운동], 그 밖은 [전체].
+export const openTabFor = (type, highlight = false) => (highlight ? 'marks' : type === 'news' ? 'media' : type === 'outside' ? 'movement' : 'all');
 
 // 상세 꼬리 줄 날짜: 서울 'YYYY. M. D. HH:MM'(시각 00:00이면 날짜만). 모르면 ''.
 export function dateText(iso) {
@@ -339,7 +330,7 @@ export function mergeFeed(posts = [], news = []) {
 // [사회운동]에서 뉴스 기사면 [언론], [언론]에서 사회운동 글이면 [사회운동].
 export function tabForItem(type, tab) {
   const t = keepNowTab(tab);
-  if (t === 'all' || t === 'archive' || t === 'marks') return t;
+  if (t === 'all' || t === 'marks') return t;
   if (type === 'news') return 'media';
   if (type === 'outside') return 'movement';
   return t;

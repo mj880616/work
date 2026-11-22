@@ -29,11 +29,12 @@ test('기간·합치기·탭', () => {
   assert.match(FIND_EMPTY, /없어요$/); assert.match(FIND_SHORT, /^2글자/);
 });
 
-test('주소 ?item= 글의 탭: 전체·보관·밑줄은 그대로, 사회운동↔언론은 글 종류에 맞춤', () => {
+test('주소 ?item= 글의 탭: 전체·밑줄은 그대로(옛 보관 값은 글 종류로, S68-24), 사회운동↔언론은 글 종류에 맞춤', () => {
   assert.equal(tabForItem('outside', 'media'), 'movement');
   assert.equal(tabForItem('news', 'movement'), 'media');
   assert.equal(tabForItem('news', 'media'), 'media');
-  for (const t of ['all', 'archive', 'marks']) { assert.equal(tabForItem('news', t), t); assert.equal(tabForItem('outside', t), t); }
+  for (const t of ['all', 'marks']) { assert.equal(tabForItem('news', t), t); assert.equal(tabForItem('outside', t), t); }
+  assert.equal(tabForItem('news', 'archive'), 'all'); // 없앤 탭 값은 keepNowTab이 [전체]로
   assert.equal(tabForItem('outside', ''), 'all');
 });
 
