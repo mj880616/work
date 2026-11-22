@@ -134,8 +134,51 @@ export function stateLine(row, {busy = false} = {}) {
   if (s === 'paywall') return row?.body ? '공개된 앞부분만 가져왔어요.' : failInfo('paywall').text;
   return failInfo(s === 'failed' ? 'no_body' : s).text;
 }
-// 다시 가져오기 버튼을 보일까(막힌 주소·너무 큰 글은 다시 해도 같음).
-export const canRetry = row => !['ok', 'blocked', 'too_big'].includes(row?.body_state);
+// 다시 가져오기 버튼을 보일까. 다시 해도 같은 결과인 상태만 숨긴다: ok(이미 있음) · blocked(주소 규칙 밖 — 안쪽 주소·리다이렉트 고리, 서버 guard가 늘 거절) · too_big(크기 한도).
+// robots는 S68-23·25(#2875·#2877, 11/22)부터 사람이 저장한 글은 robots.txt를 보지 않으므로 다시 가져올 수 있다. bot_check·paywall·failed도 다시 해 볼 수 있다.
+const NO_RETRY = Object.freeze(['ok', 'blocked', 'too_big']);
+export const canRetry = row => !NO_RETRY.includes(BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending');
+
+// S68-32 READ-보관글원문다시(명진 11/23 02:25 "이미 보관한 뉴스 전문 못불러오는 것도 제대로"): 화면이 열릴 때 한 번 자동으로 다시 가져올 줄.
+// - 대상: 원문이 없는 상태(pending) · 실패(failed) · robots로 막혔던 줄. News에서 온 줄(원래 글 연결이 있음)은 bot_check도 — News 쪽 본문이 그 뒤 채워졌을 수 있다.
+// - 한 줄에 한 번만: 마지막 시도 시각(body_at, 서버 칸)이 REFETCH_SINCE보다 앞인 줄만(pending은 body_at이 비어 늘 대상). 자동 시도가 실패하면
+//   body_at이 지금으로 바뀌어 다시 자동 대상이 되지 않는다 — 그 뒤는 [다시] 단추만. 기기 저장 없음.
+// - REFETCH_SINCE: robots를 보지 않게 된 서버 고침(#2875 21:21·#2877 22:19, 2026-11-22 KST)이 나간 뒤의 시각. 그보다 앞서 실패한 줄은 옛 규칙의 결과다.
+export const REFETCH_SINCE = '2026-11-23T04:00:00+09:00';
+export const AUTO_BATCH = 2;
+const AUTO_STATES = Object.freeze(['pending', 'failed', 'robots']);
+export function needsRefetch(row, since = REFETCH_SINCE) {
+  if (!isId(row?.id) || !row?.url) return false;
+  const s = BODY_STATES.includes(row?.body_state) ? row.body_state : 'pending';
+  if (!(AUTO_STATES.includes(s) || (s === 'bot_check' && linkOf(row)))) return false;
+  if (s === 'pending') return true;
+  const at = Date.parse(row?.body_at), cut = Date.parse(since);
+  return !Number.isFinite(at) || at < cut;
+}
+// 자동으로 다시 가져올 줄을 AUTO_BATCH개씩 묶는다(이미 해 본 id·지금 가져오는 id는 뺌). 목록 순서(최근 저장 먼저) 그대로.
+export function refetchBatches(rows, {tried = new Set(), busy = () => false, since = REFETCH_SINCE, size = AUTO_BATCH} = {}) {
+  const todo = (Array.isArray(rows) ? rows : []).filter(r => needsRefetch(r, since) && !tried.has(r.id) && !busy(r.id));
+  const out = [];
+  for (let i = 0; i < todo.length; i += size) out.push(todo.slice(i, i + size));
+  return out;
+}
+// 자동 다시 가져오기를 그만둘 요청 실패(하루 횟수 다 씀·로그인 풀림·권한 없음 — 다음 줄도 같은 답).
+export const stopsAuto = reason => ['daily_limit', 'login', 'forbidden'].includes(reason);
+
+// News에서 온 줄: News 쪽 본문(공용 본문 표 app_news_article_bodies·app_outside_article_bodies, 옛 사회운동 글은 문장 표)이 이미 있으면 그 본문으로 원문 사본을 만든다.
+// DB의 private.app_reading_body(20261122230000 3))와 같은 규칙: 상태 ok·lead의 글자 블록(p·h·quote)만, lead → paywall. 문장은 빈칸으로 잇는다. 없으면 null(원래 주소로 받기).
+export function copyPatch(got, sentences, nowIso = new Date().toISOString()) {
+  if (got && (got.state === 'ok' || got.state === 'lead')) {
+    const body = bodyText(got.blocks);
+    if (body) return {body, body_state: got.state === 'lead' ? 'paywall' : 'ok', body_at: nowIso};
+  }
+  const lines = (Array.isArray(sentences) ? sentences : [])
+    .map(x => (typeof x?.text === 'string' ? x.text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim() : '')).filter(Boolean);
+  if (!lines.length) return null;
+  const all = lines.join(' ');
+  const body = ([...all].length > BODY_MAX ? [...all].slice(0, BODY_MAX).join('') : all).trim();
+  return body ? {body, body_state: 'ok', body_at: nowIso} : null;
+}
 // 요청 자체가 실패했을 때 한 줄(하루 횟수·로그인 등). note-import 화면과 같은 글.
 export const requestLine = reason => failInfo(reason).text;
 
