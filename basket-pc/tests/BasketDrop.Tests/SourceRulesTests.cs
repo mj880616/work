@@ -50,12 +50,12 @@ public class SourceRulesTests
         var program = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "Program.cs"));
         Assert.Contains("if (LaunchArgs.StartedByUser()) HelperSignal.Ring();", program);
         var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
-        Assert.Contains("ToolStripMenuItem _openNojoPlusItem = new(\"노조+ 열기\")", tray);
+        Assert.Contains("ToolStripMenuItem _openNojoPlusItem = new(\"WORK ON+ 열기\")", tray);
         Assert.Contains("if (LaunchArgs.StartedByUser()) HelperForm.ShowOrFocus();", tray);
         Assert.Contains("RegisterWaitForSingleObject(_helperSignal", tray);
         var helper = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "HelperForm.cs"));
-        Assert.Contains("이 프로그램은 PC 파일을 노조+로 올리는 도우미예요.", helper);
-        Assert.Contains("Text = \"노조+ 열기\"", helper);
+        Assert.Contains("이 프로그램은 PC 파일을 WORK ON+로 올리는 도우미예요.", helper);
+        Assert.Contains("Text = \"WORK ON+ 열기\"", helper);
         Assert.Contains("new ProcessStartInfo(NojoPlusWeb.AppUrl) { UseShellExecute = true }", helper);
         var update = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "UpdateService.cs"));
         Assert.Contains("ApplyUpdatesAndRestart(_pending, [LaunchArgs.Background])", update);
@@ -180,13 +180,15 @@ public class SourceRulesTests
         Assert.Contains("${PACK_ID}-win-Setup.exe", release);
         var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
         Assert.Contains("BalloonTipTitle = TrayStatus.Name", tray);
-        Assert.Contains("노조+에서 이 PC 보기", tray);
+        Assert.Contains("WORK ON+에서 이 PC 보기", tray);
         Assert.Contains("LegacyEntries.RemoveRenamedShortcuts(", tray);
         foreach (var file in Sources())
         {
             var text = File.ReadAllText(file);
             if (Path.GetFileName(file) == "LegacyEntries.cs") continue; // keeps the old Send to file name on purpose
             Assert.DoesNotContain("바구니 PC드롭", text);
+            // S68-21(명진 11/22 17:04): 보이는 글자에 옛 앱 이름 '노조+'가 남지 않는다(옛 바로가기 파일 이름 목록은 RenamedShortcuts.cs만, 주석 제외).
+            if (Path.GetFileName(file) != "RenamedShortcuts.cs") Assert.DoesNotMatch("\"[^\"\\n]*노조\\+[^\"\\n]*\"", text);
             Assert.DoesNotMatch("\"[^\"\\n]*(웹2|Web2)[^\"\\n]*\"", text); // shown words only, not comments
         }
     }

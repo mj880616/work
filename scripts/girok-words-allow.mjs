@@ -48,7 +48,6 @@ export const GIROK_ALLOW = Object.freeze([
   { file: 'app/journal-draft-model.mjs', text: '조직 소식', reason: 'AI 초안 재료 줄 꼬리표(서버로 보내는 글, 화면에 안 보임)' },
   { file: 'app/weekly-major-schedule.mjs', reason: '노조식 주간 보고 주요 일정 기준: AI 지시문·사용자 일정 이름 맞추기 단어(기록+에서 끌지 명진 결정 필요)' },
   { file: 'app/weekly-group-names.mjs', text: '현황', reason: "서버 사본(supabase/functions/_shared/weekly-group-names.mjs)과 바이트까지 같아야 해 brand를 부를 수 없음. 양식 제목이 없을 때만 쓰는 기본 묶음 이름 '사업장 현황'·'조직 현황' — 주간 보고 학습 묶음(노조식 주간 보고와 함께 명진 결정)" },
-  { file: 'app/journal.js', text: "'노조 서식'", reason: "자료실 분류 이름 '노조 서식'(데이터 값 hwp-drive.js UNION_TEMPLATE_CATEGORY)을 가리키는 글 — 분류 이름과 함께 정할 겸용 값" },
 
   // ── 묶음 B 끝 ──
 
@@ -65,8 +64,7 @@ export const GIROK_ALLOW = Object.freeze([
   { file: 'app/files-auto-model.mjs', reason: '서버(Edge)가 만드는 Drive 폴더 실제 이름과 맞추는 값(겸용) — 폴더 이름을 얼굴별로 바꾸는 일은 서버 쪽' },
   { file: 'app/photos-model.mjs', text: '.노조+ 휴지통', reason: '원드라이브 휴지통 폴더 실제 이름(이미 있는 폴더 이름, 서버와 같은 값) — 폴더 이름 거절용, 화면 글자 아님' },
   { file: 'app/photos.js', text: 'Pictures/노조+/', reason: '폰 사진첩 폴더 실제 경로(폰 앱과 같은 값)' },
-  { file: 'app/hwp-drive.js', text: '노조 서식', reason: '자료실 분류 저장 값(UNION_TEMPLATE_CATEGORY, 겸용) — 기록+ 값은 명진 결정 필요' },
-  { file: 'app/pc-files-model.mjs', text: '노조+에서 이 PC 보기', reason: 'PC 도우미 프로그램(basket-pc TrayApp.cs) 트레이 메뉴의 실제 글자 — 프로그램 이름·메뉴 바꾸기는 따로(S68-02 발견사항). 도우미 이름 글자는 word()' },
+  { file: 'app/hwp-drive.js', text: '노조 서식', reason: "이미 저장된 자료실 분류 값 '노조 서식'을 찾는 비교 값(UNION_TEMPLATE_NOJO_CATEGORY, 화면 글자 아님). 새 분류 이름은 word('노조 서식') — S68-21" },
   { file: 'app/library-sort-model.mjs', text: '성명서', reason: '파일 이름 안 문서 종류 낱말을 찾는 비교 값(사용자 글 읽기)' },
   { file: 'app/ledger-import-model.mjs', text: '조직', reason: '사용자 원장 시트의 탭·칸 이름과 맞추는 읽기 값(원장 양식)' },
   { file: 'app/ledger-import-model.mjs', text: '노조+연결ID', reason: '사용자 원장 시트의 칸 이름과 맞추는 읽기 값(원장 양식)' },

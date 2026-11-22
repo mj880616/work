@@ -14,7 +14,7 @@ internal static class LegacyEntries
 
     /// <summary>
     /// Where the installer puts its Start menu and desktop shortcuts. The old "BasketDrop.lnk" there is removed by
-    /// <see cref="RenamedShortcuts"/> (BASKET-노조플러스업로드: renamed to "노조+ 업로드", then S63-09: "노조+ 파일 올리기").
+    /// <see cref="RenamedShortcuts"/> (BASKET-노조플러스업로드: renamed to "노조+ 업로드", then S63-09: "노조+ 파일 올리기", then S68-21: "WORK ON+ 파일 올리기").
     /// </summary>
     public static string[] ShortcutFolders =>
     [

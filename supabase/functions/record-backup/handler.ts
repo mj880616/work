@@ -13,7 +13,7 @@
 // 같은 날 다시 하면 그날 폴더를 휴지통으로 보내고 새로 만든다. 최근 4주(날짜 폴더 4개)만 남기고 오래된 폴더는 드라이브 휴지통으로(영구 삭제 안 함).
 // 로그·응답: 코드와 숫자만. 기록 내용·제목·파일 ID를 로그에 싣지 않는다.
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
-import { folderNameFor, keepOldFromMyFeatures } from "../_shared/brand-folders.mjs";
+import { appNameFor, folderNameFor, keepOldFromMyFeatures } from "../_shared/brand-folders.mjs";
 import { CATEGORIES, DOC_BYTES, KEEP_WEEKS, ROWS_PER_TABLE, cleanRow, foldersToTrash, kstDate, parseKinds, readableHtml, tableQuery, toCsv } from "./model.mjs";
 
 export type Env = (name: string) => string | undefined;
@@ -131,6 +131,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     `trashed = false and 'me' in owners and mimeType = '${FOLDER_MIME}' and appProperties has { key='kptu_backup' and value='${kind}' } and '${q(parent)}' in parents`;
   // S68-02: 맨 위 폴더는 이름이 아니라 표식(kptu_backup=root)으로 찾으므로 이미 있는 폴더('노조+ 백업' 등)는 이름 그대로 계속 쓴다.
   // 없을 때만 만든다: 운영자 기능 nojo_words(명진 화면, 로그인 토큰으로 부른 app_my_features 답)·확인 실패는 '노조+ 백업', 그 밖은 'WORK ON+ 백업'.
+  // S68-21: 같은 답으로 새로 만드는 읽기용 문서 첫 줄의 앱 이름도 정한다(run에서 한 번 확인).
   async function keepOldNames(auth: string): Promise<boolean | null> {
     try {
       const res = await call(`${SB}/rest/v1/rpc/app_my_features`, { method: "POST", headers: userHeaders(auth, { "Content-Type": "application/json" }), body: "{}" }, "FEATURE_READ_FAILED");
@@ -138,11 +139,11 @@ export function createRecordBackupHandler(deps: BackupDeps) {
       return keepOldFromMyFeatures(await res.json().catch(() => null));
     } catch { return null; }
   }
-  async function rootFolder(t: string, create: boolean, auth = ""): Promise<Row | null> {
+  async function rootFolder(t: string, create: boolean, keepOld: boolean | null = null): Promise<Row | null> {
     const found = await list(t, mine("root", "root"));
     if (found.length > 1) throw new Fail(409, "DRIVE_DUPLICATE_FOLDERS");
     if (found[0] || !create) return found[0] || null;
-    return await makeFolder(t, folderNameFor("record_backup", await keepOldNames(auth)), "root", { kptu_backup: "root" });
+    return await makeFolder(t, folderNameFor("record_backup", keepOld), "root", { kptu_backup: "root" });
   }
   async function makeFolder(t: string, name: string, parent: string, props: Record<string, string>): Promise<Row> {
     const body = JSON.stringify({ name, mimeType: FOLDER_MIME, parents: [parent], appProperties: props });
@@ -224,7 +225,9 @@ export function createRecordBackupHandler(deps: BackupDeps) {
       read.push({ category, tables });
     }
     const at = now(), date = kstDate(at);
-    const root = await rootFolder(t, true, w.auth) as Row;
+    // S68-21: 이번 실행에서 한 번만 확인한다 — 새로 만드는 맨 위 폴더 이름과 새로 만드는 읽기용 문서 첫 줄의 앱 이름이 같은 답을 쓴다.
+    const keepOld = await keepOldNames(w.auth), appName = appNameFor(keepOld);
+    const root = await rootFolder(t, true, keepOld) as Row;
     await assertPrivate(t, String(root.id));
     for (const old of await list(t, mine("day", String(root.id)))) {
       if ((old.appProperties as Record<string, string>)?.kptu_backup_date === date) await trash(t, String(old.id));
@@ -233,7 +236,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     let docSkipped = 0;
     for (const { category, tables } of read) {
       for (const { table, rows } of tables) await upload(t, String(day.id), `${category.label} - ${table.label}.csv`, "text/csv", "text/csv", toCsv(rows));
-      const doc = readableHtml(category, tables, date);
+      const doc = readableHtml(category, tables, date, appName);
       if (new TextEncoder().encode(doc).length > DOC_BYTES) { docSkipped++; continue; }
       await upload(t, String(day.id), `${category.label} (읽기용)`, DOC_MIME, "text/html", doc);
     }

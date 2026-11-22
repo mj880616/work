@@ -57,7 +57,7 @@ const accounts=logoutButtons.map(logout=>{
   return {host,trigger,panel,profile,updates,whatsnew,appInstall,appDl,menuEdit,theme,lockRow,signups,inbox,feedback,nativePopover};
 });
 // APP-앱내려받기버튼: 계정 메뉴의 '앱 내려받기' 줄 하나(사이드바·위쪽 계정 메뉴가 같은 모양). 주소는 배포 때 정한 최신 폰 앱 판(app/phone-app.json)을 읽어 채운다.
-// BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 PC 보조 프로그램(노조+ 파일 올리기) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
+// BASKET-노조플러스업로드: 윈도우 PC 브라우저에서는 같은 줄이 최신 PC 보조 프로그램(WORK ON+ 파일 올리기) 설치 파일(app/pc-app.json), 누르면 설명·경고 안내.
 function appDownloadRow(){
   const plan=downloadPlan({ua:navigator.userAgent||''});
   if(plan.kind==='app')return null;

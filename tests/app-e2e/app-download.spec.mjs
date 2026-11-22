@@ -148,7 +148,7 @@ for(const width of [840,1280])test.describe(`PC·폴드 펼침 ${width}`,()=>{
     await expect(row).toBeVisible();
     await expect(row).toHaveAttribute('href',SETUP);
     await expect(row.locator('[data-app-download-ver]')).toHaveText('0.6.0');
-    await expect(row.locator('.account-action-name')).toHaveText('노조+ 파일 올리기 도우미 내려받기');
+    await expect(row.locator('.account-action-name')).toHaveText('WORK ON+ 파일 올리기 도우미 내려받기');
     const install=page.locator('#sidebarAccountPanel [data-app-install]');
     await expect(install).toHaveText('PC에 앱 설치');
     await shot(page,`${width}-2-account`);

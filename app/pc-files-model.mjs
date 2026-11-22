@@ -105,18 +105,19 @@ export function pcCode(status, error) {
 export const pcOffRowName = why => (why === 'ask' ? '내 PC · 눌러서 연결' : why === 'old_app' ? '내 PC · 새 판 필요' : '내 PC · 꺼짐');
 // 이 브라우저가 '내 PC'를 그릴 곳인가: 윈도우 PC 브라우저(폰 앱·폰 브라우저·안드로이드 큰 화면은 아님). 바구니 PC 앱이 윈도우 전용이다.
 export const pcDeviceOk = ({ua = '', kind = ''} = {}) => kind === 'pc' && /Windows NT/i.test(ua) && !/Android|KPTUAndroid/i.test(ua);
-// PC 도우미 프로그램(basket-pc TrayApp.cs) 트레이 메뉴의 실제 글자. 프로그램 이름·메뉴는 아직 바뀌지 않았으므로 그대로 보인다(S68-02 발견사항).
-export const PC_TRAY_SHOW_ITEM = '노조+에서 이 PC 보기';
+// PC 도우미 프로그램(basket-pc TrayApp.cs) 트레이 메뉴의 실제 글자(S68-21부터 모두에게 'WORK ON+에서 이 PC 보기', 0.8.0 판).
+export const PC_TRAY_SHOW_ITEM = 'WORK ON+에서 이 PC 보기';
 // 문 상태 → 나무·안내 한 줄. off = 문이 답하지 않음(꺼짐·앱 없음·크롬이 막음).
-// S68-02: 도우미 이름 '노조+ 파일 올리기'는 화면 글자만 word()로(WORK ON+ 기본은 'WORK ON+ 파일 올리기', 명진 화면은 그대로).
+// S68-21(명진 11/22 17:04): 도우미 프로그램 자체 이름·트레이 메뉴가 모두에게 'WORK ON+ …'(basket-pc TrayStatus.Name·TrayApp.cs)라,
+// 프로그램 글자를 가리키는 안내는 사람마다 바꾸지 않고 프로그램과 같은 글자로 둔다(명진 화면도 같음).
 export function pcStateText(why) {
   switch (why) {
-    case 'off': return word`내 PC가 꺼져 있어요. 화면 오른쪽 아래 노조+ 파일 올리기 아이콘을 오른쪽 클릭 → [${PC_TRAY_SHOW_ITEM}]를 켜 주세요. 처음 한 번 크롬이 '다른 앱에 연결' 허락을 물으면 [허용]을 눌러 주세요.`;
-    case 'pc_signed_out': return word('노조+ 파일 올리기 도우미가 로그아웃돼 있어요. 트레이 아이콘에서 다시 로그인해 주세요.');
-    case 'other_user': return word('노조+ 파일 올리기 도우미에 다른 계정으로 로그인돼 있어요. 같은 계정으로 로그인해 주세요.');
+    case 'off': return word`내 PC가 꺼져 있어요. 화면 오른쪽 아래 WORK ON+ 파일 올리기 아이콘을 오른쪽 클릭 → [${PC_TRAY_SHOW_ITEM}]를 켜 주세요. 처음 한 번 크롬이 '다른 앱에 연결' 허락을 물으면 [허용]을 눌러 주세요.`;
+    case 'pc_signed_out': return word('WORK ON+ 파일 올리기 도우미가 로그아웃돼 있어요. 트레이 아이콘에서 다시 로그인해 주세요.');
+    case 'other_user': return word('WORK ON+ 파일 올리기 도우미에 다른 계정으로 로그인돼 있어요. 같은 계정으로 로그인해 주세요.');
     case 'bad_token': case 'no_token': return word('WORK ON+ 로그인을 확인하지 못했어요. 다시 확인을 눌러 주세요.');
-    case 'auth_unavailable': return word('노조+ 파일 올리기 도우미가 로그인을 확인하지 못했어요(인터넷 연결). 잠시 뒤 다시 확인해 주세요.');
-    case 'old_app': return word('노조+ 파일 올리기 도우미를 새 판으로 올려 주세요.');
+    case 'auth_unavailable': return word('WORK ON+ 파일 올리기 도우미가 로그인을 확인하지 못했어요(인터넷 연결). 잠시 뒤 다시 확인해 주세요.');
+    case 'old_app': return word('WORK ON+ 파일 올리기 도우미를 새 판으로 올려 주세요.');
     case 'ask': return "'내 PC'를 누르면 크롬이 처음 한 번 '다른 앱에 연결' 허락을 물어요. [허용]을 눌러 주세요.";
     case 'denied': return "크롬에서 이 사이트의 '로컬 네트워크 접근'이 막혀 있어요. 주소창 왼쪽 아이콘 → 사이트 설정에서 허용으로 바꿔 주세요.";
     default: return '내 PC에 닿지 못했어요. 다시 확인을 눌러 주세요.';
@@ -139,15 +140,15 @@ export function pcErrorText(code) {
     case 'not_found': return '내 PC에서 찾지 못했어요';
     case 'bad_path': case 'not_folder': return '열 수 없는 경로예요';
     case 'open_failed': return '내 PC에서 열지 못했어요';
-    case 'off': case 'unreached': return word('내 PC에 닿지 못했어요(노조+ 파일 올리기 도우미 확인)');
+    case 'off': case 'unreached': return word('내 PC에 닿지 못했어요(WORK ON+ 파일 올리기 도우미 확인)');
     case 'pc_signed_out': case 'other_user': case 'bad_token': case 'no_token': case 'auth_unavailable': return pcStateText(code);
     default: return '내 PC 파일을 읽지 못했어요';
   }
 }
 // 옛 문(0.3.x): 보기·열기만. 0.4.0+이면 복사·옮기기가 된다.
-export const PC_READONLY_TEXT = word('노조+ 파일 올리기 도우미를 새 판(0.4.0)으로 올리면 내 PC ↔ 클라우드 복사·옮기기가 돼요(지금은 보기·열기만)');
+export const PC_READONLY_TEXT = word('WORK ON+ 파일 올리기 도우미를 새 판(0.4.0)으로 올리면 내 PC ↔ 클라우드 복사·옮기기가 돼요(지금은 보기·열기만)');
 // 내 PC 안 이름 바꾸기·새 폴더·옮기기·복사·휴지통(FILES-내PC쓰기)은 바구니 PC 앱 0.5.0+ 문에서만.
-export const PC_WRITE_LATER_TEXT = word('노조+ 파일 올리기 도우미를 새 판(0.5.0)으로 올리면 내 PC 안 이름 바꾸기·새 폴더·옮기기·휴지통이 돼요');
+export const PC_WRITE_LATER_TEXT = word('WORK ON+ 파일 올리기 도우미를 새 판(0.5.0)으로 올리면 내 PC 안 이름 바꾸기·새 폴더·옮기기·휴지통이 돼요');
 // 내 PC 미리보기: 화면 메모리로 읽어 오는 크기 한도(사진·PDF). 글은 앞 200KB만(files-model TEXT_PREVIEW_BYTES).
 export const PC_PREVIEW_MAX = 50 * 1024 * 1024;
 // 한 번에 보내는 개수·크기(화면이 파일을 메모리에 쥐고 나른다 — '이 폰'과 같은 1GB, 바구니 문은 2GB까지 받음).

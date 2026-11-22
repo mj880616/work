@@ -1,7 +1,7 @@
 // S68-02: 서버가 만드는 폴더 이름(supabase/functions/_shared/brand-folders.mjs)과 화면 안내 글자. 값은 모두 가짜.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FOLDER_NAMES, folderNames, folderNameFor, keepOldFromMyFeatures, keepOldFromFeatureWorkspace, driveQuoted, NOJO_WORDS_FEATURE } from '../supabase/functions/_shared/brand-folders.mjs';
+import { APP_NAMES, appNameFor, FOLDER_NAMES, folderNames, folderNameFor, keepOldFromMyFeatures, keepOldFromFeatureWorkspace, driveQuoted, NOJO_WORDS_FEATURE } from '../supabase/functions/_shared/brand-folders.mjs';
 import { WORD_BASE_FEATURES } from '../app/brand/custom-words-model.mjs';
 
 const WS = '10000000-0000-4000-8000-00000000000a';
@@ -57,4 +57,13 @@ test('화면: 백업 폴더 이름은 서버가 알려 준 실제 이름, 모를
   assert.equal(backupFolderName('WORK ON+ 편집 백업'), 'WORK ON+ 편집 백업');
   assert.equal(backupFolderName('a"b'), EDIT_BACKUP_FOLDER);
   assert.equal(backupFolderName(undefined), EDIT_BACKUP_FOLDER);
+});
+
+// S68-21: 새로 만드는 문서 안 앱 이름 — 폴더 이름과 같은 규칙(모름은 지금 글자).
+test('S68-21: appNameFor', () => {
+  assert.deepEqual({...APP_NAMES}, {old: '노조+', now: 'WORK ON+'});
+  assert.equal(appNameFor(false), 'WORK ON+');
+  assert.equal(appNameFor(true), '노조+');
+  assert.equal(appNameFor(null), '노조+');
+  assert.equal(appNameFor(undefined), '노조+');
 });

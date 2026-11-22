@@ -14,6 +14,12 @@ export const FOLDER_NAMES = Object.freeze({
   photo_trash: Object.freeze({ old: '.노조+ 휴지통', now: '.WORK ON+ 휴지통' }),
 });
 
+// S68-21(명진 11/22 17:04): 서버가 새로 만드는 문서 안에 쓰는 앱 이름(record-backup 읽기용 문서 첫 줄). 폴더 이름과 같은 규칙.
+export const APP_NAMES = Object.freeze({ old: '노조+', now: 'WORK ON+' });
+
+/** 새로 만드는 문서에 쓸 앱 이름. keepOld: false → 'WORK ON+', 그 밖(nojo_words·모름) → '노조+'(지금 동작과 같은 쪽). */
+export const appNameFor = keepOld => keepOld === false ? APP_NAMES.now : APP_NAMES.old;
+
 /** 이 종류 폴더의 이름 둘(옛·새). 찾기·휴지통 판별·이름 거절에 쓴다. */
 export const folderNames = kind => [FOLDER_NAMES[kind].old, FOLDER_NAMES[kind].now];
 

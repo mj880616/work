@@ -198,6 +198,22 @@ test('S68-02: 화면 글자가 word()를 거친다 — HWP 스타일 묶음 이�
   for (const file of ['app/pc-files-model.mjs', 'app/files.js', 'app/help-content.mjs', 'app/app-download.mjs']) {
     const src = read(file);
     assert.doesNotMatch(src, /도우미을|도우미이 /, `${file}: 조사`);
-    for (const line of src.split('\n').filter(l => l.includes('노조+ 파일 올리기') && !/^\s*\/\//.test(l))) assert.match(line, /word[(`]/, `${file}: ${line.trim().slice(0, 60)}`);
+    // S68-21: 도우미 프로그램 자체 이름이 모두에게 'WORK ON+ 파일 올리기'(basket-pc TrayStatus.Name)라 화면 안내도 같은 글자(옛 이름 없음).
+    for (const line of src.split('\n').filter(l => !/^\s*\/\//.test(l))) assert.doesNotMatch(line, /노조\+ 파일 올리기|노조\+에서 이 PC 보기/, `${file}: ${line.trim().slice(0, 60)}`);
   }
+});
+
+// S68-21(명진 11/22 17:04): PC 도우미 프로그램 자체 글자 — 웹 안내가 가리키는 이름·트레이 메뉴와 프로그램 소스가 같다.
+test('S68-21: PC 도우미 이름·트레이 메뉴는 웹 안내와 프로그램이 같은 WORK ON+ 글자', async () => {
+  const { PC_TRAY_SHOW_ITEM } = await import('../app/pc-files-model.mjs');
+  const { PC_HELPER_NAME } = await import('../app/app-download.mjs');
+  const tray = read('basket-pc/src/BasketDrop/TrayApp.cs'), status = read('basket-pc/src/BasketDrop.Core/TrayStatus.cs');
+  assert.equal(PC_HELPER_NAME, 'WORK ON+ 파일 올리기');
+  assert.match(status, new RegExp(`public const string Name = "${PC_HELPER_NAME.replace('+', '\\+')}";`));
+  assert.ok(tray.includes(`new("${PC_TRAY_SHOW_ITEM}")`), '트레이 메뉴 글자가 웹 안내와 같다');
+  assert.match(read('.github/workflows/basket-pc-release.yml'), /--packTitle "WORK ON\+ 파일 올리기"/);
+  // 설치 ID·실행 파일·자동 시작 이름은 그대로(이미 깔린 PC의 업데이트·자동 시작이 끊기지 않게).
+  assert.match(read('.github/workflows/basket-pc-release.yml'), /PACK_ID: BasketDropApp/);
+  assert.match(read('basket-pc/src/BasketDrop/RegistryStartup.cs'), /ValueName = "BasketDrop"/);
+  assert.match(read('basket-pc/src/BasketDrop.Core/RenamedShortcuts.cs'), /"노조\+ 파일 올리기\.lnk"\]/, '옛 바로가기는 새 바로가기가 생긴 뒤 지움');
 });

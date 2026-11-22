@@ -182,7 +182,25 @@ test('S68-02: 새로 만드는 백업 폴더 이름과 이미 있는 폴더 보�
   const roots = kept.drive.files.filter(f => f.appProperties?.kptu_backup === 'root');
   assert.equal(roots.length, 1); assert.equal(roots[0].name, '노조+ 백업'); assert.equal(k.root_name, '노조+ 백업');
   assert.ok(!kept.calls.some(c => c.method === 'PATCH' && /"name"/.test(String(c.body))), '이미 있는 폴더 이름을 바꾸지 않는다');
-  assert.ok(!kept.calls.some(c => c.url.includes('/rpc/app_my_features')), '폴더가 있으면 기능 확인도 하지 않는다');
+  // S68-21: 폴더가 있어도 읽기용 문서 첫 줄의 앱 이름 때문에 기능 확인은 실행마다 한 번(로그인 토큰, 폴더 이름은 그대로).
+  assert.equal(kept.calls.filter(c => c.url.includes('/rpc/app_my_features')).length, 1, '기능 확인은 실행마다 한 번');
   const s = await (await kept.ask('status')).json();
   assert.equal(s.folder_name, '노조+ 백업');
+});
+
+// S68-21: 새로 만드는 읽기용 문서 첫 줄의 앱 이름 — 새 사용자 'WORK ON+', nojo_words·확인 실패 '노조+'. 이미 있는 옛 이름 폴더여도 문서는 사람 기준.
+test('S68-21: 백업 읽기용 문서 첫 줄 앱 이름', async () => {
+  const docOf = w => w.drive.files.find(f => f.name === '노트 (읽기용)').content;
+  const fresh = world({ rootName: '노조+ 백업' });
+  await fresh.ask('run', { kinds: ['notes'] });
+  assert.match(docOf(fresh), /WORK ON\+가 내 드라이브에 만든 백업입니다/);
+  assert.ok(!/노조/.test(docOf(fresh)), '새 사용자 문서에 노조 글자 없음');
+  const nojo = world({ features: ['nojo_words'] });
+  await nojo.ask('run', { kinds: ['notes'] });
+  assert.match(docOf(nojo), /노조\+가 내 드라이브에 만든 백업입니다/);
+  const failed = world({ features: 'fail' });
+  await failed.ask('run', { kinds: ['notes'] });
+  assert.match(docOf(failed), /노조\+가 내 드라이브에 만든 백업입니다/, '확인 실패는 지금 글자');
+  assert.match(M.readableHtml({ label: 'x' }, [], '2026-11-22'), /노조\+가/, '기본값은 지금 글자');
+  assert.match(M.readableHtml({ label: 'x' }, [], '2026-11-22', 'WORK ON+'), /WORK ON\+가/);
 });

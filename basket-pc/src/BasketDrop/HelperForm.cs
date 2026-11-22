@@ -3,13 +3,13 @@ using System.Diagnostics;
 namespace BasketDrop.App;
 
 /// <summary>
-/// S63-09 PC도우미구분(명진 11/16): people took this tray program for 노조+ itself and saw nothing open on double-click.
-/// This small window says what the program is and opens 노조+ in the default browser. One window at a time; it holds no data.
+/// S63-09 PC도우미구분(명진 11/16): people took this tray program for the web app itself and saw nothing open on double-click.
+/// This small window says what the program is and opens WORK ON+ (S68-21 name) in the default browser. One window at a time; it holds no data.
 /// </summary>
 internal sealed class HelperForm : Form
 {
-    public const string Lead = "이 프로그램은 PC 파일을 노조+로 올리는 도우미예요.";
-    public const string Body = "노조+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. 노조+를 쓰려면 [노조+ 열기]를 누르세요.";
+    public const string Lead = "이 프로그램은 PC 파일을 WORK ON+로 올리는 도우미예요.";
+    public const string Body = "WORK ON+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. WORK ON+를 쓰려면 [WORK ON+ 열기]를 누르세요.";
     public const string Tray = "도우미는 화면 오른쪽 아래 알림 영역에서 조용히 돌아요. 아이콘을 오른쪽 클릭하면 메뉴가 나와요.";
 
     private static HelperForm? _current;
@@ -31,7 +31,7 @@ internal sealed class HelperForm : Form
         layout.Controls.Add(new Label { Text = Body, AutoSize = true, MaximumSize = new Size(380, 0), Margin = new Padding(0, 0, 0, 6) });
         layout.Controls.Add(new Label { Text = Tray, AutoSize = true, MaximumSize = new Size(380, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 12) });
 
-        var open = new Button { Text = "노조+ 열기", AutoSize = true };
+        var open = new Button { Text = "WORK ON+ 열기", AutoSize = true };
         open.Click += (_, _) => { OpenNojoPlus(); Close(); };
         var close = new Button { Text = "닫기", AutoSize = true };
         close.Click += (_, _) => Close();
@@ -59,7 +59,7 @@ internal sealed class HelperForm : Form
         _current.Activate();
     }
 
-    /// <summary>노조+ itself: the web app in the default browser. Only the fixed address, nothing added to it.</summary>
+    /// <summary>WORK ON+ itself: the web app in the default browser. Only the fixed address, nothing added to it.</summary>
     public static void OpenNojoPlus()
     {
         try { using var _ = Process.Start(new ProcessStartInfo(NojoPlusWeb.AppUrl) { UseShellExecute = true }); }
