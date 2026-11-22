@@ -9,6 +9,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -59,23 +60,43 @@ object WidgetIntents {
 
 /**
  * 빠른 쓰기(4×1·2×1, APP-위젯다시 ②): 단추마다 한 칸 위젯과 같은 정사각 둥근 먹색 칸 + 흰 그림, 칸 아래 먹색 이름(APP-위젯먹색 S68-06).
- * 4×1: [업데이트] [할 일] [노트] [사진]. 2×1: 자주 쓰는 [업데이트] [할 일] 두 개(같은 칸 번호, 홈 화면이 칸 크기로 고름).
+ * 4×1: [업데이트] [할 일] [노트] [사진]. 2×1: 자주 쓰는 [업데이트] [할 일] 두 개(같은 칸 번호, 위젯 폭으로 고름). 먹색 칸 크기는 위젯 크기에서 계산(S68-08).
  */
 class QuickWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val cells = intArrayOf(R.id.quick_cell0, R.id.quick_cell1, R.id.quick_cell2, R.id.quick_cell3)
-        val views = HomeWidgets.sized(context, R.layout.quick_widget_small, R.layout.quick_widget, SMALL, LARGE) { v, _ ->
-            WidgetActions.QUICK.forEachIndexed { i, action ->
-                v.setOnClickPendingIntent(cells[i], WidgetIntents.pending(context, WIDGET, action))
-            }
-        }
-        manager.updateAppWidget(ids, views)
+        ids.forEach { draw(context, manager, it) }
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: Bundle?) {
+        draw(context, manager, id)
     }
 
     companion object {
         const val WIDGET = 1
-        private val SMALL = android.util.SizeF(110f, 40f)
-        private val LARGE = android.util.SizeF(250f, 40f)
+        private val CELLS = intArrayOf(R.id.quick_cell0, R.id.quick_cell1, R.id.quick_cell2, R.id.quick_cell3)
+        private val TILES = intArrayOf(R.id.quick_tile0, R.id.quick_tile1, R.id.quick_tile2, R.id.quick_tile3)
+        private val ICONS = intArrayOf(R.id.quick_icon0, R.id.quick_icon1, R.id.quick_icon2, R.id.quick_icon3)
+
+        /**
+         * S68-08: 크기마다 4칸(폭 250dp 이상)·2칸 그림을 고르고, 먹색 칸을 위젯 높이·칸 폭에서 계산(WidgetTileRules.quick).
+         * 11 이하는 지금처럼 4칸 그림 하나(틀에 적힌 40dp).
+         */
+        fun draw(context: Context, manager: AppWidgetManager, id: Int) {
+            val fontScale = context.resources.configuration.fontScale
+            val views = HomeWidgets.perSize(HomeWidgets.cellSizes(manager, id)) { size ->
+                val wide = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || size == null || WidgetTileRules.quickWide(size.width.toInt())
+                val v = RemoteViews(context.packageName, if (wide) R.layout.quick_widget else R.layout.quick_widget_small)
+                val count = if (wide) 4 else 2
+                val tile = if (size == null) WidgetTileRules.QUICK_MIN
+                else WidgetTileRules.quick(size.width.toInt(), size.height.toInt(), count, fontScale)
+                for (i in 0 until count) {
+                    v.setOnClickPendingIntent(CELLS[i], WidgetIntents.pending(context, WIDGET, WidgetActions.QUICK[i]))
+                    HomeWidgets.tileSize(v, TILES[i], ICONS[i], tile)
+                }
+                v
+            }
+            manager.updateAppWidget(id, views)
+        }
     }
 }
 
@@ -86,6 +107,10 @@ class QuickWidget : AppWidgetProvider() {
 class OneWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { draw(context, manager, it) }
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: Bundle?) {
+        draw(context, manager, id)
     }
 
     override fun onDeleted(context: Context, ids: IntArray) {
@@ -107,9 +132,33 @@ class OneWidget : AppWidgetProvider() {
             draw(context, AppWidgetManager.getInstance(context), id)
         }
 
+        /**
+         * S68-08: 먹색 칸 크기는 홈 화면이 준 칸 크기에서 계산한다(WidgetTileRules.one, 48~76dp).
+         * 12+는 크기마다 칸·그림 크기를 바로 정하고, 11 이하는 48·60·72dp 틀 중 가까운 것을 고른다.
+         */
         fun draw(context: Context, manager: AppWidgetManager, id: Int) {
-            val views = RemoteViews(context.packageName, R.layout.one_widget)
             val action = chosen(context, id)
+            val fontScale = context.resources.configuration.fontScale
+            val views = HomeWidgets.perSize(HomeWidgets.cellSizes(manager, id)) { size ->
+                val tile = if (size == null) WidgetTileRules.ONE_MIN
+                else WidgetTileRules.one(size.width.toInt(), size.height.toInt(), fontScale)
+                paint(context, id, action, tile)
+            }
+            manager.updateAppWidget(id, views)
+        }
+
+        private fun layout(tile: Int): Int {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return R.layout.one_widget
+            return when (WidgetTileRules.step(tile)) {
+                48 -> R.layout.one_widget_48
+                72 -> R.layout.one_widget_72
+                else -> R.layout.one_widget
+            }
+        }
+
+        private fun paint(context: Context, id: Int, action: WidgetAction?, tile: Int): RemoteViews {
+            val views = RemoteViews(context.packageName, layout(tile))
+            HomeWidgets.tileSize(views, R.id.one_tile, R.id.one_icon, tile)
             if (action == null) {
                 // 고르지 않은 채 놓였으면(설정 창을 건너뛴 홈 화면) 누르면 고르기 창을 연다.
                 views.setImageViewResource(R.id.one_icon, R.drawable.ic_w_update)
@@ -129,7 +178,7 @@ class OneWidget : AppWidgetProvider() {
                 views.setContentDescription(R.id.one_root, action.label)
                 views.setOnClickPendingIntent(R.id.one_root, WidgetIntents.pending(context, WIDGET, action))
             }
-            manager.updateAppWidget(id, views)
+            return views
         }
     }
 }

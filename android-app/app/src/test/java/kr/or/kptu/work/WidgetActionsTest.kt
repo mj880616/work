@@ -173,7 +173,8 @@ class WidgetActionsTest {
         assertTrue(w.endsWith("dp"))
         assertEquals(w, attr(tile, "layout_height")) // 정사각
         val icon = children(tile, "ImageView").single()
-        assertEquals("28dp", attr(icon, "layout_width"))
+        // S68-08: 그림은 칸의 약 55%(칸 크기는 WidgetTileRules가 계산, 시험은 WidgetTileTest).
+        assertEquals("${WidgetTileRules.icon(w.removeSuffix("dp").toInt())}dp", attr(icon, "layout_width"))
         assertEquals("@color/widget_one_icon", attr(icon, "tint"))
         // 이름은 칸 안이 아니라 칸 아래(바깥 LinearLayout의 둘째 자식).
         assertTrue(children(tile, "TextView").isEmpty())
