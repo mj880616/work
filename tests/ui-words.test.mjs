@@ -24,6 +24,8 @@ test('검사기: 주석·코드 이름은 빼고 화면 글자만 센다', () =>
   const hits = countFile('a.js', src).map(h => `${h.line}:${h.word}`);
   assert.deepEqual(hits, ['3:고치기', '4:지웠', '8:버리기', '8:더보기']);
   assert.deepEqual(countFile('a.html', '<!-- 지우기 -->\n<button>편집</button>').map(h => h.word), ['편집']);
+  // S68-30(11/23 명진 '고르기 → 선택'): 고르거나·고릅니다·골라도도 센다. '고르게 맞춤'·옛 기록의 '골라져'는 다른 뜻이라 뺀다.
+  assert.deepEqual(countFile('b.js', "a = '파일을 고르거나'; b = '종류를 고릅니다'; c = '골라도 돼요'; d = '고르게 맞춤'; e = '골라져 있어요';").map(h => h.word), ['고르', '고릅', '골라']);
   assert.ok(jsStrings("a = 1 / 2; b = '골라 주세요'").some(s => s.text === '골라 주세요'), '나눗셈 뒤 따옴표도 읽는다');
 });
 
