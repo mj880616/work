@@ -22,8 +22,10 @@
 #readingView .rd-sub .rd-line{margin:0;white-space:nowrap}
 #readingView .rd-bad{color:var(--kptu-danger,var(--kptu-ink))}
 #readingView .rd-meta-line{margin:0 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#readingView .rd-acts{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 6px}
-#readingView .rd-prose{border-top:.5px solid var(--kptu-border);padding-top:6px;font-size:var(--ds-text-row);line-height:1.65;overflow-wrap:anywhere;max-width:44em}
+#readingView .rd-acts{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:0 0 6px}
+/* S68-33 READ-글자크기: [−][+](공용 text-size.js, 모양은 공용 ⑤)는 단추줄 끝 자리만. 본문 글자 = 기본 글자 × --txs(배율, 단추가 칠함). */
+#readingView .rd-acts .txs{margin-left:auto}
+#readingView .rd-prose{border-top:.5px solid var(--kptu-border);padding-top:6px;font-size:calc(var(--ds-text-row) * var(--txs,1));line-height:1.65;overflow-wrap:anywhere;max-width:44em}
 #readingView .rd-prose p{margin:0 0 8px;white-space:pre-line}
 #readingView .rd-faint{color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 #readingView .rd-tip{margin:4px 0 0}

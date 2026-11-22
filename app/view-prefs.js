@@ -153,7 +153,9 @@ export const NOW_TABS = Object.freeze(['outside', 'news', 'saved', 'search']);
 // S51-8 NEWS-전면개편 P4b: news_tab = News 메뉴의 마지막 탭(전체·사회운동·언론·보관), news_font = 상세 원문 글자 크기 세 단계(migration 20261106080000).
 // 옛 now_tab은 news_tab이 없을 때 한 번 읽어 옮기기만 한다(now-model.mjs startTab). 서버의 옛 값은 지우지 않는다(데이터 보존, S51-17 P5 확인).
 export const NEWS_TABS = Object.freeze(['all', 'movement', 'media', 'archive']);
-export const NEWS_FONTS = Object.freeze(['s', 'm', 'l']);
+// S68-33 READ-글자크기: news_font는 읽을 거리 글 보기와 함께 쓰는 본문 글자 크기 다섯 단계(xl·xxl은 migration 20261123010000). 뜻은 text-size-model.mjs.
+// 적용 전에는 xl·xxl 쓰기가 400이라 rejectable로 보내고 화면(text-size.js)이 이번 접속만 기억한다.
+export const NEWS_FONTS = Object.freeze(['s', 'm', 'l', 'xl', 'xxl']);
 // S61-16 NOTE-내용확대축소: note_zoom = 노트 보기에서 글·HTML 첨부 내용만 키우고 줄이는 배율(%) 하나(모든 기기·모든 노트 같음, 없으면 100).
 // migration 20261113110000. 적용 전에는 쓰기가 400이라 rejectable로 보내고 화면(note-zoom.js)이 이번 접속만 기억한다(알림 없음).
 export const NOTE_ZOOMS = Object.freeze([80, 90, 100, 110, 125, 150]);
