@@ -10,13 +10,14 @@ const A = 'a6800000-0000-4000-8000-000000000001', B = 'a6800000-0000-4000-8000-0
 const QUOTE = '공공부문 인력 충원이 늦어지는 까닭';
 const BODY = `첫 문단은 배경이에요.\n\n둘째 문단: ${QUOTE}을 짚어 봐요.\n\n셋째 문단은 정리예요.`;
 
-async function server(page, { refuseRead = false } = {}) {
+async function server(page, { refuseRead = false, extra = [], importFail = {}, newsBodies = {} } = {}) {
   const s = {
     rows: [
       { id: A, workspace_id: 'w', url: 'https://example.com/a', title: '예시 기사 하나', site: 'example.com', saved_at: '2026-11-22T01:00:00Z', read_at: null, body_state: 'ok', body_at: '2026-11-22T01:00:10Z', business_area_id: null, updated_at: '2026-11-22T01:00:10Z', body: BODY },
       { id: B, workspace_id: 'w', url: 'https://example.org/b', title: '예시 칼럼 둘', site: 'example.org', saved_at: '2026-11-21T01:00:00Z', read_at: '2026-11-21T02:00:00Z', body_state: 'bot_check', body_at: '2026-11-21T01:00:10Z', business_area_id: null, updated_at: '2026-11-21T02:00:00Z', body: null },
+      ...extra,
     ],
-    calls: [], posts: [], patches: [], imports: [], hl: [], hlPosts: [], notes: [],
+    calls: [], posts: [], patches: [], imports: [], hl: [], hlPosts: [], notes: [], bodyReads: [],
   };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
@@ -24,6 +25,7 @@ async function server(page, { refuseRead = false } = {}) {
     const body = req.postDataJSON?.() ?? null;
     if (p === '/functions/v1/note-import') {
       s.imports.push(body);
+      if (importFail[body.url]) return ok({ ok: true, state: 'failed', reason: importFail[body.url], url: body.url, title: null, site: null, author: null, published_at: null, lang: null, blocks: [], chars: 0, truncated: false });
       return ok({ ok: true, state: 'ok', reason: null, url: body.url, title: '새로 받은 글 제목', site: '예시 신문', author: null, published_at: null, lang: 'ko',
         blocks: [{ t: 'h', text: '소제목' }, { t: 'p', text: '받아 온 본문 <b>글자</b>예요.' }, { t: 'img', src: 'https://example.org/x.png' }], chars: 20, truncated: false });
     }
@@ -48,6 +50,11 @@ async function server(page, { refuseRead = false } = {}) {
       }
       if (method === 'DELETE') { s.rows = s.rows.filter(x => x.id !== id); return route.fulfill({ status: 204 }); }
       return ok((id ? s.rows.filter(x => x.id === id) : s.rows).map(pick));
+    }
+    if (table === 'app_news_article_bodies' || table === 'app_outside_article_bodies') {
+      const id = (u.searchParams.get('article_id') || '').replace(/^eq\./, '');
+      s.bodyReads.push(id);
+      return ok(newsBodies[id] ? [newsBodies[id]] : []);
     }
     if (table === 'app_news_highlights') {
       if (method === 'POST') { const row = { ...body, id: 'b6800000-0000-4000-8000-00000000000' + (s.hl.length + 1), created_at: '2026-11-22T04:00:00Z', updated_at: '2026-11-22T04:00:00Z' }; s.hlPosts.push(body); s.hl.unshift(row); return ok([row], 201); }
@@ -221,4 +228,54 @@ test('전체 검색: 읽을 거리 제목·원문 사본에서 찾고 누르면 
   await expect(page.locator('#readingView')).toBeVisible();
   await expect(detail(page).locator('.rd-title')).toHaveText('예시 기사 하나');
   expect(s.calls.length).toBeGreaterThan(0);
+});
+
+// S68-32: 이미 보관한 글 원문 다시 — 화면이 열릴 때 원문이 없거나 실패·robots로 남은 줄을 한 번씩 자동으로(2개씩 차례로), News에서 온 줄은 News 쪽 본문 먼저.
+test('자동 다시 가져오기: 옛 robots·실패·빈 줄만 한 번, News 본문이 있으면 그것, 다시 실패하면 [다시] 단추만', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openHome(page);
+  const id = n => `a6800000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`;
+  const NEWS_ART = 'd6800000-0000-4000-8000-000000000001';
+  const row = (n, extra) => ({ id: id(n), workspace_id: 'w', url: `https://example.net/${n}`, title: `보관 글 ${n}`, site: 'example.net', saved_at: `2026-11-20T0${n}:00:00Z`, read_at: null,
+    body_state: 'robots', body_at: '2026-11-20T00:00:10Z', business_area_id: null, updated_at: '2026-11-20T00:00:10Z', body: null, origin: 'direct', news_article_id: null, outside_article_id: null, ...extra });
+  const s = await server(page, {
+    extra: [
+      row(1, {}), // 옛 robots(서버 고침 전) → 원래 주소로 다시
+      row(2, { body_state: 'pending', body_at: null, origin: 'news', news_article_id: NEWS_ART }), // News에서 온 빈 줄 → News 본문
+      row(3, { body_state: 'failed' }), // 옛 실패 → 다시 했는데 또 막힘
+      row(4, { body_state: 'robots', body_at: '2026-11-23T05:00:00+09:00' }), // 고친 뒤에 이미 해 본 줄 → 자동 안 함
+      row(5, { body_state: 'too_big' }), // 다시 해도 같은 상태 → 자동 안 함
+    ],
+    importFail: { 'https://example.net/3': 'bot_check' },
+    newsBodies: { [NEWS_ART]: { state: 'ok', reason: null, blocks: [{ t: 'p', text: 'News에 이미 있던 본문이에요.' }, { t: 'img', src: 'https://example.org/y.png' }] } },
+  });
+  await goReading(page, 1280);
+  // 대상 셋(1·2·3)만, 한 줄에 한 번. News 줄은 note-import를 부르지 않는다.
+  await expect.poll(() => s.patches.length).toBe(3);
+  expect(s.imports.map(x => x.url).sort()).toEqual(['https://example.net/1', 'https://example.net/3']);
+  expect(s.bodyReads).toEqual([NEWS_ART]);
+  const byId = Object.fromEntries(s.patches.map(x => [x.id, x.body]));
+  expect(byId[id(2)]).toMatchObject({ body: 'News에 이미 있던 본문이에요.', body_state: 'ok' });
+  expect(Object.keys(byId[id(2)]).sort()).toEqual(['body', 'body_at', 'body_state', 'updated_at']);
+  expect(byId[id(1)]).toMatchObject({ body_state: 'ok' });
+  expect(byId[id(3)]).toMatchObject({ body_state: 'bot_check', body: null });
+  expect(id(4) in byId || id(5) in byId).toBe(false);
+  // 다시 열어도(다른 화면 → 읽을 거리) 다시 자동으로 하지 않는다 — 실패한 줄은 [다시] 단추만.
+  await page.evaluate(() => window.KPTUReading.refresh());
+  await list(page).locator(`.rd-row[data-rd-open="${id(3)}"]`).click();
+  await expect(detail(page).locator('.rd-line')).toContainText('읽기를 막아');
+  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('다시');
+  await page.waitForTimeout(500);
+  expect(s.imports.length).toBe(2);
+  // robots 줄(자동 대상 아님)도 [다시]는 보인다. too_big은 숨김.
+  await list(page).locator(`.rd-row[data-rd-open="${id(4)}"]`).click();
+  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveText('다시');
+  await list(page).locator(`.rd-row[data-rd-open="${id(5)}"]`).click();
+  await expect(detail(page).locator('.rd-line')).toContainText('너무 커서');
+  await expect(detail(page).locator('.rd-line [data-rd-fetch]')).toHaveCount(0);
+  // [다시] 누르면 그때 원래 주소로 한 번 더(사람이 누른 것).
+  await list(page).locator(`.rd-row[data-rd-open="${id(3)}"]`).click();
+  await detail(page).locator('.rd-line [data-rd-fetch]').click();
+  await expect.poll(() => s.imports.length).toBe(3);
 });
