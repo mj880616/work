@@ -2,8 +2,8 @@ import {test, expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 
-// S62-22 APP-공유로뉴스보관: 폰 공유 창 'WORK ON+ News 보관'(앱이 목록에 target 'news'를 적음)으로 오면 창 없이 글에서 기사 주소 하나를 골라
-// 서버(news-feed ?action=save_url)에 주소만 보내고, 위쪽 작은 알림 한 줄 'News 보관에 넣었어요 [열기]'. 주소가 없으면 '기사 주소가 없어요 [잊지 말기로 넣기]'.
+// S62-22 APP-공유로뉴스보관: 폰 공유 창 'WORK ON+ 저장'(옛 'News 보관')(앱이 목록에 target 'news'를 적음)으로 오면 창 없이 글에서 기사 주소 하나를 골라
+// 서버(news-feed ?action=save_url)에 주소만 보내고, 위쪽 작은 알림 한 줄 '저장한 글에 넣었어요 [열기]'. 주소가 없으면 '기사 주소가 없어요 [잊지 말기로 넣기]'.
 // 앱 다리·서버는 시험용 흉내(합성 주소). 화면 사진은 docs/design/screens/s62-22/(PR 첨부용, SHOTS=1일 때만 저장).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.5.11';
@@ -53,9 +53,9 @@ async function shot(page, name) {
   await page.screenshot({path:SHOTS + name});
 }
 
-test('News 보관: 글에서 주소 하나만 서버로 보내고, 알림 한 줄 [열기], 앱에 끝났다고 알림 412', async ({page}) => {
+test('저장(공유): 글에서 주소 하나만 서버로 보내고, 알림 한 줄 [열기], 앱에 끝났다고 알림 412', async ({page}) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'합성 기사 제목', text:'합성 기사 제목\nhttps://news.example.org/a/1?utm_source=share', target:'news', items:[]});
-  await expect(notice(page)).toContainText('News 보관에 넣었어요');
+  await expect(notice(page)).toContainText('저장한 글에 넣었어요');
   await expect(notice(page).getByRole('button', {name:'열기'})).toBeVisible();
   expect(state.saves).toEqual([{url:'https://news.example.org/a/1?utm_source=share', title:'합성 기사 제목'}]);
   expect(state.posts).toEqual([]);
@@ -67,10 +67,10 @@ test('News 보관: 글에서 주소 하나만 서버로 보내고, 알림 한 �
   expect(errors).toEqual([]);
 });
 
-test('News 보관: 본문을 못 뽑은 기사는 원문 링크로 보라는 한 줄을 더한다 — 폴드 펼침 880', async ({page}) => {
+test('저장(공유): 본문을 못 뽑은 기사는 원문 링크로 보라는 한 줄을 더한다 — 폴드 펼침 880', async ({page}) => {
   await page.setViewportSize({width:880, height:1000});
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'https://news.example.org/b/2', target:'news', items:[]}, {status:200, json:{ok:true, status:'no_body', id:ART}});
-  await expect(notice(page)).toContainText('News 보관에 넣었어요');
+  await expect(notice(page)).toContainText('저장한 글에 넣었어요');
   await expect(notice(page)).toContainText('본문을 못 가져왔어요(원문 링크로 보기)');
   expect(state.saves).toEqual([{url:'https://news.example.org/b/2'}]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -78,7 +78,7 @@ test('News 보관: 본문을 못 뽑은 기사는 원문 링크로 보라는 한
   expect(errors).toEqual([]);
 });
 
-test('News 보관: 주소가 없는 글은 서버로 보내지 않고 [잊지 말기로 넣기]를 누를 때만 정리함 길로 — PC 1280', async ({page}) => {
+test('저장(공유): 주소가 없는 글은 서버로 보내지 않고 [잊지 말기로 넣기]를 누를 때만 정리함 길로 — PC 1280', async ({page}) => {
   await page.setViewportSize({width:1280, height:900});
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'주소 없는 합성 메모', target:'news', items:[]});
   await expect(notice(page)).toContainText('기사 주소가 없어요');
@@ -94,9 +94,9 @@ test('News 보관: 주소가 없는 글은 서버로 보내지 않고 [잊지 �
   expect(errors).toEqual([]);
 });
 
-test('News 보관: 서버가 주소를 거절하면 [다시] 없이 이유 한 줄, 다른 실패는 [다시] 412', async ({page}) => {
+test('저장(공유): 서버가 주소를 거절하면 [다시] 없이 이유 한 줄, 다른 실패는 [다시] 412', async ({page}) => {
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'https://intra.example/x', target:'news', items:[]}, {status:400, json:{ok:false, error:'URL_REFUSED'}});
-  await expect(notice(page)).toContainText('News 보관에 넣지 못했어요');
+  await expect(notice(page)).toContainText('저장한 글에 넣지 못했어요');
   await expect(notice(page)).toContainText('이 주소는 넣을 수 없어요.');
   await expect(notice(page).getByRole('button', {name:'다시'})).toHaveCount(0);
   expect(state.saves).toHaveLength(1);

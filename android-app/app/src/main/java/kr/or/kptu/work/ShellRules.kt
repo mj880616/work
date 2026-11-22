@@ -207,7 +207,7 @@ object ShellRules {
      */
     const val SHARE_TO_NOTE = "ShareToNote"
     const val SHARE_TO_TASK = "ShareToTask"
-    /** S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON+ News 보관'(같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
+    /** S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON+ 저장'(S68-35 옛 'News 보관', 같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
     const val SHARE_TO_NEWS = "ShareToNews"
     /** S68-09 READ-읽을거리함: 다섯 번째 칸 'WORK ON+ 읽을 거리'(같은 activity-alias 방식). 웹은 글에서 주소 하나만 골라 읽을 거리에 넣는다. */
     const val SHARE_TO_READING = "ShareToReading"
@@ -294,7 +294,7 @@ object ShellRules {
             sb.append('}')
         }
         sb.append(']')
-        // 정리함은 이전과 같은 모양(칸 없음). 노트·할 일·News 보관만 들어갈 곳을 적는다(정해진 낱말만).
+        // 정리함은 이전과 같은 모양(칸 없음). 노트·할 일·저장(news)·읽을 거리만 들어갈 곳을 적는다(정해진 낱말만).
         if (target != "basket" && target in SHARE_TARGETS) sb.append(",\"target\":").append(jsonString(target))
         sb.append('}')
         return sb.toString()
