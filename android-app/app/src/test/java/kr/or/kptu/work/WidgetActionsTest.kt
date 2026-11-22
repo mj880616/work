@@ -103,8 +103,9 @@ class WidgetActionsTest {
         val app = children(xml("src/main/AndroidManifest.xml"), "application").single()
         // 위젯 받는 곳만(앱 업데이트 결과 받는 곳 .UpdateReceiver는 UpdateRulesTest가 본다).
         val receivers = children(app, "receiver").filter { attr(it, "name") != ".UpdateReceiver" }.associateBy { attr(it, "name") }
-        assertEquals(setOf(".NowWidget", ".QuickWidget", ".OneWidget", ".WeekWidget", ".ArsenalWidget"), receivers.keys)
-        val infos = mapOf(".NowWidget" to "@xml/now_widget_info", ".QuickWidget" to "@xml/quick_widget_info", ".OneWidget" to "@xml/one_widget_info", ".WeekWidget" to "@xml/week_widget_info", ".ArsenalWidget" to "@xml/arsenal_widget_info")
+        // S68-13(11/22 명진): '지금'(.NowWidget)·'아스날'(.ArsenalWidget) 위젯은 쓰지 않아 지웠다.
+        assertEquals(setOf(".QuickWidget", ".OneWidget", ".WeekWidget"), receivers.keys)
+        val infos = mapOf(".QuickWidget" to "@xml/quick_widget_info", ".OneWidget" to "@xml/one_widget_info", ".WeekWidget" to "@xml/week_widget_info")
         for ((name, r) in receivers) {
             assertEquals("$name exported", "false", attr(r, "exported"))
             assertEquals(infos[name], attr(children(r, "meta-data").single(), "resource"))
@@ -118,10 +119,8 @@ class WidgetActionsTest {
         assertEquals("true", attr(config, "exported"))
         val actions = children(config, "action").map { attr(it, "name") }
         assertEquals(listOf("android.appwidget.action.APPWIDGET_CONFIGURE"), actions)
-        // APP-위젯아스날맞춤 E: 아스날 '결과 가림' 고르기 창도 같은 모양(설정 동작 하나만).
-        val arsenalConfig = activities.getValue(".ArsenalWidgetConfigActivity")
-        assertEquals("true", attr(arsenalConfig, "exported"))
-        assertEquals(listOf("android.appwidget.action.APPWIDGET_CONFIGURE"), children(arsenalConfig, "action").map { attr(it, "name") })
+        // S68-13: 아스날 위젯과 함께 그 고르기 창도 지웠다(내보낸 화면이 하나 줄었다).
+        assertFalse(activities.containsKey(".ArsenalWidgetConfigActivity"))
         // 위젯은 권한을 늘리지 않았다(카메라 권한 없음). 설치 권한 둘은 앱 스스로 업데이트(0.3.8)용.
         // 사진·동영상 읽기 넷은 사진 메뉴 '폰 사진'(PHOTO-출처 ①, 0.3.9)용 — 저장소 쓰기·위치·카메라는 없다.
         // MANAGE_MEDIA는 사진 [폴더]의 폰 폴더 바꾸기(PHOTO-폴더스위치, 0.4.1)용 — 사용자가 설정에서 켜야만 쓰인다.
@@ -198,8 +197,9 @@ class WidgetActionsTest {
     fun widgetNamesAreNeverRemoved() {
         // 규칙(11/02): 위젯 받는 곳을 지우거나 이름을 바꾸면 홈 화면에 놓인 자리가 '위젯을 추가할 수 없습니다'로 남는다.
         // 모양을 바꿀 때는 같은 이름으로. 이 목록은 늘릴 수만 있다(manifestListsTheWidgets와 함께 고정).
+        // 예외: 명진이 위젯을 쓰지 않기로 정해 지울 때만 뺀다(S68-13, 11/22 '지금'·'아스날'). 놓아 둔 자리는 홈 화면에서 길게 눌러 지운다.
         val manifest = File("src/main/AndroidManifest.xml").readText()
-        for (name in listOf(".NowWidget", ".QuickWidget", ".OneWidget", ".WeekWidget", ".ArsenalWidget")) {
+        for (name in listOf(".QuickWidget", ".OneWidget", ".WeekWidget")) {
             assertTrue(name, manifest.contains("android:name=\"$name\""))
         }
         assertTrue(manifest.contains("위젯 받는 곳(receiver)은 지우거나 이름을 바꾸지 않는다"))

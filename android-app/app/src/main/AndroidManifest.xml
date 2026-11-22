@@ -190,17 +190,6 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
-        <!-- APP-위젯아스날맞춤 E: 아스날 위젯 '결과 보이기/가리기' 고르기. 홈 화면 앱이 열어야 해서 내보내지만 이 앱 위젯 번호의 켬/끔 하나만 저장한다. -->
-        <activity
-            android:name=".ArsenalWidgetConfigActivity"
-            android:exported="true"
-            android:excludeFromRecents="true"
-            android:taskAffinity=""
-            android:theme="@style/WidgetConfigTheme">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-            </intent-filter>
-        </activity>
         <!-- 위젯 규칙(APP-한칸위젯디자인, 11/02): 위젯 받는 곳(receiver)은 지우거나 이름을 바꾸지 않는다. 지우면 홈 화면에 놓아 둔 자리가
              '위젯을 추가할 수 없습니다'로 남고 되살릴 수 없다. 모양을 바꿀 때는 같은 이름으로 새 모양을 그린다(WidgetActionsTest가 이름 목록을 고정). -->
         <!-- APP-위젯다시 ②: 빠른 쓰기(4×1·2×1). 서버를 읽지 않는다. -->
@@ -239,18 +228,6 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/week_widget_info" />
         </receiver>
-        <!-- WIDGET-여러개 ③ → APP-위젯아스날맞춤 C: 아스날(4×2·4×1·2×1). 경기는 공개 정적 파일(로그인 없음), 경기 뒤 내 일정은 위젯 로그인이 있을 때만. -->
-        <receiver
-            android:name=".ArsenalWidget"
-            android:exported="false"
-            android:label="아스날">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/arsenal_widget_info" />
-        </receiver>
         <!-- APP-스스로업데이트: PackageInstaller 결과와 새 판으로 바뀜(MY_PACKAGE_REPLACED). 내보내지 않는다(시스템만 보냄). -->
         <receiver
             android:name=".UpdateReceiver"
@@ -270,17 +247,5 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/share_out_paths" />
         </provider>
-        <!-- APP-위젯다시 ①: 홈 화면 '웹2 지금' 위젯(4×2·2×2, 홈 화면 전용). 지난 '오늘'·'텔레그램' 위젯을 합쳐 바꿨다. 권한은 그대로 인터넷 하나. -->
-        <receiver
-            android:name=".NowWidget"
-            android:exported="false"
-            android:label="WORK ON+ 지금">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/now_widget_info" />
-        </receiver>
     </application>
 </manifest>

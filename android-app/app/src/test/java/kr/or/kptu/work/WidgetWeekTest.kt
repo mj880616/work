@@ -214,14 +214,12 @@ class WidgetWeekTest {
     }
 
     @Test
-    fun candidatesAddressIsFixedAndReadOnly() {
+    fun candidatesAddressIsNoLongerRead() {
+        // S68-13(11/22 명진): 처리 전 후보는 '지금' 위젯만 읽었다. 위젯과 함께 허용 목록에서 뺐다(어떤 방식도 안 됨).
         val url = "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100"
-        assertEquals(url, WidgetRules.CANDIDATES)
-        assertTrue(WidgetRules.allowed("GET", url))
+        assertFalse(WidgetRules.allowed("GET", url))
         assertFalse(WidgetRules.allowed("POST", url))
         assertFalse(WidgetRules.allowed("PATCH", url))
-        assertFalse(WidgetRules.allowed("GET", url.replace("status=eq.open", "status=eq.tasked")))
-        assertFalse(WidgetRules.allowed("GET", url.replace("select=source_kind,summary", "select=*")))
         assertFalse(WidgetRules.allowed("GET", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/app_todo_candidates"))
         // 텔레그램 읽기는 위젯과 함께 지웠다. S68-02: 기능 목록은 보고일 이름·앱 폴더 이름(nojo_words)에만 GET 하나(POST 없음).
         assertFalse(WidgetRules.allowed("POST", "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/rpc/app_my_features"))

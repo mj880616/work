@@ -133,7 +133,7 @@ class WidgetTileTest {
         assertTrue(code.contains("WidgetTileRules.one("))
         assertTrue(code.contains("WidgetTileRules.quick("))
         assertEquals(2, Regex("HomeWidgets.perSize\\(HomeWidgets.cellSizes\\(manager, id\\)\\)").findAll(code).count())
-        val hub = File("src/main/java/kr/or/kptu/work/NowWidget.kt").readText()
+        val hub = File("src/main/java/kr/or/kptu/work/HomeWidgets.kt").readText()
         for (s in listOf("OPTION_APPWIDGET_SIZES", "OPTION_APPWIDGET_MIN_WIDTH", "OPTION_APPWIDGET_MAX_WIDTH", "OPTION_APPWIDGET_MIN_HEIGHT", "OPTION_APPWIDGET_MAX_HEIGHT", "setViewLayoutWidth", "setViewLayoutHeight")) {
             assertTrue(s, hub.contains(s))
         }

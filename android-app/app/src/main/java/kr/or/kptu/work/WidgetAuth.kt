@@ -32,11 +32,6 @@ object WidgetRules {
     const val CALENDAR_PREFIX = "$SUPABASE/functions/v1/google-calendar?action=events&timeMin="
     const val TASKS = "$SUPABASE/functions/v1/google-tasks?action=overview"
     /**
-     * APP-위젯다시: '지금' 위젯의 '나한테 온 요청'·'챙길 것' 줄(건수 + 한 줄). 웹 inbox-count.js와 같은 처리 전 후보 읽기.
-     * 기존 소유자 RLS(app_todo_candidates)가 이 사람 작업공간 줄만 준다. 두 칸(종류·한 줄)만 읽는다.
-     */
-    const val CANDIDATES = "$SUPABASE/rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100"
-    /**
      * APP-위젯빠른쓰기(설계 13절): '새 글 넣기' 세 가지만. app_notes는 물음표 없는 정확한 주소 하나(필터를 붙인 일괄 요청 불가),
      * 할 일은 google-tasks create 하나. 작업공간 확인은 위젯 세션 사용자 id로 읽는 한 줄(기존 소유자 RLS).
      */
@@ -91,9 +86,6 @@ object WidgetRules {
         url.startsWith(WORKSPACE_PREFIX) && url.endsWith(WORKSPACE_SUFFIX) &&
             isUserId(url.substring(WORKSPACE_PREFIX.length, url.length - WORKSPACE_SUFFIX.length))
 
-    /** WIDGET-여러개 ③ 아스날: 공개 정적 파일(앱 아스날 화면과 같은 자료). 로그인 토큰을 붙이지 않는다(readPublic). */
-    const val ARSENAL = ShellRules.HOME + "arsenal/matches.js"
-
     /** 단계 ①과 같은 로그인 주소(돌아올 주소가 같아 Supabase 허용 주소를 늘리지 않는다). */
     val LOGIN_URL: String =
         "$SUPABASE/auth/v1/authorize?provider=google&redirect_to=" +
@@ -115,7 +107,7 @@ object WidgetRules {
     /** 위젯이 보내도 되는 요청인지. 이 밖의 주소·방식은 보내지 않는다. */
     fun allowed(method: String, url: String): Boolean = when (method) {
         "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT || url == NOTES || url == TASK_CREATE || url == BASKET_FILES || url == LIBRARY_FILES
-        "GET" -> url == TASKS || url == CANDIDATES || url == FEATURES || url == ARSENAL || isCalendarUrl(url) || isWorkspaceUrl(url)
+        "GET" -> url == TASKS || url == FEATURES || isCalendarUrl(url) || isWorkspaceUrl(url)
         else -> false
     }
 
@@ -171,16 +163,6 @@ class WidgetSession(
         /** 네트워크·서버 일시 오류. 토큰은 지우지 않고 다음 갱신을 기다린다. */
         data class Failed(val reason: String) : Outcome<Nothing>()
     }
-
-    data class Raw(
-        val calendarStatus: Int,
-        val calendar: Any?,
-        val tasksStatus: Int,
-        val tasks: Any?,
-        /** WIDGET-여러개 ②: 처리 전 후보(건수용). 읽지 않았으면 0. */
-        val candidatesStatus: Int = 0,
-        val candidates: Any? = null,
-    )
 
     /** 읽기 한 건의 답(상태·JSON). */
     data class Reply(val status: Int, val body: Any?)
@@ -327,39 +309,15 @@ class WidgetSession(
 
     // ── 위젯 읽기(설계 6절) ──
 
-    /** 오늘 일정·할 일(+ counts면 처리 전 후보). 같은 위젯 세션 읽기(readList) 한 번. */
-    fun readToday(timeMin: String, timeMax: String, counts: Boolean = false): Outcome<Raw> {
-        val urls = listOf(WidgetRules.calendarUrl(timeMin, timeMax), WidgetRules.TASKS) + (if (counts) listOf(WidgetRules.CANDIDATES) else emptyList())
-        return when (val r = readList(urls)) {
-            is Outcome.Ok -> {
-                val c = r.value.getOrNull(2)
-                Outcome.Ok(Raw(r.value[0].status, r.value[0].body, r.value[1].status, r.value[1].body, c?.status ?: 0, c?.body))
-            }
-            is Outcome.SignedOut -> Outcome.SignedOut
-            is Outcome.Failed -> r
-        }
-    }
-
     /**
      * 허용 주소(WidgetRules.allowed)만 차례로 GET. 접근 토큰이 서버에서 먼저 끝났으면(401) 버리고 한 번만 새로 받아 다시 읽는다.
-     * WIDGET-여러개 ②: 오늘·이번 주 위젯이 같은 갱신 작업 한 번에 같이 읽는다.
+     * WIDGET-여러개 ②: 갱신 작업 한 번에 필요한 주소를 같이 읽는다(S68-13부터 '이번 주' 위젯 하나).
      */
     fun readList(urls: List<String>): Outcome<List<Reply>> = synchronized(lock) {
         readOnce(urls) ?: run {
             access = null
             accessUntil = 0L
             readOnce(urls) ?: Outcome.Failed("unauthorized")
-        }
-    }
-
-    /** 로그인 없이 읽는 공개 주소(아스날 정적 파일)만. 토큰·apikey를 붙이지 않는다. 네트워크 오류는 Failed. */
-    fun readPublic(url: String): Outcome<Reply> {
-        if (url != WidgetRules.ARSENAL) return Outcome.Failed("blocked")
-        return try {
-            val r = send(WidgetRequest("GET", url, emptyMap()))
-            Outcome.Ok(Reply(r.status, r.body))
-        } catch (_: IOException) {
-            Outcome.Failed("network")
         }
     }
 

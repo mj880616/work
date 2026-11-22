@@ -77,7 +77,7 @@ class WidgetLayoutsTest {
             }
             .map { it.getAttributeNS(android, "name").removePrefix(".") }
             .toSet()
-        assertEquals(5, widgets.size)
+        assertEquals(3, widgets.size)
         assertEquals(widgets, HomeWidgets.PROVIDERS.map { it.simpleName }.toSet())
     }
 

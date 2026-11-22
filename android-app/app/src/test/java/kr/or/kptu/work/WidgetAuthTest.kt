@@ -11,6 +11,12 @@ import java.io.IOException
 class WidgetAuthTest {
     private val user = "11111111-2222-4333-8444-555555555555"
 
+    /** 위젯이 읽는 모양 그대로(이번 주 일정·할 일). S68-13 전에는 '지금' 위젯의 readToday로 같은 두 주소를 읽었다. */
+    private fun today(): List<String> {
+        val (a, b) = WidgetWeek.range(clock)
+        return listOf(WidgetRules.calendarUrl(a, b), WidgetRules.TASKS)
+    }
+
     private class MemoryVault : WidgetVault {
         var value: String? = null
         var failWrite = false
@@ -118,8 +124,7 @@ class WidgetAuthTest {
         // 다음 요청(읽기) 때 금고에는 이미 새 토큰이 있다.
         http.answers.add(ok("{\"events\":[]}"))
         http.answers.add(ok("{\"tasks\":[]}"))
-        val (a, b) = WidgetNow.range(clock)
-        assertTrue(session.readToday(a, b) is WidgetSession.Outcome.Ok)
+        assertTrue(session.readList(today()) is WidgetSession.Outcome.Ok)
         assertEquals("v1\n$user\nr2", http.vaultAtSend.last())
     }
 
@@ -165,15 +170,14 @@ class WidgetAuthTest {
     }
 
     @Test
-    fun readTodayUsesWidgetTokenAndRetriesOnceOn401() {
+    fun readListUsesWidgetTokenAndRetriesOnceOn401() {
         signIn()
-        val (a, b) = WidgetNow.range(clock)
         http.answers.add(status(401))
         http.answers.add(ok("{\"tasks\":[]}"))
         http.answers.add(ok(sessionJson("a2", "r2")))
         http.answers.add(ok("{\"events\":[]}"))
         http.answers.add(ok("{\"tasks\":[]}"))
-        val r = session.readToday(a, b)
+        val r = session.readList(today())
         assertTrue(r is WidgetSession.Outcome.Ok)
         val gets = http.sent.filter { it.method == "GET" }
         assertEquals("Bearer a1", gets[0].headers["Authorization"])
@@ -185,17 +189,16 @@ class WidgetAuthTest {
         http.answers.add(ok(sessionJson("a3", "r3")))
         http.answers.add(status(401))
         http.answers.add(status(401))
-        assertTrue(session.readToday(a, b) is WidgetSession.Outcome.Failed)
+        assertTrue(session.readList(today()) is WidgetSession.Outcome.Failed)
         assertEquals("v1\n$user\nr3", vault.value)
     }
 
     @Test
-    fun readTodayWithoutLoginSendsNothing() {
-        val (a, b) = WidgetNow.range(clock)
-        assertEquals(WidgetSession.Outcome.SignedOut, session.readToday(a, b))
+    fun readListWithoutLoginSendsNothing() {
+        assertEquals(WidgetSession.Outcome.SignedOut, session.readList(today()))
         assertTrue(http.sent.isEmpty())
         vault.value = "garbage"
-        assertEquals(WidgetSession.Outcome.SignedOut, session.readToday(a, b))
+        assertEquals(WidgetSession.Outcome.SignedOut, session.readList(today()))
         assertNull(vault.value)
         assertTrue(http.sent.isEmpty())
     }
@@ -226,8 +229,7 @@ class WidgetAuthTest {
         http.answers.add(ok(sessionJson("a2", "r2")))
         http.answers.add(ok("{\"events\":[]}"))
         http.answers.add(ok("{\"tasks\":[]}"))
-        val (a, b) = WidgetNow.range(clock)
-        session.readToday(a, b)
+        session.readList(today())
         http.answers.add(ok("{}"))
         session.logout()
         val base = "https://xmlkxfjeagycwttklxjw.supabase.co"
@@ -248,6 +250,9 @@ class WidgetAuthTest {
     @Test
     fun allowedRejectsEverythingElse() {
         val base = "https://xmlkxfjeagycwttklxjw.supabase.co"
+        // S68-13: '지금' 위젯의 처리 전 후보 읽기와 아스날 위젯의 경기 파일 읽기는 위젯과 함께 허용 목록에서 뺐다.
+        assertFalse(WidgetRules.allowed("GET", "$base/rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100"))
+        assertFalse(WidgetRules.allowed("GET", ShellRules.HOME + "arsenal/matches.js"))
         assertFalse(WidgetRules.allowed("GET", WidgetRules.HANDOFF))
         assertFalse(WidgetRules.allowed("POST", WidgetRules.TASKS))
         assertFalse(WidgetRules.allowed("POST", "$base/functions/v1/google-tasks"))
@@ -276,7 +281,7 @@ class WidgetAuthTest {
     fun widgetSourcesDoNotLog() {
         // 토큰·응답 본문을 로그에 쓰지 않는다(설계 8절). 위젯 파일에는 로그 호출 자체가 없다.
         val dir = File("src/main/java/kr/or/kptu/work")
-        val files = listOf("WidgetAuth.kt", "WidgetHttp.kt", "WidgetNow.kt", "NowWidget.kt", "WidgetWeek.kt", "WeekWidget.kt", "QuickWriteRules.kt", "QuickPhotoRules.kt", "QuickPhoto.kt", "WidgetArsenal.kt", "ArsenalWidget.kt", "WidgetRefresh.kt", "KeystoreVault.kt", "MiniJson.kt", "MainActivity.kt")
+        val files = listOf("WidgetAuth.kt", "WidgetHttp.kt", "WidgetNow.kt", "HomeWidgets.kt", "WidgetWeek.kt", "WeekWidget.kt", "QuickWriteRules.kt", "QuickPhotoRules.kt", "QuickPhoto.kt", "WidgetRefresh.kt", "KeystoreVault.kt", "MiniJson.kt", "MainActivity.kt")
         for (name in files) {
             val text = File(dir, name).readText()
             for (bad in listOf("Log.", "println(", "printStackTrace", "HttpLoggingInterceptor")) {
