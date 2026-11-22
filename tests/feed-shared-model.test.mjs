@@ -1,25 +1,32 @@
 // NEWS-모두에게열기 ③ 화면: 공용 기사·글 + 사람별 표시를 읽고 쓰는 길(app/feed-shared.js, app/feed-shared-model.mjs)과 텔레그램 [뉴스방으로].
+// S68-27: 보관(starred_at 칸)은 표시 표가 아니라 내 읽을 거리 줄(app_reading_items)에서 온다 — 쓰기는 서버 함수 app_reading_keep 하나.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {articleCols, flatNews, flatNewsMark, newsPage, mapIds, markFields, savedOutsideMark, NEWS_MARK_EMBED} from '../app/feed-shared-model.mjs';
+import {articleCols, flatNews, flatNewsMark, flatNewsSaved, newsPage, mapIds, markFields, outsideMarkRows, NEWS_MARK_EMBED, SAVED_EMBED} from '../app/feed-shared-model.mjs';
 
 const A = 'aaaaaaaa-0000-4000-8000-000000000001', B = 'bbbbbbbb-0000-4000-8000-000000000002', OLD = 'cccccccc-0000-4000-8000-000000000003';
 
-test('공용 기사 칸: 표시 칸(별표·폴더·숨김·키워드)은 공용 표에 묻지 않는다', () => {
+test('공용 기사 칸: 표시 칸(폴더·숨김·키워드)과 보관 칸은 공용 표에 묻지 않는다, 옛 별표 칸은 묻지 않는다', () => {
   assert.equal(articleCols('id,lane,url,title,keywords,starred_at,folder_id,hidden_at,summary'), 'id,lane,url,title,summary');
   assert.equal(articleCols('title'), 'id,title');
-  assert.equal(NEWS_MARK_EMBED, 'app_news_marks(starred_at,folder_id,hidden_at,keywords)');
+  assert.equal(NEWS_MARK_EMBED, 'app_news_marks(folder_id,hidden_at,keywords)');
+  assert.equal(SAVED_EMBED, 'app_reading_items(saved_at)');
 });
 
-test('공용 기사 + 내 표시 → 옛 줄 모양, 표시 없으면 빈 값', () => {
-  assert.deepEqual(flatNews({id: A, title: 't', app_news_marks: [{starred_at: 's', folder_id: null, hidden_at: null, keywords: ['k']}]}),
+test('공용 기사 + 내 표시 + 내 보관(읽을 거리 줄) → 옛 줄 모양(starred_at = 보관 시각), 없으면 빈 값', () => {
+  assert.deepEqual(flatNews({id: A, title: 't', app_news_marks: [{folder_id: null, hidden_at: null, keywords: ['k']}], app_reading_items: [{saved_at: 's'}]}),
     {id: A, title: 't', starred_at: 's', folder_id: null, hidden_at: null, keywords: ['k']});
-  assert.deepEqual(flatNews({id: A, title: 't', app_news_marks: []}), {id: A, title: 't', starred_at: null, folder_id: null, hidden_at: null, keywords: []});
+  assert.deepEqual(flatNews({id: A, title: 't', app_news_marks: [{starred_at: 'old', folder_id: null}], app_reading_items: []}), {id: A, title: 't', starred_at: null, folder_id: null, hidden_at: null, keywords: []},
+    '표시 표의 옛 별표 칸은 보관이 아니다');
   assert.equal(flatNews({title: 'no id'}), null);
-  assert.deepEqual(flatNewsMark({starred_at: 's', folder_id: 'f', hidden_at: null, keywords: [], app_news_articles: {id: B, title: 'x'}}),
+  assert.deepEqual(flatNewsMark({folder_id: 'f', hidden_at: null, keywords: [], app_news_articles: {id: B, title: 'x', app_reading_items: [{saved_at: 's'}]}}),
     {id: B, title: 'x', starred_at: 's', folder_id: 'f', hidden_at: null, keywords: []});
-  assert.equal(flatNewsMark({starred_at: 's', app_news_articles: null}), null, '읽을 수 없는 공용 기사(정책상 빈 embed)는 빠진다');
+  assert.equal(flatNewsMark({app_news_articles: null}), null, '읽을 수 없는 공용 기사(정책상 빈 embed)는 빠진다');
+  assert.deepEqual(flatNewsSaved({id: 'r', saved_at: 's', app_news_articles: {id: B, title: 'x', app_news_marks: [{folder_id: 'f', hidden_at: null, keywords: []}]}}),
+    {id: B, title: 'x', starred_at: 's', folder_id: 'f', hidden_at: null, keywords: []});
+  assert.deepEqual(flatNewsSaved({id: 'r', saved_at: 's', app_news_articles: {id: B, app_news_marks: []}}), {id: B, starred_at: 's', folder_id: null, hidden_at: null, keywords: []});
+  assert.equal(flatNewsSaved({id: 'r', saved_at: 's', app_news_articles: null}), null);
 });
 
 test('목록 한 쪽: 내가 숨긴 기사는 화면에서 빼되 다음 쪽 자리(raw)는 읽은 줄 수 그대로', () => {
@@ -34,10 +41,18 @@ test('옛 id 지도: 지도 줄이 있으면 공용 id, 없으면 같은 id(옮�
   assert.deepEqual([...m], [[OLD, B], [A, A]]);
 });
 
-test('표시 쓰기 몸통: 화면 권한 칸만(작업공간·기사 id·키워드는 몸통으로 못 바꿈)', () => {
-  assert.deepEqual(markFields('news', {starred_at: 's', folder_id: null, hidden_at: 'h', keywords: ['x'], workspace_id: 'w2', article_id: A}), {starred_at: 's', folder_id: null, hidden_at: 'h'});
-  assert.deepEqual(markFields('outside', {starred_at: null, archived_at: 'a', dismissed_at: 'd', hidden_at: 'h'}), {starred_at: null, archived_at: 'a', dismissed_at: 'd'});
-  assert.deepEqual(savedOutsideMark({article_id: A, starred_at: 's', app_outside_articles: {id: A}}), {post_id: A, starred_at: 's', dismissed_at: null, app_outside_posts: {id: A}});
+test('표시 쓰기 몸통: 숨김·관심 없음·폴더만(보관·옛 별표·작업공간·기사 id·키워드는 몸통으로 못 바꿈)', () => {
+  assert.deepEqual(markFields('news', {starred_at: 's', folder_id: null, hidden_at: 'h', keywords: ['x'], workspace_id: 'w2', article_id: A}), {folder_id: null, hidden_at: 'h'});
+  assert.deepEqual(markFields('outside', {starred_at: null, archived_at: 'a', dismissed_at: 'd', hidden_at: 'h'}), {dismissed_at: 'd'});
+});
+
+test('사회운동: 보관(읽을 거리 줄) + 관심 없음 표시 → 한 모양, 보관 시각 = 줄 저장 시각', () => {
+  assert.deepEqual(outsideMarkRows([{article_id: A, dismissed_at: 'd'}, {article_id: B, dismissed_at: 'd2'}, {article_id: OLD, dismissed_at: null}],
+    [{outside_article_id: A, saved_at: 's', app_outside_articles: {id: A}}]), [
+    {post_id: A, starred_at: 's', dismissed_at: 'd', app_outside_posts: {id: A}},
+    {post_id: B, starred_at: null, dismissed_at: 'd2', app_outside_posts: null},
+  ]);
+  assert.deepEqual(outsideMarkRows(null, null), []);
 });
 
 test('읽기·쓰기 길: 공용 표는 읽기만, 사람별 표는 늘 내 작업공간으로', () => {
@@ -50,6 +65,12 @@ test('읽기·쓰기 길: 공용 표는 읽기만, 사람별 표는 늘 내 작�
   assert.match(src, /body: \{workspace_id: w, article_id: id, \.\.\.body\}/);
   assert.match(src, /\$\{T\[type\]\.read\}\?workspace_id=eq\.\$\{q\(workspaceOf\(\)\)\}/);
   assert.match(src, /app_news_marks\.workspace_id=eq\.\$\{q\(w\)\}/);
+  // 보관: 읽기는 내 읽을 거리 줄(작업공간을 건다), 쓰기는 서버 함수 하나. 표시 표의 옛 별표·보관 칸은 읽지도 쓰지도 않는다.
+  assert.match(src, /app_reading_items\.workspace_id=eq\.\$\{q\(w\)\}/);
+  assert.match(src, /\$\{R\}\?workspace_id=eq\.\$\{q\(w\)\}&news_article_id=not\.is\.null/);
+  assert.match(src, /'\/rest\/v1\/rpc\/app_reading_keep', \{method: 'POST', body: \{p_workspace: w, p_source: item\.type, p_article: id, p_on: !!on/);
+  assert.doesNotMatch(src, /starred_at=not\.is\.null|starred_at\.not\.is\.null|archived_at:|select=starred_at|,starred_at/);
+  assert.doesNotMatch(src, /\$\{R\}[^`]*`, \{method: '(POST|PATCH|DELETE)'/, '읽을 거리 표에 직접 쓰지 않는다(보관은 서버 함수)');
   // 옛 id는 자기 작업공간 옛 줄만 바꿔 주는 지도 함수로(지도 표를 직접 읽지 않는다).
   assert.match(src, /rpc\/\$\{t\.map\}/);
   assert.doesNotMatch(src, /app_(news|outside)_id_map/);

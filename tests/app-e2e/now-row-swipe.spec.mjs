@@ -42,11 +42,13 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른�
 
   await swipe(item(page, 'k1'), 320);
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(1);
-  expect(Object.keys(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
+  // S68-27: 보관 = 내 읽을 거리 한 줄(서버 함수 app_reading_keep) — 표시 표의 별표 칸에는 쓰지 않는다.
+  expect(server.calls.filter(c => c.what === 'reading_keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'news', p_article: 'k1', p_on: true, p_saved_at: null });
+  expect(server.calls.some(c => c.what === 'app_news_marks' && c.body && 'starred_at' in c.body)).toBe(false);
   await expect.poll(() => server.calls.some(c => c.what === 'app_news_now_signals' && c.body?.article_id === 'k1' && c.body?.action === 'star')).toBe(true);
   await swipe(item(page, 'k1'), 320);
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(0);
-  expect(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).toMatchObject({ starred_at: null, folder_id: null });
+  expect(server.calls.filter(c => c.what === 'reading_keep').at(-1).body).toMatchObject({ p_article: 'k1', p_on: false });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });

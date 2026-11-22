@@ -23,8 +23,11 @@ const DETAIL = {
 };
 
 async function nowServer(page) {
-  // S67-09: P2는 옛 '보관'만 있던 글을 DB(20261119120000)가 별표(같은 시각)로 채운 뒤 모양 — [보관] 탭에 보여야 한다.
-  const s = { calls: [], marks: [{ post_id: P2, starred_at: '2026-10-05T02:00:00Z', archived_at: '2026-10-05T02:00:00Z', dismissed_at: null }], signals: [], notes: [], interests: [{ id: 'i1', topic: '철도 민영화', state: 'candidate', origin: 'ai', reason: '별표 2건', decided_at: null, created_at: '2026-10-05T00:00:00Z' }] };
+  // S68-27: 보관의 원본은 읽을 거리 줄(제목은 한국어 제목이 있으면 그것 — DB와 같음). P2는 옛 '보관'(→ 별표)을 DB(20261122230000)가 읽을 거리 줄로 옮긴 뒤 모양 — 읽을 거리 [News]에 보여야 한다.
+  // 사회운동 글 표시 표(marks)에는 관심 없음만 둔다.
+  const line = (id, saved_at) => ({ id: 'r-' + id, url: POSTS.find(x => x.id === id).url, title: POSTS.find(x => x.id === id).title_ko || POSTS.find(x => x.id === id).title, site: null, saved_at, read_at: '2026-10-06T00:00:00Z',
+    body_state: 'ok', body_at: saved_at, business_area_id: null, updated_at: saved_at, origin: 'outside', news_article_id: null, outside_article_id: id });
+  const s = { calls: [], marks: [], reading: [line(P2, '2026-10-05T02:00:00Z')], signals: [], notes: [], interests: [{ id: 'i1', topic: '철도 민영화', state: 'candidate', origin: 'ai', reason: '별표 2건', decided_at: null, created_at: '2026-10-05T00:00:00Z' }] };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -38,8 +41,18 @@ async function nowServer(page) {
       return route.fallback();
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
-    if (/^app_(outside_|now_|news_)/.test(table)) s.calls.push({ what: table, method, query: decodeURIComponent(u.search), body });
-    if (table === 'app_reading_items') return ok([]); // S68-24: 보관한 글은 읽을 거리 [News]에서(읽을 거리 줄은 없음)
+    if (/^app_(outside_|now_|news_|reading_)|^rpc\/app_reading_keep/.test(table)) s.calls.push({ what: table, method, query: decodeURIComponent(u.search), body });
+    if (table === 'rpc/app_reading_keep') {
+      const was = s.reading.find(r => r.outside_article_id === body.p_article);
+      if (body.p_on) { if (!was) s.reading.push(line(body.p_article, body.p_saved_at || new Date().toISOString())); const r = s.reading.find(x => x.outside_article_id === body.p_article); return ok({ ok: true, on: true, id: r.id, saved_at: r.saved_at, created: !was }); }
+      s.reading = s.reading.filter(r => r !== was); return ok({ ok: true, on: false, removed: was ? 1 : 0, saved_at: was?.saved_at ?? null });
+    }
+    if (table === 'app_reading_items') {
+      const want = u.searchParams.get('outside_article_id');
+      if (want) return ok(s.reading.filter(r => want === 'not.is.null' || r.outside_article_id === want.replace(/^eq\./, '')).map(r => ({ ...r, app_outside_articles: POSTS.find(x => x.id === r.outside_article_id) })));
+      if (u.searchParams.get('news_article_id')) return ok([]);
+      return ok([...s.reading].sort((a, b) => String(b.saved_at).localeCompare(String(a.saved_at))));
+    }
     if (table === 'app_outside_articles') {
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       return ok(id ? POSTS.filter(x => x.id === id) : POSTS);
@@ -54,7 +67,7 @@ async function nowServer(page) {
       if (method === 'POST') { const { article_id, ...rest } = body; const row = { post_id: article_id, ...rest }; s.marks.push(row); return ok([out(row)], 201); }
       if (method === 'POST') { s.marks.push({ ...body }); return route.fulfill({ status: 201 }); }
       if (post) return ok(s.marks.filter(m => m.post_id === post).map(out));
-      return ok(s.marks.filter(m => m.starred_at || m.archived_at).map(m => ({ ...out(m), app_outside_articles: POSTS.find(x => x.id === m.post_id) })));
+      return ok(s.marks.filter(m => m.dismissed_at).map(out));
     }
     if (table === 'app_outside_now_signals' || table === 'app_news_now_signals') { if (method === 'POST') s.signals.push(body); return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]); }
     if (table === 'app_now_interests') {
@@ -151,14 +164,13 @@ for (const width of [412, 884, 1280]) {
     } else await expect(root(page).locator('#nowMain')).toBeHidden();
     expect(await noWideScroll(page)).toBe(true);
 
-    // [☆ 별표]: 사회운동 글 내 표시 줄이 없으면 넣는다(article_id·workspace_id·starred_at만) + 환류 기록 한 줄(글 id·동작만).
+    // [☆ 별표]: 보관 = 내 읽을 거리 한 줄(서버 함수 app_reading_keep, S68-27) + 환류 기록 한 줄(글 id·동작만). 표시 표에는 쓰지 않는다.
     // S67-09: 사회운동 글에도 따로 [보관] 단추가 없다(보관 = 별표).
     await expect(nd.locator('[data-nd-act="archive"]')).toHaveCount(0);
     await nd.locator('[data-nd-act="star"]').click();
     await expect(nd.locator('[data-nd-act="star"]')).toHaveAttribute('aria-pressed', 'true');
-    const post = server.calls.filter(c => c.what === 'app_outside_article_marks' && c.method === 'POST').at(-1);
-    expect(Object.keys(post.body).sort()).toEqual(['article_id', 'starred_at', 'workspace_id']);
-    expect(post.body).toMatchObject({ article_id: P1, workspace_id: 'w' });
+    expect(server.calls.filter(c => c.what === 'rpc/app_reading_keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'outside', p_article: P1, p_on: true, p_saved_at: null });
+    expect(server.calls.some(c => c.what === 'app_outside_article_marks' && c.method !== 'GET')).toBe(false);
     await expect.poll(() => server.signals).toEqual([{ workspace_id: 'w', article_id: P1, action: 'star' }]);
     // [원문 ↗] 열기도 기록(새 창은 막아 둔다).
     await page.evaluate(() => { window.open = () => null; document.querySelectorAll('[data-nd-link]').forEach(a => a.addEventListener('click', e => e.preventDefault(), { once: true })); });
@@ -211,15 +223,15 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-hit`)).toHaveText('철도 민영화');
     await expect(root(page).locator('[data-now-cand]')).toBeHidden();
 
-    // 보관한 글(S68-24): 탭 줄 끝 '보관 ↗' → 읽을 거리 [News]. 별표한 사회운동 글 + 옛 보관을 별표로 옮긴 글(P2)이 꼬리표 'News'로 보인다.
+    // 보관한 글(S68-24·S68-27): 탭 줄 끝 '보관 ↗' → 읽을 거리 [News]. 방금 보관한 사회운동 글(P1) + 옮겨 온 글(P2)이 읽을 거리 줄로, 꼬리표 'News'.
     await root(page).locator('[data-now-go-saved]').click();
     const rd = page.locator('#readingView');
     await expect(rd).toBeVisible();
     await expect(rd.locator('.rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(rd.locator('[data-rd-news]')).toHaveCount(2);
-    await expect(rd.locator(`[data-rd-news="outside:${P1}"]`)).toContainText('[성명] 가상 철도 민영화 반대');
-    await expect(rd.locator(`[data-rd-news="outside:${P2}"]`)).toContainText('가상의 외국 글');
-    await expect(rd.locator('[data-rd-news] .rd-src-tag')).toHaveText(['News', 'News']);
+    await expect(rd.locator('.rd-row-news')).toHaveCount(2);
+    await expect(rd.locator(`[data-rd-open="r-${P1}"]`)).toContainText('[성명] 가상 철도 민영화 반대');
+    await expect(rd.locator(`[data-rd-open="r-${P2}"]`)).toContainText('가상의 외국 글');
+    await expect(rd.locator('.rd-row-news .rd-src-tag')).toHaveText(['News', 'News']);
     if (process.env.S68_24_SHOTS) await page.screenshot({ path: `${process.env.S68_24_SHOTS}/saved-${width}.png` });
     // 뒤로 = News. 마지막 탭은 서버에 기억(view_prefs.news_tab), 새로고침해도 그 탭.
     await page.goBack();

@@ -30,19 +30,19 @@ for (const width of [412, 884, 1440]) {
     await openNews(page, width);
     const c1 = item(page, 'c1');
     await expect(c1.locator('.nw-star')).toHaveCount(0);
-    // 상세 [☆ 별표] → 서버에 starred_at, 목록 줄에 ★.
+    // 상세 [☆ 별표] → 내 읽을 거리 한 줄(서버 함수 app_reading_keep, S68-27), 목록 줄에 ★.
     await c1.locator('[data-nc-open="c1"]').click();
     await page.locator('#nowDetail [data-nd-act="star"]').click();
     await expect(page.locator('#nowDetail [data-nd-act="star"]')).toHaveAttribute('aria-pressed', 'true');
-    // NEWS-모두에게열기 ③: 별표는 내 표시(app_news_marks) — 줄이 없으면 넣는다(작업공간·기사·별표만).
-    expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method === 'POST')[0].body).toMatchObject({ workspace_id: 'w', starred_at: expect.any(String) });
-    expect(Object.keys(server.calls.filter(c => c.what === 'app_news_marks' && c.method === 'POST')[0].body).sort()).toEqual(['article_id', 'starred_at', 'workspace_id']);
+    // S68-27 READ-보관기록일원화: 보관(별표)의 원본은 읽을 거리 줄 — 표시 표의 별표 칸에는 쓰지 않는다.
+    expect(server.calls.filter(c => c.what === 'reading_keep')[0].body).toEqual({ p_workspace: 'w', p_source: 'news', p_article: 'c1', p_on: true, p_saved_at: null });
+    expect(server.calls.some(c => c.what === 'app_news_marks' && c.method !== 'GET' && c.body && 'starred_at' in c.body)).toBe(false);
     if (width <= 760) await page.goBack();
     await expect(item(page, 'c1').locator('.nw-star')).toHaveCount(1);
 
     // ⋯ → 별표 폴더: 별표한 기사 전부(폴더 없음 펼침) → [폴더] → [+ 새 폴더 만들어 넣기](이름 묻기) → 그 폴더에.
     await openFolders(page);
-    expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method === 'GET').at(-1).query).toContain('starred_at=not.is.null');
+    expect(server.calls.filter(c => c.what === 'app_reading_items').at(-1).query).toContain('news_article_id=not.is.null');
     await expect(root(page).locator('[data-nc-item]')).toHaveCount(1);
     await expect(item(page, 'c1').locator('[data-nc-star]')).toHaveAttribute('aria-pressed', 'true');
     await item(page, 'c1').locator('[data-nc-folder]').click();
@@ -75,10 +75,11 @@ for (const width of [412, 884, 1440]) {
     await expect(root(page).locator('[data-nc-folder-toggle]')).toHaveCount(1);
     await expect(item(page, 'c1').locator('[data-nc-folder]')).toHaveText('가짜 폴더');
     expect(await noWideScroll(page)).toBe(true);
-    // 별표 빼기 = 별표·폴더 함께 비움, 이 칸에서 빠짐. 뒤로가기 한 번 = 목록.
+    // 별표 빼기 = 읽을 거리 줄을 지우고 폴더도 서버가 함께 비움, 이 칸에서 빠짐. 뒤로가기 한 번 = 목록.
     await item(page, 'c1').locator('[data-nc-star]').click();
     await expect(root(page).locator('[data-nc-item]')).toHaveCount(0);
-    expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method === 'PATCH').at(-1).body).toMatchObject({ starred_at: null, folder_id: null });
+    expect(server.calls.filter(c => c.what === 'reading_keep').at(-1).body).toMatchObject({ p_article: 'c1', p_on: false });
+    expect(server.items.find(i => i.id === 'c1')).toMatchObject({ starred_at: null, folder_id: null });
     await page.goBack();
     await expect(root(page).locator('[data-nc-item]')).toHaveCount(5);
     expect(errors).toEqual([]);

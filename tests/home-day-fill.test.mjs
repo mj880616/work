@@ -184,24 +184,27 @@ test('처리한 글 거르기: 숨김(hidden_at)·보관(starred_at)만 뺀다, 
   assert.equal(READS_DONE_NOTE, '다 읽었어요');
 });
 
-test('처리 표시 읽기: 내 작업공간 뉴스 줄의 id·숨김·별표만 한 번에 읽고, 못 읽으면 ok:false(거르지 않음)', async () => {
+test('처리 표시 읽기: 내 작업공간 뉴스 줄의 숨김(표시 표)과 보관(읽을 거리 줄, S68-27)만 읽고, 못 읽으면 ok:false(거르지 않음)', async () => {
   const {readReadMarks} = await import('../app/home-day-picks-data.js');
   const calls = [];
-  // NEWS-모두에게열기 ③: 옛 기사 id → 지도 함수 → 공용 기사 id의 내 표시(app_news_marks). 돌려주는 id는 고른 글 id 그대로.
+  // NEWS-모두에게열기 ③: 옛 기사 id → 지도 함수 → 공용 기사 id. 숨김은 내 표시(app_news_marks.hidden_at), 보관은 그 기사를 가리키는 내 읽을 거리 줄.
+  // 돌려주는 id는 고른 글 id 그대로. 표시 표의 옛 별표 칸은 읽지 않는다.
   const ART_A = 'aaaaaaaa-0000-4000-8000-00000000000a';
   const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, api:async (path, opts) => {
     calls.push(path);
-    if (path === '/rest/v1/rpc/app_news_article_of') { assert.deepEqual(opts.body, {p_old:[UUID_A, UUID_B]}); return [{old_id:UUID_A, article_id:ART_A}]; }
-    return [{article_id:ART_A, hidden_at:'2026-11-11T00:00:00Z', starred_at:null}, {article_id:UUID_B, hidden_at:null, starred_at:null}];
+    if (path === '/rest/v1/rpc/app_news_article_of') { assert.deepEqual(opts.body, {p_old:[UUID_A, UUID_B, UUID_C]}); return [{old_id:UUID_A, article_id:ART_A}]; }
+    if (path.startsWith('/rest/v1/app_reading_items')) return [{news_article_id:UUID_C, saved_at:'2026-11-22T00:00:00Z'}];
+    return [{article_id:ART_A, hidden_at:'2026-11-11T00:00:00Z'}, {article_id:UUID_B, hidden_at:null}];
   }};
-  const out = await readReadMarks([UUID_A, UUID_B, UUID_A, 'n1', "x,y"], rt);
+  const out = await readReadMarks([UUID_A, UUID_B, UUID_A, UUID_C, 'n1', "x,y"], rt);
   assert.equal(out.ok, true);
-  assert.deepEqual([...out.handled], [UUID_A]);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1], `/rest/v1/app_news_marks?workspace_id=eq.w&article_id=in.(${ART_A},${UUID_B})&select=article_id,hidden_at,starred_at&limit=2`);
-  assert.doesNotMatch(calls.join(' '), /app_news_items/);
+  assert.deepEqual([...out.handled].sort(), [UUID_A, UUID_C]);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[1], `/rest/v1/app_news_marks?workspace_id=eq.w&article_id=in.(${ART_A},${UUID_B},${UUID_C})&select=article_id,hidden_at&limit=3`);
+  assert.equal(calls[2], `/rest/v1/app_reading_items?workspace_id=eq.w&news_article_id=in.(${ART_A},${UUID_B},${UUID_C})&select=news_article_id,saved_at&limit=3`);
+  assert.doesNotMatch(calls.join(' '), /app_news_items|starred_at/);
   assert.deepEqual(await readReadMarks(['n1'], rt), {ok:true, handled:new Set()});
-  assert.equal(calls.length, 2, 'UUID가 없으면 서버에 묻지 않는다');
+  assert.equal(calls.length, 3, 'UUID가 없으면 서버에 묻지 않는다');
   assert.deepEqual(await readReadMarks([UUID_A], {context:{read:() => ({})}, api:async () => []}), {ok:false});
   assert.deepEqual(await readReadMarks([UUID_A], {context:{read:() => ({workspace:{id:'w'}})}, api:async () => { throw new Error('net'); }}), {ok:false});
 });

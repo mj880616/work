@@ -223,10 +223,10 @@ export function detailError(e) {
   return e?.status ? `상세를 만들지 못함 · HTTP ${e.status}` : '상세를 만들지 못함 · 잠시 뒤 다시';
 }
 
-// ---- 보관한 글(12.1): 사회운동 글 별표(app_outside_article_marks.starred_at) + 뉴스 별표(app_news_marks.starred_at)를 한 목록으로 ----
-// S67-09 NEWS-보관별표하나로(명진 11/19): 보관 = 별표 하나. S68-24: 이 목록은 읽을 거리 [News](reading.js)와 노트 '보관한 글'(note-news-marks.js)이 읽는다(now-saved.js readSavedRows).
+// ---- 보관한 글(12.1): 사회운동 글 + 뉴스 기사 보관을 한 목록으로 ----
+// S68-27: 보관의 원본은 읽을 거리 줄(app_reading_items). starred_at = 그 줄의 저장 시각(now-saved.js readSavedRows가 넘김). 노트 '보관한 글'이 읽는다.
 // marks: [{post_id, starred_at, app_outside_posts:{...}}], news: [{id, starred_at, ...}]
-// → [{type, id, at, star, row}] 최근 별표 순. 별표 없는 줄은 뺀다(옛 archived_at은 보지 않음 — DB 20261119120000이 별표로 채움).
+// → [{type, id, at, star, row}] 최근 보관 순. 보관 시각 없는 줄은 뺀다.
 export function savedRows(marks, news) {
   const out = [];
   for (const m of marks || []) {
