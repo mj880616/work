@@ -137,7 +137,7 @@ jobs:
           set -euo pipefail
           # Resolve the release URLs from the tree GitHub Pages serves before any production request.
           # A read/parse failure exits the step through set -e (no fallback URLs).
-          # DOMAIN-주소이전 ①-D1: the URLs are on bokdoong.com, the only Web2 host (desk and work redirect there).
+          # S68-01: the URLs are on workonplus.com, the Web2 host in use (bokdoong.com and nojoplus.com show the moved notice).
           asset_urls="$(node scripts/cloudflare-check-urls.mjs "$PAGES_TREE")"
           IFS=$'\t' read -r APP_URL LOADER_URL PWA_URL SW_URL APP_ICON_URL <<< "$asset_urls"
           USER_AGENT='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'
@@ -239,9 +239,11 @@ jobs:
           }
 
           # DOMAIN-workonplus PR-B: nojoplus.com app addresses answer one notice page (200, noindex) whose link keeps the path.
+          # S68-01: bokdoong.com answers the same notice with its own title (third argument).
           check_moved_notice() {
             local url="$1"
             local href="$2"
+            local title="${3:-WORK ON+로 옮겼어요}"
             local result=""
             local body=""
             local code=""
@@ -261,7 +263,7 @@ jobs:
                 "$url" || true)"
               code="${result##*$'\n'}"
               if [[ "$code" == "200" ]] \
-                && grep -q 'WORK ON+로 옮겼어요' "$body" \
+                && grep -qF "<title>$title</title>" "$body" \
                 && grep -qF "href=\"$href\"" "$body" \
                 && printf '%s\n' "$result" | tr -d '\r' | grep -qi '^x-robots-tag: noindex'; then
                 rm -f "$body"
@@ -339,7 +341,13 @@ jobs:
             return 1
           }
 
-          check_redirect 'https://bokdoong.com/' 'https://bokdoong.com/work/app/'
+          # S68-01: bokdoong.com / and /work/app/** show the moved notice (its own title). The old phone app sign-in return page
+          # stays served; registered return pages and the phone app calendar return go to the same address on workonplus.com.
+          check_moved_notice 'https://bokdoong.com/' 'https://workonplus.com/work/app/' '주소가 workonplus.com으로 바뀌었어요'
+          check_moved_notice 'https://bokdoong.com/work/app/?view=calendar' 'https://workonplus.com/work/app/?view=calendar' '주소가 workonplus.com으로 바뀌었어요'
+          check_redirect 'https://bokdoong.com/work/app/onedrive-return.html?probe=1' 'https://workonplus.com/work/app/onedrive-return.html?probe=1'
+          check_redirect 'https://bokdoong.com/work/app/?view=calendar&google=error&native=android' 'https://workonplus.com/work/app/?view=calendar&google=error&native=android'
+          check_200 'https://bokdoong.com/work/app/native-callback.html?native=android' 'text/html'
           # DOMAIN-nojoplus: www still goes to nojoplus.com with 301. DOMAIN-workonplus PR-B: nojoplus.com app addresses show the
           # moved notice (no automatic move); its link keeps the path and ?query on workonplus.com.
           check_redirect 'https://www.nojoplus.com/work/app/?view=calendar' 'https://nojoplus.com/work/app/?view=calendar' 301
@@ -390,7 +398,6 @@ jobs:
           check_200 "$LOADER_URL"
           check_200 "$PWA_URL"
           check_200 "$APP_ICON_URL"
-          check_200 'https://bokdoong.com/work/app/' 'text/html'
           check_200 'https://work.bokdoong.com/work/share/' 'text/html'
           check_200 'https://work.bokdoong.com/work/about/' 'text/html'
           check_200 'https://nojoplus.com/work/about/' 'text/html'
@@ -419,7 +426,7 @@ jobs:
             echo "FAIL  expected one HWP editor stylesheet in the checkout"
             exit 1
           fi
-          editor_url="https://bokdoong.com/work/${editor_css[0]}"
+          editor_url="https://workonplus.com/work/${editor_css[0]}"
           headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$editor_url")"
           if ! grep -qi 'cache-control: public, max-age=31536000, immutable' <<< "$headers"; then
             echo "FAIL  immutable cache policy $editor_url"
@@ -428,7 +435,7 @@ jobs:
           echo "OK  immutable cache policy $editor_url"
 
           for missing_url in \
-            "https://bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA"
+            "https://workonplus.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA"
           do
             missing_code="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --output /dev/null --write-out '%{http_code}' "$missing_url" || true)"
             missing_headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$missing_url" || true)"
@@ -446,7 +453,7 @@ jobs:
           # These are stable URLs whose contents change on GitHub Pages deploys.
           # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
           for url in \
-            https://bokdoong.com/work/app/ \
+            https://workonplus.com/work/app/ \
             https://work.bokdoong.com/work/share/share.css \
             "$SW_URL" \
             https://work.bokdoong.com/work/share/

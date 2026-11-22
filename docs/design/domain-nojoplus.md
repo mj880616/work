@@ -63,4 +63,6 @@
 | 1-5 | 폰 앱 0.5.9 릴리스(새 주소 링크도 앱 안에) | 커맨드센터 | 옛 판 APK 다시 설치 |
 | 2 | 로그인·폰 앱·바구니 PC가 새 주소로 옮긴 뒤: Worker에서 `bokdoong.com`·desk·work Web2 → `nojoplus.com` 301, Site URL 변경, 원드라이브·Google 돌아갈 화면 기본값 변경, 폰 앱 처음 주소 변경 | 별도 작업 PR + 커맨드센터 | 이전 Worker 버전(301 해제), Site URL 원래 값 |
 
+2단계 결과(2026-11-22 S68-01): 301 대신 `bokdoong.com`의 앱 자리를 `nojoplus.com`과 같은 이전 안내 한 장으로 바꿨다(새 주소는 `workonplus.com`, [`../bokdoong-domain.md`](../bokdoong-domain.md) '앱 자리 이전 안내'). 옛 폰 앱 로그인 복귀 화면은 그대로 두고, 원드라이브·Claude 연결 동의·폰 앱 캘린더 연결 복귀는 같은 경로의 `workonplus.com`으로 302. Site URL·원드라이브 돌아올 주소·Edge `public-policy-drive` 기본 돌아갈 주소는 바꾸지 않았다(남은 정리).
+
 2단계 주의: 로그인 정보는 주소마다 따로 저장된다. `bokdoong.com`에서 로그인해 둔 사람은 `nojoplus.com`으로 넘어가면 **한 번 다시 로그인**해야 한다(자료는 서버에 있어 그대로).

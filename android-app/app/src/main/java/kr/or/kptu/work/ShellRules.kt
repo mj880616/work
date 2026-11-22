@@ -71,14 +71,20 @@ object ShellRules {
     }
 
     /**
-     * DOMAIN-workonplus: nojoplus.com의 웹2 앱 주소(맨 앞 / 와 /work/app/ 아래)를 같은 경로·질의·조각의 workonplus.com 주소로 바꾼다.
-     * nojoplus.com의 앱 자리는 이전 안내 한 장이 되므로(docs/design/domain-workonplus.md 4절) 앱은 안내 대신 새 주소를 바로 연다.
+     * 앱 자리가 이전 안내 한 장이 된 호스트. nojoplus.com(DOMAIN-workonplus 4절)과 S68-01부터 bokdoong.com.
+     * desk·work는 bokdoong.com으로 넘기므로(Worker) 같이 둔다(알림·위젯·공유로 들어온 옛 링크).
+     */
+    private val MOVED_HOSTS: Set<String> = setOf(NEW_WEB2_HOST, OLD_WEB2_HOST, "desk.bokdoong.com", "work.bokdoong.com")
+
+    /**
+     * DOMAIN-workonplus·S68-01: 옛 주소(nojoplus.com, bokdoong.com·desk·work)의 웹2 앱 주소(맨 앞 / 와 /work/app/ 아래)를
+     * 같은 경로·질의·조각의 workonplus.com 주소로 바꾼다. 옛 주소의 앱 자리는 이전 안내 한 장이 되므로 앱은 안내 대신 새 주소를 바로 연다.
      * 그 밖(다른 호스트, 안쪽이 아닌 주소)은 null.
      */
     fun movedToHome(url: String?): String? {
         if (!isInternalApp(url)) return null
         val u = parse(url) ?: return null
-        if (u.host?.lowercase() != NEW_WEB2_HOST) return null
+        if (u.host?.lowercase() !in MOVED_HOSTS) return null
         val raw = u.rawPath ?: ""
         val path = if (raw.isEmpty() || raw == "/" || raw == "/work/app") APP_PATH else raw
         return "https://$WEB2_HOST" + path + (u.rawQuery?.let { "?$it" } ?: "") + (u.rawFragment?.let { "#$it" } ?: "")

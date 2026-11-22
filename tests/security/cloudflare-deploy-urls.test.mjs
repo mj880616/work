@@ -18,8 +18,8 @@ const refs = [
   ['pwa.js', 'sw.js', '3d4e5f6071'],
   ['index.html', 'app-icon.svg', '4e5f607182'],
 ];
-// DOMAIN-주소이전 ①-D1: bokdoong.com is the only Web2 host; desk and work redirect there.
-const base = 'https://bokdoong.com/work/app/';
+// S68-01: the URLs are on workonplus.com, the Web2 host in use (bokdoong.com and nojoplus.com show the moved notice).
+const base = 'https://workonplus.com/work/app/';
 const built = (file, content) => {
   for (const [owner, asset, version] of refs) {
     if (file !== owner) continue;
@@ -61,7 +61,8 @@ test('the repository checkout itself has no ?v= and is refused, so it cannot sta
 
 test('the Pages tree is a required single argument', t => {
   for (const args of [[undefined], [fixture(t), ['extra']], [fixture(t), ['--host']], [fixture(t), ['--host', 'work.bokdoong.com']], [fixture(t), ['--host', 'desk.bokdoong.com']],
-    [fixture(t), ['--host', 'evil.example']], [fixture(t), ['--host', 'bokdoong.com', 'extra']], ['--host', ['bokdoong.com']]]) {
+    [fixture(t), ['--host', 'bokdoong.com']], [fixture(t), ['--host', 'nojoplus.com']],
+    [fixture(t), ['--host', 'evil.example']], [fixture(t), ['--host', 'workonplus.com', 'extra']], ['--host', ['workonplus.com']]]) {
     const result = run(...args);
     assert.equal(result.status, 1);
     assert.equal(result.stdout, '');
@@ -120,7 +121,7 @@ test('gets sw.js only from the service worker registration URL', t => {
 });
 
 test('workflow consumes extracted URLs without fixed version addresses or a silent fallback', () => {
-  assert.doesNotMatch(workflow, /https:\/\/(?:desk\.)?bokdoong\.com\/work\/app\/(?:app\.js|loader-v2\.js|pwa\.js|sw\.js|app-icon\.svg)\?v=[^\s'"$]+/);
+  assert.doesNotMatch(workflow, /https:\/\/(?:(?:desk\.)?bokdoong|workonplus)\.com\/work\/app\/(?:app\.js|loader-v2\.js|pwa\.js|sw\.js|app-icon\.svg)\?v=[^\s'"$]+/);
   assert.match(workflow, /asset_urls="\$\(node scripts\/cloudflare-check-urls\.mjs "\$PAGES_TREE"\)"/);
   assert.match(workflow, /PAGES_TREE: \$\{\{ steps\.pages\.outputs\.tree \}\}/);
   assert.match(workflow, /read -r APP_URL LOADER_URL PWA_URL SW_URL APP_ICON_URL <<< "\$asset_urls"/);
@@ -140,24 +141,26 @@ test('workflow consumes extracted URLs without fixed version addresses or a sile
   ]) assert.ok(workflow.includes(expected), `preserves ${expected}`);
 });
 
-// DOMAIN-주소이전 ①-D1: Web2 is on bokdoong.com only; `--host bokdoong.com` gives the same five URLs, desk is refused.
-test('--host bokdoong.com gives the same five URLs as the default', t => {
-  const result = run(fixture(t), ['--host', 'bokdoong.com']);
+// S68-01: Web2 is checked on workonplus.com; `--host workonplus.com` gives the same five URLs, bokdoong and desk are refused.
+test('--host workonplus.com gives the same five URLs as the default', t => {
+  const result = run(fixture(t), ['--host', 'workonplus.com']);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(result.stdout.trim().split('\t'),
-    refs.map(([, asset, version]) => `https://bokdoong.com/work/app/${asset}?v=${version}`));
+    refs.map(([, asset, version]) => `https://workonplus.com/work/app/${asset}?v=${version}`));
 });
 
-test('workflow checks Web2 on bokdoong.com and the 302 moves from desk, work and the old portal root', () => {
+test('workflow checks Web2 on workonplus.com and the 302 moves from desk, work and arsenal to bokdoong.com', () => {
   assert.doesNotMatch(workflow, /WEB2_[A-Z_]*URL|--host desk/);
-  assert.ok(workflow.includes("check_200 'https://bokdoong.com/work/app/' 'text/html'"));
-  assert.ok(workflow.includes('https://bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA'));
+  assert.ok(workflow.includes("check_200 'https://workonplus.com/work/app/' 'text/html'"));
+  assert.ok(!workflow.includes("check_200 'https://bokdoong.com/work/app/' 'text/html'"), 'bokdoong.com no longer serves the app');
+  assert.ok(workflow.includes('https://workonplus.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA'));
+  assert.ok(workflow.includes('editor_url="https://workonplus.com/work/${editor_css[0]}"'));
+  assert.ok(!workflow.includes('https://bokdoong.com/work/app/__missing-cache-probe__'));
   assert.ok(!workflow.includes('https://desk.bokdoong.com/work/app/__missing-cache-probe__'));
   assert.ok(workflow.includes("--write-out '%{http_code}|%{redirect_url}'"));
   assert.ok(workflow.includes('local status="${3:-302}"'));
   assert.ok(workflow.includes('if [[ "$result" == "$status|$expected" ]]; then'));
   for (const [from, to] of [
-    ['https://bokdoong.com/', 'https://bokdoong.com/work/app/'],
     ['https://desk.bokdoong.com/', 'https://bokdoong.com/work/app/'],
     ['https://desk.bokdoong.com/work/app/?view=library&drive=connected', 'https://bokdoong.com/work/app/?view=library&drive=connected'],
     ['https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1', 'https://bokdoong.com/work/app/onedrive-return.html?probe=1'],
@@ -170,7 +173,8 @@ test('workflow checks the nojoplus.com moved notice, www.nojoplus.com 301 and ab
   assert.ok(workflow.includes("check_redirect 'https://www.nojoplus.com/work/app/?view=calendar' 'https://nojoplus.com/work/app/?view=calendar' 301"));
   assert.ok(workflow.includes("check_moved_notice 'https://nojoplus.com/' 'https://workonplus.com/work/app/'"));
   assert.ok(workflow.includes("check_moved_notice 'https://nojoplus.com/work/app/?view=calendar' 'https://workonplus.com/work/app/?view=calendar'"));
-  assert.ok(workflow.includes("grep -q 'WORK ON+로 옮겼어요'"));
+  assert.ok(workflow.includes('local title="${3:-WORK ON+로 옮겼어요}"'));
+  assert.ok(workflow.includes('grep -qF "<title>$title</title>" "$body"'));
   assert.ok(workflow.includes("check_200 'https://nojoplus.com/work/about/' 'text/html'"));
   assert.ok(!workflow.includes("check_redirect 'https://nojoplus.com/' 'https://nojoplus.com/work/app/'"), 'the app is no longer served there');
 });
@@ -207,4 +211,15 @@ test('workflow checks the Web1 closed notice on work and keeps the share and abo
     'https://work.bokdoong.com/work/share/share.css \\']) assert.ok(workflow.includes(kept), kept);
   // Web1 files are not used as deploy probes any more (they are removed in C1-b).
   assert.doesNotMatch(workflow, /work\/assets\/|mj880616\.github\.io\/work\/ \\/);
+});
+
+// S68-01: bokdoong.com shows its own moved notice; the old phone app sign-in return page stays, return pages go on.
+test('workflow checks the bokdoong.com moved notice, the kept sign-in return page and the forwarded returns', () => {
+  const title = '주소가 workonplus.com으로 바뀌었어요';
+  assert.ok(workflow.includes(`check_moved_notice 'https://bokdoong.com/' 'https://workonplus.com/work/app/' '${title}'`));
+  assert.ok(workflow.includes(`check_moved_notice 'https://bokdoong.com/work/app/?view=calendar' 'https://workonplus.com/work/app/?view=calendar' '${title}'`));
+  assert.ok(workflow.includes("check_redirect 'https://bokdoong.com/work/app/onedrive-return.html?probe=1' 'https://workonplus.com/work/app/onedrive-return.html?probe=1'"));
+  assert.ok(workflow.includes("check_redirect 'https://bokdoong.com/work/app/?view=calendar&google=error&native=android' 'https://workonplus.com/work/app/?view=calendar&google=error&native=android'"));
+  assert.ok(workflow.includes("check_200 'https://bokdoong.com/work/app/native-callback.html?native=android' 'text/html'"));
+  assert.ok(!workflow.includes("check_redirect 'https://bokdoong.com/' 'https://bokdoong.com/work/app/'"), 'the root no longer goes to the app');
 });

@@ -42,26 +42,69 @@ const NEW_HOST_KEPT = Object.freeze(['/work/about']);
 // / and /work/app/** (pages and files) answer one notice page instead of the app: nothing is fetched from GitHub Pages and
 // nothing moves on its own (명진 요청: 안내 + 링크). Its one button keeps the same path and ?query on workonplus.com (/ and
 // /work/app become /work/app/). Kept on nojoplus.com: /s/<short address>, /work/about/**, other /work/** → work, www → 301.
-// Undo: deploy the previous Worker version (nojoplus.com serves the app again).
-export function movedNotice(host, path) {
-  return host === NEW_HOST && (path === '/' || isWeb2Route(path));
+// S68-01 (명진 2026-11-21: "bokdoong.com은 안 쓰고 workonplus만 씀"): bokdoong.com / and /work/app/** answer the same notice
+// (its own wording, without the 노동조합+ sentence). desk, work and arsenal still send people to bokdoong.com first, so they
+// end on the notice too. Three groups on bokdoong.com stay out of the notice (docs/bokdoong-domain.md "앱 자리 이전 안내"):
+//  - BOKDOONG_KEPT: served from Pages as before. The old phone app (0.5.16 and earlier) signs in through
+//    native-callback.html and its two scripts; the share page preview card uses the app icons.
+//  - BOKDOONG_FORWARD and the phone app's calendar return: 302 to the same path and ?query on workonplus.com (fixed host,
+//    so nothing else can be chosen). Microsoft (원드라이브) and Supabase (Claude 연결 동의) return here by registered address,
+//    and Google 캘린더 연결 from the phone app returns to bokdoong.com/work/app/?…&native=android; the same page on
+//    workonplus.com does the same work where the person is signed in.
+// Undo: deploy the previous Worker version (nojoplus.com / bokdoong.com serve the app again).
+const MOVED_HOSTS = Object.freeze(new Set([NEW_HOST, WEB2_HOST]));
+const BOKDOONG_KEPT = Object.freeze(['/work/app/native-callback.html', '/work/app/origin-redirect.js', '/work/app/native-auth-bridge.js']);
+const BOKDOONG_KEPT_PREFIXES = Object.freeze(['/work/app/icons/']);
+const BOKDOONG_FORWARD = Object.freeze(['/work/app/onedrive-return.html', '/work/app/oauth-consent']);
+const CALENDAR_RETURN = Object.freeze(['connected', 'error', 'denied']);
+
+export function bokdoongKept(host, path) {
+  return host === WEB2_HOST && (BOKDOONG_KEPT.includes(path) || BOKDOONG_KEPT_PREFIXES.some(prefix => path.startsWith(prefix)));
 }
 
-export function movedTarget(incoming) {
+export function bokdoongForward(host, incoming) {
+  if (host !== WEB2_HOST) return false;
+  const path = incoming.pathname;
+  if (BOKDOONG_FORWARD.some(kept => path === kept || path.startsWith(`${kept}/`))) return true;
+  const query = incoming.searchParams;
+  return (path === '/' || isWeb2Route(path)) && query.get('native') === 'android' && CALENDAR_RETURN.includes(query.get('google'));
+}
+
+export function movedNotice(host, path) {
+  return MOVED_HOSTS.has(host) && (path === '/' || isWeb2Route(path)) && !bokdoongKept(host, path);
+}
+
+// A sealed sign-in value (?handoff=, from the old phone app's sign-in) is never carried by the notice link.
+export function movedTarget(incoming, { keepHandoff = false } = {}) {
   const target = new URL(`https://${WORKON_HOST}`);
   target.pathname = incoming.pathname.startsWith(WEB2_PREFIX) ? incoming.pathname : WEB2_PREFIX;
   target.search = incoming.search;
+  if (!keepHandoff) target.searchParams.delete('handoff');
   return target.href;
 }
 
 const MOVED_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
-export function movedNoticeHtml(href) {
+const MOVED_TEXT = Object.freeze({
+  [NEW_HOST]: {
+    title: 'WORK ON+로 옮겼어요',
+    lines: ['이 앱은 개인 업무 관리 앱 WORK ON+로 바뀌어 workonplus.com에서 계속 쓸 수 있어요. 기록은 그대로이고, 새 주소에서 한 번만 다시 로그인하면 돼요.',
+      '노동조합+는 노조 집행부·조합원 공간 중심으로 바꾸어 다시 출시할 예정이에요.']
+  },
+  [WEB2_HOST]: {
+    title: '주소가 workonplus.com으로 바뀌었어요',
+    lines: ['WORK ON+는 이제 workonplus.com에서 써요. 기록은 그대로이고, 새 주소에서 한 번만 다시 로그인하면 돼요.',
+      '폰 앱을 쓰고 있다면 앱을 새 판으로 올려 주세요.']
+  }
+});
+
+export function movedNoticeHtml(href, host = NEW_HOST) {
   const link = escapeHtml(href);
+  const text = MOVED_TEXT[host] || MOVED_TEXT[NEW_HOST];
   return '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
     + '<meta name="viewport" content="width=device-width,initial-scale=1">'
     + '<meta name="robots" content="noindex, nofollow"><meta name="color-scheme" content="light dark">'
-    + '<title>WORK ON+로 옮겼어요</title><style>'
+    + `<title>${escapeHtml(text.title)}</title><style>`
     + ':root{--bg:#f4f4f2;--card:#fff;--ink:#2b2f33;--sub:#5d646b;--line:#dcdcd8;--btn:#3d4a57;--btn-ink:#fff}'
     + '@media (prefers-color-scheme:dark){:root{--bg:#1d2024;--card:#262a2f;--ink:#e3e5e7;--sub:#a3a9af;--line:#3a3f45;--btn:#4f6072;--btn-ink:#f2f4f6}}'
     + '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans KR",sans-serif}'
@@ -71,15 +114,14 @@ export function movedNoticeHtml(href) {
     + 'a.go{display:inline-block;margin-top:10px;padding:7px 14px;border-radius:6px;background:var(--btn);color:var(--btn-ink);text-decoration:none;font-size:14px}'
     + 'a.go:focus-visible{outline:2px solid var(--ink);outline-offset:2px}'
     + '</style></head><body><main><div class="card">'
-    + '<h1>WORK ON+로 옮겼어요</h1>'
-    + '<p>이 앱은 개인 업무 관리 앱 WORK ON+로 바뀌어 workonplus.com에서 계속 쓸 수 있어요. 기록은 그대로이고, 새 주소에서 한 번만 다시 로그인하면 돼요.</p>'
-    + '<p>노동조합+는 노조 집행부·조합원 공간 중심으로 바꾸어 다시 출시할 예정이에요.</p>'
+    + `<h1>${escapeHtml(text.title)}</h1>`
+    + text.lines.map(line => `<p>${escapeHtml(line)}</p>`).join('')
     + `<a class="go" href="${link}">workonplus.com으로 가기</a>`
     + '</div></main></body></html>';
 }
 
-function movedNoticeResponse(incoming, method) {
-  return new Response(method === 'HEAD' ? null : movedNoticeHtml(movedTarget(incoming)), {
+function movedNoticeResponse(incoming, host, method) {
+  return new Response(method === 'HEAD' ? null : movedNoticeHtml(movedTarget(incoming), host), {
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
@@ -371,7 +413,11 @@ export default {
       });
     }
     if (host === ARSENAL_HOST) return arsenalRedirect();
-    if (movedNotice(host, incoming.pathname)) return movedNoticeResponse(incoming, request.method);
+    if (bokdoongForward(host, incoming)) {
+      return new Response(null, { status: 302, headers: {
+        Location: movedTarget(incoming, { keepHandoff: true }), 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+    }
+    if (movedNotice(host, incoming.pathname)) return movedNoticeResponse(incoming, host, request.method);
     if (movesToWeb2(host, incoming.pathname)) return web2Redirect(incoming, host);
     if (incoming.pathname === '/' && SERVICES[host]) {
       incoming.pathname = SERVICES[host].root;

@@ -45,6 +45,8 @@ Supabase Auth Site URL은 기존 github.io 주소로 유지함. 운영 Redirect 
 
 - 2026-11-21 DOMAIN-workonplus: 앱 이름 WORK ON+에 맞춘 새 주소 `workonplus.com`. 1단계는 `nojoplus.com`과 똑같이 Web2를 내주고 `www`는 301, 폰 앱은 새 판부터 이 주소를 처음 연다. 그다음 `nojoplus.com`의 앱 자리는 이전 안내 한 장으로 바꾼다(짧은 주소·about은 그대로). [`design/domain-workonplus.md`](design/domain-workonplus.md).
 
+- 2026-11-22 S68-01: `bokdoong.com`의 앱 자리도 이전 안내 한 장(맨 아래 '앱 자리 이전 안내' 절).
+
 ## nojoplus.com (DOMAIN-nojoplus 1단계)
 
 | 호스트 | 응답 |
@@ -62,3 +64,20 @@ Edge 허용 출처에는 `https://nojoplus.com` 정확히 하나만 더한다(ww
 | `www.workonplus.com` | 같은 경로·`?쿼리`로 `https://workonplus.com`에 301 |
 
 Edge 허용 출처에는 `https://workonplus.com` 정확히 하나만 더한다. Supabase Auth Redirect URLs에 `https://workonplus.com/**` 줄을 더한다(Site URL 그대로).
+
+## 앱 자리 이전 안내 (S68-01, 2026-11-22)
+
+명진 결정(2026-11-21): "bokdoong.com은 안 쓰고, nojoplus는 workonplus 안내, workonplus만 씀". `bokdoong.com`의 앱 자리는 `nojoplus.com`과 같은 이전 안내 한 장이 된다(Worker `movedNotice()`, 같은 함수를 호스트만 넓혀 씀).
+
+| `bokdoong.com` 주소 | 응답 |
+| --- | --- |
+| `/`, `/work/app`, `/work/app/**`(화면·파일) | 이전 안내(200, noindex, 저장 안 함, 스크립트·자동 이동 없음). 제목 '주소가 workonplus.com으로 바뀌었어요', 버튼 하나 → 같은 경로·쿼리의 `workonplus.com/work/app/…`(로그인 넘김 값 `handoff`는 링크에 싣지 않음). 노동조합+ 재출시 문장은 넣지 않음 |
+| `/work/app/native-callback.html`, `origin-redirect.js`, `native-auth-bridge.js` | 그대로 Pages에서 가져옴. 옛 폰 앱(0.5.16 이하) 로그인 복귀 화면과 그 화면이 부르는 스크립트 2개 |
+| `/work/app/icons/**` | 그대로. 공유 화면 미리보기 그림(`work.bokdoong.com/work/app/icons/…` → `bokdoong.com`) |
+| `/work/app/onedrive-return.html`, `/work/app/oauth-consent/**` | 같은 경로·쿼리의 `workonplus.com`으로 302. 등록된 돌아올 주소(원드라이브 Azure 등록·Edge 비밀값, Claude 연결 동의 화면)가 `bokdoong.com`이어도 로그인된 새 주소에서 처리 |
+| `/work/app/?…&google=(connected·error·denied)&native=android` | 같은 경로·쿼리의 `workonplus.com`으로 302. 폰 앱의 Google 캘린더·할 일 연결 복귀(Edge `public-policy-drive`가 `android` 칸이면 `bokdoong.com`으로 돌려보냄) — 새 주소의 같은 화면이 앱으로 되돌림 |
+| `/s/<짧은 주소>`, favicon, 그 밖 `/work/**` → `work.bokdoong.com` 302 | 그대로 |
+
+그대로인 호스트: `desk.bokdoong.com`·`work.bokdoong.com/work/app/**`·`arsenal.bokdoong.com`은 지금처럼 `bokdoong.com`으로 302(그다음 위 규칙), `work.bokdoong.com` 공유 화면·about·Web1 410, `read.bokdoong.com`(읽생기, 이 Worker 밖). 폰 앱 0.5.17부터는 `bokdoong.com`·desk·work의 앱 주소를 같은 경로의 `workonplus.com`으로 바꿔 연다(`ShellRules.movedToHome`, 앱 판 올리기는 다음 릴리스).
+
+되돌리기: 이전 Worker 커밋을 다시 배포(`cloudflare-worker-deploy.yml`, `bokdoong.com`이 앱을 다시 내줌).

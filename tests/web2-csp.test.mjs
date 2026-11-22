@@ -50,8 +50,8 @@ async function request(url, upstream) {
 }
 const page = (status = 200) => new Response(status === 304 ? null : '<!doctype html>', {status, headers: status === 304 ? {} : {'Content-Type': 'text/html; charset=utf-8'}});
 
-test('Worker: bokdoong.com의 Web2 첫 화면·로그인 화면에만 보고 전용 CSP와 Referrer-Policy를 붙인다', async () => {
-  for (const url of ['https://bokdoong.com/work/app/', 'https://bokdoong.com/work/app/index.html', 'https://bokdoong.com/work/app/login/', 'https://bokdoong.com/work/app/login/index.html', 'https://bokdoong.com/work/app/?view=calendar']) {
+test('Worker: workonplus.com의 Web2 첫 화면·로그인 화면에만 보고 전용 CSP와 Referrer-Policy를 붙인다', async () => {
+  for (const url of ['https://workonplus.com/work/app/', 'https://workonplus.com/work/app/index.html', 'https://workonplus.com/work/app/login/', 'https://workonplus.com/work/app/login/index.html', 'https://workonplus.com/work/app/?view=calendar']) {
     for (const status of [200, 304]) {
       const response = await request(url, page(status));
       assert.equal(response.headers.get('Content-Security-Policy-Report-Only'), WEB2_CSP, `${url} ${status}`);
@@ -64,11 +64,11 @@ test('Worker: bokdoong.com의 Web2 첫 화면·로그인 화면에만 보고 전
 
 test('Worker: 다른 화면·파일·공유 페이지·오류 응답에는 붙이지 않는다', async () => {
   for (const [url, upstream] of [
-    ['https://bokdoong.com/work/app/my-work.html', page()],
-    ['https://bokdoong.com/work/app/onedrive-return.html', page()],
-    ['https://bokdoong.com/work/app/hwp-lab/rhwp-0.8.7/studio/index.html', page()],
-    ['https://bokdoong.com/work/app/app.js', new Response('js', {headers: {'Content-Type': 'text/javascript'}})],
-    ['https://bokdoong.com/work/app/login/missing/', page(404)],
+    ['https://workonplus.com/work/app/my-work.html', page()],
+    ['https://workonplus.com/work/app/onedrive-return.html', page()],
+    ['https://workonplus.com/work/app/hwp-lab/rhwp-0.8.7/studio/index.html', page()],
+    ['https://workonplus.com/work/app/app.js', new Response('js', {headers: {'Content-Type': 'text/javascript'}})],
+    ['https://workonplus.com/work/app/login/missing/', page(404)],
     ['https://work.bokdoong.com/work/share/', page()],
     ['https://work.bokdoong.com/work/', page()]
   ]) {
@@ -80,15 +80,15 @@ test('Worker: 다른 화면·파일·공유 페이지·오류 응답에는 붙�
 });
 
 // SEC-보안헤더: Web2 모든 응답에 끼워 넣기 금지(frame-ancestors·X-Frame-Options)와 형식 추측 금지(nosniff).
-test('Worker: bokdoong.com의 Web2 응답 전부에 frame-ancestors·X-Frame-Options·nosniff를 붙인다', async () => {
+test('Worker: workonplus.com의 Web2 응답 전부에 frame-ancestors·X-Frame-Options·nosniff를 붙인다', async () => {
   for (const [url, upstream] of [
-    ['https://bokdoong.com/work/app/', page()],
-    ['https://bokdoong.com/work/app/?view=calendar', page(304)],
-    ['https://bokdoong.com/work/app/login/', page()],
-    ['https://bokdoong.com/work/app/my-work.html', page()],
-    ['https://bokdoong.com/work/app/hwp-lab/rhwp-0.8.7/studio/index.html', page()],
-    ['https://bokdoong.com/work/app/app.js', new Response('js', {headers: {'Content-Type': 'text/javascript'}})],
-    ['https://bokdoong.com/work/app/login/missing/', page(404)]
+    ['https://workonplus.com/work/app/', page()],
+    ['https://workonplus.com/work/app/?view=calendar', page(304)],
+    ['https://workonplus.com/work/app/login/', page()],
+    ['https://workonplus.com/work/app/my-work.html', page()],
+    ['https://workonplus.com/work/app/hwp-lab/rhwp-0.8.7/studio/index.html', page()],
+    ['https://workonplus.com/work/app/app.js', new Response('js', {headers: {'Content-Type': 'text/javascript'}})],
+    ['https://workonplus.com/work/app/login/missing/', page(404)]
   ]) {
     const response = await request(url, upstream);
     assert.equal(response.headers.get('Content-Security-Policy'), "frame-ancestors 'self'", url);
@@ -96,12 +96,12 @@ test('Worker: bokdoong.com의 Web2 응답 전부에 frame-ancestors·X-Frame-Opt
     assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff', url);
   }
   // 첫 화면은 막는 헤더(frame-ancestors)와 보고 전용 CSP가 함께 붙는다.
-  const home = await request('https://bokdoong.com/work/app/', page());
+  const home = await request('https://workonplus.com/work/app/', page());
   assert.equal(home.headers.get('Content-Security-Policy-Report-Only'), WEB2_CSP);
 });
 
 test('Worker: Web2 밖(공유 페이지·Web1)에는 이번 헤더를 붙이지 않는다', async () => {
-  for (const url of ['https://work.bokdoong.com/work/share/', 'https://work.bokdoong.com/work/', 'https://bokdoong.com/']) {
+  for (const url of ['https://work.bokdoong.com/work/share/', 'https://work.bokdoong.com/work/']) {
     const response = await request(url, page());
     assert.equal(response.headers.get('X-Frame-Options'), null, url);
     assert.equal(response.headers.get('Content-Security-Policy'), null, url);
@@ -113,7 +113,7 @@ test('Worker: 저장해 둔 판(edge cache)을 돌려줄 때도 같은 헤더를
   const original = globalThis.caches;
   globalThis.caches = {default: {match: async () => stored.clone(), put: async () => {}}};
   try {
-    const response = await request('https://bokdoong.com/work/app/app.js?v=abc', new Response('never'));
+    const response = await request('https://workonplus.com/work/app/app.js?v=abc', new Response('never'));
     assert.equal(await response.text(), 'js');
     assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
     assert.equal(response.headers.get('X-Frame-Options'), 'SAMEORIGIN');
