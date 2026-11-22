@@ -160,30 +160,30 @@ class WidgetActionsTest {
 
     @Test
     fun oneCellIsSquareInkTileWithLabelBelow() {
-        // APP-한칸위젯 A(11/22): 앱 아이콘처럼 정사각 둥근 먹색 칸(고정 크기, 가운데) + 흰 그림 + 칸 아래 흰 이름(그림자).
+        // APP-한칸위젯 A(11/22): 앱 아이콘처럼 정사각 둥근 먹색 칸(가운데) + 흰 그림 + 칸 아래 흰 이름(그림자).
+        // S68-11: 칸은 그림 한 장(widget_tile_*)을 fitCenter로(크기 시험은 WidgetTileTest).
         val one = xml("src/main/res/layout/one_widget.xml")
         assertEquals("match_parent", attr(one, "layout_width"))
         assertEquals("match_parent", attr(one, "layout_height"))
         assertEquals("center", attr(one, "gravity"))
         assertEquals("vertical", attr(one, "orientation"))
-        assertEquals("", attr(one, "background")) // 바깥은 비움: 격자가 세로로 길어도 칸이 늘지 않는다.
-        val tile = children(one, "FrameLayout").single()
-        assertEquals("@drawable/widget_one_tile", attr(tile, "background"))
-        val w = attr(tile, "layout_width")
-        assertTrue(w.endsWith("dp"))
-        assertEquals(w, attr(tile, "layout_height")) // 정사각
-        val icon = children(tile, "ImageView").single()
-        // S68-08: 그림은 칸의 약 55%(칸 크기는 WidgetTileRules가 계산, 시험은 WidgetTileTest).
-        assertEquals("${WidgetTileRules.icon(w.removeSuffix("dp").toInt())}dp", attr(icon, "layout_width"))
-        assertEquals("@color/widget_one_icon", attr(icon, "tint"))
-        // 이름은 칸 안이 아니라 칸 아래(바깥 LinearLayout의 둘째 자식).
-        assertTrue(children(tile, "TextView").isEmpty())
-        val label = children(one, "TextView").single()
+        assertEquals("", attr(one, "background")) // 바깥은 비움: 먹색은 칸 그림에만.
+        val row = children(one, "LinearLayout").single()
+        val tile = children(row, "ImageView").single()
+        assertEquals("@+id/one_tile", attr(tile, "id"))
+        assertEquals("fitCenter", attr(tile, "scaleType"))
+        assertTrue(attr(tile, "src").startsWith("@drawable/widget_tile_"))
+        // 이름은 칸 안이 아니라 칸 아래(바깥 LinearLayout의 직속 자식). 여기 children은 모든 후손을 돌려준다(줄 안 TextView는 좌우 빈칸).
+        assertTrue(children(row, "TextView").none { attr(it, "id") == "@+id/one_label" })
+        val label = children(one, "TextView").single { attr(it, "id") == "@+id/one_label" }
+        assertEquals(one, label.parentNode)
         assertEquals("@color/widget_one_label", attr(label, "textColor"))
         assertEquals("12sp", attr(label, "textSize"))
         assertTrue(attr(label, "shadowRadius").isNotEmpty())
         // 먹색 하나: 칸 모양 파일은 먹색 토큰, 낮·밤 모두 같은 먹(앱 테마 기본 먹 #22262b).
-        assertTrue(File("src/main/res/drawable/widget_one_tile.xml").readText().contains("@color/widget_one_bg"))
+        for (a in listOf("update", "task", "note", "photo", "record")) {
+            assertTrue(a, File("src/main/res/drawable/widget_tile_$a.xml").readText().contains("@color/widget_one_bg"))
+        }
         for (p in listOf("src/main/res/values/colors.xml", "src/main/res/values-night/colors.xml")) {
             assertTrue(File(p).readText().contains("<color name=\"widget_one_bg\">#22262B</color>"))
         }
