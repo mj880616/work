@@ -74,7 +74,7 @@ object AppUpdater {
         if (!BuildConfig.SELF_UPDATE) return
         val app = context.applicationContext
         synchronized(this) {
-            if (release?.version == r.version && phase != UpdateRules.Phase.IDLE) return
+            if (UpdateRules.sameRelease(release?.version, phase, r.version)) return
             release = r
             userAsked = false
             confirm = null
