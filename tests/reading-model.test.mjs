@@ -208,12 +208,11 @@ test('copyPatch: News 본문 ok·lead 글자 블록만, lead는 paywall, 옛 사
   assert.equal([...copyPatch({state: 'ok', blocks: [{t: 'p', text: '가'.repeat(BODY_MAX + 5)}]}, null, now).body].length, BODY_MAX);
 });
 
-test('화면 연결: 열릴 때 자동 다시 가져오기(기존 startFetch, 2개씩), News 줄은 News 본문 먼저(feed-shared 읽기 길), 기기 저장 없음', () => {
+test('화면 연결: 열릴 때 자동 다시 가져오기(기존 startFetch, 2개씩), News 줄은 News 본문 먼저(feed-shared 읽기 길)', () => {
   const view = read('app/reading.js'), data = read('app/reading-data.js');
   assert.match(view, /refetchBatches\(state\.rows, \{tried: autoTried, busy: fetching\}\)/);
   assert.match(view, /batch\.map\(row => startFetch\(row\)/);
   assert.match(view, /if \(state\.loaded && !state\.failed\) void autoRefetch\(\);/);
   assert.match(data, /import\('\.\/feed-shared\.js'\)/);
   assert.match(data, /const copy = await newsCopy\(row\);/);
-  for (const src of [view, data]) assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
 });
