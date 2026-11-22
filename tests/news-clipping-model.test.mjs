@@ -45,7 +45,7 @@ test('줄 보임: 요약 늘 보임, 외국어 제목은 미리 번역한 한국
   assert.equal(M.itemView({...pend, title: 'naver.me/xAbC12'}).title, '제목 읽기 전 · example.org', '주소뿐인 제목도 제목으로 쓰지 않음');
   assert.equal(M.itemView({...pend, state: 'failed', title: 'https://example.org/x'}).title, '못 읽은 기사 · example.org');
   // S67-10 NEWS-네이버공유읽기: 제목을 못 읽은 줄은 '제목 없음' 대신 까닭 한마디.
-  assert.equal(M.itemView({...pend, state: 'robots', url: 'https://n.news.naver.com/mnews/article/000/1'}).title, '읽기 막힌 기사 · n.news.naver.com');
+  assert.equal(M.itemView({...pend, state: 'robots', url: 'https://n.news.naver.com/mnews/article/000/1'}).title, '제목 읽기 전 · n.news.naver.com', 'S68-25: 예전 robots 줄은 열면 읽어 옴');
   assert.equal(M.itemView({...pend, state: 'bot_check'}).title, '읽기 막힌 기사 · example.org');
   assert.equal(M.itemView({...pend, state: 'too_big'}).title, '못 읽은 기사 · example.org');
   assert.equal(M.itemView({...pend, state: 'blocked'}).title, '읽지 않는 주소 · example.org');

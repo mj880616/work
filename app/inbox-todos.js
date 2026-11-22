@@ -20,7 +20,7 @@ import {dueLabel} from './task-due.mjs';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {copyText} from './copy-text.js';
 import {flashDone} from './press-feedback.js';
-import {bindRowSwipe} from './row-swipe.js';
+import {bindRowSwipe, PICK} from './row-swipe.js';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
 
 const CHANGED = 'kptu:todo-radar-changed';
@@ -325,10 +325,13 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     if (problem) { rowStatus.set(c.id, problem); paint(); return; }
     status = ''; await toTask(c, draft);
   });
-  // UI-목록밀기: 폰 챙길 것 줄 — 오른쪽으로 밀기 [무시](위쪽 '무시했어요 [되돌리기]', 기존 [무시] 길). 챙길 것은 지우는 길이 없어 왼쪽 밀기는 두지 않는다.
+  // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 챙길 것 줄 — 왼쪽으로 밀기 [무시](위쪽 '무시했어요 [되돌리기]', 기존 [무시] 길, 끝까지 밀면 바로).
+  // 챙길 것은 지우는 길이 없어 [삭제] 칸은 없다. 오른쪽으로 밀기 [선택] → 'n개 선택됨 · [무시]'(하나씩 차례로 같은 길).
   bindRowSwipe(host, {row:'[data-inbox-todo-row]', enabled:() => state === 'ok',
-    actions:el => { const c = byId(el.dataset.inboxTodoRow); return c && c.status === 'open' && !busy.has(c.id) ? {start:{key:'dismiss', label:'무시', tone:'warning'}, end:null} : null; },
-    run:(key, el) => { const c = byId(el.dataset.inboxTodoRow); if (key === 'dismiss' && c && c.status === 'open' && !busy.has(c.id)) { status = ''; void dismiss(c); } }});
+    actions:el => { const c = byId(el.dataset.inboxTodoRow); return c && c.status === 'open' && !busy.has(c.id) ? {start:PICK, end:[{key:'dismiss', label:'무시', tone:'muted'}]} : null; },
+    run:(key, el) => { const c = byId(el.dataset.inboxTodoRow); if (key === 'dismiss' && c && c.status === 'open' && !busy.has(c.id)) { status = ''; void dismiss(c); } },
+    select:{attr:'data-inbox-todo-row', label:'선택한 챙길 것', acts:() => [{key:'dismiss', label:'무시'}],
+      run:async (key, ids) => { if (key !== 'dismiss') return; status = ''; for (const id of ids) { const c = byId(id); if (c && c.status === 'open' && !busy.has(c.id)) await dismiss(c); } }}});
   chips?.addEventListener('click', event => {
     const b = event.target.closest('[data-inbox-chip]'); if (!b) return;
     chip = b.dataset.inboxChip; status = ''; paint();

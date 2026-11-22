@@ -3,7 +3,7 @@
 // 흉내 낸 합성 글이고 실제 기사 원문이 아니다. 이 파일이 고정하는 것:
 // 1) 네이버 화면 모양은 news-feed 공유 보관(save_url)이 지금 부품(page.ts readArticlePage → _shared/feed-extract.ts, note-import와 같은 부품)으로 읽는다
 //    — 그러니 운영에서 제목이 비는 까닭은 화면 모양이 아니라 '읽기 자체가 못 된 것'(robots 막힘·늦은 답·4xx)이다.
-// 2) robots.txt가 막으면 우회하지 않는다(글 쪽은 부르지 않음). 까닭은 state='robots'·본문 reason='robots'로 저장된다.
+// 2) 기사 한 쪽은 robots.txt를 읽지 않는다(S68-25, 명진 결정 2026-11-22 — 사람이 공유로 넣은 한 쪽). 봇 확인·없는 글은 넘지 않고 까닭만 남긴다.
 // 3) 공유 창이 넘긴 제목은 원문 제목을 못 얻었을 때만 기사 제목이 된다(원문 제목이 있으면 원문 제목). 글자로만, 주소·빈 글은 버림.
 // 4) 사람이 누른 읽기(save_url·open)만 요청 하나 20초, 수집은 10초 그대로.
 import test from 'node:test';
@@ -88,22 +88,22 @@ test('네이버 뉴스·연예 모바일 기사: 공유 보관이 제목·본문
     assert.doesNotMatch(art.body, /훈훈해요|무단 전재|pstatic/, '좋아요 줄·저작권 줄·사진 주소는 본문이 아니다');
     assert.equal(bodyOf(w, art).state, 'ok');
   }
-  assert.deepEqual(w.calls.site, ['https://n.news.naver.com/robots.txt', NEWS, 'https://m.entertain.naver.com/robots.txt', ENT], '읽은 곳은 robots.txt와 그 기사뿐');
+  assert.deepEqual(w.calls.site, [NEWS, ENT], '읽은 곳은 그 기사뿐(robots.txt는 읽지 않음, S68-25)');
 });
 
-test('robots.txt가 막으면 글 쪽을 부르지 않고 까닭 robots로 남긴다 — 공유 창 제목이 있으면 그 제목, 없으면 제목 빈 채(화면이 까닭을 보인다)', async () => {
-  const w = world({robots: 'User-agent: *\nDisallow: /\n'});
+test('S68-25: robots.txt가 막아도 기사 한 쪽은 읽는다(robots.txt를 부르지 않음). 없는 글은 넘지 않고 공유 창 제목 + 까닭만', async () => {
+  const w = world({robots: 'User-agent: *\nDisallow: /\n', pages: {[NEWS]: NEWS_HTML}});
   const a = await out(await w.call({url: NEWS, title: '공유한 합성 기사 제목 : 네이버 뉴스'}));
-  assert.equal(a.body.status, 'no_body');
+  assert.equal(a.body.status, 'saved');
   const art = w.db.app_news_articles.find(x => x.url === NEWS);
-  assert.equal(art.state, 'robots'); assert.equal(art.title, '공유한 합성 기사 제목', '포털 꼬리는 뗀다'); assert.ok(art.title_key);
-  assert.equal(art.body ?? null, null); assert.equal(art.body_kind ?? null, null);
-  assert.deepEqual([bodyOf(w, art).state, bodyOf(w, art).reason], ['failed', 'robots']);
-  const b = await out(await w.call({url: ENT}));
+  assert.equal(art.state, 'ok'); assert.equal(art.title, '합성 기사 제목', '원문 제목이 있으면 원문 제목'); assert.equal(art.body_kind, 'full');
+  assert.equal(bodyOf(w, art).state, 'ok');
+  const b = await out(await w.call({url: ENT, title: '공유한 합성 연예 제목 : 네이버 뉴스'}));
   assert.equal(b.body.status, 'no_body');
   const ent = w.db.app_news_articles.find(x => x.url === ENT);
-  assert.equal(ent.state, 'robots'); assert.equal(ent.title ?? null, null);
-  assert.deepEqual(w.calls.site, ['https://n.news.naver.com/robots.txt', 'https://m.entertain.naver.com/robots.txt'], '막힌 기사 쪽은 부르지 않는다(우회 없음)');
+  assert.equal(ent.state, 'failed'); assert.equal(ent.title, '공유한 합성 연예 제목', '포털 꼬리는 뗀다');
+  assert.deepEqual([bodyOf(w, ent).state, bodyOf(w, ent).reason], ['failed', 'http_4xx']);
+  assert.deepEqual(w.calls.site, [NEWS, ENT], 'robots.txt는 부르지 않는다');
 });
 
 test('원문 제목이 있으면 공유 창 제목보다 원문 제목. 늦은 답(timeout)이면 공유 창 제목 + 까닭 timeout', async () => {
@@ -128,7 +128,7 @@ test('공유 창 제목은 글자로만: 주소·빈 글·제어 문자는 버�
   for (const body of [{url: NEWS, title: 1}, {url: NEWS, title: {}}, {url: NEWS, title: 'x'.repeat(H.SHARE_TITLE_IN_MAX + 1)}, {url: NEWS, title: 'x', extra: 1}])
     assert.equal((await w.call(body)).status, 400, JSON.stringify(body).slice(0, 60));
   assert.equal(w.calls.site.length, 0, '거절은 원문을 읽지 않는다');
-  assert.equal((await out(await w.call({url: NEWS, title: null}))).body.status, 'no_body');
+  assert.equal((await out(await w.call({url: NEWS, title: null}))).body.status, 'saved', 'title null은 받는다(robots는 보지 않음, S68-25)');
 });
 
 test('읽기 시간 한도: 사람이 누른 읽기만 20초, 그 밖의 값은 받지 않고 10초', async () => {

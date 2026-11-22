@@ -128,7 +128,7 @@ test('article page: full body, paywall lead only, bot check stores nothing, lang
  assert.equal(P.titleKey('[단독] 합성 기사, 제목! - 합성일보'),P.titleKey('합성 기사 제목'.replace(' 제목',', 제목')));
 });
 
-test('pending: robots allowed → body, meta and summary stored; robots blocked → state robots and page not read',async()=>{
+test('pending: body, meta and summary stored; S68-25 — robots.txt is not read for an article page (blocked robots still reads the page)',async()=>{
  const items=[{id:ITEM,workspace_id:WS,lane:'channel',state:'pending',url:'https://news.example.org/a/1',title:null,summary:null}];
  const w=fakeWorld({items,sites:{'https://news.example.org/robots.txt':{body:'User-agent: *\nAllow: /',headers:{'content-type':'text/plain'}},'https://news.example.org/a/1':{body:ARTICLE}}});
  const r=await call(w,cronReq('run',{step:'pending'}));
@@ -138,10 +138,14 @@ test('pending: robots allowed → body, meta and summary stored; robots blocked 
  assert.ok(w.calls.some(c=>c.url==='https://news.example.org/a/1'&&c.headers['User-Agent']===H.USER_AGENT));
  assert.ok(!w.calls.some(c=>c.url.startsWith('https://news.example.org')&&(c.headers.Authorization||c.headers.Cookie)));
 
+ assert.ok(!w.calls.some(c=>c.url==='https://news.example.org/robots.txt'),'robots.txt not requested for article pages (S68-25)');
+
  const w2=fakeWorld({items,sites:{'https://news.example.org/robots.txt':{body:'User-agent: *\nDisallow: /a/',headers:{'content-type':'text/plain'}},'https://news.example.org/a/1':{body:ARTICLE}}});
  await call(w2,cronReq('run',{step:'pending'}));
- assert.equal(w2.writes().find(c=>c.body?.state).body.state,'robots');
- assert.ok(!w2.calls.some(c=>c.url==='https://news.example.org/a/1'),'blocked page never requested');
+ assert.equal(w2.writes().find(c=>c.url.includes('app_news_items?id=eq.'+ITEM)&&c.body?.state).body.state,'ok');
+ assert.equal(w2.calls.filter(c=>c.url==='https://news.example.org/a/1').length,1,'page read once, honest User-Agent');
+ assert.ok(w2.calls.some(c=>c.url==='https://news.example.org/a/1'&&c.headers['User-Agent']===H.USER_AGENT));
+ assert.ok(!w2.calls.some(c=>c.url==='https://news.example.org/robots.txt'));
 });
 
 test('pending: redirect to an internal host or a non-https item is not followed',async()=>{
@@ -309,8 +313,8 @@ test('pending: 영상(youtu.be)은 기사로 읽지 않고 공개 oEmbed 제목�
  assert.ok(!w.calls.some(c=>c.url.startsWith('https://api.openai.com')),'AI 없음');
  const w2=fakeWorld({items,sites:{'https://www.youtube.com/robots.txt':{body:'User-agent: *\nDisallow: /oembed'}}});
  await call(w2,cronReq('run',{step:'pending'}));
- assert.equal(w2.writes().find(c=>c.body?.state).body.title,'영상');
- assert.ok(!w2.calls.some(c=>c.url.startsWith('https://www.youtube.com/oembed')),'robots가 막으면 읽지 않음');
+ assert.equal(w2.writes().find(c=>c.body?.state).body.title,'영상','못 읽으면 제목 "영상"');
+ assert.ok(!w2.calls.some(c=>c.url==='https://www.youtube.com/robots.txt'),'기사·영상 쪽은 robots.txt를 읽지 않음(S68-25)');
  assert.equal(H.videoId('https://www.youtube.com/watch?v=AbCdEf12345'),'AbCdEf12345');assert.equal(H.videoId('https://example.org/watch?v=x'),null);
 });
 

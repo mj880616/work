@@ -27,7 +27,7 @@ function style(path){
 // 예외: 일정의 할 일 창 모양(google-tasks.css)은 전처럼 ui-standard.css 뒤에 붙어야 PC 할 일 칸 빠른 기한 단추가 작은 크기로 이긴다(시험의 LATE 표).
 const routeStyles={
   basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./ui-standard.css'],
-  home:['./journal.css','./weekly-org-lines.css','./biz-summary.css','./home-quick.css','./library-upload.css','./row-swipe.css','./od-link.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./area-org-picker.css','./folder-look.css','./todo-radar.css','./ui-standard.css'],
+  home:['./journal.css','./weekly-org-lines.css','./biz-summary.css','./home-quick.css','./library-upload.css','./row-swipe.css','./od-link.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./area-org-picker.css','./folder-look.css','./todo-radar.css','./folder-tree.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./area-org-picker.css','./od-link.css','./calendar-ui.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./ui-standard.css'],
   tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./choice-sheet.css','./folder-tree.css','./ui-standard.css'],
   diary:['./diary.css','./od-link.css','./ed-doc.css','./folder-look.css','./basket-picker.css','./folder-tree.css','./ui-standard.css'],

@@ -17,7 +17,7 @@ const PAGE = `<html lang="en"><head><meta property="og:title" content="Synthetic
 // 아주 작은 PostgREST 흉내: eq·neq·is·in·gte·lt·not.is 거르기, select·order·limit·offset, POST(ignore/merge), PATCH.
 const ANON = 'synthetic-anon-key';
 // blocked: 누른 사람이 가입 차단 명단에 있음(공용 표 읽기 정책 private.app_news_reader_ok가 막음).
-function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요약.'}, members = [{user_id: USER, workspace_id: WS2}], blocked = false, newsWs = WS2} = {}) {
+function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요약.'}, members = [{user_id: USER, workspace_id: WS2}], blocked = false, newsWs = WS2, sleeps = []} = {}) {
   const db = {app_news_articles: [], app_news_items: [], app_news_marks: [], app_news_id_map: [], app_news_article_bodies: [], app_outside_sources: [], app_news_keywords: [], app_news_days: [], ...structuredClone(tables)};
   const calls = {ai: 0, site: [], rest: []};
   const res = (v, s = 200) => new Response(v === null ? null : JSON.stringify(v), {status: s, headers: {'content-type': 'application/json'}});
@@ -80,10 +80,10 @@ function world({tables = {}, sites = {}, ai = {summary: '합성 한 문장 요�
     }
     return res(null, 204);
   };
-  const h = H.createNewsFeedHandler({env: n => ({SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'synthetic-service-role-key', SUPABASE_ANON_KEY: ANON, NEWS_FEED_CRON_SECRET: SECRET, WEB2_OPENAI_API_KEY: 'synthetic-openai-key-000000000000'})[n], fetch: doFetch, now: () => NOW, sleep: async () => {}, log: () => {}});
+  const h = H.createNewsFeedHandler({env: n => ({SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'synthetic-service-role-key', SUPABASE_ANON_KEY: ANON, NEWS_FEED_CRON_SECRET: SECRET, WEB2_OPENAI_API_KEY: 'synthetic-openai-key-000000000000'})[n], fetch: doFetch, now: () => NOW, sleep: async ms => { sleeps.push(ms); }, log: () => {}});
   const cron = async b => (await h(new Request(`${FN}?action=run`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: JSON.stringify(b)}))).json();
   const user = async (action, b) => { const r = await h(new Request(`${FN}?action=${action}`, {method: 'POST', headers: {authorization: `Bearer ${JWT}`, 'content-type': 'application/json'}, body: JSON.stringify(b)})); return {status: r.status, body: await r.json()}; };
-  return {db, calls, cron, user};
+  return {db, calls, cron, user, sleeps};
 }
 const recent = new Date(NOW - 3600000).toISOString();
 
@@ -154,7 +154,23 @@ test('공용 본문: 못 읽은 결과는 이미 있는 블록을 덮지 않는�
   const bodies = Object.fromEntries(w.db.app_news_article_bodies.map(b => [b.article_id, b]));
   assert.equal(bodies[id(40)].state, 'ok', '읽힌 본문 그대로');
   assert.equal(bodies[id(41)].state, 'failed', '없던 기사는 failed 한 줄');
-  assert.ok(w.calls.rest.filter(c => c.p === 'app_news_article_bodies').every(c => /ignore-duplicates/.test(c.prefer)));
+  const bodyCalls = w.calls.rest.filter(c => c.p === 'app_news_article_bodies');
+  assert.ok(bodyCalls.filter(c => c.method === 'POST').every(c => /ignore-duplicates/.test(c.prefer)));
+  // S68-25: 못 읽은 결과의 고치기(PATCH)는 예전 robots 실패 줄만 새 까닭으로 바꾼다(읽힌 본문·다른 실패 줄은 건드리지 않음).
+  assert.ok(bodyCalls.filter(c => c.method === 'PATCH').every(c => /state=eq\.failed&reason=eq\.robots/.test(c.q)));
+});
+
+test('S68-25: 예전에 robots로 못 읽은 공용 본문 줄은 다시 읽어 실패해도 새 까닭으로 바뀌고, 읽힌 본문은 그대로', async () => {
+  const url = 'https://news.example.org/a/12', key = 'news.example.org/a/12';
+  const w = world({tables: {
+    app_news_articles: [{id: id(42), origin: 'tg_room', lane: 'channel', url, url_key: key, state: 'robots', created_at: recent}],
+    app_news_article_bodies: [{article_id: id(42), blocks: [], state: 'failed', reason: 'robots', rule: 'open@1', chars: 0, images: 0}],
+  }, sites: {}});
+  await w.cron({step: 'pending'});
+  const b = w.db.app_news_article_bodies.find(x => x.article_id === id(42));
+  assert.equal(b.state, 'failed'); assert.notEqual(b.reason, 'robots', '새 까닭으로');
+  assert.notEqual(w.db.app_news_articles.find(a => a.id === id(42)).state, 'robots', '다시 고르지 않게 상태가 바뀐다(재시도 1번)');
+  assert.equal(w.calls.site.filter(u => u.endsWith('/robots.txt')).length, 0, 'robots.txt는 읽지 않는다');
 });
 
 test('prune 단계: 지우기 앞에 보충 함수(서버 전용)를 한 번 부르고, 실패해도 지우기는 간다. 돌려받은 값은 줄 수만', async () => {
@@ -365,4 +381,66 @@ test('S62-22: 사람이 공유로 먼저 넣은 기사(origin user)를 매체 �
   const a = w.db.app_news_articles.find(x => x.id === id(70));
   assert.deepEqual([a.origin, a.lane, a.source_key], ['site', 'media', 'news-labortoday']);
   assert.equal(w.db.app_news_articles.find(x => x.id === id(71)).origin, 'user', '수집이 만나지 않은 공유 기사는 그대로(넣은 사람만)');
+});
+
+// ---- S68-25 NEWS 원문 robots 안 봄(명진 결정 2026-11-22): 원문 미리 저장·다시 읽기·열기는 robots.txt를 읽지 않는다. 피드(RSS)는 그대로 지킨다. ----
+const LT = 'https://www.labortoday.co.kr';
+const ltPage = n => `${LT}/news/articleView.html?idxno=${n}`;
+const LT_PAGE = `<html lang="ko"><head><meta property="og:title" content="합성 노동 기사"></head><body><article id="article-view-content-div"><p>${'합성 노동 기사 본문 문장이다. '.repeat(30)}</p></article></body></html>`;
+
+test('S68-25 매체 단계: 피드는 robots.txt를 보고, 새 기사 원문은 robots.txt가 막아도 읽는다. 피드 뒤 원문 전에 GAP_MS 한 번 쉰다', async () => {
+  const s = C.newsSourceByKey('news-labortoday');
+  const rss = `<rss><channel><item><title>합성 노동 기사</title><link>${ltPage(1)}</link></item><item><title>합성 노동 기사 둘</title><link>${ltPage(2)}</link></item></channel></rss>`;
+  const w = world({tables: {app_outside_sources: [{workspace_id: OP, source_key: s.key, enabled: true}]},
+    sites: {[s.lists[0]]: rss, [`${LT}/robots.txt`]: 'User-agent: *\nDisallow: /news/\n', [ltPage(1)]: LT_PAGE, [ltPage(2)]: LT_PAGE}, newsWs: OP});
+  const out = await w.cron({step: 'media', source: s.key});
+  assert.equal(out.bodies, 2, '원문 2건 읽음');
+  assert.equal(w.calls.site.filter(u => u.endsWith('/robots.txt')).length, 1, 'robots.txt는 피드 reader만 한 번');
+  assert.deepEqual(w.calls.site.filter(u => u.includes('articleView')).sort(), [ltPage(1), ltPage(2)], '같은 기사는 한 번씩');
+  assert.ok(w.db.app_news_articles.every(a => a.state === 'ok'));
+  assert.ok(w.sleeps.includes(H.GAP_MS), '피드 → 원문 사이 같은 사이트 간격');
+  // 피드 자체를 robots.txt가 막으면 피드는 읽지 않는다(피드 reader는 그대로).
+  const w2 = world({tables: {app_outside_sources: [{workspace_id: OP, source_key: s.key, enabled: true}]},
+    sites: {[s.lists[0]]: rss, [`${LT}/robots.txt`]: 'User-agent: *\nDisallow: /\n'}, newsWs: OP});
+  const out2 = await w2.cron({step: 'media', source: s.key});
+  assert.equal(out2.status, 'robots'); assert.equal(w2.calls.site.filter(u => u === s.lists[0]).length, 0, '막힌 피드는 부르지 않음');
+});
+
+test('S68-25 대기 단계: robots로 비어 있던 지난 기사는 한 번에 ROBOTS_RETRY_PER_RUN건까지만 새 것부터 다시 읽고, 기사마다 1번(다음 실행에 다시 고르지 않음)', async () => {
+  const n = H.ROBOTS_RETRY_PER_RUN + 3;
+  const arts = Array.from({length: n}, (_, i) => ({id: id(600 + i), origin: 'tg_room', lane: 'channel', url: `https://news.example.org/r/${i}`, url_key: `news.example.org/r/${i}`,
+    state: 'robots', created_at: new Date(NOW - (i + 1) * 60000).toISOString()}));
+  const old = {id: id(700), origin: 'tg_room', lane: 'channel', url: 'https://news.example.org/r/old', url_key: 'news.example.org/r/old', state: 'robots', created_at: new Date(NOW - (H.ROBOTS_RETRY_DAYS + 1) * 86400000).toISOString()};
+  const sites = {'https://news.example.org/robots.txt': 'User-agent: *\nDisallow: /\n'};
+  for (let i = 0; i < n - 1; i++) sites[`https://news.example.org/r/${i}`] = PAGE; // 마지막 하나는 없는 글(404)
+  const w = world({tables: {app_news_articles: [...arts, old]}, sites});
+  const out = await w.cron({step: 'pending'});
+  assert.equal(out.robots_retry, H.ROBOTS_RETRY_PER_RUN, '한 번 실행당 상한');
+  const read1 = w.calls.site.filter(u => u.includes('/r/'));
+  assert.equal(read1.length, H.ROBOTS_RETRY_PER_RUN);
+  assert.deepEqual(read1.sort(), arts.slice(0, H.ROBOTS_RETRY_PER_RUN).map(a => a.url).sort(), '새 것부터');
+  assert.ok(!read1.includes(old.url), `받은 지 ${H.ROBOTS_RETRY_DAYS}일 넘은 기사는 읽지 않음`);
+  assert.equal(w.calls.site.filter(u => u.endsWith('/robots.txt')).length, 0, 'robots.txt를 읽지 않음');
+  // 다음 실행: 남은 것만(이미 다시 읽은 기사는 상태가 바뀌어 다시 고르지 않음). 없는 글(404)도 1번 읽고 끝.
+  const out2 = await w.cron({step: 'pending'});
+  assert.equal(out2.robots_retry, 3);
+  const out3 = await w.cron({step: 'pending'});
+  assert.equal(out3.robots_retry, 0, '무한 재시도 없음');
+  const st = Object.fromEntries(w.db.app_news_articles.map(a => [a.url, a.state]));
+  assert.equal(st[arts[n - 1].url], 'failed'); assert.equal(st[arts[0].url], 'ok'); assert.equal(st[old.url], 'robots');
+  for (const u of arts.map(a => a.url)) assert.equal(w.calls.site.filter(x => x === u).length, 1, '기사마다 1번');
+});
+
+test('S68-25 open: robots로 비어 있던 기사를 열면 그 한 쪽만 읽어 저장 → 다시 열면 저장본(원문 0)', async () => {
+  const url = 'https://news.example.org/o/1';
+  const w = world({tables: {app_news_articles: [{id: id(800), origin: 'tg_room', lane: 'channel', url, url_key: 'news.example.org/o/1', state: 'robots', created_at: recent}],
+    app_news_article_bodies: [{article_id: id(800), blocks: [], state: 'failed', reason: 'robots', rule: 'open@1', chars: 0, images: 0}]},
+  sites: {'https://news.example.org/robots.txt': 'User-agent: *\nDisallow: /\n', [url]: PAGE}});
+  const r = await w.user('open', {id: id(800)});
+  assert.equal(r.status, 200); assert.equal(r.body.status, 'ok');
+  assert.deepEqual(w.calls.site, [url], '그 기사 한 쪽만(robots.txt 없음, 다른 기사 없음)');
+  const a = w.db.app_news_articles[0], b = w.db.app_news_article_bodies[0];
+  assert.deepEqual([a.state, a.body_kind, b.state], ['ok', 'full', 'ok'], '기존 원문 칸에 저장');
+  const again = await w.user('open', {id: id(800)});
+  assert.equal(again.body.status, 'stored'); assert.equal(w.calls.site.length, 1, '다시 열면 읽지 않음');
 });

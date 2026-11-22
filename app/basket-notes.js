@@ -70,7 +70,7 @@ import { attachmentName } from './attachment-name.mjs';
 import { markRenameHost, openRenameEditor, applyRenamedNote } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: ✎ 대신 ⋯ 안 [이름 수정]
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
-import { bindRowSwipe, claimedSince } from './row-swipe.js';
+import { bindRowSwipe, claimedSince, PICK } from './row-swipe.js';
 import { notePreview, noteCopyPayload, plainLines } from './note-preview.mjs';
 // NOTE-보기3가지(요청함 10/29 15:05): [폴더|목록|포스트잇] 세 보기. 고른 보기는 서버(view_prefs.note_view), 포스트잇 자리는 노트 metadata.board.
 import { mountNoteBoard } from './note-board.js';
@@ -1805,11 +1805,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (i >= 0 && i < ALL_VIEWS.length) { suppressUntil = Date.now() + 400; setView(ALL_VIEWS[i]); }
   }, {passive:true});
   list.addEventListener('touchcancel', () => { swipe = null; }, {passive:true});
-  // UI-목록밀기: 폰 노트 줄 — 왼쪽으로 밀기 [삭제](휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음), 오른쪽으로 밀기 [고정]/[고정 풀기]. 기존 ⋯ 메뉴의 길 그대로.
-  // 선택 모드·열린 노트·포스트잇 보드에서는 밀지 않는다(보드는 칸 옮기기).
+  // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 노트 줄 — 왼쪽으로 밀기 [고정]/[고정 풀기]·[옮기기](폴더 고르기, ⋯ [폴더로 옮기기]와 같은 길)·[삭제]
+  // (휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음 — 끝까지 밀어도 삭제는 칸만 열림). 오른쪽으로 밀기 [선택] = 노트에 이미 있는 선택 모드(그 줄이 골라진 채).
+  // 선택 모드·열린 노트·포스트잇 보드에서는 밀지 않는다(보드는 칸 옮기기). 노트에는 공유 길이 없어 [공유] 칸은 없다.
   bindRowSwipe(list, {row:'[data-nx-note]', enabled:() => !selected && !pick.active && !busy && !editing && view !== 'board',
-    actions:el => { const note = notes.find(n => n.id === el.dataset.nxNote); return note ? {start:{key:'pin', label:notePinnedAt(note) ? '고정 풀기' : '고정', tone:'info'}, end:{key:'delete', label:'삭제', tone:'danger'}} : null; },
-    run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else void pin(note); }});
+    actions:el => { const note = notes.find(n => n.id === el.dataset.nxNote); return note ? {start:PICK, end:[{key:'pin', label:notePinnedAt(note) ? '고정 풀기' : '고정', tone:'muted'}, ...(canEditFolders() ? [{key:'move', label:'옮기기', tone:'move'}] : []), {key:'delete', label:'삭제', tone:'danger'}]} : null; },
+    run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, {confirmed:true}); else if (key === 'move') openMovePicker(el.querySelector('[data-note-row-more]') || el, {notes:[note.id], folders:[]}); else void pin(note); },
+    select:{attr:'data-nx-note', open:el => { if (!selected && !busy) startSelect('n:' + el.dataset.nxNote); }}});
   // FOLDER-나무새기준 ④: 폰 나무에서 펼친 폴더(또는 그 안 노트 줄) 위 두 손가락 벌리기 = 그 폴더만, 그 폴더만 보는 중 오므리기 = 나무로.
   // S51-24 UI-빈칸손짓: 노트가 짧아도 아래 빈 곳까지 손짓 칸(두 손가락·좌우 밀기 보기 전환, gesture-fill.js).
   fillGestureArea(host.querySelector('[data-nx-body]'));

@@ -48,7 +48,7 @@ test('skipRobots: true면 robots.txt를 읽지 않고 글만 한 번 읽는다 �
   assert.deepEqual(b.sent, ['https://example.org/hop']);
 });
 
-test('skipRobots를 넘기는 함수는 note-import 하나뿐이다(수집 함수는 기본값 robots 확인)', () => {
+test('skipRobots를 넘기는 함수는 note-import와 news-feed 원문 reader뿐이다(피드·다른 수집 함수는 기본값 robots 확인)', () => {
   const root = 'supabase/functions';
   const hits = [];
   const walk = (dir) => {
@@ -59,10 +59,12 @@ test('skipRobots를 넘기는 함수는 note-import 하나뿐이다(수집 함�
     }
   };
   walk(root);
-  assert.deepEqual(hits.sort(), ['supabase/functions/_shared/feed-fetch.ts', 'supabase/functions/note-import/handler.ts']);
+  assert.deepEqual(hits.sort(), ['supabase/functions/_shared/feed-fetch.ts', 'supabase/functions/news-feed/handler.ts', 'supabase/functions/note-import/handler.ts']);
   const handler = readFileSync('supabase/functions/note-import/handler.ts', 'utf8');
   assert.match(handler, /skipRobots: SKIP_ROBOTS,/);
-  for (const f of ['supabase/functions/news-feed/handler.ts', 'supabase/functions/_shared/now-detail-build.ts']) {
-    assert.match(readFileSync(f, 'utf8'), /makeFeedReader\(/, f);
-  }
+  // S68-25(명진 결정 2026-11-22): News 원문 reader 두 개(page·open)만 건너뛴다. 매체 피드 reader(catalog)는 robots 확인 그대로.
+  const news = readFileSync('supabase/functions/news-feed/handler.ts', 'utf8');
+  assert.equal((news.match(/skipRobots: ARTICLE_SKIP_ROBOTS/g) || []).length, 2);
+  assert.match(news, /catalog: \(s, person = false\) => makeFeedReader\(\{ \.\.\.base, allow: \(raw\) => allowedUrl\(s, raw\), \.\.\.t\(person\) \}\)/);
+  assert.match(readFileSync('supabase/functions/_shared/now-detail-build.ts', 'utf8'), /makeFeedReader\(/);
 });
