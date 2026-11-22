@@ -12,7 +12,8 @@ import {pickerRows} from './library-move.mjs';
 import {ftIconHtml} from './folder-tree-ui.mjs';
 import {waitInlineHtml,emptyHtml} from './wait-state.js';
 import {fileKindOf,folderSiblings,nextSortOrder,canAddChild,folderErrorText} from './library-tree.js';
-import {receiveUnits,ruleReasons,startRows,aiBatches,mergeAi,settleRows,aiFailWhy,aiShouldStop,WHY_AI_NONE,renameGroup,placeGroup,applyPlan,sortSummary,doneText,tidyUnits,tidyGroups,tidyPlan,retargetGroup,tidyAtText,tidySummary} from './library-sort-model.mjs';
+import {requestDocumentText} from './document-text-read.js';
+import {receiveUnits,ruleReasons,startRows,aiBatches,mergeAi,settleRows,aiFailWhy,aiShouldStop,WHY_AI_NONE,genericImage,textIdsFor,textsFrom,textReasons,imageHome,imageFallback,aiIdOf,WHY_IMAGES,WHY_IMAGES_AI,WHY_IMAGES_READING,renameGroup,placeGroup,applyPlan,sortSummary,doneText,tidyUnits,tidyGroups,tidyPlan,retargetGroup,tidyAtText,tidySummary} from './library-sort-model.mjs';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items',CHUNK=100;
 const enc=encodeURIComponent;
@@ -80,13 +81,31 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
   async function open(from){
     const r=s().receiveId;if(!r)return;
     trigger=from||document.activeElement;ensure();
-    const list=units(),me=++run;
-    groups=[];rows=startRows(list,ruleReasons(list,{docs:s().docs,items:s().items,folders:s().folders,receiveId:r,categoryOf:s().categoryOf||(c=>c)}));
-    const batches=aiBatches(rows);progress=batches.length?{done:0,total:batches.reduce((n,b)=>n+b.length,0)}:null;
+    const list=units(),me=++run,ctx={docs:s().docs,items:s().items,folders:s().folders,receiveId:r,categoryOf:s().categoryOf||(c=>c)};
+    const rule=ruleReasons(list,ctx),need=textIdsFor(list.filter(u=>!rule.has(u.key)));
+    // S68-18: 이름이 기본 이름뿐인 그림은 그림 글자를 읽어 본 뒤 정한다(그동안 '⋯').
+    groups=[];rows=startRows(list,rule).map(x=>need.length&&x.nb?{...x,nb:false,why:'',wait:true}:x);progress=null;
     say2('');paint();
     root.classList.remove('hidden');root.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog?.activate?.(root,{trigger,initialFocus:root.querySelector('[data-sort-close]'),onRequestClose:close});
     if(!window.KPTUA11y?.dialog)root.querySelector('[data-sort-close]')?.focus();
+    // 그림 글자(서버가 Drive OCR로 읽어 둔 것, 내 작업공간 자료만 owner RLS로 읽음) → ① 글자 규칙 → 못 찾으면 ② AI(서버가 그 글자를 재료로 씀)
+    // → 그래도 없으면 그림 모음 폴더. 아직 안 읽은 JPEG·PNG 몇 장은 글자 읽기를 서버에 맡긴다(기다리지 않음, AI 비용 없음 — 다음에 열면 반영).
+    const home=imageHome(ctx);
+    if(need.length){
+      let got=[];
+      try{for(let i=0;i<need.length;i+=CHUNK){const part=need.slice(i,i+CHUNK);const out=await api(`/rest/v1/app_documents?workspace_id=eq.${enc(s().workspace)}&id=in.(${part.map(enc).join(',')})&select=id,extracted_text,extraction_status,file_name,mime_type&limit=${part.length}`);if(Array.isArray(out))got.push(...out)}}catch{got=[]}
+      if(me!==run)return;
+      const {texts,aiIds,read}=textsFrom(list,got),byText=textReasons(list.filter(u=>!rule.has(u.key)),texts,ctx);
+      const fresh=new Map(startRows(list,new Map([...rule,...byText]),{texts,aiIds}).map(x=>[x.key,x]));
+      const gen=new Set(list.filter(u=>!rule.has(u.key)&&genericImage(u)).map(u=>u.key));
+      rows=rows.map(x=>gen.has(x.key)?fresh.get(x.key):x);
+      const reading=new Set(read);
+      ({rows,groups}=imageFallback(rows,groups,home,{only:x=>x.nb,why:x=>x.ids.some(id=>reading.has(id))?WHY_IMAGES_READING:WHY_IMAGES,folders:s().folders}));
+      if(read.length)void (async()=>{for(const id of read)await requestDocumentText(id)})().catch(()=>{});
+    }
+    const batches=aiBatches(rows);progress=batches.length?{done:0,total:batches.reduce((n,b)=>n+b.length,0)}:null;
+    paint();
     // S68-16: 묶음(10개)마다 차례로 묻고, 답이 오면 그 줄을 바로 채운다. 실패·늦음·건너뜀이면 그 묶음 줄을 '그대로 둬요'(까닭 한 줄)로 바로 넘긴다.
     // 한도·로그인 문제거나 두 번 잇달아 실패하면 남은 묶음은 보내지 않고 같은 까닭으로 넘긴다. 끝나면 '⋯' 줄은 하나도 남지 않는다.
     let failed='',fails=0,okOnce=false;
@@ -106,6 +125,8 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
       // 이번 묶음에서 답이 없던 줄은 '그대로 둬요'로(다음 묶음을 기다리지 않게). 서버가 건너뛰었으면(고를 폴더 없음 등) 그 까닭.
       const skipped=typeof res.data?.skipped==='string'?res.data.skipped:'';
       rows=settleRows(rows,skipped?aiFailWhy('skipped:'+skipped):WHY_AI_NONE,ids);
+      // AI도 못 고른 그림은 그림 모음 폴더로(체크 꺼짐).
+      if(!skipped){const these=new Set(ids);({rows,groups}=imageFallback(rows,groups,home,{only:x=>these.has(aiIdOf(x))&&x.why===WHY_AI_NONE,why:WHY_IMAGES_AI,folders:s().folders}))}
       paint();
     }
     if(me!==run)return;
