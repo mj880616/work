@@ -22,7 +22,9 @@ test('share-news: only the save_url address goes to the server, no device storag
 });
 
 test('share-news words follow the request text; refusals have no retry', () => {
-  assert.equal(NEWS_NOTE.done, 'News 보관에 넣었어요');
+  assert.equal(NEWS_NOTE.done, '저장한 글에 넣었어요');
+  assert.equal(NEWS_NOTE.busy, '저장한 글에 넣는 중…');
+  assert.equal(NEWS_NOTE.fail, '저장한 글에 넣지 못했어요');
   assert.equal(NEWS_NOTE.open, '열기');
   assert.equal(NEWS_NOTE.noBody, '본문을 못 가져왔어요(원문 링크로 보기)');
   assert.equal(NEWS_NOTE.noUrl, '기사 주소가 없어요');
@@ -38,7 +40,7 @@ test('phone app: fourth share entry is an activity-alias with the same receive p
   const xml = read('../android-app/app/src/main/AndroidManifest.xml');
   const alias = xml.match(/<activity-alias\s+android:name="\.ShareToNews"[\s\S]*?<\/activity-alias>/)?.[0] || '';
   assert.match(alias, /android:targetActivity="\.MainActivity"/);
-  assert.match(alias, /android:label="WORK ON\+ News 보관"/);
+  assert.match(alias, /android:label="WORK ON\+ 저장"/);
   assert.match(alias, /android\.intent\.action\.SEND"/);
   assert.doesNotMatch(alias, /android:permission=|uses-permission/);
   const rules = read('../android-app/app/src/main/java/kr/or/kptu/work/ShellRules.kt');
