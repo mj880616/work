@@ -117,13 +117,13 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity-alias>
-        <!-- S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON+ News 보관'. 같은 화면의 activity-alias, 받기 길(ShareIntake)도 같다. 새 권한 없음.
-             웹은 받은 글에서 기사 주소 하나만 서버로 보내 News 보관에 넣는다(주소가 없으면 잊지 말기로 넣을지 묻는 알림만). -->
+        <!-- S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON+ 저장'(S68-35, 옛 이름 'News 보관' — 이미 설치된 폰에서 칸이 바뀌지 않게 name은 그대로). 같은 화면의 activity-alias, 받기 길(ShareIntake)도 같다. 새 권한 없음.
+             웹은 받은 글에서 기사 주소 하나만 서버로 보내 저장한 글에 넣는다(주소가 없으면 잊지 말기로 넣을지 묻는 알림만). -->
         <activity-alias
             android:name=".ShareToNews"
             android:targetActivity=".MainActivity"
             android:exported="true"
-            android:label="WORK ON+ News 보관">
+            android:label="WORK ON+ 저장">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
