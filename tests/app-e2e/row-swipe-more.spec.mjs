@@ -83,23 +83,30 @@ async function openReading(page, width) {
 }
 const rdRow = (list, id) => list.locator(`.rd-row[data-rd-open="${id}"]`);
 
-test('읽을 거리 412: 왼쪽 밀기 [사업에 연결]·[읽음] 칸, 끝까지 밀면 읽음 바꾸기, 삭제는 줄 밀기에 없음', async ({ page }) => {
+test('읽을 거리 412: 왼쪽 밀기 [사업에 연결]·[읽음]·[삭제] 칸, 끝까지 밀어도 바로 하지 않고 칸만 열림', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
   await swipe(rdRow(list, RA), -60);
-  await expect(ends(list)).toHaveCount(2);
+  await expect(ends(list)).toHaveCount(3);
   await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'area');
   await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'read');
-  await expect(cell(list, 'delete')).toHaveCount(0);
+  // S68-31: ⋯에 [삭제]가 있으므로 맨 끝(위험 색)에 [삭제].
+  await expect(ends(list).nth(2)).toHaveAttribute('data-row-swipe-key', 'delete');
+  await expect(ends(list).nth(2)).toHaveClass(/row-swipe-tone-danger/);
   // 칸은 줄 높이만큼 꽉 찬다.
   const [cellH, rowH] = await Promise.all([ends(list).first().evaluate(b => b.getBoundingClientRect().height), rdRow(list, RA).evaluate(r => r.getBoundingClientRect().height)]);
   expect(Math.abs(cellH - rowH)).toBeLessThan(1.5);
   await touchTap(cell(list, 'read'));
   await expect.poll(() => s.patches.filter(p => p.id === RA).length).toBe(1);
   expect(s.patches.at(-1).body.read_at).toBeTruthy();
-  // 읽은 줄(B)을 왼쪽 끝까지: 맨 끝 칸 [안 읽음으로]를 바로 한다(⋯ 메뉴와 같은 길).
+  // 읽은 줄(B)을 왼쪽 끝까지: 맨 끝이 [삭제]라 아무것도 하지 않고 칸만 열린 채 멈춘다(묻는 창도 없음).
   await tick(page);
   await swipe(rdRow(list, RB), -320);
+  await expect(ends(list)).toHaveCount(3);
+  await expect(cell(list, 'unread')).toBeVisible();
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
+  // 열린 칸의 [안 읽음으로] = ⋯ 메뉴와 같은 길.
+  await touchTap(cell(list, 'unread'));
   await expect.poll(() => s.patches.filter(p => p.id === RB).length).toBe(1);
   expect(s.patches.at(-1).body.read_at).toBeNull();
   // [사업에 연결] 칸 = ⋯ [사업에 연결]과 같은 사업영역 고르기 창.
@@ -109,6 +116,28 @@ test('읽을 거리 412: 왼쪽 밀기 [사업에 연결]·[읽음] 칸, 끝까�
   await expect(page.locator('#areaOrgPickSheet')).toBeVisible();
   expect(s.deletes).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('읽을 거리 412: 왼쪽 밀기 [삭제] — ⋯ 삭제와 같이 묻고, 취소하면 그대로, 삭제하면 그 줄만 지운다', async ({ page }) => {
+  test.setTimeout(90000);
+  const { s, errors, list } = await openReading(page, 412);
+  await swipe(rdRow(list, RA), -60);
+  await touchTap(cell(list, 'delete'));
+  const ask = page.locator('.kptu-ask');
+  await expect(ask).toContainText('이 읽을 거리를 삭제할까요?');
+  await ask.locator('.kptu-ask-actions .secondary').click();
+  await expect(ask).toHaveCount(0);
+  await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(3);
+  expect(s.deletes).toEqual([]);
+  await tick(page);
+  await swipe(rdRow(list, RA), -60);
+  await touchTap(cell(list, 'delete'));
+  await expect(ask).toContainText('이 읽을 거리를 삭제할까요?');
+  await ask.locator('.kptu-ask-actions .primary').click();
+  await expect.poll(() => s.deletes).toEqual([RA]);
+  await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(2);
+  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('삭제했어요');
   expect(errors).toEqual([]);
 });
 
@@ -173,7 +202,7 @@ test('읽을 거리 412: 줄 위 좌우 밀기는 칩을 넘기지 않고, 줄 �
   const allChip = list.locator('.rd-chips [data-filter-value="all"]');
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await both(rdRow(list, RA), -120);
-  await expect(ends(list)).toHaveCount(2);
+  await expect(ends(list)).toHaveCount(3);
   await expect(allChip).toHaveAttribute('aria-checked', 'true');
   await tick(page);
   await both(rdRow(list, RB), 320);
@@ -275,24 +304,39 @@ test.describe('일정 목록', () => {
   }
   const ev = (list, id) => list.locator(`.clv-event[data-google-event="${id}"]`).first();
 
-  test('412: 왼쪽 밀기 [보고할 일정]/[표시 끄기] 칸(서버 저장), 삭제 칸 없음, 오른쪽 밀기 [선택] → [보고할 일정] 여러 개', async ({ page }) => {
+  test('412: 왼쪽 밀기 [보고할 일정]/[표시 끄기]·[삭제] 칸(서버 저장), 끝까지 밀어도 칸만, 오른쪽 밀기 [선택] → [보고할 일정] 여러 개', async ({ page }) => {
     test.setTimeout(90000);
     const { state, errors, list } = await openList(page, 412);
-    // 켜 둔 일정: [표시 끄기] 한 칸, 끝까지 밀면 바로 끈다.
+    // 켜 둔 일정(쓰기 권한 있는 캘린더): [표시 끄기]·[삭제] 두 칸. S68-31: 메뉴에 [삭제]가 있어 맨 끝에 [삭제].
     await swipe(ev(list, 'todo2'), -60);
-    await expect(ends(list)).toHaveCount(1);
-    await expect(ends(list).first()).toHaveAttribute('data-row-swipe-key', 'plan-off');
-    await expect(cell(list, 'delete')).toHaveCount(0);
+    await expect(ends(list)).toHaveCount(2);
+    await expect(ends(list).nth(0)).toHaveAttribute('data-row-swipe-key', 'plan-off');
+    await expect(ends(list).nth(1)).toHaveAttribute('data-row-swipe-key', 'delete');
     await touchTap(cell(list, 'plan-off'));
     await expect.poll(() => state.planWrites.length).toBe(1);
     expect(JSON.stringify(state.planWrites[0].body)).toContain('"off"');
     await expect(ev(list, 'todo2').locator('.rp-mark')).toHaveCount(0);
-    // 그냥 일정: [보고할 일정] 칸, 끝까지 밀면 바로 켠다.
+    // 그냥 일정을 끝까지: 맨 끝이 [삭제]라 바로 하지 않고 칸만 열린다(일정 창·묻기 없음). 열린 [보고할 일정]을 누르면 켠다.
     await tick(page);
     await swipe(ev(list, 'none1'), -320);
+    await expect(ends(list)).toHaveCount(2);
+    await expect(page.locator('#ciGoogleModal')).toBeHidden();
+    await expect(page.locator('.kptu-ask')).toHaveCount(0);
+    expect(state.planWrites.length).toBe(1);
+    await touchTap(cell(list, 'plan-on'));
     await expect.poll(() => state.planWrites.length).toBe(2);
     expect(JSON.stringify(state.planWrites[1].body)).toContain('"on"');
     await expect(ev(list, 'none1').locator('.rp-mark')).toHaveCount(1);
+    // [삭제] 칸 = 메뉴 [삭제]와 같은 길: 일정 창을 열고 한 번 묻는다. 취소하면 아무것도 지우지 않는다.
+    await tick(page);
+    await swipe(ev(list, 'off1'), -60);
+    await touchTap(cell(list, 'delete'));
+    const ask = page.locator('.kptu-ask');
+    await expect(ask).toContainText('이 Google 일정을 삭제할까요?');
+    await ask.locator('.kptu-ask-actions .secondary').click();
+    await expect(ask).toHaveCount(0);
+    await expect(page.locator('#ciGoogleModal')).toBeHidden();
+    await expect(ev(list, 'off1')).toBeVisible();
     // 오른쪽 밀기 [선택] → 고른 일정을 한 번에 보고할 일정으로.
     await tick(page);
     await swipe(ev(list, 'todo2'), 320);
