@@ -19,6 +19,7 @@ import {waitHtml, failHtml, emptyEl} from './wait-state.js';
 import {notify, askConfirm} from './small-notice.js';
 import {word} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
+import {bindRowSwipe, claimedSince, PICK} from './row-swipe.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
@@ -90,7 +91,7 @@ const newsTag = () => el('span', 'rd-tag rd-src-tag', 'News');
 function readingRowEl(e) {
   const row = e.row, l = lineOf(row);
   const r = el('div', 'rd-row');
-  r.dataset.rdOpen = row.id; r.tabIndex = 0; r.setAttribute('role', 'button');
+  r.dataset.rdOpen = row.id; r.dataset.rdPick = row.id; r.tabIndex = 0; r.setAttribute('role', 'button');
   if (state.open === row.id) r.classList.add('is-open');
   if (l.unread) r.classList.add('is-unread');
   const dot = el('span', 'rd-dot'); dot.setAttribute('aria-hidden', 'true');
@@ -114,7 +115,7 @@ function readingRowEl(e) {
 // News에서 보관한 글 줄: 점 자리는 비우고 제목 · 매체 · 날짜, 꼬리표 'News'. 누르면 News 글 보기.
 function newsRowEl(e) {
   const r = el('div', 'rd-row rd-row-news');
-  r.dataset.rdNews = e.key; r.tabIndex = 0; r.setAttribute('role', 'button');
+  r.dataset.rdNews = e.key; r.dataset.rdPick = e.key; r.tabIndex = 0; r.setAttribute('role', 'button');
   const dot = el('span', 'rd-dot'); dot.setAttribute('aria-hidden', 'true');
   const more = btn('rd-more icon-btn', '⋯', {rdMore: e.key}); more.setAttribute('aria-label', 'News 보관 글 메뉴: ' + e.title); more.setAttribute('aria-expanded', 'false');
   r.append(dot, el('span', 'rd-nm', e.title), el('span', 'rd-meta', [e.site, e.day].filter(Boolean).join(' · ')), more);
@@ -349,17 +350,50 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
   }});
 
 // 좌우 밀기: 목록 칸에서 옆으로 밀면 옆 칩으로(세로 스크롤과 구분: 가로 이동이 세로의 2배 이상·60px 이상).
+// UI-줄밀기 Raindrop식(S68-26 2/2): 줄 위에서 시작한 밀기는 줄 밀기가 먼저다(claimedSince) — 그때는 칩을 넘기지 않는다.
 function bindSwipe(box) {
-  let x0 = null, y0 = 0;
-  box.addEventListener('touchstart', e => { if (e.touches.length !== 1 || e.target.closest?.('input,textarea,.rd-chips')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, {passive: true});
+  let x0 = null, y0 = 0, t0 = 0;
+  box.addEventListener('touchstart', e => { if (e.touches.length !== 1 || e.target.closest?.('input,textarea,.rd-chips')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, {passive: true});
   box.addEventListener('touchend', e => {
     if (x0 === null) return;
     const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
     x0 = null;
+    if (claimedSince(t0)) return;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return;
     const next = nextFilter(state.filter, dx < 0 ? 1 : -1, state.newsOn);
     if (next !== state.filter) { state.filter = next; drawList(); }
   }, {passive: true});
+}
+
+// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로](끝까지 밀면 읽음 바로),
+// News 보관 글 줄은 [보관 풀기](News와 같은 dropSaved, 알림 [되돌리기]). 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [읽음][보관 풀기]'.
+// 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·releaseSaved). 삭제는 되돌리는 길이 없어 줄 밀기에 두지 않는다(⋯ 그대로).
+function bindRows(box) {
+  const keyOf = el => el?.dataset?.rdPick || '';
+  bindRowSwipe(box, {row: '.rd-row[data-rd-pick]', enabled: () => state.loaded && !state.adding,
+    actions: el => {
+      const key = keyOf(el);
+      if (savedOf(key)) return {start: PICK, end: [{key: 'release', label: '보관 풀기', tone: 'muted'}]};
+      const row = rowOf(key);
+      if (!row) return null;
+      return {start: PICK, end: [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'}]};
+    },
+    run: (key, el) => {
+      const id = keyOf(el), sv = savedOf(id);
+      if (key === 'release') { if (sv) void releaseSaved(sv); return; }
+      const row = rowOf(id);
+      if (!row) return;
+      if (key === 'read' || key === 'unread') void toggleRead(id, key === 'read');
+      else if (key === 'area') { const at = box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`); if (at) void pickArea(at, id); }
+    },
+    // 고른 줄을 하나씩 차례로(⋯와 같은 길). [읽음]은 읽을 거리 줄만, [보관 풀기]는 News 보관 글 줄만.
+    select: {attr: 'data-rd-pick', label: '선택한 읽을 거리', acts: () => [{key: 'read', label: '읽음'}, ...(state.newsOn ? [{key: 'release', label: '보관 풀기'}] : [])],
+      run: async (key, ids) => {
+        for (const id of ids) {
+          if (key === 'read') { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }
+          else if (key === 'release') { const sv = savedOf(id); if (sv) await releaseSaved(sv); }
+        }
+      }}});
 }
 
 function bind() {
@@ -396,7 +430,7 @@ function bind() {
     void addUrl(form.querySelector('input')?.value || '');
   });
   const listBox = v.querySelector('[data-rd-list]');
-  if (listBox) bindSwipe(listBox);
+  if (listBox) { bindSwipe(listBox); bindRows(listBox); }
   detailBox = v.querySelector('[data-rd-detail]');
   bindMarks(detailBox);
   bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection});

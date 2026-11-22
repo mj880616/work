@@ -2,6 +2,7 @@ import {waitHtml, waitInlineHtml, emptyHtml} from './wait-state.js';
 import {floatingWindowOpen} from './open-window.mjs'; // ★LIB-바깥파일놓기안됨 전수: 다른 화면 칸에 붙은 창은 위에 뜬 창이 아니다
 import {swatchHtml} from './color-swatch.mjs'; // UI-색고르기통일: 프로젝트 색 칸도 공용 부품
 import {holdToast as kptuHoldToast,askConfirm,askText} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
+import {bindRowSwipe,PICK} from './row-swipe.js'; // UI-줄밀기 Raindrop식(S68-26 2/2): 휴지통 줄 밀기
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {fileAttrs,menuItemsHtml,httpUrl} from './file-actions.js';
 import { renameHostAttrs, renameMenuAttrs } from './file-rename.js'; // ATT-이름고치기 · FILE-이름고치기연필먹통: 보이는 이름이 파일 이름인 자료 줄만 그 자리에서 고치기(✎ 없이 ⋯ 안 [이름 수정])
@@ -920,15 +921,28 @@ function paintTrashList(box){
  const note=pending.length?`<p class="muted" data-ps3-trash-pending>${esc(pending.join('·'))} 휴지통은 준비 중입니다.</p>`:'';
  box.innerHTML=(trash.rows.length?`<div class="ps3-plist">${trash.rows.map(trashRowHtml).join('')}</div>`:empty())+note
 }
+// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 휴지통 줄 — 왼쪽으로 밀면 [되돌리기](줄 끝 단추와 같은 restoreFromTrash, 끝까지 밀면 바로)·[영구 삭제]
+// (⋯ [영구 삭제]와 같은 purgeFromTrash, 되돌릴 수 없어 끝까지 밀어도 칸만 열리고 누르면 한 번 묻는다). 상위가 휴지통에 있는 줄은 [영구 삭제]만.
+// 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [되돌리기]'(하나씩 차례로 같은 길). 영구 삭제는 줄마다 묻는 길이라 여러 개 선택에 두지 않는다.
+let trashSwipe=null;
+function bindTrashSwipe(box){
+ if(trashSwipe)return;
+ trashSwipe=bindRowSwipe(box,{row:'[data-ps3-trash-row]',enabled:()=>trash.tab==='trash'&&!trash.busy,
+  actions:el=>{const r=trash.rows.find(x=>x.id===el.dataset.ps3TrashRow);if(!r)return null;return{start:PICK,end:[...(r.parent_in_trash?[]:[{key:'restore',label:'되돌리기',tone:'info',icon:'undo'}]),{key:'purge',label:'영구 삭제',tone:'danger',icon:'trash'}]}},
+  run:(key,el)=>{const id=el.dataset.ps3TrashRow,r=trash.rows.find(x=>x.id===id);if(!r||trash.busy)return;if(key==='restore'&&!r.parent_in_trash)void restoreFromTrash(id);else if(key==='purge')void purgeFromTrash(id)},
+  select:{attr:'data-ps3-trash-row',label:'선택한 휴지통 항목',acts:()=>[{key:'restore',label:'되돌리기'}],
+   run:async(key,ids)=>{if(key!=='restore')return;for(const id of ids){const r=trash.rows.find(x=>x.id===id);if(r&&!r.parent_in_trash)await restoreFromTrash(id)}}}});
+}
 function paintArchive(){
  const box=$('#ps3ArchiveList'),tabs=$('#ps3ArchiveTabs'),hint=$('[data-ps3-archive-hint]'),head=$('#ps3ArchiveHeading');if(!box||!tabs)return;
+ bindTrashSwipe(box);
  const known=trash.merged!==TRASH_STATE.UNKNOWN,tab=known?trash.tab:'archive';
  tabs.hidden=!known;
  tabs.querySelectorAll('[data-ps3-archive-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ps3ArchiveTab===tab)));
  head.textContent=tab==='trash'?'휴지통':word('보관한 사업영역');
  hint.hidden=tab==='trash'&&trash.merged!==TRASH_STATE.READY;
  hint.textContent=tab==='trash'?word('삭제한 사업영역·담당조직·사업 보고·자료실 폴더·노트·업데이트·공유 페이지입니다. 자동으로 비우지 않으며, 영구 삭제는 직접 누를 때만 됩니다.'):word('삭제하지 않고 목록에서만 숨긴 사업영역입니다.');
- if(tab==='trash')paintTrashList(box);else void renderArchiveList()
+ if(tab==='trash')paintTrashList(box);else{trashSwipe?.stopPicking();void renderArchiveList()}
 }
 async function refreshTrash(){
  if(trashFlight)return trashFlight;

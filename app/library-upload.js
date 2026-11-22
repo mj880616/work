@@ -34,6 +34,7 @@ import {mountLibraryFolders} from './library-folders.js';
 import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './library-sort.js'; // LIB-받는폴더나누기(S60-18)·LIB-정돈제안(S61-13)
 import {readLibraryFolders} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
+import {bindRowSwipe,PICK} from './row-swipe.js';
 import {announceUploaded,openInLibrary} from './upload-done.js';
 import {folderTrail,folderPathHtml} from './folder-path.mjs';
 import {bindFolderPinch} from './folder-pinch.js';
@@ -1892,10 +1893,22 @@ function luSelDelete(){
   const shown=luVisibleIds(),ids=[...luPick.items].filter(id=>luDocuments.some(d=>d.id===id)).sort((a,b)=>shown.indexOf(a)-shown.indexOf(b));// 화면에 보이는 차례로
   if(ids.length)luQueueDelete(ids);
 }
+// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 자료실 자료 줄 — 왼쪽으로 밀면 [옮기기](⋯ [폴더로 옮기기]와 같은 폴더 고르기, 폴더 표를 읽었을 때만)·[삭제]
+// (⋯ [삭제]와 같은 길: 줄이 바로 빠지고 '삭제했어요 [되돌리기]', 끝까지 밀어도 바로 지우지 않고 칸만 열림). 오른쪽으로 밀면 [선택] → 자료실에 이미 있는 선택 모드(luPick)가 그 줄이 골라진 채로 열린다.
+// 사진 묶음 줄은 묶음 메뉴가 따로라 밀지 않는다. 공유 길은 자료 줄에 없어 칸을 두지 않는다. PC·중간 폭은 ⋯·우클릭 그대로(공용 부품이 폰 폭만 본다).
+function luBindRowSwipe(list){
+  bindRowSwipe(list,{row:'.lu-row[data-lu-document]',enabled:()=>!luPick.items&&!luSelBusy&&!luRenameBusy&&!luActiveMenu,
+    actions:el=>{const d=luDocuments.find(x=>x.id===el.dataset.luDocument);if(!d||isPhotoSet(d))return null;return {start:PICK,end:[...(luFoldersReady?[{key:'move',label:'옮기기',tone:'move'}]:[]),{key:'delete',label:'삭제',tone:'danger'}]}},
+    run:(key,el)=>{const id=el.dataset.luDocument;if(!luDocuments.some(d=>d.id===id))return;
+      if(key==='delete')luDeleteDocument(id);
+      else if(key==='move'&&luFoldersReady){const at=el.querySelector('[data-lu-menu]')||el;luFolders().openMove(luMoveDocs(id),at,{place:'below',trigger:at})}},
+    select:{attr:'data-lu-document',open:el=>luSelStartWith(el.dataset.luDocument)}});
+}
 function luBindSelect(){
   const list=document.querySelector('#documentList');
   if(!list||list.dataset.luSelBound)return;list.dataset.luSelBound='1';
   list.addEventListener('click',luOnPickClick,true);list.addEventListener('keydown',luOnPickKey,true);
+  luBindRowSwipe(list);
   document.querySelector('#libraryTopMenuBtn')?.addEventListener('click',e=>luTopMenuOpen(e.currentTarget));
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectAll'))luSelAll()});
   document.querySelector('#librarySelectDelete')?.addEventListener('click',luSelDelete);

@@ -1112,6 +1112,62 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   expect(state.trash.calls.map(c=>c.fn)).toContain('app_trash_purge');
 });
 
+// UI-줄밀기 Raindrop식 2/2(S68-26b): 폰 휴지통 줄 — 왼쪽 밀기 [되돌리기]·[영구 삭제](영구 삭제는 끝까지 밀어도 칸만, 누르면 확인창),
+// 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'. 상위가 휴지통인 줄은 [영구 삭제]만. PC는 밀기 없음.
+test('TRASH 줄 밀기 412: 왼쪽 밀기 [되돌리기]·[영구 삭제] 칸, 오른쪽 밀기 [선택] → 여러 개 되돌리기',async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width:412,height:900});
+  const state=baseState();
+  const at='2026-10-24T03:00:00Z',main=state.spaces.find(x=>x.id==='main-1'),child=state.spaces.find(x=>x.id==='child-1');
+  const extra={...main,id:'solo-1',name:'합성 단독 사업',parent_id:null,sort_order:50},extra2={...main,id:'solo-2',name:'합성 둘째 사업',parent_id:null,sort_order:60};
+  state.spaces=[];
+  state.trash={items:[{...main,deleted_at:at,deleted_root_id:'main-1'},{...child,deleted_at:'2026-10-24T02:00:00Z',deleted_root_id:'child-1'},{...extra,deleted_at:'2026-10-24T01:00:00Z',deleted_root_id:'solo-1'},{...extra2,deleted_at:'2026-10-24T00:30:00Z',deleted_root_id:'solo-2'}]};
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);
+  await clickView(page,'projects');
+  await page.locator('#ps3ArchiveBtn').click();
+  const list=page.locator('#ps3ArchiveList');
+  await expect(list.locator('[data-ps3-trash-row]')).toHaveCount(4);
+  const swipe=async(id,dx)=>{
+    await expect(async()=>{const sent=await page.locator(`[data-ps3-trash-row="${id}"]`).evaluate((el,dx)=>{if(!el.isConnected)return false;const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+      const fire=(type,cx)=>el.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,pointerId:7,pointerType:'touch',isPrimary:true,clientX:cx,clientY:y}));
+      fire('pointerdown',x);for(let i=1;i<=10;i++)fire('pointermove',x+dx*i/10);fire('pointerup',x+dx);return true},dx);expect(sent).toBe(true)}).toPass({timeout:10000});
+  };
+  const tap=async loc=>{await loc.dispatchEvent('pointerdown',{pointerType:'touch',isPrimary:true,bubbles:true});await loc.dispatchEvent('click')};
+  const tick=async()=>{try{await page.clock.setFixedTime(await page.evaluate(()=>Date.now()+1000))}catch{}};
+  const ends=list.locator('[data-row-swipe-act="end"]');
+  // 상위가 휴지통인 줄: [영구 삭제]만.
+  await swipe('child-1',-60);
+  await expect(ends).toHaveCount(1);
+  await expect(ends.first()).toHaveAttribute('data-row-swipe-key','purge');
+  // 영구 삭제는 끝까지 밀어도 칸만 열리고, 누르면 확인창(취소하면 그대로).
+  await tick();await swipe('solo-1',-380);
+  await expect(ends).toHaveCount(2);
+  await expect(ends.nth(0)).toHaveAttribute('data-row-swipe-key','restore');
+  await expect(ends.nth(1)).toHaveAttribute('data-row-swipe-key','purge');
+  expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
+  await tap(list.locator('[data-row-swipe-key="purge"]'));
+  expect((await askWithNote(page,false)).join(' ')).toContain('영구 삭제할까요');
+  expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
+  // [되돌리기] 칸 = 줄 끝 [되돌리기]와 같은 길.
+  await tick();await swipe('solo-1',-60);
+  await tap(list.locator('[data-row-swipe-key="restore"]'));
+  await expect.poll(()=>state.spaces.some(x=>x.id==='solo-1')).toBe(true);
+  await expect(list.locator('[data-ps3-trash-row]')).toHaveCount(3);
+  // 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'(상위가 휴지통인 줄은 건너뜀).
+  await tick();await swipe('solo-2',320);
+  const bar=page.locator('#ps3ArchiveModal .row-swipe-pickbar');
+  await expect(bar).toBeVisible();
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
+  await list.locator('[data-ps3-trash-row="main-1"]').click();
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['되돌리기']);
+  await bar.locator('[data-row-pick-act="restore"]').click();
+  await expect.poll(()=>['main-1','solo-2'].every(id=>state.spaces.some(x=>x.id===id))).toBe(true);
+  await expect(bar).toBeHidden();
+  expect(state.trash.calls.map(c=>c.fn)).not.toContain('app_trash_purge');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
 test('TRASH-화면2: 휴지통 탭에 담당조직·사업 보고가 함께 보이고, 되돌리기·영구 삭제(확인창)가 종류에 맞게 간다',async({page})=>{
   const state=baseState();
   state.trash={items:[],others:{
