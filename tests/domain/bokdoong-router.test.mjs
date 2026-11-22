@@ -24,18 +24,19 @@ async function request(url, { method = 'GET', upstream = new Response('ok'), hea
   }
 }
 
-test('bokdoong.com root sends visitors to Web2 with 302, keeping ?query, and never reaches Pages', async () => {
-  // DOMAIN-주소이전 ①-D1: the portal is no longer served at bokdoong.com/.
-  for (const [path, location] of [
-    ['/', 'https://bokdoong.com/work/app/'],
-    ['/?q=1', 'https://bokdoong.com/work/app/?q=1'],
-    ['/?view=calendar&date=2026-10-29', 'https://bokdoong.com/work/app/?view=calendar&date=2026-10-29']
+test('bokdoong.com root answers the moved notice (S68-01) and never reaches Pages', async () => {
+  // DOMAIN-주소이전 ①-D1: the portal is no longer served at bokdoong.com/. S68-01: the root shows the moved notice.
+  for (const [path, href] of [
+    ['/', 'https://workonplus.com/work/app/'],
+    ['/?q=1', 'https://workonplus.com/work/app/?q=1'],
+    ['/?view=calendar&date=2026-10-29', 'https://workonplus.com/work/app/?view=calendar&amp;date=2026-10-29']
   ]) {
     for (const method of ['GET', 'HEAD']) {
       const { response, calls } = await request(`https://bokdoong.com${path}`, { method });
-      assert.equal(response.status, 302, path);
-      assert.equal(response.headers.get('Location'), location, path);
+      assert.equal(response.status, 200, path);
+      assert.equal(response.headers.get('Location'), null, path);
       assert.equal(calls.length, 0, path);
+      if (method === 'GET') assert.ok((await response.text()).includes(`href="${href}"`), path);
     }
   }
   // Other paths stay closed.
@@ -81,7 +82,7 @@ test('service roots stay on their vanity hosts and retain deployed base paths', 
 test('only the selected GitHub Pages trees are proxied', async () => {
   const cases = [
     ['https://work.bokdoong.com/work/share/share.css?v=1', 'https://mj880616.github.io/work/share/share.css?v=1'],
-    ['https://bokdoong.com/work/app/sw.js?v=2', 'https://mj880616.github.io/work/app/sw.js?v=2'],
+    ['https://workonplus.com/work/app/sw.js?v=2', 'https://mj880616.github.io/work/app/sw.js?v=2'],
     ['https://work.bokdoong.com/work/about/index.html', 'https://mj880616.github.io/work/about/index.html']
   ];
   for (const [vanity, origin] of cases) {
@@ -144,9 +145,9 @@ async function versioned(url, { body = 'current bytes', manifest, manifestStatus
 
 test('desk versioned assets are immutable in browser and edge only when bytes match the manifest', async () => {
   for (const [url, path, version] of [
-    ['https://bokdoong.com/work/app/app.js?v=58', 'app/app.js', '58'],
-    ['https://bokdoong.com/work/app/project-system-v3.css?v=29', 'app/project-system-v3.css', '29'],
-    ['https://bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn2', 'app/app-icon.svg', '20260924-unicorn2']
+    ['https://workonplus.com/work/app/app.js?v=58', 'app/app.js', '58'],
+    ['https://workonplus.com/work/app/project-system-v3.css?v=29', 'app/project-system-v3.css', '29'],
+    ['https://workonplus.com/work/app/app-icon.svg?v=20260924-unicorn2', 'app/app-icon.svg', '20260924-unicorn2']
   ]) {
     const manifest = { assets: { [path]: { v: [version], sha256: sha256('current bytes') } } };
     const { response, calls, cache } = await versioned(url, { manifest });
@@ -163,7 +164,7 @@ test('desk versioned assets are immutable in browser and edge only when bytes ma
 });
 
 test('old bytes served for a new ?v= during a deploy are neither pinned at the edge nor immutable', async () => {
-  const url = 'https://bokdoong.com/work/app/project-system-v3.css?v=29';
+  const url = 'https://workonplus.com/work/app/project-system-v3.css?v=29';
   const cases = [
     ['bytes from the previous deploy', { body: 'old bytes', manifest: { assets: { 'app/project-system-v3.css': { v: ['29'], sha256: sha256('new bytes') } } } }],
     ['manifest from the previous deploy', { body: 'old bytes', manifest: { assets: { 'app/project-system-v3.css': { v: ['28'], sha256: sha256('old bytes') } } } }],
@@ -191,7 +192,7 @@ test('one manifest fetch serves the burst of asset misses on a cold page load', 
   };
   try {
     for (const name of ['a', 'b']) {
-      const response = await router.fetch(new Request(`https://bokdoong.com/work/app/${name}.js?v=1`));
+      const response = await router.fetch(new Request(`https://workonplus.com/work/app/${name}.js?v=1`));
       assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
     }
   } finally {
@@ -203,9 +204,9 @@ test('one manifest fetch serves the burst of asset misses on a cold page load', 
 test('service worker, HTML and HEAD requests are never immutable', async () => {
   const manifest = { assets: { 'app/sw.js': { v: ['2'], sha256: sha256('current bytes') }, 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
   for (const [url, method] of [
-    ['https://bokdoong.com/work/app/sw.js?v=2', 'GET'],
-    ['https://bokdoong.com/work/app/?v=58', 'GET'],
-    ['https://bokdoong.com/work/app/app.js?v=58', 'HEAD']
+    ['https://workonplus.com/work/app/sw.js?v=2', 'GET'],
+    ['https://workonplus.com/work/app/?v=58', 'GET'],
+    ['https://workonplus.com/work/app/app.js?v=58', 'HEAD']
   ]) {
     const { response, cache } = await versioned(url, { manifest, method });
     assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
@@ -225,7 +226,7 @@ test('the manifest is not committed; the Pages build writes it next to the files
 
 test('failed versioned Web2 assets never receive immutable browser caching', async () => {
   for (const status of [404, 500]) {
-    const { response } = await request('https://bokdoong.com/work/app/app.js?v=poison-check', {
+    const { response } = await request('https://workonplus.com/work/app/app.js?v=poison-check', {
       upstream: new Response('missing', { status, headers: { 'Cache-Control': 'max-age=31536000' } })
     });
     assert.equal(response.status, status);
@@ -234,7 +235,7 @@ test('failed versioned Web2 assets never receive immutable browser caching', asy
 });
 
 test('range requests bypass the edge cache; conditional versioned requests get the verified body', async () => {
-  const range = await request('https://bokdoong.com/work/app/app.js?v=86', {
+  const range = await request('https://workonplus.com/work/app/app.js?v=86', {
     headers: { Range: 'bytes=0-3' },
     upstream: new Response('data', { status: 206, headers: { 'Content-Range': 'bytes 0-3/10' } })
   });
@@ -251,7 +252,7 @@ test('range requests bypass the edge cache; conditional versioned requests get t
     return input.url.startsWith(MANIFEST + '?') ? new Response(JSON.stringify(manifest)) : new Response('current bytes');
   };
   try {
-    const response = await router.fetch(new Request('https://bokdoong.com/work/app/app.js?v=86', {
+    const response = await router.fetch(new Request('https://workonplus.com/work/app/app.js?v=86', {
       headers: { 'If-None-Match': '"old"', 'If-Modified-Since': 'Thu, 01 Jan 2026 00:00:00 GMT' }
     }));
     assert.equal(response.status, 200);
@@ -274,7 +275,7 @@ test('conditional and range requests retain HTTP semantics while revalidating', 
   assert.equal(conditional.response.status, 304);
   assert.equal(conditional.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
 
-  const partial = await request('https://bokdoong.com/work/app/app.js', {
+  const partial = await request('https://workonplus.com/work/app/app.js', {
     headers: { Range: 'bytes=0-3' },
     upstream: new Response('data', { status: 206, headers: { 'Content-Range': 'bytes 0-3/10' } })
   });
@@ -284,13 +285,13 @@ test('conditional and range requests retain HTTP semantics while revalidating', 
   assert.equal(partial.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
 });
 
-test('bokdoong.com keeps authenticated app assets; desk still sends public pages to work origin', async () => {
-  const app = await request('https://bokdoong.com/work/app/auth-service.js');
+test('workonplus.com keeps authenticated app assets; desk still sends public pages to work origin', async () => {
+  const app = await request('https://workonplus.com/work/app/auth-service.js');
   assert.equal(app.response.status, 200);
   assert.equal(app.calls[0].url, 'https://mj880616.github.io/work/app/auth-service.js');
 
-  const appWithoutSlash = await request('https://bokdoong.com/work/app');
-  assert.equal(appWithoutSlash.response.headers.get('Location'), 'https://bokdoong.com/work/app/');
+  const appWithoutSlash = await request('https://workonplus.com/work/app');
+  assert.equal(appWithoutSlash.response.headers.get('Location'), 'https://workonplus.com/work/app/');
   assert.equal(appWithoutSlash.calls.length, 0);
 
   const publicPage = await request('https://desk.bokdoong.com/work/p/?slug=example');
@@ -353,7 +354,7 @@ test('Arsenal favicon requests do not return 404 or reach unrelated origins', as
 
 test('each browser clears its HTTP cache once per epoch on its next Web2 page load', async () => {
   const page = () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-  const first = await request('https://bokdoong.com/work/app/', { upstream: page() });
+  const first = await request('https://workonplus.com/work/app/', { upstream: page() });
   assert.equal(first.response.headers.get('Clear-Site-Data'), '"cache"');
   const cookie = first.response.headers.get('Set-Cookie');
   assert.match(cookie, /^kptu_cache_epoch=[\w-]+; Path=\/work\/app\/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax$/);
@@ -361,20 +362,20 @@ test('each browser clears its HTTP cache once per epoch on its next Web2 page lo
   assert.equal(first.calls[0].headers.get('Cookie'), null);
 
   const value = cookie.split(';')[0];
-  const later = await request('https://bokdoong.com/work/app/login/', { upstream: page(), headers: { Cookie: `other=1; ${value}` } });
+  const later = await request('https://workonplus.com/work/app/login/', { upstream: page(), headers: { Cookie: `other=1; ${value}` } });
   assert.equal(later.response.headers.get('Clear-Site-Data'), null);
   assert.equal(later.response.headers.get('Set-Cookie'), null);
 
-  const oldEpoch = await request('https://bokdoong.com/work/app/', { upstream: page(), headers: { Cookie: 'kptu_cache_epoch=1999-01-01' } });
+  const oldEpoch = await request('https://workonplus.com/work/app/', { upstream: page(), headers: { Cookie: 'kptu_cache_epoch=1999-01-01' } });
   assert.equal(oldEpoch.response.headers.get('Clear-Site-Data'), '"cache"');
 });
 
-test('cache clearing is limited to successful bokdoong.com Web2 pages', async () => {
+test('cache clearing is limited to successful Web2 pages', async () => {
   const html = (status = 200) => new Response('<!doctype html>', { status, headers: { 'Content-Type': 'text/html' } });
   for (const [url, upstream] of [
     ['https://work.bokdoong.com/work/', html()],
-    ['https://bokdoong.com/work/app/missing/', html(404)],
-    ['https://bokdoong.com/work/app/auth-service.js', new Response('js', { headers: { 'Content-Type': 'text/javascript' } })]
+    ['https://workonplus.com/work/app/missing/', html(404)],
+    ['https://workonplus.com/work/app/auth-service.js', new Response('js', { headers: { 'Content-Type': 'text/javascript' } })]
   ]) {
     const { response } = await request(url, { upstream });
     assert.equal(response.headers.get('Clear-Site-Data'), null, url);
@@ -402,11 +403,11 @@ test('desk HTML and the version check skip the GitHub Pages copy with a 15-secon
   const start = 1_800_000_000_000; // a multiple of 15 seconds
   const bucket = start / 15000;
   for (const [url, origin] of [
-    ['https://bokdoong.com/work/app/', `https://mj880616.github.io/work/app/?__fresh=${bucket}`],
+    ['https://workonplus.com/work/app/', `https://mj880616.github.io/work/app/?__fresh=${bucket}`],
     // app/version-notice.js fetches ./index.html next to app.js.
-    ['https://bokdoong.com/work/app/index.html', `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`],
-    ['https://bokdoong.com/work/app/login/', `https://mj880616.github.io/work/app/login/?__fresh=${bucket}`],
-    ['https://bokdoong.com/work/app/?route=calendar', `https://mj880616.github.io/work/app/?route=calendar&__fresh=${bucket}`]
+    ['https://workonplus.com/work/app/index.html', `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`],
+    ['https://workonplus.com/work/app/login/', `https://mj880616.github.io/work/app/login/?__fresh=${bucket}`],
+    ['https://workonplus.com/work/app/?route=calendar', `https://mj880616.github.io/work/app/?route=calendar&__fresh=${bucket}`]
   ]) {
     const { response, calls } = await atTime(start, url, { upstream: deskPage() });
     assert.equal(calls.length, 1, url);
@@ -417,7 +418,7 @@ test('desk HTML and the version check skip the GitHub Pages copy with a 15-secon
     assert.equal(response.headers.get('ETag'), '"pages"', url);
   }
 
-  const url = 'https://bokdoong.com/work/app/index.html';
+  const url = 'https://workonplus.com/work/app/index.html';
   const sameWindow = await atTime(start + 14999, url, { upstream: deskPage() });
   assert.equal(sameWindow.calls[0].url, `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`);
   const nextWindow = await atTime(start + 15000, url, { upstream: deskPage() });
@@ -426,11 +427,11 @@ test('desk HTML and the version check skip the GitHub Pages copy with a 15-secon
 
 test('assets, share/about pages and the favicon are forwarded without the freshness value', async () => {
   for (const [url, origin] of [
-    ['https://bokdoong.com/work/app/app.js?v=abc', 'https://mj880616.github.io/work/app/app.js?v=abc'],
-    ['https://bokdoong.com/work/app/project-system-v3.css?v=29', 'https://mj880616.github.io/work/app/project-system-v3.css?v=29'],
-    ['https://bokdoong.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
-    ['https://bokdoong.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
-    ['https://bokdoong.com/work/app/?v=58', 'https://mj880616.github.io/work/app/?v=58'],
+    ['https://workonplus.com/work/app/app.js?v=abc', 'https://mj880616.github.io/work/app/app.js?v=abc'],
+    ['https://workonplus.com/work/app/project-system-v3.css?v=29', 'https://mj880616.github.io/work/app/project-system-v3.css?v=29'],
+    ['https://workonplus.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
+    ['https://workonplus.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
+    ['https://workonplus.com/work/app/?v=58', 'https://mj880616.github.io/work/app/?v=58'],
     ['https://work.bokdoong.com/work/share/', 'https://mj880616.github.io/work/share/'],
     ['https://work.bokdoong.com/work/about/index.html', 'https://mj880616.github.io/work/about/index.html'],
     ['https://bokdoong.com/favicon.png', 'https://mj880616.github.io/work/personal/portal/favicon.png']
@@ -442,7 +443,7 @@ test('assets, share/about pages and the favicon are forwarded without the freshn
 });
 
 test('versioned asset edge cache keys and immutable rules are unaffected by the freshness value', async () => {
-  const url = 'https://bokdoong.com/work/app/app.js?v=58';
+  const url = 'https://workonplus.com/work/app/app.js?v=58';
   const manifest = { assets: { 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
   const { response, calls, cache } = await versioned(url, { manifest });
   assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
@@ -456,19 +457,19 @@ test('the freshness value never leaks into redirects shown to the visitor', asyn
     status: 301,
     headers: { Location: `https://mj880616.github.io/work/app/login/?__fresh=${start / 15000}` }
   });
-  const { response, calls } = await atTime(start, 'https://bokdoong.com/work/app/index.html', { upstream });
+  const { response, calls } = await atTime(start, 'https://workonplus.com/work/app/index.html', { upstream });
   assert.match(calls[0].url, /__fresh=/);
   assert.equal(response.status, 301);
-  assert.equal(response.headers.get('Location'), 'https://bokdoong.com/work/app/login/');
+  assert.equal(response.headers.get('Location'), 'https://workonplus.com/work/app/login/');
 
-  const withQuery = await atTime(start, 'https://bokdoong.com/work/app/?route=a', {
+  const withQuery = await atTime(start, 'https://workonplus.com/work/app/?route=a', {
     upstream: new Response(null, { status: 302, headers: { Location: `/work/app/next/?route=a&__fresh=${start / 15000}` } })
   });
-  assert.equal(withQuery.response.headers.get('Location'), 'https://bokdoong.com/work/app/next/?route=a');
+  assert.equal(withQuery.response.headers.get('Location'), 'https://workonplus.com/work/app/next/?route=a');
 });
 
 test('Clear-Site-Data still applies once per epoch to desk pages fetched with the freshness value', async () => {
-  const { response, calls } = await request('https://bokdoong.com/work/app/', { upstream: deskPage() });
+  const { response, calls } = await request('https://workonplus.com/work/app/', { upstream: deskPage() });
   assert.match(calls[0].url, /\?__fresh=\d+$/);
   assert.equal(response.headers.get('Clear-Site-Data'), '"cache"');
   assert.equal(calls[0].headers.get('Cookie'), null);
@@ -639,13 +640,13 @@ test('Workers Logs are off so request URLs carrying link values are not stored',
 });
 
 
-// DOMAIN-주소이전 ①-E5·D1 (docs/design/domain-move.md 1.1·1.2): bokdoong.com/work/app/** is the Web2 address.
-test('bokdoong.com serves Web2 under /work/app/ without forwarding credentials', async () => {
+// DOMAIN-주소이전 ①-E5·D1, S68-01: the Web2 serving rules (now checked on workonplus.com, the address in use).
+test('workonplus.com serves Web2 under /work/app/ without forwarding credentials', async () => {
   for (const [url, origin] of [
-    ['https://bokdoong.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
-    ['https://bokdoong.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
-    ['https://bokdoong.com/work/app/onedrive-return.html', null],
-    ['https://bokdoong.com/work/app/login/confirmed.html', null]
+    ['https://workonplus.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
+    ['https://workonplus.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
+    ['https://workonplus.com/work/app/onedrive-return.html', null],
+    ['https://workonplus.com/work/app/login/confirmed.html', null]
   ]) {
     const { response, calls } = await request(url);
     assert.equal(response.status, 200, url);
@@ -657,10 +658,10 @@ test('bokdoong.com serves Web2 under /work/app/ without forwarding credentials',
   }
 });
 
-test('bokdoong.com Web2 redirects: slash added, Web1 paths go to work', async () => {
-  const appWithoutSlash = await request('https://bokdoong.com/work/app?view=calendar');
+test('Web2 redirects: slash added on workonplus.com, Web1 paths on bokdoong.com go to work', async () => {
+  const appWithoutSlash = await request('https://workonplus.com/work/app?view=calendar');
   assert.equal(appWithoutSlash.response.status, 302);
-  assert.equal(appWithoutSlash.response.headers.get('Location'), 'https://bokdoong.com/work/app/?view=calendar');
+  assert.equal(appWithoutSlash.response.headers.get('Location'), 'https://workonplus.com/work/app/?view=calendar');
   assert.equal(appWithoutSlash.calls.length, 0);
 
   for (const path of ['/work/p/?slug=example', '/work/share/', '/work/press/', '/work/']) {
@@ -671,13 +672,13 @@ test('bokdoong.com Web2 redirects: slash added, Web1 paths go to work', async ()
   }
 });
 
-test('bokdoong.com Web2 HTML gets the 15-second freshness value and keeps no-cache', async () => {
+test('Web2 HTML gets the 15-second freshness value and keeps no-cache', async () => {
   const start = 1_800_000_000_000;
   const bucket = start / 15000;
   for (const [url, origin] of [
-    ['https://bokdoong.com/work/app/', `https://mj880616.github.io/work/app/?__fresh=${bucket}`],
-    ['https://bokdoong.com/work/app/index.html', `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`],
-    ['https://bokdoong.com/work/app/?view=calendar', `https://mj880616.github.io/work/app/?view=calendar&__fresh=${bucket}`]
+    ['https://workonplus.com/work/app/', `https://mj880616.github.io/work/app/?__fresh=${bucket}`],
+    ['https://workonplus.com/work/app/index.html', `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`],
+    ['https://workonplus.com/work/app/?view=calendar', `https://mj880616.github.io/work/app/?view=calendar&__fresh=${bucket}`]
   ]) {
     const { response, calls } = await atTime(start, url, { upstream: deskPage() });
     assert.equal(calls[0].url, origin, url);
@@ -689,8 +690,8 @@ test('bokdoong.com Web2 HTML gets the 15-second freshness value and keeps no-cac
   assert.equal(icon.calls[0].url, 'https://mj880616.github.io/work/personal/portal/favicon.ico');
 });
 
-test('bokdoong.com Web2 versioned assets are immutable only when bytes match the manifest', async () => {
-  const url = 'https://bokdoong.com/work/app/app.js?v=58';
+test('Web2 versioned assets are immutable only when bytes match the manifest', async () => {
+  const url = 'https://workonplus.com/work/app/app.js?v=58';
   const good = { assets: { 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
   const ok = await versioned(url, { manifest: good });
   assert.equal(ok.response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
@@ -705,40 +706,41 @@ test('bokdoong.com Web2 versioned assets are immutable only when bytes match the
   const cache = new Map();
   const desk = await versioned('https://desk.bokdoong.com/work/app/app.js?v=58', { manifest: good, cache });
   assert.equal(desk.response.status, 302);
-  assert.equal(desk.response.headers.get('Location'), url);
+  assert.equal(desk.response.headers.get('Location'), 'https://bokdoong.com/work/app/app.js?v=58');
   assert.equal(desk.calls.length, 0);
   assert.equal(cache.size, 0);
 
   // sw.js and the portal favicon are never pinned.
-  for (const other of ['https://bokdoong.com/work/app/sw.js?v=2', 'https://bokdoong.com/favicon.png?v=20260920']) {
+  for (const other of ['https://workonplus.com/work/app/sw.js?v=2', 'https://bokdoong.com/favicon.png?v=20260920']) {
     const { response, cache: none } = await versioned(other, { manifest: good });
     assert.notEqual(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', other);
     assert.equal(none.size, 0, other);
   }
 });
 
-test('bokdoong.com Web2 pages clear the browser cache once per epoch; the root redirect never does', async () => {
+test('Web2 pages clear the browser cache once per epoch; the bokdoong.com notice never does', async () => {
   const page = () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-  const first = await request('https://bokdoong.com/work/app/', { upstream: page() });
+  const first = await request('https://workonplus.com/work/app/', { upstream: page() });
   assert.equal(first.response.headers.get('Clear-Site-Data'), '"cache"');
   const cookie = first.response.headers.get('Set-Cookie');
   assert.match(cookie, /^kptu_cache_epoch=[\w-]+; Path=\/work\/app\/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax$/);
-  const later = await request('https://bokdoong.com/work/app/', { upstream: page(), headers: { Cookie: cookie.split(';')[0] } });
+  const later = await request('https://workonplus.com/work/app/', { upstream: page(), headers: { Cookie: cookie.split(';')[0] } });
   assert.equal(later.response.headers.get('Clear-Site-Data'), null);
   const root = await request('https://bokdoong.com/', { upstream: page() });
-  assert.equal(root.response.status, 302);
+  assert.equal(root.response.status, 200);
+  assert.equal(root.calls.length, 0);
   assert.equal(root.response.headers.get('Clear-Site-Data'), null);
   assert.equal(root.response.headers.get('Set-Cookie'), null);
 });
 
-test('bokdoong.com Web2 upstream redirects stay on bokdoong.com without the freshness value', async () => {
+test('Web2 upstream redirects stay on the visited host without the freshness value', async () => {
   const start = 1_800_000_000_000;
   const upstream = new Response(null, {
     status: 301,
     headers: { Location: `https://mj880616.github.io/work/app/login/?__fresh=${start / 15000}` }
   });
-  const { response } = await atTime(start, 'https://bokdoong.com/work/app/index.html', { upstream });
-  assert.equal(response.headers.get('Location'), 'https://bokdoong.com/work/app/login/');
+  const { response } = await atTime(start, 'https://workonplus.com/work/app/index.html', { upstream });
+  assert.equal(response.headers.get('Location'), 'https://workonplus.com/work/app/login/');
 });
 
 // DOMAIN-주소이전 ①-D1 (docs/design/domain-move.md 1.1): desk and work send Web2 visitors to bokdoong.com.
@@ -901,11 +903,15 @@ test('arsenal keeps http→https, the method rule and the favicon; the Web2 logi
   const icon = await request('https://arsenal.bokdoong.com/favicon.ico');
   assert.equal(icon.response.status, 200);
   assert.equal(icon.calls.length, 0);
-  // The target is the ordinary Web2 page: proxied with the Web2 rules, no session check skipped or added here.
+  // S68-01: the target is now the bokdoong.com moved notice; its link opens the same menu on workonplus.com, where the
+  // ordinary Web2 page is served with the Web2 rules (no session check skipped or added here).
   const menu = await request(ARSENAL_MENU);
   assert.equal(menu.response.status, 200);
-  assert.equal(menu.calls.length, 1);
-  assert.match(menu.calls[0].url, /^https:\/\/mj880616\.github\.io\/work\/app\/\?view=arsenal&__fresh=\d+$/);
+  assert.equal(menu.calls.length, 0);
+  assert.ok((await menu.response.text()).includes('href="https://workonplus.com/work/app/?view=arsenal"'));
+  const app = await request('https://workonplus.com/work/app/?view=arsenal');
+  assert.equal(app.calls.length, 1);
+  assert.match(app.calls[0].url, /^https:\/\/mj880616\.github\.io\/work\/app\/\?view=arsenal&__fresh=\d+$/);
 });
 
 // SHARE-보관함·HTML공유: bokdoong.com/s/<name>-<8 letters>.
@@ -945,7 +951,7 @@ test('a preview bot on work /work/share/?s= also gets the title; malformed short
 // LIB-편집열기느림: GitHub Pages gives every file a new ETag on each deploy, so the ~14MB HWP editor was fetched again
 // after every deploy. Its build files have a content hash in the name, so only those may be kept by the browser.
 test('HWP editor build files with a content hash in the name are kept; everything around them still revalidates', async () => {
-  const base = 'https://bokdoong.com/work/app/hwp-lab/rhwp-0.8.7/studio/';
+  const base = 'https://workonplus.com/work/app/hwp-lab/rhwp-0.8.7/studio/';
   for (const name of ['assets/rhwp_bg-BkVWMBaR.wasm', 'assets/index-oVYSsgk_.js', 'assets/index-Dy0DTkWY.css', 'assets/canvaskit-renderer-C4Jx6T-v.js']) {
     const ok = await request(base + name, { upstream: new Response('bytes', { headers: { ETag: '"deploy-1"' } }) });
     assert.equal(ok.response.status, 200, name);
@@ -961,14 +967,14 @@ test('HWP editor build files with a content hash in the name are kept; everythin
     [base + 'fonts/NotoSerifKR-Regular.woff2', 200, 'GET'],
     [base + 'images/icon_small_ko.svg', 200, 'GET'],
     [base + 'theme-init.js', 200, 'GET'],
-    ['https://bokdoong.com/work/app/hwp-lab/studio-guard.js', 200, 'GET'],
-    ['https://bokdoong.com/work/app/hwp-lab/rhwp-0.8.7/sdk/index.js', 200, 'GET'],
+    ['https://workonplus.com/work/app/hwp-lab/studio-guard.js', 200, 'GET'],
+    ['https://workonplus.com/work/app/hwp-lab/rhwp-0.8.7/sdk/index.js', 200, 'GET'],
     [base + 'assets/rhwp_bg-BkVWMBaR.wasm?x=1', 200, 'GET'],
     [base + 'assets/rhwp_bg-BkVWMBaR.wasm', 404, 'GET'],
     [base + 'assets/rhwp_bg-BkVWMBaR.wasm', 200, 'HEAD'],
     [base + 'assets/rhwp_bg.wasm', 200, 'GET'],
-    ['https://bokdoong.com/work/app/hwp-lab/rhwp-next/studio/assets/index-oVYSsgk_.js', 200, 'GET'],
-    ['https://bokdoong.com/work/app/assets/index-oVYSsgk_.js', 200, 'GET']
+    ['https://workonplus.com/work/app/hwp-lab/rhwp-next/studio/assets/index-oVYSsgk_.js', 200, 'GET'],
+    ['https://workonplus.com/work/app/assets/index-oVYSsgk_.js', 200, 'GET']
   ];
   for (const [url, status, method] of kept) {
     const { response } = await request(url, { method, upstream: new Response(method === 'HEAD' ? null : 'x', { status }) });
@@ -1048,11 +1054,11 @@ test('the moved notice link is escaped and cannot leave workonplus.com', async (
   }
 });
 
-test('www.nojoplus.com still goes to nojoplus.com first (then the notice), and other hosts never get the notice', async () => {
+test('www.nojoplus.com still goes to nojoplus.com first (then the notice), and workonplus.com never gets the notice', async () => {
   const www = await request('https://www.nojoplus.com/work/app/?view=calendar');
   assert.equal(www.response.status, 301);
   assert.equal(www.response.headers.get('Location'), 'https://nojoplus.com/work/app/?view=calendar');
-  for (const url of ['https://bokdoong.com/work/app/', 'https://workonplus.com/work/app/']) {
+  for (const url of ['https://workonplus.com/work/app/']) {
     const { response, calls } = await request(url, {
       upstream: new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
     });
@@ -1114,11 +1120,10 @@ test('www.nojoplus.com goes to the same path and ?query on nojoplus.com with 301
   }
 });
 
-test('old hosts still send Web2 visitors to bokdoong.com (not nojoplus.com) in 1단계', async () => {
+test('old hosts still send Web2 visitors to bokdoong.com (not nojoplus.com), which then shows the notice', async () => {
   for (const [url, location] of [
     ['https://desk.bokdoong.com/', 'https://bokdoong.com/work/app/'],
     ['https://work.bokdoong.com/work/app/?view=calendar', 'https://bokdoong.com/work/app/?view=calendar'],
-    ['https://bokdoong.com/', 'https://bokdoong.com/work/app/'],
     ['https://arsenal.bokdoong.com/', 'https://bokdoong.com/work/app/?view=arsenal']
   ]) {
     const { response } = await request(url);
@@ -1219,5 +1224,129 @@ test('workonplus.com look-alike hosts are not served', async () => {
     const { response, calls } = await request(url);
     assert.equal(response.status, 404, url);
     assert.equal(calls.length, 0, url);
+  }
+});
+
+// S68-01 (명진 2026-11-21 "bokdoong.com은 안 쓰고 workonplus만 씀"): bokdoong.com / and /work/app/** answer the moved notice.
+const HTML_PAGE = () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+
+test('bokdoong.com /work/app/** answers its own moved notice with a link that keeps path and ?query', async () => {
+  for (const [path, href] of [
+    ['/work/app', 'https://workonplus.com/work/app/'],
+    ['/work/app?view=tasks', 'https://workonplus.com/work/app/?view=tasks'],
+    ['/work/app/', 'https://workonplus.com/work/app/'],
+    ['/work/app/?view=calendar&day=2026-11-01', 'https://workonplus.com/work/app/?view=calendar&amp;day=2026-11-01'],
+    ['/work/app/login/?return=x', 'https://workonplus.com/work/app/login/?return=x'],
+    ['/work/app/index.html', 'https://workonplus.com/work/app/index.html'],
+    ['/work/app/app.js?v=abc', 'https://workonplus.com/work/app/app.js?v=abc'],
+    ['/work/app/?view=library&drive=connected', 'https://workonplus.com/work/app/?view=library&amp;drive=connected'],
+    // Not the phone app's calendar return (no native=android): notice.
+    ['/work/app/?view=calendar&google=connected', 'https://workonplus.com/work/app/?view=calendar&amp;google=connected']
+  ]) {
+    const { response, calls } = await request(`https://bokdoong.com${path}`, { upstream: HTML_PAGE() });
+    assert.equal(response.status, 200, path);
+    assert.equal(calls.length, 0, path);
+    assert.equal(response.headers.get('Location'), null, path);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store', path);
+    assert.match(response.headers.get('X-Robots-Tag'), /noindex/, path);
+    assert.match(response.headers.get('Content-Security-Policy'), /default-src 'none'/, path);
+    assert.equal(response.headers.get('Set-Cookie'), null, path);
+    assert.equal(response.headers.get('Clear-Site-Data'), null, path);
+    const html = await response.text();
+    assert.ok(html.includes('<title>주소가 workonplus.com으로 바뀌었어요</title>'), path);
+    assert.ok(html.includes('기록은 그대로'), path);
+    assert.ok(html.includes('폰 앱을 쓰고 있다면 앱을 새 판으로 올려 주세요.'), path);
+    assert.ok(!html.includes('노동조합+'), 'the 노동조합+ sentence is for nojoplus.com only');
+    assert.ok(html.includes(`<a class="go" href="${href}">workonplus.com으로 가기</a>`), path);
+    assert.equal((html.match(/<a /g) || []).length, 1, 'one link only');
+    assert.doesNotMatch(html, /<script|http-equiv="refresh"/i, 'no automatic move');
+  }
+  const head = await request('https://bokdoong.com/work/app/', { method: 'HEAD' });
+  assert.equal(head.response.status, 200);
+  assert.equal(head.calls.length, 0);
+});
+
+test('the notice link never carries a sealed sign-in value and cannot leave workonplus.com', async () => {
+  for (const host of ['bokdoong.com', 'nojoplus.com']) {
+    const { response } = await request(`https://${host}/work/app/?handoff=sealed-value&view=home`);
+    const html = await response.text();
+    assert.ok(!html.includes('sealed-value'), host);
+    assert.ok(html.includes('href="https://workonplus.com/work/app/?view=home"'), host);
+  }
+  const { response } = await request('https://bokdoong.com/work/app/?a="><script>x</script>');
+  const html = await response.text();
+  assert.doesNotMatch(html, /<script/i);
+  const href = html.match(/<a class="go" href="([^"]*)"/)[1].replace(/&amp;/g, '&');
+  assert.equal(new URL(href).origin, 'https://workonplus.com');
+});
+
+test('bokdoong.com keeps the old phone app sign-in return page, its two scripts and the app icons', async () => {
+  for (const [path, origin] of [
+    ['/work/app/native-callback.html?native=android', 'https://mj880616.github.io/work/app/native-callback.html?native=android'],
+    ['/work/app/native-callback.html?native=android-play', 'https://mj880616.github.io/work/app/native-callback.html?native=android-play'],
+    ['/work/app/origin-redirect.js?v=abc', 'https://mj880616.github.io/work/app/origin-redirect.js?v=abc'],
+    ['/work/app/native-auth-bridge.js?v=abc', 'https://mj880616.github.io/work/app/native-auth-bridge.js?v=abc'],
+    ['/work/app/icons/app-icon-512.png', 'https://mj880616.github.io/work/app/icons/app-icon-512.png']
+  ]) {
+    const { response, calls } = await request(`https://bokdoong.com${path}`, { upstream: HTML_PAGE() });
+    assert.equal(response.status, 200, path);
+    const page = calls.filter(call => !call.url.startsWith(MANIFEST));
+    assert.equal(page.length, 1, path);
+    assert.equal(page[0].url.replace(/[?&]__fresh=\d+$/, ''), origin, path);
+    assert.equal(page[0].headers.get('Cookie'), null, path);
+    assert.equal(page[0].headers.get('Authorization'), null, path);
+  }
+  // The share page preview image (work.bokdoong.com/work/app/icons/…) still reaches the icon through bokdoong.com.
+  const og = await request('https://work.bokdoong.com/work/app/icons/app-icon-512.png');
+  assert.equal(og.response.status, 302);
+  assert.equal(og.response.headers.get('Location'), 'https://bokdoong.com/work/app/icons/app-icon-512.png');
+  // Look-alike paths are not kept.
+  for (const path of ['/work/app/native-callback.htm', '/work/app/x/native-callback.html', '/work/app/native-auth-bridge.json', '/work/app/iconsx/a.png']) {
+    const { response, calls } = await request(`https://bokdoong.com${path}`);
+    assert.equal(calls.length, 0, path);
+    assert.match(await response.text(), /주소가 workonplus\.com으로 바뀌었어요/, path);
+  }
+});
+
+test('bokdoong.com sends registered return pages and the phone app calendar return to the same address on workonplus.com', async () => {
+  for (const [path, location] of [
+    ['/work/app/onedrive-return.html?code=c&state=s', 'https://workonplus.com/work/app/onedrive-return.html?code=c&state=s'],
+    ['/work/app/onedrive-return.html?probe=1', 'https://workonplus.com/work/app/onedrive-return.html?probe=1'],
+    ['/work/app/oauth-consent/?authorization_id=a', 'https://workonplus.com/work/app/oauth-consent/?authorization_id=a'],
+    ['/work/app/oauth-consent', 'https://workonplus.com/work/app/oauth-consent'],
+    ['/work/app/?view=calendar&google=connected&native=android', 'https://workonplus.com/work/app/?view=calendar&google=connected&native=android'],
+    ['/work/app/?view=calendar&google=error&native=android', 'https://workonplus.com/work/app/?view=calendar&google=error&native=android'],
+    ['/work/app?google=denied&native=android', 'https://workonplus.com/work/app/?google=denied&native=android']
+  ]) {
+    for (const method of ['GET', 'HEAD']) {
+      const { response, calls } = await request(`https://bokdoong.com${path}`, { method });
+      assert.equal(response.status, 302, path);
+      assert.equal(response.headers.get('Location'), location, path);
+      assert.equal(response.headers.get('Cache-Control'), 'no-store', path);
+      assert.equal(calls.length, 0, path);
+    }
+  }
+  // Other values are not a calendar return: they get the notice.
+  for (const path of ['/work/app/?google=connected&native=windows', '/work/app/?google=other&native=android', '/work/app/onedrive-return.htmlx']) {
+    const { response, calls } = await request(`https://bokdoong.com${path}`);
+    assert.equal(response.status, 200, path);
+    assert.equal(calls.length, 0, path);
+  }
+  // desk still goes to bokdoong.com first (then the same rule).
+  const desk = await request('https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1');
+  assert.equal(desk.response.headers.get('Location'), 'https://bokdoong.com/work/app/onedrive-return.html?probe=1');
+});
+
+test('bokdoong.com keeps /s/ short addresses, the favicon and the Web1 move to work; other hosts get no notice', async () => {
+  const short = await request(`https://bokdoong.com/s/${SLUG}`);
+  assert.equal(short.response.status, 302);
+  assert.equal(short.response.headers.get('Location'), `https://work.bokdoong.com/work/share/?s=${SLUG}`);
+  const icon = await request('https://bokdoong.com/favicon.png');
+  assert.equal(icon.calls[0].url, 'https://mj880616.github.io/work/personal/portal/favicon.png');
+  const about = await request('https://bokdoong.com/work/about/');
+  assert.equal(about.response.headers.get('Location'), 'https://work.bokdoong.com/work/about/');
+  for (const url of ['https://work.bokdoong.com/work/share/', 'https://work.bokdoong.com/work/about/', 'https://workonplus.com/work/app/']) {
+    const { calls } = await request(url, { upstream: HTML_PAGE() });
+    assert.equal(calls.length, 1, url);
   }
 });

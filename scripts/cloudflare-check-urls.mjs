@@ -3,9 +3,9 @@ import { resolve } from 'node:path';
 
 // Reads the release chain from the build-pages.mjs output folder given as the only argument (what
 // GitHub Pages serves). The checkout has no ?v= since CI-버전자동화 3단계, so it is refused.
-// URLs are on bokdoong.com, the only Web2 host since DOMAIN-주소이전 ①-D1 (desk and work redirect there).
-// `--host bokdoong.com` is accepted and gives the same output.
-const WEB2_HOSTS = ['bokdoong.com'];
+// URLs are on workonplus.com, the Web2 host in use since S68-01 (bokdoong.com and nojoplus.com show the moved notice).
+// `--host workonplus.com` is accepted and gives the same output.
+const WEB2_HOSTS = ['workonplus.com'];
 const [root, ...extra] = process.argv.slice(2);
 const host = extra.length === 2 && extra[0] === '--host' ? extra[1] : (extra.length ? null : WEB2_HOSTS[0]);
 
