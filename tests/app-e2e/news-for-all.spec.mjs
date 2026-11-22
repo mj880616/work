@@ -98,9 +98,15 @@ for (const width of [412, 1280]) {
     // A의 별표·읽음은 B 화면에 없다(c1은 B에게 아직 안 읽은 글, 별표 없음).
     await expect(item(b.page, 'c1')).toHaveClass(/is-new/);
     await expect(item(b.page, 'c1').locator('.nw-star')).toHaveCount(0);
-    // B [보관] 탭: 비어 있음(A가 별표한 기사 없음).
-    await b.page.locator('#outsideRoot [data-os-tab="archive"]').click();
-    await expect(b.page.locator('[data-now-panel-saved]')).toContainText('보관한 글 없음');
+    // B 보관한 글(S68-24: News [보관] 탭 → 읽을 거리 [News]): 비어 있음(A가 별표한 기사 없음).
+    await b.page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_reading_items', r => r.fulfill({ json: [] }));
+    await b.page.locator('#outsideRoot [data-now-go-saved]').click();
+    await expect(b.page.locator('#readingView')).toBeVisible();
+    await expect(b.page.locator('#readingView .rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(b.page.locator('#readingView [data-rd-rows]')).toContainText('News에서 보관한 글이 없어요');
+    await expect(b.page.locator('#readingView [data-rd-news]')).toHaveCount(0);
+    await b.page.goBack();
+    await expect(b.page.locator('#outsideView')).toBeVisible();
     // B가 k1을 숨겨도 A 목록에는 그대로.
     await b.page.locator('#outsideRoot [data-os-tab="media"]').click();
     await expect(items(b.page)).toHaveCount(5);

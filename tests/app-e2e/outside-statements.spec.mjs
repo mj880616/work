@@ -4,7 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { expectPickerAtButton } from './helpers/picker-anchor.mjs';
 import { segBox } from './helpers/seg-box.mjs'; // UI-보기탭한모양(S52-17): 보기 탭은 보이는 알약 자리로 잰다
 // OUTSIDE-바깥성명 ④ 화면 1 → S51-8 NEWS-전면개편 P4b(docs/design/news-overhaul.md 6.1·6.3절, 시안 mockups/news-overhaul.html): News 목록(?view=outside).
-// 탭 [전체][사회운동][언론][보관] — 폰 아래 떠 있는 탭 줄·폴드 오른쪽 아래·PC 위, 좌우 밀기 = 탭 이동, 고른 탭은 서버 view_prefs.news_tab.
+// 탭 [전체][사회운동][언론][밑줄] + 길 '보관 ↗'(S68-24, [보관] 탭 없앰 — 읽을 거리 [News]로) — 폰 아래 떠 있는 탭 줄·폴드 오른쪽 아래·PC 위, 좌우 밀기 = 탭 이동, 고른 탭은 서버 view_prefs.news_tab.
 // 위 찾기 칸(제목 바로 거르기), [매체: 전체 ▾](자료실 분류 창 부품), 줄은 날짜 묶음 → 흰 상자 안 줄(매체 색 띠·같은 색 이름·분류 꼬리표·시각·★),
 // 안 읽은 글 굵게·읽은 글 흐리게(app_feed_reads, 상세를 열면 넣음). ⋯ → [단체 켜고 끄기]는 서버 표(app_outside_sources), 뒤로가기 한 번 = 목록.
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 글은 모두 가상의 글.
@@ -165,7 +165,10 @@ for (const width of [412, 884, 1280]) {
     const { errors, server } = await start(page, width);
     await openOutside(page, width);
     // 탭 넷, 처음은 [전체](news_tab·옛 now_tab 둘 다 없음 → 저장 안 함).
-    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '보관', '밑줄']);
+    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    // 옛 [보관] 탭 자리: 탭이 아닌 길 '보관 ↗'(같은 탭 줄 안, 화살표 탭 이동에는 들지 않음).
+    await expect(root(page).locator('[data-os-tabs] [data-now-go-saved]')).toHaveText('보관 ↗');
+    await expect(root(page).locator('[data-os-tabs] [data-now-go-saved]')).not.toHaveAttribute('role', 'tab');
     await expect(tab(page, 'all')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#osTitle')).toHaveText('News');
     // [전체] = 사회운동 글 + 언론 기사를 시각 최신 순으로(날짜 묶음 → 흰 상자).

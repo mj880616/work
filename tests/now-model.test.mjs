@@ -1,31 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, filterSaved, SAVED_CHIPS, keepSavedChip, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, openTabFor, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 
-test('탭 넷은 view_prefs.news_tab 값과 같고, 모르는 값은 전체, 밀기는 끝에서 멈춘다', () => {
-  assert.deepEqual(NOW_TAB_IDS, ['all', 'movement', 'media', 'archive', 'marks']);
-  assert.deepEqual([...NEWS_TABS], [...SAVED_TAB_IDS], 'S53-5: [밑줄]은 news_tab DB 검사 값에 없어 기억하지 않는다');
-  assert.deepEqual(SAVED_TAB_IDS, NOW_TAB_IDS.slice(0, 4));
-  assert.deepEqual(NOW_TABS.map(t => t.label), ['전체', '사회운동', '언론', '보관', '밑줄']);
+test('탭은 [전체][사회운동][언론][밑줄]([보관] 탭 없앰, S68-24), 기억 값은 news_tab DB 검사 값 안, 모르는 값은 전체, 밀기는 끝에서 멈춘다', () => {
+  assert.deepEqual(NOW_TAB_IDS, ['all', 'movement', 'media', 'marks']);
+  // DB 검사 값('archive' 포함)은 그대로 두고(DB 바꾸지 않음), 기억하는 탭은 그 안에서 [밑줄]·옛 [보관]을 뺀 셋.
+  assert.deepEqual([...NEWS_TABS], [...SAVED_TAB_IDS, 'archive'], 'S53-5: [밑줄]은 news_tab DB 검사 값에 없어 기억하지 않는다');
+  assert.deepEqual(SAVED_TAB_IDS, NOW_TAB_IDS.slice(0, 3));
+  assert.deepEqual(NOW_TABS.map(t => t.label), ['전체', '사회운동', '언론', '밑줄']);
   assert.equal(keepNowTab('marks'), 'marks');
   assert.equal(keepNowTab('media'), 'media');
-  for (const v of [undefined, '', 'news', 'outside', null]) assert.equal(keepNowTab(v), 'all');
+  for (const v of [undefined, '', 'news', 'outside', null, 'archive']) assert.equal(keepNowTab(v), 'all');
   assert.equal(nowTabAt('all', 1), 'movement');
-  assert.equal(nowTabAt('archive', 1), 'marks');
+  assert.equal(nowTabAt('media', 1), 'marks');
   assert.equal(nowTabAt('marks', 1), null);
   assert.equal(nowTabAt('all', -1), null);
-  assert.equal(nowTabAt('archive', -1), 'media');
+  assert.equal(nowTabAt('marks', -1), 'media');
 });
 
 test('처음 탭: news_tab이 있으면 그것, 없으면 옛 now_tab을 바꿔 한 번 옮긴다(설계 7.3)', () => {
   assert.deepEqual(startTab('media', 'outside'), {tab: 'media', migrate: false});
   assert.deepEqual(startTab(undefined, 'outside'), {tab: 'movement', migrate: true});
   assert.deepEqual(startTab(undefined, 'news'), {tab: 'media', migrate: true});
-  assert.deepEqual(startTab(undefined, 'saved'), {tab: 'archive', migrate: true});
+  assert.deepEqual(startTab(undefined, 'saved'), {tab: 'all', migrate: true});
+  // S68-24: 없앤 [보관] 탭을 기억한 사람은 [전체]로 연다(옮겨 적지 않음 — 다음에 탭을 고르면 그 값).
+  assert.deepEqual(startTab('archive', 'news'), {tab: 'all', migrate: false});
   assert.deepEqual(startTab(undefined, 'search'), {tab: 'all', migrate: true});
   assert.deepEqual(startTab(undefined, undefined), {tab: 'all', migrate: false});
   assert.deepEqual(startTab('bogus', 'bogus'), {tab: 'all', migrate: false});
@@ -84,10 +87,7 @@ test('상세 답 모양: 틀린 칸은 버리고 basic은 연관·시사점 없�
   assert.equal(detailError({status: 503, message: 'monthly_limit'}), '이번 달 AI 한도를 다 씀');
 });
 
-test('[보관] 탭: 두 쪽 별표를 최근 순 한 목록, 칩 [전체][사회운동][언론]으로 거르기(보관 = 별표, S67-09)', () => {
-  assert.deepEqual(SAVED_CHIPS.map(c => [c.id, c.label]), [['all', '전체'], ['outside', '사회운동'], ['news', '언론']]);
-  assert.equal(keepSavedChip('star'), 'all');
-  assert.equal(keepSavedChip('archive'), 'all');
+test('보관한 글: 두 쪽 별표를 최근 순 한 목록(보관 = 별표, S67-09 — 읽을 거리 [News]·노트가 읽음), 다른 화면에서 여는 탭', () => {
   const marks = [{post_id: A, starred_at: '2026-11-01T00:00:00Z', app_outside_posts: {id: A, title: '성명'}},
     {post_id: '33333333-3333-4333-8333-333333333333', starred_at: null, app_outside_posts: {id: 'x'}},
     // 옛 보관 칸만 있는 줄은 보지 않는다(DB가 별표로 채웠다).
@@ -97,10 +97,11 @@ test('[보관] 탭: 두 쪽 별표를 최근 순 한 목록, 칩 [전체][사회
   const rows = savedRows(marks, news);
   assert.deepEqual(rows.map(r => [r.type, r.id, r.star]), [['outside', '55555555-5555-4555-8555-555555555555', true], ['news', B, true], ['outside', A, true]]);
   assert.ok(rows.every(r => !('archive' in r)));
-  assert.equal(filterSaved(rows, 'outside').length, 2);
-  assert.equal(filterSaved(rows, 'news').length, 1);
-  assert.equal(filterSaved(rows, 'star').length, 3);
-  assert.equal(filterSaved(rows, 'nope').length, 3);
+  // S68-24: 읽을 거리·노트에서 연 글은 그 글이 든 탭(밑줄이면 [밑줄]).
+  assert.equal(openTabFor('news'), 'media');
+  assert.equal(openTabFor('outside'), 'movement');
+  assert.equal(openTabFor('telegram'), 'all');
+  assert.equal(openTabFor('news', true), 'marks');
 });
 
 test('상세 날짜: 서울 시각, 자정이면 날짜만', () => {
