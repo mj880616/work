@@ -126,7 +126,7 @@ test('READ one store: plan, guard, dry-run, apply, move once per workspace, keep
   await t.test('dry-run leaves catalog, rows and marks unchanged',async()=>{
    const dry=await run('dry-run','9981');assert.equal(dry.ok,true,dry.summary);
    assert.deepEqual((await q(snapshot)).rows,before);assert.deepEqual(values(await readOnly(precheck)),pre);
-   assert.equal(await history(),0);assert.equal((await rows()).length,1);assert.deepEqual(await marks(),marks0);
+   assert.equal(await history(),0);assert.equal((await q('select count(*)::int n from public.app_reading_items')).rows[0].n,1);assert.deepEqual(await marks(),marks0);
   });
 
   await t.test('apply: postcheck passes with counts only; second apply refused',async()=>{
