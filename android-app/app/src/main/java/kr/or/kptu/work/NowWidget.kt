@@ -130,11 +130,21 @@ class WidgetWorker(context: Context, params: WorkerParameters) : Worker(context,
             HomeWidgets.showSignedOut(ctx)
             return null
         }
-        val plan = WidgetRefresh(now, week, at)
+        // S68-12: 이번 주 위젯이 옮겨 둔 주도 같은 일정 주소(범위만 다름)로 함께 읽는다.
+        val plan = WidgetRefresh(now, week, at, if (week) WidgetGuard.get { WeekWidget.shifts(at) } ?: setOf(0) else setOf(0))
         val r = plan.result(session.readList(plan.urls))
         WidgetGuard.run { AppFolders.rememberNojoWords(ctx, r.nojoWords) }
         r.now?.let { p -> WidgetGuard.run { NowWidget.show(ctx, NowWidget.state(p)) } || WidgetGuard.run { NowWidget.show(ctx, NowWidget.State.Failed) } }
-        r.week?.let { p -> WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(p)) } || WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) } }
+        if (week) WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(r.weeks, at)) } || WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) }
+        // S68-12: 읽는 동안 위젯에서 다른 주로 옮겼으면(이 작업이 도는 중이라 새 작업이 끼지 못함) 이번 주 위젯만 한 번 더 읽는다.
+        if (week) {
+            val more = WidgetGuard.get { WeekWidget.shifts() }.orEmpty() - plan.shifts.toSet()
+            if (more.isNotEmpty()) {
+                val again = WidgetRefresh(false, true, System.currentTimeMillis(), WeekWidget.shifts())
+                val r2 = again.result(session.readList(again.urls))
+                WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(r2.weeks, again.nowMs)) } || WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) }
+            }
+        }
         return r.arsenal
     }
 }

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시: (APP-위젯날짜고르기) 4×2에서 눌러 고른 날 칸(옅은 먹색 칸, S68-06). APP-위젯날짜고르기: 누를 때 물결. -->
+<!-- APP-위젯다시: (APP-위젯날짜고르기) 4×2에서 눌러 고른 날 칸. APP-이번주위젯 S68-12: 먹색 톤 음영 + 얇은 테두리로 또렷하게(전엔 바탕과 거의 같아 안 보였다). 누를 때 물결. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/widget_press">
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@color/widget_todo_bg" />
+            <solid android:color="@color/widget_pick_bg" />
+            <stroke android:width="1dp" android:color="@color/widget_pick_line" />
             <corners android:radius="12dp" />
         </shape>
     </item>

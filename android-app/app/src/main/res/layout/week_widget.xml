@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수 + S68-06 그날 첫 일정 제목 앞부분 한 줄, 오늘 칸은 먹색 바탕) + 가장 큰 일·주간 보고일(명진 화면은 상집 보고일, S68-02)·일정 몰린 날. 토·일엔 다음 주. 놓자마자 '불러오는 중'. -->
+<!-- APP-위젯다시 ③: '이번 주'(4×2). 요일 칸 7개(일정 수 + S68-06 그날 첫 일정 제목 앞부분 한 줄, 오늘 칸은 먹색 바탕) + 가장 큰 일·주간 보고일(명진 화면은 상집 보고일, S68-02)·일정 몰린 날. 늘 이번 주부터, 머리 줄 ‹ ›로 앞뒤 주(S68-12). 놓자마자 '불러오는 중'. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/week_root"
     android:layout_width="match_parent"
@@ -16,6 +16,18 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
+        <!-- S68-12: 지난주로(‹)·다음 주로(›). 작은 글자 단추, 범위 끝이면 자리만 남기고 숨김. -->
+        <TextView
+            android:id="@+id/week_prev"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="‹"
+            android:singleLine="true"
+            android:textColor="@color/widget_muted"
+            android:textSize="15sp"
+            android:paddingStart="2dp"
+            android:paddingEnd="8dp"
+            android:contentDescription="지난주로" />
         <TextView
             android:id="@+id/week_title"
             android:layout_width="0dp"
@@ -47,6 +59,17 @@
             android:paddingStart="10dp"
             android:paddingEnd="4dp"
             android:contentDescription="새로고침" />
+        <TextView
+            android:id="@+id/week_next"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="›"
+            android:singleLine="true"
+            android:textColor="@color/widget_muted"
+            android:textSize="15sp"
+            android:paddingStart="8dp"
+            android:paddingEnd="2dp"
+            android:contentDescription="다음 주로" />
     </LinearLayout>
     <LinearLayout
         android:layout_width="match_parent"
