@@ -83,7 +83,10 @@ test('서버 결과 → 노트: 제목은 글 제목 → 사이트 → 주소, �
 });
 
 test('실패 안내: 이유별 일상어와 [다시 시도] 여부', () => {
-  assert.deepEqual(failInfo('robots'), {text: '가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요.', retry: false});
+  // S68-23: '막아 두었어요'는 사이트가 실제로 거절했을 때(bot_check)만. 옛 robots 상태는 다시 하면 읽힐 수 있어 [다시 시도]. 유료는 유료라고.
+  assert.deepEqual(failInfo('bot_check'), {text: '가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요.', retry: false});
+  assert.deepEqual(failInfo('robots'), {text: '가져오지 못했어요. [다시 시도]를 눌러 주세요.', retry: true});
+  assert.deepEqual(failInfo('paywall'), {text: '가져오지 못했어요. 유료 기사예요.', retry: false});
   assert.equal(failInfo('timeout').retry, true);
   assert.equal(failInfo('blocked').retry, false);
   assert.match(failInfo('daily_limit').text, /오늘은 더 가져올 수 없어요/);

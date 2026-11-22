@@ -154,7 +154,12 @@
 
 ### robots.txt
 
-- 뉴스 수집과 같은 부품이라 그대로 따른다(막힌 사이트는 못 가져옴, 우회 없음). 이름은 `Web2NoteImport`.
+- ~~뉴스 수집과 같은 부품이라 그대로 따른다(막힌 사이트는 못 가져옴, 우회 없음). 이름은 `Web2NoteImport`.~~ → 아래 S68-23으로 바뀜.
+- **S68-23(2026-11-22 명진 결정 "1. A")**: 직접 저장 한 쪽은 robots 안 봄. note-import는 로그인한 사람이 주소 하나를 직접 저장할 때만 불린다(노트 '주소로 가져오기'·노트 [원문 가져오기]·읽을 거리 저장 — 예약·대량 호출 없음). 그래서 사람이 브라우저로 그 한 쪽을 여는 것과 같게 보고 robots.txt를 읽지 않는다. 공용 읽기 `makeFeedReader`에 `skipRobots: true`를 **명시할 때만** 건너뛰며 기본값은 robots 확인 — 자동 수집(news-feed·now-detail-build·outside-feed)은 그대로 지킨다(시험 `tests/security/feed-fetch-robots-option.test.mjs`).
+  - 그대로인 것: 주소 모양·이름 풀이 뒤 주소 확인(guard)·리다이렉트 재검사·2MB·요청 10초·전체 25초·같은 사이트 간격·쿠키/인증 헤더 없음·로그인 owner 확인·하루 횟수. 봇 확인 화면·401·403은 넘지 않고 `bot_check`로 실패, 유료벽은 공개 리드만.
+  - 머리말: `Mozilla/5.0 (compatible; WorkOnPlusReader/1.0; +설명 주소)`, `Accept-Language: ko`. 특정 브라우저 이름을 대지 않는다.
+  - 화면 글: '이 사이트가 읽기를 막아 두었어요'는 `bot_check`(봇 확인·401·403)일 때만. `paywall`은 '유료 기사예요', 전에 남은 `robots` 상태는 [다시 시도]를 보인다.
+  - 대표 그림(og:image)은 지금 표에 칸이 없어 저장하지 않는다(읽을 거리 표에 칸을 더하는 것은 따로 제안).
 
 ### 범위 밖(뒤로)
 
@@ -195,7 +200,9 @@
 
 | 이유 | 화면 한 줄 | [다시 시도] |
 | --- | --- | --- |
-| `robots`·`bot_check`·`paywall` | 가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요. | 없음 |
+| `bot_check`(봇 확인·401·403) | 가져오지 못했어요. 이 사이트가 읽기를 막아 두었어요. | 없음 |
+| `paywall` | 가져오지 못했어요. 유료 기사예요. | 없음 |
+| `robots`(11/22 전에 남은 상태 — S68-23부터 서버가 내지 않음) | 가져오지 못했어요. [다시 시도]를 눌러 주세요. | 있음 |
 | `blocked`·`redirect` | 이 주소는 가져올 수 없어요. 주소를 다시 확인해 주세요. | 없음 |
 | `not_found` | 이 주소에서 글을 찾지 못했어요. 주소를 다시 확인해 주세요. | 없음 |
 | `unreachable`·`timeout`·`http_error` | 사이트가 답하지 않아요. 잠시 뒤 다시 시도해 주세요. | 있음 |
@@ -233,4 +240,4 @@
 - [괜찮아요] = 그 노트의 기존 metadata 칸에 `link_import:'no'`(새 표·칸·DB 변경 없음, 고치기가 아니라 updated_at 그대로). 다른 기기에서 열어도 묻지 않는다.
 - [가져오기]·노트 ⋯ [원문 가져오기](본문 또는 원문 정보에 https 링크가 있을 때, 다시 가져오기도 이것 하나) = note-import.js `importIntoNote` — 같은 줄 세우기·같은 서버 입구·같은 실패 안내([다시 시도][주소만 두기]).
 - 넣는 모양(note-import-model.mjs `mergeImported`, 저장 직전의 서버 행을 보고 정함): 본문이 그 주소 하나뿐이면 바꿔 넣고(주소는 원문 줄), 사람이 쓴 글·사진이 있으면 덮지 않고 아래에 붙인다. 제목은 사람이 붙인 것(공유 앱 제목·AI 제목·직접 쓴 제목)이면 그대로. 가져온 글이 든 노트는 AI 재료에서 뺀다(ai_export_allowed=false, 1단계와 같은 원칙).
-- 네이버 뉴스 모바일 기사(n.news.naver.com/mnews/article/…): 본문 칸(#dic_area)의 `<br>` 문단을 지금 부품 그대로 읽는다(합성 시험 tests/security/note-import-naver.test.mjs). 사이트의 robots.txt가 막으면 읽지 않는다(바꾸지 않음).
+- 네이버 뉴스 모바일 기사(n.news.naver.com/mnews/article/…): 본문 칸(#dic_area)의 `<br>` 문단을 지금 부품 그대로 읽는다(합성 시험 tests/security/note-import-naver.test.mjs). ~~사이트의 robots.txt가 막으면 읽지 않는다(바꾸지 않음).~~ → S68-23(11/22): 직접 저장 한 쪽은 robots.txt를 보지 않고 읽는다(위 'robots.txt' 절).

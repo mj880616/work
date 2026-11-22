@@ -170,7 +170,7 @@ for(const width of [412,884,1280]){
 }
 
 test('사이트가 읽기를 막았으면 [다시 시도] 없이 [주소만 두기]만: 누르면 안내 줄이 사라지고 다시 열어도 없다',async({page})=>{
- const f=await fixture(page,412,{reply:url=>failed(url,'robots')});
+ const f=await fixture(page,412,{reply:url=>failed(url,'bot_check')});
  const win=await openWindow(page);
  await win.locator('[data-edw-url]').fill(URL1);await win.locator('[data-edw-import-run]').click();
  const row=page.locator('[data-note-row="imp-1"]');await expect(row).toBeVisible();
@@ -183,7 +183,7 @@ test('사이트가 읽기를 막았으면 [다시 시도] 없이 [주소만 두�
  await expect(detail.locator('.ni-warn')).toHaveCount(0);
  await expect(detail.locator('a.ni-src-link')).toHaveAttribute('href',URL1);
  await expect(detail.locator('[data-basket-read-text]')).toHaveText(URL1);
- expect(f.writes.at(-1).body.metadata.source).toEqual({url:URL1,state:'failed',reason:'robots',fetched_at:'2026-10-06T01:00:00.000Z',kept:true});
+ expect(f.writes.at(-1).body.metadata.source).toEqual({url:URL1,state:'failed',reason:'bot_check',fetched_at:'2026-10-06T01:00:00.000Z',kept:true});
  // 수정이 아니다: updated_at은 건드리지 않는다.
  expect(f.writes.at(-1).body.updated_at).toBeUndefined();
  await detail.locator('[data-note-back]').click();await row.click();
