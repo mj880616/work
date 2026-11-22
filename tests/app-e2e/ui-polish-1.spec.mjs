@@ -76,10 +76,10 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
- // S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 4): 위에서부터 전체 검색 → 메뉴 줄 → 계정 한 줄(맨 아래, 하단바 바로 위).
- const tops=await page.evaluate(()=>['.gs-menu-entry','nav[aria-label="더 보기"]','#mobileAccountGroup'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
- expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
- { const acct=await rect(page.locator('#mobileAccountGroup')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-acct.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-acct.bottom).toBeLessThanOrEqual(24); }
+ // S68-36 메뉴 창 정리(명진 11/23 확정): 위에서부터 설정 링크 묶음 → 운영 줄 → 전체 검색 → 메뉴 칸(맨 아래, 하단바 바로 위).
+ const tops=await page.evaluate(()=>['.mobile-menu-settings','.mobile-menu-ops','.gs-menu-entry','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
+ expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);expect(tops[2]).toBeLessThan(tops[3]);
+ { const nav=await rect(page.locator('#mobileMenu nav')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(24); }
  // 메뉴 줄 2열(MULTI-하단바기본노트: 노트는 하단바, 잊지 말기가 맨 앞): 잊지 말기·자료실 / 파일·브리핑 룸 / HWP 편집·공유 페이지 / 사진·News(원장 메뉴 빠짐, MULTI-처음쓰는사람 ④), 선 아래 통화·텔레그램 소식 / 아스날(MENU-세칸 tail) = 6줄(BRIEF-브리핑룸 ③).
  const tiles=page.locator('#mobileMenu nav button:visible');
  await expect(tiles).toHaveText(['잊지 말기','읽을 거리','자료실','파일','브리핑 룸','HWP 편집','공유 페이지','사진','News','통화','텔레그램 소식','아스날']);
@@ -90,12 +90,13 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  for(const b of boxes){expect(Math.round(b.h)).toBe(36);expect(Math.round(b.touch)).toBe(44);}
  // 계정 한 줄: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
- await expect(account.locator('button')).toHaveText(['내 프로필','쓰는 법','업데이트 기록','업데이트 소식','PC에 앱 설치','앱 내려받기','메뉴 수정','화면 색','잠금','가입자 현황','받은 의견','의견 보내기','로그아웃']);
+ await expect(account.locator('button')).toHaveText(['내 프로필','쓰는 법','업데이트 소식','PC에 앱 설치','앱 내려받기','메뉴 수정','화면 색','잠금','의견 보내기','업데이트 기록','가입자 현황','받은 의견','로그아웃']);
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
  await expect(account).toHaveAttribute('aria-label','계정');await expect(page.locator('#mobileMenu h2')).toHaveCount(0);
- // Keyboard: Tab moves from the grip to the search field at the top (SEARCH-전체검색), then into the menu rows (same order as on screen); Esc closes and returns to the [메뉴] tab.
- await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
+ // Keyboard: Tab goes in screen order — grip → settings links (내 프로필 first) … → 운영 줄 → 로그아웃 → search field → the menu rows; Esc closes and returns to the [메뉴] tab.
+ await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu [data-profile-open]')).toBeFocused();
+ await page.locator('#mobileMenu [data-kptu-logout]').focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
  await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
  // 닫으면 지금 보는 화면(조직 관리) 하나만 진하다.
@@ -127,24 +128,24 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  expect(errors).toEqual([]);
 });
 
-test('메뉴 판(폰): 화면이 낮아 판이 길면 맨 위(검색칸 전부)부터 열리고, 판 안을 밀면 아래 계정 줄까지 닿는다',async({page})=>{
+test('메뉴 판(폰): 화면이 낮아 판이 길면 아래 끝(메뉴 칸)에 맞춰 열리고, 판 안을 밀면 위 계정 줄까지 닿는다',async({page})=>{
  const {errors}=await boot(page,390);
  await page.setViewportSize({width:390,height:460});
  const tab=page.locator('#mobileMenuTab'),panel=page.locator('.mobile-menu-panel');
  await tab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.getAnimations().length)).toBe(0);
  const m=await panel.evaluate(el=>({over:el.scrollHeight>el.clientHeight+1,top:el.scrollTop}));
- expect(m.over).toBe(true);expect(m.top).toBe(0);
- // S48-6b(#1708 질문 4): 검색칸이 잘리지 않고 판 위쪽에 다 보인다.
- const p=await rect(panel),search=await rect(page.locator('#mobileMenu .gs-menu-entry')),bar=await rect(page.locator('.mobile-tabs'));
- expect(search.top).toBeGreaterThanOrEqual(p.top);expect(search.bottom).toBeLessThanOrEqual(bar.top);
- // 판 안을 끝까지 밀면 계정 줄이 하단바 위에 보인다.
- await panel.evaluate(el=>{el.scrollTop=el.scrollHeight;});
- const acct=await rect(page.locator('#mobileAccountGroup'));expect(acct.bottom).toBeLessThanOrEqual(bar.top);
+ // S68-36(명진 11/23): 메뉴 칸이 먼저 보이게 아래 끝에 맞춰 열린다.
+ expect(m.over).toBe(true);expect(await panel.evaluate(el=>Math.abs(el.scrollHeight-el.clientHeight-el.scrollTop)<=1)).toBe(true);
+ const p=await rect(panel),nav=await rect(page.locator('#mobileMenu nav')),bar=await rect(page.locator('.mobile-tabs'));
+ expect(nav.top).toBeGreaterThanOrEqual(p.top);expect(nav.bottom).toBeLessThanOrEqual(bar.top);
+ // 판 안을 맨 위까지 밀면 설정 링크 묶음이 손잡이 아래에 보인다.
+ await panel.evaluate(el=>{el.scrollTop=0;});
+ const grip0=await rect(page.locator('#mobileMenu [data-mobile-menu-close]')),acct=await rect(page.locator('#mobileMenu .mobile-menu-settings'));expect(acct.top).toBeGreaterThanOrEqual(grip0.bottom);
  // 손잡이는 위에 붙어 남아 닫을 수 있다.
  const grip=await rect(page.locator('#mobileMenu [data-mobile-menu-close]'));
  expect(grip.top).toBeGreaterThanOrEqual(0);await page.locator('#mobileMenu [data-mobile-menu-close]').click();await expect(page.locator('#mobileMenu')).toBeHidden();
- // 다시 열면 또 맨 위부터.
- await tab.click();await expect(page.locator('#mobileMenu')).toBeVisible();expect(await panel.evaluate(el=>el.scrollTop)).toBe(0);
+ // 다시 열면 또 아래 끝(메뉴 칸)부터.
+ await tab.click();await expect(page.locator('#mobileMenu')).toBeVisible();expect(await panel.evaluate(el=>Math.abs(el.scrollHeight-el.clientHeight-el.scrollTop)<=1)).toBe(true);
  expect(errors).toEqual([]);
 });
 
