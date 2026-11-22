@@ -128,7 +128,7 @@ const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', row
 // 별표 폴더 칸의 줄: 같은 줄 + ☆(별표 빼기)·[폴더] 단추.
 function treeItemHtml(it) {
   const starred = !!it.starred_at, fid = itemFolderId(it, state.folders), note = state.notes.get(it.id);
-  const star = `<button type="button" class="nc-star" data-nc-star="${esc(it.id)}" aria-pressed="${starred}" aria-label="${starred ? '별표 빼기' : '별표'}" title="${starred ? '별표 빼기' : '별표'}"><span aria-hidden="true">${starred ? '★' : '☆'}</span></button>`;
+  const star = `<button type="button" class="nc-star" data-nc-star="${esc(it.id)}" aria-pressed="${starred}" aria-label="${starred ? '읽을 거리에서 빼기' : '읽을 거리로'}" title="${starred ? '읽을 거리에서 빼기' : '읽을 거리로'}"><span aria-hidden="true">${starred ? '★' : '☆'}</span></button>`;
   const folder = starred ? `<button type="button" class="nc-act" data-nc-folder="${esc(it.id)}">${esc(fid ? folderPath(state.folders, fid).map(f => f.name).join(' › ') : '폴더')}</button>` : '';
   return now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: `<span class="nc-tree-acts">${folder}${star}${note ? `<span class="nc-faint">${esc(note)}</span>` : ''}</span>`}) || '';
 }
@@ -166,7 +166,7 @@ function treeHtml() {
   const head = `<div class="nc-tree-head"><button type="button" class="nc-text-btn nc-new-folder" data-nc-new-folder>새 폴더</button>${state.treeNote ? `<span class="nc-panel-note" role="status">${esc(state.treeNote)}</span>` : ''}</div>`;
   if (!state.loaded) return head + (state.failed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4}));
   if (!state.foldersLoaded) return head + (state.foldersFailed ? failHtml({retry: 'data-nc-retry'}) : waitHtml({rows: 4})); // LOAD-끝있는불러오기: 못 읽으면 [다시]
-  if (!state.items.length && !state.folders.length) return head + emptyHtml('별표한 기사 없음', {attrs: 'data-nc-empty'});
+  if (!state.items.length && !state.folders.length) return head + emptyHtml('읽을 거리로 보낸 기사 없음', {attrs: 'data-nc-empty'});
   const rows = treeRows({folders: state.folders, notes: state.items, folderOf: folderOfItem, isOpen: id => state.openFolders.has(id)});
   const html = rows.map(r => {
     if (r.type === 'note') return `<div class="nc-tree-item" style="--nc-indent:${r.indent}">${treeItemHtml(r.note)}</div>`;

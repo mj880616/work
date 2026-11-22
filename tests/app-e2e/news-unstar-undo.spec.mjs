@@ -137,16 +137,15 @@ const titles = page => rlist(page).locator('.rd-row .rd-nm').allTextContents();
 const savedAt = (s, id) => s.reading.find(r => r.news_article_id === id)?.saved_at ?? null;
 
 for (const width of [412, 884, 1280]) {
-  test(`News ${width}: [보관] 탭 없음 · '보관 ↗' = 읽을 거리 [News] · ⋯ [보관 풀기] + 5초 [되돌리기](원래 자리), 5초 뒤 서버 줄 지워짐`, async ({ page }) => {
+  test(`News ${width}: 탭 줄에 '보관' 없음 · 읽을 거리 [News] · ⋯ [읽을 거리에서 빼기] + 5초 [되돌리기](원래 자리), 5초 뒤 서버 줄 지워짐`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, s } = await start(page, width);
-    // ② News 탭 줄: [전체][사회운동][언론][밑줄] + 길 '보관 ↗'(탭 아님).
-    await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    // ② News 탭 줄: [전체][사회운동][언론][밑줄]만 — '보관' 탭도 '보관 ↗' 길도 없다(S68-28). 읽을 거리는 메뉴로.
+    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
     await expect(root(page).locator('[data-now-panel-saved]')).toHaveCount(0);
-    const go = root(page).locator('[data-now-go-saved]');
-    await expect(go).toHaveAccessibleName('보관한 글은 읽을 거리에서');
-    await go.click();
+    await page.evaluate(() => window.KPTURouter.go('reading'));
     await expect(page.locator('#readingView')).toBeVisible();
+    await rlist(page).locator('.rd-chips [data-filter-value="news"]').click();
     await expect(rlist(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄', 'News 3']);
     await expect(rlist(page).locator('.rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
     // ① 한 표의 줄을 저장 시각순으로: N1(10/06) · R1(10/05, 같은 주소 사회운동 글에 연결) · N2(10/04). 연결된 줄은 꼬리표 'News' 하나.
@@ -157,10 +156,10 @@ for (const width of [412, 884, 1280]) {
     if (shots) await page.screenshot({ path: `${shots}/reading-news-${width}.png` });
 
     await row(page, T_N1).locator('[data-rd-more]').click();
-    await expect(page.locator('#rdRowMenu button')).toHaveText(['News에서 열기', '안 읽음으로', '사업에 연결', '보관 풀기']);
-    await page.locator('#rdRowMenu button', { hasText: '보관 풀기' }).click();
+    await expect(page.locator('#rdRowMenu button')).toHaveText(['News에서 열기', '안 읽음으로', '사업에 연결', '읽을 거리에서 빼기']);
+    await page.locator('#rdRowMenu button', { hasText: '읽을 거리에서 빼기' }).click();
     await expect(row(page, T_N1)).toHaveCount(0);
-    expect(await noticeText(page)).toBe('보관에서 뺐어요');
+    expect(await noticeText(page)).toBe('읽을 거리에서 뺐어요');
     await expect(page.locator('#kptuNotice .kptu-notice-undo')).toBeVisible();
     // 서버: 보관 함수 하나(끄기) → 읽을 거리 줄 지움 + 별표 폴더 비움. 표시 표의 별표 칸은 없다.
     expect(s.calls.filter(c => c.what === 'rpc/app_reading_keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'news', p_article: N1, p_on: false, p_saved_at: null });
@@ -177,9 +176,9 @@ for (const width of [412, 884, 1280]) {
 
     // N2도 같은 동작. 5초 뒤 알림이 닫히고 서버 줄은 지워진 채, 다시 들어와도 없다.
     await row(page, T_N2).locator('[data-rd-more]').click();
-    await page.locator('#rdRowMenu button', { hasText: '보관 풀기' }).click();
+    await page.locator('#rdRowMenu button', { hasText: '읽을 거리에서 빼기' }).click();
     await expect(row(page, T_N2)).toHaveCount(0);
-    await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('보관에서 뺐어요');
+    await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('읽을 거리에서 뺐어요');
     await expect(page.locator('#kptuNotice')).toBeHidden({ timeout: 8000 });
     expect(savedAt(s, N2)).toBeNull();
     await expect.poll(() => s.calls.some(c => c.what === 'app_news_now_signals' && c.body?.action === 'unstar')).toBe(true);

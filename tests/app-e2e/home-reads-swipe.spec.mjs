@@ -128,7 +128,7 @@ test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되
   expect(f.keeps.at(-1)).toEqual({ p_workspace: 'w', p_source: 'news', p_article: uid(2), p_on: true, p_saved_at: null });
   expect(f.patches.some(p => 'starred_at' in p.body)).toBe(false);
   await expect.poll(() => f.signals.some(s => s.article_id === uid(2) && s.action === 'star')).toBe(true);
-  expect(await noticeText(page)).toBe('보관했어요');
+  expect(await noticeText(page)).toBe('읽을 거리에 넣었어요');
   await page.locator('#kptuNotice .kptu-notice-undo').click();
   await expect(item(page, 2)).toBeVisible();
   expect(f.keeps.at(-1)).toMatchObject({ p_article: uid(2), p_on: false });
@@ -243,7 +243,7 @@ test('PC 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러서 보�
   await first.locator('[data-now-act="save"]').click();
   await expect(item(page, 1)).toHaveCount(0);
   expect(f.keeps.at(-1)).toMatchObject({ p_article: uid(1), p_on: true });
-  expect(await noticeText(page)).toBe('보관했어요');
+  expect(await noticeText(page)).toBe('읽을 거리에 넣었어요');
 
   const second = item(page, 2);
   await second.hover();
@@ -258,7 +258,7 @@ test('PC 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러서 보�
   const menu = page.locator('#rowMenu');
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS('border-top-left-radius', /[1-9]/); // 공용 줄 메뉴 모양(od-link.css)이 홈에도 불려 있다
-  await expect(menu.locator('[data-row-item]')).toHaveText(['보관', '숨기기']);
+  await expect(menu.locator('[data-row-item]')).toHaveText(['읽을 거리로', '숨기기']);
   await expect(menu.locator('.row-menu-title')).toHaveText('가상 소식 3');
   await menu.locator('[data-row-item="hide"]').click();
   await expect(item(page, 3)).toHaveCount(0);

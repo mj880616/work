@@ -167,9 +167,9 @@ for (const width of [412, 884, 1280]) {
     await openOutside(page, width);
     // 탭 넷, 처음은 [전체](news_tab·옛 now_tab 둘 다 없음 → 저장 안 함).
     await expect(root(page).getByRole('tab')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
-    // 옛 [보관] 탭 자리: 탭이 아닌 길 '보관 ↗'(같은 탭 줄 안, 화살표 탭 이동에는 들지 않음).
-    await expect(root(page).locator('[data-os-tabs] [data-now-go-saved]')).toHaveText('보관 ↗');
-    await expect(root(page).locator('[data-os-tabs] [data-now-go-saved]')).not.toHaveAttribute('role', 'tab');
+    // S68-28: 탭 줄에는 탭 넷만 — 옛 '보관 ↗' 길도 없다(읽을 거리로 보낸 글은 메뉴 '읽을 거리').
+    await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
+    await expect(root(page).locator('[data-os-tabs]')).not.toContainText('보관');
     await expect(tab(page, 'all')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#osTitle')).toHaveText('News');
     // [전체] = 사회운동 글 + 언론 기사를 시각 최신 순으로(날짜 묶음 → 흰 상자).

@@ -11,7 +11,8 @@ import {openRowMenu, appMenuPoint} from './row-menu.js';
 // 쓰는 법: bindNowRows(목록 칸, {row:'줄 선택자', itemOf:줄→{type,id}|null, isSaved:item→bool, canDelete:item→bool, saved:bool, changed:(item,kind,on)=>void})
 //   changed kind: 'hide' | 'save'(on = 별표 켜짐) | 'release'(보관 탭에서 뺌, on = true) | 'delete'(on = 삭제됨, false = 되돌림).
 
-export const HIDE_LABEL = '숨기기', SAVE_LABEL = '보관', RELEASE_LABEL = '보관 풀기', DELETE_LABEL = '삭제';
+// S68-28(명진 11/23): News 화면에서 '보관' 단어를 없앴다 — 같은 동작(app_reading_keep)을 '읽을 거리로'/'읽을 거리에서 빼기'로 부른다(docs/design/ui-words.md).
+export const HIDE_LABEL = '숨기기', SAVE_LABEL = '읽을 거리로', RELEASE_LABEL = '읽을 거리에서 빼기', DELETE_LABEL = '삭제';
 export const UNDO_MS = 5000; // 보관 빼기·삭제 되돌리기 알림은 5초(명진 11/19)
 
 // 보관에서 빼기(별표 끄기) 하나 — 줄 ★·밀기·단추·⋯·우클릭이 모두 부른다. saved: [보관] 목록 칸이면 true(changed 'release'), 아니면 changed('save', false).
@@ -19,7 +20,7 @@ export async function dropSaved(item, {changed = () => {}, saved = false} = {}) 
   const prev = await unstar(item);
   sendSignal(item, 'unstar');
   if (saved) changed(item, 'release', true); else changed(item, 'save', false);
-  notify('보관에서 뺐어요', {label: RELEASE_LABEL, ms: UNDO_MS, undo: async () => { await restoreStar(item, prev); sendSignal(item, 'star'); changed(item, 'save', true); }});
+  notify('읽을 거리에서 뺐어요', {label: RELEASE_LABEL, ms: UNDO_MS, undo: async () => { await restoreStar(item, prev); sendSignal(item, 'star'); changed(item, 'save', true); }});
 }
 // 내가 넣은 기사 [삭제] — 줄 단추·⋯·우클릭·밀기와 상세 [삭제]가 같이 부른다. 공용 기사 행은 지우지 않는다(now-marks.js removeMine).
 export async function deleteMine(item, {changed = () => {}} = {}) {
@@ -60,7 +61,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
         await dropSaved(item, {changed, saved});
       } else if (key === 'save') {
         await setSaved(item, true); sendSignal(item, 'star'); changed(item, 'save', true);
-        notify('보관했어요', {label: '글 보관', undo: async () => { await setSaved(item, false); sendSignal(item, 'unstar'); changed(item, 'save', false); }});
+        notify('읽을 거리에 넣었어요', {label: SAVE_LABEL, undo: async () => { await setSaved(item, false); sendSignal(item, 'unstar'); changed(item, 'save', false); }});
       } else if (key === 'delete' && canDelete(item)) {
         await deleteMine(item, {changed});
       }
@@ -93,8 +94,8 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
       }
     } catch { fail(); }
     if (!done.length) return;
-    const n = done.length, text = key === 'hide' ? `${n}개 숨겼어요` : key === 'save' ? `${n}개 보관했어요` : `${n}개 보관에서 뺐어요`;
-    notify(text, {label: key === 'hide' ? '글 숨기기' : key === 'save' ? '글 보관' : RELEASE_LABEL, ms: UNDO_MS, undo: async () => {
+    const n = done.length, text = key === 'hide' ? `${n}개 숨겼어요` : key === 'save' ? `${n}개 읽을 거리에 넣었어요` : `${n}개 읽을 거리에서 뺐어요`;
+    notify(text, {label: key === 'hide' ? '글 숨기기' : key === 'save' ? SAVE_LABEL : RELEASE_LABEL, ms: UNDO_MS, undo: async () => {
       for (const {item, prev} of done) {
         if (key === 'hide') { await setMark(item, 'dismiss', false); sendSignal(item, 'undismiss'); changed(item, 'hide', false); }
         else if (key === 'save') { await setSaved(item, false); sendSignal(item, 'unstar'); changed(item, 'save', false); }

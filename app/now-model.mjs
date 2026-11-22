@@ -5,7 +5,7 @@ import {sortByName} from './name-order.mjs';
 
 // 탭(S51-8 NEWS-전면개편 P4b, 시안 news-overhaul.html): [전체][사회운동][언론][밑줄]. 저장 값은 view_prefs.news_tab(DB 20261106080000) — 이름이 그대로 DB 검사 값이다.
 // 옛 [뉴스] 탭은 [언론]으로(메뉴 이름과 겹치지 않게), [문장 찾기] 탭은 위 찾기 칸으로 합쳐 없어졌다.
-// S68-24(명진 11/22 "2. A"): [보관] 탭은 없앴다 — 보관한 글은 '읽을 거리' 한 목록에서 본다(reading.js [News] 칩). 탭 줄 끝 '보관 ↗'은 그리로 가는 길.
+// S68-24(명진 11/22 "2. A"): [보관] 탭은 없앴다 — 보관한 글은 '읽을 거리' 한 목록에서 본다(reading.js [News] 칩). S68-28 탭 줄 끝 보관 길도 없앴다.
 // DB 검사 값 'archive'는 그대로 두되(DB 바꾸지 않음) 그 값이 기억돼 있으면 [전체]로 연다(startTab).
 export const NOW_TABS = Object.freeze([
   {id: 'all', label: '전체'},

@@ -90,7 +90,7 @@ export function nextFilter(current, dir, newsOn = false) {
 }
 // 빈 목록 한 줄.
 export function emptyText(filter, total) {
-  if (filter === 'news') return 'News에서 보관한 글이 없어요';
+  if (filter === 'news') return 'News에서 보낸 글이 없어요';
   if (!total) return '읽을 거리가 없어요 — [+ 추가]에 주소를 넣거나 폰에서 공유 → 읽을 거리';
   if (filter === 'marks') return '밑줄을 그은 글이 없어요';
   return '안 읽은 글이 없어요';
