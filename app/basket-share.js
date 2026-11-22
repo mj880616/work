@@ -56,6 +56,8 @@ function start() {
   async function open(list) {
     const picked = pickShareItems(list.items);
     if (list.target === 'note' || list.target === 'task') { await openTarget(list, picked); return; }
+    // S68-09 READ-읽을거리함: '읽을 거리'(모든 사람) — 글에서 주소 하나만 골라 읽을 거리에 넣는다(파일은 받지 않음).
+    if (list.target === 'reading') { await openReading(list, picked); return; }
     // NEWS-운영자만(S63-03): 'News 보관' 공유는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 정리함 길(잊지 말기)로 받는다
     // (앱의 공유 목록은 앱 판이 정해 웹에서 뺄 수 없다 — 서버도 같은 키로 막는다). 답을 모르면(null) 지금처럼 News로 보낸다.
     if (list.target === 'news') {
@@ -109,6 +111,27 @@ function start() {
     const who = owner;
     try { const {saveSharedNews} = await import('./share-news.js'); await saveSharedNews(url, {title:shareArticleTitle({subject:list.subject, text:list.text}), isCurrent:() => scope() === who}); }
     catch { notify(NEWS_NOTE.fail, {error:true, ms:FAILED_MS, note:'그 앱에서 다시 공유해 주세요.'}); }
+  }
+  // 읽을 거리: 주소(+ 공유 창 제목 한 줄)만 읽을 거리 표에 넣는다(owner RLS). 원문은 기존 note-import로 뒤에서 받는다.
+  // 주소가 없으면 안내 한 줄 + [잊지 말기로 넣기](누를 때만 정리함 길 put — News 보관과 같은 규칙).
+  async function openReading(list, picked) {
+    const {sharedReading} = await import('./reading-model.mjs');
+    const {url, title} = sharedReading({subject:list.subject, text:list.text});
+    owner = scope(); files = null; batch = null;
+    stripAddress();
+    const {SHARE_NOTE, saveSharedReading} = await import('./reading-data.js');
+    if (!url) {
+      share = {...list, keep:picked.keep, skipped:picked.skipped, target:'basket'};
+      const one = share;
+      notify(SHARE_NOTE.noUrl, {error:true, ms:FAILED_MS, actions:[{label:SHARE_NOTE.toBasket, run:({close}) => { close(); if (share === one) void put(); }}]});
+      setTimeout(() => { if (share === one && !one.done && !busy && !files) { one.done = true; release(); } }, FAILED_MS + 1000);
+      return;
+    }
+    share = {...list, keep:[], skipped:{}, done:true};
+    send('share:done:' + list.id);
+    const who = owner;
+    try { await saveSharedReading(url, {title, notify, isCurrent:() => scope() === who}); }
+    catch { notify(SHARE_NOTE.fail, {error:true, ms:FAILED_MS, note:'그 앱에서 다시 공유해 주세요.'}); }
   }
   // 앱이 흘려주는 파일을 한 번씩 받는다. 받은 파일은 이 화면 메모리에만 있다. 다 받으면 앱에 끝났다고 알린다(앱이 번호·권한을 버림).
   async function receive(from = share) {

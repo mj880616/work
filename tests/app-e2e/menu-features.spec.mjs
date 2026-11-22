@@ -27,7 +27,7 @@ for(const width of [1280,760,412]){
     await openHome(page,{features:[],menuLayout:null});await settle(page);
     await expect.poll(async()=>{const p=await placed(page);return [...p.sheet,...p.pc].filter(v=>OP.includes(v)||v==='ledger')}).toEqual([]);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['basket','library','files','brief','hwp','pages','photos']);
+    expect(p.sheet).toEqual(['basket','reading','library','files','brief','hwp','pages','photos']);
     expect(p.bar).toEqual(['home','note','calendar','team','meetings']);
     expect(page.locator('#mobileMenu [data-menu-tail-line]')).toHaveCount(0);
     // 메뉴 편집 창: 뺀 메뉴는 칸에도 미리보기에도 없다.
@@ -48,9 +48,9 @@ for(const width of [1280,760,412]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await openHome(page,{features:OPERATOR_MENU_FEATURES});await settle(page);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal']);
+    expect(p.sheet).toEqual(['note','library','files','brief','hwp','pages','photos','outside','reading','calls','telegram','arsenal']);
     // 운영자는 메뉴 순서를 저장해 둔 사람(OPERATOR_MENU_LAYOUT)이라 PC 왼쪽 메뉴도 그 저장 순서(하단바 칸 → 위 메뉴 → 아래 칸)다.
-    expect(p.pc).toEqual(['home','basket','calendar','meetings','team','note','library','files','brief','hwp','pages','photos','outside','calls','telegram','arsenal','help']); // HELP-메뉴안쓰는법: 맨 끝 '쓰는 법'
+    expect(p.pc).toEqual(['home','basket','calendar','meetings','team','note','library','files','brief','hwp','pages','photos','outside','reading','calls','telegram','arsenal','help']); // HELP-메뉴안쓰는법: 맨 끝 '쓰는 법'
     expect(p.bar).toEqual(['home','basket','calendar','meetings','team']);
     await page.screenshot({path:`docs/design/screens/s61-41/menu-operator-${width}.png`});
     expect(errors).toEqual([]);

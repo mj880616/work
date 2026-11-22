@@ -20,7 +20,7 @@ export const PRIVACY_LINES = Object.freeze([
 // 쓰는 법 목차 묶음(시안 결정 ① '많이 쓰는 곳' 먼저). 운영자 묶음은 서버 기능 목록에 있는 메뉴만 줄이 생긴다.
 export const GROUPS = Object.freeze([
   {id: 'main', label: '많이 쓰는 곳', topics: ['team', 'meetings', 'brief']},
-  {id: 'daily', label: '매일', topics: ['home', 'basket', 'calendar', 'note']},
+  {id: 'daily', label: '매일', topics: ['home', 'basket', 'calendar', 'note', 'reading']},
   {id: 'docs', label: '자료', topics: ['library', 'files', 'photos', 'pages', 'hwp', 'outside']},
   {id: 'operator', label: '운영자', topics: ['calls', 'telegram', 'arsenal']},
   {id: 'account', label: '계정', topics: ['profile', 'appdl', 'privacy']},
@@ -59,6 +59,16 @@ const TOPICS = {
     links: [['브리핑 룸', "자료실 '브리핑 요청함' 폴더"]],
     ex: {title: '브리핑 룸', rows: ['PDF 예시 편람 개정안 · 한 줄 요지 보기', 'HWP 예시 연구 보고서 · 만드는 중 7/12', 'PDF 예시 계획 · [브리핑 받기]']},
     open: 'brief',
+  },
+  reading: {
+    short: '나중에 읽을 글 모아 두기',
+    lead: '나중에 읽을 글을 모아 두고, 원문 사본에 밑줄과 메모를 남기는 곳이에요.',
+    when: ['기사·글을 보다가 지금은 못 읽고 나중에 읽고 싶을 때', '읽은 글의 중요한 문장을 노트로 옮겨 둘 때'],
+    steps: ['[+ 추가]에 글 주소를 넣거나, 폰에서 [공유] › WORK ON+ 읽을 거리를 눌러요.', '원문 사본을 받아 두어요. 원래 페이지가 바뀌거나 사라져도 사본은 남아요.', '글을 선택하고 [밑줄 저장], 밑줄을 누르면 메모를 달아요.', '[밑줄을 노트로]로 밑줄 문장과 출처를 노트 하나로 보내요.'],
+    notes: ['로그인이 필요한 글·유료 글은 공개된 앞부분만 받아 와요. 원래 페이지 링크는 늘 보여요.'],
+    links: [['읽을 거리 밑줄', '노트 › 밑줄'], ['[사업에 연결]', word('사업영역')]],
+    ex: {title: '읽을 거리', rows: ['● 예시 기사 제목 · example.com · 11/22', '예시 칼럼 · example.org · 11/21']},
+    open: 'reading',
   },
   home: {
     short: '오늘 일정·할 일·잊지 말 것을 한 화면에',

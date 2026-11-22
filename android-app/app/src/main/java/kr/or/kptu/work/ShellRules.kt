@@ -209,7 +209,9 @@ object ShellRules {
     const val SHARE_TO_TASK = "ShareToTask"
     /** S62-22 APP-공유로뉴스보관: 네 번째 칸 'WORK ON+ News 보관'(같은 activity-alias 방식). 웹은 글에서 기사 주소만 골라 서버로 보낸다. */
     const val SHARE_TO_NEWS = "ShareToNews"
-    val SHARE_TARGETS = setOf("basket", "note", "task", "news")
+    /** S68-09 READ-읽을거리함: 다섯 번째 칸 'WORK ON+ 읽을 거리'(같은 activity-alias 방식). 웹은 글에서 주소 하나만 골라 읽을 거리에 넣는다. */
+    const val SHARE_TO_READING = "ShareToReading"
+    val SHARE_TARGETS = setOf("basket", "note", "task", "news", "reading")
 
     fun shareTarget(className: String?): String {
         val simple = className?.substringAfterLast('.') ?: return "basket"
@@ -217,6 +219,7 @@ object ShellRules {
             SHARE_TO_NOTE -> "note"
             SHARE_TO_TASK -> "task"
             SHARE_TO_NEWS -> "news"
+            SHARE_TO_READING -> "reading"
             else -> "basket"
         }
     }

@@ -22,7 +22,8 @@ export function highlightRowHtml(h, {picking = false, picked = false, tag = '', 
 }
 
 // News [밑줄] 탭은 News·텔레그램 원문 밑줄만(노트에서 저장한 밑줄은 노트 › 밑줄에서 보고 연다 — 여기서 누르면 News 상세로 가므로, S62-17).
-const newsOnly = list => (list ? list.filter(h => h.source_type !== 'note') : list);
+// S68-09: 읽을 거리 밑줄도 뺀다(읽을 거리 화면·노트 › 밑줄에서 보고 연다).
+const newsOnly = list => (list ? list.filter(h => h.source_type !== 'note' && h.source_type !== 'reading') : list);
 // onOpen(h): 그 글 그 자리로(껍데기가 글을 읽어 상세를 연다).
 export function createNowHighlights({box, query = () => '', onOpen} = {}) {
   let failed = false, picking = false, seq = 0;

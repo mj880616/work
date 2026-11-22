@@ -17,6 +17,8 @@ import {word} from './brand/brand.mjs';
 export const ITEMS = Object.freeze([
   {id: 'home', label: '홈', view: 'home', icon: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9'},
   {id: 'basket', label: '잊지 말기', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3'},
+  // S68-09 READ-읽을거리함(명진 11/22 13:42 'B: 메뉴에 새 칸'): 저장한 글·원문 사본·밑줄. 모든 사람(운영자 기능 아님), 처음 자리는 위 메뉴 잊지 말기 다음.
+  {id: 'reading', label: '읽을 거리', view: 'reading', icon: 'M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4'},
   {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
@@ -53,7 +55,7 @@ export const BAR_MAX = 5;
 // MULTI-하단바기본노트(명진 결정 11/13 15:24, 설계 docs/design/new-user-start.md 2-1): 처음 하단바는 홈·노트·일정·조직 보고·사업 보고.
 // 빠진 잊지 말기는 위 메뉴 맨 앞. 저장된 순서(view_prefs.menu_layout)가 있는 사람은 기본값을 쓰지 않으므로 그대로다.
 export const DEFAULT_BAR = Object.freeze(['home', 'note', 'calendar', 'team', 'meetings']);
-export const DEFAULT_REST = Object.freeze(['basket', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
+export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'library', 'files', 'brief', 'hwp', 'pages', 'photos', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 서버 저장 모양은 그대로 {bar, rest}(DB 검사가 다른 칸 이름을 받지 않는다). 아래 칸은 rest 안 이 표시 뒤에 이어 담는다:
 // rest = [...위 메뉴, 'bottom', ...아래 칸]. 이 표시가 없는 옛 저장값은 rest 끝에 이어진 통화·텔레그램·아스날(feed)을 아래 칸으로 읽어
