@@ -16,11 +16,20 @@ export const HIDE_LABEL = '숨기기', SAVE_LABEL = '읽을 거리로', RELEASE_
 export const UNDO_MS = 5000; // 보관 빼기·삭제 되돌리기 알림은 5초(명진 11/19)
 
 // 보관에서 빼기(별표 끄기) 하나 — 줄 ★·밀기·단추·⋯·우클릭이 모두 부른다. saved: [보관] 목록 칸이면 true(changed 'release'), 아니면 changed('save', false).
-export async function dropSaved(item, {changed = () => {}, saved = false} = {}) {
+// S68-29: 읽을 거리 화면은 같은 길을 '삭제'로 부른다(text·label로 알림 글만 바꿈 — 서버 일은 같다).
+export async function dropSaved(item, {changed = () => {}, saved = false, text = '읽을 거리에서 뺐어요', label = RELEASE_LABEL} = {}) {
   const prev = await unstar(item);
   sendSignal(item, 'unstar');
   if (saved) changed(item, 'release', true); else changed(item, 'save', false);
-  notify('읽을 거리에서 뺐어요', {label: RELEASE_LABEL, ms: UNDO_MS, undo: async () => { await restoreStar(item, prev); sendSignal(item, 'star'); changed(item, 'save', true); }});
+  notify(text, {label, ms: UNDO_MS, undo: async () => { await restoreStar(item, prev); sendSignal(item, 'star'); changed(item, 'save', true); }});
+}
+// 여러 개를 한 번에(읽을 거리 고르기 [삭제]): 하나씩 같은 서버 길, 알림은 하나 — 되돌리면 뺀 것 모두 원래대로. 뺀 개수를 돌려준다.
+export async function dropSavedMany(items, {changed = () => {}, text = n => `${n}개 읽을 거리에서 뺐어요`, label = RELEASE_LABEL} = {}) {
+  const done = [];
+  try { for (const item of items) { const prev = await unstar(item); sendSignal(item, 'unstar'); changed(item, 'release', true); done.push({item, prev}); } }
+  catch { notify('저장하지 못했어요 · 잠시 뒤 다시', {error: true}); }
+  if (done.length) notify(text(done.length), {label, ms: UNDO_MS, undo: async () => { for (const {item, prev} of done) { await restoreStar(item, prev); sendSignal(item, 'star'); changed(item, 'save', true); } }});
+  return done.length;
 }
 // 내가 넣은 기사 [삭제] — 줄 단추·⋯·우클릭·밀기와 상세 [삭제]가 같이 부른다. 공용 기사 행은 지우지 않는다(now-marks.js removeMine).
 export async function deleteMine(item, {changed = () => {}} = {}) {

@@ -115,14 +115,15 @@ for (const width of [412, 1280]) {
     // A의 별표·읽음은 B 화면에 없다(c1은 B에게 아직 안 읽은 글, 별표 없음).
     await expect(item(b.page, 'c1')).toHaveClass(/is-new/);
     await expect(item(b.page, 'c1').locator('.nw-star')).toHaveCount(0);
-    // B 읽을 거리로 보낸 글(S68-24·S68-28: 읽을 거리 [News]): 비어 있음(A가 별표한 기사 없음).
+    // B 읽을 거리(S68-24·S68-28·S68-29: News에서 보낸 글도 평범한 읽을 거리 줄, [News] 칩 없음): 비어 있음(A가 별표한 기사 없음).
     await b.page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_reading_items', r => r.fulfill({ json: [] }));
     await b.page.evaluate(() => window.KPTURouter.go('reading'));
     await expect(b.page.locator('#readingView')).toBeVisible();
-    await b.page.locator('#readingView .rd-chips [data-filter-value="news"]').click();
-    await expect(b.page.locator('#readingView .rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(b.page.locator('#readingView [data-rd-rows]')).toContainText('News에서 보낸 글이 없어요');
-    await expect(b.page.locator('#readingView .rd-row-news')).toHaveCount(0);
+    await expect(b.page.locator('#readingView .rd-chips [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄']);
+    await b.page.locator('#readingView .rd-chips [data-filter-value="all"]').click();
+    await expect(b.page.locator('#readingView .rd-chips [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(b.page.locator('#readingView [data-rd-rows]')).toContainText('읽을 거리가 없어요');
+    await expect(b.page.locator('#readingView .rd-row')).toHaveCount(0);
     await b.page.goBack();
     await expect(b.page.locator('#outsideView')).toBeVisible();
     // B가 k1을 숨겨도 A 목록에는 그대로.

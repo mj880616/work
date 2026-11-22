@@ -112,7 +112,7 @@ test('읽을 거리 412: 왼쪽 밀기 [사업에 연결]·[읽음] 칸, 끝까�
   expect(errors).toEqual([]);
 });
 
-test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
+test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음][삭제], [읽음] 한 번에, [그만]으로 끝', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 412);
   await swipe(rdRow(list, RA), 320);
@@ -123,6 +123,8 @@ test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음
   await rdRow(list, RC).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(page.locator('#readingView [data-rd-detail] .rd-title')).toHaveCount(0);
+  // S68-29: 고르기 단추는 [읽음][삭제](News에서 보낸 줄도 같은 단추).
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
   await bar.locator('[data-row-pick-act="read"]').click();
   await expect.poll(() => s.patches.map(p => p.id).sort()).toEqual([RA, RC].sort());
   expect(s.patches.every(p => p.body.read_at)).toBe(true);
@@ -133,6 +135,35 @@ test('읽을 거리 412: 오른쪽 밀기 [선택] → n개 선택됨 · [읽음
   await expect(bar).toBeVisible();
   await bar.locator('[data-row-pick-stop]').click();
   await expect(bar).toBeHidden();
+  expect(s.deletes).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('읽을 거리 412: 고른 줄 [삭제] — 한 번만 묻고, 취소하면 그대로, 삭제하면 고른 줄만 지운다', async ({ page }) => {
+  test.setTimeout(90000);
+  const { s, errors, list } = await openReading(page, 412);
+  await swipe(rdRow(list, RA), 320);
+  const bar = page.locator('#readingView .row-swipe-pickbar');
+  await expect(bar).toBeVisible();
+  await rdRow(list, RB).click();
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
+  await bar.locator('[data-row-pick-act="delete"]').click();
+  const ask = page.locator('.kptu-ask');
+  await expect(ask).toContainText('선택한 읽을 거리 2개를 삭제할까요?');
+  await ask.locator('.kptu-ask-actions .secondary').click();
+  await expect(ask).toHaveCount(0);
+  await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(3);
+  expect(s.deletes).toEqual([]);
+  await tick(page);
+  await swipe(rdRow(list, RA), 320);
+  await expect(bar).toBeVisible();
+  await rdRow(list, RB).click();
+  await bar.locator('[data-row-pick-act="delete"]').click();
+  await ask.locator('.kptu-ask-actions .primary').click();
+  await expect.poll(() => [...s.deletes].sort()).toEqual([RA, RB].sort());
+  await expect(list.locator('.rd-row[data-rd-open]')).toHaveCount(1);
+  await expect(rdRow(list, RC)).toBeVisible();
+  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('2개 삭제했어요');
   expect(errors).toEqual([]);
 });
 

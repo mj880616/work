@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {readingUrl, sharedReading, newRow, lineOf, filterEntries, filterOptions, nextFilter, keepFilter, entriesOf, linkOf, markKeysOf, entryMarked, emptyText, NEWS_FILTERS, LIST_COLS, bodyText, bodyPatch, keepOwn, stateLine, canRetry,
+import {readingUrl, sharedReading, newRow, lineOf, filterEntries, filterOptions, nextFilter, keepFilter, entriesOf, linkOf, markKeysOf, entryMarked, emptyText, LIST_COLS, bodyText, bodyPatch, keepOwn, stateLine, canRetry,
   paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS} from '../app/reading-model.mjs';
 import {ITEMS, DEFAULT_REST, withFeatures, defaultLayout} from '../app/menu-model.mjs';
 import {cleanSource} from '../app/text-highlights-model.mjs';
@@ -40,7 +40,7 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
   assert.deepEqual(filterEntries(only, 'all').map(e => e.key), ['a', 'b']);
   assert.deepEqual(filterEntries(only, 'marks', keys).map(e => e.key), ['b']);
   assert.deepEqual(filterOptions(only, keys).map(o => o.label), ['안 읽음 1', '전체', '밑줄 1']);
-  assert.equal(keepFilter('news'), 'unread', 'News 기능 없으면 [News] 칩 값도 없다');
+  assert.equal(keepFilter('news'), 'unread', 'S68-29: [News] 칩 값은 없다');
   assert.equal(nextFilter('marks', 1), 'marks');
   assert.equal(keepFilter('x'), 'unread');
   assert.deepEqual(FILTERS, ['unread', 'all', 'marks']);
@@ -51,7 +51,7 @@ test('목록 줄: 안 읽음 점·제목(없으면 사이트)·사이트·날짜
 });
 
 const N1 = '41000000-0000-4000-8000-0000000000a1', N2 = '41000000-0000-4000-8000-0000000000a2', R1 = '41000000-0000-4000-8000-0000000000b1', R2 = '41000000-0000-4000-8000-0000000000b2', R3 = '41000000-0000-4000-8000-0000000000b3';
-test('한 목록(S68-27): 읽을 거리 표 하나 — News에서 보관한 줄은 원래 글 연결 칸으로 꼬리표·[News] 칩·밑줄을 안다', () => {
+test('한 목록(S68-27·S68-29): 읽을 거리 표 하나 — News에서 보낸 줄도 평범한 줄(따로 거르는 칩 없음), 밑줄만 원래 글 연결 칸으로 안다', () => {
   assert.match(LIST_COLS, /,origin,news_article_id,outside_article_id$/);
   const rows = [
     {id: R1, url: 'https://ex.com/a', title: '같은 글', site: 'ex.com', saved_at: '2026-11-20T00:00:00Z', read_at: null, origin: 'direct', news_article_id: N1},
@@ -66,23 +66,20 @@ test('한 목록(S68-27): 읽을 거리 표 하나 — News에서 보관한 줄�
   assert.equal(linkOf({news_article_id: 'nope'}), null);
   // 밑줄: 이 줄에 그은 것(reading) 또는 News에서 원래 글에 그은 것(원래 행 그대로).
   const keys = markKeysOf([{source_type: 'news', source_id: N1}, {source_type: 'reading', source_id: R2}]);
-  assert.deepEqual(filterOptions(all, keys, true).map(o => o.label), ['안 읽음 2', '전체', '밑줄 2', 'News 2']);
-  assert.deepEqual(filterEntries(all, 'news', keys, true).map(e => e.key), [R3, R1]);
-  assert.deepEqual(filterEntries(all, 'unread', keys, true).map(e => e.key), [R3, R1], '안 읽음은 줄의 읽음 칸 하나로');
-  assert.deepEqual(filterEntries(all, 'marks', keys, true).map(e => e.key), [R2, R1]);
-  assert.equal(entryMarked(all[0], keys), false);
-  // News 기능 없는 사람: 칩 [News] 없음(줄은 그대로 보인다).
+  // S68-29(명진 11/23 02:23): 칩은 [안 읽음][전체][밑줄] 셋뿐 — News에서 보낸 줄을 따로 거르지 않는다.
   assert.deepEqual(filterOptions(all, keys).map(o => o.label), ['안 읽음 2', '전체', '밑줄 2']);
+  assert.deepEqual(filterEntries(all, 'news', keys).map(e => e.key), [R3, R1], '옛 칩 값은 처음 칩(안 읽음)으로');
+  assert.deepEqual(filterEntries(all, 'unread', keys).map(e => e.key), [R3, R1], '안 읽음은 줄의 읽음 칸 하나로');
+  assert.deepEqual(filterEntries(all, 'all', keys).map(e => e.key), [R3, R2, R1]);
+  assert.deepEqual(filterEntries(all, 'marks', keys).map(e => e.key), [R2, R1]);
+  assert.equal(entryMarked(all[0], keys), false);
   assert.equal(keepFilter('news'), 'unread');
-  assert.deepEqual(NEWS_FILTERS, ['unread', 'all', 'marks', 'news']);
-  assert.equal(keepFilter('news', true), 'news');
-  assert.equal(nextFilter('marks', 1, true), 'news');
-  assert.equal(nextFilter('news', 1, true), 'news');
-  assert.equal(emptyText('news', 3), 'News에서 보낸 글이 없어요');
+  assert.equal(nextFilter('marks', 1), 'marks');
+  assert.doesNotMatch(emptyText('all', 3), /News/);
   assert.match(emptyText('unread', 0), /^읽을 거리가 없어요/);
 });
 
-test('화면 연결(S68-27): 이 표 하나만 읽고, News 길은 기능 키가 있다는 답일 때만 — 열기는 라우터 openFrom, 보관 풀기는 dropSaved', () => {
+test('화면 연결(S68-27·S68-29): 이 표 하나만 읽고, News 길은 기능 키가 있다는 답일 때만 — 열기는 라우터 openFrom, News에서 온 줄 삭제는 dropSaved', () => {
   const src = read('app/reading.js');
   assert.match(src, /Array\.isArray\(features\) && features\.includes\('outside'\)/);
   assert.match(src, /const entriesNow = \(\) => entriesOf\(state\.rows\);/);
@@ -91,6 +88,11 @@ test('화면 연결(S68-27): 이 표 하나만 읽고, News 길은 기능 키가
   assert.match(src, /import\('\.\/now-row-acts\.js'\)/);
   assert.doesNotMatch(src, /now-saved\.js|readSavedRows|mergeEntries|state\.saved/, '두 곳을 읽어 합치는 길은 없앴다');
   assert.doesNotMatch(src, /\/rest\/v1\//, '서버 길은 reading-data.js·now-row-acts.js');
+  // S68-29: News에서 온 줄도 직접 넣은 줄과 같은 모양·단추 — 'News' 꼬리표·[News] 칩·'읽을 거리에서 빼기'·'News에서 열기' 없음.
+  assert.doesNotMatch(src, /rd-src-tag|rd-row-news|newsTag|News에서 보냄|data-rd-act="release"|data-rd-act="news-open"|읽을 거리에서 빼기/);
+  assert.doesNotMatch(read('app/reading.css'), /rd-src-tag|rd-row-news/);
+  assert.match(src, /dropSaved\(link, \{saved: true, text: DEL_TEXT, label: DEL_LABEL/);
+  assert.match(src, /const DEL_TEXT = '삭제했어요', DEL_LABEL = '읽을 거리 삭제';/);
   const news = read('app/outside-statements.js');
   assert.doesNotMatch(news, /data-now-panel-saved|createNowSaved/);
   assert.doesNotMatch(news, /data-now-go-saved|보관 ↗/, 'S68-28: News 탭 줄의 보관 길은 없앴다');

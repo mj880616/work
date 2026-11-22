@@ -7,11 +7,10 @@ import {shareArticleUrl, shareArticleTitle} from './share-intake-model.mjs';
 export const TITLE_MAX = 500, SITE_MAX = 120, BODY_MAX = 200000, URL_MAX = 2000, LIST_LIMIT = 500;
 export const LIST_COLS = 'id,url,title,site,saved_at,read_at,body_state,body_at,business_area_id,updated_at,origin,news_article_id,outside_article_id';
 export const BODY_STATES = Object.freeze(['pending', 'ok', 'paywall', 'bot_check', 'robots', 'too_big', 'blocked', 'failed']);
-// 거르기 칩: [안 읽음 n] [전체] [밑줄] (+ News 기능 키가 있는 사람만 [News n] — News에서 보관한 줄). 처음은 안 읽음.
+// 거르기 칩: [안 읽음 n] [전체] [밑줄]. 처음은 안 읽음.
+// S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 글을 따로 거르는 칩은 없다 — 평범한 읽을 거리 줄.
 export const FILTERS = Object.freeze(['unread', 'all', 'marks']);
-export const NEWS_FILTERS = Object.freeze([...FILTERS, 'news']);
-export const filtersOf = (newsOn = false) => (newsOn ? NEWS_FILTERS : FILTERS);
-export const keepFilter = (v, newsOn = false) => (filtersOf(newsOn).includes(v) ? v : 'unread');
+export const keepFilter = v => (FILTERS.includes(v) ? v : 'unread');
 
 const oneLine = (v, max) => (typeof v === 'string' ? [...v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, max).join('').trim() : '');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -66,31 +65,26 @@ export const markKeysOf = list => new Set((Array.isArray(list) ? list : []).filt
 // 밑줄: 이 줄에 그은 것(reading) 또는 News에서 원래 글에 그은 것(연결 칸으로 찾음 — 밑줄 행은 원래 글을 가리킨 그대로).
 export const entryMarked = (e, keys = new Set()) => keys.has(`reading:${e?.key}`) || (!!e?.link && keys.has(linkKey(e.link)));
 export const entryUnread = e => !!e?.row && !e.row.read_at;
-export const entryNews = e => !!e?.link;
 // 거르기.
-export function filterEntries(entries, filter, keys = new Set(), newsOn = false) {
-  const f = keepFilter(filter, newsOn), list = Array.isArray(entries) ? entries : [];
+export function filterEntries(entries, filter, keys = new Set()) {
+  const f = keepFilter(filter), list = Array.isArray(entries) ? entries : [];
   if (f === 'unread') return list.filter(entryUnread);
   if (f === 'marks') return list.filter(e => entryMarked(e, keys));
-  if (f === 'news') return list.filter(entryNews);
   return list;
 }
 export const unreadCount = entries => (Array.isArray(entries) ? entries.filter(entryUnread).length : 0);
-export function filterOptions(entries, keys = new Set(), newsOn = false) {
+export function filterOptions(entries, keys = new Set()) {
   const list = Array.isArray(entries) ? entries : [];
   const n = unreadCount(list), m = list.filter(e => entryMarked(e, keys)).length;
-  const out = [{value: 'unread', label: `안 읽음 ${n}`}, {value: 'all', label: '전체'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}];
-  if (newsOn) { const k = list.filter(entryNews).length; out.push({value: 'news', label: k ? `News ${k}` : 'News'}); }
-  return out;
+  return [{value: 'unread', label: `안 읽음 ${n}`}, {value: 'all', label: '전체'}, {value: 'marks', label: m ? `밑줄 ${m}` : '밑줄'}];
 }
 // 좌우 밀기: 지금 칩에서 옆 칩으로(끝에서는 그대로).
-export function nextFilter(current, dir, newsOn = false) {
-  const all = filtersOf(newsOn), i = all.indexOf(keepFilter(current, newsOn)), j = Math.min(all.length - 1, Math.max(0, i + (dir > 0 ? 1 : -1)));
-  return all[j];
+export function nextFilter(current, dir) {
+  const i = FILTERS.indexOf(keepFilter(current)), j = Math.min(FILTERS.length - 1, Math.max(0, i + (dir > 0 ? 1 : -1)));
+  return FILTERS[j];
 }
 // 빈 목록 한 줄.
 export function emptyText(filter, total) {
-  if (filter === 'news') return 'News에서 보낸 글이 없어요';
   if (!total) return '읽을 거리가 없어요 — [+ 추가]에 주소를 넣거나 폰에서 공유 → 읽을 거리';
   if (filter === 'marks') return '밑줄을 그은 글이 없어요';
   return '안 읽은 글이 없어요';

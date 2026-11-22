@@ -4,9 +4,10 @@ import { noticeText } from './helpers/small-notice.mjs';
 // S67-11 NEWS-보관빼기(명진 11/19 17:22 "보관기사 어떻게 없애? 저 별 클릭해서 해제 5초 되돌리기 안되나 / 아니면 삭제 가능하게") +
 // S68-24 READ-보관하나로(명진 11/22 "2. A") + S68-27 READ-보관기록일원화(11/22 21:37 "저장된 기록도 일원화"): 보관의 원본은 읽을 거리 표 하나다.
 // News에서 보관한 글도 읽을 거리 줄(원래 글 연결 칸 news_article_id·outside_article_id)이고, 보관·보관 풀기는 서버 함수 app_reading_keep 하나.
-// ① 읽을 거리 [News]: 연결된 줄만, 저장 시각순. ⋯ [보관 풀기] = News와 같은 보관 빼기 → 줄이 빠지고 '보관에서 뺐어요 [되돌리기]' 5초.
-//    되돌리면 원래 저장 시각·폴더로(원래 자리). 5초가 지나면 서버 줄은 지워진 채.
-// ② News 탭 줄에 [보관] 탭이 없고, 그 자리 '보관 ↗'을 누르면 읽을 거리 [News].
+// ① S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): 읽을 거리에 [News] 칩·'News' 꼬리표가 없다.
+//    연결된 줄도 평범한 줄, 저장 시각순. ⋯ [삭제] = News와 같은 보관 빼기(app_reading_keep 끄기) → 줄이 빠지고 '삭제했어요 [되돌리기]' 5초.
+//    되돌리면 원래 저장 시각·폴더로(원래 자리). 5초가 지나면 서버 줄은 지워진 채. 고른 줄 [삭제]도 같은 길, 알림 하나.
+// ② News 탭 줄에 [보관] 탭도 '보관 ↗' 길도 없다(S68-28).
 // ③ 연결된 줄을 누르면 News 지금 글 보기(상세)가 열리고 뒤로 한 번 = 읽을 거리. 내가 넣은 기사(origin 'user')는 상세 [삭제] → 읽을 거리·전체·언론 어디에도 없음
 //    (공용 기사 행은 지우지 않고 내 숨김 표시만), [되돌리기]로 복귀.
 // 서버는 흉내(기사·단체·주소는 모두 가짜).
@@ -137,7 +138,7 @@ const titles = page => rlist(page).locator('.rd-row .rd-nm').allTextContents();
 const savedAt = (s, id) => s.reading.find(r => r.news_article_id === id)?.saved_at ?? null;
 
 for (const width of [412, 884, 1280]) {
-  test(`News ${width}: 탭 줄에 '보관' 없음 · 읽을 거리 [News] · ⋯ [읽을 거리에서 빼기] + 5초 [되돌리기](원래 자리), 5초 뒤 서버 줄 지워짐`, async ({ page }) => {
+  test(`News ${width}: 탭 줄에 '보관' 없음 · 읽을 거리에 [News] 칩·꼬리표 없음 · ⋯ [삭제] + 5초 [되돌리기](원래 자리), 5초 뒤 서버 줄 지워짐`, async ({ page }) => {
     test.setTimeout(90000);
     const { errors, s } = await start(page, width);
     // ② News 탭 줄: [전체][사회운동][언론][밑줄]만 — '보관' 탭도 '보관 ↗' 길도 없다(S68-28). 읽을 거리는 메뉴로.
@@ -145,21 +146,22 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator('[data-now-panel-saved]')).toHaveCount(0);
     await page.evaluate(() => window.KPTURouter.go('reading'));
     await expect(page.locator('#readingView')).toBeVisible();
-    await rlist(page).locator('.rd-chips [data-filter-value="news"]').click();
-    await expect(rlist(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄', 'News 3']);
-    await expect(rlist(page).locator('.rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
-    // ① 한 표의 줄을 저장 시각순으로: N1(10/06) · R1(10/05, 같은 주소 사회운동 글에 연결) · N2(10/04). 연결된 줄은 꼬리표 'News' 하나.
+    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
+    await expect(rlist(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 0', '전체', '밑줄']);
+    await expect(rlist(page).locator('.rd-chips [data-filter-value="news"]')).toHaveCount(0);
+    // ① 한 표의 줄을 저장 시각순으로: N1(10/06) · R1(10/05, 같은 주소 사회운동 글에 연결) · N2(10/04). 연결된 줄도 꼬리표 없이 평범한 줄.
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
-    await expect(row(page, T_R1).locator('.rd-src-tag')).toHaveText('News');
-    await expect(row(page, T_N1).locator('.rd-src-tag')).toHaveText('News');
+    await expect(rlist(page).locator('.rd-src-tag, .rd-row-news, .rd-sub')).toHaveCount(0);
     await expect(row(page, T_N1)).toContainText('가짜일보');
+    await expect(row(page, T_N1)).toHaveAttribute('aria-label', '가짜 매체 기사 하나 · 가짜일보');
     if (shots) await page.screenshot({ path: `${shots}/reading-news-${width}.png` });
 
     await row(page, T_N1).locator('[data-rd-more]').click();
-    await expect(page.locator('#rdRowMenu button')).toHaveText(['News에서 열기', '안 읽음으로', '사업에 연결', '읽을 거리에서 빼기']);
-    await page.locator('#rdRowMenu button', { hasText: '읽을 거리에서 빼기' }).click();
+    await expect(page.locator('#rdRowMenu button')).toHaveText(['안 읽음으로', '사업에 연결', '삭제']);
+    await page.locator('#rdRowMenu button', { hasText: '삭제' }).click();
     await expect(row(page, T_N1)).toHaveCount(0);
-    expect(await noticeText(page)).toBe('읽을 거리에서 뺐어요');
+    expect(await noticeText(page)).toBe('삭제했어요');
+    await expect(page.locator('.kptu-ask')).toHaveCount(0); // 되돌릴 수 있어 묻지 않는다
     await expect(page.locator('#kptuNotice .kptu-notice-undo')).toBeVisible();
     // 서버: 보관 함수 하나(끄기) → 읽을 거리 줄 지움 + 별표 폴더 비움. 표시 표의 별표 칸은 없다.
     expect(s.calls.filter(c => c.what === 'rpc/app_reading_keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'news', p_article: N1, p_on: false, p_saved_at: null });
@@ -176,16 +178,16 @@ for (const width of [412, 884, 1280]) {
 
     // N2도 같은 동작. 5초 뒤 알림이 닫히고 서버 줄은 지워진 채, 다시 들어와도 없다.
     await row(page, T_N2).locator('[data-rd-more]').click();
-    await page.locator('#rdRowMenu button', { hasText: '읽을 거리에서 빼기' }).click();
+    await page.locator('#rdRowMenu button', { hasText: '삭제' }).click();
     await expect(row(page, T_N2)).toHaveCount(0);
-    await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('읽을 거리에서 뺐어요');
+    await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('삭제했어요');
     await expect(page.locator('#kptuNotice')).toBeHidden({ timeout: 8000 });
     expect(savedAt(s, N2)).toBeNull();
     await expect.poll(() => s.calls.some(c => c.what === 'app_news_now_signals' && c.body?.action === 'unstar')).toBe(true);
     await page.reload();
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
     await expect(page.locator('#readingView')).toBeVisible();
-    await rlist(page).locator('.rd-chips [data-filter-value="news"]').click();
+    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1]);
     // 표시 표에는 별표·옛 보관 칸을 쓰지 않았다.
     expect(s.calls.some(c => /app_(news|outside_article)_marks/.test(c.what) && c.body && ('starred_at' in c.body || 'archived_at' in c.body))).toBe(false);
@@ -199,9 +201,9 @@ for (const width of [412, 884, 1280]) {
     await tab(page, '전체');
     await expect(root(page).locator(`[data-nw-key="news:${N2}"]`).first()).toBeVisible();
     await goReading(page, width);
-    await rlist(page).locator('.rd-chips [data-filter-value="news"]').click();
+    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
     await expect(row(page, T_N1)).toBeVisible();
-    // 수집 기사(N1): 같은 상세(지금 News 글 보기), [삭제] 없음. 뒤로 한 번이면 읽을 거리 [News] 그대로.
+    // 수집 기사(N1): 같은 상세(지금 News 글 보기), [삭제] 없음. 뒤로 한 번이면 읽을 거리 [전체] 그대로.
     await row(page, T_N1).click();
     const det = root(page).locator('[data-now-detail]');
     await expect(page.locator('#outsideView')).toBeVisible();
@@ -209,7 +211,7 @@ for (const width of [412, 884, 1280]) {
     await expect(det.locator('[data-nd-delete]')).toHaveCount(0);
     await page.goBack();
     await expect(page.locator('#readingView')).toBeVisible();
-    await expect(rlist(page).locator('.rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(rlist(page).locator('.rd-chips [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
     // 내가 넣은 기사(N2): 키보드(Enter)로도 열린다.
     await row(page, T_N2).focus();
     await page.keyboard.press('Enter');
@@ -228,7 +230,7 @@ for (const width of [412, 884, 1280]) {
 
     // 되돌린 기사는 읽을 거리에 다시 보인다(들어올 때 다시 읽음). 다시 [삭제] → 5초 지나면 읽을 거리·전체·언론 어디에도 없다.
     await goReading(page, width);
-    await rlist(page).locator('.rd-chips [data-filter-value="news"]').click();
+    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
     await row(page, T_N2).click();
     await expect(det.locator('[data-nd-delete]')).toHaveText('삭제');
@@ -236,7 +238,7 @@ for (const width of [412, 884, 1280]) {
     await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('삭제했어요');
     await expect(page.locator('#kptuNotice')).toBeHidden({ timeout: 8000 });
     await goReading(page, width);
-    await rlist(page).locator('.rd-chips [data-filter-value="news"]').click();
+    await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1]);
     await goNews(page, width);
     await tab(page, '전체');
@@ -249,6 +251,42 @@ for (const width of [412, 884, 1280]) {
     expect(errors).toEqual([]);
   });
 }
+
+test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않고 한 번에, 알림 하나 \'2개 삭제했어요\' [되돌리기]로 둘 다 원래 자리', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors, s } = await start(page, 412);
+  await goReading(page, 412);
+  await rlist(page).locator('.rd-chips [data-filter-value="all"]').click();
+  await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
+  // 오른쪽으로 밀면 [선택](공용 줄 밀기). 손가락 밀기는 포인터만 보낸다.
+  await expect(async () => {
+    const sent = await row(page, T_N1).evaluate(el => {
+      if (!el.isConnected) return false;
+      const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const fire = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y }));
+      fire('pointerdown', x); for (let i = 1; i <= 10; i++) fire('pointermove', x + 32 * i); fire('pointerup', x + 320);
+      return true;
+    });
+    expect(sent).toBe(true);
+  }).toPass({ timeout: 10000 });
+  const bar = page.locator('#readingView .row-swipe-pickbar');
+  await expect(bar).toBeVisible();
+  await row(page, T_N2).click();
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
+  await bar.locator('[data-row-pick-act="delete"]').click();
+  await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('2개 삭제했어요');
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
+  await expect.poll(() => titles(page)).toEqual([T_R1]);
+  expect(savedAt(s, N1)).toBeNull();
+  expect(savedAt(s, N2)).toBeNull();
+  expect(s.calls.filter(c => c.what === 'rpc/app_reading_keep' && c.body?.p_on === false).map(c => c.body.p_article).sort()).toEqual([N1, N2].sort());
+  await page.locator('#kptuNotice .kptu-notice-undo').click();
+  await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
+  expect(savedAt(s, N1)).toBe('2026-10-06T00:00:00Z');
+  expect(savedAt(s, N2)).toBe('2026-10-04T00:00:00Z');
+  expect(errors).toEqual([]);
+});
 
 test('읽을 거리: News 기능이 없는 사람은 [News] 칩이 없고 News 표시·보관 함수를 부르지 않는다', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
