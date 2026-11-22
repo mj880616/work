@@ -66,7 +66,21 @@ class WidgetTileTest {
         assertEquals("@+id/one_root", attr(root, "id"))
         assertEquals("match_parent", attr(root, "layout_width"))
         assertEquals("match_parent", attr(root, "layout_height"))
-        checkCell("one_widget", root, "@+id/one_tile")
+        // S68-19(11/22 명진 "똑같음 더 크게"): 한 칸 위젯은 좌우를 비우지 않는다 — 삼성 홈이 위젯 칸을 앱 아이콘 칸보다 좁게 주어
+        // 72%만 쓰면 옆 앱 아이콘보다 작았다. 폭 전부·이름 위 높이 전부에서 fitCenter로 가장 큰 정사각.
+        assertEquals("vertical", attr(root, "orientation"))
+        assertTrue(children(root, "LinearLayout").isEmpty())
+        val tile = children(root, "ImageView").single()
+        assertEquals("@+id/one_tile", attr(tile, "id"))
+        assertEquals("match_parent", attr(tile, "layout_width"))
+        assertEquals("0dp", attr(tile, "layout_height"))
+        assertEquals("1", attr(tile, "layout_weight"))
+        assertEquals("fitCenter", attr(tile, "scaleType"))
+        assertEquals("true", attr(tile, "adjustViewBounds"))
+        assertTrue(attr(tile, "src").startsWith("@drawable/widget_tile_"))
+        assertEquals("", attr(tile, "tint"))
+        assertEquals("", attr(tile, "background"))
+        assertEquals("0dp", attr(root, "paddingTop"))
         assertEquals("12sp", attr(children(root, "TextView").single(), "textSize"))
         // 옛 크기별 틀(11 이하용)은 없다.
         assertFalse(File("src/main/res/layout/one_widget_48.xml").exists())
