@@ -2,7 +2,7 @@
    줄은 바탕색을 가진 채 옆으로 밀리고, 그 뒤에 줄 높이만큼 꽉 찬 칸들이 있다(64px 칸, 그림 + 아래 작은 글자 11px).
    색은 먹색 톤 앱에 맞춘 차분한 바탕(토큰 색을 바탕에 22%만 섞음): 회색(공유·숨기기 등) · 차분한 보라(옮기기) · 차분한 빨강(삭제) · 노랑(고르기). 값은 --kptu-*·--ds-* 토큰만. */
 @media(max-width:760px){
-  :is(#basketRows [data-basket-row-item],#noteRows [data-nx-note],[data-nx-recent] [data-nx-note],.inbox-todo-list > [data-inbox-todo-row],#gtTaskBody .gt-row[data-google-task],.os-list [data-nw-key],.nc-list [data-nc-item],.now-saved-list [data-ns-row]){ touch-action:pan-y; }
+  :is(#basketRows [data-basket-row-item],#noteRows [data-nx-note],[data-nx-recent] [data-nx-note],.inbox-todo-list > [data-inbox-todo-row],#gtTaskBody .gt-row[data-google-task],.os-list [data-nw-key],.nc-list [data-nc-item],.now-saved-list [data-ns-row],#readingView .rd-row[data-rd-pick],#documentList .lu-row[data-lu-document],#ps3ArchiveList [data-ps3-trash-row],#calendarList .clv-event[data-google-event]){ touch-action:pan-y; }
 }
 .row-swipe-host{ position:relative; }
 .row-swipe-row{ position:relative; z-index:1; background:var(--kptu-surface); transition:transform .18s ease; }
@@ -14,7 +14,8 @@
 .row-swipe-ic{ display:inline-flex; width:18px; height:18px; }
 .row-swipe-ic:empty{ display:none; }
 .row-swipe-ic svg{ display:block; width:18px; height:18px; }
-.row-swipe-tx{ white-space:nowrap; }
+/* 칸 글자는 한 줄. 칸 폭(64px)보다 긴 이름(예: '보고할 일정')만 띄어쓰기 자리에서 두 줄로 접는다(낱말 안에서는 끊지 않음). */
+.row-swipe-tx{ max-width:100%; white-space:normal; word-break:keep-all; overflow-wrap:normal; text-align:center; }
 .row-swipe-acts[data-side="start"] > .row-swipe-ends,.row-swipe-acts[data-side="end"] > .row-swipe-start{ visibility:hidden; }
 .row-swipe-tone-danger{ --rs-c:var(--kptu-danger); }
 .row-swipe-tone-info{ --rs-c:var(--kptu-info); }
