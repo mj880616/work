@@ -9,58 +9,82 @@ import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
 
 /**
- * S68-08(11/22): 한 칸 위젯·빠른 쓰기 먹색 칸 크기를 홈 화면이 준 칸 크기에서 계산(옛 48dp·40dp 고정은 옆 앱 아이콘보다 작았다).
+ * S68-11(11/22): 한 칸 위젯·빠른 쓰기 먹색 칸은 크기를 계산하지 않고, 그림 한 장(widget_tile_*)을 이름 줄 위 남는 공간 전체에
+ * fitCenter로 그려 홈 화면이 실제로 준 공간에서 가장 큰 정사각이 되게 한다(S68-08 계산은 삼성 홈에서 최소 48dp로 잘렸다).
  */
 class WidgetTileTest {
     private val android = "http://schemas.android.com/apk/res/android"
+    private val actions = listOf("update", "task", "note", "photo", "record")
 
     private fun xml(path: String): Element =
         DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }.newDocumentBuilder().parse(File(path)).documentElement
 
-    private fun tileOf(path: String): Element {
-        val list = xml(path).getElementsByTagName("FrameLayout")
-        return list.item(0) as Element
+    private fun children(parent: Element, tag: String): List<Element> {
+        val nodes = parent.childNodes
+        return (0 until nodes.length).mapNotNull { nodes.item(it) as? Element }.filter { it.tagName == tag }
     }
 
-    @Test
-    fun oneTileFromCellSize() {
-        // 이름 12sp 한 줄 = 16dp, 칸과 이름 사이 7dp, 위아래 4dp → 칸 높이에서 27dp를 뺀다.
-        assertEquals(16, WidgetTileRules.labelDp(12f, 1f))
-        val cases = listOf(
-            Triple(0, 0, 48), // 크기 모름 → 최소
-            Triple(40, 40, 48), // 아주 작은 칸 → 최소 48dp
-            Triple(70, 90, 50), // 폭 기준 70×0.72
-            Triple(80, 100, 57),
-            Triple(103, 110, 74), // 갤럭시 폴드 펼침 칸(앱 아이콘 약 72dp)
-            Triple(120, 130, 76), // 큰 칸 → 최대 76dp
-            Triple(120, 70, 48), // 넓고 낮은 칸 → 높이 기준이 최소보다 작아 48dp
-        )
-        for ((w, h, want) in cases) assertEquals("$w×$h", want, WidgetTileRules.one(w, h, 1f))
-        // 글자 크기를 키우면 이름 줄이 커져 높이 기준이 줄어든다.
-        assertEquals(21, WidgetTileRules.labelDp(12f, 1.3f))
-        assertEquals(68, WidgetTileRules.one(110, 100, 1.3f))
-        assertEquals(73, WidgetTileRules.one(110, 100, 1f))
-    }
+    private fun attr(e: Element, name: String): String = e.getAttributeNS(android, name)
 
-    @Test
-    fun oneTileBoundsAreKept() {
-        for (w in 0..300 step 7) for (h in 0..300 step 7) {
-            val t = WidgetTileRules.one(w, h, 1f)
-            assertTrue("$w×$h=$t", t in WidgetTileRules.ONE_MIN..WidgetTileRules.ONE_MAX)
+    /** 칸 하나(세로 LinearLayout): [남는 공간 전체 줄(14:72:14) 안 fitCenter 그림] + [이름]. 그림을 돌려준다. */
+    private fun checkCell(where: String, cell: Element, tileId: String): Element {
+        assertEquals(where, "vertical", attr(cell, "orientation"))
+        val row = children(cell, "LinearLayout").single()
+        assertEquals(where, "match_parent", attr(row, "layout_width"))
+        assertEquals(where, "0dp", attr(row, "layout_height"))
+        assertEquals(where, "1", attr(row, "layout_weight"))
+        assertEquals(where, "horizontal", attr(row, "orientation"))
+        val side = children(row, "TextView")
+        assertEquals(where, 2, side.size)
+        for (s in side) {
+            assertEquals(where, "0dp", attr(s, "layout_width"))
+            assertEquals(where, "${WidgetTileRules.SIDE_WEIGHT}", attr(s, "layout_weight"))
         }
-        assertEquals(48, WidgetTileRules.ONE_MIN)
-        assertEquals(76, WidgetTileRules.ONE_MAX)
+        val tile = children(row, "ImageView").single()
+        assertEquals(where, tileId, attr(tile, "id"))
+        assertEquals(where, "0dp", attr(tile, "layout_width"))
+        assertEquals(where, "${WidgetTileRules.TILE_WEIGHT}", attr(tile, "layout_weight"))
+        assertEquals(where, "match_parent", attr(tile, "layout_height"))
+        assertEquals(where, "fitCenter", attr(tile, "scaleType"))
+        assertEquals(where, "true", attr(tile, "adjustViewBounds"))
+        assertTrue(where, attr(tile, "src").startsWith("@drawable/widget_tile_"))
+        // 고정 dp 칸·따로 얹는 그림·물들이기가 없다(그림 한 장이 칸).
+        assertEquals(where, "", attr(tile, "tint"))
+        assertEquals(where, "", attr(tile, "background"))
+        assertTrue(where, children(cell, "FrameLayout").isEmpty())
+        assertTrue(where, children(row, "FrameLayout").isEmpty())
+        // 이름은 칸 아래(셋째가 아닌 둘째 자식, 무게 없음).
+        val label = children(cell, "TextView").single()
+        assertEquals(where, "", attr(label, "layout_weight"))
+        assertEquals(where, 2 * WidgetTileRules.SIDE_WEIGHT + WidgetTileRules.TILE_WEIGHT, 100)
+        return tile
     }
 
     @Test
-    fun quickTileFromWidgetSize() {
-        assertEquals(15, WidgetTileRules.labelDp(11f, 1f))
-        assertEquals(40, WidgetTileRules.quick(250, 40, 4, 1f)) // 가장 낮은 높이 → 최소 40dp(옛 크기)
-        assertEquals(66, WidgetTileRules.quick(400, 100, 4, 1f))
-        assertEquals(66, WidgetTileRules.quick(400, 120, 4, 1f)) // 폭 기준
-        assertEquals(59, WidgetTileRules.quick(180, 100, 2, 1f)) // 2칸
-        assertEquals(76, WidgetTileRules.quick(800, 200, 4, 1f)) // 최대
-        assertEquals(40, WidgetTileRules.quick(0, 0, 4, 1f))
+    fun oneWidgetTileFillsTheSpaceAboveTheLabel() {
+        val root = xml("src/main/res/layout/one_widget.xml")
+        assertEquals("@+id/one_root", attr(root, "id"))
+        assertEquals("match_parent", attr(root, "layout_width"))
+        assertEquals("match_parent", attr(root, "layout_height"))
+        checkCell("one_widget", root, "@+id/one_tile")
+        assertEquals("12sp", attr(children(root, "TextView").single(), "textSize"))
+        // 옛 크기별 틀(11 이하용)은 없다.
+        assertFalse(File("src/main/res/layout/one_widget_48.xml").exists())
+        assertFalse(File("src/main/res/layout/one_widget_72.xml").exists())
+        assertFalse(File("src/main/res/layout/one_widget.xml").readText().contains("@+id/one_icon"))
+    }
+
+    @Test
+    fun quickWidgetTilesFillTheirCells() {
+        for ((name, n) in listOf("quick_widget" to 4, "quick_widget_small" to 2)) {
+            val cells = children(xml("src/main/res/layout/$name.xml"), "LinearLayout")
+            assertEquals(name, n, cells.size)
+            cells.forEachIndexed { i, cell ->
+                val tile = checkCell("$name $i", cell, "@+id/quick_tile$i")
+                assertEquals("$name $i", "@drawable/widget_tile_${actions[i]}", attr(tile, "src"))
+            }
+            assertFalse(name, File("src/main/res/layout/$name.xml").readText().contains("quick_icon"))
+        }
         assertTrue(WidgetTileRules.quickWide(250))
         assertFalse(WidgetTileRules.quickWide(249))
         // 4칸으로 바뀌는 폭은 위젯 정보 최소 폭과 같다.
@@ -68,74 +92,51 @@ class WidgetTileTest {
     }
 
     @Test
-    fun iconCornerAndStep() {
-        assertEquals(26, WidgetTileRules.icon(48))
-        assertEquals(33, WidgetTileRules.icon(60))
-        assertEquals(40, WidgetTileRules.icon(72))
-        assertEquals(42, WidgetTileRules.icon(76))
-        assertEquals(13, WidgetTileRules.corner(48))
-        assertEquals(21, WidgetTileRules.corner(76))
-        assertEquals(48, WidgetTileRules.step(50))
-        assertEquals(48, WidgetTileRules.step(54))
-        assertEquals(60, WidgetTileRules.step(55))
-        assertEquals(60, WidgetTileRules.step(66))
-        assertEquals(72, WidgetTileRules.step(67))
-        assertEquals(72, WidgetTileRules.step(76))
-    }
-
-    @Test
-    fun layoutsMatchTheRules() {
-        // 기본 틀에는 옛 고정값 48dp가 남지 않는다(12+는 코드가 크기를 정하고, 11 이하 작은 칸만 one_widget_48).
-        val base = tileOf("src/main/res/layout/one_widget.xml")
-        assertFalse(File("src/main/res/layout/one_widget.xml").readText().contains("\"48dp\""))
-        assertEquals("60dp", base.getAttributeNS(android, "layout_width"))
-        for ((name, size) in listOf("one_widget_48" to 48, "one_widget" to 60, "one_widget_72" to 72)) {
-            assertTrue(size in WidgetTileRules.ONE_STEPS)
-            val tile = tileOf("src/main/res/layout/$name.xml")
-            assertEquals(name, "${size}dp", tile.getAttributeNS(android, "layout_width"))
-            assertEquals(name, "${size}dp", tile.getAttributeNS(android, "layout_height"))
-            assertEquals(name, "@+id/one_tile", tile.getAttributeNS(android, "id"))
-            val icon = tile.getElementsByTagName("ImageView").item(0) as Element
-            assertEquals(name, "${WidgetTileRules.icon(size)}dp", icon.getAttributeNS(android, "layout_width"))
-            val label = xml("src/main/res/layout/$name.xml").getElementsByTagName("TextView").item(0) as Element
-            assertEquals(name, "${WidgetTileRules.GAP}dp", label.getAttributeNS(android, "paddingTop"))
-            assertEquals(name, "12sp", label.getAttributeNS(android, "textSize"))
-        }
-        // 빠른 쓰기 칸·그림은 코드가 크기를 정하도록 번호가 있다.
-        for ((name, n) in listOf("quick_widget" to 4, "quick_widget_small" to 2)) {
-            val text = File("src/main/res/layout/$name.xml").readText()
-            for (i in 0 until n) {
-                assertTrue("$name tile$i", text.contains("@+id/quick_tile$i\""))
-                assertTrue("$name icon$i", text.contains("@+id/quick_icon$i\""))
-            }
-        }
-    }
-
-    @Test
-    fun tileShapeScalesWithSize() {
-        // 칸 모양은 100 기준 그림이라 모서리가 늘 칸의 28%(고정 dp 모서리 없음).
-        val shape = xml("src/main/res/drawable/widget_one_tile.xml")
-        assertEquals("vector", shape.tagName)
-        assertEquals("100", shape.getAttributeNS(android, "viewportWidth"))
-        assertEquals("100", shape.getAttributeNS(android, "viewportHeight"))
-        val path = shape.getElementsByTagName("path").item(0) as Element
-        assertEquals("@color/widget_one_bg", path.getAttributeNS(android, "fillColor"))
+    fun tileDrawablesAreOneSquarePicture() {
+        // 기능마다 정사각 그림 한 장: 100 기준 둥근 먹색 칸(모서리 28) + 가운데 흰 그림(칸의 55%).
         val r = (WidgetTileRules.CORNER_RATIO * 100).toInt()
-        assertTrue(path.getAttributeNS(android, "pathData").contains("A$r,$r"))
-        assertFalse(File("src/main/res/drawable/widget_one_tile.xml").readText().contains("corners"))
+        val icon = WidgetTileRules.ICON_RATIO * 100
+        for (a in actions) {
+            val f = "src/main/res/drawable/widget_tile_$a.xml"
+            val v = xml(f)
+            assertEquals(f, "vector", v.tagName)
+            assertEquals(f, attr(v, "width"), attr(v, "height"))
+            assertEquals(f, "100", attr(v, "viewportWidth"))
+            assertEquals(f, "100", attr(v, "viewportHeight"))
+            val bg = children(v, "path").single()
+            assertEquals(f, "@color/widget_one_bg", attr(bg, "fillColor"))
+            assertTrue(f, attr(bg, "pathData").contains("A$r,$r"))
+            val g = children(v, "group").single()
+            val scale = attr(g, "scaleX").toDouble()
+            assertEquals(f, attr(g, "scaleX"), attr(g, "scaleY"))
+            assertEquals(f, icon, scale * 24, 0.01) // 24 기준 그림 → 칸의 55%
+            assertEquals(f, (100 - icon) / 2, attr(g, "translateX").toDouble(), 0.01) // 가운데
+            assertEquals(f, attr(g, "translateX"), attr(g, "translateY"))
+            val text = File(f).readText()
+            // 그림 색은 흰 그림 하나(낮·밤 같은 먹 칸 위).
+            assertTrue(f, text.contains("@color/widget_one_icon"))
+            assertFalse(f, text.contains("@color/widget_icon\""))
+        }
+        // 옛 따로 그림(칸 모양 + 24 기준 그림)은 없다.
+        assertFalse(File("src/main/res/drawable/widget_one_tile.xml").exists())
+        for (a in actions) assertFalse(a, File("src/main/res/drawable/ic_w_$a.xml").exists())
     }
 
     @Test
-    fun widgetsUseRealCellSize() {
+    fun noSizeMathLeft() {
         val code = File("src/main/java/kr/or/kptu/work/ActionWidgets.kt").readText()
-        // 한 칸·빠른 쓰기 모두 크기가 바뀌면 다시 그린다.
-        assertEquals(2, Regex("override fun onAppWidgetOptionsChanged").findAll(code).count())
-        assertTrue(code.contains("WidgetTileRules.one("))
-        assertTrue(code.contains("WidgetTileRules.quick("))
-        assertEquals(2, Regex("HomeWidgets.perSize\\(HomeWidgets.cellSizes\\(manager, id\\)\\)").findAll(code).count())
         val hub = File("src/main/java/kr/or/kptu/work/NowWidget.kt").readText()
-        for (s in listOf("OPTION_APPWIDGET_SIZES", "OPTION_APPWIDGET_MIN_WIDTH", "OPTION_APPWIDGET_MAX_WIDTH", "OPTION_APPWIDGET_MIN_HEIGHT", "OPTION_APPWIDGET_MAX_HEIGHT", "setViewLayoutWidth", "setViewLayoutHeight")) {
-            assertTrue(s, hub.contains(s))
+        // 칸 크기를 코드로 정하지 않는다(한 가지 방식만).
+        for (s in listOf("setViewLayoutWidth", "setViewLayoutHeight", "tileSize", "WidgetTileRules.one(", "WidgetTileRules.quick(", "one_widget_48", "one_widget_72")) {
+            assertFalse(s, code.contains(s))
+            assertFalse(s, hub.contains(s))
+        }
+        // 한 칸 위젯은 크기별 그림이 없어 크기가 바뀌어도 다시 그릴 것이 없다. 빠른 쓰기는 4칸·2칸을 고르느라 크기별 그림을 둔다.
+        assertEquals(1, Regex("override fun onAppWidgetOptionsChanged").findAll(code).count())
+        assertEquals(1, Regex("HomeWidgets.perSize\\(HomeWidgets.cellSizes\\(manager, id\\)\\)").findAll(code).count())
+        assertTrue(code.contains("views.setImageViewResource(R.id.one_tile, WidgetIntents.tile(action))"))
+        for (a in listOf("UPDATE", "TASK", "NOTE", "PHOTO", "RECORD")) {
+            assertTrue(a, code.contains("WidgetAction.$a -> R.drawable.widget_tile_${a.lowercase()}"))
         }
     }
 }

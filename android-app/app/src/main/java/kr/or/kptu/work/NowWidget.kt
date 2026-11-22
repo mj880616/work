@@ -258,17 +258,6 @@ object HomeWidgets {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || sizes.size == 1) return build(sizes.first())
         return RemoteViews(sizes.associateWith { build(it) })
     }
-
-    /** S68-08: 안드로이드 12+에서 먹색 칸·그림 크기(dp)를 바로 정한다. 11 이하는 틀에 적힌 크기 그대로. */
-    fun tileSize(views: RemoteViews, tile: Int, icon: Int, tileDp: Int) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val dp = android.util.TypedValue.COMPLEX_UNIT_DIP
-        views.setViewLayoutWidth(tile, tileDp.toFloat(), dp)
-        views.setViewLayoutHeight(tile, tileDp.toFloat(), dp)
-        val iconDp = WidgetTileRules.icon(tileDp).toFloat()
-        views.setViewLayoutWidth(icon, iconDp, dp)
-        views.setViewLayoutHeight(icon, iconDp, dp)
-    }
 }
 
 /**
