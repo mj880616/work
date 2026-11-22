@@ -153,7 +153,7 @@ class QuickWriteActivity : Activity() {
             }
             WidgetSession.Write.SignedOut -> {
                 show(QuickWriteRules.SIGNED_OUT)
-                WidgetGuard.run { NowWidget.signedInChanged(applicationContext, false) }
+                WidgetGuard.run { HomeWidgets.signedInChanged(applicationContext, false) }
             }
             is WidgetSession.Write.Failed -> show(r.reason)
         }

@@ -33,89 +33,65 @@ object WidgetGuard {
 }
 
 /**
- * FIX-위젯: 갱신 작업 한 번의 계획(읽을 주소)과 받은 답을 위젯마다 나누기. 안드로이드 API를 쓰지 않아 JVM 시험 대상이다.
- * 위젯마다 내용 만들기를 따로 울타리 안에서 해서, 한 위젯의 답이 이상해도 다른 위젯은 그린다.
- * APP-위젯다시: '지금'(오늘 0시~모레 0시 일정·할 일·처리 전 후보)과 '이번 주'(보이는 주 일정) 두 위젯.
+ * FIX-위젯: 갱신 작업 한 번의 계획(읽을 주소)과 받은 답으로 그릴 것 만들기. 안드로이드 API를 쓰지 않아 JVM 시험 대상이다.
+ * 내용 만들기는 울타리 안에서 해서, 답이 이상해도 '불러오지 못했어요'로 끝난다.
+ * S68-13(11/22 명진): 위젯 세션을 쓰는 위젯은 '이번 주'(보이는 주 일정) 하나. '지금'·'아스날' 위젯은 지웠다.
  * S68-12: weeks = 이번 주 위젯들이 지금 보이는 주(이번 주 0에서 앞뒤 몇 주). 이번 주(0)는 늘 읽고,
  * 옮긴 주는 같은 일정 주소(google-calendar action=events)를 범위만 바꿔 주마다 한 번씩 더 읽는다(새 주소 없음).
  */
-class WidgetRefresh(val now: Boolean, val week: Boolean, val nowMs: Long, weeks: Set<Int> = setOf(0)) {
+class WidgetRefresh(val nowMs: Long, weeks: Set<Int> = setOf(0)) {
     sealed class Paint<out T> {
         data class Shown<T>(val content: T) : Paint<T>()
         object SignedOut : Paint<Nothing>()
         object Failed : Paint<Nothing>()
     }
 
-    /** 위젯마다 그릴 것. 그 위젯이 없으면 null. */
+    /** 위젯에 그릴 것. */
     data class Result(
-        val now: Paint<WidgetNow.Content>?,
-        val week: Paint<WidgetWeek.Content>?,
+        val week: Paint<WidgetWeek.Content>,
         /** S68-02: 서버 기능 목록에 nojo_words가 있나(모르면 null). 앱 사진 폴더 이름 고르기에 쓰려고 기기 설정에 둔다(AppFolders). */
         val nojoWords: Boolean? = null,
-        /** APP-위젯먹색 S68-06: 같은 기능 목록에 arsenal이 있나(모르면 null). 아스날 위젯이 서버 읽기를 할지 정한다. */
-        val arsenal: Boolean? = null,
-        /** S68-12: 주(shift)마다 그릴 것. 0은 week와 같다. 이번 주 위젯이 없으면 빈 표. */
+        /** S68-12: 주(shift)마다 그릴 것. 0은 week와 같다. */
         val weeks: Map<Int, Paint<WidgetWeek.Content>> = emptyMap(),
     )
 
     /** 읽을 주(shift): 0을 먼저, 그다음 작은 것부터. 범위 밖은 끝으로 맞춘다. */
     val shifts: List<Int> = (listOf(0) + weeks.map(WidgetWeek::clamp).sorted()).distinct()
 
-    val nowCal: String
     /** 주마다 일정 주소(같은 주소 모양, 범위만 다름). */
-    val weekCals: Map<Int, String>
-    val weekCal: String
+    val weekCals: Map<Int, String> = shifts.associateWith { s -> WidgetWeek.range(nowMs, shift = s).let { (a, b) -> WidgetRules.calendarUrl(a, b) } }
+    val weekCal: String = weekCals.getValue(0)
 
-    init {
-        val (from, to) = WidgetNow.range(nowMs)
-        nowCal = WidgetRules.calendarUrl(from, to)
-        weekCals = shifts.associateWith { s -> WidgetWeek.range(nowMs, shift = s).let { (a, b) -> WidgetRules.calendarUrl(a, b) } }
-        weekCal = weekCals.getValue(0)
-    }
-
-    /** 위젯 세션으로 한 번에 읽을 주소(겹치는 주소는 한 번). */
+    /**
+     * 위젯 세션으로 한 번에 읽을 주소(겹치는 주소는 한 번). APP-위젯날짜고르기: 고른 날 기한 할 일을 위해 할 일 주소도 함께.
+     * S68-02: 내 서버 기능 목록(바탕 낱말 nojo_words인지)도 한 번.
+     */
     val urls: List<String> = LinkedHashSet<String>().apply {
-        if (now) addAll(listOf(nowCal, WidgetRules.TASKS, WidgetRules.CANDIDATES))
-        // APP-위젯날짜고르기: 이번 주 위젯은 고른 날 기한 할 일을 위해 '지금' 위젯과 같은 할 일 주소를 함께 읽는다(겹치면 한 번).
-        if (week) {
-            addAll(weekCals.values)
-            add(WidgetRules.TASKS)
-        }
-        // S68-02: 내 서버 기능 목록(바탕 낱말 nojo_words인지). 위젯이 하나라도 있을 때 한 번.
-        if (now || week) add(WidgetRules.FEATURES)
+        addAll(weekCals.values)
+        add(WidgetRules.TASKS)
+        add(WidgetRules.FEATURES)
     }.toList()
 
-    /** 받은 답(readList 결과) → 위젯마다 그릴 것. 내용 만들기는 시험에서 바꿔 끼울 수 있다. */
+    /** 받은 답(readList 결과) → 그릴 것. 내용 만들기는 시험에서 바꿔 끼울 수 있다. */
     fun result(
         outcome: WidgetSession.Outcome<List<WidgetSession.Reply>>,
-        nowContent: (WidgetSession.Raw, Long) -> WidgetNow.Content = { raw, t -> WidgetNow.content(raw, t) },
         weekContent: (WidgetSession.Reply, WidgetSession.Reply, Long, Boolean?, Int) -> WidgetWeek.Content = { cal, tasks, t, nojo, shift ->
             WidgetWeek.content(cal.status, cal.body, t, tasksStatus = tasks.status, tasks = tasks.body, nojoWords = nojo, shift = shift)
         },
     ): Result {
         val replies = when (outcome) {
             is WidgetSession.Outcome.Ok -> outcome.value
-            is WidgetSession.Outcome.SignedOut -> return everyone(Paint.SignedOut)
-            is WidgetSession.Outcome.Failed -> return everyone(Paint.Failed)
+            is WidgetSession.Outcome.SignedOut -> return Result(Paint.SignedOut, weeks = shifts.associateWith { Paint.SignedOut })
+            is WidgetSession.Outcome.Failed -> return Result(Paint.Failed, weeks = shifts.associateWith { Paint.Failed })
         }
         val got = if (replies.size == urls.size) urls.zip(replies).toMap() else emptyMap()
         val nojo = got[WidgetRules.FEATURES]?.let { AppFolderRules.nojoWordsOf(it.status, it.body) }
-        val nowPaint = if (!now) null else paint {
-            val c = got.getValue(nowCal)
-            val t = got.getValue(WidgetRules.TASKS)
-            val k = got.getValue(WidgetRules.CANDIDATES)
-            nowContent(WidgetSession.Raw(c.status, c.body, t.status, t.body, k.status, k.body), nowMs)
-        }
         // 주마다 울타리를 따로 둔다(옮긴 주 하나가 이상해도 이번 주는 그린다).
-        val weekPaints: Map<Int, Paint<WidgetWeek.Content>> = if (!week) emptyMap() else weekCals.mapValues { (s, url) ->
+        val weekPaints: Map<Int, Paint<WidgetWeek.Content>> = weekCals.mapValues { (s, url) ->
             paint { weekContent(got.getValue(url), got.getValue(WidgetRules.TASKS), nowMs, nojo, s) }
         }
-        val ars = got[WidgetRules.FEATURES]?.let { WidgetArsenal.allowedOf(it.status, it.body) }
-        return Result(nowPaint, weekPaints[0], nojo, ars, weekPaints)
+        return Result(weekPaints.getValue(0), nojo, weekPaints)
     }
-
-    private fun everyone(p: Paint<Nothing>): Result =
-        Result(p.takeIf { now }, p.takeIf { week }, weeks = if (week) shifts.associateWith { p } else emptyMap())
 
     private fun <T> paint(block: () -> T?): Paint<T> = WidgetGuard.get(block)?.let { Paint.Shown(it) } ?: Paint.Failed
 

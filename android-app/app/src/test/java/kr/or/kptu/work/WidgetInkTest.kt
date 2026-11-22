@@ -10,7 +10,7 @@ import org.w3c.dom.Element
 
 /**
  * APP-위젯먹색 S68-06(11/22): 위젯 5개 먹색 통일. 파랑 강조를 빼고 종이색 바탕 + 먹색 글자·강조(앱 테마 기본 먹),
- * 주황은 요청(widget_req_*)만. 빠른 쓰기 단추는 한 칸 위젯과 같은 먹색 정사각 칸, '지금' 2×2는 다음 일정만.
+ * 주황은 요청(widget_req_*)만. 빠른 쓰기 단추는 한 칸 위젯과 같은 먹색 정사각 칸. S68-13: '지금'·'아스날' 위젯은 지웠다.
  */
 class WidgetInkTest {
     private val android = "http://schemas.android.com/apk/res/android"
@@ -84,21 +84,6 @@ class WidgetInkTest {
             }
             assertFalse(name, File("src/main/res/layout/$name.xml").readText().contains("widget_btn"))
         }
-    }
-
-    @Test
-    fun nowSmallShowsOnlyNextEvent() {
-        // 2×2 틀: 남은 시간(now_left)·시각(now_time)·제목(now_title)과 안내 한 줄만. 요청·챙길 것 숫자 칸은 4×2에만.
-        val small = File("src/main/res/layout/now_widget_small.xml").readText()
-        for (id in listOf("now_left", "now_time", "now_title", "now_note", "now_refresh", "now_next")) assertTrue(id, small.contains("@+id/$id\""))
-        for (id in listOf("now_row_asks", "now_row_todo", "now_row_due", "now_after")) assertFalse(id, small.contains("@+id/$id\""))
-        val big = File("src/main/res/layout/now_widget.xml").readText()
-        for (id in listOf("now_row_asks", "now_row_todo", "now_row_due", "now_after")) assertTrue(id, big.contains("@+id/$id\""))
-        // 크기별 그림(HomeWidgets.sized)은 그대로, 작은 크기에서는 처리할 것 줄을 그리지 않는다.
-        val src = File("src/main/java/kr/or/kptu/work/NowWidget.kt").readText()
-        assertTrue(src.contains("HomeWidgets.sized(context, R.layout.now_widget_small, R.layout.now_widget, SMALL, LARGE)"))
-        val content = src.substringAfter("private fun content(").substringBefore("private fun line(")
-        assertTrue(content.indexOf("if (small) return") in 0 until content.indexOf("R.id.now_row_asks"))
     }
 
     @Test

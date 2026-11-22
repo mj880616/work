@@ -648,7 +648,7 @@ class MainActivity : ComponentActivity() {
         val app = applicationContext
         Thread {
             val ok = WidgetHub.session(app).consume(handoff) is WidgetSession.Outcome.Ok
-            NowWidget.signedInChanged(app, WidgetHub.session(app).signedIn())
+            HomeWidgets.signedInChanged(app, WidgetHub.session(app).signedIn())
             runOnUiThread {
                 if (!alive) return@runOnUiThread
                 if (!ok && fallbackOnFail) {
@@ -697,7 +697,7 @@ class MainActivity : ComponentActivity() {
         val app = applicationContext
         Thread {
             val ok = WidgetHub.session(app).consume(handoff) is WidgetSession.Outcome.Ok
-            NowWidget.signedInChanged(app, WidgetHub.session(app).signedIn())
+            HomeWidgets.signedInChanged(app, WidgetHub.session(app).signedIn())
             if (ok) WidgetGuard.run { BackUpload.resume(app) }
             runOnUiThread {
                 if (!alive) return@runOnUiThread
@@ -736,7 +736,7 @@ class MainActivity : ComponentActivity() {
                 val app = applicationContext
                 Thread {
                     WidgetHub.session(app).logout()
-                    NowWidget.signedInChanged(app, false)
+                    HomeWidgets.signedInChanged(app, false)
                     runOnUiThread { if (alive) notifyWidgetStatus() }
                 }.apply { isDaemon = true }.start()
             }

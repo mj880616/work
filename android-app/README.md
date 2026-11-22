@@ -20,6 +20,8 @@
 
 설계: [docs/design/phone-widget-auth.md](../docs/design/phone-widget-auth.md) 10절, 명진 결정 W-D1~W-D5(모두 추천안).
 
+- 지금 남은 위젯(2026-11-22 S68-13): 빠른 쓰기·한 칸·이번 주. '지금'(다음 일정)·'아스날' 위젯은 쓰지 않아 지웠다(명진). 두 위젯만 읽던 처리 전 후보(`app_todo_candidates`)·아스날 경기 파일 주소도 위젯 허용 목록에서 뺐다. 아래 절의 두 위젯 설명은 지난 기록이다.
+
 - '웹2 오늘' 위젯(홈 화면 전용): 오늘 일정(서울 0시~24시)·할 일(기한 오늘·지난 것) 몇 줄, [＋바구니], [↻]. 줄을 누르면 앱의 달력·할 일 화면, 바구니는 `?view=basket`.
 - 위젯 로그인(W-D1): 위젯 [로그인] 줄 → 내보내지 않은 `WidgetLoginActivity`가 메모리 표시(10분·한 번)를 세움 → 단계 ①과 같은 로그인 주소 → 돌아온 handoff를 표시가 있을 때만 앱이 직접 `auth-handoff` `consume`(Origin `https://bokdoong.com`, 0.3.0까지는 desk). 표시가 없으면 지금처럼 웹 화면으로 넘긴다. 서버·허용 주소는 바꾸지 않았다.
 - 위젯 자동 로그인(0.3.2, 설계 12절): 앱 웹 화면이 로그인돼 있으면 그 화면(`app/phone-widget-auth.js`)이 `auth-handoff` `widget_seal`로 같은 사용자의 새 세션 봉인만 받아 다리(`widget:ready`→`widget:mint`→`widget:handoff:`)로 넘기고, 앱이 지금의 consume으로 위젯 세션을 만든다(구글 화면 없음). 웹이 로그아웃·실패·시간 초과면 구글 로그인 탭(대체 길)을 화면이 앞에 나온 뒤 연다(`WidgetLoginFlow`).
@@ -131,8 +133,8 @@
 | `app/src/main/java/kr/or/kptu/work/WidgetHttp.kt` | 위젯 HTTP(OkHttp) |
 | `app/src/main/java/kr/or/kptu/work/KeystoreVault.kt` | 위젯 새로고침 토큰 암호화 보관 |
 | `app/src/main/java/kr/or/kptu/work/WidgetToday.kt` | 위젯 줄 만들기(오늘 범위·정렬·안내) |
-| `app/src/main/java/kr/or/kptu/work/NowWidget.kt`, `WidgetNow.kt` | '지금' 위젯 그리기·내용 만들기(JVM 시험 대상)·WorkManager 작업(`WidgetWorker`)·`WidgetLoginActivity` |
-| `app/src/main/java/kr/or/kptu/work/WidgetArsenal.kt`, `ArsenalWidget.kt` | 아스날 위젯 내용 만들기(JVM 시험 대상)·그리기 |
+| `app/src/main/java/kr/or/kptu/work/HomeWidgets.kt` | 위젯 공용(위젯 세션 `WidgetHub`·갱신 작업 `WidgetJobs`·`WidgetWorker`·크기별 그림·`WidgetLoginActivity`). '지금'·'아스날' 위젯은 11/22 지움 |
+| `app/src/main/java/kr/or/kptu/work/WidgetNow.kt` | 위젯 공용 일정 읽기(서울 시간대·제목 다듬기·일정 목록, JVM 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/WidgetWeek.kt`, `WeekWidget.kt` | 이번 주 위젯 줄 만들기(JVM 시험 대상)·그리기 |
 | `app/src/main/java/kr/or/kptu/work/WidgetActions.kt` | 빠른 쓰기·한 칸 위젯 규칙(칸 순서·고르기 목록·여는 곳·쓰기 주소, 단위 시험 대상) |
 | `app/src/main/java/kr/or/kptu/work/ActionWidgets.kt` | 빠른 쓰기·한 칸 위젯 그리기, 한 칸 기능 고르기 창, [사진] 고르기·카메라 |

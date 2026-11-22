@@ -125,7 +125,7 @@ class WidgetTileTest {
     @Test
     fun noSizeMathLeft() {
         val code = File("src/main/java/kr/or/kptu/work/ActionWidgets.kt").readText()
-        val hub = File("src/main/java/kr/or/kptu/work/NowWidget.kt").readText()
+        val hub = File("src/main/java/kr/or/kptu/work/HomeWidgets.kt").readText()
         // 칸 크기를 코드로 정하지 않는다(한 가지 방식만).
         for (s in listOf("setViewLayoutWidth", "setViewLayoutHeight", "tileSize", "WidgetTileRules.one(", "WidgetTileRules.quick(", "one_widget_48", "one_widget_72")) {
             assertFalse(s, code.contains(s))
