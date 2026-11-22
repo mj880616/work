@@ -39,7 +39,7 @@
 #appView #outsideView .os-src-note.is-bad{ color:var(--kptu-danger); }
 @media (prefers-reduced-motion:reduce){ #appView #outsideView :is(.os-switch-dot,.os-switch-dot::after){ transition:none; } }
 
-/* 탭 줄 [전체][사회운동][언론][보관]: 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양(UI-보기탭한모양 S52-17). PC는 위, 폰·폴드 자리는 now.css. 단체 켜고 끄기 칸에서는 감춘다(hidden). */
+/* 탭 줄 [전체][사회운동][언론][밑줄] + 길 '보관 ↗'(S68-24): 공용 ⑤ 보기 바꾸기(.ds-seg) 한 모양(UI-보기탭한모양 S52-17). PC는 위, 폰·폴드 자리는 now.css. 단체 켜고 끄기 칸에서는 감춘다(hidden). */
 #appView #outsideView .os-tabs[hidden],#appView #outsideView [data-os-panel-new][hidden],#appView #outsideView .osq[hidden]{ display:none; }
 #appView #outsideView [data-os-panel-new]{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 

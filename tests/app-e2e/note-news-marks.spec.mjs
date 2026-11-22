@@ -153,9 +153,11 @@ test('880: 보관한 글 — [전체|뉴스|사회운동 글] 거르기, 줄 ⋯
   await b.locator('.nnm-sv').nth(1).locator('[data-now-more]').click();
   await expect(page.locator('#rowMenu')).toContainText('보관 풀기');
   await page.keyboard.press('Escape');
+  const key = await b.locator('.nnm-sv').nth(1).getAttribute('data-nw-key');
   await b.locator('.nnm-sv').nth(1).locator('[data-nnm-saved]').click();
   await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe('outside');
-  await expect(page.locator('#outsideRoot').getByRole('tab', { name: '보관' })).toHaveAttribute('aria-selected', 'true');
+  // S68-24: News [보관] 탭은 없앴다 — 그 글이 든 탭(언론 기사 = [언론], 사회운동 글 = [사회운동])으로 연다.
+  await expect(page.locator('#outsideRoot').getByRole('tab', { name: key.startsWith('news:') ? '언론' : '사회운동' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#outsideRoot')).toHaveAttribute('data-detail', 'open');
   expect(errors).toEqual([]);
 });

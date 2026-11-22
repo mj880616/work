@@ -145,9 +145,9 @@ test('News [언론] 폰 412: 좌우로 밀면 탭 이동, ⋯ 메뉴는 하단�
     el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [t(x)], changedTouches: [t(x)] }));
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [t(x + d)] }));
   }, dx);
-  // 탭 줄 [전체] [사회운동] [언론] [보관] — 왼쪽으로 밀면 다음 탭.
+  // 탭 줄 [전체] [사회운동] [언론] [밑줄](S68-24 [보관] 탭 없앰) — 왼쪽으로 밀면 다음 탭.
   await swipe(-120);
-  await expect(page.locator('#outsideRoot [data-os-tab="archive"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#outsideRoot [data-os-tab="marks"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#nowPanelNews')).toBeHidden();
   await swipe(120);
   await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');

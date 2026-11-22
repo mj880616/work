@@ -1,5 +1,5 @@
-/* OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 껍데기(탭 넷 · 목록 | 상세 두 칸) + 글 상세(now-detail.js)
-   + [보관] 탭(now-saved.js) + 관심 주제 칸(now-interests.js). 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 제목 16px·본문 13~14px·꼬리 12px. */
+/* OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 껍데기(탭 · 목록 | 상세 두 칸) + 글 상세(now-detail.js)
+   + 관심 주제 칸(now-interests.js). 콤팩트·톤다운(색은 theme-tokens.css 토큰만), 제목 16px·본문 13~14px·꼬리 12px. */
 
 /* 껍데기: 폰·중간 폭은 한 칸(상세가 열리면 목록 대신 상세 전체 화면), PC(761px~)는 목록 | 상세 두 칸(split-resize.js가 --ds-split-* fr 값). */
 #appView #outsideView .os.now{ display:grid; grid-template-columns:minmax(0,1fr); gap:4px 12px; max-width:none; align-items:start; }
@@ -21,7 +21,7 @@
   #appView #outsideView .osq-filters > .osq-row + .osq-row{ margin-left:8px; padding-left:8px; border-left:var(--ds-line-width,.5px) solid var(--ds-line); }
 }
 @media(max-width:760px){ #appView #outsideView .os.now[data-detail="open"] > .os-tabs{ display:none; } }
-#appView #outsideView :is([data-now-panel-all],[data-now-panel-news],[data-now-panel-saved],.now-interests,.now-cand,.nw-top,.nw-dd)[hidden]{ display:none; }
+#appView #outsideView :is([data-now-panel-all],[data-now-panel-news],.now-interests,.now-cand,.nw-top,.nw-dd)[hidden]{ display:none; }
 /* [언론] 칸 안 키워드·매체 켜고 끄기·별표 폴더 칸(news-clipping.js data-mode)에서는 위 찾기 줄을 감춘다(그 칸 머리 ‹ 가 맨 위). */
 #appView #outsideView .os.now[data-tab="media"]:has(#newsRoot:not([data-mode="list"])) .nw-top{ display:none; }
 
@@ -95,9 +95,8 @@
 #appView #outsideView .now-row.is-open{ background:var(--ds-select-bg); }
 #appView #outsideView .now-hit{ display:inline-grid; place-items:center; height:16px; padding:0 5px; font-size:11px; line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-radius:var(--ds-radius-control,6px); }
 
-/* [보관] 탭 */
-#appView #outsideView .now-saved{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-#appView #outsideView .now-saved-chips{ display:flex; flex-wrap:wrap; gap:var(--ds-chip-row-gap,4px); padding:4px 0 2px; }
+/* S68-24: 옛 [보관] 탭 자리의 길 '보관 ↗'(읽을 거리 [News]로) — 탭과 같은 칸 모양, 글자만 옅게(다른 화면으로 가는 단추). */
+#appView #outsideView .os-tab-go{ color:var(--kptu-muted); }
 
 /* 관심 주제 칸 */
 #appView #outsideView .now-interests{ display:flex; flex-direction:column; gap:6px; min-width:0; }
