@@ -159,21 +159,38 @@ class WidgetActionsTest {
     }
 
     @Test
-    fun oneCellLooksLikeQuickWriteButton() {
-        // APP-한칸위젯디자인: 칸을 꽉 채우는 색 칠한 둥근 칸 + 26dp 이상 그림 + 글자(빈 바탕 없음).
+    fun oneCellIsSquareInkTileWithLabelBelow() {
+        // APP-한칸위젯 A(11/22): 앱 아이콘처럼 정사각 둥근 먹색 칸(고정 크기, 가운데) + 흰 그림 + 칸 아래 흰 이름(그림자).
         val one = xml("src/main/res/layout/one_widget.xml")
-        assertEquals("@drawable/widget_btn", attr(one, "background"))
         assertEquals("match_parent", attr(one, "layout_width"))
         assertEquals("match_parent", attr(one, "layout_height"))
-        val icon = children(one, "ImageView").single()
-        assertTrue(attr(icon, "layout_width").removeSuffix("dp").toInt() >= 26)
-        assertEquals("@color/widget_btn_ink", attr(children(one, "TextView").single(), "textColor"))
-        // 기능마다 색(테마 토큰): 녹음만 주황 계열, 나머지는 빠른 쓰기와 같은 남색 계열.
-        assertEquals(WidgetActions.Tone.WARM, WidgetActions.tone(WidgetAction.RECORD))
-        for (a in WidgetActions.ONE_CHOICES.filter { it != WidgetAction.RECORD }) assertEquals(WidgetActions.Tone.PLAIN, WidgetActions.tone(a))
-        val warm = File("src/main/res/drawable/widget_btn_warm.xml").readText()
-        assertTrue(warm.contains("@color/widget_req_bg"))
-        assertTrue(File("src/main/res/values-night/colors.xml").readText().contains("name=\"widget_req_bg\""))
+        assertEquals("center", attr(one, "gravity"))
+        assertEquals("vertical", attr(one, "orientation"))
+        assertEquals("", attr(one, "background")) // 바깥은 비움: 격자가 세로로 길어도 칸이 늘지 않는다.
+        val tile = children(one, "FrameLayout").single()
+        assertEquals("@drawable/widget_one_tile", attr(tile, "background"))
+        val w = attr(tile, "layout_width")
+        assertTrue(w.endsWith("dp"))
+        assertEquals(w, attr(tile, "layout_height")) // 정사각
+        val icon = children(tile, "ImageView").single()
+        assertEquals("28dp", attr(icon, "layout_width"))
+        assertEquals("@color/widget_one_icon", attr(icon, "tint"))
+        // 이름은 칸 안이 아니라 칸 아래(바깥 LinearLayout의 둘째 자식).
+        assertTrue(children(tile, "TextView").isEmpty())
+        val label = children(one, "TextView").single()
+        assertEquals("@color/widget_one_label", attr(label, "textColor"))
+        assertEquals("12sp", attr(label, "textSize"))
+        assertTrue(attr(label, "shadowRadius").isNotEmpty())
+        // 먹색 하나: 칸 모양 파일은 먹색 토큰, 낮·밤 모두 같은 먹(앱 테마 기본 먹 #22262b).
+        assertTrue(File("src/main/res/drawable/widget_one_tile.xml").readText().contains("@color/widget_one_bg"))
+        for (p in listOf("src/main/res/values/colors.xml", "src/main/res/values-night/colors.xml")) {
+            assertTrue(File(p).readText().contains("<color name=\"widget_one_bg\">#22262B</color>"))
+        }
+        // 기능마다 칠하던 코드(주황 녹음 등)는 남지 않는다.
+        val code = File("src/main/java/kr/or/kptu/work/ActionWidgets.kt").readText()
+        assertTrue(!code.contains("widget_btn_warm"))
+        assertTrue(!code.contains("\"setBackgroundResource\""))
+        assertTrue(!File("src/main/res/drawable/widget_btn_warm.xml").exists())
     }
 
     @Test
