@@ -1,9 +1,9 @@
 // S68-09 READ-읽을거리함: 읽을 거리 서버 읽기·쓰기 한 곳(화면 reading.js·폰 공유 받기 basket-share.js가 함께 쓴다). DOM 없음.
 // - 표 public.app_reading_items(DB 20261122100000): 작업공간 주인만(RLS). 넣기는 주소·제목·사이트·사업영역, 고치기는 제목·사이트·읽음·사업영역·원문 사본.
-// - 원문 받아 오기: 기존 Edge note-import(노트 '주소로 가져오기'와 같은 입구, 읽기 전용·로그인 owner만·내부 주소 차단·크기/시간/리다이렉트/robots 검사)에
+// - 원문 받아 오기(News에서 온 줄은 News 쪽 본문이 있으면 그것 먼저 — S68-32): 기존 Edge note-import(노트 '주소로 가져오기'와 같은 입구, 읽기 전용·로그인 owner만·내부 주소 차단·크기/시간/리다이렉트/robots 검사)에
 //   주소 하나만 보낸다. 답의 글자 블록을 글자로만 원문 사본 칸에 넣는다(HTML 없음). AI·발송·공유로 잇지 않는다.
 // - 한 번에 하나씩 차례로 받는다(같은 줄은 한 번). 바뀌면 'kptu:reading-changed'. 기기에 아무것도 저장하지 않는다(메모리뿐).
-import {LIST_COLS, LIST_LIMIT, newRow, bodyPatch, keepOwn, isId} from './reading-model.mjs';
+import {LIST_COLS, LIST_LIMIT, newRow, bodyPatch, keepOwn, isId, linkOf, copyPatch} from './reading-model.mjs';
 import {requestFailReason} from './note-import-model.mjs';
 
 export const CHANGED = 'kptu:reading-changed';
@@ -62,6 +62,19 @@ export const setRead = (id, read) => patchItem(id, {read_at: read ? new Date().t
 export const setArea = (id, areaId) => patchItem(id, {business_area_id: areaId || null});
 
 // ---- 원문 받아 오기(차례로 하나씩) ----
+// S68-32: News에서 온 줄(원래 글 연결 칸)은 먼저 News 쪽 본문(공용 본문 표 — News 화면과 같은 읽기 길 feed-shared.js readBody·readSentences)을 본다.
+// 이미 채워져 있으면 그 본문을 사본으로 넣고 끝(note-import 하루 횟수를 쓰지 않음). 없거나 못 읽으면 원래 글 주소로 note-import(기존 길).
+async function newsCopy(row) {
+  const link = linkOf(row);
+  if (!link) return null;
+  try {
+    const {readBody, readSentences} = await import('./feed-shared.js');
+    const got = await readBody(link).catch(() => null);
+    let patch = copyPatch(got, null);
+    if (!patch && link.type === 'outside') patch = copyPatch(null, await readSentences(link.id).catch(() => null));
+    return patch;
+  } catch { return null; }
+}
 const running = new Map(); // id → promise
 let chain = Promise.resolve();
 export const fetching = id => running.has(id);
@@ -73,6 +86,12 @@ export function fetchBody(row) {
   const job = chain.then(async () => {
     if (me() !== owner) return {state: 'skipped'};
     emit({id: row.id, kind: 'fetching'});
+    const copy = await newsCopy(row);
+    if (me() !== owner) return {state: 'skipped'};
+    if (copy) {
+      try { const saved = await patchItem(row.id, copy); return {state: 'ok', row: saved}; }
+      catch (e) { return {state: 'request', reason: e?.code === 'gone' ? 'gone' : requestFailReason(e)}; }
+    }
     let result;
     try { result = await rt().api(FN, {method: 'POST', body: {url: row.url}, singleFlight: false, timeoutMs: REQUEST_TIMEOUT_MS}); }
     catch (e) { return {state: 'request', reason: requestFailReason(e)}; }

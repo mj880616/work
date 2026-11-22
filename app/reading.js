@@ -11,7 +11,7 @@
 //   ① News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
-import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId} from './reading-model.mjs';
+import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark} from './text-highlights.js';
 import {bindSelectZone} from './text-select-bar.js';
@@ -51,7 +51,7 @@ async function newsAllowed() {
   return Array.isArray(features) && features.includes('outside');
 }
 async function load() {
-  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; }
+  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; autoTried.clear(); }
   const scope = state.scope;
   const news = newsAllowed().then(on => { if (scope !== state.scope) return; state.newsOn = on; }).catch(() => {});
   try { state.rows = await listItems(); state.failed = false; state.loaded = true; }
@@ -230,6 +230,25 @@ async function startFetch(row) {
     try { const full = await getItem(row.id); if (state.open === row.id) { state.body = full?.body || ''; state.bodyFor = row.id; } } catch { /* 다음에 열 때 다시 읽는다 */ }
   }
   draw();
+  return out;
+}
+// S68-32: 화면이 열릴 때 원문이 없거나 실패·robots로 남은 줄을 한 번씩 자동으로 다시 가져온다(기존 startFetch 그대로, 2개씩 묶어 차례로).
+// 한 줄에 한 번: 이 탭에서 해 본 id(메모리)와 서버 칸 body_at(reading-model needsRefetch)으로 판단. 실패하면 [다시] 단추만 남는다.
+// 하루 횟수·로그인·권한 실패면 남은 줄은 그만둔다. 기기 저장 없음.
+const autoTried = new Set();
+let autoRun = null;
+function autoRefetch() {
+  if (autoRun) return autoRun;
+  const scope = state.scope;
+  autoRun = (async () => {
+    for (const batch of refetchBatches(state.rows, {tried: autoTried, busy: fetching})) {
+      if (scope !== state.scope || !here()) return;
+      for (const row of batch) autoTried.add(row.id);
+      const outs = await Promise.all(batch.map(row => startFetch(row).catch(() => null)));
+      if (outs.some(o => o?.state === 'request' && stopsAuto(o.reason))) return;
+    }
+  })().finally(() => { autoRun = null; });
+  return autoRun;
 }
 async function addUrl(text) {
   const got = readingUrl(text);
@@ -449,6 +468,7 @@ async function refresh() {
   await load();
   draw();
   if (!areaNames) void refreshAreaNames();
+  if (state.loaded && !state.failed) void autoRefetch();
 }
 // 다른 화면(전체 검색·노트 › 밑줄·폰 공유 알림 [열기])에서 이 화면의 한 줄을 열어 달라는 요청(한 번만).
 function takeAsked() {

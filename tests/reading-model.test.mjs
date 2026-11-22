@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {readingUrl, sharedReading, newRow, lineOf, filterEntries, filterOptions, nextFilter, keepFilter, entriesOf, linkOf, markKeysOf, entryMarked, emptyText, LIST_COLS, bodyText, bodyPatch, keepOwn, stateLine, canRetry,
-  paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS} from '../app/reading-model.mjs';
+  paragraphs, sourceOf, shortDay, BODY_MAX, FILTERS, needsRefetch, refetchBatches, stopsAuto, copyPatch, REFETCH_SINCE, AUTO_BATCH} from '../app/reading-model.mjs';
 import {ITEMS, DEFAULT_REST, withFeatures, defaultLayout} from '../app/menu-model.mjs';
 import {cleanSource} from '../app/text-highlights-model.mjs';
 
@@ -160,4 +160,59 @@ test('메뉴: [읽을 거리]는 모든 사람(기능 키 없음), 처음 자리
   assert.doesNotMatch(view, /innerHTML\s*=|insertAdjacentHTML\('beforeend', *(state|row|para|l\.)/);
   assert.match(read('app/reading-data.js'), /const FN = '\/functions\/v1\/note-import';/);
   assert.doesNotMatch(read('app/reading-data.js'), /news-feed|ai-assist/);
+});
+
+// S68-32 READ-보관글원문다시: 다시 가져오기 단추·자동 다시 가져오기(한 줄 한 번, 2개씩)·News 본문 사본.
+test('canRetry: 다시 해도 같은 상태(ok·blocked·too_big)만 숨기고 robots·bot_check·paywall·failed·pending은 보인다', () => {
+  for (const s of ['robots', 'bot_check', 'paywall', 'failed', 'pending']) assert.equal(canRetry({body_state: s}), true, s);
+  for (const s of ['ok', 'blocked', 'too_big']) assert.equal(canRetry({body_state: s}), false, s);
+  assert.equal(canRetry({body_state: '이상한 값'}), true); // 모르는 값 = pending
+});
+
+test('needsRefetch: 빈 줄·옛 실패·옛 robots만, 고친 뒤 해 본 줄·다시 해도 같은 상태는 아님', () => {
+  const r = extra => ({id: ID, url: 'https://ex.com/a', body_state: 'robots', body_at: '2026-11-22T10:00:00Z', ...extra});
+  assert.equal(REFETCH_SINCE, '2026-11-23T04:00:00+09:00');
+  assert.equal(needsRefetch(r({body_state: 'pending', body_at: null})), true);
+  assert.equal(needsRefetch(r({})), true); // 옛 robots
+  assert.equal(needsRefetch(r({body_state: 'failed'})), true);
+  assert.equal(needsRefetch(r({body_at: '2026-11-23T05:00:00+09:00'})), false); // 자동으로 한 번 해 본 뒤 = body_at이 새 시각
+  assert.equal(needsRefetch(r({body_state: 'failed', body_at: '2026-11-22T19:00:01Z'})), false);
+  for (const s of ['ok', 'paywall', 'too_big', 'blocked']) assert.equal(needsRefetch(r({body_state: s})), false, s);
+  assert.equal(needsRefetch(r({body_state: 'bot_check'})), false); // 직접 넣은 줄의 봇 확인은 다시 해도 같음
+  assert.equal(needsRefetch(r({body_state: 'bot_check', news_article_id: ID})), true); // News 줄은 News 본문이 채워졌을 수 있다
+  assert.equal(needsRefetch(r({url: ''})), false);
+  assert.equal(needsRefetch(r({id: 'x'})), false);
+});
+
+test('refetchBatches: 2개씩, 해 본 id·가져오는 중인 id는 빼고 목록 순서대로', () => {
+  const ids = [1, 2, 3, 4, 5, 6].map(n => `41000000-0000-4000-8000-00000000010${n}`);
+  const rows = ids.map((id, i) => ({id, url: 'https://ex.com/' + i, body_state: i === 4 ? 'ok' : 'pending', body_at: i === 4 ? '2026-11-22T00:00:00Z' : null}));
+  assert.equal(AUTO_BATCH, 2);
+  const got = refetchBatches(rows, {tried: new Set([ids[1]]), busy: id => id === ids[2]});
+  assert.deepEqual(got.map(b => b.map(r => r.id)), [[ids[0], ids[3]], [ids[5]]]);
+  assert.deepEqual(refetchBatches(null), []);
+  assert.equal(stopsAuto('daily_limit'), true);
+  assert.equal(stopsAuto('login'), true);
+  assert.equal(stopsAuto('busy'), false);
+});
+
+test('copyPatch: News 본문 ok·lead 글자 블록만, lead는 paywall, 옛 사회운동 문장은 빈칸으로, 없으면 null', () => {
+  const now = '2026-11-23T00:00:00Z';
+  assert.deepEqual(copyPatch({state: 'ok', blocks: [{t: 'p', text: ' 첫 \u0007문단 '}, {t: 'img', src: 'x'}, {t: 'h', text: '소제목'}]}, null, now),
+    {body: '첫 문단\n\n소제목', body_state: 'ok', body_at: now});
+  assert.equal(copyPatch({state: 'lead', blocks: [{t: 'p', text: '앞부분'}]}, null, now).body_state, 'paywall');
+  assert.equal(copyPatch({state: 'failed', blocks: [{t: 'p', text: '안 씀'}]}, null, now), null);
+  assert.equal(copyPatch({state: 'ok', blocks: []}, null, now), null);
+  assert.equal(copyPatch(null, null, now), null);
+  assert.deepEqual(copyPatch(null, [{idx: 0, text: '문장 하나.'}, {idx: 1, text: ' '}, {idx: 2, text: '문장 둘.'}], now), {body: '문장 하나. 문장 둘.', body_state: 'ok', body_at: now});
+  assert.equal([...copyPatch({state: 'ok', blocks: [{t: 'p', text: '가'.repeat(BODY_MAX + 5)}]}, null, now).body].length, BODY_MAX);
+});
+
+test('화면 연결: 열릴 때 자동 다시 가져오기(기존 startFetch, 2개씩), News 줄은 News 본문 먼저(feed-shared 읽기 길)', () => {
+  const view = read('app/reading.js'), data = read('app/reading-data.js');
+  assert.match(view, /refetchBatches\(state\.rows, \{tried: autoTried, busy: fetching\}\)/);
+  assert.match(view, /batch\.map\(row => startFetch\(row\)/);
+  assert.match(view, /if \(state\.loaded && !state\.failed\) void autoRefetch\(\);/);
+  assert.match(data, /import\('\.\/feed-shared\.js'\)/);
+  assert.match(data, /const copy = await newsCopy\(row\);/);
 });
