@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {receiveUnits,ruleSuggestions,startRows,aiBatches,mergeAi,settleRows,renameGroup,placeGroup,usedGroups,applyPlan,sortSummary,doneText,SORT_AI_BATCH} from '../app/library-sort-model.mjs';
+import {ruleReasons,noBasis,aiFailWhy,aiShouldStop,WHY_NO_BASIS,WHY_AI_NONE,receiveUnits,ruleSuggestions,startRows,aiBatches,mergeAi,settleRows,renameGroup,placeGroup,usedGroups,applyPlan,sortSummary,doneText,SORT_AI_BATCH} from '../app/library-sort-model.mjs';
 
 // LIB-받는폴더나누기(S60-18): 받는 폴더 자료 나누기 제안 규칙.
 const id=n=>`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -31,7 +31,8 @@ test('① 규칙 제안: 같은 첫 낱말 자료가 든 폴더, 받는 폴더 �
   assert.deepEqual(aiBatches(rows),[[id(105)]]);
 });
 
-test('AI 묶음은 40개씩',()=>{
+test('AI 묶음은 10개씩(S68-16: 40개 한 묶음이면 답이 올 때까지 모든 줄이 기다림)',()=>{
+  assert.equal(SORT_AI_BATCH,10);
   const rows=Array.from({length:SORT_AI_BATCH+5},(_,i)=>({wait:true,ids:[id(1000+i)]}));
   assert.deepEqual(aiBatches(rows).map(b=>b.length),[SORT_AI_BATCH,5]);
 });
@@ -74,4 +75,81 @@ test('새 폴더 이름·자리 고치기, 체크를 다 풀면 만들지 않음
 test('창 위 한 줄과 옮긴 뒤 한 줄',()=>{
   assert.equal(sortSummary([{to:{folder:'a'}},{to:{group:'n1'}},{to:null},{wait:true}]),'4개 중 1개는 있는 폴더, 1개는 새 폴더를 제안해요 · 그대로 둬요 1개 · 나머지 1개는 AI가 보고 있어요. 체크한 것만 옮겨요.');
   assert.equal(doneText(16,1),'16개를 폴더로 옮겼어요 · 새 폴더 1개 ·');
+});
+
+// ---- S68-16: 폴더로 나누기 제안이 맞는 폴더를 못 찾던 까닭 재현(지어낸 폴더·자료, 명진 11/22 캡처의 제목 모양만 따름) ----
+const S68=n=>`d6800000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const RECV68=S68(1);
+const F68=[{id:RECV68,name:'받는 폴더',parent_id:null},{id:S68(2),name:'노사정',parent_id:null},{id:S68(3),name:'교섭',parent_id:null},{id:S68(4),name:'대의원대회',parent_id:null},{id:S68(5),name:'취재요청·보도',parent_id:null},{id:S68(6),name:'투쟁명령',parent_id:null},{id:S68(7),name:'철도',parent_id:null}];
+const TITLES=[
+  ['투쟁명령 4호','f.png','image/png',S68(6)],
+  ['[취재요청]철도지하철3개노조 안전운행투쟁 기자회견','a.hwp','',S68(5)],
+  ['20261113 철도공사 제8차노사정','b.pdf','',S68(2)],
+  ['20261113 테크 제8차노사정','c.pdf','',S68(2)],
+  ['20261113 유통물류 제8차노사정','c2.pdf','',S68(2)],
+  ['20261113 관광네트웍스 제8차노사정','c3.pdf','',S68(2)],
+  ['20261113 제8차 철도자회 통합 노사정협의체 회의','d.hwp','',S68(2)],
+  ['취재요청GTX A운영지부 결의대회 취재요청 수정','e.hwp','',S68(5)],
+  ['2026년11월11일7차임시대의원대회자료집','g.pdf','',S68(4)],
+  ['261027_요구안_국가철도공단 교섭 의제','h.hwp','',S68(3)],
+];
+const PASTED=['붙여넣은 그림 11-13 03:38','붙여넣은 그림 11-13 03:38 (2)','붙여넣은 그림 11-13 03:39 (2)'];
+const D68=[...TITLES.map(([title,file_name,mime_type],i)=>({id:S68(100+i),title,file_name,mime_type,category:null,project_id:null})),...PASTED.map((title,i)=>({id:S68(200+i),title,file_name:'paste.png',mime_type:'image/png',category:null,project_id:null}))];
+const I68=D68.map(d=>({document_id:d.id,folder_id:RECV68}));
+
+test('S68-16 원인: 지금까지의 첫 낱말 규칙은 폴더 이름을 보지 않아, 폴더에 같은 첫 낱말 자료가 없으면 0개',()=>{
+  // 옛 규칙과 같은 비교(첫 낱말이 똑같은 자료가 든 폴더만)를 그대로 흉내: 폴더가 비어 있으면 아무것도 못 찾는다.
+  const old=(t)=>String(t||'').replace(/\.[a-z0-9]{2,5}$/i,'').split(/[\s_\-·.,()[\]{}<>「」『』"'~]+/).map(w=>w.toLowerCase()).find(w=>w.length>=2&&!/^\d+$/.test(w));
+  assert.deepEqual(TITLES.map(([t])=>old(t)),['투쟁명령','취재요청','철도공사','테크','유통물류','관광네트웍스','제8차','취재요청gtx','2026년11월11일7차임시대의원대회자료집','요구안']);
+  // 같은 노사정 자료인데 첫 낱말이 회사 이름이라 서로 다르고, '제8차'·'취재요청gtx'·날짜가 붙은 통째 낱말은 어떤 폴더 이름과도 같지 않다.
+});
+
+test('S68-16 개선 ①: 제목 정리 + 폴더 이름 포함 찾기로 10개 모두 맞는 폴더(같은 길이면 따로 쓴 낱말이 이김)',()=>{
+  const units=receiveUnits(D68,I68,RECV68);
+  const got=ruleReasons(units,{docs:D68,items:I68,folders:F68,receiveId:RECV68});
+  for(const [t,,,want] of TITLES){const d=D68.find(x=>x.title===t);assert.equal(got.get(d.id)?.folder,want,t)}
+  assert.match(got.get(S68(102)).why,/폴더 이름 '노사정'/);
+  // '국가철도공단'(낱말 안 '철도')보다 따로 쓴 '교섭'이 이긴다.
+  assert.equal(got.get(S68(109)).folder,S68(3));
+  // 붙여넣은 그림은 이름에 주제가 없어 규칙도 못 고른다.
+  for(let i=0;i<3;i++)assert.equal(got.has(S68(200+i)),false);
+});
+
+test('S68-16 개선 ②: 근거 없는 그림은 AI에 보내지 않고 처음부터 그대로 둬요(근거 없음)',()=>{
+  const units=receiveUnits(D68,I68,RECV68);
+  // 폴더 이름이 하나도 맞지 않는 작업공간(규칙 0개)이라도 AI에는 근거 있는 자료만.
+  const plain=[{id:RECV68,name:'받는 폴더',parent_id:null},{id:S68(9),name:'가나다',parent_id:null}];
+  const rows=startRows(units,ruleReasons(units,{docs:D68,items:I68,folders:plain,receiveId:RECV68}));
+  const nb=rows.filter(r=>r.nb);
+  assert.deepEqual(nb.map(r=>r.title),PASTED);
+  assert.ok(nb.every(r=>!r.wait&&!r.checked&&r.to===null&&r.why===WHY_NO_BASIS));
+  // '투쟁명령 4호'는 그림이어도 이름에 주제가 있어 AI에 보낸다.
+  assert.equal(noBasis(units.find(u=>u.title==='투쟁명령 4호')),false);
+  assert.equal(noBasis({title:'IMG_20261113_0338',doc:{file_name:'IMG_20261113_0338.jpg'}}),true);
+  assert.equal(noBasis({title:'스크린샷 2026-11-13 오후',doc:{file_name:'a.png'}}),false,'오후 같은 낱말이 남으면 근거 있음으로 본다(보수적으로 AI에 맡김)');
+  assert.equal(noBasis({title:'붙여넣은 메모',doc:{file_name:'a.hwp'}}),false,'그림이 아니면 본문이 있을 수 있어 AI에 보냄');
+  assert.equal(noBasis({title:'사진',photoset:true,doc:{}}),true);
+  const batches=aiBatches(rows);
+  assert.deepEqual(batches.map(b=>b.length),[10]);
+  assert.equal(batches.flat().some(id=>id.startsWith('d6800000-0000-4000-8000-0000000002')),false);
+  assert.match(sortSummary(rows,{done:0,total:10}),/나머지 10개는 AI가 보고 있어요\(0\/10\)/);
+  assert.match(sortSummary(rows,{done:0,total:10}),/그대로 둬요 3개/);
+});
+
+test('S68-16 개선 ③: 묶음이 실패·건너뜀이면 그 묶음 줄만 바로 그대로 둬요(까닭 한 줄), 한도면 남은 묶음도',()=>{
+  const rows=Array.from({length:25},(_,i)=>({key:'k'+i,ids:[S68(500+i)],title:'t',checked:false,to:null,why:'',wait:true}));
+  const b=aiBatches(rows);assert.deepEqual(b.map(x=>x.length),[10,10,5]);
+  let r=settleRows(rows,aiFailWhy('ai_timeout'),b[0]);
+  assert.equal(r.filter(x=>x.wait).length,15);
+  assert.ok(r.slice(0,10).every(x=>!x.wait&&x.to===null&&x.why==='AI 답이 늦어 건너뛰었어요 — 직접 선택'));
+  assert.equal(aiShouldStop('ai_timeout',1),false,'늦음 한 번은 다음 묶음 계속');
+  assert.equal(aiShouldStop('ai_busy',2),true,'두 번 잇달아 실패면 멈춤');
+  assert.equal(aiShouldStop('daily_limit',1),true);
+  r=settleRows(r,aiFailWhy('daily_limit'),[...b[1],...b[2]]);
+  assert.equal(r.some(x=>x.wait),false,'⋯로 남는 줄 없음');
+  assert.equal(r[20].why,'AI 사용 한도 — 직접 선택');
+  assert.equal(aiFailWhy('skipped:no_folders'),'옮길 폴더가 없어요');
+  assert.equal(WHY_AI_NONE,'AI도 맞는 폴더를 찾지 못했어요');
+  // 까닭 없이 부르면 옛 모양 그대로(전부 넘김, why 그대로).
+  assert.deepEqual(settleRows([{wait:true,ids:['a'],why:'x',to:null,checked:false}]),[{wait:false,ids:['a'],why:'x',to:null,checked:false}]);
 });

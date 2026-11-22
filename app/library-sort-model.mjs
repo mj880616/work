@@ -2,9 +2,11 @@
 // 화면·저장·네트워크에 닿지 않는다(node --test). 창은 library-sort.js, 쓰기는 기존 소유자 RLS 표(app_library_folders·app_library_folder_items).
 // 제안 차례: ① 지금 규칙(library-tree.js folderSuggestions, AI 없음) ② 못 찾은 것만 서버 AI(ai-assist kind=library_sort)가 기존 폴더 중 고름
 // ③ 기존 폴더로 담기 어려우면 새 폴더(이름 + 놓을 자리) 제안 — 같은 이름·같은 자리 새 폴더는 하나로 묶는다. AI는 제안까지, 옮기기·만들기는 [옮기기]를 눌러야.
-import {folderSuggestions,cleanFolderName,canAddChild,titleWord} from './library-tree.js';
+import {folderSuggestionReasons,cleanFolderName,canAddChild,titleWord,fileKindOf,cleanTitle} from './library-tree.js';
 
-export const SORT_AI_BATCH=40; // 한 번에 서버 AI에 보내는 자료 수(서버도 같은 수로 거절)
+// S68-16: 40개 한 묶음은 답이 올 때까지(최대 75초) 모든 줄이 '⋯'였다. 10개씩 차례로 보내 묶음마다 줄이 바로 채워지게 한다
+// (서버 상한 40개는 그대로, 하루 횟수·월 예산 검사도 그대로 — 묶음 하나가 한 번으로 잡힌다).
+export const SORT_AI_BATCH=10;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // 받는 폴더 '바로 안'의 자료 단위. listDocs = 목록 계산 뒤 자료(사진 묶음은 한 줄). 사진 묶음은 안 사진이 모두 받는 폴더에 있을 때만 한 단위.
@@ -31,18 +33,38 @@ export const targetFolders=(folders,receiveId)=>(Array.isArray(folders)?folders:
 
 // ① 규칙 제안. 받는 폴더 연결을 '폴더 밖'으로 보고 folderSuggestions를 그대로 쓴다(받는 폴더 자신은 후보에서 빠짐).
 // 반환 Map(unit.key → 폴더 id).
-export function ruleSuggestions(units,{docs=[],items=[],folders=[],receiveId,categoryOf=c=>c}={}){
+// 반환 Map(unit.key → 폴더 id). 까닭 글까지 필요하면 ruleReasons(unit.key → {folder, why}).
+export function ruleReasons(units,{docs=[],items=[],folders=[],receiveId,categoryOf=c=>c}={}){
   const open=targetFolders(folders,receiveId),rest=(Array.isArray(items)?items:[]).filter(x=>x?.folder_id!==receiveId);
   const loose=units.filter(u=>!u.photoset).map(u=>u.doc);
-  const hit=folderSuggestions(loose,{docs,items:rest,folders:open,categoryOf});
+  const hit=folderSuggestionReasons(loose,{docs,items:rest,folders:open,categoryOf});
   const out=new Map();for(const u of units){const f=!u.photoset&&hit.get(u.doc.id);if(f)out.set(u.key,f)}
   return out;
+}
+export function ruleSuggestions(units,opts={}){return new Map([...ruleReasons(units,opts)].map(([k,v])=>[k,v.folder]))}
+
+// 근거 없는 자료: 그림(사진 묶음 포함)인데 이름이 '붙여넣은 그림 11-13 03:38'·'IMG_1234'·'스크린샷'처럼 기본 이름뿐인 것.
+// 본문이 없고 이름에도 주제 낱말이 없어 규칙·AI 모두 판단할 근거가 없다 — AI에 보내지 않고(비용 절약) 처음부터 '직접 선택'.
+const GENERIC_IMAGE=/붙여\s*넣은|그림|사진|이미지|스크린\s*샷|화면\s*캡처|캡처|캡쳐|제목\s*없음|카카오톡|screenshot|screen\s*shot|image|img|photo|pic|pasted|kakaotalk|untitled|dsc|pxl|jpe?g|png|heic|webp|gif|\d+/gi;
+export const WHY_NO_BASIS='근거 없음 — 직접 선택';
+export function noBasis(u){
+  if(!u)return false;
+  const d=u.doc||{},isImage=u.photoset||fileKindOf(d.file_name||u.title,d.mime_type)==='그림';
+  if(!isImage)return false;
+  const rest=cleanTitle(u.title).replace(GENERIC_IMAGE,' ').split(/[\s_\-·.,()[\]{}<>:;'"~!?/\\|&+=*#@%^]+/).filter(w=>[...w].length>=2);
+  return !rest.length;
 }
 
 // 제안 줄 만들기(①만). AI를 기다리는 줄은 to=null, wait=true.
 // 줄: {key, ids, title, kind, checked, to:{folder:id}|{group:gid}|null, why, wait, from:'rule'|'ai'|null}
+// rule 값은 폴더 id 또는 {folder, why}. 근거 없는 자료(noBasis)는 기다리지 않고 '그대로 둬요'(까닭 한 줄).
 export function startRows(units,rule){
-  return units.map(u=>{const f=rule.get(u.key);return {key:u.key,ids:u.ids,title:u.title,photoset:u.photoset,checked:!!f,to:f?{folder:f}:null,why:f?'같은 낱말로 시작하는 자료가 이 폴더에 있어요':'',wait:!f,from:f?'rule':null}});
+  return units.map(u=>{
+    const v=rule.get(u.key),f=typeof v==='string'?v:v?.folder||null,why=typeof v==='object'&&v?.why?v.why:'같은 낱말로 시작하는 자료가 이 폴더에 있어요';
+    if(f)return {key:u.key,ids:u.ids,title:u.title,photoset:u.photoset,checked:true,to:{folder:f},why,wait:false,from:'rule'};
+    const nb=noBasis(u);
+    return {key:u.key,ids:u.ids,title:u.title,photoset:u.photoset,checked:false,to:null,why:nb?WHY_NO_BASIS:'',wait:!nb,from:null,...(nb?{nb:true}:{})};
+  });
 }
 // 서버 AI에 보낼 자료 id(사진 묶음은 첫 사진 하나), SORT_AI_BATCH개씩.
 export function aiBatches(rows){
@@ -74,8 +96,20 @@ export function mergeAi(rows,groups,answer,{folders=[],receiveId}={}){
   }
   return {rows:nextRows,groups:nextGroups};
 }
-// AI를 못 쓰면(실패·한도) 기다리던 줄은 '그대로 둬요'로.
-export const settleRows=rows=>rows.map(r=>r.wait?{...r,wait:false,checked:false,to:null}:r);
+// AI를 못 쓰면(실패·한도) 기다리던 줄은 '그대로 둬요'로. why를 주면 그 줄에 까닭 한 줄.
+// ids를 주면 그 자료(줄의 첫 id)가 든 줄만 — 묶음 하나가 실패·건너뜀이면 그 묶음 줄만 바로 넘긴다(영원히 '⋯' 없음).
+export const settleRows=(rows,why='',ids=null)=>{const only=ids?new Set(ids):null;return rows.map(r=>r.wait&&(!only||only.has(r.ids[0]))?{...r,wait:false,checked:false,to:null,...(why?{why}:{})}:r)};
+// 묶음 답 뒤 한 줄 까닭: 성공했는데 그 줄 답이 없으면 AI도 못 고른 것, 실패면 코드별.
+export const WHY_AI_NONE='AI도 맞는 폴더를 찾지 못했어요';
+export function aiFailWhy(code){
+  if(code==='skipped:no_folders')return '옮길 폴더가 없어요';
+  if(code==='ai_timeout')return 'AI 답이 늦어 건너뛰었어요 — 직접 선택';
+  if(code==='daily_limit'||code==='monthly_limit'||code==='ai_monthly_cap')return 'AI 사용 한도 — 직접 선택';
+  return 'AI 답을 받지 못했어요 — 직접 선택';
+}
+// 이 실패면 남은 묶음도 보내지 않는다(한도·로그인·연결 문제는 다음 묶음도 같다). 그 밖(늦음·바쁨·답 모양 틀림)은 다음 묶음을 계속 보낸다.
+export const AI_STOP_CODES=Object.freeze(['daily_limit','monthly_limit','ai_monthly_cap','session_required','auth_unavailable','not_ready','offline','ai_not_configured','invalid_request']);
+export const aiShouldStop=(code,failsInRow)=>AI_STOP_CODES.includes(code)||failsInRow>=2;
 
 // 새 폴더 묶음 이름·자리 고치기(같은 묶음을 쓰는 줄 모두에 반영). 이름이 규칙에 맞지 않으면 null.
 export function renameGroup(groups,gid,raw){const name=cleanFolderName(raw);if(!name)return null;return groups.map(g=>g.gid===gid?{...g,name}:g)}
@@ -97,11 +131,12 @@ export function applyPlan(rows,groups){
 }
 
 // 창 위 한 줄: '17개 중 14개는 있는 폴더, 3개는 새 폴더를 제안해요.'
-export function sortSummary(rows){
+// progress {done, total}: 서버 AI에 보낸 자료 중 답이 온 수 / 보낼 전체 수 — 머리줄에 'AI가 보고 있어요(10/34)'.
+export function sortSummary(rows,progress=null){
   const total=rows.length,wait=rows.filter(r=>r.wait).length,old=rows.filter(r=>!r.wait&&r.to?.folder).length,neu=rows.filter(r=>!r.wait&&r.to?.group).length,stay=rows.filter(r=>!r.wait&&!r.to).length;
   if(!total)return '받는 폴더에 나눌 자료가 없어요.';
   const parts=[old?`${old}개는 있는 폴더`:'',neu?`${neu}개는 새 폴더`:''].filter(Boolean);
-  return `${total}개 중 `+(parts.length?parts.join(', ')+'를 제안해요':'맞는 폴더를 아직 못 찾았어요')+(stay?` · 그대로 둬요 ${stay}개`:'')+(wait?` · 나머지 ${wait}개는 AI가 보고 있어요`:'')+'. 체크한 것만 옮겨요.';
+  return `${total}개 중 `+(parts.length?parts.join(', ')+'를 제안해요':'맞는 폴더를 아직 못 찾았어요')+(stay?` · 그대로 둬요 ${stay}개`:'')+(wait?` · 나머지 ${wait}개는 AI가 보고 있어요${progress?.total?`(${Math.min(progress.done,progress.total)}/${progress.total})`:''}`:'')+'. 체크한 것만 옮겨요.';
 }
 // 옮긴 뒤 한 줄.
 export const doneText=(moved,made,failed=0)=>`${moved}개를 폴더로 옮겼어요${made?` · 새 폴더 ${made}개`:''}${failed?` · ${failed}개는 옮기지 못했어요`:''} ·`;

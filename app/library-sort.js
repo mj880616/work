@@ -12,7 +12,7 @@ import {pickerRows} from './library-move.mjs';
 import {ftIconHtml} from './folder-tree-ui.mjs';
 import {waitInlineHtml,emptyHtml} from './wait-state.js';
 import {fileKindOf,folderSiblings,nextSortOrder,canAddChild,folderErrorText} from './library-tree.js';
-import {receiveUnits,ruleSuggestions,startRows,aiBatches,mergeAi,settleRows,renameGroup,placeGroup,applyPlan,sortSummary,doneText,tidyUnits,tidyGroups,tidyPlan,retargetGroup,tidyAtText,tidySummary} from './library-sort-model.mjs';
+import {receiveUnits,ruleReasons,startRows,aiBatches,mergeAi,settleRows,aiFailWhy,aiShouldStop,WHY_AI_NONE,renameGroup,placeGroup,applyPlan,sortSummary,doneText,tidyUnits,tidyGroups,tidyPlan,retargetGroup,tidyAtText,tidySummary} from './library-sort-model.mjs';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items',CHUNK=100;
 const enc=encodeURIComponent;
@@ -22,7 +22,7 @@ export const sortButtonHtml=(extra='')=>`<button type="button" class="row-act lu
 // state(): {workspace, folders, items, docs, listDocs, receiveId, categoryOf}
 // say(text,{error,undo}): '… · 되돌리기' 한 줄. reload(): 폴더·연결 다시 읽고 그리기.
 export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
-  let root=null,rows=[],groups=[],busy=false,run=0,trigger=null,picker=null;
+  let root=null,rows=[],groups=[],busy=false,run=0,trigger=null,picker=null,progress=null;
   const s=()=>state();
   const units=()=>receiveUnits(s().listDocs,s().items,s().receiveId);
   const folderOf=id=>s().folders.find(f=>f.id===id);
@@ -70,7 +70,7 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
     const openStay=was?was.open:!placed.length;
     list.innerHTML=placed.map(line).join('')+(stay.length?`<details class="lu-sort-stay"${openStay?' open':''}><summary>어디에도 맞지 않는 ${stay.length}개 — 그대로 둬요</summary>${stay.map(line).join('')}</details>`:'')+(rows.length?'':emptyHtml('없음'));
     list.scrollTop=y;
-    root.querySelector('#librarySortSub').textContent=sortSummary(rows);
+    root.querySelector('#librarySortSub').textContent=sortSummary(rows,progress);
     const n=rows.filter(r=>r.checked&&r.to).length,b=root.querySelector('[data-sort-apply]');
     b.textContent=`선택한 ${n}개 옮기기`;b.disabled=!n||busy;
   }
@@ -81,24 +81,38 @@ export function createReceiveSort({api,esc,state,reload,say,ai=callAiAssist}){
     const r=s().receiveId;if(!r)return;
     trigger=from||document.activeElement;ensure();
     const list=units(),me=++run;
-    groups=[];rows=startRows(list,ruleSuggestions(list,{docs:s().docs,items:s().items,folders:s().folders,receiveId:r,categoryOf:s().categoryOf||(c=>c)}));
+    groups=[];rows=startRows(list,ruleReasons(list,{docs:s().docs,items:s().items,folders:s().folders,receiveId:r,categoryOf:s().categoryOf||(c=>c)}));
+    const batches=aiBatches(rows);progress=batches.length?{done:0,total:batches.reduce((n,b)=>n+b.length,0)}:null;
     say2('');paint();
     root.classList.remove('hidden');root.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog?.activate?.(root,{trigger,initialFocus:root.querySelector('[data-sort-close]'),onRequestClose:close});
     if(!window.KPTUA11y?.dialog)root.querySelector('[data-sort-close]')?.focus();
-    let failed='';
-    for(const ids of aiBatches(rows)){
-      const res=await ai({kind:'library_sort',document_ids:ids});
+    // S68-16: 묶음(10개)마다 차례로 묻고, 답이 오면 그 줄을 바로 채운다. 실패·늦음·건너뜀이면 그 묶음 줄을 '그대로 둬요'(까닭 한 줄)로 바로 넘긴다.
+    // 한도·로그인 문제거나 두 번 잇달아 실패하면 남은 묶음은 보내지 않고 같은 까닭으로 넘긴다. 끝나면 '⋯' 줄은 하나도 남지 않는다.
+    let failed='',fails=0,okOnce=false;
+    for(let i=0;i<batches.length;i++){
+      const ids=batches[i];
+      let res;try{res=await ai({kind:'library_sort',document_ids:ids})}catch{res={ok:false,code:'internal_error'}}
       if(me!==run)return;
-      if(!res?.ok){failed=res?.code||'error';break}
+      progress={...progress,done:progress.done+ids.length};
+      if(!res?.ok){
+        const code=res?.code||'error';failed=code;fails++;
+        rows=settleRows(rows,aiFailWhy(code),ids);
+        if(aiShouldStop(code,fails)){rows=settleRows(rows,aiFailWhy(code),batches.slice(i+1).flat());progress={...progress,done:progress.total};paint();break}
+        paint();continue;
+      }
+      fails=0;okOnce=true;
       ({rows,groups}=mergeAi(rows,groups,res.data,{folders:s().folders,receiveId:r}));
-      // 이번 묶음에서 답이 없던 줄은 '그대로 둬요'로(다음 묶음을 기다리지 않게).
-      const asked=new Set(ids);rows=rows.map(x=>x.wait&&asked.has(x.ids[0])?{...x,wait:false,checked:false,to:null}:x);
+      // 이번 묶음에서 답이 없던 줄은 '그대로 둬요'로(다음 묶음을 기다리지 않게). 서버가 건너뛰었으면(고를 폴더 없음 등) 그 까닭.
+      const skipped=typeof res.data?.skipped==='string'?res.data.skipped:'';
+      rows=settleRows(rows,skipped?aiFailWhy('skipped:'+skipped):WHY_AI_NONE,ids);
       paint();
     }
     if(me!==run)return;
-    if(rows.some(x=>x.wait)){rows=settleRows(rows);paint()}
-    if(failed)say2(failed==='ai_monthly_cap'?'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요. 규칙으로 찾은 것만 보여요.':failed==='daily_limit'||failed==='monthly_limit'?'오늘 AI 사용량을 다 써서 규칙으로 찾은 것만 보여요.':'AI 제안을 받지 못해 규칙으로 찾은 것만 보여요. 나머지는 폴더를 직접 선택해 주세요.');
+    progress=null;
+    if(rows.some(x=>x.wait))rows=settleRows(rows,aiFailWhy(failed||'error'));
+    paint();
+    if(failed)say2(failed==='ai_monthly_cap'?'이번 달 AI 사용 한도(3,000원)를 다 썼어요. 다음 달 1일에 다시 쓸 수 있어요. 규칙으로 찾은 것만 보여요.':failed==='daily_limit'||failed==='monthly_limit'?'오늘 AI 사용량을 다 써서 규칙으로 찾은 것만 보여요.':okOnce?'AI 제안을 일부 받지 못했어요. 그 줄은 폴더를 직접 선택해 주세요.':'AI 제안을 받지 못해 규칙으로 찾은 것만 보여요. 나머지는 폴더를 직접 선택해 주세요.');
   }
 
   // ---- 고치기 ----

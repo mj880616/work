@@ -130,20 +130,73 @@ test.describe('PC 1280 한 칸',()=>{
     expect(errors).toEqual([]);
   });
 
-  test('자료 105개: AI는 40개씩 3번, 옮기기는 100개씩 2번, 되돌리기도 전부',async({page})=>{
+  test('자료 105개: AI는 10개씩 11번(S68-16), 옮기기는 100개씩 2번, 되돌리기도 전부',async({page})=>{
     const many=Array.from({length:105},(_,i)=>libDoc(u(1000+i),null,{title:`가상 낱장 ${i}`}));
     const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:many.map(d=>({document_id:d.id,folder_id:RECV})),docs:many,group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:RECV}});
     await mockAi(page,s,ids=>ids.map(id=>({id,folder_id:HOE,new:null,why:'회의 자료'})));
     await enterReceive(page);
     await page.locator('#libraryPath [data-lu-sort]').click();
     await expect(modal(page).locator('[data-sort-apply]')).toHaveText('선택한 105개 옮기기');
-    expect(s.aiBodies.map(b=>b.document_ids.length)).toEqual([40,40,25]);
+    expect(s.aiBodies.map(b=>b.document_ids.length)).toEqual([10,10,10,10,10,10,10,10,10,10,5]);
     await modal(page).locator('[data-sort-apply]').click();
     await expect(modal(page)).toBeHidden();
     expect(s.items.every(x=>x.folder_id===HOE)).toBe(true);
     expect(s.writes.filter(w=>w.table==='items'&&w.method==='PATCH').length).toBe(2);
     await page.locator('#libraryFolderStatusLine .lu-undo').click();
     await expect.poll(()=>s.items.every(x=>x.folder_id===RECV)).toBe(true);
+    expect(errors).toEqual([]);
+  });
+});
+
+// S68-16(명진 11/22 14:45 캡처: 34줄 모두 '→ ⋯'): 10개씩 차례로 묻고 묶음마다 줄을 바로 채운다. 늦거나 실패한 묶음은 그 줄만 '그대로 둬요'(까닭 한 줄),
+// 근거 없는 그림(붙여넣은 그림 …)은 AI에 보내지 않는다. 끝나면 '⋯' 줄이 하나도 남지 않는다.
+test.describe('PC 1280 S68-16 AI 묶음 진행·실패',()=>{
+  test.use({hasTouch:false});
+  const LOOSE=Array.from({length:23},(_,i)=>libDoc(u(3000+i),null,{title:`가상 낱장 ${i}`}));
+  const PASTE=[0,1].map(i=>libDoc(u(3100+i),null,{title:`붙여넣은 그림 11-13 03:3${8+i}`,file_name:`paste-${i}.png`,mime_type:'image/png'}));
+  const ALL=[...LOOSE,...PASTE],ITEMS2=ALL.map(d=>({document_id:d.id,folder_id:RECV}));
+  const waits=page=>modal(page).locator('.lu-sort-wait');
+  test('첫 묶음 답은 바로 보이고, 늦은 묶음은 그 줄만 그대로 둬요, 근거 없는 그림은 AI에 안 보냄, ⋯ 남지 않음',async({page})=>{
+    const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS2,docs:ALL,group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:RECV}});
+    s.aiBodies=[];let release;const hold=new Promise(r=>{release=r});
+    await page.route('**/functions/v1/ai-assist',async route=>{
+      const req=route.request();if(req.method()==='OPTIONS')return route.fulfill({status:204,body:''});
+      const body=req.postDataJSON(),n=s.aiBodies.push(body);
+      if(n===2){await hold;return route.fulfill({status:504,json:{ok:false,error:'ai_timeout'}})}
+      return route.fulfill({json:{ok:true,kind:'library_sort',items:body.document_ids.map(id=>({id,folder_id:HOE,new:null,why:'회의 자료'}))}});
+    });
+    await enterReceive(page);
+    await page.locator('#libraryPath [data-lu-sort]').click();
+    // 첫 묶음(10개)은 채워지고, 둘째 묶음을 기다리는 동안 머리줄에 진행 수.
+    await expect(row(page,LOOSE[0].id).locator('.lu-sort-pick')).toContainText('가상 교섭 › 가상 회의');
+    await expect(modal(page).locator('#librarySortSub')).toContainText('나머지 13개는 AI가 보고 있어요(10/23)');
+    await expect(waits(page)).toHaveCount(13);
+    // 근거 없는 그림 2개는 처음부터 그대로 둬요(근거 없음).
+    for(const d of PASTE)await expect(row(page,d.id).locator('.lu-sort-why')).toHaveText('근거 없음 — 직접 선택');
+    release();
+    await expect(waits(page)).toHaveCount(0);
+    expect(s.aiBodies.map(b=>b.document_ids.length)).toEqual([10,10,3]);
+    expect(s.aiBodies.flatMap(b=>b.document_ids).some(id=>PASTE.some(d=>d.id===id))).toBe(false);
+    await expect(row(page,LOOSE[10].id).locator('.lu-sort-why')).toHaveText('AI 답이 늦어 건너뛰었어요 — 직접 선택');
+    await expect(row(page,LOOSE[22].id).locator('.lu-sort-pick')).toContainText('가상 교섭 › 가상 회의');
+    await expect(modal(page).locator('#librarySortStatus')).toHaveText('AI 제안을 일부 받지 못했어요. 그 줄은 폴더를 직접 선택해 주세요.');
+    await expect(modal(page).locator('#librarySortSub')).toHaveText('25개 중 13개는 있는 폴더를 제안해요 · 그대로 둬요 12개. 체크한 것만 옮겨요.');
+    await expect(modal(page).locator('[data-sort-apply]')).toHaveText('선택한 13개 옮기기');
+    expect(s.writes.filter(w=>w.method!=='GET')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+  test('서버에 닿지 못하면 남은 묶음도 보내지 않고 모든 줄을 바로 그대로 둬요',async({page})=>{
+    const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS2,docs:ALL,group:'폴더',init:{viewPrefs:{library_two:false},receiveFolder:RECV}});
+    let calls=0;
+    await page.route('**/functions/v1/ai-assist',route=>{if(route.request().method()==='OPTIONS')return route.fulfill({status:204,body:''});calls++;return route.fulfill({status:404,body:'not found'})});
+    await enterReceive(page);
+    await page.locator('#libraryPath [data-lu-sort]').click();
+    await expect(modal(page).locator('#librarySortStatus')).toHaveText('AI 제안을 받지 못해 규칙으로 찾은 것만 보여요. 나머지는 폴더를 직접 선택해 주세요.');
+    await expect(waits(page)).toHaveCount(0);
+    expect(calls).toBe(1);
+    await expect(modal(page).locator('.lu-sort-stay summary')).toHaveText('어디에도 맞지 않는 25개 — 그대로 둬요');
+    await expect(row(page,LOOSE[22].id).locator('.lu-sort-why')).toHaveText('AI 답을 받지 못했어요 — 직접 선택');
+    expect(s.writes.filter(w=>w.method!=='GET')).toEqual([]);
     expect(errors).toEqual([]);
   });
 });
