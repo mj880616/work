@@ -173,9 +173,10 @@ class WidgetActionsTest {
         assertEquals("@+id/one_tile", attr(tile, "id"))
         assertEquals("fitCenter", attr(tile, "scaleType"))
         assertTrue(attr(tile, "src").startsWith("@drawable/widget_tile_"))
-        // 이름은 칸 안이 아니라 칸 아래(바깥 LinearLayout의 둘째 자식).
+        // 이름은 칸 안이 아니라 칸 아래(바깥 LinearLayout의 직속 자식). 여기 children은 모든 후손을 돌려준다(줄 안 TextView는 좌우 빈칸).
         assertTrue(children(row, "TextView").none { attr(it, "id") == "@+id/one_label" })
-        val label = children(one, "TextView").single()
+        val label = children(one, "TextView").single { attr(it, "id") == "@+id/one_label" }
+        assertEquals(one, label.parentNode)
         assertEquals("@color/widget_one_label", attr(label, "textColor"))
         assertEquals("12sp", attr(label, "textSize"))
         assertTrue(attr(label, "shadowRadius").isNotEmpty())
