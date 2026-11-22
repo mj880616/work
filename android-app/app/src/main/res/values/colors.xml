@@ -14,7 +14,7 @@
     <color name="widget_icon">#22262B</color>
     <color name="widget_tile_ink">#22262B</color>
     <color name="widget_rec">#22262B</color>
-    <!-- APP-위젯다시: 지금·이번 주·빠른 쓰기 색(톤다운 크림 바탕). S68-06: 강조는 먹(옅은 칸은 웹 --kptu-primary-soft와 같은 값), 주황은 요청(widget_req_*)만. -->
+    <!-- APP-위젯다시: 지금·이번 주·빠른 쓰기 색(톤다운 크림 바탕). S68-06: 강조는 먹(옅은 칸은 웹 kptu-primary-soft와 같은 값), 주황은 요청(widget_req_*)만. -->
     <color name="widget_line">#E2DFD7</color>
     <color name="widget_req_bg">#F6E4D6</color>
     <color name="widget_req_ink">#8A3F10</color>
