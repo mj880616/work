@@ -71,7 +71,8 @@ async function outsideServer(page) {
     if (p === '/rest/v1/app_news_articles') {
       server.calls.push({ what: 'app_news_articles', method, query: decodeURIComponent(u.search) });
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      return ok(NEWS.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: starred_at ? [{ starred_at, folder_id: null, hidden_at: null, keywords: [] }] : [] })));
+      // S68-27: 보관(★) = 그 기사를 가리키는 내 읽을 거리 줄(app_reading_items embed). 가짜 줄의 starred_at = 그 줄의 저장 시각.
+      return ok(NEWS.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: [], app_reading_items: starred_at ? [{ saved_at: starred_at }] : [] })));
     }
     if (p === '/rest/v1/app_news_reads' || p === '/rest/v1/app_outside_reads') {
       const body = req.postDataJSON?.() ?? null;

@@ -19,7 +19,8 @@ for (const width of [412, 884, 1440]) {
     // 카탈로그는 사용자 로그인으로 Edge에서. NEWS-모두에게열기 ③: 목록은 공용 기사(작업공간 칸 없음) + 내 표시만 붙여(내 작업공간), 내가 숨긴 줄은 화면에서 뺀다.
     expect(server.calls.find(c => c.what === 'edge')).toMatchObject({ action: 'catalog', method: 'POST', auth: expect.stringMatching(/^Bearer /) });
     const listQuery = server.calls.find(c => c.what === 'app_news_articles').query;
-    expect(listQuery).toContain('app_news_marks(starred_at,folder_id,hidden_at,keywords)'); expect(listQuery).toContain('app_news_marks.workspace_id=eq.w');
+    expect(listQuery).toContain('app_news_marks(folder_id,hidden_at,keywords),app_reading_items(saved_at)'); expect(listQuery).toContain('app_news_marks.workspace_id=eq.w');
+    expect(listQuery).toContain('app_reading_items.workspace_id=eq.w'); // S68-27: 보관 = 내 읽을 거리 줄(내 작업공간만)
     expect(listQuery).not.toMatch(/[?&]workspace_id=/); expect(listQuery).not.toMatch(/[,=]body(,|&|$)/);
     expect(server.calls.some(c => c.what === 'app_news_items' && c.method === 'GET')).toBe(false);
     // 날짜 묶음(새 글 수) → 흰 상자 안 줄. 칩 줄([전체]·[별표])·이 칸의 ⋯는 없다(S51-8: 위 [매체 ▾]·껍데기 ⋯로).
@@ -49,7 +50,8 @@ for (const width of [412, 884, 1440]) {
     await expect(item(page, 'p1')).toBeVisible();
     const findQ = server.calls.filter(c => c.what === 'app_news_articles' && c.query.includes('ilike')).at(-1).query;
     expect(findQ).toContain('or=(title.ilike."*유료*",title_ko.ilike."*유료*",summary.ilike."*유료*")'); expect(findQ).toContain('created_at=gte.');
-    expect(server.calls.some(c => c.what === 'app_news_marks' && c.query.includes('app_news_articles!inner(') && c.query.includes('app_news_articles.or='))).toBe(true);
+    // S68-27: '보관한 글' 찾기 = 내 읽을 거리 줄이 가리키는 기사(표시 표의 별표 칸이 아님).
+    expect(server.calls.some(c => c.what === 'app_reading_items' && c.query.includes('news_article_id=not.is.null') && c.query.includes('app_news_articles!inner(') && c.query.includes('app_news_articles.or='))).toBe(true);
     await page.locator('#outsideRoot [data-nw-find]').fill('없는낱말');
     await expect(root(page).locator('[data-nc-empty]')).toHaveText('최근 30일·보관한 글에서 찾은 글이 없어요');
     await page.locator('#outsideRoot [data-nw-find]').fill('');

@@ -14,15 +14,16 @@ export const KEYWORD_MAX_CHARS = 30;
 export const DEFAULT_LIMITS = Object.freeze({fill: 10, translate: 20, keywords: 30});
 
 // 목록 읽기 걸러내기(PostgREST 조건 조각). 지운 줄(hidden_at)은 늘 뺀다.
-export function laneFilter(tab) {
-  if (tab === STAR) return '&starred_at=not.is.null';
+// 별표 폴더 칸(STAR)은 공용 기사 표가 아니라 내 읽을 거리 줄에서 읽는다(S68-27, feed-shared.js readNewsStarred) — 여기 조각은 없다.
+export function laneFilter() {
   return '';
 }
 // [언론] 정렬(S63-12 NEWS-언론등급정렬, 명진 11/16 12:22 "노동 우선 / 사회 그 다음 정치 경제는 관련도 높은 것"):
 //   받은 날(서울, kst_day) 최신 → 같은 날 안에서 등급 1 노동·2 사회·3 정치·경제 → 등급 없는 줄(채널 기사·옛 줄) → 받은 시각 최신.
 //   등급·날짜는 서버가 기사 표에 적은 칸 그대로다(규칙은 supabase/functions/_shared/news-rank.ts 한 곳 — 화면에 복제하지 않음). 날짜 묶음(groupItems)도 받은 날이라 순서와 맞는다.
 export const NEWS_ORDER = 'kst_day.desc.nullslast,news_rank.asc.nullslast,created_at.desc,id.desc';
-export const orderOf = tab => (tab === STAR ? 'starred_at.desc,id.desc' : NEWS_ORDER);
+// 별표 폴더 칸의 순서(최근 보관 먼저)는 readNewsStarred가 정한다.
+export const orderOf = () => NEWS_ORDER;
 
 export function domainOf(url) {
   try { return new URL(String(url)).hostname.replace(/^www\./, ''); } catch { return ''; }

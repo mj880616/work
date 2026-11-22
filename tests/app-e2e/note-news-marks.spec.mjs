@@ -41,7 +41,7 @@ async function fixture(page, width, opts = {}) {
   await page.route(u => u.origin === SB && u.pathname.startsWith('/rest/v1/'), async r => {
     const req = r.request(), u = new URL(req.url()), table = u.pathname.slice('/rest/v1/'.length), method = req.method(), q = u.searchParams;
     const id = (q.get('id') || '').replace(/^eq\./, '');
-    if (['app_news_highlights', 'app_outside_article_marks', 'app_news_marks'].includes(table)) s.calls.push(table + ' ' + method + ' ' + decodeURIComponent(u.search));
+    if (['app_news_highlights', 'app_outside_article_marks', 'app_news_marks', 'app_reading_items'].includes(table)) s.calls.push(table + ' ' + method + ' ' + decodeURIComponent(u.search));
     if (table === 'app_notes' && method === 'GET') return r.fulfill({ json: notes.filter(x => (!q.get('kind') || 'eq.' + x.kind === q.get('kind')) && (!id || x.id === id)).map(x => structuredClone(x)) });
     if (table === 'app_note_folders' && method === 'GET') return r.fulfill({ json: structuredClone(folders) });
     if (table === 'app_news_highlights') {
@@ -50,10 +50,14 @@ async function fixture(page, width, opts = {}) {
       if (method === 'PATCH') { const body = req.postDataJSON(); s.patches.push({ id, body }); const h = s.hl.find(x => x.id === id); if (h) Object.assign(h, body); return r.fulfill({ json: h ? [structuredClone(h)] : [] }); }
       return r.fulfill({ json: structuredClone(s.hl) });
     }
-    // NEWS-모두에게열기 ③: 보관은 내 표시 표(공용 글 embed) — 옛 모양(post_id·app_outside_posts)을 새 모양(article_id·app_outside_articles)으로.
-    if (table === 'app_outside_article_marks' && method === 'GET') return r.fulfill({ json: structuredClone(marks).map(({ post_id, app_outside_posts, ...m }) => ({ ...m, article_id: post_id, dismissed_at: null, app_outside_articles: app_outside_posts })) });
-    if (table === 'app_news_marks' && method === 'GET') return r.fulfill({ json: structuredClone(news.filter(x => x.starred_at)).map(({ starred_at, folder_id, ...a }) => ({ article_id: a.id, starred_at, folder_id: folder_id ?? null, hidden_at: null, keywords: [], app_news_articles: a })) });
-    if (table === 'app_news_articles' && method === 'GET') return r.fulfill({ json: structuredClone(id ? news.filter(x => x.id === id) : news).map(({ starred_at, folder_id, ...a }) => ({ ...a, app_news_marks: starred_at ? [{ starred_at, folder_id: folder_id ?? null, hidden_at: null, keywords: [] }] : [] })) });
+    // S68-27 READ-보관기록일원화: 보관은 내 읽을 거리 줄(원래 글 연결 칸 + 글 embed). 가짜 자료의 starred_at = 그 줄의 저장 시각.
+    if (table === 'app_reading_items' && method === 'GET' && q.get('outside_article_id') === 'not.is.null')
+      return r.fulfill({ json: structuredClone(marks).map(({ post_id, starred_at, app_outside_posts }) => ({ outside_article_id: post_id, saved_at: starred_at, app_outside_articles: app_outside_posts })) });
+    if (table === 'app_reading_items' && method === 'GET' && q.get('news_article_id') === 'not.is.null')
+      return r.fulfill({ json: structuredClone(news.filter(x => x.starred_at)).map(({ starred_at, folder_id, ...a }) => ({ id: 'r-' + a.id, saved_at: starred_at, app_news_articles: { ...a, app_news_marks: [{ folder_id: folder_id ?? null, hidden_at: null, keywords: [] }] } })) });
+    if (table === 'app_outside_article_marks' && method === 'GET') return r.fulfill({ json: [] });
+    if (table === 'app_news_marks' && method === 'GET') return r.fulfill({ json: [] });
+    if (table === 'app_news_articles' && method === 'GET') return r.fulfill({ json: structuredClone(id ? news.filter(x => x.id === id) : news).map(({ starred_at, folder_id, ...a }) => ({ ...a, app_news_marks: [{ folder_id: folder_id ?? null, hidden_at: null, keywords: [] }], app_reading_items: starred_at ? [{ saved_at: starred_at }] : [] })) });
     if (table === 'app_record_links' || table === 'app_note_comments') return r.fulfill({ json: [] });
     if (table.startsWith('app_now_') || table.startsWith('app_news_') || table.startsWith('app_outside_') || table === 'app_feed_reads' || table === 'app_feed_bodies') return method === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 201, json: [] });
     return r.fallback();
