@@ -81,13 +81,42 @@ export async function newsServer(page) {
     }
     // NEWS-모두에게열기 ③: 지도 함수(옛 id → 공용 id) — 이 가짜 서버의 id는 모두 공용 id라 지도 줄 없음(화면은 같은 id로 읽는다).
     if (p === '/rest/v1/rpc/app_news_article_of' || p === '/rest/v1/rpc/app_outside_article_of') { server.calls.push({ what: 'map', path: p, body }); return ok(server.idMap?.(body) || []); }
+    // S68-27 READ-보관기록일원화: 보관(★)의 원본은 읽을 거리 줄(app_reading_items). 가짜 기사 한 줄의 starred_at = 그 기사를 가리키는 읽을 거리 줄의 저장 시각.
+    // 쓰기는 DB 함수 app_reading_keep 한 길(켜기 = 줄 하나, 끄기 = 줄 삭제 + 별표 폴더 비움, 되돌리기 = 원래 시각).
+    if (p === '/rest/v1/rpc/app_reading_keep') {
+      server.calls.push({ what: 'keep', body });
+      const it = server.items.find(i => i.id === body.p_article);
+      if (!it || body.p_source !== 'news') return ok({ code: '22023', message: 'READINGKEEP_ARTICLE' }, 400);
+      if (body.p_on) { const created = !it.starred_at; it.starred_at ||= body.p_saved_at || new Date().toISOString(); it._marked = true; return ok({ ok: true, on: true, id: 'r-' + it.id, saved_at: it.starred_at, created }); }
+      const was = it.starred_at; it.starred_at = null; it.folder_id = null;
+      return ok({ ok: true, on: false, removed: was ? 1 : 0, saved_at: was });
+    }
+    if (p === '/rest/v1/app_reading_items') {
+      server.calls.push({ what: 'app_reading_items', method, query: decodeURIComponent(u.search) });
+      if (method !== 'GET') return ok([]);
+      const nq = u.searchParams.get('news_article_id') || '';
+      // 읽을 거리 목록(읽을 거리 화면): 보관한 기사 줄(origin news) — 저장 시각 최근 위.
+      if (!nq && !u.searchParams.has('outside_article_id')) return ok(server.items.filter(i => i.starred_at).sort((x, y) => String(y.starred_at).localeCompare(String(x.starred_at)))
+        .map(i => ({ id: 'r-' + i.id, url: i.url, title: i.title_ko || i.title, site: i.publisher, saved_at: i.starred_at, read_at: null, body_state: 'pending', body_at: null, business_area_id: null, updated_at: i.starred_at, origin: 'news', news_article_id: i.id, outside_article_id: null })));
+      if (!nq) return ok([]); // 사회운동 글 보관 줄 없음
+      const kept = server.items.filter(i => i.starred_at);
+      const eq = /^eq\.(.*)$/.exec(nq)?.[1], ins = /^in\.\((.*)\)$/.exec(nq)?.[1]?.split(',');
+      if (eq) return ok(kept.filter(i => i.id === eq).map(i => ({ id: 'r-' + i.id, saved_at: i.starred_at })));
+      if (ins) return ok(kept.filter(i => ins.includes(i.id)).map(i => ({ news_article_id: i.id, saved_at: i.starred_at })));
+      const keyIn = /^in\.\((.*)\)$/.exec(u.searchParams.get('app_news_articles.source_key') || '')?.[1]?.split(',');
+      const like = it => { const pat = /\.ilike\."([^"]*)"/.exec(u.searchParams.get('app_news_articles.or') || '')?.[1]; if (pat === undefined) return true; const re = new RegExp(pat.split('*').filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*'), 'i'); return ['title', 'title_ko', 'summary'].some(k => re.test(String(it[k] ?? ''))); };
+      const rows = kept.filter(i => (!keyIn || keyIn.includes(i.source_key)) && like(i)).sort((x, y) => String(y.starred_at).localeCompare(String(x.starred_at)));
+      const off = Number(u.searchParams.get('offset') || 0), lim = Number(u.searchParams.get('limit') || 300);
+      return ok(rows.slice(off, off + lim).map(i => { const { _body, _body_ko, _marked, starred_at, folder_id, hidden_at, keywords, ...row } = i; return { id: 'r-' + i.id, saved_at: starred_at, app_news_articles: { ...row, body: _body ?? null, body_ko: _body_ko ?? null, app_news_marks: [{ folder_id, hidden_at: hidden_at ?? null, keywords: keywords || [] }] } }; }));
+    }
     if (!p.startsWith('/rest/v1/app_news_') && p !== '/rest/v1/app_outside_sources') return route.fallback();
     server.calls.push({ what: p.slice('/rest/v1/'.length), method, query: decodeURIComponent(u.search), body });
-    // NEWS-모두에게열기 ③: 공용 기사(app_news_articles) + 내 표시(app_news_marks) + 내 읽음(app_news_reads). 가짜 기사 한 줄에 둘 다 들고 있다.
+    // NEWS-모두에게열기 ③: 공용 기사(app_news_articles) + 내 표시(app_news_marks) + 내 읽음(app_news_reads) + 보관(읽을 거리 줄). 가짜 기사 한 줄에 모두 들고 있다.
     const MARK = ['starred_at', 'folder_id', 'hidden_at'];
     const marked = it => !!(it._marked || it.starred_at || it.folder_id || it.hidden_at || (it.keywords || []).length);
     const art = it => { const { _body, _body_ko, _marked, starred_at, folder_id, hidden_at, keywords, ...row } = it; return { ...row, body: _body ?? null, body_ko: _body_ko ?? null }; };
-    const markOf = it => ({ starred_at: it.starred_at, folder_id: it.folder_id, hidden_at: it.hidden_at ?? null, keywords: it.keywords || [] });
+    const markOf = it => ({ folder_id: it.folder_id, hidden_at: it.hidden_at ?? null, keywords: it.keywords || [] });
+    const keepOf = it => (it.starred_at ? [{ id: 'r-' + it.id, saved_at: it.starred_at }] : []);
     const inIds = v => /^in\.\((.*)\)$/.exec(v || '')?.[1]?.split(',') || [];
     // S63-11 서버 찾기 흉내: or=(title.ilike."*낱말*낱말*",…) — 제목·한국어 제목·요약에서 낱말을 순서대로(대소문자 무시).
     const likeOk = (it, orParam) => {
@@ -99,12 +128,13 @@ export async function newsServer(page) {
     if (p === '/rest/v1/app_news_articles') {
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      const rows = server.items.filter(i => (!id || i.id === id) && (!inKeys || inKeys.includes(i.source_key)) && likeOk(i, u.searchParams.get('or')));
-      return ok(rows.map(i => ({ ...art(i), app_news_marks: marked(i) ? [markOf(i)] : [] })));
+      const since = /^gte\.(.*)$/.exec(u.searchParams.get('created_at') || '')?.[1];
+      const rows = server.items.filter(i => (!id || i.id === id) && (!inKeys || inKeys.includes(i.source_key)) && (!since || String(i.created_at) >= since) && likeOk(i, u.searchParams.get('or')));
+      return ok(rows.map(i => ({ ...art(i), app_news_marks: marked(i) ? [markOf(i)] : [], app_reading_items: keepOf(i) })));
     }
     if (p === '/rest/v1/app_news_marks') {
       const aid = (u.searchParams.get('article_id') || '').replace(/^eq\./, '');
-      const view = i => ({ article_id: i.id, ...markOf(i), app_news_articles: art(i) });
+      const view = i => ({ article_id: i.id, ...markOf(i), app_news_articles: { ...art(i), app_reading_items: keepOf(i) } });
       if (method === 'PATCH') { const it = server.items.find(i => i.id === aid); if (!it || !marked(it)) return ok([]); Object.assign(it, body); return ok([{ article_id: it.id, ...markOf(it) }]); }
       if (method === 'POST') { const it = server.items.find(i => i.id === body.article_id); Object.assign(it, body, { _marked: true }); delete it.article_id; delete it.workspace_id; return ok([{ article_id: it.id, ...markOf(it) }], 201); }
       const star = u.searchParams.get('starred_at'), hidden = u.searchParams.get('hidden_at');

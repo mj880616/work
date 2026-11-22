@@ -55,11 +55,14 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 왼쪽�
 
   await swipeTap(page, item(page, 'k1'), 'save');
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(1);
-  expect(Object.keys(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
+  // S68-27: 보관(별표)은 읽을 거리 줄 — DB 함수 한 길(작업공간·종류·기사·켜기), 옛 별표 칸은 쓰지 않는다.
+  expect(server.calls.filter(c => c.what === 'keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'news', p_article: 'k1', p_on: true, p_saved_at: null });
+  expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET').some(c => 'starred_at' in (c.body || {}))).toBe(false);
   await expect.poll(() => server.calls.some(c => c.what === 'app_news_now_signals' && c.body?.article_id === 'k1' && c.body?.action === 'star')).toBe(true);
   await swipeTap(page, item(page, 'k1'), 'save');
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(0);
-  expect(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).toMatchObject({ starred_at: null, folder_id: null });
+  expect(server.calls.filter(c => c.what === 'keep').at(-1).body).toMatchObject({ p_article: 'k1', p_on: false });
+  expect(server.items.find(i => i.id === 'k1')).toMatchObject({ starred_at: null, folder_id: null });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });

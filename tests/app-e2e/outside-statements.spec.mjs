@@ -67,11 +67,13 @@ async function outsideServer(page) {
       return ok({ ok: false }, 400);
     }
     // NEWS-모두에게열기 ③: 언론 기사는 공용 표(+ 내 표시 embed), 읽음은 사람별 표(app_news_reads·app_outside_reads, article_id).
-    if (p === '/rest/v1/app_news_marks') return ok([]); // S63-11 서버 찾기의 별표 기사(없음)
+    if (p === '/rest/v1/app_news_marks') return ok([]);
+    if (p === '/rest/v1/app_reading_items') return ok([]); // S63-11 서버 찾기의 보관한 기사·사회운동 보관(없음 — 언론 a1 보관은 기사 embed로)
     if (p === '/rest/v1/app_news_articles') {
       server.calls.push({ what: 'app_news_articles', method, query: decodeURIComponent(u.search) });
       const inKeys = /^in\.\((.*)\)$/.exec(u.searchParams.get('source_key') || '')?.[1]?.split(',');
-      return ok(NEWS.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: starred_at ? [{ starred_at, folder_id: null, hidden_at: null, keywords: [] }] : [] })));
+      // S68-27: 보관(★)은 읽을 거리 줄 embed(app_reading_items) — 내 표시 embed에는 별표 칸이 없다.
+      return ok(NEWS.filter(r => (!inKeys || inKeys.includes(r.source_key)) && likeOk(r, u.searchParams.get('or'), 'summary')).map(({ starred_at, ...r }) => ({ ...r, app_news_marks: [], app_reading_items: starred_at ? [{ id: 'r-' + r.id, saved_at: starred_at }] : [] })));
     }
     if (p === '/rest/v1/app_news_reads' || p === '/rest/v1/app_outside_reads') {
       const body = req.postDataJSON?.() ?? null;

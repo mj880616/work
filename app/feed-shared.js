@@ -1,11 +1,14 @@
 import {pgTextArray} from './news-clipping-model.mjs';
 import {ilikeAny, NEWS_FIND_COLS, POST_FIND_COLS} from './news-find-model.mjs';
-import {articleCols, flatNews, flatNewsMark, hasId, isUuid, mapIds, markFields, savedOutsideMark, NEWS_MARK_EMBED} from './feed-shared-model.mjs';
+import {articleCols, flatNews, flatNewsMark, keptNews, keptOutside, outsideMarks, keepBody, hasId, isUuid, mapIds, markFields, NEWS_MARK_EMBED, KEEP_EMBED} from './feed-shared-model.mjs';
 // NEWS-모두에게열기 ③ 화면(설계 docs/design/news-for-all.md 13·14절): News·[사회운동] 글을 서버에서 읽고 쓰는 유일한 길.
 // - 기사·글 내용은 공용 표 한 벌(app_news_articles·app_outside_articles, 본문 블록·문장도 공용) — 가입자 모두 같은 줄(서버 정책: 로그인 + 자기 작업공간 + 차단 명단 아님).
 //   화면은 공용 표에 읽기만 한다(넣기·고치기 권한 없음).
-// - 별표·보관·숨김·읽음·반응은 사람마다(app_news_marks·app_news_reads·app_news_now_signals, app_outside_article_marks·app_outside_reads·app_outside_now_signals).
+// - 숨김·폴더·읽음·반응은 사람마다(app_news_marks·app_news_reads·app_news_now_signals, app_outside_article_marks·app_outside_reads·app_outside_now_signals).
 //   주소에 내 작업공간을 걸고, 서버 정책(작업공간 주인만)이 한 번 더 막는다. 다른 사람 표시는 읽을 길이 없다.
+// - S68-27 READ-보관기록일원화(명진 11/22 21:37): '보관(★)'의 원본은 읽을 거리 표(app_reading_items) 한 줄(글을 가리키는 칸 news_article_id·outside_article_id).
+//   읽기는 그 표(owner RLS)를 글에 붙여(embed) 읽고, 쓰기는 DB 함수 app_reading_keep 한 길(서버가 주인·News 기능 키·읽을 수 있는 글인지 본다).
+//   옛 별표 칸(starred_at, 사회운동 archived_at)은 읽지도 쓰지도 않는다(지우지 않음 — 되돌리기용).
 // - 옛 id(밑줄·노트 메모·주소·AI '함께 볼 것'에 남은 옛 app_news_items·app_outside_posts id)는 지도 함수(app_news_article_of·app_outside_article_of,
 //   자기 작업공간 옛 줄만)로 바꿔 읽는다. 지도에 없으면 옛 id = 공용 id(옮길 때 운영자 줄 id를 그대로 썼다). 바꾼 값은 이 탭 메모리에만.
 // - 옮기는 동안(C1 전): 옛 표를 읽는 서버 일(홈 '읽을 만한 글'·폰 알림 줄)이 그대로 돌게, 별표·숨김·읽음을 옛 표에도 같은 id로 한 번 더 써 본다
@@ -50,54 +53,84 @@ export const articleIdOf = async (type, id) => (isUuid(id) ? (await articleOf(ty
 export const knownArticleId = (type, id) => { mapCheck(); return mapped[type]?.get(id) || id; };
 
 // ---------- 뉴스 기사 ----------
+// 공용 기사에 붙이는 내 칸(표시 + 읽을 거리 보관 줄) — 둘 다 내 작업공간 줄만.
+const mine = (w, at = '') => `${NEWS_MARK_EMBED},${KEEP_EMBED}&${at}app_news_marks.workspace_id=eq.${q(w)}&${at}app_reading_items.workspace_id=eq.${q(w)}`;
 // 목록(공용 기사 + 내 표시). filter = '&source_key=in.(…)' 같은 공용 칸 조건. 돌려주는 줄은 embed 그대로 — newsPage(rows, size)로 숨김을 뺀다.
 export function readNewsArticles({cols, filter = '', order = 'created_at.desc,id.desc', limit, offset = 0}) {
   const w = workspaceOf();
-  return rt().api(`/rest/v1/${T.news.art}?select=${articleCols(cols)},${NEWS_MARK_EMBED}&app_news_marks.workspace_id=eq.${q(w)}${filter}&order=${order}&limit=${limit}&offset=${offset}`, {singleFlight: false});
+  return rt().api(`/rest/v1/${T.news.art}?select=${articleCols(cols)},${mine(w)}${filter}&order=${order}&limit=${limit}&offset=${offset}`, {singleFlight: false});
 }
 // 기사 하나(옛 id도 받음) → 옛 뉴스 줄 모양 또는 null.
 export async function readNewsOne(id, cols) {
   const aid = await articleIdOf('news', id);
   if (!hasId(aid)) return null;
   const w = workspaceOf();
-  return flatNews(first(await rt().api(`/rest/v1/${T.news.art}?id=eq.${q(aid)}&select=${articleCols(cols)},${NEWS_MARK_EMBED}&app_news_marks.workspace_id=eq.${q(w)}&limit=1`, {singleFlight: false})));
+  return flatNews(first(await rt().api(`/rest/v1/${T.news.art}?id=eq.${q(aid)}&select=${articleCols(cols)},${mine(w)}&limit=1`, {singleFlight: false})));
 }
-// 내 별표 기사(최근 별표 먼저).
+// ---------- 보관(= 읽을 거리 줄, S68-27) ----------
+const KEEP = '/rest/v1/app_reading_items';
+// 보관한 뉴스 기사(최근 보관 먼저) — 읽을 거리 줄 + 공용 기사 + 내 표시(폴더·숨김).
 export async function readNewsStarred(cols, limit = 300, offset = 0) {
-  const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(workspaceOf())}&starred_at=not.is.null&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)})&order=starred_at.desc,article_id.desc&limit=${limit}&offset=${offset}`, {singleFlight: false});
-  return (Array.isArray(rows) ? rows : []).map(flatNewsMark).filter(Boolean);
+  const w = workspaceOf();
+  const rows = await rt().api(`${KEEP}?workspace_id=eq.${q(w)}&news_article_id=not.is.null&select=id,saved_at,${T.news.art}(${articleCols(cols)},${NEWS_MARK_EMBED})&${T.news.art}.app_news_marks.workspace_id=eq.${q(w)}&order=saved_at.desc,id.desc&limit=${limit}&offset=${offset}`, {singleFlight: false});
+  return (Array.isArray(rows) ? rows : []).map(keptNews).filter(Boolean);
+}
+// 보관한 사회운동 글(최근 보관 먼저) → [{post_id, starred_at, dismissed_at, app_outside_posts}]. embed: 공용 글 칸.
+export async function readOutsideKept(embed, limit = 300) {
+  const w = workspaceOf();
+  const rows = await rt().api(`${KEEP}?workspace_id=eq.${q(w)}&outside_article_id=not.is.null&select=id,saved_at,${T.outside.art}(${embed},${T.outside.mark}(dismissed_at))&${T.outside.art}.${T.outside.mark}.workspace_id=eq.${q(w)}&order=saved_at.desc,id.desc&limit=${limit}`, {singleFlight: false});
+  return (Array.isArray(rows) ? rows : []).map(keptOutside).filter(Boolean);
+}
+// 글 하나가 보관돼 있나 → 그 읽을 거리 줄 {id, saved_at} 또는 null. id는 공용 id.
+async function readKeepOne(type, id) {
+  const col = type === 'news' ? 'news_article_id' : 'outside_article_id';
+  return first(await rt().api(`${KEEP}?workspace_id=eq.${q(workspaceOf())}&${col}=eq.${q(id)}&select=id,saved_at&limit=1`, {singleFlight: false}));
+}
+// 보관 켜기/끄기 한 길(DB app_reading_keep — 주인·News 기능 키·읽을 수 있는 글을 서버가 본다). savedAt: 되돌리기 때 원래 보관 시각.
+// 답: 켜기 {on:true, id, saved_at}, 끄기 {on:false, removed, saved_at}. 옛 id로 오는 글도 공용 id로.
+export async function writeKeep(item, on, savedAt = null) {
+  const id = await articleIdOf(item?.type, item?.id);
+  const body = keepBody(workspaceOf(), item?.type, id, on, savedAt);
+  if (!body) throw new Error('keep');
+  const out = await rt().api('/rest/v1/rpc/app_reading_keep', {method: 'POST', body, singleFlight: false});
+  if (!out || out.ok !== true) throw new Error('keep');
+  try { window.dispatchEvent(new CustomEvent('kptu:reading-changed', {detail: {kind: 'keep', on: !!on}})); } catch { /* 듣는 화면이 일을 막지 않는다 */ }
+  return out;
 }
 // 내 키워드 하나에 걸린 기사(서버 키워드 단계가 내 표시 keywords 칸에 적음). 숨긴 것은 뺀다. 최근 표시 먼저.
 export async function readNewsKeywordHits(word, cols, limit) {
-  const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(workspaceOf())}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)})&order=created_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false});
+  const w = workspaceOf();
+  const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(w)}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)},${KEEP_EMBED})&${T.news.art}.app_reading_items.workspace_id=eq.${q(w)}&order=created_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false});
   return (Array.isArray(rows) ? rows : []).map(flatNewsMark).filter(Boolean);
 }
-// S63-11 서버 찾기([전체]·[언론] 위 찾기 칸, news-find-model.mjs): 최근 기사(since 뒤 받은 것) + 내 별표 기사(기간 없음)에서 제목·한국어 제목·요약.
+// S63-11 서버 찾기([전체]·[언론] 위 찾기 칸, news-find-model.mjs): 최근 기사(since 뒤 받은 것) + 내가 보관한 기사(읽을 거리 줄, 기간 없음)에서 제목·한국어 제목·요약.
 // keys: 고른 매체(news- 키, null = 모두). 숨긴 것은 뺀다. 돌려줌: {recent, kept}(옛 뉴스 줄 모양).
 export async function findNewsArticles(words, cols, {since, limit, keys = null}) {
   const w = workspaceOf(), or = q(ilikeAny(NEWS_FIND_COLS, words));
   const inKeys = keys ? `in.(${keys.map(q).join(',')})` : '';
   const [recent, kept] = await Promise.all([
-    rt().api(`/rest/v1/${T.news.art}?select=${articleCols(cols)},${NEWS_MARK_EMBED}&app_news_marks.workspace_id=eq.${q(w)}&created_at=gte.${q(since)}&or=${or}${inKeys ? `&source_key=${inKeys}` : ''}&order=created_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
-    rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(w)}&starred_at=not.is.null&hidden_at=is.null&select=starred_at,folder_id,hidden_at,keywords,${T.news.art}!inner(${articleCols(cols)})&${T.news.art}.or=${or}${inKeys ? `&${T.news.art}.source_key=${inKeys}` : ''}&order=starred_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false}),
+    rt().api(`/rest/v1/${T.news.art}?select=${articleCols(cols)},${mine(w)}&created_at=gte.${q(since)}&or=${or}${inKeys ? `&source_key=${inKeys}` : ''}&order=created_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
+    rt().api(`${KEEP}?workspace_id=eq.${q(w)}&news_article_id=not.is.null&select=id,saved_at,${T.news.art}!inner(${articleCols(cols)},${NEWS_MARK_EMBED})&${T.news.art}.app_news_marks.workspace_id=eq.${q(w)}&${T.news.art}.or=${or}${inKeys ? `&${T.news.art}.source_key=${inKeys}` : ''}&order=saved_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
   ]);
-  return {recent: (Array.isArray(recent) ? recent : []).map(flatNews).filter(it => it && !it.hidden_at), kept: (Array.isArray(kept) ? kept : []).map(flatNewsMark).filter(Boolean)};
+  return {recent: (Array.isArray(recent) ? recent : []).map(flatNews).filter(it => it && !it.hidden_at), kept: (Array.isArray(kept) ? kept : []).map(keptNews).filter(it => it && !it.hidden_at)};
 }
-// 사회운동 글 찾기: 최근 글(올린 날, 없으면 받은 날이 since 뒤) + 내가 별표(= 보관)한 글(기간 없음). keys: 고른 단체(null = 모두). 숨긴 글은 화면이 뺀다.
+// 사회운동 글 찾기: 최근 글(올린 날, 없으면 받은 날이 since 뒤) + 내가 보관한 글(읽을 거리 줄, 기간 없음). keys: 고른 단체(null = 모두). 숨긴 글은 화면이 뺀다.
 export async function findOutsideArticles(words, cols, {since, limit, keys = null}) {
   const w = workspaceOf(), like = ilikeAny(POST_FIND_COLS, words);
   const inKeys = keys ? `in.(${keys.map(q).join(',')})` : '';
   const [recent, kept] = await Promise.all([
     rt().api(`/rest/v1/${T.outside.art}?select=${cols}&and=${q(`(or(published_at.gte.${since},and(published_at.is.null,fetched_at.gte.${since})),or${like})`)}${inKeys ? `&source_key=${inKeys}` : ''}&order=published_at.desc.nullslast,fetched_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
-    rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(w)}&dismissed_at=is.null&starred_at=not.is.null&select=article_id,${T.outside.art}!inner(${cols})&${T.outside.art}.or=${q(like)}${inKeys ? `&${T.outside.art}.source_key=${inKeys}` : ''}&limit=${limit}`, {singleFlight: false}),
+    rt().api(`${KEEP}?workspace_id=eq.${q(w)}&outside_article_id=not.is.null&select=id,saved_at,${T.outside.art}!inner(${cols},${T.outside.mark}(dismissed_at))&${T.outside.art}.${T.outside.mark}.workspace_id=eq.${q(w)}&${T.outside.art}.or=${q(like)}${inKeys ? `&${T.outside.art}.source_key=${inKeys}` : ''}&order=saved_at.desc,id.desc&limit=${limit}`, {singleFlight: false}),
   ]);
-  return {recent: Array.isArray(recent) ? recent.filter(r => r && hasId(r.id)) : [], kept: (Array.isArray(kept) ? kept : []).map(m => m?.[T.outside.art]).filter(r => r && hasId(r.id))};
+  return {recent: Array.isArray(recent) ? recent.filter(r => r && hasId(r.id)) : [], kept: (Array.isArray(kept) ? kept : []).map(keptOutside).filter(m => m && !m.dismissed_at).map(m => m.app_outside_posts)};
 }
-// 내 표시 쓰기: 줄이 있으면 칸만 고치고, 없으면 넣는다(지울 것만 있고 줄이 없으면 할 일 없음). 돌려줌: {id, starred_at, folder_id, hidden_at}.
+// 내 표시 쓰기: 줄이 있으면 칸만 고치고, 없으면 넣는다(지울 것만 있고 줄이 없으면 할 일 없음). 돌려줌: 뉴스 {id, folder_id, hidden_at} · 사회운동 {id, dismissed_at}.
+// 보관(★)은 여기서 쓰지 않는다(writeKeep 한 길).
 async function writeMark(type, given, fields) {
   const t = T[type], w = workspaceOf(), body = markFields(type, fields);
   const id = await articleIdOf(type, given); // 홈 '읽을 만한 글'·AI '함께 볼 것'처럼 옛 id로 오는 글도 공용 id로
-  const cols = type === 'news' ? 'article_id,starred_at,folder_id,hidden_at' : 'article_id,starred_at,archived_at,dismissed_at';
+  if (!Object.keys(body).length) return {id: given};
+  const cols = type === 'news' ? 'article_id,folder_id,hidden_at' : 'article_id,dismissed_at';
   const patch = () => rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(w)}&article_id=eq.${q(id)}&select=${cols}`, {method: 'PATCH', body: {...body, updated_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
   let row = first(await patch());
   if (!row) {
@@ -124,11 +157,14 @@ export async function readOutsideOne(id, cols) {
   if (!hasId(aid)) return null;
   return first(await rt().api(`/rest/v1/${T.outside.art}?id=eq.${q(aid)}&select=${cols}&limit=1`, {singleFlight: false}));
 }
-// 내 표시 중 조건(or=…)에 맞는 것 → [{post_id(공용 id), starred_at, dismissed_at, app_outside_posts?}].
-export async function readOutsideMarks(or, {embed = '', limit = 2000} = {}) {
-  const sel = `article_id,starred_at,dismissed_at${embed ? `,${T.outside.art}(${embed})` : ''}`;
-  const rows = await rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(workspaceOf())}&or=${or}&select=${sel}&limit=${limit}`, {singleFlight: false});
-  return (Array.isArray(rows) ? rows : []).map(savedOutsideMark).filter(Boolean);
+// 사회운동 글 중 숨기거나 보관한 것 → [{post_id(공용 id), starred_at(보관 시각), dismissed_at}]. 숨김은 내 표시, 보관은 읽을 거리 줄(S68-27).
+export async function readOutsideMarks({limit = 2000} = {}) {
+  const w = workspaceOf();
+  const [marks, keeps] = await Promise.all([
+    rt().api(`/rest/v1/${T.outside.mark}?workspace_id=eq.${q(w)}&dismissed_at=not.is.null&select=article_id,dismissed_at&limit=${limit}`, {singleFlight: false}),
+    rt().api(`${KEEP}?workspace_id=eq.${q(w)}&outside_article_id=not.is.null&select=outside_article_id,saved_at&limit=${limit}`, {singleFlight: false}),
+  ]);
+  return outsideMarks(marks, keeps);
 }
 export async function writeOutsideMark(id, fields) {
   const row = await writeMark('outside', id, fields);
@@ -141,24 +177,32 @@ export async function writeOutsideMark(id, fields) {
 }
 
 // ---------- 둘 다 ----------
-// 내 표시 하나: 뉴스 {star, dismiss}, 사회운동 {star, dismiss, has}. 보관 = 별표(S67-09).
+// 내 표시 하나: 뉴스 {star, dismiss}, 사회운동 {star, dismiss, has}. 보관(star) = 그 글을 가리키는 읽을 거리 줄이 있나(S68-27).
 export async function readMarkOf(item) {
   const t = T[item?.type];
   if (!t) return null;
-  const cols = item.type === 'news' ? 'starred_at,hidden_at' : 'starred_at,dismissed_at';
-  const r = first(await rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(workspaceOf())}&article_id=eq.${q(item.id)}&select=${cols}&limit=1`, {singleFlight: false}));
+  const cols = item.type === 'news' ? 'hidden_at' : 'dismissed_at';
+  const [r, k] = await Promise.all([
+    rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(workspaceOf())}&article_id=eq.${q(item.id)}&select=${cols}&limit=1`, {singleFlight: false}).then(first),
+    readKeepOne(item.type, item.id),
+  ]);
   return item.type === 'news'
-    ? {star: !!r?.starred_at, dismiss: !!r?.hidden_at}
-    : {star: !!r?.starred_at, dismiss: !!r?.dismissed_at, has: !!r};
+    ? {star: !!k, dismiss: !!r?.hidden_at}
+    : {star: !!k, dismiss: !!r?.dismissed_at, has: !!r || !!k};
 }
-// S67-11 NEWS-보관빼기: 끄기 전 내 표시 그대로(되돌리기가 원래 별표 시각·폴더로 되살려 [보관] 탭 원래 자리에 오게). 줄이 없으면 null.
-// 뉴스 {starred_at, folder_id, hidden_at}, 사회운동 {starred_at, dismissed_at}. 옛 id로 오는 글도 공용 id로.
+// S67-11 NEWS-보관빼기: 끄기 전 내 표시 그대로(되돌리기가 원래 보관 시각·폴더로 되살려 원래 자리에 오게). 아무것도 없으면 null.
+// 뉴스 {starred_at(보관 시각), folder_id, hidden_at}, 사회운동 {starred_at, dismissed_at}. 옛 id로 오는 글도 공용 id로.
 export async function readMarkRaw(item) {
   const t = T[item?.type];
   if (!t || !hasId(item.id)) return null;
   const id = await articleIdOf(item.type, item.id);
-  const cols = item.type === 'news' ? 'starred_at,folder_id,hidden_at' : 'starred_at,dismissed_at';
-  return first(await rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(workspaceOf())}&article_id=eq.${q(id)}&select=${cols}&limit=1`, {singleFlight: false})) || null;
+  const cols = item.type === 'news' ? 'folder_id,hidden_at' : 'dismissed_at';
+  const [r, k] = await Promise.all([
+    rt().api(`/rest/v1/${t.mark}?workspace_id=eq.${q(workspaceOf())}&article_id=eq.${q(id)}&select=${cols}&limit=1`, {singleFlight: false}).then(first),
+    readKeepOne(item.type, id),
+  ]);
+  if (!r && !k) return null;
+  return {...(r || {}), starred_at: k?.saved_at || null};
 }
 // 공용 본문 블록 한 줄(없으면 null).
 export const readBody = item => rt().api(`/rest/v1/${T[item.type].body}?article_id=eq.${q(item.id)}&select=blocks,state,reason&limit=1`, {singleFlight: false}).then(first);

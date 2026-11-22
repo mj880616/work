@@ -23,8 +23,10 @@ const DETAIL = {
 };
 
 async function nowServer(page) {
-  // S67-09: P2는 옛 '보관'만 있던 글을 DB(20261119120000)가 별표(같은 시각)로 채운 뒤 모양 — [보관] 탭에 보여야 한다.
-  const s = { calls: [], marks: [{ post_id: P2, starred_at: '2026-10-05T02:00:00Z', archived_at: '2026-10-05T02:00:00Z', dismissed_at: null }], signals: [], notes: [], interests: [{ id: 'i1', topic: '철도 민영화', state: 'candidate', origin: 'ai', reason: '별표 2건', decided_at: null, created_at: '2026-10-05T00:00:00Z' }] };
+  // S67-09: P2는 옛 '보관'만 있던 글을 DB(20261119120000)가 별표(같은 시각)로 채운 뒤 모양. S68-27: 그 보관은 DB(20261122230000)가 읽을 거리 줄로 옮겼다 —
+  // 흉내 서버도 보관을 읽을 거리 줄(s.reading)로만 들고, 사회운동 글 내 표시(s.marks)에는 숨김만 둔다.
+  const keepRow = (post, at) => ({ id: 'c2000000-0000-4000-8000-0000000000' + post.id.slice(-2), url: post.url, title: post.title_ko || post.title, site: null, saved_at: at, read_at: null, body_state: 'pending', body_at: null, business_area_id: null, updated_at: at, origin: 'outside', news_article_id: null, outside_article_id: post.id });
+  const s = { calls: [], marks: [], reading: [keepRow(POSTS[1], '2026-10-05T02:00:00Z')], signals: [], notes: [], interests: [{ id: 'i1', topic: '철도 민영화', state: 'candidate', origin: 'ai', reason: '별표 2건', decided_at: null, created_at: '2026-10-05T00:00:00Z' }] };
   await page.route(SB + '/**', async route => {
     const req = route.request(), u = new URL(req.url()), p = u.pathname, method = req.method();
     const ok = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
@@ -39,7 +41,21 @@ async function nowServer(page) {
     }
     const table = p.startsWith('/rest/v1/') ? p.slice('/rest/v1/'.length) : '';
     if (/^app_(outside_|now_|news_)/.test(table)) s.calls.push({ what: table, method, query: decodeURIComponent(u.search), body });
-    if (table === 'app_reading_items') return ok([]); // S68-24: 보관한 글은 읽을 거리 [News]에서(읽을 거리 줄은 없음)
+    if (/^(app_reading_items|rpc\/app_reading_keep)$/.test(table)) s.calls.push({ what: table, method, query: decodeURIComponent(u.search), body });
+    // S68-27 보관 한 길: 켜기 = 읽을 거리 한 줄(origin outside), 끄기 = 그 줄 삭제.
+    if (table === 'rpc/app_reading_keep') {
+      const had = s.reading.find(r => r.outside_article_id === body.p_article);
+      if (body.p_on) { if (!had) s.reading.push(keepRow(POSTS.find(x => x.id === body.p_article), body.p_saved_at || '2026-10-06T01:00:00Z')); const r = s.reading.find(x => x.outside_article_id === body.p_article); return ok({ ok: true, on: true, id: r.id, saved_at: r.saved_at, created: !had }); }
+      s.reading = s.reading.filter(r => r !== had);
+      return ok({ ok: true, on: false, removed: had ? 1 : 0, saved_at: had?.saved_at || null });
+    }
+    if (table === 'app_reading_items') {
+      const oa = (u.searchParams.get('outside_article_id') || '');
+      if (oa.startsWith('eq.')) return ok(s.reading.filter(r => r.outside_article_id === oa.slice(3)).map(r => ({ id: r.id, saved_at: r.saved_at })));
+      if (oa === 'not.is.null') return ok(s.reading.map(r => ({ outside_article_id: r.outside_article_id, saved_at: r.saved_at })));
+      if (u.searchParams.get('news_article_id')) return ok([]);
+      return ok([...s.reading].sort((a, b) => String(b.saved_at).localeCompare(String(a.saved_at))));
+    }
     if (table === 'app_outside_articles') {
       const id = (u.searchParams.get('id') || '').replace(/^eq\./, '');
       return ok(id ? POSTS.filter(x => x.id === id) : POSTS);
@@ -49,12 +65,13 @@ async function nowServer(page) {
     // NEWS-모두에게열기 ③: 사회운동 글 표시는 내 표시 표(app_outside_article_marks, article_id). 흉내 서버 안 줄은 옛 이름(post_id)으로 든다.
     if (table === 'app_outside_article_marks') {
       const post = (u.searchParams.get('article_id') || '').replace(/^eq\./, '');
-      const out = m => ({ article_id: m.post_id, starred_at: m.starred_at ?? null, archived_at: m.archived_at ?? null, dismissed_at: m.dismissed_at ?? null });
+      const out = m => ({ article_id: m.post_id, dismissed_at: m.dismissed_at ?? null });
       if (method === 'PATCH') { const row = s.marks.find(m => m.post_id === post); if (!row) return ok([]); Object.assign(row, body); return ok([out(row)]); }
       if (method === 'POST') { const { article_id, ...rest } = body; const row = { post_id: article_id, ...rest }; s.marks.push(row); return ok([out(row)], 201); }
       if (method === 'POST') { s.marks.push({ ...body }); return route.fulfill({ status: 201 }); }
       if (post) return ok(s.marks.filter(m => m.post_id === post).map(out));
-      return ok(s.marks.filter(m => m.starred_at || m.archived_at).map(m => ({ ...out(m), app_outside_articles: POSTS.find(x => x.id === m.post_id) })));
+      expect(decodeURIComponent(u.search)).not.toMatch(/starred_at|archived_at/); // 옛 별표·보관 칸은 읽지 않는다
+      return ok(s.marks.filter(m => m.dismissed_at).map(out));
     }
     if (table === 'app_outside_now_signals' || table === 'app_news_now_signals') { if (method === 'POST') s.signals.push(body); return method === 'POST' ? route.fulfill({ status: 201 }) : ok([]); }
     if (table === 'app_now_interests') {
@@ -151,14 +168,14 @@ for (const width of [412, 884, 1280]) {
     } else await expect(root(page).locator('#nowMain')).toBeHidden();
     expect(await noWideScroll(page)).toBe(true);
 
-    // [☆ 별표]: 사회운동 글 내 표시 줄이 없으면 넣는다(article_id·workspace_id·starred_at만) + 환류 기록 한 줄(글 id·동작만).
+    // [☆ 별표]: 보관 한 길(DB app_reading_keep — 작업공간·종류·글·켜기만, S68-27) + 환류 기록 한 줄(글 id·동작만). 옛 별표 칸에는 쓰지 않는다.
     // S67-09: 사회운동 글에도 따로 [보관] 단추가 없다(보관 = 별표).
     await expect(nd.locator('[data-nd-act="archive"]')).toHaveCount(0);
     await nd.locator('[data-nd-act="star"]').click();
     await expect(nd.locator('[data-nd-act="star"]')).toHaveAttribute('aria-pressed', 'true');
-    const post = server.calls.filter(c => c.what === 'app_outside_article_marks' && c.method === 'POST').at(-1);
-    expect(Object.keys(post.body).sort()).toEqual(['article_id', 'starred_at', 'workspace_id']);
-    expect(post.body).toMatchObject({ article_id: P1, workspace_id: 'w' });
+    expect(server.calls.filter(c => c.what === 'rpc/app_reading_keep').at(-1).body).toEqual({ p_workspace: 'w', p_source: 'outside', p_article: P1, p_on: true, p_saved_at: null });
+    expect(server.calls.filter(c => c.what === 'app_outside_article_marks' && c.method !== 'GET')).toEqual([]);
+    expect(server.reading.map(r => r.outside_article_id)).toEqual([P2, P1]);
     await expect.poll(() => server.signals).toEqual([{ workspace_id: 'w', article_id: P1, action: 'star' }]);
     // [원문 ↗] 열기도 기록(새 창은 막아 둔다).
     await page.evaluate(() => { window.open = () => null; document.querySelectorAll('[data-nd-link]').forEach(a => a.addEventListener('click', e => e.preventDefault(), { once: true })); });
@@ -211,7 +228,7 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-hit`)).toHaveText('철도 민영화');
     await expect(root(page).locator('[data-now-cand]')).toBeHidden();
 
-    // 보관한 글(S68-24): 탭 줄 끝 '보관 ↗' → 읽을 거리 [News]. 별표한 사회운동 글 + 옛 보관을 별표로 옮긴 글(P2)이 꼬리표 'News'로 보인다.
+    // 보관한 글(S68-24 → S68-27): 탭 줄 끝 '보관 ↗' → 읽을 거리 [News]. 방금 별표한 사회운동 글 + 옮겨 온 보관 글(P2)이 읽을 거리 줄로, 꼬리표 'News'.
     await root(page).locator('[data-now-go-saved]').click();
     const rd = page.locator('#readingView');
     await expect(rd).toBeVisible();

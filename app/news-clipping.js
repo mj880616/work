@@ -17,7 +17,7 @@ import {ensureReads, onReads, readState} from './news-reads.js';
 import {dayHtml} from './news-row.mjs';
 import {liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {bindNowRows, hoverActsHtml, dropSaved} from './now-row-acts.js';
-import {canDeleteNews} from './now-marks.js';
+import {canDeleteNews, setSaved} from './now-marks.js';
 import {ALL, STAR, PAGE_SIZE, KEYWORD_MAX_CHARS, DEFAULT_LIMITS, REGIONS, laneFilter, orderOf, groupItems, errorNote, fillResult, needsAutoFill, cleanWord, normalizeCatalog, normalizeLimits, aiCapped, AI_CAP_NOTE, sourceNote, sourceOn, enabledSourceKeys, itemFolderId, KW_GROUP_SIZE, keywordGroups, keywordGroupLabel} from './news-clipping-model.mjs';
 // NEWS-클리핑 화면 C1·C2(설계 docs/design/news-clipping.md) → OUTSIDE-글상세 ③(11/01 23:16) → S51-8 News [언론] 탭 칸(#nowPanelNews 안 #newsRoot)의 유일한 그리기 주인.
 // - 한 목록: 채널 기사 + 서버가 찾은 기사 = 하나의 스크랩. 탭 줄·좌우 밀기·위 찾기 칸·[매체 ▾]·⋯·상세 칸은 껍데기(outside-statements.js)가 갖는다.
@@ -492,12 +492,11 @@ async function toggleStar(id, trigger) {
   }
   state.busy.add('star:' + id);
   try {
-    // 별표를 빼면 폴더도 비운다(DB 검사: 폴더는 별표한 기사만).
-    const row = await patchItem(w, id, on ? {starred_at: new Date().toISOString()} : {starred_at: null, folder_id: null});
+    // S68-27: 별표(= 보관)는 읽을 거리 줄 한 길(now-marks.js setSaved → DB app_reading_keep). 끌 때는 위 dropSaved가 폴더도 서버에서 비운다.
+    const out = await setSaved({type: 'news', id}, true);
     if (scope !== state.scope) return;
-    Object.assign(it, row);
-    signal(id, on ? 'star' : 'unstar');
-    if (state.tab === STAR && !on) state.items = state.items.filter(x => x.id !== id);
+    it.starred_at = out?.saved_at || new Date().toISOString();
+    signal(id, 'star');
   } catch (e) { if (scope === state.scope) state.notes.set(id, saveFailNote(e)); }
   finally { state.busy.delete('star:' + id); }
   if (scope !== state.scope) return;

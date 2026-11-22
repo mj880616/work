@@ -3,7 +3,8 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
 // HOME-읽을글밀기(2026-11-11 명진 요청): 홈 [하루] '읽을 만한 글' 줄을 왼쪽으로 밀면 숨기기(뉴스 글 hidden_at), 오른쪽으로 밀면 보관(뉴스 글 별표) —
 // 어느 쪽이든 홈에서 바로 빠지고(서버 표시를 읽어 거름), 알림 [되돌리기]가 돌려 놓는다. PC는 마우스 단추·우클릭 같은 두 항목. 다 처리하면 '다 읽었어요' 한 줄.
-// 가짜 서버만 쓴다: ai-assist(home_day_picks), 표 app_home_day_picks(읽기), 내 뉴스 표시 app_news_marks(읽기·고치기, NEWS-모두에게열기 ③), 환류 app_news_now_signals(더하기). 글은 모두 가짜.
+// 가짜 서버만 쓴다: ai-assist(home_day_picks), 표 app_home_day_picks(읽기), 내 뉴스 표시 app_news_marks(숨김 읽기·고치기, NEWS-모두에게열기 ③),
+// 보관 = 읽을 거리 줄(app_reading_items 읽기 · DB 함수 app_reading_keep, S68-27 — 아래 news 맵의 starred_at이 그 줄의 저장 시각), 환류 app_news_now_signals(더하기). 글은 모두 가짜.
 // 시계: 2026-10-06 19:30 KST(home-day-picks.spec.mjs와 같음).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const EVENING = '2026-10-06T10:30:00Z';
@@ -36,16 +37,34 @@ async function boot(page, width, height, { marks = {}, gate = null, ask = null }
         const ids = (/^in\.\((.*)\)$/.exec(q.get('article_id') || '')?.[1] || '').split(',').filter(Boolean);
         reads.push(ids);
         if (gate?.hold) await gate.hold;
-        return r.fulfill({ json: ids.map(i => news.get(i)).filter(Boolean).map(({ id, hidden_at, starred_at }) => ({ article_id: id, hidden_at, starred_at })) });
+        expect(q.get('select')).not.toContain('starred_at'); // S68-27: 옛 별표 칸은 읽지 않는다
+        return r.fulfill({ json: ids.map(i => news.get(i)).filter(r => r && (q.get('hidden_at') !== 'not.is.null' || r.hidden_at)).map(({ id, hidden_at }) => ({ article_id: id, hidden_at })) });
       }
       if (req.method() === 'PATCH') {
         expect(q.get('workspace_id')).toBe('eq.w');
         const id = (q.get('article_id') || '').replace(/^eq\./, ''), body = req.postDataJSON(), row = news.get(id);
         if (!row) return r.fulfill({ json: [] });
         patches.push({ id, body }); Object.assign(row, body);
-        return r.fulfill({ json: [{ article_id: row.id, starred_at: row.starred_at, folder_id: null, hidden_at: row.hidden_at ?? null }] });
+        return r.fulfill({ json: [{ article_id: row.id, folder_id: null, hidden_at: row.hidden_at ?? null }] });
       }
       return r.fallback();
+    });
+    // S68-27 보관 = 그 기사를 가리키는 읽을 거리 줄. 읽기: 고른 글 묶음(in.) · 글 하나(eq., 되돌리기용 시각). 쓰기: DB 함수 한 길(patches에 via 'keep'으로 남김).
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_reading_items', async r => {
+      const q = new URL(r.request().url()).searchParams, na = q.get('news_article_id') || '';
+      expect(q.get('workspace_id')).toBe('eq.w');
+      const ins = (/^in\.\((.*)\)$/.exec(na)?.[1] || '').split(',').filter(Boolean), one = /^eq\.(.*)$/.exec(na)?.[1];
+      if (one) { const row = news.get(one); return r.fulfill({ json: row?.starred_at ? [{ id: 'r-' + one, saved_at: row.starred_at }] : [] }); }
+      return r.fulfill({ json: ins.map(i => news.get(i)).filter(r => r?.starred_at).map(r => ({ news_article_id: r.id, saved_at: r.starred_at })) });
+    });
+    await page.route(u => u.origin === SB && u.pathname === '/rest/v1/rpc/app_reading_keep', async r => {
+      const b = r.request().postDataJSON(), row = news.get(b.p_article);
+      expect(b.p_workspace).toBe('w'); expect(b.p_source).toBe('news');
+      if (!row) return r.fulfill({ status: 400, json: { message: 'READINGKEEP_ARTICLE' } });
+      const was = row.starred_at;
+      row.starred_at = b.p_on ? (was || b.p_saved_at || new Date().toISOString()) : null;
+      patches.push({ id: row.id, via: 'keep', body: { starred_at: row.starred_at } });
+      return r.fulfill({ json: b.p_on ? { ok: true, on: true, id: 'r-' + row.id, saved_at: row.starred_at, created: !was } : { ok: true, on: false, removed: was ? 1 : 0, saved_at: was } });
     });
     await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_news_now_signals', async r => {
       if (r.request().method() !== 'POST') return r.fallback();
@@ -107,7 +126,7 @@ test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되
   await swipeTap(page, item(page, 2), 'save');
   await expect(item(page, 2)).toHaveCount(0);
   expect(f.patches.at(-1).id).toBe(uid(2));
-  expect(Object.keys(f.patches.at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
+  expect(f.patches.at(-1).via).toBe('keep'); // 보관 = 읽을 거리 줄(DB 함수 한 길, 옛 별표 칸 아님)
   expect(f.patches.at(-1).body.starred_at).toBeTruthy();
   await expect.poll(() => f.signals.some(s => s.article_id === uid(2) && s.action === 'star')).toBe(true);
   expect(await noticeText(page)).toBe('보관했어요');

@@ -120,7 +120,7 @@ export const LIMIT_NOTE = Object.freeze({monthly_limit:'이번 달 AI 한도에 
 export const limitNote = code => LIMIT_NOTE[code] || '';
 // ---- HOME-읽을글밀기(2026-11-11 명진 요청): 숨기거나 보관한 글은 홈 '읽을 만한 글'에서 뺀다 ----
 // 읽을 글의 id는 뉴스 기사(app_news_items) id다. 처리 표시는 홈에 따로 두지 않고 News와 같은 뉴스 줄의 표시를 그대로 본다:
-// 숨김 = hidden_at, 보관 = starred_at(뉴스에서 보관은 별표). 그래서 News에서 숨기거나 보관해도 홈에서 빠지고, 다른 기기에서도 같다.
+// 숨김 = hidden_at, 보관 = starred_at(S68-27부터 그 기사를 가리키는 읽을 거리 줄의 저장 시각). 그래서 News에서 숨기거나 보관해도 홈에서 빠지고, 다른 기기에서도 같다.
 export const READS_DONE_NOTE = '다 읽었어요';
 const NEWS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // 뉴스 기사 id 모양(UUID)이면 소문자로, 아니면 ''. 이 값만 서버에 묻고·누르면 처리한다.

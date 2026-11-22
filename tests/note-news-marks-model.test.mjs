@@ -42,8 +42,9 @@ test('구조: News와 같은 읽기 길·같은 밑줄 목록을 쓰고 따로 �
   assert.doesNotMatch(src, /\/rest\/v1\//, '노트 쪽은 따로 서버 주소를 부르지 않는다(now-saved.js·text-highlights.js 길 재사용)');
   const saver = readFileSync(new URL('../app/now-saved.js', import.meta.url), 'utf8');
   assert.match(saver, /export async function readSavedRows/);
-  // S68-24: News [보관] 탭은 없앴고, 읽을 거리 [News]가 같은 읽기를 쓴다(News 기능 키가 있을 때만 불러옴).
-  assert.doesNotMatch(saver, /createNowSaved/);
+  // S68-24: News [보관] 탭은 없앴다. S68-27: 보관한 글의 원본은 읽을 거리 표 — 이 읽기도 그 표를 읽고(옛 별표 칸 없음), 읽을 거리 화면은 표를 바로 읽는다.
+  assert.doesNotMatch(saver, /createNowSaved|starred_at/);
+  assert.match(saver, /readOutsideKept/);
   const reading = readFileSync(new URL('../app/reading.js', import.meta.url), 'utf8');
-  assert.match(reading, /const \{readSavedRows\} = await import\('\.\/now-saved\.js'\)/);
+  assert.doesNotMatch(reading, /now-saved\.js/);
 });

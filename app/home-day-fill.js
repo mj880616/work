@@ -238,7 +238,7 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (painted.get(el) === html) return;
     painted.set(el, html); el.innerHTML = html;
   }
-  // HOME-읽을글밀기: 고른 글 가운데 숨기거나 보관한 글(뉴스 줄의 hidden_at·starred_at)을 서버에서 읽어 둔다(탭 메모리).
+  // HOME-읽을글밀기: 고른 글 가운데 숨기거나 보관한 글(뉴스 표시 hidden_at·읽을 거리 줄 — S68-27)을 서버에서 읽어 둔다(탭 메모리).
   // 글 묶음(= 서버가 고른 글 id들)이 바뀌면 새로 읽고, 그 묶음은 홈을 다시 열거나(view-changed) 탭이 다시 보일 때 MARK_FRESH_MS 지났으면 다시 읽는다.
   // 밀어 처리한 일(changed)은 바로 여기에 반영하고(rev), 그보다 먼저 시작한 읽기 결과는 버리고 다시 읽는다(옛 값이 되살리지 않게).
   // HOME-읽을글한글만(11/14 명진 제보 '한 글 보관인데 전체가 없어짐'): 글마다 '처리 여부를 안다(checked)'를 두고, 글 묶음이 바뀌어도

@@ -1,5 +1,5 @@
 // S62-22 APP-공유로뉴스보관: 폰 공유 창 'WORK ON+ News 보관'으로 받은 기사 주소 하나를 서버(news-feed ?action=save_url)에 보내 내 News 보관에 넣는다.
-// 보내는 것은 주소 하나(+ 공유 창 제목 한 줄)뿐 — 서버가 로그인·작업공간을 정하고 공개 본문만 읽어 넣는다(같은 기사는 한 줄, 바로 보관). 창 없이 위쪽 작은 알림 한 줄:
+// 보내는 것은 주소 하나(+ 공유 창 제목 한 줄)뿐 — 서버가 로그인·작업공간을 정하고 공개 본문만 읽어 넣는다(같은 기사는 한 줄, 바로 보관 = 읽을 거리 한 줄, S68-27). 창 없이 위쪽 작은 알림 한 줄:
 // 'News 보관에 넣었어요 [열기]'(본문을 못 뽑았으면 '본문을 못 가져왔어요(원문 링크로 보기)'), 실패면 'News 보관에 넣지 못했어요 [다시]'.
 // [열기] = News [보관] 탭 + 그 기사 상세(news-request.mjs, 노트 '보관한 글'과 같은 길). 발송·공유·삭제로 이어지는 흐름은 없다. 기기 저장 없음.
 import {notify} from './small-notice.js';
@@ -23,6 +23,7 @@ export async function saveSharedNews(url, {title = '', isCurrent = () => true} =
     return null;
   }
   window.KPTUOutside?.refresh?.();
+  window.KPTUReading?.refresh?.(); // S68-27: 서버가 보관을 읽을 거리 줄로 넣는다 — 읽을 거리 목록도 다시 읽는다(열려 있을 때)
   const id = out.id;
   notify(NEWS_NOTE.done, {ms: SAVED_MS, note: out.status === 'no_body' ? NEWS_NOTE.noBody : '',
     actions: [{label: NEWS_NOTE.open, run: ({close}) => { close(); if (requestNewsOpen({type: 'news', id})) window.KPTURouter?.go?.('news', {source: 'delegated'}); }}]});
