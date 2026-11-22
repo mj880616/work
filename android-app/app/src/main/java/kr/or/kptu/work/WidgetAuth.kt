@@ -41,6 +41,11 @@ object WidgetRules {
      * 할 일은 google-tasks create 하나. 작업공간 확인은 위젯 세션 사용자 id로 읽는 한 줄(기존 소유자 RLS).
      */
     const val NOTES = "$SUPABASE/rest/v1/app_notes"
+    /**
+     * S68-02: 내 서버 기능 목록(app_my_features, 인자 없는 stable 함수라 GET). 화면 바탕 낱말(nojo_words)인지 알아
+     * '이번 주' 위젯 보고일 이름과 앱 사진 폴더 이름을 고른다(AppFolderRules). 서버가 로그인 토큰으로 내 작업공간 것만 준다. 기록 내용 없음.
+     */
+    const val FEATURES = "$SUPABASE/rest/v1/rpc/app_my_features"
     const val TASK_CREATE = "$SUPABASE/functions/v1/google-tasks?action=create"
     private const val WORKSPACE_PREFIX = "$SUPABASE/rest/v1/app_workspace_members?user_id=eq."
     private const val WORKSPACE_SUFFIX = "&select=workspace_id&limit=1"
@@ -110,7 +115,7 @@ object WidgetRules {
     /** 위젯이 보내도 되는 요청인지. 이 밖의 주소·방식은 보내지 않는다. */
     fun allowed(method: String, url: String): Boolean = when (method) {
         "POST" -> url == HANDOFF || url == TOKEN || url == LOGOUT || url == NOTES || url == TASK_CREATE || url == BASKET_FILES || url == LIBRARY_FILES
-        "GET" -> url == TASKS || url == CANDIDATES || url == ARSENAL || isCalendarUrl(url) || isWorkspaceUrl(url)
+        "GET" -> url == TASKS || url == CANDIDATES || url == FEATURES || url == ARSENAL || isCalendarUrl(url) || isWorkspaceUrl(url)
         else -> false
     }
 

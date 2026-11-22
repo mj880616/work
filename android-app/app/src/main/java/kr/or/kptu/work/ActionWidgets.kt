@@ -294,7 +294,8 @@ class PhotoPickActivity : Activity() {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "web2-" + System.currentTimeMillis() + ".jpg")
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/노조+")
+            // S68-02: 이미 있는 Pictures/노조+는 그대로, 없으면 nojo_words만 '노조+', 그 밖 'WORK ON+'(AppFolderRules).
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/" + AppFolders.home(this@PhotoPickActivity))
         }
         contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
     } catch (_: Exception) {

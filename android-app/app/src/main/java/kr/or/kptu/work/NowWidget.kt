@@ -115,6 +115,7 @@ class WidgetWorker(context: Context, params: WorkerParameters) : Worker(context,
         }
         val plan = WidgetRefresh(now, week, at)
         val r = plan.result(session.readList(plan.urls))
+        WidgetGuard.run { AppFolders.rememberNojoWords(ctx, r.nojoWords) }
         r.now?.let { p -> WidgetGuard.run { NowWidget.show(ctx, NowWidget.state(p)) } || WidgetGuard.run { NowWidget.show(ctx, NowWidget.State.Failed) } }
         r.week?.let { p -> WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.state(p)) } || WidgetGuard.run { WeekWidget.show(ctx, WeekWidget.State.Failed) } }
     }
