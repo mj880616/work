@@ -359,7 +359,7 @@ class WidgetWeekTest {
     @Test
     fun headerArrowsMoveWeekOnlyOnBigWidget() {
         // 4×2 머리 줄 양끝 ‹ ›(S68-22: 26sp·누르는 자리 40×36dp), 4×1 틀에는 없다(이번 주 고정).
-        assertTrue(Regex("android:id=\"@\+id/week_prev\"[^>]*android:textSize=\"26sp\"").containsMatchIn(java.io.File("src/main/res/layout/week_widget.xml").readText()))
+        assertTrue(Regex("""android:id="@\+id/week_prev"[^>]*android:textSize="26sp"""").containsMatchIn(java.io.File("src/main/res/layout/week_widget.xml").readText()))
         val big = java.io.File("src/main/res/layout/week_widget.xml").readText()
         val small = java.io.File("src/main/res/layout/week_widget_small.xml").readText()
         for (id in listOf("week_prev", "week_next")) {
