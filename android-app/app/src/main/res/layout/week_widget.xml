@@ -16,17 +16,20 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
-        <!-- S68-12: 지난주로(‹)·다음 주로(›). 작은 글자 단추, 범위 끝이면 자리만 남기고 숨김. -->
+        <!-- S68-12: 지난주로(‹)·다음 주로(›). 범위 끝이면 자리만 남기고 숨김. S68-22(명진 11/22 18:01 "화살표 크기 너무 작음"): 26sp 먹색, 누르는 자리 40×36dp. -->
         <TextView
             android:id="@+id/week_prev"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="‹"
             android:singleLine="true"
-            android:textColor="@color/widget_muted"
-            android:textSize="15sp"
-            android:paddingStart="2dp"
-            android:paddingEnd="8dp"
+            android:gravity="center"
+            android:minWidth="40dp"
+            android:minHeight="36dp"
+            android:textColor="@color/widget_ink"
+            android:textSize="26sp"
+            android:paddingStart="0dp"
+            android:paddingEnd="6dp"
             android:contentDescription="지난주로" />
         <TextView
             android:id="@+id/week_title"
@@ -65,10 +68,13 @@
             android:layout_height="wrap_content"
             android:text="›"
             android:singleLine="true"
-            android:textColor="@color/widget_muted"
-            android:textSize="15sp"
-            android:paddingStart="8dp"
-            android:paddingEnd="2dp"
+            android:gravity="center"
+            android:minWidth="40dp"
+            android:minHeight="36dp"
+            android:textColor="@color/widget_ink"
+            android:textSize="26sp"
+            android:paddingStart="6dp"
+            android:paddingEnd="0dp"
             android:contentDescription="다음 주로" />
     </LinearLayout>
     <LinearLayout
