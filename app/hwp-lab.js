@@ -10,7 +10,7 @@
 // [✕]·파일 이름·[파일 ▾]·[저장 ▾])과 편집기만 보인다. 두 메뉴는 공용 anchored-menu로 열고, 항목은 아래 기존 버튼을 그대로 누른다
 // (버튼의 켜짐·꺼짐·숨김은 sync()가 정하고 메뉴는 열 때 그 상태를 읽어 그린다).
 import {createSandboxedEditor} from './hwp-frame.js';
-import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,findConvertTemplate,saveConvertedCopy,saveUnionForm,unionFormFileProblem} from './hwp-drive.js';
+import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,EDIT_BACKUP_FOLDER,findConvertTemplate,saveConvertedCopy,saveUnionForm,unionFormFileProblem} from './hwp-drive.js';
 import {callAiAssist} from './basket-ai-summary.js';
 import {openConvertDialog,openFormUploadDialog,requestEngineBuild,CONVERT_TEXT,ENGINE_TEXT,convertRetryable} from './hwp-convert.js';
 import {DOC_TYPES,convertAnswer,buildPlan,convertedFileName} from './hwp-convert-model.mjs';
@@ -554,7 +554,7 @@ async function saveNew(){
 async function overwrite(){
   const shown=drive;
   if(!shown?.info?.can_overwrite||busy||shown.lockOverwrite)return;
-  const notes=['바꾸기 전 원본 사본을 Drive "노조+ 편집 백업" 폴더에 보관해요.'];
+  const notes=[`바꾸기 전 원본 사본을 Drive "${EDIT_BACKUP_FOLDER}" 폴더에 보관해요.`];
   if(shown.info.shared)notes.push('잊지 말기와 자료실 양쪽에 반영돼요.');
   if(!(await askConfirm(anchorFor('hwpDriveOverwrite'),{text:`원본 "${shown.info.file_name}"을 지금 수정한 내용으로 바꿔요. 덮어쓸까요?`,note:notes.join(' '),ok:'덮어쓰기',danger:true})))return;
   if(drive!==shown||busy||shown.lockOverwrite)return;

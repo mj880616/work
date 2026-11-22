@@ -37,7 +37,6 @@ export const GIROK_ALLOW = Object.freeze([
   { file: 'app/google-tasks.js', text: '[Google Tasks] 조직 순서표 미등록', reason: '개발자 콘솔 경고(console.warn, 화면 글자 아님)' },
   { file: 'app/legacy/startup-speed.js', reason: '불러오는 곳 없는 옛 classic script(app 어디서도 쓰지 않음)' },
   { file: 'app/task-layout.js', reason: '불러오는 곳 없는 옛 파일(view-loader는 task-layout.css만 씀)' },
-  { file: 'app/record-backup.js', text: '노조+ 백업', reason: "Drive 폴더 이름 겸용: 서버(supabase/functions/record-backup)가 '노조+ 백업' 폴더를 만든다. 기록+ 서버 값이 정해지면 함께 바꿈" },
 
   // ── 묶음 A 끝 ──
 
@@ -64,16 +63,10 @@ export const GIROK_ALLOW = Object.freeze([
   // ── 묶음 D ──
   { file: 'app/document-categories.js', reason: '자료 분류 이름은 사람별 목록(프로필)·DB 기본값과 같은 저장 값이고, 화면은 그 사람 목록 이름을 그대로 보인다(기록+ 기본 분류는 새 서버 DB 기본값에서 정함)' },
   { file: 'app/files-auto-model.mjs', reason: '서버(Edge)가 만드는 Drive 폴더 실제 이름과 맞추는 값(겸용) — 폴더 이름을 얼굴별로 바꾸는 일은 서버 쪽' },
-  { file: 'app/photos-model.mjs', text: '.노조+ 휴지통', reason: 'Drive 휴지통 폴더 실제 이름(서버와 같은 값, 겸용)' },
+  { file: 'app/photos-model.mjs', text: '.노조+ 휴지통', reason: '원드라이브 휴지통 폴더 실제 이름(이미 있는 폴더 이름, 서버와 같은 값) — 폴더 이름 거절용, 화면 글자 아님' },
   { file: 'app/photos.js', text: 'Pictures/노조+/', reason: '폰 사진첩 폴더 실제 경로(폰 앱과 같은 값)' },
-  { file: 'app/photos.js', text: '사진첩 노조+ 폴더', reason: '폰 사진첩 실제 폴더 이름을 가리킴(폰 앱 폴더 이름이 얼굴별이 되면 함께 바꿈)' },
-  { file: 'app/photos.js', text: '노조+ 휴지통으로', reason: 'Drive 휴지통 실제 폴더 이름을 가리킴(겸용)' },
   { file: 'app/hwp-drive.js', text: '노조 서식', reason: '자료실 분류 저장 값(UNION_TEMPLATE_CATEGORY, 겸용) — 기록+ 값은 명진 결정 필요' },
-  { file: 'app/hwp-drive.js', text: '노조+ 편집 백업', reason: '서버가 만드는 Drive 백업 폴더 실제 이름을 가리킴' },
-  { file: 'app/hwp-lab.js', text: '노조+ 편집 백업', reason: '서버가 만드는 Drive 백업 폴더 실제 이름을 가리킴' },
-  { file: 'app/hwp-lab/studio-styles.js', reason: '편집기 iframe 안 classic script(import 불가) — HWP 노조 양식 스타일 기능 자체가 명진 결정 필요' },
-  { file: 'app/files.js', text: '노조+ 파일 올리기 도우미', reason: 'PC 도우미 프로그램 실제 이름(windows-app) — 기록+판 도우미 이름은 명진 결정 필요' },
-  { file: 'app/pc-files-model.mjs', text: '노조+ 파일 올리기', reason: 'PC 도우미 프로그램 실제 이름·메뉴 글자(windows-app) — 기록+판 도우미 이름은 명진 결정 필요' },
+  { file: 'app/pc-files-model.mjs', text: '노조+에서 이 PC 보기', reason: 'PC 도우미 프로그램(basket-pc TrayApp.cs) 트레이 메뉴의 실제 글자 — 프로그램 이름·메뉴 바꾸기는 따로(S68-02 발견사항). 도우미 이름 글자는 word()' },
   { file: 'app/library-sort-model.mjs', text: '성명서', reason: '파일 이름 안 문서 종류 낱말을 찾는 비교 값(사용자 글 읽기)' },
   { file: 'app/ledger-import-model.mjs', text: '조직', reason: '사용자 원장 시트의 탭·칸 이름과 맞추는 읽기 값(원장 양식)' },
   { file: 'app/ledger-import-model.mjs', text: '노조+연결ID', reason: '사용자 원장 시트의 칸 이름과 맞추는 읽기 값(원장 양식)' },

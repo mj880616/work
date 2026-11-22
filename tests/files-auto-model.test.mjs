@@ -73,6 +73,20 @@ test('규칙의 폴더 이름 = 각 자동화 코드의 상수(바뀌면 함께 
   for (const n of ['원문', '전사', '검토대기', '검토완료', '노조+ 읽기용 사본', 'Web2 읽기용 사본', '노조+ 편집 백업', 'Web2 편집 백업', '회의 녹음', '녹음 조각', '.노조+ 휴지통', '.Web2 휴지통']) assert.ok(names.includes(n), n);
 });
 
+test('S68-02: 새 사용자 폴더 이름(WORK ON+ …)도 자동 폴더로 본다 — 서버 상수·brand-folders와 같은 값', async () => {
+  const {FOLDER_NAMES} = await import('../supabase/functions/_shared/brand-folders.mjs');
+  const {WORKON_TRASH_FOLDER_NAME} = await import('../app/photos-model.mjs');
+  assert.match(read('supabase/functions/_shared/hwp-edit.ts'), /export const WORKON_BACKUP_FOLDER = "WORK ON\+ 편집 백업";/);
+  assert.match(read('supabase/functions/onedrive-photos/graph.ts'), /export const WORKON_TRASH_NAME = "\.WORK ON\+ 휴지통";/);
+  assert.equal(FOLDER_NAMES.edit_backup.now, 'WORK ON+ 편집 백업');
+  assert.equal(FOLDER_NAMES.edit_backup.old, '노조+ 편집 백업');
+  assert.equal(FOLDER_NAMES.photo_trash.now, WORKON_TRASH_FOLDER_NAME);
+  assert.equal(FOLDER_NAMES.photo_trash.old, TRASH_FOLDER_NAME);
+  assert.equal(autoMadeKind({folder_path: 'WORK ON+ 편집 백업'}), 'edit_backup');
+  assert.equal(autoMadeKind({folder_path: '사진 › .WORK ON+ 휴지통'}), 'trash');
+  assert.equal(autoMadeKind({folder_path: '가짜 WORK ON+ 편집 백업'}), null);
+});
+
 test("'최근' 상태를 만드는 곳 한 곳에서만 거른다(그린 뒤 덮어쓰기 없음), 서버 한도까지 읽는다", () => {
   const src = read('app/files.js');
   assert.equal(src.match(/recentHumanRows\(/g)?.length, 1);

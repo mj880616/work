@@ -13,16 +13,18 @@ const SB = 'https://synthetic.supabase.test', ANON = 'anon-synthetic', SERVICE =
 const USER = '20000000-0000-4000-8000-000000000001', WS = '10000000-0000-4000-8000-00000000000a', OTHER_WS = '10000000-0000-4000-8000-00000000000b';
 const SECRET = '가짜 비밀 노트 본문';
 
-function world({ connected = true, owner = WS, oldDays = [] } = {}) {
+function world({ connected = true, owner = WS, oldDays = [], features = [], rootName = null } = {}) {
   const calls = [], logs = [], drive = { files: [], perms: {} };
   let n = 0;
   const id = () => `f${++n}`;
+  if (rootName) drive.files.push({ id: id(), name: rootName, parents: ['root'], appProperties: { kptu_backup: 'root' }, trashed: false });
   for (const d of oldDays) drive.files.push({ id: id(), name: d, parents: ['ROOT?'], appProperties: { kptu_backup: 'day', kptu_backup_date: d }, trashed: false });
   const rows = { app_notes: [{ id: 'n1', workspace_id: WS, title: '가짜 노트', body: SECRET }], app_profiles: [{ user_id: USER, display_name: '가짜 이름' }], app_suborganization_updates: [{ id: 'u1', raw_text: '가짜 보고', o: { workspace_id: WS } }] };
   async function fetch(url, init = {}) {
     url = String(url); const method = init.method || 'GET', h = init.headers || {};
     calls.push({ url, method, headers: h, body: init.body });
     if (url === `${SB}/auth/v1/user`) return h.Authorization === 'Bearer good' ? Response.json({ id: USER }) : new Response('{}', { status: 401 });
+    if (url === `${SB}/rest/v1/rpc/app_my_features`) return features === 'fail' ? new Response('{}', { status: 500 }) : Response.json(features);
     if (url.startsWith(`${SB}/rest/v1/`)) {
       const u = new URL(url), table = u.pathname.split('/').pop();
       if (method === 'HEAD') return new Response(null, { status: 200, headers: { 'Content-Range': `0-0/${(rows[table] || []).length}` } });
@@ -78,7 +80,7 @@ test('기록 읽기는 사용자 토큰 + anon 키, 내 작업공간 조건만(�
   const w = world();
   const r = await w.ask('run', { kinds: M.KINDS });
   assert.equal(r.status, 200);
-  const reads = w.calls.filter(c => c.url.startsWith(`${SB}/rest/v1/`));
+  const reads = w.calls.filter(c => c.url.startsWith(`${SB}/rest/v1/`) && !c.url.startsWith(`${SB}/rest/v1/rpc/`));
   assert.ok(reads.length >= M.CATEGORIES.flatMap(c => c.tables).length);
   for (const c of reads) {
     assert.equal(c.headers.apikey, ANON); assert.equal(c.headers.Authorization, 'Bearer good');
@@ -94,7 +96,7 @@ test('기록 읽기는 사용자 토큰 + anon 키, 내 작업공간 조건만(�
 });
 
 test('드라이브: 노조+ 백업/날짜 폴더, csv·읽기용 문서, 같은 날 다시 하면 그날 폴더 교체, 응답·로그에 내용 없음', async () => {
-  const w = world();
+  const w = world({ features: ['nojo_words'] });
   const r = await w.ask('run', { kinds: ['notes', 'reports', 'ledger'] });
   const body = await r.json();
   assert.equal(r.status, 200); assert.equal(body.date, '2026-11-18'); assert.equal(body.count, 3);
@@ -161,4 +163,26 @@ test('함수 입구: verify_jwt=true 신규 함수로 표에 등록, 서비스 �
   assert.ok(!/SERVICE_ROLE/.test(handler), 'handler는 서비스 역할 키를 모른다');
   const doc = readFileSync(new URL('../../docs/web2-env6b-edge-source.md', import.meta.url), 'utf8');
   assert.match(doc, /\| 46 \| `record-backup` \|[^\n]*\| \*\*true\*\* \|/);
+});
+
+// S68-02: 맨 위 폴더 이름 — 새 사용자는 'WORK ON+ 백업', nojo_words·확인 실패는 '노조+ 백업', 이미 있는 폴더는 이름 그대로(바꾸지 않음).
+test('S68-02: 새로 만드는 백업 폴더 이름과 이미 있는 폴더 보존', async () => {
+  const fresh = world();
+  const r = await (await fresh.ask('run', { kinds: ['notes'] })).json();
+  const root = fresh.drive.files.find(f => f.appProperties?.kptu_backup === 'root');
+  assert.equal(root.name, 'WORK ON+ 백업'); assert.equal(r.root_name, 'WORK ON+ 백업');
+  const rpc = fresh.calls.find(c => c.url === `${SB}/rest/v1/rpc/app_my_features`);
+  assert.equal(rpc.method, 'POST'); assert.equal(rpc.headers.apikey, ANON); assert.equal(rpc.headers.Authorization, 'Bearer good');
+  assert.ok(!JSON.stringify(rpc.headers).includes(SERVICE), '기능 확인은 로그인 토큰으로(서비스 역할 키 안 씀)');
+  const failed = world({ features: 'fail' });
+  await failed.ask('run', { kinds: ['notes'] });
+  assert.equal(failed.drive.files.find(f => f.appProperties?.kptu_backup === 'root').name, '노조+ 백업', '확인 실패는 지금 이름');
+  const kept = world({ rootName: '노조+ 백업' });
+  const k = await (await kept.ask('run', { kinds: ['notes'] })).json();
+  const roots = kept.drive.files.filter(f => f.appProperties?.kptu_backup === 'root');
+  assert.equal(roots.length, 1); assert.equal(roots[0].name, '노조+ 백업'); assert.equal(k.root_name, '노조+ 백업');
+  assert.ok(!kept.calls.some(c => c.method === 'PATCH' && /"name"/.test(String(c.body))), '이미 있는 폴더 이름을 바꾸지 않는다');
+  assert.ok(!kept.calls.some(c => c.url.includes('/rpc/app_my_features')), '폴더가 있으면 기능 확인도 하지 않는다');
+  const s = await (await kept.ask('status')).json();
+  assert.equal(s.folder_name, '노조+ 백업');
 });

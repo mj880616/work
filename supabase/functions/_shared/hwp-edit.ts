@@ -4,8 +4,9 @@
 // library-files / basket-files uploads; this module only reads and overwrites.
 // Overwrite rules (2026-10-15 사용자 결정): HWP originals only, only while Drive
 // still holds the revision the editor opened, after a verified copy of that
-// revision is kept in the "노조+ 편집 백업" folder (옛 이름 "Web2 편집 백업"). Backups are never removed here,
+// revision is kept in the "노조+ 편집 백업" folder (새 사용자는 "WORK ON+ 편집 백업", 옛 이름 "Web2 편집 백업"). Backups are never removed here,
 // and nothing is ever permanently deleted or retried after an unknown result.
+import { FOLDER_NAMES, NOJO_WORDS_FEATURE, driveQuoted, folderNameFor, keepOldFromFeatureWorkspace } from "./brand-folders.mjs";
 type DbRequest = (path: string) => Promise<unknown>;
 type Deps = {
   db: DbRequest;
@@ -13,6 +14,9 @@ type Deps = {
   assertOwner: (userId: string, row: { workspace_id: string }) => Promise<void>;
   fetch: typeof fetch;
   now?: () => Date;
+  // S68-02: 이 작업공간이 지금 이름('노조+ …', 운영자 기능 nojo_words)을 쓰나. 모르면 null(→ 지금 이름).
+  // 없으면 db(서버 키)로 서버 허용 표 함수 app_operator_feature_workspace('nojo_words')를 GET으로 읽는다(stable 함수, 기존 service_role 권한).
+  keepOldNames?: (workspaceId: string) => Promise<boolean | null>;
 };
 type Source = {
   kind: "library" | "basket";
@@ -39,6 +43,11 @@ export const HWP_MAX_BYTES = 30 * 1024 * 1024;
 export const HTML_VIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const isHtmlName = (name: string) => /\.html?$/i.test(String(name || ""));
 export const BACKUP_FOLDER = "노조+ 편집 백업";
+// S68-02: 새 사용자(운영자 기능 nojo_words가 아닌 사람)가 처음 만들 때의 이름(_shared/brand-folders.mjs와 같은 값).
+export const WORKON_BACKUP_FOLDER = "WORK ON+ 편집 백업";
+if (FOLDER_NAMES.edit_backup.old !== BACKUP_FOLDER || FOLDER_NAMES.edit_backup.now !== WORKON_BACKUP_FOLDER) {
+  throw new Error("edit backup folder names drifted");
+}
 // BRAND-웹2흔적지우기: 예전에 만든 폴더 이름. 찾을 때 함께 보고, 찾으면 이름만 새 이름으로 바꾼다(파일은 그대로).
 export const OLD_BACKUP_FOLDER = "Web2 편집 백업";
 
@@ -345,12 +354,17 @@ export function createHwpEdit(deps: Deps) {
     };
   }
 
-  // One "노조+ 편집 백업" folder in the owner's own My Drive root; the oldest wins.
-  // BRAND-웹2흔적지우기: 옛 이름("Web2 편집 백업") 폴더도 같은 폴더로 본다. 그것이 고른 폴더면 이름만 새 이름으로
-  // 바꾼다(실패해도 백업은 그 폴더에 그대로 한다). 새 폴더를 더 만들지 않고, 안의 파일은 옮기거나 지우지 않는다.
-  async function backupFolder(token: string) {
+  // One backup folder in the owner's own My Drive root. S68-02: 찾을 때는 세 이름("노조+ 편집 백업"·"WORK ON+ 편집 백업"·옛 "Web2 편집 백업")을
+  // 모두 보고, 이름 차례(노조+ → WORK ON+ → Web2) 다음 오래된 것을 고른다 — 이미 있는 "노조+ 편집 백업"은 그대로 계속 쓴다(이름을 바꾸지 않음).
+  // BRAND-웹2흔적지우기: 고른 것이 "Web2 편집 백업"이면 이름만 이 사람의 이름(아래)으로 바꾼다(실패해도 백업은 그 폴더에 그대로 한다).
+  // 없을 때만 새로 만든다: 운영자 기능 nojo_words(명진 화면)·확인 실패는 "노조+ 편집 백업", 그 밖은 "WORK ON+ 편집 백업".
+  // 새 폴더를 더 만들지 않고, 안의 파일은 옮기거나 지우지 않는다.
+  const keepOldNames = deps.keepOldNames ?? (async (workspaceId: string) =>
+    keepOldFromFeatureWorkspace(await deps.db(`rpc/app_operator_feature_workspace?p_feature=${NOJO_WORDS_FEATURE}`), workspaceId));
+  async function backupFolder(token: string, workspaceId: string) {
+    const order = [BACKUP_FOLDER, WORKON_BACKUP_FOLDER, OLD_BACKUP_FOLDER];
     const params = new URLSearchParams({
-      q: `(name = '${BACKUP_FOLDER}' or name = '${OLD_BACKUP_FOLDER}') and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false`,
+      q: `(${order.map((name) => `name = '${driveQuoted(name)}'`).join(" or ")}) and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false`,
       fields: "incompleteSearch,files(id,name,ownedByMe,trashed)",
       orderBy: "createdTime",
       pageSize: "10",
@@ -360,31 +374,35 @@ export function createHwpEdit(deps: Deps) {
     if (!found || !Array.isArray(found.files) || found.incompleteSearch) {
       return null;
     }
-    const existing = found.files.find((f: DriveFile) =>
+    const usable = found.files.filter((f: DriveFile) =>
       DRIVE_ID.test(String(f?.id ?? "")) && f.ownedByMe === true &&
       f.trashed === false
     );
+    const existing = order.map((name) => usable.find((f: DriveFile) => f.name === name)).find(Boolean) ?? usable[0];
+    let ownName: string | null = null;
+    const nameForMe = async () => ownName ?? (ownName = folderNameFor("edit_backup", await keepOldNames(workspaceId).catch(() => null)));
     if (existing) {
       if (existing.name === OLD_BACKUP_FOLDER) {
-        await drive(`${DRIVE}/${encodeURIComponent(existing.id)}?fields=id`, {
+        const renamed = await drive(`${DRIVE}/${encodeURIComponent(existing.id)}?fields=id`, {
           method: "PATCH",
           headers: { ...auth(token), "Content-Type": "application/json" },
-          body: JSON.stringify({ name: BACKUP_FOLDER }),
-        }).catch(() => null);
+          body: JSON.stringify({ name: await nameForMe() }),
+        }).then((r) => r?.ok ? ownName : null).catch(() => null);
+        return { id: existing.id as string, name: ownName && renamed ? ownName : OLD_BACKUP_FOLDER };
       }
-      return existing.id as string;
+      return { id: existing.id as string, name: typeof existing.name === "string" ? existing.name : null };
     }
     const created = await drive(`${DRIVE}?fields=id`, {
       method: "POST",
       headers: { ...auth(token), "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: BACKUP_FOLDER,
+        name: await nameForMe(),
         mimeType: "application/vnd.google-apps.folder",
         parents: ["root"],
       }),
     });
     const folder = created?.ok ? await created.json().catch(() => null) : null;
-    return DRIVE_ID.test(String(folder?.id ?? "")) ? folder.id as string : null;
+    return DRIVE_ID.test(String(folder?.id ?? "")) ? { id: folder.id as string, name: await nameForMe() } : null;
   }
 
   async function overwrite(userId: string, form: FormData) {
@@ -436,9 +454,9 @@ export function createHwpEdit(deps: Deps) {
     const backupFailed = () =>
       refuse(
         "BACKUP_FAILED",
-        `원본 사본을 "${BACKUP_FOLDER}" 폴더에 보관하지 못해 덮어쓰지 않았습니다. 원본은 그대로입니다.`,
+        "원본 사본을 편집 백업 폴더에 보관하지 못해 덮어쓰지 않았습니다. 원본은 그대로입니다.",
       );
-    const folder = await backupFolder(token);
+    const folder = await backupFolder(token, src.workspaceId);
     if (!folder) throw backupFailed();
     const name = backupName(src.fileName, now());
     const copied = await drive(
@@ -446,7 +464,7 @@ export function createHwpEdit(deps: Deps) {
       {
         method: "POST",
         headers: { ...auth(token), "Content-Type": "application/json" },
-        body: JSON.stringify({ name, parents: [folder] }),
+        body: JSON.stringify({ name, parents: [folder.id] }),
       },
     );
     const copy = copied?.ok ? await copied.json().catch(() => null) : null;
@@ -460,7 +478,8 @@ export function createHwpEdit(deps: Deps) {
       throw changed();
     }
 
-    const backup = { id: copy.id as string, name };
+    // folder: 사본이 든 폴더의 실제 이름(화면 안내 글에 그대로 쓴다, S68-02).
+    const backup = { id: copy.id as string, name, folder: folder.name };
     const unknown = () =>
       Object.assign(
         new HwpEditError(

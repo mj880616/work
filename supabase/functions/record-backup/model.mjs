@@ -11,7 +11,7 @@
 //   지키는 표라, 넣으려면 그 허용 목록을 바꾸는 결정이 먼저다(PR 본문 '사용자 결정').
 // - 비밀값·토큰이 든 표(드라이브·원드라이브 연결, 폰 기기 등)는 담지 않는다.
 
-export const BACKUP_FOLDER = '노조+ 백업';
+// 맨 위 폴더 이름(새로 만들 때만 고름)은 ../_shared/brand-folders.mjs FOLDER_NAMES.record_backup(S68-02).
 export const KEEP_WEEKS = 4;            // 11/16 명진 확정: 최근 4주만 보관(오래된 날짜 폴더는 드라이브 휴지통으로)
 export const AUTO_EVERY_DAYS = 7;       // 매주 자동 백업
 export const ROWS_PER_TABLE = 20000;    // 넘으면 잘린 백업을 만들지 않고 실패
