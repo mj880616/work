@@ -207,7 +207,7 @@
 }
 
 /* S67-65 CAL-꽉찬색(명진 11/21 시안 E1): 구글 일정은 월·주·하루 목록 모두 꽉 찬 색 바탕 + 대비 글자.
-   색(--cmv-google-source)은 톤 낮춘 구글 색, 글자(--cmv-google-ink)는 대비 4.5:1로 고른 흰색·진한 글자(event-color.mjs). 다크 모드도 같은 칠. */
+   색(--cmv-google-source)은 구글보다 한 톤 차분한 밝은 색(G2), 글자(--cmv-google-ink)는 흰색 기본·밝은 노랑만 진한 글자(event-color.mjs). 다크 모드도 같은 칠. */
 .cal-event.google.cp-event,
 #calendarWeek .cwv-items .cp-event{
   background:var(--cmv-google-source)!important;
