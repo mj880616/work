@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
-import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, fullDistance, SWIPE_BTN} from '../app/row-swipe-model.mjs';
+import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, fullDistance, SWIPE_BTN, endCells, sides, cellWidth, isDanger, pickedLabel, SWIPE_END_MAX} from '../app/row-swipe-model.mjs';
 import * as tg from '../app/tg-day-model.mjs';
 const read = f => readFileSync(new URL('../app/' + f, import.meta.url), 'utf8');
 
@@ -33,16 +33,51 @@ test('조금 밀면 버튼만 보이고 멈춤, 끝까지 밀면 바로 실행, 
   assert.deepEqual(rowSettle(-300, {start:true, end:false}, w), {side:'', run:false});
   assert.equal(openOffset('start'), SWIPE_BTN); assert.equal(openOffset('end'), -SWIPE_BTN); assert.equal(openOffset(''), 0);
 });
-test('목록마다 공용 부품을 붙이고, 지우기는 휴지통 길(묻지 않음 + 되돌리기)만 쓴다', () => {
-  const basket = read('basket.js'), notes = read('basket-notes.js'), todos = read('inbox-todos.js'), tasks = read('google-tasks.js');
+test('Raindrop식: 왼쪽 밀기 칸은 최대 3개, 삭제는 늘 맨 오른쪽, 옛 한 칸 모양도 받는다', () => {
+  const share = {key:'share', label:'공유'}, move = {key:'move', label:'옮기기', tone:'move'}, del = {key:'delete', label:'삭제', tone:'danger'}, pin = {key:'pin', label:'고정'};
+  assert.deepEqual(endCells([del, share, move]).map(a => a.key), ['share', 'move', 'delete']);
+  assert.deepEqual(endCells([share, pin, move, del]).map(a => a.key), ['share', 'pin', 'delete']);
+  assert.equal(endCells([share, pin, move, del]).length, SWIPE_END_MAX);
+  assert.deepEqual(endCells([share, pin, move, {key:'hide', label:'숨기기'}]).map(a => a.key), ['share', 'pin', 'move']);
+  assert.deepEqual(endCells(del).map(a => a.key), ['delete']);
+  assert.deepEqual(endCells([null, share, undefined]).map(a => a.key), ['share']);
+  assert.deepEqual(endCells(null), []);
+  assert.equal(isDanger({key:'delete'}), true); assert.equal(isDanger({key:'x', tone:'danger'}), true); assert.equal(isDanger(share), false);
+});
+test('칸 여러 개: 멈춘 자리는 칸 수만큼, 밀수록 칸이 함께 넓어진다', () => {
+  assert.equal(openOffset('end', 3), -3 * SWIPE_BTN); assert.equal(openOffset('end', 2), -128); assert.equal(openOffset('start', 3), SWIPE_BTN);
+  assert.equal(cellWidth(-100, 3), SWIPE_BTN); assert.equal(cellWidth(-300, 3), 100); assert.equal(cellWidth(0, 2), SWIPE_BTN);
+  assert.equal(pickedLabel(3), '3개 선택됨');
+});
+test('끝까지 밀기: 맨 오른쪽이 삭제가 아니면 바로 실행, 삭제면 바로 지우지 않고 칸만 연다', () => {
+  const w = 400, del = {key:'delete', label:'삭제', tone:'danger'}, hide = {key:'hide', label:'숨기기'}, save = {key:'save', label:'보관'};
+  const withDel = sides({start:{key:'select'}, end:[save, del]}), withHide = sides({start:{key:'select'}, end:[save, hide]});
+  assert.deepEqual(withDel, {start:1, end:2, startFull:true, endFull:false});
+  assert.deepEqual(rowSettle(-300, withDel, w), {side:'end', run:false});
+  assert.deepEqual(rowSettle(-300, withHide, w), {side:'end', run:true});
+  assert.deepEqual(rowSettle(300, withDel, w), {side:'start', run:true});
+  assert.deepEqual(rowSettle(-40, withDel, w), {side:'end', run:false});
+  assert.deepEqual(sides({start:null, end:null}), {start:0, end:0, startFull:false, endFull:false});
+  assert.equal(rowOffset(-80, 0, sides({start:{key:'select'}, end:null}), 400), 0);
+});
+test('목록마다 공용 부품을 붙이고, 오른쪽 밀기는 [고르기], 지우기는 휴지통 길(묻지 않음 + 되돌리기)만 쓴다', () => {
+  const basket = read('basket.js'), notes = read('basket-notes.js'), todos = read('inbox-todos.js'), tasks = read('google-tasks.js'), now = read('now-row-acts.js'), swipe = read('row-swipe.js');
   assert.match(basket, /bindRowSwipe\(root\.querySelector\('\[data-basket-rows\]'\),\{row:'\[data-basket-row-item\]'/);
   assert.match(basket, /if\(key==='delete'\)void deleteFromList\(id,\{confirmed:true\}\)/);
   assert.match(basket, /deleteNoteOriginal\(id,\{rt,isCurrent:current,trash:true,confirmed\}\)/);
   assert.match(notes, /bindRowSwipe\(list, \{row:'\[data-nx-note\]'/);
   assert.match(notes, /deleteNoteOriginal\(id, \{rt, isCurrent:current, trash:true, confirmed\}\)/);
+  assert.match(notes, /select:\{attr:'data-nx-note', open:el => \{ if \(!selected && !busy\) startSelect\('n:' \+ el\.dataset\.nxNote\)/); // 노트는 이미 있는 선택 모드를 연다
+  assert.match(notes, /key:'move', label:'옮기기', tone:'move'/);
   assert.match(notes, /claimedSince\(s\.t\)/); // 줄 위 밀기는 보기 전환보다 먼저
   assert.match(todos, /bindRowSwipe\(host, \{row:'\[data-inbox-todo-row\]'/);
   assert.match(tasks, /bindRowSwipe\(body,\{row:'\.gt-row\[data-google-task\]'/);
+  for (const src of [basket, notes, todos, tasks, now]) assert.match(src, /start:PICK|start = attr \? PICK/);
+  // Google 할 일·챙길 것은 되돌릴 길이 없는 삭제를 줄 밀기에 두지 않는다.
+  assert.doesNotMatch(tasks.slice(tasks.indexOf('bindRowSwipe(body'), tasks.indexOf('bindRowSwipe(body') + 600), /'delete'/);
+  assert.doesNotMatch(todos.slice(todos.indexOf('bindRowSwipe(host'), todos.indexOf('bindRowSwipe(host') + 600), /'delete'/);
+  // 고르기 상태는 화면 메모리만(기기 저장 없음 — 기기 저장 사용은 Browser storage audit workflow가 막는다): 공용 선택 상태 부품을 쓴다.
+  assert.match(swipe, /createSelectMode\(/);
 });
 test('⋯ 메뉴는 높이를 320px로 묶지 않고, 창보다 길 때만 아래 흐림', () => {
   assert.doesNotMatch(read('basket.js'), /placeAnchored\(rowMenuEl,trigger,\{maxWidth:220,maxHeight:320\}\)/);

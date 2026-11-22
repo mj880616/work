@@ -1,10 +1,10 @@
-import {bindRowSwipe} from './row-swipe.js';
+import {bindRowSwipe, PICK} from './row-swipe.js';
 import {notify} from './small-notice.js';
 import {setMark, setSaved, sendSignal, unstar, restoreStar, removeMine, restoreMine} from './now-marks.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
 // NOW-줄밀기(S49-3, 명진 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
-// 왼쪽 밀기 = 숨기기(사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at), 오른쪽 밀기 = 보관(= 별표, 두 쪽 같음 — S67-09). 보관된 줄을 다시 밀면 풀기.
-// [보관] 탭의 오른쪽 밀기 = 보관 풀기. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
+// S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀면 숨기기), 오른쪽 밀기 = [선택](여러 개).
+// 보관(= 별표, 두 쪽 같음 — S67-09)된 줄은 [보관] 칸이 [보관 풀기]. [보관] 탭은 칸 [보관 풀기]. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
 // PC·중간 폭은 밀기 대신 줄 위에 마우스를 올리면(또는 키보드 초점) 작은 [보관][숨기기]([보관] 탭은 [보관 풀기]).
 // S67-11 NEWS-보관빼기(명진 11/19): 줄 오른쪽 ★(news-row.mjs, data-now-act="unstar")·밀기·마우스 단추·⋯·우클릭의 '보관 풀기'는 모두 dropSaved 하나 —
 //   '보관에서 뺐어요 [되돌리기]' 5초, 되돌리면 원래 별표 시각·폴더로(원래 자리). 내가 넣은 기사(canDelete)는 [숨기기] 자리에 [삭제](deleteMine, 5초 [되돌리기]).
@@ -68,14 +68,40 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
     finally { busy.delete(id); }
   }
   const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item)});
+  // UI-줄밀기 Raindrop식(S68-26, 명진 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
+  // 끝까지 밀면 맨 끝 [숨기기]를 바로(삭제면 칸만 열림). 오른쪽으로 밀기 = [선택] → 'n개 선택됨 · [보관][숨기기]'([보관] 탭은 [보관 풀기]).
+  const attr = (/^\[([a-z0-9-]+)\]$/.exec(row) || [])[1];
   const swipe = bindRowSwipe(host, {row, enabled,
     actions: el => {
       const item = itemOf(el); if (!item) return null;
       const del = canDelete(item) ? {key: 'delete', label: DELETE_LABEL, tone: 'danger'} : null;
-      if (saved) return {start: {key: 'release', label: RELEASE_LABEL, tone: 'info'}, end: del};
-      return {start: {key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, end: del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}};
+      const start = attr ? PICK : null;
+      if (saved) return {start, end: [{key: 'release', label: RELEASE_LABEL, tone: 'info'}, del]};
+      return {start, end: [{key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
     },
-    run: (key, el) => { const item = itemOf(el); if (item) run(key, item); }});
+    run: (key, el) => { const item = itemOf(el); if (item) run(key, item); },
+    select: attr ? {attr, label: '선택한 글', acts: () => saved ? [{key: 'release', label: RELEASE_LABEL}] : [{key: 'save', label: SAVE_LABEL}, {key: 'hide', label: HIDE_LABEL}],
+      run: (key, ids) => runMany(key, ids.map(id => host.querySelector(`${row.slice(0, -1)}="${CSS.escape(id)}"]`)).map(el => el && itemOf(el)).filter(Boolean))} : null});
+  // 고른 글 여러 개를 한 번에: 하나씩 같은 서버 길(now-marks.js)로 하고, 알림은 하나 'n개 …했어요 [되돌리기]'(되돌리면 고른 것 모두 원래대로).
+  async function runMany(key, items) {
+    const done = [];
+    try {
+      for (const item of items) {
+        if (key === 'hide') { await setMark(item, 'dismiss', true); sendSignal(item, 'dismiss'); changed(item, 'hide', true); done.push({item}); }
+        else if (key === 'save') { if (isSaved(item)) continue; await setSaved(item, true); sendSignal(item, 'star'); changed(item, 'save', true); done.push({item}); }
+        else if (key === 'release') { const prev = await unstar(item); sendSignal(item, 'unstar'); if (saved) changed(item, 'release', true); else changed(item, 'save', false); done.push({item, prev}); }
+      }
+    } catch { fail(); }
+    if (!done.length) return;
+    const n = done.length, text = key === 'hide' ? `${n}개 숨겼어요` : key === 'save' ? `${n}개 보관했어요` : `${n}개 보관에서 뺐어요`;
+    notify(text, {label: key === 'hide' ? '글 숨기기' : key === 'save' ? '글 보관' : RELEASE_LABEL, ms: UNDO_MS, undo: async () => {
+      for (const {item, prev} of done) {
+        if (key === 'hide') { await setMark(item, 'dismiss', false); sendSignal(item, 'undismiss'); changed(item, 'hide', false); }
+        else if (key === 'save') { await setSaved(item, false); sendSignal(item, 'unstar'); changed(item, 'save', false); }
+        else { await restoreStar(item, prev); sendSignal(item, 'star'); changed(item, 'save', true); }
+      }
+    }});
+  }
   host.addEventListener('click', event => {
     const b = event.target.closest?.('[data-now-act]'); if (!b || !host.contains(b)) return;
     const el = b.closest(row), item = el && itemOf(el); if (!item) return;

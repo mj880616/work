@@ -71,9 +71,22 @@ async function swipe(locator, dx) {
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
 }
+// UI-줄밀기 Raindrop식(S68-26): 왼쪽으로 조금 밀면 오른쪽 끝 칸 [보관]·[숨기기]가 열린 채 멈춘다 → 그 칸을 누른다.
+// 누르기는 그 칸에 바로 보낸다(Playwright click의 '보이게 스크롤'이 스크롤 이벤트를 내 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
+async function swipeTap(page, locator, key) {
+  await swipe(locator, -50);
+  const b = page.locator(`[data-row-swipe-key="${key}"]`);
+  await expect(b).toBeVisible();
+  await touchTap(b);
+}
+// 손가락 한 번 누르기(누름 → click). 밀기 뒤 따라오는 click을 삼키는 규칙은 다음 누름에서 풀린다.
+async function touchTap(locator) {
+  await locator.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
+  await locator.dispatchEvent('click');
+}
 const shown = page => page.locator('#journalRoot [data-journal-read]');
 
-test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되돌리기], 오른쪽 끝까지 밀면 보관(별표)', async ({ page }) => {
+test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되돌리기], 왼쪽으로 조금 밀어 [보관] 칸(별표)', async ({ page }) => {
   test.setTimeout(90000);
   const f = await boot(page, 412, 900);
   await expect(reads(page).locator('.journal-head-count')).toHaveText('3');
@@ -91,7 +104,7 @@ test('폰 412: 왼쪽 끝까지 밀면 숨김(뉴스 글 hidden_at)·알림 [되
   await expect(reads(page).locator('.journal-head-count')).toHaveText('3');
   expect(f.patches.at(-1).body.hidden_at).toBeNull();
 
-  await swipe(item(page, 2), 320);
+  await swipeTap(page, item(page, 2), 'save');
   await expect(item(page, 2)).toHaveCount(0);
   expect(f.patches.at(-1).id).toBe(uid(2));
   expect(Object.keys(f.patches.at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
@@ -116,7 +129,7 @@ test('폰 412: 처리 표시를 읽는 중에도 한 글만 빠지고 칸은 그
   await page.evaluate(() => window.KPTURouter.go('diary'));
   await page.evaluate(() => window.KPTURouter.go('home'));
   await expect.poll(() => f.reads.length).toBeGreaterThan(1);
-  await swipe(item(page, 1), 320);
+  await swipeTap(page, item(page, 1), 'save');
   await expect(item(page, 1)).toHaveCount(0);
   await expect(reads(page)).toBeVisible();
   await expect(shown(page)).toHaveCount(2);
@@ -189,7 +202,7 @@ test('폰 412: 접힌 \'1개 더\' 안 글도 같은 밀기, 다 처리하면 \'
   await expect(shown(page)).toHaveCount(2);
 
   await swipe(item(page, 1), -320);
-  await swipe(item(page, 2), 320);
+  await swipeTap(page, item(page, 2), 'save');
   await expect(shown(page)).toHaveCount(0);
   await expect(reads(page)).toBeVisible();
   await expect(reads(page).locator('.journal-heading')).toHaveText('읽을 만한 글');
