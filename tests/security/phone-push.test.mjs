@@ -202,7 +202,7 @@ test('test push: signed service-account JWT to the fixed Google token URL (not t
  const f=h.state.calls.fcm[0];
  assert.equal(f.url,'https://fcm.googleapis.com/v1/projects/web2-phone-test/messages:send');
  assert.equal(f.init.headers.Authorization,'Bearer ya29.synthetic-access-token');
- assert.deepEqual(f.body,{message:{token:TOKEN_A,data:{kind:'test',title:'노조+ · 시험 알림',open:'/work/app/'},android:{priority:'high',ttl:'86400s'}}});
+ assert.deepEqual(f.body,{message:{token:TOKEN_A,data:{kind:'test',title:'WORK ON+ · 시험 알림',open:'/work/app/'},android:{priority:'high',ttl:'86400s'}}});
  assert.ok(!('notification' in f.body.message),'data message only (the app draws it)');
  assert.equal(h.state.log.length,1);assert.equal(h.state.log[0].workspace_id,WS);assert.equal(h.state.log[0].kind,'test');assert.equal(h.state.log[0].status,'sent');
  assert.equal(h.state.log[0].day,'2026-11-01');assert.match(h.state.log[0].ref_key,/^[A-Za-z0-9_.:-]{1,80}$/);
