@@ -167,13 +167,13 @@ class WidgetActionsTest {
         assertEquals("center", attr(one, "gravity"))
         assertEquals("vertical", attr(one, "orientation"))
         assertEquals("", attr(one, "background")) // 바깥은 비움: 먹색은 칸 그림에만.
-        val row = children(one, "LinearLayout").single()
-        val tile = children(row, "ImageView").single()
+        // S68-19: 칸은 바깥 LinearLayout 바로 아래 그림 하나(좌우 빈칸 줄 없음, 폭 전부).
+        assertTrue(children(one, "LinearLayout").isEmpty())
+        val tile = children(one, "ImageView").single()
         assertEquals("@+id/one_tile", attr(tile, "id"))
         assertEquals("fitCenter", attr(tile, "scaleType"))
         assertTrue(attr(tile, "src").startsWith("@drawable/widget_tile_"))
         // 이름은 칸 안이 아니라 칸 아래(바깥 LinearLayout의 직속 자식). 여기 children은 모든 후손을 돌려준다(줄 안 TextView는 좌우 빈칸).
-        assertTrue(children(row, "TextView").none { attr(it, "id") == "@+id/one_label" })
         val label = children(one, "TextView").single { attr(it, "id") == "@+id/one_label" }
         assertEquals(one, label.parentNode)
         assertEquals("@color/widget_one_label", attr(label, "textColor"))

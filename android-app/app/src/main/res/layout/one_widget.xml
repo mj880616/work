@@ -2,7 +2,8 @@
 <!-- APP-한칸위젯 A(11/22): 한 칸(1×1). 앱 아이콘처럼 정사각 둥근 먹색 칸 + 흰 그림, 이름은 칸 아래 흰 글자 + 옅은 그림자.
      S68-11(11/22): 칸은 그림 한 장(widget_tile_*: 둥근 먹색 칸 + 흰 그림을 한 파일에)이고, 이름 줄 위 남는 공간 전체에
      fitCenter로 그려 홈 화면이 실제로 준 공간에서 가장 큰 정사각이 된다(홈 화면이 알려 주는 칸 크기로 계산하지 않음).
-     좌우는 칸 폭의 14%씩 비워(무게 14 : 72 : 14) 앱 아이콘처럼 칸 폭의 72% 안쪽이 된다.
+     S68-19(11/22 명진 "똑같음 더 크게"): 좌우 14%씩 비우던 것을 없앴다. 삼성 홈은 위젯 칸을 앱 아이콘 칸보다 좁게 주어,
+     72%만 쓰면 옆 앱 아이콘(위젯 칸 폭 거의 전부)보다 작았다(폴드 덮개 화면 약 135px 대 190px). 이제 폭 전부·이름 위 높이 전부에서 가장 큰 정사각.
      기능이 달라도 색은 먹색 하나. 놓을 때 고른 기능 하나. 서버 요청 없음. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/one_root"
@@ -12,41 +13,24 @@
     android:focusable="true"
     android:gravity="center"
     android:orientation="vertical"
-    android:paddingTop="2dp"
-    android:paddingBottom="2dp">
+    android:paddingTop="0dp"
+    android:paddingBottom="0dp">
 
-    <LinearLayout
+    <ImageView
+        android:id="@+id/one_tile"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="14" />
-
-        <ImageView
-            android:id="@+id/one_tile"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="72"
-            android:adjustViewBounds="true"
-            android:importantForAccessibility="no"
-            android:scaleType="fitCenter"
-            android:src="@drawable/widget_tile_update" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="14" />
-    </LinearLayout>
+        android:adjustViewBounds="true"
+        android:importantForAccessibility="no"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_tile_update" />
 
     <TextView
         android:id="@+id/one_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingTop="5dp"
+        android:paddingTop="3dp"
         android:singleLine="true"
         android:ellipsize="end"
         android:shadowColor="#99000000"
