@@ -20,7 +20,7 @@ import { followPane } from './follow-pane.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
 import { connectNoteFor, connectText } from './connect-note.mjs'; // S62-16 TASK-구글할일연결문구: 처음 = '연결', 권한 빠짐 = '다시 연결'(글 한 줄 → 아래 버튼 공용 부품)
 import { noteChecked, noteUnchecked, checkPopAttr } from './check-motion.js'; // UI-누름움직임: 방금 끝낸 할 일의 체크 움직임(모든 목록 공용)
-import { bindRowSwipe } from './row-swipe.js';
+import { bindRowSwipe, PICK } from './row-swipe.js';
 import { mountAreaOrgLines, loadUsedKeys } from './area-org-picker.js';
 import { orgWriteInFor } from './feed-link.js'; // S61-52: 조직 줄 [직접 쓰기] // S52-01: 사업영역·조직 두 줄 + 누르면 고르기 창
 import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 ⑥: 칸 나누기 폭은 공용 판정 한 곳
@@ -561,9 +561,11 @@ function renderTasks(tasks){
   if(!unlinkedOnly)paintBody(body,'gt-list',(pending.length?'':emptyHtml())+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('tomorrow','내일',tomorrow)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length}${chevHtml(false, 'gt-disclosure')}</summary>${completed.map(x=>row(x)).join('')}</details>`:''));}
   if(unlinkedOnly){section()?.classList.remove('gt-pc');syncSplit();const unlinked=pending.filter(x=>x.t.unlinked);paintBody(body,'gt-list',`<div class="gt-group-head" tabindex="-1" data-gt-unlinked-heading>연결 안 된 할 일 ${unlinked.filter(x=>!isDone(x.t)).length} <button type="button" data-gt-show-all>전체 보기 ›</button></div>${unlinked.map(x=>row(x,isOverdue(x.p,now))).join('')}`);body.querySelector('[data-gt-show-all]').onclick=()=>{unlinkedOnly=false;renderTasks(lastTasks)}}
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
-  // UI-목록밀기: 폰 할 일 줄 — 오른쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감). Google 할 일 삭제는 휴지통·되돌리기가 없어 왼쪽 밀기는 두지 않는다(⋯의 [삭제]는 그대로).
-  bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},end:null}:null},
-    run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(key==='toggle'&&t)toggleTask(t)}});
+  // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 할 일 줄 — 왼쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 끝까지 밀면 바로, 다시 밀면 되돌아감).
+  // Google 할 일 삭제는 휴지통·되돌리기가 없어 줄 밀기에 [삭제]를 두지 않는다(⋯의 [삭제]는 그대로). 오른쪽으로 밀기 [선택] → 'n개 선택됨 · [완료]'.
+  bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:PICK,end:[{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'}]}:null},
+    run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(key==='toggle'&&t)toggleTask(t)},
+    select:{attr:'data-google-task',label:'선택한 할 일',acts:()=>[{key:'done',label:'완료'}],run:async(key,ids)=>{if(key!=='done')return;for(const id of ids){const t=lastTasks.find(x=>x.id===id);if(t&&t.status!=='completed')toggleTask(t)}}}});
   body.querySelectorAll('[data-gt-edit]').forEach(b=>b.onclick=()=>{const task=lastTasks.find(t=>t.id===b.dataset.gtEdit);if(task)openEditor(task,{docked:pc,picked:pc})});
   body.querySelectorAll('[data-gt-menu]').forEach(b=>b.onclick=()=>taskMenu.open(b));
   body.querySelectorAll('[data-gt-source-note]').forEach(a=>a.onclick=openSourceNote);

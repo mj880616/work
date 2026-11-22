@@ -19,8 +19,21 @@ async function swipe(locator, dx) {
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
 }
+// UI-줄밀기 Raindrop식(S68-26): 왼쪽으로 조금 밀면 오른쪽 끝 칸 [보관]·[숨기기]가 열린 채 멈춘다 → 그 칸을 누른다.
+// 누르기는 그 칸에 바로 보낸다(Playwright click의 '보이게 스크롤'이 스크롤 이벤트를 내 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
+async function swipeTap(page, locator, key) {
+  await swipe(locator, -50);
+  const b = page.locator(`[data-row-swipe-key="${key}"]`);
+  await expect(b).toBeVisible();
+  await touchTap(b);
+}
+// 손가락 한 번 누르기(누름 → click). 밀기 뒤 따라오는 click을 삼키는 규칙은 다음 누름에서 풀린다.
+async function touchTap(locator) {
+  await locator.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
+  await locator.dispatchEvent('click');
+}
 
-test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른쪽 끝까지 밀면 보관(별표)·다시 밀면 풀기', async ({ page }) => {
+test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 왼쪽으로 조금 밀어 [보관] 칸(별표)·다시 누르면 풀기', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   await openNews(page, 412);
@@ -40,14 +53,52 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 오른�
   await expect(item(page, 'c1')).toBeVisible();
   expect(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body.hidden_at).toBeNull();
 
-  await swipe(item(page, 'k1'), 320);
+  await swipeTap(page, item(page, 'k1'), 'save');
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(1);
   expect(Object.keys(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).sort()).toEqual(['starred_at', 'updated_at']);
   await expect.poll(() => server.calls.some(c => c.what === 'app_news_now_signals' && c.body?.article_id === 'k1' && c.body?.action === 'star')).toBe(true);
-  await swipe(item(page, 'k1'), 320);
+  await swipeTap(page, item(page, 'k1'), 'save');
   await expect(item(page, 'k1').locator('.nw-star')).toHaveCount(0);
   expect(server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1).body).toMatchObject({ starred_at: null, folder_id: null });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높이만큼), 오른쪽으로 밀면 [고르기] → 여러 개 숨기기·한 번에 되돌리기', async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors, server } = await start(page, 412);
+  await openNews(page, 412);
+  await expect(item(page, 'c1')).toBeVisible();
+  // 왼쪽 조금: 오른쪽 끝에 칸 두 개, 맨 오른쪽이 [숨기기], 칸 높이 = 줄 높이.
+  await swipe(item(page, 'c1'), -50);
+  const cells = page.locator('#newsRoot [data-row-swipe-act="end"]');
+  await expect(cells).toHaveCount(2);
+  await expect(cells).toHaveText(['보관', '숨기기']);
+  const rowBox = await item(page, 'c1').boundingBox(), cellBox = await cells.nth(1).boundingBox();
+  expect(Math.abs(cellBox.height - rowBox.height)).toBeLessThan(2);
+  expect(cellBox.x + cellBox.width).toBeGreaterThan(rowBox.x + rowBox.width - 2);
+  expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET')).toHaveLength(0);
+  // 오른쪽 끝까지: 그 줄이 골라진 채로 고르기 줄. 다른 줄을 눌러 더 고른다(열리지 않음).
+  await swipe(item(page, 'c1'), 320);
+  const bar = page.locator('#newsRoot .row-swipe-pickbar');
+  await expect(bar).toBeVisible();
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
+  await expect(bar.locator('button')).toHaveText(['보관', '숨기기', '모두 선택', '그만']);
+  await touchTap(item(page, 'k1').locator('.nw-title'));
+  await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
+  await expect(page.locator('#newsRoot [data-nc-detail]:visible, #newsRoot .nc-detail:visible')).toHaveCount(0);
+  await bar.locator('[data-row-pick-act="hide"]').click();
+  await expect(item(page, 'c1')).toHaveCount(0);
+  await expect(item(page, 'k1')).toHaveCount(0);
+  await expect(bar).toBeHidden();
+  expect(await noticeText(page)).toBe('2개 숨겼어요');
+  await page.locator('#kptuNotice .kptu-notice-undo').click();
+  await expect(item(page, 'c1')).toBeVisible();
+  await expect(item(page, 'k1')).toBeVisible();
+  // [그만]: 선택을 끝내면 선택 줄이 사라진다(선택 상태는 화면 메모리만).
+  await swipe(item(page, 'c1'), 320);
+  await bar.locator('[data-row-pick-stop]').click();
+  await expect(bar).toBeHidden();
   expect(errors).toEqual([]);
 });
 
@@ -59,6 +110,43 @@ test('Now 뉴스 412: 글 줄 위 좌우 밀기는 탭을 옮기지 않는다', 
     t('touchstart', 300); t('touchmove', 150); t('touchend', 150);
   });
   await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
+  expect(errors).toEqual([]);
+});
+
+test('Now 뉴스 412: 실제 손가락처럼(포인터 + 터치 함께) 글 줄 위를 밀면 줄 밀기만, 줄 밖 빈 곳을 밀면 탭 넘김', async ({ page }) => {
+  const { errors } = await start(page, 412);
+  await openNews(page, 412);
+  await expect(item(page, 'c1')).toBeVisible();
+  // 목록이 처음 채워지며 다시 그려지는 사이 찾은 줄이 빠졌으면 다시 찾아 민다(위 swipe와 같은 방법).
+  const both = (locator, dx, onRow = true) => expect(async () => expect(await locator.evaluate((el, { dx, onRow }) => {
+    if (!el.isConnected) return false;
+    const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = onRow ? r.top + r.height / 2 : r.top + 4;
+    const pt = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y }));
+    const tc = (type, cx) => { const t = new Touch({ identifier: 1, target: el, clientX: cx, clientY: y }); el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [t], changedTouches: [t] })); };
+    tc('touchstart', x); pt('pointerdown', x);
+    for (let i = 1; i <= 10; i++) { pt('pointermove', x + dx * i / 10); tc('touchmove', x + dx * i / 10); }
+    pt('pointerup', x + dx); tc('touchend', x + dx);
+    return true;
+  }, { dx, onRow })).toBe(true)).toPass({ timeout: 10000 });
+  // 글 줄 위 오른쪽 끝까지: 고르기만 열리고 탭은 그대로.
+  await expect(item(page, 'k1')).toBeVisible();
+  await expect(async () => {
+    await both(item(page, 'c1'), 320);
+    await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
+  await page.locator('#newsRoot [data-row-pick-stop]').click();
+  // 글 줄 위 왼쪽 조금: 칸만 열리고 탭은 그대로.
+  await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000));
+  await both(item(page, 'k1'), -60);
+  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveCount(2);
+  await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
+  // 줄 밖(탭 줄)에서 밀면 탭이 넘어간다.
+  const tabs = page.locator('#outsideRoot [data-os-tabs]');
+  // 시험은 시계를 멈춰 두므로(home-entry.mjs) 실제처럼 1초 흐르게 한 뒤 민다(줄 밀기 시각보다 뒤에 시작한 손동작).
+  await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000));
+  await both(tabs, -120, false);
+  await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'false');
   expect(errors).toEqual([]);
 });
 
