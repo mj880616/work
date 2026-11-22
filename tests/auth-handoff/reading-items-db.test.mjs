@@ -1,6 +1,7 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
 // S68-09 READ-읽을거리함 PR-1 DB(20261122100000_reading_items):
-// - 새 표 app_reading_items: owner만(RLS·정책 1개), 화면은 주소·제목·사이트·사업영역 넣기 / 제목·읽음·사업영역 고치기만, 원문 사본 칸은 service_role만.
+// - 새 표 app_reading_items: owner만(RLS·정책 1개), 화면은 주소·제목·사이트·사업영역 넣기 / 제목·사이트·읽음·사업영역·원문 사본 고치기만.
+//   작업공간·주소·저장 시각은 못 고친다. 원문 사본은 넣을 때가 아니라 고칠 때만(note-import 답을 화면이 넣음). service_role·anon 권한 없음.
 //   사업영역은 같은 작업공간 app_spaces만(지워지면 비움). 남의 작업공간 줄은 못 보고 못 넣고 못 고친다. anon은 아무것도 못 한다.
 // - 밑줄: 기존 app_news_highlights에 종류 'reading'만 더한다(다른 검사·정책 그대로).
 // - 검색: app_search_records가 이름으로 부를 때만 'reading'을 찾는다(기본 8종류·결과 그대로). 남의 읽을 거리는 안 나온다.
@@ -77,7 +78,8 @@ test('READ-읽을거리함 DB: owner-only reading items, reading highlights, nam
    const code=F.migration.replace(/--.*$/gm,'');
    assert.doesNotMatch(code,/app_call_personal|app_tg_personal|f\.raw_text|'diary'|app_news_articles|app_news_marks|app_collab/);
    assert.match(code,/grant insert \(workspace_id, url, title, site, business_area_id\) on table public\.app_reading_items to authenticated;/);
-   assert.match(code,/grant update \(title, site, body, body_state, body_at, updated_at\) on table public\.app_reading_items to service_role;/);
+   assert.match(code,/grant update \(title, site, read_at, business_area_id, body, body_state, body_at, updated_at\) on table public\.app_reading_items to authenticated;/);
+   assert.doesNotMatch(code,/on table public\.app_reading_items to service_role/);
    assert.match(F.migration,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\nvalues \('20261122100000', 'reading_items'/);
    for(const mode of ['apply','dry-run']){const p=plan(mode,'1');assert.equal(p.rules,'expanded');assert.equal(p.flow,'full');}
    assert.throws(()=>plan('rollback','1'));
@@ -115,7 +117,7 @@ test('READ-읽을거리함 DB: owner-only reading items, reading highlights, nam
   });
 
   let A1='',B1='';
-  await t.test('items: owner inserts own rows with own business area only; body columns server-only; stranger and anon refused',async()=>{
+  await t.test('items: owner inserts own rows with own business area only; body only by update; stranger, anon and service_role refused',async()=>{
    const ins=(c,ws,url,area=null,extra='')=>c.query(`insert into public.app_reading_items(workspace_id,url,title,site,business_area_id${extra?','+extra:''}) values ($1,$2,'임금 교섭 기사','ex.com',$3${extra?",'x'":''}) returning id`,[ws,url,area]);
    A1=await as('authenticated',OWNER,async c=>(await ins(c,WS_A,'https://ex.com/a',PROJECT_A)).rows[0].id);
    B1=await as('authenticated',STRANGER,async c=>(await ins(c,WS_B,'https://ex.com/a')).rows[0].id);
@@ -126,9 +128,9 @@ test('READ-읽을거리함 DB: owner-only reading items, reading highlights, nam
    await assert.rejects(as('authenticated',OWNER,c=>ins(c,WS_A,'https://ex.com/z',null,'body')),{code:'42501'});
    await assert.rejects(as('authenticated',OWNER,c=>ins(c,WS_A,'javascript:alert(1)')),{code:'23514'});
    await assert.rejects(as('authenticated',OWNER,c=>c.query(`insert into public.app_reading_items(id,workspace_id,url) values (gen_random_uuid(),$1,'https://ex.com/id')`,[WS_A])),{code:'42501'});
-   // 화면 고치기: 제목·읽음·사업영역만. 원문 사본·작업공간·주소는 못 고친다. 남의 줄은 0줄.
+   // 화면 고치기: 제목·사이트·읽음·사업영역·원문 사본. 작업공간·주소·저장 시각은 못 고친다. 남의 줄은 0줄.
    assert.equal(await as('authenticated',OWNER,async c=>(await c.query(`update public.app_reading_items set read_at=now(),title='읽은 기사',updated_at=now() where id=$1`,[A1])).rowCount),1);
-   for(const set of [`body='x'`,`body_state='ok'`,`workspace_id='${WS_B}'`,`url='https://ex.com/q'`])
+   for(const set of [`workspace_id='${WS_B}'`,`url='https://ex.com/q'`,`saved_at=now()`])
     await assert.rejects(as('authenticated',OWNER,c=>c.query(`update public.app_reading_items set ${set} where id=$1`,[A1])),{code:'42501'},set);
    await assert.rejects(as('authenticated',OWNER,c=>c.query(`update public.app_reading_items set business_area_id=$2 where id=$1`,[A1,PROJECT_B])),{code:'42501'});
    assert.equal(await as('authenticated',OWNER,async c=>(await c.query(`update public.app_reading_items set title='남의 것' where id=$1`,[B1])).rowCount),0);
@@ -136,15 +138,17 @@ test('READ-읽을거리함 DB: owner-only reading items, reading highlights, nam
    assert.deepEqual(await as('authenticated',STRANGER,async c=>(await c.query('select id from public.app_reading_items')).rows.map(r=>r.id)),[B1]);
    await assert.rejects(as('anon','',c=>c.query('select * from public.app_reading_items')),{code:'42501'});
    await assert.rejects(as('anon','',c=>c.query(`insert into public.app_reading_items(workspace_id,url) values ($1,'https://ex.com/n')`,[WS_A])),{code:'42501'});
-   // 서버(service_role): 원문 사본 칸만 고친다. 넣기·지우기·주소·작업공간 고치기는 못 한다.
-   await as('service_role','',c=>c.query(`update public.app_reading_items set body=E'첫 문단\n성과급 교섭 결과 본문',body_state='ok',body_at=now(),site='예시 신문',updated_at=now() where id=$1 and workspace_id=$2`,[A1,WS_A]));
-   await assert.rejects(as('service_role','',c=>c.query(`update public.app_reading_items set url='https://ex.com/q' where id=$1`,[A1])),{code:'42501'});
-   await assert.rejects(as('service_role','',c=>c.query(`update public.app_reading_items set read_at=now() where id=$1`,[A1])),{code:'42501'});
-   await assert.rejects(as('service_role','',c=>c.query(`delete from public.app_reading_items where id=$1`,[A1])),{code:'42501'});
-   await assert.rejects(as('service_role','',c=>c.query(`insert into public.app_reading_items(workspace_id,url) values ($1,'https://ex.com/s')`,[WS_A])),{code:'42501'});
-   // 상태 모양: 본문은 ok·paywall만, 받은 시각은 pending이 아닐 때만.
-   await assert.rejects(as('service_role','',c=>c.query(`update public.app_reading_items set body_state='failed',updated_at=now() where id=$1`,[A1])),{code:'23514'});
-   await assert.rejects(as('service_role','',c=>c.query(`update public.app_reading_items set body=E'제어\u0001글자' where id=$1`,[A1])),{code:'23514'});
+   // 원문 사본(note-import 답을 화면이 넣음): 자기 줄만. 남의 줄은 0줄.
+   await as('authenticated',OWNER,c=>c.query(`update public.app_reading_items set body=E'첫 문단\n성과급 교섭 결과 본문',body_state='ok',body_at=now(),site='예시 신문',updated_at=now() where id=$1`,[A1]));
+   assert.equal(await as('authenticated',OWNER,async c=>(await c.query(`update public.app_reading_items set body='남의 글',body_state='ok',body_at=now() where id=$1`,[B1])).rowCount),0);
+   // service_role은 아무것도 못 한다(서버가 대신 쓰는 길 없음).
+   for(const sql of [`select id from public.app_reading_items`,`update public.app_reading_items set read_at=now() where id='${A1}'`,`delete from public.app_reading_items where id='${A1}'`,
+     `insert into public.app_reading_items(workspace_id,url) values ('${WS_A}','https://ex.com/s')`])
+    await assert.rejects(as('service_role','',c=>c.query(sql)),{code:'42501'},sql);
+   // 상태 모양: 본문은 ok·paywall만, 받은 시각은 pending이 아닐 때만, 제어 문자 거절.
+   await assert.rejects(as('authenticated',OWNER,c=>c.query(`update public.app_reading_items set body_state='failed',updated_at=now() where id=$1`,[A1])),{code:'23514'});
+   await assert.rejects(as('authenticated',OWNER,c=>c.query(`update public.app_reading_items set body_state='pending' where id=$1`,[A1])),{code:'23514'});
+   await assert.rejects(as('authenticated',OWNER,c=>c.query(`update public.app_reading_items set body=E'제어\u0001글자' where id=$1`,[A1])),{code:'23514'});
    // 사업영역이 지워지면 칸만 비운다(읽을 거리는 남음).
    await pool.query('delete from public.app_spaces where id=$1',[PROJECT_A]);
    assert.equal((await pool.query('select business_area_id from public.app_reading_items where id=$1',[A1])).rows[0].business_area_id,null);
@@ -176,7 +180,7 @@ test('READ-읽을거리함 DB: owner-only reading items, reading highlights, nam
    assert.deepEqual(after.groups.map(g=>g.kind),['update','note','work','document','meeting','project','organization','milestone']);
    assert.deepEqual(after,beforeSearch);
    // 받지 못한 원문(실패 상태)은 본문으로 찾지 않는다.
-   await as('service_role','',c=>c.query(`update public.app_reading_items set body=null,body_state='failed',body_at=now() where id=$1`,[A1]));
+   await as('authenticated',OWNER,c=>c.query(`update public.app_reading_items set body=null,body_state='failed',body_at=now() where id=$1`,[A1]));
    assert.equal(group(await search({q:'성과급',kind:'reading'}),'reading').total,0);
    await assert.rejects(search({q:'성과급',kind:'reading'},'','anon'),{code:'42501'});
    await assert.rejects(as('service_role','',c=>c.query("select public.app_search_records('성과급',null,null,null,'reading')")),{code:'42501'});

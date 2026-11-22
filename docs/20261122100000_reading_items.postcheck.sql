@@ -37,15 +37,13 @@ union all select 'reading: anon and PUBLIC have nothing',case when (select t fro
   not has_table_privilege('anon',(select t from f),'select,insert,update,delete,truncate,references,trigger')
   and not has_any_column_privilege('anon',(select t from f),'select,insert,update,references')
   and not exists(select 1 from pg_class where oid=(select t from f) and relacl::text ~ '(^|[{,])=')) then '예' else '아니오' end
-union all select 'reading: authenticated read delete, limited insert and update, no body',case when (select t from f) is null or (
+union all select 'reading: authenticated read delete, limited insert and update',case when (select t from f) is null or (
   has_table_privilege('authenticated',(select t from f),'select') and has_table_privilege('authenticated',(select t from f),'delete')
   and has_column_privilege('authenticated',(select t from f),'url','insert') and has_column_privilege('authenticated',(select t from f),'read_at','update')
-  and not has_column_privilege('authenticated',(select t from f),'body','insert') and not has_column_privilege('authenticated',(select t from f),'body','update')
-  and not has_column_privilege('authenticated',(select t from f),'body_state','update') and not has_column_privilege('authenticated',(select t from f),'workspace_id','update')
-  and not has_column_privilege('authenticated',(select t from f),'id','insert')
+  and has_column_privilege('authenticated',(select t from f),'body','update') and not has_column_privilege('authenticated',(select t from f),'body','insert')
+  and not has_column_privilege('authenticated',(select t from f),'workspace_id','update') and not has_column_privilege('authenticated',(select t from f),'url','update')
+  and not has_column_privilege('authenticated',(select t from f),'saved_at','update') and not has_column_privilege('authenticated',(select t from f),'id','insert')
   and not has_table_privilege('authenticated',(select t from f),'truncate,references,trigger')) then '예' else '아니오' end
-union all select 'reading: service_role reads and writes body columns only',case when (select t from f) is null or (
-  has_table_privilege('service_role',(select t from f),'select') and has_column_privilege('service_role',(select t from f),'body','update')
-  and not has_table_privilege('service_role',(select t from f),'insert,delete,truncate,references,trigger')
-  and not has_column_privilege('service_role',(select t from f),'workspace_id','update') and not has_column_privilege('service_role',(select t from f),'url','update')
-  and not has_column_privilege('service_role',(select t from f),'read_at','update')) then '예' else '아니오' end;
+union all select 'reading: service_role has nothing',case when (select t from f) is null or (
+  not has_table_privilege('service_role',(select t from f),'select,insert,update,delete,truncate,references,trigger')
+  and not has_any_column_privilege('service_role',(select t from f),'select,insert,update,references')) then '예' else '아니오' end;

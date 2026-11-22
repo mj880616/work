@@ -1,7 +1,8 @@
 begin;
 -- S68-09 READ-읽을거리함 PR-1 DB(명진 11/22 13:28 "Raindrop 가져올 것 ㄱ", 13:42 위치 "B: 메뉴에 새 칸"). 1~3번: 읽을 거리함·원문 사본 보관·밑줄·메모, 4번 검색.
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"(확장 규칙에서 거절되면 AGENTS.md 7절 SQL Editor 경로)으로만 한다. 이 브랜치는 적용 직전 정지.
--- 순서: 이 DB 적용 → reading-fetch Edge(PR-2, 원문 받아 오기) 배포 → 화면·폰 공유 창(PR-3).
+-- 순서: 이 DB 적용 → 화면·폰 공유 창(PR-3). 원문 받아 오기는 기존 Edge note-import(노트 '주소로 가져오기', 읽기 전용·로그인 owner만·
+--   내부 주소 차단·크기·시간·리다이렉트·robots 검사)를 그대로 부르므로 새 Edge 함수·배포가 없다(지시서 PR-2는 재사용으로 없어짐).
 --
 -- 같은 목적 표 재사용 검토(PR 본문에 같은 내용):
 --  · 밑줄·메모 = 기존 app_news_highlights 재사용(새 표 없음). 노트 밑줄(S62-17, 20261115194000)과 같은 방식으로 종류 칸 검사에 'reading'만 더한다.
@@ -14,13 +15,13 @@ begin;
 --
 --  1) public.app_reading_items(새): 작업공간마다 저장한 글 한 줄. 주소(같은 작업공간에 같은 주소 한 줄)·제목·사이트·저장 시각·읽은 시각·
 --     원문 사본(본문 글자 body, 상태 body_state, 받은 시각 body_at)·사업영역(business_area_id → app_spaces, 지워지면 비움).
---     화면(authenticated): 자기 줄 읽기·넣기(주소·제목·사이트·사업영역)·고치기(제목·읽음·사업영역)·지우기. 원문 사본 칸은 못 쓴다.
---     서버(service_role, reading-fetch Edge): 읽기 + 제목·사이트·원문 사본 칸만 고치기(넣기·지우기 없음). 본문은 글자로만 저장한다(HTML 없음).
+--     화면(authenticated): 자기 줄 읽기·넣기(주소·제목·사이트·사업영역)·고치기(제목·사이트·읽음·사업영역·원문 사본)·지우기. 작업공간·주소 칸은 못 고친다.
+--     원문 사본은 화면이 note-import 답(글자 블록)을 글자로만 넣는다(HTML 없음, 제어 문자 거절). service_role 권한 없음.
 --  2) app_news_highlights_type_check에 'reading'(읽을 거리 = app_reading_items.id)을 더한다. 지우고 같은 이름으로 다시(다른 칸·권한·정책 그대로).
 --  3) public.app_search_records를 같은 서명·같은 권한 모양(SECURITY INVOKER·search_path 빈칸·authenticated만)으로 다시 정의해 종류 'reading'을 더한다.
 --     통화·텔레그램처럼 이름으로 부를 때만 찾는다(빈 종류 = 지금 8종류 그대로). 물어보기(ai-assist)·지금 자세히는 종류를 이름으로 정해 부르므로 읽을 거리가 섞이지 않는다.
 --
--- 권한: 새 표 RLS 켬 + private.app_is_workspace_owner(workspace_id) 소유자 정책 1개(authenticated만). anon·PUBLIC 권한 없음. 공유(app_collab_*) 대상 아님.
+-- 권한: 새 표 RLS 켬 + private.app_is_workspace_owner(workspace_id) 소유자 정책 1개(authenticated만). anon·PUBLIC·service_role 권한 없음. 공유(app_collab_*) 대상 아님.
 -- 안 하는 것: 기존 표의 칸·권한·정책·트리거 변경, 기존 줄 변경, News 표, 함수 추가, 확장 추가, rtw_* 객체.
 -- 되돌리기: docs/20261122100000_reading_items.rollback.sql(SQL Editor 전용: 검색 함수를 이전 판으로, 검사를 이전 넷으로, 새 표 삭제).
 -- 짝: docs/20261122100000_reading_items.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
@@ -88,13 +89,10 @@ create index app_reading_items_area_idx on public.app_reading_items(business_are
 
 alter table public.app_reading_items enable row level security;
 revoke all on table public.app_reading_items from public, anon, authenticated, service_role;
--- 화면: 자기 줄 읽기·지우기, 넣기는 주소·제목·사이트·사업영역(작업공간 칸 포함), 고치기는 제목·읽음·사업영역. 원문 사본은 서버만.
+-- 화면: 자기 줄 읽기·지우기, 넣기는 주소·제목·사이트·사업영역(작업공간 칸 포함), 고치기는 제목·사이트·읽음·사업영역·원문 사본. 작업공간·주소·저장 시각은 못 고친다.
 grant select, delete on table public.app_reading_items to authenticated;
 grant insert (workspace_id, url, title, site, business_area_id) on table public.app_reading_items to authenticated;
-grant update (title, read_at, business_area_id, updated_at) on table public.app_reading_items to authenticated;
--- 서버(reading-fetch Edge): 읽기 + 제목·사이트·원문 사본 칸 고치기. 넣기·지우기 없음(Edge가 owner 확인 뒤 id·workspace_id로 한 줄만).
-grant select on table public.app_reading_items to service_role;
-grant update (title, site, body, body_state, body_at, updated_at) on table public.app_reading_items to service_role;
+grant update (title, site, read_at, business_area_id, body, body_state, body_at, updated_at) on table public.app_reading_items to authenticated;
 
 create policy reading_items_owner_all on public.app_reading_items for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
@@ -379,16 +377,16 @@ declare t regclass := 'public.app_reading_items'::regclass; h regclass := 'publi
   f regprocedure := to_regprocedure('public.app_search_records(text,text[],integer,integer,text)');
 begin
   if not (select relrowsecurity from pg_class where oid = t)
-     or exists (select 1 from pg_class where oid = t and relacl::text ~ '(^|[{,])(anon)?=')
+     or exists (select 1 from pg_class where oid = t and relacl::text ~ '(^|[{,])(anon|service_role)?=')
      or has_table_privilege('anon', t, 'select,insert,update,delete,truncate,references,trigger')
      or has_any_column_privilege('anon', t, 'select,insert,update,references')
      or has_table_privilege('authenticated', t, 'insert,update,truncate,references,trigger')
-     or has_column_privilege('authenticated', t, 'body', 'insert') or has_column_privilege('authenticated', t, 'body', 'update')
-     or has_column_privilege('authenticated', t, 'body_state', 'update') or has_column_privilege('authenticated', t, 'workspace_id', 'update')
+     or has_column_privilege('authenticated', t, 'body', 'insert') or not has_column_privilege('authenticated', t, 'body', 'update')
+     or has_column_privilege('authenticated', t, 'workspace_id', 'update') or has_column_privilege('authenticated', t, 'url', 'update')
+     or has_column_privilege('authenticated', t, 'saved_at', 'update') or has_column_privilege('authenticated', t, 'id', 'insert')
      or not has_table_privilege('authenticated', t, 'select') or not has_table_privilege('authenticated', t, 'delete')
-     or has_table_privilege('service_role', t, 'insert,update,delete,truncate,references,trigger')
-     or has_column_privilege('service_role', t, 'workspace_id', 'update') or has_column_privilege('service_role', t, 'url', 'update')
-     or not has_column_privilege('service_role', t, 'body', 'update')
+     or has_table_privilege('service_role', t, 'select,insert,update,delete,truncate,references,trigger')
+     or has_any_column_privilege('service_role', t, 'select,insert,update,references')
      or (select count(*) from pg_policy where polrelid = t) <> 1
      or (select count(*) from pg_policy where polrelid = t and polroles = array['authenticated'::regrole]::oid[]) <> 1
      or exists (select 1 from pg_trigger where tgrelid = t and not tgisinternal)
@@ -407,5 +405,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261122100000', 'reading_items', array['S68-09 READ-읽을거리함: new owner-only table app_reading_items (RLS, authenticated read/insert/update limited columns, service_role body columns only), app_news_highlights_type_check adds reading, app_search_records adds named-only kind reading (same signature, SECURITY INVOKER, authenticated only)']);
+values ('20261122100000', 'reading_items', array['S68-09 READ-읽을거리함: new owner-only table app_reading_items (RLS, authenticated read/delete and limited insert/update columns, no anon/PUBLIC/service_role), app_news_highlights_type_check adds reading, app_search_records adds named-only kind reading (same signature, SECURITY INVOKER, authenticated only)']);
 commit;
