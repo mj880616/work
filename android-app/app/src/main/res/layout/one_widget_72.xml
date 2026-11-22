@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-한칸위젯 A(11/22): 한 칸(1×1). 앱 아이콘처럼 정사각 둥근 먹색 칸(가운데) + 흰 그림, 이름은 칸 아래 흰 글자 + 옅은 그림자.
+     S68-08(11/22): 칸 크기는 홈 화면이 준 칸 크기에서 계산(WidgetTileRules.one, 48~76dp, 그림은 칸의 55%).
+     안드로이드 11 이하에서 칸이 클 때 고르는 틀(72dp). 12+는 쓰지 않는다.
+     기능이 달라도 색은 먹색 하나. 놓을 때 고른 기능 하나. 서버 요청 없음. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/one_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:id="@+id/one_tile"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:background="@drawable/widget_one_tile">
+
+        <ImageView
+            android:id="@+id/one_icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center"
+            android:importantForAccessibility="no"
+            android:tint="@color/widget_one_icon"
+            android:src="@drawable/ic_w_update" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/one_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="7dp"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:shadowColor="#99000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="3"
+        android:textColor="@color/widget_one_label"
+        android:textSize="12sp" />
+</LinearLayout>

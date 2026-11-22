@@ -227,6 +227,48 @@ object HomeWidgets {
         val little = RemoteViews(context.packageName, small).also { fill(it, true) }
         return RemoteViews(mapOf(smallSize to little, largeSize to big))
     }
+
+    /**
+     * S68-08: 홈 화면이 이 위젯에 실제로 준 크기(dp) 목록. 안드로이드 12+는 OPTION_APPWIDGET_SIZES(기종·접음·펼침마다),
+     * 없으면 세로(최소 폭·최대 높이)·가로(최대 폭·최소 높이) 두 가지. 아직 모르면 빈 목록.
+     */
+    fun cellSizes(manager: AppWidgetManager, id: Int): List<SizeF> {
+        val options = manager.getAppWidgetOptions(id) ?: return emptyList()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            @Suppress("DEPRECATION")
+            val sizes = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+            val ok = sizes?.filter { it.width > 0f && it.height > 0f }?.distinct()
+            if (!ok.isNullOrEmpty()) return ok.take(16)
+        }
+        val minW = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+        val maxW = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
+        val minH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+        val maxH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+        return listOf(SizeF(minW.toFloat(), maxH.toFloat()), SizeF(maxW.toFloat(), minH.toFloat()))
+            .filter { it.width > 0f && it.height > 0f }
+            .distinct()
+    }
+
+    /**
+     * S68-08: 크기마다 그린 그림. 안드로이드 12+는 크기별 그림을 모두 주고 홈 화면이 지금 크기에 맞는 것을 고른다(sized와 같은 방식).
+     * 11 이하는 세로 크기 하나로 그린다. 크기를 모르면 build(null).
+     */
+    fun perSize(sizes: List<SizeF>, build: (SizeF?) -> RemoteViews): RemoteViews {
+        if (sizes.isEmpty()) return build(null)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || sizes.size == 1) return build(sizes.first())
+        return RemoteViews(sizes.associateWith { build(it) })
+    }
+
+    /** S68-08: 안드로이드 12+에서 먹색 칸·그림 크기(dp)를 바로 정한다. 11 이하는 틀에 적힌 크기 그대로. */
+    fun tileSize(views: RemoteViews, tile: Int, icon: Int, tileDp: Int) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val dp = android.util.TypedValue.COMPLEX_UNIT_DIP
+        views.setViewLayoutWidth(tile, tileDp.toFloat(), dp)
+        views.setViewLayoutHeight(tile, tileDp.toFloat(), dp)
+        val iconDp = WidgetTileRules.icon(tileDp).toFloat()
+        views.setViewLayoutWidth(icon, iconDp, dp)
+        views.setViewLayoutHeight(icon, iconDp, dp)
+    }
 }
 
 /**

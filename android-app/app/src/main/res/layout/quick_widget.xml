@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- APP-위젯다시 ②: 빠른 쓰기(4×1). 단추 넷.
-     APP-위젯먹색 S68-06(11/22): 단추는 한 칸 위젯과 같은 정사각 둥근 먹색 칸(widget_one_tile, 40dp) + 흰 그림 24dp, 이름은 칸 아래.
+     APP-위젯먹색 S68-06(11/22): 단추는 한 칸 위젯과 같은 정사각 둥근 먹색 칸(widget_one_tile) + 흰 그림, 이름은 칸 아래.
+     S68-08(11/22): 안드로이드 12+는 칸 크기를 위젯 크기에서 계산(WidgetTileRules.quick, 40~76dp, 그림 55%). 아래 40dp·24dp는 처음 그림·11 이하용.
      이 위젯은 종이색 바탕(widget_bg) 안에 그리므로 이름은 먹색 글자(widget_ink, 그림자 없음). 누를 때 물결은 칸 전체(widget_day_plain). 서버 요청 없음. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/quick_root"
@@ -23,11 +24,13 @@
         android:orientation="vertical">
 
         <FrameLayout
+            android:id="@+id/quick_tile0"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@drawable/widget_one_tile">
 
             <ImageView
+                android:id="@+id/quick_icon0"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_gravity="center"
@@ -62,11 +65,13 @@
         android:orientation="vertical">
 
         <FrameLayout
+            android:id="@+id/quick_tile1"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@drawable/widget_one_tile">
 
             <ImageView
+                android:id="@+id/quick_icon1"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_gravity="center"
@@ -101,11 +106,13 @@
         android:orientation="vertical">
 
         <FrameLayout
+            android:id="@+id/quick_tile2"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@drawable/widget_one_tile">
 
             <ImageView
+                android:id="@+id/quick_icon2"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_gravity="center"
@@ -140,11 +147,13 @@
         android:orientation="vertical">
 
         <FrameLayout
+            android:id="@+id/quick_tile3"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="@drawable/widget_one_tile">
 
             <ImageView
+                android:id="@+id/quick_icon3"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_gravity="center"
