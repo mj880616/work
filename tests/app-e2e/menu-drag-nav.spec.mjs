@@ -36,7 +36,7 @@ async function drag(page,from,x,y){
   await page.mouse.up();
 }
 // MULTI-하단바기본노트: 새 계정(저장값 없음) PC 위 줄 = 하단바 기본(노트·일정·조직 보고·사업 보고) 뒤 위 메뉴(잊지 말기부터). 다른 시험은 운영자 저장값(OPERATOR_MENU_LAYOUT)으로 연다.
-const DEFAULT_MAIN=['note','calendar','team','meetings','basket','library','files','brief','hwp','pages','photos','outside'];
+const DEFAULT_MAIN=['note','calendar','team','meetings','basket','reading','library','files','brief','hwp','pages','photos','outside'];
 const DEFAULT_TAIL=['calls','telegram','arsenal'];
 
 for(const width of [1280,1440]){
@@ -66,14 +66,14 @@ for(const width of [1280,1440]){
     await expect(photos).not.toHaveClass(/re-dragging/);
     await expect(nav(page).locator('.re-drop-before,.re-drop-end')).toHaveCount(0);
     // PC 위 줄은 메뉴 편집 창 미리보기와 같은 규칙(하단바 칸 메뉴가 위, 위 메뉴가 그 아래)이다. 위 메뉴 안 순서는 끌어 놓은 대로.
-    const main=['note','calendar','team','meetings','basket','photos','library','files','brief','hwp','pages','outside'];
+    const main=['note','calendar','team','meetings','basket','reading','photos','library','files','brief','hwp','pages','outside'];
     await expect.poll(()=>pcOrder(page)).toEqual({main,tail:DEFAULT_TAIL});
     // 서버 저장 모양은 {bar, rest}뿐(DB 검사가 받는 모양 그대로)이고, 하단바 칸은 그대로다.
-    await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['basket','photos','library','files','brief','hwp','pages','outside','bottom','calls','telegram','arsenal']);
+    await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['basket','reading','photos','library','files','brief','hwp','pages','outside','bottom','calls','telegram','arsenal']);
     expect(prefs.value.menu_layout.bar).toEqual(['home','note','calendar','team','meetings']);
     expect(Object.keys(prefs.value.menu_layout).sort()).toEqual(['bar','rest']);
     // 폰 [메뉴] 창에도 같은 순서(같은 저장값).
-    await expect.poll(()=>sheetOrder(page)).toEqual(['basket','photos','library','files','brief','hwp','pages','outside','LINE','calls','telegram','arsenal']);
+    await expect.poll(()=>sheetOrder(page)).toEqual(['basket','reading','photos','library','files','brief','hwp','pages','outside','LINE','calls','telegram','arsenal']);
 
     // 새로고침(다른 기기와 같은 길: 서버에서 다시 읽음)해도 그대로.
     await page.reload();
@@ -94,7 +94,7 @@ for(const width of [1280,1440]){
     const modal=page.locator('#menuEditModal');
     await expect(modal).toBeVisible();
     await expect.poll(()=>modal.locator('[data-reorder-list="rest"] [data-reorder-id]').evaluateAll(rows=>rows.map(row=>row.dataset.reorderId)))
-      .toEqual(['basket','photos','library','files','brief','hwp','pages','outside']);
+      .toEqual(['basket','reading','photos','library','files','brief','hwp','pages','outside']);
     await modal.locator('[data-menu-edit-reset]').click();
     await expect.poll(()=>prefs.value?.menu_layout??null).toBeNull();
     await modal.locator('[data-close="menuEditModal"]').click();
@@ -111,19 +111,19 @@ test('PC 왼쪽 메뉴 끌기: 맨 아래 묶음으로 옮기고 다시 위 줄�
   // 빈 공간 아래쪽 반에 놓으면 맨 아래 묶음 맨 앞.
   const sb=await spacer.boundingBox();
   await drag(page,head(page,'photos'),sb.x+sb.width/2,sb.y+sb.height-2);
-  await expect.poll(()=>pcOrder(page)).toEqual({main:['basket','calendar','meetings','team','note','library','files','brief','hwp','pages','outside'],tail:['photos','calls','telegram','arsenal']});
+  await expect.poll(()=>pcOrder(page)).toEqual({main:['basket','calendar','meetings','team','note','library','files','brief','hwp','pages','outside','reading'],tail:['photos','calls','telegram','arsenal']});
   await expect(head(page,'photos')).toHaveClass(/nav-feed-first/);
-  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','library','files','brief','hwp','pages','outside','bottom','photos','calls','telegram','arsenal']);
+  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','library','files','brief','hwp','pages','outside','reading','bottom','photos','calls','telegram','arsenal']);
   // 맨 아래 묶음의 [통화]를 위 줄 [자료실] 위쪽으로: 위 메뉴로 들어가고 하단바 칸은 그대로(하단바 칸은 메뉴들 사이에 놓을 때만 바뀐다).
   const library=await head(page,'library').boundingBox();
   await drag(page,head(page,'calls'),library.x+library.width/2,library.y+2);
-  await expect.poll(()=>pcOrder(page)).toEqual({main:['basket','calendar','meetings','team','note','calls','library','files','brief','hwp','pages','outside'],tail:['photos','telegram','arsenal']});
+  await expect.poll(()=>pcOrder(page)).toEqual({main:['basket','calendar','meetings','team','note','calls','library','files','brief','hwp','pages','outside','reading'],tail:['photos','telegram','arsenal']});
   expect(prefs.value.menu_layout.bar).toEqual(['home','basket','calendar','meetings','team']);
   // 하단바 칸(홈 포함 5칸)이 가득 찬 채 하단바 칸 메뉴들 사이로 [자료실]을 끌면 옮기지 않고 한 줄로 알려 준다.
   const calendar=await head(page,'calendar').boundingBox();
   await drag(page,head(page,'library'),calendar.x+calendar.width/2,calendar.y+2);
   await expect(page.locator('#toast')).toContainText('하단바');
-  expect((await pcOrder(page)).main).toEqual(['basket','calendar','meetings','team','note','calls','library','files','brief','hwp','pages','outside']);
+  expect((await pcOrder(page)).main).toEqual(['basket','calendar','meetings','team','note','calls','library','files','brief','hwp','pages','outside','reading']);
   // 옮기기가 거절돼 줄이 그대로여도, 끌었다 놓은 줄의 화면은 열리지 않는다(끌기 뒤 따라오는 클릭은 문서 위임 클릭보다 먼저 삼킨다).
   await page.waitForTimeout(250);
   expect(await route(page)).toBe('home');
@@ -134,7 +134,7 @@ test('PC 왼쪽 메뉴 끌기: 맨 아래 묶음으로 옮기고 다시 위 줄�
   await page.mouse.up();
   await page.waitForTimeout(250);
   expect(await route(page)).toBe('home');
-  expect((await pcOrder(page)).main).toEqual(['basket','calendar','meetings','team','note','calls','library','files','brief','hwp','pages','outside']);
+  expect((await pcOrder(page)).main).toEqual(['basket','calendar','meetings','team','note','calls','library','files','brief','hwp','pages','outside','reading']);
   // [일정]을 끌면 아래 달력·할 일·일기가 붙은 채 같이 움직인다(그 셋끼리 순서 바꾸기는 없다).
   const files=await head(page,'files').boundingBox();
   await drag(page,head(page,'calendar'),files.x+files.width/2,files.y+files.height-2);
@@ -161,10 +161,10 @@ test('PC 왼쪽 메뉴: 키보드 Alt+↑·↓로 한 칸 옮기고 포커스는
   const files=head(page,'files');
   await files.focus();
   await page.keyboard.press('Alt+ArrowDown');
-  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','library','brief','files','hwp','pages','photos','outside','bottom','calls','telegram','arsenal']);
+  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','library','brief','files','hwp','pages','photos','outside','reading','bottom','calls','telegram','arsenal']);
   await expect(files).toBeFocused();
   await page.keyboard.press('Alt+ArrowUp');await page.keyboard.press('Alt+ArrowUp');
-  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','files','library','brief','hwp','pages','photos','outside','bottom','calls','telegram','arsenal']);
+  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','files','library','brief','hwp','pages','photos','outside','reading','bottom','calls','telegram','arsenal']);
   await expect(files).toBeFocused();
   // 위 메뉴 맨 위 줄에서 위로 = 하단바 칸 끝으로 넘어가는데 하단바가 가득이라 옮기지 않고 한 줄로 알린다. 일반 화살표·다른 조합은 아무 일도 하지 않는다.
   const before=JSON.stringify(prefs.value);
@@ -177,8 +177,8 @@ test('PC 왼쪽 메뉴: 키보드 Alt+↑·↓로 한 칸 옮기고 포커스는
   await head(page,'arsenal').focus();await page.keyboard.press('Alt+ArrowDown');
   expect(JSON.stringify(prefs.value)).toBe(before);
   // 위 메뉴 끝 줄에서 아래로 = 맨 아래 묶음 맨 위, 맨 아래 묶음 첫 줄에서 위로 = 위 메뉴 맨 끝(메뉴 편집 창 화살표와 같은 규칙).
-  await head(page,'outside').focus();await page.keyboard.press('Alt+ArrowDown');
-  await expect.poll(()=>pcOrder(page)).toMatchObject({tail:['outside','calls','telegram','arsenal']});
+  await head(page,'reading').focus();await page.keyboard.press('Alt+ArrowDown');
+  await expect.poll(()=>pcOrder(page)).toMatchObject({tail:['reading','calls','telegram','arsenal']});
   await page.keyboard.press('Alt+ArrowUp');
   await expect.poll(()=>pcOrder(page)).toMatchObject({tail:DEFAULT_TAIL});
   expect(errors).toEqual([]);
@@ -222,27 +222,27 @@ test('폰 [메뉴] 창: 줄을 끌어 위 메뉴 순서를 바꾸고 아래 붙�
   const item=id=>sheet.locator(`button[data-reorder-id="${id}"]`);
   await accountButton(page).click();
   await expect(page.locator('#mobileMenu')).toBeVisible();
-  expect(await sheetOrder(page)).toEqual(['note','library','files','brief','hwp','pages','photos','outside','LINE','calls','telegram','arsenal']);
+  expect(await sheetOrder(page)).toEqual(['note','library','files','brief','hwp','pages','photos','outside','reading','LINE','calls','telegram','arsenal']);
   // [사진]을 [자료실] 위쪽 반으로: 위 메뉴 안 순서만 바뀐다(하단바 칸·숨김 규칙 그대로).
   // 폰 [메뉴] 창은 두 칸 격자라 칸의 왼쪽 반에 놓으면 그 칸 앞에 들어간다.
   const library=await steady(page,item('library'));
   await drag(page,item('photos'),library.x+6,library.y+library.height/2);
-  await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','brief','hwp','pages','outside','LINE','calls','telegram','arsenal']);
+  await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','brief','hwp','pages','outside','reading','LINE','calls','telegram','arsenal']);
   // 끌기를 마쳐도 창은 열려 있고 화면도 바뀌지 않는다(따라오는 클릭이 줄을 누른 게 아님).
   await page.waitForTimeout(250);
   await expect(page.locator('#mobileMenu')).toBeVisible();
   expect(await route(page)).toBe('home');
-  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','photos','library','files','brief','hwp','pages','outside','bottom','calls','telegram','arsenal']);
+  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','photos','library','files','brief','hwp','pages','outside','reading','bottom','calls','telegram','arsenal']);
   expect(prefs.value.menu_layout.bar).toEqual(['home','basket','calendar','meetings','team']);
   // 선 아래(아래 붙는 메뉴 첫 줄 자리)로 [공유 페이지]를 끌면 아래 붙는 메뉴로 옮겨진다.
   const calls=await steady(page,item('calls'));
   await drag(page,item('pages'),calls.x+6,calls.y+calls.height/2);
-  await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','brief','hwp','outside','LINE','pages','calls','telegram','arsenal']);
-  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','photos','library','files','brief','hwp','outside','bottom','pages','calls','telegram','arsenal']);
+  await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','brief','hwp','outside','reading','LINE','pages','calls','telegram','arsenal']);
+  await expect.poll(()=>prefs.value?.menu_layout?.rest).toEqual(['note','photos','library','files','brief','hwp','outside','reading','bottom','pages','calls','telegram','arsenal']);
   // 새로고침(서버에서 다시 읽음) 뒤에도 같은 순서.
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
-  await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','brief','hwp','outside','LINE','pages','calls','telegram','arsenal']);
+  await expect.poll(()=>sheetOrder(page)).toEqual(['note','photos','library','files','brief','hwp','outside','reading','LINE','pages','calls','telegram','arsenal']);
   expect(errors).toEqual([]);
   // 짧게 누르기는 그대로 화면 열기(창이 닫히고 그 화면으로).
   await accountButton(page).click();

@@ -25,8 +25,8 @@ export function parseShareList(json) {
     const size = Number(raw?.size);
     items.push({index, name:fileName(raw?.name, index), type:MIME.test(type) ? type : 'application/octet-stream', size:Number.isFinite(size) && size >= 0 ? Math.floor(size) : -1});
   }
-  // APP-공유노트할일: 공유 창에서 고른 칸(정리함·노트·할 일). S62-22 APP-공유로뉴스보관: 'News 보관'(news). 정해진 낱말 밖은 모두 정리함(이전과 같음).
-  const target = ['note', 'task', 'news'].includes(data.target) ? data.target : 'basket';
+  // APP-공유노트할일: 공유 창에서 고른 칸(정리함·노트·할 일). S62-22 APP-공유로뉴스보관: 'News 보관'(news). S68-09: '읽을 거리'(reading). 정해진 낱말 밖은 모두 정리함(이전과 같음).
+  const target = ['note', 'task', 'news', 'reading'].includes(data.target) ? data.target : 'basket';
   return {id:data.id, subject:clean(data.subject, 1000).trim(), text:clean(data.text, 100000), items, target};
 }
 

@@ -130,6 +130,19 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity-alias>
+        <!-- S68-09 READ-읽을거리함: 다섯 번째 칸 'WORK ON+ 읽을 거리'. 같은 화면의 activity-alias, 받기 길(ShareIntake)도 같다. 새 권한 없음.
+             웹은 받은 글에서 주소 하나만 골라 읽을 거리에 넣는다(주소가 없으면 안내 한 줄 + 잊지 말기로 넣을지 묻는 알림만). -->
+        <activity-alias
+            android:name=".ShareToReading"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="WORK ON+ 읽을 거리">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
         <!-- 단계 ③: 위젯 [로그인] 줄만 여는 화면. 내보내지 않아 다른 앱은 열 수 없다. 그리지 않고 바로 닫는다. -->
         <activity
             android:name=".WidgetLoginActivity"

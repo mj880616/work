@@ -3,7 +3,7 @@
 // - Google 일정: 검색칸에 처음 글자를 칠 때 기존 Edge google-calendar events로 지난 3개월~앞 6개월을 한 번 읽어 이 탭 메모리에 둔다.
 // - Google 할 일: 이 기기 저장본(google-tasks.js의 peekTasks). 없으면 같은 모듈의 listTasks로 한 번 읽는다(미완료 + 최근 완료).
 // 쓰기·새 저장소 없음. 로그인이 바뀌면 메모리 사본을 버린다. 요청 취소 대신 요청 번호로 늦게 온 답을 버린다(runtime api에 signal 없음).
-import {eventRanges, cleanServer, filterEvents, filterTasks} from './global-search-model.mjs';
+import {eventRanges, cleanServer, filterEvents, filterTasks, SEARCH_KINDS} from './global-search-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 import {ASK_CODES} from './ask-web2-model.mjs';
 
@@ -23,9 +23,17 @@ export function reset() {
 window.addEventListener('kptu:session-changed', reset);
 
 // DB 검색. kind가 있으면 "N건 모두 보기"(그 종류만 offset부터 per줄).
+// S68-09: 종류 이름을 모두 불러 읽을 거리도 찾는다. 서버가 아직 읽을 거리를 모르면(SEARCH_BAD_KIND) 지금까지처럼 기본 종류로 한 번 더 묻는다.
+let namedKinds = true;
 export async function searchRecords(query, {per = 3, kind = null, offset = 0} = {}) {
-  const body = {p_query: query, p_kinds: null, p_per_kind: per, p_offset: kind ? offset : 0, p_kind: kind || null};
-  const data = await rt().api('/rest/v1/rpc/app_search_records', {method: 'POST', body, singleFlight: false});
+  const body = {p_query: query, p_kinds: kind || !namedKinds ? null : [...SEARCH_KINDS], p_per_kind: per, p_offset: kind ? offset : 0, p_kind: kind || null};
+  let data;
+  try { data = await rt().api('/rest/v1/rpc/app_search_records', {method: 'POST', body, singleFlight: false}); }
+  catch (e) {
+    if (!body.p_kinds || !/SEARCH_BAD_KIND/.test(String(e?.message || ''))) throw e;
+    namedKinds = false;
+    data = await rt().api('/rest/v1/rpc/app_search_records', {method: 'POST', body: {...body, p_kinds: null}, singleFlight: false});
+  }
   return {words: Array.isArray(data?.words) ? data.words.map(String) : null, groups: cleanServer(data)};
 }
 

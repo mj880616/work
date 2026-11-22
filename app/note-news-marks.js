@@ -35,7 +35,8 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   // NEWS-운영자만(S63-03): News는 운영자 기능 키 'outside'가 있는 계정만. 키가 없다는 답이면 '보관한 글' 줄을 빼고(읽지도 않음) 밑줄은 노트 밑줄만 보인다
   // (News·텔레그램 밑줄은 누르면 News로 가므로). 모인 밑줄·보관은 지우지 않는다. 답을 모르면(null) 지금처럼 다 보인다(메뉴 myFeaturesOrNull 규칙과 같음).
   let newsOn = true;
-  const hlNow = () => { const raw = highlightsNow(); const all = raw && raw.filter(h => !(h?.source_type === 'note' && noteHidden(h.source_id))); return all && !newsOn ? all.filter(h => h?.source_type === 'note') : all; };
+  // S68-09: 읽을 거리 밑줄은 모든 사람 것(누르면 읽을 거리 화면으로) — News 기능 키와 상관없이 노트 밑줄과 함께 보인다.
+  const hlNow = () => { const raw = highlightsNow(); const all = raw && raw.filter(h => !(h?.source_type === 'note' && noteHidden(h.source_id))); return all && !newsOn ? all.filter(h => h?.source_type === 'note' || h?.source_type === 'reading') : all; };
   async function load() {
     const my = ++seq;
     off = false;
@@ -127,6 +128,7 @@ export function createNoteNewsMarks({head, box, onChange = () => {}, openNote = 
   const openHighlight = h => {
     if (!h) return;
     if (h.source_type === 'note') { openNote?.(h.source_id, h.id); return; }
+    if (h.source_type === 'reading') { window.KPTUReadingOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('reading', {source: 'delegated'}); return; }
     if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) goNews();
   };
   box?.addEventListener('click', e => {

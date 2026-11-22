@@ -44,7 +44,7 @@ function idleAsk() { return {phase: 'idle', q: '', answer: null, msg: ''}; }
 const ICON = {
   update: 'M4 5h16v11H9l-5 4z', note: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5', task: 'M4 12l5 5L20 6',
   document: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4', meeting: 'M4 5h16v11H9l-5 4zM8 9h8M8 12h5', schedule: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14',
-  work: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5', project: 'M3 7h7l2 2h9v12H3zM3 7V4h7l2 3',
+  work: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5', reading: 'M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4', project: 'M3 7h7l2 2h9v12H3zM3 7V4h7l2 3',
   organization: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2',
   search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
   ask: 'M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z'
@@ -442,6 +442,7 @@ async function openView(target) {
       if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id);
       await r.openFrom('basket');
     } else if (target.view === 'library') { requestLibraryDocument(target.id); await r.openFrom('library'); }
+    else if (target.view === 'reading') { window.KPTUReadingOpen = {id: target.id}; await r.openFrom('reading'); }
     else if (target.view === 'tasks') { requestTaskOpen(target.id); await r.openFrom('tasks'); }
     else if (target.view === 'journal') await r.openFrom('journal', () => { if (target.day) window.KPTUJournal?.show?.(target.day); });
     else if (target.view === 'projects') await window.KPTUAreaWindow?.open?.({id: target.id}); // MTG-프로젝트합치기 ①: 사업영역 관리 창

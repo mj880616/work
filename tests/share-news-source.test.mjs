@@ -43,5 +43,5 @@ test('phone app: fourth share entry is an activity-alias with the same receive p
   assert.doesNotMatch(alias, /android:permission=|uses-permission/);
   const rules = read('../android-app/app/src/main/java/kr/or/kptu/work/ShellRules.kt');
   assert.match(rules, /SHARE_TO_NEWS -> "news"/);
-  assert.match(rules, /setOf\("basket", "note", "task", "news"\)/);
+  assert.match(rules, /setOf\("basket", "note", "task", "news", "reading"\)/);
 });

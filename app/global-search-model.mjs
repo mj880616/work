@@ -6,10 +6,15 @@ import {word} from './brand/brand.mjs';
 export const MIN_WORD = 2, MAX_WORDS = 6, MAX_WORD = 100, MAX_QUERY = 200, CAP = 200, PREVIEW = 3, PAGE = 20, SNIPPET_RADIUS = 40;
 // 서버 종류(설계 7절). 일기는 어디에도 없다(서버 허용 목록이 최종 경계).
 export const SERVER_KINDS = Object.freeze(['update', 'note', 'work', 'document', 'meeting', 'project', 'organization', 'milestone']);
+// S68-09 READ-읽을거리함: 읽을 거리(제목·사이트·주소·받아 둔 원문 사본)는 서버가 이름으로 부를 때만 찾는 종류다(DB 20261122100000).
+// 전체 검색은 기본 8종류에 이것을 더해 이름으로 부른다(물어보기·지금 자세히 재료에는 섞이지 않음).
+export const READING_KIND = 'reading';
+export const SEARCH_KINDS = Object.freeze([...SERVER_KINDS, READING_KIND]);
 // 화면 묶음: 서버 종류 + 브라우저가 찾는 할 일(task). 일정(schedule) = 프로젝트 주요 일정(milestone) + Google 일정.
 export const GROUPS = Object.freeze([
   {key: 'update', label: '업데이트', icon: 'update', chip: true},
   {key: 'note', label: '노트', icon: 'note', chip: true},
+  {key: 'reading', label: '읽을 거리', icon: 'reading', chip: false},
   {key: 'task', label: '할 일', icon: 'task', chip: true},
   {key: 'document', label: '자료실', icon: 'document', chip: true},
   {key: 'meeting', label: word('사업 보고'), icon: 'meeting', chip: true},
@@ -22,7 +27,7 @@ export const GROUPS = Object.freeze([
 export const GROUP_KEYS = Object.freeze(GROUPS.map(g => g.key));
 export const groupOf = key => GROUPS.find(g => g.key === key) || null;
 // 화면 묶음 → 서버에 묻는 종류(없으면 브라우저만).
-export const serverKindOf = key => key === 'schedule' ? 'milestone' : SERVER_KINDS.includes(key) ? key : null;
+export const serverKindOf = key => key === 'schedule' ? 'milestone' : SEARCH_KINDS.includes(key) ? key : null;
 export const groupKeyOfServer = kind => kind === 'milestone' ? 'schedule' : kind;
 
 // 낱말 나누기. 서버와 같은 규칙: 공백으로 나눔, 같은 낱말 한 번(대소문자 무시), 1~6개, 낱말 2~100자, 전체 200자, 제어문자 불가.
@@ -181,7 +186,7 @@ function cleanItem(raw) {
 export function cleanServer(data) {
   const groups = new Map();
   for (const g of Array.isArray(data?.groups) ? data.groups : []) {
-    if (!SERVER_KINDS.includes(g?.kind)) continue;
+    if (!SEARCH_KINDS.includes(g?.kind)) continue;
     groups.set(g.kind, {
       kind: g.kind, total: Math.max(0, Number(g.total) || 0), capped: g.capped === true, offset: Math.max(0, Number(g.offset) || 0),
       items: (Array.isArray(g.items) ? g.items : []).map(cleanItem).filter(Boolean)
@@ -238,6 +243,7 @@ export function openTarget(item) {
   switch (item?.source) {
     case 'note': return item.kind === 'note' ? {view: 'basket', note: 'doc', id: item.id} : item.kind === 'work' ? {view: 'journal', day: item.day} : {view: 'basket', note: 'memo', id: item.id};
     case 'document': return {view: 'library', id: item.id};
+    case 'reading': return {view: 'reading', id: item.id};
     case 'meeting': return {view: 'meetings', id: item.id};
     case 'project': return {view: 'projects', id: item.id};
     case 'progress': case 'milestone': return item.project_id ? {view: 'projects', id: item.project_id} : null;

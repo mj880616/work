@@ -262,6 +262,7 @@ class ShellRulesTest {
         assertEquals("note", ShellRules.shareTarget("kr.or.kptu.work.ShareToNote"))
         assertEquals("task", ShellRules.shareTarget("kr.or.kptu.work.ShareToTask"))
         assertEquals("news", ShellRules.shareTarget("kr.or.kptu.work.ShareToNews"))
+        assertEquals("reading", ShellRules.shareTarget("kr.or.kptu.work.ShareToReading"))
         assertEquals("basket", ShellRules.shareTarget("kr.or.kptu.work.MainActivity"))
         assertEquals("basket", ShellRules.shareTarget(null))
         assertEquals("basket", ShellRules.shareTarget("x.ShareToTrash"))
@@ -269,6 +270,7 @@ class ShellRulesTest {
         assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "note").endsWith("],\"target\":\"note\"}"))
         assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "task").endsWith("],\"target\":\"task\"}"))
         assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "news").endsWith("],\"target\":\"news\"}"))
+        assertTrue(ShellRules.shareListJson(shareId, null, "t", list, "reading").endsWith("],\"target\":\"reading\"}"))
         // 정리함·알 수 없는 값은 이전 모양 그대로(칸 없음).
         assertFalse(ShellRules.shareListJson(shareId, null, "t", list, "basket").contains("target"))
         assertFalse(ShellRules.shareListJson(shareId, null, "t", list, "\"evil").contains("target"))

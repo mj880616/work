@@ -54,7 +54,8 @@ for(const width of [1280,1440]){
   expect(calls.length).toBe(0);
   await top(page).fill('교섭');
   await expect(panel(page).locator('.gs-band')).not.toHaveCount(0);
-  expect(calls.at(-1)).toEqual({p_query:'교섭',p_kinds:null,p_per_kind:3,p_offset:0,p_kind:null});
+  // S68-09: 종류를 이름으로 모두 불러 읽을 거리(reading)도 찾는다(서버는 이름으로 부를 때만 읽을 거리를 찾음).
+  expect(calls.at(-1)).toEqual({p_query:'교섭',p_kinds:['update','note','work','document','meeting','project','organization','milestone','reading'],p_per_kind:3,p_offset:0,p_kind:null});
   // 칩: 전체·업데이트·노트·할 일·자료실·사업 보고·일정(+건수). 업무일지 칩 없음, 일기 없음.
   const chips=panel(page).locator('.gs-chips [data-filter-value]');
   await expect(chips).toHaveText([/^전체 \d+$/,'업데이트 5','노트 1',/^할 일 \d+$/,'자료실 1','사업 보고 0',/^일정 \d+$/]);
