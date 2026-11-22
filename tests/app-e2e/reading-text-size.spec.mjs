@@ -63,7 +63,15 @@ async function go(page, width, name) {
 }
 const detail = page => page.locator('#readingView [data-rd-detail]');
 const prose = page => detail(page).locator('[data-rd-prose]');
-const fontPx = loc => loc.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+// 글 보기는 원문 다시 받기 등으로 다시 그려질 수 있다 — 읽는 사이 칸이 바뀌면(떨어진 마디는 글자 크기가 빈 값) 다시 읽는다.
+const fontPx = async loc => {
+  for (let i = 0; i < 40; i++) {
+    const v = await loc.evaluate(el => el.isConnected ? parseFloat(getComputedStyle(el).fontSize) : NaN).catch(() => NaN);
+    if (v > 0) return v;
+    await loc.page().waitForTimeout(50);
+  }
+  return NaN;
+};
 const noWideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 async function openReading(page, width) {
   await go(page, width, '읽을 거리');
@@ -119,10 +127,10 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     await expect(bigger).toBeDisabled();
     await expect(smaller).toBeEnabled();
     await expect(smaller).toBeFocused();
-    expect(await fontPx(prose(page))).toBeCloseTo(base * 1.5625, 1);
-    expect(await fontPx(prose(page).locator('p').first())).toBeCloseTo(base * 1.5625, 1);
-    expect(await fontPx(title)).toBe(titleBase);
-    expect(await fontPx(bigger)).toBe(btnBase);
+    await expect.poll(() => fontPx(prose(page))).toBeCloseTo(base * 1.5625, 1);
+    await expect.poll(() => fontPx(prose(page).locator('p').first())).toBeCloseTo(base * 1.5625, 1);
+    await expect.poll(() => fontPx(title)).toBe(titleBase);
+    await expect.poll(() => fontPx(bigger)).toBe(btnBase);
     await expect.poll(() => prefs.value?.news_font).toBe('xxl');
     // 밑줄은 같은 글자에 그대로(글자와 함께 커짐), 화면 가로 넘침 없음.
     await expect(mark).toHaveText(QUOTE);
@@ -135,7 +143,7 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
       await expect(prose(page)).toHaveAttribute('data-text-size', want);
     }
     await expect(smaller).toBeDisabled();
-    expect(await fontPx(prose(page))).toBeCloseTo(base * 0.875, 1);
+    await expect.poll(() => fontPx(prose(page))).toBeCloseTo(base * 0.875, 1);
     await expect.poll(() => prefs.value?.news_font).toBe('s');
     await expect(mark).toHaveText(QUOTE);
     await bigger.click(); await bigger.click(); await bigger.click();
@@ -147,7 +155,7 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     await expect(page.locator('#readingView')).toBeVisible();
     if (!(await prose(page).locator('p').count())) await page.locator(`#readingView .rd-row[data-rd-open="${A}"]`).click();
     await expect(prose(page)).toHaveAttribute('data-text-size', 'xl');
-    expect(await fontPx(prose(page))).toBeCloseTo(base * 1.375, 1);
+    await expect.poll(() => fontPx(prose(page))).toBeCloseTo(base * 1.375, 1);
     await expect(prose(page).locator('mark.hl-mark')).toHaveText(QUOTE);
 
     // News 글 상세도 같은 값(같은 단추). 거기서 한 단계 작게 → 읽을 거리도 따라감.
@@ -158,11 +166,11 @@ for (const [label, width] of [['phone-390', 390], ['pc-1280', 1280]]) {
     const nd = page.locator('#outsideRoot [data-now-detail] .nd');
     await expect(nd.locator('[data-nd-prose] p').first()).toHaveText('가상 첫 문단이다.');
     await expect(nd).toHaveAttribute('data-text-size', 'xl');
-    expect(await fontPx(nd.locator('[data-nd-prose]'))).toBe(22);
-    expect(await fontPx(nd.locator('[data-nd-prose] blockquote'))).toBe(22);
+    await expect.poll(() => fontPx(nd.locator('[data-nd-prose]'))).toBe(22);
+    await expect.poll(() => fontPx(nd.locator('[data-nd-prose] blockquote'))).toBe(22);
     await nd.getByRole('button', { name: '글자 작게' }).click();
     await expect(nd).toHaveAttribute('data-text-size', 'l');
-    expect(await fontPx(nd.locator('[data-nd-prose]'))).toBe(19);
+    await expect.poll(() => fontPx(nd.locator('[data-nd-prose]'))).toBe(19);
     await expect.poll(() => prefs.value?.news_font).toBe('l');
     expect(await noWideScroll(page)).toBe(true);
     await go(page, width, '읽을 거리');
