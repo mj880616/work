@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pickUnionTemplate,pickConvertTemplate,findUnionTemplate,saveUnionForm,ensureUnionFormCategory,unionFormFileProblem,
-  UNION_TEMPLATE_CATEGORY,UNION_TEMPLATE_OLD_CATEGORY,UNION_TEMPLATE_FILTER,isUnionTemplateCategory} from '../app/hwp-drive.js';
+  UNION_TEMPLATE_CATEGORY,UNION_TEMPLATE_OLD_CATEGORY,UNION_TEMPLATE_FILTER,isUnionTemplateCategory,
+  UNION_TEMPLATE_NOJO_CATEGORY,templateCategoriesFor,templateSaveCategory} from '../app/hwp-drive.js';
+import {FACES,wordIn} from '../app/brand/faces.mjs';
+import {withWordBase} from '../app/brand/custom-words-model.mjs';
 import {categoryOf,setDocumentCategories,resetDocumentCategories} from '../app/document-categories.js';
 import {saveOwnForm} from '../app/weekly-own-form-store.js';
 // HWP-노조서식분류(요청함 11/16 07:26): HWP 편집 노조 서식의 자료실 분류 이름은 '노조 서식'. 옛 이름 '양식'으로 등록된 자료도 계속 찾고(읽기만 두 이름),
@@ -123,4 +126,37 @@ test('screen code: the text window waits for a form; the upload goes through sav
   assert.match(start,/saveUnionForm/);
   const journal=readFileSync(new URL('../app/journal.js',import.meta.url),'utf8');
   assert.match(journal,/saveUnionForm\(file/);
+});
+
+// S68-21(명진 11/22 17:04): 서식 분류 이름 — WORK ON+ 기본(girok) '서식', 명진 화면(nojo_words)·노동조합+ 얼굴 '노조 서식' 그대로.
+// 저장된 분류 값은 바꾸지 않는다: 찾기는 세 이름 모두, 올릴 때 내 목록에 '노조 서식'이 이미 있으면 그 분류를 계속 쓴다.
+test('S68-21: 서식 분류 이름은 얼굴 단어, 저장된 값은 그대로 찾고 이어 쓴다',()=>{
+  const girok=wordIn(FACES.girok,'노조 서식'),mine=wordIn(withWordBase(FACES.girok,'nojo'),'노조 서식');
+  assert.equal(girok,'서식');
+  assert.equal(mine,'노조 서식','nojo_words는 지금 이름');
+  assert.equal(wordIn(FACES.nojo,'노조 서식'),'노조 서식');
+  assert.equal(UNION_TEMPLATE_NOJO_CATEGORY,'노조 서식');
+  assert.match(readFileSync(new URL('../app/hwp-drive.js',import.meta.url),'utf8'),/export const UNION_TEMPLATE_CATEGORY=word\('노조 서식'\);/);
+  assert.deepEqual([...templateCategoriesFor(girok)],['서식','노조 서식','양식']);
+  assert.deepEqual([...templateCategoriesFor(mine)],['노조 서식','양식']);
+  // girok: 새 사람은 '서식'을 새로 더하고, 전에 '노조 서식'을 만든 사람은 그 분류를 계속 쓴다.
+  assert.equal(templateSaveCategory(['교섭','기타'],girok),'서식');
+  assert.equal(templateSaveCategory(['노조 서식','기타'],girok),'노조 서식');
+  assert.equal(templateSaveCategory(['서식','노조 서식','기타'],girok),'서식');
+  assert.equal(templateSaveCategory(['양식','기타'],girok),'서식','옛 양식은 이어 쓰지 않는다(지금과 같음)');
+  // nojo_words: 지금처럼 '노조 서식'.
+  assert.equal(templateSaveCategory(['교섭','기타'],mine),'노조 서식');
+  assert.equal(templateSaveCategory(['서식','기타'],mine),'노조 서식','명진의 다른 서식 분류는 건드리지 않는다');
+  // 꼬리표: 세 이름이 같은 분류로 보인다(자료 값은 그대로).
+  setDocumentCategories(['서식','기타']);
+  assert.equal(categoryOf('노조 서식'),'서식');assert.equal(categoryOf('양식'),'서식');
+  setDocumentCategories(['노조 서식','기타']);
+  assert.equal(categoryOf('서식'),'노조 서식');
+  resetDocumentCategories();
+});
+
+test('S68-21: 내 양식 저장 안내는 실제로 들어간 분류 이름을 쓴다',()=>{
+  const journal=readFileSync(new URL('../app/journal.js',import.meta.url),'utf8');
+  assert.doesNotMatch(journal,/자료실 '노조 서식'에 두었어요/);
+  assert.match(journal,/upCategory = up\.document\.category/);
 });

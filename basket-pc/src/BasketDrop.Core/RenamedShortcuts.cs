@@ -2,14 +2,15 @@ namespace BasketDrop;
 
 /// <summary>
 /// The installer names its Start menu and desktop shortcuts after the program title. The title changed from
-/// "BasketDrop" to "노조+ 업로드" (BASKET-노조플러스업로드) and then to "노조+ 파일 올리기" (S63-09 PC도우미구분), so a PC
+/// "BasketDrop" to "노조+ 업로드" (BASKET-노조플러스업로드), then to "노조+ 파일 올리기" (S63-09 PC도우미구분) and then to
+/// "WORK ON+ 파일 올리기" (S68-21), so a PC
 /// installed with an older title may still hold an old-name shortcut next to the new one. Only those exact old file
 /// names are touched, and only in the folders given.
 /// </summary>
 public static class RenamedShortcuts
 {
     /// <summary>The shortcut file names the installer used before (older --packTitle values), oldest first.</summary>
-    public static readonly IReadOnlyList<string> OldFileNames = ["BasketDrop.lnk", "노조+ 업로드.lnk"];
+    public static readonly IReadOnlyList<string> OldFileNames = ["BasketDrop.lnk", "노조+ 업로드.lnk", "노조+ 파일 올리기.lnk"];
 
     /// <summary>The shortcut file name the installer uses now (--packTitle in .github/workflows/basket-pc-release.yml).</summary>
     public static string NewFileName => TrayStatus.Name + ".lnk";

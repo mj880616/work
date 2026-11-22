@@ -709,12 +709,12 @@ function paintBlank(host, weekModel) {
         if (known === undefined) known = (await store.readOwnForm()).row;
         // HWP-노조서식분류: 파일에서 읽은 양식이면 그 원본 한글 파일을 자료실 '노조 서식'에 한 번 올리고(hwp-drive.js saveUnionForm, 기존 library-files),
         // 그 자료 번호를 '내 양식'의 source_file_id로 둔다. 올리기가 안 돼도 양식 저장은 막지 않는다(한 번만 보내고 다시 보내지 않음).
-        let sourceFileId = uploadedId, upNote = '';
+        let sourceFileId = uploadedId, upNote = '', upCategory = '';
         if (pendingFile) {
           const file = pendingFile; pendingFile = null;
           try {
             const up = await (await import('./hwp-drive.js')).saveUnionForm(file, {}, {rt});
-            if (up.kind === 'created') sourceFileId = uploadedId = up.document.id; else { sourceFileId = null; upNote = ` 원본 파일은 자료실에 올리지 못했어요. ${up.message}`; }
+            if (up.kind === 'created') { sourceFileId = uploadedId = up.document.id; upCategory = up.document.category; } else { sourceFileId = null; upNote = ` 원본 파일은 자료실에 올리지 못했어요. ${up.message}`; }
           } catch { sourceFileId = null; upNote = ' 원본 파일은 자료실에 올리지 못했어요.'; }
         }
         let saved;
@@ -723,7 +723,8 @@ function paintBlank(host, weekModel) {
         if (saved.missing) return {ok:false, text:store.OWN_FORM_TEXT.notReady};
         if (saved.conflict) { known = saved.row; return {ok:false, text:store.OWN_FORM_TEXT.conflict}; }
         known = saved.row; loaded = true; editing = false; uploadedId = undefined; paintSaved();
-        note.textContent = store.OWN_FORM_TEXT.saved + (sourceFileId ? " 원본 파일은 자료실 '노조 서식'에 두었어요." : upNote);
+        // S68-21: 원본이 들어간 실제 분류 이름(hwp-drive.js saveUnionForm 답 — WORK ON+ 기본 '서식', 명진 화면 '노조 서식', 전에 만든 분류면 그 이름).
+        note.textContent = store.OWN_FORM_TEXT.saved + (sourceFileId ? (upCategory ? ` 원본 파일은 자료실 '${upCategory}'에 두었어요.` : ' 원본 파일은 자료실에 두었어요.') : upNote);
         return {ok:true, text:''};
       }});
   }

@@ -100,7 +100,7 @@ test('PC 화면 계획: 윈도우 PC 브라우저만 최신 설치 파일 + 설�
 
 // S63-09 PC도우미구분(명진 11/16): PC 프로그램은 WORK ON+ 자체가 아닌 도우미 — 이름·버튼·안내 글이 그것을 드러내고, WORK ON+는 브라우저(앱 설치)에서 쓴다고 먼저 말한다.
 test('PC 도우미 이름·안내: 보조 프로그램임이 드러나고 WORK ON+는 브라우저에서 쓴다는 한 줄', () => {
-  assert.equal(PC_HELPER_NAME, '노조+ 파일 올리기');
+  assert.equal(PC_HELPER_NAME, 'WORK ON+ 파일 올리기');
   assert.equal(PC_BUTTON, 'PC 파일 올리기 도우미 내려받기');
   assert.equal(PC_BROWSER_LINE, "WORK ON+는 크롬·엣지 같은 인터넷 브라우저에서 씁니다. PC에서는 브라우저로 열거나 크롬 '앱 설치'로 바탕화면에 두세요.");
   assert.match(PC_DESC, /WORK ON\+ 자체가 아니에요/);

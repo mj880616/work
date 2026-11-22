@@ -26,13 +26,24 @@ export const editedName=name=>`${String(name||'문서').replace(/\.(hwpx?)$/i,''
 // [노조 양식으로 새 문서]는 그 자료를 기존 hwp-open 흐름으로 열되, 원본에는 덮어쓰지 않고 새 파일 제목을 사용자가 정한다.
 // HWP-노조서식분류(요청함 11/16 07:26): 분류 이름은 '노조 서식'. 새로 등록할 때는 '노조 서식'만 쓰고, 예전 이름 '양식'으로 등록된 자료도
 // 계속 찾는다(읽을 때 두 이름 모두 — 운영 자료 일괄 변경 없음). 자료실 꼬리표도 '양식' → '노조 서식'으로 보인다(document-categories.js LEGACY).
-export const UNION_TEMPLATE_CATEGORY='노조 서식';
+// S68-21(명진 11/22 17:04): 새로 만드는 분류 이름은 얼굴 단어 word('노조 서식') — WORK ON+ 기본 '서식', 명진 화면(nojo_words) '노조 서식' 그대로.
+// 저장된 자료의 분류 값과 내 분류 목록의 이름은 바꾸지 않는다(DB 변경 없음). 찾을 때는 지금 이름·'노조 서식'·옛 '양식'을 모두 보고,
+// 올릴 때 내 목록에 이미 '노조 서식'이 있으면(전에 올린 사람) 그 분류를 계속 쓴다(분류가 둘로 갈라지지 않게).
+export const UNION_TEMPLATE_NOJO_CATEGORY='노조 서식';
+export const UNION_TEMPLATE_CATEGORY=word('노조 서식');
 // S68-02: 편집 백업 폴더 이름. 서버(_shared/hwp-edit.ts)가 실제로 쓴 폴더 이름(backup.folder)을 알려 주면 그대로,
 // 모르면(옛 서버) 기본 이름 word('노조+ 편집 백업') — WORK ON+ 기본은 'WORK ON+ 편집 백업', 명진 화면은 그대로.
 export const EDIT_BACKUP_FOLDER=word('노조+ 편집 백업');
 export const backupFolderName=name=>typeof name==='string'&&name.trim()&&name.length<=100&&!/["\n]/.test(name)?name.trim():EDIT_BACKUP_FOLDER;
 export const UNION_TEMPLATE_OLD_CATEGORY='양식';
-export const UNION_TEMPLATE_CATEGORIES=Object.freeze([UNION_TEMPLATE_CATEGORY,UNION_TEMPLATE_OLD_CATEGORY]);
+/** 서식 자료로 찾을 분류 값들(지금 이름이 맨 앞, 겹침 없이). current = 이 사람의 지금 이름(얼굴 단어). */
+export const templateCategoriesFor=current=>Object.freeze([...new Set([String(current||UNION_TEMPLATE_NOJO_CATEGORY),UNION_TEMPLATE_NOJO_CATEGORY,UNION_TEMPLATE_OLD_CATEGORY])]);
+/** 올릴 때 쓸 분류: 내 목록에 지금 이름이 있으면 그것, 없고 '노조 서식'이 있으면 그것(전에 만든 분류 계속), 둘 다 없으면 지금 이름(새로 더함). */
+export function templateSaveCategory(list,current=UNION_TEMPLATE_CATEGORY){
+  const names=Array.isArray(list)?list:[];
+  return [current,UNION_TEMPLATE_NOJO_CATEGORY].find(name=>names.includes(name))||current;
+}
+export const UNION_TEMPLATE_CATEGORIES=templateCategoriesFor(UNION_TEMPLATE_CATEGORY);
 export const isUnionTemplateCategory=value=>UNION_TEMPLATE_CATEGORIES.includes(String(value??''));
 const UNION_HINT=/노조|문서\s*스타일|통일/;
 const isUnionTemplateRow=row=>row&&typeof row.id==='string'&&isUnionTemplateCategory(row.category)&&/\.hwp$/i.test(String(row.file_name||''));
@@ -199,12 +210,16 @@ export async function saveConvertedCopy(bytes,{fileName,title},{rt=window.KPTURu
 
 // HWP-노조서식분류: 자료실 분류 '노조 서식'이 내 분류 목록에 없으면 기존 분류 추가 함수(app_document_category_add)로 한 번 더한다("폴더 없으면 만들고").
 // 목록을 못 읽었거나(기본 7개뿐), 30개가 찼거나, 추가가 실패해도 올리기는 막지 않는다(자료는 '노조 서식' 값으로 저장되고 꼬리표만 '기타'로 보임).
-export async function ensureUnionFormCategory({rt=window.KPTURuntime}={}){
-  try{await loadDocumentCategories({rt});}catch{return false}
-  const list=documentCategories();
-  if(list.includes(UNION_TEMPLATE_CATEGORY))return true;
-  if(list.length>=30)return false;
-  try{return (await addDocumentCategory(UNION_TEMPLATE_CATEGORY,{rt})).ok===true;}catch{return false}
+// S68-21: 쓸 분류 이름은 templateSaveCategory(내 목록에 있는 지금 이름 → '노조 서식' → 새로 더할 지금 이름). 답 {ok, category}.
+export async function unionFormCategory({rt=window.KPTURuntime}={}){
+  try{await loadDocumentCategories({rt});}catch{return {ok:false,category:UNION_TEMPLATE_CATEGORY}}
+  const list=documentCategories(),category=templateSaveCategory(list);
+  if(list.includes(category))return {ok:true,category};
+  if(list.length>=30)return {ok:false,category};
+  try{return {ok:(await addDocumentCategory(category,{rt})).ok===true,category};}catch{return {ok:false,category}}
+}
+export async function ensureUnionFormCategory(opts={}){
+  return (await unionFormCategory(opts)).ok;
 }
 // 서식 파일 올리기 규칙: 한글 파일(.hwp·.hwpx)만, 30MB까지. hwpOnly면 .hwp만([노조 서식으로 만들기]의 칸막이 엔진은 HWP 5 바탕만 받음).
 export function unionFormFileProblem(file,{hwpOnly=false}={}){
@@ -219,18 +234,18 @@ export function unionFormFileProblem(file,{hwpOnly=false}={}){
 // 서식 파일 원본을 자료실에 분류 '노조 서식'으로 등록한다(기존 library-files — 내 Drive 자료실 폴더, owner 전용 자료 1행). 자료명은 파일 이름에서
 // 정해 보내므로 서버가 내용을 읽어 이름을 짐작하지 않는다. 한 번만 보내고 결과를 모르면 다시 보내지 않는다. 로컬 저장 없음.
 export async function saveUnionForm(file,{title}={},{rt=window.KPTURuntime,fetcher}={}){
-  await ensureUnionFormCategory({rt});
+  const {category}=await unionFormCategory({rt});
   const name=String(file?.name||'서식.hwp');
   const form=new FormData();
   form.append('file',file instanceof File?file:new File([file],name,{type:/\.hwpx$/i.test(name)?'application/hwp+zip':'application/x-hwp'}));
-  form.append('title',String(title||'').trim()||name.replace(/\.hwpx?$/i,'').trim()||'노조 서식');
-  form.append('category',UNION_TEMPLATE_CATEGORY);
+  form.append('title',String(title||'').trim()||name.replace(/\.hwpx?$/i,'').trim()||category);
+  form.append('category',category);
   let response;
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){
     try{window.dispatchEvent(new CustomEvent('kptu:documents-changed'))}catch{/* 목록 새로 고침 알림만 */}
-    return {kind:'created',document:{id:data.document.id,title:String(data.document.title||''),file_name:String(data.document.file_name||name),category:UNION_TEMPLATE_CATEGORY},message:`자료실 '${UNION_TEMPLATE_CATEGORY}'에 올렸어요.`};
+    return {kind:'created',document:{id:data.document.id,title:String(data.document.title||''),file_name:String(data.document.file_name||name),category},message:`자료실 '${category}'에 올렸어요.`};
   }
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }

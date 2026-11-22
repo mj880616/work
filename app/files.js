@@ -3199,7 +3199,7 @@ const libStub = (r, owner) => {
 async function sendToLibrary(rows) {
   const list = (rows || []).filter(Boolean), scope = state.scope, owner = scopeOf();
   const pcOk = r => r.source !== PC || pc.canXfer;
-  if (!list.every(pcOk)) notify(word('노조+ 파일 올리기 도우미를 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요'), {record: false});
+  if (!list.every(pcOk)) notify(word('WORK ON+ 파일 올리기 도우미를 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요'), {record: false});
   const files = list.filter(r => !r.is_folder && pcOk(r));
   for (const f of list.filter(r => r.is_folder && pcOk(r))) {
     const tree = await treeRead(f, scope);

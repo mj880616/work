@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace BasketDrop.App;
 
 /// <summary>
-/// The program's single owner: tray icon, login, auto start, update, '노조+에서 이 PC 보기', and the queue pump that
+/// The program's single owner: tray icon, login, auto start, update, 'WORK ON+에서 이 PC 보기', and the queue pump that
 /// only sends what older versions left waiting. Nothing new is queued any more: the send entrances (clipboard
 /// hotkey and paste window, right-click Send to, screen-corner box, desktop tile) were removed.
 /// </summary>
@@ -20,8 +20,8 @@ internal sealed class TrayApp : ApplicationContext
     private readonly SemaphoreSlim _wake = new(0);
     // Hidden control whose handle lives on the UI thread; background threads hop onto the UI through it.
     private readonly Control _ui = new();
-    // S63-09 PC도우미구분: [노조+ 열기] (노조+ itself is the web app in the browser) and the helper window.
-    private readonly ToolStripMenuItem _openNojoPlusItem = new("노조+ 열기");
+    // S63-09 PC도우미구분: [WORK ON+ 열기] (the web app in the browser; S68-21 name) and the helper window.
+    private readonly ToolStripMenuItem _openNojoPlusItem = new("WORK ON+ 열기");
     private readonly EventWaitHandle _helperSignal = HelperSignal.Create();
     private RegisteredWaitHandle? _helperWait;
     private readonly ToolStripMenuItem _loginStatusItem = new("로그인 상태") { Enabled = false };
@@ -29,12 +29,12 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _signOutItem = new("로그아웃");
     private readonly ToolStripMenuItem _statusItem = new("예전에 담아 둔 항목 보기");
     private readonly ToolStripMenuItem _autoStartItem = new("윈도우를 켤 때 자동 실행");
-    private readonly ToolStripMenuItem _doorItem = new("노조+에서 이 PC 보기");
+    private readonly ToolStripMenuItem _doorItem = new("WORK ON+에서 이 PC 보기");
     private readonly ToolStripMenuItem _restartForUpdateItem = new("새 버전으로 다시 시작") { Visible = false };
     private readonly SettingsStore _settings = new(AppPaths.Settings);
     private readonly AutoStartManager _autoStart;
     private readonly UpdateService _updates;
-    // '노조+에서 이 PC 보기' (docs/design/files-pc-drive.md): closed unless the menu turned it on and this app is signed in.
+    // 'WORK ON+에서 이 PC 보기' (docs/design/files-pc-drive.md): closed unless the menu turned it on and this app is signed in.
     private readonly HttpWebUserVerifier _webUsers = new();
     private readonly CachedWebUserVerifier _webUsersCached;
     private PcDoor? _door;
@@ -117,7 +117,7 @@ internal sealed class TrayApp : ApplicationContext
         return menu;
     }
 
-    // ---- 노조+에서 이 PC 보기 ----
+    // ---- WORK ON+에서 이 PC 보기 ----
 
     private void ToggleDoor()
     {
@@ -126,9 +126,9 @@ internal sealed class TrayApp : ApplicationContext
         try { _settings.Save(s); }
         catch (IOException) { _log.Write(LogCode.Error); return; }
         SyncDoor(notify: true);
-        if (!s.WebDoor) ToastForm.Show("노조+에서 이 PC 보기를 껐어요.");
-        else if (_door != null) ToastForm.Show("노조+ [파일]에서 이 PC를 볼 수 있어요. 이 PC의 브라우저에서만 보여요.");
-        else if (_auth.State != AuthState.SignedIn) ToastForm.Show("로그인하면 노조+에서 이 PC를 볼 수 있어요.");
+        if (!s.WebDoor) ToastForm.Show("WORK ON+에서 이 PC 보기를 껐어요.");
+        else if (_door != null) ToastForm.Show("WORK ON+ [파일]에서 이 PC를 볼 수 있어요. 이 PC의 브라우저에서만 보여요.");
+        else if (_auth.State != AuthState.SignedIn) ToastForm.Show("로그인하면 WORK ON+에서 이 PC를 볼 수 있어요.");
     }
 
     /// <summary>The one place the door opens or closes: wanted in the menu and signed in. Called whenever either may change.</summary>
@@ -158,7 +158,7 @@ internal sealed class TrayApp : ApplicationContext
             CloseDoor();
         }
         _doorItem.Checked = wanted;
-        _doorItem.Text = wanted && _auth.State != AuthState.SignedIn ? "노조+에서 이 PC 보기 (로그인하면 열려요)" : "노조+에서 이 PC 보기";
+        _doorItem.Text = wanted && _auth.State != AuthState.SignedIn ? "WORK ON+에서 이 PC 보기 (로그인하면 열려요)" : "WORK ON+에서 이 PC 보기";
     }
 
     private void CloseDoor()
@@ -280,7 +280,7 @@ internal sealed class TrayApp : ApplicationContext
                 Kick();
                 break;
             case SignInOutcome.NotOwner:
-                ToastForm.Show("이 구글 계정은 노조+ 소유자가 아니에요. 평소 노조+에 쓰는 계정으로 다시 로그인해 주세요. 아무것도 보내지 않았어요.", true);
+                ToastForm.Show("이 구글 계정은 WORK ON+ 소유자가 아니에요. 평소 WORK ON+에 쓰는 계정으로 다시 로그인해 주세요. 아무것도 보내지 않았어요.", true);
                 break;
             case SignInOutcome.PortsBusy:
                 ToastForm.Show("로그인 연결 창구를 열지 못했어요. 이전 로그인 창이 남아 있으면 닫고 잠시 뒤 다시 시도해 주세요.", true);

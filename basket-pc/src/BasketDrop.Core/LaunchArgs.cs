@@ -4,7 +4,7 @@ namespace BasketDrop;
 /// S63-09 PC도우미구분: the only command-line word this program understands. The start-with-Windows entry and the
 /// restart after an update pass <see cref="Background"/> so the program goes straight to the tray. Any other start
 /// (the user double-clicked the Start menu or desktop shortcut) opens the helper window that explains this is not
-/// 노조+ itself and offers [노조+ 열기]. Nothing else is read: no paths, no tokens, no addresses.
+/// the web app itself and offers [WORK ON+ 열기]. Nothing else is read: no paths, no tokens, no addresses.
 /// </summary>
 public static class LaunchArgs
 {
@@ -17,7 +17,7 @@ public static class LaunchArgs
     public static bool StartedByUser() => !IsBackground(Environment.GetCommandLineArgs().Skip(1).ToArray());
 }
 
-/// <summary>S63-09: where [노조+ 열기] goes. 노조+ itself is the web app in the browser (DOMAIN-nojoplus address); nothing is put in the address.</summary>
+/// <summary>S63-09: where [WORK ON+ 열기] goes. WORK ON+ itself is the web app in the browser (DOMAIN-nojoplus address); nothing is put in the address.</summary>
 public static class NojoPlusWeb
 {
     // DOMAIN-workonplus: nojoplus.com의 앱 자리는 이전 안내가 되므로 새 주소(WORK ON+)를 연다. 다음 판에 포함.

@@ -112,9 +112,11 @@ export function toCsv(rows) {
 }
 
 const html = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// 읽기 쉬운 글: 표마다 제목, 행마다 '칸: 값' 줄(빈 칸은 뺌). 노조+를 그만 써도 구글 문서로 그대로 열린다.
-export function readableHtml(category, tables, date) {
-  const parts = [`<h1>${html(category.label)} — ${html(date)} 백업</h1><p>노조+가 내 드라이브에 만든 백업입니다. 같은 내용의 표 파일(csv)이 같은 폴더에 있습니다.</p>`];
+// 읽기 쉬운 글: 표마다 제목, 행마다 '칸: 값' 줄(빈 칸은 뺌). 이 앱을 그만 써도 구글 문서로 그대로 열린다.
+// S68-21: 첫 줄의 앱 이름(appName)은 handler가 정한다(_shared/brand-folders.mjs appNameFor — 새 사용자 'WORK ON+', 명진 화면 nojo_words·확인 실패 '노조+').
+// 이미 만든 백업 문서는 다시 쓰지 않는다(새로 만드는 문서만).
+export function readableHtml(category, tables, date, appName = '노조+') {
+  const parts = [`<h1>${html(category.label)} — ${html(date)} 백업</h1><p>${html(appName)}가 내 드라이브에 만든 백업입니다. 같은 내용의 표 파일(csv)이 같은 폴더에 있습니다.</p>`];
   for (const { table, rows } of tables) {
     parts.push(`<h2>${html(table.label)} (${rows.length}건)</h2>`);
     for (const r of rows) {
