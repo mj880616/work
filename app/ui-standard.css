@@ -1937,6 +1937,8 @@ button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-s
   border:0; border-radius:var(--ds-chip-radius); background:transparent; box-shadow:none;
   color:var(--kptu-muted); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
 .ds-seg button.ds-seg-btn[hidden]{ display:none; }
+/* 글자 크기 [−][+](S68-33 READ-글자크기, text-size.js): 기호 한 글자 칸이라 폭만 작은 칸 높이만큼(좁은 머리 줄에 들어가게). 누르는 범위 높이는 ::after 그대로. */
+.ds-seg.txs button.ds-seg-btn{ min-width:var(--ds-compact-height); padding:0 var(--ds-seg-inset); }
 /* 붙은 두 칸(.ds-seg-group, 예: 홈 [업데이트 ▾])은 한 알약처럼: 앞 칸을 고르면 두 칸을 함께 흰 알약으로 띄운다. */
 .ds-seg-group{ display:flex; align-items:center; flex:none; border-radius:var(--ds-chip-radius); }
 .ds-seg > button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"],[aria-checked="true"]),.ds-seg > .ds-seg-group:has(> button.ds-seg-btn:is([aria-pressed="true"],[aria-checked="true"])){ background:var(--ds-seg-on); box-shadow:var(--ds-seg-on-shadow); }

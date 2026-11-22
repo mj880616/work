@@ -4,10 +4,10 @@
 const installed=new WeakMap();
 // base(MULTI ②-3): 늘 함께 읽히는 칸(담당조직 묶음·보고 캘린더 같은 운영자 설정). 읽기에는 섞여 나가고, 쓰기에서 같은 값이면 state.value·patches에 남기지 않는다
 // (시험이 보는 값은 그 시험이 바꾼 칸만). 같은 쪽에 두 번 부르면 처음 base를 지킨다.
-export async function installViewPrefsServer(page,initial=null,{missingColumn=false,failRead=false,failWrite=false,denyThemes=[],denyKeys=[],base=null}={}){
+export async function installViewPrefsServer(page,initial=null,{missingColumn=false,failRead=false,failWrite=false,denyThemes=[],denyKeys=[],denyValues={},base=null}={}){
   // 같은 쪽에 두 번 불러도 한 번만 설치하고, 두 번째부터는 처음 값에 합친다(beforeEach와 시험 안에서 함께 부르는 경우).
   if(installed.has(page)){const known=installed.get(page);if(initial)known.value={...(known.value||{}),...initial};return known}
-  const state={value:initial,patches:[],reads:0,missingColumn,failRead,failWrite,denyThemes,denyKeys,base};
+  const state={value:initial,patches:[],reads:0,missingColumn,failRead,failWrite,denyThemes,denyKeys,denyValues,base};
   const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   const served=()=>{if(!state.base)return state.value;const v={...state.base,...(state.value||{})};return Object.keys(v).length?v:null};
   const kept=v=>{if(!state.base||!v)return v;const out={...v};for(const k of Object.keys(state.base))if(same(out[k],state.base[k]))delete out[k];return Object.keys(out).length?out:null};
@@ -20,6 +20,8 @@ export async function installViewPrefsServer(page,initial=null,{missingColumn=fa
     if(state.denyThemes.includes(body.view_prefs?.theme))return {status:400,rows:{code:'23514',message:'violates check constraint app_profiles_view_prefs_check'}};
     // 서버 검사가 아직 모르는 칸(DB 적용 전)도 같은 400.
     if(state.denyKeys.some(k=>body.view_prefs&&k in body.view_prefs))return {status:400,rows:{code:'23514',message:'violates check constraint app_profiles_view_prefs_check'}};
+    // 서버 검사가 아직 모르는 값(DB 적용 전, 예: 글자 크기 새 단계)도 같은 400. {칸: [값…]}.
+    if(Object.entries(state.denyValues).some(([k,vs])=>body.view_prefs&&vs.includes(body.view_prefs[k])))return {status:400,rows:{code:'23514',message:'violates check constraint app_profiles_view_prefs_check'}};
     state.value=kept(body.view_prefs);state.patches.push(kept(body.view_prefs));return {status:200,rows:[{user_id:'view-prefs-user'}]};
   });
   await page.addInitScript(()=>{

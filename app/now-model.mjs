@@ -172,9 +172,7 @@ export function shareArticleData(head) {
   const title = oneLine(head?.title).slice(0, 300), url = httpsUrl(head?.url);
   return url ? {title, url} : title ? {title, text: title} : null;
 }
-// 글자 크기 세 단계(서버 view_prefs.news_font, 없으면 보통).
-export const NEWS_FONT_STEPS = Object.freeze([{id: 's', label: '글자 작게'}, {id: 'm', label: '글자 보통'}, {id: 'l', label: '글자 크게'}]);
-export const keepNewsFont = v => (NEWS_FONT_STEPS.some(f => f.id === v) ? v : 'm');
+// 글자 크기 단계는 공용 text-size-model.mjs(S68-33, 읽을 거리 글 보기와 같은 다섯 단계).
 // S52-12 NEWS-원문먼저번역(시안 docs/design/mockups/news-detail-translate.html): 원문 칸 [번역].
 // 번역 저장 길(S52-36 NEWS-바깥소식번역): 뉴스 기사는 news-feed translate → app_news_items.body_ko,
 // 사회운동 영어 소식은 outside-feed translate → app_outside_posts.body_ko(엔진·규칙은 서버 _shared/feed-translate.ts 공용). 외국어 글에만 단추를 둔다.

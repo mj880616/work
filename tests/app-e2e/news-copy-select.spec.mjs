@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
 // S52-39 NEWS-원문복사선택(시안 docs/design/mockups/news-copy-select.html, 명진 11/08 01:39 'ㅇ'):
-// 원문 칸 머리 줄 [복사][번역(외국어 글만)][가 가 가] ⋯. [복사] = 제목 / 매체·날짜 / 본문 전체(문단 그대로) / 원래 주소를 한 번에(번역해서 보는 중이면 한국어 본문),
+// 원문 칸 머리 줄 [복사][번역(외국어 글만)][−][+] ⋯. [복사] = 제목 / 매체·날짜 / 본문 전체(문단 그대로) / 원래 주소를 한 번에(번역해서 보는 중이면 한국어 본문),
 // 위쪽 작은 알림 '복사했어요'. ⋯ = [모두 선택](원문 본문 전체가 선택된 상태)·[복사]·[공유](폰 공유 창 — 제목·주소만, 공유 창이 없는 화면엔 없음).
 // PC는 원문 위 우클릭도 같은 ⋯ 메뉴. 복사·선택은 화면 안에서만(서버에 새로 보내는 요청 없음). 서버는 흉내, 글은 모두 가상.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -96,7 +96,7 @@ for (const width of [412, 884, 1440]) {
     await expect(copy).toHaveText('복사');
     await expect(copy).toHaveClass(/ds-chip/);
     await expect(more).toHaveClass(/icon-btn/);
-    // 머리 줄은 한 줄(폰에서도 [복사][번역][가 가 가] ⋯가 같은 높이), 가로 넘침 없음.
+    // 머리 줄은 한 줄(폰에서도 [복사][번역][−][+] ⋯가 같은 높이), 가로 넘침 없음.
     const ys = await head.locator('.nd-ob-r > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
     expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(4);
     const hb = await head.boundingBox(), mb = await more.boundingBox();
@@ -165,11 +165,11 @@ for (const width of [412, 884, 1440]) {
       await page.keyboard.press('Escape');
     }
 
-    // 한글 글: [복사][가 가 가] ⋯ (번역 없음).
+    // 한글 글: [복사][−][+] ⋯ (번역 없음).
     if (width <= 760) await page.goBack();
     await open(page, KO);
     await expect(nd(page).locator('[data-nd-prose] p').first()).toHaveText('가상 한글 문단.');
-    const kids = await nd(page).locator('[data-nd-body] .nd-ob-r').evaluate(el => [...el.children].map(c => c.matches('[data-nd-copy]') ? 'copy' : c.matches('[data-nd-translate]') ? 'tr' : c.matches('.nd-size') ? 'size' : c.matches('[data-nd-ob-more]') ? 'more' : c.tagName.toLowerCase()));
+    const kids = await nd(page).locator('[data-nd-body] .nd-ob-r').evaluate(el => [...el.children].map(c => c.matches('[data-nd-copy]') ? 'copy' : c.matches('[data-nd-translate]') ? 'tr' : c.matches('[data-text-size-ctl]') ? 'size' : c.matches('[data-nd-ob-more]') ? 'more' : c.tagName.toLowerCase()));
     expect(kids).toEqual(['copy', 'size', 'more']);
     await nd(page).locator('[data-nd-copy]').click();
     await expect.poll(() => copied(page)).toMatch(/^가상 글 2\n민주노총 · [\s\S]*\n\n가상 한글 문단\.\n\nhttps:\/\/nodong\.org\/statement\/2$/);

@@ -11,6 +11,7 @@
 //   ① News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
 //   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
+// - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
 import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark} from './text-highlights.js';
@@ -23,6 +24,7 @@ import {notify, askConfirm} from './small-notice.js';
 import {word} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
 import {bindRowSwipe, claimedSince, PICK} from './row-swipe.js';
+import {textSizeHtml, paintTextSize} from './text-size.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
@@ -193,6 +195,8 @@ function drawDetail() {
   acts.append(btn('mini', marks.length ? `밑줄을 노트로 ${marks.length}` : '밑줄을 노트로', {rdNote: '1'}),
     btn('mini', tag ? word('사업영역 바꾸기') : '사업에 연결', {rdArea: '1'}),
     btn('mini', row.read_at ? '안 읽음으로' : '읽음', {rdRead: row.read_at ? '0' : '1'}));
+  // S68-33 READ-글자크기: 머리 단추줄 끝 [−][+](공용 text-size.js — News 글 상세와 같은 단추·같은 서버 값). 본문 칸만 커지고 작아진다.
+  acts.insertAdjacentHTML('beforeend', textSizeHtml());
   const parts = [bar, meta, acts];
   const busy = fetching(row.id);
   const line = state.lines.get(row.id) || stateLine(row, {busy});
@@ -204,6 +208,7 @@ function drawDetail() {
   }
   const prose = el('div', 'rd-prose');
   prose.dataset.rdProse = '1';
+  prose.dataset.textSizeTarget = '';
   if (state.bodyFor === row.id) {
     for (const para of paragraphs(state.body)) prose.append(el('p', null, para));
     if (!prose.childNodes.length && !line) prose.append(el('p', 'rd-faint', '받아 둔 원문이 없어요. 원래 페이지에서 읽어 주세요.'));
@@ -214,6 +219,7 @@ function drawDetail() {
   if (prose.querySelector('p') && state.bodyFor === row.id) parts.push(el('p', 'rd-faint rd-tip', '글을 선택하고 [밑줄 저장] · 밑줄을 누르면 메모'));
   box.replaceChildren(...parts);
   box.hidden = false;
+  paintTextSize(box);
   if (state.bodyFor === row.id) paintMarks(prose, marks);
 }
 
