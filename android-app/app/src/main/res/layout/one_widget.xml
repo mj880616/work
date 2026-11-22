@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-한칸위젯 A(11/22): 한 칸(1×1). 앱 아이콘처럼 정사각 둥근 먹색 칸(가운데) + 흰 그림, 이름은 칸 아래 흰 글자 + 옅은 그림자.
-     S68-08(11/22): 칸 크기는 홈 화면이 준 칸 크기에서 계산(WidgetTileRules.one, 48~76dp, 그림은 칸의 55%).
-     이 파일은 기본 틀(처음 그림·안드로이드 12+는 이 틀에서 칸·그림 크기를 바로 정함, 11 이하는 가운데 크기 60dp).
+<!-- APP-한칸위젯 A(11/22): 한 칸(1×1). 앱 아이콘처럼 정사각 둥근 먹색 칸 + 흰 그림, 이름은 칸 아래 흰 글자 + 옅은 그림자.
+     S68-11(11/22): 칸은 그림 한 장(widget_tile_*: 둥근 먹색 칸 + 흰 그림을 한 파일에)이고, 이름 줄 위 남는 공간 전체에
+     fitCenter로 그려 홈 화면이 실제로 준 공간에서 가장 큰 정사각이 된다(홈 화면이 알려 주는 칸 크기로 계산하지 않음).
+     좌우는 칸 폭의 14%씩 비워(무게 14 : 72 : 14) 앱 아이콘처럼 칸 폭의 72% 안쪽이 된다.
      기능이 달라도 색은 먹색 하나. 놓을 때 고른 기능 하나. 서버 요청 없음. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/one_root"
@@ -10,29 +11,42 @@
     android:clickable="true"
     android:focusable="true"
     android:gravity="center"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:paddingTop="2dp"
+    android:paddingBottom="2dp">
 
-    <FrameLayout
-        android:id="@+id/one_tile"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:background="@drawable/widget_one_tile">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="14" />
 
         <ImageView
-            android:id="@+id/one_icon"
-            android:layout_width="33dp"
-            android:layout_height="33dp"
-            android:layout_gravity="center"
+            android:id="@+id/one_tile"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="72"
+            android:adjustViewBounds="true"
             android:importantForAccessibility="no"
-            android:tint="@color/widget_one_icon"
-            android:src="@drawable/ic_w_update" />
-    </FrameLayout>
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_tile_update" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="14" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/one_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingTop="7dp"
+        android:paddingTop="5dp"
         android:singleLine="true"
         android:ellipsize="end"
         android:shadowColor="#99000000"
