@@ -25,7 +25,8 @@ import {clipboardFiles} from './paste-files.mjs';
 //   동시에 요약·시사점 만들기를 시작한다(ai-assist kind now_detail — 서버가 저장 원문을 재료로 먼저 씀). 기다림 표시는 요약·시사점 칸에만,
 //   다 되면 그 칸만 채운다(원문 칸은 다시 그리지 않음). 이미 만든 것(app_now_details)은 서버가 바로 돌려준다. 화면은 글 id만 보낸다.
 // - 원문이 없는 글(state failed·lead·image_only): 있는 만큼 + 까닭 한 줄 + [원래 사이트 ↗]. 뉴스 기사 중 저장 원문 줄이 아예 없는 옛 글과
-//   잠깐의 오류로 못 읽은 줄(state failed + 늦은 답·사이트 오류, now-model.mjs reopenBody)만 '기사 먼저 읽기'(news-feed open, 하루 한도는 서버)
+//   잠깐의 오류로 못 읽은 줄(state failed + 늦은 답·사이트 오류·예전 robots, now-model.mjs reopenBody)만 '기사 먼저 읽기'(news-feed open, 하루 한도는 서버,
+//   원문 칸에 '원문을 읽어 오는 중' 한 줄 — S68-25)
 //   뒤 다시 읽고(S51-17 P5, 설계 7.1), 그래도 없으면 예전 저장 글자(사회운동 문장·뉴스 body)를 문단으로. 막힌 사이트·없는 글은 다시 읽지 않는다.
 // - 사진: https 주소만, referrerpolicy="no-referrer"·loading="lazy", 글을 열었을 때만 그린다. 안 뜨면 '사진 ↗' 링크.
 // - 아래 작은 단추 줄: 사회운동 글은 app_outside_marks(글마다 한 줄), 뉴스는 기존 app_news_items 칸(starred_at·hidden_at). 메모는 노트
@@ -162,7 +163,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const head = `<div class="nd-ob"><b>원문 전체</b>${src ? `<span class="nd-ob-src">${esc(src)}</span>` : ''}<span class="nd-ob-r">${copyHtml(b)}${tr}${fontHtml()}${moreHtmlOb(b)}</span></div>`;
     let inner;
     if (cur.hand.open) inner = handHtml();
-    else if (!b) inner = `<div aria-busy="true">${waitHtml({rows: 4})}</div>`;
+    else if (!b) inner = `<div aria-busy="true">${cur.reading ? '<p class="nd-faint" data-nd-fetching role="status">원문을 읽어 오는 중</p>' : ''}${waitHtml({rows: 4})}</div>`;
     else if (cur.tr.busy) inner = `<div class="nd-wait" data-nd-tr-wait aria-busy="true"><p class="nd-faint" role="status">번역하는 중</p>${waitHtml({rows: 4})}</div>`;
     else if (tv) {
       const why = b.reason ? `<p class="nd-why" data-nd-why role="status">${esc(b.reason)}${cur.head.url ? ` · ${siteLink(b.state === 'lead' ? '나머지는 원래 사이트 ↗' : '원래 사이트 ↗')}` : ''}</p>` : '';
@@ -273,7 +274,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (row && !(item.type === 'news' && reopenBody(row))) { bodies.set(key, bodyView(row) || legacyBody('')); paintBody(); if (item.type === 'news') void freshenHead(item); return {hadRow: true}; }
     let pre = {ok: true};
     if (item.type === 'news') {
-      pre = await readFirst(item, my).catch(() => ({ok: true}));
+      pre = await readFirst(item, my, !!row).catch(() => ({ok: true}));
       if (my !== seq || pre.stale) return {stale: true};
       try { row = await readFeedBody(item); } catch { row = null; }
       if (my !== seq) return {stale: true};
@@ -287,14 +288,16 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     return {hadRow: false, pre};
   }
   // 저장 원문 줄이 없는 옛 뉴스 기사: 본문·요약이 아직 없으면 그 기사 하나를 먼저 읽는다(news-feed open). 읽지 못하면 AI를 부르지 않는다.
-  async function readFirst(item, my) {
+  // again: 저장 원문 줄이 다시 읽을 실패(reopenBody — 늦은 답·사이트 오류·S68-25 robots)라 요약이 있어도 그 한 쪽을 읽는다. 이 글 하나만(목록은 읽지 않음).
+  async function readFirst(item, my, again = false) {
     const row0 = await readNewsRow(item);
-    if (!row0 || !(needsRead(row0) || titlePending(row0))) return {ok: true};
-    cur.reading = true; paintAi();
+    if (!row0 || !(again || needsRead(row0) || titlePending(row0))) return {ok: true};
+    cur.reading = true; paintAi(); paintBody();
     let status = '';
     try { status = (await rt().api('/functions/v1/news-feed?action=open', {method: 'POST', body: {id: item.id}, singleFlight: false, timeoutMs: 90000}))?.status || ''; } catch (e) { status = e?.status === 429 ? 'daily_limit' : 'error'; }
     if (my !== seq) return {ok: true, stale: true};
     cur.reading = false;
+    if (!bodies.has(itemKey(item))) paintBody();
     const row = (await readNewsRow(item)) || row0;
     if (my !== seq) return {ok: true, stale: true};
     onRead?.(item, row);
