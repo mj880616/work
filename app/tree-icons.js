@@ -36,6 +36,15 @@ const PATHS = Object.freeze({
   phone: `<rect x="4" y="1.5" width="8" height="13" rx="1.6" ${S}/><circle cx="8" cy="12.2" r=".8" fill="currentColor"/>`,
   // S51-28 '목록 고치기' 고정 줄(분류 '기타').
   lock: `<rect x="3.4" y="7" width="9.2" height="7" rx="1.2" ${S}/><path d="M5.4 7V5a2.6 2.6 0 0 1 5.2 0v2" ${S}/>`,
+  // S68-26 UI-줄밀기 Raindrop식: 줄 밀기 칸(고르기·완료·옮기기·공유·보관·숨기기·삭제).
+  pick: `<rect x="2.4" y="2.4" width="11.2" height="11.2" rx="2" ${S}/><path d="M5.2 8.2l2 2 3.8-4.2" ${S}/>`,
+  done: `<path d="M3 8.4l3.2 3.2L13 4.6" ${S}/>`,
+  move: `<path d="M1.8 4.4c0-.6.5-1.1 1.1-1.1h2.9l1.7 1.2h5.6c.6 0 1.1.5 1.1 1.1v6.4c0 .6-.5 1.1-1.1 1.1H2.9c-.6 0-1.1-.5-1.1-1.1z" ${S}/><path d="M6 9h4.4M8.8 7.4L10.4 9l-1.6 1.6" ${S}/>`,
+  share: `<path d="M8 10V2.4M5.2 5L8 2.2 10.8 5" ${S}/><path d="M4.4 7.4H3.2v6.4h9.6V7.4h-1.2" ${S}/>`,
+  archive: `<rect x="1.8" y="2.6" width="12.4" height="3" rx=".6" ${S}/><path d="M2.8 5.6v7.8h10.4V5.6M6.4 8.4h3.2" ${S}/>`,
+  hide: `<path d="M1.8 8s2.2-4.2 6.2-4.2S14.2 8 14.2 8 12 12.2 8 12.2 1.8 8 1.8 8z" ${S}/><circle cx="8" cy="8" r="1.8" ${S}/><path d="M2.6 13.4L13.4 2.6" ${S}/>`,
+  trash: `<path d="M2.6 4.4h10.8M6.2 4.4V2.6h3.6v1.8M4 4.4l.7 9.2h6.6l.7-9.2" ${S}/>`,
+  undo: `<path d="M5.4 3.4L2.4 6.4l3 3" ${S}/><path d="M2.6 6.4h6.6a3.8 3.8 0 0 1 0 7.6H6.4" ${S}/>`,
 });
 export const ICON_NAMES = Object.freeze(Object.keys(PATHS));
 
