@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-이번주위젯 S68-12(11/22): 오늘을 고른 칸. 오늘 표시(먹색 바탕 + 밝은 글자)가 앞서고, 둘레에 고른 날 음영 테두리를 겹친다. 누를 때 물결. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/widget_today_press">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/widget_pick_bg" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    <item android:bottom="3dp" android:left="3dp" android:right="3dp" android:top="3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/widget_today_bg" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+</ripple>

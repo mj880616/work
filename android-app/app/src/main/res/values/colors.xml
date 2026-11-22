@@ -34,4 +34,7 @@
     <color name="widget_today_bg">#22262B</color>
     <color name="widget_today_ink">#F3F1EA</color>
     <color name="widget_today_press">#40F3F1EA</color>
+    <!-- APP-이번주위젯 S68-12(11/22): 고른 날 음영(먹색 톤, 바탕과 또렷이 구분)·테두리. 오늘을 고르면 오늘 칸 둘레에 같은 음영. -->
+    <color name="widget_pick_bg">#D6D3CB</color>
+    <color name="widget_pick_line">#8F8C85</color>
 </resources>
