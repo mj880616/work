@@ -6,9 +6,11 @@
 // - 서버 저장만(reading-data.js, owner RLS). 기기 저장 없음.
 // - S68-27 READ-보관기록일원화(명진 11/22 "2. A" → 21:37 "저장된 기록도 일원화 하지 왜?"): 보관의 원본은 이 표(app_reading_items) 하나다.
 //   News에서 보관한 글도 이 표의 줄(원래 글 연결 칸 news_article_id·outside_article_id, DB 20261122230000)이라 목록은 이 표만 읽는다(두 곳 합치기 없음).
-//   연결된 줄은 작은 'News' 꼬리표 + 칩 [News](News 기능 키 'outside'가 있는 사람만). 그런 사람이 연결된 줄을 누르면 News 지금 글 보기(원문·밑줄)를
-//   라우터 openFrom으로 열어 뒤로 한 번 = 읽을 거리. ⋯ [보관 풀기]는 News 줄 ★과 같은 dropSaved(서버 함수 app_reading_keep, 5초 되돌리기).
-//   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 지우기는 읽을 거리 지우기).
+// - S68-29(명진 11/23 02:23 "news 란을 만들라는 게 아니라 뉴스에서 보관하면 그냥 여기로 오는 개념"): News에서 보낸 줄도 평범한 읽을 거리 한 줄이다 —
+//   'News' 꼬리표·[News] 칩 없음, 줄 모양·⋯·밀기·고르기 단추가 직접 넣은 줄과 같다. 다른 점은 화면 밖 두 가지뿐:
+//   ① News 기능 키 'outside'가 있는 사람이 그런 줄을 누르면 News 지금 글 보기(원문·News에서 그은 밑줄)를 라우터 openFrom으로 연다(뒤로 한 번 = 읽을 거리).
+//   ② [삭제]는 News 줄 ★ 끄기와 같은 dropSaved(서버 함수 app_reading_keep — 이 줄을 지우고 News 쪽 표시도 끔, 5초 [되돌리기]). 이름은 똑같이 '삭제'.
+//   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
 import {keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, markKeysOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, fetchBody, fetching} from './reading-data.js';
 import {loadHighlights, highlightsNow, sourceHighlights, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark} from './text-highlights.js';
@@ -51,7 +53,7 @@ async function newsAllowed() {
 async function load() {
   if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; }
   const scope = state.scope;
-  const news = newsAllowed().then(on => { if (scope !== state.scope) return; state.newsOn = on; if (!on && state.filter === 'news') state.filter = 'unread'; }).catch(() => {});
+  const news = newsAllowed().then(on => { if (scope !== state.scope) return; state.newsOn = on; }).catch(() => {});
   try { state.rows = await listItems(); state.failed = false; state.loaded = true; }
   catch { state.failed = true; }
   await news;
@@ -79,7 +81,6 @@ const areaText = id => (id && areaNames ? areaNames(id) : '');
 
 // ---------- 목록 ----------
 let chipsHost = null;
-const newsTag = () => el('span', 'rd-tag rd-src-tag', 'News');
 function rowEl(e) {
   const row = e.row, l = lineOf(row);
   const r = el('div', 'rd-row');
@@ -91,17 +92,15 @@ function rowEl(e) {
   const meta = el('span', 'rd-meta', [l.site, l.day].filter(Boolean).join(' · '));
   const more = btn('rd-more icon-btn', '⋯', {rdMore: row.id}); more.setAttribute('aria-label', '읽을 거리 메뉴: ' + l.title); more.setAttribute('aria-expanded', 'false');
   r.append(dot, title, meta, more);
-  const tag = areaText(l.area), news = !!e.link;
+  const tag = areaText(l.area);
   const line = state.lines.get(row.id) || (fetching(row.id) ? stateLine(row, {busy: true}) : '');
-  if (tag || line || news) {
+  if (tag || line) {
     const sub = el('span', 'rd-sub');
-    // News에서 보관한 줄(원래 글 연결이 있음)은 꼬리표 'News'.
-    if (news) { sub.append(newsTag()); r.classList.add('rd-row-news'); }
     if (tag) sub.append(el('span', 'rd-tag', tag));
     if (line) sub.append(el('span', 'rd-line', line));
     r.append(sub);
   }
-  r.setAttribute('aria-label', `${l.unread ? '안 읽음 · ' : ''}${l.title}${l.site ? ' · ' + l.site : ''}${news ? ' · News에서 보냄' : ''}`);
+  r.setAttribute('aria-label', `${l.unread ? '안 읽음 · ' : ''}${l.title}${l.site ? ' · ' + l.site : ''}`);
   return r;
 }
 function drawList() {
@@ -135,14 +134,14 @@ function drawList() {
   if (!state.loaded) { box.replaceChildren(...parts); box.insertAdjacentHTML('beforeend', waitHtml({rows: 4})); return; }
   const keys = markKeys(), entries = entriesNow();
   chipsHost ||= el('div', 'rd-chips');
-  renderFilterChips(chipsHost, {options: filterOptions(entries, keys, state.newsOn), value: keepFilter(state.filter, state.newsOn), label: '읽을 거리 거르기', small: true,
-    onChange: v => { state.filter = keepFilter(v, state.newsOn); drawList(); }});
+  renderFilterChips(chipsHost, {options: filterOptions(entries, keys), value: keepFilter(state.filter), label: '읽을 거리 거르기', small: true,
+    onChange: v => { state.filter = keepFilter(v); drawList(); }});
   parts.push(chipsHost);
-  const shown = filterEntries(entries, state.filter, keys, state.newsOn);
+  const shown = filterEntries(entries, state.filter, keys);
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
-  if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter, state.newsOn), entries.length)));
+  if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
   box.replaceChildren(...parts);
 }
@@ -241,7 +240,7 @@ async function addUrl(text) {
   catch { state.addError = '저장하지 못했어요 · 잠시 뒤 다시'; drawList(); return; }
   state.adding = false;
   if (!out.dup) state.rows = [out.row, ...state.rows.filter(r => r.id !== out.row.id)];
-  if (state.filter === 'marks' || state.filter === 'news') state.filter = 'all';
+  if (state.filter === 'marks') state.filter = 'all';
   notify(out.dup ? '이미 읽을 거리에 있어요' : '읽을 거리에 넣었어요', {record: false});
   draw();
   if (!out.dup) void startFetch(out.row);
@@ -287,25 +286,54 @@ async function remove(id, anchor) {
   draw();
 }
 
-// News에서 보관한 줄 열기: 라우터 openFrom(화면을 다 불러온 뒤 기록 1칸, News 상세가 같은 칸을 씀) → 뒤로가기 한 번 = 읽을 거리. 새 보기 없이 News 지금 글 보기 그대로.
+// News에서 보낸 줄 열기: 라우터 openFrom(화면을 다 불러온 뒤 기록 1칸, News 상세가 같은 칸을 씀) → 뒤로가기 한 번 = 읽을 거리. 새 보기 없이 News 지금 글 보기 그대로.
 async function openNews(link) {
   const router = window.KPTURouter;
   if (!link || !router?.openFrom) return;
   const ok = await router.openFrom('outside', () => window.KPTUOutside?.openItem?.({type: link.type, id: link.id}) ?? false).catch(() => false);
   if (ok === false && window.KPTURouter?.current === 'reading') notify('News에서 열지 못했어요 · 잠시 뒤 다시', {error: true, record: false});
 }
-// 보관 풀기(News에서 보관한 줄): News 줄 ★·밀기와 같은 dropSaved — 서버 함수가 이 줄을 지우고 별표 폴더를 비운다. 5초 [되돌리기]는 원래 저장 시각으로.
+// News에서 보낸 줄 [삭제]: News 줄 ★·밀기와 같은 dropSaved — 서버 함수가 이 줄을 지우고 News 쪽 표시도 끈다. 5초 [되돌리기]는 원래 저장 시각으로.
+// 알림 글만 '삭제했어요'(사용자에게는 직접 넣은 줄 삭제와 같은 이름). 줄이 빠지고 되돌리면 다시 읽는다.
+const DEL_TEXT = '삭제했어요', DEL_LABEL = '읽을 거리 삭제';
+const linkChanged = id => (it, kind, on) => {
+  if (kind === 'release') { state.rows = state.rows.filter(r => r.id !== id); if (state.open === id) closeDetail(); }
+  else if (kind === 'save' && on) void load().then(() => { if (here()) draw(); });
+  if (window.KPTURouter?.current === 'reading') drawList();
+};
 async function releaseSaved(id) {
   const link = newsLinkOf(id);
   if (!link) return;
   try {
     const {dropSaved} = await import('./now-row-acts.js');
-    await dropSaved(link, {saved: true, changed: (it, kind, on) => {
-      if (kind === 'release') { state.rows = state.rows.filter(r => r.id !== id); if (state.open === id) closeDetail(); }
-      else if (kind === 'save' && on) void load().then(() => { if (here()) draw(); });
-      if (window.KPTURouter?.current === 'reading') drawList();
-    }});
-  } catch { notify('읽을 거리에서 빼지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
+    await dropSaved(link, {saved: true, text: DEL_TEXT, label: DEL_LABEL, changed: linkChanged(id)});
+  } catch { notify('삭제하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
+}
+// 한 줄 [삭제] — ⋯가 부른다. News에서 보낸 줄(키가 있을 때)은 되돌릴 수 있는 dropSaved, 그 밖은 묻고 지우기(기존 길).
+const removeAny = (id, anchor) => (newsLinkOf(id) ? releaseSaved(id) : remove(id, anchor));
+// 고른 줄 [삭제]: 직접 넣은 줄이 있으면 한 번만 묻고 지운다(되돌리기 없음, 한 줄 삭제와 같음). News에서 보낸 줄은 한 번에 빼고 알림 하나 'n개 삭제했어요 [되돌리기]'.
+async function removeMany(ids) {
+  const linked = ids.filter(id => newsLinkOf(id)), plain = ids.filter(id => !newsLinkOf(id) && rowOf(id));
+  if (plain.length) {
+    const anchor = document.querySelector('[data-row-pick-act="delete"]');
+    const marks = plain.reduce((n, id) => n + sourceHighlights('reading', id).length, 0);
+    if (!(await askConfirm(anchor, {text: `선택한 읽을 거리 ${ids.length}개를 삭제할까요?`, note: marks ? `밑줄 ${marks}개는 노트 › 밑줄에 남아요` : '', ok: '삭제'}))) return;
+    let gone = 0;
+    for (const id of plain) {
+      try { await removeItem(id); gone += 1; state.rows = state.rows.filter(r => r.id !== id); if (state.open === id) closeDetail(); }
+      catch { notify('삭제하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); break; }
+    }
+    if (gone) notify(`${gone}개 삭제했어요`, {record: false});
+    draw();
+  }
+  if (!linked.length) return;
+  try {
+    const {dropSavedMany} = await import('./now-row-acts.js');
+    const items = linked.map(id => ({id, link: newsLinkOf(id)})).filter(x => x.link);
+    const idOf = it => items.find(x => x.link.type === it.type && x.link.id === it.id)?.id;
+    // 되돌리기는 News에서 보낸 줄만 되살리므로 그 개수만 센다(직접 넣은 줄은 위에서 묻고 지웠다).
+    await dropSavedMany(items.map(x => x.link), {label: DEL_LABEL, text: n => `${n}개 삭제했어요`, changed: (it, kind, on) => { const id = idOf(it); if (id) linkChanged(id)(it, kind, on); }});
+  } catch { notify('삭제하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
 }
 
 const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label: '읽을 거리 메뉴', historyKey: 'kptuReadingRowMenu',
@@ -314,20 +342,17 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
   render: id => {
     const row = rowOf(id);
     if (!row) return '';
-    const news = newsLinkOf(id);
-    // News에서 보관한 줄(키가 있을 때): [News에서 열기] … [보관 풀기]. 그 밖은 [삭제].
-    return `${news ? '<button type="button" class="row-act" data-rd-act="news-open">News에서 열기</button>' : ''}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}${news ? '<button type="button" class="row-act feed-menu-danger" data-rd-act="release">읽을 거리에서 빼기</button>' : '<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>'}`;
+    // S68-29: News에서 보낸 줄도 같은 단추. 'News에서 열기'는 두지 않는다 — 줄을 누르면 이미 News 원문 보기로 열린다(키가 있을 때).
+    return `<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">사업에 연결</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const id = active.id, act = button.dataset.rdAct, at = view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
-    if (act === 'news-open') { const link = newsLinkOf(id); if (link) void openNews(link); return; }
-    if (act === 'release') { void releaseSaved(id); return; }
     const row = rowOf(id);
     if (!row) return;
     if (act === 'read') void toggleRead(id, !row.read_at);
     else if (act === 'area' && at) void pickArea(at, id);
     else if (act === 'fetch') void startFetch(row);
-    else if (act === 'delete') void remove(id, at);
+    else if (act === 'delete') void removeAny(id, at);
   }});
 
 // 좌우 밀기: 목록 칸에서 옆으로 밀면 옆 칩으로(세로 스크롤과 구분: 가로 이동이 세로의 2배 이상·60px 이상).
@@ -341,14 +366,14 @@ function bindSwipe(box) {
     x0 = null;
     if (claimedSince(t0)) return;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return;
-    const next = nextFilter(state.filter, dx < 0 ? 1 : -1, state.newsOn);
+    const next = nextFilter(state.filter, dx < 0 ? 1 : -1);
     if (next !== state.filter) { state.filter = next; drawList(); }
   }, {passive: true});
 }
 
 // UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로](끝까지 밀면 읽음 바로),
-// News 보관 글 줄은 [보관 풀기](News와 같은 dropSaved, 알림 [되돌리기]). 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [읽음][보관 풀기]'.
-// 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·releaseSaved). 삭제는 되돌리는 길이 없어 줄 밀기에 두지 않는다(⋯ 그대로).
+// 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [읽음][삭제]'. News에서 보낸 줄도 같은 단추(S68-29).
+// 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·releaseSaved·remove). 한 줄 삭제는 줄 밀기에 두지 않는다(⋯ 그대로).
 function bindRows(box) {
   const keyOf = el => el?.dataset?.rdPick || '';
   bindRowSwipe(box, {row: '.rd-row[data-rd-pick]', enabled: () => state.loaded && !state.adding,
@@ -357,24 +382,20 @@ function bindRows(box) {
       const row = rowOf(key);
       if (!row) return null;
       const readAct = row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'};
-      // 보관함 합치기(DB 20261122230000) 뒤 News 보관 글도 같은 줄 — [보관 풀기]를 앞에 더한다(⋯ 메뉴와 같음).
-      return {start: PICK, end: newsLinkOf(key) ? [{key: 'release', label: '읽을 거리에서 빼기', tone: 'muted'}, readAct] : [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct]};
+      return {start: PICK, end: [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct]};
     },
     run: (key, el) => {
       const id = keyOf(el);
-      if (key === 'release') { if (newsLinkOf(id)) void releaseSaved(id); return; }
       const row = rowOf(id);
       if (!row) return;
       if (key === 'read' || key === 'unread') void toggleRead(id, key === 'read');
       else if (key === 'area') { const at = box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`); if (at) void pickArea(at, id); }
     },
-    // 고른 줄을 하나씩 차례로(⋯와 같은 길). [읽음]은 읽을 거리 줄만, [보관 풀기]는 News 보관 글 줄만.
-    select: {attr: 'data-rd-pick', label: '선택한 읽을 거리', acts: () => [{key: 'read', label: '읽음'}, ...(state.newsOn ? [{key: 'release', label: '읽을 거리에서 빼기'}] : [])],
+    // 고른 줄: [읽음]은 하나씩 차례로(⋯와 같은 길), [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
+    select: {attr: 'data-rd-pick', label: '선택한 읽을 거리', acts: () => [{key: 'read', label: '읽음'}, {key: 'delete', label: '삭제', danger: true}],
       run: async (key, ids) => {
-        for (const id of ids) {
-          if (key === 'read') { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }
-          else if (key === 'release') { if (newsLinkOf(id)) await releaseSaved(id); }
-        }
+        if (key === 'delete') { await removeMany(ids); return; }
+        for (const id of ids) { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }
       }}});
 }
 

@@ -85,8 +85,8 @@ for (const [label, width] of [['phone-412', 412], ['pc-1280', 1280]]) {
     await openHome(page);
     const s = await server(page);
     await goReading(page, width);
-    // 처음은 [안 읽음]: 안 읽은 줄 하나. 칩 [안 읽음 1][전체][밑줄] + News 기능이 있는 계정(기본 운영자 흉내)은 [News](S68-24, 보관한 글 없음).
-    await expect(list(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 1', '전체', '밑줄', 'News']);
+    // 처음은 [안 읽음]: 안 읽은 줄 하나. 칩은 [안 읽음 1][전체][밑줄] 셋뿐 — News 기능이 있는 계정(기본 운영자 흉내)도 [News] 칩 없음(S68-29).
+    await expect(list(page).locator('.rd-chips [data-filter-value]')).toHaveText(['안 읽음 1', '전체', '밑줄']);
     await expect(list(page).locator('.rd-row')).toHaveCount(1);
     await expect(list(page).locator('.rd-row').first()).toContainText('예시 기사 하나');
     await expect(list(page).locator('.rd-row').first()).toContainText('example.com · 11/22');

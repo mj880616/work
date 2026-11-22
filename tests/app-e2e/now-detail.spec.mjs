@@ -223,17 +223,17 @@ for (const width of [412, 884, 1280]) {
     await expect(root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-hit`)).toHaveText('철도 민영화');
     await expect(root(page).locator('[data-now-cand]')).toBeHidden();
 
-    // 읽을 거리로 보낸 글(S68-24·S68-27·S68-28): News 탭 줄에는 '보관' 길이 없고, 메뉴 '읽을 거리' [News]에 방금 보낸 사회운동 글(P1) + 옮겨 온 글(P2), 꼬리표 'News'.
+    // 읽을 거리로 보낸 글(S68-24·S68-27·S68-28·S68-29): News 탭 줄에는 '보관' 길이 없고, 메뉴 '읽을 거리' [전체]에 방금 보낸 사회운동 글(P1) + 옮겨 온 글(P2) — 평범한 줄([News] 칩·꼬리표 없음).
     await expect(root(page).locator('[data-os-tabs] button')).toHaveText(['전체', '사회운동', '언론', '밑줄']);
     await page.evaluate(() => window.KPTURouter.go('reading'));
     const rd = page.locator('#readingView');
     await expect(rd).toBeVisible();
-    await rd.locator('.rd-chips [data-filter-value="news"]').click();
-    await expect(rd.locator('.rd-chips [data-filter-value="news"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(rd.locator('.rd-row-news')).toHaveCount(2);
+    await rd.locator('.rd-chips [data-filter-value="all"]').click();
+    await expect(rd.locator('.rd-chips [data-filter-value="all"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(rd.locator('.rd-chips [data-filter-value="news"]')).toHaveCount(0);
     await expect(rd.locator(`[data-rd-open="r-${P1}"]`)).toContainText('[성명] 가상 철도 민영화 반대');
     await expect(rd.locator(`[data-rd-open="r-${P2}"]`)).toContainText('가상의 외국 글');
-    await expect(rd.locator('.rd-row-news .rd-src-tag')).toHaveText(['News', 'News']);
+    await expect(rd.locator('.rd-row-news, .rd-src-tag')).toHaveCount(0);
     if (process.env.S68_24_SHOTS) await page.screenshot({ path: `${process.env.S68_24_SHOTS}/saved-${width}.png` });
     // 뒤로 = News. 마지막 탭은 서버에 기억(view_prefs.news_tab), 새로고침해도 그 탭.
     await page.goBack();

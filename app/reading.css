@@ -35,5 +35,3 @@
 }
 @media(max-width:760px){#readingView .rd-row{padding:7px 0}#readingView .rd-meta{max-width:9em}}
 /* S68-24 News에서 보관한 글 줄(꼬리표 'News', 점 없음 — 안 읽음 셈에 들지 않음). 출처 꼬리표는 사업영역 꼬리표보다 옅게. */
-#readingView .rd-row-news .rd-nm{color:var(--kptu-ink)}
-#readingView .rd-src-tag{background:var(--kptu-surface-soft,var(--kptu-border));color:var(--kptu-muted)}
