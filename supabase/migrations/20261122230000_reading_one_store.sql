@@ -18,7 +18,7 @@ begin;
 --     (공용 기사 읽기 정책과 같은 조건: 가입자, 채널 스크랩은 텔레그램 운영자, 직접 넣은 기사는 내 표시 줄이 있을 때).
 --     private.app_reading_keep_row(uuid, text, uuid, timestamptz)는 4)·6)이 함께 쓰는 쓰기 부분(실행권 없음 — DEFINER 함수 안에서만 불림).
 --  5) 옮기기: 지금 별표(사회운동은 별표 또는 옛 보관 시각)가 있는 글을 작업공간마다 읽을 거리 줄로 넣는다. 저장 시각 = 별표 시각, 읽음 = News 읽음 시각,
---     원문 사본 = 3). 같은 주소의 직접 저장 줄이 이미 있으면 새 줄 없이 그 줄에 연결만. 한 줄이라도 못 옮기면 전체 취소(멈춤).
+--     제목 = 한국어 제목(외국 글 번역 제목)이 있으면 그것, 없으면 원래 제목, 원문 사본 = 3). 같은 주소의 직접 저장 줄이 이미 있으면 새 줄 없이 그 줄에 연결만. 한 줄이라도 못 옮기면 전체 취소(멈춤).
 --     밑줄(app_news_highlights)은 옮기지 않는다: 종류 news·outside 밑줄은 지금처럼 원래 글 id를 가리키고, 읽을 거리 줄의 연결 칸으로 찾는다(원래 행 그대로).
 --     옛 칸(app_news_marks.starred_at·folder_id, app_outside_article_marks.starred_at·archived_at)은 지우지도 고치지도 않는다(되돌리기용, 화면 PR 뒤 원본 아님).
 --  6) public.app_news_user_save 같은 서명으로 다시: 별표 칸 대신 표시 줄(숨김 풀기)만 두고 읽을 거리 한 줄(4의 쓰기 부분). 돌려주는 값에 reading_id 더함.
@@ -144,11 +144,11 @@ begin
     raise exception using errcode = '22023', message = 'READINGKEEP_ARGS';
   end if;
   if p_source = 'news' then
-    select a.url, a.title, a.publisher into v_url, v_title, v_site from public.app_news_articles a where a.id = p_article;
+    select a.url, coalesce(nullif(a.title_ko, ''), a.title), a.publisher into v_url, v_title, v_site from public.app_news_articles a where a.id = p_article;
     if not found then raise exception using errcode = '22023', message = 'READINGKEEP_ARTICLE'; end if;
     select rd.read_at into v_read from public.app_news_reads rd where rd.workspace_id = p_workspace and rd.article_id = p_article;
   else
-    select a.url, a.title into v_url, v_title from public.app_outside_articles a where a.id = p_article;
+    select a.url, coalesce(nullif(a.title_ko, ''), a.title) into v_url, v_title from public.app_outside_articles a where a.id = p_article;
     if not found then raise exception using errcode = '22023', message = 'READINGKEEP_ARTICLE'; end if;
     select rd.read_at into v_read from public.app_outside_reads rd where rd.workspace_id = p_workspace and rd.article_id = p_article;
   end if;
@@ -512,7 +512,7 @@ update public.app_reading_items r
 -- 5-b) 나머지는 새 줄. 저장 시각 = 별표(옛 보관) 시각, 읽음 = News 읽음 시각, 원문 사본 = 3). 주소 규칙 밖 글은 넣지 않고 아래 확인에서 멈춘다.
 insert into public.app_reading_items (workspace_id, url, title, site, origin, news_article_id, saved_at, read_at, body, body_state, body_at, updated_at)
 select m.workspace_id, a.url,
-  nullif(pg_catalog.btrim(pg_catalog.left(pg_catalog.btrim(pg_catalog.regexp_replace(coalesce(a.title, ''), '[[:cntrl:]]', ' ', 'g')), 500)), ''),
+  nullif(pg_catalog.btrim(pg_catalog.left(pg_catalog.btrim(pg_catalog.regexp_replace(coalesce(nullif(a.title_ko, ''), a.title, ''), '[[:cntrl:]]', ' ', 'g')), 500)), ''),
   nullif(pg_catalog.btrim(pg_catalog.left(pg_catalog.btrim(pg_catalog.regexp_replace(coalesce(a.publisher, ''), '[[:cntrl:]]', ' ', 'g')), 120)), ''),
   'news', a.id, m.starred_at, rd.read_at,
   x.b ->> 'body', coalesce(x.b ->> 'state', 'pending'), case when x.b is null then null else pg_catalog.now() end, pg_catalog.now()
@@ -526,7 +526,7 @@ select m.workspace_id, a.url,
 on conflict do nothing;
 insert into public.app_reading_items (workspace_id, url, title, site, origin, outside_article_id, saved_at, read_at, body, body_state, body_at, updated_at)
 select m.workspace_id, a.url,
-  nullif(pg_catalog.btrim(pg_catalog.left(pg_catalog.btrim(pg_catalog.regexp_replace(coalesce(a.title, ''), '[[:cntrl:]]', ' ', 'g')), 500)), ''),
+  nullif(pg_catalog.btrim(pg_catalog.left(pg_catalog.btrim(pg_catalog.regexp_replace(coalesce(nullif(a.title_ko, ''), a.title, ''), '[[:cntrl:]]', ' ', 'g')), 500)), ''),
   null, 'outside', a.id, coalesce(m.starred_at, m.archived_at), rd.read_at,
   x.b ->> 'body', coalesce(x.b ->> 'state', 'pending'), case when x.b is null then null else pg_catalog.now() end, pg_catalog.now()
   from public.app_outside_article_marks m
