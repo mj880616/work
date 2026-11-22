@@ -28,11 +28,14 @@ export const AUTO_FOLDER_RULES = Object.freeze([
   Object.freeze({key: 'drive_summary', seq: Object.freeze(['Web2 읽기용 사본']), adjacent: true}),
   // 한글 문서 고칠 때마다 남는 편집 전 백업 — _shared/hwp-edit.ts BACKUP_FOLDER
   Object.freeze({key: 'edit_backup', seq: Object.freeze(['노조+ 편집 백업']), adjacent: true}),
+  // S68-02: 새 사용자가 처음 만드는 이름(_shared/brand-folders.mjs). 이미 있는 '노조+ …' 폴더는 이름 그대로 계속 쓰므로 둘 다 본다.
+  Object.freeze({key: 'edit_backup', seq: Object.freeze(['WORK ON+ 편집 백업']), adjacent: true}),
   Object.freeze({key: 'edit_backup', seq: Object.freeze(['Web2 편집 백업']), adjacent: true}),
   // 회의 녹음을 나눠 올린 조각(전사용) — meeting-transcribe/index.ts RECORDING_FOLDER, recording.mjs PIECE_FOLDER
   Object.freeze({key: 'recording_pieces', seq: Object.freeze(['회의 녹음', '녹음 조각']), adjacent: true}),
   // 사진·파일에서 지운 것을 옮겨 두는 휴지통 — photos-model.mjs TRASH_FOLDER_NAME(옛 이름 OLD_TRASH_FOLDER_NAME)
   Object.freeze({key: 'trash', seq: Object.freeze(['.노조+ 휴지통']), adjacent: true}),
+  Object.freeze({key: 'trash', seq: Object.freeze(['.WORK ON+ 휴지통']), adjacent: true}),
   Object.freeze({key: 'trash', seq: Object.freeze(['.Web2 휴지통']), adjacent: true}),
 ]);
 

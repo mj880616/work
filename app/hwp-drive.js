@@ -27,6 +27,10 @@ export const editedName=name=>`${String(name||'문서').replace(/\.(hwpx?)$/i,''
 // HWP-노조서식분류(요청함 11/16 07:26): 분류 이름은 '노조 서식'. 새로 등록할 때는 '노조 서식'만 쓰고, 예전 이름 '양식'으로 등록된 자료도
 // 계속 찾는다(읽을 때 두 이름 모두 — 운영 자료 일괄 변경 없음). 자료실 꼬리표도 '양식' → '노조 서식'으로 보인다(document-categories.js LEGACY).
 export const UNION_TEMPLATE_CATEGORY='노조 서식';
+// S68-02: 편집 백업 폴더 이름. 서버(_shared/hwp-edit.ts)가 실제로 쓴 폴더 이름(backup.folder)을 알려 주면 그대로,
+// 모르면(옛 서버) 기본 이름 word('노조+ 편집 백업') — WORK ON+ 기본은 'WORK ON+ 편집 백업', 명진 화면은 그대로.
+export const EDIT_BACKUP_FOLDER=word('노조+ 편집 백업');
+export const backupFolderName=name=>typeof name==='string'&&name.trim()&&name.length<=100&&!/["\n]/.test(name)?name.trim():EDIT_BACKUP_FOLDER;
 export const UNION_TEMPLATE_OLD_CATEGORY='양식';
 export const UNION_TEMPLATE_CATEGORIES=Object.freeze([UNION_TEMPLATE_CATEGORY,UNION_TEMPLATE_OLD_CATEGORY]);
 export const isUnionTemplateCategory=value=>UNION_TEMPLATE_CATEGORIES.includes(String(value??''));
@@ -323,7 +327,7 @@ export async function overwriteHwp(target,bytes,info,{confirmShared=false,rt=win
   catch(err){return err.kind==='session'?{kind:'session',message:HWP_TEXT.session}:{kind:'unknown',message:HWP_TEXT.overwriteUnknown}}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&data.result==='overwritten'&&typeof data.revision==='string'&&typeof data.md5==='string'&&typeof data.backup?.name==='string')
-    return {kind:'overwritten',revision:data.revision,md5:data.md5,message:`원본에 덮어썼어요. 수정 전 사본은 Drive "노조+ 편집 백업" 폴더에 "${data.backup.name}"으로 보관했어요.`};
+    return {kind:'overwritten',revision:data.revision,md5:data.md5,message:`원본에 덮어썼어요. 수정 전 사본은 Drive "${backupFolderName(data.backup.folder)}" 폴더에 "${data.backup.name}"으로 보관했어요.`};
   if(response.status===401)return {kind:'session',message:HWP_TEXT.session};
   if(response.status===409&&data?.code==='VERSION_CHANGED')return {kind:'changed',message:'연 뒤에 Drive의 원본이 바뀌어 덮어쓰지 않았어요. [새 파일로 저장]을 써 주세요.'};
   if(response.status===409&&data?.code==='SHARED_CONFIRM_REQUIRED')return {kind:'shared',message:'잊지 말기와 자료실이 같은 원본을 써요. 다시 [원본에 덮어쓰기]를 눌러 확인해 주세요. 아무것도 바뀌지 않았어요.'};

@@ -151,3 +151,53 @@ test('S67-50 브리핑 칸 이름: 기록+ 얼굴은 노조 색 없는 글자, �
   assert.equal(wordIn(nojo, '내 담당 조직·사업에 닿는 것', 'brief'), '내 담당 조직·사업에 닿는 것');
   assert.equal(wordIn(nojo, '우리 쪽 주장과 부딪히는 대목', 'brief'), '우리 쪽 주장과 부딪히는 대목');
 });
+
+// S68-02(11/22 명진 결정): WORK ON+ 기본 얼굴(girok)에 남은 노조 단어 — 한글 문서 서식 버튼·편집 백업·백업·휴지통 폴더 이름·PC 도우미 글자.
+// 명진 화면(운영자 기능 nojo_words = 바탕 낱말 묶음 'nojo')은 지금 글자 그대로.
+test('S68-02: girok에서는 서식·WORK ON+ 글자, nojo_words 바탕에서는 지금 글자 그대로', async () => {
+  const { withWordBase } = await import('../app/brand/custom-words-model.mjs');
+  const girok = FACES.girok, mine = withWordBase(girok, 'nojo');
+  const cases = [
+    ['노조 양식으로 새 문서', '서식으로 새 문서'],
+    ['노조 서식으로 만들기', '서식으로 만들기'],
+    ['노조 양식 스타일', '서식 스타일'],
+    ['노조+ 편집 백업', 'WORK ON+ 편집 백업'],
+    ['노조+ 백업', 'WORK ON+ 백업'],
+    ['노조+ 휴지통으로', 'WORK ON+ 휴지통으로'],
+    ['노조+ 파일 올리기', 'WORK ON+ 파일 올리기'],
+    ['노조+ 파일 올리기 도우미가 로그아웃돼 있어요.', 'WORK ON+ 파일 올리기 도우미가 로그아웃돼 있어요.'],
+    ['폰(사진첩 노조+ 폴더)에 받아 수정해요.', '폰(사진첩 WORK ON+ 폴더)에 받아 수정해요.'],
+  ];
+  for (const [text, want] of cases) {
+    assert.equal(wordIn(girok, text), want, text);
+    assert.equal(wordIn(mine, text), text, `nojo_words: ${text}`);
+    assert.equal(wordIn(FACES.nojo, text), text, `nojo 얼굴: ${text}`);
+  }
+  // '노조+'는 '노조'(→ 단체)보다 먼저 걸린다.
+  assert.equal(wordIn(girok, '노조+ 백업과 노조 일정'), 'WORK ON+ 백업과 단체 일정');
+});
+
+test('S68-02: 앱 바탕 한글 문서 버튼은 girok 빌드에서 서식, 원래 글자를 남겨 nojo_words 사람은 되찾는다', async () => {
+  const { faceHtml } = await import('../scripts/brand-face.mjs');
+  const { applyShellWords } = await import('../app/brand/custom-words-shell.mjs');
+  const html = read('app/index.html');
+  const built = faceHtml(html, FACES.girok, { keepOriginals: true });
+  assert.match(built, /id="hwpLabTemplate"[^>]*><!--word:노조 양식으로 새 문서-->서식으로 새 문서</);
+  assert.match(built, /id="hwpLabConvert"[^>]*><!--word:노조 서식으로 만들기-->서식으로 만들기</);
+  assert.ok(typeof applyShellWords === 'function');
+});
+
+test('S68-02: 화면 글자가 word()를 거친다 — HWP 스타일 묶음 이름·폴더 안내·PC 도우미, 조사 오타 없음', () => {
+  const frame = read('app/hwp-frame.js'), styles = read('app/hwp-lab/studio-styles.js');
+  assert.match(frame, /export const STYLE_GROUP_LABEL=word\('노조 양식 스타일'\);/);
+  assert.match(frame, /iframe\.src=studioFrameSrc\(studioUrl\);/);
+  assert.match(styles, /group\.setAttribute\('aria-label',groupLabel\(\)\);/);
+  assert.doesNotMatch(styles, /'노조 양식 스타일'/);
+  assert.match(read('app/hwp-drive.js'), /export const EDIT_BACKUP_FOLDER=word\('노조\+ 편집 백업'\);/);
+  assert.match(read('app/record-backup.js'), /export const DEFAULT_FOLDER = word\('노조\+ 백업'\);/);
+  for (const file of ['app/pc-files-model.mjs', 'app/files.js', 'app/help-content.mjs', 'app/app-download.mjs']) {
+    const src = read(file);
+    assert.doesNotMatch(src, /도우미을|도우미이 /, `${file}: 조사`);
+    for (const line of src.split('\n').filter(l => l.includes('노조+ 파일 올리기') && !/^\s*\/\//.test(l))) assert.match(line, /word[(`]/, `${file}: ${line.trim().slice(0, 60)}`);
+  }
+});

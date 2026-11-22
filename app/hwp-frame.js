@@ -5,8 +5,13 @@
 // 버전은 scripts/hwp-lab/rhwp-pin.json과 같아야 한다(tests/hwp-lab-pin.test.mjs).
 import {EditorTransport} from './hwp-lab/rhwp-0.8.7/sdk/transport.js';
 import {RhwpEditor} from './hwp-lab/rhwp-0.8.7/sdk/index.js';
+import {word} from './brand/brand.mjs';
 
 export const RHWP='./hwp-lab/rhwp-0.8.7/';
+// S68-02: 칸막이 안 스타일 버튼 줄(studio-styles.js)의 이름(aria-label). 칸막이는 brand.mjs를 부를 수 없어 주소 조각(#)으로 넘긴다
+// (조각은 서버로 가지 않고 편집기는 조각을 쓰지 않는다). WORK ON+ 기본은 '서식 스타일', 명진 화면(nojo_words)은 그대로.
+export const STYLE_GROUP_LABEL=word('노조 양식 스타일');
+export const studioFrameSrc=(url,label=STYLE_GROUP_LABEL)=>`${url}#${new URLSearchParams({style_label:label})}`;
 
 // The SDK addresses the frame by its URL origin. A sandboxed frame has an opaque origin, so the one-time connect
 // message (no document data, only the private port) uses '*'; everything after it goes through that port.
@@ -23,7 +28,7 @@ export async function createSandboxedEditor(host,{loadTimeoutMs=60000,handshakeT
   iframe.setAttribute('referrerpolicy','no-referrer');
   iframe.title='HWP 편집기';
   iframe.style.cssText='width:100%;height:100%;border:none';
-  iframe.src=studioUrl;
+  iframe.src=studioFrameSrc(studioUrl);
   host.appendChild(iframe);
   let transport;
   try{

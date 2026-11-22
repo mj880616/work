@@ -67,6 +67,7 @@ import {PC_SOURCE as PC, pcTrail, pcStateText, pcOffRowName, pcDeviceOk, pcParen
 import {NARROW_QUERY, SPLIT_QUERY} from './screen-width.mjs';
 import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest, DROP_ASK_TEXT, FILES_PANES_KEY, panesValue, paneStart, paneChoices, paneSourceLabel} from './files-panes-model.mjs';
 import {within, isLoadTimeout} from './load-deadline.js';
+import {word} from './brand/brand.mjs';
 // FILES-클라우드탐색기 ④ 화면(설계 docs/design/files-explorer.md 4·5·6절, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files). #filesView의 유일한 그리기 주인.
 // - 목록은 서버 색인(app_cloud_list·app_cloud_find·app_cloud_trail, owner + 운영자 기능 files일 때만 읽힘)에서 바로 그린다. 클라우드는 부르지 않는다.
 // - 갱신(F2): 들어올 때 + 2분마다 + 창으로 돌아올 때 Edge cloud-files sync(서버가 2분 안이면 클라우드를 부르지 않음). 응답의 바뀐 줄만
@@ -3198,7 +3199,7 @@ const libStub = (r, owner) => {
 async function sendToLibrary(rows) {
   const list = (rows || []).filter(Boolean), scope = state.scope, owner = scopeOf();
   const pcOk = r => r.source !== PC || pc.canXfer;
-  if (!list.every(pcOk)) notify('노조+ 파일 올리기 도우미을 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요', {record: false});
+  if (!list.every(pcOk)) notify(word('노조+ 파일 올리기 도우미를 새 판(0.4.0)으로 올리면 내 PC 파일도 자료실로 보내요'), {record: false});
   const files = list.filter(r => !r.is_folder && pcOk(r));
   for (const f of list.filter(r => r.is_folder && pcOk(r))) {
     const tree = await treeRead(f, scope);

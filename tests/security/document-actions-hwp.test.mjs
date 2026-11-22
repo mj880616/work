@@ -38,6 +38,12 @@ function harness(o = {}) {
     if (table === 'public_policy_drive_config') return Response.json([{ google_client_id: 'c', google_client_secret: 's' }]);
     if (table === 'app_drive_connections') return Response.json([{ google_refresh_token: 'r' }]);
     if (table === 'app_workspace_members') return Response.json(state.role ? [{ role: state.role, workspace_id: 'ws-1' }] : []);
+    // S68-02: 서버 허용 표 nojo_words 작업공간(service role GET rpc). 기본은 이 작업공간(지금 이름), null = 아무도 없음(새 이름).
+    if (table === 'app_operator_feature_workspace') {
+      assert.equal(u.searchParams.get('p_feature'), 'nojo_words');
+      if (state.featureStatus) return Response.json({}, { status: state.featureStatus });
+      return Response.json(state.featureWs === undefined ? 'ws-1' : state.featureWs);
+    }
     if (table === 'app_documents') {
       if (u.searchParams.get('id')) return Response.json(state.document && u.searchParams.get('id') === 'eq.' + state.document.id ? [state.document] : []);
       return Response.json(state.libraryRefs);
@@ -172,7 +178,7 @@ test('overwrite keeps a dated backup copy of the opened revision first, then wri
   const copy = driveWrites(h)[0];
   assert.deepEqual(JSON.parse(copy.body).parents, ['backup-folder']);
   const search = drive(h).find(c => c.path === '/drive/v3/files' && c.method === 'GET');
-  assert.match(search.search.get('q'), /\(name = '노조\+ 편집 백업' or name = 'Web2 편집 백업'\).*'root' in parents and 'me' in owners and trashed = false/);
+  assert.match(search.search.get('q'), /\(name = '노조\+ 편집 백업' or name = 'WORK ON\+ 편집 백업' or name = 'Web2 편집 백업'\).*'root' in parents and 'me' in owners and trashed = false/);
   // Drive revision checked before the copy and again right before the write.
   const order = drive(h).map(c => c.method + (c.path.endsWith('/copy') ? ' copy' : c.path.startsWith('/upload') ? ' upload' : c.path === '/drive/v3/files' ? ' folder' : ' meta'));
   assert.deepEqual(order, ['GET meta', 'GET folder', 'POST copy', 'GET meta', 'PATCH upload']);
@@ -408,4 +414,38 @@ test('library HWP sharing check still counts every note that uses the Drive file
   const refs = noteReads(h).filter(c => c.search.has('attachments'));
   assert.equal(refs.length, 1);
   assert.equal(refs[0].search.has('deleted_at'), false);
+});
+
+// S68-02: 편집 백업 폴더 — 이미 있는 폴더는 이름 그대로(노조+ 먼저), 없을 때만 만든다. 새 사용자는 'WORK ON+ 편집 백업', nojo_words·확인 실패는 '노조+ 편집 백업'.
+test('S68-02: 새 사용자 편집 백업 폴더는 WORK ON+, 이미 있는 노조+ 폴더는 그대로 계속 쓴다', async () => {
+  const fresh = harness({ folders: [], featureWs: null });
+  const r = await fresh.overwrite({ document_id: DOC, ...base });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(JSON.parse(driveWrites(fresh).find(c => c.path === '/drive/v3/files').body).name, 'WORK ON+ 편집 백업');
+  assert.equal(r.body.backup.folder, 'WORK ON+ 편집 백업');
+  const otherOwner = harness({ folders: [], featureWs: '10000000-0000-4000-8000-0000000000ff' });
+  await otherOwner.overwrite({ document_id: DOC, ...base });
+  assert.equal(JSON.parse(driveWrites(otherOwner).find(c => c.path === '/drive/v3/files').body).name, 'WORK ON+ 편집 백업');
+  for (const o of [{ featureWs: 'ws-1' }, { featureStatus: 500 }]) {
+    const h = harness({ folders: [], ...o });
+    assert.equal((await h.overwrite({ document_id: DOC, ...base })).status, 200);
+    assert.equal(JSON.parse(driveWrites(h).find(c => c.path === '/drive/v3/files').body).name, '노조+ 편집 백업', JSON.stringify(o));
+  }
+  // 두 이름이 다 있으면 노조+ 폴더(이미 쓰던 것)를 쓰고, 어떤 폴더 이름도 바꾸지 않는다.
+  const both = harness({ featureWs: null, folders: [
+    { id: 'new-one', name: 'WORK ON+ 편집 백업', ownedByMe: true, trashed: false },
+    { id: 'kept-one', name: '노조+ 편집 백업', ownedByMe: true, trashed: false },
+  ] });
+  const b = await both.overwrite({ document_id: DOC, ...base });
+  assert.equal(b.status, 200);
+  assert.deepEqual(JSON.parse(driveWrites(both).find(c => c.path.endsWith('/copy')).body).parents, ['kept-one']);
+  assert.equal(b.body.backup.folder, '노조+ 편집 백업');
+  assert.equal(driveWrites(both).some(c => c.method === 'PATCH' && c.path.startsWith('/drive/v3/files/') && !c.path.startsWith('/upload')), false);
+  assert.equal(driveWrites(both).some(c => c.path === '/drive/v3/files' && c.method === 'POST'), false);
+  assert.equal(both.calls.some(c => c.path.endsWith('/app_operator_feature_workspace')), false, '폴더가 있으면 기능 확인을 하지 않는다');
+  // 옛 Web2 폴더는 새 사용자면 WORK ON+ 이름으로만 바꾼다.
+  const web2 = harness({ featureWs: null, folders: [{ id: 'backup-folder', name: 'Web2 편집 백업', ownedByMe: true, trashed: false }] });
+  const w = await web2.overwrite({ document_id: DOC, ...base });
+  assert.deepEqual(JSON.parse(driveWrites(web2).find(c => c.method === 'PATCH' && c.path === '/drive/v3/files/backup-folder').body), { name: 'WORK ON+ 편집 백업' });
+  assert.equal(w.body.backup.folder, 'WORK ON+ 편집 백업');
 });

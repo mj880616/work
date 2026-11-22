@@ -1,6 +1,6 @@
 // record-backup: '내 기록 백업' 서버 입구(PRIVACY-백업안내, 시안 #2677 명진 확정 11/15·11/16).
 //
-// 하는 일: 로그인한 사람의 기록을 그 사람 구글 드라이브 '노조+ 백업/날짜' 폴더에 종류별 읽기용 문서 1개 + 표마다 csv 1개로 저장한다.
+// 하는 일: 로그인한 사람의 기록을 그 사람 구글 드라이브 '노조+ 백업/날짜'(새 사용자는 'WORK ON+ 백업/날짜', S68-02) 폴더에 종류별 읽기용 문서 1개 + 표마다 csv 1개로 저장한다.
 // 노조+ 서버에는 사본을 두지 않는다(만든 파일은 응답·로그·DB 어디에도 싣지 않음). 운영자는 기록 내용을 보지 않는다(AGENTS.md 3절).
 //
 // 누가(verify_jwt=true + 함수 코드에서 다시 확인, note-import와 같은 방식):
@@ -9,11 +9,12 @@
 // - 드라이브는 그 작업공간의 연결만 쓴다(workspaceDriveToken). 다른 작업공간 연결·id=1 열쇠는 읽지 않는다.
 // 무엇을 읽나: 기록 표는 사용자 토큰 + anon 키로만 읽는다(기존 owner RLS 그대로, 서비스 역할로 기록을 읽지 않음). 표·조건은 model.mjs 목록뿐.
 // 입구: GET  ?action=status → {connected, last_at, last_count, kinds:[{key,label,note,count}]} (개수만)
-//       POST ?action=run   몸통 {kinds:[...]} → {date, count, folder_url}
+//       POST ?action=run   몸통 {kinds:[...]} → {date, count, folder_url, root_url, root_name}(status에는 folder_name: 맨 위 폴더 실제 이름)
 // 같은 날 다시 하면 그날 폴더를 휴지통으로 보내고 새로 만든다. 최근 4주(날짜 폴더 4개)만 남기고 오래된 폴더는 드라이브 휴지통으로(영구 삭제 안 함).
 // 로그·응답: 코드와 숫자만. 기록 내용·제목·파일 ID를 로그에 싣지 않는다.
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
-import { BACKUP_FOLDER, CATEGORIES, DOC_BYTES, KEEP_WEEKS, ROWS_PER_TABLE, cleanRow, foldersToTrash, kstDate, parseKinds, readableHtml, tableQuery, toCsv } from "./model.mjs";
+import { folderNameFor, keepOldFromMyFeatures } from "../_shared/brand-folders.mjs";
+import { CATEGORIES, DOC_BYTES, KEEP_WEEKS, ROWS_PER_TABLE, cleanRow, foldersToTrash, kstDate, parseKinds, readableHtml, tableQuery, toCsv } from "./model.mjs";
 
 export type Env = (name: string) => string | undefined;
 export type BackupDeps = {
@@ -128,11 +129,20 @@ export function createRecordBackupHandler(deps: BackupDeps) {
   }
   const mine = (kind: string, parent: string) =>
     `trashed = false and 'me' in owners and mimeType = '${FOLDER_MIME}' and appProperties has { key='kptu_backup' and value='${kind}' } and '${q(parent)}' in parents`;
-  async function rootFolder(t: string, create: boolean): Promise<Row | null> {
+  // S68-02: 맨 위 폴더는 이름이 아니라 표식(kptu_backup=root)으로 찾으므로 이미 있는 폴더('노조+ 백업' 등)는 이름 그대로 계속 쓴다.
+  // 없을 때만 만든다: 운영자 기능 nojo_words(명진 화면, 로그인 토큰으로 부른 app_my_features 답)·확인 실패는 '노조+ 백업', 그 밖은 'WORK ON+ 백업'.
+  async function keepOldNames(auth: string): Promise<boolean | null> {
+    try {
+      const res = await call(`${SB}/rest/v1/rpc/app_my_features`, { method: "POST", headers: userHeaders(auth, { "Content-Type": "application/json" }), body: "{}" }, "FEATURE_READ_FAILED");
+      if (!res.ok) return null;
+      return keepOldFromMyFeatures(await res.json().catch(() => null));
+    } catch { return null; }
+  }
+  async function rootFolder(t: string, create: boolean, auth = ""): Promise<Row | null> {
     const found = await list(t, mine("root", "root"));
     if (found.length > 1) throw new Fail(409, "DRIVE_DUPLICATE_FOLDERS");
     if (found[0] || !create) return found[0] || null;
-    return await makeFolder(t, BACKUP_FOLDER, "root", { kptu_backup: "root" });
+    return await makeFolder(t, folderNameFor("record_backup", await keepOldNames(auth)), "root", { kptu_backup: "root" });
   }
   async function makeFolder(t: string, name: string, parent: string, props: Record<string, string>): Promise<Row> {
     const body = JSON.stringify({ name, mimeType: FOLDER_MIME, parents: [parent], appProperties: props });
@@ -178,15 +188,16 @@ export function createRecordBackupHandler(deps: BackupDeps) {
       for (const table of c.tables) count += await countTable(table, w);
       kinds.push({ key: c.key, label: c.label, note: c.note || null, count });
     }
-    let last_at = null, last_count = null, folder_url = null;
+    let last_at = null, last_count = null, folder_url = null, folder_name = null;
     if (t) {
       const root = await rootFolder(t, false);
       const props = (root?.appProperties || {}) as Record<string, string>;
       if (root) folder_url = folderUrl(String(root.id));
+      if (root && typeof root.name === "string") folder_name = root.name;
       if (typeof props.kptu_backup_last_at === "string" && !Number.isNaN(Date.parse(props.kptu_backup_last_at))) last_at = props.kptu_backup_last_at;
       if (/^\d{1,9}$/.test(props.kptu_backup_last_count || "")) last_count = Number(props.kptu_backup_last_count);
     }
-    return json({ ok: true, connected: !!t, last_at, last_count, folder_url, keep_weeks: KEEP_WEEKS, kinds });
+    return json({ ok: true, connected: !!t, last_at, last_count, folder_url, folder_name, keep_weeks: KEEP_WEEKS, kinds });
   }
 
   async function run(req: Request) {
@@ -213,7 +224,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
       read.push({ category, tables });
     }
     const at = now(), date = kstDate(at);
-    const root = await rootFolder(t, true) as Row;
+    const root = await rootFolder(t, true, w.auth) as Row;
     await assertPrivate(t, String(root.id));
     for (const old of await list(t, mine("day", String(root.id)))) {
       if ((old.appProperties as Record<string, string>)?.kptu_backup_date === date) await trash(t, String(old.id));
@@ -229,7 +240,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     let trimFailed = 0;
     for (const old of foldersToTrash(await list(t, mine("day", String(root.id))))) if (!await trash(t, String(old.id))) trimFailed++;
     await setStatus(t, String(root.id), { kptu_backup_last_at: new Date(at).toISOString(), kptu_backup_last_count: String(count) });
-    return json({ ok: true, date, count, folder_url: folderUrl(String(day.id)), root_url: folderUrl(String(root.id)), doc_skipped: docSkipped, trim_failed: trimFailed });
+    return json({ ok: true, date, count, folder_url: folderUrl(String(day.id)), root_url: folderUrl(String(root.id)), root_name: typeof root.name === "string" ? root.name : null, doc_skipped: docSkipped, trim_failed: trimFailed });
   }
 
   return async function handle(req: Request): Promise<Response> {

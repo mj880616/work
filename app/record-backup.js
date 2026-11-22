@@ -4,22 +4,30 @@
 // ③ 가입 직후(계정이 만들어진 지 14일 안) 한 번만 띄우는 안내(startRecordBackup): 맨 위 알림 줄 [자동 백업 켜기] [나중에]. 누르면 다시 띄우지 않는다.
 // 저장: 스위치·안내 본 것은 서버 화면 기억 record_backup({auto, intro}, view-prefs.js — 기기 저장 없음). 고른 종류는 이 화면 메모리에만(다음엔 다시 전부).
 // 백업 파일은 서버 함수 record-backup이 본인 구글 드라이브 '노조+ 백업/날짜' 폴더에만 만든다(서버에 사본 없음). 이 파일이 그 함수를 부르는 유일한 곳이다.
+// S68-02: 새 사용자가 처음 만드는 맨 위 폴더는 'WORK ON+ 백업'(이미 있는 폴더는 이름 그대로, 서버 _shared/brand-folders.mjs).
+//   화면은 서버가 알려 준 실제 폴더 이름(status folder_name·run root_name)을 쓰고, 모를 때만 기본 이름 word('노조+ 백업').
 // 자동 백업: 서버 예약은 기록을 읽을 로그인이 없어(기록은 본인 토큰으로만 읽음) 앱을 연 뒤 2분에 마지막 백업이 7일 넘었으면 한 번 한다(원장 사본과 같은 방식).
 import {viewPrefs} from './view-prefs.js';
 import {putNotice, removeNotice} from './notice-bar.js';
 import {formatSeoulTime} from './meeting-time.js';
 import {waitHtml, failHtml} from './wait-state.js';
+import {word} from './brand/brand.mjs';
 
 const ENDPOINT = '/functions/v1/record-backup';
 const AUTO_EVERY_DAYS = 7, START_DELAY_MS = 120000, INTRO_KEY = 'record-backup-intro', DONE_KEY = 'record-backup-done';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+// 맨 위 폴더 이름: 서버가 알려 준 실제 이름(짧은 글자만), 없으면 기본 이름.
+export const DEFAULT_FOLDER = word('노조+ 백업');
+export const folderName = name => typeof name === 'string' && name.trim() && name.length <= 100 ? name.trim() : DEFAULT_FOLDER;
 const ERRORS = {
   DRIVE_NOT_CONNECTED: '구글 드라이브가 아직 연결되지 않았어요. 자료실에서 드라이브를 연결해 주세요.',
   DRIVE_AUTH_EXPIRED: '구글 드라이브 연결이 끝났어요. 자료실에서 다시 연결해 주세요.',
-  DRIVE_PUBLIC_SHARING_FOUND: "'노조+ 백업' 폴더가 공유돼 있어 백업하지 않았어요. 드라이브에서 공유를 끈 뒤 다시 해 주세요.",
+  DRIVE_PUBLIC_SHARING_FOUND: word("'노조+ 백업' 폴더가 공유돼 있어 백업하지 않았어요. 드라이브에서 공유를 끈 뒤 다시 해 주세요."),
   RECORD_READ_LIMIT: '기록이 너무 많아 한 번에 받지 못했어요. 종류를 나눠 백업해 주세요.',
 };
-export const errorText = code => ERRORS[code] || '백업하지 못했어요. 잠시 뒤 다시 해 주세요.';
+export const errorText = (code, folder) => code === 'DRIVE_PUBLIC_SHARING_FOUND' && folderName(folder) !== DEFAULT_FOLDER
+  ? `'${folderName(folder)}' 폴더가 공유돼 있어 백업하지 않았어요. 드라이브에서 공유를 끈 뒤 다시 해 주세요.`
+  : ERRORS[code] || '백업하지 못했어요. 잠시 뒤 다시 해 주세요.';
 export const backupPrefs = v => ({auto: v?.auto === true, intro: v?.intro === true});
 export function autoDue(auto, lastAt, now) {
   if (auto !== true) return false;
@@ -32,7 +40,7 @@ export function justJoined(createdAt, now) {
   const at = Date.parse(createdAt || '');
   return Number.isFinite(at) && now - at >= 0 && now - at < JOINED_DAYS * 86400000;
 }
-export const doneText = r => `내 드라이브 › 노조+ 백업 › ${r.date} 에 ${Number(r.count).toLocaleString('ko-KR')}건을 받았어요.`;
+export const doneText = r => `내 드라이브 › ${folderName(r.root_name)} › ${r.date} 에 ${Number(r.count).toLocaleString('ko-KR')}건을 받았어요.`;
 const when = at => formatSeoulTime(at, {month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'});
 
 // 상태 읽기는 GET(화면을 열 때 쓰기 요청을 보내지 않음), 백업만 POST.
@@ -72,7 +80,7 @@ export function mountRecordBackup(host, {rt = window.KPTURuntime} = {}) {
       : `<span class="rb-warn">구글 드라이브를 먼저 연결해 주세요</span><button type="button" class="secondary" data-rb-connect>드라이브 연결</button>`;
     const done = result ? `<div class="rb-done" role="status">${esc(doneText(result))} <a class="rb-btn" href="${esc(result.folder_url)}" target="_blank" rel="noopener">드라이브에서 보기</a></div>` : '';
     host.innerHTML = `<div class="rb-head"><h3>내 기록 백업</h3><span class="rb-last">${last}</span></div>
-<p class="rb-note">내 기록은 나만 볼 수 있어요. 내 구글 드라이브 '노조+ 백업' 폴더에 받아 두세요.</p>${done}
+<p class="rb-note">내 기록은 나만 볼 수 있어요. 내 구글 드라이브 '${esc(folderName(status.folder_name))}' 폴더에 받아 두세요.</p>${done}
 <div class="rb-list">${rows}<label class="rb-row rb-auto"><span>매주 자동으로 (앱을 열 때)</span><input type="checkbox" role="switch" class="rb-switch" data-rb-auto${p.auto ? ' checked' : ''} aria-label="매주 자동 백업"></label></div>
 ${error ? `<p class="rb-error" role="alert">${esc(error)}</p>` : ''}<div class="rb-foot"><span class="rb-s">자료실 파일은 이미 내 드라이브에 있어요 · 최근 ${esc(status.keep_weeks || 4)}주만 남겨요</span>${foot}</div>`;
   }
@@ -88,8 +96,8 @@ ${error ? `<p class="rb-error" role="alert">${esc(error)}</p>` : ''}<div class="
     busy = true; error = ''; result = null; render();
     try {
       result = await runBackup(rt, [...picked]);
-      status = {...status, last_at: new Date().toISOString(), last_count: result.count};
-    } catch (err) { error = errorText(err?.message); } // 서버 오류 코드가 runtime 오류 message로 온다(runtime-client.js responseMessage)
+      status = {...status, last_at: new Date().toISOString(), last_count: result.count, folder_name: result.root_name || status.folder_name};
+    } catch (err) { error = errorText(err?.message, status?.folder_name); } // 서버 오류 코드가 runtime 오류 message로 온다(runtime-client.js responseMessage)
     busy = false; render();
   });
   window.addEventListener('kptu:view-prefs-rejected', () => render());

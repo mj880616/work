@@ -1438,7 +1438,7 @@ async function editOne(item) {
       res = await phone.edit(item);
       if (!res.ok && res.error === 'none' && item.kind !== 'phone') {
         editAsk = {id:item.id, at:Date.now()};
-        say('폰에 없는 사진이에요. [수정]을 한 번 더 누르면 원본을 폰(사진첩 노조+ 폴더)에 받아 수정해요.');
+        say(word('폰에 없는 사진이에요. [수정]을 한 번 더 누르면 원본을 폰(사진첩 노조+ 폴더)에 받아 수정해요.'));
         return;
       }
     }
@@ -1488,7 +1488,7 @@ function openViewer(index, own = null) {
     // 못 지우는 까닭 글은 고르기 줄·사진 ⋯와 같은 한 곳(photoOffWhy, S53-12).
     deletable:item => (item?.kind === 'phone' ? {ok:phone.state().trash, title:phone.state().trash ? '폰 휴지통으로' : photoOffWhy('delete', 'phone')}
       : item?.kind === 'gdrive' ? {ok:gdUsable() && !busy, title:!gdUsable() ? photoOffWhy('delete', 'gdrive') : busy ? '다른 일을 하는 중이에요. 잠시 뒤 다시 눌러 주세요.' : '구글 드라이브 휴지통으로(확인 한 번)'}
-      : {ok:od.canDelete, title:od.canDelete ? '노조+ 휴지통으로' : photoOffWhy('delete', 'od')}),
+      : {ok:od.canDelete, title:od.canDelete ? word('노조+ 휴지통으로') : photoOffWhy('delete', 'od')}),
     take:own?.take || takeOne, restore:own?.restore || restoreTaken, commit:own?.commit || commitOne,
     // S48-32: 폰 앱 크게 보기 한 장 [지우기]도 고른 사진 [지우기]와 같은 판단(두 갈래 창). 두 갈래가 아니면 plain(예전 5초 되돌리기).
     choose:own ? (own.choose || null) : (item, anchor, plain) => {

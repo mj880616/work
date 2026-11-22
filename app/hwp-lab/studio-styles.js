@@ -39,6 +39,11 @@
 
   // 스타일 버튼 줄: 기본 도구 상자의 기존 묶음(tb-group)·버튼(tb-btn) 부품을 그대로 쓴다. 양식 스타일이 있는 문서에서만 보인다.
   const GROUP_ID='web2-style-buttons';
+  // S68-02: 묶음 이름은 Web2 창이 주소 조각(#style_label=…, app/hwp-frame.js studioFrameSrc)으로 넘긴 얼굴 글자. 없거나 이상하면 '서식 스타일'.
+  const groupLabel=()=>{
+    try{const v=new URLSearchParams(location.hash.slice(1)).get('style_label');if(v&&v.length<=40&&!/[<>]/.test(v))return v}catch{}
+    return '서식 스타일';
+  };
   function buttons(){
     const track=document.querySelector('#icon-toolbar .tb-scroll-track');
     if(!track)return;
@@ -48,7 +53,7 @@
     if(!group){
       group=document.createElement('div');
       group.id=GROUP_ID;group.className='tb-group';
-      group.setAttribute('role','group');group.setAttribute('aria-label','노조 양식 스타일');
+      group.setAttribute('role','group');group.setAttribute('aria-label',groupLabel());
       const sep=document.createElement('span');sep.className='tb-sep';
       group.append(sep);
       track.append(group);

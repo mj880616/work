@@ -32,8 +32,13 @@ export const STAR_IDS_MAX = 500;
 export const GRAPH_BATCH_MAX = 20;
 // Web2 휴지통(명진 결정 1, 2026-10-28 22:43): 지운 사진은 고른 맨 위 폴더 안 이 폴더로 옮기고, 30일 지나면 원드라이브 휴지통으로 보낸다.
 export const TRASH_NAME = ".노조+ 휴지통";
+// S68-02: 새 사용자(운영자 기능 nojo_words가 아닌 사람)가 처음 만들 때의 이름(_shared/brand-folders.mjs와 같은 값).
+// 이미 있는 ".노조+ 휴지통"은 이름을 바꾸지 않고 계속 쓴다. 휴지통 판별·이름 거절은 세 이름 모두.
+export const WORKON_TRASH_NAME = ".WORK ON+ 휴지통";
 // BRAND-웹2흔적지우기: 예전 이름. 색인·찾기에서 같은 휴지통으로 보고, 쓸 때 이름만 새 이름으로 바꾼다(사진은 그대로).
 export const OLD_TRASH_NAME = ".Web2 휴지통";
+/** 휴지통 폴더 이름인가(지금·새·옛 이름). */
+export const isTrashName = (name: string) => [TRASH_NAME, WORKON_TRASH_NAME, OLD_TRASH_NAME].includes(name.normalize("NFC"));
 export const TRASH_DAYS = 30;
 export const TRASH_PURGE_STEP = 20;
 export const TRASH_LIST_MAX = 2000;
@@ -47,7 +52,7 @@ export function cleanFolderName(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const name = v.normalize("NFC").trim();
   if (!name || [...name].length > FOLDER_NAME_MAX || /["*:<>?/\\|\u0000-\u001f\u007f]/.test(name) || name.endsWith(".")) return null;
-  if (name === TRASH_NAME || name === OLD_TRASH_NAME || name === "." || name === "..") return null;
+  if (name === TRASH_NAME || name === WORKON_TRASH_NAME || name === OLD_TRASH_NAME || name === "." || name === "..") return null;
   return name;
 }
 

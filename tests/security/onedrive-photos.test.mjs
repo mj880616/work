@@ -854,7 +854,8 @@ test('Web2 trash: found again by name when the index lost it; a vanished trash f
   const itemById={A1:{id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},parentReference:{id:'F1!100',path:'/drive/root:/Pictures/Camera'}}};
   const ctx=make({admin:fakeAdmin({row:{...fresh},index}),ms:fakeMicrosoft({itemById,trashExists:true})});
   assert.equal((await post(ctx.handler,{action:'photo-delete',id:'A1',confirm:true})).status,200);
-  assert.equal(trashCreates(ctx.ms).length,1);assert.ok(ctx.ms.calls.some(c=>c.url.includes(':/'+encodeURIComponent(TRASH_NAME)+':')));
+  // S68-02: 이미 있는 휴지통은 만들기 전에 이름(.노조+ 휴지통)으로 먼저 찾아 쓴다(만들기 요청 없음).
+  assert.equal(trashCreates(ctx.ms).length,0);assert.ok(ctx.ms.calls.some(c=>c.url.includes(':/'+encodeURIComponent(TRASH_NAME)+':')));
   assert.equal(ctx.admin.state.mem.tables.app_onedrive_folders.find(f=>f.item_id===TRASH).role,'trash');
   // 색인의 휴지통 폴더가 원드라이브에서 사라졌으면 표시를 떼고 새로 만든다.
   const gone=lib({ms:fakeMicrosoft({itemById:{A1:{...itemById.A1,parentReference:{...itemById.A1.parentReference}}}})});
@@ -886,6 +887,41 @@ test('BRAND-웹2흔적지우기: 옛 이름(.Web2 휴지통) 휴지통은 새로
   const row=lost.admin.state.mem.tables.app_onedrive_folders.find(f=>f.item_id===TRASH);assert.deepEqual([row.role,row.name],['trash',TRASH_NAME]);
   // ③ 새 이름도 옛 이름도 만들 수 없다(휴지통과 헷갈림).
   for(const name of [TRASH_NAME,OLD_TRASH_NAME])assert.equal((await import('../../supabase/functions/onedrive-photos/graph.ts')).cleanFolderName(name),null,name);
+});
+
+// S68-02: 새로 만드는 휴지통 이름 — 새 사용자 '.WORK ON+ 휴지통', nojo_words(서버 허용 표)·확인 실패 '.노조+ 휴지통'. 이미 있는 '.노조+ 휴지통'은 이름 그대로.
+test('S68-02: 새 사용자 휴지통은 .WORK ON+ 휴지통, nojo_words는 .노조+ 휴지통, 이미 있는 휴지통 이름은 바꾸지 않는다',async()=>{
+  const {WORKON_TRASH_NAME,cleanFolderName}=await import('../../supabase/functions/onedrive-photos/graph.ts');
+  const A1=()=>({A1:{id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},parentReference:{id:'F1!100',path:'/drive/root:/Pictures/Camera'}}});
+  const lostIndex=()=>{const index=library();index.app_onedrive_folders=index.app_onedrive_folders.filter(f=>f.item_id!==TRASH);index.app_onedrive_photos=index.app_onedrive_photos.filter(p=>p.item_id!=='X1');return index;};
+  const withRpc=(admin,answer,rpcs=[])=>({...admin,rpc:async(fn,args)=>{rpcs.push([fn,args]);return answer;}});
+  const created=ms=>trashCreates(ms).map(c=>JSON.parse(c.init.body).name);
+  // 새 사용자(허용 표에 nojo_words 작업공간 없음) → .WORK ON+ 휴지통을 만든다.
+  const rpcs=[];
+  const first=make({admin:withRpc(fakeAdmin({row:{...fresh},index:lostIndex()}),{data:null,error:null},rpcs),ms:fakeMicrosoft({itemById:A1()})});
+  assert.equal((await post(first.handler,{action:'photo-delete',id:'A1',confirm:true})).status,200);
+  assert.deepEqual(created(first.ms),[WORKON_TRASH_NAME]);
+  assert.deepEqual(rpcs,[['app_operator_feature_workspace',{p_feature:'nojo_words'}]]);
+  assert.equal(first.admin.state.mem.tables.app_onedrive_folders.find(f=>f.role==='trash').name,WORKON_TRASH_NAME);
+  // nojo_words 작업공간·확인 실패 → .노조+ 휴지통.
+  for(const answer of [{data:WS,error:null},{data:null,error:{message:'x'}}]){
+    const c=make({admin:withRpc(fakeAdmin({row:{...fresh},index:lostIndex()}),answer),ms:fakeMicrosoft({itemById:A1()})});
+    assert.equal((await post(c.handler,{action:'photo-delete',id:'A1',confirm:true})).status,200);
+    assert.deepEqual(created(c.ms),[TRASH_NAME],JSON.stringify(answer));
+  }
+  // 이미 있는 .노조+ 휴지통(색인이 잃음) → 새 사용자여도 그것을 쓰고 이름을 바꾸지 않는다.
+  const kept=make({admin:withRpc(fakeAdmin({row:{...fresh},index:lostIndex()}),{data:null,error:null}),ms:fakeMicrosoft({itemById:A1(),trashExists:true})});
+  assert.equal((await post(kept.handler,{action:'photo-delete',id:'A1',confirm:true})).status,200);
+  assert.equal(trashCreates(kept.ms).length,0);
+  assert.equal(kept.ms.calls.some(c=>c.init.method==='PATCH'&&c.url.includes('/items/'+encodeURIComponent(TRASH)+'?')),false);
+  // 옛 .Web2 휴지통은 새 사용자면 .WORK ON+ 휴지통으로만 바꾼다.
+  const oldTrash={id:TRASH,name:OLD_TRASH_NAME,folder:{},parentReference:{id:'F1!100',path:'/drive/root:/Pictures/Camera'}};
+  const web2=lib({admin:withRpc(fakeAdmin({row:{...fresh},index:library()}),{data:null,error:null}),ms:fakeMicrosoft({itemById:{...A1(),[TRASH]:oldTrash}})});
+  assert.equal((await post(web2.handler,{action:'photo-delete',id:'A1',confirm:true})).status,200);
+  const rename=web2.ms.calls.find(c=>c.init.method==='PATCH'&&c.url.includes('/items/'+encodeURIComponent(TRASH)+'?'));
+  assert.deepEqual(JSON.parse(rename.init.body),{name:WORKON_TRASH_NAME});
+  // 세 이름 모두 사진 폴더 이름으로 만들 수 없다.
+  for(const name of [TRASH_NAME,WORKON_TRASH_NAME,OLD_TRASH_NAME])assert.equal(cleanFolderName(name),null,name);
 });
 
 test('trash-list stamps photos moved in from the OneDrive app, sends ones over 30 days to the OneDrive recycle bin (20 per visit), lists the rest',async()=>{
