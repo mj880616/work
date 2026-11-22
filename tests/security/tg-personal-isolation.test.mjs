@@ -17,6 +17,8 @@ const ALLOWED=new Set([
  // Web2에 물어보기(FEAT-1029묶음 ①): 이 표를 읽지 않음을 확인하는 확인 SQL·시험만(읽는 코드 아님).
  'docs/20261029061500_ask_web2.postcheck.sql','tests/auth-handoff/ask-web2-db.test.mjs','tests/auth-handoff/ask-web2-fixture.mjs',
  'tests/security/ai-assist-ask-web2.test.mjs',
+ // 읽을 거리(S68-09): 검색 함수가 이 표를 읽지 않음을 확인하는 확인 SQL·시험만(읽는 코드 아님).
+ 'docs/20261122100000_reading_items.postcheck.sql','tests/auth-handoff/reading-items-db.test.mjs',
  'tests/auth-handoff/tg-personal-days.test.mjs','tests/auth-handoff/package.json','tests/security/tg-personal-isolation.test.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
