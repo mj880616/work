@@ -95,11 +95,10 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   await page.locator('#kptuNotice .kptu-notice-undo').click();
   await expect(item(page, 'c1')).toBeVisible();
   await expect(item(page, 'k1')).toBeVisible();
-  // [그만]: 고르기를 끝내면 줄을 누를 때 다시 그 글이 열린다(고르기 상태는 화면 메모리만).
+  // [그만]: 선택을 끝내면 선택 줄이 사라진다(선택 상태는 화면 메모리만).
   await swipe(item(page, 'c1'), 320);
   await bar.locator('[data-row-pick-stop]').click();
   await expect(bar).toBeHidden();
-  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /pick|swipe/i.test(k)))).toEqual([]);
   expect(errors).toEqual([]);
 });
 

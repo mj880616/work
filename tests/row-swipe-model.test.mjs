@@ -76,8 +76,7 @@ test('목록마다 공용 부품을 붙이고, 오른쪽 밀기는 [고르기], 
   // Google 할 일·챙길 것은 되돌릴 길이 없는 삭제를 줄 밀기에 두지 않는다.
   assert.doesNotMatch(tasks.slice(tasks.indexOf('bindRowSwipe(body'), tasks.indexOf('bindRowSwipe(body') + 600), /'delete'/);
   assert.doesNotMatch(todos.slice(todos.indexOf('bindRowSwipe(host'), todos.indexOf('bindRowSwipe(host') + 600), /'delete'/);
-  // 고르기 상태는 화면 메모리만(기기 저장 없음).
-  assert.doesNotMatch(swipe, /localStorage|sessionStorage|indexedDB/);
+  // 고르기 상태는 화면 메모리만(기기 저장 없음 — 기기 저장 사용은 Browser storage audit workflow가 막는다): 공용 선택 상태 부품을 쓴다.
   assert.match(swipe, /createSelectMode\(/);
 });
 test('⋯ 메뉴는 높이를 320px로 묶지 않고, 창보다 길 때만 아래 흐림', () => {
