@@ -189,7 +189,8 @@ test('S51-17 P5: 잠깐의 오류(늦은 답·사이트 오류)로 실패한 저
   const {reopenBody} = await import('../app/now-model.mjs');
   assert.equal(reopenBody({state: 'failed', reason: 'timeout'}), true);
   assert.equal(reopenBody({state: 'failed', reason: 'http_5xx'}), true);
-  for (const reason of ['robots', 'bot_check', 'paywall', 'http_4xx', 'no_body', 'off_host', 'relay', 'too_big', null]) assert.equal(reopenBody({state: 'failed', reason}), false, String(reason));
+  assert.equal(reopenBody({state: 'failed', reason: 'robots'}), true, 'S68-25: robots로 비어 있던 기사도 열 때 읽어 옴');
+  for (const reason of ['bot_check', 'paywall', 'http_4xx', 'no_body', 'off_host', 'relay', 'too_big', null]) assert.equal(reopenBody({state: 'failed', reason}), false, String(reason));
   for (const state of ['ok', 'lead', 'image_only']) assert.equal(reopenBody({state, reason: 'timeout'}), false, state);
   assert.equal(reopenBody(null), false);
 });

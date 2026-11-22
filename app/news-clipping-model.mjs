@@ -52,7 +52,7 @@ export const isForeign = item => !!item && typeof item.lang === 'string' && item
 // 상태 글(제목 아래 작은 줄). 정상(ok)은 없음.
 const STATE_NOTE = {
   pending: '아직 안 읽음',
-  robots: '사이트가 자동 읽기를 막아 둠 · 원문에서',
+  robots: '원문 아직 못 읽음 · 열면 읽어 옴', // S68-25: 원문 읽기는 robots.txt를 보지 않는다 — 예전에 막혔던 기사는 열 때 읽는다
   bot_check: '사이트 확인 화면 · 원문에서',
   paywall: '유료 기사 · 공개 요약만',
   failed: '읽지 못함 · 원문에서',
@@ -61,7 +61,7 @@ const STATE_NOTE = {
 };
 export const stateNote = state => STATE_NOTE[state] || '';
 // 제목을 못 읽은 줄의 제목 자리(S67-10 NEWS-네이버공유읽기): '제목 없음' 대신 까닭 한마디 · 도메인. 자세한 까닭과 [직접 넣기]는 상세 원문 칸(now-detail.js).
-const NO_TITLE = {pending: '제목 읽기 전', robots: '읽기 막힌 기사', bot_check: '읽기 막힌 기사', failed: '못 읽은 기사', too_big: '못 읽은 기사', blocked: '읽지 않는 주소'};
+const NO_TITLE = {pending: '제목 읽기 전', robots: '제목 읽기 전', bot_check: '읽기 막힌 기사', failed: '못 읽은 기사', too_big: '못 읽은 기사', blocked: '읽지 않는 주소'};
 
 // 시각: 24시간 HH:MM(UI-화면정리 B). 날짜 묶음 머리가 날짜를 보이므로 줄에는 시각만.
 const KST = 9 * 3600000;

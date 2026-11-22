@@ -20,12 +20,13 @@
 //     본문 번역은 누를 때만 한다. 백그라운드(titles 단계·fill_now)는 제목만 번역한다(S47-57 명진 결정: 제목만 미리, 본문은 그때).
 //   · save_url(S62-22 APP-공유로뉴스보관, migration 20261115230000): 폰 공유로 받은 기사 주소 하나 → 그 사람 News에 넣고 바로 보관.
 //     몸통 {url}만. 주소는 열린 주소 규칙(https·IP·내부 이름·포트·사용자 정보 거절 — http는 https로 바꿔 읽음) + 문서·텔레그램·대화방·단축 주소 거절,
-//     같은 주소의 공용 기사가 있으면 원문을 읽지 않고 표시만(서버 함수 app_news_user_save, service_role만). 없으면 원문 한 번(robots·유료벽·봇 확인 규칙 그대로,
+//     같은 주소의 공용 기사가 있으면 원문을 읽지 않고 표시만(서버 함수 app_news_user_save, service_role만). 없으면 원문 한 번(robots.txt는 보지 않음 — S68-25, 유료벽·봇 확인 규칙 그대로,
 //     크기·시간·리다이렉트 상한은 _shared/feed-fetch.ts, 리다이렉트도 같은 규칙) → 'user' 기사 한 줄 + 보관. 하루 SAVE_DAILY번(app_news_days.save_n, 같은 주소 다시 넣기도 셈).
 //     AI 요약 없음. 응답은 상태 코드와 기사 id뿐(제목·주소·본문 없음). 발송·공유·삭제와 잇지 않는다.
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401.
 // 읽는 주소: 매체는 _shared/news-catalog.ts 허용 호스트만, 채널 기사 원문은 _shared/feed-fetch.ts openArticleUrl 규칙.
-//   robots.txt 먼저(막히면 state='robots'), 유료벽 표시면 본문을 읽지 않고 공개 리드만(state='paywall'), 봇 확인 쪽은 저장 안 함.
+//   매체 피드(RSS)는 robots.txt 먼저(막히면 읽지 않음). 기사 원문 한 쪽은 robots.txt를 보지 않는다(S68-25, 명진 결정 2026-11-22 — 아래 makeReaders).
+//   유료벽 표시면 본문을 읽지 않고 공개 리드만(state='paywall'), 봇 확인 쪽은 저장 안 함.
 // 저장: 서비스 역할로 app_news_items(넣기·고치기)·app_news_days(넣기·고치기)·app_news_keywords(읽기)·app_outside_sources(news- 키 읽기·상태)·
 //   app_workspace_members(owner 확인 읽기)·rpc app_news_prune·app_feed_bodies(본문 블록 넣기·고치기, P2b)만.
 //   NEWS-모두에게열기 E2: app_news_id_map(옛 줄 → 공용 기사 지도 넣기만)·app_news_article_bodies(공용 본문 블록 넣기·고치기)·
@@ -92,6 +93,13 @@ export const PENDING_COUNT_CAP = 1000;
 export const PENDING_STALE_DAYS = 3;
 // 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로).
 export const MEDIA_BODY_PER_RUN = 30;
+// robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25, 명진 결정 2026-11-22): 예약 '대기 기사' 단계에서 한 번에 ROBOTS_RETRY_PER_RUN건까지만,
+// 새 것부터(받은 지 ROBOTS_RETRY_DAYS일 안 — 그보다 오래된 기사는 정리 대상). 찾는 범위는 ROBOTS_RETRY_SCAN줄.
+// 재시도 상한 = 기사마다 1번: 다시 읽으면 공용 기사 상태가 robots에서 다른 값(ok·failed·bot_check·paywall…)으로 바뀌어 다시 고르지 않는다
+// (원문 읽기는 이제 robots를 보지 않으므로 robots로 돌아갈 수 없다). 읽을 수 없는 기사(카탈로그 밖·본문 읽기 끈 매체·허용 호스트 밖)는 요청 없이 건너뛴다.
+export const ROBOTS_RETRY_PER_RUN = 10;
+export const ROBOTS_RETRY_DAYS = 3;
+export const ROBOTS_RETRY_SCAN = 50;
 // 다시 뽑기(NEWS-전면개편 P2c, 설계 news-overhaul 4.8 — 예약 입구 action=refill, 몸통 {source}): 최근 REFILL_DAYS일 매체 기사 가운데
 // 블록 줄이 없거나, 까닭이 timeout(사이트가 잠깐 안 닿음·robots를 못 읽음)이거나, state≠ok이고 규칙 판이 지금 카탈로그 판과 다른 것을
 // 새 것부터 주소 REFILL_PER_SOURCE개까지 다시 읽는다(같은 reader라 요청 사이 GAP_MS, 시간 예산 RUN_BUDGET_MS). 찾는 범위는 REFILL_SCAN줄.
@@ -263,6 +271,10 @@ async function saveArticleBody(db: Db, log: FeedLog, article: Row | null | undef
   try {
     await db.send("POST", "app_news_article_bodies?on_conflict=article_id", { article_id: article.id, ...body, updated_at: nowIso },
       `return=minimal,resolution=${merge ? "merge-duplicates" : "ignore-duplicates"}`);
+    // S68-25: 예전에 robots 때문에 못 읽은 줄은 새 실패 까닭으로 바꿔 적는다(화면이 '막아 둠'을 계속 보이지 않게). 읽힌 본문(ok·lead)은 그대로.
+    if (!merge && ex.reason !== "robots") {
+      await db.send("PATCH", `app_news_article_bodies?article_id=eq.${article.id}&state=eq.failed&reason=eq.robots`, { ...body, updated_at: nowIso }, "return=minimal");
+    }
   } catch { log("shared_body_failed", { lane: String(article.lane ?? "") }); }
 }
 
@@ -353,12 +365,21 @@ async function summarize(db: Db, ai: AiDeps, ws: string, title: string, body: st
 
 // ---- 읽기 ----------------------------------------------------------------------------------------------------------
 // person=true: 사람이 누른 읽기(공유 보관 save_url·[본문 열기] open)만 요청 하나 PERSON_FETCH_TIMEOUT_MS(S67-10). 수집·다시 뽑기는 기본 상한 그대로.
-type Readers = { catalog: (s: NewsSource, person?: boolean) => FeedReader; open: (person?: boolean) => FeedReader };
+// 기사 원문 한 쪽(S68-25, 명진 결정 2026-11-22 "그냥 너도 다 해"): 원문 미리 저장·대기 기사·다시 뽑기·열기·공유 보관은 robots.txt를 보지 않는다
+//   (공용 읽기 skipRobots: true — S68-23과 같은 선택). 매체 피드(RSS) 읽기는 지금처럼 robots를 지킨다(catalog).
+//   건너뛰어도 그대로: 주소 규칙·리다이렉트 재검사(allow)·크기·시간 상한·같은 사이트 GAP_MS 간격·쿠키 없음·정직한 User-Agent,
+//   유료벽·봇 확인 화면은 넘지 않음(page.ts가 lead·bot_check로 남김), 한 번 실행당 읽는 수 상한(MEDIA_BODY_PER_RUN·PENDING_PER_RUN·ROBOTS_RETRY_PER_RUN).
+// gap(): 피드 reader와 원문 reader는 간격 기록이 따로라, 같은 실행에서 피드 뒤 원문으로 넘어갈 때 GAP_MS를 한 번 쉰다(같은 사이트 연달아 부르지 않게).
+type Readers = { catalog: (s: NewsSource, person?: boolean) => FeedReader; page: (s: NewsSource, person?: boolean) => FeedReader; open: (person?: boolean) => FeedReader; gap: () => Promise<void> };
+export const ARTICLE_SKIP_ROBOTS = true;
 function makeReaders(doFetch: typeof fetch, sleep: (ms: number) => Promise<void>, log: FeedLog, now: () => number): Readers {
   const base = { doFetch, sleep, log, userAgent: USER_AGENT, robotsAgent: ROBOTS_AGENT, gapMs: GAP_MS, now };
+  const t = (person: boolean) => (person ? { timeoutMs: PERSON_FETCH_TIMEOUT_MS } : {});
   return {
-    catalog: (s, person = false) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw), ...(person ? { timeoutMs: PERSON_FETCH_TIMEOUT_MS } : {}) }),
-    open: (person = false) => makeFeedReader({ ...base, allow: openArticleUrl, ...(person ? { timeoutMs: PERSON_FETCH_TIMEOUT_MS } : {}) }),
+    catalog: (s, person = false) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw), ...t(person) }),
+    page: (s, person = false) => makeFeedReader({ ...base, allow: (raw) => allowedUrl(s, raw), skipRobots: ARTICLE_SKIP_ROBOTS, ...t(person) }),
+    open: (person = false) => makeFeedReader({ ...base, allow: openArticleUrl, skipRobots: ARTICLE_SKIP_ROBOTS, ...t(person) }),
+    gap: () => sleep(GAP_MS),
   };
 }
 const storedState = (code: string) => code === "robots" || code === "robots_denied" ? "robots" : code === "too_large" ? "too_big" : code === "url_outside" || code === "redirect_outside" ? "blocked" : "failed";
@@ -574,7 +595,7 @@ async function runRefill(db: Db, readers: Readers, ai: AiDeps, source: NewsSourc
     if (!byUrl.has(r.url) && byUrl.size >= REFILL_PER_SOURCE) { over.add(r.url); continue; }
     byUrl.set(r.url, [...(byUrl.get(r.url) ?? []), r]);
   }
-  const reader = readers.catalog(source);
+  const reader = readers.page(source);
   for (const [url, list] of byUrl) {
     if (clock() - startMs > RUN_BUDGET_MS) { out.deferred++; continue; }
     if (!allowedUrl(source, url)) { await markOffHost(db, ai.log, source, list, nowMs); continue; }
@@ -806,7 +827,7 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
     status === "ok" ? { last_ok_at: nowIso, last_error: null } : { last_error: status.replace(/[^a-z0-9_-]/g, "_").slice(0, 40) }, "return=minimal");
   // 새 기사 본문(P2b): 피드를 읽은 같은 실행에서 글 쪽 1번씩(예산 안). 실패해도 수집 결과는 그대로.
   let bodies = { done: 0, deferred: 0 };
-  try { bodies = await runMediaBodies(db, reader, ai, source, nowMs, startMs, clock); } catch { log("bodies_failed", { source: source.key }); }
+  try { await readers.gap(); bodies = await runMediaBodies(db, readers.page(source), ai, source, nowMs, startMs, clock); } catch { log("bodies_failed", { source: source.key }); }
   log("media_done", { source: source.key, inserted, status, raw, listed, dropped, bodies: bodies.done, bodies_deferred: bodies.deferred });
   return { ok: true, step: "media", source: source.key, status, raw, listed, dropped, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
 }
@@ -1037,19 +1058,59 @@ async function runPending(db: Db, readers: Readers, ai: AiDeps, nowMs: number, s
   } catch { log("pending_count_failed"); }
   // 매체 기사 가운데 수집 때 예산이 모자라 본문을 못 읽은 것(P2b '대기 기사'): 화면 채우기(onlyWs)에서는 하지 않는다.
   let bodies = 0, bodiesDeferred = 0;
+  // 매체 원문 reader는 매체마다 하나(이 실행 안에서 같은 사이트 간격 GAP_MS를 함께 지킨다 — 아래 robots 다시 읽기도 같은 reader).
+  const pages = new Map<string, FeedReader>();
+  const pageOf = (s: NewsSource) => { let r = pages.get(s.key); if (!r) { r = readers.page(s); pages.set(s.key, r); } return r; };
+  let retry = { done: 0, deferred: 0 };
   if (!onlyWs) {
     try {
       const on = await enabledMedia(db);
       for (const source of NEWS_CATALOG) {
         if (!on.has(source.key)) continue;
         if (clock() - startMs > RUN_BUDGET_MS) { bodiesDeferred++; continue; }
-        const r = await runMediaBodies(db, readers.catalog(source), ai, source, nowMs, startMs, clock);
+        const r = await runMediaBodies(db, pageOf(source), ai, source, nowMs, startMs, clock);
         bodies += r.done; bodiesDeferred += r.deferred;
       }
     } catch { log("bodies_failed"); }
+    try { retry = await runRobotsRetry(db, reader, pageOf, ai, nowMs, startMs, clock, chargeWs); } catch { log("robots_retry_failed"); }
   }
-  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, ...states });
-  return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred };
+  log("pending_done", { done, deferred, remaining, stale, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred, ...states });
+  return { ok: true, step: "pending", done, deferred, remaining, stale, states, bodies, bodies_deferred: bodiesDeferred, robots_retry: retry.done, robots_retry_deferred: retry.deferred };
+}
+
+// robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25). 공용 기사(state robots)를 새 것부터 ROBOTS_RETRY_PER_RUN건까지, 같은 주소의 내 옛 줄과 함께 한 번 읽는다.
+// 채널 기사는 대기 기사와 같은 열린 주소 reader(같은 간격), 매체 기사는 그 매체 원문 reader. 화면 '열기' 하루 한도는 세지 않는다.
+// 요약(AI)은 채널 기사만 대기 기사와 같은 규칙으로(매체 기사는 수집 때처럼 만들지 않음).
+async function runRobotsRetry(db: Db, open: FeedReader, pageOf: (s: NewsSource) => FeedReader, ai: AiDeps, nowMs: number, startMs: number, clock: () => number, chargeWs: string | null) {
+  const since = new Date(nowMs - ROBOTS_RETRY_DAYS * 86400000).toISOString();
+  const arts = await db.get(`app_news_articles?state=eq.robots&created_at=gte.${encodeURIComponent(since)}&select=${ART_SELECT}&order=created_at.desc&limit=${ROBOTS_RETRY_SCAN}`);
+  const picks: { art: Row; reader: FeedReader; rule: RuleFor; media: boolean }[] = [];
+  for (const art of arts) {
+    if (picks.length >= ROBOTS_RETRY_PER_RUN) break;
+    if (typeof art.id !== "string" || !UUID.test(art.id) || typeof art.url !== "string" || typeof art.url_key !== "string" || !art.url_key) continue;
+    if (art.lane === "channel") { picks.push({ art, reader: open, rule: openRule, media: false }); continue; }
+    const source = newsSourceByKey(art.source_key);
+    if (!source || source.extract === false || !allowedUrl(source, art.url)) continue;
+    picks.push({ art, reader: pageOf(source), rule: (base) => mediaRule(source, base), media: true });
+  }
+  const olds = new Map<string, Row[]>();
+  for (const part of inChunks(picks.map((p) => String(p.art.url_key)))) {
+    for (const r of await db.get(`app_news_items?url_key=in.${part}&state=eq.robots&select=id,workspace_id,lane,url,url_key,source_key,title,publisher,published_at,summary,title_ko,translated_at&limit=500`)) {
+      if (typeof r.id !== "string" || !UUID.test(r.id) || typeof r.workspace_id !== "string" || !UUID.test(r.workspace_id)) continue;
+      const k = String(r.url_key);
+      olds.set(k, [...(olds.get(k) ?? []), r]);
+    }
+  }
+  // 옛 줄 없이 공용 표에만 있는 채널 기사의 요약은 대기 기사처럼 운영자 작업공간에 센다.
+  if (!chargeWs && picks.some((p) => !p.media && !olds.has(String(p.art.url_key)))) chargeWs = await operatorWs(db);
+  let done = 0, deferred = 0;
+  for (const p of picks) {
+    if (clock() - startMs > RUN_BUDGET_MS) { deferred++; continue; }
+    const same = (olds.get(String(p.art.url_key)) ?? []).filter((o) => String(o.url) === String(p.art.url));
+    await fillItems(db, p.reader, ai, same, nowMs, { rule: p.rule, article: p.art, chargeWs, summarize: !p.media, countFetch: false });
+    done++;
+  }
+  return { done, deferred };
 }
 
 // 외국어 기사 제목만 한국어로(백그라운드). 하루 상한·이번 달 AI 한도 안에서만.
@@ -1227,7 +1288,8 @@ async function probeMedia(readers: Readers, source: NewsSource, nowMs: number) {
     const raw = (got.text.match(/<(item|entry)\b/gi) ?? []).length;
     return { ...base, list: "ok", listed: items.length, raw: Math.min(raw, 1000), page: "url_outside", ...bodyNumbers(failedBody("off_host")) };
   }
-  const page = clean ? await reader.get(clean, ACCEPT_HTML) : { ok: false as const, code: "url_outside" };
+  if (clean) await readers.gap();
+  const page = clean ? await readers.page(source).get(clean, ACCEPT_HTML) : { ok: false as const, code: "url_outside" };
   if (!page.ok) return { ...base, list: "ok", listed: items.length, page: page.code, ...bodyNumbers(failedBody(readFailReason(page.code))) };
   const info = readArticlePage(page.text, nowMs, mediaRule(source, page.url));
   return { ...base, list: "ok", listed: items.length, page: "ok", page_state: info.state, body_kind: info.body_kind, paywall: info.paywall, ...bodyNumbers(info.blocks) };
@@ -1685,7 +1747,7 @@ export function createNewsFeedHandler(deps: NewsFeedDeps) {
           // 카탈로그 밖 매체(옛 키워드 기사의 구글 중계 주소, 카탈로그에서 뺀 매체의 글): 읽지 않고 원문 링크로.
           // 남의 매체로 가는 링크(linkOut 피드의 기사)도 카탈로그 호스트 밖이라 읽지 않는다.
           if (!source || !allowedUrl(source, String(art.url))) return json({ ok: true, status: "original_only" });
-          reader = readers.catalog(source, true);
+          reader = readers.page(source, true);
         }
         await useDaily(db, who.workspaceId, "fetch_n", OPEN_DAILY, nowMs);
         // 원문은 공용 기사 주소로 한 번만 읽는다(같은 주소의 내 옛 줄에만 같은 결과를 함께 적음).
